@@ -1,0 +1,147 @@
+package service
+
+import (
+	"strconv"
+
+	"marketing/internal/dto"
+	"marketing/internal/model"
+	"marketing/internal/repository"
+)
+
+// ============================================================================
+// Account / Clue 领域 DTO 外观方法（保持原 model 签名方法不变，新增 DTO 外观）
+// 供 controller 层使用，避免 controller 直接构造/读取 model。
+// ============================================================================
+
+// NewAccountServiceWithRepo 创建带 repository 的 AccountService（兼容原构造函数语义）
+func NewAccountServiceWithRepo(repo repository.AccountRepository) *AccountService {
+	return &AccountService{repo: repo}
+}
+
+// CreateAccountDTO 根据请求 DTO 创建商户账户，并返回响应 DTO
+func (s *AccountService) CreateAccountDTO(req dto.CreateAccountRequest) (*dto.AccountResponse, error) {
+	account := model.Account{
+		TgBotToken:          req.TgBotToken,
+		Price:               req.Price,
+		GroupID:             req.GroupID,
+		EpayPid:             req.EpayPid,
+		EpayKey:             req.EpayKey,
+		EpayPayType:         req.EpayPayType,
+		EpayQueryUrl:        req.EpayQueryUrl,
+		EpayURL:             req.EpayURL,
+		ProxyEnableProxy:    req.ProxyEnableProxy,
+		ProxyProtoclo:       req.ProxyProtoclo,
+		ProxyHost:           req.ProxyHost,
+		ProxyPort:           req.ProxyPort,
+		DouyinHeadless:      req.DouyinHeadless,
+		KuaishouHeadless:    req.KuaishouHeadless,
+		XiaohongshuHeadless: req.XiaohongshuHeadless,
+		XianyuHeadless:      req.XianyuHeadless,
+	}
+	created, err := s.CreateAccount(account)
+	if err != nil {
+		return nil, err
+	}
+	return toAccountResponse(created), nil
+}
+
+// GetAccountDTO 根据 ID 获取账户响应 DTO
+func (s *AccountService) GetAccountDTO(id string) (*dto.AccountResponse, error) {
+	account, err := s.GetAccount(id)
+	if err != nil {
+		return nil, err
+	}
+	return toAccountResponse(account), nil
+}
+
+// GetAccountListDTO 获取账户列表响应 DTO
+func (s *AccountService) GetAccountListDTO() (*dto.GetAccountListResponse, error) {
+	accounts, err := s.GetAccountList()
+	if err != nil {
+		return nil, err
+	}
+	resp := &dto.GetAccountListResponse{
+		Total: int64(len(accounts)),
+		List:  []*dto.AccountResponse{},
+	}
+	for _, a := range accounts {
+		resp.List = append(resp.List, toAccountResponse(a))
+	}
+	return resp, nil
+}
+
+// UpdateAccountDTO 根据请求 DTO 更新账户，并返回响应 DTO
+func (s *AccountService) UpdateAccountDTO(req dto.UpdateAccountRequest) (*dto.AccountResponse, error) {
+	account := model.Account{
+		ID:                  req.ID,
+		TgName:              req.TgName,
+		TgBotToken:          req.TgBotToken,
+		Price:               req.Price,
+		GroupID:             req.GroupID,
+		EpayPid:             req.EpayPid,
+		EpayKey:             req.EpayKey,
+		EpayPayType:         req.EpayPayType,
+		EpayQueryUrl:        req.EpayQueryUrl,
+		EpayURL:             req.EpayURL,
+		ProxyEnableProxy:    req.ProxyEnableProxy,
+		ProxyProtoclo:       req.ProxyProtoclo,
+		ProxyHost:           req.ProxyHost,
+		ProxyPort:           req.ProxyPort,
+		DouyinHeadless:      req.DouyinHeadless,
+		KuaishouHeadless:    req.KuaishouHeadless,
+		XiaohongshuHeadless: req.XiaohongshuHeadless,
+		XianyuHeadless:      req.XianyuHeadless,
+	}
+	if err := s.UpdateAccount(account); err != nil {
+		return nil, err
+	}
+	return s.GetAccountDTO(req.ID)
+}
+
+// toAccountResponse 将 model.Account 转换为 dto.AccountResponse
+func toAccountResponse(a *model.Account) *dto.AccountResponse {
+	return &dto.AccountResponse{
+		ID:                  a.ID,
+		TgName:              a.TgName,
+		TgBotToken:          a.TgBotToken,
+		Price:               a.Price,
+		GroupID:             a.GroupID,
+		EpayPid:             a.EpayPid,
+		EpayKey:             a.EpayKey,
+		EpayPayType:         a.EpayPayType,
+		EpayQueryUrl:        a.EpayQueryUrl,
+		EpayURL:             a.EpayURL,
+		ProxyEnableProxy:    a.ProxyEnableProxy,
+		ProxyProtoclo:       a.ProxyProtoclo,
+		ProxyHost:           a.ProxyHost,
+		ProxyPort:           a.ProxyPort,
+		Status:              a.Status,
+		CreateTime:          a.CreateTime,
+		Msg:                 a.Msg,
+		URL:                 a.URL,
+		DouyinHeadless:      a.DouyinHeadless,
+		KuaishouHeadless:    a.KuaishouHeadless,
+		XiaohongshuHeadless: a.XiaohongshuHeadless,
+		XianyuHeadless:      a.XianyuHeadless,
+	}
+}
+
+// BatchImportCluesFromDTO 批量导入线索（请求 DTO 已在 controller 完成类型校验）
+func (s *ClueService) BatchImportCluesFromDTO(reqs []dto.ImportClueRequest) (int64, int64, error) {
+	clues := make([]*model.Clue, 0, len(reqs))
+	for _, item := range reqs {
+		clueType, err := strconv.ParseInt(item.Type, 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+		clues = append(clues, &model.Clue{
+			Name:     item.Name,
+			Account:  item.Account,
+			City:     item.City,
+			Address:  item.Address,
+			Type:     clueType,
+			IsVerify: 0,
+		})
+	}
+	return s.BatchImportClues(clues)
+}

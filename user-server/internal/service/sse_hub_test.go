@@ -1,0 +1,504 @@
+package service
+
+// sse_hub_test.go SSE Hub 测试
+//
+// 五层架构归属: L2 服务层测试
+// 设计依据: PRD §M-4 P1 缺口修复
+// 私域独立部署: 无 merchant_id 字段
+//
+// 覆盖范围：
+//   - SSEClient 创建/订阅/发送/关闭
+//   - SSEHub 注册/注销/广播/IP 限制/停止
+//   - ParseTopics / IsValidSSETopic
+//   - 全局 Hub 单例
+//   - 事件广播到多个订阅者
+
+import (
+	"sync"
+	"testing"
+	"time"
+)
+
+// ===== SSEClient 测试 =====
+
+// 1. 创建客户端
+func TestSSEClient_New(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls, SSETopicIntentRecogn})
+	if c.ID() != "c-1" {
+		t.Errorf("expected c-1, got %s", c.ID())
+	}
+	if c.IP() != "127.0.0.1" {
+		t.Errorf("expected 127.0.0.1, got %s", c.IP())
+	}
+	if len(c.Topics()) != 2 {
+		t.Errorf("expected 2 topics, got %d", len(c.Topics()))
+	}
+}
+
+// 2. IsSubscribed
+func TestSSEClient_IsSubscribed(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	if !c.IsSubscribed(SSETopicLLMCalls) {
+		t.Error("expected subscribed to llm_calls")
+	}
+	if c.IsSubscribed(SSETopicIntentRecogn) {
+		t.Error("expected NOT subscribed to intent_recognition")
+	}
+}
+
+// 3. Send 成功
+func TestSSEClient_SendSuccess(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	event := SSEEvent{Topic: SSETopicLLMCalls, EventType: "test", Data: "hello"}
+	if !c.Send(event) {
+		t.Error("expected send success")
+	}
+	select {
+	case got := <-c.Events():
+		if got.EventType != "test" {
+			t.Errorf("expected test, got %s", got.EventType)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timeout waiting for event")
+	}
+}
+
+// 4. Send 缓冲区满返回 false
+func TestSSEClient_SendBufferFull(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	// 填满缓冲区
+	for i := 0; i < SSEClientBufferSize; i++ {
+		if !c.Send(SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"}) {
+			t.Fatalf("expected send success on iteration %d", i)
+		}
+	}
+	// 第 101 次应失败
+	if c.Send(SSEEvent{Topic: SSETopicLLMCalls, EventType: "overflow"}) {
+		t.Error("expected send fail on buffer full")
+	}
+}
+
+// 5. Close 关闭后 Send 返回 false
+func TestSSEClient_Close(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	c.Close()
+	if !c.Closed() {
+		t.Error("expected closed")
+	}
+	if c.Send(SSEEvent{Topic: SSETopicLLMCalls}) {
+		t.Error("expected send fail after close")
+	}
+}
+
+// 6. CloseCh 接收信号
+func TestSSEClient_CloseCh(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		c.Close()
+	}()
+	select {
+	case <-c.CloseCh():
+		// 成功接收到关闭信号
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout waiting for close signal")
+	}
+}
+
+// 7. Close 重复调用安全
+func TestSSEClient_CloseIdempotent(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	c.Close()
+	c.Close() // 不应 panic
+	c.Close()
+}
+
+// ===== SSEHub 测试 =====
+
+// 8. Register / Unregister
+func TestSSEHub_RegisterUnregister(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	if err := hub.Register(c); err != nil {
+		t.Fatal(err)
+	}
+	if hub.GetClientCount() != 1 {
+		t.Errorf("expected 1 client, got %d", hub.GetClientCount())
+	}
+	hub.Unregister("c-1")
+	if hub.GetClientCount() != 0 {
+		t.Errorf("expected 0 clients, got %d", hub.GetClientCount())
+	}
+}
+
+// 9. Register nil 客户端
+func TestSSEHub_RegisterNil(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	if err := hub.Register(nil); err == nil {
+		t.Error("expected error for nil client")
+	}
+}
+
+// 10. Register 重复 ID
+func TestSSEHub_RegisterDuplicateID(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	c2 := NewSSEClient("c-1", "127.0.0.2", []string{SSETopicLLMCalls})
+	if err := hub.Register(c1); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.Register(c2); err == nil {
+		t.Error("expected error for duplicate id")
+	}
+}
+
+// 11. 单 IP 连接上限
+func TestSSEHub_MaxConnPerIP(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	for i := 0; i < SSEMaxConnPerIP; i++ {
+		c := NewSSEClient("c-"+string(rune(i)), "127.0.0.1", []string{SSETopicLLMCalls})
+		if err := hub.Register(c); err != nil {
+			t.Fatalf("register %d failed: %v", i, err)
+		}
+	}
+	// 第 6 个应失败
+	c := NewSSEClient("c-6", "127.0.0.1", []string{SSETopicLLMCalls})
+	if err := hub.Register(c); err == nil {
+		t.Error("expected error for exceeded max conn per IP")
+	}
+}
+
+// 12. 不同 IP 不受限
+func TestSSEHub_DifferentIPsNotLimited(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	for i := 0; i < SSEMaxConnPerIP+2; i++ {
+		ip := "127.0.0." + string(rune('1'+i))
+		c := NewSSEClient("c-"+string(rune(i)), ip, []string{SSETopicLLMCalls})
+		if err := hub.Register(c); err != nil {
+			t.Fatalf("register %d failed: %v", i, err)
+		}
+	}
+}
+
+// 13. Publish 广播到订阅者
+func TestSSEHub_Publish(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	c2 := NewSSEClient("c-2", "127.0.0.2", []string{SSETopicLLMCalls})
+	c3 := NewSSEClient("c-3", "127.0.0.3", []string{SSETopicIntentRecogn})
+	_ = hub.Register(c1)
+	_ = hub.Register(c2)
+	_ = hub.Register(c3)
+
+	hub.Publish(SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
+
+	// c1 和 c2 应收到，c3 不应收到
+	select {
+	case <-c1.Events():
+		// 成功
+	case <-time.After(100 * time.Millisecond):
+		t.Error("c1 timeout")
+	}
+	select {
+	case <-c2.Events():
+		// 成功
+	case <-time.After(100 * time.Millisecond):
+		t.Error("c2 timeout")
+	}
+	select {
+	case <-c3.Events():
+		t.Error("c3 should NOT receive event")
+	case <-time.After(100 * time.Millisecond):
+		// 成功（无事件）
+	}
+}
+
+// 14. Publish 自动设置 timestamp
+func TestSSEHub_PublishSetsTimestamp(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	_ = hub.Register(c)
+
+	before := time.Now()
+	hub.Publish(SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
+	select {
+	case got := <-c.Events():
+		if got.Timestamp.Before(before) {
+			t.Error("timestamp should be >= publish time")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timeout")
+	}
+}
+
+// 15. Unregister 不存在的 client
+func TestSSEHub_UnregisterNonExistent(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	hub.Unregister("nonexistent") // 不应 panic
+}
+
+// 16. Stop 关闭所有客户端
+func TestSSEHub_StopAllClients(t *testing.T) {
+	hub := NewSSEHub()
+	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	c2 := NewSSEClient("c-2", "127.0.0.2", []string{SSETopicLLMCalls})
+	_ = hub.Register(c1)
+	_ = hub.Register(c2)
+	hub.Stop()
+	if !c1.Closed() {
+		t.Error("c1 should be closed")
+	}
+	if !c2.Closed() {
+		t.Error("c2 should be closed")
+	}
+	if hub.GetClientCount() != 0 {
+		t.Errorf("expected 0 clients after stop, got %d", hub.GetClientCount())
+	}
+}
+
+// 17. Stop 后 Publish 不 panic
+func TestSSEHub_PublishAfterStop(t *testing.T) {
+	hub := NewSSEHub()
+	hub.Stop()
+	hub.Publish(SSEEvent{Topic: SSETopicLLMCalls}) // 不应 panic
+}
+
+// 18. Stop 幂等
+func TestSSEHub_StopIdempotent(t *testing.T) {
+	hub := NewSSEHub()
+	hub.Stop()
+	hub.Stop()
+	hub.Stop()
+}
+
+// 19. GetIPCount
+func TestSSEHub_GetIPCount(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	_ = hub.Register(NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(NewSSEClient("c-3", "127.0.0.2", []string{SSETopicLLMCalls}))
+	if hub.GetIPCount("127.0.0.1") != 2 {
+		t.Errorf("expected 2 for 127.0.0.1, got %d", hub.GetIPCount("127.0.0.1"))
+	}
+	if hub.GetIPCount("127.0.0.2") != 1 {
+		t.Errorf("expected 1 for 127.0.0.2, got %d", hub.GetIPCount("127.0.0.2"))
+	}
+	if hub.GetIPCount("127.0.0.3") != 0 {
+		t.Errorf("expected 0 for 127.0.0.3, got %d", hub.GetIPCount("127.0.0.3"))
+	}
+}
+
+// 20. GetClient
+func TestSSEHub_GetClient(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	_ = hub.Register(c)
+	if hub.GetClient("c-1") == nil {
+		t.Error("expected non-nil client")
+	}
+	if hub.GetClient("nonexistent") != nil {
+		t.Error("expected nil for nonexistent")
+	}
+}
+
+// 21. ListClients
+func TestSSEHub_ListClients(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	_ = hub.Register(NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(NewSSEClient("c-2", "127.0.0.2", []string{SSETopicIntentRecogn}))
+	clients := hub.ListClients()
+	if len(clients) != 2 {
+		t.Fatalf("expected 2 clients, got %d", len(clients))
+	}
+}
+
+// ===== ParseTopics / IsValidSSETopic 测试 =====
+
+// 22. ParseTopics 正常解析
+func TestParseTopics_Normal(t *testing.T) {
+	topics := ParseTopics("llm_calls,intent_recognition")
+	if len(topics) != 2 {
+		t.Fatalf("expected 2 topics, got %d", len(topics))
+	}
+	if topics[0] != SSETopicLLMCalls {
+		t.Errorf("expected llm_calls, got %s", topics[0])
+	}
+	if topics[1] != SSETopicIntentRecogn {
+		t.Errorf("expected intent_recognition, got %s", topics[1])
+	}
+}
+
+// 23. ParseTopics 空字符串
+func TestParseTopics_Empty(t *testing.T) {
+	if topics := ParseTopics(""); len(topics) != 0 {
+		t.Errorf("expected 0 topics, got %d", len(topics))
+	}
+}
+
+// 24. ParseTopics 过滤非法 topic
+func TestParseTopics_FilterInvalid(t *testing.T) {
+	topics := ParseTopics("llm_calls,invalid_topic,intent_recognition")
+	if len(topics) != 2 {
+		t.Fatalf("expected 2 valid topics, got %d", len(topics))
+	}
+}
+
+// 25. ParseTopics 含空格
+func TestParseTopics_WithSpaces(t *testing.T) {
+	topics := ParseTopics("llm_calls, intent_recognition, rag_queries")
+	if len(topics) != 3 {
+		t.Fatalf("expected 3 topics, got %d", len(topics))
+	}
+}
+
+// 26. IsValidSSETopic
+func TestIsValidSSETopic(t *testing.T) {
+	valid := []string{
+		SSETopicLLMCalls, SSETopicIntentRecogn, SSETopicRAGQueries,
+		SSETopicAgentActions, SSETopicHumanizeScores, SSETopicSystemAlerts,
+	}
+	for _, topic := range valid {
+		if !IsValidSSETopic(topic) {
+			t.Errorf("expected %s to be valid", topic)
+		}
+	}
+	if IsValidSSETopic("invalid") {
+		t.Error("expected invalid topic to be invalid")
+	}
+}
+
+// ===== 全局 SSE Hub 单例测试 =====
+
+// 27. InitGlobalSSEHub 单例
+func TestInitGlobalSSEHub_Singleton(t *testing.T) {
+	// 注意：全局单例由 sync.Once 保证，这里只测试返回非 nil
+	hub := InitGlobalSSEHub()
+	if hub == nil {
+		t.Fatal("expected non-nil hub")
+	}
+	hub2 := GetGlobalSSEHub()
+	if hub2 != hub {
+		t.Error("expected same hub instance")
+	}
+}
+
+// 28. PublishSSEEvent 不 panic（全局 Hub）
+func TestPublishSSEEvent_NoPanic(t *testing.T) {
+	// 不应 panic
+	PublishSSEEvent(SSETopicLLMCalls, "test", "data", "trace-1")
+}
+
+// ===== 并发测试 =====
+
+// 29. 并发 Register / Unregister / Publish
+func TestSSEHub_Concurrent(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	var wg sync.WaitGroup
+	// 并发注册
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			c := NewSSEClient("c-"+string(rune(idx)), "127.0.0.1", []string{SSETopicLLMCalls})
+			_ = hub.Register(c)
+		}(i)
+	}
+	// 并发 Publish
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			hub.Publish(SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
+		}()
+	}
+	wg.Wait()
+	// 不应 panic，hub 仍可用
+	if hub.Stopped() {
+		t.Error("hub should not be stopped")
+	}
+}
+
+// 30. 并发 Publish 到同一 client
+func TestSSEClient_ConcurrentSend(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Send(SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
+		}()
+	}
+	wg.Wait()
+	// 不应 panic，缓冲区最多 SSEClientBufferSize 条
+}
+
+// ===== 缓冲区/边界测试 =====
+
+// 31. 客户端缓冲区大小校验
+func TestSSEClient_BufferSize(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	if cap(c.eventCh) != SSEClientBufferSize {
+		t.Errorf("expected buffer %d, got %d", SSEClientBufferSize, cap(c.eventCh))
+	}
+}
+
+// 32. 空 topics 列表创建客户端
+func TestSSEClient_EmptyTopics(t *testing.T) {
+	c := NewSSEClient("c-1", "127.0.0.1", []string{})
+	if len(c.Topics()) != 0 {
+		t.Errorf("expected 0 topics, got %d", len(c.Topics()))
+	}
+	if c.IsSubscribed(SSETopicLLMCalls) {
+		t.Error("expected NOT subscribed to any topic")
+	}
+}
+
+// 33. Publish 到无订阅者的 topic
+func TestSSEHub_PublishNoSubscribers(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	// 不应 panic
+	hub.Publish(SSEEvent{Topic: SSETopicLLMCalls, EventType: "no-listeners"})
+}
+
+// 34. Unregister 后 IP 计数减少
+func TestSSEHub_UnregisterDecrementsIPCount(t *testing.T) {
+	hub := NewSSEHub()
+	defer hub.Stop()
+	_ = hub.Register(NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
+	if hub.GetIPCount("127.0.0.1") != 2 {
+		t.Fatalf("expected 2, got %d", hub.GetIPCount("127.0.0.1"))
+	}
+	hub.Unregister("c-1")
+	if hub.GetIPCount("127.0.0.1") != 1 {
+		t.Errorf("expected 1 after unregister, got %d", hub.GetIPCount("127.0.0.1"))
+	}
+	hub.Unregister("c-2")
+	if hub.GetIPCount("127.0.0.1") != 0 {
+		t.Errorf("expected 0 after all unregistered, got %d", hub.GetIPCount("127.0.0.1"))
+	}
+}
+
+// 35. 客户端 createdAt 时间记录
+func TestSSEClient_CreatedAt(t *testing.T) {
+	before := time.Now()
+	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
+	after := time.Now()
+	if c.createdAt.Before(before) || c.createdAt.After(after) {
+		t.Errorf("createdAt %v not in [%v, %v]", c.createdAt, before, after)
+	}
+}

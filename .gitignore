@@ -1,0 +1,135 @@
+# ============================================================
+# 用户端 (HivemTK) - .gitignore
+# 私域独立部署仓库（2026-07-21 拆分）
+# ============================================================
+
+# ---------- 依赖 ----------
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+*.pyo
+
+# ---------- 环境配置（含敏感信息）----------
+.env
+.env.local
+.env.*.local
+*.env
+# 说明：.env 为本地真实配置（忽略）；.env-example 为示例模板，纳入版本追踪。
+
+# ---------- 日志 ----------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.workbuddy-ai/*
+
+# ---------- 编辑器 / IDE ----------
+.vscode/
+.idea/
+.claude/
+.trae/
+.sisyphus/
+*.swp
+*.swo
+*~
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+
+# ---------- 构建产物 ----------
+# dist 目录内容忽略，但保留 .gitkeep 占位
+**/dist/*
+!**/dist/.gitkeep
+build/
+*.exe
+*.app
+# Go 服务二进制
+/user-server/cmd/api/api
+/user-server/cmd/*/api
+/user-server/api
+/user-server/merchant_server
+/user-server/marketing
+/user-server/perf
+/user-server/user-server
+/user-server/embedding-server
+/user-server/bin/
+/user-server/internal/plugin/main/*.so
+/user-server/internal/*.so
+
+# i18n 生成缓存
+*.fill_cache.json
+# 离线包构建产物
+dist-offline/
+
+# ---------- 测试覆盖 ----------
+coverage/
+*.cover
+*.cover.out
+*.out
+*.test
+*.prof
+playwright-report/
+playwright-report-api/
+test-results/
+
+# ---------- 临时文件 ----------
+tmp/
+temp/
+uploads/
+downloads/
+.data/
+
+# ---------- 数据库 / 持久化数据 ----------
+*.db
+data/
+# 模型文件（./models/ 实际不提交，仅 README 与 .gitkeep）
+models/
+
+# ---------- Docker ----------
+docker-compose.override.yml
+# 说明：docker-compose.yml 为本地真实编排（忽略）；docker-compose-example.yml 为示例模板，纳入版本追踪。
+docker-compose.yml
+
+# ---------- 证书和密钥 ----------
+*.pem
+*.key
+*.crt
+*.p12
+
+# ---------- 备份与缓存 ----------
+*.bak
+*.backup
+*.bak.*
+backups/
+
+# ---------- 编译产物（通用）----------
+main
+*.dll
+*.so
+*.dylib
+
+# ---------- 一次性调试产物 ----------
+debug-*.html
+reset-*.html
+clear-*.html
+fix-api-config*.html
+debug-*.js
+debug-*.sh
+test_all_apis*.sh
+test-all-apis*.sh
+
+# ---------- 临时 restore 目录 ----------
+user-server/internal/service/restore_tmp/
+
+# ---------- 运行时授权文件 ----------
+merchant.key
+install.lock
+
+# ---------- 嵌入 SDK 构建产物 ----------
+/embed-sdk/dist/
+
+# ---------- 开发工具配置 ----------
+.air.toml

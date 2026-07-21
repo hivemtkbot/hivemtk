@@ -1,0 +1,11 @@
+/* marketing-chat-widget 浮标与 iframe 容器样式 */
+.mcw-floating-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.mcw-floating-btn:active {
+  transform: scale(0.96);
+}
+.mcw-iframe {
+  transition: opacity 0.2s;
+}

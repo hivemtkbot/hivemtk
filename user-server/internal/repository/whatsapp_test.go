@@ -1,0 +1,705 @@
+package repository
+
+import (
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/db"
+	"testing"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"marketing/internal/pkg/testutil"
+)
+
+// setupWhatsappTestDB 设置 WhatsApp 测试数据库
+func setupWhatsappTestDB(t *testing.T) *gorm.DB {
+	database := testutil.NewTestDB(t,
+		&model.WhatsappAccount{},
+		&model.WhatsappSession{},
+		&model.WhatsappDraft{},
+		&model.WhatsappJob{},
+		&model.WhatsappJobDetail{},
+	)
+	db.SetTestDB(database)
+	return database
+}
+
+// setupWhatsappRepository 创建测试用的 WhatsApp 仓库实例
+func setupWhatsappRepository(t *testing.T) WhatsappRepository {
+	setupWhatsappTestDB(t)
+	return NewWhatsappRepository()
+}
+
+// TestWhatsappRepository_CreateAccount 测试创建 WhatsApp 账号
+func TestWhatsappRepository_CreateAccount(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	tests := []struct {
+		name    string
+		account *model.WhatsappAccount
+		wantErr bool
+	}{
+		{
+			name: "create account success",
+			account: &model.WhatsappAccount{
+				Name:   "Test Account",
+				Remark: "Test remark",
+				Status: model.WhatsappStatusOnline,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create account with minimal fields",
+			account: &model.WhatsappAccount{
+				Name: "Minimal Account",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.CreateAccount(tt.account)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateAccount() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.account.ID == (uuid.UUID{}) {
+				t.Error("Expected account ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_GetAccount 测试根据 ID 获取账号
+func TestWhatsappRepository_GetAccount(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	account := &model.WhatsappAccount{
+		Name: "GetAccount Test",
+	}
+	repo.CreateAccount(account)
+
+	tests := []struct {
+		name    string
+		id      uuid.UUID
+		wantNil bool
+	}{
+		{
+			name:    "get existing account",
+			id:      account.ID,
+			wantNil: false,
+		},
+		{
+			name:    "get non-existing account",
+			id:      uuid.New(),
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := repo.GetAccount(tt.id)
+
+			if err != nil {
+				t.Errorf("GetAccount() error = %v", err)
+			}
+
+			if tt.wantNil && result != nil {
+				t.Error("Expected nil for non-existing account")
+			}
+
+			if !tt.wantNil && result == nil {
+				t.Error("Expected result to not be nil")
+			}
+
+			if !tt.wantNil && result.Name != "GetAccount Test" {
+				t.Errorf("Expected name 'GetAccount Test', got '%s'", result.Name)
+			}
+		})
+	}
+}
+
+func TestWhatsappRepository_ListAccounts(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	for i := 1; i <= 3; i++ {
+		repo.CreateAccount(&model.WhatsappAccount{
+			Name: "Account " + string(rune('0'+i)),
+		})
+	}
+	repo.CreateAccount(&model.WhatsappAccount{
+		Name: "Other Account",
+	})
+
+	accounts, err := repo.ListAccounts()
+	if err != nil {
+		t.Errorf("ListAccounts() error = %v", err)
+	}
+
+	// 私域部署下返回所有账户
+	if len(accounts) != 4 {
+		t.Errorf("Expected 4 accounts, got %d", len(accounts))
+	}
+}
+
+// TestWhatsappRepository_UpdateAccount 测试更新账号
+func TestWhatsappRepository_UpdateAccount(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	account := &model.WhatsappAccount{
+		Name:   "Original Name",
+		Status: model.WhatsappStatusPending,
+	}
+	repo.CreateAccount(account)
+
+	account.Remark = "Updated remark"
+	account.Status = model.WhatsappStatusOnline
+
+	err := repo.UpdateAccount(account)
+	if err != nil {
+		t.Errorf("UpdateAccount() error = %v", err)
+	}
+
+	updated, _ := repo.GetAccount(account.ID)
+	if updated.Remark != "Updated remark" {
+		t.Errorf("Expected remark 'Updated remark', got '%s'", updated.Remark)
+	}
+	if updated.Status != model.WhatsappStatusOnline {
+		t.Errorf("Expected status Online, got %v", updated.Status)
+	}
+}
+
+// TestWhatsappRepository_DeleteAccount 测试删除账号
+func TestWhatsappRepository_DeleteAccount(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	account := &model.WhatsappAccount{
+		Name: "To Delete",
+	}
+	repo.CreateAccount(account)
+
+	err := repo.DeleteAccount(account.ID)
+	if err != nil {
+		t.Errorf("DeleteAccount() error = %v", err)
+	}
+
+	result, _ := repo.GetAccount(account.ID)
+	if result != nil {
+		t.Error("Expected account to be deleted")
+	}
+}
+
+// TestWhatsappRepository_UpsertSession 测试创建/更新会话
+func TestWhatsappRepository_UpsertSession(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试账号
+	account := &model.WhatsappAccount{
+		Name: "Session Test Account",
+	}
+	repo.CreateAccount(account)
+
+	// 创建会话
+	session := &model.WhatsappSession{
+		AccountID:   account.ID.String(),
+		SessionJSON: "session_json_123",
+	}
+
+	err := repo.UpsertSession(session)
+	if err != nil {
+		t.Errorf("UpsertSession() error = %v", err)
+	}
+
+	if session.ID == (uuid.UUID{}) {
+		t.Error("Expected session ID to be set")
+	}
+
+	// 更新会话
+	session.SessionJSON = "updated_session_json"
+	err = repo.UpsertSession(session)
+	if err != nil {
+		t.Errorf("UpsertSession() update error = %v", err)
+	}
+
+	updated, _ := repo.GetSession(account.ID)
+	if updated.SessionJSON != "updated_session_json" {
+		t.Errorf("Expected session JSON 'updated_session_json', got '%s'", updated.SessionJSON)
+	}
+}
+
+// TestWhatsappRepository_GetSession 测试获取会话
+func TestWhatsappRepository_GetSession(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试账号和会话
+	account := &model.WhatsappAccount{
+		Name: "GetSession Test Account",
+	}
+	repo.CreateAccount(account)
+
+	expectedSession := &model.WhatsappSession{
+		AccountID:   account.ID.String(),
+		SessionJSON: "test_session",
+	}
+	repo.UpsertSession(expectedSession)
+
+	tests := []struct {
+		name       string
+		accountID  uuid.UUID
+		merchantID string
+		wantNil    bool
+	}{
+		{
+			name:      "get existing session",
+			accountID: account.ID,
+
+			wantNil: false,
+		},
+		{
+			name:      "get non-existing session",
+			accountID: uuid.New(),
+
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := repo.GetSession(tt.accountID)
+
+			if err != nil {
+				t.Errorf("GetSession() error = %v", err)
+			}
+
+			if tt.wantNil && result != nil {
+				t.Error("Expected nil for non-existing session")
+			}
+
+			if !tt.wantNil && result == nil {
+				t.Error("Expected result to not be nil")
+			}
+
+			if !tt.wantNil && result.SessionJSON != "test_session" {
+				t.Errorf("Expected session JSON 'test_session', got '%s'", result.SessionJSON)
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_CreateDraft 测试创建草稿
+func TestWhatsappRepository_CreateDraft(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	tests := []struct {
+		name    string
+		draft   *model.WhatsappDraft
+		wantErr bool
+	}{
+		{
+			name: "create draft success",
+			draft: &model.WhatsappDraft{
+				Title:   "Test Draft",
+				Content: "Test content",
+			},
+			wantErr: false,
+		},
+		{
+			name: "create draft with minimal fields",
+			draft: &model.WhatsappDraft{
+				Title: "Minimal Draft",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.CreateDraft(tt.draft)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateDraft() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.draft.ID == (uuid.UUID{}) {
+				t.Error("Expected draft ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_GetDraft 测试获取草稿
+func TestWhatsappRepository_GetDraft(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试草稿
+	draft := &model.WhatsappDraft{
+		Title:   "GetDraft Test",
+		Content: "Test content",
+	}
+	repo.CreateDraft(draft)
+
+	tests := []struct {
+		name    string
+		id      uuid.UUID
+		wantNil bool
+	}{
+		{
+			name:    "get existing draft",
+			id:      draft.ID,
+			wantNil: false,
+		},
+		{
+			name:    "get non-existing draft",
+			id:      uuid.New(),
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := repo.GetDraft(tt.id)
+
+			if err != nil {
+				t.Errorf("GetDraft() error = %v", err)
+			}
+
+			if tt.wantNil && result != nil {
+				t.Error("Expected nil for non-existing draft")
+			}
+
+			if !tt.wantNil {
+				if result.Title != "GetDraft Test" {
+					t.Errorf("Expected title 'GetDraft Test', got '%s'", result.Title)
+				}
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_ListDrafts 测试获取草稿列表
+func TestWhatsappRepository_ListDrafts(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	for i := 1; i <= 3; i++ {
+		repo.CreateDraft(&model.WhatsappDraft{
+			Title: "Draft " + string(rune('0'+i)),
+		})
+	}
+	repo.CreateDraft(&model.WhatsappDraft{
+		Title: "Other Draft",
+	})
+
+	drafts, err := repo.ListDrafts()
+	if err != nil {
+		t.Errorf("ListDrafts() error = %v", err)
+	}
+
+	// 私域部署下返回所有草稿
+	if len(drafts) != 4 {
+		t.Errorf("Expected 4 drafts, got %d", len(drafts))
+	}
+}
+
+// TestWhatsappRepository_UpdateDraft 测试更新草稿
+func TestWhatsappRepository_UpdateDraft(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试草稿
+	draft := &model.WhatsappDraft{
+		Title:   "Original Name",
+		Content: "Original content",
+	}
+	repo.CreateDraft(draft)
+
+	draft.Content = "Updated content"
+
+	err := repo.UpdateDraft(draft)
+	if err != nil {
+		t.Errorf("UpdateDraft() error = %v", err)
+	}
+
+	updated, _ := repo.GetDraft(draft.ID)
+	if updated.Content != "Updated content" {
+		t.Errorf("Expected content 'Updated content', got '%s'", updated.Content)
+	}
+}
+
+// TestWhatsappRepository_DeleteDraft 测试删除草稿
+func TestWhatsappRepository_DeleteDraft(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试草稿
+	draft := &model.WhatsappDraft{
+		Title: "To Delete",
+	}
+	repo.CreateDraft(draft)
+
+	err := repo.DeleteDraft(draft.ID)
+	if err != nil {
+		t.Errorf("DeleteDraft() error = %v", err)
+	}
+
+	result, _ := repo.GetDraft(draft.ID)
+	if result != nil {
+		t.Error("Expected draft to be deleted")
+	}
+}
+
+// TestWhatsappRepository_CreateJob 测试创建任务
+func TestWhatsappRepository_CreateJob(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	tests := []struct {
+		name    string
+		job     *model.WhatsappJob
+		wantErr bool
+	}{
+		{
+			name: "create job success",
+			job: &model.WhatsappJob{
+				DraftID: uuid.New(),
+				Status:  model.WhatsappJobPending,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create job with minimal fields",
+			job: &model.WhatsappJob{
+				DraftID: uuid.New(),
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.CreateJob(tt.job)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateJob() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.job.ID == (uuid.UUID{}) {
+				t.Error("Expected job ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_GetJob 测试获取任务
+func TestWhatsappRepository_GetJob(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试任务
+	job := &model.WhatsappJob{
+		DraftID: uuid.New(),
+		Status:  model.WhatsappJobPending,
+	}
+	repo.CreateJob(job)
+
+	tests := []struct {
+		name    string
+		id      uuid.UUID
+		wantNil bool
+	}{
+		{
+			name:    "get existing job",
+			id:      job.ID,
+			wantNil: false,
+		},
+		{
+			name:    "get non-existing job",
+			id:      uuid.New(),
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := repo.GetJob(tt.id)
+
+			if err != nil {
+				t.Errorf("GetJob() error = %v", err)
+			}
+
+			if tt.wantNil && result != nil {
+				t.Error("Expected nil for non-existing job")
+			}
+
+			if !tt.wantNil && result == nil {
+				t.Error("Expected result to not be nil")
+			}
+
+			if !tt.wantNil && result.Status != model.WhatsappJobPending {
+				t.Errorf("Expected status Pending, got %v", result.Status)
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_ListJobs 测试获取任务列表
+func TestWhatsappRepository_ListJobs(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试数据
+	for i := 1; i <= 3; i++ {
+		repo.CreateJob(&model.WhatsappJob{
+			DraftID: uuid.New(),
+		})
+	}
+	repo.CreateJob(&model.WhatsappJob{
+		DraftID: uuid.New(),
+	})
+
+	jobs, err := repo.ListJobs()
+	if err != nil {
+		t.Errorf("ListJobs() error = %v", err)
+	}
+
+	// 私域部署下返回所有任务
+	if len(jobs) != 4 {
+		t.Errorf("Expected 4 jobs, got %d", len(jobs))
+	}
+}
+
+// TestWhatsappRepository_UpdateJob 测试更新任务
+func TestWhatsappRepository_UpdateJob(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试任务
+	job := &model.WhatsappJob{
+		DraftID: uuid.New(),
+		Status:  model.WhatsappJobPending,
+	}
+	repo.CreateJob(job)
+
+	job.Status = model.WhatsappJobFinished
+
+	err := repo.UpdateJob(job)
+	if err != nil {
+		t.Errorf("UpdateJob() error = %v", err)
+	}
+
+	updated, _ := repo.GetJob(job.ID)
+	if updated.Status != model.WhatsappJobFinished {
+		t.Errorf("Expected status Finished, got %v", updated.Status)
+	}
+}
+
+// TestWhatsappRepository_CreateJobDetail 测试创建任务详情
+func TestWhatsappRepository_CreateJobDetail(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试任务
+	job := &model.WhatsappJob{
+		DraftID: uuid.New(),
+	}
+	repo.CreateJob(job)
+
+	tests := []struct {
+		name    string
+		detail  *model.WhatsappJobDetail
+		wantErr bool
+	}{
+		{
+			name: "create job detail success",
+			detail: &model.WhatsappJobDetail{
+				JobID:     job.ID,
+				AccountID: uuid.New(),
+				ToJid:     "1234567890",
+				Status:    model.WhatsappJobDetailPending,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create job detail with minimal fields",
+			detail: &model.WhatsappJobDetail{
+				JobID:     job.ID,
+				AccountID: uuid.New(),
+				ToJid:     "0987654321",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.CreateJobDetail(tt.detail)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateJobDetail() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.detail.ID == (uuid.UUID{}) {
+				t.Error("Expected job detail ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestWhatsappRepository_ListJobDetails 测试获取任务详情列表
+func TestWhatsappRepository_ListJobDetails(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试任务
+	job := &model.WhatsappJob{
+		DraftID: uuid.New(),
+	}
+	repo.CreateJob(job)
+
+	// 创建测试数据
+	for i := 1; i <= 3; i++ {
+		repo.CreateJobDetail(&model.WhatsappJobDetail{
+			JobID:     job.ID,
+			AccountID: uuid.New(),
+			ToJid:     "123456789" + string(rune('0'+i)),
+		})
+	}
+
+	details, err := repo.ListJobDetails(job.ID)
+	if err != nil {
+		t.Errorf("ListJobDetails() error = %v", err)
+	}
+
+	if len(details) != 3 {
+		t.Errorf("Expected 3 job details, got %d", len(details))
+	}
+}
+
+// TestWhatsappRepository_UpdateJobDetail 测试更新任务详情
+func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
+	repo := setupWhatsappRepository(t)
+
+	// 创建测试任务和详情
+	job := &model.WhatsappJob{
+		DraftID: uuid.New(),
+	}
+	repo.CreateJob(job)
+
+	detail := &model.WhatsappJobDetail{
+		JobID:     job.ID,
+		AccountID: uuid.New(),
+		ToJid:     "1234567890",
+		Status:    model.WhatsappJobDetailPending,
+	}
+	repo.CreateJobDetail(detail)
+
+	detail.Status = model.WhatsappJobDetailSuccess
+	detail.ErrorMsg = ""
+
+	err := repo.UpdateJobDetail(detail)
+	if err != nil {
+		t.Errorf("UpdateJobDetail() error = %v", err)
+	}
+
+	updated, _ := repo.ListJobDetails(job.ID)
+	if len(updated) != 1 || updated[0].Status != model.WhatsappJobDetailSuccess {
+		t.Errorf("Expected status Success, got %v", updated[0].Status)
+	}
+}

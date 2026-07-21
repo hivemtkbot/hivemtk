@@ -1,0 +1,102 @@
+platform_api:
+  base_url: "http://localhost:8205"
+
+# 统一日志系统配置（zerolog 驱动）
+# level:    debug | info | warn | error
+# format:   json（生产，便于采集）| console（本地，带颜色）
+# output:   stdout | file | both
+# file:     output 为 file/both 时生效；超过 max_size(MB) 自动滚动（保留 1 份备份）
+# component: 写入每条日志的 service 标识
+logging:
+  level: "info"
+  format: "console"
+  output: "stdout"
+  file: "logs/user-server.log"
+  max_size: 100
+  component: "user-server"
+
+database:
+  type: postgres
+  postgres:
+    host: localhost
+    port: 8202
+    user: admin
+    # 私域合规基线 §7.2：dev 默认密码为本地占位；生产必须通过环境变量 POSTGRES_PASSWORD 注入
+    # 部署到生产时设置 POSTGRES_PASSWORD，覆盖下方占位；不提交真实密码到 git
+    password: "${POSTGRES_PASSWORD}"
+    dbname: user_db
+    sslmode: disable
+
+vector_database:
+  type: pgvector
+  pgvector:
+    table: knowledge_embeddings
+    # 2026-07-18 私域基线：本地 TEI + BAAI/bge-m3，向量维度 1024
+    # 与迁移 SQL vector(1024) 及运行时默认维度保持一致，避免 pgvector 入库维度不匹配
+    dimension: 1024
+
+# 本地推理栈（embedding / rerank / llm）统一配置
+# 设计详见 docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md
+# 三个能力统一暴露为 OpenAI 兼容 HTTP：
+#   - embedding: /v1/embeddings   - rerank: /v1/rerank   - llm: /v1/chat/completions
+# 默认走本地（mtk-* / 127.0.0.1），仅在 base_url+api_key 填线上地址时切到线上。
+# profile=dev：开发默认选最轻量模型（硬件要求最低）；embedding 维度硬性 1024。
+# 宿主直连用 127.0.0.1；docker 容器内用服务名（见 config-docker.yaml）。
+inference:
+  profile: dev
+  embedding:
+    mode: local
+    base_url: "http://127.0.0.1:8208/v1"
+    # dev 最轻量且 1024 维；若 TEI 对该模型不兼容，可改回 bge-large-zh（仍 1024 维）
+    model: "Qwen3-Embedding-0.6B"
+    dimension: 1024
+    allow_fallback: false          # 禁止静默降级哈希伪向量（仅单测显式开启）
+  rerank:
+    mode: local
+    base_url: "http://127.0.0.1:8209"
+    # dev 轻量跨编码器（中/英，BERT-large，onnx~2.1GB 运行时，比 v2-m3 持平略省）
+    # 注：docs 原 dev 档写 bge-reranker-v2-minicpm-light（MiniCPM-2B，运行时更重不省内存），
+    # 且当前环境该权重经 ModelScope 校验可下载；此处改用确证可在 ModelScope 下载且更省内存的 bge-reranker-large。
+    model: "bge-reranker-large"
+    enabled: true
+  llm:
+    mode: local
+    # 默认本地 mtk-llm（llama.cpp）；宿主经 127.0.0.1:8207 暴露
+    base_url: "http://127.0.0.1:8207/v1"
+    model: "Qwen2.5-3B-Instruct"   # dev 逻辑验证用最轻量模型
+    api_key: ""                     # 本地模型无需密钥
+    temperature: 0.7
+    max_tokens: 2048
+    timeout_seconds: 60
+    max_retries: 3
+    # 云端可选 fallback（本地优先）：仅当 enabled=true 且配置 api_key 时启用，否则禁用
+    cloud_providers: []
+
+storage:
+  type: qiniu
+  qiniu:
+    # 密钥通过环境变量注入（合规基线 §7.2 敏感数据脱敏），禁止明文落库
+    access_key: "${QINIU_ACCESS_KEY}"
+    secret_key: "${QINIU_SECRET_KEY}"
+    bucket: "voiceparter"
+    # 对外访问域名（CDN）
+    domain: "qiniu.xapptool.cn"
+    # 华东区域上传入口
+    upload_domain: "up-z2.qiniup.com"
+    region: "z2"
+
+# 客服自动转人工 NLP 配置（2026-07-17）
+# 关键词命中后自动转人工；前端的"转人工"按钮已移除
+# 对用户永远显示"在线客服"，企业内部分为 AI 客服 + 人工客服
+chat:
+  transfer_keywords:
+    - "人工"
+    - "真人"
+    - "转人工"
+    - "human"
+    - "operator"
+    - "客服"
+    - "agent"
+    - "找人"
+  # 命中关键词后 30 秒内无人工接入则提示"客服正在接入中"
+  fallback_seconds: 30

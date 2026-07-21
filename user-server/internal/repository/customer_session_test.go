@@ -1,0 +1,1471 @@
+package repository
+
+import (
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/db"
+	"testing"
+	"time"
+
+	"gorm.io/gorm"
+	"marketing/internal/pkg/testutil"
+)
+
+// setupCustomerSessionTestDB 设置客服会话测试数据库
+func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
+	database := testutil.NewTestDB(t,
+		&model.CustomerSession{},
+		&model.SessionMessage{},
+		&model.AgentStatus{},
+		&model.AISuggestion{},
+		&model.QuickReply{},
+		&model.SessionTag{},
+	)
+	db.SetTestDB(database)
+	return database
+}
+
+// setupCustomerSessionRepositories 创建测试用的仓库实例
+func setupCustomerSessionRepositories(t *testing.T) (
+	*CustomerSessionRepository,
+	*SessionMessageRepository,
+	*AgentStatusRepository,
+	*AISuggestionRepository,
+	*QuickReplyRepository,
+	*SessionTagRepository) {
+
+	setupCustomerSessionTestDB(t)
+	database := db.GetDB()
+
+	return &CustomerSessionRepository{db: database},
+		&SessionMessageRepository{db: database},
+		&AgentStatusRepository{db: database},
+		&AISuggestionRepository{db: database},
+		&QuickReplyRepository{db: database},
+		&SessionTagRepository{db: database}
+}
+
+// ============= CustomerSessionRepository Tests =============
+
+// TestCustomerSessionRepository_Create 测试创建会话
+func TestCustomerSessionRepository_Create(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name    string
+		session *model.CustomerSession
+		wantErr bool
+	}{
+		{
+			name: "create session success",
+			session: &model.CustomerSession{
+				SessionID:   "session-001",
+				Platform:    model.PlatformWeChat,
+				AccountID:   "account-123",
+				UserID:      "user-123",
+				UserName:    "Test User",
+				Status:      model.SessionStatusPending,
+				HandlerType: model.HandlerTypeAI,
+				Priority:    0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create session with agent assignment",
+			session: &model.CustomerSession{
+				SessionID:   "session-002",
+				Platform:    model.PlatformWeb,
+				AccountID:   "account-456",
+				UserID:      "user-456",
+				AgentID:     1,
+				AgentName:   "Agent Smith",
+				Status:      model.SessionStatusHumanHandling,
+				HandlerType: model.HandlerTypeHuman,
+				Priority:    2,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sessionRepo.Create(tt.session)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.session.ID == 0 {
+				t.Error("Expected session ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestCustomerSessionRepository_Update 测试更新会话
+func TestCustomerSessionRepository_Update(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID: "session-update",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-123",
+		Status:    model.SessionStatusPending,
+	}
+	sessionRepo.Create(session)
+
+	tests := []struct {
+		name       string
+		updateFunc func(*model.CustomerSession)
+		wantErr    bool
+	}{
+		{
+			name: "update status and handler",
+			updateFunc: func(s *model.CustomerSession) {
+				s.Status = model.SessionStatusAIHandling
+				s.HandlerType = model.HandlerTypeAI
+			},
+			wantErr: false,
+		},
+		{
+			name: "update agent assignment",
+			updateFunc: func(s *model.CustomerSession) {
+				s.AgentID = 1
+				s.AgentName = "Agent Smith"
+				s.Status = model.SessionStatusHumanHandling
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.updateFunc(session)
+			err := sessionRepo.Update(session)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				updated, _ := sessionRepo.GetByID(session.ID)
+				if updated.Status != session.Status {
+					t.Errorf("Expected status '%s', got '%s'", session.Status, updated.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestCustomerSessionRepository_GetByID 测试根据 ID 获取会话
+func TestCustomerSessionRepository_GetByID(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID: "session-getbyid",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-123",
+		UserName:  "Test User",
+		Status:    model.SessionStatusPending,
+	}
+	sessionRepo.Create(session)
+
+	tests := []struct {
+		name    string
+		id      uint
+		wantErr bool
+	}{
+		{
+			name:    "get existing session",
+			id:      session.ID,
+			wantErr: false,
+		},
+		{
+			name:    "get non-existing session",
+			id:      99999,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := sessionRepo.GetByID(tt.id)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.ID != tt.id {
+					t.Errorf("Expected ID %d, got %d", tt.id, result.ID)
+				}
+				if result.SessionID != "session-getbyid" {
+					t.Errorf("Expected SessionID 'session-getbyid', got '%s'", result.SessionID)
+				}
+			}
+		})
+	}
+}
+
+// TestCustomerSessionRepository_GetBySessionID 测试根据 SessionID 获取会话
+func TestCustomerSessionRepository_GetBySessionID(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID: "unique-session-id",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-123",
+		Status:    model.SessionStatusPending,
+	}
+	sessionRepo.Create(session)
+
+	tests := []struct {
+		name      string
+		sessionID string
+		wantErr   bool
+	}{
+		{
+			name:      "get existing session",
+			sessionID: "unique-session-id",
+			wantErr:   false,
+		},
+		{
+			name:      "get non-existing session",
+			sessionID: "non-existing",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := sessionRepo.GetBySessionID(tt.sessionID)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBySessionID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.SessionID != tt.sessionID {
+					t.Errorf("Expected SessionID '%s', got '%s'", tt.sessionID, result.SessionID)
+				}
+			}
+		})
+	}
+}
+
+// TestCustomerSessionRepository_GetPendingSessions 测试获取待处理会话
+func TestCustomerSessionRepository_GetPendingSessions(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	// 创建不同状态的会话
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "pending-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-1",
+		Status:    model.SessionStatusPending,
+		Priority:  1,
+	})
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "ai-handling-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-2",
+		Status:    model.SessionStatusAIHandling,
+		Priority:  2,
+	})
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "human-handling-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-3",
+		Status:    model.SessionStatusHumanHandling,
+		Priority:  0,
+	})
+
+	pending, err := sessionRepo.GetPendingSessions()
+	if err != nil {
+		t.Errorf("GetPendingSessions() error = %v", err)
+	}
+
+	if len(pending) != 2 {
+		t.Errorf("Expected 2 pending sessions, got %d", len(pending))
+	}
+
+	// 验证优先级排序 (高的在前)
+	if len(pending) == 2 && pending[0].Priority < pending[1].Priority {
+		t.Error("Expected pending sessions to be ordered by priority DESC")
+	}
+}
+
+// TestCustomerSessionRepository_GetAgentSessions 测试获取客服的活跃会话
+func TestCustomerSessionRepository_GetAgentSessions(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	agentID := uint(1)
+
+	// 创建客服的活跃会话
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "agent-active-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-1",
+		AgentID:   agentID,
+		Status:    model.SessionStatusHumanHandling,
+	})
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "agent-waiting-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-2",
+		AgentID:   agentID,
+		Status:    model.SessionStatusWaiting,
+	})
+
+	// 创建已解决的会话（不应被获取）
+	sessionRepo.Create(&model.CustomerSession{
+		SessionID: "agent-resolved-1",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-3",
+		AgentID:   agentID,
+		Status:    model.SessionStatusResolved,
+	})
+
+	sessions, err := sessionRepo.GetAgentSessions(agentID)
+	if err != nil {
+		t.Errorf("GetAgentSessions() error = %v", err)
+	}
+
+	if len(sessions) != 2 {
+		t.Errorf("Expected 2 active sessions, got %d", len(sessions))
+	}
+}
+
+// TestCustomerSessionRepository_UpdateStatus 测试更新会话状态
+func TestCustomerSessionRepository_UpdateStatus(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID: "status-update-test",
+		Platform:  model.PlatformWeChat,
+		UserID:    "user-123",
+		Status:    model.SessionStatusPending,
+	}
+	sessionRepo.Create(session)
+
+	tests := []struct {
+		name      string
+		newStatus model.SessionStatus
+		wantErr   bool
+	}{
+		{
+			name:      "update to ai_handling",
+			newStatus: model.SessionStatusAIHandling,
+			wantErr:   false,
+		},
+		{
+			name:      "update to human_handling",
+			newStatus: model.SessionStatusHumanHandling,
+			wantErr:   false,
+		},
+		{
+			name:      "update to resolved",
+			newStatus: model.SessionStatusResolved,
+			wantErr:   false,
+		},
+		{
+			name:      "update to closed",
+			newStatus: model.SessionStatusClosed,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sessionRepo.UpdateStatus(session.ID, tt.newStatus)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				updated, _ := sessionRepo.GetByID(session.ID)
+				if updated.Status != tt.newStatus {
+					t.Errorf("Expected status '%s', got '%s'", tt.newStatus, updated.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestCustomerSessionRepository_AssignAgent 测试分配客服
+func TestCustomerSessionRepository_AssignAgent(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID:   "agent-assign-test",
+		Platform:    model.PlatformWeChat,
+		UserID:      "user-123",
+		Status:      model.SessionStatusPending,
+		HandlerType: model.HandlerTypeAI,
+	}
+	sessionRepo.Create(session)
+
+	err := sessionRepo.AssignAgent(session.ID, 1, "Agent Smith")
+	if err != nil {
+		t.Errorf("AssignAgent() error = %v", err)
+	}
+
+	updated, _ := sessionRepo.GetByID(session.ID)
+	if updated.AgentID != 1 {
+		t.Errorf("Expected AgentID 1, got %d", updated.AgentID)
+	}
+	if updated.AgentName != "Agent Smith" {
+		t.Errorf("Expected AgentName 'Agent Smith', got '%s'", updated.AgentName)
+	}
+	if updated.HandlerType != model.HandlerTypeHuman {
+		t.Errorf("Expected HandlerType human, got '%s'", updated.HandlerType)
+	}
+	if updated.Status != model.SessionStatusHumanHandling {
+		t.Errorf("Expected status human_handling, got '%s'", updated.Status)
+	}
+}
+
+// TestCustomerSessionRepository_UpdateLastMessage 测试更新最后消息
+func TestCustomerSessionRepository_UpdateLastMessage(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID:    "message-update-test",
+		Platform:     model.PlatformWeChat,
+		UserID:       "user-123",
+		Status:       model.SessionStatusPending,
+		MessageCount: 0,
+	}
+	sessionRepo.Create(session)
+
+	err := sessionRepo.UpdateLastMessage(session.ID, "Hello, this is a test message", "user")
+	if err != nil {
+		t.Errorf("UpdateLastMessage() error = %v", err)
+	}
+
+	updated, _ := sessionRepo.GetByID(session.ID)
+	if updated.LastMessage != "Hello, this is a test message" {
+		t.Errorf("Expected LastMessage 'Hello, this is a test message', got '%s'", updated.LastMessage)
+	}
+	if updated.LastMessageBy != "user" {
+		t.Errorf("Expected LastMessageBy 'user', got '%s'", updated.LastMessageBy)
+	}
+	if updated.MessageCount != 1 {
+		t.Errorf("Expected MessageCount 1, got %d", updated.MessageCount)
+	}
+	if updated.LastMessageAt == nil {
+		t.Error("Expected LastMessageAt to be set")
+	}
+}
+
+// TestCustomerSessionRepository_IncrementAIReplyCount 测试增加 AI 回复计数
+func TestCustomerSessionRepository_IncrementAIReplyCount(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID:    "ai-reply-test",
+		Platform:     model.PlatformWeChat,
+		UserID:       "user-123",
+		Status:       model.SessionStatusAIHandling,
+		AIReplyCount: 0,
+	}
+	sessionRepo.Create(session)
+
+	for i := 0; i < 3; i++ {
+		err := sessionRepo.IncrementAIReplyCount(session.ID)
+		if err != nil {
+			t.Errorf("IncrementAIReplyCount() error = %v", err)
+		}
+	}
+
+	updated, _ := sessionRepo.GetByID(session.ID)
+	if updated.AIReplyCount != 3 {
+		t.Errorf("Expected AIReplyCount 3, got %d", updated.AIReplyCount)
+	}
+}
+
+// TestCustomerSessionRepository_IncrementHumanReplyCount 测试增加人工回复计数
+func TestCustomerSessionRepository_IncrementHumanReplyCount(t *testing.T) {
+	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	session := &model.CustomerSession{
+		SessionID:       "human-reply-test",
+		Platform:        model.PlatformWeChat,
+		UserID:          "user-123",
+		Status:          model.SessionStatusHumanHandling,
+		HumanReplyCount: 0,
+	}
+	sessionRepo.Create(session)
+
+	for i := 0; i < 2; i++ {
+		err := sessionRepo.IncrementHumanReplyCount(session.ID)
+		if err != nil {
+			t.Errorf("IncrementHumanReplyCount() error = %v", err)
+		}
+	}
+
+	updated, _ := sessionRepo.GetByID(session.ID)
+	if updated.HumanReplyCount != 2 {
+		t.Errorf("Expected HumanReplyCount 2, got %d", updated.HumanReplyCount)
+	}
+}
+
+// ============= SessionMessageRepository Tests =============
+
+// TestSessionMessageRepository_Create 测试创建消息
+func TestSessionMessageRepository_Create(t *testing.T) {
+	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name    string
+		message *model.SessionMessage
+		wantErr bool
+	}{
+		{
+			name: "create user message",
+			message: &model.SessionMessage{
+				SessionID:   "session-001",
+				Content:     "Hello, I need help",
+				ContentType: model.MessageTypeText,
+				SenderType:  "user",
+				SenderID:    "user-123",
+				SenderName:  "Test User",
+			},
+			wantErr: false,
+		},
+		{
+			name: "create AI message with confidence",
+			message: &model.SessionMessage{
+				SessionID:    "session-001",
+				Content:      "How can I help you?",
+				ContentType:  model.MessageTypeText,
+				SenderType:   "ai",
+				SenderID:     "ai-assistant",
+				SenderName:   "AI Assistant",
+				AIConfidence: 0.95,
+				AISource:     "llm",
+			},
+			wantErr: false,
+		},
+		{
+			name: "create agent message",
+			message: &model.SessionMessage{
+				SessionID:   "session-001",
+				Content:     "Let me assist you with that",
+				ContentType: model.MessageTypeText,
+				SenderType:  "agent",
+				SenderID:    "agent-1",
+				SenderName:  "Agent Smith",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := messageRepo.Create(tt.message)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.message.ID == 0 {
+				t.Error("Expected message ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestSessionMessageRepository_GetBySessionID 测试获取会话消息列表
+func TestSessionMessageRepository_GetBySessionID(t *testing.T) {
+	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	// 创建测试消息
+	for i := 1; i <= 5; i++ {
+		messageRepo.Create(&model.SessionMessage{
+			SessionID:  "session-messages",
+			Content:    string(rune('A' + i - 1)),
+			SenderType: "user",
+		})
+	}
+
+	tests := []struct {
+		name      string
+		sessionID string
+		page      int
+		pageSize  int
+		wantCount int
+	}{
+		{
+			name:      "get first page",
+			sessionID: "session-messages",
+			page:      1,
+			pageSize:  3,
+			wantCount: 3,
+		},
+		{
+			name:      "get second page",
+			sessionID: "session-messages",
+			page:      2,
+			pageSize:  3,
+			wantCount: 2,
+		},
+		{
+			name:      "get non-existing session",
+			sessionID: "non-existing",
+			page:      1,
+			pageSize:  10,
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, total, err := messageRepo.GetBySessionID(tt.sessionID, tt.page, tt.pageSize)
+
+			if err != nil {
+				t.Errorf("GetBySessionID() error = %v", err)
+			}
+
+			if len(results) != tt.wantCount {
+				t.Errorf("Expected %d messages, got %d", tt.wantCount, len(results))
+			}
+
+			if tt.sessionID == "session-messages" && int(total) != 5 {
+				t.Errorf("Expected total 5, got %d", total)
+			}
+		})
+	}
+}
+
+// TestSessionMessageRepository_MarkAsRead 测试标记消息已读
+func TestSessionMessageRepository_MarkAsRead(t *testing.T) {
+	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	now := time.Now()
+
+	// 创建未读消息
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-read-test",
+		Content:    "Message 1",
+		SenderType: "user",
+		IsRead:     false,
+		CreatedAt:  now.Add(-2 * time.Minute),
+	})
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-read-test",
+		Content:    "Message 2",
+		SenderType: "user",
+		IsRead:     false,
+		CreatedAt:  now.Add(-1 * time.Minute),
+	})
+
+	err := messageRepo.MarkAsRead("session-read-test", now)
+	if err != nil {
+		t.Errorf("MarkAsRead() error = %v", err)
+	}
+
+	// 验证消息已标记为已读
+	var messages []*model.SessionMessage
+	db.GetDB().Where("session_id = ?", "session-read-test").Find(&messages)
+
+	for _, msg := range messages {
+		if !msg.IsRead {
+			t.Error("Expected messages to be marked as read")
+		}
+		if msg.ReadAt == nil {
+			t.Error("Expected ReadAt to be set")
+		}
+	}
+}
+
+// TestSessionMessageRepository_GetUnreadCount 测试获取未读消息数
+func TestSessionMessageRepository_GetUnreadCount(t *testing.T) {
+	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
+
+	// 创建混合的已读/未读消息
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-unread-count",
+		Content:    "Unread 1",
+		SenderType: "user",
+		IsRead:     false,
+	})
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-unread-count",
+		Content:    "Unread 2",
+		SenderType: "user",
+		IsRead:     false,
+	})
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-unread-count",
+		Content:    "Read 1",
+		SenderType: "user",
+		IsRead:     true,
+	})
+	messageRepo.Create(&model.SessionMessage{
+		SessionID:  "session-unread-count",
+		Content:    "Agent message",
+		SenderType: "agent",
+		IsRead:     false,
+	})
+
+	count := messageRepo.GetUnreadCount("session-unread-count", "user")
+	if count != 2 {
+		t.Errorf("Expected 2 unread user messages, got %d", count)
+	}
+}
+
+// ============= AgentStatusRepository Tests =============
+
+// TestAgentStatusRepository_Create 测试创建客服状态
+func TestAgentStatusRepository_Create(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name    string
+		status  *model.AgentStatus
+		wantErr bool
+	}{
+		{
+			name: "create online agent",
+			status: &model.AgentStatus{
+				AgentID:        1,
+				AgentName:      "Agent Smith",
+				Status:         "online",
+				MaxSessions:    5,
+				ActiveSessions: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create busy agent",
+			status: &model.AgentStatus{
+				AgentID:        2,
+				AgentName:      "Agent Johnson",
+				Status:         "busy",
+				MaxSessions:    3,
+				ActiveSessions: 3,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := agentRepo.Create(tt.status)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.status.ID == 0 {
+				t.Error("Expected status ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestAgentStatusRepository_Update 测试更新客服状态
+func TestAgentStatusRepository_Update(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:        1,
+		AgentName:      "Agent Smith",
+		Status:         "online",
+		MaxSessions:    5,
+		ActiveSessions: 0,
+	}
+	agentRepo.Create(status)
+
+	status.Status = "busy"
+	status.ActiveSessions = 3
+
+	err := agentRepo.Update(status)
+	if err != nil {
+		t.Errorf("Update() error = %v", err)
+	}
+
+	updated, _ := agentRepo.GetByAgentID(1)
+	if updated.Status != "busy" {
+		t.Errorf("Expected status 'busy', got '%s'", updated.Status)
+	}
+	if updated.ActiveSessions != 3 {
+		t.Errorf("Expected ActiveSessions 3, got %d", updated.ActiveSessions)
+	}
+}
+
+// TestAgentStatusRepository_GetByAgentID 测试根据客服 ID 获取状态
+func TestAgentStatusRepository_GetByAgentID(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:     42,
+		AgentName:   "Agent 42",
+		Status:      "online",
+		MaxSessions: 5,
+	}
+	agentRepo.Create(status)
+
+	tests := []struct {
+		name    string
+		agentID uint
+		wantErr bool
+	}{
+		{
+			name:    "get existing agent",
+			agentID: 42,
+			wantErr: false,
+		},
+		{
+			name:    "get non-existing agent",
+			agentID: 99999,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := agentRepo.GetByAgentID(tt.agentID)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetByAgentID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.AgentID != tt.agentID {
+					t.Errorf("Expected AgentID %d, got %d", tt.agentID, result.AgentID)
+				}
+			}
+		})
+	}
+}
+
+// TestAgentStatusRepository_GetOnlineAgents 测试获取在线客服
+func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	// 创建不同状态的客服
+	agentRepo.Create(&model.AgentStatus{
+		AgentID:        1,
+		AgentName:      "Agent Online",
+		Status:         "online",
+		MaxSessions:    5,
+		ActiveSessions: 2,
+	})
+	agentRepo.Create(&model.AgentStatus{
+		AgentID:        2,
+		AgentName:      "Agent Busy",
+		Status:         "busy",
+		MaxSessions:    5,
+		ActiveSessions: 3,
+	})
+	agentRepo.Create(&model.AgentStatus{
+		AgentID:        3,
+		AgentName:      "Agent Away",
+		Status:         "away",
+		MaxSessions:    5,
+		ActiveSessions: 0,
+	})
+	agentRepo.Create(&model.AgentStatus{
+		AgentID:        4,
+		AgentName:      "Agent Offline",
+		Status:         "offline",
+		MaxSessions:    5,
+		ActiveSessions: 0,
+	})
+	// 创建已达上限的客服
+	agentRepo.Create(&model.AgentStatus{
+		AgentID:        5,
+		AgentName:      "Agent Full",
+		Status:         "online",
+		MaxSessions:    3,
+		ActiveSessions: 3,
+	})
+
+	onlineAgents, err := agentRepo.GetOnlineAgents()
+	if err != nil {
+		t.Errorf("GetOnlineAgents() error = %v", err)
+	}
+
+	// 应该只返回 online/busy 且未达上限的客服 (Agent 1 和 Agent 2)
+	if len(onlineAgents) != 2 {
+		t.Errorf("Expected 2 available agents, got %d", len(onlineAgents))
+	}
+}
+
+// TestAgentStatusRepository_UpdateStatus 测试更新客服状态
+func TestAgentStatusRepository_UpdateStatus(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:   1,
+		AgentName: "Agent Smith",
+		Status:    "online",
+	}
+	agentRepo.Create(status)
+
+	tests := []struct {
+		name      string
+		newStatus string
+		wantErr   bool
+	}{
+		{
+			name:      "update to busy",
+			newStatus: "busy",
+			wantErr:   false,
+		},
+		{
+			name:      "update to offline",
+			newStatus: "offline",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := agentRepo.UpdateStatus(1, tt.newStatus)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				updated, _ := agentRepo.GetByAgentID(1)
+				if updated.Status != tt.newStatus {
+					t.Errorf("Expected status '%s', got '%s'", tt.newStatus, updated.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestAgentStatusRepository_IncrementActiveSessions 测试增加活跃会话数
+func TestAgentStatusRepository_IncrementActiveSessions(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:        1,
+		AgentName:      "Agent Smith",
+		Status:         "online",
+		MaxSessions:    5,
+		ActiveSessions: 0,
+		TodaySessions:  0,
+	}
+	agentRepo.Create(status)
+
+	for i := 0; i < 3; i++ {
+		err := agentRepo.IncrementActiveSessions(1)
+		if err != nil {
+			t.Errorf("IncrementActiveSessions() error = %v", err)
+		}
+	}
+
+	updated, _ := agentRepo.GetByAgentID(1)
+	if updated.ActiveSessions != 3 {
+		t.Errorf("Expected ActiveSessions 3, got %d", updated.ActiveSessions)
+	}
+	if updated.TodaySessions != 3 {
+		t.Errorf("Expected TodaySessions 3, got %d", updated.TodaySessions)
+	}
+}
+
+// TestAgentStatusRepository_DecrementActiveSessions 测试减少活跃会话数
+func TestAgentStatusRepository_DecrementActiveSessions(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:        1,
+		AgentName:      "Agent Smith",
+		Status:         "online",
+		MaxSessions:    5,
+		ActiveSessions: 3,
+	}
+	agentRepo.Create(status)
+
+	for i := 0; i < 2; i++ {
+		err := agentRepo.DecrementActiveSessions(1)
+		if err != nil {
+			t.Errorf("DecrementActiveSessions() error = %v", err)
+		}
+	}
+
+	updated, _ := agentRepo.GetByAgentID(1)
+	if updated.ActiveSessions != 1 {
+		t.Errorf("Expected ActiveSessions 1, got %d", updated.ActiveSessions)
+	}
+}
+
+// TestAgentStatusRepository_IncrementTodayMessages 测试增加今日消息数
+func TestAgentStatusRepository_IncrementTodayMessages(t *testing.T) {
+	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
+
+	status := &model.AgentStatus{
+		AgentID:       1,
+		AgentName:     "Agent Smith",
+		Status:        "online",
+		TodayMessages: 0,
+	}
+	agentRepo.Create(status)
+
+	for i := 0; i < 5; i++ {
+		err := agentRepo.IncrementTodayMessages(1)
+		if err != nil {
+			t.Errorf("IncrementTodayMessages() error = %v", err)
+		}
+	}
+
+	updated, _ := agentRepo.GetByAgentID(1)
+	if updated.TodayMessages != 5 {
+		t.Errorf("Expected TodayMessages 5, got %d", updated.TodayMessages)
+	}
+}
+
+// ============= AISuggestionRepository Tests =============
+
+// TestAISuggestionRepository_Create 测试创建 AI 建议
+func TestAISuggestionRepository_Create(t *testing.T) {
+	_, _, _, aiSuggestionRepo, _, _ := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name       string
+		suggestion *model.AISuggestion
+		wantErr    bool
+	}{
+		{
+			name: "create suggestion from LLM",
+			suggestion: &model.AISuggestion{
+				SessionID:  "session-001",
+				MessageID:  1,
+				Suggestion: "You can track your order in the 'My Orders' section.",
+				Confidence: 0.92,
+				Source:     "llm",
+				IsUsed:     false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create suggestion from RAG",
+			suggestion: &model.AISuggestion{
+				SessionID:  "session-001",
+				MessageID:  2,
+				Suggestion: "Our refund policy allows returns within 30 days.",
+				Confidence: 0.85,
+				Source:     "rag",
+				IsUsed:     false,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := aiSuggestionRepo.Create(tt.suggestion)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.suggestion.ID == 0 {
+				t.Error("Expected suggestion ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestAISuggestionRepository_GetBySessionID 测试获取会话的 AI 建议列表
+func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
+	_, _, _, aiSuggestionRepo, _, _ := setupCustomerSessionRepositories(t)
+
+	// 创建测试建议
+	for i := 1; i <= 5; i++ {
+		aiSuggestionRepo.Create(&model.AISuggestion{
+			SessionID:  "session-suggestions",
+			MessageID:  uint(i),
+			Suggestion: string(rune('A' + i - 1)),
+			Confidence: 0.9,
+			Source:     "llm",
+		})
+	}
+
+	// 创建另一个会话的建议
+	aiSuggestionRepo.Create(&model.AISuggestion{
+		SessionID:  "other-session",
+		MessageID:  99,
+		Suggestion: "Other",
+		Confidence: 0.8,
+		Source:     "rag",
+	})
+
+	suggestions, err := aiSuggestionRepo.GetBySessionID("session-suggestions")
+	if err != nil {
+		t.Errorf("GetBySessionID() error = %v", err)
+	}
+
+	// 验证返回最新 10 条 (这里只有 5 条)
+	if len(suggestions) != 5 {
+		t.Errorf("Expected 5 suggestions, got %d", len(suggestions))
+	}
+}
+
+// TestAISuggestionRepository_MarkAsUsed 测试标记建议已使用
+func TestAISuggestionRepository_MarkAsUsed(t *testing.T) {
+	_, _, _, aiSuggestionRepo, _, _ := setupCustomerSessionRepositories(t)
+
+	suggestion := &model.AISuggestion{
+		SessionID:  "session-001",
+		MessageID:  1,
+		Suggestion: "Test suggestion",
+		Confidence: 0.9,
+		Source:     "llm",
+		IsUsed:     false,
+	}
+	aiSuggestionRepo.Create(suggestion)
+
+	err := aiSuggestionRepo.MarkAsUsed(suggestion.ID, 1)
+	if err != nil {
+		t.Errorf("MarkAsUsed() error = %v", err)
+	}
+
+	// 验证标记
+	var updated model.AISuggestion
+	db.GetDB().First(&updated, suggestion.ID)
+
+	if !updated.IsUsed {
+		t.Error("Expected IsUsed to be true")
+	}
+	if updated.UsedBy != 1 {
+		t.Errorf("Expected UsedBy 1, got %d", updated.UsedBy)
+	}
+	if updated.UsedAt == nil {
+		t.Error("Expected UsedAt to be set")
+	}
+}
+
+// ============= QuickReplyRepository Tests =============
+
+// TestQuickReplyRepository_Create 测试创建快捷回复
+func TestQuickReplyRepository_Create(t *testing.T) {
+	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name    string
+		reply   *model.QuickReply
+		wantErr bool
+	}{
+		{
+			name: "create public reply",
+			reply: &model.QuickReply{
+				Category:  "greeting",
+				Title:     "Welcome",
+				Content:   "Hello! How can I help you today?",
+				SortOrder: 1,
+				IsPublic:  true,
+				CreatedBy: 1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create private reply",
+			reply: &model.QuickReply{
+				Category:  "internal",
+				Title:     "Internal Note",
+				Content:   "Internal usage only",
+				SortOrder: 1,
+				IsPublic:  false,
+				CreatedBy: 1,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := quickReplyRepo.Create(tt.reply)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.reply.ID == 0 {
+				t.Error("Expected reply ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestQuickReplyRepository_Update 测试更新快捷回复
+func TestQuickReplyRepository_Update(t *testing.T) {
+	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
+
+	reply := &model.QuickReply{
+		Category:  "greeting",
+		Title:     "Welcome",
+		Content:   "Original content",
+		SortOrder: 1,
+		IsPublic:  true,
+	}
+	quickReplyRepo.Create(reply)
+
+	reply.Title = "Updated Welcome"
+	reply.Content = "Updated content"
+
+	err := quickReplyRepo.Update(reply)
+	if err != nil {
+		t.Errorf("Update() error = %v", err)
+	}
+
+	updated, _ := quickReplyRepo.GetByID(reply.ID)
+	if updated.Title != "Updated Welcome" {
+		t.Errorf("Expected Title 'Updated Welcome', got '%s'", updated.Title)
+	}
+	if updated.Content != "Updated content" {
+		t.Errorf("Expected Content 'Updated content', got '%s'", updated.Content)
+	}
+}
+
+// TestQuickReplyRepository_Delete 测试删除快捷回复
+func TestQuickReplyRepository_Delete(t *testing.T) {
+	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
+
+	reply := &model.QuickReply{
+		Category: "greeting",
+		Title:    "To Delete",
+		Content:  "Delete me",
+		IsPublic: true,
+	}
+	quickReplyRepo.Create(reply)
+
+	err := quickReplyRepo.Delete(reply.ID)
+	if err != nil {
+		t.Errorf("Delete() error = %v", err)
+	}
+
+	_, err = quickReplyRepo.GetByID(reply.ID)
+	if err == nil {
+		t.Error("Expected reply to be deleted")
+	}
+}
+
+// TestQuickReplyRepository_GetByID 测试根据 ID 获取快捷回复
+func TestQuickReplyRepository_GetByID(t *testing.T) {
+	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
+
+	reply := &model.QuickReply{
+		Category: "greeting",
+		Title:    "GetByID Test",
+		Content:  "Test content",
+		IsPublic: true,
+	}
+	quickReplyRepo.Create(reply)
+
+	tests := []struct {
+		name    string
+		id      uint
+		wantErr bool
+	}{
+		{
+			name:    "get existing reply",
+			id:      reply.ID,
+			wantErr: false,
+		},
+		{
+			name:    "get non-existing reply",
+			id:      99999,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := quickReplyRepo.GetByID(tt.id)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.Title != "GetByID Test" {
+					t.Errorf("Expected Title 'GetByID Test', got '%s'", result.Title)
+				}
+			}
+		})
+	}
+}
+
+// TestQuickReplyRepository_GetCategories 测试获取快捷回复分类列表
+func TestQuickReplyRepository_GetCategories(t *testing.T) {
+	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
+
+	// 创建测试数据
+	quickReplyRepo.Create(&model.QuickReply{
+		Category: "greeting",
+		Title:    "Hello",
+		IsPublic: true,
+	})
+	quickReplyRepo.Create(&model.QuickReply{
+		Category: "greeting",
+		Title:    "Welcome",
+		IsPublic: true,
+	})
+	quickReplyRepo.Create(&model.QuickReply{
+		Category: "faq",
+		Title:    "Refund",
+		IsPublic: true,
+	})
+	quickReplyRepo.Create(&model.QuickReply{
+		Category: "shipping",
+		Title:    "Delivery",
+		IsPublic: true,
+	})
+
+	categories, err := quickReplyRepo.GetCategories()
+	if err != nil {
+		t.Errorf("GetCategories() error = %v", err)
+	}
+
+	if len(categories) != 3 {
+		t.Errorf("Expected 3 categories, got %d", len(categories))
+	}
+}
+
+// ============= SessionTagRepository Tests =============
+
+// TestSessionTagRepository_Create 测试创建会话标签
+func TestSessionTagRepository_Create(t *testing.T) {
+	_, _, _, _, _, sessionTagRepo := setupCustomerSessionRepositories(t)
+
+	tests := []struct {
+		name    string
+		tag     *model.SessionTag
+		wantErr bool
+	}{
+		{
+			name: "create tag success",
+			tag: &model.SessionTag{
+				Name:      "Urgent",
+				Code:      "urgent",
+				Color:     "#FF0000",
+				SortOrder: 1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "create tag without color",
+			tag: &model.SessionTag{
+				Name:      "Normal",
+				Code:      "normal",
+				SortOrder: 2,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sessionTagRepo.Create(tt.tag)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.tag.ID == 0 {
+				t.Error("Expected tag ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestSessionTagRepository_Update 测试更新会话标签
+func TestSessionTagRepository_Update(t *testing.T) {
+	_, _, _, _, _, sessionTagRepo := setupCustomerSessionRepositories(t)
+
+	tag := &model.SessionTag{
+		Name:      "Original",
+		Color:     "#000000",
+		SortOrder: 1,
+	}
+	sessionTagRepo.Create(tag)
+
+	tag.Name = "Updated"
+	tag.Color = "#FF0000"
+
+	err := sessionTagRepo.Update(tag)
+	if err != nil {
+		t.Errorf("Update() error = %v", err)
+	}
+
+	updated, _ := sessionTagRepo.GetByID(tag.ID)
+	if updated.Name != "Updated" {
+		t.Errorf("Expected Name 'Updated', got '%s'", updated.Name)
+	}
+	if updated.Color != "#FF0000" {
+		t.Errorf("Expected Color '#FF0000', got '%s'", updated.Color)
+	}
+}
+
+// TestSessionTagRepository_Delete 测试删除会话标签
+func TestSessionTagRepository_Delete(t *testing.T) {
+	_, _, _, _, _, sessionTagRepo := setupCustomerSessionRepositories(t)
+
+	tag := &model.SessionTag{
+		Name:  "To Delete",
+		Color: "#000000",
+	}
+	sessionTagRepo.Create(tag)
+
+	err := sessionTagRepo.Delete(tag.ID)
+	if err != nil {
+		t.Errorf("Delete() error = %v", err)
+	}
+
+	_, err = sessionTagRepo.GetByID(tag.ID)
+	if err == nil {
+		t.Error("Expected tag to be deleted")
+	}
+}
+
+// TestSessionTagRepository_GetByID 测试根据 ID 获取标签
+func TestSessionTagRepository_GetByID(t *testing.T) {
+	_, _, _, _, _, sessionTagRepo := setupCustomerSessionRepositories(t)
+
+	tag := &model.SessionTag{
+		Name:      "GetByID Tag",
+		Color:     "#123456",
+		SortOrder: 1,
+	}
+	sessionTagRepo.Create(tag)
+
+	tests := []struct {
+		name    string
+		id      uint
+		wantErr bool
+	}{
+		{
+			name:    "get existing tag",
+			id:      tag.ID,
+			wantErr: false,
+		},
+		{
+			name:    "get non-existing tag",
+			id:      99999,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := sessionTagRepo.GetByID(tt.id)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.Name != "GetByID Tag" {
+					t.Errorf("Expected Name 'GetByID Tag', got '%s'", result.Name)
+				}
+			}
+		})
+	}
+}

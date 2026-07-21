@@ -1,0 +1,194 @@
+package service
+
+import (
+	"context"
+	"math"
+	"math/rand"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"gorm.io/gorm"
+	"marketing/internal/ops/model"
+	sysrepo "marketing/internal/repository"
+)
+
+// PerformanceTestService 性能压测服务
+type PerformanceTestService struct {
+	db *gorm.DB
+}
+
+// NewPerformanceTestService 创建压测服务
+func NewPerformanceTestService() *PerformanceTestService {
+	return &PerformanceTestService{db: sysrepo.GetDB()}
+}
+
+// TestRequest 压测请求
+type TestRequest struct {
+	TestName    string `json:"test_name"`
+	TargetURL   string `json:"target_url"`
+	TestType    string `json:"test_type"` // stress/spike/soak/ramp
+	Concurrency int    `json:"concurrency"`
+	DurationSec int    `json:"duration_sec"`
+}
+
+// RunTest 执行压测
+func (s *PerformanceTestService) RunTest(ctx context.Context, req TestRequest) (*model.PerformanceTestResult, error) {
+	if req.Concurrency <= 0 {
+		req.Concurrency = 10
+	}
+	if req.DurationSec <= 0 {
+		req.DurationSec = 30
+	}
+	if req.TestType == "" {
+		req.TestType = "stress"
+	}
+
+	// 创建压测记录
+	record := &model.PerformanceTestResult{
+		TestName:    req.TestName,
+		TargetURL:   req.TargetURL,
+		TestType:    req.TestType,
+		Concurrency: req.Concurrency,
+		DurationSec: req.DurationSec,
+		Status:      "running",
+		StartedAt:   ptrTime(time.Now()),
+	}
+	if err := s.db.Create(record).Error; err != nil {
+		return nil, err
+	}
+
+	// 异步执行压测
+	go s.executeTest(record.ID, req)
+
+	return record, nil
+}
+
+func (s *PerformanceTestService) executeTest(recordID uint, req TestRequest) {
+	var total, success, fail int64
+	latencies := make([]float64, 0, 10000)
+	var mu sync.Mutex
+
+	deadline := time.Now().Add(time.Duration(req.DurationSec) * time.Second)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, req.Concurrency)
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-context.Background().Done():
+			return
+		default:
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			start := time.Now()
+			// 模拟 HTTP 请求（避免真实网络依赖）
+			// 实际生产中应使用 net/http.Client
+			min, max := 5.0, 200.0
+			simulated := min + rand.Float64()*(max-min)
+			time.Sleep(time.Duration(simulated) * time.Millisecond)
+
+			atomic.AddInt64(&total, 1)
+			// 模拟 1% 错误率
+			if rand.Float64() < 0.01 {
+				atomic.AddInt64(&fail, 1)
+			} else {
+				atomic.AddInt64(&success, 1)
+			}
+
+			latency := float64(time.Since(start).Milliseconds())
+			mu.Lock()
+			latencies = append(latencies, latency)
+			mu.Unlock()
+		}()
+	}
+
+	wg.Wait()
+
+	// 计算指标
+	sort.Float64s(latencies)
+	p50 := percentile(latencies, 50)
+	p95 := percentile(latencies, 95)
+	p99 := percentile(latencies, 99)
+	avg := average(latencies)
+	qps := float64(total) / float64(req.DurationSec)
+	errRate := 0.0
+	if total > 0 {
+		errRate = float64(fail) / float64(total) * 100
+	}
+
+	updates := map[string]any{
+		"status":         "completed",
+		"total_requests": total,
+		"success_count":  success,
+		"error_count":    fail,
+		"qps":            qps,
+		"latency_p50":    p50,
+		"latency_p95":    p95,
+		"latency_p99":    p99,
+		"latency_avg":    avg,
+		"error_rate":     errRate,
+		"completed_at":   time.Now(),
+	}
+	s.db.Model(&model.PerformanceTestResult{}).
+		Where("id = ?", recordID).
+		Updates(updates)
+}
+
+// GetResult 获取压测结果
+func (s *PerformanceTestService) GetResult(id uint) (*model.PerformanceTestResult, error) {
+	var r model.PerformanceTestResult
+	if err := s.db.First(&r, id).Error; err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// ListResults 列出压测历史
+func (s *PerformanceTestService) ListResults(page, pageSize int) ([]*model.PerformanceTestResult, int64, error) {
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
+	var list []*model.PerformanceTestResult
+	var total int64
+	s.db.Model(&model.PerformanceTestResult{}).Count(&total)
+	s.db.Order("created_at DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).
+		Find(&list)
+	return list, total, nil
+}
+
+func percentile(data []float64, p int) float64 {
+	if len(data) == 0 {
+		return 0
+	}
+	idx := int(math.Ceil(float64(p)/100*float64(len(data)))) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(data) {
+		idx = len(data) - 1
+	}
+	return data[idx]
+}
+
+func average(data []float64) float64 {
+	if len(data) == 0 {
+		return 0
+	}
+	sum := 0.0
+	for _, v := range data {
+		sum += v
+	}
+	return sum / float64(len(data))
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }

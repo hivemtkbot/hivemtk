@@ -1,0 +1,69 @@
+# ============================================================
+# 用户端前端 (user-web) - .gitignore
+# Vue + Vite 项目，路径相对于 user-web/ 目录本身
+# ============================================================
+
+# ---------- 依赖 ----------
+node_modules/
+.pnp
+.pnp.js
+
+# ---------- 构建产物 ----------
+dist/*
+!dist/.gitkeep
+dist-ssr
+*.local
+
+# ---------- 环境配置（含敏感信息）----------
+.env.local
+.env.*.local
+# .env.example / .env.development / .env.production 均为配置模板，需入库
+
+# ---------- 日志 ----------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.workbuddy-ai/*
+
+# ---------- 编辑器 / IDE ----------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.claude/
+.trae/
+.sisyphus/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+
+# ---------- Playwright ----------
+playwright-report/
+playwright-report-api/
+test-results/
+playwright/.cache
+
+# ---------- 证书和密钥 ----------
+*.pem
+*.key
+*.crt
+*.p12
+
+# ---------- 备份与缓存 ----------
+*.bak
+*.backup
+*.bak.*
+backups/
+
+# ---------- API配置文件 ----------
+src/config/http.js

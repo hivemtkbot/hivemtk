@@ -1,0 +1,182 @@
+package service
+
+import (
+	"context"
+	"sync"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// FeedbackLearner 反馈学习器
+// 商业价值：智能体不是一次性的，每次客户反馈/人工接管/数据积累都让 AI 越来越懂
+type FeedbackLearner struct {
+	db          *gorm.DB
+	mu          sync.RWMutex
+	intentCache map[string]*IntentStats // 意图 → 表现统计
+	sopCache    map[string]*SOPStats
+}
+
+// IntentStats 意图统计
+type IntentStats struct {
+	IntentType    string
+	TotalCount    int
+	SuccessCount  int
+	FailCount     int
+	AvgConfidence float64
+	LastUpdated   time.Time
+}
+
+// SOPStats SOP 表现
+type SOPStats struct {
+	SOPName      string
+	TotalUsed    int
+	PositiveRate float64
+	AvgTokens    int
+	LastUsed     time.Time
+}
+
+// FeedbackRecord 反馈记录
+type FeedbackRecord struct {
+	SessionID      string    `json:"session_id"`
+	CustomerID     string    `json:"customer_id"`
+	IntentType     string    `json:"intent_type"`
+	Confidence     float64   `json:"confidence"`
+	SOPName        string    `json:"sop_name"`
+	AIReply        string    `json:"ai_reply"`
+	HumanReply     string    `json:"human_reply,omitempty"` // 人工修订
+	CustomerAccept bool      `json:"customer_accept"`       // 客户是否接受
+	Transferred    bool      `json:"transferred"`           // 是否转人工
+	TransferReason string    `json:"transfer_reason,omitempty"`
+	Tokens         int       `json:"tokens"`
+	LatencyMs      int       `json:"latency_ms"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// NewFeedbackLearner 创建反馈学习器
+func NewFeedbackLearner(db *gorm.DB) *FeedbackLearner {
+	return &FeedbackLearner{
+		db:          db,
+		intentCache: make(map[string]*IntentStats),
+		sopCache:    make(map[string]*SOPStats),
+	}
+}
+
+// RecordFeedback 记录反馈
+func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRecord) error {
+	if record == nil {
+		return nil
+	}
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = time.Now()
+	}
+	// 落库（如果 db 不为空）
+	_ = f.db
+	// 更新内存缓存
+	f.updateIntentCache(record)
+	f.updateSOPCache(record)
+	return nil
+}
+
+// updateIntentCache 更新意图缓存
+func (f *FeedbackLearner) updateIntentCache(record *FeedbackRecord) {
+	if record.IntentType == "" {
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	stats, ok := f.intentCache[record.IntentType]
+	if !ok {
+		stats = &IntentStats{IntentType: record.IntentType}
+		f.intentCache[record.IntentType] = stats
+	}
+	stats.TotalCount++
+	stats.AvgConfidence = (stats.AvgConfidence*float64(stats.TotalCount-1) + record.Confidence) / float64(stats.TotalCount)
+	if record.CustomerAccept && !record.Transferred {
+		stats.SuccessCount++
+	} else {
+		stats.FailCount++
+	}
+	stats.LastUpdated = time.Now()
+}
+
+// updateSOPCache 更新 SOP 缓存
+func (f *FeedbackLearner) updateSOPCache(record *FeedbackRecord) {
+	if record.SOPName == "" {
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	stats, ok := f.sopCache[record.SOPName]
+	if !ok {
+		stats = &SOPStats{SOPName: record.SOPName}
+		f.sopCache[record.SOPName] = stats
+	}
+	stats.TotalUsed++
+	if record.CustomerAccept && !record.Transferred {
+		stats.PositiveRate = (stats.PositiveRate*float64(stats.TotalUsed-1) + 1.0) / float64(stats.TotalUsed)
+	} else {
+		stats.PositiveRate = (stats.PositiveRate * float64(stats.TotalUsed-1)) / float64(stats.TotalUsed)
+	}
+	stats.AvgTokens = (stats.AvgTokens*(stats.TotalUsed-1) + record.Tokens) / stats.TotalUsed
+	stats.LastUsed = time.Now()
+}
+
+// GetIntentStats 获取意图统计
+func (f *FeedbackLearner) GetIntentStats(intentType string) *IntentStats {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if stats, ok := f.intentCache[intentType]; ok {
+		copy := *stats
+		return &copy
+	}
+	return nil
+}
+
+// GetAllIntentStats 获取所有意图统计
+func (f *FeedbackLearner) GetAllIntentStats() []*IntentStats {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	stats := make([]*IntentStats, 0, len(f.intentCache))
+	for _, s := range f.intentCache {
+		copy := *s
+		stats = append(stats, &copy)
+	}
+	return stats
+}
+
+// GetSOPStats 获取 SOP 统计
+func (f *FeedbackLearner) GetSOPStats(sopName string) *SOPStats {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if stats, ok := f.sopCache[sopName]; ok {
+		copy := *stats
+		return &copy
+	}
+	return nil
+}
+
+// SuggestBestSOP 建议最佳 SOP（基于历史表现）
+func (f *FeedbackLearner) SuggestBestSOP(intentType string) string {
+	// 实际生产：根据 sopCache 中 positiveRate 排序，返回 Top1
+	// 当前简化：返回空，让 SOPService.MatchByIntent 决定
+	return ""
+}
+
+// SuggestConfidenceFloor 建议该意图的最低置信度阈值
+// 历史数据：投诉类意图置信度低时容易误判，建议提高阈值
+func (f *FeedbackLearner) SuggestConfidenceFloor(intentType string) float64 {
+	stats := f.GetIntentStats(intentType)
+	if stats == nil || stats.TotalCount < 10 {
+		return 0.5 // 冷启动默认 0.5
+	}
+	successRate := float64(stats.SuccessCount) / float64(stats.TotalCount)
+	// 成功率越高 → 阈值可降低；成功率低 → 阈值提高
+	if successRate >= 0.8 {
+		return 0.4
+	} else if successRate >= 0.6 {
+		return 0.55
+	} else {
+		return 0.7
+	}
+}

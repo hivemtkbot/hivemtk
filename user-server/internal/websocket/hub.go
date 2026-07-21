@@ -1,0 +1,268 @@
+package websocket
+
+import (
+	"encoding/json"
+	"sync"
+	"time"
+
+	"marketing/internal/pkg/utils/logger"
+)
+
+// Hub WebSocket连接中心
+type Hub struct {
+	clients     map[string]*Client // agentID -> Client
+	register    chan *Client
+	unregister  chan *Client
+	broadcast   chan *Message
+	mu          sync.RWMutex
+	agentOnline map[string]bool // agentID -> online status
+}
+
+// Client WebSocket客户端
+// 同时支持 agent（坐席）和 visitor（访客）两种类型
+type Client struct {
+	hub        *Hub
+	send       chan []byte
+	clientType ClientType
+	agentID    string
+	agentName  string
+	merchantID string
+	// visitor 专用字段
+	sessionID string // 访客所属会话 ID
+	visitorID string // 访客 ID
+	channelID string // 访客所属渠道 ID
+}
+
+// Message WebSocket消息
+type Message struct {
+	Type    string          `json:"type"` // new_session, new_message, session_update, agent_status, ai_suggestion
+	AgentID string          `json:"agent_id"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// NewHub 创建WebSocket中心
+func NewHub() *Hub {
+	return &Hub{
+		clients:     make(map[string]*Client),
+		register:    make(chan *Client, 256),
+		unregister:  make(chan *Client, 256),
+		broadcast:   make(chan *Message, 1024),
+		agentOnline: make(map[string]bool),
+	}
+}
+
+// Run 运行WebSocket中心
+func (h *Hub) Run() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case client := <-h.register:
+			h.mu.Lock()
+			h.clients[client.agentID] = client
+			h.agentOnline[client.agentID] = true
+			h.mu.Unlock()
+			logger.GetLogger().Info().Str("agent_id", client.agentID).Msg("agent connected")
+
+		case client := <-h.unregister:
+			h.mu.Lock()
+			if _, ok := h.clients[client.agentID]; ok {
+				delete(h.clients, client.agentID)
+				h.agentOnline[client.agentID] = false
+				close(client.send)
+			}
+			h.mu.Unlock()
+			logger.GetLogger().Info().Str("agent_id", client.agentID).Msg("agent disconnected")
+
+		case message := <-h.broadcast:
+			h.mu.RLock()
+			if client, ok := h.clients[message.AgentID]; ok {
+				select {
+				case client.send <- message.Payload:
+				default:
+					close(client.send)
+					delete(h.clients, client.agentID)
+					h.agentOnline[client.agentID] = false
+				}
+			}
+			h.mu.RUnlock()
+
+		case <-ticker.C:
+			// 心跳检测
+			h.mu.RLock()
+			for agentID, client := range h.clients {
+				select {
+				case client.send <- []byte(`{"type":"heartbeat"}`):
+				default:
+					delete(h.clients, agentID)
+					h.agentOnline[agentID] = false
+					close(client.send)
+				}
+			}
+			h.mu.RUnlock()
+		}
+	}
+}
+
+// Register 注册客户端
+func (h *Hub) Register(client *Client) {
+	h.register <- client
+}
+
+// Unregister 注销客户端
+func (h *Hub) Unregister(client *Client) {
+	h.unregister <- client
+}
+
+// Broadcast 广播消息
+func (h *Hub) Broadcast(message *Message) {
+	h.broadcast <- message
+}
+
+// SendToAgent 发送消息给指定客服
+func (h *Hub) SendToAgent(agentID string, messageType string, payload any) error {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	h.Broadcast(&Message{
+		Type:    messageType,
+		AgentID: agentID,
+		Payload: payloadBytes,
+	})
+	return nil
+}
+
+// BroadcastToMerchant 广播消息给所有客户端（私域部署：单租户全广播）
+// merchantID 参数保留为接口一致性，实际私域部署中所有客户端共享同一实例
+func (h *Hub) BroadcastToMerchant(merchantID string, messageType string, payload any) error {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for agentID, client := range h.clients {
+		_ = client
+		_ = merchantID // 私域部署忽略
+		h.Broadcast(&Message{
+			Type:    messageType,
+			AgentID: agentID,
+			Payload: payloadBytes,
+		})
+	}
+	return nil
+}
+
+// IsAgentOnline 检查客服是否在线
+func (h *Hub) IsAgentOnline(agentID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.agentOnline[agentID]
+}
+
+// GetOnlineAgents 获取在线客服列表
+// 私域部署：忽略 merchantID 过滤，返回所有在线 agent
+func (h *Hub) GetOnlineAgents(merchantID string) []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var agents []string
+	for agentID, client := range h.clients {
+		if client.IsVisitor() {
+			continue
+		}
+		_ = merchantID
+		agents = append(agents, agentID)
+	}
+	return agents
+}
+
+// GetOnlineCount 获取在线客服数量
+func (h *Hub) GetOnlineCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
+}
+
+// NewClient 创建客服坐席客户端（保持向后兼容）
+// 推荐使用 NewAgentClient 显式指定类型
+func NewClient(hub *Hub, agentID, agentName string) *Client {
+	return NewAgentClient(hub, agentID, agentName)
+}
+
+// NewAgentClient 创建客服坐席客户端
+func NewAgentClient(hub *Hub, agentID, agentName string) *Client {
+	return &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		clientType: ClientTypeAgent,
+		agentID:    agentID,
+		agentName:  agentName,
+	}
+}
+
+// NewVisitorClient 创建访客客户端
+func NewVisitorClient(hub *Hub, sessionID, visitorID, channelID string) *Client {
+	return &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		clientType: ClientTypeVisitor,
+		sessionID:  sessionID,
+		visitorID:  visitorID,
+		channelID:  channelID,
+	}
+}
+
+// IsVisitor 是否访客客户端
+func (c *Client) IsVisitor() bool {
+	return c.clientType == ClientTypeVisitor
+}
+
+// SendChan 返回客户端下行消息通道（导出，供跨包集成测试读取真实推送）
+func (c *Client) SendChan() <-chan []byte {
+	return c.send
+}
+
+// globalHub 全局WebSocket中心
+var globalHub *Hub
+var once sync.Once
+
+// GetHub 获取全局WebSocket中心
+func GetHub() *Hub {
+	once.Do(func() {
+		globalHub = NewHub()
+		go globalHub.Run()
+	})
+	return globalHub
+}
+
+// NotifyNewSession 通知新会话
+func NotifyNewSession(agentID string, sessionData any) error {
+	return GetHub().SendToAgent(agentID, "new_session", sessionData)
+}
+
+// NotifyNewMessage 通知新消息
+func NotifyNewMessage(agentID string, messageData any) error {
+	return GetHub().SendToAgent(agentID, "new_message", messageData)
+}
+
+// NotifySessionUpdate 通知会话状态更新
+func NotifySessionUpdate(agentID string, sessionData any) error {
+	return GetHub().SendToAgent(agentID, "session_update", sessionData)
+}
+
+// NotifyAISuggestion 通知AI建议
+func NotifyAISuggestion(agentID string, suggestionData any) error {
+	return GetHub().SendToAgent(agentID, "ai_suggestion", suggestionData)
+}
+
+// BroadcastAgentStatus 广播客服状态变更
+func BroadcastAgentStatus(statusData any) error {
+	// 私域部署：单租户，merchantID 留空
+	return GetHub().BroadcastToMerchant("", "agent_status", statusData)
+}

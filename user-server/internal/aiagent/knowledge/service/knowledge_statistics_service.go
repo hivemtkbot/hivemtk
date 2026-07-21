@@ -1,0 +1,430 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"marketing/internal/aiagent/knowledge/model"
+	"marketing/internal/aiagent/knowledge/repository"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// KnowledgeStatisticsService 知识库统计服务
+type KnowledgeStatisticsService struct {
+	db            *gorm.DB
+	docRepo       *repository.KnowledgeDocumentRepository
+	chunkRepo     *repository.KnowledgeChunkRepository
+	importLogRepo *repository.KnowledgeImportLogRepository
+	searchLogRepo *repository.KnowledgeSearchLogRepository
+	openapiRepo   *repository.KnowledgeOpenAPIRepository
+}
+
+// NewKnowledgeStatisticsService 创建统计服务
+func NewKnowledgeStatisticsService() *KnowledgeStatisticsService {
+	return &KnowledgeStatisticsService{
+		db:            dbGetDB(),
+		docRepo:       repository.NewKnowledgeDocumentRepository(dbGetDB()),
+		chunkRepo:     repository.NewKnowledgeChunkRepository(dbGetDB()),
+		importLogRepo: repository.NewKnowledgeImportLogRepository(dbGetDB()),
+		searchLogRepo: repository.NewKnowledgeSearchLogRepository(dbGetDB()),
+		openapiRepo:   repository.NewKnowledgeOpenAPIRepository(dbGetDB()),
+	}
+}
+
+// NewKnowledgeStatisticsServiceWithDB 带 DB 的统计服务(用于测试)
+func NewKnowledgeStatisticsServiceWithDB(gdb *gorm.DB) *KnowledgeStatisticsService {
+	return &KnowledgeStatisticsService{
+		db:            gdb,
+		docRepo:       repository.NewKnowledgeDocumentRepository(gdb),
+		chunkRepo:     repository.NewKnowledgeChunkRepository(gdb),
+		importLogRepo: repository.NewKnowledgeImportLogRepository(gdb),
+		searchLogRepo: repository.NewKnowledgeSearchLogRepository(gdb),
+		openapiRepo:   repository.NewKnowledgeOpenAPIRepository(gdb),
+	}
+}
+
+// ============================================================================
+// 概览
+// ============================================================================
+
+// OverviewData 总览数据
+type OverviewData struct {
+	TotalDocuments       int64            `json:"total_documents"`
+	TotalChunks          int64            `json:"total_chunks"`
+	TotalTokens          int64            `json:"total_tokens"`
+	TotalSearches        int64            `json:"total_searches"`
+	TodayImports         int64            `json:"today_imports"`
+	TodaySearches        int64            `json:"today_searches"`
+	HitRate              float64          `json:"hit_rate"`
+	AvgSearchLatency     float64          `json:"avg_search_latency_ms"`
+	EmbedStatusBreakdown map[string]int64 `json:"embed_status_breakdown"`
+	SourceTypeBreakdown  map[string]int64 `json:"source_type_breakdown"`
+	IndexHealth          IndexHealth      `json:"index_health"`
+}
+
+// IndexHealth 索引健康度
+type IndexHealth struct {
+	IndexedDocs    int64   `json:"indexed_docs"`
+	ProcessingDocs int64   `json:"processing_docs"`
+	PendingDocs    int64   `json:"pending_docs"`
+	FailedDocs     int64   `json:"failed_docs"`
+	IndexRate      float64 `json:"index_rate"`
+}
+
+// GetOverview 获取知识库总览
+//
+// 2026-07-18 修复：KnowledgeDocument.ProductID 是 int64（迁移 schema 为 INTEGER），
+// 但前端传入的 RagProduct.ID 是 string UUID。调用方需将 string UUID 经
+// HashStringToInt64 映射回 int64。productID=0 表示不按 product 过滤。
+func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID int64) (*OverviewData, error) {
+	overview := &OverviewData{
+		EmbedStatusBreakdown: make(map[string]int64),
+		SourceTypeBreakdown:  make(map[string]int64),
+	}
+
+	// 文档统计
+	totalDocs, err := s.docRepo.CountByMerchant(ctx)
+	if err != nil {
+		return nil, errors.New("统计文档数失败: " + err.Error())
+	}
+	overview.TotalDocuments = totalDocs
+
+	totalChunks, err := s.chunkRepo.CountByMerchant(ctx)
+	if err != nil {
+		return nil, errors.New("统计分段数失败: " + err.Error())
+	}
+	overview.TotalChunks = totalChunks
+
+	// Tokens 累计
+	type TokenResult struct {
+		TotalTokens int64
+	}
+	var tr TokenResult
+	q := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).Select("COALESCE(SUM(total_tokens), 0) as total_tokens")
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	_ = q.Scan(&tr)
+	overview.TotalTokens = tr.TotalTokens
+
+	// 检索统计
+	overview.TotalSearches, _ = s.searchLogRepo.TodayCount(ctx) // 简化:用 TodayCount 累计
+
+	// 今日导入/检索
+	overview.TodayImports, _ = s.docRepo.CountTodayImports(ctx)
+	overview.TodaySearches, _ = s.searchLogRepo.TodayCount(ctx)
+
+	// 检索质量
+	start := time.Now().AddDate(0, 0, -30)
+	quality, _ := s.searchLogRepo.GetQualityStats(ctx, productID, start, time.Now())
+	if quality != nil {
+		overview.HitRate = quality.HitRate
+		overview.AvgSearchLatency = quality.AvgLatencyMs
+	}
+
+	// 嵌入状态分布
+	for _, status := range []model.EmbedStatus{
+		model.EmbedStatusPending, model.EmbedStatusProcessing,
+		model.EmbedStatusIndexed, model.EmbedStatusFailed,
+	} {
+		filter := repository.ListFilter{
+
+			ProductID:   productID,
+			EmbedStatus: string(status),
+			PageSize:    1,
+		}
+		_, total, _ := s.docRepo.List(ctx, filter)
+		overview.EmbedStatusBreakdown[string(status)] = total
+	}
+
+	// 来源类型分布
+	for _, st := range []model.SourceType{
+		model.SourceTypeUpload, model.SourceTypeText,
+		model.SourceTypeURL, model.SourceTypeOpenAPI,
+	} {
+		filter := repository.ListFilter{
+
+			ProductID:  productID,
+			SourceType: string(st),
+			PageSize:   1,
+		}
+		_, total, _ := s.docRepo.List(ctx, filter)
+		overview.SourceTypeBreakdown[string(st)] = total
+	}
+
+	// 索引健康
+	overview.IndexHealth.IndexedDocs = overview.EmbedStatusBreakdown[string(model.EmbedStatusIndexed)]
+	overview.IndexHealth.ProcessingDocs = overview.EmbedStatusBreakdown[string(model.EmbedStatusProcessing)]
+	overview.IndexHealth.PendingDocs = overview.EmbedStatusBreakdown[string(model.EmbedStatusPending)]
+	overview.IndexHealth.FailedDocs = overview.EmbedStatusBreakdown[string(model.EmbedStatusFailed)]
+	if totalDocs > 0 {
+		overview.IndexHealth.IndexRate = float64(overview.IndexHealth.IndexedDocs) / float64(totalDocs)
+	}
+
+	return overview, nil
+}
+
+// ============================================================================
+// 文档维度
+// ============================================================================
+
+// DocumentStatsData 文档维度统计
+type DocumentStatsData struct {
+	Overview      *OverviewData               `json:"overview"`
+	ImportTrend   []repository.DailyTrendItem `json:"import_trend"`
+	SourceTypePie []SourceTypeStat            `json:"source_type_pie"`
+	CategoryPie   []CategoryStat              `json:"category_pie"`
+	TopDocuments  []DocumentHit               `json:"top_documents"`
+}
+
+// SourceTypeStat 来源类型统计
+type SourceTypeStat struct {
+	Type  string `json:"type"`
+	Count int64  `json:"count"`
+}
+
+// CategoryStat 分类统计
+type CategoryStat struct {
+	Category string `json:"category"`
+	Count    int64  `json:"count"`
+}
+
+// DocumentHit 文档命中统计
+type DocumentHit struct {
+	DocumentID  uint64  `json:"document_id"`
+	Title       string  `json:"title"`
+	SearchCount int64   `json:"search_count"`
+	HitCount    int64   `json:"hit_count"`
+	HitRate     float64 `json:"hit_rate"`
+}
+
+// GetDocumentStats 文档维度统计
+func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, productID int64, days int) (*DocumentStatsData, error) {
+	overview, err := s.GetOverview(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+
+	data := &DocumentStatsData{Overview: overview}
+
+	// 导入趋势
+	trend, err := s.importLogRepo.DailyImportTrend(ctx, productID, days)
+	if err == nil {
+		data.ImportTrend = trend
+	}
+
+	// 来源类型
+	for st, count := range overview.SourceTypeBreakdown {
+		data.SourceTypePie = append(data.SourceTypePie, SourceTypeStat{Type: st, Count: count})
+	}
+
+	// 分类
+	type CatResult struct {
+		Category string
+		Count    int64
+	}
+	var catResults []CatResult
+	q := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
+		Select("COALESCE(category, '未分类') as category, COUNT(*) as count").
+		Group("COALESCE(category, '未分类')").
+		Order("count DESC").
+		Limit(20)
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	_ = q.Scan(&catResults)
+	for _, c := range catResults {
+		data.CategoryPie = append(data.CategoryPie, CategoryStat{Category: c.Category, Count: c.Count})
+	}
+
+	// 热门文档(按检索+命中)
+	type DocHit struct {
+		ID          uint64
+		Title       string
+		SearchCount int64
+		HitCount    int64
+	}
+	var docHits []DocHit
+	q2 := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
+		Select("id, title, search_count, hit_count").
+		Order("search_count DESC, hit_count DESC").
+		Limit(10)
+	if productID > 0 {
+		q2 = q2.Where("product_id = ?", productID)
+	}
+	_ = q2.Scan(&docHits)
+	for _, d := range docHits {
+		rate := float64(0)
+		if d.SearchCount > 0 {
+			rate = float64(d.HitCount) / float64(d.SearchCount)
+		}
+		data.TopDocuments = append(data.TopDocuments, DocumentHit{
+			DocumentID:  d.ID,
+			Title:       d.Title,
+			SearchCount: d.SearchCount,
+			HitCount:    d.HitCount,
+			HitRate:     rate,
+		})
+	}
+
+	return data, nil
+}
+
+// ============================================================================
+// 检索维度
+// ============================================================================
+
+// SearchStatsData 检索维度统计
+type SearchStatsData struct {
+	Overview       *OverviewData               `json:"overview"`
+	SearchTrend    []repository.DailyTrendItem `json:"search_trend"`
+	HotQueries     []repository.HotQuery       `json:"hot_queries"`
+	ScoreHistogram []repository.ScoreBucket    `json:"score_histogram"`
+	QualityStats   *repository.QualityStats    `json:"quality_stats"`
+}
+
+// GetSearchStats 检索维度统计
+func (s *KnowledgeStatisticsService) GetSearchStats(ctx context.Context, productID int64, days int) (*SearchStatsData, error) {
+	overview, err := s.GetOverview(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+
+	data := &SearchStatsData{Overview: overview}
+
+	// 检索趋势
+	trend, err := s.searchLogRepo.SearchTrend(ctx, productID, days)
+	if err == nil {
+		data.SearchTrend = trend
+	}
+
+	// 热点查询
+	hot, err := s.searchLogRepo.GetHotQueries(ctx, productID, days, 20)
+	if err == nil {
+		data.HotQueries = hot
+	}
+
+	// 分数直方图
+	hist, err := s.searchLogRepo.GetScoreHistogram(ctx, productID, days)
+	if err == nil {
+		data.ScoreHistogram = hist
+	}
+
+	// 质量统计
+	start := time.Now().AddDate(0, 0, -days)
+	quality, err := s.searchLogRepo.GetQualityStats(ctx, productID, start, time.Now())
+	if err == nil {
+		data.QualityStats = quality
+	}
+
+	return data, nil
+}
+
+// ============================================================================
+// OpenAPI 维度
+// ============================================================================
+
+// OpenAPIStatsData OpenAPI 同步统计
+type OpenAPIStatsData struct {
+	TotalSources   int64                          `json:"total_sources"`
+	EnabledSources int64                          `json:"enabled_sources"`
+	FailedSources  int64                          `json:"failed_sources"`
+	TotalSynced    int64                          `json:"total_synced"`
+	SourceList     []model.KnowledgeOpenAPISource `json:"source_list"`
+}
+
+// GetOpenAPIStats OpenAPI 同步统计
+func (s *KnowledgeStatisticsService) GetOpenAPIStats(ctx context.Context, productID int64) (*OpenAPIStatsData, error) {
+	data := &OpenAPIStatsData{}
+	sources, err := s.openapiRepo.List(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+	data.TotalSources = int64(len(sources))
+	for _, src := range sources {
+		if src.Enabled == 1 {
+			data.EnabledSources++
+		}
+		if src.LastStatus == "failed" {
+			data.FailedSources++
+		}
+		data.TotalSynced += src.TotalSynced
+	}
+	data.SourceList = sources
+	return data, nil
+}
+
+// ============================================================================
+// 导入维度
+// ============================================================================
+
+// ImportStatsData 导入维度统计
+type ImportStatsData struct {
+	TotalImports   int64                       `json:"total_imports"`
+	SuccessImports int64                       `json:"success_imports"`
+	FailedImports  int64                       `json:"failed_imports"`
+	SuccessRate    float64                     `json:"success_rate"`
+	AvgDurationMs  float64                     `json:"avg_duration_ms"`
+	DailyTrend     []repository.DailyTrendItem `json:"daily_trend"`
+	RecentLogs     []model.KnowledgeImportLog  `json:"recent_logs"`
+}
+
+// GetImportStats 导入维度统计
+func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, productID int64, days int) (*ImportStatsData, error) {
+	data := &ImportStatsData{}
+
+	// 趋势
+	trend, err := s.importLogRepo.DailyImportTrend(ctx, productID, days)
+	if err == nil {
+		data.DailyTrend = trend
+		for _, t := range trend {
+			data.TotalImports += int64(t.Count)
+			data.FailedImports += int64(t.Failed)
+		}
+	}
+	data.SuccessImports = data.TotalImports - data.FailedImports
+	if data.TotalImports > 0 {
+		data.SuccessRate = float64(data.SuccessImports) / float64(data.TotalImports)
+	}
+
+	// 平均耗时
+	type DurResult struct {
+		AvgDur float64
+	}
+	var dr DurResult
+	q := s.db.WithContext(ctx).Model(&model.KnowledgeImportLog{}).
+		Select("AVG(duration_ms) as avg_dur")
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	_ = q.Scan(&dr)
+	data.AvgDurationMs = dr.AvgDur
+
+	// 最近日志
+	logs, _, _ := s.importLogRepo.List(ctx, repository.ImportLogListFilter{
+
+		ProductID: productID,
+		Page:      1,
+		PageSize:  20,
+	})
+	data.RecentLogs = logs
+
+	return data, nil
+}
+
+// ============================================================================
+// 记录检索日志(供 RAG 检索时调用)
+// ============================================================================
+
+// LogSearch 记录一次检索行为
+func (s *KnowledgeStatisticsService) LogSearch(ctx context.Context, log *model.KnowledgeSearchLog) error {
+	if log.Query != "" {
+		// 计算 query_hash
+		hashBytes := sha256.Sum256([]byte(log.Query))
+		log.QueryHash = hex.EncodeToString(hashBytes[:])
+	}
+	return s.searchLogRepo.Create(ctx, log)
+}

@@ -1,0 +1,602 @@
+package service
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"marketing/internal/model"
+
+	"gorm.io/gorm"
+	"marketing/internal/pkg/testutil"
+)
+
+func setupWebhookTestDB(t *testing.T) *gorm.DB {
+	return testutil.NewTestDB(t,
+		&model.WebhookEvent{},
+		&model.UnifiedMessage{},
+		&model.IntegrationAccount{},
+	)
+}
+
+func TestWebhookService_ParsePayload_BasicKeys(t *testing.T) {
+	s := &WebhookService{}
+	body := []byte(`{"event_id":"e1","event_type":"message","content":"hi","sender":"u1","chat_id":"c1"}`)
+	p, err := s.ParsePayload(ChannelCustom, body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if p.EventID != "e1" || p.EventType != "message" {
+		t.Errorf("unexpected: %+v", p)
+	}
+	if p.Content != "hi" || p.Sender != "u1" || p.ChatID != "c1" {
+		t.Errorf("unexpected fields: %+v", p)
+	}
+}
+
+func TestWebhookService_ParsePayload_AliasKeys(t *testing.T) {
+	s := &WebhookService{}
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"wechat_xml_alias", `{"MsgId":"wx1","MsgType":"text","Content":"hi","FromUserName":"u1"}`, "wx1"},
+		{"event_alias", `{"event":"user.created","id":"42"}`, "user.created"},
+		{"type_alias", `{"type":"ORDER_PAID","id":"99"}`, "ORDER_PAID"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p, err := s.ParsePayload(ChannelCustom, []byte(c.body))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			// 至少有一个匹配别名
+			if p.EventID == "" && p.EventType == "" {
+				t.Errorf("expected alias match for %s", c.name)
+			}
+		})
+	}
+}
+
+func TestWebhookService_ParsePayload_Invalid(t *testing.T) {
+	s := &WebhookService{}
+	_, err := s.ParsePayload(ChannelCustom, []byte("not json"))
+	if err == nil {
+		t.Error("expected error for invalid json")
+	}
+}
+
+func TestWebhookService_ParsePayload_EmptyKeys(t *testing.T) {
+	s := &WebhookService{}
+	p, _ := s.ParsePayload(ChannelCustom, []byte(`{}`))
+	if p == nil {
+		t.Fatal("expected payload")
+	}
+	if p.EventID != "" || p.Content != "" {
+		t.Errorf("expected empty, got %+v", p)
+	}
+}
+
+func TestWebhookService_ParsePayload_NestedJSON(t *testing.T) {
+	s := &WebhookService{}
+	body := []byte(`{"data":{"event_id":"nested1","content":"deep"}}`)
+	p, err := s.ParsePayload(ChannelCustom, body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	// 顶层取不到，Extra 应该有 raw
+	if p.Extra == nil {
+		t.Error("expected Extra")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_OK(t *testing.T) {
+	secret := "test-secret"
+	body := []byte(`{"hello":"world"}`)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	sig := hex.EncodeToString(mac.Sum(nil))
+	hdr := map[string]string{"Signature": sig}
+	if !verifyHMAC(secret, body, hdr, "Signature") {
+		t.Error("expected verify ok")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_WithPrefix(t *testing.T) {
+	secret := "test"
+	body := []byte(`{}`)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	hdr := map[string]string{"X-Signature": sig}
+	if !verifyHMAC(secret, body, hdr, "X-Signature") {
+		t.Error("expected verify ok with prefix")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_WrongSecret(t *testing.T) {
+	body := []byte(`{}`)
+	hdr := map[string]string{"Signature": "abc123"}
+	if verifyHMAC("real", body, hdr, "Signature") {
+		t.Error("expected fail with wrong secret")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_NoHeader(t *testing.T) {
+	if verifyHMAC("real", []byte("{}"), map[string]string{}, "Signature") {
+		t.Error("expected fail with no header")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_EmptySecret(t *testing.T) {
+	if verifyHMAC("", []byte("{}"), map[string]string{"Signature": "x"}, "Signature") {
+		t.Error("expected fail with empty secret")
+	}
+}
+
+func TestWebhookService_VerifyHMAC_MultiHeaders(t *testing.T) {
+	secret := "k"
+	body := []byte(`{"a":1}`)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	sig := hex.EncodeToString(mac.Sum(nil))
+	// X-Hub-Signature-256 应被识别
+	hdr := map[string]string{"X-Hub-Signature-256": sig}
+	if !verifyHMAC(secret, body, hdr, "X-Signature", "X-Hub-Signature-256") {
+		t.Error("expected multi header match")
+	}
+}
+
+func TestWebhookService_VerifyWechat_OK(t *testing.T) {
+	token := "tk"
+	ts, nonce := "123", "abc"
+	parts := []string{token, ts, nonce}
+	sort.Strings(parts)
+	h := sha1Hex([]byte(strings.Join(parts, "")))
+	hdr := map[string]string{
+		"X-Wechat-Timestamp": ts,
+		"X-Wechat-Nonce":     nonce,
+		"X-Wechat-Signature": h,
+	}
+	if !verifyWechat(token, []byte("{}"), hdr) {
+		t.Error("expected verify ok")
+	}
+}
+
+func TestWebhookService_VerifyWechat_Missing(t *testing.T) {
+	if verifyWechat("tk", []byte("{}"), map[string]string{"X-Wechat-Signature": "x"}) {
+		t.Error("expected fail with missing ts/nonce")
+	}
+}
+
+func TestWebhookService_VerifyWechat_EmptyToken(t *testing.T) {
+	if verifyWechat("", []byte("{}"), map[string]string{"X-Wechat-Signature": "x"}) {
+		t.Error("expected fail with empty token")
+	}
+}
+
+func TestWebhookService_VerifyWechat_WrongSig(t *testing.T) {
+	if verifyWechat("tk", []byte("{}"), map[string]string{
+		"X-Wechat-Timestamp": "1", "X-Wechat-Nonce": "2", "X-Wechat-Signature": "deadbeef",
+	}) {
+		t.Error("expected fail with wrong sig")
+	}
+}
+
+func TestWebhookService_Receive_EmptyBody(t *testing.T) {
+	s := NewWebhookService(setupWebhookTestDB(t))
+	defer s.Stop()
+	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: nil})
+	if err != nil {
+		t.Fatalf("recv: %v", err)
+	}
+	if r.Accepted {
+		t.Error("expected rejected for empty body")
+	}
+}
+
+func TestWebhookService_Receive_NoAccount(t *testing.T) {
+	s := NewWebhookService(setupWebhookTestDB(t))
+	defer s.Stop()
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, Body: []byte("{}")})
+	if r.Accepted {
+		t.Error("expected rejected for missing account")
+	}
+}
+
+func TestWebhookService_Receive_Custom_NoSecret(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	body := []byte(`{"event_id":"e1","event_type":"message","content":"hi"}`)
+	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
+	if err != nil {
+		t.Fatalf("recv: %v", err)
+	}
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+	if r.EventID != "e1" {
+		t.Errorf("expected event_id e1, got %s", r.EventID)
+	}
+}
+
+func TestWebhookService_Receive_Duplicate(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	body := []byte(`{"event_id":"dup1","event_type":"message","content":"hi"}`)
+	r1, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
+	if !r1.Accepted || r1.Duplicate {
+		t.Errorf("first: %+v", r1)
+	}
+	r2, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
+	if !r2.Accepted || !r2.Duplicate {
+		t.Errorf("second expected duplicate, got %+v", r2)
+	}
+}
+
+func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	body := []byte(`{"content":"hi"}`) // 没有 event_id
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+	if r.EventID == "" {
+		t.Error("expected generated event_id")
+	}
+	if !strings.HasPrefix(r.EventID, "evt_") {
+		t.Errorf("expected evt_ prefix, got %s", r.EventID)
+	}
+}
+
+func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	body := []byte(`{"event_id":"e1","content":"hi"}`) // 没有 event_type
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+	if r.EventType != "unknown" {
+		t.Errorf("expected unknown, got %s", r.EventType)
+	}
+}
+
+func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: []byte("not json")})
+	if r.Accepted {
+		t.Error("expected rejected")
+	}
+}
+
+func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	// 注入 secret
+	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
+	s := NewWebhookService(db)
+	defer s.Stop()
+
+	body := []byte(`{"event_id":"d1","content":"hi"}`)
+	mac := hmac.New(sha256.New, []byte("secret123"))
+	mac.Write(body)
+	sig := hex.EncodeToString(mac.Sum(nil))
+	hdr := map[string]string{"X-Douyin-Signature": sig}
+	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelDouyin, AccountID: "a1", Body: body, Headers: hdr})
+	if err != nil {
+		t.Fatalf("recv: %v", err)
+	}
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+}
+
+func TestWebhookService_Receive_HMAC_BadSig(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
+	s := NewWebhookService(db)
+	defer s.Stop()
+
+	body := []byte(`{"event_id":"d1"}`)
+	hdr := map[string]string{"X-Douyin-Signature": "badsig"}
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelDouyin, AccountID: "a1", Body: body, Headers: hdr})
+	if r.Accepted {
+		t.Error("expected rejected for bad sig")
+	}
+	if !r.VerifyFail {
+		t.Error("expected verify_fail")
+	}
+}
+
+func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	db.Create(&model.IntegrationAccount{Platform: "kuaishou", APISecret: "ks_secret", Status: 1})
+	s := NewWebhookService(db)
+	defer s.Stop()
+
+	body := []byte(`{"event_id":"k1"}`)
+	mac := hmac.New(sha256.New, []byte("ks_secret"))
+	mac.Write(body)
+	sig := hex.EncodeToString(mac.Sum(nil))
+	hdr := map[string]string{"X-Signature": sig}
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelKuaishou, AccountID: "a1", Body: body, Headers: hdr})
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+}
+
+func TestWebhookService_Receive_HMAC_Xiaohongshu(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	db.Create(&model.IntegrationAccount{Platform: "xiaohongshu", APISecret: "xhs", Status: 1})
+	s := NewWebhookService(db)
+	defer s.Stop()
+
+	body := []byte(`{"event_id":"x1"}`)
+	mac := hmac.New(sha256.New, []byte("xhs"))
+	mac.Write(body)
+	sig := hex.EncodeToString(mac.Sum(nil))
+	hdr := map[string]string{"X-Hub-Signature-256": "sha256=" + sig}
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelXiaohongshu, AccountID: "a1", Body: body, Headers: hdr})
+	if !r.Accepted {
+		t.Errorf("expected accepted, got %+v", r)
+	}
+}
+
+func TestWebhookService_Receive_Wechat(t *testing.T) {
+	// 当前实现里 getWechatSecrets 返回空 => 验签失败
+	// 但 verify 函数的逻辑要求 token 非空
+	s := &WebhookService{}
+	body := []byte(`{"event_id":"w1","msg_signature":"x","timestamp":"1","nonce":"2"}`)
+	hdr := map[string]string{"X-Wechat-Timestamp": "1", "X-Wechat-Nonce": "2", "X-Wechat-Signature": "x"}
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelWechat, AccountID: "a1", Body: body, Headers: hdr})
+	// 没有 token 注入 => 验签失败
+	if r.Accepted {
+		t.Error("expected rejected (no token configured)")
+	}
+}
+
+func TestWebhookService_Receive_WeCom(t *testing.T) {
+	s := &WebhookService{}
+	body := []byte(`{"msg_signature":"x","timestamp":"1","nonce":"2"}`)
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelWeCom, AccountID: "a1", Body: body})
+	if r.Accepted {
+		t.Error("expected rejected (no token configured)")
+	}
+}
+
+func TestWebhookService_Receive_RateLimit(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	// 创建专用 key 走独立限流桶
+	key := "custom:rl-test"
+	// 强行清空 token
+	b := &tokenBucket{capacity: 5, refillRate: 0, tokens: 0, lastRefill: time.Now()}
+	s.mu.Lock()
+	s.rlBuckets[key] = b
+	s.mu.Unlock()
+	// 注入 secret 让验签通过（custom 渠道无 secret）
+	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "rl-test", Body: []byte(`{"event_id":"rl1","content":"hi"}`)})
+	if r.Accepted {
+		t.Error("expected rate limited")
+	}
+	if !r.RateLimit {
+		t.Errorf("expected rate_limited flag, got %+v", r)
+	}
+}
+
+func TestWebhookService_ToUnifiedMessage(t *testing.T) {
+	s := &WebhookService{}
+	p := &ParsedPayload{EventID: "e1", Content: "hi", Sender: "u1", ChatID: "c1"}
+	um := s.ToUnifiedMessage(ChannelDouyin, "a1", p)
+	if um.Platform != model.PlatformDouyin {
+		t.Errorf("expected douyin platform, got %s", um.Platform)
+	}
+	if um.Content != "hi" {
+		t.Errorf("expected content hi, got %s", um.Content)
+	}
+	if um.MessageID == "" {
+		t.Error("expected message id")
+	}
+	if um.Status != model.MessageStatusPending {
+		t.Errorf("expected pending status")
+	}
+}
+
+func TestWebhookService_TruncateForStore(t *testing.T) {
+	s := &WebhookService{}
+	// 短字符串不截断
+	short := []byte("hello")
+	if s.TruncateForStore(short) != "hello" {
+		t.Error("short should not truncate")
+	}
+	// 长字符串截断
+	long := make([]byte, 70*1024)
+	for i := range long {
+		long[i] = 'a'
+	}
+	out := s.TruncateForStore(long)
+	if len(out) <= 64*1024 {
+		t.Errorf("expected truncation, got len=%d", len(out))
+	}
+	if !strings.Contains(out, "truncated") {
+		t.Error("expected truncated marker")
+	}
+}
+
+func TestWebhookService_GenerateEventID_Stable(t *testing.T) {
+	s := &WebhookService{}
+	body := []byte(`{"a":1}`)
+	id1 := s.generateEventID(ChannelCustom, "a1", body)
+	id2 := s.generateEventID(ChannelCustom, "a1", body)
+	if id1 != id2 {
+		t.Error("expected same id for same body")
+	}
+	id3 := s.generateEventID(ChannelCustom, "a2", body)
+	if id1 == id3 {
+		t.Error("expected different id for different account")
+	}
+}
+
+func TestWebhookService_DispatchToUnified_InsertsRow(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	um := &model.UnifiedMessage{MessageID: "msg_x", Platform: "douyin", Content: "hi"}
+	if err := s.dispatchToUnified(um); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	var n int64
+	db.Model(&model.UnifiedMessage{}).Count(&n)
+	if n != 1 {
+		t.Errorf("expected 1 row, got %d", n)
+	}
+}
+
+func TestWebhookService_HandleJob_MarksProcessed(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	evt := &model.WebhookEvent{Platform: "custom", EventID: "h1", EventType: "message", RawData: "{}", Processed: false}
+	db.Create(evt)
+	body := []byte(`{"event_id":"h1","content":"hi","sender":"u1","chat_id":"c1"}`)
+	job := &webhookJob{event: evt, raw: body, header: nil}
+	s.handleJob(job)
+	// 等异步 worker 不行（已同步）, 直接查
+	var got model.WebhookEvent
+	db.First(&got, evt.ID)
+	if !got.Processed {
+		t.Error("expected processed")
+	}
+}
+
+func TestWebhookService_HandleJob_BadJSON(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	evt := &model.WebhookEvent{Platform: "custom", EventID: "h2", EventType: "message"}
+	db.Create(evt)
+	job := &webhookJob{event: evt, raw: []byte("bad"), header: nil}
+	s.handleJob(job)
+	// 不应 panic，event 保留为未处理
+	var got model.WebhookEvent
+	db.First(&got, evt.ID)
+	if got.Processed {
+		t.Error("expected not processed")
+	}
+}
+
+func TestWebhookService_QueueLen(t *testing.T) {
+	s := NewWebhookService(setupWebhookTestDB(t))
+	defer s.Stop()
+	if s.QueueLen() != 0 {
+		t.Errorf("expected empty queue, got %d", s.QueueLen())
+	}
+}
+
+func TestWebhookService_PendingCount(t *testing.T) {
+	db := setupWebhookTestDB(t)
+	s := NewWebhookService(db)
+	defer s.Stop()
+	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p1", EventType: "e", Processed: false})
+	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p2", EventType: "e", Processed: true})
+	if got := s.PendingCount(); got != 1 {
+		t.Errorf("expected 1 pending, got %d", got)
+	}
+}
+
+func TestWebhookService_Dedup_ExpiresAfterTTL(t *testing.T) {
+	s := &WebhookService{
+		dedup: sync.Map{},
+	}
+	// 手动塞入过期项
+	s.dedup.Store("old", time.Now().Add(-time.Minute))
+	if s.isDuplicate("old") {
+		// 已过期应被视为非重复
+		t.Error("expected expired to be removed")
+	}
+	// 新增
+	s.dedup.Store("new", time.Now().Add(time.Minute))
+	if !s.isDuplicate("new") {
+		t.Error("expected new to be duplicate")
+	}
+}
+
+func TestWebhookService_Dedup_EmptyID(t *testing.T) {
+	s := &WebhookService{dedup: sync.Map{}}
+	if s.isDuplicate("") {
+		t.Error("empty id should not be duplicate")
+	}
+}
+
+func TestWebhookService_TokenBucket(t *testing.T) {
+	b := &tokenBucket{capacity: 5, refillRate: 1, tokens: 5, lastRefill: time.Now()}
+	for i := 0; i < 5; i++ {
+		if !b.allow() {
+			t.Errorf("expected allow at iter %d", i)
+		}
+	}
+	// 第 6 次应被拒
+	if b.allow() {
+		t.Error("expected reject after exhaustion")
+	}
+}
+
+func TestWebhookService_AllChannels(t *testing.T) {
+	// 验证所有渠道都经过 Verify 逻辑（不 panic）
+	s := &WebhookService{}
+	for _, ch := range []WebhookChannel{
+		ChannelDouyin, ChannelKuaishou, ChannelXiaohongshu, ChannelXianyu,
+		ChannelTiktok, ChannelWechat, ChannelWeCom,
+		ChannelWhatsapp, ChannelTelegram, ChannelCustom,
+	} {
+		_, _ = s.Verify(ch, "a1", []byte("{}"), map[string]string{}, map[string]string{})
+	}
+}
+
+func TestWebhookService_PayloadSize_Small(t *testing.T) {
+	s := &WebhookService{}
+	body, _ := json.Marshal(map[string]any{"a": 1, "b": "test"})
+	p, err := s.ParsePayload(ChannelCustom, body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if p == nil {
+		t.Fatal("expected payload")
+	}
+}
+
+func TestWebhookService_PayloadSize_Large(t *testing.T) {
+	s := &WebhookService{}
+	large := map[string]any{}
+	for i := 0; i < 1000; i++ {
+		large[fmtKey(i)] = "value"
+	}
+	body, _ := json.Marshal(large)
+	p, err := s.ParsePayload(ChannelCustom, body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if p == nil {
+		t.Fatal("expected payload")
+	}
+}
+
+func fmtKey(i int) string {
+	return "key_" + string(rune('a'+i%26)) + "_" + string(rune('0'+i/26%10))
+}

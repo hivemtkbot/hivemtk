@@ -1,0 +1,107 @@
+package migrations
+
+import (
+	"context"
+	"fmt"
+
+	"marketing/internal/migration"
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
+
+	"gorm.io/gorm"
+)
+
+// ============================================================================
+// 多 AI 智能体架构数据库迁移
+// ----------------------------------------------------------------------------
+// 创建三张表：
+//  1. ai_agents              - AI 智能体主表
+//  2. channel_agent_bindings - 渠道账号 ↔ 智能体绑定
+//  3. customer_service_agents - 客服座席 ↔ 智能体挂载
+//
+// 设计文档：docs/sales-champion/MULTI_AI_AGENT_DESIGN.md
+// 私域独立部署：无 merchant_id 字段
+// ============================================================================
+
+// AIAgentSchemaMigration 多 AI 智能体架构迁移
+type AIAgentSchemaMigration struct {
+	db *gorm.DB
+}
+
+// NewAIAgentSchemaMigration 创建迁移实例
+func NewAIAgentSchemaMigration(db *gorm.DB) *AIAgentSchemaMigration {
+	return &AIAgentSchemaMigration{db: db}
+}
+
+// Version 返回版本号
+func (m *AIAgentSchemaMigration) Version() string {
+	return "v2.2.0"
+}
+
+// Name 返回迁移名称
+func (m *AIAgentSchemaMigration) Name() string {
+	return "多 AI 智能体架构"
+}
+
+// Description 返回迁移描述
+func (m *AIAgentSchemaMigration) Description() string {
+	return "创建 ai_agents / channel_agent_bindings / customer_service_agents 三张表，支持多 AI 智能体、渠道绑定、客服挂载"
+}
+
+// Up 执行迁移
+func (m *AIAgentSchemaMigration) Up(ctx context.Context) error {
+	// 1. 创建 ai_agents 表（使用 AutoMigrate 让 GORM 处理 PostgreSQL 数组类型）
+	if err := m.db.AutoMigrate(&model.AIAgent{}); err != nil {
+		return fmt.Errorf("migrate ai_agents failed: %w", err)
+	}
+
+	// 2. 创建 channel_agent_bindings 表
+	if err := m.db.AutoMigrate(&model.ChannelAgentBinding{}); err != nil {
+		return fmt.Errorf("migrate channel_agent_bindings failed: %w", err)
+	}
+
+	// 3. 创建 customer_service_agents 表
+	if err := m.db.AutoMigrate(&model.CustomerServiceAgent{}); err != nil {
+		return fmt.Errorf("migrate customer_service_agents failed: %w", err)
+	}
+
+	// 4. 为已存在的渠道账号创建默认智能体（避免空表场景）
+	//    仅当 ai_agents 表为空时创建一个默认智能体，便于商户首次使用
+	var count int64
+	m.db.Model(&model.AIAgent{}).Count(&count)
+	if count == 0 {
+		defaultAgent := &model.AIAgent{
+			AgentCode:   "default_sales",
+			Name:        "默认销售智能体",
+			Description: "系统初始化时创建的默认销售智能体，可编辑或删除",
+			AgentType:   string(model.AgentTypeSales),
+			Persona:     "你是一位资深销售专家，擅长用温和、专业的语气帮助客户解决问题。回复简洁、亲切、不超过 80 字。",
+			LLMModel:    "gpt-4o-mini",
+			Status:      1,
+		}
+		if err := m.db.Create(defaultAgent).Error; err != nil {
+			// 忽略重复创建错误
+			logger.Errorf("[migration] create default ai_agent warning: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// Down 回滚
+func (m *AIAgentSchemaMigration) Down(ctx context.Context) error {
+	// 注意：按依赖顺序反向删除
+	if m.db.Migrator().HasTable("customer_service_agents") {
+		_ = m.db.Migrator().DropTable("customer_service_agents")
+	}
+	if m.db.Migrator().HasTable("channel_agent_bindings") {
+		_ = m.db.Migrator().DropTable("channel_agent_bindings")
+	}
+	if m.db.Migrator().HasTable("ai_agents") {
+		_ = m.db.Migrator().DropTable("ai_agents")
+	}
+	return nil
+}
+
+// 编译期接口断言
+var _ migration.Migration = (*AIAgentSchemaMigration)(nil)

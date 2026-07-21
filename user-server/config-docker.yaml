@@ -1,0 +1,76 @@
+platform_api:
+  # 用户端/平台端网络物理隔离，跨容器不能用 platform-server 直连；
+  # 与 docker-compose.yml 的 PLATFORM_API_URL 默认值保持一致（走宿主机网关，
+  # 平台端容器已把 8205 映射到宿主机）。生产由 PLATFORM_API_URL 注入真实域名。
+  base_url: "http://host.docker.internal:8205"
+
+# 统一日志系统配置（生产建议 json + both，便于日志采集与本地排障）
+logging:
+  level: "info"
+  format: "json"
+  output: "both"
+  file: "logs/user-server.log"
+  max_size: 200
+  component: "user-server"
+
+database:
+  type: postgres
+  postgres:
+    host: postgres-user
+    port: 8202
+    user: admin
+    # 私域合规基线 §7.2：docker 部署时通过 POSTGRES_PASSWORD 环境变量注入
+    # 禁止明文提交真实密码到 git（docker-compose.user.yml 已配置 POSTGRES_PASSWORD）
+    # 注意：Go 的 os.ExpandEnv 不支持 bash 的 ${VAR:-default} 语法，
+    #       必须确保 POSTGRES_PASSWORD 在容器环境变量中已存在（env_file 已注入）。
+    password: "${POSTGRES_PASSWORD}"
+    dbname: user_db
+    sslmode: disable
+
+vector_database:
+  type: pgvector
+  pgvector:
+    table: knowledge_embeddings
+    # 2026-07-18 私域基线：本地 TEI + bge-m3，向量维度 1024
+    dimension: 1024
+
+# 本地推理栈（embedding / rerank / llm）统一配置
+# 设计详见 docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md
+# 三个能力默认走本地（mtk-embedding/mtk-rerank/mtk-llm，服务名在 mtk-inference-net 网络解析），
+# 仅在 base_url+api_key 填线上地址时切到线上（OpenAI 兼容）。
+# profile=prod：效果/硬件平衡；embedding 维度硬性 1024。
+#
+# 【2026-07-20 待重构】当前推理配置为文件驱动，编译交付后终端用户无法修改。
+# 后续改为：从数据库读取（管理员在后台 UI 填写 LLM/embedding/rerank 的 base_url+api_key+model），
+# 运行时覆盖本文件的本地默认值。本文件仅保留"本地推理栈"回退默认值。
+inference:
+  profile: prod
+  embedding:
+    mode: local
+    base_url: "http://mtk-embedding:8208/v1"   # 统一本地推理栈（TEI + bge-m3，1024 维，OpenAI 兼容 /v1/embeddings）
+    model: "BAAI/bge-m3"                        # 生产多语言向量（1024 维，真实向量）
+    dimension: 1024
+    allow_fallback: false                       # 禁止静默降级 hash 伪向量（仅单测显式开启）
+  rerank:
+    mode: local
+    base_url: "http://mtk-rerank:8209"
+    model: "BAAI/bge-reranker-v2-m3"
+    enabled: true
+  llm:
+    mode: local
+    base_url: "http://mtk-llm:8207/v1"          # 本地 llama.cpp（OpenAI 兼容 /v1/chat/completions）
+    model: "Qwen2.5-14B-Instruct"               # prod 效果/硬件平衡；硬件充足可上 32B
+    api_key: ""                                 # 本地模型无需密钥
+    temperature: 0.7
+    max_tokens: 2048
+    timeout_seconds: 90
+    max_retries: 3
+    cloud_providers: []                         # 本地优先；线上可选 fallback 见文档
+
+storage:
+  type: qiniu
+  qiniu:
+    access_key: ""
+    secret_key: ""
+    bucket: ""
+    domain: ""

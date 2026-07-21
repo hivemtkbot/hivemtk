@@ -1,0 +1,264 @@
+package response
+
+import (
+	"net/http"
+
+	"marketing/internal/pkg/i18n"
+	"marketing/internal/pkg/utils"
+	"marketing/internal/pkg/utils/logger"
+
+	"github.com/gin-gonic/gin"
+)
+
+// LocaleOf 从 gin 上下文解析请求语言（由 LocaleMiddleware 注入，缺省回退中文）。
+// 业务层据此把返回的提示/消息本地化为对应语言。导出供 controller 复用。
+func LocaleOf(c *gin.Context) i18n.Locale {
+	return localeOf(c)
+}
+
+// localeOf 从 gin 上下文解析请求语言（由 LocaleMiddleware 注入，缺省回退中文）。
+// 业务层据此把返回的提示/消息本地化为对应语言。
+func localeOf(c *gin.Context) i18n.Locale {
+	if c != nil {
+		if v, ok := c.Get("locale"); ok {
+			if l, ok := v.(i18n.Locale); ok {
+				return l
+			}
+		}
+		if h := c.GetHeader("X-Locale"); h != "" {
+			return i18n.Parse(h)
+		}
+		if h := c.GetHeader("Accept-Language"); h != "" {
+			return i18n.ParseAcceptLanguage(h)
+		}
+	}
+	return i18n.ZH
+}
+
+// Response 统一响应结构
+type Response struct {
+	Code    any    `json:"code"`           // 错误码
+	Message string `json:"message"`        // 错误消息
+	Data    any    `json:"data,omitempty"` // 数据
+}
+
+// Success 成功响应
+func Success(c *gin.Context, data any, message string) {
+	c.JSON(http.StatusOK, Response{
+		Code:    utils.ErrorCodeSuccess,
+		Message: i18n.Localize(localeOf(c), message),
+		Data:    data,
+	})
+}
+
+// SuccessWithList 成功响应（带分页列表）
+// data 字段返回 {list, total} 结构，便于前端统一解析 res.list 与 res.total
+func SuccessWithList(c *gin.Context, data any, total int64) {
+	c.JSON(http.StatusOK, gin.H{
+		"code":    utils.ErrorCodeSuccess,
+		"message": i18n.T(localeOf(c), "success"),
+		"data": gin.H{
+			"list":  data,
+			"total": total,
+		},
+	})
+}
+
+// SuccessWithPage 成功响应（带分页信息）
+// data 字段返回 {list, total, page, page_size} 结构，便于前端统一解析
+func SuccessWithPage(c *gin.Context, data any, page, pageSize int64, total int64) {
+	c.JSON(http.StatusOK, gin.H{
+		"code":    utils.ErrorCodeSuccess,
+		"message": i18n.T(localeOf(c), "success"),
+		"data": gin.H{
+			"list":      data,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+// Error 错误响应 - 支持 ErrorCode 和 int 两种类型
+func Error(c *gin.Context, code any, message string, data ...any) {
+	var httpCode int
+	var errorCode any
+
+	switch v := code.(type) {
+	case utils.ErrorCode:
+		config := utils.GetErrorCodeConfig(v)
+		httpCode = config.HTTPCode
+		errorCode = v
+		if message == "" {
+			message = config.LocalizedMessage(localeOf(c))
+		}
+	case int:
+		httpCode = v
+		errorCode = errorCodeFromHTTPCode(v)
+	default:
+		httpCode = http.StatusInternalServerError
+		errorCode = utils.ErrorCodeUnknown
+	}
+
+	resp := Response{
+		Code:    errorCode,
+		Message: i18n.Localize(localeOf(c), message),
+		Data:    nil,
+	}
+
+	// 如果有提供的数据，使用它
+	if len(data) > 0 {
+		resp.Data = data[0]
+	}
+
+	c.JSON(httpCode, resp)
+}
+
+// errorCodeFromHTTPCode 根据 HTTP 状态码返回错误码
+func errorCodeFromHTTPCode(code int) utils.ErrorCode {
+	switch code {
+	case http.StatusBadRequest:
+		return utils.ErrorCodeInvalidParameter
+	case http.StatusUnauthorized:
+		return utils.ErrorCodeUnauthorized
+	case http.StatusForbidden:
+		return utils.ErrorCodeForbidden
+	case http.StatusNotFound:
+		return utils.ErrorCodeNotFound
+	case http.StatusConflict:
+		return utils.ErrorCodeDuplicateEntry
+	case http.StatusTooManyRequests:
+		return utils.ErrorCodeInsufficientQuota
+	case http.StatusInternalServerError:
+		return utils.ErrorCodeInternalError
+	case http.StatusServiceUnavailable:
+		return utils.ErrorCodeServiceUnavailable
+	default:
+		return utils.ErrorCodeUnknown
+	}
+}
+
+// ErrorWithCode 错误响应（指定 HTTP 状态码）
+func ErrorWithCode(c *gin.Context, errorCode utils.ErrorCode, httpCode int, message string) {
+	c.JSON(httpCode, Response{
+		Code:    errorCode,
+		Message: i18n.Localize(localeOf(c), message),
+		Data:    nil,
+	})
+}
+
+// ErrorWithLog 错误响应并记录日志
+func ErrorWithLog(c *gin.Context, errorCode utils.ErrorCode, message string, details ...string) {
+	// 记录错误日志
+	detail := ""
+	if len(details) > 0 {
+		detail = details[0]
+	}
+	utils.LogErrorWithRequest(c, utils.NewAppError(utils.ErrorTypeSystem, message, utils.GetHTTPCode(errorCode), detail))
+
+	// 发送错误响应
+	Error(c, errorCode, message)
+}
+
+// ValidationError 参数验证错误响应
+func ValidationError(c *gin.Context, message string, details ...string) {
+	detail := ""
+	if len(details) > 0 {
+		detail = details[0]
+	}
+	Error(c, utils.ErrorCodeValidation, message, detail)
+}
+
+// DatabaseError 数据库错误响应
+func DatabaseError(c *gin.Context, details ...string) {
+	detail := ""
+	if len(details) > 0 {
+		detail = details[0]
+	}
+	Error(c, utils.ErrorCodeDatabaseError, i18n.T(localeOf(c), "db_operation_failed"), detail)
+}
+
+// BusinessError 业务错误响应
+func BusinessError(c *gin.Context, message string, details ...string) {
+	detail := ""
+	if len(details) > 0 {
+		detail = details[0]
+	}
+	Error(c, utils.ErrorCodeBusiness, message, detail)
+}
+
+// AuthError 认证错误响应
+func AuthError(c *gin.Context, message string) {
+	Error(c, utils.ErrorCodeUnauthorized, message)
+}
+
+// NotFoundError 资源不存在错误响应
+func NotFoundError(c *gin.Context, resource string) {
+	message := utils.GetUserMessageLoc(utils.ErrorCodeNotFound, localeOf(c))
+	if resource != "" {
+		message = i18n.T(localeOf(c), "resource_not_exist", resource)
+	}
+	Error(c, utils.ErrorCodeNotFound, message)
+}
+
+// NotFound 以 404 状态码响应记录不存在的错误
+func NotFound(c *gin.Context, msg string) {
+	if msg == "" {
+		msg = i18n.T(localeOf(c), "record_not_found")
+	}
+	Error(c, utils.ErrorCodeNotFound, msg)
+}
+
+// InvalidParameterError 参数无效错误响应
+func InvalidParameterError(c *gin.Context, field string, message string) {
+	Error(c, utils.ErrorCodeInvalidParameter, message, gin.H{"field": field})
+}
+
+// OperationFailedError 操作失败错误响应
+func OperationFailedError(c *gin.Context, operation string) {
+	message := i18n.T(localeOf(c), "operation_failed", operation)
+	Error(c, utils.ErrorCodeOperationFailed, message)
+}
+
+// FileUploadError 文件上传错误响应
+func FileUploadError(c *gin.Context, errorCode utils.ErrorCode, message string) {
+	if errorCode == "" {
+		errorCode = utils.ErrorCodeUploadFailed
+	}
+	Error(c, errorCode, message)
+}
+
+// BindJSON 安全地绑定 JSON 请求体到 obj。
+//
+// 设计动机（R10 修复）：
+//   - 历史 controller 普遍 `if err := c.ShouldBindJSON(&req); err != nil {
+//     response.Error(c, 400, "参数错误: "+err.Error())`，将
+//     GORM/validator 内部错误细节（字段名、JSON tag、类型约束）泄露给客户端，
+//     攻击者可借此推断数据模型结构，便于构造后续攻击。
+//   - 集中改为：内部错误用 logger.Errorf 记录，客户端只看到通用 "无效的请求参数"。
+//
+// 用法：
+//
+//	if !response.BindJSON(c, &req) {
+//	    return
+//	}
+//
+// 返回 true 表示绑定成功，false 表示已写入 400 响应、调用方应直接 return。
+func BindJSON(c *gin.Context, obj any) bool {
+	if err := c.ShouldBindJSON(obj); err != nil {
+		logger.Errorf("BindJSON failed on %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		Error(c, http.StatusBadRequest, i18n.T(localeOf(c), "invalid_params"))
+		return false
+	}
+	return true
+}
+
+// BindQuery 安全地绑定 query string 到 obj（同 BindJSON 的安全模式）。
+func BindQuery(c *gin.Context, obj any) bool {
+	if err := c.ShouldBindQuery(obj); err != nil {
+		logger.Errorf("BindQuery failed on %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		Error(c, http.StatusBadRequest, i18n.T(localeOf(c), "invalid_params"))
+		return false
+	}
+	return true
+}

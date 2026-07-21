@@ -1,0 +1,61 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"marketing/internal/middleware"
+	"marketing/internal/pkg/utils/config"
+	"marketing/internal/pkg/utils/db"
+	"marketing/internal/platform"
+	"marketing/internal/router"
+
+	"github.com/gin-gonic/gin"
+)
+
+var _ = middleware.MetricsHandler
+var _ = config.GetAppConfig
+var _ = platform.InitSync
+
+func main() {
+	// 加载配置（Viper 自动从 config.yaml 读取）
+	_ = config.GetAppConfig
+
+	// 初始化 DB
+	db.InitDB()
+
+	// 初始化授权检查器
+	middleware.InitLicenseChecker("http://localhost:8205", "")
+
+	gin.SetMode(gin.DebugMode)
+	r := gin.New()
+	router.Setup(r)
+
+	// 打印所有已注册的 /api/chat-channels 路由
+	fmt.Fprintln(os.Stderr, "=== 已注册的 /api/chat-channels 路由 ===")
+	chatCount := 0
+	for _, route := range r.Routes() {
+		if len(route.Path) >= 14 && route.Path[:14] == "/api/chat-chan" {
+			fmt.Fprintf(os.Stderr, "%-7s %s\n", route.Method, route.Path)
+			chatCount++
+		}
+	}
+	fmt.Fprintf(os.Stderr, "共 %d 条 chat-channels 路由\n", chatCount)
+
+	// 测试访问
+	fmt.Fprintln(os.Stderr, "\n=== 测试 /api/chat-channels 路由 ===")
+	for _, route := range r.Routes() {
+		if route.Path == "/api/chat-channels" {
+			fmt.Fprintf(os.Stderr, "FOUND: %s %s\n", route.Method, route.Path)
+		}
+	}
+
+	// 打印所有 /api 路由数量
+	total := 0
+	for _, route := range r.Routes() {
+		if len(route.Path) >= 4 && route.Path[:4] == "/api" {
+			total++
+		}
+	}
+	fmt.Fprintf(os.Stderr, "API 路由总数: %d\n", total)
+}

@@ -1,0 +1,288 @@
+{
+  "timestamp": "2025-12-26T03:27:46.509Z",
+  "summary": {
+    "totalTests": 0,
+    "allowedRequests": 0,
+    "blockedRequests": 0,
+    "dailyLimitHits": 15,
+    "intervalLimitHits": 10,
+    "blockRate": 0
+  },
+  "config": {
+    "dailyLimit": 100,
+    "intervalSeconds": 5,
+    "burstThreshold": 10,
+    "testMessages": [
+      "你好，请问这个怎么卖？",
+      "价格是多少？",
+      "包邮吗？",
+      "有链接吗？",
+      "成色怎么样？"
+    ]
+  },
+  "results": {
+    "interval_limiting": [
+      {
+        "test": "interval_limiting",
+        "iteration": 1,
+        "remainingTime": 0,
+        "timestamp": 1766719635087,
+        "status": "success"
+      },
+      {
+        "test": "interval_limiting",
+        "iteration": 2,
+        "remainingTime": 0,
+        "timestamp": 1766719636103,
+        "status": "success"
+      },
+      {
+        "test": "interval_limiting",
+        "iteration": 3,
+        "remainingTime": 0,
+        "timestamp": 1766719641106,
+        "status": "success"
+      },
+      {
+        "test": "interval_limiting",
+        "iteration": 4,
+        "remainingTime": 0,
+        "timestamp": 1766719646121,
+        "status": "success"
+      },
+      {
+        "test": "interval_limiting",
+        "iteration": 5,
+        "remainingTime": 0,
+        "timestamp": 1766719651243,
+        "status": "success"
+      }
+    ],
+    "daily_limiting": [
+      {
+        "test": "daily_limiting",
+        "iteration": 1,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719651249,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 2,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719651454,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 3,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719651657,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 4,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719651860,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 5,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719652063,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 6,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719652266,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 7,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719652507,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 8,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719652764,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 9,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719652966,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 10,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719653169,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 11,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719653370,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 12,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719653573,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 13,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719653776,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 14,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719653984,
+        "status": "success"
+      },
+      {
+        "test": "daily_limiting",
+        "iteration": 15,
+        "remainingCount": 0,
+        "usedCount": 0,
+        "timestamp": 1766719654187,
+        "status": "success"
+      }
+    ],
+    "burst_limiting": [
+      {
+        "test": "burst_limiting",
+        "iteration": 1,
+        "timestamp": 1766719654406,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 2,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 3,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 4,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 5,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 6,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 7,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 8,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 9,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_limiting",
+        "iteration": 10,
+        "timestamp": 1766719654407,
+        "status": "success"
+      },
+      {
+        "test": "burst_recovery",
+        "status": "success"
+      }
+    ],
+    "multi_platform_rate_limiting": [
+      {
+        "test": "multi_platform_rate_limiting",
+        "platform": "douyin",
+        "timestamp": 1766719664490,
+        "status": "success"
+      },
+      {
+        "test": "multi_platform_rate_limiting",
+        "platform": "kuaishou",
+        "timestamp": 1766719664994,
+        "status": "success"
+      },
+      {
+        "test": "multi_platform_rate_limiting",
+        "platform": "xiaohongshu",
+        "timestamp": 1766719665499,
+        "status": "success"
+      },
+      {
+        "test": "multi_platform_rate_limiting",
+        "platform": "xianyu",
+        "timestamp": 1766719666002,
+        "status": "success"
+      }
+    ],
+    "rate_limit_statistics": {
+      "test": "rate_limit_statistics",
+      "stats": {
+        "account_id": 0,
+        "daily_limit": 100,
+        "daily_sent": 0,
+        "platform": "",
+        "reset_time": "2025-12-27 11:27:46",
+        "user_id": 0
+      },
+      "status": "success"
+    }
+  }
+}

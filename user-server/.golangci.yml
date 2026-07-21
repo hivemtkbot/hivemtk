@@ -1,0 +1,35 @@
+run:
+  timeout: 5m
+  go: "1.21"
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - ineffassign
+    - staticcheck
+    - unused
+    - depguard
+
+linters-settings:
+  depguard:
+    rules:
+      controller-layer:
+        files:
+          - "$all"
+        deny:
+          - pkg: "marketing/internal/model"
+            desc: "controller(handler) 不得直接依赖 model，应通过 service / DTO"
+          - pkg: "marketing/internal/repository"
+            desc: "controller(handler) 不得直接依赖 repository，应通过 service"
+      model-layer:
+        files:
+          - "marketing/internal/model"
+        deny:
+          - pkg: "marketing/internal/service"
+            desc: "model 为叶子层，不得反向依赖 service"
+          - pkg: "marketing/internal/controller"
+            desc: "model 为叶子层，不得反向依赖 controller"
+          - pkg: "marketing/internal/repository"
+            desc: "model 为叶子层，不得依赖 repository"

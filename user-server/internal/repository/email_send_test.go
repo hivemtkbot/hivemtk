@@ -1,0 +1,325 @@
+package repository
+
+import (
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/db"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"marketing/internal/pkg/testutil"
+)
+
+// setupEmailSendTestDB 设置邮件发送测试数据库
+func setupEmailSendTestDB(t *testing.T) *gorm.DB {
+	database := testutil.NewTestDB(t,
+		&model.EmailSend{},
+	)
+	db.SetTestDB(database)
+	return database
+}
+
+// setupEmailSendRepository 创建测试用的邮件发送仓库实例
+func setupEmailSendRepository(t *testing.T) EmailSendRepository {
+	setupEmailSendTestDB(t)
+	return NewEmailSendRepository()
+}
+
+// TestEmailSendRepository_Create 测试创建邮件发送记录
+func TestEmailSendRepository_Create(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	tests := []struct {
+		name    string
+		email   *model.EmailSend
+		wantErr bool
+	}{
+		{
+			name: "create email success",
+			email: &model.EmailSend{
+				To:      "user@example.com",
+				Subject: "Test Email",
+				Content: "This is a test email content",
+				Status:  0, // pending
+				SendTime: func() *time.Time {
+					t := time.Now().Add(time.Hour)
+					return &t
+				}(),
+				SmtpID: "smtp-1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "create email with attachments",
+			email: &model.EmailSend{
+				To:          "user@example.com",
+				Subject:     "Email with attachments",
+				Content:     "Email content",
+				Attachments: "[\"file1.pdf\", \"file2.jpg\"]",
+				Status:      0,
+				SendTime: func() *time.Time {
+					t := time.Now()
+					return &t
+				}(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "create sent email",
+			email: &model.EmailSend{
+				To:       "user@example.com",
+				Subject:  "Already sent",
+				Content:  "Content",
+				Status:   1, // sent
+				SendTime: func() *time.Time { t := time.Now(); return &t }(),
+				SmtpID:   "smtp-2",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repo.Create(tt.email)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && tt.email.ID == "" {
+				t.Error("Expected email ID to be set after creation")
+			}
+		})
+	}
+}
+
+// TestEmailSendRepository_GetByID 测试根据 ID 获取邮件发送记录
+func TestEmailSendRepository_GetByID(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	// 创建测试数据
+	email := &model.EmailSend{
+		To:      "getbyid@example.com",
+		Subject: "GetByID Test",
+		Content: "Test content",
+		Status:  0,
+		SendTime: func() *time.Time {
+			t := time.Now().Add(time.Hour)
+			return &t
+		}(),
+	}
+	repo.Create(email)
+
+	tests := []struct {
+		name    string
+		id      string
+		wantErr bool
+	}{
+		{
+			name:    "get existing email",
+			id:      email.ID,
+			wantErr: false,
+		},
+		{
+			name:    "get non-existing email",
+			id:      uuid.New().String(),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id := uuid.MustParse(tt.id)
+			result, err := repo.GetByID(id)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr {
+				if result.To != "getbyid@example.com" {
+					t.Errorf("Expected to 'getbyid@example.com', got '%s'", result.To)
+				}
+			}
+		})
+	}
+}
+
+// TestEmailSendRepository_List 测试获取邮件发送列表
+func TestEmailSendRepository_List(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	// 创建测试数据
+	for i := 1; i <= 5; i++ {
+		repo.Create(&model.EmailSend{
+			To:       "user" + string(rune('0'+i)) + "@example.com",
+			Subject:  "Email " + string(rune('0'+i)),
+			Content:  "Content " + string(rune('0'+i)),
+			Status:   0,
+			SendTime: func() *time.Time { t := time.Now(); return &t }(),
+		})
+	}
+
+	results, err := repo.List()
+	if err != nil {
+		t.Errorf("List() error = %v", err)
+	}
+
+	if len(results) != 5 {
+		t.Errorf("Expected 5 emails, got %d", len(results))
+	}
+}
+
+// TestEmailSendRepository_Delete 测试删除邮件发送记录
+func TestEmailSendRepository_Delete(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	// 创建测试数据
+	email := &model.EmailSend{
+		To:      "delete@example.com",
+		Subject: "To Delete",
+		Content: "Delete content",
+		Status:  0,
+	}
+	repo.Create(email)
+
+	id := uuid.MustParse(email.ID)
+	err := repo.Delete(id)
+	if err != nil {
+		t.Errorf("Delete() error = %v", err)
+	}
+
+	_, err = repo.GetByID(id)
+	if err == nil {
+		t.Error("Expected email to be deleted")
+	}
+}
+
+// TestEmailSendRepository_UpdateStatus 测试更新邮件状态
+func TestEmailSendRepository_UpdateStatus(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	// 创建测试数据
+	email := &model.EmailSend{
+		To:      "update@example.com",
+		Subject: "Status Update Test",
+		Content: "Content",
+		Status:  0, // pending
+	}
+	repo.Create(email)
+
+	id := uuid.MustParse(email.ID)
+
+	// 更新为已发送
+	err := repo.UpdateStatus(id, 1)
+	if err != nil {
+		t.Errorf("UpdateStatus() error = %v", err)
+	}
+
+	updated, _ := repo.GetByID(id)
+	if updated.Status != 1 {
+		t.Errorf("Expected status 1, got %d", updated.Status)
+	}
+
+	// 更新为失败
+	err = repo.UpdateStatus(id, 2)
+	if err != nil {
+		t.Errorf("UpdateStatus() error = %v", err)
+	}
+
+	updated2, _ := repo.GetByID(id)
+	if updated2.Status != 2 {
+		t.Errorf("Expected status 2, got %d", updated2.Status)
+	}
+}
+
+// TestEmailSendRepository_GetPendingEmails 测试获取待发送的邮件
+func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	// 创建待发送的邮件（发送时间在过去）
+	pastTime := time.Now().Add(-time.Hour)
+	repo.Create(&model.EmailSend{
+		To:       "pending1@example.com",
+		Subject:  "Pending Email 1",
+		Content:  "Content 1",
+		Status:   0,
+		SendTime: &pastTime,
+	})
+
+	repo.Create(&model.EmailSend{
+		To:       "pending2@example.com",
+		Subject:  "Pending Email 2",
+		Content:  "Content 2",
+		Status:   0,
+		SendTime: &pastTime,
+	})
+
+	// 创建已发送的邮件
+	repo.Create(&model.EmailSend{
+		To:       "sent@example.com",
+		Subject:  "Sent Email",
+		Content:  "Sent content",
+		Status:   1,
+		SendTime: &pastTime,
+	})
+
+	// 创建计划发送时间在未来的邮件
+	futureTime := time.Now().Add(time.Hour)
+	repo.Create(&model.EmailSend{
+		To:       "future@example.com",
+		Subject:  "Future Email",
+		Content:  "Future content",
+		Status:   0,
+		SendTime: &futureTime,
+	})
+
+	results, err := repo.GetPendingEmails()
+	if err != nil {
+		t.Errorf("GetPendingEmails() error = %v", err)
+	}
+
+	// 应该返回 2 个待发送的邮件
+	if len(results) != 2 {
+		t.Errorf("Expected 2 pending emails, got %d", len(results))
+	}
+}
+
+// TestEmailSendRepository_GetPendingEmails_EmptyResult 测试获取空结果
+func TestEmailSendRepository_GetPendingEmails_EmptyResult(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	results, err := repo.GetPendingEmails()
+	if err != nil {
+		t.Errorf("GetPendingEmails() error = %v", err)
+	}
+
+	if len(results) != 0 {
+		t.Errorf("Expected 0 pending emails, got %d", len(results))
+	}
+}
+
+// TestEmailSendRepository_GetByID_NotFound 测试获取不存在的邮件
+func TestEmailSendRepository_GetByID_NotFound(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	_, err := repo.GetByID(uuid.New())
+	if err == nil {
+		t.Error("Expected error when getting non-existing email")
+	}
+}
+
+// TestEmailSendRepository_List_EmptyResult 测试获取空列表
+func TestEmailSendRepository_List_EmptyResult(t *testing.T) {
+	repo := setupEmailSendRepository(t)
+
+	results, err := repo.List()
+	if err != nil {
+		t.Errorf("List() error = %v", err)
+	}
+
+	if len(results) != 0 {
+		t.Errorf("Expected 0 emails, got %d", len(results))
+	}
+}

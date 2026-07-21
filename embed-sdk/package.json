@@ -1,0 +1,22 @@
+{
+  "name": "marketing-chat-widget",
+  "version": "1.0.0",
+  "description": "marketing-tools-kit 客服 Web Widget 嵌入 SDK（ADR-011）",
+  "main": "dist/marketing-chat-widget.iife.js",
+  "module": "dist/marketing-chat-widget.esm.js",
+  "unpkg": "dist/marketing-chat-widget.iife.js",
+  "jsdelivr": "dist/marketing-chat-widget.iife.js",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

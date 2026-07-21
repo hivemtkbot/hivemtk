@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-12-26T03:27:48Z",
+  "api_base": "http://localhost:8204/api",
+  "test_directory": "/Users/xiaofang/Documents/www/php/tggate/marketing/test",
+  "log_file": "/Users/xiaofang/Documents/www/php/tggate/marketing/test/test-manager.log",
+  "reports": {
+    "auto-reply": "/Users/xiaofang/Documents/www/php/tggate/marketing/test/auto-reply-test-report.json","keyword-matching": "/Users/xiaofang/Documents/www/php/tggate/marketing/test/keyword-matching-test-report.json","rate-limiting": "/Users/xiaofang/Documents/www/php/tggate/marketing/test/rate-limiting-test-report.json","reply-execution": "/Users/xiaofang/Documents/www/php/tggate/marketing/test/reply-execution-test-report.json"
+  },
+  "summary": {
+    "total_tests": 4,
+    "test_types": [
+      "auto-reply",
+      "message-simulation",
+      "keyword-matching",
+      "reply-execution",
+      "multi-platform-concurrent",
+      "rate-limiting"
+    ]
+  }
+}

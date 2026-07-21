@@ -1,0 +1,157 @@
+{
+  "timestamp": "2025-12-26T03:24:10.568Z",
+  "summary": {
+    "totalTests": 7,
+    "passedTests": 3,
+    "failedTests": 4
+  },
+  "details": [
+    {
+      "test": "用户注册和登录",
+      "status": "success"
+    },
+    {
+      "test": "创建测试账户",
+      "status": "failed",
+      "details": [
+        {
+          "platform": "douyin",
+          "status": "failed",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "platform": "kuaishou",
+          "status": "failed",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "platform": "xiaohongshu",
+          "status": "failed",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "platform": "xianyu",
+          "status": "failed",
+          "error": "Request failed with status code 404"
+        }
+      ]
+    },
+    {
+      "test": "创建自动回复规则",
+      "status": "failed",
+      "details": [
+        {
+          "platform": "douyin",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'id')"
+        },
+        {
+          "platform": "kuaishou",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'id')"
+        },
+        {
+          "platform": "xiaohongshu",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'id')"
+        },
+        {
+          "platform": "xianyu",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'id')"
+        }
+      ]
+    },
+    {
+      "test": "消息匹配测试",
+      "status": "failed",
+      "details": [
+        {
+          "message": "你好，请问这个怎么卖？",
+          "platform": "douyin",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'matched')"
+        },
+        {
+          "message": "这个价格多少钱？",
+          "platform": "kuaishou",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'matched')"
+        },
+        {
+          "message": "有购买链接吗？",
+          "platform": "xiaohongshu",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'matched')"
+        },
+        {
+          "message": "包邮吗？成色怎么样？",
+          "platform": "xianyu",
+          "status": "failed",
+          "error": "Cannot read properties of null (reading 'matched')"
+        }
+      ]
+    },
+    {
+      "test": "自动回复执行测试",
+      "status": "failed",
+      "details": {
+        "status": "failed",
+        "error": "Request failed with status code 404"
+      }
+    },
+    {
+      "test": "速率限制测试",
+      "status": "success",
+      "details": [
+        {
+          "message": "测试消息1: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息2: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息3: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息4: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息5: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息6: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息7: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息8: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息9: 你好",
+          "error": "Request failed with status code 404"
+        },
+        {
+          "message": "测试消息10: 你好",
+          "error": "Request failed with status code 404"
+        }
+      ]
+    },
+    {
+      "test": "获取回复日志",
+      "status": "success",
+      "details": {
+        "logCount": 0
+      }
+    }
+  ]
+}

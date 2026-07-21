@@ -1,0 +1,107 @@
+package cache
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// RedisCache Redis 缓存实现
+type RedisCache struct {
+	client       *redis.Client
+	sharedClient bool // true 表示 client 由外部（main）持有，Close 为 no-op
+}
+
+// RedisConfig Redis 配置
+type RedisConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+	PoolSize int    `yaml:"pool_size"`
+}
+
+// NewRedisCache 创建 Redis 缓存
+func NewRedisCache(config RedisConfig) (*RedisCache, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Password: config.Password,
+		DB:       config.DB,
+		PoolSize: config.PoolSize,
+	})
+
+	// 测试连接
+	ctx := context.Background()
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("redis connection failed: %w", err)
+	}
+
+	return &RedisCache{
+		client: client,
+	}, nil
+}
+
+// Get 获取缓存
+func (r *RedisCache) Get(ctx context.Context, key string) (string, error) {
+	return r.client.Get(ctx, key).Result()
+}
+
+// Set 设置缓存
+func (r *RedisCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
+	return r.client.Set(ctx, key, value, expiration).Err()
+}
+
+// Delete 删除缓存
+func (r *RedisCache) Delete(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
+}
+
+// Exists 检查缓存是否存在
+func (r *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
+	result, err := r.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return result > 0, nil
+}
+
+// GetJSON 获取 JSON 缓存并反序列化
+func (r *RedisCache) GetJSON(ctx context.Context, key string, dest any) error {
+	data, err := r.client.Get(ctx, key).Bytes()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dest)
+}
+
+// SetJSON 设置 JSON 缓存
+func (r *RedisCache) SetJSON(ctx context.Context, key string, value any, expiration time.Duration) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, key, data, expiration).Err()
+}
+
+// Clear 清空缓存
+func (r *RedisCache) Clear(ctx context.Context) error {
+	return r.client.FlushDB(ctx).Err()
+}
+
+// NewRedisCacheWithClient 基于已存在的（共享）Redis 客户端创建缓存实现。
+// 不拥有 client 生命周期：Close 为 no-op，由调用方（main）负责关闭连接。
+// 用于全局缓存单例复用 main 构建的同一 *redis.Client，避免重复连接。
+func NewRedisCacheWithClient(client *redis.Client) *RedisCache {
+	return &RedisCache{client: client, sharedClient: true}
+}
+
+// Close 关闭连接
+func (r *RedisCache) Close() error {
+	if r.sharedClient {
+		return nil
+	}
+	return r.client.Close()
+}

@@ -1,0 +1,54 @@
+// 颜色变量（品牌系统：靛蓝主色 + 语义色）
+$primary-color: #4F46E5;
+$success-color: #10B981;
+$warning-color: #F59E0B;
+$danger-color: #EF4444;
+$info-color: #64748B;
+
+// 文字颜色（品牌中性色阶）
+$text-primary: #0F172A;
+$text-regular: #334155;
+$text-secondary: #64748B;
+$text-placeholder: #94A3B8;
+
+// 边框颜色（柔和石板灰）
+$border-base: #E2E8F0;
+$border-light: #E2E8F0;
+$border-lighter: #EDF1F6;
+$border-extra-light: #F1F5F9;
+
+// 背景颜色
+$bg-color: #ffffff;
+$bg-color-page: #F8FAFC;
+$bg-color-overlay: #ffffff;
+
+// 字体大小
+$font-size-extra-large: 20px;
+$font-size-large: 18px;
+$font-size-medium: 16px;
+$font-size-base: 14px;
+$font-size-small: 13px;
+$font-size-extra-small: 12px;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+
+// 圆角（品牌系统：8/6px）
+$border-radius-base: 8px;
+$border-radius-small: 6px;
+$border-radius-round: 20px;
+$border-radius-circle: 50%;
+
+// 阴影
+$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+$box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 层级
+$z-index-normal: 1;
+$z-index-top: 1000;
+$z-index-popper: 2000;

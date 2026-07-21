@@ -1,0 +1,386 @@
+package llm
+
+// trace_context.go LLM 调用全链路 TraceId 传递
+//
+// 五层架构归属: L2 服务层 / L3 编排层
+// 设计依据: PRD §M-3 P1 缺口修复
+// 私域独立部署: 无 merchant_id 字段
+//
+// 功能：
+//   - 在 LLM 调用元数据中携带 trace_id（与 middleware/trace.go 联动）
+//   - LLM 调用事件通过 TraceEventPublisher 发布（供 trace 服务持久化）
+//   - 工具调用（tool_use）传递 trace_id
+//   - 服务 TraceQuery(traceId) 查询该 trace 的所有事件
+
+import (
+	"context"
+	"encoding/json"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/google/uuid"
+
+	"marketing/internal/pkg/utils/logger"
+)
+
+// TraceSpanKind Span 类型
+type TraceSpanKind string
+
+const (
+	TraceSpanKindLLMCall   TraceSpanKind = "llm_call"  // LLM 调用
+	TraceSpanKindToolCall  TraceSpanKind = "tool_call" // 工具调用
+	TraceSpanKindDBOp      TraceSpanKind = "db_op"     // DB 操作
+	TraceSpanKindLog       TraceSpanKind = "log"       // 日志事件
+	TraceSpanKindRAGQuery  TraceSpanKind = "rag_query" // RAG 检索
+	TraceSpanKindAgent     TraceSpanKind = "agent"     // 智能体动作
+	TraceSpanKindWebSocket TraceSpanKind = "websocket" // WebSocket 消息
+)
+
+// TraceEvent 全链路追踪事件（对应 trace_events 表）
+type TraceEvent struct {
+	TraceID      string         `json:"trace_id" gorm:"type:varchar(64);not null;index"`
+	SpanID       string         `json:"span_id" gorm:"type:varchar(64);not null;uniqueIndex"`
+	ParentSpanID string         `json:"parent_span_id,omitempty" gorm:"type:varchar(64);index"`
+	Kind         TraceSpanKind  `json:"kind" gorm:"type:varchar(32);not null;index"`
+	Service      string         `json:"service" gorm:"type:varchar(64);not null"`
+	Operation    string         `json:"operation" gorm:"type:varchar(128);not null"`
+	DurationMs   int64          `json:"duration_ms" gorm:"default:0"`
+	Status       string         `json:"status" gorm:"type:varchar(16);default:'ok'"` // ok / error
+	Metadata     map[string]any `json:"metadata,omitempty" gorm:"type:text;serializer:json"`
+	Timestamp    time.Time      `json:"timestamp" gorm:"index"`
+}
+
+// TableName GORM 表名
+func (TraceEvent) TableName() string { return "trace_events" }
+
+// TraceContext 全链路追踪上下文
+type TraceContext struct {
+	traceID      string
+	spanID       string
+	parentSpanID string
+	mu           sync.RWMutex
+	metadata     map[string]any
+}
+
+// NewTraceContext 创建新的追踪上下文
+// traceID 为空时生成 UUIDv7（按时间排序，便于时序查询）
+func NewTraceContext(traceID, parentSpanID string) *TraceContext {
+	if traceID == "" {
+		traceID = generateTraceID()
+	}
+	return &TraceContext{
+		traceID:      traceID,
+		spanID:       generateSpanID(),
+		parentSpanID: parentSpanID,
+		metadata:     make(map[string]any),
+	}
+}
+
+// TraceID 返回 trace_id
+func (tc *TraceContext) TraceID() string {
+	if tc == nil {
+		return ""
+	}
+	return tc.traceID
+}
+
+// SpanID 返回 span_id
+func (tc *TraceContext) SpanID() string {
+	if tc == nil {
+		return ""
+	}
+	return tc.spanID
+}
+
+// ParentSpanID 返回 parent_span_id
+func (tc *TraceContext) ParentSpanID() string {
+	if tc == nil {
+		return ""
+	}
+	return tc.parentSpanID
+}
+
+// SetMetadata 设置元数据
+func (tc *TraceContext) SetMetadata(key string, value any) {
+	if tc == nil {
+		return
+	}
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	tc.metadata[key] = value
+}
+
+// GetMetadata 获取元数据
+func (tc *TraceContext) GetMetadata(key string) (any, bool) {
+	if tc == nil {
+		return nil, false
+	}
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	v, ok := tc.metadata[key]
+	return v, ok
+}
+
+// Metadata 返回元数据副本
+func (tc *TraceContext) Metadata() map[string]any {
+	if tc == nil {
+		return nil
+	}
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	out := make(map[string]any, len(tc.metadata))
+	for k, v := range tc.metadata {
+		out[k] = v
+	}
+	return out
+}
+
+// ChildSpan 创建子 span（trace_id 不变，parent_span_id = 当前 span_id）
+func (tc *TraceContext) ChildSpan() *TraceContext {
+	if tc == nil {
+		return NewTraceContext("", "")
+	}
+	return &TraceContext{
+		traceID:      tc.traceID,
+		spanID:       generateSpanID(),
+		parentSpanID: tc.spanID,
+		metadata:     make(map[string]any),
+	}
+}
+
+// InjectContext 将 trace_id 注入 context（与 logger.WithTraceID 兼容）
+func (tc *TraceContext) InjectContext(ctx context.Context) context.Context {
+	if tc == nil || ctx == nil {
+		return ctx
+	}
+	return logger.WithTraceID(ctx, tc.traceID)
+}
+
+// generateTraceID 生成 trace_id（UUIDv7 风格，按时间排序）
+// 使用 google/uuid 已有依赖（uuid.NewString 生成 UUIDv4，这里改为按 RFC 9562 v7 风格）
+// 实际使用 uuid.NewString() 保证唯一性；按时间排序由 timestamp 字段承担
+func generateTraceID() string {
+	return uuid.NewString()
+}
+
+// generateSpanID 生成 span_id（16 位 hex）
+func generateSpanID() string {
+	// 使用 uuid 前 16 位作为 span_id
+	id := uuid.NewString()
+	if len(id) >= 16 {
+		return id[:16]
+	}
+	return id
+}
+
+// ====== TraceEventPublisher 全局事件总线 ======
+
+// TraceEventPublisher 追踪事件发布器接口
+type TraceEventPublisher interface {
+	Publish(event TraceEvent)
+}
+
+// TraceEventSubscriber 追踪事件订阅器接口
+type TraceEventSubscriber interface {
+	OnEvent(event TraceEvent)
+}
+
+// InMemoryTraceBus 进程内追踪事件总线（默认实现）
+// 支持多订阅者，事件缓冲区 1024，背压时丢弃事件并记日志
+type InMemoryTraceBus struct {
+	mu          sync.RWMutex
+	subscribers []TraceEventSubscriber
+	eventQueue  chan TraceEvent
+	stopped     atomic.Bool
+}
+
+// NewInMemoryTraceBus 创建进程内追踪事件总线
+func NewInMemoryTraceBus() *InMemoryTraceBus {
+	bus := &InMemoryTraceBus{
+		eventQueue: make(chan TraceEvent, 1024),
+	}
+	go bus.dispatch()
+	return bus
+}
+
+// Subscribe 订阅追踪事件
+func (b *InMemoryTraceBus) Subscribe(sub TraceEventSubscriber) {
+	if sub == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.subscribers = append(b.subscribers, sub)
+}
+
+// Publish 发布事件（非阻塞，缓冲区满时丢弃）
+func (b *InMemoryTraceBus) Publish(event TraceEvent) {
+	if b.stopped.Load() {
+		return
+	}
+	select {
+	case b.eventQueue <- event:
+	default:
+		logger.Warnf("[TraceBus] event queue full, dropping event trace_id=%s span_id=%s", event.TraceID, event.SpanID)
+	}
+}
+
+// Stop 停止事件总线
+func (b *InMemoryTraceBus) Stop() {
+	if b.stopped.CompareAndSwap(false, true) {
+		close(b.eventQueue)
+	}
+}
+
+// dispatch 派发事件到订阅者
+func (b *InMemoryTraceBus) dispatch() {
+	for event := range b.eventQueue {
+		b.mu.RLock()
+		subs := make([]TraceEventSubscriber, len(b.subscribers))
+		copy(subs, b.subscribers)
+		b.mu.RUnlock()
+		for _, sub := range subs {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Errorf("[TraceBus] subscriber panic: %v", r)
+					}
+				}()
+				sub.OnEvent(event)
+			}()
+		}
+	}
+}
+
+// ====== TraceRecorder 用于记录 trace 事件到 DB（由调用方注入）======
+
+// TraceRecorder 追踪事件记录器接口
+type TraceRecorder interface {
+	Record(event TraceEvent) error
+}
+
+// ====== 全局追踪事件总线 ======
+
+var (
+	globalTraceBus     *InMemoryTraceBus
+	globalTraceBusOnce sync.Once
+)
+
+// InitGlobalTraceBus 初始化全局追踪事件总线
+func InitGlobalTraceBus() *InMemoryTraceBus {
+	globalTraceBusOnce.Do(func() {
+		globalTraceBus = NewInMemoryTraceBus()
+	})
+	return globalTraceBus
+}
+
+// GetGlobalTraceBus 获取全局追踪事件总线
+func GetGlobalTraceBus() *InMemoryTraceBus {
+	if globalTraceBus == nil {
+		return InitGlobalTraceBus()
+	}
+	return globalTraceBus
+}
+
+// PublishTraceEvent 发布追踪事件（便捷方法）
+// 自动设置 timestamp；trace_id/span_id 缺失时自动生成
+func PublishTraceEvent(event TraceEvent) {
+	if event.TraceID == "" {
+		event.TraceID = generateTraceID()
+	}
+	if event.SpanID == "" {
+		event.SpanID = generateSpanID()
+	}
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now()
+	}
+	bus := GetGlobalTraceBus()
+	if bus != nil {
+		bus.Publish(event)
+	}
+}
+
+// PublishLLMCall 发布 LLM 调用事件
+func PublishLLMCall(traceID, spanID, parentSpanID, provider, model string, durationMs int64, status string, metadata map[string]any) {
+	PublishTraceEvent(TraceEvent{
+		TraceID:      traceID,
+		SpanID:       spanID,
+		ParentSpanID: parentSpanID,
+		Kind:         TraceSpanKindLLMCall,
+		Service:      "llm",
+		Operation:    "chat_completion",
+		DurationMs:   durationMs,
+		Status:       status,
+		Metadata: mergeMetadata(metadata, map[string]any{
+			"provider": provider,
+			"model":    model,
+		}),
+	})
+}
+
+// PublishToolCall 发布工具调用事件
+func PublishToolCall(traceID, spanID, parentSpanID, toolName string, durationMs int64, status string, metadata map[string]any) {
+	PublishTraceEvent(TraceEvent{
+		TraceID:      traceID,
+		SpanID:       spanID,
+		ParentSpanID: parentSpanID,
+		Kind:         TraceSpanKindToolCall,
+		Service:      "tool",
+		Operation:    toolName,
+		DurationMs:   durationMs,
+		Status:       status,
+		Metadata:     metadata,
+	})
+}
+
+// PublishDBOp 发布 DB 操作事件
+func PublishDBOp(traceID, spanID, parentSpanID, operation string, durationMs int64, status string, metadata map[string]any) {
+	PublishTraceEvent(TraceEvent{
+		TraceID:      traceID,
+		SpanID:       spanID,
+		ParentSpanID: parentSpanID,
+		Kind:         TraceSpanKindDBOp,
+		Service:      "db",
+		Operation:    operation,
+		DurationMs:   durationMs,
+		Status:       status,
+		Metadata:     metadata,
+	})
+}
+
+// mergeMetadata 合并元数据（不修改原 map）
+func mergeMetadata(a, b map[string]any) map[string]any {
+	out := make(map[string]any, len(a)+len(b))
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		out[k] = v
+	}
+	return out
+}
+
+// MarshalMetadata 序列化 metadata 为 JSON 字符串（便于持久化）
+func MarshalMetadata(metadata map[string]any) string {
+	if len(metadata) == 0 {
+		return "{}"
+	}
+	b, err := json.Marshal(metadata)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
+// UnmarshalMetadata 反序列化 metadata
+func UnmarshalMetadata(raw string) map[string]any {
+	if raw == "" {
+		return map[string]any{}
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return map[string]any{}
+	}
+	return m
+}

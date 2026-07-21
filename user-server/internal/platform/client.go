@@ -1,0 +1,445 @@
+package platform
+
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"marketing/internal/config"
+	"marketing/internal/pkg/metrics"
+	"marketing/internal/pkg/utils/logger"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
+)
+
+type Client struct {
+	merchantKey string
+	httpClient  *http.Client
+	// JWT token 缓存（用于调用 /platform/* 路由）
+	jwtToken    string
+	jwtExpireAt time.Time
+	jwtMu       sync.Mutex
+}
+
+func NewClient(merchantKey string) *Client {
+	return &Client{
+		merchantKey: merchantKey,
+		httpClient:  &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func (c *Client) sign(method, path string, body []byte) (string, string, error) {
+	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	payload := method + "\n" + path + "\n" + timestamp + "\n" + string(body)
+
+	secret := os.Getenv("MERCHANT_API_SECRET")
+	if secret == "" && config.PlatformCfg != nil {
+		secret = config.PlatformCfg.Secret
+	}
+	if secret == "" {
+		return "", "", fmt.Errorf("MERCHANT_API_SECRET 未配置: 请设置环境变量或 PlatformCfg.Secret")
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(payload))
+	sig := hex.EncodeToString(mac.Sum(nil))
+	return sig, timestamp, nil
+}
+
+// Do 公开的 HTTP 请求方法，供 controller 层代理调用平台 API 使用。
+// 失败时返回 *PlatformError，调用方可按状态码/业务 code 结构化分支处理（R2 修复）。
+func (c *Client) Do(method, path string, reqData, respData any) error {
+	return c.doRetry(method, path, reqData, respData, false)
+}
+
+// ensureJWTToken 获取并缓存平台 JWT token（用于调用 /platform/* 路由）
+func (c *Client) ensureJWTToken() error {
+	c.jwtMu.Lock()
+	defer c.jwtMu.Unlock()
+
+	// token 仍有 60 秒以上有效期，直接复用
+	if c.jwtToken != "" && time.Now().Before(c.jwtExpireAt.Add(-60*time.Second)) {
+		return nil
+	}
+
+	if config.PlatformCfg == nil {
+		return fmt.Errorf("平台配置未初始化")
+	}
+
+	username := config.PlatformCfg.AdminUsername
+	password := config.PlatformCfg.AdminPassword
+	if username == "" {
+		username = "admin"
+	}
+	if password == "" {
+		return fmt.Errorf("平台管理员密码未配置，请设置 config/platform.yaml 中的 admin_password")
+	}
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"username": username,
+		"password": password,
+	})
+	loginURL := config.PlatformCfg.APIURL + "/api/auth/login"
+	req, _ := http.NewRequest("POST", loginURL, bytes.NewReader(loginBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("平台登录失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("平台登录返回 %d (读取响应体失败: %v)", resp.StatusCode, readErr)
+		}
+		return fmt.Errorf("平台登录返回 %d: %s", resp.StatusCode, string(body))
+	}
+
+	var loginResp struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+		Data struct {
+			Token   string `json:"token"`
+			Expires int64  `json:"expires"`
+		} `json:"data"`
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取登录响应失败: %w", err)
+	}
+	if err := json.Unmarshal(bodyBytes, &loginResp); err != nil {
+		return fmt.Errorf("解析登录响应失败: %w", err)
+	}
+	if loginResp.Data.Token == "" {
+		return fmt.Errorf("平台登录响应缺少 token")
+	}
+
+	c.jwtToken = loginResp.Data.Token
+	// expires 字段是 unix 时间戳；若缺失则默认 1 小时后过期
+	expireAt := loginResp.Data.Expires
+	if expireAt > 0 {
+		c.jwtExpireAt = time.Unix(expireAt, 0)
+	} else {
+		c.jwtExpireAt = time.Now().Add(time.Hour)
+	}
+	logger.Info(fmt.Sprintf("平台 JWT token 获取成功，过期时间: %s", c.jwtExpireAt.Format("2006-01-02 15:04:05")))
+	return nil
+}
+
+func (c *Client) do(method, path string, reqData, respData any) error {
+	return c.doRetry(method, path, reqData, respData, false)
+}
+
+// doRetry 执行平台 HTTP 请求。retried=true 表示已重试过一次（用于 401 自愈），
+// 避免无限重试。
+func (c *Client) doRetry(method, path string, reqData, respData any, retried bool) error {
+	// 检查配置是否初始化，避免空指针异常
+	if config.PlatformCfg == nil {
+		logger.Error(fmt.Errorf("平台配置未初始化"), "商户上报请求失败")
+		return fmt.Errorf("平台配置未初始化")
+	}
+	url := config.PlatformCfg.APIURL + path
+	var body []byte
+	if reqData != nil {
+		var err error
+		body, err = json.Marshal(reqData)
+		if err != nil {
+			return fmt.Errorf("序列化请求数据失败: %w", err)
+		}
+	}
+
+	// 记录请求开始日志
+	reqLog := fmt.Sprintf("商户上报请求: %s %s", method, url)
+	if len(body) > 0 {
+		reqLog += fmt.Sprintf(" 请求数据: %s", string(body))
+	}
+	logger.Info(reqLog)
+
+	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	// 根据路由前缀选择认证方式
+	if strings.HasPrefix(path, "/platform/") {
+		// /platform/* 路由使用 JWT 认证
+		if err := c.ensureJWTToken(); err != nil {
+			logger.Error(err, "获取平台 JWT token 失败")
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.jwtToken)
+	} else {
+		sig, timestamp, err := c.sign(method, path, body)
+		if err != nil {
+			logger.Error(err, "商户签名失败")
+			return err
+		}
+		req.Header.Set("X-Merchant-Key", c.merchantKey)
+		req.Header.Set("X-Timestamp", timestamp)
+		req.Header.Set("X-Signature", sig)
+	}
+
+	start := time.Now()
+	resp, err := c.httpClient.Do(req)
+	duration := time.Since(start)
+
+	if err != nil {
+		logger.Error(err, fmt.Sprintf("商户上报请求失败: %s %s, 耗时: %v", method, url, duration))
+		return err
+	}
+	defer resp.Body.Close()
+
+	// V6: 401 表示 JWT 失效，清掉本地 token 并重试一次（自愈），避免座席被踢下线。
+	if resp.StatusCode == http.StatusUnauthorized && !retried {
+		c.jwtMu.Lock()
+		c.jwtToken = ""
+		c.jwtExpireAt = time.Time{}
+		c.jwtMu.Unlock()
+		// R9 可观测性：记录 401 自愈触发次数
+		metrics.GlobalMetrics.PlatformJWTRefreshTotal.Inc(path)
+		logger.Warn(fmt.Sprintf("平台 JWT 失效(401)，清空缓存并重试一次: %s %s", method, url))
+		return c.doRetry(method, path, reqData, respData, true)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		rawBody, readErr := io.ReadAll(resp.Body)
+		bodyStr := ""
+		if readErr == nil {
+			bodyStr = string(rawBody)
+		}
+		var baseResp BaseResp
+		if bodyStr != "" {
+			_ = json.Unmarshal([]byte(bodyStr), &baseResp)
+		}
+		logger.Error(fmt.Errorf("平台接口返回 %d", resp.StatusCode),
+			fmt.Sprintf("商户上报请求失败: %s %s, 状态码: %d, 耗时: %v, 响应: %s", method, url, resp.StatusCode, duration, bodyStr))
+		// R2 修复：透传状态码与响应体，交由调用方按结构化 code 分支处理，
+		// 不再吞掉 body，也不再依赖 strings.Contains(err, "404") 这种脆弱匹配。
+		return &PlatformError{StatusCode: resp.StatusCode, RawBody: bodyStr, Resp: &baseResp}
+	}
+
+	// 先读取响应体
+	var respBody []byte
+	if respData != nil {
+		var err error
+		respBody, err = io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Error(err, "读取响应体失败")
+			return err
+		}
+		// 记录响应日志
+		logger.Info(fmt.Sprintf("商户上报请求成功: %s %s, 状态码: %d, 耗时: %v, 响应数据: %s", method, url, resp.StatusCode, duration, string(respBody)))
+		// 解析响应
+		return json.Unmarshal(respBody, respData)
+	}
+	return nil
+}
+
+func (c *Client) RegisterMerchant(req RegisterMerchantReq) error {
+	logger.Info(fmt.Sprintf("开始商户注册，请求数据: %+v", req))
+	var resp BaseResp
+	err := c.do("POST", "/merchant-api/merchant/register", req, &resp)
+	if err != nil {
+		logger.Error(err, "商户注册失败")
+		return err
+	}
+	logger.Info("商户注册成功")
+	return nil
+}
+
+// GetLicenseStatus 获取授权状态
+func (c *Client) GetLicenseStatus() (*LicenseStatusResp, error) {
+	logger.Info("开始获取授权状态")
+	var resp BaseResp
+	if err := c.do("GET", "/merchant-api/license/status", nil, &resp); err != nil {
+		logger.Error(err, "获取授权状态失败")
+		return nil, err
+	}
+	var data LicenseStatusResp
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		logger.Error(err, "解析授权状态响应失败")
+		return nil, err
+	}
+	logger.Info(fmt.Sprintf("获取授权状态成功: 状态=%s, 到期时间=%s, 剩余天数=%d",
+		data.Status, data.ExpireAt.Format("2006-01-02 15:04:05"), data.Remaining))
+	return &data, nil
+}
+
+// ReportAPILog 上报 API 日志
+func (c *Client) ReportAPILog(req ReportAPILogReq) error {
+	logger.Info(fmt.Sprintf("开始上报API日志，请求数据: %+v", req))
+	var resp BaseResp
+	err := c.do("POST", "/merchant-api/logs/report", req, &resp)
+	if err != nil {
+		logger.Error(err, "上报API日志失败")
+		return err
+	}
+	logger.Info("上报API日志成功")
+	return nil
+}
+
+// GetLatestMessage 获取最新站内信
+func (c *Client) GetLatestMessage() (*LatestMessageResp, error) {
+	logger.Info("开始获取最新站内信")
+	var resp BaseResp
+	if err := c.do("GET", "/merchant-api/messages/latest", nil, &resp); err != nil {
+		logger.Error(err, "获取最新站内信失败")
+		return nil, err
+	}
+	if resp.Data == nil {
+		logger.Info("没有最新站内信")
+		return nil, nil
+	}
+	var data LatestMessageResp
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		logger.Error(err, "解析最新站内信响应失败")
+		return nil, err
+	}
+	logger.Info(fmt.Sprintf("获取最新站内信成功: ID=%s, 标题=%s", data.ID, data.Title))
+	return &data, nil
+}
+
+type BaseResp struct {
+	Code int             `json:"code"`
+	Msg  string          `json:"msg"`
+	Data json.RawMessage `json:"data"`
+}
+
+// PlatformError 结构化错误，携带 HTTP 状态码与平台响应体，便于调用方按 code/状态码
+// 而非脆弱的字符串匹配(如 strings.Contains(err, "404"))进行分支处理（R2 修复）。
+type PlatformError struct {
+	StatusCode int
+	RawBody    string
+	Resp       *BaseResp
+}
+
+func (e *PlatformError) Error() string {
+	if e.Resp != nil && e.Resp.Msg != "" {
+		return fmt.Sprintf("platform request failed: status=%d, code=%d, msg=%s", e.StatusCode, e.Resp.Code, e.Resp.Msg)
+	}
+	return fmt.Sprintf("platform request failed: status=%d, body=%s", e.StatusCode, e.RawBody)
+}
+
+// Msg 返回平台返回的业务错误信息（优先 Resp.Msg，其次原始响应体）。
+func (e *PlatformError) Msg() string {
+	if e.Resp != nil && e.Resp.Msg != "" {
+		return e.Resp.Msg
+	}
+	if e.RawBody != "" {
+		return e.RawBody
+	}
+	return e.Error()
+}
+
+type RegisterMerchantReq struct {
+	Name         string `json:"name"`
+	ContactEmail string `json:"contact_email"`
+	ContactPhone string `json:"contact_phone"`
+	DeviceInfo   string `json:"device_info"`
+}
+
+type LicenseStatusResp struct {
+	Status    string    `json:"status"`
+	ExpireAt  time.Time `json:"expire_at"`
+	Remaining int       `json:"remaining_days"`
+}
+
+type ReportAPILogReq struct {
+	Method     string `json:"method"`
+	Path       string `json:"path"`
+	StatusCode int    `json:"status_code"`
+	Duration   int64  `json:"duration"`
+	UserAgent  string `json:"user_agent"`
+	DeviceInfo string `json:"device_info"`
+}
+
+type LatestMessageResp struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+// CheckUpdateResp 检查更新响应
+type CheckUpdateResp struct {
+	HasUpdate     bool   `json:"has_update"`
+	Version       string `json:"version"`
+	BuildNumber   int    `json:"build_number"`
+	Description   string `json:"description"`
+	ReleaseNotes  string `json:"release_notes"`
+	DownloadURL   string `json:"download_url"`
+	FileSize      int64  `json:"file_size"`
+	FileHash      string `json:"file_hash"`
+	IsForceUpdate bool   `json:"is_force_update"`
+	PublishAt     string `json:"publish_at"`
+}
+
+// ReportInstallReq 安装信息上报请求（开源版：一个安装信息 = 一个商户）
+type ReportInstallReq struct {
+	InstallID         string `json:"install_id"`
+	MerchantName      string `json:"merchant_name"`
+	ContactEmail      string `json:"contact_email"`
+	ContactPhone      string `json:"contact_phone"`
+	ContactName       string `json:"contact_name"`
+	DeviceFingerprint string `json:"device_fingerprint"`
+	ClientIP          string `json:"client_ip"`
+	Version           string `json:"version"`
+}
+
+// ReportInstall 上报安装信息到平台（开源版：创建/更新一个商户）
+// 该接口为公开统计接口，不要求 JWT / 商户签名。
+func (c *Client) ReportInstall(req *ReportInstallReq) error {
+	if config.PlatformCfg == nil {
+		return fmt.Errorf("平台配置未初始化")
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("序列化安装信息失败: %w", err)
+	}
+	url := strings.TrimRight(config.PlatformCfg.APIURL, "/") + "/api/platform/install"
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("上报安装信息失败: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("上报安装信息返回 %d: %s", resp.StatusCode, string(raw))
+	}
+	logger.Info("上报安装信息成功")
+	return nil
+}
+
+// ReportInstallDefault 使用全局配置创建客户端并上报安装信息
+// 安装信息上报为公开统计接口，不要求商户签名，故使用空 merchantKey。
+func ReportInstallDefault(req *ReportInstallReq) error {
+	return NewClient("").ReportInstall(req)
+}
+
+// CheckUpdate 检查更新
+func (c *Client) CheckUpdate(currentVersion, clientType string) (*CheckUpdateResp, error) {
+	logger.Info(fmt.Sprintf("开始检查更新，当前版本: %s, 客户端类型: %s", currentVersion, clientType))
+
+	params := fmt.Sprintf("?current_version=%s&client_type=%s", currentVersion, clientType)
+	var resp BaseResp
+	if err := c.do("GET", "/public/version/check-update"+params, nil, &resp); err != nil {
+		logger.Error(err, "检查更新失败")
+		return nil, err
+	}
+
+	var data CheckUpdateResp
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		logger.Error(err, "解析更新检查响应失败")
+		return nil, err
+	}
+
+	logger.Info(fmt.Sprintf("检查更新成功: 有更新=%t, 版本=%s, 是否强制更新=%t",
+		data.HasUpdate, data.Version, data.IsForceUpdate))
+	return &data, nil
+}

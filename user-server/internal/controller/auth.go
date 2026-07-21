@@ -1,0 +1,703 @@
+package controller
+
+import (
+	"net/http"
+	"strconv"
+	"strings"
+
+	"marketing/internal/config"
+	"marketing/internal/middleware"
+	"marketing/internal/pkg/utils/response"
+	"marketing/internal/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+// AuthController 认证控制器
+type AuthController struct {
+	authService *service.AuthService
+	mfaService  *service.MFAService
+	riskService *service.LoginRiskService
+}
+
+// NewAuthController 创建认证控制器实例
+func NewAuthController() *AuthController {
+	return &AuthController{
+		authService: service.NewAuthService(),
+		mfaService:  service.NewMFAService(),
+		riskService: service.NewLoginRiskService(),
+	}
+}
+
+// Login 用户登录
+func (c *AuthController) Login(ctx *gin.Context) {
+	var req service.LoginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	// 即使在测试模式下，登录也必须验证用户名和密码
+	// 测试模式只跳过后续的 JWT 中间件认证，不跳过登录验证
+	resp, err := c.authService.Login(&req)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	response.Success(ctx, resp, "登录成功")
+}
+
+// RefreshToken 刷新令牌
+// P1-4 修复：
+//   - 校验 Bearer 前缀
+//   - token 为空直接拒绝
+//   - 使用安全的 trim 前缀而非裸切片
+//   - token 通过 gin Context 解析后调用 JWT 工具刷新
+func (c *AuthController) RefreshToken(ctx *gin.Context) {
+	// 从请求头获取 Authorization
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		response.Error(ctx, http.StatusUnauthorized, "未提供认证令牌")
+		return
+	}
+
+	// 严格校验 Bearer 前缀
+	const prefix = "Bearer "
+	if !strings.HasPrefix(authHeader, prefix) {
+		response.Error(ctx, http.StatusUnauthorized, "Authorization 头格式错误，应为 Bearer <token>")
+		return
+	}
+	token := strings.TrimSpace(authHeader[len(prefix):])
+	if token == "" {
+		response.Error(ctx, http.StatusUnauthorized, "认证令牌不能为空")
+		return
+	}
+
+	// 刷新令牌
+	newToken, err := c.authService.RefreshToken(token)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, "刷新令牌失败", err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"token": newToken,
+	}, "刷新令牌成功")
+}
+
+// GetCurrentUser 获取当前用户信息
+func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
+	// 从上下文获取用户ID
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+
+	// 转换为uint类型
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	// 获取用户信息
+	user, err := c.authService.GetCurrentUser(uid)
+	if err != nil {
+		if HandleServiceError(ctx, err) {
+			return
+		}
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, user, "获取用户信息成功")
+}
+
+// ChangePassword 修改密码
+func (c *AuthController) ChangePassword(ctx *gin.Context) {
+	// 从上下文获取用户ID
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+
+	// 转换为uint类型
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	var req service.ChangePasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	// 修改密码
+	if err := c.authService.ChangePassword(uid, &req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil, "修改密码成功")
+}
+
+// InitChangePasswordRequest 初始化强制改密请求（仅首次改密使用，无需旧密码）
+type InitChangePasswordRequest struct {
+	Username    string `json:"username" binding:"required,min=3,max=20"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// InitChangePassword 初始化流程的首次强制改密
+// 规则：
+//   - 必须存在 must_change_password=true 的超管（与请求 username 匹配）
+//   - 不需要旧密码（系统初始化阶段的特殊通道）
+//   - 不需要 JWT 鉴权（InitGuard 白名单保护）
+//   - 改密成功后：清除 must_change_password、标记 install.lock.AdminInitialized=true
+//   - 改密成功后：将角色 admin 写入 user.role（确保 admin 标识）
+func (c *AuthController) InitChangePassword(ctx *gin.Context) {
+	var req InitChangePasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	if err := c.authService.InitChangePassword(req.Username, req.NewPassword); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"username":             req.Username,
+		"must_change_password": false,
+		"admin_initialized":    true,
+		"message":              "首次改密完成，install.lock 已标记为 INITIALIZED，请使用新密码登录",
+	}, "首次改密成功")
+}
+
+// ============== P0-4 平台超管忘记密码流程 ==============
+
+// ForgotAdminPasswordRequest 申请重置超管密码请求
+// 验证策略：必须同时知道
+//  1. admin_username（系统初始化时设置）
+//  2. company_name（LicenseKey 绑定时填写的公司名，写入 install.lock.Company）
+//
+// 这是私域部署的"安全问答"机制——管理员在初始化时已知晓 company 信息
+type ForgotAdminPasswordRequest struct {
+	Username    string `json:"username" binding:"required,min=3,max=20"`
+	CompanyName string `json:"company_name" binding:"required,min=2,max=100"`
+}
+
+// ForgotAdminPasswordRequest 申请重置超管密码
+// 返回一次性 reset_token（5 分钟有效）
+// 该 token 通过响应返回（私域部署：管理员可人工操作；公网部署：应改为邮件发送）
+func (c *AuthController) ForgotAdminPassword(ctx *gin.Context) {
+	var req ForgotAdminPasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	token, err := c.authService.CreateForgotPasswordToken(req.Username, req.CompanyName)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"reset_token": token,
+		"expires_in":  300, // 5 分钟
+		"message":     "验证通过，请使用 reset_token 调用重置接口（5 分钟内有效）",
+	}, "验证通过")
+}
+
+// ResetAdminPasswordRequest 重置超管密码请求
+type ResetAdminPasswordRequest struct {
+	Username    string `json:"username" binding:"required,min=3,max=20"`
+	ResetToken  string `json:"reset_token" binding:"required,len=64"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// ResetAdminPassword 使用 reset_token 重置超管密码
+func (c *AuthController) ResetAdminPassword(ctx *gin.Context) {
+	var req ResetAdminPasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	if err := c.authService.ResetAdminPasswordWithToken(req.Username, req.ResetToken, req.NewPassword); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"username":             req.Username,
+		"must_change_password": true, // 重置后下次登录必须再改一次
+		"message":              "超管密码已重置，请使用新密码登录（首次登录将强制修改密码）",
+	}, "密码重置成功")
+}
+
+// ============== P1-1 MFA 多因素认证 ==============
+
+// SetupMFA 设置 MFA：生成 TOTP 密钥并返回 otpauth URL
+// 用户使用 Google Authenticator 扫描二维码
+func (c *AuthController) SetupMFA(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	username, _ := ctx.Get("username")
+	usernameStr, _ := username.(string)
+
+	resp, err := c.mfaService.SetupMFA(uid, usernameStr)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, resp, "请使用 Google Authenticator 扫描二维码")
+}
+
+// ConfirmMFASetup 确认 MFA 设置：用户输入 6 位码验证，验证成功后启用 MFA
+func (c *AuthController) ConfirmMFASetup(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	var req service.MFASetupVerifyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	if err := c.mfaService.ConfirmMFASetup(uid, req.Code); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"mfa_enabled": true,
+		"message":     "MFA 启用成功，下次登录需输入验证码",
+	}, "MFA 启用成功")
+}
+
+// DisableMFA 禁用 MFA
+// 需要校验密码 + TOTP 码（双重保护）
+func (c *AuthController) DisableMFA(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	var req service.MFADisableRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	if err := c.mfaService.DisableMFA(uid, req.Password, req.Code); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"mfa_enabled": false,
+		"message":     "MFA 已禁用",
+	}, "MFA 已禁用")
+}
+
+// VerifyMFALogin MFA 登录验证（登录第二步）
+// POST /api/auth/mfa/verify
+// Body: { "temp_token": "...", "code": "123456" }
+// 成功返回 JWT token
+func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
+	var req service.MFAVerifyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	userID, username, role, err := c.mfaService.VerifyMFALogin(req.TempToken, req.Code)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// 颁发正式 JWT
+	jwtUtils := c.authService.JwtUtils()
+	token, err := jwtUtils.GenerateToken(userID, username, role)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "颁发令牌失败")
+		return
+	}
+
+	// 标记 MFA 已验证（用于敏感操作中间件）
+	middleware.MarkMFAVerified(userID)
+
+	response.Success(ctx, gin.H{
+		"token":   token,
+		"expires": 86400,
+		"user": gin.H{
+			"id":       userID,
+			"username": username,
+			"role":     role,
+		},
+	}, "MFA 验证成功，登录完成")
+}
+
+// GetMFAStatus 查询当前用户的 MFA 启用状态
+func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "未找到用户信息")
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		response.Error(ctx, http.StatusInternalServerError, "用户ID类型错误")
+		return
+	}
+
+	enabled, err := c.mfaService.IsMFAEnabled(uid)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"mfa_enabled": enabled,
+	}, "查询成功")
+}
+
+// ============== P1-2 异常登录预警 ==============
+
+// ListLoginEvents 查询登录事件列表
+// GET /api/auth/login-events?page=1&page_size=20
+func (c *AuthController) ListLoginEvents(ctx *gin.Context) {
+	userID, _ := ctx.Get("user_id")
+	uid, _ := userID.(uint)
+
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	events, total, err := c.riskService.ListLoginEvents(uid, page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"list":      events,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "查询成功")
+}
+
+// ListSecurityAlerts 查询安全告警列表
+// GET /api/auth/security-alerts?status=open&page=1&page_size=20
+func (c *AuthController) ListSecurityAlerts(ctx *gin.Context) {
+	userID, _ := ctx.Get("user_id")
+	uid, _ := userID.(uint)
+
+	status := ctx.Query("status")
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	alerts, total, err := c.riskService.ListSecurityAlerts(uid, status, page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"list":      alerts,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "查询成功")
+}
+
+// ResolveSecurityAlert 处理安全告警
+// POST /api/auth/security-alerts/:id/resolve
+func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
+	alertIDStr := ctx.Param("id")
+	alertID, err := strconv.ParseUint(alertIDStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的告警 ID")
+		return
+	}
+
+	userID, _ := ctx.Get("user_id")
+	uid, _ := userID.(uint)
+
+	var req struct {
+		Note string `json:"note"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	if err := c.riskService.ResolveSecurityAlert(uint(alertID), uid, req.Note); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil, "告警已处理")
+}
+
+// ============== P1-3 密码策略 ==============
+
+// GetPasswordPolicy 查询当前密码策略
+// GET /api/auth/password-policy
+func (c *AuthController) GetPasswordPolicy(ctx *gin.Context) {
+	policySvc := service.NewPasswordPolicyService()
+	policy := policySvc.GetPolicy()
+	response.Success(ctx, policy, "查询成功")
+}
+
+// SavePasswordPolicy 更新密码策略（仅 admin）
+// PUT /api/auth/password-policy
+func (c *AuthController) SavePasswordPolicy(ctx *gin.Context) {
+	role, _ := ctx.Get("role")
+	roleStr, _ := role.(string)
+	if roleStr != "admin" {
+		response.Error(ctx, http.StatusForbidden, "仅管理员可修改密码策略")
+		return
+	}
+
+	var policy service.PasswordPolicy
+	if err := ctx.ShouldBindJSON(&policy); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	policySvc := service.NewPasswordPolicyService()
+	if err := policySvc.SavePolicy(&policy); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, policy, "密码策略已更新")
+}
+
+// SystemUserController 系统用户控制器
+type SystemUserController struct {
+	userService *service.SystemUserService
+}
+
+// NewSystemUserController 创建系统用户控制器实例
+func NewSystemUserController() *SystemUserController {
+	return &SystemUserController{
+		userService: service.NewSystemUserService(),
+	}
+}
+
+// GetUsers 获取用户列表
+func (c *SystemUserController) GetUsers(ctx *gin.Context) {
+	// 获取分页参数
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	// 获取用户列表
+	users, total, err := c.userService.GetUsers(page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"list":      users,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "获取用户列表成功")
+}
+
+// GetUser 获取用户详情
+func (c *SystemUserController) GetUser(ctx *gin.Context) {
+	// 获取用户ID
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的用户ID")
+		return
+	}
+
+	// 获取用户信息
+	user, err := c.userService.GetUserByID(uint(id))
+	if err != nil {
+		response.Error(ctx, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(ctx, user, "获取用户信息成功")
+}
+
+// CreateUser 创建用户
+func (c *SystemUserController) CreateUser(ctx *gin.Context) {
+	var req service.CreateUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	// 创建用户
+	user, err := c.userService.CreateUser(&req)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, user, "创建用户成功")
+}
+
+// UpdateUser 更新用户
+func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
+	// 获取用户ID
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的用户ID")
+		return
+	}
+
+	var req service.UpdateUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	// 更新用户
+	user, err := c.userService.UpdateUser(uint(id), &req)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, user, "更新用户成功")
+}
+
+// DeleteUser 删除用户
+func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
+	// 获取用户ID
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的用户ID")
+		return
+	}
+
+	// 删除用户
+	if err := c.userService.DeleteUser(uint(id)); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil, "删除用户成功")
+}
+
+// ResetPassword 重置用户密码
+func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
+	// 获取用户ID
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的用户ID")
+		return
+	}
+
+	// 获取新密码
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	// 重置密码
+	if err := c.userService.ResetPassword(uint(id), req.Password); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil, "重置密码成功")
+}
+
+// CreateDefaultAdmin 创建默认管理员账户（不需要认证）
+func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
+	// 检查是否已存在管理员
+	users, _, err := c.userService.GetUsers(1, 1)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "检查用户失败")
+		return
+	}
+
+	// 如果已存在用户，返回成功，避免重复创建
+	if len(users) > 0 {
+		response.Success(ctx, gin.H{"message": "管理员已存在"}, "管理员已存在")
+		return
+	}
+
+	// 创建默认管理员（读取配置文件或环境变量）
+	adminCfg := config.GetAdminConfig().DefaultAdmin
+	req := &service.CreateUserRequest{
+		Username: adminCfg.Username,
+		Password: adminCfg.Password,
+		Email:    adminCfg.Email,
+		RealName: adminCfg.RealName,
+		Role:     "admin",
+		Status:   1,
+	}
+
+	user, err := c.userService.CreateUser(req)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "创建默认管理员失败", err.Error())
+		return
+	}
+
+	response.Success(ctx, user, "默认管理员创建成功")
+}

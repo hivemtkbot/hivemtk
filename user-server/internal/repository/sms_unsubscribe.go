@@ -1,0 +1,102 @@
+package repository
+
+import (
+	"errors"
+
+	"marketing/internal/model"
+	_db "marketing/internal/pkg/utils/db"
+
+	"gorm.io/gorm"
+)
+
+// SmsUnsubscribeRepository 短信退订仓库接口
+type SmsUnsubscribeRepository interface {
+	Create(record *model.SmsUnsubscribe) error
+	Update(record *model.SmsUnsubscribe) error
+	GetByPhone(phone string) (*model.SmsUnsubscribe, error)
+	ExistsByPhone(phone string) (bool, error)
+	DeleteByPhone(phone string) error
+	List(page, limit int, keyword string) ([]*model.SmsUnsubscribe, int64, error)
+	ListAll() ([]*model.SmsUnsubscribe, error)
+}
+
+type smsUnsubscribeRepo struct {
+	db *gorm.DB
+}
+
+// NewSmsUnsubscribeRepository 创建短信退订仓库实例
+func NewSmsUnsubscribeRepository(db *gorm.DB) SmsUnsubscribeRepository {
+	if db == nil {
+		db = _db.GetDB()
+	}
+	return &smsUnsubscribeRepo{db: db}
+}
+
+// Create 创建退订记录（phone 唯一，重复时返回错误）
+func (r *smsUnsubscribeRepo) Create(record *model.SmsUnsubscribe) error {
+	return r.db.Create(record).Error
+}
+
+// Update 更新退订记录
+func (r *smsUnsubscribeRepo) Update(record *model.SmsUnsubscribe) error {
+	return r.db.Save(record).Error
+}
+
+// GetByPhone 根据手机号查询退订记录
+func (r *smsUnsubscribeRepo) GetByPhone(phone string) (*model.SmsUnsubscribe, error) {
+	var record model.SmsUnsubscribe
+	err := r.db.Where("phone = ?", phone).First(&record).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &record, nil
+}
+
+// ExistsByPhone 判断手机号是否已退订
+func (r *smsUnsubscribeRepo) ExistsByPhone(phone string) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.SmsUnsubscribe{}).Where("phone = ?", phone).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// DeleteByPhone 根据手机号删除退订记录（重新订阅）
+func (r *smsUnsubscribeRepo) DeleteByPhone(phone string) error {
+	return r.db.Where("phone = ?", phone).Delete(&model.SmsUnsubscribe{}).Error
+}
+
+// List 分页查询退订名单
+func (r *smsUnsubscribeRepo) List(page, limit int, keyword string) ([]*model.SmsUnsubscribe, int64, error) {
+	var records []*model.SmsUnsubscribe
+	var total int64
+
+	query := r.db.Model(&model.SmsUnsubscribe{})
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("phone LIKE ? OR reason LIKE ? OR keyword_matched LIKE ?", like, like, like)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("unsubscribed_at DESC").Offset(offset).Limit(limit).Find(&records).Error; err != nil {
+		return nil, 0, err
+	}
+	return records, total, nil
+}
+
+// ListAll 查询全部退订名单（导出使用）
+func (r *smsUnsubscribeRepo) ListAll() ([]*model.SmsUnsubscribe, error) {
+	var records []*model.SmsUnsubscribe
+	if err := r.db.Order("unsubscribed_at DESC").Find(&records).Error; err != nil {
+		return nil, err
+	}
+	return records, nil
+}

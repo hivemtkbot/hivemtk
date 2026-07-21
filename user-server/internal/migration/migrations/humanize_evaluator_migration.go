@@ -1,0 +1,246 @@
+package migrations
+
+// humanize_evaluator_migration.go P0-4 拟人度评估器迁移 v2.9.0
+//
+// 五层架构归属: L5 数据层
+// 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
+// 私域独立部署: 无 merchant_id 字段
+//
+// 本迁移创建 P0-4 拟人度评估器所需的 5 张新表：
+//  1. humanize_scores      - 拟人度评估主表（每次评估一条记录）
+//  2. humanize_dimensions  - 维度得分明细
+//  3. champion_baselines   - 销冠基线（persona+industry+intent 三元组）
+//  4. champion_phrases     - 销冠短语（TF-IDF 提取）
+//  5. ab_test_stats        - A/B 测试统计结果
+//
+// 第 6 张表 low_quality_samples 已由 P1-2 创建，本迁移不修改其结构，
+// 仅通过 model 层 LowQualitySampleType 枚举扩展新增类型（naturalness_low 等）
+//
+// 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
+// 依赖: 无（独立表）
+
+import (
+	"context"
+	"fmt"
+
+	"marketing/internal/migration"
+
+	"gorm.io/gorm"
+)
+
+// HumanizeEvaluatorMigration P0-4 拟人度评估器迁移 v2.9.0
+type HumanizeEvaluatorMigration struct {
+	db *gorm.DB
+}
+
+// NewHumanizeEvaluatorMigration 创建迁移实例
+func NewHumanizeEvaluatorMigration(db *gorm.DB) *HumanizeEvaluatorMigration {
+	return &HumanizeEvaluatorMigration{db: db}
+}
+
+// Version 返回版本号
+func (m *HumanizeEvaluatorMigration) Version() string { return "v2.9.0" }
+
+// Name 返回迁移名称
+func (m *HumanizeEvaluatorMigration) Name() string { return "拟人度评估器（5 张表）" }
+
+// Description 返回迁移描述
+func (m *HumanizeEvaluatorMigration) Description() string {
+	return "创建 humanize_scores / humanize_dimensions / champion_baselines / champion_phrases / ab_test_stats 5 张表"
+}
+
+// Up 执行升级
+func (m *HumanizeEvaluatorMigration) Up(ctx context.Context) error {
+	if m.db == nil {
+		return fmt.Errorf("db is nil")
+	}
+
+	// 1. humanize_scores 表
+	if err := m.createHumanizeScores(ctx); err != nil {
+		return fmt.Errorf("create humanize_scores 失败: %w", err)
+	}
+
+	// 2. humanize_dimensions 表
+	if err := m.createHumanizeDimensions(ctx); err != nil {
+		return fmt.Errorf("create humanize_dimensions 失败: %w", err)
+	}
+
+	// 3. champion_baselines 表
+	if err := m.createChampionBaselines(ctx); err != nil {
+		return fmt.Errorf("create champion_baselines 失败: %w", err)
+	}
+
+	// 4. champion_phrases 表
+	if err := m.createChampionPhrases(ctx); err != nil {
+		return fmt.Errorf("create champion_phrases 失败: %w", err)
+	}
+
+	// 5. ab_test_stats 表
+	if err := m.createABTestStats(ctx); err != nil {
+		return fmt.Errorf("create ab_test_stats 失败: %w", err)
+	}
+
+	return nil
+}
+
+// createHumanizeScores 创建 humanize_scores 表
+func (m *HumanizeEvaluatorMigration) createHumanizeScores(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS humanize_scores (
+			id BIGSERIAL PRIMARY KEY,
+			score_id VARCHAR(64) NOT NULL UNIQUE,
+			session_id VARCHAR(128) NOT NULL,
+			customer_id VARCHAR(128) NOT NULL,
+			message_id VARCHAR(128) DEFAULT '',
+			persona VARCHAR(128) DEFAULT '',
+			industry VARCHAR(64) DEFAULT '',
+			platform VARCHAR(32) DEFAULT '',
+			intent VARCHAR(32) DEFAULT '',
+			customer_message TEXT DEFAULT '',
+			ai_reply TEXT NOT NULL,
+			final_reply TEXT DEFAULT '',
+			evaluator_type VARCHAR(16) NOT NULL DEFAULT 'rule',
+			sample_strategy VARCHAR(24) NOT NULL DEFAULT 'full',
+			naturalness DECIMAL(4,3) NOT NULL,
+			conciseness DECIMAL(4,3) NOT NULL,
+			empathy DECIMAL(4,3) NOT NULL,
+			professionalism DECIMAL(4,3) NOT NULL,
+			persuasiveness DECIMAL(4,3) NOT NULL,
+			total_score DECIMAL(4,3) NOT NULL,
+			threshold DECIMAL(4,3) NOT NULL DEFAULT 0.850,
+			distance_to_champion DECIMAL(5,4) DEFAULT 0,
+			passed BOOLEAN NOT NULL DEFAULT FALSE,
+			attempt_count INT NOT NULL DEFAULT 1,
+			llm_model VARCHAR(64) DEFAULT '',
+			llm_latency_ms INT DEFAULT 0,
+			reason_json JSONB DEFAULT '{}',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_humanize_session ON humanize_scores(session_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_humanize_persona ON humanize_scores(persona, industry, intent)`,
+		`CREATE INDEX IF NOT EXISTS idx_humanize_score ON humanize_scores(total_score)`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// createHumanizeDimensions 创建 humanize_dimensions 表
+func (m *HumanizeEvaluatorMigration) createHumanizeDimensions(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS humanize_dimensions (
+			id BIGSERIAL PRIMARY KEY,
+			score_id VARCHAR(64) NOT NULL,
+			dimension VARCHAR(32) NOT NULL,
+			score DECIMAL(4,3) NOT NULL,
+			weight DECIMAL(4,3) NOT NULL,
+			reason TEXT DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_hd_score ON humanize_dimensions(score_id, dimension)`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// createChampionBaselines 创建 champion_baselines 表
+func (m *HumanizeEvaluatorMigration) createChampionBaselines(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS champion_baselines (
+			id BIGSERIAL PRIMARY KEY,
+			persona VARCHAR(128) NOT NULL,
+			industry VARCHAR(64) NOT NULL,
+			intent VARCHAR(32) NOT NULL,
+			naturalness DECIMAL(4,3) NOT NULL,
+			conciseness DECIMAL(4,3) NOT NULL,
+			empathy DECIMAL(4,3) NOT NULL,
+			professionalism DECIMAL(4,3) NOT NULL,
+			persuasiveness DECIMAL(4,3) NOT NULL,
+			sample_count INT NOT NULL,
+			sample_stddev DECIMAL(4,3) DEFAULT 0,
+			period_start TIMESTAMPTZ,
+			period_end TIMESTAMPTZ,
+			version INT NOT NULL DEFAULT 1,
+			enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_champion_pii ON champion_baselines(persona, industry, intent, version DESC, enabled)`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// createChampionPhrases 创建 champion_phrases 表
+func (m *HumanizeEvaluatorMigration) createChampionPhrases(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS champion_phrases (
+			id BIGSERIAL PRIMARY KEY,
+			baseline_id BIGINT NOT NULL,
+			phrase VARCHAR(64) NOT NULL,
+			tfidf_score DECIMAL(8,5) NOT NULL,
+			tf INT NOT NULL,
+			df INT NOT NULL,
+			phrase_type VARCHAR(16) NOT NULL DEFAULT 'general',
+			rank INT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_cp_baseline ON champion_phrases(baseline_id, rank)`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// createABTestStats 创建 ab_test_stats 表
+func (m *HumanizeEvaluatorMigration) createABTestStats(ctx context.Context) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS ab_test_stats (
+			id BIGSERIAL PRIMARY KEY,
+			experiment_id VARCHAR(64) NOT NULL,
+			group_name VARCHAR(16) NOT NULL,
+			sample_size INT NOT NULL,
+			mean_score DECIMAL(8,4) DEFAULT 0,
+			median_score DECIMAL(8,4) DEFAULT 0,
+			stddev_score DECIMAL(8,4) DEFAULT 0,
+			mann_whitney_u BIGINT DEFAULT 0,
+			mann_whitney_p DECIMAL(8,4) DEFAULT 0,
+			cohens_d DECIMAL(8,4) DEFAULT 0,
+			bootstrap_ci_low DECIMAL(5,4) DEFAULT 0,
+			bootstrap_ci_high DECIMAL(5,4) DEFAULT 0,
+			significant BOOLEAN DEFAULT FALSE,
+			effect_size_label VARCHAR(16) DEFAULT 'negligible',
+			winner VARCHAR(16) DEFAULT 'inconclusive',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_abstat_exp ON ab_test_stats(experiment_id, group_name, created_at DESC)`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// Down 回滚（删除新表）
+//
+// 注意：
+//   - 不删除 low_quality_samples（与 P1-2 共享）
+//   - 5 张新表可安全删除
+func (m *HumanizeEvaluatorMigration) Down(ctx context.Context) error {
+	stmts := []string{
+		`DROP TABLE IF EXISTS ab_test_stats`,
+		`DROP TABLE IF EXISTS champion_phrases`,
+		`DROP TABLE IF EXISTS champion_baselines`,
+		`DROP TABLE IF EXISTS humanize_dimensions`,
+		`DROP TABLE IF EXISTS humanize_scores`,
+	}
+	return execAllHumanize(ctx, m.db, stmts)
+}
+
+// execAllHumanize 批量执行 SQL（出错即返回）
+//
+// 与 confidence_migration.go 的 execAll 同名会冲突，故命名 execAllHumanize
+func execAllHumanize(ctx context.Context, db *gorm.DB, stmts []string) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	for _, sql := range stmts {
+		if err := db.WithContext(ctx).Exec(sql).Error; err != nil {
+			return fmt.Errorf("exec failed (%s): %w", sql, err)
+		}
+	}
+	return nil
+}
+
+// compile-time 接口断言
+var _ migration.Migration = (*HumanizeEvaluatorMigration)(nil)

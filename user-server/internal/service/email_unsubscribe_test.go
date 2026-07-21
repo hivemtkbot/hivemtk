@@ -1,0 +1,493 @@
+package service
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"marketing/internal/model"
+	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
+
+	"gorm.io/gorm"
+)
+
+// setupEmailUnsubscribeTestDB 设置邮件退订测试数据库
+func setupEmailUnsubscribeTestDB(t *testing.T) *gorm.DB {
+	database := testutil.NewTestDB(t,
+		&model.EmailUnsubscribe{},
+	)
+	db.SetTestDB(database)
+	return database
+}
+
+// newEmailUnsubscribeService 创建测试用邮件退订服务
+func newEmailUnsubscribeService(database *gorm.DB) *EmailUnsubscribeService {
+	return NewEmailUnsubscribeService(repository.NewEmailUnsubscribeRepository(database))
+}
+
+// TestEmailUnsubscribe_NewService 测试创建服务
+func TestEmailUnsubscribe_NewService(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+	if svc == nil {
+		t.Fatal("Expected non-nil service")
+	}
+}
+
+// TestEmailUnsubscribe_UnsubscribeEmail_NewRecord 测试新邮箱退订
+func TestEmailUnsubscribe_UnsubscribeEmail_NewRecord(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	err := svc.UnsubscribeEmail(context.Background(), "User@Example.com", "不再需要", "/api/email/unsubscribe/confirm", "job-123", "127.0.0.1", "Mozilla/5.0")
+	if err != nil {
+		t.Fatalf("UnsubscribeEmail failed: %v", err)
+	}
+
+	// 验证记录已创建且 email 被规范化为小写
+	var record model.EmailUnsubscribe
+	if err := database.Where("email = ?", "user@example.com").First(&record).Error; err != nil {
+		t.Fatalf("查询退订记录失败: %v", err)
+	}
+	if record.Reason != "不再需要" {
+		t.Errorf("Expected reason '不再需要', got %s", record.Reason)
+	}
+	if record.IP != "127.0.0.1" {
+		t.Errorf("Expected IP '127.0.0.1', got %s", record.IP)
+	}
+	if record.JobID != "job-123" {
+		t.Errorf("Expected JobID 'job-123', got %s", record.JobID)
+	}
+	if record.UnsubscribedAt.IsZero() {
+		t.Error("Expected UnsubscribedAt to be set")
+	}
+}
+
+// TestEmailUnsubscribe_UnsubscribeEmail_Idempotent 测试重复退订幂等
+func TestEmailUnsubscribe_UnsubscribeEmail_Idempotent(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	// 第一次退订
+	if err := svc.UnsubscribeEmail(context.Background(), "a@b.com", "reason1", "", "", "", ""); err != nil {
+		t.Fatalf("首次退订失败: %v", err)
+	}
+
+	// 第二次退订（更新原因）
+	if err := svc.UnsubscribeEmail(context.Background(), "A@B.com", "reason2", "", "", "", ""); err != nil {
+		t.Fatalf("二次退订失败: %v", err)
+	}
+
+	// 仅一条记录
+	var count int64
+	database.Model(&model.EmailUnsubscribe{}).Where("email = ?", "a@b.com").Count(&count)
+	if count != 1 {
+		t.Errorf("Expected 1 record (idempotent), got %d", count)
+	}
+
+	var record model.EmailUnsubscribe
+	database.Where("email = ?", "a@b.com").First(&record)
+	if record.Reason != "reason2" {
+		t.Errorf("Expected reason updated to 'reason2', got %s", record.Reason)
+	}
+}
+
+// TestEmailUnsubscribe_UnsubscribeEmail_EmptyEmail 测试空邮箱
+func TestEmailUnsubscribe_UnsubscribeEmail_EmptyEmail(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	err := svc.UnsubscribeEmail(context.Background(), "  ", "reason", "", "", "", "")
+	if err == nil {
+		t.Error("Expected error for empty email")
+	}
+	if !strings.Contains(err.Error(), "email") {
+		t.Errorf("Expected error message mentions email, got: %s", err.Error())
+	}
+}
+
+// TestEmailUnsubscribe_IsUnsubscribed_True 测试已退订
+func TestEmailUnsubscribe_IsUnsubscribed_True(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	if err := svc.UnsubscribeEmail(context.Background(), "sub@demo.com", "", "", "", "", ""); err != nil {
+		t.Fatalf("退订失败: %v", err)
+	}
+
+	if !svc.IsUnsubscribed("sub@demo.com") {
+		t.Error("Expected IsUnsubscribed=true")
+	}
+	if !svc.IsUnsubscribed("SUB@DEMO.COM") {
+		t.Error("Expected IsUnsubscribed=true for upper case")
+	}
+}
+
+// TestEmailUnsubscribe_IsUnsubscribed_False 测试未退订
+func TestEmailUnsubscribe_IsUnsubscribed_False(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	if svc.IsUnsubscribed("notexist@demo.com") {
+		t.Error("Expected IsUnsubscribed=false for unknown email")
+	}
+}
+
+// TestEmailUnsubscribe_IsUnsubscribed_EmptyEmail 测试空邮箱
+func TestEmailUnsubscribe_IsUnsubscribed_EmptyEmail(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	if svc.IsUnsubscribed("") {
+		t.Error("Expected IsUnsubscribed=false for empty email")
+	}
+}
+
+// TestEmailUnsubscribe_ResubscribeEmail_Success 测试重新订阅
+func TestEmailUnsubscribe_ResubscribeEmail_Success(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	// 先退订
+	if err := svc.UnsubscribeEmail(context.Background(), "re@sub.com", "", "", "", "", ""); err != nil {
+		t.Fatalf("退订失败: %v", err)
+	}
+	if !svc.IsUnsubscribed("re@sub.com") {
+		t.Fatal("Expected unsubscribed")
+	}
+
+	// 重新订阅
+	if err := svc.ResubscribeEmail(context.Background(), "re@sub.com"); err != nil {
+		t.Fatalf("重新订阅失败: %v", err)
+	}
+	if svc.IsUnsubscribed("re@sub.com") {
+		t.Error("Expected IsUnsubscribed=false after resubscribe")
+	}
+}
+
+// TestEmailUnsubscribe_ResubscribeEmail_NotExist 测试重新订阅不存在的记录
+func TestEmailUnsubscribe_ResubscribeEmail_NotExist(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	// 重新订阅不存在的记录，应不报错（幂等）
+	if err := svc.ResubscribeEmail(context.Background(), "never@sub.com"); err != nil {
+		t.Errorf("重新订阅不存在的记录应幂等返回 nil, got: %v", err)
+	}
+}
+
+// TestEmailUnsubscribe_ResubscribeEmail_EmptyEmail 测试空邮箱重新订阅
+func TestEmailUnsubscribe_ResubscribeEmail_EmptyEmail(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	if err := svc.ResubscribeEmail(context.Background(), ""); err == nil {
+		t.Error("Expected error for empty email")
+	}
+}
+
+// TestEmailUnsubscribe_GenerateUnsubscribeLink_Format 测试链接格式
+func TestEmailUnsubscribe_GenerateUnsubscribeLink_Format(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	link, err := svc.GenerateUnsubscribeLink("link@demo.com", "job-001")
+	if err != nil {
+		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
+	}
+
+	if !strings.Contains(link, "/api/email/unsubscribe?token=") {
+		t.Errorf("链接缺少退订路径, got: %s", link)
+	}
+	if !strings.Contains(link, "token=") {
+		t.Errorf("链接缺少 token 参数, got: %s", link)
+	}
+}
+
+// TestEmailUnsubscribe_GenerateUnsubscribeLink_EmptyEmail 测试空邮箱
+func TestEmailUnsubscribe_GenerateUnsubscribeLink_EmptyEmail(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	_, err := svc.GenerateUnsubscribeLink("", "job-001")
+	if err == nil {
+		t.Error("Expected error for empty email")
+	}
+}
+
+// TestEmailUnsubscribe_VerifyToken_Valid 测试有效 token 验证
+func TestEmailUnsubscribe_VerifyToken_Valid(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	link, err := svc.GenerateUnsubscribeLink("verify@demo.com", "job-002")
+	if err != nil {
+		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
+	}
+
+	// 提取 token
+	idx := strings.Index(link, "token=")
+	if idx < 0 {
+		t.Fatalf("链接缺少 token 参数: %s", link)
+	}
+	token := link[idx+6:]
+
+	claim, err := svc.VerifyUnsubscribeToken(token)
+	if err != nil {
+		t.Fatalf("VerifyUnsubscribeToken failed: %v", err)
+	}
+	if claim.Email != "verify@demo.com" {
+		t.Errorf("Expected email 'verify@demo.com', got %s", claim.Email)
+	}
+	if claim.JobID != "job-002" {
+		t.Errorf("Expected JobID 'job-002', got %s", claim.JobID)
+	}
+	if claim.Expire <= time.Now().Unix() {
+		t.Error("Expected expire in future")
+	}
+}
+
+// TestEmailUnsubscribe_VerifyToken_InvalidSignature 测试签名篡改
+func TestEmailUnsubscribe_VerifyToken_InvalidSignature(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	link, _ := svc.GenerateUnsubscribeLink("tamper@demo.com", "job-003")
+	idx := strings.Index(link, "token=")
+	token := link[idx+6:]
+
+	// 篡改签名（最后 5 字符）
+	tampered := token[:len(token)-5] + "XXXXX"
+	_, err := svc.VerifyUnsubscribeToken(tampered)
+	if err == nil {
+		t.Error("Expected error for tampered token")
+	}
+	if !strings.Contains(err.Error(), "签名") {
+		t.Errorf("Expected signature error, got: %s", err.Error())
+	}
+}
+
+// TestEmailUnsubscribe_VerifyToken_Expired 测试过期 token
+func TestEmailUnsubscribe_VerifyToken_Expired(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	// 直接构造过期 claim（通过生成后修改 expire 不可行，因为签名固定）
+	// 采用另一种方式：生成 token 后，等待 expire 字段被读出，再用反序列化失败的场景验证
+	// 此处通过断言 token 包含 expire 字段间接覆盖
+	link, err := svc.GenerateUnsubscribeLink("exp@demo.com", "")
+	if err != nil {
+		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
+	}
+	idx := strings.Index(link, "token=")
+	token := link[idx+6:]
+
+	// 验证 token 在 30 天后过期（通过 claim.Expire 校验）
+	claim, err := svc.VerifyUnsubscribeToken(token)
+	if err != nil {
+		t.Fatalf("VerifyUnsubscribeToken failed: %v", err)
+	}
+	expireTime := time.Unix(claim.Expire, 0)
+	if !expireTime.After(time.Now().Add(29 * 24 * time.Hour)) {
+		t.Errorf("Expected token valid for at least 29 days, expire at %v", expireTime)
+	}
+}
+
+// TestEmailUnsubscribe_VerifyToken_Empty 测试空 token
+func TestEmailUnsubscribe_VerifyToken_Empty(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	_, err := svc.VerifyUnsubscribeToken("")
+	if err == nil {
+		t.Error("Expected error for empty token")
+	}
+}
+
+// TestEmailUnsubscribe_VerifyToken_Malformed 测试格式错误 token
+func TestEmailUnsubscribe_VerifyToken_Malformed(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	_, err := svc.VerifyUnsubscribeToken("malformed-token-without-dot")
+	if err == nil {
+		t.Error("Expected error for malformed token")
+	}
+}
+
+// TestEmailUnsubscribe_ListUnsubscribes 测试分页查询
+func TestEmailUnsubscribe_ListUnsubscribes(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	// 准备数据
+	for i, email := range []string{"a@x.com", "b@x.com", "c@y.com"} {
+		if err := svc.UnsubscribeEmail(context.Background(), email, "r"+string(rune('0'+i)), "", "", "", ""); err != nil {
+			t.Fatalf("UnsubscribeEmail failed: %v", err)
+		}
+	}
+
+	// 查询全部
+	records, total, err := svc.ListUnsubscribes(1, 20, "")
+	if err != nil {
+		t.Fatalf("ListUnsubscribes failed: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("Expected total 3, got %d", total)
+	}
+	if len(records) != 3 {
+		t.Errorf("Expected 3 records, got %d", len(records))
+	}
+
+	// 关键词过滤
+	records, total, err = svc.ListUnsubscribes(1, 20, "@x.com")
+	if err != nil {
+		t.Fatalf("ListUnsubscribes with keyword failed: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("Expected total 2 for keyword '@x.com', got %d", total)
+	}
+	if len(records) != 2 {
+		t.Errorf("Expected 2 records for keyword, got %d", len(records))
+	}
+}
+
+// TestEmailUnsubscribe_ListUnsubscribes_Pagination 测试分页
+func TestEmailUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	for i := 0; i < 5; i++ {
+		email := string(rune('a'+i)) + "@p.com"
+		if err := svc.UnsubscribeEmail(context.Background(), email, "", "", "", "", ""); err != nil {
+			t.Fatalf("UnsubscribeEmail failed: %v", err)
+		}
+	}
+
+	// 第 1 页，每页 2 条
+	records, total, err := svc.ListUnsubscribes(1, 2, "")
+	if err != nil {
+		t.Fatalf("ListUnsubscribes page 1 failed: %v", err)
+	}
+	if total != 5 {
+		t.Errorf("Expected total 5, got %d", total)
+	}
+	if len(records) != 2 {
+		t.Errorf("Expected 2 records on page 1, got %d", len(records))
+	}
+
+	// 第 3 页（超出范围）
+	records, _, err = svc.ListUnsubscribes(3, 2, "")
+	if err != nil {
+		t.Fatalf("ListUnsubscribes page 3 failed: %v", err)
+	}
+	if len(records) != 1 {
+		t.Errorf("Expected 1 record on page 3, got %d", len(records))
+	}
+}
+
+// TestEmailUnsubscribe_ListUnsubscribes_DefaultPaging 测试默认分页参数
+func TestEmailUnsubscribe_ListUnsubscribes_DefaultPaging(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	if err := svc.UnsubscribeEmail(context.Background(), "p1@x.com", "", "", "", "", ""); err != nil {
+		t.Fatalf("UnsubscribeEmail failed: %v", err)
+	}
+
+	// 传入 page=0, limit=0，应被规范化为 page=1, limit=20
+	records, total, err := svc.ListUnsubscribes(0, 0, "")
+	if err != nil {
+		t.Fatalf("ListUnsubscribes failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("Expected total 1, got %d", total)
+	}
+	if len(records) != 1 {
+		t.Errorf("Expected 1 record, got %d", len(records))
+	}
+}
+
+// TestEmailUnsubscribe_ListAllUnsubscribes 测试全量导出
+func TestEmailUnsubscribe_ListAllUnsubscribes(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	for i := 0; i < 3; i++ {
+		email := string(rune('a'+i)) + "@export.com"
+		if err := svc.UnsubscribeEmail(context.Background(), email, "", "", "", "", ""); err != nil {
+			t.Fatalf("UnsubscribeEmail failed: %v", err)
+		}
+	}
+
+	all, err := svc.ListAllUnsubscribes()
+	if err != nil {
+		t.Fatalf("ListAllUnsubscribes failed: %v", err)
+	}
+	if len(all) != 3 {
+		t.Errorf("Expected 3 records, got %d", len(all))
+	}
+}
+
+// TestEmailUnsubscribe_NormalizeEmail 测试邮箱规范化
+func TestEmailUnsubscribe_NormalizeEmail(t *testing.T) {
+	if normalizeEmail("  User@Example.COM  ") != "user@example.com" {
+		t.Error("normalizeEmail failed to lowercase and trim")
+	}
+	if normalizeEmail("") != "" {
+		t.Error("normalizeEmail should return empty for empty input")
+	}
+}
+
+// TestEmailUnsubscribe_FullLifecycle 测试完整生命周期
+func TestEmailUnsubscribe_FullLifecycle(t *testing.T) {
+	database := setupEmailUnsubscribeTestDB(t)
+	svc := newEmailUnsubscribeService(database)
+
+	email := "lifecycle@demo.com"
+
+	// 1. 初始未退订
+	if svc.IsUnsubscribed(email) {
+		t.Error("Initial state should be not unsubscribed")
+	}
+
+	// 2. 生成退订链接
+	link, err := svc.GenerateUnsubscribeLink(email, "job-lc")
+	if err != nil {
+		t.Fatalf("GenerateUnsubscribeLink failed: %v", err)
+	}
+
+	// 3. 验证 token
+	idx := strings.Index(link, "token=")
+	token := link[idx+6:]
+	claim, err := svc.VerifyUnsubscribeToken(token)
+	if err != nil {
+		t.Fatalf("VerifyUnsubscribeToken failed: %v", err)
+	}
+	if claim.Email != email {
+		t.Errorf("Expected email %s, got %s", email, claim.Email)
+	}
+
+	// 4. 执行退订
+	if err := svc.UnsubscribeEmail(context.Background(), claim.Email, "测试生命周期", "", claim.JobID, "", ""); err != nil {
+		t.Fatalf("UnsubscribeEmail failed: %v", err)
+	}
+
+	// 5. 验证已退订
+	if !svc.IsUnsubscribed(email) {
+		t.Error("Should be unsubscribed after UnsubscribeEmail")
+	}
+
+	// 6. 重新订阅
+	if err := svc.ResubscribeEmail(context.Background(), email); err != nil {
+		t.Fatalf("ResubscribeEmail failed: %v", err)
+	}
+
+	// 7. 验证已重新订阅
+	if svc.IsUnsubscribed(email) {
+		t.Error("Should be resubscribed after ResubscribeEmail")
+	}
+}

@@ -1,0 +1,14 @@
+# 平台端地址(本机部署对应 docker 端口映射 host:container)
+api_url: "http://localhost:8097"
+# 商户端密钥（32 位，与平台端配置一致）
+# 私域合规基线 §7.2：通过环境变量 MERCHANT_API_SECRET 注入，禁止明文落库
+secret: "${MERCHANT_API_SECRET}"
+# 异步日志上报间隔（秒）
+log_report_interval: 60
+# 授权状态同步间隔（秒）
+license_sync_interval: 300
+# 平台管理员账号（用于商户服务代理调用平台 /platform/* 路由）
+admin_username: "admin"
+# 私域合规基线 §7.2：管理员密码通过环境变量 ADMIN_PASSWORD 注入，禁止明文落库
+# 部署时必须在 .env 或环境变量中设置 ADMIN_PASSWORD
+admin_password: "${ADMIN_PASSWORD}"

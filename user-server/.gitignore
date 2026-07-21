@@ -1,0 +1,115 @@
+# ============================================================
+# 用户端 Go 服务 (user-server) - 本地 .gitignore
+# 路径相对于 user-server/ 目录本身
+# ============================================================
+
+# ---------- 依赖 ----------
+vendor/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# ---------- 环境配置（含敏感信息）----------
+.env
+.env.local
+.env.*.local
+.env.inference
+
+# ---------- 日志 ----------
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.workbuddy-ai/*
+
+# ---------- 编辑器 / IDE ----------
+.vscode/
+.idea/
+.claude/
+.trae/
+.sisyphus/
+*.swp
+*.swo
+*~
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+
+# ---------- 构建产物（Go 二进制）----------
+/bin/
+bin/
+user-server
+embedding-server
+cmd/api/api
+cmd/*/api
+main
+*.exe
+*.app
+*.dll
+*.so
+*.dylib
+*.a
+
+# ---------- 测试覆盖 ----------
+coverage/
+coverage.out
+coverage.html
+*.cover
+*.cover.out
+*.out
+*.test
+*.prof
+playwright-report/
+playwright-report-api/
+test-results/
+
+# ---------- 临时文件 ----------
+tmp/
+temp/
+uploads/
+downloads/
+.data/
+
+# ---------- 数据库 / 持久化数据 ----------
+*.db
+data/
+faiss_index/
+
+# ---------- Docker ----------
+docker-compose.override.yml
+
+# ---------- 证书和密钥 ----------
+*.pem
+*.key
+*.crt
+*.p12
+
+# ---------- 备份与缓存 ----------
+*.bak
+*.backup
+*.bak.*
+backups/
+
+# ---------- 一次性调试产物 ----------
+debug-*.html
+reset-*.html
+clear-*.html
+fix-api-config*.html
+debug-*.js
+debug-*.sh
+test_all_apis*.sh
+test-all-apis*.sh
+
+# ---------- 运行时授权文件 ----------
+merchant.key
+install.lock
+
+# ---------- 开发工具配置 ----------
+.air.toml
+
+# ---------- 运行时上传目录（知识库样本数据，不进版本库；由运行时生成）----------
+internal/aiagent/knowledge/controller/uploads/
