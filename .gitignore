@@ -68,7 +68,6 @@ build/
 *.jpeg
 *.gif
 *.webp
-*.svg
 *.ico
 # 离线包构建产物
 dist-offline/

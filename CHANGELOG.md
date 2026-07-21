@@ -17,11 +17,11 @@
 ### Changed
 - 数据架构：用户端与平台端物理隔离，用户端使用 `user_db` 独立 PostgreSQL 容器（端口 8202），平台端使用 `platform_db` 独立容器（端口 8201）。
 - 端口规划收敛至 8201-8213 区间，宿主机映射 = 容器内部端口。
-- 配置精简（2026-07-21 二次重构）：合并 `.env.example` + `.env.inference.dev` + `.env.inference.prod` 为单一 `.env-example`；合并 `docker-compose.inference.yml` 入 `docker-compose.yml`，新增 `docker-compose-example.yml`，推理栈通过同文件内 `mtk_inference_net` 网络互通。示例文件（`.env-example` / `docker-compose-example.yml`）纳入版本追踪，真实文件（`.env` / `docker-compose.yml`）继续忽略。
+- 配置精简（2026-07-21 二次重构）：环境变量统一收敛到单一 `.env-example`；推理栈通过同文件内 `mtk_inference_net` 网络互通。示例文件（`.env-example` / `docker-compose-example.yml`）纳入版本追踪，真实文件（`.env` / `docker-compose.yml`）继续忽略。
 
 ### Removed
 - 多租户 `merchant_id` 字段（私域部署基线：每个商户独立部署一套完整系统）。
-- `docker-compose.inference.yml`、`.env.inference.dev`、`.env.inference.prod` 及 Makefile 的 `inference-env-dev/prod` 目标（推理档位改为在 `.env` 中直接配置）。
+- 旧版推理栈与档位预设文件，推理档位改为在 `.env` 中直接配置。
 
 ---
 

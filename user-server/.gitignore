@@ -14,7 +14,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
-.env.inference
 
 # ---------- 日志 ----------
 logs/
