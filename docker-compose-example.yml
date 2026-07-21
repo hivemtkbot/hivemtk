@@ -212,10 +212,11 @@ services:
       EMAIL_163_SMTP_HOST: ${EMAIL_163_SMTP_HOST:-smtp.163.com}
       # CORS
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS_USER:-https://user.example.com}
-      # LLM（默认走本地推理栈 mtk-llm）
+      # LLM（默认走本地推理栈 mtk-llm；LLM_MODEL 是对外 API 的 model 字段，
+      # 实际加载文件由 LLM_MODEL_FILE 决定）
       LLM_API_KEY: ${LLM_API_KEY:-local}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://mtk-llm:8207/v1}
-      LLM_MODEL: ${LLM_MODEL:-qwen2.5-3b-instruct-q4_k_m.gguf}
+      LLM_MODEL: ${LLM_MODEL:-Qwen2.5-14B-Instruct}
       # Embedding
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://mtk-embedding:8208/v1}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}

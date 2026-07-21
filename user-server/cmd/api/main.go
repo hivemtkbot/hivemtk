@@ -128,18 +128,32 @@ func main() {
 	// 加载平台配置（消除"平台配置未初始化"报错；商户上报/授权同步依赖 config.PlatformCfg）
 	if err := platformconfig.LoadPlatform("config/platform.yaml"); err != nil {
 		logger.Errorf("平台配置加载失败（PlatformCfg 未初始化，商户上报/授权同步将不可用）：%v", err)
+	} else {
+		// 打印当前生效的平台上报域名，便于排查初始化/上报是否走线上域名
+		source := "platform.yaml 默认值"
+		if v := os.Getenv("PLATFORM_URL"); v != "" {
+			source = "PLATFORM_URL 环境变量"
+		}
+		logger.Infof("[平台配置] api_url=%s（来源：%s）", platformconfig.PlatformCfg.APIURL, source)
 	}
 
 	// 初始化授权检查器（install.lock + 3 分钟心跳 + 9 分钟容错）
 	// 对应 LICENSE_OTA_DESIGN.md 第 7.1 节启动流程
-	// 平台端地址：优先 PLATFORM_API_URL（与 docker-compose/.env 注入一致），
-	// 兼容旧变量名 PLATFORM_URL；均未设置时回退本机默认。
-	platformURL := os.Getenv("PLATFORM_API_URL")
+	// 平台端地址：优先 PlatformCfg.APIURL（即商户上报地址，初始化/上报共用同一域名），
+	// 兼容旧变量名 PLATFORM_URL / PLATFORM_API_URL（覆盖 LicenseChecker 的 ServerURL）。
+	platformURL := ""
+	if platformconfig.PlatformCfg != nil {
+		platformURL = platformconfig.PlatformCfg.APIURL
+	}
+	if platformURL == "" {
+		platformURL = os.Getenv("PLATFORM_API_URL")
+	}
 	if platformURL == "" {
 		platformURL = os.Getenv("PLATFORM_URL")
 	}
 	if platformURL == "" {
-		platformURL = "http://localhost:8205"
+		// 兜底：与 DefaultPlatformAPI（license_checker.go）保持一致
+		platformURL = "https://hivepaltformapi.xapptool.cn"
 	}
 	middleware.InitLicenseChecker(platformURL, "")
 

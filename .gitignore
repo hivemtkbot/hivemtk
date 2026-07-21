@@ -61,6 +61,15 @@ build/
 
 # i18n 生成缓存
 *.fill_cache.json
+
+# 图片资源（体积大，不纳入版本追踪；本地保留即可）
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
 # 离线包构建产物
 dist-offline/
 

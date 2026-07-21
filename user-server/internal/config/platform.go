@@ -39,5 +39,10 @@ func LoadPlatform(path string) error {
 	if PlatformCfg.Secret == "" {
 		return fmt.Errorf("商户 API 共享密钥未配置：请通过环境变量 MERCHANT_API_SECRET 注入")
 	}
+	// 环境变量 PLATFORM_URL 优先级最高，便于本地联调本地 platform-server
+	// 默认 platform.yaml 中的 api_url 已经是线上域名 hivepaltformapi.xapptool.cn
+	if v := os.Getenv("PLATFORM_URL"); v != "" {
+		PlatformCfg.APIURL = v
+	}
 	return nil
 }

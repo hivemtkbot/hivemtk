@@ -1,5 +1,8 @@
-# 平台端地址(本机部署对应 docker 端口映射 host:container)
-api_url: "http://localhost:8097"
+# 平台端地址
+# 默认：线上平台端 API 网关 https://hivepaltformapi.xapptool.cn（开发/生产一致）
+# 需求：hivemtk 初始化后直接将安装信息上报到该平台。
+# 本地联调本地 platform-server 时可通过环境变量 PLATFORM_URL=http://localhost:8097 覆盖（见 LoadPlatform）。
+api_url: "https://hivepaltformapi.xapptool.cn"
 # 商户端密钥（32 位，与平台端配置一致）
 # 私域合规基线 §7.2：通过环境变量 MERCHANT_API_SECRET 注入，禁止明文落库
 secret: "${MERCHANT_API_SECRET}"
