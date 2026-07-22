@@ -12,11 +12,26 @@
 
 <div align="center">
 
-[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white)](https://vuejs.org) [![Docker](https://img.shields.io/badge/Docker-24+-2496ED?logo=docker&logoColor=white)](https://www.docker.com) [![PostgreSQL 15+](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org) [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Gitee](https://img.shields.io/badge/Gitee-xhpmayun%2Fhivemtk-C71D23?logo=gitee)](https://gitee.com/xhpmayun/hivemtk) [![GitHub](https://img.shields.io/badge/GitHub-xiaofang142%2Fhivemtk-181717?logo=github)](https://github.com/xiaofang142/hivemtk)
+[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white)](https://vuejs.org) [![Docker](https://img.shields.io/badge/Docker-24+-2496ED?logo=docker&logoColor=white)](https://www.docker.com) [![PostgreSQL 15+](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org) [![License AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) [![Gitee](https://img.shields.io/badge/Gitee-xhpmayun%2Fhivemtk-C71D23?logo=gitee)](https://gitee.com/xhpmayun/hivemtk) [![GitHub](https://img.shields.io/badge/GitHub-xiaofang142%2Fhivemtk-181717?logo=github)](https://github.com/xiaofang142/hivemtk)
 
 </div>
 
 ---
+
+## ⚠️ 合规与法律免责声明（主动触达模块）
+
+> **请在使用本项目的「主动触达」功能前，务必仔细阅读本声明。**
+
+HivemTK 的**主动触达模块**（短信、邮件、微信公众号 / 企业微信、抖音 / 快手 / 小红书 / 闲鱼私信、Telegram、WhatsApp(Meta)、网页客服等向用户**主动推送消息**的能力）属于**核心敏感功能**。本项目作为开源工具，**不对使用者如何调用这些能力承担责任**，并作如下声明：
+
+1. **遵守平台规范**：各渠道平台（微信、企业微信、抖音、快手、小红书、Telegram、WhatsApp / Meta、短信运营商、邮件服务商等）均制定有严格的**开发者规范、服务条款与频控策略**。使用者必须自行阅读并严格遵守对应平台的全部规则。
+2. **授权与同意**：你**仅可向已授权、已明确同意接收消息的联系人**发送内容；禁止向未授权或已明确拒绝的联系人推送。
+3. **内容合规**：禁止利用本工具发送任何**垃圾营销、欺诈、骚扰、钓鱼、色情、赌博、侵权或违反当地法律法规**的内容。
+4. **频率自控**：请合理控制发送频率，避免对接收方造成骚扰，并配合平台的风控与频控要求。
+5. **责任自负**：因违规使用主动触达功能所导致的一切后果——包括但不限于**账号封禁、平台处罚、行政处罚、民事赔偿或刑事责任**——**均由使用者自行承担**，与本项目及作者无关。
+6. **"原样"提供**：本项目按 **"原样"（AS IS）** 提供，不保证触达能力在任何平台长期可用；平台接口、政策变动导致的功能失效不属于缺陷。
+
+> 📌 **运行时强制提示**：每次主动触达发送，服务端日志都会打印一条 `[COMPLIANCE]` 合规提示（`internal/service/reach_send_pipeline.go` 的 `LogComplianceReminder`），提醒操作者遵守上述要求。该提示不可关闭。
 
 **🎯 一句话定位**:**把七端社媒、AI 智能体、零出域数据安全三件事同时做透**的私域营销 OS。
 
@@ -104,7 +119,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 | **触达端** | **7 端** ✅ | 1 端(企微) | 1 端(企微) | 无 | 1-3 端 |
 | **AI 能力** | **ReAct 智能体 + 41 工具** | 简单 RAG | 无 | 可视化 Workflow | 基础客服机器人 |
 | **数据部署** | **100% 私域 + 本地推理栈** | SaaS / 私有 | SaaS / 私有 | 自托管 / SaaS | SaaS |
-| **开源** | ✅ MIT | ✅ | ✅ | ✅ | ❌ |
+| **开源** | ✅ AGPL-3.0（含 SaaS 网络 copyleft） | ✅ | ✅ | ✅ | ❌ |
 | **上手成本** | 5 分钟 Docker | 中等 | 中等 | 中等 | 注册即用 |
 | **可定制深度** | 高(全栈开源) | 中 | 中 | 高(开发者向) | 低 |
 | **生态成熟度** | 🌱 早期 | 🌿 中 | 🌿 中 | 🌳 成熟(131K⭐) | 🌳 成熟 |
@@ -253,7 +268,7 @@ hivemtk/                              # 用户端仓库
 ├── .env-example                      # 环境变量模板
 ├── CHANGELOG.md                      # 变更日志
 ├── CONTRIBUTING.md                   # 贡献指南
-└── LICENSE                           # 开源协议(MIT)
+└── LICENSE                           # 开源协议(AGPL-3.0)
 ```
 
 ---
@@ -343,9 +358,13 @@ make restore FILE=...   # 恢复备份
 
 ## License
 
-本项目采用 [MIT 开源协议](LICENSE),可自由使用、部署与二次开发。
+本项目采用 [GNU Affero General Public License v3.0（AGPL-3.0）](LICENSE) 发布。
 
-如需商务合作或技术支持,欢迎通过 Gitee Issue 或 business@hivemtk.cn 联系。
+**核心诉求（AGPL-3.0 第 13 条 · 远程网络交互）**：任何公司或个人只要**修改了本项目代码，并将其通过网络（SaaS / 云端 / API / 托管实例等）对外提供服务**，就必须按照 AGPL-3.0 向使用该服务的所有用户**免费提供其修改后的完整对应源代码**，且同样以 AGPL-3.0 开源。仅自己内部私有部署、不对外提供网络服务时无需公开修改；但一旦把修改后的版本放到网上为他人提供服务（即使是 SaaS 模式），强制开源即自动生效。
+
+你可自由使用、私有部署与二次开发；修改后的版本若对外提供网络服务，请遵守上述开源义务。完整条款与免责声明见 [LICENSE](LICENSE)，版权与联系方式见 [NOTICE](NOTICE)。
+
+如需商务合作或技术支持，欢迎通过 Gitee Issue 或 business@hivemtk.cn 联系。
 
 ---
 

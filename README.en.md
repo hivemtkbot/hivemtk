@@ -6,7 +6,7 @@
 [![Vue](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white)](https://vuejs.org)
 [![Docker](https://img.shields.io/badge/Docker-24+-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Gitee](https://img.shields.io/badge/Gitee-xhpmayun%2Fhivemtk-C71D23?logo=gitee)](https://gitee.com/xhpmayun/hivemtk)
 [![GitHub](https://img.shields.io/badge/GitHub-xiaofang142%2Fhivemtk-181717?logo=github)](https://github.com/xiaofang142/hivemtk)
 
@@ -196,7 +196,7 @@ hivemtk/                              # User-side repo
 ├── .env-example                      # Env template
 ├── CHANGELOG.md                      # Changelog
 ├── CONTRIBUTING.md                   # Contributing guide
-└── LICENSE                           # MIT License
+└── LICENSE                           # AGPL-3.0 License
 ```
 
 ---
@@ -271,7 +271,11 @@ make restore FILE=...   # Restore from backup
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). You are free to use, deploy, and modify it.
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
+**Key requirement (AGPL-3.0 Section 13 — Remote Network Interaction):** if any company or individual **modifies this code and offers the modified version to others over a network** (including SaaS, cloud hosting, APIs, or managed instances — even without distributing any binaries), they must offer the **complete corresponding source code of their modifications** to all users of that service, under the AGPL-3.0 as well. Self-hosted private deployments that are not offered as a network service to others do not trigger this obligation; but once a modified version is made available over the network (even as SaaS), the obligation to release source is automatic.
+
+You are free to use, self-host, and modify it; if you expose a modified version as a network service, please comply with the above copyleft obligation. See [LICENSE](LICENSE) for the full terms and [NOTICE](NOTICE) for copyright and contact information.
 
 For business cooperation or technical support, feel free to reach out via Gitee Issue.
 
