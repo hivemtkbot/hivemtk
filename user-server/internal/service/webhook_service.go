@@ -778,7 +778,12 @@ func (s *WebhookService) handleJob(job *webhookJob) {
 	hubMsg, _ := s.dispatchToChannel(channel, job.account, payload, job.raw, job.header)
 
 	// 3) 触发 智能体（如已注入 + 启用了 智能体开关）
-	if hubMsg != nil && s.shouldTriggerAI(channel, job.account) {
+	// TG 群消息：仅静默挖线索 + 入群欢迎，不公开触发通用 AI 回复（避免刷屏）。
+	// 入群欢迎由 dispatchTelegram 内的 triggerTelegramJoinSales 单独处理，
+	// 故此处对「TG 且群会话」跳过通用 AI 回复——既避免对每条群消息刷屏，
+	// 也避免入群事件被欢迎+通用 AI 重复回复（双发）。私聊(DM)与其它渠道不受影响。
+	triggerAI := hubMsg != nil && s.shouldTriggerAI(channel, job.account)
+	if triggerAI && !(channel == ChannelTelegram && hubMsg.IsGroup) {
 		s.triggerSalesEngine(channel, job.account, payload, hubMsg)
 	}
 
@@ -1111,6 +1116,7 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		fromID   int64
 		fromName string
 		username string
+		fromIsBot bool
 		text     string
 	}
 	var picked *tgMsg
@@ -1120,13 +1126,14 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 			return nil, nil
 		}
 		tm := &tgMsg{
-			msgID:    tgPayload.Message.MessageID,
-			chatID:   tgPayload.Message.Chat.ID,
-			chatType: tgPayload.Message.Chat.Type,
-			fromID:   tgPayload.Message.From.ID,
-			fromName: tgPayload.Message.From.FirstName,
-			username: tgPayload.Message.From.Username,
-			text:     tgPayload.Message.Text,
+			msgID:     tgPayload.Message.MessageID,
+			chatID:    tgPayload.Message.Chat.ID,
+			chatType:  tgPayload.Message.Chat.Type,
+			fromID:    tgPayload.Message.From.ID,
+			fromName:  tgPayload.Message.From.FirstName,
+			username:  tgPayload.Message.From.Username,
+			fromIsBot: tgPayload.Message.From.IsBot,
+			text:      tgPayload.Message.Text,
 		}
 		if tm.chatType == "" {
 			tm.chatType = "private"
@@ -1134,10 +1141,14 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		picked = tm
 	} else if tgPayload.EditedMessage != nil && tgPayload.EditedMessage.Chat != nil {
 		tm := &tgMsg{
-			msgID:    tgPayload.EditedMessage.MessageID,
-			chatID:   tgPayload.EditedMessage.Chat.ID,
-			chatType: tgPayload.EditedMessage.Chat.Type,
-			text:     tgPayload.EditedMessage.Text,
+			msgID:     tgPayload.EditedMessage.MessageID,
+			chatID:    tgPayload.EditedMessage.Chat.ID,
+			chatType:  tgPayload.EditedMessage.Chat.Type,
+			fromID:    func() int64 { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.ID }; return 0 }(),
+			fromName:  func() string { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.FirstName }; return "" }(),
+			username:  func() string { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.Username }; return "" }(),
+			fromIsBot: func() bool { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.IsBot }; return false }(),
+			text:      tgPayload.EditedMessage.Text,
 		}
 		if tm.chatType == "" {
 			tm.chatType = "private"
@@ -1151,12 +1162,13 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 			chatType = tgPayload.CallbackQuery.Message.Chat.Type
 		}
 		picked = &tgMsg{
-			msgID:    0,
-			chatID:   chatID,
-			chatType: chatType,
-			fromID:   tgPayload.CallbackQuery.From.ID,
-			fromName: tgPayload.CallbackQuery.From.FirstName,
-			text:     "/callback " + tgPayload.CallbackQuery.Data,
+			msgID:     0,
+			chatID:    chatID,
+			chatType:  chatType,
+			fromID:    tgPayload.CallbackQuery.From.ID,
+			fromName:  tgPayload.CallbackQuery.From.FirstName,
+			fromIsBot: tgPayload.CallbackQuery.From.IsBot,
+			text:      "/callback " + tgPayload.CallbackQuery.Data,
 		}
 	}
 	if picked == nil {
@@ -1187,10 +1199,10 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 	}
 	s.upsertInboxFromHub(hub, picked.fromName)
 
-	// 群发言 → 销售线索/商机 自动挖掘：
-	// 群里每个真实发言者都是潜在客户，发言即线索。静默写入线索库（去重 + 意向分增量更新），
-	// 与 AI 自动回复解耦、不向群里发消息，因此绝不刷屏；best-effort，不影响入站主链路。
-	if hub.IsGroup && picked.fromID != 0 {
+	// 销售线索/商机 自动挖掘：群发言与私聊中「真人」的发言都是潜在客户（发言即线索）。
+	// 静默写入线索库（去重 + 意向分增量更新），与 AI 自动回复解耦、不向会话发任何消息，绝不刷屏；
+	// 排除机器人自身回复(fromIsBot)与系统事件(fromID==0)；best-effort，不影响入站主链路。
+	if picked.fromID != 0 && !picked.fromIsBot {
 		groupTitle := ""
 		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
 			groupTitle = tgPayload.Message.Chat.Title

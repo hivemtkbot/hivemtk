@@ -117,6 +117,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search, CopyDocument, ChatLineRound } from '@element-plus/icons-vue'
 import { listChannels, updateChannel, rotateAppKey, resetAppSecret } from '@/api/chatChannel'
+import DOMPurify from 'dompurify'
 
 const router = useRouter()
 const loading = ref(false)
@@ -201,7 +202,7 @@ const onRotateKey = async (row) => {
     )
     const res = await rotateAppKey(row.channel_id)
     ElMessageBox.alert(
-      `<p>新 AppKey：</p><pre style="background:#f5f5f5;padding:8px;user-select:all">${res.app_key}</pre><p style="color:#F59E0B">请立即更新嵌入代码中的 AppKey</p>`,
+      DOMPurify.sanitize(`<p>新 AppKey：</p><pre style="background:#f5f5f5;padding:8px;user-select:all">${res.app_key}</pre><p style="color:#F59E0B">请立即更新嵌入代码中的 AppKey</p>`),
       '轮换成功',
       { dangerouslyUseHTMLString: true }
     )
@@ -222,7 +223,7 @@ const onResetSecret = async (row) => {
     )
     const res = await resetAppSecret(row.channel_id)
     ElMessageBox.alert(
-      `<p>新 AppSecret（仅显示一次）：</p><pre style="background:#f5f5f5;padding:8px;user-select:all">${res.app_secret}</pre><p style="color:#F59E0B">请妥善保存！关闭后无法再次查看</p>`,
+      DOMPurify.sanitize(`<p>新 AppSecret（仅显示一次）：</p><pre style="background:#f5f5f5;padding:8px;user-select:all">${res.app_secret}</pre><p style="color:#F59E0B">请妥善保存！关闭后无法再次查看</p>`),
       '重置成功',
       { dangerouslyUseHTMLString: true }
     )

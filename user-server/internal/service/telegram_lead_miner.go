@@ -152,6 +152,19 @@ func trimRunes(s string, max int) string {
 	return string(r[:max]) + "…"
 }
 
+// isDuplicateKeyError 判断是否为数据库唯一/主键冲突（并发去重场景），
+// 涵盖 Postgres(pq 23505 / "duplicate key")与中文提示，避免误报为致命错误。
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "23505") ||
+		strings.Contains(msg, "重复")
+}
+
 // telegramLeadAccountKey 生成去重键：优先 @username，否则回退 tg:<数字ID>
 func telegramLeadAccountKey(username, fromID string) string {
 	username = strings.TrimSpace(username)
@@ -165,7 +178,7 @@ func telegramLeadAccountKey(username, fromID string) string {
 	return ""
 }
 
-// mineTelegramGroupLead 将一条 TG 群发言挖掘为销售线索/商机。
+// mineTelegramGroupLead 将一条 TG 群发言/私聊真人发言挖掘为销售线索/商机。
 // 幂等去重 + 意向分增量更新；全过程 best-effort，绝不影响入站主链路。
 func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, username, fromName, text string) {
 	if s == nil {
@@ -195,7 +208,11 @@ func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, user
 	}
 
 	score, signals, isOpp := DetectTelegramIntent(t)
-	desc := formatTelegramLeadDesc(groupTitle, t, score, signals, isOpp)
+	chatLabel := groupTitle
+	if strings.TrimSpace(chatLabel) == "" {
+		chatLabel = "私聊"
+	}
+	desc := formatTelegramLeadDesc(chatLabel, t, score, signals, isOpp)
 
 	existing, err := s.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account)
 	if err != nil {
@@ -212,25 +229,31 @@ func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, user
 			Desc:     desc,
 		}
 		if cerr := s.clueRepo.Create(clue); cerr != nil {
-			// 并发下可能命中「重复数据」，非致命
-			if !strings.Contains(cerr.Error(), "重复") {
-				logger.Warnf("[LeadMiner] 创建 TG 群线索失败 account=%s: %v", account, cerr)
+			// 并发下另一条 goroutine 可能已抢先插入（唯一键冲突），或任意写入异常：
+			// 重新查询，若已存在则按「已存在」逻辑增量更新，保证最终一致、不丢线索。
+			if re, rerr := s.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account); rerr == nil && re != nil {
+				existing = re
+			} else {
+				if !isDuplicateKeyError(cerr) {
+					logger.Warnf("[LeadMiner] 创建 TG 线索失败 account=%s: %v", account, cerr)
+				}
+				return
 			}
+		} else {
+			logger.Infof("[LeadMiner] 新增 TG 线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
+			s.recordTelegramLeadScore(clue, isOpp)
 			return
 		}
-		logger.Infof("[LeadMiner] 新增 TG 群线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
-		s.recordTelegramLeadScore(clue, isOpp)
-		return
 	}
 
-	// 已存在：仅当本条意向分更高时增量更新（保留最强商机信号 + 最近发言）
+	// 已存在（初次查询命中，或并发冲突后回查命中）：仅当本条意向分更高时增量更新
 	if score > parseTelegramLeadScore(existing.Desc) {
 		if uerr := s.clueRepo.UpdateByID(existing.ID, map[string]any{"desc": desc, "source_id": groupID}); uerr != nil {
-			logger.Warnf("[LeadMiner] 更新 TG 群线索失败 id=%s: %v", existing.ID, uerr)
+			logger.Warnf("[LeadMiner] 更新 TG 线索失败 id=%s: %v", existing.ID, uerr)
 		} else {
 			existing.Desc = desc
 			existing.SourceID = groupID
-			logger.Infof("[LeadMiner] 更新 TG 群线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
+			logger.Infof("[LeadMiner] 更新 TG 线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
 		}
 	}
 	s.recordTelegramLeadScore(existing, isOpp)

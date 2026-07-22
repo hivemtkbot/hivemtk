@@ -176,6 +176,7 @@ import i18n from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
+import DOMPurify from 'dompurify'
 
 // 任务列表数据
 const jobList = ref([])
@@ -383,7 +384,7 @@ const handleFileChange = (event) => {
     }
 
     if (messages.length > 0) {
-      ElMessageBox.alert(messages.join('<br>'), '批量导入结果', {
+      ElMessageBox.alert(DOMPurify.sanitize(messages.join('<br>')), '批量导入结果', {
         dangerouslyUseHTMLString: true
       })
     } else {

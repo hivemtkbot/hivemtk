@@ -42,7 +42,7 @@ onMounted(() => {
 const fetchStatistics = async () => {
   try {
     const res = await clueApi.statistics()
-    statisticsdata.value = res.data
+    statisticsdata.value = res.data || res
   } catch (error) {
     ElMessage.error(error.message)
   }

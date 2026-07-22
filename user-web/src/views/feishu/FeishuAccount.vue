@@ -313,16 +313,12 @@ const handleSubmit = async () => {
     submitting.value = true
     try {
       const isEdit = dialogType.value === 'edit'
-      const res = isEdit
-        ? await updateAccount(accountForm.value.id, accountForm.value)
-        : await createAccount(accountForm.value)
-      if (res.code === 0 || res.code === 200) {
-        ElMessage.success(isEdit ? '更新成功' : '创建成功')
-        dialogVisible.value = false
-        await fetchAccounts()
-      } else {
-        ElMessage.error(res.message || '操作失败')
-      }
+      await (isEdit
+        ? updateAccount(accountForm.value.id, accountForm.value)
+        : createAccount(accountForm.value))
+      ElMessage.success(isEdit ? '更新成功' : '创建成功')
+      dialogVisible.value = false
+      await fetchAccounts()
     } catch (e) {
       ElMessage.error('网络错误：' + e.message)
     } finally {
@@ -338,13 +334,9 @@ const handleDelete = async (row) => {
       '确认删除',
       { type: 'warning' }
     )
-    const res = await deleteAccount(row.id)
-    if (res.code === 0 || res.code === 200) {
-      ElMessage.success(i18n.global.t('删除成功'))
-      await fetchAccounts()
-    } else {
-      ElMessage.error(res.message || '删除失败')
-    }
+    await deleteAccount(row.id)
+    ElMessage.success(i18n.global.t('删除成功'))
+    await fetchAccounts()
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error('操作失败：' + e.message)
@@ -373,17 +365,13 @@ const submitTestSend = async () => {
   }
   testSending.value = true
   try {
-    const res = await testSend(testSendForm.value.account_id, {
+    await testSend(testSendForm.value.account_id, {
       open_id: testSendForm.value.open_id,
       content: testSendForm.value.content,
       msg_type: testSendForm.value.msg_type
     })
-    if (res.code === 0 || res.code === 200) {
-      ElMessage.success(i18n.global.t('测试消息已发送'))
-      testSendVisible.value = false
-    } else {
-      ElMessage.error(res.message || '测试发送失败')
-    }
+    ElMessage.success(i18n.global.t('测试消息已发送'))
+    testSendVisible.value = false
   } catch (e) {
     ElMessage.error('网络错误：' + e.message)
   } finally {
@@ -393,13 +381,9 @@ const submitTestSend = async () => {
 
 const handleRefreshToken = async (row) => {
   try {
-    const res = await refreshToken(row.id)
-    if (res.code === 0 || res.code === 200) {
-      ElMessage.success(i18n.global.t('Token 刷新成功'))
-      await fetchAccounts()
-    } else {
-      ElMessage.error(res.message || 'Token 刷新失败')
-    }
+    await refreshToken(row.id)
+    ElMessage.success(i18n.global.t('Token 刷新成功'))
+    await fetchAccounts()
   } catch (e) {
     ElMessage.error('网络错误：' + e.message)
   }
@@ -418,17 +402,13 @@ const openBindingDialog = (row) => {
 const submitBinding = async () => {
   bindingSubmitting.value = true
   try {
-    const res = await updateAccount(bindingForm.value.account_id, {
+    await updateAccount(bindingForm.value.account_id, {
       ai_agent_enabled: bindingForm.value.ai_agent_enabled,
       webhook_enabled: bindingForm.value.webhook_enabled
     })
-    if (res.code === 0 || res.code === 200) {
-      ElMessage.success(i18n.global.t('保存成功'))
-      bindingVisible.value = false
-      await fetchAccounts()
-    } else {
-      ElMessage.error(res.message || '保存失败')
-    }
+    ElMessage.success(i18n.global.t('保存成功'))
+    bindingVisible.value = false
+    await fetchAccounts()
   } catch (e) {
     ElMessage.error('网络错误：' + e.message)
   } finally {

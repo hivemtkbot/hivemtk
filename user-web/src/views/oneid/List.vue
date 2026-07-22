@@ -238,23 +238,19 @@ const handleResolve = async () => {
   }
 }
 
-const handleLink = async () => {
-  try {
-    const res = await mergeOneID({
-      primary_id: linkForm.value.customerId,
-      secondary_id: linkForm.value.customerId
-    })
-    if (res.code === 0) {
+  const handleLink = async () => {
+    try {
+      await mergeOneID({
+        primary_id: linkForm.value.customerId,
+        secondary_id: linkForm.value.customerId
+      })
       ElMessage.success(i18n.global.t('链接成功'))
       linkDialogVisible.value = false
       loadList()
-    } else {
-      ElMessage.error(res.msg || '链接失败')
+    } catch (e) {
+      ElMessage.error('链接失败：' + e.message)
     }
-  } catch (e) {
-    ElMessage.error('链接失败：' + e.message)
   }
-}
 
 onMounted(() => {
   loadList()

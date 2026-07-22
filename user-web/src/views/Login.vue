@@ -70,6 +70,10 @@
           </el-form-item>
 
         </el-form>
+
+        <p class="login-disclaimer">
+          {{ t('disclaimer.login') }}
+        </p>
       </div>
     </div>
   </div>
@@ -289,6 +293,16 @@ const handleLogin = async () => {
   font-size: 14px;
   color: #64748B;
   margin: 0;
+}
+
+.login-disclaimer {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid #E2E8F0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #94A3B8;
+  text-align: justify;
 }
 
 .forgot-row {

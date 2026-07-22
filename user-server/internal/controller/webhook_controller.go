@@ -184,6 +184,8 @@ func extractHeaders(ctx *gin.Context) map[string]string {
 		"X-Signature", "Signature", "X-Hub-Signature-256",
 		"X-Douyin-Signature", "X-Lark-Signature",
 		"X-Wechat-Timestamp", "X-Wechat-Nonce", "X-Wechat-Signature",
+		// Telegram Bot API 通过此头传递 webhook secret（setWebhook 时配置 secret_token 后必带）
+		"X-Telegram-Bot-Api-Secret-Token",
 	} {
 		if v := ctx.GetHeader(k); v != "" {
 			headers[k] = v
