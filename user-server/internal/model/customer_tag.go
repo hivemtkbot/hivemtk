@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,43 +49,5 @@ func (t *CustomerTag) BeforeCreate(tx *gorm.DB) error {
 		t.ID = uuid.New().String()
 	}
 
-	return nil
-}
-
-// GetRule 获取标签规则对象
-func (t *CustomerTag) GetRule() map[string]any {
-	if t.Rule == "" {
-		return map[string]any{}
-	}
-	var rule map[string]any
-	err := json.Unmarshal([]byte(t.Rule), &rule)
-	if err != nil {
-		// Log error in production: log.Printf("failed to unmarshal tag rule: %v", err)
-		return map[string]any{}
-	}
-	return rule
-}
-
-// SetRule 设置标签规则对象
-func (t *CustomerTag) SetRule(rule map[string]any) error {
-	if rule == nil {
-		rule = map[string]any{}
-	}
-	jsonData, err := json.Marshal(rule)
-	if err != nil {
-		return err
-	}
-	t.Rule = string(jsonData)
-	return nil
-}
-
-// SetRuleString 设置标签规则为字符串
-func (t *CustomerTag) SetRuleString(ruleStr string) error {
-	// Validate JSON
-	var tmp map[string]any
-	if err := json.Unmarshal([]byte(ruleStr), &tmp); err != nil {
-		return err
-	}
-	t.Rule = ruleStr
 	return nil
 }

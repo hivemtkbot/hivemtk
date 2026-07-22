@@ -127,12 +127,6 @@ func TestLiveCodeQR_WithPriority(t *testing.T) {
 	}
 }
 
-func TestLiveCodeQR_RecordClick(t *testing.T) {
-	qr := &LiveCodeQR{}
-	// Just verify the method exists and doesn't panic
-	qr.RecordClick()
-}
-
 func TestLiveCodeQR_BeforeCreate_GeneratesID(t *testing.T) {
 	qr := &LiveCodeQR{
 		LiveCodeID: "lc-789",

@@ -43,31 +43,3 @@ type ChatChannel struct {
 func (ChatChannel) TableName() string {
 	return "chat_channels"
 }
-
-// IsActive 渠道是否启用
-func (c *ChatChannel) IsActive() bool {
-	return c.Status == ChatChannelStatusActive
-}
-
-// AllowedOriginsList 解析允许的 origin 列表
-func (c *ChatChannel) AllowedOriginsList() []string {
-	if c.AllowedOrigins == "" {
-		return []string{}
-	}
-	result := []string{}
-	current := ""
-	for _, ch := range c.AllowedOrigins {
-		if ch == ',' || ch == ';' || ch == ' ' || ch == '\n' {
-			if current != "" {
-				result = append(result, current)
-				current = ""
-			}
-		} else {
-			current += string(ch)
-		}
-	}
-	if current != "" {
-		result = append(result, current)
-	}
-	return result
-}

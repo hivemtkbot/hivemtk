@@ -25,8 +25,3 @@ type XiaohongshuCard struct {
 func (XiaohongshuCard) TableName() string {
 	return "xiaohongshu_cards"
 }
-
-// IsActiveCard 检查卡片是否激活
-func (x *XiaohongshuCard) IsActiveCard() bool {
-	return x.IsActive
-}

@@ -40,9 +40,9 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 
 		// 先尝试 AppKey 解析
 		if appKey != "" {
-			channel, err := channelSvc.GetByAppKey(appKey)
+			channel, err := channelSvc.GetByAppKey(c.Request.Context(), appKey)
 			if err == nil {
-				if !channel.IsActive() {
+				if !service.ChatChannelIsActive(channel) {
 					c.JSON(http.StatusForbidden, gin.H{
 						"code":    403,
 						"message": "渠道已被禁用",
@@ -69,7 +69,7 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 		}
 
 		// 解析 channel
-		channel, err := channelSvc.GetByChannelID(channelID)
+		channel, err := channelSvc.GetByChannelID(c.Request.Context(), channelID)
 		if err != nil {
 			// 没有这个 channel，使用 placeholder 放行
 			// 让业务层 controller 内部决定如何处理
@@ -84,7 +84,7 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 			return
 		}
 
-		if !channel.IsActive() {
+		if !service.ChatChannelIsActive(channel) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"code":    403,
 				"message": "渠道已被禁用",
@@ -96,7 +96,7 @@ func AppKeyResolve(channelSvc *service.ChatChannelService) gin.HandlerFunc {
 		// Origin 软记录：仅记录到 header，不阻断
 		origin := c.GetHeader("Origin")
 		if origin != "" {
-			origins := channel.AllowedOriginsList()
+			origins := service.ChatChannelAllowedOriginsList(channel)
 			allowed := false
 			for _, o := range origins {
 				if o == "*" || strings.EqualFold(o, origin) {

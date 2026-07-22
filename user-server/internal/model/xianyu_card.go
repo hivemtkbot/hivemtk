@@ -27,8 +27,3 @@ type XianyuCard struct {
 func (XianyuCard) TableName() string {
 	return "xianyu_cards"
 }
-
-// IsActiveCard 检查卡片是否激活
-func (x *XianyuCard) IsActiveCard() bool {
-	return x.IsActive
-}

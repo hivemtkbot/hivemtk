@@ -27,11 +27,6 @@ func (TikTokCard) TableName() string {
 	return "tiktok_cards"
 }
 
-// IsActiveCard 检查卡片是否激活
-func (t *TikTokCard) IsActiveCard() bool {
-	return t.IsActive
-}
-
 // TikTokCardActivity TikTok 卡片活动记录
 type TikTokCardActivity struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`

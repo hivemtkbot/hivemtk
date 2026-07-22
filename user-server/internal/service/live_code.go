@@ -8,31 +8,32 @@ import (
 	"marketing/internal/repository"
 	"time"
 
+	"context"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // LiveCodeService 活码服务接口
 type LiveCodeService interface {
-	Create(req *dto.CreateLiveCodeRequest) (*dto.LiveCodeResponse, error)
-	Update(id string, req *dto.UpdateLiveCodeRequest) (*dto.LiveCodeResponse, error)
-	Delete(id string) error
+	Create(ctx context.Context, req *dto.CreateLiveCodeRequest) (*dto.LiveCodeResponse, error)
+	Update(ctx context.Context, id string, req *dto.UpdateLiveCodeRequest) (*dto.LiveCodeResponse, error)
+	Delete(ctx context.Context, id string) error
 	// 轮询活码（每日200次，7天有效期）
-	RotateLiveCodes() error
+	RotateLiveCodes(ctx context.Context) error
 	// 记录点击统计
-	RecordClick(id string, userAgent, referrer string) error
+	RecordClick(ctx context.Context, id string, userAgent, referrer string) error
 
 	// 根据ID获取活码
-	GetByID(id string) (*dto.LiveCodeResponse, error)
-	GetByShortLink(shortLink string) (*dto.LiveCodeResponse, error)
-	GetList(page, pageSize int, name, status string) ([]*dto.LiveCodeResponse, int64, error)
-	GetStats(id string) (*dto.LiveCodeStatsResponse, error)
-	GenerateQRCode(id string, req *dto.GenerateQRCodeRequest) (*dto.LiveCodeQRResponse, error)
-	GetQRCodes(id string) ([]*dto.LiveCodeQRResponse, error)
-	GetQRStats(qrID string) (*dto.LiveCodeQRStatsResponse, error)
-	Share(id string, req *dto.ShareLiveCodeRequest) (*dto.ShareLiveCodeResponse, error)
-	DeleteQRCode(qrID string) error
-	UpdateQRCode(qrID string, req *dto.UpdateLiveCodeQRRequest) error
+	GetByID(ctx context.Context, id string) (*dto.LiveCodeResponse, error)
+	GetByShortLink(ctx context.Context, shortLink string) (*dto.LiveCodeResponse, error)
+	GetList(ctx context.Context, page, pageSize int, name, status string) ([]*dto.LiveCodeResponse, int64, error)
+	GetStats(ctx context.Context, id string) (*dto.LiveCodeStatsResponse, error)
+	GenerateQRCode(ctx context.Context, id string, req *dto.GenerateQRCodeRequest) (*dto.LiveCodeQRResponse, error)
+	GetQRCodes(ctx context.Context, id string) ([]*dto.LiveCodeQRResponse, error)
+	GetQRStats(ctx context.Context, qrID string) (*dto.LiveCodeQRStatsResponse, error)
+	Share(ctx context.Context, id string, req *dto.ShareLiveCodeRequest) (*dto.ShareLiveCodeResponse, error)
+	DeleteQRCode(ctx context.Context, qrID string) error
+	UpdateQRCode(ctx context.Context, qrID string, req *dto.UpdateLiveCodeQRRequest) error
 }
 
 // liveCodeService 活码服务实现
@@ -54,15 +55,15 @@ func NewLiveCodeService(db *gorm.DB) LiveCodeService {
 }
 
 // Create 创建活码
-func (s *liveCodeService) Create(req *dto.CreateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
+func (s *liveCodeService) Create(ctx context.Context, req *dto.CreateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
 	// 检查短链是否已存在
-	existingCode, _ := s.liveCodeRepo.GetByShortLink(req.ShortLink)
+	existingCode, _ := s.liveCodeRepo.GetByShortLink(ctx, req.ShortLink)
 	if existingCode != nil {
 		return nil, errors.New("短链已存在")
 	}
 
 	// 检查域名是否存在且可用
-	shortDomain, err := s.domainRepo.GetByID(int(req.ShortDomainID))
+	shortDomain, err := s.domainRepo.GetByID(ctx, int(req.ShortDomainID))
 	if err != nil {
 		return nil, errors.New("短链域名不存在")
 	}
@@ -70,7 +71,7 @@ func (s *liveCodeService) Create(req *dto.CreateLiveCodeRequest) (*dto.LiveCodeR
 		return nil, errors.New("短链域名不可用")
 	}
 
-	entryDomain, err := s.domainRepo.GetByID(int(req.EntryDomainID))
+	entryDomain, err := s.domainRepo.GetByID(ctx, int(req.EntryDomainID))
 	if err != nil {
 		return nil, errors.New("入口域名不存在")
 	}
@@ -78,7 +79,7 @@ func (s *liveCodeService) Create(req *dto.CreateLiveCodeRequest) (*dto.LiveCodeR
 		return nil, errors.New("入口域名不可用")
 	}
 
-	landingDomain, err := s.domainRepo.GetByID(int(req.LandingDomainID))
+	landingDomain, err := s.domainRepo.GetByID(ctx, int(req.LandingDomainID))
 	if err != nil {
 		return nil, errors.New("落地域名不存在")
 	}
@@ -102,25 +103,25 @@ func (s *liveCodeService) Create(req *dto.CreateLiveCodeRequest) (*dto.LiveCodeR
 		LandingURL:      req.LandingURL,
 	}
 
-	err = s.liveCodeRepo.Create(liveCode)
+	err = s.liveCodeRepo.Create(ctx, liveCode)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.modelToResponse(liveCode), nil
+	return s.modelToResponse(ctx, liveCode), nil
 }
 
 // Update 更新活码
-func (s *liveCodeService) Update(id string, req *dto.UpdateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
+func (s *liveCodeService) Update(ctx context.Context, id string, req *dto.UpdateLiveCodeRequest) (*dto.LiveCodeResponse, error) {
 	// 获取现有活码
-	liveCode, err := s.liveCodeRepo.GetByID(id)
+	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
 	// 如果更新了短链，检查新短链是否已存在
 	if req.ShortLink != "" && req.ShortLink != liveCode.ShortLink {
-		existingCode, _ := s.liveCodeRepo.GetByShortLink(req.ShortLink)
+		existingCode, _ := s.liveCodeRepo.GetByShortLink(ctx, req.ShortLink)
 		if existingCode != nil && existingCode.ID != id {
 			return nil, errors.New("短链已存在")
 		}
@@ -129,7 +130,7 @@ func (s *liveCodeService) Update(id string, req *dto.UpdateLiveCodeRequest) (*dt
 
 	// 如果更新了域名，检查域名是否存在且可用
 	if req.ShortDomainID > 0 && req.ShortDomainID != liveCode.ShortDomainID {
-		domain, err := s.domainRepo.GetByID(int(req.ShortDomainID))
+		domain, err := s.domainRepo.GetByID(ctx, int(req.ShortDomainID))
 		if err != nil {
 			return nil, errors.New("短链域名不存在")
 		}
@@ -140,7 +141,7 @@ func (s *liveCodeService) Update(id string, req *dto.UpdateLiveCodeRequest) (*dt
 	}
 
 	if req.EntryDomainID > 0 && req.EntryDomainID != liveCode.EntryDomainID {
-		domain, err := s.domainRepo.GetByID(int(req.EntryDomainID))
+		domain, err := s.domainRepo.GetByID(ctx, int(req.EntryDomainID))
 		if err != nil {
 			return nil, errors.New("入口域名不存在")
 		}
@@ -151,7 +152,7 @@ func (s *liveCodeService) Update(id string, req *dto.UpdateLiveCodeRequest) (*dt
 	}
 
 	if req.LandingDomainID > 0 && req.LandingDomainID != liveCode.LandingDomainID {
-		domain, err := s.domainRepo.GetByID(int(req.LandingDomainID))
+		domain, err := s.domainRepo.GetByID(ctx, int(req.LandingDomainID))
 		if err != nil {
 			return nil, errors.New("落地域名不存在")
 		}
@@ -178,28 +179,28 @@ func (s *liveCodeService) Update(id string, req *dto.UpdateLiveCodeRequest) (*dt
 		liveCode.LandingURL = req.LandingURL
 	}
 
-	err = s.liveCodeRepo.Update(liveCode)
+	err = s.liveCodeRepo.Update(ctx, liveCode)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.modelToResponse(liveCode), nil
+	return s.modelToResponse(ctx, liveCode), nil
 }
 
 // Delete 删除活码
-func (s *liveCodeService) Delete(id string) error {
-	_, err := s.liveCodeRepo.GetByID(id)
+func (s *liveCodeService) Delete(ctx context.Context, id string) error {
+	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return errors.New("活码不存在")
 	}
 
-	return s.liveCodeRepo.Delete(id)
+	return s.liveCodeRepo.Delete(ctx, id)
 }
 
 // RotateLiveCodes 轮询活码（每日200次，7天有效期）
-func (s *liveCodeService) RotateLiveCodes() error {
+func (s *liveCodeService) RotateLiveCodes(ctx context.Context) error {
 	// 获取所有可用的活码
-	liveCodes, err := s.liveCodeRepo.GetAvailableLiveCodes()
+	liveCodes, err := s.liveCodeRepo.GetAvailableLiveCodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func (s *liveCodeService) RotateLiveCodes() error {
 			Status:     1, // 活跃状态
 		}
 
-		err := s.qrCodeRepo.Create(qrCode)
+		err := s.qrCodeRepo.Create(ctx, qrCode)
 		if err != nil {
 			continue // 跳过失败的二维码，继续处理下一个
 		}
@@ -227,22 +228,21 @@ func (s *liveCodeService) RotateLiveCodes() error {
 }
 
 // RecordClick 记录点击统计
-func (s *liveCodeService) RecordClick(qrID string, userAgent, referrer string) error {
+func (s *liveCodeService) RecordClick(ctx context.Context, qrID string, userAgent, referrer string) error {
 	// 获取二维码信息
-	qrCode, err := s.qrCodeRepo.GetByID(qrID)
+	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
 		return err
 	}
 
 	// 更新二维码点击次数（父级 LiveCode.TotalClicks 累加由后续 liveCodeRepo.Update 完成）
-	qrCode.RecordClick()
-	err = s.qrCodeRepo.Update(qrCode)
+	err = s.qrCodeRepo.Update(ctx, qrCode)
 	if err != nil {
 		return err
 	}
 
 	// 获取活码信息
-	liveCode, err := s.liveCodeRepo.GetByID(qrCode.LiveCodeID)
+	liveCode, err := s.liveCodeRepo.GetByID(ctx, qrCode.LiveCodeID)
 	if err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (s *liveCodeService) RecordClick(qrID string, userAgent, referrer string) e
 	liveCode.TotalClicks++
 	liveCode.DailyClicks++
 
-	err = s.liveCodeRepo.Update(liveCode)
+	err = s.liveCodeRepo.Update(ctx, liveCode)
 	if err != nil {
 		return err
 	}
@@ -262,53 +262,53 @@ func (s *liveCodeService) RecordClick(qrID string, userAgent, referrer string) e
 		Date:     time.Now(),
 	}
 
-	return s.qrStatRepo.CreateStat(clickStat)
+	return s.qrStatRepo.CreateStat(ctx, clickStat)
 }
 
 // GetByID 根据ID获取活码
-func (s *liveCodeService) GetByID(id string) (*dto.LiveCodeResponse, error) {
-	liveCode, err := s.liveCodeRepo.GetByID(id)
+func (s *liveCodeService) GetByID(ctx context.Context, id string) (*dto.LiveCodeResponse, error) {
+	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
-	return s.modelToResponse(liveCode), nil
+	return s.modelToResponse(ctx, liveCode), nil
 }
 
 // GetByShortLink 根据短链获取活码
-func (s *liveCodeService) GetByShortLink(shortLink string) (*dto.LiveCodeResponse, error) {
-	liveCode, err := s.liveCodeRepo.GetByShortLink(shortLink)
+func (s *liveCodeService) GetByShortLink(ctx context.Context, shortLink string) (*dto.LiveCodeResponse, error) {
+	liveCode, err := s.liveCodeRepo.GetByShortLink(ctx, shortLink)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
-	return s.modelToResponse(liveCode), nil
+	return s.modelToResponse(ctx, liveCode), nil
 }
 
 // GetList 获取活码列表
-func (s *liveCodeService) GetList(page, pageSize int, name, status string) ([]*dto.LiveCodeResponse, int64, error) {
-	liveCodes, total, err := s.liveCodeRepo.GetList(page, pageSize, name, status)
+func (s *liveCodeService) GetList(ctx context.Context, page, pageSize int, name, status string) ([]*dto.LiveCodeResponse, int64, error) {
+	liveCodes, total, err := s.liveCodeRepo.GetList(ctx, page, pageSize, name, status)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	responses := make([]*dto.LiveCodeResponse, len(liveCodes))
 	for i, liveCode := range liveCodes {
-		responses[i] = s.modelToResponse(liveCode)
+		responses[i] = s.modelToResponse(ctx, liveCode)
 	}
 
 	return responses, total, nil
 }
 
 // GetStats 获取活码统计
-func (s *liveCodeService) GetStats(id string) (*dto.LiveCodeStatsResponse, error) {
-	liveCode, err := s.liveCodeRepo.GetByID(id)
+func (s *liveCodeService) GetStats(ctx context.Context, id string) (*dto.LiveCodeStatsResponse, error) {
+	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
 	// 获取二维码统计
-	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(id)
+	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -339,9 +339,9 @@ func (s *liveCodeService) GetStats(id string) (*dto.LiveCodeStatsResponse, error
 }
 
 // GenerateQRCode 生成活码二维码
-func (s *liveCodeService) GenerateQRCode(id string, req *dto.GenerateQRCodeRequest) (*dto.LiveCodeQRResponse, error) {
+func (s *liveCodeService) GenerateQRCode(ctx context.Context, id string, req *dto.GenerateQRCodeRequest) (*dto.LiveCodeQRResponse, error) {
 	// 检查活码是否存在
-	_, err := s.liveCodeRepo.GetByID(id)
+	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
@@ -358,44 +358,44 @@ func (s *liveCodeService) GenerateQRCode(id string, req *dto.GenerateQRCodeReque
 		ExpireDays: req.ExpireDays,
 	}
 
-	err = s.qrCodeRepo.Create(qrCode)
+	err = s.qrCodeRepo.Create(ctx, qrCode)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.qrModelToResponse(qrCode), nil
+	return s.qrModelToResponse(ctx, qrCode), nil
 }
 
 // GetQRCodes 获取活码二维码列表
-func (s *liveCodeService) GetQRCodes(id string) ([]*dto.LiveCodeQRResponse, error) {
+func (s *liveCodeService) GetQRCodes(ctx context.Context, id string) ([]*dto.LiveCodeQRResponse, error) {
 	// 检查活码是否存在
-	_, err := s.liveCodeRepo.GetByID(id)
+	_, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
-	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(id)
+	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	responses := make([]*dto.LiveCodeQRResponse, len(qrCodes))
 	for i, qrCode := range qrCodes {
-		responses[i] = s.qrModelToResponse(qrCode)
+		responses[i] = s.qrModelToResponse(ctx, qrCode)
 	}
 
 	return responses, nil
 }
 
 // GetQRStats 获取活码二维码统计
-func (s *liveCodeService) GetQRStats(qrID string) (*dto.LiveCodeQRStatsResponse, error) {
-	qrCode, err := s.qrCodeRepo.GetByID(qrID)
+func (s *liveCodeService) GetQRStats(ctx context.Context, qrID string) (*dto.LiveCodeQRStatsResponse, error) {
+	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
 		return nil, errors.New("二维码不存在")
 	}
 
 	// 获取二维码统计数据
-	stats, err := s.qrCodeRepo.GetStats(qrID)
+	stats, err := s.qrCodeRepo.GetStats(ctx, qrID)
 	if err != nil {
 		return nil, err
 	}
@@ -425,15 +425,15 @@ func (s *liveCodeService) GetQRStats(qrID string) (*dto.LiveCodeQRStatsResponse,
 }
 
 // Share 分享活码
-func (s *liveCodeService) Share(id string, req *dto.ShareLiveCodeRequest) (*dto.ShareLiveCodeResponse, error) {
-	liveCode, err := s.liveCodeRepo.GetByID(id)
+func (s *liveCodeService) Share(ctx context.Context, id string, req *dto.ShareLiveCodeRequest) (*dto.ShareLiveCodeResponse, error) {
+	liveCode, err := s.liveCodeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New("活码不存在")
 	}
 
 	// 获取可用的二维码
 	var availableQR *model.LiveCodeQR
-	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(id)
+	qrCodes, err := s.qrCodeRepo.GetByLiveCodeID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -452,30 +452,30 @@ func (s *liveCodeService) Share(id string, req *dto.ShareLiveCodeRequest) (*dto.
 
 	// 返回分享链接
 	return &dto.ShareLiveCodeResponse{
-		ShortLink:   liveCode.GetFullShortLink(),
-		EntryLink:   liveCode.GetFullEntryLink(),
-		LandingLink: liveCode.GetFullLandingLink(),
+		ShortLink:   liveCodeFullShortLink(liveCode),
+		EntryLink:   liveCodeFullEntryLink(liveCode),
+		LandingLink: liveCodeFullLandingLink(liveCode),
 		QRImagePath: availableQR.ImageURL,
 		QRCodeID:    availableQR.ID,
 	}, nil
 }
 
 // DeleteQRCode 删除二维码
-func (s *liveCodeService) DeleteQRCode(qrID string) error {
+func (s *liveCodeService) DeleteQRCode(ctx context.Context, qrID string) error {
 	// 获取二维码信息
-	_, err := s.qrCodeRepo.GetByID(qrID)
+	_, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
 		return errors.New("二维码不存在")
 	}
 
 	// 删除二维码
-	return s.qrCodeRepo.Delete(qrID)
+	return s.qrCodeRepo.Delete(ctx, qrID)
 }
 
 // UpdateQRCode 更新二维码
-func (s *liveCodeService) UpdateQRCode(qrID string, req *dto.UpdateLiveCodeQRRequest) error {
+func (s *liveCodeService) UpdateQRCode(ctx context.Context, qrID string, req *dto.UpdateLiveCodeQRRequest) error {
 	// 获取二维码信息
-	qrCode, err := s.qrCodeRepo.GetByID(qrID)
+	qrCode, err := s.qrCodeRepo.GetByID(ctx, qrID)
 	if err != nil {
 		return errors.New("二维码不存在")
 	}
@@ -488,11 +488,11 @@ func (s *liveCodeService) UpdateQRCode(qrID string, req *dto.UpdateLiveCodeQRReq
 		qrCode.ExpireDays = *req.ExpireDays
 	}
 
-	return s.qrCodeRepo.Update(qrCode)
+	return s.qrCodeRepo.Update(ctx, qrCode)
 }
 
 // modelToResponse 将模型转换为响应
-func (s *liveCodeService) modelToResponse(liveCode *model.LiveCode) *dto.LiveCodeResponse {
+func (s *liveCodeService) modelToResponse(ctx context.Context, liveCode *model.LiveCode) *dto.LiveCodeResponse {
 	response := &dto.LiveCodeResponse{
 		ID:              liveCode.ID,
 		Name:            liveCode.Name,
@@ -505,9 +505,9 @@ func (s *liveCodeService) modelToResponse(liveCode *model.LiveCode) *dto.LiveCod
 		TodayViews:      liveCode.TodayViews,
 		CreatedAt:       liveCode.CreatedAt,
 		UpdatedAt:       liveCode.UpdatedAt,
-		FullShortLink:   liveCode.GetFullShortLink(),
-		FullEntryLink:   liveCode.GetFullEntryLink(),
-		FullLandingLink: liveCode.GetFullLandingLink(),
+		FullShortLink:   liveCodeFullShortLink(liveCode),
+		FullEntryLink:   liveCodeFullEntryLink(liveCode),
+		FullLandingLink: liveCodeFullLandingLink(liveCode),
 		ImageURL:        liveCode.ImageURL,
 		EntryURL:        liveCode.EntryURL,
 		LandingURL:      liveCode.LandingURL,
@@ -554,7 +554,7 @@ func (s *liveCodeService) modelToResponse(liveCode *model.LiveCode) *dto.LiveCod
 }
 
 // qrModelToResponse 将二维码模型转换为响应
-func (s *liveCodeService) qrModelToResponse(qrCode *model.LiveCodeQR) *dto.LiveCodeQRResponse {
+func (s *liveCodeService) qrModelToResponse(ctx context.Context, qrCode *model.LiveCodeQR) *dto.LiveCodeQRResponse {
 	return &dto.LiveCodeQRResponse{
 		ID:                  qrCode.ID,
 		LiveCodeID:          qrCode.LiveCodeID,
@@ -570,6 +570,42 @@ func (s *liveCodeService) qrModelToResponse(qrCode *model.LiveCodeQR) *dto.LiveC
 		IsExpired:           false, // 新模型中没有此方法，设为默认值
 		IsDailyLimitReached: false, // 新模型中没有此方法，设为默认值
 	}
+}
+
+// liveCodeFullShortLink 获取完整的短链（从 model.LiveCode 迁出，五层架构合规）
+func liveCodeFullShortLink(l *model.LiveCode) string {
+	if l.ShortDomain != nil {
+		protocol := "http"
+		if l.ShortDomain.Port == 443 {
+			protocol = "https"
+		}
+		return protocol + "://" + l.ShortDomain.Domain + "/" + l.ShortLink
+	}
+	return ""
+}
+
+// liveCodeFullEntryLink 获取完整的入口链接（从 model.LiveCode 迁出）
+func liveCodeFullEntryLink(l *model.LiveCode) string {
+	if l.EntryDomain != nil {
+		protocol := "http"
+		if l.EntryDomain.Port == 443 {
+			protocol = "https"
+		}
+		return protocol + "://" + l.EntryDomain.Domain + "/entry/" + l.ShortLink
+	}
+	return ""
+}
+
+// liveCodeFullLandingLink 获取完整的落地链接（从 model.LiveCode 迁出）
+func liveCodeFullLandingLink(l *model.LiveCode) string {
+	if l.LandingDomain != nil {
+		protocol := "http"
+		if l.LandingDomain.Port == 443 {
+			protocol = "https"
+		}
+		return protocol + "://" + l.LandingDomain.Domain + "/landing/" + l.ShortLink
+	}
+	return ""
 }
 
 // calculateConversionRate 计算转化率

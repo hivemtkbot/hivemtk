@@ -35,12 +35,3 @@ func (l *LiveCodeQR) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-
-// RecordClick 记录一次点击：自增内存计数
-//
-// 注意：LiveCodeQR 自身没有 TotalClicks 字段，扫码总点击由 LiveCode.TotalClicks 承担
-// （RecordClick 调用方在调用后会通过 liveCodeRepo.Update 累加父级计数）。
-// 此处仅作为方法扩展点保留真实实现路径，必要时可用于 in-memory rate limit 或埋点。
-func (l *LiveCodeQR) RecordClick() {
-	// 当前为 noop 实现：保留方法签名满足 service.RecordClick 调用，父级计数在调用方更新
-}

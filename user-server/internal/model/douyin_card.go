@@ -25,8 +25,3 @@ type DouyinCard struct {
 func (DouyinCard) TableName() string {
 	return "douyin_cards"
 }
-
-// IsActiveCard 检查卡片是否激活
-func (d *DouyinCard) IsActiveCard() bool {
-	return d.IsActive
-}

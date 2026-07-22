@@ -22,7 +22,4 @@ type KuaishouCard struct {
 	UpdatedAt    time.Time `json:"updated_at" gorm:"autoUpdateTime"` // 更新时间
 }
 
-// IsActiveCard 检查卡片是否激活
-func (k *KuaishouCard) IsActiveCard() bool {
-	return k.IsActive
-}
+

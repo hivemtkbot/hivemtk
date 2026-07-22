@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"context"
 	"marketing/internal/model"
 )
 
@@ -53,6 +54,34 @@ func MustNewChatChannelService(db *gorm.DB) *ChatChannelService {
 	return svc
 }
 
+// ChatChannelIsActive 渠道是否启用（从 model.ChatChannel 迁出，五层架构合规）
+func ChatChannelIsActive(c *model.ChatChannel) bool {
+	return c.Status == model.ChatChannelStatusActive
+}
+
+// ChatChannelAllowedOriginsList 解析允许的 origin 列表（从 model.ChatChannel 迁出）
+func ChatChannelAllowedOriginsList(c *model.ChatChannel) []string {
+	if c.AllowedOrigins == "" {
+		return []string{}
+	}
+	result := []string{}
+	current := ""
+	for _, ch := range c.AllowedOrigins {
+		if ch == ',' || ch == ';' || ch == ' ' || ch == '\n' {
+			if current != "" {
+				result = append(result, current)
+				current = ""
+			}
+		} else {
+			current += string(ch)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
 // CreateChannelRequest 创建渠道请求
 type CreateChannelRequest struct {
 	ChannelName    string   `json:"channel_name" binding:"required,min=1,max=100"`
@@ -90,7 +119,7 @@ type ChannelCreateResult struct {
 }
 
 // Create 创建渠道（生成 AppKey + AppSecret）
-func (s *ChatChannelService) Create(req *CreateChannelRequest, createdBy uint) (*ChannelCreateResult, error) {
+func (s *ChatChannelService) Create(ctx context.Context, req *CreateChannelRequest, createdBy uint) (*ChannelCreateResult, error) {
 	if req == nil {
 		return nil, errors.New("请求不能为空")
 	}
@@ -133,7 +162,7 @@ func (s *ChatChannelService) Create(req *CreateChannelRequest, createdBy uint) (
 		channel.ConfidenceThreshold = *req.ConfidenceThreshold
 	}
 
-	if err := s.db.Create(channel).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
 		return nil, fmt.Errorf("保存渠道失败: %w", err)
 	}
 
@@ -146,8 +175,8 @@ func (s *ChatChannelService) Create(req *CreateChannelRequest, createdBy uint) (
 }
 
 // Update 更新渠道（不重置 AppKey/AppSecret）
-func (s *ChatChannelService) Update(channelID string, req *UpdateChannelRequest) (*model.ChatChannel, error) {
-	channel, err := s.GetByChannelID(channelID)
+func (s *ChatChannelService) Update(ctx context.Context, channelID string, req *UpdateChannelRequest) (*model.ChatChannel, error) {
+	channel, err := s.GetByChannelID(ctx, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -188,28 +217,28 @@ func (s *ChatChannelService) Update(channelID string, req *UpdateChannelRequest)
 		return channel, nil
 	}
 
-	if err := s.db.Model(channel).Updates(updates).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(channel).Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("更新渠道失败: %w", err)
 	}
-	return s.GetByChannelID(channelID)
+	return s.GetByChannelID(ctx, channelID)
 }
 
 // Delete 删除渠道（软删除：实际改为 disabled）
-func (s *ChatChannelService) Delete(channelID string) error {
-	channel, err := s.GetByChannelID(channelID)
+func (s *ChatChannelService) Delete(ctx context.Context, channelID string) error {
+	channel, err := s.GetByChannelID(ctx, channelID)
 	if err != nil {
 		return err
 	}
-	return s.db.Model(channel).Update("status", model.ChatChannelStatusDisabled).Error
+	return s.db.WithContext(ctx).Model(channel).Update("status", model.ChatChannelStatusDisabled).Error
 }
 
 // HardDelete 硬删除（管理后台使用）
-func (s *ChatChannelService) HardDelete(channelID string) error {
-	return s.db.Where("channel_id = ?", channelID).Delete(&model.ChatChannel{}).Error
+func (s *ChatChannelService) HardDelete(ctx context.Context, channelID string) error {
+	return s.db.WithContext(ctx).Where("channel_id = ?", channelID).Delete(ctx, &model.ChatChannel{}).Error
 }
 
 // GetByChannelID 根据 channel_id 查询
-func (s *ChatChannelService) GetByChannelID(channelID string) (*model.ChatChannel, error) {
+func (s *ChatChannelService) GetByChannelID(ctx context.Context, channelID string) (*model.ChatChannel, error) {
 	if strings.TrimSpace(channelID) == "" {
 		return nil, errors.New("channel_id 不能为空")
 	}
@@ -217,11 +246,11 @@ func (s *ChatChannelService) GetByChannelID(channelID string) (*model.ChatChanne
 	// 兼容查询：前端列表返回的是数字主键 id，这里既支持按字符串 channel_id 查询，
 	// 也支持按数字 id 查询（避免详情/编辑/删除接口因标识符不一致而 404）。
 	if id, err := strconv.ParseUint(channelID, 10, 64); err == nil {
-		if err2 := s.db.Where("id = ?", uint(id)).First(&channel).Error; err2 == nil {
+		if err2 := s.db.WithContext(ctx).Where("id = ?", uint(id)).First(&channel).Error; err2 == nil {
 			return &channel, nil
 		}
 	}
-	if err := s.db.Where("channel_id = ?", channelID).First(&channel).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("channel_id = ?", channelID).First(&channel).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("渠道不存在: %s", channelID)
 		}
@@ -231,12 +260,12 @@ func (s *ChatChannelService) GetByChannelID(channelID string) (*model.ChatChanne
 }
 
 // GetByAppKey 根据 AppKey 查询
-func (s *ChatChannelService) GetByAppKey(appKey string) (*model.ChatChannel, error) {
+func (s *ChatChannelService) GetByAppKey(ctx context.Context, appKey string) (*model.ChatChannel, error) {
 	if strings.TrimSpace(appKey) == "" {
 		return nil, errors.New("app_key 不能为空")
 	}
 	var channel model.ChatChannel
-	if err := s.db.Where("app_key = ?", appKey).First(&channel).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("app_key = ?", appKey).First(&channel).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("AppKey 无效: %s", appKey)
 		}
@@ -250,9 +279,9 @@ func (s *ChatChannelService) GetByAppKey(appKey string) (*model.ChatChannel, err
 // 私域部署模式（2026-07-17）：用户首次嵌入客服 widget 时，如果 DB 没有 default 渠道，
 // 自动创建一个（无需任何配置），保证访客首次接入即可工作。
 // 后续用户可以在管理后台修改 default 渠道的配置。
-func (s *ChatChannelService) GetOrCreateDefaultChannel() (*model.ChatChannel, error) {
+func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*model.ChatChannel, error) {
 	const defaultID = "default"
-	channel, err := s.GetByChannelID(defaultID)
+	channel, err := s.GetByChannelID(ctx, defaultID)
 	if err == nil {
 		return channel, nil
 	}
@@ -271,7 +300,7 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel() (*model.ChatChannel, er
 		AutoAssign:          true,
 		ConfidenceThreshold: 0.70,
 	}
-	if err := s.db.Create(channel).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
 		return nil, fmt.Errorf("创建默认渠道失败: %w", err)
 	}
 	return channel, nil
@@ -308,13 +337,13 @@ func IsCardChannelRef(ref string) (string, bool) {
 // 后续可在管理后台修改欢迎语、主题色等。
 //
 // platform: douyin / kuaishou / xiaohongshu / xianyu
-func (s *ChatChannelService) GetOrCreateCardChannel(platform string) (*model.ChatChannel, error) {
+func (s *ChatChannelService) GetOrCreateCardChannel(ctx context.Context, platform string) (*model.ChatChannel, error) {
 	meta, ok := cardChannelMetas[platform]
 	if !ok {
 		return nil, fmt.Errorf("不支持的卡片平台: %s", platform)
 	}
 	channelID := platform + "_card"
-	channel, err := s.GetByChannelID(channelID)
+	channel, err := s.GetByChannelID(ctx, channelID)
 	if err == nil {
 		return channel, nil
 	}
@@ -334,15 +363,15 @@ func (s *ChatChannelService) GetOrCreateCardChannel(platform string) (*model.Cha
 		AutoAssign:          true,
 		ConfidenceThreshold: 0.70,
 	}
-	if err := s.db.Create(channel).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
 		return nil, fmt.Errorf("创建卡片渠道失败: %w", err)
 	}
 	return channel, nil
 }
 
 // List 列出渠道
-func (s *ChatChannelService) List(keyword string, status string, page, pageSize int) ([]model.ChatChannel, int64, error) {
-	query := s.db.Model(&model.ChatChannel{})
+func (s *ChatChannelService) List(ctx context.Context, keyword string, status string, page, pageSize int) ([]model.ChatChannel, int64, error) {
+	query := s.db.WithContext(ctx).Model(&model.ChatChannel{})
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		query = query.Where("channel_name LIKE ? OR app_key LIKE ?", like, like)
@@ -371,8 +400,8 @@ func (s *ChatChannelService) List(keyword string, status string, page, pageSize 
 }
 
 // RotateAppKey 轮换 AppKey（保留 AppSecret 不变）
-func (s *ChatChannelService) RotateAppKey(channelID string) (string, error) {
-	channel, err := s.GetByChannelID(channelID)
+func (s *ChatChannelService) RotateAppKey(ctx context.Context, channelID string) (string, error) {
+	channel, err := s.GetByChannelID(ctx, channelID)
 	if err != nil {
 		return "", err
 	}
@@ -380,15 +409,15 @@ func (s *ChatChannelService) RotateAppKey(channelID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("生成 AppKey 失败: %w", err)
 	}
-	if err := s.db.Model(channel).Update("app_key", newKey).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(channel).Update("app_key", newKey).Error; err != nil {
 		return "", err
 	}
 	return newKey, nil
 }
 
 // ResetAppSecret 重置 AppSecret（返回明文，仅返回一次）
-func (s *ChatChannelService) ResetAppSecret(channelID string) (string, error) {
-	channel, err := s.GetByChannelID(channelID)
+func (s *ChatChannelService) ResetAppSecret(ctx context.Context, channelID string) (string, error) {
+	channel, err := s.GetByChannelID(ctx, channelID)
 	if err != nil {
 		return "", err
 	}
@@ -396,22 +425,22 @@ func (s *ChatChannelService) ResetAppSecret(channelID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("生成 AppSecret 失败: %w", err)
 	}
-	if err := s.db.Model(channel).Update("app_secret_hash", hashAppSecret(newSecret)).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(channel).Update("app_secret_hash", hashAppSecret(newSecret)).Error; err != nil {
 		return "", err
 	}
 	return newSecret, nil
 }
 
 // IncrementVisitorCount 增加访客计数
-func (s *ChatChannelService) IncrementVisitorCount(channelID string) error {
-	return s.db.Model(&model.ChatChannel{}).
+func (s *ChatChannelService) IncrementVisitorCount(ctx context.Context, channelID string) error {
+	return s.db.WithContext(ctx).Model(&model.ChatChannel{}).
 		Where("channel_id = ?", channelID).
 		UpdateColumn("visitor_count", gorm.Expr("visitor_count + 1")).Error
 }
 
 // IncrementSessionCount 增加会话计数
-func (s *ChatChannelService) IncrementSessionCount(channelID string) error {
-	return s.db.Model(&model.ChatChannel{}).
+func (s *ChatChannelService) IncrementSessionCount(ctx context.Context, channelID string) error {
+	return s.db.WithContext(ctx).Model(&model.ChatChannel{}).
 		Where("channel_id = ?", channelID).
 		UpdateColumn("session_count", gorm.Expr("session_count + 1")).Error
 }
@@ -477,7 +506,7 @@ func ragProductIDStringToUint(s string) uint {
 }
 
 // VerifyAppSecret 校验 AppSecret
-func (s *ChatChannelService) VerifyAppSecret(channel *model.ChatChannel, secret string) bool {
+func (s *ChatChannelService) VerifyAppSecret(ctx context.Context, channel *model.ChatChannel, secret string) bool {
 	if channel == nil || secret == "" {
 		return false
 	}

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -8,6 +9,36 @@ import (
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
 )
+
+// testTagSetRule 测试辅助：设置标签规则（替代已迁出的 model.CustomerTag.SetRule）
+func testTagSetRule(t *model.CustomerTag, rule map[string]any) error {
+	jsonData, err := json.Marshal(rule)
+	if err != nil {
+		return err
+	}
+	t.Rule = string(jsonData)
+	return nil
+}
+
+// testTagGetRule 测试辅助：获取标签规则（替代已迁出的 model.CustomerTag.GetRule）
+func testTagGetRule(t *model.CustomerTag) map[string]any {
+	if t.Rule == "" {
+		return map[string]any{}
+	}
+	var rule map[string]any
+	json.Unmarshal([]byte(t.Rule), &rule)
+	return rule
+}
+
+// testTagSetRuleString 测试辅助：设置标签规则字符串（替代已迁出的 model.CustomerTag.SetRuleString）
+func testTagSetRuleString(t *model.CustomerTag, ruleStr string) error {
+	var tmp map[string]any
+	if err := json.Unmarshal([]byte(ruleStr), &tmp); err != nil {
+		return err
+	}
+	t.Rule = ruleStr
+	return nil
+}
 
 // setupCustomerTagTestDB sets up the test database for customer tag tests
 func setupCustomerTagTestDB(t *testing.T) *gorm.DB {
@@ -269,7 +300,7 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 		"operator": "greater_than",
 		"value":    1000,
 	}
-	err := tag.SetRule(rule)
+	err := testTagSetRule(tag, rule)
 	if err != nil {
 		t.Errorf("SetRule() error = %v", err)
 	}
@@ -285,7 +316,7 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 		t.Errorf("GetByID() error = %v", err)
 	}
 
-	retrievedRule := result.GetRule()
+	retrievedRule := testTagGetRule(result)
 
 	if retrievedRule["field"] != "total_spent" {
 		t.Errorf("Expected field 'total_spent', got '%v'", retrievedRule["field"])
@@ -312,7 +343,7 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 
 	// Set rule as string
 	ruleStr := `{"field":"page_views","operator":"greater_than","value":100}`
-	err := tag.SetRuleString(ruleStr)
+	err := testTagSetRuleString(tag, ruleStr)
 	if err != nil {
 		t.Errorf("SetRuleString() error = %v", err)
 	}
@@ -328,7 +359,7 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 		t.Errorf("GetByID() error = %v", err)
 	}
 
-	retrievedRule := result.GetRule()
+	retrievedRule := testTagGetRule(result)
 
 	if retrievedRule["field"] != "page_views" {
 		t.Errorf("Expected field 'page_views', got '%v'", retrievedRule["field"])
@@ -443,7 +474,7 @@ func TestCustomerTagRepository_EmptyRule(t *testing.T) {
 		t.Errorf("GetByID() error = %v", err)
 	}
 
-	rule := result.GetRule()
+	rule := testTagGetRule(result)
 	if len(rule) != 0 {
 		t.Errorf("Expected empty rule, got %v", rule)
 	}
@@ -476,7 +507,7 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		"logic": "AND",
 	}
 
-	err := tag.SetRule(rule)
+	err := testTagSetRule(tag, rule)
 	if err != nil {
 		t.Errorf("SetRule() error = %v", err)
 	}
@@ -491,7 +522,7 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		t.Errorf("GetByID() error = %v", err)
 	}
 
-	retrievedRule := result.GetRule()
+	retrievedRule := testTagGetRule(result)
 
 	conditions, ok := retrievedRule["conditions"].([]any)
 	if !ok {

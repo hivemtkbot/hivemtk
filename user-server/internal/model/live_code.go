@@ -45,39 +45,3 @@ func (l *LiveCode) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-
-// GetFullShortLink 获取完整的短链
-func (l *LiveCode) GetFullShortLink() string {
-	if l.ShortDomain != nil {
-		protocol := "http"
-		if l.ShortDomain.Port == 443 {
-			protocol = "https"
-		}
-		return protocol + "://" + l.ShortDomain.Domain + "/" + l.ShortLink
-	}
-	return ""
-}
-
-// GetFullEntryLink 获取完整的入口链接
-func (l *LiveCode) GetFullEntryLink() string {
-	if l.EntryDomain != nil {
-		protocol := "http"
-		if l.EntryDomain.Port == 443 {
-			protocol = "https"
-		}
-		return protocol + "://" + l.EntryDomain.Domain + "/entry/" + l.ShortLink
-	}
-	return ""
-}
-
-// GetFullLandingLink 获取完整的落地链接
-func (l *LiveCode) GetFullLandingLink() string {
-	if l.LandingDomain != nil {
-		protocol := "http"
-		if l.LandingDomain.Port == 443 {
-			protocol = "https"
-		}
-		return protocol + "://" + l.LandingDomain.Domain + "/landing/" + l.ShortLink
-	}
-	return ""
-}

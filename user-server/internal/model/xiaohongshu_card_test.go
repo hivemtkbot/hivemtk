@@ -81,14 +81,14 @@ func TestXiaohongshuCard_IsActiveCard(t *testing.T) {
 	activeCard := &XiaohongshuCard{
 		IsActive: true,
 	}
-	if !activeCard.IsActiveCard() {
+	if !activeCard.IsActive {
 		t.Error("Expected IsActiveCard() to return true for active card")
 	}
 
 	inactiveCard := &XiaohongshuCard{
 		IsActive: false,
 	}
-	if inactiveCard.IsActiveCard() {
+	if inactiveCard.IsActive {
 		t.Error("Expected IsActiveCard() to return false for inactive card")
 	}
 }

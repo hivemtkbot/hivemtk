@@ -43,9 +43,9 @@ type VisitorChatService struct {
 
 // NewVisitorChatService 构造访客会话服务
 // agentBindingSvc 可为 nil（测试/降级场景）：nil 时网页客服回退默认编排（与历史行为一致）
-func NewVisitorChatService(db *gorm.DB, channelSvc *ChatChannelService, orchestrator *SmartCSOrchestrator, agentBindingSvc *ChannelAgentBindingService) *VisitorChatService {
+func NewVisitorChatService(ctx context.Context, db *gorm.DB, channelSvc *ChatChannelService, orchestrator *SmartCSOrchestrator, agentBindingSvc *ChannelAgentBindingService) *VisitorChatService {
 	if db == nil {
-		db = repository.NewCustomerSessionRepository().GetDB()
+		db = repository.NewCustomerSessionRepository().GetDB(ctx)
 	}
 	return &VisitorChatService{
 		db:              db,
@@ -71,26 +71,26 @@ func newInboxConversationRepo(db *gorm.DB) *repository.InboxConversationReposito
 
 // ensureVisitorCustomer 访客首次发消息时自动建档（CDP 客户中心）。
 // 以 unified_id = "visitor:<channel>:<visitor>" 去重，保证 customers 表随真实访客对话增长。
-func (s *VisitorChatService) ensureVisitorCustomer(req *VisitorSendMessageRequest, session *model.CustomerSession) error {
+func (s *VisitorChatService) ensureVisitorCustomer(ctx context.Context, req *VisitorSendMessageRequest, session *model.CustomerSession) error {
 	if s.customerRepo == nil {
 		return nil
 	}
 	unifiedID := "visitor:" + req.ChannelID + ":" + req.VisitorID
-	if existing, _ := s.customerRepo.GetByUnifiedID(unifiedID); existing != nil {
+	if existing, _ := s.customerRepo.GetByUnifiedID(ctx, unifiedID); existing != nil {
 		return nil
 	}
 	cust := &model.Customer{
 		UnifiedID: unifiedID,
 		Tags:      "[\"web_visitor\"]",
 	}
-	if err := s.customerRepo.Create(cust); err != nil {
+	if err := s.customerRepo.Create(ctx, cust); err != nil {
 		return fmt.Errorf("建档失败: %w", err)
 	}
 	return nil
 }
 
 // SetOrchestrator 注入编排器（用于循环依赖解耦）
-func (s *VisitorChatService) SetOrchestrator(o *SmartCSOrchestrator) {
+func (s *VisitorChatService) SetOrchestrator(ctx context.Context, o *SmartCSOrchestrator) {
 	s.orchestrator = o
 }
 
@@ -130,37 +130,37 @@ type VisitorOpenSessionResult struct {
 // 作为 path 参数透传过来，effectiveChannelId 收到的实际值可能是 channel_id 或
 // app_key。这里按"先按 channel_id 查 → 再按 app_key 查 → 最后 default 兜底"
 // 的顺序兼容三种取值，避免前端传 app_key 时报"渠道不存在"。
-func (s *VisitorChatService) resolveChannel(channelRef string) (*model.ChatChannel, error) {
+func (s *VisitorChatService) resolveChannel(ctx context.Context, channelRef string) (*model.ChatChannel, error) {
 	ref := strings.TrimSpace(channelRef)
 	if ref == "" {
 		// 缺失时使用 default
-		return s.channelSvc.GetOrCreateDefaultChannel()
+		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
-	if channel, err := s.channelSvc.GetByChannelID(ref); err == nil {
+	if channel, err := s.channelSvc.GetByChannelID(ctx, ref); err == nil {
 		return channel, nil
 	} else if !strings.Contains(err.Error(), "渠道不存在") && !strings.Contains(err.Error(), "channel_id 不能为空") {
 		// 非"不存在"错误：透传
 		return nil, err
 	}
-	if channel, err := s.channelSvc.GetByAppKey(ref); err == nil {
+	if channel, err := s.channelSvc.GetByAppKey(ctx, ref); err == nil {
 		return channel, nil
 	} else if !strings.Contains(err.Error(), "AppKey 无效") {
 		// 非"无效"错误：透传
 		return nil, err
 	}
 	if ref == "default" {
-		return s.channelSvc.GetOrCreateDefaultChannel()
+		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
 	// 2026-07-21: 抖音/快手/小红书/咸鱼 4 平台卡片渠道自动创建
 	// channel_ref 形如 "douyin_card" / "kuaishou_card" / "xiaohongshu_card" / "xianyu_card"
 	if platform, ok := IsCardChannelRef(ref); ok {
-		return s.channelSvc.GetOrCreateCardChannel(platform)
+		return s.channelSvc.GetOrCreateCardChannel(ctx, platform)
 	}
 	return nil, fmt.Errorf("渠道不存在: %s", ref)
 }
 
 // OpenSession 打开（或续接）会话
-func (s *VisitorChatService) OpenSession(req *VisitorOpenSessionRequest) (*VisitorOpenSessionResult, error) {
+func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSessionRequest) (*VisitorOpenSessionResult, error) {
 	if req == nil {
 		return nil, errors.New("请求不能为空")
 	}
@@ -171,18 +171,18 @@ func (s *VisitorChatService) OpenSession(req *VisitorOpenSessionRequest) (*Visit
 	// 1. 查询渠道
 	//    私域部署（2026-07-17）：channel_id == "default" 时，若 DB 不存在则自动创建
 	//    其他 channel_id 仍按正常流程（必须先在管理后台创建）
-	channel, err := s.resolveChannel(req.ChannelID)
+	channel, err := s.resolveChannel(ctx, req.ChannelID)
 	if err != nil {
 		return nil, err
 	}
-	if !channel.IsActive() {
+	if !ChatChannelIsActive(channel) {
 		return nil, errors.New("渠道已禁用")
 	}
 
 	// 2. 续接最近会话
 	if req.Resume {
 		var existing model.CustomerSession
-		err := s.db.Where("platform = ? AND account_id = ? AND user_id = ?",
+		err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
 			model.PlatformWebEmbed, channel.ChannelID, req.VisitorID).
 			Where("status NOT IN ?", []model.SessionStatus{
 				model.SessionStatusResolved,
@@ -192,7 +192,7 @@ func (s *VisitorChatService) OpenSession(req *VisitorOpenSessionRequest) (*Visit
 			First(&existing).Error
 		if err == nil {
 			// 找到未结束会话，复用
-			online, _ := s.countOnlineAgents()
+			online, _ := s.countOnlineAgents(ctx)
 			return &VisitorOpenSessionResult{
 				Session:        &existing,
 				IsNewSession:   false,
@@ -235,16 +235,16 @@ func (s *VisitorChatService) OpenSession(req *VisitorOpenSessionRequest) (*Visit
 		Priority:    0,
 		Tags:        string(tagsJSON),
 	}
-	if err := s.sessionRepo.Create(session); err != nil {
+	if err := s.sessionRepo.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("创建会话失败: %w", err)
 	}
 
 	// 4. 累计 channel 计数
-	_ = s.channelSvc.IncrementVisitorCount(channel.ChannelID)
-	_ = s.channelSvc.IncrementSessionCount(channel.ChannelID)
+	_ = s.channelSvc.IncrementVisitorCount(ctx, channel.ChannelID)
+	_ = s.channelSvc.IncrementSessionCount(ctx, channel.ChannelID)
 
 	// 5. 推送新会话通知到所有在线坐席
-	online, _ := s.countOnlineAgents()
+	online, _ := s.countOnlineAgents(ctx)
 	if online > 0 {
 		// 广播给所有坐席客户端（不广播给访客，避免干扰）
 		_ = websocket.BroadcastToAgents(websocket.TypeNewSession, map[string]any{
@@ -269,13 +269,13 @@ func (s *VisitorChatService) OpenSession(req *VisitorOpenSessionRequest) (*Visit
 //
 // 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key
 // （前端 embed 路由把 app_key 作为 path 透传）。这里把入参归一化为 channel_id 后再查。
-func (s *VisitorChatService) GetSessionByVisitorSessionID(channelID, visitorID, sessionID string) (*model.CustomerSession, error) {
-	channel, err := s.resolveChannel(channelID)
+func (s *VisitorChatService) GetSessionByVisitorSessionID(ctx context.Context, channelID, visitorID, sessionID string) (*model.CustomerSession, error) {
+	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
 		return nil, errors.New("会话不存在或无权访问")
 	}
 	var session model.CustomerSession
-	err = s.db.Where("session_id = ? AND platform = ? AND account_id = ? AND user_id = ?",
+	err = s.db.WithContext(ctx).Where("session_id = ? AND platform = ? AND account_id = ? AND user_id = ?",
 		sessionID, model.PlatformWebEmbed, channel.ChannelID, visitorID).First(&session).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -321,7 +321,7 @@ type VisitorSendMessageResult struct {
 }
 
 // SendMessage 访客发送消息（核心入口）
-func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*VisitorSendMessageResult, error) {
+func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMessageRequest) (*VisitorSendMessageResult, error) {
 	if req == nil {
 		return nil, errors.New("请求不能为空")
 	}
@@ -330,13 +330,13 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 	}
 
 	// 1. 校验会话归属
-	session, err := s.GetSessionByVisitorSessionID(req.ChannelID, req.VisitorID, req.SessionID)
+	session, err := s.GetSessionByVisitorSessionID(ctx, req.ChannelID, req.VisitorID, req.SessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. 校验渠道
-	channel, err := s.resolveChannel(req.ChannelID)
+	channel, err := s.resolveChannel(ctx, req.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -368,20 +368,20 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 		SenderID:    req.VisitorID,
 		SenderName:  session.UserName,
 	}
-	if err := s.messageRepo.Create(userMsg); err != nil {
+	if err := s.messageRepo.Create(ctx, userMsg); err != nil {
 		return nil, fmt.Errorf("保存访客消息失败: %w", err)
 	}
-	_ = s.sessionRepo.UpdateLastMessage(session.ID, req.Content, "user")
+	_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, req.Content, "user")
 
 	// 3.5 访客首次发消息自动建档（CDP 客户中心）：保证 customers 表随真实访客对话增长
-	if err := s.ensureVisitorCustomer(req, session); err != nil {
+	if err := s.ensureVisitorCustomer(ctx, req, session); err != nil {
 		logger.Warnf("[Visitor] 访客建档失败（不影响消息发送）: %v", err)
 	}
 
 	// 3.6 同步到统一收件箱（商户坐席可见）：此前 web_embed 会话只写 customer_sessions，
 	// 未写入 inbox_conversations，导致商户「统一收件箱」看不到网页客服消息、核心链路断点。
 	// 这里补齐同步（与 WebhookService.upsertInboxFromHub 保持一致的幂等 upsert 语义）。
-	s.syncToInbox(session, req.Content)
+	s.syncToInbox(ctx, session, req.Content)
 
 	// 4. 通过 WebSocket 实时推送给坐席
 	if session.AgentID > 0 {
@@ -410,13 +410,13 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 	//     - 广播给所有坐席
 	if shouldForceTransferByKeywords(req.Content) {
 		// 1) 自动分配（如果失败则标记为 waiting）
-		if err := s.sessionSvc.AutoAssign(session.ID); err != nil {
-			_ = s.sessionRepo.UpdateStatus(session.ID, model.SessionStatusWaiting)
+		if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
+			_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
 			// 2026-07-17: 分配失败时也要更新 handler_type 为 human
 			//   之前只改 status，session.handler_type 仍是 "ai"，导致前端列表展示错误
-			_ = s.db.Model(&model.CustomerSession{}).
-				Where("id = ?", session.ID).
-				Update("handler_type", model.HandlerTypeHuman).Error
+			_ = s.db.WithContext(ctx).Model(&model.CustomerSession{}).
+			Where("id = ?", session.ID).
+			Update("handler_type", model.HandlerTypeHuman).Error
 		}
 		// 2) 推送新会话 / 转人工通知给坐席
 		_ = websocket.BroadcastToAll(websocket.TypeNewSession, map[string]any{
@@ -438,7 +438,7 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 			SenderID:   "system",
 			SenderName: "系统",
 		}
-		_ = s.messageRepo.Create(sysMsg)
+		_ = s.messageRepo.Create(ctx, sysMsg)
 		return &VisitorSendMessageResult{
 			UserMessage:    userMsg,
 			AIReplied:      false,
@@ -465,9 +465,9 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 	// 这样「网页客服 AI 自动回复」才会真正接入 SmartCSOrchestrator（默认行为需绑定智能体，否则回退人工）。
 	var agentCtxFromChannel *AgentContext
 	if s.agentBindingSvc != nil {
-		agentCtxFromChannel, _ = s.agentBindingSvc.LoadAgentForChannel(context.Background(), NormalizeChannelType(string(model.PlatformWebEmbed)), channel.ChannelID)
+		agentCtxFromChannel, _ = s.agentBindingSvc.LoadAgentForChannel(ctx, NormalizeChannelType(string(model.PlatformWebEmbed)), channel.ChannelID)
 	}
-	handleResult, err := s.orchestrator.HandleIncomingWithAgent(context.Background(), in, agentCtxFromChannel)
+	handleResult, err := s.orchestrator.HandleIncomingWithAgent(ctx, in, agentCtxFromChannel)
 	if err != nil {
 		// 编排失败不影响访客消息已保存
 		return &VisitorSendMessageResult{
@@ -509,9 +509,9 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 			AISource:     "rag",
 			DeliveredAt:  &now,
 		}
-		_ = s.messageRepo.Create(aiMsg)
-		_ = s.sessionRepo.UpdateLastMessage(session.ID, handleResult.Reply, "ai")
-		_ = s.sessionRepo.IncrementAIReplyCount(session.ID)
+		_ = s.messageRepo.Create(ctx, aiMsg)
+		_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, handleResult.Reply, "ai")
+		_ = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
 		result.AIResponse = aiMsg
 
 		// 不再通过 WebSocket 推送 AI 回复给访客：
@@ -544,7 +544,7 @@ func (s *VisitorChatService) SendMessage(req *VisitorSendMessageRequest) (*Visit
 // 与 WebhookService.upsertInboxFromHub 保持一致的幂等 upsert 语义：
 //   - 同一 (platform, account_id, customer_id) 已存在则仅更新最后消息 + 未读 +1
 //   - 不存在则新建一条 unread 会话
-func (s *VisitorChatService) syncToInbox(session *model.CustomerSession, content string) {
+func (s *VisitorChatService) syncToInbox(ctx context.Context, session *model.CustomerSession, content string) {
 	if s.inboxConvRepo == nil {
 		s.inboxConvRepo = newInboxConversationRepo(s.db)
 	}
@@ -552,9 +552,9 @@ func (s *VisitorChatService) syncToInbox(session *model.CustomerSession, content
 		return
 	}
 	now := time.Now()
-	conv, err := s.inboxConvRepo.FindByPlatformAccountCustomer(string(model.PlatformWebEmbed), session.AccountID, session.UserID)
+	conv, err := s.inboxConvRepo.FindByPlatformAccountCustomer(ctx, string(model.PlatformWebEmbed), session.AccountID, session.UserID)
 	if err == nil && conv != nil {
-		_ = s.inboxConvRepo.UpdateLastMessage(conv.ID, content, now, 1)
+		_ = s.inboxConvRepo.UpdateLastMessage(ctx, conv.ID, content, now, 1)
 		return
 	}
 	newConv := &model.InboxConversation{
@@ -571,7 +571,7 @@ func (s *VisitorChatService) syncToInbox(session *model.CustomerSession, content
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
-	_ = s.inboxConvRepo.Create(newConv)
+	_ = s.inboxConvRepo.Create(ctx, newConv)
 }
 
 // ============================================================================
@@ -579,24 +579,24 @@ func (s *VisitorChatService) syncToInbox(session *model.CustomerSession, content
 // ============================================================================
 
 // GetMessages 访客获取历史消息
-func (s *VisitorChatService) GetMessages(channelID, visitorID, sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error) {
-	if _, err := s.GetSessionByVisitorSessionID(channelID, visitorID, sessionID); err != nil {
+func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitorID, sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error) {
+	if _, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID); err != nil {
 		return nil, 0, err
 	}
-	return s.messageRepo.GetBySessionID(sessionID, page, pageSize)
+	return s.messageRepo.GetBySessionID(ctx, sessionID, page, pageSize)
 }
 
 // GetLatestActiveSession 获取访客最近一次未结束会话（用于离线消息续接）
 //
 // 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key，
 // 这里统一通过 resolveChannel 归一化为 channel_id 后再查询。
-func (s *VisitorChatService) GetLatestActiveSession(channelID, visitorID string) (*model.CustomerSession, error) {
-	channel, err := s.resolveChannel(channelID)
+func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channelID, visitorID string) (*model.CustomerSession, error) {
+	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
 		return nil, nil // 渠道不存在视为无活跃会话
 	}
 	var session model.CustomerSession
-	err = s.db.Where("platform = ? AND account_id = ? AND user_id = ?",
+	err = s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
 		model.PlatformWebEmbed, channel.ChannelID, visitorID).
 		Where("status NOT IN ?", []model.SessionStatus{
 			model.SessionStatusResolved,
@@ -616,17 +616,17 @@ func (s *VisitorChatService) GetLatestActiveSession(channelID, visitorID string)
 // GetRecentClosedSessions 获取访客最近 7 天已结束会话（离线消息列表）
 //
 // 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key。
-func (s *VisitorChatService) GetRecentClosedSessions(channelID, visitorID string, limit int) ([]*model.CustomerSession, error) {
+func (s *VisitorChatService) GetRecentClosedSessions(ctx context.Context, channelID, visitorID string, limit int) ([]*model.CustomerSession, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
-	channel, err := s.resolveChannel(channelID)
+	channel, err := s.resolveChannel(ctx, channelID)
 	if err != nil {
 		return []*model.CustomerSession{}, nil // 渠道不存在视为无历史
 	}
 	var sessions []*model.CustomerSession
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
-	err = s.db.Where("platform = ? AND account_id = ? AND user_id = ?",
+	err = s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
 		model.PlatformWebEmbed, channel.ChannelID, visitorID).
 		Where("status IN ?", []model.SessionStatus{
 			model.SessionStatusResolved,
@@ -645,13 +645,13 @@ func (s *VisitorChatService) GetRecentClosedSessions(channelID, visitorID string
 // 用户自己发的消息不算"离线消息"（用户自己当然知道）
 //
 // 调用方应在拉取后调用 MarkMessagesDelivered 标记为已投递，避免重复拉取。
-func (s *VisitorChatService) GetOfflineMessages(channelID, visitorID, sessionID string) ([]*model.SessionMessage, error) {
-	if _, err := s.GetSessionByVisitorSessionID(channelID, visitorID, sessionID); err != nil {
+func (s *VisitorChatService) GetOfflineMessages(ctx context.Context, channelID, visitorID, sessionID string) ([]*model.SessionMessage, error) {
+	if _, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID); err != nil {
 		return nil, err
 	}
 
 	var messages []*model.SessionMessage
-	err := s.db.Where("session_id = ?", sessionID).
+	err := s.db.WithContext(ctx).Where("session_id = ?", sessionID).
 		Where("sender_type IN ?", []string{"ai", "agent"}).
 		Where("delivered_at IS NULL").
 		Order("created_at ASC").
@@ -663,12 +663,12 @@ func (s *VisitorChatService) GetOfflineMessages(channelID, visitorID, sessionID 
 }
 
 // MarkMessagesDelivered 批量标记消息已投递（WebSocket 拉到离线消息后调用）
-func (s *VisitorChatService) MarkMessagesDelivered(sessionID string, messageIDs []uint) error {
+func (s *VisitorChatService) MarkMessagesDelivered(ctx context.Context, sessionID string, messageIDs []uint) error {
 	if len(messageIDs) == 0 {
 		return nil
 	}
 	now := time.Now()
-	return s.db.Model(&model.SessionMessage{}).
+	return s.db.WithContext(ctx).Model(&model.SessionMessage{}).
 		Where("session_id = ? AND id IN ?", sessionID, messageIDs).
 		Update("delivered_at", &now).Error
 }
@@ -678,8 +678,8 @@ func (s *VisitorChatService) MarkMessagesDelivered(sessionID string, messageIDs 
 // ============================================================================
 
 // RequestHumanTransfer 访客主动转人工
-func (s *VisitorChatService) RequestHumanTransfer(channelID, visitorID, sessionID, reason string) error {
-	session, err := s.GetSessionByVisitorSessionID(channelID, visitorID, sessionID)
+func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID, visitorID, sessionID, reason string) error {
+	session, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID)
 	if err != nil {
 		return err
 	}
@@ -692,12 +692,12 @@ func (s *VisitorChatService) RequestHumanTransfer(channelID, visitorID, sessionI
 		SenderID:   visitorID,
 		SenderName: session.UserName,
 	}
-	_ = s.messageRepo.Create(transferMsg)
+	_ = s.messageRepo.Create(ctx, transferMsg)
 
 	// 尝试自动分配
-	if err := s.sessionSvc.AutoAssign(session.ID); err != nil {
+	if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
 		// 无在线坐席，标记待人工
-		_ = s.sessionRepo.UpdateStatus(session.ID, model.SessionStatusWaiting)
+		_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
 	}
 
 	// 通知所有坐席
@@ -717,24 +717,24 @@ func (s *VisitorChatService) RequestHumanTransfer(channelID, visitorID, sessionI
 }
 
 // CloseSession 访客主动关闭会话
-func (s *VisitorChatService) CloseSession(channelID, visitorID, sessionID string) error {
-	session, err := s.GetSessionByVisitorSessionID(channelID, visitorID, sessionID)
+func (s *VisitorChatService) CloseSession(ctx context.Context, channelID, visitorID, sessionID string) error {
+	session, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID)
 	if err != nil {
 		return err
 	}
-	return s.sessionSvc.UpdateSessionStatus(session.ID, model.SessionStatusClosed)
+	return s.sessionSvc.UpdateSessionStatus(ctx, session.ID, model.SessionStatusClosed)
 }
 
 // RateSession 访客评分
-func (s *VisitorChatService) RateSession(channelID, visitorID, sessionID string, rating int, comment string) error {
-	session, err := s.GetSessionByVisitorSessionID(channelID, visitorID, sessionID)
+func (s *VisitorChatService) RateSession(ctx context.Context, channelID, visitorID, sessionID string, rating int, comment string) error {
+	session, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID)
 	if err != nil {
 		return err
 	}
 	if rating < 1 || rating > 5 {
 		return errors.New("评分必须在 1-5 之间")
 	}
-	return s.sessionSvc.RateSession(session.ID, rating, comment)
+	return s.sessionSvc.RateSession(ctx, session.ID, rating, comment)
 }
 
 // ============================================================================
@@ -742,17 +742,17 @@ func (s *VisitorChatService) RateSession(channelID, visitorID, sessionID string,
 // ============================================================================
 
 // countOnlineAgents 统计在线坐席数
-func (s *VisitorChatService) countOnlineAgents() (int, error) {
+func (s *VisitorChatService) countOnlineAgents(ctx context.Context) (int, error) {
 	var count int64
-	err := s.db.Model(&model.AgentStatus{}).
+	err := s.db.WithContext(ctx).Model(&model.AgentStatus{}).
 		Where("status IN ?", []string{"online", "busy"}).
 		Count(&count).Error
 	return int(count), err
 }
 
 // CountAvailableAgents 公开方法：可用坐席数
-func (s *VisitorChatService) CountAvailableAgents() (int, error) {
-	return s.countOnlineAgents()
+func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, error) {
+	return s.countOnlineAgents(ctx)
 }
 
 // ============================================================================

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"marketing/internal/model"
 	"marketing/internal/repository"
@@ -30,8 +31,8 @@ type TagRule struct {
 }
 
 // EvaluateAndTag 评估客户并自动打标签
-func (s *AutoTagger) EvaluateAndTag(customerID string) error {
-	customer, err := s.custRepo.GetByID(customerID)
+func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) error {
+	customer, err := s.custRepo.GetByID(ctx, customerID)
 	if err != nil {
 		return err
 	}
@@ -39,7 +40,7 @@ func (s *AutoTagger) EvaluateAndTag(customerID string) error {
 		return ErrCustomerNotFound
 	}
 
-	autoTags, err := s.tagRepo.ListAutoTags()
+	autoTags, err := s.tagRepo.ListAutoTags(ctx, )
 	if err != nil {
 		return err
 	}
@@ -49,7 +50,7 @@ func (s *AutoTagger) EvaluateAndTag(customerID string) error {
 	}
 
 	// 获取客户当前标签
-	currentTags := customer.GetTags()
+	currentTags := GetCustomerTags(customer)
 	tagSet := make(map[string]bool)
 	for _, tag := range currentTags {
 		tagSet[tag] = true
@@ -57,7 +58,7 @@ func (s *AutoTagger) EvaluateAndTag(customerID string) error {
 
 	// 获取客户事件用于评估
 	eventRepo := repository.NewCustomerEventRepository()
-	events, err := eventRepo.GetByCustomerID(customerID, 1000)
+	events, err := eventRepo.GetByCustomerID(ctx, customerID, 1000)
 	if err != nil {
 		events = []*model.CustomerEvent{}
 	}
@@ -88,21 +89,21 @@ func (s *AutoTagger) EvaluateAndTag(customerID string) error {
 	}
 
 	// 更新客户标签
-	if err := customer.SetTags(newTags); err != nil {
+	if err := SetCustomerTags(customer, newTags); err != nil {
 		return err
 	}
 
-	return s.custRepo.Update(customer)
+	return s.custRepo.Update(ctx, customer)
 }
 
 // ProcessEvent 处理事件以触发标签更新
-func (s *AutoTagger) ProcessEvent(event *model.CustomerEvent) error {
+func (s *AutoTagger) ProcessEvent(ctx context.Context, event *model.CustomerEvent) error {
 	if event == nil || event.CustomerID == "" {
 		return nil
 	}
 
 	// 事件触发后重新评估客户标签
-	return s.EvaluateAndTag(event.CustomerID)
+	return s.EvaluateAndTag(ctx, event.CustomerID)
 }
 
 // evaluateRuleWithEvents 使用事件数据评估标签规则
@@ -277,7 +278,7 @@ func (s *AutoTagger) buildCustomerDataSnapshot(customer *model.Customer, events 
 	for _, event := range events {
 		if event.EventType == model.EventTypePurchase {
 			purchaseCount++
-			eventData := event.GetEventData()
+			eventData := GetCustomerEventData(event)
 			if amount, ok := eventData["amount"].(float64); ok {
 				totalPurchaseAmount += amount
 			}
@@ -323,7 +324,7 @@ func (s *AutoTagger) buildCustomerDataSnapshot(customer *model.Customer, events 
 		"days_since_active":        daysSinceActive,
 		"interactions_30d":         interactions30d,
 		"events":                   events,
-		"tags":                     customer.GetTags(),
+		"tags":                     GetCustomerTags(customer),
 	}
 }
 
@@ -405,20 +406,20 @@ func compareStringValues(fieldValue, operator, value string) bool {
 }
 
 // CreateAutoTag 创建自动标签规则
-func (s *AutoTagger) CreateAutoTag(name, category string, rule map[string]any) error {
+func (s *AutoTagger) CreateAutoTag(ctx context.Context, name, category string, rule map[string]any) error {
 	tag := &model.CustomerTag{
 		Name:     name,
 		Category: model.TagCategory(category),
 		Source:   model.TagSourceAuto,
 	}
 
-	if err := tag.SetRule(rule); err != nil {
+	if err := customerTagSetRule(tag, rule); err != nil {
 		return err
 	}
 
-	return s.tagRepo.Create(tag)
+	return s.tagRepo.Create(ctx, tag)
 }
 
-func (s *AutoTagger) GetAutoTags() ([]*model.CustomerTag, error) {
-	return s.tagRepo.ListAutoTags()
+func (s *AutoTagger) GetAutoTags(ctx context.Context) ([]*model.CustomerTag, error) {
+	return s.tagRepo.ListAutoTags(ctx, )
 }
