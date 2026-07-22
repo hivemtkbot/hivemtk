@@ -1,10 +1,21 @@
 package portcontract
 
-import "marketing/internal/model"
+import (
+	"errors"
+
+	"marketing/internal/model"
+)
 
 // ----------------------------------------------------------------------------
 // Customer 域：客户档案 / 身份 / 标签
 // ----------------------------------------------------------------------------
+
+// ErrCustomerNotFound 客户不存在错误（sentinel）
+//
+// 工具层（tooluse）依赖此 sentinel 区分"客户不存在"与其他错误，
+// 不再 import service 包。CustomerPort 实现方在底层 service 返回
+// service.ErrCustomerNotFound 时应将其映射为本 sentinel。
+var ErrCustomerNotFound = errors.New("客户不存在")
 
 // CustomerIdentity 创建/更新客户的身份字段投影。
 //

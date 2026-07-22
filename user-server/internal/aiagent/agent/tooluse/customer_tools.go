@@ -12,7 +12,6 @@ import (
 	"marketing/internal/aiagent/agent/portcontract"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"marketing/internal/service"
 )
 
 // customer_tools.go 客户工具实现（PRD §5.2 P0-3 G3）
@@ -27,9 +26,10 @@ import (
 //   7. customer.remove_tag - 移除客户标签
 //   8. customer.segment  - 按 tag/RFM/churn_risk 等条件分群
 //
-// 2026-07-22：customer.create / customer.merge / customer.add_tag / customer.remove_tag
-// 改走 portcontract.CustomerPort，不再直接持有 *service.CustomerService。
-// 装配期通过 CustomerToolDeps.Customer 注入；为 nil 时工具返回 "port not injected"。
+// 2026-07-23 方向D收口：所有方法统一走 portcontract.CustomerPort，
+// 不再保留 *service.CustomerService 字段。装配期通过 CustomerToolDeps.Customer
+// 强制注入 Port Adapter；nil 时工具返回 "port not injected" 错误。
+// （project_memory 硬约束："工具层需完整走 Port 模式，移除对 CustomerService 字段的依赖"）
 
 // errInvalidCustomer 客户身份参数缺失错误
 var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）")
@@ -38,46 +38,49 @@ var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phon
 
 // CustomerToolDeps 客户工具依赖
 //
-// 2026-07-22 方向D：所有方法统一走 portcontract.CustomerPort。
-// CustomerService 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
+// 2026-07-23 收口：仅依赖 portcontract.CustomerPort + repository + *gorm.DB。
+// 历史 *service.CustomerService 字段已完全移除，工具层不再 import service 包，
+// 避免反向依赖；错误码改用 portcontract.ErrCustomerNotFound sentinel。
 type CustomerToolDeps struct {
-	// Customer 客户域 Port（推荐路径）。
+	// Customer 客户域 Port（必需，由装配层注入）。
 	// 由 service.CustomerPortAdapter 注入；nil 时所有依赖客户的工具
 	// 返回 "port not injected" 错误。
 	Customer portcontract.CustomerPort
-	// CustomerService 直接服务引用（兼容旧路径回退）。
-	// 仅在 Customer 为 nil 且工具明确接受回退时由 customer.get / merge /
-	// add_tag / remove_tag 使用；新装配应优先注入 Customer port。
-	CustomerService *service.CustomerService
 	// CustomerRepo 仓储层（用于 search / update 等直接查询）
 	CustomerRepo repository.CustomerRepository
 	// DB 原生 *gorm.DB（用于 search / segment 等直接 SQL）
 	DB *gorm.DB
 }
 
-// NewCustomerToolDeps 创建客户工具依赖（使用全局 DB，Customer port 暂不注入）
+// NewCustomerToolDeps 创建客户工具依赖（无 Port 注入）
+//
+// 返回的 deps.Customer = nil；调用方必须在执行工具前通过 NewCustomerToolDepsWithPort
+// 注入 Customer Port；否则依赖 Port 的工具会返回 "port not injected" 错误。
 func NewCustomerToolDeps() CustomerToolDeps {
 	return CustomerToolDeps{
-		CustomerService: service.NewCustomerService(),
-		CustomerRepo:    repository.NewCustomerRepository(),
+		CustomerRepo: repository.NewCustomerRepository(),
 	}
 }
 
-// NewCustomerToolDepsWithDB 创建客户工具依赖（带 DB，用于测试）
+// NewCustomerToolDepsWithDB 创建客户工具依赖（带 DB，用于测试/装配）
+//
+// 返回的 deps.Customer = nil；如需 Port 注入，请改用 NewCustomerToolDepsWithPort。
 func NewCustomerToolDepsWithDB(db *gorm.DB) CustomerToolDeps {
 	return CustomerToolDeps{
-		CustomerService: service.NewCustomerService(),
-		CustomerRepo:    repository.NewCustomerRepository(),
-		DB:              db,
+		CustomerRepo: repository.NewCustomerRepository(),
+		DB:           db,
 	}
 }
 
-// NewCustomerToolDepsWithPort 创建带 Customer Port 注入的客户工具依赖（推荐）。
+// NewCustomerToolDepsWithPort 创建带 Customer Port 注入的客户工具依赖（生产装配推荐）。
 //
 // 在 main/cmd/api 启动期或测试装配期调用：
 //
 //	customerPort := service.NewCustomerPortAdapter(service.NewCustomerService())
 //	deps := tooluse.NewCustomerToolDepsWithPort(customerPort, db.GetDB())
+//
+// 注意：装配方仍可持有 *service.CustomerService 实例用于构造 Port Adapter，
+// 但工具层自身不再直接 import service 包。
 func NewCustomerToolDepsWithPort(customer portcontract.CustomerPort, db *gorm.DB) CustomerToolDeps {
 	d := NewCustomerToolDepsWithDB(db)
 	d.Customer = customer
@@ -164,7 +167,7 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 	}
 
 	// 优先用 FindByIdentity
-	customer, err := t.deps.CustomerRepo.FindByIdentity(phone, email, wechat, douyin)
+	customer, err := t.deps.CustomerRepo.FindByIdentity(ctx, phone, email, wechat, douyin)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
@@ -233,7 +236,7 @@ func NewCustomerGetTool(deps CustomerToolDeps) *CustomerGetTool {
 
 // Execute 执行获取
 //
-// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
+// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
 func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -245,9 +248,9 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 	}
 
 	if include360 {
-		profile, err := t.fetchCustomerProfile(customerID)
+		profile, err := t.fetchCustomerProfile(ctx, customerID)
 		if err != nil {
-			if errors.Is(err, service.ErrCustomerNotFound) {
+			if errors.Is(err, portcontract.ErrCustomerNotFound) {
 				return ErrorResult(t.Name(), err), err
 			}
 			return ErrorResult(t.Name(), err), err
@@ -255,37 +258,23 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 		return SuccessResult(t.Name(), profile), nil
 	}
 
-	customer, err := t.deps.CustomerRepo.GetByID(customerID)
+	customer, err := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 	if customer == nil || customer.ID == "" {
-		return ErrorResult(t.Name(), service.ErrCustomerNotFound), service.ErrCustomerNotFound
+		return ErrorResult(t.Name(), portcontract.ErrCustomerNotFound), portcontract.ErrCustomerNotFound
 	}
 	return SuccessResult(t.Name(), customer), nil
 }
 
-// fetchCustomerProfile 拉取客户 360 视图（Port 优先，Service 回退）
-func (t *CustomerGetTool) fetchCustomerProfile(customerID string) (*portcontract.CustomerProfileView, error) {
-	if t.deps.Customer != nil {
-		return t.deps.Customer.GetCustomerProfile(customerID)
+// fetchCustomerProfile 拉取客户 360 视图（仅走 portcontract.CustomerPort）
+func (t *CustomerGetTool) fetchCustomerProfile(ctx context.Context, customerID string) (*portcontract.CustomerProfileView, error) {
+	_ = ctx // Port 接口无 ctx 参数,保留入参仅作未来扩展位
+	if t.deps.Customer == nil {
+		return nil, errors.New("CustomerPort not injected")
 	}
-	// 回退：CustomerService 路径（保持旧装配兼容）
-	if t.deps.CustomerService == nil {
-		return nil, errors.New("CustomerPort not injected 且 CustomerService 为空")
-	}
-	profile, err := t.deps.CustomerService.GetCustomerProfile(customerID)
-	if err != nil {
-		return nil, err
-	}
-	if profile == nil {
-		return nil, nil
-	}
-	return &portcontract.CustomerProfileView{
-		Customer:     profile.Customer,
-		RecentEvents: profile.RecentEvents,
-		Tags:         profile.Tags,
-	}, nil
+	return t.deps.Customer.GetCustomerProfile(customerID)
 }
 
 // ===== 工具 3：customer.create =====
@@ -380,12 +369,12 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 	}
 	customerID, _ := GetStringArg(args, "customer_id")
 
-	customer, err := t.deps.CustomerRepo.GetByID(customerID)
+	customer, err := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 	if customer == nil || customer.ID == "" {
-		return ErrorResult(t.Name(), service.ErrCustomerNotFound), service.ErrCustomerNotFound
+		return ErrorResult(t.Name(), portcontract.ErrCustomerNotFound), portcontract.ErrCustomerNotFound
 	}
 
 	// 仅更新非空字段
@@ -408,7 +397,7 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 	// 重新生成 UnifiedID
 	customer.UnifiedID = customer.GenerateUnifiedID()
 
-	if err := t.deps.CustomerRepo.Update(customer); err != nil {
+	if err := t.deps.CustomerRepo.Update(ctx, customer); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 	return SuccessResult(t.Name(), customer), nil
@@ -444,7 +433,7 @@ func NewCustomerMergeTool(deps CustomerToolDeps) *CustomerMergeTool {
 
 // Execute 执行合并
 //
-// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
+// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
 func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"primary_id", "secondary_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -452,17 +441,11 @@ func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (T
 	primaryID, _ := GetStringArg(args, "primary_id")
 	secondaryID, _ := GetStringArg(args, "secondary_id")
 
-	if t.deps.Customer != nil {
-		if err := t.deps.Customer.MergeCustomers(primaryID, secondaryID); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else if t.deps.CustomerService != nil {
-		// 回退路径
-		if err := t.deps.CustomerService.MergeCustomers(primaryID, secondaryID); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else {
-		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
+	if t.deps.Customer == nil {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected")), errors.New("CustomerPort not injected")
+	}
+	if err := t.deps.Customer.MergeCustomers(primaryID, secondaryID); err != nil {
+		return ErrorResult(t.Name(), err), err
 	}
 	return SuccessResult(t.Name(), map[string]any{
 		"primary_id":   primaryID,
@@ -508,7 +491,7 @@ func NewCustomerAddTagTool(deps CustomerToolDeps) *CustomerAddTagTool {
 
 // Execute 执行添加标签
 //
-// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
+// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
 func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -519,21 +502,15 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 		return ErrorResult(t.Name(), errors.New("tags 不能为空")), errors.New("tags 不能为空")
 	}
 
-	if t.deps.Customer != nil {
-		if err := t.deps.Customer.AddTags(customerID, tags); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else if t.deps.CustomerService != nil {
-		// 回退路径
-		if err := t.deps.CustomerService.AddTags(customerID, tags); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else {
-		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
+	if t.deps.Customer == nil {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected")), errors.New("CustomerPort not injected")
+	}
+	if err := t.deps.Customer.AddTags(customerID, tags); err != nil {
+		return ErrorResult(t.Name(), err), err
 	}
 
 	// 返回更新后的客户标签
-	customer, _ := t.deps.CustomerRepo.GetByID(customerID)
+	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
 		currentTags = customer.GetTags()
@@ -582,7 +559,7 @@ func NewCustomerRemoveTagTool(deps CustomerToolDeps) *CustomerRemoveTagTool {
 
 // Execute 执行移除标签
 //
-// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
+// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
 func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -593,21 +570,15 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 		return ErrorResult(t.Name(), errors.New("tags 不能为空")), errors.New("tags 不能为空")
 	}
 
-	if t.deps.Customer != nil {
-		if err := t.deps.Customer.RemoveTags(customerID, tags); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else if t.deps.CustomerService != nil {
-		// 回退路径
-		if err := t.deps.CustomerService.RemoveTags(customerID, tags); err != nil {
-			return ErrorResult(t.Name(), err), err
-		}
-	} else {
-		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
+	if t.deps.Customer == nil {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected")), errors.New("CustomerPort not injected")
+	}
+	if err := t.deps.Customer.RemoveTags(customerID, tags); err != nil {
+		return ErrorResult(t.Name(), err), err
 	}
 
 	// 返回更新后的客户标签
-	customer, _ := t.deps.CustomerRepo.GetByID(customerID)
+	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
 		currentTags = customer.GetTags()

@@ -7,6 +7,7 @@ import (
 
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/service"
 )
 
 // ============================================================================
@@ -68,9 +69,13 @@ func initGlobalToolExecutor() {
 //  7. customer.remove_tag - 移除客户标签
 //  8. customer.segment    - 按 tag/RFM/churn_risk 等条件分群
 //
+// 2026-07-23 收口：通过 service.NewCustomerPortAdapter 注入 portcontract.CustomerPort，
+// 不再走工具层对 *service.CustomerService 的字段依赖（硬约束"完整移除"）。
+//
 // 调用方：router.Setup()
 func registerAgentCustomerTools(gormDB *gorm.DB) {
-	deps := tooluse.NewCustomerToolDepsWithDB(gormDB)
+	customerPort := service.NewCustomerPortAdapter(service.NewCustomerService())
+	deps := tooluse.NewCustomerToolDepsWithPort(customerPort, gormDB)
 	if err := tooluse.RegisterCustomerTools(tooluse.GetGlobalRegistry(), deps); err != nil {
 		logger.Errorf("[agent] 注册客户工具失败（customer.* 将不可用）：%v", err)
 		return
