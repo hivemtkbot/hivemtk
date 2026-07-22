@@ -488,6 +488,9 @@ func (c *CustomerSessionController) Blacklist(ctx *gin.Context) {
 //
 //	POST /api/customer-sessions/blacklist/remove
 //	body: {"user_id": "u_123", "platform": "web"}
+//
+// 鉴权：要求登录态（JWT 中间件已保证），但操作者必须存在（agentID > 0），
+// 避免未登录态/匿名 token 误调。
 func (c *CustomerSessionController) Unblacklist(ctx *gin.Context) {
 	var req struct {
 		UserID   string         `json:"user_id" binding:"required"`
@@ -495,6 +498,10 @@ func (c *CustomerSessionController) Unblacklist(ctx *gin.Context) {
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	if getUserIDFromContext(ctx) == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
 		return
 	}
 	if err := c.sessionService.UnblacklistUser(req.UserID, req.Platform); err != nil {

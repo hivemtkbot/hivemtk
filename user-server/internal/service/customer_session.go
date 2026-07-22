@@ -61,7 +61,20 @@ type CreateSessionRequest struct {
 }
 
 // CreateSession 创建会话
+//
+// 2026-07-22 拉黑串联：进入时先校验 IsUserBlacklisted(userID, platform)，
+// 命中即拒绝创建（避免已被拉黑的访客通过新会话绕过黑名单）。
 func (s *CustomerSessionService) CreateSession(req *CreateSessionRequest) (*model.CustomerSession, error) {
+	if req.UserID != "" {
+		banned, blErr := s.blacklistRepo.IsBlacklisted(req.UserID, req.Platform)
+		if blErr != nil {
+			return nil, blErr
+		}
+		if banned {
+			return nil, errors.New("该访客已被加入黑名单，无法创建新会话")
+		}
+	}
+
 	sessionID := generateSessionID()
 
 	session := &model.CustomerSession{

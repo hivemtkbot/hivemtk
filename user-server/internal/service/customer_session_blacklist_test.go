@@ -187,3 +187,104 @@ func TestBlacklistUser_TTLExpiry(t *testing.T) {
 		t.Error("expected active blacklist (TTL not expired)")
 	}
 }
+
+// TestCreateSession_RejectedByBlacklist 已被拉黑访客无法创建新会话
+//
+// 修复二次审核发现的 CreateSession 未串联黑名单校验的遗漏：
+// 拉黑应同时影响后续会话创建入口，否则访客通过新会话绕过黑名单。
+func TestCreateSession_RejectedByBlacklist(t *testing.T) {
+	setupBlacklistServiceTestDB(t)
+	svc := NewCustomerSessionService()
+
+	// 创建第一个会话并拉黑
+	sess1, _ := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformWeb,
+		AccountID: "acc_x",
+		UserID:    "u_banned",
+	})
+	if err := svc.BlacklistUser(&BlacklistRequest{
+		SessionID: sess1.ID, Reason: "spam",
+	}); err != nil {
+		t.Fatalf("BlacklistUser: %v", err)
+	}
+
+	// 同一 user_id 创建新会话 → 应被拒绝
+	_, err := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformWeb,
+		AccountID: "acc_x",
+		UserID:    "u_banned",
+	})
+	if err == nil {
+		t.Fatal("expected CreateSession to be rejected for blacklisted user")
+	}
+	if !contains(err.Error(), "黑名单") {
+		t.Errorf("error message should mention 黑名单, got: %v", err)
+	}
+
+	// 解除拉黑 → 新会话应恢复
+	if err := svc.UnblacklistUser("u_banned", model.PlatformWeb); err != nil {
+		t.Fatalf("UnblacklistUser: %v", err)
+	}
+	sess2, err := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformWeb,
+		AccountID: "acc_x",
+		UserID:    "u_banned",
+	})
+	if err != nil {
+		t.Fatalf("after unblacklist CreateSession: %v", err)
+	}
+	if sess2 == nil {
+		t.Error("expected new session after unblacklist")
+	}
+}
+
+// TestCreateSession_AllowDifferentPlatform 跨 platform 独立
+//
+// 同一 user_id 在 platform=web 拉黑后，在 platform=douyin 仍可创建会话
+// （黑名单按 platform 维度隔离）
+func TestCreateSession_AllowDifferentPlatform(t *testing.T) {
+	setupBlacklistServiceTestDB(t)
+	svc := NewCustomerSessionService()
+
+	sess, _ := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformWeb,
+		AccountID: "acc_y",
+		UserID:    "u_platform",
+	})
+	_ = svc.BlacklistUser(&BlacklistRequest{SessionID: sess.ID, Reason: "x"})
+
+	// web 已拉黑 → 拒绝
+	if _, err := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformWeb,
+		AccountID: "acc_y",
+		UserID:    "u_platform",
+	}); err == nil {
+		t.Error("expected rejection on web")
+	}
+
+	// douyin 未拉黑 → 通过
+	sess2, err := svc.CreateSession(&CreateSessionRequest{
+		Platform:  model.PlatformDouyin,
+		AccountID: "acc_y",
+		UserID:    "u_platform",
+	})
+	if err != nil {
+		t.Fatalf("douyin CreateSession: %v", err)
+	}
+	if sess2.Platform != model.PlatformDouyin {
+		t.Errorf("platform = %v, want douyin", sess2.Platform)
+	}
+}
+
+// contains 简单子串匹配（避免引入 strings 包与现有 import 冲突）
+func contains(s, sub string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
