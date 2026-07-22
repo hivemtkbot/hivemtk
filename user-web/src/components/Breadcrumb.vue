@@ -91,8 +91,6 @@ const subMenusMap = {
   domainPool: { parent: 'system', title: i18n.global.t('域名池') },
   teamUser: { parent: 'system', title: i18n.global.t('团队成员') },
   platformAccount: { parent: 'system', title: i18n.global.t('平台账号') },
-  licenseManagement: { parent: 'system', title: i18n.global.t('授权管理') },
-  otaUpgrade: { parent: 'system', title: i18n.global.t('OTA 升级') },
   payment: { parent: 'system', title: i18n.global.t('支付配置') },
   integration: { parent: 'system', title: i18n.global.t('第三方对接') },
   operationLog: { parent: 'system', title: i18n.global.t('操作日志') },

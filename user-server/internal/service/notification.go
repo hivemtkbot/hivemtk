@@ -160,8 +160,8 @@ func (s *NotificationService) SeedIfEmpty() error {
 		{
 			UserID:    0,
 			Type:      model.NotificationTypeInfo,
-			Title:     "试用授权剩余 27 天",
-			Content:   "当前为试用 License，到期后部分高级功能将不可用。请联系开发者获取正式授权。",
+			Title:     "欢迎使用 HivemTK（开源版）",
+			Content:   "本软件完全开源，可自由使用、部署与二次开发。",
 			Link:      "/licenseManagement/list",
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 		},

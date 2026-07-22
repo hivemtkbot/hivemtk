@@ -31,7 +31,7 @@ func setupSmsServiceTestDB(t *testing.T) *gorm.DB {
 
 // newTestSmsRepository 创建测试仓库
 func newTestSmsRepository(database *gorm.DB) repository.SmsRepository {
-	return repository.NewSmsRepository(database)
+	return repository.NewSmsRepository()
 }
 
 // TestNewSmsService 测试创建短信服务

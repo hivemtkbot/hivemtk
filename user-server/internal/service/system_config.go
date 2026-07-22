@@ -68,7 +68,7 @@ func (s *SystemConfigService) ResetSystem() error {
 
 	// 首先确保所有表都存在
 	d.AutoMigrate(
-		&model.License{},
+		// 开源版：移除 &model.License{}（License 模型删除，授权流程下线）
 		&model.SystemUser{},
 		&contentmodel.Material{},
 		&model.ObsConfig{},
@@ -95,7 +95,7 @@ func (s *SystemConfigService) ResetSystem() error {
 	// 删除（或清空）核心业务数据表，使用事务确保原子性
 	err := d.Transaction(func(tx *gorm.DB) error {
 		tables := []any{
-			&model.License{},
+			// 开源版：移除 &model.License{}
 			&model.SystemUser{},
 			&contentmodel.Material{},
 			&model.ObsConfig{},

@@ -26,10 +26,12 @@ func (r *SalesPersonaRepository) AvgHumanResponseSec() (float64, error) {
 		return 0, nil
 	}
 	var avg float64
-	err := r.db.Table("customer_session_messages").
-		Select("AVG(EXTRACT(EPOCH FROM (created_at - LAG(created_at) OVER (PARTITION BY session_id ORDER BY created_at))))").
+	sub := r.db.Table("session_messages").
+		Select("created_at - LAG(created_at) OVER (PARTITION BY session_id ORDER BY created_at) AS diff").
 		Where("sender_type = ?", "human").
-		Where("created_at >= ?", time.Now().AddDate(0, 0, -30)).
+		Where("created_at >= ?", time.Now().AddDate(0, 0, -30))
+	err := r.db.Table("(?) AS t", sub).
+		Select("COALESCE(AVG(EXTRACT(EPOCH FROM diff)), 0)").
 		Scan(&avg).Error
 	if err != nil {
 		return 0, err
@@ -48,9 +50,9 @@ func (r *SalesPersonaRepository) SessionOrderCount(staffID uint) (sessions int64
 		Scan(&sessions).Error; err != nil {
 		return 0, 0, err
 	}
-	if err = r.db.Table("orders").
+	if err = r.db.Table("order").
 		Select("COUNT(*) as orders").
-		Where("created_at >= ?", time.Now().AddDate(0, 0, -30)).
+		Where("create_time >= ?", time.Now().AddDate(0, 0, -30).Unix()).
 		Scan(&orders).Error; err != nil {
 		return 0, 0, err
 	}
@@ -63,8 +65,9 @@ func (r *SalesPersonaRepository) CountSopExecutionsByStaff(staffID uint) (int64,
 		return 0, nil
 	}
 	var count int64
-	if err := r.db.Table("sop_executions").
-		Where("staff_id = ?", staffID).
+	if err := r.db.Table("sop_executions AS se").
+		Joins("JOIN customer_sessions AS cs ON se.session_id = cs.session_id").
+		Where("cs.agent_id = ?", staffID).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}
@@ -77,7 +80,7 @@ func (r *SalesPersonaRepository) CountRagQueryLogsByUser(staffID uint) (int64, e
 		return 0, nil
 	}
 	var count int64
-	if err := r.db.Table("rag_query_logs").
+	if err := r.db.Table("rag_sessions").
 		Where("user_id = ?", staffID).
 		Count(&count).Error; err != nil {
 		return 0, err
@@ -91,8 +94,11 @@ func (r *SalesPersonaRepository) CountObjectionRecordsByStaff(staffID uint) (int
 		return 0, nil
 	}
 	var count int64
-	if err := r.db.Table("objection_records").
-		Where("staff_id = ?", staffID).
+	if err := r.db.Table("sop_exec_events AS se").
+		Joins("JOIN sop_executions AS sx ON se.execution_id = sx.id").
+		Joins("JOIN customer_sessions AS cs ON sx.session_id = cs.session_id").
+		Where("se.node_type = ?", "objection").
+		Where("cs.agent_id = ?", staffID).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}

@@ -38,7 +38,7 @@ func setupTestSmsDB(t *testing.T) *gorm.DB {
 
 // setupSmsController 设置短信控制器（使用实际的服务和仓库）
 func setupSmsController() *SmsController {
-	repo := repository.NewSmsRepository(db.GetDB())
+	repo := repository.NewSmsRepository()
 	svc := service.NewSmsService(repo)
 	return NewSmsController(svc)
 }
@@ -1448,7 +1448,7 @@ func TestSMSController_SendSMS_MergedInvalidJSON(t *testing.T) {
 	setupSMSTestDB_Merged(t)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	smsRepo := repository.NewSmsRepository(db.GetDB())
+	smsRepo := repository.NewSmsRepository()
 	ctrl := NewSmsController(service.NewSmsService(smsRepo))
 	ctrl.RegisterRoutes(router.Group("/sms"))
 
@@ -1467,7 +1467,7 @@ func TestSMSController_GetList_MergedSuccess(t *testing.T) {
 	setupSMSTestDB_Merged(t)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	smsRepo := repository.NewSmsRepository(db.GetDB())
+	smsRepo := repository.NewSmsRepository()
 	ctrl := NewSmsController(service.NewSmsService(smsRepo))
 	ctrl.RegisterRoutes(router.Group("/sms"))
 

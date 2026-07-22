@@ -41,9 +41,16 @@ onMounted(async () => {
 
     const currentPath = router.currentRoute.value.path
 
-    // 未初始化 + 不在 setup 页 → 引导到 /setup
+    // 未初始化 + 不在 setup / login / chat-embed 页 → 引导到 /setup
+    // 公开的 chat embed 页面（被第三方网站 iframe 加载）即使后端未初始化也应继续展示，
+    // 否则会重定向到 /setup，导致 iframe 内出现完整 Layout（顶部 LanguageSwitcher + 侧边栏 + 菜单）。
+    // 聊天本身依赖的后端 API（/api/chat/public/*、/api/ws/visitor）都是公开的，不依赖初始化。
+    const isPublicEmbedPath =
+      currentPath.startsWith('/chat/embed') ||
+      currentPath === '/setup' ||
+      currentPath === '/login'
     if (!status.initialized) {
-      if (currentPath !== '/setup' && currentPath !== '/login') {
+      if (!isPublicEmbedPath) {
         ElMessage.info(t('system.completeInitFirst'))
         router.replace('/setup')
       }

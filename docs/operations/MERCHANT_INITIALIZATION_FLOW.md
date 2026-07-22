@@ -171,18 +171,16 @@ http://<your-server-ip>:8204/login
 
 ## 四、7 天免费试用
 
-未绑定 LicenseKey 时，user-server 进入试用模式：
+未绑定商户标识时，user-server 仍可正常运行（开源版无授权限制）：
 
-- 全部功能可用
-- 7 天后部分受限（仅基础查询）
-- 数据持久化（重装后试用计时仍累计）
+- 全部功能可用，无使用期限
+- 数据持久化（重装后配置仍保留）
 - install.lock 模板见 `offline-deploy/install.lock.example`
 
-试用期间绑定正式 LicenseKey：
+首次初始化绑定商户标识（merchant_key）：
 
-- 访问 `/setup` 重新提交 LicenseKey
-- 系统校验后切换到正式模式
-- 试用计时清零
+- 访问 `/setup` 提交商户标识
+- 系统校验后写入本地配置，完成初始化
 
 ---
 

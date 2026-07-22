@@ -20,18 +20,24 @@ type DomainPoolService interface {
 	List(page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error)
 	CheckDomain(id int) (bool, error)
 	CheckAllDomains() ([]dto.DomainPoolCheckResponse, error)
+	// Blacklist 域名黑名单管理(下沉到 Service 层,Controller 不再直访 Repository)
+	AddBlacklist(domain, platform, reason, source string, ttlHours int) error
+	RemoveBlacklist(domain string) error
+	ListBlacklist(page, pageSize int) ([]*model.DomainBlacklist, int64, error)
 }
 
 // domainPoolService 域名池服务实现
 type domainPoolService struct {
-	domainPoolRepo repository.DomainPoolRepository
-	db             *gorm.DB
+	domainPoolRepo  repository.DomainPoolRepository
+	blacklistRepo   *repository.DomainBlacklistRepository
+	db              *gorm.DB
 }
 
 // NewDomainPoolService 创建域名池服务实例
 func NewDomainPoolService(db *gorm.DB) DomainPoolService {
 	return &domainPoolService{
 		domainPoolRepo: repository.NewDomainPoolRepository(db),
+		blacklistRepo:  repository.NewDomainBlacklistRepository(db),
 		db:             db,
 	}
 }
@@ -199,4 +205,27 @@ func (s *domainPoolService) CheckAllDomains() ([]dto.DomainPoolCheckResponse, er
 	}
 
 	return results, nil
+}
+
+// ============== G 域 P1 黑名单管理(下沉到 Service) ==============
+
+// AddBlacklist 添加域名到黑名单
+// ttlHours=0 表示永久,>0 表示 TTL(小时)
+func (s *domainPoolService) AddBlacklist(domain, platform, reason, source string, ttlHours int) error {
+	var expiresAt *time.Time
+	if ttlHours > 0 {
+		t := time.Now().Add(time.Duration(ttlHours) * time.Hour)
+		expiresAt = &t
+	}
+	return s.blacklistRepo.Add(domain, platform, reason, source, expiresAt)
+}
+
+// RemoveBlacklist 从黑名单移除域名(软删除:置 active=false)
+func (s *domainPoolService) RemoveBlacklist(domain string) error {
+	return s.blacklistRepo.Remove(domain)
+}
+
+// ListBlacklist 查询黑名单分页列表
+func (s *domainPoolService) ListBlacklist(page, pageSize int) ([]*model.DomainBlacklist, int64, error) {
+	return s.blacklistRepo.List(page, pageSize)
 }

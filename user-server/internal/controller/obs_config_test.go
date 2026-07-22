@@ -40,6 +40,7 @@ func setupObsRouter(ctrl *ObsConfigController) *gin.Engine {
 }
 
 func TestObsConfigController_GetConfigList_NoLicense(t *testing.T) {
+	setupObsTestDB(t)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	ctrl := NewObsConfigController()

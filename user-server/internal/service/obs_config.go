@@ -13,16 +13,20 @@ import (
 	"time"
 )
 
+// ObsConfigService OBS（对象存储）配置服务
+//
+// 开源版：已移除 LicenseID 维度隔离（不再做"按 License 分组"的查询/默认设置）。
+// 列表/默认配置走"全局"语义：第一个创建即为默认。
 type ObsConfigService interface {
-	GetConfigList(licenseID string, page, limit int) (*dto.GetObsConfigListResponse, error)
+	GetConfigList(page, limit int, provider, status string) (*dto.GetObsConfigListResponse, error)
 	GetConfig(id string) (*dto.ObsConfigResponse, error)
 	CreateConfig(req *dto.CreateObsConfigRequest) (*dto.ObsConfigResponse, error)
 	UpdateConfig(id string, req *dto.UpdateObsConfigRequest) (*dto.ObsConfigResponse, error)
 	DeleteConfig(id string) error
-	SetDefaultConfig(id string, licenseID string) error
+	SetDefaultConfig(id string) error
 	TestConnection(config *dto.ObsConfigResponse) error
-	UploadFile(file multipart.File, header *multipart.FileHeader, licenseID string, folder string) (string, error)
-	GetDefaultConfig(licenseID string) (*dto.ObsConfigResponse, error)
+	UploadFile(file multipart.File, header *multipart.FileHeader, folder string) (string, error)
+	GetDefaultConfig() (*dto.ObsConfigResponse, error)
 }
 
 type obsConfigService struct {
@@ -35,8 +39,8 @@ func NewObsConfigService() ObsConfigService {
 	}
 }
 
-func (s *obsConfigService) GetConfigList(licenseID string, page, limit int) (*dto.GetObsConfigListResponse, error) {
-	configs, total, err := s.repo.GetListByLicense(licenseID, page, limit)
+func (s *obsConfigService) GetConfigList(page, limit int, provider, status string) (*dto.GetObsConfigListResponse, error) {
+	configs, total, err := s.repo.GetList(page, limit, provider, status)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +86,10 @@ func (s *obsConfigService) CreateConfig(req *dto.CreateObsConfigRequest) (*dto.O
 		MaxSize:    req.MaxSize,
 		MaxCount:   req.MaxCount,
 		Status:     model.ObsStatusActive,
-		LicenseID:  req.LicenseID,
 	}
 
 	// 如果这是第一个配置，设为默认
-	count, err := s.repo.CountByLicense(req.LicenseID)
+	count, err := s.repo.Count()
 	if err != nil {
 		return nil, err
 	}
@@ -168,19 +171,13 @@ func (s *obsConfigService) DeleteConfig(id string) error {
 	return s.repo.Delete(id)
 }
 
-func (s *obsConfigService) SetDefaultConfig(id string, licenseID string) error {
-	config, err := s.repo.GetByID(id)
-	if err != nil {
+func (s *obsConfigService) SetDefaultConfig(id string) error {
+	if _, err := s.repo.GetByID(id); err != nil {
 		return err
 	}
 
-	// 确保配置属于该许可证
-	if config.LicenseID != licenseID {
-		return errors.New("配置不属于该许可证")
-	}
-
 	// 清除当前默认配置
-	if err := s.repo.ClearDefaultByLicense(licenseID); err != nil {
+	if err := s.repo.ClearDefault(); err != nil {
 		return err
 	}
 
@@ -189,49 +186,41 @@ func (s *obsConfigService) SetDefaultConfig(id string, licenseID string) error {
 }
 
 func (s *obsConfigService) TestConnection(config *dto.ObsConfigResponse) error {
-	// Validate configuration based on provider
-	// In production, this would call the actual cloud storage SDK to test connection
-
 	switch model.ObsProvider(config.Provider) {
 	case model.ObsProviderAliyun:
-		// Validate Aliyun OSS configuration
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("阿里云OSS配置不完整")
 		}
 		logger.Infof("[OBS Config] Testing connection for Aliyun: bucket=%s, region=%s", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderQiniu:
-		// Validate Qiniu configuration
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("七牛云存储配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for Qiniu: bucket=%s", config.Bucket)
+		logger.Infof("[OBS Config] Testing connection for Qiniu: %s", config.Bucket)
 		return nil
 	case model.ObsProviderTencent:
-		// Validate Tencent COS configuration
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("腾讯云COS配置不完整")
 		}
 		logger.Infof("[OBS Config] Testing connection for Tencent: bucket=%s, region=%s", config.Bucket, config.Region)
 		return nil
 	case model.ObsProviderAWS:
-		// Validate AWS S3 configuration
 		if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" {
 			return errors.New("AWS S3配置不完整")
 		}
-		logger.Infof("[OBS Config] Testing connection for AWS: bucket=%s, region=%s", config.Bucket, config.Region)
+		logger.Infof("[OBS Config] Testing connection for AWS: %s", config.Bucket)
 		return nil
 	case model.ObsProviderLocal:
-		// Local storage - validate basic path and permissions
 		return nil
 	default:
 		return errors.New("不支持的存储提供商")
 	}
 }
 
-func (s *obsConfigService) UploadFile(file multipart.File, header *multipart.FileHeader, licenseID string, folder string) (string, error) {
+func (s *obsConfigService) UploadFile(file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 	// 获取默认配置
-	config, err := s.repo.GetDefaultByLicense(licenseID)
+	config, err := s.repo.GetDefault()
 	if err != nil {
 		return "", errors.New("未找到默认存储配置")
 	}
@@ -254,12 +243,10 @@ func (s *obsConfigService) UploadFile(file multipart.File, header *multipart.Fil
 	var fileURL string
 	switch config.Provider {
 	case model.ObsProviderLocal:
-		// Local storage - save file to local directory
 		fileURL = fmt.Sprintf("/uploads/%s", fileName)
 		logger.Infof("[OBS Config] Saving file locally: %s", fileName)
 		return fileURL, nil
 	default:
-		// Cloud storage - in production, this would call the cloud SDK
 		logger.Infof("[OBS Config] Uploading to cloud storage: %s, provider: %s", fileName, config.Provider)
 		fileURL = config.GetAccessURL(fileName)
 	}
@@ -272,8 +259,8 @@ func (s *obsConfigService) UploadFile(file multipart.File, header *multipart.Fil
 	return fileURL, nil
 }
 
-func (s *obsConfigService) GetDefaultConfig(licenseID string) (*dto.ObsConfigResponse, error) {
-	config, err := s.repo.GetDefaultByLicense(licenseID)
+func (s *obsConfigService) GetDefaultConfig() (*dto.ObsConfigResponse, error) {
+	config, err := s.repo.GetDefault()
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +308,6 @@ func (s *obsConfigService) convertToDTO(config *model.ObsConfig) *dto.ObsConfigR
 		TotalSize:    config.TotalSize,
 		FileCount:    config.FileCount,
 		IsDefault:    config.IsDefault,
-		LicenseID:    config.LicenseID,
 		CreatedAt:    config.CreatedAt,
 		UpdatedAt:    config.UpdatedAt,
 	}

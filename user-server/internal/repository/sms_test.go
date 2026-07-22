@@ -29,7 +29,7 @@ func setupSmsTestDB(t *testing.T) *gorm.DB {
 // setupSmsRepository 创建测试用的仓库实例
 func setupSmsRepository(t *testing.T) SmsRepository {
 	setupSmsTestDB(t)
-	return NewSmsRepository(db.GetDB())
+	return NewSmsRepository()
 }
 
 // TestSmsRepository_GetConfig 测试获取短信配置

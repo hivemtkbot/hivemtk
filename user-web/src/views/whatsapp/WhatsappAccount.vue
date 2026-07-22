@@ -54,6 +54,7 @@ import i18n from '@/i18n'
 import { ref, onMounted } from 'vue'
 import api from '@/api/whatsapp'
 import { ElMessage } from 'element-plus'
+import { toList } from '@/utils/list'
 import { computed } from 'vue'
 
 const accounts = ref([])
@@ -68,7 +69,7 @@ onMounted(() => { loadAccounts() })
 function loadAccounts() {
   loading.value = true
   api.listAccounts().then(res => {
-    accounts.value = res.data || []
+    accounts.value = toList(res)
   }).finally(() => loading.value = false)
 }
 

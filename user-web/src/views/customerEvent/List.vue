@@ -204,7 +204,7 @@ const loadEvents = async () => {
 
 const loadStats = async () => {
   const res = await getEventStats()
-  stats.value = res.data || stats.value
+  stats.value = res || stats.value
 }
 
 const showCreateDialog = () => {

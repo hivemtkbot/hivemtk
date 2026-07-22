@@ -25,8 +25,8 @@ export function getChurnModelConfig() {
 export function saveChurnModelConfig(data) {
   return request({ url: '/api/churn/model-config', method: 'post', data })
 }
-export function getChurnStatistics() {
-  return request({ url: '/api/churn/statistics', method: 'get' })
+export function getChurnStatistics(params) {
+  return request({ url: '/api/churn/statistics', method: 'get', params })
 }
 export function getRiskDistribution() {
   return request({ url: '/api/churn/risk-distribution', method: 'get' })
@@ -39,8 +39,8 @@ export function runChurnPrediction() {
 export function interveneUser(data) {
   return request({ url: '/api/churn/warnings/intervene', method: 'post', data })
 }
-export function getChurnStats() {
-  return getChurnStatistics()
+export function getChurnStats(params) {
+  return getChurnStatistics(params)
 }
 export function getChurnConfig() {
   return getChurnModelConfig()

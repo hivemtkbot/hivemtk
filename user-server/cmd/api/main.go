@@ -15,6 +15,8 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/aiagent/rag/incremental"
 	"marketing/internal/cache"
+	"marketing/internal/migration"
+	"marketing/internal/migration/migrations"
 	platformconfig "marketing/internal/config"
 	"marketing/internal/event"
 	"marketing/internal/middleware"
@@ -137,8 +139,8 @@ func main() {
 		logger.Infof("[平台配置] api_url=%s（来源：%s）", platformconfig.PlatformCfg.APIURL, source)
 	}
 
-	// 初始化授权检查器（install.lock + 3 分钟心跳 + 9 分钟容错）
-	// 对应 LICENSE_OTA_DESIGN.md 第 7.1 节启动流程
+	// 初始化上报检查器（install.lock + 3 分钟心跳 + 9 分钟容错）
+	// 开源版：仅做心跳 / 安装信息上报，不再请求平台获取授权
 	// 平台端地址：优先 PlatformCfg.APIURL（即商户上报地址，初始化/上报共用同一域名），
 	// 兼容旧变量名 PLATFORM_URL / PLATFORM_API_URL（覆盖 LicenseChecker 的 ServerURL）。
 	platformURL := ""
@@ -156,6 +158,9 @@ func main() {
 		platformURL = "https://hivepaltformapi.xapptool.cn"
 	}
 	middleware.InitLicenseChecker(platformURL, "")
+	logger.Infof("[启动] 初始化上报检查器（install.lock + 3 分钟心跳 + 9 分钟容错）")
+	// 开源版：启动 3 分钟心跳上报（采集设备指纹 / 主机信息 / 运行指标，IP 由平台侧采集）
+	platform.StartHeartbeat(context.Background())
 
 	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
@@ -178,6 +183,14 @@ func main() {
 
 	db.InitDB()
 	db.AutoMigrate()
+
+	// 2026-07-21 修复：启动流原先从未运行迁移服务，导致 M 域 P1 缺口修复
+	// 所需的 4 张表（system_kv_config / provider_health / intent_logs / trace_events）
+	// 未被创建，user-server 健康检查降级。此处显式触发迁移（异步、幂等，
+	// CREATE TABLE IF NOT EXISTS），补齐缺失表。
+	migrationRegistry := migration.NewMigrationRegistry()
+	migrationSvc := migration.NewMigrationService(migrationRegistry, db.GetDB(), migrations.RegisterMigrations)
+	go migrationSvc.ExecuteUpgrade("v1.0.0", "v1.0.0")
 
 	// M 域 P1 缺口修复启动装配（2026-07-21）
 	// 1) LLM Provider 降级管理器（健康检查 + 熔断器 + 模板回复兜底）

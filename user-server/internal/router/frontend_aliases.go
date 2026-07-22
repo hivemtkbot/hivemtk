@@ -398,7 +398,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 26. 短信 - 别名（前端用 /api/sms/*）
 	// ============================================================
-	smsCtrl := controller.NewSmsController(service.NewSmsService(repository.NewSmsRepository(db.GetDB())))
+	smsCtrl := controller.NewSmsController(service.NewSmsService(repository.NewSmsRepository()))
 	doReg("GET", "/sms/records", smsCtrl.GetSmsList)
 	doReg("GET", "/sms/records/list", smsCtrl.GetSmsList)
 	doReg("POST", "/sms/records", smsCtrl.SendSms)
@@ -652,7 +652,12 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 47. 域名池 - 别名
 	// ============================================================
-	domainCtrl := controller.NewDomainPoolController(service.NewDomainPoolService(db.GetDB()))
+	domainDB := db.GetDB()
+	domainPoolRepo := repository.NewDomainPoolRepository(domainDB)
+	domainCtrl := controller.NewDomainPoolController(
+		service.NewDomainPoolService(domainDB),
+		service.NewDomainHealthService(domainDB, domainPoolRepo),
+	)
 	doReg("GET", "/domain-pool", domainCtrl.List)
 	doReg("GET", "/domain-pool/list", domainCtrl.List)
 	doReg("GET", "/domain-pool/:id", domainCtrl.GetByID)
@@ -673,46 +678,20 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("POST", "/team-users/:id/reset-password", teamCtrl.ResetPassword)
 
 	// ============================================================
-	// 49. 授权管理 - 别名
+	// 49. 授权管理 - 别名（开源版：License 模型已删除，全部移除）
 	// ============================================================
-	licenseCtrl := controller.NewLicenseController()
-	doReg("GET", "/license", licenseCtrl.GetStatus)
-	doReg("GET", "/license/status", licenseCtrl.GetStatus)
-	doReg("GET", "/license/info", licenseCtrl.GetInfo)
-	doReg("GET", "/license/check", licenseCtrl.CheckNow)
-	doReg("GET", "/license/check-ota", licenseCtrl.CheckOTA)
-	doReg("POST", "/license/bind", licenseCtrl.BindLicense)
-	doReg("POST", "/license/unbind", licenseCtrl.UnbindLicense)
-	doReg("POST", "/license/heartbeat", licenseCtrl.HeartbeatNow)
-	// 兼容历史路径
-	doReg("GET", "/license/usage", licenseCtrl.GetStatus)
-	doReg("GET", "/license/modules", licenseCtrl.GetInfo)
-	doReg("GET", "/license/merchant-count", licenseCtrl.GetInfo)
-	doReg("POST", "/license/activate", licenseCtrl.BindLicense)
-	doReg("POST", "/license/deactivate", licenseCtrl.UnbindLicense)
-	doReg("POST", "/license/renewal", licenseCtrl.HeartbeatNow)
+	// 开源版：以下 License 相关路由全部下线（License 模型删除，授权流程移除）。
+	// 保留注释作为历史变更记录，前端对应入口已通过页面级删除清理。
 
 	// ============================================================
-	// 50. OTA 升级 - 别名
+	// 50. OTA 升级 - 别名（开源版：OTA 已下线，全部移除）
 	// ============================================================
-	otaCtrl := controller.NewUpgradeController()
-	doReg("GET", "/ota/versions", otaCtrl.GetAvailableUpgrades)
-	doReg("GET", "/ota/versions/list", otaCtrl.GetAvailableUpgrades)
-	doReg("GET", "/ota/versions/:id", otaCtrl.GetUpgradeTask)
-	doReg("POST", "/ota/versions", otaCtrl.CreateUpgradeTask)
-	doReg("POST", "/ota/versions/:id/rollback", otaCtrl.Rollback)
-	doReg("GET", "/ota/tasks", otaCtrl.GetUpgradeHistory)
-	doReg("GET", "/ota/tasks/list", otaCtrl.GetUpgradeHistory)
-	doReg("GET", "/ota/tasks/:id", otaCtrl.GetUpgradeTask)
+	// 开源版：以下 OTA 升级路由全部下线（OTA 模型删除，升级流程移除）。
+	// 保留注释作为历史变更记录，前端对应入口已通过页面级删除清理。
 
-	// 兼容前端 /api/upgrade/* 路径
-	doReg("POST", "/upgrade", otaCtrl.CreateUpgradeTask)
-	doReg("GET", "/upgrade/history", otaCtrl.GetUpgradeHistory)
-	doReg("GET", "/upgrade/progress/:id", otaCtrl.GetUpgradeTask)
-	doReg("POST", "/upgrade/rollback", otaCtrl.Rollback)
+	// 注意：原 /api/platform/version/* 由 setupPlatformRoutes 负责注册（平台端路由组）。
+	// 平台端 version 路由已在 setupPlatformRoutes 中同步删除。
 
-	// 注意：/api/platform/version/* 由 setupPlatformRoutes 负责注册（平台端路由组）。
-	// 此处不重复注册，避免 panic: handlers are already registered
 
 	// ============================================================
 	// 51. 支付 - 别名

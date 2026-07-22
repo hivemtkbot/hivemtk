@@ -39,6 +39,7 @@ func (s *ScriptTemplateService) CreateTemplate(createdBy uint, req *CreateScript
 
 	template := &model.ScriptTemplate{
 		Category:  req.Category,
+		Name:      req.Title,
 		Title:     req.Title,
 		Content:   req.Content,
 		Variables: string(variables),

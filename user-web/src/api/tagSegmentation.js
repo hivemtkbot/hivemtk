@@ -8,24 +8,24 @@ import { http } from '@/utils/request'
  *   GET /api/user-segment - 用户分层
  */
 export const TagSegmentationApi = {
-  // 获取标签列表
+  // 获取标签列表（全局标签，使用 session-tags 存储，无需 user_id）
   getTags: (params) => {
-    return http.get('/api/customer-360/tags', params)
+    return http.get('/api/session-tags', params)
   },
 
   // 更新标签（批量）
   updateTags: (data) => {
-    return http.put('/api/customer-360/tags', data)
+    return http.put('/api/session-tags', data)
   },
 
   // 新增单个标签
   createTag: (data) => {
-    return http.post('/api/customer-360/tags', data)
+    return http.post('/api/session-tags', data)
   },
 
   // 删除标签
   deleteTag: (id) => {
-    return http.delete(`/api/customer-360/tags/${id}`)
+    return http.delete(`/api/session-tags/${id}`)
   },
 
   // 获取自动标签规则（条件 → 标签）

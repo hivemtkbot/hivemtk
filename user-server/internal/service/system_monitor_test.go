@@ -19,7 +19,6 @@ func setupSystemMonitorTestDB(t *testing.T) *gorm.DB {
 		&model.Order{},
 		&model.ShortLinkAccess{},
 		&model.VisitLog{},
-		&model.License{},
 		&model.AutoReplyAccount{},
 		&model.AutoReplyRule{},
 		&model.EmailList{},
@@ -222,17 +221,6 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&user)
 	}
 
-	// 创建许可证
-	for i := 0; i < 3; i++ {
-		license := model.License{
-			MerchantName: "Merchant" + string(rune('0'+i)),
-			MaxUsers:     10,
-			ExpireAt:     time.Now().AddDate(1, 0, 0),
-			Status:       model.LicenseStatusActive,
-		}
-		database.Create(&license)
-	}
-
 	// 创建自动回复账户
 	for i := 0; i < 4; i++ {
 		account := model.AutoReplyAccount{
@@ -321,11 +309,8 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 	if basicStats["total_users"] != int64(5) {
 		t.Errorf("Expected total_users 5, got %v", basicStats["total_users"])
 	}
-	if basicStats["total_merchants"] != int64(2) {
-		t.Errorf("Expected total_merchants 2, got %v", basicStats["total_merchants"])
-	}
-	if basicStats["total_licenses"] != int64(3) {
-		t.Errorf("Expected total_licenses 3, got %v", basicStats["total_licenses"])
+	if basicStats["total_merchants"] != int64(1) {
+		t.Errorf("Expected total_merchants 1 (开源版固定), got %v", basicStats["total_merchants"])
 	}
 
 	// 验证业务统计
@@ -563,7 +548,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 	basicStats := stats["basic_stats"].(map[string]any)
 	requiredBasicFields := []string{
 		"total_users", "total_orders", "total_cards", "total_short_links",
-		"today_visits", "active_users_today", "total_merchants", "total_licenses",
+		"today_visits", "active_users_today", "total_merchants",
 	}
 	for _, field := range requiredBasicFields {
 		if _, ok := basicStats[field]; !ok {

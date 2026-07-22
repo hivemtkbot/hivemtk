@@ -5,6 +5,7 @@ import (
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,11 @@ import (
 
 // setupDomainPoolRoutes 域名池管理路由
 func setupDomainPoolRoutes(auth *gin.RouterGroup) {
-	domainPoolCtrl := controller.NewDomainPoolController(service.NewDomainPoolService(db.GetDB()))
+	database := db.GetDB()
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	domainPoolSvc := service.NewDomainPoolService(database)
+	healthSvc := service.NewDomainHealthService(database, domainPoolRepo)
+	domainPoolCtrl := controller.NewDomainPoolController(domainPoolSvc, healthSvc)
 	auth.GET("/domainpool/list", domainPoolCtrl.List)
 	auth.POST("/domainpool", domainPoolCtrl.Create)
 	auth.PUT("/domainpool/:id", domainPoolCtrl.Update)

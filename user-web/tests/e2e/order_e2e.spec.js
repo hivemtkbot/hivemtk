@@ -8,7 +8,7 @@ const API_BASE = 'http://localhost:8204'
 async function getAdminToken() {
   const ctx = await request.newContext({ baseURL: API_BASE })
   const resp = await ctx.post('/api/auth/login', {
-    data: { username: 'admin', password: 'Admin@123456' }
+    data: { username: 'admin', password: 'Admin@12345678' }
   })
   const body = await resp.json()
   return body.data?.token
@@ -41,7 +41,7 @@ test.describe('P2-5 订单管理 E2E', () => {
     expect(createResp.ok()).toBeTruthy()
     const createBody = await createResp.json()
     expect(createBody.code).toBe('SUCCESS')
-    const orderId = createBody.data.order_id
+    const orderId = createBody.data.id
     expect(orderId).toBeTruthy()
 
     // 2) 查详情
@@ -69,7 +69,7 @@ test.describe('P2-5 订单管理 E2E', () => {
     const createResp = await ctx.post('/api/orders', {
       data: { account_id: 'e2e_acc2', tg_id: 88888, price: '50.00' }
     })
-    const orderId = (await createResp.json()).data.order_id
+    const orderId = (await createResp.json()).data.id
     // 待支付订单退款应失败
     const refundResp = await ctx.post(`/api/orders/${orderId}/refund`, {
       data: { amount: '50', reason: '测试' }

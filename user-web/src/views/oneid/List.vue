@@ -209,10 +209,8 @@ const handleSearch = () => {
 const showIdentities = async (row) => {
   try {
     const res = await getIdentityMappings(row.id)
-    if (res.code === 0) {
-      selectedCustomer.value = res.data.customer
-      identitiesDialogVisible.value = true
-    }
+    selectedCustomer.value = res?.customer
+    identitiesDialogVisible.value = true
   } catch (e) {
     ElMessage.error('获取身份详情失败：' + e.message)
   }
@@ -231,14 +229,10 @@ const showLink = (row) => {
 
 const handleResolve = async () => {
   try {
-    const res = await resolveIdentity(resolveForm.value)
-    if (res.code === 0) {
-      ElMessage.success(i18n.global.t('解析成功'))
-      resolveDialogVisible.value = false
-      loadList()
-    } else {
-      ElMessage.error(res.msg || '解析失败')
-    }
+    await resolveIdentity(resolveForm.value)
+    ElMessage.success(i18n.global.t('解析成功'))
+    resolveDialogVisible.value = false
+    loadList()
   } catch (e) {
     ElMessage.error('解析失败：' + e.message)
   }

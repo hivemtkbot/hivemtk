@@ -56,7 +56,7 @@ func (s *AIProductivityService) BuildReport(startTime, endTime time.Time) (*Prod
 
 	// AI 回复数 (从 customer_session_messages)
 	var aiCount int64
-	s.db.Table("customer_session_messages").
+	s.db.Table("session_messages").
 		Where("created_at BETWEEN ? AND ?", startTime, endTime).
 		Where("sender_type = ?", "ai").
 		Count(&aiCount)
@@ -64,7 +64,7 @@ func (s *AIProductivityService) BuildReport(startTime, endTime time.Time) (*Prod
 
 	// 人工回复
 	var humanCount int64
-	s.db.Table("customer_session_messages").
+	s.db.Table("session_messages").
 		Where("created_at BETWEEN ? AND ?", startTime, endTime).
 		Where("sender_type = ?", "human").
 		Count(&humanCount)
@@ -76,21 +76,24 @@ func (s *AIProductivityService) BuildReport(startTime, endTime time.Time) (*Prod
 	}
 
 	// 平均响应时长（粗略：从消息表）
+	// 注意：PostgreSQL 不允许在聚合函数(AVG)中直接嵌套窗口函数(LAG)，
+	// 必须用子查询先算出相邻消息时间差，再在外层聚合。
 	type rtRow struct {
 		Avg float64
 	}
 	var rt rtRow
-	s.db.Table("customer_session_messages").
-		Select("AVG(EXTRACT(EPOCH FROM (created_at - LAG(created_at) OVER (PARTITION BY session_id ORDER BY created_at)))) as avg").
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Scan(&rt)
+	s.db.Raw(`SELECT AVG(EXTRACT(EPOCH FROM diff)) AS avg FROM (
+		SELECT created_at - LAG(created_at) OVER (PARTITION BY session_id ORDER BY created_at) AS diff
+		FROM session_messages
+		WHERE created_at BETWEEN ? AND ?
+	) t WHERE diff IS NOT NULL`, startTime, endTime).Scan(&rt)
 	rep.AvgResponseTime = rt.Avg
 
 	// 转化数（订单）
 	var convCount int64
 	s.db.Model(&sysmodel.Order{}).
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Where("status IN ?", []string{"paid", "completed"}).
+		Where("create_time BETWEEN ? AND ?", startTime.Unix(), endTime.Unix()).
+		Where("status = ?", 100).
 		Count(&convCount)
 	rep.TotalConversions = convCount
 	if rep.TotalConversations > 0 {
@@ -146,22 +149,24 @@ func (s *AIProductivityService) DailyTrend(days int) ([]DailyMetric, error) {
 			Where("created_at >= ? AND created_at < ?", day, dayEnd).
 			Count(&m.Conversations)
 
-		s.db.Table("customer_session_messages").
+		s.db.Table("session_messages").
 			Where("created_at >= ? AND created_at < ?", day, dayEnd).
 			Where("sender_type = ?", "ai").
 			Count(&m.AIReplies)
 
 		s.db.Model(&sysmodel.Order{}).
-			Where("created_at >= ? AND created_at < ?", day, dayEnd).
-			Where("status IN ?", []string{"paid", "completed"}).
+			Where("create_time >= ? AND create_time < ?", day.Unix(), dayEnd.Unix()).
+			Where("status = ?", 100).
 			Count(&m.Conversions)
 
-		var cost float64
+		var costs []float64
 		s.db.Table("llm_usage_records").
 			Select("COALESCE(SUM(cost), 0)").
 			Where("created_at >= ? AND created_at < ?", day, dayEnd).
-			Scan(&cost)
-		m.LLMCost = cost
+			Scan(&costs)
+		if len(costs) > 0 {
+			m.LLMCost = costs[0]
+		}
 
 		trend = append(trend, m)
 	}

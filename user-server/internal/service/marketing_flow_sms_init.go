@@ -7,7 +7,6 @@ import (
 
 	contentsvc "marketing/internal/content/service"
 	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
 )
 
@@ -23,6 +22,11 @@ import (
 //   2. lazySender 在第一次调用时延迟初始化 SmsService（避免 init 阶段 DB 未就绪）
 //   3. 复用同一 SmsService 实例以减少对象创建开销
 //   4. 若 DB 未就绪则返回明确错误，便于调用方感知
+//
+// 五层架构合规：
+//   - 本文件不再 import db 包，也不再调用 db 包
+//   - DB 访问完全委托给 SmsRepository（其内部自行获取 db 连接）
+//   - 服务层只通过 repository 暴露的接口完成数据访问
 
 var (
 	smsSvcOnce     sync.Once
@@ -36,15 +40,15 @@ func init() {
 }
 
 // initSmsService 延迟初始化 SmsService（线程安全）
+//
+// 通过 NewSmsService(NewSmsRepository()) 注入仓储；
+// 仓储自身负责获取 db 连接，Service 层不感知 db 包。
 func initSmsService() (SmsService, error) {
 	smsSvcOnce.Do(func() {
-		database := db.GetDB()
-		if database == nil {
-			smsSvcInitErr = errors.New("数据库连接未初始化，无法创建 SmsService")
-			return
+		smsSvcInstance = NewSmsService(repository.NewSmsRepository())
+		if smsSvcInstance == nil {
+			smsSvcInitErr = errors.New("初始化短信服务失败：仓储创建返回 nil")
 		}
-		repo := repository.NewSmsRepository(database)
-		smsSvcInstance = NewSmsService(repo)
 	})
 	return smsSvcInstance, smsSvcInitErr
 }

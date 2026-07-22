@@ -9,6 +9,7 @@ type ScriptTemplate struct {
 	ID         uint    `gorm:"primaryKey;autoIncrement" json:"id"`
 	CategoryID uint    `json:"category_id"`
 	Category   string  `gorm:"type:varchar(50);index" json:"category"`
+	Name       string  `gorm:"type:varchar(100);not null" json:"name"`
 	Title      string  `gorm:"type:varchar(100);not null" json:"title"`
 	Content    string  `gorm:"type:text;not null" json:"content"`
 	Variables  string  `gorm:"type:text" json:"variables"` // JSON 数组，变量列表

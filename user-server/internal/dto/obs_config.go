@@ -3,6 +3,8 @@ package dto
 import "time"
 
 // ObsConfigRequest OBS配置请求
+//
+// 开源版：已移除 LicenseID 字段（License 模型已删除，授权流程下线）。
 type CreateObsConfigRequest struct {
 	Name       string `json:"name" binding:"required"`
 	Provider   string `json:"provider" binding:"required,oneof=aliyun qiniu tencent aws local"`
@@ -16,7 +18,6 @@ type CreateObsConfigRequest struct {
 	Config     string `json:"config"`
 	MaxSize    int64  `json:"max_size"`
 	MaxCount   int    `json:"max_count"`
-	LicenseID  string `json:"license_id"`
 }
 
 type UpdateObsConfigRequest struct {
@@ -35,6 +36,8 @@ type UpdateObsConfigRequest struct {
 }
 
 // ObsConfigResponse OBS配置响应
+//
+// 开源版：已移除 LicenseID 字段。
 type ObsConfigResponse struct {
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`
@@ -56,7 +59,6 @@ type ObsConfigResponse struct {
 	TotalSize    int64      `json:"total_size"`
 	FileCount    int        `json:"file_count"`
 	IsDefault    bool       `json:"is_default"`
-	LicenseID    string     `json:"license_id"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }

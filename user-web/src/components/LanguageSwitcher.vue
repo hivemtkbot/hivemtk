@@ -1,9 +1,8 @@
 <template>
   <el-dropdown trigger="click" @command="onChange" class="lang-switcher">
-    <span class="lang-switcher__trigger">
-      <el-icon><Language /></el-icon>
-      <span class="lang-switcher__label">{{ currentLabel }}</span>
-    </span>
+      <span class="lang-switcher__trigger">
+        <span class="lang-switcher__label">{{ currentLabel }}</span>
+      </span>
     <template #dropdown>
       <el-dropdown-menu>
         <el-dropdown-item

@@ -124,7 +124,7 @@ const getSmsConfig = async () => {
   loading.value = true
   try {
     const response = await smsApi.getConfig()
-    smsConfig.value = response.data || smsConfig.value
+    smsConfig.value = response || smsConfig.value
   } catch (error) {
     ElMessage.error(i18n.global.t('获取短信配置失败'))
   } finally {

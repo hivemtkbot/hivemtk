@@ -12,13 +12,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/testutil/testmigrate"
 )
 
 // setupKBTestDB 设置知识库测试数据库
 func setupKBTestDB(t *testing.T) *gorm.DB {
-	return testutil.NewTestDB(t,
+	database := testutil.NewTestDB(t,
 		&model.KBDocument{},
 	)
+	testmigrate.RunTestMigrations(t, database)
+	return database
 }
 
 func setupKBRouter(t *testing.T, ctrl *KnowledgeBaseController) *gin.Engine {

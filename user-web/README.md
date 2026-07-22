@@ -1,134 +1,268 @@
-# Vue3 + Vite 项目
+# user-web · 用户端 B 端工作台
 
-一个基于 Vue3、Vite、Element Plus、Pinia、Vue Router 和 Axios 的现代化前端项目模板。
+> HivemTK 用户端的 B 端运营工作台。Vue 3 + Vite + Element Plus + Pinia，覆盖客户 / 线索 / 客服 / 触达 / 知识库 / 看板 / 智能体等 50+ 业务模块。
 
-## 🚀 特性
+## ✨ 项目功能
 
-- ⚡️ **Vite** - 极速的构建工具
-- 🖖 **Vue 3** - 渐进式 JavaScript 框架
-- 🎨 **Element Plus** - 基于 Vue 3 的组件库
-- 🗂 **Vue Router** - 官方路由管理器（WebHash 模式）
-- 📦 **Pinia** - 新一代状态管理
-- 🔗 **Axios** - HTTP 请求库（已封装）
-- 🎯 **Sass** - CSS 预处理器
-- 📁 **规范化目录结构** - views 存放页面，components 存放组件
-- 🔧 **完整配置** - 包含开发和生产环境配置
+### 客户与线索
 
-## 📦 安装
+- **OneID 客户 360°**：跨抖音 / 快手 / 小红书 / 闲鱼 / TikTok / 微信 / 短信 / 邮件身份归一化，冲突解决
+- **客户事件流**：跨渠道行为统一时间线
+- **RFM 分群 / 标签分层**：自定义规则 + 自动打标
+- **线索管理**：线索池、跟进状态、统计、转化漏斗
+- **客户旅程大屏**：阶段转化与流失节点可视化
+
+### 智能客服
+
+- **统一收件箱（Unified Inbox）**：所有渠道消息聚合会话
+- **AI 智能体管理**：多智能体 CRUD、渠道绑定、客服挂载
+- **客服工作台**：坐席状态、快捷回复库、会话标签、AI 建议、AI 拟人度 / 置信度
+- **SOP 智能体**：销冠 Prompt 库自动执行
+- **意图识别 / 对话记忆 / 异议处理 / 销冠画像**：AI 辅助运营
+- **ChatChannel 渠道管理**：嵌入 SDK 渠道密钥、安装指引
+
+### 多渠道触达
+
+- **短信 / WhatsApp / Telegram / 飞书 / 企微 / 邮件** 六渠道发送与排程
+- **群发任务（Bulk Messaging）**：触达管道编排
+- **活码（LiveCode）**：短链 + 轮询二维码 + 统计
+- **短链管理**：创建、追踪、统计
+- **Webhook / OTA 升级**：对接平台端
+
+### 知识库（RAG）
+
+- **知识库工作台**：分块编辑、批量导入、OpenAPI 集成
+- **统计与反馈**：检索命中率、人工反馈回流
+- **RAG 产品配置**：账号 / 模型路由
+- **Playground**：检索 + 生成联调
+
+### 智能卡片
+
+- **抖音 / 快手 / 小红书 / 闲鱼 / TikTok** 五平台卡券生成
+- **卡片自动回复**：浏览器自动化接管私信
+- **卡片数据统计**：曝光 / 点击 / 转化漏斗
+
+### 营销自动化
+
+- **营销画布（Marketing Flow）**：可视化 SOP
+- **AI 内容生成**：素材库 / 模板市场 / 脚本库
+- **AI 产能（AI Productivity）**：批量操作、效率看板
+- **AB 实验**：多臂老虎机流量分配
+
+### 数据看板
+
+- **大屏数据（Dashboard Screen）**：SSE 实时推送
+- **客户旅程看板 / 转化漏斗 / 自定义报表**
+- **反馈学习 / 拟人度面板 / 置信度面板**：调优 AI 行为
+
+### 系统与运维
+
+- **系统初始化向导**：首启检测 → 管理员设置 → 业务配置
+- **系统配置 / OBS 配置 / 邮件配置 / 短信配置 / 支付配置 / LLM 路由**
+- **团队与用户 / 角色权限**：RBAC 细粒度
+- **备份与恢复 / 操作日志 / 安全审计**
+- **OTA 升级 / 标识管理 / 平台账号**
+
+### 公域素材
+
+- **素材库（Material Library）**：图片 / 视频 / 文档
+- **模板市场（Template Market）**：可订阅行业模板
+
+## 🧱 技术栈
+
+| 维度 | 选型 |
+|---|---|
+| 框架 | Vue 3.5（Composition API + `<script setup>`） |
+| 构建 | Vite 6 |
+| 路由 | Vue Router 4（WebHash 模式） |
+| 状态管理 | Pinia 3 |
+| UI 组件库 | Element Plus 2.9 |
+| 图标 | @element-plus/icons-vue |
+| HTTP | Axios 1.9（已封装 `src/utils/request.js`） |
+| 样式 | Sass 1.89（SCSS） |
+| 富文本 | TinyMCE 6 |
+| 图表 | ECharts 6 |
+| 国际化 | vue-i18n 9 |
+| 测试 | Vitest 4（单元）+ Playwright（E2E） |
+
+## 📁 目录结构
+
+```
+user-web/
+├── public/                       # 静态资源
+├── src/
+│   ├── api/                      # 业务 API（按域拆分，共 70+ 模块）
+│   ├── components/               # 公共组件（含各平台卡片预览）
+│   ├── i18n/                     # 多语言（中/英 + 短语库）
+│   ├── layout/                   # 主布局 Layout.vue
+│   ├── router/
+│   │   ├── index.js              # 路由主文件（懒加载）
+│   │   └── modules/              # 50+ 业务模块路由
+│   ├── stores/                   # Pinia stores
+│   ├── styles/                   # 全局样式（index / reset / variables）
+│   ├── utils/                    # request / config / initHelper / 地图
+│   └── views/                    # 页面（按域组织）
+│       ├── chat/embed/           # 公开嵌入聊天窗
+│       ├── KnowledgeWorkspace/   # 知识库工作台
+│       └── ... 50+ 业务页面
+├── tests/
+│   ├── unit/                     # Vitest 单元测试
+│   └── e2e/                      # Playwright E2E
+├── .env.development              # 开发环境变量
+├── .env.production               # 生产环境变量
+├── vite.config.js                # Vite 配置（含代理 / 分包 / 别名）
+├── vitest.config.js              # Vitest 配置
+├── playwright.config.js          # Playwright 配置
+└── package.json
+```
+
+## 🚀 启动说明
+
+### 前置要求
+
+- Node.js 20+
+- npm 10+ / pnpm 8+ / yarn 4+（任选）
+- 后端 [user-server](../user-server/) 已启动（默认 `http://localhost:8204`）
+
+### 1. 安装依赖
 
 ```bash
-# 安装依赖
-npm install
+cd user-web
+npm install          # 或 pnpm install / yarn install
+```
 
-# 启动开发服务器
+### 2. 配置环境变量
+
+开发环境默认从 `.env.development` 读取：
+
+```bash
+# .env.development
+VITE_API_BASE_URL=https://hiveuserapi.xapptool.cn
+```
+
+如需联调本地后端，复制 `.env.example` 覆盖：
+
+```bash
+cp .env.example .env.development
+# 然后修改 VITE_API_BASE_URL=http://localhost:8204
+```
+
+Vite 已配置 `/api` 反代到 `http://localhost:8204`，开发态直接请求 `/api/...` 即可。
+
+### 3. 启动开发服务器
+
+```bash
+npm run dev
+# 默认端口 8211（端口被占用时自动递增）
+# 浏览器访问 http://localhost:8211
+```
+
+### 4. 构建生产版本
+
+```bash
+npm run build
+# 产物输出到 dist/ 目录
+```
+
+构建会自动按 `vue / elementPlus / utils` 三个 chunk 拆包，详见 `vite.config.js`。
+
+### 5. 预览生产构建
+
+```bash
+npm run preview
+# 启动静态服务预览 dist/
+```
+
+### 6. 单元测试
+
+```bash
+npm run test               # 单次运行
+npm run test:watch         # 监听模式
+npm run test:coverage      # 覆盖率报告
+```
+
+### 7. E2E 测试（Playwright）
+
+```bash
+# 安装浏览器（仅首次需要）
+npx playwright install
+
+# 运行全部 E2E
+npm run test:e2e
+
+# UI 模式
+npm run test:e2e:ui
+
+# 查看报告
+npm run test:e2e:report
+```
+
+## ⚙️ 环境变量
+
+| 变量 | 说明 | 默认 |
+|---|---|---|
+| `VITE_API_BASE_URL` | 后端 API 基础 URL | dev: 线上 demo；生产：相对路径或独立域名 |
+
+## 🛠 常用命令
+
+```bash
+# 开发
 npm run dev
 
-# 构建生产版本
+# 构建
 npm run build
 
-# 预览生产构建
+# 预览
 npm run preview
-```
 
-## 📁 项目结构
+# 单元测试
+npm run test
+npm run test:watch
+npm run test:coverage
 
-```
-src/
-├── api/                 # API 接口
-│   ├── index.js        # API 统一导出
-│   └── user.js         # 用户相关 API
-├── components/          # 公共组件
-│   └── HelloWorld.vue  # 示例组件
-├── router/             # 路由配置
-│   └── index.js        # 路由主文件
-├── stores/             # 状态管理
-│   ├── index.js        # Pinia 配置
-│   └── user.js         # 用户状态
-├── styles/             # 样式文件
-│   ├── index.scss      # 主样式文件
-│   ├── reset.scss      # 重置样式
-│   └── variables.scss  # 样式变量
-├── utils/              # 工具函数
-│   └── request.js      # HTTP 请求封装
-├── views/              # 页面组件
-│   ├── Home.vue        # 首页
-│   └── About.vue       # 关于页面
-├── App.vue             # 根组件
-└── main.js             # 入口文件
-```
-
-## 🔧 配置说明
-
-### 环境变量
-
-- `.env` - 通用环境变量
-- `.env.development` - 开发环境变量
-- `.env.production` - 生产环境变量
-
-### 路由配置
-
-项目使用 Vue Router 4，配置为 WebHash 模式，路由文件位于 `src/router/index.js`。
-
-### 状态管理
-
-使用 Pinia 进行状态管理，store 文件位于 `src/stores/` 目录。
-
-### HTTP 请求
-
-Axios 已经过封装，包含：
-- 请求/响应拦截器
-- 错误处理
-- Token 自动添加
-- 统一的响应格式处理
-
-使用方式：
-```javascript
-import { http } from '@/utils/request'
-
-// GET 请求
-const data = await http.get('/api/users')
-
-// POST 请求
-const result = await http.post('/api/users', { name: 'John' })
-```
-
-### 样式系统
-
-- 使用 Sass 作为 CSS 预处理器
-- 已删除所有浏览器默认样式
-- 提供了完整的样式变量和工具类
-- 支持 Element Plus 主题定制
-
-## 🎨 组件库
-
-项目集成了 Element Plus，所有组件都可以直接使用：
-
-```vue
-<template>
-  <el-button type="primary">按钮</el-button>
-  <el-input v-model="input" placeholder="请输入内容"></el-input>
-</template>
+# E2E 测试
+npm run test:e2e
+npm run test:e2e:ui
 ```
 
 ## 📝 开发规范
 
-1. **页面组件** 放在 `src/views/` 目录
-2. **公共组件** 放在 `src/components/` 目录
-3. **使用 setup 语法糖** 编写组件
-4. **样式使用 Sass** 并遵循 BEM 命名规范
-5. **API 请求** 统一放在 `src/api/` 目录
-6. **状态管理** 按模块划分，放在 `src/stores/` 目录
+- **页面** 放 `src/views/`，按业务域分子目录（如 `customer360/`、`aiAgent/`）
+- **公共组件** 放 `src/components/`
+- **API** 统一放 `src/api/`，按域命名（如 `customer.js`、`knowledge.js`）
+- **状态** 按模块拆 Pinia store，放 `src/stores/`
+- **样式** 使用 Sass，遵循 BEM；变量定义在 `src/styles/variables.scss`
+- **i18n** 所有面向用户的文案走 `vue-i18n`，短语库在 `src/i18n/modules/`
+- **图标** 优先使用 `@element-plus/icons-vue`
+- **路由** 模块路由放 `src/router/modules/`，主路由自动懒加载
 
-## 🚀 部署
+## 🌐 浏览器嵌入客服窗
 
-```bash
-# 构建生产版本
-npm run build
+工作台内置公开聊天窗，可被第三方站点嵌入：
 
-# 构建完成后，dist 目录包含所有静态文件
-# 可以部署到任何静态文件服务器
+- 路由：`/chat/embed/default`（默认渠道）
+- 路由：`/chat/embed/:channel_ref`（指定渠道）
+- 嵌入 SDK 配套：[../embed-sdk](../embed-sdk/)
+
+```html
+<iframe src="https://your-domain/#/chat/embed/default" style="width:0;height:0;border:0;"></iframe>
 ```
+
+## 🐳 Docker 集成
+
+仓库根 `hivemtk/docker-compose.yml` 中以构建产物方式集成：
+
+- 构建阶段：`Dockerfile` 执行 `npm install && npm run build`
+- 运行阶段：由 nginx 反代 `dist/` 静态资源 + `/api` 反代到 `user-server:8204`
+
+## 📚 关联文档
+
+- 仓库根 [README](../README.md)
+- 嵌入 SDK [../embed-sdk](../embed-sdk/)
+- 后端服务 [../user-server](../user-server/)
+- 前端编码规范 [../docs/standards/FRONTEND_CODING_STANDARDS.md](../docs/standards/FRONTEND_CODING_STANDARDS.md)
+- CHANGELOG [../CHANGELOG.md](../CHANGELOG.md)
 
 ## 📄 许可证
 
-MIT License
+开源软件（MIT），详见 [../LICENSE](../LICENSE)。

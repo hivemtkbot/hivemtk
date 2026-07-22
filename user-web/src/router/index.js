@@ -71,13 +71,15 @@ const moduleNames = [
   'intentRecognition', 'dialogueMemory', 'sopAgent',
   // 触达管道 / 统一收件箱 / 企微账号
   'reachPipeline', 'unifiedInbox', 'wecomAccount',
-  // P1/P2 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能 / 授权管理 / OTA 升级
+  // P1/P2 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
   'llmRouting', 'tagSegmentation', 'conversionFunnel',
   'aiProductivity',
   // 知识库管理(导入/统计/OpenAPI)
   'knowledge',
   // 多 AI 智能体架构（智能体管理 / 渠道绑定 / 客服挂载）
   'aiAgent',
+  // 资产市场
+  'assetMarket',
   // 客服子功能 (坐席状态 / 快捷回复 / 会话标签 / AI 建议)
   'customerService',
   // P0-10 ADR-010: 客服 Web Widget 渠道管理

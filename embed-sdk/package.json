@@ -14,7 +14,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node test/unit.test.mjs",
+    "test:boundary": "node test/boundary.test.mjs",
+    "test:all": "node test/unit.test.mjs && node test/boundary.test.mjs",
+    "test:ws": "node test/ws.test.mjs",
+    "test:e2e": "bash test/e2e.sh"
   },
   "devDependencies": {
     "vite": "^5.0.0"

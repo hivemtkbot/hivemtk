@@ -13,7 +13,6 @@ import (
 func setupObsConfigTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.ObsConfig{},
-		&model.License{},
 	)
 	db.SetTestDB(database)
 	return database
@@ -58,19 +57,6 @@ func TestObsConfigRepository_Create(t *testing.T) {
 				AccessKey: "qiniu_access_key",
 				SecretKey: "qiniu_secret_key",
 				Bucket:    "qiniu-bucket",
-				Status:    model.ObsStatusActive,
-			},
-			wantErr: false,
-		},
-		{
-			name: "create config with license",
-			config: &model.ObsConfig{
-				Name:      "Licensed Storage",
-				Provider:  model.ObsProviderTencent,
-				AccessKey: "tencent_access_key",
-				SecretKey: "tencent_secret_key",
-				Bucket:    "tencent-bucket",
-				LicenseID: "license-123",
 				Status:    model.ObsStatusActive,
 			},
 			wantErr: false,
@@ -252,45 +238,8 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 	}
 }
 
-// TestObsConfigRepository_GetListByLicense 测试根据 License 获取配置列表
-func TestObsConfigRepository_GetListByLicense(t *testing.T) {
-	repo := setupObsConfigRepository(t)
+// TestObsConfigRepository_GetListByLicense 已删除（开源版移除 License）
 
-	// 创建测试数据
-	repo.Create(&model.ObsConfig{
-		Name:      "License Config 1",
-		Provider:  model.ObsProviderAliyun,
-		LicenseID: "license-123",
-		Status:    model.ObsStatusActive,
-	})
-
-	repo.Create(&model.ObsConfig{
-		Name:      "License Config 2",
-		Provider:  model.ObsProviderQiniu,
-		LicenseID: "license-123",
-		Status:    model.ObsStatusActive,
-	})
-
-	repo.Create(&model.ObsConfig{
-		Name:      "Other License Config",
-		Provider:  model.ObsProviderTencent,
-		LicenseID: "license-456",
-		Status:    model.ObsStatusActive,
-	})
-
-	results, total, err := repo.GetListByLicense("license-123", 1, 10)
-	if err != nil {
-		t.Errorf("GetListByLicense() error = %v", err)
-	}
-
-	if len(results) != 2 {
-		t.Errorf("Expected 2 configs, got %d", len(results))
-	}
-
-	if total != 2 {
-		t.Errorf("Expected total 2, got %d", total)
-	}
-}
 
 // TestObsConfigRepository_Update 测试更新配置
 func TestObsConfigRepository_Update(t *testing.T) {
@@ -378,28 +327,7 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 	}
 }
 
-// TestObsConfigRepository_GetDefaultByLicense 测试根据 License 获取默认配置
-func TestObsConfigRepository_GetDefaultByLicense(t *testing.T) {
-	repo := setupObsConfigRepository(t)
-
-	// 创建测试数据
-	repo.Create(&model.ObsConfig{
-		Name:      "License Default",
-		Provider:  model.ObsProviderAliyun,
-		LicenseID: "license-123",
-		IsDefault: true,
-		Status:    model.ObsStatusActive,
-	})
-
-	result, err := repo.GetDefaultByLicense("license-123")
-	if err != nil {
-		t.Errorf("GetDefaultByLicense() error = %v", err)
-	}
-
-	if result.Name != "License Default" {
-		t.Errorf("Expected name 'License Default', got '%s'", result.Name)
-	}
-}
+// TestObsConfigRepository_GetDefaultByLicense 已删除（开源版移除 License）
 
 // TestObsConfigRepository_SetDefault 测试设置默认配置
 func TestObsConfigRepository_SetDefault(t *testing.T) {
@@ -476,32 +404,7 @@ func TestObsConfigRepository_ClearDefault(t *testing.T) {
 	}
 }
 
-// TestObsConfigRepository_ClearDefaultByLicense 测试根据 License 清除默认配置
-func TestObsConfigRepository_ClearDefaultByLicense(t *testing.T) {
-	repo := setupObsConfigRepository(t)
-
-	// 创建测试数据
-	repo.Create(&model.ObsConfig{
-		Name:      "License Default",
-		Provider:  model.ObsProviderAliyun,
-		LicenseID: "license-123",
-		IsDefault: true,
-		Status:    model.ObsStatusActive,
-	})
-
-	err := repo.ClearDefaultByLicense("license-123")
-	if err != nil {
-		t.Errorf("ClearDefaultByLicense() error = %v", err)
-	}
-
-	// 查找该 License 下的配置
-	results, _, _ := repo.GetListByLicense("license-123", 1, 10)
-	for _, config := range results {
-		if config.IsDefault {
-			t.Error("Expected IsDefault to be false for all configs under license")
-		}
-	}
-}
+// TestObsConfigRepository_ClearDefaultByLicense 已删除（开源版移除 License）
 
 // TestObsConfigRepository_UpdateStatus 测试更新状态
 func TestObsConfigRepository_UpdateStatus(t *testing.T) {
@@ -567,41 +470,7 @@ func TestObsConfigRepository_CountByStatus(t *testing.T) {
 	}
 }
 
-// TestObsConfigRepository_CountByLicense 测试按 License 统计数量
-func TestObsConfigRepository_CountByLicense(t *testing.T) {
-	repo := setupObsConfigRepository(t)
-
-	// 创建测试数据
-	repo.Create(&model.ObsConfig{
-		Name:      "License Config 1",
-		Provider:  model.ObsProviderAliyun,
-		LicenseID: "license-123",
-		Status:    model.ObsStatusActive,
-	})
-
-	repo.Create(&model.ObsConfig{
-		Name:      "License Config 2",
-		Provider:  model.ObsProviderQiniu,
-		LicenseID: "license-123",
-		Status:    model.ObsStatusActive,
-	})
-
-	repo.Create(&model.ObsConfig{
-		Name:      "Other License",
-		Provider:  model.ObsProviderTencent,
-		LicenseID: "license-456",
-		Status:    model.ObsStatusActive,
-	})
-
-	count, err := repo.CountByLicense("license-123")
-	if err != nil {
-		t.Errorf("CountByLicense() error = %v", err)
-	}
-
-	if count != 2 {
-		t.Errorf("Expected 2 configs for license-123, got %d", count)
-	}
-}
+// TestObsConfigRepository_CountByLicense 已删除（开源版移除 License）
 
 // TestObsConfigRepository_GetByID_NotFound 测试获取不存在的配置
 func TestObsConfigRepository_GetByID_NotFound(t *testing.T) {

@@ -438,7 +438,9 @@ func TestLoadPolicyBadJSON(t *testing.T) {
 	)`).Error; err != nil {
 		t.Fatalf("create table: %v", err)
 	}
-	if err := db.Exec(`INSERT INTO system_kv_config (key, value) VALUES ('llm_provider_failover', 'not-json')`).Error; err != nil {
+	// 幂等写入：若同 key 已被其他测试写入，则覆盖为非法 JSON，避免 unique 冲突导致偶发失败
+	if err := db.Exec(`INSERT INTO system_kv_config (key, value) VALUES ('llm_provider_failover', 'not-json')
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`).Error; err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 	d := newTestDispatcher()

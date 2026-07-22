@@ -32,10 +32,12 @@
           <el-table-column prop="name" label="标签名称" min-width="150" />
           <el-table-column prop="type" label="类型" width="100">
             <template #default="{ row }">
-              <el-tag :type="getTypeColor(row.type)" size="small">{{ getTypeText(row.type) }}</el-tag>
+              <el-tag :type="getTypeColor(row.type || 'manual')" size="small">{{ getTypeText(row.type || 'manual') }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="category" label="分类" width="140" />
+          <el-table-column prop="group" label="分类" width="140">
+            <template #default="{ row }">{{ row.group || row.category || '默认' }}</template>
+          </el-table-column>
           <el-table-column prop="userCount" label="用户数" width="100" align="center" />
           <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
           <el-table-column prop="createdAt" label="创建时间" width="180" />
@@ -220,7 +222,7 @@ const loading = reactive({ tags: false, rules: false, strategy: false, stats: fa
 const tags = ref([])
 const tagRuleList = ref([])
 const strategyList = ref([])
-const stats = ref({})
+const stats = ref({ topUsed: [] })
 
 const tagSearch = ref('')
 const tagTypeFilter = ref('')
@@ -310,7 +312,8 @@ const loadStats = async () => {
   loading.stats = true
   try {
     const res= await TagSegmentationApi.getTagStats()
-    stats.value = res?.data || res || {}
+    const d = res?.data || res || {}
+    stats.value = { topUsed: Array.isArray(d.topUsed) ? d.topUsed : (Array.isArray(d) ? d : []) }
   } catch (e) {
     stats.value = {}
   } finally {
@@ -330,10 +333,18 @@ const showTagDialog = (row) => {
     tagForm.value = { ...row }
     tagDialogTitle.value = '编辑标签'
   } else {
-    tagForm.value = { id: 0, name: '', type: 'manual', category: '', description: '' }
+    tagForm.value = { id: 0, name: '', code: '', type: 'manual', category: '', description: '' }
     tagDialogTitle.value = '新增标签'
   }
   tagDialogVisible.value = true
+}
+
+const genTagCode = (name) => {
+  const base = (name || '').toString().trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return base ? `tag_${base}` : `tag_${Date.now()}`
 }
 
 const submitTag = async () => {
@@ -341,10 +352,17 @@ const submitTag = async () => {
   await tagFormRef.value.validate(async (valid) => {
     if (!valid) return
     try {
+      // session_tags 真实列：name / code(必填) / group / description
+      const payload = {
+        name: tagForm.value.name,
+        code: tagForm.value.code || genTagCode(tagForm.value.name),
+        group: tagForm.value.category || 'default',
+        description: tagForm.value.description || ''
+      }
       if (tagForm.value.id) {
-        await TagSegmentationApi.updateTagRule(tagForm.value.id, tagForm.value)
+        await TagSegmentationApi.updateTags({ id: tagForm.value.id, ...payload })
       } else {
-        await TagSegmentationApi.createTag(tagForm.value)
+        await TagSegmentationApi.createTag(payload)
       }
       ElMessage.success(tagForm.value.id ? '更新成功' : '新增成功')
       tagDialogVisible.value = false

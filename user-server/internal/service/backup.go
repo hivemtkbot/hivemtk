@@ -164,7 +164,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 		Desc     string `json:"desc"`
 	}
 	var clues []clueRow
-	if err := s.db().Table("clue").Where("create_time > ?", cutoff).Find(&clues).Error; err != nil {
+	if err := s.db().Table("clues").Where("create_time > ?", cutoff).Find(&clues).Error; err != nil {
 		return nil, err
 	}
 
@@ -187,7 +187,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 		URL       string `json:"url"`
 	}
 	var links []shortLinkRow
-	if err := s.db().Table("short_link").Limit(1000).Find(&links).Error; err != nil && err != gorm.ErrRecordNotFound {
+	if err := s.db().Table("short_links").Limit(1000).Find(&links).Error; err != nil && err != gorm.ErrRecordNotFound {
 		// not fatal if table doesn't exist
 		links = []shortLinkRow{}
 	}
@@ -428,7 +428,7 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 		}
 		// 检查是否已存在
 		var count int64
-		if err := gormDB.Table("clue").Where("id = ?", id).Count(&count).Error; err != nil {
+		if err := gormDB.Table("clues").Where("id = ?", id).Count(&count).Error; err != nil {
 			logger.Error(err, "检查线索失败: "+id)
 			continue
 		}
@@ -447,7 +447,7 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 			"address":     c["address"],
 			"description": c["desc"],
 		}
-		if err := gormDB.Table("clue").Create(row).Error; err != nil {
+		if err := gormDB.Table("clues").Create(row).Error; err != nil {
 			logger.Error(err, "恢复线索失败: "+id)
 			continue
 		}

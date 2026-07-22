@@ -566,7 +566,7 @@ const handleDeleteQR = (row) => {
 const handleStats = async (row) => {
   try {
     const response = await getLiveCodeStats(row.id)
-    statsData.value = response.data
+    statsData.value = response
     statsDialogVisible.value = true
     
     // 这里可以添加图表初始化代码

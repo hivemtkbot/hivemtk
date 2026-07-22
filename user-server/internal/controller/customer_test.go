@@ -75,8 +75,8 @@ func TestCustomerController_ListCustomers(t *testing.T) {
 		{
 			name:           "invalid_page",
 			url:            "/api/customer?page=abc&limit=xyz",
-			expectedStatus: 200, // 应该使用默认值
-			expectSuccess:  true,
+			expectedStatus: 400, // 非法 page 参数应被校验拒绝
+			expectSuccess:  false,
 		},
 	}
 
@@ -86,13 +86,13 @@ func TestCustomerController_ListCustomers(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.url, nil)
 			router.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.expectedStatus, w.Code)
+		assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response map[string]any
-			err := json.Unmarshal(w.Body.Bytes(), &response)
-			assert.NoError(t, err)
+		var response map[string]any
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
 
-			if tt.expectSuccess {
+		if tt.expectSuccess {
 				assert.Equal(t, "SUCCESS", response["code"])
 			} else {
 				assert.NotEqual(t, "SUCCESS", response["code"])

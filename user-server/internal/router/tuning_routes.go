@@ -7,23 +7,24 @@ package router
 
 import (
 	"marketing/internal/controller"
+	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 // setupTuningRoutes 注册 置信度/拟人度/反馈学习 统一管理 API
 //
-// 路由前缀：/api/admin/tuning/
-// 中间件：继承 auth group（InitGuard + JWTAuthMiddleware + LicenseGuard）
+// 路由前缀: /api/admin/tuning/
+// 中间件: 继承 auth group(InitGuard + JWTAuthMiddleware + LicenseGuard)
 //
-// 涵盖：
+// 涵盖:
 //   - 置信度信号/校准/阈值策略
 //   - 拟人度评分/销冠基线
 //   - 反馈事件/销冠对话/Prompt 候选/Bandit 臂
 //   - 低质样本
 func setupTuningRoutes(auth *gin.RouterGroup) {
 	tuning := auth.Group("/admin/tuning")
-	ctrl := controller.NewTuningController()
+	ctrl := controller.NewTuningController(service.NewTuningService())
 
 	// 1. 置信度信号
 	tuning.GET("/confidence/signals", ctrl.ListConfidenceSignals)

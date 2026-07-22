@@ -108,7 +108,7 @@ sdk-build:
 # 运维
 # =============================================================================
 backup:
-	docker compose -f $(COMPOSE) exec -T postgres-user \
+	docker compose -f $(COMPOSE) exec -T mtk-postgres \
 		pg_dump -U $${POSTGRES_USER:-admin} $${USER_DB_NAME:-user_db} > backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "✅ 备份完成"
 
@@ -117,6 +117,6 @@ restore:
 		echo "用法: make restore FILE=backup_20260101_120000.sql"; \
 		exit 1; \
 	fi
-	docker compose -f $(COMPOSE) exec -T postgres-user \
+	docker compose -f $(COMPOSE) exec -T mtk-postgres \
 		psql -U $${POSTGRES_USER:-admin} -d $${USER_DB_NAME:-user_db} < $(FILE)
 	@echo "✅ 恢复完成"

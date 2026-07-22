@@ -1,13 +1,50 @@
 /**
- * Iframe 聊天窗
- * 通过 iframe 加载嵌入页面，与浮标 SDK 通过 postMessage 通信
+ * @file Iframe 聊天窗
+ * @description 通过 iframe 加载嵌入页面,与浮标 SDK 通过 postMessage 通信
  *
- * 私域部署（2026-07-17 优化）：
+ * 私域部署(2026-07-17 优化):
  *   - appKey 缺失时跳转到 /chat/embed/default
- *   - 极简白底，无装饰
+ *   - 极简白底,无装饰
+ *
+ * 跨域(2026-07-21 修复):
+ *   - 父端用 allowedOrigins 列表(自动包含 apiBaseURL + window.location.origin)
+ *     替代严格的 `=== apiBaseURL.origin`,避免跨域部署下父子通信被拒
+ *   - iframe 端用具体 origin 发送,不用 '*'
+ *   - chat-widget-close 关闭消息走同一白名单校验,与 onMessage 等保持一致
  */
 
+/**
+ * @typedef {import('./config.js').McwConfig} McwConfig
+ */
+
+/**
+ * Iframe 面板构造选项
+ * @typedef {Object} IframePanelOptions
+ * @property {string}   apiBaseURL
+ * @property {string}   [appKey]
+ * @property {string}   [channelId]
+ * @property {string}   [position]
+ * @property {string}   [color]
+ * @property {string}   [title]
+ * @property {string}   [welcome]
+ * @property {string}   [lang]
+ * @property {string}   [visitorIdKey]
+ * @property {number}   [zIndex]
+ * @property {number}   [offsetX]
+ * @property {number}   [offsetY]
+ * @property {number}   [width]
+ * @property {number}   [height]
+ * @property {string[]} [allowedOrigins]
+ * @property {Function} [onClose]
+ */
+
+/**
+ * 浮标按钮类(管理 iframe 聊天窗的创建 / 显示 / 隐藏 / 销毁)
+ */
 export class IframePanel {
+  /**
+   * @param {IframePanelOptions} options
+   */
   constructor(options) {
     this.apiBaseURL = options.apiBaseURL
     this.appKey = options.appKey || ''
@@ -15,25 +52,38 @@ export class IframePanel {
     this.position = options.position || 'bottom-right'
     this.color = options.color || '#1989fa'
     this.title = options.title || '在线客服'
+    this.welcome = options.welcome || ''
+    this.lang = options.lang || 'zh-CN'
+    this.visitorIdKey = options.visitorIdKey || 'mtk_visitor_id'
     this.zIndex = options.zIndex || 9999
     this.offsetX = options.offsetX || 24
     this.offsetY = options.offsetY || 24
     this.width = options.width || 380
     this.height = options.height || 560
+    this.allowedOrigins = options.allowedOrigins || []
     this.onClose = options.onClose || (() => {})
 
+    /** @type {HTMLIFrameElement|null} */
     this.iframe = null
     this.shown = false
+    /** @type {Function|null} */
     this.messageHandler = null
   }
 
-  // 计算最终跳转的 channel 标识：优先 channelId > appKey > default
+  /**
+   * 计算最终跳转的 channel 标识
+   * @returns {string}
+   */
   getChannelRef() {
     if (this.channelId) return this.channelId
     if (this.appKey) return this.appKey
     return 'default'
   }
 
+  /**
+   * 显示聊天窗
+   * @returns {void}
+   */
   show() {
     if (this.shown) return
     if (!this.iframe) {
@@ -44,24 +94,35 @@ export class IframePanel {
     // 触发 iframe 内部页面渲染
     setTimeout(() => {
       try {
+        const targetOrigin = (() => {
+          try { return new URL(this.apiBaseURL).origin } catch (_) { return window.location.origin }
+        })()
         this.iframe.contentWindow.postMessage({
           type: 'mcw-config',
           payload: {
             appKey: this.appKey,
             channelId: this.channelId,
+            channelRef: this.getChannelRef(),
             apiBaseURL: this.apiBaseURL,
             color: this.color,
-            title: this.title
+            title: this.title,
+            welcome: this.welcome,
+            lang: this.lang,
+            visitorIdKey: this.visitorIdKey
           }
-        }, (this.apiBaseURL ? new URL(this.apiBaseURL).origin : window.location.origin))
+        }, targetOrigin)
       } catch (e) {
         // ignore
       }
-      // 移动端视觉视口适配（键盘弹出时跟随，避免输入框被遮挡）
+      // 移动端视觉视口适配
       this.setupVisualViewport()
     }, 100)
   }
 
+  /**
+   * 隐藏聊天窗
+   * @returns {void}
+   */
   hide() {
     if (!this.shown) return
     if (this.iframe) {
@@ -70,6 +131,10 @@ export class IframePanel {
     this.shown = false
   }
 
+  /**
+   * 销毁(移除 iframe + 消息监听)
+   * @returns {void}
+   */
   destroy() {
     this.clearVisualViewport()
     if (this.iframe) {
@@ -82,13 +147,14 @@ export class IframePanel {
     }
   }
 
+  /**
+   * 创建 iframe DOM + 注册消息监听
+   * @private
+   */
   create() {
     const iframe = document.createElement('iframe')
     iframe.className = 'mcw-iframe'
-    // URL 改为：/chat/embed/{channelRef}#/chat/embed/{channelRef}
-    // - 第一个 {channelRef} 是 server 端 SPA fallback 路径（必须和 server 路由一致）
-    // - 第二个 {channelRef}（# 后面）是 Vue Router hash 模式需要的内部路径
-    //   hash 模式 SPA 解析 # 后的内容为路由路径，server 只看 /chat/embed/{channelRef}
+    iframe.title = this.title
     const channelRef = this.getChannelRef()
     iframe.src = `${this.apiBaseURL}/chat/embed/${encodeURIComponent(channelRef)}#/chat/embed/${encodeURIComponent(channelRef)}`
     iframe.allow = 'clipboard-write'
@@ -96,19 +162,28 @@ export class IframePanel {
     document.body.appendChild(iframe)
     this.iframe = iframe
 
-    // 监听 iframe 消息
+    // 监听 iframe 消息(2026-07-21:统一使用 allowedOrigins 白名单)
+    // 关闭消息 / 业务消息 / 任何 postMessage 都走同一校验,避免不一致漏洞
     this.messageHandler = (event) => {
-      // 验证 origin
-      try {
-        const allowedOrigin = new URL(this.apiBaseURL).origin
-        if (event.origin !== allowedOrigin) return
-      } catch {
-        return
+      // 跨域安全:allowedOrigins 是父端预先配置的白名单
+      if (this.allowedOrigins && this.allowedOrigins.length > 0) {
+        if (!this.allowedOrigins.includes(event.origin)) {
+          return
+        }
+      } else {
+        // 兜底:仅允许 apiBaseURL origin
+        try {
+          const allowedOrigin = new URL(this.apiBaseURL).origin
+          if (event.origin !== allowedOrigin) return
+        } catch (_) {
+          return
+        }
       }
 
       const data = event.data
       if (!data || typeof data !== 'object') return
 
+      // 关闭消息(由 iframe 内部聊天窗主动 postMessage)
       if (data.type === 'chat-widget-close') {
         this.hide()
         this.onClose()
@@ -117,16 +192,17 @@ export class IframePanel {
     window.addEventListener('message', this.messageHandler)
   }
 
+  /**
+   * 计算 iframe 内联样式
+   * @param {string} display  CSS display 值
+   * @returns {string}
+   * @private
+   */
   getStyle(display) {
     const isLeft = this.position === 'bottom-left'
-    // 浮标 + 间距
-    const btnSize = 56
-    const gap = 16
-    const sideOffset = this.offsetX + btnSize + gap
-    const bottomOffset = this.offsetY
+    const isMobile = (typeof window !== 'undefined') && window.innerWidth <= 480
 
-    // 移动端：全屏
-    const isMobile = window.innerWidth <= 480
+    // 移动端:全屏
     if (isMobile) {
       return [
         'position: fixed',
@@ -134,8 +210,8 @@ export class IframePanel {
         'left: 0',
         'right: 0',
         'bottom: 0',
-        `width: 100vw`,
-        `height: 100vh`,
+        'width: 100vw',
+        'height: 100vh',
         `z-index: ${this.zIndex + 1}`,
         'border: none',
         `display: ${display}`,
@@ -145,7 +221,7 @@ export class IframePanel {
 
     return [
       'position: fixed',
-      `bottom: ${bottomOffset}px`,
+      `bottom: ${this.offsetY}px`,
       isLeft ? `left: ${this.offsetX}px` : `right: ${this.offsetX}px`,
       `width: ${this.width}px`,
       `height: ${this.height}px`,
@@ -158,8 +234,10 @@ export class IframePanel {
     ].join(';')
   }
 
-  // 移动端视觉视口适配：键盘弹出时 visualViewport 高度会缩小，
-  // 监听 resize/scroll 让 iframe 跟随视觉视口，避免输入框被键盘遮挡
+  /**
+   * 移动端视觉视口适配:键盘弹出时跟随
+   * @private
+   */
   setupVisualViewport() {
     const vv = window.visualViewport
     if (!vv) return
@@ -181,6 +259,10 @@ export class IframePanel {
     this._vvApply = apply
   }
 
+  /**
+   * 清理视觉视口监听
+   * @private
+   */
   clearVisualViewport() {
     if (this._vv && this._vvApply) {
       this._vv.removeEventListener('resize', this._vvApply)

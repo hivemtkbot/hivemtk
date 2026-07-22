@@ -531,7 +531,8 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 
 	// 步骤 7.5：拟人度评估（P0-4）
 	// 注入 HumanizeEvalService 时启用，<0.85 触发重生成（最多 3 次）
-	if e.humanizeEvaluator != nil {
+	// 私域本地 LLM 部署下由 HumanizeEvaluatorEnabled 开关跳过本步骤（避免 1.5B q4 模型被 0.85 阈值反复打回）
+	if e.humanizeEvaluator != nil && HumanizeEvaluatorEnabled {
 		stepStart = time.Now()
 		evalInput := &dto.HumanizeEvalInput{
 			SessionID:       req.SessionID,
@@ -552,20 +553,24 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 			resp.HumanizeScore = evalResult.TotalScore
 			resp.HumanizePassed = evalResult.Passed
 			resp.HumanizeAttempt = evalResult.AttemptCount
-			if !evalResult.Passed {
-				// 重生成耗尽仍未达标 → 转人工 + 用最后一次回复
-				if evalResult.FinalReply != "" {
-					finalReply = evalResult.FinalReply
-				}
-				resp.TransferredToHuman = true
-				resp.TransferReason = fmt.Sprintf("拟人度不达标（%.2f < 0.85），重生成 %d 次仍失败，转人工", evalResult.TotalScore, evalResult.AttemptCount)
-				resp.Steps = append(resp.Steps, dto.SalesStepLog{
-					Step: "7.5_humanize_eval", Status: "fail", LatencyMs: ms(stepStart),
-					Detail: resp.TransferReason,
-				})
-				resp.Reply = "[系统自动转人工] " + resp.TransferReason
-				return resp, nil
+		if !evalResult.Passed {
+			// 拟人度未达标：保留 AI 回复并正常下发，不再因“不够拟人”而丢弃回复、转人工。
+			// 设计意图（humanize_init.go 背景说明）：私域/本地 LLM 部署下 LLM 推理成功即应
+			// 自动回复，由真实人工按需接管；若直接转人工且无在线客服，访客将收不到任何回复，
+			// 这与“客服对话必须有返回”的预期相悖。因此此处仅记录评分、保留最优回复并继续
+			// 走发送前审核与下发流程，绝不吞掉已生成的有效回复。
+			resp.HumanizeScore = evalResult.TotalScore
+			resp.HumanizePassed = false
+			resp.HumanizeAttempt = evalResult.AttemptCount
+			if evalResult.FinalReply != "" {
+				finalReply = evalResult.FinalReply
 			}
+			resp.Steps = append(resp.Steps, dto.SalesStepLog{
+				Step: "7.5_humanize_eval", Status: "fail_soft", LatencyMs: ms(stepStart),
+				Detail: fmt.Sprintf("拟人度未达标（%.2f < 0.85），保留 AI 回复下发（不转人工）", evalResult.TotalScore),
+			})
+			// 注意：不设置 TransferredToHuman，继续走审核/下发流程
+		}
 			// 通过评估但可能替换了 finalReply（重生成后达标）
 			if evalResult.FinalReply != "" && evalResult.FinalReply != finalReply {
 				finalReply = evalResult.FinalReply
@@ -779,10 +784,11 @@ func (e *SalesEngine) generateCandidate(
 const agentLoopMaxIterations = 5
 
 // agentLoopTotalTimeout Agent Loop wall-clock 总超时
-// 设计依据：用户感知层面 30s 是可接受的最长等待时间
-// 即使 LLM 响应慢 + 工具执行慢，也保证 30s 内返回（降级到 fallback content）
-// 含义：5 轮迭代总耗时上限，单轮约 6s（LLM 调用 ~3s + 工具执行 ~3s）
-const agentLoopTotalTimeout = 30 * time.Second
+// 2026-07-22：私域部署在 Mac M1 / 普通 CPU 上跑 1.5B Q4 GGUF 模型
+// prompt eval + 生成会超过 30s（实测约 35-60s）。
+// 提升到 120s 以保证 1.5B 模型在 CPU 推理下也能正常完成单轮 chat-completions。
+// 仍保留降级到 fallback 内容的兜底逻辑。
+const agentLoopTotalTimeout = 120 * time.Second
 
 // runAgentLoop 真正的智能体 Agent Loop（P0-3 核心实现）
 //

@@ -62,8 +62,8 @@ PLATFORM_API_URL=http://host.docker.internal:8205
 ### 步骤 3：启动本地推理栈
 
 ```bash
-# 模型档位在 .env 中配置：默认 prod 档（Qwen2.5-14B-Instruct + bge-m3）
-# dev 档（个人电脑 / 轻量服务器）：改为 Qwen2.5-3B-Instruct + Qwen3-Embedding-0.6B（见 .env-example 注释）
+# 模型档位在 .env 中配置：默认 dev 轻量档（Qwen2.5-1.5B-Instruct + Qwen3-Embedding-0.6B + bge-reranker-base）
+# prod 重量档（生产服务器 32GB+）：改为 Qwen2.5-14B-Instruct + bge-m3 + bge-reranker-v2-m3（见 .env 注释）
 make inference-up
 ```
 
@@ -230,7 +230,7 @@ docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
 
 生产环境额外建议：
 
-1. **HTTPS 终结**：使用反代（Nginx / CDN），参考 `nginx/README.md`
+1. **HTTPS 终结**：使用外部反代（CDN / 云负载均衡），自行配置 TLS 证书
 2. **公网 IP / FRP 穿透**：无公网 IP 时使用 FRP 把 8204 端口穿透出去
 3. **备份策略**：每日全量备份 PostgreSQL，每周异地备份
 4. **监控告警**：接入 Prometheus / Grafana，关注 user-server 健康指标

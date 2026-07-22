@@ -13,7 +13,7 @@ import (
 	"marketing/internal/pkg/utils/bcrypt"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/system/license"
+	"marketing/internal/system/install"
 
 	"gorm.io/gorm"
 )
@@ -355,8 +355,8 @@ func (s *AuthService) InitChangePassword(username, newPassword string) error {
 	}
 
 	// 4. 标记 install.lock 为 AdminInitialized=true（关键修复 P0-2）
-	// 直接走 auth 包（不依赖 middleware 避免 import cycle）
-	if err := auth.MarkAdminInitializedStandalone(); err != nil {
+	// 开源版：直接走 install 包（不依赖中间件避免 import cycle）
+	if err := install.MarkAdminInitializedStandalone(); err != nil {
 		// 不影响主流程，但必须记录
 		logger.Error(err, "InitChangePassword 标记 install.lock 失败")
 	}
@@ -380,22 +380,17 @@ type forgotTokenEntry struct {
 }
 
 // CreateForgotPasswordToken 创建"忘记密码"一次性 token
-// 验证策略（P0-4）：
-//  1. username 必须 == install.lock.AdminUsername
-//  2. companyName 必须 == install.lock.Company
-//  3. 同时通过 → 生成 64 字符 token，5 分钟内有效
-//
+// 开源版：仅校验 username == install.lock.AdminUsername，移除公司名校验
 // 私域部署：响应中直接返回 token（管理员自己操作）
 // 公网部署：应改为通过 contact_email 发送，不直接返回
-func (s *AuthService) CreateForgotPasswordToken(username, companyName string) (string, error) {
+func (s *AuthService) CreateForgotPasswordToken(username string) (string, error) {
 	username = strings.TrimSpace(username)
-	companyName = strings.TrimSpace(companyName)
-	if username == "" || companyName == "" {
-		return "", errors.New("用户名和公司名不能为空")
+	if username == "" {
+		return "", errors.New("用户名不能为空")
 	}
 
 	// 1. 加载 install.lock
-	lock, err := auth.LoadInstallLockPublic()
+	lock, err := install.LoadInstallLockPublic()
 	if err != nil {
 		return "", errors.New("系统未安装或安装文件损坏")
 	}
@@ -409,18 +404,10 @@ func (s *AuthService) CreateForgotPasswordToken(username, companyName string) (s
 	}
 	if !strings.EqualFold(lock.AdminUsername, username) {
 		// 不暴露具体错误
-		return "", errors.New("用户名或公司名不匹配")
+		return "", errors.New("用户名不匹配")
 	}
 
-	// 3. 校验 companyName == Company
-	if lock.Company == "" {
-		return "", errors.New("未配置公司信息，请联系平台运维")
-	}
-	if !strings.EqualFold(lock.Company, companyName) {
-		return "", errors.New("用户名或公司名不匹配")
-	}
-
-	// 4. 生成 64 字符 token
+	// 3. 生成 64 字符 token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", errors.New("生成 token 失败")

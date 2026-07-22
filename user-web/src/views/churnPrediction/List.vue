@@ -184,6 +184,7 @@ import {
   runChurnPrediction,
   interveneUser
 } from '@/api/churnPrediction.js'
+import { toList } from '@/utils/list.js'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -213,9 +214,19 @@ const getRiskLevelType = (level) => {
 const refreshData = async () => {
   loading.value = true
   try {
-    const [usersRes, statsRes] = await Promise.all([getChurnPredictions(), getChurnStats()])
-    users.value = usersRes.data || []
-    stats.value = statsRes.data || { highRisk: 0, mediumRisk: 0, lowRisk: 0, accuracy: 0 }
+    const params = { start_date: '2026-06-22', end_date: '2026-07-22' }
+    const [usersRes, statsRes] = await Promise.all([
+      getChurnPredictions(params),
+      getChurnStats(params)
+    ])
+    users.value = toList(usersRes?.data ?? usersRes)
+    const s = statsRes?.data || statsRes || {}
+    stats.value = {
+      highRisk: s.highRisk || 0,
+      mediumRisk: s.mediumRisk || 0,
+      lowRisk: s.lowRisk || 0,
+      accuracy: s.accuracy || 0
+    }
   } finally {
     loading.value = false
   }

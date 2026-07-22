@@ -7,14 +7,17 @@ import (
 
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/testutil/testmigrate"
 )
 
 // setupRagConfigTestDB 设置 RAG 配置测试数据库
 func setupRagConfigTestDB(t *testing.T) *gorm.DB {
-	return testutil.NewTestDB(t,
+	database := testutil.NewTestDB(t,
 		&model.RagProduct{},
 		&model.PlatformAccountConfig{},
 	)
+	testmigrate.RunTestMigrations(t, database)
+	return database
 }
 
 // setupRagConfigRepository 创建测试用的 RAG 配置仓库实例

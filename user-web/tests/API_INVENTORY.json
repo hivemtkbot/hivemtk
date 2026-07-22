@@ -1,0 +1,4972 @@
+[
+  {
+    "file": "abExperiment.js",
+    "function": "getExperimentList",
+    "method": "GET",
+    "url": "/api/ab-experiments",
+    "hasPathParam": false
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "getExperiment",
+    "method": "GET",
+    "url": "/api/ab-experiments/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "createExperiment",
+    "method": "POST",
+    "url": "/api/ab-experiments",
+    "hasPathParam": false
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "updateExperiment",
+    "method": "PUT",
+    "url": "/api/ab-experiments/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "deleteExperiment",
+    "method": "DELETE",
+    "url": "/api/ab-experiments/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "startExperiment",
+    "method": "POST",
+    "url": "/api/ab-experiments/${id}/start",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "pauseExperiment",
+    "method": "POST",
+    "url": "/api/ab-experiments/${id}/pause",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "stopExperiment",
+    "method": "POST",
+    "url": "/api/ab-experiments/${id}/stop",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "getExperimentResults",
+    "method": "GET",
+    "url": "/api/ab-experiments/${id}/results",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "getConversionEvents",
+    "method": "GET",
+    "url": "/api/ab-experiments/${id}/conversion-events",
+    "hasPathParam": true
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "getExperiments",
+    "method": "GET",
+    "url": "/api/ab-experiments",
+    "hasPathParam": false
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "resumeExperiment",
+    "method": "GET",
+    "url": "/api/ab-experiments",
+    "hasPathParam": false
+  },
+  {
+    "file": "abExperiment.js",
+    "function": "getExperimentStats",
+    "method": "GET",
+    "url": "/api/ab-experiments",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "listAgents",
+    "method": "GET",
+    "url": "/api/ai-agents",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "listEnabledAgents",
+    "method": "GET",
+    "url": "/api/ai-agents-enabled",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "getAgent",
+    "method": "GET",
+    "url": "/api/ai-agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "createAgent",
+    "method": "POST",
+    "url": "/api/ai-agents",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "updateAgent",
+    "method": "PUT",
+    "url": "/api/ai-agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "deleteAgent",
+    "method": "DELETE",
+    "url": "/api/ai-agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "toggleAgent",
+    "method": "POST",
+    "url": "/api/ai-agents/${id}/toggle",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "testAgent",
+    "method": "POST",
+    "url": "/api/ai-agents/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiAgent.js",
+    "function": "getAgentContext",
+    "method": "GET",
+    "url": "/api/ai-agents/${id}/context",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "generateAIContent",
+    "method": "POST",
+    "url": "/api/ai/generate",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiContent.js",
+    "function": "getGenerationHistory",
+    "method": "GET",
+    "url": "/api/ai/history",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiContent.js",
+    "function": "getAIContentRecord",
+    "method": "GET",
+    "url": "/api/ai/history/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "saveAIContentRecord",
+    "method": "POST",
+    "url": "/api/ai/history/${id}/save",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "favoriteAIContentRecord",
+    "method": "POST",
+    "url": "/api/ai/history/${id}/favorite",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "rateAIContentRecord",
+    "method": "POST",
+    "url": "/api/ai/history/${id}/rate",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "deleteAIContentRecord",
+    "method": "DELETE",
+    "url": "/api/ai/history/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "getAITemplates",
+    "method": "GET",
+    "url": "/api/ai/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiContent.js",
+    "function": "getAITemplate",
+    "method": "GET",
+    "url": "/api/ai/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "createAITemplate",
+    "method": "POST",
+    "url": "/api/ai/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiContent.js",
+    "function": "updateAITemplate",
+    "method": "PUT",
+    "url": "/api/ai/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "deleteAITemplate",
+    "method": "DELETE",
+    "url": "/api/ai/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "aiContent.js",
+    "function": "getAITemplateTypes",
+    "method": "GET",
+    "url": "/api/ai/template-types",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getOverview",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getConversationStats",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getConversionRate",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getResponseTimeStats",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getTopSalesPortrait",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "aiProductivity.js",
+    "function": "AiProductivityApi.getAgentRanking",
+    "method": "GET",
+    "url": "/api/analytics/ai-productivity",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.listAccounts",
+    "method": "GET",
+    "url": "/api/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.upsertAccount",
+    "method": "POST",
+    "url": "/api/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.deleteAccount",
+    "method": "DELETE",
+    "url": "/api/auto-reply/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.loginStart",
+    "method": "POST",
+    "url": "/api/auto-reply/start-login",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.loginStatus",
+    "method": "GET",
+    "url": "/api/auto-reply/login-status",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.getRule",
+    "method": "GET",
+    "url": "/api/auto-reply/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.saveRule",
+    "method": "POST",
+    "url": "/api/auto-reply/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.start",
+    "method": "POST",
+    "url": "/api/auto-reply/start",
+    "hasPathParam": false
+  },
+  {
+    "file": "autoReply.js",
+    "function": "autoReplyApi.stop",
+    "method": "POST",
+    "url": "/api/auto-reply/stop",
+    "hasPathParam": false
+  },
+  {
+    "file": "backup.js",
+    "function": "getBackupList",
+    "method": "GET",
+    "url": "/api/backups",
+    "hasPathParam": false
+  },
+  {
+    "file": "backup.js",
+    "function": "getBackupByID",
+    "method": "GET",
+    "url": "/api/backups/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "backup.js",
+    "function": "createBackup",
+    "method": "POST",
+    "url": "/api/backups",
+    "hasPathParam": false
+  },
+  {
+    "file": "backup.js",
+    "function": "deleteBackup",
+    "method": "DELETE",
+    "url": "/api/backups/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "backup.js",
+    "function": "restoreBackup",
+    "method": "POST",
+    "url": "/api/restore",
+    "hasPathParam": false
+  },
+  {
+    "file": "backup.js",
+    "function": "getRestoreList",
+    "method": "GET",
+    "url": "/api/restore/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "backup.js",
+    "function": "getLastRestore",
+    "method": "GET",
+    "url": "/api/restore/last",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "batchImportFile",
+    "method": "POST",
+    "url": "/api/batch/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "downloadBatchTemplate",
+    "method": "GET",
+    "url": "/api/batch/template",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "batchExport",
+    "method": "POST",
+    "url": "/api/batch/export",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "batchDelete",
+    "method": "POST",
+    "url": "/api/batch/delete",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "batchUpdate",
+    "method": "POST",
+    "url": "/api/batch/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "getBatchTools",
+    "method": "GET",
+    "url": "/api/batch/tools",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "runBatch",
+    "method": "GET",
+    "url": "/api/batch/histories",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "getBatchHistories",
+    "method": "GET",
+    "url": "/api/batch/histories",
+    "hasPathParam": false
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "cancelBatch",
+    "method": "POST",
+    "url": "/api/batch/histories/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "getBatchDetail",
+    "method": "GET",
+    "url": "/api/batch/histories/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "batchOperation.js",
+    "function": "previewBatch",
+    "method": "POST",
+    "url": "/api/batch/preview",
+    "hasPathParam": false
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "getTemplates",
+    "method": "GET",
+    "url": "/api/whatsapp/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "createTemplate",
+    "method": "POST",
+    "url": "/api/whatsapp/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "updateTemplate",
+    "method": "PUT",
+    "url": "/api/whatsapp/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "deleteTemplate",
+    "method": "DELETE",
+    "url": "/api/whatsapp/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "sendBulkMessage",
+    "method": "POST",
+    "url": "/api/whatsapp/group-messaging/send",
+    "hasPathParam": false
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "getMessageStatus",
+    "method": "GET",
+    "url": "/api/whatsapp/group-messaging/status/${queueId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "bulkMessaging.js",
+    "function": "getSendRecords",
+    "method": "GET",
+    "url": "/api/whatsapp/group-messaging/records",
+    "hasPathParam": false
+  },
+  {
+    "file": "channelAgentBinding.js",
+    "function": "listBindings",
+    "method": "GET",
+    "url": "/api/channel-agent-bindings",
+    "hasPathParam": false
+  },
+  {
+    "file": "channelAgentBinding.js",
+    "function": "listBindingsByAgent",
+    "method": "GET",
+    "url": "/api/channel-agent-bindings/by-agent/${agentId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "channelAgentBinding.js",
+    "function": "createBinding",
+    "method": "POST",
+    "url": "/api/channel-agent-bindings",
+    "hasPathParam": false
+  },
+  {
+    "file": "channelAgentBinding.js",
+    "function": "updateBinding",
+    "method": "PUT",
+    "url": "/api/channel-agent-bindings/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "channelAgentBinding.js",
+    "function": "deleteBinding",
+    "method": "DELETE",
+    "url": "/api/channel-agent-bindings/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "chat.js",
+    "function": "getUploadToken",
+    "method": "GET",
+    "url": "/api/chat/public/upload-token",
+    "hasPathParam": false
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "listChannels",
+    "method": "GET",
+    "url": "/api/chat-channels",
+    "hasPathParam": false
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "getChannel",
+    "method": "GET",
+    "url": "/api/chat-channels/${channelId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "createChannel",
+    "method": "POST",
+    "url": "/api/chat-channels",
+    "hasPathParam": false
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "updateChannel",
+    "method": "PUT",
+    "url": "/api/chat-channels/${channelId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "deleteChannel",
+    "method": "DELETE",
+    "url": "/api/chat-channels/${channelId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "rotateAppKey",
+    "method": "POST",
+    "url": "/api/chat-channels/${channelId}/rotate-key",
+    "hasPathParam": true
+  },
+  {
+    "file": "chatChannel.js",
+    "function": "resetAppSecret",
+    "method": "POST",
+    "url": "/api/chat-channels/${channelId}/reset-secret",
+    "hasPathParam": true
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnPrediction",
+    "method": "GET",
+    "url": "/api/churn/prediction",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnPredictions",
+    "method": "GET",
+    "url": "/api/churn/predictions",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getHighRiskUsers",
+    "method": "GET",
+    "url": "/api/churn/high-risk-users",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnWarnings",
+    "method": "GET",
+    "url": "/api/churn/warnings",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getUnhandledWarnings",
+    "method": "GET",
+    "url": "/api/churn/unhandled-warnings",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "markWarningHandled",
+    "method": "POST",
+    "url": "/api/churn/warnings/${id}/handle",
+    "hasPathParam": true
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnModelConfig",
+    "method": "GET",
+    "url": "/api/churn/model-config",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "saveChurnModelConfig",
+    "method": "POST",
+    "url": "/api/churn/model-config",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnStatistics",
+    "method": "GET",
+    "url": "/api/churn/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getRiskDistribution",
+    "method": "GET",
+    "url": "/api/churn/risk-distribution",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "runChurnPrediction",
+    "method": "POST",
+    "url": "/api/churn/warnings/intervene",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "interveneUser",
+    "method": "POST",
+    "url": "/api/churn/warnings/intervene",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnStats",
+    "method": "POST",
+    "url": "/api/user-segment/rfm/calculate",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "getChurnConfig",
+    "method": "POST",
+    "url": "/api/user-segment/rfm/calculate",
+    "hasPathParam": false
+  },
+  {
+    "file": "churnPrediction.js",
+    "function": "updateChurnConfig",
+    "method": "POST",
+    "url": "/api/user-segment/rfm/calculate",
+    "hasPathParam": false
+  },
+  {
+    "file": "clue.js",
+    "function": "clueApi.type",
+    "method": "GET",
+    "url": "/api/clues/type",
+    "hasPathParam": false
+  },
+  {
+    "file": "clue.js",
+    "function": "clueApi.delete",
+    "method": "DELETE",
+    "url": "/api/clues/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "clue.js",
+    "function": "clueApi.list",
+    "method": "GET",
+    "url": "/api/clues/list?page=${page}&limit=${limit}",
+    "hasPathParam": true
+  },
+  {
+    "file": "clue.js",
+    "function": "clueApi.statistics",
+    "method": "GET",
+    "url": "/api/clues/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "clue.js",
+    "function": "clueApi.import",
+    "method": "POST",
+    "url": "/api/clues/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.getGroups",
+    "method": "GET",
+    "url": "/api/community/groups",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.createGroup",
+    "method": "POST",
+    "url": "/api/community/groups",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.getGroupById",
+    "method": "GET",
+    "url": "/api/community/groups/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.updateGroup",
+    "method": "PUT",
+    "url": "/api/community/groups/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.deleteGroup",
+    "method": "DELETE",
+    "url": "/api/community/groups/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.getMembers",
+    "method": "GET",
+    "url": "/api/community/members",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.getMessages",
+    "method": "GET",
+    "url": "/api/community/messages",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.getStats",
+    "method": "GET",
+    "url": "/api/community/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.importData",
+    "method": "POST",
+    "url": "/api/community/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "community.js",
+    "function": "communityApi.exportData",
+    "method": "POST",
+    "url": "/api/community/export",
+    "hasPathParam": false
+  },
+  {
+    "file": "conversionFunnel.js",
+    "function": "ConversionFunnelApi.getFunnelStages",
+    "method": "GET",
+    "url": "/api/analytics/funnel",
+    "hasPathParam": false
+  },
+  {
+    "file": "conversionFunnel.js",
+    "function": "ConversionFunnelApi.getFunnelStats",
+    "method": "GET",
+    "url": "/api/analytics/funnel",
+    "hasPathParam": false
+  },
+  {
+    "file": "conversionFunnel.js",
+    "function": "ConversionFunnelApi.getFunnelLossAnalysis",
+    "method": "GET",
+    "url": "/api/analytics/funnel/stage",
+    "hasPathParam": false
+  },
+  {
+    "file": "conversionFunnel.js",
+    "function": "ConversionFunnelApi.getFunnelTrend",
+    "method": "GET",
+    "url": "/api/analytics/funnel/stage",
+    "hasPathParam": false
+  },
+  {
+    "file": "customReport.js",
+    "function": "getReportList",
+    "method": "GET",
+    "url": "/api/custom-reports",
+    "hasPathParam": false
+  },
+  {
+    "file": "customReport.js",
+    "function": "getReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "createReport",
+    "method": "POST",
+    "url": "/api/custom-reports",
+    "hasPathParam": false
+  },
+  {
+    "file": "customReport.js",
+    "function": "updateReport",
+    "method": "PUT",
+    "url": "/api/custom-reports/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "deleteReport",
+    "method": "DELETE",
+    "url": "/api/custom-reports/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "getPublicTemplates",
+    "method": "GET",
+    "url": "/api/custom-reports/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "customReport.js",
+    "function": "useReportTemplate",
+    "method": "POST",
+    "url": "/api/custom-reports/templates/${id}/use",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "queryReportData",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "getCustomReports",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=export",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "createCustomReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=export",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "updateCustomReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=export",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "deleteCustomReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=export",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "exportCustomReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=export",
+    "hasPathParam": true
+  },
+  {
+    "file": "customReport.js",
+    "function": "runCustomReport",
+    "method": "GET",
+    "url": "/api/custom-reports/${id}/data?format=run",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomerList",
+    "method": "GET",
+    "url": "/api/customer/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomer360Detail",
+    "method": "GET",
+    "url": "/api/customer/360/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "addCustomerTag",
+    "method": "POST",
+    "url": "/api/customer/${id}/tags",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "removeCustomerTag",
+    "method": "DELETE",
+    "url": "/api/customer/${id}/tags/${tag}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "updateCustomer",
+    "method": "PUT",
+    "url": "/api/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomerDetail",
+    "method": "GET",
+    "url": "/api/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomerBehaviors",
+    "method": "GET",
+    "url": "/api/customer/${id}/behaviors",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomerOrders",
+    "method": "GET",
+    "url": "/api/customer/${id}/orders",
+    "hasPathParam": true
+  },
+  {
+    "file": "customer360.js",
+    "function": "getCustomerCommunications",
+    "method": "GET",
+    "url": "/api/customer/${id}/communications",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackEvent",
+    "method": "POST",
+    "url": "/api/events/track",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackPageView",
+    "method": "POST",
+    "url": "/api/events/pageview",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackClick",
+    "method": "POST",
+    "url": "/api/events/click",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackPurchase",
+    "method": "POST",
+    "url": "/api/events/purchase",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackSignup",
+    "method": "POST",
+    "url": "/api/events/signup",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackLogin",
+    "method": "POST",
+    "url": "/api/events/login",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "trackAddToCart",
+    "method": "POST",
+    "url": "/api/events/add-to-cart",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "getCustomerEventHistory",
+    "method": "GET",
+    "url": "/api/events/customer/${customerId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "getEventStats",
+    "method": "GET",
+    "url": "/api/events/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "getCustomerEvents",
+    "method": "DELETE",
+    "url": "/api/events/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "createEvent",
+    "method": "DELETE",
+    "url": "/api/events/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "getEventDetail",
+    "method": "DELETE",
+    "url": "/api/events/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerEvent.js",
+    "function": "deleteEvent",
+    "method": "DELETE",
+    "url": "/api/events/customer/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "getJourneyOverview",
+    "method": "GET",
+    "url": "/api/customer-journey/overview",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "getJourneyState",
+    "method": "GET",
+    "url": "/api/customer-journey/overview?customer_id=${customerId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "listJourneyStages",
+    "method": "GET",
+    "url": "/api/customer-journey/stages",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "listByStage",
+    "method": "GET",
+    "url": "/api/customer-journey/by-stage?stage=${stage}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "transitionJourney",
+    "method": "POST",
+    "url": "/api/customer-journey/transition",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerJourney.js",
+    "function": "touchCustomer",
+    "method": "POST",
+    "url": "/api/customer-journey/touch",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "createAgent",
+    "method": "POST",
+    "url": "/api/agents",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "getAgentStatus",
+    "method": "GET",
+    "url": "/api/agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "getOnlineAgents",
+    "method": "GET",
+    "url": "/api/agents/online",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "listAllAgents",
+    "method": "GET",
+    "url": "/api/agents/all",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "updateAgentStatus",
+    "method": "PUT",
+    "url": "/api/agents/${id}/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "goOnline",
+    "method": "POST",
+    "url": "/api/agents/${id}/online",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "goOffline",
+    "method": "POST",
+    "url": "/api/agents/${id}/offline",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "getAgentSessions",
+    "method": "GET",
+    "url": "/api/agents/${id}/sessions",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "getMyAgent",
+    "method": "GET",
+    "url": "/api/agents/me",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "getQuickReplies",
+    "method": "GET",
+    "url": "/api/quick-replies",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "getQuickReplyCategories",
+    "method": "GET",
+    "url": "/api/quick-replies/categories",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "createQuickReply",
+    "method": "POST",
+    "url": "/api/quick-replies",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "updateQuickReply",
+    "method": "PUT",
+    "url": "/api/quick-replies/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "deleteQuickReply",
+    "method": "DELETE",
+    "url": "/api/quick-replies/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "getSessionTags",
+    "method": "GET",
+    "url": "/api/session-tags",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "createSessionTag",
+    "method": "POST",
+    "url": "/api/session-tags",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerService.js",
+    "function": "updateSessionTag",
+    "method": "PUT",
+    "url": "/api/session-tags/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "deleteSessionTag",
+    "method": "DELETE",
+    "url": "/api/session-tags/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "getAISuggestions",
+    "method": "GET",
+    "url": "/api/ai-suggestions/${sessionId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "useAISuggestion",
+    "method": "POST",
+    "url": "/api/ai-suggestions/${id}/use",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerService.js",
+    "function": "tagSession",
+    "method": "POST",
+    "url": "/api/customer-sessions/${sessionId}/tags",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "listMounts",
+    "method": "GET",
+    "url": "/api/customer-service-agents",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "listMountsByAIAgent",
+    "method": "GET",
+    "url": "/api/customer-service-agents/by-ai-agent/${aiAgentId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "createMount",
+    "method": "POST",
+    "url": "/api/customer-service-agents",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "updateMount",
+    "method": "PUT",
+    "url": "/api/customer-service-agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "deleteMount",
+    "method": "DELETE",
+    "url": "/api/customer-service-agents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "listMountsByUser",
+    "method": "GET",
+    "url": "/api/customer-service-agents/by-user/${userId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerServiceAgent.js",
+    "function": "createMountByUser",
+    "method": "POST",
+    "url": "/api/customer-service-agents/by-user/${userId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerSession.js",
+    "function": "getSessions",
+    "method": "GET",
+    "url": "/api/customer-sessions",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerSession.js",
+    "function": "getSessionMessages",
+    "method": "GET",
+    "url": "/api/customer-sessions/${id}/messages",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerSession.js",
+    "function": "sendMessage",
+    "method": "POST",
+    "url": "/api/customer-sessions/${data.sessionId}/messages",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerSession.js",
+    "function": "createSession",
+    "method": "POST",
+    "url": "/api/customer-sessions",
+    "hasPathParam": false
+  },
+  {
+    "file": "customerSession.js",
+    "function": "closeSession",
+    "method": "POST",
+    "url": "/api/customer-sessions/${id}/close",
+    "hasPathParam": true
+  },
+  {
+    "file": "customerSession.js",
+    "function": "transferSession",
+    "method": "POST",
+    "url": "/api/customer-sessions/${id}/transfer",
+    "hasPathParam": true
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getScreenList",
+    "method": "GET",
+    "url": "/api/dashboards",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getScreenByID",
+    "method": "GET",
+    "url": "/api/dashboards/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "createScreen",
+    "method": "POST",
+    "url": "/api/dashboards",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "updateScreen",
+    "method": "PUT",
+    "url": "/api/dashboards/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "deleteScreen",
+    "method": "DELETE",
+    "url": "/api/dashboards/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "publicViewScreen",
+    "method": "GET",
+    "url": "/api/dashboards/public/${code}",
+    "hasPathParam": true
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getDashboardData",
+    "method": "GET",
+    "url": "/api/dashboards/data",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getRealtimeActivities",
+    "method": "GET",
+    "url": "/api/dashboards/activities",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getKPIs",
+    "method": "GET",
+    "url": "/api/dashboards/data",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getTrends",
+    "method": "GET",
+    "url": "/api/dashboards/data",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getChannels",
+    "method": "GET",
+    "url": "/api/dashboards/data",
+    "hasPathParam": false
+  },
+  {
+    "file": "dashboardScreen.js",
+    "function": "getRegions",
+    "method": "GET",
+    "url": "/api/dashboards/data",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.appendMessage",
+    "method": "POST",
+    "url": "/api/memory/messages",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.getShortTerm",
+    "method": "GET",
+    "url": "/api/memory/short",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.getLongTerm",
+    "method": "GET",
+    "url": "/api/memory/long",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.updateKeyFacts",
+    "method": "POST",
+    "url": "/api/memory/facts",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.recordObjection",
+    "method": "POST",
+    "url": "/api/memory/objections",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.updatePurchaseIntent",
+    "method": "POST",
+    "url": "/api/memory/purchase-intent",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.recordIntent",
+    "method": "POST",
+    "url": "/api/memory/intent-trail",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.recordSOP",
+    "method": "POST",
+    "url": "/api/memory/sop-history",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.buildContext",
+    "method": "GET",
+    "url": "/api/memory/context",
+    "hasPathParam": false
+  },
+  {
+    "file": "dialogueMemory.js",
+    "function": "memoryApi.list",
+    "method": "GET",
+    "url": "/api/memory/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.getList",
+    "method": "GET",
+    "url": "/api/domainpool/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.getById",
+    "method": "GET",
+    "url": "/api/domainpool/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.create",
+    "method": "POST",
+    "url": "/api/domainpool/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.update",
+    "method": "PUT",
+    "url": "/api/domainpool/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.delete",
+    "method": "DELETE",
+    "url": "/api/domainpool/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.checkDomain",
+    "method": "POST",
+    "url": "/api/domainpool/check/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "domainPool.js",
+    "function": "domainPoolApi.checkAllDomains",
+    "method": "POST",
+    "url": "/api/domainpool/checkall",
+    "hasPathParam": false
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "getDouyinCardList",
+    "method": "GET",
+    "url": "/api/douyin/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "getDouyinCard",
+    "method": "GET",
+    "url": "/api/douyin/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "createDouyinCard",
+    "method": "POST",
+    "url": "/api/douyin/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "updateDouyinCard",
+    "method": "PUT",
+    "url": "/api/douyin/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "deleteDouyinCard",
+    "method": "DELETE",
+    "url": "/api/douyin/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "viewDouyinCard",
+    "method": "GET",
+    "url": "/api/douyin/view/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "getDouyinCardStats",
+    "method": "GET",
+    "url": "/api/douyin/stats/card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "getDouyinCardOverallStats",
+    "method": "GET",
+    "url": "/api/douyin/stats/overall",
+    "hasPathParam": false
+  },
+  {
+    "file": "douyinCard.js",
+    "function": "generateShortLink",
+    "method": "POST",
+    "url": "/api/douyin/${id}/generate-short-link",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getEmailSmtpList",
+    "method": "GET",
+    "url": "/api/email/smtp",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.addEmailSmtp",
+    "method": "POST",
+    "url": "/api/email/smtp",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.updateEmailSmtp",
+    "method": "PUT",
+    "url": "/api/email/smtp/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.deleteEmailSmtp",
+    "method": "DELETE",
+    "url": "/api/email/smtp/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getDrafts",
+    "method": "GET",
+    "url": "/api/email/drafts",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getDraftDetail",
+    "method": "GET",
+    "url": "/api/email/drafts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.createDraft",
+    "method": "POST",
+    "url": "/api/email/drafts",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.updateDraft",
+    "method": "PUT",
+    "url": "/api/email/drafts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.deleteDraft",
+    "method": "DELETE",
+    "url": "/api/email/drafts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.uploadImage",
+    "method": "POST",
+    "url": "/api/upload",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.sendEmail",
+    "method": "POST",
+    "url": "/api/email/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getEmailList",
+    "method": "GET",
+    "url": "/api/email/list?page=${page}&limit=${limit}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getJobsList",
+    "method": "GET",
+    "url": "/api/email/jobs?page=${page}&limit=${limit}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.deleteJob",
+    "method": "DELETE",
+    "url": "/api/email/jobs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.getJobDetail",
+    "method": "GET",
+    "url": "/api/email/jobs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "email.js",
+    "function": "emailApi.deleteJobDetail",
+    "method": "DELETE",
+    "url": "/api/email/jobs/detail?id=${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "feishu.js",
+    "function": "listAccounts",
+    "method": "GET",
+    "url": "/api/feishu/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "feishu.js",
+    "function": "getAccount",
+    "method": "GET",
+    "url": "/api/feishu/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "feishu.js",
+    "function": "createAccount",
+    "method": "POST",
+    "url": "/api/feishu/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "feishu.js",
+    "function": "updateAccount",
+    "method": "PUT",
+    "url": "/api/feishu/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "feishu.js",
+    "function": "deleteAccount",
+    "method": "DELETE",
+    "url": "/api/feishu/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "feishu.js",
+    "function": "testSend",
+    "method": "POST",
+    "url": "/api/feishu/accounts/${id}/test-send",
+    "hasPathParam": true
+  },
+  {
+    "file": "feishu.js",
+    "function": "refreshToken",
+    "method": "POST",
+    "url": "/api/feishu/accounts/${id}/refresh-token",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "getIntegrationAccountList",
+    "method": "GET",
+    "url": "/api/integrations",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "getIntegrationAccount",
+    "method": "GET",
+    "url": "/api/integrations/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "createIntegrationAccount",
+    "method": "POST",
+    "url": "/api/integrations",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "updateIntegrationAccount",
+    "method": "PUT",
+    "url": "/api/integrations/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "deleteIntegrationAccount",
+    "method": "DELETE",
+    "url": "/api/integrations/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "syncCustomers",
+    "method": "POST",
+    "url": "/api/integrations/${id}/sync-customers",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "syncOrders",
+    "method": "POST",
+    "url": "/api/integrations/${id}/sync-orders",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "syncProducts",
+    "method": "POST",
+    "url": "/api/integrations/${id}/sync-products",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "getSyncLogs",
+    "method": "GET",
+    "url": "/api/integration/sync-logs",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "getExternalCustomers",
+    "method": "GET",
+    "url": "/api/integration/external-customers",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "getExternalOrders",
+    "method": "GET",
+    "url": "/api/integration/external-orders",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "getExternalProducts",
+    "method": "GET",
+    "url": "/api/integration/external-products",
+    "hasPathParam": false
+  },
+  {
+    "file": "integration.js",
+    "function": "getIntegrations",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "createIntegration",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "updateIntegration",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "deleteIntegration",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "toggleIntegrationStatus",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "testIntegration",
+    "method": "POST",
+    "url": "/api/integrations/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "integration.js",
+    "function": "getIntegrationStats",
+    "method": "GET",
+    "url": "/api/integrations",
+    "hasPathParam": false
+  },
+  {
+    "file": "intentRecognition.js",
+    "function": "intentApi.recognize",
+    "method": "POST",
+    "url": "/api/intent/recognize",
+    "hasPathParam": false
+  },
+  {
+    "file": "intentRecognition.js",
+    "function": "intentApi.batchRecognize",
+    "method": "POST",
+    "url": "/api/intent/recognize/batch",
+    "hasPathParam": false
+  },
+  {
+    "file": "intentRecognition.js",
+    "function": "intentApi.getStats",
+    "method": "GET",
+    "url": "/api/intent/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "intentRecognition.js",
+    "function": "intentApi.getRecent",
+    "method": "GET",
+    "url": "/api/intent/recent",
+    "hasPathParam": false
+  },
+  {
+    "file": "intentRecognition.js",
+    "function": "intentApi.getDict",
+    "method": "GET",
+    "url": "/api/intent/dict",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.importUpload",
+    "method": "POST",
+    "url": "/api/knowledge/import/upload",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.importText",
+    "method": "POST",
+    "url": "/api/knowledge/import/text",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.importURL",
+    "method": "POST",
+    "url": "/api/knowledge/import/url",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.listDocuments",
+    "method": "GET",
+    "url": "/api/knowledge/documents",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getDocument",
+    "method": "GET",
+    "url": "/api/knowledge/documents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getDocumentProgress",
+    "method": "GET",
+    "url": "/api/knowledge/documents/${id}/progress",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getDocumentChunks",
+    "method": "GET",
+    "url": "/api/knowledge/documents/${id}/chunks",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.updateDocument",
+    "method": "PUT",
+    "url": "/api/knowledge/documents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.deleteDocument",
+    "method": "DELETE",
+    "url": "/api/knowledge/documents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.reindexDocument",
+    "method": "POST",
+    "url": "/api/knowledge/documents/${id}/reindex",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.rebuildProductIndex",
+    "method": "POST",
+    "url": "/api/knowledge/products/${productId}/rebuild-index",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getProductOverview",
+    "method": "GET",
+    "url": "/api/knowledge/products/${productId}/overview",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.search",
+    "method": "POST",
+    "url": "/api/knowledge/search",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.listImportLogs",
+    "method": "GET",
+    "url": "/api/knowledge/import-logs",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.listOpenAPISources",
+    "method": "GET",
+    "url": "/api/knowledge/openapi/sources",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.createOpenAPISource",
+    "method": "POST",
+    "url": "/api/knowledge/openapi/sources",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getOpenAPISource",
+    "method": "GET",
+    "url": "/api/knowledge/openapi/sources/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.updateOpenAPISource",
+    "method": "PUT",
+    "url": "/api/knowledge/openapi/sources/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.deleteOpenAPISource",
+    "method": "DELETE",
+    "url": "/api/knowledge/openapi/sources/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.syncOpenAPISource",
+    "method": "POST",
+    "url": "/api/knowledge/openapi/sources/${id}/sync",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.testOpenAPISource",
+    "method": "POST",
+    "url": "/api/knowledge/openapi/sources/test",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.toggleOpenAPISource",
+    "method": "POST",
+    "url": "/api/knowledge/openapi/sources/${id}/toggle",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getOverviewStats",
+    "method": "GET",
+    "url": "/api/knowledge/stats/overview",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getDocumentStats",
+    "method": "GET",
+    "url": "/api/knowledge/stats/documents",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getSearchStats",
+    "method": "GET",
+    "url": "/api/knowledge/stats/searches",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getImportStats",
+    "method": "GET",
+    "url": "/api/knowledge/stats/imports",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledge.js",
+    "function": "knowledgeAPI.getOpenAPIStats",
+    "method": "GET",
+    "url": "/api/knowledge/stats/openapi",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeBase.js",
+    "function": "knowledgeBaseAPI.getDocuments",
+    "method": "GET",
+    "url": "/api/rag/documents",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeBase.js",
+    "function": "knowledgeBaseAPI.getDocument",
+    "method": "GET",
+    "url": "/api/rag/documents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeBase.js",
+    "function": "knowledgeBaseAPI.deleteDocument",
+    "method": "DELETE",
+    "url": "/api/rag/documents/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeBase.js",
+    "function": "knowledgeBaseAPI.importKnowledgeBase",
+    "method": "POST",
+    "url": "/api/rag/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.batchImport",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/batch/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.batchUpload",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/batch/upload",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.playground",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/playground",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.listDocumentChunks",
+    "method": "GET",
+    "url": "/api/knowledge-merchant/documents/${documentId}/chunks",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.updateChunk",
+    "method": "PUT",
+    "url": "/api/knowledge-merchant/chunks/${chunkId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.deleteChunk",
+    "method": "DELETE",
+    "url": "/api/knowledge-merchant/chunks/${chunkId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.splitChunk",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/chunks/${chunkId}/split",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.submitFeedback",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/feedback",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.listFeedbacks",
+    "method": "GET",
+    "url": "/api/knowledge-merchant/feedbacks",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.createToken",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/tokens",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.listTokens",
+    "method": "GET",
+    "url": "/api/knowledge-merchant/tokens",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.revokeToken",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/tokens/${tokenId}/revoke",
+    "hasPathParam": true
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.externalImport",
+    "method": "POST",
+    "url": "/api/knowledge-merchant/external/import",
+    "hasPathParam": false
+  },
+  {
+    "file": "knowledgeMerchant.js",
+    "function": "knowledgeMerchantAPI.listExternalJobs",
+    "method": "GET",
+    "url": "/api/knowledge-merchant/external/jobs",
+    "hasPathParam": false
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "getKuaishouCardList",
+    "method": "GET",
+    "url": "/api/kuaishou/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "getKuaishouCard",
+    "method": "GET",
+    "url": "/api/kuaishou/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "createKuaishouCard",
+    "method": "POST",
+    "url": "/api/kuaishou/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "updateKuaishouCard",
+    "method": "PUT",
+    "url": "/api/kuaishou/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "deleteKuaishouCard",
+    "method": "DELETE",
+    "url": "/api/kuaishou/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "viewKuaishouCard",
+    "method": "GET",
+    "url": "/api/kuaishou/view/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "likeKuaishouCard",
+    "method": "POST",
+    "url": "/api/kuaishou/like/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "shareKuaishouCard",
+    "method": "POST",
+    "url": "/api/kuaishou/share/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "getKuaishouCardStats",
+    "method": "GET",
+    "url": "/api/kuaishou/stats/card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "getKuaishouCardOverallStats",
+    "method": "GET",
+    "url": "/api/kuaishou/stats/overall",
+    "hasPathParam": false
+  },
+  {
+    "file": "kuaishouCard.js",
+    "function": "generateShortLink",
+    "method": "POST",
+    "url": "/api/kuaishou/${id}/generate-short-link",
+    "hasPathParam": true
+  },
+  {
+    "file": "license.js",
+    "function": "getLicenseStatus",
+    "method": "GET",
+    "url": "/api/license/status",
+    "hasPathParam": false
+  },
+  {
+    "file": "livecode.js",
+    "function": "getLiveCodes",
+    "method": "GET",
+    "url": "/api/live-codes/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "livecode.js",
+    "function": "getLiveCode",
+    "method": "GET",
+    "url": "/api/live-codes/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "createLiveCode",
+    "method": "POST",
+    "url": "/api/live-codes/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "livecode.js",
+    "function": "updateLiveCode",
+    "method": "PUT",
+    "url": "/api/live-codes/${id}/update",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "deleteLiveCode",
+    "method": "DELETE",
+    "url": "/api/live-codes/${id}/delete",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "getLiveCodeStats",
+    "method": "GET",
+    "url": "/api/live-codes/${id}/stats",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "getLiveCodeQRs",
+    "method": "GET",
+    "url": "/api/live-codes/${liveCodeId}/qrcodes",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "generateLiveCodeQR",
+    "method": "POST",
+    "url": "/api/live-codes/${liveCodeId}/qrcodes/create",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "getLiveCodeQRStats",
+    "method": "GET",
+    "url": "/api/live-codes/qrcodes/${qrId}/stats",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "shareLiveCode",
+    "method": "POST",
+    "url": "/api/live-codes/${id}/share",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "deleteLiveCodeQR",
+    "method": "DELETE",
+    "url": "/api/live-codes/qrcodes/${id}/delete",
+    "hasPathParam": true
+  },
+  {
+    "file": "livecode.js",
+    "function": "updateLiveCodeQR",
+    "method": "PUT",
+    "url": "/api/live-codes/qrcodes/${id}/update",
+    "hasPathParam": true
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.getModelList",
+    "method": "GET",
+    "url": "/api/llm/models",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.getModelDetail",
+    "method": "GET",
+    "url": "/api/llm/models/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.saveModel",
+    "method": "POST",
+    "url": "/api/llm/models",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.deleteModel",
+    "method": "DELETE",
+    "url": "/api/llm/models/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.updateModelStatus",
+    "method": "PUT",
+    "url": "/api/llm/models/${id}/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.getSceneRouting",
+    "method": "GET",
+    "url": "/api/llm/scene-routing",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.saveSceneRouting",
+    "method": "PUT",
+    "url": "/api/llm/scene-routing",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.getFallbackStrategy",
+    "method": "GET",
+    "url": "/api/llm/fallback",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.saveFallbackStrategy",
+    "method": "PUT",
+    "url": "/api/llm/fallback",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.getCostStats",
+    "method": "GET",
+    "url": "/api/llm/cost-stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "llmRouting.js",
+    "function": "LlmRoutingApi.testModel",
+    "method": "POST",
+    "url": "/api/llm/models/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "getMarketingFlowList",
+    "method": "GET",
+    "url": "/api/marketing-flows",
+    "hasPathParam": false
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "getMarketingFlow",
+    "method": "GET",
+    "url": "/api/marketing-flows/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "createMarketingFlow",
+    "method": "POST",
+    "url": "/api/marketing-flows",
+    "hasPathParam": false
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "updateMarketingFlow",
+    "method": "PUT",
+    "url": "/api/marketing-flows/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "deleteMarketingFlow",
+    "method": "DELETE",
+    "url": "/api/marketing-flows/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "activateFlow",
+    "method": "POST",
+    "url": "/api/marketing-flows/${id}/activate",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "pauseMarketingFlow",
+    "method": "POST",
+    "url": "/api/marketing-flows/${id}/pause",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "stopMarketingFlow",
+    "method": "POST",
+    "url": "/api/marketing-flows/${id}/stop",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "getFlowExecutions",
+    "method": "GET",
+    "url": "/api/marketing-flows/${id}/executions",
+    "hasPathParam": true
+  },
+  {
+    "file": "marketingFlow.js",
+    "function": "getFlowStats",
+    "method": "GET",
+    "url": "/api/marketing-flows/${id}/stats",
+    "hasPathParam": true
+  },
+  {
+    "file": "material.js",
+    "function": "getMaterialList",
+    "method": "GET",
+    "url": "/api/material/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "material.js",
+    "function": "uploadMaterial",
+    "method": "POST",
+    "url": "/api/material/upload",
+    "hasPathParam": false
+  },
+  {
+    "file": "material.js",
+    "function": "deleteMaterial",
+    "method": "DELETE",
+    "url": "/api/material/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "material.js",
+    "function": "getMaterialCategories",
+    "method": "GET",
+    "url": "/api/material/categories",
+    "hasPathParam": false
+  },
+  {
+    "file": "material.js",
+    "function": "createMaterialCategory",
+    "method": "POST",
+    "url": "/api/material/categories",
+    "hasPathParam": false
+  },
+  {
+    "file": "material.js",
+    "function": "updateMaterialCategory",
+    "method": "PUT",
+    "url": "/api/material/categories/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "material.js",
+    "function": "deleteMaterialCategory",
+    "method": "DELETE",
+    "url": "/api/material/categories/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "material.js",
+    "function": "getMaterialSelector",
+    "method": "GET",
+    "url": "/api/material/selector",
+    "hasPathParam": false
+  },
+  {
+    "file": "material.js",
+    "function": "updateMaterialUsage",
+    "method": "POST",
+    "url": "/api/material/${id}/usage",
+    "hasPathParam": true
+  },
+  {
+    "file": "material.js",
+    "function": "getMaterialStats",
+    "method": "GET",
+    "url": "/api/material/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.pushMessage",
+    "method": "POST",
+    "url": "/api/message-hub/push",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.pushBatch",
+    "method": "POST",
+    "url": "/api/message-hub/push-batch",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.pushFromChannel",
+    "method": "POST",
+    "url": "/api/message-hub/push-from-channel",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.getMessages",
+    "method": "GET",
+    "url": "/api/message-hub/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.getMessageById",
+    "method": "GET",
+    "url": "/api/message-hub/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.markRead",
+    "method": "POST",
+    "url": "/api/message-hub/${ids[0]}/read",
+    "hasPathParam": true
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.getStats",
+    "method": "GET",
+    "url": "/api/message-hub/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "messageHub.js",
+    "function": "messageHubApi.getPlatforms",
+    "method": "GET",
+    "url": "/api/message-hub/platforms",
+    "hasPathParam": false
+  },
+  {
+    "file": "objection.js",
+    "function": "handleObjection",
+    "method": "POST",
+    "url": "/api/objection/handle",
+    "hasPathParam": false
+  },
+  {
+    "file": "objection.js",
+    "function": "classifyObjection",
+    "method": "POST",
+    "url": "/api/objection/classify",
+    "hasPathParam": false
+  },
+  {
+    "file": "objection.js",
+    "function": "listObjectionCategories",
+    "method": "GET",
+    "url": "/api/objection/categories",
+    "hasPathParam": false
+  },
+  {
+    "file": "objection.js",
+    "function": "recordObjectionUsage",
+    "method": "POST",
+    "url": "/api/objection/usage",
+    "hasPathParam": false
+  },
+  {
+    "file": "obs.js",
+    "function": "getObsConfigList",
+    "method": "GET",
+    "url": "/api/obs/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "obs.js",
+    "function": "getObsConfig",
+    "method": "GET",
+    "url": "/api/obs/config/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "obs.js",
+    "function": "createObsConfig",
+    "method": "POST",
+    "url": "/api/obs/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "obs.js",
+    "function": "updateObsConfig",
+    "method": "PUT",
+    "url": "/api/obs/config/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "obs.js",
+    "function": "deleteObsConfig",
+    "method": "DELETE",
+    "url": "/api/obs/config/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "obs.js",
+    "function": "testObsConnection",
+    "method": "POST",
+    "url": "/api/obs/config/${id}/test",
+    "hasPathParam": true
+  },
+  {
+    "file": "obs.js",
+    "function": "setDefaultObsConfig",
+    "method": "POST",
+    "url": "/api/obs/config/${id}/default",
+    "hasPathParam": true
+  },
+  {
+    "file": "obs.js",
+    "function": "getDefaultObsConfig",
+    "method": "GET",
+    "url": "/api/obs/config/default",
+    "hasPathParam": false
+  },
+  {
+    "file": "oneid.js",
+    "function": "listOneID",
+    "method": "GET",
+    "url": "/api/customer/oneid/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "oneid.js",
+    "function": "listConflicts",
+    "method": "GET",
+    "url": "/api/customer/oneid/conflicts",
+    "hasPathParam": false
+  },
+  {
+    "file": "oneid.js",
+    "function": "mergeOneID",
+    "method": "POST",
+    "url": "/api/customer/oneid/merge",
+    "hasPathParam": false
+  },
+  {
+    "file": "oneid.js",
+    "function": "resolveConflict",
+    "method": "POST",
+    "url": "/api/customer/oneid/conflicts/${id}/resolve",
+    "hasPathParam": true
+  },
+  {
+    "file": "oneid.js",
+    "function": "getIdentityMappings",
+    "method": "GET",
+    "url": "/api/customer-oneid/${customerId}/identities",
+    "hasPathParam": true
+  },
+  {
+    "file": "oneid.js",
+    "function": "linkIdentity",
+    "method": "POST",
+    "url": "/api/customer-oneid/${customerId}/identities",
+    "hasPathParam": true
+  },
+  {
+    "file": "oneid.js",
+    "function": "resolveIdentity",
+    "method": "POST",
+    "url": "/api/customer/oneid/resolve",
+    "hasPathParam": false
+  },
+  {
+    "file": "operationLog.js",
+    "function": "getOperationLogs",
+    "method": "GET",
+    "url": "/api/team/logs",
+    "hasPathParam": false
+  },
+  {
+    "file": "operationLog.js",
+    "function": "getOperationLogDetail",
+    "method": "GET",
+    "url": "/api/team/logs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "operationLog.js",
+    "function": "exportOperationLogs",
+    "method": "GET",
+    "url": "/api/team/logs/export",
+    "hasPathParam": false
+  },
+  {
+    "file": "operationLog.js",
+    "function": "deleteOperationLogs",
+    "method": "DELETE",
+    "url": "/api/team/logs",
+    "hasPathParam": false
+  },
+  {
+    "file": "operationLog.js",
+    "function": "cleanOperationLogs",
+    "method": "POST",
+    "url": "/api/team/logs/clean",
+    "hasPathParam": false
+  },
+  {
+    "file": "order.js",
+    "function": "getOrderList",
+    "method": "GET",
+    "url": "/api/orders/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "order.js",
+    "function": "getOrderByID",
+    "method": "GET",
+    "url": "/api/orders/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "createOrder",
+    "method": "POST",
+    "url": "/api/orders",
+    "hasPathParam": false
+  },
+  {
+    "file": "order.js",
+    "function": "cancelOrder",
+    "method": "POST",
+    "url": "/api/orders/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "refundOrder",
+    "method": "POST",
+    "url": "/api/orders/${id}/refund",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "payOrder",
+    "method": "POST",
+    "url": "/api/order/${data.id}/pay",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "checkPayStatus",
+    "method": "GET",
+    "url": "/api/order/${id}/check-pay",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "getRecentOrderList",
+    "method": "GET",
+    "url": "/api/orders/recent",
+    "hasPathParam": false
+  },
+  {
+    "file": "order.js",
+    "function": "updateOrder",
+    "method": "PUT",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "order.js",
+    "function": "deleteOrder",
+    "method": "DELETE",
+    "url": "/api/orders/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.getConfig",
+    "method": "GET",
+    "url": "/api/order/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.saveConfig",
+    "method": "POST",
+    "url": "/api/order/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.getList",
+    "method": "GET",
+    "url": "/api/order/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.getById",
+    "method": "GET",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.create",
+    "method": "POST",
+    "url": "/api/order",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.update",
+    "method": "PUT",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.delete",
+    "method": "DELETE",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.cancel",
+    "method": "POST",
+    "url": "/api/order/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "PaymentConfigApi.refund",
+    "method": "POST",
+    "url": "/api/order/${id}/refund",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.getList",
+    "method": "GET",
+    "url": "/api/order/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.getById",
+    "method": "GET",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.create",
+    "method": "POST",
+    "url": "/api/order",
+    "hasPathParam": false
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.update",
+    "method": "PUT",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.delete",
+    "method": "DELETE",
+    "url": "/api/order/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.cancel",
+    "method": "POST",
+    "url": "/api/order/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "payment.js",
+    "function": "OrderApi.refund",
+    "method": "POST",
+    "url": "/api/order/${id}/refund",
+    "hasPathParam": true
+  },
+  {
+    "file": "persona.js",
+    "function": "listStaffs",
+    "method": "GET",
+    "url": "/api/analytics/persona/staffs",
+    "hasPathParam": false
+  },
+  {
+    "file": "persona.js",
+    "function": "getPersonaReport",
+    "method": "GET",
+    "url": "/api/analytics/persona/staffs/${staffId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "platform.js",
+    "function": "platformAPI.getLatestMessage",
+    "method": "GET",
+    "url": "/api/platform/message/latest",
+    "hasPathParam": false
+  },
+  {
+    "file": "platform.js",
+    "function": "platformAPI.markMessageRead",
+    "method": "POST",
+    "url": "/api/platform/message/${messageId}/read",
+    "hasPathParam": true
+  },
+  {
+    "file": "platform.js",
+    "function": "platformAPI.getLicenseStatus",
+    "method": "GET",
+    "url": "/api/platform/license/status",
+    "hasPathParam": false
+  },
+  {
+    "file": "platform.js",
+    "function": "platformAPI.reportAPILog",
+    "method": "POST",
+    "url": "/api/platform/report-api-log",
+    "hasPathParam": false
+  },
+  {
+    "file": "platform.js",
+    "function": "platformAPI.registerMerchant",
+    "method": "POST",
+    "url": "/api/platform/register",
+    "hasPathParam": false
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.getAccounts",
+    "method": "GET",
+    "url": "/api/platform-accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.getPlatforms",
+    "method": "GET",
+    "url": "/api/platform-accounts/platforms",
+    "hasPathParam": false
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.getAccountById",
+    "method": "GET",
+    "url": "/api/platform-accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.createAccount",
+    "method": "POST",
+    "url": "/api/platform-accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.updateAccount",
+    "method": "PUT",
+    "url": "/api/platform-accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.deleteAccount",
+    "method": "DELETE",
+    "url": "/api/platform-accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.loginAccount",
+    "method": "POST",
+    "url": "/api/platform-accounts/${id}/login",
+    "hasPathParam": true
+  },
+  {
+    "file": "platformAccount.js",
+    "function": "platformAccountApi.checkStatus",
+    "method": "GET",
+    "url": "/api/platform-accounts/${id}/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.createRagProduct",
+    "method": "POST",
+    "url": "/api/rag-config/products",
+    "hasPathParam": false
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.getRagProducts",
+    "method": "GET",
+    "url": "/api/rag-config/products",
+    "hasPathParam": false
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.listProducts",
+    "method": "GET",
+    "url": "/api/rag-config/products",
+    "hasPathParam": false
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.updateRagProduct",
+    "method": "PUT",
+    "url": "/api/rag-config/products/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.deleteRagProduct",
+    "method": "DELETE",
+    "url": "/api/rag-config/products/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.getAccountConfig",
+    "method": "GET",
+    "url": "/api/rag-config/accounts/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.updateAccountConfig",
+    "method": "PUT",
+    "url": "/api/rag-config/accounts/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "rag-product-config.js",
+    "function": "ragProductConfigAPI.processMessage",
+    "method": "POST",
+    "url": "/api/rag-config/process-message",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.getPipelines",
+    "method": "GET",
+    "url": "/api/reach/pipelines",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.createPipeline",
+    "method": "POST",
+    "url": "/api/reach/pipelines",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.getPipeline",
+    "method": "GET",
+    "url": "/api/reach/pipelines/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.updatePipeline",
+    "method": "PUT",
+    "url": "/api/reach/pipelines/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.deletePipeline",
+    "method": "DELETE",
+    "url": "/api/reach/pipelines/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.pausePipeline",
+    "method": "POST",
+    "url": "/api/reach/pipelines/${id}/pause",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.resumePipeline",
+    "method": "POST",
+    "url": "/api/reach/pipelines/${id}/resume",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.archivePipeline",
+    "method": "POST",
+    "url": "/api/reach/pipelines/${id}/archive",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.getJobs",
+    "method": "GET",
+    "url": "/api/reach/jobs",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.enqueueJob",
+    "method": "POST",
+    "url": "/api/reach/jobs",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.getJob",
+    "method": "GET",
+    "url": "/api/reach/jobs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.cancelJob",
+    "method": "POST",
+    "url": "/api/reach/jobs/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.retryJob",
+    "method": "POST",
+    "url": "/api/reach/jobs/${id}/retry",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.executeJob",
+    "method": "POST",
+    "url": "/api/reach/jobs/${id}/execute",
+    "hasPathParam": true
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.getStats",
+    "method": "GET",
+    "url": "/api/reach/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "reachPipeline.js",
+    "function": "reachPipelineApi.resetRateLimit",
+    "method": "POST",
+    "url": "/api/reach/rate-limit/reset",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "getScriptTemplateList",
+    "method": "GET",
+    "url": "/api/scripts",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "getScriptTemplate",
+    "method": "GET",
+    "url": "/api/scripts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "createScriptTemplate",
+    "method": "POST",
+    "url": "/api/scripts",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "updateScriptTemplate",
+    "method": "PUT",
+    "url": "/api/scripts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "deleteScriptTemplate",
+    "method": "DELETE",
+    "url": "/api/scripts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "getScriptCategories",
+    "method": "GET",
+    "url": "/api/scripts/categories",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "searchScriptTemplates",
+    "method": "GET",
+    "url": "/api/scripts/search",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "getPublicScriptTemplates",
+    "method": "GET",
+    "url": "/api/scripts/public",
+    "hasPathParam": false
+  },
+  {
+    "file": "scriptTemplate.js",
+    "function": "recommendScript",
+    "method": "POST",
+    "url": "/api/scripts/recommend",
+    "hasPathParam": false
+  },
+  {
+    "file": "securityAudit.js",
+    "function": "runSecurityAudit",
+    "method": "POST",
+    "url": "/api/security/audit",
+    "hasPathParam": false
+  },
+  {
+    "file": "securityAudit.js",
+    "function": "getSecurityAuditList",
+    "method": "GET",
+    "url": "/api/security/audit/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "securityAudit.js",
+    "function": "getSecurityAuditDetail",
+    "method": "GET",
+    "url": "/api/security/audit/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.getList",
+    "method": "GET",
+    "url": "/api/shortlink/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.getById",
+    "method": "GET",
+    "url": "/api/shortlink/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.create",
+    "method": "POST",
+    "url": "/api/shortlink/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.update",
+    "method": "PUT",
+    "url": "/api/shortlink/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.delete",
+    "method": "DELETE",
+    "url": "/api/shortlink/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.access",
+    "method": "POST",
+    "url": "/api/shortlink/access",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.generateShortCode",
+    "method": "POST",
+    "url": "/api/shortlink/generate",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.getStats",
+    "method": "GET",
+    "url": "/api/shortlink/${id}/stats",
+    "hasPathParam": true
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.getAllStats",
+    "method": "GET",
+    "url": "/api/shortlink/stats/all",
+    "hasPathParam": false
+  },
+  {
+    "file": "shortLink.js",
+    "function": "shortLinkApi.share",
+    "method": "POST",
+    "url": "/api/shortlink/${id}/share",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "getConfig",
+    "method": "GET",
+    "url": "/api/sms/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "saveConfig",
+    "method": "POST",
+    "url": "/api/sms/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "getSmsList",
+    "method": "GET",
+    "url": "/api/sms/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "getSmsDetail",
+    "method": "GET",
+    "url": "/api/sms/detail/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "resendSms",
+    "method": "POST",
+    "url": "/api/sms/resend/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "sendSms",
+    "method": "POST",
+    "url": "/api/sms/send",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "getDraftList",
+    "method": "GET",
+    "url": "/api/sms/draft/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "getDraftDetail",
+    "method": "GET",
+    "url": "/api/sms/draft/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "createDraft",
+    "method": "POST",
+    "url": "/api/sms/draft",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "updateDraft",
+    "method": "PUT",
+    "url": "/api/sms/draft/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "deleteDraft",
+    "method": "DELETE",
+    "url": "/api/sms/draft/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "sendDraft",
+    "method": "POST",
+    "url": "/api/sms/draft/${id}/send",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "getJobList",
+    "method": "GET",
+    "url": "/api/sms/job/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "getJobDetail",
+    "method": "GET",
+    "url": "/api/sms/job/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "pauseJob",
+    "method": "POST",
+    "url": "/api/sms/job/${id}/pause",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "resumeJob",
+    "method": "POST",
+    "url": "/api/sms/job/${id}/resume",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "stopJob",
+    "method": "POST",
+    "url": "/api/sms/job/${id}/stop",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "createJob",
+    "method": "POST",
+    "url": "/api/sms/job",
+    "hasPathParam": false
+  },
+  {
+    "file": "sms.js",
+    "function": "deleteJob",
+    "method": "DELETE",
+    "url": "/api/sms/job/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sms.js",
+    "function": "getJobRecords",
+    "method": "GET",
+    "url": "/api/sms/job/${id}/records",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.list",
+    "method": "GET",
+    "url": "/api/sop",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.create",
+    "method": "POST",
+    "url": "/api/sop",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.getStats",
+    "method": "GET",
+    "url": "/api/sop/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.matchByIntent",
+    "method": "GET",
+    "url": "/api/sop/match",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.listExecutions",
+    "method": "GET",
+    "url": "/api/sop/executions",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.getExecution",
+    "method": "GET",
+    "url": "/api/sop/executions/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.pauseExecution",
+    "method": "POST",
+    "url": "/api/sop/executions/${id}/pause",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.resumeExecution",
+    "method": "POST",
+    "url": "/api/sop/executions/${id}/resume",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.cancelExecution",
+    "method": "POST",
+    "url": "/api/sop/executions/${id}/cancel",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.get",
+    "method": "GET",
+    "url": "/api/sop/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.update",
+    "method": "PUT",
+    "url": "/api/sop/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.remove",
+    "method": "DELETE",
+    "url": "/api/sop/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.activate",
+    "method": "POST",
+    "url": "/api/sop/${id}/activate",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.deactivate",
+    "method": "POST",
+    "url": "/api/sop/${id}/deactivate",
+    "hasPathParam": true
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.execute",
+    "method": "POST",
+    "url": "/api/sop/execute",
+    "hasPathParam": false
+  },
+  {
+    "file": "sopAgent.js",
+    "function": "sopApi.step",
+    "method": "POST",
+    "url": "/api/sop/step",
+    "hasPathParam": false
+  },
+  {
+    "file": "system.js",
+    "function": "resetSystem",
+    "method": "POST",
+    "url": "/api/system/reset",
+    "hasPathParam": false
+  },
+  {
+    "file": "system.js",
+    "function": "SystemApi.getConfig",
+    "method": "GET",
+    "url": "/api/system/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "system.js",
+    "function": "SystemApi.saveConfig",
+    "method": "POST",
+    "url": "/api/system/config",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.getTags",
+    "method": "GET",
+    "url": "/api/customer-360/tags",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.updateTags",
+    "method": "PUT",
+    "url": "/api/customer-360/tags",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.createTag",
+    "method": "POST",
+    "url": "/api/customer-360/tags",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.deleteTag",
+    "method": "DELETE",
+    "url": "/api/customer-360/tags/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.getTagRules",
+    "method": "GET",
+    "url": "/api/customer-360/tag-rules",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.saveTagRule",
+    "method": "POST",
+    "url": "/api/customer-360/tag-rules",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.updateTagRule",
+    "method": "PUT",
+    "url": "/api/customer-360/tag-rules/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.deleteTagRule",
+    "method": "DELETE",
+    "url": "/api/customer-360/tag-rules/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.getLayerStrategy",
+    "method": "GET",
+    "url": "/api/user-segment/layers",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.saveLayerStrategy",
+    "method": "PUT",
+    "url": "/api/user-segment/layers",
+    "hasPathParam": false
+  },
+  {
+    "file": "tagSegmentation.js",
+    "function": "TagSegmentationApi.getTagStats",
+    "method": "GET",
+    "url": "/api/customer-360/tag-stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getTeamUserList",
+    "method": "GET",
+    "url": "/api/team/users",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getTeamUser",
+    "method": "GET",
+    "url": "/api/team/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "createTeamUser",
+    "method": "POST",
+    "url": "/api/team/users",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "updateTeamUser",
+    "method": "PUT",
+    "url": "/api/team/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "deleteTeamUser",
+    "method": "DELETE",
+    "url": "/api/team/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "resetTeamUserPassword",
+    "method": "POST",
+    "url": "/api/team/users/${id}/reset-password",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getCurrentTeamUser",
+    "method": "GET",
+    "url": "/api/team/user/current",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "changeTeamUserPassword",
+    "method": "POST",
+    "url": "/api/team/user/change-password",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getTeamRoleList",
+    "method": "GET",
+    "url": "/api/team/roles",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "createTeamRole",
+    "method": "POST",
+    "url": "/api/team/roles",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "updateTeamRole",
+    "method": "PUT",
+    "url": "/api/team/roles/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "deleteTeamRole",
+    "method": "DELETE",
+    "url": "/api/team/roles/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getPermissions",
+    "method": "GET",
+    "url": "/api/team/permissions",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getTeamMembers",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "createTeamMember",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "updateTeamMember",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "deleteTeamMember",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "resetTeamPassword",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "teamUser.js",
+    "function": "getTeamStats",
+    "method": "GET",
+    "url": "/api/team/logs/statistics",
+    "hasPathParam": false
+  },
+  {
+    "file": "telegram.js",
+    "function": "listAccounts",
+    "method": "GET",
+    "url": "/api/telegram/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "telegram.js",
+    "function": "getAccount",
+    "method": "GET",
+    "url": "/api/telegram/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "telegram.js",
+    "function": "createAccount",
+    "method": "POST",
+    "url": "/api/telegram/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "telegram.js",
+    "function": "updateAccount",
+    "method": "PUT",
+    "url": "/api/telegram/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "telegram.js",
+    "function": "deleteAccount",
+    "method": "DELETE",
+    "url": "/api/telegram/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "telegram.js",
+    "function": "registerWebhook",
+    "method": "POST",
+    "url": "/api/telegram/accounts/${id}/register-webhook",
+    "hasPathParam": true
+  },
+  {
+    "file": "telegram.js",
+    "function": "testSend",
+    "method": "POST",
+    "url": "/api/telegram/accounts/${id}/test-send",
+    "hasPathParam": true
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "getTemplateMarketList",
+    "method": "GET",
+    "url": "/api/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "getTemplateMarketDetail",
+    "method": "GET",
+    "url": "/api/templates/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "downloadTemplate",
+    "method": "POST",
+    "url": "/api/templates/${id}/download",
+    "hasPathParam": true
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "getOfficialTemplates",
+    "method": "GET",
+    "url": "/api/templates/official",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "searchTemplates",
+    "method": "GET",
+    "url": "/api/templates/search",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "getMyDownloads",
+    "method": "GET",
+    "url": "/api/templates/my-downloads",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "getTemplates",
+    "method": "POST",
+    "url": "/api/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "submitTemplate",
+    "method": "POST",
+    "url": "/api/templates",
+    "hasPathParam": false
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "useTemplate",
+    "method": "POST",
+    "url": "/api/templates/${id}/rate",
+    "hasPathParam": true
+  },
+  {
+    "file": "templateMarket.js",
+    "function": "rateTemplate",
+    "method": "POST",
+    "url": "/api/templates/${id}/rate",
+    "hasPathParam": true
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "getTikTokAccounts",
+    "method": "GET",
+    "url": "/api/tiktok/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "getTikTokRule",
+    "method": "GET",
+    "url": "/api/tiktok/auto-reply/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "saveTikTokRule",
+    "method": "POST",
+    "url": "/api/tiktok/auto-reply/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "upsertTikTokAccount",
+    "method": "POST",
+    "url": "/api/tiktok/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "deleteTikTokAccount",
+    "method": "DELETE",
+    "url": "/api/tiktok/auto-reply/accounts/${accountId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "getTikTokLogs",
+    "method": "GET",
+    "url": "/api/tiktok/auto-reply/logs",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "startTikTokAutoReply",
+    "method": "POST",
+    "url": "/api/tiktok/auto-reply/start",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokAutoReply.js",
+    "function": "stopTikTokAutoReply",
+    "method": "POST",
+    "url": "/api/tiktok/auto-reply/stop",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "getTikTokCardList",
+    "method": "GET",
+    "url": "/api/tiktok-card/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "getTikTokCard",
+    "method": "GET",
+    "url": "/api/tiktok-card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "createTikTokCard",
+    "method": "POST",
+    "url": "/api/tiktok-card",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "updateTikTokCard",
+    "method": "PUT",
+    "url": "/api/tiktok-card/${data.id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "deleteTikTokCard",
+    "method": "DELETE",
+    "url": "/api/tiktok-card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "generateShortLink",
+    "method": "POST",
+    "url": "/api/tiktok-card/generate-short-link",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "getTikTokCardOverallStats",
+    "method": "GET",
+    "url": "/api/tiktok-card/stats/overall",
+    "hasPathParam": false
+  },
+  {
+    "file": "tiktokCard.js",
+    "function": "getTikTokCardStats",
+    "method": "GET",
+    "url": "/api/tiktok-card/${cardId}/stats",
+    "hasPathParam": true
+  },
+  {
+    "file": "tuning.js",
+    "function": "getConfidenceSignals",
+    "method": "GET",
+    "url": "/api/admin/tuning/confidence/signals",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getConfidenceSignal",
+    "method": "GET",
+    "url": "/api/admin/tuning/confidence/signals/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "tuning.js",
+    "function": "getConfidenceSignalStats",
+    "method": "GET",
+    "url": "/api/admin/tuning/confidence/signals/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getConfidenceCalibrations",
+    "method": "GET",
+    "url": "/api/admin/tuning/confidence/calibrations",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getThresholdPolicies",
+    "method": "GET",
+    "url": "/api/admin/tuning/confidence/policies",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "upsertThresholdPolicy",
+    "method": "PUT",
+    "url": "/api/admin/tuning/confidence/policies",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getHumanizeScores",
+    "method": "GET",
+    "url": "/api/admin/tuning/humanize/scores",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getHumanizeScoreStats",
+    "method": "GET",
+    "url": "/api/admin/tuning/humanize/scores/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getChampionBaselines",
+    "method": "GET",
+    "url": "/api/admin/tuning/humanize/baselines",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getLowQualitySamples",
+    "method": "GET",
+    "url": "/api/admin/tuning/humanize/low-quality",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getFeedbackEvents",
+    "method": "GET",
+    "url": "/api/admin/tuning/feedback/events",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getFeedbackEventStats",
+    "method": "GET",
+    "url": "/api/admin/tuning/feedback/events/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getChampionDialogues",
+    "method": "GET",
+    "url": "/api/admin/tuning/feedback/dialogues",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "getPromptCandidates",
+    "method": "GET",
+    "url": "/api/admin/tuning/prompt/candidates",
+    "hasPathParam": false
+  },
+  {
+    "file": "tuning.js",
+    "function": "updatePromptCandidateStatus",
+    "method": "PUT",
+    "url": "/api/admin/tuning/prompt/candidates/${id}/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "tuning.js",
+    "function": "getBanditArms",
+    "method": "GET",
+    "url": "/api/admin/tuning/bandit/arms",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.listConversations",
+    "method": "GET",
+    "url": "/api/inbox",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.getStats",
+    "method": "GET",
+    "url": "/api/inbox/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.listAssignments",
+    "method": "GET",
+    "url": "/api/inbox/assignments",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.assign",
+    "method": "POST",
+    "url": "/api/inbox/assign",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.autoAssign",
+    "method": "POST",
+    "url": "/api/inbox/auto-assign",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.getStaffLoad",
+    "method": "GET",
+    "url": "/api/inbox/staff/${encodeURIComponent(staff)}/load",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.getConversation",
+    "method": "GET",
+    "url": "/api/inbox/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.markRead",
+    "method": "POST",
+    "url": "/api/inbox/${id}/read",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.pin",
+    "method": "POST",
+    "url": "/api/inbox/${id}/pin",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.star",
+    "method": "POST",
+    "url": "/api/inbox/${id}/star",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.mute",
+    "method": "POST",
+    "url": "/api/inbox/${id}/mute",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.addTag",
+    "method": "POST",
+    "url": "/api/inbox/${id}/tags",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.removeTag",
+    "method": "DELETE",
+    "url": "/api/inbox/${id}/tags/${encodeURIComponent(tag)}",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedInbox.js",
+    "function": "unifiedInboxApi.listMessages",
+    "method": "GET",
+    "url": "/api/inbox/${id}/messages",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedMessage.js",
+    "function": "unifiedMessageApi.getMessages",
+    "method": "GET",
+    "url": "/api/messages",
+    "hasPathParam": false
+  },
+  {
+    "file": "unifiedMessage.js",
+    "function": "unifiedMessageApi.getMessageById",
+    "method": "GET",
+    "url": "/api/messages/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "unifiedMessage.js",
+    "function": "unifiedMessageApi.getReplies",
+    "method": "GET",
+    "url": "/api/messages/${id}/replies",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getRFMList",
+    "method": "GET",
+    "url": "/api/user-segment/rfm/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getRFMRule",
+    "method": "GET",
+    "url": "/api/user-segment/rfm/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "saveRFMRule",
+    "method": "POST",
+    "url": "/api/user-segment/rfm/rule",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "updateRFMRule",
+    "method": "PUT",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getUserRFM",
+    "method": "GET",
+    "url": "/api/user-segment/rfm/user?user_id=${userId}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getRFMStats",
+    "method": "GET",
+    "url": "/api/user-segment/rfm/stats",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "calculateRFM",
+    "method": "POST",
+    "url": "/api/user-segment/rfm/calculate",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getLayerDescription",
+    "method": "GET",
+    "url": "/api/user-segment/layers",
+    "hasPathParam": false
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getUserSegments",
+    "method": "DELETE",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getSegmentStats",
+    "method": "DELETE",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "createUserSegment",
+    "method": "DELETE",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "updateUserSegment",
+    "method": "DELETE",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "deleteUserSegment",
+    "method": "DELETE",
+    "url": "/api/user-segment/rfm/rule/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "userSegment.js",
+    "function": "getSegmentUsers",
+    "method": "GET",
+    "url": "/api/user-segment/rfm/list?segment_id=${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.list",
+    "method": "GET",
+    "url": "/api/users",
+    "hasPathParam": false
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.get",
+    "method": "GET",
+    "url": "/api/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.create",
+    "method": "POST",
+    "url": "/api/users",
+    "hasPathParam": false
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.update",
+    "method": "PUT",
+    "url": "/api/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.delete",
+    "method": "DELETE",
+    "url": "/api/users/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.updatePassword",
+    "method": "PUT",
+    "url": "/api/users/${id}/password",
+    "hasPathParam": true
+  },
+  {
+    "file": "users.js",
+    "function": "usersApi.login",
+    "method": "POST",
+    "url": "/api/auth/login",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.listAccounts",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.listRiskAccounts",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts/risks",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.selectHealthyAccount",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts/select",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.getHealthSummary",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts/summary",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.getLatestHealth",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.listHealthHistory",
+    "method": "GET",
+    "url": "/api/wecom/health/accounts/${id}/history",
+    "hasPathParam": true
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.reportHealth",
+    "method": "POST",
+    "url": "/api/wecom/health/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.updateAccountStatus",
+    "method": "POST",
+    "url": "/api/wecom/health/accounts/${id}/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.consumeQuota",
+    "method": "POST",
+    "url": "/api/wecom/health/accounts/${id}/quota/consume",
+    "hasPathParam": true
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.resetDailyQuota",
+    "method": "POST",
+    "url": "/api/wecom/health/accounts/quota/reset",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.ingestMessage",
+    "method": "POST",
+    "url": "/api/wecom/messages/ingest",
+    "hasPathParam": false
+  },
+  {
+    "file": "wecomAccount.js",
+    "function": "wecomAccountApi.sendMessage",
+    "method": "POST",
+    "url": "/api/wecom/messages/send",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "listAccounts",
+    "method": "GET",
+    "url": "/api/whatsapp/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "createAccount",
+    "method": "POST",
+    "url": "/api/whatsapp/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "startLogin",
+    "method": "POST",
+    "url": "/api/whatsapp/accounts/${id}/login/start",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "loginStatus",
+    "method": "GET",
+    "url": "/api/whatsapp/accounts/${id}/login/status",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "updateAccount",
+    "method": "PUT",
+    "url": "/api/whatsapp/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "deleteAccount",
+    "method": "DELETE",
+    "url": "/api/whatsapp/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "listDrafts",
+    "method": "GET",
+    "url": "/api/whatsapp/drafts",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "createDraft",
+    "method": "POST",
+    "url": "/api/whatsapp/drafts",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "updateDraft",
+    "method": "PUT",
+    "url": "/api/whatsapp/drafts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "deleteDraft",
+    "method": "DELETE",
+    "url": "/api/whatsapp/drafts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "listJobs",
+    "method": "GET",
+    "url": "/api/whatsapp/jobs",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "createJob",
+    "method": "POST",
+    "url": "/api/whatsapp/jobs",
+    "hasPathParam": false
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "getJob",
+    "method": "GET",
+    "url": "/api/whatsapp/jobs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "deleteJob",
+    "method": "DELETE",
+    "url": "/api/whatsapp/jobs/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "whatsapp.js",
+    "function": "getAccounts",
+    "method": "POST",
+    "url": "/api/whatsapp/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.listAccounts",
+    "method": "GET",
+    "url": "/api/xianyu/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.upsertAccount",
+    "method": "POST",
+    "url": "/api/xianyu/auto-reply/accounts",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.deleteAccount",
+    "method": "DELETE",
+    "url": "/api/xianyu/auto-reply/accounts/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.getRule",
+    "method": "GET",
+    "url": "/api/xianyu/auto-reply/rules",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.saveRule",
+    "method": "POST",
+    "url": "/api/xianyu/auto-reply/rules",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.start",
+    "method": "POST",
+    "url": "/api/xianyu/auto-reply/start",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuAutoReply.js",
+    "function": "xianyuAutoReplyApi.stop",
+    "method": "POST",
+    "url": "/api/xianyu/auto-reply/stop",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "getXianyuCardList",
+    "method": "GET",
+    "url": "/api/xianyu/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "getXianyuCard",
+    "method": "GET",
+    "url": "/api/xianyu/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "createXianyuCard",
+    "method": "POST",
+    "url": "/api/xianyu/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "updateXianyuCard",
+    "method": "PUT",
+    "url": "/api/xianyu/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "deleteXianyuCard",
+    "method": "DELETE",
+    "url": "/api/xianyu/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "viewXianyuCard",
+    "method": "GET",
+    "url": "/api/xianyu/view/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "getXianyuCardStats",
+    "method": "GET",
+    "url": "/api/xianyu/stats/card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "getXianyuCardOverallStats",
+    "method": "GET",
+    "url": "/api/xianyu/stats/overall",
+    "hasPathParam": false
+  },
+  {
+    "file": "xianyuCard.js",
+    "function": "generateXianyuShortLink",
+    "method": "POST",
+    "url": "/api/xianyu/${id}/generate-short-link",
+    "hasPathParam": true
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "getXiaohongshuCardList",
+    "method": "GET",
+    "url": "/api/xiaohongshu/list",
+    "hasPathParam": false
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "getXiaohongshuCard",
+    "method": "GET",
+    "url": "/api/xiaohongshu/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "createXiaohongshuCard",
+    "method": "POST",
+    "url": "/api/xiaohongshu/create",
+    "hasPathParam": false
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "updateXiaohongshuCard",
+    "method": "PUT",
+    "url": "/api/xiaohongshu/update",
+    "hasPathParam": false
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "deleteXiaohongshuCard",
+    "method": "DELETE",
+    "url": "/api/xiaohongshu/delete/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "viewXiaohongshuCard",
+    "method": "GET",
+    "url": "/api/xiaohongshu/view/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "getXiaohongshuCardStats",
+    "method": "GET",
+    "url": "/api/xiaohongshu/stats/card/${id}",
+    "hasPathParam": true
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "getXiaohongshuCardOverallStats",
+    "method": "GET",
+    "url": "/api/xiaohongshu/stats/overall",
+    "hasPathParam": false
+  },
+  {
+    "file": "xiaohongshuCard.js",
+    "function": "generateShortLink",
+    "method": "POST",
+    "url": "/api/xiaohongshu/${id}/generate-short-link",
+    "hasPathParam": true
+  }
+]

@@ -11,39 +11,19 @@ import (
 )
 
 // setupPlatformRoutes 平台端管理路由（需要平台权限）
+//
+// 开源版：已移除 OTA 版本管理（version/*）与 License 授权管理（license/*）相关路由。
+// 仅保留统计/安装/心跳信息相关的只读能力。
 func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.PlatformController) {
 	// 驾驶舱
 	platform.GET("/dashboard", platformCtrl.GetDashboard)
 
+	// 商户管理：开源版移除 UpdateMerchantLicense 授权变更入口
 	platform.GET("/merchant/list", platformCtrl.GetMerchantList)
-	platform.POST("/merchant/license", platformCtrl.UpdateMerchantLicense)
 	platform.GET("/merchant/:id/stats", platformCtrl.GetMerchantStats)
 
-	// 版本管理
-	platform.GET("/version/list", platformCtrl.GetVersionList)
-	platform.GET("/version/latest", platformCtrl.GetLatestVersion)
-	platform.GET("/version/check-update", platformCtrl.CheckUpdate)
-	platform.GET("/version/:id", platformCtrl.GetVersionByID)
-	platform.POST("/version", platformCtrl.CreateVersion)
-	platform.POST("/version/create", platformCtrl.CreateVersion)
-	platform.PUT("/version/:id", platformCtrl.UpdateVersion)
-	platform.PUT("/version/:id/update", platformCtrl.UpdateVersion)
-	platform.DELETE("/version/:id", platformCtrl.DeleteVersion)
-	platform.DELETE("/version/:id/delete", platformCtrl.DeleteVersion)
-	platform.POST("/version/:id/publish", platformCtrl.PublishVersion)
-	platform.POST("/version/:id/archive", platformCtrl.ArchiveVersion)
-
-	// 授权管理
-	platform.GET("/license/list", platformCtrl.GetLicenseList)
-	platform.GET("/license/status", platformCtrl.GetLicenseStatusProxy)
-	platform.GET("/license/:id", platformCtrl.GetLicenseByID)
-	platform.POST("/license/create", platformCtrl.CreateLicense)
-	platform.POST("/license/verify", platformCtrl.VerifyLicense)
-	platform.PUT("/license/:id/update", platformCtrl.UpdateLicense)
-	platform.DELETE("/license/:id/delete", platformCtrl.DeleteLicense)
-	platform.POST("/license/:id/renew", platformCtrl.RenewLicense)
-	platform.POST("/license/:id/disable", platformCtrl.DisableLicense)
-	platform.POST("/license/:id/enable", platformCtrl.EnableLicense)
+	// 开源版：移除版本管理（/version/*）和授权管理（/license/*）相关路由
+	// 仅保留：商户列表、统计、用户管理、消息中心等只读/基础能力
 
 	// 站内信
 	platform.GET("/message/list", platformCtrl.GetMessageList)
@@ -88,8 +68,15 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	systemUserCtrl := controller.NewSystemUserController()
 	public.POST("/system/create-default-admin", systemUserCtrl.CreateDefaultAdmin)
 
-	// 开源版：已移除授权码管理相关路由（/license/*、/license/status），
-	// 仅保留统计/安装信息上报相关能力。
+	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
+	// 为兼容前端 Layout.vue 对 /api/license/status 的探测（开源版无授权概念），
+	// 提供只读占位接口：返回 200 + 空数据，不触发前端报错与 404 网络日志。
+	public.GET("/license/status", func(c *gin.Context) {
+		c.JSON(200, gin.H{"code": 200, "data": nil, "msg": "ok"})
+	})
+	public.GET("/license/features", func(c *gin.Context) {
+		c.JSON(200, gin.H{"code": 200, "data": []interface{}{}, "msg": "ok"})
+	})
 
 	systemInitCtrl := controller.NewSystemInitController()
 	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
@@ -102,7 +89,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
 	public.POST("/platform/report-api-log", platformCtrl.ReportAPILog)
-	public.GET("/platform/check-update", platformCtrl.CheckUpdate)
+	// 开源版：移除 OTA 客户端更新检查接口（/platform/check-update）
 
 	// P0-14 外部系统知识库接入（公开，使用 API Token 鉴权，不需要 JWT）
 	// 商户自部署场景：商户自有 CRM/ERP/Helpdesk 通过此入口推送文档

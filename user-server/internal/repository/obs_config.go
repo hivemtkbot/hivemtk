@@ -7,21 +7,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// ObsConfigRepository OBS 配置仓储接口（开源版）
+//
+// 开源版：已移除 GetListByLicense / GetDefaultByLicense / ClearDefaultByLicense /
+// CountByLicense 四个与 License 关联的接口，全局统一走 is_default 列。
 type ObsConfigRepository interface {
 	Create(config *model.ObsConfig) error
 	GetByID(id string) (*model.ObsConfig, error)
 	GetList(page int, limit int, provider string, status string) ([]*model.ObsConfig, int64, error)
-	GetListByLicense(licenseID string, page int, limit int) ([]*model.ObsConfig, int64, error)
 	Update(config *model.ObsConfig) error
 	Delete(id string) error
 	GetDefault() (*model.ObsConfig, error)
-	GetDefaultByLicense(licenseID string) (*model.ObsConfig, error)
 	SetDefault(id string) error
 	ClearDefault() error
-	ClearDefaultByLicense(licenseID string) error
 	UpdateStatus(id string, status model.ObsStatus) error
 	CountByStatus(status model.ObsStatus) (int64, error)
-	CountByLicense(licenseID string) (int64, error)
+	Count() (int64, error)
 }
 
 type obsConfigRepo struct {
@@ -72,22 +73,6 @@ func (r *obsConfigRepo) GetList(page int, limit int, provider string, status str
 	return configs, total, err
 }
 
-func (r *obsConfigRepo) GetListByLicense(licenseID string, page int, limit int) ([]*model.ObsConfig, int64, error) {
-	var configs []*model.ObsConfig
-	var total int64
-	offset := (page - 1) * limit
-
-	query := r.db.Model(&model.ObsConfig{}).Where("license_id = ?", licenseID)
-
-	err := query.Count(&total).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	err = query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&configs).Error
-	return configs, total, err
-}
-
 func (r *obsConfigRepo) Update(config *model.ObsConfig) error {
 	return r.db.Save(config).Error
 }
@@ -99,12 +84,6 @@ func (r *obsConfigRepo) Delete(id string) error {
 func (r *obsConfigRepo) GetDefault() (*model.ObsConfig, error) {
 	var config model.ObsConfig
 	err := r.db.Where("is_default = ?", true).First(&config).Error
-	return &config, err
-}
-
-func (r *obsConfigRepo) GetDefaultByLicense(licenseID string) (*model.ObsConfig, error) {
-	var config model.ObsConfig
-	err := r.db.Where("license_id = ? AND is_default = ?", licenseID, true).First(&config).Error
 	return &config, err
 }
 
@@ -123,10 +102,6 @@ func (r *obsConfigRepo) ClearDefault() error {
 	return r.db.Model(&model.ObsConfig{}).Where("is_default = ?", true).Update("is_default", false).Error
 }
 
-func (r *obsConfigRepo) ClearDefaultByLicense(licenseID string) error {
-	return r.db.Model(&model.ObsConfig{}).Where("license_id = ? AND is_default = ?", licenseID, true).Update("is_default", false).Error
-}
-
 func (r *obsConfigRepo) UpdateStatus(id string, status model.ObsStatus) error {
 	return r.db.Model(&model.ObsConfig{}).Where("id = ?", id).Update("status", status).Error
 }
@@ -137,8 +112,8 @@ func (r *obsConfigRepo) CountByStatus(status model.ObsStatus) (int64, error) {
 	return count, err
 }
 
-func (r *obsConfigRepo) CountByLicense(licenseID string) (int64, error) {
+func (r *obsConfigRepo) Count() (int64, error) {
 	var count int64
-	err := r.db.Model(&model.ObsConfig{}).Where("license_id = ?", licenseID).Count(&count).Error
+	err := r.db.Model(&model.ObsConfig{}).Count(&count).Error
 	return count, err
 }

@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
     file_type VARCHAR(32),
     file_size INTEGER,
     content TEXT,
-    status VARCHAR(32) DEFAULT 'pending',
+    status BIGINT DEFAULT 1,
     error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -255,7 +255,11 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewAuthSecurityMigration(db))
 	// 2026-07-21:A 域 P1 缺口修复 — team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段，支持 P1-4 行级权限
 	registry.Register(NewADomainP1Migration(db))
+	// 2026-07-22:short_links 字段补齐 — 修复短链创建 500（column title does not exist）
+	registry.Register(NewShortLinkColumnsMigration(db))
 	// 2026-07-21:M 域 P1 缺口修复 — provider_health / system_kv_config / intent_logs / trace_events 4 张表
 	registry.Register(NewMP1Migration(db))
+	// 2026-07-22:ops AI 生产力统计依赖的 llm_usage_records 表（历史漏建）
+	registry.Register(NewLLMUsageRecordsMigration(db))
 	// 继续添加新的迁移...
 }

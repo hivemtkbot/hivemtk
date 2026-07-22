@@ -10,7 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ObsConfigController 对象存储配置控制器
+// ObsConfigController 对象存储配置控制器（开源版）
+//
+// 开源版：License 模型已删除，授权流程下线，配置管理走"全局"语义。
+// 第一个创建的配置即为默认配置，不需 license_id 入参。
 type ObsConfigController struct {
 	service service.ObsConfigService
 }
@@ -22,25 +25,12 @@ func NewObsConfigController() *ObsConfigController {
 	}
 }
 
-// GetConfigList 获取配置列表
+// GetConfigList 获取配置列表（全局）
 func (c *ObsConfigController) GetConfigList(ctx *gin.Context) {
-	licenseID := ctx.Query("license_id")
-	if licenseID == "" {
-		if licenseIDFromContext, exists := ctx.Get("license_id"); exists {
-			if v, ok := licenseIDFromContext.(string); ok {
-				licenseID = v
-			}
-		}
-	}
-	// 若仍为空，不强制报错，返回空列表以保证页面可用
-	if licenseID == "" {
-		empty := []any{}
-		response.SuccessWithPage(ctx, empty, 1, 10, 0)
-		return
-	}
-
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+	provider := ctx.Query("provider")
+	status := ctx.Query("status")
 
 	if page < 1 {
 		page = 1
@@ -49,7 +39,7 @@ func (c *ObsConfigController) GetConfigList(ctx *gin.Context) {
 		limit = 10
 	}
 
-	resp, err := c.service.GetConfigList(licenseID, page, limit)
+	resp, err := c.service.GetConfigList(page, limit, provider, status)
 	if err != nil {
 		response.Error(ctx, 500, "查询OBS配置列表失败: "+err.Error())
 		return
@@ -158,7 +148,7 @@ func (c *ObsConfigController) TestConnection(ctx *gin.Context) {
 	response.Success(ctx, nil, "连接测试成功")
 }
 
-// SetDefault 设为默认配置
+// SetDefault 设为默认配置（开源版：全局唯一默认）
 func (c *ObsConfigController) SetDefault(ctx *gin.Context) {
 	id := ctx.Param("id")
 	if id == "" {
@@ -166,14 +156,7 @@ func (c *ObsConfigController) SetDefault(ctx *gin.Context) {
 		return
 	}
 
-	// 从JWT中获取licenseID
-	licenseID, exists := ctx.Get("license_id")
-	if !exists {
-		response.Error(ctx, 400, "INVALID_PARAM", "无法获取许可证信息")
-		return
-	}
-
-	if err := c.service.SetDefaultConfig(id, licenseID.(string)); err != nil {
+	if err := c.service.SetDefaultConfig(id); err != nil {
 		if isNotFoundError(err) {
 			response.Error(ctx, 404, "NOT_FOUND", err.Error())
 			return
@@ -185,22 +168,9 @@ func (c *ObsConfigController) SetDefault(ctx *gin.Context) {
 	response.Success(ctx, nil, "设为默认配置成功")
 }
 
-// GetDefaultConfig 获取默认配置
+// GetDefaultConfig 获取默认配置（开源版：全局默认）
 func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
-	licenseID := ctx.Query("license_id")
-	if licenseID == "" {
-		if licenseIDFromContext, exists := ctx.Get("license_id"); exists {
-			if v, ok := licenseIDFromContext.(string); ok {
-				licenseID = v
-			}
-		}
-	}
-	if licenseID == "" {
-		response.Error(ctx, 400, "INVALID_PARAM", "license_id不能为空")
-		return
-	}
-
-	config, err := c.service.GetDefaultConfig(licenseID)
+	config, err := c.service.GetDefaultConfig()
 	if err != nil {
 		if isNotFoundError(err) {
 			// 不存在时返回空数据而非 404，便于前端统一处理

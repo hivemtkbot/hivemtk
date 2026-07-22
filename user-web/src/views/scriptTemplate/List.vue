@@ -65,6 +65,11 @@
             <el-option label="促成成交" value="closing" />
           </el-select>
         </el-form-item>
+        <el-form-item label="话术分类" prop="category">
+          <el-select v-model="form.category" placeholder="请选择或输入分类" filterable allow-create default-first-option style="width: 100%">
+            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.name" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="话术内容" prop="content">
           <el-input v-model="form.content" type="textarea" :rows="6" />
         </el-form-item>
@@ -92,7 +97,8 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getScripts, createScript, updateScript, deleteScript as deleteScriptApi, useScript as useScriptApi } from '@/api/scriptTemplate.js'
+import { getScriptCategories, getScripts, createScript, updateScript, deleteScript as deleteScriptApi, useScript as useScriptApi } from '@/api/scriptTemplate.js'
+import { toList } from '@/utils/list.js'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -105,6 +111,7 @@ const form = ref({
   id: 0,
   title: '',
   scenario: 'opening',
+  category: '',
   content: '',
   variables: '',
   tags: '',
@@ -113,7 +120,19 @@ const form = ref({
 const formRules = {
   title: [{ required: true, message: i18n.global.t('请输入标题'), trigger: 'blur' }],
   scenario: [{ required: true, message: i18n.global.t('请选择场景'), trigger: 'change' }],
+  category: [{ required: true, message: i18n.global.t('请选择或输入分类'), trigger: 'change' }],
   content: [{ required: true, message: i18n.global.t('请输入内容'), trigger: 'blur' }]
+}
+
+// 话术分类（后端 CreateScriptTemplateRequest 必需 category；分类表可能为空，故支持输入新建）
+const categories = ref([])
+const loadCategories = async () => {
+  try {
+    const res = await getScriptCategories()
+    categories.value = toList(res)
+  } catch (e) {
+    categories.value = []
+  }
 }
 
 const filteredScripts = computed(() => {
@@ -132,14 +151,14 @@ const refreshData = async () => {
   loading.value = true
   try {
     const res = await getScripts()
-    scripts.value = res.data || []
+    scripts.value = toList(res)
   } finally {
     loading.value = false
   }
 }
 
 const showCreateDialog = () => {
-  form.value = { id: 0, title: '', scenario: 'opening', content: '', variables: '', tags: '', remark: '' }
+  form.value = { id: 0, title: '', scenario: 'opening', category: '', content: '', variables: '', tags: '', remark: '' }
   dialogTitle.value = '新增话术'
   dialogVisible.value = true
 }
@@ -155,10 +174,20 @@ const submitForm = async () => {
   await formRef.value.validate(async (valid) => {
     if (!valid) return
     try {
+      // 后端 CreateScriptTemplateRequest.Variables 为 []string，前端表单以逗号字符串维护，提交前归一化
+      const payload = {
+        title: form.value.title,
+        category: form.value.category,
+        content: form.value.content,
+        variables: (form.value.variables || '')
+          .split(',').map(s => String(s).trim()).filter(Boolean),
+        tags: form.value.tags || '',
+        is_public: false
+      }
       if (form.value.id) {
-        await updateScript(form.value.id, form.value)
+        await updateScript(form.value.id, payload)
       } else {
-        await createScript(form.value)
+        await createScript(payload)
       }
       ElMessage.success(i18n.global.t('保存成功'))
       dialogVisible.value = false
@@ -191,7 +220,7 @@ const deleteScript = async (row) => {
   }
 }
 
-onMounted(() => refreshData())
+onMounted(() => { loadCategories(); refreshData() })
 </script>
 
 <style scoped lang="scss">

@@ -171,6 +171,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { AiProductivityApi } from '@/api/aiProductivity.js'
+import { toList } from '@/utils/list.js'
 
 const activeTab = ref('conversations')
 const loading = reactive({ conversations: false, conversion: false, response: false, topSales: false })
@@ -202,7 +203,7 @@ const loadConversations = async () => {
       params.endDate = dateRange.value[1]
     }
     const res= await AiProductivityApi.getConversationStats(params)
-    conversationStats.value = res?.data || res || []
+    conversationStats.value = toList(res?.data ?? res)
   } catch (e) {
     conversationStats.value = []
   } finally {
@@ -214,7 +215,7 @@ const loadConversion = async () => {
   loading.conversion = true
   try {
     const res= await AiProductivityApi.getConversionRate()
-    conversionData.value = res?.data || res || []
+    conversionData.value = toList(res?.data ?? res)
   } catch (e) {
     conversionData.value = []
   } finally {
@@ -226,7 +227,7 @@ const loadResponse = async () => {
   loading.response = true
   try {
     const res= await AiProductivityApi.getResponseTimeStats()
-    responseStats.value = res?.data || res || []
+    responseStats.value = toList(res?.data ?? res)
   } catch (e) {
     responseStats.value = []
   } finally {
@@ -238,7 +239,7 @@ const loadTopSales = async () => {
   loading.topSales = true
   try {
     const res= await AiProductivityApi.getTopSalesPortrait({ dimension: topSalesDimension.value })
-    topSales.value = res?.data || res || []
+    topSales.value = toList(res?.data ?? res)
   } catch (e) {
     topSales.value = []
   } finally {

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/db"
 
 	"gorm.io/gorm"
 )
@@ -50,8 +51,11 @@ type smsRepository struct {
 }
 
 // NewSmsRepository 创建短信仓库
-func NewSmsRepository(db *gorm.DB) SmsRepository {
-	return &smsRepository{db: db}
+//
+// 五层架构约定：Repository 自身负责获取 db 连接，调用方无需注入 *gorm.DB。
+// 这样 Service 层不会因传递 db 而反向依赖 db 包。
+func NewSmsRepository() SmsRepository {
+	return &smsRepository{db: db.GetDB()}
 }
 
 // GetConfig 获取短信配置

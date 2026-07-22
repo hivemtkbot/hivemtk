@@ -136,6 +136,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { toList } from '@/utils/list.js'
 import {
   getCustomReports,
   createCustomReport,
@@ -178,7 +179,7 @@ const refreshData = async () => {
   loading.value = true
   try {
     const res = await getCustomReports()
-    reports.value = res || []
+    reports.value = toList(res?.data ?? res)
   } finally {
     loading.value = false
   }

@@ -11,7 +11,6 @@ import (
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/platform"
 	"marketing/internal/service"
-	"marketing/internal/system/license"
 
 	"github.com/gin-gonic/gin"
 )
@@ -45,7 +44,7 @@ func NewSystemInitController() *SystemInitController {
 // @Description 返回系统状态机（NOT_INSTALLED/HAS_ADMIN/INITIALIZED）
 // @Tags 系统初始化
 // @Produce json
-// @Success 200 {object} object{data=auth.InitStatus}
+// @Success 200 {object} object{data=install.Status}
 // @Router /api/system/init-status [get]
 func (c *SystemInitController) GetInitStatus(ctx *gin.Context) {
 	checker := middleware.GetLicenseChecker()
@@ -53,7 +52,6 @@ func (c *SystemInitController) GetInitStatus(ctx *gin.Context) {
 		response.Success(ctx, gin.H{
 			"state":       "NOT_INSTALLED",
 			"initialized": false,
-			"has_license": false,
 			"has_admin":   false,
 			"version":     "unknown",
 		}, "授权检查器未初始化")
@@ -151,7 +149,7 @@ func (c *SystemInitController) InitAdmin(ctx *gin.Context) {
 }
 
 // reportInstall 异步（best-effort）将安装信息上报至平台。失败仅记录日志，不影响初始化结果。
-func (c *SystemInitController) reportInstall(checker *auth.LicenseChecker, ctx *gin.Context, req *InitAdminRequest) {
+func (c *SystemInitController) reportInstall(checker *middleware.LicenseChecker, ctx *gin.Context, req *InitAdminRequest) {
 	lock := checker.GetInstallLock()
 	if lock == nil || lock.InstallID == "" {
 		return

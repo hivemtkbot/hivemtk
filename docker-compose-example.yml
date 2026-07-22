@@ -7,13 +7,16 @@
 #   - 用户端由各商户/用户自行部署，与【平台端】物理隔离。
 #   - 前端（user-web）与嵌入 SDK（embed-sdk）在【宿主机】构建后挂载到容器。
 #
-# 本地推理服务（mtk-llm / mtk-embedding / mtk-rerank）：
-#   - mtk-llm：llama.cpp（Qwen2.5），OpenAI 兼容 /v1/chat/completions，端口 8207
-#   - mtk-embedding：TEI + BAAI/bge-m3，1024 维，OpenAI 兼容 /v1/embeddings，端口 8208
-#   - mtk-rerank：TEI + BAAI/bge-reranker-v2-m3，OpenAI 兼容 /v1/rerank，端口 8209
+# 所有容器统一 mtk- 前缀，服务名即容器名：
+#   - mtk-postgres：PostgreSQL(user_db) + pgvector，容器内端口 8202（宿主机映射 8232）
+#   - mtk-redis：Redis 7 缓存，端口 8203
+#   - mtk-user-server：user-server (Go + Gin)，端口 8204
+#   - mtk-llm：llama.cpp（Qwen2.5-1.5B-Instruct），OpenAI 兼容 /v1/chat/completions，端口 8207
+#   - mtk-embedding：TEI + Qwen3-Embedding-0.6B（Candle 后端，1024 维），OpenAI 兼容 /v1/embeddings，端口 8208
+#   - mtk-rerank：TEI + bge-reranker-base，OpenAI 兼容 /v1/rerank，端口 8209
 #
 # 平台端连通：
-#   - user-server 通过 PLATFORM_API_URL 调用平台端。
+#   - mtk-user-server 通过 PLATFORM_API_URL 调用平台端。
 #
 # 启动顺序（模型加载较慢，建议先起推理栈）：
 #   make inference-up   # 先拉起三推理服务（创建 mtk_inference_net）
@@ -53,8 +56,7 @@ networks:
         - subnet: 172.33.0.0/16
 
 volumes:
-  mtk_user_pg_data:
-    name: mtk_user_pg_data
+  # PG 数据用绑定挂载到本地目录 ./pg_data（已加入 .gitignore，运维可直接备份/恢复）
   mtk_user_redis_data:
     name: mtk_user_redis_data
   mtk_user_logs:
@@ -66,9 +68,9 @@ volumes:
 
 services:
   # 用户端 PostgreSQL 15+ + pgvector（独立容器，库名 user_db）
-  postgres-user:
+  mtk-postgres:
     image: pgvector/pgvector:pg15
-    container_name: mtk-user-postgres
+    container_name: mtk-postgres
     environment:
       TZ: Asia/Shanghai
       LANG: C.UTF-8
@@ -92,14 +94,14 @@ services:
       - -c
       - port=8202
     ports:
-      - "${USER_POSTGRES_HOST_PORT:-8202}:8202"
+      - "${USER_POSTGRES_HOST_PORT:-8232}:8202"
     volumes:
-      - mtk_user_pg_data:/var/lib/postgresql/data
+      - ./pg_data:/var/lib/postgresql/data
       - ./migrations/init-user-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       mtk-user-network:
         aliases:
-          - postgres-user
+          - mtk-postgres
     restart: unless-stopped
     healthcheck:
       test:
@@ -114,15 +116,15 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 1G
+          memory: 512M
         reservations:
           cpus: '0.5'
-          memory: 512M
+          memory: 256M
 
   # Redis 缓存
-  redis:
+  mtk-redis:
     image: redis:7-alpine
-    container_name: mtk-user-redis
+    container_name: mtk-redis
     environment:
       TZ: Asia/Shanghai
       LANG: C.UTF-8
@@ -146,7 +148,7 @@ services:
     networks:
       mtk-user-network:
         aliases:
-          - redis
+          - mtk-redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "8203", "ping"]
@@ -159,15 +161,15 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 1.5G
+          memory: 512M
         reservations:
           cpus: '0.5'
-          memory: 512M
+          memory: 256M
 
   # ============================================================
   # 用户端服务
   # ============================================================
-  user-server:
+  mtk-user-server:
     build:
       context: ./user-server
       dockerfile: Dockerfile
@@ -179,14 +181,14 @@ services:
       GIN_MODE: ${GIN_MODE:-release}
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8204
-      # 用户端数据库（独立容器 postgres-user，容器内端口 8202）
-      DB_HOST: postgres-user
+      # 用户端数据库（独立容器 mtk-postgres，容器内端口 8202）
+      DB_HOST: mtk-postgres
       DB_PORT: 8202
       DB_USER: ${POSTGRES_USER:-admin}
       DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env (use: openssl rand -hex 24)}"
       DB_NAME: ${USER_DB_NAME:-user_db}
       # Redis
-      REDIS_HOST: redis
+      REDIS_HOST: mtk-redis
       REDIS_PORT: 8203
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
@@ -216,16 +218,16 @@ services:
       # 实际加载文件由 LLM_MODEL_FILE 决定）
       LLM_API_KEY: ${LLM_API_KEY:-local}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://mtk-llm:8207/v1}
-      LLM_MODEL: ${LLM_MODEL:-Qwen2.5-14B-Instruct}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5-1.5b-instruct-q4_k_m.gguf}
       # Embedding
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://mtk-embedding:8208/v1}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-Qwen3-Embedding-0.6B}
       EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       EMBEDDING_ALLOW_FALLBACK: ${EMBEDDING_ALLOW_FALLBACK:-false}
       # Rerank
       RERANK_BASE_URL: ${RERANK_BASE_URL:-http://mtk-rerank:8209}
-      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker-v2-m3}
+      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker-base}
       RERANK_API_KEY: ${RERANK_API_KEY:-}
       RERANK_ENABLED: ${RERANK_ENABLED:-true}
       # 网页客服静态资源
@@ -245,16 +247,19 @@ services:
       - ./embed-sdk/dist:/app/embed-sdk-dist:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      # user-server 二进制在容器内固定以 localhost:8202 连接数据库（配置解析后 host 为空，
+      # pgx 默认回落到 localhost），此处把容器内的 localhost 指向 mtk-postgres 容器 IP
+      - "localhost:172.32.0.2"
     shm_size: '2gb'
     depends_on:
-      postgres-user:
+      mtk-postgres:
         condition: service_healthy
-      redis:
+      mtk-redis:
         condition: service_healthy
     networks:
       mtk-user-network:
         aliases:
-          - user-server
+          - mtk-user-server
       mtk-inference-net: {}
     restart: unless-stopped
     healthcheck:
@@ -273,23 +278,25 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 4G
+          memory: 1G
         reservations:
           cpus: '1'
-          memory: 2G
+          memory: 512M
 
   # =============================================================================
   # 本地推理栈（mtk-*）—— 三个本地模型服务，统一网络 mtk-inference-net
   # -----------------------------------------------------------------------------
   # 1) mtk-llm      —— 对话/改写/摘要（llama.cpp，OpenAI 兼容 /v1/chat/completions）
-  # 2) mtk-embedding—— 向量化（TEI + BAAI/bge-m3，1024 维，OpenAI 兼容 /v1/embeddings）
-  # 3) mtk-rerank   —— 精排（TEI + BAAI/bge-reranker-v2-m3，OpenAI 兼容 /v1/rerank）
+  # 2) mtk-embedding—— 向量化（TEI + Qwen3-Embedding-0.6B，1024 维，OpenAI 兼容 /v1/embeddings）
+  # 3) mtk-rerank   —— 精排（TEI + bge-reranker-base，OpenAI 兼容 /v1/rerank）
   #
   # 设计决策：
-  #   - embedding/rerank 采用 TEI 而非 llama.cpp GGUF：bge-m3 固定 1024 维、无离线降级。
+  #   - embedding/rerank 采用 TEI 而非 llama.cpp GGUF：bge 系固定 1024 维、无离线降级。
   #   - 镜像：llm 用 ghcr.io/ggml-org/llama.cpp:server；embedding/rerank 用
   #     ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest。
   #   - 模型由宿主机 ./models 目录卷挂载（safetensors / GGUF）。
+  #   - Qwen3-Embedding-0.6B（Candle 后端）warmup 内存占用大，已限制
+  #     --max-concurrent-requests / --max-batch-tokens 并设 8G 内存上限防 OOM。
   #
   # 一键启停：
   #   make inference-up      # 拉起三容器
@@ -309,9 +316,9 @@ services:
     environment:
       ROLE: llm
       MODELS_DIR: /models/llm
-      MODEL_REPO: ${LLM_MODEL_REPO:-Qwen/Qwen2.5-14B-Instruct-GGUF}
-      MODEL_FILE: ${LLM_MODEL_FILE:-qwen2.5-14b-instruct-q4_k_m.gguf}
-      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-Qwen2.5-14B-Instruct}
+      MODEL_REPO: ${LLM_MODEL_REPO:-Qwen/Qwen2.5-1.5B-Instruct-GGUF}
+      MODEL_FILE: ${LLM_MODEL_FILE:-qwen2.5-1.5b-instruct-q4_k_m.gguf}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-Qwen2.5-1.5B-Instruct}
       MODEL_BRANCH: master
       DOWNLOAD_SOURCE: ${LLM_DOWNLOAD_SOURCE:-modelscope,hf-mirror,hf}
       CONTEXT_SIZE: "8192"
@@ -322,6 +329,8 @@ services:
       resources:
         limits:
           cpus: "4"
+          # 1.5B Q4 ≈ 1.1GB 常驻 + KV cache；14B 需 6G+
+          memory: ${LLM_MEM_LIMIT:-1.5G}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8207'"]
       interval: 30s
@@ -330,16 +339,19 @@ services:
       start_period: 120s
 
   # ---------------------------------------------------------------------------
-  # 2) Embedding —— 向量化（TEI + BAAI/bge-m3，1024 维）
+  # 2) Embedding —— 向量化（TEI + 1024 维；默认 dev 档 Qwen3-Embedding-0.6B）
   # ---------------------------------------------------------------------------
   mtk-embedding:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest
     container_name: mtk-embedding
     command:
-      - --model-id=${EMBEDDING_MODEL_ID:-/data/bge-m3}
-      - --served-model-name=${EMBEDDING_SERVED_NAME:-bge-m3}
+      - --model-id=${EMBEDDING_MODEL_ID:-/data/Qwen3-Embedding-0.6B}
+      - --served-model-name=${EMBEDDING_SERVED_NAME:-Qwen3-Embedding-0.6B}
       - --hostname=0.0.0.0
       - --port=8208
+      # 极小批处理，降低 Candle Qwen3-0.6B warmup 时的内存占用
+      - --max-concurrent-requests=1
+      - --max-batch-tokens=512
     environment:
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
     volumes:
@@ -354,23 +366,24 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 4G
+          # Qwen3-Embedding-0.6B 走 Candle 后端，warmup 需 ~7-8G
+          memory: ${EMBEDDING_MEM_LIMIT:-8G}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8208'"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s
 
   # ---------------------------------------------------------------------------
-  # 3) Rerank —— 精排（TEI + BAAI/bge-reranker-v2-m3）
+  # 3) Rerank —— 精排（TEI + bge-reranker-base）
   # ---------------------------------------------------------------------------
   mtk-rerank:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest
     container_name: mtk-rerank
     command:
-      - --model-id=${RERANK_MODEL_ID:-/data/bge-reranker-v2-m3}
-      - --served-model-name=${RERANK_SERVED_NAME:-bge-reranker-v2-m3}
+      - --model-id=${RERANK_MODEL_ID:-/data/bge-reranker-base}
+      - --served-model-name=${RERANK_SERVED_NAME:-bge-reranker-base}
       - --hostname=0.0.0.0
       - --port=8209
     environment:
@@ -387,10 +400,11 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 4G
+          # bge-reranker-base dev 档（278M 参数，~1.1GB safetensors）需 ~1G
+          memory: ${RERANK_MEM_LIMIT:-1G}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8209'"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s

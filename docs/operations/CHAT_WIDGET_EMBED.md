@@ -26,7 +26,6 @@
 │          data-app-key="optional"                  │
 │          data-position="bottom-right"             │
 │          data-color="#1989fa"                     │
-│          data-welcome="您好，有什么可以帮您？">    │
 │  </script>                                        │
 │                                                  │
 │       ┌──────────────────────┐                    │
@@ -105,8 +104,7 @@
 <script src="https://chat.example.com/embed/marketing-chat-widget.iife.js"
         data-app-key="optional-channel-id"
         data-position="bottom-right"
-        data-color="#1989fa"
-        data-welcome="您好，有什么可以帮您？">
+        data-color="#1989fa">
 </script>
 ```
 
@@ -115,18 +113,26 @@
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `src` | 浮标脚本 URL | 必填 |
-| `data-app-key` | 渠道 ID（可选）| `default` |
+| `data-app-key` | 渠道 ID（可选，缺失时走 `default` 渠道）| `default` |
+| `data-channel-id` | 直接指定 channel_id（与 appKey 二选一）| - |
+| `data-api-base-url` | API 基础 URL（默认同源）| 同源 |
 | `data-position` | 浮标位置 | `bottom-right` |
 | `data-color` | 主色 | `#1989fa` |
-| `data-welcome` | 欢迎语 | 默认值 |
+| `data-title` | 聊天窗标题 | `在线客服` |
+| `data-z-index` | 浮标层级 | `9999` |
+| `data-offset-x` | 水平边距 px | `24` |
+| `data-offset-y` | 垂直边距 px | `24` |
+
+> 完整字段与优先级见 [embed-sdk/README.md](../../embed-sdk/README.md)。
 
 ---
 
 ## 五、用户端域名要求
 
-- 浮标脚本 URL 域名 **必须** 与 `user-server` 部署域名一致
+- 浮标脚本 URL 域名 **必须** 与 `user-server` 部署域名一致（同源部署）
 - WebSocket 走同一域名（由 SDK 自动推断）
-- nginx 反代需配置 `/api/chat/public/*` 与 `/api/ws/visitor` 路径
+- 外部反代（CDN / 云负载均衡）需透传 `/api/chat/public/*` 与 `/api/ws/visitor` 路径
+- 跨域部署场景：详见 [embed-sdk/README.md](../../embed-sdk/README.md) "跨域部署"小节
 
 ---
 
@@ -134,8 +140,8 @@
 
 - 页面加载完成后自动注入右下角浮标按钮
 - 用户点击后弹出 iframe 聊天窗（最大宽度 380px）
-- iframe 内容由 user-server 提供（`/chat/embed/:app_key` 路径）
-- 父子页面通过 `postMessage` 通信
+- iframe 内容由 user-server 提供（`/chat/embed/:channel_ref` 路径，channel_ref = appKey / channelId / `default`）
+- 父子页面通过 `postMessage` 通信（带 origin 校验）
 - 访客身份由 localStorage 生成的 UUID 跟踪
 
 ---
@@ -159,9 +165,34 @@
 
 页面加载后自动注入浮标，无需额外配置。
 
-### 8.2 自定义容器
+### 8.2 编程式控制
 
-在页面放一个 `<div id="mtk-chat"></div>`，SDK 会自动识别并把浮标挂载到该容器内（适合需要自定义位置的场景）。
+```javascript
+// 打开聊天窗
+window.mcwInstance.open()
+
+// 关闭聊天窗
+window.mcwInstance.close()
+
+// 完全销毁
+window.mcwInstance.destroy()
+```
+
+### 8.3 全局变量配置
+
+```html
+<script>
+  window.MarketingChatWidgetConfig = {
+    appKey: 'ak_xxx',
+    apiBaseURL: 'https://api.example.com',
+    color: '#ff6b35',
+    position: 'bottom-left'
+  }
+</script>
+<script src="https://chat.example.com/embed/marketing-chat-widget.iife.js"></script>
+```
+
+> 配置优先级：`data-*` 属性 > `window.MarketingChatWidgetConfig` > 内置默认值。
 
 ---
 
@@ -184,7 +215,7 @@
 
 ## 十一、CDN 部署
 
-为提高全球访问速度，可把 `embed-sdk/dist/` 单独部署到 CDN：
+为提高全球访问速度，可把 `embed-sdk/dist/` 单独部署到 CDN（仅静态 JS 资源，**API 与 WebSocket 仍走 user-server 域名**）：
 
 ```bash
 # embed-sdk 构建后
@@ -195,12 +226,15 @@ aws s3 sync dist/ s3://cdn.example.com/embed/ \
   --cache-control "public, max-age=31536000"
 ```
 
-企业官网改为引用 CDN：
+企业官网改为引用 CDN（注意 `data-api-base-url` 必须指向真正的 user-server 域名）：
 
 ```html
-<script src="https://cdn.example.com/embed/marketing-chat-widget.iife.js" ...>
+<script src="https://cdn.example.com/embed/marketing-chat-widget.iife.js"
+        data-api-base-url="https://chat.example.com">
 </script>
 ```
+
+> CDN 部署属于**跨域**场景，需确保 user-server 的 `CORS_ALLOW_ORIGINS_USER` 已放行 `cdn.example.com` 的请求（其实静态资源不受 CORS 限制，但 postMessage 时 origin 校验会用到 user-server 域名）。
 
 ---
 
@@ -208,14 +242,19 @@ aws s3 sync dist/ s3://cdn.example.com/embed/ \
 
 - `embed-sdk/src/` - SDK 源代码
 - `user-server/internal/router/chat_routes.go` - `/api/chat/public/*` 路由
+- `user-server/internal/router/embed_static_routes.go` - `/embed/*` 静态服务 + `/chat/embed/*` SPA 路由
 - `user-server/internal/websocket/handler.go` - `/api/ws/visitor` 端点
-- `user-server/internal/service/visitor_chat.go` - 访客聊天服务
+- `user-server/internal/service/chat_visitor_service.go` - 访客聊天服务
+- `user-web/src/views/chat/embed/Index.vue` - 嵌入聊天窗 SPA 入口
 - `migrations/004_customer_session.sql` - customer_sessions 表（platform=web_embed）
 
 ---
 
 ## 十三、相关文档
 
-- 完整 ADR：[adr/ADR-011-chat-widget-embed.md](adr/ADR-011-chat-widget-embed.md)
-- RAG 自动回复架构：[RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md)
-- 部署架构：[部署方案_用户端.md](部署方案_用户端.md)
+- SDK 完整说明：[../../embed-sdk/README.md](../../embed-sdk/README.md)
+- 完整 ADR：[../architecture/adr/ADR-011-chat-widget-embed.md](../architecture/adr/ADR-011-chat-widget-embed.md)
+- FRP 私域部署指南：[../architecture/FRP私域部署指南.md](../architecture/FRP私域部署指南.md)
+- RAG 自动回复架构：[../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md)
+- 部署架构：[../architecture/部署方案_用户端.md](../architecture/部署方案_用户端.md)
+- 用户端部署手册：[MERCHANT_DEPLOYMENT.md](MERCHANT_DEPLOYMENT.md)

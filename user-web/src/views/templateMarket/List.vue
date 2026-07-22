@@ -141,6 +141,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Upload, Download } from '@element-plus/icons-vue'
 import { getTemplates, submitTemplate, useTemplate as useTpl } from '@/api/templateMarket.js'
+import { toList } from '@/utils/list'
 
 const searchKeyword = ref('')
 const filterCategory = ref('')
@@ -161,7 +162,7 @@ const filteredTemplates = computed(() => {
 
 const loadTemplates = async () => {
   const res = await getTemplates({ sort: sortBy.value })
-  templates.value = res.data || []
+  templates.value = toList(res)
 }
 
 const viewTemplate = (template) => {

@@ -182,14 +182,10 @@ func (c *AuthController) InitChangePassword(ctx *gin.Context) {
 // ============== P0-4 平台超管忘记密码流程 ==============
 
 // ForgotAdminPasswordRequest 申请重置超管密码请求
-// 验证策略：必须同时知道
-//  1. admin_username（系统初始化时设置）
-//  2. company_name（LicenseKey 绑定时填写的公司名，写入 install.lock.Company）
-//
-// 这是私域部署的"安全问答"机制——管理员在初始化时已知晓 company 信息
+// 开源版：移除 company_name 安全问答，改为仅校验 admin_username
+// （原 LicenseKey 绑定的 Company 字段已不再使用）
 type ForgotAdminPasswordRequest struct {
-	Username    string `json:"username" binding:"required,min=3,max=20"`
-	CompanyName string `json:"company_name" binding:"required,min=2,max=100"`
+	Username string `json:"username" binding:"required,min=3,max=20"`
 }
 
 // ForgotAdminPasswordRequest 申请重置超管密码
@@ -202,7 +198,7 @@ func (c *AuthController) ForgotAdminPassword(ctx *gin.Context) {
 		return
 	}
 
-	token, err := c.authService.CreateForgotPasswordToken(req.Username, req.CompanyName)
+	token, err := c.authService.CreateForgotPasswordToken(req.Username)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return

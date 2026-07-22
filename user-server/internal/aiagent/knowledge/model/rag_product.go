@@ -15,24 +15,26 @@ type LLMProviderConfig struct {
 }
 
 // EmbeddingProviderConfig 文本向量(text-embedding)供应商配置(嵌入式)
-// 列前缀 emb_，per 知识库覆盖全局 config.yaml inference.embedding
+// 列前缀 emb_（由 embeddedPrefix 自动添加），per 知识库覆盖全局 config.yaml inference.embedding
+// 注意：字段的 column 标签须为裸名（api_key 而非 emb_api_key），否则会与 embeddedPrefix 叠加成 emb_emb_api_key
 type EmbeddingProviderConfig struct {
-	APIKey    string `json:"api_key" gorm:"column:emb_api_key"`
-	BaseURL   string `json:"base_url" gorm:"column:emb_base_url"`
-	APIType   string `json:"api_type" gorm:"column:emb_api_type"` // openai 兼容 /v1/embeddings
-	Model     string `json:"model" gorm:"column:emb_model"`
-	Dimension int    `json:"dimension" gorm:"column:emb_dimension;default:1024"`
-	Enabled   bool   `json:"enabled" gorm:"column:emb_enabled;default:true"`
+	APIKey    string `json:"api_key" gorm:"column:api_key"`
+	BaseURL   string `json:"base_url" gorm:"column:base_url"`
+	APIType   string `json:"api_type" gorm:"column:api_type"` // openai 兼容 /v1/embeddings
+	Model     string `json:"model" gorm:"column:model"`
+	Dimension int    `json:"dimension" gorm:"column:dimension;default:1024"`
+	Enabled   bool   `json:"enabled" gorm:"column:enabled;default:true"`
 }
 
 // RerankProviderConfig 重排(rerank)供应商配置(嵌入式)
-// 列前缀 rerank_，per 知识库覆盖全局 config.yaml inference.rerank
+// 列前缀 rerank_（由 embeddedPrefix 自动添加），per 知识库覆盖全局 config.yaml inference.rerank
+// 注意：字段的 column 标签须为裸名（api_key 而非 rerank_api_key），否则会与 embeddedPrefix 叠加成 rerank_rerank_api_key
 type RerankProviderConfig struct {
-	APIKey  string `json:"api_key" gorm:"column:rerank_api_key"`
-	BaseURL string `json:"base_url" gorm:"column:rerank_base_url"`
-	APIType string `json:"api_type" gorm:"column:rerank_api_type"` // openai 兼容 /v1/rerank
-	Model   string `json:"model" gorm:"column:rerank_model"`
-	Enabled bool   `json:"enabled" gorm:"column:rerank_enabled;default:true"`
+	APIKey  string `json:"api_key" gorm:"column:api_key"`
+	BaseURL string `json:"base_url" gorm:"column:base_url"`
+	APIType string `json:"api_type" gorm:"column:api_type"` // openai 兼容 /v1/rerank
+	Model   string `json:"model" gorm:"column:model"`
+	Enabled bool   `json:"enabled" gorm:"column:enabled;default:true"`
 }
 
 // RagProduct RAG 产品配置 - RAG V2.0 权威基线

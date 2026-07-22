@@ -85,7 +85,7 @@ func NewIntegrationReachAdapterFromDB(db *gorm.DB) *IntegrationReachAdapter {
 		web:      service.NewCustomerSessionServiceWithDB(db),
 		wecom:    service.NewWeComIntegrationService(db),
 		dingtalk: service.NewDingTalkService(),
-		sms:      service.NewSmsService(repository.NewSmsRepository(db)),
+		sms:      service.NewSmsService(repository.NewSmsRepository()),
 		email:    email.NewEmailSendService(),
 	}
 }

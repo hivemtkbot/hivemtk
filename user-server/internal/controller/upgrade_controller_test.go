@@ -13,7 +13,8 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
-func setupUpgradeTestDB(t *testing.T) *gorm.DB {
+// setupMigrationTestDB 设置迁移任务测试数据库
+func setupMigrationTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.UpgradeTask{},
 		&model.MigrationRecord{},
@@ -22,29 +23,30 @@ func setupUpgradeTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-func setupUpgradeRouter(ctrl *UpgradeController) *gin.Engine {
+// setupMigrationRouter 设置迁移路由（路径已由 /upgrade/* 改为 /migration/*）
+func setupMigrationRouter(ctrl *MigrationController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set("user_id", "test_value")
 		c.Next()
 	})
-	router.GET("/upgrade/task/:id", ctrl.GetUpgradeTask)
-	router.GET("/upgrade/history", ctrl.GetUpgradeHistory)
-	router.GET("/upgrade/migration-records", ctrl.GetMigrationRecords)
-	router.GET("/upgrade/current-version", ctrl.GetCurrentVersion)
-	router.POST("/upgrade/task", ctrl.CreateUpgradeTask)
-	router.POST("/upgrade/rollback", ctrl.Rollback)
-	router.GET("/upgrade/available", ctrl.GetAvailableUpgrades)
+	router.GET("/migration/task/:id", ctrl.GetUpgradeTask)
+	router.GET("/migration/history", ctrl.GetUpgradeHistory)
+	router.GET("/migration/records", ctrl.GetMigrationRecords)
+	router.GET("/migration/current-version", ctrl.GetCurrentVersion)
+	router.POST("/migration/task", ctrl.CreateUpgradeTask)
+	router.POST("/migration/rollback", ctrl.Rollback)
+	router.GET("/migration/available", ctrl.GetAvailableUpgrades)
 	return router
 }
 
-func TestUpgradeController_GetUpgradeHistory_Success(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetUpgradeHistory_Success(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/history?page=1&page_size=10", nil)
+	req, _ := http.NewRequest("GET", "/migration/history?page=1&page_size=10", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -53,12 +55,12 @@ func TestUpgradeController_GetUpgradeHistory_Success(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetMigrationRecords_Success(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetMigrationRecords_Success(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/migration-records", nil)
+	req, _ := http.NewRequest("GET", "/migration/records", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -67,12 +69,12 @@ func TestUpgradeController_GetMigrationRecords_Success(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetCurrentVersion_Success(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetCurrentVersion_Success(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/current-version", nil)
+	req, _ := http.NewRequest("GET", "/migration/current-version", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -81,12 +83,12 @@ func TestUpgradeController_GetCurrentVersion_Success(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetAvailableUpgrades_Success(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetAvailableUpgrades_Success(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/available", nil)
+	req, _ := http.NewRequest("GET", "/migration/available", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -95,16 +97,16 @@ func TestUpgradeController_GetAvailableUpgrades_Success(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetUpgradeTask_NoAuth(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
+func TestMigrationController_GetUpgradeTask_NoAuth(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	// 添加 Recovery 中间件以将 DB 访问失败转成 500
 	router.Use(gin.Recovery())
-	router.GET("/upgrade/task/:id", ctrl.GetUpgradeTask)
+	router.GET("/migration/task/:id", ctrl.GetUpgradeTask)
 
-	req, _ := http.NewRequest("GET", "/upgrade/task/1", nil)
+	req, _ := http.NewRequest("GET", "/migration/task/1", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -114,12 +116,12 @@ func TestUpgradeController_GetUpgradeTask_NoAuth(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetUpgradeTask_InvalidID(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetUpgradeTask_InvalidID(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/task/abc", nil)
+	req, _ := http.NewRequest("GET", "/migration/task/abc", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -128,12 +130,12 @@ func TestUpgradeController_GetUpgradeTask_InvalidID(t *testing.T) {
 	}
 }
 
-func TestUpgradeController_GetUpgradeTask_NotFound(t *testing.T) {
-	setupUpgradeTestDB(t)
-	ctrl := NewUpgradeController()
-	router := setupUpgradeRouter(ctrl)
+func TestMigrationController_GetUpgradeTask_NotFound(t *testing.T) {
+	setupMigrationTestDB(t)
+	ctrl := NewMigrationController()
+	router := setupMigrationRouter(ctrl)
 
-	req, _ := http.NewRequest("GET", "/upgrade/task/999999", nil)
+	req, _ := http.NewRequest("GET", "/migration/task/999999", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

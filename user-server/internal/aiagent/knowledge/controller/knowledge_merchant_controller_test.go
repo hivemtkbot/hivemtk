@@ -6,17 +6,29 @@ import (
 	"encoding/json"
 	"fmt"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
+	ragretrieval "marketing/internal/aiagent/rag/retrieval"
 	"marketing/internal/model"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/testutil/testmigrate"
 )
+
+// toPgVector 将 []float32 格式化为 pgvector 字面量（如 [0.1,0.2,...]）
+func toPgVector(vec []float32) string {
+	parts := make([]string, len(vec))
+	for i, f := range vec {
+		parts[i] = strconv.FormatFloat(float64(f), 'f', -1, 32)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
 
 // setupKMSvcTestDB 设置商户 RAG 测试数据库
 func setupKMSvcTestDB(t *testing.T) *gorm.DB {
@@ -32,6 +44,7 @@ func setupKMSvcTestDB(t *testing.T) *gorm.DB {
 		&model.ExternalImportJob{},
 		&model.RagProduct{},
 	)
+	testmigrate.RunTestMigrations(t, database)
 	return database
 }
 
@@ -533,8 +546,20 @@ func TestKM_Playground_WithData(t *testing.T) {
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "退货政策: 请在订单页面申请退货,7天内处理", ContentHash: "h1", CharCount: 30, TokenCount: 10},
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 1, Content: "运费说明: 满99包邮,否则10元运费", ContentHash: "h2", CharCount: 30, TokenCount: 10},
 	}
-	for _, c := range chunks {
-		ctrl.svc.GetDB().Create(&c)
+	// 生成真实向量并写入 embedding 列（与线上检索一致），否则纯向量检索无命中
+	v := ragretrieval.NewVectorizer(0, nil)
+	for i := range chunks {
+		if err := ctrl.svc.GetDB().Create(&chunks[i]).Error; err != nil {
+			t.Fatalf("create chunk: %v", err)
+		}
+		vec, err := v.EmbedText(chunks[i].Content)
+		if err != nil {
+			t.Fatalf("embed chunk %d: %v", i, err)
+		}
+		if err := ctrl.svc.GetDB().
+			Exec("UPDATE knowledge_chunks SET embedding = ?::vector WHERE id = ?", toPgVector(vec), chunks[i].ID).Error; err != nil {
+			t.Fatalf("update chunk embedding: %v", err)
+		}
 	}
 	body := mustJSON(t, map[string]any{
 		"product_id":           "kb-1",

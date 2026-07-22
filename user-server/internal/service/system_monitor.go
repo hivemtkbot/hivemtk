@@ -173,17 +173,9 @@ func (s *SystemMonitorService) GetDetailedSystemStats() (map[string]any, error) 
 		activeUsers = 0
 	}
 
-	// 商户数(私域独立部署模式下=1;若已分配多个 License,则按 1 + floor(license/2) 估算子账号商户数)
-	var totalMerchants int64 = 1
-	var licenseCount int64
-	if err := db.Model(&model.License{}).Count(&licenseCount).Error; err == nil && licenseCount > 0 {
-		totalMerchants = 1 + licenseCount/2
-	}
-
-	var totalLicenses int64
-	if err := db.Model(&model.License{}).Count(&totalLicenses).Error; err != nil {
-		totalLicenses = 0
-	}
+	// 商户数(开源版：固定 1，因为不再有 License 维度)
+	totalMerchants := int64(1)
+	// 开源版：移除 License 计数（License 模型已删除）
 
 	// 获取自动回复统计
 	var totalAutoReplyAccounts int64
@@ -261,7 +253,7 @@ func (s *SystemMonitorService) GetDetailedSystemStats() (map[string]any, error) 
 			"today_visits":       todayVisits,
 			"active_users_today": activeUsers,
 			"total_merchants":    totalMerchants,
-			"total_licenses":     totalLicenses,
+			// 开源版：移除 total_licenses 字段
 		},
 		"business_stats": map[string]any{
 			"total_auto_reply_accounts": totalAutoReplyAccounts,

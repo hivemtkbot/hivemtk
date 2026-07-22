@@ -441,7 +441,7 @@ const getStepStatusType = (status) => {
 // ===== 加载下拉选项 =====
 const loadRagProducts = async () => {
   try {
-    const res = await ragProductConfigAPI.getRagProducts({ page: 1, page_size: 200 })
+    const res = await ragProductConfigAPI.getRagProducts({ page: 1, page_size: 100 })
     ragProductOptions.value = res?.items || res?.list || []
   } catch (e) {
     // 选项加载失败不阻塞主流程
@@ -451,7 +451,7 @@ const loadRagProducts = async () => {
 
 const loadSopOptions = async () => {
   try {
-    const res = await sopApi.list({ page: 1, page_size: 200 })
+    const res = await sopApi.list({ page: 1, page_size: 100 })
     sopOptions.value = res?.list || res?.items || []
   } catch (e) {
     console.warn('加载SOP列表失败：', e?.message)
@@ -460,7 +460,7 @@ const loadSopOptions = async () => {
 
 const loadScriptOptions = async () => {
   try {
-    const res = await getScriptTemplateList({ page: 1, page_size: 200 })
+    const res = await getScriptTemplateList({ page: 1, page_size: 100 })
     scriptOptions.value = res?.data || res?.list || res?.items || []
   } catch (e) {
     console.warn('加载话术模板列表失败：', e?.message)

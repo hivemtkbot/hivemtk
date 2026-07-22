@@ -188,6 +188,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import { toList } from '@/utils/list'
 import {
   listAccounts,
   createAccount,
@@ -258,11 +259,7 @@ const fetchAccounts = async () => {
   loading.value = true
   try {
     const res = await listAccounts()
-    if (res.code === 0 || res.code === 200) {
-      accounts.value = res.data || []
-    } else {
-      ElMessage.error(res.message || '获取账号列表失败')
-    }
+    accounts.value = toList(res)
   } catch (e) {
     ElMessage.error('网络错误：' + e.message)
   } finally {

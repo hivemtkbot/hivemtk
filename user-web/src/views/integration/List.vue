@@ -181,6 +181,7 @@ import i18n from '@/i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { toList } from '@/utils/list'
 import {
   getIntegrations,
   createIntegration,
@@ -225,8 +226,8 @@ const refreshData = async () => {
   loading.value = true
   try {
     const [iRes, sRes] = await Promise.all([getIntegrations(), getIntegrationStats()])
-    integrations.value = iRes.data || []
-    stats.value = sRes.data || stats.value
+    integrations.value = toList(iRes)
+    stats.value = sRes || stats.value
   } finally {
     loading.value = false
   }

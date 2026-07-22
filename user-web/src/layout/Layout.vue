@@ -109,9 +109,11 @@
             <el-breadcrumb-item v-for="(b, i) in breadcrumb" :key="i">{{ b }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
-        <transition name="fade" mode="out-in">
-          <router-view />
-        </transition>
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
@@ -165,12 +167,14 @@ const formattedExpiryTime = computed(() => {
 })
 
 // 获取授权状态
+// 开源版已移除授权（License）相关接口，此处静默请求：接口缺失时不弹错误提示、不打印报错，
+// licenseInfo 保持为空，侧边栏授权信息面板自然隐藏。
 const loadLicenseInfo = async () => {
   try {
-    const response = await getLicenseStatus()
+    const response = await getLicenseStatus({ _silent: true })
     if (response) licenseInfo.value = response
   } catch (error) {
-    console.error('获取授权信息失败:', error)
+    // 开源版无授权接口，忽略
   }
 }
 
@@ -479,8 +483,6 @@ const topMenus = ref([
       { key: 'domainPool', title: '域名池', icon: 'Link', path: '/domainPool' },
       { key: 'teamUser', title: '团队成员', icon: 'UserFilled', path: '/teamUser/list' },
       { key: 'platformAccount', title: '平台账号', icon: 'Platform', path: '/platformAccount/list' },
-      { key: 'licenseManagement', title: '授权管理', icon: 'Key', path: '/licenseManagement/list' },
-      { key: 'otaUpgrade', title: 'OTA 升级', icon: 'Upload', path: '/otaUpgrade/list' },
       {
         key: 'payment',
         title: '支付配置',

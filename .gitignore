@@ -93,6 +93,8 @@ downloads/
 # ---------- 数据库 / 持久化数据 ----------
 *.db
 data/
+# PG 数据绑定挂载目录（docker-compose ./pg_data）
+pg_data/
 # 模型文件（./models/ 实际不提交，仅 README 与 .gitkeep）
 models/
 

@@ -183,6 +183,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { toList } from '@/utils/list'
 import {
   getExperiments,
   createExperiment,
@@ -244,8 +245,8 @@ const refreshData = async () => {
   loading.value = true
   try {
     const [expRes, statsRes] = await Promise.all([getExperiments(), getExperimentStats()])
-    experiments.value = expRes.data || []
-    stats.value = statsRes.data || { running: 0, completed: 0, winner: 0, totalUsers: 0 }
+    experiments.value = toList(expRes)
+    stats.value = statsRes || { running: 0, completed: 0, winner: 0, totalUsers: 0 }
   } finally {
     loading.value = false
   }
@@ -322,8 +323,8 @@ const viewDetail = async (row) => {
       getExperiment(row.id),
       getExperimentResults(row.id)
     ])
-    currentExperiment.value = expRes.data || null
-    currentResults.value = resultsRes.data || null
+    currentExperiment.value = expRes
+    currentResults.value = toList(resultsRes)
   } catch {
     ElMessage.error(i18n.global.t('获取实验详情失败'))
   } finally {

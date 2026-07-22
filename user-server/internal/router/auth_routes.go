@@ -213,7 +213,7 @@ func setupEmailRoutes(auth *gin.RouterGroup) {
 
 // setupSmsRoutes 短信管理路由
 func setupSmsRoutes(auth *gin.RouterGroup) {
-	smsRepo := repository.NewSmsRepository(db.GetDB())
+	smsRepo := repository.NewSmsRepository()
 	smsCtrl := controller.NewSmsController(service.NewSmsService(smsRepo))
 	smsCtrl.RegisterRoutes(auth)
 

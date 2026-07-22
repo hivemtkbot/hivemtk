@@ -71,7 +71,7 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 	var intentCount int64
 	s.db.Table("intent_records").
 		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Where("intent IN ?", []string{"buy", "purchase", "order", "interested"}).
+		Where("intent_type IN ?", []string{"buy", "purchase", "order", "interested"}).
 		Count(&intentCount)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "intent", Name: "意向", Count: intentCount})
 
@@ -85,8 +85,8 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 	// 阶段5：订单
 	var orderCount int64
 	s.db.Model(&sysmodel.Order{}).
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Where("status IN ?", []string{"paid", "completed", "shipped", "delivered"}).
+		Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
+		Where("status IN ?", []int64{100}).
 		Count(&orderCount)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "order", Name: "订单", Count: orderCount})
 
@@ -178,8 +178,8 @@ func (s *ConversionFunnelService) GetStageDetails(stage string, startTime, endTi
 		det.Name = "订单"
 		var count int64
 		s.db.Model(&sysmodel.Order{}).
-			Where("created_at BETWEEN ? AND ?", startTime, endTime).
-			Where("status IN ?", []string{"paid", "completed"}).
+			Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
+			Where("status IN ?", []int64{100}).
 			Count(&count)
 		det.Count = count
 		if det.Count > 0 {

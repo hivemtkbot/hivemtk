@@ -2,58 +2,455 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>marketing-chat-widget Demo (私域部署模式)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>marketing-chat-widget Demo · 多场景对比</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 40px;
-      background: #f5f5f5;
+    :root {
+      --primary: {primaryColor};
+      --primary-rgb: 25, 137, 250;
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #303133;
+      --muted: #909399;
+      --border: #ebeef5;
     }
-    h1 { color: #303133; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      margin: 0;
+      padding: 24px 16px 80px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
     .container {
-      max-width: 800px;
+      max-width: 880px;
       margin: 0 auto;
-      background: #fff;
-      padding: 32px;
+    }
+    h1 { font-size: 24px; margin: 0 0 8px; }
+    h2 {
+      font-size: 18px;
+      margin: 32px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 15px; margin: 16px 0 8px; }
+    .note { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .card {
+      background: var(--card);
+      padding: 20px 24px;
       border-radius: 8px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      margin-bottom: 16px;
+    }
+    .card.active {
+      border: 2px solid var(--primary);
+      box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.12);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .badge.alt { background: #67c23a; }
+    .badge.warn { background: #e6a23c; }
+    code, pre {
+      font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace;
     }
     code {
       background: #f5f5f5;
       padding: 2px 6px;
       border-radius: 3px;
-      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 13px;
+      color: #d6336c;
     }
     pre {
       background: #1e1e1e;
       color: #d4d4d4;
-      padding: 16px;
-      border-radius: 4px;
+      padding: 14px 16px;
+      border-radius: 6px;
       overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.55;
     }
-    .note { color: #909399; font-size: 13px; }
+    pre .tag { color: #569cd6; }
+    pre .attr { color: #9cdcfe; }
+    pre .str { color: #ce9178; }
+    pre .com { color: #6a9955; }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 6px 14px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.alt { background: #67c23a; }
+    .btn.danger { background: #f56c6c; }
+    .config-list {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 6px 16px;
+      font-size: 13px;
+    }
+    .config-list .k { color: var(--muted); }
+    .config-list .v { font-family: monospace; }
+    .placeholder-form {
+      background: #fffbe8;
+      border: 1px dashed #e6a23c;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .placeholder-form label {
+      display: inline-block;
+      margin-right: 12px;
+    }
+    .placeholder-form input {
+      width: 280px;
+      padding: 4px 8px;
+      border: 1px solid #dcdfe6;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    .placeholder-form .tip {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .event-log {
+      max-height: 140px;
+      overflow-y: auto;
+      background: #f5f5f5;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    .event-log .item { margin: 2px 0; }
+    .event-log .ts { color: var(--muted); }
+    @media (max-width: 480px) {
+      body { padding: 12px 8px 80px; }
+      .container { padding: 0; }
+      .card { padding: 14px 16px; }
+      h1 { font-size: 20px; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>marketing-chat-widget Demo</h1>
-    <p class="note">模拟"企业自有网站"，右下角浮标是嵌入的客服入口。私域部署模式：无需 AppKey。</p>
+    <h1>marketing-chat-widget Demo <span class="badge alt">多场景对比</span></h1>
+    <p class="note">本页面演示 6 种典型接入场景,所有 API 地址 / 渠道 ID 都用占位符(<code>{apiBaseUrl}</code> <code>{channelId}</code> 等),方便快速替换。默认指向 <code>{apiBaseUrl}</code>。</p>
 
-    <h2>嵌入方式（极简）</h2>
-    <p>只需一行 &lt;script&gt; 标签：</p>
-    <pre>&lt;script src="http://localhost:8204/embed/marketing-chat-widget.iife.js"&gt;&lt;/script&gt;</pre>
+    <!-- 占位符配置面板 -->
+    <div class="placeholder-form">
+      <strong>占位符:</strong>
+      <label>apiBaseUrl: <input id="cfg-apiBaseUrl" value="{apiBaseUrl}"></label>
+      <label>channelId: <input id="cfg-channelId" value="{channelId}"></label>
+      <label>primaryColor: <input id="cfg-primaryColor" value="{primaryColor}" style="width:90px"></label>
+      <div class="tip">修改后点击对应场景卡片下的"激活此场景"按钮即可热切换(将销毁当前 widget,重新加载新配置)。</div>
+    </div>
 
-    <h2>当前 Demo 配置</h2>
-    <ul>
-      <li>API Base URL: <code>http://localhost:8204</code></li>
-      <li>Channel ID: <code>default</code>（私域部署默认）</li>
-    </ul>
+    <!-- 场景 1: 基础接入 -->
+    <div class="card active" id="card-1">
+      <h2>1. 基础接入 <span class="badge">最简</span></h2>
+      <p>一行 &lt;script&gt; 即可嵌入。AppKey/Channel 都省略,后端使用默认 channel(私域部署模式)。</p>
+      <pre><span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"{apiBaseUrl}/embed/marketing-chat-widget.iife.js"</span><span class="tag">&gt;&lt;/script&gt;</span></pre>
+      <h3>当前场景配置</h3>
+      <div class="config-list">
+        <span class="k">apiBaseURL</span><span class="v">{apiBaseUrl}</span>
+        <span class="k">channelRef</span><span class="v">default(自动)</span>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="activateScenario(1)">激活此场景</button>
+      </div>
+    </div>
 
-    <p>点击右下角浮标即可与 AI 客服对话。</p>
+    <!-- 场景 2: 多渠道 -->
+    <div class="card" id="card-2">
+      <h2>2. 多渠道 <span class="badge alt">data-*</span></h2>
+      <p>每个企业 / 网站用不同的 AppKey,自动路由到不同客服组。</p>
+      <pre><span class="tag">&lt;script</span>
+  <span class="attr">src</span>=<span class="str">"{apiBaseUrl}/embed/marketing-chat-widget.iife.js"</span>
+  <span class="attr">data-app-key</span>=<span class="str">"{channelId}"</span>
+  <span class="attr">data-color</span>=<span class="str">"{primaryColor}"</span>
+  <span class="attr">data-welcome</span>=<span class="str">"您好,这里是{channelId}专属客服"</span>
+  <span class="attr">data-lang</span>=<span class="str">"zh-CN"</span>
+<span class="tag">&gt;&lt;/script&gt;</span></pre>
+      <h3>当前场景配置</h3>
+      <div class="config-list">
+        <span class="k">appKey</span><span class="v">{channelId}</span>
+        <span class="k">color</span><span class="v">{primaryColor}</span>
+        <span class="k">welcome</span><span class="v">您好,这里是{channelId}专属客服</span>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="activateScenario(2)">激活此场景</button>
+      </div>
+    </div>
+
+    <!-- 场景 3: 跨域部署 -->
+    <div class="card" id="card-3">
+      <h2>3. 跨域部署 <span class="badge warn">跨域</span></h2>
+      <p>企业官网与 user-server 不同域,需要显式指定 <code>data-api-base-url</code>。</p>
+      <pre><span class="com">&lt;!-- 父页:https://www.example.com --&gt;</span>
+<span class="com">&lt;!-- 后端:https://chat.example.com --&gt;</span>
+<span class="tag">&lt;script</span>
+  <span class="attr">src</span>=<span class="str">"https://www.example.com/embed/marketing-chat-widget.iife.js"</span>
+  <span class="attr">data-api-base-url</span>=<span class="str">"https://chat.example.com"</span>
+  <span class="attr">data-app-key</span>=<span class="str">"{channelId}"</span>
+<span class="tag">&gt;&lt;/script&gt;</span></pre>
+      <h3>跨域关键参数</h3>
+      <ul>
+        <li><code>data-api-base-url</code> = 真实后端 origin(必填,跨域场景)</li>
+        <li>父端自动从 apiBaseURL + window.location.origin 推导 allowedOrigins 白名单</li>
+        <li>iframe 端用具体 origin 发送 postMessage,不用 <code>'*'</code></li>
+      </ul>
+      <div class="controls">
+        <button class="btn" onclick="activateScenario(3)">激活此场景</button>
+      </div>
+    </div>
+
+    <!-- 场景 4: CDN 部署 -->
+    <div class="card" id="card-4">
+      <h2>4. CDN 部署 <span class="badge warn">CDN</span></h2>
+      <p>JS 静态资源走 CDN,API/WebSocket 走 user-server 域名(同跨域场景,但用 CDN 加速)。</p>
+      <pre><span class="tag">&lt;script</span>
+  <span class="attr">src</span>=<span class="str">"https://cdn.example.com/embed/marketing-chat-widget.iife.js"</span>
+  <span class="attr">data-api-base-url</span>=<span class="str">"https://chat.example.com"</span>
+  <span class="attr">data-color</span>=<span class="str">"{primaryColor}"</span>
+<span class="tag">&gt;&lt;/script&gt;</span></pre>
+      <h3>构建产物</h3>
+      <pre><span class="com"># embed-sdk/</span>
+npm run build
+<span class="com"># 产物在 dist/marketing-chat-widget.iife.js + dist/marketing-chat-widget.esm.js</span>
+<span class="com"># 上传到 CDN: aws s3 sync dist/ s3://cdn.example.com/embed/</span></pre>
+      <div class="controls">
+        <button class="btn" onclick="activateScenario(4)">激活此场景</button>
+      </div>
+    </div>
+
+    <!-- 场景 5: 编程式控制 -->
+    <div class="card" id="card-5">
+      <h2>5. 编程式控制 <span class="badge">API</span></h2>
+      <p>通过 <code>window.mcwInstance</code> 主动控制 widget 开关,适合自定义按钮触发场景。</p>
+      <pre><span class="com">// 打开聊天窗</span>
+window.mcwInstance.open()
+
+<span class="com">// 关闭聊天窗</span>
+window.mcwInstance.close()
+
+<span class="com">// 完全销毁</span>
+window.mcwInstance.destroy()
+
+<span class="com">// 监听事件(可选)</span>
+window.MarketingChatWidgetConfig = {
+  apiBaseURL: '<span class="str">{apiBaseUrl}</span>',
+  color: '<span class="str">{primaryColor}</span>',
+  events: {
+    onReady: (info) =&gt; console.log('widget ready', info),
+    onOpen: () =&gt; console.log('chat opened'),
+    onClose: () =&gt; console.log('chat closed'),
+    onUnread: ({ count }) =&gt; console.log('unread =', count),
+    onMessage: ({ type, payload }) =&gt; console.log('message', type, payload)
+  }
+}</pre>
+      <div class="controls">
+        <button class="btn" onclick="mcwOpen()">open()</button>
+        <button class="btn alt" onclick="mcwClose()">close()</button>
+        <button class="btn danger" onclick="mcwDestroy()">destroy()</button>
+      </div>
+      <h3>事件日志</h3>
+      <div id="event-log" class="event-log">
+        <div class="item"><span class="ts">[--:--:--]</span> 等待 widget 事件...</div>
+      </div>
+    </div>
+
+    <!-- 场景 6: 全局变量配置 -->
+    <div class="card" id="card-6">
+      <h2>6. 全局变量配置 <span class="badge alt">JS</span></h2>
+      <p>在引入 SDK 之前定义 <code>window.MarketingChatWidgetConfig</code>,适合无法修改 HTML(data-* 不便)的场景。</p>
+      <pre><span class="tag">&lt;script&gt;</span>
+  window.MarketingChatWidgetConfig = {
+    apiBaseURL: '<span class="str">{apiBaseUrl}</span>',
+    appKey: '<span class="str">{channelId}</span>',
+    color: '<span class="str">{primaryColor}</span>',
+    position: 'bottom-left',
+    welcome: 'Hi, how can I help you?',
+    lang: 'en-US',
+    width: 400,
+    height: 600,
+    events: {
+      onReady: function(info) { console.log('ready', info) }
+    }
+  }
+<span class="tag">&lt;/script&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"{apiBaseUrl}/embed/marketing-chat-widget.iife.js"</span><span class="tag">&gt;&lt;/script&gt;</span></pre>
+      <div class="note">优先级:<code>data-*</code> 属性 &gt; <code>window.MarketingChatWidgetConfig</code> &gt; query 参数 &gt; 内置默认值</div>
+      <div class="controls">
+        <button class="btn" onclick="activateScenario(6)">激活此场景</button>
+      </div>
+    </div>
+
+    <!-- 文档指引 -->
+    <div class="card">
+      <h2>📚 完整文档</h2>
+      <ul>
+        <li>嵌入式 Chat Widget 集成指南:<code>docs/operations/CHAT_WIDGET_EMBED.md</code></li>
+        <li>FRP 私域部署指南:<code>docs/architecture/FRP私域部署指南.md</code></li>
+        <li>ADR-011 决策记录:<code>docs/architecture/adr/ADR-011-chat-widget-embed.md</code></li>
+      </ul>
+    </div>
   </div>
 
-  <script src="http://localhost:8204/embed/marketing-chat-widget.iife.js"
-    data-api-base-url="http://localhost:8204"></script>
+  <!-- 默认加载:场景 1(基础接入) -->
+  <script>
+    // 占位符替换(用于 demo 内的代码块显示,不影响真实 SDK 行为)
+    ;(function () {
+      var isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      var replacements = {
+        '{apiBaseUrl}': isLocal
+          ? (location.protocol + '//' + location.hostname + ':8204')
+          : location.origin,
+        '{channelId}': 'default',
+        '{primaryColor}': '#1989fa'
+      }
+      // 1) 替换 input value
+      var apiInput = document.getElementById('cfg-apiBaseUrl')
+      var chInput = document.getElementById('cfg-channelId')
+      var colorInput = document.getElementById('cfg-primaryColor')
+      if (apiInput) apiInput.value = replacements['{apiBaseUrl}']
+      if (chInput) chInput.value = replacements['{channelId}']
+      if (colorInput) colorInput.value = replacements['{primaryColor}']
+      // 2) 替换页面内所有文本节点中的占位符
+      function walk(node) {
+        if (!node) return
+        if (node.nodeType === 3) { // TEXT_NODE
+          var text = node.nodeValue
+          var changed = false
+          Object.keys(replacements).forEach(function (k) {
+            if (text.indexOf(k) !== -1) {
+              text = text.split(k).join(replacements[k])
+              changed = true
+            }
+          })
+          if (changed) node.nodeValue = text
+          return
+        }
+        if (node.nodeType !== 1) return
+        // 跳过 input/textarea/select 自身的 value 替换(在 1) 已做)
+        if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SCRIPT') return
+        var children = node.childNodes
+        for (var i = 0; i < children.length; i++) walk(children[i])
+      }
+      walk(document.body)
+    })()
+  </script>
+
+  <!-- 基础场景脚本(默认加载) -->
+  <script>
+    // 场景配置存储
+    window.__scenarios = {
+      1: { apiBaseUrl: 'SAME', channelId: '', color: '#1989fa', position: 'bottom-right' },
+      2: { apiBaseUrl: 'SAME', channelId: 'demo-channel-1', color: '#1989fa', welcome: '您好,这里是 demo-channel-1 专属客服' },
+      3: { apiBaseUrl: 'SAME', channelId: 'cross-domain-demo', color: '#1989fa' },
+      4: { apiBaseUrl: 'SAME', channelId: 'cdn-demo', color: '#1989fa' },
+      5: { apiBaseUrl: 'SAME', channelId: '', color: '#1989fa' },
+      6: { apiBaseUrl: 'SAME', channelId: 'global-cfg-demo', color: '#1989fa', position: 'bottom-left' }
+    }
+  </script>
+
+  <!-- SDK 加载(场景 1) -->
+  <script id="mcw-loader" src="./dist/marketing-chat-widget.iife.js"></script>
+
+  <script>
+    // 编程式控制
+    function mcwOpen() {
+      if (window.mcwInstance) window.mcwInstance.open()
+    }
+    function mcwClose() {
+      if (window.mcwInstance) window.mcwInstance.close()
+    }
+    function mcwDestroy() {
+      if (window.mcwInstance) {
+        window.mcwInstance.destroy()
+        window.mcwInstance = null
+      }
+    }
+    // 事件日志
+    function logEvent(type, payload) {
+      var box = document.getElementById('event-log')
+      if (!box) return
+      var d = new Date()
+      var ts = [d.getHours(), d.getMinutes(), d.getSeconds()].map(function (n) { return n < 10 ? '0' + n : n }).join(':')
+      var line = document.createElement('div')
+      line.className = 'item'
+      line.innerHTML = '<span class="ts">[' + ts + ']</span> ' + type + (payload ? ' ' + JSON.stringify(payload) : '')
+      box.appendChild(line)
+      box.scrollTop = box.scrollHeight
+    }
+    window.addEventListener('load', function () {
+      if (window.MarketingChatWidgetConfig === undefined) {
+        window.MarketingChatWidgetConfig = {
+          events: {
+            onReady: function (info) { logEvent('onReady', info) },
+            onOpen: function () { logEvent('onOpen') },
+            onClose: function () { logEvent('onClose') },
+            onUnread: function (p) { logEvent('onUnread', p) },
+            onMessage: function (p) { logEvent('onMessage', p) }
+          }
+        }
+      }
+    })
+    // 激活场景:销毁旧 widget,重新加载新 script
+    function activateScenario(id) {
+      var cfg = window.__scenarios[id]
+      if (!cfg) return
+      // 销毁
+      mcwDestroy()
+      // 标记当前场景
+      document.querySelectorAll('.card').forEach(function (c) { c.classList.remove('active') })
+      var card = document.getElementById('card-' + id)
+      if (card) card.classList.add('active')
+      // 移除旧 script
+      var old = document.getElementById('mcw-loader')
+      if (old) old.remove()
+      // 应用配置到全局变量
+      window.MarketingChatWidgetConfig = {
+        apiBaseURL: cfg.apiBaseUrl === 'SAME' ? location.origin : cfg.apiBaseUrl,
+        appKey: cfg.channelId,
+        color: cfg.color,
+        position: cfg.position,
+        welcome: cfg.welcome,
+        events: {
+          onReady: function (info) { logEvent('onReady', info) },
+          onOpen: function () { logEvent('onOpen') },
+          onClose: function () { logEvent('onClose') },
+          onUnread: function (p) { logEvent('onUnread', p) },
+          onMessage: function (p) { logEvent('onMessage', p) }
+        }
+      }
+      // 重新加载 SDK
+      var s = document.createElement('script')
+      s.id = 'mcw-loader'
+      s.src = './dist/marketing-chat-widget.iife.js'
+      document.body.appendChild(s)
+      logEvent('scenario.activate', { id: id, cfg: cfg })
+    }
+  </script>
 </body>
 </html>

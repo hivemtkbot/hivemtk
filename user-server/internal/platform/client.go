@@ -422,6 +422,48 @@ func ReportInstallDefault(req *ReportInstallReq) error {
 	return NewClient("").ReportInstall(req)
 }
 
+// ReportHeartbeatReq 心跳上报请求（开源版：每 3 分钟上报一次，仅统计用）
+type ReportHeartbeatReq struct {
+	InstallID         string          `json:"install_id"`
+	Version           string          `json:"version"`
+	HostInfo          json.RawMessage `json:"host_info"`           // 主机信息（JSON）
+	Metrics           json.RawMessage `json:"metrics"`             // 运行指标（JSON）
+	DeviceFingerprint string          `json:"device_fingerprint"` // 设备指纹（用户端生成，稳定标识部署实例）
+	ClientIP          string          `json:"client_ip"`          // 兜底 IP，平台侧以服务端采集为准
+	Timestamp         time.Time       `json:"timestamp"`
+}
+
+// ReportHeartbeat 上报心跳到平台（公开统计接口，不要求签名/JWT）
+func (c *Client) ReportHeartbeat(req *ReportHeartbeatReq) error {
+	if config.PlatformCfg == nil {
+		return fmt.Errorf("平台配置未初始化")
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("序列化心跳数据失败: %w", err)
+	}
+	url := strings.TrimRight(config.PlatformCfg.APIURL, "/") + "/api/platform/heartbeat"
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("上报心跳失败: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("上报心跳返回 %d: %s", resp.StatusCode, string(raw))
+	}
+	logger.Info("上报心跳成功")
+	return nil
+}
+
+// ReportHeartbeatDefault 使用全局配置创建客户端并上报心跳
+// 心跳上报为公开统计接口，不要求商户签名，故使用空 merchantKey。
+func ReportHeartbeatDefault(req *ReportHeartbeatReq) error {
+	return NewClient("").ReportHeartbeat(req)
+}
+
 // CheckUpdate 检查更新
 func (c *Client) CheckUpdate(currentVersion, clientType string) (*CheckUpdateResp, error) {
 	logger.Info(fmt.Sprintf("开始检查更新，当前版本: %s, 客户端类型: %s", currentVersion, clientType))

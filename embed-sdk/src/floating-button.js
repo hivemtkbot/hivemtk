@@ -1,6 +1,23 @@
 /**
- * 浮标按钮
- * 负责渲染右下角悬浮按钮、点击展开聊天窗
+ * @file 浮标按钮
+ * @description 负责渲染右下角悬浮按钮、点击展开聊天窗
+ */
+
+/**
+ * 浮标位置
+ * @typedef {'bottom-right' | 'bottom-left'} McwPosition
+ */
+
+/**
+ * 浮标按钮构造选项
+ * @typedef {Object} FloatingButtonOptions
+ * @property {string}      [color='#1989fa']  浮标主色(hex)
+ * @property {McwPosition} [position='bottom-right']  浮标位置
+ * @property {number}      [zIndex=9999]     浮标层级
+ * @property {number}      [offsetX=24]      水平边距(px)
+ * @property {number}      [offsetY=24]      垂直边距(px)
+ * @property {Function}    [onClick]         点击回调,参数:(opened:boolean)
+ * @property {number}      [unread=0]        初始未读数
  */
 
 const ICON_SVG = `
@@ -16,6 +33,9 @@ const CLOSE_SVG = `
 `
 
 export class FloatingButton {
+  /**
+   * @param {FloatingButtonOptions} options
+   */
   constructor(options) {
     this.color = options.color || '#1989fa'
     this.position = options.position || 'bottom-right'
@@ -27,6 +47,10 @@ export class FloatingButton {
     this.button = null
   }
 
+  /**
+   * 挂载浮标到 DOM
+   * @returns {void}
+   */
   mount() {
     if (this.button) return
     const btn = document.createElement('div')
@@ -44,6 +68,10 @@ export class FloatingButton {
     this.button = btn
   }
 
+  /**
+   * 卸载浮标
+   * @returns {void}
+   */
   unmount() {
     if (this.button) {
       this.button.remove()
@@ -51,6 +79,11 @@ export class FloatingButton {
     }
   }
 
+  /**
+   * 同步浮标开关状态(切换图标 + 清零未读)
+   * @param {boolean} opened
+   * @returns {void}
+   */
   setOpen(opened) {
     if (!this.button) return
     const icon = this.button.querySelector('.mcw-fab-icon')
@@ -64,6 +97,11 @@ export class FloatingButton {
     }
   }
 
+  /**
+   * 设置未读数(驱动红点)
+   * @param {number} count
+   * @returns {void}
+   */
   setUnread(count) {
     this.unread = count || 0
     const badge = this.button && this.button.querySelector('.mcw-fab-badge')
@@ -73,6 +111,11 @@ export class FloatingButton {
     }
   }
 
+  /**
+   * 计算浮标内联样式
+   * @returns {string}
+   * @private
+   */
   getStyle() {
     const isLeft = this.position === 'bottom-left'
     return [

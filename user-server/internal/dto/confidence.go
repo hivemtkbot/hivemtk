@@ -7,7 +7,11 @@ package dto
 //
 // 私域独立部署: 无 merchant_id 字段
 
-import "time"
+import (
+	"time"
+
+	"marketing/internal/model"
+)
 
 // FiveSignals 5 维置信度信号值
 //
@@ -90,4 +94,39 @@ type ABTestAnalysis struct {
 	BootstrapCILower float64 `json:"bootstrap_ci_lower"`
 	BootstrapCIUpper float64 `json:"bootstrap_ci_upper"`
 	Significant      bool    `json:"significant"`
+}
+
+// ThresholdPolicyRequest 阈值策略 Upsert 请求 DTO
+type ThresholdPolicyRequest struct {
+	PolicyID                string  `json:"policy_id" binding:"required,min=1,max=64"`
+	IntentType              string  `json:"intent_type" binding:"required,min=1,max=64"`
+	BaseThreshold           float64 `json:"base_threshold" binding:"required,min=0,max=1"`
+	CustomerLevelWeight     float64 `json:"customer_level_weight" binding:"min=0,max=1"`
+	TimeslotWeight          float64 `json:"timeslot_weight" binding:"min=0,max=1"`
+	AgentAvailabilityWeight float64 `json:"agent_availability_weight" binding:"min=0,max=1"`
+	BandHandoffUpper        float64 `json:"band_handoff_upper" binding:"min=0,max=1"`
+	BandFallbackUpper       float64 `json:"band_fallback_upper" binding:"min=0,max=1"`
+	BandReviewUpper         float64 `json:"band_review_upper" binding:"min=0,max=1"`
+	ReviewSLASeconds        int     `json:"review_sla_seconds" binding:"min=1"`
+	Version                 int     `json:"version" binding:"min=1"`
+}
+
+// ToModel 转 Model(供 Service/Repository 使用)
+func (r *ThresholdPolicyRequest) ToModel() *model.ThresholdPolicy {
+	now := time.Now()
+	return &model.ThresholdPolicy{
+		PolicyID:                r.PolicyID,
+		IntentType:              r.IntentType,
+		BaseThreshold:           r.BaseThreshold,
+		CustomerLevelWeight:     r.CustomerLevelWeight,
+		TimeslotWeight:          r.TimeslotWeight,
+		AgentAvailabilityWeight: r.AgentAvailabilityWeight,
+		BandHandoffUpper:        r.BandHandoffUpper,
+		BandFallbackUpper:       r.BandFallbackUpper,
+		BandReviewUpper:         r.BandReviewUpper,
+		ReviewSLASeconds:        r.ReviewSLASeconds,
+		Version:                 r.Version,
+		CreatedAt:               now,
+		UpdatedAt:               now,
+	}
 }

@@ -102,8 +102,11 @@ type LLMService struct {
 // NewLLMService 创建新的LLM服务
 func NewLLMService() *LLMService {
 	return &LLMService{
+		// 2026-07-22：私域部署在 Mac M1 / CPU 上跑 1.5B Q4 GGUF，
+		// prompt eval + 生成需要 60-120s。把单次 HTTP 超时从 60s 提升到 180s，
+		// 否则会被 http.Client 提前 cancel，导致 agentLoopTotalTimeout 兜底降级生效。
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: 180 * time.Second,
 		},
 	}
 }

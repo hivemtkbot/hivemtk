@@ -10,7 +10,7 @@ const API_BASE = 'http://localhost:8204'
 async function getAdminToken() {
   const ctx = await request.newContext({ baseURL: API_BASE })
   const resp = await ctx.post('/api/auth/login', {
-    data: { username: 'admin', password: 'Admin@123456' }
+    data: { username: 'admin', password: 'Admin@12345678' }
   })
   const body = await resp.json()
   return body.data?.token

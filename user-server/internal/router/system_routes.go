@@ -118,14 +118,22 @@ func setupBackupRoutes(auth *gin.RouterGroup) {
 	auth.GET("/restore/last", restoreCtrl.GetLastRestore)
 }
 
-// setupUpgradeRoutes 版本升级管理路由
+// setupMigrationRoutes 数据库迁移管理路由
+// 路径由原 /upgrade/* 改为 /migration/*（M3 重命名以避免与"OTA 升级"概念混淆）。
+// controller 结构体已重命名为 MigrationController（兼容别名 NewUpgradeController）。
+func setupMigrationRoutes(auth *gin.RouterGroup) {
+	migrationCtrl := controller.NewMigrationController()
+	auth.GET("/migration/task/:id", migrationCtrl.GetUpgradeTask)
+	auth.GET("/migration/history", migrationCtrl.GetUpgradeHistory)
+	auth.GET("/migration/records", migrationCtrl.GetMigrationRecords)
+	auth.GET("/migration/current-version", migrationCtrl.GetCurrentVersion)
+	auth.POST("/migration/task", migrationCtrl.CreateUpgradeTask)
+	auth.POST("/migration/rollback", migrationCtrl.Rollback)
+	auth.GET("/migration/available", migrationCtrl.GetAvailableUpgrades)
+}
+
+// setupUpgradeRoutes 旧版路由（保留以避免破坏性变更，内部委托给 migration 路由）
+// Deprecated: 请迁移到 setupMigrationRoutes
 func setupUpgradeRoutes(auth *gin.RouterGroup) {
-	upgradeCtrl := controller.NewUpgradeController()
-	auth.GET("/upgrade/task/:id", upgradeCtrl.GetUpgradeTask)
-	auth.GET("/upgrade/history", upgradeCtrl.GetUpgradeHistory)
-	auth.GET("/upgrade/migration-records", upgradeCtrl.GetMigrationRecords)
-	auth.GET("/upgrade/current-version", upgradeCtrl.GetCurrentVersion)
-	auth.POST("/upgrade/task", upgradeCtrl.CreateUpgradeTask)
-	auth.POST("/upgrade/rollback", upgradeCtrl.Rollback)
-	auth.GET("/upgrade/available", upgradeCtrl.GetAvailableUpgrades)
+	setupMigrationRoutes(auth)
 }

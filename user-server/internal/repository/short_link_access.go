@@ -76,11 +76,11 @@ func (r *shortLinkAccessRepository) GetStatsByShortLinkID(shortLinkID uint, star
 	query := r.db.Model(&model.ShortLinkAccess{}).Where("short_link_id = ?", shortLinkID)
 
 	if !startDate.IsZero() {
-		query = query.Where("access_time >= ?", startDate)
+		query = query.Where("DATE(access_time) >= ?", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("access_time <= ?", endDate)
+		query = query.Where("DATE(access_time) <= ?", endDate.Format("2006-01-02"))
 	}
 
 	err := query.Count(&stats.TotalCount).Error
@@ -94,7 +94,7 @@ func (r *shortLinkAccessRepository) GetStatsByShortLinkID(shortLinkID uint, star
 
 	var todayCount int64
 	err = r.db.Model(&model.ShortLinkAccess{}).
-		Where("short_link_id = ? AND access_time >= ?", shortLinkID, todayStart).
+		Where("short_link_id = ? AND DATE(access_time) >= ?", shortLinkID, todayStart.Format("2006-01-02")).
 		Count(&todayCount).Error
 	if err != nil {
 		return nil, err
@@ -113,11 +113,11 @@ func (r *shortLinkAccessRepository) GetDailyStatsByShortLinkID(shortLinkID uint,
 		Where("short_link_id = ?", shortLinkID)
 
 	if !startDate.IsZero() {
-		query = query.Where("access_time >= ?", startDate)
+		query = query.Where("DATE(access_time) >= ?", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("access_time <= ?", endDate)
+		query = query.Where("DATE(access_time) <= ?", endDate.Format("2006-01-02"))
 	}
 
 	var results []map[string]any
@@ -132,11 +132,11 @@ func (r *shortLinkAccessRepository) GetDeviceTypeStatsByShortLinkID(shortLinkID 
 		Where("short_link_id = ?", shortLinkID)
 
 	if !startDate.IsZero() {
-		query = query.Where("access_time >= ?", startDate)
+		query = query.Where("DATE(access_time) >= ?", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("access_time <= ?", endDate)
+		query = query.Where("DATE(access_time) <= ?", endDate.Format("2006-01-02"))
 	}
 
 	var results []map[string]any
@@ -150,11 +150,11 @@ func (r *shortLinkAccessRepository) GetAllDailyStats(startDate, endDate time.Tim
 		Select("DATE(access_time) as date, COUNT(*) as count")
 
 	if !startDate.IsZero() {
-		query = query.Where("access_time >= ?", startDate)
+		query = query.Where("DATE(access_time) >= ?", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("access_time <= ?", endDate)
+		query = query.Where("DATE(access_time) <= ?", endDate.Format("2006-01-02"))
 	}
 
 	var results []map[string]any
@@ -168,11 +168,11 @@ func (r *shortLinkAccessRepository) GetAllDeviceTypeStats(startDate, endDate tim
 		Select("device_type, COUNT(*) as count")
 
 	if !startDate.IsZero() {
-		query = query.Where("access_time >= ?", startDate)
+		query = query.Where("DATE(access_time) >= ?", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("access_time <= ?", endDate)
+		query = query.Where("DATE(access_time) <= ?", endDate.Format("2006-01-02"))
 	}
 
 	var results []map[string]any
@@ -183,18 +183,18 @@ func (r *shortLinkAccessRepository) GetAllDeviceTypeStats(startDate, endDate tim
 // GetAllShortLinksBasicStats 获取所有短链的基本统计
 func (r *shortLinkAccessRepository) GetAllShortLinksBasicStats(startDate, endDate time.Time) ([]map[string]any, error) {
 	query := r.db.Table("short_links sl").
-		Select("sl.id, sl.short_code, sl.title, COUNT(sla.id) as access_count").
+		Select("sl.id, sl.short_code, sl.original_url AS title, COUNT(sla.id) as access_count").
 		Joins("LEFT JOIN short_link_accesses sla ON sl.id = sla.short_link_id")
 
 	if !startDate.IsZero() {
-		query = query.Where("sla.access_time >= ? OR sla.access_time IS NULL", startDate)
+		query = query.Where("DATE(sla.access_time) >= ? OR sla.access_time IS NULL", startDate.Format("2006-01-02"))
 	}
 
 	if !endDate.IsZero() {
-		query = query.Where("sla.access_time <= ? OR sla.access_time IS NULL", endDate)
+		query = query.Where("DATE(sla.access_time) <= ? OR sla.access_time IS NULL", endDate.Format("2006-01-02"))
 	}
 
 	var results []map[string]any
-	err := query.Group("sl.id, sl.short_code, sl.title").Order("access_count DESC").Scan(&results).Error
+	err := query.Group("sl.id, sl.short_code, sl.original_url").Order("access_count DESC").Scan(&results).Error
 	return results, err
 }

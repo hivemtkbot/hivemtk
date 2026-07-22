@@ -271,7 +271,7 @@ func TestAuthController_ChangePassword_Success(t *testing.T) {
 
 	changeReq := service.ChangePasswordRequest{
 		OldPassword: "oldpassword123",
-		NewPassword: "newpassword123",
+		NewPassword: "Hv7mKp2LnQ",
 	}
 	body, _ := json.Marshal(changeReq)
 

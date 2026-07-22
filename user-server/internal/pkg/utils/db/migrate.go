@@ -58,7 +58,7 @@ func allModels() []any {
 		&model.LiveCodeQR{},
 		&model.LiveCodeQRStat{},
 		// 平台端模型
-		&model.License{},
+		// 开源版：已移除 &model.License{}（License 模型删除，授权流程下线）
 		&model.ObsConfig{},
 		// 素材库模型
 		&contentmodel.Material{},
@@ -250,7 +250,7 @@ func allModels() []any {
 		&model.ConversionFunnel{},
 		&model.SalesPersona{},
 		// P2/P3 扩展模型
-		&model.OTAVersion{},
+		// 开源版：已移除 &model.OTAVersion{}（OTA 流程下线）
 		&opsmodel.PerformanceTestResult{},
 		&model.SecurityAuditResult{},
 		// RAG V2.0 增强模型

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +12,15 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/bcrypt"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
-
-	"gorm.io/gorm"
+	"marketing/internal/repository"
 )
 
-// PasswordPolicy 密码策略
+// password_policy.go 密码策略服务
+//
+// 五层架构归属：L4 业务层
+// - 数据访问完全委托给 repository（PasswordHistoryRepository / SystemConfigKVRepository / SystemUserRepository）
+// - 不再 import db 包，符合五层架构规范
 //
 // 默认策略（私域独立部署）：
 //   - min_length: 8
@@ -79,16 +82,27 @@ var (
 	policyCacheMutex sync.RWMutex
 )
 
+// PolicyKVKey 密码策略在 system_config_kv 表中存储的 key
+const PolicyKVKey = "password_policy"
+
 // PasswordPolicyService 密码策略服务
-type PasswordPolicyService struct{}
+type PasswordPolicyService struct {
+	kvRepo         repository.SystemConfigKVRepository
+	historyRepo    repository.PasswordHistoryRepository
+	systemUserRepo repository.SystemUserRepository
+}
 
 // NewPasswordPolicyService 创建密码策略服务
 func NewPasswordPolicyService() *PasswordPolicyService {
-	return &PasswordPolicyService{}
+	return &PasswordPolicyService{
+		kvRepo:         repository.NewSystemConfigKVRepository(),
+		historyRepo:    repository.NewPasswordHistoryRepository(),
+		systemUserRepo: repository.NewSystemUserRepository(),
+	}
 }
 
 // GetPolicy 获取当前密码策略
-// 优先级：system_config.password_policy > DefaultPasswordPolicy
+// 优先级：system_config_kv.password_policy > DefaultPasswordPolicy
 // 结果会缓存到进程内存（修改策略后调用 InvalidatePolicyCache 失效）
 func (s *PasswordPolicyService) GetPolicy() *PasswordPolicy {
 	policyCacheMutex.RLock()
@@ -113,27 +127,18 @@ func (s *PasswordPolicyService) GetPolicy() *PasswordPolicy {
 	return policy
 }
 
-// loadPolicyFromDB 从 system_config 表加载密码策略
+// loadPolicyFromDB 从 system_config_kv 表加载密码策略
 // 失败时返回默认策略
 func (s *PasswordPolicyService) loadPolicyFromDB() *PasswordPolicy {
 	defaultPolicy := DefaultPasswordPolicy
+	ctx := context.Background()
 
-	database := db.GetDB()
-	if database == nil {
+	jsonStr, err := s.kvRepo.Get(ctx, PolicyKVKey)
+	if err != nil {
+		// 仓储调用失败（非 NotFound），记日志后回退默认策略
+		logger.Errorf("查询密码策略失败: %v", err)
 		return &defaultPolicy
 	}
-
-	// system_config 表中存储 key=password_policy，value=JSON
-	// 注意：SystemConfig 模型没有 key/value 字段（只有站点名等）
-	// 这里使用 raw SQL 查询，避免依赖特定 model 结构
-	var jsonStr string
-	// 尝试查询（表可能不存在或没有此 key）
-	row := database.Raw(`SELECT value FROM system_config_kv WHERE key = 'password_policy' LIMIT 1`).Row()
-	if err := row.Scan(&jsonStr); err != nil {
-		// 表不存在或无此 key → 使用默认策略
-		return &defaultPolicy
-	}
-
 	if jsonStr == "" {
 		return &defaultPolicy
 	}
@@ -169,7 +174,7 @@ func (s *PasswordPolicyService) InvalidatePolicyCache() {
 	policyCache = nil
 }
 
-// SavePolicy 保存密码策略到 system_config 表
+// SavePolicy 保存密码策略到 system_config_kv 表
 func (s *PasswordPolicyService) SavePolicy(policy *PasswordPolicy) error {
 	if policy == nil {
 		return errors.New("策略不能为空")
@@ -184,42 +189,14 @@ func (s *PasswordPolicyService) SavePolicy(policy *PasswordPolicy) error {
 	policyCache = &cache
 	policyCacheMutex.Unlock()
 
-	database := db.GetDB()
-	if database == nil {
-		// db 未初始化时仅更新内存缓存，不阻塞业务
-		return nil
-	}
-
 	jsonBytes, err := json.Marshal(policy)
 	if err != nil {
 		return fmt.Errorf("策略序列化失败: %w", err)
 	}
 	jsonStr := string(jsonBytes)
 
-	// UPSERT
-	_, err = database.Raw(`
-		INSERT INTO system_config_kv (key, value, updated_at)
-		VALUES ('password_policy', ?, NOW())
-		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-	`, jsonStr).Rows()
-	if err != nil {
-		// 表可能不存在，尝试创建
-		if err := database.Exec(`CREATE TABLE IF NOT EXISTS system_config_kv (
-			key VARCHAR(100) PRIMARY KEY,
-			value TEXT NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`).Error; err != nil {
-			return fmt.Errorf("创建 system_config_kv 表失败: %w", err)
-		}
-		// 重试插入
-		if err := database.Exec(`
-			INSERT INTO system_config_kv (key, value)
-			VALUES ('password_policy', ?)
-			ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-		`, jsonStr).Error; err != nil {
-			return fmt.Errorf("写入策略失败: %w", err)
-		}
+	if _, err := s.kvRepo.Upsert(context.Background(), PolicyKVKey, jsonStr); err != nil {
+		return fmt.Errorf("写入策略失败: %w", err)
 	}
 
 	s.InvalidatePolicyCache()
@@ -331,16 +308,8 @@ func (s *PasswordPolicyService) validateWithPolicy(password string, userID uint,
 
 // checkPasswordHistory 检查密码是否与最近 N 个历史密码重复
 func (s *PasswordPolicyService) checkPasswordHistory(userID uint, password string, reuseCount int) error {
-	database := db.GetDB()
-	if database == nil {
-		return nil // db 未初始化，跳过检查
-	}
-
-	var histories []model.PasswordHistory
-	if err := database.Where("user_id = ?", userID).
-		Order("changed_at DESC").
-		Limit(reuseCount).
-		Find(&histories).Error; err != nil {
+	histories, err := s.historyRepo.ListRecent(context.Background(), userID, reuseCount)
+	if err != nil {
 		logger.Errorf("查询密码历史失败: %v", err)
 		return nil // 查询失败不阻塞
 	}
@@ -356,11 +325,6 @@ func (s *PasswordPolicyService) checkPasswordHistory(userID uint, password strin
 // RecordPasswordHistory 记录密码历史
 // 在密码变更成功后调用
 func (s *PasswordPolicyService) RecordPasswordHistory(userID uint, newPassword string, source string) error {
-	database := db.GetDB()
-	if database == nil {
-		return errors.New("db 未初始化")
-	}
-
 	hashed, err := bcrypt.HashPassword(newPassword)
 	if err != nil {
 		return fmt.Errorf("密码哈希失败: %w", err)
@@ -376,7 +340,7 @@ func (s *PasswordPolicyService) RecordPasswordHistory(userID uint, newPassword s
 		history.Source = model.PasswordSourceChangePassword
 	}
 
-	if err := database.Create(history).Error; err != nil {
+	if err := s.historyRepo.Create(context.Background(), history); err != nil {
 		return fmt.Errorf("写入密码历史失败: %w", err)
 	}
 	return nil
@@ -393,27 +357,22 @@ func (s *PasswordPolicyService) IsPasswordExpired(userID uint) (bool, error) {
 		return false, nil
 	}
 
-	database := db.GetDB()
-	if database == nil {
-		return false, errors.New("db 未初始化")
-	}
-
-	// 查询最近一次密码变更记录
-	var latest model.PasswordHistory
-	err := database.Where("user_id = ?", userID).
-		Order("changed_at DESC").
-		First(&latest).Error
+	ctx := context.Background()
+	latest, err := s.historyRepo.Latest(ctx, userID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 无历史记录：检查 user.updated_at（首次创建密码的时间）
-			var user model.SystemUser
-			if e := database.First(&user, userID).Error; e != nil {
-				return false, errors.New("用户不存在")
-			}
-			expiryAt := user.UpdatedAt.Add(time.Duration(policy.ExpiryDays) * 24 * time.Hour)
-			return time.Now().After(expiryAt), nil
-		}
 		return false, err
+	}
+	if latest == nil {
+		// 无历史记录：检查 user.updated_at（首次创建密码的时间）
+		updatedAt, e := s.systemUserRepo.GetUpdatedAt(ctx, userID)
+		if e != nil {
+			return false, fmt.Errorf("查询用户失败: %w", e)
+		}
+		if updatedAt == nil {
+			return false, nil
+		}
+		expiryAt := updatedAt.Add(time.Duration(policy.ExpiryDays) * 24 * time.Hour)
+		return time.Now().After(expiryAt), nil
 	}
 
 	expiryAt := latest.ChangedAt.Add(time.Duration(policy.ExpiryDays) * 24 * time.Hour)

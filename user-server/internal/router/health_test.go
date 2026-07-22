@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"marketing/internal/pkg/utils/db"
 )
 
 type errorPinger struct {
@@ -20,6 +21,13 @@ func (f *errorPinger) Ping(ctx context.Context) error {
 
 func TestHealthCheck_NoDependencies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	// 本用例验证「无外部依赖时健康检查应返回 200」。HealthCheck(nil) 在 db.GetDB() 非 nil
+	// 时会去 ping 该库；在 ./... 并行下，同包内引导初始化用例会把全局 db.DB 指向共享库
+	// user_db，导致此处 ping 偶发失败（503）。显式清空全局 DB，真正构造「无依赖」条件，测完恢复。
+	prevDB := db.GetDB()
+	db.SetTestDB(nil)
+	t.Cleanup(func() { db.SetTestDB(prevDB) })
+
 	r := gin.New()
 	r.GET("/health", HealthCheck(nil))
 

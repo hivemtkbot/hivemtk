@@ -2,9 +2,9 @@
 export default {
   zh: {
     layout: {
-      licenseExpiry: '授权到期',
-      contactForLicense: '请联系开发者获取正式授权',
-      freeTrialHint: '新用户可免费使用7天',
+      licenseExpiry: '授权状态',
+      contactForLicense: '如需支持，请联系开发者',
+      freeTrialHint: '完全开源，可自由使用、部署与二次开发',
       notifications: '通知',
       profile: '个人资料',
       logout: '退出登录',

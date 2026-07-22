@@ -598,8 +598,9 @@ func TestRagMetrics_StartStop(t *testing.T) {
 		})
 	}
 
-	// 等待 flush（最长 2 秒）
-	deadline := time.Now().Add(2 * time.Second)
+	// 等待 flush（最长 15 秒；常态下几十毫秒内即完成并提前退出，
+	// 放宽上限仅为吸收 ./... 并行下共享 PG 连接争用导致的偶发延迟）
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int64
 		db.Model(&model.RagQueryLog{}).Count(&count)
@@ -637,8 +638,8 @@ func TestRagMetrics_FlushBatchTrigger(t *testing.T) {
 		})
 	}
 
-	// 等待 flush
-	deadline := time.Now().Add(3 * time.Second)
+	// 等待 flush（最长 15 秒；常态下很快完成并提前退出，仅吸收并行负载下的偶发延迟）
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int64
 		db.Model(&model.RagQueryLog{}).Count(&count)

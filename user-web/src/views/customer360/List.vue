@@ -155,6 +155,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCustomerList, getCustomerDetail, addCustomerTag, removeCustomerTag } from '@/api/customer360.js'
 import { createSession, sendMessage } from '@/api/customerSession.js'
+import { toList } from '@/utils/list'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -171,7 +172,7 @@ const loadCustomers = async () => {
   loading.value = true
   try {
     const res = await getCustomerList({ keyword: searchKeyword.value })
-    customers.value = res.data || []
+    customers.value = toList(res)
   } finally {
     loading.value = false
   }

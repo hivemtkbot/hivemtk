@@ -5,11 +5,9 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
 	"marketing/internal/service"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,17 +17,13 @@ import (
 type DomainPoolController struct {
 	domainPoolService service.DomainPoolService
 	healthService     service.DomainHealthService
-	blacklistRepo     *repository.DomainBlacklistRepository
 }
 
 // NewDomainPoolController 创建域名池控制器实例
-func NewDomainPoolController(domainPoolService service.DomainPoolService) *DomainPoolController {
-	repo := repository.NewDomainPoolRepository(nil)
-	health := service.NewDomainHealthService(nil, repo)
+func NewDomainPoolController(domainPoolService service.DomainPoolService, healthService service.DomainHealthService) *DomainPoolController {
 	return &DomainPoolController{
 		domainPoolService: domainPoolService,
-		healthService:     health,
-		blacklistRepo:     repository.NewDomainBlacklistRepository(nil),
+		healthService:     healthService,
 	}
 }
 
@@ -329,12 +323,7 @@ func (c *DomainPoolController) AddBlacklist(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	var expiresAt *time.Time
-	if req.TTLHours > 0 {
-		t := time.Now().Add(time.Duration(req.TTLHours) * time.Hour)
-		expiresAt = &t
-	}
-	if err := c.blacklistRepo.Add(req.Domain, req.Platform, req.Reason, req.Source, expiresAt); err != nil {
+	if err := c.domainPoolService.AddBlacklist(req.Domain, req.Platform, req.Reason, req.Source, req.TTLHours); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -353,7 +342,7 @@ func (c *DomainPoolController) RemoveBlacklist(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "域名不能为空")
 		return
 	}
-	if err := c.blacklistRepo.Remove(domain); err != nil {
+	if err := c.domainPoolService.RemoveBlacklist(domain); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -368,7 +357,7 @@ func (c *DomainPoolController) RemoveBlacklist(ctx *gin.Context) {
 func (c *DomainPoolController) ListBlacklist(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	rows, total, err := c.blacklistRepo.List(page, pageSize)
+	rows, total, err := c.domainPoolService.ListBlacklist(page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

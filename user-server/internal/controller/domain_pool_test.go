@@ -11,6 +11,7 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -27,9 +28,12 @@ func setupDomainPoolTestDB(t *testing.T) *gorm.DB {
 }
 
 func setupDomainPoolController(t *testing.T) (*DomainPoolController, *gin.Engine) {
-	setupDomainPoolTestDB(t)
-	db := db.GetDB()
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(db))
+	database := setupDomainPoolTestDB(t)
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(
+		service.NewDomainPoolService(database),
+		service.NewDomainHealthService(database, domainPoolRepo),
+	)
 	router := gin.New()
 
 	return ctrl, router
@@ -96,7 +100,8 @@ func TestDomainPoolController_Create_MissingDomain(t *testing.T) {
 // TestDomainPoolController_Update_Success 测试更新域名池成功
 func TestDomainPoolController_Update_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 先创建一条记录
@@ -146,7 +151,8 @@ func TestDomainPoolController_Update_InvalidJSON(t *testing.T) {
 // TestDomainPoolController_Delete_Success 测试删除域名池成功
 func TestDomainPoolController_Delete_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 先创建一条记录
@@ -185,7 +191,8 @@ func TestDomainPoolController_Delete_InvalidID(t *testing.T) {
 // TestDomainPoolController_GetByID_Success 测试获取域名池详情成功
 func TestDomainPoolController_GetByID_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 先创建一条记录
@@ -239,7 +246,8 @@ func TestDomainPoolController_GetByID_NotFound(t *testing.T) {
 // TestDomainPoolController_List_Success 测试获取域名池列表成功
 func TestDomainPoolController_List_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 创建测试数据
@@ -280,7 +288,8 @@ func TestDomainPoolController_List_EmptyList(t *testing.T) {
 // TestDomainPoolController_List_WithFilters 测试带过滤条件的列表
 func TestDomainPoolController_List_WithFilters(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 创建测试数据
@@ -306,7 +315,8 @@ func TestDomainPoolController_List_WithFilters(t *testing.T) {
 // TestDomainPoolController_CheckDomain_Success 测试检查域名成功
 func TestDomainPoolController_CheckDomain_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 先创建一条记录
@@ -346,7 +356,8 @@ func TestDomainPoolController_CheckDomain_InvalidID(t *testing.T) {
 // TestDomainPoolController_CheckAllDomains_Success 测试检查所有域名成功
 func TestDomainPoolController_CheckAllDomains_Success(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	router := gin.New()
 
 	// 先创建一条记录
@@ -372,7 +383,8 @@ func TestDomainPoolController_CheckAllDomains_Success(t *testing.T) {
 // TestDomainPoolController_NewDomainPoolController 测试构造函数
 func TestDomainPoolController_NewDomainPoolController(t *testing.T) {
 	database := setupDomainPoolTestDB(t)
-	ctrl := NewDomainPoolController(service.NewDomainPoolService(database))
+	domainPoolRepo := repository.NewDomainPoolRepository(database)
+	ctrl := NewDomainPoolController(service.NewDomainPoolService(database), service.NewDomainHealthService(database, domainPoolRepo))
 	if ctrl == nil {
 		t.Error("Expected controller instance, got nil")
 	}

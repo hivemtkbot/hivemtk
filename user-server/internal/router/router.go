@@ -107,8 +107,8 @@ func Setup(r *gin.Engine) {
 	// 认证路由
 	auth := r.Group("/api")
 	auth.Use(middleware.InitGuard())         // 1) 系统必须已初始化
-	auth.Use(middleware.LicenseGuard())      // 2) 授权必须有效
-	auth.Use(middleware.JWTAuthMiddleware()) // 3) JWT 必须有效
+	// 开源版：移除 LicenseGuard 中间件（License 模型删除，授权流程下线）
+	auth.Use(middleware.JWTAuthMiddleware()) // 2) JWT 必须有效
 	{
 		// 认证相关
 		setupAuthRoutes(auth)
@@ -269,6 +269,9 @@ func Setup(r *gin.Engine) {
 		// 置信度/拟人度/反馈学习 统一管理 API
 		setupTuningRoutes(auth)
 
+		// 资产市场（平台购买 + 本地同源同构 CRUD）
+		setupAssetMarketRoutes(auth)
+
 		// 流失预警
 		setupChurnRoutes(auth)
 
@@ -281,8 +284,8 @@ func Setup(r *gin.Engine) {
 		// 备份恢复
 		setupBackupRoutes(auth)
 
-		// 版本升级
-		setupUpgradeRoutes(auth)
+		// 数据库迁移（原"版本升级"，M3 重命名以避免与 OTA 概念混淆）
+		setupMigrationRoutes(auth)
 
 		// 文件上传
 		auth.POST("/upload", controller.UploadFile)
@@ -326,7 +329,7 @@ func Setup(r *gin.Engine) {
 	platform.Use(middleware.InitGuard()) // 1) 系统必须已初始化
 	platform.Use(middleware.JWTAuthMiddleware())
 	platform.Use(middleware.AdminAuthMiddleware())
-	platform.Use(middleware.LicenseGuard())
+	// 开源版：移除 LicenseGuard 中间件
 	{
 		setupPlatformRoutes(platform, platformCtrl)
 	}

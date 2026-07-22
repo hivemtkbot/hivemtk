@@ -14,7 +14,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // IIFE 模式下用全局变量名
-        extend: true
+        extend: true,
+        // 统一 exports 模式,避免 "named and default together" 警告
+        exports: 'named'
       }
     },
     minify: 'esbuild',

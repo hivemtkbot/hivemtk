@@ -234,6 +234,7 @@ import DOMPurify from 'dompurify'
 import * as bulkMessagingApi from '@/api/bulkMessaging'
 import * as clueApi from '@/api/clue'
 import * as whatsappApi from '@/api/whatsapp'
+import { toList } from '@/utils/list'
 
 const activeTab = ref('send')
 const sending = ref(false)
@@ -317,7 +318,7 @@ const loadTemplates = async () => {
   try {
     templateLoading.value = true
     const response = await bulkMessagingApi.getTemplates()
-    templates.value = response.data
+    templates.value = toList(response)
   } catch (error) {
     ElMessage.error(i18n.global.t('加载模板失败'))
   } finally {
@@ -364,7 +365,7 @@ const loadSendRecords = async () => {
       limit: recordPagination.pageSize
     })
     // 拦截器已解包，response 直接就是数据对象
-    sendRecords.value = response.data || []
+    sendRecords.value = toList(response)
   } catch (error) {
     ElMessage.error(i18n.global.t('加载发送记录失败'))
   } finally {

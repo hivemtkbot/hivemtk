@@ -58,21 +58,17 @@ func (ctrl *ChatPublicController) GetChannelInfoByAppKey(c *gin.Context) {
 		return
 	}
 	// 只返回公开字段（不暴露 AppSecretHash）
-	c.JSON(http.StatusOK, gin.H{
-		"code":    "SUCCESS",
-		"message": "ok",
-		"data": gin.H{
-			"channel_id":           channel.ChannelID,
-			"channel_name":         channel.ChannelName,
-			"status":               channel.Status,
-			"widget_title":         channel.WidgetTitle,
-			"widget_color":         channel.WidgetColor,
-			"widget_position":      channel.WidgetPosition,
-			"welcome_message":      channel.WelcomeMessage,
-			"auto_assign":          channel.AutoAssign,
-			"confidence_threshold": channel.ConfidenceThreshold,
-		},
-	})
+	response.Success(c, gin.H{
+		"channel_id":           channel.ChannelID,
+		"channel_name":         channel.ChannelName,
+		"status":               channel.Status,
+		"widget_title":         channel.WidgetTitle,
+		"widget_color":         channel.WidgetColor,
+		"widget_position":      channel.WidgetPosition,
+		"welcome_message":      channel.WelcomeMessage,
+		"auto_assign":          channel.AutoAssign,
+		"confidence_threshold": channel.ConfidenceThreshold,
+	}, "ok")
 }
 
 // resolveChannelID 软解析 channel_id：ctx > body > header > 默认

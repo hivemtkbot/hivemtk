@@ -10,11 +10,11 @@
 
 把 **embedding / rerank / llm** 三个能力统一为「本地优先、可切换、可预热」的 OpenAI 兼容 HTTP 服务。
 
-| 能力 | 服务名 | 端口 | 框架 | 模型（prod）| 模型（dev）|
+| 能力 | 服务名 | 端口 | 框架 | 模型（prod）| 模型（dev，当前默认）|
 |------|--------|------|------|------------|------------|
 | Embedding | mtk-embedding | 8208 | TEI | BAAI/bge-m3 (1024 维) | Qwen3-Embedding-0.6B |
-| Rerank | mtk-rerank | 8209 | TEI | Bge-reranker-v2-m3 | 同上 |
-| LLM | mtk-llm | 8207 | llama.cpp | Qwen2.5-14B-Instruct (Q4) | Qwen2.5-3B-Instruct (Q4) |
+| Rerank | mtk-rerank | 8209 | TEI | Bge-reranker-v2-m3 | bge-reranker-base |
+| LLM | mtk-llm | 8207 | llama.cpp | Qwen2.5-14B-Instruct (Q4) | Qwen2.5-1.5B-Instruct (Q4) |
 
 **关键铁律**：
 
@@ -36,13 +36,14 @@
 
 ### 2.2 Rerank
 
-- 固定使用 `BAAI/bge-reranker-v2-m3`（dev/prod 通用）
+- 默认 dev 轻量档使用 `bge-reranker-base`（278M，XLM-RoBERTa，CMTEB-R 68.x）；
+  prod 重量档可换 `BAAI/bge-reranker-v2-m3`（568M，多语言增强）。
 
 ### 2.3 LLM
 
 | 套餐 | 模型 | 量化 | 内存 | 用途 |
 |------|------|------|------|------|
-| dev | Qwen2.5-3B-Instruct | Q4_K_M | ~3GB | 代码逻辑开发 |
+| dev（当前默认） | Qwen2.5-1.5B-Instruct | Q4_K_M | ~1.1GB 常驻 | 本机/小内存部署 |
 | prod | Qwen2.5-14B-Instruct | Q4_K_M | ~10GB | 生产质量 |
 
 ---
@@ -58,11 +59,11 @@
 
 这会把对应的环境变量写入 `.env`：
 
-| 变量 | dev 值 | prod 值 |
+| 变量 | dev 值（当前默认） | prod 值 |
 |------|-------|---------|
-| `LLM_MODEL_REPO` | `Qwen/Qwen2.5-3B-Instruct-GGUF` | `Qwen/Qwen2.5-14B-Instruct-GGUF` |
+| `LLM_MODEL_REPO` | `Qwen/Qwen2.5-1.5B-Instruct-GGUF` | `Qwen/Qwen2.5-14B-Instruct-GGUF` |
 | `EMBEDDING_MODEL_ID` | `/data/Qwen3-Embedding-0.6B` | `/data/bge-m3` |
-| `RERANK_MODEL_ID` | `/data/bge-reranker-v2-m3` | 同左 |
+| `RERANK_MODEL_ID` | `/data/bge-reranker-base` | `/data/bge-reranker-v2-m3` |
 
 ### 启动
 
@@ -94,10 +95,10 @@ curl http://localhost:8209/health     # mtk-rerank
 
 ```
 ./models/
-├── llm/Qwen2.5-3B-Instruct-GGUF/    # dev
-│   └── qwen2.5-3b-instruct-q4_k_m.gguf
+├── llm/Qwen2.5-1.5B-Instruct-GGUF/   # dev 默认
+│   └── qwen2.5-1.5b-instruct-q4_k_m.gguf
 ├── Qwen3-Embedding-0.6B/             # dev
-└── bge-reranker-v2-m3/
+└── bge-reranker-base/                  # dev 默认
 ```
 
 ---

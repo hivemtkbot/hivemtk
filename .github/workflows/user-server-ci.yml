@@ -1,0 +1,128 @@
+# GitHub Actions CI for user-server
+# 平台：ubuntu-latest（提供 PostgreSQL 服务用于集成测试）
+# 触发：push / pull_request 作用于 master / main 分支
+name: user-server-ci
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'user-server/**'
+      - '.github/workflows/user-server-ci.yml'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'user-server/**'
+      - '.github/workflows/user-server-ci.yml'
+
+jobs:
+  test:
+    name: Build & Test (user-server)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: password123
+          POSTGRES_DB: marketing_tools
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d marketing_tools"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # 测试期占位密钥（≥32 字符满足 PLATFORM_JWT_SECRET 安全检查）
+      PLATFORM_JWT_SECRET: ci-jwt-secret-placeholder-32-chars-min-len-OK
+      # 私域基线 §7.2：测试期允许 hash embedding 降级
+      EMBEDDING_ALLOW_FALLBACK: "true"
+      # 测试期禁用 WeCom 真实出站
+      WECOM_DISABLE_OUTBOUND: "1"
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: marketing_tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: user-server/go.sum
+
+      - name: go mod download
+        working-directory: user-server
+        run: go mod download
+
+      - name: 架构合规检查(五层)
+        # 对应 docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md
+        # 当前为 warn-only(已存量违规待清理),违规清零后改为阻断
+        continue-on-error: false
+        run: |
+          chmod +x scripts/check-architecture.sh
+          bash scripts/check-architecture.sh || {
+            echo "::warning::架构检查发现违规,详见 GO_FIVE_LAYER_ARCHITECTURE.md"
+            bash scripts/check-architecture.sh || true
+          }
+
+      - name: go vet
+        working-directory: user-server
+        run: go vet ./...
+
+      - name: go build
+        working-directory: user-server
+        run: go build ./...
+
+      - name: Run unit tests
+        working-directory: user-server
+        run: go test ./... -count=1 -timeout 300s -p 1 -short
+
+  user-web-lint:
+    name: Lint & Build (user-web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: user-web/package-lock.json
+
+      - name: npm ci
+        working-directory: user-web
+        run: npm ci
+
+      - name: Build
+        working-directory: user-web
+        run: npm run build
+
+  embed-sdk-lint:
+    name: Lint (embed-sdk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: embed-sdk/package-lock.json
+
+      - name: npm ci
+        working-directory: embed-sdk
+        run: npm ci
+
+      - name: Test
+        working-directory: embed-sdk
+        run: npm test

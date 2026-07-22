@@ -34,7 +34,7 @@ func setupCustomerSessionController(t *testing.T) (*CustomerSessionController, *
 	router := gin.New()
 
 	router.Use(func(c *gin.Context) {
-		c.Set("user_id", "test-merchant-id")
+		c.Set("user_id", uint(1))
 		c.Next()
 	})
 

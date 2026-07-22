@@ -172,6 +172,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { ConversionFunnelApi } from '@/api/conversionFunnel.js'
+import { toList } from '@/utils/list.js'
 
 const activeTab = ref('stages')
 const loading = reactive({ stages: false, funnel: false, loss: false, trend: false })
@@ -210,7 +211,7 @@ const loadStages = async () => {
   loading.stages = true
   try {
     const res= await ConversionFunnelApi.getFunnelStages()
-    stages.value = res?.data || res || []
+    stages.value = toList(res?.data ?? res)
   } catch (e) {
     stages.value = []
   } finally {
@@ -241,7 +242,7 @@ const loadLoss = async () => {
   loading.loss = true
   try {
     const res= await ConversionFunnelApi.getFunnelLossAnalysis()
-    lossAnalysis.value = res?.data || res || []
+    lossAnalysis.value = toList(res?.data ?? res)
   } catch (e) {
     lossAnalysis.value = []
   } finally {
@@ -253,7 +254,7 @@ const loadTrend = async () => {
   loading.trend = true
   try {
     const res= await ConversionFunnelApi.getFunnelTrend({ granularity: trendGranularity.value })
-    trendData.value = res?.data || res || []
+    trendData.value = toList(res?.data ?? res)
   } catch (e) {
     trendData.value = []
   } finally {

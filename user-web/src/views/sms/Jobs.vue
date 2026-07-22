@@ -441,11 +441,11 @@ const handleSubmit = async () => {
 const handleView = async (row) => {
   try {
     const response = await smsApi.getJobDetail(row.id)
-    currentJob.value = response.data
+    currentJob.value = response
     // 加载任务执行明细
     try {
       const recordsRes = await smsApi.getJobRecords(row.id, { page: 1, page_size: 50 })
-      const recordsData = recordsRes?.data?.list || recordsRes?.data || []
+      const recordsData = toList(recordsRes)
       jobDetails.value = Array.isArray(recordsData) ? recordsData : []
     } catch (e) {
       jobDetails.value = []

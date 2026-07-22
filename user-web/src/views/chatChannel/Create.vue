@@ -169,7 +169,14 @@ const embedCode = computed(() => {
 })
 
 const onSubmit = async () => {
-  await formRef.value.validate()
+  // 校验失败会 reject，必须在 try 内处理，否则变成未捕获的 Promise 拒绝（PAGEERROR）
+  let valid = false
+  try {
+    valid = await formRef.value.validate()
+  } catch (e) {
+    return
+  }
+  if (!valid) return
   saving.value = true
   try {
     form.value.allowed_origins = originsText.value
