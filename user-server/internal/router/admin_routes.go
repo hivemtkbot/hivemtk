@@ -95,34 +95,21 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// 商户自部署场景：商户自有 CRM/ERP/Helpdesk 通过此入口推送文档
 	// 注册到 public（不走 JWT）以支持 API Token 鉴权
 	// 注意：不要在 setupKnowledgeBaseRoutes 里再注册同一个路由（会冲突）
-	knowledgeMerchantCtrl := knowledgectrl.NewKnowledgeMerchantController()
-	public.POST("/knowledge-merchant/external/import", knowledgeMerchantCtrl.ExternalImport)
+	// 审计 M7：依赖构造集中到 wirePublicDependencies，路由层只消费依赖。
+	deps := wirePublicDependencies(db)
+	public.POST("/knowledge-merchant/external/import", deps.knowledgeMerchantCtrl.ExternalImport)
 
 	// D 域 P1 缺口修复 - 邮件退订确认页 + 退订提交（公开，用户从邮件点击）
-	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(db)
-	emailUnsubscribeCtrl := controller.NewEmailUnsubscribeController(
-		service.NewEmailUnsubscribeService(emailUnsubscribeRepo),
-	)
-	emailUnsubscribeCtrl.RegisterRoutes(public, nil)
+	deps.emailUnsubscribeCtrl.RegisterRoutes(public, nil)
 
 	// E 域 P1 缺口修复 - 短信上行 webhook（公开，运营商推送）
-	smsUnsubscribeRepo := repository.NewSmsUnsubscribeRepository(db)
-	smsUnsubscribeCtrl := controller.NewSmsUnsubscribeController(
-		service.NewSmsUnsubscribeService(smsUnsubscribeRepo),
-	)
-	smsUnsubscribeCtrl.RegisterRoutes(public, nil)
+	deps.smsUnsubscribeCtrl.RegisterRoutes(public, nil)
 
 	// E 域 P1 缺口修复 - 短信回执 webhook（公开，运营商推送）
-	smsDeliveryTrackerCtrl := controller.NewSmsDeliveryTrackerController(
-		service.NewSmsDeliveryTrackerService(db, nil, nil),
-	)
-	smsDeliveryTrackerCtrl.RegisterRoutes(public, nil)
+	deps.smsDeliveryTrackerCtrl.RegisterRoutes(public, nil)
 
 	// D 域 P1 缺口修复 - 邮件追踪像素 + Postmark/SendCloud webhook（公开）
-	emailOpenTrackerCtrl := controller.NewEmailOpenTrackerController(
-		service.NewEmailOpenTrackerService(nil, nil),
-	)
-	emailOpenTrackerCtrl.RegisterRoutes(public, nil)
+	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
 	// P0-6 修复：/api/system/reset 不再是公开路由——见 setupSystemAdminRoutes
 	// 原 public.POST("/system/reset", systemOpsCtrl.ResetSystem) 已移除
@@ -130,8 +117,34 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台
 	// 公开 webhook 入口：所有渠道（TG/WA/小程序/邮件上行/短信上行/...）推送到此
 	// 内部再加分布式锁做防抖 + 人工接管锁拦截
-	inboxIngressCtrl := controller.NewInboxIngressController(db)
-	public.POST("/chat/ingress", inboxIngressCtrl.Ingress)
+	public.POST("/chat/ingress", deps.inboxIngressCtrl.Ingress)
+}
+
+// publicDeps 聚合 setupPublicRoutes 所需的仓储/服务/控制器依赖。
+//
+// 审计 M7（路由层直接构造 service/repository）：原本这些 new 散落在路由注册处，
+// 既不便测试也加深路由层与具体实现的耦合。此处集中构造，路由层只负责“消费依赖 + 注册路由”，
+// 后续可平滑替换为 wire/fx 等 DI 容器（当前规模下显式 wiring 已足够清晰且低风险）。
+type publicDeps struct {
+	knowledgeMerchantCtrl  *knowledgectrl.KnowledgeMerchantController
+	emailUnsubscribeCtrl   *controller.EmailUnsubscribeController
+	smsUnsubscribeCtrl     *controller.SmsUnsubscribeController
+	smsDeliveryTrackerCtrl *controller.SmsDeliveryTrackerController
+	emailOpenTrackerCtrl   *controller.EmailOpenTrackerController
+	inboxIngressCtrl       *controller.InboxIngressController
+}
+
+func wirePublicDependencies(db *gorm.DB) publicDeps {
+	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(db)
+	smsUnsubscribeRepo := repository.NewSmsUnsubscribeRepository(db)
+	return publicDeps{
+		knowledgeMerchantCtrl:  knowledgectrl.NewKnowledgeMerchantController(),
+		emailUnsubscribeCtrl:   controller.NewEmailUnsubscribeController(service.NewEmailUnsubscribeService(emailUnsubscribeRepo)),
+		smsUnsubscribeCtrl:     controller.NewSmsUnsubscribeController(service.NewSmsUnsubscribeService(smsUnsubscribeRepo)),
+		smsDeliveryTrackerCtrl: controller.NewSmsDeliveryTrackerController(service.NewSmsDeliveryTrackerService(db, nil, nil)),
+		emailOpenTrackerCtrl:   controller.NewEmailOpenTrackerController(service.NewEmailOpenTrackerService(nil, nil)),
+		inboxIngressCtrl:       controller.NewInboxIngressController(db),
+	}
 }
 
 // setupSystemAdminRoutes 系统级管理路由（需要 admin 角色 + JWT 鉴权）

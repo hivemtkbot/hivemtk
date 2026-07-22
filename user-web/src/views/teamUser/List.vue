@@ -53,7 +53,8 @@
           <el-input v-model="searchKeyword" :placeholder="$t('搜索成员')" clearable style="width: 200px" />
         </div>
       </template>
-      <el-table :data="filteredMembers" v-loading="loading" stripe>
+      <PageState v-if="error" state="error" :error-text="error" @retry="refreshData" />
+      <el-table v-if="!error" :data="filteredMembers" v-loading="loading" stripe>
         <el-table-column prop="username" label="用户名" min-width="120" />
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
@@ -151,6 +152,7 @@ import {
   resetTeamPassword,
   getTeamStats
 } from '@/api/teamUser.js'
+import PageState from '@/components/PageState.vue'
 import AgentMountDialog from '@/components/AgentMountDialog.vue'
 
 // AI 智能体挂载对话框状态
@@ -177,6 +179,7 @@ const formatTime = (val) => {
 }
 
 const loading = ref(false)
+const error = ref('')
 const searchKeyword = ref('')
 const members = ref([])
 const stats = ref({ total: 0, admins: 0, active: 0, disabled: 0 })
@@ -221,6 +224,7 @@ const getRoleType = (role) => {
 
 const refreshData = async () => {
   loading.value = true
+  error.value = ''
   try {
     const [mRes, sRes] = await Promise.all([getTeamMembers(), getTeamStats()])
     members.value = Array.isArray(mRes) ? mRes : (mRes?.list || mRes?.data || [])
@@ -232,9 +236,10 @@ const refreshData = async () => {
       disabled: sData.disabled ?? members.value.filter(m => m.status === 0).length
     }
   } catch (e) {
-    // 单测/演示：使用 mock 数据兜底
+    error.value = i18n.global.t('加载成员列表失败')
     members.value = []
     stats.value = { total: 0, admins: 0, active: 0, disabled: 0 }
+    console.error(e)
   } finally {
     loading.value = false
   }

@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 审计 M6：缓解 XSS 窃取 localStorage 中的 JWT。
+         脚本仅允许同源('self')外部文件，禁止 inline/eval；禁止被嵌入(frame-ancestors 'none')；
+         网络请求限同源 + https/wss。样式保留 'unsafe-inline' 以兼容 Element Plus 动态样式注入。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <title>AI营销套件</title>
   </head>
   <body>

@@ -66,7 +66,7 @@ func (c *RowLevelSecurityController) GetUserDataScope(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.teamUserSvc.GetByID(uint(id))
+	user, err := c.teamUserSvc.GetByID(ctx, uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "用户不存在")
 		return
@@ -147,7 +147,7 @@ func (c *RowLevelSecurityController) UpdateUserDataScope(ctx *gin.Context) {
 		TeamID:        &teamID,
 		CustomDeptIDs: req.CustomDeptIDs,
 	}
-	user, err := c.teamUserSvc.Update(uint(id), updateReq, uid, roleStr, ctx.ClientIP())
+	user, err := c.teamUserSvc.Update(ctx, uint(id), updateReq, uid, roleStr, ctx.ClientIP())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return

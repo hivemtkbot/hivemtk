@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"marketing/internal/model"
@@ -85,7 +86,7 @@ func RequirePermission(operatorRole, permission string) error {
 		return ErrServiceRoleMissing
 	}
 	ps := NewPermissionService()
-	if !ps.CheckPermission(operatorRole, permission) {
+	if !ps.CheckPermission(context.Background(), operatorRole, permission) {
 		return ErrServicePermissionDenied
 	}
 	return nil

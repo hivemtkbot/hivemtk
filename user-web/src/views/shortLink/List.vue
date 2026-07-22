@@ -40,7 +40,8 @@
     </div>
 
     <!-- 短链列表 -->
-    <el-table :data="shortLinkList" border style="width: 100%" v-loading="loading">
+    <PageState v-if="error" state="error" :error-text="error" @retry="fetchShortLinkList" />
+    <el-table v-if="!error" :data="shortLinkList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="short_code" :label="$t('短码')" width="120" />
       <el-table-column prop="original_url" :label="$t('原始URL')" min-width="200" show-overflow-tooltip />
@@ -252,10 +253,12 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, RefreshRight, DataAnalysis, Share } from '@element-plus/icons-vue'
 import { shortLinkApi } from '@/api/shortLink'
+import PageState from '@/components/PageState.vue'
 import * as echarts from 'echarts'
 
 // 响应式数据
 const loading = ref(false)
+const error = ref('')
 const generating = ref(false)
 const statsLoading = ref(false)
 const shareLoading = ref(false)
@@ -329,6 +332,7 @@ onMounted(() => {
 // 方法
 const fetchShortLinkList = async () => {
   loading.value = true
+  error.value = ''
   try {
     const params = {
       page: pagination.page,
@@ -342,10 +346,10 @@ const fetchShortLinkList = async () => {
       shortLinkList.value = res.list
       pagination.total = res.total
     } else {
-      ElMessage.error(i18n.global.t('获取短链列表失败'))
+      error.value = i18n.global.t('获取短链列表失败')
     }
   } catch (error) {
-    ElMessage.error(i18n.global.t('获取短链列表失败'))
+    error.value = i18n.global.t('获取短链列表失败')
     console.error(error)
   } finally {
     loading.value = false

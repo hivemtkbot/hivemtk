@@ -32,7 +32,7 @@ func (c *TeamUserController) GetList(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
 	// 获取用户列表
-	result, err := c.userService.GetList(page, pageSize)
+	result, err := c.userService.GetList(ctx, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -54,7 +54,7 @@ func (c *TeamUserController) GetByID(ctx *gin.Context) {
 	}
 
 	// 获取用户信息
-	user, err := c.userService.GetByID(uint(id))
+	user, err := c.userService.GetByID(ctx, uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -81,7 +81,7 @@ func (c *TeamUserController) Create(ctx *gin.Context) {
 	}
 
 	// 创建用户（含 Service 层权限断言）
-	user, err := c.userService.Create(&req, operatorID, operatorRoleStr, ctx.ClientIP())
+	user, err := c.userService.Create(ctx, &req, operatorID, operatorRoleStr, ctx.ClientIP())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -116,7 +116,7 @@ func (c *TeamUserController) Update(ctx *gin.Context) {
 	}
 
 	// 更新用户（含 Service 层权限断言）
-	user, err := c.userService.Update(uint(id), &req, operatorID, operatorRoleStr, ctx.ClientIP())
+	user, err := c.userService.Update(ctx, uint(id), &req, operatorID, operatorRoleStr, ctx.ClientIP())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -144,7 +144,7 @@ func (c *TeamUserController) Delete(ctx *gin.Context) {
 	operatorRoleStr, _ := operatorRole.(string)
 
 	// 删除用户（含 Service 层权限断言）
-	if err := c.userService.Delete(uint(id), operatorID, operatorRoleStr, ctx.ClientIP()); err != nil {
+	if err := c.userService.Delete(ctx, uint(id), operatorID, operatorRoleStr, ctx.ClientIP()); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -172,7 +172,7 @@ func (c *TeamUserController) ChangePassword(ctx *gin.Context) {
 	}
 
 	// 修改密码
-	if err := c.userService.ChangePassword(uid, &req, ctx.ClientIP()); err != nil {
+	if err := c.userService.ChangePassword(ctx, uid, &req, ctx.ClientIP()); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -208,7 +208,7 @@ func (c *TeamUserController) ResetPassword(ctx *gin.Context) {
 	}
 
 	// 重置密码（含 Service 层权限断言）
-	if err := c.userService.ResetPassword(uint(id), req.Password, operatorID, operatorRoleStr, ctx.ClientIP()); err != nil {
+	if err := c.userService.ResetPassword(ctx, uint(id), req.Password, operatorID, operatorRoleStr, ctx.ClientIP()); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -228,7 +228,7 @@ func (c *TeamUserController) Login(ctx *gin.Context) {
 	}
 
 	// 登录
-	result, err := c.userService.Login(&req, ctx.ClientIP())
+	result, err := c.userService.Login(ctx, &req, ctx.ClientIP())
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
@@ -261,7 +261,7 @@ func (c *TeamUserController) GetCurrentUser(ctx *gin.Context) {
 	user, err := c.systemUserService.GetUserByID(uid)
 	if err != nil || user == nil {
 		// 回退到 team_users
-		teamUser, terr := c.userService.GetByID(uid)
+		teamUser, terr := c.userService.GetByID(ctx, uid)
 		if HandleDBError(ctx, terr, "获取用户信息") {
 			return
 		}
@@ -287,7 +287,7 @@ func NewTeamRoleController() *TeamRoleController {
 // GetList 获取角色列表
 func (c *TeamRoleController) GetList(ctx *gin.Context) {
 	// 独立部署：单租户，无需 merchantID
-	roles, err := c.roleService.GetList()
+	roles, err := c.roleService.GetList(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -308,7 +308,7 @@ func (c *TeamRoleController) Create(ctx *gin.Context) {
 	}
 
 	// 创建角色
-	role, err := c.roleService.Create(&req)
+	role, err := c.roleService.Create(ctx, &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -337,7 +337,7 @@ func (c *TeamRoleController) Update(ctx *gin.Context) {
 	}
 
 	// 更新角色
-	role, err := c.roleService.Update(uint(id), &req)
+	role, err := c.roleService.Update(ctx, uint(id), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -359,7 +359,7 @@ func (c *TeamRoleController) Delete(ctx *gin.Context) {
 	}
 
 	// 删除角色
-	if err := c.roleService.Delete(uint(id)); err != nil {
+	if err := c.roleService.Delete(ctx, uint(id)); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}

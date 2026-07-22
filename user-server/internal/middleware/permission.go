@@ -28,7 +28,7 @@ func PermissionMiddleware(permission string) gin.HandlerFunc {
 		permissionService := service.NewPermissionService()
 
 		// 检查权限（独立部署：role 直接用于权限判断）
-		hasPermission := permissionService.CheckPermission(role.(string), permission)
+		hasPermission := permissionService.CheckPermission(c.Request.Context(), role.(string), permission)
 		if !hasPermission {
 			response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 			c.Abort()
@@ -188,7 +188,7 @@ func RequireAnyPermission(permissions ...string) gin.HandlerFunc {
 		permissionService := service.NewPermissionService()
 
 		for _, p := range permissions {
-			if permissionService.CheckPermission(role.(string), p) {
+			if permissionService.CheckPermission(c.Request.Context(), role.(string), p) {
 				c.Next()
 				return
 			}
@@ -212,7 +212,7 @@ func RequireAllPermissions(permissions ...string) gin.HandlerFunc {
 		permissionService := service.NewPermissionService()
 
 		for _, p := range permissions {
-			if !permissionService.CheckPermission(role.(string), p) {
+			if !permissionService.CheckPermission(c.Request.Context(), role.(string), p) {
 				response.Error(c, utils.ErrorCodeForbidden, "无权限执行此操作")
 				c.Abort()
 				return

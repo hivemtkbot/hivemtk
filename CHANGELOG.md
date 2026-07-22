@@ -29,6 +29,15 @@
   - `phrases_fill1.js / phrases_fill2.js / phrases_fill3.js` 已合并至 `phrases.js` 并删除，词条数 322 → 1319（净增 997 条）。
   - 控制器文件 `upgrade_controller_test.go` 同步更新为 `MigrationController` 与 `/migration/*` 路径。
 
+### Security
+- **审计整改 (M6 - JWT 存储安全)**：`user-web/index.html` 新增 `Content-Security-Policy`（script-src 限 `self`、禁 inline/eval、frame-ancestors 'none'、connect-src 限同源+https），缓解 XSS 窃取 localStorage 中的 JWT。彻底迁移 HttpOnly Cookie 需后端 Session 支持，列为后续增强。
+
+### Changed
+- **审计整改 (M7 - 依赖构造集中化)**：`internal/router/admin_routes.go` 抽取 `wirePublicDependencies(db)`，路由层只消费依赖，降低与具体实现的耦合，便于后续接入 DI 容器。
+- **审计整改 (L6 - 热点接口缓存)**：`internal/controller/platform.go` 的 `platformCall` 对幂等 `GET` 代理请求增加全局 Redis 短时缓存（TTL 20s），降低对平台 API 的重复调用。
+- **审计整改 (M8 - PageState 落地)**：`user-web/src/views/shortLink/List.vue`、`teamUser/List.vue` 接入统一 `PageState` 组件（loading/error/empty 三态，含错误重试），作为全量列表页标准化的参考实现。
+- **审计整改 (M9 - API 一致性比对)**：新增 `scripts/api-inventory.sh` 生成后端路由/前端调用比对报告；`.github/workflows/user-ci.yml` 增加非阻塞 `api-inventory` 步骤产出 artifact。
+
 ### Known Limitations
 以下 TODO 经评估为非阻塞核心功能的占位实现，将在后续版本中补全：
 - `internal/controller/trace_controller.go:11` — 全链路 trace 查询/聚合：当前返回 501，路由可达，build 通过。

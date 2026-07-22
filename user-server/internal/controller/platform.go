@@ -2,6 +2,9 @@ package controller
 
 import (
 	"fmt"
+	"time"
+
+	"marketing/internal/cache"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/platform"
@@ -32,6 +35,20 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 		response.Error(c, http.StatusServiceUnavailable, "平台客户端未初始化,请检查 config/platform.yaml 配置")
 		return
 	}
+
+	// 审计 L6：对幂等的 GET 代理请求做短时缓存，降低对平台 API 的重复调用压力。
+	// 缓存命中直接返回；未命中在调用成功后写入；写类请求(POST/DELETE/...)不缓存。
+	const platformCacheTTL = 20 * time.Second
+	cacheKey := method + ":" + path
+	if method == http.MethodGet {
+		if gc := cache.GetGlobalCache(); gc != nil {
+			if err := gc.GetJSON(c.Request.Context(), cacheKey, resp); err == nil {
+				response.Success(c, resp, "获取成功")
+				return
+			}
+		}
+	}
+
 	if err := pc.platformClient.Do(method, path, req, resp); err != nil {
 		// R2 修复：按结构化 *platform.PlatformError 的状态码分支，废弃脆弱的
 		// strings.Contains(err, "404"/"400") 字符串匹配。
@@ -46,6 +63,12 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 			response.Error(c, http.StatusBadGateway, errMsg+": "+err.Error())
 		}
 		return
+	}
+
+	if method == http.MethodGet {
+		if gc := cache.GetGlobalCache(); gc != nil {
+			_ = gc.SetJSON(c.Request.Context(), cacheKey, resp, platformCacheTTL)
+		}
 	}
 	response.Success(c, resp, "获取成功")
 }

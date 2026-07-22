@@ -81,7 +81,7 @@ func saveAuditBatch(logs []*model.OperationLog) {
 		failedLogs := make([]*model.OperationLog, 0)
 
 		for _, log := range logs {
-			if err := repo.Create(log); err == nil {
+			if err := repo.Create(context.Background(), log); err == nil {
 				successCount++
 			}
 		}
@@ -406,7 +406,7 @@ func saveAuditLog(log *model.OperationLog) {
 	default:
 		// 通道已满，同步保存作为降级
 		repo := repository.NewOperationLogRepository()
-		repo.Create(log)
+		repo.Create(context.Background(), log)
 	}
 }
 
