@@ -28,6 +28,15 @@ import (
 //  - 老路径（sales/cs bridge）保留作为 fallback
 // ============================================================================
 
+// EpisodicMemoryProvider 跨会话情境记忆提供者（E1 补全）
+// 由外部注入，InferenceCycle 在 RunOnce 开头调用 LoadEpisodicMemory 读取
+// 跨会话上下文（L1/L2/L3/L4 汇总），填入 InferenceContext.EpisodicMemory，
+// 供 PlannerStage 在 ReplyHint 中引用，使情境记忆影响决策。
+// 典型实现：包装 service.MemorySystem.BuildFullContext / Recall。
+type EpisodicMemoryProvider interface {
+	LoadEpisodicMemory(ctx context.Context, sessionID, customerID string) (string, error)
+}
+
 // InferenceCycle 推理闭环
 type InferenceCycle struct {
 	// 阶段（按顺序执行）
@@ -42,10 +51,21 @@ type InferenceCycle struct {
 	// 总超时
 	TotalTimeout time.Duration
 
+	// 跨会话情境记忆提供者（可选，nil 时跳过记忆读取，行为不变）
+	memoryProvider EpisodicMemoryProvider
+
 	// 内部状态
 	mu        sync.RWMutex
 	stopped   bool
 	lastStats CycleStats
+}
+
+// SetMemoryProvider 注入跨会话情境记忆提供者（E1 补全）
+// 非并发安全，应在初始化阶段调用
+func (c *InferenceCycle) SetMemoryProvider(p EpisodicMemoryProvider) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.memoryProvider = p
 }
 
 // CycleStats 闭环统计
@@ -152,6 +172,21 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 			ReplyType:  "text",
 			Confidence: 0,
 		},
+	}
+
+	// E1 补全：读取跨会话情境记忆，填入 InferenceContext 供阶段消费。
+	// provider 为 nil（未注入）时跳过，保持原行为；读取失败仅告警不阻塞推理。
+	c.mu.RLock()
+	provider := c.memoryProvider
+	c.mu.RUnlock()
+	if provider != nil {
+		mem, err := provider.LoadEpisodicMemory(tctx, payload.SessionID, payload.CustomerID)
+		if err != nil {
+			logger.Warnf("[inference_cycle] load episodic memory failed session=%s customer=%s err=%v",
+				payload.SessionID, payload.CustomerID, err)
+		} else if mem != "" {
+			ic.EpisodicMemory = mem
+		}
 	}
 
 	// 阶段执行列表

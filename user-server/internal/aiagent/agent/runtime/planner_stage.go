@@ -171,6 +171,13 @@ func (p *DefaultTaskPlanner) Plan(ctx context.Context, ic *InferenceContext) (*A
 		plan.ToolCalls = filtered
 	}
 
+	// 4. 跨会话情境记忆增强（E1 补全）：将 InferenceContext 携带的记忆快照
+	//    追加到 ReplyHint，使 LLM 在生成回复时参考历史对话、客户档案、SOP 状态
+	//    等跨会话上下文，从而让情境记忆影响决策。
+	if ic.EpisodicMemory != "" {
+		plan.ReplyHint = plan.ReplyHint + "\n\n【跨会话情境记忆】\n" + ic.EpisodicMemory
+	}
+
 	return plan, nil
 }
 

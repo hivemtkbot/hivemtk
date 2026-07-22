@@ -236,6 +236,12 @@ type InferenceContext struct {
 	// Stage 4b 输出
 	Plan *ActionPlan `json:"plan,omitempty"`
 
+	// 跨会话情境记忆快照（E1 补全）
+	// 由 EpisodicMemoryProvider 在 RunOnce 开头注入，承载 L1-L4 汇总上下文
+	// （跨会话客户档案、任务执行历史、SOP 状态、业务记忆）。
+	// PlannerStage 会将其追加到 ReplyHint，使情境记忆影响 LLM 决策。
+	EpisodicMemory string `json:"episodic_memory,omitempty"`
+
 	// 控制
 	StartTime time.Time         `json:"start_time"`
 	Stages    []StageDecision   `json:"stages"`
