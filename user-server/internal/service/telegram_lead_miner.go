@@ -30,9 +30,6 @@ const ClueTypeTelegram int64 = 4
 // tgLeadOpportunityThreshold 意向分达到该值即判定为「商机」
 const tgLeadOpportunityThreshold = 40
 
-// tgLeadIntentScoreRe 从线索 Desc 中解析已存意向分，用于增量更新时「取最高分」
-var tgLeadIntentScoreRe = regexp.MustCompile(`\[意向分:(\d+)\]`)
-
 // tgMeaningfulRe 至少包含一个字母/数字/文字，用于过滤纯表情、纯标点的无效发言
 var tgMeaningfulRe = regexp.MustCompile(`[\p{L}\p{N}]`)
 
@@ -132,17 +129,6 @@ func formatTelegramLeadDesc(groupTitle, snippet string, score int, signals []str
 	return b.String()
 }
 
-// parseTelegramLeadScore 从线索 Desc 解析已存意向分（无则返回 0）
-func parseTelegramLeadScore(desc string) int {
-	m := tgLeadIntentScoreRe.FindStringSubmatch(desc)
-	if len(m) == 2 {
-		if n, err := strconv.Atoi(m[1]); err == nil {
-			return n
-		}
-	}
-	return 0
-}
-
 // trimRunes 按「字符数」而非字节数截断，避免中文被截半
 func trimRunes(s string, max int) string {
 	r := []rune(s)
@@ -180,24 +166,28 @@ func telegramLeadAccountKey(username, fromID string) string {
 
 // mineTelegramGroupLead 将一条 TG 群发言/私聊真人发言挖掘为销售线索/商机。
 // 幂等去重 + 意向分增量更新；全过程 best-effort，绝不影响入站主链路。
-func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, username, fromName, text string) {
+// hub 为对应的消息中台记录，用于把线索关联到具体会话（销售可直接跳转到聊天上下文）。
+//
+// 返回值 newOpportunity：本次挖掘是否让该发言者「新晋为商机」（首次达到阈值，或意向分跨过
+// 阈值由非商机→商机）。用于上层在群里做「发现线索即主动触达」的精准触发（仅新晋时发一次，避免刷屏）。
+func (s *WebhookService) mineTelegramGroupLead(hub *model.MessageHub, groupID, groupTitle, fromID, username, fromName, text string) (newOpportunity bool) {
 	if s == nil {
-		return
+		return false
 	}
 	s.ensureReposFromDB()
 	if s.clueRepo == nil {
-		return
+		return false
 	}
 	t := strings.TrimSpace(text)
 	if t == "" || strings.HasPrefix(t, "/") { // 空消息 / 命令(含 /callback) 不作为线索
-		return
+		return false
 	}
 	if !tgMeaningfulRe.MatchString(t) { // 纯表情 / 纯标点 过滤
-		return
+		return false
 	}
 	account := telegramLeadAccountKey(username, fromID)
 	if account == "" {
-		return
+		return false
 	}
 	name := strings.TrimSpace(fromName)
 	if name == "" {
@@ -214,19 +204,32 @@ func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, user
 	}
 	desc := formatTelegramLeadDesc(chatLabel, t, score, signals, isOpp)
 
+	// 会话关联字段：让销售在CRM里一键回到该线索的聊天上下文
+	msgID, convID, oneID := "", "", ""
+	if hub != nil {
+		msgID = hub.MsgID
+		convID = hub.ConversationID
+		oneID = hub.SenderID // 入站消息的 sender 即统一客户（OneID）在 TG 侧的标识
+	}
+
 	existing, err := s.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account)
 	if err != nil {
 		logger.Warnf("[LeadMiner] 查询 TG 群线索失败 account=%s: %v", account, err)
-		return
+		return false
 	}
 
 	if existing == nil {
 		clue := &model.Clue{
-			SourceID: groupID,
-			Account:  account,
-			Type:     ClueTypeTelegram,
-			Name:     name,
-			Desc:     desc,
+			SourceID:       groupID,
+			Account:        account,
+			Type:           ClueTypeTelegram,
+			Name:           name,
+			Desc:           desc,
+			IntentScore:    int64(score),
+			IsOpportunity:  boolToInt64(isOpp),
+			MessageID:      msgID,
+			ConversationID: convID,
+			OneID:          oneID,
 		}
 		if cerr := s.clueRepo.Create(clue); cerr != nil {
 			// 并发下另一条 goroutine 可能已抢先插入（唯一键冲突），或任意写入异常：
@@ -237,26 +240,51 @@ func (s *WebhookService) mineTelegramGroupLead(groupID, groupTitle, fromID, user
 				if !isDuplicateKeyError(cerr) {
 					logger.Warnf("[LeadMiner] 创建 TG 线索失败 account=%s: %v", account, cerr)
 				}
-				return
+				return false
 			}
 		} else {
 			logger.Infof("[LeadMiner] 新增 TG 线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
+			newOpportunity = isOpp // 新线索即达到商机阈值 → 新晋商机
 			s.recordTelegramLeadScore(clue, isOpp)
-			return
+			return newOpportunity
 		}
 	}
 
-	// 已存在（初次查询命中，或并发冲突后回查命中）：仅当本条意向分更高时增量更新
-	if score > parseTelegramLeadScore(existing.Desc) {
-		if uerr := s.clueRepo.UpdateByID(existing.ID, map[string]any{"desc": desc, "source_id": groupID}); uerr != nil {
+	// 已存在（初次查询命中，或并发冲突后回查命中）：仅当本条意向分更高时增量更新。
+	// 意向分以结构化列 intent_score 为准（不再依赖解析 Desc 文本，避免脆弱的正则往返）。
+	if int64(score) > existing.IntentScore {
+		wasOpp := existing.IsOpportunity != 0
+		updates := map[string]any{
+			"desc":            desc,
+			"source_id":       groupID,
+			"intent_score":    int64(score),
+			"is_opportunity":  boolToInt64(isOpp),
+			"message_id":      msgID,
+			"conversation_id": convID,
+			"one_id":          oneID,
+		}
+		if uerr := s.clueRepo.UpdateByID(existing.ID, updates); uerr != nil {
 			logger.Warnf("[LeadMiner] 更新 TG 线索失败 id=%s: %v", existing.ID, uerr)
 		} else {
+			existing.IntentScore = int64(score)
+			existing.IsOpportunity = boolToInt64(isOpp)
 			existing.Desc = desc
 			existing.SourceID = groupID
 			logger.Infof("[LeadMiner] 更新 TG 线索意向分 account=%s → %d 商机=%v", account, score, isOpp)
+			// 仅当本次跨过阈值（非商机 → 商机）时记为「新晋商机」，已为商机的更高分不算新晋
+			newOpportunity = isOpp && !wasOpp
 		}
 	}
 	s.recordTelegramLeadScore(existing, isOpp)
+	return newOpportunity
+}
+
+// boolToInt64 把布尔转为 0/1，用于 is_opportunity 等标记列。
+func boolToInt64(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // recordTelegramLeadScore 记录一次群互动事件并重算线索评分（best-effort，缺表/异常均不影响主链路）。

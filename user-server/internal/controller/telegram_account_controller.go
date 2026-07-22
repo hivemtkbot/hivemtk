@@ -58,6 +58,7 @@ func (ctrl *TelegramAccountController) RegisterRoutes(router *gin.RouterGroup) {
 type telegramAccountVO struct {
 	ID             uint       `json:"id"`
 	AccountName    string     `json:"account_name"`
+	BotUsername    string     `json:"bot_username"`
 	BotTokenMasked string     `json:"bot_token_masked"`
 	WebhookURL     string     `json:"webhook_url"`
 	WebhookEnabled bool       `json:"webhook_enabled"`
@@ -74,6 +75,7 @@ func toTelegramAccountVO(acc *model.TelegramAccount) telegramAccountVO {
 	return telegramAccountVO{
 		ID:             acc.ID,
 		AccountName:    acc.AccountName,
+		BotUsername:    acc.BotUsername,
 		BotTokenMasked: maskBotToken(acc.BotToken),
 		WebhookURL:     acc.WebhookURL,
 		WebhookEnabled: acc.WebhookEnabled,
@@ -131,6 +133,7 @@ func (ctrl *TelegramAccountController) Get(c *gin.Context) {
 type telegramAccountCreateReq struct {
 	AccountName    string `json:"account_name" binding:"required"`
 	BotToken       string `json:"bot_token" binding:"required"`
+	BotUsername    string `json:"bot_username"`
 	WebhookURL     string `json:"webhook_url"`
 	WebhookSecret  string `json:"webhook_secret"`
 	WebhookEnabled bool   `json:"webhook_enabled"`
@@ -151,6 +154,7 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 	acc := &model.TelegramAccount{
 		AccountName:    req.AccountName,
 		BotToken:       req.BotToken,
+		BotUsername:    req.BotUsername,
 		WebhookURL:     req.WebhookURL,
 		WebhookSecret:  req.WebhookSecret,
 		WebhookEnabled: req.WebhookEnabled,
@@ -184,6 +188,9 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 	acc.AccountName = req.AccountName
 	if req.BotToken != "" {
 		acc.BotToken = req.BotToken
+	}
+	if req.BotUsername != "" {
+		acc.BotUsername = req.BotUsername
 	}
 	acc.WebhookURL = req.WebhookURL
 	acc.WebhookSecret = req.WebhookSecret
@@ -258,6 +265,12 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	acc.LastErrorAt = nil
 	acc.LastErrorMsg = ""
 	acc.WebhookEnabled = true
+	// 注册成功后回填机器人 @username（供群内「@机器人 才回复」识别），best-effort 不阻断主流程
+	if acc.BotUsername == "" {
+		if uname, gerr := tgbot.GetBotUsername(acc.BotToken); gerr == nil && uname != "" {
+			acc.BotUsername = uname
+		}
+	}
 	if err := ctrl.svc.UpdateAccount(acc); err != nil {
 		response.Error(c, http.StatusInternalServerError, "保存状态失败", err.Error())
 		return

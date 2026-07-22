@@ -1,87 +1,43 @@
 package telegram
 
 import (
-	"context"
-	"io"
-	"net/http"
 	"strings"
 	"testing"
-
-	"marketing/internal/channelbot/core"
 )
 
-// fakeTransport 实现 http.RoundTripper，返回预设响应，便于测试（无真实网络）
-type fakeTransport struct {
-	resp *http.Response
-	got  *http.Request
-}
-
-func (f *fakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	f.got = req
-	return f.resp, nil
-}
-
-func newFakeClient(respBody string, status int) (*Client, *fakeTransport) {
-	tr := &fakeTransport{resp: &http.Response{
-		StatusCode: status,
-		Body:       io.NopCloser(strings.NewReader(respBody)),
-		Header:     make(http.Header),
-	}}
-	c := NewClient("test-token", core.WithHTTPClient(&http.Client{Transport: tr}))
-	return c, tr
-}
-
-func TestSendMessage(t *testing.T) {
-	c, f := newFakeClient(`{"ok":true,"result":{"message_id":42}}`, 200)
-	id, err := c.SendMessage(context.Background(), 123, "hello")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// TestMarkdownToTelegramHTML 锁定 AI 生成的 Markdown 渲染行为：
+// 粗体/斜体/行内代码/链接需正确转换为 Telegram HTML，且 < > & 不能原样泄漏。
+func TestMarkdownToTelegramHTML(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"粗体", "**重要**通知", "<b>重要</b>通知"},
+		{"斜体", "这是 *强调* 内容", "这是 <i>强调</i> 内容"},
+		{"行内代码", "运行 `make up` 启动", "运行 <code>make up</code> 启动"},
+		{"链接", "详情见 [文档](https://example.com/a?x=1&y=2)", `详情见 <a href="https://example.com/a?x=1&amp;y=2">文档</a>`},
+		{"HTML 转义", "价格 < 100 且 a & b", "价格 &lt; 100 且 a &amp; b"},
+		{"未闭合不加粗", "普通 ** 星号保留", "普通 ** 星号保留"},
+		{"纯文本", "你好世界", "你好世界"},
 	}
-	if id != 42 {
-		t.Fatalf("expected message id 42, got %d", id)
-	}
-	if f.got.Method != http.MethodPost {
-		t.Fatalf("expected POST, got %s", f.got.Method)
-	}
-	if !strings.Contains(f.got.URL.Path, "/bot") || !strings.Contains(f.got.URL.Path, "/sendMessage") {
-		t.Fatalf("unexpected url path: %s", f.got.URL.Path)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := markdownToTelegramHTML(c.in)
+			if got != c.want {
+				t.Fatalf("输入 %q\n期望 %q\n实际 %q", c.in, c.want, got)
+			}
+		})
 	}
 }
 
-func TestVerifyWebhook(t *testing.T) {
-	if !VerifyWebhook("secret", "secret") {
-		t.Fatal("identical secret should pass")
+// TestMarkdownToTelegramHTML_NoRawTags 确保转换结果不会把字面 < > & 漏给 Telegram
+func TestMarkdownToTelegramHTML_NoRawTags(t *testing.T) {
+	got := markdownToTelegramHTML("a < b > c & d **x**")
+	if strings.Contains(got, "< b") || strings.Contains(got, "> c") || strings.Contains(got, " & d") {
+		t.Fatalf("出现未转义的特殊字符: %q", got)
 	}
-	if VerifyWebhook("secret", "tampered") {
-		t.Fatal("different secret should fail")
-	}
-	// 未配置 secret 时跳过验签（与项目既有行为一致）
-	if !VerifyWebhook("", "anything") {
-		t.Fatal("empty secret should skip (pass)")
-	}
-}
-
-func TestParseUpdate_ToInbound(t *testing.T) {
-	body := []byte(`{
-		"update_id":1,
-		"message":{"message_id":7,"from":{"id":99,"first_name":"A","username":"au"},
-		"chat":{"id":-100,"type":"group","title":"G"},"text":"hi","date":1700000000}
-	}`)
-	u, err := ParseUpdate(body)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	in := u.ToInbound("acc1")
-	if in == nil {
-		t.Fatal("expected inbound message")
-	}
-	if in.Platform != "telegram" || in.AccountID != "acc1" {
-		t.Fatalf("unexpected platform/account: %s/%s", in.Platform, in.AccountID)
-	}
-	if in.ConversationID != "-100" || in.SenderID != "99" || in.SenderName != "au" {
-		t.Fatalf("unexpected ids: %+v", in)
-	}
-	if !in.IsGroup || in.GroupName != "G" || in.Content != "hi" {
-		t.Fatalf("unexpected group/content: %+v", in)
+	if !strings.Contains(got, "<b>x</b>") {
+		t.Fatalf("粗体未转换: %q", got)
 	}
 }

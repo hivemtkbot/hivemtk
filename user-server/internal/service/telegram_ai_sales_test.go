@@ -55,7 +55,7 @@ func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 		EventID:   "tg_join_evt_1",
 		EventType: "message",
 	}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram join event failed: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestDispatchTelegram_JoinEvent_OnlyBotsSkipped(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_join_evt_2", EventType: "message"}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestDispatchTelegram_LeftEvent_RecordsToHub(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_left_evt_1", EventType: "message"}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram left event failed: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestDispatchTelegram_RegularMessage_TextToHub(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_msg_1", EventType: "message"}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram text message failed: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestDispatchTelegram_GroupMessage_IsGroupTrue(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_group_msg_1", EventType: "message"}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram group message failed: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestDispatchTelegram_SystemNotification_Skipped(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_sys_1", EventType: "message"}
-	hub, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram("1", p, payload)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}

@@ -7,16 +7,18 @@
 package tgbot
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-
-	"marketing/internal/pkg/utils/httpclient"
-	"strconv"
 	"time"
+
+	"marketing/internal/channelbot/telegram"
+	"marketing/internal/pkg/utils/httpclient"
+	"marketing/internal/pkg/utils/logger"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"golang.org/x/net/proxy"
@@ -178,41 +180,77 @@ func callBotAPI(botToken, method string, params url.Values) (map[string]any, err
 	return result.Result, nil
 }
 
+// maskToken 脱敏 bot token，避免日志泄露凭据
+func maskToken(t string) string {
+	if len(t) <= 8 {
+		return "***"
+	}
+	return t[:4] + "****" + t[len(t)-4:]
+}
+
 // SetWebhook 注册 Telegram Webhook
 // webhookURL 形如：https://your-domain/api/webhook/telegram/{account_id}
-// secret 由 Telegram 在 X-Telegram-Bot-Api-Secret-Token 头中回传，用于验签
+// secret 由 Telegram 在 X-Telegram-Bot-Api-Secret-Token 头中回传，用于验签。
+// 统一走 channelbot/telegram.Client（与出站发消息同一套 Bot API 实现）。
 func SetWebhook(botToken, webhookURL, secret string) error {
-	params := url.Values{}
-	params.Set("url", webhookURL)
-	params.Set("allowed_updates", `["message","edited_message","callback_query","chat_member","my_chat_member"]`)
-	if secret != "" {
-		params.Set("secret_token", secret)
+	if err := telegram.NewClient(botToken).SetWebhook(context.Background(), webhookURL, secret); err != nil {
+		logger.Errorf("TG SetWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
+		return err
 	}
-	_, err := callBotAPI(botToken, "setWebhook", params)
-	return err
+	logger.Infof("TG SetWebhook 成功 bot=%s", maskToken(botToken))
+	return nil
 }
 
-// DeleteWebhook 删除 Telegram Webhook（切回 polling 模式时使用）
+// DeleteWebhook 删除 Telegram Webhook（账号禁用 / 删除时清理陈旧回调）。
+// 统一走 channelbot/telegram.Client。
 func DeleteWebhook(botToken string) error {
-	_, err := callBotAPI(botToken, "deleteWebhook", url.Values{})
-	return err
+	if err := telegram.NewClient(botToken).DeleteWebhook(context.Background()); err != nil {
+		logger.Errorf("TG DeleteWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
+		return err
+	}
+	logger.Infof("TG DeleteWebhook 成功 bot=%s", maskToken(botToken))
+	return nil
 }
 
-// SendMessage 直接通过 bot_token 发送文本消息（无状态）
-// 用于 智能体流程出站回复
+// SendMessage 直接通过 bot_token 发送文本消息（无状态），用于 智能体流程出站回复。
+// 统一走 channelbot/telegram.Client，该客户端内部会把 AI 生成的 Markdown
+// 转换为 Telegram HTML（parse_mode=HTML），与出站 AI 回复保持一致的渲染效果。
 func SendMessage(botToken string, chatID int64, text string) error {
-	params := url.Values{}
-	params.Set("chat_id", strconv.FormatInt(chatID, 10))
-	params.Set("text", text)
-	params.Set("parse_mode", "HTML")
-	params.Set("disable_web_page_preview", "true")
-	_, err := callBotAPI(botToken, "sendMessage", params)
-	return err
+	if _, err := telegram.NewClient(botToken).SendMessage(context.Background(), chatID, text); err != nil {
+		logger.Errorf("TG SendMessage 失败 bot=%s chat=%d err=%v", maskToken(botToken), chatID, err)
+		return err
+	}
+	logger.Infof("TG SendMessage 成功 bot=%s chat=%d", maskToken(botToken), chatID)
+	return nil
 }
 
 // GetMe 获取 Bot 自身信息（用于校验 Bot Token 可用性）
 func GetMe(botToken string) (map[string]any, error) {
 	return callBotAPI(botToken, "getMe", url.Values{})
+}
+
+// GetBotUsername 取机器人 @username（由 BotFather 分配），用于群内「@机器人 才回复」的提及识别。
+// 返回空串表示暂无（Token 无效或未配置 username），调用方应降级为「仅回复-被回复机器人消息」。
+func GetBotUsername(botToken string) (string, error) {
+	resp, err := GetMe(botToken)
+	if err != nil {
+		return "", err
+	}
+	if resp == nil {
+		return "", fmt.Errorf("empty getMe response")
+	}
+	if ok, _ := resp["ok"].(bool); !ok {
+		if desc, _ := resp["description"].(string); desc != "" {
+			return "", fmt.Errorf("getMe failed: %s", desc)
+		}
+		return "", fmt.Errorf("getMe failed")
+	}
+	result, _ := resp["result"].(map[string]any)
+	if result == nil {
+		return "", fmt.Errorf("getMe result missing")
+	}
+	name, _ := result["username"].(string)
+	return name, nil
 }
 
 // GetWebhookInfo 获取当前 webhook 配置（url、pending_update_count、last_error 等），

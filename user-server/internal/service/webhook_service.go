@@ -98,6 +98,17 @@ type WebhookService struct {
 
 	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈（性能审计 P1-1）。
 	replySem chan struct{}
+
+	// TG 群「发现线索主动触达」冷却：避免同一会话被同一发言者的商机反复触发出站（防刷屏）
+	tgOutreachMu   sync.Mutex
+	tgOutreachLast map[string]time.Time
+}
+
+// tgDispatchExtra dispatchTelegram 的附加输出：携带群聊场景下车控/线索相关判定，
+// 供上层（handleJob）决定「是否触达 / 是否主动回复」。非 TG 渠道该值为 nil。
+type tgDispatchExtra struct {
+	Mentioned      bool // 该消息是否 @提及了本机器人（群内「@bot 才回复」的触发条件）
+	NewOpportunity bool // 该消息挖掘后是否让发言者「新晋为商机」
 }
 
 type webhookJob struct {
@@ -775,35 +786,53 @@ func (s *WebhookService) handleJob(job *webhookJob) {
 	}
 
 	// 2) 按渠道业务分发
-	hubMsg, _ := s.dispatchToChannel(channel, job.account, payload, job.raw, job.header)
+	hubMsg, tgExtra, _ := s.dispatchToChannel(channel, job.account, payload, job.raw, job.header)
 
 	// 3) 触发 智能体（如已注入 + 启用了 智能体开关）
-	// TG 群消息：仅静默挖线索 + 入群欢迎，不公开触发通用 AI 回复（避免刷屏）。
-	// 入群欢迎由 dispatchTelegram 内的 triggerTelegramJoinSales 单独处理，
-	// 故此处对「TG 且群会话」跳过通用 AI 回复——既避免对每条群消息刷屏，
-	// 也避免入群事件被欢迎+通用 AI 重复回复（双发）。私聊(DM)与其它渠道不受影响。
+	// TG 群聊的触达策略（避免无脑刷屏）：
+	//   · 私聊 / 非 TG：沿用原逻辑，AI 直接回复；
+	//   · TG 群聊「@机器人」：响应模式，直接回复（需求：群里 @bot 时才回复）；
+	//   · TG 群聊「发现新晋商机线索」：主动触达（需求：群聊发现符合线索可以机器人发消息），
+	//     并受冷却限制（每个发言者限频），避免同一客户反复触达；
+	//   · 入群欢迎仍由 dispatchTelegram 内的 triggerTelegramJoinSales 单独处理，此处跳过。
 	triggerAI := hubMsg != nil && s.shouldTriggerAI(channel, job.account)
-	if triggerAI && !(channel == ChannelTelegram && hubMsg.IsGroup) {
-		s.triggerSalesEngine(channel, job.account, payload, hubMsg)
+	if triggerAI {
+		if channel != ChannelTelegram || !hubMsg.IsGroup {
+			s.triggerSalesEngine(channel, job.account, payload, hubMsg)
+		} else {
+			mentioned := tgExtra != nil && tgExtra.Mentioned
+			newOpp := tgExtra != nil && tgExtra.NewOpportunity
+			switch {
+			case mentioned:
+				// 响应：群内 @机器人 才回复
+				s.triggerSalesEngine(channel, job.account, payload, hubMsg)
+			case newOpp && s.tgLeadOutreachAllowed(job.account, payload.ChatID, payload.Sender):
+				// 主动触达：发现新晋商机线索时，机器人主动在群里发消息（带冷却）
+				s.triggerSalesEngine(channel, job.account, payload, hubMsg)
+			}
+		}
 	}
 
 	s.markProcessed(job.event)
 }
 
 // dispatchToChannel 按渠道路由业务逻辑
-func (s *WebhookService) dispatchToChannel(channel WebhookChannel, accountID string, p *ParsedPayload, raw []byte, headers map[string]string) (*model.MessageHub, error) {
+func (s *WebhookService) dispatchToChannel(channel WebhookChannel, accountID string, p *ParsedPayload, raw []byte, headers map[string]string) (*model.MessageHub, *tgDispatchExtra, error) {
 	switch channel {
 	case ChannelWeCom:
-		return s.dispatchWeCom(accountID, p, raw, headers)
+		hub, err := s.dispatchWeCom(accountID, p, raw, headers)
+		return hub, nil, err
 	case ChannelWhatsapp:
-		return s.dispatchWhatsApp(accountID, p, raw)
+		hub, err := s.dispatchWhatsApp(accountID, p, raw)
+		return hub, nil, err
 	case ChannelTelegram:
 		return s.dispatchTelegram(accountID, p, raw)
 	case ChannelFeishu:
-		return s.dispatchFeishu(accountID, p, raw)
+		hub, err := s.dispatchFeishu(accountID, p, raw)
+		return hub, nil, err
 	default:
 		// 自定义渠道仅入统一消息即可
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
@@ -991,16 +1020,18 @@ func (s *WebhookService) dispatchWhatsApp(accountID string, p *ParsedPayload, ra
 	return nil, nil
 }
 
-func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, raw []byte) (*model.MessageHub, error) {
+func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, raw []byte) (*model.MessageHub, *tgDispatchExtra, error) {
 	if s.db == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	s.ensureReposFromDB()
 	// 解析 TG 消息（被动入站解析委托独立包 channelbot/telegram，支持消息/编辑/回调/入群事件）
 	tgPayload, err := telegram.ParseUpdate(raw)
 	if err != nil {
-		return nil, fmt.Errorf("telegram parse: %w", err)
+		return nil, nil, fmt.Errorf("telegram parse: %w", err)
 	}
+	// 群内「@机器人 才回复」所需的 @username（注册 webhook 时经 getMe 自动回填；为空则降级为仅回复被@机器人消息）
+	botUsername := s.getTelegramBotUsername(accountID)
 
 	// ====================================================================
 	// TG 入群事件：自动触发 智能体流程
@@ -1061,7 +1092,7 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 			}
 			if err := s.messageHubRepo.Create(hub); err != nil {
 				if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
-					return nil, err
+					return nil, nil, err
 				}
 			}
 			s.upsertInboxFromHub(hub, fromName)
@@ -1071,7 +1102,7 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 			triggerMsg := fmt.Sprintf("新用户 %s (@%s) 刚加入群组「%s」。请以销售助手身份主动发起欢迎+销售开场白，引导用户了解我们的产品。",
 				newMember.FirstName, newMember.Username, groupLabel)
 			s.triggerTelegramJoinSales(accountID, chatIDStr, senderIDStr, triggerMsg)
-			return hub, nil
+			return hub, nil, nil
 		}
 	}
 
@@ -1101,29 +1132,29 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		}
 		if err := s.messageHubRepo.Create(hub); err != nil {
 			if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		s.upsertInboxFromHub(hub, fromName)
-		return hub, nil
+		return hub, nil, nil
 	}
 
 	// 提取消息
 	type tgMsg struct {
-		msgID    int64
-		chatID   int64
-		chatType string
-		fromID   int64
-		fromName string
-		username string
+		msgID     int64
+		chatID    int64
+		chatType  string
+		fromID    int64
+		fromName  string
+		username  string
 		fromIsBot bool
-		text     string
+		text      string
 	}
 	var picked *tgMsg
 	if tgPayload.Message != nil && tgPayload.Message.From != nil && tgPayload.Message.Chat != nil {
 		// 如果消息只有 new_chat_title 等系统通知（无 text、无 new_chat_members），跳过
 		if tgPayload.Message.Text == "" && len(tgPayload.Message.NewChatMembers) == 0 && tgPayload.Message.LeftChatMember == nil && tgPayload.Message.NewChatTitle != "" {
-			return nil, nil
+			return nil, nil, nil
 		}
 		tm := &tgMsg{
 			msgID:     tgPayload.Message.MessageID,
@@ -1141,14 +1172,34 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		picked = tm
 	} else if tgPayload.EditedMessage != nil && tgPayload.EditedMessage.Chat != nil {
 		tm := &tgMsg{
-			msgID:     tgPayload.EditedMessage.MessageID,
-			chatID:    tgPayload.EditedMessage.Chat.ID,
-			chatType:  tgPayload.EditedMessage.Chat.Type,
-			fromID:    func() int64 { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.ID }; return 0 }(),
-			fromName:  func() string { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.FirstName }; return "" }(),
-			username:  func() string { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.Username }; return "" }(),
-			fromIsBot: func() bool { if tgPayload.EditedMessage.From != nil { return tgPayload.EditedMessage.From.IsBot }; return false }(),
-			text:      tgPayload.EditedMessage.Text,
+			msgID:    tgPayload.EditedMessage.MessageID,
+			chatID:   tgPayload.EditedMessage.Chat.ID,
+			chatType: tgPayload.EditedMessage.Chat.Type,
+			fromID: func() int64 {
+				if tgPayload.EditedMessage.From != nil {
+					return tgPayload.EditedMessage.From.ID
+				}
+				return 0
+			}(),
+			fromName: func() string {
+				if tgPayload.EditedMessage.From != nil {
+					return tgPayload.EditedMessage.From.FirstName
+				}
+				return ""
+			}(),
+			username: func() string {
+				if tgPayload.EditedMessage.From != nil {
+					return tgPayload.EditedMessage.From.Username
+				}
+				return ""
+			}(),
+			fromIsBot: func() bool {
+				if tgPayload.EditedMessage.From != nil {
+					return tgPayload.EditedMessage.From.IsBot
+				}
+				return false
+			}(),
+			text: tgPayload.EditedMessage.Text,
 		}
 		if tm.chatType == "" {
 			tm.chatType = "private"
@@ -1172,7 +1223,7 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		}
 	}
 	if picked == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	chatIDStr := fmt.Sprintf("%d", picked.chatID)
 	senderIDStr := fmt.Sprintf("%d", picked.fromID)
@@ -1194,7 +1245,7 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 	}
 	if err := s.messageHubRepo.Create(hub); err != nil {
 		if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	s.upsertInboxFromHub(hub, picked.fromName)
@@ -1202,14 +1253,86 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 	// 销售线索/商机 自动挖掘：群发言与私聊中「真人」的发言都是潜在客户（发言即线索）。
 	// 静默写入线索库（去重 + 意向分增量更新），与 AI 自动回复解耦、不向会话发任何消息，绝不刷屏；
 	// 排除机器人自身回复(fromIsBot)与系统事件(fromID==0)；best-effort，不影响入站主链路。
+	// 返回 newOpportunity：本次是否让发言者「新晋为商机」，用于群内「发现线索主动触达」。
+	newOpportunity := false
 	if picked.fromID != 0 && !picked.fromIsBot {
 		groupTitle := ""
 		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
 			groupTitle = tgPayload.Message.Chat.Title
 		}
-		s.mineTelegramGroupLead(chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
+		newOpportunity = s.mineTelegramGroupLead(hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
 	}
-	return hub, nil
+
+	// 群内「@机器人 才回复」的提及判定：文本含 @username，或本条是「回复了某条机器人消息」
+	mentioned := isTelegramBotMentioned(picked.text, botUsername)
+	if !mentioned && tgPayload.Message != nil && tgPayload.Message.ReplyToMessage != nil &&
+		tgPayload.Message.ReplyToMessage.From != nil && tgPayload.Message.ReplyToMessage.From.IsBot {
+		mentioned = true
+	}
+
+	return hub, &tgDispatchExtra{Mentioned: mentioned, NewOpportunity: newOpportunity}, nil
+}
+
+// tgLeadOutreachCooldown 「发现线索主动触达」对同一发言者的冷却时长，避免群内刷屏。
+const tgLeadOutreachCooldown = 30 * time.Minute
+
+// getTelegramBotUsername 取账号绑定的机器人 @username（用于群内 @提及 识别）。
+// 该值通常在注册 webhook 时经 getMe 自动回填；缺失则返回空（上层降级为仅回复被@机器人消息）。
+func (s *WebhookService) getTelegramBotUsername(accountID string) string {
+	if s.telegramRepo == nil {
+		return ""
+	}
+	accID, err := strconv.ParseUint(accountID, 10, 64)
+	if err != nil || accID == 0 {
+		return ""
+	}
+	acc, err := s.telegramRepo.GetByID(uint(accID))
+	if err != nil || acc == nil {
+		return ""
+	}
+	return strings.TrimSpace(acc.BotUsername)
+}
+
+// isTelegramBotMentioned 判断一条消息文本是否 @提及了本机器人。
+// botUsername 为空（未配置/未回填）时返回 false。匹配大小写不敏感（TG 用户名统一小写）。
+// 采用词边界匹配：@username 之后必须紧跟「非用户名字符」（字母/数字/下划线之外）或结尾，
+// 避免把 @mybotX、@mybotfoo 误判为 @mybot。
+func isTelegramBotMentioned(text, botUsername string) bool {
+	uname := strings.TrimSpace(botUsername)
+	if uname == "" {
+		return false
+	}
+	needle := "@" + strings.ToLower(uname)
+	lower := strings.ToLower(text)
+	idx := strings.Index(lower, needle)
+	if idx < 0 {
+		return false
+	}
+	end := idx + len(needle)
+	if end < len(lower) {
+		next := lower[end]
+		if (next >= 'a' && next <= 'z') || (next >= '0' && next <= '9') || next == '_' {
+			return false
+		}
+	}
+	return true
+}
+
+// tgLeadOutreachAllowed 判断该（账号, 群组, 发言者）是否允许本次「发现线索主动触达」。
+// 用于防止同一发言者反复触发商机时机器人频繁刷屏；冷却期内返回 false 并跳过。
+func (s *WebhookService) tgLeadOutreachAllowed(accountID, chatID, senderID string) bool {
+	key := accountID + ":" + chatID + ":" + senderID
+	s.tgOutreachMu.Lock()
+	defer s.tgOutreachMu.Unlock()
+	if s.tgOutreachLast == nil {
+		s.tgOutreachLast = map[string]time.Time{}
+	}
+	now := time.Now()
+	if last, ok := s.tgOutreachLast[key]; ok && now.Sub(last) < tgLeadOutreachCooldown {
+		return false
+	}
+	s.tgOutreachLast[key] = now
+	return true
 }
 
 // triggerTelegramJoinSales TG 入群事件触发 智能体流程

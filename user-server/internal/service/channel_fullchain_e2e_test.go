@@ -490,7 +490,7 @@ func TestE2E_WebhookService_DispatchTelegram(t *testing.T) {
 
 	body := []byte(`{"update_id":1,"message":{"message_id":100,"from":{"id":67890,"first_name":"Bob"},"chat":{"id":12345,"type":"private"},"date":1700000000,"text":"hello"}}`)
 
-	hub, err := svc.dispatchTelegram("1", &ParsedPayload{EventID: "tg1"}, body)
+	hub, _, err := svc.dispatchTelegram("1", &ParsedPayload{EventID: "tg1"}, body)
 	if err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}

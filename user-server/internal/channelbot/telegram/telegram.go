@@ -7,8 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"marketing/internal/channelbot/core"
 )
@@ -33,31 +36,80 @@ func (c *Client) jsonHeaders() map[string]string {
 	return map[string]string{"Content-Type": "application/json; charset=utf-8"}
 }
 
-// SendMessage 主动发文本消息，返回 Telegram 消息 ID
+// SendMessage 主动发文本消息，返回 Telegram 消息 ID。
+// AI 生成的回复通常是 Markdown，直接发送会把 **粗体** 等标记当纯文本泄漏。
+// 这里统一把常见 Markdown 转换为 Telegram 支持的 HTML（parse_mode=HTML），
+// 并在 Telegram 仍报「无法解析实体」时退化为纯文本重发，保证消息一定可达。
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) (int64, error) {
+	htmlText := markdownToTelegramHTML(text)
 	url := fmt.Sprintf("%s/bot%s/sendMessage", c.apiBase, c.token)
-	payload := map[string]any{"chat_id": chatID, "text": text}
+	payload := map[string]any{"chat_id": chatID, "text": htmlText, "parse_mode": "HTML"}
 	b, _ := json.Marshal(payload)
 	respB, status, err := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b), c.jsonHeaders())
 	if err != nil {
 		return 0, fmt.Errorf("tg send: %w", err)
 	}
-	if status != 200 {
-		return 0, fmt.Errorf("tg send status %d: %s", status, string(respB))
+	if status == 200 {
+		return parseSendMessageID(respB), nil
 	}
+	// AI 生成的 markdown 经转换后仍可能非法（如未闭合标签、嵌套错误）→ 退化为纯文本重发
+	if status == 400 && strings.Contains(strings.ToLower(string(respB)), "parse entities") {
+		payload2 := map[string]any{"chat_id": chatID, "text": text}
+		b2, _ := json.Marshal(payload2)
+		respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
+		if err2 != nil {
+			return 0, fmt.Errorf("tg send fallback: %w", err2)
+		}
+		if status2 == 200 {
+			return parseSendMessageID(respB2), nil
+		}
+		return 0, fmt.Errorf("tg send status %d: %s", status2, string(respB2))
+	}
+	return 0, fmt.Errorf("tg send status %d: %s", status, string(respB))
+}
+
+// tgMdXxx 把 LLM 常见 Markdown 片段转换为 Telegram HTML 标签。
+var (
+	tgMdInlineCode = regexp.MustCompile("`([^`]+)`")
+	tgMdBold       = regexp.MustCompile(`\*\*([^*\n]+?)\*\*`)
+	tgMdItalic     = regexp.MustCompile(`\*([^*\n]+?)\*`)
+	tgMdLink       = regexp.MustCompile(`\[([^\]]+)\]\(([^)\s]+)\)`)
+)
+
+// markdownToTelegramHTML 将常见 Markdown（粗体/斜体/行内代码/链接）转换为 Telegram HTML。
+// 先对全文做 HTML 转义（防止 < > & 原样泄漏或破坏标签），再注入受支持的标签。
+// 未匹配的 ** / * 会保留为字面量（不转换），因此总能产出合法 HTML。
+func markdownToTelegramHTML(md string) string {
+	s := html.EscapeString(md)
+	s = tgMdInlineCode.ReplaceAllString(s, "<code>$1</code>")
+	s = tgMdBold.ReplaceAllString(s, "<b>$1</b>")
+	s = tgMdItalic.ReplaceAllString(s, "<i>$1</i>")
+	s = tgMdLink.ReplaceAllString(s, `<a href="$2">$1</a>`)
+	return s
+}
+
+// parseSendMessageID 从 sendMessage 响应中解析 message_id（解析失败返回 0）。
+func parseSendMessageID(body []byte) int64 {
 	var r struct {
+		OK     bool `json:"ok"`
 		Result struct {
 			MessageID int64 `json:"message_id"`
 		} `json:"result"`
 	}
-	_ = json.Unmarshal(respB, &r)
-	return r.Result.MessageID, nil
+	if json.Unmarshal(body, &r) == nil && r.OK {
+		return r.Result.MessageID
+	}
+	return 0
 }
 
 // SetWebhook 注册被动收消息回调；secret 用于 X-Telegram-Bot-Api-Secret-Token 验签
 func (c *Client) SetWebhook(ctx context.Context, url, secret string) error {
 	api := fmt.Sprintf("%s/bot%s/setWebhook", c.apiBase, c.token)
-	payload := map[string]any{"url": url}
+	payload := map[string]any{
+		"url": url,
+		// 显式声明要接收的更新类型，避免遗漏 callback / 入退群等事件
+		"allowed_updates": []string{"message", "edited_message", "callback_query", "chat_member", "my_chat_member"},
+	}
 	if secret != "" {
 		payload["secret_token"] = secret
 	}
@@ -120,15 +172,25 @@ type TGCallbackMessage struct {
 
 // TGMessage 消息
 type TGMessage struct {
-	MessageID      int64    `json:"message_id"`
-	From           *TGUser  `json:"from"`
-	Chat           *TGChat  `json:"chat"`
-	Text           string   `json:"text"`
-	Caption        string   `json:"caption"`
-	Date           int64    `json:"date"`
-	NewChatMembers []TGUser `json:"new_chat_members,omitempty"`
-	LeftChatMember *TGUser  `json:"left_chat_member,omitempty"`
-	NewChatTitle   string   `json:"new_chat_title,omitempty"`
+	MessageID      int64       `json:"message_id"`
+	From           *TGUser     `json:"from"`
+	Chat           *TGChat     `json:"chat"`
+	Text           string      `json:"text"`
+	Caption        string      `json:"caption"`
+	Date           int64       `json:"date"`
+	Entities       []TGEntity  `json:"entities,omitempty"`
+	ReplyToMessage *TGMessage  `json:"reply_to_message,omitempty"`
+	NewChatMembers []TGUser    `json:"new_chat_members,omitempty"`
+	LeftChatMember *TGUser     `json:"left_chat_member,omitempty"`
+	NewChatTitle   string      `json:"new_chat_title,omitempty"`
+}
+
+// TGEntity 消息内格式化实体（mention / text_mention / bot_command 等），用于精确识别 @提及
+type TGEntity struct {
+	Type   string `json:"type"`
+	Offset int    `json:"offset"`
+	Length int    `json:"length"`
+	User   *TGUser `json:"user,omitempty"`
 }
 
 // TGUser 用户
