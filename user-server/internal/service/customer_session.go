@@ -64,15 +64,11 @@ type CreateSessionRequest struct {
 //
 // 2026-07-22 拉黑串联：进入时先校验 IsUserBlacklisted(userID, platform)，
 // 命中即拒绝创建（避免已被拉黑的访客通过新会话绕过黑名单）。
+//
+// 具体校验逻辑见 customer_session_blacklist.go 中的 preCreateBlacklistGuard。
 func (s *CustomerSessionService) CreateSession(req *CreateSessionRequest) (*model.CustomerSession, error) {
-	if req.UserID != "" {
-		banned, blErr := s.blacklistRepo.IsBlacklisted(req.UserID, req.Platform)
-		if blErr != nil {
-			return nil, blErr
-		}
-		if banned {
-			return nil, errors.New("该访客已被加入黑名单，无法创建新会话")
-		}
+	if err := s.preCreateBlacklistGuard(req); err != nil {
+		return nil, err
 	}
 
 	sessionID := generateSessionID()
@@ -647,92 +643,8 @@ func (s *CustomerSessionService) notifySessionUpdate(session *model.CustomerSess
 	})
 }
 
-// ============================================================================
-// 方向10：拉黑 / 解除拉黑
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §四
-// ============================================================================
-
-// BlacklistRequest 拉黑请求
-type BlacklistRequest struct {
-	SessionID    uint   `json:"session_id" binding:"required"`
-	Reason       string `json:"reason"`        // 拉黑原因
-	OperatorID   uint   `json:"operator_id"`   // 操作人（坐席 ID）
-	OperatorName string `json:"operator_name"` // 操作人姓名
-	TTLHours     int    `json:"ttl_hours"`     // 0 = 永久
-}
-
-// BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
-//
-// 行为：
-//  1. 会话必须存在且有 user_id，否则拒绝。
-//  2. 幂等：若该 user_id+platform 已存在 active 记录，更新 reason/expires_at。
-//  3. 拉黑后立即关闭该会话（status=closed）以防继续对话。
-//  4. 推 WebSocket 给前端（type=handler_changed, event=blacklisted）。
-func (s *CustomerSessionService) BlacklistUser(req *BlacklistRequest) error {
-	if req.SessionID == 0 {
-		return errors.New("session_id required")
-	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
-	if err != nil {
-		return errors.New("会话不存在")
-	}
-	if session.UserID == "" {
-		return errors.New("该会话无 user_id，无法拉黑")
-	}
-
-	var expiresAt *time.Time
-	if req.TTLHours > 0 {
-		t := time.Now().Add(time.Duration(req.TTLHours) * time.Hour)
-		expiresAt = &t
-	}
-
-	bl := &model.UserBlacklist{
-		UserID:       session.UserID,
-		Platform:     session.Platform,
-		Reason:       req.Reason,
-		Source:       "manual",
-		OperatorID:   req.OperatorID,
-		OperatorName: req.OperatorName,
-		SessionID:    session.SessionID,
-		Active:       true,
-		ExpiresAt:    expiresAt,
-	}
-	if err := s.blacklistRepo.Add(bl); err != nil {
-		return err
-	}
-
-	// 关闭该会话，避免继续对话
-	_ = s.sessionRepo.UpdateStatus(req.SessionID, model.SessionStatusClosed)
-
-	// 通知前端：handler_changed + blacklisted
-	_ = s.notifySessionUpdate(session, "blacklisted", "human")
-	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id":  session.SessionID,
-		"handler":     "human",
-		"reason":      "因违反服务条款，该访客已被加入黑名单",
-		"blacklisted": true,
-	}, session.SessionID)
-
-	return nil
-}
-
-// UnblacklistUser 解除拉黑
-func (s *CustomerSessionService) UnblacklistUser(userID string, platform model.Platform) error {
-	if userID == "" {
-		return errors.New("user_id required")
-	}
-	return s.blacklistRepo.Remove(userID, platform)
-}
-
-// IsUserBlacklisted 判断访客是否在黑名单
-func (s *CustomerSessionService) IsUserBlacklisted(userID string, platform model.Platform) (bool, error) {
-	return s.blacklistRepo.IsBlacklisted(userID, platform)
-}
-
-// ListBlacklist 分页查询生效中的黑名单
-func (s *CustomerSessionService) ListBlacklist(page, pageSize int) ([]*model.UserBlacklist, int64, error) {
-	return s.blacklistRepo.ListActive(page, pageSize)
-}
+// 拉黑 / 解除拉黑 / 列表 已拆分到 customer_session_blacklist.go
+// CreateSession 串联黑名单校验也保留在 customer_session_blacklist.go 中
 
 // AgentStatusService 客服状态服务
 type AgentStatusService struct {

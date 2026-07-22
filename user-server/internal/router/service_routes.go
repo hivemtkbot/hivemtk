@@ -30,7 +30,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup) {
 	auth.POST("/customer-sessions/:id/switch-handler", customerSessionCtrl.SwitchHandler)
 	// 方向10：拉黑 / 解除拉黑
 	// 注意：黑名单相关路由放在 :id 通配符之前，避免被通配捕获
-	auth.GET("/customer-sessions/blacklist", customerSessionCtrl.ListBlacklist)
+	auth.GET("/customer-sessions/blacklist", customerSessionCtrl.ListActiveBlacklist)
 	auth.GET("/customer-sessions/blacklist/check", customerSessionCtrl.IsUserBlacklisted)
 	auth.POST("/customer-sessions/blacklist/remove", customerSessionCtrl.Unblacklist)
 	auth.POST("/customer-sessions/:id/blacklist", customerSessionCtrl.Blacklist)

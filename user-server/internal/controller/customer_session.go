@@ -521,7 +521,7 @@ func (c *CustomerSessionController) IsUserBlacklisted(ctx *gin.Context) {
 		return
 	}
 	platform := model.Platform(ctx.DefaultQuery("platform", "web"))
-	ok, err := c.sessionService.IsUserBlacklisted(userID, platform)
+	ok, err := c.sessionService.IsUserBlacklisted(ctx.Request.Context(), userID, platform)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -529,13 +529,13 @@ func (c *CustomerSessionController) IsUserBlacklisted(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"blacklisted": ok}, "查询成功")
 }
 
-// ListBlacklist 分页查询生效中的黑名单
+// ListActiveBlacklist 分页查询生效中的黑名单
 //
 //	GET /api/customer-sessions/blacklist?page=1&page_size=20
-func (c *CustomerSessionController) ListBlacklist(ctx *gin.Context) {
+func (c *CustomerSessionController) ListActiveBlacklist(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	rows, total, err := c.sessionService.ListBlacklist(page, pageSize)
+	rows, total, err := c.sessionService.ListActiveBlacklist(ctx.Request.Context(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
