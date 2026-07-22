@@ -70,6 +70,9 @@ type WebhookService struct {
 	inboxConvRepo  *repository.InboxConversationRepository
 	unifiedMsgRepo repository.UnifiedMessageRepository
 
+	// 线索仓库：Telegram 群发言自动挖掘为销售线索/商机（去重 + 意向分增量更新）
+	clueRepo repository.ClueRepository
+
 	// Phase 1：智能体引擎（可选注入，nil 时仅入库不入 AI）
 	salesEngine *SalesEngine
 	// 智能体统一编排器（LLM + 客服座席结合体）
@@ -258,6 +261,9 @@ func (s *WebhookService) ensureReposFromDB() {
 	}
 	if s.unifiedMsgRepo == nil {
 		s.unifiedMsgRepo = repository.NewUnifiedMessageRepositoryWithDB(s.db)
+	}
+	if s.clueRepo == nil {
+		s.clueRepo = repository.NewClueRepositoryWithDB(s.db)
 	}
 }
 
@@ -1180,6 +1186,17 @@ func (s *WebhookService) dispatchTelegram(accountID string, p *ParsedPayload, ra
 		}
 	}
 	s.upsertInboxFromHub(hub, picked.fromName)
+
+	// 群发言 → 销售线索/商机 自动挖掘：
+	// 群里每个真实发言者都是潜在客户，发言即线索。静默写入线索库（去重 + 意向分增量更新），
+	// 与 AI 自动回复解耦、不向群里发消息，因此绝不刷屏；best-effort，不影响入站主链路。
+	if hub.IsGroup && picked.fromID != 0 {
+		groupTitle := ""
+		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
+			groupTitle = tgPayload.Message.Chat.Title
+		}
+		s.mineTelegramGroupLead(chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
+	}
 	return hub, nil
 }
 

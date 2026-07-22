@@ -18,6 +18,8 @@ type ClueRepository interface {
 	GetClueStatistics() ([]map[string]any, error)
 	GetClueAllList(clueType int64) ([]*model.Clue, int64, error)
 	ExistsByTypeAndAccount(clueType int64, account string) (bool, error) // 添加此方法声明
+	// FindByTypeAndAccount 按类型+账号返回已存在线索（不存在返回 nil, nil），用于线索去重后的增量更新
+	FindByTypeAndAccount(clueType int64, account string) (*model.Clue, error)
 	GetDistinctTypes() ([]int64, error)
 	// UpdateByID 按主键更新指定字段，用于营销流程 update_lead 动作
 	UpdateByID(id string, updates map[string]any) error
@@ -117,6 +119,19 @@ func (r *clueRepo) ExistsByTypeAndAccount(clueType int64, account string) (bool,
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// FindByTypeAndAccount 按类型+账号返回已存在线索；不存在返回 (nil, nil)
+func (r *clueRepo) FindByTypeAndAccount(clueType int64, account string) (*model.Clue, error) {
+	var clue model.Clue
+	err := r.db.Model(&model.Clue{}).Where("type = ? and account = ?", clueType, account).First(&clue).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &clue, nil
 }
 
 // GetDistinctTypes 查询数据库中所有不同的线索类型

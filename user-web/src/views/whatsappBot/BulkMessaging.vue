@@ -466,7 +466,9 @@ const resetTemplateForm = () => {
 }
 
 const viewRecordDetails = (row) => {
-  ElMessageBox.alert(`
+  // P1-7 修复：dangerouslyUseHTMLString 拼接了用户可控的 row.templateName 等字段，
+  // 必须先经 DOMPurify 净化，杜绝模板名注入恶意 HTML/脚本
+  ElMessageBox.alert(DOMPurify.sanitize(`
     <div style="text-align: left;">
       <p><strong>模板名称:</strong> ${row.templateName}</p>
       <p><strong>总数量:</strong> ${row.totalCount}</p>
@@ -475,7 +477,7 @@ const viewRecordDetails = (row) => {
       <p><strong>状态:</strong> ${getStatusText(row.status)}</p>
       <p><strong>创建时间:</strong> ${row.createdAt}</p>
     </div>
-  `, '发送记录详情', {
+  `), '发送记录详情', {
     dangerouslyUseHTMLString: true,
     customClass: 'record-detail-box'
   })

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,6 +49,7 @@ func (ctrl *TelegramAccountController) RegisterRoutes(router *gin.RouterGroup) {
 		g.PUT("/:id", ctrl.Update)
 		g.DELETE("/:id", ctrl.Delete)
 		g.POST("/:id/register-webhook", ctrl.RegisterWebhook)
+		g.GET("/:id/status", ctrl.Status)
 		g.POST("/:id/test-send", ctrl.TestSend)
 	}
 }
@@ -213,7 +215,7 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 
 // RegisterWebhook 调用 Telegram setWebhook 接口注册 webhook
 // POST /api/telegram/accounts/:id/register-webhook
-// body: {"webhook_url": "https://your-domain/api/webhook/telegram/{id}"}
+// body: {"webhook_url": "https://your-domain/api/webhook/telegram/{id}"}（可省略，省略时按请求 host 自动推导）
 func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -232,9 +234,13 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	if req.WebhookURL != "" {
 		acc.WebhookURL = req.WebhookURL
 	}
+	// 未显式提供 webhook_url 时，基于当前请求 host 自动推导
 	if acc.WebhookURL == "" {
-		response.Error(c, http.StatusBadRequest, "webhook_url 未配置", "请提供 webhook_url")
-		return
+		acc.WebhookURL = deriveTelegramWebhookURL(c, uint(id))
+	}
+	// WebhookSecret 为空时自动生成，确保生产环境（GIN_MODE=release）入站验签可通过
+	if acc.WebhookSecret == "" {
+		acc.WebhookSecret = service.GenTGWebhookSecret()
 	}
 
 	// 调用 Telegram setWebhook
@@ -257,6 +263,63 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		return
 	}
 	response.Success(c, toTelegramAccountVO(acc), "Webhook 注册成功")
+}
+
+// deriveTelegramWebhookURL 基于当前请求推导 webhook 公网地址：{scheme}://{host}/api/webhook/telegram/{id}
+// 优先使用反向代理透传的 X-Forwarded-Proto / X-Forwarded-Host，否则回退到请求自身 host。
+func deriveTelegramWebhookURL(c *gin.Context, accountID uint) string {
+	scheme := "https"
+	if h := c.GetHeader("X-Forwarded-Proto"); h != "" {
+		scheme = h
+	} else if c.Request.TLS == nil {
+		scheme = "http"
+	}
+	host := c.GetHeader("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	return fmt.Sprintf("%s://%s/api/webhook/telegram/%d", scheme, host, accountID)
+}
+
+// Status 校验 Bot Token 与 webhook 注册状态（无需改动账号）
+// GET /api/telegram/accounts/:id/status
+func (ctrl *TelegramAccountController) Status(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
+		return
+	}
+	acc, err := ctrl.svc.GetAccount(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	bot, botErr := tgbot.GetMe(acc.BotToken)
+	whInfo, whErr := tgbot.GetWebhookInfo(acc.BotToken)
+	resp := gin.H{
+		"account_id":       acc.ID,
+		"account_name":     acc.AccountName,
+		"bot_token_masked": maskBotToken(acc.BotToken),
+		"ai_agent_enabled": acc.AIAgentEnabled,
+		"status":           acc.Status,
+		"webhook_enabled":  acc.WebhookEnabled,
+		"webhook_url":      acc.WebhookURL,
+		"last_sync_at":     acc.LastSyncAt,
+		"last_error_at":    acc.LastErrorAt,
+		"last_error_msg":   acc.LastErrorMsg,
+		"bot":              bot,
+		"bot_error":        errToStr(botErr),
+		"webhook_info":     whInfo,
+		"webhook_error":    errToStr(whErr),
+	}
+	response.Success(c, resp, "获取状态成功")
+}
+
+func errToStr(e error) string {
+	if e == nil {
+		return ""
+	}
+	return e.Error()
 }
 
 // TestSend 测试向指定 chat_id 发送一条消息，验证 Bot Token 可用性

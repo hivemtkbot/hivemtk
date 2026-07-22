@@ -21,6 +21,9 @@ func setupTelegramTestDB(t *testing.T) *gorm.DB {
 		&model.Customer{},
 		&model.IntegrationAccount{},
 		&model.UnifiedMessage{},
+		&model.Clue{},
+		&model.ClueScore{},
+		&model.ClueEngagementEvent{},
 	)
 }
 

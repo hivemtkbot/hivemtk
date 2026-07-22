@@ -214,3 +214,9 @@ func SendMessage(botToken string, chatID int64, text string) error {
 func GetMe(botToken string) (map[string]any, error) {
 	return callBotAPI(botToken, "getMe", url.Values{})
 }
+
+// GetWebhookInfo 获取当前 webhook 配置（url、pending_update_count、last_error 等），
+// 用于校验 webhook 是否已正确注册。
+func GetWebhookInfo(botToken string) (map[string]any, error) {
+	return callBotAPI(botToken, "getWebhookInfo", url.Values{})
+}

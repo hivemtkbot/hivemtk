@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 
+	"marketing/internal/dto"
 	"gorm.io/gorm"
 )
 
@@ -83,5 +85,70 @@ func defaultSOPs() map[string]*IndustrySOP {
 			},
 			KPI: map[string]interface{}{"conversion": ">15%"},
 		},
+	}
+}
+
+// mapActionToSOPNodeType 将行业 SOP 步骤的 action 映射为 SOP 图节点类型。
+// 未识别的 action 统一降级为 message 节点，保证转换后图始终可校验通过。
+func mapActionToSOPNodeType(action string) string {
+	switch action {
+	case "tag_source":
+		return "action"
+	case "ask_need":
+		return "inquire"
+	case "recommend":
+		return "introduce"
+	case "close":
+		return "close"
+	default:
+		return "message"
+	}
+}
+
+// ToCreateRequest 将行业 SOP 资产转换为创建 SOP 的请求（M2 运行时覆盖默认）。
+// 资产步骤被串成 开始 -> 各步骤 -> 结束 的线性流程；宽松的 action 字段映射为
+// 受支持的节点类型，无法识别时降级为 message 节点。
+func (s *IndustrySOP) ToCreateRequest(scenario string) *dto.CreateRequest {
+	nodes := make([]dto.SOPNode, 0, len(s.Steps)+2)
+	nodes = append(nodes, dto.SOPNode{ID: "start", Type: "start", Name: "开始"})
+	prevID := "start"
+	for i, step := range s.Steps {
+		action, _ := step["action"].(string)
+		name, _ := step["name"].(string)
+		if name == "" {
+			name = action
+		}
+		node := dto.SOPNode{
+			ID:     fmt.Sprintf("n%d", i+1),
+			Type:   mapActionToSOPNodeType(action),
+			Name:   name,
+			Prompt: name,
+		}
+		// 上一节点连线到本节点
+		for idx := range nodes {
+			if nodes[idx].ID == prevID {
+				nodes[idx].Next = []string{node.ID}
+				break
+			}
+		}
+		nodes = append(nodes, node)
+		prevID = node.ID
+	}
+	nodes = append(nodes, dto.SOPNode{ID: "end", Type: "end", Name: "结束"})
+	for idx := range nodes {
+		if nodes[idx].ID == prevID {
+			nodes[idx].Next = []string{"end"}
+			break
+		}
+	}
+	desc := s.Industry
+	if s.Category != "" {
+		desc = desc + " / " + s.Category
+	}
+	return &dto.CreateRequest{
+		Name:        s.Name,
+		Scenario:    scenario,
+		Description: desc,
+		SOPGraph:    dto.SOPGraph{Entry: "start", Nodes: nodes},
 	}
 }

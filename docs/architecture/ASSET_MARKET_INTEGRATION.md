@@ -1158,6 +1158,14 @@ func defaultAgentPersonas() map[string]*AgentPersona {
 
 ## 八、业务调用方改造(示例)
 
+> **实现状态（2026-07-22，运行时覆盖默认形态）**：5 个 Loader 早已完整（DB 优先、代码默认兜底），本轮新增 `internal/service/asset_resolver.go` 的 `AssetResolver` 运行时覆盖层，并在业务构建站点接线：
+> - `agent_persona` → `ai_agent_domain_service.go CreateAIAgent`（Persona 指向已购资产时套用其 SystemPrompt/Greeting）。
+> - `sales_script` → `sales_engine.go matchScript`（话术库未命中时回退生效中 sales_script 资产）。
+> - `industry_sop` → `sop_loader.go ToCreateRequest` + `sop_service.go Create`（无图时回退默认 SOP 模板）。
+> - `ab_test_plan` → `abtest_loader.go ToSOPABTestConfig` + `sop_service.go Create`（未配 A/B 时回退默认方案，仅当校验通过）。
+> - `marketing_workflow` → `content/service/marketing_flow.go` 经注入 `ResolveActiveWorkflow` 读取（受 flow 节点结构化约束，运行时生效需 flow 创建接线，见下文）。
+> 注：实际业务子系统为数据驱动，文档 §8 设想的 `internal/service/agent/agent.go` 等调用方并不存在；本实现以「运行时优先读生效中本地资产、缺省回退代码默认」达成等价效果。
+
 ### 8.1 改造前 `internal/service/agent/agent.go`
 
 ```go

@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"marketing/internal/model"
 )
@@ -46,6 +48,19 @@ type AIAgentCreateDTO struct {
 
 // CreateAIAgent 创建智能体（组装 model 并应用默认值）
 func (s *AIAgentService) CreateAIAgent(req *AIAgentCreateDTO) (*model.AIAgent, error) {
+	// M2 运行时覆盖默认：Persona 指向已购/已同步的 agent_persona 资产且未提供 SystemPrompt 时，
+	// 应用资产内置人设（系统提示词 / 问候语）。
+	systemPrompt := req.SystemPrompt
+	greeting := req.Greeting
+	if r := GetAssetResolver(); r != nil && req.Persona != "" && systemPrompt == "" {
+		if p, err := r.LoadPersona(context.Background(), req.Persona); err == nil && p != nil {
+			systemPrompt = p.SystemPrompt
+			if greeting == "" && len(p.GreetingTemplates) > 0 {
+				greeting = strings.Join(p.GreetingTemplates, "\n")
+			}
+		}
+	}
+
 	agent := &model.AIAgent{
 		AgentCode:            req.AgentCode,
 		Name:                 req.Name,
@@ -53,8 +68,8 @@ func (s *AIAgentService) CreateAIAgent(req *AIAgentCreateDTO) (*model.AIAgent, e
 		Avatar:               req.Avatar,
 		AgentType:            req.AgentType,
 		Persona:              req.Persona,
-		SystemPrompt:         req.SystemPrompt,
-		Greeting:             req.Greeting,
+		SystemPrompt:         systemPrompt,
+		Greeting:             greeting,
 		RagProductIDs:        req.RagProductIDs,
 		SOPIDs:               req.SOPIDs,
 		ScriptLibraryIDs:     req.ScriptLibraryIDs,

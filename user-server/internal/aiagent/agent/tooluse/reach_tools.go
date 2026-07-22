@@ -271,7 +271,9 @@ func sendViaPipeline(ctx context.Context, deps ReachToolDeps, req *service.Reach
 		}
 		return resp.MessageID, resp, nil
 	}
-	// 回退：直接调用 Adapter
+	// 回退：直接调用 Adapter（未配置 9 步 SendPipeline 时）
+	// 核心敏感接口：此处不经过 defaultSendPipeline.Send，仍需强制输出合规提示
+	service.LogComplianceReminder(req.Channel, req.RecipientID)
 	bridge := &reachChannelAdapterBridge{adapter: deps.Adapter}
 	msgID, err := bridge.Send(ctx, req)
 	return msgID, &service.SendResponse{

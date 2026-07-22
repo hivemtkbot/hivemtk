@@ -27,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"marketing/internal/pkg/utils/logger"
 )
 
 // ===== 9 步常量 =====
@@ -663,7 +665,33 @@ func NewSendPipeline(config SendPipelineConfig) SendPipeline {
 }
 
 // Send 执行 9 步 Pipeline
+// complianceReminderTag 主动触达合规强制提示标签
+const complianceReminderTag = "[COMPLIANCE]"
+
+// LogComplianceReminder 主动触达合规强制提示。
+//
+// 主动触达（短信 / 私信 / IM / 邮件 / 公众号 / 企微 等向用户主动推送消息）属于核心敏感操作，
+// 各渠道平台（微信、企业微信、抖音、快手、小红书、Telegram、WhatsApp(Meta)、短信、邮件 等）
+// 均有严格的开发者规范与服务条款。此处每次发送入口强制打印合规提示，提醒使用者：
+//   - 仅可向已授权、已明确同意接收的联系人发送；
+//   - 严格控制发送频率，避免骚扰；
+//   - 禁止发送垃圾营销、欺诈、骚扰或任何违法违规内容。
+//
+// 因违规发送导致的账号封禁、平台处罚、行政处罚或法律后果，由使用者自行承担。
+// 该提示不依赖任何配置开关，属于强制日志。
+func LogComplianceReminder(channel, recipientID string) {
+	logger.Warnf("%s 主动触达发送已触发：channel=%s, recipient=%s。"+
+		"请严格遵守各渠道平台（微信/企业微信/抖音/快手/小红书/Telegram/WhatsApp(Meta)/短信/邮件 等）的"+
+		"开发者规范、服务条款及当地法律法规；仅可向已授权、已明确同意接收的联系人发送，"+
+		"严格控制发送频率，禁止发送垃圾营销、欺诈、骚扰或违法违规内容。"+
+		"因违规发送导致的账号封禁、平台处罚、行政处罚或法律后果由使用者自行承担。",
+		complianceReminderTag, channel, recipientID)
+}
+
 func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *SendResponse {
+	// 核心敏感接口：每次主动触达发送强制输出合规提示
+	LogComplianceReminder(req.Channel, req.RecipientID)
+
 	start := time.Now()
 	resp := &SendResponse{
 		PrimaryChannel: req.Channel,

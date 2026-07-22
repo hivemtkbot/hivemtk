@@ -696,7 +696,46 @@ func (e *SalesEngine) matchScript(ctx context.Context, intent *dto.RecognizeResu
 	if e.scriptLookup == nil || intent == nil {
 		return nil, nil
 	}
-	return e.scriptLookup.MatchScript(ctx, intent.IntentType, intent.IntentName)
+	script, err := e.scriptLookup.MatchScript(ctx, intent.IntentType, intent.IntentName)
+	if err != nil {
+		return nil, err
+	}
+	if script != nil {
+		return script, nil
+	}
+	// M2 运行时覆盖默认：未匹配到配置话术时，回退到「生效中」的已购 sales_script 资产。
+	if r := GetAssetResolver(); r != nil {
+		if s, ok := r.GetActiveScript(ctx); ok && s != nil {
+			return &ScriptTemplate{
+				ID:       s.ID,
+				Title:    s.Name,
+				Scenario: s.Scenario,
+				Content:  renderSalesScriptSteps(s.Scripts),
+				Tags:     []string{"asset-market", s.ID},
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
+// renderSalesScriptSteps 将资产话术步骤渲染为可直接作为话术参考的纯文本。
+func renderSalesScriptSteps(scripts []map[string]interface{}) string {
+	if len(scripts) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, st := range scripts {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		if name, ok := st["name"].(string); ok && name != "" {
+			b.WriteString("【" + name + "】\n")
+		}
+		if content, ok := st["content"].(string); ok {
+			b.WriteString(content)
+		}
+	}
+	return b.String()
 }
 
 // SetPlaybook 注入销冠话术库（可选）

@@ -112,9 +112,37 @@ func NewSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 type CreateRequest = dto.CreateRequest
 
 // Create 创建 SOP
+// TemplateFromActiveAsset 返回「生效中」的已购 industry_sop 资产转换出的 SOP 模板（M2 运行时覆盖默认）。
+// 当请求未携带 SOP 图（如从「模板」创建）时，Create 会回退到该默认模板。
+func (s *SOPService) TemplateFromActiveAsset(ctx context.Context, scenario string) (*CreateRequest, bool) {
+	if r := GetAssetResolver(); r != nil {
+		if sop, ok := r.GetActiveSOP(ctx); ok && sop != nil {
+			return sop.ToCreateRequest(scenario), true
+		}
+	}
+	return nil, false
+}
+
 func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOPAgent, error) {
+	// M2 运行时覆盖默认：请求未携带 SOP 图时，回退到「生效中」的已购 industry_sop 资产作为默认模板。
+	if len(req.SOPGraph.Nodes) == 0 {
+		if tpl, ok := s.TemplateFromActiveAsset(ctx, req.Scenario); ok && tpl != nil {
+			req = tpl
+		}
+	}
 	if err := s.validateGraph(&req.SOPGraph); err != nil {
 		return nil, err
+	}
+	// M2 运行时覆盖默认：请求未配置 A/B 测试时，回退到「生效中」的已购 ab_test_plan 资产
+	// 作为默认方案（仅当方案校验通过，避免引入非法配置）。
+	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
+		if r := GetAssetResolver(); r != nil {
+			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
+				if cfg := plan.ToSOPABTestConfig(); cfg.Validate() == nil {
+					req.ABTestConfig = cfg
+				}
+			}
+		}
 	}
 	// 校验 A/B 测试配置（如启用）
 	if err := req.ABTestConfig.Validate(); err != nil {

@@ -1,6 +1,10 @@
 package router
 
 import (
+	"context"
+	"encoding/json"
+
+	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
@@ -21,6 +25,9 @@ func SetHealthRedis(p Pinger) {
 func Setup(r *gin.Engine) {
 	// 基础中间件
 	r.Use(gin.Recovery())
+
+	// 跨域中间件：必须尽早注册，覆盖所有路由（含公开 API 与鉴权路由）
+	r.Use(middleware.CORS())
 
 	// 多语言：解析请求语言注入上下文，供业务层返回本地化提示
 	r.Use(middleware.LocaleMiddleware())
@@ -84,6 +91,20 @@ func Setup(r *gin.Engine) {
 	csAgentSvcGlobal := service.NewCustomerServiceAgentService(db.GetDB(), aiAgentSvcGlobal)
 	// 注入到 SmartCSOrchestrator（客服座席挂载智能体路由）
 	orchestrator.SetCustomerServiceAgentService(csAgentSvcGlobal)
+
+	// M2：初始化资产市场运行时覆盖层（业务运行时优先读取生效中的已购资产）
+	service.InitAssetResolver(db.GetDB())
+	// 注入「读取生效中 marketing_workflow 资产」函数，打破 content/service 循环依赖
+	contentservice.SetWorkflowAssetResolver(func(ctx context.Context) (json.RawMessage, bool) {
+		if r := service.GetAssetResolver(); r != nil {
+			if w, ok := r.GetActiveWorkflow(ctx); ok && w != nil {
+				if b, err := json.Marshal(w); err == nil {
+					return b, true
+				}
+			}
+		}
+		return nil, false
+	})
 
 	// 公开路由（不需要认证）
 	public := r.Group("/api")
@@ -323,6 +344,12 @@ func Setup(r *gin.Engine) {
 
 	// 多 AI 智能体路由：注入到 WebhookService（渠道绑定智能体）
 	webhookCtrl.SetAgentBindingService(channelBindingSvcGlobal)
+
+	// 启动期对账：为所有已启用且 webhook 配置齐全的 Telegram 账号重新 setWebhook。
+	// 解决「TG 配置→启动→AI销售」断链：服务器重启 / 域名变更 / UI 新建账号后，
+	// 若不重新注册 webhook，Telegram 不再推送更新，导致全链路静默断裂。
+	// best-effort，外网请求不阻塞启动流程。
+	go service.ReconcileTelegramWebhooks(service.NewTelegramService(db.GetDB()))
 
 	// 平台端路由（需要平台权限）
 	platform := r.Group("/api/platform")

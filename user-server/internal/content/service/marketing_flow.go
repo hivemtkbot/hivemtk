@@ -33,6 +33,45 @@ func SetSmsSender(fn func(phone, content string) error) {
 	smsSenderFunc = fn
 }
 
+// ============================================================================
+// M2 运行时覆盖默认：marketing_workflow 资产读取注入点。
+// 与 SetSmsSender 同理，本包无法反向依赖 internal/service，故由 internal/service
+// 注入「读取生效中 marketing_workflow 资产」的函数，打破循环依赖。
+// ============================================================================
+var workflowAssetResolverFunc func(ctx context.Context) (json.RawMessage, bool)
+
+// SetWorkflowAssetResolver 注入「读取生效中 marketing_workflow 资产」函数（由 internal/service 调用）。
+func SetWorkflowAssetResolver(fn func(ctx context.Context) (json.RawMessage, bool)) {
+	workflowAssetResolverFunc = fn
+}
+
+// MarketingWorkflow 资产结构（与 user-server 的 service.MarketingWorkflow 字段兼容的子集，
+// 此处独立声明以避免反向依赖 internal/service）。
+type MarketingWorkflow struct {
+	ID       string                   `json:"id"`
+	Name     string                   `json:"name"`
+	Industry string                   `json:"industry"`
+	Trigger  map[string]interface{}   `json:"trigger"`
+	Steps    []map[string]interface{} `json:"steps"`
+	KPI      map[string]interface{}   `json:"kpi"`
+}
+
+// ResolveActiveWorkflow 返回「生效中」的已购 marketing_workflow 资产（若存在）。
+func ResolveActiveWorkflow(ctx context.Context) (*MarketingWorkflow, bool) {
+	if workflowAssetResolverFunc == nil {
+		return nil, false
+	}
+	raw, ok := workflowAssetResolverFunc(ctx)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	var w MarketingWorkflow
+	if err := json.Unmarshal(raw, &w); err != nil {
+		return nil, false
+	}
+	return &w, true
+}
+
 // MarketingFlowService 营销流程服务
 type MarketingFlowService struct {
 	flowRepo         *repository.MarketingFlowRepository

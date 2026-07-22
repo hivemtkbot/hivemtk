@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 
+	"marketing/internal/dto"
 	"gorm.io/gorm"
 )
 
@@ -87,4 +89,33 @@ func defaultABTests() map[string]*ABTestPlan {
 			MinSampleSize: 1000,
 		},
 	}
+}
+
+// ToSOPABTestConfig 将 AB 测试方案资产转换为业务侧 A/B 测试配置（M2 运行时覆盖默认）。
+// 注意：dto.SOPABTestVariant 必须关联具体的 SOP 图（SOPGraphID），该图在「落库到业务表」
+// 形态下由应用流程创建；纯运行时覆盖默认形态下此处仅填充方案/权重骨架，
+// 调用方需补充变体关联的 SOP 图后才能真正启用 A/B 实验。
+func (p *ABTestPlan) ToSOPABTestConfig() dto.SOPABTestConfig {
+	cfg := dto.SOPABTestConfig{
+		Enabled: true,
+	}
+	for i, v := range p.Variants {
+		key, _ := v["key"].(string)
+		if key == "" {
+			key = fmt.Sprintf("variant_%d", i+1)
+		}
+		name, _ := v["name"].(string)
+		if name == "" {
+			name = key
+		}
+		w := 0
+		if i < len(p.TrafficSplit) {
+			w = int(p.TrafficSplit[i] * 100)
+		}
+		cfg.Variants = append(cfg.Variants, dto.SOPABTestVariant{
+			Name:   name,
+			Weight: w,
+		})
+	}
+	return cfg
 }
