@@ -88,13 +88,14 @@
               <div class="customer-info">
                 <h3>{{ currentSession.customerName }}</h3>
                 <span class="channel">{{ currentSession.channel }}</span>
-                <!-- AI/人工状态指示器 -->
+                <!-- AI/人工状态指示器：含状态点指示灯（AI 托管=绿灯脉冲 / 人工接管=蓝灯） -->
                 <el-tag
                   :type="currentHandler === 'human' ? 'success' : 'info'"
                   size="small"
                   effect="dark"
                   class="handler-tag"
                 >
+                  <span class="status-dot" :class="currentHandler" />
                   <el-icon style="vertical-align: middle">
                     <component :is="currentHandler === 'human' ? User : MagicStick" />
                   </el-icon>
@@ -1104,7 +1105,33 @@ onUnmounted(() => {
   .customer-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .session-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .header-actions { display: flex; gap: 6px; }
-  .handler-tag { font-weight: 600; }
+  .handler-tag {
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    /* 状态点指示灯：AI 托管=绿灯脉冲 / 人工接管=蓝灯（对应设计文档"顶栏绿灯"） */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 2px;
+      &.ai {
+        background: #10B981;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+        animation: ai-pulse 1.6s ease-out infinite;
+      }
+      &.human {
+        background: #3B82F6;
+      }
+    }
+  }
+}
+@keyframes ai-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 .ai-suggestion-bar {
   padding: 10px 20px;
