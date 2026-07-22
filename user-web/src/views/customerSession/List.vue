@@ -462,8 +462,6 @@ import {
   sendMessage as sendMsg,
   createSession,
   closeSession as closeSess,
-  takeoverSession,
-  releaseSession,
   switchSessionHandler,
   blacklistSession,
   unblacklistUser,
@@ -783,12 +781,16 @@ const closeSession = async () => {
   }
 }
 
-// ===== 方向10：AI/人工切换处理 =====
+// ===== 方向10 / C3：AI/人工切换处理 =====
+// 统一走 POST /api/customer-sessions/:id/switch-handler（后端推荐入口）
+//   handler_type=human → 等价 Takeover
+//   handler_type=ai    → 等价 Release
+// agent_id 由后端从 JWT 派生，前端不可伪造
+// 切换后后端推 WebSocket(session_update)，前端 onAgentSessionUpdate 同步本地状态
 
 /**
- * 接管 AI 会话
- * 后端：POST /api/customer-sessions/:id/takeover
- *      agent_id 从 JWT 派生，前端无需传
+ * 接管 AI 会话（切换到人工）
+ * 后端：POST /api/customer-sessions/:id/switch-handler  handler_type=human
  */
 const handleTakeover = async () => {
   if (!currentSession.value) return
@@ -798,8 +800,8 @@ const handleTakeover = async () => {
   }
   try {
     handlerSwitching.value = true
-    await takeoverSession(currentSession.value.id, '坐席主动接管')
-    // 本地乐观更新：handler 立即切到 human
+    await switchSessionHandler(currentSession.value.id, 'human', '坐席主动接管')
+    // 本地乐观更新：handler 立即切到 human（WebSocket 推送到达后会再次校正）
     currentSession.value.handlerType = 'human'
     if (currentSession.value.status !== 'human_handling') {
       currentSession.value.status = 'human_handling'
@@ -813,8 +815,8 @@ const handleTakeover = async () => {
 }
 
 /**
- * 释放会话回 AI
- * 后端：POST /api/customer-sessions/:id/release
+ * 释放会话回 AI（切换到 AI 托管）
+ * 后端：POST /api/customer-sessions/:id/switch-handler  handler_type=ai
  */
 const handleRelease = async () => {
   if (!currentSession.value) return
@@ -825,7 +827,7 @@ const handleRelease = async () => {
   try {
     await ElMessageBox.confirm('释放后会话将交回 AI 托管，确定吗？', '确认释放', { type: 'warning' })
     handlerSwitching.value = true
-    await releaseSession(currentSession.value.id)
+    await switchSessionHandler(currentSession.value.id, 'ai', '')
     currentSession.value.handlerType = 'ai'
     currentSession.value.status = 'waiting'
     ElMessage.success('已释放回 AI 托管')
