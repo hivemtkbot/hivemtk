@@ -208,3 +208,43 @@ func (e *WebhookEvent) ToInbound(accountID string) *core.InboundMessage {
 		Timestamp:      ts,
 	}
 }
+
+// Ingress 把解析后的 WA 入站消息经消息中台统一处理（构造 MessageEvent → 调用 HandleIngressMessage）。
+// 渠道特有预处理：非文本消息（image/audio/video/document）内容映射为占位符，
+// 与原 dispatch 行为一致；msg.ID 作为 EventID 幂等键。
+func (e *WebhookEvent) Ingress(ctx context.Context, h core.IngressHandler, accountID string) error {
+	if h == nil {
+		return nil
+	}
+	from, msgID, msgType, content, name, ts, ok := e.FirstMessage()
+	if !ok {
+		return nil
+	}
+	// 非文本消息内容映射（与原 dispatch 行为一致）
+	if content == "" {
+		switch msgType {
+		case "image":
+			content = "[图片]"
+		case "audio":
+			content = "[语音]"
+		case "video":
+			content = "[视频]"
+		case "document":
+			content = "[文件]"
+		default:
+			content = "[" + msgType + "]"
+		}
+	}
+	inbound := &core.InboundMessage{
+		Platform:       "whatsapp",
+		AccountID:      accountID,
+		MessageID:      msgID,
+		ConversationID: from,
+		SenderID:       from,
+		SenderName:     name,
+		Content:        content,
+		MsgType:        msgType,
+		Timestamp:      ts,
+	}
+	return h.HandleIngressMessage(ctx, inbound.ToMessageEvent(accountID))
+}

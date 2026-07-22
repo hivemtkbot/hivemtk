@@ -229,6 +229,30 @@ func (u *Update) ToInbound(accountID string) *core.InboundMessage {
 		msg = u.ChannelPost
 	}
 	if msg == nil {
+		// 回调查询（按钮点击）：合成入站消息，文本为 "/callback " + data
+		if u.CallbackQuery != nil && u.CallbackQuery.From != nil {
+			cb := u.CallbackQuery
+			chatID := ""
+			chatType := "private"
+			isGroup := false
+			if cb.Message != nil {
+				chatID = strconv.FormatInt(cb.Message.Chat.ID, 10)
+				chatType = cb.Message.Chat.Type
+				isGroup = chatType == "group" || chatType == "supergroup"
+			}
+			return &core.InboundMessage{
+				Platform:       "telegram",
+				AccountID:      accountID,
+				MessageID:      "tg_cb_" + cb.ID,
+				ConversationID: chatID,
+				SenderID:       strconv.FormatInt(cb.From.ID, 10),
+				SenderName:     cb.From.FirstName,
+				Content:        "/callback " + cb.Data,
+				MsgType:        "text",
+				IsGroup:        isGroup,
+				GroupID:        chatID,
+			}
+		}
 		return nil
 	}
 	content := msg.Text
@@ -266,4 +290,24 @@ func (u *Update) ToInbound(accountID string) *core.InboundMessage {
 		GroupName:      groupName,
 		Timestamp:      msg.Date,
 	}
+}
+
+// Ingress 把解析后的 TG 入站消息经消息中台统一处理（构造 MessageEvent → 调用 HandleIngressMessage）。
+// 渠道特有预处理：TG 用 update_id 作为 EventID 幂等键（同一 Update 重投时 update_id 不变，
+// 中台据 EventID 落库 message_hub 并依赖唯一约束去重）。
+// 调用方负责在调用前完成 webhook 验签；群入退群事件等系统事件由上层 dispatch 单独处理，不走本方法。
+func (u *Update) Ingress(ctx context.Context, h core.IngressHandler, accountID string) error {
+	if h == nil {
+		return nil
+	}
+	inbound := u.ToInbound(accountID)
+	if inbound == nil {
+		return nil
+	}
+	event := inbound.ToMessageEvent(accountID)
+	// update_id 幂等：覆盖 EventID，使中台落库的 msg_id 与 TG 重投去重对齐
+	if u.UpdateID != 0 {
+		event.EventID = "tg_upd_" + strconv.FormatInt(u.UpdateID, 10)
+	}
+	return h.HandleIngressMessage(ctx, event)
 }

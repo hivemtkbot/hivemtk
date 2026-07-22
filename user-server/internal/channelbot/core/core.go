@@ -4,8 +4,8 @@
 // 把它们共享的 HTTP/BaseClient/常量时间比较/入站消息结构提到本包，避免每个子包重复实现。
 //
 // 设计原则：
-//   - 仅依赖标准库
-//   - 不依赖业务侧 service/repository（与 channelbot 子包同侧）
+//   - 依赖标准库与 model.MessageEvent（消息中台统一事件协议）
+//   - 不依赖业务侧 service/repository（与 channelbot 子包同侧，service 经适配器实现 IngressHandler）
 //   - 暴露的方法与字段保持稳定（被 telegram.NewClient / whatsapp.NewCloudClient 使用）
 package core
 
@@ -18,6 +18,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"marketing/internal/model"
 )
 
 // ==================== BaseClient（共享 HTTP 客户端） ====================
@@ -160,6 +162,50 @@ type InboundMessage struct {
 	GroupID        string // 群组 ID（仅群消息）
 	GroupName      string // 群名称（仅群消息）
 	Timestamp      int64  // 渠道侧时间戳（秒）
+}
+
+// ==================== 入站消息中台接入 ====================
+
+// IngressHandler 渠道入站消息中台接口。
+// 由 service.InboxIngressService 经适配器实现（避免 channelbot 反向依赖 service 层，
+// 适配器把 (*InboxIngressResult, error) 收敛为 error，并对 message_hub 唯一冲突做幂等容忍）。
+//
+// 渠道适配器解析完原始 webhook 后，构造 model.MessageEvent 并调用本接口，
+// 由中台统一完成：标准化 → 人工锁判定 → AI 串行锁 → 落库 message_hub → 触发 AgentRuntime。
+type IngressHandler interface {
+	HandleIngressMessage(ctx context.Context, event *model.MessageEvent) error
+}
+
+// ToMessageEvent 把归一化入站消息转换为消息中台的 MessageEvent。
+// accountID 由调用方（webhook 层）填充；EventID/SessionID 缺失时由中台 NormalizeEvent 补齐。
+// 渠道特有字段（如 TG update_id 幂等键、WA 非文本内容映射）由各渠道 Ingress 方法在调用前覆写。
+func (m InboundMessage) ToMessageEvent(accountID string) *model.MessageEvent {
+	event := &model.MessageEvent{
+		EventID:        m.MessageID,
+		Channel:        m.Platform,
+		SenderID:       m.SenderID,
+		SenderName:     m.SenderName,
+		ReceiverID:     accountID,
+		ConversationID: m.ConversationID,
+		MsgType:        m.MsgType,
+		Content:        m.Content,
+		IsGroup:        m.IsGroup,
+		GroupID:        m.GroupID,
+		Extra: map[string]any{
+			"account_id":     accountID,
+			"channel_msg_id": m.MessageID,
+			"group_name":     m.GroupName,
+		},
+	}
+	// 渠道侧秒级时间戳；为 0 时留空，由中台 NormalizeEvent 补当前时间
+	if m.Timestamp != 0 {
+		event.Timestamp = time.Unix(m.Timestamp, 0)
+	}
+	// SessionID 统一按 "渠道:会话ID" 派生；为空时由中台回退为 "渠道:发送者ID"
+	if m.ConversationID != "" {
+		event.SessionID = m.Platform + ":" + m.ConversationID
+	}
+	return event
 }
 
 // ==================== 模板组件（WhatsApp Template 消息用） ====================
