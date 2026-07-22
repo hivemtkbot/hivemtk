@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ type CustomerSessionService struct {
 	messageRepo    *repository.SessionMessageRepository
 	agentRepo      *repository.AgentStatusRepository
 	suggestionRepo *repository.AISuggestionRepository
+	blacklistRepo  *repository.UserBlacklistRepository
 }
 
 // NewCustomerSessionService 创建客服会话服务实例
@@ -29,6 +31,7 @@ func NewCustomerSessionService() *CustomerSessionService {
 		messageRepo:    repository.NewSessionMessageRepository(),
 		agentRepo:      repository.NewAgentStatusRepository(),
 		suggestionRepo: repository.NewAISuggestionRepository(),
+		blacklistRepo:  repository.NewUserBlacklistRepository(),
 	}
 }
 
@@ -42,6 +45,7 @@ func NewCustomerSessionServiceWithDB(db *gorm.DB) *CustomerSessionService {
 		messageRepo:    repository.NewSessionMessageRepositoryWithDB(db),
 		agentRepo:      repository.NewAgentStatusRepositoryWithDB(db),
 		suggestionRepo: repository.NewAISuggestionRepositoryWithDB(db),
+		blacklistRepo:  repository.NewUserBlacklistRepositoryWithDB(db),
 	}
 }
 
@@ -409,6 +413,312 @@ func (s *CustomerSessionService) TagSession(sessionID uint, tags []string) error
 	tagsJSON, _ := json.Marshal(tags)
 	session.Tags = string(tagsJSON)
 	return s.sessionRepo.Update(session)
+}
+
+// ============================================================================
+// 方向10：坐席实时聊天看板 - AI/人工接管与切换
+// 文档：docs/企业级架构优化/坐席实时聊天看板.md §三
+// ============================================================================
+
+// TakeoverRequest 坐席接管请求
+type TakeoverRequest struct {
+	SessionID uint   `json:"session_id" binding:"required"`
+	AgentID   uint   `json:"agent_id" binding:"required"`
+	Reason    string `json:"reason"` // 接管原因：AI 答非所问 / 客户要求 / 投诉升级
+}
+
+// TakeoverByAgent 坐席接管 AI 会话
+//
+// 行为：
+//  1. 把会话 handler_type 切到 human、status 切到 human_handling
+//  2. 记录接管人 AgentID（若尚未分配则 AssignAgent 一次）
+//  3. 给该会话加 Redis 人工接管锁（InboxIngressService 收到新消息时绕过 AI）
+//  4. 通过 WebSocket 通知前端会话更新
+//
+// 幂等：同一坐席重复接管直接返回成功（不重复扣活跃数）
+func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *TakeoverRequest) error {
+	if req.SessionID == 0 || req.AgentID == 0 {
+		return errors.New("session_id and agent_id required")
+	}
+	session, err := s.sessionRepo.GetByID(req.SessionID)
+	if err != nil {
+		return errors.New("会话不存在")
+	}
+
+	// 校验坐席存在
+	agent, err := s.agentRepo.GetByAgentID(req.AgentID)
+	if err != nil || agent == nil {
+		return errors.New("坐席不存在")
+	}
+	// 校验坐席状态：仅 online/busy 可接管
+	if agent.Status == "offline" {
+		return errors.New("坐席已离线，无法接管")
+	}
+	// 容量校验
+	if agent.ActiveSessions >= agent.MaxSessions {
+		return errors.New("坐席会话已满")
+	}
+
+	// 幂等：会话已分配给该坐席 → 直接锁定 + 切状态
+	if session.AgentID == req.AgentID {
+		session.HandlerType = model.HandlerTypeHuman
+		session.Status = model.SessionStatusHumanHandling
+		now := time.Now()
+		session.LastMessageAt = &now
+		if err := s.sessionRepo.Update(session); err != nil {
+			return err
+		}
+		_ = s.lockHumanSession(ctx, session.SessionID, req.Reason)
+		_ = s.notifySessionUpdate(session, "handler_changed", "human")
+		return nil
+	}
+
+	// 接管：减少原坐席活跃数（如有）
+	if session.AgentID > 0 {
+		_ = s.agentRepo.DecrementActiveSessions(session.AgentID)
+	}
+	// 分配新坐席
+	if err := s.sessionRepo.AssignAgent(req.SessionID, req.AgentID, agent.AgentName); err != nil {
+		return err
+	}
+	_ = s.agentRepo.IncrementActiveSessions(req.AgentID)
+
+	// 切 handler / status
+	updated, err := s.sessionRepo.GetByID(req.SessionID)
+	if err != nil {
+		return err
+	}
+	updated.HandlerType = model.HandlerTypeHuman
+	updated.Status = model.SessionStatusHumanHandling
+	now := time.Now()
+	updated.LastMessageAt = &now
+	if err := s.sessionRepo.Update(updated); err != nil {
+		return err
+	}
+	// 写 Redis 人工锁 + 推 WebSocket + 访客提示
+	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
+	_ = s.notifySessionUpdate(updated, "handler_changed", "human")
+	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+		"session_id": updated.SessionID,
+		"handler":    "human",
+		"reason":     "客服已接管，正在为您服务",
+	}, updated.SessionID)
+	return nil
+}
+
+// ReleaseToAIRequest 释放回 AI 请求
+type ReleaseToAIRequest struct {
+	SessionID uint `json:"session_id" binding:"required"`
+	AgentID   uint `json:"agent_id" binding:"required"`
+}
+
+// ReleaseToAI 坐席释放会话回 AI 托管
+//
+// 行为：
+//  1. 把 handler_type 切回 ai、status 切回 waiting
+//  2. 解 Redis 人工锁（InboxIngressService 后续消息会重新走 AI 路由）
+//  3. 坐席活跃数 -1
+//  4. 推 WebSocket 给坐席与访客
+//
+// 仅当会话原本属于该坐席才允许释放（防止误操作别人会话）
+func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseToAIRequest) error {
+	if req.SessionID == 0 || req.AgentID == 0 {
+		return errors.New("session_id and agent_id required")
+	}
+	session, err := s.sessionRepo.GetByID(req.SessionID)
+	if err != nil {
+		return errors.New("会话不存在")
+	}
+	if session.AgentID != req.AgentID {
+		return errors.New("无权操作：会话不属于该坐席")
+	}
+
+	session.HandlerType = model.HandlerTypeAI
+	session.Status = model.SessionStatusWaiting
+	session.AgentID = 0
+	session.AgentName = ""
+	now := time.Now()
+	session.LastMessageAt = &now
+	if err := s.sessionRepo.Update(session); err != nil {
+		return err
+	}
+	_ = s.agentRepo.DecrementActiveSessions(req.AgentID)
+	_ = s.unlockHumanSession(ctx, session.SessionID)
+	_ = s.notifySessionUpdate(session, "handler_changed", "ai")
+	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+		"session_id": session.SessionID,
+		"handler":    "ai",
+		"reason":     "已切回 AI 托管，请稍候",
+	}, session.SessionID)
+	return nil
+}
+
+// SwitchHandlerRequest AI/人工切换请求（统一接口）
+type SwitchHandlerRequest struct {
+	SessionID   uint              `json:"session_id" binding:"required"`
+	AgentID     uint              `json:"agent_id"`
+	HandlerType model.HandlerType `json:"handler_type" binding:"required"` // ai / human
+	Reason      string            `json:"reason"`
+}
+
+// SwitchHandler 通用 AI/人工切换（前端按钮只调一个接口）
+//
+// 委派给 TakeoverByAgent / ReleaseToAI，避免上层维护两条调用路径。
+func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchHandlerRequest) error {
+	if req.SessionID == 0 {
+		return errors.New("session_id required")
+	}
+	switch req.HandlerType {
+	case model.HandlerTypeHuman:
+		if req.AgentID == 0 {
+			return errors.New("切人工时 agent_id required")
+		}
+		return s.TakeoverByAgent(ctx, &TakeoverRequest{
+			SessionID: req.SessionID,
+			AgentID:   req.AgentID,
+			Reason:    req.Reason,
+		})
+	case model.HandlerTypeAI:
+		if req.AgentID == 0 {
+			// agent_id=0 表示仅切 handler（保留原 AgentID 字段不动，仅切类型）。
+			// 通过临时读出会话来取 AgentID
+			sess, err := s.sessionRepo.GetByID(req.SessionID)
+			if err != nil {
+				return errors.New("会话不存在")
+			}
+			req.AgentID = sess.AgentID
+			if req.AgentID == 0 {
+				return errors.New("会话尚未分配坐席，无需切回 AI")
+			}
+		}
+		return s.ReleaseToAI(ctx, &ReleaseToAIRequest{
+			SessionID: req.SessionID,
+			AgentID:   req.AgentID,
+		})
+	default:
+		return fmt.Errorf("invalid handler_type: %s", req.HandlerType)
+	}
+}
+
+// LockHumanSession 锁定会话为人工接管（暴露给 controller，转接/投诉升级时调用）
+func (s *CustomerSessionService) LockHumanSession(ctx context.Context, sessionID, reason string) error {
+	return s.lockHumanSession(ctx, sessionID, reason)
+}
+
+// UnlockHumanSession 解锁人工接管锁
+func (s *CustomerSessionService) UnlockHumanSession(ctx context.Context, sessionID string) error {
+	return s.unlockHumanSession(ctx, sessionID)
+}
+
+// lockHumanSession 内部：写 Redis 人工接管锁
+func (s *CustomerSessionService) lockHumanSession(ctx context.Context, sessionID, reason string) error {
+	svc := NewInboxIngressService(nil, nil)
+	return svc.LockSessionForHuman(ctx, sessionID, reason)
+}
+
+// unlockHumanSession 内部：解 Redis 人工接管锁
+func (s *CustomerSessionService) unlockHumanSession(ctx context.Context, sessionID string) error {
+	svc := NewInboxIngressService(nil, nil)
+	return svc.UnlockSessionForHuman(ctx, sessionID)
+}
+
+// notifySessionSessionUpdate 内部：推送会话状态变更给前端
+func (s *CustomerSessionService) notifySessionUpdate(session *model.CustomerSession, event, handler string) error {
+	agentID := strconv.FormatUint(uint64(session.AgentID), 10)
+	return websocket.NotifySessionUpdate(agentID, map[string]any{
+		"session_id":   session.SessionID,
+		"handler_type": handler,
+		"event":        event,
+		"status":       session.Status,
+		"updated_at":   time.Now().Unix(),
+	})
+}
+
+// ============================================================================
+// 方向10：拉黑 / 解除拉黑
+// 文档：docs/企业级架构优化/坐席实时聊天看板.md §四
+// ============================================================================
+
+// BlacklistRequest 拉黑请求
+type BlacklistRequest struct {
+	SessionID    uint   `json:"session_id" binding:"required"`
+	Reason       string `json:"reason"`        // 拉黑原因
+	OperatorID   uint   `json:"operator_id"`   // 操作人（坐席 ID）
+	OperatorName string `json:"operator_name"` // 操作人姓名
+	TTLHours     int    `json:"ttl_hours"`     // 0 = 永久
+}
+
+// BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
+//
+// 行为：
+//  1. 会话必须存在且有 user_id，否则拒绝。
+//  2. 幂等：若该 user_id+platform 已存在 active 记录，更新 reason/expires_at。
+//  3. 拉黑后立即关闭该会话（status=closed）以防继续对话。
+//  4. 推 WebSocket 给前端（type=handler_changed, event=blacklisted）。
+func (s *CustomerSessionService) BlacklistUser(req *BlacklistRequest) error {
+	if req.SessionID == 0 {
+		return errors.New("session_id required")
+	}
+	session, err := s.sessionRepo.GetByID(req.SessionID)
+	if err != nil {
+		return errors.New("会话不存在")
+	}
+	if session.UserID == "" {
+		return errors.New("该会话无 user_id，无法拉黑")
+	}
+
+	var expiresAt *time.Time
+	if req.TTLHours > 0 {
+		t := time.Now().Add(time.Duration(req.TTLHours) * time.Hour)
+		expiresAt = &t
+	}
+
+	bl := &model.UserBlacklist{
+		UserID:       session.UserID,
+		Platform:     session.Platform,
+		Reason:       req.Reason,
+		Source:       "manual",
+		OperatorID:   req.OperatorID,
+		OperatorName: req.OperatorName,
+		SessionID:    session.SessionID,
+		Active:       true,
+		ExpiresAt:    expiresAt,
+	}
+	if err := s.blacklistRepo.Add(bl); err != nil {
+		return err
+	}
+
+	// 关闭该会话，避免继续对话
+	_ = s.sessionRepo.UpdateStatus(req.SessionID, model.SessionStatusClosed)
+
+	// 通知前端：handler_changed + blacklisted
+	_ = s.notifySessionUpdate(session, "blacklisted", "human")
+	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+		"session_id":  session.SessionID,
+		"handler":     "human",
+		"reason":      "因违反服务条款，该访客已被加入黑名单",
+		"blacklisted": true,
+	}, session.SessionID)
+
+	return nil
+}
+
+// UnblacklistUser 解除拉黑
+func (s *CustomerSessionService) UnblacklistUser(userID string, platform model.Platform) error {
+	if userID == "" {
+		return errors.New("user_id required")
+	}
+	return s.blacklistRepo.Remove(userID, platform)
+}
+
+// IsUserBlacklisted 判断访客是否在黑名单
+func (s *CustomerSessionService) IsUserBlacklisted(userID string, platform model.Platform) (bool, error) {
+	return s.blacklistRepo.IsBlacklisted(userID, platform)
+}
+
+// ListBlacklist 分页查询生效中的黑名单
+func (s *CustomerSessionService) ListBlacklist(page, pageSize int) ([]*model.UserBlacklist, int64, error) {
+	return s.blacklistRepo.ListActive(page, pageSize)
 }
 
 // AgentStatusService 客服状态服务

@@ -337,6 +337,210 @@ func (c *CustomerSessionController) TagSession(ctx *gin.Context) {
 	response.Success(ctx, nil, "标记成功")
 }
 
+// Takeover 坐席接管 AI 会话
+//
+//	POST /api/customer-sessions/:id/takeover
+//	body: {"reason": "AI 答非所问"}
+func (c *CustomerSessionController) Takeover(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	// agent_id 从登录态推导（与 SendMessage 一致，禁止客户端伪造）
+	agentID := getUserIDFromContext(ctx)
+	if agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
+		return
+	}
+	if err := c.sessionService.TakeoverByAgent(ctx.Request.Context(), &service.TakeoverRequest{
+		SessionID: uint(id),
+		AgentID:   agentID,
+		Reason:    req.Reason,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": "human",
+	}, "接管成功")
+}
+
+// Release 坐席释放会话回 AI
+//
+//	POST /api/customer-sessions/:id/release
+func (c *CustomerSessionController) Release(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	agentID := getUserIDFromContext(ctx)
+	if agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
+		return
+	}
+	if err := c.sessionService.ReleaseToAI(ctx.Request.Context(), &service.ReleaseToAIRequest{
+		SessionID: uint(id),
+		AgentID:   agentID,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": "ai",
+	}, "释放成功")
+}
+
+// SwitchHandler 统一 AI/人工切换接口
+//
+//	POST /api/customer-sessions/:id/switch-handler
+//	body: {"handler_type": "human" | "ai", "reason": "..."}
+//
+// 传 handler_type=human → 等价 Takeover；handler_type=ai → 等价 Release。
+// 前端只需要一个按钮调一个接口，根据当前 handler_type 反向选择目标。
+func (c *CustomerSessionController) SwitchHandler(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	var req struct {
+		HandlerType string `json:"handler_type" binding:"required,oneof=ai human"`
+		Reason      string `json:"reason"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	agentID := getUserIDFromContext(ctx)
+	if req.HandlerType == "human" && agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "切人工时必须登录", "missing user_id")
+		return
+	}
+	if err := c.sessionService.SwitchHandler(ctx.Request.Context(), &service.SwitchHandlerRequest{
+		SessionID:   uint(id),
+		AgentID:     agentID,
+		HandlerType: model.HandlerType(req.HandlerType),
+		Reason:      req.Reason,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": req.HandlerType,
+	}, "切换成功")
+}
+
+// Blacklist 拉黑当前会话对应的访客
+//
+//	POST /api/customer-sessions/:id/blacklist
+//	body: {"reason": "辱骂客服", "ttl_hours": 0}
+func (c *CustomerSessionController) Blacklist(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	var req struct {
+		Reason   string `json:"reason"`
+		TTLHours int    `json:"ttl_hours"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	agentID := getUserIDFromContext(ctx)
+	operatorName := ""
+	if name, ok := ctx.Get("username"); ok {
+		if s, ok := name.(string); ok {
+			operatorName = s
+		}
+	}
+
+	if err := c.sessionService.BlacklistUser(&service.BlacklistRequest{
+		SessionID:    uint(id),
+		Reason:       req.Reason,
+		OperatorID:   agentID,
+		OperatorName: operatorName,
+		TTLHours:     req.TTLHours,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":  id,
+		"blacklisted": true,
+	}, "拉黑成功")
+}
+
+// Unblacklist 解除拉黑
+//
+//	POST /api/customer-sessions/blacklist/remove
+//	body: {"user_id": "u_123", "platform": "web"}
+func (c *CustomerSessionController) Unblacklist(ctx *gin.Context) {
+	var req struct {
+		UserID   string         `json:"user_id" binding:"required"`
+		Platform model.Platform `json:"platform"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	if err := c.sessionService.UnblacklistUser(req.UserID, req.Platform); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, nil, "解除拉黑成功")
+}
+
+// IsUserBlacklisted 判断访客是否在黑名单
+//
+//	GET /api/customer-sessions/blacklist/check?user_id=u_123&platform=web
+func (c *CustomerSessionController) IsUserBlacklisted(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
+	if userID == "" {
+		response.Error(ctx, http.StatusBadRequest, "user_id 必填")
+		return
+	}
+	platform := model.Platform(ctx.DefaultQuery("platform", "web"))
+	ok, err := c.sessionService.IsUserBlacklisted(userID, platform)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"blacklisted": ok}, "查询成功")
+}
+
+// ListBlacklist 分页查询生效中的黑名单
+//
+//	GET /api/customer-sessions/blacklist?page=1&page_size=20
+func (c *CustomerSessionController) ListBlacklist(ctx *gin.Context) {
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	rows, total, err := c.sessionService.ListBlacklist(page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"list":      rows,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "获取成功")
+}
+
 // GetPendingSessions 获取待处理会话
 func (c *CustomerSessionController) GetPendingSessions(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))

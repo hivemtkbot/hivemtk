@@ -9,26 +9,34 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"marketing/internal/service"
 
 	"github.com/google/uuid"
 )
 
 // EmailListService 列表服务
 type EmailListService struct {
-	repo repository.EmailListRepository
+	repo              repository.EmailListRepository
+	clueRepo          repository.ClueRepository
+	systemConfigRepo  repository.SystemConfigRepository
 }
 
 // NewEmailListService 创建列表服务实例
 func NewEmailListService() *EmailListService {
-	return &EmailListService{repo: repository.NewEmailListRepository()}
+	return &EmailListService{
+		repo:             repository.NewEmailListRepository(),
+		clueRepo:         repository.NewClueRepository(),
+		systemConfigRepo: repository.NewSystemConfigRepository(),
+	}
 }
 
 // CreateEmailList 创建列表
+//
+// 2026-07-22 修复 import cycle：原实现通过 service.NewClueService() / service.NewSystemConfigService()
+// 间接依赖 service 包，而 service→tooluse→email/service 形成循环，导致 go build 失败。
+// 改为直接注入 clue / systemConfig repository，行为等价（service 层方法本身就是透传）。
 func (s *EmailListService) CreateEmailList(subject string, content string, attachments string) (total int64, err error) {
 	// 从线索库读取所有线索
-	clueService := service.NewClueService()
-	cluesList, clueTotal, err := clueService.GetClueAllList(1)
+	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(1)
 	if err != nil {
 		return 0, err
 	}
@@ -52,8 +60,7 @@ func (s *EmailListService) CreateEmailList(subject string, content string, attac
 	}
 
 	// 从系统配置库读取系统配置
-	systemConfigService := service.NewSystemConfigService()
-	systemConfig, err := systemConfigService.GetConfig()
+	systemConfig, err := s.systemConfigRepo.GetConfig()
 	if err != nil {
 		return 0, err
 	}

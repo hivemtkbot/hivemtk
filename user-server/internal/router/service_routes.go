@@ -24,6 +24,16 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup) {
 	auth.POST("/customer-sessions/:id/rate", customerSessionCtrl.RateSession)
 	auth.POST("/customer-sessions/:id/transfer", customerSessionCtrl.TransferSession)
 	auth.POST("/customer-sessions/:id/tags", customerSessionCtrl.TagSession)
+	// 方向10：坐席实时聊天看板 - AI/人工接管与切换
+	auth.POST("/customer-sessions/:id/takeover", customerSessionCtrl.Takeover)
+	auth.POST("/customer-sessions/:id/release", customerSessionCtrl.Release)
+	auth.POST("/customer-sessions/:id/switch-handler", customerSessionCtrl.SwitchHandler)
+	// 方向10：拉黑 / 解除拉黑
+	// 注意：黑名单相关路由放在 :id 通配符之前，避免被通配捕获
+	auth.GET("/customer-sessions/blacklist", customerSessionCtrl.ListBlacklist)
+	auth.GET("/customer-sessions/blacklist/check", customerSessionCtrl.IsUserBlacklisted)
+	auth.POST("/customer-sessions/blacklist/remove", customerSessionCtrl.Unblacklist)
+	auth.POST("/customer-sessions/:id/blacklist", customerSessionCtrl.Blacklist)
 	auth.PUT("/customer-sessions/:id/status", customerSessionCtrl.UpdateSessionStatus)
 	auth.GET("/customer-sessions/:id", customerSessionCtrl.GetSessionByID)
 
@@ -160,6 +170,11 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/inbox/:id/tags", inboxCtrl.AddTag)
 	auth.DELETE("/inbox/:id/tags/:tag", inboxCtrl.RemoveTag)
 	auth.GET("/inbox/:id/messages", inboxCtrl.GetMessages)
+
+	// 企业级架构优化 - 方向 3: 渠道接入消息中台 - 人工接管控制
+	inboxIngressCtrl := controller.NewInboxIngressController(db)
+	auth.POST("/inbox/lock-human", inboxIngressCtrl.LockHuman)
+	auth.POST("/inbox/unlock-human/:session_id", inboxIngressCtrl.UnlockHuman)
 }
 
 // setupPlatformAccountRoutes 平台账号管理路由
