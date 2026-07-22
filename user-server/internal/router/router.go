@@ -293,6 +293,9 @@ func Setup(r *gin.Engine) {
 		// 资产市场（平台购买 + 本地同源同构 CRUD）
 		setupAssetMarketRoutes(auth)
 
+		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
+		setupAssetBundleRoutes(auth)
+
 		// 流失预警
 		setupChurnRoutes(auth)
 

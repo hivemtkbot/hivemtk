@@ -345,7 +345,7 @@ const loadReport = async () => {
   try {
     const id = currentStaff.value.staff_id || currentStaff.value.id
     const res = await getPersonaReport(id)
-    currentReport.value = res.data || res
+    currentReport.value = res
   } catch (e) {
     ElMessage.error('画像生成失败：' + (e?.message || ''))
     // 失败时清空，避免向运营展示伪造的评分数据（此前兜底假数据会造成误判）
@@ -362,7 +362,7 @@ const loadCompareReport = async () => {
   }
   try {
     const res = await getPersonaReport(compareStaffId.value)
-    compareReport.value = res.data || res
+    compareReport.value = res
   } catch (e) {
     ElMessage.error(i18n.global.t('对比员工画像加载失败'))
     compareReport.value = null

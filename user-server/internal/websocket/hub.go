@@ -13,9 +13,19 @@ type Hub struct {
 	clients     map[string]*Client // agentID -> Client
 	register    chan *Client
 	unregister  chan *Client
-	broadcast   chan *Message
+	broadcast   chan *envelopeFrame
 	mu          sync.RWMutex
 	agentOnline map[string]bool // agentID -> online status
+}
+
+// envelopeFrame hub 内部帧（agentID + 已序列化的 Envelope 字节）
+//
+// 设计动机：原 broadcast chan 承载 *Message，要求 hub 重新组装 Envelope。
+// 改为承载 *envelopeFrame 后，hub 只做"按 agentID 路由"职责，
+// seq / 序列化 / ACK 跟踪全部由调用方（notify.go / hub.Broadcast）完成。
+type envelopeFrame struct {
+	agentID string
+	bytes   []byte
 }
 
 // Client WebSocket客户端
@@ -46,7 +56,7 @@ func NewHub() *Hub {
 		clients:     make(map[string]*Client),
 		register:    make(chan *Client, 256),
 		unregister:  make(chan *Client, 256),
-		broadcast:   make(chan *Message, 1024),
+		broadcast:   make(chan *envelopeFrame, 1024),
 		agentOnline: make(map[string]bool),
 	}
 }
@@ -75,15 +85,15 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			logger.GetLogger().Info().Str("agent_id", client.agentID).Msg("agent disconnected")
 
-		case message := <-h.broadcast:
+		case frame := <-h.broadcast:
 			h.mu.RLock()
-			if client, ok := h.clients[message.AgentID]; ok {
+			if client, ok := h.clients[frame.agentID]; ok {
 				select {
-				case client.send <- message.Payload:
+				case client.send <- frame.bytes:
 				default:
 					close(client.send)
-					delete(h.clients, client.agentID)
-					h.agentOnline[client.agentID] = false
+					delete(h.clients, frame.agentID)
+					h.agentOnline[frame.agentID] = false
 				}
 			}
 			h.mu.RUnlock()
@@ -116,8 +126,31 @@ func (h *Hub) Unregister(client *Client) {
 }
 
 // Broadcast 广播消息
+//
+// 内部走 Envelope：分配全局 seq 编号，便于客户端排序 / 丢包检测。
 func (h *Hub) Broadcast(message *Message) {
-	h.broadcast <- message
+	if message == nil {
+		return
+	}
+	env := MustEnvelope(NextSeq(), message.Type, message.Payload)
+	bytes, err := env.MarshalBytes()
+	if err != nil {
+		return
+	}
+	h.broadcast <- &envelopeFrame{agentID: message.AgentID, bytes: bytes}
+}
+
+// sendToAgentWithEnvelope 内部用 Envelope 投递（不分配新 seq，沿用 Envelope.Seq）
+func (h *Hub) sendToAgentWithEnvelope(agentID string, env *Envelope) error {
+	if env == nil {
+		return nil
+	}
+	bytes, err := env.MarshalBytes()
+	if err != nil {
+		return err
+	}
+	h.broadcast <- &envelopeFrame{agentID: agentID, bytes: bytes}
+	return nil
 }
 
 // SendToAgent 发送消息给指定客服

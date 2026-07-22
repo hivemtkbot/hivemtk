@@ -468,7 +468,7 @@ func (c *CustomerSessionController) Blacklist(ctx *gin.Context) {
 		}
 	}
 
-	if err := c.sessionService.BlacklistUser(&service.BlacklistRequest{
+	if err := c.sessionService.BlacklistUser(ctx.Request.Context(), &service.BlacklistRequest{
 		SessionID:    uint(id),
 		Reason:       req.Reason,
 		OperatorID:   agentID,
@@ -504,7 +504,7 @@ func (c *CustomerSessionController) Unblacklist(ctx *gin.Context) {
 		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
 		return
 	}
-	if err := c.sessionService.UnblacklistUser(req.UserID, req.Platform); err != nil {
+	if err := c.sessionService.UnblacklistUser(ctx.Request.Context(), req.UserID, req.Platform); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}

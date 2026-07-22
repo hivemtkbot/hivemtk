@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 )
 
 // TeamUserService 团队用户服务
+//
+// 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context，透传至 repository 层。
 type TeamUserService struct {
 	repo      repository.TeamUserRepository
 	roleRepo  repository.TeamRoleRepository
@@ -87,14 +90,14 @@ type TeamUserListResponse struct {
 // Create 创建用户
 // 独立部署版本：移除 merchantID 作用域，用户名/邮箱全局唯一。
 // P1-6 修复：Service 层加入权限断言（仅 admin 可创建 TeamUser）
-func (s *TeamUserService) Create(req *CreateTeamUserRequest, operatorID uint, operatorRole string, operatorIP string) (*model.TeamUser, error) {
+func (s *TeamUserService) Create(ctx context.Context, req *CreateTeamUserRequest, operatorID uint, operatorRole string, operatorIP string) (*model.TeamUser, error) {
 	// P1-6：Service 层权限断言（防止前端绕过/中间件遗漏）
 	if err := AssertCanOperateTeamUser(operatorID, operatorRole, "create", 0); err != nil {
 		return nil, err
 	}
 
 	// 检查用户名是否已存在
-	exists, err := s.repo.UsernameExists(req.Username, 0)
+	exists, err := s.repo.UsernameExists(ctx, req.Username, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +107,7 @@ func (s *TeamUserService) Create(req *CreateTeamUserRequest, operatorID uint, op
 
 	// 检查邮箱是否已存在
 	if req.Email != "" {
-		exists, err = s.repo.EmailExists(req.Email, 0)
+		exists, err = s.repo.EmailExists(ctx, req.Email, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +117,7 @@ func (s *TeamUserService) Create(req *CreateTeamUserRequest, operatorID uint, op
 	}
 
 	// 验证角色（独立部署：role 全局唯一）
-	_, err = s.roleRepo.GetByCode(req.Role)
+	_, err = s.roleRepo.GetByCode(ctx, req.Role)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 角色不存在，检查是否为系统角色
@@ -150,12 +153,12 @@ func (s *TeamUserService) Create(req *CreateTeamUserRequest, operatorID uint, op
 		Status:   model.TeamUserStatusActive,
 	}
 
-	if err := s.repo.Create(user); err != nil {
+	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
 	// 记录操作日志
-	s.logOperation(operatorID, req.Username, "create", "user", fmt.Sprintf("%d", user.ID), "", user, operatorIP)
+	s.logOperation(ctx, operatorID, req.Username, "create", "user", fmt.Sprintf("%d", user.ID), "", user, operatorIP)
 
 	return user, nil
 }
@@ -163,13 +166,13 @@ func (s *TeamUserService) Create(req *CreateTeamUserRequest, operatorID uint, op
 // Update 更新用户
 // 独立部署版本：移除 merchantID 作用域校验。
 // P1-6 修复：Service 层加入权限断言
-func (s *TeamUserService) Update(userID uint, req *UpdateTeamUserRequest, operatorID uint, operatorRole string, operatorIP string) (*model.TeamUser, error) {
+func (s *TeamUserService) Update(ctx context.Context, userID uint, req *UpdateTeamUserRequest, operatorID uint, operatorRole string, operatorIP string) (*model.TeamUser, error) {
 	// P1-6：Service 层权限断言
 	if err := AssertCanOperateTeamUser(operatorID, operatorRole, "update", userID); err != nil {
 		return nil, err
 	}
 
-	user, err := s.repo.GetByID(userID)
+	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +185,7 @@ func (s *TeamUserService) Update(userID uint, req *UpdateTeamUserRequest, operat
 	}
 	if req.Email != "" {
 		// 检查邮箱是否已被使用
-		exists, err := s.repo.EmailExists(req.Email, userID)
+		exists, err := s.repo.EmailExists(ctx, req.Email, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -221,12 +224,12 @@ func (s *TeamUserService) Update(userID uint, req *UpdateTeamUserRequest, operat
 		user.CustomDeptIDs = ""
 	}
 
-	if err := s.repo.Update(user); err != nil {
+	if err := s.repo.Update(ctx, user); err != nil {
 		return nil, err
 	}
 
 	// 记录操作日志
-	s.logOperation(operatorID, user.Username, "update", "user", fmt.Sprintf("%d", user.ID), oldUser, user, operatorIP)
+	s.logOperation(ctx, operatorID, user.Username, "update", "user", fmt.Sprintf("%d", user.ID), oldUser, user, operatorIP)
 
 	return user, nil
 }
@@ -234,13 +237,13 @@ func (s *TeamUserService) Update(userID uint, req *UpdateTeamUserRequest, operat
 // Delete 删除用户
 // 独立部署版本：移除 merchantID 作用域校验。
 // P1-6 修复：Service 层加入权限断言
-func (s *TeamUserService) Delete(userID uint, operatorID uint, operatorRole string, operatorIP string) error {
+func (s *TeamUserService) Delete(ctx context.Context, userID uint, operatorID uint, operatorRole string, operatorIP string) error {
 	// P1-6：Service 层权限断言
 	if err := AssertCanOperateTeamUser(operatorID, operatorRole, "delete", userID); err != nil {
 		return err
 	}
 
-	user, err := s.repo.GetByID(userID)
+	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -252,7 +255,7 @@ func (s *TeamUserService) Delete(userID uint, operatorID uint, operatorRole stri
 
 	// 不能删除最后一个管理员
 	if user.Role == "admin" {
-		count, err := s.repo.CountByRole("admin")
+		count, err := s.repo.CountByRole(ctx, "admin")
 		if err != nil {
 			return err
 		}
@@ -261,25 +264,25 @@ func (s *TeamUserService) Delete(userID uint, operatorID uint, operatorRole stri
 		}
 	}
 
-	if err := s.repo.Delete(userID); err != nil {
+	if err := s.repo.Delete(ctx, userID); err != nil {
 		return err
 	}
 
 	// 记录操作日志
-	s.logOperation(operatorID, user.Username, "delete", "user", fmt.Sprintf("%d", userID), user, nil, operatorIP)
+	s.logOperation(ctx, operatorID, user.Username, "delete", "user", fmt.Sprintf("%d", userID), user, nil, operatorIP)
 
 	return nil
 }
 
 // GetByID 根据ID获取用户
 // 独立部署版本：移除 merchantID 校验。
-func (s *TeamUserService) GetByID(userID uint) (*model.TeamUser, error) {
-	return s.repo.GetByID(userID)
+func (s *TeamUserService) GetByID(ctx context.Context, userID uint) (*model.TeamUser, error) {
+	return s.repo.GetByID(ctx, userID)
 }
 
 // GetList 获取用户列表
 // 独立部署版本：不再按 merchant 过滤。
-func (s *TeamUserService) GetList(page, pageSize int) (*TeamUserListResponse, error) {
+func (s *TeamUserService) GetList(ctx context.Context, page, pageSize int) (*TeamUserListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -287,7 +290,7 @@ func (s *TeamUserService) GetList(page, pageSize int) (*TeamUserListResponse, er
 		pageSize = 10
 	}
 
-	users, total, err := s.repo.GetAll(page, pageSize)
+	users, total, err := s.repo.GetAll(ctx, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +305,8 @@ func (s *TeamUserService) GetList(page, pageSize int) (*TeamUserListResponse, er
 
 // Login 用户登录
 // 独立部署版本：用户名全局唯一，无需 merchantID 限定。
-func (s *TeamUserService) Login(req *TeamUserLoginRequest, ip string) (*TeamUserLoginResponse, error) {
-	user, err := s.repo.GetByUsername(req.Username)
+func (s *TeamUserService) Login(ctx context.Context, req *TeamUserLoginRequest, ip string) (*TeamUserLoginResponse, error) {
+	user, err := s.repo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("用户名或密码错误")
@@ -328,10 +331,10 @@ func (s *TeamUserService) Login(req *TeamUserLoginRequest, ip string) (*TeamUser
 	}
 
 	// 更新最后登录信息
-	s.repo.UpdateLastLogin(user.ID, ip)
+	_ = s.repo.UpdateLastLogin(ctx, user.ID, ip)
 
 	// 记录登录日志
-	s.logOperation(user.ID, user.Username, "login", "auth", "", nil, nil, ip)
+	s.logOperation(ctx, user.ID, user.Username, "login", "auth", "", nil, nil, ip)
 
 	return &TeamUserLoginResponse{
 		Token: token,
@@ -341,8 +344,8 @@ func (s *TeamUserService) Login(req *TeamUserLoginRequest, ip string) (*TeamUser
 
 // ChangePassword 修改密码
 // 独立部署版本：移除 merchantID 校验。
-func (s *TeamUserService) ChangePassword(userID uint, req *TeamChangePasswordRequest, ip string) error {
-	user, err := s.repo.GetByID(userID)
+func (s *TeamUserService) ChangePassword(ctx context.Context, userID uint, req *TeamChangePasswordRequest, ip string) error {
+	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -359,12 +362,12 @@ func (s *TeamUserService) ChangePassword(userID uint, req *TeamChangePasswordReq
 	}
 
 	user.Password = hashedPassword
-	if err := s.repo.Update(user); err != nil {
+	if err := s.repo.Update(ctx, user); err != nil {
 		return err
 	}
 
 	// 记录操作日志
-	s.logOperation(userID, user.Username, "change_password", "auth", "", nil, nil, ip)
+	s.logOperation(ctx, userID, user.Username, "change_password", "auth", "", nil, nil, ip)
 
 	return nil
 }
@@ -372,13 +375,13 @@ func (s *TeamUserService) ChangePassword(userID uint, req *TeamChangePasswordReq
 // ResetPassword 重置密码
 // 独立部署版本：移除 merchantID 校验。
 // P1-6 修复：Service 层加入权限断言（仅 admin 可重置 TeamUser 密码）
-func (s *TeamUserService) ResetPassword(userID uint, newPassword string, operatorID uint, operatorRole string, operatorIP string) error {
+func (s *TeamUserService) ResetPassword(ctx context.Context, userID uint, newPassword string, operatorID uint, operatorRole string, operatorIP string) error {
 	// P1-6：Service 层权限断言
 	if err := AssertCanOperateTeamUser(operatorID, operatorRole, "reset_password", userID); err != nil {
 		return err
 	}
 
-	user, err := s.repo.GetByID(userID)
+	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -390,12 +393,12 @@ func (s *TeamUserService) ResetPassword(userID uint, newPassword string, operato
 	}
 
 	user.Password = hashedPassword
-	if err := s.repo.Update(user); err != nil {
+	if err := s.repo.Update(ctx, user); err != nil {
 		return err
 	}
 
 	// 记录操作日志
-	s.logOperation(operatorID, user.Username, "reset_password", "user", fmt.Sprintf("%d", userID), nil, nil, operatorIP)
+	s.logOperation(ctx, operatorID, user.Username, "reset_password", "user", fmt.Sprintf("%d", userID), nil, nil, operatorIP)
 
 	return nil
 }
@@ -420,7 +423,9 @@ func (s *TeamUserService) generateToken(user *model.TeamUser) (string, error) {
 //
 // P1-4 改造：优先通过 EventBus 异步发布（解耦、非阻塞），
 // 若全局事件总线未初始化（如单元测试环境），则 fallback 到同步直接写入。
-func (s *TeamUserService) logOperation(userID uint, username, action, module, resourceID string, oldValue, newValue any, ip string) {
+//
+// 2026-07-22 方向E：新增 ctx 参数透传至底层 repository。
+func (s *TeamUserService) logOperation(ctx context.Context, userID uint, username, action, module, resourceID string, oldValue, newValue any, ip string) {
 	// 优先使用 EventBus（异步、解耦）
 	if event.GetGlobalBus() != nil {
 		event.Publish(event.TopicOperationLog, event.OperationLogPayload{
@@ -453,7 +458,7 @@ func (s *TeamUserService) logOperation(userID uint, username, action, module, re
 		IP:         ip,
 	}
 
-	s.logRepo.Create(logEntry)
+	_ = s.logRepo.Create(ctx, logEntry)
 }
 
 // getJWTSecret 获取JWT密钥
@@ -464,6 +469,8 @@ func getJWTSecret() string {
 }
 
 // TeamRoleService 团队角色服务
+//
+// 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context。
 type TeamRoleService struct {
 	repo repository.TeamRoleRepository
 }
@@ -491,15 +498,15 @@ type UpdateRoleRequest struct {
 
 // GetList 获取角色列表
 // 独立部署版本：返回所有角色（不再按 merchant 隔离）。
-func (s *TeamRoleService) GetList() ([]*model.TeamRole, error) {
-	return s.repo.GetSystemRoles()
+func (s *TeamRoleService) GetList(ctx context.Context) ([]*model.TeamRole, error) {
+	return s.repo.GetSystemRoles(ctx)
 }
 
 // Create 创建角色
 // 独立部署版本：role 全局唯一。
-func (s *TeamRoleService) Create(req *CreateRoleRequest) (*model.TeamRole, error) {
+func (s *TeamRoleService) Create(ctx context.Context, req *CreateRoleRequest) (*model.TeamRole, error) {
 	// 检查编码是否已存在
-	_, err := s.repo.GetByCode(req.Code)
+	_, err := s.repo.GetByCode(ctx, req.Code)
 	if err == nil {
 		return nil, errors.New("角色编码已存在")
 	}
@@ -514,7 +521,7 @@ func (s *TeamRoleService) Create(req *CreateRoleRequest) (*model.TeamRole, error
 		IsSystem:    false,
 	}
 
-	if err := s.repo.Create(role); err != nil {
+	if err := s.repo.Create(ctx, role); err != nil {
 		return nil, err
 	}
 
@@ -523,8 +530,8 @@ func (s *TeamRoleService) Create(req *CreateRoleRequest) (*model.TeamRole, error
 
 // Update 更新角色
 // 独立部署版本：移除 merchantID 校验。
-func (s *TeamRoleService) Update(roleID uint, req *UpdateRoleRequest) (*model.TeamRole, error) {
-	role, err := s.repo.GetByID(roleID)
+func (s *TeamRoleService) Update(ctx context.Context, roleID uint, req *UpdateRoleRequest) (*model.TeamRole, error) {
+	role, err := s.repo.GetByID(ctx, roleID)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +551,7 @@ func (s *TeamRoleService) Update(roleID uint, req *UpdateRoleRequest) (*model.Te
 		role.Status = *req.Status
 	}
 
-	if err := s.repo.Update(role); err != nil {
+	if err := s.repo.Update(ctx, role); err != nil {
 		return nil, err
 	}
 
@@ -553,8 +560,8 @@ func (s *TeamRoleService) Update(roleID uint, req *UpdateRoleRequest) (*model.Te
 
 // Delete 删除角色
 // 独立部署版本：移除 merchantID 校验。
-func (s *TeamRoleService) Delete(roleID uint) error {
-	role, err := s.repo.GetByID(roleID)
+func (s *TeamRoleService) Delete(ctx context.Context, roleID uint) error {
+	role, err := s.repo.GetByID(ctx, roleID)
 	if err != nil {
 		return err
 	}
@@ -563,7 +570,7 @@ func (s *TeamRoleService) Delete(roleID uint) error {
 		return errors.New("系统角色不能删除")
 	}
 
-	return s.repo.Delete(roleID)
+	return s.repo.Delete(ctx, roleID)
 }
 
 // GetPermissions 获取所有权限
@@ -572,6 +579,8 @@ func (s *TeamRoleService) GetPermissions() map[string]string {
 }
 
 // PermissionService 权限服务
+//
+// 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context。
 type PermissionService struct {
 	roleRepo repository.TeamRoleRepository
 }
@@ -585,14 +594,14 @@ func NewPermissionService() *PermissionService {
 
 // CheckPermission 检查权限
 // 独立部署版本：仅根据 role 检查权限，移除 merchantID 作用域参数。
-func (s *PermissionService) CheckPermission(roleCode, permission string) bool {
+func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permission string) bool {
 	// 管理员拥有所有权限
 	if roleCode == "admin" {
 		return true
 	}
 
 	// 获取角色
-	role, err := s.roleRepo.GetByCode(roleCode)
+	role, err := s.roleRepo.GetByCode(ctx, roleCode)
 	if err != nil {
 		// 使用系统默认角色权限
 		for _, r := range model.SystemRoles {
@@ -634,12 +643,12 @@ func (s *PermissionService) checkPermissionInList(permissionsJSON, permission st
 
 // GetUserPermissions 获取用户的所有权限
 // 独立部署版本：移除 merchantID 作用域参数。
-func (s *PermissionService) GetUserPermissions(roleCode string) ([]string, error) {
+func (s *PermissionService) GetUserPermissions(ctx context.Context, roleCode string) ([]string, error) {
 	if roleCode == "admin" {
 		return []string{"*"}, nil
 	}
 
-	role, err := s.roleRepo.GetByCode(roleCode)
+	role, err := s.roleRepo.GetByCode(ctx, roleCode)
 	if err != nil {
 		// 使用系统默认角色权限
 		for _, r := range model.SystemRoles {

@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
 
 	"marketing/internal/model"
@@ -48,5 +49,5 @@ func (s *OperationLogSubscriber) Handle(evt Event) error {
 		IP:         payload.IP,
 	}
 
-	return s.repo.Create(logEntry)
+	return s.repo.Create(context.Background(), logEntry)
 }

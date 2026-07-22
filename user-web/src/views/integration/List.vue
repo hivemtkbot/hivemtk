@@ -48,19 +48,18 @@
 
     <el-card>
       <el-table :data="integrations" v-loading="loading" stripe>
-        <el-table-column prop="name" :label="$t('集成名称')" min-width="150" />
-        <el-table-column prop="type" :label="$t('类型')" width="120">
+        <el-table-column prop="account_name" :label="$t('集成名称')" min-width="150" />
+        <el-table-column prop="platform" :label="$t('类型')" width="120">
           <template #default="{ row }">
-            <el-tag>{{ row.type }}</el-tag>
+            <el-tag>{{ row.platform }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="provider" label="服务商" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-switch v-model="row.enabled" @change="toggleIntegration(row)" />
+            <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="toggleIntegration(row)" />
           </template>
         </el-table-column>
-        <el-table-column prop="lastCallAt" label="最后调用" width="180" />
+        <el-table-column prop="last_sync_at" label="最后调用" width="180" />
         <el-table-column prop="callCount" label="调用次数" width="100" />
         <el-table-column prop="errorCount" label="错误次数" width="100" />
         <el-table-column label="操作" width="300" fixed="right">
@@ -87,9 +86,6 @@
             <el-option label="消息队列" value="mq" />
             <el-option label="OAuth" value="oauth" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="服务商">
-          <el-input v-model="form.provider" placeholder="例如: 钉钉、企业微信" />
         </el-form-item>
         <el-form-item label="接入地址" v-if="form.type !== 'database'">
           <el-input v-model="form.endpoint" placeholder="https://..." />
@@ -189,7 +185,6 @@ import {
   deleteIntegration as deleteIntegrationApi,
   toggleIntegrationStatus,
   testIntegration,
-  getIntegrationStats,
   getIntegrationLogs
 } from '@/api/integration.js'
 
@@ -209,7 +204,6 @@ const form = ref({
   id: 0,
   name: '',
   type: 'webhook',
-  provider: '',
   endpoint: '',
   authType: 'none',
   credentials: '',
@@ -225,16 +219,23 @@ const formRules = {
 const refreshData = async () => {
   loading.value = true
   try {
-    const [iRes, sRes] = await Promise.all([getIntegrations(), getIntegrationStats()])
-    integrations.value = toList(iRes)
-    stats.value = sRes || stats.value
+    const iRes = await getIntegrations()
+    const accounts = iRes?.accounts || toList(iRes)
+    integrations.value = accounts
+    const enabledCount = accounts.filter(a => a.status === 1).length
+    stats.value = {
+      enabled: enabledCount,
+      disabled: accounts.length - enabledCount,
+      error: 0,
+      totalCalls: 0
+    }
   } finally {
     loading.value = false
   }
 }
 
 const showCreateDialog = () => {
-  form.value = { id: 0, name: '', type: 'webhook', provider: '', endpoint: '', authType: 'none', credentials: '', dbConn: '', syncInterval: '1h', events: [] }
+  form.value = { id: 0, name: '', type: 'webhook', endpoint: '', authType: 'none', credentials: '', dbConn: '', syncInterval: '1h', events: [] }
   dialogTitle.value = '添加集成'
   dialogVisible.value = true
 }
@@ -265,7 +266,7 @@ const submitForm = async () => {
 }
 
 const toggleIntegration = async (row) => {
-  await toggleIntegrationStatus(row.id, row.enabled)
+  await toggleIntegrationStatus(row.id, row.status)
   ElMessage.success(i18n.global.t('状态已更新'))
   refreshData()
 }
@@ -275,7 +276,7 @@ const testConnection = async (row) => {
   try {
     const res = await testIntegration(row.id)
     loading.close()
-    if (res?.success) {
+    if (res?.status === 'ok') {
       ElMessage.success(i18n.global.t('连接成功'))
     } else {
       ElMessage.error('连接失败: ' + (res?.error || ''))

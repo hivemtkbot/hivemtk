@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"marketing/internal/model"
@@ -11,6 +12,9 @@ import (
 // 操作日志（OperationLog）门面服务
 // 封装 repository.OperationLogRepository，供 controller 调用，避免 controller
 // 直接依赖 repository / model。
+//
+// 2026-07-22 方向E：所有方法第一参数为 ctx context.Context，
+// 透传至底层 repository（与 R-架构一致）。
 // ============================================================================
 
 // OperationLogService 操作日志门面服务
@@ -54,14 +58,14 @@ func toOperationLogView(log *model.OperationLog) *OperationLogView {
 }
 
 // GetAll 获取操作日志列表
-func (s *OperationLogService) GetAll(page, pageSize int, filters map[string]any) ([]*OperationLogView, int64, error) {
+func (s *OperationLogService) GetAll(ctx context.Context, page, pageSize int, filters map[string]any) ([]*OperationLogView, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 50000 {
 		pageSize = 20
 	}
-	logs, total, err := s.logRepo.GetAll(page, pageSize, filters)
+	logs, total, err := s.logRepo.GetAll(ctx, page, pageSize, filters)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -73,8 +77,8 @@ func (s *OperationLogService) GetAll(page, pageSize int, filters map[string]any)
 }
 
 // GetByID 获取操作日志详情
-func (s *OperationLogService) GetByID(id uint) (*OperationLogView, error) {
-	log, err := s.logRepo.GetByID(id)
+func (s *OperationLogService) GetByID(ctx context.Context, id uint) (*OperationLogView, error) {
+	log, err := s.logRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +89,14 @@ func (s *OperationLogService) GetByID(id uint) (*OperationLogView, error) {
 }
 
 // GetByUserID 获取指定用户的操作日志
-func (s *OperationLogService) GetByUserID(userID uint, page, pageSize int) ([]*OperationLogView, int64, error) {
+func (s *OperationLogService) GetByUserID(ctx context.Context, userID uint, page, pageSize int) ([]*OperationLogView, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 50000 {
 		pageSize = 20
 	}
-	logs, total, err := s.logRepo.GetByUserID(userID, page, pageSize)
+	logs, total, err := s.logRepo.GetByUserID(ctx, userID, page, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -104,13 +108,13 @@ func (s *OperationLogService) GetByUserID(userID uint, page, pageSize int) ([]*O
 }
 
 // DeleteOldLogs 清理指定日期之前的操作日志
-func (s *OperationLogService) DeleteOldLogs(cutoff time.Time) error {
-	return s.logRepo.DeleteOldLogs(cutoff)
+func (s *OperationLogService) DeleteOldLogs(ctx context.Context, cutoff time.Time) error {
+	return s.logRepo.DeleteOldLogs(ctx, cutoff)
 }
 
 // DeleteByIDs 批量删除操作日志，返回删除条数
-func (s *OperationLogService) DeleteByIDs(ids []uint) (int64, error) {
-	return s.logRepo.DeleteByIDs(ids)
+func (s *OperationLogService) DeleteByIDs(ctx context.Context, ids []uint) (int64, error) {
+	return s.logRepo.DeleteByIDs(ctx, ids)
 }
 
 // OperationLogStats 操作日志统计
@@ -122,8 +126,8 @@ type OperationLogStats struct {
 }
 
 // GetStatistics 获取操作日志统计（统计整表）
-func (s *OperationLogService) GetStatistics() (*OperationLogStats, error) {
-	logs, total, err := s.logRepo.GetAll(1, 1000, nil)
+func (s *OperationLogService) GetStatistics(ctx context.Context) (*OperationLogStats, error) {
+	logs, total, err := s.logRepo.GetAll(ctx, 1, 1000, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +150,11 @@ func (s *OperationLogService) GetStatistics() (*OperationLogStats, error) {
 }
 
 // ExportAll 导出操作日志（返回视图列表，controller 负责渲染 CSV）
-func (s *OperationLogService) ExportAll(pageSize int) ([]*OperationLogView, error) {
+func (s *OperationLogService) ExportAll(ctx context.Context, pageSize int) ([]*OperationLogView, error) {
 	if pageSize <= 0 || pageSize > 50000 {
 		pageSize = 10000
 	}
-	logs, _, err := s.logRepo.GetAll(1, pageSize, nil)
+	logs, _, err := s.logRepo.GetAll(ctx, 1, pageSize, nil)
 	if err != nil {
 		return nil, err
 	}

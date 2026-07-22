@@ -271,6 +271,9 @@ func allModels() []any {
 		&model.ChatChannel{},
 		// P2-X: 商户端通知中心（站内通知 / 顶部铃铛 badge）
 		&model.Notification{},
+		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
+		&model.AssetBundle{},
+		&model.AssetBundleVersionLog{},
 	}
 }
 

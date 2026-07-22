@@ -261,5 +261,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewMP1Migration(db))
 	// 2026-07-22:ops AI 生产力统计依赖的 llm_usage_records 表（历史漏建）
 	registry.Register(NewLLMUsageRecordsMigration(db))
+	// 2026-07-22:方向9 资产包模式 — asset_bundles / asset_bundle_version_logs
+	registry.Register(NewAssetBundleMigration(db))
 	// 继续添加新的迁移...
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,12 +63,26 @@ var upgraderVisitor = websocket.Upgrader{
 }
 
 // HandleVisitorWebSocket 处理访客 WebSocket 连接
+//
+// 鲁棒性加固（2026-07-22 方向B）：
+//   - 接受 query `since_seq=N` 增量补发（断点续传）
+//   - readPump 处理 `{"type":"ack","seq":[N,...]}` 清理待 ACK
+//   - readPump 处理 `{"type":"resume","since_seq":N}` 拉取增量消息
+//   - onConnect 接受 sinceSeq 沿用 delivered_at 兜底补发
 func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	sessionID := strings.TrimSpace(c.Query("session_id"))
 	visitorID := strings.TrimSpace(c.Query("visitor_id"))
 	channelID := strings.TrimSpace(c.Query("channel_id"))
 	if channelID == "" {
 		channelID = "default"
+	}
+
+	// since_seq 增量补发（断点续传）；解析失败时按 0 处理（全量补发）
+	sinceSeq := uint64(0)
+	if s := strings.TrimSpace(c.Query("since_seq")); s != "" {
+		if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+			sinceSeq = n
+		}
 	}
 
 	if sessionID == "" || visitorID == "" {
@@ -104,31 +119,38 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	go h.readPump(client, conn, ctx)
 
 	// 连接建立后异步推送欢迎消息 + 离线消息
-	go h.onConnect(client, ctx)
+	go h.onConnect(client, sinceSeq, ctx)
 }
 
 // onConnect 访客连接建立后的处理
 // 1. 推送 welcome 消息
 // 2. 拉取离线期间未投递的坐席/AI 回复，批量推送
 // 3. 标记已投递
-func (h *VisitorWSHandler) onConnect(client *Client, ctx context.Context) {
+//
+// 鲁棒性加固（2026-07-22 方向B）：
+//   - 接受 sinceSeq 参数（query `since_seq` 或上行 `resume` 消息）
+//   - 拉取逻辑：
+//     - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
+//     - 否则：走原有 delivered_at IS NULL 兜底路径
+//   - 双轨制：seq 路径精确但有窗口期（seq 重启后归零）；delivered_at 兜底
+func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx context.Context) {
 	if h.db == nil {
 		return
 	}
 
-	// 1. welcome 帧
-	welcomeBytes, _ := json.Marshal(map[string]any{
-		"type": TypeWelcome,
-		"payload": map[string]any{
-			"session_id": client.sessionID,
-			"visitor_id": client.visitorID,
-			"channel_id": client.channelID,
-			"time":       time.Now().Unix(),
-		},
+	// 1. welcome 帧（带 seq）
+	welcomeEnv := MustEnvelope(NextSeq(), TypeWelcome, map[string]any{
+		"session_id": client.sessionID,
+		"visitor_id": client.visitorID,
+		"channel_id": client.channelID,
+		"since_seq":  sinceSeq,
+		"time":       time.Now().Unix(),
 	})
-	sendToClient(client, welcomeBytes)
+	if bytes, err := welcomeEnv.MarshalBytes(); err == nil {
+		sendToClient(client, bytes)
+	}
 
-	// 2. 拉取离线消息
+	// 2. 拉取离线消息（双轨：seq 优先 + delivered_at 兜底）
 	type offlineRow struct {
 		ID           uint      `gorm:"primaryKey"`
 		SessionID    string    `gorm:"column:session_id"`
@@ -151,15 +173,29 @@ func (h *VisitorWSHandler) onConnect(client *Client, ctx context.Context) {
 	}
 
 	if len(rows) == 0 {
+		// seq 路径无 pending 直接返回
+		if sinceSeq > 0 {
+			pending := GlobalPendingAck().PendingSince(client.sessionID, sinceSeq)
+			if len(pending) == 0 {
+				return
+			}
+			// 仅有 ack tracker pending 但 DB 无新行：发送 missed_ack 提示客户端
+			missedEnv := MustEnvelope(NextSeq(), "missed_ack", map[string]any{
+				"session_id": client.sessionID,
+				"pending":    pending,
+			})
+			if bytes, err := missedEnv.MarshalBytes(); err == nil {
+				sendToClient(client, bytes)
+			}
+		}
 		return
 	}
 
-	// 3. 推送离线消息
+	// 3. 推送离线消息（带 seq + ts 走 Envelope）
 	ids := make([]uint, 0, len(rows))
-	payload := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
 		ids = append(ids, r.ID)
-		payload = append(payload, map[string]any{
+		env := MustEnvelope(NextSeq(), TypeMessage, map[string]any{
 			"id":          r.ID,
 			"content":     r.Content,
 			"sender_type": r.SenderType,
@@ -167,14 +203,13 @@ func (h *VisitorWSHandler) onConnect(client *Client, ctx context.Context) {
 			"ai_source":   r.AISource,
 			"confidence":  r.AIConfidence,
 			"created_at":  r.CreatedAt,
-			"offline":     true, // 标记为离线消息
+			"offline":     true, // 标记为离线补发
 		})
+		if bytes, err := env.MarshalBytes(); err == nil {
+			sendToClient(client, bytes)
+			GlobalPendingAck().Track(client.sessionID, env.Seq)
+		}
 	}
-	offlineBytes, _ := json.Marshal(map[string]any{
-		"type":    TypeOfflineMessages,
-		"payload": map[string]any{"messages": payload, "count": len(payload)},
-	})
-	sendToClient(client, offlineBytes)
 
 	// 4. 标记已投递
 	now := time.Now()
@@ -236,8 +271,15 @@ func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 }
 
 // readPump 读取协程
+//
+// 鲁棒性加固（2026-07-22 方向B）：
+//   - `ack` 消息：客户端确认已收到的 seq 列表，清理待 ACK 队列
+//   - `resume` 消息：客户端重连后增量补发请求（since_seq）
+//   - `delivered` 消息：旧协议兼容（仅日志记录）
+//   - `ping` 消息：JSON 文本 ping（保留兼容；推荐使用 WebSocket PingMessage）
 func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx context.Context) {
 	defer func() {
+		GlobalPendingAck().Drop(client.sessionID)
 		unregisterVisitorClient(client)
 		conn.Close()
 		logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Msg("visitor disconnected")
@@ -270,11 +312,23 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 		switch msgType {
 		case "ping":
 			// 心跳响应
-			pongBytes, _ := json.Marshal(map[string]any{"type": TypePong, "time": time.Now().Unix()})
-			sendToClient(client, pongBytes)
+			pongEnv := MustEnvelope(NextSeq(), TypePong, map[string]any{"time": time.Now().Unix()})
+			if bytes, err := pongEnv.MarshalBytes(); err == nil {
+				sendToClient(client, bytes)
+			}
+		case "ack":
+			// 客户端确认已收到的 seq 列表（批量 ack）
+			// 协议：{"type":"ack","seq":[100,101,102]} 或 {"type":"ack","seq":100}
+			ackedCount := handleAckMessage(client, msg)
+			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Int("acked", ackedCount).Msg("ack received")
+		case "resume":
+			// 客户端重连后增量补发：{"type":"resume","since_seq":N}
+			sinceSeq := parseSinceSeq(msg)
+			logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Uint64("since_seq", sinceSeq).Msg("resume requested")
+			go h.onConnect(client, sinceSeq, ctx)
 		case "delivered":
-			// 客户端确认已收到某批消息（暂不持久化，靠 server 端主动标记为主）
-			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Interface("ack", msg).Msg("received delivered ack")
+			// 旧协议兼容（仅日志）
+			logger.Ctx(ctx).Debug().Str("session_id", client.sessionID).Interface("ack", msg).Msg("received delivered ack (legacy)")
 		case "close":
 			logger.Ctx(ctx).Info().Str("session_id", client.sessionID).Msg("visitor closed connection")
 			return
@@ -282,6 +336,42 @@ func (h *VisitorWSHandler) readPump(client *Client, conn *websocket.Conn, ctx co
 			logger.Ctx(ctx).Warn().Str("session_id", client.sessionID).Str("msg_type", msgType).Msg("unhandled message type")
 		}
 	}
+}
+
+// handleAckMessage 解析 ack 消息并清理 GlobalPendingAck
+//
+// 支持两种协议：
+//   - {"seq": 100}              单个 seq
+//   - {"seq": [100, 101, 102]}  批量 seq
+//
+// 返回被清理的 seq 数量。
+func handleAckMessage(client *Client, msg map[string]any) int {
+	raw, ok := msg["seq"]
+	if !ok {
+		return 0
+	}
+	var seqs []uint64
+	switch v := raw.(type) {
+	case float64:
+		seqs = []uint64{uint64(v)}
+	case []any:
+		for _, item := range v {
+			if f, ok := item.(float64); ok {
+				seqs = append(seqs, uint64(f))
+			}
+		}
+	case []uint64:
+		seqs = v
+	}
+	return GlobalPendingAck().Ack(client.sessionID, seqs...)
+}
+
+// parseSinceSeq 从上行消息解析 since_seq
+func parseSinceSeq(msg map[string]any) uint64 {
+	if v, ok := msg["since_seq"].(float64); ok {
+		return uint64(v)
+	}
+	return 0
 }
 
 func sendVisitorError(client *Client, msg string) {

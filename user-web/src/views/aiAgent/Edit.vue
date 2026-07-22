@@ -461,7 +461,7 @@ const loadSopOptions = async () => {
 const loadScriptOptions = async () => {
   try {
     const res = await getScriptTemplateList({ page: 1, page_size: 100 })
-    scriptOptions.value = res?.data || res?.list || res?.items || []
+    scriptOptions.value = res?.list || res?.items || []
   } catch (e) {
     console.warn('加载话术模板列表失败：', e?.message)
   }

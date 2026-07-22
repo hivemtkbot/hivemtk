@@ -158,7 +158,7 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 
 	// 3. 三通道告警分发
 	if d.config.AuditEnabled {
-		if err := d.writeAuditLog(lctx, riskResult); err != nil {
+		if err := d.writeAuditLog(ctx, lctx, riskResult); err != nil {
 			logger.Errorf("[anomaly_login] 审计日志写入失败: %v", err)
 			result.ChannelsFailed = append(result.ChannelsFailed, AnomalyLoginChannelAudit)
 		} else {
@@ -191,7 +191,7 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 }
 
 // writeAuditLog 写审计日志（operation_logs 表）
-func (d *AnomalyLoginDetector) writeAuditLog(lctx *LoginRiskContext, result *LoginRiskResult) error {
+func (d *AnomalyLoginDetector) writeAuditLog(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	if result.SecurityAlertID == 0 {
 		return errors.New("alert id is 0, alert not persisted")
 	}
@@ -210,7 +210,7 @@ func (d *AnomalyLoginDetector) writeAuditLog(lctx *LoginRiskContext, result *Log
 		UserAgent: lctx.UserAgent,
 		CreatedAt: now,
 	}
-	return repo.Create(logEntry)
+	return repo.Create(ctx, logEntry)
 }
 
 // writeInboxNotification 写站内通知
@@ -268,13 +268,13 @@ func (d *AnomalyLoginDetector) ListLoginEvents(userID uint, page, pageSize int) 
 }
 
 // ResolveAlert 解决告警（带审计日志）
-func (d *AnomalyLoginDetector) ResolveAlert(alertID, operatorID uint, note string) error {
+func (d *AnomalyLoginDetector) ResolveAlert(ctx context.Context, alertID, operatorID uint, note string) error {
 	if err := d.riskService.ResolveSecurityAlert(alertID, operatorID, note); err != nil {
 		return err
 	}
 	// 写审计
 	repo := repository.NewOperationLogRepository()
-	_ = repo.Create(&model.OperationLog{
+	_ = repo.Create(ctx, &model.OperationLog{
 		UserID:     operatorID,
 		Action:     "anomaly_login_resolve",
 		Module:     "auth",
@@ -287,12 +287,12 @@ func (d *AnomalyLoginDetector) ResolveAlert(alertID, operatorID uint, note strin
 }
 
 // IgnoreAlert 忽略告警（带审计日志）
-func (d *AnomalyLoginDetector) IgnoreAlert(alertID, operatorID uint, note string) error {
+func (d *AnomalyLoginDetector) IgnoreAlert(ctx context.Context, alertID, operatorID uint, note string) error {
 	if err := d.riskService.IgnoreSecurityAlert(alertID, operatorID, note); err != nil {
 		return err
 	}
 	repo := repository.NewOperationLogRepository()
-	_ = repo.Create(&model.OperationLog{
+	_ = repo.Create(ctx, &model.OperationLog{
 		UserID:     operatorID,
 		Action:     "anomaly_login_ignore",
 		Module:     "auth",

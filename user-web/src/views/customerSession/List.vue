@@ -594,7 +594,7 @@ const loadSessions = async () => {
   try {
     const res = await getSessions()
     // request.js 拦截器已自动解包 data.data，因此 res 直接是 { list: [...] } 或 [...]
-    const list = Array.isArray(res) ? res : (res?.list || res?.data?.list || [])
+    const list = Array.isArray(res) ? res : (res?.list || [])
     sessions.value = list.map((s) => ({
       id: s.id,
       sessionId: s.session_id,
@@ -619,7 +619,7 @@ const selectSession = async (session) => {
   currentSession.value = session
   try {
     const res = await getSessionMessages(session.id)
-    const list = Array.isArray(res) ? res : (res?.list || res?.data?.list || [])
+    const list = Array.isArray(res) ? res : (res?.list || [])
     messages.value = list.map((m) => ({
       id: m.id,
       direction: m.sender_type === 'user' ? 'in' : 'out',
@@ -774,7 +774,7 @@ const loadCustomerProfile = async () => {
       getCustomerTags(uid).catch(() => null)
     ])
     profileStats.value = statsRes || profileStats.value
-    const tagsData = Array.isArray(tagsRes) ? tagsRes : (tagsRes?.list || tagsRes?.data?.list || [])
+    const tagsData = Array.isArray(tagsRes) ? tagsRes : (tagsRes?.list || [])
     profileTags.value = tagsData
   } catch (e) {
     console.warn('[profile] load failed:', e)
@@ -901,7 +901,7 @@ const loadQuickReplies = async () => {
       getQuickReplies().catch(() => ({ data: [] })),
       getQuickReplyCategories().catch(() => ({ data: [] }))
     ])
-    const data = rRes.data || rRes || []
+    const data = Array.isArray(rRes) ? rRes : (rRes?.data || rRes?.list || [])
     allQuickReplies.value = Array.isArray(data) ? data : data.list || []
     quickReplies.value = allQuickReplies.value
   } catch (e) {

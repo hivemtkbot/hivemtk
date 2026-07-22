@@ -225,7 +225,7 @@ const getStatusText = (s) => ({ running: '执行中', success: '完成', failed:
 
 const loadTools = async () => {
   const res = await getBatchTools()
-  tools.value = res.data || [
+  tools.value = res || [
     { name: '批量发送消息', description: '批量发送邮件/短信/WhatsApp', color: '#4F46E5', icon: 'ChatLineRound', usedCount: 0 },
     { name: '批量导入线索', description: 'Excel/CSV 批量导入', color: '#10B981', icon: 'Document', usedCount: 0 },
     { name: '批量更新标签', description: '为客户批量打标签', color: '#F59E0B', icon: 'Promotion', usedCount: 0 },
@@ -239,7 +239,7 @@ const loadHistories = async () => {
   loading.value = true
   try {
     const res = await getBatchHistories()
-    histories.value = res.data || []
+    histories.value = res || []
   } finally {
     loading.value = false
   }
@@ -298,7 +298,7 @@ const viewDetail = async (row) => {
   detailLoading.value = true
   try {
     const res = await getBatchDetail(row.id)
-    taskDetail.value = res.data || row
+    taskDetail.value = res || row
   } catch {
     taskDetail.value = row
   } finally {

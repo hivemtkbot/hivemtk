@@ -54,6 +54,48 @@ func (r *RedisCache) Set(ctx context.Context, key string, value any, expiration 
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
+// SetNX 仅在 key 不存在时设置
+func (r *RedisCache) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, key, value, expiration).Result()
+}
+
+// LPush 向列表头部推入
+func (r *RedisCache) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	if err := r.client.LPush(ctx, key, value).Err(); err != nil {
+		return err
+	}
+	if expiration > 0 {
+		r.client.Expire(ctx, key, expiration)
+	}
+	return nil
+}
+
+// RPush 向列表尾部推入
+func (r *RedisCache) RPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	if err := r.client.RPush(ctx, key, value).Err(); err != nil {
+		return err
+	}
+	if expiration > 0 {
+		r.client.Expire(ctx, key, expiration)
+	}
+	return nil
+}
+
+// LPop 从列表头部弹出
+func (r *RedisCache) LPop(ctx context.Context, key string) (string, error) {
+	return r.client.LPop(ctx, key).Result()
+}
+
+// LRange 获取列表区间
+func (r *RedisCache) LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
+	return r.client.LRange(ctx, key, start, stop).Result()
+}
+
+// LLen 列表长度
+func (r *RedisCache) LLen(ctx context.Context, key string) (int64, error) {
+	return r.client.LLen(ctx, key).Result()
+}
+
 // Delete 删除缓存
 func (r *RedisCache) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()

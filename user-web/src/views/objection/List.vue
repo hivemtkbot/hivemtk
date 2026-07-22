@@ -269,7 +269,7 @@ const handleSubmit = async () => {
       category: form.category,
       use_llm: form.use_llm
     })
-    handleResult.value = res.data || res
+    handleResult.value = res
     ElMessage.success(i18n.global.t('智能匹配完成'))
   } catch (e) {
     ElMessage.error('匹配失败：' + (e?.message || ''))

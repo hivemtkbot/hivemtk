@@ -223,8 +223,8 @@ const refreshData = async () => {
   loading.value = true
   try {
     const [mRes, sRes] = await Promise.all([getTeamMembers(), getTeamStats()])
-    members.value = mRes.data?.list || mRes.data || mRes.list || []
-    const sData = sRes.data || sRes || {}
+    members.value = Array.isArray(mRes) ? mRes : (mRes?.list || mRes?.data || [])
+    const sData = sRes || {}
     stats.value = {
       total: sData.total ?? members.value.length,
       admins: sData.admins ?? members.value.filter(m => m.role === 'admin').length,

@@ -256,7 +256,7 @@ const loadStats = async () => {
   try {
     // 加载 RAG 产品数据
     const productsRes = await ragProductConfigAPI.getRagProducts({})
-    const products = productsRes?.list || productsRes || []
+    const products = productsRes?.items || productsRes?.list || []
     if (Array.isArray(products)) {
       stats.value.totalProducts = products.length
       stats.value.activeProducts = products.filter((p) => p.is_active !== false).length

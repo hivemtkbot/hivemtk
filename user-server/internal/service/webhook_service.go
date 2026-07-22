@@ -1617,10 +1617,14 @@ func (s *WebhookService) triggerSalesEngine(channel WebhookChannel, accountID st
 	//    即使 AgentRuntime 未启动,事件会被 event.Publish 静默丢弃
 	{
 		customerID := ""
+		sessionID := ""
 		if hubMsg != nil {
 			customerID = hubMsg.SenderID
+			if hubMsg.ConversationID != "" {
+				sessionID = hubMsg.ConversationID
+			}
 		}
-		agent_runtime.PublishCustomerMessage(string(channel), accountID, customerID, p.Content, p.EventID)
+		agent_runtime.PublishCustomerMessage(string(channel), accountID, customerID, sessionID, p.Content, p.EventID)
 	}
 
 	// 分支 A：智能体统一编排器（推荐路径，9 步编排完整闭环）

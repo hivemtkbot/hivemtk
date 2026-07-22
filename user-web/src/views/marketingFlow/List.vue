@@ -157,7 +157,7 @@ const refreshData = async () => {
   loading.value = true
   try {
     const res = await getFlows()
-    flows.value = res.data || []
+    flows.value = res || []
   } finally {
     loading.value = false
   }

@@ -1,0 +1,94 @@
+package service
+
+import (
+	"marketing/internal/model"
+	"marketing/internal/repository"
+)
+
+// ============================================================================
+// 会话标签服务（session_tag.go）
+// ----------------------------------------------------------------------------
+// 从 customer_session.go 拆分（2026-07-22 方向C）。
+// 职责：会话标签的 CRUD（按 name/code/group 分类）。
+// 文档：docs/企业级架构优化/坐席实时聊天看板.md §二
+// ============================================================================
+
+// SessionTagService 会话标签服务
+type SessionTagService struct {
+	tagRepo *repository.SessionTagRepository
+}
+
+// NewSessionTagService 创建会话标签服务实例
+func NewSessionTagService() *SessionTagService {
+	return &SessionTagService{
+		tagRepo: repository.NewSessionTagRepository(),
+	}
+}
+
+// CreateTagRequest 创建标签请求
+type CreateTagRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+	Group       string `json:"group"`
+	Color       string `json:"color"`
+	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+// CreateTag 创建标签
+func (s *SessionTagService) CreateTag(req *CreateTagRequest) (*model.SessionTag, error) {
+	tag := &model.SessionTag{
+		Name:        req.Name,
+		Code:        req.Code,
+		Group:       req.Group,
+		Color:       req.Color,
+		Description: req.Description,
+		SortOrder:   req.SortOrder,
+	}
+	if tag.Color == "" {
+		tag.Color = "#1890ff"
+	}
+
+	if err := s.tagRepo.Create(tag); err != nil {
+		return nil, err
+	}
+
+	return tag, nil
+}
+
+// UpdateTag 更新标签
+func (s *SessionTagService) UpdateTag(id uint, req *CreateTagRequest) (*model.SessionTag, error) {
+	tag, err := s.tagRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	tag.Name = req.Name
+	tag.Code = req.Code
+	tag.Group = req.Group
+	tag.Color = req.Color
+	tag.Description = req.Description
+	tag.SortOrder = req.SortOrder
+
+	if err := s.tagRepo.Update(tag); err != nil {
+		return nil, err
+	}
+
+	return tag, nil
+}
+
+// DeleteTag 删除标签
+func (s *SessionTagService) DeleteTag(id uint) error {
+	tag, err := s.tagRepo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	_ = tag
+
+	return s.tagRepo.Delete(id)
+}
+
+// GetTags 获取标签列表
+func (s *SessionTagService) GetTags() ([]*model.SessionTag, error) {
+	return s.tagRepo.GetByMerchant()
+}

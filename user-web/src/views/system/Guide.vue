@@ -62,7 +62,7 @@ const steps = [
       '登录后系统自动初始化商户信息',
       '检查商户标识状态（开源版无需授权）'
     ],
-    path: '/system/init'
+    path: '/setup'
   },
   {
     title: i18n.global.t('2. 配置存储'),
@@ -82,7 +82,7 @@ const steps = [
       '上传产品图片/视频/文案',
       '为素材添加标签便于检索'
     ],
-    path: '/system/material'
+    path: '/system/material-library'
   },
   {
     title: i18n.global.t('4. 创建卡片'),
@@ -92,7 +92,7 @@ const steps = [
       '选择模板并填充产品信息',
       '生成短链并发布'
     ],
-    path: '/douyin-card/list'
+    path: '/douyinCard'
   },
   {
     title: i18n.global.t('5. 开始营销'),
@@ -102,7 +102,7 @@ const steps = [
       '启动自动回复(抖音/快手/小红书/闲鱼)',
       '配置邮件/短信营销活动'
     ],
-    path: '/rag-product-config'
+    path: '/system/rag-product-config'
   }
 ]
 

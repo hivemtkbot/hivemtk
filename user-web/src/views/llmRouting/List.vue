@@ -265,7 +265,7 @@ const loadModels = async () => {
   loading.models = true
   try {
     const res = await LlmRoutingApi.getModelList()
-    const data = res?.data || res
+    const data = res
     models.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
   } catch (e) {
     models.value = []
@@ -278,7 +278,7 @@ const loadRouting = async () => {
   loading.routing = true
   try {
     const res = await LlmRoutingApi.getSceneRouting()
-    const data = res?.data || res
+    const data = res
     sceneRouting.value = Array.isArray(data) ? data : (data?.list || data?.items || [])
   } catch (e) {
     sceneRouting.value = []
@@ -291,7 +291,7 @@ const loadFallback = async () => {
   loading.fallback = true
   try {
     const res = await LlmRoutingApi.getFallbackStrategy()
-    const data = res?.data || res
+    const data = res
     if (data) fallbackForm.value = { ...fallbackForm.value, ...(Array.isArray(data) ? {} : data) }
   } catch (e) {
     // 保留默认值

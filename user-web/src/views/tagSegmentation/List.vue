@@ -273,7 +273,7 @@ const loadTags = async () => {
   loading.tags = true
   try {
     const res = await TagSegmentationApi.getTags()
-    const data = res?.data || res
+    const data = res
     tags.value = Array.isArray(data) ? data : (data?.items || data?.list || [])
   } catch (e) {
     tags.value = []
@@ -286,7 +286,7 @@ const loadRules = async () => {
   loading.rules = true
   try {
     const res = await TagSegmentationApi.getTagRules()
-    const data = res?.data || res
+    const data = res
     tagRuleList.value = Array.isArray(data) ? data : (data?.items || data?.list || [])
   } catch (e) {
     tagRuleList.value = []
@@ -299,7 +299,7 @@ const loadStrategy = async () => {
   loading.strategy = true
   try {
     const res = await TagSegmentationApi.getLayerStrategy()
-    const data = res?.data || res
+    const data = res
     strategyList.value = Array.isArray(data) ? data : (data?.items || data?.list || [])
   } catch (e) {
     strategyList.value = []
@@ -312,7 +312,7 @@ const loadStats = async () => {
   loading.stats = true
   try {
     const res= await TagSegmentationApi.getTagStats()
-    const d = res?.data || res || {}
+    const d = res || {}
     stats.value = { topUsed: Array.isArray(d.topUsed) ? d.topUsed : (Array.isArray(d) ? d : []) }
   } catch (e) {
     stats.value = {}

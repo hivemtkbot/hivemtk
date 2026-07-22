@@ -26,13 +26,20 @@ const (
 )
 
 // SendToAgent 发送消息给指定客服（坐席 ID 为 uint）
+//
+// 内部走 Envelope：分配全局 seq 编号，便于客户端排序 / 丢包检测。
+// 不自动 track ACK（agent 端仅用 seq 做排序；ack 跟踪仅 visitor 端）。
 func SendToAgent(messageType string, payload any, agentID uint) error {
 	agentIDStr := strconv.FormatUint(uint64(agentID), 10)
-	return GetHub().SendToAgent(agentIDStr, messageType, payload)
+	env := MustEnvelope(NextSeq(), messageType, payload)
+	return GetHub().sendToAgentWithEnvelope(agentIDStr, env)
 }
 
 // SendToVisitor 发送消息给指定会话的访客
-// 通过 sessionID 路由到对应的访客 WebSocket 连接
+//
+// 内部走 Envelope：分配全局 seq + 自动 Track ACK，
+// 客户端发 `{"type":"ack","seq":N}` 后由 GlobalPendingAck().Ack 清理。
+// 通过 sessionID 路由到对应的访客 WebSocket 连接。
 func SendToVisitor(messageType string, payload any, sessionID string) error {
 	return GetHub().SendToVisitor(sessionID, messageType, payload)
 }

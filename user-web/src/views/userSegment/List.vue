@@ -259,8 +259,8 @@ const refreshData = async () => {
       getUserSegments(),
       getSegmentStats()
     ])
-    segments.value = segRes.data || []
-    stats.value = statsRes.data || { totalUsers: 0, highValue: 0, active: 0, churnRisk: 0 }
+    segments.value = segRes || []
+    stats.value = statsRes || { totalUsers: 0, highValue: 0, active: 0, churnRisk: 0 }
   } catch (error) {
     ElMessage.error(i18n.global.t('加载数据失败'))
   } finally {
@@ -317,7 +317,7 @@ const viewUsers = async (row) => {
   viewUsersLoading.value = true
   try {
     const res = await getSegmentUsers(row.id)
-    segmentUsers.value = res.data || []
+    segmentUsers.value = res || []
   } catch {
     ElMessage.error(i18n.global.t('加载用户列表失败'))
     segmentUsers.value = []

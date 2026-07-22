@@ -7,6 +7,7 @@ COMPOSE = docker-compose.yml
 
 .PHONY: help install init up down restart logs ps build user-build web-build
 .PHONY: inference-up inference-down inference-logs inference-ps
+.PHONY: dev dev-install dev-stop
 
 # 默认目标
 help:
@@ -19,6 +20,11 @@ help:
 	@echo "  make up           - 启动所有服务（含本地推理栈）"
 	@echo "  make down         - 停止所有服务"
 	@echo "  make restart      - 重启所有服务"
+	@echo ""
+	@echo "【本地开发（热更新，推荐）】"
+	@echo "  make dev          - 启动 user-server 热更新（air，监听文件变更自动重启）"
+	@echo "  make dev-install  - 安装 air 热更新工具（如未安装）"
+	@echo "  make dev-stop     - 停止 air 进程"
 	@echo ""
 	@echo "【推理栈】"
 	@echo "  make inference-up     - 启动本地推理栈（mtk-llm/embedding/rerank）"
@@ -120,3 +126,32 @@ restore:
 	docker compose -f $(COMPOSE) exec -T mtk-postgres \
 		psql -U $${POSTGRES_USER:-admin} -d $${USER_DB_NAME:-user_db} < $(FILE)
 	@echo "✅ 恢复完成"
+
+# =============================================================================
+# 本地开发 - air 热更新（替代 docker compose 频繁 rebuild）
+# =============================================================================
+# 使用前提：本地已安装 Go 1.20+ 与 air（go install github.com/cosmtrek/air@latest）
+# air 配置：user-server/.air.toml（已 gitignore，按本地环境覆盖）
+# 工作流：make dev → 启动 user-server → 监听 .go/.yaml/.html 变更 → 自动重编+重启
+# 注意：air 仅监听 Go 服务；user-web / embed-sdk 仍走各自的 npm run dev
+USER_SERVER_DIR = user-server
+
+dev-install:
+	@if ! command -v air >/dev/null 2>&1; then \
+		echo "📦 正在安装 air 热更新工具..."; \
+		go install github.com/cosmtrek/air@latest; \
+		echo "✅ air 安装完成（位于 \$$HOME/go/bin/）"; \
+	else \
+		echo "✅ air 已安装：$$(air -v 2>&1)"; \
+	fi
+
+dev: dev-install
+	@echo "🚀 启动 user-server 热更新（air 监听 ./user-server）"
+	@echo "📝 修改 .go/.yaml/.html 后自动重编+重启"
+	@echo "📝 停止：Ctrl+C 或 make dev-stop"
+	@cd $(USER_SERVER_DIR) && air
+
+dev-stop:
+	@pkill -f "air" 2>/dev/null || true
+	@pkill -f "tmp/main" 2>/dev/null || true
+	@echo "✅ air 进程已停止"

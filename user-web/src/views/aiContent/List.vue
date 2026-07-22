@@ -191,7 +191,7 @@ const saveContent = async () => {
 
 const loadHistory = async () => {
   const res = await getAIHistory()
-  history.value = res.data || []
+  history.value = res || []
 }
 
 const reuseHistory = (row) => {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 
@@ -309,4 +310,64 @@ func (c *InboxController) StaffLoad(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, gin.H{"staff": staff, "load": load}, "查询成功")
+}
+
+// InboxIngressController 渠道接入消息中台控制器
+//
+// 与 InboxController 分开，避免单个文件过大（5xx 行上限）。
+// 端点：POST /api/chat/ingress （公开，不需要 JWT）
+// 职责：把外部渠道事件转换为内部消息，落库 + 加锁路由
+type InboxIngressController struct {
+	svc *service.InboxIngressService
+}
+
+// NewInboxIngressController 创建入站控制器
+func NewInboxIngressController(db *gorm.DB) *InboxIngressController {
+	return &InboxIngressController{svc: service.NewInboxIngressService(db, nil)}
+}
+
+// Ingress 渠道消息统一入口
+func (c *InboxIngressController) Ingress(ctx *gin.Context) {
+	var event model.MessageEvent
+	if err := ctx.ShouldBindJSON(&event); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	result, err := c.svc.HandleIngressMessage(ctx.Request.Context(), &event)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, result, "消息入站成功")
+}
+
+// LockHuman 锁定会话为人工接管（内部 API，由转人工门禁调用）
+func (c *InboxIngressController) LockHuman(ctx *gin.Context) {
+	var req struct {
+		SessionID string `json:"session_id" binding:"required"`
+		Reason    string `json:"reason"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	if err := c.svc.LockSessionForHuman(ctx.Request.Context(), req.SessionID, req.Reason); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"session_id": req.SessionID, "locked": true}, "人工接管锁定成功")
+}
+
+// UnlockHuman 解除人工接管
+func (c *InboxIngressController) UnlockHuman(ctx *gin.Context) {
+	sessionID := ctx.Param("session_id")
+	if sessionID == "" {
+		response.Error(ctx, http.StatusBadRequest, "session_id 必填")
+		return
+	}
+	if err := c.svc.UnlockSessionForHuman(ctx.Request.Context(), sessionID); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"session_id": sessionID, "unlocked": true}, "解除人工接管成功")
 }

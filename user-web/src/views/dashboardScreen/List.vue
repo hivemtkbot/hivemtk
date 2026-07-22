@@ -129,7 +129,7 @@ const updateTime = () => {
 const loadData = async () => {
   const res = await getDashboardData()
   // 后端返回 { code, message, data: { kpis, trend, channels, ... } }
-  const data = res?.data?.data || res?.data || res
+  const data = res
   kpis.value = data.kpis || []
   initCharts(data)
 }
@@ -137,7 +137,7 @@ const loadData = async () => {
 const loadRealtime = async () => {
   const res = await getRealtimeActivities()
   // 后端返回 { code, message, data: [...] }
-  const data = (res).data?.data || (res).data || res
+  const data = res
   realtimeActivities.value = Array.isArray(data) ? data : []
 }
 

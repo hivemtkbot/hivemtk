@@ -317,7 +317,7 @@ const fetchAccountList = async () => {
       status: searchForm.status ? parseInt(searchForm.status) : undefined
     }
     const res = await platformAccountApi.getAccounts(params)
-    accountList.value = res.list || []
+    accountList.value = res || []
     pagination.total = res.total || 0
   } catch (error) {
     console.error(error)

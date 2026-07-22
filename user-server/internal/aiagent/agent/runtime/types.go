@@ -129,6 +129,7 @@ type CustomerMessagePayload struct {
 	ChannelType string    // telegram / wecom / feishu / douyin / ...
 	AccountID   string    // 渠道账号主键
 	CustomerID  string    // 客户 OneID（已归一化）
+	SessionID   string    // 会话唯一 ID（方向8 核心数据流必备；缺省由 channel:customer 构造）
 	Content     string    // 消息内容
 	MessageType string    // text / image / voice / event
 	Timestamp   time.Time // 消息时间戳

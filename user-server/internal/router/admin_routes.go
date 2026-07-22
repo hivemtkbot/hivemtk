@@ -126,6 +126,12 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	// P0-6 修复：/api/system/reset 不再是公开路由——见 setupSystemAdminRoutes
 	// 原 public.POST("/system/reset", systemOpsCtrl.ResetSystem) 已移除
+
+	// 企业级架构优化 - 方向 3: 渠道接入消息中台
+	// 公开 webhook 入口：所有渠道（TG/WA/小程序/邮件上行/短信上行/...）推送到此
+	// 内部再加分布式锁做防抖 + 人工接管锁拦截
+	inboxIngressCtrl := controller.NewInboxIngressController(db)
+	public.POST("/chat/ingress", inboxIngressCtrl.Ingress)
 }
 
 // setupSystemAdminRoutes 系统级管理路由（需要 admin 角色 + JWT 鉴权）

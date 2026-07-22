@@ -273,11 +273,13 @@ const fetchCardStats = async () => {
     // 更新统计数据
     if (res.card) {
       Object.assign(cardStats, res.card)
+    } else if (res.viewCount !== undefined) {
+      cardStats.view_count = res.viewCount
     }
 
-    // 更新最近活动
-    recentActivities.value = res.daily_stats || []
-    pagination.total = res.daily_stats ? res.daily_stats.length : 0
+    // 更新每日趋势（后端字段为 dailyStats，DailyStat 含 date/view）
+    recentActivities.value = res.dailyStats || []
+    pagination.total = res.dailyStats ? res.dailyStats.length : 0
 
     // 更新图表
     nextTick(() => {
@@ -350,7 +352,7 @@ const updateCharts = () => {
         {
           name: '浏览量',
           type: 'line',
-          data: recentActivities.value.map(item => item.views),
+          data: recentActivities.value.map(item => item.view),
           smooth: true,
           itemStyle: {
             color: '#4F46E5'

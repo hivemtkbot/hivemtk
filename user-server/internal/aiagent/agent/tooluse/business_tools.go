@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
+	"marketing/internal/aiagent/agent/portcontract"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	_type "marketing/internal/pkg/utils/type"
@@ -23,21 +25,39 @@ import (
 //   1. order.create       - 创建订单（自动生成 UUID + 默认 pending 状态）
 //   2. order.query        - 查询订单（支持按 ID/account_id/tg_id/status 多条件）
 //   3. coupon.apply       - 应用优惠券（核销 + 计算折扣价）
-//   4. follow_task.create - 创建跟进任务（联动 FollowUpService + 客户旅程）
+//   4. follow_task.create - 创建跟进任务（联动 FollowUp Port + 客户旅程）
 //   5. follow_task.update - 更新跟进任务（完成/取消/重新安排，联动客户旅程推进）
 //   6. payment.create     - 创建支付（生成支付 URL + 关联订单）
+//
+// 2026-07-22 方向D 工具层完整走 Port：
+//   - 所有订单/跟进方法统一走 portcontract.OrderPort / FollowUpPort，
+//     不再直接持有 *service.OrderService / *service.FollowUpService。
+//   - OrderService / FollowUpService 字段保留为兼容旧装配入口的回退路径。
 
 // ===== 业务工具依赖 =====
 
 // BusinessToolDeps 业务工具依赖
+//
+// 2026-07-22 方向D：所有方法统一走 portcontract.OrderPort / FollowUpPort。
+// OrderService / FollowUpService 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
 type BusinessToolDeps struct {
-	OrderService    *service.OrderService
+	// Order 订单域 Port（推荐路径）。
+	// 由 service.OrderPortAdapter 注入；nil 时 order.* / payment.create 返回 "port not injected"。
+	Order portcontract.OrderPort
+	// FollowUp 跟进域 Port（推荐路径）。
+	// 由 service.FollowUpPortAdapter 注入；nil 时 follow_task.* 返回 "port not injected"。
+	FollowUp portcontract.FollowUpPort
+	// OrderService 直接服务引用（兼容旧路径回退）。
+	OrderService *service.OrderService
+	// FollowUpService 直接服务引用（兼容旧路径回退）。
 	FollowUpService *service.FollowUpService
-	JourneyService  *service.CustomerJourneyService
-	DB              *gorm.DB // 用于 coupon.apply 直接读写 coupons / coupon_records 表
+	// JourneyService 客户旅程服务（保留字段以便旧装配回退）。
+	JourneyService *service.CustomerJourneyService
+	// DB 原生 *gorm.DB（用于 coupon.apply 直接读写 coupons / coupon_records 表）
+	DB *gorm.DB
 }
 
-// NewBusinessToolDeps 创建业务工具依赖（使用全局 DB）
+// NewBusinessToolDeps 创建业务工具依赖（使用全局 DB，Order/FollowUp port 暂不注入）
 func NewBusinessToolDeps() BusinessToolDeps {
 	return BusinessToolDeps{
 		OrderService:    service.NewOrderService(),
@@ -55,6 +75,148 @@ func NewBusinessToolDepsWithDB(gdb *gorm.DB) BusinessToolDeps {
 		JourneyService:  service.NewCustomerJourneyService(),
 		DB:              gdb,
 	}
+}
+
+// NewBusinessToolDepsWithPorts 创建带 Port 注入的业务工具依赖（推荐）。
+//
+// 在 main/cmd/api 启动期或测试装配期调用：
+//
+//	orderPort := service.NewOrderPortAdapter(service.NewOrderService())
+//	followUpPort := service.NewFollowUpPortAdapter(service.NewFollowUpService(service.NewCustomerJourneyService()))
+//	deps := tooluse.NewBusinessToolDepsWithPorts(orderPort, followUpPort, db.GetDB())
+func NewBusinessToolDepsWithPorts(order portcontract.OrderPort, followUp portcontract.FollowUpPort, gdb *gorm.DB) BusinessToolDeps {
+	d := NewBusinessToolDepsWithDB(gdb)
+	d.Order = order
+	d.FollowUp = followUp
+	return d
+}
+
+// orderOrFallback 返回 Order Port 或回退到 OrderService
+func (d BusinessToolDeps) orderOrFallback() portcontract.OrderPort {
+	if d.Order != nil {
+		return d.Order
+	}
+	if d.OrderService == nil {
+		return nil
+	}
+	return service.NewOrderPortAdapter(d.OrderService)
+}
+
+// followUpOrFallback 返回 FollowUp Port 或回退到 FollowUpService
+func (d BusinessToolDeps) followUpOrFallback() portcontract.FollowUpPort {
+	if d.FollowUp != nil {
+		return d.FollowUp
+	}
+	if d.FollowUpService == nil {
+		return nil
+	}
+	return service.NewFollowUpPortAdapter(d.FollowUpService)
+}
+
+// reminderAnyToMap 通过反射把 any（*model.Reminder）转回 map，避免工具层对
+// service.Reminder 类型强依赖。portcontract.FollowUpPort.Schedule 故意返回 any，
+// 原因：工具层不应 import service.Reminder；具体类型在 service 侧，由反射统一抽取。
+//
+// 2026-07-22 方向D：兼容旧测试与 LLM Function Calling 输出，对 `ID` 字段额外提供
+// `reminder_id` 别名（snake_case 转换后是 `id`），保证 `follow_task.create` 工具输出
+// 与既有调用方期望一致；type 字段名不变（snake_case 后仍是 `type`）。
+func reminderAnyToMap(v any) map[string]any {
+	out := map[string]any{
+		"message": "跟进任务已创建",
+	}
+	if v == nil {
+		return out
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return out
+		}
+		rv = rv.Elem()
+	}
+	if !rv.IsValid() || rv.Kind() != reflect.Struct {
+		out["raw"] = v
+		return out
+	}
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		key := snakeCaseFieldName(field.Name)
+		val := rv.Field(i).Interface()
+		// 序列化规则（2026-07-22 方向D）：
+		//  1. time.Time（值类型）→ RFC3339 字符串
+		//  2. *time.Time（指针，可能 nil）→ 非 nil 时 RFC3339 字符串
+		//  3. 任何基于 string 定义的命名类型（如 service.ReminderType /
+		//     service.ReminderPriority / service.ReminderStatus）→ 转为 string，
+		//     避免 LLM Function Calling 解析 tool 响应时被 interface{} 类型断言 panic。
+		//  4. 实现 fmt.Stringer 的非空指针/值 → x.String()。
+		switch x := val.(type) {
+		case time.Time:
+			if !x.IsZero() {
+				out[key] = x.Format(time.RFC3339)
+			}
+		case *time.Time:
+			if x != nil && !x.IsZero() {
+				out[key] = x.Format(time.RFC3339)
+			}
+		default:
+			rvField := rv.Field(i)
+			// 命名字符串类型（type X string）：kind 仍是 string，转换为 string。
+			if rvField.Kind() == reflect.String && rvField.Type() != reflect.TypeOf("") {
+				out[key] = rvField.String()
+				continue
+			}
+			// fmt.Stringer 适配（仅对非 nil 指针 / 非零值调用 String）
+			if s, ok := val.(fmt.Stringer); ok {
+				switch rvField.Kind() {
+				case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
+					if rvField.IsNil() {
+						continue
+					}
+				}
+				out[key] = s.String()
+				continue
+			}
+			out[key] = val
+		}
+		// 兼容别名：service.Reminder.ID 经 snake_case 转换后是 `id`，
+		// 工具既有调用方（含历史 LLM 提示词模板）依赖 `reminder_id` 字段。
+		if key == "id" {
+			rvField := rv.Field(i)
+			if rvField.Kind() == reflect.String {
+				out["reminder_id"] = rvField.String()
+			} else {
+				out["reminder_id"] = val
+			}
+		}
+	}
+	return out
+}
+
+// snakeCaseFieldName 把 CamelCase 字段名转为 snake_case（ID → id，CustomerID → customer_id）
+func snakeCaseFieldName(name string) string {
+	var b strings.Builder
+	for i, r := range name {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			prev := rune(name[i-1])
+			next := rune(0)
+			if i+1 < len(name) {
+				next = rune(name[i+1])
+			}
+			// 前一个字符是小写 或 后一个字符是小写，则在当前位置插入下划线
+			if (prev >= 'a' && prev <= 'z') || (next >= 'a' && next <= 'z') {
+				b.WriteByte('_')
+			}
+		}
+		if r >= 'A' && r <= 'Z' {
+			r = r + ('a' - 'A')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // RegisterBusinessTools 注册所有 6 个业务工具到 registry
@@ -156,12 +318,15 @@ func NewOrderCreateTool(deps BusinessToolDeps) *OrderCreateTool {
 }
 
 // Execute 执行创建订单
+//
+// 2026-07-22 方向D：优先走 portcontract.OrderPort，OrderService 仅作回退。
 func (t *OrderCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"account_id", "price"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	if t.deps.OrderService == nil {
-		return ErrorResult(t.Name(), errors.New("order.create 工具需要 OrderService 依赖")), errors.New("order.create 工具需要 OrderService 依赖")
+	orderPort := t.deps.orderOrFallback()
+	if orderPort == nil {
+		return ErrorResult(t.Name(), errors.New("order.create 工具需要 OrderPort 或 OrderService 依赖")), errors.New("order.create 工具需要 OrderPort 或 OrderService 依赖")
 	}
 
 	accountID := getArgString(args, "account_id")
@@ -191,7 +356,7 @@ func (t *OrderCreateTool) Execute(ctx context.Context, args map[string]any) (Too
 		TgID:      tgID,
 		Status:    _type.OrderStatusPending,
 	}
-	created, err := t.deps.OrderService.CreateOrderFromRequest(order)
+	created, err := orderPort.CreateOrderFromRequest(order)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
@@ -239,14 +404,17 @@ func NewOrderQueryTool(deps BusinessToolDeps) *OrderQueryTool {
 }
 
 // Execute 执行查询订单
+//
+// 2026-07-22 方向D：优先走 portcontract.OrderPort，OrderService 仅作回退。
 func (t *OrderQueryTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	if t.deps.OrderService == nil {
-		return ErrorResult(t.Name(), errors.New("order.query 工具需要 OrderService 依赖")), errors.New("order.query 工具需要 OrderService 依赖")
+	orderPort := t.deps.orderOrFallback()
+	if orderPort == nil {
+		return ErrorResult(t.Name(), errors.New("order.query 工具需要 OrderPort 或 OrderService 依赖")), errors.New("order.query 工具需要 OrderPort 或 OrderService 依赖")
 	}
 
 	// 1. 按订单 ID 单条查询
 	if orderID := getArgString(args, "order_id"); orderID != "" {
-		order, err := t.deps.OrderService.GetOrderByID(orderID)
+		order, err := orderPort.GetOrderByID(orderID)
 		if err != nil {
 			return ErrorResult(t.Name(), err), err
 		}
@@ -289,7 +457,7 @@ func (t *OrderQueryTool) Execute(ctx context.Context, args map[string]any) (Tool
 	}
 
 	// 默认走分页列表
-	orders, total, err := t.deps.OrderService.GetOrderList(page, pageSize)
+	orders, total, err := orderPort.GetOrderList(page, pageSize)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
@@ -438,11 +606,11 @@ func (t *CouponApplyTool) Execute(ctx context.Context, args map[string]any) (Too
 	}
 
 	// 4. 查询订单
-	orderSvc := t.deps.OrderService
-	if orderSvc == nil {
-		orderSvc = service.NewOrderServiceWithDB(t.deps.DB)
+	orderPort := t.deps.orderOrFallback()
+	if orderPort == nil {
+		return ErrorResult(t.Name(), errors.New("coupon.apply 工具需要 OrderPort 或 OrderService 依赖")), errors.New("coupon.apply 工具需要 OrderPort 或 OrderService 依赖")
 	}
-	order, err := orderSvc.GetOrderByID(orderID)
+	order, err := orderPort.GetOrderByID(orderID)
 	if err != nil {
 		return ErrorResult(t.Name(), fmt.Errorf("订单 %s 不存在：%v", orderID, err)), fmt.Errorf("订单 %s 不存在", orderID)
 	}
@@ -570,12 +738,15 @@ func NewFollowTaskCreateTool(deps BusinessToolDeps) *FollowTaskCreateTool {
 }
 
 // Execute 执行创建跟进任务
+//
+// 2026-07-22 方向D：优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
 func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	if t.deps.FollowUpService == nil {
-		return ErrorResult(t.Name(), errors.New("follow_task.create 工具需要 FollowUpService 依赖")), errors.New("follow_task.create 工具需要 FollowUpService 依赖")
+	followUpPort := t.deps.followUpOrFallback()
+	if followUpPort == nil {
+		return ErrorResult(t.Name(), errors.New("follow_task.create 工具需要 FollowUpPort 或 FollowUpService 依赖")), errors.New("follow_task.create 工具需要 FollowUpPort 或 FollowUpService 依赖")
 	}
 
 	customerID := getArgString(args, "customer_id")
@@ -587,22 +758,9 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 	if rTypeStr == "" {
 		rTypeStr = "custom"
 	}
-	var rType service.ReminderType
+	// 校验 rType 合法
 	switch rTypeStr {
-	case "first_contact":
-		rType = service.ReminderFirstContact
-	case "quote_followup":
-		rType = service.ReminderQuoteFollowup
-	case "after_sale_care":
-		rType = service.ReminderAfterSaleCare
-	case "repurchase":
-		rType = service.ReminderRepurchase
-	case "reactivation":
-		rType = service.ReminderReactivation
-	case "birthday":
-		rType = service.ReminderBirthday
-	case "custom":
-		rType = service.ReminderCustom
+	case "first_contact", "quote_followup", "after_sale_care", "repurchase", "reactivation", "birthday", "custom":
 	default:
 		return ErrorResult(t.Name(), fmt.Errorf("type 必须是 first_contact/quote_followup/after_sale_care/repurchase/reactivation/birthday/custom，实际：%s", rTypeStr)), fmt.Errorf("type 非法：%s", rTypeStr)
 	}
@@ -615,63 +773,42 @@ func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any)
 
 	title := getArgString(args, "title")
 	description := getArgString(args, "description")
-	sopName := getArgString(args, "sop_name")
-	channel := getArgString(args, "channel")
+	// sopName / channel / autoHandle 暂不写入 port 投影；保留字段以便未来 FollowUpScheduleOptions 扩展
+	_ = getArgString(args, "sop_name")
+	_ = getArgString(args, "channel")
+	_ = args["auto_handle"]
 
 	priorityVal, priorityOk := GetIntArgSafe(args, "priority")
-	var priority service.ReminderPriority
+	priorityStr := "normal"
 	if priorityOk {
 		switch priorityVal {
 		case 0:
-			priority = service.PriorityLow
+			priorityStr = "low"
 		case 1:
-			priority = service.PriorityNormal
+			priorityStr = "normal"
 		case 2:
-			priority = service.PriorityHigh
+			priorityStr = "high"
 		case 3:
-			priority = service.PriorityUrgent
+			priorityStr = "urgent"
 		default:
-			priority = service.PriorityNormal
+			priorityStr = "normal"
 		}
-	} else {
-		priority = service.PriorityNormal
 	}
 
-	autoHandle := false
-	if v, ok := args["auto_handle"].(bool); ok {
-		autoHandle = v
+	opts := &portcontract.FollowUpScheduleOptions{
+		Title:    title,
+		Note:     description,
+		Priority: priorityStr,
 	}
 
-	opts := &service.ScheduleOptions{
-		Title:       title,
-		Description: description,
-		Priority:    priority,
-		SOPName:     sopName,
-		AutoHandle:  autoHandle,
-		Channel:     channel,
-	}
-
-	reminder, err := t.deps.FollowUpService.Schedule(ctx, customerID, ownerID, rType, dueIn, opts)
+	reminder, err := followUpPort.Schedule(ctx, customerID, ownerID, rTypeStr, dueIn, opts)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 
-	return SuccessResult(t.Name(), map[string]any{
-		"reminder_id": reminder.ID,
-		"customer_id": reminder.CustomerID,
-		"owner_id":    reminder.OwnerID,
-		"type":        string(reminder.Type),
-		"priority":    int(reminder.Priority),
-		"title":       reminder.Title,
-		"description": reminder.Description,
-		"due_at":      reminder.DueAt.Format(time.RFC3339),
-		"status":      reminder.Status,
-		"sop_name":    reminder.SOPName,
-		"auto_handle": reminder.AutoHandle,
-		"channel":     reminder.Channel,
-		"created_at":  reminder.CreatedAt.Format(time.RFC3339),
-		"message":     "跟进任务已创建",
-	}), nil
+	// reminder 是 any 类型（来自 port 的返回），通过反射取字段输出
+	reminderMap := reminderAnyToMap(reminder)
+	return SuccessResult(t.Name(), reminderMap), nil
 }
 
 // ===== 工具 5：follow_task.update =====
@@ -705,12 +842,15 @@ func NewFollowTaskUpdateTool(deps BusinessToolDeps) *FollowTaskUpdateTool {
 }
 
 // Execute 执行更新跟进任务
+//
+// 2026-07-22 方向D：优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
 func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"reminder_id", "action"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	if t.deps.FollowUpService == nil {
-		return ErrorResult(t.Name(), errors.New("follow_task.update 工具需要 FollowUpService 依赖")), errors.New("follow_task.update 工具需要 FollowUpService 依赖")
+	followUpPort := t.deps.followUpOrFallback()
+	if followUpPort == nil {
+		return ErrorResult(t.Name(), errors.New("follow_task.update 工具需要 FollowUpPort 或 FollowUpService 依赖")), errors.New("follow_task.update 工具需要 FollowUpPort 或 FollowUpService 依赖")
 	}
 
 	reminderID := getArgString(args, "reminder_id")
@@ -726,47 +866,30 @@ func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any)
 		if resultStr == "" {
 			return ErrorResult(t.Name(), errors.New("action=complete 时 result 必填")), errors.New("action=complete 时 result 必填")
 		}
-		var result service.FollowUpResult
+		// 校验 result 合法
 		switch resultStr {
-		case "contacted":
-			result = service.FollowUpResultContacted
-		case "interested":
-			result = service.FollowUpResultInterested
-		case "quoted":
-			result = service.FollowUpResultQuoted
-		case "converted":
-			result = service.FollowUpResultConverted
-		case "rejected":
-			result = service.FollowUpResultRejected
-		case "lost":
-			result = service.FollowUpResultLost
-		case "no_response":
-			result = service.FollowUpResultNoResponse
+		case "contacted", "interested", "quoted", "converted", "rejected", "lost", "no_response":
 		default:
 			return ErrorResult(t.Name(), fmt.Errorf("result 必须是 contacted/interested/quoted/converted/rejected/lost/no_response，实际：%s", resultStr)), fmt.Errorf("result 非法")
 		}
-		if err := t.deps.FollowUpService.CompleteWithResult(reminderID, result, note); err != nil {
+		if err := followUpPort.CompleteWithResult(reminderID, resultStr, note); err != nil {
 			return ErrorResult(t.Name(), err), err
 		}
-		// 计算旅程阶段推进
-		stageInfo, ok := service.FollowUpResultInfo[result]
-		targetStage := ""
-		if ok {
-			targetStage = string(stageInfo.TargetStage)
-		}
+		// 旅程阶段推进（通过 port 的 ResultInfo 反查）
+		targetStage, ok := followUpPort.ResultInfo(resultStr)
 		return SuccessResult(t.Name(), map[string]any{
 			"reminder_id":    reminderID,
 			"action":         "complete",
 			"result":         resultStr,
 			"note":           note,
 			"target_stage":   targetStage,
-			"is_positive":    ok && stageInfo.IsPositive,
+			"is_positive":    ok,
 			"journey_pushed": ok,
 			"message":        "跟进已完成，客户旅程已自动推进",
 		}), nil
 
 	case "cancel":
-		if err := t.deps.FollowUpService.Cancel(reminderID); err != nil {
+		if err := followUpPort.Cancel(reminderID); err != nil {
 			return ErrorResult(t.Name(), err), err
 		}
 		return SuccessResult(t.Name(), map[string]any{
@@ -811,12 +934,15 @@ func NewPaymentCreateTool(deps BusinessToolDeps) *PaymentCreateTool {
 }
 
 // Execute 执行创建支付
+//
+// 2026-07-22 方向D：优先走 portcontract.OrderPort，OrderService 仅作回退。
 func (t *PaymentCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"account_id", "price"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
-	if t.deps.OrderService == nil {
-		return ErrorResult(t.Name(), errors.New("payment.create 工具需要 OrderService 依赖")), errors.New("payment.create 工具需要 OrderService 依赖")
+	orderPort := t.deps.orderOrFallback()
+	if orderPort == nil {
+		return ErrorResult(t.Name(), errors.New("payment.create 工具需要 OrderPort 或 OrderService 依赖")), errors.New("payment.create 工具需要 OrderPort 或 OrderService 依赖")
 	}
 
 	accountID := getArgString(args, "account_id")
@@ -840,8 +966,8 @@ func (t *PaymentCreateTool) Execute(ctx context.Context, args map[string]any) (T
 		tgID = int64(v)
 	}
 
-	// 调用 OrderService.CreatePayAndReturn（内部会创建 pending 订单 + 返回支付 URL）
-	payURL, orderID, err := t.deps.OrderService.CreatePayAndReturn(accountID, price, tgID)
+	// 调用 OrderPort.CreatePayAndReturn（内部会创建 pending 订单 + 返回支付 URL）
+	payURL, orderID, err := orderPort.CreatePayAndReturn(accountID, price.InexactFloat64(), tgID)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}

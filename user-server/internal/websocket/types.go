@@ -1,6 +1,9 @@
 package websocket
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ClientType 客户端类型
 type ClientType string
@@ -41,3 +44,20 @@ const (
 	writeWait      = 10 * time.Second    // 单次写操作超时
 	maxMessageSize = 8192                // 单条消息最大字节数
 )
+
+// Envelope 信封：所有 WebSocket 下行消息统一外层结构
+//
+// 设计动机（2026-07-22 方向B 鲁棒性加固）：
+//   - seq：全局唯一递增序号，用于客户端断点续传 / 排序 / 丢包检测
+//   - ts：服务端发送时间戳（Unix 毫秒），便于客户端做时序展示
+//   - payload：业务原始负载（type + data），保持向后兼容
+//
+// 客户端协议：
+//   - 重连时发 `{"type":"resume","since_seq":N}`，服务端返回 seq>N 的所有消息
+//   - 收到消息后发 `{"type":"ack","seq":N}`，服务端清理待 ACK 队列
+type Envelope struct {
+	Seq     uint64          `json:"seq,omitempty"`
+	TS      int64           `json:"ts,omitempty"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}

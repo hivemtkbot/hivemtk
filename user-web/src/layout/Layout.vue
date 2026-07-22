@@ -210,8 +210,8 @@ const topMenus = ref([
         icon: 'Connection',
         roles: ['admin', 'manager'],
         children: [
-          { key: 'oneidList', title: 'OneID 列表', icon: 'List', path: '/oneid/list' },
-          { key: 'oneidConflicts', title: '身份冲突解决', icon: 'Warning', path: '/oneid/conflicts' }
+          { key: 'oneidList', title: 'OneID 列表', icon: 'List', path: '/oneid/list' }
+          // 注：身份冲突解决(/oneid/conflicts) 暂未接通后端接口，已从菜单隐藏，待后端冲突接口就绪后恢复
         ]
       }
     ]
@@ -311,7 +311,7 @@ const topMenus = ref([
           { key: 'emailJobs', title: '我的任务', icon: 'Document', path: '/email/jobs' },
           { key: 'emailSmtp', title: '邮件账号', icon: 'Setting', path: '/email/smtp' },
           { key: 'emailInfo', title: '邮件代理', icon: 'Setting', path: '/email/info' },
-          { key: 'emailGuide', title: '使用引导', icon: 'Document', path: '/email/guide' }
+          { key: 'emailGuide', title: '邮件使用指南', icon: 'Document', path: '/email/guide' }
         ]
       },
       {
@@ -479,7 +479,7 @@ const topMenus = ref([
       { key: 'systemObsConfig', title: '存储配置', icon: 'Cloud', path: '/system/obs-config' },
       { key: 'systemMaterialLibrary', title: '素材库', icon: 'Picture', path: '/system/material-library' },
       { key: 'systemMonitor', title: '监控', icon: 'Cpu', path: '/system/monitor' },
-      { key: 'systemGuide', title: '使用引导', icon: 'Document', path: '/system/guide' },
+      { key: 'systemGuide', title: '系统使用指南', icon: 'Document', path: '/system/guide' },
       { key: 'domainPool', title: '域名池', icon: 'Link', path: '/domainPool' },
       { key: 'teamUser', title: '团队成员', icon: 'UserFilled', path: '/teamUser/list' },
       { key: 'platformAccount', title: '平台账号', icon: 'Platform', path: '/platformAccount/list' },

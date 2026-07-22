@@ -131,9 +131,9 @@ const load = async () => {
       getQuickReplies(),
       getQuickReplyCategories().catch(() => ({ data: [] }))
     ])
-    replies.value = (rRes.data || rRes || [])
-    const cData = cRes.data || cRes || []
-    categories.value = Array.isArray(cData) ? cData : cData.list || []
+    replies.value = Array.isArray(rRes) ? rRes : (rRes?.list || [])
+    const cData = Array.isArray(cRes) ? cRes : (cRes?.list || [])
+    categories.value = cData
   } catch (e) {
     ElMessage.error(i18n.global.t('加载快捷回复失败'))
     replies.value = []

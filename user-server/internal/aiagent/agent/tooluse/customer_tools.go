@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"marketing/internal/aiagent/agent/portcontract"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 	"marketing/internal/service"
@@ -25,17 +26,36 @@ import (
 //   6. customer.add_tag  - 给客户添加标签
 //   7. customer.remove_tag - 移除客户标签
 //   8. customer.segment  - 按 tag/RFM/churn_risk 等条件分群
+//
+// 2026-07-22：customer.create / customer.merge / customer.add_tag / customer.remove_tag
+// 改走 portcontract.CustomerPort，不再直接持有 *service.CustomerService。
+// 装配期通过 CustomerToolDeps.Customer 注入；为 nil 时工具返回 "port not injected"。
+
+// errInvalidCustomer 客户身份参数缺失错误
+var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）")
 
 // ===== 客户工具依赖 =====
 
 // CustomerToolDeps 客户工具依赖
+//
+// 2026-07-22 方向D：所有方法统一走 portcontract.CustomerPort。
+// CustomerService 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
 type CustomerToolDeps struct {
+	// Customer 客户域 Port（推荐路径）。
+	// 由 service.CustomerPortAdapter 注入；nil 时所有依赖客户的工具
+	// 返回 "port not injected" 错误。
+	Customer portcontract.CustomerPort
+	// CustomerService 直接服务引用（兼容旧路径回退）。
+	// 仅在 Customer 为 nil 且工具明确接受回退时由 customer.get / merge /
+	// add_tag / remove_tag 使用；新装配应优先注入 Customer port。
 	CustomerService *service.CustomerService
-	CustomerRepo    repository.CustomerRepository
-	DB              *gorm.DB // 用于 search / segment 等直接查询
+	// CustomerRepo 仓储层（用于 search / update 等直接查询）
+	CustomerRepo repository.CustomerRepository
+	// DB 原生 *gorm.DB（用于 search / segment 等直接 SQL）
+	DB *gorm.DB
 }
 
-// NewCustomerToolDeps 创建客户工具依赖（使用全局 DB）
+// NewCustomerToolDeps 创建客户工具依赖（使用全局 DB，Customer port 暂不注入）
 func NewCustomerToolDeps() CustomerToolDeps {
 	return CustomerToolDeps{
 		CustomerService: service.NewCustomerService(),
@@ -50,6 +70,18 @@ func NewCustomerToolDepsWithDB(db *gorm.DB) CustomerToolDeps {
 		CustomerRepo:    repository.NewCustomerRepository(),
 		DB:              db,
 	}
+}
+
+// NewCustomerToolDepsWithPort 创建带 Customer Port 注入的客户工具依赖（推荐）。
+//
+// 在 main/cmd/api 启动期或测试装配期调用：
+//
+//	customerPort := service.NewCustomerPortAdapter(service.NewCustomerService())
+//	deps := tooluse.NewCustomerToolDepsWithPort(customerPort, db.GetDB())
+func NewCustomerToolDepsWithPort(customer portcontract.CustomerPort, db *gorm.DB) CustomerToolDeps {
+	d := NewCustomerToolDepsWithDB(db)
+	d.Customer = customer
+	return d
 }
 
 // RegisterCustomerTools 注册所有 8 个客户工具到 registry
@@ -200,6 +232,8 @@ func NewCustomerGetTool(deps CustomerToolDeps) *CustomerGetTool {
 }
 
 // Execute 执行获取
+//
+// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
 func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -211,7 +245,7 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 	}
 
 	if include360 {
-		profile, err := t.deps.CustomerService.GetCustomerProfile(customerID)
+		profile, err := t.fetchCustomerProfile(customerID)
 		if err != nil {
 			if errors.Is(err, service.ErrCustomerNotFound) {
 				return ErrorResult(t.Name(), err), err
@@ -229,6 +263,29 @@ func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (Too
 		return ErrorResult(t.Name(), service.ErrCustomerNotFound), service.ErrCustomerNotFound
 	}
 	return SuccessResult(t.Name(), customer), nil
+}
+
+// fetchCustomerProfile 拉取客户 360 视图（Port 优先，Service 回退）
+func (t *CustomerGetTool) fetchCustomerProfile(customerID string) (*portcontract.CustomerProfileView, error) {
+	if t.deps.Customer != nil {
+		return t.deps.Customer.GetCustomerProfile(customerID)
+	}
+	// 回退：CustomerService 路径（保持旧装配兼容）
+	if t.deps.CustomerService == nil {
+		return nil, errors.New("CustomerPort not injected 且 CustomerService 为空")
+	}
+	profile, err := t.deps.CustomerService.GetCustomerProfile(customerID)
+	if err != nil {
+		return nil, err
+	}
+	if profile == nil {
+		return nil, nil
+	}
+	return &portcontract.CustomerProfileView{
+		Customer:     profile.Customer,
+		RecentEvents: profile.RecentEvents,
+		Tags:         profile.Tags,
+	}, nil
 }
 
 // ===== 工具 3：customer.create =====
@@ -263,18 +320,21 @@ func NewCustomerCreateTool(deps CustomerToolDeps) *CustomerCreateTool {
 
 // Execute 执行创建
 func (t *CustomerCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	dto := &service.CustomerDTO{
+	identity := &CustomerIdentity{
 		Phone:         getArgString(args, "phone"),
 		Email:         getArgString(args, "email"),
 		WechatOpenID:  getArgString(args, "wechat_open_id"),
 		DouyinOpenID:  getArgString(args, "douyin_open_id"),
 		XiaohongshuID: getArgString(args, "xiaohongshu_id"),
 	}
-	if dto.Phone == "" && dto.Email == "" && dto.WechatOpenID == "" && dto.DouyinOpenID == "" && dto.XiaohongshuID == "" {
-		return ErrorResult(t.Name(), service.ErrInvalidDTO), service.ErrInvalidDTO
+	if identity.Phone == "" && identity.Email == "" && identity.WechatOpenID == "" && identity.DouyinOpenID == "" && identity.XiaohongshuID == "" {
+		return ErrorResult(t.Name(), errInvalidCustomer), errInvalidCustomer
+	}
+	if t.deps.Customer == nil {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected")), errors.New("CustomerPort not injected")
 	}
 
-	customer, err := t.deps.CustomerService.CreateOrUpdate(dto)
+	customer, err := t.deps.Customer.CreateOrUpdate(identity)
 	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
@@ -383,6 +443,8 @@ func NewCustomerMergeTool(deps CustomerToolDeps) *CustomerMergeTool {
 }
 
 // Execute 执行合并
+//
+// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
 func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"primary_id", "secondary_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -390,8 +452,17 @@ func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (T
 	primaryID, _ := GetStringArg(args, "primary_id")
 	secondaryID, _ := GetStringArg(args, "secondary_id")
 
-	if err := t.deps.CustomerService.MergeCustomers(primaryID, secondaryID); err != nil {
-		return ErrorResult(t.Name(), err), err
+	if t.deps.Customer != nil {
+		if err := t.deps.Customer.MergeCustomers(primaryID, secondaryID); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else if t.deps.CustomerService != nil {
+		// 回退路径
+		if err := t.deps.CustomerService.MergeCustomers(primaryID, secondaryID); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
 	}
 	return SuccessResult(t.Name(), map[string]any{
 		"primary_id":   primaryID,
@@ -436,6 +507,8 @@ func NewCustomerAddTagTool(deps CustomerToolDeps) *CustomerAddTagTool {
 }
 
 // Execute 执行添加标签
+//
+// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
 func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -446,8 +519,17 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 		return ErrorResult(t.Name(), errors.New("tags 不能为空")), errors.New("tags 不能为空")
 	}
 
-	if err := t.deps.CustomerService.AddTags(customerID, tags); err != nil {
-		return ErrorResult(t.Name(), err), err
+	if t.deps.Customer != nil {
+		if err := t.deps.Customer.AddTags(customerID, tags); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else if t.deps.CustomerService != nil {
+		// 回退路径
+		if err := t.deps.CustomerService.AddTags(customerID, tags); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
 	}
 
 	// 返回更新后的客户标签
@@ -499,6 +581,8 @@ func NewCustomerRemoveTagTool(deps CustomerToolDeps) *CustomerRemoveTagTool {
 }
 
 // Execute 执行移除标签
+//
+// 2026-07-22 方向D：优先走 portcontract.CustomerPort，CustomerService 仅作回退。
 func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -509,8 +593,17 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 		return ErrorResult(t.Name(), errors.New("tags 不能为空")), errors.New("tags 不能为空")
 	}
 
-	if err := t.deps.CustomerService.RemoveTags(customerID, tags); err != nil {
-		return ErrorResult(t.Name(), err), err
+	if t.deps.Customer != nil {
+		if err := t.deps.Customer.RemoveTags(customerID, tags); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else if t.deps.CustomerService != nil {
+		// 回退路径
+		if err := t.deps.CustomerService.RemoveTags(customerID, tags); err != nil {
+			return ErrorResult(t.Name(), err), err
+		}
+	} else {
+		return ErrorResult(t.Name(), errors.New("CustomerPort not injected 且 CustomerService 为空")), errors.New("CustomerPort not injected 且 CustomerService 为空")
 	}
 
 	// 返回更新后的客户标签

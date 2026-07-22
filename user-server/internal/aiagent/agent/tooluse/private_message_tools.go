@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"marketing/internal/aiagent/agent/portcontract"
 	"marketing/internal/model"
 	"marketing/internal/service"
 )
@@ -18,26 +19,66 @@ import (
 // 注意：pm.* 与 reach.* 的关系
 //   - reach.* = 一对多外发（短信/邮件/卡片/各渠道广播），偏营销召回
 //   - pm.*    = 一对一私信会话（读/写/开），偏实时对话链接，是智能体真正的"对话域"
+//
+// 2026-07-22 方向D 工具层完整走 Port：
+//   - 所有方法统一走 portcontract.SessionPort，不再直接持有 *service.CustomerSessionService。
+//   - SessionSvc 字段保留为兼容旧装配入口的回退路径。
+//   - 装配期通过 NewPrivateMessageToolDepsWithPort 注入；为 nil 时工具返回 "port not injected"。
 
 // PrivateMessageToolDeps 私信工具依赖
+//
+// 2026-07-22 方向D：所有方法统一走 portcontract.SessionPort。
+// SessionSvc 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
 type PrivateMessageToolDeps struct {
-	SessionSvc *service.CustomerSessionService // 私信会话服务（对话域）
+	// Session 会话域 Port（推荐路径）。
+	// 由 service.SessionPortAdapter 注入；nil 时工具返回 "port not injected"。
+	Session portcontract.SessionPort
+	// SessionSvc 直接服务引用（兼容旧路径回退）。
+	SessionSvc *service.CustomerSessionService
 }
 
-// NewPrivateMessageToolDeps 创建私信工具依赖（注入真实会话服务）
+// NewPrivateMessageToolDeps 创建私信工具依赖（注入真实会话服务，Session port 暂不注入）
 func NewPrivateMessageToolDeps(sessionSvc *service.CustomerSessionService) PrivateMessageToolDeps {
 	return PrivateMessageToolDeps{SessionSvc: sessionSvc}
 }
 
+// NewPrivateMessageToolDepsWithPort 创建带 Session Port 注入的私信工具依赖（推荐）。
+//
+// 在 main/cmd/api 启动期或测试装配期调用：
+//
+//	sessionPort := service.NewSessionPortAdapter(service.NewCustomerSessionService())
+//	deps := tooluse.NewPrivateMessageToolDepsWithPort(sessionPort)
+func NewPrivateMessageToolDepsWithPort(session portcontract.SessionPort) PrivateMessageToolDeps {
+	return PrivateMessageToolDeps{Session: session}
+}
+
+// sessionOrFallback 返回 Session Port 或回退到 SessionSvc
+func (d PrivateMessageToolDeps) sessionOrFallback() portcontract.SessionPort {
+	if d.Session != nil {
+		return d.Session
+	}
+	if d.SessionSvc == nil {
+		return nil
+	}
+	return service.NewSessionPortAdapter(d.SessionSvc)
+}
+
 // RegisterPrivateMessageTools 注册私信工具（CategoryPrivateMessage）
+//
+// 2026-07-22 方向D：Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
 func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageToolDeps) error {
-	if deps.SessionSvc == nil {
-		deps.SessionSvc = service.NewCustomerSessionService()
+	port := deps.sessionOrFallback()
+	if port == nil {
+		// 仍保持旧版兜底：deps.SessionSvc 自动创建
+		if deps.SessionSvc == nil {
+			deps.SessionSvc = service.NewCustomerSessionService()
+		}
+		port = service.NewSessionPortAdapter(deps.SessionSvc)
 	}
 	tools := []Tool{
-		&openPrivateSessionTool{sessionSvc: deps.SessionSvc},
-		&readPrivateSessionTool{sessionSvc: deps.SessionSvc},
-		&sendPrivateMessageTool{sessionSvc: deps.SessionSvc},
+		&openPrivateSessionTool{sessionPort: port},
+		&readPrivateSessionTool{sessionPort: port},
+		&sendPrivateMessageTool{sessionPort: port},
 	}
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
@@ -53,7 +94,7 @@ func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageTool
 
 type openPrivateSessionTool struct {
 	BaseTool
-	sessionSvc *service.CustomerSessionService
+	sessionPort portcontract.SessionPort
 }
 
 func (t *openPrivateSessionTool) Name() string { return "pm.session.open" }
@@ -88,8 +129,11 @@ func (t *openPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 	userName, _ := args["user_name"].(string)
 	userPhone, _ := args["user_phone"].(string)
 	userEmail, _ := args["user_email"].(string)
-	session, err := t.sessionSvc.CreateSession(&service.CreateSessionRequest{
-		Platform:  model.Platform(platform),
+	if t.sessionPort == nil {
+		return ErrorResult(t.Name(), errStr("SessionPort not injected")), nil
+	}
+	session, err := t.sessionPort.CreateSession(ctx, &portcontract.CreateSessionInput{
+		Platform:  platform,
 		AccountID: accountID,
 		UserID:    userID,
 		UserName:  userName,
@@ -111,7 +155,7 @@ func (t *openPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 
 type readPrivateSessionTool struct {
 	BaseTool
-	sessionSvc *service.CustomerSessionService
+	sessionPort portcontract.SessionPort
 }
 
 func (t *readPrivateSessionTool) Name() string { return "pm.session.read" }
@@ -150,7 +194,10 @@ func (t *readPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 			pageSize = n
 		}
 	}
-	messages, total, err := t.sessionSvc.GetMessages(sessionID, page, pageSize)
+	if t.sessionPort == nil {
+		return ErrorResult(t.Name(), errStr("SessionPort not injected")), nil
+	}
+	messages, total, err := t.sessionPort.GetMessages(sessionID, page, pageSize)
 	if err != nil {
 		return ErrorResult(t.Name(), err), nil
 	}
@@ -167,7 +214,7 @@ func (t *readPrivateSessionTool) Execute(ctx context.Context, args map[string]an
 
 type sendPrivateMessageTool struct {
 	BaseTool
-	sessionSvc *service.CustomerSessionService
+	sessionPort portcontract.SessionPort
 }
 
 func (t *sendPrivateMessageTool) Name() string { return "pm.message.send" }
@@ -210,18 +257,21 @@ func (t *sendPrivateMessageTool) Execute(ctx context.Context, args map[string]an
 	mediaURL, _ := args["media_url"].(string)
 	senderID, _ := args["sender_id"].(string)
 	senderName, _ := args["sender_name"].(string)
-	msg, err := t.sessionSvc.SendMessage(&service.SendMessageRequest{
+	if t.sessionPort == nil {
+		return ErrorResult(t.Name(), errStr("SessionPort not injected")), nil
+	}
+	msg, err := t.sessionPort.SendMessage(ctx, &portcontract.SendMessageInput{
 		SessionID:   sessionID,
-		Content:     content,
-		ContentType: model.MessageType(contentType),
-		MediaURL:    mediaURL,
 		SenderType:  senderType,
 		SenderID:    senderID,
-		SenderName:  senderName,
+		Content:     content,
+		ContentType: contentType,
 	})
 	if err != nil {
 		return ErrorResult(t.Name(), err), nil
 	}
+	_ = mediaURL  // SendMessageInput 暂未透传 media_url，service 侧在 SendMessageRequest 中支持
+	_ = senderName
 	return SuccessResult(t.Name(), map[string]any{
 		"message_id":  msg.ID,
 		"session_id":  msg.SessionID,

@@ -763,7 +763,7 @@ func (s *MarketingFlowService) sendActionCreateTask(ctx context.Context, config 
 		NewValue:   title,
 	}
 
-	if err := s.operationLogRepo.Create(logEntry); err != nil {
+	if err := s.operationLogRepo.Create(ctx, logEntry); err != nil {
 		return nil, fmt.Errorf("创建任务失败：%w", err)
 	}
 

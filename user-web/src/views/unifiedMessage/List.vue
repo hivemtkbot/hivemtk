@@ -40,15 +40,15 @@
     <!-- 消息列表 -->
     <el-table :data="messageList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="title" :label="$t('标题')" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="message_id" :label="$t('消息ID')" min-width="160" show-overflow-tooltip />
       <el-table-column prop="content" :label="$t('内容')" min-width="250" show-overflow-tooltip />
-      <el-table-column prop="sender" :label="$t('发送者')" width="120" />
-      <el-table-column prop="receiver" :label="$t('接收者')" width="120" />
-      <el-table-column prop="type" :label="$t('类型')" width="100" />
+      <el-table-column prop="sender_name" :label="$t('发送者')" width="120" />
+      <el-table-column prop="chat_id" :label="$t('会话')" width="120" />
+      <el-table-column prop="content_type" :label="$t('类型')" width="100" />
       <el-table-column prop="status" :label="$t('状态')" width="100">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 'unread' ? 'danger' : 'success'">
-            {{ scope.row.status === 'unread' ? '未读' : '已读' }}
+          <el-tag :type="['pending', 'processing'].includes(scope.row.status) ? 'warning' : 'success'">
+            {{ scope.row.status }}
           </el-tag>
         </template>
       </el-table-column>
@@ -87,17 +87,17 @@
         <el-card class="detail-card">
           <template #header>
             <div class="detail-header">
-              <span class="detail-title">{{ currentMessage.title }}</span>
-              <el-tag :type="currentMessage.status === 'unread' ? 'danger' : 'success'">
-                {{ currentMessage.status === 'unread' ? '未读' : '已读' }}
+              <span class="detail-title">{{ currentMessage.message_id }}</span>
+              <el-tag :type="['pending', 'processing'].includes(currentMessage.status) ? 'warning' : 'success'">
+                {{ currentMessage.status }}
               </el-tag>
             </div>
           </template>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="消息ID">{{ currentMessage.id }}</el-descriptions-item>
-            <el-descriptions-item label="消息类型">{{ currentMessage.type }}</el-descriptions-item>
-            <el-descriptions-item label="发送者">{{ currentMessage.sender }}</el-descriptions-item>
-            <el-descriptions-item label="接收者">{{ currentMessage.receiver }}</el-descriptions-item>
+            <el-descriptions-item label="消息类型">{{ currentMessage.content_type }}</el-descriptions-item>
+            <el-descriptions-item label="发送者">{{ currentMessage.sender_name }}</el-descriptions-item>
+            <el-descriptions-item label="会话">{{ currentMessage.chat_id }}</el-descriptions-item>
             <el-descriptions-item label="发送时间">{{ currentMessage.created_at }}</el-descriptions-item>
             <el-descriptions-item label="更新时间">{{ currentMessage.updated_at }}</el-descriptions-item>
           </el-descriptions>

@@ -18,6 +18,10 @@ type MemoryCache struct {
 type cacheItem struct {
 	value      any
 	expiration time.Time
+	// listMode 标识当前 key 是否为 list 模式
+	listMode bool
+	// listItems 仅在 listMode=true 时使用
+	listItems []string
 }
 
 // NewMemoryCache 创建内存缓存
@@ -111,6 +115,147 @@ func (m *MemoryCache) Set(ctx context.Context, key string, value any, expiration
 		expiration: exp,
 	}
 	return nil
+}
+
+// SetNX 仅在 key 不存在时设置；返回 true 表示本次设置成功
+func (m *MemoryCache) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if item, exists := m.data[key]; exists {
+		if item.expiration.IsZero() || item.expiration.After(time.Now()) {
+			return false, nil
+		}
+	}
+	var exp time.Time
+	if expiration > 0 {
+		exp = time.Now().Add(expiration)
+	}
+	m.data[key] = cacheItem{value: value, expiration: exp}
+	return true, nil
+}
+
+// LPush 向列表头部推入
+func (m *MemoryCache) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	s := stringifyValue(value)
+	item, ok := m.data[key]
+	if !ok || !item.listMode {
+		m.data[key] = cacheItem{
+			listMode:  true,
+			listItems: []string{s},
+		}
+	} else {
+		// 头部插入
+		item.listItems = append([]string{s}, item.listItems...)
+		m.data[key] = item
+	}
+	if expiration > 0 {
+		exp := time.Now().Add(expiration)
+		ci := m.data[key]
+		ci.expiration = exp
+		m.data[key] = ci
+	}
+	return nil
+}
+
+// RPush 向列表尾部推入
+func (m *MemoryCache) RPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	s := stringifyValue(value)
+	item, ok := m.data[key]
+	if !ok || !item.listMode {
+		m.data[key] = cacheItem{
+			listMode:  true,
+			listItems: []string{s},
+		}
+	} else {
+		item.listItems = append(item.listItems, s)
+		m.data[key] = item
+	}
+	if expiration > 0 {
+		exp := time.Now().Add(expiration)
+		ci := m.data[key]
+		ci.expiration = exp
+		m.data[key] = ci
+	}
+	return nil
+}
+
+// LPop 从列表头部弹出
+func (m *MemoryCache) LPop(ctx context.Context, key string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	item, ok := m.data[key]
+	if !ok || !item.listMode || len(item.listItems) == 0 {
+		return "", nil
+	}
+	v := item.listItems[0]
+	item.listItems = item.listItems[1:]
+	if len(item.listItems) == 0 {
+		delete(m.data, key)
+	} else {
+		m.data[key] = item
+	}
+	return v, nil
+}
+
+// LRange 获取列表区间
+func (m *MemoryCache) LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	item, ok := m.data[key]
+	if !ok || !item.listMode || len(item.listItems) == 0 {
+		return []string{}, nil
+	}
+	items := item.listItems
+	n := int64(len(items))
+	if start < 0 {
+		start += n
+	}
+	if stop < 0 {
+		stop += n
+	}
+	if start < 0 {
+		start = 0
+	}
+	if stop >= n {
+		stop = n - 1
+	}
+	if start > stop || start >= n {
+		return []string{}, nil
+	}
+	return append([]string{}, items[start:stop+1]...), nil
+}
+
+// LLen 列表长度
+func (m *MemoryCache) LLen(ctx context.Context, key string) (int64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	item, ok := m.data[key]
+	if !ok || !item.listMode {
+		return 0, nil
+	}
+	return int64(len(item.listItems)), nil
+}
+
+func stringifyValue(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case []byte:
+		return string(x)
+	default:
+		data, _ := json.Marshal(v)
+		return string(data)
+	}
 }
 
 // Delete 删除缓存

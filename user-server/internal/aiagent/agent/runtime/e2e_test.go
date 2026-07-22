@@ -188,7 +188,7 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 
 	// 混合发布 10 条 customer + 5 条 knowledge
 	for i := 0; i < 10; i++ {
-		PublishCustomerMessage("telegram", "tg_001", "cust_001", "msg", "")
+		PublishCustomerMessage("telegram", "tg_001", "cust_001", "", "msg", "")
 	}
 	for i, docID := range docIDs {
 		PublishKnowledgeDocumentCreate(1, uint(docID), "content", uint(i+1))
@@ -222,7 +222,7 @@ func TestE2E_NilBridgeFallback(t *testing.T) {
 	bus.Subscribe(event.TopicCustomerMessageReceived, customerHandler)
 
 	// 不应 panic
-	PublishCustomerMessage("telegram", "tg_001", "cust_001", "msg", "")
+	PublishCustomerMessage("telegram", "tg_001", "cust_001", "", "msg", "")
 
 	time.Sleep(100 * time.Millisecond)
 

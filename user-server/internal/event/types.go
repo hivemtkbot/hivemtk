@@ -51,13 +51,14 @@ type OperationLogPayload struct {
 //
 // 关联主题:TopicCustomerMessageReceived
 type CustomerMessagePayload struct {
-	ChannelType string         `json:"channel_type"` // telegram / wecom / feishu / douyin / ...
-	AccountID   string         `json:"account_id"`   // 渠道账号主键
-	CustomerID  string         `json:"customer_id"`  // 客户 OneID（已归一化）
-	Content     string         `json:"content"`      // 消息内容
-	MessageType string         `json:"message_type"` // text / image / voice / event
-	Timestamp   time.Time      `json:"timestamp"`    // 消息时间戳
-	TraceID     string         `json:"trace_id"`     // 全链路追踪 ID
+	ChannelType string         `json:"channel_type"`  // telegram / wecom / feishu / douyin / ...
+	AccountID   string         `json:"account_id"`    // 渠道账号主键
+	CustomerID  string         `json:"customer_id"`   // 客户 OneID（已归一化）
+	SessionID   string         `json:"session_id"`    // 会话唯一 ID（方向8 核心数据流必备；缺省由 channel:customer 构造）
+	Content     string         `json:"content"`       // 消息内容
+	MessageType string         `json:"message_type"`  // text / image / voice / event
+	Timestamp   time.Time      `json:"timestamp"`     // 消息时间戳
+	TraceID     string         `json:"trace_id"`      // 全链路追踪 ID
 	Raw         map[string]any `json:"raw,omitempty"`
 }
 

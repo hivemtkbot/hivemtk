@@ -55,6 +55,45 @@ func (m *CacheManager) Set(ctx context.Context, key string, value any, expiratio
 	return m.cache.Set(ctx, key, value, expiration)
 }
 
+// SetNX 仅在 key 不存在时设置
+func (m *CacheManager) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	if expiration == 0 {
+		expiration = m.getDefaultTTL()
+	}
+	return m.cache.SetNX(ctx, key, value, expiration)
+}
+
+// LPush 向列表头部推入
+func (m *CacheManager) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	if expiration == 0 {
+		expiration = m.getDefaultTTL()
+	}
+	return m.cache.LPush(ctx, key, value, expiration)
+}
+
+// RPush 向列表尾部推入
+func (m *CacheManager) RPush(ctx context.Context, key string, value any, expiration time.Duration) error {
+	if expiration == 0 {
+		expiration = m.getDefaultTTL()
+	}
+	return m.cache.RPush(ctx, key, value, expiration)
+}
+
+// LPop 从列表头部弹出
+func (m *CacheManager) LPop(ctx context.Context, key string) (string, error) {
+	return m.cache.LPop(ctx, key)
+}
+
+// LRange 获取列表区间
+func (m *CacheManager) LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
+	return m.cache.LRange(ctx, key, start, stop)
+}
+
+// LLen 列表长度
+func (m *CacheManager) LLen(ctx context.Context, key string) (int64, error) {
+	return m.cache.LLen(ctx, key)
+}
+
 // Delete 删除缓存
 func (m *CacheManager) Delete(ctx context.Context, key string) error {
 	return m.cache.Delete(ctx, key)

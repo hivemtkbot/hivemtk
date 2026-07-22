@@ -1,19 +1,35 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
+
 	"marketing/internal/model"
 	"marketing/internal/repository"
 	"marketing/internal/websocket"
-	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// ============================================================================
+// 客服会话服务（customer_session.go - 核心 CRUD）
+// ----------------------------------------------------------------------------
+// 文件拆分（2026-07-22 方向C）：
+//   - customer_session.go            本文件：核心 CRUD（CreateSession / Get / SendMessage / UpdateStatus / Rate / Tag）
+//   - customer_session_routing.go    路由：AssignSession / AutoAssign / TransferSession
+//   - customer_session_takeover.go   接管：TakeoverByAgent / ReleaseToAI / SwitchHandler
+//   - customer_session_blacklist.go  拉黑：BlacklistUser / UnblacklistUser / IsUserBlacklisted / preCreateBlacklistGuard
+//   - agent_status.go                客服状态：AgentStatusService
+//   - ai_suggestion.go               AI 建议：AISuggestionService
+//   - quick_reply.go                 快捷回复：QuickReplyService
+//   - session_tag.go                 会话标签：SessionTagService
+//
+// 文档：docs/企业级架构优化/坐席实时聊天看板.md
+// ============================================================================
 
 // CustomerSessionService 客服会话服务
 type CustomerSessionService struct {
@@ -98,6 +114,7 @@ func (s *CustomerSessionService) GetSessions(status model.SessionStatus, page, p
 	return s.sessionRepo.GetByMerchant(status, page, pageSize)
 }
 
+// GetPendingSessions 获取待处理会话（pending / AI handling / waiting）
 func (s *CustomerSessionService) GetPendingSessions(page, pageSize int) ([]*model.CustomerSession, error) {
 	statuses := []model.SessionStatus{
 		model.SessionStatusPending,
@@ -121,6 +138,7 @@ func (s *CustomerSessionService) GetPendingSessions(page, pageSize int) ([]*mode
 	return sessions, nil
 }
 
+// CountPendingSessions 统计待处理会话数
 func (s *CustomerSessionService) CountPendingSessions() (int64, error) {
 	statuses := []model.SessionStatus{
 		model.SessionStatusPending,
@@ -143,75 +161,6 @@ func (s *CustomerSessionService) GetSessionByID(id uint) (*model.CustomerSession
 		return nil, err
 	}
 	return session, nil
-}
-
-// AssignSessionRequest 分配会话请求
-type AssignSessionRequest struct {
-	SessionID uint `json:"session_id" binding:"required"`
-	AgentID   uint `json:"agent_id" binding:"required"`
-}
-
-// AssignSession 分配会话给客服
-func (s *CustomerSessionService) AssignSession(req *AssignSessionRequest) error {
-	// 获取客服信息
-	agent, err := s.agentRepo.GetByAgentID(req.AgentID)
-	if err != nil {
-		return errors.New("客服不存在")
-	}
-
-	// 检查客服是否可分配
-	if agent.Status == "offline" {
-		return errors.New("客服不在线")
-	}
-	if agent.ActiveSessions >= agent.MaxSessions {
-		return errors.New("客服会话已满")
-	}
-
-	// 分配会话
-	if err := s.sessionRepo.AssignAgent(req.SessionID, req.AgentID, agent.AgentName); err != nil {
-		return err
-	}
-
-	// 更新客服活跃会话数
-	if err := s.agentRepo.IncrementActiveSessions(req.AgentID); err != nil {
-		return err
-	}
-
-	// 通知客服
-	session, _ := s.sessionRepo.GetByID(req.SessionID)
-	if session != nil {
-		websocket.NotifyNewSession(strconv.FormatUint(uint64(req.AgentID), 10), session)
-		// 通知访客：人工客服已接入（完成网页客服渠道的坐席侧闭环）
-		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "客服已接入，正在为您服务",
-		}, session.SessionID)
-	}
-
-	return nil
-}
-
-// AutoAssign 自动分配会话
-func (s *CustomerSessionService) AutoAssign(sessionID uint) error {
-	// 获取在线客服
-	agents, err := s.agentRepo.GetOnlineAgents()
-	if err != nil || len(agents) == 0 {
-		return errors.New("没有可用的在线客服")
-	}
-
-	// 选择活跃会话最少的客服
-	selectedAgent := agents[0]
-	for _, agent := range agents {
-		if agent.ActiveSessions < selectedAgent.ActiveSessions {
-			selectedAgent = agent
-		}
-	}
-
-	return s.AssignSession(&AssignSessionRequest{
-		SessionID: sessionID,
-		AgentID:   selectedAgent.AgentID,
-	})
 }
 
 // SendMessageRequest 发送消息请求
@@ -368,49 +317,6 @@ func (s *CustomerSessionService) RateSession(sessionID uint, rating int, comment
 	return s.sessionRepo.Update(session)
 }
 
-// TransferSession 转接会话
-func (s *CustomerSessionService) TransferSession(sessionID uint, newAgentID uint) error {
-	session, err := s.sessionRepo.GetByID(sessionID)
-	if err != nil {
-		return err
-	}
-
-	// 获取新客服信息
-	newAgent, err := s.agentRepo.GetByAgentID(newAgentID)
-	if err != nil {
-		return errors.New("客服不存在")
-	}
-
-	// 减少原客服活跃会话数
-	if session.AgentID > 0 {
-		s.agentRepo.DecrementActiveSessions(session.AgentID)
-	}
-
-	// 分配给新客服
-	if err := s.sessionRepo.AssignAgent(sessionID, newAgentID, newAgent.AgentName); err != nil {
-		return err
-	}
-
-	// 增加新客服活跃会话数
-	if err := s.agentRepo.IncrementActiveSessions(newAgentID); err != nil {
-		return err
-	}
-
-	// 通知新客服
-	session, _ = s.sessionRepo.GetByID(sessionID)
-	if session != nil {
-		websocket.NotifyNewSession(strconv.FormatUint(uint64(newAgentID), 10), session)
-		// 通知访客：已转接至其他客服
-		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "已为您转接客服，请稍候",
-		}, session.SessionID)
-	}
-
-	return nil
-}
-
 // TagSession 标记会话
 func (s *CustomerSessionService) TagSession(sessionID uint, tags []string) error {
 	session, err := s.sessionRepo.GetByID(sessionID)
@@ -422,541 +328,6 @@ func (s *CustomerSessionService) TagSession(sessionID uint, tags []string) error
 	tagsJSON, _ := json.Marshal(tags)
 	session.Tags = string(tagsJSON)
 	return s.sessionRepo.Update(session)
-}
-
-// ============================================================================
-// 方向10：坐席实时聊天看板 - AI/人工接管与切换
-// 文档：docs/企业级架构优化/坐席实时聊天看板.md §三
-// ============================================================================
-
-// TakeoverRequest 坐席接管请求
-type TakeoverRequest struct {
-	SessionID uint   `json:"session_id" binding:"required"`
-	AgentID   uint   `json:"agent_id" binding:"required"`
-	Reason    string `json:"reason"` // 接管原因：AI 答非所问 / 客户要求 / 投诉升级
-}
-
-// TakeoverByAgent 坐席接管 AI 会话
-//
-// 行为：
-//  1. 把会话 handler_type 切到 human、status 切到 human_handling
-//  2. 记录接管人 AgentID（若尚未分配则 AssignAgent 一次）
-//  3. 给该会话加 Redis 人工接管锁（InboxIngressService 收到新消息时绕过 AI）
-//  4. 通过 WebSocket 通知前端会话更新
-//
-// 幂等：同一坐席重复接管直接返回成功（不重复扣活跃数）
-func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *TakeoverRequest) error {
-	if req.SessionID == 0 || req.AgentID == 0 {
-		return errors.New("session_id and agent_id required")
-	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
-	if err != nil {
-		return errors.New("会话不存在")
-	}
-
-	// 校验坐席存在
-	agent, err := s.agentRepo.GetByAgentID(req.AgentID)
-	if err != nil || agent == nil {
-		return errors.New("坐席不存在")
-	}
-	// 校验坐席状态：仅 online/busy 可接管
-	if agent.Status == "offline" {
-		return errors.New("坐席已离线，无法接管")
-	}
-	// 容量校验
-	if agent.ActiveSessions >= agent.MaxSessions {
-		return errors.New("坐席会话已满")
-	}
-
-	// 幂等：会话已分配给该坐席 → 直接锁定 + 切状态
-	if session.AgentID == req.AgentID {
-		session.HandlerType = model.HandlerTypeHuman
-		session.Status = model.SessionStatusHumanHandling
-		now := time.Now()
-		session.LastMessageAt = &now
-		if err := s.sessionRepo.Update(session); err != nil {
-			return err
-		}
-		_ = s.lockHumanSession(ctx, session.SessionID, req.Reason)
-		_ = s.notifySessionUpdate(session, "handler_changed", "human")
-		return nil
-	}
-
-	// 接管：减少原坐席活跃数（如有）
-	if session.AgentID > 0 {
-		_ = s.agentRepo.DecrementActiveSessions(session.AgentID)
-	}
-	// 分配新坐席
-	if err := s.sessionRepo.AssignAgent(req.SessionID, req.AgentID, agent.AgentName); err != nil {
-		return err
-	}
-	_ = s.agentRepo.IncrementActiveSessions(req.AgentID)
-
-	// 切 handler / status
-	updated, err := s.sessionRepo.GetByID(req.SessionID)
-	if err != nil {
-		return err
-	}
-	updated.HandlerType = model.HandlerTypeHuman
-	updated.Status = model.SessionStatusHumanHandling
-	now := time.Now()
-	updated.LastMessageAt = &now
-	if err := s.sessionRepo.Update(updated); err != nil {
-		return err
-	}
-	// 写 Redis 人工锁 + 推 WebSocket + 访客提示
-	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
-	_ = s.notifySessionUpdate(updated, "handler_changed", "human")
-	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id": updated.SessionID,
-		"handler":    "human",
-		"reason":     "客服已接管，正在为您服务",
-	}, updated.SessionID)
-	return nil
-}
-
-// ReleaseToAIRequest 释放回 AI 请求
-type ReleaseToAIRequest struct {
-	SessionID uint `json:"session_id" binding:"required"`
-	AgentID   uint `json:"agent_id" binding:"required"`
-}
-
-// ReleaseToAI 坐席释放会话回 AI 托管
-//
-// 行为：
-//  1. 把 handler_type 切回 ai、status 切回 waiting
-//  2. 解 Redis 人工锁（InboxIngressService 后续消息会重新走 AI 路由）
-//  3. 坐席活跃数 -1
-//  4. 推 WebSocket 给坐席与访客
-//
-// 仅当会话原本属于该坐席才允许释放（防止误操作别人会话）
-func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseToAIRequest) error {
-	if req.SessionID == 0 || req.AgentID == 0 {
-		return errors.New("session_id and agent_id required")
-	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
-	if err != nil {
-		return errors.New("会话不存在")
-	}
-	if session.AgentID != req.AgentID {
-		return errors.New("无权操作：会话不属于该坐席")
-	}
-
-	session.HandlerType = model.HandlerTypeAI
-	session.Status = model.SessionStatusWaiting
-	session.AgentID = 0
-	session.AgentName = ""
-	now := time.Now()
-	session.LastMessageAt = &now
-	if err := s.sessionRepo.Update(session); err != nil {
-		return err
-	}
-	_ = s.agentRepo.DecrementActiveSessions(req.AgentID)
-	_ = s.unlockHumanSession(ctx, session.SessionID)
-	_ = s.notifySessionUpdate(session, "handler_changed", "ai")
-	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id": session.SessionID,
-		"handler":    "ai",
-		"reason":     "已切回 AI 托管，请稍候",
-	}, session.SessionID)
-	return nil
-}
-
-// SwitchHandlerRequest AI/人工切换请求（统一接口）
-type SwitchHandlerRequest struct {
-	SessionID   uint              `json:"session_id" binding:"required"`
-	AgentID     uint              `json:"agent_id"`
-	HandlerType model.HandlerType `json:"handler_type" binding:"required"` // ai / human
-	Reason      string            `json:"reason"`
-}
-
-// SwitchHandler 通用 AI/人工切换（前端按钮只调一个接口）
-//
-// 委派给 TakeoverByAgent / ReleaseToAI，避免上层维护两条调用路径。
-func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchHandlerRequest) error {
-	if req.SessionID == 0 {
-		return errors.New("session_id required")
-	}
-	switch req.HandlerType {
-	case model.HandlerTypeHuman:
-		if req.AgentID == 0 {
-			return errors.New("切人工时 agent_id required")
-		}
-		return s.TakeoverByAgent(ctx, &TakeoverRequest{
-			SessionID: req.SessionID,
-			AgentID:   req.AgentID,
-			Reason:    req.Reason,
-		})
-	case model.HandlerTypeAI:
-		if req.AgentID == 0 {
-			// agent_id=0 表示仅切 handler（保留原 AgentID 字段不动，仅切类型）。
-			// 通过临时读出会话来取 AgentID
-			sess, err := s.sessionRepo.GetByID(req.SessionID)
-			if err != nil {
-				return errors.New("会话不存在")
-			}
-			req.AgentID = sess.AgentID
-			if req.AgentID == 0 {
-				return errors.New("会话尚未分配坐席，无需切回 AI")
-			}
-		}
-		return s.ReleaseToAI(ctx, &ReleaseToAIRequest{
-			SessionID: req.SessionID,
-			AgentID:   req.AgentID,
-		})
-	default:
-		return fmt.Errorf("invalid handler_type: %s", req.HandlerType)
-	}
-}
-
-// LockHumanSession 锁定会话为人工接管（暴露给 controller，转接/投诉升级时调用）
-func (s *CustomerSessionService) LockHumanSession(ctx context.Context, sessionID, reason string) error {
-	return s.lockHumanSession(ctx, sessionID, reason)
-}
-
-// UnlockHumanSession 解锁人工接管锁
-func (s *CustomerSessionService) UnlockHumanSession(ctx context.Context, sessionID string) error {
-	return s.unlockHumanSession(ctx, sessionID)
-}
-
-// lockHumanSession 内部：写 Redis 人工接管锁
-func (s *CustomerSessionService) lockHumanSession(ctx context.Context, sessionID, reason string) error {
-	svc := NewInboxIngressService(nil, nil)
-	return svc.LockSessionForHuman(ctx, sessionID, reason)
-}
-
-// unlockHumanSession 内部：解 Redis 人工接管锁
-func (s *CustomerSessionService) unlockHumanSession(ctx context.Context, sessionID string) error {
-	svc := NewInboxIngressService(nil, nil)
-	return svc.UnlockSessionForHuman(ctx, sessionID)
-}
-
-// notifySessionSessionUpdate 内部：推送会话状态变更给前端
-func (s *CustomerSessionService) notifySessionUpdate(session *model.CustomerSession, event, handler string) error {
-	agentID := strconv.FormatUint(uint64(session.AgentID), 10)
-	return websocket.NotifySessionUpdate(agentID, map[string]any{
-		"session_id":   session.SessionID,
-		"handler_type": handler,
-		"event":        event,
-		"status":       session.Status,
-		"updated_at":   time.Now().Unix(),
-	})
-}
-
-// 拉黑 / 解除拉黑 / 列表 已拆分到 customer_session_blacklist.go
-// CreateSession 串联黑名单校验也保留在 customer_session_blacklist.go 中
-
-// AgentStatusService 客服状态服务
-type AgentStatusService struct {
-	agentRepo *repository.AgentStatusRepository
-}
-
-// NewAgentStatusService 创建客服状态服务实例
-func NewAgentStatusService() *AgentStatusService {
-	return &AgentStatusService{
-		agentRepo: repository.NewAgentStatusRepository(),
-	}
-}
-
-// CreateAgentRequest 创建客服请求
-type CreateAgentRequest struct {
-	AgentID     uint   `json:"agent_id" binding:"required"`
-	AgentName   string `json:"agent_name" binding:"required"`
-	MaxSessions int    `json:"max_sessions"`
-}
-
-// CreateAgent 创建客服状态记录
-func (s *AgentStatusService) CreateAgent(req *CreateAgentRequest) (*model.AgentStatus, error) {
-	agent := &model.AgentStatus{
-		AgentID:     req.AgentID,
-		AgentName:   req.AgentName,
-		Status:      "offline",
-		MaxSessions: req.MaxSessions,
-	}
-	if agent.MaxSessions == 0 {
-		agent.MaxSessions = 5
-	}
-
-	if err := s.agentRepo.Create(agent); err != nil {
-		return nil, err
-	}
-
-	return agent, nil
-}
-
-// GetAgentStatus 获取客服状态
-func (s *AgentStatusService) GetAgentStatus(agentID uint) (*model.AgentStatus, error) {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
-	if err != nil {
-		return nil, err
-	}
-	return agent, nil
-}
-
-// GetOnlineAgents 获取在线客服列表
-func (s *AgentStatusService) GetOnlineAgents() ([]*model.AgentStatus, error) {
-	return s.agentRepo.GetOnlineAgents()
-}
-
-// ListAllAgents 列出全部客服（不分在线/离线），用于客服监管控制台
-func (s *AgentStatusService) ListAllAgents() ([]*model.AgentStatus, error) {
-	return s.agentRepo.ListAllAgents()
-}
-
-// UpdateAgentStatus 更新客服状态
-func (s *AgentStatusService) UpdateAgentStatus(agentID uint, status string) error {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
-	if err != nil {
-		return err
-	}
-	_ = agent
-
-	// 检查状态变更合法性
-	if agent.Status == "offline" && status != "online" {
-		return errors.New("客服离线时只能切换到在线状态")
-	}
-
-	return s.agentRepo.UpdateStatus(agentID, status)
-}
-
-// GoOnline 客服上线
-func (s *AgentStatusService) GoOnline(agentID uint) error {
-	return s.UpdateAgentStatus(agentID, "online")
-}
-
-// GoOffline 客服下线
-func (s *AgentStatusService) GoOffline(agentID uint) error {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
-	if err != nil {
-		return err
-	}
-	_ = agent
-
-	// 检查是否有未完成的会话
-	if agent.ActiveSessions > 0 {
-		return errors.New("还有未完成的会话，请先处理或转接")
-	}
-
-	return s.agentRepo.UpdateStatus(agentID, "offline")
-}
-
-// GetAgentSessions 获取客服的活跃会话
-func (s *AgentStatusService) GetAgentSessions(agentID uint) ([]*model.CustomerSession, error) {
-	sessionRepo := repository.NewCustomerSessionRepository()
-	return sessionRepo.GetAgentSessions(agentID)
-}
-
-// AISuggestionService AI建议服务
-type AISuggestionService struct {
-	suggestionRepo *repository.AISuggestionRepository
-	sessionRepo    *repository.CustomerSessionRepository
-}
-
-// NewAISuggestionService 创建AI建议服务实例
-func NewAISuggestionService() *AISuggestionService {
-	return &AISuggestionService{
-		suggestionRepo: repository.NewAISuggestionRepository(),
-		sessionRepo:    repository.NewCustomerSessionRepository(),
-	}
-}
-
-// CreateSuggestion 创建AI建议
-func (s *AISuggestionService) CreateSuggestion(sessionID string, messageID uint, suggestion string, confidence float64, source string) (*model.AISuggestion, error) {
-	ais := &model.AISuggestion{
-		SessionID:  sessionID,
-		MessageID:  messageID,
-		Suggestion: suggestion,
-		Confidence: confidence,
-		Source:     source,
-	}
-
-	if err := s.suggestionRepo.Create(ais); err != nil {
-		return nil, err
-	}
-
-	// 通知客服
-	session, _ := s.sessionRepo.GetBySessionID(sessionID)
-	if session != nil && session.AgentID > 0 {
-		websocket.NotifyAISuggestion(strconv.FormatUint(uint64(session.AgentID), 10), ais)
-	}
-
-	return ais, nil
-}
-
-// GetSuggestions 获取会话的AI建议
-func (s *AISuggestionService) GetSuggestions(sessionID string) ([]*model.AISuggestion, error) {
-	return s.suggestionRepo.GetBySessionID(sessionID)
-}
-
-// UseSuggestion 使用AI建议
-func (s *AISuggestionService) UseSuggestion(id uint, agentID uint) error {
-	return s.suggestionRepo.MarkAsUsed(id, agentID)
-}
-
-// QuickReplyService 快捷回复服务
-type QuickReplyService struct {
-	replyRepo *repository.QuickReplyRepository
-}
-
-// NewQuickReplyService 创建快捷回复服务实例
-func NewQuickReplyService() *QuickReplyService {
-	return &QuickReplyService{
-		replyRepo: repository.NewQuickReplyRepository(),
-	}
-}
-
-// CreateReplyRequest 创建快捷回复请求
-type CreateReplyRequest struct {
-	Category  string `json:"category" binding:"required"`
-	Title     string `json:"title" binding:"required"`
-	Content   string `json:"content" binding:"required"`
-	Channel   string `json:"channel"`
-	SortOrder int    `json:"sort_order"`
-	IsPublic  bool   `json:"is_public"`
-}
-
-// CreateReply 创建快捷回复
-func (s *QuickReplyService) CreateReply(createdBy uint, req *CreateReplyRequest) (*model.QuickReply, error) {
-	reply := &model.QuickReply{
-		Category:  req.Category,
-		Title:     req.Title,
-		Content:   req.Content,
-		Channel:   req.Channel,
-		SortOrder: req.SortOrder,
-		IsPublic:  req.IsPublic,
-		CreatedBy: createdBy,
-	}
-	if !reply.IsPublic {
-		reply.IsPublic = true // 默认公开
-	}
-
-	if err := s.replyRepo.Create(reply); err != nil {
-		return nil, err
-	}
-
-	return reply, nil
-}
-
-// UpdateReply 更新快捷回复
-func (s *QuickReplyService) UpdateReply(id uint, req *CreateReplyRequest) (*model.QuickReply, error) {
-	reply, err := s.replyRepo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	reply.Category = req.Category
-	reply.Title = req.Title
-	reply.Content = req.Content
-	reply.Channel = req.Channel
-	reply.SortOrder = req.SortOrder
-	reply.IsPublic = req.IsPublic
-
-	if err := s.replyRepo.Update(reply); err != nil {
-		return nil, err
-	}
-
-	return reply, nil
-}
-
-// DeleteReply 删除快捷回复
-func (s *QuickReplyService) DeleteReply(id uint) error {
-	reply, err := s.replyRepo.GetByID(id)
-	if err != nil {
-		return err
-	}
-	_ = reply
-
-	return s.replyRepo.Delete(id)
-}
-
-// GetReplies 获取快捷回复列表
-func (s *QuickReplyService) GetReplies(category string) ([]*model.QuickReply, error) {
-	return s.replyRepo.GetByMerchant(category)
-}
-
-// GetCategories 获取快捷回复分类
-func (s *QuickReplyService) GetCategories() ([]string, error) {
-	return s.replyRepo.GetCategories()
-}
-
-// SessionTagService 会话标签服务
-type SessionTagService struct {
-	tagRepo *repository.SessionTagRepository
-}
-
-// NewSessionTagService 创建会话标签服务实例
-func NewSessionTagService() *SessionTagService {
-	return &SessionTagService{
-		tagRepo: repository.NewSessionTagRepository(),
-	}
-}
-
-// CreateTagRequest 创建标签请求
-type CreateTagRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Code        string `json:"code" binding:"required"`
-	Group       string `json:"group"`
-	Color       string `json:"color"`
-	Description string `json:"description"`
-	SortOrder   int    `json:"sort_order"`
-}
-
-// CreateTag 创建标签
-func (s *SessionTagService) CreateTag(req *CreateTagRequest) (*model.SessionTag, error) {
-	tag := &model.SessionTag{
-		Name:        req.Name,
-		Code:        req.Code,
-		Group:       req.Group,
-		Color:       req.Color,
-		Description: req.Description,
-		SortOrder:   req.SortOrder,
-	}
-	if tag.Color == "" {
-		tag.Color = "#1890ff"
-	}
-
-	if err := s.tagRepo.Create(tag); err != nil {
-		return nil, err
-	}
-
-	return tag, nil
-}
-
-// UpdateTag 更新标签
-func (s *SessionTagService) UpdateTag(id uint, req *CreateTagRequest) (*model.SessionTag, error) {
-	tag, err := s.tagRepo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	tag.Name = req.Name
-	tag.Code = req.Code
-	tag.Group = req.Group
-	tag.Color = req.Color
-	tag.Description = req.Description
-	tag.SortOrder = req.SortOrder
-
-	if err := s.tagRepo.Update(tag); err != nil {
-		return nil, err
-	}
-
-	return tag, nil
-}
-
-// DeleteTag 删除标签
-func (s *SessionTagService) DeleteTag(id uint) error {
-	tag, err := s.tagRepo.GetByID(id)
-	if err != nil {
-		return err
-	}
-	_ = tag
-
-	return s.tagRepo.Delete(id)
-}
-
-// GetTags 获取标签列表
-func (s *SessionTagService) GetTags() ([]*model.SessionTag, error) {
-	return s.tagRepo.GetByMerchant()
 }
 
 // generateSessionID 生成会话ID

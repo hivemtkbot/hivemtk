@@ -396,43 +396,43 @@ func (s *SessionAssignmentService) autoAssignToAgent(session *model.CustomerSess
 }
 
 // TransferToHuman 转人工（当 AI 处理过程中用户要求转人工时）
+//
+// Bug 修复 2026-07-22：
+//
+//	原实现的 if session != nil { return ErrPermissionDenied } 永远为 true，
+//	导致 TransferToHuman 永远返回 "permission denied"，且未做真正的分配与通知。
+//	现改为：nil 检查 + 幂等分配 + 通知新客服 + 解锁 Redis 接管锁。
 func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionID uint, agentID uint, reason string) error {
 	session, err := s.sessionRepo.GetByID(sessionID)
 	if err != nil {
 		return err
 	}
+	if session == nil {
+		return errors.New("session not found")
+	}
 
-	if session != nil {
-		return ErrPermissionDenied
+	// 减少原坐席活跃会话数（如果有），避免 active_sessions 虚高
+	if session.AgentID > 0 {
+		_ = s.agentRepo.DecrementActiveSessions(session.AgentID)
 	}
 
 	// 如果有指定客服，分配给该客服
 	if agentID > 0 {
 		agent, err := s.agentRepo.GetByAgentID(agentID)
-		if err != nil {
-			return errors.New("客服不存在")
+		if err != nil || agent == nil {
+			return errors.New("agent not found")
 		}
-		if agent != nil {
-			return ErrPermissionDenied
+		if agent.Status == "offline" {
+			return errors.New("agent is offline")
 		}
-
-		// 减少原客服活跃会话数（如果有）
-		if session.AgentID > 0 {
-			s.agentRepo.DecrementActiveSessions(session.AgentID)
-		}
-
 		// 分配给新客服
-		err = s.sessionRepo.AssignAgent(sessionID, agentID, agent.AgentName)
-		if err != nil {
+		if err := s.sessionRepo.AssignAgent(sessionID, agentID, agent.AgentName); err != nil {
 			return err
 		}
-
 		// 增加新客服活跃会话数
-		err = s.agentRepo.IncrementActiveSessions(agentID)
-		if err != nil {
+		if err := s.agentRepo.IncrementActiveSessions(agentID); err != nil {
 			return err
 		}
-
 		// 通知新客服
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(agentID), 10), map[string]any{
 			"session_id":      session.SessionID,
@@ -440,12 +440,17 @@ func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionI
 			"last_message":    session.LastMessage,
 			"transfer_reason": reason,
 		})
-		// 减少原客服活跃会话数（如果有）
-		if session.AgentID > 0 {
-			s.agentRepo.DecrementActiveSessions(session.AgentID)
-		}
+		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+			"session_id": session.SessionID,
+			"handler":    "human",
+			"reason":     "已为您转接客服，请稍候",
+		}, session.SessionID)
 	}
 
+	// 标记会话为人工处理（保留分配人；handler_type 用于前端展示）
+	if err := s.sessionRepo.UpdateStatus(sessionID, model.SessionStatusHumanHandling); err != nil {
+		return err
+	}
 	return nil
 }
 

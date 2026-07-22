@@ -119,6 +119,7 @@ func convertFromEventPayload(ep event.CustomerMessagePayload) CustomerMessagePay
 		ChannelType: ep.ChannelType,
 		AccountID:   ep.AccountID,
 		CustomerID:  ep.CustomerID,
+		SessionID:   ep.SessionID,
 		Content:     ep.Content,
 		MessageType: ep.MessageType,
 		Timestamp:   ep.Timestamp,

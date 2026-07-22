@@ -188,7 +188,19 @@ const topSalesDimension = ref('conversion')
 const loadOverview = async () => {
   try {
     const res= await AiProductivityApi.getOverview()
-    overview.value = res?.data || res || {}
+    // 后端 GetReport 返回 snake_case 聚合字段，映射到模板使用的 camelCase
+    overview.value = {
+      totalConversations: res.total_conversations || 0,
+      aiReplies: res.ai_replies || 0,
+      humanReplies: res.human_replies || 0,
+      aiRatio: res.ai_ratio || 0,
+      conversionRate: res.conversion_rate || 0,
+      totalConversions: res.total_conversions || 0,
+      llmTokens: res.llm_tokens || 0,
+      llmCost: res.llm_cost || 0,
+      avgResponseTime: res.avg_response_time || 0,
+      satisfaction: res.satisfaction || 0
+    }
   } catch (e) {
     overview.value = {}
   }

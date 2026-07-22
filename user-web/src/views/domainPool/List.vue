@@ -271,7 +271,7 @@ const handleCheck = async (row) => {
   row.checking = true
   try {
     const res = await domainPoolApi.checkDomain(row.id)
-    ElMessage.success(`检查完成：${res.message}`)
+    ElMessage.success(`检查完成：${res.msg || 'OK'}`)
     // 刷新列表
     fetchDomainList()
   } catch (error) {

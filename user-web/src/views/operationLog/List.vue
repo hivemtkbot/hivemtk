@@ -180,7 +180,7 @@ const exportLogs = async () => {
 
 const viewDetail = async (row) => {
   const res = await getOperationLogDetail(row.id)
-  currentLog.value = res.data
+  currentLog.value = res
   detailVisible.value = true
 }
 

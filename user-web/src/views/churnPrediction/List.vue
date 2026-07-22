@@ -60,22 +60,22 @@
         </div>
       </template>
       <el-table :data="filteredUsers" v-loading="loading" stripe>
-        <el-table-column prop="userId" label="用户ID" width="100" />
+        <el-table-column prop="user_id" label="用户ID" width="100" />
         <el-table-column prop="name" label="用户名称" min-width="120" />
         <el-table-column prop="phone" label="手机号" width="130" />
-        <el-table-column prop="lastActive" label="最后活跃" width="180" />
-        <el-table-column prop="riskScore" label="风险评分" width="120">
+        <el-table-column prop="last_activity_at" label="最后活跃" width="180" />
+        <el-table-column prop="churn_score" label="风险评分" width="120">
           <template #default="{ row }">
-            <el-progress :percentage="row.riskScore" :color="getRiskColor(row.riskScore)" />
+            <el-progress :percentage="row.churn_score" :color="getRiskColor(row.churn_score)" />
           </template>
         </el-table-column>
-        <el-table-column prop="riskLevel" label="风险等级" width="100">
+        <el-table-column prop="churn_risk" label="风险等级" width="100">
           <template #default="{ row }">
-            <el-tag :type="getRiskLevelType(row.riskLevel)">{{ row.riskLevel }}</el-tag>
+            <el-tag :type="getRiskLevelType(row.churn_risk)">{{ row.churn_risk }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="predictedDate" label="预测流失日期" width="150" />
-        <el-table-column prop="reasons" label="流失原因" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="predicted_at" label="预测流失日期" width="150" />
+        <el-table-column prop="risk_factors" label="流失原因" min-width="200" show-overflow-tooltip />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewUserDetail(row)">详情</el-button>
@@ -111,21 +111,21 @@
     <el-dialog v-model="detailVisible" title="用户流失风险详情" width="700px" v-loading="detailLoading">
       <template v-if="currentUser">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="用户ID">{{ currentUser.userId }}</el-descriptions-item>
+          <el-descriptions-item label="用户ID">{{ currentUser.user_id }}</el-descriptions-item>
           <el-descriptions-item label="用户名称">{{ currentUser.name }}</el-descriptions-item>
           <el-descriptions-item label="手机号">{{ currentUser.phone }}</el-descriptions-item>
-          <el-descriptions-item label="最后活跃">{{ currentUser.lastActive }}</el-descriptions-item>
+          <el-descriptions-item label="最后活跃">{{ currentUser.last_activity_at }}</el-descriptions-item>
           <el-descriptions-item label="风险等级">
-            <el-tag :type="getRiskLevelType(currentUser.riskLevel)">{{ currentUser.riskLevel }}</el-tag>
+            <el-tag :type="getRiskLevelType(currentUser.churn_risk)">{{ currentUser.churn_risk }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="预测流失日期">{{ currentUser.predictedDate }}</el-descriptions-item>
+          <el-descriptions-item label="预测流失日期">{{ currentUser.predicted_at }}</el-descriptions-item>
         </el-descriptions>
 
         <el-divider content-position="left">风险评分</el-divider>
         <div style="padding: 0 20px">
           <el-progress
-            :percentage="currentUser.riskScore"
-            :color="getRiskColor(currentUser.riskScore)"
+            :percentage="currentUser.churn_score"
+            :color="getRiskColor(currentUser.churn_score)"
             :stroke-width="20"
           />
         </div>
@@ -199,7 +199,7 @@ const currentUser = ref(null)
 
 const filteredUsers = computed(() => {
   if (!searchKeyword.value) return users.value
-  return users.value.filter(u => u.name.includes(searchKeyword.value) || u.phone.includes(searchKeyword.value))
+  return users.value.filter(u => (u.user_id || '').includes(searchKeyword.value))
 })
 
 const getRiskColor = (score) => {
@@ -220,12 +220,19 @@ const refreshData = async () => {
       getChurnStats(params)
     ])
     users.value = toList(usersRes?.data ?? usersRes)
-    const s = statsRes?.data || statsRes || {}
+    // 后端 /api/churn/statistics 返回数组，统计需从预测列表按 churn_risk 聚合
+    const counts = { high: 0, medium: 0, low: 0 }
+    for (const u of users.value) {
+      const level = (u.churn_risk || '').toString().toLowerCase()
+      if (level === 'high') counts.high++
+      else if (level === 'medium') counts.medium++
+      else if (level === 'low') counts.low++
+    }
     stats.value = {
-      highRisk: s.highRisk || 0,
-      mediumRisk: s.mediumRisk || 0,
-      lowRisk: s.lowRisk || 0,
-      accuracy: s.accuracy || 0
+      highRisk: counts.high,
+      mediumRisk: counts.medium,
+      lowRisk: counts.low,
+      accuracy: 0
     }
   } finally {
     loading.value = false
@@ -246,12 +253,16 @@ const runPrediction = async () => {
 }
 
 const intervene = (row) => {
-  interveneForm.value = { userId: row.userId, method: 'coupon', content: '' }
+  interveneForm.value = { userId: row.id, method: 'coupon', content: '' }
   interveneDialogVisible.value = true
 }
 
 const confirmIntervene = async () => {
-  await interveneUser(interveneForm.value)
+  await interveneUser({
+    warning_id: interveneForm.value.userId,
+    intervention_type: interveneForm.value.method,
+    note: interveneForm.value.content
+  })
   ElMessage.success(i18n.global.t('干预已执行'))
   interveneDialogVisible.value = false
 }
@@ -260,8 +271,12 @@ const viewUserDetail = async (row) => {
   detailVisible.value = true
   detailLoading.value = true
   try {
-    const res = await getChurnPrediction({ userId: row.userId })
-    currentUser.value = res.data || row
+    const res = await getChurnPrediction({ user_id: row.user_id })
+    let data = res || {}
+    if (typeof data.risk_factors === 'string' && data.risk_factors) {
+      try { data.risk_factors = JSON.parse(data.risk_factors) } catch (e) { data.risk_factors = [] }
+    }
+    currentUser.value = data
   } catch {
     currentUser.value = row
   } finally {

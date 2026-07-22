@@ -7,6 +7,7 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/repository"
 	"marketing/internal/websocket"
+	"reflect"
 	"time"
 )
 
@@ -133,9 +134,24 @@ func (s *CustomerSessionService) ListActiveBlacklist(_ context.Context, page, pa
 
 // 编译期类型断言：确保 CustomerSessionService.blacklistRepo 字段保持 *UserBlacklistRepository
 //
-// 这一行不参与运行（赋给 _），但可在编译期发现字段被误删/类型被误改，
-// 避免方法签名变了但字段未导出导致运行时 nil panic。
-var _ *repository.UserBlacklistRepository = (*CustomerSessionService)(nil).blacklistRepo
+// 设计：使用 reflect 读取 struct 字段类型并比对，**不实例化 struct / 不访问字段值**，
+// 避免 init 阶段 nil pointer dereference（(*CustomerSessionService)(nil).field 会求值）。
+//
+// 错误信息会在 init() 阶段被检测到：
+//   - 字段被删除 → "blacklistRepo field is missing"
+//   - 字段类型被改 → "blacklistRepo field type changed"
+var _ = func() error {
+	t := reflect.TypeOf(CustomerSessionService{})
+	field, ok := t.FieldByName("blacklistRepo")
+	if !ok {
+		return errors.New("blacklistRepo field is missing on CustomerSessionService")
+	}
+	want := reflect.TypeOf((*repository.UserBlacklistRepository)(nil))
+	if field.Type != want {
+		return fmt.Errorf("blacklistRepo field type changed: got %v, want %v", field.Type, want)
+	}
+	return nil
+}()
 
 // preCreateBlacklistGuard 创建会话前的黑名单守卫
 //

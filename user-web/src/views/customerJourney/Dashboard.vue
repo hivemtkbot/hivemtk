@@ -270,8 +270,8 @@ const loadOverview = async () => {
       getJourneyOverview(),
       listJourneyStages()
     ])
-    overview.value = overviewRes.data || overviewRes
-    const stagesData = stagesRes.data || stagesRes || []
+    overview.value = overviewRes
+    const stagesData = stagesRes || []
     stagesMeta.value = Array.isArray(stagesData) ? stagesData : stagesData.list || []
     lastUpdate.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
   } catch (e) {

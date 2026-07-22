@@ -177,9 +177,24 @@ const fetchOverallStats = async () => {
     params.group_by = filterForm.groupBy
     
     const res = await getXiaohongshuCardOverallStats(params)
-    // 拦截器已解包，res 直接就是数据对象
-    // 更新统计数据
-    Object.assign(overallStats, res)
+    // 拦截器已解包，res 即后端返回对象（camelCase），映射到模板使用的 snake_case
+    overallStats.total_cards = res.totalCards || 0
+    overallStats.active_cards = res.activeCards || 0
+    overallStats.total_views = res.totalViews || 0
+    overallStats.top_cards = (res.popularCards || []).map(p => ({
+      id: p.id,
+      title: p.title,
+      author: '',
+      view_count: p.viewCount,
+      created_at: p.createdAt
+    }))
+    overallStats.recent_activities = (res.recentActivity || []).map(a => ({
+      card_title: a.cardId,
+      action_type: a.action,
+      user_ip: a.ipAddress,
+      created_at: a.createdAt
+    }))
+    overallStats.view_trend = (res.dailyStats || []).map(d => ({ date: d.date, count: d.view }))
 
     // 更新图表
     nextTick(() => {
