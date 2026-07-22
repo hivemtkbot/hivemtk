@@ -12,13 +12,14 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
-	"marketing/internal/repository"
+	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 )
 
@@ -47,6 +48,9 @@ func NewAssetBundleController(svc *service.AssetBundleService) *AssetBundleContr
 //	POST   /api/asset-bundle/weave        Weave 织布
 //	POST   /api/asset-bundle/merchant-save 商户表单保存
 //	POST   /api/asset-bundle/merchant-parse/:aid 商户表单解析
+//	POST   /api/asset-bundle/:id/enable   热启用（方向 D1，立即生效）
+//	POST   /api/asset-bundle/:id/disable  热禁用（方向 D1，立即生效）
+//	POST   /api/asset-bundle/enabled/list 查询已热启用的资产包列表
 func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g := rg.Group("/asset-bundle")
 	g.POST("", c.Create)
@@ -60,13 +64,15 @@ func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g.POST("/weave", c.Weave)
 	g.POST("/merchant-save", c.MerchantSave)
 	g.POST("/merchant-parse/:aid", c.MerchantParse)
+	g.POST("/:id/enable", c.Enable)
+	g.POST("/:id/disable", c.Disable)
+	g.POST("/enabled/list", c.GetEnabled)
 }
 
 // Create 创建
 func (c *AssetBundleController) Create(ctx *gin.Context) {
 	var req dto.AssetBundleCreateRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !response.BindJSON(ctx, &req) {
 		return
 	}
 	bundle := &model.AssetBundle{
@@ -83,22 +89,21 @@ func (c *AssetBundleController) Create(ctx *gin.Context) {
 	}
 	if err := c.svc.CreateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] create failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": bundle})
+	response.Success(ctx, bundle, "ok")
 }
 
 // Update 更新
 func (c *AssetBundleController) Update(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 	var req dto.AssetBundleUpdateRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !response.BindJSON(ctx, &req) {
 		return
 	}
 	req.ID = id
@@ -117,25 +122,25 @@ func (c *AssetBundleController) Update(ctx *gin.Context) {
 	}
 	if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] update failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": bundle})
+	response.Success(ctx, bundle, "ok")
 }
 
 // Get 按 ID 查
 func (c *AssetBundleController) Get(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 	bundle, err := c.svc.GetBundle(ctx.Request.Context(), id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": bundle})
+	response.Success(ctx, bundle, "ok")
 }
 
 // GetByAssetID 按业务键查
@@ -143,90 +148,120 @@ func (c *AssetBundleController) GetByAssetID(ctx *gin.Context) {
 	aid := ctx.Param("aid")
 	bundle, err := c.svc.GetBundleByAssetID(ctx.Request.Context(), aid)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": bundle})
+	response.Success(ctx, bundle, "ok")
 }
 
 // List 分页
 func (c *AssetBundleController) List(ctx *gin.Context) {
 	var req dto.AssetBundleListRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
-		// query 绑定失败时尝试 JSON 绑定
 		if err2 := ctx.ShouldBindJSON(&req); err2 != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			response.Error(ctx, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
-	filter := repository.AssetBundleFilter{
-		Keyword:  req.Keyword,
-		Author:   req.Author,
-		Industry: req.Industry,
-		Language: req.Language,
-		Scope:    req.Scope,
-		Status:   req.Status,
-		Tags:     req.Tags,
-		Page:     req.Page,
-		Size:     req.Size,
-	}
-	list, total, err := c.svc.ListBundles(ctx.Request.Context(), filter)
+	list, total, err := c.svc.ListBundlesWithParams(ctx.Request.Context(),
+		req.Keyword, req.Author, req.Industry, req.Language, string(req.Scope), assetBundleStatusToInt(req.Status), strings.Join(req.Tags, ","), req.Page, req.Size)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": dto.AssetBundleListResponse{
-		List: list, Total: total, Page: filter.Page, Size: filter.Size,
-	}})
+	response.Success(ctx, dto.AssetBundleListResponse{
+		List: list, Total: total, Page: req.Page, Size: req.Size,
+	}, "ok")
 }
 
 // Publish 启用
 func (c *AssetBundleController) Publish(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 	if err := c.svc.PublishBundle(ctx.Request.Context(), id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": "ok"})
+	response.Success(ctx, "ok", "ok")
 }
 
 // Archive 归档
 func (c *AssetBundleController) Archive(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 	if err := c.svc.ArchiveBundle(ctx.Request.Context(), id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": "ok"})
+	response.Success(ctx, "ok", "ok")
+}
+
+// Enable 热启用资产包（方向 D1，立即生效，无需重启）
+func (c *AssetBundleController) Enable(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
+		return
+	}
+	bundle, err := c.svc.EnableBundle(ctx.Request.Context(), id)
+	if err != nil {
+		logger.Errorf("[asset-bundle] enable failed: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, bundle, "enabled")
+}
+
+// Disable 热禁用资产包（方向 D1，立即生效，无需重启）
+func (c *AssetBundleController) Disable(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
+		return
+	}
+	bundle, err := c.svc.DisableBundle(ctx.Request.Context(), id)
+	if err != nil {
+		logger.Errorf("[asset-bundle] disable failed: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, bundle, "disabled")
+}
+
+// GetEnabled 查询已热启用的资产包列表
+func (c *AssetBundleController) GetEnabled(ctx *gin.Context) {
+	list, err := c.svc.GetEnabledBundles(ctx.Request.Context())
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
 }
 
 // Delete 软删
 func (c *AssetBundleController) Delete(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		response.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 	if err := c.svc.DeleteBundle(ctx.Request.Context(), id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": "ok"})
+	response.Success(ctx, "ok", "ok")
 }
 
 // Weave 织布算法
 func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	var req dto.WeaveRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !response.BindJSON(ctx, &req) {
 		return
 	}
 	// DTO → Service 层 WeaveInput 转换
@@ -250,10 +285,9 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	}
 	msgs, err := c.svc.WeaveForRequest(ctx.Request.Context(), req.AssetID, req.UserQuery, in)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// 统计
 	stats := dto.WeaveStats{
 		AssetMessages:    len(in.Asset.Messages),
 		RAGMessages:      0,
@@ -264,23 +298,22 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	if len(req.RAGDocs) > 0 {
 		stats.RAGMessages = 1
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": dto.WeaveResponse{
+	response.Success(ctx, dto.WeaveResponse{
 		Messages:     msgs,
 		ResultLength: len(msgs),
 		Stats:        stats,
-	}})
+	}, "ok")
 }
 
 // MerchantSave 商户低代码表单保存（把表单反向翻译成标准 messages 数组）
 func (c *AssetBundleController) MerchantSave(ctx *gin.Context) {
 	var req dto.MerchantFormSaveRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !response.BindJSON(ctx, &req) {
 		return
 	}
 	bundle, err := service.BuildBundleFromMerchantForm(req)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// 如果已存在则更新，否则创建
@@ -288,16 +321,16 @@ func (c *AssetBundleController) MerchantSave(ctx *gin.Context) {
 	if existing != nil {
 		bundle.ID = existing.ID
 		if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
 			return
 		}
 	} else {
 		if err := c.svc.CreateBundle(ctx.Request.Context(), bundle); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
-	ctx.JSON(http.StatusOK, gin.H{"data": bundle})
+	response.Success(ctx, bundle, "ok")
 }
 
 // MerchantParse 解析 messages 数组为商户表单（前端回显用）
@@ -305,9 +338,26 @@ func (c *AssetBundleController) MerchantParse(ctx *gin.Context) {
 	aid := ctx.Param("aid")
 	bundle, err := c.svc.GetBundleByAssetID(ctx.Request.Context(), aid)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
 	resp := service.ParseBundleToMerchantForm(bundle)
-	ctx.JSON(http.StatusOK, gin.H{"data": resp})
+	response.Success(ctx, resp, "ok")
+}
+
+// assetBundleStatusToInt 将 model.AssetBundleStatus 枚举映射为 service 层约定的状态码。
+// 约定与 service.statusToAssetBundleStatus 反向：0=不筛选, 1=draft, 2=active, 3=inactive, 4=archived。
+func assetBundleStatusToInt(s model.AssetBundleStatus) int {
+	switch s {
+	case model.AssetBundleStatusDraft:
+		return 1
+	case model.AssetBundleStatusActive:
+		return 2
+	case model.AssetBundleStatusInactive:
+		return 3
+	case model.AssetBundleStatusArchived:
+		return 4
+	default:
+		return 0
+	}
 }

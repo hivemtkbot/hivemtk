@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"marketing/internal/dto"
@@ -338,6 +339,9 @@ func stripTrailingJSONBlock(content string) (string, bool) {
 type AssetBundleService struct {
 	repo    repository.AssetBundleRepository
 	version repository.AssetBundleVersionLogRepository
+	// hotPlug 热插拔缓存：维护运行期已启用的资产包 AssetID 集合。
+	// 启用/禁用立即生效，无需重启服务（纯内存，进程重启后清空）。
+	hotPlug hotPlugCache
 }
 
 // NewAssetBundleService 构造资产包服务
@@ -346,7 +350,65 @@ func NewAssetBundleService(repo repository.AssetBundleRepository, version reposi
 		// version 可选，传入 nil 时使用 stub（仅 log）
 		version = stubVersionLogRepo{}
 	}
-	return &AssetBundleService{repo: repo, version: version}
+	return &AssetBundleService{repo: repo, version: version, hotPlug: newHotPlugCache()}
+}
+
+// hotPlugCache 资产包热插拔内存缓存（方向 D1）
+//
+// 维护运行期已"热启用"的资产包 AssetID 集合。启用/禁用立即生效，无需重启服务。
+// 进程重启后缓存清空（冷启动），此时 WeaveForRequest 走 permissive 回退逻辑
+// （缓存为空即放行），由运维重新调用 EnableBundle 恢复热插拔管控。
+type hotPlugCache struct {
+	mu      sync.RWMutex
+	enabled map[string]struct{} // key: AssetID
+}
+
+// newHotPlugCache 构造热插拔缓存
+func newHotPlugCache() hotPlugCache {
+	return hotPlugCache{enabled: make(map[string]struct{})}
+}
+
+// add 热启用某资产包（入列）
+func (c *hotPlugCache) add(assetID string) {
+	if assetID == "" {
+		return
+	}
+	c.mu.Lock()
+	c.enabled[assetID] = struct{}{}
+	c.mu.Unlock()
+}
+
+// remove 热禁用某资产包（出列）
+func (c *hotPlugCache) remove(assetID string) {
+	c.mu.Lock()
+	delete(c.enabled, assetID)
+	c.mu.Unlock()
+}
+
+// has 判断某资产包是否已热启用
+func (c *hotPlugCache) has(assetID string) bool {
+	c.mu.RLock()
+	_, ok := c.enabled[assetID]
+	c.mu.RUnlock()
+	return ok
+}
+
+// isEmpty 判断缓存是否为空（冷启动判定）
+func (c *hotPlugCache) isEmpty() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.enabled) == 0
+}
+
+// list 返回已热启用的 AssetID 列表（快照副本）
+func (c *hotPlugCache) list() []string {
+	c.mu.RLock()
+	out := make([]string, 0, len(c.enabled))
+	for k := range c.enabled {
+		out = append(out, k)
+	}
+	c.mu.RUnlock()
+	return out
 }
 
 // CreateBundle 创建资产包（带业务校验）
@@ -445,6 +507,73 @@ func (s *AssetBundleService) ArchiveBundle(ctx context.Context, id int64) error 
 	return s.repo.Update(ctx, m)
 }
 
+// ============================================================================
+// 资产包热插拔：动态启用/禁用（方向 D1）
+//
+// 文档：docs/企业级架构优化/资产包模式.md §六「保存配置并立刻热更新到商户本地 AI 引擎」
+//
+// 设计：
+//  - 用内存缓存（hotPlugCache，带 RWMutex 的 map）维护运行期已启用资产包 AssetID 集合
+//  - EnableBundle/DisableBundle 立即刷新内存缓存，无需重启服务（air 热更新友好）
+//  - WeaveForRequest 织布时只放行已热启用的资产包；冷启动（缓存空）走 permissive 回退
+// ============================================================================
+
+// ErrBundleNotHotEnabled 资产包未热启用（热插拔缓存未列入，已启用其他资产包时拒绝织布）
+var ErrBundleNotHotEnabled = errors.New("asset bundle is not hot-enabled (call enable API first)")
+
+// EnableBundle 热启用资产包（立即生效，无需重启）
+//
+// 行为：校验资产包存在 → 加入热插拔内存缓存。纯内存操作，不写 DB。
+// 启用后 WeaveForRequest 会放行该资产包的织布请求。
+// 幂等：重复启用同一资产包无副作用。
+func (s *AssetBundleService) EnableBundle(ctx context.Context, id int64) (*model.AssetBundle, error) {
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.hotPlug.add(m.AssetID)
+	logger.Debugf("[asset_bundle] hot-enable: asset_id=%s id=%d", m.AssetID, id)
+	return m, nil
+}
+
+// DisableBundle 热禁用资产包（立即生效，无需重启）
+//
+// 行为：校验资产包存在 → 从热插拔内存缓存移除。纯内存操作，不写 DB。
+// 禁用后 WeaveForRequest 将拒绝该资产包的织布请求。
+// 幂等：重复禁用同一资产包无副作用。
+func (s *AssetBundleService) DisableBundle(ctx context.Context, id int64) (*model.AssetBundle, error) {
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.hotPlug.remove(m.AssetID)
+	logger.Debugf("[asset_bundle] hot-disable: asset_id=%s id=%d", m.AssetID, id)
+	return m, nil
+}
+
+// GetEnabledBundles 返回当前已热启用的资产包列表
+//
+// 从热插拔缓存读取 AssetID，再逐个从仓储加载完整数据。加载失败的条目跳过
+// （例如资产包已被软删除，缓存未及时同步）。
+func (s *AssetBundleService) GetEnabledBundles(ctx context.Context) ([]*model.AssetBundle, error) {
+	ids := s.hotPlug.list()
+	out := make([]*model.AssetBundle, 0, len(ids))
+	for _, aid := range ids {
+		b, err := s.repo.FindByAssetID(ctx, aid)
+		if err != nil {
+			logger.Debugf("[asset_bundle] hot-enabled bundle load failed (skip): asset_id=%s err=%v", aid, err)
+			continue
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// IsBundleEnabled 判断某资产包是否已热启用（运行期缓存查询）
+func (s *AssetBundleService) IsBundleEnabled(assetID string) bool {
+	return s.hotPlug.has(assetID)
+}
+
 // DeleteBundle 软删除
 func (s *AssetBundleService) DeleteBundle(ctx context.Context, id int64) error {
 	return s.repo.SoftDelete(ctx, id)
@@ -465,12 +594,77 @@ func (s *AssetBundleService) ListBundles(ctx context.Context, f repository.Asset
 	return s.repo.List(ctx, f)
 }
 
+// ListBundlesWithParams 分页查询（Controller 友好）：用原始参数构造 AssetBundleFilter，
+// 避免 controller 依赖 repository 类型。
+func (s *AssetBundleService) ListBundlesWithParams(
+	ctx context.Context,
+	keyword, author, industry, language, scope string,
+	status int,
+	tags string,
+	page, size int,
+) ([]*model.AssetBundle, int64, error) {
+	return s.repo.List(ctx, repository.AssetBundleFilter{
+		Keyword:  keyword,
+		Author:   author,
+		Industry: industry,
+		Language: language,
+		Scope:    model.AssetBundleScope(scope),
+		Status:   statusToAssetBundleStatus(status),
+		Tags:     splitTags(tags),
+		Page:     page,
+		Size:     size,
+	})
+}
+
+// statusToAssetBundleStatus 将 int 状态码映射到 AssetBundleStatus 枚举。
+// 约定：0 表示不筛选；1=draft, 2=active, 3=inactive, 4=archived。
+func statusToAssetBundleStatus(code int) model.AssetBundleStatus {
+	switch code {
+	case 1:
+		return model.AssetBundleStatusDraft
+	case 2:
+		return model.AssetBundleStatusActive
+	case 3:
+		return model.AssetBundleStatusInactive
+	case 4:
+		return model.AssetBundleStatusArchived
+	default:
+		return ""
+	}
+}
+
+// splitTags 将逗号/空格分隔的 tag 字符串切分为 []string，去除空项。
+func splitTags(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // WeaveForRequest 业务化 Weave：先加载资产包，再织布
 //
 // 设计：把 userQuery 注入到 in.UserQuery，保证 Weave 函数能拿到 query 内容
+//
+// 热插拔管控（方向 D1）：当热插拔缓存非空（已有资产包被 EnableBundle 启用）时，
+// 只放行已热启用的资产包；冷启动（缓存为空）时走 permissive 回退，保持向后兼容。
 func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQuery string, in WeaveInput) ([]model.AssetBundleMessage, error) {
 	if assetID == "" {
 		return nil, errors.New("asset_id required")
+	}
+	// 热插拔管控：缓存非空时只放行已热启用的资产包
+	if !s.hotPlug.isEmpty() && !s.hotPlug.has(assetID) {
+		return nil, ErrBundleNotHotEnabled
 	}
 	if in.Asset == nil {
 		b, err := s.repo.FindByAssetID(ctx, assetID)

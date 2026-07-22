@@ -12,6 +12,7 @@ import (
 // setupAssetBundleRoutes 资产包（AssetBundle）路由
 //
 // 方向9：资产包模式 - OpenAI messages 资产包 CRUD + Weave 织布算法
+// 方向 D1：资产包热插拔/动态启用禁用（立即生效，无需重启）
 // 文档依据：docs/企业级架构优化/资产包模式.md
 //
 // 路由：
@@ -27,6 +28,9 @@ import (
 //	POST   /api/asset-bundle/weave        Weave 织布
 //	POST   /api/asset-bundle/merchant-save 商户表单保存
 //	POST   /api/asset-bundle/merchant-parse/:aid 商户表单解析
+//	POST   /api/asset-bundle/:id/enable   热启用（D1，立即生效）
+//	POST   /api/asset-bundle/:id/disable  热禁用（D1，立即生效）
+//	POST   /api/asset-bundle/enabled/list 查询已热启用的资产包列表
 func setupAssetBundleRoutes(auth *gin.RouterGroup) {
 	// 装配：repo → service → controller
 	assetBundleRepo := repository.NewAssetBundleRepository(db.GetDB())
