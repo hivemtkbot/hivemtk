@@ -1,0 +1,117 @@
+package controller
+
+import (
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/response"
+	"marketing/internal/service"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Takeover 坐席接管 AI 会话
+//
+//	POST /api/customer-sessions/:id/takeover
+//	body: {"reason": "AI 答非所问"}
+func (c *CustomerSessionController) Takeover(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	// agent_id 从登录态推导（与 SendMessage 一致，禁止客户端伪造）
+	agentID := getUserIDFromContext(ctx)
+	if agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
+		return
+	}
+	if err := c.sessionService.TakeoverByAgent(ctx.Request.Context(), &service.TakeoverRequest{
+		SessionID: uint(id),
+		AgentID:   agentID,
+		Reason:    req.Reason,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": "human",
+	}, "接管成功")
+}
+
+// Release 坐席释放会话回 AI
+//
+//	POST /api/customer-sessions/:id/release
+func (c *CustomerSessionController) Release(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	agentID := getUserIDFromContext(ctx)
+	if agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "未登录或无权操作", "missing user_id")
+		return
+	}
+	if err := c.sessionService.ReleaseToAI(ctx.Request.Context(), &service.ReleaseToAIRequest{
+		SessionID: uint(id),
+		AgentID:   agentID,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": "ai",
+	}, "释放成功")
+}
+
+// SwitchHandler 统一 AI/人工切换接口
+//
+//	POST /api/customer-sessions/:id/switch-handler
+//	body: {"handler_type": "human" | "ai", "reason": "..."}
+//
+// 传 handler_type=human → 等价 Takeover；handler_type=ai → 等价 Release。
+// 前端只需要一个按钮调一个接口，根据当前 handler_type 反向选择目标。
+func (c *CustomerSessionController) SwitchHandler(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	var req struct {
+		HandlerType string `json:"handler_type" binding:"required,oneof=ai human"`
+		Reason      string `json:"reason"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	agentID := getUserIDFromContext(ctx)
+	if req.HandlerType == "human" && agentID == 0 {
+		response.Error(ctx, http.StatusUnauthorized, "切人工时必须登录", "missing user_id")
+		return
+	}
+	if err := c.sessionService.SwitchHandler(ctx.Request.Context(), &service.SwitchHandlerRequest{
+		SessionID:   uint(id),
+		AgentID:     agentID,
+		HandlerType: model.HandlerType(req.HandlerType),
+		Reason:      req.Reason,
+	}); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"session_id":   id,
+		"handler_type": req.HandlerType,
+	}, "切换成功")
+}
