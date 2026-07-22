@@ -23,6 +23,11 @@
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94A3B8;margin-right:8px;vertical-align:middle;"></span>{{ $t('离线') }}
           </el-option>
         </el-select>
+        <!-- C2：黑名单管理入口 -->
+        <el-button @click="openBlacklistDialog">
+          <el-icon><Warning /></el-icon>
+          黑名单管理
+        </el-button>
         <el-button type="primary" @click="showCreateSession">
           <el-icon><Plus /></el-icon>
           {{ $t('新建会话') }}
@@ -48,7 +53,7 @@
             v-for="session in filteredSessions"
             :key="session.id"
             class="session-item"
-            :class="{ active: currentSession?.id === session.id }"
+            :class="{ active: currentSession?.id === session.id, blacklisted: blacklistedSessionIds.includes(session.id) }"
             @click="selectSession(session)"
           >
             <el-avatar :size="40">{{ session.customerName?.charAt(0) }}</el-avatar>
@@ -71,6 +76,13 @@
                   {{ session.handlerType === 'human' ? '人工' : 'AI' }}
                 </el-tag>
                 <el-tag size="small" effect="plain">{{ session.channel }}</el-tag>
+                <!-- C2：拉黑后会话状态变更展示 -->
+                <el-tag
+                  v-if="blacklistedSessionIds.includes(session.id)"
+                  size="small"
+                  type="danger"
+                  effect="dark"
+                >已拉黑</el-tag>
               </div>
             </div>
             <el-badge v-if="session.unread" :value="session.unread" />
@@ -384,6 +396,54 @@
         </el-card>
       </div>
     </div>
+
+    <!-- C2：黑名单管理弹窗（列表 + 解黑） -->
+    <el-dialog
+      v-model="blacklistDialogVisible"
+      title="黑名单管理"
+      width="680px"
+      :close-on-click-modal="false"
+    >
+      <div class="blacklist-toolbar">
+        <span class="count">共 {{ blacklistItems.length }} 条记录</span>
+        <el-button size="small" :loading="blacklistLoading" @click="loadBlacklist">刷新</el-button>
+      </div>
+      <el-table
+        v-loading="blacklistLoading"
+        :data="blacklistItems"
+        size="small"
+        max-height="420"
+        empty-text="暂无黑名单记录"
+      >
+        <el-table-column label="访客ID" min-width="130">
+          <template #default="{ row }">{{ row.user_id ?? row.UserID ?? row.userId ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="平台" width="100">
+          <template #default="{ row }">{{ row.platform ?? row.Platform ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="拉黑原因" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.reason ?? row.Reason ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="来源" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="(row.source ?? row.Source) === 'auto' ? 'warning' : 'info'">
+              {{ row.source ?? row.Source ?? 'manual' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="拉黑时间" width="140">
+          <template #default="{ row }">{{ formatTime(row.created_at ?? row.CreatedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="danger" link @click="handleUnblacklist(row)">解除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="blacklistDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -394,7 +454,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, MagicStick, ChatLineSquare, User, UserFilled,
-  Ticket, Goods, CircleClose, SwitchButton
+  Ticket, Goods, CircleClose, SwitchButton, Warning
 } from '@element-plus/icons-vue'
 import {
   getSessions,
@@ -406,6 +466,8 @@ import {
   releaseSession,
   switchSessionHandler,
   blacklistSession,
+  unblacklistUser,
+  listBlacklist,
   getCustomerStats,
   getCustomerTags
 } from '@/api/customerSession.js'
@@ -460,6 +522,16 @@ const quickReplySearch = ref('')
 
 // ===== P1-4 G8 AISuggestion =====
 const aiSuggestions = ref([])
+
+// ===== C2：黑名单管理 =====
+// blacklistDialogVisible: 黑名单管理弹窗显隐
+// blacklistItems: 黑名单分页列表
+// blacklistLoading: 列表加载中
+// blacklistedSessionIds: 已拉黑会话 ID 数组（用于列表项状态标记，用数组保证响应式）
+const blacklistDialogVisible = ref(false)
+const blacklistItems = ref([])
+const blacklistLoading = ref(false)
+const blacklistedSessionIds = ref([])
 
 // ===== 过滤会话 =====
 const filteredSessions = computed(() => {
@@ -803,12 +875,79 @@ const sendProductCard = () => {
 }
 const blacklist = async () => {
   if (!currentSession.value) return
+  let reason = ''
   try {
-    await ElMessageBox.confirm('确定将该访客拉入黑名单？', '警告', { type: 'error' })
-    // TODO: 调拉黑接口
-    ElMessage.success('已加入黑名单')
+    // 弹出 prompt 输入拉黑原因（对应设计文档 §4.4 前端交互）
+    const promptRes = await ElMessageBox.prompt('请输入拉黑原因（选填）', '拉黑访客', {
+      type: 'warning',
+      confirmButtonText: '确认拉黑',
+      cancelButtonText: '取消',
+      inputPlaceholder: '例如：恶意刷屏 / 辱骂客服 / 欺诈风险'
+    })
+    reason = promptRes?.value || ''
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error('操作失败')
+    // 用户取消 prompt
+    return
+  }
+  try {
+    // 调 POST /api/customer-sessions/:id/blacklist
+    // 后端会关闭该会话 + 写黑名单 + 推 WebSocket(event=blacklisted)
+    await blacklistSession(currentSession.value.id, reason, 0)
+    // 本地状态变更展示：会话标记为已拉黑 + 状态置为 closed
+    if (!blacklistedSessionIds.value.includes(currentSession.value.id)) {
+      blacklistedSessionIds.value = [...blacklistedSessionIds.value, currentSession.value.id]
+    }
+    currentSession.value.status = 'closed'
+    ElMessage.success('已加入黑名单，该会话已关闭')
+    loadSessions()
+  } catch (e) {
+    ElMessage.error('拉黑失败：' + (e?.message || ''))
+  }
+}
+
+// ===== C2：黑名单管理弹窗（列表 + 解黑） =====
+/**
+ * 打开黑名单管理弹窗并加载列表
+ * 后端：GET /api/customer-sessions/blacklist
+ */
+const openBlacklistDialog = async () => {
+  blacklistDialogVisible.value = true
+  await loadBlacklist()
+}
+
+const loadBlacklist = async () => {
+  blacklistLoading.value = true
+  try {
+    const res = await listBlacklist({ page: 1, page_size: 50 })
+    // 兼容 res 直接是数组或 { list: [] } 两种包装
+    const list = Array.isArray(res) ? res : (res?.list || res?.data || [])
+    blacklistItems.value = list
+  } catch (e) {
+    blacklistItems.value = []
+    ElMessage.error('加载黑名单失败：' + (e?.message || ''))
+  } finally {
+    blacklistLoading.value = false
+  }
+}
+
+/**
+ * 解除拉黑
+ * 后端：POST /api/customer-sessions/blacklist/remove
+ */
+const handleUnblacklist = async (item) => {
+  const userId = item.user_id ?? item.UserID ?? item.userId
+  const platform = item.platform ?? item.Platform ?? 'web'
+  if (!userId) {
+    ElMessage.warning('缺少 user_id，无法解除')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定解除 ${userId} 的黑名单？`, '解除拉黑', { type: 'warning' })
+    await unblacklistUser(userId, platform)
+    ElMessage.success('已解除拉黑')
+    await loadBlacklist()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('解除失败：' + (e?.message || ''))
   }
 }
 
@@ -1068,6 +1207,11 @@ onUnmounted(() => {
   cursor: pointer;
   &:hover { background: #f5f7fa; }
   &.active { background: #ecf5ff; }
+  /* C2：已拉黑会话项视觉降级（灰化 + 左侧红线） */
+  &.blacklisted {
+    opacity: 0.7;
+    border-left: 3px solid #F56C6C;
+  }
   .session-info { flex: 1; min-width: 0; }
   .session-top { display: flex; justify-content: space-between; }
   .name { font-weight: bold; }
@@ -1288,6 +1432,17 @@ onUnmounted(() => {
     color: #c0c4cc;
     font-size: 12px;
     padding: 4px 0;
+  }
+}
+/* C2：黑名单管理弹窗工具栏 */
+.blacklist-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  .count {
+    font-size: 13px;
+    color: #606266;
   }
 }
 </style>
