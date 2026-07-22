@@ -13,22 +13,20 @@ import (
 	"path/filepath"
 	"time"
 
+	"context"
 	"gorm.io/gorm"
 )
 
 // BackupService 备份服务
 type BackupService struct {
+	db         *gorm.DB
 	backupRepo *repository.BackupRepository
-}
-
-// db 返回全局数据库连接
-func (s *BackupService) db() *gorm.DB {
-	return db.GetDB()
 }
 
 // NewBackupService 创建备份服务实例
 func NewBackupService() *BackupService {
 	return &BackupService{
+		db:         db.GetDB(),
 		backupRepo: repository.NewBackupRepository(),
 	}
 }
@@ -40,7 +38,7 @@ type CreateBackupRequest struct {
 }
 
 // CreateBackup 创建备份
-func (s *BackupService) CreateBackup(createdBy uint, req *CreateBackupRequest) (*model.Backup, error) {
+func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *CreateBackupRequest) (*model.Backup, error) {
 	backup := &model.Backup{
 		BackupName: req.BackupName,
 		BackupType: req.BackupType,
@@ -56,20 +54,20 @@ func (s *BackupService) CreateBackup(createdBy uint, req *CreateBackupRequest) (
 		backup.BackupName = fmt.Sprintf("backup_%s", time.Now().Format("20060102_150405"))
 	}
 
-	if err := s.backupRepo.Create(backup); err != nil {
+	if err := s.backupRepo.Create(ctx, backup); err != nil {
 		return nil, err
 	}
 
 	// 异步执行备份
-	go s.executeBackup(backup)
+	go s.executeBackup(ctx, backup)
 
 	return backup, nil
 }
 
 // CreateBackupSimple 创建备份（字符串类型入参，供 controller 调用，
 // 避免 controller 直接引用 model.BackupType）。
-func (s *BackupService) CreateBackupSimple(createdBy uint, backupName, backupType string) (*model.Backup, error) {
-	return s.CreateBackup(createdBy, &CreateBackupRequest{
+func (s *BackupService) CreateBackupSimple(ctx context.Context, createdBy uint, backupName, backupType string) (*model.Backup, error) {
+	return s.CreateBackup(ctx, createdBy, &CreateBackupRequest{
 		BackupName: backupName,
 		BackupType: ParseBackupType(backupType),
 	})
@@ -89,17 +87,17 @@ func ParseBackupType(s string) model.BackupType {
 }
 
 // executeBackup 执行备份
-func (s *BackupService) executeBackup(backup *model.Backup) {
+func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup) {
 	// 更新状态为进行中
 	backup.Status = model.BackupStatusRunning
-	s.backupRepo.Update(backup)
+	s.backupRepo.Update(ctx, backup)
 
 	// 创建备份目录
 	backupDir := filepath.Join("backups", backup.BackupName)
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = err.Error()
-		s.backupRepo.Update(backup)
+		s.backupRepo.Update(ctx, backup)
 		return
 	}
 
@@ -108,18 +106,18 @@ func (s *BackupService) executeBackup(backup *model.Backup) {
 	backup.FilePath = backupFile
 
 	// 执行数据库备份
-	if err := s.backupDatabase(backupDir); err != nil {
+	if err := s.backupDatabase(ctx, backupDir); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "数据库备份失败：" + err.Error()
-		s.backupRepo.Update(backup)
+		s.backupRepo.Update(ctx, backup)
 		return
 	}
 
 	// 压缩备份文件
-	if err := s.compressBackup(backupDir, backupFile); err != nil {
+	if err := s.compressBackup(ctx, backupDir, backupFile); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "压缩备份失败：" + err.Error()
-		s.backupRepo.Update(backup)
+		s.backupRepo.Update(ctx, backup)
 		return
 	}
 
@@ -132,13 +130,13 @@ func (s *BackupService) executeBackup(backup *model.Backup) {
 	backup.Status = model.BackupStatusCompleted
 	now := time.Now()
 	backup.CompletedAt = &now
-	s.backupRepo.Update(backup)
+	s.backupRepo.Update(ctx, backup)
 }
 
 // backupDatabase 备份数据库
-func (s *BackupService) backupDatabase(dir string) error {
+func (s *BackupService) backupDatabase(ctx context.Context, dir string) error {
 	// 导出全量数据到 JSON
-	data, err := s.exportData()
+	data, err := s.exportData(ctx)
 	if err != nil {
 		return err
 	}
@@ -147,7 +145,7 @@ func (s *BackupService) backupDatabase(dir string) error {
 	return os.WriteFile(sqlFile, data, 0644)
 }
 
-func (s *BackupService) exportData() ([]byte, error) {
+func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 	now := time.Now()
 	cutoff := now.Add(-24 * time.Hour).Unix()
 
@@ -164,7 +162,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 		Desc     string `json:"desc"`
 	}
 	var clues []clueRow
-	if err := s.db().Table("clues").Where("create_time > ?", cutoff).Find(&clues).Error; err != nil {
+	if err := s.db.WithContext(ctx).Table("clues").Where("create_time > ?", cutoff).Find(&clues).Error; err != nil {
 		return nil, err
 	}
 
@@ -176,7 +174,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 		Phone    string `json:"phone"`
 	}
 	var users []userRow
-	if err := s.db().Table("user").Limit(1000).Find(&users).Error; err != nil {
+	if err := s.db.WithContext(ctx).Table("user").Limit(1000).Find(&users).Error; err != nil {
 		return nil, err
 	}
 
@@ -187,7 +185,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 		URL       string `json:"url"`
 	}
 	var links []shortLinkRow
-	if err := s.db().Table("short_links").Limit(1000).Find(&links).Error; err != nil && err != gorm.ErrRecordNotFound {
+	if err := s.db.WithContext(ctx).Table("short_links").Limit(1000).Find(&links).Error; err != nil && err != gorm.ErrRecordNotFound {
 		// not fatal if table doesn't exist
 		links = []shortLinkRow{}
 	}
@@ -208,7 +206,7 @@ func (s *BackupService) exportData() ([]byte, error) {
 }
 
 // compressBackup 压缩备份文件
-func (s *BackupService) compressBackup(dir, output string) error {
+func (s *BackupService) compressBackup(ctx context.Context, dir, output string) error {
 	// 创建 zip 文件
 	zipFile, err := os.Create(output)
 	if err != nil {
@@ -255,18 +253,18 @@ func (s *BackupService) compressBackup(dir, output string) error {
 }
 
 // GetBackupList 获取备份列表
-func (s *BackupService) GetBackupList(page, pageSize int) ([]*model.Backup, int64, error) {
-	return s.backupRepo.GetAll(page, pageSize)
+func (s *BackupService) GetBackupList(ctx context.Context, page, pageSize int) ([]*model.Backup, int64, error) {
+	return s.backupRepo.GetAll(ctx, page, pageSize)
 }
 
 // GetBackupByID 获取备份详情
-func (s *BackupService) GetBackupByID(id uint) (*model.Backup, error) {
-	return s.backupRepo.GetByID(id)
+func (s *BackupService) GetBackupByID(ctx context.Context, id uint) (*model.Backup, error) {
+	return s.backupRepo.GetByID(ctx, id)
 }
 
 // DeleteBackup 删除备份
-func (s *BackupService) DeleteBackup(id uint) error {
-	backup, err := s.backupRepo.GetByID(id)
+func (s *BackupService) DeleteBackup(ctx context.Context, id uint) error {
+	backup, err := s.backupRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -276,23 +274,20 @@ func (s *BackupService) DeleteBackup(id uint) error {
 		os.Remove(backup.FilePath)
 	}
 
-	return s.backupRepo.Delete(id)
+	return s.backupRepo.Delete(ctx, id)
 }
 
 // RestoreService 恢复服务
 type RestoreService struct {
+	db          *gorm.DB
 	restoreRepo *repository.RestoreRecordRepository
 	backupRepo  *repository.BackupRepository
-}
-
-// db 返回全局数据库连接
-func (s *RestoreService) db() *gorm.DB {
-	return db.GetDB()
 }
 
 // NewRestoreService 创建恢复服务实例
 func NewRestoreService() *RestoreService {
 	return &RestoreService{
+		db:          db.GetDB(),
 		restoreRepo: repository.NewRestoreRecordRepository(),
 		backupRepo:  repository.NewBackupRepository(),
 	}
@@ -304,9 +299,9 @@ type RestoreBackupRequest struct {
 }
 
 // RestoreBackup 恢复备份
-func (s *RestoreService) RestoreBackup(createdBy uint, req *RestoreBackupRequest) (*model.RestoreRecord, error) {
+func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req *RestoreBackupRequest) (*model.RestoreRecord, error) {
 	// 获取备份信息
-	backup, err := s.backupRepo.GetByID(req.BackupID)
+	backup, err := s.backupRepo.GetByID(ctx, req.BackupID)
 	if err != nil {
 		return nil, fmt.Errorf("备份记录不存在")
 	}
@@ -322,45 +317,45 @@ func (s *RestoreService) RestoreBackup(createdBy uint, req *RestoreBackupRequest
 		RestoredAt: time.Now(),
 	}
 
-	if err := s.restoreRepo.Create(record); err != nil {
+	if err := s.restoreRepo.Create(ctx, record); err != nil {
 		return nil, err
 	}
 
 	// 异步执行恢复
-	go s.executeRestore(record, backup)
+	go s.executeRestore(ctx, record, backup)
 
 	return record, nil
 }
 
 // executeRestore 执行恢复
-func (s *RestoreService) executeRestore(record *model.RestoreRecord, backup *model.Backup) {
+func (s *RestoreService) executeRestore(ctx context.Context, record *model.RestoreRecord, backup *model.Backup) {
 	// 更新状态为进行中
 	record.Status = "running"
-	s.restoreRepo.Update(record)
+	s.restoreRepo.Update(ctx, record)
 
 	// 解压备份文件
-	if err := s.decompressBackup(backup.FilePath); err != nil {
+	if err := s.decompressBackup(ctx, backup.FilePath); err != nil {
 		record.Status = "failed"
 		record.ErrorMessage = "解压备份失败：" + err.Error()
-		s.restoreRepo.Update(record)
+		s.restoreRepo.Update(ctx, record)
 		return
 	}
 
 	// 恢复数据库
-	if err := s.restoreDatabase(backup); err != nil {
+	if err := s.restoreDatabase(ctx, backup); err != nil {
 		record.Status = "failed"
 		record.ErrorMessage = "数据库恢复失败：" + err.Error()
-		s.restoreRepo.Update(record)
+		s.restoreRepo.Update(ctx, record)
 		return
 	}
 
 	// 完成恢复
 	record.Status = "completed"
-	s.restoreRepo.Update(record)
+	s.restoreRepo.Update(ctx, record)
 }
 
 // decompressBackup 解压备份文件
-func (s *RestoreService) decompressBackup(backupFile string) error {
+func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string) error {
 	// 打开 zip 文件
 	r, err := zip.OpenReader(backupFile)
 	if err != nil {
@@ -400,7 +395,7 @@ func (s *RestoreService) decompressBackup(backupFile string) error {
 }
 
 // restoreDatabase 恢复数据库
-func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
+func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Backup) error {
 	// 读取 JSON 并导入
 	jsonFile := filepath.Join("restore_tmp", "data.json")
 	data, err := os.ReadFile(jsonFile)
@@ -419,7 +414,7 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 	}
 
 	// 通过 gorm 重新写入线索(按 ID 存在则跳过)
-	gormDB := s.db()
+	gormDB := s.db.WithContext(ctx)
 	restoredClues := 0
 	for _, c := range backupData.Clues {
 		id, _ := c["id"].(string)
@@ -428,7 +423,7 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 		}
 		// 检查是否已存在
 		var count int64
-		if err := gormDB.Table("clues").Where("id = ?", id).Count(&count).Error; err != nil {
+		if err := gormDB.WithContext(ctx).Table("clues").Where("id = ?", id).Count(&count).Error; err != nil {
 			logger.Error(err, "检查线索失败: "+id)
 			continue
 		}
@@ -462,7 +457,7 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 			continue
 		}
 		var count int64
-		if err := gormDB.Table("user").Where("username = ?", username).Count(&count).Error; err != nil {
+		if err := gormDB.WithContext(ctx).Table("user").Where("username = ?", username).Count(&count).Error; err != nil {
 			continue
 		}
 		if count > 0 {
@@ -488,13 +483,13 @@ func (s *RestoreService) restoreDatabase(backup *model.Backup) error {
 }
 
 // GetRestoreList 获取恢复记录列表
-func (s *RestoreService) GetRestoreList(page, pageSize int) ([]*model.RestoreRecord, int64, error) {
-	return s.restoreRepo.GetAll(page, pageSize)
+func (s *RestoreService) GetRestoreList(ctx context.Context, page, pageSize int) ([]*model.RestoreRecord, int64, error) {
+	return s.restoreRepo.GetAll(ctx, page, pageSize)
 }
 
 // GetLastRestore 获取最近一次恢复记录
-func (s *RestoreService) GetLastRestore() (*model.RestoreRecord, error) {
-	return s.restoreRepo.GetLastRestore()
+func (s *RestoreService) GetLastRestore(ctx context.Context) (*model.RestoreRecord, error) {
+	return s.restoreRepo.GetLastRestore(ctx)
 }
 
 // ScheduleBackupService 定时备份服务
@@ -511,7 +506,7 @@ func NewScheduleBackupService() *ScheduleBackupService {
 
 // CreateDailyBackup 创建每日备份
 // 独立部署模式:每个商户端为单租户,直接创建一个全局备份
-func (s *ScheduleBackupService) CreateDailyBackup() error {
+func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 	logger.Info("执行定时备份任务...")
 
 	successCount := 0
@@ -520,7 +515,7 @@ func (s *ScheduleBackupService) CreateDailyBackup() error {
 		BackupName: fmt.Sprintf("daily_backup_%s", time.Now().Format("20060102")),
 		BackupType: model.BackupTypeFull,
 	}
-	if _, err := s.backupService.CreateBackup(0, req); err != nil {
+	if _, err := s.backupService.CreateBackup(ctx, 0, req); err != nil {
 		logger.Error(err, "定时备份失败")
 		failCount++
 	} else {
@@ -534,5 +529,5 @@ func (s *ScheduleBackupService) CreateDailyBackup() error {
 // RunDailyBackup 运行每日备份（定时任务入口）
 func RunDailyBackup() {
 	service := NewScheduleBackupService()
-	service.CreateDailyBackup()
+	service.CreateDailyBackup(context.Background())
 }

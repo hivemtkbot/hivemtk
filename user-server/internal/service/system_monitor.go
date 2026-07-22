@@ -7,9 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	contentmodel "marketing/internal/content/model"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
+	"context"
 )
 
 // processStartTime 记录进程启动时间，用于计算系统运行时长
@@ -88,49 +87,36 @@ func getDiskUsage() float64 {
 	return usage
 }
 
-type SystemMonitorService struct{}
+// SystemMonitorService 系统监控服务
+//
+// 通过依赖注入 statsRepo 避免在 service 层直接调用 db.GetDB()
+type SystemMonitorService struct {
+	statsRepo repository.SystemStatsRepository
+}
 
+// NewSystemMonitorService 创建系统监控服务实例
 func NewSystemMonitorService() *SystemMonitorService {
-	return &SystemMonitorService{}
+	return &SystemMonitorService{
+		statsRepo: repository.NewSystemStatsRepository(),
+	}
+}
+
+// NewSystemMonitorServiceWithRepo 通过 repo 创建(用于测试)
+func NewSystemMonitorServiceWithRepo(repo repository.SystemStatsRepository) *SystemMonitorService {
+	return &SystemMonitorService{statsRepo: repo}
 }
 
 // GetSystemStats 获取系统统计信息
-func (s *SystemMonitorService) GetSystemStats() (map[string]any, error) {
-	// 获取数据库统计
-	db := db.GetDB()
-
-	var totalUsers int64
-	if err := db.Model(&model.SystemUser{}).Count(&totalUsers).Error; err != nil {
-		totalUsers = 0
-	}
-
-	var totalOrders int64
-	if err := db.Model(&model.Order{}).Count(&totalOrders).Error; err != nil {
-		totalOrders = 0
-	}
-
-	var totalCards int64
-	cardTables := []string{"douyin_cards", "kuaishou_cards", "xiaohongshu_cards", "xianyu_cards"}
-	totalCards = 0
-	for _, table := range cardTables {
-		var count int64
-		if err := db.Table(table).Count(&count).Error; err != nil {
-			continue
-		}
-		totalCards += count
-	}
-
-	var totalShortLinks int64
-	if err := db.Model(&model.ShortLink{}).Count(&totalShortLinks).Error; err != nil {
-		totalShortLinks = 0
-	}
+func (s *SystemMonitorService) GetSystemStats(ctx context.Context) (map[string]any, error) {
+	// 全部通过 repository 访问数据库,避免 service 层直接调 db
+	totalUsers, _ := s.statsRepo.CountSystemUsers(ctx)
+	totalOrders, _ := s.statsRepo.CountOrders(ctx)
+	totalCards, _ := s.statsRepo.CountCards(ctx)
+	totalShortLinks, _ := s.statsRepo.CountShortLinks(ctx)
 
 	// 获取今天的访问量（从访问日志表）
-	var todayVisits int64
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
-	if err := db.Model(&model.VisitLog{}).Where("created_at >= ?", todayStart).Count(&todayVisits).Error; err != nil {
-		todayVisits = 0
-	}
+	todayVisits, _ := s.statsRepo.CountTodayVisits(ctx, todayStart.Unix())
 
 	// 获取系统运行时间（基于进程启动时间计算）
 	uptime := formatUptime(time.Since(processStartTime))
@@ -147,123 +133,74 @@ func (s *SystemMonitorService) GetSystemStats() (map[string]any, error) {
 	diskUsage := getDiskUsage()
 
 	stats := map[string]any{
-		"total_users":       totalUsers,
-		"total_orders":      totalOrders,
-		"total_cards":       totalCards,
-		"total_short_links": totalShortLinks,
-		"today_visits":      todayVisits,
-		"system_uptime":     uptime,
-		"cpu_usage":         cpuUsage,
-		"memory_usage":      memUsage,
-		"disk_usage":        diskUsage,
-		"timestamp":         time.Now(),
+		"total_users":		totalUsers,
+		"total_orders":		totalOrders,
+		"total_cards":		totalCards,
+		"total_short_links":	totalShortLinks,
+		"today_visits":		todayVisits,
+		"system_uptime":	uptime,
+		"cpu_usage":		cpuUsage,
+		"memory_usage":		memUsage,
+		"disk_usage":		diskUsage,
+		"timestamp":		time.Now(),
 	}
 
 	return stats, nil
 }
 
 // GetDetailedSystemStats 获取详细的系统统计信息
-func (s *SystemMonitorService) GetDetailedSystemStats() (map[string]any, error) {
-	db := db.GetDB()
-
-	// 获取用户统计
-	var activeUsers int64
+func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[string]any, error) {
+	// 全部通过 repository 访问数据库,避免 service 层直接调 db
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
-	if err := db.Model(&model.SystemUser{}).Where("updated_at >= ?", todayStart).Count(&activeUsers).Error; err != nil {
-		activeUsers = 0
-	}
+	activeUsers, _ := s.statsRepo.CountActiveSystemUsers(ctx, todayStart.Unix())
 
 	// 商户数(开源版：固定 1，因为不再有 License 维度)
 	totalMerchants := int64(1)
 	// 开源版：移除 License 计数（License 模型已删除）
 
 	// 获取自动回复统计
-	var totalAutoReplyAccounts int64
-	if err := db.Model(&model.AutoReplyAccount{}).Count(&totalAutoReplyAccounts).Error; err != nil {
-		totalAutoReplyAccounts = 0
-	}
-
-	var totalAutoReplyRules int64
-	if err := db.Model(&model.AutoReplyRule{}).Count(&totalAutoReplyRules).Error; err != nil {
-		totalAutoReplyRules = 0
-	}
+	totalAutoReplyAccounts, _ := s.statsRepo.CountAutoReplyAccounts(ctx)
+	totalAutoReplyRules, _ := s.statsRepo.CountAutoReplyRules(ctx)
 
 	// 获取邮件相关统计
-	var totalEmailLists int64
-	if err := db.Model(&model.EmailList{}).Count(&totalEmailLists).Error; err != nil {
-		totalEmailLists = 0
-	}
-
-	var totalEmailJobs int64
-	if err := db.Model(&model.EmailJobs{}).Count(&totalEmailJobs).Error; err != nil {
-		totalEmailJobs = 0
-	}
+	totalEmailLists, _ := s.statsRepo.CountEmailLists(ctx)
+	totalEmailJobs, _ := s.statsRepo.CountEmailJobs(ctx)
 
 	// 获取素材库统计
-	var totalMaterials int64
-	if err := db.Model(&contentmodel.Material{}).Count(&totalMaterials).Error; err != nil {
-		totalMaterials = 0
-	}
+	totalMaterials, _ := s.statsRepo.CountMaterials(ctx)
 
 	// 重新计算基本统计数据
-	var totalUsers int64
-	if err := db.Model(&model.SystemUser{}).Count(&totalUsers).Error; err != nil {
-		totalUsers = 0
-	}
-
-	var totalOrders int64
-	if err := db.Model(&model.Order{}).Count(&totalOrders).Error; err != nil {
-		totalOrders = 0
-	}
-
-	var totalCards int64
-	cardTables := []string{"douyin_cards", "kuaishou_cards", "xiaohongshu_cards", "xianyu_cards"}
-	totalCards = 0
-	for _, table := range cardTables {
-		var count int64
-		if err := db.Table(table).Count(&count).Error; err != nil {
-			continue
-		}
-		totalCards += count
-	}
-
-	var totalShortLinks int64
-	if err := db.Model(&model.ShortLink{}).Count(&totalShortLinks).Error; err != nil {
-		totalShortLinks = 0
-	}
+	totalUsers, _ := s.statsRepo.CountSystemUsers(ctx)
+	totalOrders, _ := s.statsRepo.CountOrders(ctx)
+	totalCards, _ := s.statsRepo.CountCards(ctx)
+	totalShortLinks, _ := s.statsRepo.CountShortLinks(ctx)
 
 	// 获取今天的访问量（从访问日志表）
-	var todayVisits int64
-	if err := db.Model(&model.VisitLog{}).Where("created_at >= ?", todayStart).Count(&todayVisits).Error; err != nil {
-		todayVisits = 0
-	}
+	todayVisits, _ := s.statsRepo.CountTodayVisits(ctx, todayStart.Unix())
 
 	// 获取系统指标
-	var systemMetrics []model.SystemMetrics
-	if err := db.Limit(10).Order("created_at DESC").Find(&systemMetrics).Error; err != nil {
-		systemMetrics = []model.SystemMetrics{}
-	}
+	systemMetrics, _ := s.statsRepo.ListRecentSystemMetrics(ctx, 10)
 
 	detailedStats := map[string]any{
 		"basic_stats": map[string]any{
-			"total_users":        totalUsers,
-			"total_orders":       totalOrders,
-			"total_cards":        totalCards,
-			"total_short_links":  totalShortLinks,
-			"today_visits":       todayVisits,
-			"active_users_today": activeUsers,
-			"total_merchants":    totalMerchants,
+			"total_users":		totalUsers,
+			"total_orders":		totalOrders,
+			"total_cards":		totalCards,
+			"total_short_links":	totalShortLinks,
+			"today_visits":		todayVisits,
+			"active_users_today":	activeUsers,
+			"total_merchants":	totalMerchants,
 			// 开源版：移除 total_licenses 字段
 		},
 		"business_stats": map[string]any{
-			"total_auto_reply_accounts": totalAutoReplyAccounts,
-			"total_auto_reply_rules":    totalAutoReplyRules,
-			"total_email_lists":         totalEmailLists,
-			"total_email_jobs":          totalEmailJobs,
-			"total_materials":           totalMaterials,
+			"total_auto_reply_accounts":	totalAutoReplyAccounts,
+			"total_auto_reply_rules":	totalAutoReplyRules,
+			"total_email_lists":		totalEmailLists,
+			"total_email_jobs":		totalEmailJobs,
+			"total_materials":		totalMaterials,
 		},
-		"system_metrics": systemMetrics,
-		"timestamp":      time.Now(),
+		"system_metrics":	systemMetrics,
+		"timestamp":		time.Now(),
 	}
 
 	return detailedStats, nil
