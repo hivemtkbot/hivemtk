@@ -36,28 +36,28 @@ import (
 type QueryRewriteStrategy string
 
 const (
-	StrategyNone       QueryRewriteStrategy = "none"            // 未改写
-	StrategyHyDE       QueryRewriteStrategy = "hyde"            // 仅 HyDE
-	StrategyMultiQuery QueryRewriteStrategy = "multiquery"      // 仅 Multi-Query
-	StrategyHyDEMulti  QueryRewriteStrategy = "hyde_multiquery" // HyDE + Multi-Query
+	StrategyNone		QueryRewriteStrategy	= "none"		// 未改写
+	StrategyHyDE		QueryRewriteStrategy	= "hyde"		// 仅 HyDE
+	StrategyMultiQuery	QueryRewriteStrategy	= "multiquery"		// 仅 Multi-Query
+	StrategyHyDEMulti	QueryRewriteStrategy	= "hyde_multiquery"	// HyDE + Multi-Query
 )
 
 // RewrittenQuery 改写结果
 type RewrittenQuery struct {
-	Original     string               `json:"original"`      // 原始 query
-	Rewritten    string               `json:"rewritten"`     // 用于向量召回的最终 query（HyDE 假设文档优先）
-	MultiQueries []string             `json:"multi_queries"` // Multi-Query 变体（用于 BM25 多路召回）
-	UsedStrategy QueryRewriteStrategy `json:"used_strategy"` // hyde|multiquery|hyde_multiquery|none
-	CacheHit     bool                 `json:"cache_hit"`     // 是否命中缓存
+	Original	string			`json:"original"`	// 原始 query
+	Rewritten	string			`json:"rewritten"`	// 用于向量召回的最终 query（HyDE 假设文档优先）
+	MultiQueries	[]string		`json:"multi_queries"`	// Multi-Query 变体（用于 BM25 多路召回）
+	UsedStrategy	QueryRewriteStrategy	`json:"used_strategy"`	// hyde|multiquery|hyde_multiquery|none
+	CacheHit	bool			`json:"cache_hit"`	// 是否命中缓存
 }
 
 // QueryRewriter 查询改写器
 type QueryRewriter struct {
-	hydeGen     *HyDEGenerator
-	multiGen    *MultiQueryGenerator
-	redisClient RedisClient
-	db          *gorm.DB
-	redisTTL    time.Duration // 默认 24h
+	hydeGen		*HyDEGenerator
+	multiGen	*MultiQueryGenerator
+	redisClient	RedisClient
+	db		*gorm.DB
+	redisTTL	time.Duration	// 默认 24h
 }
 
 // QueryRewriterConfig 查询改写配置
@@ -88,11 +88,11 @@ func NewQueryRewriter(
 		cfg = DefaultQueryRewriterConfig()
 	}
 	return &QueryRewriter{
-		hydeGen:     hydeGen,
-		multiGen:    multiGen,
-		redisClient: redisClient,
-		db:          db,
-		redisTTL:    cfg.RedisTTL,
+		hydeGen:	hydeGen,
+		multiGen:	multiGen,
+		redisClient:	redisClient,
+		db:		db,
+		redisTTL:	cfg.RedisTTL,
 	}
 }
 
@@ -113,9 +113,9 @@ func NewQueryRewriter(
 func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQuery, error) {
 	if query == "" {
 		return &RewrittenQuery{
-			Original:     query,
-			Rewritten:    query,
-			UsedStrategy: StrategyNone,
+			Original:	query,
+			Rewritten:	query,
+			UsedStrategy:	StrategyNone,
 		}, nil
 	}
 
@@ -129,7 +129,7 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 			if err := json.Unmarshal([]byte(cached), &rw); err == nil {
 				rw.CacheHit = true
 				rw.Original = query
-				// 异步更新 hit_count（best-effort）
+				// 异步更新 hit_count（best-effort,使用 background ctx 避免上游取消中断）
 				go q.updateCacheStats(context.Background(), hash)
 				return &rw, nil
 			}
@@ -153,11 +153,11 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 
 	// 3) 并行生成 HyDE + Multi-Query
 	var (
-		hydeDoc      string
-		multiQueries []string
-		hydeErr      error
-		multiErr     error
-		strategy     QueryRewriteStrategy = StrategyNone
+		hydeDoc		string
+		multiQueries	[]string
+		hydeErr		error
+		multiErr	error
+		strategy	QueryRewriteStrategy	= StrategyNone
 	)
 	var wg sync.WaitGroup
 	if q.hydeGen != nil && q.hydeGen.IsEnabled() {
@@ -201,6 +201,7 @@ func (q *QueryRewriter) Rewrite(ctx context.Context, query string) (*RewrittenQu
 		}
 	}
 	if q.db != nil {
+		// 异步持久化（best-effort,使用 background ctx 避免上游取消中断）
 		go q.persistToDB(context.Background(), hash, query, rw)
 	}
 
@@ -224,9 +225,9 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 	}
 
 	var row struct {
-		HyDEDoc      string `gorm:"column:hyde_doc"`
-		MultiQueries string `gorm:"column:multi_queries"`
-		RewriteType  string `gorm:"column:rewrite_type"`
+		HyDEDoc		string	`gorm:"column:hyde_doc"`
+		MultiQueries	string	`gorm:"column:multi_queries"`
+		RewriteType	string	`gorm:"column:rewrite_type"`
 	}
 	err := q.db.WithContext(ctx).Raw(
 		`SELECT hyde_doc, multi_queries, rewrite_type FROM query_rewrite_cache
@@ -243,14 +244,14 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 		return nil, nil
 	}
 	rw := &RewrittenQuery{
-		Rewritten:    row.HyDEDoc,
-		UsedStrategy: QueryRewriteStrategy(row.RewriteType),
+		Rewritten:	row.HyDEDoc,
+		UsedStrategy:	QueryRewriteStrategy(row.RewriteType),
 	}
 	if row.MultiQueries != "" {
 		_ = json.Unmarshal([]byte(row.MultiQueries), &rw.MultiQueries)
 	}
 	if rw.Rewritten == "" {
-		rw.Rewritten = row.HyDEDoc // 兜底
+		rw.Rewritten = row.HyDEDoc	// 兜底
 	}
 	return rw, nil
 }

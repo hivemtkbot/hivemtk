@@ -18,7 +18,6 @@ import (
 
 func TestAutoReply_FullChain(t *testing.T) {
 	token := login(t)
-	ctx := context.Background()
 
 	// ---- 1. 通用自动回复 ----
 	t.Run("Common_AutoReply", func(t *testing.T) {

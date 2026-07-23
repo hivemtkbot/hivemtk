@@ -3,6 +3,7 @@ package service
 import (
 	"marketing/internal/model"
 	"marketing/internal/repository"
+	"context"
 )
 
 type SmlistService struct {
@@ -16,28 +17,28 @@ func NewSmlistService(repo ...repository.SmlistRepository) *SmlistService {
 	return &SmlistService{repo: repository.NewSmlistRepository()}
 }
 
-func (s *SmlistService) Register(smlist model.Smlist) (*model.Smlist, error) {
-	if err := s.repo.Create(&smlist); err != nil {
+func (s *SmlistService) Register(ctx context.Context, smlist model.Smlist) (*model.Smlist, error) {
+	if err := s.repo.Create(ctx, &smlist); err != nil {
 		return nil, err
 	}
 	return &smlist, nil
 }
 
-func (s *SmlistService) GetSmlist(id string) (*model.Smlist, error) {
-	return s.repo.GetByID(id)
+func (s *SmlistService) GetSmlist(ctx context.Context, id string) (*model.Smlist, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *SmlistService) GetSmlistList(page int, limit int) ([]*model.Smlist, int64, error) {
-	return s.repo.GetSmlistList(page, limit)
+func (s *SmlistService) GetSmlistList(ctx context.Context, page int, limit int) ([]*model.Smlist, int64, error) {
+	return s.repo.GetSmlistList(ctx, page, limit)
 }
 
-func (s *SmlistService) GetSmlistAllList() ([]*model.Smlist, int64, error) {
-	return s.repo.GetSmlistAllList()
+func (s *SmlistService) GetSmlistAllList(ctx context.Context,) ([]*model.Smlist, int64, error) {
+	return s.repo.GetSmlistAllList(ctx)
 }
 
-func (s *SmlistService) DeleteSmlist(id string) error {
-	return s.repo.Delete(id)
+func (s *SmlistService) DeleteSmlist(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
-func (s *SmlistService) GetRecentSmlistList() ([]*model.Smlist, error) {
-	return s.repo.GetRecentSmlistList()
+func (s *SmlistService) GetRecentSmlistList(ctx context.Context,) ([]*model.Smlist, error) {
+	return s.repo.GetRecentSmlistList(ctx)
 }

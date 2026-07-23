@@ -35,7 +35,7 @@ func (c *AgentStatusController) CreateAgent(ctx *gin.Context) {
 		return
 	}
 
-	agent, err := c.agentService.CreateAgent(ctx.Request.Context(), &req)
+	agent, err := c.agentService.CreateAgent(&req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -53,7 +53,7 @@ func (c *AgentStatusController) GetAgentStatus(ctx *gin.Context) {
 		return
 	}
 
-	agent, err := c.agentService.GetAgentStatus(ctx.Request.Context(), uint(id))
+	agent, err := c.agentService.GetAgentStatus(uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -64,7 +64,7 @@ func (c *AgentStatusController) GetAgentStatus(ctx *gin.Context) {
 
 // GetOnlineAgents 获取在线客服列表
 func (c *AgentStatusController) GetOnlineAgents(ctx *gin.Context) {
-	agents, err := c.agentService.GetOnlineAgents(ctx.Request.Context())
+	agents, err := c.agentService.GetOnlineAgents()
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -108,7 +108,7 @@ func (c *AgentStatusController) GetMyAgent(ctx *gin.Context) {
 
 // ListAllAgents 列出全部客服（监管控制台）
 func (c *AgentStatusController) ListAllAgents(ctx *gin.Context) {
-	agents, err := c.agentService.ListAllAgents(ctx.Request.Context())
+	agents, err := c.agentService.ListAllAgents()
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -134,7 +134,7 @@ func (c *AgentStatusController) UpdateAgentStatus(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.agentService.UpdateAgentStatus(ctx.Request.Context(), uint(id), req.Status); err != nil {
+	if err := c.agentService.UpdateAgentStatus(uint(id), req.Status); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -151,7 +151,7 @@ func (c *AgentStatusController) GoOnline(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.agentService.GoOnline(ctx.Request.Context(), uint(id)); err != nil {
+	if err := c.agentService.GoOnline(uint(id)); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -168,7 +168,7 @@ func (c *AgentStatusController) GoOffline(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.agentService.GoOffline(ctx.Request.Context(), uint(id)); err != nil {
+	if err := c.agentService.GoOffline(uint(id)); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -185,7 +185,7 @@ func (c *AgentStatusController) GetAgentSessions(ctx *gin.Context) {
 		return
 	}
 
-	sessions, err := c.agentService.GetAgentSessions(ctx.Request.Context(), uint(id))
+	sessions, err := c.agentService.GetAgentSessions(uint(id))
 	if HandleDBError(ctx, err, "获取客服会话") {
 		return
 	}

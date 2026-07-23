@@ -33,7 +33,6 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 
-	ctx := context.Background()
 	custID := "mb_e2e_001"
 	ownerID := "sales_amy"
 
@@ -109,7 +108,6 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 	repurchase := NewRepurchaseEngine()
 
-	ctx := context.Background()
 	custID := "edu_e2e_001"
 	ownerID := "sales_bob"
 
@@ -197,7 +195,6 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 
-	ctx := context.Background()
 	ownerID := "ai_sales_007"
 
 	// 1. 50 个客户咨询 → AI 谈单 → 10 个成交
@@ -267,7 +264,6 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 
-	ctx := context.Background()
 	custID := "complaint_e2e_001"
 	ownerID := "sales_carol"
 
@@ -332,7 +328,6 @@ func TestE2E_OrderIntent_AutoExtract(t *testing.T) {
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 
-	ctx := context.Background()
 	custID := "order_e2e_001"
 	ownerID := "sales_dan"
 

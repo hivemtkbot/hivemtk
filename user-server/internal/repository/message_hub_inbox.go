@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"marketing/internal/model"
@@ -34,7 +35,7 @@ func SetMessageHubRepoDB(r *MessageHubRepository, db *gorm.DB) {
 }
 
 // Create 创建消息中台记录（唯一约束冲突返回 nil）
-func (r *MessageHubRepository) Create(hub *model.MessageHub) error {
+func (r *MessageHubRepository) Create(ctx context.Context, hub *model.MessageHub) error {
 	if r == nil || r.db == nil {
 		return nil
 	}
@@ -42,21 +43,21 @@ func (r *MessageHubRepository) Create(hub *model.MessageHub) error {
 }
 
 // GetByID 按 ID 获取消息
-func (r *MessageHubRepository) GetByID(id uint) (*model.MessageHub, error) {
+func (r *MessageHubRepository) GetByID(ctx context.Context, id uint) (*model.MessageHub, error) {
 	var hub model.MessageHub
 	err := r.db.First(&hub, id).Error
 	return &hub, err
 }
 
 // GetByMsgID 按消息 ID 获取消息
-func (r *MessageHubRepository) GetByMsgID(msgID string) (*model.MessageHub, error) {
+func (r *MessageHubRepository) GetByMsgID(ctx context.Context, msgID string) (*model.MessageHub, error) {
 	var hub model.MessageHub
 	err := r.db.Where("msg_id = ?", msgID).First(&hub).Error
 	return &hub, err
 }
 
 // ListByConversation 按会话 ID 列出消息
-func (r *MessageHubRepository) ListByConversation(conversationID string, page, pageSize int) ([]*model.MessageHub, int64, error) {
+func (r *MessageHubRepository) ListByConversation(ctx context.Context, conversationID string, page, pageSize int) ([]*model.MessageHub, int64, error) {
 	var items []*model.MessageHub
 	var total int64
 	query := r.db.Model(&model.MessageHub{}).Where("conversation_id = ?", conversationID)
@@ -77,12 +78,12 @@ func (r *MessageHubRepository) ListByConversation(conversationID string, page, p
 }
 
 // Update 更新消息中台记录
-func (r *MessageHubRepository) Update(hub *model.MessageHub) error {
+func (r *MessageHubRepository) Update(ctx context.Context, hub *model.MessageHub) error {
 	return r.db.Save(hub).Error
 }
 
 // MarkReadByID 标记消息为已读
-func (r *MessageHubRepository) MarkReadByID(id uint) error {
+func (r *MessageHubRepository) MarkReadByID(ctx context.Context, id uint) error {
 	now := time.Now()
 	return r.db.Model(&model.MessageHub{}).Where("id = ?", id).
 		Updates(map[string]any{
@@ -116,7 +117,7 @@ func SetInboxConversationRepoDB(r *InboxConversationRepository, db *gorm.DB) {
 }
 
 // FindByPlatformAccountCustomer 按平台/账号/客户查找会话
-func (r *InboxConversationRepository) FindByPlatformAccountCustomer(platform, accountID, customerID string) (*model.InboxConversation, error) {
+func (r *InboxConversationRepository) FindByPlatformAccountCustomer(ctx context.Context, platform, accountID, customerID string) (*model.InboxConversation, error) {
 	var conv model.InboxConversation
 	err := r.db.Where("platform = ? AND account_id = ? AND customer_id = ?",
 		platform, accountID, customerID).First(&conv).Error
@@ -127,7 +128,7 @@ func (r *InboxConversationRepository) FindByPlatformAccountCustomer(platform, ac
 }
 
 // Create 创建会话
-func (r *InboxConversationRepository) Create(conv *model.InboxConversation) error {
+func (r *InboxConversationRepository) Create(ctx context.Context, conv *model.InboxConversation) error {
 	if r == nil || r.db == nil {
 		return nil
 	}
@@ -135,7 +136,7 @@ func (r *InboxConversationRepository) Create(conv *model.InboxConversation) erro
 }
 
 // UpdateLastMessage 更新最后消息字段（含 unread_count 自增）
-func (r *InboxConversationRepository) UpdateLastMessage(id uint, lastMessage string, lastMessageAt time.Time, unreadInc int) error {
+func (r *InboxConversationRepository) UpdateLastMessage(ctx context.Context, id uint, lastMessage string, lastMessageAt time.Time, unreadInc int) error {
 	return r.db.Model(&model.InboxConversation{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"last_message":    lastMessage,
@@ -145,19 +146,19 @@ func (r *InboxConversationRepository) UpdateLastMessage(id uint, lastMessage str
 }
 
 // GetByID 按 ID 获取会话
-func (r *InboxConversationRepository) GetByID(id uint) (*model.InboxConversation, error) {
+func (r *InboxConversationRepository) GetByID(ctx context.Context, id uint) (*model.InboxConversation, error) {
 	var conv model.InboxConversation
 	err := r.db.First(&conv, id).Error
 	return &conv, err
 }
 
 // Update 更新会话
-func (r *InboxConversationRepository) Update(conv *model.InboxConversation) error {
+func (r *InboxConversationRepository) Update(ctx context.Context, conv *model.InboxConversation) error {
 	return r.db.Save(conv).Error
 }
 
 // ListByAccount 按账号列出会话
-func (r *InboxConversationRepository) ListByAccount(platform, accountID string, page, pageSize int) ([]*model.InboxConversation, int64, error) {
+func (r *InboxConversationRepository) ListByAccount(ctx context.Context, platform, accountID string, page, pageSize int) ([]*model.InboxConversation, int64, error) {
 	var items []*model.InboxConversation
 	var total int64
 	query := r.db.Model(&model.InboxConversation{}).

@@ -51,7 +51,7 @@ func (c *CustomerOneIDController) MergeIdentity(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	primary, _ := c.custQuerySvc.GetCustomerByID(req.PrimaryID)
+	primary, _ := c.custQuerySvc.GetCustomerByID(ctx.Request.Context(), req.PrimaryID)
 	response.Success(ctx, gin.H{"primary": primary, "merged_id": req.SecondaryID}, "合并成功")
 }
 
@@ -60,7 +60,7 @@ func (c *CustomerOneIDController) ListOneID(ctx *gin.Context) {
 	page := parsePage(ctx.Query("page"))
 	pageSize := parsePageSize(ctx.Query("page_size"), 20)
 	keyword := ctx.Query("keyword")
-	list, total := c.custQuerySvc.ListCustomers(page, pageSize, keyword)
+	list, total := c.custQuerySvc.ListCustomers(ctx.Request.Context(), page, pageSize, keyword)
 	response.Success(ctx, gin.H{
 		"list":      list,
 		"total":     total,
@@ -73,7 +73,7 @@ func (c *CustomerOneIDController) ListOneID(ctx *gin.Context) {
 func (c *CustomerOneIDController) ListConflicts(ctx *gin.Context) {
 	page := parsePage(ctx.Query("page"))
 	pageSize := parsePageSize(ctx.Query("page_size"), 20)
-	conflicts, total := c.custQuerySvc.ListConflicts(page, pageSize)
+	conflicts, total := c.custQuerySvc.ListConflicts(ctx.Request.Context(), page, pageSize)
 	response.Success(ctx, gin.H{
 		"list":      conflicts,
 		"total":     total,
@@ -113,7 +113,7 @@ func (c *CustomerOneIDController) ResolveConflict(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	primary, _ := c.custQuerySvc.GetCustomerByID(req.PrimaryID)
+	primary, _ := c.custQuerySvc.GetCustomerByID(ctx.Request.Context(), req.PrimaryID)
 	response.Success(ctx, gin.H{"id": id, "primary": primary, "merged_id": req.SecondaryID}, "冲突已解决")
 }
 
@@ -124,7 +124,7 @@ func (c *CustomerOneIDController) GetIdentityMappings(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "缺少 customer_id")
 		return
 	}
-	customer, err := c.custQuerySvc.GetCustomerByID(customerID)
+	customer, err := c.custQuerySvc.GetCustomerByID(ctx.Request.Context(), customerID)
 	if err != nil || customer == nil || customer.ID == "" {
 		response.NotFound(ctx, "客户不存在")
 		return

@@ -189,7 +189,7 @@ func main() {
 	// 未被创建，user-server 健康检查降级。此处显式触发迁移（异步、幂等，
 	// CREATE TABLE IF NOT EXISTS），补齐缺失表。
 	migrationRegistry := migration.NewMigrationRegistry()
-	migrationSvc := migration.NewMigrationService(migrationRegistry, db.GetDB(), migrations.RegisterMigrations)
+	migrationSvc := migration.NewMigrationServiceDefault(migrationRegistry, migrations.RegisterMigrations)
 	go migrationSvc.ExecuteUpgrade("v1.0.0", "v1.0.0")
 
 	// M 域 P1 缺口修复启动装配（2026-07-21）

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"os"
@@ -14,37 +13,36 @@ import (
 	"time"
 
 	"context"
-	"gorm.io/gorm"
 )
 
 // BackupService 备份服务
 type BackupService struct {
-	db         *gorm.DB
-	backupRepo *repository.BackupRepository
+	backupRepo	*repository.BackupRepository
+	backupDataRepo	repository.BackupDataRepository
 }
 
 // NewBackupService 创建备份服务实例
 func NewBackupService() *BackupService {
 	return &BackupService{
-		db:         db.GetDB(),
-		backupRepo: repository.NewBackupRepository(),
+		backupRepo:	repository.NewBackupRepository(),
+		backupDataRepo:	repository.NewBackupDataRepository(),
 	}
 }
 
 // CreateBackupRequest 创建备份请求
 type CreateBackupRequest struct {
-	BackupName string           `json:"backup_name"`
-	BackupType model.BackupType `json:"backup_type"`
+	BackupName	string			`json:"backup_name"`
+	BackupType	model.BackupType	`json:"backup_type"`
 }
 
 // CreateBackup 创建备份
 func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *CreateBackupRequest) (*model.Backup, error) {
 	backup := &model.Backup{
-		BackupName: req.BackupName,
-		BackupType: req.BackupType,
-		Status:     model.BackupStatusPending,
-		CreatedBy:  createdBy,
-		StartedAt:  time.Now(),
+		BackupName:	req.BackupName,
+		BackupType:	req.BackupType,
+		Status:		model.BackupStatusPending,
+		CreatedBy:	createdBy,
+		StartedAt:	time.Now(),
 	}
 
 	if backup.BackupType == "" {
@@ -68,8 +66,8 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 // 避免 controller 直接引用 model.BackupType）。
 func (s *BackupService) CreateBackupSimple(ctx context.Context, createdBy uint, backupName, backupType string) (*model.Backup, error) {
 	return s.CreateBackup(ctx, createdBy, &CreateBackupRequest{
-		BackupName: backupName,
-		BackupType: ParseBackupType(backupType),
+		BackupName:	backupName,
+		BackupType:	ParseBackupType(backupType),
 	})
 }
 
@@ -150,59 +148,63 @@ func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
 	cutoff := now.Add(-24 * time.Hour).Unix()
 
 	// 导出线索
-	type clueRow struct {
-		ID       string `json:"id"`
-		SourceID string `json:"source_id"`
-		Account  string `json:"account"`
-		Type     int64  `json:"type"`
-		IsVerify int64  `json:"is_verify"`
-		Name     string `json:"name"`
-		City     string `json:"city"`
-		Address  string `json:"address"`
-		Desc     string `json:"desc"`
-	}
-	var clues []clueRow
-	if err := s.db.WithContext(ctx).Table("clues").Where("create_time > ?", cutoff).Find(&clues).Error; err != nil {
+	clues, err := s.backupDataRepo.DumpClues(ctx, cutoff)
+	if err != nil {
 		return nil, err
 	}
 
 	// 导出用户
-	type userRow struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Phone    string `json:"phone"`
-	}
-	var users []userRow
-	if err := s.db.WithContext(ctx).Table("user").Limit(1000).Find(&users).Error; err != nil {
+	users, err := s.backupDataRepo.DumpUsers(ctx, 1000)
+	if err != nil {
 		return nil, err
 	}
 
 	// 导出短链
-	type shortLinkRow struct {
-		ID        uint   `json:"id"`
-		ShortCode string `json:"short_code"`
-		URL       string `json:"url"`
-	}
-	var links []shortLinkRow
-	if err := s.db.WithContext(ctx).Table("short_links").Limit(1000).Find(&links).Error; err != nil && err != gorm.ErrRecordNotFound {
+	links, err := s.backupDataRepo.DumpShortLinks(ctx, 1000)
+	if err != nil {
 		// not fatal if table doesn't exist
-		links = []shortLinkRow{}
+		links = []byte("[]")
 	}
 
+	// 解析为可统计数量的切片
+	clueCount := jsonArrayLen(clues)
+	userCount := jsonArrayLen(users)
+	linkCount := jsonArrayLen(links)
+
 	data := map[string]any{
-		"backup_time": now.Format("2006-01-02 15:04:05"),
-		"version":     "1.0.0",
+		"backup_time":	now.Format("2006-01-02 15:04:05"),
+		"version":	"1.0.0",
 		"stats": map[string]int{
-			"clues":       len(clues),
-			"users":       len(users),
-			"short_links": len(links),
+			"clues":	clueCount,
+			"users":	userCount,
+			"short_links":	linkCount,
 		},
-		"clues":      clues,
-		"users":      users,
-		"short_link": links,
+		"clues":	rawMessage(clues),
+		"users":	rawMessage(users),
+		"short_link":	rawMessage(links),
 	}
 	return json.Marshal(data)
+}
+
+// rawMessage 把 json.RawMessage 暴露为 json.RawMessage;否则将 []byte 包成 RawMessage。
+func rawMessage(b []byte) json.RawMessage {
+	if len(b) == 0 {
+		return json.RawMessage("[]")
+	}
+	// 已是合法 JSON
+	return json.RawMessage(b)
+}
+
+// jsonArrayLen 粗略统计 JSON 数组内元素数量(用于 stats 统计)
+func jsonArrayLen(b []byte) int {
+	if len(b) < 2 {
+		return 0
+	}
+	var arr []json.RawMessage
+	if err := json.Unmarshal(b, &arr); err != nil {
+		return 0
+	}
+	return len(arr)
 }
 
 // compressBackup 压缩备份文件
@@ -279,17 +281,17 @@ func (s *BackupService) DeleteBackup(ctx context.Context, id uint) error {
 
 // RestoreService 恢复服务
 type RestoreService struct {
-	db          *gorm.DB
-	restoreRepo *repository.RestoreRecordRepository
-	backupRepo  *repository.BackupRepository
+	restoreRepo	*repository.RestoreRecordRepository
+	backupRepo	*repository.BackupRepository
+	backupDataRepo	repository.BackupDataRepository
 }
 
 // NewRestoreService 创建恢复服务实例
 func NewRestoreService() *RestoreService {
 	return &RestoreService{
-		db:          db.GetDB(),
-		restoreRepo: repository.NewRestoreRecordRepository(),
-		backupRepo:  repository.NewBackupRepository(),
+		restoreRepo:	repository.NewRestoreRecordRepository(),
+		backupRepo:	repository.NewBackupRepository(),
+		backupDataRepo:	repository.NewBackupDataRepository(),
 	}
 }
 
@@ -310,11 +312,11 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 	}
 
 	record := &model.RestoreRecord{
-		BackupID:   req.BackupID,
-		BackupName: backup.BackupName,
-		Status:     "pending",
-		CreatedBy:  createdBy,
-		RestoredAt: time.Now(),
+		BackupID:	req.BackupID,
+		BackupName:	backup.BackupName,
+		Status:		"pending",
+		CreatedBy:	createdBy,
+		RestoredAt:	time.Now(),
 	}
 
 	if err := s.restoreRepo.Create(ctx, record); err != nil {
@@ -405,16 +407,15 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 
 	// 解析 JSON 数据
 	var backupData struct {
-		Version string           `json:"version"`
-		Clues   []map[string]any `json:"clues"`
-		Users   []map[string]any `json:"users"`
+		Version	string			`json:"version"`
+		Clues	[]map[string]any	`json:"clues"`
+		Users	[]map[string]any	`json:"users"`
 	}
 	if err := json.Unmarshal(data, &backupData); err != nil {
 		return err
 	}
 
-	// 通过 gorm 重新写入线索(按 ID 存在则跳过)
-	gormDB := s.db.WithContext(ctx)
+	// 通过 backupDataRepo 重新写入线索(按 ID 存在则跳过)
 	restoredClues := 0
 	for _, c := range backupData.Clues {
 		id, _ := c["id"].(string)
@@ -422,27 +423,27 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 			continue
 		}
 		// 检查是否已存在
-		var count int64
-		if err := gormDB.WithContext(ctx).Table("clues").Where("id = ?", id).Count(&count).Error; err != nil {
+		exists, err := s.backupDataRepo.ClueExists(ctx, id)
+		if err != nil {
 			logger.Error(err, "检查线索失败: "+id)
 			continue
 		}
-		if count > 0 {
+		if exists {
 			continue
 		}
 		// 插入
 		row := map[string]any{
-			"id":          id,
-			"source_id":   c["source_id"],
-			"account":     c["account"],
-			"clue_type":   c["type"],
-			"is_verify":   c["is_verify"],
-			"name":        c["name"],
-			"city":        c["city"],
-			"address":     c["address"],
-			"description": c["desc"],
+			"id":		id,
+			"source_id":	c["source_id"],
+			"account":	c["account"],
+			"clue_type":	c["type"],
+			"is_verify":	c["is_verify"],
+			"name":		c["name"],
+			"city":		c["city"],
+			"address":	c["address"],
+			"description":	c["desc"],
 		}
-		if err := gormDB.Table("clues").Create(row).Error; err != nil {
+		if err := s.backupDataRepo.RestoreClue(ctx, row); err != nil {
 			logger.Error(err, "恢复线索失败: "+id)
 			continue
 		}
@@ -456,19 +457,19 @@ func (s *RestoreService) restoreDatabase(ctx context.Context, backup *model.Back
 		if username == "" {
 			continue
 		}
-		var count int64
-		if err := gormDB.WithContext(ctx).Table("user").Where("username = ?", username).Count(&count).Error; err != nil {
+		exists, err := s.backupDataRepo.UserExistsByUsername(ctx, username)
+		if err != nil {
 			continue
 		}
-		if count > 0 {
+		if exists {
 			continue
 		}
-		if err := gormDB.Table("user").Create(map[string]any{
-			"id":       u["id"],
-			"username": username,
-			"email":    u["email"],
-			"phone":    u["phone"],
-		}).Error; err != nil {
+		if err := s.backupDataRepo.RestoreUser(ctx, map[string]any{
+			"id":		u["id"],
+			"username":	username,
+			"email":	u["email"],
+			"phone":	u["phone"],
+		}); err != nil {
 			logger.Error(err, "恢复用户失败: "+username)
 			continue
 		}
@@ -512,8 +513,8 @@ func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 	successCount := 0
 	failCount := 0
 	req := &CreateBackupRequest{
-		BackupName: fmt.Sprintf("daily_backup_%s", time.Now().Format("20060102")),
-		BackupType: model.BackupTypeFull,
+		BackupName:	fmt.Sprintf("daily_backup_%s", time.Now().Format("20060102")),
+		BackupType:	model.BackupTypeFull,
 	}
 	if _, err := s.backupService.CreateBackup(ctx, 0, req); err != nil {
 		logger.Error(err, "定时备份失败")
@@ -529,5 +530,6 @@ func (s *ScheduleBackupService) CreateDailyBackup(ctx context.Context) error {
 // RunDailyBackup 运行每日备份（定时任务入口）
 func RunDailyBackup() {
 	service := NewScheduleBackupService()
+	// 定时任务入口,使用 background ctx,避免受任何上游请求取消影响
 	service.CreateDailyBackup(context.Background())
 }

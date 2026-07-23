@@ -10,6 +10,8 @@ import (
 	"marketing/internal/aiagent/vector"
 	"marketing/internal/controller"
 	"marketing/internal/etl"
+	"marketing/internal/migration"
+	"marketing/internal/migration/migrations"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/service"
 
@@ -122,7 +124,9 @@ func setupBackupRoutes(auth *gin.RouterGroup) {
 // 路径由原 /upgrade/* 改为 /migration/*（M3 重命名以避免与"OTA 升级"概念混淆）。
 // controller 结构体已重命名为 MigrationController（兼容别名 NewUpgradeController）。
 func setupMigrationRoutes(auth *gin.RouterGroup) {
-	migrationCtrl := controller.NewMigrationController()
+	registry := migration.NewMigrationRegistry()
+	migrationSvc := migration.NewMigrationService(registry, db.GetDB(), migrations.RegisterMigrations)
+	migrationCtrl := controller.NewMigrationController(migrationSvc)
 	auth.GET("/migration/task/:id", migrationCtrl.GetUpgradeTask)
 	auth.GET("/migration/history", migrationCtrl.GetUpgradeHistory)
 	auth.GET("/migration/records", migrationCtrl.GetMigrationRecords)

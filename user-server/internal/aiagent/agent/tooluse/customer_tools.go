@@ -395,7 +395,7 @@ func (t *CustomerUpdateTool) Execute(ctx context.Context, args map[string]any) (
 	}
 
 	// 重新生成 UnifiedID
-	customer.UnifiedID = customer.GenerateUnifiedID()
+	customer.UnifiedID = model.GenerateCustomerUnifiedID(customer)
 
 	if err := t.deps.CustomerRepo.Update(ctx, customer); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -513,7 +513,7 @@ func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (
 	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
-		currentTags = customer.GetTags()
+		currentTags = model.GetCustomerTags(customer)
 	}
 	return SuccessResult(t.Name(), map[string]any{
 		"customer_id":  customerID,
@@ -581,7 +581,7 @@ func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any
 	customer, _ := t.deps.CustomerRepo.GetByID(ctx, customerID)
 	var currentTags []string
 	if customer != nil {
-		currentTags = customer.GetTags()
+		currentTags = model.GetCustomerTags(customer)
 	}
 	return SuccessResult(t.Name(), map[string]any{
 		"customer_id":  customerID,

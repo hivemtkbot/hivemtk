@@ -426,7 +426,7 @@ type llmSystemConfig struct {
 func (s *AIContentService) loadSystemLLMConfig(ctx context.Context) (*llmSystemConfig, error) {
 	// 1) 优先读系统配置表
 	sysCfgRepo := sysrepo.NewSystemConfigRepository()
-	if sysCfg, err := sysCfgRepo.GetConfig(); err == nil && sysCfg != nil {
+	if sysCfg, err := sysCfgRepo.GetConfig(ctx); err == nil && sysCfg != nil {
 		// SystemConfig 自身的字段都是基础项,LLM 配置通常存在 JSON 字段或 env
 		// 这里仅尝试读 llm_api_key 子键
 	}

@@ -14,6 +14,19 @@ import (
 	"marketing/internal/repository"
 )
 
+// ============================================================================
+// 五层架构治理（二轮）：type alias 解决 controller 反向依赖 repository
+// ============================================================================
+//
+// 原架构问题：`LocalAssetService.List` 接受 `repository.LocalAssetFilter`，
+// 导致 controller 需 `import repository` 来构造 filter，违反五层架构
+// （controller → service → repository，禁止反向引用）。
+//
+// 修复：定义别名 `LocalAssetFilter = repository.LocalAssetFilter`，
+// controller 改为 `service.LocalAssetFilter{...}` 即可，不再 import repository。
+// 类型完全等价，无运行时差异。
+type LocalAssetFilter = repository.LocalAssetFilter
+
 // LocalAssetService 本地资产业务（同源同构）
 type LocalAssetService struct {
 	assetRepo      repository.LocalAssetRepository
@@ -202,7 +215,11 @@ func (s *LocalAssetService) Update(ctx context.Context, id int64, in *UpdateAsse
 }
 
 // List 列表
-func (s *LocalAssetService) List(ctx context.Context, f repository.LocalAssetFilter) ([]*model.LocalAsset, int64, error) {
+//
+// 五层架构治理（二轮）：原签名 `f repository.LocalAssetFilter` 强制 controller
+// 反向依赖 repository，违反五层架构。改为 service 自有别名（与 repository 类型
+// 完全等价），controller 不再 import repository 即可调用。
+func (s *LocalAssetService) List(ctx context.Context, f LocalAssetFilter) ([]*model.LocalAsset, int64, error) {
 	return s.assetRepo.List(ctx, f)
 }
 

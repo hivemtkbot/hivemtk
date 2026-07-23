@@ -112,7 +112,6 @@ func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
 		TopK:            5,
 		Source:          "hybrid",
 	}
-	ctx := context.Background()
 	if err := svc.RecordQuerySync(ctx, req); err != nil {
 		t.Fatalf("RecordQuerySync failed: %v", err)
 	}
@@ -217,7 +216,6 @@ func TestRagMetrics_GetRecallMetrics_Empty(t *testing.T) {
 func TestRagMetrics_GetRecallMetrics_Aggregation(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 写入 10 条记录：recall 0.0~0.9，延迟 10~100ms
@@ -276,7 +274,6 @@ func TestRagMetrics_GetRecallMetrics_EndBeforeStart(t *testing.T) {
 func TestRagMetrics_GetRecallMetrics_ZeroHit(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 写入 5 条：3 条 retrieved=0（zero_hit），2 条 retrieved>0
@@ -320,7 +317,6 @@ func TestRagMetrics_GetRecallMetrics_ZeroHit(t *testing.T) {
 func TestRagMetrics_GetLowRecallQueries_Basic(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// 写入 3 条：recall=1.0（不低）、0.25（低）、0.0（低，但 relevant=0 会被过滤）
 	queries := []struct {
@@ -363,7 +359,6 @@ func TestRagMetrics_GetLowRecallQueries_Basic(t *testing.T) {
 func TestRagMetrics_GetLowRecallQueries_DefaultThreshold(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// 写入 1 条 recall=0.2（< 默认 0.3）
 	// recall = hit / relevant_count = 1 / 5 = 0.2
@@ -391,7 +386,6 @@ func TestRagMetrics_GetLowRecallQueries_DefaultThreshold(t *testing.T) {
 func TestRagMetrics_GetLowRecallQueries_LimitClamp(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// 写入 5 条低召回
 	for i := 0; i < 5; i++ {
@@ -422,7 +416,6 @@ func TestRagMetrics_GetLowRecallQueries_LimitClamp(t *testing.T) {
 func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 	start := time.Now().Add(-time.Hour).Truncate(time.Minute)
 	end := start.Add(5 * time.Minute)
 
@@ -486,7 +479,6 @@ func TestRagMetrics_AggregateWindow_NilDB(t *testing.T) {
 func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// 写入数据（created_at 在最近窗口内）
 	now := time.Now()
@@ -522,7 +514,6 @@ func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 func TestRagMetrics_GetLatestMetrics(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// 写入 3 个不同窗口的 daily 记录
 	base := time.Now().Truncate(time.Minute)
@@ -559,7 +550,6 @@ func TestRagMetrics_GetLatestMetrics(t *testing.T) {
 func TestRagMetrics_GetLatestMetrics_LimitClamp(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	ctx := context.Background()
 
 	// limit=0 → 默认 20；limit=10000 → 默认 20
 	rows, err := svc.GetLatestMetrics(ctx, 0)

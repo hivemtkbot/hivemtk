@@ -61,7 +61,6 @@ func TestDouyinCardService_Create_Success(t *testing.T) {
 		IsActive:     true,
 	}
 
-	ctx := context.Background()
 	card, err := service.Create(ctx, req)
 
 	if err != nil {
@@ -99,7 +98,6 @@ func TestDouyinCardService_Create_EmptyTitle(t *testing.T) {
 		ImageURL:    "https://example.com/image.jpg",
 	}
 
-	ctx := context.Background()
 	_, err := service.Create(ctx, req)
 
 	// 空标题应该创建成功（由数据库约束或业务逻辑决定）
@@ -122,7 +120,6 @@ func TestDouyinCardService_Create_EmptyRedirectURL(t *testing.T) {
 		// 不提供 RedirectURL，应该使用默认值
 	}
 
-	ctx := context.Background()
 	card, err := service.Create(ctx, req)
 
 	if err != nil {
@@ -141,7 +138,6 @@ func TestDouyinCardService_Update_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -191,7 +187,6 @@ func TestDouyinCardService_Update_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	updateReq := &dto.DouyinCardUpdateRequest{
 		ID:    999, // 不存在的 ID
@@ -209,7 +204,6 @@ func TestDouyinCardService_Delete_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -242,7 +236,6 @@ func TestDouyinCardService_Delete_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// GORM 的 Delete 方法在删除不存在的记录时不会返回错误
 	// 这是预期行为，测试验证删除操作不会 panic
@@ -258,7 +251,6 @@ func TestDouyinCardService_GetByID_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -294,7 +286,6 @@ func TestDouyinCardService_GetByID_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	_, err := service.GetByID(ctx, 999)
 	if err == nil {
@@ -307,7 +298,6 @@ func TestDouyinCardService_GetByIDWithRefresh_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -338,7 +328,6 @@ func TestDouyinCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -372,7 +361,6 @@ func TestDouyinCardService_GetList_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 创建多个卡片
 	for i := 1; i <= 5; i++ {
@@ -412,7 +400,6 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 创建多个卡片
 	for i := 1; i <= 15; i++ {
@@ -460,7 +447,6 @@ func TestDouyinCardService_GetList_EmptyList(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	listReq := &dto.DouyinCardListRequest{
 		Page:     1,
@@ -484,7 +470,6 @@ func TestDouyinCardService_ShareCard_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -511,7 +496,6 @@ func TestDouyinCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	err := service.ShareCard(ctx, 999, "wechat")
 	if err == nil {
@@ -524,7 +508,6 @@ func TestDouyinCardService_GenerateShortLink_Success(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{
@@ -569,7 +552,6 @@ func TestDouyinCardService_ToResponse(t *testing.T) {
 
 	// 使用反射调用私有方法 toResponse 进行测试
 	// 由于 toResponse 是私有方法，我们通过公共方法间接测试
-	ctx := context.Background()
 	fetchedCard, err := service.GetByID(ctx, card.ID)
 	if err == nil {
 		if fetchedCard.Title != card.Title {
@@ -583,7 +565,6 @@ func TestDouyinCardService_ToResponseWithShortLink(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片（会自动生成短链）
 	createReq := &dto.DouyinCardCreateRequest{
@@ -608,7 +589,6 @@ func TestDouyinCardService_Create_WithTags(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	req := &dto.DouyinCardCreateRequest{
 		Title:        "Card with Tags",
@@ -634,7 +614,6 @@ func TestDouyinCardService_Create_InactiveCard(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	req := &dto.DouyinCardCreateRequest{
 		Title:        "Inactive Card",
@@ -662,7 +641,6 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.DouyinCardCreateRequest{

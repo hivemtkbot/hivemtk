@@ -9,7 +9,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // WeComHealthController 企微账号健康度控制器
@@ -19,10 +18,10 @@ type WeComHealthController struct {
 }
 
 // NewWeComHealthController 创建企微健康度控制器
-func NewWeComHealthController(db *gorm.DB) *WeComHealthController {
+func NewWeComHealthController(svc *service.WeComAccountHealthService, integ *service.WeComIntegrationService) *WeComHealthController {
 	return &WeComHealthController{
-		svc:   service.NewWeComAccountHealthService(db),
-		integ: service.NewWeComIntegrationService(db),
+		svc:   svc,
+		integ: integ,
 	}
 }
 

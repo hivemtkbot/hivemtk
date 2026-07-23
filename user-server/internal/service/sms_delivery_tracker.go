@@ -43,36 +43,36 @@ import (
 type SmsCarrier string
 
 const (
-	SmsCarrierMobile  SmsCarrier = "mobile"  // 中国移动
-	SmsCarrierUnicom  SmsCarrier = "unicom"  // 中国联通
-	SmsCarrierTelecom SmsCarrier = "telecom" // 中国电信
-	SmsCarrierUnknown SmsCarrier = "unknown" // 未知 / 携号转网过渡
+	SmsCarrierMobile	SmsCarrier	= "mobile"	// 中国移动
+	SmsCarrierUnicom	SmsCarrier	= "unicom"	// 中国联通
+	SmsCarrierTelecom	SmsCarrier	= "telecom"	// 中国电信
+	SmsCarrierUnknown	SmsCarrier	= "unknown"	// 未知 / 携号转网过渡
 )
 
 // SmsBlockType 黑名单类型
 type SmsBlockType string
 
 const (
-	SmsBlockCarrier    SmsBlockType = "carrier"    // 运营商级黑名单（如 ERR_4002）
-	SmsBlockBusiness   SmsBlockType = "business"   // 业务级（用户主动退订）
-	SmsBlockRegulatory SmsBlockType = "regulatory" // 监管/合规黑名单
-	SmsBlockContent    SmsBlockType = "content"    // 内容违规
+	SmsBlockCarrier		SmsBlockType	= "carrier"	// 运营商级黑名单（如 ERR_4002）
+	SmsBlockBusiness	SmsBlockType	= "business"	// 业务级（用户主动退订）
+	SmsBlockRegulatory	SmsBlockType	= "regulatory"	// 监管/合规黑名单
+	SmsBlockContent		SmsBlockType	= "content"	// 内容违规
 )
 
 // SmsNumberPortabilityRecord 携号转网记录
 type SmsNumberPortabilityRecord struct {
-	ID              int64      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Phone           string     `gorm:"column:phone;size:20;not null;index" json:"phone"`
-	OriginalCarrier SmsCarrier `gorm:"column:original_carrier;size:32" json:"original_carrier"`
-	CurrentCarrier  SmsCarrier `gorm:"column:current_carrier;size:32" json:"current_carrier"`
-	DetectedAt      time.Time  `gorm:"column:detected_at;not null;index:idx_sms_np_detected_at,sort:desc" json:"detected_at"`
-	Source          string     `gorm:"column:source;size:32;not null;default:'webhook'" json:"source"`
-	RawPayload      string     `gorm:"column:raw_payload;type:text" json:"raw_payload"`
-	CreatedAt       time.Time  `gorm:"column:created_at;not null;default:now()" json:"created_at"`
+	ID		int64		`gorm:"primaryKey;autoIncrement" json:"id"`
+	Phone		string		`gorm:"column:phone;size:20;not null;index" json:"phone"`
+	OriginalCarrier	SmsCarrier	`gorm:"column:original_carrier;size:32" json:"original_carrier"`
+	CurrentCarrier	SmsCarrier	`gorm:"column:current_carrier;size:32" json:"current_carrier"`
+	DetectedAt	time.Time	`gorm:"column:detected_at;not null;index:idx_sms_np_detected_at,sort:desc" json:"detected_at"`
+	Source		string		`gorm:"column:source;size:32;not null;default:'webhook'" json:"source"`
+	RawPayload	string		`gorm:"column:raw_payload;type:text" json:"raw_payload"`
+	CreatedAt	time.Time	`gorm:"column:created_at;not null;default:now()" json:"created_at"`
 }
 
 // TableName 表名
-func (SmsNumberPortabilityRecord) TableName() string { return "sms_number_portability_logs" }
+func (SmsNumberPortabilityRecord) TableName(ctx context.Context)  string	{ return "sms_number_portability_logs" }
 
 // ----------------------------------------------------------------------------
 // 服务结构
@@ -80,14 +80,14 @@ func (SmsNumberPortabilityRecord) TableName() string { return "sms_number_portab
 
 // SmsDeliveryTrackerService 短信到达率追踪服务
 type SmsDeliveryTrackerService struct {
-	tracking *SmsTrackingService
-	repo     repository.SmsTrackingRepository
-	db       *gorm.DB
+	tracking	*SmsTrackingService
+	repo		repository.SmsTrackingRepository
+	db		*gorm.DB
 
 	// 携号转网内存缓存：phone → 最新运营商（避免每次 webhook 走 DB）
-	carrierMu     sync.RWMutex
-	carrierCache  map[string]SmsCarrier
-	carrierLoaded bool
+	carrierMu	sync.RWMutex
+	carrierCache	map[string]SmsCarrier
+	carrierLoaded	bool
 }
 
 // NewSmsDeliveryTrackerService 创建短信到达率追踪服务
@@ -99,11 +99,11 @@ func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, rep
 		repo = repository.NewSmsTrackingRepository(db)
 	}
 	return &SmsDeliveryTrackerService{
-		db:            db,
-		tracking:      tracking,
-		repo:          repo,
-		carrierCache:  make(map[string]SmsCarrier),
-		carrierLoaded: false,
+		db:		db,
+		tracking:	tracking,
+		repo:		repo,
+		carrierCache:	make(map[string]SmsCarrier),
+		carrierLoaded:	false,
 	}
 }
 
@@ -168,7 +168,7 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 		newCarrier = DetectCarrierFromPhone(phone)
 	}
 	if newCarrier == SmsCarrierUnknown {
-		return nil // 无法识别就不记录
+		return nil	// 无法识别就不记录
 	}
 
 	// 2) 与缓存对比
@@ -179,26 +179,26 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 
 	if !exists {
 		// 首次记录：从 DB 加载历史
-		s.loadCarrierCache()
+		s.loadCarrierCache(ctx)
 		s.carrierMu.RLock()
 		original, exists = s.carrierCache[phone]
 		s.carrierMu.RUnlock()
-		s.carrierCache[phone] = newCarrier // 还原
+		s.carrierCache[phone] = newCarrier	// 还原
 	}
 
 	if exists && original == newCarrier {
-		return nil // 运营商未变化
+		return nil	// 运营商未变化
 	}
 
 	// 3) 写入转网记录
 	rec := &SmsNumberPortabilityRecord{
-		Phone:           phone,
-		OriginalCarrier: original,
-		CurrentCarrier:  newCarrier,
-		DetectedAt:      time.Now(),
-		Source:          "webhook",
-		RawPayload:      fmt.Sprintf(`{"phone":%q,"carrier":%q}`, phone, webhookCarrier),
-		CreatedAt:       time.Now(),
+		Phone:			phone,
+		OriginalCarrier:	original,
+		CurrentCarrier:		newCarrier,
+		DetectedAt:		time.Now(),
+		Source:			"webhook",
+		RawPayload:		fmt.Sprintf(`{"phone":%q,"carrier":%q}`, phone, webhookCarrier),
+		CreatedAt:		time.Now(),
 	}
 	if s.db == nil {
 		return nil
@@ -207,12 +207,12 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 }
 
 // loadCarrierCache 加载最近一次运营商快照
-func (s *SmsDeliveryTrackerService) loadCarrierCache() {
+func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 	if s.carrierLoaded || s.db == nil {
 		return
 	}
 	rows := []SmsNumberPortabilityRecord{}
-	if err := s.db.Order("detected_at DESC").Limit(10000).Find(&rows).Error; err != nil {
+	if err := s.db.Order(ctx, "detected_at DESC").Limit(10000).Find(&rows).Error; err != nil {
 		logger.Errorf("[SmsDeliveryTracker] load carrier cache: %v", err)
 		s.carrierLoaded = true
 		return
@@ -228,7 +228,7 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache() {
 }
 
 // GetCurrentCarrier 查询号码当前归属运营商
-func (s *SmsDeliveryTrackerService) GetCurrentCarrier(phone string) SmsCarrier {
+func (s *SmsDeliveryTrackerService) GetCurrentCarrier(ctx context.Context, phone string) SmsCarrier {
 	phone = NormalizePhone(phone)
 	s.carrierMu.RLock()
 	if c, ok := s.carrierCache[phone]; ok {
@@ -281,13 +281,13 @@ func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, 
 
 // SmsBlacklistRecord 黑名单记录（聚合）
 type SmsBlacklistRecord struct {
-	Phone     string       `json:"phone"`
-	BlockType SmsBlockType `json:"block_type"`
-	Reason    string       `json:"reason"`
-	ErrorCode string       `json:"error_code"`
-	BlockedAt time.Time    `json:"blocked_at"`
-	JobID     string       `json:"job_id"`
-	MessageID string       `json:"message_id"`
+	Phone		string		`json:"phone"`
+	BlockType	SmsBlockType	`json:"block_type"`
+	Reason		string		`json:"reason"`
+	ErrorCode	string		`json:"error_code"`
+	BlockedAt	time.Time	`json:"blocked_at"`
+	JobID		string		`json:"job_id"`
+	MessageID	string		`json:"message_id"`
 }
 
 // RecordBlacklistEvent 记录黑名单事件
@@ -302,12 +302,12 @@ func (s *SmsDeliveryTrackerService) RecordBlacklistEvent(ctx context.Context, ph
 		return
 	}
 	rec := SmsBlacklistRecord{
-		Phone:     phone,
-		ErrorCode: errorCode,
-		Reason:    errorMsg,
-		BlockedAt: time.Now(),
-		JobID:     jobID,
-		MessageID: messageID,
+		Phone:		phone,
+		ErrorCode:	errorCode,
+		Reason:		errorMsg,
+		BlockedAt:	time.Now(),
+		JobID:		jobID,
+		MessageID:	messageID,
 	}
 	switch {
 	case strings.HasPrefix(errorCode, "ERR_4002"):
@@ -328,25 +328,25 @@ func (s *SmsDeliveryTrackerService) RecordBlacklistEvent(ctx context.Context, ph
 
 // DeliveryRateMetrics 到达率指标
 type DeliveryRateMetrics struct {
-	WindowStart  time.Time              `json:"window_start"`
-	WindowEnd    time.Time              `json:"window_end"`
-	TotalSent    int64                  `json:"total_sent"`
-	Delivered    int64                  `json:"delivered"`
-	Failed       int64                  `json:"failed"`
-	Retryable    int64                  `json:"retryable"`
-	Blacklisted  int64                  `json:"blacklisted"`   // 黑名单触达失败
-	Portability  int64                  `json:"portability"`   // 携号转网触达失败
-	DeliveryRate float64                `json:"delivery_rate"` // delivered / total * 100
-	FailureRate  float64                `json:"failure_rate"`
-	ByCarrier    map[string]CarrierStat `json:"by_carrier"`
+	WindowStart	time.Time		`json:"window_start"`
+	WindowEnd	time.Time		`json:"window_end"`
+	TotalSent	int64			`json:"total_sent"`
+	Delivered	int64			`json:"delivered"`
+	Failed		int64			`json:"failed"`
+	Retryable	int64			`json:"retryable"`
+	Blacklisted	int64			`json:"blacklisted"`	// 黑名单触达失败
+	Portability	int64			`json:"portability"`	// 携号转网触达失败
+	DeliveryRate	float64			`json:"delivery_rate"`	// delivered / total * 100
+	FailureRate	float64			`json:"failure_rate"`
+	ByCarrier	map[string]CarrierStat	`json:"by_carrier"`
 }
 
 // CarrierStat 单运营商统计
 type CarrierStat struct {
-	Total        int64   `json:"total"`
-	Delivered    int64   `json:"delivered"`
-	Failed       int64   `json:"failed"`
-	DeliveryRate float64 `json:"delivery_rate"`
+	Total		int64	`json:"total"`
+	Delivered	int64	`json:"delivered"`
+	Failed		int64	`json:"failed"`
+	DeliveryRate	float64	`json:"delivery_rate"`
 }
 
 // GetDeliveryRateMetrics 聚合时间窗口内的到达率
@@ -362,17 +362,17 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	}
 
 	m := &DeliveryRateMetrics{
-		WindowStart: start,
-		WindowEnd:   end,
-		ByCarrier:   make(map[string]CarrierStat),
+		WindowStart:	start,
+		WindowEnd:	end,
+		ByCarrier:	make(map[string]CarrierStat),
 	}
 
 	// 1) 基础聚合
 	type aggRow struct {
-		Total     int64
-		Delivered int64
-		Failed    int64
-		Retryable int64
+		Total		int64
+		Delivered	int64
+		Failed		int64
+		Retryable	int64
 	}
 	var row aggRow
 	if err := s.db.WithContext(ctx).
@@ -414,10 +414,10 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 
 	// 3) 按运营商维度统计
 	type carrierRow struct {
-		Provider  string
-		Total     int64
-		Delivered int64
-		Failed    int64
+		Provider	string
+		Total		int64
+		Delivered	int64
+		Failed		int64
 	}
 	var crows []carrierRow
 	if err := s.db.WithContext(ctx).
@@ -433,9 +433,9 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 		Scan(&crows).Error; err == nil {
 		for _, cr := range crows {
 			cs := CarrierStat{
-				Total:     cr.Total,
-				Delivered: cr.Delivered,
-				Failed:    cr.Failed,
+				Total:		cr.Total,
+				Delivered:	cr.Delivered,
+				Failed:		cr.Failed,
 			}
 			if cr.Total > 0 {
 				cs.DeliveryRate = round2(float64(cr.Delivered) / float64(cr.Total) * 100)
@@ -453,17 +453,17 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 
 // ProviderDeliveryReport 兼容的运营商回执统一格式
 type ProviderDeliveryReport struct {
-	MessageID   string `json:"messageId"`
-	Phone       string `json:"phone"`
-	JobID       string `json:"jobId"`
-	Provider    string `json:"provider"`
-	Carrier     string `json:"carrier"` // 携号转网维度
-	Status      string `json:"status"`
-	ErrorCode   string `json:"errorCode"`
-	ErrorMsg    string `json:"errorMsg"`
-	SentAt      string `json:"sentAt"`
-	DeliveredAt string `json:"deliveredAt"`
-	RawPayload  string `json:"rawPayload"`
+	MessageID	string	`json:"messageId"`
+	Phone		string	`json:"phone"`
+	JobID		string	`json:"jobId"`
+	Provider	string	`json:"provider"`
+	Carrier		string	`json:"carrier"`	// 携号转网维度
+	Status		string	`json:"status"`
+	ErrorCode	string	`json:"errorCode"`
+	ErrorMsg	string	`json:"errorMsg"`
+	SentAt		string	`json:"sentAt"`
+	DeliveredAt	string	`json:"deliveredAt"`
+	RawPayload	string	`json:"rawPayload"`
 }
 
 // RecordFromProvider 统一的运营商回执接收入口
@@ -482,15 +482,15 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 
 	// 1) 走原 tracking 路径
 	req := &DeliveryReportRequest{
-		MessageID:   r.MessageID,
-		Phone:       r.Phone,
-		JobID:       r.JobID,
-		Provider:    r.Provider,
-		Status:      r.Status,
-		ErrorCode:   r.ErrorCode,
-		ErrorMsg:    r.ErrorMsg,
-		SentAt:      r.SentAt,
-		DeliveredAt: r.DeliveredAt,
+		MessageID:	r.MessageID,
+		Phone:		r.Phone,
+		JobID:		r.JobID,
+		Provider:	r.Provider,
+		Status:		r.Status,
+		ErrorCode:	r.ErrorCode,
+		ErrorMsg:	r.ErrorMsg,
+		SentAt:		r.SentAt,
+		DeliveredAt:	r.DeliveredAt,
 	}
 	if err := s.tracking.RecordDeliveryReport(ctx, req); err != nil {
 		logger.Errorf("[SmsDeliveryTracker] record delivery report: %v", err)
@@ -500,7 +500,7 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 	go func(phone, carrier string) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = s.DetectAndRecordPortability(bgCtx, phone, carrier)
+		_ = s.DetectAndRecordPortability(ctx, bgCtx, phone, carrier)
 	}(r.Phone, r.Carrier)
 
 	// 3) 黑名单事件

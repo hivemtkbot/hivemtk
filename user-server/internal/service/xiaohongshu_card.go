@@ -83,7 +83,7 @@ func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.Xiaohongsh
 	// 获取短链信息
 	shortCode := ""
 	if card.ShortLinkID != nil {
-		shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
+		shortLink, err := s.shortLinkService.GetByID(*card.ShortLinkID)
 		if err == nil {
 			shortCode = shortLink.ShortCode
 		}
@@ -139,7 +139,7 @@ func (s *xiaohongshuCardService) Update(ctx context.Context, req *dto.Xiaohongsh
 	// 获取短链信息
 	shortCode := ""
 	if updatedCard.ShortLinkID != nil {
-		shortLink, err := s.shortLinkService.GetByID(ctx, *updatedCard.ShortLinkID)
+		shortLink, err := s.shortLinkService.GetByID(*updatedCard.ShortLinkID)
 		if err == nil {
 			shortCode = shortLink.ShortCode
 		}
@@ -158,7 +158,7 @@ func (s *xiaohongshuCardService) Delete(ctx context.Context, id uint) error {
 
 	// 如果有关联的短链，删除短链
 	if card.ShortLinkID != nil {
-		_ = s.shortLinkService.Delete(ctx, *card.ShortLinkID)
+		_ = s.shortLinkService.Delete(*card.ShortLinkID)
 	}
 
 	// 删除卡片
@@ -200,7 +200,7 @@ func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.Xiaohongs
 		shortCode := ""
 		shortLinkURL := ""
 		if card.ShortLinkID != nil {
-			shortLink, err := s.shortLinkService.GetByID(ctx, *card.ShortLinkID)
+			shortLink, err := s.shortLinkService.GetByID(*card.ShortLinkID)
 			if err == nil {
 				shortCode = shortLink.ShortCode
 				shortLinkURL = "/s/" + shortCode
@@ -313,7 +313,7 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 	shortCodeReq := &dto.GenerateShortCodeRequest{
 		Length: 6,
 	}
-	shortCodeResp, err := s.shortLinkService.GenerateShortCode(ctx, shortCodeReq)
+	shortCodeResp, err := s.shortLinkService.GenerateShortCode(shortCodeReq)
 	if err != nil {
 		return err
 	}

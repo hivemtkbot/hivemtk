@@ -29,7 +29,7 @@ type TikTokCardService interface {
 //
 // 五层架构合规:不持有 *gorm.DB,通过 repository 访问数据库。
 type tiktokCardService struct {
-	repo        repository.TikTokCardRepository
+	repo          repository.TikTokCardRepository
 	shortLinkRepo repository.ShortLinkRepository
 }
 
@@ -64,13 +64,13 @@ func (s *tiktokCardService) Create(ctx context.Context, req *dto.TikTokCardCreat
 	}
 
 	card := &model.TikTokCard{
-		Title:		req.Title,
-		Description:	req.Description,
-		ImageURL:	req.ImageURL,
-		RedirectURL:	redirectURL,
-		DomainPoolID:	req.DomainPoolID,
-		Tags:		req.Tags,
-		IsActive:	req.IsActive,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		RedirectURL:  redirectURL,
+		DomainPoolID: req.DomainPoolID,
+		Tags:         req.Tags,
+		IsActive:     req.IsActive,
 	}
 
 	created, err := s.repo.Create(ctx, card)
@@ -138,7 +138,7 @@ func (s *tiktokCardService) GetByID(ctx context.Context, id uint) (*dto.TikTokCa
 	// 获取短链信息(通过 ShortLinkRepository,避免 service 直接持有 db)
 	shortCode := ""
 	if card.ShortLinkID != 0 {
-		sl, err := s.shortLinkRepo.GetByID(ctx, card.ShortLinkID)
+		sl, err := s.shortLinkRepo.GetByID(card.ShortLinkID)
 		if err == nil && sl != nil {
 			shortCode = sl.ShortCode
 		}
@@ -188,20 +188,20 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 
 	// 如果已有关联短链,先删除
 	if card.ShortLinkID != 0 {
-		_ = s.shortLinkRepo.Delete(ctx, card.ShortLinkID)
+		_ = s.shortLinkRepo.Delete(card.ShortLinkID)
 	}
 
 	sl := &model.ShortLink{
-		ShortCode:	shortCode,
-		OriginalURL:	fmt.Sprintf("/tiktok/card/%d", card.ID),
-		Title:		card.Title,
-		Description:	card.Description,
-		DomainID:	card.DomainPoolID,
+		ShortCode:   shortCode,
+		OriginalURL: fmt.Sprintf("/tiktok/card/%d", card.ID),
+		Title:       card.Title,
+		Description: card.Description,
+		DomainID:    card.DomainPoolID,
 	}
 	if sl.DomainID == 0 {
 		sl.DomainID = 1
 	}
-	if err := s.shortLinkRepo.Create(ctx, sl); err != nil {
+	if err := s.shortLinkRepo.Create(sl); err != nil {
 		return nil, fmt.Errorf("创建短链失败: %w", err)
 	}
 
@@ -240,10 +240,10 @@ func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardSt
 	recent := make([]dto.TikTokCardActivityItem, 0, len(activities))
 	for _, a := range activities {
 		recent = append(recent, dto.TikTokCardActivityItem{
-			CardTitle:	titleMap[a.CardID],
-			Action:		a.ActivityType,
-			Username:	a.UserID,
-			CreatedAt:	a.CreatedAt.Format("2006-01-02 15:04:05"),
+			CardTitle: titleMap[a.CardID],
+			Action:    a.ActivityType,
+			Username:  a.UserID,
+			CreatedAt: a.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
@@ -253,12 +253,12 @@ func (s *tiktokCardService) StatsOverall(ctx context.Context) (*dto.TikTokCardSt
 	}
 
 	return &dto.TikTokCardStatsOverallResponse{
-		TotalCards:	totalCards,
-		ActiveCards:	activeCards,
-		TotalViews:	totalViews,
-		PopularCards:	popularResp,
-		DailyStats:	daily,
-		RecentActivity:	recent,
+		TotalCards:     totalCards,
+		ActiveCards:    activeCards,
+		TotalViews:     totalViews,
+		PopularCards:   popularResp,
+		DailyStats:     daily,
+		RecentActivity: recent,
 	}, nil
 }
 
@@ -280,19 +280,19 @@ func (s *tiktokCardService) Stats(ctx context.Context, cardID uint) (*dto.TikTok
 	recent := make([]dto.TikTokCardActivityItem, 0, len(activities))
 	for _, a := range activities {
 		recent = append(recent, dto.TikTokCardActivityItem{
-			CardTitle:	card.Title,
-			Action:		a.ActivityType,
-			Username:	a.UserID,
-			CreatedAt:	a.CreatedAt.Format("2006-01-02 15:04:05"),
+			CardTitle: card.Title,
+			Action:    a.ActivityType,
+			Username:  a.UserID,
+			CreatedAt: a.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
 	return &dto.TikTokCardStatsDetailResponse{
-		CardID:		card.ID,
-		Title:		card.Title,
-		ViewCount:	card.ViewCount,
-		DailyStats:	daily,
-		RecentActivity:	recent,
+		CardID:         card.ID,
+		Title:          card.Title,
+		ViewCount:      card.ViewCount,
+		DailyStats:     daily,
+		RecentActivity: recent,
 	}, nil
 }
 
@@ -302,11 +302,11 @@ func (s *tiktokCardService) RecordView(ctx context.Context, cardID uint, ip, use
 		return err
 	}
 	activity := &model.TikTokCardActivity{
-		CardID:		cardID,
-		ActivityType:	"view",
-		IPAddress:	ip,
-		UserAgent:	userAgent,
-		Platform:	"tiktok",
+		CardID:       cardID,
+		ActivityType: "view",
+		IPAddress:    ip,
+		UserAgent:    userAgent,
+		Platform:     "tiktok",
 	}
 	return s.repo.CreateActivity(ctx, activity)
 }
@@ -319,21 +319,21 @@ func (s *tiktokCardService) toResponse(ctx context.Context, card *model.TikTokCa
 	}
 	domainPoolID := card.DomainPoolID
 	return &dto.TikTokCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&domainPoolID,
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		LikeCount:	card.LikeCount,
-		ShareCount:	card.ShareCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:	card.UpdatedAt.Format(time.RFC3339),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &domainPoolID,
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		LikeCount:    card.LikeCount,
+		ShareCount:   card.ShareCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,32 +60,5 @@ func (e *CustomerEvent) BeforeCreate(tx *gorm.DB) error {
 		e.OccurredAt = time.Now()
 	}
 
-	return nil
-}
-
-// GetEventData 获取事件数据对象
-func (e *CustomerEvent) GetEventData() map[string]any {
-	if e.EventData == "" {
-		return map[string]any{}
-	}
-	var data map[string]any
-	err := json.Unmarshal([]byte(e.EventData), &data)
-	if err != nil {
-		// Log error in production: log.Printf("failed to unmarshal event data: %v", err)
-		return map[string]any{}
-	}
-	return data
-}
-
-// SetEventData 设置事件数据对象
-func (e *CustomerEvent) SetEventData(data map[string]any) error {
-	if data == nil {
-		data = map[string]any{}
-	}
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	e.EventData = string(jsonData)
 	return nil
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -12,17 +13,17 @@ import (
 
 // EmailTrackingRepository 邮件追踪仓库接口
 type EmailTrackingRepository interface {
-	CreateEvent(event *model.EmailTrackingEvent) error
-	EventExists(eventID string) (bool, error)
-	ListEventsByJob(jobID string, page, limit int) ([]*model.EmailTrackingEvent, int64, error)
-	CountEventsByJob(jobID, eventType string) (int64, error)
-	CountUniqueEmailsByJob(jobID, eventType string) (int64, error)
-	ListEventsByRange(start, end time.Time) ([]*model.EmailTrackingEvent, error)
-	CountEventsByRange(start, end time.Time, eventType string) (int64, error)
+	CreateEvent(ctx context.Context, event *model.EmailTrackingEvent) error
+	EventExists(ctx context.Context, eventID string) (bool, error)
+	ListEventsByJob(ctx context.Context, jobID string, page, limit int) ([]*model.EmailTrackingEvent, int64, error)
+	CountEventsByJob(ctx context.Context, jobID, eventType string) (int64, error)
+	CountUniqueEmailsByJob(ctx context.Context, jobID, eventType string) (int64, error)
+	ListEventsByRange(ctx context.Context, start, end time.Time) ([]*model.EmailTrackingEvent, error)
+	CountEventsByRange(ctx context.Context, start, end time.Time, eventType string) (int64, error)
 
-	GetJobMetric(jobID string) (*model.EmailJobMetric, error)
-	UpsertJobMetric(metric *model.EmailJobMetric) error
-	ListJobMetricsByRange(start, end time.Time) ([]*model.EmailJobMetric, error)
+	GetJobMetric(ctx context.Context, jobID string) (*model.EmailJobMetric, error)
+	UpsertJobMetric(ctx context.Context, metric *model.EmailJobMetric) error
+	ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.EmailJobMetric, error)
 }
 
 type emailTrackingRepo struct {
@@ -38,7 +39,7 @@ func NewEmailTrackingRepository(db *gorm.DB) EmailTrackingRepository {
 }
 
 // CreateEvent 创建追踪事件（event_id 唯一）
-func (r *emailTrackingRepo) CreateEvent(event *model.EmailTrackingEvent) error {
+func (r *emailTrackingRepo) CreateEvent(ctx context.Context, event *model.EmailTrackingEvent) error {
 	if r == nil || r.db == nil {
 		return errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -46,7 +47,7 @@ func (r *emailTrackingRepo) CreateEvent(event *model.EmailTrackingEvent) error {
 }
 
 // EventExists 判断 event_id 是否已存在（webhook 重放幂等）
-func (r *emailTrackingRepo) EventExists(eventID string) (bool, error) {
+func (r *emailTrackingRepo) EventExists(ctx context.Context, eventID string) (bool, error) {
 	if r == nil || r.db == nil {
 		return false, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -59,7 +60,7 @@ func (r *emailTrackingRepo) EventExists(eventID string) (bool, error) {
 }
 
 // ListEventsByJob 分页查询任务的追踪事件
-func (r *emailTrackingRepo) ListEventsByJob(jobID string, page, limit int) ([]*model.EmailTrackingEvent, int64, error) {
+func (r *emailTrackingRepo) ListEventsByJob(ctx context.Context, jobID string, page, limit int) ([]*model.EmailTrackingEvent, int64, error) {
 	if r == nil || r.db == nil {
 		return nil, 0, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -79,7 +80,7 @@ func (r *emailTrackingRepo) ListEventsByJob(jobID string, page, limit int) ([]*m
 }
 
 // CountEventsByJob 统计任务某类事件总数
-func (r *emailTrackingRepo) CountEventsByJob(jobID, eventType string) (int64, error) {
+func (r *emailTrackingRepo) CountEventsByJob(ctx context.Context, jobID, eventType string) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -93,7 +94,7 @@ func (r *emailTrackingRepo) CountEventsByJob(jobID, eventType string) (int64, er
 }
 
 // CountUniqueEmailsByJob 统计任务某类事件去重邮箱数（open_rate / click_rate 使用）
-func (r *emailTrackingRepo) CountUniqueEmailsByJob(jobID, eventType string) (int64, error) {
+func (r *emailTrackingRepo) CountUniqueEmailsByJob(ctx context.Context, jobID, eventType string) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -105,7 +106,7 @@ func (r *emailTrackingRepo) CountUniqueEmailsByJob(jobID, eventType string) (int
 }
 
 // ListEventsByRange 查询时间区间内的事件（聚合区间指标使用）
-func (r *emailTrackingRepo) ListEventsByRange(start, end time.Time) ([]*model.EmailTrackingEvent, error) {
+func (r *emailTrackingRepo) ListEventsByRange(ctx context.Context, start, end time.Time) ([]*model.EmailTrackingEvent, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -115,7 +116,7 @@ func (r *emailTrackingRepo) ListEventsByRange(start, end time.Time) ([]*model.Em
 }
 
 // CountEventsByRange 统计时间区间内某类事件总数
-func (r *emailTrackingRepo) CountEventsByRange(start, end time.Time, eventType string) (int64, error) {
+func (r *emailTrackingRepo) CountEventsByRange(ctx context.Context, start, end time.Time, eventType string) (int64, error) {
 	if r == nil || r.db == nil {
 		return 0, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -129,7 +130,7 @@ func (r *emailTrackingRepo) CountEventsByRange(start, end time.Time, eventType s
 }
 
 // GetJobMetric 获取任务指标
-func (r *emailTrackingRepo) GetJobMetric(jobID string) (*model.EmailJobMetric, error) {
+func (r *emailTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*model.EmailJobMetric, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("email tracking repository 未初始化（db is nil）")
 	}
@@ -145,11 +146,11 @@ func (r *emailTrackingRepo) GetJobMetric(jobID string) (*model.EmailJobMetric, e
 }
 
 // UpsertJobMetric 创建或更新任务指标
-func (r *emailTrackingRepo) UpsertJobMetric(metric *model.EmailJobMetric) error {
+func (r *emailTrackingRepo) UpsertJobMetric(ctx context.Context, metric *model.EmailJobMetric) error {
 	if r == nil || r.db == nil {
 		return errors.New("email tracking repository 未初始化（db is nil）")
 	}
-	existing, err := r.GetJobMetric(metric.JobID)
+	existing, err := r.GetJobMetric(ctx, metric.JobID)
 	if err != nil {
 		return err
 	}
@@ -161,7 +162,7 @@ func (r *emailTrackingRepo) UpsertJobMetric(metric *model.EmailJobMetric) error 
 }
 
 // ListJobMetricsByRange 查询时间区间内的任务指标
-func (r *emailTrackingRepo) ListJobMetricsByRange(start, end time.Time) ([]*model.EmailJobMetric, error) {
+func (r *emailTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.EmailJobMetric, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("email tracking repository 未初始化（db is nil）")
 	}

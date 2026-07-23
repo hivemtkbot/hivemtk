@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -41,7 +42,7 @@ func TestMessageRepository_Create(t *testing.T) {
 		Text:      "Test message",
 	}
 
-	err := repo.Create(message)
+	err := repo.Create(context.Background(), message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 		Text:      "",
 	}
 
-	err := repo.Create(message)
+	err := repo.Create(context.Background(), message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -87,10 +88,10 @@ func TestMessageRepository_GetMessageList(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	messages, total, err := repo.GetMessageList(1, 5)
+	messages, total, err := repo.GetMessageList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -109,7 +110,7 @@ func TestMessageRepository_GetMessageList_Empty(t *testing.T) {
 
 	repo := NewMessageRepository()
 
-	messages, total, err := repo.GetMessageList(1, 10)
+	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -136,10 +137,10 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	messages, _, err := repo.GetMessageList(2, 5)
+	messages, _, err := repo.GetMessageList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -163,10 +164,10 @@ func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 			UserID:    "user123",
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	messages, total, err := repo.GetMessageList(1, 10)
+	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -195,10 +196,10 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 			UserID:    userID,
 			Text:      "Message from " + userID,
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	messages, total, err := repo.GetMessageList(1, 10)
+	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -226,7 +227,7 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Valid Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
 	for i := 0; i < 2; i++ {
@@ -237,10 +238,10 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('a'+i)),
 			Text:      "Invalid Message " + string(rune('a'+i)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	_, total, err := repo.GetMessageList(1, 10)
+	_, total, err := repo.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -264,10 +265,10 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Batch message " + string(rune('0'+i%10)),
 		}
-		repo.Create(message)
+		repo.Create(context.Background(), message)
 	}
 
-	messages, total, err := repo.GetMessageList(1, 50)
+	messages, total, err := repo.GetMessageList(context.Background(), 1, 50)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -303,10 +304,10 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      text,
 		}
-		repo.Create(msg)
+		repo.Create(context.Background(), msg)
 	}
 
-	_, total, err := repo.GetMessageList(1, 10)
+	_, total, err := repo.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}

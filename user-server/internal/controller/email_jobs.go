@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/response"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // EmailJobsController 任务控制器
@@ -77,7 +75,7 @@ func (c *EmailJobsController) GetEmailJobsDetail(ctx *gin.Context) {
 
 	resp, err := c.svc.GetEmailJobsByIDDTO(jobsID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "任务不存在")
 			return
 		}

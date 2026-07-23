@@ -11,21 +11,22 @@ import (
 	"marketing/internal/repository"
 
 	"github.com/google/uuid"
+	"context"
 )
 
 // EmailListService 列表服务
 type EmailListService struct {
-	repo              repository.EmailListRepository
-	clueRepo          repository.ClueRepository
-	systemConfigRepo  repository.SystemConfigRepository
+	repo			repository.EmailListRepository
+	clueRepo		repository.ClueRepository
+	systemConfigRepo	repository.SystemConfigRepository
 }
 
 // NewEmailListService 创建列表服务实例
 func NewEmailListService() *EmailListService {
 	return &EmailListService{
-		repo:             repository.NewEmailListRepository(),
-		clueRepo:         repository.NewClueRepository(),
-		systemConfigRepo: repository.NewSystemConfigRepository(),
+		repo:			repository.NewEmailListRepository(),
+		clueRepo:		repository.NewClueRepository(),
+		systemConfigRepo:	repository.NewSystemConfigRepository(),
 	}
 }
 
@@ -34,9 +35,9 @@ func NewEmailListService() *EmailListService {
 // 2026-07-22 修复 import cycle：原实现通过 service.NewClueService() / service.NewSystemConfigService()
 // 间接依赖 service 包，而 service→tooluse→email/service 形成循环，导致 go build 失败。
 // 改为直接注入 clue / systemConfig repository，行为等价（service 层方法本身就是透传）。
-func (s *EmailListService) CreateEmailList(subject string, content string, attachments string) (total int64, err error) {
+func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, content string, attachments string) (total int64, err error) {
 	// 从线索库读取所有线索
-	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(1)
+	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(ctx, 1)
 	if err != nil {
 		return 0, err
 	}
@@ -47,20 +48,20 @@ func (s *EmailListService) CreateEmailList(subject string, content string, attac
 	// 新建任务
 	jobsService := NewEmailJobsService()
 	jobs := model.EmailJobs{
-		Subject:      subject,
-		EmailTotal:   clueTotal,
-		SendTotal:    0,
-		SuccessTotal: 0,
-		FailTotal:    0,
-		ReadTotal:    0,
+		Subject:	subject,
+		EmailTotal:	clueTotal,
+		SendTotal:	0,
+		SuccessTotal:	0,
+		FailTotal:	0,
+		ReadTotal:	0,
 	}
-	job, err := jobsService.CreateEmailJobs(jobs)
+	job, err := jobsService.CreateEmailJobs(ctx, jobs)
 	if err != nil {
 		return 0, err
 	}
 
 	// 从系统配置库读取系统配置
-	systemConfig, err := s.systemConfigRepo.GetConfig()
+	systemConfig, err := s.systemConfigRepo.GetConfig(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -81,10 +82,10 @@ func (s *EmailListService) CreateEmailList(subject string, content string, attac
 		}
 
 		parsemap := mail.TemplateParseMap{
-			Name:    clue.Name,
-			City:    clue.City,
-			Address: clue.Address,
-			Account: clue.Account,
+			Name:		clue.Name,
+			City:		clue.City,
+			Address:	clue.Address,
+			Account:	clue.Account,
 		}
 
 		// 替换 subject content 上的自定义变量
@@ -100,23 +101,23 @@ func (s *EmailListService) CreateEmailList(subject string, content string, attac
 		contentCopy = mail.BuildTrace(contentCopy, traceID, systemConfig.WebsiteURL)
 
 		emailInfo := model.EmailList{
-			Subject:     subjectCopy,
-			Content:     contentCopy,
-			Attachments: attachments,
-			IsSend:      0,
-			SendTime:    time.Time{},
-			IsRead:      0,
-			ReadTime:    time.Time{},
-			To:          toAccount,
-			JobsID:      job.ID,
-			TraceID:     traceID,
-			CreatedAt:   time.Now(),
+			Subject:	subjectCopy,
+			Content:	contentCopy,
+			Attachments:	attachments,
+			IsSend:		0,
+			SendTime:	time.Time{},
+			IsRead:		0,
+			ReadTime:	time.Time{},
+			To:		toAccount,
+			JobsID:		job.ID,
+			TraceID:	traceID,
+			CreatedAt:	time.Now(),
 		}
 
 		emailList = append(emailList, &emailInfo)
 	}
 
-	total, err = s.repo.BatchCreate(emailList)
+	total, err = s.repo.BatchCreate(ctx, emailList)
 	if err != nil {
 		return 0, err
 	}
@@ -124,39 +125,39 @@ func (s *EmailListService) CreateEmailList(subject string, content string, attac
 }
 
 // GetEmailListByID 根据ID获取列表
-func (s *EmailListService) GetEmailListByID(id uuid.UUID) (*model.EmailList, error) {
-	return s.repo.GetByID(id)
+func (s *EmailListService) GetEmailListByID(ctx context.Context, id uuid.UUID) (*model.EmailList, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // GetEmailListList 获取列表列表
-func (s *EmailListService) GetEmailListList(page int, pageSize int) ([]*model.EmailList, int64, error) {
-	return s.repo.List(page, pageSize)
+func (s *EmailListService) GetEmailListList(ctx context.Context, page int, pageSize int) ([]*model.EmailList, int64, error) {
+	return s.repo.List(ctx, page, pageSize)
 }
 
 // UpdateEmailList 更新列表
-func (s *EmailListService) UpdateEmailList(list model.EmailList) error {
-	return s.repo.Update(&list)
+func (s *EmailListService) UpdateEmailList(ctx context.Context, list model.EmailList) error {
+	return s.repo.Update(ctx, &list)
 }
 
 // DeleteEmailList 删除列表
-func (s *EmailListService) DeleteEmailList(id uuid.UUID) error {
-	return s.repo.Delete(id)
+func (s *EmailListService) DeleteEmailList(ctx context.Context, id uuid.UUID) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // GetUnsentEmailList 获取未发送的邮件列表
-func (s *EmailListService) GetUnsentEmailList(limit int) ([]*model.EmailList, error) {
-	return s.repo.GetUnsentEmailList(limit)
+func (s *EmailListService) GetUnsentEmailList(ctx context.Context, limit int) ([]*model.EmailList, error) {
+	return s.repo.GetUnsentEmailList(ctx, limit)
 }
 
 // GetTodayCountByFrom 获取今日发送个数
-func (s *EmailListService) GetTodayCountByFrom(from string) (int64, error) {
-	return s.repo.GetTodayCountByFrom(from)
+func (s *EmailListService) GetTodayCountByFrom(ctx context.Context, from string) (int64, error) {
+	return s.repo.GetTodayCountByFrom(ctx, from)
 }
 
 // UpdateEmailListReadInfo 更新邮件状态
-func (s *EmailListService) UpdateEmailListReadInfo(traceID uuid.UUID) error {
+func (s *EmailListService) UpdateEmailListReadInfo(ctx context.Context, traceID uuid.UUID) error {
 	// 基于trace id 获取 邮件信息
-	emailList, err := s.repo.GetByTraceID(traceID)
+	emailList, err := s.repo.GetByTraceID(ctx, traceID)
 	if err != nil {
 		return err
 	}
@@ -169,11 +170,11 @@ func (s *EmailListService) UpdateEmailListReadInfo(traceID uuid.UUID) error {
 	emailList.IsRead = 1
 	emailList.ReadTime = time.Now()
 	// 更新 邮件 状态
-	res := s.repo.Update(emailList)
+	res := s.repo.Update(ctx, emailList)
 
 	// 更新jobs 统计
 	jobsService := NewEmailJobsService()
-	jobsService.IncreaseReadTotal(emailList.JobsID)
+	jobsService.IncreaseReadTotal(ctx, emailList.JobsID)
 
 	if res != nil {
 		return res
@@ -184,8 +185,8 @@ func (s *EmailListService) UpdateEmailListReadInfo(traceID uuid.UUID) error {
 // ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // GetEmailListListDTO 获取邮件列表（返回 DTO）
-func (s *EmailListService) GetEmailListListDTO(page, pageSize int) (*dto.GetEmailListResponse, error) {
-	lists, total, err := s.GetEmailListList(page, pageSize)
+func (s *EmailListService) GetEmailListListDTO(ctx context.Context, page, pageSize int) (*dto.GetEmailListResponse, error) {
+	lists, total, err := s.GetEmailListList(ctx, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +198,8 @@ func (s *EmailListService) GetEmailListListDTO(page, pageSize int) (*dto.GetEmai
 }
 
 // GetEmailListByIDDTO 根据 ID 获取邮件（返回 DTO）
-func (s *EmailListService) GetEmailListByIDDTO(id uuid.UUID) (*dto.EmailListResponse, error) {
-	l, err := s.GetEmailListByID(id)
+func (s *EmailListService) GetEmailListByIDDTO(ctx context.Context, id uuid.UUID) (*dto.EmailListResponse, error) {
+	l, err := s.GetEmailListByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -206,16 +207,16 @@ func (s *EmailListService) GetEmailListByIDDTO(id uuid.UUID) (*dto.EmailListResp
 }
 
 // UpdateEmailListDTO 通过请求 DTO 更新邮件
-func (s *EmailListService) UpdateEmailListDTO(req dto.UpdateEmailListRequest) error {
+func (s *EmailListService) UpdateEmailListDTO(ctx context.Context, req dto.UpdateEmailListRequest) error {
 	id, err := uuid.Parse(req.ID)
 	if err != nil {
 		return err
 	}
-	return s.UpdateEmailList(model.EmailList{
-		ID:          id,
-		Subject:     req.Subject,
-		Content:     req.Content,
-		Attachments: strings.Join(req.Attachments, ","),
+	return s.UpdateEmailList(ctx, model.EmailList{
+		ID:		id,
+		Subject:	req.Subject,
+		Content:	req.Content,
+		Attachments:	strings.Join(req.Attachments, ","),
 	})
 }
 
@@ -224,19 +225,19 @@ func toEmailListResponse(l *model.EmailList) *dto.EmailListResponse {
 		return nil
 	}
 	return &dto.EmailListResponse{
-		ID:          l.ID.String(),
-		Subject:     l.Subject,
-		Content:     l.Content,
-		Attachments: splitCSV(l.Attachments),
-		CreatedAt:   l.CreatedAt,
-		UpdatedAt:   l.UpdatedAt,
-		From:        l.From,
-		To:          l.To,
-		IsSend:      int64(l.IsSend),
-		SendTime:    l.SendTime,
-		IsRead:      int64(l.IsRead),
-		ReadTime:    l.ReadTime,
-		JobsID:      l.JobsID.String(),
-		IsSuccess:   int64(l.IsSuccess),
+		ID:		l.ID.String(),
+		Subject:	l.Subject,
+		Content:	l.Content,
+		Attachments:	splitCSV(l.Attachments),
+		CreatedAt:	l.CreatedAt,
+		UpdatedAt:	l.UpdatedAt,
+		From:		l.From,
+		To:		l.To,
+		IsSend:		int64(l.IsSend),
+		SendTime:	l.SendTime,
+		IsRead:		int64(l.IsRead),
+		ReadTime:	l.ReadTime,
+		JobsID:		l.JobsID.String(),
+		IsSuccess:	int64(l.IsSuccess),
 	}
 }

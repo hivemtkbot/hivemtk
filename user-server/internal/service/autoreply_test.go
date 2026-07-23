@@ -440,7 +440,6 @@ func TestAutoReplyService_ListRules(t *testing.T) {
 	}
 
 	// 获取全部规则
-	ctx := context.Background()
 	req := &dto.AutoReplyRuleListRequest{
 		Platform: "douyin",
 		UserID:   1,
@@ -479,7 +478,6 @@ func TestAutoReplyService_CreateRule(t *testing.T) {
 		IsActive:     true,
 	}
 
-	ctx := context.Background()
 	rule, err := service.CreateRule(ctx, req)
 	if err != nil {
 		t.Fatalf("CreateRule failed: %v", err)
@@ -512,7 +510,6 @@ func TestAutoReplyService_UpdateRule(t *testing.T) {
 	}
 	database.Create(existing)
 
-	ctx := context.Background()
 	newStartTime := "10:00"
 	newEndTime := "22:00"
 	req := &dto.AutoReplyRuleRequest{
@@ -544,7 +541,6 @@ func TestAutoReplyService_UpdateRule_NotFound(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	req := &dto.AutoReplyRuleRequest{
 		UserID:       1,
 		Platform:     "douyin",
@@ -572,7 +568,6 @@ func TestAutoReplyService_DeleteRule(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 	err := service.DeleteRule(ctx, rule.ID)
 	if err != nil {
 		t.Fatalf("DeleteRule failed: %v", err)
@@ -728,7 +723,6 @@ func TestAutoReplyService_TestMatching(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试精确匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "你好,请问这个多少钱", 1)
@@ -755,7 +749,6 @@ func TestAutoReplyService_TestMatching_NoMatch(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试不匹配的消息
 	matchedRule, err := service.TestMatching(ctx, "douyin", "完全不相关的内容", 1)
@@ -783,7 +776,6 @@ func TestAutoReplyService_TestMatching_FuzzyPattern(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试通配符匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "今天有什么优惠活动", 1)
@@ -811,7 +803,6 @@ func TestAutoReplyService_TestMatching_RegexPattern(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试正则匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "我的电话是 12345", 1)
@@ -838,7 +829,6 @@ func TestAutoReplyService_TestMatching_CaseInsensitive(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试小写消息匹配大写关键词
 	matchedRule, err := service.TestMatching(ctx, "douyin", "hello world", 1)
@@ -936,7 +926,6 @@ func TestAutoReplyService_hasRemainingDailyQuota_NoLimit(t *testing.T) {
 		DailyLimit: 0, // 0 表示无限制
 	}
 
-	ctx := context.Background()
 	hasQuota := service.hasRemainingDailyQuota(ctx, rule, 1)
 	if !hasQuota {
 		t.Error("Expected true for no daily limit")
@@ -969,7 +958,6 @@ func TestAutoReplyService_hasRemainingDailyQuota_WithLimit(t *testing.T) {
 		database.Create(log)
 	}
 
-	ctx := context.Background()
 	hasQuota := service.hasRemainingDailyQuota(ctx, rule, 1)
 	if !hasQuota {
 		t.Error("Expected true when under daily limit")
@@ -1009,7 +997,6 @@ func TestAutoReplyService_SimulateMessage_Matched(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	log, err := service.SimulateMessage(ctx, "douyin", "这是一条测试消息", "sender", 1, 1)
 	if err != nil {
@@ -1031,7 +1018,6 @@ func TestAutoReplyService_SimulateMessage_NoMatch(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 
 	log, err := service.SimulateMessage(ctx, "douyin", "不相关的内容", "sender", 1, 1)
 	if err != nil {
@@ -1063,7 +1049,6 @@ func TestAutoReplyService_TestBatchMatching(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 	messages := []string{
 		"这是一条测试消息", // 包含"测试"
 		"你好,请问在吗",  // 包含"你好"
@@ -1098,7 +1083,6 @@ func TestAutoReplyService_TestRateLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 
 	results, err := service.TestRateLimit(ctx, "douyin", 1, 1, 10)
 	if err != nil {
@@ -1134,7 +1118,6 @@ func TestAutoReplyService_ResetDailyLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	err := service.ResetDailyLimit(ctx, "douyin", 1, 1)
 	if err != nil {
 		t.Fatalf("ResetDailyLimit failed: %v", err)
@@ -1148,7 +1131,6 @@ func TestAutoReplyService_GetRateLimitStats(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	stats, err := service.GetRateLimitStats(ctx, "douyin", 1, 1)
 	if err != nil {
 		t.Fatalf("GetRateLimitStats failed: %v", err)
@@ -1172,7 +1154,6 @@ func TestAutoReplyService_GetConcurrentStats(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	stats, err := service.GetConcurrentStats(ctx, "douyin", 1)
 	if err != nil {
 		t.Fatalf("GetConcurrentStats failed: %v", err)
@@ -1209,7 +1190,6 @@ func TestAutoReplyService_ListRules_EmptyRequest(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	req := &dto.AutoReplyRuleListRequest{
 		Page:     1,
 		PageSize: 10,
@@ -1290,7 +1270,6 @@ func TestAutoReplyService_TestMatching_MultipleKeywords(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 测试匹配第二个关键词
 	matchedRule, err := service.TestMatching(ctx, "douyin", "包含关键词 2 的消息", 1)
@@ -1317,7 +1296,6 @@ func TestAutoReplyService_TestMatching_InvalidRegex(t *testing.T) {
 	}
 	database.Create(rule)
 
-	ctx := context.Background()
 
 	// 无效正则会失败,但不应崩溃
 	matchedRule, err := service.TestMatching(ctx, "douyin", "测试消息", 1)
@@ -1353,7 +1331,6 @@ func TestAutoReplyService_CreateRule_EmptyContent(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	req := &dto.AutoReplyRuleRequest{
 		UserID:       1,
 		Platform:     "douyin",
@@ -1390,7 +1367,6 @@ func TestAutoReplyService_ListRules_LargePageSize(t *testing.T) {
 		database.Create(rule)
 	}
 
-	ctx := context.Background()
 	req := &dto.AutoReplyRuleListRequest{
 		Page:     1,
 		PageSize: 1000, // 大分页
@@ -1413,7 +1389,6 @@ func TestAutoReplyService_DeleteRule_NonExistent(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	ctx := context.Background()
 	err := service.DeleteRule(ctx, 99999)
 	if err != nil {
 		t.Errorf("DeleteRule should not fail for non-existent rule: %v", err)

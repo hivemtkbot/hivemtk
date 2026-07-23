@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"marketing/internal/pkg/utils/httpclient"
+	"context"
 )
 
 // ============================================================================
@@ -47,7 +48,7 @@ func NewDingTalkService() *DingTalkService {
 //	secret:         机器人「加签」密钥（可选；为空不签名）。允许通过 `webhook|secret` 形式内联
 //	msgType:        text / markdown / link / action_card（默认 text）
 //	content:        消息内容（text/markdown/action_card 为文本；link 为 JSON 字符串）
-func (s *DingTalkService) SendRobot(webhookOrToken, secret, msgType, content string) (string, error) {
+func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret, msgType, content string) (string, error) {
 	if webhookOrToken == "" {
 		return "", fmt.Errorf("dingtalk: webhook/access_token required")
 	}
@@ -82,19 +83,19 @@ func (s *DingTalkService) SendRobot(webhookOrToken, secret, msgType, content str
 	switch mt {
 	case "text":
 		payload, err = json.Marshal(map[string]any{
-			"msgtype": "text",
-			"text":    map[string]string{"content": content},
+			"msgtype":	"text",
+			"text":		map[string]string{"content": content},
 		})
 	case "markdown":
 		payload, err = json.Marshal(map[string]any{
-			"msgtype":  "markdown",
-			"markdown": map[string]string{"title": "消息", "text": content},
+			"msgtype":	"markdown",
+			"markdown":	map[string]string{"title": "消息", "text": content},
 		})
 	default:
 		// link / action_card：content 为对应结构的 JSON 字符串
 		payload, err = json.Marshal(map[string]any{
-			"msgtype": mt,
-			mt:        json.RawMessage(content),
+			"msgtype":	mt,
+			mt:		json.RawMessage(content),
 		})
 	}
 	if err != nil {
@@ -114,8 +115,8 @@ func (s *DingTalkService) SendRobot(webhookOrToken, secret, msgType, content str
 	defer resp.Body.Close()
 
 	var out struct {
-		ErrCode int    `json:"errcode"`
-		ErrMsg  string `json:"errmsg"`
+		ErrCode	int	`json:"errcode"`
+		ErrMsg	string	`json:"errmsg"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return "", fmt.Errorf("dingtalk: decode response: %w", err)

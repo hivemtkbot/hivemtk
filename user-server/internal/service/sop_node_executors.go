@@ -59,7 +59,7 @@ type SOPNodeExecutorDeps struct {
 type StartExecutor struct{}
 
 // NodeType 返回节点类型
-func (e *StartExecutor) NodeType() string { return SOPNodeTypeStart }
+func (e *StartExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeStart }
 
 // Execute 记录开始事件，推进下一节点
 func (e *StartExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -78,7 +78,7 @@ func (e *StartExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Nod
 }
 
 // IsAsync 同步执行
-func (e *StartExecutor) IsAsync() bool { return false }
+func (e *StartExecutor) IsAsync(ctx context.Context)  bool { return false }
 
 // EndExecutor 结束节点执行器
 //
@@ -86,7 +86,7 @@ func (e *StartExecutor) IsAsync() bool { return false }
 type EndExecutor struct{}
 
 // NodeType 返回节点类型
-func (e *EndExecutor) NodeType() string { return SOPNodeTypeEnd }
+func (e *EndExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeEnd }
 
 // Execute 标记流程结束
 func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -104,7 +104,7 @@ func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeE
 }
 
 // IsAsync 同步执行
-func (e *EndExecutor) IsAsync() bool { return false }
+func (e *EndExecutor) IsAsync(ctx context.Context)  bool { return false }
 
 // ============================================================================
 // 2. 消息发送类执行器：MessageNodeBase + 9 种商用节点 + 3 种旧版节点
@@ -130,10 +130,10 @@ type MessageNodeBase struct {
 }
 
 // NodeType 返回节点类型
-func (b *MessageNodeBase) NodeType() string { return b.nodeType }
+func (b *MessageNodeBase) NodeType(ctx context.Context)  string { return b.nodeType }
 
 // IsAsync 同步执行
-func (b *MessageNodeBase) IsAsync() bool { return false }
+func (b *MessageNodeBase) IsAsync(ctx context.Context)  bool { return false }
 
 // Execute 执行消息发送节点
 func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -187,7 +187,7 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 			SenderName:  "AI 销冠",
 			AISource:    contentSource,
 		}
-		if err := b.msgRepo.Create(msg); err != nil {
+		if err := b.msgRepo.Create(ctx, msg); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).
 				Str("session_id", ec.SessionID).
 				Msg("persist session message failed (non-fatal, will still push WS)")
@@ -288,7 +288,7 @@ func (b *MessageNodeBase) updateSessionLastMessage(ctx context.Context, sessionI
 	if repo == nil {
 		return
 	}
-	_ = repo.UpdateLastMessageBySessionID(sessionID, content, "ai")
+	_ = repo.UpdateLastMessageBySessionID(ctx, sessionID, content, "ai")
 }
 
 // buildLLMUserPrompt 构造 LLM 输入
@@ -367,7 +367,7 @@ func defaultScriptForNodeType(nodeType string) string {
 // 设计：sop_dispatcher 启动时 WSHub 为 nil（避免循环依赖），
 // 启动后由 main.go 调用 dispatcher.SetWSHub(hub) 注入，再由 dispatcher
 // 调用每个 MessageNodeBase.SetWSHub 真正注入到执行器。
-func (b *MessageNodeBase) SetWSHub(hub *websocket.Hub) {
+func (b *MessageNodeBase) SetWSHub(ctx context.Context, hub *websocket.Hub)  {
 	b.wsHub = hub
 }
 
@@ -395,10 +395,10 @@ type ConditionExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *ConditionExecutor) NodeType() string { return e.nodeType }
+func (e *ConditionExecutor) NodeType(ctx context.Context)  string { return e.nodeType }
 
 // IsAsync 同步执行
-func (e *ConditionExecutor) IsAsync() bool { return false }
+func (e *ConditionExecutor) IsAsync(ctx context.Context)  bool { return false }
 
 // Execute 评估条件分支
 func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -477,10 +477,10 @@ type LLMNodeExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *LLMNodeExecutor) NodeType() string { return e.nodeType }
+func (e *LLMNodeExecutor) NodeType(ctx context.Context)  string { return e.nodeType }
 
 // IsAsync 同步执行（LLM 调用阻塞，但通过信号量限流）
-func (e *LLMNodeExecutor) IsAsync() bool { return false }
+func (e *LLMNodeExecutor) IsAsync(ctx context.Context)  bool { return false }
 
 // Execute 调用 LLM 决策下一节点
 func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -654,10 +654,10 @@ type WaitExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
+func (e *WaitExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeWait }
 
 // IsAsync 异步执行（不阻塞 Worker Pool）
-func (e *WaitExecutor) IsAsync() bool { return true }
+func (e *WaitExecutor) IsAsync(ctx context.Context)  bool { return true }
 
 // Execute 设置等待状态
 func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {

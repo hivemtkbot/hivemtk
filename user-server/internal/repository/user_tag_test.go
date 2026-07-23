@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -58,7 +59,7 @@ func TestUserTagRepository_AddTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := setupUserTagRepository(t)
 
-			err := repo.AddTag(tt.userID, tt.tagName)
+			err := repo.AddTag(context.Background(), tt.userID, tt.tagName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AddTag() error = %v, wantErr %v", err, tt.wantErr)
@@ -66,7 +67,7 @@ func TestUserTagRepository_AddTag(t *testing.T) {
 
 			if !tt.wantErr {
 				// 验证标签已添加
-				tags, err := repo.GetTagsByUser(tt.userID)
+				tags, err := repo.GetTagsByUser(context.Background(), tt.userID)
 				if err != nil {
 					t.Fatalf("GetTagsByUser failed: %v", err)
 				}
@@ -125,14 +126,14 @@ func TestUserTagRepository_AddTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := setupUserTagRepository(t)
 
-			err := repo.AddTags(tt.userID, tt.tags)
+			err := repo.AddTags(context.Background(), tt.userID, tt.tags)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AddTags() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				tags, err := repo.GetTagsByUser(tt.userID)
+				tags, err := repo.GetTagsByUser(context.Background(), tt.userID)
 				if err != nil {
 					t.Fatalf("GetTagsByUser failed: %v", err)
 				}
@@ -150,7 +151,7 @@ func TestUserTagRepository_RemoveTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 先添加一些测试数据
-	repo.AddTags("user-4", []string{"tag1", "tag2", "tag3"})
+	repo.AddTags(context.Background(), "user-4", []string{"tag1", "tag2", "tag3"})
 
 	tests := []struct {
 		name          string
@@ -174,13 +175,13 @@ func TestUserTagRepository_RemoveTag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.RemoveTag("user-4", tt.tagName)
+			err := repo.RemoveTag(context.Background(), "user-4", tt.tagName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RemoveTag() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			tags, err := repo.GetTagsByUser("user-4")
+			tags, err := repo.GetTagsByUser(context.Background(), "user-4")
 			if err != nil {
 				t.Fatalf("GetTagsByUser failed: %v", err)
 			}
@@ -197,7 +198,7 @@ func TestUserTagRepository_RemoveTags(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 先添加测试数据
-	repo.AddTags("user-5", []string{"tag1", "tag2", "tag3", "tag4"})
+	repo.AddTags(context.Background(), "user-5", []string{"tag1", "tag2", "tag3", "tag4"})
 
 	tests := []struct {
 		name          string
@@ -221,13 +222,13 @@ func TestUserTagRepository_RemoveTags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.RemoveTags("user-5", tt.tags)
+			err := repo.RemoveTags(context.Background(), "user-5", tt.tags)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RemoveTags() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			tags, err := repo.GetTagsByUser("user-5")
+			tags, err := repo.GetTagsByUser(context.Background(), "user-5")
 			if err != nil {
 				t.Fatalf("GetTagsByUser failed: %v", err)
 			}
@@ -244,7 +245,7 @@ func TestUserTagRepository_GetTagsByUser(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 准备测试数据
-	repo.AddTags("user-6", []string{"vip", "active", "high-value"})
+	repo.AddTags(context.Background(), "user-6", []string{"vip", "active", "high-value"})
 
 	tests := []struct {
 		name     string
@@ -268,7 +269,7 @@ func TestUserTagRepository_GetTagsByUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tags, err := repo.GetTagsByUser(tt.userID)
+			tags, err := repo.GetTagsByUser(context.Background(), tt.userID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetTagsByUser() error = %v, wantErr %v", err, tt.wantErr)
@@ -286,9 +287,9 @@ func TestUserTagRepository_GetUsersByTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 准备测试数据
-	repo.AddTag("user-7", "vip")
-	repo.AddTag("user-8", "vip")
-	repo.AddTag("user-9", "active")
+	repo.AddTag(context.Background(), "user-7", "vip")
+	repo.AddTag(context.Background(), "user-8", "vip")
+	repo.AddTag(context.Background(), "user-9", "active")
 
 	tests := []struct {
 		name      string
@@ -312,7 +313,7 @@ func TestUserTagRepository_GetUsersByTag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			users, err := repo.GetUsersByTag(tt.tagName)
+			users, err := repo.GetUsersByTag(context.Background(), tt.tagName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetUsersByTag() error = %v, wantErr %v", err, tt.wantErr)
@@ -330,7 +331,7 @@ func TestUserTagRepository_DeleteTagsByUser(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 准备测试数据
-	repo.AddTags("user-10", []string{"tag1", "tag2", "tag3"})
+	repo.AddTags(context.Background(), "user-10", []string{"tag1", "tag2", "tag3"})
 
 	tests := []struct {
 		name    string
@@ -344,13 +345,13 @@ func TestUserTagRepository_DeleteTagsByUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.DeleteTagsByUser("user-10")
+			err := repo.DeleteTagsByUser(context.Background(), "user-10")
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteTagsByUser() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			tags, err := repo.GetTagsByUser("user-10")
+			tags, err := repo.GetTagsByUser(context.Background(), "user-10")
 			if err != nil {
 				t.Fatalf("GetTagsByUser failed: %v", err)
 			}
@@ -367,9 +368,9 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 准备测试数据
-	repo.AddTag("user-11", "global-tag")
-	repo.AddTag("user-12", "global-tag")
-	repo.AddTag("user-13", "other-tag")
+	repo.AddTag(context.Background(), "user-11", "global-tag")
+	repo.AddTag(context.Background(), "user-12", "global-tag")
+	repo.AddTag(context.Background(), "user-13", "other-tag")
 
 	tests := []struct {
 		name      string
@@ -387,7 +388,7 @@ func TestUserTagRepository_DeleteTagsByName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.DeleteTagsByName(tt.tagName)
+			err := repo.DeleteTagsByName(context.Background(), tt.tagName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteTagsByName() error = %v, wantErr %v", err, tt.wantErr)
@@ -409,7 +410,7 @@ func TestUserTagRepository_HasTag(t *testing.T) {
 	repo := setupUserTagRepository(t)
 
 	// 准备测试数据
-	repo.AddTag("user-14", "vip")
+	repo.AddTag(context.Background(), "user-14", "vip")
 
 	tests := []struct {
 		name    string
@@ -436,7 +437,7 @@ func TestUserTagRepository_HasTag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			has, err := repo.HasTag(tt.userID, tt.tagName)
+			has, err := repo.HasTag(context.Background(), tt.userID, tt.tagName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HasTag() error = %v, wantErr %v", err, tt.wantErr)

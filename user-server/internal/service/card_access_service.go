@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
@@ -10,10 +11,10 @@ import (
 )
 
 type CardAccessService interface {
-	RecordAccess(cardID uint, cardType string, ip, ua, referer string) error
-	GetCardUVStats(cardID uint, cardType string, startDate, endDate time.Time) (*CardStatsResponse, error)
-	GetDailyUVStats(cardID uint, cardType string) ([]DailyStats, error)
-	GetTodayUV(cardID uint, cardType string) (int, error)
+	RecordAccess(ctx context.Context, cardID uint, cardType string, ip, ua, referer string) error
+	GetCardUVStats(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (*CardStatsResponse, error)
+	GetDailyUVStats(ctx context.Context, cardID uint, cardType string) ([]DailyStats, error)
+	GetTodayUV(ctx context.Context, cardID uint, cardType string) (int, error)
 }
 
 type CardStatsResponse struct {
@@ -45,7 +46,7 @@ func NewCardAccessService(db *gorm.DB) CardAccessService {
 	}
 }
 
-func (s *cardAccessService) RecordAccess(cardID uint, cardType string, ip, ua, referer string) error {
+func (s *cardAccessService) RecordAccess(ctx context.Context, cardID uint, cardType string, ip, ua, referer string) error {
 	access := &model.CardAccess{
 		CardID:     cardID,
 		CardType:   cardType,
@@ -57,13 +58,13 @@ func (s *cardAccessService) RecordAccess(cardID uint, cardType string, ip, ua, r
 		OS:         utils.ParseOS(ua),
 	}
 
-	if err := s.accessRepo.Create(access); err != nil {
+	if err := s.accessRepo.Create(ctx, access); err != nil {
 		return err
 	}
 
 	today := time.Now().Format("2006-01-02")
 
-	stats, err := s.uvStatsRepo.GetByCardIDAndDate(cardID, cardType, today)
+	stats, err := s.uvStatsRepo.GetByCardIDAndDate(ctx, cardID, cardType, today)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}
@@ -76,12 +77,12 @@ func (s *cardAccessService) RecordAccess(cardID uint, cardType string, ip, ua, r
 			UVCount:  1,
 			PVCount:  1,
 		}
-		return s.uvStatsRepo.Create(stats)
+		return s.uvStatsRepo.Create(ctx, stats)
 	}
 
 	stats.PVCount++
 
-	hasAccessToday, err := s.accessRepo.HasAccessToday(cardID, ip)
+	hasAccessToday, err := s.accessRepo.HasAccessToday(ctx, cardID, ip)
 	if err != nil {
 		return err
 	}
@@ -89,22 +90,22 @@ func (s *cardAccessService) RecordAccess(cardID uint, cardType string, ip, ua, r
 		stats.UVCount++
 	}
 
-	return s.uvStatsRepo.Update(stats)
+	return s.uvStatsRepo.Update(ctx, stats)
 }
 
-func (s *cardAccessService) GetCardUVStats(cardID uint, cardType string, startDate, endDate time.Time) (*CardStatsResponse, error) {
-	totalUV, err := s.accessRepo.CountDistinctIP(cardID, cardType, startDate, endDate)
+func (s *cardAccessService) GetCardUVStats(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (*CardStatsResponse, error) {
+	totalUV, err := s.accessRepo.CountDistinctIP(ctx, cardID, cardType, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
-	totalPV, err := s.accessRepo.CountAccess(cardID, cardType, startDate, endDate)
+	totalPV, err := s.accessRepo.CountAccess(ctx, cardID, cardType, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
 	today := time.Now().Format("2006-01-02")
-	todayStats, _ := s.uvStatsRepo.GetByCardIDAndDate(cardID, cardType, today)
+	todayStats, _ := s.uvStatsRepo.GetByCardIDAndDate(ctx, cardID, cardType, today)
 
 	return &CardStatsResponse{
 		CardID:    cardID,
@@ -118,8 +119,8 @@ func (s *cardAccessService) GetCardUVStats(cardID uint, cardType string, startDa
 	}, nil
 }
 
-func (s *cardAccessService) GetDailyUVStats(cardID uint, cardType string) ([]DailyStats, error) {
-	stats, err := s.uvStatsRepo.GetByCardID(cardID, cardType)
+func (s *cardAccessService) GetDailyUVStats(ctx context.Context, cardID uint, cardType string) ([]DailyStats, error) {
+	stats, err := s.uvStatsRepo.GetByCardID(ctx, cardID, cardType)
 	if err != nil {
 		return nil, err
 	}
@@ -136,9 +137,9 @@ func (s *cardAccessService) GetDailyUVStats(cardID uint, cardType string) ([]Dai
 	return result, nil
 }
 
-func (s *cardAccessService) GetTodayUV(cardID uint, cardType string) (int, error) {
+func (s *cardAccessService) GetTodayUV(ctx context.Context, cardID uint, cardType string) (int, error) {
 	today := time.Now().Format("2006-01-02")
-	stats, err := s.uvStatsRepo.GetByCardIDAndDate(cardID, cardType, today)
+	stats, err := s.uvStatsRepo.GetByCardIDAndDate(ctx, cardID, cardType, today)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return 0, nil

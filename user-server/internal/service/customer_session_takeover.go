@@ -26,9 +26,9 @@ import (
 
 // TakeoverRequest 坐席接管请求
 type TakeoverRequest struct {
-	SessionID uint   `json:"session_id" binding:"required"`
-	AgentID   uint   `json:"agent_id" binding:"required"`
-	Reason    string `json:"reason"` // 接管原因：AI 答非所问 / 客户要求 / 投诉升级
+	SessionID	uint	`json:"session_id" binding:"required"`
+	AgentID		uint	`json:"agent_id" binding:"required"`
+	Reason		string	`json:"reason"`	// 接管原因：AI 答非所问 / 客户要求 / 投诉升级
 }
 
 // TakeoverByAgent 坐席接管 AI 会话
@@ -44,13 +44,13 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	if req.SessionID == 0 || req.AgentID == 0 {
 		return errors.New("session_id and agent_id required")
 	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
+	session, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
 		return errors.New("会话不存在")
 	}
 
 	// 校验坐席存在
-	agent, err := s.agentRepo.GetByAgentID(req.AgentID)
+	agent, err := s.agentRepo.GetByAgentID(ctx, req.AgentID)
 	if err != nil || agent == nil {
 		return errors.New("坐席不存在")
 	}
@@ -69,26 +69,26 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 		session.Status = model.SessionStatusHumanHandling
 		now := time.Now()
 		session.LastMessageAt = &now
-		if err := s.sessionRepo.Update(session); err != nil {
+		if err := s.sessionRepo.Update(ctx, session); err != nil {
 			return err
 		}
 		_ = s.lockHumanSession(ctx, session.SessionID, req.Reason)
-		_ = s.notifySessionUpdate(session, "handler_changed", "human")
+		_ = s.notifySessionUpdate(ctx, session, "handler_changed", "human")
 		return nil
 	}
 
 	// 接管：减少原坐席活跃数（如有）
 	if session.AgentID > 0 {
-		_ = s.agentRepo.DecrementActiveSessions(session.AgentID)
+		_ = s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
 	}
 	// 分配新坐席
-	if err := s.sessionRepo.AssignAgent(req.SessionID, req.AgentID, agent.AgentName); err != nil {
+	if err := s.sessionRepo.AssignAgent(ctx, req.SessionID, req.AgentID, agent.AgentName); err != nil {
 		return err
 	}
-	_ = s.agentRepo.IncrementActiveSessions(req.AgentID)
+	_ = s.agentRepo.IncrementActiveSessions(ctx, req.AgentID)
 
 	// 切 handler / status
-	updated, err := s.sessionRepo.GetByID(req.SessionID)
+	updated, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
 		return err
 	}
@@ -96,24 +96,24 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	updated.Status = model.SessionStatusHumanHandling
 	now := time.Now()
 	updated.LastMessageAt = &now
-	if err := s.sessionRepo.Update(updated); err != nil {
+	if err := s.sessionRepo.Update(ctx, updated); err != nil {
 		return err
 	}
 	// 写 Redis 人工锁 + 推 WebSocket + 访客提示
 	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
-	_ = s.notifySessionUpdate(updated, "handler_changed", "human")
+	_ = s.notifySessionUpdate(ctx, updated, "handler_changed", "human")
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id": updated.SessionID,
-		"handler":    "human",
-		"reason":     "客服已接管，正在为您服务",
+		"session_id":	updated.SessionID,
+		"handler":	"human",
+		"reason":	"客服已接管，正在为您服务",
 	}, updated.SessionID)
 	return nil
 }
 
 // ReleaseToAIRequest 释放回 AI 请求
 type ReleaseToAIRequest struct {
-	SessionID uint `json:"session_id" binding:"required"`
-	AgentID   uint `json:"agent_id" binding:"required"`
+	SessionID	uint	`json:"session_id" binding:"required"`
+	AgentID		uint	`json:"agent_id" binding:"required"`
 }
 
 // ReleaseToAI 坐席释放会话回 AI 托管
@@ -129,7 +129,7 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 	if req.SessionID == 0 || req.AgentID == 0 {
 		return errors.New("session_id and agent_id required")
 	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
+	session, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
 		return errors.New("会话不存在")
 	}
@@ -143,26 +143,26 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 	session.AgentName = ""
 	now := time.Now()
 	session.LastMessageAt = &now
-	if err := s.sessionRepo.Update(session); err != nil {
+	if err := s.sessionRepo.Update(ctx, session); err != nil {
 		return err
 	}
-	_ = s.agentRepo.DecrementActiveSessions(req.AgentID)
+	_ = s.agentRepo.DecrementActiveSessions(ctx, req.AgentID)
 	_ = s.unlockHumanSession(ctx, session.SessionID)
-	_ = s.notifySessionUpdate(session, "handler_changed", "ai")
+	_ = s.notifySessionUpdate(ctx, session, "handler_changed", "ai")
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id": session.SessionID,
-		"handler":    "ai",
-		"reason":     "已切回 AI 托管，请稍候",
+		"session_id":	session.SessionID,
+		"handler":	"ai",
+		"reason":	"已切回 AI 托管，请稍候",
 	}, session.SessionID)
 	return nil
 }
 
 // SwitchHandlerRequest AI/人工切换请求（统一接口）
 type SwitchHandlerRequest struct {
-	SessionID   uint              `json:"session_id" binding:"required"`
-	AgentID     uint              `json:"agent_id"`
-	HandlerType model.HandlerType `json:"handler_type" binding:"required"` // ai / human
-	Reason      string            `json:"reason"`
+	SessionID	uint			`json:"session_id" binding:"required"`
+	AgentID		uint			`json:"agent_id"`
+	HandlerType	model.HandlerType	`json:"handler_type" binding:"required"`	// ai / human
+	Reason		string			`json:"reason"`
 }
 
 // SwitchHandler 通用 AI/人工切换（前端按钮只调一个接口）
@@ -178,15 +178,15 @@ func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchH
 			return errors.New("切人工时 agent_id required")
 		}
 		return s.TakeoverByAgent(ctx, &TakeoverRequest{
-			SessionID: req.SessionID,
-			AgentID:   req.AgentID,
-			Reason:    req.Reason,
+			SessionID:	req.SessionID,
+			AgentID:	req.AgentID,
+			Reason:		req.Reason,
 		})
 	case model.HandlerTypeAI:
 		if req.AgentID == 0 {
 			// agent_id=0 表示仅切 handler（保留原 AgentID 字段不动，仅切类型）。
 			// 通过临时读出会话来取 AgentID
-			sess, err := s.sessionRepo.GetByID(req.SessionID)
+			sess, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 			if err != nil {
 				return errors.New("会话不存在")
 			}
@@ -196,8 +196,8 @@ func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchH
 			}
 		}
 		return s.ReleaseToAI(ctx, &ReleaseToAIRequest{
-			SessionID: req.SessionID,
-			AgentID:   req.AgentID,
+			SessionID:	req.SessionID,
+			AgentID:	req.AgentID,
 		})
 	default:
 		return fmt.Errorf("invalid handler_type: %s", req.HandlerType)
@@ -216,24 +216,24 @@ func (s *CustomerSessionService) UnlockHumanSession(ctx context.Context, session
 
 // lockHumanSession 内部：写 Redis 人工接管锁
 func (s *CustomerSessionService) lockHumanSession(ctx context.Context, sessionID, reason string) error {
-	svc := NewInboxIngressService(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, nil)
 	return svc.LockSessionForHuman(ctx, sessionID, reason)
 }
 
 // unlockHumanSession 内部：解 Redis 人工接管锁
 func (s *CustomerSessionService) unlockHumanSession(ctx context.Context, sessionID string) error {
-	svc := NewInboxIngressService(nil, nil)
+	svc := NewInboxIngressServiceWithDB(nil, nil)
 	return svc.UnlockSessionForHuman(ctx, sessionID)
 }
 
 // notifySessionUpdate 内部：推送会话状态变更给前端
-func (s *CustomerSessionService) notifySessionUpdate(session *model.CustomerSession, event, handler string) error {
+func (s *CustomerSessionService) notifySessionUpdate(ctx context.Context, session *model.CustomerSession, event, handler string) error {
 	agentID := strconv.FormatUint(uint64(session.AgentID), 10)
 	return websocket.NotifySessionUpdate(agentID, map[string]any{
-		"session_id":   session.SessionID,
-		"handler_type": handler,
-		"event":        event,
-		"status":       session.Status,
-		"updated_at":   time.Now().Unix(),
+		"session_id":	session.SessionID,
+		"handler_type":	handler,
+		"event":	event,
+		"status":	session.Status,
+		"updated_at":	time.Now().Unix(),
 	})
 }

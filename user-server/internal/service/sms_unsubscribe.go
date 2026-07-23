@@ -60,7 +60,7 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 		return errors.New("phone 不能为空")
 	}
 
-	existing, err := s.repo.GetByPhone(phone)
+	existing, err := s.repo.GetByPhone(ctx, phone)
 	if err != nil {
 		logger.Errorf("查询短信退订记录失败 phone=%s: %v", phone, err)
 		return err
@@ -72,26 +72,26 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 		existing.SourceMessageID = msgID
 		existing.KeywordMatched = keyword
 		existing.UnsubscribedAt = now
-		return s.repo.Update(existing)
+		return s.repo.Update(ctx, existing)
 	}
 
 	record := &model.SmsUnsubscribe{
-		Phone:           phone,
-		Reason:          reason,
-		UnsubscribedAt:  now,
-		SourceMessageID: msgID,
-		KeywordMatched:  keyword,
+		Phone:			phone,
+		Reason:			reason,
+		UnsubscribedAt:		now,
+		SourceMessageID:	msgID,
+		KeywordMatched:		keyword,
 	}
-	return s.repo.Create(record)
+	return s.repo.Create(ctx, record)
 }
 
 // IsUnsubscribed 检查手机号是否已退订（发送前必须调用）
-func (s *SmsUnsubscribeService) IsUnsubscribed(phone string) bool {
+func (s *SmsUnsubscribeService) IsUnsubscribed(ctx context.Context, phone string) bool {
 	phone = NormalizePhone(phone)
 	if phone == "" {
 		return false
 	}
-	exists, err := s.repo.ExistsByPhone(phone)
+	exists, err := s.repo.ExistsByPhone(ctx, phone)
 	if err != nil {
 		logger.Errorf("查询短信退订状态失败 phone=%s: %v", phone, err)
 		return false
@@ -105,7 +105,7 @@ func (s *SmsUnsubscribeService) ResubscribePhone(ctx context.Context, phone stri
 	if phone == "" {
 		return errors.New("phone 不能为空")
 	}
-	return s.repo.DeleteByPhone(phone)
+	return s.repo.DeleteByPhone(ctx, phone)
 }
 
 // ProcessUnsubscribeReply 处理上行短信回复
@@ -134,19 +134,19 @@ func (s *SmsUnsubscribeService) ProcessUnsubscribeReply(ctx context.Context, pho
 }
 
 // ListUnsubscribes 分页查询退订名单
-func (s *SmsUnsubscribeService) ListUnsubscribes(page, limit int, keyword string) ([]*model.SmsUnsubscribe, int64, error) {
+func (s *SmsUnsubscribeService) ListUnsubscribes(ctx context.Context, page, limit int, keyword string) ([]*model.SmsUnsubscribe, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 500 {
 		limit = 20
 	}
-	return s.repo.List(page, limit, keyword)
+	return s.repo.List(ctx, page, limit, keyword)
 }
 
 // ListAllUnsubscribes 查询全部退订名单（导出使用）
-func (s *SmsUnsubscribeService) ListAllUnsubscribes() ([]*model.SmsUnsubscribe, error) {
-	return s.repo.ListAll()
+func (s *SmsUnsubscribeService) ListAllUnsubscribes(ctx context.Context,) ([]*model.SmsUnsubscribe, error) {
+	return s.repo.ListAll(ctx)
 }
 
 // MatchUnsubscribeKeyword 检查回复内容是否包含退订关键词

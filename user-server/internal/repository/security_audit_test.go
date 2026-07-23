@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func TestSecurityAuditRepository_Create(t *testing.T) {
 		StartedAt: &now,
 	}
 
-	err := repo.Create(record)
+	err := repo.Create(context.Background(), record)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -63,7 +64,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 		Status:    "running",
 		StartedAt: &now,
 	}
-	repo.Create(record)
+	repo.Create(context.Background(), record)
 
 	updates := map[string]any{
 		"status":        "completed",
@@ -74,7 +75,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 		"score":         90,
 	}
 
-	err := repo.UpdateResults(record.ID, updates)
+	err := repo.UpdateResults(context.Background(), record.ID, updates)
 	if err != nil {
 		t.Fatalf("UpdateResults failed: %v", err)
 	}
@@ -103,9 +104,9 @@ func TestSecurityAuditRepository_GetByID(t *testing.T) {
 		Status:    "completed",
 		StartedAt: &now,
 	}
-	repo.Create(record)
+	repo.Create(context.Background(), record)
 
-	result, err := repo.GetByID(record.ID)
+	result, err := repo.GetByID(context.Background(), record.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -119,7 +120,7 @@ func TestSecurityAuditRepository_GetByID_NotFound(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
 
-	_, err := repo.GetByID(99999)
+	_, err := repo.GetByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("expected error for non-existent ID")
 	}
@@ -133,7 +134,7 @@ func TestSecurityAuditRepository_List(t *testing.T) {
 	// 创建 5 条记录
 	for i := 0; i < 5; i++ {
 		now := time.Now()
-		repo.Create(&model.SecurityAuditResult{
+		repo.Create(context.Background(), &model.SecurityAuditResult{
 			AuditName: fmt.Sprintf("audit_%d", i),
 			Status:    "completed",
 			StartedAt: &now,
@@ -141,7 +142,7 @@ func TestSecurityAuditRepository_List(t *testing.T) {
 	}
 
 	// 第一页 3 条
-	list, total, err := repo.List(1, 3)
+	list, total, err := repo.List(context.Background(), 1, 3)
 	if err != nil {
 		t.Fatalf("List page 1 failed: %v", err)
 	}
@@ -153,7 +154,7 @@ func TestSecurityAuditRepository_List(t *testing.T) {
 	}
 
 	// 第二页 2 条
-	list2, _, err := repo.List(2, 3)
+	list2, _, err := repo.List(context.Background(), 2, 3)
 	if err != nil {
 		t.Fatalf("List page 2 failed: %v", err)
 	}
@@ -167,7 +168,7 @@ func TestSecurityAuditRepository_List_Empty(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
 
-	list, total, err := repo.List(1, 10)
+	list, total, err := repo.List(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("List empty failed: %v", err)
 	}

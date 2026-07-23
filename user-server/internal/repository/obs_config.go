@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 
@@ -12,17 +13,17 @@ import (
 // 开源版：已移除 GetListByLicense / GetDefaultByLicense / ClearDefaultByLicense /
 // CountByLicense 四个与 License 关联的接口，全局统一走 is_default 列。
 type ObsConfigRepository interface {
-	Create(config *model.ObsConfig) error
-	GetByID(id string) (*model.ObsConfig, error)
-	GetList(page int, limit int, provider string, status string) ([]*model.ObsConfig, int64, error)
-	Update(config *model.ObsConfig) error
-	Delete(id string) error
-	GetDefault() (*model.ObsConfig, error)
-	SetDefault(id string) error
-	ClearDefault() error
-	UpdateStatus(id string, status model.ObsStatus) error
-	CountByStatus(status model.ObsStatus) (int64, error)
-	Count() (int64, error)
+	Create(ctx context.Context, config *model.ObsConfig) error
+	GetByID(ctx context.Context, id string) (*model.ObsConfig, error)
+	GetList(ctx context.Context, page int, limit int, provider string, status string) ([]*model.ObsConfig, int64, error)
+	Update(ctx context.Context, config *model.ObsConfig) error
+	Delete(ctx context.Context, id string) error
+	GetDefault(ctx context.Context) (*model.ObsConfig, error)
+	SetDefault(ctx context.Context, id string) error
+	ClearDefault(ctx context.Context) error
+	UpdateStatus(ctx context.Context, id string, status model.ObsStatus) error
+	CountByStatus(ctx context.Context, status model.ObsStatus) (int64, error)
+	Count(ctx context.Context) (int64, error)
 }
 
 type obsConfigRepo struct {
@@ -37,17 +38,17 @@ func NewObsConfigRepositoryWithDB(db *gorm.DB) ObsConfigRepository {
 	return &obsConfigRepo{db: db}
 }
 
-func (r *obsConfigRepo) Create(config *model.ObsConfig) error {
+func (r *obsConfigRepo) Create(ctx context.Context, config *model.ObsConfig) error {
 	return r.db.Create(config).Error
 }
 
-func (r *obsConfigRepo) GetByID(id string) (*model.ObsConfig, error) {
+func (r *obsConfigRepo) GetByID(ctx context.Context, id string) (*model.ObsConfig, error) {
 	var config model.ObsConfig
 	err := r.db.Where("id = ?", id).First(&config).Error
 	return &config, err
 }
 
-func (r *obsConfigRepo) GetList(page int, limit int, provider string, status string) ([]*model.ObsConfig, int64, error) {
+func (r *obsConfigRepo) GetList(ctx context.Context, page int, limit int, provider string, status string) ([]*model.ObsConfig, int64, error) {
 	var configs []*model.ObsConfig
 	var total int64
 	offset := (page - 1) * limit
@@ -73,23 +74,23 @@ func (r *obsConfigRepo) GetList(page int, limit int, provider string, status str
 	return configs, total, err
 }
 
-func (r *obsConfigRepo) Update(config *model.ObsConfig) error {
+func (r *obsConfigRepo) Update(ctx context.Context, config *model.ObsConfig) error {
 	return r.db.Save(config).Error
 }
 
-func (r *obsConfigRepo) Delete(id string) error {
+func (r *obsConfigRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.ObsConfig{}).Error
 }
 
-func (r *obsConfigRepo) GetDefault() (*model.ObsConfig, error) {
+func (r *obsConfigRepo) GetDefault(ctx context.Context) (*model.ObsConfig, error) {
 	var config model.ObsConfig
 	err := r.db.Where("is_default = ?", true).First(&config).Error
 	return &config, err
 }
 
-func (r *obsConfigRepo) SetDefault(id string) error {
+func (r *obsConfigRepo) SetDefault(ctx context.Context, id string) error {
 	// 先清除现有的默认配置
-	err := r.ClearDefault()
+	err := r.ClearDefault(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,21 +99,21 @@ func (r *obsConfigRepo) SetDefault(id string) error {
 	return r.db.Model(&model.ObsConfig{}).Where("id = ?", id).Update("is_default", true).Error
 }
 
-func (r *obsConfigRepo) ClearDefault() error {
+func (r *obsConfigRepo) ClearDefault(ctx context.Context) error {
 	return r.db.Model(&model.ObsConfig{}).Where("is_default = ?", true).Update("is_default", false).Error
 }
 
-func (r *obsConfigRepo) UpdateStatus(id string, status model.ObsStatus) error {
+func (r *obsConfigRepo) UpdateStatus(ctx context.Context, id string, status model.ObsStatus) error {
 	return r.db.Model(&model.ObsConfig{}).Where("id = ?", id).Update("status", status).Error
 }
 
-func (r *obsConfigRepo) CountByStatus(status model.ObsStatus) (int64, error) {
+func (r *obsConfigRepo) CountByStatus(ctx context.Context, status model.ObsStatus) (int64, error) {
 	var count int64
 	err := r.db.Model(&model.ObsConfig{}).Where("status = ?", status).Count(&count).Error
 	return count, err
 }
 
-func (r *obsConfigRepo) Count() (int64, error) {
+func (r *obsConfigRepo) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.Model(&model.ObsConfig{}).Count(&count).Error
 	return count, err

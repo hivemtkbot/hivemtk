@@ -46,25 +46,25 @@ import (
 // 并发：内部 RWMutex 保证线程安全
 // 失败：仅记录日志,不重试(主流程可重新发布事件)
 type IncrementalIndexer struct {
-	mu          sync.RWMutex
-	chunksByDoc map[string][]*eventIndexedChunk // docID -> chunks
-	embedder    llm.EmbeddingServiceInterface
-	processor   *etl.DocumentProcessor
-	docRepo     *knowledgerepo.KnowledgeDocumentRepository
-	chunkRepo   *knowledgerepo.KnowledgeChunkRepository
-	db          *gorm.DB
-	stopped     bool
+	mu		sync.RWMutex
+	chunksByDoc	map[string][]*eventIndexedChunk	// docID -> chunks
+	embedder	llm.EmbeddingServiceInterface
+	processor	*etl.DocumentProcessor
+	docRepo		*knowledgerepo.KnowledgeDocumentRepository
+	chunkRepo	*knowledgerepo.KnowledgeChunkRepository
+	db		*gorm.DB
+	stopped		bool
 }
 
 // eventIndexedChunk 内部索引分片
 type eventIndexedChunk struct {
-	DocumentID  string
-	ChunkIndex  int
-	Content     string
-	ContentHash string
-	Embedding   []float32
-	TokenCount  int
-	IndexedAt   time.Time
+	DocumentID	string
+	ChunkIndex	int
+	Content		string
+	ContentHash	string
+	Embedding	[]float32
+	TokenCount	int
+	IndexedAt	time.Time
 }
 
 // NewIncrementalIndexer 创建增量索引器
@@ -78,10 +78,10 @@ func NewIncrementalIndexer(embedder llm.EmbeddingServiceInterface, processor *et
 		processor = etl.NewDocumentProcessor(nil)
 	}
 	idx := &IncrementalIndexer{
-		chunksByDoc: make(map[string][]*eventIndexedChunk),
-		embedder:    embedder,
-		processor:   processor,
-		db:          db,
+		chunksByDoc:	make(map[string][]*eventIndexedChunk),
+		embedder:	embedder,
+		processor:	processor,
+		db:		db,
 	}
 	if db != nil {
 		idx.docRepo = knowledgerepo.NewKnowledgeDocumentRepository(db)
@@ -116,7 +116,7 @@ func (i *IncrementalIndexer) Handle(evt event.Event) error {
 		if p, ok := evt.Payload.(*event.KnowledgeDocumentChangePayload); ok && p != nil {
 			return i.handlePayload(context.Background(), *p)
 		}
-		return nil // 非本订阅者关心的事件,直接忽略
+		return nil	// 非本订阅者关心的事件,直接忽略
 	}
 
 	return i.handlePayload(context.Background(), payload)
@@ -171,8 +171,8 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 
 	// 2. 切块
 	doc := rag_core.Document{
-		ID:      docIDStr,
-		Content: content,
+		ID:		docIDStr,
+		Content:	content,
 	}
 	chunks, err := i.processor.ProcessDocument(ctx, doc)
 	if err != nil {
@@ -195,25 +195,25 @@ func (i *IncrementalIndexer) indexDocument(ctx context.Context, payload event.Kn
 		}
 
 		chunk := &eventIndexedChunk{
-			DocumentID:  docIDStr,
-			ChunkIndex:  idx,
-			Content:     c.Content,
-			ContentHash: hashContent(c.Content),
-			TokenCount:  c.TokenCount,
-			Embedding:   embedding,
-			IndexedAt:   time.Now(),
+			DocumentID:	docIDStr,
+			ChunkIndex:	idx,
+			Content:	c.Content,
+			ContentHash:	hashContent(c.Content),
+			TokenCount:	c.TokenCount,
+			Embedding:	embedding,
+			IndexedAt:	time.Now(),
 		}
 		indexed = append(indexed, chunk)
 
 		if i.chunkRepo != nil {
 			kc := model.KnowledgeChunk{
-				DocumentID:  uint64(payload.DocumentID),
-				ChunkIndex:  idx,
-				Content:     c.Content,
-				ContentHash: chunk.ContentHash,
-				TokenCount:  c.TokenCount,
-				CharCount:   len([]rune(c.Content)),
-				CreatedAt:   time.Now(),
+				DocumentID:	uint64(payload.DocumentID),
+				ChunkIndex:	idx,
+				Content:	c.Content,
+				ContentHash:	chunk.ContentHash,
+				TokenCount:	c.TokenCount,
+				CharCount:	len([]rune(c.Content)),
+				CreatedAt:	time.Now(),
 			}
 			persisted = append(persisted, kc)
 		}
@@ -275,7 +275,7 @@ func (i *IncrementalIndexer) deleteDocument(docIDStr string) error {
 
 	chunks, ok := i.chunksByDoc[docIDStr]
 	if !ok {
-		return nil // 幂等:不存在视为成功
+		return nil	// 幂等:不存在视为成功
 	}
 
 	delete(i.chunksByDoc, docIDStr)

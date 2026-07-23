@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -26,7 +27,7 @@ func createGroup(t *testing.T, repo CommunityRepository, name, description strin
 		Description: description,
 		MemberCount: 0,
 	}
-	created, err := repo.CreateGroup(group)
+	created, err := repo.CreateGroup(context.Background(), group)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -42,7 +43,7 @@ func createMember(t *testing.T, repo CommunityRepository, groupID, name, usernam
 		Role:     role,
 		Status:   status,
 	}
-	created, err := repo.AddMember(member)
+	created, err := repo.AddMember(context.Background(), member)
 	if err != nil {
 		t.Fatalf("AddMember failed: %v", err)
 	}
@@ -58,7 +59,7 @@ func createMessage(t *testing.T, repo CommunityRepository, groupID, userID, user
 		Content:     content,
 		MessageType: messageType,
 	}
-	created, err := repo.AddMessage(message)
+	created, err := repo.AddMessage(context.Background(), message)
 	if err != nil {
 		t.Fatalf("AddMessage failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestCommunityRepository_CreateGroup(t *testing.T) {
 		MemberCount: 0,
 	}
 
-	createdGroup, err := repo.CreateGroup(group)
+	createdGroup, err := repo.CreateGroup(context.Background(), group)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestCommunityRepository_CreateGroup_EmptyDescription(t *testing.T) {
 		MemberCount: 0,
 	}
 
-	createdGroup, err := repo.CreateGroup(group)
+	createdGroup, err := repo.CreateGroup(context.Background(), group)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestCommunityRepository_GetGroupByID(t *testing.T) {
 
 	group := createGroup(t, repo, "Test Group", "Test description")
 
-	fetchedGroup, err := repo.GetGroupByID(group.ID)
+	fetchedGroup, err := repo.GetGroupByID(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("GetGroupByID failed: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestCommunityRepository_GetGroupByID_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	group, err := repo.GetGroupByID("non-existent-id")
+	group, err := repo.GetGroupByID(context.Background(), "non-existent-id")
 	if err != nil {
 		t.Fatalf("GetGroupByID failed: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestCommunityRepository_GetGroups(t *testing.T) {
 		createGroup(t, repo, "Group "+string(rune('0'+i)), "Description "+string(rune('0'+i)))
 	}
 
-	groups, total, err := repo.GetGroups(1, 5, "")
+	groups, total, err := repo.GetGroups(context.Background(), 1, 5, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -184,7 +185,7 @@ func TestCommunityRepository_GetGroups_Empty(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	groups, total, err := repo.GetGroups(1, 10, "")
+	groups, total, err := repo.GetGroups(context.Background(), 1, 10, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestCommunityRepository_GetGroups_WithSearch(t *testing.T) {
 		createGroup(t, repo, name, name+" description")
 	}
 
-	foundGroups, total, err := repo.GetGroups(1, 10, "Group")
+	foundGroups, total, err := repo.GetGroups(context.Background(), 1, 10, "Group")
 	if err != nil {
 		t.Fatalf("GetGroups with search failed: %v", err)
 	}
@@ -226,7 +227,7 @@ func TestCommunityRepository_UpdateGroup(t *testing.T) {
 
 	group := createGroup(t, repo, "Original Name", "Original description")
 
-	err := repo.UpdateGroup(group.ID, map[string]any{
+	err := repo.UpdateGroup(context.Background(), group.ID, map[string]any{
 		"name":         "Updated Name",
 		"description":  "Updated description",
 		"member_count": 10,
@@ -235,7 +236,7 @@ func TestCommunityRepository_UpdateGroup(t *testing.T) {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
 
-	fetchedGroup, _ := repo.GetGroupByID(group.ID)
+	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup.Name != "Updated Name" {
 		t.Errorf("Expected Name 'Updated Name', got %s", fetchedGroup.Name)
 	}
@@ -249,7 +250,7 @@ func TestCommunityRepository_UpdateGroup_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	err := repo.UpdateGroup("non-existent-id", map[string]any{
+	err := repo.UpdateGroup(context.Background(), "non-existent-id", map[string]any{
 		"name": "Updated Name",
 	})
 	if err == nil {
@@ -264,12 +265,12 @@ func TestCommunityRepository_DeleteGroup(t *testing.T) {
 
 	group := createGroup(t, repo, "Test Group", "Test description")
 
-	err := repo.DeleteGroup(group.ID)
+	err := repo.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
 
-	fetchedGroup, _ := repo.GetGroupByID(group.ID)
+	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup != nil {
 		t.Error("Expected nil after delete")
 	}
@@ -283,12 +284,12 @@ func TestCommunityRepository_DeleteGroup_WithMembers(t *testing.T) {
 	group := createGroup(t, repo, "Test Group", "Test description")
 	createMember(t, repo, group.ID, "Test Member", "testuser", "member", "active")
 
-	err := repo.DeleteGroup(group.ID)
+	err := repo.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup with members failed: %v", err)
 	}
 
-	fetchedGroup, _ := repo.GetGroupByID(group.ID)
+	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup != nil {
 		t.Error("Expected nil after delete")
 	}
@@ -299,7 +300,7 @@ func TestCommunityRepository_DeleteGroup_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	err := repo.DeleteGroup("non-existent-id")
+	err := repo.DeleteGroup(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent group")
 	}
@@ -323,7 +324,7 @@ func TestCommunityRepository_AddMember(t *testing.T) {
 		Status:   "active",
 	}
 
-	createdMember, err := repo.AddMember(member)
+	createdMember, err := repo.AddMember(context.Background(), member)
 	if err != nil {
 		t.Fatalf("AddMember failed: %v", err)
 	}
@@ -333,7 +334,7 @@ func TestCommunityRepository_AddMember(t *testing.T) {
 	}
 
 	// Check member count updated
-	fetchedGroup, _ := repo.GetGroupByID(group.ID)
+	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup.MemberCount != 1 {
 		t.Errorf("Expected MemberCount 1, got %d", fetchedGroup.MemberCount)
 	}
@@ -354,7 +355,7 @@ func TestCommunityRepository_AddMember_DuplicateUsername(t *testing.T) {
 		Role:     "member",
 		Status:   "active",
 	}
-	repo.AddMember(member)
+	repo.AddMember(context.Background(), member)
 
 	// Try to add duplicate
 	member2 := &model.CommunityMember{
@@ -366,7 +367,7 @@ func TestCommunityRepository_AddMember_DuplicateUsername(t *testing.T) {
 		Status:   "active",
 	}
 
-	_, err := repo.AddMember(member2)
+	_, err := repo.AddMember(context.Background(), member2)
 	if err == nil {
 		t.Error("Expected error for duplicate username")
 	}
@@ -381,7 +382,7 @@ func TestCommunityRepository_GetMemberByID(t *testing.T) {
 
 	member := createMember(t, repo, group.ID, "Test Member", "testuser", "admin", "active")
 
-	fetchedMember, err := repo.GetMemberByID(member.ID)
+	fetchedMember, err := repo.GetMemberByID(context.Background(), member.ID)
 	if err != nil {
 		t.Fatalf("GetMemberByID failed: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestCommunityRepository_GetMemberByID_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	member, err := repo.GetMemberByID("non-existent-id")
+	member, err := repo.GetMemberByID(context.Background(), "non-existent-id")
 	if err != nil {
 		t.Fatalf("GetMemberByID failed: %v", err)
 	}
@@ -418,7 +419,7 @@ func TestCommunityRepository_GetMembers(t *testing.T) {
 		createMember(t, repo, group.ID, "Member "+string(rune('0'+i)), "user"+string(rune('0'+i)), "member", "active")
 	}
 
-	members, total, err := repo.GetMembers(group.ID, 1, 5, "")
+	members, total, err := repo.GetMembers(context.Background(), group.ID, 1, 5, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -444,7 +445,7 @@ func TestCommunityRepository_GetMembers_WithSearch(t *testing.T) {
 		createMember(t, repo, group.ID, name, name, "member", "active")
 	}
 
-	foundMembers, total, err := repo.GetMembers(group.ID, 1, 10, "a")
+	foundMembers, total, err := repo.GetMembers(context.Background(), group.ID, 1, 10, "a")
 	if err != nil {
 		t.Fatalf("GetMembers with search failed: %v", err)
 	}
@@ -464,7 +465,7 @@ func TestCommunityRepository_UpdateMember(t *testing.T) {
 
 	member := createMember(t, repo, group.ID, "Test Member", "testuser", "member", "active")
 
-	err := repo.UpdateMember(member.ID, map[string]any{
+	err := repo.UpdateMember(context.Background(), member.ID, map[string]any{
 		"role":   "admin",
 		"status": "banned",
 	})
@@ -472,7 +473,7 @@ func TestCommunityRepository_UpdateMember(t *testing.T) {
 		t.Fatalf("UpdateMember failed: %v", err)
 	}
 
-	fetchedMember, _ := repo.GetMemberByID(member.ID)
+	fetchedMember, _ := repo.GetMemberByID(context.Background(), member.ID)
 	if fetchedMember.Role != "admin" {
 		t.Errorf("Expected Role 'admin', got %s", fetchedMember.Role)
 	}
@@ -486,7 +487,7 @@ func TestCommunityRepository_UpdateMember_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	err := repo.UpdateMember("non-existent-id", map[string]any{
+	err := repo.UpdateMember(context.Background(), "non-existent-id", map[string]any{
 		"role": "admin",
 	})
 	if err == nil {
@@ -503,13 +504,13 @@ func TestCommunityRepository_RemoveMember(t *testing.T) {
 
 	member := createMember(t, repo, group.ID, "Test Member", "testuser", "member", "active")
 
-	err := repo.RemoveMember(member.ID)
+	err := repo.RemoveMember(context.Background(), member.ID)
 	if err != nil {
 		t.Fatalf("RemoveMember failed: %v", err)
 	}
 
 	// Check member count updated
-	fetchedGroup, _ := repo.GetGroupByID(group.ID)
+	fetchedGroup, _ := repo.GetGroupByID(context.Background(), group.ID)
 	if fetchedGroup.MemberCount != 0 {
 		t.Errorf("Expected MemberCount 0 after removal, got %d", fetchedGroup.MemberCount)
 	}
@@ -520,7 +521,7 @@ func TestCommunityRepository_RemoveMember_NotFound(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	err := repo.RemoveMember("non-existent-id")
+	err := repo.RemoveMember(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent member")
 	}
@@ -544,7 +545,7 @@ func TestCommunityRepository_AddMessage(t *testing.T) {
 		MessageType: "text",
 	}
 
-	createdMessage, err := repo.AddMessage(message)
+	createdMessage, err := repo.AddMessage(context.Background(), message)
 	if err != nil {
 		t.Fatalf("AddMessage failed: %v", err)
 	}
@@ -571,13 +572,13 @@ func TestCommunityRepository_AddMessage_DifferentTypes(t *testing.T) {
 			Content:     "Content " + string(rune('0'+i)),
 			MessageType: msgType,
 		}
-		_, err := repo.AddMessage(message)
+		_, err := repo.AddMessage(context.Background(), message)
 		if err != nil {
 			t.Fatalf("AddMessage failed: %v", err)
 		}
 	}
 
-	messages, total, _ := repo.GetMessages(group.ID, 1, 10)
+	messages, total, _ := repo.GetMessages(context.Background(), group.ID, 1, 10)
 	if total != 4 {
 		t.Errorf("Expected total 4 messages, got %d", total)
 	}
@@ -596,7 +597,7 @@ func TestCommunityRepository_GetMessages(t *testing.T) {
 		createMessage(t, repo, group.ID, "user"+string(rune('0'+i)), "user"+string(rune('0'+i)), "Message "+string(rune('0'+i)), "text")
 	}
 
-	messages, total, err := repo.GetMessages(group.ID, 1, 5)
+	messages, total, err := repo.GetMessages(context.Background(), group.ID, 1, 5)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -617,7 +618,7 @@ func TestCommunityRepository_GetMessages_Empty(t *testing.T) {
 
 	group := createGroup(t, repo, "Test Group", "Test description")
 
-	messages, total, err := repo.GetMessages(group.ID, 1, 10)
+	messages, total, err := repo.GetMessages(context.Background(), group.ID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -650,7 +651,7 @@ func TestCommunityRepository_GetMessages_DifferentGroup(t *testing.T) {
 		createMessage(t, repo, group2.ID, "user"+string(rune('a'+i)), "user"+string(rune('a'+i)), "Group 2 Message "+string(rune('a'+i)), "text")
 	}
 
-	messages, total, err := repo.GetMessages(group1.ID, 1, 10)
+	messages, total, err := repo.GetMessages(context.Background(), group1.ID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -683,7 +684,7 @@ func TestCommunityRepository_GetStatistics(t *testing.T) {
 	// Add messages
 	createMessage(t, repo, group1.ID, "user123", "testuser", "Hello!", "text")
 
-	stats, err := repo.GetStatistics()
+	stats, err := repo.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -706,7 +707,7 @@ func TestCommunityRepository_GetStatistics_Empty(t *testing.T) {
 
 	repo := NewCommunityRepository(db)
 
-	stats, err := repo.GetStatistics()
+	stats, err := repo.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}

@@ -9,7 +9,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // InboxController 统一收件箱控制器
@@ -18,8 +17,8 @@ type InboxController struct {
 }
 
 // NewInboxController 创建统一收件箱控制器
-func NewInboxController(db *gorm.DB) *InboxController {
-	return &InboxController{svc: service.NewInboxService(db)}
+func NewInboxController(svc *service.InboxService) *InboxController {
+	return &InboxController{svc: svc}
 }
 
 // List 列表
@@ -322,8 +321,8 @@ type InboxIngressController struct {
 }
 
 // NewInboxIngressController 创建入站控制器
-func NewInboxIngressController(db *gorm.DB) *InboxIngressController {
-	return &InboxIngressController{svc: service.NewInboxIngressService(db, nil)}
+func NewInboxIngressController(svc *service.InboxIngressService) *InboxIngressController {
+	return &InboxIngressController{svc: svc}
 }
 
 // Ingress 渠道消息统一入口

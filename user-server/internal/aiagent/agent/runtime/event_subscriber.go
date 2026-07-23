@@ -60,11 +60,13 @@ func (s *eventBusEventSubscriber) Handle(evt event.Event) error {
 			if p == nil {
 				return errors.New("event payload is nil")
 			}
+			// 事件总线订阅不持有上游 ctx,使用 background ctx
 			return s.handleMessage(context.Background(), *p)
 		}
 		return errors.New("invalid event payload type for " + evt.Topic)
 	}
 
+	// 事件总线订阅不持有上游 ctx,使用 background ctx
 	return s.handleMessage(context.Background(), payload)
 }
 
@@ -116,14 +118,14 @@ func (s *eventBusEventSubscriber) handleMessage(ctx context.Context, payload eve
 // 当前两者结构相同,直接转换
 func convertFromEventPayload(ep event.CustomerMessagePayload) CustomerMessagePayload {
 	return CustomerMessagePayload{
-		ChannelType: ep.ChannelType,
-		AccountID:   ep.AccountID,
-		CustomerID:  ep.CustomerID,
-		SessionID:   ep.SessionID,
-		Content:     ep.Content,
-		MessageType: ep.MessageType,
-		Timestamp:   ep.Timestamp,
-		TraceID:     ep.TraceID,
-		Raw:         ep.Raw,
+		ChannelType:	ep.ChannelType,
+		AccountID:	ep.AccountID,
+		CustomerID:	ep.CustomerID,
+		SessionID:	ep.SessionID,
+		Content:	ep.Content,
+		MessageType:	ep.MessageType,
+		Timestamp:	ep.Timestamp,
+		TraceID:	ep.TraceID,
+		Raw:		ep.Raw,
 	}
 }

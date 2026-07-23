@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 
@@ -8,17 +9,17 @@ import (
 )
 
 type UserRepository interface {
-	Create(user *model.User) error
-	GetByID(id string) (*model.User, error)
-	GetByUsername(username string) (*model.User, error)
-	GetUserList(page int, limit int) ([]*model.User, int64, error)
-	Delete(id string) error
-	Update(user *model.User) error
-	UpdatePassword(id string, hashedPassword string) error
-	UserIsExist(accountID string, tgID int64, FirstName string, LastName string, UserName string) (string, bool)
-	UsernameExists(username string, excludeID string) (bool, error)
-	EmailExists(email string, excludeID string) (bool, error)
-	GetByTgID(tgID int64) (*model.User, error)
+	Create(ctx context.Context, user *model.User) error
+	GetByID(ctx context.Context, id string) (*model.User, error)
+	GetByUsername(ctx context.Context, username string) (*model.User, error)
+	GetUserList(ctx context.Context, page int, limit int) ([]*model.User, int64, error)
+	Delete(ctx context.Context, id string) error
+	Update(ctx context.Context, user *model.User) error
+	UpdatePassword(ctx context.Context, id string, hashedPassword string) error
+	UserIsExist(ctx context.Context, accountID string, tgID int64, FirstName string, LastName string, UserName string) (string, bool)
+	UsernameExists(ctx context.Context, username string, excludeID string) (bool, error)
+	EmailExists(ctx context.Context, email string, excludeID string) (bool, error)
+	GetByTgID(ctx context.Context, tgID int64) (*model.User, error)
 }
 
 type userRepo struct {
@@ -29,23 +30,23 @@ func NewUserRepository() UserRepository {
 	return &userRepo{db: _db.GetDB()}
 }
 
-func (r *userRepo) Create(user *model.User) error {
+func (r *userRepo) Create(ctx context.Context, user *model.User) error {
 	return r.db.Create(user).Error
 }
 
-func (r *userRepo) GetByID(id string) (*model.User, error) {
+func (r *userRepo) GetByID(ctx context.Context, id string) (*model.User, error) {
 	var user model.User
 	err := r.db.Where("id = ?", id).First(&user).Error
 	return &user, err
 }
 
-func (r *userRepo) GetByUsername(username string) (*model.User, error) {
+func (r *userRepo) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 	err := r.db.Where("username = ?", username).First(&user).Error
 	return &user, err
 }
 
-func (r *userRepo) GetUserList(page int, limit int) ([]*model.User, int64, error) {
+func (r *userRepo) GetUserList(ctx context.Context, page int, limit int) ([]*model.User, int64, error) {
 	var users []*model.User
 	var total int64
 	offset := (page - 1) * limit
@@ -59,19 +60,19 @@ func (r *userRepo) GetUserList(page int, limit int) ([]*model.User, int64, error
 	return users, total, err
 }
 
-func (r *userRepo) Delete(id string) error {
+func (r *userRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.User{}).Error
 }
 
-func (r *userRepo) Update(user *model.User) error {
+func (r *userRepo) Update(ctx context.Context, user *model.User) error {
 	return r.db.Save(user).Error
 }
 
-func (r *userRepo) UpdatePassword(id string, hashedPassword string) error {
+func (r *userRepo) UpdatePassword(ctx context.Context, id string, hashedPassword string) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).Update("password", hashedPassword).Error
 }
 
-func (r *userRepo) UserIsExist(accountID string, tgID int64, FirstName string, LastName string, UserName string) (string, bool) {
+func (r *userRepo) UserIsExist(ctx context.Context, accountID string, tgID int64, FirstName string, LastName string, UserName string) (string, bool) {
 	var user model.User
 	err := r.db.Where("account_id = ? and tg_id = ? and first_name = ? and last_name = ? and user_name = ?", accountID, tgID, FirstName, LastName, UserName).First(&user).Error
 	if err != nil {
@@ -83,7 +84,7 @@ func (r *userRepo) UserIsExist(accountID string, tgID int64, FirstName string, L
 	return "", false
 }
 
-func (r *userRepo) UsernameExists(username string, excludeID string) (bool, error) {
+func (r *userRepo) UsernameExists(ctx context.Context, username string, excludeID string) (bool, error) {
 	var count int64
 	query := r.db.Model(&model.User{}).Where("username = ?", username)
 
@@ -95,7 +96,7 @@ func (r *userRepo) UsernameExists(username string, excludeID string) (bool, erro
 	return count > 0, err
 }
 
-func (r *userRepo) EmailExists(email string, excludeID string) (bool, error) {
+func (r *userRepo) EmailExists(ctx context.Context, email string, excludeID string) (bool, error) {
 	var count int64
 	query := r.db.Model(&model.User{}).Where("email = ?", email)
 
@@ -108,7 +109,7 @@ func (r *userRepo) EmailExists(email string, excludeID string) (bool, error) {
 }
 
 // GetByTgID 根据 TgID 获取用户
-func (r *userRepo) GetByTgID(tgID int64) (*model.User, error) {
+func (r *userRepo) GetByTgID(ctx context.Context, tgID int64) (*model.User, error) {
 	var user model.User
 	err := r.db.Where("tg_id = ?", tgID).First(&user).Error
 	return &user, err

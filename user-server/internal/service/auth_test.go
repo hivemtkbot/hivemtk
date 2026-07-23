@@ -167,7 +167,7 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 		Role:     "user",
 		Status:   0, // 禁用状态
 	}
-	disabledUser.HashPassword()
+	model.HashSystemUserPassword(disabledUser)
 	database.Create(disabledUser)
 
 	// 测试禁用用户登录

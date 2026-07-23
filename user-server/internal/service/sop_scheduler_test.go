@@ -86,7 +86,6 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	ctx := context.Background()
 	s.cleanupStuckExecutions(ctx)
 
 	var stuckGot model.SOPExecution
@@ -125,7 +124,6 @@ func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	ctx := context.Background()
 	s.dispatchAutoSOPs(ctx)
 
 	var execs []model.SOPExecution
@@ -211,7 +209,6 @@ func TestSOPScheduler_TryExecute_DuplicateGuard(t *testing.T) {
 	}
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	ctx := context.Background()
 	s.tryExecute(ctx, *agent)
 	s.tryExecute(ctx, *agent) // 第二次应被去重
 

@@ -1,6 +1,8 @@
 package cron
 
 import (
+	"context"
+
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 	"time"
@@ -39,7 +41,7 @@ func (r *LiveCodeRotator) Start() {
 func (r *LiveCodeRotator) rotate() {
 	logger.Info("开始执行活码轮询任务...")
 
-	err := r.liveCodeService.RotateLiveCodes()
+	err := r.liveCodeService.RotateLiveCodes(context.Background())
 	if err != nil {
 		logger.Errorf("活码轮询任务执行失败: %v", err)
 		return

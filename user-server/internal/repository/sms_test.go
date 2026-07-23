@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -37,7 +38,7 @@ func TestSmsRepository_GetConfig(t *testing.T) {
 	repo := setupSmsRepository(t)
 
 	// 测试没有配置时返回默认值
-	config, err := repo.GetConfig()
+	config, err := repo.GetConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetConfig() error = %v", err)
 	}
@@ -56,12 +57,12 @@ func TestSmsRepository_GetConfig(t *testing.T) {
 		DailyLimit:      20000,
 		RetryTimes:      5,
 	}
-	err = repo.SaveConfig(newConfig)
+	err = repo.SaveConfig(context.Background(), newConfig)
 	if err != nil {
 		t.Errorf("SaveConfig() error = %v", err)
 	}
 
-	config, err = repo.GetConfig()
+	config, err = repo.GetConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetConfig() error = %v", err)
 	}
@@ -103,7 +104,7 @@ func TestSmsRepository_SaveConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.SaveConfig(tt.config)
+			err := repo.SaveConfig(context.Background(), tt.config)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SaveConfig() error = %v, wantErr %v", err, tt.wantErr)
@@ -117,7 +118,7 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 	repo := setupSmsRepository(t)
 
 	// 测试获取配置（空）
-	config, err := repo.GetAliyunConfig()
+	config, err := repo.GetAliyunConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetAliyunConfig() error = %v", err)
 	}
@@ -131,13 +132,13 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 		AccessKeySecret: "test-secret",
 		SignName:        "Test Sign",
 	}
-	err = repo.SaveAliyunConfig(newConfig)
+	err = repo.SaveAliyunConfig(context.Background(), newConfig)
 	if err != nil {
 		t.Errorf("SaveAliyunConfig() error = %v", err)
 	}
 
 	// 验证保存
-	config, err = repo.GetAliyunConfig()
+	config, err = repo.GetAliyunConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetAliyunConfig() error = %v", err)
 	}
@@ -147,12 +148,12 @@ func TestSmsRepository_AliyunConfig(t *testing.T) {
 
 	// 测试更新配置
 	newConfig.AccessKeyID = "updated-key-id"
-	err = repo.SaveAliyunConfig(newConfig)
+	err = repo.SaveAliyunConfig(context.Background(), newConfig)
 	if err != nil {
 		t.Errorf("SaveAliyunConfig() update error = %v", err)
 	}
 
-	config, _ = repo.GetAliyunConfig()
+	config, _ = repo.GetAliyunConfig(context.Background())
 	if config.AccessKeyID != "updated-key-id" {
 		t.Errorf("Expected updated AccessKeyID 'updated-key-id', got '%s'", config.AccessKeyID)
 	}
@@ -169,12 +170,12 @@ func TestSmsRepository_TencentConfig(t *testing.T) {
 		SignName:  "Test Sign",
 	}
 
-	err := repo.SaveTencentConfig(config)
+	err := repo.SaveTencentConfig(context.Background(), config)
 	if err != nil {
 		t.Errorf("SaveTencentConfig() error = %v", err)
 	}
 
-	retrieved, err := repo.GetTencentConfig()
+	retrieved, err := repo.GetTencentConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetTencentConfig() error = %v", err)
 	}
@@ -194,12 +195,12 @@ func TestSmsRepository_HuaweiConfig(t *testing.T) {
 		Signature: "Test Signature",
 	}
 
-	err := repo.SaveHuaweiConfig(config)
+	err := repo.SaveHuaweiConfig(context.Background(), config)
 	if err != nil {
 		t.Errorf("SaveHuaweiConfig() error = %v", err)
 	}
 
-	retrieved, err := repo.GetHuaweiConfig()
+	retrieved, err := repo.GetHuaweiConfig(context.Background())
 	if err != nil {
 		t.Errorf("GetHuaweiConfig() error = %v", err)
 	}
@@ -243,7 +244,7 @@ func TestSmsRepository_CreateSmsRecord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.CreateSmsRecord(tt.record)
+			err := repo.CreateSmsRecord(context.Background(), tt.record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateSmsRecord() error = %v, wantErr %v", err, tt.wantErr)
@@ -267,7 +268,7 @@ func TestSmsRepository_GetSmsByID(t *testing.T) {
 		Provider: "aliyun",
 		Status:   "sent",
 	}
-	repo.CreateSmsRecord(record)
+	repo.CreateSmsRecord(context.Background(), record)
 
 	tests := []struct {
 		name    string
@@ -288,7 +289,7 @@ func TestSmsRepository_GetSmsByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetSmsByID(tt.id)
+			result, err := repo.GetSmsByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSmsByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -312,14 +313,14 @@ func TestSmsRepository_GetSmsList(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.CreateSmsRecord(&model.SmsRecord{
+		repo.CreateSmsRecord(context.Background(), &model.SmsRecord{
 			Phone:    "13800138000",
 			Content:  string(rune('A' + i - 1)),
 			Provider: "aliyun",
 			Status:   "sent",
 		})
 	}
-	repo.CreateSmsRecord(&model.SmsRecord{
+	repo.CreateSmsRecord(context.Background(), &model.SmsRecord{
 		Phone:    "13900139000",
 		Content:  "Other phone",
 		Provider: "tencent",
@@ -379,7 +380,7 @@ func TestSmsRepository_GetSmsList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetSmsList(tt.page, tt.limit, tt.phone, tt.status, tt.startDate, tt.endDate)
+			results, total, err := repo.GetSmsList(context.Background(), tt.page, tt.limit, tt.phone, tt.status, tt.startDate, tt.endDate)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSmsList() error = %v, wantErr %v", err, tt.wantErr)
@@ -408,17 +409,17 @@ func TestSmsRepository_UpdateSmsRecord(t *testing.T) {
 		Provider: "aliyun",
 		Status:   "pending",
 	}
-	repo.CreateSmsRecord(record)
+	repo.CreateSmsRecord(context.Background(), record)
 
 	record.Status = "sent"
 	record.SendTime = &time.Time{}
 
-	err := repo.UpdateSmsRecord(record)
+	err := repo.UpdateSmsRecord(context.Background(), record)
 	if err != nil {
 		t.Errorf("UpdateSmsRecord() error = %v", err)
 	}
 
-	updated, _ := repo.GetSmsByID(record.ID)
+	updated, _ := repo.GetSmsByID(context.Background(), record.ID)
 	if updated.Status != "sent" {
 		t.Errorf("Expected status 'sent', got '%s'", updated.Status)
 	}
@@ -433,7 +434,7 @@ func TestSmsRepository_CreateDraft(t *testing.T) {
 		Content: "Test content",
 	}
 
-	err := repo.CreateDraft(draft)
+	err := repo.CreateDraft(context.Background(), draft)
 	if err != nil {
 		t.Errorf("CreateDraft() error = %v", err)
 	}
@@ -452,7 +453,7 @@ func TestSmsRepository_GetDraftByID(t *testing.T) {
 		Title:   "GetByID Draft",
 		Content: "GetByID content",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
 	tests := []struct {
 		name    string
@@ -473,7 +474,7 @@ func TestSmsRepository_GetDraftByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetDraftByID(tt.id)
+			result, err := repo.GetDraftByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetDraftByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -496,9 +497,9 @@ func TestSmsRepository_GetDraftList(t *testing.T) {
 	repo := setupSmsRepository(t)
 
 	// 创建测试数据
-	repo.CreateDraft(&model.SmsDraft{Title: "Draft A", Content: "Content A"})
-	repo.CreateDraft(&model.SmsDraft{Title: "Draft B", Content: "Content B"})
-	repo.CreateDraft(&model.SmsDraft{Title: "Draft C", Content: "Content C"})
+	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft A", Content: "Content A"})
+	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft B", Content: "Content B"})
+	repo.CreateDraft(context.Background(), &model.SmsDraft{Title: "Draft C", Content: "Content C"})
 
 	tests := []struct {
 		name      string
@@ -534,7 +535,7 @@ func TestSmsRepository_GetDraftList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetDraftList(tt.page, tt.limit, tt.title)
+			results, total, err := repo.GetDraftList(context.Background(), tt.page, tt.limit, tt.title)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetDraftList() error = %v, wantErr %v", err, tt.wantErr)
@@ -559,15 +560,15 @@ func TestSmsRepository_UpdateDraft(t *testing.T) {
 		Title:   "Original Title",
 		Content: "Original content",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
 	draft.Title = "Updated Title"
-	err := repo.UpdateDraft(draft)
+	err := repo.UpdateDraft(context.Background(), draft)
 	if err != nil {
 		t.Errorf("UpdateDraft() error = %v", err)
 	}
 
-	updated, _ := repo.GetDraftByID(draft.ID)
+	updated, _ := repo.GetDraftByID(context.Background(), draft.ID)
 	if updated.Title != "Updated Title" {
 		t.Errorf("Expected title 'Updated Title', got '%s'", updated.Title)
 	}
@@ -581,14 +582,14 @@ func TestSmsRepository_DeleteDraft(t *testing.T) {
 		Title:   "To Delete",
 		Content: "Delete content",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
-	err := repo.DeleteDraft(draft.ID)
+	err := repo.DeleteDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Errorf("DeleteDraft() error = %v", err)
 	}
 
-	_, err = repo.GetDraftByID(draft.ID)
+	_, err = repo.GetDraftByID(context.Background(), draft.ID)
 	if err == nil {
 		t.Error("Expected draft to be deleted")
 	}
@@ -606,7 +607,7 @@ func TestSmsRepository_CreateJob(t *testing.T) {
 		ScheduleTime: &now,
 	}
 
-	err := repo.CreateJob(job)
+	err := repo.CreateJob(context.Background(), job)
 	if err != nil {
 		t.Errorf("CreateJob() error = %v", err)
 	}
@@ -626,7 +627,7 @@ func TestSmsRepository_GetJobByID(t *testing.T) {
 		Total:  50,
 		Status: "running",
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	tests := []struct {
 		name    string
@@ -647,7 +648,7 @@ func TestSmsRepository_GetJobByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetJobByID(tt.id)
+			result, err := repo.GetJobByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetJobByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -670,9 +671,9 @@ func TestSmsRepository_GetJobList(t *testing.T) {
 	repo := setupSmsRepository(t)
 
 	// 创建测试数据
-	repo.CreateJob(&model.SmsJob{Name: "Job A", Total: 100, Status: "pending"})
-	repo.CreateJob(&model.SmsJob{Name: "Job B", Total: 200, Status: "running"})
-	repo.CreateJob(&model.SmsJob{Name: "Job C", Total: 300, Status: "completed"})
+	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job A", Total: 100, Status: "pending"})
+	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job B", Total: 200, Status: "running"})
+	repo.CreateJob(context.Background(), &model.SmsJob{Name: "Job C", Total: 300, Status: "completed"})
 
 	tests := []struct {
 		name       string
@@ -709,7 +710,7 @@ func TestSmsRepository_GetJobList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetJobList(tt.page, tt.limit, tt.status, tt.filterName)
+			results, total, err := repo.GetJobList(context.Background(), tt.page, tt.limit, tt.status, tt.filterName)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetJobList() error = %v, wantErr %v", err, tt.wantErr)
@@ -735,17 +736,17 @@ func TestSmsRepository_UpdateJob(t *testing.T) {
 		Total:  100,
 		Status: "pending",
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	job.Status = "running"
 	job.Sent = 50
 
-	err := repo.UpdateJob(job)
+	err := repo.UpdateJob(context.Background(), job)
 	if err != nil {
 		t.Errorf("UpdateJob() error = %v", err)
 	}
 
-	updated, _ := repo.GetJobByID(job.ID)
+	updated, _ := repo.GetJobByID(context.Background(), job.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
 	}
@@ -763,14 +764,14 @@ func TestSmsRepository_DeleteJob(t *testing.T) {
 		Total:  100,
 		Status: "pending",
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
-	err := repo.DeleteJob(job.ID)
+	err := repo.DeleteJob(context.Background(), job.ID)
 	if err != nil {
 		t.Errorf("DeleteJob() error = %v", err)
 	}
 
-	_, err = repo.GetJobByID(job.ID)
+	_, err = repo.GetJobByID(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected job to be deleted")
 	}
@@ -782,7 +783,7 @@ func TestSmsRepository_CreateJobDetails(t *testing.T) {
 
 	// 创建任务
 	job := &model.SmsJob{Name: "Test Job", Total: 3}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	// 创建任务详情
 	details := []*model.SmsJobDetail{
@@ -791,7 +792,7 @@ func TestSmsRepository_CreateJobDetails(t *testing.T) {
 		{JobID: job.ID, Phone: "13800138003", Content: "Message 3", Status: "pending"},
 	}
 
-	err := repo.CreateJobDetails(details)
+	err := repo.CreateJobDetails(context.Background(), details)
 	if err != nil {
 		t.Errorf("CreateJobDetails() error = %v", err)
 	}
@@ -810,7 +811,7 @@ func TestSmsRepository_GetJobDetails(t *testing.T) {
 
 	// 创建任务和详情
 	job := &model.SmsJob{Name: "Test Job", Total: 5}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	details := []*model.SmsJobDetail{
 		{JobID: job.ID, Phone: "13800138001", Status: "pending"},
@@ -819,7 +820,7 @@ func TestSmsRepository_GetJobDetails(t *testing.T) {
 		{JobID: job.ID, Phone: "13800138004", Status: "failed"},
 		{JobID: job.ID, Phone: "13800138005", Status: "pending"},
 	}
-	repo.CreateJobDetails(details)
+	repo.CreateJobDetails(context.Background(), details)
 
 	tests := []struct {
 		name      string
@@ -857,7 +858,7 @@ func TestSmsRepository_GetJobDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetJobDetails(tt.jobID, tt.page, tt.limit)
+			results, total, err := repo.GetJobDetails(context.Background(), tt.jobID, tt.page, tt.limit)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetJobDetails() error = %v, wantErr %v", err, tt.wantErr)
@@ -880,22 +881,22 @@ func TestSmsRepository_DeleteJobDetails(t *testing.T) {
 
 	// 创建任务和详情
 	job := &model.SmsJob{Name: "Test Job", Total: 3}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	details := []*model.SmsJobDetail{
 		{JobID: job.ID, Phone: "13800138001", Status: "pending"},
 		{JobID: job.ID, Phone: "13800138002", Status: "pending"},
 		{JobID: job.ID, Phone: "13800138003", Status: "pending"},
 	}
-	repo.CreateJobDetails(details)
+	repo.CreateJobDetails(context.Background(), details)
 
-	err := repo.DeleteJobDetails(job.ID)
+	err := repo.DeleteJobDetails(context.Background(), job.ID)
 	if err != nil {
 		t.Errorf("DeleteJobDetails() error = %v", err)
 	}
 
 	// 验证删除
-	results, _, _ := repo.GetJobDetails(job.ID, 1, 10)
+	results, _, _ := repo.GetJobDetails(context.Background(), job.ID, 1, 10)
 	if len(results) != 0 {
 		t.Errorf("Expected 0 details after deletion, got %d", len(results))
 	}

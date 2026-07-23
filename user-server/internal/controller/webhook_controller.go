@@ -5,9 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/service"
 )
 
@@ -19,9 +17,9 @@ type WebhookController struct {
 }
 
 // NewWebhookController 创建 Webhook 控制器
-func NewWebhookController() *WebhookController {
+func NewWebhookController(svc *service.WebhookService) *WebhookController {
 	return &WebhookController{
-		svc: service.NewWebhookService(db.GetDB()),
+		svc: svc,
 	}
 }
 
@@ -256,6 +254,3 @@ func (c *WebhookController) SetAgentBindingService(svc *service.ChannelAgentBind
 		c.svc.SetAgentBindingService(svc)
 	}
 }
-
-// EnsureDB 防止 import unused
-var _ = gorm.ErrRecordNotFound

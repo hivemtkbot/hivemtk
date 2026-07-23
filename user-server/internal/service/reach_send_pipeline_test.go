@@ -618,7 +618,7 @@ func (m *recordingJourneyTracker) RecordTouch(ctx context.Context, customerID, c
 	return nil
 }
 
-func (m *recordingJourneyTracker) Calls() []journeyCall {
+func (m *recordingJourneyTracker) Calls(ctx context.Context)  []journeyCall {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]journeyCall, len(m.calls))
@@ -804,7 +804,6 @@ func TestDefaultContentAuditor_EmptyContent(t *testing.T) {
 func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 2, Burst: 2}
-	ctx := context.Background()
 
 	// burst=2，前 2 次允许
 	if !limiter.Allow(ctx, "k1", spec) {
@@ -827,7 +826,6 @@ func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
 func TestMemorySendRateLimiter_DifferentKeys(t *testing.T) {
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 1, Burst: 1}
-	ctx := context.Background()
 
 	// 不同 key 应该有独立的桶
 	if !limiter.Allow(ctx, "k1", spec) {
@@ -845,7 +843,6 @@ func TestMemorySendRateLimiter_DifferentKeys(t *testing.T) {
 func TestMemorySendRateLimiter_Reset(t *testing.T) {
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 1, Burst: 1}
-	ctx := context.Background()
 
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("k1 第 1 次应该允许")

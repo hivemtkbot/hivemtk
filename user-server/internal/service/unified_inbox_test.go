@@ -20,7 +20,6 @@ func TestUnifiedInbox_MultiChannel_OneIDBinding(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 客户在微信渠道留了手机号 13800138000
 	wechatMsg := &InboxMessage{
@@ -92,7 +91,6 @@ func TestUnifiedInbox_ThreadAggregation(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 3 个不同客户分别在 3 个渠道发消息
 	customers := []struct {
@@ -173,7 +171,6 @@ func TestUnifiedInbox_AutoTag_IntentRecognize(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 客户咨询价格
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -209,7 +206,6 @@ func TestUnifiedInbox_JourneyAutoStart(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 新客户首次互动
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -242,7 +238,6 @@ func TestUnifiedInbox_MergeAccounts(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 创建 2 个独立客户
 	r1, _ := inbox.IngestMessage(ctx, &InboxMessage{
@@ -284,7 +279,6 @@ func TestUnifiedInbox_UnreadFilter(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 客户 1 发 2 条消息
 	for i := 0; i < 2; i++ {
@@ -320,7 +314,6 @@ func TestUnifiedInbox_GetThread(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 1. 同一客户 3 个渠道发消息（首次微信已带手机号，后续通过手机号合并）
 	r1, _ := inbox.IngestMessage(ctx, &InboxMessage{
@@ -358,7 +351,6 @@ func TestUnifiedInbox_ContactExtractFromText(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	// 客户在消息里说"我的微信 13800138003 / foo@bar.com"
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -392,7 +384,6 @@ func TestUnifiedInbox_MarkRead(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
-	ctx := context.Background()
 
 	r, _ := inbox.IngestMessage(ctx, &InboxMessage{
 		Channel: InboxChannelWeChat, SenderID: "wx_read_001", SenderName: "测试",

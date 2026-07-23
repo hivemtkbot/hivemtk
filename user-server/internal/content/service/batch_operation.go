@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -64,7 +65,7 @@ type ImportResult struct {
 }
 
 // ImportFromCSV 从 CSV 导入线索
-func (s *BatchOperationService) ImportFromCSV(importType ImportType, file multipart.File) (*ImportResult, error) {
+func (s *BatchOperationService) ImportFromCSV(ctx context.Context, importType ImportType, file multipart.File) (*ImportResult, error) {
 	result := &ImportResult{
 		ImportType: importType,
 		Errors:     make([]ImportError, 0),
@@ -91,9 +92,9 @@ func (s *BatchOperationService) ImportFromCSV(importType ImportType, file multip
 
 	switch importType {
 	case ImportTypeClue:
-		s.importClues(dataRows, header, result)
+		s.importClues(ctx, dataRows, header, result)
 	case ImportTypeUser:
-		s.importUsers(dataRows, header, result)
+		s.importUsers(ctx, dataRows, header, result)
 	default:
 		return nil, fmt.Errorf("不支持的导入类型: %s", importType)
 	}
@@ -102,7 +103,7 @@ func (s *BatchOperationService) ImportFromCSV(importType ImportType, file multip
 }
 
 // importClues 导入线索
-func (s *BatchOperationService) importClues(rows [][]string, header []string, result *ImportResult) {
+func (s *BatchOperationService) importClues(ctx context.Context, rows [][]string, header []string, result *ImportResult) {
 	// 解析列索引
 	colMap := make(map[string]int)
 	for i, h := range header {
@@ -195,7 +196,7 @@ func (s *BatchOperationService) importClues(rows [][]string, header []string, re
 			Desc:     desc,
 		}
 
-		if err := s.clueRepo.Create(clue); err != nil {
+		if err := s.clueRepo.Create(ctx, clue); err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, ImportError{
 				Row:     i + 2,
@@ -209,7 +210,7 @@ func (s *BatchOperationService) importClues(rows [][]string, header []string, re
 }
 
 // importUsers 导入用户
-func (s *BatchOperationService) importUsers(rows [][]string, header []string, result *ImportResult) {
+func (s *BatchOperationService) importUsers(ctx context.Context, rows [][]string, header []string, result *ImportResult) {
 	colMap := make(map[string]int)
 	for i, h := range header {
 		colMap[strings.TrimSpace(h)] = i
@@ -267,7 +268,8 @@ func (s *BatchOperationService) importUsers(rows [][]string, header []string, re
 			RealName: realName,
 		}
 
-		if err := s.userRepo.Create(user); err != nil {
+		ctx := context.Background()
+		if err := s.userRepo.Create(ctx, user); err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, ImportError{
 				Row:     i + 2,
@@ -289,13 +291,13 @@ const (
 )
 
 // GenerateCSV 生成 CSV 数据
-func (s *BatchOperationService) GenerateCSV(exportType ExportType, ids []string) (*bytes.Buffer, error) {
+func (s *BatchOperationService) GenerateCSV(ctx context.Context, exportType ExportType, ids []string) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 
 	switch exportType {
 	case ExportTypeClue:
-		return s.exportClues(writer, &buf, ids)
+		return s.exportClues(ctx, writer, &buf, ids)
 	case ExportTypeUser:
 		return s.exportUsers(writer, &buf, ids)
 	default:
@@ -303,13 +305,13 @@ func (s *BatchOperationService) GenerateCSV(exportType ExportType, ids []string)
 	}
 }
 
-func (s *BatchOperationService) exportClues(writer *csv.Writer, buf *bytes.Buffer, ids []string) (*bytes.Buffer, error) {
+func (s *BatchOperationService) exportClues(ctx context.Context, writer *csv.Writer, buf *bytes.Buffer, ids []string) (*bytes.Buffer, error) {
 	headers := []string{"ID", "姓名", "账户", "类型", "城市", "地址", "描述", "来源ID", "是否验证", "创建时间"}
 	if err := writer.Write(headers); err != nil {
 		return nil, err
 	}
 
-	clues, _, err := s.clueRepo.GetClueList(1, 10000)
+	clues, _, err := s.clueRepo.GetClueList(ctx, 1, 10000)
 	if err != nil {
 		return nil, fmt.Errorf("查询线索失败: %w", err)
 	}
@@ -355,7 +357,7 @@ func (s *BatchOperationService) exportUsers(writer *csv.Writer, buf *bytes.Buffe
 		return nil, err
 	}
 
-	users, _, err := s.userRepo.GetUserList(1, 10000)
+	users, _, err := s.userRepo.GetUserList(context.Background(), 1, 10000)
 	if err != nil {
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
@@ -453,7 +455,7 @@ func (s *BatchOperationService) GenerateTemplateCSV(importType ImportType) (*byt
 }
 
 // BatchDelete 删除多条线索
-func (s *BatchOperationService) BatchDeleteClues(ids []string) (int, error) {
+func (s *BatchOperationService) BatchDeleteClues(ctx context.Context, ids []string) (int, error) {
 	if len(ids) == 0 {
 		return 0, errors.New("ID 列表不能为空")
 	}
@@ -463,7 +465,7 @@ func (s *BatchOperationService) BatchDeleteClues(ids []string) (int, error) {
 		if id == "" {
 			continue
 		}
-		if err := s.clueRepo.Delete(id); err != nil {
+		if err := s.clueRepo.Delete(ctx, id); err != nil {
 			logger.Error(err, "删除线索失败: "+id)
 			continue
 		}

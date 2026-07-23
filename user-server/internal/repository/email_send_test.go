@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -81,7 +82,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.email)
+			err := repo.Create(context.Background(), tt.email)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -109,7 +110,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 			return &t
 		}(),
 	}
-	repo.Create(email)
+	repo.Create(context.Background(), email)
 
 	tests := []struct {
 		name    string
@@ -131,7 +132,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := uuid.MustParse(tt.id)
-			result, err := repo.GetByID(id)
+			result, err := repo.GetByID(context.Background(), id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -152,7 +153,7 @@ func TestEmailSendRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(&model.EmailSend{
+		repo.Create(context.Background(), &model.EmailSend{
 			To:       "user" + string(rune('0'+i)) + "@example.com",
 			Subject:  "Email " + string(rune('0'+i)),
 			Content:  "Content " + string(rune('0'+i)),
@@ -161,7 +162,7 @@ func TestEmailSendRepository_List(t *testing.T) {
 		})
 	}
 
-	results, err := repo.List()
+	results, err := repo.List(context.Background())
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -182,15 +183,15 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 		Content: "Delete content",
 		Status:  0,
 	}
-	repo.Create(email)
+	repo.Create(context.Background(), email)
 
 	id := uuid.MustParse(email.ID)
-	err := repo.Delete(id)
+	err := repo.Delete(context.Background(), id)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(id)
+	_, err = repo.GetByID(context.Background(), id)
 	if err == nil {
 		t.Error("Expected email to be deleted")
 	}
@@ -207,28 +208,28 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		Content: "Content",
 		Status:  0, // pending
 	}
-	repo.Create(email)
+	repo.Create(context.Background(), email)
 
 	id := uuid.MustParse(email.ID)
 
 	// 更新为已发送
-	err := repo.UpdateStatus(id, 1)
+	err := repo.UpdateStatus(context.Background(), id, 1)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(id)
+	updated, _ := repo.GetByID(context.Background(), id)
 	if updated.Status != 1 {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
 
 	// 更新为失败
-	err = repo.UpdateStatus(id, 2)
+	err = repo.UpdateStatus(context.Background(), id, 2)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated2, _ := repo.GetByID(id)
+	updated2, _ := repo.GetByID(context.Background(), id)
 	if updated2.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated2.Status)
 	}
@@ -240,7 +241,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建待发送的邮件（发送时间在过去）
 	pastTime := time.Now().Add(-time.Hour)
-	repo.Create(&model.EmailSend{
+	repo.Create(context.Background(), &model.EmailSend{
 		To:       "pending1@example.com",
 		Subject:  "Pending Email 1",
 		Content:  "Content 1",
@@ -248,7 +249,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &pastTime,
 	})
 
-	repo.Create(&model.EmailSend{
+	repo.Create(context.Background(), &model.EmailSend{
 		To:       "pending2@example.com",
 		Subject:  "Pending Email 2",
 		Content:  "Content 2",
@@ -257,7 +258,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 	})
 
 	// 创建已发送的邮件
-	repo.Create(&model.EmailSend{
+	repo.Create(context.Background(), &model.EmailSend{
 		To:       "sent@example.com",
 		Subject:  "Sent Email",
 		Content:  "Sent content",
@@ -267,7 +268,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建计划发送时间在未来的邮件
 	futureTime := time.Now().Add(time.Hour)
-	repo.Create(&model.EmailSend{
+	repo.Create(context.Background(), &model.EmailSend{
 		To:       "future@example.com",
 		Subject:  "Future Email",
 		Content:  "Future content",
@@ -275,7 +276,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &futureTime,
 	})
 
-	results, err := repo.GetPendingEmails()
+	results, err := repo.GetPendingEmails(context.Background())
 	if err != nil {
 		t.Errorf("GetPendingEmails() error = %v", err)
 	}
@@ -290,7 +291,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 func TestEmailSendRepository_GetPendingEmails_EmptyResult(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 
-	results, err := repo.GetPendingEmails()
+	results, err := repo.GetPendingEmails(context.Background())
 	if err != nil {
 		t.Errorf("GetPendingEmails() error = %v", err)
 	}
@@ -304,7 +305,7 @@ func TestEmailSendRepository_GetPendingEmails_EmptyResult(t *testing.T) {
 func TestEmailSendRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 
-	_, err := repo.GetByID(uuid.New())
+	_, err := repo.GetByID(context.Background(), uuid.New())
 	if err == nil {
 		t.Error("Expected error when getting non-existing email")
 	}
@@ -314,7 +315,7 @@ func TestEmailSendRepository_GetByID_NotFound(t *testing.T) {
 func TestEmailSendRepository_List_EmptyResult(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 
-	results, err := repo.List()
+	results, err := repo.List(context.Background())
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}

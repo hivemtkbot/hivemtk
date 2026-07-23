@@ -109,7 +109,6 @@ func TestRagAlert_NewService_NilReceiver(t *testing.T) {
 func TestRagAlert_CheckAndAlert_LowRecall(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -158,7 +157,6 @@ func TestRagAlert_CheckAndAlert_LowRecall(t *testing.T) {
 func TestRagAlert_CheckAndAlert_EmbeddingFailure(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -199,7 +197,6 @@ func TestRagAlert_CheckAndAlert_EmbeddingFailure(t *testing.T) {
 func TestRagAlert_CheckAndAlert_HighLatency(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -241,7 +238,6 @@ func TestRagAlert_CheckAndAlert_HighLatency(t *testing.T) {
 func TestRagAlert_CheckAndAlert_ZeroHit(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -290,7 +286,6 @@ func TestRagAlert_CheckAndAlert_ZeroHit(t *testing.T) {
 func TestRagAlert_CheckAndAlert_Idempotent(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -340,7 +335,6 @@ func TestRagAlert_CheckAndAlert_Idempotent(t *testing.T) {
 func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 
 	// 制造 4 个历史窗口的低召回预警（warning 级别所需：3+1=4 个窗口）
 	now := time.Now().Truncate(RagAlertCheckInterval)
@@ -422,7 +416,6 @@ func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 func TestRagAlert_CheckAndAlert_EmptyData(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
@@ -476,7 +469,6 @@ func TestRagAlert_CheckLastWindow(t *testing.T) {
 func TestRagAlert_GetActiveAlerts_Basic(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 创建 3 条预警：2 活跃 + 1 已解决
@@ -510,7 +502,6 @@ func TestRagAlert_GetActiveAlerts_Basic(t *testing.T) {
 func TestRagAlert_GetActiveAlerts_FilterByType(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	alerts := []model.RagAlert{
@@ -539,7 +530,6 @@ func TestRagAlert_GetActiveAlerts_FilterByType(t *testing.T) {
 func TestRagAlert_GetActiveAlerts_LimitClamp(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 创建 5 条活跃预警
@@ -577,7 +567,6 @@ func TestRagAlert_GetActiveAlerts_LimitClamp(t *testing.T) {
 func TestRagAlert_GetAlertHistory(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 创建 2 活跃 + 1 已解决
@@ -610,7 +599,6 @@ func TestRagAlert_GetAlertHistory(t *testing.T) {
 func TestRagAlert_ResolveAlert(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	a := model.RagAlert{
@@ -676,7 +664,6 @@ func TestRagAlert_ResolveAlert_InvalidID(t *testing.T) {
 func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	a := model.RagAlert{
@@ -730,7 +717,6 @@ func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 func TestRagAlert_ResolveAllActive(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 创建 3 条活跃预警（2 个 low_recall + 1 个 high_latency）
@@ -797,7 +783,6 @@ func TestRagAlert_Cron_StartStop(t *testing.T) {
 func TestRagAlert_GetEmbeddingFailureRate(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 
 	// 写入 5 个文档：2 failed（失败率 40%）
 	for i := 0; i < 5; i++ {
@@ -880,7 +865,6 @@ func TestRagAlert_FormatAlertSummary(t *testing.T) {
 func TestRagAlert_CheckAndAlert_MultipleConditions(t *testing.T) {
 	db := setupRagAlertTestDB(t)
 	svc := NewRagAlertService(db, nil)
-	ctx := context.Background()
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 

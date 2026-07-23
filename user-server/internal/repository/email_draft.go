@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 
@@ -10,11 +11,11 @@ import (
 
 // EmailDraftRepository 草稿仓库接口
 type EmailDraftRepository interface {
-	Create(draft *model.EmailDraft) error
-	GetByID(id uuid.UUID) (*model.EmailDraft, error)
-	List() ([]*model.EmailDraft, error)
-	Update(draft *model.EmailDraft) error
-	Delete(id uuid.UUID) error
+	Create(ctx context.Context, draft *model.EmailDraft) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.EmailDraft, error)
+	List(ctx context.Context) ([]*model.EmailDraft, error)
+	Update(ctx context.Context, draft *model.EmailDraft) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type emailDraftRepo struct {
@@ -27,34 +28,34 @@ func NewEmailDraftRepository() EmailDraftRepository {
 }
 
 // Create 创建草稿
-func (r *emailDraftRepo) Create(draft *model.EmailDraft) error {
-	return r.db.Create(draft).Error
+func (r *emailDraftRepo) Create(ctx context.Context, draft *model.EmailDraft) error {
+	return r.db.WithContext(ctx).Create(draft).Error
 }
 
 // GetByID 根据ID获取草稿
-func (r *emailDraftRepo) GetByID(id uuid.UUID) (*model.EmailDraft, error) {
+func (r *emailDraftRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.EmailDraft, error) {
 	var draft model.EmailDraft
-	if err := r.db.First(&draft, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&draft, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &draft, nil
 }
 
 // List 获取所有草稿
-func (r *emailDraftRepo) List() ([]*model.EmailDraft, error) {
+func (r *emailDraftRepo) List(ctx context.Context) ([]*model.EmailDraft, error) {
 	var drafts []*model.EmailDraft
-	if err := r.db.Order("created_at DESC").Find(&drafts).Error; err != nil {
+	if err := r.db.WithContext(ctx).Order("created_at DESC").Find(&drafts).Error; err != nil {
 		return nil, err
 	}
 	return drafts, nil
 }
 
 // Update 更新草稿
-func (r *emailDraftRepo) Update(draft *model.EmailDraft) error {
-	return r.db.Save(draft).Error
+func (r *emailDraftRepo) Update(ctx context.Context, draft *model.EmailDraft) error {
+	return r.db.WithContext(ctx).Save(draft).Error
 }
 
 // Delete 删除草稿
-func (r *emailDraftRepo) Delete(id uuid.UUID) error {
-	return r.db.Delete(&model.EmailDraft{}, "id = ?", id).Error
+func (r *emailDraftRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&model.EmailDraft{}, "id = ?", id).Error
 }

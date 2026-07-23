@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"marketing/internal/pkg/utils/common"
+	"marketing/internal/pkg/utils/httpget"
 	_type "marketing/internal/pkg/utils/type"
 	"net/url"
 	"sort"
@@ -73,7 +73,7 @@ func EpayQuery(orderID string, epayConfig _type.EpayConfig) (bool, error) {
 
 	var url = fmt.Sprintf("%s?act=order&pid=%s&key=%s&out_trade_no=%s", query_url, pid, key, orderID)
 
-	var res, err = common.GetRequest(url)
+	var res, err = httpget.GetRequest(url)
 	if err != nil {
 		return false, err
 	}

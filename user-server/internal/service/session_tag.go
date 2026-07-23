@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 )
@@ -27,29 +28,29 @@ func NewSessionTagService() *SessionTagService {
 
 // CreateTagRequest 创建标签请求
 type CreateTagRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Code        string `json:"code" binding:"required"`
-	Group       string `json:"group"`
-	Color       string `json:"color"`
-	Description string `json:"description"`
-	SortOrder   int    `json:"sort_order"`
+	Name		string	`json:"name" binding:"required"`
+	Code		string	`json:"code" binding:"required"`
+	Group		string	`json:"group"`
+	Color		string	`json:"color"`
+	Description	string	`json:"description"`
+	SortOrder	int	`json:"sort_order"`
 }
 
 // CreateTag 创建标签
-func (s *SessionTagService) CreateTag(req *CreateTagRequest) (*model.SessionTag, error) {
+func (s *SessionTagService) CreateTag(ctx context.Context, req *CreateTagRequest) (*model.SessionTag, error) {
 	tag := &model.SessionTag{
-		Name:        req.Name,
-		Code:        req.Code,
-		Group:       req.Group,
-		Color:       req.Color,
-		Description: req.Description,
-		SortOrder:   req.SortOrder,
+		Name:		req.Name,
+		Code:		req.Code,
+		Group:		req.Group,
+		Color:		req.Color,
+		Description:	req.Description,
+		SortOrder:	req.SortOrder,
 	}
 	if tag.Color == "" {
 		tag.Color = "#1890ff"
 	}
 
-	if err := s.tagRepo.Create(tag); err != nil {
+	if err := s.tagRepo.Create(ctx, tag); err != nil {
 		return nil, err
 	}
 
@@ -57,8 +58,8 @@ func (s *SessionTagService) CreateTag(req *CreateTagRequest) (*model.SessionTag,
 }
 
 // UpdateTag 更新标签
-func (s *SessionTagService) UpdateTag(id uint, req *CreateTagRequest) (*model.SessionTag, error) {
-	tag, err := s.tagRepo.GetByID(id)
+func (s *SessionTagService) UpdateTag(ctx context.Context, id uint, req *CreateTagRequest) (*model.SessionTag, error) {
+	tag, err := s.tagRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (s *SessionTagService) UpdateTag(id uint, req *CreateTagRequest) (*model.Se
 	tag.Description = req.Description
 	tag.SortOrder = req.SortOrder
 
-	if err := s.tagRepo.Update(tag); err != nil {
+	if err := s.tagRepo.Update(ctx, tag); err != nil {
 		return nil, err
 	}
 
@@ -78,17 +79,17 @@ func (s *SessionTagService) UpdateTag(id uint, req *CreateTagRequest) (*model.Se
 }
 
 // DeleteTag 删除标签
-func (s *SessionTagService) DeleteTag(id uint) error {
-	tag, err := s.tagRepo.GetByID(id)
+func (s *SessionTagService) DeleteTag(ctx context.Context, id uint) error {
+	tag, err := s.tagRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 	_ = tag
 
-	return s.tagRepo.Delete(id)
+	return s.tagRepo.Delete(ctx, id)
 }
 
 // GetTags 获取标签列表
-func (s *SessionTagService) GetTags() ([]*model.SessionTag, error) {
-	return s.tagRepo.GetByMerchant()
+func (s *SessionTagService) GetTags(ctx context.Context,) ([]*model.SessionTag, error) {
+	return s.tagRepo.GetByMerchant(ctx)
 }

@@ -55,7 +55,6 @@ func TestSOPAutoOptimizer_ProcessPending_NoSuggestions(t *testing.T) {
 //   - suggestion 状态 → applied
 func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	// 插入 SOP
 	sop := model.SOPAgent{
@@ -141,7 +140,6 @@ func TestSOPAutoOptimizer_ProcessPending_BranchPrune(t *testing.T) {
 // priority=1 < AutoApplyPriority=2，不应自动应用
 func TestSOPAutoOptimizer_ProcessPending_LowPriorityNotApplied(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	sop := model.SOPAgent{
 		Name: "test-sop-low", Scenario: "test", IsActive: true,
@@ -178,7 +176,6 @@ func TestSOPAutoOptimizer_ProcessPending_LowPriorityNotApplied(t *testing.T) {
 // TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType 未知建议类型失败
 func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	sop := model.SOPAgent{
 		Name: "test-sop-unknown", Scenario: "test", IsActive: true,
@@ -221,7 +218,6 @@ func TestSOPAutoOptimizer_ProcessPending_UnknownSuggestionType(t *testing.T) {
 //   - bandit.PromoteArm 被调用
 func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	// 创建 1 个 running A/B 测试
 	expID := "test_promote_converged"
@@ -286,7 +282,6 @@ func TestSOPAutoOptimizer_CheckAndPromote_Converged(t *testing.T) {
 //   - bandit arms 状态 → retired
 func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	sopID := uint(100)
 	// 创建 A/B 测试
@@ -373,7 +368,6 @@ func TestSOPAutoOptimizer_CheckAndRollback_ConversionDrop(t *testing.T) {
 // TestSOPAutoOptimizer_FetchConversionRates 拉取转化率
 func TestSOPAutoOptimizer_FetchConversionRates(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	sopID := uint(200)
 	now := time.Now()
@@ -423,7 +417,6 @@ func TestSOPAutoOptimizer_FetchConversionRates(t *testing.T) {
 // TestSOPAutoOptimizer_FetchComplaintRates 拉取投诉率
 func TestSOPAutoOptimizer_FetchComplaintRates(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	sopID := uint(300)
 	now := time.Now()
@@ -481,7 +474,6 @@ func TestSOPAutoOptimizer_FetchComplaintRates(t *testing.T) {
 // TestSOPAutoOptimizer_RollbackTest 回滚 A/B 测试
 func TestSOPAutoOptimizer_RollbackTest(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	expID := "test_rollback_explicit"
 	now := time.Now()

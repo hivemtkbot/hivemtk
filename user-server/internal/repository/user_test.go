@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -42,7 +43,7 @@ func TestUserRepository_Create(t *testing.T) {
 		RealName: "Test User",
 	}
 
-	err := repo.Create(user)
+	err := repo.Create(context.Background(), user)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -69,10 +70,10 @@ func TestUserRepository_GetByID(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 根据 ID 获取
-	fetchedUser, err := repo.GetByID(user.ID)
+	fetchedUser, err := repo.GetByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestUserRepository_GetByID_NotFound(t *testing.T) {
 
 	repo := NewUserRepository()
 
-	_, err := repo.GetByID("non-existent-id")
+	_, err := repo.GetByID(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -106,10 +107,10 @@ func TestUserRepository_GetByUsername(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 根据用户名获取
-	fetchedUser, err := repo.GetByUsername("testuser")
+	fetchedUser, err := repo.GetByUsername(context.Background(), "testuser")
 	if err != nil {
 		t.Fatalf("GetByUsername failed: %v", err)
 	}
@@ -125,7 +126,7 @@ func TestUserRepository_GetByUsername_NotFound(t *testing.T) {
 
 	repo := NewUserRepository()
 
-	_, err := repo.GetByUsername("nonexistent")
+	_, err := repo.GetByUsername(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -144,11 +145,11 @@ func TestUserRepository_GetUserList(t *testing.T) {
 			Password: "password123",
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
 		}
-		repo.Create(user)
+		repo.Create(context.Background(), user)
 	}
 
 	// 获取第一页
-	users, total, err := repo.GetUserList(1, 10)
+	users, total, err := repo.GetUserList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUserList failed: %v", err)
 	}
@@ -175,11 +176,11 @@ func TestUserRepository_GetUserList_Pagination(t *testing.T) {
 			Password: "password123",
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
 		}
-		repo.Create(user)
+		repo.Create(context.Background(), user)
 	}
 
 	// 获取第一页（每页 5 条）
-	users, total, err := repo.GetUserList(1, 5)
+	users, total, err := repo.GetUserList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetUserList failed: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestUserRepository_GetUserList_Pagination(t *testing.T) {
 	}
 
 	// 获取第二页
-	users2, total2, err := repo.GetUserList(2, 5)
+	users2, total2, err := repo.GetUserList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetUserList page 2 failed: %v", err)
 	}
@@ -219,16 +220,16 @@ func TestUserRepository_Delete(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 删除用户
-	err := repo.Delete(user.ID)
+	err := repo.Delete(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// 验证用户已被删除
-	_, err = repo.GetByID(user.ID)
+	_, err = repo.GetByID(context.Background(), user.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -247,17 +248,17 @@ func TestUserRepository_Update(t *testing.T) {
 		Email:    "test@example.com",
 		RealName: "Test User",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 更新用户
 	user.RealName = "Updated Name"
-	err := repo.Update(user)
+	err := repo.Update(context.Background(), user)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
 	// 验证更新
-	fetchedUser, _ := repo.GetByID(user.ID)
+	fetchedUser, _ := repo.GetByID(context.Background(), user.ID)
 	if fetchedUser.RealName != "Updated Name" {
 		t.Errorf("Expected RealName 'Updated Name', got %s", fetchedUser.RealName)
 	}
@@ -275,18 +276,18 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 		Password: "oldpassword",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 	oldHashedPassword := user.Password
 
 	// 更新密码
 	hashedPassword := "hashed_newpassword123" // 实际应该先哈希，这里直接传入哈希值
-	err := repo.UpdatePassword(user.ID, hashedPassword)
+	err := repo.UpdatePassword(context.Background(), user.ID, hashedPassword)
 	if err != nil {
 		t.Fatalf("UpdatePassword failed: %v", err)
 	}
 
 	// 验证密码已更新
-	fetchedUser, _ := repo.GetByID(user.ID)
+	fetchedUser, _ := repo.GetByID(context.Background(), user.ID)
 	if fetchedUser.Password == oldHashedPassword {
 		t.Error("Expected password to be updated")
 	}
@@ -312,10 +313,10 @@ func TestUserRepository_UserIsExist(t *testing.T) {
 		LastName:  "Doe",
 		UserName:  "johndoe",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 检查用户是否存在
-	id, exists := repo.UserIsExist("account123", 12345, "John", "Doe", "johndoe")
+	id, exists := repo.UserIsExist(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
 	if !exists {
 		t.Error("Expected user to exist")
 	}
@@ -324,7 +325,7 @@ func TestUserRepository_UserIsExist(t *testing.T) {
 	}
 
 	// 检查不存在的用户
-	_, exists = repo.UserIsExist("nonexistent", 0, "Jane", "Doe", "janedoe")
+	_, exists = repo.UserIsExist(context.Background(), "nonexistent", 0, "Jane", "Doe", "janedoe")
 	if exists {
 		t.Error("Expected user to not exist")
 	}
@@ -342,10 +343,10 @@ func TestUserRepository_UsernameExists(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 检查用户名是否存在
-	exists, err := repo.UsernameExists("testuser", "")
+	exists, err := repo.UsernameExists(context.Background(), "testuser", "")
 	if err != nil {
 		t.Fatalf("UsernameExists failed: %v", err)
 	}
@@ -354,7 +355,7 @@ func TestUserRepository_UsernameExists(t *testing.T) {
 	}
 
 	// 检查不存在的用户名
-	exists, err = repo.UsernameExists("nonexistent", "")
+	exists, err = repo.UsernameExists(context.Background(), "nonexistent", "")
 	if err != nil {
 		t.Fatalf("UsernameExists failed: %v", err)
 	}
@@ -363,7 +364,7 @@ func TestUserRepository_UsernameExists(t *testing.T) {
 	}
 
 	// 排除自己
-	exists, err = repo.UsernameExists("testuser", user.ID)
+	exists, err = repo.UsernameExists(context.Background(), "testuser", user.ID)
 	if err != nil {
 		t.Fatalf("UsernameExists failed: %v", err)
 	}
@@ -384,10 +385,10 @@ func TestUserRepository_EmailExists(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Create(user)
+	repo.Create(context.Background(), user)
 
 	// 检查邮箱是否存在
-	exists, err := repo.EmailExists("test@example.com", "")
+	exists, err := repo.EmailExists(context.Background(), "test@example.com", "")
 	if err != nil {
 		t.Fatalf("EmailExists failed: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestUserRepository_EmailExists(t *testing.T) {
 	}
 
 	// 检查不存在的邮箱
-	exists, err = repo.EmailExists("nonexistent@example.com", "")
+	exists, err = repo.EmailExists(context.Background(), "nonexistent@example.com", "")
 	if err != nil {
 		t.Fatalf("EmailExists failed: %v", err)
 	}
@@ -405,7 +406,7 @@ func TestUserRepository_EmailExists(t *testing.T) {
 	}
 
 	// 排除自己
-	exists, err = repo.EmailExists("test@example.com", user.ID)
+	exists, err = repo.EmailExists(context.Background(), "test@example.com", user.ID)
 	if err != nil {
 		t.Fatalf("EmailExists failed: %v", err)
 	}

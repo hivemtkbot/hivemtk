@@ -23,6 +23,12 @@ func NewAutoReplyAccountRepository(db *gorm.DB) *AutoReplyAccountRepository {
 	return &AutoReplyAccountRepository{db: db}
 }
 
+// NewAutoReplyAccountRepositoryAuto 创建自动回复账号仓库实例(无参,内部用 _db.GetDB())
+// 用于 service 构造函数内不允许直接调 db.GetDB() 的场景
+func NewAutoReplyAccountRepositoryAuto() *AutoReplyAccountRepository {
+	return &AutoReplyAccountRepository{db: _db.GetDB()}
+}
+
 // ListByPlatformAndUser 按平台与用户列出账号
 func (r *AutoReplyAccountRepository) ListByPlatformAndUser(ctx context.Context, platform string, userID uint) ([]model.AutoReplyAccount, error) {
 	var items []model.AutoReplyAccount
@@ -258,6 +264,12 @@ type AutoReplyLogRepository struct {
 // NewAutoReplyLogRepository 创建自动回复日志仓库实例
 func NewAutoReplyLogRepository(db *gorm.DB) *AutoReplyLogRepository {
 	return &AutoReplyLogRepository{db: db}
+}
+
+// NewAutoReplyLogRepositoryAuto 创建自动回复日志仓库实例(无参,内部用 _db.GetDB())
+// 用于 service 构造函数内不允许直接调 db.GetDB() 的场景
+func NewAutoReplyLogRepositoryAuto() *AutoReplyLogRepository {
+	return &AutoReplyLogRepository{db: _db.GetDB()}
 }
 
 // Create 创建日志

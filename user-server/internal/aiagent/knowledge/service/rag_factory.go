@@ -21,13 +21,13 @@ type RAGStack struct {
 
 func NewRAGStack(db *gorm.DB) *RAGStack {
 	embeddingSvc := llm.NewEmbeddingService()
-	// 私域基线（2026-07-18）：Embedding 走本地 TEI（真实 bge-m3，1024 维）
-	embedder := rag_core.NewRemoteEmbedder(1024)
+	// 私域基线（2026-07-18）：Embedding 走本地 TEI（真实 bge-m3，EmbeddingDim 维）
+	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim)
 	_ = embeddingSvc
 	_ = embedder
 
 	vectorizer := &ragretrieval.Vectorizer{}
-	indexManager := ragretrieval.NewInMemoryIndexManager(1024)
+	indexManager := ragretrieval.NewInMemoryIndexManager(EmbeddingDim)
 	storage := ragretrieval.NewInMemoryStorage()
 	// RAG 检索缓存：REDIS_HOST 配置时复用全局 Redis 缓存（跨实例共享检索结果，
 	// 减少重复向量化/检索）；未配置则回退进程内内存缓存（向后兼容单实例）。
@@ -37,11 +37,11 @@ func NewRAGStack(db *gorm.DB) *RAGStack {
 	}
 
 	retrievalCfg := &ragretrieval.RetrievalConfig{
-		DefaultTopK:                5,
-		DefaultSimilarityThreshold: 0.5,
+		DefaultTopK:                DefaultTopK,
+		DefaultSimilarityThreshold: DefaultSimilarityThreshold,
 		MaxTopK:                    10,
 		CacheTTL:                   30 * time.Minute,
-		MaxChunkSize:               1000,
+		MaxChunkSize:               MaxSearchListSize,
 		DefaultChunkOverlap:        200,
 	}
 
@@ -71,8 +71,8 @@ func NewRAGStack(db *gorm.DB) *RAGStack {
 
 	var llmSvc ragcustomerservice.LLMServiceInterface = nil
 	respGenCfg := &ragcustomerservice.ResponseGenerationConfig{
-		DefaultTemperature: 0.7,
-		DefaultMaxTokens:   1000,
+		DefaultTemperature: DefaultTemperature,
+		DefaultMaxTokens:   DefaultMaxTokens,
 	}
 	responseGenerator := ragcustomerservice.NewResponseGeneratorImpl(llmSvc, respGenCfg)
 
@@ -89,10 +89,10 @@ func NewRAGStack(db *gorm.DB) *RAGStack {
 	csConfig := &ragcustomerservice.CustomerServiceConfig{
 		DefaultMaxHistoryLength: 10,
 		DefaultTimeout:          30 * 60,
-		DefaultTemperature:      0.7,
-		DefaultMaxTokens:        1000,
-		RetrievalTopK:           5,
-		RetrievalThreshold:      0.5,
+		DefaultTemperature:      DefaultTemperature,
+		DefaultMaxTokens:        DefaultMaxTokens,
+		RetrievalTopK:           DefaultTopK,
+		RetrievalThreshold:      DefaultSimilarityThreshold,
 		CacheTTL:                30 * time.Minute,
 		MaxConcurrentSessions:   100,
 		SessionCleanupInterval:  5 * time.Minute,

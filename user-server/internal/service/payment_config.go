@@ -7,6 +7,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/repository"
+	"context"
 )
 
 // PaymentConfigService 支付配置服务
@@ -21,34 +22,34 @@ func NewPaymentConfigService() *PaymentConfigService {
 
 // PaymentConfigRequest 前端提交配置请求
 type PaymentConfigRequest struct {
-	DefaultMethod   string         `json:"defaultMethod"`
-	Timeout         int            `json:"timeout"`
-	AutoConfirm     bool           `json:"autoConfirm"`
-	AutoConfirmDays int            `json:"autoConfirmDays"`
-	RefundAudit     bool           `json:"refundAudit"`
-	Alipay          map[string]any `json:"alipay"`
-	Wechat          map[string]any `json:"wechat"`
-	Unionpay        map[string]any `json:"unionpay"`
+	DefaultMethod	string		`json:"defaultMethod"`
+	Timeout		int		`json:"timeout"`
+	AutoConfirm	bool		`json:"autoConfirm"`
+	AutoConfirmDays	int		`json:"autoConfirmDays"`
+	RefundAudit	bool		`json:"refundAudit"`
+	Alipay		map[string]any	`json:"alipay"`
+	Wechat		map[string]any	`json:"wechat"`
+	Unionpay	map[string]any	`json:"unionpay"`
 }
 
 // PaymentConfigResponse 前端响应的配置
 type PaymentConfigResponse struct {
-	ID              uint           `json:"id"`
-	DefaultMethod   string         `json:"defaultMethod"`
-	Timeout         int            `json:"timeout"`
-	AutoConfirm     bool           `json:"autoConfirm"`
-	AutoConfirmDays int            `json:"autoConfirmDays"`
-	RefundAudit     bool           `json:"refundAudit"`
-	Alipay          map[string]any `json:"alipay"`
-	Wechat          map[string]any `json:"wechat"`
-	Unionpay        map[string]any `json:"unionpay"`
-	CreatedAt       string         `json:"createdAt"`
-	UpdatedAt       string         `json:"updatedAt"`
+	ID		uint		`json:"id"`
+	DefaultMethod	string		`json:"defaultMethod"`
+	Timeout		int		`json:"timeout"`
+	AutoConfirm	bool		`json:"autoConfirm"`
+	AutoConfirmDays	int		`json:"autoConfirmDays"`
+	RefundAudit	bool		`json:"refundAudit"`
+	Alipay		map[string]any	`json:"alipay"`
+	Wechat		map[string]any	`json:"wechat"`
+	Unionpay	map[string]any	`json:"unionpay"`
+	CreatedAt	string		`json:"createdAt"`
+	UpdatedAt	string		`json:"updatedAt"`
 }
 
 // GetConfig 获取支付配置(单租户模式)
-func (s *PaymentConfigService) GetConfig() (*PaymentConfigResponse, error) {
-	config, err := s.repo.GetConfig()
+func (s *PaymentConfigService) GetConfig(ctx context.Context,) (*PaymentConfigResponse, error) {
+	config, err := s.repo.GetConfig(ctx)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return defaultPaymentConfig(), nil
@@ -63,7 +64,7 @@ func (s *PaymentConfigService) GetConfig() (*PaymentConfigResponse, error) {
 }
 
 // SaveConfig 保存支付配置(单租户模式)
-func (s *PaymentConfigService) SaveConfig(req *PaymentConfigRequest) (*PaymentConfigResponse, error) {
+func (s *PaymentConfigService) SaveConfig(ctx context.Context, req *PaymentConfigRequest) (*PaymentConfigResponse, error) {
 	if req == nil {
 		return nil, errors.New("配置数据不能为空")
 	}
@@ -90,22 +91,22 @@ func (s *PaymentConfigService) SaveConfig(req *PaymentConfigRequest) (*PaymentCo
 	unionpayJSON, _ := json.Marshal(req.Unionpay)
 
 	config := &model.PaymentConfig{
-		DefaultMethod:   req.DefaultMethod,
-		Timeout:         req.Timeout,
-		AutoConfirm:     req.AutoConfirm,
-		AutoConfirmDays: req.AutoConfirmDays,
-		RefundAudit:     req.RefundAudit,
-		AlipayConfig:    string(alipayJSON),
-		WechatConfig:    string(wechatJSON),
-		UnionpayConfig:  string(unionpayJSON),
+		DefaultMethod:		req.DefaultMethod,
+		Timeout:		req.Timeout,
+		AutoConfirm:		req.AutoConfirm,
+		AutoConfirmDays:	req.AutoConfirmDays,
+		RefundAudit:		req.RefundAudit,
+		AlipayConfig:		string(alipayJSON),
+		WechatConfig:		string(wechatJSON),
+		UnionpayConfig:		string(unionpayJSON),
 	}
 
-	if err := s.repo.Upsert(config); err != nil {
+	if err := s.repo.Upsert(ctx, config); err != nil {
 		return nil, err
 	}
 
 	// 重新读取以返回最新数据
-	updated, _ := s.repo.GetConfig()
+	updated, _ := s.repo.GetConfig(ctx)
 	if updated == nil {
 		return toPaymentConfigResponse(config), nil
 	}
@@ -115,28 +116,28 @@ func (s *PaymentConfigService) SaveConfig(req *PaymentConfigRequest) (*PaymentCo
 // defaultPaymentConfig 返回默认配置
 func defaultPaymentConfig() *PaymentConfigResponse {
 	return &PaymentConfigResponse{
-		DefaultMethod:   "alipay",
-		Timeout:         30,
-		AutoConfirm:     true,
-		AutoConfirmDays: 7,
-		RefundAudit:     false,
-		Alipay:          map[string]any{"appId": "", "privateKey": "", "publicKey": ""},
-		Wechat:          map[string]any{"appId": "", "mchId": "", "apiKey": ""},
-		Unionpay:        map[string]any{"merId": "", "certPath": ""},
+		DefaultMethod:		"alipay",
+		Timeout:		30,
+		AutoConfirm:		true,
+		AutoConfirmDays:	7,
+		RefundAudit:		false,
+		Alipay:			map[string]any{"appId": "", "privateKey": "", "publicKey": ""},
+		Wechat:			map[string]any{"appId": "", "mchId": "", "apiKey": ""},
+		Unionpay:		map[string]any{"merId": "", "certPath": ""},
 	}
 }
 
 func toPaymentConfigResponse(config *model.PaymentConfig) *PaymentConfigResponse {
 	resp := &PaymentConfigResponse{
-		ID:              config.ID,
-		DefaultMethod:   config.DefaultMethod,
-		Timeout:         config.Timeout,
-		AutoConfirm:     config.AutoConfirm,
-		AutoConfirmDays: config.AutoConfirmDays,
-		RefundAudit:     config.RefundAudit,
-		Alipay:          safeParseJSON(config.AlipayConfig),
-		Wechat:          safeParseJSON(config.WechatConfig),
-		Unionpay:        safeParseJSON(config.UnionpayConfig),
+		ID:			config.ID,
+		DefaultMethod:		config.DefaultMethod,
+		Timeout:		config.Timeout,
+		AutoConfirm:		config.AutoConfirm,
+		AutoConfirmDays:	config.AutoConfirmDays,
+		RefundAudit:		config.RefundAudit,
+		Alipay:			safeParseJSON(config.AlipayConfig),
+		Wechat:			safeParseJSON(config.WechatConfig),
+		Unionpay:		safeParseJSON(config.UnionpayConfig),
 	}
 	if !config.CreatedAt.IsZero() {
 		resp.CreatedAt = config.CreatedAt.Format(time.RFC3339)

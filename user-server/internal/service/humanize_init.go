@@ -186,7 +186,7 @@ func SetHumanizeRegenerateDispatcher(dispatcher *llm.Dispatcher) {
 	if svc == nil {
 		return
 	}
-	svc.WithRegenerateFn(func(ctx context.Context, input *dto.HumanizeEvalInput, last *dto.HumanizeEvalResult) (string, error) {
+	svc.WithRegenerateFn(context.Background(), func(ctx context.Context, input *dto.HumanizeEvalInput, last *dto.HumanizeEvalResult) (string, error) {
 		adapter := &humanizeRegenerateAdapter{dispatcher: dispatcher}
 		return adapter.Regenerate(ctx, input, last)
 	})

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -81,7 +82,7 @@ func TestRFMRuleRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ruleRepo.Create(tt.rule)
+			err := ruleRepo.Create(context.Background(), tt.rule)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -103,7 +104,7 @@ func TestRFMRuleRepository_GetByID(t *testing.T) {
 		Name:     "GetByID Rule",
 		IsActive: true,
 	}
-	ruleRepo.Create(rule)
+	ruleRepo.Create(context.Background(), rule)
 
 	tests := []struct {
 		name    string
@@ -124,7 +125,7 @@ func TestRFMRuleRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ruleRepo.GetByID(tt.id)
+			result, err := ruleRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -143,17 +144,17 @@ func TestRFMRuleRepository_GetActiveRule(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 
 	// 创建测试数据
-	ruleRepo.Create(&model.RFMRule{
+	ruleRepo.Create(context.Background(), &model.RFMRule{
 		Name:     "Active Rule",
 		IsActive: true,
 	})
-	ruleRepo.Create(&model.RFMRule{
+	ruleRepo.Create(context.Background(), &model.RFMRule{
 		Name:     "Inactive Rule",
 		IsActive: false,
 	})
 
 	// 私域部署下,GetActiveRule 直接返回 IsActive=true 的规则
-	result, err := ruleRepo.GetActiveRule()
+	result, err := ruleRepo.GetActiveRule(context.Background())
 	if err != nil {
 		t.Errorf("GetActiveRule() unexpected error = %v", err)
 	}
@@ -174,17 +175,17 @@ func TestRFMRuleRepository_Update(t *testing.T) {
 		Name:     "Original Name",
 		IsActive: true,
 	}
-	ruleRepo.Create(rule)
+	ruleRepo.Create(context.Background(), rule)
 
 	rule.Name = "Updated Name"
 	rule.IsActive = false
 
-	err := ruleRepo.Update(rule)
+	err := ruleRepo.Update(context.Background(), rule)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := ruleRepo.GetByID(rule.ID)
+	updated, _ := ruleRepo.GetByID(context.Background(), rule.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -202,14 +203,14 @@ func TestRFMRuleRepository_Delete(t *testing.T) {
 		Name:     "Delete Rule",
 		IsActive: true,
 	}
-	ruleRepo.Create(rule)
+	ruleRepo.Create(context.Background(), rule)
 
-	err := ruleRepo.Delete(rule.ID)
+	err := ruleRepo.Delete(context.Background(), rule.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = ruleRepo.GetByID(rule.ID)
+	_, err = ruleRepo.GetByID(context.Background(), rule.ID)
 	if err == nil {
 		t.Error("Expected rule to be deleted")
 	}
@@ -250,7 +251,7 @@ func TestUserRFMRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := userRepo.Create(tt.rfm)
+			err := userRepo.Create(context.Background(), tt.rfm)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -276,7 +277,7 @@ func TestUserRFMRepository_GetByUserID(t *testing.T) {
 		TotalScore: 14,
 		Layer:      "important_value",
 	}
-	userRepo.Create(rfm)
+	userRepo.Create(context.Background(), rfm)
 
 	tests := []struct {
 		name      string
@@ -299,7 +300,7 @@ func TestUserRFMRepository_GetByUserID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := userRepo.GetByUserID(tt.userID)
+			result, err := userRepo.GetByUserID(context.Background(), tt.userID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByUserID() error = %v, wantErr %v", err, tt.wantErr)
@@ -319,7 +320,7 @@ func TestUserRFMRepository_GetByLayer(t *testing.T) {
 	// 创建测试数据
 	layers := []string{"important_value", "important_value", "general_value", "general_keep", "important_value"}
 	for i, layer := range layers {
-		userRepo.Create(&model.UserRFM{
+		userRepo.Create(context.Background(), &model.UserRFM{
 			UserID:     uint(i + 1),
 			RScore:     5,
 			FScore:     5,
@@ -369,7 +370,7 @@ func TestUserRFMRepository_GetByLayer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := userRepo.GetByLayer(tt.layer, tt.page, tt.pageSize)
+			results, total, err := userRepo.GetByLayer(context.Background(), tt.layer, tt.page, tt.pageSize)
 
 			if err != nil {
 				t.Errorf("GetByLayer() error = %v", err)
@@ -400,7 +401,7 @@ func TestUserRFMRepository_GetLayerCount(t *testing.T) {
 
 	for layer, count := range layers {
 		for i := 0; i < count; i++ {
-			userRepo.Create(&model.UserRFM{
+			userRepo.Create(context.Background(), &model.UserRFM{
 				UserID:     uint(len(layers)*100 + layerCount(layer, i)),
 				RScore:     5,
 				FScore:     5,
@@ -411,7 +412,7 @@ func TestUserRFMRepository_GetLayerCount(t *testing.T) {
 		}
 	}
 
-	counts, err := userRepo.GetLayerCount()
+	counts, err := userRepo.GetLayerCount(context.Background())
 	if err != nil {
 		t.Errorf("GetLayerCount() error = %v", err)
 	}
@@ -441,14 +442,14 @@ func TestUserRFMRepository_DeleteByUserID(t *testing.T) {
 		TotalScore: 14,
 		Layer:      "important_value",
 	}
-	userRepo.Create(rfm)
+	userRepo.Create(context.Background(), rfm)
 
-	err := userRepo.DeleteByUserID(100)
+	err := userRepo.DeleteByUserID(context.Background(), 100)
 	if err != nil {
 		t.Errorf("DeleteByUserID() error = %v", err)
 	}
 
-	_, err = userRepo.GetByUserID(100)
+	_, err = userRepo.GetByUserID(context.Background(), 100)
 	if err == nil {
 		t.Error("Expected RFM record to be deleted")
 	}
@@ -467,7 +468,7 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 		TotalScore: 9,
 		Layer:      "general",
 	}
-	userRepo.Create(existingRFM)
+	userRepo.Create(context.Background(), existingRFM)
 
 	// 准备批量 upsert 数据
 	rfms := []*model.UserRFM{
@@ -489,13 +490,13 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 		},
 	}
 
-	err := userRepo.BatchUpsert(rfms)
+	err := userRepo.BatchUpsert(context.Background(), rfms)
 	if err != nil {
 		t.Errorf("BatchUpsert() error = %v", err)
 	}
 
 	// 验证已存在的用户被更新
-	updated, _ := userRepo.GetByUserID(1)
+	updated, _ := userRepo.GetByUserID(context.Background(), 1)
 	if updated.TotalScore != 15 {
 		t.Errorf("Expected existing user TotalScore 15, got %d", updated.TotalScore)
 	}
@@ -504,7 +505,7 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 	}
 
 	// 验证新用户被创建
-	newUser, _ := userRepo.GetByUserID(2)
+	newUser, _ := userRepo.GetByUserID(context.Background(), 2)
 	if newUser.TotalScore != 12 {
 		t.Errorf("Expected new user TotalScore 12, got %d", newUser.TotalScore)
 	}
@@ -523,7 +524,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 9,
 		Layer:      "general",
 	}
-	userRepo.Create(oldRFM)
+	userRepo.Create(context.Background(), oldRFM)
 	// Use raw SQL to set the old UpdatedAt (GORM autoUpdateTime overrides it)
 	database.Exec("UPDATE user_rfms SET updated_at = ? WHERE id = ?", time.Now().AddDate(0, 0, -100), oldRFM.ID)
 
@@ -536,7 +537,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 12,
 		Layer:      "value",
 	}
-	userRepo.Create(veryOldRFM)
+	userRepo.Create(context.Background(), veryOldRFM)
 	// Use raw SQL to set the very old UpdatedAt
 	database.Exec("UPDATE user_rfms SET updated_at = ? WHERE id = ?", time.Now().AddDate(0, 0, -400), veryOldRFM.ID)
 
@@ -549,7 +550,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 15,
 		Layer:      "important_value",
 	}
-	userRepo.Create(newRFM)
+	userRepo.Create(context.Background(), newRFM)
 
 	tests := []struct {
 		name       string
@@ -573,7 +574,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := userRepo.GetNeedUpdateUsers(tt.days)
+			results, err := userRepo.GetNeedUpdateUsers(context.Background(), tt.days)
 
 			if err != nil {
 				t.Errorf("GetNeedUpdateUsers() error = %v", err)
@@ -592,7 +593,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers_EmptyResult(t *testing.T) {
 
 	// 创建所有用户都是最近更新的
 	for i := 1; i <= 3; i++ {
-		userRepo.Create(&model.UserRFM{
+		userRepo.Create(context.Background(), &model.UserRFM{
 			UserID:     uint(i),
 			RScore:     5,
 			FScore:     5,
@@ -603,7 +604,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers_EmptyResult(t *testing.T) {
 		})
 	}
 
-	results, err := userRepo.GetNeedUpdateUsers(30)
+	results, err := userRepo.GetNeedUpdateUsers(context.Background(), 30)
 	if err != nil {
 		t.Errorf("GetNeedUpdateUsers() error = %v", err)
 	}

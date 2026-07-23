@@ -8,6 +8,8 @@
 |------|------|----------|
 | `entrypoint.sh` | llama.cpp 推理容器统一入口（自动下载 + 启动 llama-server） | `/scripts/entrypoint.sh` |
 | `download_models.sh` | 全自动模型拉取（ModelScope 优先 → HF-Mirror → HF 官方） | `/scripts/download_models.sh` |
+| `export_onnx.sh` | 把 `models/<name>/` 下的 HF sentence-transformers 导出为 `models/<name>/onnx/`（供 TEI ORT 后端使用） | 本机脚本 |
+| `verify_onnx.py` | 用 onnxruntime 跑一次 1024 维向量 + last-token 池化 + L2 归一化自检 | 本机脚本 |
 | `warmup.sh` | 推理栈预热（首请求慢，预先触发模型加载与图编译） | mtk-warmup 一次性服务使用 |
 | `smoke_test.sh` | 验证 LLM / Embedding / Rerank 三类端点连通性 | 手动调试使用 |
 

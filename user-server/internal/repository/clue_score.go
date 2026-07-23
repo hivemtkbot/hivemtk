@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -11,11 +12,11 @@ import (
 
 // ClueScoreRepository 线索评分仓库
 type ClueScoreRepository interface {
-	Upsert(score *model.ClueScore) error
-	GetByClueID(clueID string) (*model.ClueScore, error)
-	ListByGrade(grade string, page, pageSize int) ([]*model.ClueScore, int64, error)
-	ListTopByScore(limit int) ([]*model.ClueScore, error)
-	DeleteByClueID(clueID string) error
+	Upsert(ctx context.Context, score *model.ClueScore) error
+	GetByClueID(ctx context.Context, clueID string) (*model.ClueScore, error)
+	ListByGrade(ctx context.Context, grade string, page, pageSize int) ([]*model.ClueScore, int64, error)
+	ListTopByScore(ctx context.Context, limit int) ([]*model.ClueScore, error)
+	DeleteByClueID(ctx context.Context, clueID string) error
 }
 
 type clueScoreRepo struct {
@@ -32,7 +33,7 @@ func NewClueScoreRepositoryWithDB(db *gorm.DB) ClueScoreRepository {
 	return &clueScoreRepo{db: db}
 }
 
-func (r *clueScoreRepo) Upsert(score *model.ClueScore) error {
+func (r *clueScoreRepo) Upsert(ctx context.Context, score *model.ClueScore) error {
 	if score.ClueID == "" {
 		return errors.New("clue_id 不能为空")
 	}
@@ -50,7 +51,7 @@ func (r *clueScoreRepo) Upsert(score *model.ClueScore) error {
 	return r.db.Save(score).Error
 }
 
-func (r *clueScoreRepo) GetByClueID(clueID string) (*model.ClueScore, error) {
+func (r *clueScoreRepo) GetByClueID(ctx context.Context, clueID string) (*model.ClueScore, error) {
 	var score model.ClueScore
 	if err := r.db.Where("clue_id = ?", clueID).First(&score).Error; err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func (r *clueScoreRepo) GetByClueID(clueID string) (*model.ClueScore, error) {
 	return &score, nil
 }
 
-func (r *clueScoreRepo) ListByGrade(grade string, page, pageSize int) ([]*model.ClueScore, int64, error) {
+func (r *clueScoreRepo) ListByGrade(ctx context.Context, grade string, page, pageSize int) ([]*model.ClueScore, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -81,7 +82,7 @@ func (r *clueScoreRepo) ListByGrade(grade string, page, pageSize int) ([]*model.
 	return scores, total, nil
 }
 
-func (r *clueScoreRepo) ListTopByScore(limit int) ([]*model.ClueScore, error) {
+func (r *clueScoreRepo) ListTopByScore(ctx context.Context, limit int) ([]*model.ClueScore, error) {
 	if limit < 1 || limit > 200 {
 		limit = 20
 	}
@@ -92,16 +93,16 @@ func (r *clueScoreRepo) ListTopByScore(limit int) ([]*model.ClueScore, error) {
 	return scores, nil
 }
 
-func (r *clueScoreRepo) DeleteByClueID(clueID string) error {
+func (r *clueScoreRepo) DeleteByClueID(ctx context.Context, clueID string) error {
 	return r.db.Where("clue_id = ?", clueID).Delete(&model.ClueScore{}).Error
 }
 
 // ClueEngagementRepository 线索互动事件仓库
 type ClueEngagementRepository interface {
-	Create(evt *model.ClueEngagementEvent) error
-	CountByClueID(clueID string, since time.Time) (int64, error)
-	CountByType(clueID string) (map[string]int64, error)
-	LastByClueID(clueID string, limit int) ([]*model.ClueEngagementEvent, error)
+	Create(ctx context.Context, evt *model.ClueEngagementEvent) error
+	CountByClueID(ctx context.Context, clueID string, since time.Time) (int64, error)
+	CountByType(ctx context.Context, clueID string) (map[string]int64, error)
+	LastByClueID(ctx context.Context, clueID string, limit int) ([]*model.ClueEngagementEvent, error)
 }
 
 type clueEngagementRepo struct {
@@ -116,21 +117,21 @@ func NewClueEngagementRepositoryWithDB(db *gorm.DB) ClueEngagementRepository {
 	return &clueEngagementRepo{db: db}
 }
 
-func (r *clueEngagementRepo) Create(evt *model.ClueEngagementEvent) error {
+func (r *clueEngagementRepo) Create(ctx context.Context, evt *model.ClueEngagementEvent) error {
 	if evt.ClueID == "" {
 		return errors.New("clue_id 不能为空")
 	}
 	return r.db.Create(evt).Error
 }
 
-func (r *clueEngagementRepo) CountByClueID(clueID string, since time.Time) (int64, error) {
+func (r *clueEngagementRepo) CountByClueID(ctx context.Context, clueID string, since time.Time) (int64, error) {
 	var count int64
 	err := r.db.Model(&model.ClueEngagementEvent{}).
 		Where("clue_id = ? AND created_at >= ?", clueID, since).Count(&count).Error
 	return count, err
 }
 
-func (r *clueEngagementRepo) CountByType(clueID string) (map[string]int64, error) {
+func (r *clueEngagementRepo) CountByType(ctx context.Context, clueID string) (map[string]int64, error) {
 	type resultRow struct {
 		EventType string
 		Cnt       int64
@@ -149,7 +150,7 @@ func (r *clueEngagementRepo) CountByType(clueID string) (map[string]int64, error
 	return out, nil
 }
 
-func (r *clueEngagementRepo) LastByClueID(clueID string, limit int) ([]*model.ClueEngagementEvent, error) {
+func (r *clueEngagementRepo) LastByClueID(ctx context.Context, clueID string, limit int) ([]*model.ClueEngagementEvent, error) {
 	if limit < 1 || limit > 100 {
 		limit = 10
 	}

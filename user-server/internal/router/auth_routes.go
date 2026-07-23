@@ -1,6 +1,7 @@
 package router
 
 import (
+	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/controller"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
@@ -49,7 +50,7 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.PUT("/team/users/:id/data-scope", rowLevelCtrl.UpdateUserDataScope)
 
 	// 通知中心（站内通知 / 顶部铃铛 badge）
-	notifCtrl := controller.NewNotificationController(db.GetDB())
+	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
 	auth.GET("/auth/notifications", notifCtrl.List)
 	auth.POST("/auth/notifications/:id/read", notifCtrl.MarkRead)
 	auth.POST("/auth/notifications/read-all", notifCtrl.MarkAllRead)
@@ -232,10 +233,11 @@ func setupSmsRoutes(auth *gin.RouterGroup) {
 
 // setupAutoReplyRoutes 自动回复路由
 func setupAutoReplyRoutes(auth *gin.RouterGroup) {
-	autoReplyCtrl := controller.NewAutoReplyController()
-	autoReplyManagerCtrl := controller.NewAutoReplyManagerController()
-	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController()
-	xiaohongshuAutoReplyCtrl := controller.NewXiaohongshuAutoReplyController()
+	ragStack := knowledgesvc.NewRAGStack(db.GetDB())
+	autoReplyCtrl := controller.NewAutoReplyController(service.NewAutoReplyService(db.GetDB()), ragStack)
+	autoReplyManagerCtrl := controller.NewAutoReplyManagerController(service.NewAutoReplyService(db.GetDB()))
+	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController(service.NewXianyuAutoReplyService(db.GetDB()), ragStack)
+	xiaohongshuAutoReplyCtrl := controller.NewXiaohongshuAutoReplyController(service.NewXiaohongshuAutoReplyService(db.GetDB()), ragStack)
 
 	// 通用自动回复
 	auth.POST("/auto-reply/start-login", autoReplyCtrl.StartLogin)

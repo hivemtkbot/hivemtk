@@ -110,7 +110,6 @@ func login(t *testing.T) string {
 
 func TestAIAgent_FullChain(t *testing.T) {
 	token := login(t)
-	ctx := context.Background()
 
 	// ---- 1. 列表查询 ----
 	t.Run("List", func(t *testing.T) {

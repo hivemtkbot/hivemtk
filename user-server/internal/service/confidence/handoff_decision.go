@@ -33,8 +33,8 @@ type SeatAssignmentService interface {
 
 // HandoffDecisionService 转人工决策服务
 type HandoffDecisionService struct {
-	repo    *repository.HandoffDecisionRepository
-	seatSvc SeatAssignmentService
+	repo	*repository.HandoffDecisionRepository
+	seatSvc	SeatAssignmentService
 }
 
 // NewHandoffDecisionService 创建转人工决策服务
@@ -61,20 +61,20 @@ func (h *HandoffDecisionService) Execute(
 	}
 
 	// 1. 写入决策记录
-	reason := h.reasonOf(dec)
+	reason := h.reasonOf(ctx, dec)
 	record := &model.HandoffDecisionRecord{
-		DecisionID:    uuid.New().String(),
-		SessionID:     sessionID,
-		CustomerID:    customerID,
-		SignalID:      dec.SignalID,
-		Reason:        reason,
-		ReasonDetail:  fmt.Sprintf("conf=%.4f threshold=%.4f band=%s", dec.AggregatedConf, dec.DynamicThreshold, dec.DecisionBand),
-		Confidence:    dec.AggregatedConf,
-		Threshold:     dec.DynamicThreshold,
-		IntentType:    intentType,
-		CustomerLevel: customerLevel,
-		Timeslot:      timeslotLabel(time.Now()),
-		SLABreached:   false,
+		DecisionID:	uuid.New().String(),
+		SessionID:	sessionID,
+		CustomerID:	customerID,
+		SignalID:	dec.SignalID,
+		Reason:		reason,
+		ReasonDetail:	fmt.Sprintf("conf=%.4f threshold=%.4f band=%s", dec.AggregatedConf, dec.DynamicThreshold, dec.DecisionBand),
+		Confidence:	dec.AggregatedConf,
+		Threshold:	dec.DynamicThreshold,
+		IntentType:	intentType,
+		CustomerLevel:	customerLevel,
+		Timeslot:	timeslotLabel(time.Now()),
+		SLABreached:	false,
 	}
 	if err := h.repo.Create(ctx, record); err != nil {
 		return 0, fmt.Errorf("save handoff decision: %w", err)
@@ -113,7 +113,7 @@ func (h *HandoffDecisionService) MarkResolved(ctx context.Context, decisionID st
 //  1. veto_triggered（否决原因）
 //  2. low_confidence（conf < 0.4）
 //  3. band_handoff（其他）
-func (h *HandoffDecisionService) reasonOf(dec *dto.ConfidenceDecision) string {
+func (h *HandoffDecisionService) reasonOf(ctx context.Context, dec *dto.ConfidenceDecision) string {
 	if dec.VetoTriggered != "" {
 		return dec.VetoTriggered
 	}

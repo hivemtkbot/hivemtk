@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"context"
 )
 
 // EmailDraftService 草稿服务
@@ -20,41 +21,41 @@ func NewEmailDraftService() *EmailDraftService {
 }
 
 // CreateEmailDraft 创建草稿
-func (s *EmailDraftService) CreateEmailDraft(draft model.EmailDraft) (*model.EmailDraft, error) {
-	if err := s.repo.Create(&draft); err != nil {
+func (s *EmailDraftService) CreateEmailDraft(ctx context.Context, draft model.EmailDraft) (*model.EmailDraft, error) {
+	if err := s.repo.Create(ctx, &draft); err != nil {
 		return nil, err
 	}
 	return &draft, nil
 }
 
 // GetEmailDraftByID 根据ID获取草稿
-func (s *EmailDraftService) GetEmailDraftByID(id uuid.UUID) (*model.EmailDraft, error) {
-	return s.repo.GetByID(id)
+func (s *EmailDraftService) GetEmailDraftByID(ctx context.Context, id uuid.UUID) (*model.EmailDraft, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // GetEmailDraftList 获取草稿列表
-func (s *EmailDraftService) GetEmailDraftList() ([]*model.EmailDraft, error) {
-	return s.repo.List()
+func (s *EmailDraftService) GetEmailDraftList(ctx context.Context) ([]*model.EmailDraft, error) {
+	return s.repo.List(ctx)
 }
 
 // UpdateEmailDraft 更新草稿
-func (s *EmailDraftService) UpdateEmailDraft(draft model.EmailDraft) error {
-	return s.repo.Update(&draft)
+func (s *EmailDraftService) UpdateEmailDraft(ctx context.Context, draft model.EmailDraft) error {
+	return s.repo.Update(ctx, &draft)
 }
 
 // DeleteEmailDraft 删除草稿
-func (s *EmailDraftService) DeleteEmailDraft(id uuid.UUID) error {
-	return s.repo.Delete(id)
+func (s *EmailDraftService) DeleteEmailDraft(ctx context.Context, id uuid.UUID) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // CreateEmailDraftDTO 通过请求 DTO 创建草稿
-func (s *EmailDraftService) CreateEmailDraftDTO(req dto.CreateEmailDraftRequest) (*dto.EmailDraftResponse, error) {
-	created, err := s.CreateEmailDraft(model.EmailDraft{
-		Subject:     req.Subject,
-		Content:     req.Content,
-		Attachments: strings.Join(req.Attachments, ","),
+func (s *EmailDraftService) CreateEmailDraftDTO(ctx context.Context, req dto.CreateEmailDraftRequest) (*dto.EmailDraftResponse, error) {
+	created, err := s.CreateEmailDraft(ctx, model.EmailDraft{
+		Subject:	req.Subject,
+		Content:	req.Content,
+		Attachments:	strings.Join(req.Attachments, ","),
 	})
 	if err != nil {
 		return nil, err
@@ -63,8 +64,8 @@ func (s *EmailDraftService) CreateEmailDraftDTO(req dto.CreateEmailDraftRequest)
 }
 
 // GetEmailDraftListDTO 获取草稿列表（返回 DTO）
-func (s *EmailDraftService) GetEmailDraftListDTO() (*dto.GetEmailDraftListResponse, error) {
-	drafts, err := s.GetEmailDraftList()
+func (s *EmailDraftService) GetEmailDraftListDTO(ctx context.Context) (*dto.GetEmailDraftListResponse, error) {
+	drafts, err := s.GetEmailDraftList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,8 @@ func (s *EmailDraftService) GetEmailDraftListDTO() (*dto.GetEmailDraftListRespon
 }
 
 // GetEmailDraftByIDDTO 根据 ID 获取草稿（返回 DTO）
-func (s *EmailDraftService) GetEmailDraftByIDDTO(id uuid.UUID) (*dto.EmailDraftResponse, error) {
-	d, err := s.GetEmailDraftByID(id)
+func (s *EmailDraftService) GetEmailDraftByIDDTO(ctx context.Context, id uuid.UUID) (*dto.EmailDraftResponse, error) {
+	d, err := s.GetEmailDraftByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -85,16 +86,16 @@ func (s *EmailDraftService) GetEmailDraftByIDDTO(id uuid.UUID) (*dto.EmailDraftR
 }
 
 // UpdateEmailDraftDTO 通过请求 DTO 更新草稿
-func (s *EmailDraftService) UpdateEmailDraftDTO(req dto.UpdateEmailDraftRequest) error {
+func (s *EmailDraftService) UpdateEmailDraftDTO(ctx context.Context, req dto.UpdateEmailDraftRequest) error {
 	id, err := uuid.Parse(req.ID)
 	if err != nil {
 		return err
 	}
-	return s.UpdateEmailDraft(model.EmailDraft{
-		ID:          id,
-		Subject:     req.Subject,
-		Content:     req.Content,
-		Attachments: strings.Join(req.Attachments, ","),
+	return s.UpdateEmailDraft(ctx, model.EmailDraft{
+		ID:		id,
+		Subject:	req.Subject,
+		Content:	req.Content,
+		Attachments:	strings.Join(req.Attachments, ","),
 	})
 }
 
@@ -103,12 +104,12 @@ func toEmailDraftResponse(d *model.EmailDraft) *dto.EmailDraftResponse {
 		return nil
 	}
 	return &dto.EmailDraftResponse{
-		ID:          d.ID.String(),
-		Subject:     d.Subject,
-		Content:     d.Content,
-		Attachments: splitCSV(d.Attachments),
-		CreatedAt:   d.CreatedAt,
-		UpdatedAt:   d.UpdatedAt,
+		ID:		d.ID.String(),
+		Subject:	d.Subject,
+		Content:	d.Content,
+		Attachments:	splitCSV(d.Attachments),
+		CreatedAt:	d.CreatedAt,
+		UpdatedAt:	d.UpdatedAt,
 	}
 }
 

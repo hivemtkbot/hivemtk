@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -10,19 +11,19 @@ import (
 )
 
 type ClueRepository interface {
-	Create(user *model.Clue) error
-	GetByID(id uint) (*model.Clue, error)
-	GetClueList(page int, limit int) ([]*model.Clue, int64, error)
-	Delete(id string) error
-	GetRecentClueList() ([]*model.Clue, error)
-	GetClueStatistics() ([]map[string]any, error)
-	GetClueAllList(clueType int64) ([]*model.Clue, int64, error)
-	ExistsByTypeAndAccount(clueType int64, account string) (bool, error) // 添加此方法声明
+	Create(ctx context.Context, user *model.Clue) error
+	GetByID(ctx context.Context, id uint) (*model.Clue, error)
+	GetClueList(ctx context.Context, page int, limit int) ([]*model.Clue, int64, error)
+	Delete(ctx context.Context, id string) error
+	GetRecentClueList(ctx context.Context) ([]*model.Clue, error)
+	GetClueStatistics(ctx context.Context) ([]map[string]any, error)
+	GetClueAllList(ctx context.Context, clueType int64) ([]*model.Clue, int64, error)
+	ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error) // 添加此方法声明
 	// FindByTypeAndAccount 按类型+账号返回已存在线索（不存在返回 nil, nil），用于线索去重后的增量更新
-	FindByTypeAndAccount(clueType int64, account string) (*model.Clue, error)
-	GetDistinctTypes() ([]int64, error)
+	FindByTypeAndAccount(ctx context.Context, clueType int64, account string) (*model.Clue, error)
+	GetDistinctTypes(ctx context.Context) ([]int64, error)
 	// UpdateByID 按主键更新指定字段，用于营销流程 update_lead 动作
-	UpdateByID(id string, updates map[string]any) error
+	UpdateByID(ctx context.Context, id string, updates map[string]any) error
 }
 
 type clueRepo struct {
@@ -38,73 +39,77 @@ func NewClueRepositoryWithDB(db *gorm.DB) ClueRepository {
 	return &clueRepo{db: db}
 }
 
-func (r *clueRepo) Create(clue *model.Clue) error {
+func (r *clueRepo) Create(ctx context.Context, clue *model.Clue) error {
 	// 基于 type  account 去重
 	var count int64
-	err := r.db.Model(&model.Clue{}).Where("type = ? and account = ?", clue.Type, clue.Account).Count(&count).Error
+	db := r.db.WithContext(ctx)
+	err := db.Model(&model.Clue{}).Where("type = ? and account = ?", clue.Type, clue.Account).Count(&count).Error
 	if err != nil {
 		return err
 	}
 	if count > 0 {
 		return errors.New("重复数据")
 	}
-	return r.db.Create(clue).Error
+	return db.Create(clue).Error
 }
 
-func (r *clueRepo) GetByID(id uint) (*model.Clue, error) {
+func (r *clueRepo) GetByID(ctx context.Context, id uint) (*model.Clue, error) {
 	var smlist model.Clue
-	err := r.db.First(&smlist, id).Error
+	err := r.db.WithContext(ctx).First(&smlist, id).Error
 	return &smlist, err
 }
 
-func (r *clueRepo) GetClueList(page int, limit int) ([]*model.Clue, int64, error) {
+func (r *clueRepo) GetClueList(ctx context.Context, page int, limit int) ([]*model.Clue, int64, error) {
 	var cluelists []*model.Clue
 	var total int64
+	db := r.db.WithContext(ctx)
 	// 分别查询list 和 total
-	err := r.db.Model(&model.Clue{}).Count(&total).Error
+	err := db.Model(&model.Clue{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Offset((page - 1) * limit).Limit(limit).Find(&cluelists).Error
+	err = db.Offset((page - 1) * limit).Limit(limit).Find(&cluelists).Error
 	if err != nil {
 		return nil, 0, err
 	}
 	return cluelists, total, err
 }
-func (r *clueRepo) Delete(id string) error {
-	return r.db.Where("id = ?", id).Delete(&model.Clue{}).Error
+func (r *clueRepo) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Clue{}).Error
 }
 
-func (r *clueRepo) GetRecentClueList() ([]*model.Clue, error) {
+func (r *clueRepo) GetRecentClueList(ctx context.Context) ([]*model.Clue, error) {
 	var cluelists []*model.Clue
 	// 最近一分钟的订单
 	var start_time = time.Now().Add(-time.Hour * 48).Unix()
 	var end_time = time.Now().Unix()
-	err := r.db.Where("create_time > ? and create_time < ?", start_time, end_time).Order("create_time desc").Find(&cluelists).Error
+	err := r.db.WithContext(ctx).Where("create_time > ? and create_time < ?", start_time, end_time).Order("create_time desc").Find(&cluelists).Error
 	return cluelists, err
 }
 
-func (r *clueRepo) GetClueStatistics() ([]map[string]any, error) {
+func (r *clueRepo) GetClueStatistics(ctx context.Context) ([]map[string]any, error) {
 	var statistics []map[string]any
+	db := r.db.WithContext(ctx)
 	// 注意：模型 TableName() = "clues" (复数)，必须使用复数表名
 	// 兼容两种列名：type (新) 和 clue_type (旧)
-	err := r.db.Raw("SELECT type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY type ORDER BY type").Scan(&statistics).Error
+	err := db.Raw("SELECT type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY type ORDER BY type").Scan(&statistics).Error
 	if err != nil {
 		// 兼容旧的 clue_type 列名（迁移未完成时的回退）
-		err = r.db.Raw("SELECT clue_type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY clue_type ORDER BY clue_type").Scan(&statistics).Error
+		err = db.Raw("SELECT clue_type AS type, COUNT(*) AS total, SUM(is_verify) AS verify_total FROM clues GROUP BY clue_type ORDER BY clue_type").Scan(&statistics).Error
 	}
 	return statistics, err
 }
 
-func (r *clueRepo) GetClueAllList(clueType int64) ([]*model.Clue, int64, error) {
+func (r *clueRepo) GetClueAllList(ctx context.Context, clueType int64) ([]*model.Clue, int64, error) {
 	var cluelists []*model.Clue
 	var total int64
+	db := r.db.WithContext(ctx)
 	// 分别查询list 和 total
-	err := r.db.Where("type = ?", clueType).Model(&model.Clue{}).Count(&total).Error
+	err := db.Where("type = ?", clueType).Model(&model.Clue{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Where("type = ?", clueType).Find(&cluelists).Error
+	err = db.Where("type = ?", clueType).Find(&cluelists).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -112,9 +117,9 @@ func (r *clueRepo) GetClueAllList(clueType int64) ([]*model.Clue, int64, error) 
 }
 
 // ExistsByTypeAndAccount 检查相同类型和账号的线索是否已存在
-func (r *clueRepo) ExistsByTypeAndAccount(clueType int64, account string) (bool, error) {
+func (r *clueRepo) ExistsByTypeAndAccount(ctx context.Context, clueType int64, account string) (bool, error) {
 	var count int64
-	err := r.db.Model(&model.Clue{}).Where("type = ? and account = ?", clueType, account).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&model.Clue{}).Where("type = ? and account = ?", clueType, account).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -122,9 +127,9 @@ func (r *clueRepo) ExistsByTypeAndAccount(clueType int64, account string) (bool,
 }
 
 // FindByTypeAndAccount 按类型+账号返回已存在线索；不存在返回 (nil, nil)
-func (r *clueRepo) FindByTypeAndAccount(clueType int64, account string) (*model.Clue, error) {
+func (r *clueRepo) FindByTypeAndAccount(ctx context.Context, clueType int64, account string) (*model.Clue, error) {
 	var clue model.Clue
-	err := r.db.Model(&model.Clue{}).Where("type = ? and account = ?", clueType, account).First(&clue).Error
+	err := r.db.WithContext(ctx).Model(&model.Clue{}).Where("type = ? and account = ?", clueType, account).First(&clue).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -135,22 +140,22 @@ func (r *clueRepo) FindByTypeAndAccount(clueType int64, account string) (*model.
 }
 
 // GetDistinctTypes 查询数据库中所有不同的线索类型
-func (r *clueRepo) GetDistinctTypes() ([]int64, error) {
+func (r *clueRepo) GetDistinctTypes(ctx context.Context) ([]int64, error) {
 	var types []int64
-	err := r.db.Model(&model.Clue{}).Distinct("type").Pluck("type", &types).Error
+	err := r.db.WithContext(ctx).Model(&model.Clue{}).Distinct("type").Pluck("type", &types).Error
 	return types, err
 }
 
 // UpdateByID 按主键更新指定字段（用于营销流程 update_lead 动作）
 // updates 为字段名到新值的映射，例如 {"is_verify": 1}
-func (r *clueRepo) UpdateByID(id string, updates map[string]any) error {
+func (r *clueRepo) UpdateByID(ctx context.Context, id string, updates map[string]any) error {
 	if id == "" {
 		return errors.New("线索 ID 不能为空")
 	}
 	if len(updates) == 0 {
 		return nil
 	}
-	result := r.db.Model(&model.Clue{}).Where("id = ?", id).Updates(updates)
+	result := r.db.WithContext(ctx).Model(&model.Clue{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

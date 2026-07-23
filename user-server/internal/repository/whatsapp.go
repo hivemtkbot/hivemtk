@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -10,34 +11,34 @@ import (
 
 type WhatsappRepository interface {
 	// accounts
-	CreateAccount(acc *model.WhatsappAccount) error
-	UpdateAccount(acc *model.WhatsappAccount) error
-	DeleteAccount(id uuid.UUID) error
-	ListAccounts() ([]*model.WhatsappAccount, error)
-	GetAccount(id uuid.UUID) (*model.WhatsappAccount, error)
+	CreateAccount(ctx context.Context, acc *model.WhatsappAccount) error
+	UpdateAccount(ctx context.Context, acc *model.WhatsappAccount) error
+	DeleteAccount(ctx context.Context, id uuid.UUID) error
+	ListAccounts(ctx context.Context) ([]*model.WhatsappAccount, error)
+	GetAccount(ctx context.Context, id uuid.UUID) (*model.WhatsappAccount, error)
 
 	// session
-	UpsertSession(sess *model.WhatsappSession) error
-	GetSession(accountID uuid.UUID) (*model.WhatsappSession, error)
+	UpsertSession(ctx context.Context, sess *model.WhatsappSession) error
+	GetSession(ctx context.Context, accountID uuid.UUID) (*model.WhatsappSession, error)
 
 	// drafts
-	CreateDraft(d *model.WhatsappDraft) error
-	UpdateDraft(d *model.WhatsappDraft) error
-	DeleteDraft(id uuid.UUID) error
-	ListDrafts() ([]*model.WhatsappDraft, error)
-	GetDraft(id uuid.UUID) (*model.WhatsappDraft, error)
+	CreateDraft(ctx context.Context, d *model.WhatsappDraft) error
+	UpdateDraft(ctx context.Context, d *model.WhatsappDraft) error
+	DeleteDraft(ctx context.Context, id uuid.UUID) error
+	ListDrafts(ctx context.Context) ([]*model.WhatsappDraft, error)
+	GetDraft(ctx context.Context, id uuid.UUID) (*model.WhatsappDraft, error)
 
 	// jobs
-	CreateJob(j *model.WhatsappJob) error
-	UpdateJob(j *model.WhatsappJob) error
-	DeleteJob(id uuid.UUID) error
-	ListJobs() ([]*model.WhatsappJob, error)
-	GetJob(id uuid.UUID) (*model.WhatsappJob, error)
+	CreateJob(ctx context.Context, j *model.WhatsappJob) error
+	UpdateJob(ctx context.Context, j *model.WhatsappJob) error
+	DeleteJob(ctx context.Context, id uuid.UUID) error
+	ListJobs(ctx context.Context) ([]*model.WhatsappJob, error)
+	GetJob(ctx context.Context, id uuid.UUID) (*model.WhatsappJob, error)
 
 	// job details
-	CreateJobDetail(d *model.WhatsappJobDetail) error
-	UpdateJobDetail(d *model.WhatsappJobDetail) error
-	ListJobDetails(jobID uuid.UUID) ([]*model.WhatsappJobDetail, error)
+	CreateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error
+	UpdateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error
+	ListJobDetails(ctx context.Context, jobID uuid.UUID) ([]*model.WhatsappJobDetail, error)
 }
 
 type whatsappRepo struct {
@@ -49,25 +50,25 @@ func NewWhatsappRepository() WhatsappRepository {
 }
 
 // accounts
-func (r *whatsappRepo) CreateAccount(acc *model.WhatsappAccount) error {
+func (r *whatsappRepo) CreateAccount(ctx context.Context, acc *model.WhatsappAccount) error {
 	return r.db.Create(acc).Error
 }
 
-func (r *whatsappRepo) UpdateAccount(acc *model.WhatsappAccount) error {
+func (r *whatsappRepo) UpdateAccount(ctx context.Context, acc *model.WhatsappAccount) error {
 	return r.db.Model(&model.WhatsappAccount{}).Where("id = ?", acc.ID).Updates(acc).Error
 }
 
-func (r *whatsappRepo) DeleteAccount(id uuid.UUID) error {
+func (r *whatsappRepo) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&model.WhatsappAccount{}).Error
 }
 
-func (r *whatsappRepo) ListAccounts() ([]*model.WhatsappAccount, error) {
+func (r *whatsappRepo) ListAccounts(ctx context.Context) ([]*model.WhatsappAccount, error) {
 	var list []*model.WhatsappAccount
 	err := r.db.Order("created_at desc").Find(&list).Error
 	return list, err
 }
 
-func (r *whatsappRepo) GetAccount(id uuid.UUID) (*model.WhatsappAccount, error) {
+func (r *whatsappRepo) GetAccount(ctx context.Context, id uuid.UUID) (*model.WhatsappAccount, error) {
 	var acc model.WhatsappAccount
 	err := r.db.Where("id = ?", id).First(&acc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -77,7 +78,7 @@ func (r *whatsappRepo) GetAccount(id uuid.UUID) (*model.WhatsappAccount, error) 
 }
 
 // session
-func (r *whatsappRepo) UpsertSession(sess *model.WhatsappSession) error {
+func (r *whatsappRepo) UpsertSession(ctx context.Context, sess *model.WhatsappSession) error {
 	var exist model.WhatsappSession
 	err := r.db.Where("account_id = ?", sess.AccountID).First(&exist).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -90,7 +91,7 @@ func (r *whatsappRepo) UpsertSession(sess *model.WhatsappSession) error {
 	return r.db.Model(&model.WhatsappSession{}).Where("id = ?", sess.ID).Updates(sess).Error
 }
 
-func (r *whatsappRepo) GetSession(accountID uuid.UUID) (*model.WhatsappSession, error) {
+func (r *whatsappRepo) GetSession(ctx context.Context, accountID uuid.UUID) (*model.WhatsappSession, error) {
 	var sess model.WhatsappSession
 	err := r.db.Where("account_id = ?", accountID).First(&sess).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -100,19 +101,19 @@ func (r *whatsappRepo) GetSession(accountID uuid.UUID) (*model.WhatsappSession, 
 }
 
 // drafts
-func (r *whatsappRepo) CreateDraft(d *model.WhatsappDraft) error { return r.db.Create(d).Error }
-func (r *whatsappRepo) UpdateDraft(d *model.WhatsappDraft) error {
+func (r *whatsappRepo) CreateDraft(ctx context.Context, d *model.WhatsappDraft) error { return r.db.Create(d).Error }
+func (r *whatsappRepo) UpdateDraft(ctx context.Context, d *model.WhatsappDraft) error {
 	return r.db.Model(&model.WhatsappDraft{}).Where("id = ?", d.ID).Updates(d).Error
 }
-func (r *whatsappRepo) DeleteDraft(id uuid.UUID) error {
+func (r *whatsappRepo) DeleteDraft(ctx context.Context, id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&model.WhatsappDraft{}).Error
 }
-func (r *whatsappRepo) ListDrafts() ([]*model.WhatsappDraft, error) {
+func (r *whatsappRepo) ListDrafts(ctx context.Context) ([]*model.WhatsappDraft, error) {
 	var list []*model.WhatsappDraft
 	err := r.db.Find(&list).Error
 	return list, err
 }
-func (r *whatsappRepo) GetDraft(id uuid.UUID) (*model.WhatsappDraft, error) {
+func (r *whatsappRepo) GetDraft(ctx context.Context, id uuid.UUID) (*model.WhatsappDraft, error) {
 	var d model.WhatsappDraft
 	err := r.db.Where("id = ?", id).First(&d).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -122,19 +123,19 @@ func (r *whatsappRepo) GetDraft(id uuid.UUID) (*model.WhatsappDraft, error) {
 }
 
 // jobs
-func (r *whatsappRepo) CreateJob(j *model.WhatsappJob) error { return r.db.Create(j).Error }
-func (r *whatsappRepo) UpdateJob(j *model.WhatsappJob) error {
+func (r *whatsappRepo) CreateJob(ctx context.Context, j *model.WhatsappJob) error { return r.db.Create(j).Error }
+func (r *whatsappRepo) UpdateJob(ctx context.Context, j *model.WhatsappJob) error {
 	return r.db.Model(&model.WhatsappJob{}).Where("id = ?", j.ID).Updates(j).Error
 }
-func (r *whatsappRepo) DeleteJob(id uuid.UUID) error {
+func (r *whatsappRepo) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&model.WhatsappJob{}).Error
 }
-func (r *whatsappRepo) ListJobs() ([]*model.WhatsappJob, error) {
+func (r *whatsappRepo) ListJobs(ctx context.Context) ([]*model.WhatsappJob, error) {
 	var list []*model.WhatsappJob
 	err := r.db.Find(&list).Error
 	return list, err
 }
-func (r *whatsappRepo) GetJob(id uuid.UUID) (*model.WhatsappJob, error) {
+func (r *whatsappRepo) GetJob(ctx context.Context, id uuid.UUID) (*model.WhatsappJob, error) {
 	var j model.WhatsappJob
 	err := r.db.Where("id = ?", id).First(&j).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -144,11 +145,11 @@ func (r *whatsappRepo) GetJob(id uuid.UUID) (*model.WhatsappJob, error) {
 }
 
 // job details
-func (r *whatsappRepo) CreateJobDetail(d *model.WhatsappJobDetail) error { return r.db.Create(d).Error }
-func (r *whatsappRepo) UpdateJobDetail(d *model.WhatsappJobDetail) error {
+func (r *whatsappRepo) CreateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error { return r.db.Create(d).Error }
+func (r *whatsappRepo) UpdateJobDetail(ctx context.Context, d *model.WhatsappJobDetail) error {
 	return r.db.Model(&model.WhatsappJobDetail{}).Where("id = ?", d.ID).Updates(d).Error
 }
-func (r *whatsappRepo) ListJobDetails(jobID uuid.UUID) ([]*model.WhatsappJobDetail, error) {
+func (r *whatsappRepo) ListJobDetails(ctx context.Context, jobID uuid.UUID) ([]*model.WhatsappJobDetail, error) {
 	var list []*model.WhatsappJobDetail
 	err := r.db.Where("job_id = ?", jobID).Order("created_at asc").Find(&list).Error
 	return list, err

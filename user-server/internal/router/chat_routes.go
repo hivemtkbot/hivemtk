@@ -23,7 +23,7 @@ import (
 // AppKey 不再作为强制凭证，仅作为渠道的软标识（用于日志追踪 + 未来多渠道管理）。
 func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *service.SmartCSOrchestrator) {
 	channelSvc := service.MustNewChatChannelService(db)
-	agentBindingSvc := service.NewChannelAgentBindingService(db, service.NewAIAgentService(db))
+	agentBindingSvc := service.NewChannelAgentBindingService()
 	visitorSvc := service.NewVisitorChatService(db, channelSvc, orchestrator, agentBindingSvc)
 
 	// 公开路由组：AppKey 软解析 + 访客限流

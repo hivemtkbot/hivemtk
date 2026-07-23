@@ -114,7 +114,7 @@ func DefaultSOPRetryPolicy() *SOPRetryPolicy {
 //   - attempt=2 → InitialBackoff * Multiplier
 //   - attempt=3 → InitialBackoff * Multiplier^2
 //   - attempt<=0 视为 1
-func (p *SOPRetryPolicy) Backoff(attempt int) time.Duration {
+func (p *SOPRetryPolicy) Backoff(ctx context.Context, attempt int)  time.Duration {
 	if attempt <= 1 {
 		return p.InitialBackoff
 	}
@@ -187,7 +187,7 @@ func NewSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, registry *NodeEx
 //
 // 由 main.go 在装配 WebSocket Hub 后调用。内部遍历 registry 中所有已注册的
 // 消息发送类执行器，调用其 SetWSHub 真正注入到执行器（修复原 #6 不一致点）。
-func (d *SOPExecutionDispatcher) SetWSHub(hub *websocket.Hub) {
+func (d *SOPExecutionDispatcher) SetWSHub(ctx context.Context, hub *websocket.Hub)  {
 	if d == nil || hub == nil {
 		return
 	}
@@ -198,7 +198,7 @@ func (d *SOPExecutionDispatcher) SetWSHub(hub *websocket.Hub) {
 //
 // 通过类型断言直接调用 MessageNodeBase.SetWSHub（编译期安全）。
 // 遍历 registry.executors，过滤出 *MessageNodeBase 类型。
-func (d *SOPExecutionDispatcher) replaceMessageExecutorHub(hub *websocket.Hub) {
+func (d *SOPExecutionDispatcher) replaceMessageExecutorHub(ctx context.Context, hub *websocket.Hub)  {
 	if d == nil || d.registry == nil {
 		return
 	}
@@ -210,7 +210,7 @@ func (d *SOPExecutionDispatcher) replaceMessageExecutorHub(hub *websocket.Hub) {
 }
 
 // Start 启动 Worker Pool
-func (d *SOPExecutionDispatcher) Start() {
+func (d *SOPExecutionDispatcher) Start(ctx context.Context)  {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	if d.running {
@@ -231,7 +231,7 @@ func (d *SOPExecutionDispatcher) Start() {
 }
 
 // Stop 停止 Worker Pool（等待所有任务完成）
-func (d *SOPExecutionDispatcher) Stop() {
+func (d *SOPExecutionDispatcher) Stop(ctx context.Context)  {
 	d.runMu.Lock()
 	if !d.running {
 		d.runMu.Unlock()
@@ -249,7 +249,7 @@ func (d *SOPExecutionDispatcher) Stop() {
 //
 // 队列满时返回错误（背压），调用方应处理（如重试或记录日志）。
 // 停止信号（stopCh 关闭）优先于入队，确保停止语义明确。
-func (d *SOPExecutionDispatcher) Dispatch(task *dispatchTask) error {
+func (d *SOPExecutionDispatcher) Dispatch(ctx context.Context, task *dispatchTask)  error {
 	// 优先检查停止信号（避免 stopCh 关闭后仍入队任务）
 	select {
 	case <-d.stopCh:
@@ -268,7 +268,7 @@ func (d *SOPExecutionDispatcher) Dispatch(task *dispatchTask) error {
 }
 
 // DispatchOrLog 派发任务，失败时记录日志（不阻塞调用方）
-func (d *SOPExecutionDispatcher) DispatchOrLog(task *dispatchTask) {
+func (d *SOPExecutionDispatcher) DispatchOrLog(ctx context.Context, task *dispatchTask)  {
 	if err := d.Dispatch(task); err != nil {
 		logger.GetLogger().Error().Err(err).
 			Uint("execution_id", task.ExecutionID).
@@ -278,7 +278,7 @@ func (d *SOPExecutionDispatcher) DispatchOrLog(task *dispatchTask) {
 }
 
 // worker Worker 主循环
-func (d *SOPExecutionDispatcher) worker(id int) {
+func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int)  {
 	defer d.wg.Done()
 	logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] started")
 	for {
@@ -293,7 +293,7 @@ func (d *SOPExecutionDispatcher) worker(id int) {
 }
 
 // processTask 处理单个调度任务
-func (d *SOPExecutionDispatcher) processTask(workerID int, task *dispatchTask) {
+func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, task *dispatchTask)  {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	ctx = logger.WithTraceID(ctx, task.TraceID)

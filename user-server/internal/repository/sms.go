@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 
 	"marketing/internal/model"
@@ -12,37 +13,37 @@ import (
 // SmsRepository 短信仓库接口
 type SmsRepository interface {
 	// 配置相关
-	GetConfig() (*model.SmsConfig, error)
-	SaveConfig(config *model.SmsConfig) error
-	GetAliyunConfig() (*model.SmsAliyunConfig, error)
-	SaveAliyunConfig(config *model.SmsAliyunConfig) error
-	GetTencentConfig() (*model.SmsTencentConfig, error)
-	SaveTencentConfig(config *model.SmsTencentConfig) error
-	GetHuaweiConfig() (*model.SmsHuaweiConfig, error)
-	SaveHuaweiConfig(config *model.SmsHuaweiConfig) error
+	GetConfig(ctx context.Context) (*model.SmsConfig, error)
+	SaveConfig(ctx context.Context, config *model.SmsConfig) error
+	GetAliyunConfig(ctx context.Context) (*model.SmsAliyunConfig, error)
+	SaveAliyunConfig(ctx context.Context, config *model.SmsAliyunConfig) error
+	GetTencentConfig(ctx context.Context) (*model.SmsTencentConfig, error)
+	SaveTencentConfig(ctx context.Context, config *model.SmsTencentConfig) error
+	GetHuaweiConfig(ctx context.Context) (*model.SmsHuaweiConfig, error)
+	SaveHuaweiConfig(ctx context.Context, config *model.SmsHuaweiConfig) error
 
 	// 短信记录相关
-	GetSmsList(page, limit int, phone, status, startDate, endDate string) ([]*model.SmsRecord, int64, error)
-	GetSmsByID(id uint) (*model.SmsRecord, error)
-	CreateSmsRecord(record *model.SmsRecord) error
-	UpdateSmsRecord(record *model.SmsRecord) error
+	GetSmsList(ctx context.Context, page, limit int, phone, status, startDate, endDate string) ([]*model.SmsRecord, int64, error)
+	GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error)
+	CreateSmsRecord(ctx context.Context, record *model.SmsRecord) error
+	UpdateSmsRecord(ctx context.Context, record *model.SmsRecord) error
 
 	// 草稿相关
-	GetDraftList(page, limit int, title string) ([]*model.SmsDraft, int64, error)
-	GetDraftByID(id uint) (*model.SmsDraft, error)
-	CreateDraft(draft *model.SmsDraft) error
-	UpdateDraft(draft *model.SmsDraft) error
-	DeleteDraft(id uint) error
+	GetDraftList(ctx context.Context, page, limit int, title string) ([]*model.SmsDraft, int64, error)
+	GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error)
+	CreateDraft(ctx context.Context, draft *model.SmsDraft) error
+	UpdateDraft(ctx context.Context, draft *model.SmsDraft) error
+	DeleteDraft(ctx context.Context, id uint) error
 
 	// 任务相关
-	GetJobList(page, limit int, status, name string) ([]*model.SmsJob, int64, error)
-	GetJobByID(id uint) (*model.SmsJob, error)
-	CreateJob(job *model.SmsJob) error
-	UpdateJob(job *model.SmsJob) error
-	DeleteJob(id uint) error
-	CreateJobDetails(details []*model.SmsJobDetail) error
-	GetJobDetails(jobID uint, page, limit int) ([]*model.SmsJobDetail, int64, error)
-	DeleteJobDetails(jobID uint) error
+	GetJobList(ctx context.Context, page, limit int, status, name string) ([]*model.SmsJob, int64, error)
+	GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error)
+	CreateJob(ctx context.Context, job *model.SmsJob) error
+	UpdateJob(ctx context.Context, job *model.SmsJob) error
+	DeleteJob(ctx context.Context, id uint) error
+	CreateJobDetails(ctx context.Context, details []*model.SmsJobDetail) error
+	GetJobDetails(ctx context.Context, jobID uint, page, limit int) ([]*model.SmsJobDetail, int64, error)
+	DeleteJobDetails(ctx context.Context, jobID uint) error
 }
 
 // smsRepository 短信仓库实现
@@ -59,7 +60,7 @@ func NewSmsRepository() SmsRepository {
 }
 
 // GetConfig 获取短信配置
-func (r *smsRepository) GetConfig() (*model.SmsConfig, error) {
+func (r *smsRepository) GetConfig(ctx context.Context) (*model.SmsConfig, error) {
 	var config model.SmsConfig
 	err := r.db.First(&config).Error
 	if err != nil {
@@ -78,7 +79,7 @@ func (r *smsRepository) GetConfig() (*model.SmsConfig, error) {
 }
 
 // SaveConfig 保存短信配置
-func (r *smsRepository) SaveConfig(config *model.SmsConfig) error {
+func (r *smsRepository) SaveConfig(ctx context.Context, config *model.SmsConfig) error {
 	var existing model.SmsConfig
 	err := r.db.First(&existing).Error
 	if err != nil {
@@ -92,7 +93,7 @@ func (r *smsRepository) SaveConfig(config *model.SmsConfig) error {
 }
 
 // GetAliyunConfig 获取阿里云配置
-func (r *smsRepository) GetAliyunConfig() (*model.SmsAliyunConfig, error) {
+func (r *smsRepository) GetAliyunConfig(ctx context.Context) (*model.SmsAliyunConfig, error) {
 	var config model.SmsAliyunConfig
 	err := r.db.First(&config).Error
 	if err != nil {
@@ -105,7 +106,7 @@ func (r *smsRepository) GetAliyunConfig() (*model.SmsAliyunConfig, error) {
 }
 
 // SaveAliyunConfig 保存阿里云配置
-func (r *smsRepository) SaveAliyunConfig(config *model.SmsAliyunConfig) error {
+func (r *smsRepository) SaveAliyunConfig(ctx context.Context, config *model.SmsAliyunConfig) error {
 	var existing model.SmsAliyunConfig
 	err := r.db.First(&existing).Error
 	if err != nil {
@@ -119,7 +120,7 @@ func (r *smsRepository) SaveAliyunConfig(config *model.SmsAliyunConfig) error {
 }
 
 // GetTencentConfig 获取腾讯云配置
-func (r *smsRepository) GetTencentConfig() (*model.SmsTencentConfig, error) {
+func (r *smsRepository) GetTencentConfig(ctx context.Context) (*model.SmsTencentConfig, error) {
 	var config model.SmsTencentConfig
 	err := r.db.First(&config).Error
 	if err != nil {
@@ -132,7 +133,7 @@ func (r *smsRepository) GetTencentConfig() (*model.SmsTencentConfig, error) {
 }
 
 // SaveTencentConfig 保存腾讯云配置
-func (r *smsRepository) SaveTencentConfig(config *model.SmsTencentConfig) error {
+func (r *smsRepository) SaveTencentConfig(ctx context.Context, config *model.SmsTencentConfig) error {
 	var existing model.SmsTencentConfig
 	err := r.db.First(&existing).Error
 	if err != nil {
@@ -146,7 +147,7 @@ func (r *smsRepository) SaveTencentConfig(config *model.SmsTencentConfig) error 
 }
 
 // GetHuaweiConfig 获取华为云配置
-func (r *smsRepository) GetHuaweiConfig() (*model.SmsHuaweiConfig, error) {
+func (r *smsRepository) GetHuaweiConfig(ctx context.Context) (*model.SmsHuaweiConfig, error) {
 	var config model.SmsHuaweiConfig
 	err := r.db.First(&config).Error
 	if err != nil {
@@ -159,7 +160,7 @@ func (r *smsRepository) GetHuaweiConfig() (*model.SmsHuaweiConfig, error) {
 }
 
 // SaveHuaweiConfig 保存华为云配置
-func (r *smsRepository) SaveHuaweiConfig(config *model.SmsHuaweiConfig) error {
+func (r *smsRepository) SaveHuaweiConfig(ctx context.Context, config *model.SmsHuaweiConfig) error {
 	var existing model.SmsHuaweiConfig
 	err := r.db.First(&existing).Error
 	if err != nil {
@@ -173,7 +174,7 @@ func (r *smsRepository) SaveHuaweiConfig(config *model.SmsHuaweiConfig) error {
 }
 
 // GetSmsList 获取短信列表
-func (r *smsRepository) GetSmsList(page, limit int, phone, status, startDate, endDate string) ([]*model.SmsRecord, int64, error) {
+func (r *smsRepository) GetSmsList(ctx context.Context, page, limit int, phone, status, startDate, endDate string) ([]*model.SmsRecord, int64, error) {
 	var records []*model.SmsRecord
 	var total int64
 
@@ -209,24 +210,24 @@ func (r *smsRepository) GetSmsList(page, limit int, phone, status, startDate, en
 }
 
 // GetSmsByID 根据ID获取短信
-func (r *smsRepository) GetSmsByID(id uint) (*model.SmsRecord, error) {
+func (r *smsRepository) GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error) {
 	var record model.SmsRecord
 	err := r.db.First(&record, id).Error
 	return &record, err
 }
 
 // CreateSmsRecord 创建短信记录
-func (r *smsRepository) CreateSmsRecord(record *model.SmsRecord) error {
+func (r *smsRepository) CreateSmsRecord(ctx context.Context, record *model.SmsRecord) error {
 	return r.db.Create(record).Error
 }
 
 // UpdateSmsRecord 更新短信记录
-func (r *smsRepository) UpdateSmsRecord(record *model.SmsRecord) error {
+func (r *smsRepository) UpdateSmsRecord(ctx context.Context, record *model.SmsRecord) error {
 	return r.db.Save(record).Error
 }
 
 // GetDraftList 获取草稿列表
-func (r *smsRepository) GetDraftList(page, limit int, title string) ([]*model.SmsDraft, int64, error) {
+func (r *smsRepository) GetDraftList(ctx context.Context, page, limit int, title string) ([]*model.SmsDraft, int64, error) {
 	var drafts []*model.SmsDraft
 	var total int64
 
@@ -251,29 +252,29 @@ func (r *smsRepository) GetDraftList(page, limit int, title string) ([]*model.Sm
 }
 
 // GetDraftByID 根据ID获取草稿
-func (r *smsRepository) GetDraftByID(id uint) (*model.SmsDraft, error) {
+func (r *smsRepository) GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error) {
 	var draft model.SmsDraft
 	err := r.db.First(&draft, id).Error
 	return &draft, err
 }
 
 // CreateDraft 创建草稿
-func (r *smsRepository) CreateDraft(draft *model.SmsDraft) error {
+func (r *smsRepository) CreateDraft(ctx context.Context, draft *model.SmsDraft) error {
 	return r.db.Create(draft).Error
 }
 
 // UpdateDraft 更新草稿
-func (r *smsRepository) UpdateDraft(draft *model.SmsDraft) error {
+func (r *smsRepository) UpdateDraft(ctx context.Context, draft *model.SmsDraft) error {
 	return r.db.Save(draft).Error
 }
 
 // DeleteDraft 删除草稿
-func (r *smsRepository) DeleteDraft(id uint) error {
+func (r *smsRepository) DeleteDraft(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.SmsDraft{}, id).Error
 }
 
 // GetJobList 获取任务列表
-func (r *smsRepository) GetJobList(page, limit int, status, name string) ([]*model.SmsJob, int64, error) {
+func (r *smsRepository) GetJobList(ctx context.Context, page, limit int, status, name string) ([]*model.SmsJob, int64, error) {
 	var jobs []*model.SmsJob
 	var total int64
 
@@ -301,39 +302,39 @@ func (r *smsRepository) GetJobList(page, limit int, status, name string) ([]*mod
 }
 
 // GetJobByID 根据ID获取任务
-func (r *smsRepository) GetJobByID(id uint) (*model.SmsJob, error) {
+func (r *smsRepository) GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error) {
 	var job model.SmsJob
 	err := r.db.First(&job, id).Error
 	return &job, err
 }
 
 // CreateJob 创建任务
-func (r *smsRepository) CreateJob(job *model.SmsJob) error {
+func (r *smsRepository) CreateJob(ctx context.Context, job *model.SmsJob) error {
 	return r.db.Create(job).Error
 }
 
 // UpdateJob 更新任务
-func (r *smsRepository) UpdateJob(job *model.SmsJob) error {
+func (r *smsRepository) UpdateJob(ctx context.Context, job *model.SmsJob) error {
 	return r.db.Save(job).Error
 }
 
 // DeleteJob 删除任务
-func (r *smsRepository) DeleteJob(id uint) error {
+func (r *smsRepository) DeleteJob(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.SmsJob{}, id).Error
 }
 
 // DeleteJobDetails 删除任务详情
-func (r *smsRepository) DeleteJobDetails(jobID uint) error {
+func (r *smsRepository) DeleteJobDetails(ctx context.Context, jobID uint) error {
 	return r.db.Where("job_id = ?", jobID).Delete(&model.SmsJobDetail{}).Error
 }
 
 // CreateJobDetails 创建任务详情
-func (r *smsRepository) CreateJobDetails(details []*model.SmsJobDetail) error {
+func (r *smsRepository) CreateJobDetails(ctx context.Context, details []*model.SmsJobDetail) error {
 	return r.db.CreateInBatches(details, 100).Error
 }
 
 // GetJobDetails 获取任务详情列表
-func (r *smsRepository) GetJobDetails(jobID uint, page, limit int) ([]*model.SmsJobDetail, int64, error) {
+func (r *smsRepository) GetJobDetails(ctx context.Context, jobID uint, page, limit int) ([]*model.SmsJobDetail, int64, error) {
 	var details []*model.SmsJobDetail
 	var total int64
 

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -27,11 +28,11 @@ type EventStats struct {
 
 // CustomerEventRepository defines the interface for customer event data access
 type CustomerEventRepository interface {
-	Record(event *model.CustomerEvent) error
-	GetByCustomerID(customerID string, limit int) ([]*model.CustomerEvent, error)
-	GetByTimeRange(start, end time.Time) ([]*model.CustomerEvent, error)
-	GetStats(start, end time.Time) (*EventStats, error)
-	DeleteByCustomerID(customerID string) (int64, error)
+	Record(ctx context.Context, event *model.CustomerEvent) error
+	GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error)
+	GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error)
+	GetStats(ctx context.Context, start, end time.Time) (*EventStats, error)
+	DeleteByCustomerID(ctx context.Context, customerID string) (int64, error)
 }
 
 // customerEventRepository implements CustomerEventRepository
@@ -43,15 +44,15 @@ func NewCustomerEventRepository() CustomerEventRepository {
 }
 
 // Record records a new customer event
-func (r *customerEventRepository) Record(event *model.CustomerEvent) error {
-	return _db.GetDB().Create(event).Error
+func (r *customerEventRepository) Record(ctx context.Context, event *model.CustomerEvent) error {
+	return _db.GetDB().WithContext(ctx).Create(event).Error
 }
 
 // GetByCustomerID retrieves events for a specific customer
-func (r *customerEventRepository) GetByCustomerID(customerID string, limit int) ([]*model.CustomerEvent, error) {
+func (r *customerEventRepository) GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error) {
 	var events []*model.CustomerEvent
 
-	query := _db.GetDB().Where("customer_id = ?", customerID)
+	query := _db.GetDB().WithContext(ctx).Where("customer_id = ?", customerID)
 	if limit > 0 {
 		query = query.Order("occurred_at DESC").Limit(limit)
 	}
@@ -63,10 +64,10 @@ func (r *customerEventRepository) GetByCustomerID(customerID string, limit int) 
 }
 
 // GetByTimeRange retrieves events within a time range
-func (r *customerEventRepository) GetByTimeRange(start, end time.Time) ([]*model.CustomerEvent, error) {
+func (r *customerEventRepository) GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error) {
 	var events []*model.CustomerEvent
 
-	if err := _db.GetDB().
+	if err := _db.GetDB().WithContext(ctx).
 		Where("occurred_at >= ? AND occurred_at <= ?", start, end).
 		Order("occurred_at ASC").
 		Find(&events).Error; err != nil {
@@ -77,17 +78,17 @@ func (r *customerEventRepository) GetByTimeRange(start, end time.Time) ([]*model
 }
 
 // DeleteByCustomerID deletes all events for a specific customer, returns deleted count
-func (r *customerEventRepository) DeleteByCustomerID(customerID string) (int64, error) {
-	result := _db.GetDB().Where("customer_id = ?", customerID).Delete(&model.CustomerEvent{})
+func (r *customerEventRepository) DeleteByCustomerID(ctx context.Context, customerID string) (int64, error) {
+	result := _db.GetDB().WithContext(ctx).Where("customer_id = ?", customerID).Delete(&model.CustomerEvent{})
 	return result.RowsAffected, result.Error
 }
 
-func (r *customerEventRepository) GetStats(start, end time.Time) (*EventStats, error) {
+func (r *customerEventRepository) GetStats(ctx context.Context, start, end time.Time) (*EventStats, error) {
 	stats := &EventStats{}
 
 	// Get total events
 	var total int64
-	if err := _db.GetDB().
+	if err := _db.GetDB().WithContext(ctx).
 		Model(&model.CustomerEvent{}).
 		Where("occurred_at >= ? AND occurred_at <= ?", start, end).
 		Count(&total).Error; err != nil {
@@ -100,7 +101,7 @@ func (r *customerEventRepository) GetStats(start, end time.Time) (*EventStats, e
 		EventType model.EventType `gorm:"column:event_type"`
 		Count     int64           `gorm:"column:count"`
 	}
-	if err := _db.GetDB().
+	if err := _db.GetDB().WithContext(ctx).
 		Model(&model.CustomerEvent{}).
 		Select("event_type, COUNT(*) as count").
 		Where("occurred_at >= ? AND occurred_at <= ?", start, end).
@@ -121,7 +122,7 @@ func (r *customerEventRepository) GetStats(start, end time.Time) (*EventStats, e
 		EventSource model.EventSource `gorm:"column:event_source"`
 		Count       int64             `gorm:"column:count"`
 	}
-	if err := _db.GetDB().
+	if err := _db.GetDB().WithContext(ctx).
 		Model(&model.CustomerEvent{}).
 		Select("event_source, COUNT(*) as count").
 		Where("occurred_at >= ? AND occurred_at <= ?", start, end).

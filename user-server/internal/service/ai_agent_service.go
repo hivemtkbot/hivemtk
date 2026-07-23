@@ -10,12 +10,8 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
-
-	"gorm.io/gorm"
-)_db "marketing/internal/pkg/utils/db"
 
 	"gorm.io/gorm"
 )
@@ -46,29 +42,34 @@ type AgentContext = dto.AgentContext
 
 // AIAgentService AI 智能体服务
 type AIAgentService struct {
-	repo *repository.AIAgentRepository
-	db   *gorm.DB
+	repo	*repository.AIAgentRepository
+	db	*gorm.DB
 
 	// AgentContext 缓存：agentID → *AgentContext（带 TTL）
-	cacheMu  sync.RWMutex
-	cache    map[uint]*agentCacheEntry
-	cacheTTL time.Duration
+	cacheMu		sync.RWMutex
+	cache		map[uint]*agentCacheEntry
+	cacheTTL	time.Duration
 }
 
 type agentCacheEntry struct {
-	ctx       *AgentContext
-	expiresAt time.Time
+	ctx		*AgentContext
+	expiresAt	time.Time
 }
 
-// NewAIAgentService 创建智能体服务
-func NewAIAgentService(db *gorm.DB) *AIAgentService {
+// NewAIAgentService 创建智能体服务(无参,内部用 dbUtil.GetDB())
+func NewAIAgentService() *AIAgentService {
+	return NewAIAgentServiceWithDB(dbUtil.GetDB())
+}
+
+// NewAIAgentServiceWithDB 创建带 DB 的智能体服务(显式注入 db,兼容旧调用)
+func NewAIAgentServiceWithDB(db *gorm.DB) *AIAgentService {
 	repo := repository.NewAIAgentRepository()
-	repo.SetDB(db)
+	repo.SetDB(context.Background(), db)
 	return &AIAgentService{
-		repo:     repo,
-		db:       db,
-		cache:    make(map[uint]*agentCacheEntry),
-		cacheTTL: 30 * time.Second, // 30s 缓存 TTL，平衡一致性与性能
+		repo:		repo,
+		db:		db,
+		cache:		make(map[uint]*agentCacheEntry),
+		cacheTTL:	30 * time.Second,	// 30s 缓存 TTL，平衡一致性与性能
 	}
 }
 
@@ -192,43 +193,43 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 		return nil, err
 	}
 	if agent.Status != 1 {
-		return nil, nil // 禁用智能体视为未绑定
+		return nil, nil	// 禁用智能体视为未绑定
 	}
 
 	// 3. 构造 AgentContext
 	agentCtx := &AgentContext{
-		AgentID:              agent.ID,
-		AgentCode:            agent.AgentCode,
-		Name:                 agent.Name,
-		AgentType:            agent.AgentType,
-		Persona:              agent.Persona,
-		SystemPrompt:         agent.SystemPrompt,
-		Greeting:             agent.Greeting,
-		RagProductIDs:        []string(agent.RagProductIDs),
-		SOPIDs:               []string(agent.SOPIDs),
-		ScriptLibraryIDs:     []string(agent.ScriptLibraryIDs),
-		LLMModel:             agent.LLMModel,
-		LLMProviderConfig:    agent.LLMProviderConfig,
-		Temperature:          agent.Temperature,
-		MaxTokens:            agent.MaxTokens,
-		TopP:                 agent.TopP,
-		FrequencyPenalty:     agent.FrequencyPenalty,
-		PresencePenalty:      agent.PresencePenalty,
-		EnableRAG:            agent.EnableRAG,
-		EnableScriptMatch:    agent.EnableScriptMatch,
-		EnableHumanizePolish: agent.EnableHumanizePolish,
-		EnableContentAudit:   agent.EnableContentAudit,
-		EnablePlaybook:       agent.EnablePlaybook,
-		RAGTopK:              agent.RAGTopK,
-		ConfidenceThreshold:  agent.ConfidenceThreshold,
-		MaxAIConsecutive:     agent.MaxAIConsecutive,
+		AgentID:		agent.ID,
+		AgentCode:		agent.AgentCode,
+		Name:			agent.Name,
+		AgentType:		agent.AgentType,
+		Persona:		agent.Persona,
+		SystemPrompt:		agent.SystemPrompt,
+		Greeting:		agent.Greeting,
+		RagProductIDs:		[]string(agent.RagProductIDs),
+		SOPIDs:			[]string(agent.SOPIDs),
+		ScriptLibraryIDs:	[]string(agent.ScriptLibraryIDs),
+		LLMModel:		agent.LLMModel,
+		LLMProviderConfig:	agent.LLMProviderConfig,
+		Temperature:		agent.Temperature,
+		MaxTokens:		agent.MaxTokens,
+		TopP:			agent.TopP,
+		FrequencyPenalty:	agent.FrequencyPenalty,
+		PresencePenalty:	agent.PresencePenalty,
+		EnableRAG:		agent.EnableRAG,
+		EnableScriptMatch:	agent.EnableScriptMatch,
+		EnableHumanizePolish:	agent.EnableHumanizePolish,
+		EnableContentAudit:	agent.EnableContentAudit,
+		EnablePlaybook:		agent.EnablePlaybook,
+		RAGTopK:		agent.RAGTopK,
+		ConfidenceThreshold:	agent.ConfidenceThreshold,
+		MaxAIConsecutive:	agent.MaxAIConsecutive,
 	}
 
 	// 4. 写缓存
 	s.cacheMu.Lock()
 	s.cache[agentID] = &agentCacheEntry{
-		ctx:       agentCtx,
-		expiresAt: time.Now().Add(s.cacheTTL),
+		ctx:		agentCtx,
+		expiresAt:	time.Now().Add(s.cacheTTL),
 	}
 	s.cacheMu.Unlock()
 
@@ -257,9 +258,9 @@ func (s *AIAgentService) TestAgent(ctx context.Context, agentID uint, customerID
 		return nil, errors.New("SalesEngine 未注入")
 	}
 	req := &SalesRequest{
-		CustomerID:  customerID,
-		UserMessage: message,
-		AutoExecute: true,
+		CustomerID:	customerID,
+		UserMessage:	message,
+		AutoExecute:	true,
 	}
 	return engine.HandleWithAgent(ctx, req, agentCtx)
 }
@@ -270,23 +271,28 @@ func (s *AIAgentService) TestAgent(ctx context.Context, agentID uint, customerID
 
 // ChannelAgentBindingService 渠道绑定服务
 type ChannelAgentBindingService struct {
-	repo      *repository.ChannelAgentBindingRepository
-	agentRepo *repository.AIAgentRepository
-	agentSvc  *AIAgentService
-	db        *gorm.DB
+	repo		*repository.ChannelAgentBindingRepository
+	agentRepo	*repository.AIAgentRepository
+	agentSvc	*AIAgentService
+	db		*gorm.DB
 }
 
-// NewChannelAgentBindingService 创建渠道绑定服务
-func NewChannelAgentBindingService(db *gorm.DB, agentSvc *AIAgentService) *ChannelAgentBindingService {
+// NewChannelAgentBindingService 创建渠道绑定服务(无参,内部用 dbUtil.GetDB())
+func NewChannelAgentBindingService() *ChannelAgentBindingService {
+	return NewChannelAgentBindingServiceWithDB(dbUtil.GetDB(), NewAIAgentService())
+}
+
+// NewChannelAgentBindingServiceWithDB 创建带 DB 的渠道绑定服务(显式注入 db,兼容旧调用)
+func NewChannelAgentBindingServiceWithDB(db *gorm.DB, agentSvc *AIAgentService) *ChannelAgentBindingService {
 	repo := repository.NewChannelAgentBindingRepository()
-	repo.SetDB(db)
+	repo.SetDB(context.Background(), db)
 	agentRepo := repository.NewAIAgentRepository()
-	agentRepo.SetDB(db)
+	agentRepo.SetDB(context.Background(), db)
 	return &ChannelAgentBindingService{
-		repo:      repo,
-		agentRepo: agentRepo,
-		agentSvc:  agentSvc,
-		db:        db,
+		repo:		repo,
+		agentRepo:	agentRepo,
+		agentSvc:	agentSvc,
+		db:		db,
 	}
 }
 
@@ -410,23 +416,29 @@ func NormalizeChannelType(ch string) string {
 
 // CustomerServiceAgentService 客服挂载服务
 type CustomerServiceAgentService struct {
-	repo      *repository.CustomerServiceAgentRepository
-	agentRepo *repository.AIAgentRepository
-	agentSvc  *AIAgentService
-	db        *gorm.DB
+	repo			*repository.CustomerServiceAgentRepository
+	agentRepo		*repository.AIAgentRepository
+	agentSvc		*AIAgentService
+	agentStatusRepo	*repository.AgentStatusRepository
 }
 
-// NewCustomerServiceAgentService 创建客服挂载服务
-func NewCustomerServiceAgentService(db *gorm.DB, agentSvc *AIAgentService) *CustomerServiceAgentService {
+// NewCustomerServiceAgentService 创建客服挂载服务(无参,内部用 dbUtil.GetDB())
+func NewCustomerServiceAgentService() *CustomerServiceAgentService {
+	return NewCustomerServiceAgentServiceWithDB(dbUtil.GetDB(), NewAIAgentService())
+}
+
+// NewCustomerServiceAgentServiceWithDB 创建带 DB 的客服挂载服务(显式注入 db,兼容旧调用)
+func NewCustomerServiceAgentServiceWithDB(db *gorm.DB, agentSvc *AIAgentService) *CustomerServiceAgentService {
 	repo := repository.NewCustomerServiceAgentRepository()
-	repo.SetDB(db)
+	repo.SetDB(context.Background(), db)
 	agentRepo := repository.NewAIAgentRepository()
-	agentRepo.SetDB(db)
+	agentRepo.SetDB(context.Background(), db)
+	agentStatusRepo := repository.NewAgentStatusRepositoryWithDB(db)
 	return &CustomerServiceAgentService{
-		repo:      repo,
-		agentRepo: agentRepo,
-		agentSvc:  agentSvc,
-		db:        db,
+		repo:			repo,
+		agentRepo:		agentRepo,
+		agentSvc:		agentSvc,
+		agentStatusRepo:	agentStatusRepo,
 	}
 }
 
@@ -436,9 +448,9 @@ func NewCustomerServiceAgentService(db *gorm.DB, agentSvc *AIAgentService) *Cust
 // 导致 controller 层误用 dbutil.GetDB() 取得 db。改为从外部注入 *AIAgentService，
 // 服务内部通过全局 _db.GetDB() 取 db（service 构造函数内允许）。
 //
-// 注意：仍持有 *gorm.DB，但只用于内部初始化，方法体不直接使用（持久化走 repo）。
+// 注意：所有持久化操作走 repo（含新增的 agentStatusRepo），方法体不再直接持有 *gorm.DB。
 func NewCustomerServiceAgentServiceViaPort(agentSvc *AIAgentService) *CustomerServiceAgentService {
-	return NewCustomerServiceAgentService(_db.GetDB(), agentSvc)
+	return NewCustomerServiceAgentServiceWithDB(dbUtil.GetDB(), agentSvc)
 }
 
 // Create 创建挂载
@@ -519,25 +531,24 @@ func (s *CustomerServiceAgentService) GetOrCreateAgentStatusByUserID(ctx context
 	if userID == 0 {
 		return nil, errors.New("user_id 不能为空")
 	}
-	var st model.AgentStatus
-	err := s.db.WithContext(ctx).Where("agent_id = ?", userID).First(&st).Error
+	st, err := s.agentStatusRepo.GetByAgentID(ctx, userID)
 	if err == nil {
-		return &st, nil
+		return st, nil
 	}
-	if err != gorm.ErrRecordNotFound {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("查询座席状态失败: %w", err)
 	}
 	// 创建座席状态
-	st = model.AgentStatus{
-		AgentID:     userID,
-		AgentName:   name,
-		Status:      "offline",
-		MaxSessions: 5,
+	newStatus := &model.AgentStatus{
+		AgentID:		userID,
+		AgentName:		name,
+		Status:			"offline",
+		MaxSessions:	5,
 	}
-	if err := s.db.WithContext(ctx).Create(&st).Error; err != nil {
+	if err := s.agentStatusRepo.Create(ctx, newStatus); err != nil {
 		return nil, fmt.Errorf("创建座席状态失败: %w", err)
 	}
-	return &st, nil
+	return newStatus, nil
 }
 
 // ListByUserID 按用户ID查询挂载（先查 AgentStatus，再查挂载）
@@ -545,11 +556,10 @@ func (s *CustomerServiceAgentService) ListByUserID(ctx context.Context, userID u
 	if userID == 0 {
 		return nil, errors.New("user_id 不能为空")
 	}
-	var st model.AgentStatus
-	err := s.db.WithContext(ctx).Where("agent_id = ?", userID).First(&st).Error
+	st, err := s.agentStatusRepo.GetByAgentID(ctx, userID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return []*model.CustomerServiceAgent{}, nil // 无座席状态则无挂载
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return []*model.CustomerServiceAgent{}, nil	// 无座席状态则无挂载
 		}
 		return nil, fmt.Errorf("查询座席状态失败: %w", err)
 	}
@@ -566,10 +576,10 @@ func (s *CustomerServiceAgentService) CreateByUserID(ctx context.Context, userID
 		return nil, err
 	}
 	m := &model.CustomerServiceAgent{
-		AgentStatusID: st.ID,
-		AIAgentID:     aiAgentID,
-		IsPrimary:     isPrimary,
-		Enabled:       true,
+		AgentStatusID:	st.ID,
+		AIAgentID:	aiAgentID,
+		IsPrimary:	isPrimary,
+		Enabled:	true,
 	}
 	if err := s.Create(ctx, m); err != nil {
 		return nil, err

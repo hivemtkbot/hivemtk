@@ -55,7 +55,7 @@ func (c *TuningController) ListConfidenceSignals(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // GetConfidenceSignal 信号详情
@@ -103,7 +103,7 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -163,7 +163,7 @@ func (c *TuningController) ListHumanizeScores(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // StatsHumanizeScores 拟人度统计
@@ -180,12 +180,12 @@ func (c *TuningController) StatsHumanizeScores(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, gin.H{
-		"days":         days,
-		"avg_score":    stat.AvgScore,
-		"passed_count": stat.Passed,
-		"failed_count": stat.Failed,
-		"total_count":  stat.Total,
-		"pass_rate":    safeDiv(float64(stat.Passed), float64(stat.Total)),
+		"days":		days,
+		"avg_score":	stat.AvgScore,
+		"passed_count":	stat.Passed,
+		"failed_count":	stat.Failed,
+		"total_count":	stat.Total,
+		"pass_rate":	safeDiv(float64(stat.Passed), float64(stat.Total)),
 	}, "")
 }
 
@@ -222,7 +222,7 @@ func (c *TuningController) ListFeedbackEvents(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // StatsFeedbackEvents 反馈事件统计
@@ -260,7 +260,7 @@ func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -281,7 +281,7 @@ func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // UpdatePromptCandidateStatus 更新候选状态
@@ -318,7 +318,7 @@ func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -339,7 +339,7 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(ctx, rows, total, page, pageSize)
+	c.jsonList(rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -349,9 +349,9 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 // jsonList 通用列表响应(分页元数据)
 func (c *TuningController) jsonList(ctx *gin.Context, list any, total int64, page, pageSize int) {
 	response.Success(ctx, gin.H{
-		"list":  list,
-		"total": total,
-		"page":  page,
-		"size":  pageSize,
+		"list":		list,
+		"total":	total,
+		"page":		page,
+		"size":		pageSize,
 	}, "")
 }

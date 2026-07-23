@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -64,7 +65,7 @@ func TestEmailDraftRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.draft)
+			err := repo.Create(context.Background(), tt.draft)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -86,7 +87,7 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 		Subject: "GetByID Test",
 		Content: "Test content",
 	}
-	repo.Create(draft)
+	repo.Create(context.Background(), draft)
 
 	tests := []struct {
 		name    string
@@ -107,7 +108,7 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -131,13 +132,13 @@ func TestEmailDraftRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(&model.EmailDraft{
+		repo.Create(context.Background(), &model.EmailDraft{
 			Subject: "Draft " + string(rune('0'+i)),
 			Content: "Content " + string(rune('0'+i)),
 		})
 	}
 
-	results, err := repo.List()
+	results, err := repo.List(context.Background())
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -156,18 +157,18 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 		Subject: "Original Subject",
 		Content: "Original content",
 	}
-	repo.Create(draft)
+	repo.Create(context.Background(), draft)
 
 	// 更新
 	draft.Subject = "Updated Subject"
 	draft.Content = "Updated content"
 
-	err := repo.Update(draft)
+	err := repo.Update(context.Background(), draft)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(draft.ID)
+	updated, _ := repo.GetByID(context.Background(), draft.ID)
 	if updated.Subject != "Updated Subject" {
 		t.Errorf("Expected subject 'Updated Subject', got '%s'", updated.Subject)
 	}
@@ -185,14 +186,14 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 		Subject: "To Delete",
 		Content: "Delete content",
 	}
-	repo.Create(draft)
+	repo.Create(context.Background(), draft)
 
-	err := repo.Delete(draft.ID)
+	err := repo.Delete(context.Background(), draft.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(draft.ID)
+	_, err = repo.GetByID(context.Background(), draft.ID)
 	if err == nil {
 		t.Error("Expected draft to be deleted")
 	}
@@ -202,7 +203,7 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 func TestEmailDraftRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupEmailDraftRepository(t)
 
-	_, err := repo.GetByID(uuid.New())
+	_, err := repo.GetByID(context.Background(), uuid.New())
 	if err == nil {
 		t.Error("Expected error when getting non-existing draft")
 	}
@@ -212,7 +213,7 @@ func TestEmailDraftRepository_GetByID_NotFound(t *testing.T) {
 func TestEmailDraftRepository_List_EmptyResult(t *testing.T) {
 	repo := setupEmailDraftRepository(t)
 
-	results, err := repo.List()
+	results, err := repo.List(context.Background())
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -231,19 +232,19 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 		Subject: "Timestamp Test",
 		Content: "Content",
 	}
-	repo.Create(draft)
+	repo.Create(context.Background(), draft)
 
 	// 等待一小段时间
 	time.Sleep(10 * time.Millisecond)
 
 	// 更新
 	draft.Subject = "Updated Subject"
-	err := repo.Update(draft)
+	err := repo.Update(context.Background(), draft)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(draft.ID)
+	updated, _ := repo.GetByID(context.Background(), draft.ID)
 	if updated.UpdatedAt.Before(draft.CreatedAt) {
 		t.Error("Expected UpdatedAt to be after CreatedAt")
 	}

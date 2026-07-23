@@ -9,6 +9,7 @@ import (
 
 	"marketing/internal/cache"
 	"marketing/internal/model"
+	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 
 	"github.com/google/uuid"
@@ -19,28 +20,28 @@ import (
 const (
 	// InboxHumanLockKey 会话被人工接管时永久锁定（AI 路由绕过）
 	// key: hivemtk:lock:human:{sessionID}
-	InboxHumanLockKey = "hivemtk:lock:human:"
+	InboxHumanLockKey	= "hivemtk:lock:human:"
 	// InboxAILockKey AI 处理中的串行化锁（15s TTL）
 	// key: hivemtk:lock:ai_processing:{sessionID}
-	InboxAILockKey = "hivemtk:lock:ai_processing:"
+	InboxAILockKey	= "hivemtk:lock:ai_processing:"
 	// InboxPendingKey 待处理消息队列（AI 推理期间用户继续发的消息）
 	// key: hivemtk:pending:{sessionID}
-	InboxPendingKey = "hivemtk:pending:"
+	InboxPendingKey	= "hivemtk:pending:"
 	// InboxLockTTL 人类接管锁过期（极长，等同永久；实际由转人工门禁显式释放）
-	InboxLockTTL = 0
+	InboxLockTTL	= 0
 	// InboxAIProcessingTTL AI 串行化锁默认 15s
-	InboxAIProcessingTTL = 15 * time.Second
+	InboxAIProcessingTTL	= 15 * time.Second
 	// InboxPendingTTL 待处理消息队列 TTL
-	InboxPendingTTL = 5 * time.Minute
+	InboxPendingTTL	= 5 * time.Minute
 )
 
 // InboxIngressResult 消息入站处理结果
 type InboxIngressResult struct {
-	Accepted      bool   `json:"accepted"`        // 是否接受处理
-	HumanLocked   bool   `json:"human_locked"`    // 是否命中人工接管锁
-	QueuedForAI  bool   `json:"queued_for_ai"`   // 是否已入队（拿到 AI 处理锁或加入待处理队列）
-	SessionID    string `json:"session_id"`
-	Reason       string `json:"reason,omitempty"` // 决策原因
+	Accepted	bool	`json:"accepted"`	// 是否接受处理
+	HumanLocked	bool	`json:"human_locked"`	// 是否命中人工接管锁
+	QueuedForAI	bool	`json:"queued_for_ai"`	// 是否已入队（拿到 AI 处理锁或加入待处理队列）
+	SessionID	string	`json:"session_id"`
+	Reason		string	`json:"reason,omitempty"`	// 决策原因
 }
 
 // InboxIngressService 渠道接入消息中台服务
@@ -51,26 +52,31 @@ type InboxIngressResult struct {
 //  3. 未命中时通过 Redis SetNX 串行化 AI 处理（防抖 + 防止并发重复推理）
 //  4. AI 推理期间用户继续发的消息进入 pending 队列，等待下一轮合并处理
 type InboxIngressService struct {
-	db        *gorm.DB
-	cache     cache.Cache
-	mu        sync.Mutex
-	triggerCh chan string // 触发 AgentRuntime 处理通知（可选）
+	db		*gorm.DB
+	cache		cache.Cache
+	mu		sync.Mutex
+	triggerCh	chan string	// 触发 AgentRuntime 处理通知（可选）
 }
 
-// NewInboxIngressService 构造入站服务
-func NewInboxIngressService(db *gorm.DB, c cache.Cache) *InboxIngressService {
+// NewInboxIngressService 构造入站服务(无参,内部用 dbUtil.GetDB())
+func NewInboxIngressService() *InboxIngressService {
+	return NewInboxIngressServiceWithDB(dbUtil.GetDB(), nil)
+}
+
+// NewInboxIngressServiceWithDB 构造带 DB 的入站服务(显式注入 db,兼容旧调用)
+func NewInboxIngressServiceWithDB(db *gorm.DB, c cache.Cache) *InboxIngressService {
 	if c == nil {
 		c = cache.GetGlobalCache()
 	}
 	return &InboxIngressService{
-		db:        db,
-		cache:     c,
-		triggerCh: make(chan string, 1024),
+		db:		db,
+		cache:		c,
+		triggerCh:	make(chan string, 1024),
 	}
 }
 
 // TriggerChannel 返回 AgentRuntime 监听通道（非阻塞消费）
-func (s *InboxIngressService) TriggerChannel() <-chan string {
+func (s *InboxIngressService) TriggerChannel(ctx context.Context) <-chan string {
 	return s.triggerCh
 }
 
@@ -82,7 +88,7 @@ func (s *InboxIngressService) IsSessionHumanLocked(ctx context.Context, sessionI
 	key := InboxHumanLockKey + sessionID
 	v, err := s.cache.Get(ctx, key)
 	if err != nil {
-		return false, nil // 缓存降级：返回未锁定（保守路由到 AI）
+		return false, nil	// 缓存降级：返回未锁定（保守路由到 AI）
 	}
 	return v == "true", nil
 }
@@ -116,7 +122,7 @@ func (s *InboxIngressService) UnlockSessionForHuman(ctx context.Context, session
 // tryAcquireAILock 尝试获取 AI 处理串行化锁；返回 true 表示拿到锁
 func (s *InboxIngressService) tryAcquireAILock(ctx context.Context, sessionID string) (bool, error) {
 	if s.cache == nil || sessionID == "" {
-		return true, nil // 无缓存时降级为放行
+		return true, nil	// 无缓存时降级为放行
 	}
 	key := InboxAILockKey + sessionID
 	return s.cache.SetNX(ctx, key, "busy", InboxAIProcessingTTL)
@@ -165,7 +171,7 @@ func (s *InboxIngressService) PopPendingMessages(ctx context.Context, sessionID 
 }
 
 // NormalizeEvent 标准化外部 MessageEvent 字段（缺失字段补齐）
-func (s *InboxIngressService) NormalizeEvent(event *model.MessageEvent) error {
+func (s *InboxIngressService) NormalizeEvent(ctx context.Context, event *model.MessageEvent) error {
 	if event == nil {
 		return errors.New("event is nil")
 	}
@@ -203,7 +209,7 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	result := &InboxIngressResult{
 		SessionID: event.SessionID,
 	}
-	if err := s.NormalizeEvent(event); err != nil {
+	if err := s.NormalizeEvent(ctx, event); err != nil {
 		return result, err
 	}
 	result.SessionID = event.SessionID
@@ -268,24 +274,24 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		}
 	}
 	hub := &model.MessageHub{
-		MsgID:          event.EventID,
-		Platform:       event.Channel,
-		AccountID:      accountID,
-		Direction:      "inbound",
-		MsgType:        event.MsgType,
-		SenderID:       event.SenderID,
-		SenderName:     event.SenderName,
-		ReceiverID:     event.ReceiverID,
-		Content:        event.Content,
-		MediaURL:       event.MediaURL,
-		ConversationID: event.ConversationID,
-		IsGroup:        event.IsGroup,
-		GroupID:        event.GroupID,
-		IsAIReply:      event.IsAIReply,
-		AIAgent:        event.AIAgent,
-		IsRead:         false,
-		SentAt:         event.Timestamp,
-		Extra:          nil,
+		MsgID:		event.EventID,
+		Platform:	event.Channel,
+		AccountID:	accountID,
+		Direction:	"inbound",
+		MsgType:	event.MsgType,
+		SenderID:	event.SenderID,
+		SenderName:	event.SenderName,
+		ReceiverID:	event.ReceiverID,
+		Content:	event.Content,
+		MediaURL:	event.MediaURL,
+		ConversationID:	event.ConversationID,
+		IsGroup:	event.IsGroup,
+		GroupID:	event.GroupID,
+		IsAIReply:	event.IsAIReply,
+		AIAgent:	event.AIAgent,
+		IsRead:		false,
+		SentAt:		event.Timestamp,
+		Extra:		nil,
 	}
 	if event.Extra != nil {
 		extra := model.JSONMap{}

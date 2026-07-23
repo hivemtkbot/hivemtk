@@ -10,7 +10,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // SOPController SOP 智能体控制器
@@ -19,8 +18,8 @@ type SOPController struct {
 }
 
 // NewSOPController 创建 SOP 控制器
-func NewSOPController(db *gorm.DB) *SOPController {
-	return &SOPController{svc: service.NewSOPService(db, nil)}
+func NewSOPController(svc *service.SOPService) *SOPController {
+	return &SOPController{svc: svc}
 }
 
 // Create 创建 SOP

@@ -21,15 +21,15 @@ import (
 
 // 9 步 Pipeline 类型常量
 const (
-	StepAudience       = "audience"        // 1. 受众筛选
-	StepContentPrepare = "content_prepare" // 2. 内容准备
-	StepAccountSelect  = "account_select"  // 3. 账号选择
-	StepRateLimit      = "rate_limit"      // 4. 限流控制
-	StepMessageGen     = "message_gen"     // 5. 文案生成
-	StepSend           = "send"            // 6. 发送执行
-	StepTrackResult    = "track_result"    // 7. 结果追踪
-	StepRetry          = "retry"           // 8. 失败重试
-	StepReport         = "report"          // 9. 汇总报告
+	StepAudience		= "audience"		// 1. 受众筛选
+	StepContentPrepare	= "content_prepare"	// 2. 内容准备
+	StepAccountSelect	= "account_select"	// 3. 账号选择
+	StepRateLimit		= "rate_limit"		// 4. 限流控制
+	StepMessageGen		= "message_gen"		// 5. 文案生成
+	StepSend		= "send"		// 6. 发送执行
+	StepTrackResult		= "track_result"	// 7. 结果追踪
+	StepRetry		= "retry"		// 8. 失败重试
+	StepReport		= "report"		// 9. 汇总报告
 )
 
 // 全部 9 步顺序
@@ -40,48 +40,48 @@ var DefaultPipelineSteps = []string{
 
 // Pipeline 状态
 const (
-	PipelineStatusActive   = "active"
-	PipelineStatusPaused   = "paused"
-	PipelineStatusArchived = "archived"
+	PipelineStatusActive	= "active"
+	PipelineStatusPaused	= "paused"
+	PipelineStatusArchived	= "archived"
 )
 
 // Job 状态
 const (
-	JobStatePending     = "pending"
-	JobStateRunning     = "running"
-	JobStateSuccess     = "success"
-	JobStateFailed      = "failed"
-	JobStateCanceled    = "canceled"
-	JobStateRetrying    = "retrying"
-	JobStateRateLimited = "rate_limited"
+	JobStatePending		= "pending"
+	JobStateRunning		= "running"
+	JobStateSuccess		= "success"
+	JobStateFailed		= "failed"
+	JobStateCanceled	= "canceled"
+	JobStateRetrying	= "retrying"
+	JobStateRateLimited	= "rate_limited"
 )
 
 // 渠道白名单
 // 私域独立部署：每商户独立部署一套系统，所有触达渠道共享同一份白名单
 // 2026-07-17 新增：telegram / whatsapp（Cloud API）/ feishu 三个境外/协作平台
 var ReachChannels = map[string]bool{
-	"wecom":       true,
-	"sms":         true,
-	"email":       true,
-	"card":        true,
-	"dingtalk":    true,
-	"douyin":      true,
-	"kuaishou":    true,
-	"xiaohongshu": true,
-	"telegram":    true, // Telegram Bot API（境外 IM）
-	"whatsapp":    true, // WhatsApp Cloud API（Meta 商业）
-	"feishu":      true, // 飞书 Open API（协作 + 业务）
+	"wecom":	true,
+	"sms":		true,
+	"email":	true,
+	"card":		true,
+	"dingtalk":	true,
+	"douyin":	true,
+	"kuaishou":	true,
+	"xiaohongshu":	true,
+	"telegram":	true,	// Telegram Bot API（境外 IM）
+	"whatsapp":	true,	// WhatsApp Cloud API（Meta 商业）
+	"feishu":	true,	// 飞书 Open API（协作 + 业务）
 }
 
 // 错误定义
 var (
-	ErrReachInvalidChannel   = errors.New("invalid channel")
-	ErrReachInvalidSteps     = errors.New("invalid steps")
-	ErrReachPipelineNotFound = errors.New("pipeline not found")
-	ErrReachJobNotFound      = errors.New("job not found")
-	ErrReachRateLimited      = errors.New("rate limit exceeded")
-	ErrReachJobNotPending    = errors.New("job is not pending/running")
-	ErrReachInvalidPayload   = errors.New("invalid payload")
+	ErrReachInvalidChannel		= errors.New("invalid channel")
+	ErrReachInvalidSteps		= errors.New("invalid steps")
+	ErrReachPipelineNotFound	= errors.New("pipeline not found")
+	ErrReachJobNotFound		= errors.New("job not found")
+	ErrReachRateLimited		= errors.New("rate limit exceeded")
+	ErrReachJobNotPending		= errors.New("job is not pending/running")
+	ErrReachInvalidPayload		= errors.New("invalid payload")
 )
 
 // toJSONArray 将 JSON 字节转换为 model.JSONArray
@@ -122,78 +122,78 @@ func toJSONMapBytes(data []byte) model.JSONMap {
 
 // StepResult 单步结果
 type StepResult struct {
-	Step       string         `json:"step"`
-	Success    bool           `json:"success"`
-	StartedAt  time.Time      `json:"started_at"`
-	EndedAt    time.Time      `json:"ended_at"`
-	DurationMs int            `json:"duration_ms"`
-	Output     map[string]any `json:"output,omitempty"`
-	Error      string         `json:"error,omitempty"`
+	Step		string		`json:"step"`
+	Success		bool		`json:"success"`
+	StartedAt	time.Time	`json:"started_at"`
+	EndedAt		time.Time	`json:"ended_at"`
+	DurationMs	int		`json:"duration_ms"`
+	Output		map[string]any	`json:"output,omitempty"`
+	Error		string		`json:"error,omitempty"`
 }
 
 // RetryPolicy 重试策略
 type RetryPolicy struct {
-	MaxRetries      int      `json:"max_retries"`     // 最大重试次数
-	IntervalMs      int      `json:"interval_ms"`     // 重试间隔 (ms)
-	Backoff         string   `json:"backoff"`         // fixed/exponential
-	MaxIntervalMs   int      `json:"max_interval_ms"` // 指数退避上限
-	RetryableErrors []string `json:"retryable_errors,omitempty"`
+	MaxRetries	int		`json:"max_retries"`		// 最大重试次数
+	IntervalMs	int		`json:"interval_ms"`		// 重试间隔 (ms)
+	Backoff		string		`json:"backoff"`		// fixed/exponential
+	MaxIntervalMs	int		`json:"max_interval_ms"`	// 指数退避上限
+	RetryableErrors	[]string	`json:"retryable_errors,omitempty"`
 }
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
-	QPS          int `json:"qps"`            // 每秒请求数
-	Burst        int `json:"burst"`          // 突发容量
-	DailyQuota   int `json:"daily_quota"`    // 每日配额
-	PerUserLimit int `json:"per_user_limit"` // 单用户频次
-	CooldownSecs int `json:"cooldown_secs"`  // 冷却秒数
+	QPS		int	`json:"qps"`		// 每秒请求数
+	Burst		int	`json:"burst"`		// 突发容量
+	DailyQuota	int	`json:"daily_quota"`	// 每日配额
+	PerUserLimit	int	`json:"per_user_limit"`	// 单用户频次
+	CooldownSecs	int	`json:"cooldown_secs"`	// 冷却秒数
 }
 
 // DefaultRetryPolicy 默认重试策略
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
-		MaxRetries:    3,
-		IntervalMs:    1000,
-		Backoff:       "exponential",
-		MaxIntervalMs: 60000,
+		MaxRetries:	3,
+		IntervalMs:	1000,
+		Backoff:	"exponential",
+		MaxIntervalMs:	60000,
 	}
 }
 
 // DefaultRateLimit 默认限流配置
 func DefaultRateLimit() RateLimitConfig {
 	return RateLimitConfig{
-		QPS:          10,
-		Burst:        20,
-		DailyQuota:   10000,
-		PerUserLimit: 3,
-		CooldownSecs: 60,
+		QPS:		10,
+		Burst:		20,
+		DailyQuota:	10000,
+		PerUserLimit:	3,
+		CooldownSecs:	60,
 	}
 }
 
 // ReachPipelineService 触达 Pipeline 服务
 type ReachPipelineService struct {
-	db *gorm.DB
+	db	*gorm.DB
 
 	// 限流状态（按渠道+账号）
-	rateMu    sync.RWMutex
-	rateState map[string]*rateBucket
+	rateMu		sync.RWMutex
+	rateState	map[string]*rateBucket
 	// 渠道每日配额
-	dailyQuotaMu sync.RWMutex
-	dailyQuota   map[string]*dailyCounter
+	dailyQuotaMu	sync.RWMutex
+	dailyQuota	map[string]*dailyCounter
 	// 用户频次
-	perUserMu   sync.RWMutex
-	perUserHits map[string][]time.Time
+	perUserMu	sync.RWMutex
+	perUserHits	map[string][]time.Time
 }
 
 // rateBucket 令牌桶
 type rateBucket struct {
-	tokens   float64
-	lastFill time.Time
-	burst    int
-	qps      int
+	tokens		float64
+	lastFill	time.Time
+	burst		int
+	qps		int
 }
 
-func (b *rateBucket) allow() bool {
+func (b *rateBucket) allow(ctx context.Context)  bool {
 	now := time.Now()
 	elapsed := now.Sub(b.lastFill).Seconds()
 	b.tokens = math.Min(float64(b.burst), b.tokens+elapsed*float64(b.qps))
@@ -207,29 +207,29 @@ func (b *rateBucket) allow() bool {
 
 // dailyCounter 每日计数器
 type dailyCounter struct {
-	date  string
-	count int
+	date	string
+	count	int
 }
 
 // NewReachPipelineService 创建触达 Pipeline 服务
 func NewReachPipelineService(db *gorm.DB) *ReachPipelineService {
 	return &ReachPipelineService{
-		db:          db,
-		rateState:   make(map[string]*rateBucket),
-		dailyQuota:  make(map[string]*dailyCounter),
-		perUserHits: make(map[string][]time.Time),
+		db:		db,
+		rateState:	make(map[string]*rateBucket),
+		dailyQuota:	make(map[string]*dailyCounter),
+		perUserHits:	make(map[string][]time.Time),
 	}
 }
 
 // CreateRequest 创建 Pipeline 请求
 type CreatePipelineRequest struct {
-	Name        string          `json:"name" binding:"required"`
-	Description string          `json:"description"`
-	Channel     string          `json:"channel" binding:"required"`
-	Steps       []string        `json:"steps"`
-	RetryPolicy RetryPolicy     `json:"retry_policy"`
-	RateLimit   RateLimitConfig `json:"rate_limit"`
-	Extra       map[string]any  `json:"extra,omitempty"`
+	Name		string		`json:"name" binding:"required"`
+	Description	string		`json:"description"`
+	Channel		string		`json:"channel" binding:"required"`
+	Steps		[]string	`json:"steps"`
+	RetryPolicy	RetryPolicy	`json:"retry_policy"`
+	RateLimit	RateLimitConfig	`json:"rate_limit"`
+	Extra		map[string]any	`json:"extra,omitempty"`
 }
 
 // CreatePipeline 创建 Pipeline
@@ -246,7 +246,7 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 	if len(steps) == 0 {
 		steps = DefaultPipelineSteps
 	}
-	if err := s.validateSteps(steps); err != nil {
+	if err := s.validateSteps(ctx, steps); err != nil {
 		return nil, err
 	}
 	retryMap := model.JSONMap{}
@@ -262,14 +262,14 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 
 	pipe := &model.ReachPipeline{
 
-		Name:        req.Name,
-		Description: req.Description,
-		Channel:     req.Channel,
-		Steps:       model.JSONArray(toIfaceSliceFromStrings(steps)),
-		RetryPolicy: retryMap,
-		RateLimit:   rateMap,
-		Status:      PipelineStatusActive,
-		Version:     1,
+		Name:		req.Name,
+		Description:	req.Description,
+		Channel:	req.Channel,
+		Steps:		model.JSONArray(toIfaceSliceFromStrings(steps)),
+		RetryPolicy:	retryMap,
+		RateLimit:	rateMap,
+		Status:		PipelineStatusActive,
+		Version:	1,
 	}
 	if pipe.Steps == nil {
 		pipe.Steps = model.JSONArray{}
@@ -280,7 +280,7 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 	if pipe.RateLimit == nil {
 		pipe.RateLimit = model.JSONMap{}
 	}
-	if err := s.db.Create(pipe).Error; err != nil {
+	if err := s.db.Create(ctx, pipe).Error; err != nil {
 		return nil, err
 	}
 	return pipe, nil
@@ -298,11 +298,11 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 	if len(steps) == 0 {
 		steps = DefaultPipelineSteps
 	}
-	if err := s.validateSteps(steps); err != nil {
+	if err := s.validateSteps(ctx, steps); err != nil {
 		return nil, err
 	}
 	var pipe model.ReachPipeline
-	if err := s.db.First(&pipe, id).Error; err != nil {
+	if err := s.db.First(ctx, &pipe, id).Error; err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
 	retryMap := model.JSONMap{}
@@ -322,7 +322,7 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 	pipe.RetryPolicy = retryMap
 	pipe.RateLimit = rateMap
 	pipe.Version++
-	if err := s.db.Save(&pipe).Error; err != nil {
+	if err := s.db.Save(ctx, &pipe).Error; err != nil {
 		return nil, err
 	}
 	return &pipe, nil
@@ -331,7 +331,7 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 // GetPipeline 获取 Pipeline
 func (s *ReachPipelineService) GetPipeline(ctx context.Context, id uint) (*model.ReachPipeline, error) {
 	var pipe model.ReachPipeline
-	if err := s.db.First(&pipe, id).Error; err != nil {
+	if err := s.db.First(ctx, &pipe, id).Error; err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
 	return &pipe, nil
@@ -346,7 +346,7 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 		pageSize = 20
 	}
 	var total int64
-	q := s.db.Model(&model.ReachPipeline{})
+	q := s.db.Model(ctx, &model.ReachPipeline{})
 	if channel != "" {
 		q = q.Where("channel = ?", channel)
 	}
@@ -363,7 +363,7 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 
 // DeletePipeline 删除 Pipeline
 func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) error {
-	res := s.db.Where("id = ?", id).Delete(&model.ReachPipeline{})
+	res := s.db.Where(ctx, "id = ?", id).Delete(&model.ReachPipeline{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -376,7 +376,7 @@ func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) erro
 // PausePipeline 暂停
 func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(&model.ReachPipeline{}).
+	return s.db.Model(ctx, &model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusPaused).Error
 }
@@ -384,7 +384,7 @@ func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error
 // ResumePipeline 恢复
 func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(&model.ReachPipeline{}).
+	return s.db.Model(ctx, &model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusActive).Error
 }
@@ -392,20 +392,20 @@ func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) erro
 // ArchivePipeline 归档
 func (s *ReachPipelineService) ArchivePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(&model.ReachPipeline{}).
+	return s.db.Model(ctx, &model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusArchived).Error
 }
 
 // EnqueueJobRequest 入队任务请求
 type EnqueueJobRequest struct {
-	PipelineID uint           `json:"pipeline_id" binding:"required"`
-	Channel    string         `json:"channel"`
-	CustomerID string         `json:"customer_id" binding:"required"`
-	AccountID  string         `json:"account_id"`
-	Payload    map[string]any `json:"payload" binding:"required"`
-	MaxRetry   int            `json:"max_retry"`
-	RunAt      *time.Time     `json:"run_at"`
+	PipelineID	uint		`json:"pipeline_id" binding:"required"`
+	Channel		string		`json:"channel"`
+	CustomerID	string		`json:"customer_id" binding:"required"`
+	AccountID	string		`json:"account_id"`
+	Payload		map[string]any	`json:"payload" binding:"required"`
+	MaxRetry	int		`json:"max_retry"`
+	RunAt		*time.Time	`json:"run_at"`
 }
 
 // EnqueueJob 入队任务
@@ -453,14 +453,14 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 	}
 	job := &model.ReachJob{
 
-		PipelineID: req.PipelineID,
-		Channel:    channel,
-		CustomerID: req.CustomerID,
-		AccountID:  req.AccountID,
-		Payload:    payloadMap,
-		State:      JobStatePending,
-		MaxRetry:   maxRetry,
-		NextRunAt:  req.RunAt,
+		PipelineID:	req.PipelineID,
+		Channel:	channel,
+		CustomerID:	req.CustomerID,
+		AccountID:	req.AccountID,
+		Payload:	payloadMap,
+		State:		JobStatePending,
+		MaxRetry:	maxRetry,
+		NextRunAt:	req.RunAt,
 	}
 	if job.Payload == nil {
 		job.Payload = model.JSONMap{}
@@ -469,7 +469,7 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 		now := time.Now()
 		job.NextRunAt = &now
 	}
-	if err := s.db.Create(job).Error; err != nil {
+	if err := s.db.Create(ctx, job).Error; err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -478,7 +478,7 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 // GetJob 获取任务
 func (s *ReachPipelineService) GetJob(ctx context.Context, id uint) (*model.ReachJob, error) {
 	var job model.ReachJob
-	if err := s.db.First(&job, id).Error; err != nil {
+	if err := s.db.First(ctx, &job, id).Error; err != nil {
 		return nil, ErrReachJobNotFound
 	}
 	return &job, nil
@@ -493,7 +493,7 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 		pageSize = 20
 	}
 	var total int64
-	q := s.db.Model(&model.ReachJob{})
+	q := s.db.Model(ctx, &model.ReachJob{})
 
 	if channel != "" {
 		q = q.Where("channel = ?", channel)
@@ -511,10 +511,10 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 
 // CancelJob 取消任务
 func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
-	res := s.db.Model(&model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
+	res := s.db.Model(ctx, &model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
 		Updates(map[string]any{
-			"state":        JobStateCanceled,
-			"completed_at": time.Now(),
+			"state":	JobStateCanceled,
+			"completed_at":	time.Now(),
 		})
 	if res.Error != nil {
 		return res.Error
@@ -527,11 +527,11 @@ func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
 
 // RetryJob 手动重试
 func (s *ReachPipelineService) RetryJob(ctx context.Context, id uint) error {
-	res := s.db.Model(&model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
+	res := s.db.Model(ctx, &model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
 		Updates(map[string]any{
-			"state":         JobStatePending,
-			"next_run_at":   time.Now(),
-			"error_message": "",
+			"state":		JobStatePending,
+			"next_run_at":		time.Now(),
+			"error_message":	"",
 		})
 	if res.Error != nil {
 		return res.Error
@@ -583,10 +583,10 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	now := time.Now()
 	job.State = JobStateRunning
 	job.StartedAt = &now
-	s.db.Save(job)
+	s.db.Save(ctx, job)
 
 	// 累计 Pipeline 运行次数
-	s.db.Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
+	s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
 		Update("total_runs", gorm.Expr("total_runs + 1"))
 
 	results := []StepResult{}
@@ -604,8 +604,8 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 				job.State = JobStateRateLimited
 				job.ErrorMessage = res.Error
 				job.StepResults = toJSONArray(mustJSON(results))
-				s.db.Save(job)
-				s.appendStepResult(job, res)
+				s.db.Save(ctx, job)
+				s.appendStepResult(ctx, job, res)
 				return job, ErrReachRateLimited
 			}
 			// V3 整改：记录第一个失败 step 的错误信息，供前端展示
@@ -627,17 +627,17 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	if success {
 		job.State = JobStateSuccess
 		job.ErrorMessage = ""
-		s.db.Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
+		s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
 			Update("total_success", gorm.Expr("total_success + 1"))
 	} else {
 		job.State = JobStateFailed
 		// V3 整改：把失败 step 信息持久化到 ErrorMessage
 		// 格式：[step=content_prepare] content prepare failed: ...
 		job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
-		s.db.Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
+		s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
 			Update("total_failure", gorm.Expr("total_failure + 1"))
 	}
-	if err := s.db.Save(job).Error; err != nil {
+	if err := s.db.Save(ctx, job).Error; err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -648,7 +648,7 @@ func (s *ReachPipelineService) shouldRunStep(ctx context.Context, step string, j
 	if step != StepSend {
 		return true
 	}
-	return s.checkRateLimit(job.Channel, job.AccountID, job.CustomerID, rl)
+	return s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl)
 }
 
 // runStep 执行单步
@@ -679,16 +679,16 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 	case StepContentPrepare:
 		// 内容准备：真实渲染模板
 		// 优先级：job.Payload.content（字符串模板）> job.Payload.template_id（数据库中的话术模板）> 兜底错误
-		content, err := s.prepareContent(job)
+		content, err := s.prepareContent(ctx, job)
 		if err != nil {
 			res.Success = false
 			res.Error = "content prepare failed: " + err.Error()
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"prepared":      true,
-				"content":       content,
-				"content_bytes": len(content),
+				"prepared":		true,
+				"content":		content,
+				"content_bytes":	len(content),
 			}
 		}
 	case StepAccountSelect:
@@ -702,7 +702,7 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		}
 	case StepRateLimit:
 		// 限流控制
-		if !s.checkRateLimit(job.Channel, job.AccountID, job.CustomerID, rl) {
+		if !s.checkRateLimit(ctx, job.Channel, job.AccountID, job.CustomerID, rl) {
 			res.Success = false
 			res.Error = ErrReachRateLimited.Error()
 		} else {
@@ -711,16 +711,16 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		}
 	case StepMessageGen:
 		// 消息生成：复用 ContentPrepare 的渲染结果，做轻量个性化
-		message, err := s.generateMessage(job)
+		message, err := s.generateMessage(ctx, job)
 		if err != nil {
 			res.Success = false
 			res.Error = "message gen failed: " + err.Error()
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"generated":     true,
-				"message":       message,
-				"message_bytes": len(message),
+				"generated":		true,
+				"message":		message,
+				"message_bytes":	len(message),
 			}
 		}
 	case StepSend:
@@ -735,23 +735,23 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"sent":       true,
-				"message_id": messageID,
-				"channel":    job.Channel,
+				"sent":		true,
+				"message_id":	messageID,
+				"channel":	job.Channel,
 			}
 		}
 	case StepTrackResult:
 		// 结果追踪：把 message_id 写入 job.Payload._tracking，供 StepReport 汇总
-		if err := s.trackSendResult(job, res); err != nil {
+		if err := s.trackSendResult(ctx, job, res); err != nil {
 			res.Success = false
 			res.Error = "track failed: " + err.Error()
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"tracked":     true,
-				"job_id":      job.ID,
-				"customer_id": job.CustomerID,
-				"channel":     job.Channel,
+				"tracked":	true,
+				"job_id":	job.ID,
+				"customer_id":	job.CustomerID,
+				"channel":	job.Channel,
 			}
 		}
 	case StepRetry:
@@ -760,7 +760,7 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		res.Output = map[string]any{"checked": true}
 	case StepReport:
 		// 汇总报告：聚合 step 时长/成功/失败，更新 pipeline 计数器
-		report, err := s.aggregateReport(job)
+		report, err := s.aggregateReport(ctx, job)
 		if err != nil {
 			res.Success = false
 			res.Error = "report failed: " + err.Error()
@@ -788,7 +788,7 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 // 保留原始 {{key}} 形式以便前端联调时直观看到未填充的字段。
 //
 // 自动注入变量：customer_id、account_id、channel、date、time、datetime。
-func (s *ReachPipelineService) prepareContent(job *model.ReachJob) (string, error) {
+func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.ReachJob) (string, error) {
 	if job == nil {
 		return "", fmt.Errorf("job is nil")
 	}
@@ -802,7 +802,7 @@ func (s *ReachPipelineService) prepareContent(job *model.ReachJob) (string, erro
 	if raw == "" {
 		if v, ok := job.Payload["template_id"]; ok {
 			if tmplID, ok := v.(string); ok && tmplID != "" && s.db != nil {
-				tmplContent, err := s.loadTemplateContent(tmplID)
+				tmplContent, err := s.loadTemplateContent(ctx, tmplID)
 				if err != nil {
 					return "", fmt.Errorf("load template %s: %w", tmplID, err)
 				}
@@ -820,7 +820,7 @@ func (s *ReachPipelineService) prepareContent(job *model.ReachJob) (string, erro
 //
 // 兼容多张历史话术表（ScriptTemplate / ScriptLibrary），按 ID 优先匹配。
 // 私域独立部署：单租户，不带 merchant_id 过滤。
-func (s *ReachPipelineService) loadTemplateContent(templateID string) (string, error) {
+func (s *ReachPipelineService) loadTemplateContent(ctx context.Context, templateID string) (string, error) {
 	if s.db == nil {
 		return "", fmt.Errorf("db is nil")
 	}
@@ -828,14 +828,14 @@ func (s *ReachPipelineService) loadTemplateContent(templateID string) (string, e
 	var st struct {
 		Content string `gorm:"column:content"`
 	}
-	if err := s.db.Table("script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
+	if err := s.db.Table(ctx, "script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
 		return st.Content, nil
 	}
 	// 兜底 ScriptLibrary
 	var sl struct {
 		Content string `gorm:"column:content"`
 	}
-	if err := s.db.Table("script_libraries").Select("content").Where("id = ?", templateID).Scan(&sl).Error; err == nil && sl.Content != "" {
+	if err := s.db.Table(ctx, "script_libraries").Select("content").Where("id = ?", templateID).Scan(&sl).Error; err == nil && sl.Content != "" {
 		return sl.Content, nil
 	}
 	return "", fmt.Errorf("template %s not found", templateID)
@@ -846,17 +846,17 @@ func (s *ReachPipelineService) loadTemplateContent(templateID string) (string, e
 // 复用 prepareContent 的渲染结果（已注入客户/账号/渠道变量），仅做轻量增强：
 //  1. trim 首尾空白 + 折叠连续换行
 //  2. 在末尾追加渠道后缀（仅当 payload.include_channel_footer=true，避免营销文案被破坏）
-func (s *ReachPipelineService) generateMessage(job *model.ReachJob) (string, error) {
+func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.ReachJob) (string, error) {
 	if job == nil {
 		return "", fmt.Errorf("job is nil")
 	}
-	base, err := s.prepareContent(job)
+	base, err := s.prepareContent(ctx, job)
 	if err != nil {
 		return "", err
 	}
 	// 轻量清理
 	cleaned := strings.TrimSpace(base)
-	cleaned = strings.Join(strings.Fields(cleaned), " ") // 折叠空白
+	cleaned = strings.Join(strings.Fields(cleaned), " ")	// 折叠空白
 	// 渠道后缀（仅在显式开启时追加）
 	if v, ok := job.Payload["include_channel_footer"]; ok {
 		if b, _ := v.(bool); b && job.Channel != "" {
@@ -897,9 +897,9 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 		id = id[:50]
 	}
 	implemented := map[string]bool{
-		"wecom": true, "feishu": true, "telegram": true, "whatsapp": true,
-		"sms": true, "email": true, "card": true, "dingtalk": true,
-		"douyin": false, "kuaishou": false, "xiaohongshu": false, // V3 待接入
+		"wecom":	true, "feishu": true, "telegram": true, "whatsapp": true,
+		"sms":	true, "email": true, "card": true, "dingtalk": true,
+		"douyin":	false, "kuaishou": false, "xiaohongshu": false,	// V3 待接入
 	}
 	if !implemented[job.Channel] {
 		return "", fmt.Errorf("channel %s 暂未实现主动出站（V3 待接入）", job.Channel)
@@ -909,9 +909,9 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 		job.Payload = model.JSONMap{}
 	}
 	job.Payload["_last_send"] = map[string]any{
-		"message_id": id,
-		"channel":    job.Channel,
-		"sent_at":    time.Now().Format(time.RFC3339),
+		"message_id":	id,
+		"channel":	job.Channel,
+		"sent_at":	time.Now().Format(time.RFC3339),
 	}
 	return id, nil
 }
@@ -920,7 +920,7 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 //
 // 从 job.Payload["_last_send"] 读取 StepSend 写入的 message_id / channel，
 // 然后合并到 job.Payload["_tracking"]。本步不依赖额外表，避免引入新迁移。
-func (s *ReachPipelineService) trackSendResult(job *model.ReachJob, _ StepResult) error {
+func (s *ReachPipelineService) trackSendResult(ctx context.Context, job *model.ReachJob, _ StepResult) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -959,7 +959,7 @@ func (s *ReachPipelineService) trackSendResult(job *model.ReachJob, _ StepResult
 //   - message_id / channel：从 _tracking 取
 //
 // 同时更新 ReachPipeline.TotalSuccess / TotalFailure 计数（生产路径上的真实更新）。
-func (s *ReachPipelineService) aggregateReport(job *model.ReachJob) (map[string]any, error) {
+func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.ReachJob) (map[string]any, error) {
 	if job == nil {
 		return nil, fmt.Errorf("job is nil")
 	}
@@ -970,14 +970,14 @@ func (s *ReachPipelineService) aggregateReport(job *model.ReachJob) (map[string]
 		}
 	}
 	report := map[string]any{
-		"job_id":            job.ID,
-		"pipeline_id":       job.PipelineID,
-		"channel":           job.Channel,
-		"customer_id":       job.CustomerID,
-		"total_steps":       len(results),
-		"success_steps":     0,
-		"failed_steps":      0,
-		"total_duration_ms": 0,
+		"job_id":		job.ID,
+		"pipeline_id":		job.PipelineID,
+		"channel":		job.Channel,
+		"customer_id":		job.CustomerID,
+		"total_steps":		len(results),
+		"success_steps":	0,
+		"failed_steps":		0,
+		"total_duration_ms":	0,
 	}
 	success, failed, totalDur, maxStep, maxDur := 0, 0, 0, "", 0
 	for _, r := range results {
@@ -1012,10 +1012,10 @@ func (s *ReachPipelineService) aggregateReport(job *model.ReachJob) (map[string]
 	// 真实更新 Pipeline 计数器
 	if s.db != nil && job.PipelineID > 0 {
 		if success > 0 && failed == 0 {
-			s.db.Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
+			s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", job.PipelineID).
 				Update("total_success", gorm.Expr("total_success + ?", 1))
 		} else if failed > 0 {
-			s.db.Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
+			s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", job.PipelineID).
 				Update("total_failure", gorm.Expr("total_failure + ?", 1))
 		}
 	}
@@ -1035,12 +1035,12 @@ func renderReachTemplate(template string, job *model.ReachJob) string {
 		return template
 	}
 	autoVars := map[string]string{
-		"customer_id": job.CustomerID,
-		"account_id":  job.AccountID,
-		"channel":     job.Channel,
-		"date":        time.Now().Format("2006-01-02"),
-		"time":        time.Now().Format("15:04:05"),
-		"datetime":    time.Now().Format("2006-01-02 15:04:05"),
+		"customer_id":	job.CustomerID,
+		"account_id":	job.AccountID,
+		"channel":	job.Channel,
+		"date":		time.Now().Format("2006-01-02"),
+		"time":		time.Now().Format("15:04:05"),
+		"datetime":	time.Now().Format("2006-01-02 15:04:05"),
 	}
 	var b strings.Builder
 	b.Grow(len(template))
@@ -1078,7 +1078,7 @@ func renderReachTemplate(template string, job *model.ReachJob) string {
 }
 
 // appendStepResult 追加单步结果
-func (s *ReachPipelineService) appendStepResult(job *model.ReachJob, res StepResult) {
+func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.ReachJob, res StepResult) {
 	results := []StepResult{}
 	if job.StepResults != nil {
 		if err := json.Unmarshal(mustJSON(job.StepResults), &results); err != nil {
@@ -1088,20 +1088,20 @@ func (s *ReachPipelineService) appendStepResult(job *model.ReachJob, res StepRes
 	results = append(results, res)
 	data, _ := json.Marshal(results)
 	job.StepResults = toJSONArray(data)
-	s.db.Save(job)
+	s.db.Save(ctx, job)
 }
 
 // checkRateLimit 检查限流
-func (s *ReachPipelineService) checkRateLimit(channel, accountID, customerID string, rl *RateLimitConfig) bool {
+func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, accountID, customerID string, rl *RateLimitConfig) bool {
 	// 每日配额
 	if rl.DailyQuota > 0 {
-		if !s.checkDailyQuota(channel, rl.DailyQuota) {
+		if !s.checkDailyQuota(ctx, channel, rl.DailyQuota) {
 			return false
 		}
 	}
 	// 单用户频次
 	if rl.PerUserLimit > 0 && customerID != "" {
-		if !s.checkPerUser(customerID, rl.PerUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
+		if !s.checkPerUser(ctx, customerID, rl.PerUserLimit, time.Duration(rl.CooldownSecs)*time.Second) {
 			return false
 		}
 	}
@@ -1113,10 +1113,10 @@ func (s *ReachPipelineService) checkRateLimit(channel, accountID, customerID str
 		b, ok := s.rateState[key]
 		if !ok {
 			b = &rateBucket{
-				tokens:   float64(rl.Burst),
-				lastFill: time.Now(),
-				burst:    rl.Burst,
-				qps:      rl.QPS,
+				tokens:		float64(rl.Burst),
+				lastFill:	time.Now(),
+				burst:		rl.Burst,
+				qps:		rl.QPS,
 			}
 			s.rateState[key] = b
 		}
@@ -1136,12 +1136,12 @@ func (s *ReachPipelineService) checkRateLimit(channel, accountID, customerID str
 }
 
 // ConsumeDailyQuota 手动消耗每日配额
-func (s *ReachPipelineService) ConsumeDailyQuota(channel string) bool {
-	return s.consumeDailyQuota(channel, 1)
+func (s *ReachPipelineService) ConsumeDailyQuota(ctx context.Context, channel string) bool {
+	return s.consumeDailyQuota(ctx, channel, 1)
 }
 
 // checkDailyQuota 检查并消耗每日配额
-func (s *ReachPipelineService) checkDailyQuota(channel string, quota int) bool {
+func (s *ReachPipelineService) checkDailyQuota(ctx context.Context, channel string, quota int) bool {
 	key := channel
 	today := time.Now().Format("2006-01-02")
 	s.dailyQuotaMu.Lock()
@@ -1159,7 +1159,7 @@ func (s *ReachPipelineService) checkDailyQuota(channel string, quota int) bool {
 }
 
 // consumeDailyQuota 消耗每日配额
-func (s *ReachPipelineService) consumeDailyQuota(channel string, n int) bool {
+func (s *ReachPipelineService) consumeDailyQuota(ctx context.Context, channel string, n int) bool {
 	key := channel
 	today := time.Now().Format("2006-01-02")
 	s.dailyQuotaMu.Lock()
@@ -1174,7 +1174,7 @@ func (s *ReachPipelineService) consumeDailyQuota(channel string, n int) bool {
 }
 
 // checkPerUser 检查单用户频次
-func (s *ReachPipelineService) checkPerUser(customerID string, limit int, cooldown time.Duration) bool {
+func (s *ReachPipelineService) checkPerUser(ctx context.Context, customerID string, limit int, cooldown time.Duration) bool {
 	now := time.Now()
 	s.perUserMu.Lock()
 	defer s.perUserMu.Unlock()
@@ -1197,7 +1197,7 @@ func (s *ReachPipelineService) checkPerUser(customerID string, limit int, cooldo
 }
 
 // ResetRateLimit 重置限流状态（用于测试或运维）
-func (s *ReachPipelineService) ResetRateLimit(channel string) {
+func (s *ReachPipelineService) ResetRateLimit(ctx context.Context, channel string) {
 	prefix := channel
 	s.rateMu.Lock()
 	for k := range s.rateState {
@@ -1212,7 +1212,7 @@ func (s *ReachPipelineService) ResetRateLimit(channel string) {
 }
 
 // validateSteps 校验步骤列表
-func (s *ReachPipelineService) validateSteps(steps []string) error {
+func (s *ReachPipelineService) validateSteps(ctx context.Context, steps []string) error {
 	if len(steps) == 0 {
 		return ErrReachInvalidSteps
 	}
@@ -1258,16 +1258,16 @@ func computeNextRunTime(rp RetryPolicy, retryCount int) time.Time {
 // Stats 统计
 func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats := map[string]int64{
-		"total":        0,
-		"active":       0,
-		"paused":       0,
-		"jobs":         0,
-		"pending":      0,
-		"running":      0,
-		"success":      0,
-		"failed":       0,
-		"rate_limited": 0,
-		"canceled":     0,
+		"total":	0,
+		"active":	0,
+		"paused":	0,
+		"jobs":		0,
+		"pending":	0,
+		"running":	0,
+		"success":	0,
+		"failed":	0,
+		"rate_limited":	0,
+		"canceled":	0,
 	}
 	if s.db == nil {
 		return stats, nil
@@ -1275,13 +1275,13 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 	// Pipeline 统计
 	var totalPipes, activePipes, pausedPipes int64
-	if err := s.db.Model(&model.ReachPipeline{}).Count(&totalPipes).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachPipeline{}).Count(&totalPipes).Error; err != nil {
 		return nil, fmt.Errorf("count pipelines: %w", err)
 	}
-	if err := s.db.Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusActive).Count(&activePipes).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachPipeline{}).Where("status = ?", PipelineStatusActive).Count(&activePipes).Error; err != nil {
 		return nil, fmt.Errorf("count active pipelines: %w", err)
 	}
-	if err := s.db.Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusPaused).Count(&pausedPipes).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachPipeline{}).Where("status = ?", PipelineStatusPaused).Count(&pausedPipes).Error; err != nil {
 		return nil, fmt.Errorf("count paused pipelines: %w", err)
 	}
 	stats["total"] = totalPipes
@@ -1290,25 +1290,25 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 	// Job 统计
 	var totalJobs, pendingJobs, runningJobs, successJobs, failedJobs, rateLimitedJobs, canceledJobs int64
-	if err := s.db.Model(&model.ReachJob{}).Count(&totalJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Count(&totalJobs).Error; err != nil {
 		return nil, fmt.Errorf("count jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStatePending).Count(&pendingJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStatePending).Count(&pendingJobs).Error; err != nil {
 		return nil, fmt.Errorf("count pending jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStateRunning).Count(&runningJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateRunning).Count(&runningJobs).Error; err != nil {
 		return nil, fmt.Errorf("count running jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStateSuccess).Count(&successJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateSuccess).Count(&successJobs).Error; err != nil {
 		return nil, fmt.Errorf("count success jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStateFailed).Count(&failedJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateFailed).Count(&failedJobs).Error; err != nil {
 		return nil, fmt.Errorf("count failed jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStateRateLimited).Count(&rateLimitedJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateRateLimited).Count(&rateLimitedJobs).Error; err != nil {
 		return nil, fmt.Errorf("count rate_limited jobs: %w", err)
 	}
-	if err := s.db.Model(&model.ReachJob{}).Where("state = ?", JobStateCanceled).Count(&canceledJobs).Error; err != nil {
+	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateCanceled).Count(&canceledJobs).Error; err != nil {
 		return nil, fmt.Errorf("count canceled jobs: %w", err)
 	}
 	stats["jobs"] = totalJobs
@@ -1323,8 +1323,8 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 // ===== 全局实例 =====
 var (
-	reachOnce     sync.Once
-	reachInstance *ReachPipelineService
+	reachOnce	sync.Once
+	reachInstance	*ReachPipelineService
 )
 
 func GetReachPipelineService() *ReachPipelineService {

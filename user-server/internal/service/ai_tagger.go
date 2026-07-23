@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"regexp"
 	"strings"
 	"sync"
@@ -47,7 +48,7 @@ func NewAITagger() *AITagger {
 }
 
 // TagFromSalesResponse 从 AI 谈单响应中自动提取标签
-func (t *AITagger) TagFromSalesResponse(customerID string, resp *SalesResponse) []TagInfo {
+func (t *AITagger) TagFromSalesResponse(ctx context.Context, customerID string, resp *SalesResponse)  []TagInfo {
 	if resp == nil {
 		return nil
 	}
@@ -117,13 +118,13 @@ func (t *AITagger) TagFromSalesResponse(customerID string, resp *SalesResponse) 
 
 	// 5. 落地标签
 	for _, tag := range tags {
-		t.applyTag(customerID, tag)
+		t.applyTag(ctx, customerID, tag)
 	}
 	return tags
 }
 
 // applyTag 应用标签
-func (t *AITagger) applyTag(customerID string, tag TagInfo) {
+func (t *AITagger) applyTag(ctx context.Context, customerID string, tag TagInfo)  {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if _, ok := t.customerTags[customerID]; !ok {
@@ -139,7 +140,7 @@ func (t *AITagger) applyTag(customerID string, tag TagInfo) {
 }
 
 // GetTags 获取客户所有标签
-func (t *AITagger) GetTags(customerID string) []TagInfo {
+func (t *AITagger) GetTags(ctx context.Context, customerID string)  []TagInfo {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	tags := make([]TagInfo, 0)
@@ -152,8 +153,8 @@ func (t *AITagger) GetTags(customerID string) []TagInfo {
 }
 
 // GetByCategory 按类别获取标签
-func (t *AITagger) GetByCategory(customerID, category string) []TagInfo {
-	all := t.GetTags(customerID)
+func (t *AITagger) GetByCategory(ctx context.Context, customerID, category string) []TagInfo {
+	all := t.GetTags(ctx, customerID)
 	result := make([]TagInfo, 0)
 	for _, tag := range all {
 		if tag.Category == category {
@@ -223,7 +224,7 @@ func NewOrderIntentExtractor() *OrderIntentExtractor {
 }
 
 // ExtractFromText 从对话文本中提取订单意向
-func (e *OrderIntentExtractor) ExtractFromText(customerID, text string) []OrderIntent {
+func (e *OrderIntentExtractor) ExtractFromText(ctx context.Context, customerID, text string)  []OrderIntent {
 	intents := make([]OrderIntent, 0)
 	if text == "" {
 		return intents
@@ -279,7 +280,7 @@ func (e *OrderIntentExtractor) ExtractFromText(customerID, text string) []OrderI
 }
 
 // ExtractFromSalesResponse 从 AI 谈单响应提取订单意向
-func (e *OrderIntentExtractor) ExtractFromSalesResponse(customerID string, resp *SalesResponse) []OrderIntent {
+func (e *OrderIntentExtractor) ExtractFromSalesResponse(ctx context.Context, customerID string, resp *SalesResponse)  []OrderIntent {
 	if resp == nil {
 		return nil
 	}
@@ -291,7 +292,7 @@ func (e *OrderIntentExtractor) ExtractFromSalesResponse(customerID string, resp 
 	for _, chunk := range resp.RAGChunks {
 		text += " " + chunk.Content
 	}
-	return e.ExtractFromText(customerID, text)
+	return e.ExtractFromText(ctx, customerID, text)
 }
 
 // categorizeProduct 分类产品

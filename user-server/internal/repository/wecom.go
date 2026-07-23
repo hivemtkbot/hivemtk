@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -21,37 +22,37 @@ func NewWeComAccountRepository() *WeComAccountRepository {
 }
 
 // SetDB 注入 db（用于测试）
-func (r *WeComAccountRepository) SetDB(db *gorm.DB) {
+func (r *WeComAccountRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}
 }
 
 // Create 创建账号
-func (r *WeComAccountRepository) Create(account *model.WeComAccount) error {
+func (r *WeComAccountRepository) Create(ctx context.Context, account *model.WeComAccount) error {
 	return r.db.Create(account).Error
 }
 
 // GetByID 根据 ID 获取账号
-func (r *WeComAccountRepository) GetByID(id uint) (*model.WeComAccount, error) {
+func (r *WeComAccountRepository) GetByID(ctx context.Context, id uint) (*model.WeComAccount, error) {
 	var account model.WeComAccount
 	err := r.db.First(&account, id).Error
 	return &account, err
 }
 
-func (r *WeComAccountRepository) GetByMerchant() ([]*model.WeComAccount, error) {
+func (r *WeComAccountRepository) GetByMerchant(ctx context.Context) ([]*model.WeComAccount, error) {
 	var accounts []*model.WeComAccount
 	err := r.db.Find(&accounts).Error
 	return accounts, err
 }
 
 // Update 更新账号
-func (r *WeComAccountRepository) Update(account *model.WeComAccount) error {
+func (r *WeComAccountRepository) Update(ctx context.Context, account *model.WeComAccount) error {
 	return r.db.Save(account).Error
 }
 
 // UpdateToken 更新访问令牌
-func (r *WeComAccountRepository) UpdateToken(id uint, token string, expires time.Time) error {
+func (r *WeComAccountRepository) UpdateToken(ctx context.Context, id uint, token string, expires time.Time) error {
 	return r.db.Model(&model.WeComAccount{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"access_token":  token,
@@ -60,12 +61,12 @@ func (r *WeComAccountRepository) UpdateToken(id uint, token string, expires time
 }
 
 // Delete 删除账号
-func (r *WeComAccountRepository) Delete(id uint) error {
+func (r *WeComAccountRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComAccount{}, id).Error
 }
 
 // UpdateSyncTime 更新同步时间
-func (r *WeComAccountRepository) UpdateSyncTime(id uint) error {
+func (r *WeComAccountRepository) UpdateSyncTime(ctx context.Context, id uint) error {
 	now := make(map[string]any)
 	now["last_sync_at"] = gorm.Expr("NOW()")
 	return r.db.Model(&model.WeComAccount{}).Where("id = ?", id).Updates(now).Error
@@ -84,25 +85,25 @@ func NewWeComCustomerRepository() *WeComCustomerRepository {
 }
 
 // Create 创建客户
-func (r *WeComCustomerRepository) Create(customer *model.WeComCustomer) error {
+func (r *WeComCustomerRepository) Create(ctx context.Context, customer *model.WeComCustomer) error {
 	return r.db.Create(customer).Error
 }
 
 // GetByID 根据 ID 获取客户
-func (r *WeComCustomerRepository) GetByID(id uint) (*model.WeComCustomer, error) {
+func (r *WeComCustomerRepository) GetByID(ctx context.Context, id uint) (*model.WeComCustomer, error) {
 	var customer model.WeComCustomer
 	err := r.db.First(&customer, id).Error
 	return &customer, err
 }
 
 // GetByExternalUserID 根据外部用户 ID 获取客户（独立部署：单租户）
-func (r *WeComCustomerRepository) GetByExternalUserID(externalUserID string) (*model.WeComCustomer, error) {
+func (r *WeComCustomerRepository) GetByExternalUserID(ctx context.Context, externalUserID string) (*model.WeComCustomer, error) {
 	var customer model.WeComCustomer
 	err := r.db.Where("external_user_id = ?", externalUserID).First(&customer).Error
 	return &customer, err
 }
 
-func (r *WeComCustomerRepository) GetByMerchant(page, pageSize int) ([]*model.WeComCustomer, int64, error) {
+func (r *WeComCustomerRepository) GetByMerchant(ctx context.Context, page, pageSize int) ([]*model.WeComCustomer, int64, error) {
 	var customers []*model.WeComCustomer
 	var total int64
 
@@ -117,17 +118,17 @@ func (r *WeComCustomerRepository) GetByMerchant(page, pageSize int) ([]*model.We
 }
 
 // Update 更新客户
-func (r *WeComCustomerRepository) Update(customer *model.WeComCustomer) error {
+func (r *WeComCustomerRepository) Update(ctx context.Context, customer *model.WeComCustomer) error {
 	return r.db.Save(customer).Error
 }
 
 // Delete 删除客户
-func (r *WeComCustomerRepository) Delete(id uint) error {
+func (r *WeComCustomerRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComCustomer{}, id).Error
 }
 
 // GetByEmployeeID 根据员工 ID 获取客户列表（独立部署：单租户）
-func (r *WeComCustomerRepository) GetByEmployeeID(employeeID string, page, pageSize int) ([]*model.WeComCustomer, int64, error) {
+func (r *WeComCustomerRepository) GetByEmployeeID(ctx context.Context, employeeID string, page, pageSize int) ([]*model.WeComCustomer, int64, error) {
 	var customers []*model.WeComCustomer
 	var total int64
 
@@ -154,25 +155,25 @@ func NewWeComGroupRepository() *WeComGroupRepository {
 }
 
 // Create 创建群
-func (r *WeComGroupRepository) Create(group *model.WeComGroup) error {
+func (r *WeComGroupRepository) Create(ctx context.Context, group *model.WeComGroup) error {
 	return r.db.Create(group).Error
 }
 
 // GetByID 根据 ID 获取群
-func (r *WeComGroupRepository) GetByID(id uint) (*model.WeComGroup, error) {
+func (r *WeComGroupRepository) GetByID(ctx context.Context, id uint) (*model.WeComGroup, error) {
 	var group model.WeComGroup
 	err := r.db.First(&group, id).Error
 	return &group, err
 }
 
 // GetByChatID 根据群 ID 获取群（独立部署：单租户）
-func (r *WeComGroupRepository) GetByChatID(chatID string) (*model.WeComGroup, error) {
+func (r *WeComGroupRepository) GetByChatID(ctx context.Context, chatID string) (*model.WeComGroup, error) {
 	var group model.WeComGroup
 	err := r.db.Where("chat_id = ?", chatID).First(&group).Error
 	return &group, err
 }
 
-func (r *WeComGroupRepository) GetByMerchant(page, pageSize int) ([]*model.WeComGroup, int64, error) {
+func (r *WeComGroupRepository) GetByMerchant(ctx context.Context, page, pageSize int) ([]*model.WeComGroup, int64, error) {
 	var groups []*model.WeComGroup
 	var total int64
 
@@ -187,17 +188,17 @@ func (r *WeComGroupRepository) GetByMerchant(page, pageSize int) ([]*model.WeCom
 }
 
 // Update 更新群
-func (r *WeComGroupRepository) Update(group *model.WeComGroup) error {
+func (r *WeComGroupRepository) Update(ctx context.Context, group *model.WeComGroup) error {
 	return r.db.Save(group).Error
 }
 
 // Delete 删除群
-func (r *WeComGroupRepository) Delete(id uint) error {
+func (r *WeComGroupRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComGroup{}, id).Error
 }
 
 // UpdateMemberCount 更新成员数量
-func (r *WeComGroupRepository) UpdateMemberCount(chatID string, count int) error {
+func (r *WeComGroupRepository) UpdateMemberCount(ctx context.Context, chatID string, count int) error {
 	return r.db.Model(&model.WeComGroup{}).Where("chat_id = ?", chatID).Update("member_count", count).Error
 }
 
@@ -214,12 +215,12 @@ func NewWeComGroupMemberRepository() *WeComGroupMemberRepository {
 }
 
 // Create 创建群成员
-func (r *WeComGroupMemberRepository) Create(member *model.WeComGroupMember) error {
+func (r *WeComGroupMemberRepository) Create(ctx context.Context, member *model.WeComGroupMember) error {
 	return r.db.Create(member).Error
 }
 
 // GetByGroupID 根据群 ID 获取成员列表
-func (r *WeComGroupMemberRepository) GetByGroupID(groupID uint, page, pageSize int) ([]*model.WeComGroupMember, int64, error) {
+func (r *WeComGroupMemberRepository) GetByGroupID(ctx context.Context, groupID uint, page, pageSize int) ([]*model.WeComGroupMember, int64, error) {
 	var members []*model.WeComGroupMember
 	var total int64
 
@@ -234,12 +235,12 @@ func (r *WeComGroupMemberRepository) GetByGroupID(groupID uint, page, pageSize i
 }
 
 // Delete 删除群成员
-func (r *WeComGroupMemberRepository) Delete(id uint) error {
+func (r *WeComGroupMemberRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComGroupMember{}, id).Error
 }
 
 // DeleteByGroupID 删除群下所有成员
-func (r *WeComGroupMemberRepository) DeleteByGroupID(groupID uint) error {
+func (r *WeComGroupMemberRepository) DeleteByGroupID(ctx context.Context, groupID uint) error {
 	return r.db.Where("group_id = ?", groupID).Delete(&model.WeComGroupMember{}).Error
 }
 
@@ -256,18 +257,18 @@ func NewWeComMessageRepository() *WeComMessageRepository {
 }
 
 // Create 创建消息
-func (r *WeComMessageRepository) Create(message *model.WeComMessage) error {
+func (r *WeComMessageRepository) Create(ctx context.Context, message *model.WeComMessage) error {
 	return r.db.Create(message).Error
 }
 
 // GetByID 根据 ID 获取消息
-func (r *WeComMessageRepository) GetByID(id uint) (*model.WeComMessage, error) {
+func (r *WeComMessageRepository) GetByID(ctx context.Context, id uint) (*model.WeComMessage, error) {
 	var message model.WeComMessage
 	err := r.db.First(&message, id).Error
 	return &message, err
 }
 
-func (r *WeComMessageRepository) GetByMerchant(page, pageSize int) ([]*model.WeComMessage, int64, error) {
+func (r *WeComMessageRepository) GetByMerchant(ctx context.Context, page, pageSize int) ([]*model.WeComMessage, int64, error) {
 	var messages []*model.WeComMessage
 	var total int64
 
@@ -282,7 +283,7 @@ func (r *WeComMessageRepository) GetByMerchant(page, pageSize int) ([]*model.WeC
 }
 
 // UpdateStatus 更新消息状态
-func (r *WeComMessageRepository) UpdateStatus(id uint, status int, sendTime time.Time, errorMsg string) error {
+func (r *WeComMessageRepository) UpdateStatus(ctx context.Context, id uint, status int, sendTime time.Time, errorMsg string) error {
 	updates := map[string]any{
 		"status": status,
 	}
@@ -308,22 +309,22 @@ func NewWeComTagRepository(db *gorm.DB) *WeComTagRepository {
 }
 
 // Create 创建标签
-func (r *WeComTagRepository) Create(tag *model.WeComTag) error {
+func (r *WeComTagRepository) Create(ctx context.Context, tag *model.WeComTag) error {
 	return r.db.Create(tag).Error
 }
 
-func (r *WeComTagRepository) GetByMerchant() ([]*model.WeComTag, error) {
+func (r *WeComTagRepository) GetByMerchant(ctx context.Context) ([]*model.WeComTag, error) {
 	var tags []*model.WeComTag
 	err := r.db.Find(&tags).Error
 	return tags, err
 }
 
 // Update 更新标签
-func (r *WeComTagRepository) Update(tag *model.WeComTag) error {
+func (r *WeComTagRepository) Update(ctx context.Context, tag *model.WeComTag) error {
 	return r.db.Save(tag).Error
 }
 
 // Delete 删除标签
-func (r *WeComTagRepository) Delete(id uint) error {
+func (r *WeComTagRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComTag{}, id).Error
 }

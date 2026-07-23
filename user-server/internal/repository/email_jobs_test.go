@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -62,7 +63,7 @@ func TestEmailJobsRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.job)
+			err := repo.Create(context.Background(), tt.job)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -89,7 +90,7 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 		FailTotal:    2,
 		ReadTotal:    5,
 	}
-	repo.Create(job)
+	repo.Create(context.Background(), job)
 
 	tests := []struct {
 		name    string
@@ -110,7 +111,7 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -131,7 +132,7 @@ func TestEmailJobsRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 15; i++ {
-		repo.Create(&model.EmailJobs{
+		repo.Create(context.Background(), &model.EmailJobs{
 			Subject:      "Email Job " + string(rune('A'+i-1)),
 			EmailTotal:   int64(i * 10),
 			SuccessTotal: int64(i * 8),
@@ -179,7 +180,7 @@ func TestEmailJobsRepository_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.List(tt.page, tt.pageSize)
+			results, total, err := repo.List(context.Background(), tt.page, tt.pageSize)
 
 			if err != nil {
 				t.Errorf("List() error = %v", err)
@@ -208,7 +209,7 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	repo.Create(job)
+	repo.Create(context.Background(), job)
 
 	// 更新进度
 	job.SendTotal = 50
@@ -216,12 +217,12 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 	job.FailTotal = 5
 	job.ReadTotal = 20
 
-	err := repo.Update(job)
+	err := repo.Update(context.Background(), job)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(job.ID)
+	updated, _ := repo.GetByID(context.Background(), job.ID)
 	if updated.SendTotal != 50 {
 		t.Errorf("Expected SendTotal 50, got %d", updated.SendTotal)
 	}
@@ -248,14 +249,14 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	repo.Create(job)
+	repo.Create(context.Background(), job)
 
-	err := repo.Delete(job.ID)
+	err := repo.Delete(context.Background(), job.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(job.ID)
+	_, err = repo.GetByID(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected job to be deleted")
 	}
@@ -265,7 +266,7 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 func TestEmailJobsRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupEmailJobsRepository(t)
 
-	_, err := repo.GetByID(uuid.New())
+	_, err := repo.GetByID(context.Background(), uuid.New())
 	if err == nil {
 		t.Error("Expected error when getting non-existing job")
 	}
@@ -275,7 +276,7 @@ func TestEmailJobsRepository_GetByID_NotFound(t *testing.T) {
 func TestEmailJobsRepository_List_EmptyResult(t *testing.T) {
 	repo := setupEmailJobsRepository(t)
 
-	results, total, err := repo.List(1, 10)
+	results, total, err := repo.List(context.Background(), 1, 10)
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -302,12 +303,12 @@ func TestEmailJobsRepository_Create_WithStats(t *testing.T) {
 		ReadTotal:    600,
 	}
 
-	err := repo.Create(job)
+	err := repo.Create(context.Background(), job)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	result, _ := repo.GetByID(job.ID)
+	result, _ := repo.GetByID(context.Background(), job.ID)
 	if result.EmailTotal != 1000 {
 		t.Errorf("Expected EmailTotal 1000, got %d", result.EmailTotal)
 	}

@@ -107,7 +107,6 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
 	engine.SetFeedbackLearner(fl)
 
-	ctx := context.Background()
 	customer := "cust_accumulation"
 	sessionID := "wecom:chat_001"
 

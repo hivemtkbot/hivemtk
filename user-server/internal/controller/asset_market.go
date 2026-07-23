@@ -8,10 +8,7 @@ import (
 	"strconv"
 
 	bizerr "marketing/internal/domain/errors"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
-	"marketing/internal/platform"
-	"marketing/internal/repository"
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -23,23 +20,19 @@ type AssetMarketController struct {
 	marketSvc *service.AssetMarketService
 }
 
-// NewAssetMarketController 构造
-func NewAssetMarketController() *AssetMarketController {
-	gdb := db.GetDB()
-	ar := repository.NewLocalAssetRepository(gdb)
-	dr := repository.NewLocalAssetDataRepository(gdb)
-	sr := repository.NewLocalAssetSyncLogRepository(gdb)
-	pc := platform.NewPlatformAPIClient()
+// NewAssetMarketController 构造（service 由 router 注入）
+func NewAssetMarketController(localSvc *service.LocalAssetService, marketSvc *service.AssetMarketService) *AssetMarketController {
 	return &AssetMarketController{
-		localSvc:  service.NewLocalAssetService(ar, dr, sr, pc, gdb),
-		marketSvc: service.NewAssetMarketService(pc),
+		localSvc:  localSvc,
+		marketSvc: marketSvc,
 	}
 }
 
 func assetFail(c *gin.Context, err error) {
 	var be *bizerr.BizError
 	if errors.As(err, &be) {
-		c.JSON(http.StatusOK, gin.H{"code": be.Code, "message": be.Message})
+		// 使用 response.Error 保留自定义错误码（通过 ErrorCode 字段）
+		response.Error(c, be.Code, be.Message)
 		return
 	}
 	response.Error(c, http.StatusInternalServerError, err.Error())
@@ -108,7 +101,7 @@ func (h *AssetMarketController) Sync(c *gin.Context) {
 func (h *AssetMarketController) ListLocal(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
-	list, total, err := h.localSvc.List(c.Request.Context(), repository.LocalAssetFilter{
+	list, total, err := h.localSvc.List(c.Request.Context(), service.LocalAssetFilter{
 		AssetType: c.Query("asset_type"),
 		Industry:  c.Query("industry"),
 		Source:    c.Query("source"),

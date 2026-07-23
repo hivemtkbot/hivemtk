@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -17,9 +16,9 @@ type WeComController struct {
 }
 
 // NewWeComController 创建企业微信控制器实例
-func NewWeComController() *WeComController {
+func NewWeComController(wecomService *service.WeComService) *WeComController {
 	return &WeComController{
-		wecomService: service.NewWeComService(db.GetDB()),
+		wecomService: wecomService,
 	}
 }
 

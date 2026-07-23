@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -17,8 +16,7 @@ type NotificationController struct {
 }
 
 // NewNotificationController 构造控制器
-func NewNotificationController(db *gorm.DB) *NotificationController {
-	svc := service.NewNotificationService(db)
+func NewNotificationController(svc *service.NotificationService) *NotificationController {
 	// 启动时种子数据（保证通知中心有内容可看）
 	_ = svc.SeedIfEmpty()
 	return &NotificationController{svc: svc}

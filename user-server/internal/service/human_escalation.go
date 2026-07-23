@@ -97,7 +97,7 @@ func NewHumanEscalationManager(c cache.Cache) *HumanEscalationManager {
 }
 
 // SetNotifier 自定义通知实现（如 Kafka / RocketMQ）
-func (h *HumanEscalationManager) SetNotifier(n Notifier) {
+func (h *HumanEscalationManager) SetNotifier(ctx context.Context, n Notifier)  {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.notifier = n
@@ -213,7 +213,7 @@ func (h *HumanEscalationManager) ReleaseHumanLock(ctx context.Context, sessionID
 }
 
 // GetStats 获取统计
-func (h *HumanEscalationManager) GetStats() EscalationStats {
+func (h *HumanEscalationManager) GetStats(ctx context.Context)  EscalationStats {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.stats

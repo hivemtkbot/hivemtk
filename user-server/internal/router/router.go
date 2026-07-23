@@ -86,9 +86,9 @@ func Setup(r *gin.Engine) {
 
 	engine := buildSalesEngine(db.GetDB())
 	orchestrator := buildSmartOrchestrator(engine)
-	aiAgentSvcGlobal := service.NewAIAgentService(db.GetDB())
-	channelBindingSvcGlobal := service.NewChannelAgentBindingService(db.GetDB(), aiAgentSvcGlobal)
-	csAgentSvcGlobal := service.NewCustomerServiceAgentService(db.GetDB(), aiAgentSvcGlobal)
+	aiAgentSvcGlobal := service.NewAIAgentService()
+	channelBindingSvcGlobal := service.NewChannelAgentBindingService()
+	csAgentSvcGlobal := service.NewCustomerServiceAgentService()
 	// 注入到 SmartCSOrchestrator（客服座席挂载智能体路由）
 	orchestrator.SetCustomerServiceAgentService(csAgentSvcGlobal)
 
@@ -335,7 +335,7 @@ func Setup(r *gin.Engine) {
 	}
 
 	// P0-14 多渠道 Webhook 路由（公开，不需要鉴权）
-	webhookCtrl := controller.NewWebhookController()
+	webhookCtrl := controller.NewWebhookController(service.NewWebhookService(db.GetDB()))
 	// P0-A 修复：智能体引擎 8 步链路真实依赖注入
 	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)

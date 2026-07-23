@@ -196,3 +196,90 @@ func (r *KnowledgeDocumentRepository) CountTodayImports(ctx context.Context) (in
 	}
 	return count, nil
 }
+
+// ============================================================================
+// 2026-07-23 五层架构治理（二轮）：以下方法为 service 下沉的统计 SQL
+// ============================================================================
+
+// CategoryStat 分类统计（repository 层结构体，供 docRepo.CategoryStats 返回）
+type CategoryStat struct {
+	Category string `gorm:"column:category" json:"category"`
+	Count    int64  `gorm:"column:count" json:"count"`
+}
+
+// DocHit 文档命中统计（repository 层结构体，供 docRepo.TopHitDocuments 返回）
+type DocHit struct {
+	ID          uint64 `gorm:"column:id" json:"id"`
+	Title       string `gorm:"column:title" json:"title"`
+	SearchCount int64  `gorm:"column:search_count" json:"search_count"`
+	HitCount    int64  `gorm:"column:hit_count" json:"hit_count"`
+}
+
+// SumTotalTokens 累计 token 总和
+//
+// 2026-07-23 五层架构治理（二轮）：原 service 直接
+// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Select("SUM(total_tokens)")`，
+// 违反 §3.4"service 不应持有 db"，下沉到此方法。
+// 使用 COALESCE 避免无记录时返回 NULL，productID=0 表示不按 product 过滤。
+func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, productID int64) (int64, error) {
+	var total int64
+	q := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
+		Select("COALESCE(SUM(total_tokens), 0)")
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	if err := q.Scan(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
+// CategoryStats 按 category 统计文档数量，返回前 N
+//
+// 2026-07-23 五层架构治理（二轮）：原 service 直接
+// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Group("category")`，
+// 违反 §3.4"service 不应持有 db"，下沉到此方法。
+// 过滤掉空 category（避免未分类聚合干扰 TopN），productID=0 表示不按 product 过滤。
+func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, productID int64, limit int) ([]CategoryStat, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	var results []CategoryStat
+	q := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
+		Select("category, COUNT(*) as count").
+		Where("category IS NOT NULL AND category != ''").
+		Group("category").
+		Order("count DESC").
+		Limit(limit)
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	if err := q.Scan(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// TopHitDocuments 命中次数最多的文档（Top N）
+//
+// 2026-07-23 五层架构治理（二轮）：原 service 直接
+// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Order("hit_count DESC")`，
+// 违反 §3.4"service 不应持有 db"，下沉到此方法。
+// productID=0 表示不按 product 过滤。
+func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, productID int64, limit int) ([]DocHit, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var results []DocHit
+	q := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
+		Select("id, title, search_count, hit_count").
+		Order("hit_count DESC, id DESC").
+		Limit(limit)
+	if productID > 0 {
+		q = q.Where("product_id = ?", productID)
+	}
+	if err := q.Scan(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}

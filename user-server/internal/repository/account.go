@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 
@@ -10,13 +11,13 @@ import (
 )
 
 type AccountRepository interface {
-	Create(account *model.Account) error
-	GetByID(id string) (*model.Account, error)
-	GetAccountList() ([]*model.Account, error)
-	Update(account *model.Account) error
-	UpdateAccountStatusById(id string, status _type.AccountStatusType, msg string) error
-	UpdateAccountTgNameById(id string, TgName string) error
-	Delete(id string) error
+	Create(ctx context.Context, account *model.Account) error
+	GetByID(ctx context.Context, id string) (*model.Account, error)
+	GetAccountList(ctx context.Context) ([]*model.Account, error)
+	Update(ctx context.Context, account *model.Account) error
+	UpdateAccountStatusById(ctx context.Context, id string, status _type.AccountStatusType, msg string) error
+	UpdateAccountTgNameById(ctx context.Context, id string, TgName string) error
+	Delete(ctx context.Context, id string) error
 }
 
 type accountRepo struct {
@@ -27,31 +28,31 @@ func NewAccountRepository() AccountRepository {
 	return &accountRepo{db: _db.GetDB()}
 }
 
-func (r *accountRepo) Create(account *model.Account) error {
+func (r *accountRepo) Create(ctx context.Context, account *model.Account) error {
 	return r.db.Create(account).Error
 }
 
-func (r *accountRepo) Update(account *model.Account) error {
+func (r *accountRepo) Update(ctx context.Context, account *model.Account) error {
 	return r.db.Save(account).Error
 }
 
-func (r *accountRepo) Delete(id string) error {
+func (r *accountRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.Account{}).Error
 }
 
-func (r *accountRepo) GetByID(id string) (*model.Account, error) {
+func (r *accountRepo) GetByID(ctx context.Context, id string) (*model.Account, error) {
 	var account model.Account
 	err := r.db.First(&account, "id = ?", id).Error
 	return &account, err
 }
 
-func (r *accountRepo) GetAccountList() ([]*model.Account, error) {
+func (r *accountRepo) GetAccountList(ctx context.Context) ([]*model.Account, error) {
 	var account []*model.Account
 	err := r.db.Find(&account).Error
 	return account, err
 }
 
-func (r *accountRepo) UpdateAccountStatusById(id string, status _type.AccountStatusType, msg string) error {
+func (r *accountRepo) UpdateAccountStatusById(ctx context.Context, id string, status _type.AccountStatusType, msg string) error {
 	var account model.Account
 	err := r.db.First(&account, "id = ?", id).Error
 	if err != nil {
@@ -63,7 +64,7 @@ func (r *accountRepo) UpdateAccountStatusById(id string, status _type.AccountSta
 	return err
 }
 
-func (r *accountRepo) UpdateAccountTgNameById(id string, TgName string) error {
+func (r *accountRepo) UpdateAccountTgNameById(ctx context.Context, id string, TgName string) error {
 	var account model.Account
 	err := r.db.First(&account, "id = ?", id).Error
 	if err != nil {

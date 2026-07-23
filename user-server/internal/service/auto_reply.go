@@ -11,6 +11,7 @@ import (
 	"marketing/internal/aiagent/agent/browser"
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
@@ -30,36 +31,52 @@ func NewAutoReplyService(db *gorm.DB) *AutoReplyService {
 	return &AutoReplyService{
 		db:          db,
 		accountRepo: repository.NewAutoReplyAccountRepository(db),
-		ruleRepo:    repository.NewAutoReplyRuleRepository(db),
+		ruleRepo:    repository.NewAutoReplyRuleRepositoryWithDB(db),
 		logRepo:     repository.NewAutoReplyLogRepository(db),
 	}
 }
 
+// NewAutoReplyServiceAuto 创建自动回复服务（五层架构合规：仓储层统一封装 DB 获取入口）
+//
+// 用于 service 构造函数内不允许直接调 db.GetDB() 的场景
+// （例如 tiktok_auto_reply.go），仓储层内部已用 _db.GetDB() 初始化。
+func NewAutoReplyServiceAuto() *AutoReplyService {
+	return &AutoReplyService{
+		accountRepo: repository.NewAutoReplyAccountRepositoryAuto(),
+		ruleRepo:    repository.NewAutoReplyRuleRepository(),
+		logRepo:     repository.NewAutoReplyLogRepositoryAuto(),
+	}
+}
+
 // GetDB 返回底层 *gorm.DB，供 controller 过渡使用（已计划在后续 controller 重构中移除）
-func (s *AutoReplyService) GetDB() *gorm.DB {
+func (s *AutoReplyService) GetDB(ctx context.Context) *gorm.DB {
 	return s.db
 }
 
-func (s *AutoReplyService) ListAccounts(platform string, userID uint) ([]model.AutoReplyAccount, error) {
-	return s.accountRepo.ListByPlatformAndUser(platform, userID)
+func (s *AutoReplyService) ListAccounts(ctx context.Context, platform string, userID uint) ([]model.AutoReplyAccount, error) {
+	return s.accountRepo.ListByPlatformAndUser(ctx, platform, userID)
 }
 
-func (s *AutoReplyService) UpsertAccount(a *model.AutoReplyAccount) error {
-	existing, err := s.accountRepo.FindByUserAndPlatformAndUsername(a.UserID, a.Platform, a.Username)
+func (s *AutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReplyAccount) error {
+	existing, err := s.accountRepo.FindByUserAndPlatformAndUsername(ctx, a.UserID, a.Platform, a.Username)
 	if err == nil && existing != nil {
-		// 加密存储Cookie
-		if err := existing.SetCookie(a.Cookie); err != nil {
-			return err
+		// 加密存储 Cookie(避免在 model 中保留业务方法)
+		encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
+		if encErr != nil {
+			return encErr
 		}
+		existing.Cookie = encrypted
 		existing.IsActive = a.IsActive
 		existing.LoginAt = a.LoginAt
-		return s.accountRepo.Save(existing)
+		return s.accountRepo.Save(ctx, existing)
 	}
-	// 加密存储Cookie
-	if err := a.SetCookie(a.Cookie); err != nil {
-		return err
+	// 加密存储 Cookie(避免在 model 中保留业务方法)
+	encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
+	if encErr != nil {
+		return encErr
 	}
-	return s.accountRepo.Create(a)
+	a.Cookie = encrypted
+	return s.accountRepo.Create(ctx, a)
 }
 
 // SaveCookies 保存账号 Cookie
@@ -67,9 +84,9 @@ func (s *AutoReplyService) UpsertAccount(a *model.AutoReplyAccount) error {
 // 安全修复（R8）：原签名 SaveCookies(id, cookie) 缺少 userID 参数，
 // 任意已认证用户可通过 /api/autoreply/accounts/:id/cookies 覆盖任意账号 Cookie（IDOR）。
 // 现要求传入 userID 并校验 account.UserID == userID，越权访问返回 ErrAccountNotOwned。
-func (s *AutoReplyService) SaveCookies(id uint, cookie string, userID uint) error {
+func (s *AutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	// 获取现有的账号记录
-	account, err := s.accountRepo.GetByID(id)
+	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -79,24 +96,26 @@ func (s *AutoReplyService) SaveCookies(id uint, cookie string, userID uint) erro
 		return ErrAccountNotOwned
 	}
 
-	// 使用加密方法设置Cookie
-	if err := account.SetCookie(cookie); err != nil {
-		return err
+	// 加密存储 Cookie(避免在 model 中保留业务方法)
+	encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
+	if encErr != nil {
+		return encErr
 	}
+	account.Cookie = encrypted
 
 	// 更新数据库中的加密Cookie
-	return s.accountRepo.UpdateCookieByID(id, account.Cookie)
+	return s.accountRepo.UpdateCookieByID(ctx, id, account.Cookie)
 }
 
 // ErrAccountNotOwned 账号不属于当前用户（IDOR 防护）
 var ErrAccountNotOwned = errors.New("auto reply account does not belong to current user")
 
-func (s *AutoReplyService) GetRule(platform string, userID uint) (*model.AutoReplyRule, error) {
-	return s.ruleRepo.FindByPlatformAndUser(platform, userID)
+func (s *AutoReplyService) GetRule(ctx context.Context, platform string, userID uint) (*model.AutoReplyRule, error) {
+	return s.ruleRepo.FindByPlatformAndUser(ctx, platform, userID)
 }
 
-func (s *AutoReplyService) SaveRule(rule *model.AutoReplyRule) error {
-	existing, err := s.ruleRepo.FindExistingByPlatformAndUser(rule.Platform, rule.UserID)
+func (s *AutoReplyService) SaveRule(ctx context.Context, rule *model.AutoReplyRule) error {
+	existing, err := s.ruleRepo.FindExistingByPlatformAndUser(ctx, rule.Platform, rule.UserID)
 	if err == nil && existing != nil {
 		existing.Keywords = rule.Keywords
 		existing.ReplyContent = rule.ReplyContent
@@ -107,25 +126,26 @@ func (s *AutoReplyService) SaveRule(rule *model.AutoReplyRule) error {
 		existing.IsActive = rule.IsActive
 		existing.IsRagEnabled = rule.IsRagEnabled
 		existing.RagProductID = rule.RagProductID
-		return s.ruleRepo.Save(existing)
+		return s.ruleRepo.Save(ctx, existing)
 	}
-	return s.ruleRepo.Create(rule)
+	return s.ruleRepo.Create(ctx, rule)
 }
 
-func (s *AutoReplyService) ListRecentLogs(platform string, userID uint, page, pageSize int) ([]model.AutoReplyLog, int64, error) {
+func (s *AutoReplyService) ListRecentLogs(ctx context.Context, platform string, userID uint, page, pageSize int) ([]model.AutoReplyLog, int64, error) {
 	cutoff := time.Now().Add(-72 * time.Hour)
-	return s.logRepo.ListRecentByPlatformAndUser(platform, userID, page, pageSize, cutoff)
+	return s.logRepo.ListRecentByPlatformAndUser(ctx, platform, userID, page, pageSize, cutoff)
 }
 
-func (s *AutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
+func (s *AutoReplyService) AppendLog(ctx context.Context, userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{UserID: userID, AccountID: accountID, RuleID: ruleID, Platform: platform, TargetContent: target, ReplyContent: reply, Status: status, ErrorMsg: errMsg, CreatedAt: time.Now()}
-	return s.logRepo.Create(item)
+	return s.logRepo.Create(ctx, item)
 }
 
 // StartLoginBrowser 启动本地浏览器打开登录页面并在登录后提取 Cookie 保存
 // 注意：需要服务器具备可用的 Chromium/Chrome 环境
-func (s *AutoReplyService) StartLoginBrowser(userID uint, platform, username string, accountID uint, headless bool) {
+func (s *AutoReplyService) StartLoginBrowser(ctx context.Context, userID uint, platform, username string, accountID uint, headless bool) {
 	go func() {
+		ctx := context.Background()
 		logger.Infof("启动登录浏览器 - 平台: %s, 用户: %s, 无头模式: %v", platform, username, headless)
 
 		a, err := browser.NewAssistant(browser.Options{Headless: headless})
@@ -145,10 +165,13 @@ func (s *AutoReplyService) StartLoginBrowser(userID uint, platform, username str
 		cookie, ok := a.WaitAuthCookieHeader(p, 5*time.Minute)
 		if ok {
 			// 加密存储Cookie
-			account, err := s.accountRepo.GetByID(accountID)
+			account, err := s.accountRepo.GetByID(ctx, accountID)
 			if err == nil {
-				if err := account.SetCookie(cookie); err == nil {
-					if err := s.accountRepo.UpdateCookieByID(accountID, account.Cookie); err != nil {
+				// 加密存储 Cookie(避免在 model 中保留业务方法)
+				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
+				if encErr == nil {
+					account.Cookie = encrypted
+					if err := s.accountRepo.UpdateCookieByID(ctx, accountID, account.Cookie); err != nil {
 						logger.Errorf("保存Cookie失败: %v", err)
 					}
 				} else {
@@ -161,13 +184,13 @@ func (s *AutoReplyService) StartLoginBrowser(userID uint, platform, username str
 	}()
 }
 
-func (s *AutoReplyService) DeleteAccount(id uint, userID uint) error {
-	return s.accountRepo.DeleteByIDAndUser(id, userID)
+func (s *AutoReplyService) DeleteAccount(ctx context.Context, id uint, userID uint) error {
+	return s.accountRepo.DeleteByIDAndUser(ctx, id, userID)
 }
 
 // 新增方法 - 规则管理
 func (s *AutoReplyService) ListRules(ctx context.Context, req *dto.AutoReplyRuleListRequest) ([]model.AutoReplyRule, int64, error) {
-	return s.ruleRepo.ListWithFilters(req.Platform, req.UserID, req.IsActive, req.Page, req.PageSize)
+	return s.ruleRepo.ListWithFilters(ctx, req.Platform, req.UserID, req.IsActive, req.Page, req.PageSize)
 }
 
 func (s *AutoReplyService) CreateRule(ctx context.Context, req *dto.AutoReplyRuleRequest) (*model.AutoReplyRule, error) {
@@ -187,14 +210,14 @@ func (s *AutoReplyService) CreateRule(ctx context.Context, req *dto.AutoReplyRul
 		UpdatedAt:    time.Now(),
 	}
 
-	if err := s.ruleRepo.Create(rule); err != nil {
+	if err := s.ruleRepo.Create(ctx, rule); err != nil {
 		return nil, err
 	}
 	return rule, nil
 }
 
 func (s *AutoReplyService) UpdateRule(ctx context.Context, id uint, req *dto.AutoReplyRuleRequest) (*model.AutoReplyRule, error) {
-	rule, err := s.ruleRepo.GetByID(id)
+	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -210,19 +233,19 @@ func (s *AutoReplyService) UpdateRule(ctx context.Context, id uint, req *dto.Aut
 	rule.RagProductID = req.RagProductID
 	rule.UpdatedAt = time.Now()
 
-	if err := s.ruleRepo.Save(rule); err != nil {
+	if err := s.ruleRepo.Save(ctx, rule); err != nil {
 		return nil, err
 	}
 	return rule, nil
 }
 
 func (s *AutoReplyService) DeleteRule(ctx context.Context, id uint) error {
-	return s.ruleRepo.DeleteByID(id)
+	return s.ruleRepo.DeleteByID(ctx, id)
 }
 
 // 关键词匹配测试
 func (s *AutoReplyService) TestMatching(ctx context.Context, platform, message string, userID uint) (*model.AutoReplyRule, error) {
-	rules, err := s.ruleRepo.ListByPlatformAndUserActive(platform, userID)
+	rules, err := s.ruleRepo.ListByPlatformAndUserActive(ctx, platform, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +255,7 @@ func (s *AutoReplyService) TestMatching(ctx context.Context, platform, message s
 
 	for _, rule := range rules {
 		// 检查时间段限制
-		if !s.isWithinTimeRange(rule) {
+		if !s.isWithinTimeRange(ctx, rule) {
 			continue
 		}
 
@@ -304,7 +327,7 @@ func (s *AutoReplyService) hasRemainingDailyQuota(ctx context.Context, rule mode
 
 	// 计算今天已发送的消息数量
 	todayStart := time.Now().Truncate(24 * time.Hour)
-	count, err := s.logRepo.CountByUserAndRuleSince(userID, rule.ID, todayStart)
+	count, err := s.logRepo.CountByUserAndRuleSince(ctx, userID, rule.ID, todayStart)
 
 	if err != nil {
 		logger.Errorf("查询自动回复日志失败: %v", err)
@@ -316,7 +339,7 @@ func (s *AutoReplyService) hasRemainingDailyQuota(ctx context.Context, rule mode
 }
 
 // 检查是否在指定的时间范围内
-func (s *AutoReplyService) isWithinTimeRange(rule model.AutoReplyRule) bool {
+func (s *AutoReplyService) isWithinTimeRange(ctx context.Context, rule model.AutoReplyRule) bool {
 	// 如果没有设置时间段，则始终允许
 	if rule.StartTime == nil || rule.EndTime == nil {
 		return true
@@ -392,7 +415,7 @@ func (s *AutoReplyService) SimulateMessage(ctx context.Context, platform, messag
 		logEntry.Status = "matched"
 	}
 
-	if err := s.logRepo.Create(logEntry); err != nil {
+	if err := s.logRepo.Create(ctx, logEntry); err != nil {
 		return nil, err
 	}
 
@@ -446,7 +469,7 @@ func (s *AutoReplyService) TestRateLimit(ctx context.Context, platform string, u
 // 重置每日限制 - 删除当天该账户的速率限制记录（AutoReplyLog）
 func (s *AutoReplyService) ResetDailyLimit(ctx context.Context, platform string, userID, accountID uint) error {
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
-	return s.logRepo.DeleteSinceByFilters(todayStart, platform, userID, accountID)
+	return s.logRepo.DeleteSinceByFilters(ctx, todayStart, platform, userID, accountID)
 }
 
 // 获取速率限制统计 - 从 AutoReplyLog 表查询当天真实发送量，从 AutoReplyRule 获取限额
@@ -454,14 +477,14 @@ func (s *AutoReplyService) GetRateLimitStats(ctx context.Context, platform strin
 	todayStart := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
 
 	// 查询当天已发送数量
-	dailySent, err := s.logRepo.CountSinceByFilters(todayStart, platform, userID, accountID)
+	dailySent, err := s.logRepo.CountSinceByFilters(ctx, todayStart, platform, userID, accountID)
 	if err != nil {
 		dailySent = 0
 	}
 
 	// 从规则表获取每日限额（取该平台/账户配置的最大限额，默认 100）
 	var dailyLimit int64 = 100
-	rule, err := s.ruleRepo.FindTopDailyLimit(platform, userID)
+	rule, err := s.ruleRepo.FindTopDailyLimit(ctx, platform, userID)
 	if err == nil && rule != nil && rule.DailyLimit > 0 {
 		dailyLimit = int64(rule.DailyLimit)
 	}
@@ -484,13 +507,13 @@ func (s *AutoReplyService) GetRateLimitStats(ctx context.Context, platform strin
 func (s *AutoReplyService) GetConcurrentStats(ctx context.Context, platform string, userID uint) (gin.H, error) {
 	// 查询最近 5 分钟内的活跃任务数（近似并发数）
 	fiveMinAgo := time.Now().Add(-5 * time.Minute)
-	activeBots, err := s.logRepo.CountActiveAccountsSince(fiveMinAgo, platform, userID)
+	activeBots, err := s.logRepo.CountActiveAccountsSince(ctx, fiveMinAgo, platform, userID)
 	if err != nil {
 		activeBots = 0
 	}
 
 	// 查询待处理任务数（status=pending 的日志）
-	queueSize, err := s.logRepo.CountPendingByFilters(platform, userID)
+	queueSize, err := s.logRepo.CountPendingByFilters(ctx, platform, userID)
 	if err != nil {
 		queueSize = 0
 	}
@@ -521,20 +544,20 @@ func (s *AutoReplyService) GetConcurrentStats(ctx context.Context, platform stri
 // 返回包含 rule/log/today_log 计数的统计字典。
 func (s *AutoReplyService) GetStatistics(ctx context.Context, platform string, userID uint) (gin.H, error) {
 	// 规则总数
-	ruleCount, err := s.ruleRepo.CountByFilters(platform, userID)
+	ruleCount, err := s.ruleRepo.CountByFilters(ctx, platform, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// 日志总数
-	logCount, err := s.logRepo.CountByFilters(platform, userID)
+	logCount, err := s.logRepo.CountByFilters(ctx, platform, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// 今日日志数
 	today := time.Now().Format("2006-01-02")
-	todayLogCount, err := s.logRepo.CountByFiltersAndDate(platform, userID, today)
+	todayLogCount, err := s.logRepo.CountByFiltersAndDate(ctx, platform, userID, today)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package common
+package httpget
 
 import (
 	"encoding/json"
@@ -8,7 +8,6 @@ import (
 )
 
 func TestGetRequest_Success(t *testing.T) {
-	// Create a test server
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := map[string]any{
 			"key":   "value",
@@ -19,65 +18,55 @@ func TestGetRequest_Success(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	// Test the function
 	result, err := GetRequest(testServer.URL)
 	if err != nil {
 		t.Fatalf("GetRequest failed: %v", err)
 	}
-
 	if result["key"] != "value" {
 		t.Errorf("Expected key to be 'value', got %v", result["key"])
 	}
 }
 
 func TestGetRequest_InvalidURL(t *testing.T) {
-	// Test with invalid URL (using a URL that will fail to connect)
-	_, err := GetRequest("http://127.0.0.1:1") // Port 1 is typically closed
+	_, err := GetRequest("http://127.0.0.1:1")
 	if err == nil {
 		t.Error("Expected error for invalid URL, got nil")
 	}
 }
 
 func TestGetRequest_InvalidJSON(t *testing.T) {
-	// Create a test server that returns invalid JSON
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("invalid json{"))
 	}))
 	defer testServer.Close()
 
-	// Test the function
 	result, err := GetRequest(testServer.URL)
 	if err == nil {
 		t.Error("Expected error for invalid JSON, got nil")
 	}
-	// The result should be empty or nil
 	if result != nil {
 		t.Logf("Got non-nil result for invalid JSON: %v", result)
 	}
 }
 
 func TestGetRequest_EmptyResponse(t *testing.T) {
-	// Create a test server that returns empty response
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{}"))
 	}))
 	defer testServer.Close()
 
-	// Test the function
 	result, err := GetRequest(testServer.URL)
 	if err != nil {
 		t.Fatalf("GetRequest failed: %v", err)
 	}
-
 	if result == nil {
 		t.Error("Expected non-nil result for empty JSON object")
 	}
 }
 
 func TestGetRequest_ComplexResponse(t *testing.T) {
-	// Create a test server with complex response
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := map[string]any{
 			"string": "hello",
@@ -91,12 +80,10 @@ func TestGetRequest_ComplexResponse(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	// Test the function
 	result, err := GetRequest(testServer.URL)
 	if err != nil {
 		t.Fatalf("GetRequest failed: %v", err)
 	}
-
 	if result["string"] != "hello" {
 		t.Errorf("Expected string to be 'hello', got %v", result["string"])
 	}

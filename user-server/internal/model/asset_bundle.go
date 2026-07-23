@@ -122,21 +122,6 @@ type AssetBundle struct {
 // TableName 表名
 func (AssetBundle) TableName() string { return "asset_bundles" }
 
-// MessageCount 返回消息条数（供 API/前端展示；不修改状态）
-func (b *AssetBundle) MessageCount() int {
-	return len(b.Messages)
-}
-
-// FirstSystemMessage 返回首条 system 消息（如不存在返回空串）
-func (b *AssetBundle) FirstSystemMessage() string {
-	for _, m := range b.Messages {
-		if m.Role == "system" {
-			return m.Content
-		}
-	}
-	return ""
-}
-
 // AssetBundleVersionLog 资产包版本变更日志
 type AssetBundleVersionLog struct {
 	ID         int64       `gorm:"primaryKey;autoIncrement" json:"id"`

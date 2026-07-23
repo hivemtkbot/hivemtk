@@ -45,17 +45,17 @@ func (c *Customer) BeforeCreate(tx *gorm.DB) error {
 		c.ID = uuid.New().String()
 	}
 
-	// 生成 UnifiedID
+	// 生成 UnifiedID（内联原 generateUnifiedID 逻辑）
 	if c.UnifiedID == "" {
-		c.UnifiedID = c.generateUnifiedID()
+		c.UnifiedID = GenerateCustomerUnifiedID(c)
 	}
 
 	return nil
 }
 
-// generateUnifiedID 根据优先级生成统一 ID
+// GenerateCustomerUnifiedID 根据优先级生成统一 ID（包级函数）
 // 优先级：Phone > Email > WechatOpenID > DouyinOpenID > XiaohongshuID
-func (c *Customer) generateUnifiedID() string {
+func GenerateCustomerUnifiedID(c *Customer) string {
 	if c.Phone != "" {
 		return unifiedIDPrefixPhone + c.Phone
 	}
@@ -75,27 +75,21 @@ func (c *Customer) generateUnifiedID() string {
 	return uuid.New().String()
 }
 
-// GenerateUnifiedID 公开方法，根据优先级生成统一 ID
-func (c *Customer) GenerateUnifiedID() string {
-	return c.generateUnifiedID()
-}
-
-// GetTags 获取标签数组
-func (c *Customer) GetTags() []string {
+// GetCustomerTags 获取标签数组（包级函数）
+func GetCustomerTags(c *Customer) []string {
 	if c.Tags == "" {
 		return []string{}
 	}
 	var tags []string
 	err := json.Unmarshal([]byte(c.Tags), &tags)
 	if err != nil {
-		// Log error in production: log.Printf("failed to unmarshal customer tags: %v", err)
 		return []string{}
 	}
 	return tags
 }
 
-// SetTags 设置标签数组
-func (c *Customer) SetTags(tags []string) error {
+// SetCustomerTags 设置标签数组（包级函数）
+func SetCustomerTags(c *Customer, tags []string) error {
 	if tags == nil {
 		tags = []string{}
 	}

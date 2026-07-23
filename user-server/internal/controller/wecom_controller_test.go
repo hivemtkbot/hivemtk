@@ -48,7 +48,7 @@ func setupWeComRouter(ctrl *WeComController) *gin.Engine {
 }
 
 func TestWeComController_CreateAccount_NoAuth(t *testing.T) {
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.POST("/wecom/accounts", ctrl.CreateAccount)
@@ -68,7 +68,7 @@ func TestWeComController_CreateAccount_NoAuth(t *testing.T) {
 
 func TestWeComController_CreateAccount_InvalidJSON(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("POST", "/wecom/accounts", bytes.NewReader([]byte("bad")))
@@ -83,7 +83,7 @@ func TestWeComController_CreateAccount_InvalidJSON(t *testing.T) {
 
 func TestWeComController_GetAccountList_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts", nil)
@@ -97,7 +97,7 @@ func TestWeComController_GetAccountList_Success(t *testing.T) {
 
 func TestWeComController_GetAccountByID_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts/1", nil)
@@ -112,7 +112,7 @@ func TestWeComController_GetAccountByID_Success(t *testing.T) {
 
 func TestWeComController_DeleteAccount_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("DELETE", "/wecom/accounts/1", nil)
@@ -127,7 +127,7 @@ func TestWeComController_DeleteAccount_Success(t *testing.T) {
 
 func TestWeComController_GetCustomerList_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts/test-id/customers", nil)
@@ -141,7 +141,7 @@ func TestWeComController_GetCustomerList_Success(t *testing.T) {
 
 func TestWeComController_GetGroupList_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts/test-id/groups", nil)
@@ -155,7 +155,7 @@ func TestWeComController_GetGroupList_Success(t *testing.T) {
 
 func TestWeComController_GetMessageList_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts/test-id/messages", nil)
@@ -169,7 +169,7 @@ func TestWeComController_GetMessageList_Success(t *testing.T) {
 
 func TestWeComController_GetTagList_Success(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/wecom/accounts/test-id/tags", nil)
@@ -183,7 +183,7 @@ func TestWeComController_GetTagList_Success(t *testing.T) {
 
 func TestWeComController_SendMessage_InvalidJSON(t *testing.T) {
 	setupWeComTestDB(t)
-	ctrl := NewWeComController()
+	ctrl := NewWeComController(nil)
 	router := setupWeComRouter(ctrl)
 
 	req, _ := http.NewRequest("POST", "/wecom/accounts/test-id/send-message", bytes.NewReader([]byte("bad")))

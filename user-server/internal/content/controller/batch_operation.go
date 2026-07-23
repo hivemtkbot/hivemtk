@@ -64,7 +64,7 @@ func (c *BatchImportController) ImportFile(ctx *gin.Context) {
 	}
 	defer f.Close()
 
-	result, err := c.svc.ImportFromCSV(service.ImportType(importType), f)
+	result, err := c.svc.ImportFromCSV(ctx.Request.Context(), service.ImportType(importType), f)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "导入失败："+err.Error())
 		return

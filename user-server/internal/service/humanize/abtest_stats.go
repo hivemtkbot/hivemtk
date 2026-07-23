@@ -31,20 +31,20 @@ import (
 
 // ABTestStatsService A/B 测试统计服务
 type ABTestStatsService struct {
-	bootstrapN int     // Bootstrap 重采样次数（默认 10000）
-	alpha      float64 // 显著性水平（默认 0.05）
+	bootstrapN	int	// Bootstrap 重采样次数（默认 10000）
+	alpha		float64	// 显著性水平（默认 0.05）
 }
 
 // NewABTestStatsService 构造
 func NewABTestStatsService() *ABTestStatsService {
 	return &ABTestStatsService{
-		bootstrapN: 10000,
-		alpha:      0.05,
+		bootstrapN:	10000,
+		alpha:		0.05,
 	}
 }
 
 // WithBootstrapN 设置 Bootstrap 重采样次数
-func (s *ABTestStatsService) WithBootstrapN(n int) *ABTestStatsService {
+func (s *ABTestStatsService) WithBootstrapN(ctx context.Context, n int) *ABTestStatsService {
 	if n > 0 {
 		s.bootstrapN = n
 	}
@@ -52,7 +52,7 @@ func (s *ABTestStatsService) WithBootstrapN(n int) *ABTestStatsService {
 }
 
 // WithAlpha 设置显著性水平
-func (s *ABTestStatsService) WithAlpha(a float64) *ABTestStatsService {
+func (s *ABTestStatsService) WithAlpha(ctx context.Context, a float64) *ABTestStatsService {
 	if a > 0 && a < 1 {
 		s.alpha = a
 	}
@@ -103,17 +103,17 @@ func (s *ABTestStatsService) Compute(ctx context.Context, input *dto.ABTestStats
 		}
 	}
 	return &dto.ABTestStatsResult{
-		ExperimentID:    input.ExperimentID,
-		ControlMean:     round4(controlMean),
-		TreatmentMean:   round4(treatmentMean),
-		MannWhitneyU:    round4(u),
-		MannWhitneyP:    round4(p),
-		CohensD:         round4(d),
-		EffectSizeLabel: effectLabel,
-		BootstrapCILow:  round4(ciLow),
-		BootstrapCIHigh: round4(ciHigh),
-		Significant:     significant,
-		Winner:          winner,
+		ExperimentID:		input.ExperimentID,
+		ControlMean:		round4(controlMean),
+		TreatmentMean:		round4(treatmentMean),
+		MannWhitneyU:		round4(u),
+		MannWhitneyP:		round4(p),
+		CohensD:		round4(d),
+		EffectSizeLabel:	effectLabel,
+		BootstrapCILow:		round4(ciLow),
+		BootstrapCIHigh:	round4(ciHigh),
+		Significant:		significant,
+		Winner:			winner,
 	}, nil
 }
 
@@ -147,8 +147,8 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 	}
 	// 1. 合并排序
 	type pair struct {
-		value float64
-		group int // 0=A, 1=B
+		value	float64
+		group	int	// 0=A, 1=B
 	}
 	combined := make([]pair, 0, nA+nB)
 	for _, v := range groupA {
@@ -199,7 +199,7 @@ func MannWhitneyUTest(groupA, groupB []float64) (uStat, pValue float64) {
 			j++
 		}
 		t := float64(j - i + 1)
-		tieTerm += (t*t - t) * t // t³ - t
+		tieTerm += (t*t - t) * t	// t³ - t
 		i = j + 1
 	}
 	totalN := float64(nA + nB)

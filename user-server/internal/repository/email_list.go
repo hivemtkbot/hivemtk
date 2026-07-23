@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -11,15 +12,15 @@ import (
 
 // EmailListRepository 列表仓库接口
 type EmailListRepository interface {
-	Create(list *model.EmailList) error
-	BatchCreate(list []*model.EmailList) (int64, error)
-	GetByID(id uuid.UUID) (*model.EmailList, error)
-	List(page int, pageSize int) ([]*model.EmailList, int64, error)
-	Update(list *model.EmailList) error
-	Delete(id uuid.UUID) error
-	GetUnsentEmailList(limit int) ([]*model.EmailList, error)
-	GetTodayCountByFrom(from string) (int64, error)
-	GetByTraceID(traceID uuid.UUID) (*model.EmailList, error)
+	Create(ctx context.Context, list *model.EmailList) error
+	BatchCreate(ctx context.Context, list []*model.EmailList) (int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*model.EmailList, error)
+	List(ctx context.Context, page int, pageSize int) ([]*model.EmailList, int64, error)
+	Update(ctx context.Context, list *model.EmailList) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetUnsentEmailList(ctx context.Context, limit int) ([]*model.EmailList, error)
+	GetTodayCountByFrom(ctx context.Context, from string) (int64, error)
+	GetByTraceID(ctx context.Context, traceID uuid.UUID) (*model.EmailList, error)
 }
 
 type emailListRepo struct {
@@ -32,34 +33,35 @@ func NewEmailListRepository() EmailListRepository {
 }
 
 // Create 创建列表
-func (r *emailListRepo) Create(list *model.EmailList) error {
-	return r.db.Create(list).Error
+func (r *emailListRepo) Create(ctx context.Context, list *model.EmailList) error {
+	return r.db.WithContext(ctx).Create(list).Error
 }
 
-func (r *emailListRepo) BatchCreate(list []*model.EmailList) (int64, error) {
-	result := r.db.CreateInBatches(list, 100)
+func (r *emailListRepo) BatchCreate(ctx context.Context, list []*model.EmailList) (int64, error) {
+	result := r.db.WithContext(ctx).CreateInBatches(list, 100)
 	return result.RowsAffected, nil
 }
 
 // GetByID 根据ID获取列表
-func (r *emailListRepo) GetByID(id uuid.UUID) (*model.EmailList, error) {
+func (r *emailListRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.EmailList, error) {
 	var list model.EmailList
-	if err := r.db.First(&list, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&list, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &list, nil
 }
 
 // List 获取所有列表
-func (r *emailListRepo) List(page int, pageSize int) ([]*model.EmailList, int64, error) {
+func (r *emailListRepo) List(ctx context.Context, page int, pageSize int) ([]*model.EmailList, int64, error) {
 	var emailLists []*model.EmailList
 	var total int64
+	db := r.db.WithContext(ctx)
 	// 分别查询list 和 total
-	err := r.db.Model(&model.EmailList{}).Count(&total).Error
+	err := db.Model(&model.EmailList{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
-	err = r.db.Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&emailLists).Error
+	err = db.Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&emailLists).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -67,19 +69,19 @@ func (r *emailListRepo) List(page int, pageSize int) ([]*model.EmailList, int64,
 }
 
 // Update 更新列表
-func (r *emailListRepo) Update(list *model.EmailList) error {
-	return r.db.Save(list).Error
+func (r *emailListRepo) Update(ctx context.Context, list *model.EmailList) error {
+	return r.db.WithContext(ctx).Save(list).Error
 }
 
 // Delete 删除列表
-func (r *emailListRepo) Delete(id uuid.UUID) error {
-	return r.db.Delete(&model.EmailList{}, "id = ?", id).Error
+func (r *emailListRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&model.EmailList{}, "id = ?", id).Error
 }
 
 // GetUnsentEmailList 获取未发送的邮件列表
-func (r *emailListRepo) GetUnsentEmailList(limit int) ([]*model.EmailList, error) {
+func (r *emailListRepo) GetUnsentEmailList(ctx context.Context, limit int) ([]*model.EmailList, error) {
 	var emailLists []*model.EmailList
-	err := r.db.Where("is_send = ?", 0).Order("created_at ASC").Limit(limit).Find(&emailLists).Error
+	err := r.db.WithContext(ctx).Where("is_send = ?", 0).Order("created_at ASC").Limit(limit).Find(&emailLists).Error
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +90,13 @@ func (r *emailListRepo) GetUnsentEmailList(limit int) ([]*model.EmailList, error
 
 // GetTodayCountByFrom 获取今日发送个数
 // 注："from" 是 SQL 关键字，PostgreSQL 中需用双引号包裹；GORM 的 ? 占位符无法处理列名，需直接字符串拼接（from 参数来自上层调用，非用户输入）。
-func (r *emailListRepo) GetTodayCountByFrom(from string) (int64, error) {
+func (r *emailListRepo) GetTodayCountByFrom(ctx context.Context, from string) (int64, error) {
 	var count int64
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 1, 0, now.Location())
 	end := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
 
-	err := r.db.Model(&model.EmailList{}).
+	err := r.db.WithContext(ctx).Model(&model.EmailList{}).
 		Where("\"from\" = ? AND send_time >= ? AND send_time < ?", from, start, end).
 		Count(&count).Error
 	if err != nil {
@@ -104,9 +106,9 @@ func (r *emailListRepo) GetTodayCountByFrom(from string) (int64, error) {
 }
 
 // GetByTraceID 根据trace id 获取邮件信息
-func (r *emailListRepo) GetByTraceID(traceID uuid.UUID) (*model.EmailList, error) {
+func (r *emailListRepo) GetByTraceID(ctx context.Context, traceID uuid.UUID) (*model.EmailList, error) {
 	var emailList model.EmailList
-	err := r.db.First(&emailList, "trace_id = ?", traceID).Error
+	err := r.db.WithContext(ctx).First(&emailList, "trace_id = ?", traceID).Error
 	if err != nil {
 		return nil, err
 	}

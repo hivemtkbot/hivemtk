@@ -14,6 +14,7 @@ import (
 
 	"marketing/internal/cache"
 	"marketing/internal/model"
+	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 
 	"github.com/google/uuid"
@@ -22,105 +23,105 @@ import (
 
 // 消息中台 - 业务错误码
 var (
-	ErrMessageHubInvalidPlatform   = errors.New("invalid platform")
-	ErrMessageHubInvalidMsgID      = errors.New("invalid msg_id")
-	ErrMessageHubInvalidContent    = errors.New("invalid content")
-	ErrMessageHubInvalidAccount    = errors.New("invalid account_id")
-	ErrMessageHubInvalidDirection  = errors.New("invalid direction")
-	ErrMessageHubInvalidMsgType    = errors.New("invalid msg_type")
-	ErrMessageHubEmptyMerchant     = errors.New("user_id is required")
-	ErrMessageHubTooLarge          = errors.New("content too large")
-	ErrMessageHubIdempotent        = errors.New("duplicate message (idempotent)")
-	ErrMessageHubQueueFull         = errors.New("queue is full")
-	ErrMessageHubStreamNotFound    = errors.New("stream not found")
-	ErrMessageHubPartitionMismatch = errors.New("partition mismatch")
+	ErrMessageHubInvalidPlatform	= errors.New("invalid platform")
+	ErrMessageHubInvalidMsgID	= errors.New("invalid msg_id")
+	ErrMessageHubInvalidContent	= errors.New("invalid content")
+	ErrMessageHubInvalidAccount	= errors.New("invalid account_id")
+	ErrMessageHubInvalidDirection	= errors.New("invalid direction")
+	ErrMessageHubInvalidMsgType	= errors.New("invalid msg_type")
+	ErrMessageHubEmptyMerchant	= errors.New("user_id is required")
+	ErrMessageHubTooLarge		= errors.New("content too large")
+	ErrMessageHubIdempotent		= errors.New("duplicate message (idempotent)")
+	ErrMessageHubQueueFull		= errors.New("queue is full")
+	ErrMessageHubStreamNotFound	= errors.New("stream not found")
+	ErrMessageHubPartitionMismatch	= errors.New("partition mismatch")
 )
 
 // 支持的平台白名单
 var messageHubPlatforms = map[string]bool{
-	"wecom":       true, // 企业微信
-	"personal_wx": true, // 个人微信
-	"douyin":      true, // 抖音
-	"kuaishou":    true, // 快手
-	"xiaohongshu": true, // 小红书
-	"xianyu":      true, // 闲鱼
-	"tiktok":      true, // TikTok
-	"whatsapp":    true, // WhatsApp
-	"sms":         true, // 短信
-	"email":       true, // 邮件
-	"telegram":    true, // Telegram（Phase3 接入）
-	"feishu":      true, // 飞书（Phase4 接入）
+	"wecom":	true,	// 企业微信
+	"personal_wx":	true,	// 个人微信
+	"douyin":	true,	// 抖音
+	"kuaishou":	true,	// 快手
+	"xiaohongshu":	true,	// 小红书
+	"xianyu":	true,	// 闲鱼
+	"tiktok":	true,	// TikTok
+	"whatsapp":	true,	// WhatsApp
+	"sms":		true,	// 短信
+	"email":	true,	// 邮件
+	"telegram":	true,	// Telegram（Phase3 接入）
+	"feishu":	true,	// 飞书（Phase4 接入）
 }
 
 // 支持的消息类型
 var messageHubMsgTypes = map[string]bool{
-	"text":     true,
-	"image":    true,
-	"file":     true,
-	"audio":    true,
-	"video":    true,
-	"link":     true,
-	"card":     true,
-	"location": true,
+	"text":		true,
+	"image":	true,
+	"file":		true,
+	"audio":	true,
+	"video":	true,
+	"link":		true,
+	"card":		true,
+	"location":	true,
 }
 
 // 支持的方向
 var messageHubDirections = map[string]bool{
-	"inbound":  true,
-	"outbound": true,
+	"inbound":	true,
+	"outbound":	true,
 }
 
 // 消息中台常量
 const (
-	MessageHubDefaultIdemTTL    = 24 * time.Hour // 默认幂等窗口 24h
-	MessageHubDefaultMaxContent = 64 * 1024      // 64KB 单条上限
-	MessageHubDefaultQueueSize  = 10000          // 内存队列容量
-	MessageHubStreamKeyPrefix   = "msg:hub:stream:"
-	MessageHubIdemKeyPrefix     = "msg:hub:idem:"
+	MessageHubDefaultIdemTTL	= 24 * time.Hour	// 默认幂等窗口 24h
+	MessageHubDefaultMaxContent	= 64 * 1024		// 64KB 单条上限
+	MessageHubDefaultQueueSize	= 10000			// 内存队列容量
+	MessageHubStreamKeyPrefix	= "msg:hub:stream:"
+	MessageHubIdemKeyPrefix		= "msg:hub:idem:"
 )
 
 // PushMessageRequest 推送消息到中台
 type PushMessageRequest struct {
-	Platform       string         `json:"platform"`
-	AccountID      string         `json:"account_id"`
-	MsgID          string         `json:"msg_id"`
-	Direction      string         `json:"direction"`
-	MsgType        string         `json:"msg_type"`
-	SenderID       string         `json:"sender_id"`
-	SenderName     string         `json:"sender_name"`
-	ReceiverID     string         `json:"receiver_id"`
-	ReceiverName   string         `json:"receiver_name"`
-	Content        string         `json:"content"`
-	MediaURL       string         `json:"media_url"`
-	ConversationID string         `json:"conversation_id"`
-	IsGroup        bool           `json:"is_group"`
-	GroupID        string         `json:"group_id"`
-	IsAIReply      bool           `json:"is_ai_reply"`
-	AIAgent        string         `json:"ai_agent"`
-	Extra          map[string]any `json:"extra"`
-	SentAt         *time.Time     `json:"sent_at"`
+	Platform	string		`json:"platform"`
+	AccountID	string		`json:"account_id"`
+	MsgID		string		`json:"msg_id"`
+	Direction	string		`json:"direction"`
+	MsgType		string		`json:"msg_type"`
+	SenderID	string		`json:"sender_id"`
+	SenderName	string		`json:"sender_name"`
+	ReceiverID	string		`json:"receiver_id"`
+	ReceiverName	string		`json:"receiver_name"`
+	Content		string		`json:"content"`
+	MediaURL	string		`json:"media_url"`
+	ConversationID	string		`json:"conversation_id"`
+	IsGroup		bool		`json:"is_group"`
+	GroupID		string		`json:"group_id"`
+	IsAIReply	bool		`json:"is_ai_reply"`
+	AIAgent		string		`json:"ai_agent"`
+	Extra		map[string]any	`json:"extra"`
+	SentAt		*time.Time	`json:"sent_at"`
 }
 
 // MessageHubService 消息中台服务
 type MessageHubService struct {
-	db          *gorm.DB
-	cache       cache.Cache
-	mu          sync.RWMutex
-	streams     map[string]*hubStream // platform:account -> stream
-	streamSize  int
-	idemTTL     time.Duration
-	maxContent  int
-	subscribers []MessageSubscriber
-	subMu       sync.RWMutex
+	db		*gorm.DB
+	cache		cache.Cache
+	mu		sync.RWMutex
+	streams		map[string]*hubStream	// platform:account -> stream
+	streamSize	int
+	idemTTL		time.Duration
+	maxContent	int
+	subscribers	[]MessageSubscriber
+	subMu		sync.RWMutex
 }
 
 // hubStream 内存流（Redis 不可用时降级）
 type hubStream struct {
-	mu        sync.Mutex
-	cond      *sync.Cond
-	messages  []*model.MessageHub
-	closed    bool
-	partition string
+	mu		sync.Mutex
+	cond		*sync.Cond
+	messages	[]*model.MessageHub
+	closed		bool
+	partition	string
 }
 
 // MessageSubscriber 消息订阅者
@@ -129,51 +130,56 @@ type MessageSubscriber interface {
 	Filter(msg *model.MessageHub) bool
 }
 
-// NewMessageHubService 创建消息中台服务
-func NewMessageHubService(db *gorm.DB, c cache.Cache) *MessageHubService {
+// NewMessageHubService 创建消息中台服务(无参,内部用 dbUtil.GetDB())
+func NewMessageHubService() *MessageHubService {
+	return NewMessageHubServiceWithDB(dbUtil.GetDB(), nil)
+}
+
+// NewMessageHubServiceWithDB 创建带 DB 的消息中台服务(显式注入 db,兼容旧调用)
+func NewMessageHubServiceWithDB(db *gorm.DB, c cache.Cache) *MessageHubService {
 	if c == nil {
 		// 默认使用全局缓存单例：REDIS_HOST 配置时跨实例共享（会话幂等 exactly-once），
 		// 未配置时回退进程内内存缓存（向后兼容单实例）。
 		c = cache.GetGlobalCache()
 	}
 	s := &MessageHubService{
-		db:         db,
-		cache:      c,
-		streams:    make(map[string]*hubStream),
-		streamSize: MessageHubDefaultQueueSize,
-		idemTTL:    MessageHubDefaultIdemTTL,
-		maxContent: MessageHubDefaultMaxContent,
+		db:		db,
+		cache:		c,
+		streams:	make(map[string]*hubStream),
+		streamSize:	MessageHubDefaultQueueSize,
+		idemTTL:	MessageHubDefaultIdemTTL,
+		maxContent:	MessageHubDefaultMaxContent,
 	}
 	return s
 }
 
 // WithIdemTTL 设置幂等 TTL
-func (s *MessageHubService) WithIdemTTL(ttl time.Duration) *MessageHubService {
+func (s *MessageHubService) WithIdemTTL(ctx context.Context, ttl time.Duration) *MessageHubService {
 	s.idemTTL = ttl
 	return s
 }
 
 // WithMaxContent 设置单条内容上限
-func (s *MessageHubService) WithMaxContent(n int) *MessageHubService {
+func (s *MessageHubService) WithMaxContent(ctx context.Context, n int) *MessageHubService {
 	s.maxContent = n
 	return s
 }
 
 // WithQueueSize 设置队列容量
-func (s *MessageHubService) WithQueueSize(n int) *MessageHubService {
+func (s *MessageHubService) WithQueueSize(ctx context.Context, n int) *MessageHubService {
 	s.streamSize = n
 	return s
 }
 
 // Subscribe 注册订阅者
-func (s *MessageHubService) Subscribe(sub MessageSubscriber) {
+func (s *MessageHubService) Subscribe(ctx context.Context, sub MessageSubscriber) {
 	s.subMu.Lock()
 	defer s.subMu.Unlock()
 	s.subscribers = append(s.subscribers, sub)
 }
 
 // Normalize 校验并标准化消息
-func (s *MessageHubService) Normalize(req *PushMessageRequest) (*model.MessageHub, error) {
+func (s *MessageHubService) Normalize(ctx context.Context, req *PushMessageRequest) (*model.MessageHub, error) {
 	if false /* req removed in private deployment */ {
 		return nil, ErrMessageHubEmptyMerchant
 	}
@@ -215,30 +221,30 @@ func (s *MessageHubService) Normalize(req *PushMessageRequest) (*model.MessageHu
 
 	return &model.MessageHub{
 
-		MsgID:          req.MsgID,
-		Platform:       req.Platform,
-		AccountID:      req.AccountID,
-		Direction:      req.Direction,
-		MsgType:        req.MsgType,
-		SenderID:       strings.TrimSpace(req.SenderID),
-		SenderName:     strings.TrimSpace(req.SenderName),
-		ReceiverID:     strings.TrimSpace(req.ReceiverID),
-		ReceiverName:   strings.TrimSpace(req.ReceiverName),
-		Content:        req.Content,
-		MediaURL:       req.MediaURL,
-		ConversationID: req.ConversationID,
-		IsGroup:        req.IsGroup,
-		GroupID:        req.GroupID,
-		IsAIReply:      req.IsAIReply,
-		AIAgent:        req.AIAgent,
-		IsRead:         false,
-		SentAt:         sentAt,
-		Extra:          extra,
+		MsgID:		req.MsgID,
+		Platform:	req.Platform,
+		AccountID:	req.AccountID,
+		Direction:	req.Direction,
+		MsgType:	req.MsgType,
+		SenderID:	strings.TrimSpace(req.SenderID),
+		SenderName:	strings.TrimSpace(req.SenderName),
+		ReceiverID:	strings.TrimSpace(req.ReceiverID),
+		ReceiverName:	strings.TrimSpace(req.ReceiverName),
+		Content:	req.Content,
+		MediaURL:	req.MediaURL,
+		ConversationID:	req.ConversationID,
+		IsGroup:	req.IsGroup,
+		GroupID:	req.GroupID,
+		IsAIReply:	req.IsAIReply,
+		AIAgent:	req.AIAgent,
+		IsRead:		false,
+		SentAt:		sentAt,
+		Extra:		extra,
 	}, nil
 }
 
 // IdempotencyKey 计算幂等键
-func (s *MessageHubService) IdempotencyKey(platform, accountID, msgID string) string {
+func (s *MessageHubService) IdempotencyKey(ctx context.Context, platform, accountID, msgID string) string {
 	h := sha256.Sum256([]byte(platform + "|" + accountID + "|" + msgID))
 	return MessageHubIdemKeyPrefix + hex.EncodeToString(h[:])
 }
@@ -249,7 +255,7 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 		return false, 0, nil
 	}
 	var existing model.MessageHub
-	err := s.db.Where("platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
+	err := s.db.Where(ctx, "platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
 		First(&existing).Error
 	if err == nil {
 		return true, existing.ID, nil
@@ -258,7 +264,7 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 		return false, 0, err
 	}
 	// Redis SETNX 加速检查（可选）
-	idemKey := s.IdempotencyKey(platform, accountID, msgID)
+	idemKey := s.IdempotencyKey(ctx, platform, accountID, msgID)
 	if s.cache != nil {
 		_ = s.cache.Set(ctx, idemKey, "1", s.idemTTL)
 	}
@@ -267,7 +273,7 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 
 // Push 推送消息到中台
 func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (*model.MessageHub, error) {
-	msg, err := s.Normalize(req)
+	msg, err := s.Normalize(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +287,7 @@ func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (
 	}
 	// 持久化
 	if s.db != nil {
-		if err := s.db.Create(msg).Error; err != nil {
+		if err := s.db.WithContext(ctx).Create(msg).Error; err != nil {
 			// 唯一索引冲突也视为幂等
 			if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "UNIQUE") {
 				return nil, ErrMessageHubIdempotent
@@ -290,7 +296,7 @@ func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (
 		}
 	}
 	// 入队
-	if err := s.enqueue(msg); err != nil {
+	if err := s.enqueue(ctx, msg); err != nil {
 		return msg, err
 	}
 	// 通知订阅者
@@ -312,20 +318,20 @@ func (s *MessageHubService) PushBatch(ctx context.Context, reqs []PushMessageReq
 
 // ListQuery 列表查询条件
 type ListQuery struct {
-	Platform       string
-	AccountID      string
-	ConversationID string
-	SenderID       string
-	Direction      string
-	MsgType        string
-	Keyword        string
-	IsRead         *bool
-	IsGroup        *bool
-	StartTime      *time.Time
-	EndTime        *time.Time
-	Page           int
-	PageSize       int
-	OrderBy        string
+	Platform	string
+	AccountID	string
+	ConversationID	string
+	SenderID	string
+	Direction	string
+	MsgType		string
+	Keyword		string
+	IsRead		*bool
+	IsGroup		*bool
+	StartTime	*time.Time
+	EndTime		*time.Time
+	Page		int
+	PageSize	int
+	OrderBy		string
 }
 
 // List 列表查询
@@ -343,7 +349,7 @@ func (s *MessageHubService) List(ctx context.Context, q ListQuery) ([]*model.Mes
 		q.PageSize = 20
 	}
 
-	tx := s.db.Model(&model.MessageHub{})
+	tx := s.db.WithContext(ctx).Model(&model.MessageHub{})
 	if q.Platform != "" {
 		tx = tx.Where("platform = ?", q.Platform)
 	}
@@ -403,7 +409,7 @@ func (s *MessageHubService) GetByID(ctx context.Context, id uint) (*model.Messag
 		return nil, nil
 	}
 	var msg model.MessageHub
-	if err := s.db.First(&msg, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&msg, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -419,24 +425,24 @@ func (s *MessageHubService) MarkRead(ctx context.Context, ids []uint) error {
 	}
 	now := time.Now()
 	// 使用 GORM Updates（map 形式）避免 bool 字段零值问题，无需 Raw SQL
-	return s.db.Model(&model.MessageHub{}).Where("id IN ?", ids).
+	return s.db.Model(ctx, &model.MessageHub{}).Where("id IN ?", ids).
 		Updates(map[string]any{
-			"is_read": true,
-			"read_at": now,
+			"is_read":	true,
+			"read_at":	now,
 		}).Error
 }
 
 // Stats 统计
 type HubStats struct {
-	Total       int64            `json:"total"`
-	Inbound     int64            `json:"inbound"`
-	Outbound    int64            `json:"outbound"`
-	Unread      int64            `json:"unread"`
-	ByPlatform  map[string]int64 `json:"by_platform"`
-	ByDirection map[string]int64 `json:"by_direction"`
-	ByMsgType   map[string]int64 `json:"by_msg_type"`
-	ByAccount   map[string]int64 `json:"by_account"`
-	Recent24h   int64            `json:"recent_24h"`
+	Total		int64			`json:"total"`
+	Inbound		int64			`json:"inbound"`
+	Outbound	int64			`json:"outbound"`
+	Unread		int64			`json:"unread"`
+	ByPlatform	map[string]int64	`json:"by_platform"`
+	ByDirection	map[string]int64	`json:"by_direction"`
+	ByMsgType	map[string]int64	`json:"by_msg_type"`
+	ByAccount	map[string]int64	`json:"by_account"`
+	Recent24h	int64			`json:"recent_24h"`
 }
 
 // GetStats 统计
@@ -448,7 +454,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	// 每次查询都基于 s.db 重新构造 base（避免 GORM Count/Find 修改 base 的 statement）
 	var total, inbound, outbound, unread int64
 
-	countQuery := s.db.Model(&model.MessageHub{}).Where("1 = 1")
+	countQuery := s.db.Model(ctx, &model.MessageHub{}).Where("1 = 1")
 	if start != nil {
 		countQuery = countQuery.Where("sent_at >= ?", *start)
 	}
@@ -458,28 +464,28 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("direction = ?", "inbound").
 		Count(&inbound)
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("direction = ?", "outbound").
 		Count(&outbound)
 	// unread: is_read = false 或 NULL（兼容 GORM bool 默认值）
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("(is_read = ? OR is_read IS NULL)", false).
 		Count(&unread)
 	stats := &HubStats{
-		Total: total, Inbound: inbound, Outbound: outbound, Unread: unread,
-		ByPlatform: map[string]int64{}, ByDirection: map[string]int64{},
-		ByMsgType: map[string]int64{}, ByAccount: map[string]int64{},
+		Total:	total, Inbound: inbound, Outbound: outbound, Unread: unread,
+		ByPlatform:	map[string]int64{}, ByDirection: map[string]int64{},
+		ByMsgType:	map[string]int64{}, ByAccount: map[string]int64{},
 	}
 	// 平台分布
 	type pcount struct {
-		Platform string
-		C        int64
+		Platform	string
+		C		int64
 	}
 	var pCounts []pcount
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("1 = 1").
 		Select("platform AS platform, COUNT(*) AS c").
 		Group("platform").Scan(&pCounts)
@@ -489,11 +495,11 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 方向分布
 	type dcount struct {
-		Direction string
-		C         int64
+		Direction	string
+		C		int64
 	}
 	var dCounts []dcount
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("1 = 1").
 		Select("direction AS direction, COUNT(*) AS c").
 		Group("direction").Scan(&dCounts)
@@ -502,11 +508,11 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 消息类型分布
 	type tcount struct {
-		MsgType string
-		C       int64
+		MsgType	string
+		C	int64
 	}
 	var tCounts []tcount
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("1 = 1").
 		Select("msg_type AS msg_type, COUNT(*) AS c").
 		Group("msg_type").Scan(&tCounts)
@@ -515,11 +521,11 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 账号分布 Top 50
 	type acount struct {
-		AccountID string
-		C         int64
+		AccountID	string
+		C		int64
 	}
 	var aCounts []acount
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("1 = 1").
 		Select("account_id AS account_id, COUNT(*) AS c").
 		Group("account_id").Order("c DESC").Limit(50).Scan(&aCounts)
@@ -529,7 +535,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	// 24h
 	threshold24h := time.Now().Add(-24 * time.Hour)
 	var recent24h int64
-	s.db.Model(&model.MessageHub{}).
+	s.db.Model(ctx, &model.MessageHub{}).
 		Where("sent_at >= ?", threshold24h).
 		Count(&recent24h)
 	stats.Recent24h = recent24h
@@ -538,13 +544,13 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 }
 
 // partitionKey 分区键
-func (s *MessageHubService) partitionKey(platform, accountID string) string {
+func (s *MessageHubService) partitionKey(ctx context.Context, platform, accountID string) string {
 	return platform + ":" + accountID
 }
 
 // enqueue 入队（按 platform+account_id 分区保证顺序）
-func (s *MessageHubService) enqueue(msg *model.MessageHub) error {
-	key := s.partitionKey(msg.Platform, msg.AccountID)
+func (s *MessageHubService) enqueue(ctx context.Context, msg *model.MessageHub) error {
+	key := s.partitionKey(ctx, msg.Platform, msg.AccountID)
 	s.mu.Lock()
 	stream, ok := s.streams[key]
 	if !ok {
@@ -569,7 +575,7 @@ func (s *MessageHubService) enqueue(msg *model.MessageHub) error {
 
 // Consume 消费一个分区的下一条消息（按 sent_at 顺序，最多 wait 等待）
 func (s *MessageHubService) Consume(ctx context.Context, platform, accountID string, wait time.Duration) (*model.MessageHub, error) {
-	key := s.partitionKey(platform, accountID)
+	key := s.partitionKey(ctx, platform, accountID)
 
 	// 阶段 1：等待 stream 分区被创建
 	deadline := time.Now().Add(wait)
@@ -584,7 +590,7 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 			// 没有 stream，尝试从 DB 取最后一条
 			if s.db != nil {
 				var msg model.MessageHub
-				err := s.db.Where("platform = ? AND account_id = ?", platform, accountID).
+				err := s.db.Where(ctx, "platform = ? AND account_id = ?", platform, accountID).
 					Order("sent_at DESC").First(&msg).Error
 				if err == nil {
 					return &msg, nil
@@ -645,7 +651,7 @@ func (s *MessageHubService) consumeFromStream(ctx context.Context, stream *hubSt
 
 // Peek 预览一个分区的下一条消息（不取出）
 func (s *MessageHubService) Peek(ctx context.Context, platform, accountID string) (*model.MessageHub, error) {
-	key := s.partitionKey(platform, accountID)
+	key := s.partitionKey(ctx, platform, accountID)
 	s.mu.RLock()
 	stream, ok := s.streams[key]
 	s.mu.RUnlock()
@@ -661,8 +667,8 @@ func (s *MessageHubService) Peek(ctx context.Context, platform, accountID string
 }
 
 // Size 获取分区队列长度
-func (s *MessageHubService) Size(platform, accountID string) int {
-	key := s.partitionKey(platform, accountID)
+func (s *MessageHubService) Size(ctx context.Context, platform, accountID string) int {
+	key := s.partitionKey(ctx, platform, accountID)
 	s.mu.RLock()
 	stream, ok := s.streams[key]
 	s.mu.RUnlock()
@@ -703,51 +709,51 @@ func GenerateMsgID(platform, accountID string) string {
 
 // 标准化不同渠道的原始消息到 PushMessageRequest
 type RawChannelMessage struct {
-	Platform       string         `json:"platform"`
-	AccountID      string         `json:"account_id"`
-	MsgID          string         `json:"msg_id"`
-	From           string         `json:"from"`
-	FromName       string         `json:"from_name"`
-	To             string         `json:"to"`
-	ToName         string         `json:"to_name"`
-	Content        string         `json:"content"`
-	MsgType        string         `json:"msg_type"`
-	MediaURL       string         `json:"media_url"`
-	ConversationID string         `json:"conversation_id"`
-	IsGroup        bool           `json:"is_group"`
-	GroupID        string         `json:"group_id"`
-	SentAt         *time.Time     `json:"sent_at"`
-	Extra          map[string]any `json:"extra"`
+	Platform	string		`json:"platform"`
+	AccountID	string		`json:"account_id"`
+	MsgID		string		`json:"msg_id"`
+	From		string		`json:"from"`
+	FromName	string		`json:"from_name"`
+	To		string		`json:"to"`
+	ToName		string		`json:"to_name"`
+	Content		string		`json:"content"`
+	MsgType		string		`json:"msg_type"`
+	MediaURL	string		`json:"media_url"`
+	ConversationID	string		`json:"conversation_id"`
+	IsGroup		bool		`json:"is_group"`
+	GroupID		string		`json:"group_id"`
+	SentAt		*time.Time	`json:"sent_at"`
+	Extra		map[string]any	`json:"extra"`
 }
 
 // ConvertFromChannel 渠道原始消息 → PushMessageRequest
-func (s *MessageHubService) ConvertFromChannel(raw *RawChannelMessage) *PushMessageRequest {
+func (s *MessageHubService) ConvertFromChannel(ctx context.Context, raw *RawChannelMessage) *PushMessageRequest {
 	if raw.MsgType == "" {
 		raw.MsgType = "text"
 	}
 	return &PushMessageRequest{
 
-		Platform:       raw.Platform,
-		AccountID:      raw.AccountID,
-		MsgID:          raw.MsgID,
-		Direction:      "inbound",
-		MsgType:        raw.MsgType,
-		SenderID:       raw.From,
-		SenderName:     raw.FromName,
-		ReceiverID:     raw.To,
-		ReceiverName:   raw.ToName,
-		Content:        raw.Content,
-		MediaURL:       raw.MediaURL,
-		ConversationID: raw.ConversationID,
-		IsGroup:        raw.IsGroup,
-		GroupID:        raw.GroupID,
-		SentAt:         raw.SentAt,
-		Extra:          raw.Extra,
+		Platform:	raw.Platform,
+		AccountID:	raw.AccountID,
+		MsgID:		raw.MsgID,
+		Direction:	"inbound",
+		MsgType:	raw.MsgType,
+		SenderID:	raw.From,
+		SenderName:	raw.FromName,
+		ReceiverID:	raw.To,
+		ReceiverName:	raw.ToName,
+		Content:	raw.Content,
+		MediaURL:	raw.MediaURL,
+		ConversationID:	raw.ConversationID,
+		IsGroup:	raw.IsGroup,
+		GroupID:	raw.GroupID,
+		SentAt:		raw.SentAt,
+		Extra:		raw.Extra,
 	}
 }
 
 // MarshalToJSON 序列化（用于 Redis 队列）
-func (s *MessageHubService) MarshalToJSON(msg *model.MessageHub) (string, error) {
+func (s *MessageHubService) MarshalToJSON(ctx context.Context, msg *model.MessageHub) (string, error) {
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return "", err
@@ -756,7 +762,7 @@ func (s *MessageHubService) MarshalToJSON(msg *model.MessageHub) (string, error)
 }
 
 // UnmarshalFromJSON 反序列化
-func (s *MessageHubService) UnmarshalFromJSON(data string) (*model.MessageHub, error) {
+func (s *MessageHubService) UnmarshalFromJSON(ctx context.Context, data string) (*model.MessageHub, error) {
 	var msg model.MessageHub
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
 		return nil, err

@@ -50,12 +50,12 @@ func ParseSOPABTestConfig(raw model.JSONMap) SOPABTestConfig {
 
 // SOPABTestVariantStats A/B 测试 variant 统计
 type SOPABTestVariantStats struct {
-	Variant        string  `json:"variant"`
-	ExecutionCount int64   `json:"execution_count"`
-	SuccessCount   int64   `json:"success_count"`
-	FailedCount    int64   `json:"failed_count"`
-	RunningCount   int64   `json:"running_count"`
-	SuccessRate    float64 `json:"success_rate"` // 成功率（百分比）
+	Variant		string	`json:"variant"`
+	ExecutionCount	int64	`json:"execution_count"`
+	SuccessCount	int64	`json:"success_count"`
+	FailedCount	int64	`json:"failed_count"`
+	RunningCount	int64	`json:"running_count"`
+	SuccessRate	float64	`json:"success_rate"`	// 成功率（百分比）
 }
 
 // GetABTestStats 查询指定 SOP 的 A/B 测试 variant 统计
@@ -76,25 +76,25 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 		var execCount, successCount, failedCount, runningCount int64
 
 		// 总执行数
-		if err := s.db.Model(&model.SOPExecution{}).
+		if err := s.db.Model(ctx, &model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ?", sopID, v.Name).
 			Count(&execCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 执行数失败：%w", v.Name, err)
 		}
 		// 成功数
-		if err := s.db.Model(&model.SOPExecution{}).
+		if err := s.db.Model(ctx, &model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusSuccess).
 			Count(&successCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 成功数失败：%w", v.Name, err)
 		}
 		// 失败数
-		if err := s.db.Model(&model.SOPExecution{}).
+		if err := s.db.Model(ctx, &model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusFailed).
 			Count(&failedCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 失败数失败：%w", v.Name, err)
 		}
 		// 运行中
-		if err := s.db.Model(&model.SOPExecution{}).
+		if err := s.db.Model(ctx, &model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusRunning).
 			Count(&runningCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 运行中数失败：%w", v.Name, err)
@@ -106,12 +106,12 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 		}
 
 		stats = append(stats, SOPABTestVariantStats{
-			Variant:        v.Name,
-			ExecutionCount: execCount,
-			SuccessCount:   successCount,
-			FailedCount:    failedCount,
-			RunningCount:   runningCount,
-			SuccessRate:    successRate,
+			Variant:	v.Name,
+			ExecutionCount:	execCount,
+			SuccessCount:	successCount,
+			FailedCount:	failedCount,
+			RunningCount:	runningCount,
+			SuccessRate:	successRate,
 		})
 	}
 
@@ -142,7 +142,7 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 	agent.ABTestConfig = abMap
 	agent.Version++
 
-	if err := s.db.Save(agent).Error; err != nil {
+	if err := s.db.Save(ctx, agent).Error; err != nil {
 		return nil, err
 	}
 	return agent, nil
@@ -151,7 +151,7 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 // resolveABTestVariant 在 Execute 时解析 variant
 // 返回 variant name 和对应的 SOP 图 ID（0 表示用主图）
 // 未启用 A/B 测试时返回 ("", 0)
-func (s *SOPService) resolveABTestVariant(agent *model.SOPAgent, customerID string) (variantName string, sopGraphID uint, err error) {
+func (s *SOPService) resolveABTestVariant(ctx context.Context, agent *model.SOPAgent, customerID string) (variantName string, sopGraphID uint, err error) {
 	cfg := ParseSOPABTestConfig(agent.ABTestConfig)
 	if !cfg.Enabled {
 		return "", 0, nil
@@ -165,7 +165,7 @@ func (s *SOPService) resolveABTestVariant(agent *model.SOPAgent, customerID stri
 
 // loadSOPGraphByID 根据 SOP ID 加载 SOPGraph（用于 A/B 测试 variant 切换图）
 // graphID == 0 表示用 agent.SOPGraph 主图
-func (s *SOPService) loadSOPGraph(agent *model.SOPAgent, graphID uint) (SOPGraph, error) {
+func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, graphID uint) (SOPGraph, error) {
 	if graphID == 0 {
 		var graph SOPGraph
 		if err := json.Unmarshal(mustJSON(agent.SOPGraph), &graph); err != nil {
@@ -176,7 +176,7 @@ func (s *SOPService) loadSOPGraph(agent *model.SOPAgent, graphID uint) (SOPGraph
 
 	// 加载指定 ID 的 SOP 图
 	var target model.SOPAgent
-	if err := s.db.First(&target, graphID).Error; err != nil {
+	if err := s.db.First(ctx, &target, graphID).Error; err != nil {
 		return SOPGraph{}, fmt.Errorf("variant SOP 图加载失败（sop_id=%d）：%w", graphID, err)
 	}
 	var graph SOPGraph

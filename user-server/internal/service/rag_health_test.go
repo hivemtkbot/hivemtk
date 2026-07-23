@@ -125,7 +125,6 @@ func TestRagHealth_GetHealth_Empty(t *testing.T) {
 func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 1) 写入高召回查询日志
 	for i := 0; i < 10; i++ {
@@ -212,7 +211,6 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 写入低召回数据
 	log := &model.RagQueryLog{
@@ -250,7 +248,6 @@ func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	log := &model.RagQueryLog{
 		Query:          "slow",
@@ -284,7 +281,6 @@ func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 func TestRagHealth_GetHealth_EmbeddingFailure(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 写入 5 个文档：3 failed（60% > 10%）
 	for i := 0; i < 5; i++ {
@@ -318,7 +314,6 @@ func TestRagHealth_GetHealth_EmbeddingFailure(t *testing.T) {
 func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 	now := time.Now()
 
 	// 先写入查询日志，使 recall.TotalQueries > 0（告警维度评分前置条件）
@@ -378,7 +373,6 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 写入 2 小时前的数据（不在 1 小时窗口内）
 	log := &model.RagQueryLog{
@@ -431,7 +425,6 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 func TestRagHealth_GetHealthCached(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 第一次调用 → 未命中缓存
 	r1, err := svc.GetHealthCached(ctx, time.Hour)
@@ -657,7 +650,6 @@ func TestRagHealth_MakeDimension(t *testing.T) {
 func TestRagHealth_ClearCache(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 第一次调用填充缓存
 	_, _ = svc.GetHealthCached(ctx, time.Hour)
@@ -697,7 +689,6 @@ func TestRagHealth_GetHealth_NegativeWindow(t *testing.T) {
 func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 	db := setupRagHealthTestDB(t)
 	svc := NewRagHealthService(db, nil, nil)
-	ctx := context.Background()
 
 	// 写入中等召回数据（recall=0.5）
 	log := &model.RagQueryLog{

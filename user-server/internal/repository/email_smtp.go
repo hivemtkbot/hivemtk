@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 
 	_db "marketing/internal/pkg/utils/db"
@@ -9,11 +10,11 @@ import (
 )
 
 type EmailSmtpRepository interface {
-	Create(emailSmtp *model.EmailSmtp) error
-	GetByID(id string) (*model.EmailSmtp, error)
-	GetEmailSmtpList() ([]*model.EmailSmtp, error)
-	Update(emailSmtp *model.EmailSmtp) error
-	Delete(id string) error
+	Create(ctx context.Context, emailSmtp *model.EmailSmtp) error
+	GetByID(ctx context.Context, id string) (*model.EmailSmtp, error)
+	GetEmailSmtpList(ctx context.Context) ([]*model.EmailSmtp, error)
+	Update(ctx context.Context, emailSmtp *model.EmailSmtp) error
+	Delete(ctx context.Context, id string) error
 }
 
 type emailSmtpRepo struct {
@@ -24,26 +25,26 @@ func NewEmailSmtpRepository() EmailSmtpRepository {
 	return &emailSmtpRepo{db: _db.GetDB()}
 }
 
-func (r *emailSmtpRepo) Create(emailSmtp *model.EmailSmtp) error {
-	return r.db.Create(emailSmtp).Error
+func (r *emailSmtpRepo) Create(ctx context.Context, emailSmtp *model.EmailSmtp) error {
+	return r.db.WithContext(ctx).Create(emailSmtp).Error
 }
 
-func (r *emailSmtpRepo) Update(emailSmtp *model.EmailSmtp) error {
-	return r.db.Save(emailSmtp).Error
+func (r *emailSmtpRepo) Update(ctx context.Context, emailSmtp *model.EmailSmtp) error {
+	return r.db.WithContext(ctx).Save(emailSmtp).Error
 }
 
-func (r *emailSmtpRepo) Delete(id string) error {
-	return r.db.Where("id = ?", id).Delete(&model.EmailSmtp{}).Error
+func (r *emailSmtpRepo) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.EmailSmtp{}).Error
 }
 
-func (r *emailSmtpRepo) GetByID(id string) (*model.EmailSmtp, error) {
+func (r *emailSmtpRepo) GetByID(ctx context.Context, id string) (*model.EmailSmtp, error) {
 	var emailSmtp model.EmailSmtp
-	err := r.db.Where("id = ?", id).First(&emailSmtp).Error
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&emailSmtp).Error
 	return &emailSmtp, err
 }
 
-func (r *emailSmtpRepo) GetEmailSmtpList() ([]*model.EmailSmtp, error) {
+func (r *emailSmtpRepo) GetEmailSmtpList(ctx context.Context) ([]*model.EmailSmtp, error) {
 	var emailSmtp []*model.EmailSmtp
-	err := r.db.Find(&emailSmtp).Error
+	err := r.db.WithContext(ctx).Find(&emailSmtp).Error
 	return emailSmtp, err
 }

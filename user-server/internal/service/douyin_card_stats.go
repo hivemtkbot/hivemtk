@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -12,9 +13,9 @@ import (
 
 // DouyinCardStatsService 抖音卡片统计服务接口
 type DouyinCardStatsService interface {
-	GetCardStats(req *dto.DouyinCardStatsRequest) (*dto.DouyinCardStatsResponse, error)
-	GetOverallStats(req *dto.DouyinCardOverallStatsRequest) (*dto.DouyinCardOverallStatsResponse, error)
-	RecordActivity(cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
+	GetCardStats(ctx context.Context, req *dto.DouyinCardStatsRequest) (*dto.DouyinCardStatsResponse, error)
+	GetOverallStats(ctx context.Context, req *dto.DouyinCardOverallStatsRequest) (*dto.DouyinCardOverallStatsResponse, error)
+	RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
 
 // douyinCardStatsService 抖音卡片统计服务实现
@@ -30,7 +31,7 @@ func NewDouyinCardStatsService(db *gorm.DB) DouyinCardStatsService {
 }
 
 // GetCardStats 获取单个卡片的统计数据
-func (s *douyinCardStatsService) GetCardStats(req *dto.DouyinCardStatsRequest) (*dto.DouyinCardStatsResponse, error) {
+func (s *douyinCardStatsService) GetCardStats(ctx context.Context, req *dto.DouyinCardStatsRequest)  (*dto.DouyinCardStatsResponse, error) {
 	// 查询卡片信息
 	var card model.DouyinCard
 	if err := s.db.First(&card, req.CardID).Error; err != nil {
@@ -116,7 +117,7 @@ func (s *douyinCardStatsService) GetCardStats(req *dto.DouyinCardStatsRequest) (
 }
 
 // GetOverallStats 获取所有卡片的总体统计数据
-func (s *douyinCardStatsService) GetOverallStats(req *dto.DouyinCardOverallStatsRequest) (*dto.DouyinCardOverallStatsResponse, error) {
+func (s *douyinCardStatsService) GetOverallStats(ctx context.Context, req *dto.DouyinCardOverallStatsRequest)  (*dto.DouyinCardOverallStatsResponse, error) {
 	// 获取卡片总数和激活数
 	var totalCards, activeCards int64
 	s.db.Model(&model.DouyinCard{}).Count(&totalCards)
@@ -239,7 +240,7 @@ func (s *douyinCardStatsService) GetOverallStats(req *dto.DouyinCardOverallStats
 }
 
 // RecordActivity 记录卡片活动
-func (s *douyinCardStatsService) RecordActivity(cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
+func (s *douyinCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string)  error {
 	// 只记录浏览活动
 	if action != "view" {
 		return nil

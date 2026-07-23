@@ -10,7 +10,7 @@ import (
 )
 
 func TestInboxIngress_NormalizeEvent_Defaults(t *testing.T) {
-	svc := NewInboxIngressService(nil, cache.NewMemoryCache())
+	svc := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
 
 	event := &model.MessageEvent{
 		Channel:  model.ChannelWeb,
@@ -35,7 +35,7 @@ func TestInboxIngress_NormalizeEvent_Defaults(t *testing.T) {
 }
 
 func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
-	svc := NewInboxIngressService(nil, cache.NewMemoryCache())
+	svc := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
 	err := svc.NormalizeEvent(&model.MessageEvent{SenderID: "x"})
 	if err == nil {
 		t.Fatal("expected error for empty channel")
@@ -43,7 +43,7 @@ func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
 }
 
 func TestInboxIngress_NormalizeEvent_RejectsEmptySender(t *testing.T) {
-	svc := NewInboxIngressService(nil, cache.NewMemoryCache())
+	svc := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
 	err := svc.NormalizeEvent(&model.MessageEvent{Channel: model.ChannelWeb})
 	if err == nil {
 		t.Fatal("expected error for empty sender_id")
@@ -51,9 +51,8 @@ func TestInboxIngress_NormalizeEvent_RejectsEmptySender(t *testing.T) {
 }
 
 func TestInboxIngress_HumanLockCycle(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-lock-test"
 	// 未锁定状态
@@ -85,9 +84,8 @@ func TestInboxIngress_HumanLockCycle(t *testing.T) {
 }
 
 func TestInboxIngress_AIProcessingLockSerializes(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-ai-lock"
 
@@ -116,9 +114,8 @@ func TestInboxIngress_AIProcessingLockSerializes(t *testing.T) {
 }
 
 func TestInboxIngress_PendingQueue(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-pending"
 
@@ -148,9 +145,8 @@ func TestInboxIngress_PendingQueue(t *testing.T) {
 }
 
 func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-h-lock-bypass"
 	if err := svc.LockSessionForHuman(ctx, sessionID, "test"); err != nil {
@@ -178,9 +174,8 @@ func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
 }
 
 func TestInboxIngress_HandleIngressMessage_AcquiresAILock(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	event := &model.MessageEvent{
 		Channel:  model.ChannelWhatsApp,
@@ -205,9 +200,8 @@ func TestInboxIngress_HandleIngressMessage_AcquiresAILock(t *testing.T) {
 }
 
 func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	// 第一条拿到 AI 锁
 	first := &model.MessageEvent{
@@ -240,9 +234,8 @@ func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {
 }
 
 func TestInboxIngress_IsSessionAIBusy(t *testing.T) {
-	ctx := context.Background()
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	sessionID := "sess-ai-busy-check"
 	busy, _ := svc.IsSessionAIBusy(ctx, sessionID)
@@ -264,7 +257,7 @@ func TestInboxIngress_EndToEndScenario(t *testing.T) {
 	defer cancel()
 
 	c := cache.NewMemoryCache()
-	svc := NewInboxIngressService(nil, c)
+	svc := NewInboxIngressServiceWithDB(nil, c)
 
 	// 场景 1：客户首条消息
 	r1, err := svc.HandleIngressMessage(ctx, &model.MessageEvent{

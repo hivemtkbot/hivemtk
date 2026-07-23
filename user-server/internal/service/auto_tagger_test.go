@@ -1,14 +1,16 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
-	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
+	"marketing/internal/model"
 	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/utils/db"
+
+	"gorm.io/gorm"
 )
 
 // setupAutoTaggerTestDB 设置测试数据库
@@ -301,7 +303,7 @@ func TestAutoTagger_buildCustomerDataSnapshot(t *testing.T) {
 }
 
 // getTimeDaysAgo 获取 N 天前的时间
-func (a *AutoTagger) getTimeDaysAgo(days int) time.Time {
+func (a *AutoTagger) getTimeDaysAgo(ctx context.Context, days int)  time.Time {
 	return time.Now().AddDate(0, 0, -days)
 }
 

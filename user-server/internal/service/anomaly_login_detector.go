@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 )
@@ -114,12 +113,12 @@ func NewAnomalyLoginDetectorWithConfig(cfg AnomalyLoginDetectorConfig) *AnomalyL
 }
 
 // SetAdminEmails 设置管理员邮箱
-func (d *AnomalyLoginDetector) SetAdminEmails(emails []string) {
+func (d *AnomalyLoginDetector) SetAdminEmails(ctx context.Context, emails []string)  {
 	d.config.AdminEmails = emails
 }
 
 // SetConfig 整体替换配置
-func (d *AnomalyLoginDetector) SetConfig(cfg AnomalyLoginDetectorConfig) {
+func (d *AnomalyLoginDetector) SetConfig(ctx context.Context, cfg AnomalyLoginDetectorConfig)  {
 	d.config = cfg
 }
 
@@ -137,7 +136,7 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 	}
 
 	// 1. 委托 LoginRiskService 做风险评估
-	riskResult, err := d.riskService.Evaluate(lctx)
+	riskResult, err := d.riskService.Evaluate(ctx, lctx)
 	if err != nil {
 		return nil, fmt.Errorf("风险评估失败: %w", err)
 	}
@@ -168,7 +167,7 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 	}
 
 	if d.config.InboxEnabled {
-		if err := d.writeInboxNotification(lctx, riskResult); err != nil {
+		if err := d.writeInboxNotification(ctx, lctx, riskResult); err != nil {
 			logger.Errorf("[anomaly_login] 站内信写入失败: %v", err)
 			result.ChannelsFailed = append(result.ChannelsFailed, AnomalyLoginChannelInbox)
 		} else {
@@ -178,7 +177,7 @@ func (d *AnomalyLoginDetector) DetectAndAlert(ctx context.Context, lctx *LoginRi
 	}
 
 	if d.config.EmailEnabled && len(d.config.AdminEmails) > 0 {
-		if err := d.sendEmailAlert(lctx, riskResult); err != nil {
+		if err := d.sendEmailAlert(ctx, lctx, riskResult); err != nil {
 			logger.Errorf("[anomaly_login] 邮件告警发送失败: %v", err)
 			result.ChannelsFailed = append(result.ChannelsFailed, AnomalyLoginChannelEmail)
 		} else {
@@ -214,25 +213,22 @@ func (d *AnomalyLoginDetector) writeAuditLog(ctx context.Context, lctx *LoginRis
 }
 
 // writeInboxNotification 写站内通知
-func (d *AnomalyLoginDetector) writeInboxNotification(lctx *LoginRiskContext, result *LoginRiskResult) error {
-	database := db.GetDB()
-	if database == nil {
-		return errors.New("db not initialized")
-	}
-
+func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult)  error {
 	notif := &model.Notification{
 		UserID:  lctx.UserID,
 		Type:    model.NotificationTypeWarning,
 		Title:   result.AlertTitle,
 		Content: result.AlertDescription,
 	}
-	return database.Create(notif).Error
+	// 通过 LoginRiskRepository 落库（五层架构合规：仓储层封装 DB 入口）
+	riskRepo := repository.NewLoginRiskRepository()
+	return riskRepo.CreateNotification(context.Background(), notif)
 }
 
 // sendEmailAlert 发送邮件告警
 //
 // 简化实现：仅当存在 SMTP 配置时尝试发送；私域部署允许无 SMTP（仅走审计+站内信）
-func (d *AnomalyLoginDetector) sendEmailAlert(lctx *LoginRiskContext, result *LoginRiskResult) error {
+func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult)  error {
 	subject := fmt.Sprintf(d.config.EmailSubjectTemplate,
 		strings.ToUpper(string(result.RiskLevel)),
 		lctx.Username,
@@ -254,22 +250,22 @@ func (d *AnomalyLoginDetector) sendEmailAlert(lctx *LoginRiskContext, result *Lo
 		Content: body,
 		Status:  0, // 待发送
 	}
-	return emailRepo.Create(email)
+	return emailRepo.Create(context.Background(), email)
 }
 
 // ListAlerts 列出告警（供 controller 复用，复用 LoginRiskService 已存在的方法）
-func (d *AnomalyLoginDetector) ListAlerts(userID uint, status string, page, pageSize int) ([]*model.SecurityAlert, int64, error) {
-	return d.riskService.ListSecurityAlerts(userID, status, page, pageSize)
+func (d *AnomalyLoginDetector) ListAlerts(ctx context.Context, userID uint, status string, page, pageSize int) ([]*model.SecurityAlert, int64, error) {
+	return d.riskService.ListSecurityAlerts(ctx, userID, status, page, pageSize)
 }
 
 // ListLoginEvents 列出登录事件（供 controller 复用）
-func (d *AnomalyLoginDetector) ListLoginEvents(userID uint, page, pageSize int) ([]*model.LoginEvent, int64, error) {
-	return d.riskService.ListLoginEvents(userID, page, pageSize)
+func (d *AnomalyLoginDetector) ListLoginEvents(ctx context.Context, userID uint, page, pageSize int) ([]*model.LoginEvent, int64, error) {
+	return d.riskService.ListLoginEvents(ctx, userID, page, pageSize)
 }
 
 // ResolveAlert 解决告警（带审计日志）
 func (d *AnomalyLoginDetector) ResolveAlert(ctx context.Context, alertID, operatorID uint, note string) error {
-	if err := d.riskService.ResolveSecurityAlert(alertID, operatorID, note); err != nil {
+	if err := d.riskService.ResolveSecurityAlert(ctx, alertID, operatorID, note); err != nil {
 		return err
 	}
 	// 写审计
@@ -288,7 +284,7 @@ func (d *AnomalyLoginDetector) ResolveAlert(ctx context.Context, alertID, operat
 
 // IgnoreAlert 忽略告警（带审计日志）
 func (d *AnomalyLoginDetector) IgnoreAlert(ctx context.Context, alertID, operatorID uint, note string) error {
-	if err := d.riskService.IgnoreSecurityAlert(alertID, operatorID, note); err != nil {
+	if err := d.riskService.IgnoreSecurityAlert(ctx, alertID, operatorID, note); err != nil {
 		return err
 	}
 	repo := repository.NewOperationLogRepository()

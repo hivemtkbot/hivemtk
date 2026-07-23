@@ -85,11 +85,11 @@ func (u *SystemUser) BeforeCreate(tx *gorm.DB) error {
 	if u.DataScope == "" {
 		u.DataScope = DefaultDataScopeForRole(u.Role)
 	}
-	return u.HashPassword()
+	return HashSystemUserPassword(u)
 }
 
-// HashPassword 加密密码
-func (u *SystemUser) HashPassword() error {
+// HashSystemUserPassword 加密密码（包级函数，避免 model 上挂业务方法）
+func HashSystemUserPassword(u *SystemUser) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -98,13 +98,13 @@ func (u *SystemUser) HashPassword() error {
 	return nil
 }
 
-// CheckPassword 验证密码
-func (u *SystemUser) CheckPassword(password string) bool {
+// CheckSystemUserPassword 验证密码（包级函数）
+func CheckSystemUserPassword(u *SystemUser, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	return err == nil
 }
 
-// IsAdmin 检查是否为管理员（P1-5：使用角色常量而非硬编码）
-func (u *SystemUser) IsAdmin() bool {
+// IsSystemUserAdmin 检查是否为管理员（P1-5：使用角色常量而非硬编码）
+func IsSystemUserAdmin(u *SystemUser) bool {
 	return u.Role == SystemUserRoleAdmin
 }

@@ -41,7 +41,7 @@ func (c *BackupController) CreateBackup(ctx *gin.Context) {
 		return
 	}
 
-	backup, err := c.backupService.CreateBackup(uid, &req)
+	backup, err := c.backupService.CreateBackup(ctx.Request.Context(), uid, &req)
 	if HandleDBError(ctx, err, "创建备份") {
 		return
 	}
@@ -65,7 +65,7 @@ func (c *BackupController) GetBackupList(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
-	backups, total, err := c.backupService.GetBackupList(page, pageSize)
+	backups, total, err := c.backupService.GetBackupList(ctx.Request.Context(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -99,7 +99,7 @@ func (c *BackupController) GetBackupByID(ctx *gin.Context) {
 		return
 	}
 
-	backup, err := c.backupService.GetBackupByID(uint(id))
+	backup, err := c.backupService.GetBackupByID(ctx.Request.Context(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -128,7 +128,7 @@ func (c *BackupController) DeleteBackup(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.backupService.DeleteBackup(uint(id)), "删除备份") {
+	if HandleDBError(ctx, c.backupService.DeleteBackup(ctx.Request.Context(), uint(id)), "删除备份") {
 		return
 	}
 
@@ -167,7 +167,7 @@ func (c *RestoreController) RestoreBackup(ctx *gin.Context) {
 		return
 	}
 
-	record, err := c.restoreService.RestoreBackup(uid, &req)
+	record, err := c.restoreService.RestoreBackup(ctx.Request.Context(), uid, &req)
 	if HandleDBError(ctx, err, "恢复备份") {
 		return
 	}
@@ -191,7 +191,7 @@ func (c *RestoreController) GetRestoreList(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
-	records, total, err := c.restoreService.GetRestoreList(page, pageSize)
+	records, total, err := c.restoreService.GetRestoreList(ctx.Request.Context(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -218,7 +218,7 @@ func (c *RestoreController) GetLastRestore(ctx *gin.Context) {
 		return
 	}
 
-	record, err := c.restoreService.GetLastRestore()
+	record, err := c.restoreService.GetLastRestore(ctx.Request.Context())
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return

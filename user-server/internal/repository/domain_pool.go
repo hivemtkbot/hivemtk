@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -11,23 +12,23 @@ import (
 
 // DomainPoolRepository 域名池仓储接口
 type DomainPoolRepository interface {
-	Create(domainPool *model.DomainPool) error
-	Update(domainPool *model.DomainPool) error
-	Delete(id int) error
-	GetByID(id int) (*model.DomainPool, error)
-	GetByDomain(domain string) (*model.DomainPool, error)
-	List(page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error)
-	UpdateStatus(id, status int) error
-	UpdateLastCheck(id int, lastCheck time.Time) error
+	Create(ctx context.Context, domainPool *model.DomainPool) error
+	Update(ctx context.Context, domainPool *model.DomainPool) error
+	Delete(ctx context.Context, id int) error
+	GetByID(ctx context.Context, id int) (*model.DomainPool, error)
+	GetByDomain(ctx context.Context, domain string) (*model.DomainPool, error)
+	List(ctx context.Context, page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error)
+	UpdateStatus(ctx context.Context, id, status int) error
+	UpdateLastCheck(ctx context.Context, id int, lastCheck time.Time) error
 
 	// G 域 P1：健康度自动切换
-	UpdateHealth(id int, score, consecutiveFailures int, dnsOK bool, dnsErr string, httpStatus, latencyMs int, onBlacklist bool, blacklistAt time.Time, blacklistNote string) error
-	UpdateActive(id int, isActive bool, switchedAt *time.Time, switchedFromID int) error
-	ListActive() ([]*model.DomainPool, error)
+	UpdateHealth(ctx context.Context, id int, score, consecutiveFailures int, dnsOK bool, dnsErr string, httpStatus, latencyMs int, onBlacklist bool, blacklistAt time.Time, blacklistNote string) error
+	UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error
+	ListActive(ctx context.Context) ([]*model.DomainPool, error)
 	// ListAvailable 返回健康度评分 >= minScore 且未在黑名单的可用域名
-	ListAvailable(minScore int) ([]*model.DomainPool, error)
+	ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error)
 	// DeactivateAll 取消所有当前活跃域名
-	DeactivateAll() error
+	DeactivateAll(ctx context.Context) error
 }
 
 // domainPoolRepository 域名池仓储实现
@@ -46,7 +47,7 @@ func NewDomainPoolRepositoryWithDB(db *gorm.DB) DomainPoolRepository {
 }
 
 // dbOrDefault 当未注入 db 时回退到全局
-func (r *domainPoolRepository) dbOrDefault() *gorm.DB {
+func (r *domainPoolRepository) dbOrDefault(ctx context.Context) *gorm.DB {
 	if r.db != nil {
 		return r.db
 	}
@@ -54,24 +55,24 @@ func (r *domainPoolRepository) dbOrDefault() *gorm.DB {
 }
 
 // Create 创建域名池记录
-func (r *domainPoolRepository) Create(domainPool *model.DomainPool) error {
-	return r.dbOrDefault().Create(domainPool).Error
+func (r *domainPoolRepository) Create(ctx context.Context, domainPool *model.DomainPool) error {
+	return r.dbOrDefault(ctx).Create(domainPool).Error
 }
 
 // Update 更新域名池记录
-func (r *domainPoolRepository) Update(domainPool *model.DomainPool) error {
-	return r.dbOrDefault().Save(domainPool).Error
+func (r *domainPoolRepository) Update(ctx context.Context, domainPool *model.DomainPool) error {
+	return r.dbOrDefault(ctx).Save(domainPool).Error
 }
 
 // Delete 删除域名池记录
-func (r *domainPoolRepository) Delete(id int) error {
-	return r.dbOrDefault().Delete(&model.DomainPool{}, id).Error
+func (r *domainPoolRepository) Delete(ctx context.Context, id int) error {
+	return r.dbOrDefault(ctx).Delete(&model.DomainPool{}, id).Error
 }
 
 // GetByID 根据ID获取域名池记录
-func (r *domainPoolRepository) GetByID(id int) (*model.DomainPool, error) {
+func (r *domainPoolRepository) GetByID(ctx context.Context, id int) (*model.DomainPool, error) {
 	var domainPool model.DomainPool
-	err := r.dbOrDefault().First(&domainPool, id).Error
+	err := r.dbOrDefault(ctx).First(&domainPool, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +80,9 @@ func (r *domainPoolRepository) GetByID(id int) (*model.DomainPool, error) {
 }
 
 // GetByDomain 根据域名获取域名池记录
-func (r *domainPoolRepository) GetByDomain(domain string) (*model.DomainPool, error) {
+func (r *domainPoolRepository) GetByDomain(ctx context.Context, domain string) (*model.DomainPool, error) {
 	var domainPool model.DomainPool
-	err := r.dbOrDefault().Where("domain = ?", domain).First(&domainPool).Error
+	err := r.dbOrDefault(ctx).Where("domain = ?", domain).First(&domainPool).Error
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +90,11 @@ func (r *domainPoolRepository) GetByDomain(domain string) (*model.DomainPool, er
 }
 
 // List 获取域名池列表
-func (r *domainPoolRepository) List(page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error) {
+func (r *domainPoolRepository) List(ctx context.Context, page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error) {
 	var domainPools []*model.DomainPool
 	var total int64
 
-	query := r.dbOrDefault().Model(&model.DomainPool{})
+	query := r.dbOrDefault(ctx).Model(&model.DomainPool{})
 
 	// 添加搜索条件
 	if domain != "" {
@@ -118,17 +119,18 @@ func (r *domainPoolRepository) List(page, pageSize int, domain string, status in
 }
 
 // UpdateStatus 更新域名池状态
-func (r *domainPoolRepository) UpdateStatus(id, status int) error {
-	return r.dbOrDefault().Model(&model.DomainPool{}).Where("id = ?", id).Update("status", status).Error
+func (r *domainPoolRepository) UpdateStatus(ctx context.Context, id, status int) error {
+	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Update("status", status).Error
 }
 
 // UpdateLastCheck 更新最后检查时间
-func (r *domainPoolRepository) UpdateLastCheck(id int, lastCheck time.Time) error {
-	return r.dbOrDefault().Model(&model.DomainPool{}).Where("id = ?", id).Update("last_check", lastCheck).Error
+func (r *domainPoolRepository) UpdateLastCheck(ctx context.Context, id int, lastCheck time.Time) error {
+	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Update("last_check", lastCheck).Error
 }
 
 // UpdateHealth G 域 P1：写入健康度评分
 func (r *domainPoolRepository) UpdateHealth(
+	ctx context.Context,
 	id int,
 	score, consecutiveFailures int,
 	dnsOK bool,
@@ -157,30 +159,30 @@ func (r *domainPoolRepository) UpdateHealth(
 	} else if !onBlacklist {
 		updates["blacklist_at"] = time.Time{}
 	}
-	return r.dbOrDefault().Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
+	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // UpdateActive G 域 P1：写入活跃状态与切换时间
-func (r *domainPoolRepository) UpdateActive(id int, isActive bool, switchedAt *time.Time, switchedFromID int) error {
+func (r *domainPoolRepository) UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error {
 	updates := map[string]any{
 		"is_active":        isActive,
 		"switched_at":      switchedAt,
 		"switched_from_id": switchedFromID,
 	}
-	return r.dbOrDefault().Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
+	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // ListActive 返回所有当前标记为活跃的域名
-func (r *domainPoolRepository) ListActive() ([]*model.DomainPool, error) {
+func (r *domainPoolRepository) ListActive(ctx context.Context) ([]*model.DomainPool, error) {
 	var rows []*model.DomainPool
-	err := r.dbOrDefault().Where("is_active = ?", true).Order("switched_at DESC NULLS LAST").Find(&rows).Error
+	err := r.dbOrDefault(ctx).Where("is_active = ?", true).Order("switched_at DESC NULLS LAST").Find(&rows).Error
 	return rows, err
 }
 
 // ListAvailable 返回评分 >= minScore、未在黑名单、状态为正常的可用域名
-func (r *domainPoolRepository) ListAvailable(minScore int) ([]*model.DomainPool, error) {
+func (r *domainPoolRepository) ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error) {
 	var rows []*model.DomainPool
-	err := r.dbOrDefault().
+	err := r.dbOrDefault(ctx).
 		Where("health_score >= ?", minScore).
 		Where("on_blacklist = ?", false).
 		Where("status = ?", 1).
@@ -190,8 +192,8 @@ func (r *domainPoolRepository) ListAvailable(minScore int) ([]*model.DomainPool,
 }
 
 // DeactivateAll 将所有域名标记为非活跃
-func (r *domainPoolRepository) DeactivateAll() error {
-	return r.dbOrDefault().Model(&model.DomainPool{}).Where("is_active = ?", true).Update("is_active", false).Error
+func (r *domainPoolRepository) DeactivateAll(ctx context.Context) error {
+	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("is_active = ?", true).Update("is_active", false).Error
 }
 
 // ============== 健康度日志 ==============
@@ -210,7 +212,7 @@ func NewDomainHealthLogRepository(db *gorm.DB) *DomainHealthLogRepository {
 }
 
 // Create 创建一条健康度日志
-func (r *DomainHealthLogRepository) Create(log *model.DomainHealthLog) error {
+func (r *DomainHealthLogRepository) Create(ctx context.Context, log *model.DomainHealthLog) error {
 	if log.CheckedAt.IsZero() {
 		log.CheckedAt = time.Now()
 	}
@@ -218,7 +220,7 @@ func (r *DomainHealthLogRepository) Create(log *model.DomainHealthLog) error {
 }
 
 // ListByDomain 查询指定域名的最近 N 条日志
-func (r *DomainHealthLogRepository) ListByDomain(domainID int, limit int) ([]*model.DomainHealthLog, error) {
+func (r *DomainHealthLogRepository) ListByDomain(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -243,7 +245,7 @@ func NewDomainBlacklistRepository(db *gorm.DB) *DomainBlacklistRepository {
 }
 
 // IsBlacklisted 判定域名是否在黑名单中（Active + 未过期）
-func (r *DomainBlacklistRepository) IsBlacklisted(domain string) (bool, *model.DomainBlacklist, error) {
+func (r *DomainBlacklistRepository) IsBlacklisted(ctx context.Context, domain string) (bool, *model.DomainBlacklist, error) {
 	if domain == "" {
 		return false, nil, nil
 	}
@@ -263,7 +265,7 @@ func (r *DomainBlacklistRepository) IsBlacklisted(domain string) (bool, *model.D
 }
 
 // Add 添加黑名单（幂等：已存在则刷新 reason）
-func (r *DomainBlacklistRepository) Add(domain, platform, reason, source string, expiresAt *time.Time) error {
+func (r *DomainBlacklistRepository) Add(ctx context.Context, domain, platform, reason, source string, expiresAt *time.Time) error {
 	if domain == "" {
 		return errors.New("domain is required")
 	}
@@ -301,12 +303,12 @@ func (r *DomainBlacklistRepository) Add(domain, platform, reason, source string,
 }
 
 // Remove 移除黑名单
-func (r *DomainBlacklistRepository) Remove(domain string) error {
+func (r *DomainBlacklistRepository) Remove(ctx context.Context, domain string) error {
 	return r.db.Model(&model.DomainBlacklist{}).Where("domain = ?", domain).Update("active", false).Error
 }
 
 // List 分页查询
-func (r *DomainBlacklistRepository) List(page, pageSize int) ([]*model.DomainBlacklist, int64, error) {
+func (r *DomainBlacklistRepository) List(ctx context.Context, page, pageSize int) ([]*model.DomainBlacklist, int64, error) {
 	if page < 1 {
 		page = 1
 	}

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"time"
 
@@ -8,11 +9,11 @@ import (
 )
 
 type CardAccessRepository interface {
-	Create(access *model.CardAccess) error
-	GetByCardID(cardID uint, page, pageSize int) ([]*model.CardAccess, int64, error)
-	CountAccess(cardID uint, cardType string, startDate, endDate time.Time) (int, error)
-	CountDistinctIP(cardID uint, cardType string, startDate, endDate time.Time) (int, error)
-	HasAccessToday(cardID uint, ip string) (bool, error)
+	Create(ctx context.Context, access *model.CardAccess) error
+	GetByCardID(ctx context.Context, cardID uint, page, pageSize int) ([]*model.CardAccess, int64, error)
+	CountAccess(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (int, error)
+	CountDistinctIP(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (int, error)
+	HasAccessToday(ctx context.Context, cardID uint, ip string) (bool, error)
 }
 
 type cardAccessRepository struct {
@@ -23,11 +24,11 @@ func NewCardAccessRepository(db *gorm.DB) CardAccessRepository {
 	return &cardAccessRepository{db: db}
 }
 
-func (r *cardAccessRepository) Create(access *model.CardAccess) error {
+func (r *cardAccessRepository) Create(ctx context.Context, access *model.CardAccess) error {
 	return r.db.Create(access).Error
 }
 
-func (r *cardAccessRepository) GetByCardID(cardID uint, page, pageSize int) ([]*model.CardAccess, int64, error) {
+func (r *cardAccessRepository) GetByCardID(ctx context.Context, cardID uint, page, pageSize int) ([]*model.CardAccess, int64, error) {
 	var accesses []*model.CardAccess
 	var total int64
 
@@ -42,7 +43,7 @@ func (r *cardAccessRepository) GetByCardID(cardID uint, page, pageSize int) ([]*
 	return accesses, total, err
 }
 
-func (r *cardAccessRepository) CountAccess(cardID uint, cardType string, startDate, endDate time.Time) (int, error) {
+func (r *cardAccessRepository) CountAccess(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (int, error) {
 	var count int64
 	query := r.db.Model(&model.CardAccess{}).Where("card_id = ?", cardID)
 
@@ -62,7 +63,7 @@ func (r *cardAccessRepository) CountAccess(cardID uint, cardType string, startDa
 	return int(count), err
 }
 
-func (r *cardAccessRepository) CountDistinctIP(cardID uint, cardType string, startDate, endDate time.Time) (int, error) {
+func (r *cardAccessRepository) CountDistinctIP(ctx context.Context, cardID uint, cardType string, startDate, endDate time.Time) (int, error) {
 	var count int64
 	query := r.db.Model(&model.CardAccess{}).Where("card_id = ?", cardID)
 
@@ -82,7 +83,7 @@ func (r *cardAccessRepository) CountDistinctIP(cardID uint, cardType string, sta
 	return int(count), err
 }
 
-func (r *cardAccessRepository) HasAccessToday(cardID uint, ip string) (bool, error) {
+func (r *cardAccessRepository) HasAccessToday(ctx context.Context, cardID uint, ip string) (bool, error) {
 	today := time.Now().Format("2006-01-02")
 	tomorrow, _ := time.Parse("2006-01-02", today)
 	tomorrow = tomorrow.Add(24 * time.Hour)
@@ -97,10 +98,10 @@ func (r *cardAccessRepository) HasAccessToday(cardID uint, ip string) (bool, err
 }
 
 type DailyCardUVStatsRepository interface {
-	Create(stats *model.DailyCardUVStats) error
-	Update(stats *model.DailyCardUVStats) error
-	GetByCardID(cardID uint, cardType string) ([]*model.DailyCardUVStats, error)
-	GetByCardIDAndDate(cardID uint, cardType string, date string) (*model.DailyCardUVStats, error)
+	Create(ctx context.Context, stats *model.DailyCardUVStats) error
+	Update(ctx context.Context, stats *model.DailyCardUVStats) error
+	GetByCardID(ctx context.Context, cardID uint, cardType string) ([]*model.DailyCardUVStats, error)
+	GetByCardIDAndDate(ctx context.Context, cardID uint, cardType string, date string) (*model.DailyCardUVStats, error)
 }
 
 type dailyCardUVStatsRepository struct {
@@ -111,15 +112,15 @@ func NewDailyCardUVStatsRepository(db *gorm.DB) DailyCardUVStatsRepository {
 	return &dailyCardUVStatsRepository{db: db}
 }
 
-func (r *dailyCardUVStatsRepository) Create(stats *model.DailyCardUVStats) error {
+func (r *dailyCardUVStatsRepository) Create(ctx context.Context, stats *model.DailyCardUVStats) error {
 	return r.db.Create(stats).Error
 }
 
-func (r *dailyCardUVStatsRepository) Update(stats *model.DailyCardUVStats) error {
+func (r *dailyCardUVStatsRepository) Update(ctx context.Context, stats *model.DailyCardUVStats) error {
 	return r.db.Save(stats).Error
 }
 
-func (r *dailyCardUVStatsRepository) GetByCardID(cardID uint, cardType string) ([]*model.DailyCardUVStats, error) {
+func (r *dailyCardUVStatsRepository) GetByCardID(ctx context.Context, cardID uint, cardType string) ([]*model.DailyCardUVStats, error) {
 	var stats []*model.DailyCardUVStats
 	query := r.db.Where("card_id = ?", cardID)
 
@@ -131,7 +132,7 @@ func (r *dailyCardUVStatsRepository) GetByCardID(cardID uint, cardType string) (
 	return stats, err
 }
 
-func (r *dailyCardUVStatsRepository) GetByCardIDAndDate(cardID uint, cardType string, date string) (*model.DailyCardUVStats, error) {
+func (r *dailyCardUVStatsRepository) GetByCardIDAndDate(ctx context.Context, cardID uint, cardType string, date string) (*model.DailyCardUVStats, error) {
 	var stats model.DailyCardUVStats
 	err := r.db.Where("card_id = ? AND card_type = ? AND date = ?", cardID, cardType, date).
 		First(&stats).Error

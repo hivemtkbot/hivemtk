@@ -81,7 +81,7 @@ func TestXianyuCardStatsRepository_RecordActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.RecordActivity(ctx, tt.cardID, tt.activityType, tt.ip, tt.userAgent, tt.referer)
+			err := repo.RecordActivity(context.Background(), ctx, tt.cardID, tt.activityType, tt.ip, tt.userAgent, tt.referer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RecordActivity() error = %v, wantErr %v", err, tt.wantErr)
@@ -136,7 +136,7 @@ func TestXianyuCardStatsRepository_GetCardStats(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetCardStats(ctx, card.ID, startDate, endDate)
+	stats, err := repo.GetCardStats(context.Background(), ctx, card.ID, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
@@ -196,7 +196,7 @@ func TestXianyuCardStatsRepository_GetCardStats_WithDateRange(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetCardStats(ctx, card.ID, startDate, endDate)
+	stats, err := repo.GetCardStats(context.Background(), ctx, card.ID, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
@@ -223,7 +223,7 @@ func TestXianyuCardStatsRepository_GetCardStats_EmptyResult(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetCardStats(ctx, card.ID, startDate, endDate)
+	stats, err := repo.GetCardStats(context.Background(), ctx, card.ID, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
@@ -286,7 +286,7 @@ func TestXianyuCardStatsRepository_GetOverallStats(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetOverallStats(ctx, startDate, endDate)
+	stats, err := repo.GetOverallStats(context.Background(), ctx, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetOverallStats() error = %v", err)
 	}
@@ -356,7 +356,7 @@ func TestXianyuCardStatsRepository_GetOverallStats_WithTopCards(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetOverallStats(ctx, startDate, endDate)
+	stats, err := repo.GetOverallStats(context.Background(), ctx, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetOverallStats() error = %v", err)
 	}
@@ -379,7 +379,7 @@ func TestXianyuCardStatsRepository_GetOverallStats_EmptyResult(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetOverallStats(ctx, startDate, endDate)
+	stats, err := repo.GetOverallStats(context.Background(), ctx, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetOverallStats() error = %v", err)
 	}
@@ -411,11 +411,11 @@ func TestXianyuCardStatsRepository_RecordActivity_WithDeviceType(t *testing.T) {
 	db.GetDB().Create(card)
 
 	// 记录不同设备的活动
-	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)", "")
-	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.2", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "")
-	repo.RecordActivity(ctx, card.ID, "view", "192.168.1.3", "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)", "")
+	repo.RecordActivity(context.Background(), ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)", "")
+	repo.RecordActivity(context.Background(), ctx, card.ID, "view", "192.168.1.2", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "")
+	repo.RecordActivity(context.Background(), ctx, card.ID, "view", "192.168.1.3", "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)", "")
 
-	stats, err := repo.GetCardStats(ctx, card.ID, time.Now().AddDate(0, 0, -7), time.Now())
+	stats, err := repo.GetCardStats(context.Background(), ctx, card.ID, time.Now().AddDate(0, 0, -7), time.Now())
 	if err != nil {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
@@ -462,7 +462,7 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetCardStats(ctx, card.ID, startDate, endDate)
+	stats, err := repo.GetCardStats(context.Background(), ctx, card.ID, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetCardStats() error = %v", err)
 	}
@@ -492,7 +492,7 @@ func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 	db.GetDB().Create(card)
 
 	// 使用已取消的 context 应该失败
-	err := repo.RecordActivity(ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0", "")
+	err := repo.RecordActivity(context.Background(), ctx, card.ID, "view", "192.168.1.1", "Mozilla/5.0", "")
 	if err == nil {
 		t.Error("Expected error when context is cancelled")
 	}

@@ -215,7 +215,6 @@ func TestDraft_ManualValidation(t *testing.T) {
 // 商业产品级核心闭环：销售点"确认" → 4 件事自动发生
 func TestDraft_Confirm(t *testing.T) {
 	journey, followup, _, _, dashboard, draftSvc, _ := setupDraftEnv(t)
-	ctx := context.Background()
 	custID := "cust_confirm_001"
 	ownerID := "sales_confirm"
 	// 客户在"报价"阶段
@@ -522,7 +521,6 @@ func TestDraft_GetByID(t *testing.T) {
 //	→ 自动生成草稿 → 销售在工作台看到 → 一键确认 → 下单
 func TestDraft_TriggerAutoCreate(t *testing.T) {
 	journey, _, tagger, _, dashboard, draftSvc, trigger := setupDraftEnv(t)
-	ctx := context.Background()
 	custID := "cust_trigger_001"
 	ownerID := "sales_trigger"
 
@@ -572,7 +570,6 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 // 这是 P1-CLOSE-11 的完整端到端测试
 func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	journey, followup, _, _, dashboard, draftSvc, trigger := setupDraftEnv(t)
-	ctx := context.Background()
 	custID := "cust_e2e_001"
 	ownerID := "sales_e2e"
 
@@ -630,7 +627,6 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 // TestDraft_TriggerMultipleIntents 多个订单意向 → 多个草稿
 func TestDraft_TriggerMultipleIntents(t *testing.T) {
 	_, _, _, _, _, draftSvc, trigger := setupDraftEnv(t)
-	ctx := context.Background()
 	custID := "cust_multi_intent"
 	ownerID := "sales_multi"
 
@@ -650,7 +646,6 @@ func TestDraft_TriggerMultipleIntents(t *testing.T) {
 // TestDraft_TriggerNoIntent 无产品信号 → 不创建草稿
 func TestDraft_TriggerNoIntent(t *testing.T) {
 	_, _, _, _, _, draftSvc, trigger := setupDraftEnv(t)
-	ctx := context.Background()
 	custID := "cust_no_intent"
 	ownerID := "sales_no"
 

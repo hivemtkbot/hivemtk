@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 
@@ -9,14 +10,14 @@ import (
 
 // ShortLinkRepository 短链仓储接口
 type ShortLinkRepository interface {
-	Create(shortLink *model.ShortLink) error
-	Update(shortLink *model.ShortLink) error
-	Delete(id uint) error
-	GetByID(id uint) (*model.ShortLink, error)
-	GetByShortCode(shortCode string) (*model.ShortLink, error)
-	GetList(page, pageSize int, shortCode, originalURL string, status int) ([]*model.ShortLink, int64, error)
-	GetTotalCount() (int64, error)
-	IncreaseClickCount(id uint) error
+	Create(ctx context.Context, shortLink *model.ShortLink) error
+	Update(ctx context.Context, shortLink *model.ShortLink) error
+	Delete(ctx context.Context, id uint) error
+	GetByID(ctx context.Context, id uint) (*model.ShortLink, error)
+	GetByShortCode(ctx context.Context, shortCode string) (*model.ShortLink, error)
+	GetList(ctx context.Context, page, pageSize int, shortCode, originalURL string, status int) ([]*model.ShortLink, int64, error)
+	GetTotalCount(ctx context.Context) (int64, error)
+	IncreaseClickCount(ctx context.Context, id uint) error
 }
 
 // shortLinkRepository 短链仓储实现
@@ -30,7 +31,7 @@ func NewShortLinkRepository(db *gorm.DB) ShortLinkRepository {
 }
 
 // Create 创建短链
-func (r *shortLinkRepository) Create(shortLink *model.ShortLink) error {
+func (r *shortLinkRepository) Create(ctx context.Context, shortLink *model.ShortLink) error {
 	logger.Infof("创建短链，ShortCode: %s, OriginalURL: %s", shortLink.ShortCode, shortLink.OriginalURL)
 	err := r.db.Create(shortLink).Error
 	if err != nil {
@@ -42,17 +43,17 @@ func (r *shortLinkRepository) Create(shortLink *model.ShortLink) error {
 }
 
 // Update 更新短链
-func (r *shortLinkRepository) Update(shortLink *model.ShortLink) error {
+func (r *shortLinkRepository) Update(ctx context.Context, shortLink *model.ShortLink) error {
 	return r.db.Save(shortLink).Error
 }
 
 // Delete 删除短链
-func (r *shortLinkRepository) Delete(id uint) error {
+func (r *shortLinkRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.ShortLink{}, id).Error
 }
 
 // GetByID 根据ID获取短链
-func (r *shortLinkRepository) GetByID(id uint) (*model.ShortLink, error) {
+func (r *shortLinkRepository) GetByID(ctx context.Context, id uint) (*model.ShortLink, error) {
 	var shortLink model.ShortLink
 	err := r.db.First(&shortLink, id).Error
 	if err != nil {
@@ -62,7 +63,7 @@ func (r *shortLinkRepository) GetByID(id uint) (*model.ShortLink, error) {
 }
 
 // GetByShortCode 根据短码获取短链
-func (r *shortLinkRepository) GetByShortCode(shortCode string) (*model.ShortLink, error) {
+func (r *shortLinkRepository) GetByShortCode(ctx context.Context, shortCode string) (*model.ShortLink, error) {
 	var shortLink model.ShortLink
 	err := r.db.Where("short_code = ?", shortCode).First(&shortLink).Error
 	if err != nil {
@@ -72,7 +73,7 @@ func (r *shortLinkRepository) GetByShortCode(shortCode string) (*model.ShortLink
 }
 
 // GetList 获取短链列表
-func (r *shortLinkRepository) GetList(page, pageSize int, shortCode, originalURL string, status int) ([]*model.ShortLink, int64, error) {
+func (r *shortLinkRepository) GetList(ctx context.Context, page, pageSize int, shortCode, originalURL string, status int) ([]*model.ShortLink, int64, error) {
 	var shortLinks []*model.ShortLink
 	var total int64
 
@@ -106,13 +107,13 @@ func (r *shortLinkRepository) GetList(page, pageSize int, shortCode, originalURL
 }
 
 // GetTotalCount 获取短链总数
-func (r *shortLinkRepository) GetTotalCount() (int64, error) {
+func (r *shortLinkRepository) GetTotalCount(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.Model(&model.ShortLink{}).Count(&count).Error
 	return count, err
 }
 
 // IncreaseClickCount 增加点击次数
-func (r *shortLinkRepository) IncreaseClickCount(id uint) error {
+func (r *shortLinkRepository) IncreaseClickCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.ShortLink{}).Where("id = ?", id).UpdateColumn("click_count", gorm.Expr("click_count + ?", 1)).Error
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -64,7 +65,7 @@ func TestTeamUserRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := userRepo.Create(tt.user)
+			err := userRepo.Create(context.Background(), tt.user)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -87,7 +88,7 @@ func TestTeamUserRepository_GetByID(t *testing.T) {
 		Password: "pass",
 		Name:     "GetByID User",
 	}
-	userRepo.Create(user)
+	userRepo.Create(context.Background(), user)
 
 	tests := []struct {
 		name    string
@@ -108,7 +109,7 @@ func TestTeamUserRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := userRepo.GetByID(tt.id)
+			result, err := userRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -130,17 +131,17 @@ func TestTeamUserRepository_Update(t *testing.T) {
 		Password: "pass",
 		Name:     "Original Name",
 	}
-	userRepo.Create(user)
+	userRepo.Create(context.Background(), user)
 
 	user.Name = "Updated Name"
 	user.Email = "updated@example.com"
 
-	err := userRepo.Update(user)
+	err := userRepo.Update(context.Background(), user)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := userRepo.GetByID(user.ID)
+	updated, _ := userRepo.GetByID(context.Background(), user.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -155,14 +156,14 @@ func TestTeamUserRepository_Delete(t *testing.T) {
 		Username: "deleteuser",
 		Password: "pass",
 	}
-	userRepo.Create(user)
+	userRepo.Create(context.Background(), user)
 
-	err := userRepo.Delete(user.ID)
+	err := userRepo.Delete(context.Background(), user.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = userRepo.GetByID(user.ID)
+	_, err = userRepo.GetByID(context.Background(), user.ID)
 	if err == nil {
 		t.Error("Expected user to be deleted")
 	}
@@ -177,14 +178,14 @@ func TestTeamUserRepository_UpdateLastLogin(t *testing.T) {
 		Username: "loginuser",
 		Password: "pass",
 	}
-	userRepo.Create(user)
+	userRepo.Create(context.Background(), user)
 
-	err := userRepo.UpdateLastLogin(user.ID, "192.168.1.1")
+	err := userRepo.UpdateLastLogin(context.Background(), user.ID, "192.168.1.1")
 	if err != nil {
 		t.Errorf("UpdateLastLogin() error = %v", err)
 	}
 
-	updated, _ := userRepo.GetByID(user.ID)
+	updated, _ := userRepo.GetByID(context.Background(), user.ID)
 	if updated.LastLoginIP != "192.168.1.1" {
 		t.Errorf("Expected LastLoginIP '192.168.1.1', got '%s'", updated.LastLoginIP)
 	}
@@ -197,17 +198,17 @@ func TestTeamUserRepository_UpdateLastLogin(t *testing.T) {
 func TestTeamUserRepository_UsernameExists(t *testing.T) {
 	userRepo, _, _ := setupTeamUserRepositories(t)
 
-	userRepo.Create(&model.TeamUser{
+	userRepo.Create(context.Background(), &model.TeamUser{
 		Username: "existinguser",
 		Password: "pass",
 	})
 
-	exists, _ := userRepo.UsernameExists("existinguser", 0)
+	exists, _ := userRepo.UsernameExists(context.Background(), "existinguser", 0)
 	if !exists {
 		t.Error("Expected username to exist")
 	}
 
-	exists, _ = userRepo.UsernameExists("nonexistent", 0)
+	exists, _ = userRepo.UsernameExists(context.Background(), "nonexistent", 0)
 	if exists {
 		t.Error("Expected username to not exist")
 	}
@@ -218,24 +219,24 @@ func TestTeamUserRepository_EmailExists(t *testing.T) {
 	userRepo, _, _ := setupTeamUserRepositories(t)
 
 	// 创建测试数据
-	userRepo.Create(&model.TeamUser{
+	userRepo.Create(context.Background(), &model.TeamUser{
 		Username: "testuser",
 		Password: "pass",
 		Email:    "test@example.com",
 	})
 
-	exists, _ := userRepo.EmailExists("test@example.com", 0)
+	exists, _ := userRepo.EmailExists(context.Background(), "test@example.com", 0)
 	if !exists {
 		t.Error("Expected email to exist")
 	}
 
-	exists, _ = userRepo.EmailExists("other@example.com", 0)
+	exists, _ = userRepo.EmailExists(context.Background(), "other@example.com", 0)
 	if exists {
 		t.Error("Expected email to not exist")
 	}
 
 	// 测试空邮箱
-	exists, _ = userRepo.EmailExists("", 0)
+	exists, _ = userRepo.EmailExists(context.Background(), "", 0)
 	if exists {
 		t.Error("Expected empty email to return false")
 	}

@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"encoding/json"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -65,7 +67,7 @@ func TestCustomerEventRepository_Record(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Record(tt.event)
+			err := repo.Record(context.Background(), tt.event)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Record() error = %v, wantErr %v", err, tt.wantErr)
@@ -112,7 +114,7 @@ func TestCustomerEventRepository_GetByCustomerID(t *testing.T) {
 	}
 
 	for _, event := range events {
-		repo.Record(event)
+		repo.Record(context.Background(), event)
 	}
 
 	tests := []struct {
@@ -143,7 +145,7 @@ func TestCustomerEventRepository_GetByCustomerID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByCustomerID(tt.customerID, tt.limit)
+			result, err := repo.GetByCustomerID(context.Background(), tt.customerID, tt.limit)
 
 			if err != nil {
 				t.Errorf("GetByCustomerID() error = %v", err)
@@ -200,7 +202,7 @@ func TestCustomerEventRepository_GetByTimeRange(t *testing.T) {
 	}
 
 	for _, event := range events {
-		repo.Record(event)
+		repo.Record(context.Background(), event)
 	}
 
 	tests := []struct {
@@ -237,7 +239,7 @@ func TestCustomerEventRepository_GetByTimeRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByTimeRange(tt.start, tt.end)
+			result, err := repo.GetByTimeRange(context.Background(), tt.start, tt.end)
 			if err != nil {
 				t.Errorf("GetByTimeRange() error = %v", err)
 			}
@@ -252,29 +254,27 @@ func TestCustomerEventRepository_GetByTimeRange(t *testing.T) {
 func TestCustomerEventRepository_EventData(t *testing.T) {
 	repo := setupCustomerEventRepository(t)
 
+	eventData := map[string]any{
+		"product_id": "prod-123",
+		"quantity":   2,
+		"price":      99.99,
+	}
+	dataJSON, _ := json.Marshal(eventData)
+
 	event := &model.CustomerEvent{
 		CustomerID:  "test-customer",
 		EventType:   model.EventTypePurchase,
 		EventSource: model.EventSourceApp,
+		EventData:   string(dataJSON),
 	}
 
-	// Set event data
-	err := event.SetEventData(map[string]any{
-		"product_id": "prod-123",
-		"quantity":   2,
-		"price":      99.99,
-	})
-	if err != nil {
-		t.Errorf("SetEventData() error = %v", err)
-	}
-
-	err = repo.Record(event)
+	err := repo.Record(context.Background(), event)
 	if err != nil {
 		t.Errorf("Record() error = %v", err)
 	}
 
 	// Retrieve and verify event data
-	result, err := repo.GetByCustomerID(event.CustomerID, 1)
+	result, err := repo.GetByCustomerID(context.Background(), event.CustomerID, 1)
 	if err != nil {
 		t.Errorf("GetByCustomerID() error = %v", err)
 	}
@@ -283,7 +283,10 @@ func TestCustomerEventRepository_EventData(t *testing.T) {
 		t.Fatalf("Expected 1 event, got %d", len(result))
 	}
 
-	data := result[0].GetEventData()
+	var data map[string]any
+	if err := json.Unmarshal([]byte(result[0].EventData), &data); err != nil {
+		t.Errorf("Failed to unmarshal event data: %v", err)
+	}
 
 	if data["product_id"] != "prod-123" {
 		t.Errorf("Expected product_id 'prod-123', got '%v'", data["product_id"])
@@ -316,13 +319,13 @@ func TestCustomerEventRepository_AllEventTypes(t *testing.T) {
 			EventType:   eventType,
 			EventSource: model.EventSourceWebsite,
 		}
-		err := repo.Record(event)
+		err := repo.Record(context.Background(), event)
 		if err != nil {
 			t.Errorf("Record() error for event type %s = %v", eventType, err)
 		}
 	}
 
-	events, err := repo.GetByCustomerID(customerID, 100)
+	events, err := repo.GetByCustomerID(context.Background(), customerID, 100)
 	if err != nil {
 		t.Errorf("GetByCustomerID() error = %v", err)
 	}
@@ -352,13 +355,13 @@ func TestCustomerEventRepository_AllEventSources(t *testing.T) {
 			EventType:   model.EventTypePageView,
 			EventSource: source,
 		}
-		err := repo.Record(event)
+		err := repo.Record(context.Background(), event)
 		if err != nil {
 			t.Errorf("Record() error for source %s = %v", source, err)
 		}
 	}
 
-	events, err := repo.GetByCustomerID(customerID, 100)
+	events, err := repo.GetByCustomerID(context.Background(), customerID, 100)
 	if err != nil {
 		t.Errorf("GetByCustomerID() error = %v", err)
 	}

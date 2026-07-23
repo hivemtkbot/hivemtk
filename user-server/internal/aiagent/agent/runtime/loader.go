@@ -55,7 +55,7 @@ func (l *pgAgentContextLoader) LoadByChannelAccount(ctx context.Context, channel
 	}
 
 	// 1. 查主绑定
-	binding, err := l.bindingRepo.GetPrimaryByChannelAccount(channelType, accountID)
+	binding, err := l.bindingRepo.GetPrimaryByChannelAccount(ctx, channelType, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: channel=%s account=%s: %v", ErrNoAgentBinding, channelType, accountID, err)
 	}
@@ -64,7 +64,7 @@ func (l *pgAgentContextLoader) LoadByChannelAccount(ctx context.Context, channel
 	}
 
 	// 2. 查智能体
-	agent, err := l.agentRepo.GetByID(binding.AgentID)
+	agent, err := l.agentRepo.GetByID(ctx, binding.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: agent_id=%d: %v", ErrAgentNotFound, binding.AgentID, err)
 	}

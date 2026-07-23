@@ -43,7 +43,7 @@ func GetSOPScheduler() *SOPScheduler {
 }
 
 // SOPService 返回内部 SOP 服务实例，用于跨模块联动（如 P0-12 意图→SOP）
-func (s *SOPScheduler) SOPService() *SOPService {
+func (s *SOPScheduler) SOPService(ctx context.Context)  *SOPService {
 	return s.svc
 }
 
@@ -79,7 +79,7 @@ func NewSOPScheduler(svc *SOPService, db *gorm.DB, interval time.Duration) *SOPS
 }
 
 // ensureReposFromDB 在 struct 直接构造或 db 后注入时，按需派生新仓库实例
-func (s *SOPScheduler) ensureReposFromDB() {
+func (s *SOPScheduler) ensureReposFromDB(ctx context.Context)  {
 	if s.db == nil {
 		return
 	}
@@ -92,7 +92,7 @@ func (s *SOPScheduler) ensureReposFromDB() {
 }
 
 // Start 启动调度器
-func (s *SOPScheduler) Start() {
+func (s *SOPScheduler) Start(ctx context.Context)  {
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
@@ -106,7 +106,7 @@ func (s *SOPScheduler) Start() {
 }
 
 // Stop 停止调度器
-func (s *SOPScheduler) Stop() {
+func (s *SOPScheduler) Stop(ctx context.Context)  {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.running {
@@ -117,7 +117,7 @@ func (s *SOPScheduler) Stop() {
 }
 
 // loop 调度主循环
-func (s *SOPScheduler) loop() {
+func (s *SOPScheduler) loop(ctx context.Context)  {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
@@ -135,7 +135,7 @@ func (s *SOPScheduler) loop() {
 }
 
 // tick 单次调度
-func (s *SOPScheduler) tick() {
+func (s *SOPScheduler) tick(ctx context.Context)  {
 	if s.db == nil {
 		return
 	}

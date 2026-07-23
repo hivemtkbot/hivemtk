@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"encoding/json"
 	"strconv"
 )
 
@@ -40,6 +39,11 @@ func SendToAgent(messageType string, payload any, agentID uint) error {
 // 内部走 Envelope：分配全局 seq + 自动 Track ACK，
 // 客户端发 `{"type":"ack","seq":N}` 后由 GlobalPendingAck().Ack 清理。
 // 通过 sessionID 路由到对应的访客 WebSocket 连接。
+//
+// 鲁棒性加固（2026-07-22 方向B）：
+//   - 走 MustEnvelope 分配 seq，与 visitor_handler.onConnect / hub.Broadcast 对齐
+//   - 自动 GlobalPendingAck().Track，确保重连后可通过 PendingSince 拉取未确认
+//   - 客户端断开时由 visitor_handler.readPump 的 defer Drop 清理
 func SendToVisitor(messageType string, payload any, sessionID string) error {
 	return GetHub().SendToVisitor(sessionID, messageType, payload)
 }
@@ -59,35 +63,45 @@ func BroadcastToAgents(messageType string, payload any) error {
 // ============================================================================
 
 // SendToVisitor 发送消息给指定会话的访客
+//
+// 走 Envelope：分配 seq + Track ACK；
+// 客户端通过 `{"type":"ack","seq":N}` 确认收到。
 func (h *Hub) SendToVisitor(sessionID, messageType string, payload any) error {
 	if sessionID == "" {
 		return nil
 	}
-	payloadBytes, err := json.Marshal(map[string]any{
-		"type":    messageType,
-		"payload": payload,
-	})
-	if err != nil {
-		return err
-	}
 
 	visitor := getVisitorClient(sessionID)
 	if visitor == nil {
-		// 访客离线，消息暂存待重连拉取
+		// 访客离线：消息保留在 DB（delivered_at=NULL），待重连通过 onConnect 补发
 		return nil
 	}
 
+	// 走 Envelope 分配 seq，并自动 Track ACK
+	env := MustEnvelope(NextSeq(), messageType, payload)
+	bytes, err := env.MarshalBytes()
+	if err != nil {
+		return err
+	}
+	GlobalPendingAck().Track(sessionID, env.Seq)
+
 	select {
-	case visitor.send <- payloadBytes:
+	case visitor.send <- bytes:
 	default:
-		// channel 满，丢弃
+		// channel 满：非阻塞丢弃（writePump 仍会处理后续）
 	}
 	return nil
 }
 
 // BroadcastToAll 广播给所有客户端
+//
+// 走 Envelope 统一分配 seq：保证全站消息序号单调递增。
+// agent 端不自动 Track ACK（agent 端仅用 seq 做排序，不维护待 ACK 队列）。
+// visitor 端不自动 Track ACK（仅 SendToVisitor 单播走 ACK 跟踪，广播消息的 ACK
+// 由 visitor_handler.onConnect 的 offline_messages 路径统一处理）。
 func (h *Hub) BroadcastToAll(messageType string, payload any) error {
-	payloadBytes, err := json.Marshal(payload)
+	env := MustEnvelope(NextSeq(), messageType, payload)
+	bytes, err := env.MarshalBytes()
 	if err != nil {
 		return err
 	}
@@ -95,17 +109,16 @@ func (h *Hub) BroadcastToAll(messageType string, payload any) error {
 	h.mu.RLock()
 	for _, client := range h.clients {
 		select {
-		case client.send <- payloadBytes:
+		case client.send <- bytes:
 		default:
 		}
 	}
 	h.mu.RUnlock()
 
-	// 访客客户端
 	visitorClientsMu.RLock()
 	for _, client := range visitorClients {
 		select {
-		case client.send <- payloadBytes:
+		case client.send <- bytes:
 		default:
 		}
 	}
@@ -115,8 +128,11 @@ func (h *Hub) BroadcastToAll(messageType string, payload any) error {
 }
 
 // BroadcastToAgents 广播给所有坐席（不含访客）
+//
+// 走 Envelope 统一分配 seq：保证全站消息序号单调递增。
 func (h *Hub) BroadcastToAgents(messageType string, payload any) error {
-	payloadBytes, err := json.Marshal(payload)
+	env := MustEnvelope(NextSeq(), messageType, payload)
+	bytes, err := env.MarshalBytes()
 	if err != nil {
 		return err
 	}
@@ -129,7 +145,7 @@ func (h *Hub) BroadcastToAgents(messageType string, payload any) error {
 			continue
 		}
 		select {
-		case client.send <- payloadBytes:
+		case client.send <- bytes:
 		default:
 		}
 	}

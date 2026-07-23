@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -25,7 +26,7 @@ func NewUserBlacklistRepositoryWithDB(db *gorm.DB) *UserBlacklistRepository {
 }
 
 // Add 添加黑名单记录
-func (r *UserBlacklistRepository) Add(b *model.UserBlacklist) error {
+func (r *UserBlacklistRepository) Add(ctx context.Context, b *model.UserBlacklist) error {
 	if b == nil {
 		return errors.New("blacklist record is nil")
 	}
@@ -49,7 +50,7 @@ func (r *UserBlacklistRepository) Add(b *model.UserBlacklist) error {
 }
 
 // IsBlacklisted 判断用户是否在黑名单中（active + 未过期）
-func (r *UserBlacklistRepository) IsBlacklisted(userID string, platform model.Platform) (bool, error) {
+func (r *UserBlacklistRepository) IsBlacklisted(ctx context.Context, userID string, platform model.Platform) (bool, error) {
 	if userID == "" {
 		return false, nil
 	}
@@ -61,7 +62,7 @@ func (r *UserBlacklistRepository) IsBlacklisted(userID string, platform model.Pl
 		}
 		return false, err
 	}
-	if row.IsExpired() {
+	if isExpired(&row) {
 		// 过期 → 软删除
 		_ = r.db.Model(&row).Update("active", false).Error
 		return false, nil
@@ -70,14 +71,14 @@ func (r *UserBlacklistRepository) IsBlacklisted(userID string, platform model.Pl
 }
 
 // Remove 取消拉黑（软删除：active=false）
-func (r *UserBlacklistRepository) Remove(userID string, platform model.Platform) error {
+func (r *UserBlacklistRepository) Remove(ctx context.Context, userID string, platform model.Platform) error {
 	return r.db.Model(&model.UserBlacklist{}).
 		Where("user_id = ? AND platform = ? AND active = ?", userID, platform, true).
 		Update("active", false).Error
 }
 
 // ListActive 查询当前生效的黑名单（active + 未过期）
-func (r *UserBlacklistRepository) ListActive(page, pageSize int) ([]*model.UserBlacklist, int64, error) {
+func (r *UserBlacklistRepository) ListActive(ctx context.Context, page, pageSize int) ([]*model.UserBlacklist, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -97,4 +98,19 @@ func (r *UserBlacklistRepository) ListActive(page, pageSize int) ([]*model.UserB
 		return nil, 0, err
 	}
 	return rows, total, nil
+}
+
+// isExpired 判断黑名单记录是否已过期
+// 业务规则：
+//   - ExpiresAt 为 nil：永久
+//   - ExpiresAt 非 nil 且晚于 now：未过期
+//   - ExpiresAt 非 nil 且早于或等于 now：已过期
+func isExpired(b *model.UserBlacklist) bool {
+	if b == nil {
+		return false
+	}
+	if b.ExpiresAt == nil {
+		return false
+	}
+	return !b.ExpiresAt.After(time.Now())
 }

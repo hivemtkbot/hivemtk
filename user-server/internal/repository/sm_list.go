@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -9,12 +10,12 @@ import (
 )
 
 type SmlistRepository interface {
-	Create(user *model.Smlist) error
-	GetByID(id string) (*model.Smlist, error)
-	GetSmlistList(page int, limit int) ([]*model.Smlist, int64, error)
-	GetSmlistAllList() ([]*model.Smlist, int64, error)
-	Delete(id string) error
-	GetRecentSmlistList() ([]*model.Smlist, error)
+	Create(ctx context.Context, user *model.Smlist) error
+	GetByID(ctx context.Context, id string) (*model.Smlist, error)
+	GetSmlistList(ctx context.Context, page int, limit int) ([]*model.Smlist, int64, error)
+	GetSmlistAllList(ctx context.Context) ([]*model.Smlist, int64, error)
+	Delete(ctx context.Context, id string) error
+	GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, error)
 }
 
 type smlistRepo struct {
@@ -28,17 +29,17 @@ func NewSmlistRepository(db ...*gorm.DB) SmlistRepository {
 	return &smlistRepo{db: _db.GetDB()}
 }
 
-func (r *smlistRepo) Create(smlist *model.Smlist) error {
+func (r *smlistRepo) Create(ctx context.Context, smlist *model.Smlist) error {
 	return r.db.Create(smlist).Error
 }
 
-func (r *smlistRepo) GetByID(id string) (*model.Smlist, error) {
+func (r *smlistRepo) GetByID(ctx context.Context, id string) (*model.Smlist, error) {
 	var smlist model.Smlist
 	err := r.db.Where("id = ?", id).First(&smlist).Error
 	return &smlist, err
 }
 
-func (r *smlistRepo) GetSmlistList(page int, limit int) ([]*model.Smlist, int64, error) {
+func (r *smlistRepo) GetSmlistList(ctx context.Context, page int, limit int) ([]*model.Smlist, int64, error) {
 	var smlists []*model.Smlist
 	var total int64
 	r.db.Model(&model.Smlist{}).Count(&total)
@@ -46,7 +47,7 @@ func (r *smlistRepo) GetSmlistList(page int, limit int) ([]*model.Smlist, int64,
 	return smlists, total, err
 }
 
-func (r *smlistRepo) GetSmlistAllList() ([]*model.Smlist, int64, error) {
+func (r *smlistRepo) GetSmlistAllList(ctx context.Context) ([]*model.Smlist, int64, error) {
 	var smlists []*model.Smlist
 	var total int64
 	r.db.Model(&model.Smlist{}).Count(&total)
@@ -54,11 +55,11 @@ func (r *smlistRepo) GetSmlistAllList() ([]*model.Smlist, int64, error) {
 	return smlists, total, err
 }
 
-func (r *smlistRepo) Delete(id string) error {
+func (r *smlistRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.Smlist{}).Error
 }
 
-func (r *smlistRepo) GetRecentSmlistList() ([]*model.Smlist, error) {
+func (r *smlistRepo) GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, error) {
 	var smlists []*model.Smlist
 	// 最近 48 小时的数据
 	startTime := time.Now().Add(-time.Hour * 48)

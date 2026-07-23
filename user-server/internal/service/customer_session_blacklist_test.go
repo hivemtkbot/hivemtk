@@ -24,7 +24,6 @@ func setupBlacklistServiceTestDB(t *testing.T) {
 func TestBlacklistUser_Success(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	// 准备：1 个 AI 状态会话（有 user_id）
 	sess, err := svc.CreateSession(&CreateSessionRequest{
@@ -127,7 +126,6 @@ func TestBlacklistUser_NoUserID(t *testing.T) {
 func TestBlacklistUser_Idempotent(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform:  model.PlatformWeb,
@@ -176,7 +174,6 @@ func TestBlacklistUser_Idempotent(t *testing.T) {
 func TestUnblacklistUser_Success(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform:  model.PlatformWeb,
@@ -236,7 +233,6 @@ func TestIsUserBlacklisted_EmptyUserID(t *testing.T) {
 func TestListActiveBlacklist_Pagination(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	// 拉黑 3 个不同访客
 	for i := 0; i < 3; i++ {
@@ -289,7 +285,6 @@ func TestListActiveBlacklist_BoundaryPageSize(t *testing.T) {
 func TestBlacklistUser_TTLExpiry(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc", UserID: "u_ttl",
@@ -313,7 +308,6 @@ func TestBlacklistUser_TTLExpiry(t *testing.T) {
 func TestCreateSession_RejectedByBlacklist(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	// 创建第一个会话并拉黑
 	sess1, _ := svc.CreateSession(&CreateSessionRequest{
@@ -441,7 +435,6 @@ func TestBlacklistSource_Enum(t *testing.T) {
 func TestPreCreateBlacklistGuard_Direct(t *testing.T) {
 	setupBlacklistServiceTestDB(t)
 	svc := NewCustomerSessionService()
-	ctx := context.Background()
 
 	// nil 请求
 	if err := svc.preCreateBlacklistGuard(nil); err == nil {

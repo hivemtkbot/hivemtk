@@ -10,7 +10,7 @@ import (
 )
 
 // ptrTime 返回 time.Time 的指针
-func ptrTime(t time.Time) *time.Time { return &t }
+func ptrTime(t time.Time) *time.Time	{ return &t }
 
 // SecurityAuditService 安全审计服务
 //
@@ -26,10 +26,10 @@ func NewSecurityAuditService() *SecurityAuditService {
 
 // CheckResult 单项检查结果
 type CheckResult struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"` // pass/fail/warn
-	Message string `json:"message"`
-	Score   int    `json:"score"` // 0-100
+	Name	string	`json:"name"`
+	Status	string	`json:"status"`	// pass/fail/warn
+	Message	string	`json:"message"`
+	Score	int	`json:"score"`	// 0-100
 }
 
 // AuditRequest 审计请求
@@ -45,16 +45,16 @@ func (s *SecurityAuditService) RunAudit(ctx context.Context, req AuditRequest) (
 
 	// 创建审计记录
 	record := &model.SecurityAuditResult{
-		AuditName: req.AuditName,
-		Status:    "running",
-		StartedAt: ptrTime(time.Now()),
+		AuditName:	req.AuditName,
+		Status:		"running",
+		StartedAt:	ptrTime(time.Now()),
 	}
-	if err := s.repo.Create(record); err != nil {
+	if err := s.repo.Create(ctx, record); err != nil {
 		return nil, err
 	}
 
 	// 同步执行所有检查
-	results := s.runAllChecks()
+	results := s.runAllChecks(ctx)
 
 	passed, failed, warning := 0, 0, 0
 	totalScore := 0
@@ -81,159 +81,159 @@ func (s *SecurityAuditService) RunAudit(ctx context.Context, req AuditRequest) (
 	}
 
 	updates := map[string]any{
-		"status":        status,
-		"total_checks":  len(results),
-		"passed_count":  passed,
-		"failed_count":  failed,
-		"warning_count": warning,
-		"score":         avgScore,
-		"results":       model.JSONArray(toInterfaces(results)),
-		"completed_at":  time.Now(),
+		"status":		status,
+		"total_checks":		len(results),
+		"passed_count":		passed,
+		"failed_count":		failed,
+		"warning_count":	warning,
+		"score":		avgScore,
+		"results":		model.JSONArray(toInterfaces(results)),
+		"completed_at":		time.Now(),
 	}
-	_ = s.repo.UpdateResults(record.ID, updates)
+	_ = s.repo.UpdateResults(ctx, record.ID, updates)
 
 	// 重新查询
-	fresh, err := s.repo.GetByID(record.ID)
+	fresh, err := s.repo.GetByID(ctx, record.ID)
 	if err != nil {
 		return nil, err
 	}
 	return fresh, nil
 }
 
-func (s *SecurityAuditService) runAllChecks() []CheckResult {
+func (s *SecurityAuditService) runAllChecks(ctx context.Context) []CheckResult {
 	checks := []CheckResult{
-		s.checkJWTSecret(),
-		s.checkPasswordPolicy(),
-		s.checkSQLInjection(),
-		s.checkHTTPSEnforcement(),
-		s.checkRateLimit(),
-		s.checkAuditLog(),
-		s.checkDatabaseEncryption(),
-		s.checkCORSConfig(),
-		s.checkDependencyVuln(),
-		s.checkLicenseGuard(),
+		s.checkJWTSecret(ctx),
+		s.checkPasswordPolicy(ctx),
+		s.checkSQLInjection(ctx),
+		s.checkHTTPSEnforcement(ctx),
+		s.checkRateLimit(ctx),
+		s.checkAuditLog(ctx),
+		s.checkDatabaseEncryption(ctx),
+		s.checkCORSConfig(ctx),
+		s.checkDependencyVuln(ctx),
+		s.checkLicenseGuard(ctx),
 	}
 	return checks
 }
 
-func (s *SecurityAuditService) checkJWTSecret() CheckResult {
+func (s *SecurityAuditService) checkJWTSecret(ctx context.Context) CheckResult {
 	// 检查 JWT 密钥是否使用强密钥（>= 32 字符）
 	// 实际生产应读取 config
 	return CheckResult{
-		Name:    "JWT密钥强度",
-		Status:  "pass",
-		Message: "JWT 密钥已配置，长度合规",
-		Score:   100,
+		Name:		"JWT密钥强度",
+		Status:		"pass",
+		Message:	"JWT 密钥已配置，长度合规",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkPasswordPolicy() CheckResult {
+func (s *SecurityAuditService) checkPasswordPolicy(ctx context.Context) CheckResult {
 	// 检查密码策略（最少 8 位、含数字字母）
 	return CheckResult{
-		Name:    "密码策略",
-		Status:  "pass",
-		Message: "密码策略已启用：最少 8 位",
-		Score:   100,
+		Name:		"密码策略",
+		Status:		"pass",
+		Message:	"密码策略已启用：最少 8 位",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkSQLInjection() CheckResult {
+func (s *SecurityAuditService) checkSQLInjection(ctx context.Context) CheckResult {
 	// 检查是否使用 GORM 参数化查询
 	return CheckResult{
-		Name:    "SQL 注入防护",
-		Status:  "pass",
-		Message: "全栈使用 GORM 参数化查询，无字符串拼接",
-		Score:   100,
+		Name:		"SQL 注入防护",
+		Status:		"pass",
+		Message:	"全栈使用 GORM 参数化查询，无字符串拼接",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkHTTPSEnforcement() CheckResult {
+func (s *SecurityAuditService) checkHTTPSEnforcement(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "HTTPS 强制",
-		Status:  "warn",
-		Message: "内网部署默认 HTTP，建议生产环境启用 HTTPS",
-		Score:   80,
+		Name:		"HTTPS 强制",
+		Status:		"warn",
+		Message:	"内网部署默认 HTTP，建议生产环境启用 HTTPS",
+		Score:		80,
 	}
 }
 
-func (s *SecurityAuditService) checkRateLimit() CheckResult {
+func (s *SecurityAuditService) checkRateLimit(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "速率限制",
-		Status:  "pass",
-		Message: "RateLimitMiddleware 已启用（RPS=10, Bucket=100）",
-		Score:   100,
+		Name:		"速率限制",
+		Status:		"pass",
+		Message:	"RateLimitMiddleware 已启用（RPS=10, Bucket=100）",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkAuditLog() CheckResult {
+func (s *SecurityAuditService) checkAuditLog(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "审计日志",
-		Status:  "pass",
-		Message: "AuditMiddleware 已启用，记录所有写操作",
-		Score:   100,
+		Name:		"审计日志",
+		Status:		"pass",
+		Message:	"AuditMiddleware 已启用，记录所有写操作",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkDatabaseEncryption() CheckResult {
+func (s *SecurityAuditService) checkDatabaseEncryption(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "数据库加密",
-		Status:  "warn",
-		Message: "敏感字段加密已实现（sensitive_encryption.go），需启用全库加密",
-		Score:   80,
+		Name:		"数据库加密",
+		Status:		"warn",
+		Message:	"敏感字段加密已实现（sensitive_encryption.go），需启用全库加密",
+		Score:		80,
 	}
 }
 
-func (s *SecurityAuditService) checkCORSConfig() CheckResult {
+func (s *SecurityAuditService) checkCORSConfig(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "CORS 配置",
-		Status:  "pass",
-		Message: "CORS 配置已通过配置文件中心化管理",
-		Score:   100,
+		Name:		"CORS 配置",
+		Status:		"pass",
+		Message:	"CORS 配置已通过配置文件中心化管理",
+		Score:		100,
 	}
 }
 
-func (s *SecurityAuditService) checkDependencyVuln() CheckResult {
+func (s *SecurityAuditService) checkDependencyVuln(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "依赖漏洞",
-		Status:  "warn",
-		Message: "建议集成 govulncheck 定期扫描",
-		Score:   70,
+		Name:		"依赖漏洞",
+		Status:		"warn",
+		Message:	"建议集成 govulncheck 定期扫描",
+		Score:		70,
 	}
 }
 
-func (s *SecurityAuditService) checkLicenseGuard() CheckResult {
+func (s *SecurityAuditService) checkLicenseGuard(ctx context.Context) CheckResult {
 	return CheckResult{
-		Name:    "授权保护",
-		Status:  "pass",
-		Message: "LicenseGuard 中间件 + 3分钟心跳 + 9分钟容错",
-		Score:   100,
+		Name:		"授权保护",
+		Status:		"pass",
+		Message:	"LicenseGuard 中间件 + 3分钟心跳 + 9分钟容错",
+		Score:		100,
 	}
 }
 
 // GetResult 获取审计结果
-func (s *SecurityAuditService) GetResult(id uint) (*model.SecurityAuditResult, error) {
-	return s.repo.GetByID(id)
+func (s *SecurityAuditService) GetResult(ctx context.Context, id uint) (*model.SecurityAuditResult, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // ListResults 审计历史
-func (s *SecurityAuditService) ListResults(page, pageSize int) ([]*model.SecurityAuditResult, int64, error) {
+func (s *SecurityAuditService) ListResults(ctx context.Context, page, pageSize int) ([]*model.SecurityAuditResult, int64, error) {
 	if pageSize <= 0 || pageSize > 100 {
 		pageSize = 20
 	}
 	if page <= 0 {
 		page = 1
 	}
-	return s.repo.List(page, pageSize)
+	return s.repo.List(ctx, page, pageSize)
 }
 
 func toInterfaces(results []CheckResult) []any {
 	out := make([]any, len(results))
 	for i, r := range results {
 		out[i] = map[string]any{
-			"name":    r.Name,
-			"status":  r.Status,
-			"message": r.Message,
-			"score":   r.Score,
+			"name":		r.Name,
+			"status":	r.Status,
+			"message":	r.Message,
+			"score":	r.Score,
 		}
 	}
 	return out

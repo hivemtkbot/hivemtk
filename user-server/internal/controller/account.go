@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
@@ -9,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type AccountController struct {
@@ -123,7 +121,7 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 
 	account, err := c.svc.GetAccount(accountIDStr)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "账户不存在")
 			return
 		}

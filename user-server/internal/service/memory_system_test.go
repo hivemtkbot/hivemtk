@@ -22,7 +22,6 @@ func setupMemoryTestDB(t *testing.T) *gorm.DB {
 func TestMemorySystem_L1Append(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
 		if err := m.L1Append(ctx, "s-1", "c-1", "user", "msg-"); err != nil {
@@ -41,7 +40,6 @@ func TestMemorySystem_L1Append(t *testing.T) {
 func TestMemorySystem_L1Trim(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	// 写 15 条，应自动裁剪到 10
 	for i := 0; i < 15; i++ {
@@ -59,7 +57,6 @@ func TestMemorySystem_L1Trim(t *testing.T) {
 func TestMemorySystem_L1Clear(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 	m.L1Append(ctx, "s-1", "c-1", "user", "msg-1")
 	if err := m.L1Clear(ctx, "s-1"); err != nil {
 		t.Fatalf("clear: %v", err)
@@ -73,7 +70,6 @@ func TestMemorySystem_L1Clear(t *testing.T) {
 func TestMemorySystem_L1ListLimit(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 	for i := 0; i < 5; i++ {
 		m.L1Append(ctx, "s-1", "c-1", "user", "msg-")
 	}
@@ -86,7 +82,6 @@ func TestMemorySystem_L1ListLimit(t *testing.T) {
 func TestMemorySystem_L2SaveAndListFact(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L2SaveFact(ctx, "c-1", "name", "张三", 7)
 	m.L2SaveFact(ctx, "c-1", "phone", "13800000000", 5)
@@ -104,7 +99,6 @@ func TestMemorySystem_L2SaveAndListFact(t *testing.T) {
 func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L2SaveSummary(ctx, "c-1", "客户对价格敏感")
 	m.L2SaveSummary(ctx, "c-1", "客户已购买") // 更新
@@ -135,7 +129,6 @@ func TestMemorySystem_L2ImportanceDefault(t *testing.T) {
 func TestMemorySystem_L3SaveAndGetSOPState(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	state := &model.SOPStateMemory{
 		SessionID:   "s-1",
@@ -164,7 +157,6 @@ func TestMemorySystem_L3SaveAndGetSOPState(t *testing.T) {
 func TestMemorySystem_L3ListByCustomer(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L3SaveSOPState(ctx, &model.SOPStateMemory{SessionID: "s-1", CustomerID: "c-1", SOPID: 1})
 	m.L3SaveSOPState(ctx, &model.SOPStateMemory{SessionID: "s-2", CustomerID: "c-1", SOPID: 2})
@@ -188,7 +180,6 @@ func TestMemorySystem_L3NotFound(t *testing.T) {
 func TestMemorySystem_L4Record(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L4Record(ctx, "c-1", "order", "订单#1001 100元", "1001", 7, map[string]any{"amount": 100})
 	m.L4Record(ctx, "c-1", "complaint", "投诉物流慢", "", 5, nil)
@@ -202,7 +193,6 @@ func TestMemorySystem_L4Record(t *testing.T) {
 func TestMemorySystem_L4ListByType(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L4Record(ctx, "c-1", "order", "order1", "", 5, nil)
 	m.L4Record(ctx, "c-1", "order", "order2", "", 5, nil)
@@ -217,7 +207,6 @@ func TestMemorySystem_L4ListByType(t *testing.T) {
 func TestMemorySystem_L4MaxPerCustTrim(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	// 写 L4MaxPerCust + 5 条
 	for i := 0; i < L4MaxPerCust+5; i++ {
@@ -245,7 +234,6 @@ func TestMemorySystem_BuildFullContext_AllEmpty(t *testing.T) {
 func TestMemorySystem_BuildFullContext_WithData(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	m.L1Append(ctx, "s-1", "c-1", "user", "你好")
 	m.L1Append(ctx, "s-1", "c-1", "ai", "您好，有什么可以帮您？")
@@ -271,7 +259,6 @@ func TestMemorySystem_BuildFullContext_WithData(t *testing.T) {
 func TestMemorySystem_SyncFromDialogueMemory(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := &MemorySystem{db: db}
-	ctx := context.Background()
 
 	mem := &model.DialogueMemory{
 		SessionID:      "s-1",
@@ -365,7 +352,6 @@ func TestMemorySystem_L4Record_NilDB(t *testing.T) {
 func TestMemorySystem_L1Trim_NoOp(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := InitMemorySystem(db)
-	ctx := context.Background()
 	// 不足窗口不应裁剪
 	for i := 0; i < 3; i++ {
 		m.L1Append(ctx, "s-1", "c-1", "user", "m")
@@ -380,7 +366,6 @@ func TestMemorySystem_L1Trim_NoOp(t *testing.T) {
 func TestMemorySystem_L1Append_UpdatedAt(t *testing.T) {
 	db := setupMemoryTestDB(t)
 	m := InitMemorySystem(db)
-	ctx := context.Background()
 	m.L1Append(ctx, "s-1", "c-1", "user", "hi")
 	items, _ := m.L1List(ctx, "s-1", 1)
 	if len(items) == 0 {

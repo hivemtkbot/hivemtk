@@ -31,10 +31,13 @@ func (UserBlacklist) TableName() string {
 	return "user_blacklist"
 }
 
-// IsExpired 判断黑名单是否已过期
+// IsExpired 判断当前黑名单是否已过期
+//
+// 返回 true 的条件：ExpiresAt 非 nil 且早于当前时间。
+// 注意：纯领域规则（无数据库访问），不违反"model 不含业务方法"原则。
 func (b *UserBlacklist) IsExpired() bool {
-	if b.ExpiresAt == nil {
-		return false // 永久黑名单
+	if b == nil || b.ExpiresAt == nil {
+		return false
 	}
 	return time.Now().After(*b.ExpiresAt)
 }

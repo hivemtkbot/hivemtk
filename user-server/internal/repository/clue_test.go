@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -43,7 +44,7 @@ func TestClueRepository_Create(t *testing.T) {
 		Desc:     "Test description",
 	}
 
-	err := repo.Create(clue)
+	err := repo.Create(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestClueRepository_Create_Duplicate(t *testing.T) {
 		Name:     "Test User",
 	}
 
-	err := repo.Create(clue)
+	err := repo.Create(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("First Create failed: %v", err)
 	}
@@ -80,7 +81,7 @@ func TestClueRepository_Create_Duplicate(t *testing.T) {
 		Name:     "Another User",
 	}
 
-	err = repo.Create(clue2)
+	err = repo.Create(context.Background(), clue2)
 	if err == nil {
 		t.Error("Expected error for duplicate clue")
 	}
@@ -98,10 +99,10 @@ func TestClueRepository_GetClueList(t *testing.T) {
 			Type:     int64(i%3 + 1),
 			Name:     "User " + string(rune('0'+i)),
 		}
-		repo.Create(clue)
+		repo.Create(context.Background(), clue)
 	}
 
-	clues, total, err := repo.GetClueList(1, 5)
+	clues, total, err := repo.GetClueList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}
@@ -120,7 +121,7 @@ func TestClueRepository_GetClueList_Empty(t *testing.T) {
 
 	repo := NewClueRepository()
 
-	clues, total, err := repo.GetClueList(1, 10)
+	clues, total, err := repo.GetClueList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}
@@ -145,9 +146,9 @@ func TestClueRepository_ExistsByTypeAndAccount(t *testing.T) {
 		Type:     1,
 		Name:     "Test User",
 	}
-	repo.Create(clue)
+	repo.Create(context.Background(), clue)
 
-	exists, err := repo.ExistsByTypeAndAccount(1, "test@example.com")
+	exists, err := repo.ExistsByTypeAndAccount(context.Background(), 1, "test@example.com")
 	if err != nil {
 		t.Fatalf("ExistsByTypeAndAccount failed: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestClueRepository_ExistsByTypeAndAccount_NotExists(t *testing.T) {
 
 	repo := NewClueRepository()
 
-	exists, err := repo.ExistsByTypeAndAccount(1, "nonexistent@example.com")
+	exists, err := repo.ExistsByTypeAndAccount(context.Background(), 1, "nonexistent@example.com")
 	if err != nil {
 		t.Fatalf("ExistsByTypeAndAccount failed: %v", err)
 	}
@@ -183,10 +184,10 @@ func TestClueRepository_ExistsByTypeAndAccount_DifferentType(t *testing.T) {
 		Type:     1,
 		Name:     "Test User",
 	}
-	repo.Create(clue)
+	repo.Create(context.Background(), clue)
 
 	// Check with different type
-	exists, err := repo.ExistsByTypeAndAccount(2, "test@example.com")
+	exists, err := repo.ExistsByTypeAndAccount(context.Background(), 2, "test@example.com")
 	if err != nil {
 		t.Fatalf("ExistsByTypeAndAccount failed: %v", err)
 	}
@@ -209,10 +210,10 @@ func TestClueRepository_Create_VariousTypes(t *testing.T) {
 			Type:     int64(i + 1),
 			Name:     "Type" + string(rune('1'+i)) + " User",
 		}
-		repo.Create(clue)
+		repo.Create(context.Background(), clue)
 	}
 
-	clues, total, err := repo.GetClueList(1, 10)
+	clues, total, err := repo.GetClueList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}
@@ -239,10 +240,10 @@ func TestClueRepository_Create_VariousAccounts(t *testing.T) {
 			Type:     1,
 			Name:     "User " + string(rune('0'+i)),
 		}
-		repo.Create(clue)
+		repo.Create(context.Background(), clue)
 	}
 
-	clues, total, err := repo.GetClueList(1, 10)
+	clues, total, err := repo.GetClueList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}
@@ -272,7 +273,7 @@ func TestClueRepository_Create_WithAllFields(t *testing.T) {
 		Desc:     "This is a complete description with all fields filled in",
 	}
 
-	err := repo.Create(clue)
+	err := repo.Create(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -282,7 +283,7 @@ func TestClueRepository_Create_WithAllFields(t *testing.T) {
 	}
 
 	// Verify we can retrieve via list
-	clues, _, _ := repo.GetClueList(1, 10)
+	clues, _, _ := repo.GetClueList(context.Background(), 1, 10)
 	if len(clues) != 1 {
 		t.Errorf("Expected 1 clue, got %d", len(clues))
 	}
@@ -301,10 +302,10 @@ func TestClueRepository_Create_LargeBatch(t *testing.T) {
 			Type:     int64(i%3 + 1),
 			Name:     "Batch User " + string(rune('0'+i)),
 		}
-		repo.Create(clue)
+		repo.Create(context.Background(), clue)
 	}
 
-	clues, total, err := repo.GetClueList(1, 25)
+	clues, total, err := repo.GetClueList(context.Background(), 1, 25)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}
@@ -331,11 +332,11 @@ func TestClueRepository_GetClueList_SecondPage(t *testing.T) {
 			Type:     1,
 			Name:     "Page User " + string(rune('0'+i)),
 		}
-		repo.Create(clue)
+		repo.Create(context.Background(), clue)
 	}
 
 	// Get second page
-	clues, total, err := repo.GetClueList(2, 10)
+	clues, total, err := repo.GetClueList(context.Background(), 2, 10)
 	if err != nil {
 		t.Fatalf("GetClueList failed: %v", err)
 	}

@@ -2,8 +2,6 @@ package controller
 
 import (
 	"marketing/internal/migration"
-	"marketing/internal/migration/migrations"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"net/http"
@@ -26,19 +24,18 @@ type MigrationController struct {
 }
 
 // NewMigrationController 创建迁移控制器实例
+//
+// migrationService 由 router 注入（router 负责创建 registry 并调用
+// migration.NewMigrationService(registry, gormDB, migrations.RegisterMigrations)）。
 // 同时保留 NewUpgradeController 别名以兼容历史调用方（router 内已切换）。
-func NewMigrationController() *MigrationController {
-	registry := migration.NewMigrationRegistry()
-
-	return &MigrationController{
-		migrationService: migration.NewMigrationService(registry, db.GetDB(), migrations.RegisterMigrations),
-	}
+func NewMigrationController(migrationService *migration.MigrationService) *MigrationController {
+	return &MigrationController{migrationService: migrationService}
 }
 
 // NewUpgradeController 兼容旧调用方的别名
 // Deprecated: 请迁移到 NewMigrationController
-func NewUpgradeController() *MigrationController {
-	return NewMigrationController()
+func NewUpgradeController(migrationService *migration.MigrationService) *MigrationController {
+	return NewMigrationController(migrationService)
 }
 
 // GetUpgradeTask 获取迁移任务详情（保留方法名以兼容 router）

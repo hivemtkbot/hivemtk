@@ -40,7 +40,7 @@ func (ctrl *ChatChannelController) List(c *gin.Context) {
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	list, total, err := ctrl.svc.List(keyword, status, page, pageSize)
+	list, total, err := ctrl.svc.List(c.Request.Context(), keyword, status, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -52,7 +52,7 @@ func (ctrl *ChatChannelController) List(c *gin.Context) {
 // GET /api/chat-channels/:channel_id
 func (ctrl *ChatChannelController) Get(c *gin.Context) {
 	channelID := c.Param("channel_id")
-	channel, err := ctrl.svc.GetByChannelID(channelID)
+	channel, err := ctrl.svc.GetByChannelID(c.Request.Context(), channelID)
 	if err != nil {
 		response.NotFoundError(c, "渠道")
 		return
@@ -78,7 +78,7 @@ func (ctrl *ChatChannelController) Create(c *gin.Context) {
 		}
 	}
 
-	result, err := ctrl.svc.Create(&req, createdBy)
+	result, err := ctrl.svc.Create(c.Request.Context(), &req, createdBy)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -95,7 +95,7 @@ func (ctrl *ChatChannelController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
 		return
 	}
-	channel, err := ctrl.svc.Update(channelID, &req)
+	channel, err := ctrl.svc.Update(c.Request.Context(), channelID, &req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -107,7 +107,7 @@ func (ctrl *ChatChannelController) Update(c *gin.Context) {
 // DELETE /api/chat-channels/:channel_id
 func (ctrl *ChatChannelController) Delete(c *gin.Context) {
 	channelID := c.Param("channel_id")
-	if err := ctrl.svc.Delete(channelID); err != nil {
+	if err := ctrl.svc.Delete(c.Request.Context(), channelID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -118,7 +118,7 @@ func (ctrl *ChatChannelController) Delete(c *gin.Context) {
 // POST /api/chat-channels/:channel_id/rotate-key
 func (ctrl *ChatChannelController) RotateAppKey(c *gin.Context) {
 	channelID := c.Param("channel_id")
-	newKey, err := ctrl.svc.RotateAppKey(channelID)
+	newKey, err := ctrl.svc.RotateAppKey(c.Request.Context(), channelID)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -130,7 +130,7 @@ func (ctrl *ChatChannelController) RotateAppKey(c *gin.Context) {
 // POST /api/chat-channels/:channel_id/reset-secret
 func (ctrl *ChatChannelController) ResetAppSecret(c *gin.Context) {
 	channelID := c.Param("channel_id")
-	newSecret, err := ctrl.svc.ResetAppSecret(channelID)
+	newSecret, err := ctrl.svc.ResetAppSecret(c.Request.Context(), channelID)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return

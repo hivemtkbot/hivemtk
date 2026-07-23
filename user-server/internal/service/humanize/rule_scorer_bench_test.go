@@ -73,7 +73,6 @@ var benchReplies = []struct {
 // BenchmarkRuleScorer_RuleOnly 基准：纯 RuleScorer 全量评估
 func BenchmarkRuleScorer_RuleOnly(b *testing.B) {
 	s := NewRuleScorer()
-	ctx := context.Background()
 	// 取一个代表性样本
 	sample := benchReplies[1]
 
@@ -95,7 +94,6 @@ func BenchmarkRuleScorer_RuleOnly(b *testing.B) {
 // BenchmarkRuleScorer_AllSamples 基准：跨多种样本文本测试
 func BenchmarkRuleScorer_AllSamples(b *testing.B) {
 	s := NewRuleScorer()
-	ctx := context.Background()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -114,7 +112,6 @@ func BenchmarkRuleScorer_AllSamples(b *testing.B) {
 // BenchmarkRuleScorer_Parallel 基准：并发场景（模拟 100 QPS）
 func BenchmarkRuleScorer_Parallel(b *testing.B) {
 	s := NewRuleScorer()
-	ctx := context.Background()
 	sample := benchReplies[1]
 
 	b.ReportAllocs()

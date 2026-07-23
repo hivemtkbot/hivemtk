@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -13,25 +14,25 @@ import (
 // SmsTrackingRepository 短信追踪仓库接口
 type SmsTrackingRepository interface {
 	// 单条状态
-	CreateStatus(status *model.SmsDeliveryStatus) error
-	UpdateStatus(status *model.SmsDeliveryStatus) error
-	GetByMessageID(messageID string) (*model.SmsDeliveryStatus, error)
-	MessageIDExists(messageID string) (bool, error)
+	CreateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error
+	UpdateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error
+	GetByMessageID(ctx context.Context, messageID string) (*model.SmsDeliveryStatus, error)
+	MessageIDExists(ctx context.Context, messageID string) (bool, error)
 
 	// 批量查询
-	ListStatusesByJob(jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
-	ListStatusesByPhone(phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
-	ListRetryableStatuses(limit int) ([]*model.SmsDeliveryStatus, error)
-	ListStatusesByRange(start, end time.Time) ([]*model.SmsDeliveryStatus, error)
+	ListStatusesByJob(ctx context.Context, jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
+	ListStatusesByPhone(ctx context.Context, phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error)
+	ListRetryableStatuses(ctx context.Context, limit int) ([]*model.SmsDeliveryStatus, error)
+	ListStatusesByRange(ctx context.Context, start, end time.Time) ([]*model.SmsDeliveryStatus, error)
 
 	// 统计
-	CountByJob(jobID, status string) (int64, error)
-	CountByRange(start, end time.Time, status string) (int64, error)
+	CountByJob(ctx context.Context, jobID, status string) (int64, error)
+	CountByRange(ctx context.Context, start, end time.Time, status string) (int64, error)
 
 	// 任务指标
-	GetJobMetric(jobID string) (*model.SmsJobMetric, error)
-	UpsertJobMetric(metric *model.SmsJobMetric) error
-	ListJobMetricsByRange(start, end time.Time) ([]*model.SmsJobMetric, error)
+	GetJobMetric(ctx context.Context, jobID string) (*model.SmsJobMetric, error)
+	UpsertJobMetric(ctx context.Context, metric *model.SmsJobMetric) error
+	ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.SmsJobMetric, error)
 }
 
 type smsTrackingRepo struct {
@@ -47,17 +48,17 @@ func NewSmsTrackingRepository(db *gorm.DB) SmsTrackingRepository {
 }
 
 // CreateStatus 创建送达状态记录
-func (r *smsTrackingRepo) CreateStatus(status *model.SmsDeliveryStatus) error {
+func (r *smsTrackingRepo) CreateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
 	return r.db.Create(status).Error
 }
 
 // UpdateStatus 更新送达状态记录
-func (r *smsTrackingRepo) UpdateStatus(status *model.SmsDeliveryStatus) error {
+func (r *smsTrackingRepo) UpdateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
 	return r.db.Save(status).Error
 }
 
 // GetByMessageID 根据消息 ID 查询状态
-func (r *smsTrackingRepo) GetByMessageID(messageID string) (*model.SmsDeliveryStatus, error) {
+func (r *smsTrackingRepo) GetByMessageID(ctx context.Context, messageID string) (*model.SmsDeliveryStatus, error) {
 	var status model.SmsDeliveryStatus
 	err := r.db.Where("message_id = ?", messageID).First(&status).Error
 	if err != nil {
@@ -70,7 +71,7 @@ func (r *smsTrackingRepo) GetByMessageID(messageID string) (*model.SmsDeliverySt
 }
 
 // MessageIDExists 判断 message_id 是否已存在（webhook 重放幂等）
-func (r *smsTrackingRepo) MessageIDExists(messageID string) (bool, error) {
+func (r *smsTrackingRepo) MessageIDExists(ctx context.Context, messageID string) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.SmsDeliveryStatus{}).Where("message_id = ?", messageID).Count(&count).Error
 	if err != nil {
@@ -80,7 +81,7 @@ func (r *smsTrackingRepo) MessageIDExists(messageID string) (bool, error) {
 }
 
 // ListStatusesByJob 分页查询任务的送达状态
-func (r *smsTrackingRepo) ListStatusesByJob(jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
+func (r *smsTrackingRepo) ListStatusesByJob(ctx context.Context, jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
 	var statuses []*model.SmsDeliveryStatus
 	var total int64
 
@@ -97,7 +98,7 @@ func (r *smsTrackingRepo) ListStatusesByJob(jobID string, page, limit int) ([]*m
 }
 
 // ListStatusesByPhone 分页查询手机号的送达状态
-func (r *smsTrackingRepo) ListStatusesByPhone(phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
+func (r *smsTrackingRepo) ListStatusesByPhone(ctx context.Context, phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
 	var statuses []*model.SmsDeliveryStatus
 	var total int64
 
@@ -116,7 +117,7 @@ func (r *smsTrackingRepo) ListStatusesByPhone(phone string, page, limit int) ([]
 // ListRetryableStatuses 查询可重试的失败状态（用于定时重试任务）
 // 同时返回已达最大重试次数但状态仍为 retryable 的记录，
 // 由 service 层判断是否需要将其标记为 failed 并停止重试
-func (r *smsTrackingRepo) ListRetryableStatuses(limit int) ([]*model.SmsDeliveryStatus, error) {
+func (r *smsTrackingRepo) ListRetryableStatuses(ctx context.Context, limit int) ([]*model.SmsDeliveryStatus, error) {
 	var statuses []*model.SmsDeliveryStatus
 	err := r.db.Where("is_retryable = ? AND status = ?",
 		true, model.SmsStatusRetryable).
@@ -127,14 +128,14 @@ func (r *smsTrackingRepo) ListRetryableStatuses(limit int) ([]*model.SmsDelivery
 }
 
 // ListStatusesByRange 查询时间区间内的状态记录
-func (r *smsTrackingRepo) ListStatusesByRange(start, end time.Time) ([]*model.SmsDeliveryStatus, error) {
+func (r *smsTrackingRepo) ListStatusesByRange(ctx context.Context, start, end time.Time) ([]*model.SmsDeliveryStatus, error) {
 	var statuses []*model.SmsDeliveryStatus
 	err := r.db.Where("received_at BETWEEN ? AND ?", start, end).Find(&statuses).Error
 	return statuses, err
 }
 
 // CountByJob 统计任务某状态的总数
-func (r *smsTrackingRepo) CountByJob(jobID, status string) (int64, error) {
+func (r *smsTrackingRepo) CountByJob(ctx context.Context, jobID, status string) (int64, error) {
 	var count int64
 	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("job_id = ?", jobID)
 	if status != "" {
@@ -145,7 +146,7 @@ func (r *smsTrackingRepo) CountByJob(jobID, status string) (int64, error) {
 }
 
 // CountByRange 统计时间区间内某状态的总数
-func (r *smsTrackingRepo) CountByRange(start, end time.Time, status string) (int64, error) {
+func (r *smsTrackingRepo) CountByRange(ctx context.Context, start, end time.Time, status string) (int64, error) {
 	var count int64
 	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("received_at BETWEEN ? AND ?", start, end)
 	if status != "" {
@@ -156,7 +157,7 @@ func (r *smsTrackingRepo) CountByRange(start, end time.Time, status string) (int
 }
 
 // GetJobMetric 获取任务指标
-func (r *smsTrackingRepo) GetJobMetric(jobID string) (*model.SmsJobMetric, error) {
+func (r *smsTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*model.SmsJobMetric, error) {
 	var metric model.SmsJobMetric
 	err := r.db.Where("job_id = ?", jobID).First(&metric).Error
 	if err != nil {
@@ -169,8 +170,8 @@ func (r *smsTrackingRepo) GetJobMetric(jobID string) (*model.SmsJobMetric, error
 }
 
 // UpsertJobMetric 创建或更新任务指标
-func (r *smsTrackingRepo) UpsertJobMetric(metric *model.SmsJobMetric) error {
-	existing, err := r.GetJobMetric(metric.JobID)
+func (r *smsTrackingRepo) UpsertJobMetric(ctx context.Context, metric *model.SmsJobMetric) error {
+	existing, err := r.GetJobMetric(ctx, metric.JobID)
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ func (r *smsTrackingRepo) UpsertJobMetric(metric *model.SmsJobMetric) error {
 }
 
 // ListJobMetricsByRange 查询时间区间内的任务指标
-func (r *smsTrackingRepo) ListJobMetricsByRange(start, end time.Time) ([]*model.SmsJobMetric, error) {
+func (r *smsTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.SmsJobMetric, error) {
 	var metrics []*model.SmsJobMetric
 	err := r.db.Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
 	return metrics, err

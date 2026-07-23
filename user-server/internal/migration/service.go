@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"marketing/internal/model"
+	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
 	"time"
 
@@ -16,52 +17,59 @@ type RegistryInitializer func(*MigrationRegistry, *gorm.DB)
 
 // MigrationService 迁移服务
 type MigrationService struct {
-	registry       *MigrationRegistry
-	db             *gorm.DB
-	taskRepo       *repository.UpgradeTaskRepository
-	recordRepo     *repository.MigrationRecordRepository
-	checkpointRepo *repository.MigrationCheckpointRepository
+	registry	*MigrationRegistry
+	db		*gorm.DB
+	taskRepo	*repository.UpgradeTaskRepository
+	recordRepo	*repository.MigrationRecordRepository
+	checkpointRepo	*repository.MigrationCheckpointRepository
 }
 
-// NewMigrationService 创建迁移服务实例
+// NewMigrationService 创建迁移服务实例(保留旧签名,兼容旧调用)
 func NewMigrationService(registry *MigrationRegistry, db *gorm.DB, initFunc RegistryInitializer) *MigrationService {
 	// 注册所有迁移
 	initFunc(registry, db)
 	return &MigrationService{
-		registry:       registry,
-		db:             db,
-		taskRepo:       repository.NewUpgradeTaskRepository(),
-		recordRepo:     repository.NewMigrationRecordRepository(),
-		checkpointRepo: repository.NewMigrationCheckpointRepository(),
+		registry:	registry,
+		db:		db,
+		taskRepo:	repository.NewUpgradeTaskRepository(),
+		recordRepo:	repository.NewMigrationRecordRepository(),
+		checkpointRepo:	repository.NewMigrationCheckpointRepository(),
 	}
 }
 
+// NewMigrationServiceDefault 创建迁移服务实例(无 db,内部用 dbUtil.GetDB())
+func NewMigrationServiceDefault(registry *MigrationRegistry, initFunc RegistryInitializer) *MigrationService {
+	return NewMigrationService(registry, dbUtil.GetDB(), initFunc)
+}
+
 // ExecuteUpgrade 执行升级
-func (s *MigrationService) ExecuteUpgrade(fromVersion, toVersion string) (*model.UpgradeTask, error) {
+func (s *MigrationService) ExecuteUpgrade(ctx context.Context, fromVersion, toVersion string) (*model.UpgradeTask, error) {
 	task := &model.UpgradeTask{
-		FromVersion: fromVersion,
-		ToVersion:   toVersion,
-		Status:      "pending",
+		FromVersion:	fromVersion,
+		ToVersion:	toVersion,
+		Status:		"pending",
 	}
-	if err := s.taskRepo.Create(task); err != nil {
+	if err := s.taskRepo.Create(ctx, task); err != nil {
 		return nil, err
 	}
 
-	go s.executeUpgradeAsync(task.ID, fromVersion, toVersion)
+	go s.executeUpgradeAsync(ctx, task.ID, fromVersion, toVersion)
 	return task, nil
 }
 
 // executeUpgradeAsync 异步执行升级
-func (s *MigrationService) executeUpgradeAsync(taskID uint, fromVersion, toVersion string) {
-	ctx := context.Background()
+func (s *MigrationService) executeUpgradeAsync(parentCtx context.Context, taskID uint, fromVersion, toVersion string) {
+	// 异步执行必须使用 background ctx,避免父 ctx 取消导致升级中断
+	bgCtx := context.Background()
 
-	s.taskRepo.UpdateStatus(taskID, "running", 0, 0, "开始升级", "")
+	// 初始状态:开始升级
+	s.taskRepo.UpdateStatus(bgCtx, taskID, "running", 0, 0, "开始升级", "")
 
-	executedVersions, _ := s.recordRepo.GetExecutedVersions()
+	executedVersions, _ := s.recordRepo.GetExecutedVersions(bgCtx)
 	pendingMigrations := s.registry.GetPending(executedVersions)
 
 	if len(pendingMigrations) == 0 {
-		s.taskRepo.UpdateStatus(taskID, "completed", 100, 0, "无需升级", "")
+		s.taskRepo.UpdateStatus(bgCtx, taskID, "completed", 100, 0, "无需升级", "")
 		return
 	}
 
@@ -71,45 +79,45 @@ func (s *MigrationService) executeUpgradeAsync(taskID uint, fromVersion, toVersi
 		stepDesc := "执行迁移：" + migration.Name()
 
 		progress := (currentStep * 100) / totalSteps
-		s.taskRepo.UpdateStatus(taskID, "running", progress, currentStep, stepDesc, "")
+		s.taskRepo.UpdateStatus(bgCtx, taskID, "running", progress, currentStep, stepDesc, "")
 
-		if err := migration.Up(ctx); err != nil {
-			s.taskRepo.UpdateStatus(taskID, "failed", progress, currentStep, stepDesc, err.Error())
+		if err := migration.Up(bgCtx); err != nil {
+			s.taskRepo.UpdateStatus(bgCtx, taskID, "failed", progress, currentStep, stepDesc, err.Error())
 			return
 		}
 
 		record := &model.MigrationRecord{
-			Version:    migration.Version(),
-			Name:       migration.Name(),
-			Type:       "database",
-			Status:     "completed",
-			ExecutedAt: time.Now(),
-			ExecutedBy: "system",
+			Version:	migration.Version(),
+			Name:		migration.Name(),
+			Type:		"database",
+			Status:		"completed",
+			ExecutedAt:	time.Now(),
+			ExecutedBy:	"system",
 		}
-		s.recordRepo.Create(record)
+		s.recordRepo.Create(bgCtx, record)
 	}
 
-	s.taskRepo.UpdateStatus(taskID, "completed", 100, totalSteps, "升级完成", "")
+	s.taskRepo.UpdateStatus(bgCtx, taskID, "completed", 100, totalSteps, "升级完成", "")
 }
 
 // GetUpgradeTask 获取升级任务
-func (s *MigrationService) GetUpgradeTask(id uint) (*model.UpgradeTask, error) {
-	return s.taskRepo.GetByID(id)
+func (s *MigrationService) GetUpgradeTask(ctx context.Context, id uint) (*model.UpgradeTask, error) {
+	return s.taskRepo.GetByID(ctx, id)
 }
 
 // GetUpgradeHistory 获取升级历史
-func (s *MigrationService) GetUpgradeHistory(page, pageSize int) ([]*model.UpgradeTask, int64, error) {
-	return s.taskRepo.GetAll(page, pageSize)
+func (s *MigrationService) GetUpgradeHistory(ctx context.Context, page, pageSize int) ([]*model.UpgradeTask, int64, error) {
+	return s.taskRepo.GetAll(ctx, page, pageSize)
 }
 
 // GetMigrationRecords 获取迁移记录
-func (s *MigrationService) GetMigrationRecords() ([]*model.MigrationRecord, error) {
-	return s.recordRepo.GetAll()
+func (s *MigrationService) GetMigrationRecords(ctx context.Context) ([]*model.MigrationRecord, error) {
+	return s.recordRepo.GetAll(ctx)
 }
 
 // GetCurrentVersion 获取当前版本
-func (s *MigrationService) GetCurrentVersion() (string, error) {
-	versions, err := s.recordRepo.GetExecutedVersions()
+func (s *MigrationService) GetCurrentVersion(ctx context.Context) (string, error) {
+	versions, err := s.recordRepo.GetExecutedVersions(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -120,8 +128,8 @@ func (s *MigrationService) GetCurrentVersion() (string, error) {
 }
 
 // GetPendingMigrations 获取待执行的迁移
-func (s *MigrationService) GetPendingMigrations() ([]Migration, error) {
-	executedVersions, err := s.recordRepo.GetExecutedVersions()
+func (s *MigrationService) GetPendingMigrations(ctx context.Context) ([]Migration, error) {
+	executedVersions, err := s.recordRepo.GetExecutedVersions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,22 +137,22 @@ func (s *MigrationService) GetPendingMigrations() ([]Migration, error) {
 }
 
 // SaveCheckpoint 保存检查点
-func (s *MigrationService) SaveCheckpoint(checkpoint string, data any) error {
+func (s *MigrationService) SaveCheckpoint(ctx context.Context, checkpoint string, data any) error {
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
 	cp := &model.MigrationCheckpoint{
-		Checkpoint: checkpoint,
-		Data:       string(dataJSON),
+		Checkpoint:	checkpoint,
+		Data:		string(dataJSON),
 	}
-	return s.checkpointRepo.Upsert(cp)
+	return s.checkpointRepo.Upsert(ctx, cp)
 }
 
 // GetCheckpoint 获取检查点
-func (s *MigrationService) GetCheckpoint(checkpoint string) (any, error) {
-	cp, err := s.checkpointRepo.GetByCheckpoint(checkpoint)
+func (s *MigrationService) GetCheckpoint(ctx context.Context, checkpoint string) (any, error) {
+	cp, err := s.checkpointRepo.GetByCheckpoint(ctx, checkpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -157,21 +165,21 @@ func (s *MigrationService) GetCheckpoint(checkpoint string) (any, error) {
 }
 
 // Rollback 回滚到指定版本
-func (s *MigrationService) Rollback(targetVersion string) error {
+func (s *MigrationService) Rollback(ctx context.Context, targetVersion string) error {
 	migration, ok := s.registry.Get(targetVersion)
 	if !ok {
 		return errors.New("target version not found")
 	}
 
-	ctx := context.Background()
+	// 回滚操作使用父 ctx 即可,失败应当向上抛
 	if err := migration.Down(ctx); err != nil {
 		return err
 	}
 
-	record, err := s.recordRepo.GetByVersion(targetVersion)
+	record, err := s.recordRepo.GetByVersion(ctx, targetVersion)
 	if err == nil && record != nil {
 		record.Status = "rolled_back"
-		s.recordRepo.Update(record)
+		s.recordRepo.Update(ctx, record)
 	}
 
 	return nil

@@ -13,10 +13,10 @@
 //  3. Weave 是无副作用的纯函数：不依赖任何全局状态，可测试
 //
 // 五层架构归位：
-//  - 业务校验：Service 层（CRUD、状态机、版本控制）
-//  - 算法：Weave 是本服务的一部分，但定义上独立可单测
-//  - 上游：HTTP Controller 通过 Service 间接调用
-//  - 下游：Repository 负责持久化
+//   - 业务校验：Service 层（CRUD、状态机、版本控制）
+//   - 算法：Weave 是本服务的一部分，但定义上独立可单测
+//   - 上游：HTTP Controller 通过 Service 间接调用
+//   - 下游：Repository 负责持久化
 package service
 
 import (
@@ -45,44 +45,44 @@ import (
 // Weave 是无副作用的纯函数，所有动态上下文都通过本结构显式注入
 type WeaveInput struct {
 	// 必填：资产包（OpenAI 兼容的 messages 数组）
-	Asset *model.AssetBundle
+	Asset	*model.AssetBundle
 
 	// 必填：当前用户最新消息
-	UserQuery string
+	UserQuery	string
 
 	// 可选：商户本地 RAG 检索结果（按相关性倒序）
-	RAGDocs []RAGDocument
+	RAGDocs	[]RAGDocument
 
 	// 可选：活跃会话历史（按时间正序）
-	ChatHistory []model.AssetBundleMessage
+	ChatHistory	[]model.AssetBundleMessage
 
 	// 可选：商户动态参数（促销活动/优惠比例/店铺名等）
 	// 这些参数会自动追加到 system prompt 末尾
-	MerchantVars map[string]string
+	MerchantVars	map[string]string
 
 	// 可选：织布策略
-	Options WeaveOptions
+	Options	WeaveOptions
 }
 
 // RAGDocument RAG 检索结果（商户本地知识库）
 type RAGDocument struct {
-	ID       string  // 文档 ID
-	Title    string  // 标题
-	Content  string  // 内容片段
-	Score    float64 // 相关性分数
-	Source   string  // 来源（产品名/店铺名等）
+	ID	string	// 文档 ID
+	Title	string	// 标题
+	Content	string	// 内容片段
+	Score	float64	// 相关性分数
+	Source	string	// 来源（产品名/店铺名等）
 }
 
 // WeaveOptions 织布策略
 type WeaveOptions struct {
 	// RAG 注入位置：after_system（在资产包 system 之后）/ after_fewshots（在 Few-Shots 之后）
-	RAGPosition RAGInsertPosition
+	RAGPosition	RAGInsertPosition
 	// 历史最大消息数（0 表示不限制）
-	MaxHistoryMessages int
+	MaxHistoryMessages	int
 	// 是否剥离 Few-Shot 末尾的 ```json 块（让模型专注学习格式而不被历史数据污染）
-	StripFewShotJSON bool
+	StripFewShotJSON	bool
 	// 是否在 system 段尾追加商户参数（促销活动/优惠等）
-	IncludeMerchantVars bool
+	IncludeMerchantVars	bool
 }
 
 // RAGInsertPosition RAG 注入位置
@@ -90,18 +90,18 @@ type RAGInsertPosition string
 
 const (
 	// RAGPositionAfterSystem 在资产包 system 之后（紧跟 Few-Shots 之前）
-	RAGPositionAfterSystem RAGInsertPosition = "after_system"
+	RAGPositionAfterSystem	RAGInsertPosition	= "after_system"
 	// RAGPositionAfterFewShots 在资产包 Few-Shots 之后、历史之前
-	RAGPositionAfterFewShots RAGInsertPosition = "after_fewshots"
+	RAGPositionAfterFewShots	RAGInsertPosition	= "after_fewshots"
 )
 
 // DefaultWeaveOptions 默认织布策略
 func DefaultWeaveOptions() WeaveOptions {
 	return WeaveOptions{
-		RAGPosition:         RAGPositionAfterFewShots,
-		MaxHistoryMessages:  10,
-		StripFewShotJSON:    true,
-		IncludeMerchantVars: true,
+		RAGPosition:		RAGPositionAfterFewShots,
+		MaxHistoryMessages:	10,
+		StripFewShotJSON:	true,
+		IncludeMerchantVars:	true,
 	}
 }
 
@@ -195,8 +195,8 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 
 	// 5. 当前用户提问
 	result = append(result, model.AssetBundleMessage{
-		Role:    "user",
-		Content: in.UserQuery,
+		Role:		"user",
+		Content:	in.UserQuery,
 	})
 
 	logger.Debugf("[weave] asset=%s rag=%d hist=%d merchant=%d result_len=%d stripped=%v",
@@ -212,7 +212,8 @@ func Weave(in WeaveInput) ([]model.AssetBundleMessage, error) {
 // buildRAGMessages 把 RAG 检索结果打包成一条 system 消息
 //
 // 协议：OpenAI ChatML 允许在 system 段中嵌套多个知识片段
-//       为最大化检索召回的"事实参考价值"，每条 doc 用编号列出
+//
+//	为最大化检索召回的"事实参考价值"，每条 doc 用编号列出
 func buildRAGMessages(docs []RAGDocument) []model.AssetBundleMessage {
 	if len(docs) == 0 {
 		return nil
@@ -308,7 +309,8 @@ var codeBlockRE = regexp.MustCompile("(?s)```(?:json|JSON)?[\\s\\S]*?```")
 // stripTrailingJSONBlock 剥离消息末尾的 ```json {...} ``` 块
 //
 // 用途：Few-Shots 中的 assistant 回答会带 JSON 尾巴用于"行为约束学习"
-//      在 Weave 时剥离，避免污染历史对话的语义
+//
+//	在 Weave 时剥离，避免污染历史对话的语义
 func stripTrailingJSONBlock(content string) (string, bool) {
 	// 找最后一个 ``` 块
 	matches := codeBlockRE.FindAllStringIndex(content, -1)
@@ -337,11 +339,11 @@ func stripTrailingJSONBlock(content string) (string, bool) {
 
 // AssetBundleService 资产包业务服务
 type AssetBundleService struct {
-	repo    repository.AssetBundleRepository
-	version repository.AssetBundleVersionLogRepository
+	repo	repository.AssetBundleRepository
+	version	repository.AssetBundleVersionLogRepository
 	// hotPlug 热插拔缓存：维护运行期已启用的资产包 AssetID 集合。
 	// 启用/禁用立即生效，无需重启服务（纯内存，进程重启后清空）。
-	hotPlug hotPlugCache
+	hotPlug	hotPlugCache
 }
 
 // NewAssetBundleService 构造资产包服务
@@ -359,8 +361,8 @@ func NewAssetBundleService(repo repository.AssetBundleRepository, version reposi
 // 进程重启后缓存清空（冷启动），此时 WeaveForRequest 走 permissive 回退逻辑
 // （缓存为空即放行），由运维重新调用 EnableBundle 恢复热插拔管控。
 type hotPlugCache struct {
-	mu      sync.RWMutex
-	enabled map[string]struct{} // key: AssetID
+	mu	sync.RWMutex
+	enabled	map[string]struct{}	// key: AssetID
 }
 
 // newHotPlugCache 构造热插拔缓存
@@ -369,7 +371,7 @@ func newHotPlugCache() hotPlugCache {
 }
 
 // add 热启用某资产包（入列）
-func (c *hotPlugCache) add(assetID string) {
+func (c *hotPlugCache) add(ctx context.Context, assetID string)  {
 	if assetID == "" {
 		return
 	}
@@ -379,14 +381,14 @@ func (c *hotPlugCache) add(assetID string) {
 }
 
 // remove 热禁用某资产包（出列）
-func (c *hotPlugCache) remove(assetID string) {
+func (c *hotPlugCache) remove(ctx context.Context, assetID string)  {
 	c.mu.Lock()
 	delete(c.enabled, assetID)
 	c.mu.Unlock()
 }
 
 // has 判断某资产包是否已热启用
-func (c *hotPlugCache) has(assetID string) bool {
+func (c *hotPlugCache) has(ctx context.Context, assetID string)  bool {
 	c.mu.RLock()
 	_, ok := c.enabled[assetID]
 	c.mu.RUnlock()
@@ -394,14 +396,14 @@ func (c *hotPlugCache) has(assetID string) bool {
 }
 
 // isEmpty 判断缓存是否为空（冷启动判定）
-func (c *hotPlugCache) isEmpty() bool {
+func (c *hotPlugCache) isEmpty(ctx context.Context)  bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.enabled) == 0
 }
 
 // list 返回已热启用的 AssetID 列表（快照副本）
-func (c *hotPlugCache) list() []string {
+func (c *hotPlugCache) list(ctx context.Context)  []string {
 	c.mu.RLock()
 	out := make([]string, 0, len(c.enabled))
 	for k := range c.enabled {
@@ -477,11 +479,11 @@ func (s *AssetBundleService) UpdateBundle(ctx context.Context, m *model.AssetBun
 	}
 	if old.Version != m.Version {
 		_ = s.version.Create(ctx, &model.AssetBundleVersionLog{
-			AssetID:    m.AssetID,
-			FromVer:    old.Version,
-			ToVer:      m.Version,
-			ChangeNote: "manual update",
-			Operator:   m.Author,
+			AssetID:	m.AssetID,
+			FromVer:	old.Version,
+			ToVer:		m.Version,
+			ChangeNote:	"manual update",
+			Operator:	m.Author,
 		})
 	}
 	return nil
@@ -531,7 +533,7 @@ func (s *AssetBundleService) EnableBundle(ctx context.Context, id int64) (*model
 	if err != nil {
 		return nil, err
 	}
-	s.hotPlug.add(m.AssetID)
+	s.hotPlug.add(ctx, m.AssetID)
 	logger.Debugf("[asset_bundle] hot-enable: asset_id=%s id=%d", m.AssetID, id)
 	return m, nil
 }
@@ -546,7 +548,7 @@ func (s *AssetBundleService) DisableBundle(ctx context.Context, id int64) (*mode
 	if err != nil {
 		return nil, err
 	}
-	s.hotPlug.remove(m.AssetID)
+	s.hotPlug.remove(ctx, m.AssetID)
 	logger.Debugf("[asset_bundle] hot-disable: asset_id=%s id=%d", m.AssetID, id)
 	return m, nil
 }
@@ -556,7 +558,7 @@ func (s *AssetBundleService) DisableBundle(ctx context.Context, id int64) (*mode
 // 从热插拔缓存读取 AssetID，再逐个从仓储加载完整数据。加载失败的条目跳过
 // （例如资产包已被软删除，缓存未及时同步）。
 func (s *AssetBundleService) GetEnabledBundles(ctx context.Context) ([]*model.AssetBundle, error) {
-	ids := s.hotPlug.list()
+	ids := s.hotPlug.list(ctx)
 	out := make([]*model.AssetBundle, 0, len(ids))
 	for _, aid := range ids {
 		b, err := s.repo.FindByAssetID(ctx, aid)
@@ -570,8 +572,8 @@ func (s *AssetBundleService) GetEnabledBundles(ctx context.Context) ([]*model.As
 }
 
 // IsBundleEnabled 判断某资产包是否已热启用（运行期缓存查询）
-func (s *AssetBundleService) IsBundleEnabled(assetID string) bool {
-	return s.hotPlug.has(assetID)
+func (s *AssetBundleService) IsBundleEnabled(ctx context.Context, assetID string) bool {
+	return s.hotPlug.has(ctx, assetID)
 }
 
 // DeleteBundle 软删除
@@ -604,15 +606,15 @@ func (s *AssetBundleService) ListBundlesWithParams(
 	page, size int,
 ) ([]*model.AssetBundle, int64, error) {
 	return s.repo.List(ctx, repository.AssetBundleFilter{
-		Keyword:  keyword,
-		Author:   author,
-		Industry: industry,
-		Language: language,
-		Scope:    model.AssetBundleScope(scope),
-		Status:   statusToAssetBundleStatus(status),
-		Tags:     splitTags(tags),
-		Page:     page,
-		Size:     size,
+		Keyword:	keyword,
+		Author:		author,
+		Industry:	industry,
+		Language:	language,
+		Scope:		model.AssetBundleScope(scope),
+		Status:		statusToAssetBundleStatus(status),
+		Tags:		splitTags(tags),
+		Page:		page,
+		Size:		size,
 	})
 }
 
@@ -663,7 +665,7 @@ func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQ
 		return nil, errors.New("asset_id required")
 	}
 	// 热插拔管控：缓存非空时只放行已热启用的资产包
-	if !s.hotPlug.isEmpty() && !s.hotPlug.has(assetID) {
+	if !s.hotPlug.isEmpty(ctx) && !s.hotPlug.has(ctx, assetID) {
 		return nil, ErrBundleNotHotEnabled
 	}
 	if in.Asset == nil {
@@ -747,8 +749,8 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 		messages = append(messages,
 			model.AssetBundleMessage{Role: "user", Content: card.UserExample},
 			model.AssetBundleMessage{
-				Role:    "assistant",
-				Content: card.Reply + "\n```json\n" + buildIntentJSON(card) + "\n```",
+				Role:		"assistant",
+				Content:	card.Reply + "\n```json\n" + buildIntentJSON(card) + "\n```",
 			},
 		)
 	}
@@ -757,25 +759,25 @@ func BuildBundleFromMerchantForm(req dto.MerchantFormSaveRequest) (*model.AssetB
 	if req.CardConfig.IntentType != "" {
 		cardMsg := buildMerchantCardSystemMessage(req.CardConfig)
 		messages = append(messages, model.AssetBundleMessage{
-			Role: "system", Content: cardMsg,
+			Role:	"system", Content: cardMsg,
 		})
 	}
 
 	// 业务结算 JSON 协议（每个回复必须带）
 	messages = append(messages, model.AssetBundleMessage{
-		Role: "system", Content: buildMerchantJSONProtocol(req),
+		Role:	"system", Content: buildMerchantJSONProtocol(req),
 	})
 
 	return &model.AssetBundle{
-		AssetID:     req.AssetID,
-		Title:       req.Title,
-		Author:      req.Author,
-		Scope:       model.AssetBundleScopePrivate,
-		Status:      model.AssetBundleStatusDraft,
-		Language:    "zh",
-		Version:     "1.0.0",
-		Industry:    "",
-		Messages:    messages,
+		AssetID:	req.AssetID,
+		Title:		req.Title,
+		Author:		req.Author,
+		Scope:		model.AssetBundleScopePrivate,
+		Status:		model.AssetBundleStatusDraft,
+		Language:	"zh",
+		Version:	"1.0.0",
+		Industry:	"",
+		Messages:	messages,
 	}, nil
 }
 
@@ -923,10 +925,10 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 				reply = reply[:m[0]]
 			}
 			card := dto.MerchantQACard{
-				ID:          fmt.Sprintf("card_%d", len(resp.QACards)+1),
-				UserExample: bundle.Messages[i].Content,
-				Reply:       reply,
-				Order:       len(resp.QACards),
+				ID:		fmt.Sprintf("card_%d", len(resp.QACards)+1),
+				UserExample:	bundle.Messages[i].Content,
+				Reply:		reply,
+				Order:		len(resp.QACards),
 			}
 			resp.QACards = append(resp.QACards, card)
 		}

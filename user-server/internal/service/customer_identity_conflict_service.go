@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 )
@@ -26,14 +27,14 @@ type ConflictCustomer struct {
 
 // 通过对每种身份字段分组统计，找出被多个客户持有的身份标识。
 // 返回分页后的冲突列表与总数。
-func DetectIdentityConflicts(repo repository.CustomerRepository, page, pageSize int) ([]*IdentityConflict, int64) {
+func DetectIdentityConflicts(ctx context.Context, repo repository.CustomerRepository, page, pageSize int) ([]*IdentityConflict, int64) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	all, _, err := repo.List(1, 1000)
+	all, _, err := repo.List(ctx, 1, 1000)
 	if err != nil || len(all) == 0 {
 		return []*IdentityConflict{}, 0
 	}
@@ -140,14 +141,14 @@ type OneIDCustomer struct {
 }
 
 // ListOneIDCustomers 列出 OneID 客户
-func ListOneIDCustomers(repo repository.CustomerRepository, page, pageSize int, keyword string) ([]*OneIDCustomer, int64) {
+func ListOneIDCustomers(ctx context.Context, repo repository.CustomerRepository, page, pageSize int, keyword string) ([]*OneIDCustomer, int64) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	list, total, err := repo.List(page, pageSize)
+	list, total, err := repo.List(ctx, page, pageSize)
 	if err != nil {
 		return []*OneIDCustomer{}, 0
 	}

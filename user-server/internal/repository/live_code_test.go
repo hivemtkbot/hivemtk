@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestLiveCodeRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.card)
+			err := repo.Create(context.Background(), tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -89,7 +90,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(context.Background(), liveCode)
 
 	tests := []struct {
 		name    string
@@ -110,7 +111,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -138,7 +139,7 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(context.Background(), liveCode)
 
 	tests := []struct {
 		name      string
@@ -161,7 +162,7 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByShortLink(tt.shortLink)
+			result, err := repo.GetByShortLink(context.Background(), tt.shortLink)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByShortLink() error = %v, wantErr %v", err, tt.wantErr)
@@ -187,17 +188,17 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(context.Background(), liveCode)
 
 	liveCode.Name = "Updated Name"
 	liveCode.Status = 0
 
-	err := repo.Update(liveCode)
+	err := repo.Update(context.Background(), liveCode)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(liveCode.ID)
+	updated, _ := repo.GetByID(context.Background(), liveCode.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -219,14 +220,14 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(context.Background(), liveCode)
 
-	err := repo.Delete(liveCode.ID)
+	err := repo.Delete(context.Background(), liveCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(liveCode.ID)
+	_, err = repo.GetByID(context.Background(), liveCode.ID)
 	if err == nil {
 		t.Error("Expected live code to be deleted")
 	}
@@ -293,7 +294,7 @@ func TestLiveCodeRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetList(tt.page, tt.pageSize, tt.nameFilter, "")
+			results, total, err := repo.GetList(context.Background(), tt.page, tt.pageSize, tt.nameFilter, "")
 
 			if err != nil {
 				t.Errorf("GetList() error = %v", err)
@@ -341,7 +342,7 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 	// Then update to status 0
 	database.Model(&model.LiveCode{}).Where("id = ?", disabledCode.ID).Update("status", 0)
 
-	availableCodes, err := repo.GetAvailableLiveCodes()
+	availableCodes, err := repo.GetAvailableLiveCodes(context.Background())
 	if err != nil {
 		t.Errorf("GetAvailableLiveCodes() error = %v", err)
 	}
@@ -357,7 +358,7 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 func TestLiveCodeRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupLiveCodeRepository(t)
 
-	_, err := repo.GetByID("non-existing-id")
+	_, err := repo.GetByID(context.Background(), "non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing live code")
 	}
@@ -367,7 +368,7 @@ func TestLiveCodeRepository_GetByID_NotFound(t *testing.T) {
 func TestLiveCodeRepository_Delete_NotFound(t *testing.T) {
 	repo := setupLiveCodeRepository(t)
 
-	err := repo.Delete("non-existing-id")
+	err := repo.Delete(context.Background(), "non-existing-id")
 	if err != nil {
 		// GORM Delete 不会返回错误，即使没有记录被删除
 		// 这里只检查是否 panic

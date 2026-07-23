@@ -25,20 +25,20 @@ import (
 
 // OpenAPIService 知识库 OpenAPI 数据源同步服务
 type OpenAPIService struct {
-	db        *gorm.DB
-	srcRepo   *knowledgerepo.KnowledgeOpenAPIRepository
-	docRepo   *knowledgerepo.KnowledgeDocumentRepository
-	kbService *knowledgesvc.KnowledgeService
-	client    *http.Client
+	db		*gorm.DB
+	srcRepo		*knowledgerepo.KnowledgeOpenAPIRepository
+	docRepo		*knowledgerepo.KnowledgeDocumentRepository
+	kbService	*knowledgesvc.KnowledgeService
+	client		*http.Client
 }
 
 // NewOpenAPIService 创建 OpenAPI 服务
 func NewOpenAPIService() *OpenAPIService {
 	return &OpenAPIService{
-		db:        dbUtil.GetDB(),
-		srcRepo:   knowledgerepo.NewKnowledgeOpenAPIRepository(dbUtil.GetDB()),
-		docRepo:   knowledgerepo.NewKnowledgeDocumentRepository(dbUtil.GetDB()),
-		kbService: knowledgesvc.NewKnowledgeService(),
+		db:		dbUtil.GetDB(),
+		srcRepo:	knowledgerepo.NewKnowledgeOpenAPIRepository(dbUtil.GetDB()),
+		docRepo:	knowledgerepo.NewKnowledgeDocumentRepository(dbUtil.GetDB()),
+		kbService:	knowledgesvc.NewKnowledgeService(),
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -48,10 +48,10 @@ func NewOpenAPIService() *OpenAPIService {
 // NewOpenAPIServiceWithDB 带 DB 的 OpenAPI 服务(用于测试)
 func NewOpenAPIServiceWithDB(gdb *gorm.DB) *OpenAPIService {
 	return &OpenAPIService{
-		db:        gdb,
-		srcRepo:   knowledgerepo.NewKnowledgeOpenAPIRepository(gdb),
-		docRepo:   knowledgerepo.NewKnowledgeDocumentRepository(gdb),
-		kbService: knowledgesvc.NewKnowledgeServiceWithDB(gdb),
+		db:		gdb,
+		srcRepo:	knowledgerepo.NewKnowledgeOpenAPIRepository(gdb),
+		docRepo:	knowledgerepo.NewKnowledgeDocumentRepository(gdb),
+		kbService:	knowledgesvc.NewKnowledgeServiceWithDB(gdb),
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -96,7 +96,7 @@ func (s *OpenAPIService) UpdateSource(ctx context.Context, src *model.KnowledgeO
 		return errors.New("数据源 ID 不能为空")
 	}
 	// 加密 auth_config(如果存在敏感字段)
-	if err := s.encryptAuthConfig(src); err != nil {
+	if err := s.encryptAuthConfig(ctx, src); err != nil {
 		return fmt.Errorf("加密认证配置失败: %w", err)
 	}
 	return s.srcRepo.Update(ctx, src)
@@ -127,14 +127,14 @@ func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID, id int64,
 
 // SyncResult 同步结果
 type SyncResult struct {
-	SourceID    uint64 `json:"source_id"`
-	TotalItems  int    `json:"total_items"`
-	ImportedNum int    `json:"imported_num"`
-	SkippedNum  int    `json:"skipped_num"`
-	FailedNum   int    `json:"failed_num"`
-	DurationMs  int64  `json:"duration_ms"`
-	Status      string `json:"status"`
-	ErrorMsg    string `json:"error_msg"`
+	SourceID	uint64	`json:"source_id"`
+	TotalItems	int	`json:"total_items"`
+	ImportedNum	int	`json:"imported_num"`
+	SkippedNum	int	`json:"skipped_num"`
+	FailedNum	int	`json:"failed_num"`
+	DurationMs	int64	`json:"duration_ms"`
+	Status		string	`json:"status"`
+	ErrorMsg	string	`json:"error_msg"`
 }
 
 // SyncSource 同步指定数据源(全量或增量)
@@ -150,7 +150,7 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 	}
 
 	// 1. 构建请求
-	body, headers, err := s.buildRequest(src)
+	body, headers, err := s.buildRequest(ctx, src)
 	if err != nil {
 		s.recordSyncError(ctx, src, err.Error(), result, start)
 		return result, err
@@ -171,7 +171,7 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		}
 	}
 
-	resp, err := s.client.Do(req)
+	resp, err := s.client.Do(ctx, req)
 	if err != nil {
 		s.recordSyncError(ctx, src, fmt.Sprintf("请求失败: %v", err), result, start)
 		return result, err
@@ -190,7 +190,7 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		s.recordSyncError(ctx, src, fmt.Sprintf("读取响应失败: %v", err), result, start)
 		return result, err
 	}
-	items, err := s.extractItems(rawBody, src.ResponsePath)
+	items, err := s.extractItems(ctx, rawBody, src.ResponsePath)
 	if err != nil {
 		s.recordSyncError(ctx, src, fmt.Sprintf("解析响应失败: %v", err), result, start)
 		return result, err
@@ -207,12 +207,12 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		}
 		importReq := &knowledgesvc.ImportRequest{
 
-			ProductID:  fmt.Sprintf("%d", productID),
-			SourceType: model.SourceTypeOpenAPI,
-			Title:      title,
-			Content:    content,
-			SourceRef:  ref,
-			Operator:   "system:openapi",
+			ProductID:	fmt.Sprintf("%d", productID),
+			SourceType:	model.SourceTypeOpenAPI,
+			Title:		title,
+			Content:	content,
+			SourceRef:	ref,
+			Operator:	"system:openapi",
 		}
 		_, err := s.kbService.Import(ctx, importReq)
 		if err != nil {
@@ -254,7 +254,7 @@ func (s *OpenAPIService) SyncAllEnabled(ctx context.Context) ([]SyncResult, erro
 
 // TestConnection 测试数据源连接
 func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.KnowledgeOpenAPISource) (map[string]any, error) {
-	body, headers, err := s.buildRequest(src)
+	body, headers, err := s.buildRequest(ctx, src)
 	if err != nil {
 		return map[string]any{"success": false, "error": err.Error()}, nil
 	}
@@ -267,23 +267,23 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 	}
 
 	start := time.Now()
-	resp, err := s.client.Do(req)
+	resp, err := s.client.Do(ctx, req)
 	if err != nil {
 		return map[string]any{
-			"success":    false,
-			"error":      err.Error(),
-			"latency_ms": time.Since(start).Milliseconds(),
+			"success":	false,
+			"error":	err.Error(),
+			"latency_ms":	time.Since(start).Milliseconds(),
 		}, nil
 	}
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	return map[string]any{
-		"success":     resp.StatusCode < 400,
-		"status_code": resp.StatusCode,
-		"latency_ms":  time.Since(start).Milliseconds(),
-		"body_size":   len(respBody),
-		"body_sample": truncateString(string(respBody), 500),
+		"success":	resp.StatusCode < 400,
+		"status_code":	resp.StatusCode,
+		"latency_ms":	time.Since(start).Milliseconds(),
+		"body_size":	len(respBody),
+		"body_sample":	truncateString(string(respBody), 500),
 	}, nil
 }
 
@@ -292,7 +292,7 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 // ============================================================================
 
 // buildRequest 构建请求体与请求头
-func (s *OpenAPIService) buildRequest(src *model.KnowledgeOpenAPISource) ([]byte, map[string]string, error) {
+func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeOpenAPISource) ([]byte, map[string]string, error) {
 	headers := make(map[string]string)
 
 	// 解析 auth_config
@@ -337,10 +337,10 @@ func (s *OpenAPIService) buildRequest(src *model.KnowledgeOpenAPISource) ([]byte
 		}
 		var buf bytes.Buffer
 		ctx := map[string]any{
-			"now":          time.Now().Unix(),
-			"timestamp":    time.Now().Format(time.RFC3339),
-			"date":         time.Now().Format("2006-01-02"),
-			"last_sync_at": formatLastSync(src.LastSyncAt),
+			"now":		time.Now().Unix(),
+			"timestamp":	time.Now().Format(time.RFC3339),
+			"date":		time.Now().Format("2006-01-02"),
+			"last_sync_at":	formatLastSync(src.LastSyncAt),
 		}
 		if err := tmpl.Execute(&buf, ctx); err != nil {
 			return nil, nil, fmt.Errorf("请求模板渲染失败: %w", err)
@@ -351,7 +351,7 @@ func (s *OpenAPIService) buildRequest(src *model.KnowledgeOpenAPISource) ([]byte
 }
 
 // extractItems 从 JSON 响应中提取数据项
-func (s *OpenAPIService) extractItems(rawBody []byte, responsePath string) ([]map[string]any, error) {
+func (s *OpenAPIService) extractItems(ctx context.Context, rawBody []byte, responsePath string) ([]map[string]any, error) {
 	var root any
 	if err := json.Unmarshal(rawBody, &root); err != nil {
 		return nil, fmt.Errorf("JSON 解析失败: %w", err)
@@ -414,7 +414,7 @@ func (s *OpenAPIService) recordSyncError(ctx context.Context, src *model.Knowled
 }
 
 // encryptAuthConfig 加密 auth_config 中的敏感字段
-func (s *OpenAPIService) encryptAuthConfig(src *model.KnowledgeOpenAPISource) error {
+func (s *OpenAPIService) encryptAuthConfig(ctx context.Context, src *model.KnowledgeOpenAPISource) error {
 	if src.AuthConfig == "" {
 		return nil
 	}

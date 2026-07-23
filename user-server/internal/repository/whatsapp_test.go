@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -58,7 +59,7 @@ func TestWhatsappRepository_CreateAccount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.CreateAccount(tt.account)
+			err := repo.CreateAccount(context.Background(), tt.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateAccount() error = %v, wantErr %v", err, tt.wantErr)
@@ -79,7 +80,7 @@ func TestWhatsappRepository_GetAccount(t *testing.T) {
 	account := &model.WhatsappAccount{
 		Name: "GetAccount Test",
 	}
-	repo.CreateAccount(account)
+	repo.CreateAccount(context.Background(), account)
 
 	tests := []struct {
 		name    string
@@ -100,7 +101,7 @@ func TestWhatsappRepository_GetAccount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetAccount(tt.id)
+			result, err := repo.GetAccount(context.Background(), tt.id)
 
 			if err != nil {
 				t.Errorf("GetAccount() error = %v", err)
@@ -126,15 +127,15 @@ func TestWhatsappRepository_ListAccounts(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		repo.CreateAccount(&model.WhatsappAccount{
+		repo.CreateAccount(context.Background(), &model.WhatsappAccount{
 			Name: "Account " + string(rune('0'+i)),
 		})
 	}
-	repo.CreateAccount(&model.WhatsappAccount{
+	repo.CreateAccount(context.Background(), &model.WhatsappAccount{
 		Name: "Other Account",
 	})
 
-	accounts, err := repo.ListAccounts()
+	accounts, err := repo.ListAccounts(context.Background())
 	if err != nil {
 		t.Errorf("ListAccounts() error = %v", err)
 	}
@@ -154,17 +155,17 @@ func TestWhatsappRepository_UpdateAccount(t *testing.T) {
 		Name:   "Original Name",
 		Status: model.WhatsappStatusPending,
 	}
-	repo.CreateAccount(account)
+	repo.CreateAccount(context.Background(), account)
 
 	account.Remark = "Updated remark"
 	account.Status = model.WhatsappStatusOnline
 
-	err := repo.UpdateAccount(account)
+	err := repo.UpdateAccount(context.Background(), account)
 	if err != nil {
 		t.Errorf("UpdateAccount() error = %v", err)
 	}
 
-	updated, _ := repo.GetAccount(account.ID)
+	updated, _ := repo.GetAccount(context.Background(), account.ID)
 	if updated.Remark != "Updated remark" {
 		t.Errorf("Expected remark 'Updated remark', got '%s'", updated.Remark)
 	}
@@ -181,14 +182,14 @@ func TestWhatsappRepository_DeleteAccount(t *testing.T) {
 	account := &model.WhatsappAccount{
 		Name: "To Delete",
 	}
-	repo.CreateAccount(account)
+	repo.CreateAccount(context.Background(), account)
 
-	err := repo.DeleteAccount(account.ID)
+	err := repo.DeleteAccount(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("DeleteAccount() error = %v", err)
 	}
 
-	result, _ := repo.GetAccount(account.ID)
+	result, _ := repo.GetAccount(context.Background(), account.ID)
 	if result != nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -202,7 +203,7 @@ func TestWhatsappRepository_UpsertSession(t *testing.T) {
 	account := &model.WhatsappAccount{
 		Name: "Session Test Account",
 	}
-	repo.CreateAccount(account)
+	repo.CreateAccount(context.Background(), account)
 
 	// 创建会话
 	session := &model.WhatsappSession{
@@ -210,7 +211,7 @@ func TestWhatsappRepository_UpsertSession(t *testing.T) {
 		SessionJSON: "session_json_123",
 	}
 
-	err := repo.UpsertSession(session)
+	err := repo.UpsertSession(context.Background(), session)
 	if err != nil {
 		t.Errorf("UpsertSession() error = %v", err)
 	}
@@ -221,12 +222,12 @@ func TestWhatsappRepository_UpsertSession(t *testing.T) {
 
 	// 更新会话
 	session.SessionJSON = "updated_session_json"
-	err = repo.UpsertSession(session)
+	err = repo.UpsertSession(context.Background(), session)
 	if err != nil {
 		t.Errorf("UpsertSession() update error = %v", err)
 	}
 
-	updated, _ := repo.GetSession(account.ID)
+	updated, _ := repo.GetSession(context.Background(), account.ID)
 	if updated.SessionJSON != "updated_session_json" {
 		t.Errorf("Expected session JSON 'updated_session_json', got '%s'", updated.SessionJSON)
 	}
@@ -240,13 +241,13 @@ func TestWhatsappRepository_GetSession(t *testing.T) {
 	account := &model.WhatsappAccount{
 		Name: "GetSession Test Account",
 	}
-	repo.CreateAccount(account)
+	repo.CreateAccount(context.Background(), account)
 
 	expectedSession := &model.WhatsappSession{
 		AccountID:   account.ID.String(),
 		SessionJSON: "test_session",
 	}
-	repo.UpsertSession(expectedSession)
+	repo.UpsertSession(context.Background(), expectedSession)
 
 	tests := []struct {
 		name       string
@@ -270,7 +271,7 @@ func TestWhatsappRepository_GetSession(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetSession(tt.accountID)
+			result, err := repo.GetSession(context.Background(), tt.accountID)
 
 			if err != nil {
 				t.Errorf("GetSession() error = %v", err)
@@ -319,7 +320,7 @@ func TestWhatsappRepository_CreateDraft(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.CreateDraft(tt.draft)
+			err := repo.CreateDraft(context.Background(), tt.draft)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateDraft() error = %v, wantErr %v", err, tt.wantErr)
@@ -341,7 +342,7 @@ func TestWhatsappRepository_GetDraft(t *testing.T) {
 		Title:   "GetDraft Test",
 		Content: "Test content",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
 	tests := []struct {
 		name    string
@@ -362,7 +363,7 @@ func TestWhatsappRepository_GetDraft(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetDraft(tt.id)
+			result, err := repo.GetDraft(context.Background(), tt.id)
 
 			if err != nil {
 				t.Errorf("GetDraft() error = %v", err)
@@ -387,15 +388,15 @@ func TestWhatsappRepository_ListDrafts(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		repo.CreateDraft(&model.WhatsappDraft{
+		repo.CreateDraft(context.Background(), &model.WhatsappDraft{
 			Title: "Draft " + string(rune('0'+i)),
 		})
 	}
-	repo.CreateDraft(&model.WhatsappDraft{
+	repo.CreateDraft(context.Background(), &model.WhatsappDraft{
 		Title: "Other Draft",
 	})
 
-	drafts, err := repo.ListDrafts()
+	drafts, err := repo.ListDrafts(context.Background())
 	if err != nil {
 		t.Errorf("ListDrafts() error = %v", err)
 	}
@@ -415,16 +416,16 @@ func TestWhatsappRepository_UpdateDraft(t *testing.T) {
 		Title:   "Original Name",
 		Content: "Original content",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
 	draft.Content = "Updated content"
 
-	err := repo.UpdateDraft(draft)
+	err := repo.UpdateDraft(context.Background(), draft)
 	if err != nil {
 		t.Errorf("UpdateDraft() error = %v", err)
 	}
 
-	updated, _ := repo.GetDraft(draft.ID)
+	updated, _ := repo.GetDraft(context.Background(), draft.ID)
 	if updated.Content != "Updated content" {
 		t.Errorf("Expected content 'Updated content', got '%s'", updated.Content)
 	}
@@ -438,14 +439,14 @@ func TestWhatsappRepository_DeleteDraft(t *testing.T) {
 	draft := &model.WhatsappDraft{
 		Title: "To Delete",
 	}
-	repo.CreateDraft(draft)
+	repo.CreateDraft(context.Background(), draft)
 
-	err := repo.DeleteDraft(draft.ID)
+	err := repo.DeleteDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Errorf("DeleteDraft() error = %v", err)
 	}
 
-	result, _ := repo.GetDraft(draft.ID)
+	result, _ := repo.GetDraft(context.Background(), draft.ID)
 	if result != nil {
 		t.Error("Expected draft to be deleted")
 	}
@@ -479,7 +480,7 @@ func TestWhatsappRepository_CreateJob(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.CreateJob(tt.job)
+			err := repo.CreateJob(context.Background(), tt.job)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateJob() error = %v, wantErr %v", err, tt.wantErr)
@@ -501,7 +502,7 @@ func TestWhatsappRepository_GetJob(t *testing.T) {
 		DraftID: uuid.New(),
 		Status:  model.WhatsappJobPending,
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	tests := []struct {
 		name    string
@@ -522,7 +523,7 @@ func TestWhatsappRepository_GetJob(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetJob(tt.id)
+			result, err := repo.GetJob(context.Background(), tt.id)
 
 			if err != nil {
 				t.Errorf("GetJob() error = %v", err)
@@ -549,15 +550,15 @@ func TestWhatsappRepository_ListJobs(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		repo.CreateJob(&model.WhatsappJob{
+		repo.CreateJob(context.Background(), &model.WhatsappJob{
 			DraftID: uuid.New(),
 		})
 	}
-	repo.CreateJob(&model.WhatsappJob{
+	repo.CreateJob(context.Background(), &model.WhatsappJob{
 		DraftID: uuid.New(),
 	})
 
-	jobs, err := repo.ListJobs()
+	jobs, err := repo.ListJobs(context.Background())
 	if err != nil {
 		t.Errorf("ListJobs() error = %v", err)
 	}
@@ -577,16 +578,16 @@ func TestWhatsappRepository_UpdateJob(t *testing.T) {
 		DraftID: uuid.New(),
 		Status:  model.WhatsappJobPending,
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	job.Status = model.WhatsappJobFinished
 
-	err := repo.UpdateJob(job)
+	err := repo.UpdateJob(context.Background(), job)
 	if err != nil {
 		t.Errorf("UpdateJob() error = %v", err)
 	}
 
-	updated, _ := repo.GetJob(job.ID)
+	updated, _ := repo.GetJob(context.Background(), job.ID)
 	if updated.Status != model.WhatsappJobFinished {
 		t.Errorf("Expected status Finished, got %v", updated.Status)
 	}
@@ -600,7 +601,7 @@ func TestWhatsappRepository_CreateJobDetail(t *testing.T) {
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	tests := []struct {
 		name    string
@@ -630,7 +631,7 @@ func TestWhatsappRepository_CreateJobDetail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.CreateJobDetail(tt.detail)
+			err := repo.CreateJobDetail(context.Background(), tt.detail)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateJobDetail() error = %v, wantErr %v", err, tt.wantErr)
@@ -651,18 +652,18 @@ func TestWhatsappRepository_ListJobDetails(t *testing.T) {
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		repo.CreateJobDetail(&model.WhatsappJobDetail{
+		repo.CreateJobDetail(context.Background(), &model.WhatsappJobDetail{
 			JobID:     job.ID,
 			AccountID: uuid.New(),
 			ToJid:     "123456789" + string(rune('0'+i)),
 		})
 	}
 
-	details, err := repo.ListJobDetails(job.ID)
+	details, err := repo.ListJobDetails(context.Background(), job.ID)
 	if err != nil {
 		t.Errorf("ListJobDetails() error = %v", err)
 	}
@@ -680,7 +681,7 @@ func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
 	job := &model.WhatsappJob{
 		DraftID: uuid.New(),
 	}
-	repo.CreateJob(job)
+	repo.CreateJob(context.Background(), job)
 
 	detail := &model.WhatsappJobDetail{
 		JobID:     job.ID,
@@ -688,17 +689,17 @@ func TestWhatsappRepository_UpdateJobDetail(t *testing.T) {
 		ToJid:     "1234567890",
 		Status:    model.WhatsappJobDetailPending,
 	}
-	repo.CreateJobDetail(detail)
+	repo.CreateJobDetail(context.Background(), detail)
 
 	detail.Status = model.WhatsappJobDetailSuccess
 	detail.ErrorMsg = ""
 
-	err := repo.UpdateJobDetail(detail)
+	err := repo.UpdateJobDetail(context.Background(), detail)
 	if err != nil {
 		t.Errorf("UpdateJobDetail() error = %v", err)
 	}
 
-	updated, _ := repo.ListJobDetails(job.ID)
+	updated, _ := repo.ListJobDetails(context.Background(), job.ID)
 	if len(updated) != 1 || updated[0].Status != model.WhatsappJobDetailSuccess {
 		t.Errorf("Expected status Success, got %v", updated[0].Status)
 	}

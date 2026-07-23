@@ -2,13 +2,25 @@ package router
 
 import (
 	"marketing/internal/controller"
+	"marketing/internal/pkg/utils/db"
+	"marketing/internal/platform"
+	"marketing/internal/repository"
+	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 // setupAssetMarketRoutes 资产市场 + 本地资产
 func setupAssetMarketRoutes(auth *gin.RouterGroup) {
-	h := controller.NewAssetMarketController()
+	gdb := db.GetDB()
+	ar := repository.NewLocalAssetRepository(gdb)
+	dr := repository.NewLocalAssetDataRepository(gdb)
+	sr := repository.NewLocalAssetSyncLogRepository(gdb)
+	pc := platform.NewPlatformAPIClient()
+	h := controller.NewAssetMarketController(
+		service.NewLocalAssetService(ar, dr, sr, pc, gdb),
+		service.NewAssetMarketService(pc),
+	)
 
 	// 兼容 /api/v1 与 /api
 	groups := []*gin.RouterGroup{

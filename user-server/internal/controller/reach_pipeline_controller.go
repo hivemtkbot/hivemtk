@@ -9,7 +9,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // ReachPipelineController 触达 Pipeline 控制器
@@ -18,8 +17,8 @@ type ReachPipelineController struct {
 }
 
 // NewReachPipelineController 创建触达 Pipeline 控制器
-func NewReachPipelineController(db *gorm.DB) *ReachPipelineController {
-	return &ReachPipelineController{svc: service.NewReachPipelineService(db)}
+func NewReachPipelineController(svc *service.ReachPipelineService) *ReachPipelineController {
+	return &ReachPipelineController{svc: svc}
 }
 
 // CreatePipeline 创建 Pipeline

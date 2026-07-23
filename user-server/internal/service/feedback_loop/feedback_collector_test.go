@@ -253,7 +253,6 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 	c := NewFeedbackCollector(db, DefaultFeedbackCollectorConfig())
 	defer c.Stop()
 
-	ctx := context.Background()
 	sessionID := "sess-multi"
 
 	// 事件 1: like (weight=1.0, reward=1.0)
@@ -309,7 +308,6 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 	cfg.BatchSize = 100
 	c := NewFeedbackCollector(db, cfg)
 
-	ctx := context.Background()
 	for i := 0; i < 10; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
 			SessionID:  "sess-async-" + strings.Repeat("x", i+1), // 唯一 session
@@ -348,7 +346,6 @@ func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 	c := NewFeedbackCollector(db, cfg)
 	defer c.Stop()
 
-	ctx := context.Background()
 	// 填满队列（QueueSize=2，缓冲 2 条）
 	// 第 1 条立即被 worker select 消费 → 入队成功
 	// 第 2 条入队成功（队列缓冲 2 条）
@@ -421,7 +418,6 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 	c := NewFeedbackCollector(db, DefaultFeedbackCollectorConfig())
 	defer c.Stop()
 
-	ctx := context.Background()
 	const N = 20
 	var wg sync.WaitGroup
 	errs := make([]error, N)

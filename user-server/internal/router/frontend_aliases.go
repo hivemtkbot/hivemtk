@@ -72,7 +72,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 1. 通知中心 - 别名（前端用 /api/notifications）
 	// 已在 auth_routes.go 中注册基础路由
 	// ============================================================
-	notifCtrl := controller.NewNotificationController()
+	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
 	doReg("GET", "/notifications/list", notifCtrl.List)
 
 	// ============================================================
@@ -177,7 +177,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 9. 统一收件箱 - 别名（前端用 /api/inbox/conversations）
 	// ============================================================
-	inboxCtrl := controller.NewInboxController()
+	inboxCtrl := controller.NewInboxController(service.NewInboxService())
 	doReg("GET", "/inbox/conversations", inboxCtrl.List)
 	doReg("GET", "/inbox/conversations/list", inboxCtrl.List)
 	doReg("GET", "/inbox/messages", inboxCtrl.GetMessages)
@@ -203,7 +203,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 11. 意图识别 - 别名（前端用 /api/intent-records）
 	// ============================================================
-	intentCtrl := controller.NewIntentController()
+	intentCtrl := controller.NewIntentController(service.NewIntentRecognizer(db.GetDB(), nil, nil))
 	doReg("GET", "/intent-records", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/list", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/stats", intentCtrl.Stats)
@@ -214,7 +214,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 12. 对话记忆 - 别名（前端用 /api/dialogue-memories）
 	// ============================================================
-	memCtrl := controller.NewDialogueMemoryController()
+	memCtrl := controller.NewDialogueMemoryController(service.NewDialogueMemoryService(db.GetDB(), nil))
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/list", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/stats", memCtrl.Stats)
@@ -254,7 +254,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 14. 触达 Pipeline - 别名（前端用 /api/reach-pipelines）
 	// ============================================================
-	reachCtrl := controller.NewReachPipelineController()
+	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(db.GetDB()))
 	doReg("GET", "/reach-pipelines", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/list", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/:id", reachCtrl.GetPipeline)
@@ -287,7 +287,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 17. SOP 智能体 - 别名
 	// ============================================================
-	sopCtrl := controller.NewSOPController()
+	sopCtrl := controller.NewSOPController(service.NewSOPService(db.GetDB(), nil))
 	doReg("GET", "/sop-agents", sopCtrl.List)
 	doReg("GET", "/sop-agents/list", sopCtrl.List)
 	doReg("GET", "/sop-agents/stats", sopCtrl.Stats)
@@ -477,7 +477,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 32. 飞书 - 别名
 	// ============================================================
-	feishuCtrl := controller.NewFeishuAccountController()
+	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(db.GetDB()), service.NewFeishuIntegrationService(db.GetDB()))
 	doReg("GET", "/feishu/accounts", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/list", feishuCtrl.List)
 	doReg("GET", "/feishu/accounts/:id", feishuCtrl.Get)

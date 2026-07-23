@@ -72,7 +72,7 @@ func lazySendSms(phone, content string) error {
 		Phone:   phone,
 		Content: content,
 	}
-	if err := svc.SendSms(req); err != nil {
+	if err := svc.SendSms(ctx, req); err != nil {
 		return fmt.Errorf("发送短信失败：%w", err)
 	}
 	return nil

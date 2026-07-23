@@ -36,7 +36,6 @@ func newLongTermMemorySystem(db *gorm.DB) *MemorySystem {
 func TestLongTermMemory_Remember_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	item, err := m.Remember(ctx, "c-1", model.LongTermMemoryPreference, "客户预算 5000 元", 8)
 	if err != nil {
@@ -118,7 +117,6 @@ func TestLongTermMemory_Remember_NilDB(t *testing.T) {
 func TestLongTermMemory_Remember_ImportanceClamp(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// importance = 0 应被裁剪到 defaultImp=5
 	item1, err := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "内容1", 0)
@@ -151,7 +149,6 @@ func TestLongTermMemory_Remember_ImportanceClamp(t *testing.T) {
 func TestLongTermMemory_Remember_AllMemoryTypes(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	types := []model.LongTermMemoryType{
 		model.LongTermMemoryPreference,
@@ -174,7 +171,6 @@ func TestLongTermMemory_Remember_AllMemoryTypes(t *testing.T) {
 func TestLongTermMemory_RememberWithSource(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	item, err := m.RememberWithSource(ctx, "c-1", model.LongTermMemoryFact, "客户是 VIP", 9,
 		model.LongTermMemorySourceTool, map[string]any{"channel": "douyin", "tag": "vip"})
@@ -199,7 +195,6 @@ func TestLongTermMemory_RememberWithSource(t *testing.T) {
 func TestLongTermMemory_PRDAcceptance_BudgetRecall(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// 第一次对话：客户说预算 5000
 	// AI 应通过 Remember 把这个关键事实存入长期记忆
@@ -255,7 +250,6 @@ func TestLongTermMemory_Recall_EmptyDB(t *testing.T) {
 func TestLongTermMemory_Recall_MultiCustomerIsolation(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// 客户 A 记忆
 	m.Remember(ctx, "c-A", model.LongTermMemoryFact, "客户 A 喜欢运动", 7)
@@ -294,7 +288,6 @@ func TestLongTermMemory_Recall_MultiCustomerIsolation(t *testing.T) {
 func TestLongTermMemory_Recall_LimitTruncation(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// 写 8 条记忆
 	for i := 0; i < 8; i++ {
@@ -326,7 +319,6 @@ func TestLongTermMemory_Recall_LimitTruncation(t *testing.T) {
 func TestLongTermMemory_Recall_ExpiredExcluded(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// 写一条过期的记忆
 	pastTime := time.Now().Add(-1 * time.Hour)
@@ -389,7 +381,6 @@ func TestLongTermMemory_Recall_EmptyCustomerID(t *testing.T) {
 func TestLongTermMemory_Recall_ResultsHaveScore(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "客户预算 5000 元", 8)
 	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "客户喜欢运动", 5)
@@ -541,7 +532,6 @@ func TestLongTermMemory_Rerank_MetadataPreserved(t *testing.T) {
 func TestLongTermMemory_ListLongTermMemories_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实1", 5)
 	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实2", 7)
@@ -563,7 +553,6 @@ func TestLongTermMemory_ListLongTermMemories_HappyPath(t *testing.T) {
 func TestLongTermMemory_ListLongTermMemories_FilterByType(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实", 5)
 	m.Remember(ctx, "c-1", model.LongTermMemoryPreference, "偏好", 5)
@@ -583,7 +572,6 @@ func TestLongTermMemory_ListLongTermMemories_FilterByType(t *testing.T) {
 func TestLongTermMemory_ListLongTermMemories_DefaultLimit(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	// 写 60 条
 	for i := 0; i < 60; i++ {
@@ -622,7 +610,6 @@ func TestLongTermMemory_ListLongTermMemories_NilDB(t *testing.T) {
 func TestLongTermMemory_DeleteLongTermMemory(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
-	ctx := context.Background()
 
 	item, _ := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "待删除", 5)
 	if err := m.DeleteLongTermMemory(ctx, item.ID); err != nil {

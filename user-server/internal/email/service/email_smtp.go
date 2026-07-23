@@ -5,6 +5,7 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/repository"
+	"context"
 )
 
 type EmailSmtpService struct {
@@ -15,32 +16,32 @@ func NewEmailSmtpService() *EmailSmtpService {
 	return &EmailSmtpService{repo: repository.NewEmailSmtpRepository()}
 }
 
-func (s *EmailSmtpService) CreateEmailSmtp(emailSmtp model.EmailSmtp) (*model.EmailSmtp, error) {
-	if err := s.repo.Create(&emailSmtp); err != nil {
+func (s *EmailSmtpService) CreateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) (*model.EmailSmtp, error) {
+	if err := s.repo.Create(ctx, &emailSmtp); err != nil {
 		return nil, err
 	}
 	return &emailSmtp, nil
 }
 
-func (s *EmailSmtpService) GetEmailSmtp(id string) (*model.EmailSmtp, error) {
-	return s.repo.GetByID(id)
+func (s *EmailSmtpService) GetEmailSmtp(ctx context.Context, id string) (*model.EmailSmtp, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *EmailSmtpService) GetEmailSmtpList() ([]*model.EmailSmtp, error) {
-	return s.repo.GetEmailSmtpList()
+func (s *EmailSmtpService) GetEmailSmtpList(ctx context.Context) ([]*model.EmailSmtp, error) {
+	return s.repo.GetEmailSmtpList(ctx)
 }
 
-func (s *EmailSmtpService) UpdateEmailSmtp(emailSmtp model.EmailSmtp) error {
-	return s.repo.Update(&emailSmtp)
+func (s *EmailSmtpService) UpdateEmailSmtp(ctx context.Context, emailSmtp model.EmailSmtp) error {
+	return s.repo.Update(ctx, &emailSmtp)
 }
 
-func (s *EmailSmtpService) DeleteEmailSmtp(id string) error {
-	return s.repo.Delete(id)
+func (s *EmailSmtpService) DeleteEmailSmtp(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
-func (s *EmailSmtpService) GetRandEmailSmtp() (*model.EmailSmtp, error) {
+func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSmtp, error) {
 	// 读取所有列表
-	emailSmtpList, err := s.repo.GetEmailSmtpList()
+	emailSmtpList, err := s.repo.GetEmailSmtpList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (s *EmailSmtpService) GetRandEmailSmtp() (*model.EmailSmtp, error) {
 	emailListService := NewEmailListService()
 	for _, emailSmtp := range emailSmtpList {
 		// 从email list 统计 今日发送格式
-		todayCount, err := emailListService.GetTodayCountByFrom(emailSmtp.Name)
+		todayCount, err := emailListService.GetTodayCountByFrom(ctx, emailSmtp.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -63,14 +64,14 @@ func (s *EmailSmtpService) GetRandEmailSmtp() (*model.EmailSmtp, error) {
 // ---- DTO 外观方法：供 controller 调用，避免 controller 直接依赖 model ----
 
 // CreateEmailSmtpDTO 通过请求 DTO 创建 SMTP 配置
-func (s *EmailSmtpService) CreateEmailSmtpDTO(req dto.CreateEmailSmtpRequest) (*dto.EmailSmtpResponse, error) {
-	created, err := s.CreateEmailSmtp(model.EmailSmtp{
-		Name:     req.Name,
-		Server:   req.Server,
-		Port:     req.Port,
-		Username: req.Username,
-		Password: req.Password,
-		Limit:    req.Limit,
+func (s *EmailSmtpService) CreateEmailSmtpDTO(ctx context.Context, req dto.CreateEmailSmtpRequest) (*dto.EmailSmtpResponse, error) {
+	created, err := s.CreateEmailSmtp(ctx, model.EmailSmtp{
+		Name:		req.Name,
+		Server:		req.Server,
+		Port:		req.Port,
+		Username:	req.Username,
+		Password:	req.Password,
+		Limit:		req.Limit,
 	})
 	if err != nil {
 		return nil, err
@@ -79,8 +80,8 @@ func (s *EmailSmtpService) CreateEmailSmtpDTO(req dto.CreateEmailSmtpRequest) (*
 }
 
 // GetEmailSmtpListDTO 获取 SMTP 配置列表（返回 DTO）
-func (s *EmailSmtpService) GetEmailSmtpListDTO() (*dto.GetEmailSmtpListResponse, error) {
-	list, err := s.GetEmailSmtpList()
+func (s *EmailSmtpService) GetEmailSmtpListDTO(ctx context.Context) (*dto.GetEmailSmtpListResponse, error) {
+	list, err := s.GetEmailSmtpList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +93,8 @@ func (s *EmailSmtpService) GetEmailSmtpListDTO() (*dto.GetEmailSmtpListResponse,
 }
 
 // GetEmailSmtpDTO 根据 ID 获取 SMTP 配置（返回 DTO）
-func (s *EmailSmtpService) GetEmailSmtpDTO(id string) (*dto.EmailSmtpResponse, error) {
-	item, err := s.GetEmailSmtp(id)
+func (s *EmailSmtpService) GetEmailSmtpDTO(ctx context.Context, id string) (*dto.EmailSmtpResponse, error) {
+	item, err := s.GetEmailSmtp(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -101,15 +102,15 @@ func (s *EmailSmtpService) GetEmailSmtpDTO(id string) (*dto.EmailSmtpResponse, e
 }
 
 // UpdateEmailSmtpDTO 通过请求 DTO 更新 SMTP 配置
-func (s *EmailSmtpService) UpdateEmailSmtpDTO(req dto.UpdateEmailSmtpRequest) error {
-	return s.UpdateEmailSmtp(model.EmailSmtp{
-		ID:       req.ID,
-		Name:     req.Name,
-		Server:   req.Server,
-		Port:     req.Port,
-		Username: req.Username,
-		Password: req.Password,
-		Limit:    req.Limit,
+func (s *EmailSmtpService) UpdateEmailSmtpDTO(ctx context.Context, req dto.UpdateEmailSmtpRequest) error {
+	return s.UpdateEmailSmtp(ctx, model.EmailSmtp{
+		ID:		req.ID,
+		Name:		req.Name,
+		Server:		req.Server,
+		Port:		req.Port,
+		Username:	req.Username,
+		Password:	req.Password,
+		Limit:		req.Limit,
 	})
 }
 
@@ -118,12 +119,12 @@ func toEmailSmtpResponse(s *model.EmailSmtp) *dto.EmailSmtpResponse {
 		return nil
 	}
 	return &dto.EmailSmtpResponse{
-		ID:       s.ID,
-		Name:     s.Name,
-		Server:   s.Server,
-		Port:     s.Port,
-		Username: s.Username,
-		Password: s.Password,
-		Limit:    s.Limit,
+		ID:		s.ID,
+		Name:		s.Name,
+		Server:		s.Server,
+		Port:		s.Port,
+		Username:	s.Username,
+		Password:	s.Password,
+		Limit:		s.Limit,
 	}
 }

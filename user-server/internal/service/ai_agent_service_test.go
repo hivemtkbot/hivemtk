@@ -62,7 +62,7 @@ func makeAgent(code, name, agentType string) *model.AIAgent {
 // TestAIAgentService_CreateAndGet 测试创建和查询
 func TestAIAgentService_CreateAndGet(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("sales_01", "销售一号", "sales")
 	if err := svc.Create(agent); err != nil {
@@ -88,7 +88,7 @@ func TestAIAgentService_CreateAndGet(t *testing.T) {
 // TestAIAgentService_CreateDuplicateCode 测试编码唯一性
 func TestAIAgentService_CreateDuplicateCode(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	a1 := makeAgent("dup_code", "智能体A", "sales")
 	if err := svc.Create(a1); err != nil {
@@ -105,7 +105,7 @@ func TestAIAgentService_CreateDuplicateCode(t *testing.T) {
 // TestAIAgentService_CreateValidation 测试创建参数校验
 func TestAIAgentService_CreateValidation(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	// 空编码
 	err := svc.Create(&model.AIAgent{Name: "x", Persona: "y"})
@@ -129,7 +129,7 @@ func TestAIAgentService_CreateValidation(t *testing.T) {
 // TestAIAgentService_List 测试列表查询
 func TestAIAgentService_List(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	_ = svc.Create(makeAgent("s1", "销售1", "sales"))
 	_ = svc.Create(makeAgent("s2", "销售2", "sales"))
@@ -166,7 +166,7 @@ func TestAIAgentService_List(t *testing.T) {
 // TestAIAgentService_Update 测试更新
 func TestAIAgentService_Update(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("upd_01", "原名", "sales")
 	_ = svc.Create(agent)
@@ -190,7 +190,7 @@ func TestAIAgentService_Update(t *testing.T) {
 // TestAIAgentService_UpdateStatus 测试状态更新
 func TestAIAgentService_UpdateStatus(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("st_01", "状态测试", "sales")
 	_ = svc.Create(agent)
@@ -216,8 +216,8 @@ func TestAIAgentService_UpdateStatus(t *testing.T) {
 // TestAIAgentService_DeleteWithReference 测试引用检查删除
 func TestAIAgentService_DeleteWithReference(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("del_01", "待删除", "sales")
 	_ = agentSvc.Create(agent)
@@ -249,7 +249,7 @@ func TestAIAgentService_DeleteWithReference(t *testing.T) {
 // TestAIAgentService_LoadContextCache 测试上下文缓存
 func TestAIAgentService_LoadContextCache(t *testing.T) {
 	setupAgentTestDB(t)
-	svc := NewAIAgentService(db.GetDB())
+	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("cache_01", "缓存测试", "sales")
 	agent.RagProductIDs = pq.StringArray{"rp1", "rp2"}
@@ -294,8 +294,8 @@ func TestAIAgentService_LoadContextCache(t *testing.T) {
 // TestChannelBinding_CreateAndList 测试渠道绑定创建和查询
 func TestChannelBinding_CreateAndList(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("bind_01", "绑定测试", "sales")
 	_ = agentSvc.Create(agent)
@@ -323,8 +323,8 @@ func TestChannelBinding_CreateAndList(t *testing.T) {
 // TestChannelBinding_PrimarySwitch 测试主绑定切换
 func TestChannelBinding_PrimarySwitch(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	a1 := makeAgent("pb_01", "智能体A", "sales")
 	_ = agentSvc.Create(a1)
@@ -363,8 +363,8 @@ func TestChannelBinding_PrimarySwitch(t *testing.T) {
 // TestChannelBinding_LoadAgentForChannel 测试按渠道加载智能体
 func TestChannelBinding_LoadAgentForChannel(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("load_01", "加载测试", "sales")
 	_ = agentSvc.Create(agent)
@@ -397,8 +397,8 @@ func TestChannelBinding_LoadAgentForChannel(t *testing.T) {
 // TestChannelBinding_BindDisabledAgent 测试绑定已禁用智能体应失败
 func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("dis_01", "已禁用", "sales")
 	_ = agentSvc.Create(agent)
@@ -425,8 +425,8 @@ func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 // TestCSAgentMount_CreateAndList 测试客服挂载创建和查询
 func TestCSAgentMount_CreateAndList(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("mt_01", "挂载测试", "customer_service")
 	_ = agentSvc.Create(agent)
@@ -457,8 +457,8 @@ func TestCSAgentMount_CreateAndList(t *testing.T) {
 // TestCSAgentMount_PrimarySwitch 测试主挂载切换
 func TestCSAgentMount_PrimarySwitch(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	a1 := makeAgent("pm_01", "智能体A", "customer_service")
 	_ = agentSvc.Create(a1)
@@ -495,8 +495,8 @@ func TestCSAgentMount_PrimarySwitch(t *testing.T) {
 // TestCSAgentMount_LoadAgentForSeat 测试按座席加载智能体
 func TestCSAgentMount_LoadAgentForSeat(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("seat_01", "座席智能体", "customer_service")
 	_ = agentSvc.Create(agent)
@@ -528,8 +528,8 @@ func TestCSAgentMount_LoadAgentForSeat(t *testing.T) {
 // TestCSAgentMount_GetOrCreateAgentStatusByUserID 测试按用户ID查找/创建座席状态
 func TestCSAgentMount_GetOrCreateAgentStatusByUserID(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	// 不存在时创建
 	st, err := mountSvc.GetOrCreateAgentStatusByUserID(500, "用户A")
@@ -553,8 +553,8 @@ func TestCSAgentMount_GetOrCreateAgentStatusByUserID(t *testing.T) {
 // TestCSAgentMount_ListByUserID 测试按用户ID查询挂载
 func TestCSAgentMount_ListByUserID(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("bu_01", "按用户绑定", "customer_service")
 	_ = agentSvc.Create(agent)
@@ -587,8 +587,8 @@ func TestCSAgentMount_ListByUserID(t *testing.T) {
 // TestCSAgentMount_CreateByUserID 测试按用户ID创建挂载（自动创建座席）
 func TestCSAgentMount_CreateByUserID(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("cbu_01", "自动创建座席", "customer_service")
 	_ = agentSvc.Create(agent)
@@ -710,8 +710,8 @@ func TestAgentContext_ToSalesEngineConfig(t *testing.T) {
 // TestE2E_ChannelBindingToLoadContext 端到端：创建智能体→绑定渠道→加载上下文
 func TestE2E_ChannelBindingToLoadContext(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	bindSvc := NewChannelAgentBindingService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	// 1. 创建智能体（含知识库挂载）
 	agent := makeAgent("e2e_01", "E2E智能体", "hybrid")
@@ -745,8 +745,8 @@ func TestE2E_ChannelBindingToLoadContext(t *testing.T) {
 // TestE2E_UserMountToLoadContext 端到端：为用户挂载智能体→按座席加载
 func TestE2E_UserMountToLoadContext(t *testing.T) {
 	setupAgentTestDB(t)
-	agentSvc := NewAIAgentService(db.GetDB())
-	mountSvc := NewCustomerServiceAgentService(db.GetDB(), agentSvc)
+	agentSvc := NewAIAgentServiceWithDB(db.GetDB())
+	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	// 1. 创建智能体
 	agent := makeAgent("e2e_mt_01", "客服AI", "customer_service")

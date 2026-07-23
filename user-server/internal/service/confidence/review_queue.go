@@ -33,9 +33,9 @@ type WebSocketBroadcaster interface {
 
 // ReviewQueueService 边界审核队列服务
 type ReviewQueueService struct {
-	repo          *repository.ReviewQueueRepository
-	slaSeconds    int
-	wsBroadcaster WebSocketBroadcaster
+	repo		*repository.ReviewQueueRepository
+	slaSeconds	int
+	wsBroadcaster	WebSocketBroadcaster
 }
 
 // NewReviewQueueService 创建审核队列服务
@@ -44,14 +44,14 @@ type ReviewQueueService struct {
 // wsBroadcaster 可为 nil（禁用 WebSocket 推送）
 func NewReviewQueueService(repo *repository.ReviewQueueRepository, ws WebSocketBroadcaster) *ReviewQueueService {
 	return &ReviewQueueService{
-		repo:          repo,
-		slaSeconds:    30,
-		wsBroadcaster: ws,
+		repo:		repo,
+		slaSeconds:	30,
+		wsBroadcaster:	ws,
 	}
 }
 
 // SetSLASeconds 设置 SLA 秒数（热重载）
-func (r *ReviewQueueService) SetSLASeconds(seconds int) {
+func (r *ReviewQueueService) SetSLASeconds(ctx context.Context, seconds int) {
 	if seconds > 0 {
 		r.slaSeconds = seconds
 	}
@@ -73,16 +73,16 @@ func (r *ReviewQueueService) Enqueue(
 	}
 	now := time.Now()
 	item := &model.ReviewQueue{
-		ItemID:             uuid.New().String(),
-		SessionID:          sessionID,
-		CustomerID:         customerID,
-		SignalID:           dec.SignalID,
-		DraftReply:         draftReply,
-		OriginalConfidence: dec.AggregatedConf,
-		Threshold:          dec.DynamicThreshold,
-		IntentType:         intentType,
-		Status:             "pending",
-		SLADeadline:        now.Add(time.Duration(r.slaSeconds) * time.Second),
+		ItemID:			uuid.New().String(),
+		SessionID:		sessionID,
+		CustomerID:		customerID,
+		SignalID:		dec.SignalID,
+		DraftReply:		draftReply,
+		OriginalConfidence:	dec.AggregatedConf,
+		Threshold:		dec.DynamicThreshold,
+		IntentType:		intentType,
+		Status:			"pending",
+		SLADeadline:		now.Add(time.Duration(r.slaSeconds) * time.Second),
 	}
 	if err := r.repo.Create(ctx, item); err != nil {
 		return nil, err

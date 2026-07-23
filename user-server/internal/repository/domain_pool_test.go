@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestDomainPoolRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.domain)
+			err := repo.Create(context.Background(), tt.domain)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -80,7 +81,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
 	tests := []struct {
 		name    string
@@ -101,7 +102,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -131,7 +132,7 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
 	tests := []struct {
 		name    string
@@ -152,7 +153,7 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByDomain(tt.domain)
+			result, err := repo.GetByDomain(context.Background(), tt.domain)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByDomain() error = %v, wantErr %v", err, tt.wantErr)
@@ -173,7 +174,7 @@ func TestDomainPoolRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(&model.DomainPool{
+		repo.Create(context.Background(), &model.DomainPool{
 			Domain:    string(rune('a'+i-1)) + "domain.com",
 			Port:      80 + i,
 			Purpose:   "Test domain " + string(rune('0'+i)),
@@ -222,7 +223,7 @@ func TestDomainPoolRepository_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.List(tt.page, tt.pageSize, tt.domain, tt.status)
+			results, total, err := repo.List(context.Background(), tt.page, tt.pageSize, tt.domain, tt.status)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("List() error = %v, wantErr %v", err, tt.wantErr)
@@ -244,26 +245,26 @@ func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 
 	// 创建测试数据
-	repo.Create(&model.DomainPool{
+	repo.Create(context.Background(), &model.DomainPool{
 		Domain:    "test-example.com",
 		Port:      443,
 		Status:    1,
 		LastCheck: time.Now(),
 	})
-	repo.Create(&model.DomainPool{
+	repo.Create(context.Background(), &model.DomainPool{
 		Domain:    "example-site.com",
 		Port:      80,
 		Status:    1,
 		LastCheck: time.Now(),
 	})
-	repo.Create(&model.DomainPool{
+	repo.Create(context.Background(), &model.DomainPool{
 		Domain:    "other.com",
 		Port:      8080,
 		Status:    1,
 		LastCheck: time.Now(),
 	})
 
-	results, total, err := repo.List(1, 10, "example", 0)
+	results, total, err := repo.List(context.Background(), 1, 10, "example", 0)
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}
@@ -289,17 +290,17 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
 	domain.Port = 443
 	domain.Purpose = "Updated Purpose"
 
-	err := repo.Update(domain)
+	err := repo.Update(context.Background(), domain)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(context.Background(), domain.ID)
 	if updated.Port != 443 {
 		t.Errorf("Expected port 443, got %d", updated.Port)
 	}
@@ -319,14 +320,14 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
-	err := repo.Delete(domain.ID)
+	err := repo.Delete(context.Background(), domain.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(domain.ID)
+	_, err = repo.GetByID(context.Background(), domain.ID)
 	if err == nil {
 		t.Error("Expected domain to be deleted")
 	}
@@ -343,14 +344,14 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
-	err := repo.UpdateStatus(domain.ID, 2)
+	err := repo.UpdateStatus(context.Background(), domain.ID, 2)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(context.Background(), domain.ID)
 	if updated.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated.Status)
 	}
@@ -367,15 +368,15 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Time{},
 	}
-	repo.Create(domain)
+	repo.Create(context.Background(), domain)
 
 	checkTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
-	err := repo.UpdateLastCheck(domain.ID, checkTime)
+	err := repo.UpdateLastCheck(context.Background(), domain.ID, checkTime)
 	if err != nil {
 		t.Errorf("UpdateLastCheck() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(context.Background(), domain.ID)
 	if updated.LastCheck.IsZero() {
 		t.Error("Expected LastCheck to be updated")
 	}

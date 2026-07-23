@@ -145,7 +145,7 @@ func (a *customerLookupAdapter) GetByOneID(ctx context.Context, oneID string) (*
 	if a == nil || a.customerRepo == nil || oneID == "" {
 		return nil, nil
 	}
-	return a.customerRepo.GetByUnifiedID(oneID)
+	return a.customerRepo.GetByUnifiedID(ctx, oneID)
 }
 
 // GetByID 按主键 ID 查询客户
@@ -153,5 +153,5 @@ func (a *customerLookupAdapter) GetByID(ctx context.Context, id string) (*model.
 	if a == nil || a.customerRepo == nil || id == "" {
 		return nil, nil
 	}
-	return a.customerRepo.GetByID(id)
+	return a.customerRepo.GetByID(ctx, id)
 }

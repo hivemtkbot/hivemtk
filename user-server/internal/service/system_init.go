@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"marketing/internal/pkg/utils/logger"
+	"context"
 )
 
 // SystemInitService 系统初始化服务
@@ -26,10 +27,10 @@ func NewSystemInitService() *SystemInitService {
 
 // CreateInitAdminParams 创建初始化超管参数
 type CreateInitAdminParams struct {
-	Username string
-	Password string
-	Email    string
-	RealName string
+	Username	string
+	Password	string
+	Email		string
+	RealName	string
 }
 
 // CreateInitAdmin 创建初始化超管
@@ -39,9 +40,9 @@ type CreateInitAdminParams struct {
 //   - 密码长度 ≥ 8，必须含大小写字母+数字
 //   - 邮箱格式正确
 //   - role='admin'，must_change_password=true
-func (s *SystemInitService) CreateInitAdmin(p *CreateInitAdminParams) error {
+func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAdminParams) error {
 	// 1. 系统已有任何用户 → 拒绝
-	count, err := s.userService.CountUsers()
+	count, err := s.userService.CountUsers(ctx)
 	if err != nil {
 		logger.Error(err, "SystemInitService 检查用户总数失败")
 		return errors.New("系统状态异常")
@@ -66,14 +67,14 @@ func (s *SystemInitService) CreateInitAdmin(p *CreateInitAdminParams) error {
 	}
 
 	// 5. 创建超管
-	_, err = s.userService.CreateUser(&CreateUserRequest{
-		Username:           p.Username,
-		Password:           p.Password,
-		Email:              p.Email,
-		RealName:           p.RealName,
-		Role:               "admin",
-		Status:             1,
-		MustChangePassword: true,
+	_, err = s.userService.CreateUser(ctx, &CreateUserRequest{
+		Username:		p.Username,
+		Password:		p.Password,
+		Email:			p.Email,
+		RealName:		p.RealName,
+		Role:			"admin",
+		Status:			1,
+		MustChangePassword:	true,
 	})
 	if err != nil {
 		logger.Error(err, "SystemInitService 创建超管失败")
@@ -98,9 +99,9 @@ func validateUsername(u string) error {
 
 // validatePassword 校验密码强度：至少 8 位，含大小写字母 + 数字
 var (
-	hasLower = regexp.MustCompile(`[a-z]`)
-	hasUpper = regexp.MustCompile(`[A-Z]`)
-	hasDigit = regexp.MustCompile(`[0-9]`)
+	hasLower	= regexp.MustCompile(`[a-z]`)
+	hasUpper	= regexp.MustCompile(`[A-Z]`)
+	hasDigit	= regexp.MustCompile(`[0-9]`)
 )
 
 func validatePassword(p string) error {

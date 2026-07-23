@@ -18,7 +18,6 @@ func TestCustomerJourney_NewCustomerIsStranger(t *testing.T) {
 
 func TestCustomerJourney_Transition(t *testing.T) {
 	s := NewCustomerJourneyService()
-	ctx := context.Background()
 	event, err := s.Transition(ctx, "cust_002", StageLead, "ai_chat", "ai", "留资成功", nil)
 	if err != nil {
 		t.Fatalf("transition failed: %v", err)
@@ -42,7 +41,6 @@ func TestCustomerJourney_InvalidStage(t *testing.T) {
 
 func TestCustomerJourney_AutoTagOnTransition(t *testing.T) {
 	s := NewCustomerJourneyService()
-	ctx := context.Background()
 	_, _ = s.Transition(ctx, "cust_004", StageQuoted, "ai_chat", "ai", "已报价", nil)
 	state := s.GetState("cust_004")
 	hasTag := false
@@ -70,7 +68,6 @@ func TestCustomerJourney_Touch(t *testing.T) {
 
 func TestCustomerJourney_ListByStage(t *testing.T) {
 	s := NewCustomerJourneyService()
-	ctx := context.Background()
 	_, _ = s.Transition(ctx, "a", StageLead, "ai", "ai", "", nil)
 	_, _ = s.Transition(ctx, "b", StageLead, "ai", "ai", "", nil)
 	_, _ = s.Transition(ctx, "c", StageInterested, "ai", "ai", "", nil)
@@ -82,7 +79,6 @@ func TestCustomerJourney_ListByStage(t *testing.T) {
 
 func TestCustomerJourney_AutoDetectSleeping(t *testing.T) {
 	s := NewCustomerJourneyService()
-	ctx := context.Background()
 	_, _ = s.Transition(ctx, "old_cust", StageWon, "ai", "ai", "", nil)
 	// 手动修改时间（用 reflection 或直接操作）
 	s.mu.Lock()

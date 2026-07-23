@@ -233,7 +233,6 @@ func TestBanditAllocator_SelectArm_ColdStartUniform(t *testing.T) {
 	}
 
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
-	ctx := context.Background()
 
 	// 冷启动期：每臂 0 trials < 30，应使用 cold_start_uniform
 	selected := make(map[string]int)
@@ -305,7 +304,6 @@ func TestBanditAllocator_UpdateReward_Success(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
-	ctx := context.Background()
 
 	// 成功：alpha + 1
 	if err := b.UpdateReward(ctx, expID, "arm_a", true, 1.5); err != nil {
@@ -478,7 +476,6 @@ func TestBanditAllocator_InvalidateCache(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	b := NewBanditAllocator(db, DefaultBanditConfig(), 42)
-	ctx := context.Background()
 	// 第一次调用加载缓存
 	_, _, err := b.SelectArm(ctx, expID)
 	if err != nil {

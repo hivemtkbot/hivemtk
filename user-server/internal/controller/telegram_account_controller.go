@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/pkg/utils/tgbot"
 	"marketing/internal/service"
@@ -33,9 +32,9 @@ type TelegramAccountController struct {
 }
 
 // NewTelegramAccountController 创建控制器
-func NewTelegramAccountController() *TelegramAccountController {
+func NewTelegramAccountController(svc *service.TelegramService) *TelegramAccountController {
 	return &TelegramAccountController{
-		svc: service.NewTelegramService(db.GetDB()),
+		svc: svc,
 	}
 }
 

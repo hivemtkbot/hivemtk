@@ -2,13 +2,15 @@ package router
 
 import (
 	"marketing/internal/controller"
+	"marketing/internal/pkg/utils/db"
+	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 // setupWeComRoutes 企业微信管理路由
 func setupWeComRoutes(auth *gin.RouterGroup) {
-	wecomCtrl := controller.NewWeComController()
+	wecomCtrl := controller.NewWeComController(service.NewWeComServiceWithDB(db.GetDB()))
 
 	// 企业微信账号管理
 	auth.POST("/wecom/accounts", wecomCtrl.CreateAccount)

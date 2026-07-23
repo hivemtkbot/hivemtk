@@ -144,7 +144,7 @@ func loadAccountCookie(platform model.Platform, accountID string) (string, *mode
 		}
 		return "", nil, err
 	}
-	cookie, err := account.GetCookie()
+	cookie, err := utils.Decrypt(account.Cookie, utils.GetCookieEncryptionKey())
 	if err != nil {
 		return "", &account, fmt.Errorf("Cookie 解密失败: %w", err)
 	}
@@ -256,9 +256,11 @@ func LoginWithBrowser(platform model.Platform, username string, headless bool) (
 			IsActive: true,
 		}
 	}
-	if err := account.SetCookie(cookieStr); err != nil {
-		return "", nil, fmt.Errorf("加密 Cookie 失败: %w", err)
+	encrypted, encErr := utils.Encrypt(cookieStr, utils.GetCookieEncryptionKey())
+	if encErr != nil {
+		return "", nil, fmt.Errorf("加密 Cookie 失败: %w", encErr)
 	}
+	account.Cookie = encrypted
 	account.LoginAt = &now
 	account.IsActive = true
 	account.Headless = headless
@@ -375,7 +377,7 @@ func (a *browserAdapter) Login(credentials map[string]string) (*model.PlatformAc
 	}
 
 	// 同步到 PlatformAccount 表
-	accounts, _ := a.repo.GetByPlatform(a.platform)
+	accounts, _ := a.repo.GetByPlatform(context.Background(), a.platform)
 	if len(accounts) == 0 {
 		pa := &model.PlatformAccount{
 			Platform:    a.platform,
@@ -385,7 +387,7 @@ func (a *browserAdapter) Login(credentials map[string]string) (*model.PlatformAc
 			Status:      1,
 			LastSyncAt:  ptrTime(time.Now()),
 		}
-		if err := a.repo.Create(pa); err != nil {
+		if err := a.repo.Create(context.Background(), pa); err != nil {
 			return nil, err
 		}
 		return pa, nil
@@ -394,7 +396,7 @@ func (a *browserAdapter) Login(credentials map[string]string) (*model.PlatformAc
 	pa.Cookie = cookie
 	pa.Status = 1
 	pa.LastSyncAt = ptrTime(time.Now())
-	if err := a.repo.Update(pa); err != nil {
+	if err := a.repo.Update(context.Background(), pa); err != nil {
 		return nil, err
 	}
 	logger.Infof("[%s] 登录成功,已保存账号 %s (auto_reply_account id=%d)", a.platform, username, account.ID)

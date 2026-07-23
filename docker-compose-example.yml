@@ -353,6 +353,9 @@ services:
       - --served-model-name=${EMBEDDING_SERVED_NAME:-Qwen3-Embedding-0.6B}
       - --hostname=0.0.0.0
       - --port=8208
+      # Qwen3-Embedding-0.6B 是 decoder-only，ORT 后端加载不了；
+      # 显式指定 candle 后端，避免启动时先探测 ORT 报 "model.onnx does not exist"
+      - --backend=candle
       # 极小批处理，降低 Candle Qwen3-0.6B warmup 时的内存占用
       - --max-concurrent-requests=1
       - --max-batch-tokens=512

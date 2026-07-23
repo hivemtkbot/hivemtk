@@ -16,49 +16,49 @@ import (
 
 // SessionAssignmentService 会话分配服务
 type SessionAssignmentService struct {
-	sessionRepo         *repository.CustomerSessionRepository
-	messageRepo         *repository.SessionMessageRepository
-	agentRepo           *repository.AgentStatusRepository
-	ragEngine           *rag_core.RAGEngine
-	llmService          *llm.LLMService
-	confidenceThreshold float64 // 置信度阈值，低于此值转人工
+	sessionRepo		*repository.CustomerSessionRepository
+	messageRepo		*repository.SessionMessageRepository
+	agentRepo		*repository.AgentStatusRepository
+	ragEngine		*rag_core.RAGEngine
+	llmService		*llm.LLMService
+	confidenceThreshold	float64	// 置信度阈值，低于此值转人工
 }
 
 // NewSessionAssignmentService 创建会话分配服务
 func NewSessionAssignmentService() *SessionAssignmentService {
 	return &SessionAssignmentService{
-		sessionRepo:         repository.NewCustomerSessionRepository(),
-		messageRepo:         repository.NewSessionMessageRepository(),
-		agentRepo:           repository.NewAgentStatusRepository(),
-		ragEngine:           rag_core.NewRAGEngine(nil),
-		llmService:          llm.NewLLMService(),
-		confidenceThreshold: 0.7, // 默认置信度阈值为 0.7
+		sessionRepo:		repository.NewCustomerSessionRepository(),
+		messageRepo:		repository.NewSessionMessageRepository(),
+		agentRepo:		repository.NewAgentStatusRepository(),
+		ragEngine:		rag_core.NewRAGEngine(nil),
+		llmService:		llm.NewLLMService(),
+		confidenceThreshold:	0.7,	// 默认置信度阈值为 0.7
 	}
 }
 
 // SetConfidenceThreshold 设置置信度阈值
-func (s *SessionAssignmentService) SetConfidenceThreshold(threshold float64) {
+func (s *SessionAssignmentService) SetConfidenceThreshold(ctx context.Context, threshold float64) {
 	s.confidenceThreshold = threshold
 }
 
 // ProcessIncomingMessage 处理 incoming 消息，决定是否创建/更新会话并分配
 func (s *SessionAssignmentService) ProcessIncomingMessage(ctx context.Context, msg *model.UnifiedMessage) error {
 	// 1. 查找是否已有活跃会话
-	session, err := s.findActiveSession(msg.SenderID, msg.ChatID)
+	session, err := s.findActiveSession(ctx, msg.SenderID, msg.ChatID)
 	if err != nil && !errors.Is(err, ErrSessionNotFound) {
 		return err
 	}
 
 	// 2. 如果没有活跃会话，创建新会话
 	if session == nil {
-		session, err = s.createSession(msg)
+		session, err = s.createSession(ctx, msg)
 		if err != nil {
 			return err
 		}
 	}
 
 	// 3. 保存消息到会话
-	err = s.saveMessageToSession(session, msg)
+	err = s.saveMessageToSession(ctx, session, msg)
 	if err != nil {
 		return err
 	}
@@ -74,9 +74,9 @@ func (s *SessionAssignmentService) ProcessIncomingMessage(ctx context.Context, m
 }
 
 // findActiveSession 查找活跃会话
-func (s *SessionAssignmentService) findActiveSession(userID, chatID string) (*model.CustomerSession, error) {
+func (s *SessionAssignmentService) findActiveSession(ctx context.Context, userID, chatID string) (*model.CustomerSession, error) {
 	// 获取商户下该用户的活跃会话
-	sessions, _, err := s.sessionRepo.GetByMerchant("", 1, 10)
+	sessions, _, err := s.sessionRepo.GetByMerchant(ctx, "", 1, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -101,27 +101,27 @@ func (s *SessionAssignmentService) findActiveSession(userID, chatID string) (*mo
 var ErrSessionNotFound = errors.New("活跃会话未找到")
 
 // createSession 创建新会话
-func (s *SessionAssignmentService) createSession(msg *model.UnifiedMessage) (*model.CustomerSession, error) {
+func (s *SessionAssignmentService) createSession(ctx context.Context, msg *model.UnifiedMessage) (*model.CustomerSession, error) {
 	sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), msg.MessageID[:8])
 
 	session := &model.CustomerSession{
-		SessionID:       sessionID,
-		Platform:        msg.Platform,
-		AccountID:       msg.AccountID,
-		UserID:          msg.SenderID,
-		UserName:        msg.SenderName,
-		UserAvatar:      msg.SenderAvatar,
-		Status:          model.SessionStatusPending,
-		Priority:        0,
-		LastMessage:     msg.Content,
-		LastMessageAt:   &msg.ReceivedAt,
-		LastMessageBy:   "user",
-		MessageCount:    0,
-		AIReplyCount:    0,
-		HumanReplyCount: 0,
+		SessionID:		sessionID,
+		Platform:		msg.Platform,
+		AccountID:		msg.AccountID,
+		UserID:			msg.SenderID,
+		UserName:		msg.SenderName,
+		UserAvatar:		msg.SenderAvatar,
+		Status:			model.SessionStatusPending,
+		Priority:		0,
+		LastMessage:		msg.Content,
+		LastMessageAt:		&msg.ReceivedAt,
+		LastMessageBy:		"user",
+		MessageCount:		0,
+		AIReplyCount:		0,
+		HumanReplyCount:	0,
 	}
 
-	err := s.sessionRepo.Create(session)
+	err := s.sessionRepo.Create(ctx, session)
 	if err != nil {
 		return nil, err
 	}
@@ -130,42 +130,42 @@ func (s *SessionAssignmentService) createSession(msg *model.UnifiedMessage) (*mo
 }
 
 // saveMessageToSession 保存消息到会话
-func (s *SessionAssignmentService) saveMessageToSession(session *model.CustomerSession, msg *model.UnifiedMessage) error {
+func (s *SessionAssignmentService) saveMessageToSession(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) error {
 	message := &model.SessionMessage{
-		SessionID:    session.SessionID,
-		Content:      msg.Content,
-		ContentType:  model.MessageTypeText,
-		MediaURL:     msg.MediaURL,
-		SenderType:   "user",
-		SenderID:     msg.SenderID,
-		SenderName:   msg.SenderName,
-		SenderAvatar: msg.SenderAvatar,
+		SessionID:	session.SessionID,
+		Content:	msg.Content,
+		ContentType:	model.MessageTypeText,
+		MediaURL:	msg.MediaURL,
+		SenderType:	"user",
+		SenderID:	msg.SenderID,
+		SenderName:	msg.SenderName,
+		SenderAvatar:	msg.SenderAvatar,
 	}
 
-	return s.messageRepo.Create(message)
+	return s.messageRepo.Create(ctx, message)
 }
 
 // HandlerDecision 处理者决策
 type HandlerDecision struct {
-	HandlerType    model.HandlerType // ai 或 human
-	Confidence     float64
-	ShouldTransfer bool
-	TransferReason string
-	AIResponse     string
-	Priority       int
+	HandlerType	model.HandlerType	// ai 或 human
+	Confidence	float64
+	ShouldTransfer	bool
+	TransferReason	string
+	AIResponse	string
+	Priority	int
 }
 
 // decideHandler 决策如何处理会话
 func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) (*HandlerDecision, error) {
 	decision := &HandlerDecision{
-		HandlerType: model.HandlerTypeAI,
-		Confidence:  0,
+		HandlerType:	model.HandlerTypeAI,
+		Confidence:	0,
 	}
 
 	// 1. 检查会话是否已分配给人工
 	if session.HandlerType == model.HandlerTypeHuman && session.AgentID > 0 {
 		// 已分配给人工，检查人工客服是否在线
-		agent, err := s.agentRepo.GetByAgentID(session.AgentID)
+		agent, err := s.agentRepo.GetByAgentID(ctx, session.AgentID)
 		if err == nil && agent.Status != "offline" {
 			decision.HandlerType = model.HandlerTypeHuman
 			return decision, nil
@@ -174,10 +174,10 @@ func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *m
 	}
 
 	// 2. 检查消息内容是否需要人工处理
-	if s.isUrgentOrComplaint(msg.Content) {
+	if s.isUrgentOrComplaint(ctx, msg.Content) {
 		decision.HandlerType = model.HandlerTypeHuman
 		decision.TransferReason = "检测到紧急或投诉内容"
-		decision.Priority = 2 // 紧急优先级
+		decision.Priority = 2	// 紧急优先级
 		return decision, nil
 	}
 
@@ -212,7 +212,7 @@ func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *m
 }
 
 // isUrgentOrComplaint 检查是否是紧急或投诉消息
-func (s *SessionAssignmentService) isUrgentOrComplaint(content string) bool {
+func (s *SessionAssignmentService) isUrgentOrComplaint(ctx context.Context, content string) bool {
 	urgentKeywords := []string{
 		"投诉", "举报", "曝光", "315", "消协", "工商局",
 		"紧急", "着急", "马上", "立刻", "赶紧", "快点",
@@ -245,11 +245,11 @@ func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, cont
 回复：`, content)
 
 	config := &llm.LLMConfig{
-		Model:          "gpt-3.5-turbo",
-		APIType:        "openai",
-		Temperature:    0.7,
-		MaxTokens:      500,
-		ResponseFormat: "text",
+		Model:		"gpt-3.5-turbo",
+		APIType:	"openai",
+		Temperature:	0.7,
+		MaxTokens:	500,
+		ResponseFormat:	"text",
 	}
 
 	output, err := s.llmService.Generate(ctx, config, prompt)
@@ -288,36 +288,36 @@ func (s *SessionAssignmentService) executeDecision(ctx context.Context, session 
 // handleByAI AI 处理
 func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *model.CustomerSession, response string) error {
 	// 更新会话状态
-	err := s.sessionRepo.UpdateStatus(session.ID, model.SessionStatusAIHandling)
+	err := s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusAIHandling)
 	if err != nil {
 		return err
 	}
 
 	// 发送 AI 回复
 	message := &model.SessionMessage{
-		SessionID:    session.SessionID,
-		Content:      response,
-		ContentType:  model.MessageTypeText,
-		SenderType:   "ai",
-		SenderID:     "system",
-		SenderName:   "AI 助手",
-		AIConfidence: 0.8,
-		AISource:     "llm",
+		SessionID:	session.SessionID,
+		Content:	response,
+		ContentType:	model.MessageTypeText,
+		SenderType:	"ai",
+		SenderID:	"system",
+		SenderName:	"AI 助手",
+		AIConfidence:	0.8,
+		AISource:	"llm",
 	}
 
-	err = s.messageRepo.Create(message)
+	err = s.messageRepo.Create(ctx, message)
 	if err != nil {
 		return err
 	}
 
 	// 更新会话最后消息
-	err = s.sessionRepo.UpdateLastMessage(session.ID, response, "ai")
+	err = s.sessionRepo.UpdateLastMessage(ctx, session.ID, response, "ai")
 	if err != nil {
 		return err
 	}
 
 	// 增加 AI 回复计数
-	err = s.sessionRepo.IncrementAIReplyCount(session.ID)
+	err = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
 	if err != nil {
 		return err
 	}
@@ -325,27 +325,27 @@ func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *mode
 	// 如果有客服在线，通知 AI 已回复
 	if session.AgentID > 0 {
 		websocket.NotifySessionUpdate(strconv.FormatUint(uint64(session.AgentID), 10), map[string]any{
-			"session_id": session.SessionID,
-			"status":     model.SessionStatusAIHandling,
-			"ai_replied": true,
+			"session_id":	session.SessionID,
+			"status":	model.SessionStatusAIHandling,
+			"ai_replied":	true,
 		})
 	}
 
 	// 更新状态为等待用户回复
-	return s.sessionRepo.UpdateStatus(session.ID, model.SessionStatusWaiting)
+	return s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
 }
 
 // handleByHuman 人工处理
 func (s *SessionAssignmentService) handleByHuman(ctx context.Context, session *model.CustomerSession, reason string) error {
 	// 更新会话状态
-	err := s.sessionRepo.UpdateStatus(session.ID, model.SessionStatusPending)
+	err := s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusPending)
 	if err != nil {
 		return err
 	}
 
 	// 尝试自动分配给在线客服
 	if session.AgentID == 0 {
-		err = s.autoAssignToAgent(session, reason)
+		err = s.autoAssignToAgent(ctx, session, reason)
 		if err != nil {
 			// 分配失败，保持 pending 状态等待分配
 			return nil
@@ -356,9 +356,9 @@ func (s *SessionAssignmentService) handleByHuman(ctx context.Context, session *m
 }
 
 // autoAssignToAgent 自动分配给客服
-func (s *SessionAssignmentService) autoAssignToAgent(session *model.CustomerSession, reason string) error {
+func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, session *model.CustomerSession, reason string) error {
 	// 获取在线客服列表
-	agents, err := s.agentRepo.GetOnlineAgents()
+	agents, err := s.agentRepo.GetOnlineAgents(ctx)
 	if err != nil || len(agents) == 0 {
 		return errors.New("无在线客服")
 	}
@@ -372,24 +372,24 @@ func (s *SessionAssignmentService) autoAssignToAgent(session *model.CustomerSess
 	}
 
 	// 分配会话
-	err = s.sessionRepo.AssignAgent(session.ID, selectedAgent.AgentID, selectedAgent.AgentName)
+	err = s.sessionRepo.AssignAgent(ctx, session.ID, selectedAgent.AgentID, selectedAgent.AgentName)
 	if err != nil {
 		return err
 	}
 
 	// 更新客服活跃会话数
-	err = s.agentRepo.IncrementActiveSessions(selectedAgent.AgentID)
+	err = s.agentRepo.IncrementActiveSessions(ctx, selectedAgent.AgentID)
 	if err != nil {
 		return err
 	}
 
 	// 通知客服
 	websocket.NotifyNewSession(strconv.FormatUint(uint64(selectedAgent.AgentID), 10), map[string]any{
-		"session_id":      session.SessionID,
-		"user_name":       session.UserName,
-		"last_message":    session.LastMessage,
-		"transfer_reason": reason,
-		"priority":        session.Priority,
+		"session_id":		session.SessionID,
+		"user_name":		session.UserName,
+		"last_message":		session.LastMessage,
+		"transfer_reason":	reason,
+		"priority":		session.Priority,
 	})
 
 	return nil
@@ -403,7 +403,7 @@ func (s *SessionAssignmentService) autoAssignToAgent(session *model.CustomerSess
 //	导致 TransferToHuman 永远返回 "permission denied"，且未做真正的分配与通知。
 //	现改为：nil 检查 + 幂等分配 + 通知新客服 + 解锁 Redis 接管锁。
 func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionID uint, agentID uint, reason string) error {
-	session, err := s.sessionRepo.GetByID(sessionID)
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {
 		return err
 	}
@@ -413,12 +413,12 @@ func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionI
 
 	// 减少原坐席活跃会话数（如果有），避免 active_sessions 虚高
 	if session.AgentID > 0 {
-		_ = s.agentRepo.DecrementActiveSessions(session.AgentID)
+		_ = s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
 	}
 
 	// 如果有指定客服，分配给该客服
 	if agentID > 0 {
-		agent, err := s.agentRepo.GetByAgentID(agentID)
+		agent, err := s.agentRepo.GetByAgentID(ctx, agentID)
 		if err != nil || agent == nil {
 			return errors.New("agent not found")
 		}
@@ -426,49 +426,49 @@ func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionI
 			return errors.New("agent is offline")
 		}
 		// 分配给新客服
-		if err := s.sessionRepo.AssignAgent(sessionID, agentID, agent.AgentName); err != nil {
+		if err := s.sessionRepo.AssignAgent(ctx, sessionID, agentID, agent.AgentName); err != nil {
 			return err
 		}
 		// 增加新客服活跃会话数
-		if err := s.agentRepo.IncrementActiveSessions(agentID); err != nil {
+		if err := s.agentRepo.IncrementActiveSessions(ctx, agentID); err != nil {
 			return err
 		}
 		// 通知新客服
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(agentID), 10), map[string]any{
-			"session_id":      session.SessionID,
-			"user_name":       session.UserName,
-			"last_message":    session.LastMessage,
-			"transfer_reason": reason,
+			"session_id":		session.SessionID,
+			"user_name":		session.UserName,
+			"last_message":		session.LastMessage,
+			"transfer_reason":	reason,
 		})
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "已为您转接客服，请稍候",
+			"session_id":	session.SessionID,
+			"handler":	"human",
+			"reason":	"已为您转接客服，请稍候",
 		}, session.SessionID)
 	}
 
 	// 标记会话为人工处理（保留分配人；handler_type 用于前端展示）
-	if err := s.sessionRepo.UpdateStatus(sessionID, model.SessionStatusHumanHandling); err != nil {
+	if err := s.sessionRepo.UpdateStatus(ctx, sessionID, model.SessionStatusHumanHandling); err != nil {
 		return err
 	}
 	return nil
 }
 
 // GetPendingSessions 获取待分配会话
-func (s *SessionAssignmentService) GetPendingSessions() ([]*model.CustomerSession, error) {
-	return s.sessionRepo.GetPendingSessions()
+func (s *SessionAssignmentService) GetPendingSessions(ctx context.Context) ([]*model.CustomerSession, error) {
+	return s.sessionRepo.GetPendingSessions(ctx, context.Background())
 }
 
 // AutoAssignAllPending 自动分配所有待处理会话
 func (s *SessionAssignmentService) AutoAssignAllPending(ctx context.Context) (int, error) {
-	sessions, err := s.GetPendingSessions()
+	sessions, err := s.GetPendingSessions(ctx)
 	if err != nil {
 		return 0, err
 	}
 
 	assignedCount := 0
 	for _, session := range sessions {
-		err := s.autoAssignToAgent(session, "系统自动分配")
+		err := s.autoAssignToAgent(ctx, session, "系统自动分配")
 		if err != nil {
 			// 分配失败，继续下一个
 			continue

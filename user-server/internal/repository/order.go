@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 
@@ -12,18 +13,18 @@ import (
 )
 
 type OrderRepository interface {
-	Create(order *model.Order) error
-	GetByID(id uint) (*model.Order, error)
-	GetByStringID(id string) (*model.Order, error)
-	GetOrderList(page int, limit int) ([]*model.Order, int64, error)
-	Delete(id string) error
-	LastOrderIsPay(account_ID string, tgID int64) bool
-	GetGetLastOrder(account_ID string, tgID int64) (*model.Order, error)
-	UpdateOrderStatusById(id string, status _type.OrderStatusType) error
-	GetRecentOrderList() ([]*model.Order, error)
-	GetByTgID(tgID int64) ([]*model.Order, error)
-	GetDistinctPaidTgIDs() ([]int64, error)
-	Update(order *model.Order) error
+	Create(ctx context.Context, order *model.Order) error
+	GetByID(ctx context.Context, id uint) (*model.Order, error)
+	GetByStringID(ctx context.Context, id string) (*model.Order, error)
+	GetOrderList(ctx context.Context, page int, limit int) ([]*model.Order, int64, error)
+	Delete(ctx context.Context, id string) error
+	LastOrderIsPay(ctx context.Context, account_ID string, tgID int64) bool
+	GetGetLastOrder(ctx context.Context, account_ID string, tgID int64) (*model.Order, error)
+	UpdateOrderStatusById(ctx context.Context, id string, status _type.OrderStatusType) error
+	GetRecentOrderList(ctx context.Context) ([]*model.Order, error)
+	GetByTgID(ctx context.Context, tgID int64) ([]*model.Order, error)
+	GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error)
+	Update(ctx context.Context, order *model.Order) error
 }
 
 type orderRepo struct {
@@ -39,18 +40,18 @@ func NewOrderRepositoryWithDB(db *gorm.DB) OrderRepository {
 	return &orderRepo{db: db}
 }
 
-func (r *orderRepo) Create(order *model.Order) error {
+func (r *orderRepo) Create(ctx context.Context, order *model.Order) error {
 	return r.db.Create(order).Error
 }
 
-func (r *orderRepo) GetByID(id uint) (*model.Order, error) {
+func (r *orderRepo) GetByID(ctx context.Context, id uint) (*model.Order, error) {
 	var order model.Order
 	err := r.db.First(&order, id).Error
 	return &order, err
 }
 
 // GetByStringID 根据 UUID 字符串 ID 查询订单
-func (r *orderRepo) GetByStringID(id string) (*model.Order, error) {
+func (r *orderRepo) GetByStringID(ctx context.Context, id string) (*model.Order, error) {
 	var order model.Order
 	err := r.db.Where("id = ?", id).First(&order).Error
 	if err != nil {
@@ -59,18 +60,18 @@ func (r *orderRepo) GetByStringID(id string) (*model.Order, error) {
 	return &order, nil
 }
 
-func (r *orderRepo) GetOrderList(page int, limit int) ([]*model.Order, int64, error) {
+func (r *orderRepo) GetOrderList(ctx context.Context, page int, limit int) ([]*model.Order, int64, error) {
 	var orders []*model.Order
 	var total int64
 	err := r.db.Offset((page - 1) * limit).Limit(limit).Find(&orders).Count(&total).Error
 	return orders, total, err
 }
 
-func (r *orderRepo) Delete(id string) error {
+func (r *orderRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.Order{}).Error
 }
 
-func (r *orderRepo) LastOrderIsPay(account_ID string, tgID int64) bool {
+func (r *orderRepo) LastOrderIsPay(ctx context.Context, account_ID string, tgID int64) bool {
 	var order model.Order
 	err := r.db.Where("status = ? and account_id = ? and tg_id = ?", _type.OrderStatusSuccess, account_ID, tgID).Order("create_time desc").First(&order).Error
 	if err != nil {
@@ -82,12 +83,12 @@ func (r *orderRepo) LastOrderIsPay(account_ID string, tgID int64) bool {
 	return false
 }
 
-func (r *orderRepo) GetGetLastOrder(account_ID string, tgID int64) (*model.Order, error) {
+func (r *orderRepo) GetGetLastOrder(ctx context.Context, account_ID string, tgID int64) (*model.Order, error) {
 	var order model.Order
 	err := r.db.Where("account_id = ? and tg_id = ?", account_ID, tgID).Order("create_time desc").First(&order).Error
 	return &order, err
 }
-func (r *orderRepo) UpdateOrderStatusById(id string, status _type.OrderStatusType) error {
+func (r *orderRepo) UpdateOrderStatusById(ctx context.Context, id string, status _type.OrderStatusType) error {
 	var order model.Order
 	err := r.db.First(&order, "id = ?", id).Error
 	if err != nil {
@@ -99,7 +100,7 @@ func (r *orderRepo) UpdateOrderStatusById(id string, status _type.OrderStatusTyp
 }
 
 // 获取最近订单
-func (r *orderRepo) GetRecentOrderList() ([]*model.Order, error) {
+func (r *orderRepo) GetRecentOrderList(ctx context.Context) ([]*model.Order, error) {
 	var orders []*model.Order
 	// 最近一分钟的订单
 	var start_time = time.Now().Add(-time.Minute * 5).Unix()
@@ -109,14 +110,14 @@ func (r *orderRepo) GetRecentOrderList() ([]*model.Order, error) {
 }
 
 // GetByTgID 根据 TgID 获取用户所有订单
-func (r *orderRepo) GetByTgID(tgID int64) ([]*model.Order, error) {
+func (r *orderRepo) GetByTgID(ctx context.Context, tgID int64) ([]*model.Order, error) {
 	var orders []*model.Order
 	err := r.db.Where("tg_id = ?", tgID).Order("create_time desc").Find(&orders).Error
 	return orders, err
 }
 
 // GetDistinctPaidTgIDs 获取所有已支付订单的不同 TgID 列表
-func (r *orderRepo) GetDistinctPaidTgIDs() ([]int64, error) {
+func (r *orderRepo) GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error) {
 	var tgIDs []int64
 	err := r.db.Model(&model.Order{}).
 		Where("status = ?", _type.OrderStatusSuccess).
@@ -126,6 +127,6 @@ func (r *orderRepo) GetDistinctPaidTgIDs() ([]int64, error) {
 }
 
 // Update 更新订单
-func (r *orderRepo) Update(order *model.Order) error {
+func (r *orderRepo) Update(ctx context.Context, order *model.Order) error {
 	return r.db.Save(order).Error
 }

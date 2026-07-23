@@ -40,24 +40,24 @@ type EpisodicMemoryProvider interface {
 // InferenceCycle 推理闭环
 type InferenceCycle struct {
 	// 阶段（按顺序执行）
-	PerceptionStage InferenceStage
-	AlignmentStage  InferenceStage
-	GatekeeperStage InferenceStage
-	PlannerStage    InferenceStage
+	PerceptionStage	InferenceStage
+	AlignmentStage	InferenceStage
+	GatekeeperStage	InferenceStage
+	PlannerStage	InferenceStage
 
 	// 阶段超时（单阶段最大耗时）
-	StageTimeout time.Duration
+	StageTimeout	time.Duration
 
 	// 总超时
-	TotalTimeout time.Duration
+	TotalTimeout	time.Duration
 
 	// 跨会话情境记忆提供者（可选，nil 时跳过记忆读取，行为不变）
-	memoryProvider EpisodicMemoryProvider
+	memoryProvider	EpisodicMemoryProvider
 
 	// 内部状态
-	mu        sync.RWMutex
-	stopped   bool
-	lastStats CycleStats
+	mu		sync.RWMutex
+	stopped		bool
+	lastStats	CycleStats
 }
 
 // SetMemoryProvider 注入跨会话情境记忆提供者（E1 补全）
@@ -70,28 +70,28 @@ func (c *InferenceCycle) SetMemoryProvider(p EpisodicMemoryProvider) {
 
 // CycleStats 闭环统计
 type CycleStats struct {
-	TotalRuns      int64
-	SuccessRuns    int64
-	EscalationRuns int64
-	FailureRuns    int64
-	AvgDurationMs  int64
+	TotalRuns	int64
+	SuccessRuns	int64
+	EscalationRuns	int64
+	FailureRuns	int64
+	AvgDurationMs	int64
 }
 
 // InferenceCycleConfig 配置
 type InferenceCycleConfig struct {
-	StageTimeout time.Duration
-	TotalTimeout time.Duration
+	StageTimeout	time.Duration
+	TotalTimeout	time.Duration
 }
 
 // NewInferenceCycle 默认推理闭环
 func NewInferenceCycle() *InferenceCycle {
 	return &InferenceCycle{
-		PerceptionStage: NewDefaultPerceptionStage(),
-		AlignmentStage:  NewDefaultAlignmentScorer(),
-		GatekeeperStage: NewDefaultCrisisDetector(),
-		PlannerStage:    NewDefaultTaskPlanner(),
-		StageTimeout:    2 * time.Second,
-		TotalTimeout:    8 * time.Second,
+		PerceptionStage:	NewDefaultPerceptionStage(),
+		AlignmentStage:		NewDefaultAlignmentScorer(),
+		GatekeeperStage:	NewDefaultCrisisDetector(),
+		PlannerStage:		NewDefaultTaskPlanner(),
+		StageTimeout:		2 * time.Second,
+		TotalTimeout:		8 * time.Second,
 	}
 }
 
@@ -100,12 +100,12 @@ func NewInferenceCycleWithStages(
 	perception, alignment, gatekeeper, planner InferenceStage,
 ) *InferenceCycle {
 	return &InferenceCycle{
-		PerceptionStage: perception,
-		AlignmentStage:  alignment,
-		GatekeeperStage: gatekeeper,
-		PlannerStage:    planner,
-		StageTimeout:    2 * time.Second,
-		TotalTimeout:    8 * time.Second,
+		PerceptionStage:	perception,
+		AlignmentStage:		alignment,
+		GatekeeperStage:	gatekeeper,
+		PlannerStage:		planner,
+		StageTimeout:		2 * time.Second,
+		TotalTimeout:		8 * time.Second,
 	}
 }
 
@@ -151,11 +151,11 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 	// 默认 agentCtx
 	if agentCtx == nil {
 		agentCtx = &AgentContext{
-			AgentID:   0,
-			AgentCode: "default",
-			Name:      "默认智能体",
-			AgentType: "customer_service",
-			LoadedAt:  time.Now(),
+			AgentID:	0,
+			AgentCode:	"default",
+			Name:		"默认智能体",
+			AgentType:	"customer_service",
+			LoadedAt:	time.Now(),
 		}
 	}
 
@@ -164,13 +164,13 @@ func (c *InferenceCycle) RunOnce(ctx context.Context, payload CustomerMessagePay
 	defer cancel()
 
 	ic := &InferenceContext{
-		Payload:   payload,
-		AgentCtx:  agentCtx,
-		StartTime: start,
-		Stages:    []StageDecision{},
+		Payload:	payload,
+		AgentCtx:	agentCtx,
+		StartTime:	start,
+		Stages:		[]StageDecision{},
 		Decision: InferenceDecision{
-			ReplyType:  "text",
-			Confidence: 0,
+			ReplyType:	"text",
+			Confidence:	0,
 		},
 	}
 

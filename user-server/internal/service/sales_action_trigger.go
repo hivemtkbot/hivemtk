@@ -95,7 +95,7 @@ func NewSalesActionTrigger(
 }
 
 // SetDraftService 注入订单草稿服务（P1-CLOSE-11）
-func (t *SalesActionTrigger) SetDraftService(svc *OrderDraftService) {
+func (t *SalesActionTrigger) SetDraftService(ctx context.Context, svc *OrderDraftService)  {
 	t.draftService = svc
 }
 
@@ -554,7 +554,7 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 }
 
 // GetHistory 获取触发历史（用于审计 + 测试）
-func (t *SalesActionTrigger) GetHistory(customerID string, limit int) []TriggerRecord {
+func (t *SalesActionTrigger) GetHistory(ctx context.Context, customerID string, limit int)  []TriggerRecord {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	hist := make([]TriggerRecord, 0)

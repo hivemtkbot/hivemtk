@@ -1,14 +1,12 @@
 package controller
 
 import (
-	"errors"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // EmailSmtpController SMTP配置控制器
@@ -57,7 +55,7 @@ func (c *EmailSmtpController) GetEmailSmtp(ctx *gin.Context) {
 
 	resp, err := c.svc.GetEmailSmtpDTO(smtpIDStr)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "SMTP配置不存在")
 			return
 		}

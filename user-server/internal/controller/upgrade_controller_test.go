@@ -43,7 +43,7 @@ func setupMigrationRouter(ctrl *MigrationController) *gin.Engine {
 
 func TestMigrationController_GetUpgradeHistory_Success(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/history?page=1&page_size=10", nil)
@@ -57,7 +57,7 @@ func TestMigrationController_GetUpgradeHistory_Success(t *testing.T) {
 
 func TestMigrationController_GetMigrationRecords_Success(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/records", nil)
@@ -71,7 +71,7 @@ func TestMigrationController_GetMigrationRecords_Success(t *testing.T) {
 
 func TestMigrationController_GetCurrentVersion_Success(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/current-version", nil)
@@ -85,7 +85,7 @@ func TestMigrationController_GetCurrentVersion_Success(t *testing.T) {
 
 func TestMigrationController_GetAvailableUpgrades_Success(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/available", nil)
@@ -99,7 +99,7 @@ func TestMigrationController_GetAvailableUpgrades_Success(t *testing.T) {
 
 func TestMigrationController_GetUpgradeTask_NoAuth(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	// 添加 Recovery 中间件以将 DB 访问失败转成 500
@@ -118,7 +118,7 @@ func TestMigrationController_GetUpgradeTask_NoAuth(t *testing.T) {
 
 func TestMigrationController_GetUpgradeTask_InvalidID(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/task/abc", nil)
@@ -132,7 +132,7 @@ func TestMigrationController_GetUpgradeTask_InvalidID(t *testing.T) {
 
 func TestMigrationController_GetUpgradeTask_NotFound(t *testing.T) {
 	setupMigrationTestDB(t)
-	ctrl := NewMigrationController()
+	ctrl := NewMigrationController(nil)
 	router := setupMigrationRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/migration/task/999999", nil)

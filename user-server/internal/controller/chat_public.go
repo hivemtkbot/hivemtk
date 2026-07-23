@@ -52,7 +52,7 @@ func (ctrl *ChatPublicController) GetChannelInfoByAppKey(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "app_key 不能为空")
 		return
 	}
-	channel, err := ctrl.channelSvc.GetByAppKey(appKey)
+	channel, err := ctrl.channelSvc.GetByAppKey(c.Request.Context(), appKey)
 	if err != nil {
 		response.NotFoundError(c, "渠道")
 		return
@@ -103,7 +103,7 @@ func (ctrl *ChatPublicController) OpenSession(c *gin.Context) {
 		}
 	}
 
-	result, err := ctrl.visitorSvc.OpenSession(&req)
+	result, err := ctrl.visitorSvc.OpenSession(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -138,7 +138,7 @@ func (ctrl *ChatPublicController) GetMessages(c *gin.Context) {
 		pageSize = 50
 	}
 
-	messages, total, err := ctrl.visitorSvc.GetMessages(channelID, visitorID, sessionID, page, pageSize)
+	messages, total, err := ctrl.visitorSvc.GetMessages(c.Request.Context(), channelID, visitorID, sessionID, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -189,7 +189,7 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 		MediaName:   body.MediaName,
 		MediaSize:   body.MediaSize,
 	}
-	result, err := ctrl.visitorSvc.SendMessage(req)
+	result, err := ctrl.visitorSvc.SendMessage(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -210,7 +210,7 @@ func (ctrl *ChatPublicController) GetActiveSession(c *gin.Context) {
 		return
 	}
 
-	session, err := ctrl.visitorSvc.GetLatestActiveSession(channelID, visitorID)
+	session, err := ctrl.visitorSvc.GetLatestActiveSession(c.Request.Context(), channelID, visitorID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -236,7 +236,7 @@ func (ctrl *ChatPublicController) GetRecentClosedSessions(c *gin.Context) {
 	}
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	sessions, err := ctrl.visitorSvc.GetRecentClosedSessions(channelID, visitorID, limit)
+	sessions, err := ctrl.visitorSvc.GetRecentClosedSessions(c.Request.Context(), channelID, visitorID, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -264,7 +264,7 @@ func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := ctrl.visitorSvc.GetOfflineMessages(channelID, visitorID, sessionID)
+	messages, err := ctrl.visitorSvc.GetOfflineMessages(c.Request.Context(), channelID, visitorID, sessionID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -291,7 +291,7 @@ func (ctrl *ChatPublicController) RequestHumanTransfer(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&body)
 
-	if err := ctrl.visitorSvc.RequestHumanTransfer(channelID, visitorID, sessionID, body.Reason); err != nil {
+	if err := ctrl.visitorSvc.RequestHumanTransfer(c.Request.Context(), channelID, visitorID, sessionID, body.Reason); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -312,7 +312,7 @@ func (ctrl *ChatPublicController) CloseSession(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.visitorSvc.CloseSession(channelID, visitorID, sessionID); err != nil {
+	if err := ctrl.visitorSvc.CloseSession(c.Request.Context(), channelID, visitorID, sessionID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -342,7 +342,7 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.visitorSvc.RateSession(channelID, visitorID, sessionID, body.Rating, body.Comment); err != nil {
+	if err := ctrl.visitorSvc.RateSession(c.Request.Context(), channelID, visitorID, sessionID, body.Rating, body.Comment); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -352,7 +352,7 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 // CountAvailableAgents 公开可用坐席数（用于显示"当前 X 位客服在线"）
 // GET /api/chat/public/agents/available
 func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
-	count, err := ctrl.visitorSvc.CountAvailableAgents()
+	count, err := ctrl.visitorSvc.CountAvailableAgents(c.Request.Context())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

@@ -6,7 +6,6 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -18,9 +17,9 @@ type AutoReplyManagerController struct {
 	service *service.AutoReplyService
 }
 
-func NewAutoReplyManagerController() *AutoReplyManagerController {
+func NewAutoReplyManagerController(svc *service.AutoReplyService) *AutoReplyManagerController {
 	return &AutoReplyManagerController{
-		service: service.NewAutoReplyService(db.GetDB()),
+		service: svc,
 	}
 }
 

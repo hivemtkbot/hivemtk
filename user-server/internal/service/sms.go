@@ -19,39 +19,40 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/httpclient"
 	"marketing/internal/repository"
+	"context"
 )
 
 // SmsService 短信服务接口
 type SmsService interface {
 	// 配置相关
-	GetConfig() (*dto.SmsConfigResponse, error)
-	SaveConfig(req *dto.SmsConfigRequest) error
+	GetConfig(ctx context.Context) (*dto.SmsConfigResponse, error)
+	SaveConfig(ctx context.Context, req *dto.SmsConfigRequest) error
 	// IsProviderConfigured 检查指定提供商的凭证是否已配置（非空）
-	IsProviderConfigured(provider string) (bool, error)
+	IsProviderConfigured(ctx context.Context, provider string) (bool, error)
 
 	// 短信记录相关
-	GetSmsList(req *dto.SmsListRequest) ([]*model.SmsRecord, int64, error)
-	GetSmsByID(id uint) (*model.SmsRecord, error)
-	SendSms(req *dto.SmsSendRequest) error
-	ResendSms(id uint) error
+	GetSmsList(ctx context.Context, req *dto.SmsListRequest) ([]*model.SmsRecord, int64, error)
+	GetSmsByID(ctx context.Context, id uint) (*model.SmsRecord, error)
+	SendSms(ctx context.Context, req *dto.SmsSendRequest) error
+	ResendSms(ctx context.Context, id uint) error
 
 	// 草稿相关
-	GetDraftList(req *dto.SmsDraftListRequest) ([]*model.SmsDraft, int64, error)
-	GetDraftByID(id uint) (*model.SmsDraft, error)
-	CreateDraft(req *dto.SmsDraftCreateRequest) error
-	UpdateDraft(id uint, req *dto.SmsDraftUpdateRequest) error
-	DeleteDraft(id uint) error
-	SendDraft(id uint, phone string) error
+	GetDraftList(ctx context.Context, req *dto.SmsDraftListRequest) ([]*model.SmsDraft, int64, error)
+	GetDraftByID(ctx context.Context, id uint) (*model.SmsDraft, error)
+	CreateDraft(ctx context.Context, req *dto.SmsDraftCreateRequest) error
+	UpdateDraft(ctx context.Context, id uint, req *dto.SmsDraftUpdateRequest) error
+	DeleteDraft(ctx context.Context, id uint) error
+	SendDraft(ctx context.Context, id uint, phone string) error
 
 	// 任务相关
-	GetJobList(req *dto.SmsJobListRequest) ([]*model.SmsJob, int64, error)
-	GetJobByID(id uint) (*model.SmsJob, error)
-	CreateJob(req *dto.SmsJobCreateRequest) error
-	PauseJob(id uint) error
-	ResumeJob(id uint) error
-	StopJob(id uint) error
-	DeleteJob(id uint) error
-	GetJobRecords(id uint, page, limit int) ([]*model.SmsJobDetail, int64, error)
+	GetJobList(ctx context.Context, req *dto.SmsJobListRequest) ([]*model.SmsJob, int64, error)
+	GetJobByID(ctx context.Context, id uint) (*model.SmsJob, error)
+	CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest) error
+	PauseJob(ctx context.Context, id uint) error
+	ResumeJob(ctx context.Context, id uint) error
+	StopJob(ctx context.Context, id uint) error
+	DeleteJob(ctx context.Context, id uint) error
+	GetJobRecords(ctx context.Context, id uint, page, limit int) ([]*model.SmsJobDetail, int64, error)
 }
 
 // smsService 短信服务实现
@@ -65,7 +66,7 @@ func NewSmsService(repo repository.SmsRepository) SmsService {
 }
 
 // GetConfig 获取短信配置
-func (s *smsService) GetConfig() (*dto.SmsConfigResponse, error) {
+func (s *smsService) GetConfig(ctx context.Context)  (*dto.SmsConfigResponse, error) {
 	// 获取基本配置
 	config, err := s.repo.GetConfig()
 	if err != nil {
@@ -91,38 +92,38 @@ func (s *smsService) GetConfig() (*dto.SmsConfigResponse, error) {
 	}
 
 	return &dto.SmsConfigResponse{
-		DefaultProvider: config.DefaultProvider,
-		RateLimit:       config.RateLimit,
-		DailyLimit:      config.DailyLimit,
-		RetryTimes:      config.RetryTimes,
+		DefaultProvider:	config.DefaultProvider,
+		RateLimit:		config.RateLimit,
+		DailyLimit:		config.DailyLimit,
+		RetryTimes:		config.RetryTimes,
 		Aliyun: dto.SmsAliyunConfig{
-			AccessKeyId:     aliyunConfig.AccessKeyID,
-			AccessKeySecret: aliyunConfig.AccessKeySecret,
-			SignName:        aliyunConfig.SignName,
+			AccessKeyId:		aliyunConfig.AccessKeyID,
+			AccessKeySecret:	aliyunConfig.AccessKeySecret,
+			SignName:		aliyunConfig.SignName,
 		},
 		Tencent: dto.SmsTencentConfig{
-			SecretId:  tencentConfig.SecretID,
-			SecretKey: tencentConfig.SecretKey,
-			AppId:     tencentConfig.AppID,
-			SignName:  tencentConfig.SignName,
+			SecretId:	tencentConfig.SecretID,
+			SecretKey:	tencentConfig.SecretKey,
+			AppId:		tencentConfig.AppID,
+			SignName:	tencentConfig.SignName,
 		},
 		Huawei: dto.SmsHuaweiConfig{
-			AppKey:    huaweiConfig.AppKey,
-			AppSecret: huaweiConfig.AppSecret,
-			Sender:    huaweiConfig.Sender,
-			Signature: huaweiConfig.Signature,
+			AppKey:		huaweiConfig.AppKey,
+			AppSecret:	huaweiConfig.AppSecret,
+			Sender:		huaweiConfig.Sender,
+			Signature:	huaweiConfig.Signature,
 		},
 	}, nil
 }
 
 // SaveConfig 保存短信配置
-func (s *smsService) SaveConfig(req *dto.SmsConfigRequest) error {
+func (s *smsService) SaveConfig(ctx context.Context, req *dto.SmsConfigRequest)  error {
 	// 保存基本配置
 	config := &model.SmsConfig{
-		DefaultProvider: req.DefaultProvider,
-		RateLimit:       req.RateLimit,
-		DailyLimit:      req.DailyLimit,
-		RetryTimes:      req.RetryTimes,
+		DefaultProvider:	req.DefaultProvider,
+		RateLimit:		req.RateLimit,
+		DailyLimit:		req.DailyLimit,
+		RetryTimes:		req.RetryTimes,
 	}
 	if err := s.repo.SaveConfig(config); err != nil {
 		return err
@@ -130,9 +131,9 @@ func (s *smsService) SaveConfig(req *dto.SmsConfigRequest) error {
 
 	// 保存阿里云配置
 	aliyunConfig := &model.SmsAliyunConfig{
-		AccessKeyID:     req.Aliyun.AccessKeyId,
-		AccessKeySecret: req.Aliyun.AccessKeySecret,
-		SignName:        req.Aliyun.SignName,
+		AccessKeyID:		req.Aliyun.AccessKeyId,
+		AccessKeySecret:	req.Aliyun.AccessKeySecret,
+		SignName:		req.Aliyun.SignName,
 	}
 	if err := s.repo.SaveAliyunConfig(aliyunConfig); err != nil {
 		return err
@@ -140,10 +141,10 @@ func (s *smsService) SaveConfig(req *dto.SmsConfigRequest) error {
 
 	// 保存腾讯云配置
 	tencentConfig := &model.SmsTencentConfig{
-		SecretID:  req.Tencent.SecretId,
-		SecretKey: req.Tencent.SecretKey,
-		AppID:     req.Tencent.AppId,
-		SignName:  req.Tencent.SignName,
+		SecretID:	req.Tencent.SecretId,
+		SecretKey:	req.Tencent.SecretKey,
+		AppID:		req.Tencent.AppId,
+		SignName:	req.Tencent.SignName,
 	}
 	if err := s.repo.SaveTencentConfig(tencentConfig); err != nil {
 		return err
@@ -151,16 +152,16 @@ func (s *smsService) SaveConfig(req *dto.SmsConfigRequest) error {
 
 	// 保存华为云配置
 	huaweiConfig := &model.SmsHuaweiConfig{
-		AppKey:    req.Huawei.AppKey,
-		AppSecret: req.Huawei.AppSecret,
-		Sender:    req.Huawei.Sender,
-		Signature: req.Huawei.Signature,
+		AppKey:		req.Huawei.AppKey,
+		AppSecret:	req.Huawei.AppSecret,
+		Sender:		req.Huawei.Sender,
+		Signature:	req.Huawei.Signature,
 	}
 	return s.repo.SaveHuaweiConfig(huaweiConfig)
 }
 
 // IsProviderConfigured 检查指定提供商的凭证是否已配置（非空）
-func (s *smsService) IsProviderConfigured(provider string) (bool, error) {
+func (s *smsService) IsProviderConfigured(ctx context.Context, provider string)  (bool, error) {
 	switch provider {
 	case "aliyun":
 		cfg, err := s.repo.GetAliyunConfig()
@@ -186,17 +187,17 @@ func (s *smsService) IsProviderConfigured(provider string) (bool, error) {
 }
 
 // GetSmsList 获取短信列表
-func (s *smsService) GetSmsList(req *dto.SmsListRequest) ([]*model.SmsRecord, int64, error) {
+func (s *smsService) GetSmsList(ctx context.Context, req *dto.SmsListRequest)  ([]*model.SmsRecord, int64, error) {
 	return s.repo.GetSmsList(req.Page, req.Limit, req.Phone, req.Status, req.StartDate, req.EndDate)
 }
 
 // GetSmsByID 根据ID获取短信
-func (s *smsService) GetSmsByID(id uint) (*model.SmsRecord, error) {
+func (s *smsService) GetSmsByID(ctx context.Context, id uint)  (*model.SmsRecord, error) {
 	return s.repo.GetSmsByID(id)
 }
 
 // SendSms 发送短信
-func (s *smsService) SendSms(req *dto.SmsSendRequest) error {
+func (s *smsService) SendSms(ctx context.Context, req *dto.SmsSendRequest)  error {
 	// 获取默认提供商
 	config, err := s.repo.GetConfig()
 	if err != nil {
@@ -205,10 +206,10 @@ func (s *smsService) SendSms(req *dto.SmsSendRequest) error {
 
 	// 创建短信记录
 	record := &model.SmsRecord{
-		Phone:    req.Phone,
-		Content:  req.Content,
-		Provider: config.DefaultProvider,
-		Status:   "sending",
+		Phone:		req.Phone,
+		Content:	req.Content,
+		Provider:	config.DefaultProvider,
+		Status:		"sending",
 	}
 
 	if err := s.repo.CreateSmsRecord(record); err != nil {
@@ -216,7 +217,7 @@ func (s *smsService) SendSms(req *dto.SmsSendRequest) error {
 	}
 
 	// 真实调用三方 SMS API
-	sentTime, errCode, errMsg, err := s.dispatchToProvider(req.Phone, req.Content, config.DefaultProvider)
+	sentTime, errCode, errMsg, err := s.dispatchToProvider(ctx, req.Phone, req.Content, config.DefaultProvider)
 	if err != nil {
 		record.Status = "failed"
 		record.ErrorCode = errCode
@@ -234,22 +235,22 @@ func (s *smsService) SendSms(req *dto.SmsSendRequest) error {
 }
 
 // dispatchToProvider 调度到具体 SMS 提供商
-func (s *smsService) dispatchToProvider(phone, content, provider string) (time.Time, string, string, error) {
+func (s *smsService) dispatchToProvider(ctx context.Context, phone, content, provider string) (time.Time, string, string, error) {
 	switch provider {
 	case "aliyun":
-		return s.sendAliyun(phone, content)
+		return s.sendAliyun(ctx, phone, content)
 	case "tencent":
-		return s.sendTencent(phone, content)
+		return s.sendTencent(ctx, phone, content)
 	case "huawei":
-		return s.sendHuawei(phone, content)
+		return s.sendHuawei(ctx, phone, content)
 	default:
 		return time.Time{}, "", "", fmt.Errorf("unknown sms provider: %s", provider)
 	}
 }
 
 // sendAliyun 通过阿里云发送短信
-func (s *smsService) sendAliyun(phone, content string) (time.Time, string, string, error) {
-	cfg, err := s.repo.GetAliyunConfig()
+func (s *smsService) sendAliyun(ctx context.Context, phone, content string) (time.Time, string, string, error) {
+	cfg, err := s.repo.GetAliyunConfig(ctx)
 	if err != nil {
 		return time.Time{}, "", "", err
 	}
@@ -264,7 +265,7 @@ func (s *smsService) sendAliyun(phone, content string) (time.Time, string, strin
 	params := url.Values{}
 	params.Set("PhoneNumbers", phone)
 	params.Set("SignName", cfg.SignName)
-	params.Set("TemplateCode", "SMS_000000001") // 通用模板码（应由 config 传入）
+	params.Set("TemplateCode", "SMS_000000001")	// 通用模板码（应由 config 传入）
 	params.Set("TemplateParam", `{"content":"`+escapeJSON(content)+`"}`)
 	params.Set("AccessKeyId", cfg.AccessKeyID)
 	params.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05Z"))
@@ -310,10 +311,10 @@ func (s *smsService) sendAliyun(phone, content string) (time.Time, string, strin
 
 	body, _ := io.ReadAll(resp.Body)
 	var result struct {
-		Code      string `json:"Code"`
-		Message   string `json:"Message"`
-		RequestID string `json:"RequestId"`
-		BizID     string `json:"BizId"`
+		Code		string	`json:"Code"`
+		Message		string	`json:"Message"`
+		RequestID	string	`json:"RequestId"`
+		BizID		string	`json:"BizId"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return time.Time{}, "", "", fmt.Errorf("decode aliyun response: %w", err)
@@ -325,8 +326,8 @@ func (s *smsService) sendAliyun(phone, content string) (time.Time, string, strin
 }
 
 // sendTencent 通过腾讯云发送短信
-func (s *smsService) sendTencent(phone, content string) (time.Time, string, string, error) {
-	cfg, err := s.repo.GetTencentConfig()
+func (s *smsService) sendTencent(ctx context.Context, phone, content string) (time.Time, string, string, error) {
+	cfg, err := s.repo.GetTencentConfig(ctx)
 	if err != nil {
 		return time.Time{}, "", "", err
 	}
@@ -344,11 +345,11 @@ func (s *smsService) sendTencent(phone, content string) (time.Time, string, stri
 
 	// 请求体
 	reqBody := map[string]any{
-		"PhoneNumberSet":   []string{phone},
-		"SmsSdkAppId":      cfg.AppID,
-		"SignName":         cfg.SignName,
-		"TemplateId":       "0000000", // 通用模板（应由 config 传入）
-		"TemplateParamSet": []string{content},
+		"PhoneNumberSet":	[]string{phone},
+		"SmsSdkAppId":		cfg.AppID,
+		"SignName":		cfg.SignName,
+		"TemplateId":		"0000000",	// 通用模板（应由 config 传入）
+		"TemplateParamSet":	[]string{content},
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
@@ -397,11 +398,11 @@ func (s *smsService) sendTencent(phone, content string) (time.Time, string, stri
 	respBody, _ := io.ReadAll(resp.Body)
 	var result struct {
 		Response struct {
-			Error struct {
-				Code    string `json:"Code"`
-				Message string `json:"Message"`
-			} `json:"Error"`
-			RequestID string `json:"RequestId"`
+			Error	struct {
+				Code	string	`json:"Code"`
+				Message	string	`json:"Message"`
+			}	`json:"Error"`
+			RequestID	string	`json:"RequestId"`
 		} `json:"Response"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
@@ -415,8 +416,8 @@ func (s *smsService) sendTencent(phone, content string) (time.Time, string, stri
 }
 
 // sendHuawei 通过华为云发送短信
-func (s *smsService) sendHuawei(phone, content string) (time.Time, string, string, error) {
-	cfg, err := s.repo.GetHuaweiConfig()
+func (s *smsService) sendHuawei(ctx context.Context, phone, content string) (time.Time, string, string, error) {
+	cfg, err := s.repo.GetHuaweiConfig(ctx)
 	if err != nil {
 		return time.Time{}, "", "", err
 	}
@@ -426,14 +427,14 @@ func (s *smsService) sendHuawei(phone, content string) (time.Time, string, strin
 
 	// 华为云短信 API：HTTP 简单认证
 	apiURL := fmt.Sprintf("https://smsapi.%s.boe-business.huaweicloud.com:443/sms/batchSendSms/v1",
-		"cn-north-4") // region 应可配置
+		"cn-north-4")	// region 应可配置
 
 	body := map[string]any{
-		"from":          cfg.Sender,
-		"to":            []string{phone},
-		"templateId":    "0000000", // 通用模板（应由 config 传入）
-		"templateParas": []string{content},
-		"signature":     cfg.Signature,
+		"from":			cfg.Sender,
+		"to":			[]string{phone},
+		"templateId":		"0000000",	// 通用模板（应由 config 传入）
+		"templateParas":	[]string{content},
+		"signature":		cfg.Signature,
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -455,8 +456,8 @@ func (s *smsService) sendHuawei(phone, content string) (time.Time, string, strin
 
 	respBody, _ := io.ReadAll(resp.Body)
 	var result struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
+		Code	string	`json:"code"`
+		Message	string	`json:"message"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return time.Time{}, "", "", fmt.Errorf("decode huawei response: %w", err)
@@ -468,7 +469,7 @@ func (s *smsService) sendHuawei(phone, content string) (time.Time, string, strin
 }
 
 // ResendSms 重发短信
-func (s *smsService) ResendSms(id uint) error {
+func (s *smsService) ResendSms(ctx context.Context, id uint)  error {
 	// 获取短信记录
 	record, err := s.repo.GetSmsByID(id)
 	if err != nil {
@@ -498,7 +499,7 @@ func (s *smsService) ResendSms(id uint) error {
 		return err
 	}
 
-	sentTime, errCode, errMsg, err := s.dispatchToProvider(record.Phone, record.Content, config.DefaultProvider)
+	sentTime, errCode, errMsg, err := s.dispatchToProvider(ctx, record.Phone, record.Content, config.DefaultProvider)
 	if err != nil {
 		record.Status = "failed"
 		record.ErrorCode = errCode
@@ -514,26 +515,26 @@ func (s *smsService) ResendSms(id uint) error {
 }
 
 // GetDraftList 获取草稿列表
-func (s *smsService) GetDraftList(req *dto.SmsDraftListRequest) ([]*model.SmsDraft, int64, error) {
+func (s *smsService) GetDraftList(ctx context.Context, req *dto.SmsDraftListRequest)  ([]*model.SmsDraft, int64, error) {
 	return s.repo.GetDraftList(req.Page, req.Limit, req.Title)
 }
 
 // GetDraftByID 根据ID获取草稿
-func (s *smsService) GetDraftByID(id uint) (*model.SmsDraft, error) {
+func (s *smsService) GetDraftByID(ctx context.Context, id uint)  (*model.SmsDraft, error) {
 	return s.repo.GetDraftByID(id)
 }
 
 // CreateDraft 创建草稿
-func (s *smsService) CreateDraft(req *dto.SmsDraftCreateRequest) error {
+func (s *smsService) CreateDraft(ctx context.Context, req *dto.SmsDraftCreateRequest)  error {
 	draft := &model.SmsDraft{
-		Title:   req.Title,
-		Content: req.Content,
+		Title:		req.Title,
+		Content:	req.Content,
 	}
 	return s.repo.CreateDraft(draft)
 }
 
 // UpdateDraft 更新草稿
-func (s *smsService) UpdateDraft(id uint, req *dto.SmsDraftUpdateRequest) error {
+func (s *smsService) UpdateDraft(ctx context.Context, id uint, req *dto.SmsDraftUpdateRequest)  error {
 	// 检查草稿是否存在
 	draft, err := s.repo.GetDraftByID(id)
 	if err != nil {
@@ -547,12 +548,12 @@ func (s *smsService) UpdateDraft(id uint, req *dto.SmsDraftUpdateRequest) error 
 }
 
 // DeleteDraft 删除草稿
-func (s *smsService) DeleteDraft(id uint) error {
+func (s *smsService) DeleteDraft(ctx context.Context, id uint)  error {
 	return s.repo.DeleteDraft(id)
 }
 
 // SendDraft 发送草稿
-func (s *smsService) SendDraft(id uint, phone string) error {
+func (s *smsService) SendDraft(ctx context.Context, id uint, phone string)  error {
 	// 获取草稿
 	draft, err := s.repo.GetDraftByID(id)
 	if err != nil {
@@ -561,32 +562,32 @@ func (s *smsService) SendDraft(id uint, phone string) error {
 
 	// 发送短信
 	req := &dto.SmsSendRequest{
-		Phone:   phone,
-		Content: draft.Content,
+		Phone:		phone,
+		Content:	draft.Content,
 	}
 	return s.SendSms(req)
 }
 
 // GetJobList 获取任务列表
-func (s *smsService) GetJobList(req *dto.SmsJobListRequest) ([]*model.SmsJob, int64, error) {
+func (s *smsService) GetJobList(ctx context.Context, req *dto.SmsJobListRequest)  ([]*model.SmsJob, int64, error) {
 	return s.repo.GetJobList(req.Page, req.Limit, req.Status, req.Name)
 }
 
 // GetJobByID 根据ID获取任务
-func (s *smsService) GetJobByID(id uint) (*model.SmsJob, error) {
+func (s *smsService) GetJobByID(ctx context.Context, id uint)  (*model.SmsJob, error) {
 	return s.repo.GetJobByID(id)
 }
 
 // CreateJob 创建任务
-func (s *smsService) CreateJob(req *dto.SmsJobCreateRequest) error {
+func (s *smsService) CreateJob(ctx context.Context, req *dto.SmsJobCreateRequest)  error {
 	// 创建任务
 	job := &model.SmsJob{
-		Name:         req.Name,
-		Total:        len(req.PhoneList),
-		Sent:         0,
-		Failed:       0,
-		Status:       "pending",
-		ScheduleTime: req.ScheduleTime,
+		Name:		req.Name,
+		Total:		len(req.PhoneList),
+		Sent:		0,
+		Failed:		0,
+		Status:		"pending",
+		ScheduleTime:	req.ScheduleTime,
 	}
 
 	if err := s.repo.CreateJob(job); err != nil {
@@ -597,10 +598,10 @@ func (s *smsService) CreateJob(req *dto.SmsJobCreateRequest) error {
 	details := make([]*model.SmsJobDetail, 0, len(req.PhoneList))
 	for _, phone := range req.PhoneList {
 		detail := &model.SmsJobDetail{
-			JobID:   job.ID,
-			Phone:   phone,
-			Content: req.Content,
-			Status:  "pending",
+			JobID:		job.ID,
+			Phone:		phone,
+			Content:	req.Content,
+			Status:		"pending",
 		}
 		details = append(details, detail)
 	}
@@ -620,7 +621,7 @@ func (s *smsService) CreateJob(req *dto.SmsJobCreateRequest) error {
 }
 
 // PauseJob 暂停任务
-func (s *smsService) PauseJob(id uint) error {
+func (s *smsService) PauseJob(ctx context.Context, id uint)  error {
 	job, err := s.repo.GetJobByID(id)
 	if err != nil {
 		return err
@@ -635,7 +636,7 @@ func (s *smsService) PauseJob(id uint) error {
 }
 
 // ResumeJob 继续任务
-func (s *smsService) ResumeJob(id uint) error {
+func (s *smsService) ResumeJob(ctx context.Context, id uint)  error {
 	job, err := s.repo.GetJobByID(id)
 	if err != nil {
 		return err
@@ -650,7 +651,7 @@ func (s *smsService) ResumeJob(id uint) error {
 }
 
 // StopJob 停止任务
-func (s *smsService) StopJob(id uint) error {
+func (s *smsService) StopJob(ctx context.Context, id uint)  error {
 	job, err := s.repo.GetJobByID(id)
 	if err != nil {
 		return err
@@ -665,7 +666,7 @@ func (s *smsService) StopJob(id uint) error {
 }
 
 // DeleteJob 删除任务
-func (s *smsService) DeleteJob(id uint) error {
+func (s *smsService) DeleteJob(ctx context.Context, id uint)  error {
 	job, err := s.repo.GetJobByID(id)
 	if err != nil {
 		return err
@@ -686,7 +687,7 @@ func (s *smsService) DeleteJob(id uint) error {
 }
 
 // GetJobRecords 获取任务发送记录
-func (s *smsService) GetJobRecords(id uint, page, limit int) ([]*model.SmsJobDetail, int64, error) {
+func (s *smsService) GetJobRecords(ctx context.Context, id uint, page, limit int)  ([]*model.SmsJobDetail, int64, error) {
 	// 验证任务是否存在
 	_, err := s.repo.GetJobByID(id)
 	if err != nil {

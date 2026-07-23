@@ -1,30 +1,32 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
+	_db "marketing/internal/pkg/utils/db"
 	"marketing/internal/model"
 
 	"gorm.io/gorm"
 )
 
 type CommunityRepository interface {
-	GetGroups(page, pageSize int, search string) ([]*model.CommunityGroup, int64, error)
-	CreateGroup(group *model.CommunityGroup) (*model.CommunityGroup, error)
-	UpdateGroup(id string, updates map[string]any) error
-	DeleteGroup(id string) error
-	GetGroupByID(id string) (*model.CommunityGroup, error)
+	GetGroups(ctx context.Context, page, pageSize int, search string) ([]*model.CommunityGroup, int64, error)
+	CreateGroup(ctx context.Context, group *model.CommunityGroup) (*model.CommunityGroup, error)
+	UpdateGroup(ctx context.Context, id string, updates map[string]any) error
+	DeleteGroup(ctx context.Context, id string) error
+	GetGroupByID(ctx context.Context, id string) (*model.CommunityGroup, error)
 
-	GetMembers(groupID string, page, pageSize int, search string) ([]*model.CommunityMember, int64, error)
-	AddMember(member *model.CommunityMember) (*model.CommunityMember, error)
-	UpdateMember(id string, updates map[string]any) error
-	RemoveMember(id string) error
-	GetMemberByID(id string) (*model.CommunityMember, error)
+	GetMembers(ctx context.Context, groupID string, page, pageSize int, search string) ([]*model.CommunityMember, int64, error)
+	AddMember(ctx context.Context, member *model.CommunityMember) (*model.CommunityMember, error)
+	UpdateMember(ctx context.Context, id string, updates map[string]any) error
+	RemoveMember(ctx context.Context, id string) error
+	GetMemberByID(ctx context.Context, id string) (*model.CommunityMember, error)
 
-	GetMessages(groupID string, page, pageSize int) ([]*model.CommunityMessage, int64, error)
-	AddMessage(message *model.CommunityMessage) (*model.CommunityMessage, error)
-	GetStatistics() (*map[string]any, error)
+	GetMessages(ctx context.Context, groupID string, page, pageSize int) ([]*model.CommunityMessage, int64, error)
+	AddMessage(ctx context.Context, message *model.CommunityMessage) (*model.CommunityMessage, error)
+	GetStatistics(ctx context.Context) (*map[string]any, error)
 }
 
 type communityRepository struct {
@@ -35,11 +37,15 @@ func NewCommunityRepository(db *gorm.DB) CommunityRepository {
 	return &communityRepository{db: db}
 }
 
-func (r *communityRepository) GetGroups(page, pageSize int, search string) ([]*model.CommunityGroup, int64, error) {
+func NewCommunityRepositoryDefault() CommunityRepository {
+	return &communityRepository{db: _db.GetDB()}
+}
+
+func (r *communityRepository) GetGroups(ctx context.Context, page, pageSize int, search string) ([]*model.CommunityGroup, int64, error) {
 	var groups []*model.CommunityGroup
 	var total int64
 
-	query := r.db.Model(&model.CommunityGroup{})
+	query := r.db.WithContext(ctx).Model(&model.CommunityGroup{})
 
 	if search != "" {
 		searchPattern := "%" + search + "%"
@@ -58,15 +64,15 @@ func (r *communityRepository) GetGroups(page, pageSize int, search string) ([]*m
 	return groups, total, nil
 }
 
-func (r *communityRepository) CreateGroup(group *model.CommunityGroup) (*model.CommunityGroup, error) {
-	if err := r.db.Create(group).Error; err != nil {
+func (r *communityRepository) CreateGroup(ctx context.Context, group *model.CommunityGroup) (*model.CommunityGroup, error) {
+	if err := r.db.WithContext(ctx).Create(group).Error; err != nil {
 		return nil, err
 	}
 	return group, nil
 }
 
-func (r *communityRepository) UpdateGroup(id string, updates map[string]any) error {
-	result := r.db.Model(&model.CommunityGroup{}).Where("id = ?", id).Updates(updates)
+func (r *communityRepository) UpdateGroup(ctx context.Context, id string, updates map[string]any) error {
+	result := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -76,16 +82,16 @@ func (r *communityRepository) UpdateGroup(id string, updates map[string]any) err
 	return nil
 }
 
-func (r *communityRepository) DeleteGroup(id string) error {
+func (r *communityRepository) DeleteGroup(ctx context.Context, id string) error {
 	// 先删除相关的成员和消息
-	if err := r.db.Where("group_id = ?", id).Delete(&model.CommunityMember{}).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("group_id = ?", id).Delete(&model.CommunityMember{}).Error; err != nil {
 		return err
 	}
-	if err := r.db.Where("group_id = ?", id).Delete(&model.CommunityMessage{}).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("group_id = ?", id).Delete(&model.CommunityMessage{}).Error; err != nil {
 		return err
 	}
 
-	result := r.db.Where("id = ?", id).Delete(&model.CommunityGroup{})
+	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.CommunityGroup{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -95,9 +101,9 @@ func (r *communityRepository) DeleteGroup(id string) error {
 	return nil
 }
 
-func (r *communityRepository) GetGroupByID(id string) (*model.CommunityGroup, error) {
+func (r *communityRepository) GetGroupByID(ctx context.Context, id string) (*model.CommunityGroup, error) {
 	var group model.CommunityGroup
-	if err := r.db.Where("id = ?", id).First(&group).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&group).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -106,11 +112,11 @@ func (r *communityRepository) GetGroupByID(id string) (*model.CommunityGroup, er
 	return &group, nil
 }
 
-func (r *communityRepository) GetMembers(groupID string, page, pageSize int, search string) ([]*model.CommunityMember, int64, error) {
+func (r *communityRepository) GetMembers(ctx context.Context, groupID string, page, pageSize int, search string) ([]*model.CommunityMember, int64, error) {
 	var members []*model.CommunityMember
 	var total int64
 
-	query := r.db.Model(&model.CommunityMember{}).Where("group_id = ?", groupID)
+	query := r.db.WithContext(ctx).Model(&model.CommunityMember{}).Where("group_id = ?", groupID)
 
 	if search != "" {
 		searchPattern := "%" + search + "%"
@@ -129,28 +135,28 @@ func (r *communityRepository) GetMembers(groupID string, page, pageSize int, sea
 	return members, total, nil
 }
 
-func (r *communityRepository) AddMember(member *model.CommunityMember) (*model.CommunityMember, error) {
+func (r *communityRepository) AddMember(ctx context.Context, member *model.CommunityMember) (*model.CommunityMember, error) {
 	// 检查成员是否已经存在于该群组中
 	var existingMember model.CommunityMember
-	result := r.db.Where("group_id = ? AND username = ?", member.GroupID, member.Username).First(&existingMember)
+	result := r.db.WithContext(ctx).Where("group_id = ? AND username = ?", member.GroupID, member.Username).First(&existingMember)
 	if result.Error == nil {
 		return nil, errors.New("该用户名已在群组中")
 	}
 
-	if err := r.db.Create(member).Error; err != nil {
+	if err := r.db.WithContext(ctx).Create(member).Error; err != nil {
 		return nil, err
 	}
 
 	// 更新群组成员数量
-	if err := r.db.Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count + ?", 1)).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count + ?", 1)).Error; err != nil {
 		return member, err
 	}
 
 	return member, nil
 }
 
-func (r *communityRepository) UpdateMember(id string, updates map[string]any) error {
-	result := r.db.Model(&model.CommunityMember{}).Where("id = ?", id).Updates(updates)
+func (r *communityRepository) UpdateMember(ctx context.Context, id string, updates map[string]any) error {
+	result := r.db.WithContext(ctx).Model(&model.CommunityMember{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -160,16 +166,16 @@ func (r *communityRepository) UpdateMember(id string, updates map[string]any) er
 	return nil
 }
 
-func (r *communityRepository) RemoveMember(id string) error {
+func (r *communityRepository) RemoveMember(ctx context.Context, id string) error {
 	var member model.CommunityMember
-	if err := r.db.Where("id = ?", id).First(&member).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&member).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("社群成员不存在")
 		}
 		return err
 	}
 
-	result := r.db.Where("id = ?", id).Delete(&model.CommunityMember{})
+	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.CommunityMember{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -178,16 +184,16 @@ func (r *communityRepository) RemoveMember(id string) error {
 	}
 
 	// 更新群组成员数量
-	if err := r.db.Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count - ?", 1)).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Where("id = ?", member.GroupID).UpdateColumn("member_count", gorm.Expr("member_count - ?", 1)).Error; err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *communityRepository) GetMemberByID(id string) (*model.CommunityMember, error) {
+func (r *communityRepository) GetMemberByID(ctx context.Context, id string) (*model.CommunityMember, error) {
 	var member model.CommunityMember
-	if err := r.db.Where("id = ?", id).First(&member).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&member).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -196,11 +202,11 @@ func (r *communityRepository) GetMemberByID(id string) (*model.CommunityMember, 
 	return &member, nil
 }
 
-func (r *communityRepository) GetMessages(groupID string, page, pageSize int) ([]*model.CommunityMessage, int64, error) {
+func (r *communityRepository) GetMessages(ctx context.Context, groupID string, page, pageSize int) ([]*model.CommunityMessage, int64, error) {
 	var messages []*model.CommunityMessage
 	var total int64
 
-	query := r.db.Model(&model.CommunityMessage{}).Where("group_id = ?", groupID)
+	query := r.db.WithContext(ctx).Model(&model.CommunityMessage{}).Where("group_id = ?", groupID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -214,27 +220,27 @@ func (r *communityRepository) GetMessages(groupID string, page, pageSize int) ([
 	return messages, total, nil
 }
 
-func (r *communityRepository) AddMessage(message *model.CommunityMessage) (*model.CommunityMessage, error) {
-	if err := r.db.Create(message).Error; err != nil {
+func (r *communityRepository) AddMessage(ctx context.Context, message *model.CommunityMessage) (*model.CommunityMessage, error) {
+	if err := r.db.WithContext(ctx).Create(message).Error; err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-func (r *communityRepository) GetStatistics() (*map[string]any, error) {
+func (r *communityRepository) GetStatistics(ctx context.Context) (*map[string]any, error) {
 	var totalGroups int64
 	var totalMembers int64
 	var totalMessages int64
 
-	if err := r.db.Model(&model.CommunityGroup{}).Count(&totalGroups).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.CommunityGroup{}).Count(&totalGroups).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&model.CommunityMember{}).Count(&totalMembers).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.CommunityMember{}).Count(&totalMembers).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&model.CommunityMessage{}).Count(&totalMessages).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.CommunityMessage{}).Count(&totalMessages).Error; err != nil {
 		return nil, err
 	}
 
@@ -242,7 +248,7 @@ func (r *communityRepository) GetStatistics() (*map[string]any, error) {
 	// 使用 GORM 时间表达式而非 SQL 方言（PostgreSQL 兼容）
 	var activeGroups int64
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
-	if err := r.db.Model(&model.CommunityMessage{}).
+	if err := r.db.WithContext(ctx).Model(&model.CommunityMessage{}).
 		Where("created_at >= ?", sevenDaysAgo).
 		Distinct("group_id").
 		Count(&activeGroups).Error; err != nil {
@@ -252,7 +258,7 @@ func (r *communityRepository) GetStatistics() (*map[string]any, error) {
 	// 计算今日新增成员数量
 	todayStart := time.Now().Truncate(24 * time.Hour)
 	var newMembersToday int64
-	if err := r.db.Model(&model.CommunityMember{}).
+	if err := r.db.WithContext(ctx).Model(&model.CommunityMember{}).
 		Where("join_date >= ?", todayStart).
 		Count(&newMembersToday).Error; err != nil {
 		return nil, err

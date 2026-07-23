@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -72,7 +73,7 @@ func TestShortLinkAccessRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.access)
+			err := repo.Create(context.Background(), tt.access)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -95,7 +96,7 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 		IP:          "192.168.1.100",
 		DeviceType:  "desktop",
 	}
-	repo.Create(access)
+	repo.Create(context.Background(), access)
 
 	tests := []struct {
 		name    string
@@ -116,7 +117,7 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -137,7 +138,7 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(&model.ShortLinkAccess{
+		repo.Create(context.Background(), &model.ShortLinkAccess{
 			ShortLinkID: 1,
 			IP:          "192.168.1." + string(rune('0'+i)),
 			DeviceType:  "desktop",
@@ -145,7 +146,7 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 	}
 
 	// 创建其他短链的访问记录
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 99,
 		IP:          "192.168.2.1",
 		DeviceType:  "mobile",
@@ -195,7 +196,7 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetByShortLinkID(tt.shortLinkID, tt.page, tt.pageSize)
+			results, total, err := repo.GetByShortLinkID(context.Background(), tt.shortLinkID, tt.page, tt.pageSize)
 
 			if err != nil {
 				t.Errorf("GetByShortLinkID() error = %v", err)
@@ -218,7 +219,7 @@ func TestShortLinkAccessRepository_GetStatsByShortLinkID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 10; i++ {
-		repo.Create(&model.ShortLinkAccess{
+		repo.Create(context.Background(), &model.ShortLinkAccess{
 			ShortLinkID: 1,
 			IP:          "192.168.1." + string(rune('0'+i)),
 		})
@@ -227,7 +228,7 @@ func TestShortLinkAccessRepository_GetStatsByShortLinkID(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	stats, err := repo.GetStatsByShortLinkID(1, startDate, endDate)
+	stats, err := repo.GetStatsByShortLinkID(context.Background(), 1, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetStatsByShortLinkID() error = %v", err)
 	}
@@ -245,7 +246,7 @@ func TestShortLinkAccessRepository_GetDailyStatsByShortLinkID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 	})
@@ -253,7 +254,7 @@ func TestShortLinkAccessRepository_GetDailyStatsByShortLinkID(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	results, err := repo.GetDailyStatsByShortLinkID(1, startDate, endDate)
+	results, err := repo.GetDailyStatsByShortLinkID(context.Background(), 1, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetDailyStatsByShortLinkID() error = %v", err)
 	}
@@ -268,19 +269,19 @@ func TestShortLinkAccessRepository_GetDeviceTypeStatsByShortLinkID(t *testing.T)
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建不同设备类型的访问记录
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 		DeviceType:  "desktop",
 	})
 
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.2",
 		DeviceType:  "mobile",
 	})
 
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.3",
 		DeviceType:  "mobile",
@@ -289,7 +290,7 @@ func TestShortLinkAccessRepository_GetDeviceTypeStatsByShortLinkID(t *testing.T)
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	results, err := repo.GetDeviceTypeStatsByShortLinkID(1, startDate, endDate)
+	results, err := repo.GetDeviceTypeStatsByShortLinkID(context.Background(), 1, startDate, endDate)
 	if err != nil {
 		t.Errorf("GetDeviceTypeStatsByShortLinkID() error = %v", err)
 	}
@@ -304,12 +305,12 @@ func TestShortLinkAccessRepository_GetAllDailyStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 	})
 
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 2,
 		IP:          "192.168.1.2",
 	})
@@ -317,7 +318,7 @@ func TestShortLinkAccessRepository_GetAllDailyStats(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	results, err := repo.GetAllDailyStats(startDate, endDate)
+	results, err := repo.GetAllDailyStats(context.Background(), startDate, endDate)
 	if err != nil {
 		t.Errorf("GetAllDailyStats() error = %v", err)
 	}
@@ -332,13 +333,13 @@ func TestShortLinkAccessRepository_GetAllDeviceTypeStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 		DeviceType:  "desktop",
 	})
 
-	repo.Create(&model.ShortLinkAccess{
+	repo.Create(context.Background(), &model.ShortLinkAccess{
 		ShortLinkID: 2,
 		IP:          "192.168.1.2",
 		DeviceType:  "mobile",
@@ -347,7 +348,7 @@ func TestShortLinkAccessRepository_GetAllDeviceTypeStats(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -7)
 	endDate := time.Now()
 
-	results, err := repo.GetAllDeviceTypeStats(startDate, endDate)
+	results, err := repo.GetAllDeviceTypeStats(context.Background(), startDate, endDate)
 	if err != nil {
 		t.Errorf("GetAllDeviceTypeStats() error = %v", err)
 	}
@@ -361,7 +362,7 @@ func TestShortLinkAccessRepository_GetAllDeviceTypeStats(t *testing.T) {
 func TestShortLinkAccessRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
-	_, err := repo.GetByID(99999)
+	_, err := repo.GetByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error when getting non-existing access")
 	}

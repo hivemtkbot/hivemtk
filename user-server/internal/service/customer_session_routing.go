@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -19,14 +20,14 @@ import (
 
 // AssignSessionRequest 分配会话请求
 type AssignSessionRequest struct {
-	SessionID uint `json:"session_id" binding:"required"`
-	AgentID   uint `json:"agent_id" binding:"required"`
+	SessionID	uint	`json:"session_id" binding:"required"`
+	AgentID		uint	`json:"agent_id" binding:"required"`
 }
 
 // AssignSession 分配会话给客服
-func (s *CustomerSessionService) AssignSession(req *AssignSessionRequest) error {
+func (s *CustomerSessionService) AssignSession(ctx context.Context, req *AssignSessionRequest) error {
 	// 获取客服信息
-	agent, err := s.agentRepo.GetByAgentID(req.AgentID)
+	agent, err := s.agentRepo.GetByAgentID(ctx, req.AgentID)
 	if err != nil {
 		return errors.New("客服不存在")
 	}
@@ -40,24 +41,24 @@ func (s *CustomerSessionService) AssignSession(req *AssignSessionRequest) error 
 	}
 
 	// 分配会话
-	if err := s.sessionRepo.AssignAgent(req.SessionID, req.AgentID, agent.AgentName); err != nil {
+	if err := s.sessionRepo.AssignAgent(ctx, req.SessionID, req.AgentID, agent.AgentName); err != nil {
 		return err
 	}
 
 	// 更新客服活跃会话数
-	if err := s.agentRepo.IncrementActiveSessions(req.AgentID); err != nil {
+	if err := s.agentRepo.IncrementActiveSessions(ctx, req.AgentID); err != nil {
 		return err
 	}
 
 	// 通知客服
-	session, _ := s.sessionRepo.GetByID(req.SessionID)
+	session, _ := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if session != nil {
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(req.AgentID), 10), session)
 		// 通知访客：人工客服已接入（完成网页客服渠道的坐席侧闭环）
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "客服已接入，正在为您服务",
+			"session_id":	session.SessionID,
+			"handler":	"human",
+			"reason":	"客服已接入，正在为您服务",
 		}, session.SessionID)
 	}
 
@@ -65,9 +66,9 @@ func (s *CustomerSessionService) AssignSession(req *AssignSessionRequest) error 
 }
 
 // AutoAssign 自动分配会话
-func (s *CustomerSessionService) AutoAssign(sessionID uint) error {
+func (s *CustomerSessionService) AutoAssign(ctx context.Context, sessionID uint) error {
 	// 获取在线客服
-	agents, err := s.agentRepo.GetOnlineAgents()
+	agents, err := s.agentRepo.GetOnlineAgents(ctx)
 	if err != nil || len(agents) == 0 {
 		return errors.New("没有可用的在线客服")
 	}
@@ -80,49 +81,49 @@ func (s *CustomerSessionService) AutoAssign(sessionID uint) error {
 		}
 	}
 
-	return s.AssignSession(&AssignSessionRequest{
-		SessionID: sessionID,
-		AgentID:   selectedAgent.AgentID,
+	return s.AssignSession(ctx, &AssignSessionRequest{
+		SessionID:	sessionID,
+		AgentID:	selectedAgent.AgentID,
 	})
 }
 
 // TransferSession 转接会话
-func (s *CustomerSessionService) TransferSession(sessionID uint, newAgentID uint) error {
-	session, err := s.sessionRepo.GetByID(sessionID)
+func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID uint, newAgentID uint) error {
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {
 		return err
 	}
 
 	// 获取新客服信息
-	newAgent, err := s.agentRepo.GetByAgentID(newAgentID)
+	newAgent, err := s.agentRepo.GetByAgentID(ctx, newAgentID)
 	if err != nil {
 		return errors.New("客服不存在")
 	}
 
 	// 减少原客服活跃会话数
 	if session.AgentID > 0 {
-		s.agentRepo.DecrementActiveSessions(session.AgentID)
+		s.agentRepo.DecrementActiveSessions(ctx, session.AgentID)
 	}
 
 	// 分配给新客服
-	if err := s.sessionRepo.AssignAgent(sessionID, newAgentID, newAgent.AgentName); err != nil {
+	if err := s.sessionRepo.AssignAgent(ctx, sessionID, newAgentID, newAgent.AgentName); err != nil {
 		return err
 	}
 
 	// 增加新客服活跃会话数
-	if err := s.agentRepo.IncrementActiveSessions(newAgentID); err != nil {
+	if err := s.agentRepo.IncrementActiveSessions(ctx, newAgentID); err != nil {
 		return err
 	}
 
 	// 通知新客服
-	session, _ = s.sessionRepo.GetByID(sessionID)
+	session, _ = s.sessionRepo.GetByID(ctx, sessionID)
 	if session != nil {
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(newAgentID), 10), session)
 		// 通知访客：已转接至其他客服
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "已为您转接客服，请稍候",
+			"session_id":	session.SessionID,
+			"handler":	"human",
+			"reason":	"已为您转接客服，请稍候",
 		}, session.SessionID)
 	}
 
@@ -134,7 +135,9 @@ func (s *CustomerSessionService) TransferSession(sessionID uint, newAgentID uint
 //
 // 仅保留 CustomerSessionService 的引用断言，其他服务见各自文件
 var _ = func() error {
-	t := struct{ x *repository.AgentStatusRepository }{}.x
+	t := struct {
+		x *repository.AgentStatusRepository
+	}{}.x
 	_ = t
 	return nil
 }()

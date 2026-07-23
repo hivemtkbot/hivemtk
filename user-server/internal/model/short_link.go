@@ -24,16 +24,3 @@ type ShortLink struct {
 func (ShortLink) TableName() string {
 	return "short_links"
 }
-
-// IsExpired 检查短链是否已过期
-func (s *ShortLink) IsExpired() bool {
-	if s.ExpireTime == nil {
-		return false
-	}
-	return time.Now().After(*s.ExpireTime)
-}
-
-// IsActive 检查短链是否处于活跃状态
-func (s *ShortLink) IsActive() bool {
-	return s.Status == 1 && !s.IsExpired()
-}

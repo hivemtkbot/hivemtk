@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"marketing/internal/aiagent/agent/browser"
-	"marketing/internal/pkg/utils/db"
+	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -31,8 +31,9 @@ func getHeadlessDescription(headless bool) string {
 }
 
 type AutoReplyController struct {
-	svc     *service.AutoReplyService
-	manager *browser.AutoReplyManager // 自动回复管理器
+	svc      *service.AutoReplyService
+	manager  *browser.AutoReplyManager // 自动回复管理器
+	ragStack *knowledgesvc.RAGStack
 }
 
 // AutoReplyManagerSingleton 单例管理器
@@ -81,10 +82,11 @@ func (s *AutoReplyManagerSingleton) init() {
 	s.manager = browser.NewAutoReplyManager(defaultHeadless)
 }
 
-func NewAutoReplyController() *AutoReplyController {
+func NewAutoReplyController(svc *service.AutoReplyService, ragStack *knowledgesvc.RAGStack) *AutoReplyController {
 	return &AutoReplyController{
-		svc:     service.NewAutoReplyService(db.GetDB()),
-		manager: GetAutoReplyManager(), // 使用单例管理器
+		svc:      svc,
+		manager:  GetAutoReplyManager(), // 使用单例管理器
+		ragStack: ragStack,
 	}
 }
 
@@ -511,9 +513,9 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 	replyService := service.NewAutoReplyService(c.svc.GetDB())
 
 	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
-		getRAGStack().Integration,
-		getRAGStack().Customer,
-		getRAGStack().Retrieval,
+		c.ragStack.Integration,
+		c.ragStack.Customer,
+		c.ragStack.Retrieval,
 		replyService,
 	))
 

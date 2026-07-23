@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // MessageHubController 消息中台控制器
@@ -19,16 +18,17 @@ type MessageHubController struct {
 }
 
 // NewMessageHubController 创建消息中台控制器
-func NewMessageHubController(db *gorm.DB) *MessageHubController {
+func NewMessageHubController(svc *service.MessageHubService) *MessageHubController {
 	return &MessageHubController{
-		svc: service.NewMessageHubService(db, cache.GetGlobalCache()),
+		svc: svc,
 	}
 }
 
 // NewMessageHubControllerWithCache 带缓存创建
-func NewMessageHubControllerWithCache(db *gorm.DB, c cache.Cache) *MessageHubController {
+// Deprecated: 请使用 NewMessageHubController，router 层负责组装带缓存的 service
+func NewMessageHubControllerWithCache(svc *service.MessageHubService, _ cache.Cache) *MessageHubController {
 	return &MessageHubController{
-		svc: service.NewMessageHubService(db, c),
+		svc: svc,
 	}
 }
 

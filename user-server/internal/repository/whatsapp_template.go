@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 
@@ -23,24 +24,24 @@ func NewWhatsappTemplateRepositoryWithDB(db *gorm.DB) *WhatsappTemplateRepositor
 }
 
 // SetDB 注入 db（用于测试）
-func (r *WhatsappTemplateRepository) SetDB(db *gorm.DB) {
+func (r *WhatsappTemplateRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}
 }
 
 // Create 创建模板
-func (r *WhatsappTemplateRepository) Create(template *model.WhatsappMessageTemplate) error {
+func (r *WhatsappTemplateRepository) Create(ctx context.Context, template *model.WhatsappMessageTemplate) error {
 	return r.db.Create(template).Error
 }
 
 // Save 保存模板（全字段更新）
-func (r *WhatsappTemplateRepository) Save(template *model.WhatsappMessageTemplate) error {
+func (r *WhatsappTemplateRepository) Save(ctx context.Context, template *model.WhatsappMessageTemplate) error {
 	return r.db.Save(template).Error
 }
 
 // GetByID 按 ID 获取模板
-func (r *WhatsappTemplateRepository) GetByID(id string) (*model.WhatsappMessageTemplate, error) {
+func (r *WhatsappTemplateRepository) GetByID(ctx context.Context, id string) (*model.WhatsappMessageTemplate, error) {
 	var template model.WhatsappMessageTemplate
 	err := r.db.Where("id = ?", id).First(&template).Error
 	if err != nil {
@@ -50,7 +51,7 @@ func (r *WhatsappTemplateRepository) GetByID(id string) (*model.WhatsappMessageT
 }
 
 // ListByFilters 按条件列出模板
-func (r *WhatsappTemplateRepository) ListByFilters(category string, isActive *bool) ([]*model.WhatsappMessageTemplate, error) {
+func (r *WhatsappTemplateRepository) ListByFilters(ctx context.Context, category string, isActive *bool) ([]*model.WhatsappMessageTemplate, error) {
 	var templates []*model.WhatsappMessageTemplate
 	query := r.db.Model(&model.WhatsappMessageTemplate{})
 	if category != "" {
@@ -66,7 +67,7 @@ func (r *WhatsappTemplateRepository) ListByFilters(category string, isActive *bo
 }
 
 // DeleteByID 按 ID 删除模板，返回受影响行数
-func (r *WhatsappTemplateRepository) DeleteByID(id string) (int64, error) {
+func (r *WhatsappTemplateRepository) DeleteByID(ctx context.Context, id string) (int64, error) {
 	result := r.db.Where("id = ?", id).Delete(&model.WhatsappMessageTemplate{})
 	return result.RowsAffected, result.Error
 }

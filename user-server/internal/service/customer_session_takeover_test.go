@@ -15,7 +15,6 @@ import (
 // TestTakeoverByAgent_Success 正常接管：AI 会话切到人工
 func TestTakeoverByAgent_Success(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	// 准备：1 个 AI 状态会话
 	sess, err := svc.CreateSession(&CreateSessionRequest{
@@ -65,7 +64,6 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 // TestTakeoverByAgent_OfflineAgent 离线坐席不允许接管
 func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform:  model.PlatformWeb,
@@ -84,7 +82,6 @@ func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 // TestTakeoverByAgent_AgentFull 坐席已满不允许接管
 func TestTakeoverByAgent_AgentFull(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -101,7 +98,6 @@ func TestTakeoverByAgent_AgentFull(t *testing.T) {
 // TestTakeoverByAgent_Idempotent 同坐席重复接管：幂等
 func TestTakeoverByAgent_Idempotent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -127,7 +123,6 @@ func TestTakeoverByAgent_Idempotent(t *testing.T) {
 // TestTakeoverByAgent_TakeoverFromAnother 从别的坐席接管：原坐席活跃数 -1
 func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -161,7 +156,6 @@ func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 // TestReleaseToAI 释放回 AI
 func TestReleaseToAI(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -194,7 +188,6 @@ func TestReleaseToAI(t *testing.T) {
 // TestReleaseToAI_NotOwner 无权释放别人的会话
 func TestReleaseToAI_NotOwner(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -215,7 +208,6 @@ func TestReleaseToAI_NotOwner(t *testing.T) {
 // TestSwitchHandler_Human 切到人工
 func TestSwitchHandler_Human(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -241,7 +233,6 @@ func TestSwitchHandler_Human(t *testing.T) {
 // TestSwitchHandler_AI 切回 AI（agent_id 自动从会话读取）
 func TestSwitchHandler_AI(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -268,7 +259,6 @@ func TestSwitchHandler_AI(t *testing.T) {
 // TestSwitchHandler_AI_NoAgent 会话尚未分配坐席就切 AI → 报错
 func TestSwitchHandler_AI_NoAgent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
@@ -286,7 +276,6 @@ func TestSwitchHandler_AI_NoAgent(t *testing.T) {
 // TestSwitchHandler_InvalidType 非法 handler_type
 func TestSwitchHandler_InvalidType(t *testing.T) {
 	svc := setupCustomerSessionService(t)
-	ctx := context.Background()
 
 	sess, _ := svc.CreateSession(&CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",

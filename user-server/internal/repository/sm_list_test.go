@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -80,7 +81,7 @@ func TestSmlistRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.smlist)
+			err := repo.Create(context.Background(), tt.smlist)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -104,7 +105,7 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 		Phone: "13800138000",
 		City:  "Beijing",
 	}
-	repo.Create(smlist)
+	repo.Create(context.Background(), smlist)
 
 	tests := []struct {
 		name    string
@@ -125,7 +126,7 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -146,7 +147,7 @@ func TestSmlistRepository_GetSmlistList(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 15; i++ {
-		repo.Create(&model.Smlist{
+		repo.Create(context.Background(), &model.Smlist{
 			QQ:    "qq" + string(rune('0'+i)),
 			Name:  "User " + string(rune('0'+i)),
 			Phone: "1380013800" + string(rune('0'+(i%10))),
@@ -193,7 +194,7 @@ func TestSmlistRepository_GetSmlistList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetSmlistList(tt.page, tt.limit)
+			results, total, err := repo.GetSmlistList(context.Background(), tt.page, tt.limit)
 
 			if err != nil {
 				t.Errorf("GetSmlistList() error = %v", err)
@@ -216,7 +217,7 @@ func TestSmlistRepository_GetSmlistAllList(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 8; i++ {
-		repo.Create(&model.Smlist{
+		repo.Create(context.Background(), &model.Smlist{
 			QQ:    "qq" + string(rune('0'+i)),
 			Name:  "All User " + string(rune('0'+i)),
 			Phone: "1380013800" + string(rune('0'+(i%10))),
@@ -224,7 +225,7 @@ func TestSmlistRepository_GetSmlistAllList(t *testing.T) {
 		})
 	}
 
-	results, total, err := repo.GetSmlistAllList()
+	results, total, err := repo.GetSmlistAllList(context.Background())
 	if err != nil {
 		t.Errorf("GetSmlistAllList() error = %v", err)
 	}
@@ -249,14 +250,14 @@ func TestSmlistRepository_Delete(t *testing.T) {
 		Phone: "13800138000",
 		City:  "Beijing",
 	}
-	repo.Create(smlist)
+	repo.Create(context.Background(), smlist)
 
-	err := repo.Delete(smlist.ID)
+	err := repo.Delete(context.Background(), smlist.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(smlist.ID)
+	_, err = repo.GetByID(context.Background(), smlist.ID)
 	if err == nil {
 		t.Error("Expected smlist to be deleted")
 	}
@@ -267,14 +268,14 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 	repo := setupSmlistRepository(t)
 
 	// 创建最近的数据（48 小时内）
-	repo.Create(&model.Smlist{
+	repo.Create(context.Background(), &model.Smlist{
 		QQ:    "recent1",
 		Name:  "Recent User 1",
 		Phone: "13800138001",
 		City:  "Beijing",
 	})
 
-	repo.Create(&model.Smlist{
+	repo.Create(context.Background(), &model.Smlist{
 		QQ:    "recent2",
 		Name:  "Recent User 2",
 		Phone: "13800138002",
@@ -288,12 +289,12 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 		Phone: "13800138003",
 		City:  "Guangzhou",
 	}
-	repo.Create(oldSmlist)
+	repo.Create(context.Background(), oldSmlist)
 
 	// 手动更新旧数据的时间
 	db.GetDB().Model(&model.Smlist{}).Where("id = ?", oldSmlist.ID).Update("created_at", time.Now().Add(-time.Hour*72))
 
-	results, err := repo.GetRecentSmlistList()
+	results, err := repo.GetRecentSmlistList(context.Background())
 	if err != nil {
 		t.Errorf("GetRecentSmlistList() error = %v", err)
 	}
@@ -308,7 +309,7 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 func TestSmlistRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupSmlistRepository(t)
 
-	_, err := repo.GetByID("non-existing-id")
+	_, err := repo.GetByID(context.Background(), "non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing smlist")
 	}
@@ -318,7 +319,7 @@ func TestSmlistRepository_GetByID_NotFound(t *testing.T) {
 func TestSmlistRepository_GetSmlistList_Empty(t *testing.T) {
 	repo := setupSmlistRepository(t)
 
-	results, total, err := repo.GetSmlistList(1, 10)
+	results, total, err := repo.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Errorf("GetSmlistList() error = %v", err)
 	}

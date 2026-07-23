@@ -13,17 +13,17 @@ import (
 )
 
 type PgDialogManager struct {
-	db     *gorm.DB
-	config *DialogManagerConfig
-	mu     sync.RWMutex
+	db	*gorm.DB
+	config	*DialogManagerConfig
+	mu	sync.RWMutex
 }
 
 func NewPgDialogManager(db *gorm.DB, config *DialogManagerConfig) *PgDialogManager {
 	if config == nil {
 		config = &DialogManagerConfig{
-			DefaultMaxHistoryLength: 10,
-			DefaultSessionTimeout:   30 * time.Minute,
-			SessionCleanupInterval:  5 * time.Minute,
+			DefaultMaxHistoryLength:	10,
+			DefaultSessionTimeout:		30 * time.Minute,
+			SessionCleanupInterval:		5 * time.Minute,
 		}
 	}
 	dm := &PgDialogManager{db: db, config: config}
@@ -34,14 +34,14 @@ func NewPgDialogManager(db *gorm.DB, config *DialogManagerConfig) *PgDialogManag
 func (dm *PgDialogManager) CreateSession(ctx context.Context, userID, platform, kbID string, config SessionConfig) (*Session, error) {
 	now := time.Now()
 	session := &Session{
-		ID:        fmt.Sprintf("sess_%d", now.UnixNano()),
-		UserID:    userID,
-		Platform:  platform,
-		KBID:      kbID,
-		Status:    SessionActive,
-		CreatedAt: now,
-		UpdatedAt: now,
-		Config:    config,
+		ID:		fmt.Sprintf("sess_%d", now.UnixNano()),
+		UserID:		userID,
+		Platform:	platform,
+		KBID:		kbID,
+		Status:		SessionActive,
+		CreatedAt:	now,
+		UpdatedAt:	now,
+		Config:		config,
 	}
 
 	cfgJSON, _ := json.Marshal(config)
@@ -58,14 +58,14 @@ func (dm *PgDialogManager) CreateSession(ctx context.Context, userID, platform, 
 
 func (dm *PgDialogManager) GetSession(ctx context.Context, sessionID string) (*Session, error) {
 	var row struct {
-		ID        string
-		UserID    string
-		Platform  string
-		KBID      string
-		Status    string
-		Config    string
-		CreatedAt time.Time
-		UpdatedAt time.Time
+		ID		string
+		UserID		string
+		Platform	string
+		KBID		string
+		Status		string
+		Config		string
+		CreatedAt	time.Time
+		UpdatedAt	time.Time
 	}
 
 	if err := dm.db.WithContext(ctx).Raw(
@@ -86,14 +86,14 @@ func (dm *PgDialogManager) GetSession(ctx context.Context, sessionID string) (*S
 	json.Unmarshal([]byte(row.Config), &config)
 
 	return &Session{
-		ID:        row.ID,
-		UserID:    row.UserID,
-		Platform:  row.Platform,
-		KBID:      row.KBID,
-		Status:    SessionStatus(row.Status),
-		CreatedAt: row.CreatedAt,
-		UpdatedAt: row.UpdatedAt,
-		Config:    config,
+		ID:		row.ID,
+		UserID:		row.UserID,
+		Platform:	row.Platform,
+		KBID:		row.KBID,
+		Status:		SessionStatus(row.Status),
+		CreatedAt:	row.CreatedAt,
+		UpdatedAt:	row.UpdatedAt,
+		Config:		config,
 	}, nil
 }
 
@@ -156,14 +156,14 @@ func (dm *PgDialogManager) CleanupExpiredSessions(ctx context.Context) error {
 
 func (dm *PgDialogManager) ListUserSessions(ctx context.Context, userID, platform string, status SessionStatus) ([]Session, error) {
 	var rows []struct {
-		ID        string
-		UserID    string
-		Platform  string
-		KBID      string
-		Status    string
-		Config    string
-		CreatedAt time.Time
-		UpdatedAt time.Time
+		ID		string
+		UserID		string
+		Platform	string
+		KBID		string
+		Status		string
+		Config		string
+		CreatedAt	time.Time
+		UpdatedAt	time.Time
 	}
 
 	query := `SELECT id, user_id, platform, kb_id, status, config, created_at, updated_at
@@ -184,9 +184,9 @@ func (dm *PgDialogManager) ListUserSessions(ctx context.Context, userID, platfor
 		var config SessionConfig
 		json.Unmarshal([]byte(r.Config), &config)
 		sessions = append(sessions, Session{
-			ID: r.ID, UserID: r.UserID, Platform: r.Platform,
-			KBID: r.KBID, Status: SessionStatus(r.Status),
-			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Config: config,
+			ID:	r.ID, UserID: r.UserID, Platform: r.Platform,
+			KBID:	r.KBID, Status: SessionStatus(r.Status),
+			CreatedAt:	r.CreatedAt, UpdatedAt: r.UpdatedAt, Config: config,
 		})
 	}
 	return sessions, nil
@@ -196,6 +196,7 @@ func (dm *PgDialogManager) startSessionCleanup() {
 	ticker := time.NewTicker(dm.config.SessionCleanupInterval)
 	defer ticker.Stop()
 	for range ticker.C {
+		// 后台清理任务,使用 background ctx,不受任何上游取消影响
 		if err := dm.CleanupExpiredSessions(context.Background()); err != nil {
 			logger.Errorf("[PgDialogManager] 清理过期会话失败: %v", err)
 		}

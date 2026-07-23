@@ -213,7 +213,7 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 	// 收集低质样本（复用 P1-2 接口）
 	if s.sampleCollector != nil {
 		sampleType := s.decideLowQualitySampleType(ctx, result)
-		sample := s.buildLowQualitySample(input, result, sampleType)
+		sample := s.buildLowQualitySample(ctx, input, result, sampleType)
 		if err := s.sampleCollector.Collect(ctx, sample); err != nil {
 			logger.Errorf("[HumanizeEval] collect low quality sample: %v", err)
 		}
@@ -251,7 +251,7 @@ func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalRe
 	if s.scoreRepo == nil || r == nil {
 		return
 	}
-	score, dimensions := s.buildScoreFromResult(r)
+	score, dimensions := s.buildScoreFromResult(ctx, r)
 	if err := s.scoreRepo.Save(ctx, score, dimensions); err != nil {
 		logger.Errorf("[HumanizeEval] persist score: %v", err)
 	}
@@ -259,18 +259,18 @@ func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalRe
 
 // buildScoreFromResult 将 dto.HumanizeEvalResult 转换为 model.HumanizeScore + 维度明细
 // 五层架构：dto→model 转换在 service 层完成，repository 仅负责持久化
-func (s *HumanizeEvalService) buildScoreFromResult(r *dto.HumanizeEvalResult) (*model.HumanizeScore, []model.HumanizeDimensionRecord) {
+func (s *HumanizeEvalService) buildScoreFromResult(ctx context.Context, r *dto.HumanizeEvalResult) (*model.HumanizeScore, []model.HumanizeDimensionRecord) {
 	score := &model.HumanizeScore{
-		TotalScore:         r.TotalScore,
-		Threshold:          DefaultThreshold,
-		DistanceToChampion: r.DistanceToChampion,
-		Passed:             r.Passed,
-		AttemptCount:       r.AttemptCount,
-		LLMModel:           r.LLMModel,
-		LLMLatencyMs:       r.LLMLatencyMs,
-		EvaluatorType:      model.HumanizeEvaluatorType(r.EvaluatorType),
-		SampleStrategy:     model.HumanizeSampleStrategy(r.SampleStrategy),
-		FinalReply:         r.FinalReply,
+		TotalScore:		r.TotalScore,
+		Threshold:		DefaultThreshold,
+		DistanceToChampion:	r.DistanceToChampion,
+		Passed:			r.Passed,
+		AttemptCount:		r.AttemptCount,
+		LLMModel:		r.LLMModel,
+		LLMLatencyMs:		r.LLMLatencyMs,
+		EvaluatorType:		model.HumanizeEvaluatorType(r.EvaluatorType),
+		SampleStrategy:		model.HumanizeSampleStrategy(r.SampleStrategy),
+		FinalReply:		r.FinalReply,
 	}
 	if r.Input != nil {
 		score.SessionID = r.Input.SessionID
@@ -305,10 +305,10 @@ func (s *HumanizeEvalService) buildScoreFromResult(r *dto.HumanizeEvalResult) (*
 		dimensions = make([]model.HumanizeDimensionRecord, 0, len(r.Scores))
 		for _, sc := range r.Scores {
 			dimensions = append(dimensions, model.HumanizeDimensionRecord{
-				Dimension: string(sc.Dimension),
-				Score:     sc.Score,
-				Weight:    dto.HumanizeDimensionWeight[sc.Dimension],
-				Reason:    sc.Reason,
+				Dimension:	string(sc.Dimension),
+				Score:		sc.Score,
+				Weight:		dto.HumanizeDimensionWeight[sc.Dimension],
+				Reason:		sc.Reason,
 			})
 		}
 	}
@@ -319,16 +319,16 @@ func (s *HumanizeEvalService) buildScoreFromResult(r *dto.HumanizeEvalResult) (*
 
 // buildLowQualitySample 将 dto 评估结果转换为 model.LowQualitySample
 // 包含序列化维度得分和候选回复（原 repository 层逻辑，上移到 service）
-func (s *HumanizeEvalService) buildLowQualitySample(input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) *model.LowQualitySample {
+func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) *model.LowQualitySample {
 	if input == nil || result == nil {
 		return nil
 	}
 	// 校验 sampleType
 	validTypes := map[string]bool{
-		"persona": true, "compliance": true, "naturalness": true, "relevance": true,
-		"manual_review": true, "retry_exhausted": true,
-		"naturalness_low": true, "persuasiveness_low": true,
-		"champion_distance": true, "ab_test_loser": true,
+		"persona":	true, "compliance": true, "naturalness": true, "relevance": true,
+		"manual_review":	true, "retry_exhausted": true,
+		"naturalness_low":	true, "persuasiveness_low": true,
+		"champion_distance":	true, "ab_test_loser": true,
 	}
 	if !validTypes[sampleType] {
 		sampleType = "retry_exhausted"
@@ -341,20 +341,20 @@ func (s *HumanizeEvalService) buildLowQualitySample(input *dto.HumanizeEvalInput
 	scoresJSON, _ := json.Marshal(scoresMap)
 	repliesJSON, _ := json.Marshal(result.AllReplies)
 	return &model.LowQualitySample{
-		CustomerID:       input.CustomerID,
-		SessionID:        input.SessionID,
-		SampleType:       model.LowQualitySampleType(sampleType),
-		CustomerMessage:  input.CustomerMessage,
-		AIReply:          result.FinalReply,
-		Persona:          input.Persona,
-		Industry:         input.Industry,
-		Platform:         input.Platform,
-		Intent:           input.Intent,
-		DimensionScores:  string(scoresJSON),
-		TotalScore:       result.TotalScore,
-		Threshold:        DefaultThreshold,
-		AttemptCount:     result.AttemptCount,
-		CandidateReplies: string(repliesJSON),
+		CustomerID:		input.CustomerID,
+		SessionID:		input.SessionID,
+		SampleType:		model.LowQualitySampleType(sampleType),
+		CustomerMessage:	input.CustomerMessage,
+		AIReply:		result.FinalReply,
+		Persona:		input.Persona,
+		Industry:		input.Industry,
+		Platform:		input.Platform,
+		Intent:			input.Intent,
+		DimensionScores:	string(scoresJSON),
+		TotalScore:		result.TotalScore,
+		Threshold:		DefaultThreshold,
+		AttemptCount:		result.AttemptCount,
+		CandidateReplies:	string(repliesJSON),
 	}
 }
 

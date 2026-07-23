@@ -106,8 +106,11 @@ else
 fi
 
 # 2.2 service 不应直接调 db
-if grep -rn "db\.GetDB()\|_db\.GetDB()" "$TARGET/internal/service/" 2>/dev/null; then
+# 排除 _test.go 文件和注释行，避免误报
+SERVICE_DB_HITS=$(grep -rn --include="*.go" --exclude="*_test.go" "db\.GetDB()\|_db\.GetDB()" "$TARGET/internal/service/" 2>/dev/null | grep -v '//' || true)
+if [ -n "$SERVICE_DB_HITS" ]; then
   log_fail "[L4] service 直接调 db,违反分层(应通过 repository)"
+  echo "$SERVICE_DB_HITS" | sed 's/^/    /'
 else
   log_pass "[L4] service 未直接调 db"
 fi
@@ -149,7 +152,7 @@ MODEL_VIOLATIONS=0
 for f in $(find "$TARGET/internal/model" -name "*.go" 2>/dev/null); do
   # 检测 func (xxx *Xxx) 不在 GORM Hook / TableName 列表中的方法
   funcs=$(grep -E "^func \([^)]*\*?[A-Z][a-zA-Z]+\)" "$f" 2>/dev/null | \
-    grep -vE "TableName|BeforeCreate|BeforeUpdate|BeforeSave|BeforeDelete|AfterCreate|AfterUpdate|AfterSave|AfterDelete|AfterFind" || true)
+    grep -vE "TableName|BeforeCreate|BeforeUpdate|BeforeSave|BeforeDelete|AfterCreate|AfterUpdate|AfterSave|AfterDelete|AfterFind|Value\(|Scan\(" || true)
   if [ -n "$funcs" ]; then
     log_fail "[Model] $f 包含非 GORM Hook 方法:"
     echo "$funcs" | sed 's/^/    /'
@@ -191,7 +194,8 @@ for f in $(find "$TARGET/internal" \
   \( -name "*_v[0-9]*.go" \
   -o -name "*_v[0-9][0-9]*.go" \
   -o -name "*_stub*.go" \
-  -o -name "*_ext*.go" \
+  -o -name "*_ext.go" \
+  -o -name "*_ext_*.go" \
   -o -name "*_2026-*.go" \
   -o -name "*_2025-*.go" \
   -o -name "*_new*.go" \

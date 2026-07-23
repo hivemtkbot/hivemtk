@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"marketing/internal/model"
@@ -24,72 +25,72 @@ import (
 //   - 私域独立部署：无 merchant_id 字段。
 type DomainHealthService interface {
 	// CheckOne 探测单个域名，写入健康度与日志
-	CheckOne(domainID int) (*HealthCheckResult, error)
+	CheckOne(ctx context.Context, domainID int) (*HealthCheckResult, error)
 	// CheckAll 探测所有域名
-	CheckAll() ([]*HealthCheckResult, error)
+	CheckAll(ctx context.Context) ([]*HealthCheckResult, error)
 	// SwitchActive 手动切换到指定域名
-	SwitchActive(domainID int, reason string) error
+	SwitchActive(ctx context.Context, domainID int, reason string) error
 	// SwitchToBest 自动切换到评分最高的可用域名
-	SwitchToBest(reason string) (*model.DomainPool, error)
+	SwitchToBest(ctx context.Context, reason string) (*model.DomainPool, error)
 	// GetActiveDomain 获取当前活跃域名
-	GetActiveDomain() (*model.DomainPool, error)
+	GetActiveDomain(ctx context.Context) (*model.DomainPool, error)
 	// ListAvailable 列出可用域名
-	ListAvailable(minScore int) ([]*model.DomainPool, error)
+	ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error)
 	// ListHealthLogs 查询最近 N 条健康度日志
-	ListHealthLogs(domainID int, limit int) ([]*model.DomainHealthLog, error)
+	ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error)
 	// ProbeOnce 一次性探测（不写库），用于单元测试 / API 调试
-	ProbeOnce(domain string) (*HealthCheckResult, error)
+	ProbeOnce(ctx context.Context, domain string) (*HealthCheckResult, error)
 }
 
 // HealthCheckResult 一次健康度探测的完整结果
 type HealthCheckResult struct {
-	DomainID     int       `json:"domain_id"`
-	Domain       string    `json:"domain"`
-	Port         int       `json:"port"`
-	CheckedAt    time.Time `json:"checked_at"`
-	DNSOK        bool      `json:"dns_ok"`
-	DNSError     string    `json:"dns_error,omitempty"`
-	HTTPOk       bool      `json:"http_ok"`
-	HTTPStatus   int       `json:"http_status"`
-	HTTPLatency  int       `json:"http_latency_ms"`
-	HTTPErrorMsg string    `json:"http_error,omitempty"`
-	OnBlacklist  bool      `json:"on_blacklist"`
-	BlacklistSrc string    `json:"blacklist_source,omitempty"`
-	HealthScore  int       `json:"health_score"`
-	ActionTaken  string    `json:"action_taken"` // none / mark_unhealthy / switch_over
+	DomainID	int		`json:"domain_id"`
+	Domain		string		`json:"domain"`
+	Port		int		`json:"port"`
+	CheckedAt	time.Time	`json:"checked_at"`
+	DNSOK		bool		`json:"dns_ok"`
+	DNSError	string		`json:"dns_error,omitempty"`
+	HTTPOk		bool		`json:"http_ok"`
+	HTTPStatus	int		`json:"http_status"`
+	HTTPLatency	int		`json:"http_latency_ms"`
+	HTTPErrorMsg	string		`json:"http_error,omitempty"`
+	OnBlacklist	bool		`json:"on_blacklist"`
+	BlacklistSrc	string		`json:"blacklist_source,omitempty"`
+	HealthScore	int		`json:"health_score"`
+	ActionTaken	string		`json:"action_taken"`	// none / mark_unhealthy / switch_over
 }
 
 // 评分阈值（导出常量，供测试断言使用）
 const (
-	HealthScoreSwitchThreshold = 30 // 评分低于此值触发自动切换
-	HealthScoreHealthy         = 80
-	HealthScoreWarn            = 60
-	ConsecutiveFailureLimit    = 3 // 连续失败 3 次触发切换
-	HealthCheckTimeout         = 5 * time.Second
-	HealthLogRetentionDays     = 30
+	HealthScoreSwitchThreshold	= 30	// 评分低于此值触发自动切换
+	HealthScoreHealthy		= 80
+	HealthScoreWarn			= 60
+	ConsecutiveFailureLimit		= 3	// 连续失败 3 次触发切换
+	HealthCheckTimeout		= 5 * time.Second
+	HealthLogRetentionDays		= 30
 )
 
 // domainHealthService 实现
 type domainHealthService struct {
-	repo        repository.DomainPoolRepository
-	logRepo     *repository.DomainHealthLogRepository
-	blacklistR  *repository.DomainBlacklistRepository
-	httpClient  *http.Client
-	probeTarget string // 可选：HTTP 探测时的 Path，默认 "/"
-	mu          sync.Mutex
+	repo		repository.DomainPoolRepository
+	logRepo		*repository.DomainHealthLogRepository
+	blacklistR	*repository.DomainBlacklistRepository
+	httpClient	*http.Client
+	probeTarget	string	// 可选：HTTP 探测时的 Path，默认 "/"
+	mu		sync.Mutex
 }
 
 // NewDomainHealthService 创建域名健康度服务
 func NewDomainHealthService(db interface{}, repo repository.DomainPoolRepository) DomainHealthService {
-	// db 形参保留扩展位：未来可基于 db 注入其他仓储；当前统一通过 _db.GetDB() 获取
+	// db 形参保留扩展位：未来可基于 db 注入其他仓储；当前统一通过仓储层封装 DB 入口
 	_ = db
 	blRepo := repository.NewDomainBlacklistRepository(nil)
 	return &domainHealthService{
-		repo:        repo,
-		logRepo:     repository.NewDomainHealthLogRepository(nil),
-		blacklistR:  blRepo,
-		httpClient:  &http.Client{Timeout: HealthCheckTimeout},
-		probeTarget: "/",
+		repo:		repo,
+		logRepo:	repository.NewDomainHealthLogRepository(nil),
+		blacklistR:	blRepo,
+		httpClient:	&http.Client{Timeout: HealthCheckTimeout},
+		probeTarget:	"/",
 	}
 }
 
@@ -102,45 +103,45 @@ func NewDomainHealthServiceWithDeps(repo repository.DomainPoolRepository, logRep
 		blRepo = repository.NewDomainBlacklistRepository(nil)
 	}
 	return &domainHealthService{
-		repo:        repo,
-		logRepo:     logRepo,
-		blacklistR:  blRepo,
-		httpClient:  &http.Client{Timeout: HealthCheckTimeout},
-		probeTarget: "/",
+		repo:		repo,
+		logRepo:	logRepo,
+		blacklistR:	blRepo,
+		httpClient:	&http.Client{Timeout: HealthCheckTimeout},
+		probeTarget:	"/",
 	}
 }
 
 // CheckOne 探测单个域名
-func (s *domainHealthService) CheckOne(domainID int) (*HealthCheckResult, error) {
-	dp, err := s.repo.GetByID(domainID)
+func (s *domainHealthService) CheckOne(ctx context.Context, domainID int) (*HealthCheckResult, error) {
+	dp, err := s.repo.GetByID(ctx, domainID)
 	if err != nil {
 		return nil, fmt.Errorf("get domain: %w", err)
 	}
 	if dp == nil {
 		return nil, errors.New("域名不存在")
 	}
-	return s.checkAndPersist(dp), nil
+	return s.checkAndPersist(ctx, dp), nil
 }
 
 // CheckAll 探测所有域名
-func (s *domainHealthService) CheckAll() ([]*HealthCheckResult, error) {
-	rows, _, err := s.repo.List(1, 1000, "", 0)
+func (s *domainHealthService) CheckAll(ctx context.Context) ([]*HealthCheckResult, error) {
+	rows, _, err := s.repo.List(ctx, 1, 1000, "", 0)
 	if err != nil {
 		return nil, err
 	}
 	results := make([]*HealthCheckResult, 0, len(rows))
 	for _, dp := range rows {
-		results = append(results, s.checkAndPersist(dp))
+		results = append(results, s.checkAndPersist(ctx, dp))
 	}
 	return results, nil
 }
 
 // checkAndPersist 实际执行探测并落库
-func (s *domainHealthService) checkAndPersist(dp *model.DomainPool) *HealthCheckResult {
+func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.DomainPool) *HealthCheckResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	probe, err := s.ProbeOnce(dp.Domain)
+	probe, err := s.ProbeOnce(ctx, dp.Domain)
 	if err != nil {
 		logger.Errorf("探测域名失败 domain=%s: %v", dp.Domain, err)
 	}
@@ -156,7 +157,7 @@ func (s *domainHealthService) checkAndPersist(dp *model.DomainPool) *HealthCheck
 	}
 
 	// 黑名单查询
-	blacklisted, blEntry, blErr := s.blacklistR.IsBlacklisted(dp.Domain)
+	blacklisted, blEntry, blErr := s.blacklistR.IsBlacklisted(ctx, dp.Domain)
 	if blErr != nil {
 		logger.Errorf("查询黑名单失败 domain=%s: %v", dp.Domain, blErr)
 	}
@@ -189,31 +190,31 @@ func (s *domainHealthService) checkAndPersist(dp *model.DomainPool) *HealthCheck
 	if blEntry != nil {
 		blacklistNote = blEntry.Reason
 	}
-	if err := s.repo.UpdateHealth(dp.ID, score, failures, probe.DNSOK, probe.DNSError,
+	if err := s.repo.UpdateHealth(ctx, dp.ID, score, failures, probe.DNSOK, probe.DNSError,
 		probe.HTTPStatus, probe.HTTPLatency, blacklisted, blacklistAt, blacklistNote); err != nil {
 		logger.Errorf("更新域名健康度失败 id=%d: %v", dp.ID, err)
 	}
-	if err := s.repo.UpdateStatus(dp.ID, newStatus); err != nil {
+	if err := s.repo.UpdateStatus(ctx, dp.ID, newStatus); err != nil {
 		logger.Errorf("更新域名状态失败 id=%d: %v", dp.ID, err)
 	}
 
 	// 写日志
 	logRow := &model.DomainHealthLog{
-		DomainID:     dp.ID,
-		Domain:       dp.Domain,
-		CheckedAt:    time.Now(),
-		DNSOK:        probe.DNSOK,
-		DNSError:     probe.DNSError,
-		HTTPOk:       probe.HTTPOk,
-		HTTPStatus:   probe.HTTPStatus,
-		HTTPLatency:  probe.HTTPLatency,
-		HTTPErrorMsg: probe.HTTPErrorMsg,
-		OnBlacklist:  blacklisted,
-		BlacklistSrc: blSrc,
-		HealthScore:  score,
-		ActionTaken:  action,
+		DomainID:	dp.ID,
+		Domain:		dp.Domain,
+		CheckedAt:	time.Now(),
+		DNSOK:		probe.DNSOK,
+		DNSError:	probe.DNSError,
+		HTTPOk:		probe.HTTPOk,
+		HTTPStatus:	probe.HTTPStatus,
+		HTTPLatency:	probe.HTTPLatency,
+		HTTPErrorMsg:	probe.HTTPErrorMsg,
+		OnBlacklist:	blacklisted,
+		BlacklistSrc:	blSrc,
+		HealthScore:	score,
+		ActionTaken:	action,
 	}
-	if err := s.logRepo.Create(logRow); err != nil {
+	if err := s.logRepo.Create(ctx, logRow); err != nil {
 		logger.Errorf("写入健康度日志失败 id=%d: %v", dp.ID, err)
 	}
 
@@ -221,7 +222,7 @@ func (s *domainHealthService) checkAndPersist(dp *model.DomainPool) *HealthCheck
 	if dp.AutoSwitchEnabled {
 		// 评分过低 或 连续失败超限 且 当前活跃
 		if dp.IsActive && (score < HealthScoreSwitchThreshold || failures >= ConsecutiveFailureLimit) {
-			if _, err := s.SwitchToBest(fmt.Sprintf("健康度自动切换: score=%d failures=%d", score, failures)); err != nil {
+			if _, err := s.SwitchToBest(ctx, fmt.Sprintf("健康度自动切换: score=%d failures=%d", score, failures)); err != nil {
 				logger.Errorf("自动切换失败: %v", err)
 			} else {
 				action = "switch_over"
@@ -275,10 +276,10 @@ func calcHealthScore(prevScore, prevFailures int, probe *HealthCheckResult, blac
 }
 
 // ProbeOnce 不写库的纯探测（用于单点调试 / 单元测试）
-func (s *domainHealthService) ProbeOnce(domain string) (*HealthCheckResult, error) {
+func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*HealthCheckResult, error) {
 	res := &HealthCheckResult{
-		Domain:    domain,
-		CheckedAt: time.Now(),
+		Domain:		domain,
+		CheckedAt:	time.Now(),
 	}
 
 	// 1) DNS 解析
@@ -298,7 +299,7 @@ func (s *domainHealthService) ProbeOnce(domain string) (*HealthCheckResult, erro
 		"https://" + domain + s.probeTarget,
 	}
 	for _, u := range urls {
-		ok, status, latency, errMsg := s.doHTTPHead(u)
+		ok, status, latency, errMsg := s.doHTTPHead(ctx, u)
 		if ok {
 			res.HTTPOk = true
 			res.HTTPStatus = status
@@ -315,7 +316,7 @@ func (s *domainHealthService) ProbeOnce(domain string) (*HealthCheckResult, erro
 	return res, nil
 }
 
-func (s *domainHealthService) doHTTPHead(url string) (bool, int, time.Duration, string) {
+func (s *domainHealthService) doHTTPHead(ctx context.Context, url string) (bool, int, time.Duration, string) {
 	start := time.Now()
 	req, err := http.NewRequest(http.MethodHead, url, nil)
 	if err != nil {
@@ -336,8 +337,8 @@ func (s *domainHealthService) doHTTPHead(url string) (bool, int, time.Duration, 
 }
 
 // SwitchActive 手动切换
-func (s *domainHealthService) SwitchActive(domainID int, reason string) error {
-	dp, err := s.repo.GetByID(domainID)
+func (s *domainHealthService) SwitchActive(ctx context.Context, domainID int, reason string) error {
+	dp, err := s.repo.GetByID(ctx, domainID)
 	if err != nil {
 		return err
 	}
@@ -350,16 +351,16 @@ func (s *domainHealthService) SwitchActive(domainID int, reason string) error {
 	if dp.HealthScore < HealthScoreHealthy {
 		return fmt.Errorf("域名健康度过低（%d），禁止切换", dp.HealthScore)
 	}
-	if err := s.repo.DeactivateAll(); err != nil {
+	if err := s.repo.DeactivateAll(ctx); err != nil {
 		return err
 	}
 	now := time.Now()
-	return s.repo.UpdateActive(dp.ID, true, &now, 0)
+	return s.repo.UpdateActive(ctx, dp.ID, true, &now, 0)
 }
 
 // SwitchToBest 自动切换到评分最高可用域名
-func (s *domainHealthService) SwitchToBest(reason string) (*model.DomainPool, error) {
-	candidates, err := s.repo.ListAvailable(HealthScoreHealthy)
+func (s *domainHealthService) SwitchToBest(ctx context.Context, reason string) (*model.DomainPool, error) {
+	candidates, err := s.repo.ListAvailable(ctx, HealthScoreHealthy)
 	if err != nil {
 		return nil, err
 	}
@@ -368,17 +369,17 @@ func (s *domainHealthService) SwitchToBest(reason string) (*model.DomainPool, er
 	}
 	best := candidates[0]
 	// 查找当前活跃域名
-	actives, _ := s.repo.ListActive()
+	actives, _ := s.repo.ListActive(ctx)
 	prevID := 0
 	for _, a := range actives {
 		prevID = a.ID
 		break
 	}
-	if err := s.repo.DeactivateAll(); err != nil {
+	if err := s.repo.DeactivateAll(ctx); err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	if err := s.repo.UpdateActive(best.ID, true, &now, prevID); err != nil {
+	if err := s.repo.UpdateActive(ctx, best.ID, true, &now, prevID); err != nil {
 		return nil, err
 	}
 	logger.Infof("[domain-health] 自动切换完成 target=%s reason=%s", best.Domain, reason)
@@ -386,8 +387,8 @@ func (s *domainHealthService) SwitchToBest(reason string) (*model.DomainPool, er
 }
 
 // GetActiveDomain 获取当前活跃域名（无则返回 nil）
-func (s *domainHealthService) GetActiveDomain() (*model.DomainPool, error) {
-	actives, err := s.repo.ListActive()
+func (s *domainHealthService) GetActiveDomain(ctx context.Context) (*model.DomainPool, error) {
+	actives, err := s.repo.ListActive(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -398,14 +399,14 @@ func (s *domainHealthService) GetActiveDomain() (*model.DomainPool, error) {
 }
 
 // ListAvailable 列出可用域名
-func (s *domainHealthService) ListAvailable(minScore int) ([]*model.DomainPool, error) {
+func (s *domainHealthService) ListAvailable(ctx context.Context, minScore int) ([]*model.DomainPool, error) {
 	if minScore <= 0 {
 		minScore = HealthScoreHealthy
 	}
-	return s.repo.ListAvailable(minScore)
+	return s.repo.ListAvailable(ctx, minScore)
 }
 
 // ListHealthLogs 查询日志
-func (s *domainHealthService) ListHealthLogs(domainID int, limit int) ([]*model.DomainHealthLog, error) {
-	return s.logRepo.ListByDomain(domainID, limit)
+func (s *domainHealthService) ListHealthLogs(ctx context.Context, domainID int, limit int) ([]*model.DomainHealthLog, error) {
+	return s.logRepo.ListByDomain(ctx, domainID, limit)
 }

@@ -20,71 +20,71 @@ import (
 //
 // 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context，透传至 repository 层。
 type TeamUserService struct {
-	repo      repository.TeamUserRepository
-	roleRepo  repository.TeamRoleRepository
-	logRepo   repository.OperationLogRepository
-	jwtSecret string
+	repo		repository.TeamUserRepository
+	roleRepo	repository.TeamRoleRepository
+	logRepo		repository.OperationLogRepository
+	jwtSecret	string
 }
 
 // NewTeamUserService 创建团队用户服务实例
 func NewTeamUserService() *TeamUserService {
 	return &TeamUserService{
-		repo:      repository.NewTeamUserRepository(),
-		roleRepo:  repository.NewTeamRoleRepository(),
-		logRepo:   repository.NewOperationLogRepository(),
-		jwtSecret: getJWTSecret(),
+		repo:		repository.NewTeamUserRepository(),
+		roleRepo:	repository.NewTeamRoleRepository(),
+		logRepo:	repository.NewOperationLogRepository(),
+		jwtSecret:	getJWTSecret(),
 	}
 }
 
 // CreateTeamUserRequest 创建用户请求
 type CreateTeamUserRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Role     string `json:"role" binding:"required"`
-	Avatar   string `json:"avatar"`
+	Username	string	`json:"username" binding:"required,min=3,max=50"`
+	Password	string	`json:"password" binding:"required,min=6"`
+	Name		string	`json:"name"`
+	Email		string	`json:"email"`
+	Phone		string	`json:"phone"`
+	Role		string	`json:"role" binding:"required"`
+	Avatar		string	`json:"avatar"`
 }
 
 // UpdateTeamUserRequest 更新用户请求
 type UpdateTeamUserRequest struct {
-	Name          string `json:"name"`
-	Email         string `json:"email"`
-	Phone         string `json:"phone"`
-	Role          string `json:"role"`
-	Avatar        string `json:"avatar"`
-	Status        *int   `json:"status"`
-	DataScope     *int   `json:"data_scope,omitempty"`      // A 域 P1-4：数据范围（指针区分 0 值）
-	DepartmentID  *uint  `json:"department_id,omitempty"`   // A 域 P1-4：所属部门 ID
-	TeamID        *uint  `json:"team_id,omitempty"`         // A 域 P1-4：所属团队 ID
-	CustomDeptIDs string `json:"custom_dept_ids,omitempty"` // A 域 P1-4：data_scope=4 时的部门白名单（JSON）
+	Name		string	`json:"name"`
+	Email		string	`json:"email"`
+	Phone		string	`json:"phone"`
+	Role		string	`json:"role"`
+	Avatar		string	`json:"avatar"`
+	Status		*int	`json:"status"`
+	DataScope	*int	`json:"data_scope,omitempty"`		// A 域 P1-4：数据范围（指针区分 0 值）
+	DepartmentID	*uint	`json:"department_id,omitempty"`	// A 域 P1-4：所属部门 ID
+	TeamID		*uint	`json:"team_id,omitempty"`		// A 域 P1-4：所属团队 ID
+	CustomDeptIDs	string	`json:"custom_dept_ids,omitempty"`	// A 域 P1-4：data_scope=4 时的部门白名单（JSON）
 }
 
 // TeamChangePasswordRequest 修改密码请求
 type TeamChangePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	OldPassword	string	`json:"old_password" binding:"required"`
+	NewPassword	string	`json:"new_password" binding:"required,min=6"`
 }
 
 // TeamUserLoginRequest 登录请求
 type TeamUserLoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username	string	`json:"username" binding:"required"`
+	Password	string	`json:"password" binding:"required"`
 }
 
 // TeamUserLoginResponse 登录响应
 type TeamUserLoginResponse struct {
-	Token string          `json:"token"`
-	User  *model.TeamUser `json:"user"`
+	Token	string		`json:"token"`
+	User	*model.TeamUser	`json:"user"`
 }
 
 // TeamUserListResponse 用户列表响应
 type TeamUserListResponse struct {
-	List     []*model.TeamUser `json:"list"`
-	Total    int64             `json:"total"`
-	Page     int               `json:"page"`
-	PageSize int               `json:"page_size"`
+	List		[]*model.TeamUser	`json:"list"`
+	Total		int64			`json:"total"`
+	Page		int			`json:"page"`
+	PageSize	int			`json:"page_size"`
 }
 
 // Create 创建用户
@@ -143,14 +143,14 @@ func (s *TeamUserService) Create(ctx context.Context, req *CreateTeamUserRequest
 	}
 
 	user := &model.TeamUser{
-		Username: req.Username,
-		Password: hashedPassword,
-		Name:     req.Name,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Role:     req.Role,
-		Avatar:   req.Avatar,
-		Status:   model.TeamUserStatusActive,
+		Username:	req.Username,
+		Password:	hashedPassword,
+		Name:		req.Name,
+		Email:		req.Email,
+		Phone:		req.Phone,
+		Role:		req.Role,
+		Avatar:		req.Avatar,
+		Status:		model.TeamUserStatusActive,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
@@ -296,10 +296,10 @@ func (s *TeamUserService) GetList(ctx context.Context, page, pageSize int) (*Tea
 	}
 
 	return &TeamUserListResponse{
-		List:     users,
-		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
+		List:		users,
+		Total:		total,
+		Page:		page,
+		PageSize:	pageSize,
 	}, nil
 }
 
@@ -325,7 +325,7 @@ func (s *TeamUserService) Login(ctx context.Context, req *TeamUserLoginRequest, 
 	}
 
 	// 生成JWT Token
-	token, err := s.generateToken(user)
+	token, err := s.generateToken(ctx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -337,8 +337,8 @@ func (s *TeamUserService) Login(ctx context.Context, req *TeamUserLoginRequest, 
 	s.logOperation(ctx, user.ID, user.Username, "login", "auth", "", nil, nil, ip)
 
 	return &TeamUserLoginResponse{
-		Token: token,
-		User:  user,
+		Token:	token,
+		User:	user,
 	}, nil
 }
 
@@ -405,13 +405,13 @@ func (s *TeamUserService) ResetPassword(ctx context.Context, userID uint, newPas
 
 // generateToken 生成JWT Token
 // 独立部署版本：移除 merchant_id claim。
-func (s *TeamUserService) generateToken(user *model.TeamUser) (string, error) {
+func (s *TeamUserService) generateToken(ctx context.Context, user *model.TeamUser) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id":  user.ID,
-		"username": user.Username,
-		"role":     user.Role,
-		"exp":      time.Now().Add(72 * time.Hour).Unix(),
-		"iat":      time.Now().Unix(),
+		"user_id":	user.ID,
+		"username":	user.Username,
+		"role":		user.Role,
+		"exp":		time.Now().Add(72 * time.Hour).Unix(),
+		"iat":		time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -429,15 +429,15 @@ func (s *TeamUserService) logOperation(ctx context.Context, userID uint, usernam
 	// 优先使用 EventBus（异步、解耦）
 	if event.GetGlobalBus() != nil {
 		event.Publish(event.TopicOperationLog, event.OperationLogPayload{
-			UserID:     userID,
-			Username:   username,
-			Action:     action,
-			Module:     module,
-			Resource:   module,
-			ResourceID: resourceID,
-			OldValue:   oldValue,
-			NewValue:   newValue,
-			IP:         ip,
+			UserID:		userID,
+			Username:	username,
+			Action:		action,
+			Module:		module,
+			Resource:	module,
+			ResourceID:	resourceID,
+			OldValue:	oldValue,
+			NewValue:	newValue,
+			IP:		ip,
 		})
 		return
 	}
@@ -447,15 +447,15 @@ func (s *TeamUserService) logOperation(ctx context.Context, userID uint, usernam
 	newValueJSON, _ := json.Marshal(newValue)
 
 	logEntry := &model.OperationLog{
-		UserID:     userID,
-		Username:   username,
-		Action:     action,
-		Module:     module,
-		Resource:   module,
-		ResourceID: resourceID,
-		OldValue:   string(oldValueJSON),
-		NewValue:   string(newValueJSON),
-		IP:         ip,
+		UserID:		userID,
+		Username:	username,
+		Action:		action,
+		Module:		module,
+		Resource:	module,
+		ResourceID:	resourceID,
+		OldValue:	string(oldValueJSON),
+		NewValue:	string(newValueJSON),
+		IP:		ip,
 	}
 
 	_ = s.logRepo.Create(ctx, logEntry)
@@ -464,7 +464,7 @@ func (s *TeamUserService) logOperation(ctx context.Context, userID uint, usernam
 // getJWTSecret 获取JWT密钥
 func getJWTSecret() string {
 	// 从配置或环境变量获取
-	secret := "your-secret-key" // 默认值，生产环境应从配置读取
+	secret := "your-secret-key"	// 默认值，生产环境应从配置读取
 	return secret
 }
 
@@ -484,16 +484,16 @@ func NewTeamRoleService() *TeamRoleService {
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
-	Code        string   `json:"code" binding:"required"`
-	Name        string   `json:"name" binding:"required"`
-	Permissions []string `json:"permissions"`
+	Code		string		`json:"code" binding:"required"`
+	Name		string		`json:"name" binding:"required"`
+	Permissions	[]string	`json:"permissions"`
 }
 
 // UpdateRoleRequest 更新角色请求
 type UpdateRoleRequest struct {
-	Name        string   `json:"name"`
-	Permissions []string `json:"permissions"`
-	Status      *int     `json:"status"`
+	Name		string		`json:"name"`
+	Permissions	[]string	`json:"permissions"`
+	Status		*int		`json:"status"`
 }
 
 // GetList 获取角色列表
@@ -515,10 +515,10 @@ func (s *TeamRoleService) Create(ctx context.Context, req *CreateRoleRequest) (*
 	permissionsJSON, _ := json.Marshal(req.Permissions)
 
 	role := &model.TeamRole{
-		Code:        req.Code,
-		Name:        req.Name,
-		Permissions: string(permissionsJSON),
-		IsSystem:    false,
+		Code:		req.Code,
+		Name:		req.Name,
+		Permissions:	string(permissionsJSON),
+		IsSystem:	false,
 	}
 
 	if err := s.repo.Create(ctx, role); err != nil {
@@ -574,7 +574,7 @@ func (s *TeamRoleService) Delete(ctx context.Context, roleID uint) error {
 }
 
 // GetPermissions 获取所有权限
-func (s *TeamRoleService) GetPermissions() map[string]string {
+func (s *TeamRoleService) GetPermissions(ctx context.Context) map[string]string {
 	return model.SystemPermissions
 }
 
@@ -606,17 +606,17 @@ func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permi
 		// 使用系统默认角色权限
 		for _, r := range model.SystemRoles {
 			if r.Code == roleCode {
-				return s.checkPermissionInList(r.Permissions, permission)
+				return s.checkPermissionInList(ctx, r.Permissions, permission)
 			}
 		}
 		return false
 	}
 
-	return s.checkPermissionInList(role.Permissions, permission)
+	return s.checkPermissionInList(ctx, role.Permissions, permission)
 }
 
 // checkPermissionInList 检查权限是否在列表中
-func (s *PermissionService) checkPermissionInList(permissionsJSON, permission string) bool {
+func (s *PermissionService) checkPermissionInList(ctx context.Context, permissionsJSON, permission string) bool {
 	var permissions []string
 	if err := json.Unmarshal([]byte(permissionsJSON), &permissions); err != nil {
 		return false
@@ -624,7 +624,7 @@ func (s *PermissionService) checkPermissionInList(permissionsJSON, permission st
 
 	for _, p := range permissions {
 		if p == "*" {
-			return true // 拥有所有权限
+			return true	// 拥有所有权限
 		}
 		if p == permission {
 			return true

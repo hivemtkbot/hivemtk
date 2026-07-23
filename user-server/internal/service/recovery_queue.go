@@ -6,19 +6,20 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/repository"
+	"context"
 )
 
 // RecoveryQueueService 流失挽回队列服务
 type RecoveryQueueService struct {
-	repo    repository.RecoveryQueueRepository
-	nowFunc func() time.Time
+	repo	repository.RecoveryQueueRepository
+	nowFunc	func() time.Time
 }
 
 // NewRecoveryQueueService 创建挽回队列服务
 func NewRecoveryQueueService() *RecoveryQueueService {
 	return &RecoveryQueueService{
-		repo:    repository.NewRecoveryQueueRepository(),
-		nowFunc: time.Now,
+		repo:		repository.NewRecoveryQueueRepository(),
+		nowFunc:	time.Now,
 	}
 }
 
@@ -28,7 +29,7 @@ func NewRecoveryQueueServiceWithRepo(r repository.RecoveryQueueRepository) *Reco
 }
 
 // Enqueue 手动入队
-func (s *RecoveryQueueService) Enqueue(customerID, unifiedID, account, reason, strategy string, priority int) (*model.RecoveryQueue, error) {
+func (s *RecoveryQueueService) Enqueue(ctx context.Context, customerID, unifiedID, account, reason, strategy string, priority int) (*model.RecoveryQueue, error) {
 	if customerID == "" {
 		return nil, errors.New("customer_id 不能为空")
 	}
@@ -42,16 +43,16 @@ func (s *RecoveryQueueService) Enqueue(customerID, unifiedID, account, reason, s
 		strategy = "sms_coupon"
 	}
 	item := &model.RecoveryQueue{
-		CustomerID:  customerID,
-		UnifiedID:   unifiedID,
-		Account:     account,
-		Reason:      reason,
-		Strategy:    strategy,
-		Priority:    priority,
-		Stage:       model.RecoveryStageQueued,
-		MaxAttempts: 3,
+		CustomerID:	customerID,
+		UnifiedID:	unifiedID,
+		Account:	account,
+		Reason:		reason,
+		Strategy:	strategy,
+		Priority:	priority,
+		Stage:		model.RecoveryStageQueued,
+		MaxAttempts:	3,
 	}
-	if err := s.repo.Create(item); err != nil {
+	if err := s.repo.Create(ctx, item); err != nil {
 		return nil, err
 	}
 	return item, nil
@@ -61,25 +62,25 @@ func (s *RecoveryQueueService) Enqueue(customerID, unifiedID, account, reason, s
 //
 //	stage: succeed / failed / running
 //	nextDelay: 下次重试延迟（0 表示不再重试）
-func (s *RecoveryQueueService) MarkAttempt(id uint64, channel, result, stage string, nextDelay time.Duration) error {
+func (s *RecoveryQueueService) MarkAttempt(ctx context.Context, id uint64, channel, result, stage string, nextDelay time.Duration) error {
 	if id == 0 {
 		return errors.New("id 不能为空")
 	}
 	if stage == "" {
 		stage = model.RecoveryStageFailed
 	}
-	if err := s.repo.MarkAttempt(id, channel, result, nextDelayPtr(s.nowFunc(), nextDelay)); err != nil {
+	if err := s.repo.MarkAttempt(ctx, id, channel, result, nextDelayPtr(s.nowFunc(), nextDelay)); err != nil {
 		return err
 	}
-	return s.repo.MarkStage(id, stage)
+	return s.repo.MarkStage(ctx, id, stage)
 }
 
 // MarkRecovered 标记为已挽回
-func (s *RecoveryQueueService) MarkRecovered(id uint64, value int64) error {
+func (s *RecoveryQueueService) MarkRecovered(ctx context.Context, id uint64, value int64) error {
 	if id == 0 {
 		return errors.New("id 不能为空")
 	}
-	item, err := s.repo.GetByID(id)
+	item, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -87,30 +88,30 @@ func (s *RecoveryQueueService) MarkRecovered(id uint64, value int64) error {
 	item.RecoveredAt = &now
 	item.RecoveryValue = value
 	item.Stage = model.RecoveryStageSucceed
-	return s.repo.Update(item)
+	return s.repo.Update(ctx, item)
 }
 
 // Cancel 取消入队
-func (s *RecoveryQueueService) Cancel(id uint64) error {
+func (s *RecoveryQueueService) Cancel(ctx context.Context, id uint64) error {
 	if id == 0 {
 		return errors.New("id 不能为空")
 	}
-	return s.repo.MarkStage(id, model.RecoveryStageCancelled)
+	return s.repo.MarkStage(ctx, id, model.RecoveryStageCancelled)
 }
 
 // ListByStage 按阶段分页
-func (s *RecoveryQueueService) ListByStage(stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error) {
-	return s.repo.ListByStage(stage, page, pageSize)
+func (s *RecoveryQueueService) ListByStage(ctx context.Context, stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error) {
+	return s.repo.ListByStage(ctx, stage, page, pageSize)
 }
 
 // Distribution 阶段统计
-func (s *RecoveryQueueService) Distribution() (map[string]int64, error) {
-	return s.repo.CountByStage()
+func (s *RecoveryQueueService) Distribution(ctx context.Context,) (map[string]int64, error) {
+	return s.repo.CountByStage(ctx)
 }
 
 // ListReadyForAttempt 取出可触达任务
-func (s *RecoveryQueueService) ListReadyForAttempt(limit int) ([]*model.RecoveryQueue, error) {
-	return s.repo.ListReadyForAttempt(s.nowFunc(), limit)
+func (s *RecoveryQueueService) ListReadyForAttempt(ctx context.Context, limit int) ([]*model.RecoveryQueue, error) {
+	return s.repo.ListReadyForAttempt(ctx, s.nowFunc(), limit)
 }
 
 // nextDelayPtr 工具：nextDelay 为 0 时返回 nil，否则返回 now+nextDelay

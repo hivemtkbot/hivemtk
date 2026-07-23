@@ -84,7 +84,14 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 短链/活码跳转
-	public.GET("/s/:code", controller.RedirectShortLink)
+	redirectCtrl := controller.NewRedirectController(
+		service.NewShortLinkService(db),
+		service.NewDouyinCardService(db),
+		service.NewKuaishouCardService(db),
+		service.NewXiaohongshuCardService(db),
+		service.NewXianyuCardService(db),
+	)
+	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)
 
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
@@ -143,7 +150,7 @@ func wirePublicDependencies(db *gorm.DB) publicDeps {
 		smsUnsubscribeCtrl:     controller.NewSmsUnsubscribeController(service.NewSmsUnsubscribeService(smsUnsubscribeRepo)),
 		smsDeliveryTrackerCtrl: controller.NewSmsDeliveryTrackerController(service.NewSmsDeliveryTrackerService(db, nil, nil)),
 		emailOpenTrackerCtrl:   controller.NewEmailOpenTrackerController(service.NewEmailOpenTrackerService(nil, nil)),
-		inboxIngressCtrl:       controller.NewInboxIngressController(db),
+		inboxIngressCtrl:       controller.NewInboxIngressController(service.NewInboxIngressService()),
 	}
 }
 

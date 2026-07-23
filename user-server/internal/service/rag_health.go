@@ -31,32 +31,32 @@ import (
 
 const (
 	// RagHealthGradeA 优秀：≥90
-	RagHealthGradeA = "A"
+	RagHealthGradeA	= "A"
 	// RagHealthGradeB 良好：75-89
-	RagHealthGradeB = "B"
+	RagHealthGradeB	= "B"
 	// RagHealthGradeC 合格：60-74
-	RagHealthGradeC = "C"
+	RagHealthGradeC	= "C"
 	// RagHealthGradeD 不合格：<60
-	RagHealthGradeD = "D"
+	RagHealthGradeD	= "D"
 
 	// 健康度评估的默认时间窗口（最近 1 小时）
-	RagHealthDefaultWindow = 1 * time.Hour
+	RagHealthDefaultWindow	= 1 * time.Hour
 )
 
 // 6 个维度的权重（总和 1.0）
 const (
 	// RagHealthWeightRetrieval 检索可用性（rag_query_logs 总查询数 > 0 视为可用）
-	RagHealthWeightRetrieval = 0.10
+	RagHealthWeightRetrieval	= 0.10
 	// RagHealthWeightRecall 召回质量（avg_recall ≥ 0.7 视为合格）
-	RagHealthWeightRecall = 0.30
+	RagHealthWeightRecall	= 0.30
 	// RagHealthWeightEmbedding 向量化质量（embedding 失败率 ≤ 5% 视为合格）
-	RagHealthWeightEmbedding = 0.15
+	RagHealthWeightEmbedding	= 0.15
 	// RagHealthWeightCoverage 知识库覆盖（chunk 数 ≥ 100 视为合格）
-	RagHealthWeightCoverage = 0.15
+	RagHealthWeightCoverage	= 0.15
 	// RagHealthWeightPerformance 性能（P99 ≤ 1000ms 视为合格）
-	RagHealthWeightPerformance = 0.15
+	RagHealthWeightPerformance	= 0.15
 	// RagHealthWeightAlerts 告警状态（无活跃预警视为合格）
-	RagHealthWeightAlerts = 0.15
+	RagHealthWeightAlerts	= 0.15
 )
 
 // ----------------------------------------------------------------------------
@@ -65,12 +65,12 @@ const (
 
 // RagHealthService RAG 健康度服务
 type RagHealthService struct {
-	db       *gorm.DB
-	metric   *RagMetricsService
-	alert    *RagAlertService
-	mu       sync.Mutex
-	cached   *RagHealthReport
-	cachedAt time.Time
+	db		*gorm.DB
+	metric		*RagMetricsService
+	alert		*RagAlertService
+	mu		sync.Mutex
+	cached		*RagHealthReport
+	cachedAt	time.Time
 }
 
 // NewRagHealthService 创建 RAG 健康度服务
@@ -84,9 +84,9 @@ func NewRagHealthService(db *gorm.DB, metric *RagMetricsService, alert *RagAlert
 		alert = NewRagAlertService(db, metric)
 	}
 	return &RagHealthService{
-		db:     db,
-		metric: metric,
-		alert:  alert,
+		db:	db,
+		metric:	metric,
+		alert:	alert,
 	}
 }
 
@@ -96,35 +96,35 @@ func NewRagHealthService(db *gorm.DB, metric *RagMetricsService, alert *RagAlert
 
 // RagHealthReport 健康度报告
 type RagHealthReport struct {
-	Score       int                  `json:"score"`        // 0-100 总分
-	Grade       string               `json:"grade"`        // A/B/C/D
-	Dimensions  []RagHealthDimension `json:"dimensions"`   // 6 个维度子分数
-	CheckedAt   time.Time            `json:"checked_at"`   // 检查时间
-	WindowStart time.Time            `json:"window_start"` // 评估窗口起点
-	WindowEnd   time.Time            `json:"window_end"`   // 评估窗口终点
-	Summary     string               `json:"summary"`      // 文字摘要
+	Score		int			`json:"score"`		// 0-100 总分
+	Grade		string			`json:"grade"`		// A/B/C/D
+	Dimensions	[]RagHealthDimension	`json:"dimensions"`	// 6 个维度子分数
+	CheckedAt	time.Time		`json:"checked_at"`	// 检查时间
+	WindowStart	time.Time		`json:"window_start"`	// 评估窗口起点
+	WindowEnd	time.Time		`json:"window_end"`	// 评估窗口终点
+	Summary		string			`json:"summary"`	// 文字摘要
 }
 
 // RagHealthDimension 单维度子分数
 type RagHealthDimension struct {
-	Name          string  `json:"name"`           // 维度名
-	Key           string  `json:"key"`            // 维度键
-	Score         int     `json:"score"`          // 0-100 子分数
-	Weight        float64 `json:"weight"`         // 权重
-	WeightedScore float64 `json:"weighted_score"` // Score * Weight
-	MetricValue   float64 `json:"metric_value"`   // 原始指标值
-	MetricDesc    string  `json:"metric_desc"`    // 指标描述
-	Status        string  `json:"status"`         // healthy/warning/critical
+	Name		string	`json:"name"`		// 维度名
+	Key		string	`json:"key"`		// 维度键
+	Score		int	`json:"score"`		// 0-100 子分数
+	Weight		float64	`json:"weight"`		// 权重
+	WeightedScore	float64	`json:"weighted_score"`	// Score * Weight
+	MetricValue	float64	`json:"metric_value"`	// 原始指标值
+	MetricDesc	string	`json:"metric_desc"`	// 指标描述
+	Status		string	`json:"status"`		// healthy/warning/critical
 }
 
 // 维度键
 const (
-	RagHealthDimRetrieval   = "retrieval"
-	RagHealthDimRecall      = "recall"
-	RagHealthDimEmbedding   = "embedding"
-	RagHealthDimCoverage    = "coverage"
-	RagHealthDimPerformance = "performance"
-	RagHealthDimAlerts      = "alerts"
+	RagHealthDimRetrieval	= "retrieval"
+	RagHealthDimRecall	= "recall"
+	RagHealthDimEmbedding	= "embedding"
+	RagHealthDimCoverage	= "coverage"
+	RagHealthDimPerformance	= "performance"
+	RagHealthDimAlerts	= "alerts"
 )
 
 // ----------------------------------------------------------------------------
@@ -147,9 +147,9 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 	end := now
 
 	report := &RagHealthReport{
-		CheckedAt:   now,
-		WindowStart: start,
-		WindowEnd:   end,
+		CheckedAt:	now,
+		WindowStart:	start,
+		WindowEnd:	end,
 	}
 
 	// 1) 查询召回率指标（recall / precision / p99 / zero_hit / total_queries）
@@ -179,7 +179,7 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 	activeAlertCount := len(activeAlerts)
 
 	// 5) 计算 6 个维度
-	dimensions := s.computeDimensions(recallMetrics, embedFailRate, embedTotal, chunkCount, activeAlertCount)
+	dimensions := s.computeDimensions(ctx, recallMetrics, embedFailRate, embedTotal, chunkCount, activeAlertCount)
 	report.Dimensions = dimensions
 
 	// 6) 计算总分
@@ -187,7 +187,7 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 	for _, d := range dimensions {
 		totalScore += d.WeightedScore
 	}
-	report.Score = int(totalScore + 0.5) // 四舍五入
+	report.Score = int(totalScore + 0.5)	// 四舍五入
 	if report.Score > 100 {
 		report.Score = 100
 	}
@@ -231,7 +231,7 @@ func (s *RagHealthService) GetHealthCached(ctx context.Context, window time.Dura
 // ----------------------------------------------------------------------------
 
 // computeDimensions 计算 6 个维度的子分数
-func (s *RagHealthService) computeDimensions(
+func (s *RagHealthService) computeDimensions(ctx context.Context,
 	recall *RecallMetrics,
 	embedFailRate float64,
 	embedTotal int64,
@@ -388,14 +388,14 @@ func (s *RagHealthService) computeDimensions(
 // makeDimension 构造一个维度
 func makeDimension(key, name string, score int, weight, metric float64, desc, status string) RagHealthDimension {
 	return RagHealthDimension{
-		Name:          name,
-		Key:           key,
-		Score:         score,
-		Weight:        weight,
-		WeightedScore: float64(score) * weight,
-		MetricValue:   metric,
-		MetricDesc:    desc,
-		Status:        status,
+		Name:		name,
+		Key:		key,
+		Score:		score,
+		Weight:		weight,
+		WeightedScore:	float64(score) * weight,
+		MetricValue:	metric,
+		MetricDesc:	desc,
+		Status:		status,
 	}
 }
 
@@ -416,10 +416,10 @@ func scoreToGrade(score int) string {
 // buildHealthSummary 构建文字摘要
 func buildHealthSummary(r *RagHealthReport) string {
 	gradeText := map[string]string{
-		RagHealthGradeA: "优秀",
-		RagHealthGradeB: "良好",
-		RagHealthGradeC: "合格",
-		RagHealthGradeD: "不合格",
+		RagHealthGradeA:	"优秀",
+		RagHealthGradeB:	"良好",
+		RagHealthGradeC:	"合格",
+		RagHealthGradeD:	"不合格",
 	}
 	gradeCN := gradeText[r.Grade]
 	if gradeCN == "" {
@@ -459,7 +459,7 @@ func (s *RagHealthService) getChunkCount(ctx context.Context) (int64, error) {
 }
 
 // ClearCache 清除缓存（测试用）
-func (s *RagHealthService) ClearCache() {
+func (s *RagHealthService) ClearCache(ctx context.Context) {
 	s.mu.Lock()
 	s.cached = nil
 	s.cachedAt = time.Time{}

@@ -550,12 +550,12 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	database.First(&updatedUser, user.ID)
 
 	// 新密码应该可以验证通过
-	if !updatedUser.CheckPassword(newPassword) {
+	if !CheckPassword(&updatedUser,newPassword) {
 		t.Error("New password should be valid")
 	}
 
 	// 旧密码应该验证失败
-	if updatedUser.CheckPassword("oldpassword123") {
+	if CheckPassword(&updatedUser,"oldpassword123") {
 		t.Error("Old password should be invalid")
 	}
 }
@@ -606,7 +606,7 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 	}
 
 	// 验证密码可以正确验证
-	if !updatedUser.CheckPassword(newPassword) {
+	if !CheckPassword(&updatedUser,newPassword) {
 		t.Error("Password verification should succeed")
 	}
 }
@@ -1052,7 +1052,7 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 		// 验证新密码有效
 		var updatedUser model.SystemUser
 		database.First(&updatedUser, user.ID)
-		if !updatedUser.CheckPassword(pwd) {
+		if !CheckPassword(&updatedUser,pwd) {
 			t.Errorf("Password %s should be valid", pwd)
 		}
 	}
@@ -1060,10 +1060,10 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 	// 验证只有最后一个密码有效
 	var finalUser model.SystemUser
 	database.First(&finalUser, user.ID)
-	if !finalUser.CheckPassword("password4") {
+	if !CheckPassword(&finalUser,"password4") {
 		t.Error("Final password should be valid")
 	}
-	if finalUser.CheckPassword("password1") {
+	if CheckPassword(&finalUser,"password1") {
 		t.Error("Initial password should be invalid")
 	}
 }

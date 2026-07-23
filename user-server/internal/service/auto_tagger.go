@@ -40,7 +40,7 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 		return ErrCustomerNotFound
 	}
 
-	autoTags, err := s.tagRepo.ListAutoTags(ctx, )
+	autoTags, err := s.tagRepo.ListAutoTags(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 	}
 
 	// 构建客户数据快照用于规则评估
-	customerData := s.buildCustomerDataSnapshot(customer, events)
+	customerData := s.buildCustomerDataSnapshot(ctx, customer, events)
 
 	// 评估每个标签规则
 	for _, tag := range autoTags {
@@ -74,7 +74,7 @@ func (s *AutoTagger) EvaluateAndTag(ctx context.Context, customerID string) erro
 		}
 
 		// 评估规则
-		matched := s.evaluateRuleWithEvents(customerData, ruleStr)
+		matched := s.evaluateRuleWithEvents(ctx, customerData, ruleStr)
 
 		if matched {
 			// 匹配则添加标签
@@ -107,7 +107,7 @@ func (s *AutoTagger) ProcessEvent(ctx context.Context, event *model.CustomerEven
 }
 
 // evaluateRuleWithEvents 使用事件数据评估标签规则
-func (s *AutoTagger) evaluateRuleWithEvents(customerData map[string]any, ruleStr string) bool {
+func (s *AutoTagger) evaluateRuleWithEvents(ctx context.Context, customerData map[string]any, ruleStr string)  bool {
 	// 解析规则
 	var rule map[string]any
 	if err := json.Unmarshal([]byte(ruleStr), &rule); err != nil {
@@ -119,24 +119,24 @@ func (s *AutoTagger) evaluateRuleWithEvents(customerData map[string]any, ruleStr
 
 	switch ruleType {
 	case "event_count":
-		return s.evaluateEventCountRule(customerData, rule)
+		return s.evaluateEventCountRule(ctx, customerData, rule)
 	case "purchase_amount":
-		return s.evaluatePurchaseAmountRule(customerData, rule)
+		return s.evaluatePurchaseAmountRule(ctx, customerData, rule)
 	case "days_since":
-		return s.evaluateDaysSinceRule(customerData, rule)
+		return s.evaluateDaysSinceRule(ctx, customerData, rule)
 	case "custom":
-		return s.evaluateCustomRule(customerData, rule)
+		return s.evaluateCustomRule(ctx, customerData, rule)
 	case "simple":
 		// 简单规则格式：{"field": "rfm_score", "operator": "gte", "value": 50}
-		return s.evaluateSimpleRule(customerData, rule)
+		return s.evaluateSimpleRule(ctx, customerData, rule)
 	default:
 		// 尝试简单规则格式
-		return s.evaluateSimpleRule(customerData, rule)
+		return s.evaluateSimpleRule(ctx, customerData, rule)
 	}
 }
 
 // evaluateSimpleRule 评估简单规则
-func (s *AutoTagger) evaluateSimpleRule(customerData map[string]any, rule map[string]any) bool {
+func (s *AutoTagger) evaluateSimpleRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
 	field, _ := rule["field"].(string)
 	operator, _ := rule["operator"].(string)
 	value := rule["value"]
@@ -154,7 +154,7 @@ func (s *AutoTagger) evaluateSimpleRule(customerData map[string]any, rule map[st
 }
 
 // evaluateEventCountRule 评估事件数量规则
-func (s *AutoTagger) evaluateEventCountRule(customerData map[string]any, rule map[string]any) bool {
+func (s *AutoTagger) evaluateEventCountRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
 	eventType, _ := rule["event_type"].(string)
 	operator, _ := rule["operator"].(string)
 
@@ -186,7 +186,7 @@ func (s *AutoTagger) evaluateEventCountRule(customerData map[string]any, rule ma
 }
 
 // evaluatePurchaseAmountRule 评估购买金额规则
-func (s *AutoTagger) evaluatePurchaseAmountRule(customerData map[string]any, rule map[string]any) bool {
+func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
 	operator, _ := rule["operator"].(string)
 	threshold := rule["threshold"].(float64)
 
@@ -196,7 +196,7 @@ func (s *AutoTagger) evaluatePurchaseAmountRule(customerData map[string]any, rul
 }
 
 // evaluateDaysSinceRule 评估距离某天数的规则
-func (s *AutoTagger) evaluateDaysSinceRule(customerData map[string]any, rule map[string]any) bool {
+func (s *AutoTagger) evaluateDaysSinceRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
 	field, _ := rule["field"].(string) // days_since_last_purchase, days_since_active
 	operator, _ := rule["operator"].(string)
 
@@ -223,7 +223,7 @@ func (s *AutoTagger) evaluateDaysSinceRule(customerData map[string]any, rule map
 }
 
 // evaluateCustomRule 评估自定义规则
-func (s *AutoTagger) evaluateCustomRule(customerData map[string]any, rule map[string]any) bool {
+func (s *AutoTagger) evaluateCustomRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
 	// 自定义规则可以扩展更复杂的逻辑
 	conditions, ok := rule["conditions"].([]any)
 	if !ok {
@@ -241,7 +241,7 @@ func (s *AutoTagger) evaluateCustomRule(customerData map[string]any, rule map[st
 		if !ok {
 			continue
 		}
-		results = append(results, s.evaluateSimpleRule(customerData, condMap))
+		results = append(results, s.evaluateSimpleRule(ctx, customerData, condMap))
 	}
 
 	if len(results) == 0 {
@@ -267,7 +267,7 @@ func (s *AutoTagger) evaluateCustomRule(customerData map[string]any, rule map[st
 }
 
 // buildCustomerDataSnapshot 构建客户数据快照用于规则评估
-func (s *AutoTagger) buildCustomerDataSnapshot(customer *model.Customer, events []*model.CustomerEvent) map[string]any {
+func (s *AutoTagger) buildCustomerDataSnapshot(ctx context.Context, customer *model.Customer, events []*model.CustomerEvent)  map[string]any {
 	now := time.Now()
 
 	// 计算购买相关统计
@@ -421,5 +421,5 @@ func (s *AutoTagger) CreateAutoTag(ctx context.Context, name, category string, r
 }
 
 func (s *AutoTagger) GetAutoTags(ctx context.Context) ([]*model.CustomerTag, error) {
-	return s.tagRepo.ListAutoTags(ctx, )
+	return s.tagRepo.ListAutoTags(ctx)
 }

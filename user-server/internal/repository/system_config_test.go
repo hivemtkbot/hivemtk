@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -54,7 +55,7 @@ func TestSystemConfigRepository_SaveConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.SaveConfig(tt.config)
+			result, err := repo.SaveConfig(context.Background(), tt.config)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SaveConfig() error = %v, wantErr %v", err, tt.wantErr)
@@ -79,7 +80,7 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 		WebsiteURL:        "https://test.example.com",
 		AutoReplyHeadless: true,
 	}
-	repo.SaveConfig(expectedConfig)
+	repo.SaveConfig(context.Background(), expectedConfig)
 
 	tests := []struct {
 		name    string
@@ -93,7 +94,7 @@ func TestSystemConfigRepository_GetConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetConfig()
+			result, err := repo.GetConfig(context.Background())
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetConfig() error = %v, wantErr %v", err, tt.wantErr)
@@ -124,7 +125,7 @@ func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 		WebsiteURL:        "https://original.example.com",
 		AutoReplyHeadless: false,
 	}
-	_, err := repo.SaveConfig(config)
+	_, err := repo.SaveConfig(context.Background(), config)
 	if err != nil {
 		t.Errorf("SaveConfig() create error = %v", err)
 	}
@@ -135,7 +136,7 @@ func TestSystemConfigRepository_SaveConfig_Update(t *testing.T) {
 	config.AutoReplyHeadless = true
 
 	// FirstOrCreate 会找到已存在的记录，不会更新
-	resultConfig, err := repo.SaveConfig(config)
+	resultConfig, err := repo.SaveConfig(context.Background(), config)
 	if err != nil {
 		t.Errorf("SaveConfig() error = %v", err)
 	}
@@ -151,7 +152,7 @@ func TestSystemConfigRepository_GetConfig_Empty(t *testing.T) {
 	setupSystemConfigTestDB(t)
 
 	repo := NewSystemConfigRepository()
-	_, err := repo.GetConfig()
+	_, err := repo.GetConfig(context.Background())
 	if err == nil {
 		t.Error("Expected error for empty config")
 	}

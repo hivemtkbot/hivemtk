@@ -68,6 +68,3 @@ type RagAlert struct {
 
 // TableName 表名
 func (RagAlert) TableName() string { return "rag_alerts" }
-
-// IsActive 是否活跃（未解决）
-func (a RagAlert) IsActive() bool { return !a.Resolved }

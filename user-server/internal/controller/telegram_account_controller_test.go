@@ -80,7 +80,7 @@ func waitForWorker(t *testing.T, database *gorm.DB, query string, args ...any) {
 // TestTelegramAccountController_CreateAndList 创建账号并列表查询
 func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	setupTelegramControllerTestDB(t)
-	ctrl := NewTelegramAccountController()
+	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
 	// 1. 创建账号
@@ -160,7 +160,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 // TestTelegramAccountController_GetAndGetByID 创建后按 ID 查询
 func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 	setupTelegramControllerTestDB(t)
-	ctrl := NewTelegramAccountController()
+	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
 	// 创建
@@ -206,7 +206,7 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 // TestTelegramAccountController_Update 更新账号
 func TestTelegramAccountController_Update(t *testing.T) {
 	setupTelegramControllerTestDB(t)
-	ctrl := NewTelegramAccountController()
+	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
 	// 创建
@@ -259,7 +259,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 // TestTelegramAccountController_Delete 删除账号
 func TestTelegramAccountController_Delete(t *testing.T) {
 	setupTelegramControllerTestDB(t)
-	ctrl := NewTelegramAccountController()
+	ctrl := NewTelegramAccountController(nil)
 	router := setupTelegramAccountRouter(ctrl)
 
 	// 创建

@@ -17,43 +17,43 @@ import (
 
 // AIAgentCreateDTO 智能体创建/更新 DTO（脱离 model 的入参）
 type AIAgentCreateDTO struct {
-	AgentCode            string          `json:"agent_code"`
-	Name                 string          `json:"name"`
-	Description          string          `json:"description"`
-	Avatar               string          `json:"avatar"`
-	AgentType            string          `json:"agent_type"`
-	Persona              string          `json:"persona"`
-	SystemPrompt         string          `json:"system_prompt"`
-	Greeting             string          `json:"greeting"`
-	RagProductIDs        []string        `json:"rag_product_ids"`
-	SOPIDs               []string        `json:"sop_ids"`
-	ScriptLibraryIDs     []string        `json:"script_library_ids"`
-	LLMModel             string          `json:"llm_model"`
-	LLMProviderConfig    json.RawMessage `json:"llm_provider_config"`
-	Temperature          float64         `json:"temperature"`
-	MaxTokens            int             `json:"max_tokens"`
-	TopP                 float64         `json:"top_p"`
-	FrequencyPenalty     float64         `json:"frequency_penalty"`
-	PresencePenalty      float64         `json:"presence_penalty"`
-	EnableRAG            bool            `json:"enable_rag"`
-	EnableScriptMatch    bool            `json:"enable_script_match"`
-	EnableHumanizePolish bool            `json:"enable_humanize_polish"`
-	EnableContentAudit   bool            `json:"enable_content_audit"`
-	EnablePlaybook       bool            `json:"enable_playbook"`
-	RAGTopK              int             `json:"rag_top_k"`
-	ConfidenceThreshold  float64         `json:"confidence_threshold"`
-	MaxAIConsecutive     int             `json:"max_ai_consecutive"`
-	Status               int             `json:"status"`
+	AgentCode		string		`json:"agent_code"`
+	Name			string		`json:"name"`
+	Description		string		`json:"description"`
+	Avatar			string		`json:"avatar"`
+	AgentType		string		`json:"agent_type"`
+	Persona			string		`json:"persona"`
+	SystemPrompt		string		`json:"system_prompt"`
+	Greeting		string		`json:"greeting"`
+	RagProductIDs		[]string	`json:"rag_product_ids"`
+	SOPIDs			[]string	`json:"sop_ids"`
+	ScriptLibraryIDs	[]string	`json:"script_library_ids"`
+	LLMModel		string		`json:"llm_model"`
+	LLMProviderConfig	json.RawMessage	`json:"llm_provider_config"`
+	Temperature		float64		`json:"temperature"`
+	MaxTokens		int		`json:"max_tokens"`
+	TopP			float64		`json:"top_p"`
+	FrequencyPenalty	float64		`json:"frequency_penalty"`
+	PresencePenalty		float64		`json:"presence_penalty"`
+	EnableRAG		bool		`json:"enable_rag"`
+	EnableScriptMatch	bool		`json:"enable_script_match"`
+	EnableHumanizePolish	bool		`json:"enable_humanize_polish"`
+	EnableContentAudit	bool		`json:"enable_content_audit"`
+	EnablePlaybook		bool		`json:"enable_playbook"`
+	RAGTopK			int		`json:"rag_top_k"`
+	ConfidenceThreshold	float64		`json:"confidence_threshold"`
+	MaxAIConsecutive	int		`json:"max_ai_consecutive"`
+	Status			int		`json:"status"`
 }
 
 // CreateAIAgent 创建智能体（组装 model 并应用默认值）
-func (s *AIAgentService) CreateAIAgent(req *AIAgentCreateDTO) (*model.AIAgent, error) {
+func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDTO) (*model.AIAgent, error) {
 	// M2 运行时覆盖默认：Persona 指向已购/已同步的 agent_persona 资产且未提供 SystemPrompt 时，
 	// 应用资产内置人设（系统提示词 / 问候语）。
 	systemPrompt := req.SystemPrompt
 	greeting := req.Greeting
 	if r := GetAssetResolver(); r != nil && req.Persona != "" && systemPrompt == "" {
-		if p, err := r.LoadPersona(context.Background(), req.Persona); err == nil && p != nil {
+		if p, err := r.LoadPersona(ctx, req.Persona); err == nil && p != nil {
 			systemPrompt = p.SystemPrompt
 			if greeting == "" && len(p.GreetingTemplates) > 0 {
 				greeting = strings.Join(p.GreetingTemplates, "\n")
@@ -62,32 +62,32 @@ func (s *AIAgentService) CreateAIAgent(req *AIAgentCreateDTO) (*model.AIAgent, e
 	}
 
 	agent := &model.AIAgent{
-		AgentCode:            req.AgentCode,
-		Name:                 req.Name,
-		Description:          req.Description,
-		Avatar:               req.Avatar,
-		AgentType:            req.AgentType,
-		Persona:              req.Persona,
-		SystemPrompt:         systemPrompt,
-		Greeting:             greeting,
-		RagProductIDs:        req.RagProductIDs,
-		SOPIDs:               req.SOPIDs,
-		ScriptLibraryIDs:     req.ScriptLibraryIDs,
-		LLMModel:             req.LLMModel,
-		Temperature:          req.Temperature,
-		MaxTokens:            req.MaxTokens,
-		TopP:                 req.TopP,
-		FrequencyPenalty:     req.FrequencyPenalty,
-		PresencePenalty:      req.PresencePenalty,
-		EnableRAG:            req.EnableRAG,
-		EnableScriptMatch:    req.EnableScriptMatch,
-		EnableHumanizePolish: req.EnableHumanizePolish,
-		EnableContentAudit:   req.EnableContentAudit,
-		EnablePlaybook:       req.EnablePlaybook,
-		RAGTopK:              req.RAGTopK,
-		ConfidenceThreshold:  req.ConfidenceThreshold,
-		MaxAIConsecutive:     req.MaxAIConsecutive,
-		Status:               req.Status,
+		AgentCode:		req.AgentCode,
+		Name:			req.Name,
+		Description:		req.Description,
+		Avatar:			req.Avatar,
+		AgentType:		req.AgentType,
+		Persona:		req.Persona,
+		SystemPrompt:		systemPrompt,
+		Greeting:		greeting,
+		RagProductIDs:		req.RagProductIDs,
+		SOPIDs:			req.SOPIDs,
+		ScriptLibraryIDs:	req.ScriptLibraryIDs,
+		LLMModel:		req.LLMModel,
+		Temperature:		req.Temperature,
+		MaxTokens:		req.MaxTokens,
+		TopP:			req.TopP,
+		FrequencyPenalty:	req.FrequencyPenalty,
+		PresencePenalty:	req.PresencePenalty,
+		EnableRAG:		req.EnableRAG,
+		EnableScriptMatch:	req.EnableScriptMatch,
+		EnableHumanizePolish:	req.EnableHumanizePolish,
+		EnableContentAudit:	req.EnableContentAudit,
+		EnablePlaybook:		req.EnablePlaybook,
+		RAGTopK:		req.RAGTopK,
+		ConfidenceThreshold:	req.ConfidenceThreshold,
+		MaxAIConsecutive:	req.MaxAIConsecutive,
+		Status:			req.Status,
 	}
 	if len(req.LLMProviderConfig) > 0 {
 		var cfg model.LLMProviderConfig
@@ -137,15 +137,15 @@ func (s *AIAgentService) CreateAIAgent(req *AIAgentCreateDTO) (*model.AIAgent, e
 		agent.EnablePlaybook = true
 	}
 
-	if err := s.Create(agent); err != nil {
+	if err := s.Create(ctx, agent); err != nil {
 		return nil, err
 	}
 	return agent, nil
 }
 
 // UpdateAIAgentFromJSON 按原始 JSON 的部分字段更新智能体，保留未提供字段原值
-func (s *AIAgentService) UpdateAIAgentFromJSON(id uint, rawJSON []byte) (*model.AIAgent, error) {
-	existing, err := s.GetByID(id)
+func (s *AIAgentService) UpdateAIAgentFromJSON(ctx context.Context, id uint, rawJSON []byte) (*model.AIAgent, error) {
+	existing, err := s.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (s *AIAgentService) UpdateAIAgentFromJSON(id uint, rawJSON []byte) (*model.
 		existing.Status = req.Status
 	}
 
-	if err := s.Update(existing); err != nil {
+	if err := s.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return existing, nil
@@ -256,34 +256,34 @@ func (s *AIAgentService) UpdateAIAgentFromJSON(id uint, rawJSON []byte) (*model.
 
 // ChannelBindingDTO 渠道绑定创建 DTO（脱离 model 的入参）
 type ChannelBindingDTO struct {
-	ChannelType string `json:"channel_type" binding:"required"`
-	AccountID   string `json:"account_id" binding:"required"`
-	AgentID     uint   `json:"agent_id" binding:"required"`
-	IsPrimary   bool   `json:"is_primary"`
-	Enabled     bool   `json:"enabled"`
+	ChannelType	string	`json:"channel_type" binding:"required"`
+	AccountID	string	`json:"account_id" binding:"required"`
+	AgentID		uint	`json:"agent_id" binding:"required"`
+	IsPrimary	bool	`json:"is_primary"`
+	Enabled		bool	`json:"enabled"`
 }
 
 // CreateChannelBinding 创建渠道绑定
-func (s *ChannelAgentBindingService) CreateChannelBinding(req *ChannelBindingDTO) (*model.ChannelAgentBinding, error) {
+func (s *ChannelAgentBindingService) CreateChannelBinding(ctx context.Context, req *ChannelBindingDTO) (*model.ChannelAgentBinding, error) {
 	b := &model.ChannelAgentBinding{
-		ChannelType: NormalizeChannelType(req.ChannelType),
-		AccountID:   req.AccountID,
-		AgentID:     req.AgentID,
-		IsPrimary:   req.IsPrimary,
-		Enabled:     true,
+		ChannelType:	NormalizeChannelType(req.ChannelType),
+		AccountID:	req.AccountID,
+		AgentID:	req.AgentID,
+		IsPrimary:	req.IsPrimary,
+		Enabled:	true,
 	}
 	if !req.Enabled {
 		b.Enabled = false
 	}
-	if err := s.Create(b); err != nil {
+	if err := s.Create(ctx, b); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
 // UpdateChannelBindingFromJSON 按原始 JSON 更新渠道绑定
-func (s *ChannelAgentBindingService) UpdateChannelBindingFromJSON(id uint, rawJSON []byte) (*model.ChannelAgentBinding, error) {
-	existing, err := s.GetByID(id)
+func (s *ChannelAgentBindingService) UpdateChannelBindingFromJSON(ctx context.Context, id uint, rawJSON []byte) (*model.ChannelAgentBinding, error) {
+	existing, err := s.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (s *ChannelAgentBindingService) UpdateChannelBindingFromJSON(id uint, rawJS
 	existing.AgentID = req.AgentID
 	existing.IsPrimary = req.IsPrimary
 	existing.Enabled = req.Enabled
-	if err := s.Update(existing); err != nil {
+	if err := s.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return existing, nil
@@ -307,32 +307,32 @@ func (s *ChannelAgentBindingService) UpdateChannelBindingFromJSON(id uint, rawJS
 
 // CSAgentMountDTO 客服挂载创建 DTO（脱离 model 的入参）
 type CSAgentMountDTO struct {
-	AgentStatusID uint `json:"agent_status_id" binding:"required"`
-	AIAgentID     uint `json:"ai_agent_id" binding:"required"`
-	IsPrimary     bool `json:"is_primary"`
-	Enabled       bool `json:"enabled"`
+	AgentStatusID	uint	`json:"agent_status_id" binding:"required"`
+	AIAgentID	uint	`json:"ai_agent_id" binding:"required"`
+	IsPrimary	bool	`json:"is_primary"`
+	Enabled		bool	`json:"enabled"`
 }
 
 // CreateCSAgentMount 创建客服挂载
-func (s *CustomerServiceAgentService) CreateCSAgentMount(req *CSAgentMountDTO) (*model.CustomerServiceAgent, error) {
+func (s *CustomerServiceAgentService) CreateCSAgentMount(ctx context.Context, req *CSAgentMountDTO) (*model.CustomerServiceAgent, error) {
 	m := &model.CustomerServiceAgent{
-		AgentStatusID: req.AgentStatusID,
-		AIAgentID:     req.AIAgentID,
-		IsPrimary:     req.IsPrimary,
-		Enabled:       true,
+		AgentStatusID:	req.AgentStatusID,
+		AIAgentID:	req.AIAgentID,
+		IsPrimary:	req.IsPrimary,
+		Enabled:	true,
 	}
 	if !req.Enabled {
 		m.Enabled = false
 	}
-	if err := s.Create(m); err != nil {
+	if err := s.Create(ctx, m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
 // UpdateCSAgentMountFromJSON 按原始 JSON 更新客服挂载
-func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(id uint, rawJSON []byte) (*model.CustomerServiceAgent, error) {
-	existing, err := s.GetByID(id)
+func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(ctx context.Context, id uint, rawJSON []byte) (*model.CustomerServiceAgent, error) {
+	existing, err := s.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func (s *CustomerServiceAgentService) UpdateCSAgentMountFromJSON(id uint, rawJSO
 	existing.AIAgentID = req.AIAgentID
 	existing.IsPrimary = req.IsPrimary
 	existing.Enabled = req.Enabled
-	if err := s.Update(existing); err != nil {
+	if err := s.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return existing, nil

@@ -23,7 +23,6 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
 	followup.SetDashboard(dashboard)
-	ctx := context.Background()
 
 	custID := "cust_close_001"
 	ownerID := "sales_001"
@@ -64,7 +63,6 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_close_002"
 	ownerID := "sales_002"
@@ -87,7 +85,6 @@ func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
 func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_close_003"
 	ownerID := "sales_003"
@@ -110,7 +107,6 @@ func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
 func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_close_004"
 	ownerID := "sales_004"
@@ -133,7 +129,6 @@ func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
 func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_close_005"
 	ownerID := "sales_005"
@@ -158,7 +153,6 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
 	followup.SetDashboard(dashboard)
-	ctx := context.Background()
 
 	ownerID := "sales_006"
 	cust1 := "cust_dash_001"
@@ -195,7 +189,6 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	// 不注入 dashboard
-	ctx := context.Background()
 
 	custID := "cust_safe_001"
 	ownerID := "sales_safe"
@@ -224,7 +217,6 @@ func TestFollowUp_CompleteWithResult_NotFound(t *testing.T) {
 func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_def_001"
 	ownerID := "sales_def"
@@ -247,7 +239,6 @@ func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
 func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	custID := "cust_note_001"
 	ownerID := "sales_note"
@@ -282,7 +273,6 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
 	followup.SetDashboard(dashboard)
-	ctx := context.Background()
 
 	ownerID := "sales_multi"
 	for i := 0; i < 10; i++ {
@@ -325,7 +315,6 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	ctx := context.Background()
 
 	// 构造漏斗：100 客户咨询
 	// 1. 50 客户被跟进到 Contacted

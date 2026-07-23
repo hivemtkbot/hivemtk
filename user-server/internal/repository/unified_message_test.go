@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -67,7 +68,7 @@ func TestUnifiedMessageRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := msgRepo.Create(tt.msg)
+			err := msgRepo.Create(context.Background(), tt.msg)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -91,7 +92,7 @@ func TestUnifiedMessageRepository_GetByID(t *testing.T) {
 		ChatID:    "chat-123",
 		Content:   "GetByID Test",
 	}
-	msgRepo.Create(msg)
+	msgRepo.Create(context.Background(), msg)
 
 	tests := []struct {
 		name    string
@@ -112,7 +113,7 @@ func TestUnifiedMessageRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := msgRepo.GetByID(tt.id)
+			result, err := msgRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -140,9 +141,9 @@ func TestUnifiedMessageRepository_GetByMessageID(t *testing.T) {
 		Platform:  model.PlatformDouyin,
 		Content:   "Unique Message",
 	}
-	msgRepo.Create(msg)
+	msgRepo.Create(context.Background(), msg)
 
-	result, err := msgRepo.GetByMessageID("unique-msg-id")
+	result, err := msgRepo.GetByMessageID(context.Background(), "unique-msg-id")
 	if err != nil {
 		t.Errorf("GetByMessageID() error = %v", err)
 	}
@@ -152,7 +153,7 @@ func TestUnifiedMessageRepository_GetByMessageID(t *testing.T) {
 	}
 
 	// 测试不存在的 MessageID
-	_, err = msgRepo.GetByMessageID("non-existing-id")
+	_, err = msgRepo.GetByMessageID(context.Background(), "non-existing-id")
 	if err == nil {
 		t.Error("Expected error for non-existing message ID")
 	}
@@ -164,7 +165,7 @@ func TestUnifiedMessageRepository_GetByChat(t *testing.T) {
 
 	// 创建测试数据 - 同一个会话的多条消息
 	for i := 1; i <= 4; i++ {
-		msgRepo.Create(&model.UnifiedMessage{
+		msgRepo.Create(context.Background(), &model.UnifiedMessage{
 			MessageID: string(rune('a' + i - 1)),
 			Platform:  model.PlatformDouyin,
 			ChatID:    "chat-123",
@@ -173,7 +174,7 @@ func TestUnifiedMessageRepository_GetByChat(t *testing.T) {
 	}
 
 	// 创建另一个会话的数据
-	msgRepo.Create(&model.UnifiedMessage{
+	msgRepo.Create(context.Background(), &model.UnifiedMessage{
 		MessageID: "msg-other-chat",
 		Platform:  model.PlatformDouyin,
 		ChatID:    "chat-456",
@@ -220,7 +221,7 @@ func TestUnifiedMessageRepository_GetByChat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := msgRepo.GetByChat(tt.chatID, tt.page, tt.pageSize)
+			results, total, err := msgRepo.GetByChat(context.Background(), tt.chatID, tt.page, tt.pageSize)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByChat() error = %v, wantErr %v", err, tt.wantErr)
@@ -247,7 +248,7 @@ func TestUnifiedMessageRepository_UpdateStatus(t *testing.T) {
 		Platform:  model.PlatformDouyin,
 		Status:    model.MessageStatusPending,
 	}
-	msgRepo.Create(msg)
+	msgRepo.Create(context.Background(), msg)
 
 	tests := []struct {
 		name      string
@@ -273,14 +274,14 @@ func TestUnifiedMessageRepository_UpdateStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := msgRepo.UpdateStatus(msg.ID, tt.newStatus)
+			err := msgRepo.UpdateStatus(context.Background(), msg.ID, tt.newStatus)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := msgRepo.GetByID(msg.ID)
+				updated, _ := msgRepo.GetByID(context.Background(), msg.ID)
 				if updated.Status != tt.newStatus {
 					t.Errorf("Expected status '%v', got '%v'", tt.newStatus, updated.Status)
 				}
@@ -299,14 +300,14 @@ func TestUnifiedMessageRepository_Delete(t *testing.T) {
 		Platform:  model.PlatformDouyin,
 		Content:   "To be deleted",
 	}
-	msgRepo.Create(msg)
+	msgRepo.Create(context.Background(), msg)
 
-	err := msgRepo.Delete(msg.ID)
+	err := msgRepo.Delete(context.Background(), msg.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = msgRepo.GetByID(msg.ID)
+	_, err = msgRepo.GetByID(context.Background(), msg.ID)
 	if err == nil {
 		t.Error("Expected message to be deleted")
 	}
@@ -353,7 +354,7 @@ func TestUnifiedReplyRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := replyRepo.Create(tt.reply)
+			err := replyRepo.Create(context.Background(), tt.reply)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -377,7 +378,7 @@ func TestUnifiedReplyRepository_GetByID(t *testing.T) {
 		Content:   "GetByID Reply",
 		Status:    model.ReplyStatusSent,
 	}
-	replyRepo.Create(reply)
+	replyRepo.Create(context.Background(), reply)
 
 	tests := []struct {
 		name    string
@@ -398,7 +399,7 @@ func TestUnifiedReplyRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := replyRepo.GetByID(tt.id)
+			result, err := replyRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -421,23 +422,23 @@ func TestUnifiedReplyRepository_GetByMessageID(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 
 	// 创建测试数据 - 同一条消息的多条回复
-	replyRepo.Create(&model.UnifiedReply{
+	replyRepo.Create(context.Background(), &model.UnifiedReply{
 		ReplyID:   "reply-1",
 		MessageID: "msg-target",
 		Content:   "First reply",
 	})
-	replyRepo.Create(&model.UnifiedReply{
+	replyRepo.Create(context.Background(), &model.UnifiedReply{
 		ReplyID:   "reply-2",
 		MessageID: "msg-target",
 		Content:   "Second reply",
 	})
-	replyRepo.Create(&model.UnifiedReply{
+	replyRepo.Create(context.Background(), &model.UnifiedReply{
 		ReplyID:   "reply-3",
 		MessageID: "msg-other",
 		Content:   "Other message reply",
 	})
 
-	results, err := replyRepo.GetByMessageID("msg-target")
+	results, err := replyRepo.GetByMessageID(context.Background(), "msg-target")
 	if err != nil {
 		t.Errorf("GetByMessageID() error = %v", err)
 	}
@@ -457,7 +458,7 @@ func TestUnifiedReplyRepository_UpdateStatus(t *testing.T) {
 		MessageID: "msg-123",
 		Status:    model.ReplyStatusPending,
 	}
-	replyRepo.Create(reply)
+	replyRepo.Create(context.Background(), reply)
 
 	tests := []struct {
 		name      string
@@ -483,14 +484,14 @@ func TestUnifiedReplyRepository_UpdateStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := replyRepo.UpdateStatus(reply.ID, tt.newStatus)
+			err := replyRepo.UpdateStatus(context.Background(), reply.ID, tt.newStatus)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := replyRepo.GetByID(reply.ID)
+				updated, _ := replyRepo.GetByID(context.Background(), reply.ID)
 				if updated.Status != tt.newStatus {
 					t.Errorf("Expected status '%v', got '%v'", tt.newStatus, updated.Status)
 				}
@@ -509,14 +510,14 @@ func TestUnifiedReplyRepository_Delete(t *testing.T) {
 		MessageID: "msg-123",
 		Content:   "To be deleted",
 	}
-	replyRepo.Create(reply)
+	replyRepo.Create(context.Background(), reply)
 
-	err := replyRepo.Delete(reply.ID)
+	err := replyRepo.Delete(context.Background(), reply.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = replyRepo.GetByID(reply.ID)
+	_, err = replyRepo.GetByID(context.Background(), reply.ID)
 	if err == nil {
 		t.Error("Expected reply to be deleted")
 	}
@@ -557,7 +558,7 @@ func TestPlatformAccountRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountRepo.Create(tt.account)
+			err := accountRepo.Create(context.Background(), tt.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -580,7 +581,7 @@ func TestPlatformAccountRepository_GetByID(t *testing.T) {
 		AccountID:   "dy-123",
 		AccountName: "GetByID Account",
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(context.Background(), account)
 
 	tests := []struct {
 		name    string
@@ -601,7 +602,7 @@ func TestPlatformAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := accountRepo.GetByID(tt.id)
+			result, err := accountRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -624,18 +625,18 @@ func TestPlatformAccountRepository_GetAll(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 
 	// 创建测试数据
-	accountRepo.Create(&model.PlatformAccount{
+	accountRepo.Create(context.Background(), &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
 		AccountID:   "dy-1",
 		AccountName: "Douyin Account 1",
 	})
-	accountRepo.Create(&model.PlatformAccount{
+	accountRepo.Create(context.Background(), &model.PlatformAccount{
 		Platform:    model.PlatformKuaishou,
 		AccountID:   "ks-1",
 		AccountName: "Kuaishou Account 1",
 	})
 
-	results, err := accountRepo.GetAll()
+	results, err := accountRepo.GetAll(context.Background())
 	if err != nil {
 		t.Errorf("GetByMerchant() error = %v", err)
 	}
@@ -650,17 +651,17 @@ func TestPlatformAccountRepository_GetByPlatform(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 
 	// 创建测试数据
-	accountRepo.Create(&model.PlatformAccount{
+	accountRepo.Create(context.Background(), &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
 		AccountID:   "dy-1",
 		AccountName: "Douyin 1",
 	})
-	accountRepo.Create(&model.PlatformAccount{
+	accountRepo.Create(context.Background(), &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
 		AccountID:   "dy-2",
 		AccountName: "Douyin 2",
 	})
-	accountRepo.Create(&model.PlatformAccount{
+	accountRepo.Create(context.Background(), &model.PlatformAccount{
 		Platform:    model.PlatformKuaishou,
 		AccountID:   "ks-1",
 		AccountName: "Kuaishou 1",
@@ -690,7 +691,7 @@ func TestPlatformAccountRepository_GetByPlatform(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := accountRepo.GetByPlatform(tt.platform)
+			results, err := accountRepo.GetByPlatform(context.Background(), tt.platform)
 
 			if err != nil {
 				t.Errorf("GetByPlatform() error = %v", err)
@@ -714,17 +715,17 @@ func TestPlatformAccountRepository_Update(t *testing.T) {
 		AccountName: "Original Name",
 		Status:      1,
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(context.Background(), account)
 
 	account.AccountName = "Updated Name"
 	account.Status = 0
 
-	err := accountRepo.Update(account)
+	err := accountRepo.Update(context.Background(), account)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(account.ID)
+	updated, _ := accountRepo.GetByID(context.Background(), account.ID)
 	if updated.AccountName != "Updated Name" {
 		t.Errorf("Expected account name 'Updated Name', got '%s'", updated.AccountName)
 	}
@@ -743,14 +744,14 @@ func TestPlatformAccountRepository_Delete(t *testing.T) {
 		AccountID:   "dy-delete",
 		AccountName: "To Delete",
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(context.Background(), account)
 
-	err := accountRepo.Delete(account.ID)
+	err := accountRepo.Delete(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = accountRepo.GetByID(account.ID)
+	_, err = accountRepo.GetByID(context.Background(), account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -766,7 +767,7 @@ func TestPlatformAccountRepository_UpdateStatus(t *testing.T) {
 		AccountID: "dy-status",
 		Status:    1,
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(context.Background(), account)
 
 	tests := []struct {
 		name      string
@@ -787,14 +788,14 @@ func TestPlatformAccountRepository_UpdateStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountRepo.UpdateStatus(account.ID, tt.newStatus)
+			err := accountRepo.UpdateStatus(context.Background(), account.ID, tt.newStatus)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := accountRepo.GetByID(account.ID)
+				updated, _ := accountRepo.GetByID(context.Background(), account.ID)
 				if updated.Status != tt.newStatus {
 					t.Errorf("Expected status %d, got %d", tt.newStatus, updated.Status)
 				}
@@ -812,14 +813,14 @@ func TestPlatformAccountRepository_UpdateLastSync(t *testing.T) {
 		Platform:  model.PlatformDouyin,
 		AccountID: "dy-sync",
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(context.Background(), account)
 
-	err := accountRepo.UpdateLastSync(account.ID)
+	err := accountRepo.UpdateLastSync(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("UpdateLastSync() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(account.ID)
+	updated, _ := accountRepo.GetByID(context.Background(), account.ID)
 	if updated.LastSyncAt == nil {
 		t.Error("Expected LastSyncAt to be updated")
 	}

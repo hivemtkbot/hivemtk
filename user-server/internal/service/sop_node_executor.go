@@ -121,7 +121,7 @@ func NewNodeExecutorRegistry() *NodeExecutorRegistry {
 // Register 注册节点执行器
 //
 // 同一节点类型重复注册会 panic（启动期错误，及早暴露配置问题）。
-func (r *NodeExecutorRegistry) Register(e NodeExecutor) {
+func (r *NodeExecutorRegistry) Register(ctx context.Context, e NodeExecutor)  {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.executors[e.NodeType()]; exists {
@@ -131,7 +131,7 @@ func (r *NodeExecutorRegistry) Register(e NodeExecutor) {
 }
 
 // Get 获取节点执行器
-func (r *NodeExecutorRegistry) Get(nodeType string) (NodeExecutor, error) {
+func (r *NodeExecutorRegistry) Get(ctx context.Context, nodeType string)  (NodeExecutor, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	e, ok := r.executors[nodeType]
@@ -145,7 +145,7 @@ func (r *NodeExecutorRegistry) Get(nodeType string) (NodeExecutor, error) {
 //
 // 兜底策略保证 SOP 流程不因未知节点类型中断，
 // NoopExecutor 会记录 warn 日志并将节点标记为 completed 推进下一节点。
-func (r *NodeExecutorRegistry) MustGet(nodeType string) NodeExecutor {
+func (r *NodeExecutorRegistry) MustGet(ctx context.Context, nodeType string)  NodeExecutor {
 	e, err := r.Get(nodeType)
 	if err != nil {
 		logger.Warnf("node executor not found, using noop: %s", nodeType)
@@ -155,7 +155,7 @@ func (r *NodeExecutorRegistry) MustGet(nodeType string) NodeExecutor {
 }
 
 // AllRegistered 返回所有已注册的节点类型（用于调试与启动校验）
-func (r *NodeExecutorRegistry) AllRegistered() []string {
+func (r *NodeExecutorRegistry) AllRegistered(ctx context.Context)  []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]string, 0, len(r.executors))
@@ -169,7 +169,7 @@ func (r *NodeExecutorRegistry) AllRegistered() []string {
 //
 // 调用方应自行使用类型断言过滤关心的执行器类型（如 *MessageNodeBase）。
 // 返回的切片在调用瞬间是注册中心的一份快照，后续注册/反注册不影响其内容。
-func (r *NodeExecutorRegistry) AllExecutors() []NodeExecutor {
+func (r *NodeExecutorRegistry) AllExecutors(ctx context.Context)  []NodeExecutor {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]NodeExecutor, 0, len(r.executors))
@@ -188,7 +188,7 @@ type NoopExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (n *NoopExecutor) NodeType() string { return n.nodeType }
+func (n *NoopExecutor) NodeType(ctx context.Context)  string { return n.nodeType }
 
 // Execute 空操作：返回 completed
 func (n *NoopExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (*NodeExecResult, error) {
@@ -204,7 +204,7 @@ func (n *NoopExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (
 }
 
 // IsAsync 同步执行
-func (n *NoopExecutor) IsAsync() bool { return false }
+func (n *NoopExecutor) IsAsync(ctx context.Context)  bool { return false }
 
 // hasSideEffect 检查执行记录中是否已存在指定副作用标识
 //

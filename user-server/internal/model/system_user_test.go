@@ -115,14 +115,14 @@ func TestSystemUser_IsAdmin(t *testing.T) {
 	adminUser := &SystemUser{
 		Role: "admin",
 	}
-	if !adminUser.IsAdmin() {
+	if !IsSystemUserAdmin(adminUser) {
 		t.Error("Expected IsAdmin() to return true for admin user")
 	}
 
 	normalUser := &SystemUser{
 		Role: "user",
 	}
-	if normalUser.IsAdmin() {
+	if IsSystemUserAdmin(normalUser) {
 		t.Error("Expected IsAdmin() to return false for normal user")
 	}
 }
@@ -133,16 +133,16 @@ func TestSystemUser_CheckPassword(t *testing.T) {
 		Password: "password123",
 	}
 	// 先哈希密码
-	err := user.HashPassword()
+	err := HashSystemUserPassword(user)
 	if err != nil {
 		t.Fatalf("Failed to hash password: %v", err)
 	}
 
-	if !user.CheckPassword("password123") {
+	if !CheckSystemUserPassword(user, "password123") {
 		t.Error("Expected CheckPassword to return true for correct password")
 	}
 
-	if user.CheckPassword("wrongpassword") {
+	if CheckSystemUserPassword(user, "wrongpassword") {
 		t.Error("Expected CheckPassword to return false for wrong password")
 	}
 }
@@ -172,7 +172,7 @@ func TestSystemUser_HashPassword(t *testing.T) {
 		Password: "testpassword",
 	}
 
-	err := user.HashPassword()
+	err := HashSystemUserPassword(user)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 
@@ -26,13 +25,15 @@ import (
 // P2-2 修复：移除 repo 字段，所有数据操作通过 svc (FeishuService) 完成，
 // 严格遵循五层架构 Controller → Service → Repository → Model
 type FeishuAccountController struct {
-	svc *service.FeishuService
+	svc            *service.FeishuService
+	integrationSvc *service.FeishuIntegrationService
 }
 
 // NewFeishuAccountController 创建控制器
-func NewFeishuAccountController() *FeishuAccountController {
+func NewFeishuAccountController(svc *service.FeishuService, integrationSvc *service.FeishuIntegrationService) *FeishuAccountController {
 	return &FeishuAccountController{
-		svc: service.NewFeishuService(db.GetDB()),
+		svc:            svc,
+		integrationSvc: integrationSvc,
 	}
 }
 
@@ -243,7 +244,7 @@ func (ctrl *FeishuAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	integration := service.NewFeishuIntegrationService(db.GetDB())
+	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := integration.SendMessage(ctx, uint(id), req.OpenID, req.Content); err != nil {
@@ -265,7 +266,7 @@ func (ctrl *FeishuAccountController) RefreshToken(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
-	integration := service.NewFeishuIntegrationService(db.GetDB())
+	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := integration.RefreshAccessToken(ctx, acc); err != nil {

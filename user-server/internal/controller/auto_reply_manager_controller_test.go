@@ -494,7 +494,7 @@ func TestAutoReplyManagerController_GetStatistics_Success(t *testing.T) {
 
 // TestAutoReplyManagerController_NewAutoReplyManagerController 测试构造函数
 func TestAutoReplyManagerController_NewAutoReplyManagerController(t *testing.T) {
-	ctrl := NewAutoReplyManagerController()
+	ctrl := NewAutoReplyManagerController(nil)
 	if ctrl == nil {
 		t.Error("Expected controller instance, got nil")
 	}

@@ -4,6 +4,7 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/platform"
 	"marketing/internal/repository"
+	"context"
 )
 
 // PlatformAccountService 平台账号服务
@@ -20,17 +21,17 @@ func NewPlatformAccountService() *PlatformAccountService {
 
 // CreatePlatformAccountRequest 创建平台账号请求
 type CreatePlatformAccountRequest struct {
-	Platform    model.Platform `json:"platform" binding:"required"`
-	AccountID   string         `json:"account_id"`
-	AccountName string         `json:"account_name"`
-	Config      string         `json:"config"`
+	Platform	model.Platform	`json:"platform" binding:"required"`
+	AccountID	string		`json:"account_id"`
+	AccountName	string		`json:"account_name"`
+	Config		string		`json:"config"`
 }
 
 // UpdatePlatformAccountRequest 更新平台账号请求
 type UpdatePlatformAccountRequest struct {
-	AccountName string `json:"account_name"`
-	Config      string `json:"config"`
-	Status      *int   `json:"status"`
+	AccountName	string	`json:"account_name"`
+	Config		string	`json:"config"`
+	Status		*int	`json:"status"`
 }
 
 // PlatformLoginRequest 平台登录请求
@@ -39,26 +40,26 @@ type PlatformLoginRequest struct {
 }
 
 // GetAccounts 获取所有账号列表
-func (s *PlatformAccountService) GetAccounts() ([]*model.PlatformAccount, error) {
-	return s.accountRepo.GetAll()
+func (s *PlatformAccountService) GetAccounts(ctx context.Context) ([]*model.PlatformAccount, error) {
+	return s.accountRepo.GetAll(ctx)
 }
 
 // GetAccountByID 获取账号详情
-func (s *PlatformAccountService) GetAccountByID(id uint) (*model.PlatformAccount, error) {
-	return s.accountRepo.GetByID(id)
+func (s *PlatformAccountService) GetAccountByID(ctx context.Context, id uint) (*model.PlatformAccount, error) {
+	return s.accountRepo.GetByID(ctx, id)
 }
 
 // CreateAccount 创建账号
-func (s *PlatformAccountService) CreateAccount(req *CreatePlatformAccountRequest) (*model.PlatformAccount, error) {
+func (s *PlatformAccountService) CreateAccount(ctx context.Context, req *CreatePlatformAccountRequest) (*model.PlatformAccount, error) {
 	account := &model.PlatformAccount{
-		Platform:    req.Platform,
-		AccountID:   req.AccountID,
-		AccountName: req.AccountName,
-		Config:      req.Config,
-		Status:      1,
+		Platform:	req.Platform,
+		AccountID:	req.AccountID,
+		AccountName:	req.AccountName,
+		Config:		req.Config,
+		Status:		1,
 	}
 
-	if err := s.accountRepo.Create(account); err != nil {
+	if err := s.accountRepo.Create(ctx, account); err != nil {
 		return nil, err
 	}
 
@@ -66,8 +67,8 @@ func (s *PlatformAccountService) CreateAccount(req *CreatePlatformAccountRequest
 }
 
 // UpdateAccount 更新账号
-func (s *PlatformAccountService) UpdateAccount(id uint, req *UpdatePlatformAccountRequest) (*model.PlatformAccount, error) {
-	account, err := s.accountRepo.GetByID(id)
+func (s *PlatformAccountService) UpdateAccount(ctx context.Context, id uint, req *UpdatePlatformAccountRequest) (*model.PlatformAccount, error) {
+	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func (s *PlatformAccountService) UpdateAccount(id uint, req *UpdatePlatformAccou
 		account.Status = *req.Status
 	}
 
-	if err := s.accountRepo.Update(account); err != nil {
+	if err := s.accountRepo.Update(ctx, account); err != nil {
 		return nil, err
 	}
 
@@ -90,13 +91,13 @@ func (s *PlatformAccountService) UpdateAccount(id uint, req *UpdatePlatformAccou
 }
 
 // DeleteAccount 删除账号
-func (s *PlatformAccountService) DeleteAccount(id uint) error {
-	return s.accountRepo.Delete(id)
+func (s *PlatformAccountService) DeleteAccount(ctx context.Context, id uint) error {
+	return s.accountRepo.Delete(ctx, id)
 }
 
 // Login 登录
-func (s *PlatformAccountService) Login(id uint, req *PlatformLoginRequest) (*model.PlatformAccount, error) {
-	account, err := s.accountRepo.GetByID(id)
+func (s *PlatformAccountService) Login(ctx context.Context, id uint, req *PlatformLoginRequest) (*model.PlatformAccount, error) {
+	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +109,7 @@ func (s *PlatformAccountService) Login(id uint, req *PlatformLoginRequest) (*mod
 	}
 
 	// 执行登录
-	result, err := adapter.Login(req.Credentials)
+	result, err := adapter.Login(ctx, req.Credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (s *PlatformAccountService) Login(id uint, req *PlatformLoginRequest) (*mod
 	account.AccountName = result.AccountName
 	account.Status = 1
 
-	if err := s.accountRepo.Update(account); err != nil {
+	if err := s.accountRepo.Update(ctx, account); err != nil {
 		return nil, err
 	}
 
@@ -126,8 +127,8 @@ func (s *PlatformAccountService) Login(id uint, req *PlatformLoginRequest) (*mod
 }
 
 // CheckLoginStatus 检查登录状态
-func (s *PlatformAccountService) CheckLoginStatus(id uint) (bool, error) {
-	account, err := s.accountRepo.GetByID(id)
+func (s *PlatformAccountService) CheckLoginStatus(ctx context.Context, id uint) (bool, error) {
+	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return false, err
 	}
@@ -138,13 +139,13 @@ func (s *PlatformAccountService) CheckLoginStatus(id uint) (bool, error) {
 		return false, err
 	}
 
-	return adapter.CheckLoginStatus(account.AccountID)
+	return adapter.CheckLoginStatus(ctx, account.AccountID)
 }
 
 var ErrPermissionDenied = &PermissionDeniedError{}
 
 type PermissionDeniedError struct{}
 
-func (e *PermissionDeniedError) Error() string {
+func (e *PermissionDeniedError) Error(ctx context.Context)  string {
 	return "权限不足"
 }

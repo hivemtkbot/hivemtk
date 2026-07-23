@@ -240,7 +240,6 @@ func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
 //   - champion_dialogues 表有记录
 func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	// 准备 5 条相似对话（聚类应产生 1 簇，簇大小 5 >= MinClusterSize=3）
 	dialogues := []struct {
@@ -331,7 +330,6 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 // 验证：LLM 返回错误时，persistDialogue 仍执行，仅 extract 阶段记录错误
 func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 
 	// 准备 3 条相似对话
 	dialogues := []struct {
@@ -392,7 +390,6 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 // 验证：相同 session + scenario 的对话再次入库时，reward 字段被更新（而非插入新记录）
 func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	ctx := context.Background()
 	a := &ChampionDialogueAnalyzer{
 		db:       db,
 		embedder: newStubEmbedder(1024),

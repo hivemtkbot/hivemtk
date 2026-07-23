@@ -10,7 +10,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // IntentController 意图识别控制器
@@ -19,9 +18,9 @@ type IntentController struct {
 }
 
 // NewIntentController 创建意图识别控制器
-func NewIntentController(db *gorm.DB) *IntentController {
+func NewIntentController(rec *service.IntentRecognizer) *IntentController {
 	return &IntentController{
-		rec: service.NewIntentRecognizer(db, nil, nil),
+		rec: rec,
 	}
 }
 

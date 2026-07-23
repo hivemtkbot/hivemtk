@@ -98,7 +98,7 @@ func (e *ReplyDecisionEngine) matchRule(ctx context.Context, msg *model.UnifiedM
 }
 
 // matchKeywords 关键词匹配
-func (e *ReplyDecisionEngine) matchKeywords(content, keywords string) bool {
+func (e *ReplyDecisionEngine) matchKeywords(ctx context.Context, content, keywords string)  bool {
 	if content == "" || keywords == "" {
 		return false
 	}
@@ -124,7 +124,7 @@ func (e *ReplyDecisionEngine) matchKeywords(content, keywords string) bool {
 }
 
 // splitKeywords 智能分割关键词，处理正则表达式中的逗号
-func (e *ReplyDecisionEngine) splitKeywords(keywords string) []string {
+func (e *ReplyDecisionEngine) splitKeywords(ctx context.Context, keywords string)  []string {
 	var result []string
 	var current strings.Builder
 	bracketDepth := 0
@@ -152,7 +152,7 @@ func (e *ReplyDecisionEngine) splitKeywords(keywords string) []string {
 }
 
 // isInTimeRange 检查是否在时间范围内
-func (e *ReplyDecisionEngine) isInTimeRange(rule *model.AutoReplyRule) bool {
+func (e *ReplyDecisionEngine) isInTimeRange(ctx context.Context, rule *model.AutoReplyRule)  bool {
 	if rule.StartTime == nil || rule.EndTime == nil {
 		return true
 	}
@@ -260,7 +260,7 @@ func (s *UnifiedMessageService) ProcessMessage(ctx context.Context, msg *model.U
 	}
 
 	// 获取平台适配器
-	adapter, err := s.adapterRegistry.Get(msg.Platform)
+	adapter, err := s.adapterRegistry.Get(ctx, msg.Platform)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func (s *UnifiedMessageService) ProcessMessage(ctx context.Context, msg *model.U
 		}
 
 		// 发送回复
-		_, err := adapter.SendMessage(ctx, msg.AccountID, msg.ChatID, decision.Content, nil)
+		_, err := adapter.SendMessage(msg.AccountID, msg.ChatID, decision.Content, nil)
 		if err != nil {
 			reply.Status = model.ReplyStatusFailed
 			reply.ErrorMessage = err.Error()

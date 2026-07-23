@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"time"
 
@@ -9,13 +10,13 @@ import (
 
 // LiveCodeRepository 活码仓储接口
 type LiveCodeRepository interface {
-	Create(liveCode *model.LiveCode) error
-	Update(liveCode *model.LiveCode) error
-	Delete(id string) error
-	GetAvailableLiveCodes() ([]*model.LiveCode, error)
-	GetByID(id string) (*model.LiveCode, error)
-	GetByShortLink(shortLink string) (*model.LiveCode, error)
-	GetList(page, pageSize int, name, status string) ([]*model.LiveCode, int64, error)
+	Create(ctx context.Context, liveCode *model.LiveCode) error
+	Update(ctx context.Context, liveCode *model.LiveCode) error
+	Delete(ctx context.Context, id string) error
+	GetAvailableLiveCodes(ctx context.Context) ([]*model.LiveCode, error)
+	GetByID(ctx context.Context, id string) (*model.LiveCode, error)
+	GetByShortLink(ctx context.Context, shortLink string) (*model.LiveCode, error)
+	GetList(ctx context.Context, page, pageSize int, name, status string) ([]*model.LiveCode, int64, error)
 }
 
 // liveCodeRepository 活码仓储实现
@@ -29,22 +30,22 @@ func NewLiveCodeRepository(db *gorm.DB) LiveCodeRepository {
 }
 
 // Create 创建活码
-func (r *liveCodeRepository) Create(liveCode *model.LiveCode) error {
+func (r *liveCodeRepository) Create(ctx context.Context, liveCode *model.LiveCode) error {
 	return r.db.Create(liveCode).Error
 }
 
 // Update 更新活码
-func (r *liveCodeRepository) Update(liveCode *model.LiveCode) error {
+func (r *liveCodeRepository) Update(ctx context.Context, liveCode *model.LiveCode) error {
 	return r.db.Save(liveCode).Error
 }
 
 // Delete 删除活码
-func (r *liveCodeRepository) Delete(id string) error {
+func (r *liveCodeRepository) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.LiveCode{}).Error
 }
 
 // GetAvailableLiveCodes 获取可用的活码（用于轮询）
-func (r *liveCodeRepository) GetAvailableLiveCodes() ([]*model.LiveCode, error) {
+func (r *liveCodeRepository) GetAvailableLiveCodes(ctx context.Context) ([]*model.LiveCode, error) {
 	var liveCodes []*model.LiveCode
 	now := time.Now()
 
@@ -54,7 +55,7 @@ func (r *liveCodeRepository) GetAvailableLiveCodes() ([]*model.LiveCode, error) 
 }
 
 // GetByID 根据ID获取活码
-func (r *liveCodeRepository) GetByID(id string) (*model.LiveCode, error) {
+func (r *liveCodeRepository) GetByID(ctx context.Context, id string) (*model.LiveCode, error) {
 	var liveCode model.LiveCode
 	err := r.db.Where("id = ?", id).First(&liveCode).Error
 	if err != nil {
@@ -87,7 +88,7 @@ func (r *liveCodeRepository) GetByID(id string) (*model.LiveCode, error) {
 }
 
 // GetByShortLink 根据短链获取活码
-func (r *liveCodeRepository) GetByShortLink(shortLink string) (*model.LiveCode, error) {
+func (r *liveCodeRepository) GetByShortLink(ctx context.Context, shortLink string) (*model.LiveCode, error) {
 	var liveCode model.LiveCode
 	err := r.db.Where("short_link = ?", shortLink).First(&liveCode).Error
 	if err != nil {
@@ -120,7 +121,7 @@ func (r *liveCodeRepository) GetByShortLink(shortLink string) (*model.LiveCode, 
 }
 
 // GetList 获取活码列表
-func (r *liveCodeRepository) GetList(page, pageSize int, name, status string) ([]*model.LiveCode, int64, error) {
+func (r *liveCodeRepository) GetList(ctx context.Context, page, pageSize int, name, status string) ([]*model.LiveCode, int64, error) {
 	var liveCodes []*model.LiveCode
 	var total int64
 

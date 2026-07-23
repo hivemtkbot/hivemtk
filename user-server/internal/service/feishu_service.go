@@ -41,58 +41,58 @@ import (
 
 // FeishuService 飞书账号管理
 type FeishuService struct {
-	db          *gorm.DB
-	accountRepo *repository.FeishuAccountRepository
+	db		*gorm.DB
+	accountRepo	*repository.FeishuAccountRepository
 }
 
 // NewFeishuService 创建飞书服务
 func NewFeishuService(db *gorm.DB) *FeishuService {
 	r := repository.NewFeishuAccountRepository()
 	if db != nil {
-		r.SetDB(db)
+		r.SetDB(context.Background(), db)
 	}
 	return &FeishuService{
-		db:          db,
-		accountRepo: r,
+		db:		db,
+		accountRepo:	r,
 	}
 }
 
 // CreateAccount 创建飞书账号
-func (s *FeishuService) CreateAccount(input *model.FeishuAccount) (*model.FeishuAccount, error) {
+func (s *FeishuService) CreateAccount(ctx context.Context, input *model.FeishuAccount) (*model.FeishuAccount, error) {
 	if input.AccountName == "" || input.AppID == "" || input.AppSecret == "" {
 		return nil, errors.New("account_name, app_id, app_secret are required")
 	}
 	if input.Status == 0 {
 		input.Status = 1
 	}
-	if err := s.accountRepo.Create(input); err != nil {
+	if err := s.accountRepo.Create(ctx, input); err != nil {
 		return nil, err
 	}
 	return input, nil
 }
 
 // UpdateAccount 更新账号
-func (s *FeishuService) UpdateAccount(acc *model.FeishuAccount) error {
-	return s.accountRepo.Update(acc)
+func (s *FeishuService) UpdateAccount(ctx context.Context, acc *model.FeishuAccount) error {
+	return s.accountRepo.Update(ctx, acc)
 }
 
 // GetAccount 获取账号
-func (s *FeishuService) GetAccount(id uint) (*model.FeishuAccount, error) {
-	return s.accountRepo.GetByID(id)
+func (s *FeishuService) GetAccount(ctx context.Context, id uint) (*model.FeishuAccount, error) {
+	return s.accountRepo.GetByID(ctx, id)
 }
 
 // ListAccounts 列出所有账号
-func (s *FeishuService) ListAccounts() ([]*model.FeishuAccount, error) {
-	return s.accountRepo.GetAll()
+func (s *FeishuService) ListAccounts(ctx context.Context,) ([]*model.FeishuAccount, error) {
+	return s.accountRepo.GetAll(ctx)
 }
 
 // DeleteAccount 删除账号
-func (s *FeishuService) DeleteAccount(id uint) error {
-	return s.accountRepo.Delete(id)
+func (s *FeishuService) DeleteAccount(ctx context.Context, id uint) error {
+	return s.accountRepo.Delete(ctx, id)
 }
 
 // GetSecretsByAccountID 获取 app_id + verification_token + encrypt_key（按 ID）
-func (s *FeishuService) GetSecretsByAccountID(accountID string) (appID, token, encryptKey string, err error) {
+func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID string) (appID, token, encryptKey string, err error) {
 	if s.db == nil {
 		return "", "", "", errors.New("db nil")
 	}
@@ -100,7 +100,7 @@ func (s *FeishuService) GetSecretsByAccountID(accountID string) (appID, token, e
 	// 优先按 ID 解析
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(&acc, id).Error; err == nil {
+		if err := s.db.First(ctx, &acc, id).Error; err == nil {
 			return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 		}
 	}
@@ -117,34 +117,34 @@ func (s *FeishuService) GetSecretsByAccountID(accountID string) (appID, token, e
 
 // FeishuIntegrationService 飞书消息分发 + 出站
 type FeishuIntegrationService struct {
-	db     *gorm.DB
-	feishu *FeishuService
-	hub    *MessageHubService
-	inbox  *InboxService
+	db	*gorm.DB
+	feishu	*FeishuService
+	hub	*MessageHubService
+	inbox	*InboxService
 }
 
 // NewFeishuIntegrationService 创建集成服务
 func NewFeishuIntegrationService(db *gorm.DB) *FeishuIntegrationService {
 	return &FeishuIntegrationService{
-		db:     db,
-		feishu: NewFeishuService(db),
-		hub:    NewMessageHubService(db, nil),
-		inbox:  NewInboxService(db),
+		db:	db,
+		feishu:	NewFeishuService(db),
+		hub:	NewMessageHubServiceWithDB(db, nil),
+		inbox:	NewInboxServiceWithDB(db),
 	}
 }
 
 // IngestFeishuMessage 入站消息
 type FeishuIngestRequest struct {
-	AccountID uint
-	OpenID    string
-	UnionID   string
-	UserID    string
-	Name      string
-	MsgType   string
-	Content   string
-	MsgID     string
-	ChatID    string
-	ChatType  string // p2p / group
+	AccountID	uint
+	OpenID		string
+	UnionID		string
+	UserID		string
+	Name		string
+	MsgType		string
+	Content		string
+	MsgID		string
+	ChatID		string
+	ChatType	string	// p2p / group
 }
 
 // IngestMessage 飞书入站消息入消息中台 + 收件箱
@@ -166,18 +166,18 @@ func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *Feish
 		convID = fmt.Sprintf("feishu-%d-%s", req.AccountID, req.OpenID)
 	}
 	hubMsg, err := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "feishu",
-		AccountID:      fmt.Sprintf("%d", req.AccountID),
-		MsgID:          req.MsgID,
-		Direction:      "inbound",
-		MsgType:        req.MsgType,
-		SenderID:       req.OpenID,
-		SenderName:     req.Name,
-		Content:        req.Content,
-		ConversationID: convID,
-		IsGroup:        req.ChatType == "group",
-		GroupID:        req.ChatID,
-		SentAt:         timePtr(time.Now()),
+		Platform:	"feishu",
+		AccountID:	fmt.Sprintf("%d", req.AccountID),
+		MsgID:		req.MsgID,
+		Direction:	"inbound",
+		MsgType:	req.MsgType,
+		SenderID:	req.OpenID,
+		SenderName:	req.Name,
+		Content:	req.Content,
+		ConversationID:	convID,
+		IsGroup:	req.ChatType == "group",
+		GroupID:	req.ChatID,
+		SentAt:		timePtr(time.Now()),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("hub push: %w", err)
@@ -198,7 +198,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if s.db == nil {
 		return errors.New("db nil")
 	}
-	acc, err := s.feishu.GetAccount(accountID)
+	acc, err := s.feishu.GetAccount(ctx, accountID)
 	if err != nil {
 		return fmt.Errorf("get feishu account: %w", err)
 	}
@@ -209,9 +209,9 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	}
 	// 构造消息体
 	body := map[string]any{
-		"receive_id": openID,
-		"msg_type":   "text",
-		"content":    map[string]string{"text": content},
+		"receive_id":	openID,
+		"msg_type":	"text",
+		"content":	map[string]string{"text": content},
 	}
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "POST",
@@ -230,35 +230,35 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = string(respB)
-		_ = s.feishu.UpdateAccount(acc)
+		_ = s.feishu.UpdateAccount(ctx, acc)
 		return fmt.Errorf("feishu api status %d: %s", resp.StatusCode, string(respB))
 	}
 	// 写出站消息记录
 	outMsg := &model.FeishuMessage{
-		AccountID: accountID,
-		MsgID:     fmt.Sprintf("feishu-out-%d", time.Now().UnixNano()),
-		ChatID:    openID,
-		ChatType:  "p2p",
-		SenderID:  openID,
-		MsgType:   "text",
-		Content:   content,
-		Direction: "outbound",
+		AccountID:	accountID,
+		MsgID:		fmt.Sprintf("feishu-out-%d", time.Now().UnixNano()),
+		ChatID:		openID,
+		ChatType:	"p2p",
+		SenderID:	openID,
+		MsgType:	"text",
+		Content:	content,
+		Direction:	"outbound",
 	}
 	_ = s.db.Create(outMsg).Error
 	// 写消息中台出站
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "feishu",
-		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          outMsg.MsgID,
-		Direction:      "outbound",
-		MsgType:        "text",
-		SenderID:       fmt.Sprintf("%d", accountID),
-		ReceiverID:     openID,
-		Content:        content,
-		ConversationID: fmt.Sprintf("feishu-%d-%s", accountID, openID),
-		IsAIReply:      true,
-		AIAgent:        "sales_engine",
-		SentAt:         timePtr(time.Now()),
+		Platform:	"feishu",
+		AccountID:	fmt.Sprintf("%d", accountID),
+		MsgID:		outMsg.MsgID,
+		Direction:	"outbound",
+		MsgType:	"text",
+		SenderID:	fmt.Sprintf("%d", accountID),
+		ReceiverID:	openID,
+		Content:	content,
+		ConversationID:	fmt.Sprintf("feishu-%d-%s", accountID, openID),
+		IsAIReply:	true,
+		AIAgent:	"sales_engine",
+		SentAt:		timePtr(time.Now()),
 	})
 	if hubMsg != nil {
 		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
@@ -273,8 +273,8 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 	}
 	// 调接口：POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal
 	body := map[string]string{
-		"app_id":     acc.AppID,
-		"app_secret": acc.AppSecret,
+		"app_id":	acc.AppID,
+		"app_secret":	acc.AppSecret,
 	}
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "POST",
@@ -287,10 +287,10 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 	}
 	defer resp.Body.Close()
 	var out struct {
-		Code              int    `json:"code"`
-		Msg               string `json:"msg"`
-		TenantAccessToken string `json:"tenant_access_token"`
-		Expire            int    `json:"expire"`
+		Code			int	`json:"code"`
+		Msg			string	`json:"msg"`
+		TenantAccessToken	string	`json:"tenant_access_token"`
+		Expire			int	`json:"expire"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return "", err
@@ -301,7 +301,7 @@ func (s *FeishuIntegrationService) getAccessToken(ctx context.Context, acc *mode
 	expires := time.Now().Add(time.Duration(out.Expire-300) * time.Second)
 	acc.AccessToken = out.TenantAccessToken
 	acc.TokenExpires = &expires
-	_ = s.feishu.UpdateAccount(acc)
+	_ = s.feishu.UpdateAccount(ctx, acc)
 	return out.TenantAccessToken, nil
 }
 
@@ -327,56 +327,56 @@ func (s *FeishuIntegrationService) GetAccessTokenForTest(ctx context.Context, ac
 
 // TelegramService Telegram 账号管理
 type TelegramService struct {
-	db      *gorm.DB
-	accRepo *repository.TelegramAccountRepository
+	db	*gorm.DB
+	accRepo	*repository.TelegramAccountRepository
 }
 
 func NewTelegramService(db *gorm.DB) *TelegramService {
 	r := repository.NewTelegramAccountRepository()
 	if db != nil {
-		r.SetDB(db)
+		r.SetDB(context.Background(), db)
 	}
 	return &TelegramService{db: db, accRepo: r}
 }
 
-func (s *TelegramService) CreateAccount(acc *model.TelegramAccount) (*model.TelegramAccount, error) {
+func (s *TelegramService) CreateAccount(ctx context.Context, acc *model.TelegramAccount) (*model.TelegramAccount, error) {
 	if acc.AccountName == "" || acc.BotToken == "" {
 		return nil, errors.New("account_name and bot_token are required")
 	}
 	if acc.Status == 0 {
 		acc.Status = 1
 	}
-	if err := s.accRepo.Create(acc); err != nil {
+	if err := s.accRepo.Create(ctx, acc); err != nil {
 		return nil, err
 	}
 	return acc, nil
 }
 
-func (s *TelegramService) GetAccount(id uint) (*model.TelegramAccount, error) {
-	return s.accRepo.GetByID(id)
+func (s *TelegramService) GetAccount(ctx context.Context, id uint) (*model.TelegramAccount, error) {
+	return s.accRepo.GetByID(ctx, id)
 }
 
-func (s *TelegramService) ListAccounts() ([]*model.TelegramAccount, error) {
-	return s.accRepo.GetAll()
+func (s *TelegramService) ListAccounts(ctx context.Context,) ([]*model.TelegramAccount, error) {
+	return s.accRepo.GetAll(ctx)
 }
 
-func (s *TelegramService) UpdateAccount(acc *model.TelegramAccount) error {
-	return s.accRepo.Update(acc)
+func (s *TelegramService) UpdateAccount(ctx context.Context, acc *model.TelegramAccount) error {
+	return s.accRepo.Update(ctx, acc)
 }
 
-func (s *TelegramService) DeleteAccount(id uint) error {
-	return s.accRepo.Delete(id)
+func (s *TelegramService) DeleteAccount(ctx context.Context, id uint) error {
+	return s.accRepo.Delete(ctx, id)
 }
 
 // GetSecretsByAccountID 获取 bot_token + webhook_secret
-func (s *TelegramService) GetSecretsByAccountID(accountID string) (botToken, webhookSecret string, err error) {
+func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID string) (botToken, webhookSecret string, err error) {
 	if s.db == nil {
 		return "", "", errors.New("db nil")
 	}
 	var acc model.TelegramAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(&acc, id).Error; err == nil {
+		if err := s.db.First(ctx, &acc, id).Error; err == nil {
 			return acc.BotToken, acc.WebhookSecret, nil
 		}
 	}
@@ -391,32 +391,32 @@ func (s *TelegramService) GetSecretsByAccountID(accountID string) (botToken, web
 
 // TelegramIntegrationService Telegram 消息分发 + 出站
 type TelegramIntegrationService struct {
-	db    *gorm.DB
-	tg    *TelegramService
-	hub   *MessageHubService
-	inbox *InboxService
+	db	*gorm.DB
+	tg	*TelegramService
+	hub	*MessageHubService
+	inbox	*InboxService
 }
 
 func NewTelegramIntegrationService(db *gorm.DB) *TelegramIntegrationService {
 	return &TelegramIntegrationService{
-		db:    db,
-		tg:    NewTelegramService(db),
-		hub:   NewMessageHubService(db, nil),
-		inbox: NewInboxService(db),
+		db:	db,
+		tg:	NewTelegramService(db),
+		hub:	NewMessageHubServiceWithDB(db, nil),
+		inbox:	NewInboxServiceWithDB(db),
 	}
 }
 
 type TelegramIngestRequest struct {
-	AccountID  uint
-	ChatID     int64
-	FromID     int64
-	FromName   string
-	Username   string
-	MsgType    string
-	Content    string
-	MsgID      int64
-	IsGroup    bool
-	GroupTitle string
+	AccountID	uint
+	ChatID		int64
+	FromID		int64
+	FromName	string
+	Username	string
+	MsgType		string
+	Content		string
+	MsgID		int64
+	IsGroup		bool
+	GroupTitle	string
 }
 
 // IngestMessage Telegram 入站
@@ -432,18 +432,18 @@ func (s *TelegramIntegrationService) IngestMessage(ctx context.Context, req *Tel
 	msgIDStr := fmt.Sprintf("tg_%d", req.MsgID)
 	convID := chatIDStr
 	hubMsg, err := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "telegram",
-		AccountID:      fmt.Sprintf("%d", req.AccountID),
-		MsgID:          msgIDStr,
-		Direction:      "inbound",
-		MsgType:        req.MsgType,
-		SenderID:       fromIDStr,
-		SenderName:     req.FromName,
-		Content:        req.Content,
-		ConversationID: convID,
-		IsGroup:        req.IsGroup,
-		GroupID:        chatIDStr,
-		SentAt:         timePtr(time.Now()),
+		Platform:	"telegram",
+		AccountID:	fmt.Sprintf("%d", req.AccountID),
+		MsgID:		msgIDStr,
+		Direction:	"inbound",
+		MsgType:	req.MsgType,
+		SenderID:	fromIDStr,
+		SenderName:	req.FromName,
+		Content:	req.Content,
+		ConversationID:	convID,
+		IsGroup:	req.IsGroup,
+		GroupID:	chatIDStr,
+		SentAt:		timePtr(time.Now()),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("hub push: %w", err)
@@ -464,7 +464,7 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 	if s.db == nil {
 		return errors.New("db nil")
 	}
-	acc, err := s.tg.GetAccount(accountID)
+	acc, err := s.tg.GetAccount(ctx, accountID)
 	if err != nil {
 		return fmt.Errorf("get tg account: %w", err)
 	}
@@ -475,24 +475,24 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
-		_ = s.tg.UpdateAccount(acc)
+		_ = s.tg.UpdateAccount(ctx, acc)
 		return fmt.Errorf("send tg msg: %w", err)
 	}
 	// 写消息中台
 	chatIDStr := fmt.Sprintf("%d", chatID)
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "telegram",
-		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          fmt.Sprintf("tg-out-%d", time.Now().UnixNano()),
-		Direction:      "outbound",
-		MsgType:        "text",
-		SenderID:       fmt.Sprintf("%d", accountID),
-		ReceiverID:     chatIDStr,
-		Content:        content,
-		ConversationID: chatIDStr,
-		IsAIReply:      true,
-		AIAgent:        "sales_engine",
-		SentAt:         timePtr(time.Now()),
+		Platform:	"telegram",
+		AccountID:	fmt.Sprintf("%d", accountID),
+		MsgID:		fmt.Sprintf("tg-out-%d", time.Now().UnixNano()),
+		Direction:	"outbound",
+		MsgType:	"text",
+		SenderID:	fmt.Sprintf("%d", accountID),
+		ReceiverID:	chatIDStr,
+		Content:	content,
+		ConversationID:	chatIDStr,
+		IsAIReply:	true,
+		AIAgent:	"sales_engine",
+		SentAt:		timePtr(time.Now()),
 	})
 	if hubMsg != nil {
 		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
@@ -517,60 +517,60 @@ func subtleConstantTimeEqual(a, b string) bool {
 
 // WhatsAppCloudService WhatsApp Cloud API 账号管理
 type WhatsAppCloudService struct {
-	db      *gorm.DB
-	accRepo *repository.WhatsAppCloudAccountRepository
+	db	*gorm.DB
+	accRepo	*repository.WhatsAppCloudAccountRepository
 }
 
 func NewWhatsAppCloudService(db *gorm.DB) *WhatsAppCloudService {
 	r := repository.NewWhatsAppCloudAccountRepository()
 	if db != nil {
-		r.SetDB(db)
+		r.SetDB(context.Background(), db)
 	}
 	return &WhatsAppCloudService{db: db, accRepo: r}
 }
 
-func (s *WhatsAppCloudService) CreateAccount(acc *model.WhatsAppCloudAccount) (*model.WhatsAppCloudAccount, error) {
+func (s *WhatsAppCloudService) CreateAccount(ctx context.Context, acc *model.WhatsAppCloudAccount) (*model.WhatsAppCloudAccount, error) {
 	if acc.AccountName == "" || acc.PhoneNumberID == "" || acc.AccessToken == "" {
 		return nil, errors.New("account_name, phone_number_id, access_token are required")
 	}
 	if acc.Status == 0 {
 		acc.Status = 1
 	}
-	if err := s.accRepo.Create(acc); err != nil {
+	if err := s.accRepo.Create(ctx, acc); err != nil {
 		return nil, err
 	}
 	return acc, nil
 }
 
-func (s *WhatsAppCloudService) GetAccount(id uint) (*model.WhatsAppCloudAccount, error) {
-	return s.accRepo.GetByID(id)
+func (s *WhatsAppCloudService) GetAccount(ctx context.Context, id uint) (*model.WhatsAppCloudAccount, error) {
+	return s.accRepo.GetByID(ctx, id)
 }
 
-func (s *WhatsAppCloudService) GetAccountByPhone(phoneID string) (*model.WhatsAppCloudAccount, error) {
-	return s.accRepo.GetByPhoneNumberID(phoneID)
+func (s *WhatsAppCloudService) GetAccountByPhone(ctx context.Context, phoneID string) (*model.WhatsAppCloudAccount, error) {
+	return s.accRepo.GetByPhoneNumberID(ctx, phoneID)
 }
 
-func (s *WhatsAppCloudService) ListAccounts() ([]*model.WhatsAppCloudAccount, error) {
-	return s.accRepo.GetAll()
+func (s *WhatsAppCloudService) ListAccounts(ctx context.Context,) ([]*model.WhatsAppCloudAccount, error) {
+	return s.accRepo.GetAll(ctx)
 }
 
-func (s *WhatsAppCloudService) UpdateAccount(acc *model.WhatsAppCloudAccount) error {
-	return s.accRepo.Update(acc)
+func (s *WhatsAppCloudService) UpdateAccount(ctx context.Context, acc *model.WhatsAppCloudAccount) error {
+	return s.accRepo.Update(ctx, acc)
 }
 
-func (s *WhatsAppCloudService) DeleteAccount(id uint) error {
-	return s.accRepo.Delete(id)
+func (s *WhatsAppCloudService) DeleteAccount(ctx context.Context, id uint) error {
+	return s.accRepo.Delete(ctx, id)
 }
 
 // GetSecretsByAccountID 获取 access_token + app_secret
-func (s *WhatsAppCloudService) GetSecretsByAccountID(accountID string) (token, appSecret string, err error) {
+func (s *WhatsAppCloudService) GetSecretsByAccountID(ctx context.Context, accountID string) (token, appSecret string, err error) {
 	if s.db == nil {
 		return "", "", errors.New("db nil")
 	}
 	var acc model.WhatsAppCloudAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(&acc, id).Error; err == nil {
+		if err := s.db.First(ctx, &acc, id).Error; err == nil {
 			return acc.AccessToken, acc.AppSecret, nil
 		}
 	}
@@ -597,29 +597,29 @@ func VerifyWhatsAppSignature(appSecret string, body []byte, signature string) bo
 
 // WhatsAppCloudIntegrationService WhatsApp Cloud 消息分发 + 出站
 type WhatsAppCloudIntegrationService struct {
-	db    *gorm.DB
-	wa    *WhatsAppCloudService
-	hub   *MessageHubService
-	inbox *InboxService
+	db	*gorm.DB
+	wa	*WhatsAppCloudService
+	hub	*MessageHubService
+	inbox	*InboxService
 }
 
 func NewWhatsAppCloudIntegrationService(db *gorm.DB) *WhatsAppCloudIntegrationService {
 	return &WhatsAppCloudIntegrationService{
-		db:    db,
-		wa:    NewWhatsAppCloudService(db),
-		hub:   NewMessageHubService(db, nil),
-		inbox: NewInboxService(db),
+		db:	db,
+		wa:	NewWhatsAppCloudService(db),
+		hub:	NewMessageHubServiceWithDB(db, nil),
+		inbox:	NewInboxServiceWithDB(db),
 	}
 }
 
 type WhatsAppIngestRequest struct {
-	AccountID    uint
-	PhoneFrom    string // 客户手机号（E.164）
-	CustomerName string
-	MsgType      string
-	Content      string
-	MsgID        string
-	ChatID       string
+	AccountID	uint
+	PhoneFrom	string	// 客户手机号（E.164）
+	CustomerName	string
+	MsgType		string
+	Content		string
+	MsgID		string
+	ChatID		string
 }
 
 // IngestMessage WhatsApp Cloud 入站
@@ -634,16 +634,16 @@ func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req
 		req.ChatID = req.PhoneFrom
 	}
 	hubMsg, err := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "whatsapp",
-		AccountID:      fmt.Sprintf("%d", req.AccountID),
-		MsgID:          req.MsgID,
-		Direction:      "inbound",
-		MsgType:        req.MsgType,
-		SenderID:       req.PhoneFrom,
-		SenderName:     req.CustomerName,
-		Content:        req.Content,
-		ConversationID: req.ChatID,
-		SentAt:         timePtr(time.Now()),
+		Platform:	"whatsapp",
+		AccountID:	fmt.Sprintf("%d", req.AccountID),
+		MsgID:		req.MsgID,
+		Direction:	"inbound",
+		MsgType:	req.MsgType,
+		SenderID:	req.PhoneFrom,
+		SenderName:	req.CustomerName,
+		Content:	req.Content,
+		ConversationID:	req.ChatID,
+		SentAt:		timePtr(time.Now()),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("hub push: %w", err)
@@ -664,7 +664,7 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 	if s.db == nil {
 		return errors.New("db nil")
 	}
-	acc, err := s.wa.GetAccount(accountID)
+	acc, err := s.wa.GetAccount(ctx, accountID)
 	if err != nil {
 		return fmt.Errorf("get wa account: %w", err)
 	}
@@ -675,23 +675,23 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
-		_ = s.wa.UpdateAccount(acc)
+		_ = s.wa.UpdateAccount(ctx, acc)
 		return fmt.Errorf("send wa msg: %w", err)
 	}
 	// 写消息中台
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
-		Platform:       "whatsapp",
-		AccountID:      fmt.Sprintf("%d", accountID),
-		MsgID:          fmt.Sprintf("wa-out-%d", time.Now().UnixNano()),
-		Direction:      "outbound",
-		MsgType:        "text",
-		SenderID:       fmt.Sprintf("%d", accountID),
-		ReceiverID:     toPhone,
-		Content:        content,
-		ConversationID: toPhone,
-		IsAIReply:      true,
-		AIAgent:        "sales_engine",
-		SentAt:         timePtr(time.Now()),
+		Platform:	"whatsapp",
+		AccountID:	fmt.Sprintf("%d", accountID),
+		MsgID:		fmt.Sprintf("wa-out-%d", time.Now().UnixNano()),
+		Direction:	"outbound",
+		MsgType:	"text",
+		SenderID:	fmt.Sprintf("%d", accountID),
+		ReceiverID:	toPhone,
+		Content:	content,
+		ConversationID:	toPhone,
+		IsAIReply:	true,
+		AIAgent:	"sales_engine",
+		SentAt:		timePtr(time.Now()),
 	})
 	if hubMsg != nil {
 		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
@@ -751,4 +751,4 @@ func randomBytes(n int) []byte {
 }
 
 // timePtr 工具
-func timePtr(t time.Time) *time.Time { return &t }
+func timePtr(t time.Time) *time.Time	{ return &t }

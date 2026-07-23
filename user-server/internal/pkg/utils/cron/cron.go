@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"context"
 	"fmt"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
@@ -87,7 +88,7 @@ func LiveCodeRotateCron() {
 	liveCodeService := service.NewLiveCodeService(db.GetDB())
 
 	// 执行轮询
-	err := liveCodeService.RotateLiveCodes()
+	err := liveCodeService.RotateLiveCodes(context.Background())
 	if err != nil {
 		logger.Error(err, "活码轮询定时任务执行失败")
 		return

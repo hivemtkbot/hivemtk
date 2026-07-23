@@ -45,96 +45,96 @@ import (
 //  7. 业务分发（按 channel 路由到对应 Service，进入消息中台/收件箱/智能体）
 //  8. TG 入群事件自动触发 智能体流程（new_chat_members / left_chat_member）
 type WebhookService struct {
-	db          *gorm.DB // 保留以维持与外部组件（如 WeComIntegrationService）的兼容
-	eventRepo   *repository.WebhookEventRepository
-	accountRepo *repository.IntegrationAccountRepository
+	db		*gorm.DB	// 保留以维持与外部组件（如 WeComIntegrationService）的兼容
+	eventRepo	*repository.WebhookEventRepository
+	accountRepo	*repository.IntegrationAccountRepository
 
 	// Phase 1：企业微信完整入站链路
-	wecomRepo   *repository.WeComAccountRepository
-	integration *WeComIntegrationService
+	wecomRepo	*repository.WeComAccountRepository
+	integration	*WeComIntegrationService
 
 	// Phase 2-4：WhatsApp Cloud / Telegram / 飞书 集成服务
-	feishuIntegration *FeishuIntegrationService
-	tgIntegration     *TelegramIntegrationService
-	waIntegration     *WhatsAppCloudIntegrationService
+	feishuIntegration	*FeishuIntegrationService
+	tgIntegration		*TelegramIntegrationService
+	waIntegration		*WhatsAppCloudIntegrationService
 
 	// TG 账号仓库（用于查询 Bot Token + AIAgentEnabled）
-	telegramRepo *repository.TelegramAccountRepository
+	telegramRepo	*repository.TelegramAccountRepository
 
 	// 渠道账号仓库缓存（性能审计 P3-3：避免在每条消息的 shouldTriggerAI 中重复构造）
-	feishuRepo *repository.FeishuAccountRepository
-	waRepo     *repository.WhatsAppCloudAccountRepository
+	feishuRepo	*repository.FeishuAccountRepository
+	waRepo		*repository.WhatsAppCloudAccountRepository
 
 	// 消息中台 / 收件箱会话 / 统一消息 仓库
-	messageHubRepo *repository.MessageHubRepository
-	inboxConvRepo  *repository.InboxConversationRepository
-	unifiedMsgRepo repository.UnifiedMessageRepository
+	messageHubRepo	*repository.MessageHubRepository
+	inboxConvRepo	*repository.InboxConversationRepository
+	unifiedMsgRepo	repository.UnifiedMessageRepository
 
 	// 线索仓库：Telegram 群发言自动挖掘为销售线索/商机（去重 + 意向分增量更新）
-	clueRepo repository.ClueRepository
+	clueRepo	repository.ClueRepository
 
 	// 渠道入站消息中台：各渠道适配器（telegram/whatsapp）经 core.IngressHandler 统一走
 	// InboxIngressService.HandleIngressMessage（标准化 + 人工锁 + AI 串行锁 + 落库 + 触发 AgentRuntime）
-	ingressSvc *InboxIngressService
+	ingressSvc	*InboxIngressService
 
 	// Phase 1：智能体引擎（可选注入，nil 时仅入库不入 AI）
-	salesEngine *SalesEngine
+	salesEngine	*SalesEngine
 	// 智能体统一编排器（LLM + 客服座席结合体）
 	// 注入后优先走 HandleIncoming 9 步编排（会话/消息/AI决策/转人工/建议保存）
 	// 未注入时回退到 salesEngine.Handle 直接调用
-	smartOrchestrator *SmartCSOrchestrator
+	smartOrchestrator	*SmartCSOrchestrator
 
 	// 多 AI 智能体路由：按渠道账号查询绑定的智能体上下文
 	// 注入后 triggerSalesEngine 会先加载智能体上下文，再调用 engine.HandleWithAgent
 	// 未注入时回退到默认配置（DefaultSalesEngineConfig）
-	agentBindingSvc *ChannelAgentBindingService
+	agentBindingSvc	*ChannelAgentBindingService
 
-	mu        sync.Mutex // 仅用于 Stop 的 stopped 标志保护
-	dedup     sync.Map   // eventID -> expireTime(time.Time)，O(1) 幂等（性能审计 P1-2）
-	rlMu      sync.Mutex // 限流桶专用锁，与 dedup 分离避免相互阻塞
-	rlBuckets map[string]*tokenBucket
+	mu		sync.Mutex	// 仅用于 Stop 的 stopped 标志保护
+	dedup		sync.Map	// eventID -> expireTime(time.Time)，O(1) 幂等（性能审计 P1-2）
+	rlMu		sync.Mutex	// 限流桶专用锁，与 dedup 分离避免相互阻塞
+	rlBuckets	map[string]*tokenBucket
 
-	workerCount int
-	queue       chan *webhookJob
-	wg          sync.WaitGroup
-	stopCh      chan struct{}
-	stopped     bool
+	workerCount	int
+	queue		chan *webhookJob
+	wg		sync.WaitGroup
+	stopCh		chan struct{}
+	stopped		bool
 
 	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈（性能审计 P1-1）。
-	replySem chan struct{}
+	replySem	chan struct{}
 
 	// TG 群「发现线索主动触达」冷却：避免同一会话被同一发言者的商机反复触发出站（防刷屏）
-	tgOutreachMu   sync.Mutex
-	tgOutreachLast map[string]time.Time
+	tgOutreachMu	sync.Mutex
+	tgOutreachLast	map[string]time.Time
 }
 
 // tgDispatchExtra dispatchTelegram 的附加输出：携带群聊场景下车控/线索相关判定，
 // 供上层（handleJob）决定「是否触达 / 是否主动回复」。非 TG 渠道该值为 nil。
 type tgDispatchExtra struct {
-	Mentioned      bool // 该消息是否 @提及了本机器人（群内「@bot 才回复」的触发条件）
-	NewOpportunity bool // 该消息挖掘后是否让发言者「新晋为商机」
+	Mentioned	bool	// 该消息是否 @提及了本机器人（群内「@bot 才回复」的触发条件）
+	NewOpportunity	bool	// 该消息挖掘后是否让发言者「新晋为商机」
 }
 
 type webhookJob struct {
-	event  *model.WebhookEvent
-	raw    []byte
-	header map[string]string
-	source string
+	event	*model.WebhookEvent
+	raw	[]byte
+	header	map[string]string
+	source	string
 	// 解析后的入站消息（用于业务分发）
-	channel WebhookChannel
-	account string
-	payload *ParsedPayload
+	channel	WebhookChannel
+	account	string
+	payload	*ParsedPayload
 }
 
 type tokenBucket struct {
-	mu         sync.Mutex
-	capacity   int
-	refillRate float64
-	tokens     float64
-	lastRefill time.Time
+	mu		sync.Mutex
+	capacity	int
+	refillRate	float64
+	tokens		float64
+	lastRefill	time.Time
 }
 
-func (b *tokenBucket) allow() bool {
+func (b *tokenBucket) allow(ctx context.Context)  bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	now := time.Now()
@@ -152,16 +152,16 @@ func (b *tokenBucket) allow() bool {
 }
 
 const (
-	WebhookDedupTTL    = 5 * time.Minute
-	WebhookWorkerCount = 4 // 接入 worker 数（从 WEBHOOK_WORKER_COUNT 覆盖）
-	WebhookQueueSize   = 512
-	WebhookRateLimit   = 30
-	WebhookRateBurst   = 60
-	WebhookMaxRetries  = 3
+	WebhookDedupTTL		= 5 * time.Minute
+	WebhookWorkerCount	= 4	// 接入 worker 数（从 WEBHOOK_WORKER_COUNT 覆盖）
+	WebhookQueueSize	= 512
+	WebhookRateLimit	= 30
+	WebhookRateBurst	= 60
+	WebhookMaxRetries	= 3
 	// WebhookReplyConcurrency 同时进行的 AI 生成（本地 LLM 推理）上限。
 	// 与接入 worker 解耦：接入 worker 只做轻量入队，AI 生成交给本有界池，
 	// 推理饱和时 AI 任务排队而非丢弃（性能审计 P1-1）。可用 WEBHOOK_REPLY_CONCURRENCY 覆盖。
-	WebhookReplyConcurrency = 32
+	WebhookReplyConcurrency	= 32
 )
 
 // webhookEnvInt 读取整型环境变量，解析失败则使用默认值。
@@ -178,17 +178,17 @@ func webhookEnvInt(key string, def int) int {
 type WebhookChannel string
 
 const (
-	ChannelDouyin      WebhookChannel = "douyin"
-	ChannelKuaishou    WebhookChannel = "kuaishou"
-	ChannelXiaohongshu WebhookChannel = "xiaohongshu"
-	ChannelXianyu      WebhookChannel = "xianyu"
-	ChannelTiktok      WebhookChannel = "tiktok"
-	ChannelWechat      WebhookChannel = "wechat"
-	ChannelWeCom       WebhookChannel = "wecom"
-	ChannelWhatsapp    WebhookChannel = "whatsapp"
-	ChannelTelegram    WebhookChannel = "telegram"
-	ChannelFeishu      WebhookChannel = "feishu"
-	ChannelCustom      WebhookChannel = "custom"
+	ChannelDouyin		WebhookChannel	= "douyin"
+	ChannelKuaishou		WebhookChannel	= "kuaishou"
+	ChannelXiaohongshu	WebhookChannel	= "xiaohongshu"
+	ChannelXianyu		WebhookChannel	= "xianyu"
+	ChannelTiktok		WebhookChannel	= "tiktok"
+	ChannelWechat		WebhookChannel	= "wechat"
+	ChannelWeCom		WebhookChannel	= "wecom"
+	ChannelWhatsapp		WebhookChannel	= "whatsapp"
+	ChannelTelegram		WebhookChannel	= "telegram"
+	ChannelFeishu		WebhookChannel	= "feishu"
+	ChannelCustom		WebhookChannel	= "custom"
 )
 
 // NewWebhookService 构造 Webhook 服务
@@ -233,26 +233,26 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		unifiedMsgRepo = repository.NewUnifiedMessageRepositoryWithDB(db)
 	}
 	s := &WebhookService{
-		db:             db,
-		eventRepo:      eventRepo,
-		accountRepo:    accountRepo,
-		wecomRepo:      wecomRepo,
-		integration:    NewWeComIntegrationService(db),
-		telegramRepo:   telegramRepo,
-		feishuRepo:     feishuRepo,
-		waRepo:         waRepo,
-		messageHubRepo: messageHubRepo,
-		inboxConvRepo:  inboxConvRepo,
-		unifiedMsgRepo: unifiedMsgRepo,
-		ingressSvc:     NewInboxIngressService(db, nil),
-		rlBuckets:      make(map[string]*tokenBucket),
-		workerCount:    webhookEnvInt("WEBHOOK_WORKER_COUNT", WebhookWorkerCount),
-		queue:          make(chan *webhookJob, webhookEnvInt("WEBHOOK_QUEUE_SIZE", WebhookQueueSize)),
-		stopCh:         make(chan struct{}),
-		replySem:       make(chan struct{}, webhookEnvInt("WEBHOOK_REPLY_CONCURRENCY", WebhookReplyConcurrency)),
+		db:		db,
+		eventRepo:	eventRepo,
+		accountRepo:	accountRepo,
+		wecomRepo:	wecomRepo,
+		integration:	NewWeComIntegrationService(db),
+		telegramRepo:	telegramRepo,
+		feishuRepo:	feishuRepo,
+		waRepo:		waRepo,
+		messageHubRepo:	messageHubRepo,
+		inboxConvRepo:	inboxConvRepo,
+		unifiedMsgRepo:	unifiedMsgRepo,
+		ingressSvc:	NewInboxIngressServiceWithDB(db, nil),
+		rlBuckets:	make(map[string]*tokenBucket),
+		workerCount:	webhookEnvInt("WEBHOOK_WORKER_COUNT", WebhookWorkerCount),
+		queue:		make(chan *webhookJob, webhookEnvInt("WEBHOOK_QUEUE_SIZE", WebhookQueueSize)),
+		stopCh:		make(chan struct{}),
+		replySem:	make(chan struct{}, webhookEnvInt("WEBHOOK_REPLY_CONCURRENCY", WebhookReplyConcurrency)),
 	}
-	s.startWorkers(context.Background())
-	s.startDedupJanitor(context.Background())
+	s.startWorkers(ctx, context.Background())
+	s.startDedupJanitor(ctx, context.Background())
 	return s
 }
 
@@ -319,7 +319,7 @@ func (a webhookIngressAdapter) HandleIngressMessage(ctx context.Context, event *
 
 // ingressHandler 返回供渠道适配器（telegram/whatsapp）调用的入站中台处理器。
 // 未注入 ingressSvc 时返回零值适配器（HandleIngressMessage 无副作用降级）。
-func (s *WebhookService) ingressHandler() webhookIngressAdapter {
+func (s *WebhookService) ingressHandler(ctx context.Context) webhookIngressAdapter {
 	return webhookIngressAdapter{svc: s.ingressSvc}
 }
 
@@ -360,7 +360,7 @@ func (s *WebhookService) Stop(ctx context.Context) {
 	// 通过 context 超时防止 worker 处于 retryWithBackoff 长延迟时无限阻塞
 	done := make(chan struct{})
 	go func() {
-		s.wg.Wait()
+		s.wg.Wait(ctx)
 		close(done)
 	}()
 	select {
@@ -374,13 +374,13 @@ func (s *WebhookService) Stop(ctx context.Context) {
 
 func (s *WebhookService) startWorkers(ctx context.Context) {
 	for i := 0; i < s.workerCount; i++ {
-		s.wg.Add(1)
+		s.wg.Add(ctx, 1)
 		go s.worker(ctx, i)
 	}
 }
 
 func (s *WebhookService) worker(ctx context.Context, id int) {
-	defer s.wg.Done()
+	defer s.wg.Done(ctx)
 	for {
 		select {
 		case <-s.stopCh:
@@ -398,27 +398,27 @@ func (s *WebhookService) worker(ctx context.Context, id int) {
 
 // ReceiveRequest 渠道回调请求通用结构
 type ReceiveRequest struct {
-	Channel   WebhookChannel
-	AccountID string
-	Body      []byte
-	Headers   map[string]string
-	SourceIP  string
+	Channel		WebhookChannel
+	AccountID	string
+	Body		[]byte
+	Headers		map[string]string
+	SourceIP	string
 	// WeCom 加解密使用：加密的 body 解析时使用
-	Query map[string]string
+	Query	map[string]string
 }
 
 // ReceiveResult 处理结果
 type ReceiveResult struct {
-	Accepted   bool   `json:"accepted"`
-	EventID    string `json:"event_id"`
-	Duplicate  bool   `json:"duplicate"`
-	RateLimit  bool   `json:"rate_limit"`
-	VerifyFail bool   `json:"verify_failed"`
-	Reason     string `json:"reason,omitempty"`
-	EventType  string `json:"event_type,omitempty"`
+	Accepted	bool	`json:"accepted"`
+	EventID		string	`json:"event_id"`
+	Duplicate	bool	`json:"duplicate"`
+	RateLimit	bool	`json:"rate_limit"`
+	VerifyFail	bool	`json:"verify_failed"`
+	Reason		string	`json:"reason,omitempty"`
+	EventType	string	`json:"event_type,omitempty"`
 	// 业务分发结果（用于 智能体异步触发）
-	Dispatched   bool   `json:"dispatched,omitempty"`
-	HubMessageID string `json:"hub_message_id,omitempty"`
+	Dispatched	bool	`json:"dispatched,omitempty"`
+	HubMessageID	string	`json:"hub_message_id,omitempty"`
 }
 
 // Receive 接收 webhook
@@ -458,9 +458,9 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 	// 3) 幂等去重
 	if s.isDuplicate(ctx, payload.EventID) {
 		return &ReceiveResult{
-			Accepted:  true,
-			EventID:   payload.EventID,
-			Duplicate: true,
+			Accepted:	true,
+			EventID:	payload.EventID,
+			Duplicate:	true,
 		}, nil
 	}
 
@@ -472,11 +472,11 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 
 	// 5) 持久化事件记录
 	evt := &model.WebhookEvent{
-		Platform:  string(req.Channel),
-		EventID:   payload.EventID,
-		EventType: payload.EventType,
-		RawData:   s.TruncateForStore(ctx, req.Body),
-		Processed: false,
+		Platform:	string(req.Channel),
+		EventID:	payload.EventID,
+		EventType:	payload.EventType,
+		RawData:	s.TruncateForStore(ctx, req.Body),
+		Processed:	false,
 	}
 	if s.eventRepo != nil {
 		if err := s.eventRepo.Create(ctx, evt); err != nil {
@@ -486,13 +486,13 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 
 	// 6) 入异步队列（携带解析后的 payload 减少 worker 重复解析）
 	job := &webhookJob{
-		event:   evt,
-		raw:     req.Body,
-		header:  req.Headers,
-		source:  req.SourceIP,
-		channel: req.Channel,
-		account: req.AccountID,
-		payload: payload,
+		event:		evt,
+		raw:		req.Body,
+		header:		req.Headers,
+		source:		req.SourceIP,
+		channel:	req.Channel,
+		account:	req.AccountID,
+		payload:	payload,
 	}
 	select {
 	case s.queue <- job:
@@ -501,9 +501,9 @@ func (s *WebhookService) Receive(ctx context.Context, req *ReceiveRequest) (*Rec
 	}
 
 	return &ReceiveResult{
-		Accepted:  true,
-		EventID:   payload.EventID,
-		EventType: payload.EventType,
+		Accepted:	true,
+		EventID:	payload.EventID,
+		EventType:	payload.EventType,
 	}, nil
 }
 
@@ -576,10 +576,10 @@ func verifyWeCom(token, aesKey string, body []byte, query map[string]string) (bo
 	}
 	// body 中取 msg_signature/timestamp/nonce
 	var p struct {
-		MsgSignature string `json:"msg_signature"`
-		Timestamp    string `json:"timestamp"`
-		Nonce        string `json:"nonce"`
-		Encrypt      string `json:"encrypt"`
+		MsgSignature	string	`json:"msg_signature"`
+		Timestamp	string	`json:"timestamp"`
+		Nonce		string	`json:"nonce"`
+		Encrypt		string	`json:"encrypt"`
 	}
 	if err := json.Unmarshal(body, &p); err != nil {
 		// 也允许 query 携带
@@ -749,12 +749,12 @@ func VerifyURL(token, aesKey, msgSignature, timestamp, nonce, echostr string) (s
 
 // ParsedPayload 解析后的基础结构
 type ParsedPayload struct {
-	EventID   string         `json:"event_id"`
-	EventType string         `json:"event_type"`
-	Sender    string         `json:"sender,omitempty"`
-	Content   string         `json:"content,omitempty"`
-	ChatID    string         `json:"chat_id,omitempty"`
-	Extra     map[string]any `json:"extra,omitempty"`
+	EventID		string		`json:"event_id"`
+	EventType	string		`json:"event_type"`
+	Sender		string		`json:"sender,omitempty"`
+	Content		string		`json:"content,omitempty"`
+	ChatID		string		`json:"chat_id,omitempty"`
+	Extra		map[string]any	`json:"extra,omitempty"`
 }
 
 // ParsePayload 解析渠道原始 payload 为通用结构
@@ -775,15 +775,15 @@ func (s *WebhookService) ParsePayload(ctx context.Context, channel WebhookChanne
 // ToUnifiedMessage 转成统一消息
 func (s *WebhookService) ToUnifiedMessage(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload) *model.UnifiedMessage {
 	return &model.UnifiedMessage{
-		MessageID:   s.genMessageID(ctx, channel, accountID, p),
-		Platform:    model.Platform(channel),
-		AccountID:   accountID,
-		ChatID:      p.ChatID,
-		SenderID:    p.Sender,
-		Content:     p.Content,
-		ContentType: model.MessageTypeText,
-		RawData:     "",
-		Status:      model.MessageStatusPending,
+		MessageID:	s.genMessageID(ctx, channel, accountID, p),
+		Platform:	model.Platform(channel),
+		AccountID:	accountID,
+		ChatID:		p.ChatID,
+		SenderID:	p.Sender,
+		Content:	p.Content,
+		ContentType:	model.MessageTypeText,
+		RawData:	"",
+		Status:		model.MessageStatusPending,
 	}
 }
 
@@ -905,7 +905,7 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 	}
 	mediaID := getString(plain, "MediaId", "media_id")
 	chatID := getString(plain, "ChatId", "chat_id")
-	chatType := getString(plain, "ChatType", "chat_type") // single/group
+	chatType := getString(plain, "ChatType", "chat_type")	// single/group
 	event := getString(plain, "Event", "event")
 	msgID := getString(plain, "MsgId", "msg_id")
 
@@ -929,15 +929,15 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 	}
 
 	hubMsg, _, err := s.integration.ReceiveCallback(ctx, &ReceiveCallbackRequest{
-		AccountID: uint(accID),
-		FromUser:  fromUser,
-		FromName:  fromName,
-		MsgType:   msgType,
-		Content:   content,
-		MsgID:     msgID,
-		MediaID:   mediaID,
-		ChatID:    chatID,
-		ChatType:  chatType,
+		AccountID:	uint(accID),
+		FromUser:	fromUser,
+		FromName:	fromName,
+		MsgType:	msgType,
+		Content:	content,
+		MsgID:		msgID,
+		MediaID:	mediaID,
+		ChatID:		chatID,
+		ChatType:	chatType,
 	})
 	return hubMsg, err
 }
@@ -1026,19 +1026,19 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 			}
 			// 写入消息中台
 			hub := &model.MessageHub{
-				Platform:       "whatsapp",
-				AccountID:      accountID,
-				MsgID:          msg.ID,
-				Direction:      "inbound",
-				SenderID:       msg.From,
-				ConversationID: msg.From,
-				MsgType:        msgType,
-				Content:        content,
-				SentAt:         time.Now(),
+				Platform:	"whatsapp",
+				AccountID:	accountID,
+				MsgID:		msg.ID,
+				Direction:	"inbound",
+				SenderID:	msg.From,
+				ConversationID:	msg.From,
+				MsgType:	msgType,
+				Content:	content,
+				SentAt:		time.Now(),
 			}
 			// 入站消息统一经消息中台处理（标准化 + 人工锁 + AI 串行锁 + 落库 + 触发 AgentRuntime）。
 			// hub 仅作为收件箱会话 upsert 与上层 AI 触发的字段载体，不再单独 messageHubRepo.Create。
-			if err := waPayload.Ingress(ctx, s.ingressHandler(), accountID); err != nil {
+			if err := waPayload.Ingress(ctx, s.ingressHandler(ctx), accountID); err != nil {
 				return nil, err
 			}
 			// 写收件箱会话
@@ -1086,10 +1086,10 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 				// tgPayload.Message.NewChatMembers 元素类型是匿名 struct，需先转换为 telegram.TGUser
 				member := tgPayload.Message.NewChatMembers[i]
 				newMember = &telegram.TGUser{
-					ID:        member.ID,
-					FirstName: member.FirstName,
-					Username:  member.Username,
-					IsBot:     member.IsBot,
+					ID:		member.ID,
+					FirstName:	member.FirstName,
+					Username:	member.Username,
+					IsBot:		member.IsBot,
 				}
 				break
 			}
@@ -1107,17 +1107,17 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 			}
 			eventContent := fmt.Sprintf("[入群事件] 用户 %s (@%s) 加入群组 %s", newMember.FirstName, newMember.Username, groupLabel)
 			hub := &model.MessageHub{
-				Platform:       "telegram",
-				AccountID:      accountID,
-				MsgID:          fmt.Sprintf("tg_join_%d_%d", chatID, newMember.ID),
-				Direction:      "inbound",
-				SenderID:       senderIDStr,
-				ConversationID: chatIDStr,
-				MsgType:        "event",
-				Content:        eventContent,
-				SentAt:         time.Now(),
-				IsGroup:        isGroup,
-				GroupID:        chatIDStr,
+				Platform:	"telegram",
+				AccountID:	accountID,
+				MsgID:		fmt.Sprintf("tg_join_%d_%d", chatID, newMember.ID),
+				Direction:	"inbound",
+				SenderID:	senderIDStr,
+				ConversationID:	chatIDStr,
+				MsgType:	"event",
+				Content:	eventContent,
+				SentAt:		time.Now(),
+				IsGroup:	isGroup,
+				GroupID:	chatIDStr,
 			}
 			if err := s.messageHubRepo.Create(ctx, hub); err != nil {
 				if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
@@ -1147,17 +1147,17 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		}
 		eventContent := fmt.Sprintf("[退群事件] 用户 %s (@%s) 离开群组", left.FirstName, left.Username)
 		hub := &model.MessageHub{
-			Platform:       "telegram",
-			AccountID:      accountID,
-			MsgID:          fmt.Sprintf("tg_left_%d_%d", chatID, left.ID),
-			Direction:      "inbound",
-			SenderID:       senderIDStr,
-			ConversationID: chatIDStr,
-			MsgType:        "event",
-			Content:        eventContent,
-			SentAt:         time.Now(),
-			IsGroup:        true,
-			GroupID:        chatIDStr,
+			Platform:	"telegram",
+			AccountID:	accountID,
+			MsgID:		fmt.Sprintf("tg_left_%d_%d", chatID, left.ID),
+			Direction:	"inbound",
+			SenderID:	senderIDStr,
+			ConversationID:	chatIDStr,
+			MsgType:	"event",
+			Content:	eventContent,
+			SentAt:		time.Now(),
+			IsGroup:	true,
+			GroupID:	chatIDStr,
 		}
 		if err := s.messageHubRepo.Create(ctx, hub); err != nil {
 			if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
@@ -1170,14 +1170,14 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 
 	// 提取消息
 	type tgMsg struct {
-		msgID     int64
-		chatID    int64
-		chatType  string
-		fromID    int64
-		fromName  string
-		username  string
-		fromIsBot bool
-		text      string
+		msgID		int64
+		chatID		int64
+		chatType	string
+		fromID		int64
+		fromName	string
+		username	string
+		fromIsBot	bool
+		text		string
 	}
 	var picked *tgMsg
 	if tgPayload.Message != nil && tgPayload.Message.From != nil && tgPayload.Message.Chat != nil {
@@ -1186,14 +1186,14 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 			return nil, nil, nil
 		}
 		tm := &tgMsg{
-			msgID:     tgPayload.Message.MessageID,
-			chatID:    tgPayload.Message.Chat.ID,
-			chatType:  tgPayload.Message.Chat.Type,
-			fromID:    tgPayload.Message.From.ID,
-			fromName:  tgPayload.Message.From.FirstName,
-			username:  tgPayload.Message.From.Username,
-			fromIsBot: tgPayload.Message.From.IsBot,
-			text:      tgPayload.Message.Text,
+			msgID:		tgPayload.Message.MessageID,
+			chatID:		tgPayload.Message.Chat.ID,
+			chatType:	tgPayload.Message.Chat.Type,
+			fromID:		tgPayload.Message.From.ID,
+			fromName:	tgPayload.Message.From.FirstName,
+			username:	tgPayload.Message.From.Username,
+			fromIsBot:	tgPayload.Message.From.IsBot,
+			text:		tgPayload.Message.Text,
 		}
 		if tm.chatType == "" {
 			tm.chatType = "private"
@@ -1201,9 +1201,9 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		picked = tm
 	} else if tgPayload.EditedMessage != nil && tgPayload.EditedMessage.Chat != nil {
 		tm := &tgMsg{
-			msgID:    tgPayload.EditedMessage.MessageID,
-			chatID:   tgPayload.EditedMessage.Chat.ID,
-			chatType: tgPayload.EditedMessage.Chat.Type,
+			msgID:		tgPayload.EditedMessage.MessageID,
+			chatID:		tgPayload.EditedMessage.Chat.ID,
+			chatType:	tgPayload.EditedMessage.Chat.Type,
 			fromID: func() int64 {
 				if tgPayload.EditedMessage.From != nil {
 					return tgPayload.EditedMessage.From.ID
@@ -1228,7 +1228,7 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 				}
 				return false
 			}(),
-			text: tgPayload.EditedMessage.Text,
+			text:	tgPayload.EditedMessage.Text,
 		}
 		if tm.chatType == "" {
 			tm.chatType = "private"
@@ -1242,13 +1242,13 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 			chatType = tgPayload.CallbackQuery.Message.Chat.Type
 		}
 		picked = &tgMsg{
-			msgID:     0,
-			chatID:    chatID,
-			chatType:  chatType,
-			fromID:    tgPayload.CallbackQuery.From.ID,
-			fromName:  tgPayload.CallbackQuery.From.FirstName,
-			fromIsBot: tgPayload.CallbackQuery.From.IsBot,
-			text:      "/callback " + tgPayload.CallbackQuery.Data,
+			msgID:		0,
+			chatID:		chatID,
+			chatType:	chatType,
+			fromID:		tgPayload.CallbackQuery.From.ID,
+			fromName:	tgPayload.CallbackQuery.From.FirstName,
+			fromIsBot:	tgPayload.CallbackQuery.From.IsBot,
+			text:		"/callback " + tgPayload.CallbackQuery.Data,
 		}
 	}
 	if picked == nil {
@@ -1257,17 +1257,17 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 	chatIDStr := fmt.Sprintf("%d", picked.chatID)
 	senderIDStr := fmt.Sprintf("%d", picked.fromID)
 	hub := &model.MessageHub{
-		Platform:       "telegram",
-		AccountID:      accountID,
-		MsgID:          fmt.Sprintf("tg_%d", picked.msgID),
-		Direction:      "inbound",
-		SenderID:       senderIDStr,
-		ConversationID: chatIDStr,
-		MsgType:        "text",
-		Content:        picked.text,
-		SentAt:         time.Now(),
-		IsGroup:        picked.chatType == "group" || picked.chatType == "supergroup",
-		GroupID:        chatIDStr,
+		Platform:	"telegram",
+		AccountID:	accountID,
+		MsgID:		fmt.Sprintf("tg_%d", picked.msgID),
+		Direction:	"inbound",
+		SenderID:	senderIDStr,
+		ConversationID:	chatIDStr,
+		MsgType:	"text",
+		Content:	picked.text,
+		SentAt:		time.Now(),
+		IsGroup:	picked.chatType == "group" || picked.chatType == "supergroup",
+		GroupID:	chatIDStr,
 	}
 	if hub.Content == "" {
 		hub.Content = "[" + picked.chatType + "]"
@@ -1275,7 +1275,7 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 	// 入站消息统一经消息中台处理（标准化 + 人工锁 + AI 串行锁 + 落库 + 触发 AgentRuntime）。
 	// TG 渠道特有逻辑（群入退群事件/线索挖掘/@提及判定）保留在 dispatch 内作为中台调用前后的预处理；
 	// hub 仅作为收件箱会话 upsert 与上层 AI 触发的字段载体，不再单独 messageHubRepo.Create。
-	if err := tgPayload.Ingress(ctx, s.ingressHandler(), accountID); err != nil {
+	if err := tgPayload.Ingress(ctx, s.ingressHandler(ctx), accountID); err != nil {
 		return nil, nil, err
 	}
 	s.upsertInboxFromHub(ctx, hub, picked.fromName)
@@ -1290,7 +1290,7 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
 			groupTitle = tgPayload.Message.Chat.Title
 		}
-		newOpportunity = s.mineTelegramGroupLead(ctx, hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
+		newOpportunity = s.mineTelegramGroupLead(hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
 	}
 
 	// 群内「@机器人 才回复」的提及判定：文本含 @username，或本条是「回复了某条机器人消息」
@@ -1378,13 +1378,13 @@ func (s *WebhookService) triggerTelegramJoinSales(ctx context.Context, accountID
 	defer cancel()
 
 	req := &SalesRequest{
-		SessionID:   "telegram:" + chatID,
-		CustomerID:  senderID,
-		OneID:       "telegram:" + senderID,
-		UserMessage: triggerMsg,
-		Platform:    "telegram",
-		AutoExecute: true,
-		Config:      DefaultSalesEngineConfig(),
+		SessionID:	"telegram:" + chatID,
+		CustomerID:	senderID,
+		OneID:		"telegram:" + senderID,
+		UserMessage:	triggerMsg,
+		Platform:	"telegram",
+		AutoExecute:	true,
+		Config:		DefaultSalesEngineConfig(),
 	}
 	// 入群场景的人设：销售助手主动开场
 	req.Config.Persona = "你是 Telegram 群组里的销售助手。新用户加入群组时，主动发起一段简洁、亲切的欢迎+销售开场白，引导用户了解产品。回复不超过 80 字。"
@@ -1424,36 +1424,36 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 	}
 	s.ensureReposFromDB(ctx)
 	var fsPayload struct {
-		Challenge string `json:"challenge"`
-		Type      string `json:"type"`
-		Header    *struct {
-			EventType    string `json:"event_type"`
-			AppID        string `json:"app_id"`
-			TenantKey    string `json:"tenant_key"`
-			EventID      string `json:"event_id"`
-			Token        string `json:"token"`
-			CreateTime   int64  `json:"create_time"`
-			AppSecretVer int    `json:"app_secret_ver"`
-		} `json:"header,omitempty"`
-		Event *struct {
-			Sender *struct {
-				SenderID *struct {
-					UnionID string `json:"union_id"`
-					UserID  string `json:"user_id"`
-					OpenID  string `json:"open_id"`
-				} `json:"sender_id"`
-				SenderType string `json:"sender_type"`
-				TenantKey  string `json:"tenant_key"`
-			} `json:"sender"`
-			Message *struct {
-				MessageID   string `json:"message_id"`
-				ChatID      string `json:"chat_id"`
-				ChatType    string `json:"chat_type"`
-				MessageType string `json:"message_type"`
-				Content     string `json:"content"` // JSON 字符串
-				CreateTime  int64  `json:"create_time"`
-			} `json:"message"`
-		} `json:"event,omitempty"`
+		Challenge	string	`json:"challenge"`
+		Type		string	`json:"type"`
+		Header		*struct {
+			EventType	string	`json:"event_type"`
+			AppID		string	`json:"app_id"`
+			TenantKey	string	`json:"tenant_key"`
+			EventID		string	`json:"event_id"`
+			Token		string	`json:"token"`
+			CreateTime	int64	`json:"create_time"`
+			AppSecretVer	int	`json:"app_secret_ver"`
+		}	`json:"header,omitempty"`
+		Event	*struct {
+			Sender	*struct {
+				SenderID	*struct {
+					UnionID	string	`json:"union_id"`
+					UserID	string	`json:"user_id"`
+					OpenID	string	`json:"open_id"`
+				}	`json:"sender_id"`
+				SenderType	string	`json:"sender_type"`
+				TenantKey	string	`json:"tenant_key"`
+			}	`json:"sender"`
+			Message	*struct {
+				MessageID	string	`json:"message_id"`
+				ChatID		string	`json:"chat_id"`
+				ChatType	string	`json:"chat_type"`
+				MessageType	string	`json:"message_type"`
+				Content		string	`json:"content"`	// JSON 字符串
+				CreateTime	int64	`json:"create_time"`
+			}	`json:"message"`
+		}	`json:"event,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &fsPayload); err != nil {
 		return nil, fmt.Errorf("feishu parse: %w", err)
@@ -1487,17 +1487,17 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 		}
 	}
 	hub := &model.MessageHub{
-		Platform:       "feishu",
-		AccountID:      accountID,
-		MsgID:          m.MessageID,
-		Direction:      "inbound",
-		SenderID:       senderID,
-		ConversationID: m.ChatID,
-		MsgType:        m.MessageType,
-		Content:        content,
-		SentAt:         time.Now(),
-		IsGroup:        m.ChatType == "group",
-		GroupID:        m.ChatID,
+		Platform:	"feishu",
+		AccountID:	accountID,
+		MsgID:		m.MessageID,
+		Direction:	"inbound",
+		SenderID:	senderID,
+		ConversationID:	m.ChatID,
+		MsgType:	m.MessageType,
+		Content:	content,
+		SentAt:		time.Now(),
+		IsGroup:	m.ChatType == "group",
+		GroupID:	m.ChatID,
 	}
 	if err := s.messageHubRepo.Create(ctx, hub); err != nil {
 		if !strings.Contains(err.Error(), "UNIQUE") && !strings.Contains(err.Error(), "duplicate") {
@@ -1520,16 +1520,16 @@ func (s *WebhookService) upsertInboxFromHub(ctx context.Context, hub *model.Mess
 		return
 	}
 	newConv := &model.InboxConversation{
-		Platform:           hub.Platform,
-		AccountID:          hub.AccountID,
-		CustomerID:         hub.SenderID,
-		CustomerName:       customerName,
-		LastMessagePreview: hub.Content,
-		LastMessageAt:      &hub.SentAt,
-		UnreadCount:        1,
-		Status:             "active",
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
+		Platform:		hub.Platform,
+		AccountID:		hub.AccountID,
+		CustomerID:		hub.SenderID,
+		CustomerName:		customerName,
+		LastMessagePreview:	hub.Content,
+		LastMessageAt:		&hub.SentAt,
+		UnreadCount:		1,
+		Status:			"active",
+		CreatedAt:		time.Now(),
+		UpdatedAt:		time.Now(),
 	}
 	_ = s.inboxConvRepo.Create(ctx, newConv)
 }
@@ -1677,11 +1677,11 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 
 	// 按 channel 构造请求
 	req := &SalesRequest{
-		SessionID:   p.ChatID,
-		UserMessage: p.Content,
-		Platform:    string(channel),
-		AutoExecute: true,
-		Config:      DefaultSalesEngineConfig(),
+		SessionID:	p.ChatID,
+		UserMessage:	p.Content,
+		Platform:	string(channel),
+		AutoExecute:	true,
+		Config:		DefaultSalesEngineConfig(),
 	}
 	// 填充 customerID（oneID）
 	if hubMsg != nil {
@@ -1729,14 +1729,14 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 	routeCtx := context.Background()
 	routeCtx = logger.WithTraceID(routeCtx, "")
 	routeCtx = logger.WithModule(routeCtx, "webhook")
-	agentCtx, _ := s.loadAgentForChannel(routeCtx, channel, accountID)
+	agentCtx, _ := s.loadAgentForChannel(ctx, routeCtx, channel, accountID)
 
 	in := &IncomingContext{
-		Platform:  model.Platform(channel),
-		AccountID: accountID,
-		SenderID:  p.Sender,
-		Content:   p.Content,
-		MessageID: p.EventID,
+		Platform:	model.Platform(channel),
+		AccountID:	accountID,
+		SenderID:	p.Sender,
+		Content:	p.Content,
+		MessageID:	p.EventID,
 	}
 	if hubMsg != nil {
 		in.OneID = hubMsg.SenderID
@@ -1851,12 +1851,12 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			return
 		}
 		if _, err := s.integration.SendMessage(ctx, &WeComSendRequest{
-			AccountID:      uint(accID),
-			ExternalUserID: p.Sender,
-			MsgType:        "text",
-			Content:        content,
-			IsAIReply:      true,
-			AIAgent:        "sales_engine",
+			AccountID:	uint(accID),
+			ExternalUserID:	p.Sender,
+			MsgType:	"text",
+			Content:	content,
+			IsAIReply:	true,
+			AIAgent:	"sales_engine",
 		}); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "wecom").Str("account_id", accountID).Msg("outbound failed")
 			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
@@ -1934,15 +1934,15 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 		return false
 	}
 	now := time.Now()
-	if v, ok := s.dedup.Load(eventID); ok {
+	if v, ok := s.dedup.Load(ctx, eventID); ok {
 		if exp, ok := v.(time.Time); ok && now.Before(exp) {
 			// R9 可观测性：命中去重的重复投递
 			metrics.GlobalMetrics.WebhookDedupTotal.Inc("duplicate")
 			return true
 		}
-		s.dedup.Delete(eventID)
+		s.dedup.Delete(ctx, eventID)
 	}
-	s.dedup.Store(eventID, now.Add(WebhookDedupTTL))
+	s.dedup.Store(ctx, eventID, now.Add(WebhookDedupTTL))
 	// R9 可观测性：新事件接受（进入幂等窗口）
 	metrics.GlobalMetrics.WebhookDedupTotal.Inc("accepted")
 	return false
@@ -1953,10 +1953,10 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	b, ok := s.rlBuckets[key]
 	if !ok {
 		b = &tokenBucket{
-			capacity:   WebhookRateBurst,
-			refillRate: float64(WebhookRateLimit),
-			tokens:     float64(WebhookRateBurst),
-			lastRefill: time.Now(),
+			capacity:	WebhookRateBurst,
+			refillRate:	float64(WebhookRateLimit),
+			tokens:		float64(WebhookRateBurst),
+			lastRefill:	time.Now(),
 		}
 		s.rlBuckets[key] = b
 	}
@@ -1968,16 +1968,16 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 func (s *WebhookService) startDedupJanitor(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
+		defer ticker.Stop(ctx)
 		for {
 			select {
 			case <-s.stopCh:
 				return
 			case <-ticker.C:
 				now := time.Now()
-				s.dedup.Range(func(k, v any) bool {
+				s.dedup.Range(ctx, func(k, v any) bool {
 					if exp, ok := v.(time.Time); ok && now.After(exp) {
-						s.dedup.Delete(k)
+						s.dedup.Delete(ctx, k)
 					}
 					return true
 				})
@@ -2091,10 +2091,10 @@ func (s *WebhookService) PendingCount(ctx context.Context) int64 {
 }
 
 // QueueLen 队列长度
-func (s *WebhookService) QueueLen(ctx context.Context) int { return len(s.queue) }
+func (s *WebhookService) QueueLen(ctx context.Context) int	{ return len(s.queue) }
 
 // ReadAll 读取请求体
-func ReadAll(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
+func ReadAll(r io.Reader) ([]byte, error)	{ return io.ReadAll(r) }
 
 // helpers
 func getString(m map[string]any, keys ...string) string {

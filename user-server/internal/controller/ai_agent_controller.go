@@ -38,7 +38,7 @@ type AIAgentController struct {
 // NewAIAgentController 创建智能体控制器
 func NewAIAgentController() *AIAgentController {
 	return &AIAgentController{
-		svc: service.NewAIAgentService(db.GetDB()),
+		svc: service.NewAIAgentService(),
 	}
 }
 
@@ -82,7 +82,7 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 			status = v
 		}
 	}
-	list, err := ctrl.svc.List(agentType, status, keyword)
+	list, err := ctrl.svc.List(c.Request.Context(), agentType, status, keyword)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -93,7 +93,7 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 // ListEnabled 启用智能体列表
 // GET /api/ai-agents-enabled
 func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
-	list, err := ctrl.svc.ListEnabled()
+	list, err := ctrl.svc.ListEnabled(c.Request.Context())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -109,7 +109,7 @@ func (ctrl *AIAgentController) Get(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	agent, err := ctrl.svc.GetByID(uint(id))
+	agent, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "智能体不存在", err.Error())
 		return
@@ -227,7 +227,7 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 		agent.EnablePlaybook = true
 	}
 
-	if err := ctrl.svc.Create(agent); err != nil {
+	if err := ctrl.svc.Create(c.Request.Context(), agent); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return
 	}
@@ -242,7 +242,7 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	existing, err := ctrl.svc.GetByID(uint(id))
+	existing, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "智能体不存在", err.Error())
 		return
@@ -341,7 +341,7 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 		existing.Status = req.Status
 	}
 
-	if err := ctrl.svc.Update(existing); err != nil {
+	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return
 	}
@@ -356,7 +356,7 @@ func (ctrl *AIAgentController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	if err := ctrl.svc.Delete(uint(id)); err != nil {
+	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
 		response.Error(c, http.StatusBadRequest, "删除失败", err.Error())
 		return
 	}
@@ -383,7 +383,7 @@ func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 		}
 	} else {
 		// 未指定时按当前状态取反
-		agent, err := ctrl.svc.GetByID(uint(id))
+		agent, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 		if err != nil {
 			response.Error(c, http.StatusNotFound, "智能体不存在", err.Error())
 			return
@@ -394,7 +394,7 @@ func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 			newStatus = 1
 		}
 	}
-	if err := ctrl.svc.UpdateStatus(uint(id), newStatus); err != nil {
+	if err := ctrl.svc.UpdateStatus(c.Request.Context(), uint(id), newStatus); err != nil {
 		response.Error(c, http.StatusInternalServerError, "状态更新失败", err.Error())
 		return
 	}
@@ -461,7 +461,7 @@ type ChannelAgentBindingController struct {
 // NewChannelAgentBindingController 创建渠道绑定控制器
 func NewChannelAgentBindingController() *ChannelAgentBindingController {
 	return &ChannelAgentBindingController{
-		svc: service.NewChannelAgentBindingService(db.GetDB(), service.NewAIAgentService(db.GetDB())),
+		svc: service.NewChannelAgentBindingService(),
 	}
 }
 
@@ -492,7 +492,7 @@ func (ctrl *ChannelAgentBindingController) List(c *gin.Context) {
 		return
 	}
 	channelType = service.NormalizeChannelType(channelType)
-	list, err := ctrl.svc.ListByChannelAccount(channelType, accountID)
+	list, err := ctrl.svc.ListByChannelAccount(c.Request.Context(), channelType, accountID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -508,7 +508,7 @@ func (ctrl *ChannelAgentBindingController) ListByAgent(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的智能体ID", err.Error())
 		return
 	}
-	list, err := ctrl.svc.ListByAgentID(uint(agentID))
+	list, err := ctrl.svc.ListByAgentID(c.Request.Context(), uint(agentID))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -543,7 +543,7 @@ func (ctrl *ChannelAgentBindingController) Create(c *gin.Context) {
 	if !req.Enabled {
 		b.Enabled = false
 	}
-	if err := ctrl.svc.Create(b); err != nil {
+	if err := ctrl.svc.Create(c.Request.Context(), b); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return
 	}
@@ -558,7 +558,7 @@ func (ctrl *ChannelAgentBindingController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	existing, err := ctrl.svc.GetByID(uint(id))
+	existing, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "绑定不存在", err.Error())
 		return
@@ -573,7 +573,7 @@ func (ctrl *ChannelAgentBindingController) Update(c *gin.Context) {
 	existing.AgentID = req.AgentID
 	existing.IsPrimary = req.IsPrimary
 	existing.Enabled = req.Enabled
-	if err := ctrl.svc.Update(existing); err != nil {
+	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return
 	}
@@ -588,7 +588,7 @@ func (ctrl *ChannelAgentBindingController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	if err := ctrl.svc.Delete(uint(id)); err != nil {
+	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
 		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
 		return
 	}
@@ -607,7 +607,7 @@ type CustomerServiceAgentController struct {
 // NewCustomerServiceAgentController 创建客服挂载控制器
 func NewCustomerServiceAgentController() *CustomerServiceAgentController {
 	return &CustomerServiceAgentController{
-		svc: service.NewCustomerServiceAgentService(db.GetDB(), service.NewAIAgentService(db.GetDB())),
+		svc: service.NewCustomerServiceAgentService(),
 	}
 }
 
@@ -644,7 +644,7 @@ func (ctrl *CustomerServiceAgentController) List(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的座席ID", err.Error())
 		return
 	}
-	list, err := ctrl.svc.ListByAgentStatusID(uint(agentStatusID))
+	list, err := ctrl.svc.ListByAgentStatusID(c.Request.Context(), uint(agentStatusID))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -660,7 +660,7 @@ func (ctrl *CustomerServiceAgentController) ListByAIAgent(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的智能体ID", err.Error())
 		return
 	}
-	list, err := ctrl.svc.ListByAIAgentID(uint(aiAgentID))
+	list, err := ctrl.svc.ListByAIAgentID(c.Request.Context(), uint(aiAgentID))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -693,7 +693,7 @@ func (ctrl *CustomerServiceAgentController) Create(c *gin.Context) {
 	if !req.Enabled {
 		m.Enabled = false
 	}
-	if err := ctrl.svc.Create(m); err != nil {
+	if err := ctrl.svc.Create(c.Request.Context(), m); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return
 	}
@@ -708,7 +708,7 @@ func (ctrl *CustomerServiceAgentController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	existing, err := ctrl.svc.GetByID(uint(id))
+	existing, err := ctrl.svc.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "挂载不存在", err.Error())
 		return
@@ -722,7 +722,7 @@ func (ctrl *CustomerServiceAgentController) Update(c *gin.Context) {
 	existing.AIAgentID = req.AIAgentID
 	existing.IsPrimary = req.IsPrimary
 	existing.Enabled = req.Enabled
-	if err := ctrl.svc.Update(existing); err != nil {
+	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {
 		response.Error(c, http.StatusBadRequest, "更新失败", err.Error())
 		return
 	}
@@ -737,7 +737,7 @@ func (ctrl *CustomerServiceAgentController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的ID", err.Error())
 		return
 	}
-	if err := ctrl.svc.Delete(uint(id)); err != nil {
+	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
 		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
 		return
 	}
@@ -752,7 +752,7 @@ func (ctrl *CustomerServiceAgentController) ListByUser(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的用户ID", err.Error())
 		return
 	}
-	list, err := ctrl.svc.ListByUserID(uint(userID))
+	list, err := ctrl.svc.ListByUserID(c.Request.Context(), uint(userID))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -778,7 +778,7 @@ func (ctrl *CustomerServiceAgentController) CreateByUser(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	m, err := ctrl.svc.CreateByUserID(uint(userID), req.UserName, req.AIAgentID, req.IsPrimary)
+	m, err := ctrl.svc.CreateByUserID(c.Request.Context(), uint(userID), req.UserName, req.AIAgentID, req.IsPrimary)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return

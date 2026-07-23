@@ -28,28 +28,28 @@ type VectorStore interface {
 
 // SearchResult 搜索结果
 type SearchResult struct {
-	ID       string         `json:"id"`
-	Score    float64        `json:"score"`
-	Metadata map[string]any `json:"metadata"`
-	Vector   []float32      `json:"-"` // 不序列化向量本身
+	ID		string		`json:"id"`
+	Score		float64		`json:"score"`
+	Metadata	map[string]any	`json:"metadata"`
+	Vector		[]float32	`json:"-"`	// 不序列化向量本身
 }
 
 // InMemoryVectorStore 内存向量存储实现
 type InMemoryVectorStore struct {
-	vectors   [][]float32
-	metadatas []map[string]any
-	ids       []string
-	lock      sync.RWMutex
-	dimension int
+	vectors		[][]float32
+	metadatas	[]map[string]any
+	ids		[]string
+	lock		sync.RWMutex
+	dimension	int
 }
 
 // NewInMemoryVectorStore 创建内存向量存储
 func NewInMemoryVectorStore(dimension int) *InMemoryVectorStore {
 	return &InMemoryVectorStore{
-		vectors:   make([][]float32, 0),
-		metadatas: make([]map[string]any, 0),
-		ids:       make([]string, 0),
-		dimension: dimension,
+		vectors:	make([][]float32, 0),
+		metadatas:	make([]map[string]any, 0),
+		ids:		make([]string, 0),
+		dimension:	dimension,
 	}
 }
 
@@ -91,15 +91,15 @@ func (v *InMemoryVectorStore) Search(queryVector []float32, topK int) ([]SearchR
 	}
 
 	scores := make([]struct {
-		index int
-		score float64
+		index	int
+		score	float64
 	}, len(v.vectors))
 
 	for i, vector := range v.vectors {
 		score := cosineSimilarity(queryVector, vector)
 		scores[i] = struct {
-			index int
-			score float64
+			index	int
+			score	float64
 		}{index: i, score: score}
 	}
 
@@ -115,9 +115,9 @@ func (v *InMemoryVectorStore) Search(queryVector []float32, topK int) ([]SearchR
 	for i := 0; i < topK && i < len(scores); i++ {
 		idx := scores[i].index
 		results = append(results, SearchResult{
-			ID:       v.ids[idx],
-			Score:    scores[i].score,
-			Metadata: v.metadatas[idx],
+			ID:		v.ids[idx],
+			Score:		scores[i].score,
+			Metadata:	v.metadatas[idx],
 		})
 	}
 
@@ -196,9 +196,9 @@ func cosineSimilarity(a, b []float32) float64 {
 
 // RemoteVectorizer 真实向量化器(对接 OpenAI 兼容 /v1/embeddings)
 type RemoteVectorizer struct {
-	dimension int
-	svc       llm.EmbeddingServiceInterface
-	cfg       *llm.EmbeddingConfig
+	dimension	int
+	svc		llm.EmbeddingServiceInterface
+	cfg		*llm.EmbeddingConfig
 }
 
 // NewRemoteVectorizer 构造真实向量化器
@@ -233,7 +233,7 @@ func (r *RemoteVectorizer) EmbedBatch(texts []string) ([][]float32, error) {
 }
 
 // GetDimension 获取维度
-func (r *RemoteVectorizer) GetDimension() int { return r.dimension }
+func (r *RemoteVectorizer) GetDimension() int	{ return r.dimension }
 
 // HashVectorizer 纯内存确定性向量化器：基于文本哈希（FNV-1a + 线性同余）生成确定性向量。
 // 不发起任何网络请求，用于单元测试隔离外部 embedding 服务依赖；执行的是真实计算，非 mock。
@@ -255,8 +255,8 @@ func hashToVector(text string, dim int) []float32 {
 	vec := make([]float32, dim)
 	// FNV-1a 64-bit
 	const (
-		offset uint64 = 14695981039346656037
-		prime  uint64 = 1099511628211
+		offset	uint64	= 14695981039346656037
+		prime	uint64	= 1099511628211
 	)
 	h := offset
 	for i := 0; i < len(text); i++ {
@@ -295,19 +295,19 @@ func (m *HashVectorizer) EmbedBatch(texts []string) ([][]float32, error) {
 }
 
 // GetDimension 获取维度
-func (m *HashVectorizer) GetDimension() int { return m.dimension }
+func (m *HashVectorizer) GetDimension() int	{ return m.dimension }
 
 // VectorProcessor 向量处理器
 type VectorProcessor struct {
-	vectorizer Vectorizer
-	store      VectorStore
+	vectorizer	Vectorizer
+	store		VectorStore
 }
 
 // NewVectorProcessor 创建向量处理器
 func NewVectorProcessor(vectorizer Vectorizer, store VectorStore) *VectorProcessor {
 	return &VectorProcessor{
-		vectorizer: vectorizer,
-		store:      store,
+		vectorizer:	vectorizer,
+		store:		store,
 	}
 }
 
@@ -354,7 +354,7 @@ func (vp *VectorProcessor) BatchSearch(ctx context.Context, queries []string, to
 	results := make([][]SearchResult, len(queries))
 
 	for i, query := range queries {
-		searchResults, err := vp.Search(ctx, query, topK)
+		searchResults, err := vp.Search(context.Background(), query, topK)
 		if err != nil {
 			return nil, fmt.Errorf("failed to search for query %d: %w", i, err)
 		}

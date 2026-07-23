@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -112,7 +113,7 @@ func NewSalesDashboard(journey *CustomerJourneyService) *SalesDashboard {
 }
 
 // RegisterSales 注册销售档案
-func (d *SalesDashboard) RegisterSales(profile SalesProfile) {
+func (d *SalesDashboard) RegisterSales(ctx context.Context, profile SalesProfile)  {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if profile.JoinedAt.IsZero() {
@@ -122,7 +123,7 @@ func (d *SalesDashboard) RegisterSales(profile SalesProfile) {
 }
 
 // RecordOrder 记录订单
-func (d *SalesDashboard) RecordOrder(ev OrderEvent) {
+func (d *SalesDashboard) RecordOrder(ctx context.Context, ev OrderEvent)  {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if ev.OrderedAt.IsZero() {
@@ -132,7 +133,7 @@ func (d *SalesDashboard) RecordOrder(ev OrderEvent) {
 }
 
 // RecordFollowUp 记录跟进
-func (d *SalesDashboard) RecordFollowUp(ev FollowUpEvent) {
+func (d *SalesDashboard) RecordFollowUp(ctx context.Context, ev FollowUpEvent)  {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if ev.OccurredAt.IsZero() {
@@ -142,7 +143,7 @@ func (d *SalesDashboard) RecordFollowUp(ev FollowUpEvent) {
 }
 
 // RecordAIDeal 记录 AI 谈单
-func (d *SalesDashboard) RecordAIDeal(ev AIDealEvent) {
+func (d *SalesDashboard) RecordAIDeal(ctx context.Context, ev AIDealEvent)  {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if ev.OccurredAt.IsZero() {
@@ -154,7 +155,7 @@ func (d *SalesDashboard) RecordAIDeal(ev AIDealEvent) {
 // RecordOrderDraft 记录订单草稿事件（P1-CLOSE-11）
 // 商业产品级业务流：销售每天接触 50+ 客户，订单草稿的"创建/确认/取消/过期"
 // 4 个动作都是仪表盘需要追踪的关键指标。
-func (d *SalesDashboard) RecordOrderDraft(ev OrderDraftEvent) {
+func (d *SalesDashboard) RecordOrderDraft(ctx context.Context, ev OrderDraftEvent)  {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if ev.OccurredAt.IsZero() {
@@ -167,7 +168,7 @@ func (d *SalesDashboard) RecordOrderDraft(ev OrderDraftEvent) {
 // 商业产品级：销售管理者需要看到每个销售的"草稿转化率"（确认/创建）。
 // 这是销售效率的核心指标：草稿越多但确认越少 = 销售不积极。
 // 转化率 = 确认数 / 创建数（更准确反映草稿到成单的转化）
-func (d *SalesDashboard) GetDraftStats(ownerID string, since time.Time) *DraftStats {
+func (d *SalesDashboard) GetDraftStats(ctx context.Context, ownerID string, since time.Time)  *DraftStats {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	stats := &DraftStats{
@@ -243,7 +244,7 @@ type JourneyFunnelStage struct {
 }
 
 // FunnelByJourney 构建旅程漏斗
-func (d *SalesDashboard) FunnelByJourney() *JourneyFunnel {
+func (d *SalesDashboard) FunnelByJourney(ctx context.Context)  *JourneyFunnel {
 	funnel := &JourneyFunnel{
 		Stages:      make([]JourneyFunnelStage, 0, len(AllStages)),
 		GeneratedAt: time.Now(),
@@ -343,7 +344,7 @@ type SalesPerformance struct {
 }
 
 // GetSalesPerformance 获取销售个人业绩
-func (d *SalesDashboard) GetSalesPerformance(salesID string, since time.Time) *SalesPerformance {
+func (d *SalesDashboard) GetSalesPerformance(ctx context.Context, salesID string, since time.Time)  *SalesPerformance {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -397,7 +398,7 @@ func (d *SalesDashboard) GetSalesPerformance(salesID string, since time.Time) *S
 
 // GetTeamRanking 获取销售团队排行榜
 // 商业逻辑：按成单金额排序，前 10% 标记为"销冠"，后 10% 标记为"待改进"
-func (d *SalesDashboard) GetTeamRanking(since time.Time, topN int) []*SalesPerformance {
+func (d *SalesDashboard) GetTeamRanking(ctx context.Context, since time.Time, topN int)  []*SalesPerformance {
 	d.mu.RLock()
 	salesIDs := make([]string, 0, len(d.salesProfiles))
 	for id := range d.salesProfiles {
@@ -445,7 +446,7 @@ type AIProductivity struct {
 }
 
 // GetAIProductivity 获取 AI 产能
-func (d *SalesDashboard) GetAIProductivity(since time.Time) *AIProductivity {
+func (d *SalesDashboard) GetAIProductivity(ctx context.Context, since time.Time)  *AIProductivity {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -529,7 +530,7 @@ type ChampionProfile struct {
 
 // GetChampionProfile 获取销冠画像
 // 商业逻辑：top 10% 销售的能力特征 + 行为模式 + 最佳实践
-func (d *SalesDashboard) GetChampionProfile(since time.Time) *ChampionProfile {
+func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time)  *ChampionProfile {
 	all := d.GetTeamRanking(since, 0)
 	if len(all) == 0 {
 		return &ChampionProfile{
@@ -625,7 +626,7 @@ type TeamDashboard struct {
 }
 
 // GetTeamDashboard 获取团队综合仪表盘
-func (d *SalesDashboard) GetTeamDashboard(since time.Time) *TeamDashboard {
+func (d *SalesDashboard) GetTeamDashboard(ctx context.Context, since time.Time)  *TeamDashboard {
 	now := time.Now()
 	if since.IsZero() {
 		since = now.AddDate(0, 0, -30)

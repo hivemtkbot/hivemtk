@@ -31,10 +31,10 @@ const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev
 
 // UnsubscribeClaim 退订 token 中携带的声明
 type UnsubscribeClaim struct {
-	Email  string `json:"email"`
-	JobID  string `json:"job_id"`
-	Expire int64  `json:"expire"`
-	Nonce  string `json:"nonce"`
+	Email	string	`json:"email"`
+	JobID	string	`json:"job_id"`
+	Expire	int64	`json:"expire"`
+	Nonce	string	`json:"nonce"`
 }
 
 // EmailUnsubscribeService 邮件退订服务
@@ -64,7 +64,7 @@ func (s *EmailUnsubscribeService) UnsubscribeEmail(ctx context.Context, email, r
 		return errors.New("email 不能为空")
 	}
 
-	existing, err := s.repo.GetByEmail(email)
+	existing, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		logger.Errorf("查询邮件退订记录失败 email=%s: %v", email, err)
 		return err
@@ -80,28 +80,28 @@ func (s *EmailUnsubscribeService) UnsubscribeEmail(ctx context.Context, email, r
 		if jobID != "" {
 			existing.JobID = jobID
 		}
-		return s.repo.Update(existing)
+		return s.repo.Update(ctx, existing)
 	}
 
 	record := &model.EmailUnsubscribe{
-		Email:          email,
-		Reason:         reason,
-		UnsubscribedAt: now,
-		SourceLink:     sourceLink,
-		IP:             ip,
-		UA:             ua,
-		JobID:          jobID,
+		Email:		email,
+		Reason:		reason,
+		UnsubscribedAt:	now,
+		SourceLink:	sourceLink,
+		IP:		ip,
+		UA:		ua,
+		JobID:		jobID,
 	}
-	return s.repo.Create(record)
+	return s.repo.Create(ctx, record)
 }
 
 // IsUnsubscribed 检查邮箱是否已退订（发送前必须调用）
-func (s *EmailUnsubscribeService) IsUnsubscribed(email string) bool {
+func (s *EmailUnsubscribeService) IsUnsubscribed(ctx context.Context, email string) bool {
 	email = normalizeEmail(email)
 	if email == "" {
 		return false
 	}
-	exists, err := s.repo.ExistsByEmail(email)
+	exists, err := s.repo.ExistsByEmail(ctx, email)
 	if err != nil {
 		logger.Errorf("查询邮件退订状态失败 email=%s: %v", email, err)
 		// 查询失败时为安全起见不发送，但记录错误
@@ -116,23 +116,23 @@ func (s *EmailUnsubscribeService) ResubscribeEmail(ctx context.Context, email st
 	if email == "" {
 		return errors.New("email 不能为空")
 	}
-	return s.repo.DeleteByEmail(email)
+	return s.repo.DeleteByEmail(ctx, email)
 }
 
 // GenerateUnsubscribeLink 生成 HMAC-SHA256 签名的退订链接
 // 链接格式：{baseURL}/api/email/unsubscribe?token=xxx
 // token = base64(payload) + "." + base64(HMAC-SHA256(payload, secret))
-func (s *EmailUnsubscribeService) GenerateUnsubscribeLink(email, jobID string) (string, error) {
+func (s *EmailUnsubscribeService) GenerateUnsubscribeLink(ctx context.Context, email, jobID string) (string, error) {
 	email = normalizeEmail(email)
 	if email == "" {
 		return "", errors.New("email 不能为空")
 	}
 
 	claim := UnsubscribeClaim{
-		Email:  email,
-		JobID:  jobID,
-		Expire: time.Now().Add(emailUnsubscribeTokenTTL).Unix(),
-		Nonce:  fmt.Sprintf("unsub-%d", time.Now().UnixNano()),
+		Email:	email,
+		JobID:	jobID,
+		Expire:	time.Now().Add(emailUnsubscribeTokenTTL).Unix(),
+		Nonce:	fmt.Sprintf("unsub-%d", time.Now().UnixNano()),
 	}
 
 	payload, err := json.Marshal(claim)
@@ -141,15 +141,15 @@ func (s *EmailUnsubscribeService) GenerateUnsubscribeLink(email, jobID string) (
 	}
 
 	payloadB64 := base64.RawURLEncoding.EncodeToString(payload)
-	sig := s.sign([]byte(payloadB64))
+	sig := s.sign(ctx, []byte(payloadB64))
 	token := payloadB64 + "." + sig
 
-	base := s.baseURL()
+	base := s.baseURL(ctx)
 	return fmt.Sprintf("%s/api/email/unsubscribe?token=%s", strings.TrimRight(base, "/"), url.QueryEscape(token)), nil
 }
 
 // VerifyUnsubscribeToken 验证退订 token 并返回声明
-func (s *EmailUnsubscribeService) VerifyUnsubscribeToken(token string) (*UnsubscribeClaim, error) {
+func (s *EmailUnsubscribeService) VerifyUnsubscribeToken(ctx context.Context, token string) (*UnsubscribeClaim, error) {
 	if token == "" {
 		return nil, errors.New("token 不能为空")
 	}
@@ -159,7 +159,7 @@ func (s *EmailUnsubscribeService) VerifyUnsubscribeToken(token string) (*Unsubsc
 	}
 	payloadB64, sig := parts[0], parts[1]
 
-	expectedSig := s.sign([]byte(payloadB64))
+	expectedSig := s.sign(ctx, []byte(payloadB64))
 	if !hmac.Equal([]byte(sig), []byte(expectedSig)) {
 		return nil, errors.New("token 签名校验失败")
 	}
@@ -181,30 +181,30 @@ func (s *EmailUnsubscribeService) VerifyUnsubscribeToken(token string) (*Unsubsc
 }
 
 // ListUnsubscribes 分页查询退订名单
-func (s *EmailUnsubscribeService) ListUnsubscribes(page, limit int, keyword string) ([]*model.EmailUnsubscribe, int64, error) {
+func (s *EmailUnsubscribeService) ListUnsubscribes(ctx context.Context, page, limit int, keyword string) ([]*model.EmailUnsubscribe, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 500 {
 		limit = 20
 	}
-	return s.repo.List(page, limit, keyword)
+	return s.repo.List(ctx, page, limit, keyword)
 }
 
 // ListAllUnsubscribes 查询全部退订名单（导出使用）
-func (s *EmailUnsubscribeService) ListAllUnsubscribes() ([]*model.EmailUnsubscribe, error) {
-	return s.repo.ListAll()
+func (s *EmailUnsubscribeService) ListAllUnsubscribes(ctx context.Context) ([]*model.EmailUnsubscribe, error) {
+	return s.repo.ListAll(ctx)
 }
 
 // sign 使用 HMAC-SHA256 计算签名
-func (s *EmailUnsubscribeService) sign(data []byte) string {
-	mac := hmac.New(sha256.New, []byte(s.secret()))
+func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string {
+	mac := hmac.New(sha256.New, []byte(s.secret(ctx)))
 	mac.Write(data)
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 // secret 读取退订签名密钥（环境变量优先）
-func (s *EmailUnsubscribeService) secret() string {
+func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
 	if v := os.Getenv(emailUnsubscribeSecretEnv); v != "" {
 		return v
 	}
@@ -212,7 +212,7 @@ func (s *EmailUnsubscribeService) secret() string {
 }
 
 // baseURL 读取对外可访问的基础 URL
-func (s *EmailUnsubscribeService) baseURL() string {
+func (s *EmailUnsubscribeService) baseURL(ctx context.Context) string {
 	return config.GetServerBaseURL()
 }
 

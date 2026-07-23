@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 	"net/http"
@@ -14,38 +13,56 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RedirectShortLink 重定向短链
+// RedirectController 短链重定向控制器
 //
 // 私域部署（2026-07-21 升级）：
 //   - 抖音 / 快手 / 小红书 / 咸鱼 四个平台的卡片短链统一跳转到「卡片聊天页」
 //   - 卡片聊天页包含卡片信息 + 联系客服按钮，点击按钮打开 /chat/embed/{platform}_card_{id}
 //   - 不再直接 302 跳转到外部 redirect_url，避免跳出客服域
-func RedirectShortLink(ctx *gin.Context) {
+//
+// 五层架构修复：所有 service 由 router 注入，controller 不再直接访问数据库
+type RedirectController struct {
+	shortLinkService      service.ShortLinkService
+	douyinCardService     service.DouyinCardService
+	kuaishouCardService   service.KuaishouCardService
+	xiaohongshuCardService service.XiaohongshuCardService
+	xianyuCardService     service.XianyuCardService
+}
+
+// NewRedirectController 创建短链重定向控制器（service 由 router 注入）
+func NewRedirectController(
+	shortLinkService service.ShortLinkService,
+	douyinCardService service.DouyinCardService,
+	kuaishouCardService service.KuaishouCardService,
+	xiaohongshuCardService service.XiaohongshuCardService,
+	xianyuCardService service.XianyuCardService,
+) *RedirectController {
+	return &RedirectController{
+		shortLinkService:      shortLinkService,
+		douyinCardService:     douyinCardService,
+		kuaishouCardService:   kuaishouCardService,
+		xiaohongshuCardService: xiaohongshuCardService,
+		xianyuCardService:     xianyuCardService,
+	}
+}
+
+// RedirectShortLink 重定向短链
+func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 	code := ctx.Param("code")
 	if code == "" {
 		ctx.String(http.StatusBadRequest, "无效的短链")
 		return
 	}
 
-	// 获取数据库连接
-	gormDB := db.GetDB()
-
-	// 初始化服务
-	shortLinkService := service.NewShortLinkService(gormDB)
-	douyinCardService := service.NewDouyinCardService(gormDB)
-	kuaishouCardService := service.NewKuaishouCardService(gormDB)
-	xiaohongshuCardService := service.NewXiaohongshuCardService(gormDB)
-	xianyuCardService := service.NewXianyuCardService(gormDB)
-
 	// 根据短码获取短链
-	shortLink, err := shortLinkService.GetByShortCode(code)
+	shortLink, err := ctrl.shortLinkService.GetByShortCode(code)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "短链不存在")
 		return
 	}
 
 	// 记录访问（best-effort：不阻断重定向主流程，但记录错误以便排查）
-	if _, err := shortLinkService.AccessShortLink(&dto.AccessShortLinkRequest{
+	if _, err := ctrl.shortLinkService.AccessShortLink(&dto.AccessShortLinkRequest{
 		ShortCode: code,
 		UserAgent: ctx.GetHeader("User-Agent"),
 		IP:        ctx.ClientIP(),
@@ -62,25 +79,25 @@ func RedirectShortLink(ctx *gin.Context) {
 
 	// 抖音卡片：/douyin/card/{id}
 	if id, ok := extractCardID(originalURL, "/douyin/card/"); ok {
-		renderCardChatPage(ctx, douyinCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.douyinCardService.GenerateCardChatPage, id, baseURL)
 		return
 	}
 
 	// 快手卡片：/kuaishou/card/{id}
 	if id, ok := extractCardID(originalURL, "/kuaishou/card/"); ok {
-		renderCardChatPage(ctx, kuaishouCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.kuaishouCardService.GenerateCardChatPage, id, baseURL)
 		return
 	}
 
 	// 小红书卡片：/xiaohongshu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xiaohongshu/card/"); ok {
-		renderCardChatPage(ctx, xiaohongshuCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.xiaohongshuCardService.GenerateCardChatPage, id, baseURL)
 		return
 	}
 
 	// 咸鱼卡片：/xianyu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xianyu/card/"); ok {
-		renderCardChatPage(ctx, xianyuCardService.GenerateCardChatPage, id, baseURL)
+		renderCardChatPage(ctx, ctrl.xianyuCardService.GenerateCardChatPage, id, baseURL)
 		return
 	}
 

@@ -7,14 +7,18 @@ import (
 	"errors"
 	"marketing/internal/aiagent/knowledge/model"
 	"marketing/internal/aiagent/knowledge/repository"
+	"marketing/internal/pkg/utils/db"
 	"time"
 
 	"gorm.io/gorm"
 )
 
 // KnowledgeStatisticsService 知识库统计服务
+//
+// 2026-07-23 五层架构治理（二轮）：
+// 删除 `db *gorm.DB` 字段。原实现中 service 直接 `s.db.WithContext(ctx)` 调 SQL
+// 违反 §3.4"service 不应持有 db"。所有 SQL 已下沉到对应 Repository。
 type KnowledgeStatisticsService struct {
-	db            *gorm.DB
 	docRepo       *repository.KnowledgeDocumentRepository
 	chunkRepo     *repository.KnowledgeChunkRepository
 	importLogRepo *repository.KnowledgeImportLogRepository
@@ -23,21 +27,20 @@ type KnowledgeStatisticsService struct {
 }
 
 // NewKnowledgeStatisticsService 创建统计服务
+//
+// 2026-07-23 五层架构治理（二轮）：构造函数内允许调 db.GetDB()（service 工厂层
+// 合规），但不再把 db 存到结构体字段。所有 SQL 都走 repository。
 func NewKnowledgeStatisticsService() *KnowledgeStatisticsService {
-	return &KnowledgeStatisticsService{
-		db:            dbGetDB(),
-		docRepo:       repository.NewKnowledgeDocumentRepository(dbGetDB()),
-		chunkRepo:     repository.NewKnowledgeChunkRepository(dbGetDB()),
-		importLogRepo: repository.NewKnowledgeImportLogRepository(dbGetDB()),
-		searchLogRepo: repository.NewKnowledgeSearchLogRepository(dbGetDB()),
-		openapiRepo:   repository.NewKnowledgeOpenAPIRepository(dbGetDB()),
-	}
+	return newKnowledgeStatisticsServiceWithDB(db.GetDB())
 }
 
 // NewKnowledgeStatisticsServiceWithDB 带 DB 的统计服务(用于测试)
 func NewKnowledgeStatisticsServiceWithDB(gdb *gorm.DB) *KnowledgeStatisticsService {
+	return newKnowledgeStatisticsServiceWithDB(gdb)
+}
+
+func newKnowledgeStatisticsServiceWithDB(gdb *gorm.DB) *KnowledgeStatisticsService {
 	return &KnowledgeStatisticsService{
-		db:            gdb,
 		docRepo:       repository.NewKnowledgeDocumentRepository(gdb),
 		chunkRepo:     repository.NewKnowledgeChunkRepository(gdb),
 		importLogRepo: repository.NewKnowledgeImportLogRepository(gdb),
@@ -99,16 +102,13 @@ func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID 
 	overview.TotalChunks = totalChunks
 
 	// Tokens 累计
-	type TokenResult struct {
-		TotalTokens int64
+	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Model(...).Select("SUM(total_tokens)")`
+	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.SumTotalTokens`。
+	totalTokens, err := s.docRepo.SumTotalTokens(ctx, productID)
+	if err != nil {
+		return nil, errors.New("累计 token 数失败: " + err.Error())
 	}
-	var tr TokenResult
-	q := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).Select("COALESCE(SUM(total_tokens), 0) as total_tokens")
-	if productID > 0 {
-		q = q.Where("product_id = ?", productID)
-	}
-	_ = q.Scan(&tr)
-	overview.TotalTokens = tr.TotalTokens
+	overview.TotalTokens = totalTokens
 
 	// 检索统计
 	overview.TotalSearches, _ = s.searchLogRepo.TodayCount(ctx) // 简化:用 TodayCount 累计
@@ -222,40 +222,17 @@ func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, produ
 	}
 
 	// 分类
-	type CatResult struct {
-		Category string
-		Count    int64
-	}
-	var catResults []CatResult
-	q := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
-		Select("COALESCE(category, '未分类') as category, COUNT(*) as count").
-		Group("COALESCE(category, '未分类')").
-		Order("count DESC").
-		Limit(20)
-	if productID > 0 {
-		q = q.Where("product_id = ?", productID)
-	}
-	_ = q.Scan(&catResults)
+	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Group("category")`
+	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.CategoryStats`。
+	catResults, _ := s.docRepo.CategoryStats(ctx, productID, 20)
 	for _, c := range catResults {
 		data.CategoryPie = append(data.CategoryPie, CategoryStat{Category: c.Category, Count: c.Count})
 	}
 
 	// 热门文档(按检索+命中)
-	type DocHit struct {
-		ID          uint64
-		Title       string
-		SearchCount int64
-		HitCount    int64
-	}
-	var docHits []DocHit
-	q2 := s.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
-		Select("id, title, search_count, hit_count").
-		Order("search_count DESC, hit_count DESC").
-		Limit(10)
-	if productID > 0 {
-		q2 = q2.Where("product_id = ?", productID)
-	}
-	_ = q2.Scan(&docHits)
+	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Order("search_count DESC")`
+	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.TopHitDocuments`。
+	docHits, _ := s.docRepo.TopHitDocuments(ctx, productID, 10)
 	for _, d := range docHits {
 		rate := float64(0)
 		if d.SearchCount > 0 {
@@ -391,24 +368,18 @@ func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, product
 	}
 
 	// 平均耗时
-	type DurResult struct {
-		AvgDur float64
-	}
-	var dr DurResult
-	q := s.db.WithContext(ctx).Model(&model.KnowledgeImportLog{}).
-		Select("AVG(duration_ms) as avg_dur")
-	if productID > 0 {
-		q = q.Where("product_id = ?", productID)
-	}
-	_ = q.Scan(&dr)
-	data.AvgDurationMs = dr.AvgDur
+	// 2026-07-23 五层架构治理（二轮）：原实现直接
+	// `s.db.WithContext(...).Model(KnowledgeImportLog{}).Select("AVG(duration_ms)")`
+	// 违反 §3.4"service 不应持有 db"，已下沉到 `importLogRepo.AvgImportDurationMs`。
+	avgDur, _ := s.importLogRepo.AvgImportDurationMs(ctx, productID)
+	data.AvgDurationMs = avgDur
 
 	// 最近日志
 	logs, _, _ := s.importLogRepo.List(ctx, repository.ImportLogListFilter{
 
 		ProductID: productID,
 		Page:      1,
-		PageSize:  20,
+		PageSize:  DefaultPageSize,
 	})
 	data.RecentLogs = logs
 

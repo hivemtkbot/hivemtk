@@ -57,7 +57,6 @@ func TestEventTracker_Track(t *testing.T) {
 		EventData:   map[string]any{"url": "/home"},
 	}
 
-	ctx := context.Background()
 	err := tracker.Track(ctx, dto)
 	if err != nil {
 		t.Fatalf("Track failed: %v", err)
@@ -77,7 +76,6 @@ func TestEventTracker_Track(t *testing.T) {
 func TestEventTracker_Track_InvalidDTO(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	ctx := context.Background()
 	err := tracker.Track(ctx, nil)
 	if err != ErrInvalidDTO {
 		t.Errorf("Expected ErrInvalidDTO, got %v", err)
@@ -99,7 +97,6 @@ func TestEventTracker_TrackPageView(t *testing.T) {
 		Phone: "13800138011",
 	})
 
-	ctx := context.Background()
 	err := tracker.TrackPageView(ctx, customer.ID, "/products", "Product Page")
 	if err != nil {
 		t.Fatalf("TrackPageView failed: %v", err)
@@ -130,7 +127,6 @@ func TestEventTracker_TrackClick(t *testing.T) {
 		Phone: "13800138012",
 	})
 
-	ctx := context.Background()
 	err := tracker.TrackClick(ctx, customer.ID, "buy-button", "product-123")
 	if err != nil {
 		t.Fatalf("TrackClick failed: %v", err)
@@ -156,7 +152,6 @@ func TestEventTracker_TrackPurchase(t *testing.T) {
 	})
 
 	items := []string{"product-1", "product-2"}
-	ctx := context.Background()
 	err := tracker.TrackPurchase(ctx, customer.ID, 199.99, items)
 	if err != nil {
 		t.Fatalf("TrackPurchase failed: %v", err)
@@ -188,7 +183,6 @@ func TestEventTracker_GetEventHistory(t *testing.T) {
 	})
 
 	// 创建多个事件
-	ctx := context.Background()
 	for i := 0; i < 5; i++ {
 		tracker.TrackPageView(ctx, customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
@@ -214,7 +208,6 @@ func TestEventTracker_GetEventHistory_Limit(t *testing.T) {
 	})
 
 	// 创建多个事件
-	ctx := context.Background()
 	for i := 0; i < 20; i++ {
 		tracker.TrackPageView(ctx, customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
@@ -240,7 +233,6 @@ func TestEventTracker_GetStats(t *testing.T) {
 	})
 
 	// 创建事件
-	ctx := context.Background()
 	tracker.TrackPageView(ctx, customer.ID, "/home", "Home")
 	tracker.TrackPurchase(ctx, customer.ID, 99.99, []string{"item-1"})
 
@@ -267,7 +259,6 @@ func TestEventTracker_TrackSignup(t *testing.T) {
 		Phone: "13800138017",
 	})
 
-	ctx := context.Background()
 	err := tracker.TrackSignup(ctx, customer.ID, "email")
 	if err != nil {
 		t.Fatalf("TrackSignup failed: %v", err)
@@ -292,7 +283,6 @@ func TestEventTracker_TrackLogin(t *testing.T) {
 		Phone: "13800138018",
 	})
 
-	ctx := context.Background()
 	err := tracker.TrackLogin(ctx, customer.ID, "wechat")
 	if err != nil {
 		t.Fatalf("TrackLogin failed: %v", err)
@@ -314,7 +304,6 @@ func TestEventTracker_TrackAddToCart(t *testing.T) {
 		Phone: "13800138019",
 	})
 
-	ctx := context.Background()
 	err := tracker.TrackAddToCart(ctx, customer.ID, "prod-1", "Test Product", 59.99, 2)
 	if err != nil {
 		t.Fatalf("TrackAddToCart failed: %v", err)
@@ -343,7 +332,6 @@ func TestEventTracker_GetEventCount(t *testing.T) {
 	})
 
 	// 创建 3 个事件
-	ctx := context.Background()
 	tracker.TrackPageView(ctx, customer.ID, "/page1", "Page 1")
 	tracker.TrackPageView(ctx, customer.ID, "/page2", "Page 2")
 	tracker.TrackPurchase(ctx, customer.ID, 50.00, []string{"item"})
@@ -367,7 +355,6 @@ func TestEventTracker_TrackWithEventData(t *testing.T) {
 		Phone: "13800138021",
 	})
 
-	ctx := context.Background()
 	customData := map[string]any{
 		"custom_field": "custom_value",
 		"score":        100,

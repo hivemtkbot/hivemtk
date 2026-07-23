@@ -27,10 +27,9 @@ package service
 import (
 	"errors"
 
-	"marketing/internal/pkg/utils/db"
-
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"context"
 )
 
 // TeamDataScope 团队用户数据范围（与 team_user.data_scope 列对齐）
@@ -39,10 +38,10 @@ import (
 type TeamDataScope int
 
 const (
-	TeamDataScopeAll        TeamDataScope = 1 // 全部
-	TeamDataScopeDepartment TeamDataScope = 2 // 本部门
-	TeamDataScopeSelf       TeamDataScope = 3 // 本人
-	TeamDataScopeCustom     TeamDataScope = 4 // 自定义（custom_dept_ids 白名单）
+	TeamDataScopeAll	TeamDataScope	= 1	// 全部
+	TeamDataScopeDepartment	TeamDataScope	= 2	// 本部门
+	TeamDataScopeSelf	TeamDataScope	= 3	// 本人
+	TeamDataScopeCustom	TeamDataScope	= 4	// 自定义（custom_dept_ids 白名单）
 )
 
 // IsValidTeamDataScope 校验 team 数据范围
@@ -74,13 +73,13 @@ func TeamDataScopeName(scope int) string {
 
 // TeamDataScopeContext 团队数据范围上下文（从 gin.Context 解析后的强类型结构）
 type TeamDataScopeContext struct {
-	UserID        uint
-	Role          string
-	DepartmentID  uint
-	TeamID        uint
-	DataScope     int
-	CustomDeptIDs []uint // data_scope=4 时的部门白名单
-	IsAdmin       bool
+	UserID		uint
+	Role		string
+	DepartmentID	uint
+	TeamID		uint
+	DataScope	int
+	CustomDeptIDs	[]uint	// data_scope=4 时的部门白名单
+	IsAdmin		bool
 }
 
 // ReadTeamDataScopeContext 从 gin.Context 解析 TeamDataScopeContext
@@ -168,7 +167,7 @@ func mapStringDataScopeToInt(s string) int {
 	case "department", "Department", "DEPARTMENT":
 		return int(TeamDataScopeDepartment)
 	case "team", "Team", "TEAM":
-		return int(TeamDataScopeSelf) // team 在 team_user 中映射到 self（与 system_user 区分）
+		return int(TeamDataScopeSelf)	// team 在 team_user 中映射到 self（与 system_user 区分）
 	case "self", "Self", "SELF":
 		return int(TeamDataScopeSelf)
 	case "custom", "Custom", "CUSTOM":
@@ -204,7 +203,7 @@ func NewRowLevelSecurityService() *RowLevelSecurityService {
 //   - data_scope=2：department_field = department_id
 //   - data_scope=4：department_field IN custom_dept_ids
 //   - department_field 为空时降级为 self
-func (s *RowLevelSecurityService) ApplyDataScopeForTeam(
+func (s *RowLevelSecurityService) ApplyDataScopeForTeam(ctx context.Context,
 	database *gorm.DB,
 	c *gin.Context,
 	ownerField string,
@@ -212,10 +211,9 @@ func (s *RowLevelSecurityService) ApplyDataScopeForTeam(
 	teamField string,
 ) *gorm.DB {
 	if database == nil {
-		database = db.GetDB()
-		if database == nil {
-			return database
-		}
+		// 五层架构合规：service 层不允许直接调全局 DB 入口回退
+		// 由调用方显式注入 *gorm.DB；nil 直接返回，由调用方决定降级策略
+		return nil
 	}
 	if ownerField == "" {
 		ownerField = "user_id"
@@ -274,7 +272,7 @@ func (s *RowLevelSecurityService) ApplyDataScopeForTeam(
 }
 
 // ApplyDataScopeForTeamByScope 显式传入 scope（无需 gin.Context，service 内单测/批处理场景）
-func (s *RowLevelSecurityService) ApplyDataScopeForTeamByScope(
+func (s *RowLevelSecurityService) ApplyDataScopeForTeamByScope(ctx context.Context,
 	database *gorm.DB,
 	scope *TeamDataScopeContext,
 	ownerField string,
@@ -323,6 +321,6 @@ func (s *RowLevelSecurityService) ApplyDataScopeForTeamByScope(
 }
 
 // BuildScopeDescription 将 data_scope 整型值转中文描述
-func (s *RowLevelSecurityService) BuildScopeDescription(scope int) string {
+func (s *RowLevelSecurityService) BuildScopeDescription(ctx context.Context, scope int) string {
 	return TeamDataScopeName(scope)
 }

@@ -719,7 +719,6 @@ func TestService_CreateBundle(t *testing.T) {
 	repo := newMockAssetBundleRepo()
 	ver := &mockVersionLogRepo{}
 	svc := NewAssetBundleService(repo, ver)
-	ctx := context.Background()
 
 	// 1. 正常创建
 	bundle := &model.AssetBundle{
@@ -777,7 +776,6 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 	repo := newMockAssetBundleRepo()
 	ver := &mockVersionLogRepo{}
 	svc := NewAssetBundleService(repo, ver)
-	ctx := context.Background()
 
 	bundle := &model.AssetBundle{
 		AssetID:  "ver_001",
@@ -808,7 +806,6 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 func TestService_PublishArchive(t *testing.T) {
 	repo := newMockAssetBundleRepo()
 	svc := NewAssetBundleService(repo, nil) // nil version repo
-	ctx := context.Background()
 	bundle := &model.AssetBundle{
 		AssetID:  "state_001",
 		Title:    "x",
@@ -839,7 +836,6 @@ func TestService_PublishArchive(t *testing.T) {
 func TestService_WeaveForRequest(t *testing.T) {
 	repo := newMockAssetBundleRepo()
 	svc := NewAssetBundleService(repo, nil)
-	ctx := context.Background()
 	bundle := &model.AssetBundle{
 		AssetID:  "weave_001",
 		Title:    "x",

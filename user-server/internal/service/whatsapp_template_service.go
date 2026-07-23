@@ -9,11 +9,12 @@ import (
 	"marketing/internal/repository"
 
 	"gorm.io/gorm"
+	"context"
 )
 
 type WhatsAppTemplateService struct {
-	db   *gorm.DB // 保留以维持签名兼容（controller 直接传入）
-	repo *repository.WhatsappTemplateRepository
+	db	*gorm.DB	// 保留以维持签名兼容（controller 直接传入）
+	repo	*repository.WhatsappTemplateRepository
 }
 
 func NewWhatsAppTemplateService(db *gorm.DB) *WhatsAppTemplateService {
@@ -24,7 +25,7 @@ func NewWhatsAppTemplateService(db *gorm.DB) *WhatsAppTemplateService {
 	return &WhatsAppTemplateService{db: db, repo: repo}
 }
 
-func (ts *WhatsAppTemplateService) CreateTemplate(template *model.WhatsappMessageTemplate) (*model.WhatsappMessageTemplate, error) {
+func (ts *WhatsAppTemplateService) CreateTemplate(ctx context.Context, template *model.WhatsappMessageTemplate) (*model.WhatsappMessageTemplate, error) {
 	if template.ID == "" {
 		template.ID = generateTemplateID()
 	}
@@ -38,7 +39,7 @@ func (ts *WhatsAppTemplateService) CreateTemplate(template *model.WhatsappMessag
 	return template, nil
 }
 
-func (ts *WhatsAppTemplateService) UpdateTemplate(template *model.WhatsappMessageTemplate) (*model.WhatsappMessageTemplate, error) {
+func (ts *WhatsAppTemplateService) UpdateTemplate(ctx context.Context, template *model.WhatsappMessageTemplate) (*model.WhatsappMessageTemplate, error) {
 	template.UpdatedAt = time.Now()
 	if err := ts.repo.Save(template); err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (ts *WhatsAppTemplateService) UpdateTemplate(template *model.WhatsappMessag
 	return template, nil
 }
 
-func (ts *WhatsAppTemplateService) GetTemplate(templateID string) (*model.WhatsappMessageTemplate, error) {
+func (ts *WhatsAppTemplateService) GetTemplate(ctx context.Context, templateID string) (*model.WhatsappMessageTemplate, error) {
 	template, err := ts.repo.GetByID(templateID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -57,11 +58,11 @@ func (ts *WhatsAppTemplateService) GetTemplate(templateID string) (*model.Whatsa
 	return template, nil
 }
 
-func (ts *WhatsAppTemplateService) GetTemplates(category string, isActive *bool) ([]*model.WhatsappMessageTemplate, error) {
+func (ts *WhatsAppTemplateService) GetTemplates(ctx context.Context, category string, isActive *bool) ([]*model.WhatsappMessageTemplate, error) {
 	return ts.repo.ListByFilters(category, isActive)
 }
 
-func (ts *WhatsAppTemplateService) DeleteTemplate(templateID string) error {
+func (ts *WhatsAppTemplateService) DeleteTemplate(ctx context.Context, templateID string) error {
 	rowsAffected, err := ts.repo.DeleteByID(templateID)
 	if err != nil {
 		return err

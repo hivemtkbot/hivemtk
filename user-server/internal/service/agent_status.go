@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"marketing/internal/model"
@@ -29,24 +30,24 @@ func NewAgentStatusService() *AgentStatusService {
 
 // CreateAgentRequest 创建客服请求
 type CreateAgentRequest struct {
-	AgentID     uint   `json:"agent_id" binding:"required"`
-	AgentName   string `json:"agent_name" binding:"required"`
-	MaxSessions int    `json:"max_sessions"`
+	AgentID		uint	`json:"agent_id" binding:"required"`
+	AgentName	string	`json:"agent_name" binding:"required"`
+	MaxSessions	int	`json:"max_sessions"`
 }
 
 // CreateAgent 创建客服状态记录
-func (s *AgentStatusService) CreateAgent(req *CreateAgentRequest) (*model.AgentStatus, error) {
+func (s *AgentStatusService) CreateAgent(ctx context.Context, req *CreateAgentRequest) (*model.AgentStatus, error) {
 	agent := &model.AgentStatus{
-		AgentID:     req.AgentID,
-		AgentName:   req.AgentName,
-		Status:      "offline",
-		MaxSessions: req.MaxSessions,
+		AgentID:	req.AgentID,
+		AgentName:	req.AgentName,
+		Status:		"offline",
+		MaxSessions:	req.MaxSessions,
 	}
 	if agent.MaxSessions == 0 {
 		agent.MaxSessions = 5
 	}
 
-	if err := s.agentRepo.Create(agent); err != nil {
+	if err := s.agentRepo.Create(ctx, agent); err != nil {
 		return nil, err
 	}
 
@@ -54,8 +55,8 @@ func (s *AgentStatusService) CreateAgent(req *CreateAgentRequest) (*model.AgentS
 }
 
 // GetAgentStatus 获取客服状态
-func (s *AgentStatusService) GetAgentStatus(agentID uint) (*model.AgentStatus, error) {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
+func (s *AgentStatusService) GetAgentStatus(ctx context.Context, agentID uint) (*model.AgentStatus, error) {
+	agent, err := s.agentRepo.GetByAgentID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,18 +64,18 @@ func (s *AgentStatusService) GetAgentStatus(agentID uint) (*model.AgentStatus, e
 }
 
 // GetOnlineAgents 获取在线客服列表
-func (s *AgentStatusService) GetOnlineAgents() ([]*model.AgentStatus, error) {
-	return s.agentRepo.GetOnlineAgents()
+func (s *AgentStatusService) GetOnlineAgents(ctx context.Context) ([]*model.AgentStatus, error) {
+	return s.agentRepo.GetOnlineAgents(ctx)
 }
 
 // ListAllAgents 列出全部客服（不分在线/离线），用于客服监管控制台
-func (s *AgentStatusService) ListAllAgents() ([]*model.AgentStatus, error) {
-	return s.agentRepo.ListAllAgents()
+func (s *AgentStatusService) ListAllAgents(ctx context.Context) ([]*model.AgentStatus, error) {
+	return s.agentRepo.ListAllAgents(ctx)
 }
 
 // UpdateAgentStatus 更新客服状态
-func (s *AgentStatusService) UpdateAgentStatus(agentID uint, status string) error {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
+func (s *AgentStatusService) UpdateAgentStatus(ctx context.Context, agentID uint, status string) error {
+	agent, err := s.agentRepo.GetByAgentID(ctx, agentID)
 	if err != nil {
 		return err
 	}
@@ -85,17 +86,17 @@ func (s *AgentStatusService) UpdateAgentStatus(agentID uint, status string) erro
 		return errors.New("客服离线时只能切换到在线状态")
 	}
 
-	return s.agentRepo.UpdateStatus(agentID, status)
+	return s.agentRepo.UpdateStatus(ctx, agentID, status)
 }
 
 // GoOnline 客服上线
-func (s *AgentStatusService) GoOnline(agentID uint) error {
-	return s.UpdateAgentStatus(agentID, "online")
+func (s *AgentStatusService) GoOnline(ctx context.Context, agentID uint) error {
+	return s.UpdateAgentStatus(ctx, agentID, "online")
 }
 
 // GoOffline 客服下线
-func (s *AgentStatusService) GoOffline(agentID uint) error {
-	agent, err := s.agentRepo.GetByAgentID(agentID)
+func (s *AgentStatusService) GoOffline(ctx context.Context, agentID uint) error {
+	agent, err := s.agentRepo.GetByAgentID(ctx, agentID)
 	if err != nil {
 		return err
 	}
@@ -106,11 +107,11 @@ func (s *AgentStatusService) GoOffline(agentID uint) error {
 		return errors.New("还有未完成的会话，请先处理或转接")
 	}
 
-	return s.agentRepo.UpdateStatus(agentID, "offline")
+	return s.agentRepo.UpdateStatus(ctx, agentID, "offline")
 }
 
 // GetAgentSessions 获取客服的活跃会话
-func (s *AgentStatusService) GetAgentSessions(agentID uint) ([]*model.CustomerSession, error) {
+func (s *AgentStatusService) GetAgentSessions(ctx context.Context, agentID uint) ([]*model.CustomerSession, error) {
 	sessionRepo := repository.NewCustomerSessionRepository()
-	return sessionRepo.GetAgentSessions(agentID)
+	return sessionRepo.GetAgentSessions(ctx, agentID)
 }

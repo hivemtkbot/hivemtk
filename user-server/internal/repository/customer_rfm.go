@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -11,12 +12,12 @@ import (
 
 // CustomerRFMRepository 客户 RFM 仓库
 type CustomerRFMRepository interface {
-	Upsert(rfm *model.CustomerRFM) error
-	GetByCustomerID(customerID string) (*model.CustomerRFM, error)
-	ListBySegment(segment string, page, pageSize int) ([]*model.CustomerRFM, int64, error)
-	ListChurnCandidates(threshold int, limit int) ([]*model.CustomerRFM, error)
-	CountBySegment() (map[string]int64, error)
-	DeleteByCustomerID(customerID string) error
+	Upsert(ctx context.Context, rfm *model.CustomerRFM) error
+	GetByCustomerID(ctx context.Context, customerID string) (*model.CustomerRFM, error)
+	ListBySegment(ctx context.Context, segment string, page, pageSize int) ([]*model.CustomerRFM, int64, error)
+	ListChurnCandidates(ctx context.Context, threshold int, limit int) ([]*model.CustomerRFM, error)
+	CountBySegment(ctx context.Context) (map[string]int64, error)
+	DeleteByCustomerID(ctx context.Context, customerID string) error
 }
 
 type customerRFMRepo struct {
@@ -31,7 +32,7 @@ func NewCustomerRFMRepositoryWithDB(db *gorm.DB) CustomerRFMRepository {
 	return &customerRFMRepo{db: db}
 }
 
-func (r *customerRFMRepo) Upsert(rfm *model.CustomerRFM) error {
+func (r *customerRFMRepo) Upsert(ctx context.Context, rfm *model.CustomerRFM) error {
 	if rfm.CustomerID == "" {
 		return errors.New("customer_id 不能为空")
 	}
@@ -49,7 +50,7 @@ func (r *customerRFMRepo) Upsert(rfm *model.CustomerRFM) error {
 	return r.db.Save(rfm).Error
 }
 
-func (r *customerRFMRepo) GetByCustomerID(customerID string) (*model.CustomerRFM, error) {
+func (r *customerRFMRepo) GetByCustomerID(ctx context.Context, customerID string) (*model.CustomerRFM, error) {
 	var rfm model.CustomerRFM
 	if err := r.db.Where("customer_id = ?", customerID).First(&rfm).Error; err != nil {
 		return nil, err
@@ -57,7 +58,7 @@ func (r *customerRFMRepo) GetByCustomerID(customerID string) (*model.CustomerRFM
 	return &rfm, nil
 }
 
-func (r *customerRFMRepo) ListBySegment(segment string, page, pageSize int) ([]*model.CustomerRFM, int64, error) {
+func (r *customerRFMRepo) ListBySegment(ctx context.Context, segment string, page, pageSize int) ([]*model.CustomerRFM, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -80,7 +81,7 @@ func (r *customerRFMRepo) ListBySegment(segment string, page, pageSize int) ([]*
 	return rfms, total, nil
 }
 
-func (r *customerRFMRepo) ListChurnCandidates(threshold int, limit int) ([]*model.CustomerRFM, error) {
+func (r *customerRFMRepo) ListChurnCandidates(ctx context.Context, threshold int, limit int) ([]*model.CustomerRFM, error) {
 	if limit < 1 || limit > 500 {
 		limit = 50
 	}
@@ -91,7 +92,7 @@ func (r *customerRFMRepo) ListChurnCandidates(threshold int, limit int) ([]*mode
 	return rfms, err
 }
 
-func (r *customerRFMRepo) CountBySegment() (map[string]int64, error) {
+func (r *customerRFMRepo) CountBySegment(ctx context.Context) (map[string]int64, error) {
 	type row struct {
 		Segment string
 		Cnt     int64
@@ -108,22 +109,22 @@ func (r *customerRFMRepo) CountBySegment() (map[string]int64, error) {
 	return out, nil
 }
 
-func (r *customerRFMRepo) DeleteByCustomerID(customerID string) error {
+func (r *customerRFMRepo) DeleteByCustomerID(ctx context.Context, customerID string) error {
 	return r.db.Where("customer_id = ?", customerID).Delete(&model.CustomerRFM{}).Error
 }
 
 // RecoveryQueueRepository 流失挽回队列仓库
 type RecoveryQueueRepository interface {
-	Create(item *model.RecoveryQueue) error
-	Update(item *model.RecoveryQueue) error
-	GetByID(id uint64) (*model.RecoveryQueue, error)
-	GetActiveByCustomerID(customerID string) (*model.RecoveryQueue, error)
-	ListByStage(stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error)
-	ListReadyForAttempt(now time.Time, limit int) ([]*model.RecoveryQueue, error)
-	MarkAttempt(id uint64, channel, result string, nextAt *time.Time) error
-	MarkStage(id uint64, stage string) error
-	CountByStage() (map[string]int64, error)
-	Delete(id uint64) error
+	Create(ctx context.Context, item *model.RecoveryQueue) error
+	Update(ctx context.Context, item *model.RecoveryQueue) error
+	GetByID(ctx context.Context, id uint64) (*model.RecoveryQueue, error)
+	GetActiveByCustomerID(ctx context.Context, customerID string) (*model.RecoveryQueue, error)
+	ListByStage(ctx context.Context, stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error)
+	ListReadyForAttempt(ctx context.Context, now time.Time, limit int) ([]*model.RecoveryQueue, error)
+	MarkAttempt(ctx context.Context, id uint64, channel, result string, nextAt *time.Time) error
+	MarkStage(ctx context.Context, id uint64, stage string) error
+	CountByStage(ctx context.Context) (map[string]int64, error)
+	Delete(ctx context.Context, id uint64) error
 }
 
 type recoveryQueueRepo struct {
@@ -138,26 +139,26 @@ func NewRecoveryQueueRepositoryWithDB(db *gorm.DB) RecoveryQueueRepository {
 	return &recoveryQueueRepo{db: db}
 }
 
-func (r *recoveryQueueRepo) Create(item *model.RecoveryQueue) error {
+func (r *recoveryQueueRepo) Create(ctx context.Context, item *model.RecoveryQueue) error {
 	if item.CustomerID == "" {
 		return errors.New("customer_id 不能为空")
 	}
 	// 防止重复入队（活跃阶段唯一索引兜底）
-	existing, err := r.GetActiveByCustomerID(item.CustomerID)
+	existing, err := r.GetActiveByCustomerID(ctx, item.CustomerID)
 	if err == nil && existing != nil {
 		return errors.New("客户已在挽回队列中")
 	}
 	return r.db.Create(item).Error
 }
 
-func (r *recoveryQueueRepo) Update(item *model.RecoveryQueue) error {
+func (r *recoveryQueueRepo) Update(ctx context.Context, item *model.RecoveryQueue) error {
 	if item.ID == 0 {
 		return errors.New("id 不能为空")
 	}
 	return r.db.Save(item).Error
 }
 
-func (r *recoveryQueueRepo) GetByID(id uint64) (*model.RecoveryQueue, error) {
+func (r *recoveryQueueRepo) GetByID(ctx context.Context, id uint64) (*model.RecoveryQueue, error) {
 	var item model.RecoveryQueue
 	if err := r.db.First(&item, id).Error; err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func (r *recoveryQueueRepo) GetByID(id uint64) (*model.RecoveryQueue, error) {
 	return &item, nil
 }
 
-func (r *recoveryQueueRepo) GetActiveByCustomerID(customerID string) (*model.RecoveryQueue, error) {
+func (r *recoveryQueueRepo) GetActiveByCustomerID(ctx context.Context, customerID string) (*model.RecoveryQueue, error) {
 	var item model.RecoveryQueue
 	if err := r.db.Where("customer_id = ? AND stage IN ?", customerID,
 		[]string{model.RecoveryStageQueued, model.RecoveryStageRunning}).First(&item).Error; err != nil {
@@ -174,7 +175,7 @@ func (r *recoveryQueueRepo) GetActiveByCustomerID(customerID string) (*model.Rec
 	return &item, nil
 }
 
-func (r *recoveryQueueRepo) ListByStage(stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error) {
+func (r *recoveryQueueRepo) ListByStage(ctx context.Context, stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -197,7 +198,7 @@ func (r *recoveryQueueRepo) ListByStage(stage string, page, pageSize int) ([]*mo
 	return items, total, nil
 }
 
-func (r *recoveryQueueRepo) ListReadyForAttempt(now time.Time, limit int) ([]*model.RecoveryQueue, error) {
+func (r *recoveryQueueRepo) ListReadyForAttempt(ctx context.Context, now time.Time, limit int) ([]*model.RecoveryQueue, error) {
 	if limit < 1 || limit > 500 {
 		limit = 50
 	}
@@ -209,7 +210,7 @@ func (r *recoveryQueueRepo) ListReadyForAttempt(now time.Time, limit int) ([]*mo
 	return items, err
 }
 
-func (r *recoveryQueueRepo) MarkAttempt(id uint64, channel, result string, nextAt *time.Time) error {
+func (r *recoveryQueueRepo) MarkAttempt(ctx context.Context, id uint64, channel, result string, nextAt *time.Time) error {
 	updates := map[string]any{
 		"attempts":        gorm.Expr("attempts + 1"),
 		"last_attempt_at": time.Now(),
@@ -222,11 +223,11 @@ func (r *recoveryQueueRepo) MarkAttempt(id uint64, channel, result string, nextA
 	return r.db.Model(&model.RecoveryQueue{}).Where("id = ?", id).Updates(updates).Error
 }
 
-func (r *recoveryQueueRepo) MarkStage(id uint64, stage string) error {
+func (r *recoveryQueueRepo) MarkStage(ctx context.Context, id uint64, stage string) error {
 	return r.db.Model(&model.RecoveryQueue{}).Where("id = ?", id).Update("stage", stage).Error
 }
 
-func (r *recoveryQueueRepo) CountByStage() (map[string]int64, error) {
+func (r *recoveryQueueRepo) CountByStage(ctx context.Context) (map[string]int64, error) {
 	type row struct {
 		Stage string
 		Cnt   int64
@@ -243,6 +244,6 @@ func (r *recoveryQueueRepo) CountByStage() (map[string]int64, error) {
 	return out, nil
 }
 
-func (r *recoveryQueueRepo) Delete(id uint64) error {
+func (r *recoveryQueueRepo) Delete(ctx context.Context, id uint64) error {
 	return r.db.Delete(&model.RecoveryQueue{}, id).Error
 }

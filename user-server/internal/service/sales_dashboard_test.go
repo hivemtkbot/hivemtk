@@ -24,7 +24,6 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	dashboard := NewSalesDashboard(journey)
 
 	custID := "mb_001"
-	ctx := context.Background()
 
 	// 1. 陌生 → 留资（客户问价格）
 	tags := tagger.TagFromSalesResponse(custID, &SalesResponse{
@@ -292,7 +291,6 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 func TestSalesDashboard_FunnelByJourney(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	dashboard := NewSalesDashboard(journey)
-	ctx := context.Background()
 
 	// 注入客户到不同阶段
 	_, _ = journey.Transition(ctx, "c1", StageStranger, "ai", "ai", "", nil)
@@ -413,7 +411,6 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	repurchase := NewRepurchaseEngine()
 	dashboard := NewSalesDashboard(journey)
-	ctx := context.Background()
 
 	// 10 个客户的真实场景
 	customers := []struct {

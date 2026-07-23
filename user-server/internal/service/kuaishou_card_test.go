@@ -49,7 +49,6 @@ func TestKuaishouCardService_Create_Success(t *testing.T) {
 		IsActive:     true,
 	}
 
-	ctx := context.Background()
 	card, err := service.Create(ctx, req)
 
 	if err != nil {
@@ -78,7 +77,6 @@ func TestKuaishouCardService_Create_EmptyTitle(t *testing.T) {
 		ImageURL:    "https://example.com/image.jpg",
 	}
 
-	ctx := context.Background()
 	_, err := service.Create(ctx, req)
 
 	if err != nil {
@@ -98,7 +96,6 @@ func TestKuaishouCardService_Create_EmptyRedirectURL(t *testing.T) {
 		DomainPoolID: 1,
 	}
 
-	ctx := context.Background()
 	card, err := service.Create(ctx, req)
 
 	if err != nil {
@@ -115,7 +112,6 @@ func TestKuaishouCardService_Update_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	// 先创建卡片
 	createReq := &dto.KuaishouCardCreateRequest{
@@ -169,7 +165,6 @@ func TestKuaishouCardService_Update_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	updateReq := &dto.KuaishouCardUpdateRequest{
 		ID:    999,
@@ -187,7 +182,6 @@ func TestKuaishouCardService_Delete_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Card to Delete",
@@ -217,7 +211,6 @@ func TestKuaishouCardService_Delete_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	// Service 的 Delete 方法会先检查卡片是否存在
 	// 对于不存在的卡片会返回错误
@@ -232,7 +225,6 @@ func TestKuaishouCardService_GetByID_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Test Card",
@@ -266,7 +258,6 @@ func TestKuaishouCardService_GetByID_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	_, err := service.GetByID(ctx, 999)
 	if err == nil {
@@ -279,7 +270,6 @@ func TestKuaishouCardService_GetByIDWithRefresh_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Test Card",
@@ -308,7 +298,6 @@ func TestKuaishouCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Test Card",
@@ -340,7 +329,6 @@ func TestKuaishouCardService_GetList_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	for i := 1; i <= 5; i++ {
 		createReq := &dto.KuaishouCardCreateRequest{
@@ -378,7 +366,6 @@ func TestKuaishouCardService_GetList_Pagination(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	for i := 1; i <= 15; i++ {
 		createReq := &dto.KuaishouCardCreateRequest{
@@ -423,7 +410,6 @@ func TestKuaishouCardService_GetList_EmptyList(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	listReq := &dto.KuaishouCardListRequest{
 		Page:     1,
@@ -447,7 +433,6 @@ func TestKuaishouCardService_ViewCard_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "View Test Card",
@@ -472,7 +457,6 @@ func TestKuaishouCardService_ViewCard_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	err := service.ViewCard(ctx, 999)
 	if err == nil {
@@ -485,7 +469,6 @@ func TestKuaishouCardService_LikeCard_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Like Test Card",
@@ -510,7 +493,6 @@ func TestKuaishouCardService_LikeCard_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	err := service.LikeCard(ctx, 999)
 	if err == nil {
@@ -523,7 +505,6 @@ func TestKuaishouCardService_ShareCard_Success(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	createReq := &dto.KuaishouCardCreateRequest{
 		Title:        "Share Test Card",
@@ -548,7 +529,6 @@ func TestKuaishouCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	_, err := service.ShareCard(ctx, 999, "wechat")
 	if err == nil {
@@ -561,7 +541,6 @@ func TestKuaishouCardService_Create_WithTags(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	req := &dto.KuaishouCardCreateRequest{
 		Title:        "Card with Tags",
@@ -587,7 +566,6 @@ func TestKuaishouCardService_Create_InactiveCard(t *testing.T) {
 	database := setupKuaishouCardServiceTestDB(t)
 	service := NewKuaishouCardService(database)
 
-	ctx := context.Background()
 
 	req := &dto.KuaishouCardCreateRequest{
 		Title:        "Inactive Card",

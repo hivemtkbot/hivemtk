@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 
@@ -27,13 +26,15 @@ import (
 // P2-2 修复：移除 repo 字段，所有数据操作通过 svc (WhatsAppCloudService) 完成，
 // 严格遵循五层架构 Controller → Service → Repository → Model
 type WhatsAppCloudAccountController struct {
-	svc *service.WhatsAppCloudService
+	svc            *service.WhatsAppCloudService
+	integrationSvc *service.WhatsAppCloudIntegrationService
 }
 
 // NewWhatsAppCloudAccountController 创建控制器
-func NewWhatsAppCloudAccountController() *WhatsAppCloudAccountController {
+func NewWhatsAppCloudAccountController(svc *service.WhatsAppCloudService, integrationSvc *service.WhatsAppCloudIntegrationService) *WhatsAppCloudAccountController {
 	return &WhatsAppCloudAccountController{
-		svc: service.NewWhatsAppCloudService(db.GetDB()),
+		svc:            svc,
+		integrationSvc: integrationSvc,
 	}
 }
 
@@ -244,7 +245,7 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	integration := service.NewWhatsAppCloudIntegrationService(db.GetDB())
+	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := integration.SendMessage(ctx, uint(id), req.ToPhone, req.Content); err != nil {

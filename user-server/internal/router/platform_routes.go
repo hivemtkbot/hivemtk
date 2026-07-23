@@ -2,6 +2,8 @@ package router
 
 import (
 	"marketing/internal/controller"
+	"marketing/internal/pkg/utils/db"
+	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +30,12 @@ func setupWhatsappRoutes(auth *gin.RouterGroup) {
 	auth.GET("/whatsapp/accounts/:id/login/status", whatsappCtrl.LoginStatus)
 
 	// WhatsApp 群发消息功能
-	whatsappGroupMsgCtrl := controller.NewGroupMessagingController(whatsappCtrl.GetService())
+	whatsappGroupMsgCtrl := controller.NewGroupMessagingController(
+		whatsappCtrl.GetService(),
+		service.NewClueService(),
+		service.NewMessageQueueService(db.GetDB()),
+		service.NewWhatsAppTemplateService(db.GetDB()),
+	)
 	auth.GET("/whatsapp/lead-groups", whatsappGroupMsgCtrl.GetLeadGroups)
 	auth.POST("/whatsapp/group-messaging/send", whatsappGroupMsgCtrl.SelectGroupAndSendMessage)
 	auth.GET("/whatsapp/group-messaging/status/:queue_id", whatsappGroupMsgCtrl.GetMessageStatus)
@@ -44,7 +51,7 @@ func setupWhatsappRoutes(auth *gin.RouterGroup) {
 // 用于配置 TG Bot Token + Webhook + 智能体开关，
 // 配合 /api/webhook/telegram/{account_id} 自动触发智能体流程
 func setupTelegramRoutes(auth *gin.RouterGroup) {
-	telegramAccountCtrl := controller.NewTelegramAccountController()
+	telegramAccountCtrl := controller.NewTelegramAccountController(service.NewTelegramService(db.GetDB()))
 	telegramAccountCtrl.RegisterRoutes(auth)
 }
 
@@ -52,7 +59,7 @@ func setupTelegramRoutes(auth *gin.RouterGroup) {
 // 商户在 UI 配置 App ID / App Secret / Verification Token / Encrypt Key，
 // 配合 /api/webhook/feishu/{account_id} 自动触发智能体流程
 func setupFeishuRoutes(auth *gin.RouterGroup) {
-	feishuCtrl := controller.NewFeishuAccountController()
+	feishuCtrl := controller.NewFeishuAccountController(service.NewFeishuService(db.GetDB()), service.NewFeishuIntegrationService(db.GetDB()))
 	feishuCtrl.RegisterRoutes(auth)
 }
 
@@ -60,7 +67,7 @@ func setupFeishuRoutes(auth *gin.RouterGroup) {
 // 商户在 UI 配置 Phone Number ID / WABA ID / Access Token / App Secret，
 // 配合 /api/webhook/whatsapp/{account_id} 自动触发智能体流程
 func setupWhatsAppCloudRoutes(auth *gin.RouterGroup) {
-	waCtrl := controller.NewWhatsAppCloudAccountController()
+	waCtrl := controller.NewWhatsAppCloudAccountController(service.NewWhatsAppCloudService(db.GetDB()), service.NewWhatsAppCloudIntegrationService(db.GetDB()))
 	waCtrl.RegisterRoutes(auth)
 }
 

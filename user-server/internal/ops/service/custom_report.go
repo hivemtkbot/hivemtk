@@ -247,7 +247,7 @@ func (s *CustomReportService) querySessionData(ctx context.Context, report *mode
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	sessions, total, err := s.sessionRepo.GetByMerchant(sysmodel.SessionStatus(""), 1, 1000)
+	sessions, total, err := s.sessionRepo.GetByMerchant(ctx, sysmodel.SessionStatus(""), 1, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (s *CustomReportService) queryClueData(ctx context.Context, report *model.C
 	var metrics []model.ReportMetric
 	json.Unmarshal([]byte(report.Metrics), &metrics)
 
-	clues, _, err := s.clueRepo.GetClueList(1, 1000)
+	clues, _, err := s.clueRepo.GetClueList(ctx, 1, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -411,13 +411,13 @@ func (s *CustomReportService) queryRFMData(ctx context.Context, report *model.Cu
 
 	// 根据 layer 参数选择查询方法
 	if layer != "" {
-		rfms, total, err = s.userRfmRepo.GetByLayer(layer, 1, 1000)
+		rfms, total, err = s.userRfmRepo.GetByLayer(ctx, layer, 1, 1000)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// layer 为空时查询所有 RFM
-		rfms, total, err = s.userRfmRepo.GetAll(1, 1000)
+		rfms, total, err = s.userRfmRepo.GetAll(ctx, 1, 1000)
 		if err != nil {
 			return nil, err
 		}

@@ -58,7 +58,7 @@ func TestXianyuCardRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(ctx, tt.card)
+			err := repo.Create(context.Background(), ctx, tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -84,7 +84,7 @@ func TestXianyuCardRepository_GetByID(t *testing.T) {
 		Description: "GetByID Description",
 		IsActive:    true,
 	}
-	repo.Create(ctx, card)
+	repo.Create(context.Background(), ctx, card)
 
 	tests := []struct {
 		name    string
@@ -105,7 +105,7 @@ func TestXianyuCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(ctx, tt.id)
+			result, err := repo.GetByID(context.Background(), ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -211,7 +211,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetList(ctx, tt.req)
+			results, total, err := repo.GetList(context.Background(), ctx, tt.req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
@@ -240,17 +240,17 @@ func TestXianyuCardRepository_Update(t *testing.T) {
 		IsActive:    true,
 		ShortLinkID: 0,
 	}
-	repo.Create(ctx, card)
+	repo.Create(context.Background(), ctx, card)
 
 	card.Title = "Updated Title"
 	card.ShortLinkID = 123
 
-	err := repo.Update(ctx, card)
+	err := repo.Update(context.Background(), ctx, card)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(ctx, card.ID)
+	updated, _ := repo.GetByID(context.Background(), ctx, card.ID)
 	if updated.Title != "Updated Title" {
 		t.Errorf("Expected title 'Updated Title', got '%s'", updated.Title)
 	}
@@ -269,14 +269,14 @@ func TestXianyuCardRepository_Delete(t *testing.T) {
 		Title:    "To Delete",
 		IsActive: true,
 	}
-	repo.Create(ctx, card)
+	repo.Create(context.Background(), ctx, card)
 
-	err := repo.Delete(ctx, card.ID)
+	err := repo.Delete(context.Background(), ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(ctx, card.ID)
+	_, err = repo.GetByID(context.Background(), ctx, card.ID)
 	if err == nil {
 		t.Error("Expected card to be deleted")
 	}
@@ -287,7 +287,7 @@ func TestXianyuCardRepository_Delete_NotFound(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
 
-	err := repo.Delete(ctx, 99999)
+	err := repo.Delete(context.Background(), ctx, 99999)
 	if err == nil {
 		t.Error("Expected error when deleting non-existing card")
 	}
@@ -298,7 +298,7 @@ func TestXianyuCardRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
 
-	_, err := repo.GetByID(ctx, 99999)
+	_, err := repo.GetByID(context.Background(), ctx, 99999)
 	if err == nil {
 		t.Error("Expected error when getting non-existing card")
 	}

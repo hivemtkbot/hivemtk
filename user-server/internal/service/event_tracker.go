@@ -27,7 +27,7 @@ func NewEventTracker(customerService *CustomerService) *EventTracker {
 }
 
 // DisableAsync 禁用异步处理（用于测试）
-func (s *EventTracker) DisableAsync() {
+func (s *EventTracker) DisableAsync(ctx context.Context)  {
 	s.disableAsync = true
 }
 
@@ -55,13 +55,13 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 
 	// 设置事件数据
 	if dto.EventData != nil {
-		if err := event.SetEventData(dto.EventData); err != nil {
+		if err := SetCustomerEventData(event, dto.EventData); err != nil {
 			return err
 		}
 	}
 
 	// 记录事件
-	if err := s.repo.Record(event); err != nil {
+	if err := s.repo.Record(ctx, event); err != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 					logger.Errorf("event_tracker: AutoTagger.ProcessEvent recovered from panic: %v", r)
 				}
 			}()
-			if err := s.autoTagger.ProcessEvent(event); err != nil {
+			if err := s.autoTagger.ProcessEvent(ctx, event); err != nil {
 				logger.Errorf("AutoTagger.ProcessEvent error: %v", err)
 			}
 		}()
@@ -123,7 +123,7 @@ func (s *EventTracker) TrackPurchase(ctx context.Context, customerID string, amo
 }
 
 // GetEventHistory 获取客户事件历史
-func (s *EventTracker) GetEventHistory(customerID string, limit int) ([]*model.CustomerEvent, error) {
+func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, limit int)  ([]*model.CustomerEvent, error) {
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -131,11 +131,11 @@ func (s *EventTracker) GetEventHistory(customerID string, limit int) ([]*model.C
 		limit = MaxLimit
 	}
 
-	return s.repo.GetByCustomerID(customerID, limit)
+	return s.repo.GetByCustomerID(ctx, customerID, limit)
 }
 
 // GetStats 获取事件统计
-func (s *EventTracker) GetStats(start, end string) (*repository.EventStats, error) {
+func (s *EventTracker) GetStats(ctx context.Context, start, end string)  (*repository.EventStats, error) {
 	// 解析时间范围
 	startTime, err := time.Parse("2006-01-02", start)
 	if err != nil {
@@ -147,7 +147,7 @@ func (s *EventTracker) GetStats(start, end string) (*repository.EventStats, erro
 		endTime = time.Now()
 	}
 
-	return s.repo.GetStats(startTime, endTime)
+	return s.repo.GetStats(ctx, startTime, endTime)
 }
 
 // TrackSignup 追踪注册事件
@@ -208,8 +208,8 @@ func (s *EventTracker) TrackWithEventData(ctx context.Context, customerID, event
 }
 
 // GetEventCount 获取客户事件数量
-func (s *EventTracker) GetEventCount(customerID string) (int64, error) {
-	events, err := s.repo.GetByCustomerID(customerID, -1)
+func (s *EventTracker) GetEventCount(ctx context.Context, customerID string) (int64, error) {
+	events, err := s.repo.GetByCustomerID(ctx, customerID, -1)
 	if err != nil {
 		return 0, err
 	}
@@ -217,8 +217,8 @@ func (s *EventTracker) GetEventCount(customerID string) (int64, error) {
 }
 
 // DeleteByCustomerID 删除指定客户的所有事件，返回删除条数
-func (s *EventTracker) DeleteByCustomerID(customerID string) (int64, error) {
-	return s.repo.DeleteByCustomerID(customerID)
+func (s *EventTracker) DeleteByCustomerID(ctx context.Context, customerID string)  (int64, error) {
+	return s.repo.DeleteByCustomerID(ctx, customerID)
 }
 
 // SerializeEventData 序列化事件数据为 JSON 字符串

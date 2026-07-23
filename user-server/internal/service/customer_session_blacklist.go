@@ -24,20 +24,20 @@ import (
 
 // BlacklistRequest 拉黑请求
 type BlacklistRequest struct {
-	SessionID    uint   `json:"session_id" binding:"required"`
-	Reason       string `json:"reason"`        // 拉黑原因
-	OperatorID   uint   `json:"operator_id"`   // 操作人（坐席 ID）
-	OperatorName string `json:"operator_name"` // 操作人姓名
-	TTLHours     int    `json:"ttl_hours"`     // 0 = 永久
+	SessionID	uint	`json:"session_id" binding:"required"`
+	Reason		string	`json:"reason"`		// 拉黑原因
+	OperatorID	uint	`json:"operator_id"`	// 操作人（坐席 ID）
+	OperatorName	string	`json:"operator_name"`	// 操作人姓名
+	TTLHours	int	`json:"ttl_hours"`	// 0 = 永久
 }
 
 // BlacklistSource 黑名单来源枚举
 type BlacklistSource string
 
 const (
-	BlacklistSourceManual BlacklistSource = "manual" // 坐席手动
-	BlacklistSourceAuto   BlacklistSource = "auto"   // 系统自动
-	BlacklistSourceRisk   BlacklistSource = "risk"   // 风控引擎
+	BlacklistSourceManual	BlacklistSource	= "manual"	// 坐席手动
+	BlacklistSourceAuto	BlacklistSource	= "auto"	// 系统自动
+	BlacklistSourceRisk	BlacklistSource	= "risk"	// 风控引擎
 )
 
 // BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
@@ -50,14 +50,14 @@ const (
 //
 // 错误：返回业务语义化错误（含中文 message 供前端直接展示）。
 func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *BlacklistRequest) error {
-	_ = ctx // 当前实现未使用，预留支持 context 超时/链路追踪
+	_ = ctx	// 当前实现未使用，预留支持 context 超时/链路追踪
 	if req == nil {
 		return errors.New("请求体不能为空")
 	}
 	if req.SessionID == 0 {
 		return errors.New("session_id 必填")
 	}
-	session, err := s.sessionRepo.GetByID(req.SessionID)
+	session, err := s.sessionRepo.GetByID(ctx, req.SessionID)
 	if err != nil {
 		return errors.New("会话不存在")
 	}
@@ -72,35 +72,35 @@ func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *Blackli
 	}
 
 	blacklistRecord := &model.UserBlacklist{
-		UserID:       session.UserID,
-		Platform:     session.Platform,
-		Reason:       req.Reason,
-		Source:       string(BlacklistSourceManual),
-		OperatorID:   req.OperatorID,
-		OperatorName: req.OperatorName,
-		SessionID:    session.SessionID,
-		Active:       true,
-		ExpiresAt:    expiresAt,
+		UserID:		session.UserID,
+		Platform:	session.Platform,
+		Reason:		req.Reason,
+		Source:		string(BlacklistSourceManual),
+		OperatorID:	req.OperatorID,
+		OperatorName:	req.OperatorName,
+		SessionID:	session.SessionID,
+		Active:		true,
+		ExpiresAt:	expiresAt,
 	}
-	if err := s.blacklistRepo.Add(blacklistRecord); err != nil {
+	if err := s.blacklistRepo.Add(ctx, blacklistRecord); err != nil {
 		return fmt.Errorf("写入黑名单失败: %w", err)
 	}
 
 	// 关闭该会话，避免继续对话
-	if err := s.sessionRepo.UpdateStatus(req.SessionID, model.SessionStatusClosed); err != nil {
+	if err := s.sessionRepo.UpdateStatus(ctx, req.SessionID, model.SessionStatusClosed); err != nil {
 		// 关闭失败不阻塞拉黑结果返回（黑名单已生效），但记录错误便于排查
 		_ = err
 	}
 
 	// 通知前端：handler_changed + blacklisted
-	if err := s.notifySessionUpdate(session, "blacklisted", "human"); err != nil {
+	if err := s.notifySessionUpdate(ctx, session, "blacklisted", "human"); err != nil {
 		_ = err
 	}
 	if err := websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id":  session.SessionID,
-		"handler":     "human",
-		"reason":      "因违反服务条款，该访客已被加入黑名单",
-		"blacklisted": true,
+		"session_id":	session.SessionID,
+		"handler":	"human",
+		"reason":	"因违反服务条款，该访客已被加入黑名单",
+		"blacklisted":	true,
 	}, session.SessionID); err != nil {
 		_ = err
 	}
@@ -109,27 +109,27 @@ func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *Blackli
 }
 
 // UnblacklistUser 解除拉黑
-func (s *CustomerSessionService) UnblacklistUser(_ context.Context, userID string, platform model.Platform) error {
+func (s *CustomerSessionService) UnblacklistUser(ctx context.Context, userID string, platform model.Platform) error {
 	if userID == "" {
 		return errors.New("user_id 必填")
 	}
-	if err := s.blacklistRepo.Remove(userID, platform); err != nil {
+	if err := s.blacklistRepo.Remove(ctx, userID, platform); err != nil {
 		return fmt.Errorf("解除拉黑失败: %w", err)
 	}
 	return nil
 }
 
 // IsUserBlacklisted 判断访客是否在黑名单
-func (s *CustomerSessionService) IsUserBlacklisted(_ context.Context, userID string, platform model.Platform) (bool, error) {
-	return s.blacklistRepo.IsBlacklisted(userID, platform)
+func (s *CustomerSessionService) IsUserBlacklisted(ctx context.Context, userID string, platform model.Platform) (bool, error) {
+	return s.blacklistRepo.IsBlacklisted(ctx, userID, platform)
 }
 
 // ListActiveBlacklist 分页查询生效中的黑名单
 //
 // 命名统一：service 层用业务语义「黑名单」，repository 用实现语义「Active」。
 // 这样 controller 调 service.ListActiveBlacklist 时更直观。
-func (s *CustomerSessionService) ListActiveBlacklist(_ context.Context, page, pageSize int) ([]*model.UserBlacklist, int64, error) {
-	return s.blacklistRepo.ListActive(page, pageSize)
+func (s *CustomerSessionService) ListActiveBlacklist(ctx context.Context, page, pageSize int) ([]*model.UserBlacklist, int64, error) {
+	return s.blacklistRepo.ListActive(ctx, page, pageSize)
 }
 
 // 编译期类型断言：确保 CustomerSessionService.blacklistRepo 字段保持 *UserBlacklistRepository
@@ -163,14 +163,14 @@ var _ = func() error {
 // 拆分为独立方法，便于：
 //  1. 单元测试单独覆盖该守卫逻辑
 //  2. 未来扩展其它守卫（如限流、风控评分）只需追加调用
-func (s *CustomerSessionService) preCreateBlacklistGuard(req *CreateSessionRequest) error {
+func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, req *CreateSessionRequest) error {
 	if req == nil {
 		return errors.New("请求体不能为空")
 	}
 	if req.UserID == "" {
-		return nil // 匿名访客不参与黑名单
+		return nil	// 匿名访客不参与黑名单
 	}
-	banned, err := s.blacklistRepo.IsBlacklisted(req.UserID, req.Platform)
+	banned, err := s.blacklistRepo.IsBlacklisted(ctx, req.UserID, req.Platform)
 	if err != nil {
 		return fmt.Errorf("黑名单校验失败: %w", err)
 	}

@@ -23,7 +23,7 @@ func setupInboxTestDB(t *testing.T) *gorm.DB {
 
 func newInboxService(t *testing.T) (*InboxService, *gorm.DB) {
 	db := setupInboxTestDB(t)
-	return NewInboxService(db), db
+	return NewInboxServiceWithDB(db), db
 }
 
 func mkMsg(suffix string) *model.MessageHub {
@@ -1747,8 +1747,8 @@ func TestList_PageDefaults(t *testing.T) {
 }
 
 // 97. NewInboxService 单元
-func TestNewInboxService(t *testing.T) {
-	svc := NewInboxService(nil)
+func TestNewInboxServiceWithDB(t *testing.T) {
+	svc := NewInboxServiceWithDB(nil)
 	if svc == nil {
 		t.Fatal("expected svc")
 	}
@@ -1759,7 +1759,7 @@ func TestNewInboxService(t *testing.T) {
 
 // 98. List with nil db
 func TestList_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	list, total, _ := svc.List(context.Background(), InboxQuery{})
 	if len(list) != 0 || total != 0 {
 		t.Errorf("expected empty, got %d/%d", len(list), total)
@@ -1768,7 +1768,7 @@ func TestList_NilDB(t *testing.T) {
 
 // 99. Stats with nil db
 func TestStats_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	stats, _ := svc.GetStats(context.Background())
 	if stats == nil {
 		t.Fatal("expected stats")
@@ -1780,7 +1780,7 @@ func TestStats_NilDB(t *testing.T) {
 
 // 100. GetByID with nil db
 func TestGetByID_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	c, _ := svc.GetByID(context.Background(), 1)
 	if c != nil {
 		t.Error("expected nil")
@@ -1789,7 +1789,7 @@ func TestGetByID_NilDB(t *testing.T) {
 
 // 101. GetMessagesByConversation with nil db
 func TestGetMessagesByConversation_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	list, total, _ := svc.GetMessagesByConversation(context.Background(), 1, 1, 10)
 	if len(list) != 0 || total != 0 {
 		t.Errorf("expected empty, got %d/%d", len(list), total)
@@ -1798,7 +1798,7 @@ func TestGetMessagesByConversation_NilDB(t *testing.T) {
 
 // 102. ListAssignments with nil db
 func TestListAssignments_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	list, total, _ := svc.ListAssignments(context.Background(), 1, 1, 10)
 	if len(list) != 0 || total != 0 {
 		t.Errorf("expected empty, got %d/%d", len(list), total)
@@ -1807,7 +1807,7 @@ func TestListAssignments_NilDB(t *testing.T) {
 
 // 103. Pin with nil db
 func TestPin_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	if err := svc.Pin(context.Background(), 1, true); err != nil {
 		t.Errorf("expected nil err, got %v", err)
 	}
@@ -1815,7 +1815,7 @@ func TestPin_NilDB(t *testing.T) {
 
 // 104. AddTag with nil db
 func TestAddTag_NilDB(t *testing.T) {
-	svc := NewInboxService(nil)
+	svc := NewInboxServiceWithDB(nil)
 	if err := svc.AddTag(context.Background(), 1, "x"); err != nil {
 		t.Errorf("expected nil err, got %v", err)
 	}

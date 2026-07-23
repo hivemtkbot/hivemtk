@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"regexp"
 	"strings"
 )
@@ -138,7 +139,7 @@ func NewContentAuditor() *ContentAuditor {
 }
 
 // Audit 审核内容
-func (a *ContentAuditor) Audit(text string, ctx *AuditContext) *AuditResult {
+func (a *ContentAuditor) Audit(ctx context.Context, text string, auditCtx *AuditContext)  *AuditResult {
 	result := &AuditResult{
 		Pass:     true,
 		Issues:   []string{},
@@ -196,11 +197,11 @@ func (a *ContentAuditor) Audit(text string, ctx *AuditContext) *AuditResult {
 }
 
 // AddBlockedKeyword 添加拦截词（运营配置）
-func (a *ContentAuditor) AddBlockedKeyword(keyword string) {
+func (a *ContentAuditor) AddBlockedKeyword(ctx context.Context, keyword string)  {
 	a.blockedKeywords = append(a.blockedKeywords, keyword)
 }
 
 // AddWarnKeyword 添加警告词
-func (a *ContentAuditor) AddWarnKeyword(keyword string) {
+func (a *ContentAuditor) AddWarnKeyword(ctx context.Context, keyword string)  {
 	a.warnKeywords = append(a.warnKeywords, keyword)
 }

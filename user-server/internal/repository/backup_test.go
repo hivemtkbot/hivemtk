@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -90,7 +91,7 @@ func TestBackupRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := backupRepo.Create(tt.backup)
+			err := backupRepo.Create(context.Background(), tt.backup)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -115,7 +116,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 		FileSize:   512,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	tests := []struct {
 		name    string
@@ -136,7 +137,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := backupRepo.GetByID(tt.id)
+			result, err := backupRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -165,7 +166,7 @@ func TestBackupRepository_Update(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	tests := []struct {
 		name       string
@@ -202,7 +203,7 @@ func TestBackupRepository_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.updateFunc(backup)
-			err := backupRepo.Update(backup)
+			err := backupRepo.Update(context.Background(), backup)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
@@ -210,7 +211,7 @@ func TestBackupRepository_Update(t *testing.T) {
 
 			if !tt.wantErr {
 				// 验证更新
-				updated, _ := backupRepo.GetByID(backup.ID)
+				updated, _ := backupRepo.GetByID(context.Background(), backup.ID)
 				if updated.Status != backup.Status {
 					t.Errorf("Expected status '%s', got '%s'", backup.Status, updated.Status)
 				}
@@ -230,7 +231,7 @@ func TestBackupRepository_Delete(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	tests := []struct {
 		name        string
@@ -254,14 +255,14 @@ func TestBackupRepository_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := backupRepo.Delete(tt.id)
+			err := backupRepo.Delete(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if tt.name == "delete existing backup" {
-				_, err := backupRepo.GetByID(tt.id)
+				_, err := backupRepo.GetByID(context.Background(), tt.id)
 				if err == nil {
 					t.Error("Expected backup to be deleted")
 				}
@@ -275,25 +276,25 @@ func TestBackupRepository_GetRecentBackups(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
 
 	// 创建测试数据 - 不同状态的备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Completed 1",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Completed 2",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Pending",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Failed",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusFailed,
@@ -319,7 +320,7 @@ func TestBackupRepository_GetRecentBackups(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := backupRepo.GetRecentBackups(tt.limit)
+			results, err := backupRepo.GetRecentBackups(context.Background(), tt.limit)
 			if err != nil {
 				t.Errorf("GetRecentBackups() error = %v", err)
 			}
@@ -339,14 +340,14 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 	oldDate := now.AddDate(0, 0, -31) // 31 天前
 
 	// 创建旧备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Old Backup 1",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedAt:  oldDate,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "Old Backup 2",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
@@ -355,7 +356,7 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 	})
 
 	// 创建新备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(context.Background(), &model.Backup{
 		BackupName: "New Backup",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
@@ -363,7 +364,7 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 		CreatedBy:  1,
 	})
 
-	err := backupRepo.CleanupOldBackups()
+	err := backupRepo.CleanupOldBackups(context.Background())
 	if err != nil {
 		t.Errorf("CleanupOldBackups() error = %v", err)
 	}
@@ -427,7 +428,7 @@ func TestRestoreRecordRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := restoreRepo.Create(tt.record)
+			err := restoreRepo.Create(context.Background(), tt.record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -450,7 +451,7 @@ func TestRestoreRecordRepository_GetByID(t *testing.T) {
 		BackupName: "GetByID Restore",
 		Status:     "completed",
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(context.Background(), record)
 
 	tests := []struct {
 		name    string
@@ -471,7 +472,7 @@ func TestRestoreRecordRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := restoreRepo.GetByID(tt.id)
+			result, err := restoreRepo.GetByID(context.Background(), tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -499,7 +500,7 @@ func TestRestoreRecordRepository_Update(t *testing.T) {
 		BackupName: "Original Restore",
 		Status:     "pending",
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(context.Background(), record)
 
 	tests := []struct {
 		name       string
@@ -526,14 +527,14 @@ func TestRestoreRecordRepository_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.updateFunc(record)
-			err := restoreRepo.Update(record)
+			err := restoreRepo.Update(context.Background(), record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := restoreRepo.GetByID(record.ID)
+				updated, _ := restoreRepo.GetByID(context.Background(), record.ID)
 				if updated.Status != record.Status {
 					t.Errorf("Expected status '%s', got '%s'", record.Status, updated.Status)
 				}
@@ -547,24 +548,24 @@ func TestRestoreRecordRepository_GetLastRestore(t *testing.T) {
 	_, restoreRepo := setupBackupRepositories(t)
 
 	// 创建测试数据 - 按时间顺序创建（最后创建的就是最近一次）
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "First Restore",
 		Status:     "completed",
 	})
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   2,
 		BackupName: "Second Restore",
 		Status:     "completed",
 	})
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   3,
 		BackupName: "Last Restore",
 		Status:     "completed",
 	})
 
 	// 验证：最近一次恢复记录应该是最后创建的 "Last Restore"
-	result, err := restoreRepo.GetLastRestore()
+	result, err := restoreRepo.GetLastRestore(context.Background())
 	if err != nil {
 		t.Errorf("GetLastRestore() unexpected error = %v", err)
 	}

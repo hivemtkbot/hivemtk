@@ -41,7 +41,7 @@ func setupXianyuRouter(ctrl *XianyuAutoReplyController) *gin.Engine {
 
 func TestXianyuAutoReplyController_ListAccounts_Success(t *testing.T) {
 	setupXianyuTestDB(t)
-	ctrl := NewXianyuAutoReplyController()
+	ctrl := NewXianyuAutoReplyController(nil, nil)
 	router := setupXianyuRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/xianyu-auto-reply/accounts", nil)
@@ -55,7 +55,7 @@ func TestXianyuAutoReplyController_ListAccounts_Success(t *testing.T) {
 
 func TestXianyuAutoReplyController_GetRule_Success(t *testing.T) {
 	setupXianyuTestDB(t)
-	ctrl := NewXianyuAutoReplyController()
+	ctrl := NewXianyuAutoReplyController(nil, nil)
 	router := setupXianyuRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/xianyu-auto-reply/rule", nil)
@@ -69,7 +69,7 @@ func TestXianyuAutoReplyController_GetRule_Success(t *testing.T) {
 
 func TestXianyuAutoReplyController_SaveRule_InvalidJSON(t *testing.T) {
 	setupXianyuTestDB(t)
-	ctrl := NewXianyuAutoReplyController()
+	ctrl := NewXianyuAutoReplyController(nil, nil)
 	router := setupXianyuRouter(ctrl)
 
 	req, _ := http.NewRequest("POST", "/xianyu-auto-reply/rule", bytes.NewReader([]byte("bad")))
@@ -84,7 +84,7 @@ func TestXianyuAutoReplyController_SaveRule_InvalidJSON(t *testing.T) {
 
 func TestXianyuAutoReplyController_SaveRule_Success(t *testing.T) {
 	setupXianyuTestDB(t)
-	ctrl := NewXianyuAutoReplyController()
+	ctrl := NewXianyuAutoReplyController(nil, nil)
 	router := setupXianyuRouter(ctrl)
 
 	body, _ := json.Marshal(map[string]any{
@@ -106,7 +106,7 @@ func TestXianyuAutoReplyController_SaveRule_Success(t *testing.T) {
 
 func TestXianyuAutoReplyController_ListLogs_Success(t *testing.T) {
 	setupXianyuTestDB(t)
-	ctrl := NewXianyuAutoReplyController()
+	ctrl := NewXianyuAutoReplyController(nil, nil)
 	router := setupXianyuRouter(ctrl)
 
 	req, _ := http.NewRequest("GET", "/xianyu-auto-reply/logs?page=1&page_size=10", nil)

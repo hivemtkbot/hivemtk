@@ -1,13 +1,13 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 	"marketing/internal/repository"
-	"context"
 )
 
 // ============================================================================
@@ -121,10 +121,10 @@ func NewUserProfileService() *UserProfileService {
 
 // UserUpdateInput 客户更新输入（字段均为可选，空值表示不更新）
 type UserUpdateInput struct {
-	RealName	*string	`json:"real_name"`
-	Email		*string	`json:"email"`
-	Phone		*string	`json:"phone"`
-	Status		*int	`json:"status"`
+	RealName *string `json:"real_name"`
+	Email    *string `json:"email"`
+	Phone    *string `json:"phone"`
+	Status   *int    `json:"status"`
 }
 
 // UpdateUserByID 按 ID 更新客户字段，返回更新后的客户基础信息
@@ -160,25 +160,25 @@ func (s *UserProfileService) UpdateUserByID(ctx context.Context, userID string, 
 		return nil, err
 	}
 	return &UserBasicView{
-		ID:		user.ID,
-		Username:	user.Username,
-		RealName:	user.RealName,
-		Email:		user.Email,
-		Phone:		user.Phone,
-		Status:		user.Status,
-		UpdateTime:	user.UpdateTime,
+		ID:         user.ID,
+		Username:   user.Username,
+		RealName:   user.RealName,
+		Email:      user.Email,
+		Phone:      user.Phone,
+		Status:     user.Status,
+		UpdateTime: user.UpdateTime,
 	}, nil
 }
 
 // UserBasicView 客户基础信息视图（脱离 model 的 DTO）
 type UserBasicView struct {
-	ID		string			`json:"id"`
-	Username	string			`json:"username"`
-	RealName	string			`json:"real_name"`
-	Email		string			`json:"email"`
-	Phone		string			`json:"phone"`
-	Status		_type.UserStatusType	`json:"status"`
-	UpdateTime	int64			`json:"update_time"`
+	ID         string               `json:"id"`
+	Username   string               `json:"username"`
+	RealName   string               `json:"real_name"`
+	Email      string               `json:"email"`
+	Phone      string               `json:"phone"`
+	Status     _type.UserStatusType `json:"status"`
+	UpdateTime int64                `json:"update_time"`
 }
 
 // ----------------------------------------------------------------------------
@@ -197,17 +197,17 @@ func NewTagRuleService() *TagRuleService {
 
 // TagRuleItem 标签规则响应项（脱离 model 的 DTO）
 type TagRuleItem struct {
-	ID		string		`json:"id"`
-	Name		string		`json:"name"`
-	Category	string		`json:"category"`
-	Source		string		`json:"source"`
-	Rule		map[string]any	`json:"rule"`
-	Active		bool		`json:"active"`
-	Priority	int		`json:"priority"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Category string         `json:"category"`
+	Source   string         `json:"source"`
+	Rule     map[string]any `json:"rule"`
+	Active   bool           `json:"active"`
+	Priority int            `json:"priority"`
 }
 
 // ListTagRules 获取自动标签规则列表
-func (s *TagRuleService) ListTagRules(ctx context.Context,) ([]TagRuleItem, error) {
+func (s *TagRuleService) ListTagRules(ctx context.Context) ([]TagRuleItem, error) {
 	tags, err := s.tagRepo.ListAutoTags(ctx)
 	if err != nil {
 		return nil, err
@@ -215,13 +215,13 @@ func (s *TagRuleService) ListTagRules(ctx context.Context,) ([]TagRuleItem, erro
 	rules := make([]TagRuleItem, 0, len(tags))
 	for i, t := range tags {
 		rules = append(rules, TagRuleItem{
-			ID:		t.ID,
-			Name:		t.Name,
-			Category:	string(t.Category),
-			Source:		string(t.Source),
-			Rule:		customerTagGetRule(t),
-			Active:		true,
-			Priority:	i + 1,
+			ID:       t.ID,
+			Name:     t.Name,
+			Category: string(t.Category),
+			Source:   string(t.Source),
+			Rule:     customerTagGetRule(t),
+			Active:   true,
+			Priority: i + 1,
 		})
 	}
 	return rules, nil
@@ -229,29 +229,29 @@ func (s *TagRuleService) ListTagRules(ctx context.Context,) ([]TagRuleItem, erro
 
 // SaveTagRuleInput 创建/更新标签规则输入
 type SaveTagRuleInput struct {
-	ID		string		`json:"id"`
-	Name		string		`json:"name"`
-	Category	string		`json:"category"`
-	Rule		map[string]any	`json:"rule"`
-	Active		*bool		`json:"active"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Category string         `json:"category"`
+	Rule     map[string]any `json:"rule"`
+	Active   *bool          `json:"active"`
 }
 
 // TagRuleSaveResult 标签规则保存结果
 type TagRuleSaveResult struct {
-	ID		string		`json:"id"`
-	Name		string		`json:"name"`
-	Category	string		`json:"category"`
-	Source		string		`json:"source"`
-	Rule		map[string]any	`json:"rule"`
-	Active		bool		`json:"active"`
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Category string         `json:"category"`
+	Source   string         `json:"source"`
+	Rule     map[string]any `json:"rule"`
+	Active   bool           `json:"active"`
 }
 
 // SaveTagRule 创建或更新自动标签规则（ID 为空则新建）
 func (s *TagRuleService) SaveTagRule(ctx context.Context, input SaveTagRuleInput) (*TagRuleSaveResult, error) {
 	tag := &model.CustomerTag{
-		Name:		input.Name,
-		Category:	model.TagCategory(input.Category),
-		Source:		model.TagSourceAuto,
+		Name:     input.Name,
+		Category: model.TagCategory(input.Category),
+		Source:   model.TagSourceAuto,
 	}
 	if err := customerTagSetRule(tag, input.Rule); err != nil {
 		return nil, err
@@ -267,12 +267,12 @@ func (s *TagRuleService) SaveTagRule(ctx context.Context, input SaveTagRuleInput
 		active = *input.Active
 	}
 	return &TagRuleSaveResult{
-		ID:		tag.ID,
-		Name:		tag.Name,
-		Category:	string(tag.Category),
-		Source:		string(tag.Source),
-		Rule:		customerTagGetRule(tag),
-		Active:		active,
+		ID:       tag.ID,
+		Name:     tag.Name,
+		Category: string(tag.Category),
+		Source:   string(tag.Source),
+		Rule:     customerTagGetRule(tag),
+		Active:   active,
 	}, nil
 }
 
@@ -297,11 +297,11 @@ func (s *TagRuleService) UpdateTagRule(ctx context.Context, id string, input Sav
 		return nil, err
 	}
 	return &TagRuleSaveResult{
-		ID:		existing.ID,
-		Name:		existing.Name,
-		Category:	string(existing.Category),
-		Source:		string(existing.Source),
-		Rule:		customerTagGetRule(existing),
+		ID:       existing.ID,
+		Name:     existing.Name,
+		Category: string(existing.Category),
+		Source:   string(existing.Source),
+		Rule:     customerTagGetRule(existing),
 	}, nil
 }
 
@@ -312,19 +312,19 @@ func (s *TagRuleService) DeleteTagRule(ctx context.Context, id string) error {
 
 // TagStatsResult 标签统计结果
 type TagStatsResult struct {
-	Total		int		`json:"total"`
-	ByCategory	[]TagStatItem	`json:"by_category"`
-	BySource	[]TagStatItem	`json:"by_source"`
+	Total      int           `json:"total"`
+	ByCategory []TagStatItem `json:"by_category"`
+	BySource   []TagStatItem `json:"by_source"`
 }
 
 // TagStatItem 标签统计项
 type TagStatItem struct {
-	Key	string	`json:"category"`
-	Count	int	`json:"count"`
+	Key   string `json:"category"`
+	Count int    `json:"count"`
 }
 
 // GetTagStats 获取标签统计
-func (s *TagRuleService) GetTagStats(ctx context.Context,) (*TagStatsResult, error) {
+func (s *TagRuleService) GetTagStats(ctx context.Context) (*TagStatsResult, error) {
 	tags, err := s.tagRepo.ListByMerchant(ctx)
 	if err != nil {
 		return nil, err
@@ -349,9 +349,9 @@ func (s *TagRuleService) GetTagStats(ctx context.Context,) (*TagStatsResult, err
 		sources = append(sources, TagStatItem{Key: k, Count: v})
 	}
 	return &TagStatsResult{
-		Total:		total,
-		ByCategory:	categories,
-		BySource:	sources,
+		Total:      total,
+		ByCategory: categories,
+		BySource:   sources,
 	}, nil
 }
 
@@ -371,15 +371,15 @@ func NewCustomerQueryService() *CustomerQueryService {
 
 // CustomerView 客户视图（脱离 model 的 DTO）
 type CustomerView struct {
-	ID		string	`json:"id"`
-	UnifiedID	string	`json:"unified_id"`
-	Phone		string	`json:"phone"`
-	Email		string	`json:"email"`
-	WechatOpenID	string	`json:"wechat_open_id"`
-	DouyinOpenID	string	`json:"douyin_open_id"`
-	XiaohongshuID	string	`json:"xiaohongshu_id"`
-	CreatedAt	string	`json:"created_at"`
-	UpdatedAt	string	`json:"updated_at"`
+	ID            string `json:"id"`
+	UnifiedID     string `json:"unified_id"`
+	Phone         string `json:"phone"`
+	Email         string `json:"email"`
+	WechatOpenID  string `json:"wechat_open_id"`
+	DouyinOpenID  string `json:"douyin_open_id"`
+	XiaohongshuID string `json:"xiaohongshu_id"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // GetCustomerByID 按 ID 获取客户视图
@@ -392,15 +392,15 @@ func (s *CustomerQueryService) GetCustomerByID(ctx context.Context, id string) (
 		return nil, nil
 	}
 	return &CustomerView{
-		ID:		customer.ID,
-		UnifiedID:	customer.UnifiedID,
-		Phone:		customer.Phone,
-		Email:		customer.Email,
-		WechatOpenID:	customer.WechatOpenID,
-		DouyinOpenID:	customer.DouyinOpenID,
-		XiaohongshuID:	customer.XiaohongshuID,
-		CreatedAt:	customer.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:	customer.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:            customer.ID,
+		UnifiedID:     customer.UnifiedID,
+		Phone:         customer.Phone,
+		Email:         customer.Email,
+		WechatOpenID:  customer.WechatOpenID,
+		DouyinOpenID:  customer.DouyinOpenID,
+		XiaohongshuID: customer.XiaohongshuID,
+		CreatedAt:     customer.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:     customer.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}, nil
 }
 
@@ -410,15 +410,15 @@ func (s *CustomerQueryService) ListCustomers(ctx context.Context, page, pageSize
 	out := make([]*CustomerView, 0, len(list))
 	for _, c := range list {
 		out = append(out, &CustomerView{
-			ID:		c.ID,
-			UnifiedID:	c.UnifiedID,
-			Phone:		c.Phone,
-			Email:		c.Email,
-			WechatOpenID:	c.WechatOpenID,
-			DouyinOpenID:	c.DouyinOpenID,
-			XiaohongshuID:	c.XiaohongshuID,
-			CreatedAt:	c.CreatedAt,
-			UpdatedAt:	c.UpdatedAt,
+			ID:            c.ID,
+			UnifiedID:     c.UnifiedID,
+			Phone:         c.Phone,
+			Email:         c.Email,
+			WechatOpenID:  c.WechatOpenID,
+			DouyinOpenID:  c.DouyinOpenID,
+			XiaohongshuID: c.XiaohongshuID,
+			CreatedAt:     c.CreatedAt,
+			UpdatedAt:     c.UpdatedAt,
 		})
 	}
 	return out, total

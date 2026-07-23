@@ -7,6 +7,7 @@ import (
 	"marketing/internal/integration/templates"
 	"marketing/internal/model"
 	"marketing/internal/repository"
+	"context"
 )
 
 // IntegrationTemplateService 第三方对接模板服务
@@ -25,7 +26,7 @@ func NewIntegrationTemplateServiceWithRepo(r repository.IntegrationTemplateRepos
 }
 
 // Create 创建自定义模板
-func (s *IntegrationTemplateService) Create(t *model.IntegrationTemplate) error {
+func (s *IntegrationTemplateService) Create(ctx context.Context, t *model.IntegrationTemplate) error {
 	if t == nil {
 		return errors.New("模板不能为空")
 	}
@@ -54,15 +55,15 @@ func (s *IntegrationTemplateService) Create(t *model.IntegrationTemplate) error 
 	if t.AuthConfig == "" {
 		t.AuthConfig = "{}"
 	}
-	return s.repo.Create(t)
+	return s.repo.Create(ctx, t)
 }
 
 // Update 更新自定义模板
-func (s *IntegrationTemplateService) Update(id uint64, t *model.IntegrationTemplate) error {
+func (s *IntegrationTemplateService) Update(ctx context.Context, id uint64, t *model.IntegrationTemplate) error {
 	if t == nil {
 		return errors.New("模板不能为空")
 	}
-	existing, err := s.repo.GetByID(id)
+	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -80,41 +81,41 @@ func (s *IntegrationTemplateService) Update(id uint64, t *model.IntegrationTempl
 		existing.AuthConfig = t.AuthConfig
 		existing.Remark = t.Remark
 		existing.Enabled = t.Enabled
-		return s.repo.Update(existing)
+		return s.repo.Update(ctx, existing)
 	}
 	t.ID = id
 	t.BuiltIn = false
-	return s.repo.Update(t)
+	return s.repo.Update(ctx, t)
 }
 
 // Delete 删除自定义模板
-func (s *IntegrationTemplateService) Delete(id uint64) error {
-	return s.repo.Delete(id)
+func (s *IntegrationTemplateService) Delete(ctx context.Context, id uint64) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // GetByID 查询
-func (s *IntegrationTemplateService) GetByID(id uint64) (*model.IntegrationTemplate, error) {
-	return s.repo.GetByID(id)
+func (s *IntegrationTemplateService) GetByID(ctx context.Context, id uint64) (*model.IntegrationTemplate, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // GetByCode 按 code 查询
-func (s *IntegrationTemplateService) GetByCode(code string) (*model.IntegrationTemplate, error) {
-	return s.repo.GetByCode(code)
+func (s *IntegrationTemplateService) GetByCode(ctx context.Context, code string) (*model.IntegrationTemplate, error) {
+	return s.repo.GetByCode(ctx, code)
 }
 
 // List 列表查询
-func (s *IntegrationTemplateService) List(platform, category string, enabled *bool, page, pageSize int) ([]*model.IntegrationTemplate, int64, error) {
-	return s.repo.List(platform, category, enabled, page, pageSize)
+func (s *IntegrationTemplateService) List(ctx context.Context, platform, category string, enabled *bool, page, pageSize int) ([]*model.IntegrationTemplate, int64, error) {
+	return s.repo.List(ctx, platform, category, enabled, page, pageSize)
 }
 
 // ListBuiltIn 列出所有预置模板
-func (s *IntegrationTemplateService) ListBuiltIn() ([]*model.IntegrationTemplate, error) {
-	return s.repo.ListBuiltIn()
+func (s *IntegrationTemplateService) ListBuiltIn(ctx context.Context,) ([]*model.IntegrationTemplate, error) {
+	return s.repo.ListBuiltIn(ctx)
 }
 
 // Export 导出模板（JSON 字节流）
-func (s *IntegrationTemplateService) Export(id uint64) ([]byte, error) {
-	t, err := s.repo.GetByID(id)
+func (s *IntegrationTemplateService) Export(ctx context.Context, id uint64) ([]byte, error) {
+	t, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -122,25 +123,25 @@ func (s *IntegrationTemplateService) Export(id uint64) ([]byte, error) {
 }
 
 // ExportAll 导出全部
-func (s *IntegrationTemplateService) ExportAll() ([]byte, error) {
-	items, err := s.repo.ListBuiltIn()
+func (s *IntegrationTemplateService) ExportAll(ctx context.Context,) ([]byte, error) {
+	items, err := s.repo.ListBuiltIn(ctx)
 	if err != nil {
 		return nil, err
 	}
-	customList, _, err := s.repo.List("", "", nil, 1, 200)
+	customList, _, err := s.repo.List(ctx, "", "", nil, 1, 200)
 	if err != nil {
 		return nil, err
 	}
 	all := append(items, customList...)
 	return json.MarshalIndent(map[string]any{
-		"version":   "1.0.0",
-		"count":     len(all),
-		"templates": all,
+		"version":	"1.0.0",
+		"count":	len(all),
+		"templates":	all,
 	}, "", "  ")
 }
 
 // Import 导入模板（JSON 字节流）
-func (s *IntegrationTemplateService) Import(data []byte) (int, error) {
+func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, errors.New("导入数据为空")
 	}
@@ -152,14 +153,14 @@ func (s *IntegrationTemplateService) Import(data []byte) (int, error) {
 		// 单个模板
 		single.ID = 0
 		if single.BuiltIn {
-			return 1, s.repo.UpsertBuiltIn(&single)
+			return 1, s.repo.UpsertBuiltIn(ctx, &single)
 		}
-		return 1, s.repo.Create(&single)
+		return 1, s.repo.Create(ctx, &single)
 	}
 	// 集合
 	var bundle struct {
-		Version   string                      `json:"version"`
-		Templates []model.IntegrationTemplate `json:"templates"`
+		Version		string				`json:"version"`
+		Templates	[]model.IntegrationTemplate	`json:"templates"`
 	}
 	if err := json.Unmarshal(data, &bundle); err != nil {
 		return 0, fmt.Errorf("解析失败: %w", err)
@@ -169,12 +170,12 @@ func (s *IntegrationTemplateService) Import(data []byte) (int, error) {
 		tpl := bundle.Templates[i]
 		tpl.ID = 0
 		if tpl.BuiltIn {
-			if err := s.repo.UpsertBuiltIn(&tpl); err == nil {
+			if err := s.repo.UpsertBuiltIn(ctx, &tpl); err == nil {
 				success++
 			}
 			continue
 		}
-		if err := s.repo.Create(&tpl); err == nil {
+		if err := s.repo.Create(ctx, &tpl); err == nil {
 			success++
 		}
 	}
@@ -183,11 +184,11 @@ func (s *IntegrationTemplateService) Import(data []byte) (int, error) {
 
 // SeedBuiltIn 种子化预置模板（幂等）
 // 建议在 migration 之后或服务启动时调用
-func (s *IntegrationTemplateService) SeedBuiltIn() (int, error) {
+func (s *IntegrationTemplateService) SeedBuiltIn(ctx context.Context,) (int, error) {
 	all := templates.All()
 	success := 0
 	for _, t := range all {
-		if err := s.repo.UpsertBuiltIn(t); err != nil {
+		if err := s.repo.UpsertBuiltIn(ctx, t); err != nil {
 			return success, err
 		}
 		success++

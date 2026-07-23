@@ -17,13 +17,13 @@ import (
 
 // DialogueMemoryService 对话记忆服务（短期+长期）
 type DialogueMemoryService struct {
-	db         *gorm.DB
-	dispatcher *llm.Dispatcher
+	db		*gorm.DB
+	dispatcher	*llm.Dispatcher
 }
 
 const (
-	shortTermWindow = 10 // 短期记忆保留最近 10 轮
-	memoryTTL       = 30 * 24 * time.Hour
+	shortTermWindow	= 10	// 短期记忆保留最近 10 轮
+	memoryTTL	= 30 * 24 * time.Hour
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
@@ -35,12 +35,12 @@ func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *Dialogue
 // 使用 dto.Message / dto.ShortTermMemory 替代本地类型
 
 // GetOrCreateMemory 获取或创建记忆
-func (s *DialogueMemoryService) GetOrCreateMemory(sessionID, customerID string) (*model.DialogueMemory, error) {
+func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error) {
 	if s.db == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
 	var mem model.DialogueMemory
-	err := s.db.Where("session_id = ?", sessionID).First(&mem).Error
+	err := s.db.Where(ctx, "session_id = ?", sessionID).First(&mem).Error
 	if err == nil {
 		return &mem, nil
 	}
@@ -49,16 +49,16 @@ func (s *DialogueMemoryService) GetOrCreateMemory(sessionID, customerID string) 
 	}
 	// 创建
 	mem = model.DialogueMemory{
-		SessionID:    sessionID,
-		CustomerID:   customerID,
-		KeyFacts:     model.JSONMap{},
-		Objections:   model.JSONArray{},
-		IntentTrail:  model.JSONArray{},
-		SOPHistory:   model.JSONArray{},
-		LastActiveAt: time.Now(),
-		MessageCount: 0,
+		SessionID:	sessionID,
+		CustomerID:	customerID,
+		KeyFacts:	model.JSONMap{},
+		Objections:	model.JSONArray{},
+		IntentTrail:	model.JSONArray{},
+		SOPHistory:	model.JSONArray{},
+		LastActiveAt:	time.Now(),
+		MessageCount:	0,
 	}
-	if err := s.db.Create(&mem).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(&mem).Error; err != nil {
 		return nil, err
 	}
 	return &mem, nil
@@ -66,7 +66,7 @@ func (s *DialogueMemoryService) GetOrCreateMemory(sessionID, customerID string) 
 
 // AppendMessage 追加消息并更新记忆
 func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, customerID string, msg dto.Message) error {
-	mem, err := s.GetOrCreateMemory(sessionID, customerID)
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, customerID)
 	if err != nil {
 		return err
 	}
@@ -88,16 +88,16 @@ func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, cu
 		s.updateLongTermSummary(ctx, mem, msg)
 	}
 
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // GetShortTermMemory 获取短期记忆（从 message_hub 取最近 N 条）
-func (s *DialogueMemoryService) GetShortTermMemory(sessionID string) ([]dto.Message, error) {
+func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionID string) ([]dto.Message, error) {
 	if s.db == nil {
 		return nil, nil
 	}
 	var records []model.MessageHub
-	err := s.db.Where("conversation_id = ?", sessionID).
+	err := s.db.WithContext(ctx).Where("conversation_id = ?", sessionID).
 		Order("sent_at DESC").Limit(shortTermWindow).Find(&records).Error
 	if err != nil {
 		return nil, err
@@ -111,23 +111,23 @@ func (s *DialogueMemoryService) GetShortTermMemory(sessionID string) ([]dto.Mess
 			role = "ai"
 		}
 		msgs = append(msgs, dto.Message{
-			Role:      role,
-			Content:   r.Content,
-			Timestamp: r.SentAt,
+			Role:		role,
+			Content:	r.Content,
+			Timestamp:	r.SentAt,
 		})
 	}
 	return msgs, nil
 }
 
 // GetLongTermMemory 获取长期记忆
-func (s *DialogueMemoryService) GetLongTermMemory(sessionID string) (*model.DialogueMemory, error) {
-	return s.GetOrCreateMemory(sessionID, "")
+func (s *DialogueMemoryService) GetLongTermMemory(ctx context.Context, sessionID string) (*model.DialogueMemory, error) {
+	return s.GetOrCreateMemory(ctx, sessionID, "")
 }
 
 // UpdateKeyFacts 更新关键事实
 
 // ListByCustomerID 根据 customerID 获取对话记忆列表
-func (s *DialogueMemoryService) ListByCustomerID(customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
+func (s *DialogueMemoryService) ListByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
 	if s.db == nil {
 		return nil, 0, nil
 	}
@@ -137,7 +137,7 @@ func (s *DialogueMemoryService) ListByCustomerID(customerID string, limit int) (
 	var mems []*model.DialogueMemory
 	var total int64
 
-	query := s.db.Model(&model.DialogueMemory{}).Where("customer_id = ?", customerID)
+	query := s.db.WithContext(ctx).Model(&model.DialogueMemory{}).Where("customer_id = ?", customerID)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -147,8 +147,8 @@ func (s *DialogueMemoryService) ListByCustomerID(customerID string, limit int) (
 	return mems, total, nil
 }
 
-func (s *DialogueMemoryService) UpdateKeyFacts(sessionID string, facts map[string]string) error {
-	mem, err := s.GetOrCreateMemory(sessionID, "")
+func (s *DialogueMemoryService) UpdateKeyFacts(ctx context.Context, sessionID string, facts map[string]string) error {
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
 		return err
 	}
@@ -181,12 +181,12 @@ func (s *DialogueMemoryService) UpdateKeyFacts(sessionID string, facts map[strin
 		mem.Demand = demand
 	}
 	_ = data
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // RecordObjection 记录异议
-func (s *DialogueMemoryService) RecordObjection(sessionID, objectionType, content string) error {
-	mem, err := s.GetOrCreateMemory(sessionID, "")
+func (s *DialogueMemoryService) RecordObjection(ctx context.Context, sessionID, objectionType, content string) error {
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
 		return err
 	}
@@ -195,30 +195,30 @@ func (s *DialogueMemoryService) RecordObjection(sessionID, objectionType, conten
 		_ = json.Unmarshal(mustJSON(mem.Objections), &objs)
 	}
 	objs = append(objs, map[string]any{
-		"type":    objectionType,
-		"content": content,
-		"time":    time.Now(),
+		"type":		objectionType,
+		"content":	content,
+		"time":		time.Now(),
 	})
 	mem.Objections = model.JSONArray(toIfaceSlice(objs))
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // UpdatePurchaseIntent 更新购买意向
-func (s *DialogueMemoryService) UpdatePurchaseIntent(sessionID, level string) error {
+func (s *DialogueMemoryService) UpdatePurchaseIntent(ctx context.Context, sessionID, level string) error {
 	if level != "high" && level != "medium" && level != "low" {
 		level = "low"
 	}
-	mem, err := s.GetOrCreateMemory(sessionID, "")
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
 		return err
 	}
 	mem.PurchaseIntent = level
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // RecordIntent 记录意图轨迹
-func (s *DialogueMemoryService) RecordIntent(sessionID, intentType string) error {
-	mem, err := s.GetOrCreateMemory(sessionID, "")
+func (s *DialogueMemoryService) RecordIntent(ctx context.Context, sessionID, intentType string) error {
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
 		return err
 	}
@@ -231,12 +231,12 @@ func (s *DialogueMemoryService) RecordIntent(sessionID, intentType string) error
 		trail = trail[len(trail)-30:]
 	}
 	mem.IntentTrail = model.JSONArray(toIfaceSliceFromStrings(trail))
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // RecordSOP 记录 SOP 经历
-func (s *DialogueMemoryService) RecordSOP(sessionID, sopName string) error {
-	mem, err := s.GetOrCreateMemory(sessionID, "")
+func (s *DialogueMemoryService) RecordSOP(ctx context.Context, sessionID, sopName string) error {
+	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {
 		return err
 	}
@@ -246,13 +246,13 @@ func (s *DialogueMemoryService) RecordSOP(sessionID, sopName string) error {
 	}
 	hist = append(hist, sopName)
 	mem.SOPHistory = model.JSONArray(toIfaceSliceFromStrings(hist))
-	return s.db.Save(mem).Error
+	return s.db.WithContext(ctx).Save(mem).Error
 }
 
 // BuildContext 构建对话上下文（短期+长期+事实）
-func (s *DialogueMemoryService) BuildContext(sessionID, customerID string) (string, error) {
-	short, _ := s.GetShortTermMemory(sessionID)
-	long, _ := s.GetLongTermMemory(sessionID)
+func (s *DialogueMemoryService) BuildContext(ctx context.Context, sessionID, customerID string) (string, error) {
+	short, _ := s.GetShortTermMemory(ctx, sessionID)
+	long, _ := s.GetLongTermMemory(ctx, sessionID)
 	var sb strings.Builder
 	sb.WriteString("【客户长期记忆】\n")
 	if long != nil {
@@ -307,19 +307,19 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 }`, mem.Summary, mem.KeyFacts, mem.Objections, mem.IntentTrail, lastMsg.Content)
 
 	result, err := s.dispatcher.Dispatch(ctx, llm.DispatchRequest{
-		Scenario:    llm.ScenarioLongSummary,
-		Prompt:      prompt,
-		JSONMode:    true,
-		MaxTokens:   500,
-		Temperature: 0.3,
+		Scenario:	llm.ScenarioLongSummary,
+		Prompt:		prompt,
+		JSONMode:	true,
+		MaxTokens:	500,
+		Temperature:	0.3,
 	})
 	if err != nil {
 		return
 	}
 	var parsed struct {
-		Summary              string            `json:"summary"`
-		KeyFacts             map[string]string `json:"key_facts"`
-		NextActionSuggestion string            `json:"next_action_suggestion"`
+		Summary			string			`json:"summary"`
+		KeyFacts		map[string]string	`json:"key_facts"`
+		NextActionSuggestion	string			`json:"next_action_suggestion"`
 	}
 	if err := json.Unmarshal([]byte(extractJSONFromStr(result.Content)), &parsed); err != nil {
 		return
@@ -333,8 +333,8 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 
 // 全局实例
 var (
-	dialogueMemoryOnce sync.Once
-	dialogueMemory     *DialogueMemoryService
+	dialogueMemoryOnce	sync.Once
+	dialogueMemory		*DialogueMemoryService
 )
 
 func GetDialogueMemory() *DialogueMemoryService {

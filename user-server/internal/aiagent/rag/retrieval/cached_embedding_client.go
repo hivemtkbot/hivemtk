@@ -32,27 +32,27 @@ import (
 
 // CachedEmbeddingClient Embedding 服务的 Redis 缓存装饰器
 type CachedEmbeddingClient struct {
-	inner        llm.EmbeddingServiceInterface // 真实 EmbeddingService
-	redis        RedisClient
-	db           *gorm.DB
-	ttlRedis     time.Duration // 默认 7 天
-	ttlDB        time.Duration // 默认 30 天
-	disableCache bool          // 调试用，跳过缓存
+	inner		llm.EmbeddingServiceInterface	// 真实 EmbeddingService
+	redis		RedisClient
+	db		*gorm.DB
+	ttlRedis	time.Duration	// 默认 7 天
+	ttlDB		time.Duration	// 默认 30 天
+	disableCache	bool		// 调试用，跳过缓存
 }
 
 // CachedEmbeddingClientConfig 配置
 type CachedEmbeddingClientConfig struct {
-	TTLRedis     time.Duration
-	TTLDB        time.Duration
-	DisableCache bool
+	TTLRedis	time.Duration
+	TTLDB		time.Duration
+	DisableCache	bool
 }
 
 // DefaultCachedEmbeddingClientConfig 默认配置
 func DefaultCachedEmbeddingClientConfig() *CachedEmbeddingClientConfig {
 	return &CachedEmbeddingClientConfig{
-		TTLRedis:     7 * 24 * time.Hour,
-		TTLDB:        30 * 24 * time.Hour,
-		DisableCache: false,
+		TTLRedis:	7 * 24 * time.Hour,
+		TTLDB:		30 * 24 * time.Hour,
+		DisableCache:	false,
 	}
 }
 
@@ -70,12 +70,12 @@ func NewCachedEmbeddingClient(
 		cfg = DefaultCachedEmbeddingClientConfig()
 	}
 	return &CachedEmbeddingClient{
-		inner:        inner,
-		redis:        redis,
-		db:           db,
-		ttlRedis:     cfg.TTLRedis,
-		ttlDB:        cfg.TTLDB,
-		disableCache: cfg.DisableCache,
+		inner:		inner,
+		redis:		redis,
+		db:		db,
+		ttlRedis:	cfg.TTLRedis,
+		ttlDB:		cfg.TTLDB,
+		disableCache:	cfg.DisableCache,
 	}
 }
 

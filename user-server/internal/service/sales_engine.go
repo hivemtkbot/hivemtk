@@ -243,7 +243,7 @@ func NewSalesEngine(
 // 后续客户下一条消息或人工接管时更新 CustomerAccept，形成 AI 自我进化闭环
 //
 // P0-1 重构：参数改为 FeedbackRecorderInterface，可注入测试替身实现进行单元测试
-func (e *SalesEngine) SetFeedbackLearner(fl FeedbackRecorderInterface) {
+func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorderInterface)  {
 	e.feedbackLearner = fl
 }
 
@@ -258,7 +258,7 @@ func (e *SalesEngine) SetFeedbackLearner(fl FeedbackRecorderInterface) {
 //   - 任一一票否决规则触发     → 强制转人工
 //
 // 未注入时维持原有静态规则行为（向后兼容）
-func (e *SalesEngine) SetConfidenceAggregator(agg *confidencesvc.ConfidenceAggregator) {
+func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confidencesvc.ConfidenceAggregator)  {
 	e.confidenceAggregator = agg
 }
 
@@ -270,7 +270,7 @@ func (e *SalesEngine) SetConfidenceAggregator(agg *confidencesvc.ConfidenceAggre
 //   - 3 次仍不达标 → 转人工 + 收集低质样本
 //
 // 未注入时跳过 Step 7.5（向后兼容）
-func (e *SalesEngine) SetHumanizeEvaluator(ev *humanizesvc.HumanizeEvalService) {
+func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.HumanizeEvalService)  {
 	e.humanizeEvaluator = ev
 }
 
@@ -288,7 +288,7 @@ func (e *SalesEngine) SetHumanizeEvaluator(ev *humanizesvc.HumanizeEvalService) 
 //   - 真正的智能体不做流程编排：LLM 自主决定调用哪些工具、何时停止
 //   - 工具调用是 LLM 的可选能力，不是硬编码的步骤序列
 //   - 接口隔离：通过 AgentToolExecutor 接口注入，避免 service ↔ tooluse 循环依赖
-func (e *SalesEngine) SetToolExecutor(exec AgentToolExecutor) {
+func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecutor)  {
 	e.toolExecutor = exec
 }
 
@@ -740,7 +740,7 @@ func renderSalesScriptSteps(scripts []map[string]interface{}) string {
 
 // SetPlaybook 注入销冠话术库（可选）
 // P0-1 重构：参数改为 PlaybookRecommenderInterface，可注入测试替身实现进行单元测试
-func (e *SalesEngine) SetPlaybook(p PlaybookRecommenderInterface) {
+func (e *SalesEngine) SetPlaybook(ctx context.Context, p PlaybookRecommenderInterface)  {
 	e.playbook = p
 }
 
@@ -752,7 +752,7 @@ func (e *SalesEngine) SetPlaybook(p PlaybookRecommenderInterface) {
 //   - intent: 当前意图（用于推断异议类型）
 //
 // 返回 3-5 条按成功率排序的话术建议
-func (e *SalesEngine) RecommendPlaybook(industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
+func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string)  []*PlaybookEntry {
 	if e.playbook == nil {
 		return nil
 	}
@@ -760,7 +760,7 @@ func (e *SalesEngine) RecommendPlaybook(industry Industry, productID string, sta
 }
 
 // fetchPlaybookSuggestions 在 Handle 流程中根据客户阶段+意图自动拉取话术建议
-func (e *SalesEngine) fetchPlaybookSuggestions(industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
+func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string)  []*PlaybookEntry {
 	if e.playbook == nil {
 		return nil
 	}
@@ -1249,7 +1249,7 @@ func extractLastTurnsFromMem(mem *model.DialogueMemory) []string {
 }
 
 // transferReason 转人工原因（兼容旧调用方）
-func (e *SalesEngine) transferReason(intent *dto.RecognizeResult, mem *model.DialogueMemory) string {
+func (e *SalesEngine) transferReason(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory)  string {
 	if intent != nil {
 		switch intent.IntentType {
 		case IntentChurn:
@@ -1360,7 +1360,7 @@ func (e *SalesEngine) ProcessIncomingMessage(ctx context.Context, msg *ChannelMe
 }
 
 // normalizeChannelMessage 渠道特定清洗 → 通用字段
-func (e *SalesEngine) normalizeChannelMessage(msg *ChannelMessage) (content, sessionID, customerID string) {
+func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelMessage)  (content, sessionID, customerID string) {
 	// 内容
 	if msg.MediaURL != "" {
 		switch msg.MsgType {

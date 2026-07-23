@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -30,13 +29,17 @@ type GroupMessagingController struct {
 	templateService *service.WhatsAppTemplateService
 }
 
-func NewGroupMessagingController(whatsappSvc *service.WhatsappService) *GroupMessagingController {
-	dbConn := db.GetDB()
+func NewGroupMessagingController(
+	whatsappSvc *service.WhatsappService,
+	clueSvc *service.ClueService,
+	messageQueue *service.MessageQueueService,
+	templateService *service.WhatsAppTemplateService,
+) *GroupMessagingController {
 	return &GroupMessagingController{
 		whatsappService: whatsappSvc,
-		clueSvc:         service.NewClueService(),
-		messageQueue:    service.NewMessageQueueService(dbConn),
-		templateService: service.NewWhatsAppTemplateService(dbConn),
+		clueSvc:         clueSvc,
+		messageQueue:    messageQueue,
+		templateService: templateService,
 	}
 }
 

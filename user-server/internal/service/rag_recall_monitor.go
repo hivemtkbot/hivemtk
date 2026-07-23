@@ -34,52 +34,52 @@ import (
 // RagRecallMonitorConstants
 const (
 	// RagRecallMonitorDefaultInterval 默认监控快照采集间隔
-	RagRecallMonitorDefaultInterval = 5 * time.Minute
+	RagRecallMonitorDefaultInterval	= 5 * time.Minute
 	// RagRecallMonitorDefaultWindow 默认评估窗口（1 小时）
-	RagRecallMonitorDefaultWindow = 1 * time.Hour
+	RagRecallMonitorDefaultWindow	= 1 * time.Hour
 	// RagRecallMonitorTableName 监控快照表
-	RagRecallMonitorTableName = "rag_recall_monitor_snapshots"
+	RagRecallMonitorTableName	= "rag_recall_monitor_snapshots"
 )
 
 // RagRecallMetricsSummary 召回率指标汇总
 type RagRecallMetricsSummary struct {
-	WindowStart time.Time `json:"window_start"`
-	WindowEnd   time.Time `json:"window_end"`
+	WindowStart	time.Time	`json:"window_start"`
+	WindowEnd	time.Time	`json:"window_end"`
 
 	// 基础量
-	TotalQueries int64 `json:"total_queries"`
+	TotalQueries	int64	`json:"total_queries"`
 
 	// 命中指标
-	TopKHitRate   float64 `json:"top_k_hit_rate"` // Top-K 命中率（命中数 / 总查询数）
-	TopOneHitRate float64 `json:"top_1_hit_rate"` // Top-1 命中率（top-1 命中数 / 总查询数）
-	AvgRecall     float64 `json:"avg_recall"`     // 平均召回率
-	AvgPrecision  float64 `json:"avg_precision"`  // 平均精确率
-	AvgSimilarity float64 `json:"avg_similarity"` // 平均相似度（最高检索分）
+	TopKHitRate	float64	`json:"top_k_hit_rate"`	// Top-K 命中率（命中数 / 总查询数）
+	TopOneHitRate	float64	`json:"top_1_hit_rate"`	// Top-1 命中率（top-1 命中数 / 总查询数）
+	AvgRecall	float64	`json:"avg_recall"`	// 平均召回率
+	AvgPrecision	float64	`json:"avg_precision"`	// 平均精确率
+	AvgSimilarity	float64	`json:"avg_similarity"`	// 平均相似度（最高检索分）
 
 	// 性能指标
-	AvgLatencyMs float64 `json:"avg_latency_ms"`
-	P95LatencyMs int64   `json:"p95_latency_ms"`
+	AvgLatencyMs	float64	`json:"avg_latency_ms"`
+	P95LatencyMs	int64	`json:"p95_latency_ms"`
 
 	// 分布指标
-	ZeroHitCount   int64 `json:"zero_hit_count"`   // 0 命中查询数
-	LowRecallCount int64 `json:"low_recall_count"` // 低召回查询数
+	ZeroHitCount	int64	`json:"zero_hit_count"`		// 0 命中查询数
+	LowRecallCount	int64	`json:"low_recall_count"`	// 低召回查询数
 }
 
 // RagRecallMonitorService RAG 召回率监控服务
 type RagRecallMonitorService struct {
-	db *gorm.DB
+	db	*gorm.DB
 
 	// 异步控制
-	mu       sync.Mutex
-	started  bool
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
-	interval time.Duration
-	window   time.Duration
+	mu		sync.Mutex
+	started		bool
+	stopCh		chan struct{}
+	wg		sync.WaitGroup
+	interval	time.Duration
+	window		time.Duration
 
 	// 最后一次快照（用于 API 直接返回，无需走 DB）
-	lastSnapshot *RagRecallMetricsSummary
-	lastAt       time.Time
+	lastSnapshot	*RagRecallMetricsSummary
+	lastAt		time.Time
 }
 
 // NewRagRecallMonitorService 创建 RAG 召回率监控服务
@@ -93,15 +93,15 @@ func NewRagRecallMonitorService(db *gorm.DB, interval, window time.Duration) *Ra
 		window = RagRecallMonitorDefaultWindow
 	}
 	return &RagRecallMonitorService{
-		db:       db,
-		stopCh:   make(chan struct{}),
-		interval: interval,
-		window:   window,
+		db:		db,
+		stopCh:		make(chan struct{}),
+		interval:	interval,
+		window:		window,
 	}
 }
 
 // Start 启动后台定时采集
-func (s *RagRecallMonitorService) Start() {
+func (s *RagRecallMonitorService) Start(ctx context.Context) {
 	s.mu.Lock()
 	if s.started {
 		s.mu.Unlock()
@@ -110,12 +110,12 @@ func (s *RagRecallMonitorService) Start() {
 	s.started = true
 	s.mu.Unlock()
 
-	s.wg.Add(1)
-	go s.run()
+	s.wg.Add(ctx, 1)
+	go s.run(ctx)
 }
 
 // Stop 停止后台采集
-func (s *RagRecallMonitorService) Stop() {
+func (s *RagRecallMonitorService) Stop(ctx context.Context) {
 	s.mu.Lock()
 	if !s.started {
 		s.mu.Unlock()
@@ -125,14 +125,14 @@ func (s *RagRecallMonitorService) Stop() {
 	s.mu.Unlock()
 
 	close(s.stopCh)
-	s.wg.Wait()
+	s.wg.Wait(ctx)
 }
 
 // run 定时循环
-func (s *RagRecallMonitorService) run() {
-	defer s.wg.Done()
+func (s *RagRecallMonitorService) run(ctx context.Context) {
+	defer s.wg.Done(ctx)
 	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
+	defer ticker.Stop(ctx)
 	for {
 		select {
 		case <-s.stopCh:
@@ -158,20 +158,20 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 	}
 
 	summary := &RagRecallMetricsSummary{
-		WindowStart: start,
-		WindowEnd:   end,
+		WindowStart:	start,
+		WindowEnd:	end,
 	}
 
 	// 1) 基础聚合：count / avg recall / avg precision / avg latency / avg similarity
 	type aggRow struct {
-		Total         int64
-		AvgRecall     float64
-		AvgPrecision  float64
-		AvgLatency    float64
-		AvgSimilarity float64
-		ZeroHit       int64
-		LowRecall     int64
-		Top1Hit       int64
+		Total		int64
+		AvgRecall	float64
+		AvgPrecision	float64
+		AvgLatency	float64
+		AvgSimilarity	float64
+		ZeroHit		int64
+		LowRecall	int64
+		Top1Hit		int64
 	}
 	var row aggRow
 	if err := s.db.WithContext(ctx).
@@ -245,20 +245,20 @@ func (s *RagRecallMonitorService) CollectAndStore(ctx context.Context, start, en
 	if s.db != nil {
 		payload, _ := json.Marshal(summary)
 		row := map[string]any{
-			"window_start":     summary.WindowStart,
-			"window_end":       summary.WindowEnd,
-			"total_queries":    summary.TotalQueries,
-			"top_k_hit_rate":   summary.TopKHitRate,
-			"top_1_hit_rate":   summary.TopOneHitRate,
-			"avg_recall":       summary.AvgRecall,
-			"avg_precision":    summary.AvgPrecision,
-			"avg_similarity":   summary.AvgSimilarity,
-			"avg_latency_ms":   summary.AvgLatencyMs,
-			"p95_latency_ms":   summary.P95LatencyMs,
-			"zero_hit_count":   summary.ZeroHitCount,
-			"low_recall_count": summary.LowRecallCount,
-			"payload":          string(payload),
-			"created_at":       time.Now(),
+			"window_start":		summary.WindowStart,
+			"window_end":		summary.WindowEnd,
+			"total_queries":	summary.TotalQueries,
+			"top_k_hit_rate":	summary.TopKHitRate,
+			"top_1_hit_rate":	summary.TopOneHitRate,
+			"avg_recall":		summary.AvgRecall,
+			"avg_precision":	summary.AvgPrecision,
+			"avg_similarity":	summary.AvgSimilarity,
+			"avg_latency_ms":	summary.AvgLatencyMs,
+			"p95_latency_ms":	summary.P95LatencyMs,
+			"zero_hit_count":	summary.ZeroHitCount,
+			"low_recall_count":	summary.LowRecallCount,
+			"payload":		string(payload),
+			"created_at":		time.Now(),
 		}
 		if err := s.db.WithContext(ctx).Table(RagRecallMonitorTableName).Create(row).Error; err != nil {
 			// 写库失败不视为致命错误（日志由调用方处理）
@@ -270,7 +270,7 @@ func (s *RagRecallMonitorService) CollectAndStore(ctx context.Context, start, en
 }
 
 // GetLatestSnapshot 获取最近一次采集的快照（内存中）
-func (s *RagRecallMonitorService) GetLatestSnapshot() (*RagRecallMetricsSummary, time.Time) {
+func (s *RagRecallMonitorService) GetLatestSnapshot(ctx context.Context) (*RagRecallMetricsSummary, time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastSnapshot, s.lastAt

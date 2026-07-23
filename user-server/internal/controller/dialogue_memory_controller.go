@@ -10,7 +10,6 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // DialogueMemoryController 对话记忆控制器
@@ -19,8 +18,8 @@ type DialogueMemoryController struct {
 }
 
 // NewDialogueMemoryController 创建对话记忆控制器
-func NewDialogueMemoryController(db *gorm.DB) *DialogueMemoryController {
-	return &DialogueMemoryController{svc: service.NewDialogueMemoryService(db, nil)}
+func NewDialogueMemoryController(svc *service.DialogueMemoryService) *DialogueMemoryController {
+	return &DialogueMemoryController{svc: svc}
 }
 
 // AppendMessageRequest 追加消息

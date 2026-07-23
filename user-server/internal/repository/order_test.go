@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -40,7 +41,7 @@ func TestOrderRepository_Create(t *testing.T) {
 		AccountID: "account123",
 	}
 
-	err := repo.Create(order)
+	err := repo.Create(context.Background(), order)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -63,10 +64,10 @@ func TestOrderRepository_Create_MultipleOrders(t *testing.T) {
 			TgID:      12345,
 			AccountID: "account123",
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	orders, total, err := repo.GetOrderList(1, 10)
+	orders, total, err := repo.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -92,10 +93,10 @@ func TestOrderRepository_GetOrderList(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	orders, total, err := repo.GetOrderList(1, 5)
+	orders, total, err := repo.GetOrderList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestOrderRepository_GetOrderList_Empty(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	orders, total, err := repo.GetOrderList(1, 10)
+	orders, total, err := repo.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -140,9 +141,9 @@ func TestOrderRepository_LastOrderIsPay_True(t *testing.T) {
 		TgID:      12345,
 		AccountID: "account123",
 	}
-	repo.Create(order)
+	repo.Create(context.Background(), order)
 
-	result := repo.LastOrderIsPay("account123", 12345)
+	result := repo.LastOrderIsPay(context.Background(), "account123", 12345)
 	if !result {
 		t.Error("Expected LastOrderIsPay to return true")
 	}
@@ -160,9 +161,9 @@ func TestOrderRepository_LastOrderIsPay_False(t *testing.T) {
 		TgID:      12345,
 		AccountID: "account123",
 	}
-	repo.Create(order)
+	repo.Create(context.Background(), order)
 
-	result := repo.LastOrderIsPay("account123", 12345)
+	result := repo.LastOrderIsPay(context.Background(), "account123", 12345)
 	if result {
 		t.Error("Expected LastOrderIsPay to return false")
 	}
@@ -173,7 +174,7 @@ func TestOrderRepository_LastOrderIsPay_NoOrder(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	result := repo.LastOrderIsPay("nonexistent", 99999)
+	result := repo.LastOrderIsPay(context.Background(), "nonexistent", 99999)
 	if result {
 		t.Error("Expected LastOrderIsPay to return false for non-existent order")
 	}
@@ -191,7 +192,7 @@ func TestOrderRepository_GetGetLastOrder(t *testing.T) {
 		TgID:      12345,
 		AccountID: "account123",
 	}
-	repo.Create(order1)
+	repo.Create(context.Background(), order1)
 
 	// Create second order with different TgID to ensure it's returned
 	order2 := &model.Order{
@@ -200,10 +201,10 @@ func TestOrderRepository_GetGetLastOrder(t *testing.T) {
 		TgID:      12346, // Different TgID
 		AccountID: "account123",
 	}
-	repo.Create(order2)
+	repo.Create(context.Background(), order2)
 
 	// Query by specific TgID - should return order1
-	lastOrder, err := repo.GetGetLastOrder("account123", 12345)
+	lastOrder, err := repo.GetGetLastOrder(context.Background(), "account123", 12345)
 	if err != nil {
 		t.Fatalf("GetGetLastOrder failed: %v", err)
 	}
@@ -222,7 +223,7 @@ func TestOrderRepository_GetGetLastOrder_NotFound(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	_, err := repo.GetGetLastOrder("nonexistent", 99999)
+	_, err := repo.GetGetLastOrder(context.Background(), "nonexistent", 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent order")
 	}
@@ -240,16 +241,16 @@ func TestOrderRepository_UpdateOrderStatusById(t *testing.T) {
 		TgID:      12345,
 		AccountID: "account123",
 	}
-	repo.Create(order)
+	repo.Create(context.Background(), order)
 
 	// Update using the order's ID
-	err := repo.UpdateOrderStatusById(order.ID, _type.OrderStatusSuccess)
+	err := repo.UpdateOrderStatusById(context.Background(), order.ID, _type.OrderStatusSuccess)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}
 
 	// Verify by getting the last order
-	updatedOrder, _ := repo.GetGetLastOrder("account123", 12345)
+	updatedOrder, _ := repo.GetGetLastOrder(context.Background(), "account123", 12345)
 	if updatedOrder.Status != _type.OrderStatusSuccess {
 		t.Errorf("Expected status Success, got %d", updatedOrder.Status)
 	}
@@ -260,7 +261,7 @@ func TestOrderRepository_UpdateOrderStatusById_NotFound(t *testing.T) {
 
 	repo := NewOrderRepository()
 
-	err := repo.UpdateOrderStatusById("non-existent-id", _type.OrderStatusSuccess)
+	err := repo.UpdateOrderStatusById(context.Background(), "non-existent-id", _type.OrderStatusSuccess)
 	if err == nil {
 		t.Error("Expected error for non-existent order")
 	}
@@ -279,10 +280,10 @@ func TestOrderRepository_GetRecentOrderList(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	orders, err := repo.GetRecentOrderList()
+	orders, err := repo.GetRecentOrderList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentOrderList failed: %v", err)
 	}
@@ -306,7 +307,7 @@ func TestOrderRepository_GetOrderList_WithDifferentStatus(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
 	for i := 0; i < 2; i++ {
@@ -316,10 +317,10 @@ func TestOrderRepository_GetOrderList_WithDifferentStatus(t *testing.T) {
 			TgID:      int64(20000 + i),
 			AccountID: "account" + string(rune('a'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	_, total, err := repo.GetOrderList(1, 10)
+	_, total, err := repo.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -342,10 +343,10 @@ func TestOrderRepository_Create_DifferentPrices(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	_, total, err := repo.GetOrderList(1, 10)
+	_, total, err := repo.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -368,10 +369,10 @@ func TestOrderRepository_Create_LargeBatch(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i%10)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
-	orders, total, err := repo.GetOrderList(1, 50)
+	orders, total, err := repo.GetOrderList(context.Background(), 1, 50)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -398,11 +399,11 @@ func TestOrderRepository_GetGetLastOrder_MultipleUsers(t *testing.T) {
 			TgID:      int64(10000 + i),
 			AccountID: "account" + string(rune('0'+i)),
 		}
-		repo.Create(order)
+		repo.Create(context.Background(), order)
 	}
 
 	// Get last order for first user
-	lastOrder, err := repo.GetGetLastOrder("account0", 10000)
+	lastOrder, err := repo.GetGetLastOrder(context.Background(), "account0", 10000)
 	if err != nil {
 		t.Fatalf("GetGetLastOrder failed: %v", err)
 	}

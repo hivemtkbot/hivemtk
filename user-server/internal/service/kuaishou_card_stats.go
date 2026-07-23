@@ -8,6 +8,7 @@ import (
 	"marketing/internal/model"
 
 	"gorm.io/gorm"
+	"context"
 )
 
 // KuaishouCardStatsService 快手卡片统计服务
@@ -21,16 +22,16 @@ func NewKuaishouCardStatsService(db *gorm.DB) *KuaishouCardStatsService {
 }
 
 // GetCardStats 获取单个快手卡片的统计数据
-func (s *KuaishouCardStatsService) GetCardStats(req *dto.KuaishouCardStatsRequest) (*dto.KuaishouCardStatsResponse, error) {
+func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.KuaishouCardStatsRequest) (*dto.KuaishouCardStatsResponse, error) {
 	// 获取卡片信息
 	var card model.KuaishouCard
-	if err := s.db.First(&card, req.CardID).Error; err != nil {
+	if err := s.db.First(ctx, &card, req.CardID).Error; err != nil {
 		return nil, fmt.Errorf("卡片不存在: %w", err)
 	}
 
 	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0)	// 默认最近一个月
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
@@ -49,9 +50,9 @@ func (s *KuaishouCardStatsService) GetCardStats(req *dto.KuaishouCardStatsReques
 		Group("DATE(created_at), activity_type")
 
 	var results []struct {
-		Date         string `json:"date"`
-		ActivityType string `json:"activity_type"`
-		Count        int    `json:"count"`
+		Date		string	`json:"date"`
+		ActivityType	string	`json:"activity_type"`
+		Count		int	`json:"count"`
 	}
 
 	if err := query.Scan(&results).Error; err != nil {
@@ -64,8 +65,8 @@ func (s *KuaishouCardStatsService) GetCardStats(req *dto.KuaishouCardStatsReques
 		dateStr := result.Date
 		if _, exists := dateMap[dateStr]; !exists {
 			dateMap[dateStr] = &dto.DailyStat{
-				Date: dateStr,
-				View: 0,
+				Date:	dateStr,
+				View:	0,
 			}
 		}
 
@@ -82,26 +83,26 @@ func (s *KuaishouCardStatsService) GetCardStats(req *dto.KuaishouCardStatsReques
 
 	// 获取总统计数据
 	var totalViews int64
-	s.db.Model(&model.KuaishouCardActivity{}).
+	s.db.WithContext(ctx).Model(&model.KuaishouCardActivity{}).
 		Where("card_id = ? AND activity_type = ?", req.CardID, "view").
 		Count(&totalViews)
 
 	// 构建响应
 	response := &dto.KuaishouCardStatsResponse{
-		CardID:     card.ID,
-		CardTitle:  card.Title,
-		TotalViews: int(totalViews),
-		DailyStats: dailyStats,
+		CardID:		card.ID,
+		CardTitle:	card.Title,
+		TotalViews:	int(totalViews),
+		DailyStats:	dailyStats,
 	}
 
 	return response, nil
 }
 
 // GetOverallStats 获取快手卡片总体统计数据
-func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallStatsRequest) (*dto.KuaishouCardOverallStatsResponse, error) {
+func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto.KuaishouCardOverallStatsRequest) (*dto.KuaishouCardOverallStatsResponse, error) {
 	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0)	// 默认最近一个月
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
@@ -119,21 +120,21 @@ func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallS
 
 	// 获取卡片总数和激活卡片数
 	var totalCards, activeCards int64
-	s.db.Model(&model.KuaishouCard{}).Count(&totalCards)
+	s.db.WithContext(ctx).Model(&model.KuaishouCard{}).Count(&totalCards)
 
-	s.db.Model(&model.KuaishouCard{}).
+	s.db.WithContext(ctx).Model(&model.KuaishouCard{}).
 		Where("is_active = ?", true).
 		Count(&activeCards)
 
 	// 获取总统计数据
 	var totalViews int64
-	s.db.Model(&model.KuaishouCardActivity{}).
+	s.db.WithContext(ctx).Model(&model.KuaishouCardActivity{}).
 		Where("activity_type = ? AND created_at BETWEEN ? AND ?", "view", req.StartDate, req.EndDate).
 		Count(&totalViews)
 
 	// 获取热门卡片
 	var popularCards []model.KuaishouCard
-	s.db.Where("is_active = ?", true).
+	s.db.WithContext(ctx).Where("is_active = ?", true).
 		Order("view_count DESC").
 		Limit(req.Limit).
 		Find(&popularCards)
@@ -142,10 +143,10 @@ func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallS
 	var popularCardDTOs []dto.PopularCard
 	for _, card := range popularCards {
 		popularCardDTOs = append(popularCardDTOs, dto.PopularCard{
-			ID:        card.ID,
-			Title:     card.Title,
-			ViewCount: card.ViewCount,
-			CreatedAt: card.CreatedAt.Format("2006-01-02"),
+			ID:		card.ID,
+			Title:		card.Title,
+			ViewCount:	card.ViewCount,
+			CreatedAt:	card.CreatedAt.Format("2006-01-02"),
 		})
 	}
 
@@ -157,9 +158,9 @@ func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallS
 		Group("DATE(created_at), activity_type")
 
 	var results []struct {
-		Date         string `json:"date"`
-		ActivityType string `json:"activity_type"`
-		Count        int    `json:"count"`
+		Date		string	`json:"date"`
+		ActivityType	string	`json:"activity_type"`
+		Count		int	`json:"count"`
 	}
 
 	if err := query.Scan(&results).Error; err != nil {
@@ -172,8 +173,8 @@ func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallS
 		dateStr := result.Date
 		if _, exists := dateMap[dateStr]; !exists {
 			dateMap[dateStr] = &dto.DailyStat{
-				Date: dateStr,
-				View: 0,
+				Date:	dateStr,
+				View:	0,
 			}
 		}
 
@@ -200,19 +201,19 @@ func (s *KuaishouCardStatsService) GetOverallStats(req *dto.KuaishouCardOverallS
 
 	// 构建响应
 	response := &dto.KuaishouCardOverallStatsResponse{
-		TotalCards:       int(totalCards),
-		ActiveCards:      int(activeCards),
-		TotalViews:       int(totalViews),
-		PopularCards:     popularCardDTOs,
-		DailyStats:       dailyStats,
-		RecentActivities: recentActivities,
+		TotalCards:		int(totalCards),
+		ActiveCards:		int(activeCards),
+		TotalViews:		int(totalViews),
+		PopularCards:		popularCardDTOs,
+		DailyStats:		dailyStats,
+		RecentActivities:	recentActivities,
 	}
 
 	return response, nil
 }
 
 // RecordActivity 记录快手卡片活动
-func (s *KuaishouCardStatsService) RecordActivity(cardID uint, action, userIP, userAgent, extraData string) error {
+func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID uint, action, userIP, userAgent, extraData string) error {
 	// 只记录浏览活动
 	if action != "view" {
 		return nil
@@ -220,11 +221,11 @@ func (s *KuaishouCardStatsService) RecordActivity(cardID uint, action, userIP, u
 
 	// 创建活动记录
 	activity := model.KuaishouCardActivity{
-		CardID:       cardID,
-		ActivityType: action,
-		IPAddress:    userIP,
-		UserAgent:    userAgent,
-		ExtraData:    extraData,
+		CardID:		cardID,
+		ActivityType:	action,
+		IPAddress:	userIP,
+		UserAgent:	userAgent,
+		ExtraData:	extraData,
 	}
 
 	if err := s.db.Create(&activity).Error; err != nil {
@@ -233,7 +234,7 @@ func (s *KuaishouCardStatsService) RecordActivity(cardID uint, action, userIP, u
 
 	// 更新卡片统计
 	var card model.KuaishouCard
-	if err := s.db.First(&card, cardID).Error; err != nil {
+	if err := s.db.First(ctx, &card, cardID).Error; err != nil {
 		return fmt.Errorf("获取卡片失败: %w", err)
 	}
 

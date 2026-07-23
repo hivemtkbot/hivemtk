@@ -438,19 +438,19 @@ func NewRagAlertCron(svc *RagAlertService) *RagAlertCron {
 }
 
 // Start 启动 cron
-func (c *RagAlertCron) Start() {
+func (c *RagAlertCron) Start(ctx context.Context)  {
 	c.wg.Add(1)
 	go c.run()
 }
 
 // Stop 停止 cron
-func (c *RagAlertCron) Stop() {
+func (c *RagAlertCron) Stop(ctx context.Context)  {
 	close(c.stopCh)
 	c.wg.Wait()
 }
 
 // run 定时循环
-func (c *RagAlertCron) run() {
+func (c *RagAlertCron) run(ctx context.Context)  {
 	defer c.wg.Done()
 	ticker := time.NewTicker(RagAlertCheckInterval)
 	defer ticker.Stop()
