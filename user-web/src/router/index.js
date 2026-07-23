@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { isInitialized } from '@/utils/initHelper'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 
 // 路由模块 - 使用 import.meta.glob 实现懒加载（Vite 兼容）
 // Vite 在构建时会静态分析 glob 模式，将所有匹配的模块打包进产物
@@ -65,7 +66,7 @@ const moduleNames = [
   // OneID 客户身份统一 (身份归一化 / 冲突解决)
   'oneid',
   'dashboardScreen', 'integration', 'marketingFlow', 'operationLog',
-  'ragProductConfig', 'scriptTemplate', 'teamUser', 'userSegment',
+  'ragProductConfig', 'scriptTemplate', 'userSegment',
   'community', 'unifiedMessage', 'platformAccount', 'messageHub',
   // 销冠 SOP 智能体相关模块（意图识别 / 对话记忆 / SOP 智能体）
   'intentRecognition', 'dialogueMemory', 'sopAgent',
