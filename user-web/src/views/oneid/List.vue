@@ -2,7 +2,10 @@
   <div class="oneid-list-container">
     <el-card class="header-card">
       <div class="header-row">
-        <h2>OneID 客户身份管理</h2>
+        <div class="header-text">
+          <h2>OneID 客户身份管理</h2>
+          <p class="subtitle">多渠道客户身份归一管理：搜索、解析、链接、详情查看</p>
+        </div>
         <div class="header-actions">
           <el-input
             v-model="keyword"
@@ -23,6 +26,55 @@
         :title="$t('OneID 体系将客户多渠道身份（手机号/邮箱/微信/抖音/小红书）归一为统一 ID，避免重复跟进。')"
       />
     </el-card>
+
+    <!-- 顶部指标卡 -->
+    <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
+      <el-col :xs="12" :sm="6">
+        <el-card class="stat-card" shadow="never">
+          <div class="stat-icon" style="background: rgba(79,70,229,.1); color: #4F46E5">
+            <el-icon :size="22"><UserFilled /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">OneID 客户总数</div>
+            <div class="stat-value">{{ stats.total || 0 }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <el-card class="stat-card" shadow="never">
+          <div class="stat-icon" style="background: rgba(16,185,129,.1); color: #10B981">
+            <el-icon :size="22"><Cellphone /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">已关联手机号</div>
+            <div class="stat-value">{{ stats.withPhone || 0 }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <el-card class="stat-card" shadow="never">
+          <div class="stat-icon" style="background: rgba(245,158,11,.1); color: #F59E0B">
+            <el-icon :size="22"><Message /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">已关联邮箱</div>
+            <div class="stat-value">{{ stats.withEmail || 0 }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <el-card class="stat-card" shadow="never">
+          <div class="stat-icon" style="background: rgba(99,102,241,.1); color: #6366F1">
+            <el-icon :size="22"><Connection /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">多身份客户</div>
+            <div class="stat-value">{{ stats.multiIdentity || 0 }}</div>
+            <div class="stat-extra">占比 {{ stats.multiRate || 0 }}%</div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
     <el-card class="table-card">
       <el-table :data="list" v-loading="loading" stripe>
@@ -156,8 +208,8 @@ import i18n from '@/i18n'
 
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { listOneID, resolveIdentity, getIdentityMappings, linkIdentity } from '@/api/oneid'
+import { Plus, UserFilled, Cellphone, Message, Connection } from '@element-plus/icons-vue'
+import { listOneID, resolveIdentity, getIdentityMappings, linkIdentity, getOneIDStats } from '@/api/oneid'
 
 const list = ref([])
 const total = ref(0)
@@ -165,6 +217,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const keyword = ref('')
 const loading = ref(false)
+const statsLoading = ref(false)
+const stats = ref({ total: 0, withPhone: 0, withEmail: 0, multiIdentity: 0, multiRate: 0 })
 const identitiesDialogVisible = ref(false)
 const resolveDialogVisible = ref(false)
 const linkDialogVisible = ref(false)
@@ -186,6 +240,25 @@ const riskType = (risk) => {
   if (risk === 'high') return 'danger'
   if (risk === 'medium') return 'warning'
   return 'success'
+}
+
+const loadStats = async () => {
+  statsLoading.value = true
+  try {
+    const res = await getOneIDStats()
+    const s = res || {}
+    stats.value = {
+      total: s.total ?? 0,
+      withPhone: s.with_phone ?? s.withPhone ?? 0,
+      withEmail: s.with_email ?? s.withEmail ?? 0,
+      multiIdentity: s.multi_identity ?? s.multiIdentity ?? 0,
+      multiRate: s.total ? Math.round(((s.multi_identity ?? s.multiIdentity ?? 0) * 1000) / s.total) / 10 : 0
+    }
+  } catch (e) {
+    // 静默失败：统计接口不可用时不影响列表
+  } finally {
+    statsLoading.value = false
+  }
 }
 
 const loadList = async () => {
@@ -261,14 +334,33 @@ const handleResolve = async () => {
 
 onMounted(() => {
   loadList()
+  loadStats()
 })
 </script>
 
 <style scoped>
 .oneid-list-container { padding: 0; }
 .header-card { margin-bottom: 16px; }
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.header-row h2 { margin: 0; font-size: 20px; font-weight: 600; }
-.header-actions { display: flex; align-items: center; }
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.header-text { flex: 1; min-width: 200px; }
+.header-text h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.header-text .subtitle { margin: 4px 0 0; font-size: 13px; color: #909399; }
+.header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .table-card { background: #fff; }
+
+.stats-row { margin-bottom: 16px; }
+.stats-row .stat-card { display: flex; align-items: center; gap: 12px; }
+.stats-row .stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stats-row .stat-body { flex: 1; }
+.stats-row .stat-label { font-size: 13px; color: #909399; }
+.stats-row .stat-value { font-size: 22px; font-weight: 600; color: #303133; line-height: 1.2; margin-top: 4px; }
+.stats-row .stat-extra { font-size: 12px; color: #6366F1; margin-top: 4px; }
 </style>

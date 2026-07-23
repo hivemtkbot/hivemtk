@@ -428,3 +428,32 @@ func (s *CustomerQueryService) ListCustomers(ctx context.Context, page, pageSize
 func (s *CustomerQueryService) ListConflicts(ctx context.Context, page, pageSize int) ([]*IdentityConflict, int64) {
 	return DetectIdentityConflicts(ctx, s.custRepo, page, pageSize)
 }
+
+// OneIDStatsView OneID 统计视图
+type OneIDStatsView struct {
+	Total         int64 `json:"total"`
+	WithPhone     int64 `json:"with_phone"`
+	WithEmail     int64 `json:"with_email"`
+	WithWechat    int64 `json:"with_wechat"`
+	WithDouyin    int64 `json:"with_douyin"`
+	MultiIdentity int64 `json:"multi_identity"`
+}
+
+// OneIDStats OneID 体系统计：总数、关联各渠道数、多身份客户数
+func (s *CustomerQueryService) OneIDStats(ctx context.Context) *OneIDStatsView {
+	// 总数直接取 ListCustomers 第 1 页 size=1 的 total
+	_, total := s.ListCustomers(ctx, 1, 1, "")
+	withPhone, _ := s.custRepo.CountNotEmpty(ctx, "phone")
+	withEmail, _ := s.custRepo.CountNotEmpty(ctx, "email")
+	withWechat, _ := s.custRepo.CountNotEmpty(ctx, "wechat_open_id")
+	withDouyin, _ := s.custRepo.CountNotEmpty(ctx, "douyin_open_id")
+	multi, _ := s.custRepo.CountMultiIdentity(ctx)
+	return &OneIDStatsView{
+		Total:         total,
+		WithPhone:     withPhone,
+		WithEmail:     withEmail,
+		WithWechat:    withWechat,
+		WithDouyin:    withDouyin,
+		MultiIdentity: multi,
+	}
+}

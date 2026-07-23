@@ -113,6 +113,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	// 注意：静态路径必须在参数路径之前注册
 	oneIDCtrl := controller.NewCustomerOneIDController()
 	auth.GET("/customer/oneid/list", oneIDCtrl.ListOneID)
+	auth.GET("/customer/oneid/stats", oneIDCtrl.OneIDStats)
 	auth.GET("/customer/oneid/conflicts", oneIDCtrl.ListConflicts)
 	auth.POST("/customer/oneid/merge", oneIDCtrl.MergeIdentity)
 	auth.POST("/customer/oneid/resolve", oneIDCtrl.ResolveIdentity)
@@ -342,6 +343,7 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	// 场景路由
 	auth.GET("/llm/strategies", llmCtrl.ListStrategies)
 	auth.PUT("/llm/strategies", llmCtrl.UpdateStrategies)
+	auth.POST("/llm/strategies", llmCtrl.UpdateStrategies)
 	// 路由审计
 	auth.GET("/llm/audit", llmCtrl.ListAuditHistory)
 	// 用量统计
@@ -355,6 +357,13 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	auth.POST("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
 	auth.PUT("/llm/fallback", llmCtrl.UpdateSceneRouting)
 	auth.POST("/llm/fallback", llmCtrl.UpdateSceneRouting)
+	// 补全端点（2026-07-24 E2E 完整性补齐）
+	auth.GET("/llm/scenarios", llmCtrl.ListScenarios)
+	auth.GET("/llm/health", llmCtrl.Health)
+	auth.GET("/llm/scenario-stats", llmCtrl.ScenarioStats)
+	auth.GET("/llm/model-type-stats", llmCtrl.ModelTypeStats)
+	auth.GET("/llm/egress-alerts", llmCtrl.EgressAlerts)
+	auth.GET("/llm/egress-audit", llmCtrl.EgressAudit)
 }
 
 // setupAnalyticsRoutes 数据分析 (转化漏斗 + AI 产能 + 销冠画像)

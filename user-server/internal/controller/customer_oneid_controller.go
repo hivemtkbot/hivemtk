@@ -70,6 +70,12 @@ func (c *CustomerOneIDController) ListOneID(ctx *gin.Context) {
 	}, "获取成功")
 }
 
+// OneIDStats OneID 统计
+func (c *CustomerOneIDController) OneIDStats(ctx *gin.Context) {
+	stats := c.custQuerySvc.OneIDStats(ctx.Request.Context())
+	response.Success(ctx, stats, "获取成功")
+}
+
 // ListConflicts 列出潜在的身份冲突（同一手机号/邮箱/openid 关联到不同客户）
 func (c *CustomerOneIDController) ListConflicts(ctx *gin.Context) {
 	page := parsePage(ctx.Query("page"))
