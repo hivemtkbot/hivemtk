@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -72,7 +73,7 @@ func (c *IntentController) BatchRecognize(ctx *gin.Context) {
 // Stats 意图统计
 func (c *IntentController) Stats(ctx *gin.Context) {
 	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "7"))
-	stats, err := c.rec.GetIntentStats(days)
+	stats, err := c.rec.GetIntentStats(context.Background(), days)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -88,7 +89,7 @@ func (c *IntentController) RecentIntents(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	list, err := c.rec.GetRecentIntents(customerID, limit)
+	list, err := c.rec.GetRecentIntents(context.Background(), customerID, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -132,7 +133,7 @@ func (c *IntentController) IntentLogs(ctx *gin.Context) {
 	customerID := ctx.Query("customer_id")
 	major := ctx.Query("major")
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "100"))
-	logs, err := c.rec.GetIntentLogs(customerID, major, limit)
+	logs, err := c.rec.GetIntentLogs(context.Background(), customerID, major, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -144,7 +145,7 @@ func (c *IntentController) IntentLogs(ctx *gin.Context) {
 // GET /api/intent/stats/fine?days=7
 func (c *IntentController) IntentStatsFine(ctx *gin.Context) {
 	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "7"))
-	stats, err := c.rec.GetIntentLogStats(days)
+	stats, err := c.rec.GetIntentLogStats(context.Background(), days)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

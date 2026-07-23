@@ -167,7 +167,8 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getCustomerEvents, getEventStats, createEvent } from '@/api/customerEvent.js'
+import { getCustomerEventHistory, getEventStats, createEvent } from '@/api/customerEvent.js'
+import { getCustomerList } from '@/api/customer360.js'
 
 const loading = ref(false)
 const events = ref([])
@@ -190,13 +191,44 @@ const getEventTypeTag = (type) => {
   const map = { view: '', click: 'primary', register: 'success', purchase: 'warning', share: 'info' }
   return map[type]}
 
+// 后端无全局事件列表端点，按客户聚合各客户的事件流
+const mapEvent = (e) => {
+  let data = {}
+  try {
+    data = typeof e.event_data === 'string' ? JSON.parse(e.event_data) : (e.event_data || {})
+  } catch (_) {
+    data = {}
+  }
+  return {
+    id: e.id,
+    eventType: e.event_type || '',
+    userId: e.customer_id || '',
+    userName: data.user_name || data.name || e.customer_id || '',
+    action: data.action || e.event_type || '',
+    target: data.target || data.url || data.page || '',
+    source: e.event_source || '',
+    ip: data.ip || '',
+    createdAt: (e.occurred_at || e.created_at || '').toString().replace('T', ' ').slice(0, 19),
+    properties: data
+  }
+}
+
 const loadEvents = async () => {
   loading.value = true
   try {
-    const res = await getCustomerEvents({ page: pagination.value.page, size: pagination.value.size, type: filterType.value })
-    // P2-1 修复：request.js 拦截器已解包 data.data，res 即业务数据本身
-    events.value = res?.list || []
-    pagination.value.total = res?.total || 0
+    const custRes = await getCustomerList({})
+    const custMap = custRes?.list || {}
+    const customerIds = Array.isArray(custMap) ? custMap.map(c => c.id || c.user_id) : Object.keys(custMap)
+    const lists = await Promise.all(
+      customerIds.map(id =>
+        getCustomerEventHistory(id, { limit: 50 })
+          .then(r => (Array.isArray(r) ? r : (r?.list || [])))
+          .catch(() => [])
+      )
+    )
+    const all = lists.flat().map(mapEvent).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    events.value = all
+    pagination.value.total = all.length
   } finally {
     loading.value = false
   }

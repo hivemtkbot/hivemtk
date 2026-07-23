@@ -112,7 +112,6 @@ var businessTablesWithMerchantID = []string{
 	"tiktok_cards",
 	"custom_reports",
 	"integrations",
-	"payment_configs",
 	"obs_configs",
 	"batch_operation_histories",
 	"message_hubs",

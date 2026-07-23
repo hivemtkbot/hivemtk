@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/csv"
 	"net/http"
 	"strconv"
@@ -36,14 +37,14 @@ func (c *EmailUnsubscribeController) UnsubscribePage(ctx *gin.Context) {
 		return
 	}
 
-	claim, err := c.svc.VerifyUnsubscribeToken(token)
+	claim, err := c.svc.VerifyUnsubscribeToken(context.Background(), token)
 	if err != nil {
 		ctx.String(http.StatusBadRequest, "退订链接无效或已过期：%s", err.Error())
 		return
 	}
 
 	// 若已退订，提示已退订
-	if c.svc.IsUnsubscribed(claim.Email) {
+	if c.svc.IsUnsubscribed(context.Background(), claim.Email) {
 		ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(unsubscribedAlreadyHTML(claim.Email)))
 		return
 	}
@@ -65,7 +66,7 @@ func (c *EmailUnsubscribeController) UnsubscribeConfirm(ctx *gin.Context) {
 		return
 	}
 
-	claim, err := c.svc.VerifyUnsubscribeToken(req.Token)
+	claim, err := c.svc.VerifyUnsubscribeToken(context.Background(), req.Token)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "退订链接无效或已过期："+err.Error())
 		return
@@ -87,7 +88,7 @@ func (c *EmailUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 	keyword := ctx.Query("keyword")
 
-	records, total, err := c.svc.ListUnsubscribes(page, limit, keyword)
+	records, total, err := c.svc.ListUnsubscribes(context.Background(), page, limit, keyword)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询退订名单失败："+err.Error())
 		return
@@ -99,7 +100,7 @@ func (c *EmailUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 // ExportUnsubscribes GET /api/email/unsubscribe/export
 // 导出退订名单 CSV
 func (c *EmailUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
-	records, err := c.svc.ListAllUnsubscribes()
+	records, err := c.svc.ListAllUnsubscribes(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "导出退订名单失败："+err.Error())
 		return

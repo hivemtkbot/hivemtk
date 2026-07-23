@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/aiagent/agent/browser"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/model"
@@ -91,12 +92,12 @@ func (c *XianyuAutoReplyController) StartLogin(ctx *gin.Context) {
 
 	now := time.Now()
 	item := &model.AutoReplyAccount{UserID: userID, Platform: "xianyu", Username: req.Username, IsActive: true, Headless: headless, LoginAt: &now}
-	if err := c.svc.UpsertAccount(item); err != nil {
+	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
 	// 启动浏览器登录流程（后台异步）
-	c.svc.StartLoginBrowser(userID, req.Username, item.ID, headless)
+	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, item.ID, headless)
 	response.Success(ctx, gin.H{"started": true, "accountId": item.ID, "headless": headless}, "ok")
 }
 
@@ -116,7 +117,7 @@ func (c *XianyuAutoReplyController) LoginStatus(ctx *gin.Context) {
 	if id, ok := userIDInterface.(uint); ok {
 		userID = id
 	}
-	items, err := c.svc.ListAccounts(userID)
+	items, err := c.svc.ListAccounts(context.Background(), userID)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -159,7 +160,7 @@ func (c *XianyuAutoReplyController) ListAccounts(ctx *gin.Context) {
 	if id, ok := userIDInterface.(uint); ok {
 		userID = id
 	}
-	items, err := c.svc.ListAccounts(userID)
+	items, err := c.svc.ListAccounts(context.Background(), userID)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -194,7 +195,7 @@ func (c *XianyuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 	}
 
 	item := &model.AutoReplyAccount{UserID: userID, Platform: "xianyu", Username: req.Username, Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &loginAt}
-	if err := c.svc.UpsertAccount(item); err != nil {
+	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -221,7 +222,7 @@ func (c *XianyuAutoReplyController) SaveCookies(ctx *gin.Context) {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
-	if err := c.svc.SaveCookies(uint(id64), payload.Cookie, userID); err != nil {
+	if err := c.svc.SaveCookies(context.Background(), uint(id64), payload.Cookie, userID); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -242,7 +243,7 @@ func (c *XianyuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
-	if err := c.svc.DeleteAccount(uint(id64), userID); err != nil {
+	if err := c.svc.DeleteAccount(context.Background(), uint(id64), userID); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -262,7 +263,7 @@ func (c *XianyuAutoReplyController) GetRule(ctx *gin.Context) {
 	if id, ok := userIDInterface.(uint); ok {
 		userID = id
 	}
-	rule, err := c.svc.GetRule(userID)
+	rule, err := c.svc.GetRule(context.Background(), userID)
 	if err != nil {
 		response.Success(ctx, gin.H{"rule": nil}, "ok")
 		return
@@ -289,7 +290,7 @@ func (c *XianyuAutoReplyController) SaveRule(ctx *gin.Context) {
 	if id, ok := userIDInterface.(uint); ok {
 		userID = id
 	}
-	err := c.svc.SaveRule(&model.AutoReplyRule{UserID: userID, Platform: "xianyu", Keywords: req.Keywords, ReplyContent: req.ReplyContent, Frequency: req.Frequency, DailyLimit: req.DailyLimit, IsActive: req.IsActive})
+	err := c.svc.SaveRule(context.Background(), &model.AutoReplyRule{UserID: userID, Platform: "xianyu", Keywords: req.Keywords, ReplyContent: req.ReplyContent, Frequency: req.Frequency, DailyLimit: req.DailyLimit, IsActive: req.IsActive})
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -315,7 +316,7 @@ func (c *XianyuAutoReplyController) ListLogs(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	items, total, err := c.svc.ListRecentLogs(userID, page, pageSize)
+	items, total, err := c.svc.ListRecentLogs(context.Background(), userID, page, pageSize)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -325,13 +326,13 @@ func (c *XianyuAutoReplyController) ListLogs(ctx *gin.Context) {
 
 func (c *XianyuAutoReplyController) Start(ctx *gin.Context) {
 	platform := "xianyu"
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
 
-	accounts, err := c.svc.ListAccounts(userID)
+	accounts, err := c.svc.ListAccounts(context.Background(), userID)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -371,13 +372,13 @@ func (c *XianyuAutoReplyController) Start(ctx *gin.Context) {
 	))
 
 	if useWS {
-		if err := c.svc.StartWSBot(bot, c.svc, userID, c.infra.RateLimiter, c.infra.SliderSolver); err != nil {
+		if err := c.svc.StartWSBot(context.Background(), bot, c.svc, userID, c.infra.RateLimiter, c.infra.SliderSolver); err != nil {
 			logger.Warnf("[闲鱼] WS 模式启动失败，降级为轮询: %v", err)
 			bot.Start(c.svc, userID)
 			useWS = false
 		} else {
 			// 记录 WS 连接成功时间（下沉到 service，controller 不直连 DB）
-			if err := c.svc.MarkWSConnected(account.ID); err != nil {
+			if err := c.svc.MarkWSConnected(context.Background(), account.ID); err != nil {
 				logger.Errorf("[闲鱼] 记录 WS 连接时间失败: %v", err)
 			}
 		}

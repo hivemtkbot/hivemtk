@@ -254,6 +254,7 @@ func TestFeedbackCollector_CollectSync_MultiEventAggregate(t *testing.T) {
 	defer c.Stop()
 
 	sessionID := "sess-multi"
+	ctx := context.Background()
 
 	// 事件 1: like (weight=1.0, reward=1.0)
 	_ = c.CollectSync(ctx, &dto.CollectRequest{

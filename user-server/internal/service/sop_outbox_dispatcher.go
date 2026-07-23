@@ -80,7 +80,7 @@ func (o *SOPOutboxDispatcher) Start(ctx context.Context)  {
 	o.running = true
 	o.stopCh = make(chan struct{})
 	o.wg.Add(1)
-	go o.loop()
+	go o.loop(context.Background(), )
 	logger.GetLogger().Info().
 		Dur("tick_interval", o.tickInterval).
 		Int("batch_size", o.batchSize).
@@ -108,14 +108,14 @@ func (o *SOPOutboxDispatcher) loop(ctx context.Context)  {
 	defer ticker.Stop()
 
 	// 启动时立即执行一次
-	o.processDueTimers()
+	o.processDueTimers(context.Background(), )
 
 	for {
 		select {
 		case <-o.stopCh:
 			return
 		case <-ticker.C:
-			o.processDueTimers()
+			o.processDueTimers(context.Background(), )
 		}
 	}
 }
@@ -250,7 +250,7 @@ func (d *SOPStuckDetector) Start(ctx context.Context)  {
 	d.running = true
 	d.stopCh = make(chan struct{})
 	d.wg.Add(1)
-	go d.loop()
+	go d.loop(context.Background(), )
 	logger.GetLogger().Info().
 		Dur("tick_interval", d.tickInterval).
 		Dur("max_idle_time", d.maxIdleTime).
@@ -283,7 +283,7 @@ func (d *SOPStuckDetector) loop(ctx context.Context)  {
 		case <-d.stopCh:
 			return
 		case <-ticker.C:
-			d.scanStuckExecutions()
+			d.scanStuckExecutions(context.Background(), )
 		}
 	}
 }
@@ -390,7 +390,7 @@ var (
 func InitSOPOutboxDispatcher(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *SOPOutboxDispatcher {
 	outboxOnce.Do(func() {
 		globalOutboxDispatcher = NewSOPOutboxDispatcher(db, execDispatcher)
-		globalOutboxDispatcher.Start()
+		globalOutboxDispatcher.Start(context.Background(), )
 	})
 	return globalOutboxDispatcher
 }
@@ -404,7 +404,7 @@ func GetSOPOutboxDispatcher() *SOPOutboxDispatcher {
 func InitSOPStuckDetector(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *SOPStuckDetector {
 	stuckOnce.Do(func() {
 		globalStuckDetector = NewSOPStuckDetector(db, execDispatcher)
-		globalStuckDetector.Start()
+		globalStuckDetector.Start(context.Background(), )
 	})
 	return globalStuckDetector
 }

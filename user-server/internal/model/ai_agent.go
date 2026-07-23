@@ -142,6 +142,7 @@ const (
 	ChannelTypeWeCom       ChannelType = "wecom"
 	ChannelTypeFeishu      ChannelType = "feishu"
 	ChannelTypeWhatsApp    ChannelType = "whatsapp"
+	ChannelTypeDingTalk    ChannelType = "dingtalk"
 	ChannelTypeDouyin      ChannelType = "douyin"
 	ChannelTypeXiaohongshu ChannelType = "xiaohongshu"
 	ChannelTypeKuaishou    ChannelType = "kuaishou"

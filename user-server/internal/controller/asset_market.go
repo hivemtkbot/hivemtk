@@ -217,3 +217,20 @@ func (h *AssetMarketController) SyncLog(c *gin.Context) {
 	}
 	assetOK(c, list)
 }
+
+// ReportUsage POST /api/asset-market/report-usage
+// 将本地累计使用次数回传平台（闭环：本地使用 → 平台统计）。
+func (h *AssetMarketController) ReportUsage(c *gin.Context) {
+	var body struct {
+		AssetID string `json:"asset_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	if err := h.localSvc.ReportUsage(c.Request.Context(), body.AssetID); err != nil {
+		assetFail(c, err)
+		return
+	}
+	assetOK(c, gin.H{"message": "上报成功"})
+}

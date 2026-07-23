@@ -188,7 +188,7 @@ func (s *ObjectionHandlerService) RecordUsage(ctx context.Context, templateID ui
 		updates["success_count"] = gorm.Expr("success_count + 1")
 		updates["conversion_rate"] = gorm.Expr("success_count::float / GREATEST(usage_count, 1)")
 	}
-	return s.db.Model(ctx, &model.ScriptLibrary{}).
+	return s.db.WithContext(ctx).Model(&model.ScriptLibrary{}).
 		Where("id = ?", templateID).
 		Updates(updates).Error
 }

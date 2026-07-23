@@ -82,7 +82,7 @@ func TestRFMRuleRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ruleRepo.Create(context.Background(), tt.rule)
+			err := ruleRepo.Create(tt.rule)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -104,7 +104,7 @@ func TestRFMRuleRepository_GetByID(t *testing.T) {
 		Name:     "GetByID Rule",
 		IsActive: true,
 	}
-	ruleRepo.Create(context.Background(), rule)
+	ruleRepo.Create(rule)
 
 	tests := []struct {
 		name    string
@@ -125,7 +125,7 @@ func TestRFMRuleRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ruleRepo.GetByID(context.Background(), tt.id)
+			result, err := ruleRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -144,11 +144,11 @@ func TestRFMRuleRepository_GetActiveRule(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 
 	// 创建测试数据
-	ruleRepo.Create(context.Background(), &model.RFMRule{
+	ruleRepo.Create(&model.RFMRule{
 		Name:     "Active Rule",
 		IsActive: true,
 	})
-	ruleRepo.Create(context.Background(), &model.RFMRule{
+	ruleRepo.Create(&model.RFMRule{
 		Name:     "Inactive Rule",
 		IsActive: false,
 	})
@@ -175,17 +175,17 @@ func TestRFMRuleRepository_Update(t *testing.T) {
 		Name:     "Original Name",
 		IsActive: true,
 	}
-	ruleRepo.Create(context.Background(), rule)
+	ruleRepo.Create(rule)
 
 	rule.Name = "Updated Name"
 	rule.IsActive = false
 
-	err := ruleRepo.Update(context.Background(), rule)
+	err := ruleRepo.Update(rule)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := ruleRepo.GetByID(context.Background(), rule.ID)
+	updated, _ := ruleRepo.GetByID(rule.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -203,14 +203,14 @@ func TestRFMRuleRepository_Delete(t *testing.T) {
 		Name:     "Delete Rule",
 		IsActive: true,
 	}
-	ruleRepo.Create(context.Background(), rule)
+	ruleRepo.Create(rule)
 
-	err := ruleRepo.Delete(context.Background(), rule.ID)
+	err := ruleRepo.Delete(rule.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = ruleRepo.GetByID(context.Background(), rule.ID)
+	_, err = ruleRepo.GetByID(rule.ID)
 	if err == nil {
 		t.Error("Expected rule to be deleted")
 	}
@@ -251,7 +251,7 @@ func TestUserRFMRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := userRepo.Create(context.Background(), tt.rfm)
+			err := userRepo.Create(tt.rfm)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -277,7 +277,7 @@ func TestUserRFMRepository_GetByUserID(t *testing.T) {
 		TotalScore: 14,
 		Layer:      "important_value",
 	}
-	userRepo.Create(context.Background(), rfm)
+	userRepo.Create(rfm)
 
 	tests := []struct {
 		name      string
@@ -320,7 +320,7 @@ func TestUserRFMRepository_GetByLayer(t *testing.T) {
 	// 创建测试数据
 	layers := []string{"important_value", "important_value", "general_value", "general_keep", "important_value"}
 	for i, layer := range layers {
-		userRepo.Create(context.Background(), &model.UserRFM{
+		userRepo.Create(&model.UserRFM{
 			UserID:     uint(i + 1),
 			RScore:     5,
 			FScore:     5,
@@ -401,7 +401,7 @@ func TestUserRFMRepository_GetLayerCount(t *testing.T) {
 
 	for layer, count := range layers {
 		for i := 0; i < count; i++ {
-			userRepo.Create(context.Background(), &model.UserRFM{
+			userRepo.Create(&model.UserRFM{
 				UserID:     uint(len(layers)*100 + layerCount(layer, i)),
 				RScore:     5,
 				FScore:     5,
@@ -442,7 +442,7 @@ func TestUserRFMRepository_DeleteByUserID(t *testing.T) {
 		TotalScore: 14,
 		Layer:      "important_value",
 	}
-	userRepo.Create(context.Background(), rfm)
+	userRepo.Create(rfm)
 
 	err := userRepo.DeleteByUserID(context.Background(), 100)
 	if err != nil {
@@ -468,7 +468,7 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 		TotalScore: 9,
 		Layer:      "general",
 	}
-	userRepo.Create(context.Background(), existingRFM)
+	userRepo.Create(existingRFM)
 
 	// 准备批量 upsert 数据
 	rfms := []*model.UserRFM{
@@ -524,7 +524,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 9,
 		Layer:      "general",
 	}
-	userRepo.Create(context.Background(), oldRFM)
+	userRepo.Create(oldRFM)
 	// Use raw SQL to set the old UpdatedAt (GORM autoUpdateTime overrides it)
 	database.Exec("UPDATE user_rfms SET updated_at = ? WHERE id = ?", time.Now().AddDate(0, 0, -100), oldRFM.ID)
 
@@ -537,7 +537,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 12,
 		Layer:      "value",
 	}
-	userRepo.Create(context.Background(), veryOldRFM)
+	userRepo.Create(veryOldRFM)
 	// Use raw SQL to set the very old UpdatedAt
 	database.Exec("UPDATE user_rfms SET updated_at = ? WHERE id = ?", time.Now().AddDate(0, 0, -400), veryOldRFM.ID)
 
@@ -550,7 +550,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 		TotalScore: 15,
 		Layer:      "important_value",
 	}
-	userRepo.Create(context.Background(), newRFM)
+	userRepo.Create(newRFM)
 
 	tests := []struct {
 		name       string
@@ -593,7 +593,7 @@ func TestUserRFMRepository_GetNeedUpdateUsers_EmptyResult(t *testing.T) {
 
 	// 创建所有用户都是最近更新的
 	for i := 1; i <= 3; i++ {
-		userRepo.Create(context.Background(), &model.UserRFM{
+		userRepo.Create(&model.UserRFM{
 			UserID:     uint(i),
 			RScore:     5,
 			FScore:     5,

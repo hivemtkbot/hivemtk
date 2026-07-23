@@ -560,7 +560,7 @@ func TestHumanizeEvalService_Chaining_Invalid(t *testing.T) {
 }
 
 // TestHumanizeEvalService_WithRegenerateFn 设置重生成回调
-func TestHumanizeEvalService_WithRegenerateFn(context.Background(),t *testing.T) {
+func TestHumanizeEvalService_WithRegenerateFn(t *testing.T) {
 	svc := NewHumanizeEvalService(nil, nil, nil, nil, nil)
 	if svc.regenerateFn != nil {
 		t.Error("初始 regenerateFn 应为 nil")

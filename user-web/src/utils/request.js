@@ -251,7 +251,20 @@ export const updateRequestConfig = async () => {
 // 封装常用的请求方法
 export const http = {
   get(url, params) {
-    return request.get(url, { params })
+    let realParams = params
+    // 兜底：部分调用方误写成 http.get(url, { params })，导致参数被二次包裹成
+    // params[page] / params[product_id] 形式，后端按扁平 query 解析时取不到值。
+    // 此处识别并展开为扁平参数（仅当外层对象恰好只含一个 params 键时）。
+    if (
+      realParams &&
+      typeof realParams === 'object' &&
+      !Array.isArray(realParams) &&
+      Object.keys(realParams).length === 1 &&
+      'params' in realParams
+    ) {
+      realParams = realParams.params
+    }
+    return request.get(url, { params: realParams })
   },
   
   post(url, data, config = {}) {

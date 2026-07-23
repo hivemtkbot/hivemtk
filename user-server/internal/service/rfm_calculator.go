@@ -483,7 +483,7 @@ func (s *RFMCalculatorService) enrichUserData(ctx context.Context, rfms []*model
 		// 通过 TgID 查询用户详情
 		tgID := int64(rfm.UserID)
 		if tgID > 0 {
-			user, err := s.userRepo.GetByTgID(ctx, context.Background(), tgID)
+			user, err := s.userRepo.GetByTgID(ctx, tgID)
 			if err == nil && user != nil && user.ID != "" {
 				if user.RealName != "" {
 					item.UserName = user.RealName

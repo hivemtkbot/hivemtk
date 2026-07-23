@@ -73,6 +73,12 @@ var sharedEmbeddingTransport = &http.Transport{
 	TLSHandshakeTimeout: 10 * time.Second,
 }
 
+// embeddingSem 进程级并发闸门：本地 TEI 容器以 --max-concurrent-requests=1 运行，
+// 同一时刻只允许 1 个 embedding 请求在飞。所有 EmbeddingService 实例共享此闸门，
+// 把全部 Embed 调用串行化，从根上消除「no permits available / 429 Model is
+// overloaded」这类自竞争 429（此前多文档并发上传时高频触发，导致 embed_status=failed）。
+var embeddingSem = make(chan struct{}, 1)
+
 // NewEmbeddingService 构造真实 Embedding 服务
 func NewEmbeddingService() *EmbeddingService {
 	return &EmbeddingService{
@@ -168,7 +174,7 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 		Model:          model,
 		Dimension:      dim,
 		RequestTimeout: 60,
-		MaxRetries:     3,
+		MaxRetries:     5,
 		AllowFallback:  allowFallback,
 	}
 }
@@ -210,14 +216,35 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 		attemptCfg.BaseURL = baseURL
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			if attempt > 0 {
-				backoff := time.Duration(1<<attempt) * time.Second
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(backoff):
+				// 限流/过载（429、no permits available、Model is overloaded）时采用更长退避，
+				// 因为本地 Qwen3-Embedding-0.6B 单次推理约 10s，短退避（1/2/4s）仍会撞上在飞的请求。
+				// 其余错误用指数退避。两者均以 30s 封顶。
+				if isRateLimited(lastErr) {
+					backoff := min(time.Duration(2<<uint(attempt))*time.Second, 30*time.Second)
+					logger.Warnf("[Embedding] 限流/过载，退避 %.0fs 后重试 (baseURL=%s attempt %d/%d): %v", backoff.Seconds(), baseURL, attempt+1, maxRetries, lastErr)
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case <-time.After(backoff):
+					}
+				} else {
+					backoff := min(time.Duration(1<<uint(attempt))*time.Second, 30*time.Second)
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case <-time.After(backoff):
+					}
 				}
 			}
+			// 串行占用 embedding 闸门（容量=1），确保同一时刻仅 1 个请求打到 TEI，
+			// 彻底避免自竞争 429。
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case embeddingSem <- struct{}{}:
+			}
 			vectors, err := s.callProvider(ctx, &attemptCfg, texts)
+			<-embeddingSem
 			if err == nil {
 				return vectors, nil
 			}
@@ -259,6 +286,19 @@ func isConnError(err error) bool {
 		strings.Contains(msg, "connection refused") ||
 		strings.Contains(msg, "dial tcp") ||
 		strings.Contains(msg, "i/o timeout")
+}
+
+// isRateLimited 判断是否为限流/过载类错误：TEI 在并发超限时返回 429 且 body 含
+// "no permits available" / "Model is overloaded"，需以更长退避重试而非立即失败。
+func isRateLimited(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "no permits available") ||
+		strings.Contains(msg, "Model is overloaded") ||
+		strings.Contains(msg, "429") ||
+		strings.Contains(msg, "Too Many Requests")
 }
 
 // EmbedOne 单条向量化

@@ -43,18 +43,11 @@ func (tm *TaskManager) RemoveTask(id cron.EntryID) {
 	tm.cron.Remove(id)
 }
 
+
 func InitCron() {
 	mgr := GetTaskManager()
-	// 每秒轮询一次未支付订单
-	_, err := mgr.AddTask("*/1 * * * * *", func() {
-		OrderCron()
-	})
-	if err != nil {
-		logger.Info(fmt.Sprintf("添加订单定时任务失败 %s", err.Error()))
-		panic(err)
-	}
 	// 每分钟执行一次
-	_, err = mgr.AddTask("0 * * * * *", func() {
+	_, err := mgr.AddTask("0 * * * * *", func() {
 		EmailListCron()
 	})
 	if err != nil {

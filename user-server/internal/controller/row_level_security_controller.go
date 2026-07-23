@@ -13,6 +13,7 @@ package controller
 //   PUT  /api/team/users/:id/data-scope   修改用户的 data_scope（仅 admin）
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -79,7 +80,7 @@ func (c *RowLevelSecurityController) GetUserDataScope(ctx *gin.Context) {
 	response.Success(ctx, DataScopeResponse{
 		UserID:        user.ID,
 		DataScope:     user.DataScope,
-		DataScopeName: c.rowLevelSvc.BuildScopeDescription(user.DataScope),
+		DataScopeName: c.rowLevelSvc.BuildScopeDescription(context.Background(), user.DataScope),
 		DepartmentID:  user.DepartmentID,
 		TeamID:        user.TeamID,
 		CustomDeptIDs: user.CustomDeptIDs,
@@ -156,7 +157,7 @@ func (c *RowLevelSecurityController) UpdateUserDataScope(ctx *gin.Context) {
 	response.Success(ctx, DataScopeResponse{
 		UserID:        user.ID,
 		DataScope:     user.DataScope,
-		DataScopeName: c.rowLevelSvc.BuildScopeDescription(user.DataScope),
+		DataScopeName: c.rowLevelSvc.BuildScopeDescription(context.Background(), user.DataScope),
 		DepartmentID:  user.DepartmentID,
 		TeamID:        user.TeamID,
 		CustomDeptIDs: user.CustomDeptIDs,

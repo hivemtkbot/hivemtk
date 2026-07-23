@@ -102,33 +102,3 @@ func setupRecoveryQueueRoutes(auth *gin.RouterGroup) {
 	auth.GET("/recovery-queue/distribution", ctrl.Distribution)
 	auth.GET("/recovery-queue/ready", ctrl.ListReadyForAttempt)
 }
-
-// setupOrderRoutes 订单管理路由
-func setupOrderRoutes(auth *gin.RouterGroup) {
-	orderCtrl := controller.NewOrderController()
-	auth.GET("/order/list", orderCtrl.GetOrderList)
-	auth.GET("/order/recent", orderCtrl.GetRecentOrderList)
-	auth.GET("/order/:id", orderCtrl.GetOrderByID)
-	auth.POST("/order", orderCtrl.CreateOrder)
-	auth.POST("/order/:id/pay", orderCtrl.PayOrder)
-	auth.GET("/order/:id/check-pay", orderCtrl.CheckPayStatus)
-	auth.POST("/order/:id/cancel", orderCtrl.CancelOrder)
-	auth.POST("/order/:id/refund", orderCtrl.RefundOrder)
-	auth.PUT("/order/:id", orderCtrl.UpdateOrder)
-	auth.DELETE("/order/:id", orderCtrl.DeleteOrder)
-	// 前端兼容路由
-	auth.GET("/orders/list", orderCtrl.GetOrderList)
-	auth.GET("/orders/recent", orderCtrl.GetRecentOrderList)
-	auth.GET("/orders/:id", orderCtrl.GetOrderByID)
-	auth.POST("/orders", orderCtrl.CreateOrder)
-	auth.POST("/orders/:id/pay", orderCtrl.PayOrder)
-	auth.GET("/orders/:id/check-pay", orderCtrl.CheckPayStatus)
-	auth.POST("/orders/:id/cancel", orderCtrl.CancelOrder)
-	auth.POST("/orders/:id/refund", orderCtrl.RefundOrder)
-	auth.DELETE("/orders/delete/:id", orderCtrl.DeleteOrder)
-
-	// 支付配置路由
-	paymentConfigCtrl := controller.NewPaymentConfigController()
-	auth.GET("/order/config", paymentConfigCtrl.GetConfig)
-	auth.POST("/order/config", paymentConfigCtrl.SaveConfig)
-}

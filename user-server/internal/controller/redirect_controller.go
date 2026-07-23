@@ -55,14 +55,14 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 	}
 
 	// 根据短码获取短链
-	shortLink, err := ctrl.shortLinkService.GetByShortCode(code)
+	shortLink, err := ctrl.shortLinkService.GetByShortCode(context.Background(), code)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "短链不存在")
 		return
 	}
 
 	// 记录访问（best-effort：不阻断重定向主流程，但记录错误以便排查）
-	if _, err := ctrl.shortLinkService.AccessShortLink(&dto.AccessShortLinkRequest{
+	if _, err := ctrl.shortLinkService.AccessShortLink(context.Background(), &dto.AccessShortLinkRequest{
 		ShortCode: code,
 		UserAgent: ctx.GetHeader("User-Agent"),
 		IP:        ctx.ClientIP(),

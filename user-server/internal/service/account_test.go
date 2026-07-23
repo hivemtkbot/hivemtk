@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	_type "marketing/internal/pkg/utils/type"
@@ -39,7 +40,7 @@ func TestAccountService_CreateAccount(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount failed: %v", err)
 	}
@@ -70,10 +71,10 @@ func TestAccountService_GetAccount(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Get the account by ID
-	result, err := service.GetAccount(registered.ID)
+	result, err := service.GetAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("GetAccount failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestAccountService_GetAccount_NotFound(t *testing.T) {
 
 	service := NewAccountService()
 
-	_, err := service.GetAccount("non-existent-id")
+	_, err := service.GetAccount(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -108,11 +109,11 @@ func TestAccountService_GetAccountList(t *testing.T) {
 			Price:      "100.00",
 			URL:        "http://example" + string(rune('0'+i)) + ".com",
 		}
-		service.CreateAccount(account)
+		service.CreateAccount(context.Background(), account)
 	}
 
 	// Get account list
-	accounts, err := service.GetAccountList()
+	accounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -135,19 +136,19 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Update the account
 	registered.TgName = "updated_name"
 	registered.Price = "200.00"
 
-	err := service.UpdateAccount(*registered)
+	err := service.UpdateAccount(context.Background(), *registered)
 	if err != nil {
 		t.Fatalf("UpdateAccount failed: %v", err)
 	}
 
 	// Verify update
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.TgName != "updated_name" {
 		t.Errorf("Expected TgName 'updated_name', got %s", result.TgName)
 	}
@@ -170,16 +171,16 @@ func TestAccountService_DeleteAccount(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Delete the account
-	err := service.DeleteAccount(registered.ID)
+	err := service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}
 
 	// Verify account is deleted
-	_, err = service.GetAccount(registered.ID)
+	_, err = service.GetAccount(context.Background(), registered.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -199,7 +200,7 @@ func TestAccountService_UpdateAccountStatusById(t *testing.T) {
 		URL:        "http://example.com",
 		Status:     _type.AccountStatusActive,
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Update account status to inactive
 	err := service.UpdateAccountStatusById(registered.ID, _type.AccountStatusInactive, "Test reason")
@@ -208,7 +209,7 @@ func TestAccountService_UpdateAccountStatusById(t *testing.T) {
 	}
 
 	// Verify status is updated
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.Status != _type.AccountStatusInactive {
 		t.Errorf("Expected status %d, got %d", _type.AccountStatusInactive, result.Status)
 	}
@@ -243,7 +244,7 @@ func TestAccountService_UpdateAccountTgNameById(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Update TgName
 	err := service.UpdateAccountTgNameById(registered.ID, "new_telegram_name")
@@ -252,7 +253,7 @@ func TestAccountService_UpdateAccountTgNameById(t *testing.T) {
 	}
 
 	// Verify TgName is updated
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.TgName != "new_telegram_name" {
 		t.Errorf("Expected TgName 'new_telegram_name', got %s", result.TgName)
 	}
@@ -265,60 +266,6 @@ func TestAccountService_UpdateAccountTgNameById_NotFound(t *testing.T) {
 
 	// Try to update non-existent account
 	err := service.UpdateAccountTgNameById("non-existent-id", "new_name")
-	if err == nil {
-		t.Error("Expected error for non-existent account")
-	}
-}
-
-func TestAccountService_GetEpayConfigByID(t *testing.T) {
-	setupAccountServiceTestDB(t)
-
-	service := NewAccountService()
-
-	// Create an account with epay config
-	account := model.Account{
-		TgName:       "test_account",
-		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		GroupID:      123456789,
-		Price:        "100.00",
-		URL:          "http://example.com",
-		EpayPid:      "test_pid",
-		EpayKey:      "test_key",
-		EpayPayType:  "alipay",
-		EpayQueryUrl: "http://epay.example.com/query",
-		EpayURL:      "http://epay.example.com",
-	}
-	registered, _ := service.CreateAccount(account)
-
-	// Get epay config
-	config, err := service.GetEpayConfigByID(registered.ID)
-	if err != nil {
-		t.Fatalf("GetEpayConfigByID failed: %v", err)
-	}
-
-	if config.Pid != "test_pid" {
-		t.Errorf("Expected Pid 'test_pid', got %s", config.Pid)
-	}
-
-	if config.Key != "test_key" {
-		t.Errorf("Expected Key 'test_key', got %s", config.Key)
-	}
-
-	if config.Type != "alipay" {
-		t.Errorf("Expected Type 'alipay', got %s", config.Type)
-	}
-
-	if config.NotifyUrl != "http://epay.example.com/api/epay_notify" {
-		t.Errorf("Expected NotifyUrl 'http://epay.example.com/api/epay_notify', got %s", config.NotifyUrl)
-	}
-}
-
-func TestAccountService_GetEpayConfigByID_NotFound(t *testing.T) {
-	setupAccountServiceTestDB(t)
-
-	service := NewAccountService()
-
-	_, err := service.GetEpayConfigByID("non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -341,7 +288,7 @@ func TestAccountService_CreateAccount_WithProxySettings(t *testing.T) {
 		ProxyPort:        8080,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with proxy failed: %v", err)
 	}
@@ -380,7 +327,7 @@ func TestAccountService_CreateAccount_WithHeadlessSettings(t *testing.T) {
 		TiktokHeadless:      &disableHeadless,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with headless settings failed: %v", err)
 	}
@@ -400,7 +347,7 @@ func TestAccountService_GetAccountList_Empty(t *testing.T) {
 	service := NewAccountService()
 
 	// Get account list when empty
-	accounts, err := service.GetAccountList()
+	accounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -441,7 +388,7 @@ func TestAccountService_CreateAccount_MultipleAccounts(t *testing.T) {
 	}
 
 	for _, acc := range accounts {
-		result, err := service.CreateAccount(acc)
+		result, err := service.CreateAccount(context.Background(), acc)
 		if err != nil {
 			t.Fatalf("CreateAccount failed: %v", err)
 		}
@@ -451,7 +398,7 @@ func TestAccountService_CreateAccount_MultipleAccounts(t *testing.T) {
 	}
 
 	// Verify all accounts are created
-	allAccounts, err := service.GetAccountList()
+	allAccounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -475,7 +422,7 @@ func TestAccountService_UpdateAccountStatusById_DifferentStatuses(t *testing.T) 
 		URL:        "http://example.com",
 		Status:     _type.AccountStatusActive,
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Test different status transitions
 	statuses := []_type.AccountStatusType{
@@ -489,7 +436,7 @@ func TestAccountService_UpdateAccountStatusById_DifferentStatuses(t *testing.T) 
 			t.Fatalf("UpdateAccountStatusById failed for status %d: %v", status, err)
 		}
 
-		result, _ := service.GetAccount(registered.ID)
+		result, _ := service.GetAccount(context.Background(), registered.ID)
 		if result.Status != status {
 			t.Errorf("Expected status %d, got %d", status, result.Status)
 		}
@@ -502,7 +449,7 @@ func TestAccountService_DeleteAccount_NonExistent(t *testing.T) {
 	service := NewAccountService()
 
 	// Try to delete non-existent account
-	err := service.DeleteAccount("non-existent-id")
+	err := service.DeleteAccount(context.Background(), "non-existent-id")
 	if err != nil {
 		// GORM may not return error for non-existent delete
 		t.Logf("DeleteAccount returned: %v", err)
@@ -524,7 +471,7 @@ func TestAccountService_CreateAccount_WithEmptyFields(t *testing.T) {
 		GroupID:    123456789,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with minimal fields failed: %v", err)
 	}
@@ -561,7 +508,7 @@ func TestAccountService_CreateAccount_WithSpecialCharacters(t *testing.T) {
 		URL:        "http://example.com/path?query=value&param=test",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with special characters failed: %v", err)
 	}
@@ -590,7 +537,7 @@ func TestAccountService_CreateAccount_WithLongStrings(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with long strings failed: %v", err)
 	}
@@ -614,7 +561,7 @@ func TestAccountService_CreateAccount_WithNegativePrice(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with negative price failed: %v", err)
 	}
@@ -638,7 +585,7 @@ func TestAccountService_CreateAccount_WithZeroPrice(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with zero price failed: %v", err)
 	}
@@ -662,7 +609,7 @@ func TestAccountService_CreateAccount_WithLargeGroupID(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with large GroupID failed: %v", err)
 	}
@@ -686,7 +633,7 @@ func TestAccountService_CreateAccount_WithNegativeGroupID(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with negative GroupID failed: %v", err)
 	}
@@ -711,103 +658,11 @@ func TestAccountService_UpdateAccount_NonExistent(t *testing.T) {
 		URL:        "http://example.com",
 	}
 
-	err := service.UpdateAccount(account)
+	err := service.UpdateAccount(context.Background(), account)
 	// 注意：GORM 的 Save 方法在记录不存在时会创建新记录或返回空错误
 	// 这里主要验证服务层能正确处理这种情况
 	if err != nil {
 		t.Logf("UpdateAccount returned: %v", err)
-	}
-}
-
-// TestAccountService_GetEpayConfigWithURLConstruction 测试 EpayConfig URL 构建
-func TestAccountService_GetEpayConfigWithURLConstruction(t *testing.T) {
-	setupAccountServiceTestDB(t)
-
-	service := NewAccountService()
-
-	testCases := []struct {
-		name           string
-		epayURL        string
-		expectedNotify string
-		expectedReturn string
-	}{
-		{
-			name:           "标准 URL",
-			epayURL:        "http://example.com",
-			expectedNotify: "http://example.com/api/epay_notify",
-			expectedReturn: "http://example.com",
-		},
-		{
-			name:           "带路径的 URL",
-			epayURL:        "http://example.com/payment",
-			expectedNotify: "http://example.com/payment/api/epay_notify",
-			expectedReturn: "http://example.com/payment",
-		},
-		{
-			name:           "HTTPS URL",
-			epayURL:        "https://secure.example.com",
-			expectedNotify: "https://secure.example.com/api/epay_notify",
-			expectedReturn: "https://secure.example.com",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			account := model.Account{
-				TgName:       "test_account_" + tc.name,
-				TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-				GroupID:      123456789,
-				URL:          tc.expectedReturn,
-				EpayURL:      tc.epayURL,
-				EpayPid:      "test_pid",
-				EpayKey:      "test_key",
-				EpayPayType:  "alipay",
-				EpayQueryUrl: "http://example.com/query",
-			}
-			registered, _ := service.CreateAccount(account)
-
-			config, err := service.GetEpayConfigByID(registered.ID)
-			if err != nil {
-				t.Fatalf("GetEpayConfigByID failed: %v", err)
-			}
-
-			if config.NotifyUrl != tc.expectedNotify {
-				t.Errorf("Expected NotifyUrl '%s', got %s", tc.expectedNotify, config.NotifyUrl)
-			}
-
-			if config.ReturnUrl != tc.expectedReturn {
-				t.Errorf("Expected ReturnUrl '%s', got %s", tc.expectedReturn, config.ReturnUrl)
-			}
-		})
-	}
-}
-
-// TestAccountService_GetEpayConfig_WithEmptyEpayFields 测试空 Epay 字段处理
-func TestAccountService_GetEpayConfig_WithEmptyEpayFields(t *testing.T) {
-	setupAccountServiceTestDB(t)
-
-	service := NewAccountService()
-
-	account := model.Account{
-		TgName:     "empty_epay_account",
-		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		GroupID:    123456789,
-		URL:        "http://example.com",
-		// Epay 字段为空
-	}
-	registered, _ := service.CreateAccount(account)
-
-	config, err := service.GetEpayConfigByID(registered.ID)
-	if err != nil {
-		t.Fatalf("GetEpayConfigByID failed: %v", err)
-	}
-
-	if config.Pid != "" {
-		t.Errorf("Expected empty Pid, got %s", config.Pid)
-	}
-
-	if config.Key != "" {
-		t.Errorf("Expected empty Key, got %s", config.Key)
 	}
 }
 
@@ -825,7 +680,7 @@ func TestAccountService_UpdateAccountStatusById_DuplicateStatus(t *testing.T) {
 		URL:        "http://example.com",
 		Status:     _type.AccountStatusActive,
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 更新为相同的状态
 	err := service.UpdateAccountStatusById(registered.ID, _type.AccountStatusActive, "Same status update")
@@ -833,7 +688,7 @@ func TestAccountService_UpdateAccountStatusById_DuplicateStatus(t *testing.T) {
 		t.Fatalf("UpdateAccountStatusById with same status failed: %v", err)
 	}
 
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.Status != _type.AccountStatusActive {
 		t.Errorf("Expected status %d, got %d", _type.AccountStatusActive, result.Status)
 	}
@@ -852,7 +707,7 @@ func TestAccountService_UpdateAccountTgNameById_WithEmptyName(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 更新为空名称
 	err := service.UpdateAccountTgNameById(registered.ID, "")
@@ -860,7 +715,7 @@ func TestAccountService_UpdateAccountTgNameById_WithEmptyName(t *testing.T) {
 		t.Fatalf("UpdateAccountTgNameById with empty name failed: %v", err)
 	}
 
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.TgName != "" {
 		t.Errorf("Expected empty TgName, got %s", result.TgName)
 	}
@@ -887,7 +742,7 @@ func TestAccountService_CreateAccount_WithAllHeadlessTrue(t *testing.T) {
 		TiktokHeadless:      &enableHeadless,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with all headless true failed: %v", err)
 	}
@@ -930,7 +785,7 @@ func TestAccountService_CreateAccount_WithAllHeadlessFalse(t *testing.T) {
 		TiktokHeadless:      &disableHeadless,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with all headless false failed: %v", err)
 	}
@@ -967,7 +822,7 @@ func TestAccountService_CreateAccount_WithNilHeadless(t *testing.T) {
 		// 不设置 Headless 字段，使用默认值
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with nil headless failed: %v", err)
 	}
@@ -1008,7 +863,7 @@ func TestAccountService_CreateAccount_WithProxyConfig(t *testing.T) {
 		ProxyPort:        10808,
 	}
 
-	result, err := service.CreateAccount(account)
+	result, err := service.CreateAccount(context.Background(), account)
 	if err != nil {
 		t.Fatalf("CreateAccount with full proxy config failed: %v", err)
 	}
@@ -1047,13 +902,13 @@ func TestAccountService_GetAccountList_WithLargeDataset(t *testing.T) {
 			Price:      "100.00",
 			URL:        "http://example" + idx + ".com",
 		}
-		_, err := service.CreateAccount(account)
+		_, err := service.CreateAccount(context.Background(), account)
 		if err != nil {
 			t.Fatalf("CreateAccount %d failed: %v", i, err)
 		}
 	}
 
-	accounts, err := service.GetAccountList()
+	accounts, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -1076,16 +931,16 @@ func TestAccountService_DeleteAccount_AlreadyDeleted(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 第一次删除
-	err := service.DeleteAccount(registered.ID)
+	err := service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("First DeleteAccount failed: %v", err)
 	}
 
 	// 第二次删除（GORM 不会报错，但不会有影响）
-	err = service.DeleteAccount(registered.ID)
+	err = service.DeleteAccount(context.Background(), registered.ID)
 	if err != nil {
 		t.Logf("Second DeleteAccount returned: %v", err)
 	}
@@ -1104,7 +959,7 @@ func TestAccountService_UpdateAccount_WithMinimalFields(t *testing.T) {
 		Price:      "100.00",
 		URL:        "http://example.com",
 	}
-	registered, _ := service.CreateAccount(account)
+	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 只更新一个字段
 	updateAccount := model.Account{
@@ -1112,12 +967,12 @@ func TestAccountService_UpdateAccount_WithMinimalFields(t *testing.T) {
 		Price: "999.99",
 	}
 
-	err := service.UpdateAccount(updateAccount)
+	err := service.UpdateAccount(context.Background(), updateAccount)
 	if err != nil {
 		t.Fatalf("UpdateAccount with minimal fields failed: %v", err)
 	}
 
-	result, _ := service.GetAccount(registered.ID)
+	result, _ := service.GetAccount(context.Background(), registered.ID)
 	if result.Price != "999.99" {
 		t.Errorf("Expected Price '999.99', got %s", result.Price)
 	}

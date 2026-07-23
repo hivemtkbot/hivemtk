@@ -29,6 +29,7 @@ func setupWeComRoutes(auth *gin.RouterGroup) {
 
 	// 企业微信消息管理
 	auth.POST("/wecom/accounts/:id/send-message", wecomCtrl.SendMessage)
+	auth.POST("/wecom/accounts/:id/refresh", wecomCtrl.RefreshAccount)
 	auth.GET("/wecom/messages", wecomCtrl.GetMessageList)
 
 	// 企业微信标签管理

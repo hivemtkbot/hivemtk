@@ -41,11 +41,6 @@ func TestAccountController_CreateAccount_Success(t *testing.T) {
 		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:               "100.0",
 		GroupID:             123,
-		EpayPid:             "123456",
-		EpayKey:             "epay_key_123",
-		EpayPayType:         "1",
-		EpayQueryUrl:        "http://example.com/query",
-		EpayURL:             "http://example.com",
 		ProxyEnableProxy:    false,
 		ProxyProtoclo:       "http",
 		ProxyHost:           "localhost",
@@ -290,11 +285,6 @@ func TestAccountController_CreateAccount_MinimalRequest(t *testing.T) {
 		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:        "100.0",
 		GroupID:      123,
-		EpayPid:      "123456",
-		EpayKey:      "epay_key_123",
-		EpayPayType:  "1",
-		EpayQueryUrl: "http://example.com/query",
-		EpayURL:      "http://example.com",
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -320,11 +310,6 @@ func TestAccountController_CreateAccount_WithProxyConfig(t *testing.T) {
 		TgBotToken:       "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:            "100.0",
 		GroupID:          123,
-		EpayPid:          "123456",
-		EpayKey:          "epay_key_123",
-		EpayPayType:      "1",
-		EpayQueryUrl:     "http://example.com/query",
-		EpayURL:          "http://example.com",
 		ProxyEnableProxy: true,
 		ProxyProtoclo:    "socks5",
 		ProxyHost:        "proxy.example.com",
@@ -354,11 +339,6 @@ func TestAccountController_UpdateAccount_PartialUpdate(t *testing.T) {
 		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:        "100.0",
 		GroupID:      123,
-		EpayPid:      "123456",
-		EpayKey:      "epay_key_123",
-		EpayPayType:  "1",
-		EpayQueryUrl: "http://example.com/query",
-		EpayURL:      "http://example.com",
 	}
 	database.Create(&account)
 
@@ -389,9 +369,6 @@ func TestAccountController_GetAccounts_MultipleAccounts(t *testing.T) {
 
 	// 创建多个测试账户
 	accounts := []model.Account{
-		{ID: "account1", TgBotToken: "token1", Price: "100.0", GroupID: 1, EpayPid: "1", EpayKey: "1", EpayPayType: "1", EpayQueryUrl: "http://example.com", EpayURL: "http://example.com"},
-		{ID: "account2", TgBotToken: "token2", Price: "200.0", GroupID: 2, EpayPid: "2", EpayKey: "2", EpayPayType: "2", EpayQueryUrl: "http://example.com", EpayURL: "http://example.com"},
-		{ID: "account3", TgBotToken: "token3", Price: "300.0", GroupID: 3, EpayPid: "3", EpayKey: "3", EpayPayType: "3", EpayQueryUrl: "http://example.com", EpayURL: "http://example.com"},
 	}
 	for _, account := range accounts {
 		database.Create(&account)
@@ -425,11 +402,6 @@ func TestAccountController_CreateAccount_WithoutHeadless(t *testing.T) {
 		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		Price:        "100.0",
 		GroupID:      123,
-		EpayPid:      "123456",
-		EpayKey:      "epay_key_123",
-		EpayPayType:  "1",
-		EpayQueryUrl: "http://example.com/query",
-		EpayURL:      "http://example.com",
 	}
 	body, _ := json.Marshal(createReq)
 

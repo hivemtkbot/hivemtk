@@ -21,7 +21,7 @@ import (
 //   2. 缓存 key = tool_name + sha256(args JSON)，确保唯一性
 //   3. TTL 过期自动失效（默认 60s，可按工具配置）
 //   4. LRU 淘汰策略（避免内存无限增长，默认 1000 条）
-//   5. 支持按 tool_name 禁用缓存（写入类工具：order.create/coupon.apply 等不应缓存）
+//   5. 支持按 tool_name 禁用缓存（写入类工具：order.create 等不应缓存）
 //
 // 装饰器链位置：权限 → 限流 → 熔断 → 参数校验 → 缓存 → 重试 → 超时 → 审计
 // （缓存在重试之前：缓存命中时不进入重试链路）
@@ -58,8 +58,6 @@ var defaultCacheDisabledTools = map[string]bool{
 	"order.create":         true,
 	"order.update":         true,
 	"order.cancel":         true,
-	"coupon.apply":         true, // 核销优惠券（状态变更）
-	"coupon.create":        true,
 	"follow_task.create":   true,
 	"follow_task.update":   true,
 	"follow_task.complete": true,

@@ -90,7 +90,7 @@ func toFeishuVO(a *model.FeishuAccount) *feishuAccountVO {
 
 // List 列出所有飞书账号
 func (ctrl *FeishuAccountController) List(c *gin.Context) {
-	accs, err := ctrl.svc.ListAccounts()
+	accs, err := ctrl.svc.ListAccounts(context.Background(), )
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return
@@ -109,7 +109,7 @@ func (ctrl *FeishuAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -145,7 +145,7 @@ func (ctrl *FeishuAccountController) Create(c *gin.Context) {
 		AIAgentEnabled:    req.AIAgentEnabled,
 		Status:            1,
 	}
-	out, err := ctrl.svc.CreateAccount(acc)
+	out, err := ctrl.svc.CreateAccount(context.Background(), acc)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "创建失败", err.Error())
 		return
@@ -176,7 +176,7 @@ func (ctrl *FeishuAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -205,7 +205,7 @@ func (ctrl *FeishuAccountController) Update(c *gin.Context) {
 	if req.Status != nil {
 		acc.Status = *req.Status
 	}
-	if err := ctrl.svc.UpdateAccount(acc); err != nil {
+	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
 		response.Error(c, http.StatusInternalServerError, "更新失败", err.Error())
 		return
 	}
@@ -219,7 +219,7 @@ func (ctrl *FeishuAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
-	if err := ctrl.svc.DeleteAccount(uint(id)); err != nil {
+	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
 		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
 		return
 	}
@@ -261,7 +261,7 @@ func (ctrl *FeishuAccountController) RefreshToken(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return

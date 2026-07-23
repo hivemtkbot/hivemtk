@@ -74,7 +74,7 @@ func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *Smart
 	}
 	sessionSvc := NewCustomerSessionService()
 	assignmentSvc := NewSessionAssignmentService()
-	assignmentSvc.SetConfidenceThreshold(cfg.ConfidenceThreshold)
+	assignmentSvc.SetConfidenceThreshold(context.Background(), cfg.ConfidenceThreshold)
 	return &SmartCSOrchestrator{
 		engine:              engine,
 		sessionSvc:          sessionSvc,
@@ -172,20 +172,20 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}()
 
 	// 1. 查找或创建客服会话
-	session, err := o.findOrCreateSession(in)
+	session, err := o.findOrCreateSession(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("find/create session failed: %w", err)
 	}
 	result.SessionID = session.SessionID
 
 	// 2. 保存入站消息到会话
-	if err := o.saveInboundMessage(session, in); err != nil {
+	if err := o.saveInboundMessage(ctx, session, in); err != nil {
 		return nil, fmt.Errorf("save inbound message failed: %w", err)
 	}
 
 	// 3. 已分配给在线人工座席的会话：直接转人工，不触发 AI
 	if session.HandlerType == model.HandlerTypeHuman && session.AgentID > 0 {
-		if o.isAgentOnline(session.AgentID) {
+		if o.isAgentOnline(ctx, session.AgentID) {
 			result.HandlerType = model.HandlerTypeHuman
 			result.Transferred = true
 			result.TransferReason = "会话已分配给在线座席"
@@ -199,16 +199,16 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = fmt.Sprintf("AI 连续回复已达上限 (%d 次)，转人工跟进", o.maxAIConsecutive)
-		_ = o.transferToHuman(session, result.TransferReason)
+		_ = o.transferToHuman(ctx, session, result.TransferReason)
 		return result, nil
 	}
 
 	// 5. 检查紧急/投诉内容：直接转人工
-	if o.isUrgentOrComplaint(in.Content) {
+	if o.isUrgentOrComplaint(ctx, in.Content) {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = "检测到紧急或投诉内容，转人工处理"
-		_ = o.transferToHuman(session, result.TransferReason)
+		_ = o.transferToHuman(ctx, session, result.TransferReason)
 		return result, nil
 	}
 
@@ -218,7 +218,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = "AI 引擎未就绪，转人工"
-		_ = o.transferToHuman(session, result.TransferReason)
+		_ = o.transferToHuman(ctx, session, result.TransferReason)
 		return result, nil
 	}
 
@@ -254,14 +254,14 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = "AI 引擎处理失败，转人工兜底"
-		_ = o.transferToHuman(session, result.TransferReason)
+		_ = o.transferToHuman(ctx, session, result.TransferReason)
 		return result, nil
 	}
 	result.SalesResponse = salesResp
-	result.Confidence = o.extractConfidence(salesResp)
+	result.Confidence = o.extractConfidence(ctx, salesResp)
 
 	// 7. 保存 AI 建议（无论是否自动回复，都给座席参考）
-	suggestionID := o.saveAISuggestion(session.SessionID, salesResp)
+	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp)
 	result.SuggestionID = suggestionID
 
 	// 8. 决策：AI 自动回复 or 转人工
@@ -279,7 +279,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		} else {
 			result.TransferReason = fmt.Sprintf("AI 置信度不足 (%.2f < %.2f)", result.Confidence, threshold)
 		}
-		_ = o.transferToHuman(session, result.TransferReason)
+		_ = o.transferToHuman(ctx, session, result.TransferReason)
 		return result, nil
 	}
 
@@ -289,11 +289,11 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	result.Reply = salesResp.Reply
 
 	if o.enableAutoReply && salesResp.Reply != "" {
-		if err := o.saveOutboundMessage(session, salesResp.Reply, true); err != nil {
+		if err := o.saveOutboundMessage(ctx, session, salesResp.Reply, true); err != nil {
 			return nil, fmt.Errorf("save outbound message failed: %w", err)
 		}
-		_ = o.markSuggestionUsed(suggestionID)
-		_ = o.incrementAIReplyCount(session)
+		_ = o.markSuggestionUsed(ctx, suggestionID)
+		_ = o.incrementAIReplyCount(ctx, session)
 	}
 
 	return result, nil
@@ -383,7 +383,7 @@ func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID st
 	if o.suggestionRepo == nil || resp == nil || resp.Reply == "" {
 		return 0
 	}
-	confidence := o.extractConfidence(resp)
+	confidence := o.extractConfidence(context.Background(), resp)
 	suggestion := &model.AISuggestion{
 		SessionID:  sessionID,
 		Suggestion: resp.Reply,

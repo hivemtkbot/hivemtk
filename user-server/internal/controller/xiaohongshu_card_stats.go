@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -48,7 +49,7 @@ func (c *XiaohongshuCardStatsController) GetCardStats(ctx *gin.Context) {
 		req.GroupBy = "day"
 	}
 
-	stats, err := c.statsService.GetCardStats(req)
+	stats, err := c.statsService.GetCardStats(context.Background(), req)
 	if HandleDBError(ctx, err, "获取小红书卡片统计") {
 		return
 	}
@@ -76,7 +77,7 @@ func (c *XiaohongshuCardStatsController) GetOverallStats(ctx *gin.Context) {
 		req.GroupBy = "day"
 	}
 
-	stats, err := c.statsService.GetOverallStats(req)
+	stats, err := c.statsService.GetOverallStats(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, 500, "获取统计数据失败", err.Error())
 		return

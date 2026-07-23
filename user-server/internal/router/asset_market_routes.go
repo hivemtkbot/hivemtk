@@ -32,6 +32,7 @@ func setupAssetMarketRoutes(auth *gin.RouterGroup) {
 		market.GET("/detail/:asset_id", h.MarketDetail)
 		market.POST("/purchase", h.Purchase)
 		market.POST("/sync", h.Sync)
+		market.POST("/report-usage", h.ReportUsage)
 	}
 
 	localGroups := []*gin.RouterGroup{

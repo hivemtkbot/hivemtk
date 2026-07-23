@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 
 	"marketing/internal/dto"
@@ -27,13 +28,13 @@ func (c *CustomerJourneyController) GetOverview(ctx *gin.Context) {
 
 	if customerID != "" {
 		// 单客户旅程查询
-		state := c.svc.GetState(customerID)
+		state := c.svc.GetState(context.Background(), customerID)
 		response.Success(ctx, state, "查询成功")
 		return
 	}
 
 	// 全量阶段总览
-	overview := c.svc.GetOverview()
+	overview := c.svc.GetOverview(context.Background(), )
 	response.Success(ctx, overview, "查询成功")
 }
 
@@ -71,7 +72,7 @@ func (c *CustomerJourneyController) TouchCustomer(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	c.svc.Touch(req.CustomerID, req.Source)
+	c.svc.Touch(context.Background(), req.CustomerID, req.Source)
 	response.Success(ctx, nil, "互动已记录")
 }
 
@@ -82,7 +83,7 @@ func (c *CustomerJourneyController) ListByStage(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "stage 参数不能为空")
 		return
 	}
-	ids := c.svc.ListByStage(dto.JourneyStage(stage))
+	ids := c.svc.ListByStage(context.Background(), dto.JourneyStage(stage))
 	response.Success(ctx, gin.H{"stage": stage, "customer_ids": ids, "count": len(ids)}, "查询成功")
 }
 

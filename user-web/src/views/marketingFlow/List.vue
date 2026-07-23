@@ -51,7 +51,6 @@
           <el-select v-model="form.trigger" style="width: 100%">
             <el-option label="用户注册" value="user_register" />
             <el-option label="新线索" value="new_clue" />
-            <el-option label="订单创建" value="order_created" />
             <el-option label="定时触发" value="schedule" />
             <el-option label="手动触发" value="manual" />
           </el-select>
@@ -133,6 +132,7 @@ import {
   toggleFlow as toggleFlowApi,
   getFlowLogs
 } from '@/api/marketingFlow.js'
+import { toList } from '@/utils/list.js'
 
 const loading = ref(false)
 const flows = ref([])
@@ -157,7 +157,7 @@ const refreshData = async () => {
   loading.value = true
   try {
     const res = await getFlows()
-    flows.value = res || []
+    flows.value = toList(res)
   } finally {
     loading.value = false
   }

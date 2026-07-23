@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 	"net/http"
@@ -24,7 +25,7 @@ func NewAISuggestionController() *AISuggestionController {
 // GetSuggestions 获取AI建议
 func (c *AISuggestionController) GetSuggestions(ctx *gin.Context) {
 	sessionID := ctx.Param("session_id")
-	suggestions, err := c.suggestionService.GetSuggestions(sessionID)
+	suggestions, err := c.suggestionService.GetSuggestions(context.Background(), sessionID)
 	if HandleDBError(ctx, err, "获取AI建议") {
 		return
 	}
@@ -43,7 +44,7 @@ func (c *AISuggestionController) UseSuggestion(ctx *gin.Context) {
 
 	agentID := getUserIDFromContext(ctx)
 
-	if err := c.suggestionService.UseSuggestion(uint(id), agentID); err != nil {
+	if err := c.suggestionService.UseSuggestion(context.Background(), uint(id), agentID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -63,7 +63,7 @@ func TestWeComAccountRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountRepo.Create(context.Background(), tt.account)
+			err := accountRepo.Create(tt.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -85,7 +85,7 @@ func TestWeComAccountRepository_GetByID(t *testing.T) {
 		CorpID: "ww123456",
 		Status: 1,
 	}
-	accountRepo.Create(context.Background(), account)
+	accountRepo.Create(account)
 
 	tests := []struct {
 		name    string
@@ -106,7 +106,7 @@ func TestWeComAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := accountRepo.GetByID(context.Background(), tt.id)
+			result, err := accountRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -130,16 +130,16 @@ func TestWeComAccountRepository_Update(t *testing.T) {
 		CorpID: "ww123456",
 		Status: 1,
 	}
-	accountRepo.Create(context.Background(), account)
+	accountRepo.Create(account)
 
 	account.CorpSecret = "updated_secret"
 
-	err := accountRepo.Update(context.Background(), account)
+	err := accountRepo.Update(account)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(context.Background(), account.ID)
+	updated, _ := accountRepo.GetByID(account.ID)
 	if updated.CorpSecret != "updated_secret" {
 		t.Errorf("Expected CorpSecret 'updated_secret', got '%s'", updated.CorpSecret)
 	}
@@ -153,14 +153,14 @@ func TestWeComAccountRepository_UpdateToken(t *testing.T) {
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	accountRepo.Create(context.Background(), account)
+	accountRepo.Create(account)
 
 	err := accountRepo.UpdateToken(context.Background(), account.ID, "new_token_123", account.CreatedAt.AddDate(0, 0, 7))
 	if err != nil {
 		t.Errorf("UpdateToken() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(context.Background(), account.ID)
+	updated, _ := accountRepo.GetByID(account.ID)
 	if updated.AccessToken != "new_token_123" {
 		t.Errorf("Expected AccessToken 'new_token_123', got '%s'", updated.AccessToken)
 	}
@@ -174,14 +174,14 @@ func TestWeComAccountRepository_Delete(t *testing.T) {
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	accountRepo.Create(context.Background(), account)
+	accountRepo.Create(account)
 
-	err := accountRepo.Delete(context.Background(), account.ID)
+	err := accountRepo.Delete(account.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = accountRepo.GetByID(context.Background(), account.ID)
+	_, err = accountRepo.GetByID(account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -195,14 +195,14 @@ func TestWeComAccountRepository_UpdateSyncTime(t *testing.T) {
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	if err := accountRepo.Create(context.Background(), account); err != nil {
+	if err := accountRepo.Create(account); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 
 	if err := accountRepo.UpdateSyncTime(context.Background(), account.ID); err != nil {
 		t.Errorf("UpdateSyncTime() error = %v", err)
 	}
-	updated, err := accountRepo.GetByID(context.Background(), account.ID)
+	updated, err := accountRepo.GetByID(account.ID)
 	if err != nil {
 		t.Fatalf("GetByID() error = %v", err)
 	}
@@ -241,7 +241,7 @@ func TestWeComCustomerRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := customerRepo.Create(context.Background(), tt.customer)
+			err := customerRepo.Create(tt.customer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -264,7 +264,7 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 		ExternalUserID: "ext123",
 		Name:           "Test Customer",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
 	tests := []struct {
 		name    string
@@ -285,7 +285,7 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := customerRepo.GetByID(context.Background(), tt.id)
+			result, err := customerRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -310,16 +310,16 @@ func TestWeComCustomerRepository_Update(t *testing.T) {
 		ExternalUserID: "ext123",
 		Name:           "Original Name",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
 	customer.Name = "Updated Name"
 
-	err := customerRepo.Update(context.Background(), customer)
+	err := customerRepo.Update(customer)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := customerRepo.GetByID(context.Background(), customer.ID)
+	updated, _ := customerRepo.GetByID(customer.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -334,14 +334,14 @@ func TestWeComCustomerRepository_Delete(t *testing.T) {
 		EmployeeID:     "emp123",
 		ExternalUserID: "ext123",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
-	err := customerRepo.Delete(context.Background(), customer.ID)
+	err := customerRepo.Delete(customer.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = customerRepo.GetByID(context.Background(), customer.ID)
+	_, err = customerRepo.GetByID(customer.ID)
 	if err == nil {
 		t.Error("Expected customer to be deleted")
 	}
@@ -353,12 +353,12 @@ func TestWeComCustomerRepository_GetByEmployeeID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		customerRepo.Create(context.Background(), &model.WeComCustomer{
+		customerRepo.Create(&model.WeComCustomer{
 			EmployeeID:     "emp123",
 			ExternalUserID: "ext" + string(rune('0'+i)),
 		})
 	}
-	customerRepo.Create(context.Background(), &model.WeComCustomer{
+	customerRepo.Create(&model.WeComCustomer{
 		EmployeeID:     "emp456",
 		ExternalUserID: "ext999",
 	})
@@ -407,7 +407,7 @@ func TestWeComGroupRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := groupRepo.Create(context.Background(), tt.group)
+			err := groupRepo.Create(tt.group)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -429,7 +429,7 @@ func TestWeComGroupRepository_GetByID(t *testing.T) {
 		ChatID: "chat123",
 		Name:   "Test Group",
 	}
-	groupRepo.Create(context.Background(), group)
+	groupRepo.Create(group)
 
 	tests := []struct {
 		name    string
@@ -450,7 +450,7 @@ func TestWeComGroupRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := groupRepo.GetByID(context.Background(), tt.id)
+			result, err := groupRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -474,7 +474,7 @@ func TestWeComGroupRepository_GetByChatID(t *testing.T) {
 		ChatID: "chat123",
 		Name:   "Test Group",
 	}
-	groupRepo.Create(context.Background(), group)
+	groupRepo.Create(group)
 
 	tests := []struct {
 		name    string
@@ -519,16 +519,16 @@ func TestWeComGroupRepository_Update(t *testing.T) {
 		ChatID: "chat123",
 		Name:   "Original Name",
 	}
-	groupRepo.Create(context.Background(), group)
+	groupRepo.Create(group)
 
 	group.Name = "Updated Name"
 
-	err := groupRepo.Update(context.Background(), group)
+	err := groupRepo.Update(group)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := groupRepo.GetByID(context.Background(), group.ID)
+	updated, _ := groupRepo.GetByID(group.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -542,14 +542,14 @@ func TestWeComGroupRepository_Delete(t *testing.T) {
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 	}
-	groupRepo.Create(context.Background(), group)
+	groupRepo.Create(group)
 
-	err := groupRepo.Delete(context.Background(), group.ID)
+	err := groupRepo.Delete(group.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = groupRepo.GetByID(context.Background(), group.ID)
+	_, err = groupRepo.GetByID(group.ID)
 	if err == nil {
 		t.Error("Expected group to be deleted")
 	}
@@ -564,7 +564,7 @@ func TestWeComGroupRepository_UpdateMemberCount(t *testing.T) {
 		ChatID:      "chat123",
 		MemberCount: 5,
 	}
-	groupRepo.Create(context.Background(), group)
+	groupRepo.Create(group)
 
 	err := groupRepo.UpdateMemberCount(context.Background(), "chat123", 15)
 	if err != nil {

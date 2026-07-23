@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 	"marketing/internal/repository"
@@ -45,21 +44,4 @@ func (s *AccountService) UpdateAccountStatusById(ctx context.Context, id string,
 
 func (s *AccountService) UpdateAccountTgNameById(ctx context.Context, id string, TgName string) error {
 	return s.repo.UpdateAccountTgNameById(ctx, id, TgName)
-}
-
-func (s *AccountService) GetEpayConfigByID(ctx context.Context, account_ID string) (_type.EpayConfig, error) {
-	account, err := s.repo.GetByID(ctx, account_ID)
-	if err != nil {
-		return _type.EpayConfig{}, err
-	}
-	EpayConfig := _type.EpayConfig{
-		Pid:		account.EpayPid,
-		Key:		account.EpayKey,
-		Type:		account.EpayPayType,
-		NotifyUrl:	fmt.Sprintf("%s%s", account.EpayURL, "/api/epay_notify"),
-		ReturnUrl:	account.URL,
-		QueryUrl:	account.EpayQueryUrl,
-		EpayUrl:	account.EpayURL,
-	}
-	return EpayConfig, nil
 }

@@ -45,7 +45,7 @@ func (c *RagRecallMonitorController) GetSnapshot(ctx *gin.Context) {
 		response.Error(ctx, http.StatusServiceUnavailable, "召回率监控服务未初始化")
 		return
 	}
-	snap, at := c.svc.GetLatestSnapshot()
+	snap, at := c.svc.GetLatestSnapshot(context.Background(), )
 	if snap == nil {
 		response.Success(ctx, gin.H{
 			"summary":   nil,
@@ -134,7 +134,7 @@ func (c *RagRecallMonitorController) Start(ctx *gin.Context) {
 		response.Error(ctx, http.StatusServiceUnavailable, "召回率监控服务未初始化")
 		return
 	}
-	c.svc.Start()
+	c.svc.Start(context.Background(), )
 	response.Success(ctx, gin.H{"started": true, "interval": service.RagRecallMonitorDefaultInterval.String()}, "已启动")
 }
 
@@ -149,7 +149,7 @@ func (c *RagRecallMonitorController) Stop(ctx *gin.Context) {
 		response.Error(ctx, http.StatusServiceUnavailable, "召回率监控服务未初始化")
 		return
 	}
-	c.svc.Stop()
+	c.svc.Stop(context.Background(), )
 	response.Success(ctx, gin.H{"started": false}, "已停止")
 }
 

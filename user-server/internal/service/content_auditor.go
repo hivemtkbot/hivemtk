@@ -139,7 +139,7 @@ func NewContentAuditor() *ContentAuditor {
 }
 
 // Audit 审核内容
-func (a *ContentAuditor) Audit(ctx context.Context, text string, auditCtx *AuditContext)  *AuditResult {
+func (a *ContentAuditor) Audit(text string, auditCtx *AuditContext) *AuditResult {
 	result := &AuditResult{
 		Pass:     true,
 		Issues:   []string{},

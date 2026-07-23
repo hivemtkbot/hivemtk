@@ -88,7 +88,7 @@ func (s *RagMetricsService) Start(ctx context.Context) {
 	s.started = true
 	s.mu.Unlock()
 
-	s.wg.Add(ctx, 1)
+	s.wg.Add(1)
 	go s.flushLoop(ctx)
 }
 
@@ -108,14 +108,14 @@ func (s *RagMetricsService) Stop(ctx context.Context) {
 	case s.flushCh <- struct{}{}:
 	default:
 	}
-	s.wg.Wait(ctx)
+	s.wg.Wait()
 	// 兜底再 flush 一次（防止 race）
 	_ = s.flush(ctx)
 }
 
 // flushLoop 后台定时刷写
 func (s *RagMetricsService) flushLoop(ctx context.Context) {
-	defer s.wg.Done(ctx)
+	defer s.wg.Done()
 	ticker := time.NewTicker(RagMetricsFlushInterval)
 	defer ticker.Stop()
 	for {
@@ -533,7 +533,7 @@ func NewRagMetricsCron(svc *RagMetricsService) *RagMetricsCron {
 // Start 启动 cron
 func (c *RagMetricsCron) Start(ctx context.Context)  {
 	c.wg.Add(1)
-	go c.run()
+	go c.run(ctx)
 }
 
 // Stop 停止 cron

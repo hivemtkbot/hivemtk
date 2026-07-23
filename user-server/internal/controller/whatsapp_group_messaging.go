@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -53,7 +54,7 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 	}
 	// 注意：ClueService不支持所有这些查询条件，这里使用基本查询
 	// 由于ClueService的限制，我们暂时返回所有线索
-	clues, total, err := gmc.clueSvc.GetClueAllList(7) // 假设7是WhatsApp线索类型
+	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) // 假设7是WhatsApp线索类型
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取线索失败", err.Error())
 		return
@@ -108,7 +109,7 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	}
 
 	// 获取消息模板
-	template, err := gmc.templateService.GetTemplate(req.TemplateID)
+	template, err := gmc.templateService.GetTemplate(context.Background(), req.TemplateID)
 	if HandleDBError(c, err, "获取消息模板") {
 		return
 	}
@@ -122,7 +123,7 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	leads := make([]map[string]any, 0)
 
 	// 获取所有WhatsApp类型的线索
-	allClues, _, err := gmc.clueSvc.GetClueAllList(7) // 7 是WhatsApp线索类型
+	allClues, _, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) // 7 是WhatsApp线索类型
 	if err != nil {
 		logger.Errorf("获取WhatsApp线索失败: %v", err)
 		// 如果获取所有线索失败，仍然尝试处理请求ID
@@ -184,7 +185,7 @@ func (gmc *GroupMessagingController) SelectGroupAndSendMessage(c *gin.Context) {
 	}
 
 	// 添加到消息队列
-	queueID, err := gmc.messageQueue.AddBatch(messages)
+	queueID, err := gmc.messageQueue.AddBatch(context.Background(), messages)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "添加到队列失败", "添加到队列失败")
 		return
@@ -233,7 +234,7 @@ func (gmc *GroupMessagingController) personalizeMessage(templateContent string, 
 
 // 处理消息队列
 func (gmc *GroupMessagingController) processMessageQueue(queueID string) {
-	messages := gmc.messageQueue.GetQueue(queueID)
+	messages := gmc.messageQueue.GetQueue(context.Background(), queueID)
 
 	for i, message := range messages {
 		// 添加发送间隔，避免被限流
@@ -245,7 +246,7 @@ func (gmc *GroupMessagingController) processMessageQueue(queueID string) {
 		success := gmc.sendMessageToWhatsApp(message)
 
 		// 更新发送状态
-		gmc.messageQueue.UpdateStatus(queueID, message.ID, success)
+		gmc.messageQueue.UpdateStatus(context.Background(), queueID, message.ID, success)
 
 		if !success {
 			// 记录发送失败
@@ -262,7 +263,7 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 	}
 
 	// 获取所有可用的WhatsApp账号
-	accounts, err := gmc.whatsappService.ListAccounts()
+	accounts, err := gmc.whatsappService.ListAccounts(context.Background(), )
 	if err != nil || len(accounts) == 0 {
 		logger.Errorf("获取WhatsApp账号失败或无可用账号: %v", err)
 		gmc.persistSendFailure(message, "无可用账号")
@@ -282,10 +283,10 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 	}
 
 	// 检查账号是否已建立 session
-	hasSession, _ := gmc.whatsappService.LoginStatus(account.ID)
+	hasSession, _ := gmc.whatsappService.LoginStatus(context.Background(), account.ID)
 	if !hasSession {
 		// 启动登录获取 QR；此次发送失败但记录原因
-		_, loginErr := gmc.whatsappService.StartLogin(account.ID, 30*time.Second)
+		_, loginErr := gmc.whatsappService.StartLogin(context.Background(), account.ID, 30*time.Second)
 		if loginErr != nil {
 			logger.Errorf("启动 WhatsApp 登录失败: %v", loginErr)
 			gmc.persistSendFailure(message, "账号未登录: "+loginErr.Error())
@@ -297,7 +298,7 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 
 	// 构造 JID 并发送
 	toJid := formatWhatsAppJID(message.PhoneNumber)
-	if _, err := gmc.whatsappService.SendTextMessage(account.ID, toJid, message.Content); err != nil {
+	if _, err := gmc.whatsappService.SendTextMessage(context.Background(), account.ID, toJid, message.Content); err != nil {
 		logger.Errorf("发送 WhatsApp 消息失败: %v", err)
 		gmc.persistSendFailure(message, err.Error())
 		return false
@@ -316,12 +317,12 @@ func formatWhatsAppJID(phone string) string {
 
 // persistSendSuccess 记录发送成功到数据库
 func (gmc *GroupMessagingController) persistSendSuccess(message model.QueuedMessage) {
-	gmc.messageQueue.RecordGroupMessage(message, "sent", "")
+	gmc.messageQueue.RecordGroupMessage(context.Background(), message, "sent", "")
 }
 
 // persistSendFailure 记录发送失败到数据库
 func (gmc *GroupMessagingController) persistSendFailure(message model.QueuedMessage, reason string) {
-	gmc.messageQueue.RecordGroupMessage(message, "failed", reason)
+	gmc.messageQueue.RecordGroupMessage(context.Background(), message, "failed", reason)
 }
 
 // 记录发送失败
@@ -333,7 +334,7 @@ func (gmc *GroupMessagingController) recordSendFailure(message model.QueuedMessa
 func (gmc *GroupMessagingController) GetMessageStatus(c *gin.Context) {
 	queueID := c.Param("queue_id")
 
-	status := gmc.messageQueue.GetStatus(queueID)
+	status := gmc.messageQueue.GetStatus(context.Background(), queueID)
 
 	response.Success(c, gin.H{
 		"queue_id": queueID,
@@ -354,7 +355,7 @@ func (gmc *GroupMessagingController) GetTemplates(c *gin.Context) {
 		}
 	}
 
-	templates, err := gmc.templateService.GetTemplates(category, isActive)
+	templates, err := gmc.templateService.GetTemplates(context.Background(), category, isActive)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取模板失败", err.Error())
 		return
@@ -371,7 +372,7 @@ func (gmc *GroupMessagingController) GetTemplateByID(c *gin.Context) {
 		return
 	}
 
-	template, err := gmc.templateService.GetTemplate(templateID)
+	template, err := gmc.templateService.GetTemplate(context.Background(), templateID)
 	if HandleDBError(c, err, "获取消息模板") {
 		return
 	}
@@ -387,7 +388,7 @@ func (gmc *GroupMessagingController) CreateTemplate(c *gin.Context) {
 		return
 	}
 
-	template, err := gmc.templateService.CreateTemplate(&req)
+	template, err := gmc.templateService.CreateTemplate(context.Background(), &req)
 	if HandleDBError(c, err, "创建模板") {
 		return
 	}
@@ -405,7 +406,7 @@ func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 	}
 
 	// 获取现有模板
-	existingTemplate, err := gmc.templateService.GetTemplate(id)
+	existingTemplate, err := gmc.templateService.GetTemplate(context.Background(), id)
 	if HandleDBError(c, err, "获取模板") {
 		return
 	}
@@ -418,7 +419,7 @@ func (gmc *GroupMessagingController) UpdateTemplate(c *gin.Context) {
 	existingTemplate.Description = req.Description
 
 	// 保存更新
-	updated, err := gmc.templateService.UpdateTemplate(existingTemplate)
+	updated, err := gmc.templateService.UpdateTemplate(context.Background(), existingTemplate)
 	if HandleDBError(c, err, "更新模板") {
 		return
 	}
@@ -431,7 +432,7 @@ func (gmc *GroupMessagingController) DeleteTemplate(c *gin.Context) {
 	id := c.Param("id")
 
 	// 调用TemplateService删除模板
-	if HandleDBError(c, gmc.templateService.DeleteTemplate(id), "删除模板") {
+	if HandleDBError(c, gmc.templateService.DeleteTemplate(context.Background(), id), "删除模板") {
 		return
 	}
 
@@ -447,7 +448,7 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 	}
 
 	// 从数据库读取所有队列状态
-	allStatuses := gmc.messageQueue.ListAllStatuses()
+	allStatuses := gmc.messageQueue.ListAllStatuses(context.Background(), )
 
 	statuses := make([]map[string]any, 0, len(allStatuses))
 	for _, status := range allStatuses {

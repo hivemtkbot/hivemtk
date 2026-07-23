@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -101,7 +102,7 @@ func maskBotToken(token string) string {
 
 // List 列表
 func (ctrl *TelegramAccountController) List(c *gin.Context) {
-	accs, err := ctrl.svc.ListAccounts()
+	accs, err := ctrl.svc.ListAccounts(context.Background(), )
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取列表失败", err.Error())
 		return
@@ -120,7 +121,7 @@ func (ctrl *TelegramAccountController) Get(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -160,7 +161,7 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		AIAgentEnabled: req.AIAgentEnabled,
 		Status:         req.Status,
 	}
-	if _, err := ctrl.svc.CreateAccount(acc); err != nil {
+	if _, err := ctrl.svc.CreateAccount(context.Background(), acc); err != nil {
 		response.Error(c, http.StatusInternalServerError, "创建失败", err.Error())
 		return
 	}
@@ -174,7 +175,7 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -198,7 +199,7 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 	if req.Status != 0 {
 		acc.Status = req.Status
 	}
-	if err := ctrl.svc.UpdateAccount(acc); err != nil {
+	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
 		response.Error(c, http.StatusInternalServerError, "更新失败", err.Error())
 		return
 	}
@@ -212,7 +213,7 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	if err := ctrl.svc.DeleteAccount(uint(id)); err != nil {
+	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
 		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
 		return
 	}
@@ -228,7 +229,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -254,7 +255,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		now := time.Now()
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
-		_ = ctrl.svc.UpdateAccount(acc)
+		_ = ctrl.svc.UpdateAccount(context.Background(), acc)
 		response.Error(c, http.StatusInternalServerError, "注册 Webhook 失败", err.Error())
 		return
 	}
@@ -270,7 +271,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 			acc.BotUsername = uname
 		}
 	}
-	if err := ctrl.svc.UpdateAccount(acc); err != nil {
+	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
 		response.Error(c, http.StatusInternalServerError, "保存状态失败", err.Error())
 		return
 	}
@@ -301,7 +302,7 @@ func (ctrl *TelegramAccountController) Status(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
@@ -343,7 +344,7 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	acc, err := ctrl.svc.GetAccount(uint(id))
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return

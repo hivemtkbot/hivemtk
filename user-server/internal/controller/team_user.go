@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 	"net/http"
@@ -258,7 +259,7 @@ func (c *TeamUserController) GetCurrentUser(ctx *gin.Context) {
 	}
 
 	// 优先查 system_users（admin/超管），找不到再回退到 team_users
-	user, err := c.systemUserService.GetUserByID(uid)
+	user, err := c.systemUserService.GetUserByID(context.Background(), uid)
 	if err != nil || user == nil {
 		// 回退到 team_users
 		teamUser, terr := c.userService.GetByID(ctx, uid)
@@ -369,6 +370,6 @@ func (c *TeamRoleController) Delete(ctx *gin.Context) {
 
 // GetPermissions 获取所有权限
 func (c *TeamRoleController) GetPermissions(ctx *gin.Context) {
-	permissions := c.roleService.GetPermissions()
+	permissions := c.roleService.GetPermissions(context.Background(), )
 	response.Success(ctx, permissions, "获取权限列表成功")
 }

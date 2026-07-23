@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"

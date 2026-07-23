@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -31,7 +32,7 @@ func (c *IntegrationController) CreateAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.CreateIntegrationAccount(&req)
+	account, err := c.integrationService.CreateIntegrationAccount(context.Background(), &req)
 	if HandleDBError(ctx, err, "创建对接账号") {
 		return
 	}
@@ -42,7 +43,7 @@ func (c *IntegrationController) CreateAccount(ctx *gin.Context) {
 // GetAccountList 获取对接账号列表
 func (c *IntegrationController) GetAccountList(ctx *gin.Context) {
 
-	accounts, err := c.integrationService.GetIntegrationAccountList()
+	accounts, err := c.integrationService.GetIntegrationAccountList(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -61,7 +62,7 @@ func (c *IntegrationController) GetAccountByID(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.GetIntegrationAccountByID(uint(id))
+	account, err := c.integrationService.GetIntegrationAccountByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -86,7 +87,7 @@ func (c *IntegrationController) UpdateAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.UpdateIntegrationAccount(uint(id), &req)
+	account, err := c.integrationService.UpdateIntegrationAccount(context.Background(), uint(id), &req)
 	if HandleDBError(ctx, err, "更新对接账号") {
 		return
 	}
@@ -104,7 +105,7 @@ func (c *IntegrationController) DeleteAccount(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.integrationService.DeleteIntegrationAccount(uint(id)), "删除对接账号") {
+	if HandleDBError(ctx, c.integrationService.DeleteIntegrationAccount(context.Background(), uint(id)), "删除对接账号") {
 		return
 	}
 
@@ -121,13 +122,13 @@ func (c *IntegrationController) SyncCustomers(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.GetIntegrationAccountByID(uint(id))
+	account, err := c.integrationService.GetIntegrationAccountByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
 
-	count, err := c.integrationService.SyncCustomers(account)
+	count, err := c.integrationService.SyncCustomers(context.Background(), account)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -146,13 +147,13 @@ func (c *IntegrationController) SyncOrders(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.GetIntegrationAccountByID(uint(id))
+	account, err := c.integrationService.GetIntegrationAccountByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
 
-	count, err := c.integrationService.SyncOrders(account)
+	count, err := c.integrationService.SyncOrders(context.Background(), account)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -171,13 +172,13 @@ func (c *IntegrationController) SyncProducts(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.GetIntegrationAccountByID(uint(id))
+	account, err := c.integrationService.GetIntegrationAccountByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
 
-	count, err := c.integrationService.SyncProducts(account)
+	count, err := c.integrationService.SyncProducts(context.Background(), account)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -196,13 +197,13 @@ func (c *IntegrationController) TestIntegration(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.integrationService.GetIntegrationAccountByID(uint(id))
+	account, err := c.integrationService.GetIntegrationAccountByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
 
-	if err := c.integrationService.TestConnection(account); err != nil {
+	if err := c.integrationService.TestConnection(context.Background(), account); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "连接测试失败: "+err.Error())
 		return
 	}
@@ -223,7 +224,7 @@ func (c *IntegrationController) GetSyncLogs(ctx *gin.Context) {
 		return
 	}
 
-	logs, total, err := c.integrationService.GetSyncLogs(page, pageSize)
+	logs, total, err := c.integrationService.GetSyncLogs(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -247,7 +248,7 @@ func (c *IntegrationController) GetExternalCustomers(ctx *gin.Context) {
 		return
 	}
 
-	customers, total, err := c.integrationService.GetExternalCustomers(platform, page, pageSize)
+	customers, total, err := c.integrationService.GetExternalCustomers(context.Background(), platform, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -271,7 +272,7 @@ func (c *IntegrationController) GetExternalOrders(ctx *gin.Context) {
 		return
 	}
 
-	orders, total, err := c.integrationService.GetExternalOrders(platform, page, pageSize)
+	orders, total, err := c.integrationService.GetExternalOrders(context.Background(), platform, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -285,6 +286,47 @@ func (c *IntegrationController) GetExternalOrders(ctx *gin.Context) {
 	}, "获取成功")
 }
 
+// GetExternalOrdersByCustomer 按客户手机/姓名查询近期外部订单（客服 360 视图）
+func (c *IntegrationController) GetExternalOrdersByCustomer(ctx *gin.Context) {
+	phone := ctx.Query("phone")
+	name := ctx.Query("name")
+	if phone == "" && name == "" {
+		response.Error(ctx, http.StatusBadRequest, "phone 与 name 至少提供一个")
+		return
+	}
+	orders, err := c.integrationService.GetExternalOrdersByCustomer(context.Background(), phone, name)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"list": orders, "count": len(orders)}, "获取成功")
+}
+
+// ReceiveOrderWebhook 接收电商订单状态推送（近实时刷新本地订单镜像）。
+// 仅接受平台侧推送；镜像为只读，客服不创建/履约订单。
+func (c *IntegrationController) ReceiveOrderWebhook(ctx *gin.Context) {
+	platform := ctx.Param("platform")
+	var body map[string]any
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求体解析失败："+err.Error())
+		return
+	}
+	orderID, _ := body["order_id"].(string)
+	status, _ := body["status"].(string)
+	if orderID == "" {
+		response.Error(ctx, http.StatusBadRequest, "order_id 不能为空")
+		return
+	}
+	if status == "" {
+		status = "unknown"
+	}
+	if err := c.integrationService.UpsertOrderFromWebhook(context.Background(), platform, orderID, status, body); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"platform": platform, "order_id": orderID, "status": status}, "已接收并处理")
+}
+
 // GetExternalProducts 获取外部商品列表
 func (c *IntegrationController) GetExternalProducts(ctx *gin.Context) {
 
@@ -295,7 +337,7 @@ func (c *IntegrationController) GetExternalProducts(ctx *gin.Context) {
 		return
 	}
 
-	products, total, err := c.integrationService.GetExternalProducts(platform, page, pageSize)
+	products, total, err := c.integrationService.GetExternalProducts(context.Background(), platform, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

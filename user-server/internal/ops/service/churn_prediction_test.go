@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"marketing/internal/ops/model"
 	"marketing/internal/pkg/utils/db"

@@ -1,4 +1,4 @@
-// @title Marketing Tools Kit API
+// @title HiveMtk API
 // @version 2.0.0
 // @description 营销工具套件 API 文档
 // @description 提供全面的营销自动化工具，包括邮件营销、短信营销、社交媒体管理等

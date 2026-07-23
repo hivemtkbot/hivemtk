@@ -7,6 +7,7 @@ import (
 
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 	"marketing/internal/service"
 )
 
@@ -101,24 +102,30 @@ func registerAgentKnowledgeTools(gormDB *gorm.DB) {
 	logger.Info("[agent] ✅ 知识工具（rag.search/knowledge.feedback/add_doc/list_kb）已接入全局注册中心")
 }
 
-// registerAgentBusinessTools 生产接线：把 6 个业务工具接入全局注册中心
+// registerAgentBusinessTools 生产接线：把业务工具接入全局注册中心
 //
-// 工具清单：
-//  1. order.create        - 创建订单（自动生成 UUID + 默认 pending 状态）
-//  2. order.query         - 查询订单（支持按 ID/account_id/tg_id/status 多条件）
-//  3. coupon.apply        - 应用优惠券（核销 + 计算折扣价）
-//  4. follow_task.create  - 创建跟进任务（联动 FollowUpService + 客户旅程）
-//  5. follow_task.update  - 更新跟进任务（完成/取消/重新安排）
-//  6. payment.create      - 创建支付（生成支付 URL + 关联订单）
+// 工具清单（客服系统不是电商：订单只读 + 售后发起，绝不下单/履约）：
+//  1. follow_task.create  - 创建跟进任务（联动 FollowUpService + 客户旅程）
+//  2. follow_task.update  - 更新跟进任务（完成/取消/重新安排）
+//  3. order.lookup        - 查询客户订单（只读，替代已删的 order.query）
+//  4. aftersale.create    - 发起售后（退款/退货，回写电商，客服侧唯一允许写订单的入口）
+//  5. aftersale.query     - 查询售后进度
 //
 // 调用方：router.Setup()
 func registerAgentBusinessTools(gormDB *gorm.DB) {
-	deps := tooluse.NewBusinessToolDepsWithDB(gormDB)
+	orderPort := service.NewOrderPortAdapter(repository.NewExternalOrderRepository())
+	afterSalePort := service.NewAfterSalePortAdapter(service.NewAfterSaleService())
+	deps := tooluse.NewBusinessToolDepsWithPorts(
+		service.NewFollowUpPortAdapter(service.NewFollowUpService(service.NewCustomerJourneyService())),
+		orderPort,
+		afterSalePort,
+		gormDB,
+	)
 	if err := tooluse.RegisterBusinessTools(tooluse.GetGlobalRegistry(), deps); err != nil {
-		logger.Errorf("[agent] 注册业务工具失败（order.*/coupon.*/follow_task.*/payment.* 将不可用）：%v", err)
+		logger.Errorf("[agent] 注册业务工具失败（follow_task.*/order.lookup/aftersale.* 将不可用）：%v", err)
 		return
 	}
-	logger.Info("[agent] ✅ 业务工具（order.create/query/coupon.apply/follow_task.create/update/payment.create）已接入全局注册中心")
+	logger.Info("[agent] ✅ 业务工具（follow_task.create/update、order.lookup、aftersale.create/query）已接入全局注册中心")
 }
 
 // registerAllAgentTools 一次性注册全部智能体工具到全局注册中心

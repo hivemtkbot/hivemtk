@@ -221,12 +221,13 @@ func setupIntegrationRoutes(auth *gin.RouterGroup) {
 	auth.DELETE("/integrations/:id", integrationCtrl.DeleteAccount)
 	auth.POST("/integrations/:id/test", integrationCtrl.TestIntegration)
 	auth.POST("/integrations/:id/sync-customers", integrationCtrl.SyncCustomers)
-	auth.POST("/integrations/:id/sync-orders", integrationCtrl.SyncOrders)
 	auth.POST("/integrations/:id/sync-products", integrationCtrl.SyncProducts)
 	auth.GET("/integration/sync-logs", integrationCtrl.GetSyncLogs)
 	auth.GET("/integration/external-customers", integrationCtrl.GetExternalCustomers)
-	auth.GET("/integration/external-orders", integrationCtrl.GetExternalOrders)
 	auth.GET("/integration/external-products", integrationCtrl.GetExternalProducts)
+	auth.GET("/integration/external-orders", integrationCtrl.GetExternalOrders)
+	auth.GET("/integration/external-orders-by-customer", integrationCtrl.GetExternalOrdersByCustomer)
+	auth.POST("/integration/order-webhook/:platform", integrationCtrl.ReceiveOrderWebhook)
 }
 
 // setupCommunityRoutes 社群管理路由

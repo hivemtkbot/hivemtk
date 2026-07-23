@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"strconv"
@@ -56,7 +57,7 @@ func (ctrl *TikTokAutoReplyController) currentUserID(c *gin.Context) uint {
 // 获取TikTok自动回复账号列表
 func (ctrl *TikTokAutoReplyController) GetAccounts(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
-	accounts, err := ctrl.svc.ListAccounts(userID)
+	accounts, err := ctrl.svc.ListAccounts(context.Background(), userID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取账号列表失败", err.Error())
 		return
@@ -67,7 +68,7 @@ func (ctrl *TikTokAutoReplyController) GetAccounts(c *gin.Context) {
 // 获取TikTok自动回复规则
 func (ctrl *TikTokAutoReplyController) GetRule(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
-	rule, err := ctrl.svc.GetRule(userID)
+	rule, err := ctrl.svc.GetRule(context.Background(), userID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取规则失败", err.Error())
 		return
@@ -99,7 +100,7 @@ func (ctrl *TikTokAutoReplyController) SaveRule(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	rule, err := ctrl.svc.SaveRule(userID, &req)
+	rule, err := ctrl.svc.SaveRule(context.Background(), userID, &req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "保存规则失败", err.Error())
 		return
@@ -128,7 +129,7 @@ func (ctrl *TikTokAutoReplyController) SaveCookies(c *gin.Context) {
 		response.Error(c, http.StatusUnauthorized, "用户未认证")
 		return
 	}
-	if err := ctrl.svc.SaveCookies(uint(id), req.Cookie, userID); err != nil {
+	if err := ctrl.svc.SaveCookies(context.Background(), uint(id), req.Cookie, userID); err != nil {
 		HandleServiceError(c, err)
 		return
 	}
@@ -146,7 +147,7 @@ func (ctrl *TikTokAutoReplyController) UpsertAccount(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	account, err := ctrl.svc.UpsertAccount(userID, &req)
+	account, err := ctrl.svc.UpsertAccount(context.Background(), userID, &req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "保存账号失败", err.Error())
 		return
@@ -163,7 +164,7 @@ func (ctrl *TikTokAutoReplyController) DeleteAccount(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的账号ID", err.Error())
 		return
 	}
-	if err := ctrl.svc.DeleteAccount(uint(id), userID); err != nil {
+	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id), userID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "删除账号失败", err.Error())
 		return
 	}
@@ -177,7 +178,7 @@ func (ctrl *TikTokAutoReplyController) ListLogs(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	logs, total, err := ctrl.svc.ListLogs(userID, page, pageSize)
+	logs, total, err := ctrl.svc.ListLogs(context.Background(), userID, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取日志失败", err.Error())
 		return
@@ -193,11 +194,11 @@ func (ctrl *TikTokAutoReplyController) ListLogs(c *gin.Context) {
 // 启动TikTok自动回复
 func (ctrl *TikTokAutoReplyController) Start(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
-	if err := ctrl.svc.Start(userID); err != nil {
+	if err := ctrl.svc.Start(context.Background(), userID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "启动失败", err.Error())
 		return
 	}
-	status, _ := ctrl.svc.Status(userID)
+	status, _ := ctrl.svc.Status(context.Background(), userID)
 	response.Success(c, gin.H{
 		"status": "started",
 		"info":   status,
@@ -207,11 +208,11 @@ func (ctrl *TikTokAutoReplyController) Start(c *gin.Context) {
 // 停止TikTok自动回复
 func (ctrl *TikTokAutoReplyController) Stop(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
-	if err := ctrl.svc.Stop(userID); err != nil {
+	if err := ctrl.svc.Stop(context.Background(), userID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "停止失败", err.Error())
 		return
 	}
-	status, _ := ctrl.svc.Status(userID)
+	status, _ := ctrl.svc.Status(context.Background(), userID)
 	response.Success(c, gin.H{
 		"status": "stopped",
 		"info":   status,

@@ -1,21 +1,11 @@
 // vue-i18n 实例构建。
-// 业务模块语言文件放在 ./modules/*.js，每个文件默认导出一个形如
-//   { zh: {...}, en: {...}, ja: {...}, ar: {...} } 的对象，键名需带命名空间（如 chat.send）。
-// 通过 import.meta.glob 自动收集，新增模块无需修改本文件，便于并行协作。
+// 语言资源放在 ./locales/<locale>.json（zh/en/ja/ar），由 @intlify/unplugin-vue-i18n
+// 在构建期预编译为运行时函数，从而消除运行期 new Function 编译消息导致的
+// CSP unsafe-eval 违规（script-src 'self' 会拦截 eval，致含 i18n 的页面整页白屏）。
+// 新增/修改文案直接编辑对应 locale 的 JSON 文件即可，无需改动本文件。
 import { createI18n } from 'vue-i18n'
 import { getStoredLocale, applyDirection } from './locale'
-
-const modules = import.meta.glob('./modules/*.js', { eager: true })
-
-const messages = { zh: {}, en: {}, ja: {}, ar: {} }
-for (const path in modules) {
-  const mod = modules[path].default || modules[path]
-  for (const lang of ['zh', 'en', 'ja', 'ar']) {
-    if (mod && mod[lang]) {
-      messages[lang] = { ...messages[lang], ...mod[lang] }
-    }
-  }
-}
+import messages from '@intlify/unplugin-vue-i18n/messages'
 
 const locale = getStoredLocale()
 applyDirection(locale)

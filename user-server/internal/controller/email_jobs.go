@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/response"
@@ -28,7 +29,7 @@ func (c *EmailJobsController) CreateEmailJobs(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.CreateEmailJobsDTO(req)
+	resp, err := c.svc.CreateEmailJobsDTO(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -49,7 +50,7 @@ func (c *EmailJobsController) GetEmailJobsList(ctx *gin.Context) {
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	resp, err := c.svc.GetEmailJobsListDTO(req.Page, req.PageSize)
+	resp, err := c.svc.GetEmailJobsListDTO(context.Background(), req.Page, req.PageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -73,7 +74,7 @@ func (c *EmailJobsController) GetEmailJobsDetail(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.GetEmailJobsByIDDTO(jobsID)
+	resp, err := c.svc.GetEmailJobsByIDDTO(context.Background(), jobsID)
 	if err != nil {
 		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "任务不存在")
@@ -99,12 +100,12 @@ func (c *EmailJobsController) UpdateEmailJobs(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.UpdateEmailJobsDTO(req); err != nil {
+	if err := c.svc.UpdateEmailJobsDTO(context.Background(), req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	resp, err := c.svc.GetEmailJobsByIDDTO(jobsID)
+	resp, err := c.svc.GetEmailJobsByIDDTO(context.Background(), jobsID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -125,7 +126,7 @@ func (c *EmailJobsController) UpdateSendTotal(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.UpdateEmailJobsDTO(req); err != nil {
+	if err := c.svc.UpdateEmailJobsDTO(context.Background(), req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -148,7 +149,7 @@ func (c *EmailJobsController) DeleteEmailJobs(ctx *gin.Context) {
 		return
 	}
 
-	if err = c.svc.DeleteEmailJobs(jobsID); err != nil {
+	if err = c.svc.DeleteEmailJobs(context.Background(), jobsID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

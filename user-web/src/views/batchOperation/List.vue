@@ -202,6 +202,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, User, ChatLineRound, Promotion, Money, Document, Bell, ShoppingCart } from '@element-plus/icons-vue'
 import { getBatchTools, runBatch, getBatchHistories, cancelBatch, previewBatch, getBatchDetail } from '@/api/batchOperation.js'
+import { toList } from '@/utils/list.js'
 
 const loading = ref(false)
 const tools = ref([])
@@ -229,9 +230,7 @@ const loadTools = async () => {
     { name: '批量发送消息', description: '批量发送邮件/短信/WhatsApp', color: '#4F46E5', icon: 'ChatLineRound', usedCount: 0 },
     { name: '批量导入线索', description: 'Excel/CSV 批量导入', color: '#10B981', icon: 'Document', usedCount: 0 },
     { name: '批量更新标签', description: '为客户批量打标签', color: '#F59E0B', icon: 'Promotion', usedCount: 0 },
-    { name: '批量分配销售', description: '将线索分配给销售', color: '#EF4444', icon: 'User', usedCount: 0 },
-    { name: '批量创建订单', description: '批量生成订单', color: '#909399', icon: 'ShoppingCart', usedCount: 0 },
-    { name: '批量退款', description: '批量处理退款', color: '#9b59b6', icon: 'Money', usedCount: 0 }
+    { name: '批量分配销售', description: '将线索分配给销售', color: '#EF4444', icon: 'User', usedCount: 0 }
   ]
 }
 
@@ -239,7 +238,7 @@ const loadHistories = async () => {
   loading.value = true
   try {
     const res = await getBatchHistories()
-    histories.value = res || []
+    histories.value = toList(res)
   } finally {
     loading.value = false
   }

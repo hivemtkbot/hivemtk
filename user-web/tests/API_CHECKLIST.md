@@ -645,33 +645,9 @@
 | 417 | `getOrderByID` | GET | `/api/orders/${id}` | - |
 | 418 | `createOrder` | POST | `/api/orders` | - |
 | 419 | `cancelOrder` | POST | `/api/orders/${id}/cancel` | - |
-| 420 | `refundOrder` | POST | `/api/orders/${id}/refund` | - |
-| 421 | `payOrder` | POST | `/api/order/${data.id}/pay` | - |
-| 422 | `checkPayStatus` | GET | `/api/order/${id}/check-pay` | - |
 | 423 | `getRecentOrderList` | GET | `/api/orders/recent` | - |
 | 424 | `updateOrder` | PUT | `/api/order/${id}` | - |
 | 425 | `deleteOrder` | DELETE | `/api/orders/${id}` | - |
-
-## payment.js（16）
-
-| # | 函数 | method | url | 行 |
-|---|------|--------|-----|----|
-| 426 | `PaymentConfigApi.getConfig` | GET | `/api/order/config` | - |
-| 427 | `PaymentConfigApi.saveConfig` | POST | `/api/order/config` | - |
-| 428 | `PaymentConfigApi.getList` | GET | `/api/order/list` | - |
-| 429 | `PaymentConfigApi.getById` | GET | `/api/order/${id}` | - |
-| 430 | `PaymentConfigApi.create` | POST | `/api/order` | - |
-| 431 | `PaymentConfigApi.update` | PUT | `/api/order/${id}` | - |
-| 432 | `PaymentConfigApi.delete` | DELETE | `/api/order/${id}` | - |
-| 433 | `PaymentConfigApi.cancel` | POST | `/api/order/${id}/cancel` | - |
-| 434 | `PaymentConfigApi.refund` | POST | `/api/order/${id}/refund` | - |
-| 435 | `OrderApi.getList` | GET | `/api/order/list` | - |
-| 436 | `OrderApi.getById` | GET | `/api/order/${id}` | - |
-| 437 | `OrderApi.create` | POST | `/api/order` | - |
-| 438 | `OrderApi.update` | PUT | `/api/order/${id}` | - |
-| 439 | `OrderApi.delete` | DELETE | `/api/order/${id}` | - |
-| 440 | `OrderApi.cancel` | POST | `/api/order/${id}/cancel` | - |
-| 441 | `OrderApi.refund` | POST | `/api/order/${id}/refund` | - |
 
 ## persona.js（2）
 

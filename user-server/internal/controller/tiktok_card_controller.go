@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"marketing/internal/dto"
+	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
+	"marketing/internal/repository"
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +19,7 @@ type TikTokCardController struct {
 
 func NewTikTokCardController() *TikTokCardController {
 	return &TikTokCardController{
-		svc: service.NewTikTokCardService(),
+		svc: service.NewTikTokCardService(repository.NewTikTokCardRepository(db.DB), repository.NewShortLinkRepository(db.DB)),
 	}
 }
 

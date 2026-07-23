@@ -129,7 +129,7 @@ func (e *RepurchaseEngine) ComputeRFM(ctx context.Context, customerID string)  *
 		F:           f,
 		M:           m,
 		RFMScore:    r*100 + f*10 + m,
-		Segment:     e.classifyRFM(r, f, m),
+		Segment:     e.classifyRFM(ctx, r, f, m),
 		LastOrderAt: mostRecent,
 		ComputedAt:  now,
 	}
@@ -216,7 +216,7 @@ func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int)  RFMTyp
 
 // Predict 预测复购概率
 func (e *RepurchaseEngine) Predict(ctx context.Context, customerID string)  *RepurchasePrediction {
-	rfm := e.ComputeRFM(customerID)
+	rfm := e.ComputeRFM(ctx, customerID)
 	probability := 0.0
 	predictedDays := 365
 	reason := ""
@@ -272,7 +272,7 @@ func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit
 	// 先为所有有历史但无 score 的客户计算 RFM
 	for cid := range e.history {
 		if _, ok := e.scores[cid]; !ok {
-			e.computeRFMLocked(cid)
+			e.computeRFMLocked(ctx, cid)
 		}
 	}
 	candidates := make([]string, 0)
@@ -321,7 +321,7 @@ func (e *RepurchaseEngine) computeRFMLocked(ctx context.Context, customerID stri
 		F:           f,
 		M:           m,
 		RFMScore:    r*100 + f*10 + m,
-		Segment:     e.classifyRFM(r, f, m),
+		Segment:     e.classifyRFM(ctx, r, f, m),
 		LastOrderAt: mostRecent,
 		ComputedAt:  now,
 	}
@@ -342,7 +342,7 @@ type ReactivationWave struct {
 // GenerateReactivationPlan 生成多波次激活计划
 // 商业逻辑：第 1 波 7 天后（轻触达：问候+福利）→ 14 天后（强激活：限时优惠）→ 30 天后（最后触达）
 func (e *RepurchaseEngine) GenerateReactivationPlan(ctx context.Context, customerID string)  []ReactivationWave {
-	rfm := e.ComputeRFM(customerID)
+	rfm := e.ComputeRFM(ctx, customerID)
 	now := time.Now()
 	plan := []ReactivationWave{}
 	if rfm.Segment == RFMTYPEChampion || rfm.Segment == RFMTYPELoyal {
@@ -380,7 +380,7 @@ func (e *RepurchaseEngine) GenerateReactivationPlan(ctx context.Context, custome
 
 // TriggerJourney 触发旅程（结合客户旅程服务）
 func (e *RepurchaseEngine) TriggerJourney(ctx context.Context, customerID string, journey *CustomerJourneyService) error {
-	rfm := e.ComputeRFM(customerID)
+	rfm := e.ComputeRFM(ctx, customerID)
 	// 根据 RFM 分层自动迁移到合适阶段
 	var targetStage JourneyStage
 	switch rfm.Segment {

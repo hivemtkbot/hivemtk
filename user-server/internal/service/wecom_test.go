@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func TestWeComService_CreateAccount(t *testing.T) {
 		AgentSecret: "test_agent_secret",
 	}
 
-	account, err := service.CreateAccount(req)
+	account, err := service.CreateAccount(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateAccount failed: %v", err)
 	}
@@ -160,7 +161,7 @@ func TestWeComService_UpdateAccount(t *testing.T) {
 		AgentSecret: "new_agent_secret",
 	}
 
-	updatedAccount, err := service.UpdateAccount(account.ID, req)
+	updatedAccount, err := service.UpdateAccount(context.Background(), account.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateAccount failed: %v", err)
 	}
@@ -194,7 +195,7 @@ func TestWeComService_DeleteAccount(t *testing.T) {
 	database.Create(account)
 
 	// 删除账号
-	err := service.DeleteAccount(account.ID)
+	err := service.DeleteAccount(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}

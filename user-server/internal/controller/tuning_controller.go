@@ -55,7 +55,7 @@ func (c *TuningController) ListConfidenceSignals(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // GetConfidenceSignal 信号详情
@@ -103,7 +103,7 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -163,7 +163,7 @@ func (c *TuningController) ListHumanizeScores(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // StatsHumanizeScores 拟人度统计
@@ -222,7 +222,7 @@ func (c *TuningController) ListFeedbackEvents(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // StatsFeedbackEvents 反馈事件统计
@@ -260,7 +260,7 @@ func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -281,7 +281,7 @@ func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // UpdatePromptCandidateStatus 更新候选状态
@@ -318,7 +318,7 @@ func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------
@@ -339,7 +339,7 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
 		return
 	}
-	c.jsonList(rows, total, page, pageSize)
+	c.jsonList(ctx, rows, total, page, pageSize)
 }
 
 // ----------------------------------------------------------------------------

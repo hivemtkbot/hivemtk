@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
@@ -29,11 +30,6 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 		TgBotToken:          req.TgBotToken,
 		Price:               req.Price,
 		GroupID:             req.GroupID,
-		EpayPid:             req.EpayPid,
-		EpayKey:             req.EpayKey,
-		EpayPayType:         req.EpayPayType,
-		EpayQueryUrl:        req.EpayQueryUrl,
-		EpayURL:             req.EpayURL,
 		ProxyEnableProxy:    req.ProxyEnableProxy,
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
@@ -44,7 +40,7 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 		XianyuHeadless:      req.XianyuHeadless,
 	}
 
-	createdAccount, err := c.svc.CreateAccount(account)
+	createdAccount, err := c.svc.CreateAccount(context.Background(), account)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -55,11 +51,6 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 		TgBotToken:          createdAccount.TgBotToken,
 		Price:               createdAccount.Price,
 		GroupID:             createdAccount.GroupID,
-		EpayPid:             createdAccount.EpayPid,
-		EpayKey:             createdAccount.EpayKey,
-		EpayPayType:         createdAccount.EpayPayType,
-		EpayQueryUrl:        createdAccount.EpayQueryUrl,
-		EpayURL:             createdAccount.EpayURL,
 		ProxyEnableProxy:    createdAccount.ProxyEnableProxy,
 		ProxyProtoclo:       createdAccount.ProxyProtoclo,
 		ProxyHost:           createdAccount.ProxyHost,
@@ -75,7 +66,7 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 }
 
 func (c *AccountController) GetAccounts(ctx *gin.Context) {
-	accounts, err := c.svc.GetAccountList()
+	accounts, err := c.svc.GetAccountList(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -92,11 +83,6 @@ func (c *AccountController) GetAccounts(ctx *gin.Context) {
 			TgBotToken:          account.TgBotToken,
 			Price:               account.Price,
 			GroupID:             account.GroupID,
-			EpayPid:             account.EpayPid,
-			EpayKey:             account.EpayKey,
-			EpayPayType:         account.EpayPayType,
-			EpayQueryUrl:        account.EpayQueryUrl,
-			EpayURL:             account.EpayURL,
 			ProxyEnableProxy:    account.ProxyEnableProxy,
 			ProxyProtoclo:       account.ProxyProtoclo,
 			ProxyHost:           account.ProxyHost,
@@ -119,7 +105,7 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.svc.GetAccount(accountIDStr)
+	account, err := c.svc.GetAccount(context.Background(), accountIDStr)
 	if err != nil {
 		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "账户不存在")
@@ -135,11 +121,6 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 		TgBotToken:          account.TgBotToken,
 		Price:               account.Price,
 		GroupID:             account.GroupID,
-		EpayPid:             account.EpayPid,
-		EpayKey:             account.EpayKey,
-		EpayPayType:         account.EpayPayType,
-		EpayQueryUrl:        account.EpayQueryUrl,
-		EpayURL:             account.EpayURL,
 		ProxyEnableProxy:    account.ProxyEnableProxy,
 		ProxyProtoclo:       account.ProxyProtoclo,
 		ProxyHost:           account.ProxyHost,
@@ -181,11 +162,6 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 		TgBotToken:          req.TgBotToken,
 		Price:               req.Price,
 		GroupID:             req.GroupID,
-		EpayPid:             req.EpayPid,
-		EpayKey:             req.EpayKey,
-		EpayPayType:         req.EpayPayType,
-		EpayQueryUrl:        req.EpayQueryUrl,
-		EpayURL:             req.EpayURL,
 		ProxyEnableProxy:    req.ProxyEnableProxy,
 		ProxyProtoclo:       req.ProxyProtoclo,
 		ProxyHost:           req.ProxyHost,
@@ -195,7 +171,7 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 		XiaohongshuHeadless: req.XiaohongshuHeadless,
 		XianyuHeadless:      req.XianyuHeadless,
 	}
-	err := c.svc.UpdateAccount(account)
+	err := c.svc.UpdateAccount(context.Background(), account)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -209,7 +185,7 @@ func (c *AccountController) DeleteAccount(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	err := c.svc.DeleteAccount(req.ID)
+	err := c.svc.DeleteAccount(context.Background(), req.ID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

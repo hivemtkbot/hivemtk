@@ -199,7 +199,7 @@ func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, ch
 		for i, c := range chunks {
 			vec := vecToPGString(embeddings[i])
 			if err := tx.Exec(
-				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed' WHERE id = ?",
+				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed' WHERE id = $2",
 				vec, c.ID,
 			).Error; err != nil {
 				return err

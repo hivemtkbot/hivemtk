@@ -89,7 +89,7 @@ func TestCustomerSessionRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := sessionRepo.Create(context.Background(), tt.session)
+			err := sessionRepo.Create(tt.session)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -112,7 +112,7 @@ func TestCustomerSessionRepository_Update(t *testing.T) {
 		UserID:    "user-123",
 		Status:    model.SessionStatusPending,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	tests := []struct {
 		name       string
@@ -141,14 +141,14 @@ func TestCustomerSessionRepository_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.updateFunc(session)
-			err := sessionRepo.Update(context.Background(), session)
+			err := sessionRepo.Update(session)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+				updated, _ := sessionRepo.GetByID(session.ID)
 				if updated.Status != session.Status {
 					t.Errorf("Expected status '%s', got '%s'", session.Status, updated.Status)
 				}
@@ -168,7 +168,7 @@ func TestCustomerSessionRepository_GetByID(t *testing.T) {
 		UserName:  "Test User",
 		Status:    model.SessionStatusPending,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	tests := []struct {
 		name    string
@@ -189,7 +189,7 @@ func TestCustomerSessionRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := sessionRepo.GetByID(context.Background(), tt.id)
+			result, err := sessionRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -217,7 +217,7 @@ func TestCustomerSessionRepository_GetBySessionID(t *testing.T) {
 		UserID:    "user-123",
 		Status:    model.SessionStatusPending,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	tests := []struct {
 		name      string
@@ -258,21 +258,21 @@ func TestCustomerSessionRepository_GetPendingSessions(t *testing.T) {
 	sessionRepo, _, _, _, _, _ := setupCustomerSessionRepositories(t)
 
 	// 创建不同状态的会话
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "pending-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-1",
 		Status:    model.SessionStatusPending,
 		Priority:  1,
 	})
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "ai-handling-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-2",
 		Status:    model.SessionStatusAIHandling,
 		Priority:  2,
 	})
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "human-handling-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-3",
@@ -302,14 +302,14 @@ func TestCustomerSessionRepository_GetAgentSessions(t *testing.T) {
 	agentID := uint(1)
 
 	// 创建客服的活跃会话
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "agent-active-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-1",
 		AgentID:   agentID,
 		Status:    model.SessionStatusHumanHandling,
 	})
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "agent-waiting-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-2",
@@ -318,7 +318,7 @@ func TestCustomerSessionRepository_GetAgentSessions(t *testing.T) {
 	})
 
 	// 创建已解决的会话（不应被获取）
-	sessionRepo.Create(context.Background(), &model.CustomerSession{
+	sessionRepo.Create(&model.CustomerSession{
 		SessionID: "agent-resolved-1",
 		Platform:  model.PlatformWeChat,
 		UserID:    "user-3",
@@ -346,7 +346,7 @@ func TestCustomerSessionRepository_UpdateStatus(t *testing.T) {
 		UserID:    "user-123",
 		Status:    model.SessionStatusPending,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	tests := []struct {
 		name      string
@@ -384,7 +384,7 @@ func TestCustomerSessionRepository_UpdateStatus(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+				updated, _ := sessionRepo.GetByID(session.ID)
 				if updated.Status != tt.newStatus {
 					t.Errorf("Expected status '%s', got '%s'", tt.newStatus, updated.Status)
 				}
@@ -404,14 +404,14 @@ func TestCustomerSessionRepository_AssignAgent(t *testing.T) {
 		Status:      model.SessionStatusPending,
 		HandlerType: model.HandlerTypeAI,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	err := sessionRepo.AssignAgent(context.Background(), session.ID, 1, "Agent Smith")
 	if err != nil {
 		t.Errorf("AssignAgent() error = %v", err)
 	}
 
-	updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+	updated, _ := sessionRepo.GetByID(session.ID)
 	if updated.AgentID != 1 {
 		t.Errorf("Expected AgentID 1, got %d", updated.AgentID)
 	}
@@ -437,14 +437,14 @@ func TestCustomerSessionRepository_UpdateLastMessage(t *testing.T) {
 		Status:       model.SessionStatusPending,
 		MessageCount: 0,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	err := sessionRepo.UpdateLastMessage(context.Background(), session.ID, "Hello, this is a test message", "user")
 	if err != nil {
 		t.Errorf("UpdateLastMessage() error = %v", err)
 	}
 
-	updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+	updated, _ := sessionRepo.GetByID(session.ID)
 	if updated.LastMessage != "Hello, this is a test message" {
 		t.Errorf("Expected LastMessage 'Hello, this is a test message', got '%s'", updated.LastMessage)
 	}
@@ -470,7 +470,7 @@ func TestCustomerSessionRepository_IncrementAIReplyCount(t *testing.T) {
 		Status:       model.SessionStatusAIHandling,
 		AIReplyCount: 0,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	for i := 0; i < 3; i++ {
 		err := sessionRepo.IncrementAIReplyCount(context.Background(), session.ID)
@@ -479,7 +479,7 @@ func TestCustomerSessionRepository_IncrementAIReplyCount(t *testing.T) {
 		}
 	}
 
-	updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+	updated, _ := sessionRepo.GetByID(session.ID)
 	if updated.AIReplyCount != 3 {
 		t.Errorf("Expected AIReplyCount 3, got %d", updated.AIReplyCount)
 	}
@@ -496,7 +496,7 @@ func TestCustomerSessionRepository_IncrementHumanReplyCount(t *testing.T) {
 		Status:          model.SessionStatusHumanHandling,
 		HumanReplyCount: 0,
 	}
-	sessionRepo.Create(context.Background(), session)
+	sessionRepo.Create(session)
 
 	for i := 0; i < 2; i++ {
 		err := sessionRepo.IncrementHumanReplyCount(context.Background(), session.ID)
@@ -505,7 +505,7 @@ func TestCustomerSessionRepository_IncrementHumanReplyCount(t *testing.T) {
 		}
 	}
 
-	updated, _ := sessionRepo.GetByID(context.Background(), session.ID)
+	updated, _ := sessionRepo.GetByID(session.ID)
 	if updated.HumanReplyCount != 2 {
 		t.Errorf("Expected HumanReplyCount 2, got %d", updated.HumanReplyCount)
 	}
@@ -564,7 +564,7 @@ func TestSessionMessageRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := messageRepo.Create(context.Background(), tt.message)
+			err := messageRepo.Create(tt.message)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -583,7 +583,7 @@ func TestSessionMessageRepository_GetBySessionID(t *testing.T) {
 
 	// 创建测试消息
 	for i := 1; i <= 5; i++ {
-		messageRepo.Create(context.Background(), &model.SessionMessage{
+		messageRepo.Create(&model.SessionMessage{
 			SessionID:  "session-messages",
 			Content:    string(rune('A' + i - 1)),
 			SenderType: "user",
@@ -646,14 +646,14 @@ func TestSessionMessageRepository_MarkAsRead(t *testing.T) {
 	now := time.Now()
 
 	// 创建未读消息
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-read-test",
 		Content:    "Message 1",
 		SenderType: "user",
 		IsRead:     false,
 		CreatedAt:  now.Add(-2 * time.Minute),
 	})
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-read-test",
 		Content:    "Message 2",
 		SenderType: "user",
@@ -685,25 +685,25 @@ func TestSessionMessageRepository_GetUnreadCount(t *testing.T) {
 	_, messageRepo, _, _, _, _ := setupCustomerSessionRepositories(t)
 
 	// 创建混合的已读/未读消息
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-unread-count",
 		Content:    "Unread 1",
 		SenderType: "user",
 		IsRead:     false,
 	})
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-unread-count",
 		Content:    "Unread 2",
 		SenderType: "user",
 		IsRead:     false,
 	})
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-unread-count",
 		Content:    "Read 1",
 		SenderType: "user",
 		IsRead:     true,
 	})
-	messageRepo.Create(context.Background(), &model.SessionMessage{
+	messageRepo.Create(&model.SessionMessage{
 		SessionID:  "session-unread-count",
 		Content:    "Agent message",
 		SenderType: "agent",
@@ -753,7 +753,7 @@ func TestAgentStatusRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := agentRepo.Create(context.Background(), tt.status)
+			err := agentRepo.Create(tt.status)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -777,12 +777,12 @@ func TestAgentStatusRepository_Update(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	status.Status = "busy"
 	status.ActiveSessions = 3
 
-	err := agentRepo.Update(context.Background(), status)
+	err := agentRepo.Update(status)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -806,7 +806,7 @@ func TestAgentStatusRepository_GetByAgentID(t *testing.T) {
 		Status:      "online",
 		MaxSessions: 5,
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	tests := []struct {
 		name    string
@@ -847,28 +847,28 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
 
 	// 创建不同状态的客服
-	agentRepo.Create(context.Background(), &model.AgentStatus{
+	agentRepo.Create(&model.AgentStatus{
 		AgentID:        1,
 		AgentName:      "Agent Online",
 		Status:         "online",
 		MaxSessions:    5,
 		ActiveSessions: 2,
 	})
-	agentRepo.Create(context.Background(), &model.AgentStatus{
+	agentRepo.Create(&model.AgentStatus{
 		AgentID:        2,
 		AgentName:      "Agent Busy",
 		Status:         "busy",
 		MaxSessions:    5,
 		ActiveSessions: 3,
 	})
-	agentRepo.Create(context.Background(), &model.AgentStatus{
+	agentRepo.Create(&model.AgentStatus{
 		AgentID:        3,
 		AgentName:      "Agent Away",
 		Status:         "away",
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	})
-	agentRepo.Create(context.Background(), &model.AgentStatus{
+	agentRepo.Create(&model.AgentStatus{
 		AgentID:        4,
 		AgentName:      "Agent Offline",
 		Status:         "offline",
@@ -876,7 +876,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		ActiveSessions: 0,
 	})
 	// 创建已达上限的客服
-	agentRepo.Create(context.Background(), &model.AgentStatus{
+	agentRepo.Create(&model.AgentStatus{
 		AgentID:        5,
 		AgentName:      "Agent Full",
 		Status:         "online",
@@ -904,7 +904,7 @@ func TestAgentStatusRepository_UpdateStatus(t *testing.T) {
 		AgentName: "Agent Smith",
 		Status:    "online",
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	tests := []struct {
 		name      string
@@ -953,7 +953,7 @@ func TestAgentStatusRepository_IncrementActiveSessions(t *testing.T) {
 		ActiveSessions: 0,
 		TodaySessions:  0,
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	for i := 0; i < 3; i++ {
 		err := agentRepo.IncrementActiveSessions(context.Background(), 1)
@@ -982,7 +982,7 @@ func TestAgentStatusRepository_DecrementActiveSessions(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 3,
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	for i := 0; i < 2; i++ {
 		err := agentRepo.DecrementActiveSessions(context.Background(), 1)
@@ -1007,7 +1007,7 @@ func TestAgentStatusRepository_IncrementTodayMessages(t *testing.T) {
 		Status:        "online",
 		TodayMessages: 0,
 	}
-	agentRepo.Create(context.Background(), status)
+	agentRepo.Create(status)
 
 	for i := 0; i < 5; i++ {
 		err := agentRepo.IncrementTodayMessages(context.Background(), 1)
@@ -1061,7 +1061,7 @@ func TestAISuggestionRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := aiSuggestionRepo.Create(context.Background(), tt.suggestion)
+			err := aiSuggestionRepo.Create(tt.suggestion)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1080,7 +1080,7 @@ func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
 
 	// 创建测试建议
 	for i := 1; i <= 5; i++ {
-		aiSuggestionRepo.Create(context.Background(), &model.AISuggestion{
+		aiSuggestionRepo.Create(&model.AISuggestion{
 			SessionID:  "session-suggestions",
 			MessageID:  uint(i),
 			Suggestion: string(rune('A' + i - 1)),
@@ -1090,7 +1090,7 @@ func TestAISuggestionRepository_GetBySessionID(t *testing.T) {
 	}
 
 	// 创建另一个会话的建议
-	aiSuggestionRepo.Create(context.Background(), &model.AISuggestion{
+	aiSuggestionRepo.Create(&model.AISuggestion{
 		SessionID:  "other-session",
 		MessageID:  99,
 		Suggestion: "Other",
@@ -1121,7 +1121,7 @@ func TestAISuggestionRepository_MarkAsUsed(t *testing.T) {
 		Source:     "llm",
 		IsUsed:     false,
 	}
-	aiSuggestionRepo.Create(context.Background(), suggestion)
+	aiSuggestionRepo.Create(suggestion)
 
 	err := aiSuggestionRepo.MarkAsUsed(context.Background(), suggestion.ID, 1)
 	if err != nil {
@@ -1182,7 +1182,7 @@ func TestQuickReplyRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := quickReplyRepo.Create(context.Background(), tt.reply)
+			err := quickReplyRepo.Create(tt.reply)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1206,17 +1206,17 @@ func TestQuickReplyRepository_Update(t *testing.T) {
 		SortOrder: 1,
 		IsPublic:  true,
 	}
-	quickReplyRepo.Create(context.Background(), reply)
+	quickReplyRepo.Create(reply)
 
 	reply.Title = "Updated Welcome"
 	reply.Content = "Updated content"
 
-	err := quickReplyRepo.Update(context.Background(), reply)
+	err := quickReplyRepo.Update(reply)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := quickReplyRepo.GetByID(context.Background(), reply.ID)
+	updated, _ := quickReplyRepo.GetByID(reply.ID)
 	if updated.Title != "Updated Welcome" {
 		t.Errorf("Expected Title 'Updated Welcome', got '%s'", updated.Title)
 	}
@@ -1235,14 +1235,14 @@ func TestQuickReplyRepository_Delete(t *testing.T) {
 		Content:  "Delete me",
 		IsPublic: true,
 	}
-	quickReplyRepo.Create(context.Background(), reply)
+	quickReplyRepo.Create(reply)
 
-	err := quickReplyRepo.Delete(context.Background(), reply.ID)
+	err := quickReplyRepo.Delete(reply.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = quickReplyRepo.GetByID(context.Background(), reply.ID)
+	_, err = quickReplyRepo.GetByID(reply.ID)
 	if err == nil {
 		t.Error("Expected reply to be deleted")
 	}
@@ -1258,7 +1258,7 @@ func TestQuickReplyRepository_GetByID(t *testing.T) {
 		Content:  "Test content",
 		IsPublic: true,
 	}
-	quickReplyRepo.Create(context.Background(), reply)
+	quickReplyRepo.Create(reply)
 
 	tests := []struct {
 		name    string
@@ -1279,7 +1279,7 @@ func TestQuickReplyRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := quickReplyRepo.GetByID(context.Background(), tt.id)
+			result, err := quickReplyRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -1299,22 +1299,22 @@ func TestQuickReplyRepository_GetCategories(t *testing.T) {
 	_, _, _, _, quickReplyRepo, _ := setupCustomerSessionRepositories(t)
 
 	// 创建测试数据
-	quickReplyRepo.Create(context.Background(), &model.QuickReply{
+	quickReplyRepo.Create(&model.QuickReply{
 		Category: "greeting",
 		Title:    "Hello",
 		IsPublic: true,
 	})
-	quickReplyRepo.Create(context.Background(), &model.QuickReply{
+	quickReplyRepo.Create(&model.QuickReply{
 		Category: "greeting",
 		Title:    "Welcome",
 		IsPublic: true,
 	})
-	quickReplyRepo.Create(context.Background(), &model.QuickReply{
+	quickReplyRepo.Create(&model.QuickReply{
 		Category: "faq",
 		Title:    "Refund",
 		IsPublic: true,
 	})
-	quickReplyRepo.Create(context.Background(), &model.QuickReply{
+	quickReplyRepo.Create(&model.QuickReply{
 		Category: "shipping",
 		Title:    "Delivery",
 		IsPublic: true,
@@ -1364,7 +1364,7 @@ func TestSessionTagRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := sessionTagRepo.Create(context.Background(), tt.tag)
+			err := sessionTagRepo.Create(tt.tag)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1386,17 +1386,17 @@ func TestSessionTagRepository_Update(t *testing.T) {
 		Color:     "#000000",
 		SortOrder: 1,
 	}
-	sessionTagRepo.Create(context.Background(), tag)
+	sessionTagRepo.Create(tag)
 
 	tag.Name = "Updated"
 	tag.Color = "#FF0000"
 
-	err := sessionTagRepo.Update(context.Background(), tag)
+	err := sessionTagRepo.Update(tag)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := sessionTagRepo.GetByID(context.Background(), tag.ID)
+	updated, _ := sessionTagRepo.GetByID(tag.ID)
 	if updated.Name != "Updated" {
 		t.Errorf("Expected Name 'Updated', got '%s'", updated.Name)
 	}
@@ -1413,14 +1413,14 @@ func TestSessionTagRepository_Delete(t *testing.T) {
 		Name:  "To Delete",
 		Color: "#000000",
 	}
-	sessionTagRepo.Create(context.Background(), tag)
+	sessionTagRepo.Create(tag)
 
-	err := sessionTagRepo.Delete(context.Background(), tag.ID)
+	err := sessionTagRepo.Delete(tag.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = sessionTagRepo.GetByID(context.Background(), tag.ID)
+	_, err = sessionTagRepo.GetByID(tag.ID)
 	if err == nil {
 		t.Error("Expected tag to be deleted")
 	}
@@ -1435,7 +1435,7 @@ func TestSessionTagRepository_GetByID(t *testing.T) {
 		Color:     "#123456",
 		SortOrder: 1,
 	}
-	sessionTagRepo.Create(context.Background(), tag)
+	sessionTagRepo.Create(tag)
 
 	tests := []struct {
 		name    string
@@ -1456,7 +1456,7 @@ func TestSessionTagRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := sessionTagRepo.GetByID(context.Background(), tt.id)
+			result, err := sessionTagRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)

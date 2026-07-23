@@ -134,11 +134,25 @@ const loadData = async () => {
   initCharts(data)
 }
 
+const activityMeta = {
+  clue: { icon: Document, color: '#5470c6' },
+  order: { icon: ShoppingCart, color: '#91cc75' },
+  customer: { icon: User, color: '#ee6666' },
+  message: { icon: ChatLineRound, color: '#fac858' }
+}
+const pickIcon = (t) => (activityMeta[t]?.icon) || Bell
+const pickColor = (t) => (activityMeta[t]?.color) || '#909399'
+
 const loadRealtime = async () => {
   const res = await getRealtimeActivities()
-  // 后端返回 { code, message, data: [...] }
-  const data = res
-  realtimeActivities.value = Array.isArray(data) ? data : []
+  // 后端返回 { code, message, data: [{type,title,user_name,created_at}] }
+  const list = Array.isArray(res) ? res : []
+  realtimeActivities.value = list.map((a) => ({
+    text: a.title || a.user_name || '',
+    time: a.created_at ? new Date(a.created_at).toLocaleTimeString('zh-CN', { hour12: false }) : '',
+    color: pickColor(a.type),
+    icon: pickIcon(a.type)
+  }))
 }
 
 const initCharts = (data) => {

@@ -26,4 +26,5 @@ type PlatformAPIClient interface {
 	Purchase(ctx context.Context, assetID string) error
 	PullData(ctx context.Context, assetID string) (*PlatformAssetPayload, error)
 	MyPurchases(ctx context.Context) ([]map[string]any, error)
+	ReportUsage(ctx context.Context, assetID string, delta int64) error
 }

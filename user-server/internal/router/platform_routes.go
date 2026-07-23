@@ -66,9 +66,15 @@ func setupFeishuRoutes(auth *gin.RouterGroup) {
 // setupWhatsAppCloudRoutes WhatsApp Cloud API 商业账号管理路由
 // 商户在 UI 配置 Phone Number ID / WABA ID / Access Token / App Secret，
 // 配合 /api/webhook/whatsapp/{account_id} 自动触发智能体流程
-func setupWhatsAppCloudRoutes(auth *gin.RouterGroup) {
-	waCtrl := controller.NewWhatsAppCloudAccountController(service.NewWhatsAppCloudService(db.GetDB()), service.NewWhatsAppCloudIntegrationService(db.GetDB()))
+func setupWhatsAppCloudRoutes(auth *gin.RouterGroup, whatsappCloudSvc *service.WhatsAppCloudService) {
+	waCtrl := controller.NewWhatsAppCloudAccountController(whatsappCloudSvc, service.NewWhatsAppCloudIntegrationService(db.GetDB()))
 	waCtrl.RegisterRoutes(auth)
+}
+
+// setupDingTalkAppRoutes 钉钉企业内部应用（支持回调收消息）路由
+func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingTalkAppService) {
+	dtCtrl := controller.NewDingTalkAppAccountController(dingtalkAppSvc)
+	dtCtrl.RegisterRoutes(auth)
 }
 
 // setupTiktokRoutes TikTok 管理路由

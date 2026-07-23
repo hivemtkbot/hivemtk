@@ -66,11 +66,12 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, doc rag_core.D
 
 // preprocessText 预处理文本
 func (dp *DocumentProcessor) preprocessText(text string) string {
-	// 移除多余的空白字符
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
-	// 移除多余的换行符
-	text = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(text, "\n\n")
-	// 清理特殊字符
+	// 保留换行：标题切分（shouldUseHeadingSplit / splitByHeadings）与段落切分
+	// 依赖换行符，不能把 \n 压成空格，否则 Markdown 标题永远无法被识别，
+	// 自动切换的“按标题分块”策略将整体失效、退化为整篇单块。
+	text = regexp.MustCompile(`[ \t]+`).ReplaceAllString(text, " ")
+	// 合并多余空行（保留单换行）
+	text = regexp.MustCompile(`\n[ \t]*\n`).ReplaceAllString(text, "\n\n")
 	text = strings.TrimSpace(text)
 	return text
 }

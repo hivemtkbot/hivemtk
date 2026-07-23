@@ -66,7 +66,24 @@ func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g.POST("/merchant-parse/:aid", c.MerchantParse)
 	g.POST("/:id/enable", c.Enable)
 	g.POST("/:id/disable", c.Disable)
+	g.POST("/:id/submit-platform", c.SubmitToPlatform)
 	g.POST("/enabled/list", c.GetEnabled)
+}
+
+// SubmitToPlatform 将本地资产包提交平台审核上架（开发者上架链路 P0）
+func (c *AssetBundleController) SubmitToPlatform(ctx *gin.Context) {
+	assetID := ctx.Param("id")
+	if assetID == "" {
+		response.Error(ctx, http.StatusBadRequest, "invalid asset id")
+		return
+	}
+	platformAssetID, err := c.svc.SubmitToPlatform(ctx.Request.Context(), assetID)
+	if err != nil {
+		logger.Errorf("[asset-bundle] submit to platform failed: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "提交平台失败: "+err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"platform_asset_id": platformAssetID}, "已提交平台审核")
 }
 
 // Create 创建

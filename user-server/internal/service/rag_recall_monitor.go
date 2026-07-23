@@ -110,7 +110,7 @@ func (s *RagRecallMonitorService) Start(ctx context.Context) {
 	s.started = true
 	s.mu.Unlock()
 
-	s.wg.Add(ctx, 1)
+	s.wg.Add(1)
 	go s.run(ctx)
 }
 
@@ -125,14 +125,14 @@ func (s *RagRecallMonitorService) Stop(ctx context.Context) {
 	s.mu.Unlock()
 
 	close(s.stopCh)
-	s.wg.Wait(ctx)
+	s.wg.Wait()
 }
 
 // run 定时循环
 func (s *RagRecallMonitorService) run(ctx context.Context) {
-	defer s.wg.Done(ctx)
+	defer s.wg.Done()
 	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop(ctx)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-s.stopCh:

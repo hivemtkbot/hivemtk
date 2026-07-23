@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -172,7 +173,7 @@ func TestShortLinkController_Create_DuplicateShortCode(t *testing.T) {
 	router.POST("/shortlinks", ctrl.Create)
 
 	// 先创建一个短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "duplicate",
 		OriginalURL: "https://www.example.com/first",
 		Title:       "First",
@@ -465,7 +466,7 @@ func TestShortLinkController_Update_BasicSuccess(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	link, _ := svc.Create(&dto.CreateShortLinkRequest{
+	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com/original",
 		Title:       "Original Title",
@@ -625,7 +626,7 @@ func TestShortLinkController_Update_InvalidURL(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
 		Title:       "Test",
@@ -666,7 +667,7 @@ func TestShortLinkController_Update_DisabledStatus(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	link, _ := svc.Create(&dto.CreateShortLinkRequest{
+	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "to-disable",
 		OriginalURL: "https://www.example.com",
 		Title:       "To Disable",
@@ -720,7 +721,7 @@ func TestShortLinkController_Delete_BasicSuccess(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	link, _ := svc.Create(&dto.CreateShortLinkRequest{
+	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "to-delete",
 		OriginalURL: "https://www.example.com",
 		Title:       "To Delete",
@@ -830,7 +831,7 @@ func TestShortLinkController_GetByID_BasicSuccess(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	link, _ := svc.Create(&dto.CreateShortLinkRequest{
+	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "abc123",
 		OriginalURL: "https://www.example.com",
 		Title:       "Test Link",
@@ -920,7 +921,7 @@ func TestShortLinkController_GetByID_WithAllFields(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	expireTime := time.Now().Add(24 * time.Hour)
-	link, _ := svc.Create(&dto.CreateShortLinkRequest{
+	link, _ := svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "full-link",
 		OriginalURL: "https://www.example.com/full",
 		Title:       "Full Link",
@@ -963,7 +964,7 @@ func TestShortLinkController_GetList_BasicSuccess(t *testing.T) {
 
 	// 创建多个短链
 	for i := 1; i <= 5; i++ {
-		svc.Create(&dto.CreateShortLinkRequest{
+		svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 			ShortCode:   "code" + string(rune('0'+i)),
 			OriginalURL: "https://www.example.com/" + string(rune('0'+i)),
 			Title:       "Link " + string(rune('0'+i)),
@@ -1007,13 +1008,13 @@ func TestShortLinkController_GetList_WithShortCodeFilter(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 创建多个短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "test123",
 		OriginalURL: "https://www.example.com",
 		Title:       "Test Link",
 		DomainID:    1,
 	})
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "other456",
 		OriginalURL: "https://www.other.com",
 		Title:       "Other Link",
@@ -1039,13 +1040,13 @@ func TestShortLinkController_GetList_WithStatusFilter(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 创建多个短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "active1",
 		OriginalURL: "https://www.example.com",
 		Title:       "Active Link",
 		DomainID:    1,
 	})
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "disabled1",
 		OriginalURL: "https://www.example.com/disabled",
 		Title:       "Disabled Link",
@@ -1070,7 +1071,7 @@ func TestShortLinkController_GetList_WithOriginalURLFilter(t *testing.T) {
 	ctrl := NewShortLinkController(svc)
 	router := setupGinEngineForShortLink()
 
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "url-filter",
 		OriginalURL: "https://www.example.com/specific",
 		Title:       "URL Filter Test",
@@ -1114,7 +1115,7 @@ func TestShortLinkController_GetList_LargePageSize(t *testing.T) {
 
 	// 创建多个短链
 	for i := 1; i <= 100; i++ {
-		svc.Create(&dto.CreateShortLinkRequest{
+		svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 			ShortCode:   "large" + string(rune(i)),
 			OriginalURL: "https://www.example.com/" + string(rune(i)),
 			Title:       "Large List Link " + string(rune(i)),
@@ -1188,7 +1189,7 @@ func TestShortLinkController_AccessShortLink_BasicSuccess(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "access-test",
 		OriginalURL: "https://www.example.com/target",
 		Title:       "Access Test",
@@ -1288,7 +1289,7 @@ func TestShortLinkController_AccessShortLink_WithPassword(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建带密码的短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "protected-access",
 		OriginalURL: "https://www.example.com/protected",
 		Title:       "Protected Access Test",
@@ -1329,7 +1330,7 @@ func TestShortLinkController_AccessShortLink_WrongPassword(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建带密码的短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "wrong-pass-test",
 		OriginalURL: "https://www.example.com/protected",
 		Title:       "Wrong Password Test",
@@ -1370,7 +1371,7 @@ func TestShortLinkController_AccessShortLink_WithMetadata(t *testing.T) {
 	router := setupGinEngineForShortLink()
 
 	// 先创建短链
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "metadata-test",
 		OriginalURL: "https://www.example.com/metadata",
 		Title:       "Metadata Test",
@@ -1448,7 +1449,7 @@ func TestShortLinkController_AccessShortLink_ExpiredLink(t *testing.T) {
 
 	// 创建已过期的短链
 	expiredTime := time.Now().Add(-24 * time.Hour) // 24 小时前
-	svc.Create(&dto.CreateShortLinkRequest{
+	svc.Create(context.Background(), &dto.CreateShortLinkRequest{
 		ShortCode:   "expired-access",
 		OriginalURL: "https://www.example.com/expired",
 		Title:       "Expired Access Test",

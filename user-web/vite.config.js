@@ -1,10 +1,20 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    // 预编译 i18n 资源（./src/i18n/locales/*.json），运行期不再编译消息，
+    // 避免 vue-i18n 用 new Function 触发 CSP script-src 'self' 的 unsafe-eval 拦截。
+    // runtimeOnly 默认 true：改用 vue-i18n 运行时构建（无消息编译器）。
+    // strictMessage:false 因为部分翻译含 <g>/<x>/<string> 等占位标签，按字面量保留。
+    VueI18n({
+      include: resolve(__dirname, './src/i18n/locales/**'),
+      strictMessage: false,
+      dropMessageCompiler: true,
+    }),
     vue({
       compilerOptions: {
         // 禁用深度选择器弃用警告

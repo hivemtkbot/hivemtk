@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"marketing/internal/model"
@@ -17,7 +18,7 @@ func main() {
 	db.InitDB()
 	// 读取smlist 所有列表并循环
 	smlistServer := service.NewSmlistService()
-	smsList, total, err := smlistServer.GetSmlistAllList()
+	smsList, total, err := smlistServer.GetSmlistAllList(context.Background(), )
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -40,7 +41,7 @@ func main() {
 		if len(qq_list) > 0 {
 			// 保存到线索库
 			clueServer := service.NewClueService()
-			if err := clueServer.BatchSaveClue(qq_list); err != nil {
+			if err := clueServer.BatchSaveClue(context.Background(), qq_list); err != nil {
 				fmt.Println(err)
 			}
 		}
@@ -51,7 +52,7 @@ func main() {
 		if len(wx_list) > 0 {
 			// 保存到线索库
 			clueServer := service.NewClueService()
-			if err := clueServer.BatchSaveClue(wx_list); err != nil {
+			if err := clueServer.BatchSaveClue(context.Background(), wx_list); err != nil {
 				fmt.Println(err)
 			}
 		}
@@ -62,7 +63,7 @@ func main() {
 		if len(phone_list) > 0 {
 			// 保存到线索库
 			clueServer := service.NewClueService()
-			if err := clueServer.BatchSaveClue(phone_list); err != nil {
+			if err := clueServer.BatchSaveClue(context.Background(), phone_list); err != nil {
 				fmt.Println(err)
 			}
 		}
@@ -73,7 +74,7 @@ func main() {
 		if len(telegram_list) > 0 {
 			// 保存到线索库
 			clueServer := service.NewClueService()
-			if err := clueServer.BatchSaveClue(telegram_list); err != nil {
+			if err := clueServer.BatchSaveClue(context.Background(), telegram_list); err != nil {
 				fmt.Println(err)
 			}
 		}
@@ -84,7 +85,7 @@ func main() {
 		if len(twitter_list) > 0 {
 			// 保存到线索库
 			clueServer := service.NewClueService()
-			if err := clueServer.BatchSaveClue(twitter_list); err != nil {
+			if err := clueServer.BatchSaveClue(context.Background(), twitter_list); err != nil {
 				fmt.Println(err)
 			}
 		}

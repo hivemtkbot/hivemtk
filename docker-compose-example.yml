@@ -1,5 +1,5 @@
 # ============================================================
-# HivemTK 用户端 - Docker Compose（独立部署单元）
+# HiveMtk 用户端 - Docker Compose（独立部署单元）
 #
 # 部署定位（2026-07-21 重构）：
 #   - 本文件包含【用户端】全部组件：PostgreSQL(user_db) + Redis + user-server

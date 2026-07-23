@@ -168,7 +168,7 @@ type IntentRecognizerInterface interface {
 // DialogueMemoryInterface 对话记忆抽象
 type DialogueMemoryInterface interface {
 	AppendMessage(ctx context.Context, sessionID, customerID string, msg dto.Message) error
-	GetOrCreateMemory(sessionID, customerID string) (*model.DialogueMemory, error)
+	GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error)
 }
 
 // SOPMatcherInterface SOP 匹配抽象
@@ -454,7 +454,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		industry := Industry("")
 		productID := ""
 		stage := stageToJourneyStage(sopStage)
-		resp.PlaybookSuggestions = e.fetchPlaybookSuggestions(industry, productID, stage, intentResult.IntentType)
+		resp.PlaybookSuggestions = e.fetchPlaybookSuggestions(context.Background(), industry, productID, stage, intentResult.IntentType)
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "5.6_playbook_suggest", Status: "ok", LatencyMs: ms(stepStart),
 			Detail: fmt.Sprintf("count=%d stage=%s intent=%s", len(resp.PlaybookSuggestions), stage, intentResult.IntentType),
@@ -655,7 +655,7 @@ func (e *SalesEngine) recallMemory(ctx context.Context, req *SalesRequest) (*mod
 	if e.memory == nil {
 		return &model.DialogueMemory{}, nil
 	}
-	return e.memory.GetOrCreateMemory(req.SessionID, req.CustomerID)
+	return e.memory.GetOrCreateMemory(ctx, req.SessionID, req.CustomerID)
 }
 
 // matchSOP 匹配 SOP
@@ -1143,7 +1143,7 @@ func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.Rec
 	// 兼容：原有静态规则（投诉/流失倾向/对话轮数过多）
 	switch intent.IntentType {
 	case IntentChurn, IntentComplaint:
-		return true, e.transferReason(intent, mem)
+		return true, e.transferReason(context.Background(), intent, mem)
 	}
 	if mem != nil && mem.MessageCount > 30 {
 		return true, "对话轮数过多，建议人工接管"
@@ -1184,7 +1184,7 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 		logger.Ctx(ctx).Warn().Err(err).Msg("[sales] confidence aggregate failed, fallback to static rule")
 		switch intent.IntentType {
 		case IntentChurn, IntentComplaint:
-			return true, e.transferReason(intent, mem)
+			return true, e.transferReason(context.Background(), intent, mem)
 		}
 		return false, ""
 	}
@@ -1336,7 +1336,7 @@ func (e *SalesEngine) ProcessIncomingMessage(ctx context.Context, msg *ChannelMe
 	}
 
 	// 渠道特定清洗
-	content, sessionID, customerID := e.normalizeChannelMessage(msg)
+	content, sessionID, customerID := e.normalizeChannelMessage(context.Background(), msg)
 
 	// 构造 SalesRequest
 	req := &SalesRequest{

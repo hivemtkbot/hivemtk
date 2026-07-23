@@ -154,5 +154,66 @@ export const wecomAccountApi = {
   // 发送企微消息
   sendMessage(data) {
     return http.post('/api/wecom/messages/send', data)
+  },
+
+  // 创建企微账号（后端 POST /wecom/accounts -> WeComService.CreateAccount）
+  // 必填 corp_id / corp_secret，可选 agent_id / agent_secret
+  createAccount(data) {
+    return http.post('/api/wecom/accounts', data)
+  },
+
+  // 编辑企微账号（后端 PUT /wecom/accounts/:id -> WeComService.UpdateAccount）
+  updateAccount(id, data) {
+    return http.put(`/api/wecom/accounts/${id}`, data)
+  },
+
+  // 删除企微账号（后端 DELETE /wecom/accounts/:id -> WeComService.DeleteAccount）
+  deleteAccount(id) {
+    return http.delete(`/api/wecom/accounts/${id}`)
+  },
+
+  // 企微客户列表（后端 GET /wecom/customers，分页，返回 {list,total,page,page_size}）
+  getCustomers(params) {
+    return http.get('/api/wecom/customers', { params })
+  },
+
+  // 企微客户群列表（后端 GET /wecom/groups，分页）
+  getGroups(params) {
+    return http.get('/api/wecom/groups', { params })
+  },
+
+  // 企微标签列表（后端 GET /wecom/tags，返回数组）
+  getTags() {
+    return http.get('/api/wecom/tags')
+  },
+
+  // 企微消息列表（后端 GET /wecom/messages，分页）
+  getMessages(params) {
+    return http.get('/api/wecom/messages', { params })
+  },
+
+  // 同步客户（后端 POST /wecom/accounts/:id/sync-customers）
+  syncCustomers(id) {
+    return http.post(`/api/wecom/accounts/${id}/sync-customers`)
+  },
+
+  // 同步客户群（后端 POST /wecom/accounts/:id/sync-groups）
+  syncGroups(id) {
+    return http.post(`/api/wecom/accounts/${id}/sync-groups`)
+  },
+
+  // 同步标签（后端 POST /wecom/accounts/:id/sync-tags）
+  syncTags(id) {
+    return http.post(`/api/wecom/accounts/${id}/sync-tags`)
+  },
+
+  // 刷新登录状态（后端 POST /wecom/accounts/:id/refresh，强制重新换取 access_token）
+  refreshAccount(id) {
+    return http.post(`/api/wecom/accounts/${id}/refresh`)
+  },
+
+  // 测试发送消息（后端 POST /wecom/accounts/:id/send-message）
+  sendMessageById(id, data) {
+    return http.post(`/api/wecom/accounts/${id}/send-message`, data)
   }
 }

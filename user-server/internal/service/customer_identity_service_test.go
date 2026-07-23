@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/identity"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
@@ -188,7 +189,7 @@ func TestCustomerIdentityService_LinkIdentity(t *testing.T) {
 	}
 
 	// 验证邮箱已绑定
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByIDcustomer.ID)
 	if updated.Email != "linked@example.com" {
 		t.Errorf("Expected email linked@example.com, got %s", updated.Email)
 	}
@@ -328,7 +329,7 @@ func TestCustomerIdentityService_LinkIdentity_Wechat(t *testing.T) {
 		t.Fatalf("LinkIdentity failed: %v", err)
 	}
 
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByIDcustomer.ID)
 	if updated.WechatOpenID != "wechat_bind" {
 		t.Errorf("Expected WechatOpenID wechat_bind, got %s", updated.WechatOpenID)
 	}

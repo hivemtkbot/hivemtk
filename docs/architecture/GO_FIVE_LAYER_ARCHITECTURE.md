@@ -163,7 +163,6 @@ hivemtk/user-server/
 │           ├── response/      #   response.Success / response.Error
 │           ├── pagination/    #   分页参数解析
 │           ├── mail/
-│           ├── epay/
 │           ├── cron/
 │           └── type/          #   枚举类型定义
 │

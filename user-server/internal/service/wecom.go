@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/httpclient"
@@ -95,6 +97,12 @@ type CreateAccountRequest struct {
 	CorpSecret	string	`json:"corp_secret" binding:"required"`
 	AgentID		int	`json:"agent_id"`
 	AgentSecret	string	`json:"agent_secret"`
+	// 入站回调（接收客户消息 → 智能体自动回复）配置
+	CallbackToken  string `json:"callback_token"`  // 企微管理端"接收事件服务器"配置的 Token
+	EncodingAESKey string `json:"encoding_aes_key"` // 43 字符 EncodingAESKey（消息体加解密）
+	WebhookEnabled bool   `json:"webhook_enabled"` // 是否启用 webhook 接收
+	AIAgentEnabled bool   `json:"ai_agent_enabled"` // 是否启用智能体自动回复
+	WebhookPath    string `json:"webhook_path"`    // 自定义回调路径（默认 /api/webhook/wecom/{id}）
 }
 
 // CreateAccount 创建企业微信账号
@@ -104,6 +112,11 @@ func (s *WeComService) CreateAccount(ctx context.Context, req *CreateAccountRequ
 		CorpSecret:	req.CorpSecret,
 		AgentID:	req.AgentID,
 		AgentSecret:	req.AgentSecret,
+		CallbackToken:	req.CallbackToken,
+		EncodingAESKey:	req.EncodingAESKey,
+		WebhookEnabled:	req.WebhookEnabled,
+		AIAgentEnabled:	req.AIAgentEnabled,
+		WebhookPath:	req.WebhookPath,
 		Status:		1,
 	}
 
@@ -135,6 +148,13 @@ func (s *WeComService) UpdateAccount(ctx context.Context, id uint, req *CreateAc
 	account.CorpSecret = req.CorpSecret
 	account.AgentID = req.AgentID
 	account.AgentSecret = req.AgentSecret
+	account.CallbackToken = req.CallbackToken
+	account.EncodingAESKey = req.EncodingAESKey
+	account.WebhookEnabled = req.WebhookEnabled
+	account.AIAgentEnabled = req.AIAgentEnabled
+	if req.WebhookPath != "" {
+		account.WebhookPath = req.WebhookPath
+	}
 
 	if err := s.accountRepo.Update(ctx, account); err != nil {
 		return nil, err
@@ -396,11 +416,20 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 
 	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/externalcontact/message/send?access_token=%s", token)
 
+	// externalcontact/message/send 使用 external_userid（客户联系场景），而非应用消息的 to_user/to_party
+	externalUserIDs := []string{}
+	if v := strings.TrimSpace(req.ToUser); v != "" {
+		for _, id := range strings.Split(v, "|") {
+			if t := strings.TrimSpace(id); t != "" {
+				externalUserIDs = append(externalUserIDs, t)
+			}
+		}
+	}
+
 	msgData := map[string]any{
-		"to_user":	req.ToUser,
-		"to_party":	req.ToParty,
-		"msgtype":	req.MsgType,
-		"agentid":	account.AgentID,
+		"external_userid":	externalUserIDs,
+		"msgtype":		req.MsgType,
+		"agentid":		account.AgentID,
 	}
 
 	switch req.MsgType {

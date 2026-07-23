@@ -70,6 +70,31 @@ func (r *AutoReplyAccountRepository) UpdateCookieByID(ctx context.Context, id ui
 	return r.db.Model(&model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", cookie).Error
 }
 
+// UpdateActiveByPlatformAndUser 按平台与用户批量更新启用状态(is_active)
+func (r *AutoReplyAccountRepository) UpdateActiveByPlatformAndUser(ctx context.Context, platform string, userID uint, active bool) error {
+	return r.db.Model(&model.AutoReplyAccount{}).
+		Where("platform = ? AND user_id = ?", platform, userID).
+		Update("is_active", active).Error
+}
+
+// CountActiveByPlatformAndUser 统计平台与用户下启用(is_active)的账号数
+func (r *AutoReplyAccountRepository) CountActiveByPlatformAndUser(ctx context.Context, platform string, userID uint) (int64, error) {
+	var n int64
+	err := r.db.Model(&model.AutoReplyAccount{}).
+		Where("platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).
+		Count(&n).Error
+	return n, err
+}
+
+// CountByPlatformAndUser 统计平台与用户下的账号数
+func (r *AutoReplyAccountRepository) CountByPlatformAndUser(ctx context.Context, platform string, userID uint) (int64, error) {
+	var n int64
+	err := r.db.Model(&model.AutoReplyAccount{}).
+		Where("platform = ? AND user_id = ?", platform, userID).
+		Count(&n).Error
+	return n, err
+}
+
 // DeleteByIDAndUser 按 ID 与用户删除账号（用户不匹配时不会删除）
 func (r *AutoReplyAccountRepository) DeleteByIDAndUser(ctx context.Context, id, userID uint) error {
 	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&model.AutoReplyAccount{}).Error

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 
@@ -31,7 +32,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 	if svc == nil {
 		return
 	}
-	accs, err := svc.ListAccounts()
+	accs, err := svc.ListAccounts(context.Background(), )
 	if err != nil {
 		logger.Warnf("[TG-Bootstrap] 列举 Telegram 账号失败: %v", err)
 		return
@@ -43,7 +44,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 			// secret 缺失时自动生成并落库，确保生产环境（GIN_MODE=release）入站验签可通过
 			if acc.WebhookSecret == "" {
 				acc.WebhookSecret = GenTGWebhookSecret()
-				if err := svc.UpdateAccount(acc); err != nil {
+				if err := svc.UpdateAccount(context.Background(), acc); err != nil {
 					logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 保存自动生成 secret 失败: %v", acc.ID, acc.AccountName, err)
 				}
 			}
@@ -56,7 +57,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 			if acc.BotUsername == "" {
 				if uname, gerr := tgbot.GetBotUsername(acc.BotToken); gerr == nil && uname != "" {
 					acc.BotUsername = uname
-					if err := svc.UpdateAccount(acc); err != nil {
+					if err := svc.UpdateAccount(context.Background(), acc); err != nil {
 						logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 保存 bot_username 失败(可忽略): %v", acc.ID, acc.AccountName, err)
 					}
 				}

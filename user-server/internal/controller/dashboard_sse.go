@@ -97,7 +97,7 @@ func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 	ctx.Writer.WriteHeader(http.StatusOK)
 
 	// 立即推送首次快照
-	snapshot := c.collectSnapshot(ctx, ctx.Request.Context())
+	snapshot := c.collectSnapshot(ctx.Request.Context())
 	if snapshot != nil {
 		if writeErr := writeDashboardEvent(ctx, "dashboard_update", snapshot); writeErr != nil {
 			return
@@ -124,7 +124,7 @@ func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 		case <-clientClosed:
 			return
 		case <-dataTicker.C:
-			snapshot := c.collectSnapshot(ctx, ctx.Request.Context())
+			snapshot := c.collectSnapshot(ctx.Request.Context())
 			if snapshot == nil {
 				continue
 			}
@@ -144,7 +144,7 @@ func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 
 // Snapshot 返回当前快照（一次性 JSON）
 func (c *DashboardSSEController) Snapshot(ctx *gin.Context) {
-	snapshot := c.collectSnapshot(ctx, ctx.Request.Context())
+	snapshot := c.collectSnapshot(ctx.Request.Context())
 	if snapshot == nil {
 		response.Error(ctx, http.StatusInternalServerError, "采集快照失败")
 		return
@@ -154,7 +154,7 @@ func (c *DashboardSSEController) Snapshot(ctx *gin.Context) {
 
 // Metrics 完整指标（含历史趋势）
 func (c *DashboardSSEController) Metrics(ctx *gin.Context) {
-	snapshot := c.collectSnapshot(ctx, ctx.Request.Context())
+	snapshot := c.collectSnapshot(ctx.Request.Context())
 	if snapshot == nil {
 		response.Error(ctx, http.StatusInternalServerError, "采集指标失败")
 		return
@@ -182,7 +182,7 @@ func (c *DashboardSSEController) collectSnapshot(ctx context.Context) *service.D
 		GeneratedAt: time.Now(),
 	}
 
-	if c.statsSvc != nil && c.statsSvc.Available() {
+	if c.statsSvc != nil && c.statsSvc.Available(context.Background(), ) {
 		// 1. 在线会话数
 		c.statsSvc.CollectSessionStats(ctx, snap)
 		// 2. 拟人度分布

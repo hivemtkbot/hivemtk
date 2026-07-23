@@ -35,7 +35,7 @@ import (
 func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 2026-07-23 五层架构治理（二轮）：构造本地 aiAgentSvc 供 agent_status controller
 	// 使用，避免 controller 直接调 dbutil.GetDB()。
-	aiAgentSvc := service.NewAIAgentService(db.GetDB())
+	aiAgentSvc := service.NewAIAgentServiceWithDB(db.GetDB())
 	// 通用 helper：注册时捕获重复注册的 panic
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
@@ -144,25 +144,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("GET", "/unified-messages/list", unifiedMsgCtrl.GetMessages)
 	doReg("GET", "/unified-messages/:id", unifiedMsgCtrl.GetMessageByID)
 	doReg("GET", "/unified-messages/:id/replies", unifiedMsgCtrl.GetReplies)
-
-	// ============================================================
-	// 7. 订单 - 别名（前端用 /api/orders）
-	// ============================================================
-	orderCtrl := controller.NewOrderController()
-	doReg("GET", "/orders", orderCtrl.GetOrderList)
-	doReg("GET", "/orders/list", orderCtrl.GetOrderList)
-	doReg("GET", "/orders/recent", orderCtrl.GetRecentOrderList)
-	doReg("GET", "/orders/:id", orderCtrl.GetOrderByID)
-	doReg("POST", "/orders", orderCtrl.CreateOrder)
-	doReg("PUT", "/orders/:id", orderCtrl.UpdateOrder)
-	doReg("DELETE", "/orders/:id", orderCtrl.DeleteOrder)
-	doReg("POST", "/orders/:id/cancel", orderCtrl.CancelOrder)
-	doReg("POST", "/orders/:id/refund", orderCtrl.RefundOrder)
-	doReg("POST", "/orders/:id/pay", orderCtrl.PayOrder)
-	doReg("GET", "/orders/:id/pay-status", orderCtrl.CheckPayStatus)
-	doReg("GET", "/order/list", orderCtrl.GetOrderList)
-	doReg("GET", "/order/:id", orderCtrl.GetOrderByID)
-	doReg("POST", "/order", orderCtrl.CreateOrder)
 
 	// ============================================================
 	// 8. OneID - 别名（前端用 /api/oneid/*）
@@ -466,7 +447,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 31. TikTok 卡片 - 别名
 	// ============================================================
-	tiktokCtrl := controller.NewTikTokCardController(service.NewTikTokCardServiceWithDB(db.GetDB()))
+	tiktokCtrl := controller.NewTikTokCardController()
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/:id", tiktokCtrl.Get)
@@ -697,15 +678,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 
 
 	// ============================================================
-	// 51. 支付 - 别名
-	// ============================================================
-	doReg("GET", "/payments", orderCtrl.GetOrderList)
-	doReg("GET", "/payments/list", orderCtrl.GetOrderList)
-	doReg("GET", "/payment/config", smsCtrl.GetConfig)
-	doReg("GET", "/payment-configs", smsCtrl.GetConfig)
-	doReg("GET", "/payment-configs/list", smsCtrl.GetConfig)
-
-	// ============================================================
 	// 52. 第三方对接 - 别名
 	// ============================================================
 	integrationCtrl := controller.NewIntegrationController()
@@ -717,7 +689,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("GET", "/integrations/:id/sync-logs", integrationCtrl.GetSyncLogs)
 	doReg("POST", "/integrations/:id/test", integrationCtrl.TestIntegration)
 	doReg("POST", "/integrations/:id/sync/customers", integrationCtrl.SyncCustomers)
-	doReg("POST", "/integrations/:id/sync/orders", integrationCtrl.SyncOrders)
 	doReg("POST", "/integrations/:id/sync/products", integrationCtrl.SyncProducts)
 
 	// ============================================================

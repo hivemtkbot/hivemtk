@@ -301,12 +301,12 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 		return nil, fmt.Errorf("ai_reply cannot be empty")
 	}
 	scores := []PersonaDimensionScore{
-		{Dimension: PersonaDimensionNaturalness, Score: e.scoreNaturalness(input), Reason: "规则评分"},
-		{Dimension: PersonaDimensionRelevance, Score: e.scoreRelevance(input), Reason: "规则评分"},
-		{Dimension: PersonaDimensionPersona, Score: e.scorePersona(input), Reason: "规则评分"},
-		{Dimension: PersonaDimensionEmotion, Score: e.scoreEmotion(input), Reason: "规则评分"},
-		{Dimension: PersonaDimensionConciseness, Score: e.scoreConciseness(input), Reason: "规则评分"},
-		{Dimension: PersonaDimensionCompliance, Score: e.scoreCompliance(input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionNaturalness, Score: e.scoreNaturalness(ctx, input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionRelevance, Score: e.scoreRelevance(ctx, input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionPersona, Score: e.scorePersona(ctx, input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionEmotion, Score: e.scoreEmotion(ctx, input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionConciseness, Score: e.scoreConciseness(ctx, input), Reason: "规则评分"},
+		{Dimension: PersonaDimensionCompliance, Score: e.scoreCompliance(ctx, input), Reason: "规则评分"},
 	}
 	total := computeWeightedScore(scores)
 	return &PersonaEvaluationResult{

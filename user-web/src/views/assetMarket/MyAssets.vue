@@ -55,6 +55,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="use_count" label="使用次数" width="100" />
         <el-table-column prop="synced_at" label="同步时间" width="170" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
@@ -65,6 +66,12 @@
               @click="handleSync(row)"
             >同步</el-button>
             <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
+            <el-button
+              v-if="row.source === 'purchased' || row.source === 'synced'"
+              link
+              type="warning"
+              @click="handleReport(row)"
+            >上报使用</el-button>
             <el-button link @click="toggle(row)">{{ row.is_active ? '停用' : '启用' }}</el-button>
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
@@ -124,7 +131,8 @@ import {
   createLocalAsset,
   deleteLocalAsset,
   toggleLocalAsset,
-  syncAsset
+  syncAsset,
+  reportUsage
 } from '@/api/assetMarket'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -156,6 +164,12 @@ const fetchList = async () => {
 const handleSync = async (row) => {
   await syncAsset({ asset_id: row.asset_id })
   ElMessage.success('同步成功')
+  fetchList()
+}
+
+const handleReport = async (row) => {
+  await reportUsage({ asset_id: row.asset_id })
+  ElMessage.success('已上报平台使用次数')
   fetchList()
 }
 

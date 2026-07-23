@@ -317,7 +317,7 @@ func TestDraft_Cancel(t *testing.T) {
 	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
 		CustomerID: custID, OwnerID: ownerID, ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	if err := draftSvc.Cancel(draft.ID, "客户改变主意", ownerID); err != nil {
+	if err := draftSvc.Cancel(context.Background(), draft.ID, "客户改变主意", ownerID); err != nil {
 		t.Fatalf("取消失败: %v", err)
 	}
 	if draft.Status != DraftStatusCancelled {
@@ -414,7 +414,7 @@ func TestDraft_ListPending(t *testing.T) {
 	d5, _ := draftSvc.CreateManual(&CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "sales_list", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	draftSvc.Cancel(d5.ID, "test", "sales_list")
+	draftSvc.Cancel(context.Background(), d5.ID, "test", "sales_list")
 
 	pending := draftSvc.ListPending("sales_list", 0)
 	if len(pending) != 3 {
@@ -501,11 +501,11 @@ func TestDraft_GetByID(t *testing.T) {
 	d, _ := draftSvc.CreateManual(&CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	got := draftSvc.GetByID(d.ID)
+	got := draftSvc.GetByID(context.Background(), d.ID)
 	if got == nil || got.ID != d.ID {
 		t.Error("应能查到草稿")
 	}
-	notFound := draftSvc.GetByID("not_exist")
+	notFound := draftSvc.GetByID(context.Background(), "not_exist")
 	if notFound != nil {
 		t.Error("不存在应返回 nil")
 	}
@@ -694,7 +694,7 @@ func TestDraft_DashboardStats(t *testing.T) {
 		if i < 2 {
 			draftSvc.Confirm(d.ID, ownerID)
 		} else if i == 2 {
-			draftSvc.Cancel(d.ID, "test", ownerID)
+			draftSvc.Cancel(context.Background(), d.ID, "test", ownerID)
 		}
 	}
 	stats := dashboard.GetDraftStats(ownerID, time.Time{})

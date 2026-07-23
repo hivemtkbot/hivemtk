@@ -76,25 +76,25 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 		var execCount, successCount, failedCount, runningCount int64
 
 		// 总执行数
-		if err := s.db.Model(ctx, &model.SOPExecution{}).
+		if err := s.db.Model(&model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ?", sopID, v.Name).
 			Count(&execCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 执行数失败：%w", v.Name, err)
 		}
 		// 成功数
-		if err := s.db.Model(ctx, &model.SOPExecution{}).
+		if err := s.db.Model(&model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusSuccess).
 			Count(&successCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 成功数失败：%w", v.Name, err)
 		}
 		// 失败数
-		if err := s.db.Model(ctx, &model.SOPExecution{}).
+		if err := s.db.Model(&model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusFailed).
 			Count(&failedCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 失败数失败：%w", v.Name, err)
 		}
 		// 运行中
-		if err := s.db.Model(ctx, &model.SOPExecution{}).
+		if err := s.db.Model(&model.SOPExecution{}).
 			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusRunning).
 			Count(&runningCount).Error; err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 运行中数失败：%w", v.Name, err)
@@ -142,7 +142,7 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 	agent.ABTestConfig = abMap
 	agent.Version++
 
-	if err := s.db.Save(ctx, agent).Error; err != nil {
+	if err := s.db.Save(agent).Error; err != nil {
 		return nil, err
 	}
 	return agent, nil

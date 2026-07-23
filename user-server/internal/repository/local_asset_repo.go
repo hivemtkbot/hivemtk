@@ -29,6 +29,8 @@ type LocalAssetRepository interface {
 	List(ctx context.Context, filter LocalAssetFilter) ([]*model.LocalAsset, int64, error)
 	ToggleActive(ctx context.Context, id int64, active bool) error
 	ListByTypeAndActive(ctx context.Context, assetType string) ([]*model.LocalAsset, error)
+	IncrementUseCount(ctx context.Context, id int64, delta int64) error
+	SetReportedUseCount(ctx context.Context, id int64, val int64) error
 }
 
 type localAssetRepo struct {
@@ -102,6 +104,16 @@ func (r *localAssetRepo) ListByTypeAndActive(ctx context.Context, assetType stri
 	var list []*model.LocalAsset
 	err := r.db.WithContext(ctx).Where("asset_type = ? AND is_active = ?", assetType, true).Find(&list).Error
 	return list, err
+}
+
+func (r *localAssetRepo) IncrementUseCount(ctx context.Context, id int64, delta int64) error {
+	return r.db.WithContext(ctx).Model(&model.LocalAsset{}).
+		Where("id = ?", id).UpdateColumn("use_count", gorm.Expr("use_count + ?", delta)).Error
+}
+
+func (r *localAssetRepo) SetReportedUseCount(ctx context.Context, id int64, val int64) error {
+	return r.db.WithContext(ctx).Model(&model.LocalAsset{}).
+		Where("id = ?", id).UpdateColumn("reported_use_count", val).Error
 }
 
 // LocalAssetDataRepository 资产数据仓储

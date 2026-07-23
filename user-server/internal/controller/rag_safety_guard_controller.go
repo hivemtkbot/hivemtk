@@ -12,6 +12,7 @@ package controller
 //   - POST /api/rag/safety/competitor      新增竞品词
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -75,7 +76,7 @@ func (c *RagSafetyGuardController) SafetyCheck(ctx *gin.Context) {
 // @Success      200  {object}  service.SafetyLexicon
 // @Router       /api/rag/safety/lexicon [get]
 func (c *RagSafetyGuardController) GetLexicon(ctx *gin.Context) {
-	response.Success(ctx, c.svc.GetLexicon(), "ok")
+	response.Success(ctx, c.svc.GetLexicon(context.Background(), ), "ok")
 }
 
 // UpdateLexiconRequest 替换词库
@@ -100,12 +101,12 @@ func (c *RagSafetyGuardController) UpdateLexicon(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())
 		return
 	}
-	c.svc.SetLexicon(service.SafetyLexicon{
+	c.svc.SetLexicon(context.Background(), service.SafetyLexicon{
 		SensitiveWords:  req.SensitiveWords,
 		AdPhrases:       req.AdPhrases,
 		CompetitorWords: req.CompetitorWords,
 	})
-	response.Success(ctx, gin.H{"updatedAt": c.svc.LastUpdate()}, "ok")
+	response.Success(ctx, gin.H{"updatedAt": c.svc.LastUpdate(context.Background(), )}, "ok")
 }
 
 // AddWordRequest 新增词
@@ -127,7 +128,7 @@ func (c *RagSafetyGuardController) AddSensitiveWord(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())
 		return
 	}
-	if err := c.svc.AddSensitiveWord(req.Word); err != nil {
+	if err := c.svc.AddSensitiveWord(context.Background(), req.Word); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -148,7 +149,7 @@ func (c *RagSafetyGuardController) AddCompetitorWord(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())
 		return
 	}
-	if err := c.svc.AddCompetitorWord(req.Word); err != nil {
+	if err := c.svc.AddCompetitorWord(context.Background(), req.Word); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}

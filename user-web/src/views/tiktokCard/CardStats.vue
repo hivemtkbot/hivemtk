@@ -3,7 +3,7 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span>TikTok卡片统计 - {{ cardInfo.title | '加载中...' }}</span>
+          <span>TikTok卡片统计 - {{ cardInfo.title || '加载中...' }}</span>
           <div class="header-actions">
             <el-button @click="goBack">{{ $t('返回') }}</el-button>
             <el-date-picker
@@ -151,7 +151,7 @@ let visitChartInstance = null
 // 获取卡片信息
 const fetchCardInfo = async () => {
   try {
-    const res = await getTiktokCard(cardId.value)
+    const res = await getTikTokCard(cardId.value)
     // 拦截器已解包，res 直接就是数据对象
     cardInfo.value = res
   } catch (error) {

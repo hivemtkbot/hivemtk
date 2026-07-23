@@ -27,7 +27,7 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 	// 1. 构建 智能体引擎（依赖为 nil，走兜底逻辑）+ 注入反馈学习器
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
-	engine.SetFeedbackLearner(fl)
+	engine.SetFeedbackLearner(context.Background(), fl)
 
 	channels := []struct {
 		name    string
@@ -105,7 +105,7 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
-	engine.SetFeedbackLearner(fl)
+	engine.SetFeedbackLearner(context.Background(), fl)
 
 	customer := "cust_accumulation"
 	sessionID := "wecom:chat_001"
@@ -148,7 +148,7 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 func TestE2E_FullChain_StepSequence(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
-	engine.SetFeedbackLearner(fl)
+	engine.SetFeedbackLearner(context.Background(), fl)
 
 	resp, err := engine.ProcessIncomingMessage(context.Background(), &ChannelMessage{
 		Channel:      "wecom",
@@ -202,7 +202,7 @@ func TestE2E_FullChain_StepSequence(t *testing.T) {
 func TestE2E_FullChain_SmartOrchestratorDelegatesToEngine(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
-	engine.SetFeedbackLearner(fl)
+	engine.SetFeedbackLearner(context.Background(), fl)
 
 	orchestrator := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
 
@@ -231,7 +231,7 @@ func TestE2E_FullChain_SmartOrchestratorDelegatesToEngine(t *testing.T) {
 func TestE2E_FullChain_ResponseIntegrity(t *testing.T) {
 	fl := NewFeedbackLearner(nil)
 	engine := NewSalesEngine(nil, nil, nil, nil, nil, nil, nil, nil)
-	engine.SetFeedbackLearner(fl)
+	engine.SetFeedbackLearner(context.Background(), fl)
 
 	resp, err := engine.ProcessIncomingMessage(context.Background(), &ChannelMessage{
 		Channel:      "wecom",

@@ -348,7 +348,7 @@ const handleTestSend = (row) => {
   testSendForm.value = {
     account_id: row.id,
     open_id: '',
-    content: i18n.global.t('这是一条来自 marketing-tools-kit 的测试消息，飞书账号：') + row.account_name,
+    content: i18n.global.t('这是一条来自 hivemtk 的测试消息，飞书账号：') + row.account_name,
     msg_type: 'text'
   }
   testSendVisible.value = true

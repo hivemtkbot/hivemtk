@@ -69,7 +69,7 @@ func (e *ReplyDecisionEngine) matchRule(ctx context.Context, msg *model.UnifiedM
 		}
 
 		// 检查时间限制
-		if !e.isInTimeRange(rule) {
+		if !e.isInTimeRange(context.Background(), rule) {
 			continue
 		}
 
@@ -82,7 +82,7 @@ func (e *ReplyDecisionEngine) matchRule(ctx context.Context, msg *model.UnifiedM
 		}
 
 		// 匹配关键词
-		if e.matchKeywords(msg.Content, rule.Keywords) {
+		if e.matchKeywords(context.Background(), msg.Content, rule.Keywords) {
 			return &model.ReplyDecision{
 				ShouldReply:	true,
 				ReplyType:	"rule",
@@ -104,7 +104,7 @@ func (e *ReplyDecisionEngine) matchKeywords(ctx context.Context, content, keywor
 	}
 
 	// 智能分割关键词，支持正则表达式中的逗号
-	keywordList := e.splitKeywords(keywords)
+	keywordList := e.splitKeywords(context.Background(), keywords)
 	for _, keyword := range keywordList {
 		keyword = strings.TrimSpace(keyword)
 		if keyword == "" {
@@ -260,7 +260,7 @@ func (s *UnifiedMessageService) ProcessMessage(ctx context.Context, msg *model.U
 	}
 
 	// 获取平台适配器
-	adapter, err := s.adapterRegistry.Get(ctx, msg.Platform)
+	adapter, err := s.adapterRegistry.Get(msg.Platform)
 	if err != nil {
 		return err
 	}

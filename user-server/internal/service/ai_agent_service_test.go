@@ -65,7 +65,7 @@ func TestAIAgentService_CreateAndGet(t *testing.T) {
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("sales_01", "销售一号", "sales")
-	if err := svc.Create(agent); err != nil {
+	if err := svc.Create(context.Background(), agent); err != nil {
 		t.Fatalf("创建智能体失败: %v", err)
 	}
 	if agent.ID == 0 {
@@ -73,7 +73,7 @@ func TestAIAgentService_CreateAndGet(t *testing.T) {
 	}
 
 	// GetByID
-	got, err := svc.GetByID(agent.ID)
+	got, err := svc.GetByID(context.Background(), agent.ID)
 	if err != nil {
 		t.Fatalf("查询智能体失败: %v", err)
 	}
@@ -91,12 +91,12 @@ func TestAIAgentService_CreateDuplicateCode(t *testing.T) {
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	a1 := makeAgent("dup_code", "智能体A", "sales")
-	if err := svc.Create(a1); err != nil {
+	if err := svc.Create(context.Background(), a1); err != nil {
 		t.Fatalf("创建第一个智能体失败: %v", err)
 	}
 
 	a2 := makeAgent("dup_code", "智能体B", "sales")
-	err := svc.Create(a2)
+	err := svc.Create(context.Background(), a2)
 	if err == nil {
 		t.Fatal("重复编码应返回错误")
 	}
@@ -108,19 +108,19 @@ func TestAIAgentService_CreateValidation(t *testing.T) {
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	// 空编码
-	err := svc.Create(&model.AIAgent{Name: "x", Persona: "y"})
+	err := svc.Create(context.Background(), &model.AIAgent{Name: "x", Persona: "y"})
 	if err == nil {
 		t.Fatal("空 agent_code 应返回错误")
 	}
 
 	// 空名称
-	err = svc.Create(&model.AIAgent{AgentCode: "c1", Persona: "y"})
+	err = svc.Create(context.Background(), &model.AIAgent{AgentCode: "c1", Persona: "y"})
 	if err == nil {
 		t.Fatal("空 name 应返回错误")
 	}
 
 	// 空人设
-	err = svc.Create(&model.AIAgent{AgentCode: "c2", Name: "n"})
+	err = svc.Create(context.Background(), &model.AIAgent{AgentCode: "c2", Name: "n"})
 	if err == nil {
 		t.Fatal("空 persona 应返回错误")
 	}
@@ -131,9 +131,9 @@ func TestAIAgentService_List(t *testing.T) {
 	setupAgentTestDB(t)
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
-	_ = svc.Create(makeAgent("s1", "销售1", "sales"))
-	_ = svc.Create(makeAgent("s2", "销售2", "sales"))
-	_ = svc.Create(makeAgent("c1", "客服1", "customer_service"))
+	_ = svc.Create(context.Background(), makeAgent("s1", "销售1", "sales"))
+	_ = svc.Create(context.Background(), makeAgent("s2", "销售2", "sales"))
+	_ = svc.Create(context.Background(), makeAgent("c1", "客服1", "customer_service"))
 
 	// 全部
 	list, err := svc.List("", -1, "")
@@ -169,16 +169,16 @@ func TestAIAgentService_Update(t *testing.T) {
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("upd_01", "原名", "sales")
-	_ = svc.Create(agent)
+	_ = svc.Create(context.Background(), agent)
 
 	origVersion := agent.Version
 	agent.Name = "新名"
 	agent.Persona = "新人设"
-	if err := svc.Update(agent); err != nil {
+	if err := svc.Update(context.Background(), agent); err != nil {
 		t.Fatalf("更新失败: %v", err)
 	}
 
-	got, _ := svc.GetByID(agent.ID)
+	got, _ := svc.GetByID(context.Background(), agent.ID)
 	if got.Name != "新名" {
 		t.Errorf("更新后名称应为 新名, 实际 %s", got.Name)
 	}
@@ -193,12 +193,12 @@ func TestAIAgentService_UpdateStatus(t *testing.T) {
 	svc := NewAIAgentServiceWithDB(db.GetDB())
 
 	agent := makeAgent("st_01", "状态测试", "sales")
-	_ = svc.Create(agent)
+	_ = svc.Create(context.Background(), agent)
 
 	if err := svc.UpdateStatus(agent.ID, 0); err != nil {
 		t.Fatalf("禁用失败: %v", err)
 	}
-	got, _ := svc.GetByID(agent.ID)
+	got, _ := svc.GetByID(context.Background(), agent.ID)
 	if got.Status != 0 {
 		t.Errorf("状态应为 0(禁用), 实际 %d", got.Status)
 	}
@@ -220,7 +220,7 @@ func TestAIAgentService_DeleteWithReference(t *testing.T) {
 	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("del_01", "待删除", "sales")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 创建绑定
 	binding := &model.ChannelAgentBinding{
@@ -230,17 +230,17 @@ func TestAIAgentService_DeleteWithReference(t *testing.T) {
 		IsPrimary:   true,
 		Enabled:     true,
 	}
-	_ = bindSvc.Create(binding)
+	_ = bindSvc.Create(context.Background(), binding)
 
 	// 有绑定引用时应删除失败
-	err := agentSvc.Delete(agent.ID)
+	err := agentSvc.Delete(context.Background(), agent.ID)
 	if err == nil {
 		t.Fatal("有渠道绑定时删除应失败")
 	}
 
 	// 解绑后应可删除
-	_ = bindSvc.Delete(binding.ID)
-	err = agentSvc.Delete(agent.ID)
+	_ = bindSvc.Delete(context.Background(), binding.ID)
+	err = agentSvc.Delete(context.Background(), agent.ID)
 	if err != nil {
 		t.Fatalf("解绑后删除应成功, 失败: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestAIAgentService_LoadContextCache(t *testing.T) {
 
 	agent := makeAgent("cache_01", "缓存测试", "sales")
 	agent.RagProductIDs = pq.StringArray{"rp1", "rp2"}
-	_ = svc.Create(agent)
+	_ = svc.Create(context.Background(), agent)
 
 	// 第一次加载（查库）
 	ctx1, err := svc.LoadContext(context.Background(), agent.ID)
@@ -276,7 +276,7 @@ func TestAIAgentService_LoadContextCache(t *testing.T) {
 
 	// 更新后缓存应失效
 	agent.Persona = "新人设"
-	_ = svc.Update(agent)
+	_ = svc.Update(context.Background(), agent)
 
 	ctx3, _ := svc.LoadContext(context.Background(), agent.ID)
 	if ctx3 == nil {
@@ -298,7 +298,7 @@ func TestChannelBinding_CreateAndList(t *testing.T) {
 	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("bind_01", "绑定测试", "sales")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	b := &model.ChannelAgentBinding{
 		ChannelType: "telegram",
@@ -307,7 +307,7 @@ func TestChannelBinding_CreateAndList(t *testing.T) {
 		IsPrimary:   true,
 		Enabled:     true,
 	}
-	if err := bindSvc.Create(b); err != nil {
+	if err := bindSvc.Create(context.Background(), b); err != nil {
 		t.Fatalf("创建绑定失败: %v", err)
 	}
 
@@ -327,23 +327,23 @@ func TestChannelBinding_PrimarySwitch(t *testing.T) {
 	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	a1 := makeAgent("pb_01", "智能体A", "sales")
-	_ = agentSvc.Create(a1)
+	_ = agentSvc.Create(context.Background(), a1)
 	a2 := makeAgent("pb_02", "智能体B", "sales")
-	_ = agentSvc.Create(a2)
+	_ = agentSvc.Create(context.Background(), a2)
 
 	// 绑定 a1 为主
 	b1 := &model.ChannelAgentBinding{
 		ChannelType: "telegram", AccountID: "acc_x",
 		AgentID: a1.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = bindSvc.Create(b1)
+	_ = bindSvc.Create(context.Background(), b1)
 
 	// 绑定 a2 为主（应自动清除 b1 的主绑定）
 	b2 := &model.ChannelAgentBinding{
 		ChannelType: "telegram", AccountID: "acc_x",
 		AgentID: a2.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = bindSvc.Create(b2)
+	_ = bindSvc.Create(context.Background(), b2)
 
 	list, _ := bindSvc.ListByChannelAccount("telegram", "acc_x")
 	if len(list) != 2 {
@@ -367,13 +367,13 @@ func TestChannelBinding_LoadAgentForChannel(t *testing.T) {
 	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("load_01", "加载测试", "sales")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	b := &model.ChannelAgentBinding{
 		ChannelType: "whatsapp", AccountID: "wa_1",
 		AgentID: agent.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = bindSvc.Create(b)
+	_ = bindSvc.Create(context.Background(), b)
 
 	// 加载绑定的智能体
 	ctx, err := bindSvc.LoadAgentForChannel(context.Background(), "whatsapp", "wa_1")
@@ -401,7 +401,7 @@ func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 	bindSvc := NewChannelAgentBindingServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("dis_01", "已禁用", "sales")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 	// 注意：Status 字段有 gorm default:1 标签，GORM 创建时会忽略零值 0
 	// 必须用 UpdateStatus 显式置为 0 才能真正禁用
 	if err := agentSvc.UpdateStatus(agent.ID, 0); err != nil {
@@ -412,7 +412,7 @@ func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 		ChannelType: "telegram", AccountID: "acc_d",
 		AgentID: agent.ID, IsPrimary: true, Enabled: true,
 	}
-	err := bindSvc.Create(b)
+	err := bindSvc.Create(context.Background(), b)
 	if err == nil {
 		t.Fatal("绑定已禁用智能体应失败")
 	}
@@ -429,7 +429,7 @@ func TestCSAgentMount_CreateAndList(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("mt_01", "挂载测试", "customer_service")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 先创建座席状态
 	st := &model.AgentStatus{AgentID: 100, AgentName: "座席A", Status: "offline", MaxSessions: 5}
@@ -441,7 +441,7 @@ func TestCSAgentMount_CreateAndList(t *testing.T) {
 		IsPrimary:     true,
 		Enabled:       true,
 	}
-	if err := mountSvc.Create(m); err != nil {
+	if err := mountSvc.Create(context.Background(), m); err != nil {
 		t.Fatalf("创建挂载失败: %v", err)
 	}
 
@@ -461,9 +461,9 @@ func TestCSAgentMount_PrimarySwitch(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	a1 := makeAgent("pm_01", "智能体A", "customer_service")
-	_ = agentSvc.Create(a1)
+	_ = agentSvc.Create(context.Background(), a1)
 	a2 := makeAgent("pm_02", "智能体B", "customer_service")
-	_ = agentSvc.Create(a2)
+	_ = agentSvc.Create(context.Background(), a2)
 
 	st := &model.AgentStatus{AgentID: 200, AgentName: "座席B", Status: "offline"}
 	_ = db.GetDB().Create(st)
@@ -472,13 +472,13 @@ func TestCSAgentMount_PrimarySwitch(t *testing.T) {
 	m1 := &model.CustomerServiceAgent{
 		AgentStatusID: st.ID, AIAgentID: a1.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = mountSvc.Create(m1)
+	_ = mountSvc.Create(context.Background(), m1)
 
 	// 挂载 a2 为主
 	m2 := &model.CustomerServiceAgent{
 		AgentStatusID: st.ID, AIAgentID: a2.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = mountSvc.Create(m2)
+	_ = mountSvc.Create(context.Background(), m2)
 
 	list, _ := mountSvc.ListByAgentStatusID(st.ID)
 	primaryCount := 0
@@ -499,7 +499,7 @@ func TestCSAgentMount_LoadAgentForSeat(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("seat_01", "座席智能体", "customer_service")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	st := &model.AgentStatus{AgentID: 300, AgentName: "座席C", Status: "online"}
 	_ = db.GetDB().Create(st)
@@ -507,7 +507,7 @@ func TestCSAgentMount_LoadAgentForSeat(t *testing.T) {
 	m := &model.CustomerServiceAgent{
 		AgentStatusID: st.ID, AIAgentID: agent.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = mountSvc.Create(m)
+	_ = mountSvc.Create(context.Background(), m)
 
 	ctx, err := mountSvc.LoadAgentForSeat(context.Background(), st.ID)
 	if err != nil {
@@ -557,7 +557,7 @@ func TestCSAgentMount_ListByUserID(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("bu_01", "按用户绑定", "customer_service")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 无座席状态时应返回空列表
 	list, err := mountSvc.ListByUserID(600)
@@ -591,7 +591,7 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	agent := makeAgent("cbu_01", "自动创建座席", "customer_service")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 按用户ID创建挂载（应自动创建 AgentStatus）
 	m, err := mountSvc.CreateByUserID(700, "用户C", agent.ID, true)
@@ -614,7 +614,7 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 
 	// 禁用智能体挂载应失败
 	disabledAgent := makeAgent("cbu_02", "禁用智能体", "customer_service")
-	_ = agentSvc.Create(disabledAgent)
+	_ = agentSvc.Create(context.Background(), disabledAgent)
 	// 注意：Status 字段有 gorm default:1 标签，GORM 创建时会忽略零值 0
 	// 必须用 UpdateStatus 显式置为 0 才能真正禁用
 	if err := agentSvc.UpdateStatus(disabledAgent.ID, 0); err != nil {
@@ -717,14 +717,14 @@ func TestE2E_ChannelBindingToLoadContext(t *testing.T) {
 	agent := makeAgent("e2e_01", "E2E智能体", "hybrid")
 	agent.RagProductIDs = pq.StringArray{"kb_1", "kb_2"}
 	agent.SOPIDs = pq.StringArray{"sop_1"}
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 2. 绑定到企微渠道
 	b := &model.ChannelAgentBinding{
 		ChannelType: "wecom", AccountID: "wecom_acc_1",
 		AgentID: agent.ID, IsPrimary: true, Enabled: true,
 	}
-	_ = bindSvc.Create(b)
+	_ = bindSvc.Create(context.Background(), b)
 
 	// 3. 按渠道加载智能体上下文
 	ctx, err := bindSvc.LoadAgentForChannel(context.Background(), "wecom", "wecom_acc_1")
@@ -750,7 +750,7 @@ func TestE2E_UserMountToLoadContext(t *testing.T) {
 
 	// 1. 创建智能体
 	agent := makeAgent("e2e_mt_01", "客服AI", "customer_service")
-	_ = agentSvc.Create(agent)
+	_ = agentSvc.Create(context.Background(), agent)
 
 	// 2. 按用户ID创建挂载（自动创建座席）
 	m, err := mountSvc.CreateByUserID(800, "客服张三", agent.ID, true)

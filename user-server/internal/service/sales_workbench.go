@@ -179,17 +179,17 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 
 	// 4. AI 产能
 	if dash != nil {
-		overview.AIProduct = dash.GetAIProductivity(monthStart)
+		overview.AIProduct = dash.GetAIProductivity(context.Background(), monthStart)
 	}
 
 	// 5. 客户漏斗（使用 dashboard 的旅程漏斗，纯内存）
 	if dash != nil {
-		overview.Funnel = dash.FunnelByJourney()
+		overview.Funnel = dash.FunnelByJourney(context.Background(), )
 	}
 
 	// 6. 销冠排行
 	if dash != nil {
-		overview.Leaderboard = dash.GetTeamRanking(monthStart, 5)
+		overview.Leaderboard = dash.GetTeamRanking(context.Background(), monthStart, 5)
 		overview.MyRank = s.findMyRank(ctx, overview.Leaderboard, salesID)
 	}
 
@@ -198,7 +198,7 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 
 	// 8. 销售档案
 	if dash != nil {
-		perf := dash.GetSalesPerformance(salesID, time.Time{})
+		perf := dash.GetSalesPerformance(context.Background(), salesID, time.Time{})
 		if perf != nil {
 			overview.Name = perf.Name
 			overview.Team = perf.Team
@@ -215,7 +215,7 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 
 	// 1) 待确认草稿（优先级 5：直接关系收入）
 	if draft != nil {
-		for _, d := range draft.ListPending(salesID, 0) {
+		for _, d := range draft.ListPending(context.Background(), salesID, 0) {
 			todos = append(todos, &WorkbenchTodo{
 				Type:		"draft",
 				Priority:	5,
@@ -233,9 +233,9 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 
 	// 2) 今日待跟进（优先级 4）
 	if followup != nil {
-		for _, r := range followup.ListPending(salesID, 0) {
+		for _, r := range followup.ListPending(context.Background(), salesID, 0) {
 			// 只取今日的
-			if r.DueAt.Before(ctx, todayStart(now)) || r.Status != "pending" {
+			if r.DueAt.Before(todayStart(now)) || r.Status != "pending" {
 				continue
 			}
 			priority := 4
@@ -258,7 +258,7 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 			})
 		}
 		// 逾期未完成也展示（优先级 5）
-		for _, r := range followup.ListOverdue(salesID) {
+		for _, r := range followup.ListOverdue(context.Background(), salesID) {
 			todos = append(todos, &WorkbenchTodo{
 				Type:		"followup",
 				Priority:	5,

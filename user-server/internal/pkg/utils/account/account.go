@@ -1,6 +1,7 @@
 package account
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"marketing/internal/model"
@@ -14,13 +15,10 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-var PayCommandString = "/pay"
 var StartCommandString = "/start"
-var JoinGroupCommandString = "/join_group"
 
 type accountData struct {
 	BotToken    string
-	EpayConfig  _type.EpayConfig
 	Price       decimal.Decimal
 	AccountID   string
 	GroupID     int64
@@ -37,7 +35,7 @@ var (
 func InitAllAccount() error {
 	accountSer := service.NewAccountService()
 
-	accountList, err := accountSer.GetAccountList()
+	accountList, err := accountSer.GetAccountList(context.Background(), )
 	if err != nil {
 		return err
 	}
@@ -47,13 +45,13 @@ func InitAllAccount() error {
 		if err != nil {
 			logger.Info(fmt.Sprintf("初始化账号ID %s 失败: %s", account.ID, err.Error()))
 			// 更新失败信息
-			accountSer.UpdateAccountStatusById(account.ID, _type.AccountStatusInactive, err.Error())
+			accountSer.UpdateAccountStatusById(context.Background(), account.ID, _type.AccountStatusInactive, err.Error())
 		} else {
 			// 更新成功信息
 			logger.Info(fmt.Sprintf("初始化账号ID %s 成功: %s", account.ID, botName))
-			accountSer.UpdateAccountStatusById(account.ID, _type.AccountStatusActive, "")
+			accountSer.UpdateAccountStatusById(context.Background(), account.ID, _type.AccountStatusActive, "")
 			//更新name
-			accountSer.UpdateAccountTgNameById(account.ID, botName)
+			accountSer.UpdateAccountTgNameById(context.Background(), account.ID, botName)
 		}
 		// 更新成功信息
 	}
@@ -81,29 +79,13 @@ func InitOneAccount(account *model.Account) (string, error) {
 	return botName, nil
 }
 
-func FormateEpayConfigByAccount(account *model.Account) _type.EpayConfig {
-	config := _type.EpayConfig{
-		Pid:       account.EpayPid,
-		Key:       account.EpayKey,
-		Type:      account.EpayPayType,
-		NotifyUrl: fmt.Sprintf("%s%s", account.EpayURL, "/api/epay_notify"),
-		ReturnUrl: account.URL,
-		QueryUrl:  account.EpayQueryUrl,
-		EpayUrl:   account.EpayURL,
-	}
-	return config
-}
-
 func FormateAccountDictData(account *model.Account, bot *tgbotapi.BotAPI) (accountData, error) {
-	payconfig := FormateEpayConfigByAccount(account)
-
 	price, err := decimal.NewFromString(account.Price)
 	if err != nil {
 		return accountData{}, err
 	}
 	info := accountData{
 		BotToken:    account.TgBotToken,
-		EpayConfig:  payconfig,
 		Price:       price,
 		AccountID:   account.ID,
 		GroupID:     account.GroupID,
@@ -156,57 +138,27 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 
 	// 保存用户
 	userSer := service.NewUserService()
-	user_id, err := userSer.InitUser(account.AccountID, int64(from_id), from_FirstName, from_LastName, from_UserName)
+	user_id, err := userSer.InitUser(context.Background(), account.AccountID, int64(from_id), from_FirstName, from_LastName, from_UserName)
 	if err != nil {
 		logger.Info(err.Error())
 	}
 	// 保存聊天记录
 	messageSer := service.NewMessageService()
-	_, err = messageSer.InitMessage(account.AccountID, user_id, int64(from_id), text)
+	_, err = messageSer.InitMessage(context.Background(), account.AccountID, user_id, int64(from_id), text)
 	if err != nil {
 		logger.Info(err.Error())
 	}
 
 	if update.Message != nil && update.Message.Chat.IsPrivate() { // 只处理私聊信息
 		if update.Message.IsCommand() {
-			switch update.Message.Command() {
-			case "start": //start
-				msgText := BuildAccountStartNoticeMsg(account.AccountName)
-				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-			case "pay":
-				orderService := service.NewOrderService()
-				// 检查是否付费
-				is_pay := orderService.LastOrderIsPay(account.AccountID, update.Message.Chat.ID, account.EpayConfig)
-				if is_pay {
-					msgText := BuildAccountJoinGroupMsg(account.AccountName)
-					tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-					return
-				}
-				// 发起付费
-				payUrl, err := orderService.CreatePay(account.AccountID, account.Price, update.Message.Chat.ID, account.EpayConfig)
-				if err != nil {
-					logger.Info("发起付费失败")
-					msgText := BuildAccountNotPayErrorNoticeMsg(account.AccountName)
-					tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-				}
-
-				msgText := BuildAccountPayUrlMsg(payUrl)
-				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-			// 	PayCommand(account, update)
-			case "join_group":
-				orderService := service.NewOrderService()
-				// 检查是否付费
-				is_pay := orderService.LastOrderIsPay(account.AccountID, update.Message.Chat.ID, account.EpayConfig)
-				if !is_pay {
-					msgText := BuildAccountNotPaidNoticeMsg(account.AccountName)
-					tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-				} else {
-					tgbot.SendInviteJoinGroup(account.Bot, account.GroupID, update.Message.Chat.ID)
-				}
-			default:
-				msgText := BuildAccountStartNoticeMsg(account.AccountName)
-				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-			}
+		switch update.Message.Command() {
+		case "start": //start
+			msgText := BuildAccountStartNoticeMsg(account.AccountName)
+			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
+		default:
+			msgText := BuildAccountStartNoticeMsg(account.AccountName)
+			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
+		}
 		} else {
 			msgText := BuildAccountStartNoticeMsg(account.AccountName)
 			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
@@ -221,27 +173,7 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 }
 
 func BuildAccountStartNoticeMsg(TgName string) string {
-	msgText := fmt.Sprintf(`欢迎使用: %s,未付费: %s, 已付费: %s`, TgName, PayCommandString, JoinGroupCommandString)
-	return msgText
-}
-
-func BuildAccountNotPaidNoticeMsg(TgName string) string {
-	msgText := fmt.Sprintf(`欢迎使用: %s,您尚未付费,请先付款: %s`, TgName, PayCommandString)
-	return msgText
-}
-
-func BuildAccountJoinGroupMsg(TgName string) string {
-	msgText := fmt.Sprintf(`欢迎使用: %s,您已付款点击进群 %s`, TgName, JoinGroupCommandString)
-	return msgText
-}
-
-func BuildAccountNotPayErrorNoticeMsg(TgName string) string {
-	msgText := fmt.Sprintf(`欢迎使用: %s,程序异常,请重试: %s`, TgName, PayCommandString)
-	return msgText
-}
-
-func BuildAccountPayUrlMsg(payUrl string) string {
-	msgText := fmt.Sprintf("<a href=\"%s\">点击支付</a>", payUrl)
+	msgText := fmt.Sprintf("欢迎使用: %s", TgName)
 	return msgText
 }
 

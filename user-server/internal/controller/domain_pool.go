@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/dto"
 	"marketing/internal/model"
@@ -35,7 +36,7 @@ func (c *DomainPoolController) Create(ctx *gin.Context) {
 		return
 	}
 
-	domainPool, err := c.domainPoolService.Create(req.Domain, req.Port, req.Purpose)
+	domainPool, err := c.domainPoolService.Create(context.Background(), req.Domain, req.Port, req.Purpose)
 	if HandleServiceError(ctx, err) {
 		return
 	}
@@ -51,7 +52,7 @@ func (c *DomainPoolController) Update(ctx *gin.Context) {
 		return
 	}
 
-	domainPool, err := c.domainPoolService.Update(req.ID, req.Domain, req.Port, req.Purpose, req.Status)
+	domainPool, err := c.domainPoolService.Update(context.Background(), req.ID, req.Domain, req.Port, req.Purpose, req.Status)
 	if HandleServiceError(ctx, err) {
 		return
 	}
@@ -68,7 +69,7 @@ func (c *DomainPoolController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.domainPoolService.Delete(id)
+	err = c.domainPoolService.Delete(context.Background(), id)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -86,7 +87,7 @@ func (c *DomainPoolController) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	domainPool, err := c.domainPoolService.GetByID(id)
+	domainPool, err := c.domainPoolService.GetByID(context.Background(), id)
 	if HandleDBError(ctx, err, "获取域名池") {
 		return
 	}
@@ -103,7 +104,7 @@ func (c *DomainPoolController) List(ctx *gin.Context) {
 		return
 	}
 
-	domainPools, total, err := c.domainPoolService.List(req.Page, req.PageSize, req.Domain, req.Status)
+	domainPools, total, err := c.domainPoolService.List(context.Background(), req.Page, req.PageSize, req.Domain, req.Status)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -129,7 +130,7 @@ func (c *DomainPoolController) CheckDomain(ctx *gin.Context) {
 		return
 	}
 
-	accessible, err := c.domainPoolService.CheckDomain(id)
+	accessible, err := c.domainPoolService.CheckDomain(context.Background(), id)
 	if HandleServiceError(ctx, err) {
 		return
 	}
@@ -150,7 +151,7 @@ func (c *DomainPoolController) CheckDomain(ctx *gin.Context) {
 
 // CheckAllDomains 检查所有域名是否可访问
 func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
-	results, err := c.domainPoolService.CheckAllDomains()
+	results, err := c.domainPoolService.CheckAllDomains(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -175,7 +176,7 @@ func (c *DomainPoolController) HealthCheck(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "无效的ID")
 		return
 	}
-	result, err := c.healthService.CheckOne(id)
+	result, err := c.healthService.CheckOne(context.Background(), id)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -189,7 +190,7 @@ func (c *DomainPoolController) HealthCheck(ctx *gin.Context) {
 // @Success 200 {object} object{data=[]service.HealthCheckResult}
 // @Router /api/domainpool/health-check-all [post]
 func (c *DomainPoolController) HealthCheckAll(ctx *gin.Context) {
-	results, err := c.healthService.CheckAll()
+	results, err := c.healthService.CheckAll(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -211,11 +212,11 @@ func (c *DomainPoolController) SwitchActive(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "无效的ID")
 		return
 	}
-	if err := c.healthService.SwitchActive(id, "手动切换"); err != nil {
+	if err := c.healthService.SwitchActive(context.Background(), id, "手动切换"); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	dp, err := c.domainPoolService.GetByID(id)
+	dp, err := c.domainPoolService.GetByID(context.Background(), id)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -229,7 +230,7 @@ func (c *DomainPoolController) SwitchActive(ctx *gin.Context) {
 // @Success 200 {object} object{data=model.DomainPool}
 // @Router /api/domainpool/switch-best [post]
 func (c *DomainPoolController) AutoSwitchBest(ctx *gin.Context) {
-	best, err := c.healthService.SwitchToBest("API 触发自动切换")
+	best, err := c.healthService.SwitchToBest(context.Background(), "API 触发自动切换")
 	if err != nil {
 		if errors.Is(err, errors.New("no available")) || (err != nil && err.Error() != "" && containsAny(err.Error(), "无可用", "no available")) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
@@ -247,7 +248,7 @@ func (c *DomainPoolController) AutoSwitchBest(ctx *gin.Context) {
 // @Success 200 {object} object{data=model.DomainPool}
 // @Router /api/domainpool/active [get]
 func (c *DomainPoolController) GetActiveDomain(ctx *gin.Context) {
-	active, err := c.healthService.GetActiveDomain()
+	active, err := c.healthService.GetActiveDomain(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -267,7 +268,7 @@ func (c *DomainPoolController) GetActiveDomain(ctx *gin.Context) {
 // @Router /api/domainpool/available [get]
 func (c *DomainPoolController) ListAvailableDomains(ctx *gin.Context) {
 	minScore, _ := strconv.Atoi(ctx.DefaultQuery("min_score", "80"))
-	rows, err := c.healthService.ListAvailable(minScore)
+	rows, err := c.healthService.ListAvailable(context.Background(), minScore)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -294,7 +295,7 @@ func (c *DomainPoolController) ListHealthLogs(ctx *gin.Context) {
 		return
 	}
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
-	logs, err := c.healthService.ListHealthLogs(id, limit)
+	logs, err := c.healthService.ListHealthLogs(context.Background(), id, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -323,7 +324,7 @@ func (c *DomainPoolController) AddBlacklist(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := c.domainPoolService.AddBlacklist(req.Domain, req.Platform, req.Reason, req.Source, req.TTLHours); err != nil {
+	if err := c.domainPoolService.AddBlacklist(context.Background(), req.Domain, req.Platform, req.Reason, req.Source, req.TTLHours); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -342,7 +343,7 @@ func (c *DomainPoolController) RemoveBlacklist(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "域名不能为空")
 		return
 	}
-	if err := c.domainPoolService.RemoveBlacklist(domain); err != nil {
+	if err := c.domainPoolService.RemoveBlacklist(context.Background(), domain); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -357,7 +358,7 @@ func (c *DomainPoolController) RemoveBlacklist(ctx *gin.Context) {
 func (c *DomainPoolController) ListBlacklist(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	rows, total, err := c.domainPoolService.ListBlacklist(page, pageSize)
+	rows, total, err := c.domainPoolService.ListBlacklist(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

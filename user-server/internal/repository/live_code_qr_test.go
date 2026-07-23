@@ -76,7 +76,7 @@ func TestLiveCodeQRRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(context.Background(), tt.qrCode)
+			err := repo.Creatett.qrCode)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -102,19 +102,19 @@ func TestLiveCodeQRRepository_Update(t *testing.T) {
 		Priority:   1,
 		Status:     1,
 	}
-	repo.Create(context.Background(), qrCode)
+	repo.CreateqrCode)
 
 	// 更新
 	qrCode.QRTitle = "Updated Title"
 	qrCode.Priority = 5
 	qrCode.Status = 0
 
-	err := repo.Update(context.Background(), qrCode)
+	err := repo.UpdateqrCode)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), qrCode.ID)
+	updated, _ := repo.GetByIDqrCode.ID)
 	if updated.QRTitle != "Updated Title" {
 		t.Errorf("Expected QRTitle 'Updated Title', got '%s'", updated.QRTitle)
 	}
@@ -138,14 +138,14 @@ func TestLiveCodeQRRepository_Delete(t *testing.T) {
 		QRTitle:    "To Delete",
 		Status:     1,
 	}
-	repo.Create(context.Background(), qrCode)
+	repo.CreateqrCode)
 
-	err := repo.Delete(context.Background(), qrCode.ID)
+	err := repo.DeleteqrCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(context.Background(), qrCode.ID)
+	_, err = repo.GetByIDqrCode.ID)
 	if err == nil {
 		t.Error("Expected QR code to be deleted")
 	}
@@ -163,7 +163,7 @@ func TestLiveCodeQRRepository_GetByID(t *testing.T) {
 		QRTitle:    "GetByID QR",
 		Status:     1,
 	}
-	repo.Create(context.Background(), qrCode)
+	repo.CreateqrCode)
 
 	tests := []struct {
 		name    string
@@ -184,7 +184,7 @@ func TestLiveCodeQRRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(context.Background(), tt.id)
+			result, err := repo.GetByIDtt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -205,7 +205,7 @@ func TestLiveCodeQRRepository_GetByLiveCodeID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(context.Background(), &model.LiveCodeQR{
+		repo.Create&model.LiveCodeQR{
 			LiveCodeID: "live-code-123",
 			QRType:     "wechat",
 			QRContent:  "https://example.com/qr" + string(rune('0'+i)),
@@ -216,7 +216,7 @@ func TestLiveCodeQRRepository_GetByLiveCodeID(t *testing.T) {
 	}
 
 	// 创建其他活码的二维码
-	repo.Create(context.Background(), &model.LiveCodeQR{
+	repo.Create&model.LiveCodeQR{
 		LiveCodeID: "live-code-456",
 		QRType:     "alipay",
 		QRContent:  "https://example.com/other",
@@ -251,7 +251,7 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 		QRTitle:    "Available QR",
 		Status:     1,
 	}
-	repo.Create(context.Background(), availableQR)
+	repo.CreateavailableQR)
 
 	// 创建禁用的二维码 - GORM default:1 会覆盖 Status: 0，所以先创建后更新
 	disabledQR := &model.LiveCodeQR{
@@ -261,10 +261,10 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 		QRTitle:    "Disabled QR",
 		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
 	}
-	repo.Create(context.Background(), disabledQR)
+	repo.CreatedisabledQR)
 	// 更新为禁用状态
 	disabledQR.Status = 0
-	repo.Update(context.Background(), disabledQR)
+	repo.UpdatedisabledQR)
 
 	result, err := repo.GetAvailableQR(context.Background(), "live-code-available-test")
 	if err != nil {
@@ -291,10 +291,10 @@ func TestLiveCodeQRRepository_GetAvailableQR_NotFound(t *testing.T) {
 		QRTitle:    "Only Disabled",
 		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
 	}
-	repo.Create(context.Background(), disabledQR)
+	repo.CreatedisabledQR)
 	// 更新为禁用状态
 	disabledQR.Status = 0
-	repo.Update(context.Background(), disabledQR)
+	repo.UpdatedisabledQR)
 
 	_, err := repo.GetAvailableQR(context.Background(), "live-code-only-disabled-test")
 	if err == nil {

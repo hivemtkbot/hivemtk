@@ -39,9 +39,6 @@ type SendMessageInput = portcontract.SendMessageInput
 // SessionPort 会话域端口。
 type SessionPort = portcontract.SessionPort
 
-// OrderPort 订单域端口。
-type OrderPort = portcontract.OrderPort
-
 // FollowUpScheduleOptions 跟进任务选项。
 type FollowUpScheduleOptions = portcontract.FollowUpScheduleOptions
 

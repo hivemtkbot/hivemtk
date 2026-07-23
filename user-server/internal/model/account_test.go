@@ -21,11 +21,6 @@ func TestAccount_BasicFields(t *testing.T) {
 		TgBotToken:          "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
 		GroupID:             123456789,
 		Price:               "99.00",
-		EpayQueryUrl:        "https://pay.example.com/api/query",
-		EpayPid:             "123456",
-		EpayKey:             "secret_key",
-		EpayURL:             "https://pay.example.com",
-		EpayPayType:         "alipay",
 		ProxyEnableProxy:    true,
 		ProxyProtoclo:       "https",
 		ProxyHost:           "proxy.example.com",
@@ -104,25 +99,6 @@ func TestAccount_WithEmptyFields(t *testing.T) {
 	}
 }
 
-func TestAccount_WithEpayConfig(t *testing.T) {
-	account := &Account{
-		EpayQueryUrl: "https://pay.example.com/query",
-		EpayPid:      "10001",
-		EpayKey:      "secret",
-		EpayURL:      "https://pay.example.com",
-		EpayPayType:  "wechat",
-	}
-
-	if account.EpayQueryUrl != "https://pay.example.com/query" {
-		t.Errorf("Expected EpayQueryUrl, got %s", account.EpayQueryUrl)
-	}
-	if account.EpayPid != "10001" {
-		t.Errorf("Expected EpayPid '10001', got %s", account.EpayPid)
-	}
-	if account.EpayPayType != "wechat" {
-		t.Errorf("Expected EpayPayType 'wechat', got %s", account.EpayPayType)
-	}
-}
 
 func TestAccount_WithProxyConfig(t *testing.T) {
 	account := &Account{

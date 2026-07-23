@@ -425,7 +425,7 @@ func (s *MessageHubService) MarkRead(ctx context.Context, ids []uint) error {
 	}
 	now := time.Now()
 	// 使用 GORM Updates（map 形式）避免 bool 字段零值问题，无需 Raw SQL
-	return s.db.Model(ctx, &model.MessageHub{}).Where("id IN ?", ids).
+	return s.db.WithContext(ctx).Model(&model.MessageHub{}).Where("id IN ?", ids).
 		Updates(map[string]any{
 			"is_read":	true,
 			"read_at":	now,
@@ -454,7 +454,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	// 每次查询都基于 s.db 重新构造 base（避免 GORM Count/Find 修改 base 的 statement）
 	var total, inbound, outbound, unread int64
 
-	countQuery := s.db.Model(ctx, &model.MessageHub{}).Where("1 = 1")
+	countQuery := s.db.WithContext(ctx).Model(&model.MessageHub{}).Where("1 = 1")
 	if start != nil {
 		countQuery = countQuery.Where("sent_at >= ?", *start)
 	}
@@ -464,14 +464,14 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("direction = ?", "inbound").
 		Count(&inbound)
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("direction = ?", "outbound").
 		Count(&outbound)
 	// unread: is_read = false 或 NULL（兼容 GORM bool 默认值）
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("(is_read = ? OR is_read IS NULL)", false).
 		Count(&unread)
 	stats := &HubStats{
@@ -485,7 +485,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 		C		int64
 	}
 	var pCounts []pcount
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("1 = 1").
 		Select("platform AS platform, COUNT(*) AS c").
 		Group("platform").Scan(&pCounts)
@@ -499,7 +499,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 		C		int64
 	}
 	var dCounts []dcount
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("1 = 1").
 		Select("direction AS direction, COUNT(*) AS c").
 		Group("direction").Scan(&dCounts)
@@ -512,7 +512,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 		C	int64
 	}
 	var tCounts []tcount
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("1 = 1").
 		Select("msg_type AS msg_type, COUNT(*) AS c").
 		Group("msg_type").Scan(&tCounts)
@@ -525,7 +525,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 		C		int64
 	}
 	var aCounts []acount
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("1 = 1").
 		Select("account_id AS account_id, COUNT(*) AS c").
 		Group("account_id").Order("c DESC").Limit(50).Scan(&aCounts)
@@ -535,7 +535,7 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	// 24h
 	threshold24h := time.Now().Add(-24 * time.Hour)
 	var recent24h int64
-	s.db.Model(ctx, &model.MessageHub{}).
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
 		Where("sent_at >= ?", threshold24h).
 		Count(&recent24h)
 	stats.Recent24h = recent24h

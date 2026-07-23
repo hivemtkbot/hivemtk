@@ -395,6 +395,8 @@ func NormalizeChannelType(ch string) string {
 		return string(model.ChannelTypeFeishu)
 	case "whatsapp", "wa":
 		return string(model.ChannelTypeWhatsApp)
+	case "dingtalk", "dt":
+		return string(model.ChannelTypeDingTalk)
 	case "douyin":
 		return string(model.ChannelTypeDouyin)
 	case "xiaohongshu", "xhs":

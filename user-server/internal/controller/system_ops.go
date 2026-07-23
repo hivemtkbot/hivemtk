@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -45,7 +46,7 @@ func currentUserID(ctx *gin.Context) uint {
 
 // ResetSystem 重置系统数据（高危，仅限 admin）。委托 SystemConfigService 实现。
 func (c *SystemOpsController) ResetSystem(ctx *gin.Context) {
-	if err := service.NewSystemConfigService().ResetSystem(); err != nil {
+	if err := service.NewSystemConfigService().ResetSystem(context.Background(), ); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -103,7 +104,7 @@ func defaultLogPath() string {
 
 // GetSystemStats 获取系统统计信息
 func (c *SystemOpsController) GetSystemStats(ctx *gin.Context) {
-	stats, err := c.monitorService.GetSystemStats()
+	stats, err := c.monitorService.GetSystemStats(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -116,7 +117,7 @@ func (c *SystemOpsController) GetBackupList(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 
-	backups, total, err := c.backupService.GetBackupList(page, pageSize)
+	backups, total, err := c.backupService.GetBackupList(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -138,7 +139,7 @@ func (c *SystemOpsController) CreateBackup(ctx *gin.Context) {
 	}
 
 	createdBy := currentUserID(ctx)
-	backup, err := c.backupService.CreateBackup(createdBy, &req)
+	backup, err := c.backupService.CreateBackup(context.Background(), createdBy, &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -155,7 +156,7 @@ func (c *SystemOpsController) RestoreBackup(ctx *gin.Context) {
 	}
 
 	createdBy := currentUserID(ctx)
-	record, err := c.restoreService.RestoreBackup(createdBy, &req)
+	record, err := c.restoreService.RestoreBackup(context.Background(), createdBy, &req)
 	if err != nil {
 		if strings.Contains(err.Error(), "不存在") {
 			response.Error(ctx, http.StatusNotFound, err.Error())

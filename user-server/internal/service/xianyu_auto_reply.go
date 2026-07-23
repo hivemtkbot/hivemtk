@@ -63,7 +63,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 		existing.Cookie = encrypted
 		existing.IsActive = a.IsActive
 		existing.LoginAt = a.LoginAt
-		return s.db.Save(ctx, &existing).Error
+		return s.db.Save(&existing).Error
 	}
 	// 加密存储Cookie(避免在 model 中保留业务方法)
 	encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
@@ -71,7 +71,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 		return encErr
 	}
 	a.Cookie = encrypted
-	return s.db.Create(ctx, a).Error
+	return s.db.Create(a).Error
 }
 
 // SaveCookies 保存闲鱼账号 Cookie
@@ -97,7 +97,7 @@ func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cooki
 	account.Cookie = encrypted
 
 	// 更新数据库中的加密Cookie
-	return s.db.Model(ctx, &model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", account.Cookie).Error
+	return s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", account.Cookie).Error
 }
 
 func (s *XianyuAutoReplyService) GetRule(ctx context.Context, userID uint) (*model.AutoReplyRule, error) {
@@ -118,9 +118,9 @@ func (s *XianyuAutoReplyService) SaveRule(ctx context.Context, rule *model.AutoR
 		existing.Frequency = rule.Frequency
 		existing.DailyLimit = rule.DailyLimit
 		existing.IsActive = rule.IsActive
-		return s.db.Save(ctx, &existing).Error
+		return s.db.Save(&existing).Error
 	}
-	return s.db.Create(ctx, rule).Error
+	return s.db.Create(rule).Error
 }
 
 func (s *XianyuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint, page, pageSize int) ([]model.AutoReplyLog, int64, error) {
@@ -133,7 +133,7 @@ func (s *XianyuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint
 		pageSize = 10
 	}
 	var total int64
-	if err := s.db.Model(ctx, &model.AutoReplyLog{}).
+	if err := s.db.Model(&model.AutoReplyLog{}).
 		Where("platform = ? AND user_id = ? AND created_at >= ?", "xianyu", userID, cutoff).
 		Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -146,9 +146,9 @@ func (s *XianyuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint
 	return logs, total, err
 }
 
-func (s *XianyuAutoReplyService) AppendLog(ctx context.Context, userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
+func (s *XianyuAutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{UserID: userID, AccountID: accountID, RuleID: ruleID, Platform: platform, TargetContent: target, ReplyContent: reply, Status: status, ErrorMsg: errMsg, CreatedAt: time.Now()}
-	return s.db.Create(ctx, item).Error
+	return s.db.Create(item).Error
 }
 
 // StartLoginBrowser 启动本地浏览器打开咸鱼页面并在登录后提取 Cookie 保存
@@ -178,7 +178,7 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
 				if encErr == nil {
 					account.Cookie = encrypted
-					if err := s.db.Model(ctx, &model.AutoReplyAccount{}).Where("id = ?", accountID).Update("cookie", account.Cookie).Error; err != nil {
+					if err := s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", accountID).Update("cookie", account.Cookie).Error; err != nil {
 						logger.Errorf("保存Cookie失败: %v", err)
 					} else {
 						logger.Infof("设置Cookie成功")
@@ -199,7 +199,7 @@ func (s *XianyuAutoReplyService) DeleteAccount(ctx context.Context, id uint, use
 
 // MarkWSConnected 记录账号最近一次 WebSocket 连接成功时间
 func (s *XianyuAutoReplyService) MarkWSConnected(ctx context.Context, accountID uint) error {
-	return s.db.Model(ctx, &model.AutoReplyAccount{}).
+	return s.db.Model(&model.AutoReplyAccount{}).
 		Where("id = ?", accountID).
 		Update("last_ws_connected_at", time.Now()).Error
 }
@@ -266,7 +266,7 @@ func (s *XianyuAutoReplyService) handleWSMessage(ctx context.Context,
 	}
 
 	// 2. 规则匹配
-	rule, err := matcher.TestMatching(ctx, context.Background(), string(bot.GetPlatform()), msg.Content, userID)
+	rule, err := matcher.TestMatching(context.Background(), string(bot.GetPlatform()), msg.Content, userID)
 	if err != nil || rule == nil {
 		logger.Infof("[闲鱼WS] 无匹配规则，跳过")
 		return
@@ -280,7 +280,7 @@ func (s *XianyuAutoReplyService) handleWSMessage(ctx context.Context,
 	// 4. 发送回复
 	if err := bot.SendReply(msg.ChatID, rule.ReplyContent); err != nil {
 		logger.Errorf("[闲鱼WS] 发送回复失败: %v", err)
-		matcher.AppendLog(ctx, userID, bot.GetAccountID(), rule.ID, "xianyu", msg.Content, rule.ReplyContent, "failed", err.Error())
+		matcher.AppendLog(userID, bot.GetAccountID(), rule.ID, "xianyu", msg.Content, rule.ReplyContent, "failed", err.Error())
 		return
 	}
 
@@ -288,6 +288,6 @@ func (s *XianyuAutoReplyService) handleWSMessage(ctx context.Context,
 	rateLimiter.Record(rateKey)
 
 	// 6. 记录日志
-	matcher.AppendLog(ctx, userID, bot.GetAccountID(), rule.ID, "xianyu", msg.Content, rule.ReplyContent, "sent", "")
+	matcher.AppendLog(userID, bot.GetAccountID(), rule.ID, "xianyu", msg.Content, rule.ReplyContent, "sent", "")
 	logger.Infof("[闲鱼WS] 回复发送成功: %s", rule.ReplyContent)
 }

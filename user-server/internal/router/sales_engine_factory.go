@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	"marketing/internal/aiagent/agent/tooluse"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/aiagent/llm"
@@ -67,7 +69,7 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	// ⑨ 反馈学习器注入（AI 自我进化闭环）
 	// 每次 Handle 结束都记录决策快照（intent/confidence/SOP/回复/是否转人工），
 	// 后续客户下一条消息或人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
-	engine.SetFeedbackLearner(service.NewFeedbackLearner(gormDB))
+	engine.SetFeedbackLearner(context.Background(), service.NewFeedbackLearner(gormDB))
 
 	// P0-3 置信度聚合器注入（5 维信号 + 动态阈值驱动转人工）
 	// 注入后 shouldTransferToHuman 不再使用静态规则（IntentChurn/IntentComplaint/MessageCount>30），
@@ -77,7 +79,7 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 		// 自动初始化（依赖 nil embedder 走 CtxRelev=0.5 降级路径）
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	engine.SetConfidenceAggregator(confidenceAgg)
+	engine.SetConfidenceAggregator(context.Background(), confidenceAgg)
 
 	// P0-4 拟人度评估器注入（RuleScorer 全量 + LLMScorer 边界采样 + 重生成）
 	// 注入后 Step 7.5 评估回复自然度，<0.85 触发重生成（最多 3 次）
@@ -85,7 +87,7 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	if humanizeSvc == nil {
 		humanizeSvc = service.InitHumanizeEvalService(gormDB, dispatcher)
 	}
-	engine.SetHumanizeEvaluator(humanizeSvc)
+	engine.SetHumanizeEvaluator(context.Background(), humanizeSvc)
 	// 注入重生成 dispatcher：让评估器在拟人不达标时调用 LLM 重新生成
 	service.SetHumanizeRegenerateDispatcher(dispatcher)
 
@@ -94,7 +96,7 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	// 避免直接依赖 tooluse 包导致循环依赖（tooluse 反向依赖 service 持有 IntegrationService）
 	toolExec := tooluse.GetGlobalExecutor()
 	if toolExec != nil {
-		engine.SetToolExecutor(NewToolExecutorAdapter(toolExec))
+		engine.SetToolExecutor(context.Background(), NewToolExecutorAdapter(toolExec))
 		logger.Info("[agent] ✅ SalesEngine 已注入 ToolExecutor（Agent Loop 已启用）")
 	} else {
 		logger.Warn("[agent] SalesEngine 未注入 ToolExecutor（globalExecutor 未初始化，走原 9 步流水线）")

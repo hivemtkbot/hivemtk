@@ -1,6 +1,6 @@
 /**
  * @file marketing-chat-widget 浮标 SDK 入口
- * @description HivemTK 用户端 Chat Widget 嵌入 SDK(ADR-011)
+ * @description HiveMtk 用户端 Chat Widget 嵌入 SDK(ADR-011)
  *
  * 用法(私域部署,最简集成):
  *   <script src="https://your-host/marketing-chat-widget.iife.js"></script>

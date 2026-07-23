@@ -440,7 +440,7 @@ func NewRagAlertCron(svc *RagAlertService) *RagAlertCron {
 // Start 启动 cron
 func (c *RagAlertCron) Start(ctx context.Context)  {
 	c.wg.Add(1)
-	go c.run()
+	go c.run(ctx)
 }
 
 // Stop 停止 cron

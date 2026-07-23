@@ -179,7 +179,6 @@ OneID 客户体系：身份合并→360 画像→旅程→会话→流失预测�
 | order.go | 订单 |
 | order_draft.go | 订单草稿 |
 | order_draft_helpers.go | 订单草稿工具 |
-| payment_config.go | 支付配置 |
 | sm_list.go | 短信列表 |
 | unified_message.go | 统一消息 |
 | knowledge_merchant.go | 知识库业务适配（跨 rag/system） |

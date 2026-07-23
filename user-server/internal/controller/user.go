@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -25,7 +26,7 @@ func (c *UserController) GetUserList(ctx *gin.Context) {
 		return
 	}
 
-	result, err := c.svc.GetUserList(page, pageSize)
+	result, err := c.svc.GetUserList(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -38,7 +39,7 @@ func (c *UserController) GetUserList(ctx *gin.Context) {
 func (c *UserController) GetUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 
-	user, err := c.svc.GetUser(idStr)
+	user, err := c.svc.GetUser(context.Background(), idStr)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "用户不存在")
 		return
@@ -55,7 +56,7 @@ func (c *UserController) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.svc.RegisterUser(&req)
+	user, err := c.svc.RegisterUser(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -74,7 +75,7 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.svc.UpdateUser(idStr, &req)
+	user, err := c.svc.UpdateUser(context.Background(), idStr, &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -86,7 +87,7 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 func (c *UserController) DeleteUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 
-	err := c.svc.DeleteUser(idStr)
+	err := c.svc.DeleteUser(context.Background(), idStr)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -105,7 +106,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	err := c.svc.UpdatePassword(idStr, &req)
+	err := c.svc.UpdatePassword(context.Background(), idStr, &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -122,7 +123,7 @@ func (c *UserController) Login(ctx *gin.Context) {
 		return
 	}
 
-	result, err := c.svc.Login(&req)
+	result, err := c.svc.Login(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return

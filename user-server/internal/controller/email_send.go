@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
@@ -24,7 +25,7 @@ func (c *EmailSendController) SendEmail(ctx *gin.Context) {
 		return
 	}
 
-	email, err := c.svc.SendEmail(req)
+	email, err := c.svc.SendEmail(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "发送失败："+err.Error())
 		return

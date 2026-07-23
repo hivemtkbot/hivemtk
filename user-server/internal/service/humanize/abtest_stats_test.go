@@ -365,7 +365,7 @@ func TestABTestStatsService_Compute_Significant(t *testing.T) {
 	treatment := []float64{
 		0.82, 0.85, 0.88, 0.83, 0.86, 0.84, 0.87, 0.85, 0.82, 0.88,
 	}
-	svc := NewABTestStatsService().WithBootstrapN(2000).WithAlpha(0.05)
+	svc := NewABTestStatsService().WithBootstrapN(context.Background(), 2000).WithAlpha(context.Background(), 0.05)
 	result, err := svc.Compute(context.Background(), &dto.ABTestStatsInput{
 		ExperimentID: "exp_test_001",
 		Control:      control,
@@ -405,7 +405,7 @@ func TestABTestStatsService_Compute_NotSignificant(t *testing.T) {
 	treatment := []float64{
 		0.81, 0.80, 0.82, 0.79, 0.83, 0.80, 0.82, 0.81, 0.80, 0.83,
 	}
-	svc := NewABTestStatsService().WithBootstrapN(2000)
+	svc := NewABTestStatsService().WithBootstrapN(context.Background(), 2000)
 	result, err := svc.Compute(context.Background(), &dto.ABTestStatsInput{
 		ExperimentID: "exp_test_002",
 		Control:      control,
@@ -456,7 +456,7 @@ func TestABTestStatsService_Compute_ControlWins(t *testing.T) {
 	treatment := []float64{
 		0.70, 0.72, 0.75, 0.71, 0.73, 0.70, 0.74, 0.72, 0.71, 0.73,
 	}
-	svc := NewABTestStatsService().WithBootstrapN(2000)
+	svc := NewABTestStatsService().WithBootstrapN(context.Background(), 2000)
 	result, err := svc.Compute(context.Background(), &dto.ABTestStatsInput{
 		ExperimentID: "exp_test_004",
 		Control:      control,
@@ -479,8 +479,8 @@ func TestABTestStatsService_Compute_ControlWins(t *testing.T) {
 // TestABTestStatsService_Chaining 链式配置
 func TestABTestStatsService_Chaining(t *testing.T) {
 	svc := NewABTestStatsService().
-		WithBootstrapN(500).
-		WithAlpha(0.01)
+		WithBootstrapN(context.Background(), 500).
+		WithAlpha(context.Background(), 0.01)
 	if svc.bootstrapN != 500 {
 		t.Errorf("bootstrapN=%d want 500", svc.bootstrapN)
 	}
@@ -494,8 +494,8 @@ func TestABTestStatsService_Chaining_Invalid(t *testing.T) {
 	svc := NewABTestStatsService()
 	defaultsN := svc.bootstrapN
 	defaultsA := svc.alpha
-	svc.WithBootstrapN(0).WithBootstrapN(-1)
-	svc.WithAlpha(0).WithAlpha(1).WithAlpha(-0.1).WithAlpha(1.1)
+	svc.WithBootstrapN(context.Background(), 0).WithBootstrapN(context.Background(), -1)
+	svc.WithAlpha(context.Background(), 0).WithAlpha(context.Background(), 1).WithAlpha(context.Background(), -0.1).WithAlpha(context.Background(), 1.1)
 	if svc.bootstrapN != defaultsN {
 		t.Errorf("无效 bootstrapN 不应修改: %d want %d", svc.bootstrapN, defaultsN)
 	}

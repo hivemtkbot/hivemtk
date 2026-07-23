@@ -197,18 +197,3 @@ func TestShortLinkStatsController_GetAllStats_Success(t *testing.T) {
 		t.Errorf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
-
-func TestRedirectShortLink_NotFound(t *testing.T) {
-	setupCardStatsTestDB(t)
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/s/:code", RedirectShortLink)
-
-	req, _ := http.NewRequest("GET", "/s/nonexistent", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected 404 for nonexistent short link, got %d. Body: %s", w.Code, w.Body.String())
-	}
-}

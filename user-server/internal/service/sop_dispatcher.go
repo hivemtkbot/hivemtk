@@ -191,7 +191,7 @@ func (d *SOPExecutionDispatcher) SetWSHub(ctx context.Context, hub *websocket.Hu
 	if d == nil || hub == nil {
 		return
 	}
-	d.replaceMessageExecutorHub(hub)
+	d.replaceMessageExecutorHub(context.Background(), hub)
 }
 
 // replaceMessageExecutorHub 替换所有 MessageNodeBase 的 WS Hub
@@ -202,9 +202,9 @@ func (d *SOPExecutionDispatcher) replaceMessageExecutorHub(ctx context.Context, 
 	if d == nil || d.registry == nil {
 		return
 	}
-	for _, exec := range d.registry.AllExecutors() {
+	for _, exec := range d.registry.AllExecutors(context.Background(), ) {
 		if mb, ok := exec.(*MessageNodeBase); ok {
-			mb.SetWSHub(hub)
+			mb.SetWSHub(context.Background(), hub)
 		}
 	}
 }
@@ -221,7 +221,7 @@ func (d *SOPExecutionDispatcher) Start(ctx context.Context)  {
 
 	for i := 0; i < d.workerCount; i++ {
 		d.wg.Add(1)
-		go d.worker(i)
+		go d.worker(context.Background(), i)
 	}
 	logger.GetLogger().Info().
 		Int("worker_count", d.workerCount).
@@ -268,8 +268,8 @@ func (d *SOPExecutionDispatcher) Dispatch(ctx context.Context, task *dispatchTas
 }
 
 // DispatchOrLog 派发任务，失败时记录日志（不阻塞调用方）
-func (d *SOPExecutionDispatcher) DispatchOrLog(ctx context.Context, task *dispatchTask)  {
-	if err := d.Dispatch(task); err != nil {
+func (d *SOPExecutionDispatcher) DispatchOrLog(task *dispatchTask) {
+	if err := d.Dispatch(context.Background(), task); err != nil {
 		logger.GetLogger().Error().Err(err).
 			Uint("execution_id", task.ExecutionID).
 			Str("node_id", task.NodeID).
@@ -287,7 +287,7 @@ func (d *SOPExecutionDispatcher) worker(ctx context.Context, id int)  {
 			logger.GetLogger().Debug().Int("worker_id", id).Msg("[worker] stopped")
 			return
 		case task := <-d.dispatchQueue:
-			d.processTask(id, task)
+			d.processTask(context.Background(), id, task)
 		}
 	}
 }
@@ -355,7 +355,7 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 	}
 
 	// 5. 获取执行器并执行
-	executor := d.registry.MustGet(node.Type)
+	executor := d.registry.MustGet(ctx, node.Type)
 	result, err := executor.Execute(ctx, execCtx)
 	latencyMs := time.Since(start).Milliseconds()
 
@@ -416,7 +416,7 @@ func (d *SOPExecutionDispatcher) loadGraph(ctx context.Context, exec *model.SOPE
 			}
 		}
 	}
-	graph, err := d.sopService.loadSOPGraph(agent, variantGraphID)
+	graph, err := d.sopService.loadSOPGraph(context.Background(), agent, variantGraphID)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +524,7 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 	// 判断是否可重试
 	if task.Attempt+1 < d.retryPolicy.MaxAttempts {
 		// 指数退避重试
-		backoff := d.retryPolicy.Backoff(task.Attempt + 1)
+		backoff := d.retryPolicy.Backoff(context.Background(), task.Attempt + 1)
 		logger.Ctx(ctx).Warn().
 			Str("node_id", node.ID).
 			Int("attempt", task.Attempt).
@@ -659,7 +659,7 @@ func InitSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, cfg *SOPDispatc
 	sopDispatcherOnce.Do(func() {
 		registry := NewNodeExecutorRegistry()
 		globalSOPDispatcher = NewSOPExecutionDispatcher(db, sopSvc, registry, cfg)
-		globalSOPDispatcher.Start()
+		globalSOPDispatcher.Start(context.Background(), )
 	})
 	return globalSOPDispatcher
 }

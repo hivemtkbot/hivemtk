@@ -47,7 +47,10 @@
       <template #header>
         <div class="card-header">
           <span>{{ $t('企微账号管理') }}</span>
-          <el-button type="primary" :icon="Refresh" @click="loadData" :loading="listLoading">{{ $t('刷新') }}</el-button>
+          <div>
+            <el-button type="primary" :icon="Plus" @click="openCreateDialog">{{ $t('新增账号') }}</el-button>
+            <el-button type="primary" :icon="Refresh" @click="loadData" :loading="listLoading">{{ $t('刷新') }}</el-button>
+          </div>
         </div>
       </template>
 
@@ -90,10 +93,27 @@
             {{ row.account.last_active_at ? formatTime(row.account.last_active_at) : '从未' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row.account.id)">详情</el-button>
-            <el-button size="small" type="primary" @click="openBindingDialog(row.account)">绑定AI</el-button>
+            <el-button size="small" @click="viewDetail(row)">详情</el-button>
+            <el-button size="small" type="primary" @click="openEditDialog(row.account)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row.account)">删除</el-button>
+            <el-dropdown trigger="click" :disabled="!!actionLoading" @command="(cmd) => handleMoreCommand(cmd, row)">
+              <el-button size="small" type="warning">
+                更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="data" :icon="DataLine">数据看板</el-dropdown-item>
+                  <el-dropdown-item command="bind" :icon="Link">绑定AI</el-dropdown-item>
+                  <el-dropdown-item command="syncCustomers" :icon="Refresh">同步客户</el-dropdown-item>
+                  <el-dropdown-item command="syncGroups" :icon="Refresh">同步群组</el-dropdown-item>
+                  <el-dropdown-item command="syncTags" :icon="Refresh">同步标签</el-dropdown-item>
+                  <el-dropdown-item command="send" :icon="Promotion">测试发送</el-dropdown-item>
+                  <el-dropdown-item command="refresh" :icon="RefreshRight" divided>刷新登录状态</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -107,21 +127,247 @@
       :account-label="bindingAccountLabel"
       :account-enabled="bindingAccountEnabled"
     />
+
+    <!-- 测试发送消息对话框（复用组件） -->
+    <WeComSendDialog v-model:visible="sendDialogVisible" :account-id="sendAccountId" />
+
+    <!-- 新增 / 编辑企微账号对话框 -->
+    <el-dialog v-model="createDialogVisible" :title="dialogTitle" width="520px" @closed="resetCreateForm">
+      <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
+        <el-form-item label="CorpID" prop="corp_id">
+          <el-input v-model="createForm.corp_id" placeholder="企业微信 CorpID" />
+        </el-form-item>
+        <el-form-item label="CorpSecret" prop="corp_secret">
+          <el-input v-model="createForm.corp_secret" type="password" show-password placeholder="企业微信 CorpSecret" />
+        </el-form-item>
+        <el-form-item label="AgentID" prop="agent_id">
+          <el-input v-model="createForm.agent_id" placeholder="应用 AgentID（可选）" />
+        </el-form-item>
+        <el-form-item label="AgentSecret" prop="agent_secret">
+          <el-input v-model="createForm.agent_secret" type="password" show-password placeholder="应用 Secret（可选）" />
+        </el-form-item>
+
+        <el-divider content-position="left">入站回调（接收客户消息 → 智能体自动回复）</el-divider>
+        <el-form-item label="回调 URL" v-if="dialogMode === 'edit'">
+          <el-input :model-value="wecomCallbackUrl" readonly>
+            <template #append>
+              <el-button @click="copyCallbackUrl">复制</el-button>
+            </template>
+          </el-input>
+          <div class="form-hint">将此 URL 配置到企业微信管理后台「客户联系 → 接收事件服务器」</div>
+        </el-form-item>
+        <el-form-item label="Token">
+          <el-input v-model="createForm.callback_token" placeholder="回调 Token（与企微管理端保持一致）" />
+        </el-form-item>
+        <el-form-item label="EncodingAESKey">
+          <el-input v-model="createForm.encoding_aes_key" placeholder="43 位 EncodingAESKey（用于消息体加解密）" />
+        </el-form-item>
+        <el-form-item label="启用接收">
+          <el-switch v-model="createForm.webhook_enabled" />
+          <span class="form-hint-inline">开启后接收客户消息回调</span>
+        </el-form-item>
+        <el-form-item label="智能体回复">
+          <el-switch v-model="createForm.ai_agent_enabled" />
+          <span class="form-hint-inline">开启后由已绑定智能体自动回复客户消息</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createLoading" @click="submitForm">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 账号详情对话框 -->
+    <el-dialog v-model="detailDialogVisible" title="账号详情" width="640px">
+      <el-descriptions v-if="detailAccount" :column="2" border size="small">
+        <el-descriptions-item label="账号ID">{{ detailAccount.id }}</el-descriptions-item>
+        <el-descriptions-item label="企业ID">{{ detailAccount.corp_id }}</el-descriptions-item>
+        <el-descriptions-item label="应用ID">{{ detailAccount.agent_id || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="登录状态">
+          <el-tag :type="loginStateTag(detailAccount.login_state)" size="small">
+            {{ loginStateText(detailAccount.login_state) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="风险等级">
+          <el-tag :type="riskLevelTag(detailAccount.risk_level)" size="small" effect="dark">
+            {{ riskLevelText(detailAccount.risk_level) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="健康分">
+          {{ detailHealth?.health_score?.toFixed(0) ?? '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="好友数">{{ detailAccount.friend_count ?? 0 }}</el-descriptions-item>
+        <el-descriptions-item label="群组数">{{ detailAccount.group_count ?? 0 }}</el-descriptions-item>
+        <el-descriptions-item label="日配额">
+          {{ detailAccount.daily_msg_used ?? 0 }} / {{ detailAccount.daily_msg_quota ?? 0 }}
+        </el-descriptions-item>
+        <el-descriptions-item label="累计发送">{{ detailAccount.total_sent ?? 0 }}</el-descriptions-item>
+        <el-descriptions-item label="累计接收">{{ detailAccount.total_received ?? 0 }}</el-descriptions-item>
+        <el-descriptions-item label="最后活跃">
+          {{ detailAccount.last_active_at ? formatTime(detailAccount.last_active_at) : '从未' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">
+          {{ detailAccount.created_at ? formatTime(detailAccount.created_at) : '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="detailHealth" label="错误信息" :span="2">
+          {{ detailHealth.error_message || '无' }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="detailHealth" label="最近上报" :span="2">
+          {{ detailHealth.reported_at ? formatTime(detailHealth.reported_at) : '暂无' }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Plus, ArrowDown, Link, Promotion, RefreshRight, DataLine } from '@element-plus/icons-vue'
 import { wecomAccountApi } from '@/api/wecomAccount.js'
+import AgentBindingDialog from '@/components/AgentBindingDialog.vue'
+import WeComSendDialog from '@/components/WeComSendDialog.vue'
+
+const router = useRouter()
 
 const listLoading = ref(false)
 const summaryLoading = ref(false)
 const accountList = ref([])
 const summary = ref(null)
+
+// 新增 / 编辑账号
+const createDialogVisible = ref(false)
+const createLoading = ref(false)
+const createFormRef = ref(null)
+const dialogMode = ref('create') // create | edit
+const editingId = ref(null)
+const createForm = reactive({
+  corp_id: '',
+  corp_secret: '',
+  agent_id: '',
+  agent_secret: '',
+  callback_token: '',
+  encoding_aes_key: '',
+  webhook_enabled: false,
+  ai_agent_enabled: false
+})
+const createRules = {
+  corp_id: [{ required: true, message: '请输入 CorpID', trigger: 'blur' }],
+  corp_secret: [{ required: true, message: '请输入 CorpSecret', trigger: 'blur' }]
+}
+const dialogTitle = computed(() => (dialogMode.value === 'edit' ? '编辑企微账号' : '新增企微账号'))
+const wecomCallbackUrl = computed(() => {
+  if (dialogMode.value !== 'edit' || editingId.value == null) return ''
+  return `${window.location.origin}/api/webhook/wecom/${editingId.value}`
+})
+const copyCallbackUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(wecomCallbackUrl.value)
+    ElMessage.success('回调 URL 已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+const openCreateDialog = () => {
+  dialogMode.value = 'create'
+  editingId.value = null
+  resetCreateForm()
+  createDialogVisible.value = true
+}
+const openEditDialog = (account) => {
+  dialogMode.value = 'edit'
+  editingId.value = account.id
+  createForm.corp_id = account.corp_id || ''
+  createForm.corp_secret = account.corp_secret || ''
+  createForm.agent_id = account.agent_id ? String(account.agent_id) : ''
+  createForm.agent_secret = account.agent_secret || ''
+  createForm.callback_token = account.callback_token || ''
+  createForm.encoding_aes_key = account.encoding_aes_key || ''
+  createForm.webhook_enabled = !!account.webhook_enabled
+  createForm.ai_agent_enabled = !!account.ai_agent_enabled
+  createDialogVisible.value = true
+}
+const resetCreateForm = () => {
+  createForm.corp_id = ''
+  createForm.corp_secret = ''
+  createForm.agent_id = ''
+  createForm.agent_secret = ''
+  createForm.callback_token = ''
+  createForm.encoding_aes_key = ''
+  createForm.webhook_enabled = false
+  createForm.ai_agent_enabled = false
+  createFormRef.value?.clearValidate?.()
+}
+const submitForm = async () => {
+  if (!createFormRef.value) return
+  try {
+    await createFormRef.value.validate()
+  } catch {
+    return
+  }
+  createLoading.value = true
+  try {
+    const payload = {
+      corp_id: createForm.corp_id,
+      corp_secret: createForm.corp_secret,
+      agent_id: createForm.agent_id ? Number(createForm.agent_id) : undefined,
+      agent_secret: createForm.agent_secret || undefined,
+      callback_token: createForm.callback_token || undefined,
+      encoding_aes_key: createForm.encoding_aes_key || undefined,
+      webhook_enabled: createForm.webhook_enabled,
+      ai_agent_enabled: createForm.ai_agent_enabled
+    }
+    if (dialogMode.value === 'edit' && editingId.value != null) {
+      await wecomAccountApi.updateAccount(editingId.value, payload)
+      ElMessage.success('账号更新成功')
+    } else {
+      await wecomAccountApi.createAccount(payload)
+      ElMessage.success('账号创建成功')
+    }
+    createDialogVisible.value = false
+    loadData()
+  } catch (err) {
+    ElMessage.error('保存失败: ' + (err.message || '未知错误'))
+  } finally {
+    createLoading.value = false
+  }
+}
+
+// 详情
+const detailDialogVisible = ref(false)
+const detailAccount = ref(null)
+const detailHealth = ref(null)
+const viewDetail = (row) => {
+  detailAccount.value = row.account
+  detailHealth.value = row.health
+  detailDialogVisible.value = true
+}
+
+// 删除
+const handleDelete = async (account) => {
+  try {
+    await ElMessageBox.confirm(`确认删除企业微信账号「${account.corp_id}」？该操作不可恢复。`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+  try {
+    await wecomAccountApi.deleteAccount(account.id)
+    ElMessage.success('删除成功')
+    loadData()
+  } catch (err) {
+    ElMessage.error('删除失败: ' + (err.message || '未知错误'))
+  }
+}
 
 const healthScoreClass = computed(() => {
   const score = summary.value?.avg_score ?? 0
@@ -193,13 +439,97 @@ const loadData = () => {
   loadSummary()
 }
 
-const viewDetail = (id) => {
-  ElMessage.info(`账号 ${id} 详情功能开发中`)
-}
-
 onMounted(() => {
   loadData()
 })
+
+// ===== AI 智能体绑定对话框状态 =====
+const bindingDialogVisible = ref(false)
+const bindingAccountId = ref('')
+const bindingAccountLabel = ref('')
+const bindingAccountEnabled = ref(true)
+
+const openBindingDialog = (account) => {
+  bindingAccountId.value = String(account.id)
+  bindingAccountLabel.value = account.corp_id || ''
+  bindingAccountEnabled.value = account.status === 1
+  bindingDialogVisible.value = true
+}
+
+// ===== 操作加载态（防重复点击） =====
+const actionLoading = ref('')
+
+// ===== 测试发送对话框（复用组件） =====
+const sendDialogVisible = ref(false)
+const sendAccountId = ref(null)
+
+const openSendDialog = (account) => {
+  sendAccountId.value = account.id
+  sendDialogVisible.value = true
+}
+
+// ===== 同步客户 / 客户群 / 标签 =====
+const syncAction = async (account, type) => {
+  const apiMap = {
+    syncCustomers: wecomAccountApi.syncCustomers,
+    syncGroups: wecomAccountApi.syncGroups,
+    syncTags: wecomAccountApi.syncTags
+  }
+  const api = apiMap[type]
+  if (!api) return
+  actionLoading.value = type
+  try {
+    const res = await api(account.id)
+    const count = res && res.count != null ? res.count : 0
+    ElMessage.success('同步完成' + (count ? `，共 ${count} 条` : ''))
+  } catch (e) {
+    ElMessage.error('同步失败：' + (e.message || e))
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+// ===== 刷新登录状态（强制重新换取 access_token） =====
+const refreshAccount = async (account) => {
+  actionLoading.value = 'refresh'
+  try {
+    await wecomAccountApi.refreshAccount(account.id)
+    ElMessage.success('登录状态已刷新')
+    loadData()
+  } catch (e) {
+    ElMessage.error('刷新失败：' + (e.message || e))
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+// ===== “更多”下拉命令分发 =====
+const handleMoreCommand = (cmd, row) => {
+  const account = row.account
+  switch (cmd) {
+    case 'bind':
+      openBindingDialog(account)
+      break
+    case 'syncCustomers':
+      syncAction(account, 'syncCustomers')
+      break
+    case 'syncGroups':
+      syncAction(account, 'syncGroups')
+      break
+    case 'syncTags':
+      syncAction(account, 'syncTags')
+      break
+    case 'send':
+      openSendDialog(account)
+      break
+    case 'data':
+      router.push({ name: 'WecomAccountData' })
+      break
+    case 'refresh':
+      refreshAccount(account)
+      break
+  }
+}
 </script>
 
 <style scoped>
@@ -243,6 +573,19 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.form-hint-inline {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 10px;
 }
 
 .text-success {

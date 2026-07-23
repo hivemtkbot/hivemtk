@@ -15,6 +15,7 @@ package controller
 // 私域独立部署: 无 merchant_id 字段
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -126,7 +127,7 @@ func (c *SmsDeliveryTrackerController) GetCarrier(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "缺少 phone 参数")
 		return
 	}
-	carrier := c.svc.GetCurrentCarrier(phone)
+	carrier := c.svc.GetCurrentCarrier(context.Background(), phone)
 	response.Success(ctx, gin.H{
 		"phone":   phone,
 		"carrier": carrier,

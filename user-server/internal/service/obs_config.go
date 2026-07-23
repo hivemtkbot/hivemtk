@@ -41,7 +41,7 @@ func NewObsConfigService() ObsConfigService {
 }
 
 func (s *obsConfigService) GetConfigList(ctx context.Context, page, limit int, provider, status string) (*dto.GetObsConfigListResponse, error) {
-	configs, total, err := s.repo.GetList(page, limit, provider, status)
+	configs, total, err := s.repo.GetList(ctx, page, limit, provider, status)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *obsConfigService) GetConfigList(ctx context.Context, page, limit int, p
 }
 
 func (s *obsConfigService) GetConfig(ctx context.Context, id string) (*dto.ObsConfigResponse, error) {
-	config, err := s.repo.GetByID(id)
+	config, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsC
 	}
 
 	// 如果这是第一个配置，设为默认
-	count, err := s.repo.Count()
+	count, err := s.repo.Count(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsC
 		config.IsDefault = true
 	}
 
-	err = s.repo.Create(config)
+	err = s.repo.Create(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsC
 }
 
 func (s *obsConfigService) UpdateConfig(ctx context.Context, id string, req *dto.UpdateObsConfigRequest) (*dto.ObsConfigResponse, error) {
-	config, err := s.repo.GetByID(id)
+	config, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (s *obsConfigService) UpdateConfig(ctx context.Context, id string, req *dto
 		config.MaxCount = req.MaxCount
 	}
 
-	err = s.repo.Update(config)
+	err = s.repo.Update(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *obsConfigService) UpdateConfig(ctx context.Context, id string, req *dto
 }
 
 func (s *obsConfigService) DeleteConfig(ctx context.Context, id string) error {
-	config, err := s.repo.GetByID(id)
+	config, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -171,22 +171,21 @@ func (s *obsConfigService) DeleteConfig(ctx context.Context, id string) error {
 		return errors.New("不能删除默认配置")
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.Delete(ctx, id)
 }
 
 func (s *obsConfigService) SetDefaultConfig(ctx context.Context, id string) error {
-	if _, err := s.repo.GetByID(id); err != nil {
+	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return err
 	}
-	_ = ctx
 
 	// 清除当前默认配置
-	if err := s.repo.ClearDefault(); err != nil {
+	if err := s.repo.ClearDefault(ctx); err != nil {
 		return err
 	}
 
 	// 设置新的默认配置
-	return s.repo.SetDefault(id)
+	return s.repo.SetDefault(ctx, id)
 }
 
 func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsConfigResponse) error {
@@ -224,11 +223,10 @@ func (s *obsConfigService) TestConnection(ctx context.Context, config *dto.ObsCo
 
 func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 	// 获取默认配置
-	config, err := s.repo.GetDefault()
+	config, err := s.repo.GetDefault(ctx)
 	if err != nil {
 		return "", errors.New("未找到默认存储配置")
 	}
-	_ = ctx
 
 	// 检查文件大小限制
 	if !obsConfigIsFileSizeAllowed(config, header.Size) {
@@ -259,13 +257,13 @@ func (s *obsConfigService) UploadFile(ctx context.Context, file multipart.File, 
 	// 更新统计信息
 	config.FileCount++
 	config.TotalSize += header.Size
-	s.repo.Update(config)
+	s.repo.Update(ctx, config)
 
 	return fileURL, nil
 }
 
 func (s *obsConfigService) GetDefaultConfig(ctx context.Context) (*dto.ObsConfigResponse, error) {
-	config, err := s.repo.GetDefault()
+	config, err := s.repo.GetDefault(ctx)
 	if err != nil {
 		return nil, err
 	}

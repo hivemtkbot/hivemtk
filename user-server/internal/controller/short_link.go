@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -30,7 +31,7 @@ func (c *ShortLinkController) Create(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.Create(&req)
+	resp, err := c.shortLinkService.Create(context.Background(), &req)
 	if HandleServiceError(ctx, err) {
 		return
 	}
@@ -60,7 +61,7 @@ func (c *ShortLinkController) Update(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.Update(&req)
+	resp, err := c.shortLinkService.Update(context.Background(), &req)
 	if HandleDBError(ctx, err, "更新短链") {
 		return
 	}
@@ -77,7 +78,7 @@ func (c *ShortLinkController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.shortLinkService.Delete(uint(id))
+	err = c.shortLinkService.Delete(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "删除短链") {
 		return
 	}
@@ -94,7 +95,7 @@ func (c *ShortLinkController) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.GetByID(uint(id))
+	resp, err := c.shortLinkService.GetByID(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "获取短链") {
 		return
 	}
@@ -110,7 +111,7 @@ func (c *ShortLinkController) GetList(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.GetList(&req)
+	resp, err := c.shortLinkService.GetList(context.Background(), &req)
 	if HandleServiceError(ctx, err) {
 		return
 	}
@@ -126,7 +127,7 @@ func (c *ShortLinkController) AccessShortLink(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.AccessShortLink(&req)
+	resp, err := c.shortLinkService.AccessShortLink(context.Background(), &req)
 	if HandleDBError(ctx, err, "访问短链") {
 		return
 	}
@@ -142,7 +143,7 @@ func (c *ShortLinkController) GenerateShortCode(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.shortLinkService.GenerateShortCode(&req)
+	resp, err := c.shortLinkService.GenerateShortCode(context.Background(), &req)
 	if HandleServiceError(ctx, err) {
 		return
 	}

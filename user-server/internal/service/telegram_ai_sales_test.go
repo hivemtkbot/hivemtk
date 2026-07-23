@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -497,7 +498,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		AIAgentEnabled: true,
 		Status:         1,
 	}
-	if err := repo.Create(acc); err != nil {
+	if err := repo.Createacc); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if acc.ID == 0 {
@@ -505,7 +506,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// GetByID
-	got, err := repo.GetByID(acc.ID)
+	got, err := repo.GetByIDacc.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -528,10 +529,10 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	// Update
 	got.AIAgentEnabled = false
 	got.LastErrorMsg = "test error"
-	if err := repo.Update(got); err != nil {
+	if err := repo.Updategot); err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	updated, _ := repo.GetByID(acc.ID)
+	updated, _ := repo.GetByIDacc.ID)
 	if updated.AIAgentEnabled {
 		t.Error("expected AIAgentEnabled=false after update")
 	}
@@ -540,7 +541,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := repo.Delete(acc.ID); err != nil {
+	if err := repo.Deleteacc.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 	all2, _ := repo.GetAll()

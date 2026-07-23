@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -42,7 +43,7 @@ func (c *DouyinCardStatsController) GetCardStats(ctx *gin.Context) {
 		EndDate:   endDate,
 	}
 
-	stats, err := c.service.GetCardStats(req)
+	stats, err := c.service.GetCardStats(context.Background(), req)
 	if HandleDBError(ctx, err, "获取抖音卡片统计") {
 		return
 	}
@@ -63,7 +64,7 @@ func (c *DouyinCardStatsController) GetOverallStats(ctx *gin.Context) {
 		EndDate:   endDate,
 	}
 
-	stats, err := c.service.GetOverallStats(req)
+	stats, err := c.service.GetOverallStats(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, 500, "获取总体统计数据失败", err.Error())
 		return

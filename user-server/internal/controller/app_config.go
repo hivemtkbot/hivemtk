@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/platform"
@@ -95,7 +96,7 @@ type AppConfigResp struct {
 // GetAppConfig 获取应用配置
 func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
 	// 获取当前系统配置
-	sysConfig, err := c.sysConfigSvc.GetConfig()
+	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
 		return
@@ -141,7 +142,7 @@ func (c *AppConfigController) UpdateAppConfig(ctx *gin.Context) {
 	}
 
 	// 更新系统配置（由 service 负责组装并持久化，controller 不感知 model）
-	_, err := c.sysConfigSvc.SaveBasicConfig(req.BasicConfig.AppName, req.PlatformSync.PlatformURL)
+	_, err := c.sysConfigSvc.SaveBasicConfig(context.Background(), req.BasicConfig.AppName, req.PlatformSync.PlatformURL)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "保存配置失败", err.Error())
 		return
@@ -177,7 +178,7 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 	}
 
 	// 获取当前配置
-	sysConfig, err := c.sysConfigSvc.GetConfig()
+	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
 		return
@@ -191,7 +192,7 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 	}
 
 	// 从 service 获取真实用量统计（用户数、请求数近似值）
-	userCount, requestCount := c.sysConfigSvc.GetUsageStats()
+	userCount, requestCount := c.sysConfigSvc.GetUsageStats(context.Background(), )
 
 	// 构造上报数据
 	usageReport := UsageReportInfo{
@@ -254,7 +255,7 @@ func (c *AppConfigController) HealthCheck(ctx *gin.Context) {
 
 	// 实际检查数据库连接状态（经 service，controller 不直连 DB）
 	dbStatus := "disconnected"
-	if c.sysConfigSvc.PingDB() {
+	if c.sysConfigSvc.PingDB(context.Background(), ) {
 		dbStatus = "connected"
 	}
 

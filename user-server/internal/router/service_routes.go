@@ -97,7 +97,6 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.GET("/customer/360/:id", customer360Ctrl.GetCustomer360ByID)
 	auth.GET("/customer/:id", customer360Ctrl.GetCustomerDetail)
 	auth.GET("/customer/:id/behaviors", customer360Ctrl.GetCustomerBehaviors)
-	auth.GET("/customer/:id/orders", customer360Ctrl.GetCustomerOrders)
 	auth.GET("/customer/:id/communications", customer360Ctrl.GetCustomerCommunications)
 	auth.PUT("/customer/:id", customer360Ctrl.UpdateCustomer)
 	auth.POST("/customer/:id/tags", customer360Ctrl.AddCustomerTag)

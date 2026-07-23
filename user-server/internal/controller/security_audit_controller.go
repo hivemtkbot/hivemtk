@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -43,7 +44,7 @@ func (c *SecurityAuditController) GetResult(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "无效的ID")
 		return
 	}
-	r, err := c.svc.GetResult(uint(id))
+	r, err := c.svc.GetResult(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -55,7 +56,7 @@ func (c *SecurityAuditController) GetResult(ctx *gin.Context) {
 func (c *SecurityAuditController) ListResults(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
-	list, total, err := c.svc.ListResults(page, pageSize)
+	list, total, err := c.svc.ListResults(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

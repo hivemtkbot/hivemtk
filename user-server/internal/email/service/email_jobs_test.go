@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func TestEmailJobsService_CreateEmailJobs(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestEmailJobsService_CreateEmailJobs_ZeroTotal(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -585,7 +586,7 @@ func TestEmailJobsService_CreateAndGet(t *testing.T) {
 		ReadTotal:    30,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -631,7 +632,7 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -722,7 +723,7 @@ func TestEmailJobsService_LargeCounters(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -769,7 +770,7 @@ func TestEmailJobsService_NegativeCounters(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -806,7 +807,7 @@ func TestEmailJobsService_LongSubject(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -836,7 +837,7 @@ func TestEmailJobsService_SpecialCharactersInSubject(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
@@ -866,7 +867,7 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	createdJobs, err := service.CreateEmailJobs(jobs)
+	createdJobs, err := service.CreateEmailJobs(context.Background(), jobs)
 	if err != nil {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}

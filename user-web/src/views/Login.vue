@@ -23,7 +23,7 @@
           <li><el-icon><Check /></el-icon>7×24 智能体在线承接，夜间不丢单</li>
         </ul>
 
-        <div class="aside-footer">© 2026 营销智能体套件 · Marketing Tools Kit</div>
+        <div class="aside-footer">© 2026 营销智能体套件 · HiveMtk</div>
       </div>
     </div>
 

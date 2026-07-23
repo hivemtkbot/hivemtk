@@ -177,7 +177,7 @@ func (c *BatchExportController) ExportData(ctx *gin.Context) {
 
 	switch format {
 	case "csv":
-		buf, err := c.svc.GenerateCSV(service.ExportType(exportType), ids)
+		buf, err := c.svc.GenerateCSV(ctx.Request.Context(), service.ExportType(exportType), ids)
 		if err != nil {
 			response.Error(ctx, http.StatusInternalServerError, "导出失败："+err.Error())
 			return
@@ -224,7 +224,7 @@ func (c *BatchOperationController) BatchDelete(ctx *gin.Context) {
 		return
 	}
 
-	count, err := c.svc.BatchDeleteClues(req.IDs)
+	count, err := c.svc.BatchDeleteClues(ctx.Request.Context(), req.IDs)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "删除失败："+err.Error())
 		return

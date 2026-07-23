@@ -194,7 +194,7 @@ func (s *PasswordPolicyService) SavePolicy(ctx context.Context, policy *Password
 	}
 	jsonStr := string(jsonBytes)
 
-	if _, err := s.kvRepo.Upsert(ctx, context.Background(), PolicyKVKey, jsonStr); err != nil {
+	if _, err := s.kvRepo.Upsert(ctx, PolicyKVKey, jsonStr); err != nil {
 		return fmt.Errorf("写入策略失败: %w", err)
 	}
 
@@ -307,7 +307,7 @@ func (s *PasswordPolicyService) validateWithPolicy(ctx context.Context, password
 
 // checkPasswordHistory 检查密码是否与最近 N 个历史密码重复
 func (s *PasswordPolicyService) checkPasswordHistory(ctx context.Context, userID uint, password string, reuseCount int) error {
-	histories, err := s.historyRepo.ListRecent(ctx, context.Background(), userID, reuseCount)
+	histories, err := s.historyRepo.ListRecent(ctx, userID, reuseCount)
 	if err != nil {
 		logger.Errorf("查询密码历史失败: %v", err)
 		return nil	// 查询失败不阻塞
@@ -339,7 +339,7 @@ func (s *PasswordPolicyService) RecordPasswordHistory(ctx context.Context, userI
 		history.Source = model.PasswordSourceChangePassword
 	}
 
-	if err := s.historyRepo.Create(ctx, context.Background(), history); err != nil {
+	if err := s.historyRepo.Create(ctx, history); err != nil {
 		return fmt.Errorf("写入密码历史失败: %w", err)
 	}
 	return nil
@@ -381,5 +381,5 @@ func (s *PasswordPolicyService) IsPasswordExpired(ctx context.Context, userID ui
 // 用于初始化场景（user_id=0，无历史密码）
 func ValidatePasswordStrength(password string) error {
 	s := NewPasswordPolicyService()
-	return s.ValidatePasswordWithPolicy(ctx, password, 0, &DefaultPasswordPolicy)
+	return s.ValidatePasswordWithPolicy(context.Background(), password, 0, &DefaultPasswordPolicy)
 }

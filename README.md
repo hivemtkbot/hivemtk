@@ -1,8 +1,8 @@
 <div align="center">
 
-![HivemTK — 私域 AI 营销操作系统](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20SaaS%20product%20hero%20banner%20hexagonal%20honeycomb%20neural%20network%20pattern%20blue%20purple%20gradient%20AI%20agent%20visualization%20seven%20social%20media%20channel%20icons%20minimalist%20flat%20design%20professional%20landing%20page%20clean%20typography&image_size=landscape_16_9)
+![HiveMtk — 私域 AI 营销操作系统](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20SaaS%20product%20hero%20banner%20hexagonal%20honeycomb%20neural%20network%20pattern%20blue%20purple%20gradient%20AI%20agent%20visualization%20seven%20social%20media%20channel%20icons%20minimalist%20flat%20design%20professional%20landing%20page%20clean%20typography&image_size=landscape_16_9)
 
-# 🐝 HivemTK
+# 🐝 HiveMtk
 
 ### 私域部署的 AI 营销操作系统
 
@@ -22,7 +22,7 @@
 
 > **请在使用本项目的「主动触达」功能前，务必仔细阅读本声明。**
 
-HivemTK 的**主动触达模块**（短信、邮件、微信公众号 / 企业微信、抖音 / 快手 / 小红书 / 闲鱼私信、Telegram、WhatsApp(Meta)、网页客服等向用户**主动推送消息**的能力）属于**核心敏感功能**。本项目作为开源工具，**不对使用者如何调用这些能力承担责任**，并作如下声明：
+HiveMtk 的**主动触达模块**（短信、邮件、微信公众号 / 企业微信、抖音 / 快手 / 小红书 / 闲鱼私信、Telegram、WhatsApp(Meta)、网页客服等向用户**主动推送消息**的能力）属于**核心敏感功能**。本项目作为开源工具，**不对使用者如何调用这些能力承担责任**，并作如下声明：
 
 1. **遵守平台规范**：各渠道平台（微信、企业微信、抖音、快手、小红书、Telegram、WhatsApp / Meta、短信运营商、邮件服务商等）均制定有严格的**开发者规范、服务条款与频控策略**。使用者必须自行阅读并严格遵守对应平台的全部规则。
 2. **授权与同意**：你**仅可向已授权、已明确同意接收消息的联系人**发送内容；禁止向未授权或已明确拒绝的联系人推送。
@@ -37,7 +37,7 @@ HivemTK 的**主动触达模块**（短信、邮件、微信公众号 / 企业�
 
 ## 📄 开源与责任免责声明
 
-> **HivemTK 是一个完全开源的本地私有化客服底座工具。** 本项目的技术设计旨在保障商户的数据隐私与主权。
+> **HiveMtk 是一个完全开源的本地私有化客服底座工具。** 本项目的技术设计旨在保障商户的数据隐私与主权。
 >
 > 用户利用本系统本地部署任何大语言模型、构建知识库及进行对话时，**必须自行遵守所在国家、地区以及相关社交平台（如 Telegram、WhatsApp）的法律法规**。
 >
@@ -79,7 +79,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 
 > 把七端社媒、AI 智能体、零出域数据安全三件事**同时做透**的私域营销操作系统。
 
-我们不是给大模型套个壳,更不是把流程写死的自动化脚本。HivemTK 内置一套**能感知 → 规划 → 调工具 → 反思**的自主 AI 智能体(ReAct + 41 个工具),从消息入站到回复出站,自己想办法把事办成。
+我们不是给大模型套个壳,更不是把流程写死的自动化脚本。HiveMtk 内置一套**能感知 → 规划 → 调工具 → 反思**的自主 AI 智能体(ReAct + 41 个工具),从消息入站到回复出站,自己想办法把事办成。
 
 ---
 
@@ -103,7 +103,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 ### 2. 🤖 AI 范式:ReAct 自主智能体,不是写死的工作流
 
 - **ReAct 循环**:感知 → 规划 → 调工具 → 反思(最多 5 轮),智能体自主决策
-- **41 个内置工具**:订单查询、退款、查库存、查物流、查客户画像、改地址、加白名单……
+- **41 个内置工具**:查库存、查物流、查客户画像、改地址、加白名单……
 - **三级 RAG 检索**:粗排(向量召回) + 精排(bge-reranker) + LLM 改写(HyDE/Query Rewriter)
 - **多智能体协作**:被动应答智能体 + 主动触达智能体(ADR-013)
 - **AI 销冠**:话术模板 + RAG + 自动跟进,全流程辅助坐席
@@ -125,7 +125,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 
 > 💡 诚实对比,敢暴露劣势。**没有银弹**,按需选择。
 
-| 维度 | **HivemTK**(本项目) | 源雀 SCRM | MoChat 摩言 | Dify | 商业 SCRM(微伴/尘锋) |
+| 维度 | **HiveMtk**(本项目) | 源雀 SCRM | MoChat 摩言 | Dify | 商业 SCRM(微伴/尘锋) |
 |------|--------------------|---------|------------|------|---------------------|
 | **核心定位** | 私域 AI 营销 OS(7 端) | 企微 SCRM | 企微 SCRM | 通用 LLM 应用平台 | 商业 SaaS |
 | **触达端** | **7 端** ✅ | 1 端(企微) | 1 端(企微) | 无 | 1-3 端 |
@@ -141,7 +141,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 - 你要**企微深度运营** → 选源雀 / MoChat
 - 你要**纯 LLM 应用开发** → 选 Dify
 - 你要**SaaS 化无脑上手** → 选微伴 / 尘锋
-- 你要**多端 + 真 AI 智能体 + 数据完全自主** → **HivemTK**
+- 你要**多端 + 真 AI 智能体 + 数据完全自主** → **HiveMtk**
 
 ---
 
@@ -195,7 +195,6 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 | 系统管理 | 6 | 系统配置/可观测/升级/备份/上传 |
 | 第三方对接 | 2 | 集成模板/同步日志 |
 | 统一消息 | 2 | 多平台消息聚合/平台账号管理 |
-| 订单与支付 | 2 | 订单管理/支付配置 |
 
 ---
 
@@ -291,7 +290,7 @@ hivemtk/                              # 用户端仓库
 |---|---|---|
 | **所有者** | 企业客户 | 平台运营方 |
 | **运行位置** | 客户本地内网 | 平台云端 |
-| **存储** | 全部业务数据(对话/知识库/客户/订单) | 仅元数据(商户/版本/统计) |
+| **存储** | 全部业务数据(对话/知识库/客户) | 仅元数据(商户/版本/统计) |
 | **技术栈** | Go + Vue 3 + 本地推理栈 | Go + Vue 3 + PostgreSQL |
 | **通信** | → 平台端:低频 HTTPS 心跳 | → 用户端:仅元数据 + 商户标识 API |
 
@@ -351,7 +350,7 @@ make restore FILE=...   # 恢复备份
 |------|------|------|
 | 🐛 **Bug / Feature Request** | [Gitee Issues](https://gitee.com/xhpmayun/hivemtk/issues) | 12 小时内首响 |
 | 💬 **微信交流群** | 扫描下方二维码(管理员 wxid: `hivemtk_2026`) | 7×24 答疑,产品/技术/运营 |
-| 🎥 **B 站 / 视频号** | 搜索"HivemTK" | 5 分钟部署视频、案例分享 |
+| 🎥 **B 站 / 视频号** | 搜索"HiveMtk" | 5 分钟部署视频、案例分享 |
 | 📧 **商务合作** | business@hivemtk.cn | 企业级技术支持、定制集成 |
 | 🤝 **贡献者公约** | [CONTRIBUTING.md](CONTRIBUTING.md) | 提交 PR、参与开发 |
 
@@ -393,6 +392,6 @@ make restore FILE=...   # 恢复备份
 
 **七端打透 · AI 真自主 · 数据封死在域内**
 
-Made with ❤️ by HivemTK Team
+Made with ❤️ by HiveMtk Team
 
 </div>

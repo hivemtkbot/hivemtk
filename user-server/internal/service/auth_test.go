@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -39,7 +40,7 @@ func TestNewAuthService(t *testing.T) {
 // TestAuthService_JwtUtils 测试获取 JWT 工具实例
 func TestAuthService_JwtUtils(t *testing.T) {
 	service := NewAuthService()
-	jwtUtils := service.JwtUtils()
+	jwtUtils := service.JwtUtils(context.Background())
 	if jwtUtils == nil {
 		t.Error("Expected jwtUtils to be returned")
 	}
@@ -208,7 +209,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
 
 	// 生成一个新令牌用于测试刷新
-	jwtUtils := service.JwtUtils()
+	jwtUtils := service.JwtUtils(context.Background())
 	token, err := jwtUtils.GenerateToken(1, "admin", "admin")
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)

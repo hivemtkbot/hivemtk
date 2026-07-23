@@ -1,4 +1,4 @@
-# HivemTK 用户端 - 嵌入式 Chat Widget 集成指南
+# HiveMtk 用户端 - 嵌入式 Chat Widget 集成指南
 
 > 私域部署下，企业如何在自己的官网嵌入客服浮标
 > 适用版本：2026-07-21
@@ -8,7 +8,7 @@
 
 ## 一、定位
 
-企业有自己的官方网站，希望在右下角加一个**浮标客服入口**。点击后弹出聊天窗，与 HivemTK 用户端对接。
+企业有自己的官方网站，希望在右下角加一个**浮标客服入口**。点击后弹出聊天窗，与 HiveMtk 用户端对接。
 
 **几行代码**即可嵌入，无需复杂的对接开发。
 
@@ -39,7 +39,7 @@
                    │ HTTPS / WebSocket
                    ▼
    ┌──────────────────────────────────┐
-   │  user-server (HivemTK 用户端)    │
+   │  user-server (HiveMtk 用户端)    │
    │  - RESTful API: /api/chat/public/*│
    │  - WebSocket: /api/ws/visitor    │
    │  - AI 自动回复（LLM + RAG）       │
@@ -93,7 +93,7 @@
 
 ### 4.1 准备浮标脚本
 
-`embed-sdk` 是 HivemTK 提供的网页客服浮标 SDK（独立前端工程），构建后产物在 `embed-sdk/dist/`。
+`embed-sdk` 是 HiveMtk 提供的网页客服浮标 SDK（独立前端工程），构建后产物在 `embed-sdk/dist/`。
 
 由 `user-server` 在 `/embed/` 路径下服务（通过 docker-compose 挂载 `embed-sdk/dist` 到容器内的 `/app/embed-sdk-dist`）。
 

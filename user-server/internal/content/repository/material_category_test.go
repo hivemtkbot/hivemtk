@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"marketing/internal/content/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -118,7 +119,7 @@ func TestMaterialCategoryRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByIDtt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -268,7 +269,7 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetList(tt.licenseID, tt.parentID, tt.materialType, tt.page, tt.limit)
+			results, total, err := repo.GetListtt.licenseID, tt.parentID, tt.materialType, tt.page, tt.limit)
 
 			if err != nil {
 				t.Errorf("GetList() error = %v", err)
@@ -325,7 +326,7 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 		Sort:      1,
 	})
 
-	results, total, err := repo.GetList("license-1", parent.ID, "", 1, 10)
+	results, total, err := repo.GetList"license-1", parent.ID, "", 1, 10)
 	if err != nil {
 		t.Errorf("GetList() error = %v", err)
 	}
@@ -358,12 +359,12 @@ func TestMaterialCategoryRepository_Update(t *testing.T) {
 	category.Sort = 10
 	category.Description = "Updated description"
 
-	err := repo.Update(category)
+	err := repo.Updatecategory)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(category.ID)
+	updated, _ := repo.GetByIDcategory.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -387,12 +388,12 @@ func TestMaterialCategoryRepository_Delete(t *testing.T) {
 	}
 	repo.Create(category)
 
-	err := repo.Delete(category.ID)
+	err := repo.Deletecategory.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(category.ID)
+	_, err = repo.GetByIDcategory.ID)
 	if err == nil {
 		t.Error("Expected category to be deleted")
 	}
@@ -418,7 +419,7 @@ func TestMaterialCategoryRepository_Delete_WithChildren(t *testing.T) {
 		ParentID:  parent.ID,
 	})
 
-	err := repo.Delete(parent.ID)
+	err := repo.Deleteparent.ID)
 	if err == nil {
 		t.Error("Expected error when deleting category with children")
 	}
@@ -446,7 +447,7 @@ func TestMaterialCategoryRepository_Delete_WithMaterials(t *testing.T) {
 		Size:       1024,
 	})
 
-	err := repo.Delete(category.ID)
+	err := repo.Deletecategory.ID)
 	if err == nil {
 		t.Error("Expected error when deleting category with materials")
 	}
@@ -547,7 +548,7 @@ func TestMaterialCategoryRepository_UpdateMaterialCount(t *testing.T) {
 		t.Errorf("UpdateMaterialCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(category.ID)
+	updated, _ := repo.GetByIDcategory.ID)
 	if updated.MaterialCount != 3 {
 		t.Errorf("Expected MaterialCount 3, got %d", updated.MaterialCount)
 	}
@@ -557,7 +558,7 @@ func TestMaterialCategoryRepository_UpdateMaterialCount(t *testing.T) {
 func TestMaterialCategoryRepository_GetByID_NotFound(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	_, err := repo.GetByID("non-existing-id")
+	_, err := repo.GetByID"non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing category")
 	}
@@ -567,7 +568,7 @@ func TestMaterialCategoryRepository_GetByID_NotFound(t *testing.T) {
 func TestMaterialCategoryRepository_GetList_EmptyResult(t *testing.T) {
 	_, repo := setupMaterialCategoryRepository(t)
 
-	results, total, err := repo.GetList("non-existing-license", "", "", 1, 10)
+	results, total, err := repo.GetList"non-existing-license", "", "", 1, 10)
 	if err != nil {
 		t.Errorf("GetList() error = %v", err)
 	}

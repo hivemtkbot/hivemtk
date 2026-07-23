@@ -280,7 +280,7 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 	if pipe.RateLimit == nil {
 		pipe.RateLimit = model.JSONMap{}
 	}
-	if err := s.db.Create(ctx, pipe).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(pipe).Error; err != nil {
 		return nil, err
 	}
 	return pipe, nil
@@ -302,7 +302,7 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 		return nil, err
 	}
 	var pipe model.ReachPipeline
-	if err := s.db.First(ctx, &pipe, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&pipe, id).Error; err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
 	retryMap := model.JSONMap{}
@@ -322,7 +322,7 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 	pipe.RetryPolicy = retryMap
 	pipe.RateLimit = rateMap
 	pipe.Version++
-	if err := s.db.Save(ctx, &pipe).Error; err != nil {
+	if err := s.db.WithContext(ctx).Save(&pipe).Error; err != nil {
 		return nil, err
 	}
 	return &pipe, nil
@@ -331,7 +331,7 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 // GetPipeline 获取 Pipeline
 func (s *ReachPipelineService) GetPipeline(ctx context.Context, id uint) (*model.ReachPipeline, error) {
 	var pipe model.ReachPipeline
-	if err := s.db.First(ctx, &pipe, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&pipe, id).Error; err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
 	return &pipe, nil
@@ -346,7 +346,7 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 		pageSize = 20
 	}
 	var total int64
-	q := s.db.Model(ctx, &model.ReachPipeline{})
+	q := s.db.WithContext(ctx).Model(&model.ReachPipeline{})
 	if channel != "" {
 		q = q.Where("channel = ?", channel)
 	}
@@ -376,7 +376,7 @@ func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) erro
 // PausePipeline 暂停
 func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(ctx, &model.ReachPipeline{}).
+	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusPaused).Error
 }
@@ -384,7 +384,7 @@ func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error
 // ResumePipeline 恢复
 func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(ctx, &model.ReachPipeline{}).
+	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusActive).Error
 }
@@ -392,7 +392,7 @@ func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) erro
 // ArchivePipeline 归档
 func (s *ReachPipelineService) ArchivePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.Model(ctx, &model.ReachPipeline{}).
+	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
 		Where("id = ?", id).
 		Update("status", PipelineStatusArchived).Error
 }
@@ -469,7 +469,7 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 		now := time.Now()
 		job.NextRunAt = &now
 	}
-	if err := s.db.Create(ctx, job).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(job).Error; err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -478,7 +478,7 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 // GetJob 获取任务
 func (s *ReachPipelineService) GetJob(ctx context.Context, id uint) (*model.ReachJob, error) {
 	var job model.ReachJob
-	if err := s.db.First(ctx, &job, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&job, id).Error; err != nil {
 		return nil, ErrReachJobNotFound
 	}
 	return &job, nil
@@ -493,7 +493,7 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 		pageSize = 20
 	}
 	var total int64
-	q := s.db.Model(ctx, &model.ReachJob{})
+	q := s.db.WithContext(ctx).Model(&model.ReachJob{})
 
 	if channel != "" {
 		q = q.Where("channel = ?", channel)
@@ -511,7 +511,7 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 
 // CancelJob 取消任务
 func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
-	res := s.db.Model(ctx, &model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
+	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
 		Updates(map[string]any{
 			"state":	JobStateCanceled,
 			"completed_at":	time.Now(),
@@ -527,7 +527,7 @@ func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
 
 // RetryJob 手动重试
 func (s *ReachPipelineService) RetryJob(ctx context.Context, id uint) error {
-	res := s.db.Model(ctx, &model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
+	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
 		Updates(map[string]any{
 			"state":		JobStatePending,
 			"next_run_at":		time.Now(),
@@ -583,10 +583,10 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	now := time.Now()
 	job.State = JobStateRunning
 	job.StartedAt = &now
-	s.db.Save(ctx, job)
+	s.db.WithContext(ctx).Save(job)
 
 	// 累计 Pipeline 运行次数
-	s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
+	s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
 		Update("total_runs", gorm.Expr("total_runs + 1"))
 
 	results := []StepResult{}
@@ -604,7 +604,7 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 				job.State = JobStateRateLimited
 				job.ErrorMessage = res.Error
 				job.StepResults = toJSONArray(mustJSON(results))
-				s.db.Save(ctx, job)
+				s.db.WithContext(ctx).Save(job)
 				s.appendStepResult(ctx, job, res)
 				return job, ErrReachRateLimited
 			}
@@ -627,17 +627,17 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	if success {
 		job.State = JobStateSuccess
 		job.ErrorMessage = ""
-		s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
+		s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
 			Update("total_success", gorm.Expr("total_success + 1"))
 	} else {
 		job.State = JobStateFailed
 		// V3 整改：把失败 step 信息持久化到 ErrorMessage
 		// 格式：[step=content_prepare] content prepare failed: ...
 		job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
-		s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", pipe.ID).
+		s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
 			Update("total_failure", gorm.Expr("total_failure + 1"))
 	}
-	if err := s.db.Save(ctx, job).Error; err != nil {
+	if err := s.db.WithContext(ctx).Save(job).Error; err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -828,14 +828,14 @@ func (s *ReachPipelineService) loadTemplateContent(ctx context.Context, template
 	var st struct {
 		Content string `gorm:"column:content"`
 	}
-	if err := s.db.Table(ctx, "script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
+	if err := s.db.WithContext(ctx).Table("script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
 		return st.Content, nil
 	}
 	// 兜底 ScriptLibrary
 	var sl struct {
 		Content string `gorm:"column:content"`
 	}
-	if err := s.db.Table(ctx, "script_libraries").Select("content").Where("id = ?", templateID).Scan(&sl).Error; err == nil && sl.Content != "" {
+	if err := s.db.WithContext(ctx).Table("script_libraries").Select("content").Where("id = ?", templateID).Scan(&sl).Error; err == nil && sl.Content != "" {
 		return sl.Content, nil
 	}
 	return "", fmt.Errorf("template %s not found", templateID)
@@ -1012,10 +1012,10 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 	// 真实更新 Pipeline 计数器
 	if s.db != nil && job.PipelineID > 0 {
 		if success > 0 && failed == 0 {
-			s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", job.PipelineID).
+			s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
 				Update("total_success", gorm.Expr("total_success + ?", 1))
 		} else if failed > 0 {
-			s.db.Model(ctx, &model.ReachPipeline{}).Where("id = ?", job.PipelineID).
+			s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
 				Update("total_failure", gorm.Expr("total_failure + ?", 1))
 		}
 	}
@@ -1088,7 +1088,7 @@ func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.
 	results = append(results, res)
 	data, _ := json.Marshal(results)
 	job.StepResults = toJSONArray(data)
-	s.db.Save(ctx, job)
+	s.db.WithContext(ctx).Save(job)
 }
 
 // checkRateLimit 检查限流
@@ -1128,7 +1128,7 @@ func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, acco
 			b.qps = rl.QPS
 		}
 		s.rateMu.Unlock()
-		if !b.allow() {
+		if !b.allow(ctx) {
 			return false
 		}
 	}
@@ -1275,13 +1275,13 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 	// Pipeline 统计
 	var totalPipes, activePipes, pausedPipes int64
-	if err := s.db.Model(ctx, &model.ReachPipeline{}).Count(&totalPipes).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Count(&totalPipes).Error; err != nil {
 		return nil, fmt.Errorf("count pipelines: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachPipeline{}).Where("status = ?", PipelineStatusActive).Count(&activePipes).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusActive).Count(&activePipes).Error; err != nil {
 		return nil, fmt.Errorf("count active pipelines: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachPipeline{}).Where("status = ?", PipelineStatusPaused).Count(&pausedPipes).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusPaused).Count(&pausedPipes).Error; err != nil {
 		return nil, fmt.Errorf("count paused pipelines: %w", err)
 	}
 	stats["total"] = totalPipes
@@ -1290,25 +1290,25 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 	// Job 统计
 	var totalJobs, pendingJobs, runningJobs, successJobs, failedJobs, rateLimitedJobs, canceledJobs int64
-	if err := s.db.Model(ctx, &model.ReachJob{}).Count(&totalJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Count(&totalJobs).Error; err != nil {
 		return nil, fmt.Errorf("count jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStatePending).Count(&pendingJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStatePending).Count(&pendingJobs).Error; err != nil {
 		return nil, fmt.Errorf("count pending jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateRunning).Count(&runningJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateRunning).Count(&runningJobs).Error; err != nil {
 		return nil, fmt.Errorf("count running jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateSuccess).Count(&successJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateSuccess).Count(&successJobs).Error; err != nil {
 		return nil, fmt.Errorf("count success jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateFailed).Count(&failedJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateFailed).Count(&failedJobs).Error; err != nil {
 		return nil, fmt.Errorf("count failed jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateRateLimited).Count(&rateLimitedJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateRateLimited).Count(&rateLimitedJobs).Error; err != nil {
 		return nil, fmt.Errorf("count rate_limited jobs: %w", err)
 	}
-	if err := s.db.Model(ctx, &model.ReachJob{}).Where("state = ?", JobStateCanceled).Count(&canceledJobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateCanceled).Count(&canceledJobs).Error; err != nil {
 		return nil, fmt.Errorf("count canceled jobs: %w", err)
 	}
 	stats["jobs"] = totalJobs

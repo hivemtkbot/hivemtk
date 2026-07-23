@@ -52,7 +52,6 @@
           <el-select v-model="form.dataSource" style="width: 100%">
             <el-option label="线索表" value="clues" />
             <el-option label="用户表" value="users" />
-            <el-option label="订单表" value="orders" />
             <el-option label="消息表" value="messages" />
             <el-option label="卡片表" value="cards" />
           </el-select>

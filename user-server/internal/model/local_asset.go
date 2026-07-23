@@ -29,8 +29,10 @@ type LocalAsset struct {
 	IsActive    bool           `gorm:"index;default:true" json:"is_active"`
 	PurchaseID  *int64         `json:"purchase_id,omitempty"`
 	PurchasedAt *time.Time     `json:"purchased_at,omitempty"`
-	SyncedAt    time.Time      `json:"synced_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	SyncedAt         time.Time      `json:"synced_at"`
+	UseCount         int64          `gorm:"default:0" json:"use_count"`
+	ReportedUseCount int64          `gorm:"default:0" json:"reported_use_count"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 	CreatedAt   time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }

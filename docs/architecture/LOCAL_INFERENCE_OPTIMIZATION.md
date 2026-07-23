@@ -1,4 +1,4 @@
-# HivemTK 用户端 - 本地推理栈配置指南
+# HiveMtk 用户端 - 本地推理栈配置指南
 
 > 用户端本地推理栈（embedding / rerank / llm）配置
 > 适用版本：2026-07-21

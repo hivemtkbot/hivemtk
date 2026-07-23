@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -29,7 +30,7 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "无效的员工ID")
 		return
 	}
-	rep, err := c.svc.BuildReport(uint(staffID))
+	rep, err := c.svc.BuildReport(context.Background(), uint(staffID))
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "报告生成失败: "+err.Error())
 		return
@@ -39,7 +40,7 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 
 // ListStaffs 列出员工
 func (c *SalesPersonaController) ListStaffs(ctx *gin.Context) {
-	staffs, err := c.svc.ListStaffs()
+	staffs, err := c.svc.ListStaffs(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

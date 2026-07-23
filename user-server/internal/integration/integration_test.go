@@ -35,11 +35,6 @@ func TestIntegration_AccountManagement(t *testing.T) {
 		TgBotToken:   "token123",
 		GroupID:      98765,
 		Price:        "99.00",
-		EpayPid:      "test_pid",
-		EpayKey:      "test_key",
-		EpayPayType:  "alipay",
-		EpayQueryUrl: "https://example.com/query",
-		EpayURL:      "https://example.com/pay",
 	}
 
 	err := db.GetDB().Create(&account).Error

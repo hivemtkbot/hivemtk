@@ -59,7 +59,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 		return
 	}
 
-	card, err := service.Create(req)
+	card, err := service.Create(ctx, req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, response.ErrCreateFailed, err.Error())
 		return
@@ -90,7 +90,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 		return
 	}
 
-	card, err := service.Update(req)
+	card, err := service.Update(ctx, req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, response.ErrUpdateFailed, err.Error())
 		return
@@ -118,7 +118,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) D
 		return
 	}
 
-	if err := service.Delete(id); err != nil {
+	if err := service.Delete(ctx, id); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, response.ErrDeleteFailed, err.Error())
 		return
 	}
@@ -145,7 +145,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 		return
 	}
 
-	card, err := service.GetByID(id)
+	card, err := service.GetByID(ctx, id)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, response.ErrResourceNotFound, err.Error())
 		return
@@ -190,7 +190,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 		return
 	}
 
-	list, err := service.GetList(req)
+	list, err := service.GetList(ctx, req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, response.ErrGetListFailed, err.Error())
 		return

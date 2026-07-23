@@ -502,7 +502,7 @@ func TestWorkbench_FullLoop(t *testing.T) {
 	// 5. 销售完成跟进
 	pendings := followup.ListPending(salesID, 0)
 	if len(pendings) > 0 {
-		_ = followup.CompleteWithResult(pendings[0].ID, FollowUpResultConverted, "客户已成交")
+		_ = followup.CompleteWithResult(context.Background(), pendings[0].ID, FollowUpResultConverted, "客户已成交")
 	}
 
 	// 6. 客户旅程推到 won

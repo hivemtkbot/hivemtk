@@ -64,7 +64,6 @@
 | 客户中心 | /tagSegmentation/list | 标签分群 | views/tagSegmentation/List.vue |
 | 客户中心 | /userSegment/list | 用户分群 | views/userSegment/List.vue |
 | 客户中心 | /unifiedMessage/list | 统一消息 | views/unifiedMessage/List.vue |
-| 客户中心 | /order/list | 订单管理 | views/order/List.vue |
 | 客户中心 | /oneid/list | OneID 合并 | views/oneid/List.vue |
 | 客户中心 | /oneid/conflicts | OneID 冲突 | views/oneid/Conflicts.vue |
 | 智能体 | /aiAgent/list | 智能体列表 | views/aiAgent/List.vue |
@@ -154,8 +153,6 @@
 | 系统设置 | /teamUser/list | 团队成员 | views/teamUser/List.vue |
 | 系统设置 | /teamUser/role | 角色权限 | views/teamUser/Role.vue |
 | 系统设置 | /platformAccount/list | 平台账号 | views/platformAccount/List.vue |
-| 系统设置 | /payment/list | 支付记录 | views/payment/List.vue |
-| 系统设置 | /payment/config | 支付配置 | views/payment/Config.vue |
 | 系统设置 | /integration/list | 集成管理 | views/integration/List.vue |
 | 系统设置 | /operationLog/list | 操作日志 | views/operationLog/List.vue |
 | 系统设置 | /backup/list | 备份管理 | views/backup/List.vue |
@@ -223,11 +220,11 @@
 
 ## /customer360/list — 客户 360
 - **组件**：`views/customer360/List.vue`
-- **布局**：客户搜索 + 360 详情抽屉（基本信息/标签/事件/订单/会话 Tab）。
+- **布局**：客户搜索 + 360 详情抽屉（基本信息/标签/事件/会话 Tab）。
 - **UI 元素**：
   - 筛选区：手机号/姓名搜索、客户列表
   - 表格列：头像、姓名、手机号、标签、来源、最近活跃、操作（查看360）
-  - 抽屉 Tab：基本信息（字段列表）、标签（标签组）、事件时间线、订单列表、会话记录
+  - 抽屉 Tab：基本信息（字段列表）、标签（标签组）、事件时间线、会话记录
 - **关键交互**：点击查看打开右侧抽屉，多 Tab 懒加载。
 
 ## /customerEvent/list — 客户事件
@@ -267,14 +264,6 @@
   - 抽屉：消息气泡列表 + 输入框回复
 - **关键交互**：点击会话打开右侧聊天窗，可回复。
 
-## /order/list — 订单管理
-- **组件**：`views/order/List.vue`
-- **布局**：筛选卡 + 订单表格 + 详情弹窗。
-- **UI 元素**：
-  - 筛选区：订单号、客户、状态（待付款/已付款/已发货/完成/退款）、时间范围、搜索/重置
-  - 表格列：订单号、客户、金额、商品数、状态（标签）、支付渠道、下单时间、操作（详情/退款）
-  - 弹窗-详情：商品明细表（名称/单价/数量/小计）+ 收货信息 + 金额汇总
-- **关键交互**：退款需二次确认。
 
 ## /oneid/list — OneID 合并
 - **组件**：`views/oneid/List.vue`
@@ -1104,23 +1093,6 @@
   - 弹窗-绑定：账号*、密钥*（密码）、回调域名
 - **关键交互**：绑定外部平台账号用于数据同步。
 
-## /payment/list — 支付记录
-- **组件**：`views/payment/List.vue`
-- **布局**：支付流水表格 + 详情弹窗。
-- **UI 元素**：
-  - 筛选区：订单号、状态、时间、搜索/重置
-  - 表格列：流水号、订单、金额、渠道、状态（标签）、完成时间、操作（详情/退款）
-  - 弹窗-详情：支付信息描述列表 + 回调日志
-- **关键交互**：退款二次确认。
-
-## /payment/config — 支付配置
-- **组件**：`views/payment/Config.vue`
-- **布局**：多支付商配置段（微信/支付宝/Stripe）。
-- **UI 元素**：
-  - 表单：启用支付商（多选）、商户号、API Key（密码）、回调地址、启用（开关）
-  - 按钮：保存配置
-- **关键交互**：保存全量支付配置。
-
 ## /integration/list — 集成管理
 - **组件**：`views/integration/List.vue`
 - **布局**：集成卡片/列表 + 配置弹窗。
@@ -1283,7 +1255,6 @@
 | `telegram/account.vue:190` | `kw` 未定义 `ReferenceError`（搜索交互 bug，非接口响应） |
 | `feishu/account.vue:405`（及多处） | `bidingForm.value.account_id` 拼写错（应为 `bindingForm`），运行时报错 |
 | `domainPool/List.vue:274` | 提示文案用 `res.message` 而结构为 `msg`，提示文案 undefined（轻微） |
-| `payment/List.vue` | 复用 `OrderApi`（语义错位），但接口可用，非崩溃 |
 | `churnPrediction/List.vue` | `runChurnPrediction` 调 `/api/user-segment/rfm/calculate`，后端路由**未确认**（需人工核对） |
 
 ### 四、已确认 OK（代表性，非全部）
@@ -1292,13 +1263,13 @@
 - **reach**：`whatsapp`（drafts/jobs/account）、`douyin*`、`kuaishou*`、`xianyu*`、`tiktok*`、`sms*`、`email*`、`community`、`shortLink`、`livecode` ✅
 - **knowledge**：`KnowledgeWorkspace`（10 子页）、`RagProductConfig`（3 子页）、`templateMarket` ✅
 - **analytics**：`conversionFunnel`、`customReport`、`abExperiment` ✅
-- **system**：`Config`、`Guide`、`MaterialLibrary`、`Monitor`、`ObsConfig`、`backup` ✅；`order` 模块 pay 路由**实际可用**（后端同时注册 `/order/:id/pay` 与 `/orders/:id/pay`，前端 `/api/order/:id/pay` 命中前者，原代理误报，已更正）
+- **system**：`Config`、`Guide`、`MaterialLibrary`、`Monitor`、`ObsConfig`、`backup` ✅；原 `order` 模块（含 pay 路由）已随订单管理功能移除
 - **aiAgent**：除上述中等项外，`aiAgent/List`、`unifiedInbox`、`intentRecognition`、`dialogueMemory`、`reachPipeline`、`sopAgent`、`scriptTemplate`、`chatChannel`、`customerService`（agentStatus/sessionTag/aiSuggestion）列表渲染正常 ✅
 
 ### 五、重点核实记录（亲手核对，防误报）
 1. **platformAccount**：后端 `setupPlatformAccountRoutes` → `GET /platform-accounts` → `GetAccounts` → `response.Success(ctx, accounts)`（`accounts` 为 `[]*model.PlatformAccount` 切片）。拦截器 `return data.data` 后前端 `res` = 切片数组，写 `res.list` 必为 `undefined` → **列表恒空**，确属 bug。
 2. **unifiedMessage**：后端 `frontend_aliases.go` 仅注册 `/unified-messages*`；前端 `unifiedMessage.js` 调 `/api/messages*` → **404**，确属 bug。建议前端改为 `/api/unified-messages` 或后端补 `/messages` 别名。
-3. **order pay**：后端 `content_routes.go` 与 `frontend_aliases.go` 均注册 `/order/:id/pay`（`POST`），前端 `/api/order/:id/pay` 命中 → **正常**，非 bug。
+3. **order pay**：原 `order` 模块 pay 路由（`/order/:id/pay`、`/orders/:id/pay`）已随订单管理功能移除，不再注册。
 
 > 下一步：以上 ❌ 严重项（尤其 #1 platformAccount、#2 unifiedMessage）会直接导致对应页面空白，建议优先修复为 `toList(res)` / 直接用 `res`，并修正 unifiedMessage 端点前缀。
 
@@ -1336,7 +1307,6 @@
 - `telegram/account.vue`：复核 `kw` 已在计算属性内正确定义，无需改（原报告误报）。
 - `feishu/FeishuAccount.vue`：复核全文件均为 `bindingForm`（正确拼写），原报告 `bidingForm` 误报，无需改。
 - `domainPool/List.vue`：`res.message` → `res.msg`（后端返回 `msg`）。
-- `payment` 复用 `OrderApi`：属语义命名，非渲染 bug，未改。
 - `churnPrediction` `runChurnPrediction` → `POST /api/user-segment/rfm/calculate`：已确认后端 `business_routes.go` 注册该路由，可用，未改。
 
 ### 验证

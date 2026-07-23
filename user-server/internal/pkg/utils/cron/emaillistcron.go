@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"context"
 	"fmt"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/logger"
@@ -13,7 +14,7 @@ import (
 func EmailListCron() {
 	// 读取未发送的 email 列表
 	emailListService := email.NewEmailListService()
-	emailListList, err := emailListService.GetUnsentEmailList(10)
+	emailListList, err := emailListService.GetUnsentEmailList(context.Background(), 10)
 	if err != nil {
 		logger.Info(fmt.Sprintf("获取未发送的email列表失败 %s", err.Error()))
 		return
@@ -24,7 +25,7 @@ func EmailListCron() {
 	// 循环发送
 	for _, emailList := range emailListList {
 		// 发送消息
-		emailSmtp, err := emailSmtpService.GetRandEmailSmtp()
+		emailSmtp, err := emailSmtpService.GetRandEmailSmtp(context.Background(), )
 		if err != nil {
 			logger.Info(fmt.Sprintf("获取随机smtp失败 %s", err.Error()))
 			continue
@@ -49,7 +50,7 @@ func EmailListCron() {
 		emailList.SendTime = time.Now()
 		emailList.From = emailSmtp.Name
 		emailList.IsSuccess = is_success
-		emailListService.UpdateEmailList(*emailList)
+		emailListService.UpdateEmailList(context.Background(), *emailList)
 
 		// 更新jobs 统计
 		jobs_id := emailList.JobsID
@@ -59,14 +60,14 @@ func EmailListCron() {
 			continue
 		}
 		emailJobService := email.NewEmailJobsService()
-		emailJobService.IncreaseSendTotal(jobs_id)
+		emailJobService.IncreaseSendTotal(context.Background(), jobs_id)
 		//增加 success_total
 		if is_success == 1 {
-			emailJobService.IncreaseSuccessTotal(jobs_id)
+			emailJobService.IncreaseSuccessTotal(context.Background(), jobs_id)
 		}
 		//增加 fail_total
 		if is_success == 0 {
-			emailJobService.IncreaseFailTotal(jobs_id)
+			emailJobService.IncreaseFailTotal(context.Background(), jobs_id)
 		}
 	}
 }

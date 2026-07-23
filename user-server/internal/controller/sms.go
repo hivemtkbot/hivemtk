@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -63,7 +64,7 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 
 // GetConfig 获取短信配置
 func (c *SmsController) GetConfig(ctx *gin.Context) {
-	config, err := c.service.GetConfig()
+	config, err := c.service.GetConfig(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取配置失败: "+err.Error())
 		return
@@ -80,7 +81,7 @@ func (c *SmsController) SaveConfig(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.SaveConfig(&req); err != nil {
+	if err := c.service.SaveConfig(context.Background(), &req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "保存配置失败: "+err.Error())
 		return
 	}
@@ -97,7 +98,7 @@ func (c *SmsController) DeleteJob(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.DeleteJob(uint(id)), "删除任务") {
+	if HandleDBError(ctx, c.service.DeleteJob(context.Background(), uint(id)), "删除任务") {
 		return
 	}
 
@@ -120,7 +121,7 @@ func (c *SmsController) GetJobRecords(ctx *gin.Context) {
 		return
 	}
 
-	records, total, err := c.service.GetJobRecords(uint(id), page, limit)
+	records, total, err := c.service.GetJobRecords(context.Background(), uint(id), page, limit)
 	if HandleDBError(ctx, err, "获取任务记录") {
 		return
 	}
@@ -155,7 +156,7 @@ func (c *SmsController) GetSmsList(ctx *gin.Context) {
 		EndDate:   endDate,
 	}
 
-	list, total, err := c.service.GetSmsList(&req)
+	list, total, err := c.service.GetSmsList(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取短信列表失败: "+err.Error())
 		return
@@ -176,7 +177,7 @@ func (c *SmsController) GetSmsDetail(ctx *gin.Context) {
 		return
 	}
 
-	sms, err := c.service.GetSmsByID(uint(id))
+	sms, err := c.service.GetSmsByID(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "获取短信详情") {
 		return
 	}
@@ -193,18 +194,18 @@ func (c *SmsController) SendSms(ctx *gin.Context) {
 	}
 
 	// 在调用外部短信服务前，验证短信提供商凭证是否已配置
-	config, err := c.service.GetConfig()
+	config, err := c.service.GetConfig(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "SMS service not configured")
 		return
 	}
-	configured, err := c.service.IsProviderConfigured(config.DefaultProvider)
+	configured, err := c.service.IsProviderConfigured(context.Background(), config.DefaultProvider)
 	if err != nil || !configured {
 		response.Error(ctx, http.StatusBadRequest, "SMS service not configured")
 		return
 	}
 
-	if err := c.service.SendSms(&req); err != nil {
+	if err := c.service.SendSms(context.Background(), &req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "发送短信失败: "+err.Error())
 		return
 	}
@@ -221,7 +222,7 @@ func (c *SmsController) ResendSms(ctx *gin.Context) {
 		return
 	}
 
-	if HandleServiceError(ctx, c.service.ResendSms(uint(id))) {
+	if HandleServiceError(ctx, c.service.ResendSms(context.Background(), uint(id))) {
 		return
 	}
 
@@ -246,7 +247,7 @@ func (c *SmsController) GetDraftList(ctx *gin.Context) {
 		Title: title,
 	}
 
-	list, total, err := c.service.GetDraftList(&req)
+	list, total, err := c.service.GetDraftList(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取草稿列表失败: "+err.Error())
 		return
@@ -267,7 +268,7 @@ func (c *SmsController) GetDraft(ctx *gin.Context) {
 		return
 	}
 
-	draft, err := c.service.GetDraftByID(uint(id))
+	draft, err := c.service.GetDraftByID(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "获取草稿详情") {
 		return
 	}
@@ -283,7 +284,7 @@ func (c *SmsController) CreateDraft(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.CreateDraft(&req); err != nil {
+	if err := c.service.CreateDraft(context.Background(), &req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "创建草稿失败: "+err.Error())
 		return
 	}
@@ -306,7 +307,7 @@ func (c *SmsController) UpdateDraft(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.UpdateDraft(uint(id), &req), "更新草稿") {
+	if HandleDBError(ctx, c.service.UpdateDraft(context.Background(), uint(id), &req), "更新草稿") {
 		return
 	}
 
@@ -322,7 +323,7 @@ func (c *SmsController) DeleteDraft(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.DeleteDraft(uint(id)), "删除草稿") {
+	if HandleDBError(ctx, c.service.DeleteDraft(context.Background(), uint(id)), "删除草稿") {
 		return
 	}
 
@@ -352,7 +353,7 @@ func (c *SmsController) SendDraft(ctx *gin.Context) {
 		phone = req.Phone
 	}
 
-	if HandleDBError(ctx, c.service.SendDraft(uint(id), phone), "发送草稿") {
+	if HandleDBError(ctx, c.service.SendDraft(context.Background(), uint(id), phone), "发送草稿") {
 		return
 	}
 
@@ -379,7 +380,7 @@ func (c *SmsController) GetJobList(ctx *gin.Context) {
 		Name:   name,
 	}
 
-	list, total, err := c.service.GetJobList(&req)
+	list, total, err := c.service.GetJobList(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取任务列表失败: "+err.Error())
 		return
@@ -400,7 +401,7 @@ func (c *SmsController) GetJob(ctx *gin.Context) {
 		return
 	}
 
-	job, err := c.service.GetJobByID(uint(id))
+	job, err := c.service.GetJobByID(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "获取任务详情") {
 		return
 	}
@@ -416,7 +417,7 @@ func (c *SmsController) CreateJob(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.CreateJob(&req); err != nil {
+	if err := c.service.CreateJob(context.Background(), &req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "创建任务失败: "+err.Error())
 		return
 	}
@@ -433,7 +434,7 @@ func (c *SmsController) PauseJob(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.PauseJob(uint(id)), "暂停任务") {
+	if HandleDBError(ctx, c.service.PauseJob(context.Background(), uint(id)), "暂停任务") {
 		return
 	}
 
@@ -449,7 +450,7 @@ func (c *SmsController) ResumeJob(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.ResumeJob(uint(id)), "继续任务") {
+	if HandleDBError(ctx, c.service.ResumeJob(context.Background(), uint(id)), "继续任务") {
 		return
 	}
 
@@ -465,7 +466,7 @@ func (c *SmsController) StopJob(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.StopJob(uint(id)), "停止任务") {
+	if HandleDBError(ctx, c.service.StopJob(context.Background(), uint(id)), "停止任务") {
 		return
 	}
 

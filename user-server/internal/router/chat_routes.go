@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	dbutil "marketing/internal/pkg/utils/db"
@@ -24,7 +26,7 @@ import (
 func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *service.SmartCSOrchestrator) {
 	channelSvc := service.MustNewChatChannelService(db)
 	agentBindingSvc := service.NewChannelAgentBindingService()
-	visitorSvc := service.NewVisitorChatService(db, channelSvc, orchestrator, agentBindingSvc)
+	visitorSvc := service.NewVisitorChatService(context.Background(), db, channelSvc, orchestrator, agentBindingSvc)
 
 	// 公开路由组：AppKey 软解析 + 访客限流
 	chatPublic := public.Group("/chat/public")

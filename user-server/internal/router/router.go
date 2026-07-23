@@ -23,6 +23,11 @@ func SetHealthRedis(p Pinger) {
 }
 
 func Setup(r *gin.Engine) {
+	// WhatsApp Cloud 账号服务（在函数级作用域声明，供 Webhook URL 验证与 Cloud 路由共用）
+	var whatsappCloudSvc *service.WhatsAppCloudService
+	var webhookSvc *service.WebhookService
+	var dingtalkAppSvc *service.DingTalkAppService
+
 	// 基础中间件
 	r.Use(gin.Recovery())
 
@@ -90,7 +95,7 @@ func Setup(r *gin.Engine) {
 	channelBindingSvcGlobal := service.NewChannelAgentBindingService()
 	csAgentSvcGlobal := service.NewCustomerServiceAgentService()
 	// 注入到 SmartCSOrchestrator（客服座席挂载智能体路由）
-	orchestrator.SetCustomerServiceAgentService(csAgentSvcGlobal)
+	orchestrator.SetCustomerServiceAgentService(context.Background(), csAgentSvcGlobal)
 
 	// M2：初始化资产市场运行时覆盖层（业务运行时优先读取生效中的已购资产）
 	service.InitAssetResolver(db.GetDB())
@@ -176,9 +181,6 @@ func Setup(r *gin.Engine) {
 		// H 域 P1: 流失挽回队列
 		setupRecoveryQueueRoutes(auth)
 
-		// 订单管理
-		setupOrderRoutes(auth)
-
 		// 系统管理
 		setupSystemRoutes(auth)
 
@@ -188,11 +190,17 @@ func Setup(r *gin.Engine) {
 		// 知识库管理
 		setupKnowledgeBaseRoutes(auth)
 
-		// WhatsApp (Web 扫码)
-		setupWhatsappRoutes(auth)
+	// WhatsApp (Web 扫码)
+	setupWhatsappRoutes(auth)
 
-		// WhatsApp Cloud (Meta 商业 API)
-		setupWhatsAppCloudRoutes(auth)
+	// WhatsApp Cloud (Meta 商业 API)
+	whatsappCloudSvc = service.NewWhatsAppCloudService(db.GetDB())
+	setupWhatsAppCloudRoutes(auth, whatsappCloudSvc)
+
+	// 钉钉企业内部应用（支持回调收消息）
+	webhookSvc = service.NewWebhookService(db.GetDB())
+	dingtalkAppSvc = service.NewDingTalkAppService(db.GetDB(), webhookSvc)
+	setupDingTalkAppRoutes(auth, dingtalkAppSvc)
 
 		// Telegram
 		setupTelegramRoutes(auth)
@@ -335,7 +343,11 @@ func Setup(r *gin.Engine) {
 	}
 
 	// P0-14 多渠道 Webhook 路由（公开，不需要鉴权）
-	webhookCtrl := controller.NewWebhookController(service.NewWebhookService(db.GetDB()))
+	webhookCtrl := controller.NewWebhookController(webhookSvc)
+	// WhatsApp Cloud 账号服务注入，用于回调 URL 验证（GET /api/webhook/whatsapp/{id}）
+	webhookCtrl.SetWhatsAppCloudService(whatsappCloudSvc)
+	// 钉钉应用账号服务注入，用于回调验签 + 入站收消息（GET/POST /api/webhook/dingtalk/{id}）
+	webhookCtrl.SetDingTalkAppService(dingtalkAppSvc)
 	// P0-A 修复：智能体引擎 8 步链路真实依赖注入
 	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)

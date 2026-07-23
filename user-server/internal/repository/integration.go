@@ -292,6 +292,24 @@ func (r *ExternalOrderRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.ExternalOrder{}, id).Error
 }
 
+// GetByCustomer 按客户手机/姓名查询近期外部订单（客服 360 视图 / 答单上下文用）。
+// 订单是外部电商同步进来的只读镜像，此处只查询、不写。
+func (r *ExternalOrderRepository) GetByCustomer(ctx context.Context, phone, name string) ([]*model.ExternalOrder, error) {
+	var orders []*model.ExternalOrder
+	if phone == "" && name == "" {
+		return orders, nil
+	}
+	q := r.db.Model(&model.ExternalOrder{})
+	if phone != "" {
+		q = q.Where("user_phone = ?", phone)
+	}
+	if name != "" {
+		q = q.Where("user_name = ?", name)
+	}
+	err := q.Order("COALESCE(order_time, created_at) DESC").Limit(50).Find(&orders).Error
+	return orders, err
+}
+
 // ExternalProductRepository 外部商品仓库
 type ExternalProductRepository struct {
 	db *gorm.DB

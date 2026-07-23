@@ -54,7 +54,7 @@ func TestRecoveryQueueService_MarkAttempt(t *testing.T) {
 	if err := svc.MarkAttempt(item.ID, "sms", "delivered", "failed", 30*time.Second); err != nil {
 		t.Fatalf("MarkAttempt failed: %v", err)
 	}
-	got, _ := mock.GetByID(item.ID)
+	got, _ := mock.GetByID(context.Background(), item.ID)
 	if got.Attempts != 1 {
 		t.Errorf("expected attempts 1, got %d", got.Attempts)
 	}
@@ -73,7 +73,7 @@ func TestRecoveryQueueService_MarkRecovered(t *testing.T) {
 	if err := svc.MarkRecovered(item.ID, 99000); err != nil {
 		t.Fatalf("MarkRecovered failed: %v", err)
 	}
-	got, _ := svc.repo.GetByID(item.ID)
+	got, _ := svc.repo.GetByIDitem.ID)
 	if got.Stage != model.RecoveryStageSucceed {
 		t.Errorf("expected succeed, got %s", got.Stage)
 	}
@@ -86,10 +86,10 @@ func TestRecoveryQueueService_Cancel(t *testing.T) {
 	svc := NewRecoveryQueueService()
 	svc.repo = newMockRecoveryRepo()
 	item, _ := svc.Enqueue("c1", "u1", "a1", "churn", "sms", 5)
-	if err := svc.Cancel(item.ID); err != nil {
+	if err := svc.Cancel(context.Background(), item.ID); err != nil {
 		t.Fatalf("Cancel failed: %v", err)
 	}
-	got, _ := svc.repo.GetByID(item.ID)
+	got, _ := svc.repo.GetByIDitem.ID)
 	if got.Stage != model.RecoveryStageCancelled {
 		t.Errorf("expected cancelled, got %s", got.Stage)
 	}

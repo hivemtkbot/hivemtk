@@ -116,7 +116,7 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 	if rec.Metrics == nil {
 		rec.Metrics = model.JSONMap{}
 	}
-	if err := s.db.Create(ctx, rec).Error; err != nil {
+	if err := s.db.Create(rec).Error; err != nil {
 		return nil, err
 	}
 
@@ -155,13 +155,13 @@ func (s *WeComAccountHealthService) ListHealthHistory(ctx context.Context, accou
 	}
 	var total int64
 	// 私域独立部署：无 merchant_id 字段
-	if err := s.db.Model(ctx, &model.WeComAccountHealth{}).
+	if err := s.db.Model(&model.WeComAccountHealth{}).
 		Where("account_id = ?", accountID).
 		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var list []model.WeComAccountHealth
-	err := s.db.Model(ctx, &model.WeComAccountHealth{}).
+	err := s.db.Model(&model.WeComAccountHealth{}).
 		Where("account_id = ?", accountID).
 		Order("reported_at DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
@@ -244,7 +244,7 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	if acc.DailyMsgUsed+count > acc.DailyMsgQuota {
 		return ErrWeComQuotaExceeded
 	}
-	return s.db.Model(ctx, &model.WeComAccount{}).
+	return s.db.Model(&model.WeComAccount{}).
 		Where("id = ?", accountID).
 		Updates(map[string]any{
 			"daily_msg_used":	acc.DailyMsgUsed + count,
@@ -261,7 +261,7 @@ func (s *WeComAccountHealthService) ResetDailyQuota(ctx context.Context) (int64,
 	now := time.Now()
 	// 单租户部署：无 merchant_id 字段，重置所有账号的日配额
 	// GORM 批量 Updates 必须带 WHERE，使用 1=1 占位（语义上等同无条件更新）
-	res := s.db.Model(ctx, &model.WeComAccount{}).
+	res := s.db.Model(&model.WeComAccount{}).
 		Where("1 = 1").
 		Updates(map[string]any{
 			"daily_msg_used":	0,
@@ -439,7 +439,7 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 	if quotaRate > WeComQuotaDegradeThreshold && risk == WeComRiskNormal {
 		updates["risk_level"] = WeComRiskWarning
 	}
-	s.db.Model(ctx, &model.WeComAccount{}).
+	s.db.Model(&model.WeComAccount{}).
 		// 私域独立部署：无 merchant_id 字段
 		Where("id = ?", accountID).
 		Updates(updates)

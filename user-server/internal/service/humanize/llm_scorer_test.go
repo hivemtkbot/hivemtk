@@ -13,6 +13,7 @@ package humanize
 //  8. 边界用例（空输入、dispatcher nil）
 
 import (
+	"marketing/internal/model"
 	"context"
 	"errors"
 	"math/rand"
@@ -188,7 +189,7 @@ func TestBuildHumanizeLLMPrompt_WithBaseline(t *testing.T) {
 		CustomerMessage: "test",
 		AIReply:         "test",
 	}
-	baseline := &dto.ChampionBaselineDTO{
+	baseline := &model.ChampionBaseline{
 		Naturalness:     0.85,
 		Conciseness:     0.90,
 		Empathy:         0.80,
@@ -361,7 +362,7 @@ func TestWeightedEuclideanDistance_Basic(t *testing.T) {
 		{Dimension: dto.HumanizeDimProfessionalism, Score: 0.85},
 		{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.80},
 	}
-	baseline := &dto.ChampionBaselineDTO{
+	baseline := &model.ChampionBaseline{
 		Naturalness:     0.85,
 		Conciseness:     0.90,
 		Empathy:         0.80,
@@ -383,7 +384,7 @@ func TestWeightedEuclideanDistance_NonZero(t *testing.T) {
 		{Dimension: dto.HumanizeDimProfessionalism, Score: 0.85},
 		{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.80},
 	}
-	baseline := &dto.ChampionBaselineDTO{
+	baseline := &model.ChampionBaseline{
 		Naturalness:     0.85,
 		Conciseness:     0.90,
 		Empathy:         0.80,

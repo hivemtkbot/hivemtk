@@ -75,28 +75,6 @@ func TestHeaders(t *testing.T) {
 	}
 }
 
-func TestEpayConfig(t *testing.T) {
-	config := EpayConfig{
-		Pid:       "123456",
-		Key:       "secret",
-		Type:      "alipay",
-		NotifyUrl: "http://example.com/notify",
-		ReturnUrl: "http://example.com/return",
-		QueryUrl:  "http://example.com/query",
-		EpayUrl:   "http://example.com/pay",
-	}
-
-	if config.Pid != "123456" {
-		t.Errorf("Expected Pid to be '123456', got %s", config.Pid)
-	}
-	if config.Key != "secret" {
-		t.Errorf("Expected Key to be 'secret', got %s", config.Key)
-	}
-	if config.Type != "alipay" {
-		t.Errorf("Expected Type to be 'alipay', got %s", config.Type)
-	}
-}
-
 func TestSmlistType(t *testing.T) {
 	if SmlistTypeGirlSlriGistType != 1 {
 		t.Errorf("Expected SmlistTypeGirlSlriGistType to be 1, got %d", SmlistTypeGirlSlriGistType)

@@ -57,6 +57,11 @@ func LoadPlatform(path string) error {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return fmt.Errorf("解析平台配置失败: %w", err)
 	}
+	// 环境变量 PLATFORM_API_HOST 优先级最高：部署时可直接覆盖 yaml 的 api_url，
+	// 作为 user-server 访问平台端（platform-server）的唯一基座地址。
+	if v := os.Getenv("PLATFORM_API_HOST"); v != "" {
+		cfg.APIURL = v
+	}
 	if cfg.APIURL == "" {
 		return fmt.Errorf("平台配置缺少必填字段 api_url")
 	}

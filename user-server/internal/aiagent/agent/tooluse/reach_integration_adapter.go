@@ -190,7 +190,7 @@ func (a *IntegrationReachAdapter) SendWeb(ctx context.Context, sessionID, conten
 	if strings.TrimSpace(content) == "" {
 		return "", errors.New("web: content required")
 	}
-	msg, err := a.web.SendMessage(&service.SendMessageRequest{
+	msg, err := a.web.SendMessage(ctx, &service.SendMessageRequest{
 		SessionID:   sessionID,
 		Content:     content,
 		ContentType: model.MessageTypeText,
@@ -323,7 +323,7 @@ func (a *IntegrationReachAdapter) SendDingTalk(ctx context.Context, chatID, msgT
 	if mt == "" {
 		mt = "text"
 	}
-	msgID, err := a.dingtalk.SendRobot(chatID, "", mt, content)
+	msgID, err := a.dingtalk.SendRobot(ctx, chatID, "", mt, content)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("channel", "dingtalk").Str("chat_id", chatID).Msg("reach send failed")
 		return "", fmt.Errorf("dingtalk send: %w", err)

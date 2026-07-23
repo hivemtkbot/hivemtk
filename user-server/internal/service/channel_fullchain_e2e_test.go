@@ -67,7 +67,7 @@ func TestE2E_Feishu_AccountCreateAndList(t *testing.T) {
 		WebhookEnabled:    true,
 		AIAgentEnabled:    true,
 	}
-	out, err := svc.CreateAccount(acc)
+	out, err := svc.CreateAccount(context.Background(), acc)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -273,14 +273,14 @@ func TestE2E_Telegram_AccountCreateAndGet(t *testing.T) {
 		WebhookEnabled: true,
 		AIAgentEnabled: true,
 	}
-	out, err := svc.CreateAccount(acc)
+	out, err := svc.CreateAccount(context.Background(), acc)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if out.ID == 0 {
 		t.Error("expected ID > 0")
 	}
-	got, err := svc.GetAccount(out.ID)
+	got, err := svc.GetAccount(context.Background(), out.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -364,14 +364,14 @@ func TestE2E_WhatsApp_AccountCreate(t *testing.T) {
 		WebhookEnabled:     true,
 		AIAgentEnabled:     true,
 	}
-	out, err := svc.CreateAccount(acc)
+	out, err := svc.CreateAccount(context.Background(), acc)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if out.ID == 0 {
 		t.Error("expected ID")
 	}
-	got, _ := svc.GetAccount(out.ID)
+	got, _ := svc.GetAccount(context.Background(), out.ID)
 	if got.PhoneNumberID != "1234567890" {
 		t.Errorf("phone mismatch: %s", got.PhoneNumberID)
 	}

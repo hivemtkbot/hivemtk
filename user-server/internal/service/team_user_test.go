@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/bcrypt"
@@ -80,7 +81,7 @@ func TestTeamUserService_Create_Success(t *testing.T) {
 		Avatar:   "avatar.jpg",
 	}
 
-	user, err := service.Create(req, 1, "admin", "127.0.0.1")
+	user, err := service.Create(context.Background(), req, 1, "admin", "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestTeamUserService_Create_UsernameExists(t *testing.T) {
 		Username: "existing",
 		Password: "password",
 	}
-	service.repo.Create(existingUser)
+	service.repo.CreateexistingUser)
 
 	req := &CreateTeamUserRequest{
 		Username: "existing",
@@ -113,7 +114,7 @@ func TestTeamUserService_Create_UsernameExists(t *testing.T) {
 		Role:     "operator",
 	}
 
-	_, err := service.Create(req, 1, "admin", "127.0.0.1")
+	_, err := service.Create(context.Background(), req, 1, "admin", "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error for existing username")
 	}
@@ -129,7 +130,7 @@ func TestTeamUserService_Create_InvalidRole(t *testing.T) {
 		Role:     "invalid_role",
 	}
 
-	_, err := service.Create(req, 1, "admin", "127.0.0.1")
+	_, err := service.Create(context.Background(), req, 1, "admin", "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error for invalid role")
 	}
@@ -147,14 +148,14 @@ func TestTeamUserService_Update_Success(t *testing.T) {
 		Role:     "operator",
 		Status:   model.TeamUserStatusActive,
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &UpdateTeamUserRequest{
 		Name:  "New Name",
 		Email: "new@example.com",
 	}
 
-	updated, err := service.Update(user.ID, req, 1, "admin", "127.0.0.1")
+	updated, err := service.Update(context.Background(), user.ID, req, 1, "admin", "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -176,14 +177,14 @@ func TestTeamUserService_Update_NoPermission(t *testing.T) {
 		Username: "testuser",
 		Password: "password",
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &UpdateTeamUserRequest{
 		Name: "New Name",
 	}
 
 	// viewer 角色无法 update 其他用户（甚至不能 update 自己；只能改密）
-	_, err := service.Update(user.ID, req, 1, "viewer", "127.0.0.1")
+	_, err := service.Update(context.Background(), user.ID, req, 1, "viewer", "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error for no permission")
 	}
@@ -204,17 +205,17 @@ func TestTeamUserService_Delete_Success(t *testing.T) {
 		Password: "password",
 		Role:     "admin",
 	}
-	service.repo.Create(admin1)
-	service.repo.Create(admin2)
+	service.repo.Createadmin1)
+	service.repo.Createadmin2)
 
 	// 删除 admin2
-	err := service.Delete(admin2.ID, admin1.ID, "admin", "127.0.0.1")
+	err := service.Delete(context.Background(), admin2.ID, admin1.ID, "admin", "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// 验证已删除
-	_, err = service.repo.GetByID(admin2.ID)
+	_, err = service.repo.GetByIDadmin2.ID)
 	if err == nil {
 		t.Error("Expected user to be deleted")
 	}
@@ -229,9 +230,9 @@ func TestTeamUserService_Delete_CannotDeleteSelf(t *testing.T) {
 		Password: "password",
 		Role:     "operator",
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
-	err := service.Delete(user.ID, user.ID, "admin", "127.0.0.1")
+	err := service.Delete(context.Background(), user.ID, user.ID, "admin", "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error for deleting self")
 	}
@@ -247,9 +248,9 @@ func TestTeamUserService_Delete_LastAdmin(t *testing.T) {
 		Password: "password",
 		Role:     "admin",
 	}
-	service.repo.Create(admin)
+	service.repo.Createadmin)
 
-	err := service.Delete(admin.ID, 999, "admin", "127.0.0.1")
+	err := service.Delete(context.Background(), admin.ID, 999, "admin", "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error for deleting last admin")
 	}
@@ -263,9 +264,9 @@ func TestTeamUserService_GetByID_Success(t *testing.T) {
 		Username: "testuser",
 		Password: "password",
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
-	retrieved, err := service.GetByID(user.ID)
+	retrieved, err := service.GetByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -279,7 +280,7 @@ func TestTeamUserService_GetByID_Success(t *testing.T) {
 func TestTeamUserService_GetByID_NotFound(t *testing.T) {
 	service := setupTeamUserService(t)
 
-	_, err := service.GetByID(99999)
+	_, err := service.GetByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -295,10 +296,10 @@ func TestTeamUserService_GetList_Success(t *testing.T) {
 			Username: "user" + string(rune('0'+i)),
 			Password: "password",
 		}
-		service.repo.Create(user)
+		service.repo.Createuser)
 	}
 
-	result, err := service.GetList(1, 10)
+	result, err := service.GetList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -321,11 +322,11 @@ func TestTeamUserService_GetList_Pagination(t *testing.T) {
 			Username: "user" + string(rune('A'+i)),
 			Password: "password",
 		}
-		service.repo.Create(user)
+		service.repo.Createuser)
 	}
 
 	// 获取第一页
-	result1, err := service.GetList(1, 10)
+	result1, err := service.GetList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
@@ -334,7 +335,7 @@ func TestTeamUserService_GetList_Pagination(t *testing.T) {
 	}
 
 	// 获取第二页
-	result2, err := service.GetList(2, 10)
+	result2, err := service.GetList(context.Background(), 2, 10)
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
 	}
@@ -353,11 +354,11 @@ func TestTeamUserService_GetList_DefaultPageSize(t *testing.T) {
 			Username: "user" + string(rune('A'+i)),
 			Password: "password",
 		}
-		service.repo.Create(user)
+		service.repo.Createuser)
 	}
 
 	// 使用过大的 pageSize，应该被限制为 10
-	result, err := service.GetList(1, 150)
+	result, err := service.GetList(context.Background(), 1, 150)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -370,7 +371,7 @@ func TestTeamUserService_GetList_DefaultPageSize(t *testing.T) {
 func TestTeamUserService_GetList_EmptyList(t *testing.T) {
 	service := setupTeamUserService(t)
 
-	result, err := service.GetList(1, 10)
+	result, err := service.GetList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -397,7 +398,7 @@ func TestTeamUserService_Login_Success(t *testing.T) {
 		Username: "testuser",
 		Password: hashedPassword,
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &TeamUserLoginRequest{
 		Username: "testuser",
@@ -446,7 +447,7 @@ func TestTeamUserService_Login_WrongPassword(t *testing.T) {
 		Username: "testuser",
 		Password: hashedPassword,
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &TeamUserLoginRequest{
 		Username: "testuser",
@@ -477,7 +478,7 @@ func TestTeamUserService_Login_InactiveUser(t *testing.T) {
 		Password: hashedPassword,
 		Role:     "viewer",
 	}
-	err = service.repo.Create(user)
+	err = service.repo.Createuser)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
 	}
@@ -517,7 +518,7 @@ func TestTeamUserService_ChangePassword_Success(t *testing.T) {
 		Username: "testuser",
 		Password: hashedPassword,
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &TeamChangePasswordRequest{
 		OldPassword: "oldpassword",
@@ -530,7 +531,7 @@ func TestTeamUserService_ChangePassword_Success(t *testing.T) {
 	}
 
 	// 验证密码已更改
-	updated, _ := service.repo.GetByID(user.ID)
+	updated, _ := service.repo.GetByIDuser.ID)
 	if updated.Password == user.Password {
 		t.Error("Expected password to be changed")
 	}
@@ -545,7 +546,7 @@ func TestTeamUserService_ChangePassword_WrongOldPassword(t *testing.T) {
 		Username: "testuser",
 		Password: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	req := &TeamChangePasswordRequest{
 		OldPassword: "wrongpassword",
@@ -567,7 +568,7 @@ func TestTeamUserService_ResetPassword_Success(t *testing.T) {
 		Username: "testuser",
 		Password: "oldpassword",
 	}
-	service.repo.Create(user)
+	service.repo.Createuser)
 
 	err := service.ResetPassword(user.ID, "newpassword123", 1, "admin", "127.0.0.1")
 	if err != nil {
@@ -575,7 +576,7 @@ func TestTeamUserService_ResetPassword_Success(t *testing.T) {
 	}
 
 	// 验证密码已重置
-	updated, _ := service.repo.GetByID(user.ID)
+	updated, _ := service.repo.GetByIDuser.ID)
 	if updated.Password == user.Password {
 		t.Error("Expected password to be reset")
 	}
@@ -607,8 +608,8 @@ func TestTeamRoleService_GetList_Success(t *testing.T) {
 		Name:        "Supervisor",
 		Permissions: "[]",
 	}
-	service.repo.Create(role1)
-	service.repo.Create(role2)
+	service.repo.Createrole1)
+	service.repo.Createrole2)
 
 	roles, err := service.GetList()
 	if err != nil {
@@ -630,7 +631,7 @@ func TestTeamRoleService_Create_Success(t *testing.T) {
 		Permissions: []string{"cards.view", "cards.edit"},
 	}
 
-	role, err := service.Create(req)
+	role, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -653,14 +654,14 @@ func TestTeamRoleService_Create_DuplicateCode(t *testing.T) {
 		Name:        "Existing",
 		Permissions: "[]",
 	}
-	service.repo.Create(existingRole)
+	service.repo.CreateexistingRole)
 
 	req := &CreateRoleRequest{
 		Code: "existing",
 		Name: "Duplicate",
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for duplicate code")
 	}
@@ -677,14 +678,14 @@ func TestTeamRoleService_Update_Success(t *testing.T) {
 		Permissions: "[]",
 		IsSystem:    false,
 	}
-	service.repo.Create(role)
+	service.repo.Createrole)
 
 	req := &UpdateRoleRequest{
 		Name:        "New Name",
 		Permissions: []string{"cards.view"},
 	}
 
-	updated, err := service.Update(role.ID, req)
+	updated, err := service.Update(context.Background(), role.ID, req)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -705,13 +706,13 @@ func TestTeamRoleService_Update_SystemRole(t *testing.T) {
 		Permissions: "[]",
 		IsSystem:    true,
 	}
-	service.repo.Create(role)
+	service.repo.Createrole)
 
 	req := &UpdateRoleRequest{
 		Name: "New Name",
 	}
 
-	_, err := service.Update(role.ID, req)
+	_, err := service.Update(context.Background(), role.ID, req)
 	if err == nil {
 		t.Error("Expected error for updating system role")
 	}
@@ -728,15 +729,15 @@ func TestTeamRoleService_Delete_Success(t *testing.T) {
 		Permissions: "[]",
 		IsSystem:    false,
 	}
-	service.repo.Create(role)
+	service.repo.Createrole)
 
-	err := service.Delete(role.ID)
+	err := service.Delete(context.Background(), role.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// 验证已删除
-	_, err = service.repo.GetByID(role.ID)
+	_, err = service.repo.GetByIDrole.ID)
 	if err == nil {
 		t.Error("Expected role to be deleted")
 	}
@@ -753,9 +754,9 @@ func TestTeamRoleService_Delete_SystemRole(t *testing.T) {
 		Permissions: "[]",
 		IsSystem:    true,
 	}
-	service.repo.Create(role)
+	service.repo.Createrole)
 
-	err := service.Delete(role.ID)
+	err := service.Delete(context.Background(), role.ID)
 	if err == nil {
 		t.Error("Expected error for deleting system role")
 	}

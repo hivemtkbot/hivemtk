@@ -8,11 +8,6 @@ type CreateAccountRequest struct {
 	TgBotToken       string `json:"tg_bot_token" binding:"required"`
 	Price            string `json:"price" binding:"required"`
 	GroupID          int64  `json:"group_id" binding:"required"`
-	EpayPid          string `json:"epay_pid" binding:"required"`
-	EpayKey          string `json:"epay_key" binding:"required"`
-	EpayPayType      string `json:"epay_pay_type" binding:"required"`
-	EpayQueryUrl     string `json:"epay_query_url" binding:"required"`
-	EpayURL          string `json:"epay_url" binding:"required"`
 	ProxyEnableProxy bool   `json:"proxy_enable_proxy"`
 	ProxyProtoclo    string `json:"proxy_protoclo"`
 	ProxyHost        string `json:"proxy_host"`
@@ -31,11 +26,6 @@ type AccountResponse struct {
 	TgBotToken       string                  `json:"tg_bot_token"`
 	Price            string                  `json:"price"`
 	GroupID          int64                   `json:"group_id"`
-	EpayPid          string                  `json:"epay_pid"`
-	EpayKey          string                  `json:"epay_key"`
-	EpayPayType      string                  `json:"epay_pay_type"`
-	EpayQueryUrl     string                  `json:"epay_query_url"`
-	EpayURL          string                  `json:"epay_url"`
 	ProxyEnableProxy bool                    `json:"proxy_enable_proxy"`
 	ProxyProtoclo    string                  `json:"proxy_protoclo"`
 	ProxyHost        string                  `json:"proxy_host"`
@@ -63,11 +53,6 @@ type UpdateAccountRequest struct {
 	TgBotToken       string `json:"tg_bot_token"`
 	Price            string `json:"price"`
 	GroupID          int64  `json:"group_id"`
-	EpayPid          string `json:"epay_pid"`
-	EpayKey          string `json:"epay_key"`
-	EpayPayType      string `json:"epay_pay_type"`
-	EpayQueryUrl     string `json:"epay_query_url"`
-	EpayURL          string `json:"epay_url"`
 	ProxyEnableProxy bool   `json:"proxy_enable_proxy"`
 	ProxyProtoclo    string `json:"proxy_protoclo"`
 	ProxyHost        string `json:"proxy_host"`

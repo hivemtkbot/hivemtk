@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -67,6 +68,10 @@ func lazySendSms(phone, content string) error {
 	if err != nil {
 		return fmt.Errorf("初始化短信服务失败：%w", err)
 	}
+
+	// 营销流程异步调用入口（无 controller ctx 透传）→ 使用 background ctx
+	// 异步链路中无法感知上游 ctx，使用 background 隔离
+	ctx := context.Background()
 
 	req := &dto.SmsSendRequest{
 		Phone:   phone,

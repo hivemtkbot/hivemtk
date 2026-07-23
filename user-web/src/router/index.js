@@ -59,18 +59,20 @@ const initRoutes = [
 const moduleNames = [
   'email', 'telegram', 'whatsapp', 'clue', 'system',
   'domainPool', 'shortLink', 'douyinCard', 'xiaohongshuCard', 'kuaishouCard',
-  'xianyuCard', 'sms', 'payment', 'livecode', 'tiktok',
-  'abExperiment', 'aiContent', 'batchOperation', 'churnPrediction',
+  'xianyuCard', 'sms', 'livecode', 'tiktok',
+  'abExperiment', 'batchOperation', 'churnPrediction',
   'customReport', 'customer360', 'customerEvent', 'customerSession',
   // OneID 客户身份统一 (身份归一化 / 冲突解决)
   'oneid',
   'dashboardScreen', 'integration', 'marketingFlow', 'operationLog',
-  'ragProductConfig', 'scriptTemplate', 'teamUser', 'templateMarket', 'userSegment',
+  'ragProductConfig', 'scriptTemplate', 'teamUser', 'userSegment',
   'community', 'unifiedMessage', 'platformAccount', 'messageHub',
   // 销冠 SOP 智能体相关模块（意图识别 / 对话记忆 / SOP 智能体）
   'intentRecognition', 'dialogueMemory', 'sopAgent',
   // 触达管道 / 统一收件箱 / 企微账号
   'reachPipeline', 'unifiedInbox', 'wecomAccount',
+  'whatsappCloud',
+  'dingtalkApp',
   // P1/P2 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
   'llmRouting', 'tagSegmentation', 'conversionFunnel',
   'aiProductivity',
@@ -80,6 +82,8 @@ const moduleNames = [
   'aiAgent',
   // 资产市场
   'assetMarket',
+  // 资产包（低代码 Playground / 商户编辑器）
+  'assetBundle',
   // 客服子功能 (坐席状态 / 快捷回复 / 会话标签 / AI 建议)
   'customerService',
   // P0-10 ADR-010: 客服 Web Widget 渠道管理
@@ -88,8 +92,8 @@ const moduleNames = [
   'objection', 'persona',
   // P2-2 G10: 客户旅程大屏
   'customerJourney',
-  // P2-5 G13: 备份恢复 / 订单管理 / 安全审计
-  'backup', 'order', 'securityAudit',
+  // P2-5 G13: 备份恢复 / 安全审计
+  'backup', 'securityAudit',
   // 飞书账号管理（配合 reach.feishu.send 工具）
   'feishu',
   // 置信度/拟人度/反馈学习 统一管理面板
@@ -162,7 +166,24 @@ const pathToModule = {
   'douyin': 'douyinCard',
   'xiaohongshu': 'xiaohongshuCard',
   'kuaishou': 'kuaishouCard',
-  'xianyu': 'xianyuCard'
+  'xianyu': 'xianyuCard',
+  // 卡片统计为各卡片模块内的顶层路由（/xxx-card-stats/:id），首段与模块名不同，
+  // 直接深链访问需显式映射，避免懒加载不到对应模块导致 404
+  'douyin-card-stats': 'douyinCard',
+  'xiaohongshu-card-stats': 'xiaohongshuCard',
+  'kuaishou-card-stats': 'kuaishouCard',
+  'xianyu-card-stats': 'xianyuCard',
+  // 资产市场 / 资产包：kebab-case 首段与 camelCase 模块名不匹配
+  'asset-market': 'assetMarket',
+  'asset-bundle': 'assetBundle',
+  // 置信度 / 拟人度 / 反馈学习 面板统一定义在 tuning 模块
+  'confidence': 'tuning',
+  'humanize': 'tuning',
+  'feedbackLoop': 'tuning',
+  // WhatsApp Cloud（Meta 商业 API）路由首段 kebab-case → camelCase 模块名
+  'whatsapp-cloud': 'whatsappCloud',
+  // 钉钉应用（企业内部应用，支持回调收消息）
+  'dingtalk-app': 'dingtalkApp'
 }
 
 async function ensureRouteLoaded(path) {

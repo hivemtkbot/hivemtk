@@ -171,7 +171,7 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		}
 	}
 
-	resp, err := s.client.Do(ctx, req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		s.recordSyncError(ctx, src, fmt.Sprintf("请求失败: %v", err), result, start)
 		return result, err
@@ -267,7 +267,7 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 	}
 
 	start := time.Now()
-	resp, err := s.client.Do(ctx, req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return map[string]any{
 			"success":	false,

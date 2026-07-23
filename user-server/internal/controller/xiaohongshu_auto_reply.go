@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 		return
 	}
 
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -83,22 +84,22 @@ func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 		UserID:	userID, Platform: "xiaohongshu", Username: req.Username,
 		IsActive:	true, Headless: headless, LoginAt: &now,
 	}
-	if err := c.svc.UpsertAccount(item); err != nil {
+	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
-	c.svc.StartLoginBrowser(userID, req.Username, item.ID, headless)
+	c.svc.StartLoginBrowser(context.Background(), userID, req.Username, item.ID, headless)
 	response.Success(ctx, gin.H{"started": true, "accountId": item.ID}, "ok")
 }
 
 func (c *XiaohongshuAutoReplyController) LoginStatus(ctx *gin.Context) {
 	username := ctx.Query("username")
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
-	items, _ := c.svc.ListAccounts(userID)
+	items, _ := c.svc.ListAccounts(context.Background(), userID)
 	status := "waiting"
 	var accountID uint
 	var cookie string
@@ -116,8 +117,8 @@ func (c *XiaohongshuAutoReplyController) LoginStatus(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) ListAccounts(ctx *gin.Context) {
-	userID := c.extractUserID()
-	items, _ := c.svc.ListAccounts(userID)
+	userID := c.extractUserID(ctx, )
+	items, _ := c.svc.ListAccounts(context.Background(), userID)
 	response.Success(ctx, gin.H{"list": items}, "ok")
 }
 
@@ -127,7 +128,7 @@ func (c *XiaohongshuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	headless := true
 	if req.Headless != nil {
 		headless = *req.Headless
@@ -137,7 +138,7 @@ func (c *XiaohongshuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 		UserID:	userID, Platform: "xiaohongshu", Username: req.Username,
 		Cookie:	req.Cookie, IsActive: true, Headless: headless, LoginAt: &now,
 	}
-	if err := c.svc.UpsertAccount(item); err != nil {
+	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -159,12 +160,12 @@ func (c *XiaohongshuAutoReplyController) SaveCookies(ctx *gin.Context) {
 		response.Error(ctx, 400, "id 参数非法")
 		return
 	}
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
-	if err := c.svc.SaveCookies(uint(id64), payload.Cookie, userID); err != nil {
+	if err := c.svc.SaveCookies(context.Background(), uint(id64), payload.Cookie, userID); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -179,12 +180,12 @@ func (c *XiaohongshuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 		response.Error(ctx, 400, "id 参数非法")
 		return
 	}
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
-	if err := c.svc.DeleteAccount(uint(id64), userID); err != nil {
+	if err := c.svc.DeleteAccount(context.Background(), uint(id64), userID); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -192,8 +193,8 @@ func (c *XiaohongshuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) GetRule(ctx *gin.Context) {
-	userID := c.extractUserID()
-	rule, err := c.svc.GetRule(userID)
+	userID := c.extractUserID(ctx, )
+	rule, err := c.svc.GetRule(context.Background(), userID)
 	if err != nil {
 		response.Success(ctx, gin.H{"rule": nil}, "ok")
 		return
@@ -207,13 +208,13 @@ func (c *XiaohongshuAutoReplyController) SaveRule(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	rule := &model.AutoReplyRule{
 		UserID:	userID, Platform: "xiaohongshu", Keywords: req.Keywords,
 		ReplyContent:	req.ReplyContent, Frequency: req.Frequency,
 		DailyLimit:	req.DailyLimit, IsActive: req.IsActive,
 	}
-	if err := c.svc.SaveRule(rule); err != nil {
+	if err := c.svc.SaveRule(context.Background(), rule); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -221,13 +222,13 @@ func (c *XiaohongshuAutoReplyController) SaveRule(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) ListLogs(ctx *gin.Context) {
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	page, pageSize, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	items, total, err := c.svc.ListRecentLogs(userID, page, pageSize)
+	items, total, err := c.svc.ListRecentLogs(context.Background(), userID, page, pageSize)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -237,13 +238,13 @@ func (c *XiaohongshuAutoReplyController) ListLogs(ctx *gin.Context) {
 
 func (c *XiaohongshuAutoReplyController) Start(ctx *gin.Context) {
 	platform := "xiaohongshu"
-	userID := c.extractUserID()
+	userID := c.extractUserID(ctx, )
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
 	}
 
-	accounts, err := c.svc.ListAccounts(userID)
+	accounts, err := c.svc.ListAccounts(context.Background(), userID)
 	if err != nil || len(accounts) == 0 {
 		response.Error(ctx, 404, "未找到可用的小红书账号，请先绑定")
 		return

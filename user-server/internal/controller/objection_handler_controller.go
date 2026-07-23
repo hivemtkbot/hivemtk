@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 
 	"marketing/internal/pkg/utils/response"
@@ -27,7 +28,7 @@ func (c *ObjectionHandlerController) Handle(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	resp, err := c.svc.Handle(req)
+	resp, err := c.svc.Handle(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "处理失败: "+err.Error())
 		return
@@ -44,7 +45,7 @@ func (c *ObjectionHandlerController) Classify(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	cat, name := c.svc.Classify(req.Text)
+	cat, name := c.svc.Classify(context.Background(), req.Text)
 	response.Success(ctx, gin.H{
 		"category":      cat,
 		"category_name": name,
@@ -53,7 +54,7 @@ func (c *ObjectionHandlerController) Classify(ctx *gin.Context) {
 
 // ListCategories 列出类别
 func (c *ObjectionHandlerController) ListCategories(ctx *gin.Context) {
-	cats := c.svc.ListCategories()
+	cats := c.svc.ListCategories(context.Background(), )
 	response.SuccessWithList(ctx, cats, int64(len(cats)))
 }
 
@@ -67,7 +68,7 @@ func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	if err := c.svc.RecordUsage(req.TemplateID, req.Success); err != nil {
+	if err := c.svc.RecordUsage(context.Background(), req.TemplateID, req.Success); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "记录失败: "+err.Error())
 		return
 	}

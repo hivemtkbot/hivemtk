@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -186,7 +187,7 @@ func TestPlaybook_RecordUse_UsageStats(t *testing.T) {
 		svc.RecordUse(entry.ID, i < 3)
 	}
 
-	got := svc.GetByID(entry.ID)
+	got := svc.GetByID(context.Background(), entry.ID)
 	if got.UseCount != 5 {
 		t.Errorf("使用次数应为 5，实际: %d", got.UseCount)
 	}
@@ -203,7 +204,7 @@ func TestPlaybook_RecordUse_UsageStats(t *testing.T) {
 // TestPlaybook_GetByID_NotFound 不存在的 ID
 func TestPlaybook_GetByID_NotFound(t *testing.T) {
 	svc := NewPlaybookService()
-	if got := svc.GetByID("not-exist"); got != nil {
+	if got := svc.GetByID(context.Background(), "not-exist"); got != nil {
 		t.Error("不存在的 ID 应返回 nil")
 	}
 }
@@ -580,7 +581,7 @@ func TestPlaybook_BusinessScenario_FullLoop(t *testing.T) {
 	svc.RecordUse(chosen.ID, true)
 
 	// 4. 验证：话术使用统计正确
-	got := svc.GetByID(chosen.ID)
+	got := svc.GetByID(context.Background(), chosen.ID)
 	if got.UseCount != 1 {
 		t.Errorf("使用次数应为 1，实际: %d", got.UseCount)
 	}

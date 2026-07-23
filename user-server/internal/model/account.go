@@ -13,11 +13,6 @@ type Account struct {
 	TgBotToken       string `gorm:"tg_bot_token" json:"tg_bot_token"`
 	GroupID          int64  `gorm:"group_id" json:"group_id"`
 	Price            string `gorm:"price" json:"price"`
-	EpayQueryUrl     string `gorm:"epay_query_url" json:"epay_query_url"`
-	EpayPid          string `gorm:"epay_pid" json:"epay_pid"`
-	EpayKey          string `gorm:"epay_key" json:"epay_key"`
-	EpayURL          string `gorm:"epay_url" json:"epay_url"`
-	EpayPayType      string `gorm:"epay_pay_type" json:"epay_pay_type"`
 	ProxyEnableProxy bool   `gorm:"default:false" json:"proxy_enable_proxy"`
 	ProxyProtoclo    string `gorm:"default:'http'" json:"proxy_protoclo"`
 	ProxyHost        string `gorm:"default:'127.0.0.1'" json:"proxy_host"`

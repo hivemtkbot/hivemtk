@@ -18,7 +18,7 @@ import (
 // 适用场景：
 //   - 写入类工具失败（order.create 失败需人工对账）
 //   - 外部 API 调用失败（飞书/企微 send_message 失败需重放）
-//   - 关键业务工具失败（coupon.apply 失败需排查）
+//   - 关键业务工具失败（order.create 失败需排查）
 //
 // 设计要点：
 //   1. 内存实现（生产环境可替换为 Redis/DB 持久化）

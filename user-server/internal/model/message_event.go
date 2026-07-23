@@ -16,6 +16,7 @@ const (
 	ChannelSMS       = "sms"
 	ChannelEmail     = "email"
 	ChannelFeishu    = "feishu"
+	ChannelDingTalk  = "dingtalk"
 	ChannelPersonal  = "personal_wx"
 	ChannelInstagram = "instagram"
 )

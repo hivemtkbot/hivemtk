@@ -270,6 +270,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Monitor, VideoPause, Goods, Lock, ChatDotRound, Grid } from '@element-plus/icons-vue'
 import { merchantSave, merchantParse, enableBundle, disableBundle, getBundleByAssetID } from '@/api/assetBundle'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -398,7 +401,7 @@ const handleSave = async () => {
     const payload = {
       asset_id: form.asset_id,
       title: form.title,
-      author: form.author,
+      author: form.author || userStore.username,
       shop_name: form.shop_name,
       campaign_name: form.campaign_name,
       discount_pct: form.discount_pct,

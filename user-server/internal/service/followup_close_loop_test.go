@@ -43,7 +43,7 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	}
 
 	// 3. 销售跟进，结果"客户表达兴趣"
-	err = followup.CompleteWithResult(r.ID, FollowUpResultInterested, "客户咨询了价格")
+	err = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "客户咨询了价格")
 	if err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
 	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "报价", Priority: PriorityHigh,
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultQuoted, "已发送报价单"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultQuoted, "已发送报价单"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
 	state := journey.GetState(custID)
@@ -93,7 +93,7 @@ func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
 	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityUrgent,
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultConverted, "客户付款了 ¥9800"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultConverted, "客户付款了 ¥9800"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
 	state := journey.GetState(custID)
@@ -115,7 +115,7 @@ func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
 	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityNormal,
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultLost, "客户选择竞品"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultLost, "客户选择竞品"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
 	state := journey.GetState(custID)
@@ -137,7 +137,7 @@ func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
 	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "二次跟进", Priority: PriorityNormal,
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultNoResponse, "客户未回消息"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultNoResponse, "客户未回消息"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
 	state := journey.GetState(custID)
@@ -162,14 +162,14 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	r1, _ := followup.Schedule(ctx, cust1, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityHigh,
 	})
-	if err := followup.CompleteWithResult(r1.ID, FollowUpResultConverted, "成交"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r1.ID, FollowUpResultConverted, "成交"); err != nil {
 		t.Fatalf("完成跟进1失败: %v", err)
 	}
 
 	r2, _ := followup.Schedule(ctx, cust2, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityHigh,
 	})
-	if err := followup.CompleteWithResult(r2.ID, FollowUpResultQuoted, "报价"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r2.ID, FollowUpResultQuoted, "报价"); err != nil {
 		t.Fatalf("完成跟进2失败: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "测试",
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultInterested, "test"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "test"); err != nil {
 		t.Errorf("nil dashboard 不应 panic: %v", err)
 	}
 	t.Logf("✅ nil dashboard 安全")
@@ -206,7 +206,7 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 func TestFollowUp_CompleteWithResult_NotFound(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
-	err := followup.CompleteWithResult("not_exist_id", FollowUpResultInterested, "")
+	err := followup.CompleteWithResult(context.Background(), "not_exist_id", FollowUpResultInterested, "")
 	if err == nil {
 		t.Error("不存在的跟进 ID 应报错")
 	}
@@ -247,7 +247,7 @@ func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
 		Title:       "首次",
 		Description: "原始描述",
 	})
-	if err := followup.CompleteWithResult(r.ID, FollowUpResultInterested, "客户问了价格和效果"); err != nil {
+	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "客户问了价格和效果"); err != nil {
 		t.Fatalf("完成失败: %v", err)
 	}
 
@@ -283,11 +283,11 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 		// 5 个 interested, 3 个 quoted, 2 个 lost
 		switch i % 3 {
 		case 0:
-			_ = followup.CompleteWithResult(r.ID, FollowUpResultInterested, "")
+			_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "")
 		case 1:
-			_ = followup.CompleteWithResult(r.ID, FollowUpResultQuoted, "")
+			_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultQuoted, "")
 		case 2:
-			_ = followup.CompleteWithResult(r.ID, FollowUpResultLost, "")
+			_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultLost, "")
 		}
 	}
 
@@ -326,28 +326,28 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "首次",
 		})
-		_ = followup.CompleteWithResult(r.ID, FollowUpResultContacted, "")
+		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultContacted, "")
 	}
 	for i := 50; i < 80; i++ {
 		custID := "funnel_i" + intToStr(i)
 		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "首次",
 		})
-		_ = followup.CompleteWithResult(r.ID, FollowUpResultInterested, "")
+		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "")
 	}
 	for i := 80; i < 95; i++ {
 		custID := "funnel_q" + intToStr(i)
 		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 			Title: "报价",
 		})
-		_ = followup.CompleteWithResult(r.ID, FollowUpResultQuoted, "")
+		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultQuoted, "")
 	}
 	for i := 95; i < 100; i++ {
 		custID := "funnel_w" + intToStr(i)
 		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 			Title: "催单",
 		})
-		_ = followup.CompleteWithResult(r.ID, FollowUpResultConverted, "")
+		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultConverted, "")
 	}
 
 	// 验证：每个客户旅程都正确推进

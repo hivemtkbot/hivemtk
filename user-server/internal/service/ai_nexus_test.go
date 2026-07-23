@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -41,7 +42,7 @@ func TestHumanizePolisher_RemoveExtraSymbols(t *testing.T) {
 	}
 	for _, c := range cases {
 		got, _ := p.Polish(nil, c.in, nil)
-		if strings.Count(got, "！") > 1 && strings.Contains(c.in, "！") {
+		if strings.Count(context.Background(), got, "！") > 1 && strings.Contains(c.in, "！") {
 			t.Errorf("multi-bang not collapsed: %q -> %q", c.in, got)
 		}
 		_ = c.want

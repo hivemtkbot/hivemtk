@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"bytes"
 	"image"
 	"image/png"
@@ -32,7 +33,7 @@ func (c *EmailListController) CreateEmailList(ctx *gin.Context) {
 		return
 	}
 
-	total, err := c.svc.CreateEmailList(req.Subject, req.Content, strings.Join(req.Attachments, ","))
+	total, err := c.svc.CreateEmailList(context.Background(), req.Subject, req.Content, strings.Join(req.Attachments, ","))
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -55,7 +56,7 @@ func (c *EmailListController) GetEmailListList(ctx *gin.Context) {
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	resp, err := c.svc.GetEmailListListDTO(req.Page, req.PageSize)
+	resp, err := c.svc.GetEmailListListDTO(context.Background(), req.Page, req.PageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -78,7 +79,7 @@ func (c *EmailListController) GetEmailListDetail(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.GetEmailListByIDDTO(listID)
+	resp, err := c.svc.GetEmailListByIDDTO(context.Background(), listID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -99,7 +100,7 @@ func (c *EmailListController) UpdateEmailList(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.UpdateEmailListDTO(req); err != nil {
+	if err := c.svc.UpdateEmailListDTO(context.Background(), req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -122,7 +123,7 @@ func (c *EmailListController) DeleteEmailList(ctx *gin.Context) {
 		return
 	}
 
-	if err = c.svc.DeleteEmailList(listID); err != nil {
+	if err = c.svc.DeleteEmailList(context.Background(), listID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -156,7 +157,7 @@ func (c *EmailListController) TraceEmail(ctx *gin.Context) {
 		return
 	}
 
-	err = c.svc.UpdateEmailListReadInfo(traceID)
+	err = c.svc.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err != nil {
 		ctx.Data(200, "image/png", buf.Bytes())
 		return

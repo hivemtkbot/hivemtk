@@ -82,7 +82,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(context.Background(), tt.email)
+			err := repo.Creatett.email)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -110,7 +110,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 			return &t
 		}(),
 	}
-	repo.Create(context.Background(), email)
+	repo.Createemail)
 
 	tests := []struct {
 		name    string
@@ -132,7 +132,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := uuid.MustParse(tt.id)
-			result, err := repo.GetByID(context.Background(), id)
+			result, err := repo.GetByIDid)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -153,7 +153,7 @@ func TestEmailSendRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(context.Background(), &model.EmailSend{
+		repo.Create&model.EmailSend{
 			To:       "user" + string(rune('0'+i)) + "@example.com",
 			Subject:  "Email " + string(rune('0'+i)),
 			Content:  "Content " + string(rune('0'+i)),
@@ -183,15 +183,15 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 		Content: "Delete content",
 		Status:  0,
 	}
-	repo.Create(context.Background(), email)
+	repo.Createemail)
 
 	id := uuid.MustParse(email.ID)
-	err := repo.Delete(context.Background(), id)
+	err := repo.Deleteid)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(context.Background(), id)
+	_, err = repo.GetByIDid)
 	if err == nil {
 		t.Error("Expected email to be deleted")
 	}
@@ -208,7 +208,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		Content: "Content",
 		Status:  0, // pending
 	}
-	repo.Create(context.Background(), email)
+	repo.Createemail)
 
 	id := uuid.MustParse(email.ID)
 
@@ -218,7 +218,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), id)
+	updated, _ := repo.GetByIDid)
 	if updated.Status != 1 {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
@@ -229,7 +229,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated2, _ := repo.GetByID(context.Background(), id)
+	updated2, _ := repo.GetByIDid)
 	if updated2.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated2.Status)
 	}
@@ -241,7 +241,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建待发送的邮件（发送时间在过去）
 	pastTime := time.Now().Add(-time.Hour)
-	repo.Create(context.Background(), &model.EmailSend{
+	repo.Create&model.EmailSend{
 		To:       "pending1@example.com",
 		Subject:  "Pending Email 1",
 		Content:  "Content 1",
@@ -249,7 +249,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &pastTime,
 	})
 
-	repo.Create(context.Background(), &model.EmailSend{
+	repo.Create&model.EmailSend{
 		To:       "pending2@example.com",
 		Subject:  "Pending Email 2",
 		Content:  "Content 2",
@@ -258,7 +258,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 	})
 
 	// 创建已发送的邮件
-	repo.Create(context.Background(), &model.EmailSend{
+	repo.Create&model.EmailSend{
 		To:       "sent@example.com",
 		Subject:  "Sent Email",
 		Content:  "Sent content",
@@ -268,7 +268,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建计划发送时间在未来的邮件
 	futureTime := time.Now().Add(time.Hour)
-	repo.Create(context.Background(), &model.EmailSend{
+	repo.Create&model.EmailSend{
 		To:       "future@example.com",
 		Subject:  "Future Email",
 		Content:  "Future content",
@@ -305,7 +305,7 @@ func TestEmailSendRepository_GetPendingEmails_EmptyResult(t *testing.T) {
 func TestEmailSendRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 
-	_, err := repo.GetByID(context.Background(), uuid.New())
+	_, err := repo.GetByIDuuid.New())
 	if err == nil {
 		t.Error("Expected error when getting non-existing email")
 	}

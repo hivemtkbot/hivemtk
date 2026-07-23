@@ -35,16 +35,6 @@ const (
 	AccountStatusInactive AccountStatusType = 0
 )
 
-type EpayConfig struct {
-	Pid       string
-	Key       string
-	Type      string
-	NotifyUrl string
-	ReturnUrl string
-	QueryUrl  string
-	EpayUrl   string
-}
-
 type SmlistType int
 
 const (
@@ -53,3 +43,4 @@ const (
 	SmlistTypeManSnaMistType   SmlistType = 3
 	SmlistTypeManMnaM          SmlistType = 4
 )
+

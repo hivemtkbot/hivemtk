@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -34,7 +35,7 @@ func (c *CustomerRFMController) ComputeForCustomer(ctx *gin.Context) {
 		return
 	}
 	cfg := service.DefaultRFMConfig()
-	rfm, err := c.svc.ComputeForCustomer(req.CustomerID, cfg)
+	rfm, err := c.svc.ComputeForCustomer(context.Background(), req.CustomerID, cfg)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "计算失败: "+err.Error())
 		return
@@ -52,7 +53,7 @@ func (c *CustomerRFMController) ComputeForCustomer(ctx *gin.Context) {
 // @Router /api/customer-rfm/compute-all [post]
 func (c *CustomerRFMController) ComputeAll(ctx *gin.Context) {
 	limit := parsePositiveInt(ctx.Query("limit"), 200, 1000)
-	count, err := c.svc.ComputeAll(limit)
+	count, err := c.svc.ComputeAll(context.Background(), limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "批量计算失败: "+err.Error())
 		return
@@ -68,7 +69,7 @@ func (c *CustomerRFMController) ComputeAll(ctx *gin.Context) {
 // @Router /api/customer-rfm/{customer_id} [get]
 func (c *CustomerRFMController) GetByCustomerID(ctx *gin.Context) {
 	customerID := ctx.Param("customer_id")
-	rfm, err := c.svc.GetByCustomerID(customerID)
+	rfm, err := c.svc.GetByCustomerID(context.Background(), customerID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "未找到")
 		return
@@ -88,7 +89,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 	segment := ctx.Query("segment")
 	page := parsePositiveInt(ctx.Query("page"), 1, 10000)
 	pageSize := parsePositiveInt(ctx.Query("page_size"), 20, 200)
-	list, total, err := c.svc.ListBySegment(segment, page, pageSize)
+	list, total, err := c.svc.ListBySegment(context.Background(), segment, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -111,7 +112,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 // @Success 200 {object} object{data=dto.RFMDistributionResponse}
 // @Router /api/customer-rfm/distribution [get]
 func (c *CustomerRFMController) Distribution(ctx *gin.Context) {
-	dist, err := c.svc.Distribution()
+	dist, err := c.svc.Distribution(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return

@@ -30,7 +30,7 @@
 
     <el-card class="hot-bar" shadow="never">
       <div class="hot-row">
-        <span class="hot-title">🔥 热启用中（D1）：</span>
+        <span class="hot-title">🔥 热启用中：</span>
         <div v-if="enabledList.length" class="hot-list">
           <el-tag
             v-for="b in enabledList"

@@ -86,18 +86,3 @@ func TestUploadFile_MultipleValidExtensions(t *testing.T) {
 		}
 	}
 }
-
-func TestRedirectShortLink_EmptyCode(t *testing.T) {
-	setupCardStatsTestDB(t)
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/s/:code", RedirectShortLink)
-
-	req, _ := http.NewRequest("GET", "/s/", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected 404 for empty code route, got %d", w.Code)
-	}
-}

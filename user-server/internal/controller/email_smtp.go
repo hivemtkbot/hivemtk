@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/response"
@@ -27,7 +28,7 @@ func (c *EmailSmtpController) CreateEmailSmtp(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.CreateEmailSmtpDTO(req)
+	resp, err := c.svc.CreateEmailSmtpDTO(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -37,7 +38,7 @@ func (c *EmailSmtpController) CreateEmailSmtp(ctx *gin.Context) {
 
 // GetEmailSmtpList 获取SMTP配置列表
 func (c *EmailSmtpController) GetEmailSmtpList(ctx *gin.Context) {
-	resp, err := c.svc.GetEmailSmtpListDTO()
+	resp, err := c.svc.GetEmailSmtpListDTO(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -53,7 +54,7 @@ func (c *EmailSmtpController) GetEmailSmtp(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.GetEmailSmtpDTO(smtpIDStr)
+	resp, err := c.svc.GetEmailSmtpDTO(context.Background(), smtpIDStr)
 	if err != nil {
 		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "SMTP配置不存在")
@@ -73,7 +74,7 @@ func (c *EmailSmtpController) UpdateEmailSmtp(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.UpdateEmailSmtpDTO(req); err != nil {
+	if err := c.svc.UpdateEmailSmtpDTO(context.Background(), req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -88,7 +89,7 @@ func (c *EmailSmtpController) DeleteEmailSmtp(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.DeleteEmailSmtp(req.ID); err != nil {
+	if err := c.svc.DeleteEmailSmtp(context.Background(), req.ID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

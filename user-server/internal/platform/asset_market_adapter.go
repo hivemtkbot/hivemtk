@@ -48,3 +48,8 @@ func (a *AssetMarketClientAdapter) PullData(ctx context.Context, assetID string)
 func (a *AssetMarketClientAdapter) MyPurchases(ctx context.Context) ([]map[string]any, error) {
 	return a.inner.MyPurchases(ctx)
 }
+
+// ReportUsage 上报资产使用次数到平台（闭环遥测：本地使用 → 平台统计）。
+func (a *AssetMarketClientAdapter) ReportUsage(ctx context.Context, assetID string, delta int64) error {
+	return a.inner.ReportUsage(ctx, assetID, delta)
+}

@@ -146,7 +146,7 @@ func (r *NodeExecutorRegistry) Get(ctx context.Context, nodeType string)  (NodeE
 // 兜底策略保证 SOP 流程不因未知节点类型中断，
 // NoopExecutor 会记录 warn 日志并将节点标记为 completed 推进下一节点。
 func (r *NodeExecutorRegistry) MustGet(ctx context.Context, nodeType string)  NodeExecutor {
-	e, err := r.Get(nodeType)
+	e, err := r.Get(context.Background(), nodeType)
 	if err != nil {
 		logger.Warnf("node executor not found, using noop: %s", nodeType)
 		return &NoopExecutor{nodeType: nodeType}
@@ -188,7 +188,7 @@ type NoopExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (n *NoopExecutor) NodeType(ctx context.Context)  string { return n.nodeType }
+func (n *NoopExecutor) NodeType() string { return n.nodeType }
 
 // Execute 空操作：返回 completed
 func (n *NoopExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (*NodeExecResult, error) {
@@ -204,7 +204,7 @@ func (n *NoopExecutor) Execute(ctx context.Context, execCtx *ExecutionContext) (
 }
 
 // IsAsync 同步执行
-func (n *NoopExecutor) IsAsync(ctx context.Context)  bool { return false }
+func (n *NoopExecutor) IsAsync() bool { return false }
 
 // hasSideEffect 检查执行记录中是否已存在指定副作用标识
 //

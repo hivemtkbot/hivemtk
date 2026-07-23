@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -39,7 +40,7 @@ func (c *CustomerController) ListCustomers(ctx *gin.Context) {
 		return
 	}
 
-	customers, total, err := c.customerService.List(page, limit)
+	customers, total, err := c.customerService.List(context.Background(), page, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -69,7 +70,7 @@ func (c *CustomerController) GetCustomer(ctx *gin.Context) {
 		return
 	}
 
-	profile, err := c.customerService.GetCustomerProfile(customerID)
+	profile, err := c.customerService.GetCustomerProfile(context.Background(), customerID)
 	if err != nil {
 		if err == service.ErrCustomerNotFound {
 			response.Error(ctx, http.StatusNotFound, err.Error())
@@ -98,7 +99,7 @@ func (c *CustomerController) CreateCustomer(ctx *gin.Context) {
 		return
 	}
 
-	customer, err := c.customerService.CreateOrUpdate(&req)
+	customer, err := c.customerService.CreateOrUpdate(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -132,7 +133,7 @@ func (c *CustomerController) AddTags(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.customerService.AddTags(customerID, req.Tags); err != nil {
+	if err := c.customerService.AddTags(context.Background(), customerID, req.Tags); err != nil {
 		if err == service.ErrCustomerNotFound {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
@@ -172,7 +173,7 @@ func (c *CustomerController) RemoveTags(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.customerService.RemoveTags(customerID, req.Tags); err != nil {
+	if err := c.customerService.RemoveTags(context.Background(), customerID, req.Tags); err != nil {
 		if err == service.ErrCustomerNotFound {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
@@ -206,7 +207,7 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.customerService.MergeCustomersWithEventData(req.PrimaryID, req.SecondaryID); err != nil {
+	if err := c.customerService.MergeCustomersWithEventData(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

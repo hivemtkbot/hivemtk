@@ -38,6 +38,10 @@ export const listBundles = (data) =>
 export const publishBundle = (id) =>
   request({ url: `/api/asset-bundle/${id}/publish`, method: 'post' })
 
+// 提交平台审核上架（开发者上架链路 P0）
+export const submitToPlatform = (id) =>
+  request({ url: `/api/asset-bundle/${id}/submit-platform`, method: 'post' })
+
 // 归档资产包
 export const archiveBundle = (id) =>
   request({ url: `/api/asset-bundle/${id}/archive`, method: 'post' })

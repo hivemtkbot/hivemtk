@@ -30,7 +30,7 @@ func setupCustomerSessionTestDB(t *testing.T) *gorm.DB {
 func setupCustomerSessionController(t *testing.T) (*CustomerSessionController, *AgentStatusController, *gin.Engine) {
 	setupCustomerSessionTestDB(t)
 	sessionCtrl := NewCustomerSessionController()
-	agentCtrl := NewAgentStatusController()
+	agentCtrl := NewAgentStatusController(nil)
 	router := gin.New()
 
 	router.Use(func(c *gin.Context) {
@@ -688,7 +688,7 @@ func TestAgentStatusController_GetAgentSessions(t *testing.T) {
 
 // TestAgentStatusController_NewAgentStatusController 测试构造函数
 func TestAgentStatusController_NewAgentStatusController(t *testing.T) {
-	ctrl := NewAgentStatusController()
+	ctrl := NewAgentStatusController(nil)
 	if ctrl == nil {
 		t.Error("Expected controller instance, got nil")
 	}

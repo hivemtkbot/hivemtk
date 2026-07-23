@@ -15,6 +15,7 @@ package controller
 //   POST /api/auth/anomaly/alerts/:id/ignore  忽略告警
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -60,7 +61,7 @@ func (c *AnomalyLoginDetectorController) ListLoginEvents(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	events, total, err := c.detector.ListLoginEvents(uid, page, pageSize)
+	events, total, err := c.detector.ListLoginEvents(context.Background(), uid, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -100,7 +101,7 @@ func (c *AnomalyLoginDetectorController) ListAlerts(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	alerts, total, err := c.detector.ListAlerts(uid, status, page, pageSize)
+	alerts, total, err := c.detector.ListAlerts(context.Background(), uid, status, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

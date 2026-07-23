@@ -1,12 +1,12 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	_type "marketing/internal/pkg/utils/type"
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
 )
@@ -71,7 +71,7 @@ func TestOrderService_GetOrder(t *testing.T) {
 	registered, _ := service.CreateOrder(order)
 
 	// Get the order via list since repository GetByID uses uint but model has string ID
-	orders, total, err := service.GetOrderList(1, 10)
+	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestOrderService_GetOrderList(t *testing.T) {
 	}
 
 	// Get order list
-	orders, total, err := service.GetOrderList(1, 10)
+	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestOrderService_GetOrderList_Pagination(t *testing.T) {
 	}
 
 	// Get first page
-	orders, total, err := service.GetOrderList(1, 5)
+	orders, total, err := service.GetOrderList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestOrderService_DeleteOrder(t *testing.T) {
 	}
 
 	// Verify order status
-	_, total, _ := service.GetOrderList(1, 10)
+	_, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total == 0 {
 		t.Log("Delete succeeded")
 	} else {
@@ -209,7 +209,7 @@ func TestOrderService_UpdateOrderStatusById(t *testing.T) {
 	}
 
 	// Verify status is updated via list
-	orders, total, _ := service.GetOrderList(1, 10)
+	orders, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total != 1 {
 		t.Fatalf("Expected 1 order, got %d", total)
 	}
@@ -261,99 +261,6 @@ func TestOrderService_GetRecentOrderList(t *testing.T) {
 	t.Logf("GetRecentOrderList returned %d orders", len(recentOrders))
 }
 
-func TestOrderService_LastOrderIsPay_NoOrders(t *testing.T) {
-	setupOrderServiceTestDB(t)
-
-	service := NewOrderService()
-
-	// Create a mock epay config
-	epayConfig := _type.EpayConfig{
-		Pid:       "test_pid",
-		Key:       "test_key",
-		Type:      "alipay",
-		NotifyUrl: "http://example.com/notify",
-		ReturnUrl: "http://example.com/return",
-		QueryUrl:  "http://example.com/query",
-		EpayUrl:   "http://example.com/pay",
-	}
-
-	// Check last order payment status when no orders exist
-	isPaid := service.LastOrderIsPay("account123", 12345, epayConfig)
-	if isPaid {
-		t.Error("Expected false when no orders exist")
-	}
-}
-
-func TestOrderService_CreatePay(t *testing.T) {
-	setupOrderServiceTestDB(t)
-
-	service := NewOrderService()
-
-	// Create a mock epay config
-	epayConfig := _type.EpayConfig{
-		Pid:       "test_pid",
-		Key:       "test_key",
-		Type:      "alipay",
-		NotifyUrl: "http://example.com/notify",
-		ReturnUrl: "http://example.com/return",
-		QueryUrl:  "http://example.com/query",
-		EpayUrl:   "http://example.com/pay",
-	}
-
-	// Create payment
-	price := decimal.NewFromFloat(99.00)
-	payUrl, err := service.CreatePay("account123", price, 12345, epayConfig)
-	if err != nil {
-		t.Fatalf("CreatePay failed: %v", err)
-	}
-
-	if payUrl == "" {
-		t.Error("Expected non-empty pay URL")
-	}
-
-	// Verify order was created
-	orders, total, _ := service.GetOrderList(1, 10)
-	if total != 1 {
-		t.Errorf("Expected 1 order, got %d", total)
-	}
-
-	if orders[0].Price != "99" {
-		t.Errorf("Expected price '99', got %s", orders[0].Price)
-	}
-}
-
-func TestOrderService_CreatePay_DifferentAmounts(t *testing.T) {
-	setupOrderServiceTestDB(t)
-
-	service := NewOrderService()
-
-	epayConfig := _type.EpayConfig{
-		Pid:       "test_pid",
-		Key:       "test_key",
-		Type:      "alipay",
-		NotifyUrl: "http://example.com/notify",
-		ReturnUrl: "http://example.com/return",
-		QueryUrl:  "http://example.com/query",
-		EpayUrl:   "http://example.com/pay",
-	}
-
-	// Create payments with different amounts
-	amounts := []float64{10.00, 50.00, 100.00}
-	for _, amount := range amounts {
-		price := decimal.NewFromFloat(amount)
-		_, err := service.CreatePay("account123", price, 12345, epayConfig)
-		if err != nil {
-			t.Fatalf("CreatePay for %.2f failed: %v", amount, err)
-		}
-	}
-
-	// Verify all orders were created
-	_, total, _ := service.GetOrderList(1, 10)
-	if total != 3 {
-		t.Errorf("Expected 3 orders, got %d", total)
-	}
-}
-
 func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 	setupOrderServiceTestDB(t)
 
@@ -381,7 +288,7 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 	}
 
 	// Get all orders
-	orders, total, err := service.GetOrderList(1, 10)
+	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetOrderList failed: %v", err)
 	}
@@ -431,7 +338,7 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 	}
 
 	// Verify status is updated via list
-	orders, total, _ := service.GetOrderList(1, 10)
+	orders, total, _ := service.GetOrderList(context.Background(), 1, 10)
 	if total != 1 {
 		t.Fatalf("Expected 1 order, got %d", total)
 	}
@@ -441,33 +348,4 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 	}
 }
 
-func TestOrderService_LastOrderIsPay_WithSuccessOrder(t *testing.T) {
-	setupOrderServiceTestDB(t)
 
-	service := NewOrderService()
-
-	// Create a successful order
-	order := model.Order{
-		AccountID: "account123",
-		Price:     "100.00",
-		TgID:      12345,
-		Status:    _type.OrderStatusSuccess,
-	}
-	service.CreateOrder(order)
-
-	epayConfig := _type.EpayConfig{
-		Pid:       "test_pid",
-		Key:       "test_key",
-		Type:      "alipay",
-		NotifyUrl: "http://example.com/notify",
-		ReturnUrl: "http://example.com/return",
-		QueryUrl:  "http://example.com/query",
-		EpayUrl:   "http://example.com/pay",
-	}
-
-	// Check last order payment status
-	isPaid := service.LastOrderIsPay("account123", 12345, epayConfig)
-	if !isPaid {
-		t.Error("Expected true for successful order")
-	}
-}

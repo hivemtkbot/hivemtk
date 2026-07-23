@@ -90,12 +90,12 @@ func (e *SensitiveFieldEncryption) EncryptAccountCookie(ctx context.Context, pla
 	}
 	// 加平台前缀，避免跨平台解密混淆
 	prefixed := platform + "::" + cookie
-	return e.Encrypt(prefixed)
+	return e.Encrypt(context.Background(), prefixed)
 }
 
 // DecryptAccountCookie 解密平台账号 Cookie
 func (e *SensitiveFieldEncryption) DecryptAccountCookie(ctx context.Context, encrypted string)  (platform, cookie string, err error) {
-	plain, err := e.Decrypt(encrypted)
+	plain, err := e.Decrypt(context.Background(), encrypted)
 	if err != nil {
 		return "", "", err
 	}
@@ -109,10 +109,10 @@ func (e *SensitiveFieldEncryption) DecryptAccountCookie(ctx context.Context, enc
 
 // EncryptPhone 加密手机号（用于存储客户敏感信息）
 func (e *SensitiveFieldEncryption) EncryptPhone(ctx context.Context, phone string)  (string, error) {
-	return e.Encrypt(phone)
+	return e.Encrypt(context.Background(), phone)
 }
 
 // DecryptPhone 解密手机号
 func (e *SensitiveFieldEncryption) DecryptPhone(ctx context.Context, encrypted string)  (string, error) {
-	return e.Decrypt(encrypted)
+	return e.Decrypt(context.Background(), encrypted)
 }

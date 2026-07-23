@@ -38,10 +38,13 @@ func setupAssetBundleRoutes(auth *gin.RouterGroup) {
 	assetBundleSvc := service.NewAssetBundleService(assetBundleRepo, versionLogRepo)
 	ctrl := controller.NewAssetBundleController(assetBundleSvc)
 
-	// 兼容 /api/v1 与 /api 两种前缀
+	// 兼容 /api/v1 与 /api 两种前缀。
+	// 注意：controller.AssetBundleController.Register 内部已对传入 group 追加
+	// "/asset-bundle" 子组，因此此处只传前缀组（/v1 或空），避免路径重复成
+	// /api/v1/asset-bundle/asset-bundle/list 导致 404。
 	for _, g := range []*gin.RouterGroup{
-		auth.Group("/v1/asset-bundle"),
-		auth.Group("/asset-bundle"),
+		auth.Group("/v1"),
+		auth,
 	} {
 		ctrl.Register(g)
 	}

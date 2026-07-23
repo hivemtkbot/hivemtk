@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/httpclient"
@@ -1009,6 +1010,65 @@ func (s *IntegrationService) GetExternalOrders(ctx context.Context, platform str
 		return s.orderRepo.GetByPlatform(ctx, platform, page, pageSize)
 	}
 	return s.orderRepo.GetAll(ctx, page, pageSize)
+}
+
+// GetExternalOrdersByCustomer 按客户手机/姓名查询近期外部订单（客服 360 视图 / 答单上下文用）。
+// 订单是外部电商同步进来的只读镜像，此处只查询、不写。
+func (s *IntegrationService) GetExternalOrdersByCustomer(ctx context.Context, phone, name string) ([]*model.ExternalOrder, error) {
+	return s.orderRepo.GetByCustomer(ctx, phone, name)
+}
+
+// UpsertOrderFromWebhook 处理电商订单状态推送（近实时刷新本地订单镜像）。
+//
+// 这是"拉取同步(B)"之外的"事件推送(C)"补强：电商订单状态变更时主动推送，
+// 本系统记录 WebhookEvent 并 upsert ExternalOrder，使客服看到的订单状态与电商一致（防漂移）。
+// 订单镜像为只读，客服不创建/履约订单。
+func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platform, orderID, status string, raw map[string]any) error {
+	// 记录订单状态变更事件（best-effort，失败不影响镜像刷新）
+	webhookEvent := &model.WebhookEvent{
+		Platform:  platform,
+		EventID:   fmt.Sprintf("%s:%s:%d", platform, orderID, time.Now().UnixNano()),
+		EventType: "order.updated",
+		RawData:   fmt.Sprintf("%v", raw),
+		Processed: true,
+	}
+	_ = s.webhookEventRepo.Create(ctx, webhookEvent)
+	existing, _ := s.orderRepo.GetByOrderID(ctx, platform, orderID)
+	o := &model.ExternalOrder{
+		Platform: platform,
+		OrderID:  orderID,
+		Status:   status,
+	}
+	if raw != nil {
+		if v, ok := raw["order_no"].(string); ok {
+			o.OrderNo = v
+		}
+		if v, ok := raw["user_phone"].(string); ok {
+			o.UserPhone = v
+		}
+		if v, ok := raw["user_name"].(string); ok {
+			o.UserName = v
+		}
+		if v, ok := raw["total_amount"].(float64); ok {
+			o.TotalAmount = int64(v)
+		}
+		if v, ok := raw["pay_amount"].(float64); ok {
+			o.PayAmount = int64(v)
+		}
+		if v, ok := raw["items"].(string); ok {
+			o.Items = v
+		}
+		if t, ok := parseWebhookTime(raw["order_time"]); ok {
+			o.OrderTime = t
+		} else if t, ok := parseWebhookTime(raw["pay_time"]); ok {
+			o.OrderTime = t
+		}
+	}
+	if existing != nil {
+		o.ID = existing.ID
+		return s.orderRepo.Update(ctx, o)
+	}
+	return s.orderRepo.Create(ctx, o)
 }
 
 // GetExternalProducts 获取外部商品列表

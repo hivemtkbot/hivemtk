@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 	"net/http"
@@ -23,7 +24,7 @@ func NewUserSegmentController() *UserSegmentController {
 
 // GetRFMRule 获取 RFM 规则
 func (c *UserSegmentController) GetRFMRule(ctx *gin.Context) {
-	rule, err := c.rfmService.GetRFMRule()
+	rule, err := c.rfmService.GetRFMRule(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "未找到 RFM 规则")
 		return
@@ -40,7 +41,7 @@ func (c *UserSegmentController) SaveRFMRule(ctx *gin.Context) {
 		return
 	}
 
-	rule, err := c.rfmService.SaveRFMRule(&req)
+	rule, err := c.rfmService.SaveRFMRule(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -64,7 +65,7 @@ func (c *UserSegmentController) UpdateRFMRule(ctx *gin.Context) {
 		return
 	}
 
-	rule, err := c.rfmService.UpdateRFMRule(uint(id), &req)
+	rule, err := c.rfmService.UpdateRFMRule(context.Background(), uint(id), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -82,7 +83,7 @@ func (c *UserSegmentController) DeleteRFMRule(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.rfmService.DeleteRFMRule(uint(id)), "删除 RFM 规则") {
+	if HandleDBError(ctx, c.rfmService.DeleteRFMRule(context.Background(), uint(id)), "删除 RFM 规则") {
 		return
 	}
 
@@ -111,9 +112,9 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 
 	if layer != "" {
 		// 按分层筛选
-		rfms, total, err = c.rfmService.GetUsersByLayer(layer, page, pageSize)
+		rfms, total, err = c.rfmService.GetUsersByLayer(context.Background(), layer, page, pageSize)
 	} else {
-		rfms, total, err = c.rfmService.GetRFMList(page, pageSize)
+		rfms, total, err = c.rfmService.GetRFMList(context.Background(), page, pageSize)
 	}
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
@@ -130,7 +131,7 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 
 // GetRFMStats 获取 RFM 统计
 func (c *UserSegmentController) GetRFMStats(ctx *gin.Context) {
-	stats, err := c.rfmService.GetRFMStats()
+	stats, err := c.rfmService.GetRFMStats(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -161,7 +162,7 @@ func (c *UserSegmentController) GetUserRFM(ctx *gin.Context) {
 		return
 	}
 
-	rfm, err := c.rfmService.GetUserRFM(uint(userID))
+	rfm, err := c.rfmService.GetUserRFM(context.Background(), uint(userID))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "未找到用户 RFM 信息")
 		return

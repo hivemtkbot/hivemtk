@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/pkg/utils/response"
@@ -28,7 +29,7 @@ func (c *EmailDraftController) CreateEmailDraft(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.CreateEmailDraftDTO(req)
+	resp, err := c.svc.CreateEmailDraftDTO(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "创建失败："+err.Error())
 		return
@@ -38,7 +39,7 @@ func (c *EmailDraftController) CreateEmailDraft(ctx *gin.Context) {
 
 // GetEmailDraftList 获取草稿列表
 func (c *EmailDraftController) GetEmailDraftList(ctx *gin.Context) {
-	resp, err := c.svc.GetEmailDraftListDTO()
+	resp, err := c.svc.GetEmailDraftListDTO(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取列表失败："+err.Error())
 		return
@@ -62,7 +63,7 @@ func (c *EmailDraftController) GetEmailDraftDetail(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.svc.GetEmailDraftByIDDTO(draftID)
+	resp, err := c.svc.GetEmailDraftByIDDTO(context.Background(), draftID)
 	if err != nil {
 		if isNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "草稿不存在")
@@ -87,7 +88,7 @@ func (c *EmailDraftController) UpdateEmailDraft(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.svc.UpdateEmailDraftDTO(req); err != nil {
+	if err := c.svc.UpdateEmailDraftDTO(context.Background(), req); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "更新失败："+err.Error())
 		return
 	}
@@ -110,7 +111,7 @@ func (c *EmailDraftController) DeleteEmailDraft(ctx *gin.Context) {
 		return
 	}
 
-	if err = c.svc.DeleteEmailDraft(draftID); err != nil {
+	if err = c.svc.DeleteEmailDraft(context.Background(), draftID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "删除失败："+err.Error())
 		return
 	}

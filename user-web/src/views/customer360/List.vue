@@ -37,8 +37,6 @@
           <el-descriptions-item label="来源">{{ current.source }}</el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ current.createdAt }}</el-descriptions-item>
           <el-descriptions-item label="最后活跃">{{ current.lastActive }}</el-descriptions-item>
-          <el-descriptions-item label="客户价值">{{ current.value }}元</el-descriptions-item>
-          <el-descriptions-item label="消费次数">{{ current.orderCount }}</el-descriptions-item>
           <el-descriptions-item label="客户状态">
             <el-tag :type="current.status === 'active' ? 'success' : 'info'">{{ current.status }}</el-tag>
           </el-descriptions-item>
@@ -75,22 +73,6 @@
           </el-card>
         </el-tab-pane>
 
-        <el-tab-pane label="订单记录" name="orders">
-          <el-card>
-            <el-table :data="orders" stripe>
-              <el-table-column prop="orderNo" label="订单号" width="180" />
-              <el-table-column prop="product" label="产品" min-width="150" />
-              <el-table-column prop="amount" label="金额" width="100" />
-              <el-table-column prop="status" label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === 'paid' ? 'success' : 'warning'">{{ row.status }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="createdAt" label="时间" width="180" />
-            </el-table>
-          </el-card>
-        </el-tab-pane>
-
         <el-tab-pane label="沟通记录" name="communications">
           <el-card>
             <el-timeline>
@@ -117,6 +99,24 @@
               style="margin: 5px"
             >{{ tag }}</el-tag>
             <el-button link type="primary" @click="addTag">+ 添加标签</el-button>
+          </el-card>
+        </el-tab-pane>
+
+        <el-tab-pane label="订单记录" name="orders">
+          <el-card>
+            <div v-if="!current.phone && !current.name" class="order-tip">
+              该客户缺少手机号/姓名，无法关联外部订单
+            </div>
+            <el-table v-else :data="orders" v-loading="ordersLoading" empty-text="暂无订单记录">
+              <el-table-column prop="order_id" label="订单号" width="170" />
+              <el-table-column prop="platform" label="平台" width="100" />
+              <el-table-column prop="status" label="状态" width="110" />
+              <el-table-column label="金额" width="120">
+                <template #default="{ row }">¥{{ ((row.total_amount || 0) / 100).toFixed(2) }}</template>
+              </el-table-column>
+              <el-table-column prop="pay_time" label="支付时间" width="160" />
+              <el-table-column prop="items" label="商品" min-width="160" show-overflow-tooltip />
+            </el-table>
           </el-card>
         </el-tab-pane>
       </el-tabs>
@@ -155,6 +155,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCustomerList, getCustomerDetail, addCustomerTag, removeCustomerTag } from '@/api/customer360.js'
 import { createSession, sendMessage } from '@/api/customerSession.js'
+import { getExternalOrdersByCustomer } from '@/api/integration.js'
 import { toList } from '@/utils/list'
 
 const loading = ref(false)
@@ -163,8 +164,9 @@ const customers = ref([])
 const current = ref(null)
 const activeTab = ref('basic')
 const behaviors = ref([])
-const orders = ref([])
 const communications = ref([])
+const orders = ref([])
+const ordersLoading = ref(false)
 const contactVisible = ref(false)
 const contactForm = ref({ content: '' })
 
@@ -172,18 +174,74 @@ const loadCustomers = async () => {
   loading.value = true
   try {
     const res = await getCustomerList({ keyword: searchKeyword.value })
-    customers.value = toList(res)
+    const map = res?.list
+    // 后端返回 list 为 { user_id: { basic_info: {...}, ... } } 的对象映射，需转成数组
+    customers.value = map && typeof map === 'object' && !Array.isArray(map)
+      ? Object.entries(map).map(([uid, c]) => {
+          const b = c?.basic_info || {}
+          return {
+            id: b.user_id || uid,
+            name: b.user_name || uid,
+            phone: b.user_phone || '',
+            source: b.source_platform || ''
+          }
+        })
+      : toList(res)
   } finally {
     loading.value = false
   }
 }
 
+// 后端详情返回 basic_info / session_stats / message_history 等结构，这里做字段映射。
+const toCustomerModel = (raw, fallbackId) => {
+  const b = raw?.basic_info || {}
+  return {
+    id: b.user_id || fallbackId,
+    name: b.user_name || b.user_id || fallbackId,
+    phone: b.user_phone || '',
+    email: b.user_email || '',
+    wechat: '',
+    source: b.source_platform || '',
+    createdAt: b.first_seen_at || '',
+    lastActive: b.last_seen_at || '',
+    status: 'active',
+    tags: raw?.tags || []
+  }
+}
+
 const selectCustomer = async (row) => {
-  const res = await getCustomerDetail(row.id)
-  current.value = res?.basic || row
-  behaviors.value = res?.behaviors || []
-  orders.value = res?.orders || []
-  communications.value = res?.communications || []
+  const raw = await getCustomerDetail(row.id)
+  current.value = toCustomerModel(raw, row.id)
+  const messages = raw?.message_history || []
+  behaviors.value = messages.map((m) => ({
+    time: m.created_at,
+    type: m.sender_type === 'user' ? 'primary' : 'success',
+    action: m.sender_name || m.sender_type,
+    detail: m.content
+  }))
+  communications.value = messages.map((m) => ({
+    time: m.created_at,
+    channel: 'web',
+    direction: m.sender_type === 'user' ? 'in' : 'out',
+    content: m.content
+  }))
+  // 客服从外部电商同步的订单镜像，仅查询展示（不下单/不履约）
+  loadOrders(current.value.phone, current.value.name)
+}
+
+// 加载客户近期订单（只读镜像，用于客服 360 视图）
+const loadOrders = async (phone, name) => {
+  orders.value = []
+  if (!phone && !name) return
+  ordersLoading.value = true
+  try {
+    const res = await getExternalOrdersByCustomer(phone, name)
+    orders.value = toList(res?.list)
+  } catch (e) {
+    orders.value = []
+  } finally {
+    ordersLoading.value = false
+  }
 }
 
 const contactCustomer = () => {

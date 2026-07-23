@@ -885,7 +885,7 @@ func TestMarketingFlowService_sendActionAddTag(t *testing.T) {
 
 				// 校验数据库中的标签
 				if len(tt.wantTags) > 0 {
-					tags, terr := service.userTagRepo.GetTagsByUser(tt.userID)
+					tags, terr := service.userTagRepo.GetTagsByUser(context.Background(), tt.userID)
 					if terr != nil {
 						t.Fatalf("GetTagsByUser failed: %v", terr)
 					}
@@ -925,7 +925,7 @@ func TestMarketingFlowService_sendActionAddTag_Idempotency(t *testing.T) {
 	}
 
 	// 验证标签数量没有重复
-	tags, err := service.userTagRepo.GetTagsByUser("user-idempotent")
+	tags, err := service.userTagRepo.GetTagsByUser(context.Background(), "user-idempotent")
 	if err != nil {
 		t.Fatalf("GetTagsByUser failed: %v", err)
 	}

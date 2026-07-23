@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -63,7 +64,7 @@ func TestShortLinkService_Create(t *testing.T) {
 		Password:    "secret123",
 	}
 
-	resp, err := service.Create(req)
+	resp, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -92,7 +93,7 @@ func TestShortLinkService_Create_DuplicateShortCode(t *testing.T) {
 		ShortCode:   "duplicate",
 		OriginalURL: "https://example.com/1",
 	}
-	_, err := service.Create(req1)
+	_, err := service.Create(context.Background(), req1)
 	if err != nil {
 		t.Fatalf("First Create failed: %v", err)
 	}
@@ -102,7 +103,7 @@ func TestShortLinkService_Create_DuplicateShortCode(t *testing.T) {
 		ShortCode:   "duplicate",
 		OriginalURL: "https://example.com/2",
 	}
-	_, err = service.Create(req2)
+	_, err = service.Create(context.Background(), req2)
 	if err == nil {
 		t.Error("Expected error for duplicate short code")
 	}
@@ -129,7 +130,7 @@ func TestShortLinkService_Create_WithDomain(t *testing.T) {
 		DomainID:    uint(domain.ID),
 	}
 
-	resp, err := service.Create(req)
+	resp, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create with domain failed: %v", err)
 	}
@@ -151,7 +152,7 @@ func TestShortLinkService_Create_WithInvalidDomain(t *testing.T) {
 		DomainID:    99999,
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for non-existent domain")
 	}
@@ -178,7 +179,7 @@ func TestShortLinkService_Create_WithUnavailableDomain(t *testing.T) {
 		DomainID:    uint(domain.ID),
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for unavailable domain")
 	}
@@ -200,7 +201,7 @@ func TestShortLinkService_Create_WithExpireTime(t *testing.T) {
 		ExpireTime:  &expireTime,
 	}
 
-	resp, err := service.Create(req)
+	resp, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create with expire time failed: %v", err)
 	}
@@ -223,7 +224,7 @@ func TestShortLinkService_Create_EmptyShortCode(t *testing.T) {
 		OriginalURL: "https://example.com",
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	// 服务层允许创建，但短码为空字符串
 	if err != nil {
 		t.Logf("Create with empty short code: %v", err)
@@ -243,7 +244,7 @@ func TestShortLinkService_Create_EmptyOriginalURL(t *testing.T) {
 		OriginalURL: "",
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	// 服务层允许创建，但原始 URL 为空字符串
 	if err != nil {
 		t.Logf("Create with empty original URL: %v", err)
@@ -263,7 +264,7 @@ func TestShortLinkService_Update(t *testing.T) {
 		OriginalURL: "https://example.com/original",
 		Title:       "原标题",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -280,7 +281,7 @@ func TestShortLinkService_Update(t *testing.T) {
 		ExpireTime:  &expireTime,
 	}
 
-	resp, err := service.Update(updateReq)
+	resp, err := service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -309,7 +310,7 @@ func TestShortLinkService_Update_NotFound(t *testing.T) {
 		OriginalURL: "https://example.com",
 	}
 
-	_, err := service.Update(updateReq)
+	_, err := service.Update(context.Background(), updateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -328,7 +329,7 @@ func TestShortLinkService_Update_DuplicateShortCode(t *testing.T) {
 		ShortCode:   "short1",
 		OriginalURL: "https://example.com/1",
 	}
-	_, err := service.Create(req1)
+	_, err := service.Create(context.Background(), req1)
 	if err != nil {
 		t.Fatalf("Create first failed: %v", err)
 	}
@@ -337,7 +338,7 @@ func TestShortLinkService_Update_DuplicateShortCode(t *testing.T) {
 		ShortCode:   "short2",
 		OriginalURL: "https://example.com/2",
 	}
-	resp2, err := service.Create(req2)
+	resp2, err := service.Create(context.Background(), req2)
 	if err != nil {
 		t.Fatalf("Create second failed: %v", err)
 	}
@@ -349,7 +350,7 @@ func TestShortLinkService_Update_DuplicateShortCode(t *testing.T) {
 		OriginalURL: "https://example.com/2",
 	}
 
-	_, err = service.Update(updateReq)
+	_, err = service.Update(context.Background(), updateReq)
 	if err == nil {
 		t.Error("Expected error for duplicate short code")
 	}
@@ -368,7 +369,7 @@ func TestShortLinkService_Update_SameShortCode(t *testing.T) {
 		ShortCode:   "samecode",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -380,7 +381,7 @@ func TestShortLinkService_Update_SameShortCode(t *testing.T) {
 		OriginalURL: "https://example.com/updated",
 	}
 
-	_, err = service.Update(updateReq)
+	_, err = service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update with same short code failed: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 		ShortCode:   "updatedomain",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -408,7 +409,7 @@ func TestShortLinkService_Update_WithInvalidDomain(t *testing.T) {
 		DomainID:    99999,
 	}
 
-	_, err = service.Update(updateReq)
+	_, err = service.Update(context.Background(), updateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent domain")
 	}
@@ -429,19 +430,19 @@ func TestShortLinkService_Delete(t *testing.T) {
 		ShortCode:   "todelete",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 删除短链
-	err = service.Delete(createResp.ID)
+	err = service.Delete(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// 验证已删除
-	_, err = service.GetByID(createResp.ID)
+	_, err = service.GetByID(context.Background(), createResp.ID)
 	if err == nil {
 		t.Error("Expected error for deleted short link")
 	}
@@ -452,7 +453,7 @@ func TestShortLinkService_Delete_NotFound(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	err := service.Delete(99999)
+	err := service.Delete(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -474,13 +475,13 @@ func TestShortLinkService_GetByID(t *testing.T) {
 		OriginalURL: "https://example.com/getbyid",
 		Title:       "测试标题",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 获取短链
-	resp, err := service.GetByID(createResp.ID)
+	resp, err := service.GetByID(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -504,7 +505,7 @@ func TestShortLinkService_GetByID_NotFound(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	_, err := service.GetByID(99999)
+	_, err := service.GetByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -526,7 +527,7 @@ func TestShortLinkService_GetByShortCode(t *testing.T) {
 		OriginalURL: "https://example.com/getbysc",
 		Title:       "测试标题",
 	}
-	_, err := service.Create(createReq)
+	_, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -573,7 +574,7 @@ func TestShortLinkService_GetList(t *testing.T) {
 			OriginalURL: "https://example.com/" + string(rune('0'+i)),
 			Title:       "短链" + string(rune('0'+i)),
 		}
-		_, err := service.Create(req)
+		_, err := service.Create(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -585,7 +586,7 @@ func TestShortLinkService_GetList(t *testing.T) {
 		PageSize: 10,
 	}
 
-	resp, err := service.GetList(listReq)
+	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -609,7 +610,7 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 			ShortCode:   "page" + string(rune('0'+i)),
 			OriginalURL: "https://example.com/" + string(rune('0'+i)),
 		}
-		_, err := service.Create(req)
+		_, err := service.Create(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -620,7 +621,7 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 		Page:     1,
 		PageSize: 5,
 	}
-	resp1, err := service.GetList(listReq1)
+	resp1, err := service.GetList(context.Background(), listReq1)
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
@@ -630,7 +631,7 @@ func TestShortLinkService_GetList_WithPagination(t *testing.T) {
 		Page:     2,
 		PageSize: 5,
 	}
-	resp2, err := service.GetList(listReq2)
+	resp2, err := service.GetList(context.Background(), listReq2)
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
 	}
@@ -652,9 +653,9 @@ func TestShortLinkService_GetList_WithShortCodeFilter(t *testing.T) {
 	service := newTestShortLinkService(database)
 
 	// 创建短链
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "test1", OriginalURL: "https://example.com/1"})
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "test2", OriginalURL: "https://example.com/2"})
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "other", OriginalURL: "https://example.com/3"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "test1", OriginalURL: "https://example.com/1"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "test2", OriginalURL: "https://example.com/2"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "other", OriginalURL: "https://example.com/3"})
 
 	// 获取列表
 	listReq := &dto.ListShortLinkRequest{
@@ -663,7 +664,7 @@ func TestShortLinkService_GetList_WithShortCodeFilter(t *testing.T) {
 		ShortCode: "test",
 	}
 
-	resp, err := service.GetList(listReq)
+	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -679,9 +680,9 @@ func TestShortLinkService_GetList_WithStatusFilter(t *testing.T) {
 	service := newTestShortLinkService(database)
 
 	// 创建不同状态的短链
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "status1", OriginalURL: "https://example.com/1"})
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "status2", OriginalURL: "https://example.com/2"})
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "status3", OriginalURL: "https://example.com/3"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status1", OriginalURL: "https://example.com/1"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status2", OriginalURL: "https://example.com/2"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "status3", OriginalURL: "https://example.com/3"})
 
 	// 手动设置状态
 	database.Model(&model.ShortLink{}).Where("short_code = ?", "status3").Update("status", 2)
@@ -693,7 +694,7 @@ func TestShortLinkService_GetList_WithStatusFilter(t *testing.T) {
 		Status:   1,
 	}
 
-	resp, err := service.GetList(listReq)
+	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -713,7 +714,7 @@ func TestShortLinkService_GetList_EmptyList(t *testing.T) {
 		PageSize: 10,
 	}
 
-	resp, err := service.GetList(listReq)
+	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -732,13 +733,13 @@ func TestShortLinkService_GetList_DefaultPagination(t *testing.T) {
 	service := newTestShortLinkService(database)
 
 	// 创建短链
-	service.Create(&dto.CreateShortLinkRequest{ShortCode: "default1", OriginalURL: "https://example.com/1"})
+	service.Create(context.Background(), &dto.CreateShortLinkRequest{ShortCode: "default1", OriginalURL: "https://example.com/1"})
 
 	listReq := &dto.ListShortLinkRequest{
 		// 不指定分页参数
 	}
 
-	resp, err := service.GetList(listReq)
+	resp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -761,7 +762,7 @@ func TestShortLinkService_AccessShortLink(t *testing.T) {
 		OriginalURL: "https://example.com/access",
 		Title:       "测试访问",
 	}
-	_, err := service.Create(createReq)
+	_, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -826,7 +827,7 @@ func TestShortLinkService_AccessShortLink_Expired(t *testing.T) {
 		OriginalURL: "https://example.com/expired",
 		ExpireTime:  &expireTime,
 	}
-	_, err := service.Create(createReq)
+	_, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -854,7 +855,7 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 		ShortCode:   "disabled",
 		OriginalURL: "https://example.com/disabled",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -865,7 +866,7 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 		OriginalURL: "https://example.com/disabled",
 		Status:      2,
 	}
-	_, err = service.Update(updateReq)
+	_, err = service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -897,7 +898,7 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 		OriginalURL: "https://example.com/password",
 		Password:    "secret123",
 	}
-	_, err := service.Create(createReq)
+	_, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -942,7 +943,7 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 		ShortCode:   "device",
 		OriginalURL: "https://example.com/device",
 	}
-	_, err := service.Create(createReq)
+	_, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1046,7 +1047,7 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 			ShortCode:   "existing" + string(rune('0'+i)),
 			OriginalURL: "https://example.com",
 		}
-		_, err := service.Create(req)
+		_, err := service.Create(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -1081,7 +1082,7 @@ func TestShortLinkService_GetStats(t *testing.T) {
 		OriginalURL: "https://example.com/stats",
 		Title:       "统计测试",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1145,7 +1146,7 @@ func TestShortLinkService_GetStats_InvalidDateFormat(t *testing.T) {
 		ShortCode:   "statsdate",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1174,7 +1175,7 @@ func TestShortLinkService_GetStats_WithDateRange(t *testing.T) {
 		ShortCode:   "statsrange",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1214,7 +1215,7 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 		ShortCode:   "statsdevice",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1262,7 +1263,7 @@ func TestShortLinkService_GetAllStats(t *testing.T) {
 			OriginalURL: "https://example.com/" + string(rune('0'+i)),
 			Title:       "短链" + string(rune('0'+i)),
 		}
-		_, err := service.Create(req)
+		_, err := service.Create(context.Background(), req)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -1300,7 +1301,7 @@ func TestShortLinkService_GetAllStats_WithDateRange(t *testing.T) {
 		ShortCode:   "allstatsrange",
 		OriginalURL: "https://example.com",
 	}
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1377,7 +1378,7 @@ func TestShortLinkService_ShareShortLink(t *testing.T) {
 		OriginalURL: "https://example.com/share",
 		Title:       "分享测试",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1442,7 +1443,7 @@ func TestShortLinkService_Create_VeryLongURL(t *testing.T) {
 		OriginalURL: longURL,
 	}
 
-	resp, err := service.Create(req)
+	resp, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create with very long URL failed: %v", err)
 	}
@@ -1462,7 +1463,7 @@ func TestShortLinkService_Create_SpecialCharactersInShortCode(t *testing.T) {
 		OriginalURL: "https://example.com",
 	}
 
-	_, err := service.Create(req)
+	_, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create with special characters failed: %v", err)
 	}
@@ -1479,7 +1480,7 @@ func TestShortLinkService_Update_PartialUpdate(t *testing.T) {
 		OriginalURL: "https://example.com/original",
 		Title:       "原标题",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1491,7 +1492,7 @@ func TestShortLinkService_Update_PartialUpdate(t *testing.T) {
 		Title:       "新标题",
 	}
 
-	resp, err := service.Update(updateReq)
+	resp, err := service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -1514,7 +1515,7 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 		ShortCode:   "multiaccess",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1529,7 +1530,7 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 	}
 
 	// 验证点击次数
-	link, err := service.GetByID(createResp.ID)
+	link, err := service.GetByID(context.Background(), createResp.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -1549,7 +1550,7 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 		ShortCode:   "todaystats",
 		OriginalURL: "https://example.com",
 	}
-	createResp, err := service.Create(createReq)
+	createResp, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1611,7 +1612,7 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		ShortCode:   "status1",
 		OriginalURL: "https://example.com/1",
 	}
-	resp1, err := service.Create(createReq1)
+	resp1, err := service.Create(context.Background(), createReq1)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1625,7 +1626,7 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		ShortCode:   "status2",
 		OriginalURL: "https://example.com/2",
 	}
-	resp2, err := service.Create(createReq2)
+	resp2, err := service.Create(context.Background(), createReq2)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1636,12 +1637,12 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		OriginalURL: "https://example.com/2",
 		Status:      2,
 	}
-	_, err = service.Update(updateReq2)
+	_, err = service.Update(context.Background(), updateReq2)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	resp2Updated, _ := service.GetByID(resp2.ID)
+	resp2Updated, _ := service.GetByID(context.Background(), resp2.ID)
 	if resp2Updated.StatusStr != "禁用" {
 		t.Errorf("Expected StatusStr '禁用', got %s", resp2Updated.StatusStr)
 	}
@@ -1653,7 +1654,7 @@ func TestShortLinkService_StatusStr(t *testing.T) {
 		OriginalURL: "https://example.com/3",
 		ExpireTime:  &expireTime,
 	}
-	resp3, err := service.Create(createReq3)
+	resp3, err := service.Create(context.Background(), createReq3)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -1687,7 +1688,7 @@ func TestShortLinkService_Create_WithAllFields(t *testing.T) {
 		ExpireTime:  &expireTime,
 	}
 
-	resp, err := service.Create(req)
+	resp, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create with all fields failed: %v", err)
 	}

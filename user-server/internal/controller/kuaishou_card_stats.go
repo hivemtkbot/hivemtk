@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -41,7 +42,7 @@ func (c *KuaishouCardStatsController) GetCardStats(ctx *gin.Context) {
 	}
 
 	// 获取统计数据
-	stats, err := c.statsService.GetCardStats(&req)
+	stats, err := c.statsService.GetCardStats(context.Background(), &req)
 	if HandleDBError(ctx, err, "获取快手卡片统计") {
 		return
 	}
@@ -60,7 +61,7 @@ func (c *KuaishouCardStatsController) GetOverallStats(ctx *gin.Context) {
 	}
 
 	// 获取统计数据
-	stats, err := c.statsService.GetOverallStats(&req)
+	stats, err := c.statsService.GetOverallStats(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, 500, "获取总体统计数据失败", err.Error())
 		return

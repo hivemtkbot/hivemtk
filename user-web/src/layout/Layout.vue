@@ -203,7 +203,6 @@ const topMenus = ref([
       { key: 'tagSegmentation', title: '标签分层', icon: 'PriceTag', path: '/tagSegmentation/list', roles: ['admin', 'manager', 'viewer'] },
       { key: 'userSegment', title: '用户分层 RFM', icon: 'PieChart', path: '/userSegment/list', roles: ['admin', 'manager', 'viewer'] },
       { key: 'unifiedMessage', title: '统一消息', icon: 'Message', path: '/unifiedMessage/list' },
-      { key: 'orderList', title: '订单管理', icon: 'List', path: '/order/list', roles: ['admin', 'manager'] },
       {
         key: 'customerIdentity',
         title: '客户身份',
@@ -449,9 +448,7 @@ const topMenus = ref([
           { key: 'ragProduct', title: 'RAG 产品管理', icon: 'Goods', path: '/system/rag-product' }
         ]
       },
-      { key: 'ragOverview', title: 'RAG 概览', icon: 'Monitor', path: '/system/rag-overview' },
-      { key: 'aiContent', title: 'AI 内容创作', icon: 'MagicStick', path: '/aiContent/list' },
-      { key: 'templateMarket', title: '模板市场', icon: 'Grid', path: '/templateMarket/list' }
+      { key: 'ragOverview', title: 'RAG 概览', icon: 'Monitor', path: '/system/rag-overview' }
     ]
   },
   {
@@ -473,29 +470,58 @@ const topMenus = ref([
     key: 'system',
     title: '系统设置',
     icon: 'Setting',
-    roles: ['admin'],
+    roles: ['admin', 'manager', 'sales', 'viewer'],
     children: [
-      { key: 'systemConfig', title: '站点设置', icon: 'Tools', path: '/system/config' },
-      { key: 'systemObsConfig', title: '存储配置', icon: 'Cloud', path: '/system/obs-config' },
-      { key: 'systemMaterialLibrary', title: '素材库', icon: 'Picture', path: '/system/material-library' },
-      { key: 'systemMonitor', title: '监控', icon: 'Cpu', path: '/system/monitor' },
-      { key: 'systemGuide', title: '系统使用指南', icon: 'Document', path: '/system/guide' },
-      { key: 'domainPool', title: '域名池', icon: 'Link', path: '/domainPool' },
-      { key: 'teamUser', title: '团队成员', icon: 'UserFilled', path: '/teamUser/list' },
-      { key: 'platformAccount', title: '平台账号', icon: 'Platform', path: '/platformAccount/list' },
       {
-        key: 'payment',
-        title: '支付配置',
-        icon: 'CreditCard',
+        key: 'siteConfig',
+        title: '站点配置',
+        icon: 'Tools',
+        roles: ['admin'],
         children: [
-          { key: 'paymentList', title: '支付列表', icon: 'CreditCard', path: '/payment/list' },
-          { key: 'paymentConfig', title: '支付配置', icon: 'Setting', path: '/payment/config' }
+          { key: 'systemConfig', title: '站点设置', icon: 'Tools', path: '/system/config' },
+          { key: 'systemObsConfig', title: '存储配置', icon: 'Cloud', path: '/system/obs-config' },
+          { key: 'systemMaterialLibrary', title: '素材库', icon: 'Picture', path: '/system/material-library' },
+          { key: 'systemMonitor', title: '监控', icon: 'Cpu', path: '/system/monitor' },
+          { key: 'systemGuide', title: '系统使用指南', icon: 'Document', path: '/system/guide' },
+          { key: 'domainPool', title: '域名池', icon: 'Link', path: '/domainPool' },
+          { key: 'backupList', title: '备份恢复', icon: 'FolderOpened', path: '/backup/list' }
         ]
       },
-      { key: 'integration', title: '第三方对接', icon: 'Connection', path: '/integration/list' },
-      { key: 'operationLog', title: '操作日志', icon: 'Tickets', path: '/operationLog/list' },
-      { key: 'backupList', title: '备份恢复', icon: 'FolderOpened', path: '/backup/list', roles: ['admin'] },
-      { key: 'securityAudit', title: '安全审计', icon: 'Shield', path: '/securityAudit/list', roles: ['admin'] }
+      {
+        key: 'teamGroup',
+        title: '团队',
+        icon: 'UserFilled',
+        roles: ['admin'],
+        children: [
+          { key: 'teamUser', title: '团队成员', icon: 'UserFilled', path: '/teamUser/list' }
+        ]
+      },
+      {
+        key: 'permissionGroup',
+        title: '权限区分',
+        icon: 'Lock',
+        roles: ['admin'],
+        children: [
+          { key: 'platformAccount', title: '平台账号', icon: 'Platform', path: '/platformAccount/list' },
+          { key: 'integration', title: '第三方对接', icon: 'Connection', path: '/integration/list' },
+          { key: 'operationLog', title: '操作日志', icon: 'Tickets', path: '/operationLog/list' },
+          { key: 'securityAudit', title: '安全审计', icon: 'Shield', path: '/securityAudit/list' }
+        ]
+      },
+      {
+        key: 'assetBundle',
+        title: '资产包',
+        icon: 'Box',
+        roles: ['admin', 'manager', 'sales', 'viewer'],
+        children: [
+          { key: 'assetMarket', title: '资产市场', icon: 'ShoppingCart', path: '/asset-market' },
+          { key: 'myAssets', title: '我的资产', icon: 'Files', path: '/asset-market/my-assets' },
+          { key: 'assetBundleList', title: '资产包管理', icon: 'List', path: '/asset-bundle/list' },
+          { key: 'assetBundlePlayground', title: '开发者 Playground', icon: 'EditPen', path: '/asset-bundle/playground' },
+          { key: 'assetBundleMerchant', title: '商户话术包', icon: 'ChatDotRound', path: '/asset-bundle/merchant-new' },
+          { key: 'syncLog', title: '同步日志', icon: 'Refresh', path: '/asset-market/sync-log' }
+        ]
+      }
     ]
   }
 ])

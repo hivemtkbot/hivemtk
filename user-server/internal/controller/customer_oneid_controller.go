@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 
 	"marketing/internal/identity"
@@ -47,7 +48,7 @@ func (c *CustomerOneIDController) MergeIdentity(ctx *gin.Context) {
 		return
 	}
 	custSvc := service.NewCustomerService()
-	if err := custSvc.MergeCustomers(req.PrimaryID, req.SecondaryID); err != nil {
+	if err := custSvc.MergeCustomers(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -109,7 +110,7 @@ func (c *CustomerOneIDController) ResolveConflict(ctx *gin.Context) {
 		return
 	}
 	custSvc := service.NewCustomerService()
-	if err := custSvc.MergeCustomers(req.PrimaryID, req.SecondaryID); err != nil {
+	if err := custSvc.MergeCustomers(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -164,7 +165,7 @@ func (c *CustomerOneIDController) LinkIdentity(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	if err := c.identitySvc.LinkIdentity(customerID, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID); err != nil {
+	if err := c.identitySvc.LinkIdentity(context.Background(), customerID, identifiers.Phone, identifiers.Email, identifiers.WechatOpenID, identifiers.DouyinOpenID); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -179,7 +180,7 @@ func (c *CustomerOneIDController) ResolveIdentity(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	customers, err := c.identitySvc.ResolveIdentity(identifiers)
+	customers, err := c.identitySvc.ResolveIdentity(context.Background(), identifiers)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

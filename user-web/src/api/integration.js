@@ -34,6 +34,9 @@ export function getExternalCustomers() {
 export function getExternalOrders() {
   return request({ url: '/api/integration/external-orders', method: 'get' })
 }
+export function getExternalOrdersByCustomer(phone, name) {
+  return request({ url: '/api/integration/external-orders-by-customer', method: 'get', params: { phone, name } })
+}
 export function getExternalProducts() {
   return request({ url: '/api/integration/external-products', method: 'get' })
 }

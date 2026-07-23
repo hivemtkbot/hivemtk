@@ -1,4 +1,4 @@
-# HivemTK 用户端 · 资产市场集成文档
+# HiveMtk 用户端 · 资产市场集成文档
 
 > **配套**:`hivemtk-platform/docs/architecture/ASSET_MARKET_DESIGN.md`(总设计)
 > **本端**:用户端(`hivemtk` 仓库)
@@ -2166,7 +2166,7 @@ export const toggleLocalAsset    = (id, a)  => request.put(`/api/v1/local-assets
 
 ## 二十、最终一句话总结(终版)
 
-> **HivemTK 资产市场 = 同源同构 + 五层架构 + 编码规范三位一体**:
+> **HiveMtk 资产市场 = 同源同构 + 五层架构 + 编码规范三位一体**:
 > **平台购买与商户自建走同一张表 `local_assets`、同一组 CRUD、同一套 UI,仅 `source` 字段区分**;
 > **后端严格五层(handler → service → domain → repository → model),GORM 只在 repo 出现**;
 > **代码规范强制命名/错误/日志/测试/Lint,CI 拒绝违规**;

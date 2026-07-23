@@ -1,8 +1,8 @@
-# HivemTK Disclaimer
+# HiveMtk Disclaimer
 
 ## Project Positioning
 
-HivemTK is a fully open-source, locally self-hosted customer-service foundation tool. The technical design of this project is intended to safeguard merchants' data privacy and sovereignty.
+HiveMtk is a fully open-source, locally self-hosted customer-service foundation tool. The technical design of this project is intended to safeguard merchants' data privacy and sovereignty.
 
 ## Legal & Liability Disclaimer
 

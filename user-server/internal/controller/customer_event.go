@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -90,7 +91,7 @@ func (c *CustomerEventController) GetEventHistory(ctx *gin.Context) {
 		}
 	}
 
-	events, err := c.tracker.GetEventHistory(customerID, limit)
+	events, err := c.tracker.GetEventHistory(context.Background(), customerID, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -115,7 +116,7 @@ func (c *CustomerEventController) DeleteEvent(ctx *gin.Context) {
 		return
 	}
 
-	count, err := c.tracker.DeleteByCustomerID(customerID)
+	count, err := c.tracker.DeleteByCustomerID(context.Background(), customerID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -146,7 +147,7 @@ func (c *CustomerEventController) GetEventStats(ctx *gin.Context) {
 		end = time.Now().Format("2006-01-02")
 	}
 
-	stats, err := c.tracker.GetStats(start, end)
+	stats, err := c.tracker.GetStats(context.Background(), start, end)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

@@ -240,6 +240,7 @@ func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
 //   - champion_dialogues 表有记录
 func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 
 	// 准备 5 条相似对话（聚类应产生 1 簇，簇大小 5 >= MinClusterSize=3）
 	dialogues := []struct {
@@ -366,6 +367,7 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 	// 1024 维 stub embedder（与表 schema vector(1024) 一致）
 	emb := newStubEmbedder(1024)
 	a := NewChampionDialogueAnalyzer(db, emb, llm, DefaultChampionAnalyzerConfig())
+	ctx := context.Background()
 
 	report, err := a.AnalyzePipeline(ctx, time.Now().Add(-24*time.Hour))
 	if err != nil {
@@ -400,6 +402,7 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 	for i := range emb {
 		emb[i] = 0.5
 	}
+	ctx := context.Background()
 	d := championDialogueWithEmb{
 		championDialogueRow: championDialogueRow{
 			SessionID: "sess-dup", CustomerID: "cust-1",

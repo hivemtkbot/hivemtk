@@ -56,7 +56,7 @@ func (s *XiaohongshuAutoReplyService) UpsertAccount(ctx context.Context, a *mode
 		existing.Cookie = encrypted
 		existing.IsActive = a.IsActive
 		existing.LoginAt = a.LoginAt
-		return s.db.Save(ctx, &existing).Error
+		return s.db.Save(&existing).Error
 	}
 	// 加密存储Cookie(避免在 model 中保留业务方法)
 	encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
@@ -64,7 +64,7 @@ func (s *XiaohongshuAutoReplyService) UpsertAccount(ctx context.Context, a *mode
 		return encErr
 	}
 	a.Cookie = encrypted
-	return s.db.Create(ctx, a).Error
+	return s.db.Create(a).Error
 }
 
 // SaveCookies 保存小红书账号 Cookie
@@ -85,7 +85,7 @@ func (s *XiaohongshuAutoReplyService) SaveCookies(ctx context.Context, id uint, 
 		return encErr
 	}
 	account.Cookie = encrypted
-	return s.db.Model(ctx, &model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", account.Cookie).Error
+	return s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", account.Cookie).Error
 }
 
 func (s *XiaohongshuAutoReplyService) GetRule(ctx context.Context, userID uint) (*model.AutoReplyRule, error) {
@@ -106,9 +106,9 @@ func (s *XiaohongshuAutoReplyService) SaveRule(ctx context.Context, rule *model.
 		existing.Frequency = rule.Frequency
 		existing.DailyLimit = rule.DailyLimit
 		existing.IsActive = rule.IsActive
-		return s.db.Save(ctx, &existing).Error
+		return s.db.Save(&existing).Error
 	}
-	return s.db.Create(ctx, rule).Error
+	return s.db.Create(rule).Error
 }
 
 func (s *XiaohongshuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint, page, pageSize int) ([]model.AutoReplyLog, int64, error) {
@@ -121,7 +121,7 @@ func (s *XiaohongshuAutoReplyService) ListRecentLogs(ctx context.Context, userID
 		pageSize = 10
 	}
 	var total int64
-	s.db.Model(ctx, &model.AutoReplyLog{}).
+	s.db.Model(&model.AutoReplyLog{}).
 		Where("platform = ? AND user_id = ? AND created_at >= ?", "xiaohongshu", userID, cutoff).
 		Count(&total)
 	err := s.db.Where(ctx, "platform = ? AND user_id = ? AND created_at >= ?", "xiaohongshu", userID, cutoff).
@@ -129,13 +129,13 @@ func (s *XiaohongshuAutoReplyService) ListRecentLogs(ctx context.Context, userID
 	return logs, total, err
 }
 
-func (s *XiaohongshuAutoReplyService) AppendLog(ctx context.Context, userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
+func (s *XiaohongshuAutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{
 		UserID:	userID, AccountID: accountID, RuleID: ruleID,
 		Platform:	platform, TargetContent: target, ReplyContent: reply,
 		Status:	status, ErrorMsg: errMsg, CreatedAt: time.Now(),
 	}
-	return s.db.Create(ctx, item).Error
+	return s.db.Create(item).Error
 }
 
 func (s *XiaohongshuAutoReplyService) StartLoginBrowser(ctx context.Context, userID uint, username string, accountID uint, headless bool) {
@@ -161,7 +161,7 @@ func (s *XiaohongshuAutoReplyService) StartLoginBrowser(ctx context.Context, use
 				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
 				if encErr == nil {
 					account.Cookie = encrypted
-					s.db.Model(ctx, &model.AutoReplyAccount{}).Where("id = ?", accountID).Update("cookie", account.Cookie)
+					s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", accountID).Update("cookie", account.Cookie)
 					logger.Infof("小红书用户 %s 登录成功，Cookie 已保存", username)
 				} else {
 					logger.Errorf("小红书用户 %s Cookie 加密失败: %v", username, encErr)

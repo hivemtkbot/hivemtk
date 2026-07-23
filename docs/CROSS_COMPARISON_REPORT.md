@@ -62,8 +62,6 @@
 | 32 | `objection` | ✅ | `setupObjectionHandlerRoutes` | 异议处理 |
 | 33 | `oneid` | ✅ | (customer_oneid_controller.go) | OneID 身份统一 |
 | 34 | `operationLog` | ✅ | (operation_log.go) | 操作日志 |
-| 35 | `order` | ✅ | `setupOrderRoutes` | 订单管理 |
-| 36 | `payment` | ✅ | (payment_config.go) | 支付配置 |
 | 37 | `persona` | ✅ | (sales_persona_controller.go) | 销冠画像 |
 | 38 | `platformAccount` | ✅ | `setupPlatformAccountRoutes` | 平台账号 |
 | 39 | `ragProductConfig` | ✅ | `setupRagRoutes` | RAG 产品配置 |
@@ -184,7 +182,6 @@
 | `sms-config.md` | 仅文本，建议补链接 |
 | `system-config.md` | 仅文本，建议补链接 |
 | `obs-config.md` | 仅文本，建议补链接 |
-| `payment-config.md` | 仅文本，建议补链接 |
 
 ### 2.6 用户端架构图现状
 

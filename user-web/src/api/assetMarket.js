@@ -13,6 +13,9 @@ export const purchaseAsset = (data) =>
 export const syncAsset = (data) =>
   request({ url: '/api/v1/asset-market/sync', method: 'post', data })
 
+export const reportUsage = (data) =>
+  request({ url: '/api/v1/asset-market/report-usage', method: 'post', data })
+
 // 本地资产（同源同构）
 export const listLocalAssets = (params) =>
   request({ url: '/api/v1/local-assets', method: 'get', params })

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -242,7 +243,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	}
 
 	// 验证更新后名称
-	updated, _ := ctrl.svc.GetAccount(accID)
+	updated, _ := ctrl.svc.GetAccount(context.Background(), accID)
 	if updated.AccountName != "新名称" {
 		t.Errorf("名称应更新为 '新名称', 实际 '%s'", updated.AccountName)
 	}
@@ -314,7 +315,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	if err := repo.Create(acc); err != nil {
+	if err := repo.Createacc); err != nil {
 		t.Fatalf("创建测试账号失败: %v", err)
 	}
 	accID := acc.ID
@@ -388,7 +389,7 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	repo.Create(acc)
+	repo.Createacc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -447,7 +448,7 @@ func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 		BotToken:    "555:eee",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Createacc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -493,7 +494,7 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 		BotToken:    "666:fff",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Createacc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -541,7 +542,7 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 		BotToken:    "777:ggg",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Createacc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)

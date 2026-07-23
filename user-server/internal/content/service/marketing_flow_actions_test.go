@@ -57,7 +57,7 @@ func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 	service := NewMarketingFlowServiceWithDB(database)
 
 	// 先为用户添加标签
-	if err := service.userTagRepo.AddTags("user-remove-1", []string{"vip", "active", "trial"}); err != nil {
+	if err := service.userTagRepo.AddTags(context.Background(), "user-remove-1", []string{"vip", "active", "trial"}); err != nil {
 		t.Fatalf("预设标签失败：%v", err)
 	}
 
@@ -148,7 +148,7 @@ func TestMarketingFlowService_sendActionRemoveTag(t *testing.T) {
 
 				// 验证数据库中标签已被移除
 				if len(tt.wantRemoved) > 0 {
-					tags, terr := service.userTagRepo.GetTagsByUser(tt.userID)
+					tags, terr := service.userTagRepo.GetTagsByUser(context.Background(), tt.userID)
 					if terr != nil {
 						t.Fatalf("GetTagsByUser failed: %v", terr)
 					}
@@ -427,7 +427,7 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 				}
 
 				// 验证数据库中 OperationLog 记录
-				logEntry, lerr := service.operationLogRepo.GetByID(taskID)
+				logEntry, lerr := service.operationLogRepo.GetByIDtaskID)
 				if lerr != nil {
 					t.Fatalf("GetByID(%d) failed: %v", taskID, lerr)
 				}
@@ -904,7 +904,7 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 				}
 
 				// 验证数据库中的订单
-				order, oerr := service.orderRepo.GetByStringID(orderID)
+				order, oerr := service.orderRepo.GetByStringIDorderID)
 				if oerr != nil {
 					t.Fatalf("GetByStringID(%q) failed: %v", orderID, oerr)
 				}

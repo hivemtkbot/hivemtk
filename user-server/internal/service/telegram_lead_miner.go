@@ -299,6 +299,6 @@ func (s *WebhookService) recordTelegramLeadScore(ctx context.Context, clue *mode
 		repository.NewClueEngagementRepositoryWithDB(s.db),
 		s.clueRepo,
 	)
-	_ = scoreSvc.RecordEngagement(clue.ID, "group_message", "telegram", map[string]any{"is_opportunity": isOpp})
-	_, _ = scoreSvc.ScoreClue(clue)
+	_ = scoreSvc.RecordEngagement(context.Background(), clue.ID, "group_message", "telegram", map[string]any{"is_opportunity": isOpp})
+	_, _ = scoreSvc.ScoreClue(context.Background(), clue)
 }

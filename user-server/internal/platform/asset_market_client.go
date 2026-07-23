@@ -102,3 +102,9 @@ func (c *AssetMarketClient) MyPurchases(ctx context.Context) ([]map[string]any, 
 	}
 	return list, nil
 }
+
+// ReportUsage 上报资产使用次数（商户端 → 平台），POST /merchant-api/asset-market/report-usage
+func (c *AssetMarketClient) ReportUsage(ctx context.Context, assetID string, delta int64) error {
+	return c.doData("POST", "/merchant-api/asset-market/report-usage",
+		map[string]any{"asset_id": assetID, "delta": delta}, nil)
+}

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -263,6 +264,44 @@ func (s *LocalAssetService) LoadByType(ctx context.Context, assetType string) ([
 		if err == nil {
 			datas = append(datas, lad.Data)
 		}
+		// 闭环：每次运行时被实际加载使用，累加本地使用次数，并 best-effort 回传平台。
+		if la.PurchaseID != nil {
+			_ = s.assetRepo.IncrementUseCount(ctx, la.ID, 1)
+			go s.reportUsageAsync(la.AssetID)
+		}
 	}
 	return list, datas, nil
+}
+
+// reportingInFlight 防止并发重复上报同一资产（避免平台重复计数）。
+var reportingInFlight sync.Map
+
+// ReportUsage 将本地累计的使用次数回传平台（闭环：本地使用 → 平台统计）。
+func (s *LocalAssetService) ReportUsage(ctx context.Context, assetID string) error {
+	la, err := s.assetRepo.FindByAssetID(ctx, assetID)
+	if err != nil {
+		return bizerr.New(bizerr.CodeNotFound, "资产不存在")
+	}
+	if la.PurchaseID == nil {
+		return bizerr.New(bizerr.CodeForbidden, "非平台购买资产无需上报")
+	}
+	delta := la.UseCount - la.ReportedUseCount
+	if delta <= 0 {
+		return nil
+	}
+	if err := s.platformClient.ReportUsage(ctx, assetID, delta); err != nil {
+		return bizerr.Wrap(bizerr.CodePlatformUnavail, "平台上报失败", err)
+	}
+	return s.assetRepo.SetReportedUseCount(ctx, la.ID, la.UseCount)
+}
+
+// reportUsageAsync 后台 best-effort 上报，避免阻塞运行时主流程。
+func (s *LocalAssetService) reportUsageAsync(assetID string) {
+	if _, loaded := reportingInFlight.LoadOrStore(assetID, true); loaded {
+		return
+	}
+	defer reportingInFlight.Delete(assetID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = s.ReportUsage(ctx, assetID)
 }

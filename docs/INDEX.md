@@ -1,4 +1,4 @@
-# HivemTK 用户端 - 文档索引
+# HiveMtk 用户端 - 文档索引
 
 > 用户端独立部署仓库（私域模式）—— 文档归位
 > 最后更新：2026-07-22
@@ -43,7 +43,7 @@
 ## 三、营销功能模块（92 个核心业务模块 ⭐）
 
 > **入口**：[marketing-features/README.md](marketing-features/README.md)
-> 涵盖：认证与用户管理（5）、多平台卡片（5）、自动回复与 RAG（8）、邮件营销（5）、短信营销（4）、社群管理（6）、短链与活码（3）、线索与客户（11）、营销自动化（8）、内容创作（5）、系统管理（11）、第三方对接（2）、统一消息（3）、订单与支付（2）、AI 销冠核心（9）、多 AI 智能体（3）、数据分析（4）、客服 Web Widget（1）。
+> 涵盖：认证与用户管理（5）、多平台卡片（5）、自动回复与 RAG（8）、邮件营销（5）、短信营销（4）、社群管理（6）、短链与活码（3）、线索与客户（11）、营销自动化（8）、内容创作（5）、系统管理（11）、第三方对接（2）、统一消息（3）、订单（1）、AI 销冠核心（9）、多 AI 智能体（3）、数据分析（4）、客服 Web Widget（1）。
 > 平台端 9 个 `platform-*` 模块见 [`hivemtk-platform/docs/platform-features/`](../hivemtk-platform/docs/platform-features/README.md)。
 > 代码 vs 文档交叉对比见 [CROSS_COMPARISON_REPORT.md](CROSS_COMPARISON_REPORT.md)。
 

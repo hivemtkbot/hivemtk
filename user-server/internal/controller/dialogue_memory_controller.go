@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -56,7 +57,7 @@ func (c *DialogueMemoryController) ShortTerm(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "session_id 必填")
 		return
 	}
-	msgs, err := c.svc.GetShortTermMemory(sessionID)
+	msgs, err := c.svc.GetShortTermMemory(context.Background(), sessionID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -67,7 +68,7 @@ func (c *DialogueMemoryController) ShortTerm(ctx *gin.Context) {
 // LongTerm 长期记忆
 func (c *DialogueMemoryController) LongTerm(ctx *gin.Context) {
 	sessionID := ctx.Query("session_id")
-	mem, err := c.svc.GetLongTermMemory(sessionID)
+	mem, err := c.svc.GetLongTermMemory(context.Background(), sessionID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -88,7 +89,7 @@ func (c *DialogueMemoryController) UpdateKeyFacts(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.UpdateKeyFacts(req.SessionID, req.Facts)
+	err := c.svc.UpdateKeyFacts(context.Background(), req.SessionID, req.Facts)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -110,7 +111,7 @@ func (c *DialogueMemoryController) RecordObjection(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.RecordObjection(req.SessionID, req.ObjectionType, req.Content)
+	err := c.svc.RecordObjection(context.Background(), req.SessionID, req.ObjectionType, req.Content)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -131,7 +132,7 @@ func (c *DialogueMemoryController) UpdatePurchaseIntent(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.UpdatePurchaseIntent(req.SessionID, req.Level)
+	err := c.svc.UpdatePurchaseIntent(context.Background(), req.SessionID, req.Level)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -152,7 +153,7 @@ func (c *DialogueMemoryController) RecordIntent(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.RecordIntent(req.SessionID, req.IntentType)
+	err := c.svc.RecordIntent(context.Background(), req.SessionID, req.IntentType)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -173,7 +174,7 @@ func (c *DialogueMemoryController) RecordSOP(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.RecordSOP(req.SessionID, req.SOPName)
+	err := c.svc.RecordSOP(context.Background(), req.SessionID, req.SOPName)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -185,7 +186,7 @@ func (c *DialogueMemoryController) RecordSOP(ctx *gin.Context) {
 func (c *DialogueMemoryController) BuildContext(ctx *gin.Context) {
 	sessionID := ctx.Query("session_id")
 	customerID := ctx.Query("customer_id")
-	s, err := c.svc.BuildContext(sessionID, customerID)
+	s, err := c.svc.BuildContext(context.Background(), sessionID, customerID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -201,7 +202,7 @@ func (c *DialogueMemoryController) Stats(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	mems, total, err := c.svc.ListByCustomerID(customerID, limit)
+	mems, total, err := c.svc.ListByCustomerID(context.Background(), customerID, limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

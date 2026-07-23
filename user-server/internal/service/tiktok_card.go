@@ -138,7 +138,7 @@ func (s *tiktokCardService) GetByID(ctx context.Context, id uint) (*dto.TikTokCa
 	// 获取短链信息(通过 ShortLinkRepository,避免 service 直接持有 db)
 	shortCode := ""
 	if card.ShortLinkID != 0 {
-		sl, err := s.shortLinkRepo.GetByID(card.ShortLinkID)
+		sl, err := s.shortLinkRepo.GetByID(context.Background(), card.ShortLinkID)
 		if err == nil && sl != nil {
 			shortCode = sl.ShortCode
 		}
@@ -188,7 +188,7 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 
 	// 如果已有关联短链,先删除
 	if card.ShortLinkID != 0 {
-		_ = s.shortLinkRepo.Delete(card.ShortLinkID)
+		_ = s.shortLinkRepo.Delete(context.Background(), card.ShortLinkID)
 	}
 
 	sl := &model.ShortLink{
@@ -201,7 +201,7 @@ func (s *tiktokCardService) GenerateShortLink(ctx context.Context, cardID uint) 
 	if sl.DomainID == 0 {
 		sl.DomainID = 1
 	}
-	if err := s.shortLinkRepo.Create(sl); err != nil {
+	if err := s.shortLinkRepo.Create(context.Background(), sl); err != nil {
 		return nil, fmt.Errorf("创建短链失败: %w", err)
 	}
 

@@ -1,4 +1,4 @@
-# HivemTK · User-Side
+# HiveMtk · User-Side
 
 > **Self-Hosted AI Marketing OS — All Channels · True AI Autonomy · Zero Data Egress**
 
@@ -18,7 +18,7 @@
 
 > The self-hosted AI marketing OS that nails three things at once: **all-channel reach**, **true AI autonomy**, **zero data egress**.
 
-We don't wrap an LLM. We don't hardcode an automation script. HivemTK ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding **41 built-in tools** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own.
+We don't wrap an LLM. We don't hardcode an automation script. HiveMtk ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding **41 built-in tools** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own.
 
 ---
 
@@ -283,7 +283,7 @@ For business cooperation or technical support, feel free to reach out via Gitee 
 
 ## Disclaimer
 
-> **HivemTK is a fully open-source, locally self-hosted customer-service foundation tool.** The technical design of this project is intended to safeguard merchants' data privacy and sovereignty.
+> **HiveMtk is a fully open-source, locally self-hosted customer-service foundation tool.** The technical design of this project is intended to safeguard merchants' data privacy and sovereignty.
 >
 > When using this system to locally deploy any large language model, build a knowledge base, or conduct conversations, users **must comply on their own with the laws and regulations of their country, region, and relevant social platforms (such as Telegram, WhatsApp)**.
 >
@@ -306,6 +306,6 @@ Full disclaimer: [DISCLAIMER.md](DISCLAIMER.md) ([中文](DISCLAIMER.md)).
 
 **All Channels · True AI Autonomy · Zero Data Egress**
 
-Made with ❤️ by HivemTK Team
+Made with ❤️ by HiveMtk Team
 
 </div>

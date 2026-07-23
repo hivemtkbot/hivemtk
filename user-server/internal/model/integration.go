@@ -85,6 +85,7 @@ type ExternalOrder struct {
 	PayAmount      int64      `gorm:"type:bigint;default:0" json:"pay_amount"`      // 实付金额（分）
 	DiscountAmount int64      `gorm:"type:bigint;default:0" json:"discount_amount"` // 折扣金额（分）
 	Status         string     `gorm:"type:varchar(50)" json:"status"`               // 待付款、已付款、发货中、已完成、已取消
+	OrderTime      *time.Time `json:"order_time"`                                   // 外部订单下单时间（同步/webhook 回填，排序用）
 	PayTime        *time.Time `json:"pay_time"`
 	ShipTime       *time.Time `json:"ship_time"`
 	CompleteTime   *time.Time `json:"complete_time"`

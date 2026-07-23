@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 	"net/http"
@@ -42,7 +43,7 @@ func (c *Customer360Controller) GetCustomer360(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -82,7 +83,7 @@ func (c *Customer360Controller) GetCustomerList(ctx *gin.Context) {
 		filters["purchase_power"] = purchasePower
 	}
 
-	result, total, err := c.customer360Service.GetCustomerList(page, pageSize, filters)
+	result, total, err := c.customer360Service.GetCustomerList(context.Background(), page, pageSize, filters)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -104,7 +105,7 @@ func (c *Customer360Controller) GetCustomerBasicInfo(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -124,7 +125,7 @@ func (c *Customer360Controller) GetCustomerStats(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -144,7 +145,7 @@ func (c *Customer360Controller) GetCustomerSessions(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -164,7 +165,7 @@ func (c *Customer360Controller) GetCustomerMessages(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -235,7 +236,7 @@ func (c *Customer360Controller) GetCustomer360ByID(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -306,7 +307,7 @@ func (c *Customer360Controller) GetCustomerDetail(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -358,7 +359,7 @@ func (c *Customer360Controller) UpdateCustomer(ctx *gin.Context) {
 	}
 
 	// 返回更新后的 360 视图（如果构建失败则返回基础信息）
-	dto, dtoErr := c.customer360Service.GetCustomer360(userID)
+	dto, dtoErr := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if dtoErr != nil {
 		response.Success(ctx, gin.H{
 			"id":          view.ID,
@@ -383,7 +384,7 @@ func (c *Customer360Controller) GetCustomerBehaviors(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -396,30 +397,6 @@ func (c *Customer360Controller) GetCustomerBehaviors(ctx *gin.Context) {
 	}, "获取成功")
 }
 
-// GetCustomerOrders 获取客户订单记录（兼容前端 GET /api/customer/:id/orders）
-func (c *Customer360Controller) GetCustomerOrders(ctx *gin.Context) {
-	userID := ctx.Param("id")
-	if userID == "" {
-		response.Error(ctx, http.StatusBadRequest, "缺少客户ID")
-		return
-	}
-
-	dto, err := c.customer360Service.GetCustomer360(userID)
-	if err != nil {
-		response.Error(ctx, http.StatusNotFound, err.Error())
-		return
-	}
-
-	orderInfo := dto.OrderInfo
-	if orderInfo == nil {
-		orderInfo = &service.OrderInfo{
-			Orders: make([]*service.OrderItem, 0),
-		}
-	}
-
-	response.Success(ctx, orderInfo, "获取成功")
-}
-
 // GetCustomerCommunications 获取客户沟通记录（兼容前端 GET /api/customer/:id/communications）
 func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 	userID := ctx.Param("id")
@@ -428,7 +405,7 @@ func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 		return
 	}
 
-	dto, err := c.customer360Service.GetCustomer360(userID)
+	dto, err := c.customer360Service.GetCustomer360(context.Background(), userID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return

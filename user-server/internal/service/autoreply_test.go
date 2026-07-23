@@ -261,7 +261,7 @@ func TestAutoReplyService_DeleteAccount(t *testing.T) {
 	database.Create(account)
 
 	// 删除账号
-	err := service.DeleteAccount(account.ID, 1)
+	err := service.DeleteAccount(context.Background(), account.ID, 1)
 	if err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestAutoReplyService_DeleteAccount_WrongUser(t *testing.T) {
 	database.Create(account)
 
 	// 尝试用错误的用户 ID 删除
-	err := service.DeleteAccount(account.ID, 2)
+	err := service.DeleteAccount(context.Background(), account.ID, 2)
 	if err != nil {
 		t.Fatalf("DeleteAccount should not fail, got: %v", err)
 	}

@@ -439,7 +439,7 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 
 	// 2. 客户旅程推到"成交"
 	if s.journey != nil {
-		_, _ = s.journey.Transition(ctx, context.Background(), draft.CustomerID, StageWon, "draft_confirm", confirmedBy,
+		_, _ = s.journey.Transition(ctx, draft.CustomerID, StageWon, "draft_confirm", confirmedBy,
 			"草稿确认自动成单: "+draft.ProductName, map[string]any{
 				"draft_id":	draft.ID,
 				"order_id":	orderID,
@@ -474,7 +474,7 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 
 	// 4. 自动安排 7 天后售后回访
 	if s.followup != nil {
-		r, _ := s.followup.Schedule(ctx, context.Background(), draft.CustomerID, draft.OwnerID,
+		r, _ := s.followup.Schedule(ctx, draft.CustomerID, draft.OwnerID,
 			ReminderAfterSaleCare, 7*24*time.Hour, &ScheduleOptions{
 				Title:		"售后回访: " + draft.ProductName,
 				Description:	fmt.Sprintf("草稿 %s 确认后自动安排（订单 %s）", draft.ID, orderID),

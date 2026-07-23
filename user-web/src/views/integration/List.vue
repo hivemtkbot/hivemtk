@@ -116,7 +116,6 @@
         <el-form-item label="事件订阅">
           <el-checkbox-group v-model="form.events">
             <el-checkbox label="user.created">用户创建</el-checkbox>
-            <el-checkbox label="order.created">订单创建</el-checkbox>
             <el-checkbox label="clue.updated">线索更新</el-checkbox>
           </el-checkbox-group>
         </el-form-item>

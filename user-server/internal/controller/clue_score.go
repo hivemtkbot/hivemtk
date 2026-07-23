@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -34,12 +35,12 @@ func (c *ClueScoreController) ScoreClue(ctx *gin.Context) {
 		return
 	}
 	// 加载线索
-	clue, err := c.svc.LoadClueForScoring(req.ClueID)
+	clue, err := c.svc.LoadClueForScoring(context.Background(), req.ClueID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "线索不存在")
 		return
 	}
-	score, err := c.svc.ScoreClue(clue)
+	score, err := c.svc.ScoreClue(context.Background(), clue)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "评分失败: "+err.Error())
 		return
@@ -61,7 +62,7 @@ func (c *ClueScoreController) ScoreAll(ctx *gin.Context) {
 	if v := ctx.Query("limit"); v != "" {
 		limit = parsePositiveInt(v, 200, 1000)
 	}
-	count, err := c.svc.ScoreAll(limit)
+	count, err := c.svc.ScoreAll(context.Background(), limit)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "批量评分失败: "+err.Error())
 		return
@@ -77,7 +78,7 @@ func (c *ClueScoreController) ScoreAll(ctx *gin.Context) {
 // @Router /api/clue/score/{clue_id} [get]
 func (c *ClueScoreController) GetByClueID(ctx *gin.Context) {
 	clueID := ctx.Param("clue_id")
-	score, err := c.svc.GetByClueID(clueID)
+	score, err := c.svc.GetByClueID(context.Background(), clueID)
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "未找到评分")
 		return
@@ -97,7 +98,7 @@ func (c *ClueScoreController) ListByGrade(ctx *gin.Context) {
 	grade := ctx.Query("grade")
 	page := parsePositiveInt(ctx.Query("page"), 1, 10000)
 	pageSize := parsePositiveInt(ctx.Query("page_size"), 20, 200)
-	list, total, err := c.svc.ListByGrade(grade, page, pageSize)
+	list, total, err := c.svc.ListByGrade(context.Background(), grade, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return
@@ -128,7 +129,7 @@ func (c *ClueScoreController) RecordEngagement(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := c.svc.RecordEngagement(req.ClueID, req.EventType, req.Channel, req.Payload); err != nil {
+	if err := c.svc.RecordEngagement(context.Background(), req.ClueID, req.EventType, req.Channel, req.Payload); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "记录失败: "+err.Error())
 		return
 	}

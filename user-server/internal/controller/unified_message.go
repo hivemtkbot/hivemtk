@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/platform"
@@ -33,7 +34,7 @@ func (c *UnifiedMessageController) GetMessages(ctx *gin.Context) {
 		return
 	}
 
-	messages, total, err := c.messageService.GetMessages(platform, page, pageSize)
+	messages, total, err := c.messageService.GetMessages(context.Background(), platform, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -57,7 +58,7 @@ func (c *UnifiedMessageController) GetMessageByID(ctx *gin.Context) {
 		return
 	}
 
-	msg, err := c.messageService.GetMessageByID(uint(id))
+	msg, err := c.messageService.GetMessageByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -75,7 +76,7 @@ func (c *UnifiedMessageController) GetReplies(ctx *gin.Context) {
 		return
 	}
 
-	replies, err := c.messageService.GetReplies(messageID)
+	replies, err := c.messageService.GetReplies(context.Background(), messageID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -99,7 +100,7 @@ func NewPlatformAccountController() *PlatformAccountController {
 // GetAccounts 获取平台账号列表
 func (c *PlatformAccountController) GetAccounts(ctx *gin.Context) {
 
-	accounts, err := c.accountService.GetAccounts()
+	accounts, err := c.accountService.GetAccounts(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -118,7 +119,7 @@ func (c *PlatformAccountController) GetAccountByID(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.accountService.GetAccountByID(uint(id))
+	account, err := c.accountService.GetAccountByID(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "获取平台账号") {
 		return
 	}
@@ -135,7 +136,7 @@ func (c *PlatformAccountController) CreateAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.accountService.CreateAccount(&req)
+	account, err := c.accountService.CreateAccount(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -160,7 +161,7 @@ func (c *PlatformAccountController) UpdateAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.accountService.UpdateAccount(uint(id), &req)
+	account, err := c.accountService.UpdateAccount(context.Background(), uint(id), &req)
 	if HandleDBError(ctx, err, "更新平台账号") {
 		return
 	}
@@ -178,7 +179,7 @@ func (c *PlatformAccountController) DeleteAccount(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.accountService.DeleteAccount(uint(id)), "删除平台账号") {
+	if HandleDBError(ctx, c.accountService.DeleteAccount(context.Background(), uint(id)), "删除平台账号") {
 		return
 	}
 
@@ -201,7 +202,7 @@ func (c *PlatformAccountController) LoginAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.accountService.Login(uint(id), &req)
+	account, err := c.accountService.Login(context.Background(), uint(id), &req)
 	if HandleDBError(ctx, err, "登录平台账号") {
 		return
 	}
@@ -219,7 +220,7 @@ func (c *PlatformAccountController) CheckLoginStatus(ctx *gin.Context) {
 		return
 	}
 
-	status, err := c.accountService.CheckLoginStatus(uint(id))
+	status, err := c.accountService.CheckLoginStatus(context.Background(), uint(id))
 	if HandleDBError(ctx, err, "检查登录状态") {
 		return
 	}

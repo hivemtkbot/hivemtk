@@ -22,9 +22,6 @@ export function getCustomerDetail(id) {
 export function getCustomerBehaviors(id) {
   return request({ url: `/api/customer/${id}/behaviors`, method: 'get' })
 }
-export function getCustomerOrders(id) {
-  return request({ url: `/api/customer/${id}/orders`, method: 'get' })
-}
 export function getCustomerCommunications(id) {
   return request({ url: `/api/customer/${id}/communications`, method: 'get' })
 }

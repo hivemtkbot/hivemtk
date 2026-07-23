@@ -41,7 +41,7 @@ func TestAccountRepository_Create(t *testing.T) {
 		Status:     _type.AccountStatusActive,
 	}
 
-	err := repo.Create(context.Background(), account)
+	err := repo.Createaccount)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -62,9 +62,9 @@ func TestAccountRepository_GetByID(t *testing.T) {
 		GroupID:    12345,
 		Status:     _type.AccountStatusActive,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
-	fetchedAccount, err := repo.GetByID(context.Background(), account.ID)
+	fetchedAccount, err := repo.GetByIDaccount.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestAccountRepository_GetByID_NotFound(t *testing.T) {
 
 	repo := NewAccountRepository()
 
-	_, err := repo.GetByID(context.Background(), "non-existent-id")
+	_, err := repo.GetByID"non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -97,7 +97,7 @@ func TestAccountRepository_GetAccountList(t *testing.T) {
 			GroupID:    int64(10000 + i),
 			Status:     _type.AccountStatusActive,
 		}
-		repo.Create(context.Background(), account)
+		repo.Createaccount)
 	}
 
 	accounts, err := repo.GetAccountList(context.Background())
@@ -121,15 +121,15 @@ func TestAccountRepository_Update(t *testing.T) {
 		GroupID:    12345,
 		Status:     _type.AccountStatusActive,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	account.TgBotToken = "newtoken123"
-	err := repo.Update(context.Background(), account)
+	err := repo.Updateaccount)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
 
-	fetchedAccount, _ := repo.GetByID(context.Background(), account.ID)
+	fetchedAccount, _ := repo.GetByIDaccount.ID)
 	if fetchedAccount.TgBotToken != "newtoken123" {
 		t.Errorf("Expected TgBotToken 'newtoken123', got %s", fetchedAccount.TgBotToken)
 	}
@@ -146,14 +146,14 @@ func TestAccountRepository_Delete(t *testing.T) {
 		GroupID:    12345,
 		Status:     _type.AccountStatusActive,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
-	err := repo.Delete(context.Background(), account.ID)
+	err := repo.Deleteaccount.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	_, err = repo.GetByID(context.Background(), account.ID)
+	_, err = repo.GetByIDaccount.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -170,14 +170,14 @@ func TestAccountRepository_UpdateAccountStatusById(t *testing.T) {
 		GroupID:    12345,
 		Status:     _type.AccountStatusActive,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	err := repo.UpdateAccountStatusById(context.Background(), account.ID, _type.AccountStatusInactive, "Test message")
 	if err != nil {
 		t.Fatalf("UpdateAccountStatusById failed: %v", err)
 	}
 
-	fetchedAccount, _ := repo.GetByID(context.Background(), account.ID)
+	fetchedAccount, _ := repo.GetByIDaccount.ID)
 	if fetchedAccount.Status != _type.AccountStatusInactive {
 		t.Errorf("Expected status Inactive, got %d", fetchedAccount.Status)
 	}
@@ -208,14 +208,14 @@ func TestAccountRepository_UpdateAccountTgNameById(t *testing.T) {
 		GroupID:    12345,
 		Status:     _type.AccountStatusActive,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	err := repo.UpdateAccountTgNameById(context.Background(), account.ID, "newtgname")
 	if err != nil {
 		t.Fatalf("UpdateAccountTgNameById failed: %v", err)
 	}
 
-	fetchedAccount, _ := repo.GetByID(context.Background(), account.ID)
+	fetchedAccount, _ := repo.GetByIDaccount.ID)
 	if fetchedAccount.TgName != "newtgname" {
 		t.Errorf("Expected TgName 'newtgname', got %s", fetchedAccount.TgName)
 	}

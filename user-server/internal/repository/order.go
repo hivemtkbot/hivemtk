@@ -18,7 +18,6 @@ type OrderRepository interface {
 	GetByStringID(ctx context.Context, id string) (*model.Order, error)
 	GetOrderList(ctx context.Context, page int, limit int) ([]*model.Order, int64, error)
 	Delete(ctx context.Context, id string) error
-	LastOrderIsPay(ctx context.Context, account_ID string, tgID int64) bool
 	GetGetLastOrder(ctx context.Context, account_ID string, tgID int64) (*model.Order, error)
 	UpdateOrderStatusById(ctx context.Context, id string, status _type.OrderStatusType) error
 	GetRecentOrderList(ctx context.Context) ([]*model.Order, error)
@@ -69,18 +68,6 @@ func (r *orderRepo) GetOrderList(ctx context.Context, page int, limit int) ([]*m
 
 func (r *orderRepo) Delete(ctx context.Context, id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.Order{}).Error
-}
-
-func (r *orderRepo) LastOrderIsPay(ctx context.Context, account_ID string, tgID int64) bool {
-	var order model.Order
-	err := r.db.Where("status = ? and account_id = ? and tg_id = ?", _type.OrderStatusSuccess, account_ID, tgID).Order("create_time desc").First(&order).Error
-	if err != nil {
-		return false
-	}
-	if order.Status == _type.OrderStatusSuccess {
-		return true
-	}
-	return false
 }
 
 func (r *orderRepo) GetGetLastOrder(ctx context.Context, account_ID string, tgID int64) (*model.Order, error) {

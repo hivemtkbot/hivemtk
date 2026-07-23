@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 

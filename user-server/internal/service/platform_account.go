@@ -109,7 +109,7 @@ func (s *PlatformAccountService) Login(ctx context.Context, id uint, req *Platfo
 	}
 
 	// 执行登录
-	result, err := adapter.Login(ctx, req.Credentials)
+	result, err := adapter.Login(req.Credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *PlatformAccountService) CheckLoginStatus(ctx context.Context, id uint) 
 		return false, err
 	}
 
-	return adapter.CheckLoginStatus(ctx, account.AccountID)
+	return adapter.CheckLoginStatus(account.AccountID)
 }
 
 var ErrPermissionDenied = &PermissionDeniedError{}

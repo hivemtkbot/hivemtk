@@ -212,7 +212,7 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 		return
 	}
 	rows := []SmsNumberPortabilityRecord{}
-	if err := s.db.Order(ctx, "detected_at DESC").Limit(10000).Find(&rows).Error; err != nil {
+	if err := s.db.Order("detected_at DESC").Limit(10000).Find(&rows).Error; err != nil {
 		logger.Errorf("[SmsDeliveryTracker] load carrier cache: %v", err)
 		s.carrierLoaded = true
 		return
@@ -500,7 +500,7 @@ func (s *SmsDeliveryTrackerService) RecordFromProvider(ctx context.Context, r *P
 	go func(phone, carrier string) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = s.DetectAndRecordPortability(ctx, bgCtx, phone, carrier)
+		_ = s.DetectAndRecordPortability(bgCtx, phone, carrier)
 	}(r.Phone, r.Carrier)
 
 	// 3) 黑名单事件

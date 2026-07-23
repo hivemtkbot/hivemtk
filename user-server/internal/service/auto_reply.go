@@ -136,9 +136,9 @@ func (s *AutoReplyService) ListRecentLogs(ctx context.Context, platform string, 
 	return s.logRepo.ListRecentByPlatformAndUser(ctx, platform, userID, page, pageSize, cutoff)
 }
 
-func (s *AutoReplyService) AppendLog(ctx context.Context, userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
+func (s *AutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{UserID: userID, AccountID: accountID, RuleID: ruleID, Platform: platform, TargetContent: target, ReplyContent: reply, Status: status, ErrorMsg: errMsg, CreatedAt: time.Now()}
-	return s.logRepo.Create(ctx, item)
+	return s.logRepo.Create(context.Background(), item)
 }
 
 // StartLoginBrowser 启动本地浏览器打开登录页面并在登录后提取 Cookie 保存

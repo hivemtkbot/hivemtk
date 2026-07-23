@@ -116,7 +116,7 @@ func TestPlatformAccountService_CreateAccount(t *testing.T) {
 		Config:      `{"key": "value"}`,
 	}
 
-	account, err := service.CreateAccount(req)
+	account, err := service.CreateAccount(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateAccount failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestPlatformAccountService_UpdateAccount(t *testing.T) {
 		Status:      &status,
 	}
 
-	updated, err := service.UpdateAccount(account.ID, updateReq)
+	updated, err := service.UpdateAccount(context.Background(), account.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateAccount failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestPlatformAccountService_UpdateAccount_NotFound(t *testing.T) {
 	service := NewPlatformAccountServiceWithRepo(repo)
 
 	updateReq := &UpdatePlatformAccountRequest{AccountName: "新名"}
-	_, err := service.UpdateAccount(99999, updateReq)
+	_, err := service.UpdateAccount(context.Background(), 99999, updateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -190,7 +190,7 @@ func TestPlatformAccountService_DeleteAccount(t *testing.T) {
 	repo := newPlatformAccountRepoForTest(database)
 	service := NewPlatformAccountServiceWithRepo(repo)
 
-	if err := service.DeleteAccount(account.ID); err != nil {
+	if err := service.DeleteAccount(context.Background(), account.ID); err != nil {
 		t.Fatalf("DeleteAccount failed: %v", err)
 	}
 

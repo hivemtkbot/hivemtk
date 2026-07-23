@@ -78,7 +78,7 @@ func TestIntegrationAccountRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(context.Background(), tt.account)
+			err := repo.Creatett.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -101,7 +101,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 		AccountName: "GetByID Account",
 		APIKey:      "test-key",
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	tests := []struct {
 		name    string
@@ -122,7 +122,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(context.Background(), tt.id)
+			result, err := repo.GetByIDtt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -145,11 +145,11 @@ func TestIntegrationAccountRepository_GetByPlatform(t *testing.T) {
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	repo.Create(context.Background(), &model.IntegrationAccount{
+	repo.Create&model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "CRM Account",
 	})
-	repo.Create(context.Background(), &model.IntegrationAccount{
+	repo.Create&model.IntegrationAccount{
 		Platform:    "ecommerce_taobao",
 		AccountName: "TB Account",
 	})
@@ -207,17 +207,17 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 		AccountName: "Original Name",
 		Status:      1,
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	account.AccountName = "Updated Name"
 	account.Status = 0
 
-	err := repo.Update(context.Background(), account)
+	err := repo.Updateaccount)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), account.ID)
+	updated, _ := repo.GetByIDaccount.ID)
 	if updated.AccountName != "Updated Name" {
 		t.Errorf("Expected account name 'Updated Name', got '%s'", updated.AccountName)
 	}
@@ -235,7 +235,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Token Test",
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	expiresAt := time.Now().Add(time.Hour * 24)
 	err := repo.UpdateToken(context.Background(), account.ID, "new-access-token", &expiresAt)
@@ -243,7 +243,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		t.Errorf("UpdateToken() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), account.ID)
+	updated, _ := repo.GetByIDaccount.ID)
 	if updated.AccessToken != "new-access-token" {
 		t.Errorf("Expected access token 'new-access-token', got '%s'", updated.AccessToken)
 	}
@@ -261,14 +261,14 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "To Delete",
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
-	err := repo.Delete(context.Background(), account.ID)
+	err := repo.Deleteaccount.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(context.Background(), account.ID)
+	_, err = repo.GetByIDaccount.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -283,14 +283,14 @@ func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Sync Test",
 	}
-	repo.Create(context.Background(), account)
+	repo.Createaccount)
 
 	err := repo.UpdateSyncTime(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("UpdateSyncTime() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), account.ID)
+	updated, _ := repo.GetByIDaccount.ID)
 	if updated.LastSyncAt == nil {
 		t.Error("Expected LastSyncAt to be updated")
 	}
@@ -330,7 +330,7 @@ func TestSyncLogRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := syncRepo.Create(context.Background(), tt.log)
+			err := syncRepo.Create(tt.log)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -354,7 +354,7 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 		Status:      1,
 		RecordCount: 100,
 	}
-	syncRepo.Create(context.Background(), log)
+	syncRepo.Create(log)
 
 	tests := []struct {
 		name    string
@@ -375,7 +375,7 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := syncRepo.GetByID(context.Background(), tt.id)
+			result, err := syncRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -404,17 +404,17 @@ func TestSyncLogRepository_Update(t *testing.T) {
 		Status:      0,
 		RecordCount: 0,
 	}
-	syncRepo.Create(context.Background(), log)
+	syncRepo.Create(log)
 
 	log.Status = 1
 	log.RecordCount = 100
 
-	err := syncRepo.Update(context.Background(), log)
+	err := syncRepo.Update(log)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := syncRepo.GetByID(context.Background(), log.ID)
+	updated, _ := syncRepo.GetByID(log.ID)
 	if updated.Status != 1 {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
@@ -433,7 +433,7 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 		SyncType: "customer",
 		Status:   0,
 	}
-	syncRepo.Create(context.Background(), log)
+	syncRepo.Create(log)
 
 	tests := []struct {
 		name         string
@@ -467,7 +467,7 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				updated, _ := syncRepo.GetByID(context.Background(), log.ID)
+				updated, _ := syncRepo.GetByID(log.ID)
 				if updated.Status != tt.status {
 					t.Errorf("Expected status %d, got %d", tt.status, updated.Status)
 				}
@@ -520,7 +520,7 @@ func TestExternalCustomerRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := customerRepo.Create(context.Background(), tt.customer)
+			err := customerRepo.Create(tt.customer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -544,7 +544,7 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 		Name:       "GetByID Customer",
 		Phone:      "13800138000",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
 	tests := []struct {
 		name    string
@@ -565,7 +565,7 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := customerRepo.GetByID(context.Background(), tt.id)
+			result, err := customerRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -593,7 +593,7 @@ func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
 		ExternalID: "unique-external-id",
 		Name:       "Unique Customer",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
 	result, err := customerRepo.GetByExternalID(context.Background(), "crm_xiaoshouyi", "unique-external-id")
 	if err != nil {
@@ -615,12 +615,12 @@ func TestExternalCustomerRepository_GetByPlatform(t *testing.T) {
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	customerRepo.Create(context.Background(), &model.ExternalCustomer{
+	customerRepo.Create(&model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "crm-1",
 		Name:       "CRM Customer 1",
 	})
-	customerRepo.Create(context.Background(), &model.ExternalCustomer{
+	customerRepo.Create(&model.ExternalCustomer{
 		Platform:   "ecommerce_taobao",
 		ExternalID: "tb-1",
 		Name:       "TB Customer 1",
@@ -679,17 +679,17 @@ func TestExternalCustomerRepository_Update(t *testing.T) {
 		Name:       "Original Name",
 		Phone:      "13800138000",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
 	customer.Name = "Updated Name"
 	customer.Email = "updated@example.com"
 
-	err := customerRepo.Update(context.Background(), customer)
+	err := customerRepo.Update(customer)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := customerRepo.GetByID(context.Background(), customer.ID)
+	updated, _ := customerRepo.GetByID(customer.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -708,14 +708,14 @@ func TestExternalCustomerRepository_Delete(t *testing.T) {
 		ExternalID: "ext-delete",
 		Name:       "To Delete",
 	}
-	customerRepo.Create(context.Background(), customer)
+	customerRepo.Create(customer)
 
-	err := customerRepo.Delete(context.Background(), customer.ID)
+	err := customerRepo.Delete(customer.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = customerRepo.GetByID(context.Background(), customer.ID)
+	_, err = customerRepo.GetByID(customer.ID)
 	if err == nil {
 		t.Error("Expected customer to be deleted")
 	}
@@ -766,7 +766,7 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := orderRepo.Create(context.Background(), tt.order)
+			err := orderRepo.Create(tt.order)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -792,7 +792,7 @@ func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
 		UserName:    "Order User",
 		TotalAmount: 15000, // 150 元 = 15000 分
 	}
-	orderRepo.Create(context.Background(), order)
+	orderRepo.Create(order)
 
 	tests := []struct {
 		name       string
@@ -838,13 +838,13 @@ func TestExternalOrderRepository_GetByPlatform(t *testing.T) {
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	orderRepo.Create(context.Background(), &model.ExternalOrder{
+	orderRepo.Create(&model.ExternalOrder{
 		Platform: "ecommerce_taobao",
 		OrderID:  "tb-order-1",
 		OrderNo:  "tb-1",
 		UserID:   "user-1",
 	})
-	orderRepo.Create(context.Background(), &model.ExternalOrder{
+	orderRepo.Create(&model.ExternalOrder{
 		Platform: "ecommerce_jd",
 		OrderID:  "jd-order-1",
 		OrderNo:  "jd-1",
@@ -907,17 +907,17 @@ func TestExternalOrderRepository_Update(t *testing.T) {
 		TotalAmount: 10000, // 100 元 = 10000 分
 		Status:      "pending",
 	}
-	orderRepo.Create(context.Background(), order)
+	orderRepo.Create(order)
 
 	order.UserName = "Updated User"
 	order.Status = "paid"
 
-	err := orderRepo.Update(context.Background(), order)
+	err := orderRepo.Update(order)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := orderRepo.GetByID(context.Background(), order.ID)
+	updated, _ := orderRepo.GetByID(order.ID)
 	if updated.UserName != "Updated User" {
 		t.Errorf("Expected user name 'Updated User', got '%s'", updated.UserName)
 	}
@@ -937,14 +937,14 @@ func TestExternalOrderRepository_Delete(t *testing.T) {
 		OrderNo:  "internal-delete",
 		UserID:   "user-123",
 	}
-	orderRepo.Create(context.Background(), order)
+	orderRepo.Create(order)
 
-	err := orderRepo.Delete(context.Background(), order.ID)
+	err := orderRepo.Delete(order.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = orderRepo.GetByID(context.Background(), order.ID)
+	_, err = orderRepo.GetByID(order.ID)
 	if err == nil {
 		t.Error("Expected order to be deleted")
 	}
@@ -992,7 +992,7 @@ func TestExternalProductRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := productRepo.Create(context.Background(), tt.product)
+			err := productRepo.Create(tt.product)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1018,7 +1018,7 @@ func TestExternalProductRepository_GetByProductID(t *testing.T) {
 		OriginalPrice: 19900, // 199 元 = 19900 分
 		Stock:         100,
 	}
-	productRepo.Create(context.Background(), product)
+	productRepo.Create(product)
 
 	tests := []struct {
 		name      string
@@ -1070,18 +1070,18 @@ func TestExternalProductRepository_Update(t *testing.T) {
 		Stock:     100,
 		Status:    1,
 	}
-	productRepo.Create(context.Background(), product)
+	productRepo.Create(product)
 
 	product.Name = "Updated Name"
 	product.Price = 14900 // 149.00 元 = 14900 分
 	product.Stock = 50
 
-	err := productRepo.Update(context.Background(), product)
+	err := productRepo.Update(product)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := productRepo.GetByID(context.Background(), product.ID)
+	updated, _ := productRepo.GetByID(product.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -1104,14 +1104,14 @@ func TestExternalProductRepository_Delete(t *testing.T) {
 		Name:      "To Delete",
 		Price:     9900, // 99.00 元 = 9900 分
 	}
-	productRepo.Create(context.Background(), product)
+	productRepo.Create(product)
 
-	err := productRepo.Delete(context.Background(), product.ID)
+	err := productRepo.Delete(product.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = productRepo.GetByID(context.Background(), product.ID)
+	_, err = productRepo.GetByID(product.ID)
 	if err == nil {
 		t.Error("Expected product to be deleted")
 	}
@@ -1152,7 +1152,7 @@ func TestWebhookEventRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := webhookRepo.Create(context.Background(), tt.event)
+			err := webhookRepo.Create(tt.event)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1176,7 +1176,7 @@ func TestWebhookEventRepository_GetByEventID(t *testing.T) {
 		EventType: "order.paid",
 		RawData:   `{"data": "test"}`,
 	}
-	webhookRepo.Create(context.Background(), event)
+	webhookRepo.Create(event)
 
 	tests := []struct {
 		name    string
@@ -1220,19 +1220,19 @@ func TestWebhookEventRepository_GetUnprocessed(t *testing.T) {
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	webhookRepo.Create(context.Background(), &model.WebhookEvent{
+	webhookRepo.Create(&model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unprocessed-1",
 		EventType: "order.paid",
 		Processed: false,
 	})
-	webhookRepo.Create(context.Background(), &model.WebhookEvent{
+	webhookRepo.Create(&model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unprocessed-2",
 		EventType: "order.shipped",
 		Processed: false,
 	})
-	webhookRepo.Create(context.Background(), &model.WebhookEvent{
+	webhookRepo.Create(&model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "processed-1",
 		EventType: "order.delivered",
@@ -1260,14 +1260,14 @@ func TestWebhookEventRepository_MarkProcessed(t *testing.T) {
 		EventType: "order.paid",
 		Processed: false,
 	}
-	webhookRepo.Create(context.Background(), event)
+	webhookRepo.Create(event)
 
 	err := webhookRepo.MarkProcessed(context.Background(), event.ID)
 	if err != nil {
 		t.Errorf("MarkProcessed() error = %v", err)
 	}
 
-	updated, _ := webhookRepo.GetByID(context.Background(), event.ID)
+	updated, _ := webhookRepo.GetByID(event.ID)
 	if !updated.Processed {
 		t.Error("Expected event to be marked as processed")
 	}
@@ -1288,17 +1288,17 @@ func TestWebhookEventRepository_Update(t *testing.T) {
 		RawData:   `{"original": "data"}`,
 		Processed: false,
 	}
-	webhookRepo.Create(context.Background(), event)
+	webhookRepo.Create(event)
 
 	event.EventType = "order.updated"
 	event.RawData = `{"updated": "data"}`
 
-	err := webhookRepo.Update(context.Background(), event)
+	err := webhookRepo.Update(event)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := webhookRepo.GetByID(context.Background(), event.ID)
+	updated, _ := webhookRepo.GetByID(event.ID)
 	if updated.EventType != "order.updated" {
 		t.Errorf("Expected event type 'order.updated', got '%s'", updated.EventType)
 	}

@@ -195,7 +195,7 @@ const (
 func NewWebhookService(db *gorm.DB) *WebhookService {
 	wecomRepo := repository.NewWeComAccountRepository()
 	if db != nil {
-		wecomRepo.SetDB(db)
+		wecomRepo.SetDB(context.Background(), db)
 	}
 	accountRepo := repository.NewIntegrationAccountRepository()
 	if db != nil {
@@ -207,15 +207,15 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	}
 	telegramRepo := repository.NewTelegramAccountRepository()
 	if db != nil {
-		telegramRepo.SetDB(db)
+		telegramRepo.SetDB(context.Background(), db)
 	}
 	feishuRepo := repository.NewFeishuAccountRepository()
 	if db != nil {
-		feishuRepo.SetDB(db)
+		feishuRepo.SetDB(context.Background(), db)
 	}
 	waRepo := repository.NewWhatsAppCloudAccountRepository()
 	if db != nil {
-		waRepo.SetDB(db)
+		waRepo.SetDB(context.Background(), db)
 	}
 	// 仅在 db 非空时初始化新仓库，保持与原 s.db == nil 守卫等价的 nil-safe 语义
 	var messageHubRepo *repository.MessageHubRepository
@@ -251,8 +251,8 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		stopCh:		make(chan struct{}),
 		replySem:	make(chan struct{}, webhookEnvInt("WEBHOOK_REPLY_CONCURRENCY", WebhookReplyConcurrency)),
 	}
-	s.startWorkers(ctx, context.Background())
-	s.startDedupJanitor(ctx, context.Background())
+	s.startWorkers(context.Background())
+	s.startDedupJanitor(context.Background())
 	return s
 }
 
@@ -360,7 +360,7 @@ func (s *WebhookService) Stop(ctx context.Context) {
 	// 通过 context 超时防止 worker 处于 retryWithBackoff 长延迟时无限阻塞
 	done := make(chan struct{})
 	go func() {
-		s.wg.Wait(ctx)
+		s.wg.Wait()
 		close(done)
 	}()
 	select {
@@ -374,14 +374,14 @@ func (s *WebhookService) Stop(ctx context.Context) {
 
 func (s *WebhookService) startWorkers(ctx context.Context) {
 	for i := 0; i < s.workerCount; i++ {
-		s.wg.Add(ctx, 1)
+		s.wg.Add(1)
 		go s.worker(ctx, i)
 	}
 }
 
 func (s *WebhookService) worker(ctx context.Context, id int) {
-	defer s.wg.Done(ctx)
-	for {
+		defer s.wg.Done()
+		for {
 		select {
 		case <-s.stopCh:
 			return
@@ -1290,7 +1290,7 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		if tgPayload.Message != nil && tgPayload.Message.Chat != nil {
 			groupTitle = tgPayload.Message.Chat.Title
 		}
-		newOpportunity = s.mineTelegramGroupLead(hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
+		newOpportunity = s.mineTelegramGroupLead(context.Background(), hub, chatIDStr, groupTitle, senderIDStr, picked.username, picked.fromName, picked.text)
 	}
 
 	// 群内「@机器人 才回复」的提及判定：文本含 @username，或本条是「回复了某条机器人消息」
@@ -1729,7 +1729,7 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 	routeCtx := context.Background()
 	routeCtx = logger.WithTraceID(routeCtx, "")
 	routeCtx = logger.WithModule(routeCtx, "webhook")
-	agentCtx, _ := s.loadAgentForChannel(ctx, routeCtx, channel, accountID)
+	agentCtx, _ := s.loadAgentForChannel(routeCtx, channel, accountID)
 
 	in := &IncomingContext{
 		Platform:	model.Platform(channel),
@@ -1934,15 +1934,15 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 		return false
 	}
 	now := time.Now()
-	if v, ok := s.dedup.Load(ctx, eventID); ok {
+	if v, ok := s.dedup.Load(eventID); ok {
 		if exp, ok := v.(time.Time); ok && now.Before(exp) {
 			// R9 可观测性：命中去重的重复投递
 			metrics.GlobalMetrics.WebhookDedupTotal.Inc("duplicate")
 			return true
 		}
-		s.dedup.Delete(ctx, eventID)
+		s.dedup.Delete(eventID)
 	}
-	s.dedup.Store(ctx, eventID, now.Add(WebhookDedupTTL))
+	s.dedup.Store(eventID, now.Add(WebhookDedupTTL))
 	// R9 可观测性：新事件接受（进入幂等窗口）
 	metrics.GlobalMetrics.WebhookDedupTotal.Inc("accepted")
 	return false
@@ -1961,23 +1961,23 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 		s.rlBuckets[key] = b
 	}
 	s.rlMu.Unlock()
-	return b.allow()
+	return b.allow(context.Background(), )
 }
 
 // startDedupJanitor 后台周期性清理过期的 dedup 条目，避免 sync.Map 无限增长（性能审计 P1-2）。
 func (s *WebhookService) startDedupJanitor(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop(ctx)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-s.stopCh:
 				return
 			case <-ticker.C:
 				now := time.Now()
-				s.dedup.Range(ctx, func(k, v any) bool {
+				s.dedup.Range(func(k, v any) bool {
 					if exp, ok := v.(time.Time); ok && now.After(exp) {
-						s.dedup.Delete(ctx, k)
+						s.dedup.Delete(k)
 					}
 					return true
 				})

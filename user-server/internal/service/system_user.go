@@ -137,7 +137,7 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 	}
 
 	// 5. 检查用户名是否已存在
-	exists, err := s.repo.UsernameExists(ctx, req.Username)
+	exists, err := s.repo.UsernameExists(ctx, req.Username, 0)
 	if err != nil {
 		logger.Error(err, "检查用户名失败")
 		return nil, errors.New("创建用户失败")
@@ -148,7 +148,7 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 
 	// 6. 检查邮箱是否已存在
 	if req.Email != "" {
-		exists, err := s.repo.EmailExists(ctx, req.Email)
+		exists, err := s.repo.EmailExists(ctx, req.Email, 0)
 		if err != nil {
 			logger.Error(err, "检查邮箱失败")
 			return nil, errors.New("创建用户失败")

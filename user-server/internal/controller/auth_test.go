@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"context"
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
@@ -163,7 +164,7 @@ func TestAuthController_RefreshToken_Success(t *testing.T) {
 	router.POST("/refresh", authCtrl.RefreshToken)
 
 	// 生成有效令牌
-	jwtUtils := service.NewAuthService().JwtUtils()
+	jwtUtils := service.NewAuthService().JwtUtils(context.Background())
 	// 私域部署：GenerateToken 只接受 3 个参数（无 merchantID）
 	validToken, _ := jwtUtils.GenerateToken(1, "testuser", "admin")
 

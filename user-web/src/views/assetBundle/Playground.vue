@@ -213,8 +213,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createBundle, updateBundle, getBundleByAssetID,
-  weaveBundle, publishBundle
+  weaveBundle, publishBundle, submitToPlatform
 } from '@/api/assetBundle'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -344,7 +347,7 @@ const handleSave = async () => {
       title: bundle.title,
       version: bundle.version,
       industry: bundle.industry,
-      author: bundle.author,
+      author: bundle.author || userStore.username,
       scope: bundle.scope,
       messages: bundle.messages
     }
@@ -370,17 +373,23 @@ const handleSave = async () => {
   }
 }
 
-// 发布
+// 发布 / 上架到官方蜂巢商城（本地发布 + 提交平台审核）
 const handlePublish = async () => {
   if (!bundle.id) {
     ElMessage.warning('请先保存资产包')
     return
   }
   try {
-    await ElMessageBox.confirm('确认发布该资产包？发布后将进入 active 状态', '确认', { type: 'warning' })
+    await ElMessageBox.confirm('确认发布并上架该资产包？将本地发布并提交平台审核', '确认', { type: 'warning' })
     await publishBundle(bundle.id)
     bundle.status = 'active'
-    ElMessage.success('已发布')
+    // best-effort：本地发布成功后，尝试提交平台审核上架（开发者上架链路 P0）
+    try {
+      await submitToPlatform(bundle.id)
+      ElMessage.success('本地已发布，并已提交平台审核上架')
+    } catch (e) {
+      ElMessage.warning('本地已发布；提交平台审核失败：' + (e?.message || e))
+    }
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error('发布失败: ' + (e?.message || e))

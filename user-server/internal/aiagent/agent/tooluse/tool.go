@@ -24,7 +24,7 @@ const (
 	CategoryReach          ToolCategory = "reach"           // 触达工具：短信 / 邮件 / 卡片 / 多渠道外发
 	CategoryPrivateMessage ToolCategory = "private_message" // 私信工具：主动发起/回复私信聊天（主动模式核心，实现与用户链接）
 	CategoryKnowledge      ToolCategory = "knowledge"       // 知识工具：RAG 检索 / 企业知识强化
-	CategoryBusiness       ToolCategory = "business"        // 业务工具：订单 / 优惠券 / 支付 / 跟进任务
+	CategoryBusiness       ToolCategory = "business"        // 业务工具：订单 / 优惠券 / 跟进任务
 )
 
 // Tool 工具接口（所有工具必须实现）

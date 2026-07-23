@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -21,7 +22,7 @@ func NewSystemConfigController() *SystemConfigController {
 
 // GetConfig 获取系统配置
 func (c *SystemConfigController) GetConfig(ctx *gin.Context) {
-	config, err := c.svc.GetConfig()
+	config, err := c.svc.GetConfig(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -36,7 +37,7 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	config, err := c.svc.SaveConfig(req)
+	config, err := c.svc.SaveConfig(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -46,7 +47,7 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 
 // ResetSystem 重置系统
 func (c *SystemConfigController) ResetSystem(ctx *gin.Context) {
-	err := c.svc.ResetSystem()
+	err := c.svc.ResetSystem(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

@@ -127,9 +127,6 @@
   - **第三方对接** (Connection) `/integration/list` → `@/views/integration/List.vue`
   - **操作日志** (Tickets) `/operationLog/list` → `@/views/operationLog/List.vue`
   - **安全审计** (Shield) `/securityAudit/list` → `@/views/securityAudit/List.vue`
-  - **支付配置** (Setting) `/payment/config` → `@/views/payment/Config.vue`
-  - **支付列表** (CreditCard) `/payment/list` → `@/views/payment/List.vue`
-  - **订单管理** (List) `/order/list` → `@/views/order/List.vue`
   - **备份恢复** (FolderOpened) `/backup/list` → `@/views/backup/List.vue`
   - **使用引导** (Document) `/system/guide` → `@/views/system/Guide.vue`
 
@@ -231,9 +228,6 @@
 | `oneid/conflicts` | 身份冲突解决 | `@/views/oneid/Conflicts.vue` | — | Warning |  | — |
 | `oneid/list` | OneID 列表 | `@/views/oneid/List.vue` | — | List |  | — |
 | `operationLog/list` | 操作日志 | `@/views/operationLog/List.vue` | system | Tickets |  | — |
-| `order/list` | 订单管理 | `@/views/order/List.vue` | business | List |  | — |
-| `payment/config` | 支付配置 | `@/views/payment/Config.vue` | system | Setting |  | — |
-| `payment/list` | 支付列表 | `@/views/payment/List.vue` | system | CreditCard |  | — |
 | `persona/list` | 销冠画像 | `@/views/persona/List.vue` | sales | UserFilled |  | — |
 | `platformAccount/list` | 平台账号 | `@/views/platformAccount/List.vue` | system | Platform |  | — |
 | `profile` | 个人资料 | `@/views/Profile.vue` | — | — |  | /telegram/account |
@@ -323,7 +317,7 @@
 
 #### 客户 360 `/customer360/list` — `@/views/customer360/List.vue`
 - 用途：客户全景画像（左搜索列表 + 右详情）。
-- 主要区块：左栏客户搜索表格（姓名/手机/来源）；右栏基础信息卡（头像+标签+描述项）+ 详情 Tabs（基本信息/行为/订单/标签等）。
+- 主要区块：左栏客户搜索表格（姓名/手机/来源）；右栏基础信息卡（头像+标签+描述项）+ 详情 Tabs（基本信息/行为/标签等）。
 - 关键字段：手机、邮箱、微信、来源、注册时间、最后活跃、客户价值、消费次数、状态；基本信息含年龄/性别/职业/地区/生日/备注。
 - 关键操作：搜索客户、选择客户、联系客户、添加标签。
 - 数据来源：客户列表 + 客户详情接口。
@@ -756,22 +750,6 @@
 - 关键操作：立即审计、刷新、处理告警。
 - 数据来源：安全审计运行/列表/统计接口。
 
-#### 支付配置 `/payment/config` — `@/views/payment/Config.vue`
-- 用途：配置默认支付方式、超时、退款审核及各支付渠道密钥。
-- 主要区块：表单分区（默认支付方式/支付超时/自动确认/退款审核 → 支付宝配置 → 微信/银联配置）。
-- 关键操作：保存配置。
-- 数据来源：支付配置读取/保存接口。
-
-#### 支付/交易列表 `/payment/list` — `@/views/payment/List.vue`
-- 用途：查看支付交易记录。
-- 主要区块：搜索栏 + 支付流水表格。
-- 数据来源：支付列表接口。
-
-#### 订单管理 `/order/list` — `@/views/order/List.vue`
-- 用途：订单全生命周期管理（支付/退款/导出）。
-- 主要区块：页头（导出/新建订单）+ 统计卡（订单总数/已支付/…）+ 订单表格。
-- 关键操作：新建/查看/退款/导出订单。
-- 数据来源：订单列表/统计/增删改/导出接口。
 
 #### 数据备份 `/backup/list` — `@/views/backup/List.vue`
 - 用途：系统全量备份、自动调度、文件归档。

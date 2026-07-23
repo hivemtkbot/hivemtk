@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func TestEmailDraftService_CreateEmailDraft(t *testing.T) {
 		Attachments: `["attachment1.pdf", "attachment2.docx"]`,
 	}
 
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestEmailDraftService_CreateEmailDraft_EmptyContent(t *testing.T) {
 		Attachments: "",
 	}
 
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
@@ -110,7 +111,7 @@ func TestEmailDraftService_CreateEmailDraft_EmptySubject(t *testing.T) {
 		Attachments: "",
 	}
 
-	_, err := service.CreateEmailDraft(draft)
+	_, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Logf("CreateEmailDraft with empty subject failed as expected: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestEmailDraftService_GetEmailDraftByID(t *testing.T) {
 	database.Create(draft)
 
 	// 获取草稿
-	retrievedDraft, err := service.GetEmailDraftByID(draft.ID)
+	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
 	}
@@ -155,7 +156,7 @@ func TestEmailDraftService_GetEmailDraftByID_NotFound(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	_, err := service.GetEmailDraftByID(uuid.Nil)
+	_, err := service.GetEmailDraftByID(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent draft")
 	}
@@ -179,7 +180,7 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 	}
 
 	// 获取列表
-	drafts, err := service.GetEmailDraftList()
+	drafts, err := service.GetEmailDraftList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailDraftList failed: %v", err)
 	}
@@ -202,7 +203,7 @@ func TestEmailDraftService_GetEmailDraftList_Empty(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	drafts, err := service.GetEmailDraftList()
+	drafts, err := service.GetEmailDraftList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailDraftList failed: %v", err)
 	}
@@ -231,7 +232,7 @@ func TestEmailDraftService_UpdateEmailDraft(t *testing.T) {
 	draft.Content = "新内容"
 	draft.Attachments = `["new.pdf"]`
 
-	err := service.UpdateEmailDraft(*draft)
+	err := service.UpdateEmailDraft(context.Background(), *draft)
 	if err != nil {
 		t.Fatalf("UpdateEmailDraft failed: %v", err)
 	}
@@ -264,7 +265,7 @@ func TestEmailDraftService_UpdateEmailDraft_NotFound(t *testing.T) {
 		Attachments: "",
 	}
 
-	err := service.UpdateEmailDraft(draft)
+	err := service.UpdateEmailDraft(context.Background(), draft)
 	// GORM Save 行为：对于不存在的记录可能不会返回错误
 	// 这里我们只验证方法可以调用
 	t.Logf("UpdateEmailDraft for non-existent draft returned: %v", err)
@@ -285,7 +286,7 @@ func TestEmailDraftService_DeleteEmailDraft(t *testing.T) {
 	database.Create(draft)
 
 	// 删除草稿
-	err := service.DeleteEmailDraft(draft.ID)
+	err := service.DeleteEmailDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailDraft failed: %v", err)
 	}
@@ -311,7 +312,7 @@ func TestEmailDraftService_DeleteEmailDraft_NotFound(t *testing.T) {
 	repo := newTestEmailDraftRepository(database)
 	service := &EmailDraftService{repo: repo}
 
-	err := service.DeleteEmailDraft(uuid.Nil)
+	err := service.DeleteEmailDraft(context.Background(), uuid.Nil)
 	if err != nil {
 		t.Logf("DeleteEmailDraft for non-existent draft: %v", err)
 	}
@@ -330,13 +331,13 @@ func TestEmailDraftService_CreateAndGet(t *testing.T) {
 		Attachments: `["file1.pdf", "file2.docx", "file3.xlsx"]`,
 	}
 
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
 	// 根据 ID 获取
-	retrievedDraft, err := service.GetEmailDraftByID(createdDraft.ID)
+	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
 	}
@@ -364,20 +365,20 @@ func TestEmailDraftService_CreateUpdateDelete(t *testing.T) {
 		Content:     "初始内容",
 		Attachments: "",
 	}
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
 	// 更新
 	createdDraft.Content = "更新后的内容"
-	err = service.UpdateEmailDraft(*createdDraft)
+	err = service.UpdateEmailDraft(context.Background(), *createdDraft)
 	if err != nil {
 		t.Fatalf("UpdateEmailDraft failed: %v", err)
 	}
 
 	// 验证更新
-	updatedDraft, err := service.GetEmailDraftByID(createdDraft.ID)
+	updatedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
 	}
@@ -386,13 +387,13 @@ func TestEmailDraftService_CreateUpdateDelete(t *testing.T) {
 	}
 
 	// 删除
-	err = service.DeleteEmailDraft(createdDraft.ID)
+	err = service.DeleteEmailDraft(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailDraft failed: %v", err)
 	}
 
 	// 验证删除后无法获取
-	_, err = service.GetEmailDraftByID(createdDraft.ID)
+	_, err = service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err == nil {
 		t.Error("Expected error for getting deleted draft")
 	}
@@ -416,12 +417,12 @@ func TestEmailDraftService_LongContent(t *testing.T) {
 		Attachments: "",
 	}
 
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
-	retrievedDraft, err := service.GetEmailDraftByID(createdDraft.ID)
+	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
 	}
@@ -443,12 +444,12 @@ func TestEmailDraftService_SpecialCharacters(t *testing.T) {
 		Attachments: `["file with spaces.pdf", "file&special.docx"]`,
 	}
 
-	createdDraft, err := service.CreateEmailDraft(draft)
+	createdDraft, err := service.CreateEmailDraft(context.Background(), draft)
 	if err != nil {
 		t.Fatalf("CreateEmailDraft failed: %v", err)
 	}
 
-	retrievedDraft, err := service.GetEmailDraftByID(createdDraft.ID)
+	retrievedDraft, err := service.GetEmailDraftByID(context.Background(), createdDraft.ID)
 	if err != nil {
 		t.Fatalf("GetEmailDraftByID failed: %v", err)
 	}

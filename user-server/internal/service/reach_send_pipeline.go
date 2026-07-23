@@ -260,7 +260,7 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 	if limit.QPS <= 0 && limit.Burst <= 0 {
 		return true
 	}
-	s := l.shardOf(key)
+	s := l.shardOf(ctx, key)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	b, ok := s.buckets[key]
@@ -286,7 +286,7 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 
 // Reset 重置指定 key 的限流（用于测试）
 func (l *MemorySendRateLimiter) Reset(ctx context.Context, key string)  {
-	s := l.shardOf(key)
+	s := l.shardOf(ctx, key)
 	s.mu.Lock()
 	delete(s.buckets, key)
 	s.mu.Unlock()
@@ -341,16 +341,16 @@ func (a *DefaultContentAuditor) Audit(ctx context.Context, channel, content stri
 	if content == "" {
 		return &ContentAuditResult{Passed: true, Category: "normal"}, nil
 	}
-	a.ensureCompiled()
+	a.ensureCompiled(ctx)
 
 	result := &ContentAuditResult{Passed: true, Category: "normal"}
-	if hits := a.sensAC.match(content); len(hits) > 0 {
+	if hits := a.sensAC.match(ctx, content); len(hits) > 0 {
 		result.Passed = false
 		result.Category = "sensitive"
 		result.HitWords = append(result.HitWords, hits...)
 		result.Reason = fmt.Sprintf("命中敏感词: %s", strings.Join(hits, ","))
 	}
-	if hits := a.adAC.match(content); len(hits) > 0 {
+	if hits := a.adAC.match(ctx, content); len(hits) > 0 {
 		result.Passed = false
 		if result.Category == "normal" {
 			result.Category = "ad_law"
@@ -609,7 +609,7 @@ func (t CustomerJourneySendTracker) RecordTouch(ctx context.Context, customerID,
 	if t.Service == nil || customerID == "" {
 		return nil
 	}
-	t.Service.Touch(customerID, source)
+	t.Service.Touch(ctx, customerID, source)
 	return nil
 }
 
@@ -851,12 +851,12 @@ func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendReques
 		}
 		lastErr = err
 		// 检查错误是否可重试
-		if !p.isRetryable(err, policy.RetryableErrors) {
+		if !p.isRetryable(ctx, err, policy.RetryableErrors) {
 			break
 		}
 		// 计算退避时间
 		if attempt < policy.MaxRetries {
-			wait := p.computeBackoff(policy, attempt)
+			wait := p.computeBackoff(ctx, policy, attempt)
 			select {
 			case <-time.After(wait):
 			case <-ctx.Done():

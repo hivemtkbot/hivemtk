@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"

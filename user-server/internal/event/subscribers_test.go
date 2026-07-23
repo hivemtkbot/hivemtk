@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -183,28 +184,28 @@ type testLogRepo struct {
 	db *gorm.DB
 }
 
-func (r *testLogRepo) Create(log *model.OperationLog) error {
-	return r.db.Create(log).Error
+func (r *testLogRepo) Create(ctx context.Context, log *model.OperationLog) error {
+	return r.db.WithContext(ctx).Create(log).Error
 }
 
-func (r *testLogRepo) GetByID(id uint) (*model.OperationLog, error) {
+func (r *testLogRepo) GetByID(ctx context.Context, id uint) (*model.OperationLog, error) {
 	var log model.OperationLog
 	err := r.db.First(&log, id).Error
 	return &log, err
 }
 
-func (r *testLogRepo) GetAll(page, pageSize int, filters map[string]any) ([]*model.OperationLog, int64, error) {
+func (r *testLogRepo) GetAll(ctx context.Context, page, pageSize int, filters map[string]any) ([]*model.OperationLog, int64, error) {
 	return nil, 0, nil
 }
 
-func (r *testLogRepo) GetByUserID(userID uint, page, pageSize int) ([]*model.OperationLog, int64, error) {
+func (r *testLogRepo) GetByUserID(ctx context.Context, userID uint, page, pageSize int) ([]*model.OperationLog, int64, error) {
 	return nil, 0, nil
 }
 
-func (r *testLogRepo) DeleteOldLogs(beforeDate time.Time) error {
+func (r *testLogRepo) DeleteOldLogs(ctx context.Context, beforeDate time.Time) error {
 	return nil
 }
 
-func (r *testLogRepo) DeleteByIDs(ids []uint) (int64, error) {
+func (r *testLogRepo) DeleteByIDs(ctx context.Context, ids []uint) (int64, error) {
 	return 0, nil
 }

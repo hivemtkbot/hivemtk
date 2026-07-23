@@ -408,7 +408,7 @@ func (d *SalesDashboard) GetTeamRanking(ctx context.Context, since time.Time, to
 
 	performances := make([]*SalesPerformance, 0, len(salesIDs))
 	for _, sid := range salesIDs {
-		performances = append(performances, d.GetSalesPerformance(sid, since))
+		performances = append(performances, d.GetSalesPerformance(context.Background(), sid, since))
 	}
 	sort.Slice(performances, func(i, j int) bool {
 		return performances[i].TotalRevenue > performances[j].TotalRevenue
@@ -531,7 +531,7 @@ type ChampionProfile struct {
 // GetChampionProfile 获取销冠画像
 // 商业逻辑：top 10% 销售的能力特征 + 行为模式 + 最佳实践
 func (d *SalesDashboard) GetChampionProfile(ctx context.Context, since time.Time)  *ChampionProfile {
-	all := d.GetTeamRanking(since, 0)
+	all := d.GetTeamRanking(context.Background(), since, 0)
 	if len(all) == 0 {
 		return &ChampionProfile{
 			GeneratedAt: time.Now(),
@@ -632,10 +632,10 @@ func (d *SalesDashboard) GetTeamDashboard(ctx context.Context, since time.Time) 
 		since = now.AddDate(0, 0, -30)
 	}
 	return &TeamDashboard{
-		Funnel:         d.FunnelByJourney(),
-		TopSales:       d.GetTeamRanking(since, 5),
-		AIProductivity: d.GetAIProductivity(since),
-		Champion:       d.GetChampionProfile(since),
+		Funnel:         d.FunnelByJourney(context.Background(), ),
+		TopSales:       d.GetTeamRanking(context.Background(), since, 5),
+		AIProductivity: d.GetAIProductivity(context.Background(), since),
+		Champion:       d.GetChampionProfile(context.Background(), since),
 		PeriodStart:    since,
 		PeriodEnd:      now,
 		GeneratedAt:    now,

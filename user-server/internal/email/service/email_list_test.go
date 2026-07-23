@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"

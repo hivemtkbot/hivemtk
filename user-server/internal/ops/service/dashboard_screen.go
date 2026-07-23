@@ -195,19 +195,52 @@ func (s *DashboardScreenService) GetScreenWidgets(screenID uint) ([]*model.Dashb
 	return s.widgetRepo.GetByScreenID(screenID)
 }
 
-// DashboardKPI 数据大屏 KPI 数据（从 controller 提取的 Service 层方法）
-type DashboardKPI struct {
-	TotalClues      int64 `json:"total_clues"`
-	TodayClues      int64 `json:"today_clues"`
-	YesterdayClues  int64 `json:"yesterday_clues"`
-	TotalCustomers  int64 `json:"total_customers"`
-	TotalOrders     int64 `json:"total_orders"`
-	VerifiedClues   int64 `json:"verified_clues"`
-	TrendToday      int   `json:"trend_today"`
-	TrendYesterday  int   `json:"trend_yesterday"`
-	VerifiedRate    int   `json:"verified_rate"`
-	ClueGrowthRate  int   `json:"clue_growth_rate"`
-	OrderGrowthRate int   `json:"order_growth_rate"`
+// DashboardAggregate 大屏聚合数据（与前端 dashboardScreen/List.vue 契约对齐）
+type DashboardAggregate struct {
+	Kpis      []DashboardKpiItem  `json:"kpis"`
+	Trend     DashboardTrend      `json:"trend"`
+	Channels  []NameValue         `json:"channels"`
+	Sources   []NameValue         `json:"sources"`
+	Funnel    []NameValue         `json:"funnel"`
+	Regions   []NameValue         `json:"regions"`
+	Conversion DashboardConversion `json:"conversion"`
+}
+
+// DashboardKpiItem KPI 卡片
+type DashboardKpiItem struct {
+	Label string `json:"label"`
+	Value any    `json:"value"`
+	Color string `json:"color"`
+	Trend int    `json:"trend"` // 较昨日百分比，正增长/负下降
+}
+
+// NameValue 名称-数值对（渠道/来源/地区/漏斗）
+type NameValue struct {
+	Name  string `json:"name"`
+	Value int64  `json:"value"`
+}
+
+// DashboardTrend 近 30 天趋势
+type DashboardTrend struct {
+	Dates       []string `json:"dates"`
+	Visits      []int64  `json:"visits"`
+	Clues       []int64  `json:"clues"`
+	Conversions []int64  `json:"conversions"`
+}
+
+// DashboardConversion 转化率对比（本周 vs 上周）
+type DashboardConversion struct {
+	Dates    []string `json:"dates"`
+	ThisWeek []int64  `json:"thisWeek"`
+	LastWeek []int64  `json:"lastWeek"`
+}
+
+// pct 百分比（num/den*100），分母为 0 时返回 0
+func pct(num, den int64) int64 {
+	if den <= 0 {
+		return 0
+	}
+	return int64(float64(num) / float64(den) * 100)
 }
 
 // RealtimeActivity 实时活动项
@@ -219,58 +252,123 @@ type RealtimeActivity struct {
 }
 
 // AggregateDashboardData 聚合大屏数据（Service 层）
-// 私域部署：单租户，查询所有数据
-func (s *DashboardScreenService) AggregateDashboardData() (*DashboardKPI, error) {
+// 私域部署：单租户，查询所有数据。返回结构与前端 dashboardScreen/List.vue 对齐。
+func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, error) {
 	gormDB := sysrepo.GetDB() // 通过 repository 访问 DB
 	now := time.Now()
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
-	yesterdayStart := todayStart - 86400
-	thirtyDaysAgo := now.AddDate(0, 0, -30).Unix()
+	loc := now.Location()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	yesterdayStart := todayStart.AddDate(0, 0, -1)
+	thirtyDaysAgo := todayStart.AddDate(0, 0, -30)
+	thisWeekStart := todayStart.AddDate(0, 0, -int(todayStart.Weekday()))
+	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
 
-	kpi := &DashboardKPI{}
+	agg := &DashboardAggregate{}
 
-	// 总线索数
-	gormDB.Model(&sysmodel.Clue{}).Count(&kpi.TotalClues)
+	// 基础计数
+	var totalClues, todayClues, yesterdayClues, verifiedClues int64
+	gormDB.Model(&sysmodel.Clue{}).Count(&totalClues)
+	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", todayStart.Unix()).Count(&todayClues)
+	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", yesterdayStart.Unix(), todayStart.Unix()).Count(&yesterdayClues)
+	gormDB.Model(&sysmodel.Clue{}).Where("is_verify = ?", 1).Count(&verifiedClues)
 
-	// 今日新增线索
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", todayStart).Count(&kpi.TodayClues)
-
-	// 昨日新增线索
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", yesterdayStart, todayStart).Count(&kpi.YesterdayClues)
-
-	// 总客户数
+	var totalCustomers, totalOrders int64
 	if gormDB.Migrator().HasTable(&sysmodel.Customer{}) {
-		gormDB.Model(&sysmodel.Customer{}).Count(&kpi.TotalCustomers)
+		gormDB.Model(&sysmodel.Customer{}).Count(&totalCustomers)
 	}
-
-	// 总订单数
 	if gormDB.Migrator().HasTable(&sysmodel.Order{}) {
-		gormDB.Model(&sysmodel.Order{}).Count(&kpi.TotalOrders)
+		gormDB.Model(&sysmodel.Order{}).Count(&totalOrders)
 	}
 
-	// 已验证线索数
-	gormDB.Model(&sysmodel.Clue{}).Where("is_verify = ?", 1).Count(&kpi.VerifiedClues)
-
-	// 趋势计算
-	if kpi.YesterdayClues > 0 {
-		kpi.TrendToday = int(float64(kpi.TodayClues-kpi.YesterdayClues) / float64(kpi.YesterdayClues) * 100)
-	} else if kpi.TodayClues > 0 {
-		kpi.TrendToday = 100
+	// 近 30 天趋势（按天聚合线索/成单）
+	type dayRow struct {
+		Day string
+		Cnt int64
+	}
+	var clueDays, orderDays []dayRow
+	gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM clues WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&clueDays)
+	gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM "order" WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&orderDays)
+	clueMap := make(map[string]int64, len(clueDays))
+	orderMap := make(map[string]int64, len(orderDays))
+	for _, r := range clueDays {
+		clueMap[r.Day] = r.Cnt
+	}
+	for _, r := range orderDays {
+		orderMap[r.Day] = r.Cnt
+	}
+	dates := make([]string, 0, 30)
+	for i := 0; i < 30; i++ {
+		dates = append(dates, thirtyDaysAgo.AddDate(0, 0, i).Format("01-02"))
+	}
+	agg.Trend.Dates = dates
+	agg.Trend.Clues = make([]int64, len(dates))
+	agg.Trend.Conversions = make([]int64, len(dates))
+	agg.Trend.Visits = make([]int64, len(dates))
+	for i, key := range dates {
+		agg.Trend.Clues[i] = clueMap[key]
+		agg.Trend.Conversions[i] = orderMap[key]
+		agg.Trend.Visits[i] = clueMap[key] // 访问量无独立埋点，以线索为代理
 	}
 
-	// 30 天前总线索（用于增长率）
-	var thirtyDaysAgoClues int64
-	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", thirtyDaysAgo).Count(&thirtyDaysAgoClues)
-	if thirtyDaysAgoClues > 0 {
-		kpi.ClueGrowthRate = int(float64(kpi.TotalClues-thirtyDaysAgoClues) / float64(thirtyDaysAgoClues) * 100)
+	// 渠道分布（按线索 source_id）
+	type kvRow struct {
+		Name  string
+		Value int64
+	}
+	var chRows []kvRow
+	gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&chRows)
+	for _, r := range chRows {
+		agg.Channels = append(agg.Channels, NameValue{Name: r.Name, Value: r.Value})
+	}
+	// 用户来源 TOP5（复用渠道分布，取前 5）
+	for i, r := range agg.Channels {
+		if i >= 5 {
+			break
+		}
+		agg.Sources = append(agg.Sources, r)
 	}
 
-	// 验证率
-	if kpi.TotalClues > 0 {
-		kpi.VerifiedRate = int(float64(kpi.VerifiedClues) / float64(kpi.TotalClues) * 100)
+	// 地区分布（按线索 city）
+	var regRows []kvRow
+	gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&regRows)
+	for _, r := range regRows {
+		agg.Regions = append(agg.Regions, NameValue{Name: r.Name, Value: r.Value})
 	}
 
-	return kpi, nil
+	// 漏斗：线索 → 客户 → 成单
+	agg.Funnel = []NameValue{
+		{Name: "线索", Value: totalClues},
+		{Name: "客户", Value: totalCustomers},
+		{Name: "成单", Value: totalOrders},
+	}
+
+	// 转化率对比（本周 vs 上周）
+	var cluesTW, cluesLW, ordersTW, ordersLW int64
+	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ?", thisWeekStart.Unix()).Count(&cluesTW)
+	gormDB.Model(&sysmodel.Clue{}).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&cluesLW)
+	gormDB.Model(&sysmodel.Order{}).Where("create_time >= ?", thisWeekStart.Unix()).Count(&ordersTW)
+	gormDB.Model(&sysmodel.Order{}).Where("create_time >= ? AND create_time < ?", lastWeekStart.Unix(), thisWeekStart.Unix()).Count(&ordersLW)
+	agg.Conversion.Dates = []string{"本周", "上周"}
+	agg.Conversion.ThisWeek = []int64{pct(ordersTW, cluesTW)}
+	agg.Conversion.LastWeek = []int64{pct(ordersLW, cluesLW)}
+
+	// KPI 卡片
+	trendToday := 0
+	if yesterdayClues > 0 {
+		trendToday = int(float64(todayClues-yesterdayClues) / float64(yesterdayClues) * 100)
+	} else if todayClues > 0 {
+		trendToday = 100
+	}
+	agg.Kpis = []DashboardKpiItem{
+		{Label: "总线索", Value: totalClues, Color: "linear-gradient(135deg,#667eea,#764ba2)", Trend: trendToday},
+		{Label: "今日线索", Value: todayClues, Color: "linear-gradient(135deg,#f093fb,#f5576c)", Trend: trendToday},
+		{Label: "总客户", Value: totalCustomers, Color: "linear-gradient(135deg,#4facfe,#00f2fe)"},
+		{Label: "总成单", Value: totalOrders, Color: "linear-gradient(135deg,#43e97b,#38f9d7)"},
+		{Label: "已验证线索", Value: verifiedClues, Color: "linear-gradient(135deg,#fa709a,#fee140)"},
+		{Label: "验证率", Value: pct(verifiedClues, totalClues), Color: "linear-gradient(135deg,#30cfd0,#330867)"},
+	}
+
+	return agg, nil
 }
 
 // FetchRealtimeActivities 获取实时活动（Service 层）

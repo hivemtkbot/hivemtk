@@ -59,7 +59,7 @@ type SOPNodeExecutorDeps struct {
 type StartExecutor struct{}
 
 // NodeType 返回节点类型
-func (e *StartExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeStart }
+func (e *StartExecutor) NodeType() string { return SOPNodeTypeStart }
 
 // Execute 记录开始事件，推进下一节点
 func (e *StartExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -78,7 +78,7 @@ func (e *StartExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Nod
 }
 
 // IsAsync 同步执行
-func (e *StartExecutor) IsAsync(ctx context.Context)  bool { return false }
+func (e *StartExecutor) IsAsync() bool { return false }
 
 // EndExecutor 结束节点执行器
 //
@@ -86,7 +86,7 @@ func (e *StartExecutor) IsAsync(ctx context.Context)  bool { return false }
 type EndExecutor struct{}
 
 // NodeType 返回节点类型
-func (e *EndExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeEnd }
+func (e *EndExecutor) NodeType() string { return SOPNodeTypeEnd }
 
 // Execute 标记流程结束
 func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -104,7 +104,7 @@ func (e *EndExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeE
 }
 
 // IsAsync 同步执行
-func (e *EndExecutor) IsAsync(ctx context.Context)  bool { return false }
+func (e *EndExecutor) IsAsync() bool { return false }
 
 // ============================================================================
 // 2. 消息发送类执行器：MessageNodeBase + 9 种商用节点 + 3 种旧版节点
@@ -130,10 +130,10 @@ type MessageNodeBase struct {
 }
 
 // NodeType 返回节点类型
-func (b *MessageNodeBase) NodeType(ctx context.Context)  string { return b.nodeType }
+func (b *MessageNodeBase) NodeType() string { return b.nodeType }
 
 // IsAsync 同步执行
-func (b *MessageNodeBase) IsAsync(ctx context.Context)  bool { return false }
+func (b *MessageNodeBase) IsAsync() bool { return false }
 
 // Execute 执行消息发送节点
 func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -395,10 +395,10 @@ type ConditionExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *ConditionExecutor) NodeType(ctx context.Context)  string { return e.nodeType }
+func (e *ConditionExecutor) NodeType() string { return e.nodeType }
 
 // IsAsync 同步执行
-func (e *ConditionExecutor) IsAsync(ctx context.Context)  bool { return false }
+func (e *ConditionExecutor) IsAsync() bool { return false }
 
 // Execute 评估条件分支
 func (e *ConditionExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -477,10 +477,10 @@ type LLMNodeExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *LLMNodeExecutor) NodeType(ctx context.Context)  string { return e.nodeType }
+func (e *LLMNodeExecutor) NodeType() string { return e.nodeType }
 
 // IsAsync 同步执行（LLM 调用阻塞，但通过信号量限流）
-func (e *LLMNodeExecutor) IsAsync(ctx context.Context)  bool { return false }
+func (e *LLMNodeExecutor) IsAsync() bool { return false }
 
 // Execute 调用 LLM 决策下一节点
 func (e *LLMNodeExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -654,10 +654,10 @@ type WaitExecutor struct {
 }
 
 // NodeType 返回节点类型
-func (e *WaitExecutor) NodeType(ctx context.Context)  string { return SOPNodeTypeWait }
+func (e *WaitExecutor) NodeType() string { return SOPNodeTypeWait }
 
 // IsAsync 异步执行（不阻塞 Worker Pool）
-func (e *WaitExecutor) IsAsync(ctx context.Context)  bool { return true }
+func (e *WaitExecutor) IsAsync() bool { return true }
 
 // Execute 设置等待状态
 func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*NodeExecResult, error) {
@@ -747,38 +747,38 @@ func NewWaitExecutor(deps *SOPNodeExecutorDeps) *WaitExecutor {
 // 重复注册会 panic（启动期错误）。
 func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecutorDeps) {
 	// 1. 空动作类
-	registry.Register(&StartExecutor{})
-	registry.Register(&EndExecutor{})
+	registry.Register(context.Background(), &StartExecutor{})
+	registry.Register(context.Background(), &EndExecutor{})
 
 	// 2. 消息发送类（9 种商用节点）
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeInquire, llm.ScenarioSOPReply, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeIntroduce, llm.ScenarioSOPReply, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeHandle, llm.ScenarioObjection, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeClose, llm.ScenarioHighQuality, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeInvite, llm.ScenarioSOPReply, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeFollowUp, llm.ScenarioFriendlyChat, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeActivate, llm.ScenarioFriendlyChat, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeNurture, llm.ScenarioFriendlyChat, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeGreeting, llm.ScenarioFriendlyChat, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeInquire, llm.ScenarioSOPReply, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeIntroduce, llm.ScenarioSOPReply, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeHandle, llm.ScenarioObjection, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeClose, llm.ScenarioHighQuality, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeInvite, llm.ScenarioSOPReply, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeFollowUp, llm.ScenarioFriendlyChat, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeActivate, llm.ScenarioFriendlyChat, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeNurture, llm.ScenarioFriendlyChat, deps))
 
 	// 3. 条件路由类
-	registry.Register(&ConditionExecutor{nodeType: SOPNodeTypeCondition})
+	registry.Register(context.Background(), &ConditionExecutor{nodeType: SOPNodeTypeCondition})
 
 	// 4. LLM 决策类
-	registry.Register(NewLLMNodeExecutor(SOPNodeTypeLLM, deps))
+	registry.Register(context.Background(), NewLLMNodeExecutor(SOPNodeTypeLLM, deps))
 
 	// 5. 等待类
-	registry.Register(NewWaitExecutor(deps))
+	registry.Register(context.Background(), NewWaitExecutor(deps))
 
 	// 6. 旧版节点兼容映射
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeMessage, llm.ScenarioFriendlyChat, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeAction, llm.ScenarioSOPReply, deps))
-	registry.Register(NewMessageNodeExecutor(SOPNodeTypeSendOffer, llm.ScenarioObjection, deps))
-	registry.Register(NewLLMNodeExecutor(SOPNodeTypeAIDecide, deps))
-	registry.Register(&ConditionExecutor{nodeType: SOPNodeTypeBranch})
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeMessage, llm.ScenarioFriendlyChat, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeAction, llm.ScenarioSOPReply, deps))
+	registry.Register(context.Background(), NewMessageNodeExecutor(SOPNodeTypeSendOffer, llm.ScenarioObjection, deps))
+	registry.Register(context.Background(), NewLLMNodeExecutor(SOPNodeTypeAIDecide, deps))
+	registry.Register(context.Background(), &ConditionExecutor{nodeType: SOPNodeTypeBranch})
 
 	logger.GetLogger().Info().
-		Strs("registered_types", registry.AllRegistered()).
+		Strs("registered_types", registry.AllRegistered(context.Background(), )).
 		Msg("all sop node executors registered")
 }
 

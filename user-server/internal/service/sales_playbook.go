@@ -87,7 +87,7 @@ func NewPlaybookService() *PlaybookService {
 		byObjection:	make(map[ObjectionType][]*PlaybookEntry),
 	}
 	// 预置基础话术（开箱即用）
-	s.seedDefaults(ctx)
+	s.seedDefaults(context.Background())
 	return s
 }
 

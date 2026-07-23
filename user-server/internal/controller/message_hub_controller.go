@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/cache"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -195,7 +196,7 @@ func (c *MessageHubController) PushFromChannel(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	req := c.svc.ConvertFromChannel(&raw)
+	req := c.svc.ConvertFromChannel(context.Background(), &raw)
 	msg, err := c.svc.Push(ctx.Request.Context(), req)
 	if err != nil {
 		if err == service.ErrMessageHubIdempotent {

@@ -40,7 +40,7 @@ const API_FILES = [
   'dialogueMemory', 'domainPool', 'douyinCard', 'email', 'feishu', 'integration', 'intentRecognition',
   'knowledge', 'knowledgeBase', 'knowledgeMerchant', 'kuaishouCard', 'license', 'livecode', 'llmRouting',
   'marketingFlow', 'material', 'messageHub', 'objection', 'obs', 'oneid', 'operationLog', 'order',
-  'payment', 'persona', 'platform', 'platformAccount', 'rag-product-config', 'reachPipeline',
+  'persona', 'platform', 'platformAccount', 'rag-product-config', 'reachPipeline',
   'scriptTemplate', 'securityAudit', 'shortLink', 'sms', 'sopAgent', 'stats', 'system', 'tagSegmentation',
   'teamUser', 'telegram', 'templateMarket', 'tiktokAutoReply', 'tiktokCard', 'tuning', 'unifiedInbox',
   'unifiedMessage', 'userSegment', 'users', 'wecomAccount', 'whatsapp', 'xianyuAutoReply', 'xianyuCard',

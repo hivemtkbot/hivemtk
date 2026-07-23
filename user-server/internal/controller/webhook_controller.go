@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +15,9 @@ import (
 // 对应 P0-14 多渠道 Webhook
 // 提供 9 个渠道的回调入口
 type WebhookController struct {
-	svc *service.WebhookService
+	svc        *service.WebhookService
+	waCloudSvc *service.WhatsAppCloudService
+	dtAppSvc   *service.DingTalkAppService
 }
 
 // NewWebhookController 创建 Webhook 控制器
@@ -23,10 +27,20 @@ func NewWebhookController(svc *service.WebhookService) *WebhookController {
 	}
 }
 
+// SetWhatsAppCloudService 注入 WhatsApp Cloud 账号服务（用于回调 URL 验证）
+func (c *WebhookController) SetWhatsAppCloudService(svc *service.WhatsAppCloudService) {
+	c.waCloudSvc = svc
+}
+
+// SetDingTalkAppService 注入钉钉应用账号服务（用于回调验签 + 入站收消息）
+func (c *WebhookController) SetDingTalkAppService(svc *service.DingTalkAppService) {
+	c.dtAppSvc = svc
+}
+
 // Stop 关闭后台 worker（用于测试或优雅退出）
 func (c *WebhookController) Stop() {
 	if c.svc != nil {
-		c.svc.Stop()
+		c.svc.Stop(context.Background(), )
 	}
 }
 
@@ -45,6 +59,11 @@ func (c *WebhookController) RegisterRoutes(r *gin.Engine) {
 		wh.GET("/wecom/:account_id", c.WeComVerify)
 		// 飞书 GET 验证
 		wh.GET("/feishu/:account_id", c.FeishuVerify)
+		// WhatsApp Cloud GET 验证（Meta 回调 URL 挑战）
+		wh.GET("/whatsapp/:account_id", c.WhatsAppVerify)
+		// 钉钉企业内部应用 GET 验证 + POST 收消息
+		wh.GET("/dingtalk/:account_id", c.DingTalkVerify)
+		wh.POST("/dingtalk/:account_id", c.DingTalkReceive)
 	}
 }
 
@@ -135,7 +154,7 @@ func (c *WebhookController) WeComVerify(ctx *gin.Context) {
 	}
 
 	// 从 wecom_accounts 读取 token + EncodingAESKey
-	token, aesKey, err := c.svc.GetWeComSecrets(accountID)
+	token, aesKey, err := c.svc.GetWeComSecrets(context.Background(), accountID)
 	if err != nil || token == "" {
 		ctx.String(http.StatusUnauthorized, "account not found or token missing")
 		return
@@ -160,10 +179,99 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"challenge": challenge})
 }
 
+// WhatsAppVerify 处理 Meta 回调 URL 验证挑战（GET）
+// 路由: GET /api/webhook/whatsapp/{account_id}
+// Meta 在「Webhook 配置」中填入回调 URL 后会发送 GET 校验：
+//   hub.mode=subscribe & hub.verify_token=<配置的 token> & hub.challenge=<随机串>
+// 仅当 hub.verify_token 与账号存储的 VerifyToken 一致时才回显 hub.challenge。
+func (c *WebhookController) WhatsAppVerify(ctx *gin.Context) {
+	accountIDStr := ctx.Param("account_id")
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "invalid account_id")
+		return
+	}
+	if c.waCloudSvc == nil {
+		ctx.String(http.StatusServiceUnavailable, "whatsapp cloud service not configured")
+		return
+	}
+	acc, err := c.waCloudSvc.GetAccount(ctx.Request.Context(), uint(accountID))
+	if err != nil || acc == nil {
+		ctx.String(http.StatusNotFound, "account not found")
+		return
+	}
+	mode := ctx.Query("hub.mode")
+	token := ctx.Query("hub.verify_token")
+	challenge := ctx.Query("hub.challenge")
+	if mode != "subscribe" || token != acc.VerifyToken {
+		ctx.String(http.StatusForbidden, "verification failed")
+		return
+	}
+	ctx.String(http.StatusOK, challenge)
+}
+
+// DingTalkVerify 钉钉回调 URL 验证（GET）
+// 路由: GET /api/webhook/dingtalk/{account_id}?signature=...&timestamp=...&nonce=...&echostr=...
+// 钉钉对配置的回调地址发起 GET，携带 signature/timestamp/nonce/echostr。
+// 本地用 token 计算 signature 比对；一致则回显 echostr（配置了 AESKey 时先解密）。
+func (c *WebhookController) DingTalkVerify(ctx *gin.Context) {
+	accountIDStr := ctx.Param("account_id")
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "invalid account_id")
+		return
+	}
+	if c.dtAppSvc == nil {
+		ctx.String(http.StatusServiceUnavailable, "dingtalk app service not configured")
+		return
+	}
+	signature := ctx.Query("signature")
+	timestamp := ctx.Query("timestamp")
+	nonce := ctx.Query("nonce")
+	echostr := ctx.Query("echostr")
+	if signature == "" || timestamp == "" || nonce == "" || echostr == "" {
+		ctx.String(http.StatusBadRequest, "missing signature params")
+		return
+	}
+	plain, err := c.dtAppSvc.VerifyCallback(ctx.Request.Context(), uint(accountID), signature, timestamp, nonce, echostr)
+	if err != nil {
+		ctx.String(http.StatusUnauthorized, "verify failed: "+err.Error())
+		return
+	}
+	ctx.String(http.StatusOK, plain)
+}
+
+// DingTalkReceive 钉钉回调收消息（POST）
+// 路由: POST /api/webhook/dingtalk/{account_id}
+// 请求体为 {"encrypt":"..."}（配置 AESKey 时）或明文消息 JSON。
+// 解析后入消息中台并经统一 AI 派发管线触发智能体。
+func (c *WebhookController) DingTalkReceive(ctx *gin.Context) {
+	accountIDStr := ctx.Param("account_id")
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": "invalid account_id"})
+		return
+	}
+	if c.dtAppSvc == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"accepted": false, "reason": "dingtalk app service not configured"})
+		return
+	}
+	body, err := service.ReadAll(ctx.Request.Body)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": "read body: " + err.Error()})
+		return
+	}
+	if err := c.dtAppSvc.ReceiveMessage(ctx.Request.Context(), uint(accountID), body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"accepted": true})
+}
+
 // Stats 统计
 func (c *WebhookController) Stats(ctx *gin.Context) {
-	pending := c.svc.PendingCount()
-	queueLen := c.svc.QueueLen()
+	pending := c.svc.PendingCount(context.Background(), )
+	queueLen := c.svc.QueueLen(context.Background(), )
 	ctx.JSON(http.StatusOK, gin.H{
 		"pending_events": pending,
 		"queue_length":   queueLen,
@@ -234,7 +342,7 @@ func extractAccountID(body []byte) string {
 // SetSalesEngine 注入 智能体引擎（在 main.go 中调用）
 func (c *WebhookController) SetSalesEngine(e *service.SalesEngine) {
 	if c.svc != nil {
-		c.svc.SetSalesEngine(e)
+		c.svc.SetSalesEngine(context.Background(), e)
 	}
 }
 
@@ -242,7 +350,7 @@ func (c *WebhookController) SetSalesEngine(e *service.SalesEngine) {
 // 注入后 Webhook 入站消息会走 SmartCSOrchestrator.HandleIncoming 9 步编排
 func (c *WebhookController) SetSmartOrchestrator(o *service.SmartCSOrchestrator) {
 	if c.svc != nil {
-		c.svc.SetSmartOrchestrator(o)
+		c.svc.SetSmartOrchestrator(context.Background(), o)
 	}
 }
 
@@ -251,6 +359,6 @@ func (c *WebhookController) SetSmartOrchestrator(o *service.SmartCSOrchestrator)
 // 加载绑定的智能体上下文，再调用 SalesEngine.HandleWithAgent 按智能体配置执行
 func (c *WebhookController) SetAgentBindingService(svc *service.ChannelAgentBindingService) {
 	if c.svc != nil {
-		c.svc.SetAgentBindingService(svc)
+		c.svc.SetAgentBindingService(context.Background(), svc)
 	}
 }

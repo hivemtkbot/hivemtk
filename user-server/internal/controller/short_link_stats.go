@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -47,7 +48,7 @@ func (c *ShortLinkStatsController) GetStats(ctx *gin.Context) {
 	}
 
 	// 调用服务
-	stats, err := c.shortLinkService.GetStats(&req)
+	stats, err := c.shortLinkService.GetStats(context.Background(), &req)
 	if HandleDBError(ctx, err, "获取短链统计") {
 		return
 	}
@@ -66,7 +67,7 @@ func (c *ShortLinkStatsController) GetAllStats(ctx *gin.Context) {
 	}
 
 	// 调用服务
-	stats, err := c.shortLinkService.GetAllStats(&req)
+	stats, err := c.shortLinkService.GetAllStats(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -94,7 +95,7 @@ func (c *ShortLinkStatsController) ShareShortLink(ctx *gin.Context) {
 	req.ID = uint(id)
 
 	// 调用服务
-	share, err := c.shortLinkService.ShareShortLink(&req)
+	share, err := c.shortLinkService.ShareShortLink(context.Background(), &req)
 	if HandleServiceError(ctx, err) {
 		return
 	}

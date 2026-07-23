@@ -52,7 +52,7 @@ func InitSOPScheduler(db *gorm.DB, dispatcher any) *SOPScheduler {
 	schedulerOnce.Do(func() {
 		svc := InitSOPService(db, nil)
 		globalSOPScheduler = NewSOPScheduler(svc, db, 60*time.Second)
-		globalSOPScheduler.Start()
+		globalSOPScheduler.Start(context.Background(), )
 	})
 	return globalSOPScheduler
 }
@@ -101,7 +101,7 @@ func (s *SOPScheduler) Start(ctx context.Context)  {
 	s.running = true
 	s.mu.Unlock()
 
-	go s.loop()
+	go s.loop(context.Background(), )
 	logger.Infof("[SOPScheduler] 启动成功，调度间隔 %s", s.interval)
 }
 
@@ -122,14 +122,14 @@ func (s *SOPScheduler) loop(ctx context.Context)  {
 	defer ticker.Stop()
 
 	// 启动时立即执行一次
-	s.tick()
+	s.tick(context.Background(), )
 
 	for {
 		select {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.tick()
+			s.tick(context.Background(), )
 		}
 	}
 }
@@ -157,7 +157,7 @@ func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB()
+	s.ensureReposFromDB(context.Background(), )
 	threshold := time.Now().Add(-24 * time.Hour)
 	rowsAffected, err := s.execRepo.CleanupStuck(ctx, threshold, SOPStatusRunning, SOPStatusFailed)
 	if err != nil {
@@ -172,7 +172,7 @@ func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB()
+	s.ensureReposFromDB(context.Background(), )
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerAuto)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 auto SOP 失败: %v", err)
@@ -188,7 +188,7 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB()
+	s.ensureReposFromDB(context.Background(), )
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerSchedule)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 schedule SOP 失败: %v", err)
@@ -221,7 +221,7 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 
 // tryExecute 尝试为该 SOP 启动一次执行
 func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
-	s.ensureReposFromDB()
+	s.ensureReposFromDB(context.Background(), )
 	// 去重：检查是否已有 running 的执行
 	count, err := s.execRepo.CountBySOPIDAndStatus(ctx, agent.ID, SOPStatusRunning)
 	if err != nil {

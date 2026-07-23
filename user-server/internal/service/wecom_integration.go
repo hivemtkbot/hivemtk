@@ -219,7 +219,7 @@ func (s *WeComIntegrationService) UpdateAccountStatus(ctx context.Context, accou
 	} else if loginState == WeComLoginOffline {
 		updates["weight"] = 50
 	}
-	return s.db.Model(ctx, &model.WeComAccount{}).
+	return s.db.Model(&model.WeComAccount{}).
 		Where("id = ?", accountID).
 		Updates(updates).Error
 }
@@ -236,7 +236,7 @@ func (s *WeComIntegrationService) ListAccountsWithHealth(ctx context.Context) ([
 		return nil, nil
 	}
 	var accounts []model.WeComAccount
-	if err := s.db.Order(ctx, "id DESC").Find(&accounts).Error; err != nil {
+	if err := s.db.Order("id DESC").Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 	out := make([]AccountWithHealth, 0, len(accounts))

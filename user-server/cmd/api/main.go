@@ -190,7 +190,7 @@ func main() {
 	// CREATE TABLE IF NOT EXISTS），补齐缺失表。
 	migrationRegistry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationServiceDefault(migrationRegistry, migrations.RegisterMigrations)
-	go migrationSvc.ExecuteUpgrade("v1.0.0", "v1.0.0")
+	go migrationSvc.ExecuteUpgrade(context.Background(), "v1.0.0", "v1.0.0")
 
 	// M 域 P1 缺口修复启动装配（2026-07-21）
 	// 1) LLM Provider 降级管理器（健康检查 + 熔断器 + 模板回复兜底）
@@ -206,32 +206,32 @@ func main() {
 
 	// 3) SSE 实时驾驶舱 Hub
 	sseHub := service.InitGlobalSSEHub()
-	defer sseHub.Stop()
+	defer sseHub.Stop(context.Background())
 	logger.Info("[M-4] SSE dashboard hub started (6 topics: llm_calls/intent_recognition/rag_queries/agent_actions/humanize_scores/system_alerts)")
 
 	// 启动 SOP 自动调度器（P0-11 修复）
 	scheduler := service.InitSOPScheduler(db.GetDB(), nil)
-	defer scheduler.Stop()
+	defer scheduler.Stop(context.Background())
 
 	// P0-1 修复（章节检查报告 #5）：启动 SOP 节点执行调度链
 	// 顺序：ExecutionDispatcher → OutboxDispatcher（timer 扫描）→ StuckDetector
 	// 装配 WebSocket Hub：SOPExecutionDispatcher.SetWSHub 内部遍历消息类执行器注入。
 	execDispatcher := service.InitSOPExecutionDispatcher(db.GetDB(), nil, nil)
-	defer execDispatcher.Stop()
-	execDispatcher.SetWSHub(websocket.GetHub())
+	defer execDispatcher.Stop(context.Background())
+	execDispatcher.SetWSHub(context.Background(), websocket.GetHub())
 
 	outboxDispatcher := service.InitSOPOutboxDispatcher(db.GetDB(), execDispatcher)
-	defer outboxDispatcher.Stop()
+	defer outboxDispatcher.Stop(context.Background())
 
 	stuckDetector := service.InitSOPStuckDetector(db.GetDB(), execDispatcher)
-	defer stuckDetector.Stop()
+	defer stuckDetector.Stop(context.Background())
 
 	// P1-4: 全局事件总线优雅关闭（router.Setup 中初始化）
 	defer event.StopGlobal()
 
 	// 意图→SOP 联动（P0-12 修复）
 	if intentRec := service.GetIntentRecognizer(); intentRec != nil {
-		intentRec.SetSOPService(scheduler.SOPService())
+		intentRec.SetSOPService(context.Background(), scheduler.SOPService(context.Background()))
 	}
 
 	// P0-3/4/5 启动装配（启动时初始化全局单例，供 router 注入到 SalesEngine）
@@ -246,7 +246,7 @@ func main() {
 	// 4) 反馈学习闭环组件 + cron（4 个定时任务）
 	feedbackComponents := service.InitFeedbackLoopComponents(db.GetDB(), nil, nil)
 	feedbackCron := service.NewFeedbackLoopCron(db.GetDB(), feedbackComponents)
-	defer feedbackCron.Stop()
+	defer feedbackCron.Stop(context.Background())
 	logger.Info("[P0-5] feedback loop cron started (4 tasks: monthly baseline / weekly dialogue / daily prompt / 6h bandit)")
 
 	// 初始化 4 层记忆系统（P0-13 修复）

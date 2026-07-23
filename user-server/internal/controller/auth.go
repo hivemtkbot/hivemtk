@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -39,7 +40,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 
 	// 即使在测试模式下，登录也必须验证用户名和密码
 	// 测试模式只跳过后续的 JWT 中间件认证，不跳过登录验证
-	resp, err := c.authService.Login(&req)
+	resp, err := c.authService.Login(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
@@ -75,7 +76,7 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	}
 
 	// 刷新令牌
-	newToken, err := c.authService.RefreshToken(token)
+	newToken, err := c.authService.RefreshToken(context.Background(), token)
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, "刷新令牌失败", err.Error())
 		return
@@ -103,7 +104,7 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 	}
 
 	// 获取用户信息
-	user, err := c.authService.GetCurrentUser(uid)
+	user, err := c.authService.GetCurrentUser(context.Background(), uid)
 	if err != nil {
 		if HandleServiceError(ctx, err) {
 			return
@@ -138,7 +139,7 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	}
 
 	// 修改密码
-	if err := c.authService.ChangePassword(uid, &req); err != nil {
+	if err := c.authService.ChangePassword(context.Background(), uid, &req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -166,7 +167,7 @@ func (c *AuthController) InitChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.authService.InitChangePassword(req.Username, req.NewPassword); err != nil {
+	if err := c.authService.InitChangePassword(context.Background(), req.Username, req.NewPassword); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -198,7 +199,7 @@ func (c *AuthController) ForgotAdminPassword(ctx *gin.Context) {
 		return
 	}
 
-	token, err := c.authService.CreateForgotPasswordToken(req.Username)
+	token, err := c.authService.CreateForgotPasswordToken(context.Background(), req.Username)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -226,7 +227,7 @@ func (c *AuthController) ResetAdminPassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.authService.ResetAdminPasswordWithToken(req.Username, req.ResetToken, req.NewPassword); err != nil {
+	if err := c.authService.ResetAdminPasswordWithToken(context.Background(), req.Username, req.ResetToken, req.NewPassword); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -257,7 +258,7 @@ func (c *AuthController) SetupMFA(ctx *gin.Context) {
 	username, _ := ctx.Get("username")
 	usernameStr, _ := username.(string)
 
-	resp, err := c.mfaService.SetupMFA(uid, usernameStr)
+	resp, err := c.mfaService.SetupMFA(context.Background(), uid, usernameStr)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -285,7 +286,7 @@ func (c *AuthController) ConfirmMFASetup(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.mfaService.ConfirmMFASetup(uid, req.Code); err != nil {
+	if err := c.mfaService.ConfirmMFASetup(context.Background(), uid, req.Code); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -316,7 +317,7 @@ func (c *AuthController) DisableMFA(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.mfaService.DisableMFA(uid, req.Password, req.Code); err != nil {
+	if err := c.mfaService.DisableMFA(context.Background(), uid, req.Password, req.Code); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -338,14 +339,14 @@ func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
 		return
 	}
 
-	userID, username, role, err := c.mfaService.VerifyMFALogin(req.TempToken, req.Code)
+	userID, username, role, err := c.mfaService.VerifyMFALogin(context.Background(), req.TempToken, req.Code)
 	if err != nil {
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	// 颁发正式 JWT
-	jwtUtils := c.authService.JwtUtils()
+	jwtUtils := c.authService.JwtUtils(context.Background(), )
 	token, err := jwtUtils.GenerateToken(userID, username, role)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "颁发令牌失败")
@@ -379,7 +380,7 @@ func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
 		return
 	}
 
-	enabled, err := c.mfaService.IsMFAEnabled(uid)
+	enabled, err := c.mfaService.IsMFAEnabled(context.Background(), uid)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -407,7 +408,7 @@ func (c *AuthController) ListLoginEvents(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	events, total, err := c.riskService.ListLoginEvents(uid, page, pageSize)
+	events, total, err := c.riskService.ListLoginEvents(context.Background(), uid, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -437,7 +438,7 @@ func (c *AuthController) ListSecurityAlerts(ctx *gin.Context) {
 		pageSize = 20
 	}
 
-	alerts, total, err := c.riskService.ListSecurityAlerts(uid, status, page, pageSize)
+	alerts, total, err := c.riskService.ListSecurityAlerts(context.Background(), uid, status, page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -469,7 +470,7 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 	}
 	_ = ctx.ShouldBindJSON(&req)
 
-	if err := c.riskService.ResolveSecurityAlert(uint(alertID), uid, req.Note); err != nil {
+	if err := c.riskService.ResolveSecurityAlert(context.Background(), uint(alertID), uid, req.Note); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -483,7 +484,7 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 // GET /api/auth/password-policy
 func (c *AuthController) GetPasswordPolicy(ctx *gin.Context) {
 	policySvc := service.NewPasswordPolicyService()
-	policy := policySvc.GetPolicy()
+	policy := policySvc.GetPolicy(context.Background(), )
 	response.Success(ctx, policy, "查询成功")
 }
 
@@ -504,7 +505,7 @@ func (c *AuthController) SavePasswordPolicy(ctx *gin.Context) {
 	}
 
 	policySvc := service.NewPasswordPolicyService()
-	if err := policySvc.SavePolicy(&policy); err != nil {
+	if err := policySvc.SavePolicy(context.Background(), &policy); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -538,7 +539,7 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 	}
 
 	// 获取用户列表
-	users, total, err := c.userService.GetUsers(page, pageSize)
+	users, total, err := c.userService.GetUsers(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -563,7 +564,7 @@ func (c *SystemUserController) GetUser(ctx *gin.Context) {
 	}
 
 	// 获取用户信息
-	user, err := c.userService.GetUserByID(uint(id))
+	user, err := c.userService.GetUserByID(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -581,7 +582,7 @@ func (c *SystemUserController) CreateUser(ctx *gin.Context) {
 	}
 
 	// 创建用户
-	user, err := c.userService.CreateUser(&req)
+	user, err := c.userService.CreateUser(context.Background(), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -607,7 +608,7 @@ func (c *SystemUserController) UpdateUser(ctx *gin.Context) {
 	}
 
 	// 更新用户
-	user, err := c.userService.UpdateUser(uint(id), &req)
+	user, err := c.userService.UpdateUser(context.Background(), uint(id), &req)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -627,7 +628,7 @@ func (c *SystemUserController) DeleteUser(ctx *gin.Context) {
 	}
 
 	// 删除用户
-	if err := c.userService.DeleteUser(uint(id)); err != nil {
+	if err := c.userService.DeleteUser(context.Background(), uint(id)); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -655,7 +656,7 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 	}
 
 	// 重置密码
-	if err := c.userService.ResetPassword(uint(id), req.Password); err != nil {
+	if err := c.userService.ResetPassword(context.Background(), uint(id), req.Password); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -666,7 +667,7 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 // CreateDefaultAdmin 创建默认管理员账户（不需要认证）
 func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 	// 检查是否已存在管理员
-	users, _, err := c.userService.GetUsers(1, 1)
+	users, _, err := c.userService.GetUsers(context.Background(), 1, 1)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "检查用户失败")
 		return
@@ -689,7 +690,7 @@ func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
 		Status:   1,
 	}
 
-	user, err := c.userService.CreateUser(req)
+	user, err := c.userService.CreateUser(context.Background(), req)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "创建默认管理员失败", err.Error())
 		return

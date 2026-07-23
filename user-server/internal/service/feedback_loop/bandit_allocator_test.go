@@ -222,6 +222,7 @@ func TestEnforceTrafficCeiling_ZeroTotalTrials(t *testing.T) {
 //   - 多次调用后每个臂都被选中过（均匀性）
 func TestBanditAllocator_SelectArm_ColdStartUniform(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 	expID := "test_cold_start"
 	arms := []model.BanditArm{
 		{ExperimentID: expID, ExperimentType: "prompt", ArmKey: "arm_a", Alpha: 2, Beta: 2, Status: model.BanditArmStatusExploring},
@@ -295,6 +296,7 @@ func TestBanditAllocator_SelectArm_EmptyExperimentID(t *testing.T) {
 // TestBanditAllocator_UpdateReward_Success 成功更新 alpha
 func TestBanditAllocator_UpdateReward_Success(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 	expID := "test_update_reward"
 	arm := model.BanditArm{
 		ExperimentID: expID, ExperimentType: "prompt", ArmKey: "arm_a",
@@ -467,6 +469,7 @@ func TestBanditAllocator_PromoteArm_InvalidInput(t *testing.T) {
 // 验证：失效缓存后下次 SelectArm 会重新查 DB
 func TestBanditAllocator_InvalidateCache(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 	expID := "test_invalidate"
 	arm := model.BanditArm{
 		ExperimentID: expID, ExperimentType: "prompt", ArmKey: "arm_a",

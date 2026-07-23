@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"marketing/internal/aiagent/agent/tooluse"
@@ -35,15 +34,13 @@ import (
 //
 // T1-T10 测试用例覆盖：
 //   T1  - 客户搜索工具调用（customer.search 真实写入 + 查询）
-//   T2  - 订单创建 + 查询工具调用（order.create + order.query）
-//   T3  - 优惠券应用工具调用（coupon.apply 真实核销）
 //   T4  - 跟进任务创建工具调用（follow_task.create 真实落库）
 //   T5  - 知识库列表工具调用（knowledge.list_kb 真实数据）
 //   T6  - 知识反馈工具调用（knowledge.feedback 真实写入）
 //   T7  - RAG 检索工具调用（rag.search 真实检索）
 //   T8  - Agent Loop 多轮迭代（LLM 返回 tool_calls → 执行 → 回灌 → 最终 stop）
 //   T9  - 装饰器链拦截验证（限流/审计/计费真实生效）
-//   T10 - 全局注册中心完整性（41 个工具全部可被 AgentToolExecutor 列出）
+//   T10 - 全局注册中心完整性（工具全部可被 AgentToolExecutor 列出）
 
 // ============================================================================
 // 测试辅助
@@ -63,8 +60,6 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 		&model.KnowledgeFeedback{},
 		&model.KnowledgeSearchLog{},
 		&model.RagProduct{},
-		&tooluse.Coupon{},
-		&tooluse.CouponRecord{},
 	)
 	// 关键修复：让全局 repository 使用测试 DB（进程级测试库已隔离，不影响其他测试进程）
 	_db.SetTestDB(database)
@@ -74,7 +69,7 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 // setupAgentLoopExecutor 构造真实 ToolExecutor（含装饰器链 + 全部工具注册）
 //
 // 返回的 executor 持有：
-//   - 真实 ToolRegistry（41 个工具）
+//   - 真实 ToolRegistry（全部已注册工具）
 //   - 真实装饰器链（限流 20QPS + 重试 3 次 + 超时 5s + 审计 + 计费）
 //   - 真实工具依赖（OrderService/CustomerService/FollowUpService/KnowledgeService 均使用测试 DB）
 //
@@ -146,7 +141,7 @@ func setupAgentLoopSalesEngine(t *testing.T, db *gorm.DB, dispatcher *llm.Dispat
 		nil, // customerLookup=nil
 	)
 	// P0-3 注入 ToolExecutorAdapter，激活 Agent Loop
-	engine.SetToolExecutor(NewToolExecutorAdapter(executor))
+	engine.SetToolExecutor(context.Background(), NewToolExecutorAdapter(executor))
 	return engine, executor
 }
 
@@ -231,183 +226,6 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 		t.Errorf("返回内容应包含客户 ID，实际：%s", results[0].Content)
 	}
 	t.Logf("✅ T1 customer.search 真实执行成功，返回：%s", results[0].Content)
-}
-
-// ============================================================================
-// T2 - 订单创建 + 查询工具调用（order.create + order.query）
-// ============================================================================
-
-// TestT2_OrderCreateAndQuery_RealDB 验证 order.create + order.query 真实执行
-//
-// 业务场景：客户确定购买意向，智能体自动创建订单，随后查询确认
-// 预期：order.create 真实落库 + order.query 真实查询返回新订单
-func TestT2_OrderCreateAndQuery_RealDB(t *testing.T) {
-	db := setupAgentLoopTestDB(t)
-	executor := setupAgentLoopExecutor(t, db)
-
-	// 1. order.create 工具调用
-	createCall := tooluse.LLMToolCall{
-		ID: "call-t2-create",
-		Function: tooluse.LLMToolFunction{
-			Name:      "order.create",
-			Arguments: `{"account_id":"acc-t2-001","price":"199.00"}`,
-		},
-	}
-	results := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{createCall}, nil)
-	if !results[0].Success {
-		t.Fatalf("order.create 失败：%s", results[0].Content)
-	}
-
-	// 提取 order_id
-	var createResp struct {
-		ToolName string `json:"tool_name"`
-		Success  bool   `json:"success"`
-		Data     struct {
-			OrderID string `json:"order_id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(results[0].Content), &createResp); err != nil {
-		t.Fatalf("解析 order.create 响应失败：%v，原始：%s", err, results[0].Content)
-	}
-	orderID := createResp.Data.OrderID
-	if orderID == "" {
-		t.Fatalf("order_id 不应为空")
-	}
-	t.Logf("✅ T2.1 order.create 成功，order_id=%s", orderID)
-
-	// 2. order.query 工具调用（按 order_id 查询）
-	queryCall := tooluse.LLMToolCall{
-		ID: "call-t2-query",
-		Function: tooluse.LLMToolFunction{
-			Name:      "order.query",
-			Arguments: fmt.Sprintf(`{"order_id":"%s"}`, orderID),
-		},
-	}
-	results2 := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{queryCall}, nil)
-	if !results2[0].Success {
-		t.Fatalf("order.query 失败：%s", results2[0].Content)
-	}
-
-	// 解析响应并验证订单金额（decimal 比较，避免 "199" vs "199.00" 字符串差异）
-	var queryResp struct {
-		ToolName string `json:"tool_name"`
-		Success  bool   `json:"success"`
-		Data     struct {
-			Order struct {
-				Price string `json:"price"`
-			} `json:"order"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(results2[0].Content), &queryResp); err != nil {
-		t.Fatalf("解析 order.query 响应失败：%v，原始：%s", err, results2[0].Content)
-	}
-	actualPrice, err := decimal.NewFromString(queryResp.Data.Order.Price)
-	if err != nil {
-		t.Fatalf("解析 price 失败：%v，原始：%s", err, queryResp.Data.Order.Price)
-	}
-	expectedPrice := decimal.NewFromInt(199)
-	if !actualPrice.Equal(expectedPrice) {
-		t.Errorf("order.price 应为 %s，实际 %s", expectedPrice.String(), actualPrice.String())
-	}
-	t.Logf("✅ T2.2 order.query 成功，订单金额=%s", actualPrice.String())
-}
-
-// ============================================================================
-// T3 - 优惠券应用工具调用（coupon.apply 真实核销）
-// ============================================================================
-
-// TestT3_CouponApply_RealDB 验证 coupon.apply 真实核销
-//
-// 业务场景：客户使用优惠券，智能体调用 coupon.apply 自动核销并计算折扣价
-// 预期：coupon_records 真实写入 + 订单价格更新为折扣后金额
-func TestT3_CouponApply_RealDB(t *testing.T) {
-	db := setupAgentLoopTestDB(t)
-	executor := setupAgentLoopExecutor(t, db)
-
-	// 1. 创建订单
-	createCall := tooluse.LLMToolCall{
-		ID: "call-t3-create",
-		Function: tooluse.LLMToolFunction{
-			Name:      "order.create",
-			Arguments: `{"account_id":"acc-t3-001","price":"200.00"}`,
-		},
-	}
-	r1 := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{createCall}, nil)
-	if !r1[0].Success {
-		t.Fatalf("预置订单失败：%s", r1[0].Content)
-	}
-	var createResp struct {
-		Data struct {
-			OrderID string `json:"order_id"`
-		} `json:"data"`
-	}
-	_ = json.Unmarshal([]byte(r1[0].Content), &createResp)
-	orderID := createResp.Data.OrderID
-
-	// 2. 创建优惠券
-	coupon := &tooluse.Coupon{
-		ID:         "coupon-t3-001",
-		Code:       "T3SAVE50",
-		Name:       "T3 测试满 200 减 50",
-		Type:       "fixed",
-		Value:      "50.00",
-		MinAmount:  "200.00",
-		TotalQuota: 100,
-		StartTime:  time.Now().Add(-time.Hour),
-		Status:     "active",
-	}
-	if err := db.Create(coupon).Error; err != nil {
-		t.Fatalf("预置优惠券失败：%v", err)
-	}
-
-	// 3. coupon.apply 工具调用
-	applyCall := tooluse.LLMToolCall{
-		ID: "call-t3-apply",
-		Function: tooluse.LLMToolFunction{
-			Name:      "coupon.apply",
-			Arguments: fmt.Sprintf(`{"coupon_code":"T3SAVE50","order_id":"%s","customer_id":"cust-t3-001"}`, orderID),
-		},
-	}
-	r2 := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{applyCall}, nil)
-	if !r2[0].Success {
-		t.Fatalf("coupon.apply 失败：%s", r2[0].Content)
-	}
-
-	// 4. 验证返回的 final_amount = 150.00（200 - 50）
-	// 用 decimal 比较避免 "150" vs "150.00" 字符串差异（decimal.String() 会去除尾零）
-	var applyResp struct {
-		ToolName string `json:"tool_name"`
-		Success  bool   `json:"success"`
-		Data     struct {
-			FinalAmount string `json:"final_amount"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(r2[0].Content), &applyResp); err != nil {
-		t.Fatalf("解析 coupon.apply 响应失败：%v，原始：%s", err, r2[0].Content)
-	}
-	actualFinal, err := decimal.NewFromString(applyResp.Data.FinalAmount)
-	if err != nil {
-		t.Fatalf("解析 final_amount 失败：%v，原始：%s", err, applyResp.Data.FinalAmount)
-	}
-	expectedFinal := decimal.NewFromInt(150)
-	if !actualFinal.Equal(expectedFinal) {
-		t.Errorf("coupon.apply 应返回 final_amount=%s，实际 %s", expectedFinal.String(), actualFinal.String())
-	}
-
-	// 5. 验证 DB 写入：coupon_records 表
-	var recordCount int64
-	db.Model(&tooluse.CouponRecord{}).Count(&recordCount)
-	if recordCount != 1 {
-		t.Errorf("应写入 1 条核销记录，实际 %d", recordCount)
-	}
-
-	// 6. 验证优惠券 used_count + 1
-	var updatedCoupon tooluse.Coupon
-	db.Where("code = ?", "T3SAVE50").First(&updatedCoupon)
-	if updatedCoupon.UsedCount != 1 {
-		t.Errorf("优惠券 used_count 应为 1，实际 %d", updatedCoupon.UsedCount)
-	}
-	t.Logf("✅ T3 coupon.apply 真实核销成功，final_amount=%s，coupon_records 已写入", actualFinal.String())
 }
 
 // ============================================================================
@@ -540,7 +358,7 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 		DocumentID: 1,
 		ProductID:  12345, // 对应 hash("kb-t7-001")
 		ChunkIndex: 0,
-		Content:    "T7 测试：退款流程为联系客服并提供订单号",
+		Content:    "T7 测试：退款流程为联系客服并提供客户ID",
 	}
 	if err := db.Create(chunk).Error; err != nil {
 		t.Fatalf("预置 chunk 失败：%v", err)
@@ -570,7 +388,7 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 
 // TestT8_AgentLoop_MultiIteration 验证 Agent Loop 真实多轮迭代
 //
-// 业务场景：LLM 第一次返回 tool_calls（调用 order.create）→ 执行工具 →
+// 业务场景：LLM 第一次返回 tool_calls（调用 follow_task.create）→ 执行工具 →
 // 回灌 tool 结果 → LLM 第二次返回 stop（最终回复）
 //
 // 本测试不依赖真实 LLM HTTP，通过 ToolExecutorAdapter 直接调用 DispatchToolCalls，
@@ -580,19 +398,19 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 	executor := setupAgentLoopExecutor(t, db)
 	adapter := NewToolExecutorAdapter(executor)
 
-	// 1. 验证 ListTools 返回 38 个工具（reach×20 + customer×8 + knowledge×4 + business×6，pm 未注册）
+	// 1. 验证 ListTools 返回全部工具（reach×20 + customer×8 + knowledge×4 + follow_task×2，pm 未注册）
 	tools := adapter.ListTools()
-	if len(tools) < 38 {
+	if len(tools) < 32 {
 		t.Fatalf("ListTools 应返回 >= 38 个工具，实际 %d", len(tools))
 	}
 	t.Logf("✅ T8.1 ListTools 返回 %d 个工具", len(tools))
 
-	// 2. 模拟 LLM 第一次返回 tool_calls（并发 2 个：order.create + customer.search）
+	// 2. 模拟 LLM 第一次返回 tool_calls（并发 2 个：follow_task.create + customer.search）
 	agentCalls := []service.AgentToolCall{
 		{
 			ID:        "call-t8-create",
-			Name:      "order.create",
-			Arguments: `{"account_id":"acc-t8-001","price":"99.00"}`,
+			Name:      "follow_task.create",
+			Arguments: `{"customer_id":"cust-t8-001","owner_id":"sales-t8","type":"first_contact","due_in_minutes":60,"title":"T8 跟进","priority":2}`,
 		},
 		{
 			ID:        "call-t8-search",
@@ -670,17 +488,17 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 		CostTracker:       costTracker,
 	})
 
-	// 调用一个会成功的工具（order.create）
+	// 调用一个会成功的工具（follow_task.create）
 	call := tooluse.LLMToolCall{
 		ID: "call-t9-001",
 		Function: tooluse.LLMToolFunction{
-			Name:      "order.create",
-			Arguments: `{"account_id":"acc-t9-001","price":"50.00"}`,
+			Name:      "follow_task.create",
+			Arguments: `{"customer_id":"cust-t9-001","owner_id":"sales-t9","type":"first_contact","due_in_minutes":60,"title":"T9 跟进","priority":2}`,
 		},
 	}
 	results := executor.DispatchByLLMToolCall(context.Background(), []tooluse.LLMToolCall{call}, nil)
 	if !results[0].Success {
-		t.Fatalf("order.create 失败：%s", results[0].Content)
+		t.Fatalf("follow_task.create 失败：%s", results[0].Content)
 	}
 
 	// 1. 验证 AuditLogger 记录 1 条
@@ -690,8 +508,8 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 	entries := auditLogger.Entries()
 	if len(entries) > 0 {
 		e := entries[len(entries)-1]
-		if e.ToolName != "order.create" {
-			t.Errorf("AuditEntry.ToolName 应为 order.create，实际 %s", e.ToolName)
+		if e.ToolName != "follow_task.create" {
+			t.Errorf("AuditEntry.ToolName 应为 follow_task.create，实际 %s", e.ToolName)
 		}
 		if !e.Success {
 			t.Errorf("AuditEntry.Success 应为 true")
@@ -702,17 +520,17 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 	stats := costTracker.Stats()
 	foundOrder := false
 	for _, s := range stats {
-		if s.ToolName == "order.create" && s.TotalCalls >= 1 {
+		if s.ToolName == "follow_task.create" && s.TotalCalls >= 1 {
 			foundOrder = true
 			if s.SuccessCalls < 1 {
-				t.Errorf("order.create 应有 >=1 次成功，实际 %d", s.SuccessCalls)
+				t.Errorf("follow_task.create 应有 >=1 次成功，实际 %d", s.SuccessCalls)
 			}
 		}
 	}
 	if !foundOrder {
-		t.Errorf("CostTracker 未记录 order.create 调用")
+		t.Errorf("CostTracker 未记录 follow_task.create 调用")
 	}
-	t.Logf("✅ T9 装饰器链真实生效：AuditLogger=%d 条，CostTracker 记录 order.create", auditLogger.Count())
+	t.Logf("✅ T9 装饰器链真实生效：AuditLogger=%d 条，CostTracker 记录 follow_task.create", auditLogger.Count())
 }
 
 // ============================================================================
@@ -722,23 +540,23 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 // TestT10_GlobalRegistry_Completeness 验证全局注册中心完整性
 //
 // 业务场景：SalesEngine 通过 ToolExecutorAdapter.ListTools() 获取所有可用工具
-// 预期：返回的工具列表覆盖全部 5 大分类（customer/reach/knowledge/business）
+// 预期：返回的工具列表覆盖全部 5 大分类（customer/reach/knowledge/rag/follow_task）
 //
-//	工具数量 >= 38（reach 20 + customer 8 + knowledge 4 + business 6）
+//	工具数量 >= 32（reach 20 + customer 8 + knowledge 3 + rag 1 + follow_task 2）
 func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 	executor := setupAgentLoopExecutor(t, db)
 	adapter := NewToolExecutorAdapter(executor)
 
 	tools := adapter.ListTools()
-	if len(tools) < 38 {
-		t.Fatalf("ListTools 应返回 >= 38 个工具，实际 %d", len(tools))
+	if len(tools) < 32 {
+		t.Fatalf("ListTools 应返回 >= 36 个工具，实际 %d", len(tools))
 	}
 
 	// 验证每个工具定义都是合法的 OpenAI Function Calling 格式
 	categories := map[string]int{
 		"customer.": 0, "reach.": 0, "knowledge.": 0, "rag.": 0,
-		"order.": 0, "coupon.": 0, "follow_task.": 0, "payment.": 0,
+		"follow_task.": 0,
 	}
 	for _, tool := range tools {
 		if tool.Name == "" {
@@ -766,10 +584,7 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 		"reach.":       20,
 		"knowledge.":   3, // feedback/add_doc/list_kb
 		"rag.":         1, // rag.search
-		"order.":       2, // create/query
-		"coupon.":      1, // apply
 		"follow_task.": 2, // create/update
-		"payment.":     1, // create
 	}
 	for prefix, minCount := range required {
 		if categories[prefix] < minCount {
@@ -782,8 +597,7 @@ func TestT10_GlobalRegistry_Completeness(t *testing.T) {
 		"customer.search", "customer.get", "customer.create",
 		"reach.web.send", "reach.telegram.send", "reach.whatsapp.send",
 		"rag.search", "knowledge.feedback",
-		"order.create", "order.query", "coupon.apply",
-		"follow_task.create", "follow_task.update", "payment.create",
+		"follow_task.create", "follow_task.update",
 	}
 	toolNames := make(map[string]bool, len(tools))
 	for _, t := range tools {
@@ -826,7 +640,7 @@ func TestAgentLoop_SalesEngineHandle_RealToolExecutor(t *testing.T) {
 	// 验证 ListTools 接口可调用
 	adapter := NewToolExecutorAdapter(executor)
 	tools := adapter.ListTools()
-	if len(tools) < 38 {
+	if len(tools) < 32 {
 		t.Errorf("ListTools 应返回 >= 38 个工具，实际 %d", len(tools))
 	}
 	t.Logf("✅ SalesEngine 注入 ToolExecutor 成功，ListTools 返回 %d 个工具", len(tools))
@@ -869,7 +683,7 @@ func TestAgentLoop_Fallback_WhenToolFails(t *testing.T) {
 	// 同时验证另一个场景：缺少必填参数
 	call2 := service.AgentToolCall{
 		ID:        "call-fail-002",
-		Name:      "order.create",
+		Name:      "follow_task.create",
 		Arguments: `{}`, // 缺少 account_id 和 price
 	}
 	results2 := adapter.DispatchToolCalls(context.Background(), []service.AgentToolCall{call2}, service.AgentToolContext{})

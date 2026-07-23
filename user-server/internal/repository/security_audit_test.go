@@ -34,7 +34,7 @@ func TestSecurityAuditRepository_Create(t *testing.T) {
 		StartedAt: &now,
 	}
 
-	err := repo.Create(context.Background(), record)
+	err := repo.Createrecord)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 		Status:    "running",
 		StartedAt: &now,
 	}
-	repo.Create(context.Background(), record)
+	repo.Createrecord)
 
 	updates := map[string]any{
 		"status":        "completed",
@@ -104,9 +104,9 @@ func TestSecurityAuditRepository_GetByID(t *testing.T) {
 		Status:    "completed",
 		StartedAt: &now,
 	}
-	repo.Create(context.Background(), record)
+	repo.Createrecord)
 
-	result, err := repo.GetByID(context.Background(), record.ID)
+	result, err := repo.GetByIDrecord.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestSecurityAuditRepository_GetByID_NotFound(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
 
-	_, err := repo.GetByID(context.Background(), 99999)
+	_, err := repo.GetByID99999)
 	if err == nil {
 		t.Error("expected error for non-existent ID")
 	}
@@ -134,7 +134,7 @@ func TestSecurityAuditRepository_List(t *testing.T) {
 	// 创建 5 条记录
 	for i := 0; i < 5; i++ {
 		now := time.Now()
-		repo.Create(context.Background(), &model.SecurityAuditResult{
+		repo.Create&model.SecurityAuditResult{
 			AuditName: fmt.Sprintf("audit_%d", i),
 			Status:    "completed",
 			StartedAt: &now,

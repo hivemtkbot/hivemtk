@@ -197,7 +197,7 @@ func (h *SSEHub) Unregister(ctx context.Context, clientID string)  {
 			delete(h.ipCount, client.ip)
 		}
 	}
-	client.Close()
+	client.Close(context.Background(), )
 }
 
 // Publish 向指定 topic 的所有订阅者广播事件
@@ -211,15 +211,15 @@ func (h *SSEHub) Publish(ctx context.Context, event SSEEvent)  {
 	h.mu.RLock()
 	clients := make([]*SSEClient, 0, len(h.clients))
 	for _, c := range h.clients {
-		if c.IsSubscribed(event.Topic) {
+		if c.IsSubscribed(context.Background(), event.Topic) {
 			clients = append(clients, c)
 		}
 	}
 	h.mu.RUnlock()
 	for _, c := range clients {
-		if !c.Send(event) {
+		if !c.Send(context.Background(), event) {
 			// 发送失败（缓冲区满），异步注销
-			go h.Unregister(c.id)
+			go h.Unregister(context.Background(), c.id)
 		}
 	}
 }
@@ -254,7 +254,7 @@ func (h *SSEHub) ListClients(ctx context.Context)  []map[string]any {
 		out = append(out, map[string]any{
 			"id":         c.id,
 			"ip":         c.ip,
-			"topics":     c.Topics(),
+			"topics":     c.Topics(context.Background(), ),
 			"created_at": c.createdAt,
 			"uptime_sec": int(time.Since(c.createdAt).Seconds()),
 		})
@@ -268,7 +268,7 @@ func (h *SSEHub) Stop(ctx context.Context)  {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		for _, c := range h.clients {
-			c.Close()
+			c.Close(context.Background(), )
 		}
 		h.clients = make(map[string]*SSEClient)
 		h.ipCount = make(map[string]int)
@@ -307,10 +307,10 @@ func GetGlobalSSEHub() *SSEHub {
 // PublishSSEEvent 便捷方法：发布事件到全局 SSE Hub
 func PublishSSEEvent(topic, eventType string, data any, traceID string) {
 	hub := GetGlobalSSEHub()
-	if hub == nil || hub.Stopped() {
+	if hub == nil || hub.Stopped(context.Background(), ) {
 		return
 	}
-	hub.Publish(SSEEvent{
+	hub.Publish(context.Background(), SSEEvent{
 		Topic:     topic,
 		EventType: eventType,
 		Data:      data,
@@ -412,7 +412,7 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 		EventType: "connected",
 		Data: map[string]any{
 			"client_id": client.id,
-			"topics":    client.Topics(),
+			"topics":    client.Topics(context.Background(), ),
 			"message":   "SSE connected",
 		},
 		Timestamp: time.Now(),
@@ -431,10 +431,10 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 		case <-hub.stopCh:
 			// Hub 停止
 			return
-		case <-client.CloseCh():
+		case <-client.CloseCh(context.Background(), ):
 			// 客户端被关闭
 			return
-		case event := <-client.Events():
+		case event := <-client.Events(context.Background(), ):
 			// 推送事件
 			if err := SSEWriteEvent(c, event); err != nil {
 				return

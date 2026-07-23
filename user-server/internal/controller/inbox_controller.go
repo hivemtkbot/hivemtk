@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -303,7 +304,7 @@ func (c *InboxController) GetMessages(ctx *gin.Context) {
 // StaffLoad 客服负载
 func (c *InboxController) StaffLoad(ctx *gin.Context) {
 	staff := ctx.Param("staff")
-	load, err := c.svc.StaffLoad(staff)
+	load, err := c.svc.StaffLoad(context.Background(), staff)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

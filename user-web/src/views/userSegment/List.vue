@@ -212,6 +212,7 @@ import {
   getSegmentStats,
   getSegmentUsers
 } from '@/api/userSegment.js'
+import { toList } from '@/utils/list.js'
 
 const router = useRouter()
 
@@ -259,7 +260,7 @@ const refreshData = async () => {
       getUserSegments(),
       getSegmentStats()
     ])
-    segments.value = segRes || []
+    segments.value = toList(segRes)
     stats.value = statsRes || { totalUsers: 0, highValue: 0, active: 0, churnRisk: 0 }
   } catch (error) {
     ElMessage.error(i18n.global.t('加载数据失败'))
@@ -317,7 +318,7 @@ const viewUsers = async (row) => {
   viewUsersLoading.value = true
   try {
     const res = await getSegmentUsers(row.id)
-    segmentUsers.value = res || []
+    segmentUsers.value = toList(res)
   } catch {
     ElMessage.error(i18n.global.t('加载用户列表失败'))
     segmentUsers.value = []

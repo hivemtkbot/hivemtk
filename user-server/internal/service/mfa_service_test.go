@@ -12,6 +12,7 @@ package service
 //  7. 防重放：同一码 60s 内重复使用被拒
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"

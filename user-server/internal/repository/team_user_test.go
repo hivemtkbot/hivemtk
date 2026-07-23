@@ -65,7 +65,7 @@ func TestTeamUserRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := userRepo.Create(context.Background(), tt.user)
+			err := userRepo.Create(tt.user)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -88,7 +88,7 @@ func TestTeamUserRepository_GetByID(t *testing.T) {
 		Password: "pass",
 		Name:     "GetByID User",
 	}
-	userRepo.Create(context.Background(), user)
+	userRepo.Create(user)
 
 	tests := []struct {
 		name    string
@@ -109,7 +109,7 @@ func TestTeamUserRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := userRepo.GetByID(context.Background(), tt.id)
+			result, err := userRepo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -131,17 +131,17 @@ func TestTeamUserRepository_Update(t *testing.T) {
 		Password: "pass",
 		Name:     "Original Name",
 	}
-	userRepo.Create(context.Background(), user)
+	userRepo.Create(user)
 
 	user.Name = "Updated Name"
 	user.Email = "updated@example.com"
 
-	err := userRepo.Update(context.Background(), user)
+	err := userRepo.Update(user)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := userRepo.GetByID(context.Background(), user.ID)
+	updated, _ := userRepo.GetByID(user.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -156,14 +156,14 @@ func TestTeamUserRepository_Delete(t *testing.T) {
 		Username: "deleteuser",
 		Password: "pass",
 	}
-	userRepo.Create(context.Background(), user)
+	userRepo.Create(user)
 
-	err := userRepo.Delete(context.Background(), user.ID)
+	err := userRepo.Delete(user.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = userRepo.GetByID(context.Background(), user.ID)
+	_, err = userRepo.GetByID(user.ID)
 	if err == nil {
 		t.Error("Expected user to be deleted")
 	}
@@ -178,14 +178,14 @@ func TestTeamUserRepository_UpdateLastLogin(t *testing.T) {
 		Username: "loginuser",
 		Password: "pass",
 	}
-	userRepo.Create(context.Background(), user)
+	userRepo.Create(user)
 
 	err := userRepo.UpdateLastLogin(context.Background(), user.ID, "192.168.1.1")
 	if err != nil {
 		t.Errorf("UpdateLastLogin() error = %v", err)
 	}
 
-	updated, _ := userRepo.GetByID(context.Background(), user.ID)
+	updated, _ := userRepo.GetByID(user.ID)
 	if updated.LastLoginIP != "192.168.1.1" {
 		t.Errorf("Expected LastLoginIP '192.168.1.1', got '%s'", updated.LastLoginIP)
 	}
@@ -198,7 +198,7 @@ func TestTeamUserRepository_UpdateLastLogin(t *testing.T) {
 func TestTeamUserRepository_UsernameExists(t *testing.T) {
 	userRepo, _, _ := setupTeamUserRepositories(t)
 
-	userRepo.Create(context.Background(), &model.TeamUser{
+	userRepo.Create(&model.TeamUser{
 		Username: "existinguser",
 		Password: "pass",
 	})
@@ -219,7 +219,7 @@ func TestTeamUserRepository_EmailExists(t *testing.T) {
 	userRepo, _, _ := setupTeamUserRepositories(t)
 
 	// 创建测试数据
-	userRepo.Create(context.Background(), &model.TeamUser{
+	userRepo.Create(&model.TeamUser{
 		Username: "testuser",
 		Password: "pass",
 		Email:    "test@example.com",

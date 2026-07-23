@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"marketing/internal/migration"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -47,7 +48,7 @@ func (c *MigrationController) GetUpgradeTask(ctx *gin.Context) {
 		return
 	}
 
-	task, err := c.migrationService.GetUpgradeTask(uint(id))
+	task, err := c.migrationService.GetUpgradeTask(context.Background(), uint(id))
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
@@ -64,7 +65,7 @@ func (c *MigrationController) GetUpgradeHistory(ctx *gin.Context) {
 		return
 	}
 
-	tasks, total, err := c.migrationService.GetUpgradeHistory(page, pageSize)
+	tasks, total, err := c.migrationService.GetUpgradeHistory(context.Background(), page, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -80,7 +81,7 @@ func (c *MigrationController) GetUpgradeHistory(ctx *gin.Context) {
 
 // GetMigrationRecords 获取迁移记录
 func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
-	records, err := c.migrationService.GetMigrationRecords()
+	records, err := c.migrationService.GetMigrationRecords(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -91,7 +92,7 @@ func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
 
 // GetCurrentVersion 获取当前数据库版本
 func (c *MigrationController) GetCurrentVersion(ctx *gin.Context) {
-	version, err := c.migrationService.GetCurrentVersion()
+	version, err := c.migrationService.GetCurrentVersion(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -111,14 +112,14 @@ func (c *MigrationController) CreateUpgradeTask(ctx *gin.Context) {
 	}
 
 	// 获取当前版本
-	currentVersion, err := c.migrationService.GetCurrentVersion()
+	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// 创建迁移任务
-	task, err := c.migrationService.ExecuteUpgrade(currentVersion, req.ToVersion)
+	task, err := c.migrationService.ExecuteUpgrade(context.Background(), currentVersion, req.ToVersion)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -137,7 +138,7 @@ func (c *MigrationController) Rollback(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.migrationService.Rollback(req.TargetVersion); err != nil {
+	if err := c.migrationService.Rollback(context.Background(), req.TargetVersion); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -148,14 +149,14 @@ func (c *MigrationController) Rollback(ctx *gin.Context) {
 // GetAvailableUpgrades 获取可执行的迁移列表
 func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 	// 获取当前版本
-	currentVersion, err := c.migrationService.GetCurrentVersion()
+	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// 获取待执行的迁移
-	pendingMigrations, err := c.migrationService.GetPendingMigrations()
+	pendingMigrations, err := c.migrationService.GetPendingMigrations(context.Background(), )
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

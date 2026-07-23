@@ -20,6 +20,7 @@ import (
 func allModels() []any {
 	return []any{
 		&model.Order{},
+		&model.AfterSale{},
 		&model.User{},
 		&model.Account{},
 		&model.Message{},
@@ -88,9 +89,7 @@ func allModels() []any {
 		// 备份恢复
 		&model.Backup{},
 		&model.RestoreRecord{},
-		// 支付配置
-		&model.PaymentConfig{},
-		// RAG会话持久化
+	// RAG会话持久化
 		&knowledgemodel.RagSession{},
 		&knowledgemodel.RagMessage{},
 		// 客服会话相关模型
@@ -271,10 +270,15 @@ func allModels() []any {
 		&model.ChatChannel{},
 		// P2-X: 商户端通知中心（站内通知 / 顶部铃铛 badge）
 		&model.Notification{},
-		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
-		&model.AssetBundle{},
-		&model.AssetBundleVersionLog{},
-	}
+	// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
+	&model.AssetBundle{},
+	&model.AssetBundleVersionLog{},
+	// 资产市场本地资产（local-assets）：列表/详情/同步日志三表，此前遗漏未加入
+	// 自动迁移，导致 /api/v1/local-assets 报 relation "local_assets" does not exist。
+	&model.LocalAsset{},
+	&model.LocalAssetData{},
+	&model.LocalAssetSyncLog{},
+}
 }
 
 // ensureExtensions 在 AutoMigrate 前确保依赖的 PG 扩展已就绪（幂等）。

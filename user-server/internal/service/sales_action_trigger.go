@@ -122,7 +122,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 
 	// === 1. 自动打标签 ===
 	if t.tagger != nil {
-		tags := t.tagger.TagFromSalesResponse(customerID, resp)
+		tags := t.tagger.TagFromSalesResponse(ctx, customerID, resp)
 		for _, tag := range tags {
 			rec.Actions = append(rec.Actions, TriggerAction{
 				Action:     "tag_applied",
@@ -162,7 +162,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 				textToExtract = resp.Memory.Budget + " " + textToExtract
 			}
 		}
-		intents := t.extractor.ExtractFromText(customerID, textToExtract)
+		intents := t.extractor.ExtractFromText(ctx, customerID, textToExtract)
 		for _, in := range intents {
 			rec.Actions = append(rec.Actions, TriggerAction{
 				Action:     "order_intent_extracted",
@@ -173,7 +173,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 			})
 			// 3.1 关键：自动创建草稿（P1-CLOSE-11）
 			if t.draftService != nil {
-				draft := t.draftService.CreateFromIntent(&in, ownerID)
+				draft := t.draftService.CreateFromIntent(ctx, &in, ownerID)
 				if draft != nil {
 					rec.Actions = append(rec.Actions, TriggerAction{
 						Action:     "order_draft_created",
@@ -251,7 +251,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 
 	// === 5. 记录到销售仪表盘 ===
 	if t.dashboard != nil {
-		t.dashboard.RecordAIDeal(AIDealEvent{
+		t.dashboard.RecordAIDeal(ctx, AIDealEvent{
 			CustomerID:  customerID,
 			OwnerID:     ownerID,
 			Intent:      safeIntent(resp),
@@ -290,7 +290,7 @@ func (t *SalesActionTrigger) advanceJourneyByIntent(ctx context.Context, custome
 	if resp == nil {
 		return ""
 	}
-	state := t.journey.GetState(customerID)
+	state := t.journey.GetState(ctx, customerID)
 	current := state.CurrentStage
 	if current == "" {
 		current = StageStranger
@@ -375,7 +375,7 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 
 	// 1. 推进客户旅程（记录互动 + 根据 result 推进阶段）
 	if t.journey != nil {
-		t.journey.Touch(customerID, "followup")
+		t.journey.Touch(ctx, customerID, "followup")
 		target := t.advanceJourneyByFollowUpResult(ctx, customerID, result)
 		rec.Actions = append(rec.Actions, TriggerAction{
 			Action: "stage_advanced", Target: string(target), Result: "ok",
@@ -385,7 +385,7 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 
 	// 2. 记录到销售仪表盘
 	if t.dashboard != nil {
-		t.dashboard.RecordFollowUp(FollowUpEvent{
+		t.dashboard.RecordFollowUp(ctx, FollowUpEvent{
 			CustomerID: customerID,
 			OwnerID:    ownerID,
 			Channel:    "manual",
@@ -425,7 +425,7 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 	// 修复：跟进结果=converted 时，自动补一条订单事件（金额/产品从上下文推断）
 	if result == "converted" && t.dashboard != nil {
 		amount, productName := t.inferOrderFromJourney(ctx, customerID)
-		t.dashboard.RecordOrder(OrderEvent{
+		t.dashboard.RecordOrder(ctx, OrderEvent{
 			OrderID:     "followup-" + reminderID,
 			CustomerID:  customerID,
 			OwnerID:     ownerID,
@@ -453,7 +453,7 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 
 // advanceJourneyByFollowUpResult 基于跟进结果推进旅程
 func (t *SalesActionTrigger) advanceJourneyByFollowUpResult(ctx context.Context, customerID, result string) JourneyStage {
-	state := t.journey.GetState(customerID)
+	state := t.journey.GetState(ctx, customerID)
 	current := state.CurrentStage
 	if current == "" {
 		current = StageStranger
@@ -528,7 +528,7 @@ func (t *SalesActionTrigger) TriggerAfterOrder(ctx context.Context, orderID, cus
 
 	// 3. 记录到销售仪表盘
 	if t.dashboard != nil {
-		t.dashboard.RecordOrder(OrderEvent{
+		t.dashboard.RecordOrder(context.Background(), OrderEvent{
 			OrderID:     orderID,
 			CustomerID:  customerID,
 			OwnerID:     ownerID,
@@ -576,7 +576,7 @@ func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customer
 	if t.journey == nil {
 		return 0, ""
 	}
-	state := t.journey.GetState(customerID)
+	state := t.journey.GetState(ctx, customerID)
 	amount := 0.0
 	product := "未指定产品"
 	// 从最近事件中提取金额/产品（如果有）

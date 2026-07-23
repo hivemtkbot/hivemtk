@@ -1,6 +1,6 @@
-# HivemTK 用户端 - FRP 私域部署指南
+# HiveMtk 用户端 - FRP 私域部署指南
 
-> 适用对象：需要把部署在内网/NAT/家庭宽带环境的 HivemTK 用户端，通过公网域名对外提供客服服务的运维/集成商
+> 适用对象：需要把部署在内网/NAT/家庭宽带环境的 HiveMtk 用户端，通过公网域名对外提供客服服务的运维/集成商
 > 适用版本：2026-07-21
 > 关联文档：[部署方案_用户端.md](部署方案_用户端.md) / [CHAT_WIDGET_EMBED.md](../operations/CHAT_WIDGET_EMBED.md) / [ADR-011-chat-widget-embed.md](adr/ADR-011-chat-widget-embed.md)
 
@@ -8,7 +8,7 @@
 
 ## 一、为什么需要 FRP
 
-HivemTK 用户端采用**私域独立部署**：数据库、推理栈、用户数据全部本地化。当客户官网部署在公网（任何访客都能访问的域名），而 HivemTK 部署在内网（无公网 IP、家庭 NAT、企业防火墙后）时，需要一种方式让公网请求能"穿透"到内网的 `user-server:8204`。
+HiveMtk 用户端采用**私域独立部署**：数据库、推理栈、用户数据全部本地化。当客户官网部署在公网（任何访客都能访问的域名），而 HiveMtk 部署在内网（无公网 IP、家庭 NAT、企业防火墙后）时，需要一种方式让公网请求能"穿透"到内网的 `user-server:8204`。
 
 **FRP（Fast Reverse Proxy）** 是这一场景下最轻量的解决方案：
 
@@ -455,7 +455,7 @@ done
 # 全部失败:发邮件/钉钉/企业微信
 curl -X POST "https://oapi.dingtalk.com/robot/send?access_token=XXX" \
   -H "Content-Type: application/json" \
-  -d '{"msgtype":"text","text":{"content":"⚠️ HivemTK user-server 健康检查失败"}}'
+  -d '{"msgtype":"text","text":{"content":"⚠️ HiveMtk user-server 健康检查失败"}}'
 exit 1
 SH
 chmod +x /usr/local/bin/mtk-healthcheck.sh

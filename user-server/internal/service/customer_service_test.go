@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -161,13 +162,13 @@ func TestCustomerService_AddTags(t *testing.T) {
 
 	// 添加标签
 	tags := []string{"VIP", "high-value"}
-	err := service.AddTags(customer.ID, tags)
+	err := service.AddTags(context.Background(), customer.ID, tags)
 	if err != nil {
 		t.Fatalf("AddTags failed: %v", err)
 	}
 
 	// 验证标签已添加
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByIDcustomer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags, got %d", len(currentTags))
@@ -183,16 +184,16 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 		Phone: "13800138004",
 	}
 	customer, _ := service.CreateOrUpdate(dto)
-	service.AddTags(customer.ID, []string{"VIP", "high-value", "active"})
+	service.AddTags(context.Background(), customer.ID, []string{"VIP", "high-value", "active"})
 
 	// 移除标签
-	err := service.RemoveTags(customer.ID, []string{"VIP"})
+	err := service.RemoveTags(context.Background(), customer.ID, []string{"VIP"})
 	if err != nil {
 		t.Fatalf("RemoveTags failed: %v", err)
 	}
 
 	// 验证标签已移除
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByIDcustomer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags after removal, got %d", len(currentTags))
@@ -219,8 +220,8 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	})
 
 	// 添加不同标签
-	service.AddTags(primary.ID, []string{"primary-tag"})
-	service.AddTags(secondary.ID, []string{"secondary-tag"})
+	service.AddTags(context.Background(), primary.ID, []string{"primary-tag"})
+	service.AddTags(context.Background(), secondary.ID, []string{"secondary-tag"})
 
 	// 合并
 	err := service.MergeCustomers(primary.ID, secondary.ID)
@@ -229,13 +230,13 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	}
 
 	// 验证次要客户已删除
-	_, err = service.repo.GetByID(secondary.ID)
+	_, err = service.repo.GetByIDsecondary.ID)
 	if err == nil || err.Error() != "记录未找到" {
 		// 历史备注：错误消息格式与具体驱动相关
 	}
 
 	// 验证主要客户有合并的标签
-	merged, _ := service.repo.GetByID(primary.ID)
+	merged, _ := service.repo.GetByIDprimary.ID)
 	mergedTags := merged.GetTags()
 	hasPrimaryTag := false
 	hasSecondaryTag := false
@@ -307,7 +308,7 @@ func TestCustomerService_AddTags_EmptyTags(t *testing.T) {
 	}
 	customer, _ := service.CreateOrUpdate(dto)
 
-	err := service.AddTags(customer.ID, []string{})
+	err := service.AddTags(context.Background(), customer.ID, []string{})
 	if err != nil {
 		t.Fatalf("AddTags with empty tags failed: %v", err)
 	}
@@ -317,7 +318,7 @@ func TestCustomerService_AddTags_EmptyTags(t *testing.T) {
 func TestCustomerService_RemoveTags_NotFound(t *testing.T) {
 	service := setupCustomerService(t)
 
-	err := service.RemoveTags("non-existent-id", []string{"tag"})
+	err := service.RemoveTags(context.Background(), "non-existent-id", []string{"tag"})
 	if err != ErrCustomerNotFound {
 		t.Errorf("Expected ErrCustomerNotFound, got %v", err)
 	}

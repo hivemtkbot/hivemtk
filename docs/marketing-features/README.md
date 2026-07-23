@@ -1,7 +1,7 @@
-# HivemTK 用户端 - 营销功能模块索引
+# HiveMtk 用户端 - 营销功能模块索引
 
 > **目录定位**: 本目录存放用户端（商户端）私域部署下**所有营销工具既有功能**的独立详细文档。
-> **适用范围**: 用户端 **92 个核心业务模块**（认证/卡片/自动回复/RAG/邮件/短信/社群/短链/线索/营销自动化/内容/系统/集成/订单/AI 销冠/多 AI 智能体等）。平台端 9 个模块见 [`hivemtk-platform/docs/platform-features/`](../../hivemtk-platform/docs/platform-features/README.md)（独立仓库）。
+> **适用范围**: 用户端 **91 个核心业务模块**（认证/卡片/自动回复/RAG/邮件/短信/社群/短链/线索/营销自动化/内容/系统/集成/AI 销冠/多 AI 智能体等）。平台端 9 个模块见 [`hivemtk-platform/docs/platform-features/`](../../hivemtk-platform/docs/platform-features/README.md)（独立仓库）。
 > **文档规范**: 每份文档独立成文,严格按统一功能文档模板（背景/数据模型/API/业务流/测试/版本历史）编写。
 > **最后更新**: 2026-07-22（全面补全 28+ 项缺失功能文档，对齐实际代码）
 
@@ -24,7 +24,6 @@
 | 系统管理 | 11 | `system-*` / `obs-*` / `upgrade-*` / `backup-*` / `upload-*` / `operation-log-*` / `security-audit-*` / `trace-*` / `sse-*` |
 | 第三方对接 | 2 | `integration-*` / `sync-*` |
 | 统一消息 | 3 | `unified-message-*` / `unified-inbox-*` / `message-hub-*` / `platform-account-*` |
-| 订单与支付 | 2 | `order-*` / `payment-*` |
 | AI 销冠核心 | 9 | `dialogue-memory-*` / `intent-*` / `sop-*` / `llm-routing-*` / `llm-provider-*` / `objection-*` / `persona-*` / `tuning-*` / `reach-pipeline-*` |
 | 多 AI 智能体 | 3 | `ai-agent-*` / `channel-agent-binding-*` / `cs-agent-mount-*` |
 | 数据分析 | 4 | `customer-journey-*` / `conversion-funnel-*` / `ai-productivity-*` / `analytics-*` |
@@ -182,13 +181,6 @@
 | [unified-inbox.md](unified-inbox.md) | 统一收件箱 | ✅ 已实现 |
 | [message-hub.md](message-hub.md) | 消息中心 | ✅ 已实现 |
 | [platform-account.md](platform-account.md) | 平台账号管理 | ✅ 已实现 |
-
-## 十五、订单与支付域
-
-| 文档 | 功能名称 | 状态 |
-|------|---------|------|
-| [order-management.md](order-management.md) | 订单管理 | ✅ 已实现 |
-| [payment-config.md](payment-config.md) | 支付配置 | ✅ 已实现 |
 
 ## 十六、AI 销冠核心域
 

@@ -37,7 +37,7 @@ type FunnelReport struct {
 	GeneratedAt time.Time     `json:"generated_at"`
 }
 
-// BuildFunnel 构建漏斗（5 阶段：访问→线索→意向→会话→订单）
+// BuildFunnel 构建漏斗（4 阶段：访问→线索→意向→会话）
 func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*FunnelReport, error) {
 	if startTime.IsZero() {
 		startTime = time.Now().AddDate(0, 0, -30)
@@ -49,7 +49,7 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 	report := &FunnelReport{
 		StartTime:   startTime,
 		EndTime:     endTime,
-		Stages:      make([]FunnelStage, 0, 5),
+		Stages:      make([]FunnelStage, 0, 4),
 		GeneratedAt: time.Now(),
 	}
 
@@ -82,18 +82,10 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 		Count(&sessionCount)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "session", Name: "会话", Count: sessionCount})
 
-	// 阶段5：订单
-	var orderCount int64
-	s.db.Model(&sysmodel.Order{}).
-		Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
-		Where("status IN ?", []int64{100}).
-		Count(&orderCount)
-	report.Stages = append(report.Stages, FunnelStage{Stage: "order", Name: "订单", Count: orderCount})
-
 	// 计算阶段转化率
 	report.Total = visitCount
 	if visitCount > 0 {
-		report.Conversion = float64(orderCount) / float64(visitCount) * 100
+		report.Conversion = float64(sessionCount) / float64(visitCount) * 100
 	}
 	for i := range report.Stages {
 		if i == 0 {
@@ -174,17 +166,7 @@ func (s *ConversionFunnelService) GetStageDetails(stage string, startTime, endTi
 			Where("created_at BETWEEN ? AND ?", startTime, endTime).
 			Count(&count)
 		det.Count = count
-	case "order":
-		det.Name = "订单"
-		var count int64
-		s.db.Model(&sysmodel.Order{}).
-			Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
-			Where("status IN ?", []int64{100}).
-			Count(&count)
-		det.Count = count
-		if det.Count > 0 {
-			det.Rate = 100
-		}
+
 	}
 
 	return det, nil
