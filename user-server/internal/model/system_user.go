@@ -58,21 +58,21 @@ func DefaultDataScopeForRole(role string) string {
 // SystemUser 系统用户模型
 type SystemUser struct {
 	ID                 uint       `json:"id" gorm:"primaryKey"`
-	Username           string     `json:"username" gorm:"size:50;uniqueIndex;not null"`        // 用户名
-	Password           string     `json:"-" gorm:"size:100;not null"`                          // 密码，不在JSON中返回
-	Email              string     `json:"email" gorm:"size:100"`                               // 邮箱
-	Phone              string     `json:"phone" gorm:"size:20;index"`                          // 手机号（P2-X：用于 Profile 资料维护 + 短信验证）
-	RealName           string     `json:"real_name" gorm:"size:50"`                            // 真实姓名
-	Role               string     `json:"role" gorm:"size:20;default:'staff'"`                 // 角色：admin(超管) / customer_service(客服) / staff(员工)
-	Status             int        `json:"status" gorm:"default:1"`                             // 状态：1-启用，0-禁用（审计保留）
+	Username           string     `json:"username" gorm:"size:50;uniqueIndex;not null"`     // 用户名
+	Password           string     `json:"-" gorm:"size:100;not null"`                     // 密码，不在JSON中返回
+	Email              string     `json:"email" gorm:"size:100"`                          // 邮箱
+	Phone              string     `json:"phone" gorm:"size:20;index"`                     // 手机号（P2-X：用于 Profile 资料维护 + 短信验证）
+	RealName           string     `json:"real_name" gorm:"size:50"`                       // 真实姓名
+	Role               string     `json:"role" gorm:"size:20;default:'staff'"`            // 角色：admin(超管) / customer_service(客服) / staff(员工)
+	Status             int        `json:"status" gorm:"default:1"`                        // 状态：1-启用，0-禁用（审计保留）
 	Enabled            bool       `json:"enabled" gorm:"column:enabled;default:true;not null"` // 启用/禁用开关（阶段 1 新增）
-	LastLogin          *time.Time `json:"last_login"`                                          // 最后登录时间
-	MustChangePassword bool       `json:"must_change_password" gorm:"default:false"`           // 是否必须修改密码（首次登录）
-	DataScope          string     `json:"data_scope" gorm:"size:20;default:'self'"`            // P1-4：数据范围 all/department/team/self
-	DepartmentID       uint       `json:"department_id" gorm:"index;default:0"`                // P1-4：所属部门 ID（0=未分配）
-	TeamID             uint       `json:"team_id" gorm:"index;default:0"`                      // P1-4：所属团队 ID（0=未分配）
-	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime"`                    // 创建时间
-	UpdatedAt          time.Time  `json:"updated_at" gorm:"autoUpdateTime"`                    // 更新时间
+	LastLogin          *time.Time `json:"last_login"`                                       // 最后登录时间
+	MustChangePassword bool       `json:"must_change_password" gorm:"default:false"`        // 是否必须修改密码（首次登录）
+	DataScope          string     `json:"data_scope" gorm:"size:20;default:'self'"`       // P1-4：数据范围 all/department/team/self
+	DepartmentID       uint       `json:"department_id" gorm:"index;default:0"`           // P1-4：所属部门 ID（0=未分配）
+	TeamID             uint       `json:"team_id" gorm:"index;default:0"`                 // P1-4：所属团队 ID（0=未分配）
+	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime"`               // 创建时间
+	UpdatedAt          time.Time  `json:"updated_at" gorm:"autoUpdateTime"`               // 更新时间
 }
 
 // TableName 返回表名

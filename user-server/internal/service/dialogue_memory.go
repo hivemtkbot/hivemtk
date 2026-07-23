@@ -147,6 +147,46 @@ func (s *DialogueMemoryService) ListByCustomerID(ctx context.Context, customerID
 	return mems, total, nil
 }
 
+// ResolveLatestSessionByCustomer 返回客户最近一次会话 ID（按 updated_at 取最新）；无则返回空串
+// 前端对话记忆页以 customer_id 为主键查询，后端记忆以 conversation_id(session_id) 为主键，
+// 故提供此解析器桥接两者。
+func (s *DialogueMemoryService) ResolveLatestSessionByCustomer(ctx context.Context, customerID string) (string, error) {
+	if s.db == nil || customerID == "" {
+		return "", nil
+	}
+	var mem model.DialogueMemory
+	err := s.db.WithContext(ctx).Where("customer_id = ?", customerID).Order("updated_at DESC").First(&mem).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", nil
+		}
+		return "", err
+	}
+	return mem.SessionID, nil
+}
+
+// UpdatePurchaseIntentByCustomer 按客户更新购买意向（自动定位其最新记忆；不存在则创建）
+func (s *DialogueMemoryService) UpdatePurchaseIntentByCustomer(ctx context.Context, customerID, level string) error {
+	if level != "high" && level != "medium" && level != "low" {
+		level = "low"
+	}
+	var mem model.DialogueMemory
+	err := s.db.WithContext(ctx).Where("customer_id = ?", customerID).Order("updated_at DESC").First(&mem).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			mem = model.DialogueMemory{
+				CustomerID: customerID,
+				SessionID:  "cust_" + customerID,
+				PurchaseIntent: level,
+			}
+			return s.db.WithContext(ctx).Create(&mem).Error
+		}
+		return err
+	}
+	mem.PurchaseIntent = level
+	return s.db.WithContext(ctx).Save(&mem).Error
+}
+
 func (s *DialogueMemoryService) UpdateKeyFacts(ctx context.Context, sessionID string, facts map[string]string) error {
 	mem, err := s.GetOrCreateMemory(ctx, sessionID, "")
 	if err != nil {

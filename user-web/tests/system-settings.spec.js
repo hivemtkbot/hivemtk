@@ -115,7 +115,7 @@ test.describe('系统设置模块 E2E 覆盖', () => {
 
       await setupMocks(page)
       page.setDefaultTimeout(4000)
-      await page.goto('#' + p.path, { waitUntil: 'domcontentloaded' })
+      await page.goto(p.path, { waitUntil: 'domcontentloaded' })
       try {
         await page.waitForSelector('.app-main', { state: 'visible', timeout: 15000 })
       } catch (_) {}

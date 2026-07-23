@@ -103,7 +103,7 @@ test.describe('系统设置模块 真实后端 E2E', () => {
       })
 
       page.setDefaultTimeout(5000)
-      await page.goto('#' + p.path, { waitUntil: 'domcontentloaded' })
+      await page.goto(p.path, { waitUntil: 'domcontentloaded' })
       try { await page.waitForSelector('.app-main', { state: 'visible', timeout: 15000 }) } catch (_) {}
       await page.waitForTimeout(800)
 

@@ -50,14 +50,18 @@ func (c *DialogueMemoryController) AppendMessage(ctx *gin.Context) {
 	response.Success(ctx, nil, "追加成功")
 }
 
-// ShortTerm 短期记忆
+// ShortTerm 短期记忆（支持 customer_id 或 session_id）
 func (c *DialogueMemoryController) ShortTerm(ctx *gin.Context) {
+	customerID := ctx.Query("customer_id")
 	sessionID := ctx.Query("session_id")
+	if customerID != "" && sessionID == "" {
+		sessionID, _ = c.svc.ResolveLatestSessionByCustomer(ctx.Request.Context(), customerID)
+	}
 	if sessionID == "" {
-		response.Error(ctx, http.StatusBadRequest, "session_id 必填")
+		response.Error(ctx, http.StatusBadRequest, "customer_id 或 session_id 必填")
 		return
 	}
-	msgs, err := c.svc.GetShortTermMemory(context.Background(), sessionID)
+	msgs, err := c.svc.GetShortTermMemory(ctx.Request.Context(), sessionID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -65,10 +69,14 @@ func (c *DialogueMemoryController) ShortTerm(ctx *gin.Context) {
 	response.Success(ctx, msgs, "查询成功")
 }
 
-// LongTerm 长期记忆
+// LongTerm 长期记忆（支持 customer_id 或 session_id）
 func (c *DialogueMemoryController) LongTerm(ctx *gin.Context) {
+	customerID := ctx.Query("customer_id")
 	sessionID := ctx.Query("session_id")
-	mem, err := c.svc.GetLongTermMemory(context.Background(), sessionID)
+	if customerID != "" && sessionID == "" {
+		sessionID, _ = c.svc.ResolveLatestSessionByCustomer(ctx.Request.Context(), customerID)
+	}
+	mem, err := c.svc.GetLongTermMemory(ctx.Request.Context(), sessionID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -119,10 +127,12 @@ func (c *DialogueMemoryController) RecordObjection(ctx *gin.Context) {
 	response.Success(ctx, nil, "记录成功")
 }
 
-// UpdatePurchaseIntentRequest 购买意向
+// UpdatePurchaseIntentRequest 购买意向（前端发 customer_id + intent_level）
 type UpdatePurchaseIntentRequest struct {
-	SessionID string `json:"session_id" binding:"required"`
-	Level     string `json:"level" binding:"required"`
+	CustomerID  string `json:"customer_id"`
+	SessionID   string `json:"session_id"`
+	IntentLevel string `json:"intent_level"`
+	Level       string `json:"level"`
 }
 
 // UpdatePurchaseIntent 更新购买意向
@@ -132,8 +142,23 @@ func (c *DialogueMemoryController) UpdatePurchaseIntent(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	err := c.svc.UpdatePurchaseIntent(context.Background(), req.SessionID, req.Level)
-	if err != nil {
+	level := req.IntentLevel
+	if level == "" {
+		level = req.Level
+	}
+	if req.CustomerID != "" {
+		if err := c.svc.UpdatePurchaseIntentByCustomer(ctx.Request.Context(), req.CustomerID, level); err != nil {
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		response.Success(ctx, nil, "更新成功")
+		return
+	}
+	if req.SessionID == "" {
+		response.Error(ctx, http.StatusBadRequest, "customer_id 或 session_id 必填")
+		return
+	}
+	if err := c.svc.UpdatePurchaseIntent(ctx.Request.Context(), req.SessionID, level); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -182,11 +207,14 @@ func (c *DialogueMemoryController) RecordSOP(ctx *gin.Context) {
 	response.Success(ctx, nil, "记录成功")
 }
 
-// BuildContext 上下文
+// BuildContext 上下文（支持 customer_id 或 session_id）
 func (c *DialogueMemoryController) BuildContext(ctx *gin.Context) {
-	sessionID := ctx.Query("session_id")
 	customerID := ctx.Query("customer_id")
-	s, err := c.svc.BuildContext(context.Background(), sessionID, customerID)
+	sessionID := ctx.Query("session_id")
+	if customerID != "" && sessionID == "" {
+		sessionID, _ = c.svc.ResolveLatestSessionByCustomer(ctx.Request.Context(), customerID)
+	}
+	s, err := c.svc.BuildContext(ctx.Request.Context(), sessionID, customerID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

@@ -124,6 +124,12 @@ type ThresholdPolicy struct {
 	ID                      int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	PolicyID                string    `gorm:"column:policy_id;uniqueIndex;size:64;not null" json:"policy_id"`
 	IntentType              string    `gorm:"column:intent_type;size:64;not null;index:idx_policies_intent,priority:1" json:"intent_type"`
+	// 前端置信度面板(Tab3)富字段
+	Name          string  `gorm:"column:name;size:128;not null;default:''" json:"name"`
+	Scenario      string  `gorm:"column:scenario;size:64;not null;default:'all'" json:"scenario"`
+	VipThreshold  float64 `gorm:"column:vip_threshold;type:decimal(5,4);not null;default:0.85" json:"vip_threshold"`
+	TransferLow   float64 `gorm:"column:transfer_low;type:decimal(5,4);not null;default:0.30" json:"transfer_low"`
+	Remark        string  `gorm:"column:remark;type:text" json:"remark"`
 	BaseThreshold           float64   `gorm:"column:base_threshold;type:decimal(5,4);not null" json:"base_threshold"`
 	CustomerLevelWeight     float64   `gorm:"column:customer_level_weight;type:decimal(5,4);not null;default:0.05" json:"customer_level_weight"`
 	TimeslotWeight          float64   `gorm:"column:timeslot_weight;type:decimal(5,4);not null;default:0.05" json:"timeslot_weight"`
