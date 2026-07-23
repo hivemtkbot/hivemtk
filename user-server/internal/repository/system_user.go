@@ -59,10 +59,6 @@ type SystemUserRepository interface {
 	DeleteSafe(ctx context.Context, id uint) error
 	// SetEnabled 启用/禁用账号（按 id 写 enabled 字段）
 	SetEnabled(ctx context.Context, id uint, enabled bool) error
-	// CountEnabledAdmins 统计当前启用的 admin 数量（授权管理模块启停/禁用守卫）
-	CountEnabledAdmins(ctx context.Context) (int64, error)
-	// UpdatePassword 直接以 bcrypt 密文更新密码（授权管理重置密码）
-	UpdatePassword(ctx context.Context, id uint, hashedPassword string) error
 }
 
 type systemUserRepo struct {
@@ -259,39 +255,6 @@ func (r *systemUserRepo) SetEnabled(ctx context.Context, id uint, enabled bool) 
 		Update("enabled", enabled)
 	if res.Error != nil {
 		return fmt.Errorf("update enabled: %w", res.Error)
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
-}
-
-// CountEnabledAdmins 统计当前启用的 admin 数量
-//
-// 用于授权管理 service 守卫：
-//   - 禁用 admin 前检查 enabledCount > 1（系统至少保留 1 个启用超管）
-//   - 启用 admin 时无需检查（启用总是安全的）
-func (r *systemUserRepo) CountEnabledAdmins(ctx context.Context) (int64, error) {
-	var n int64
-	if err := r.db.WithContext(ctx).Model(&model.SystemUser{}).
-		Where("role = ? AND enabled = ?", model.SystemUserRoleAdmin, true).
-		Count(&n).Error; err != nil {
-		return 0, fmt.Errorf("count enabled admins: %w", err)
-	}
-	return n, nil
-}
-
-// UpdatePassword 直接以 bcrypt 密文更新密码
-//
-// 业务规则：
-//   - 由 service 层负责 Hash 密码（不在 repository 中加密）
-//   - 当目标记录不存在时返回 gorm.ErrRecordNotFound，供 service 转换为 4xx
-func (r *systemUserRepo) UpdatePassword(ctx context.Context, id uint, hashedPassword string) error {
-	res := r.db.WithContext(ctx).Model(&model.SystemUser{}).
-		Where("id = ?", id).
-		Update("password", hashedPassword)
-	if res.Error != nil {
-		return fmt.Errorf("update password: %w", res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound

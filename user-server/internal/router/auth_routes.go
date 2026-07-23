@@ -56,12 +56,6 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.GET("/notifications/unread-count", notifCtrl.UnreadCount)
 	auth.POST("/notifications/:id/read", notifCtrl.MarkRead)
 	auth.POST("/notifications/read-all", notifCtrl.MarkAllRead)
-
-	// 阶段 5：角色管理（/api/system/roles/*，仅 admin 可见）
-	setupRoleRoutes(auth)
-
-	// 阶段 6：授权管理（/api/system/permissions/*，仅 admin 可见）
-	setupPermissionRoutes(auth)
 }
 
 // setupUserRoutes 用户管理路由

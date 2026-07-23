@@ -67,6 +67,17 @@ func (h *AssetMarketController) MarketDetail(c *gin.Context) {
 	assetOK(c, detail)
 }
 
+// MyPurchases GET /api/v1/asset-market/my
+// 兼容前端 getMyAssets()：返回当前商户已购（本地同源同构）资产列表。
+func (h *AssetMarketController) MyPurchases(c *gin.Context) {
+	list, err := h.marketSvc.MyPurchases(c.Request.Context())
+	if err != nil {
+		assetFail(c, err)
+		return
+	}
+	assetOK(c, list)
+}
+
 // Purchase POST /api/v1/asset-market/purchase
 func (h *AssetMarketController) Purchase(c *gin.Context) {
 	var body struct {
