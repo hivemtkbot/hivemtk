@@ -28,7 +28,7 @@ type MerchantHeadlessSettings struct {
 // GetMerchantHeadlessSettings 读取商户账户的无头模式设置（不存在则返回默认 true）
 func (s *AutoReplyService) GetMerchantHeadlessSettings(ctx context.Context,) (*MerchantHeadlessSettings, error) {
 	var merchantAccount model.Account
-	err := s.db.First(ctx, &merchantAccount).Error
+	err := s.db.WithContext(ctx).First(&merchantAccount).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &MerchantHeadlessSettings{Douyin: true, Kuaishou: true, Xiaohongshu: true, Xianyu: true}, nil
 	}
@@ -46,7 +46,7 @@ func (s *AutoReplyService) GetMerchantHeadlessSettings(ctx context.Context,) (*M
 // SetMerchantHeadless 设置商户账户指定平台的无头模式
 func (s *AutoReplyService) SetMerchantHeadless(ctx context.Context, platform string, headless bool) error {
 	var account model.Account
-	if err := s.db.First(ctx, &account).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&account).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			account = defaultMerchantAccount()
 		} else {

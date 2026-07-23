@@ -168,7 +168,7 @@ func TestCustomerService_AddTags(t *testing.T) {
 	}
 
 	// 验证标签已添加
-	updated, _ := service.repo.GetByIDcustomer.ID)
+	updated, _ := service.repo.GetByID(customer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags, got %d", len(currentTags))
@@ -193,7 +193,7 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 	}
 
 	// 验证标签已移除
-	updated, _ := service.repo.GetByIDcustomer.ID)
+	updated, _ := service.repo.GetByID(customer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags after removal, got %d", len(currentTags))

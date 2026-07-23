@@ -133,7 +133,7 @@ func (s *WeComAccountHealthService) GetLatestHealth(ctx context.Context, account
 	}
 	var rec model.WeComAccountHealth
 	// 私域独立部署：无 merchant_id 字段
-	if err := s.db.Where(ctx, "account_id = ?", accountID).Order("reported_at DESC").First(&rec).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("account_id = ?", accountID).Order("reported_at DESC").First(&rec).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWeComHealthNotFound
 		}
@@ -175,7 +175,7 @@ func (s *WeComAccountHealthService) GetRiskAccounts(ctx context.Context) ([]mode
 		return nil, nil
 	}
 	var accounts []model.WeComAccount
-	if err := s.db.Where(ctx, "risk_level IN ?",
+	if err := s.db.WithContext(ctx).Where("risk_level IN ?",
 		[]string{WeComRiskWarning, WeComRiskCritical, WeComRiskBanned}).
 		Find(&accounts).Error; err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 		return nil, fmt.Errorf("db is nil")
 	}
 	var accounts []model.WeComAccount
-	if err := s.db.Where(ctx, "risk_level IN ? AND login_state != ? AND login_state != ?",
+	if err := s.db.WithContext(ctx).Where("risk_level IN ? AND login_state != ? AND login_state != ?",
 		[]string{WeComRiskNormal, WeComRiskWarning}, WeComLoginBanned, WeComLoginOffline).
 		Find(&accounts).Error; err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	}
 	// 检查账号状态
 	var acc model.WeComAccount
-	if err := s.db.First(ctx, &acc, accountID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&acc, accountID).Error; err != nil {
 		return err
 	}
 	if acc.Status != 1 {
@@ -305,7 +305,7 @@ func (s *WeComAccountHealthService) GetHealthSummary(ctx context.Context) (*Acco
 		return nil, fmt.Errorf("db is nil")
 	}
 	var accounts []model.WeComAccount
-	if err := s.db.Find(ctx, &accounts).Error; err != nil {
+	if err := s.db.WithContext(ctx).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 

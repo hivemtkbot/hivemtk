@@ -498,7 +498,7 @@ const topMenus = ref([
       },
       {
         key: 'permissionGroup',
-        title: '权限区分',
+        title: '权限设置',
         icon: 'Lock',
         roles: ['admin'],
         children: [

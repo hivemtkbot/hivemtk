@@ -104,7 +104,7 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 	}
 
 	var scripts []model.ScriptLibrary
-	s.db.Where(ctx, "category = ? OR subcategory = ?", "objection", req.Category).
+	s.db.WithContext(ctx).Where("category = ? OR subcategory = ?", "objection", req.Category).
 		Order("usage_count DESC").Limit(5).
 		Find(&scripts)
 

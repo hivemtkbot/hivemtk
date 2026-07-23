@@ -363,7 +363,7 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 
 // DeletePipeline 删除 Pipeline
 func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) error {
-	res := s.db.Where(ctx, "id = ?", id).Delete(&model.ReachPipeline{})
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ReachPipeline{})
 	if res.Error != nil {
 		return res.Error
 	}

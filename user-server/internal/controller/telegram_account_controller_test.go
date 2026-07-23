@@ -389,7 +389,7 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	repo.Createacc)
+	repo.Create(acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -448,7 +448,7 @@ func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 		BotToken:    "555:eee",
 		Status:      1,
 	}
-	repo.Createacc)
+	repo.Create(acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -494,7 +494,7 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 		BotToken:    "666:fff",
 		Status:      1,
 	}
-	repo.Createacc)
+	repo.Create(acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
@@ -542,7 +542,7 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 		BotToken:    "777:ggg",
 		Status:      1,
 	}
-	repo.Createacc)
+	repo.Create(acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)

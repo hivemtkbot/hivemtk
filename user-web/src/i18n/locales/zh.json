@@ -212,7 +212,7 @@
     "securityAudit": "安全审计",
     "siteConfig": "站点配置",
     "teamGroup": "团队",
-    "permissionGroup": "权限区分",
+    "permissionGroup": "权限设置",
     "assetBundle": "资产包",
     "assetBundleList": "资产包管理",
     "assetBundlePlayground": "开发者 Playground",
