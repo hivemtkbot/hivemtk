@@ -69,6 +69,9 @@ WORKDIR /app
 COPY --from=builder /app/user-server /app/user-server
 COPY --from=builder /app/embedding-server /app/embedding-server
 COPY --from=builder /app/config-docker.yaml /app/config.yaml
+# 平台配置：main.go 用相对路径 config/platform.yaml 加载（api_url/secret/admin）。
+# 不携带则重建镜像后丢失平台连接，资产市场/我的资产等功能失效。
+COPY --from=builder /app/config/platform.yaml /app/config/platform.yaml
 # 拷贝 HTML 模板目录（dummy.html 防止 LoadHTMLGlob 模式匹配空目录时 panic）
 COPY --from=builder /app/internal/template /app/internal/template
 # 注意：不再把仓库里的 install.lock 打进镜像（那是开发测试数据，会导致每次 recreate
