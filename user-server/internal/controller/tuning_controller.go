@@ -285,21 +285,18 @@ func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
 }
 
 // UpdatePromptCandidateStatus 更新候选状态
-// 注意: 前端通过请求体 {status:'approved'} 传递(见 api/tuning.js updatePromptCandidateStatus), 故从 body 绑定
 func (c *TuningController) UpdatePromptCandidateStatus(ctx *gin.Context) {
 	id := ctx.Param("id")
-	var req struct {
-		Status string `json:"status" binding:"required"`
-	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	status := ctx.Query("status")
+	if status == "" {
 		response.Error(ctx, http.StatusBadRequest, "status required")
 		return
 	}
-	if err := c.svc.UpdatePromptCandidateStatus(ctx.Request.Context(), id, req.Status); err != nil {
+	if err := c.svc.UpdatePromptCandidateStatus(ctx.Request.Context(), id, status); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "update failed: "+err.Error())
 		return
 	}
-	response.Success(ctx, gin.H{"id": id, "status": req.Status}, "")
+	response.Success(ctx, gin.H{"id": id, "status": status}, "")
 }
 
 // ----------------------------------------------------------------------------

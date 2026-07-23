@@ -493,7 +493,9 @@ const topMenus = ref([
         icon: 'UserFilled',
         roles: ['admin'],
         children: [
-          { key: 'teamUser', title: '团队成员', icon: 'UserFilled', path: '/teamUser/list' }
+          { key: 'systemUser', title: '人员管理', icon: 'UserFilled', path: '/system/users' },
+          { key: 'roleManage', title: '角色管理', icon: 'UserFilled', path: '/system/roles' },
+          { key: 'permissionManage', title: '授权管理', icon: 'Lock', path: '/system/permissions' }
         ]
       },
       {

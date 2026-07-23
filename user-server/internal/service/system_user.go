@@ -23,13 +23,13 @@ var ErrLastAdmin = repository.ErrLastAdmin
 
 // CreateUserRequest 创建用户请求
 type CreateUserRequest struct {
-	Username			string	`json:"username" binding:"required"`
-	Password			string	`json:"password" binding:"required"`
-	Email				string	`json:"email"`
-	RealName			string	`json:"real_name"`
-	Role				string	`json:"role" binding:"required,oneof=admin user"`
-	Status				int		`json:"status"`
-	MustChangePassword	bool	`json:"must_change_password"`	// 首次登录是否必须改密
+	Username           string `json:"username" binding:"required"`
+	Password           string `json:"password" binding:"required"`
+	Email              string `json:"email"`
+	RealName           string `json:"real_name"`
+	Role               string `json:"role" binding:"required,oneof=admin user"`
+	Status             int    `json:"status"`
+	MustChangePassword bool   `json:"must_change_password"` // 首次登录是否必须改密
 }
 
 // SystemUserResponse 系统用户响应
@@ -37,11 +37,11 @@ type CreateUserRequest struct {
 
 // UpdateUserRequest 更新用户请求
 type UpdateUserRequest struct {
-	Email		string	`json:"email"`
-	Phone		string	`json:"phone"`
-	RealName	string	`json:"real_name"`
-	Role		string	`json:"role" binding:"omitempty,oneof=admin user"`
-	Status		int		`json:"status"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	RealName string `json:"real_name"`
+	Role     string `json:"role" binding:"omitempty,oneof=admin user"`
+	Status   int    `json:"status"`
 }
 
 // SystemUserService 系统用户服务
@@ -170,16 +170,16 @@ func (s *SystemUserService) CreateUser(ctx context.Context, req *CreateUserReque
 
 	// 7. 创建用户
 	user := model.SystemUser{
-		Username:			req.Username,
-		Password:			req.Password,	// BeforeCreate 钩子会自动加密
-		Email:				req.Email,
-		RealName:			req.RealName,
-		Role:				req.Role,
-		Status:				req.Status,
-		MustChangePassword:	req.MustChangePassword,
+		Username:           req.Username,
+		Password:           req.Password, // BeforeCreate 钩子会自动加密
+		Email:              req.Email,
+		RealName:           req.RealName,
+		Role:               req.Role,
+		Status:             req.Status,
+		MustChangePassword: req.MustChangePassword,
 	}
 	if user.Status == 0 {
-		user.Status = 1	// 默认启用
+		user.Status = 1 // 默认启用
 	}
 
 	if err := s.repo.Create(ctx, &user); err != nil {
@@ -280,18 +280,18 @@ func (s *SystemUserService) ResetPassword(ctx context.Context, id uint, newPassw
 // toUserResponse 转换为用户响应
 func (s *SystemUserService) toUserResponse(_ context.Context, user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
-		ID:					user.ID,
-		Username:			user.Username,
-		Email:				user.Email,
-		Phone:				user.Phone,
-		RealName:			user.RealName,
-		Role:				user.Role,
-		Status:				user.Status,
-		LastLogin:			user.LastLogin,
-		LastLoginAt:		user.LastLogin,
-		MustChangePassword:	user.MustChangePassword,
-		CreatedAt:			user.CreatedAt,
-		UpdatedAt:			user.UpdatedAt,
+		ID:                 user.ID,
+		Username:           user.Username,
+		Email:              user.Email,
+		Phone:              user.Phone,
+		RealName:           user.RealName,
+		Role:               user.Role,
+		Status:             user.Status,
+		LastLogin:          user.LastLogin,
+		LastLoginAt:        user.LastLogin,
+		MustChangePassword: user.MustChangePassword,
+		CreatedAt:          user.CreatedAt,
+		UpdatedAt:          user.UpdatedAt,
 	}
 }
 
