@@ -11,20 +11,17 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service/humanize"
 )
 
 // HumanizeLowQualitySampleCollector P0-4 低质样本收集器
 //
-// 实现 humanize.LowQualitySampleCollector 接口
+// 仅负责持久化，业务逻辑（序列化、校验 sampleType）由 service 层完成
 type HumanizeLowQualitySampleCollector struct{}
 
 // NewHumanizeLowQualitySampleCollector 构造
@@ -32,52 +29,16 @@ func NewHumanizeLowQualitySampleCollector() *HumanizeLowQualitySampleCollector {
 	return &HumanizeLowQualitySampleCollector{}
 }
 
-// Collect 收集低质样本到 low_quality_samples 表
+// Collect 持久化低质样本到 low_quality_samples 表
+// sample 由 service 层构建（含序列化后的 DimensionScores / CandidateReplies）
 func (c *HumanizeLowQualitySampleCollector) Collect(
 	ctx context.Context,
-	input *dto.HumanizeEvalInput,
-	result *dto.HumanizeEvalResult,
-	sampleType string,
+	sample *model.LowQualitySample,
 ) error {
-	if input == nil || result == nil {
+	if sample == nil {
 		return nil
 	}
 	gormDB := db.GetDB().WithContext(ctx)
-	// 序列化维度得分
-	scoresMap := make(map[string]float64, len(result.Scores))
-	for _, s := range result.Scores {
-		scoresMap[string(s.Dimension)] = s.Score
-	}
-	scoresJSON, _ := json.Marshal(scoresMap)
-	repliesJSON, _ := json.Marshal(result.AllReplies)
-
-	// 校验 sampleType（必须是合法枚举）
-	validTypes := map[string]bool{
-		"persona": true, "compliance": true, "naturalness": true, "relevance": true,
-		"manual_review": true, "retry_exhausted": true,
-		"naturalness_low": true, "persuasiveness_low": true,
-		"champion_distance": true, "ab_test_loser": true,
-	}
-	if !validTypes[sampleType] {
-		sampleType = "retry_exhausted"
-	}
-
-	sample := &model.LowQualitySample{
-		CustomerID:       input.CustomerID,
-		SessionID:        input.SessionID,
-		SampleType:       model.LowQualitySampleType(sampleType),
-		CustomerMessage:  input.CustomerMessage,
-		AIReply:          result.FinalReply,
-		Persona:          input.Persona,
-		Industry:         input.Industry,
-		Platform:         input.Platform,
-		Intent:           input.Intent,
-		DimensionScores:  string(scoresJSON),
-		TotalScore:       result.TotalScore,
-		Threshold:        0.85,
-		AttemptCount:     result.AttemptCount,
-		CandidateReplies: string(repliesJSON),
-	}
 	if err := gormDB.Create(sample).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil
@@ -86,6 +47,3 @@ func (c *HumanizeLowQualitySampleCollector) Collect(
 	}
 	return nil
 }
-
-// 编译时接口断言
-var _ humanize.LowQualitySampleCollector = (*HumanizeLowQualitySampleCollector)(nil)

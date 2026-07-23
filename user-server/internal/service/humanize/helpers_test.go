@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 )
 
 // approxEqual 浮点近似相等（绝对误差 ≤ 1e-6）
@@ -81,11 +82,11 @@ func (s *stubLLMDispatcher) ChatSend(ctx context.Context, prompt string) (string
 
 // stubScoreRepo 测试用评分仓储
 type stubScoreRepo struct {
-	mu         sync.Mutex
-	saved      int
-	lastResult *dto.HumanizeEvalResult
-	lastInput  *dto.HumanizeEvalInput
-	saveErr    error
+	mu             sync.Mutex
+	saved          int
+	lastScore      *model.HumanizeScore
+	lastDimensions []model.HumanizeDimensionRecord
+	saveErr        error
 }
 
 func newStubScoreRepo() *stubScoreRepo {
@@ -93,15 +94,16 @@ func newStubScoreRepo() *stubScoreRepo {
 }
 
 // Save 实现 humanize.HumanizeScoreRepository 接口
-func (r *stubScoreRepo) Save(ctx context.Context, result *dto.HumanizeEvalResult, input *dto.HumanizeEvalInput) error {
+// 五层架构：repository 仅持久化 model 类型，dto→model 转换在 service 层完成
+func (r *stubScoreRepo) Save(ctx context.Context, score *model.HumanizeScore, dimensions []model.HumanizeDimensionRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.saveErr != nil {
 		return r.saveErr
 	}
 	r.saved++
-	r.lastResult = result
-	r.lastInput = input
+	r.lastScore = score
+	r.lastDimensions = dimensions
 	return nil
 }
 
@@ -112,18 +114,18 @@ func (r *stubScoreRepo) Save(ctx context.Context, result *dto.HumanizeEvalResult
 // stubBaselineRepo 测试用销冠基线仓储
 type stubBaselineRepo struct {
 	mu         sync.Mutex
-	baseline   *dto.ChampionBaselineDTO
+	baseline   *model.ChampionBaseline
 	findErr    error
-	saved      []dto.ChampionBaselineDTO
+	saved      []model.ChampionBaseline
 	refreshErr error
 	refreshed  int
 }
 
-func newStubBaselineRepo(baseline *dto.ChampionBaselineDTO) *stubBaselineRepo {
+func newStubBaselineRepo(baseline *model.ChampionBaseline) *stubBaselineRepo {
 	return &stubBaselineRepo{baseline: baseline}
 }
 
-func (r *stubBaselineRepo) FindByPersonaIndustryIntent(ctx context.Context, persona, industry, intent string) (*dto.ChampionBaselineDTO, error) {
+func (r *stubBaselineRepo) FindByPersonaIndustryIntent(ctx context.Context, persona, industry, intent string) (*model.ChampionBaseline, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.findErr != nil {
@@ -132,7 +134,7 @@ func (r *stubBaselineRepo) FindByPersonaIndustryIntent(ctx context.Context, pers
 	return r.baseline, nil
 }
 
-func (r *stubBaselineRepo) Save(ctx context.Context, b *dto.ChampionBaselineDTO, sampleCount int, stddev float64, periodStart, periodEnd any) (uint64, error) {
+func (r *stubBaselineRepo) Save(ctx context.Context, b *model.ChampionBaseline) (uint64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if b == nil {
@@ -142,16 +144,16 @@ func (r *stubBaselineRepo) Save(ctx context.Context, b *dto.ChampionBaselineDTO,
 	return uint64(len(r.saved)), nil
 }
 
-func (r *stubBaselineRepo) ListEnabled(ctx context.Context) ([]dto.ChampionBaselineDTO, error) {
+func (r *stubBaselineRepo) ListEnabled(ctx context.Context) ([]model.ChampionBaseline, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.baseline == nil {
 		return nil, nil
 	}
-	return []dto.ChampionBaselineDTO{*r.baseline}, nil
+	return []model.ChampionBaseline{*r.baseline}, nil
 }
 
-func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64, messages []ChampionMessage) error {
+func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64, phrases []model.ChampionPhrase) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.refreshed++
@@ -169,9 +171,7 @@ func (r *stubBaselineRepo) RefreshPhrases(ctx context.Context, baselineID uint64
 type stubSampleCollector struct {
 	mu         sync.Mutex
 	collected  int
-	lastType   string
-	lastInput  *dto.HumanizeEvalInput
-	lastResult *dto.HumanizeEvalResult
+	lastSample *model.LowQualitySample
 	collectErr error
 }
 
@@ -179,16 +179,16 @@ func newStubSampleCollector() *stubSampleCollector {
 	return &stubSampleCollector{}
 }
 
-func (c *stubSampleCollector) Collect(ctx context.Context, input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) error {
+// Collect 实现 humanize.LowQualitySampleCollector 接口
+// 五层架构：service 层预构建 model.LowQualitySample，repository 仅负责持久化
+func (c *stubSampleCollector) Collect(ctx context.Context, sample *model.LowQualitySample) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.collectErr != nil {
 		return c.collectErr
 	}
 	c.collected++
-	c.lastType = sampleType
-	c.lastInput = input
-	c.lastResult = result
+	c.lastSample = sample
 	return nil
 }
 

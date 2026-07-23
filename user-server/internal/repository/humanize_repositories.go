@@ -15,16 +15,13 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
-	"marketing/internal/service/humanize"
 )
 
 // ============================================================================
@@ -40,69 +37,24 @@ func NewHumanizeScoreRepository() *HumanizeScoreRepository {
 }
 
 // Save 保存评分结果（含维度明细）
-func (r *HumanizeScoreRepository) Save(ctx context.Context, result *dto.HumanizeEvalResult, input *dto.HumanizeEvalInput) error {
-	if result == nil {
-		return fmt.Errorf("result is nil")
+// score 和 dimensions 由 service 层构建，仓储仅负责持久化
+func (r *HumanizeScoreRepository) Save(ctx context.Context, score *model.HumanizeScore, dimensions []model.HumanizeDimensionRecord) error {
+	if score == nil {
+		return fmt.Errorf("score is nil")
 	}
 	gormDB := db.GetDB().WithContext(ctx)
-	scoreID := generateScoreID()
-	if input != nil {
-		// 写入主表
+	if score.ScoreID == "" {
+		score.ScoreID = generateScoreID()
 	}
-	main := &model.HumanizeScore{
-		ScoreID:            scoreID,
-		SessionID:          safeStr(input.SessionID),
-		CustomerID:         safeStr(input.CustomerID),
-		MessageID:          safeStr(input.MessageID),
-		Persona:            safeStr(input.Persona),
-		Industry:           safeStr(input.Industry),
-		Platform:           safeStr(input.Platform),
-		Intent:             safeStr(input.Intent),
-		CustomerMessage:    safeStr(input.CustomerMessage),
-		AIReply:            safeStr(input.AIReply),
-		FinalReply:         result.FinalReply,
-		EvaluatorType:      model.HumanizeEvaluatorType(result.EvaluatorType),
-		SampleStrategy:     model.HumanizeSampleStrategy(result.SampleStrategy),
-		TotalScore:         result.TotalScore,
-		Threshold:          0.85,
-		DistanceToChampion: result.DistanceToChampion,
-		Passed:             result.Passed,
-		AttemptCount:       result.AttemptCount,
-		LLMModel:           result.LLMModel,
-		LLMLatencyMs:       result.LLMLatencyMs,
-		ReasonJSON:         buildReasonJSON(result),
-	}
-	// 填充 5 维得分
-	for _, s := range result.Scores {
-		switch s.Dimension {
-		case dto.HumanizeDimNaturalness:
-			main.Naturalness = s.Score
-		case dto.HumanizeDimConciseness:
-			main.Conciseness = s.Score
-		case dto.HumanizeDimEmpathy:
-			main.Empathy = s.Score
-		case dto.HumanizeDimProfessionalism:
-			main.Professionalism = s.Score
-		case dto.HumanizeDimPersuasiveness:
-			main.Persuasiveness = s.Score
-		}
-	}
-	if err := gormDB.Create(main).Error; err != nil {
+	if err := gormDB.Create(score).Error; err != nil {
 		return fmt.Errorf("create humanize_score: %w", err)
 	}
 	// 写入维度明细
-	if len(result.Scores) > 0 {
-		records := make([]model.HumanizeDimensionRecord, 0, len(result.Scores))
-		for _, s := range result.Scores {
-			records = append(records, model.HumanizeDimensionRecord{
-				ScoreID:   scoreID,
-				Dimension: string(s.Dimension),
-				Score:     s.Score,
-				Weight:    dto.HumanizeDimensionWeight[s.Dimension],
-				Reason:    s.Reason,
-			})
+	if len(dimensions) > 0 {
+		for i := range dimensions {
+			dimensions[i].ScoreID = score.ScoreID
 		}
-		if err := gormDB.CreateInBatches(records, 100).Error; err != nil {
+		if err := gormDB.CreateInBatches(dimensions, 100).Error; err != nil {
 			return fmt.Errorf("create humanize_dimensions: %w", err)
 		}
 	}
@@ -160,23 +112,17 @@ func (r *HumanizeScoreRepository) ListDimensionsByScoreID(ctx context.Context, s
 // ============================================================================
 
 // ChampionBaselineRepositoryImpl 销冠基线仓储
-//
-// 实现 humanize.ChampionBaselineRepository 接口
-type ChampionBaselineRepositoryImpl struct {
-	phraseExtractor *humanize.TFIDFPhraseExtractor
-}
+type ChampionBaselineRepositoryImpl struct{}
 
 // NewChampionBaselineRepository 构造
 func NewChampionBaselineRepository() *ChampionBaselineRepositoryImpl {
-	return &ChampionBaselineRepositoryImpl{
-		phraseExtractor: humanize.NewTFIDFPhraseExtractor(),
-	}
+	return &ChampionBaselineRepositoryImpl{}
 }
 
 // FindByPersonaIndustryIntent 查找启用的基线（取最新版本）
 func (r *ChampionBaselineRepositoryImpl) FindByPersonaIndustryIntent(
 	ctx context.Context, persona, industry, intent string,
-) (*dto.ChampionBaselineDTO, error) {
+) (*model.ChampionBaseline, error) {
 	var b model.ChampionBaseline
 	err := db.GetDB().WithContext(ctx).
 		Where("persona = ? AND industry = ? AND intent = ? AND enabled = ?", persona, industry, intent, true).
@@ -188,22 +134,13 @@ func (r *ChampionBaselineRepositoryImpl) FindByPersonaIndustryIntent(
 		}
 		return nil, err
 	}
-	return &dto.ChampionBaselineDTO{
-		Persona:         b.Persona,
-		Industry:        b.Industry,
-		Intent:          b.Intent,
-		Naturalness:     b.Naturalness,
-		Conciseness:     b.Conciseness,
-		Empathy:         b.Empathy,
-		Professionalism: b.Professionalism,
-		Persuasiveness:  b.Persuasiveness,
-	}, nil
+	return &b, nil
 }
 
 // Save 保存新版本基线
+// b 由 service 层构建（含 SampleCount/Stddev/PeriodStart/PeriodEnd），仓储负责版本号递增与旧版本禁用
 func (r *ChampionBaselineRepositoryImpl) Save(
-	ctx context.Context, b *dto.ChampionBaselineDTO,
-	sampleCount int, stddev float64, periodStart, periodEnd any,
+	ctx context.Context, b *model.ChampionBaseline,
 ) (uint64, error) {
 	if b == nil {
 		return 0, fmt.Errorf("baseline is nil")
@@ -214,44 +151,22 @@ func (r *ChampionBaselineRepositoryImpl) Save(
 		Model(&model.ChampionBaseline{}).
 		Where("persona = ? AND industry = ? AND intent = ?", b.Persona, b.Industry, b.Intent).
 		Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
-
-	var pStart, pEnd time.Time
-	if t, ok := periodStart.(time.Time); ok {
-		pStart = t
-	}
-	if t, ok := periodEnd.(time.Time); ok {
-		pEnd = t
-	}
-	entity := &model.ChampionBaseline{
-		Persona:         b.Persona,
-		Industry:        b.Industry,
-		Intent:          b.Intent,
-		Naturalness:     b.Naturalness,
-		Conciseness:     b.Conciseness,
-		Empathy:         b.Empathy,
-		Professionalism: b.Professionalism,
-		Persuasiveness:  b.Persuasiveness,
-		SampleCount:     sampleCount,
-		SampleStddev:    stddev,
-		PeriodStart:     pStart,
-		PeriodEnd:       pEnd,
-		Version:         maxVersion + 1,
-		Enabled:         true,
-	}
-	if err := db.GetDB().WithContext(ctx).Create(entity).Error; err != nil {
+	b.Version = maxVersion + 1
+	b.Enabled = true
+	if err := db.GetDB().WithContext(ctx).Create(b).Error; err != nil {
 		return 0, fmt.Errorf("create champion_baseline: %w", err)
 	}
 	// 旧版本禁用（保留历史）
 	db.GetDB().WithContext(ctx).
 		Model(&model.ChampionBaseline{}).
 		Where("persona = ? AND industry = ? AND intent = ? AND id != ?",
-			b.Persona, b.Industry, b.Intent, entity.ID).
+			b.Persona, b.Industry, b.Intent, b.ID).
 		Update("enabled", false)
-	return entity.ID, nil
+	return b.ID, nil
 }
 
 // ListEnabled 列出所有启用的基线
-func (r *ChampionBaselineRepositoryImpl) ListEnabled(ctx context.Context) ([]dto.ChampionBaselineDTO, error) {
+func (r *ChampionBaselineRepositoryImpl) ListEnabled(ctx context.Context) ([]model.ChampionBaseline, error) {
 	var entities []model.ChampionBaseline
 	err := db.GetDB().WithContext(ctx).
 		Where("enabled = ?", true).
@@ -260,49 +175,25 @@ func (r *ChampionBaselineRepositoryImpl) ListEnabled(ctx context.Context) ([]dto
 	if err != nil {
 		return nil, err
 	}
-	out := make([]dto.ChampionBaselineDTO, 0, len(entities))
-	for _, e := range entities {
-		out = append(out, dto.ChampionBaselineDTO{
-			Persona:         e.Persona,
-			Industry:        e.Industry,
-			Intent:          e.Intent,
-			Naturalness:     e.Naturalness,
-			Conciseness:     e.Conciseness,
-			Empathy:         e.Empathy,
-			Professionalism: e.Professionalism,
-			Persuasiveness:  e.Persuasiveness,
-		})
-	}
-	return out, nil
+	return entities, nil
 }
 
 // RefreshPhrases 刷新短语库
-func (r *ChampionBaselineRepositoryImpl) RefreshPhrases(ctx context.Context, baselineID uint64, messages []humanize.ChampionMessage) error {
-	if baselineID == 0 || len(messages) == 0 {
+// phrases 由 service 层通过 TFIDFPhraseExtractor 预计算，仓储仅负责持久化
+func (r *ChampionBaselineRepositoryImpl) RefreshPhrases(ctx context.Context, baselineID uint64, phrases []model.ChampionPhrase) error {
+	if baselineID == 0 || len(phrases) == 0 {
 		return nil
 	}
-	phrases := r.phraseExtractor.Extract(messages, 30)
 	gormDB := db.GetDB().WithContext(ctx)
 	// 删除旧短语
 	if err := gormDB.Where("baseline_id = ?", baselineID).Delete(&model.ChampionPhrase{}).Error; err != nil {
 		return fmt.Errorf("delete old phrases: %w", err)
 	}
-	if len(phrases) == 0 {
-		return nil
+	// 设置 BaselineID
+	for i := range phrases {
+		phrases[i].BaselineID = baselineID
 	}
-	records := make([]model.ChampionPhrase, 0, len(phrases))
-	for _, p := range phrases {
-		records = append(records, model.ChampionPhrase{
-			BaselineID: baselineID,
-			Phrase:     p.Phrase,
-			TFIDFScore: p.TFIDFScore,
-			TF:         p.TF,
-			DF:         p.DF,
-			PhraseType: string(p.PhraseType),
-			Rank:       p.Rank,
-		})
-	}
-	if err := gormDB.CreateInBatches(records, 100).Error; err != nil {
+	if err := gormDB.CreateInBatches(phrases, 100).Error; err != nil {
 		return fmt.Errorf("create champion_phrases: %w", err)
 	}
 	return nil
@@ -334,43 +225,10 @@ func NewABTestStatRepository() *ABTestStatRepository {
 }
 
 // Save 保存统计结果（同时写入 control 与 treatment 两条记录）
-func (r *ABTestStatRepository) Save(ctx context.Context, result *dto.ABTestStatsResult, controlSize, treatmentSize int, controlStddev, treatmentStddev, controlMedian, treatmentMedian float64) error {
-	if result == nil {
-		return fmt.Errorf("result is nil")
-	}
-	rows := []model.ABTestStat{
-		{
-			ExperimentID:    result.ExperimentID,
-			GroupName:       "control",
-			SampleSize:      controlSize,
-			MeanScore:       result.ControlMean,
-			MedianScore:     controlMedian,
-			StddevScore:     controlStddev,
-			MannWhitneyU:    int64(result.MannWhitneyU),
-			MannWhitneyP:    result.MannWhitneyP,
-			CohensD:         result.CohensD,
-			BootstrapCILow:  result.BootstrapCILow,
-			BootstrapCIHigh: result.BootstrapCIHigh,
-			Significant:     result.Significant,
-			EffectSizeLabel: result.EffectSizeLabel,
-			Winner:          result.Winner,
-		},
-		{
-			ExperimentID:    result.ExperimentID,
-			GroupName:       "treatment",
-			SampleSize:      treatmentSize,
-			MeanScore:       result.TreatmentMean,
-			MedianScore:     treatmentMedian,
-			StddevScore:     treatmentStddev,
-			MannWhitneyU:    int64(result.MannWhitneyU),
-			MannWhitneyP:    result.MannWhitneyP,
-			CohensD:         result.CohensD,
-			BootstrapCILow:  result.BootstrapCILow,
-			BootstrapCIHigh: result.BootstrapCIHigh,
-			Significant:     result.Significant,
-			EffectSizeLabel: result.EffectSizeLabel,
-			Winner:          result.Winner,
-		},
+// rows 由 service 层构建，仓储仅负责持久化
+func (r *ABTestStatRepository) Save(ctx context.Context, rows []model.ABTestStat) error {
+	if len(rows) == 0 {
+		return nil
 	}
 	return db.GetDB().WithContext(ctx).CreateInBatches(rows, 100).Error
 }
@@ -389,37 +247,12 @@ func (r *ABTestStatRepository) ListByExperiment(ctx context.Context, experimentI
 // 辅助函数
 // ============================================================================
 
-// safeStr 安全字符串转换（避免 nil pointer）
-func safeStr(s string) string {
-	return s
-}
-
 // generateScoreID 生成评分 ID
 //
 // 格式：hs_<unix_nano>
 func generateScoreID() string {
 	return fmt.Sprintf("hs_%d", time.Now().UnixNano())
 }
-
-// buildReasonJSON 构建原因 JSON
-func buildReasonJSON(result *dto.HumanizeEvalResult) string {
-	if result == nil || len(result.Scores) == 0 {
-		return "{}"
-	}
-	m := make(map[string]string, len(result.Scores))
-	for _, s := range result.Scores {
-		m[string(s.Dimension)] = s.Reason
-	}
-	b, _ := json.Marshal(m)
-	return string(b)
-}
-
-// 编译时接口断言
-var (
-	_ humanize.ChampionBaselineRepository = (*ChampionBaselineRepositoryImpl)(nil)
-	_ humanize.HumanizeScoreRepository    = (*HumanizeScoreRepository)(nil)
-	_ humanize.LowQualitySampleCollector  = (*HumanizeLowQualitySampleCollector)(nil)
-)
 
 // ============================================================================
 // 管理面扩展方法（TuningController 使用，按业务域下沉，不新建上帝 service）

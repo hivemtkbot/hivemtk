@@ -12,6 +12,7 @@ import (
 	"errors"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 )
 
 // HumanizeEvaluator 单次评估器接口（规则与 LLM 共同实现）
@@ -31,19 +32,19 @@ type HumanizeRegenerateFn func(ctx context.Context, input *dto.HumanizeEvalInput
 // service/humanize 包只依赖 Save 方法；查询方法在 repository 包中独立提供，
 // 避免 service 层反向依赖 model 类型
 type HumanizeScoreRepository interface {
-	Save(ctx context.Context, r *dto.HumanizeEvalResult, input *dto.HumanizeEvalInput) error
+	Save(ctx context.Context, score *model.HumanizeScore, dimensions []model.HumanizeDimensionRecord) error
 }
 
 // ChampionBaselineRepository 销冠基线仓储接口
 type ChampionBaselineRepository interface {
 	// FindByPersonaIndustryIntent 查找启用的基线（取最新版本）
-	FindByPersonaIndustryIntent(ctx context.Context, persona, industry, intent string) (*dto.ChampionBaselineDTO, error)
+	FindByPersonaIndustryIntent(ctx context.Context, persona, industry, intent string) (*model.ChampionBaseline, error)
 	// Save 保存新版本基线
-	Save(ctx context.Context, b *dto.ChampionBaselineDTO, sampleCount int, stddev float64, periodStart, periodEnd any) (uint64, error)
+	Save(ctx context.Context, b *model.ChampionBaseline) (uint64, error)
 	// ListEnabled 列出所有启用的基线
-	ListEnabled(ctx context.Context) ([]dto.ChampionBaselineDTO, error)
+	ListEnabled(ctx context.Context) ([]model.ChampionBaseline, error)
 	// RefreshPhrases 刷新短语库（异步）
-	RefreshPhrases(ctx context.Context, baselineID uint64, messages []ChampionMessage) error
+	RefreshPhrases(ctx context.Context, baselineID uint64, phrases []model.ChampionPhrase) error
 }
 
 // ChampionMessage 销冠对话消息（用于基线刷新与短语提取）
@@ -59,7 +60,7 @@ type ChampionMessage struct {
 //
 // 复用 P1-2 已有 DBLowQualitySampleCollector，但 HumanizeEvalService 通过此抽象接口调用
 type LowQualitySampleCollector interface {
-	Collect(ctx context.Context, input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) error
+	Collect(ctx context.Context, sample *model.LowQualitySample) error
 }
 
 // LLMDispatcher LLM 调度器接口（抽象 llm.Dispatcher，便于测试）

@@ -14,11 +14,13 @@ package humanize
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -39,18 +41,18 @@ const DefaultMaxRetry = 3
 
 // HumanizeEvalService 主编排服务
 type HumanizeEvalService struct {
-	ruleScorer      HumanizeEvaluator
-	llmScorer       HumanizeEvaluator
-	baselineRepo    ChampionBaselineRepository
-	scoreRepo       HumanizeScoreRepository
-	sampleCollector LowQualitySampleCollector
-	threshold       float64
-	sampleRate      float64
-	boundaryLow     float64
-	boundaryHigh    float64
-	maxRetry        int
-	regenerateFn    HumanizeRegenerateFn
-	rng             *rand.Rand
+	ruleScorer	HumanizeEvaluator
+	llmScorer	HumanizeEvaluator
+	baselineRepo	ChampionBaselineRepository
+	scoreRepo	HumanizeScoreRepository
+	sampleCollector	LowQualitySampleCollector
+	threshold	float64
+	sampleRate	float64
+	boundaryLow	float64
+	boundaryHigh	float64
+	maxRetry	int
+	regenerateFn	HumanizeRegenerateFn
+	rng		*rand.Rand
 }
 
 // NewHumanizeEvalService 构造
@@ -61,22 +63,22 @@ func NewHumanizeEvalService(
 	sampleCollector LowQualitySampleCollector,
 ) *HumanizeEvalService {
 	return &HumanizeEvalService{
-		ruleScorer:      rule,
-		llmScorer:       llm,
-		baselineRepo:    baselineRepo,
-		scoreRepo:       scoreRepo,
-		sampleCollector: sampleCollector,
-		threshold:       DefaultThreshold,
-		sampleRate:      DefaultSampleRate,
-		boundaryLow:     DefaultBoundaryLow,
-		boundaryHigh:    DefaultBoundaryHigh,
-		maxRetry:        DefaultMaxRetry,
-		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		ruleScorer:		rule,
+		llmScorer:		llm,
+		baselineRepo:		baselineRepo,
+		scoreRepo:		scoreRepo,
+		sampleCollector:	sampleCollector,
+		threshold:		DefaultThreshold,
+		sampleRate:		DefaultSampleRate,
+		boundaryLow:		DefaultBoundaryLow,
+		boundaryHigh:		DefaultBoundaryHigh,
+		maxRetry:		DefaultMaxRetry,
+		rng:			rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
 // WithThreshold 设置达标阈值
-func (s *HumanizeEvalService) WithThreshold(t float64) *HumanizeEvalService {
+func (s *HumanizeEvalService) WithThreshold(ctx context.Context, t float64) *HumanizeEvalService {
 	if t > 0 && t <= 1 {
 		s.threshold = t
 	}
@@ -84,7 +86,7 @@ func (s *HumanizeEvalService) WithThreshold(t float64) *HumanizeEvalService {
 }
 
 // WithSampleRate 设置 LLM 采样率
-func (s *HumanizeEvalService) WithSampleRate(r float64) *HumanizeEvalService {
+func (s *HumanizeEvalService) WithSampleRate(ctx context.Context, r float64) *HumanizeEvalService {
 	if r >= 0 && r <= 1 {
 		s.sampleRate = r
 	}
@@ -92,7 +94,7 @@ func (s *HumanizeEvalService) WithSampleRate(r float64) *HumanizeEvalService {
 }
 
 // WithBoundary 设置边界区间
-func (s *HumanizeEvalService) WithBoundary(low, high float64) *HumanizeEvalService {
+func (s *HumanizeEvalService) WithBoundary(ctx context.Context, low, high float64) *HumanizeEvalService {
 	if low >= 0 && high > low && high <= 1 {
 		s.boundaryLow = low
 		s.boundaryHigh = high
@@ -101,7 +103,7 @@ func (s *HumanizeEvalService) WithBoundary(low, high float64) *HumanizeEvalServi
 }
 
 // WithMaxRetry 设置最大重试次数
-func (s *HumanizeEvalService) WithMaxRetry(n int) *HumanizeEvalService {
+func (s *HumanizeEvalService) WithMaxRetry(ctx context.Context, n int) *HumanizeEvalService {
 	if n > 0 {
 		s.maxRetry = n
 	}
@@ -109,7 +111,7 @@ func (s *HumanizeEvalService) WithMaxRetry(n int) *HumanizeEvalService {
 }
 
 // WithRegenerateFn 设置重生成回调
-func (s *HumanizeEvalService) WithRegenerateFn(fn HumanizeRegenerateFn) *HumanizeEvalService {
+func (s *HumanizeEvalService) WithRegenerateFn(ctx context.Context, fn HumanizeRegenerateFn) *HumanizeEvalService {
 	s.regenerateFn = fn
 	return s
 }
@@ -210,8 +212,9 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 	result.AttemptCount = s.maxRetry
 	// 收集低质样本（复用 P1-2 接口）
 	if s.sampleCollector != nil {
-		sampleType := s.decideLowQualitySampleType(result)
-		if err := s.sampleCollector.Collect(ctx, input, result, sampleType); err != nil {
+		sampleType := s.decideLowQualitySampleType(ctx, result)
+		sample := s.buildLowQualitySample(input, result, sampleType)
+		if err := s.sampleCollector.Collect(ctx, sample); err != nil {
 			logger.Errorf("[HumanizeEval] collect low quality sample: %v", err)
 		}
 	}
@@ -220,7 +223,7 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 }
 
 // decideLowQualitySampleType 根据最低分维度决定低质样本类型
-func (s *HumanizeEvalService) decideLowQualitySampleType(result *dto.HumanizeEvalResult) string {
+func (s *HumanizeEvalService) decideLowQualitySampleType(ctx context.Context, result *dto.HumanizeEvalResult) string {
 	if result == nil || len(result.Scores) == 0 {
 		return "retry_exhausted"
 	}
@@ -248,13 +251,115 @@ func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalRe
 	if s.scoreRepo == nil || r == nil {
 		return
 	}
-	if err := s.scoreRepo.Save(ctx, r, r.Input); err != nil {
+	score, dimensions := s.buildScoreFromResult(r)
+	if err := s.scoreRepo.Save(ctx, score, dimensions); err != nil {
 		logger.Errorf("[HumanizeEval] persist score: %v", err)
+	}
+}
+
+// buildScoreFromResult 将 dto.HumanizeEvalResult 转换为 model.HumanizeScore + 维度明细
+// 五层架构：dto→model 转换在 service 层完成，repository 仅负责持久化
+func (s *HumanizeEvalService) buildScoreFromResult(r *dto.HumanizeEvalResult) (*model.HumanizeScore, []model.HumanizeDimensionRecord) {
+	score := &model.HumanizeScore{
+		TotalScore:         r.TotalScore,
+		Threshold:          DefaultThreshold,
+		DistanceToChampion: r.DistanceToChampion,
+		Passed:             r.Passed,
+		AttemptCount:       r.AttemptCount,
+		LLMModel:           r.LLMModel,
+		LLMLatencyMs:       r.LLMLatencyMs,
+		EvaluatorType:      model.HumanizeEvaluatorType(r.EvaluatorType),
+		SampleStrategy:     model.HumanizeSampleStrategy(r.SampleStrategy),
+		FinalReply:         r.FinalReply,
+	}
+	if r.Input != nil {
+		score.SessionID = r.Input.SessionID
+		score.CustomerID = r.Input.CustomerID
+		score.MessageID = r.Input.MessageID
+		score.Persona = r.Input.Persona
+		score.Industry = r.Input.Industry
+		score.Platform = r.Input.Platform
+		score.Intent = r.Input.Intent
+		score.CustomerMessage = r.Input.CustomerMessage
+		score.AIReply = r.Input.AIReply
+	}
+	// 填充 5 维得分 + 构建维度明细
+	var dimensions []model.HumanizeDimensionRecord
+	reasonMap := make(map[string]string, len(r.Scores))
+	for _, sc := range r.Scores {
+		reasonMap[string(sc.Dimension)] = sc.Reason
+		switch sc.Dimension {
+		case dto.HumanizeDimNaturalness:
+			score.Naturalness = sc.Score
+		case dto.HumanizeDimConciseness:
+			score.Conciseness = sc.Score
+		case dto.HumanizeDimEmpathy:
+			score.Empathy = sc.Score
+		case dto.HumanizeDimProfessionalism:
+			score.Professionalism = sc.Score
+		case dto.HumanizeDimPersuasiveness:
+			score.Persuasiveness = sc.Score
+		}
+	}
+	if len(r.Scores) > 0 {
+		dimensions = make([]model.HumanizeDimensionRecord, 0, len(r.Scores))
+		for _, sc := range r.Scores {
+			dimensions = append(dimensions, model.HumanizeDimensionRecord{
+				Dimension: string(sc.Dimension),
+				Score:     sc.Score,
+				Weight:    dto.HumanizeDimensionWeight[sc.Dimension],
+				Reason:    sc.Reason,
+			})
+		}
+	}
+	reasonJSON, _ := json.Marshal(reasonMap)
+	score.ReasonJSON = string(reasonJSON)
+	return score, dimensions
+}
+
+// buildLowQualitySample 将 dto 评估结果转换为 model.LowQualitySample
+// 包含序列化维度得分和候选回复（原 repository 层逻辑，上移到 service）
+func (s *HumanizeEvalService) buildLowQualitySample(input *dto.HumanizeEvalInput, result *dto.HumanizeEvalResult, sampleType string) *model.LowQualitySample {
+	if input == nil || result == nil {
+		return nil
+	}
+	// 校验 sampleType
+	validTypes := map[string]bool{
+		"persona": true, "compliance": true, "naturalness": true, "relevance": true,
+		"manual_review": true, "retry_exhausted": true,
+		"naturalness_low": true, "persuasiveness_low": true,
+		"champion_distance": true, "ab_test_loser": true,
+	}
+	if !validTypes[sampleType] {
+		sampleType = "retry_exhausted"
+	}
+	// 序列化维度得分
+	scoresMap := make(map[string]float64, len(result.Scores))
+	for _, sc := range result.Scores {
+		scoresMap[string(sc.Dimension)] = sc.Score
+	}
+	scoresJSON, _ := json.Marshal(scoresMap)
+	repliesJSON, _ := json.Marshal(result.AllReplies)
+	return &model.LowQualitySample{
+		CustomerID:       input.CustomerID,
+		SessionID:        input.SessionID,
+		SampleType:       model.LowQualitySampleType(sampleType),
+		CustomerMessage:  input.CustomerMessage,
+		AIReply:          result.FinalReply,
+		Persona:          input.Persona,
+		Industry:         input.Industry,
+		Platform:         input.Platform,
+		Intent:           input.Intent,
+		DimensionScores:  string(scoresJSON),
+		TotalScore:       result.TotalScore,
+		Threshold:        DefaultThreshold,
+		AttemptCount:     result.AttemptCount,
+		CandidateReplies: string(repliesJSON),
 	}
 }
 
 // 编译时接口实现检查
 var (
-	_ HumanizeEvaluator = (*RuleScorerImpl)(nil)
-	_ HumanizeEvaluator = (*LLMScorerImpl)(nil)
+	_	HumanizeEvaluator	= (*RuleScorerImpl)(nil)
+	_	HumanizeEvaluator	= (*LLMScorerImpl)(nil)
 )

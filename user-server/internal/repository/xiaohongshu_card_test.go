@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"marketing/internal/dto"
+	"context"
 	"marketing/internal/model"
 	"testing"
 
@@ -155,13 +155,13 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		req       *dto.XiaohongshuCardListRequest
+		req       CardListFilter
 		wantCount int
 		wantErr   bool
 	}{
 		{
 			name: "get all cards",
-			req: &dto.XiaohongshuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 			},
@@ -170,7 +170,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "get first page",
-			req: &dto.XiaohongshuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 3,
 			},
@@ -179,7 +179,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by active status (true)",
-			req: &dto.XiaohongshuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				IsActive: &activeTrue,
@@ -189,7 +189,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by active status (false)",
-			req: &dto.XiaohongshuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				IsActive: &activeFalse,
@@ -199,7 +199,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by keyword",
-			req: &dto.XiaohongshuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				Keyword:  "Active Card A",
@@ -211,7 +211,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetList(tt.req)
+			results, total, err := repo.GetList(context.Background(), tt.req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)

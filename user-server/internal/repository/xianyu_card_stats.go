@@ -3,17 +3,52 @@ package repository
 import (
 	"context"
 	"fmt"
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"time"
 
 	"gorm.io/gorm"
 )
 
+// CardStatsByDate 按日期统计数据（repository 层本地类型）
+type CardStatsByDate struct {
+	Date   string
+	Views  int
+	Clicks int
+	Shares int
+}
+
+// CardTopStats 热门卡片统计（repository 层本地类型）
+type CardTopStats struct {
+	ID        uint
+	Title     string
+	ViewCount int
+	CreatedAt string
+}
+
+// CardStatsResult 卡片统计数据结果（repository 层本地类型，service 层负责转 dto）
+type CardStatsResult struct {
+	CardID       uint
+	Views        int
+	Clicks       int
+	Shares       int
+	StatsByDate  []CardStatsByDate
+}
+
+// CardOverallStatsResult 整体统计数据结果（repository 层本地类型，service 层负责转 dto）
+type CardOverallStatsResult struct {
+	TotalViewCount  int
+	TotalClickCount int
+	TotalShareCount int
+	TotalCards      int64
+	ActiveCards     int64
+	StatsByDate     []CardStatsByDate
+	TopCards        []CardTopStats
+}
+
 // XianyuCardStatsRepository 咸鱼卡片统计仓库接口
 type XianyuCardStatsRepository interface {
-	GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*dto.CardStatsData, error)
-	GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*dto.OverallStatsData, error)
+	GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*CardStatsResult, error)
+	GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*CardOverallStatsResult, error)
 	RecordActivity(ctx context.Context, cardID uint, activityType, ip, userAgent, referer string) error
 }
 
@@ -28,8 +63,8 @@ func NewXianyuCardStatsRepository(db *gorm.DB) XianyuCardStatsRepository {
 }
 
 // GetCardStats 获取卡片统计数据
-func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*dto.CardStatsData, error) {
-	var stats dto.CardStatsData
+func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*CardStatsResult, error) {
+	var stats CardStatsResult
 
 	// 基础统计数据
 	type basicStats struct {
@@ -91,9 +126,9 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 	}
 
 	// 转换数据格式
-	statsByDate := make([]dto.StatsByDate, len(dateStatsList))
+	statsByDate := make([]CardStatsByDate, len(dateStatsList))
 	for i, ds := range dateStatsList {
-		statsByDate[i] = dto.StatsByDate{
+		statsByDate[i] = CardStatsByDate{
 			Date:   ds.Date,
 			Views:  int(ds.ViewCount),
 			Clicks: int(ds.ClickCount),
@@ -101,7 +136,7 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 		}
 	}
 
-	stats = dto.CardStatsData{
+	stats = CardStatsResult{
 		Views:       int(basic.ViewCount),
 		Clicks:      int(basic.ClickCount),
 		Shares:      int(basic.ShareCount),
@@ -112,8 +147,8 @@ func (r *xianyuCardStatsRepository) GetCardStats(ctx context.Context, cardID uin
 }
 
 // GetOverallStats 获取整体统计数据
-func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*dto.OverallStatsData, error) {
-	var stats dto.OverallStatsData
+func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*CardOverallStatsResult, error) {
+	var stats CardOverallStatsResult
 
 	// 获取总统计数据
 	type totalStats struct {
@@ -226,9 +261,9 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 	}
 
 	// 转换数据格式
-	statsByDate := make([]dto.StatsByDate, len(dateStatsList))
+	statsByDate := make([]CardStatsByDate, len(dateStatsList))
 	for i, ds := range dateStatsList {
-		statsByDate[i] = dto.StatsByDate{
+		statsByDate[i] = CardStatsByDate{
 			Date:   ds.Date,
 			Views:  int(ds.ViewCount),
 			Clicks: int(ds.ClickCount),
@@ -236,16 +271,16 @@ func (r *xianyuCardStatsRepository) GetOverallStats(ctx context.Context, startDa
 		}
 	}
 
-	topCardsResponse := make([]dto.TopCard, len(topCards))
+	topCardsResponse := make([]CardTopStats, len(topCards))
 	for i, tc := range topCards {
-		topCardsResponse[i] = dto.TopCard{
+		topCardsResponse[i] = CardTopStats{
 			ID:        tc.CardID,
 			Title:     tc.CardTitle,
 			ViewCount: int(tc.ViewCount),
 		}
 	}
 
-	stats = dto.OverallStatsData{
+	stats = CardOverallStatsResult{
 		TotalViewCount:  int(total.TotalViewCount),
 		TotalClickCount: int(total.TotalClickCount),
 		TotalShareCount: int(total.TotalShareCount),

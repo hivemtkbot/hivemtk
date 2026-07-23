@@ -136,7 +136,27 @@ func (s *xianyuCardStatsService) GetCardStatsRaw(ctx context.Context, cardID uin
 	if err != nil {
 		return nil, fmt.Errorf("结束日期格式错误: %w", err)
 	}
-	return s.repo.GetCardStats(ctx, cardID, start, end)
+	result, err := s.repo.GetCardStats(ctx, cardID, start, end)
+	if err != nil {
+		return nil, err
+	}
+	// 转换 repository.CardStatsResult → dto.CardStatsData
+	statsByDate := make([]dto.StatsByDate, len(result.StatsByDate))
+	for i, sd := range result.StatsByDate {
+		statsByDate[i] = dto.StatsByDate{
+			Date:   sd.Date,
+			Views:  sd.Views,
+			Clicks: sd.Clicks,
+			Shares: sd.Shares,
+		}
+	}
+	return &dto.CardStatsData{
+		CardID:      result.CardID,
+		Views:       result.Views,
+		Clicks:      result.Clicks,
+		Shares:      result.Shares,
+		StatsByDate: statsByDate,
+	}, nil
 }
 
 // GetOverallStatsRaw 返回原始整体统计数据（包含完整的 StatsByDate 与 TopCards）
@@ -149,7 +169,38 @@ func (s *xianyuCardStatsService) GetOverallStatsRaw(ctx context.Context, startDa
 	if err != nil {
 		return nil, fmt.Errorf("结束日期格式错误: %w", err)
 	}
-	return s.repo.GetOverallStats(ctx, start, end)
+	result, err := s.repo.GetOverallStats(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
+	// 转换 repository.CardOverallStatsResult → dto.OverallStatsData
+	statsByDate := make([]dto.StatsByDate, len(result.StatsByDate))
+	for i, sd := range result.StatsByDate {
+		statsByDate[i] = dto.StatsByDate{
+			Date:   sd.Date,
+			Views:  sd.Views,
+			Clicks: sd.Clicks,
+			Shares: sd.Shares,
+		}
+	}
+	topCards := make([]dto.TopCard, len(result.TopCards))
+	for i, c := range result.TopCards {
+		topCards[i] = dto.TopCard{
+			ID:        c.ID,
+			Title:     c.Title,
+			ViewCount: c.ViewCount,
+			CreatedAt: c.CreatedAt,
+		}
+	}
+	return &dto.OverallStatsData{
+		TotalViewCount:  result.TotalViewCount,
+		TotalClickCount: result.TotalClickCount,
+		TotalShareCount: result.TotalShareCount,
+		TotalCards:      result.TotalCards,
+		ActiveCards:     result.ActiveCards,
+		StatsByDate:     statsByDate,
+		TopCards:        topCards,
+	}, nil
 }
 
 // RecordView 记录浏览

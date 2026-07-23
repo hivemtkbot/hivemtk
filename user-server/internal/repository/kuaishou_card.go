@@ -1,24 +1,24 @@
 package repository
 
 import (
-	"marketing/internal/dto"
 	"marketing/internal/model"
 
 	"gorm.io/gorm"
+	"context"
 )
 
 // KuaishouCardRepository 快手卡片仓储接口
 type KuaishouCardRepository interface {
-	Create(card *model.KuaishouCard) (*model.KuaishouCard, error)
-	Update(card *model.KuaishouCard) (*model.KuaishouCard, error)
-	Delete(id uint) error
-	GetByID(id uint) (*model.KuaishouCard, error)
-	GetList(req *dto.KuaishouCardListRequest) ([]model.KuaishouCard, int64, error)
-	IncrementViewCount(id uint) (*model.KuaishouCard, error)
-	IncrementLikeCount(id uint) error
-	IncrementShareCount(id uint) error
-	CreateActivity(activity *model.KuaishouCardActivity) error
-	UpdateShortLinkID(id uint, shortLinkID *uint) error
+	Create(ctx context.Context, card *model.KuaishouCard) (*model.KuaishouCard, error)
+	Update(ctx context.Context, card *model.KuaishouCard) (*model.KuaishouCard, error)
+	Delete(ctx context.Context, id uint) error
+	GetByID(ctx context.Context, id uint) (*model.KuaishouCard, error)
+	GetList(ctx context.Context, req CardListFilter) ([]model.KuaishouCard, int64, error)
+	IncrementViewCount(ctx context.Context, id uint) (*model.KuaishouCard, error)
+	IncrementLikeCount(ctx context.Context, id uint) error
+	IncrementShareCount(ctx context.Context, id uint) error
+	CreateActivity(ctx context.Context, activity *model.KuaishouCardActivity) error
+	UpdateShortLinkID(ctx context.Context, id uint, shortLinkID *uint) error
 }
 
 // kuaishouCardRepository 快手卡片仓储实现
@@ -34,7 +34,7 @@ func NewKuaishouCardRepository(db *gorm.DB) KuaishouCardRepository {
 }
 
 // Create 创建快手卡片
-func (r *kuaishouCardRepository) Create(card *model.KuaishouCard) (*model.KuaishouCard, error) {
+func (r *kuaishouCardRepository) Create(ctx context.Context, card *model.KuaishouCard) (*model.KuaishouCard, error) {
 	if err := r.db.Create(card).Error; err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (r *kuaishouCardRepository) Create(card *model.KuaishouCard) (*model.Kuaish
 }
 
 // Update 更新快手卡片
-func (r *kuaishouCardRepository) Update(card *model.KuaishouCard) (*model.KuaishouCard, error) {
+func (r *kuaishouCardRepository) Update(ctx context.Context, card *model.KuaishouCard) (*model.KuaishouCard, error) {
 	if err := r.db.Save(card).Error; err != nil {
 		return nil, err
 	}
@@ -50,12 +50,12 @@ func (r *kuaishouCardRepository) Update(card *model.KuaishouCard) (*model.Kuaish
 }
 
 // Delete 删除快手卡片
-func (r *kuaishouCardRepository) Delete(id uint) error {
+func (r *kuaishouCardRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.KuaishouCard{}, id).Error
 }
 
 // GetByID 根据ID获取快手卡片
-func (r *kuaishouCardRepository) GetByID(id uint) (*model.KuaishouCard, error) {
+func (r *kuaishouCardRepository) GetByID(ctx context.Context, id uint) (*model.KuaishouCard, error) {
 	var card model.KuaishouCard
 	if err := r.db.First(&card, id).Error; err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (r *kuaishouCardRepository) GetByID(id uint) (*model.KuaishouCard, error) {
 }
 
 // GetList 获取快手卡片列表
-func (r *kuaishouCardRepository) GetList(req *dto.KuaishouCardListRequest) ([]model.KuaishouCard, int64, error) {
+func (r *kuaishouCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.KuaishouCard, int64, error) {
 	var cards []model.KuaishouCard
 	var total int64
 
@@ -93,16 +93,16 @@ func (r *kuaishouCardRepository) GetList(req *dto.KuaishouCardListRequest) ([]mo
 }
 
 // IncrementViewCount 增加浏览数
-func (r *kuaishouCardRepository) IncrementViewCount(id uint) (*model.KuaishouCard, error) {
+func (r *kuaishouCardRepository) IncrementViewCount(ctx context.Context, id uint) (*model.KuaishouCard, error) {
 	var card model.KuaishouCard
 	if err := r.db.Model(&card).Where("id = ?", id).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil {
 		return nil, err
 	}
-	return r.GetByID(id)
+	return r.GetByID(ctx, id)
 }
 
 // IncrementLikeCount 增加点赞数
-func (r *kuaishouCardRepository) IncrementLikeCount(id uint) error {
+func (r *kuaishouCardRepository) IncrementLikeCount(ctx context.Context, id uint) error {
 	// 先检查卡片是否存在
 	var card model.KuaishouCard
 	if err := r.db.First(&card, id).Error; err != nil {
@@ -112,16 +112,16 @@ func (r *kuaishouCardRepository) IncrementLikeCount(id uint) error {
 }
 
 // IncrementShareCount 增加分享数
-func (r *kuaishouCardRepository) IncrementShareCount(id uint) error {
+func (r *kuaishouCardRepository) IncrementShareCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.KuaishouCard{}).Where("id = ?", id).UpdateColumn("share_count", gorm.Expr("share_count + 1")).Error
 }
 
 // CreateActivity 创建活动记录
-func (r *kuaishouCardRepository) CreateActivity(activity *model.KuaishouCardActivity) error {
+func (r *kuaishouCardRepository) CreateActivity(ctx context.Context, activity *model.KuaishouCardActivity) error {
 	return r.db.Create(activity).Error
 }
 
 // UpdateShortLinkID 更新短链ID
-func (r *kuaishouCardRepository) UpdateShortLinkID(id uint, shortLinkID *uint) error {
+func (r *kuaishouCardRepository) UpdateShortLinkID(ctx context.Context, id uint, shortLinkID *uint) error {
 	return r.db.Model(&model.KuaishouCard{}).Where("id = ?", id).Update("short_link_id", shortLinkID).Error
 }

@@ -26,12 +26,13 @@ import (
 	"time"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 )
 
 // LLMScorerImpl LLM 评估器实现
 type LLMScorerImpl struct {
 	dispatcher LLMDispatcher
-	baseline   *dto.ChampionBaselineDTO
+	baseline   *model.ChampionBaseline
 	// selfConsistencyN self-consistency 采样次数（默认 3）
 	selfConsistencyN int
 	// temperature LLM 采样温度（默认 0.3）
@@ -48,7 +49,7 @@ func NewLLMScorer(dispatcher LLMDispatcher) *LLMScorerImpl {
 }
 
 // WithBaseline 注入销冠基线（每次评估前注入）
-func (s *LLMScorerImpl) WithBaseline(b *dto.ChampionBaselineDTO) *LLMScorerImpl {
+func (s *LLMScorerImpl) WithBaseline(b *model.ChampionBaseline) *LLMScorerImpl {
 	s.baseline = b
 	return s
 }
@@ -120,7 +121,7 @@ func (s *LLMScorerImpl) Evaluate(ctx context.Context, input *dto.HumanizeEvalInp
 // ============================================================================
 
 // buildHumanizeLLMPrompt 构建 G-Eval 风格 prompt（见 §16.2.5）
-func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *dto.ChampionBaselineDTO) string {
+func buildHumanizeLLMPrompt(input *dto.HumanizeEvalInput, baseline *model.ChampionBaseline) string {
 	var sb strings.Builder
 	sb.WriteString("你是一位资深销售对话质检员，正在评估 AI 销冠回复的拟人度。\n")
 	sb.WriteString("请先输出评估步骤（Chain-of-Thought），再按 5 维度打分。\n\n")
@@ -222,7 +223,7 @@ func pickMedianResult(results []*dto.HumanizeEvalResult) *dto.HumanizeEvalResult
 //
 // D = sqrt(Σ w_i * (s_i - b_i)²)
 // 权重取自 dto.HumanizeDimensionWeight
-func weightedEuclideanDistance(scores []dto.HumanizeDimensionScore, baseline *dto.ChampionBaselineDTO) float64 {
+func weightedEuclideanDistance(scores []dto.HumanizeDimensionScore, baseline *model.ChampionBaseline) float64 {
 	if baseline == nil {
 		return 0
 	}

@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 )
 
 // ============================================================================
@@ -139,7 +140,7 @@ func TestHumanizeEvalService_Evaluate_LLM_SampledTrigger(t *testing.T) {
 	llm := newStubEvaluator(makeResult(0.90))  // LLM 返回通过
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
-	svc.WithSampleRate(1.0) // 100% 采样
+	svc.WithSampleRate(context.Background(),1.0) // 100% 采样
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "测试",
 		CustomerMessage: "问题",
@@ -165,7 +166,7 @@ func TestHumanizeEvalService_Evaluate_LLM_NotSampled(t *testing.T) {
 	llm := newStubEvaluator(makeResult(0.90))
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
-	svc.WithSampleRate(0.0) // 0% 采样
+	svc.WithSampleRate(context.Background(),0.0) // 0% 采样
 	input := &dto.HumanizeEvalInput{
 		AIReply:         "测试",
 		CustomerMessage: "问题",
@@ -232,7 +233,7 @@ func TestHumanizeEvalService_Evaluate_RetryPass(t *testing.T) {
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
 	// 重生成回调：返回新的回复
-	svc.WithRegenerateFn(func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
+	svc.WithRegenerateFn(context.Background(),func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "regenerated reply", nil
 	})
 	input := &dto.HumanizeEvalInput{
@@ -271,7 +272,7 @@ func TestHumanizeEvalService_Evaluate_RetryFail(t *testing.T) {
 	repo := newStubScoreRepo()
 	collector := newStubSampleCollector()
 	svc := newServiceWithStubs(rule, nil, nil, repo, collector)
-	svc.WithRegenerateFn(func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
+	svc.WithRegenerateFn(context.Background(),func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "regenerated reply", nil
 	})
 	input := &dto.HumanizeEvalInput{
@@ -323,7 +324,7 @@ func TestHumanizeEvalService_Evaluate_RegenerateFail(t *testing.T) {
 	repo := newStubScoreRepo()
 	collector := newStubSampleCollector()
 	svc := newServiceWithStubs(rule, nil, nil, repo, collector)
-	svc.WithRegenerateFn(func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
+	svc.WithRegenerateFn(context.Background(),func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "", errors.New("regenerate failed")
 	})
 	input := &dto.HumanizeEvalInput{
@@ -354,7 +355,7 @@ func TestHumanizeEvalService_Evaluate_LLM_RetryAfterLLMFail(t *testing.T) {
 	llm := newStubEvaluator(makeResult(0.80))
 	repo := newStubScoreRepo()
 	svc := newServiceWithStubs(rule, llm, nil, repo, nil)
-	svc.WithRegenerateFn(func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
+	svc.WithRegenerateFn(context.Background(),func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "better reply", nil
 	})
 	input := &dto.HumanizeEvalInput{
@@ -439,7 +440,7 @@ func TestDecideLowQualitySampleType_NaturalnessLow(t *testing.T) {
 			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.80},
 		},
 	}
-	got := svc.decideLowQualitySampleType(result)
+	got := svc.decideLowQualitySampleType(context.Background(),result)
 	if got != "naturalness_low" {
 		t.Errorf("type=%q want naturalness_low", got)
 	}
@@ -457,7 +458,7 @@ func TestDecideLowQualitySampleType_PersuasivenessLow(t *testing.T) {
 			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.30}, // 最低
 		},
 	}
-	got := svc.decideLowQualitySampleType(result)
+	got := svc.decideLowQualitySampleType(context.Background(),result)
 	if got != "persuasiveness_low" {
 		t.Errorf("type=%q want persuasiveness_low", got)
 	}
@@ -475,7 +476,7 @@ func TestDecideLowQualitySampleType_OtherDim(t *testing.T) {
 			{Dimension: dto.HumanizeDimPersuasiveness, Score: 0.80},
 		},
 	}
-	got := svc.decideLowQualitySampleType(result)
+	got := svc.decideLowQualitySampleType(context.Background(),result)
 	if got != "retry_exhausted" {
 		t.Errorf("type=%q want retry_exhausted", got)
 	}
@@ -484,7 +485,7 @@ func TestDecideLowQualitySampleType_OtherDim(t *testing.T) {
 // TestDecideLowQualitySampleType_NilResult nil 结果
 func TestDecideLowQualitySampleType_NilResult(t *testing.T) {
 	svc := &HumanizeEvalService{}
-	got := svc.decideLowQualitySampleType(nil)
+	got := svc.decideLowQualitySampleType(context.Background(),nil)
 	if got != "retry_exhausted" {
 		t.Errorf("type=%q want retry_exhausted", got)
 	}
@@ -494,7 +495,7 @@ func TestDecideLowQualitySampleType_NilResult(t *testing.T) {
 func TestDecideLowQualitySampleType_EmptyScores(t *testing.T) {
 	svc := &HumanizeEvalService{}
 	result := &dto.HumanizeEvalResult{Scores: nil}
-	got := svc.decideLowQualitySampleType(result)
+	got := svc.decideLowQualitySampleType(context.Background(),result)
 	if got != "retry_exhausted" {
 		t.Errorf("type=%q want retry_exhausted", got)
 	}
@@ -507,10 +508,10 @@ func TestDecideLowQualitySampleType_EmptyScores(t *testing.T) {
 // TestHumanizeEvalService_Chaining 链式配置方法
 func TestHumanizeEvalService_Chaining(t *testing.T) {
 	svc := NewHumanizeEvalService(nil, nil, nil, nil, nil)
-	svc.WithThreshold(0.90).
-		WithSampleRate(0.20).
-		WithBoundary(0.65, 0.80).
-		WithMaxRetry(5)
+	svc.WithThreshold(context.Background(),0.90).
+		WithSampleRate(context.Background(),0.20).
+		WithBoundary(context.Background(),0.65, 0.80).
+		WithMaxRetry(context.Background(),5)
 	if svc.threshold != 0.90 {
 		t.Errorf("threshold=%v want 0.90", svc.threshold)
 	}
@@ -534,13 +535,13 @@ func TestHumanizeEvalService_Chaining_Invalid(t *testing.T) {
 	origBoundaryHigh := svc.boundaryHigh
 	origMaxRetry := svc.maxRetry
 	// threshold 无效
-	svc.WithThreshold(0).WithThreshold(-0.1).WithThreshold(1.5)
+	svc.WithThreshold(context.Background(),0).WithThreshold(context.Background(),-0.1).WithThreshold(context.Background(),1.5)
 	// sampleRate 无效
-	svc.WithSampleRate(-0.1).WithSampleRate(1.5)
+	svc.WithSampleRate(context.Background(),-0.1).WithSampleRate(context.Background(),1.5)
 	// boundary 无效（low < 0, high <= low, high > 1）
-	svc.WithBoundary(-0.1, 0.5).WithBoundary(0.5, 0.5).WithBoundary(0.5, 1.5)
+	svc.WithBoundary(context.Background(),-0.1, 0.5).WithBoundary(context.Background(),0.5, 0.5).WithBoundary(context.Background(),0.5, 1.5)
 	// maxRetry 无效
-	svc.WithMaxRetry(0).WithMaxRetry(-1)
+	svc.WithMaxRetry(context.Background(),0).WithMaxRetry(context.Background(),-1)
 	if svc.threshold != origThreshold {
 		t.Errorf("invalid threshold 不应修改: %v want %v", svc.threshold, origThreshold)
 	}
@@ -559,7 +560,7 @@ func TestHumanizeEvalService_Chaining_Invalid(t *testing.T) {
 }
 
 // TestHumanizeEvalService_WithRegenerateFn 设置重生成回调
-func TestHumanizeEvalService_WithRegenerateFn(t *testing.T) {
+func TestHumanizeEvalService_WithRegenerateFn(context.Background(),t *testing.T) {
 	svc := NewHumanizeEvalService(nil, nil, nil, nil, nil)
 	if svc.regenerateFn != nil {
 		t.Error("初始 regenerateFn 应为 nil")
@@ -567,7 +568,7 @@ func TestHumanizeEvalService_WithRegenerateFn(t *testing.T) {
 	fn := func(ctx context.Context, input *dto.HumanizeEvalInput, feedback *dto.HumanizeEvalResult) (string, error) {
 		return "test", nil
 	}
-	svc.WithRegenerateFn(fn)
+	svc.WithRegenerateFn(context.Background(),fn)
 	if svc.regenerateFn == nil {
 		t.Error("WithRegenerateFn 后不应为 nil")
 	}
@@ -593,8 +594,8 @@ func TestHumanizeEvalService_PersistCalled(t *testing.T) {
 	if repo.saved < 1 {
 		t.Errorf("saved=%d want ≥ 1", repo.saved)
 	}
-	if repo.lastResult == nil {
-		t.Error("lastResult 不应为 nil")
+	if repo.lastScore == nil {
+		t.Error("lastScore 不应为 nil")
 	}
 }
 
@@ -684,7 +685,7 @@ func TestHumanizeEvalService_CollectError(t *testing.T) {
 func TestHumanizeEvalService_BaselineInjection(t *testing.T) {
 	rule := newStubEvaluator(makeResult(0.78)) // 边界 → 触发 LLM
 	llm := newStubEvaluator(makeResult(0.90))
-	baseline := &dto.ChampionBaselineDTO{
+	baseline := &model.ChampionBaseline{
 		Persona:         "美妆顾问",
 		Industry:        "美妆",
 		Intent:          "ask_product",

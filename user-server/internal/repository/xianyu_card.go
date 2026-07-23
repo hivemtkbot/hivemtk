@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"marketing/internal/dto"
 	"marketing/internal/model"
 
 	"gorm.io/gorm"
@@ -16,7 +15,7 @@ type XianyuCardRepository interface {
 	Update(ctx context.Context, card *model.XianyuCard) error
 	Delete(ctx context.Context, id uint) error
 	GetByID(ctx context.Context, id uint) (*model.XianyuCard, error)
-	GetList(ctx context.Context, req *dto.XianyuCardListRequest) ([]model.XianyuCard, int64, error)
+	GetList(ctx context.Context, req CardListFilter) ([]model.XianyuCard, int64, error)
 }
 
 // xianyuCardRepository 咸鱼卡片仓库实现
@@ -70,7 +69,7 @@ func (r *xianyuCardRepository) GetByID(ctx context.Context, id uint) (*model.Xia
 }
 
 // GetList 获取咸鱼卡片列表
-func (r *xianyuCardRepository) GetList(ctx context.Context, req *dto.XianyuCardListRequest) ([]model.XianyuCard, int64, error) {
+func (r *xianyuCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.XianyuCard, int64, error) {
 	var cards []model.XianyuCard
 	var total int64
 

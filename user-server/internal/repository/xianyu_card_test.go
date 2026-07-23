@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"testing"
 
@@ -156,13 +155,13 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		req       *dto.XianyuCardListRequest
+		req       CardListFilter
 		wantCount int
 		wantErr   bool
 	}{
 		{
 			name: "get all cards",
-			req: &dto.XianyuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 			},
@@ -171,7 +170,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "get first page",
-			req: &dto.XianyuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 3,
 			},
@@ -180,7 +179,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by active status (true)",
-			req: &dto.XianyuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				IsActive: &activeTrue,
@@ -190,7 +189,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by active status (false)",
-			req: &dto.XianyuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				IsActive: &activeFalse,
@@ -200,7 +199,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 		},
 		{
 			name: "filter by keyword",
-			req: &dto.XianyuCardListRequest{
+			req: CardListFilter{
 				Page:     1,
 				PageSize: 10,
 				Keyword:  "Active Card A",

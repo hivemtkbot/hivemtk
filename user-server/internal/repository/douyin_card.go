@@ -2,23 +2,32 @@ package repository
 
 import (
 	"fmt"
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
+	"context"
 )
+
+// CardListFilter 卡片列表查询过滤条件（repository 层本地定义，不依赖 dto）
+// 所有平台卡片仓储统一使用此过滤结构，service 层负责 dto → CardListFilter 转换
+type CardListFilter struct {
+	Page     int
+	PageSize int
+	Keyword  string
+	IsActive *bool
+}
 
 // DouyinCardRepository 抖音卡片仓储接口
 type DouyinCardRepository interface {
-	Create(card *model.DouyinCard) (*model.DouyinCard, error)
-	Update(card *model.DouyinCard) (*model.DouyinCard, error)
-	Delete(id uint) error
-	GetByID(id uint) (*model.DouyinCard, error)
-	GetList(req *dto.DouyinCardListRequest) ([]model.DouyinCard, int64, error)
-	IncrementViewCount(id uint) (*model.DouyinCard, error)
-	IncrementLikeCount(id uint) error
-	IncrementShareCount(id uint) error
+	Create(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error)
+	Update(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error)
+	Delete(ctx context.Context, id uint) error
+	GetByID(ctx context.Context, id uint) (*model.DouyinCard, error)
+	GetList(ctx context.Context, req CardListFilter) ([]model.DouyinCard, int64, error)
+	IncrementViewCount(ctx context.Context, id uint) (*model.DouyinCard, error)
+	IncrementLikeCount(ctx context.Context, id uint) error
+	IncrementShareCount(ctx context.Context, id uint) error
 }
 
 // douyinCardRepository 抖音卡片仓储实现
@@ -34,7 +43,7 @@ func NewDouyinCardRepository(db *gorm.DB) DouyinCardRepository {
 }
 
 // Create 创建抖音卡片
-func (r *douyinCardRepository) Create(card *model.DouyinCard) (*model.DouyinCard, error) {
+func (r *douyinCardRepository) Create(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error) {
 	if err := r.db.Create(card).Error; err != nil {
 		return nil, err
 	}
@@ -42,7 +51,7 @@ func (r *douyinCardRepository) Create(card *model.DouyinCard) (*model.DouyinCard
 }
 
 // Update 更新抖音卡片
-func (r *douyinCardRepository) Update(card *model.DouyinCard) (*model.DouyinCard, error) {
+func (r *douyinCardRepository) Update(ctx context.Context, card *model.DouyinCard) (*model.DouyinCard, error) {
 	logger.Infof("更新抖音卡片，ID: %d, ShortLinkID: %d", card.ID, card.ShortLinkID)
 
 	// 直接更新ShortLinkID字段
@@ -52,14 +61,14 @@ func (r *douyinCardRepository) Update(card *model.DouyinCard) (*model.DouyinCard
 
 	// 更新其他字段
 	if err := r.db.Model(&model.DouyinCard{}).Where("id = ?", card.ID).Updates(map[string]any{
-		"title":          card.Title,
-		"description":    card.Description,
-		"image_url":      card.ImageURL,
-		"redirect_url":   card.RedirectURL,
-		"domain_pool_id": card.DomainPoolID,
-		"tags":           card.Tags,
-		"view_count":     card.ViewCount,
-		"is_active":      card.IsActive,
+		"title":		card.Title,
+		"description":		card.Description,
+		"image_url":		card.ImageURL,
+		"redirect_url":		card.RedirectURL,
+		"domain_pool_id":	card.DomainPoolID,
+		"tags":			card.Tags,
+		"view_count":		card.ViewCount,
+		"is_active":		card.IsActive,
 	}).Error; err != nil {
 		return nil, fmt.Errorf("更新其他字段失败: %v", err)
 	}
@@ -76,12 +85,12 @@ func (r *douyinCardRepository) Update(card *model.DouyinCard) (*model.DouyinCard
 }
 
 // Delete 删除抖音卡片
-func (r *douyinCardRepository) Delete(id uint) error {
+func (r *douyinCardRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.DouyinCard{}, id).Error
 }
 
 // GetByID 根据ID获取抖音卡片
-func (r *douyinCardRepository) GetByID(id uint) (*model.DouyinCard, error) {
+func (r *douyinCardRepository) GetByID(ctx context.Context, id uint) (*model.DouyinCard, error) {
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
 		return nil, err
@@ -90,31 +99,28 @@ func (r *douyinCardRepository) GetByID(id uint) (*model.DouyinCard, error) {
 }
 
 // GetList 获取抖音卡片列表
-func (r *douyinCardRepository) GetList(req *dto.DouyinCardListRequest) ([]model.DouyinCard, int64, error) {
+func (r *douyinCardRepository) GetList(ctx context.Context, req CardListFilter) ([]model.DouyinCard, int64, error) {
 	var cards []model.DouyinCard
 	var total int64
 
 	// 基础查询
 	query := r.db.Model(&model.DouyinCard{})
 
-	// 类型断言获取请求参数
-	if req != nil {
-		// 关键词搜索（标题、描述、标签）
-		if req.Keyword != "" {
-			query = query.Where("title LIKE ? OR description LIKE ? OR tags LIKE ?",
-				"%"+req.Keyword+"%", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
-		}
+	// 关键词搜索（标题、描述、标签）
+	if req.Keyword != "" {
+		query = query.Where("title LIKE ? OR description LIKE ? OR tags LIKE ?",
+			"%"+req.Keyword+"%", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
+	}
 
-		// 状态筛选
-		if req.IsActive != nil {
-			query = query.Where("is_active = ?", *req.IsActive)
-		}
+	// 状态筛选
+	if req.IsActive != nil {
+		query = query.Where("is_active = ?", *req.IsActive)
+	}
 
-		// 分页
-		if req.Page > 0 && req.PageSize > 0 {
-			offset := (req.Page - 1) * req.PageSize
-			query = query.Offset(offset).Limit(req.PageSize)
-		}
+	// 分页
+	if req.Page > 0 && req.PageSize > 0 {
+		offset := (req.Page - 1) * req.PageSize
+		query = query.Offset(offset).Limit(req.PageSize)
 	}
 
 	// 获取总数
@@ -131,7 +137,7 @@ func (r *douyinCardRepository) GetList(req *dto.DouyinCardListRequest) ([]model.
 }
 
 // IncrementViewCount 增加浏览次数
-func (r *douyinCardRepository) IncrementViewCount(id uint) (*model.DouyinCard, error) {
+func (r *douyinCardRepository) IncrementViewCount(ctx context.Context, id uint) (*model.DouyinCard, error) {
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
 		return nil, err
@@ -146,12 +152,12 @@ func (r *douyinCardRepository) IncrementViewCount(id uint) (*model.DouyinCard, e
 }
 
 // IncrementLikeCount 增加点赞次数
-func (r *douyinCardRepository) IncrementLikeCount(id uint) error {
+func (r *douyinCardRepository) IncrementLikeCount(ctx context.Context, id uint) error {
 	return r.db.Model(&model.DouyinCard{}).Where("id = ?", id).Update("like_count", gorm.Expr("like_count + ?", 1)).Error
 }
 
 // IncrementShareCount 增加分享次数
-func (r *douyinCardRepository) IncrementShareCount(id uint) error {
+func (r *douyinCardRepository) IncrementShareCount(ctx context.Context, id uint) error {
 	// 先检查卡片是否存在
 	var card model.DouyinCard
 	if err := r.db.First(&card, id).Error; err != nil {
