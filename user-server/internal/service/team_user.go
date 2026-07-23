@@ -9,6 +9,7 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/bcrypt"
 	"marketing/internal/repository"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -580,3 +581,87 @@ func (s *TeamRoleService) GetPermissions(ctx context.Context) map[string]string 
 // PermissionService 权限服务
 //
 // 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context。
+type PermissionService struct {
+	roleRepo repository.TeamRoleRepository
+}
+
+// NewPermissionService 创建权限服务实例
+func NewPermissionService() *PermissionService {
+	return &PermissionService{
+		roleRepo: repository.NewTeamRoleRepository(),
+	}
+}
+
+// CheckPermission 检查权限
+// 独立部署版本：仅根据 role 检查权限，移除 merchantID 作用域参数。
+func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permission string) bool {
+	// 管理员拥有所有权限
+	if roleCode == "admin" {
+		return true
+	}
+
+	// 获取角色
+	role, err := s.roleRepo.GetByCode(ctx, roleCode)
+	if err != nil {
+		// 使用系统默认角色权限
+		for _, r := range model.SystemRoles {
+			if r.Code == roleCode {
+				return s.checkPermissionInList(ctx, r.Permissions, permission)
+			}
+		}
+		return false
+	}
+
+	return s.checkPermissionInList(ctx, role.Permissions, permission)
+}
+
+// checkPermissionInList 检查权限是否在列表中
+func (s *PermissionService) checkPermissionInList(ctx context.Context, permissionsJSON, permission string) bool {
+	var permissions []string
+	if err := json.Unmarshal([]byte(permissionsJSON), &permissions); err != nil {
+		return false
+	}
+
+	for _, p := range permissions {
+		if p == "*" {
+			return true	// 拥有所有权限
+		}
+		if p == permission {
+			return true
+		}
+		// 支持通配符匹配，如 cards.* 匹配 cards.view, cards.create 等
+		if strings.HasSuffix(p, ".*") {
+			prefix := strings.TrimSuffix(p, ".*")
+			if strings.HasPrefix(permission, prefix+".") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// GetUserPermissions 获取用户的所有权限
+// 独立部署版本：移除 merchantID 作用域参数。
+func (s *PermissionService) GetUserPermissions(ctx context.Context, roleCode string) ([]string, error) {
+	if roleCode == "admin" {
+		return []string{"*"}, nil
+	}
+
+	role, err := s.roleRepo.GetByCode(ctx, roleCode)
+	if err != nil {
+		// 使用系统默认角色权限
+		for _, r := range model.SystemRoles {
+			if r.Code == roleCode {
+				var permissions []string
+				json.Unmarshal([]byte(r.Permissions), &permissions)
+				return permissions, nil
+			}
+		}
+		return nil, err
+	}
+
+	var permissions []string
+	json.Unmarshal([]byte(role.Permissions), &permissions)
+	return permissions, nil
+}

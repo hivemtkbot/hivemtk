@@ -97,7 +97,11 @@ const moduleNames = [
   // 飞书账号管理（配合 reach.feishu.send 工具）
   'feishu',
   // 置信度/拟人度/反馈学习 统一管理面板
-  'tuning'
+  'tuning',
+  // 阶段 5：角色管理（v3.1 §3.2）
+  'role',
+  // 阶段 6：授权管理（v3.1 §3.4）
+  'permission'
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)

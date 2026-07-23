@@ -78,7 +78,27 @@ func (r *TeamRole) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// OperationLog 已拆分到 operation_log.go（2026-07 阶段 1：单表化 system_users）
+// OperationLog 操作日志模型
+type OperationLog struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID     uint      `gorm:"index;not null" json:"user_id"`
+	Username   string    `gorm:"type:varchar(50)" json:"username"`
+	Action     string    `gorm:"type:varchar(50);not null" json:"action"` // create, update, delete, login, logout, anomaly_login_detected, etc.
+	Module     string    `gorm:"type:varchar(50);not null" json:"module"` // user, role, card, shortlink, etc.
+	Resource   string    `gorm:"type:varchar(50)" json:"resource"`        // 资源类型
+	ResourceID string    `gorm:"type:varchar(50)" json:"resource_id"`     // 资源ID
+	Detail     string    `gorm:"type:text" json:"detail"`                 // 操作详情 JSON
+	OldValue   string    `gorm:"type:text" json:"old_value"`              // 旧值 JSON
+	NewValue   string    `gorm:"type:text" json:"new_value"`              // 新值 JSON
+	IP         string    `gorm:"type:varchar(50)" json:"ip"`
+	UserAgent  string    `gorm:"type:varchar(255)" json:"user_agent"`
+	CreatedAt  time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+}
+
+// TableName 指定表名
+func (OperationLog) TableName() string {
+	return "operation_logs"
+}
 
 // 系统预定义角色
 var SystemRoles = []TeamRole{
