@@ -6,7 +6,7 @@ import "time"
 // 命名规范：{模块}.{动作}，如 operation.log、health.report
 const (
 	// TopicOperationLog 操作日志主题
-	// 发布者：TeamUserService.logOperation
+	// 发布者：业务 Service（如 SystemUserService、ContentService 等）
 	// 订阅者：OperationLogSubscriber（写入 operation_logs 表）
 	TopicOperationLog = "operation.log"
 

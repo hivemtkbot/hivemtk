@@ -44,11 +44,6 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.GET("/auth/password-policy", authCtrl.GetPasswordPolicy)
 	auth.PUT("/auth/password-policy", authCtrl.SavePasswordPolicy)
 
-	// P1-4 数据行级权限（team_user）
-	rowLevelCtrl := controller.NewRowLevelSecurityController()
-	auth.GET("/team/users/:id/data-scope", rowLevelCtrl.GetUserDataScope)
-	auth.PUT("/team/users/:id/data-scope", rowLevelCtrl.UpdateUserDataScope)
-
 	// 通知中心（站内通知 / 顶部铃铛 badge）
 	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
 	auth.GET("/auth/notifications", notifCtrl.List)

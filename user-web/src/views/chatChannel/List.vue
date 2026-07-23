@@ -64,8 +64,8 @@
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag :type="getStatusTagType(row.status)" size="small">
+              {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -118,6 +118,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search, CopyDocument, ChatLineRound } from '@element-plus/icons-vue'
 import { listChannels, updateChannel, rotateAppKey, resetAppSecret } from '@/api/chatChannel'
 import DOMPurify from 'dompurify'
+// 统一枚举：启用/禁用
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+
+const getStatusLabel = (s) => getEnabledLabel(s)
+const getStatusTagType = (s) => getEnabledTagType(s)
 
 const router = useRouter()
 const loading = ref(false)

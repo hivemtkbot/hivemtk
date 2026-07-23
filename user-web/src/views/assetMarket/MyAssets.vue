@@ -43,14 +43,14 @@
         <el-table-column prop="version" label="版本" width="90" />
         <el-table-column prop="source" label="来源" width="100">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.source === 'manual' ? 'info' : 'success'">
-              {{ sourceLabel(row.source) }}
+            <el-tag size="small" :type="getSourceTagType(row.source)">
+              {{ getSourceLabel(row.source) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
+            <el-tag :type="getEnabledTagType(row.is_active ? 1 : 0)" size="small">
               {{ row.is_active ? '启用' : '停用' }}
             </el-tag>
           </template>
@@ -135,6 +135,9 @@ import {
   reportUsage
 } from '@/api/assetMarket'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// 统一枚举：系统级来源/启用状态
+import { getSourceLabel, getSourceTagType } from '@/constants/source'
+import { getEnabledTagType } from '@/constants/enabled'
 
 const industries = ['美妆', '教培', '医美', '汽车', '金融']
 const loading = ref(false)
@@ -146,15 +149,14 @@ const detailVisible = ref(false)
 const detailText = ref('')
 const form = ref({ name: '', asset_type: 'agent_persona', industry: '美妆', dataText: '' })
 
-const sourceLabel = (s) =>
-  ({ purchased: '平台购买', manual: '自建', synced: '平台分发', imported: '导入' }[s] || s)
+const sourceLabel = (s) => getSourceLabel(s)
 
 const fetchList = async () => {
   loading.value = true
   try {
     const resp = await listLocalAssets(filter.value)
     const data = resp?.data || resp || {}
-    list.value = data.list || []
+    list.value = Array.isArray(data?.list) ? data.list : (Array.isArray(data) ? data : [])
     total.value = data.total || 0
   } finally {
     loading.value = false

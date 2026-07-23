@@ -59,8 +59,8 @@
         <el-table-column prop="userAgent" label="浏览器" min-width="200" show-overflow-tooltip />
         <el-table-column prop="status" label="结果" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'success' ? '成功' : '失败' }}
+            <el-tag :type="getPassFailStatusTagType(row.status)" size="small">
+              {{ getPassFailStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -111,6 +111,12 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Refresh } from '@element-plus/icons-vue'
 import { getOperationLogs, exportOperationLogs, getOperationLogDetail } from '@/api/operationLog.js'
+// 统一枚举：通用成功/失败状态
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+
+// 通用成功/失败 label/type
+const getPassFailStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS)
+const getPassFailStatusTagType = (s) => getStatusTagType(s, PASS_FAIL_STATUS)
 
 const loading = ref(false)
 const searchKeyword = ref('')

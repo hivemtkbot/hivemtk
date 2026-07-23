@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
@@ -55,6 +56,40 @@ func (s *MigrationService) ExecuteUpgrade(ctx context.Context, fromVersion, toVe
 
 	go s.executeUpgradeAsync(ctx, task.ID, fromVersion, toVersion)
 	return task, nil
+}
+
+// WaitForTask 阻塞等待升级任务完成（main 启动期保证 audit 表就绪）
+//
+// 超时或任务失败返回 error；成功（completed）返回 nil。
+// 通过轮询 upgrade_tasks 表 status 字段实现，间隔 200ms。
+func (s *MigrationService) WaitForTask(ctx context.Context, taskID uint, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		task, err := s.taskRepo.GetByID(ctx, taskID)
+		if err != nil {
+			return fmt.Errorf("查询 upgrade_tasks 失败: %w", err)
+		}
+		if task == nil {
+			return fmt.Errorf("upgrade_task %d not found", taskID)
+		}
+		switch task.Status {
+		case "completed":
+			return nil
+		case "failed":
+			return fmt.Errorf("upgrade_task %d failed: %s", taskID, task.ErrorMessage)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("等待 upgrade_task %d 超时（%v）", taskID, timeout)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 }
 
 // executeUpgradeAsync 异步执行升级

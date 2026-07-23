@@ -140,14 +140,16 @@
       <el-table-column prop="account_id" label="账号" width="120" show-overflow-tooltip />
       <el-table-column label="方向" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.direction === 'inbound' ? 'success' : 'warning'" size="small">
-            {{ row.direction === 'inbound' ? '接收' : '发送' }}
+          <el-tag :type="getDirectionTagType(row.direction)" size="small">
+            {{ getDirectionLabel(row.direction) }}
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="msg_type" label="类型" width="90">
         <template #default="{ row }">
-          <el-tag size="small" effect="plain">{{ row.msg_type }}</el-tag>
+          <el-tag :type="getMsgTypeTagType(row.msg_type)" size="small" effect="plain">
+            {{ getMsgTypeLabel(row.msg_type) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="sender_name" label="发送方" width="140" show-overflow-tooltip />
@@ -321,6 +323,12 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, RefreshRight, DataAnalysis } from '@element-plus/icons-vue'
 import { messageHubApi } from '@/api/messageHub'
+// 平台（消息中台 MQ）label / tag type：取自统一 channel 常量，
+// 业务视图禁止再各自维护 platformLabelMap。
+import { getChannelLabel, getChannelTagType } from '@/constants/channel'
+// 方向/消息类型 label/type：取自统一 direction/msgType 常量
+import { getDirectionLabel, getDirectionTagType } from '@/constants/direction'
+import { getMsgTypeLabel, getMsgTypeTagType } from '@/constants/msgType'
 
 const loading = ref(false)
 const statsLoading = ref(false)
@@ -361,36 +369,9 @@ const barWidth = (count) => {
   return Math.round((count / maxPlatformCount.value) * 100)
 }
 
-const platformLabelMap = {
-  wecom: '企业微信',
-  personal_wx: '个人微信',
-  douyin: '抖音',
-  kuaishou: '快手',
-  xiaohongshu: '小红书',
-  xianyu: '闲鱼',
-  tiktok: 'TikTok',
-  whatsapp: 'WhatsApp',
-  sms: '短信',
-  email: '邮件'
-}
-
-const platformLabel = (p) => platformLabelMap[p] || p || '-'
-
-const platformTagType = (p) => {
-  const map = {
-    wecom: 'success',
-    personal_wx: 'success',
-    douyin: '',
-    kuaishou: '',
-    xiaohongshu: 'danger',
-    xianyu: 'warning',
-    tiktok: '',
-    whatsapp: 'success',
-    sms: 'info',
-    email: 'info'
-  }
-  return map[p] || ''
-}
+// 平台（消息中台 MQ）label / tag type：取自统一 channel 常量
+const platformLabel = (p) => getChannelLabel(p)
+const platformTagType = (p) => getChannelTagType(p)
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -449,6 +430,7 @@ const loadPlatforms = async () => {
     msgTypeOptions.value = res.msg_types || []
   } catch (e) {
     console.error('加载平台列表失败', e)
+    ElMessage.error('平台选项加载失败')
   }
 }
 
@@ -459,6 +441,7 @@ const loadStats = async () => {
     stats.value = res || {}
   } catch (e) {
     console.error('加载统计失败', e)
+    ElMessage.error('统计加载失败')
   } finally {
     statsLoading.value = false
   }
@@ -489,6 +472,7 @@ const fetchMessageList = async () => {
     pagination.total = res.total || 0
   } catch (e) {
     console.error('加载消息列表失败', e)
+    ElMessage.error('消息列表加载失败')
   } finally {
     loading.value = false
   }

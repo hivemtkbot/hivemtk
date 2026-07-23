@@ -171,13 +171,13 @@
                 <el-table-column label="趋势" width="100" align="center">
                   <template #default="{ row }">
                     <el-tag v-if="row.trend === 'up'" type="success" size="small">
-                      <el-icon><CaretTop /></el-icon>上升
+                      <el-icon><CaretTop /></el-icon>{{ getTrendLabel(row.trend) }}
                     </el-tag>
                     <el-tag v-else-if="row.trend === 'down'" type="danger" size="small">
-                      <el-icon><CaretBottom /></el-icon>下降
+                      <el-icon><CaretBottom /></el-icon>{{ getTrendLabel(row.trend) }}
                     </el-tag>
                     <el-tag v-else type="info" size="small">
-                      <el-icon><Minus /></el-icon>稳定
+                      <el-icon><Minus /></el-icon>{{ getTrendLabel(row.trend) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -269,6 +269,8 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, DataLine, CaretTop, CaretBottom, Minus } from '@element-plus/icons-vue'
 import { listStaffs, getPersonaReport } from '@/api/persona.js'
+// 统一枚举：趋势方向
+import { getTrendLabel } from '@/constants/trend'
 
 const loadingStaffs = ref(false)
 const loadingReport = ref(false)

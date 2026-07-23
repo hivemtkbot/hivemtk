@@ -265,9 +265,6 @@ func Setup(r *gin.Engine) {
 		// 性能压测 + 安全审计
 		setupQualityRoutes(auth)
 
-		// 团队用户管理
-		setupTeamRoutes(auth)
-
 		// 批量操作
 		setupBatchRoutes(auth)
 

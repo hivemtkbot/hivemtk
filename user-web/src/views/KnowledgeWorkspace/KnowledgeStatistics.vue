@@ -251,8 +251,8 @@
         <el-table-column prop="operator" label="操作人" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'success' ? '成功' : '失败' }}
+            <el-tag :type="getPassFailStatusTagType(row.status)" size="small">
+              {{ getPassFailStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -311,6 +311,14 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Document, Files, Coin, Search, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/rag-product-config'
+// 系统级来源 label：取自统一 source 常量
+import { getSourceLabel } from '@/constants/source'
+// 通用成功/失败 label/type：取自统一 status 集
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+
+// 通用成功/失败 label/type
+const getPassFailStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS)
+const getPassFailStatusTagType = (s) => getStatusTagType(s, PASS_FAIL_STATUS)
 
 const productList = ref([])
 const overview = ref({})
@@ -403,8 +411,12 @@ const maxScore = computed(() => {
   return Math.max(1, ...list.map(i => i.count || 0))
 })
 
-const sourceTypeLabel = (t) => ({ upload: '文件上传', text: '文本', url: 'URL', openapi: 'OpenAPI', batch: '批量' }[t] || t)
-const sourceTypeColor = (t) => ({ upload: '#4F46E5', text: '#10B981', url: '#F59E0B', openapi: '#EF4444', batch: '#909399' }[t] || '#4F46E5')
+// 知识来源类型 color 映射（仅知识库专用；与 source.js 的 tagType 分离，保留原视觉）
+const SOURCE_COLOR_MAP = {
+  upload: '#4F46E5', text: '#10B981', url: '#F59E0B', openapi: '#EF4444', batch: '#909399'
+}
+const sourceTypeLabel = (t) => getSourceLabel(t)
+const sourceTypeColor = (t) => SOURCE_COLOR_MAP[t] || '#4F46E5'
 
 const calcPercent = (val, total) => {
   if (!total || total <= 0) return 0

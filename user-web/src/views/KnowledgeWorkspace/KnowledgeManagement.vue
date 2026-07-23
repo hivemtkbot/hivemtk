@@ -90,10 +90,12 @@
         <el-table-column label="分段数" prop="chunk_count" width="80" />
         <el-table-column label="状态" width="180">
           <template #default="{ row }">
-            <el-tag v-if="row.embed_status === 'indexed'" type="success">已索引</el-tag>
-            <el-tag v-else-if="row.embed_status === 'processing'" type="warning">处理中 {{ row.embed_progress }}%</el-tag>
-            <el-tag v-else-if="row.embed_status === 'failed'" type="danger">失败</el-tag>
-            <el-tag v-else type="info">待处理</el-tag>
+            <el-tag :type="getEmbedStatusTagType(row.embed_status)" size="small">
+              {{ getEmbedStatusLabel(row.embed_status) }}
+              <template v-if="row.embed_status === 'processing' && row.embed_progress != null">
+                {{ row.embed_progress }}%
+              </template>
+            </el-tag>
             <el-progress v-if="row.embed_status === 'processing'" :percentage="row.embed_progress" :show-text="false" :stroke-width="4" style="margin-top: 4px" />
           </template>
         </el-table-column>
@@ -248,6 +250,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Refresh, UploadFilled } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/rag-product-config'
+// 统一枚举：知识库嵌入状态、来源类型
+import { EMBED_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+import { getSourceLabel, getSourceTagType } from '@/constants/source'
 
 const router = useRouter()
 const goToChunkEditor = (docId) => {
@@ -475,10 +480,12 @@ onUnmounted(() => {
 })
 
 // 工具函数
-const sourceTypeLabel = (t) => ({ upload: '文件', text: '文本', url: 'URL', openapi: 'OpenAPI', batch: '批量' }[t] || t)
-const sourceTypeTag = (t) => ({ upload: 'info', text: 'success', url: 'warning', openapi: 'info' }[t] || 'info')
-const embedStatusLabel = (s) => ({ pending: '待处理', processing: '处理中', indexed: '已索引', failed: '失败' }[s] || s)
-const embedStatusTag = (s) => ({ pending: 'info', processing: 'warning', indexed: 'success', failed: 'danger' }[s] || '')
+// 嵌入状态 label/type：取自统一 status 集
+const getEmbedStatusLabel = (s) => getStatusLabel(s, EMBED_STATUS)
+const getEmbedStatusTagType = (s) => getStatusTagType(s, EMBED_STATUS)
+// 来源类型 label/type：取自统一 source 常量
+const sourceTypeLabel = (t) => getSourceLabel(t)
+const sourceTypeTag = (t) => getSourceTagType(t)
 const formatNumber = (n) => n == null ? '-' : Number(n).toLocaleString()
 const formatPercent = (n) => n == null ? '-' : (n * 100).toFixed(1) + '%'
 const formatFileSize = (b) => {

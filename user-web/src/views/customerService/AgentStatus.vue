@@ -58,9 +58,9 @@
         <el-table-column prop="agent_name" label="姓名" min-width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.status === 'online'" type="success">在线</el-tag>
-            <el-tag v-else-if="row.status === 'busy'" type="warning">忙碌</el-tag>
-            <el-tag v-else type="info">离线</el-tag>
+            <el-tag :type="getAgentStatusTagType(row.status)" size="small">
+              {{ getAgentStatusLabel(row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="active_sessions" label="当前会话" width="100" align="center" />
@@ -125,10 +125,16 @@
       <el-table :data="agentSessions" v-loading="sessionsLoading" stripe>
         <el-table-column prop="id" label="会话 ID" min-width="100" />
         <el-table-column prop="user_name" label="客户" min-width="120" />
-        <el-table-column prop="platform" label="渠道" width="100" />
+        <el-table-column label="渠道" width="100">
+          <template #default="{ row }">
+            {{ getChannelLabel(row.platform) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="getSessionStatusTagType(row.status)" size="small">
+              {{ getSessionStatusLabel(row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="started_at" label="开始时间" min-width="160">
@@ -155,6 +161,19 @@ import {
   goOffline,
   getAgentSessions
 } from '@/api/customerService.js'
+// 渠道 label：取自统一 channel 常量
+import { getChannelLabel } from '@/constants/channel'
+// 启用/禁用 label：取自统一 enabled 常量
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+// 坐席状态/会话状态：取自统一 status 集
+import { AGENT_STATUS, SESSION_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+
+// 坐席在线/忙碌/离线 label/type
+const getAgentStatusLabel = (s) => getStatusLabel(s, AGENT_STATUS)
+const getAgentStatusTagType = (s) => getStatusTagType(s, AGENT_STATUS)
+// 会话 active/closed 等 label/type
+const getSessionStatusLabel = (s) => getStatusLabel(s, SESSION_STATUS)
+const getSessionStatusTagType = (s) => getStatusTagType(s, SESSION_STATUS)
 
 const loading = ref(false)
 const search = ref('')

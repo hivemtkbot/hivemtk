@@ -213,7 +213,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 13. LLM 路由 - 别名
 	// ============================================================
-	llmCtrl := controller.NewLLMRoutingController()
+	routingSvc := service.NewLLMRoutingService(getGlobalDispatcher())
+	llmCtrl := controller.NewLLMRoutingController(routingSvc)
 	doReg("GET", "/llm-routing/rules", llmCtrl.ListStrategies)
 	doReg("GET", "/llm-routing/models", llmCtrl.ListModels)
 	doReg("PUT", "/llm-routing/strategies", llmCtrl.UpdateStrategies)
@@ -648,18 +649,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("POST", "/domain-pool", domainCtrl.Create)
 	doReg("PUT", "/domain-pool/:id", domainCtrl.Update)
 	doReg("DELETE", "/domain-pool/:id", domainCtrl.Delete)
-
-	// ============================================================
-	// 48. 团队成员 - 别名
-	// ============================================================
-	teamCtrl := controller.NewTeamUserController()
-	doReg("GET", "/team-users", teamCtrl.GetList)
-	doReg("GET", "/team-users/list", teamCtrl.GetList)
-	doReg("GET", "/team-users/:id", teamCtrl.GetByID)
-	doReg("POST", "/team-users", teamCtrl.Create)
-	doReg("PUT", "/team-users/:id", teamCtrl.Update)
-	doReg("DELETE", "/team-users/:id", teamCtrl.Delete)
-	doReg("POST", "/team-users/:id/reset-password", teamCtrl.ResetPassword)
 
 	// ============================================================
 	// 49. 授权管理 - 别名（开源版：License 模型已删除，全部移除）

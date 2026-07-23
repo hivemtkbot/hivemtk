@@ -3,57 +3,10 @@ package router
 import (
 	contentctrl "marketing/internal/content/controller"
 	"marketing/internal/controller"
-	"marketing/internal/middleware"
 	opsctrl "marketing/internal/ops/controller"
 
 	"github.com/gin-gonic/gin"
 )
-
-// setupTeamRoutes 团队用户管理路由
-// P1-7 修复：细粒度权限中间件
-//   - 团队成员/角色/日志的写操作需要 ManagerOrAdminMiddleware
-//   - 个人资料/自己改密不需要管理员权限
-func setupTeamRoutes(auth *gin.RouterGroup) {
-	// 团队用户管理（CRUD + 重置密码需要 admin 或 manager）
-	teamUserCtrl := controller.NewTeamUserController()
-	adminGroup := auth.Group("/team", middleware.ManagerOrAdminMiddleware())
-	{
-		adminGroup.GET("/users", teamUserCtrl.GetList)
-		adminGroup.GET("/users/:id", teamUserCtrl.GetByID)
-		adminGroup.POST("/users", teamUserCtrl.Create)
-		adminGroup.PUT("/users/:id", teamUserCtrl.Update)
-		adminGroup.DELETE("/users/:id", teamUserCtrl.Delete)
-		adminGroup.POST("/users/:id/reset-password", teamUserCtrl.ResetPassword)
-
-		// 操作日志（管理类）
-		operationLogCtrl := controller.NewOperationLogController()
-		adminGroup.GET("/logs", operationLogCtrl.GetList)
-		adminGroup.GET("/logs/statistics", operationLogCtrl.GetStatistics)
-		adminGroup.GET("/logs/export", operationLogCtrl.ExportLogs)
-		adminGroup.POST("/logs/clean", operationLogCtrl.CleanLogs)
-		adminGroup.DELETE("/logs", operationLogCtrl.DeleteLogs)
-		adminGroup.GET("/logs/:id", operationLogCtrl.GetByID)
-	}
-
-	// 团队角色管理（CRUD 需要 admin，列表/权限所有登录用户可读）
-	teamRoleCtrl := controller.NewTeamRoleController()
-	auth.GET("/team/roles", teamRoleCtrl.GetList)
-	auth.GET("/team/permissions", teamRoleCtrl.GetPermissions)
-	roleAdminGroup := auth.Group("/team/roles", middleware.ManagerOrAdminMiddleware())
-	{
-		roleAdminGroup.POST("", teamRoleCtrl.Create)
-		roleAdminGroup.PUT("/:id", teamRoleCtrl.Update)
-		roleAdminGroup.DELETE("/:id", teamRoleCtrl.Delete)
-	}
-
-	// 任何登录用户可访问（个人资料 / 自己改密 / 个人日志）
-	auth.GET("/team/user/current", teamUserCtrl.GetCurrentUser)
-	auth.POST("/team/user/change-password", teamUserCtrl.ChangePassword)
-
-	// 我的日志（任何登录用户可访问）
-	operationLogCtrl := controller.NewOperationLogController()
-	auth.GET("/team/logs/my", operationLogCtrl.GetMyLogs)
-}
 
 // setupBatchRoutes 批量操作路由
 func setupBatchRoutes(auth *gin.RouterGroup) {

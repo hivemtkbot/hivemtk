@@ -108,8 +108,8 @@
             <el-table-column prop="default_followup" label="默认跟进" width="120" />
             <el-table-column prop="owner_role" label="负责角色" width="100" align="center">
               <template #default="{ row }">
-                <el-tag size="small" :type="row.owner_role === 'ai' ? 'primary' : 'success'">
-                  {{ row.owner_role }}
+                <el-tag size="small" :type="getRoleTagType(row.owner_role)">
+                  {{ getRoleLabel(row.owner_role) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -182,7 +182,7 @@
                 <el-tag size="small" type="success">{{ event.to_stage }}</el-tag>
               </span>
               <span class="event-reason">{{ event.reason || '无原因' }}</span>
-              <span class="event-source">来源: {{ event.source || 'manual' }}</span>
+              <span class="event-source">来源: {{ getSourceLabel(event.source || 'manual') }}</span>
             </div>
           </el-card>
         </el-timeline-item>
@@ -210,6 +210,8 @@ import {
 import {
   getJourneyOverview, listJourneyStages, listByStage
 } from '@/api/customerJourney.js'
+// 统一枚举：负责角色 label/type
+import { getRoleLabel, getRoleTagType } from '@/constants/role'
 
 const loading = ref(false)
 const autoRefresh = ref(false)
