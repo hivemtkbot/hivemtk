@@ -1,117 +1,286 @@
 package controller
 
 import (
-	"context"
 	"net/http"
-
-	"marketing/internal/pkg/utils/response"
-	"marketing/internal/service"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+
+	"marketing/internal/aiagent/llm"
+	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/service"
 )
 
-// LLMRoutingController LLM 多模型路由控制器
+// ============================================================================
+// LLMRoutingController（2026-07-23 重构）
+// ----------------------------------------------------------------------------
+// 修复缺陷：
+//  1. 9 处 context.Background() 全部改用 ctx.Request.Context()（五层架构 ctx 透传）
+//  2. URL 路径 :id 与 provider name 混淆 → 改用 :name 路径参数
+//  3. TestModel 不再走 Dispatch 临时改写全局路由（已移至 Service.CallProviderForTest）
+// ============================================================================
+
+// LLMRoutingController LLM 路由控制器
 type LLMRoutingController struct {
-	svc *service.LLMRoutingService
+	routingService *service.LLMRoutingService
 }
 
 // NewLLMRoutingController 创建 LLM 路由控制器
-func NewLLMRoutingController() *LLMRoutingController {
-	return &LLMRoutingController{svc: service.NewLLMRoutingService()}
+func NewLLMRoutingController(routingService *service.LLMRoutingService) *LLMRoutingController {
+	return &LLMRoutingController{routingService: routingService}
 }
 
-// ListModels 模型列表
+// ============================================================================
+// Provider / Model 管理
+// ============================================================================
+
+// ListModels 列出所有 LLM provider
+//
+// GET /api/llm/models
+// 返回：[]LLMProviderInfo
 func (c *LLMRoutingController) ListModels(ctx *gin.Context) {
-	list := c.svc.ListModels(context.Background(), )
-	response.SuccessWithList(ctx, list, int64(len(list)))
+	models := c.routingService.ListModels(ctx.Request.Context())
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": models})
 }
 
-// CreateModel 添加模型
+// CreateModel 注册新 provider
+//
+// POST /api/llm/models
+// Body: LLMProviderInfo
 func (c *LLMRoutingController) CreateModel(ctx *gin.Context) {
-	var req service.CreateModelRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	var info service.LLMProviderInfo
+	if err := ctx.ShouldBindJSON(&info); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
 		return
 	}
-	model, err := c.svc.AddModel(context.Background(), &req)
-	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+	if err := c.routingService.CreateModel(ctx.Request.Context(), info); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
-	response.Success(ctx, model, "添加成功")
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": info})
 }
 
-// UpdateModel 更新模型
+// GetModel 获取单个 provider
+//
+// GET /api/llm/models/:name
+func (c *LLMRoutingController) GetModel(ctx *gin.Context) {
+	name := ctx.Param("name")
+	if name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "name is required"})
+		return
+	}
+	models := c.routingService.ListModels(ctx.Request.Context())
+	for _, m := range models {
+		if m.Name == name {
+			ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": m})
+			return
+		}
+	}
+	ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "model not found"})
+}
+
+// UpdateModel 更新 provider
+//
+// PUT /api/llm/models/:name
+// Body: LLMProviderInfo（name 字段被忽略，路径 :name 优先）
 func (c *LLMRoutingController) UpdateModel(ctx *gin.Context) {
-	name := ctx.Param("id")
-	var req service.CreateModelRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	name := ctx.Param("name")
+	if name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "name is required"})
 		return
 	}
-	model, err := c.svc.UpdateModel(context.Background(), name, &req)
-	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+	var info service.LLMProviderInfo
+	if err := ctx.ShouldBindJSON(&info); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
 		return
 	}
-	response.Success(ctx, model, "更新成功")
+	if err := c.routingService.UpdateModel(ctx.Request.Context(), name, info); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": name})
 }
 
-// DeleteModel 删除模型
+// DeleteModel 删除 provider
+//
+// DELETE /api/llm/models/:name
 func (c *LLMRoutingController) DeleteModel(ctx *gin.Context) {
-	name := ctx.Param("id")
-	if err := c.svc.DeleteModel(context.Background(), name); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+	name := ctx.Param("name")
+	if name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "name is required"})
 		return
 	}
-	response.Success(ctx, gin.H{"name": name}, "删除成功")
+	if err := c.routingService.DeleteModel(ctx.Request.Context(), name); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": name})
 }
 
-// TestModel 测试模型
+// TestModel 测试 provider 连通性（独立路径，不污染全局路由/告警/熔断）
+//
+// POST /api/llm/models/:name/test
+// Body: { "prompt": "...", "timeout_seconds": 60 }
 func (c *LLMRoutingController) TestModel(ctx *gin.Context) {
-	name := ctx.Param("id")
+	name := ctx.Param("name")
+	if name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "name is required"})
+		return
+	}
 	var req service.TestModelRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
-		return
+		// Body 解析失败也允许（仅做最小测试）
+		req = service.TestModelRequest{Provider: name}
 	}
-	result, err := c.svc.TestModel(ctx.Request.Context(), name, &req)
+	req.Provider = name // 强制使用 URL 中的 name
+	result, err := c.routingService.TestModel(ctx.Request.Context(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
-	response.Success(ctx, result, "测试完成")
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
 }
 
-// ListStrategies 路由策略列表
+// ============================================================================
+// 场景路由管理
+// ============================================================================
+
+// ListStrategies 列出所有场景路由
+//
+// GET /api/llm/strategies
+// 别名：GET /api/llm/scene-routing（兼容旧前端）
+// 返回：[]ScenarioRoute
 func (c *LLMRoutingController) ListStrategies(ctx *gin.Context) {
-	list := c.svc.ListStrategies(context.Background(), )
-	response.SuccessWithList(ctx, list, int64(len(list)))
+	routes := c.routingService.ListStrategies(ctx.Request.Context())
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": routes})
 }
 
-// UpdateStrategies 更新路由策略
+// UpdateStrategies 批量更新场景路由
+//
+// PUT /api/llm/strategies
+// Body: { "routes": [...], "operator": "...", "trace_id": "...", "commit_msg": "..." }
 func (c *LLMRoutingController) UpdateStrategies(ctx *gin.Context) {
 	var req service.UpdateStrategiesRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
 		return
 	}
-	list, err := c.svc.UpdateStrategies(context.Background(), &req)
+	if err := c.routingService.UpdateStrategies(ctx.Request.Context(), req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	// 返回最新快照
+	routes := c.routingService.ListStrategies(ctx.Request.Context())
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": routes})
+}
+
+// UpdateSceneRouting 兼容旧接口（PUT /api/llm/scene-routing）
+//
+// Body 兼容：{ routes: [...] } 或 { scenario: "...", provider: "...", fallbacks: [...] }
+func (c *LLMRoutingController) UpdateSceneRouting(ctx *gin.Context) {
+	// 尝试解析成 UpdateStrategiesRequest
+	var req service.UpdateStrategiesRequest
+	if err := ctx.ShouldBindJSON(&req); err == nil && len(req.Routes) > 0 {
+		if err := c.routingService.UpdateStrategies(ctx.Request.Context(), req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": req.Routes})
+		return
+	}
+	// 兼容单 route 形式
+	var single llm.ScenarioRoute
+	if err := ctx.ShouldBindJSON(&single); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid body: " + err.Error()})
+		return
+	}
+	batch := service.UpdateStrategiesRequest{Routes: []llm.ScenarioRoute{single}}
+	if err := c.routingService.UpdateStrategies(ctx.Request.Context(), batch); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": single})
+}
+
+// ListAuditHistory 列出路由变更审计历史
+//
+// GET /api/llm/audit?scenario=xxx&limit=50
+func (c *LLMRoutingController) ListAuditHistory(ctx *gin.Context) {
+	scenario := ctx.Query("scenario")
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
+	rows, err := c.routingService.ListAuditHistory(ctx.Request.Context(), scenario, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
 		return
 	}
-	response.Success(ctx, gin.H{"routes": list}, "更新成功")
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": rows})
 }
 
-// Stats 调用统计
+// ============================================================================
+// 用量统计
+// ============================================================================
+
+// Stats 进程内实时 provider 维度统计
+//
+// GET /api/llm/stats
 func (c *LLMRoutingController) Stats(ctx *gin.Context) {
-	stats := c.svc.GetStats(context.Background(), )
-	response.SuccessWithList(ctx, stats, int64(len(stats)))
+	stats := c.routingService.Stats(ctx.Request.Context())
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": stats})
 }
 
-// Usage 用量查询
+// Usage 跨进程历史统计（按 window）
+//
+// GET /api/llm/usage?window=today|week|month|all
 func (c *LLMRoutingController) Usage(ctx *gin.Context) {
-	summary := c.svc.GetUsage(context.Background(), )
-	response.Success(ctx, summary, "查询成功")
+	window := ctx.DefaultQuery("window", "all")
+	summary, err := c.routingService.Usage(ctx.Request.Context(), window)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "trace_id": logger.TraceIDFromContext(ctx.Request.Context())})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": summary})
+}
+
+// CostStats 用量 + 成本统计（前端 cost-stats tab 使用）
+//
+// GET /api/llm/cost-stats?window=...
+// 复用 Usage 接口但返回前端期望的 {monthlyCost, byModel} 形态
+func (c *LLMRoutingController) CostStats(ctx *gin.Context) {
+	window := ctx.DefaultQuery("window", "month")
+	summary, err := c.routingService.Usage(ctx.Request.Context(), window)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	// 转换为前端期望的形态
+	out := gin.H{
+		"window":        summary.WindowLabel,
+		"monthly_cost":  summary.TotalCost,
+		"total_tokens":  summary.TotalTokens,
+		"total_calls":   summary.TotalCalls,
+		"by_scenario":   summary.ByScenario,
+		"by_provider":   summary.ByProvider,
+		"by_model":      summary.ByProvider, // 前端字段别名
+		"enabled_models": summary.EnabledModels,
+		"active_models":  summary.ActiveModels,
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
+}
+
+// FallbackConfig 兜底配置查询（兼容旧前端）
+//
+// GET /api/llm/fallback
+// 返回当前所有场景路由的 fallback 列表（前端 fallback tab 使用）
+func (c *LLMRoutingController) FallbackConfig(ctx *gin.Context) {
+	routes := c.routingService.ListStrategies(ctx.Request.Context())
+	out := make([]gin.H, 0, len(routes))
+	for _, r := range routes {
+		out = append(out, gin.H{
+			"scenario":  r.Scenario,
+			"provider":  r.Provider,
+			"fallbacks": r.Fallbacks,
+			"version":   r.Version,
+		})
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
 }
