@@ -60,7 +60,6 @@ type ChangePasswordRequest struct {
 type AuthService struct {
 	jwtUtils	*utils.JWTUtils
 	systemUserRepo	repository.SystemUserRepository
-	teamUserRepo	repository.TeamUserRepository
 }
 
 // NewAuthService 创建认证服务实例
@@ -68,7 +67,6 @@ func NewAuthService() *AuthService {
 	return &AuthService{
 		jwtUtils:	utils.NewJWTUtils(utils.DefaultJWTConfig),
 		systemUserRepo:	repository.NewSystemUserRepository(),
-		teamUserRepo:	repository.NewTeamUserRepository(),
 	}
 }
 
@@ -77,7 +75,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 	return s.jwtUtils
 }
 
-// Login 用户登录
+// Login 用户登录（2026-07 阶段 1 重构：单表 system_users）
 //
 // 严格规则（修复 P0-3）：
 //  1. 不再"系统无用户 → 自动注册为超管"——该机制绕过 InitGuard/LicenseGuard，
@@ -86,7 +84,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 //  3. 用户名/密码错误一律返回"用户名或密码错误"（防枚举）。
 //  4. 用户被禁用直接拒绝（明确反馈）。
 //  5. 密码用 bcrypt 验证。
-//  6. 先查询 system_users 表，找不到再查询 team_users 表（支持团队用户登录）。
+//  6. 阶段 1：team_users 已被合并到 system_users，仅查 system_users。
 func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 
 	user, err := s.systemUserRepo.GetByUsername(ctx, req.Username)
@@ -96,67 +94,10 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		teamUser, err := s.teamUserRepo.GetByUsername(ctx, req.Username)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errors.New("用户名或密码错误")
-			}
-			logger.Error(err, "查询团队用户失败")
-			return nil, errors.New("登录失败，请稍后重试")
-		}
-
-		if teamUser.Status != model.TeamUserStatusActive {
-			return nil, errors.New("用户已被禁用")
-		}
-
-		if bcrypt.CheckPassword(teamUser.Password, req.Password) != nil {
-			return nil, errors.New("用户名或密码错误")
-		}
-
-		// 检查是否启用 MFA（P1-1 缺口修复：登录后第二步 TOTP 验证）
-		mfaSvc := NewMFAService()
-		mfaEnabled, err := mfaSvc.IsMFAEnabled(ctx, teamUser.ID)
-		if err != nil {
-			logger.Errorf("TeamUser MFA 状态查询失败: %v", err)
-		}
-		if mfaEnabled {
-			tempToken, err := mfaSvc.IssueTempToken(ctx, teamUser.ID, teamUser.Username, teamUser.Role)
-			if err != nil {
-				return nil, errors.New("登录失败，请稍后重试")
-			}
-			return &LoginResponse{
-				NeedMFA:	true,
-				TempToken:	tempToken,
-			}, nil
-		}
-
-		now := time.Now()
-		teamUser.LastLoginAt = &now
-		if err := s.teamUserRepo.Update(ctx, teamUser); err != nil {
-			logger.Errorf("更新团队用户最后登录时间失败: %v", err)
-		}
-
-		token, err := s.jwtUtils.GenerateToken(teamUser.ID, teamUser.Username, teamUser.Role)
-		if err != nil {
-			logger.Error(err, "生成JWT令牌失败")
-			return nil, errors.New("登录失败，请稍后重试")
-		}
-
-		return &LoginResponse{
-			Token:	token,
-			User: &SystemUserResponse{
-				ID:		teamUser.ID,
-				Username:	teamUser.Username,
-				Role:		teamUser.Role,
-				Status:		int(teamUser.Status),
-				CreatedAt:	teamUser.CreatedAt,
-				UpdatedAt:	teamUser.UpdatedAt,
-			},
-			Expires:	time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
-		}, nil
+		return nil, errors.New("用户名或密码错误")
 	}
 
-	if user.Status != 1 {
+	if user.Status != 1 || !user.Enabled {
 		return nil, errors.New("用户已被禁用")
 	}
 

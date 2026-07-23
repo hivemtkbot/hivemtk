@@ -34,7 +34,7 @@ func containsIgnore(s, substr string) bool {
 func setupRLSTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	database := testutil.NewTestDB(t,
-		&model.TeamUser{},
+		&model.SystemUser{},
 		&model.OperationLog{},
 		&model.Notification{},
 		&model.SecurityAlert{},
@@ -180,9 +180,9 @@ func TestApplyDataScopeForTeamByScope_Admin(t *testing.T) {
 		Role:    "admin",
 		IsAdmin: true,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "user_id", "department_id")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "user_id", "department_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	// admin → 不应该附加 user_id = 条件（用 GORM DryRun，参数化占位符 $1 / ?）
 	hasUserIDFilter := containsStr(sql, "user_id = $") || containsStr(sql, "user_id = ?")
 	if hasUserIDFilter {
@@ -202,10 +202,10 @@ func TestApplyDataScopeForTeamByScope_Self(t *testing.T) {
 		DataScope: int(TeamDataScopeSelf),
 		IsAdmin:   false,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "owner_id", "")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "owner_id", "")
 
 	// 通过 ToSQL 拿生成的 SQL
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "owner_id =") {
 		t.Errorf("self scope should add owner_id filter, got: %s", sql)
 	}
@@ -224,9 +224,9 @@ func TestApplyDataScopeForTeamByScope_Department(t *testing.T) {
 		DepartmentID: 7,
 		IsAdmin:      false,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "user_id", "department_id")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "user_id", "department_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "department_id =") {
 		t.Errorf("department scope should add department_id filter, got: %s", sql)
 	}
@@ -245,9 +245,9 @@ func TestApplyDataScopeForTeamByScope_DepartmentFallback(t *testing.T) {
 		DepartmentID: 7,
 		IsAdmin:      false,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "user_id", "")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "user_id", "")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "user_id =") {
 		t.Errorf("department fallback should degrade to user_id filter, got: %s", sql)
 	}
@@ -265,9 +265,9 @@ func TestApplyDataScopeForTeamByScope_Custom(t *testing.T) {
 		CustomDeptIDs: []uint{1, 2, 3},
 		IsAdmin:       false,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "user_id", "department_id")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "user_id", "department_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "department_id IN") {
 		t.Errorf("custom scope should add department_id IN filter, got: %s", sql)
 	}
@@ -285,9 +285,9 @@ func TestApplyDataScopeForTeamByScope_CustomFallback(t *testing.T) {
 		// CustomDeptIDs 为空
 		IsAdmin: false,
 	}
-	q := svc.ApplyDataScopeForTeamByScope(database, scope, "user_id", "department_id")
+	q := svc.ApplyDataScopeForTeamByScope(context.Background(), database, scope, "user_id", "department_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "user_id =") {
 		t.Errorf("custom fallback should degrade to user_id filter, got: %s", sql)
 	}
@@ -306,7 +306,7 @@ func TestBuildScopeDescription(t *testing.T) {
 		{int(TeamDataScopeCustom), "自定义"},
 	}
 	for _, c := range cases {
-		if got := svc.BuildScopeDescription(c.scope); got != c.want {
+		if got := svc.BuildScopeDescription(context.Background(), c.scope); got != c.want {
 			t.Errorf("BuildScopeDescription(%d) = %q, want %q", c.scope, got, c.want)
 		}
 	}
@@ -323,9 +323,9 @@ func TestApplyDataScopeForTeam_Context(t *testing.T) {
 	c.Set("data_scope", int(TeamDataScopeSelf))
 
 	database := db.GetDB()
-	q := svc.ApplyDataScopeForTeam(database, c, "user_id", "department_id", "team_id")
+	q := svc.ApplyDataScopeForTeam(context.Background(), database, c, "user_id", "department_id", "team_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if !containsStr(sql, "user_id =") {
 		t.Errorf("context-based self should add user_id filter, got: %s", sql)
 	}
@@ -342,9 +342,9 @@ func TestApplyDataScopeForTeam_AdminContext(t *testing.T) {
 	c.Set("data_scope", int(TeamDataScopeAll))
 
 	database := db.GetDB()
-	q := svc.ApplyDataScopeForTeam(database, c, "user_id", "department_id", "team_id")
+	q := svc.ApplyDataScopeForTeam(context.Background(), database, c, "user_id", "department_id", "team_id")
 
-	sql := generateSQL(t, q.Model(&model.TeamUser{}))
+	sql := generateSQL(t, q.Model(&model.SystemUser{}))
 	if containsStr(sql, "user_id =") {
 		t.Errorf("admin context should not add user_id filter, got: %s", sql)
 	}
@@ -384,7 +384,7 @@ func TestMapStringDataScopeToInt(t *testing.T) {
 func generateSQL(t *testing.T, tx *gorm.DB) string {
 	t.Helper()
 	// 用 ToSQL 拿到 SQL 与绑定参数
-	stmt := tx.Session(&gorm.Session{DryRun: true}).Find(&[]model.TeamUser{}).Statement
+	stmt := tx.Session(&gorm.Session{DryRun: true}).Find(&[]model.SystemUser{}).Statement
 	return stmt.SQL.String()
 }
 
