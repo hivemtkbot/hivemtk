@@ -19,4 +19,5 @@ type RecognizeResult struct {
 	LLMModel        string         `json:"llm_model,omitempty"`
 	CostTokens      int            `json:"cost_tokens"`
 	LatencyMs       int            `json:"latency_ms"`
+	Platform        string         `json:"platform,omitempty"`
 }

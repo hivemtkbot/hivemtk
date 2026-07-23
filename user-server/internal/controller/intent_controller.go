@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/pagination"
@@ -29,7 +30,10 @@ func NewIntentController(rec *service.IntentRecognizer) *IntentController {
 type RecognizeRequest struct {
 	SessionID  string `json:"session_id"`
 	CustomerID string `json:"customer_id"`
-	Text       string `json:"text" binding:"required"`
+	Text       string `json:"text"`
+	Message    string `json:"message"`
+	Context    string `json:"context"`
+	Platform   string `json:"platform"`
 }
 
 // Recognize 单条识别
@@ -39,17 +43,29 @@ func (c *IntentController) Recognize(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	result, err := c.rec.Recognize(ctx.Request.Context(), req.SessionID, req.CustomerID, req.Text)
+	text := strings.TrimSpace(req.Message)
+	if text == "" {
+		text = strings.TrimSpace(req.Text)
+	}
+	if text == "" {
+		response.Error(ctx, http.StatusBadRequest, "请输入需要识别的文本内容")
+		return
+	}
+	result, err := c.rec.Recognize(ctx.Request.Context(), req.SessionID, req.CustomerID, text)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if result != nil {
+		result.Platform = req.Platform
 	}
 	response.Success(ctx, result, "识别成功")
 }
 
 // BatchRecognizeRequest 批量识别请求
 type BatchRecognizeRequest struct {
-	Items []RecognizeRequest `json:"items" binding:"required"`
+	Messages []string            `json:"messages"`
+	Items    []RecognizeRequest  `json:"items"`
 }
 
 // BatchRecognize 批量识别
@@ -59,13 +75,34 @@ func (c *IntentController) BatchRecognize(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	out := make([]*dto.RecognizeResult, 0, len(req.Items))
-	for _, item := range req.Items {
-		r, err := c.rec.Recognize(ctx.Request.Context(), item.SessionID, item.CustomerID, item.Text)
-		if err != nil {
-			continue
+	out := make([]*dto.RecognizeResult, 0)
+	if len(req.Messages) > 0 {
+		for _, m := range req.Messages {
+			m = strings.TrimSpace(m)
+			if m == "" {
+				continue
+			}
+			r, err := c.rec.Recognize(ctx.Request.Context(), "", "", m)
+			if err != nil {
+				continue
+			}
+			out = append(out, r)
 		}
-		out = append(out, r)
+	} else {
+		for _, item := range req.Items {
+			text := strings.TrimSpace(item.Message)
+			if text == "" {
+				text = strings.TrimSpace(item.Text)
+			}
+			if text == "" {
+				continue
+			}
+			r, err := c.rec.Recognize(ctx.Request.Context(), item.SessionID, item.CustomerID, text)
+			if err != nil {
+				continue
+			}
+			out = append(out, r)
+		}
 	}
 	response.Success(ctx, out, "批量识别成功")
 }
@@ -83,18 +120,19 @@ func (c *IntentController) Stats(ctx *gin.Context) {
 
 // RecentIntents 客户近期意图
 func (c *IntentController) RecentIntents(ctx *gin.Context) {
-	customerID := ctx.Query("customer_id")
-	_, limit, err := pagination.Parse(ctx)
+	page, pageSize, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	list, err := c.rec.GetRecentIntents(context.Background(), customerID, limit)
+	intentType := ctx.Query("intent_type")
+	offset := (page - 1) * pageSize
+	list, total, err := c.rec.ListRecentIntents(context.Background(), intentType, offset, pageSize)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(ctx, list, "查询成功")
+	response.Success(ctx, gin.H{"list": list, "total": total}, "查询成功")
 }
 
 // Intents 意图词典
