@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/model"
 	"gorm.io/gorm"
+	"marketing/internal/model"
 )
 
 // DingTalkAppService 钉钉企业内部应用账号服务（CRUD + 回调验签 + 入站收消息）

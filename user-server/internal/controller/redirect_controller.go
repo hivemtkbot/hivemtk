@@ -22,11 +22,11 @@ import (
 //
 // 五层架构修复：所有 service 由 router 注入，controller 不再直接访问数据库
 type RedirectController struct {
-	shortLinkService      service.ShortLinkService
-	douyinCardService     service.DouyinCardService
-	kuaishouCardService   service.KuaishouCardService
+	shortLinkService       service.ShortLinkService
+	douyinCardService      service.DouyinCardService
+	kuaishouCardService    service.KuaishouCardService
 	xiaohongshuCardService service.XiaohongshuCardService
-	xianyuCardService     service.XianyuCardService
+	xianyuCardService      service.XianyuCardService
 }
 
 // NewRedirectController 创建短链重定向控制器（service 由 router 注入）
@@ -38,11 +38,11 @@ func NewRedirectController(
 	xianyuCardService service.XianyuCardService,
 ) *RedirectController {
 	return &RedirectController{
-		shortLinkService:      shortLinkService,
-		douyinCardService:     douyinCardService,
-		kuaishouCardService:   kuaishouCardService,
+		shortLinkService:       shortLinkService,
+		douyinCardService:      douyinCardService,
+		kuaishouCardService:    kuaishouCardService,
 		xiaohongshuCardService: xiaohongshuCardService,
-		xianyuCardService:     xianyuCardService,
+		xianyuCardService:      xianyuCardService,
 	}
 }
 

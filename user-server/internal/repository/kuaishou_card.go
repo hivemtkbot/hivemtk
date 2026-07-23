@@ -3,8 +3,8 @@ package repository
 import (
 	"marketing/internal/model"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // KuaishouCardRepository 快手卡片仓储接口

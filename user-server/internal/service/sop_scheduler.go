@@ -43,7 +43,7 @@ func GetSOPScheduler() *SOPScheduler {
 }
 
 // SOPService 返回内部 SOP 服务实例，用于跨模块联动（如 P0-12 意图→SOP）
-func (s *SOPScheduler) SOPService(ctx context.Context)  *SOPService {
+func (s *SOPScheduler) SOPService(ctx context.Context) *SOPService {
 	return s.svc
 }
 
@@ -52,7 +52,7 @@ func InitSOPScheduler(db *gorm.DB, dispatcher any) *SOPScheduler {
 	schedulerOnce.Do(func() {
 		svc := InitSOPService(db, nil)
 		globalSOPScheduler = NewSOPScheduler(svc, db, 60*time.Second)
-		globalSOPScheduler.Start(context.Background(), )
+		globalSOPScheduler.Start(context.Background())
 	})
 	return globalSOPScheduler
 }
@@ -79,7 +79,7 @@ func NewSOPScheduler(svc *SOPService, db *gorm.DB, interval time.Duration) *SOPS
 }
 
 // ensureReposFromDB 在 struct 直接构造或 db 后注入时，按需派生新仓库实例
-func (s *SOPScheduler) ensureReposFromDB(ctx context.Context)  {
+func (s *SOPScheduler) ensureReposFromDB(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
@@ -92,7 +92,7 @@ func (s *SOPScheduler) ensureReposFromDB(ctx context.Context)  {
 }
 
 // Start 启动调度器
-func (s *SOPScheduler) Start(ctx context.Context)  {
+func (s *SOPScheduler) Start(ctx context.Context) {
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
@@ -101,12 +101,12 @@ func (s *SOPScheduler) Start(ctx context.Context)  {
 	s.running = true
 	s.mu.Unlock()
 
-	go s.loop(context.Background(), )
+	go s.loop(context.Background())
 	logger.Infof("[SOPScheduler] 启动成功，调度间隔 %s", s.interval)
 }
 
 // Stop 停止调度器
-func (s *SOPScheduler) Stop(ctx context.Context)  {
+func (s *SOPScheduler) Stop(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.running {
@@ -117,25 +117,25 @@ func (s *SOPScheduler) Stop(ctx context.Context)  {
 }
 
 // loop 调度主循环
-func (s *SOPScheduler) loop(ctx context.Context)  {
+func (s *SOPScheduler) loop(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
 	// 启动时立即执行一次
-	s.tick(context.Background(), )
+	s.tick(context.Background())
 
 	for {
 		select {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.tick(context.Background(), )
+			s.tick(context.Background())
 		}
 	}
 }
 
 // tick 单次调度
-func (s *SOPScheduler) tick(ctx context.Context)  {
+func (s *SOPScheduler) tick(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
@@ -157,7 +157,7 @@ func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background(), )
+	s.ensureReposFromDB(context.Background())
 	threshold := time.Now().Add(-24 * time.Hour)
 	rowsAffected, err := s.execRepo.CleanupStuck(ctx, threshold, SOPStatusRunning, SOPStatusFailed)
 	if err != nil {
@@ -172,7 +172,7 @@ func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background(), )
+	s.ensureReposFromDB(context.Background())
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerAuto)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 auto SOP 失败: %v", err)
@@ -188,7 +188,7 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background(), )
+	s.ensureReposFromDB(context.Background())
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerSchedule)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 schedule SOP 失败: %v", err)
@@ -221,7 +221,7 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 
 // tryExecute 尝试为该 SOP 启动一次执行
 func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
-	s.ensureReposFromDB(context.Background(), )
+	s.ensureReposFromDB(context.Background())
 	// 去重：检查是否已有 running 的执行
 	count, err := s.execRepo.CountBySOPIDAndStatus(ctx, agent.ID, SOPStatusRunning)
 	if err != nil {

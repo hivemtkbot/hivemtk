@@ -197,11 +197,11 @@ func (a *ContentAuditor) Audit(text string, auditCtx *AuditContext) *AuditResult
 }
 
 // AddBlockedKeyword 添加拦截词（运营配置）
-func (a *ContentAuditor) AddBlockedKeyword(ctx context.Context, keyword string)  {
+func (a *ContentAuditor) AddBlockedKeyword(ctx context.Context, keyword string) {
 	a.blockedKeywords = append(a.blockedKeywords, keyword)
 }
 
 // AddWarnKeyword 添加警告词
-func (a *ContentAuditor) AddWarnKeyword(ctx context.Context, keyword string)  {
+func (a *ContentAuditor) AddWarnKeyword(ctx context.Context, keyword string) {
 	a.warnKeywords = append(a.warnKeywords, keyword)
 }

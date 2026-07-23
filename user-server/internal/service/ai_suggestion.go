@@ -19,26 +19,26 @@ import (
 
 // AISuggestionService AI建议服务
 type AISuggestionService struct {
-	suggestionRepo	*repository.AISuggestionRepository
-	sessionRepo	*repository.CustomerSessionRepository
+	suggestionRepo *repository.AISuggestionRepository
+	sessionRepo    *repository.CustomerSessionRepository
 }
 
 // NewAISuggestionService 创建AI建议服务实例
 func NewAISuggestionService() *AISuggestionService {
 	return &AISuggestionService{
-		suggestionRepo:	repository.NewAISuggestionRepository(),
-		sessionRepo:	repository.NewCustomerSessionRepository(),
+		suggestionRepo: repository.NewAISuggestionRepository(),
+		sessionRepo:    repository.NewCustomerSessionRepository(),
 	}
 }
 
 // CreateSuggestion 创建AI建议
 func (s *AISuggestionService) CreateSuggestion(ctx context.Context, sessionID string, messageID uint, suggestion string, confidence float64, source string) (*model.AISuggestion, error) {
 	ais := &model.AISuggestion{
-		SessionID:	sessionID,
-		MessageID:	messageID,
-		Suggestion:	suggestion,
-		Confidence:	confidence,
-		Source:		source,
+		SessionID:  sessionID,
+		MessageID:  messageID,
+		Suggestion: suggestion,
+		Confidence: confidence,
+		Source:     source,
 	}
 
 	if err := s.suggestionRepo.Create(ctx, ais); err != nil {

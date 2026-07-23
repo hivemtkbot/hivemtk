@@ -66,7 +66,7 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 }
 
 func (c *AccountController) GetAccounts(ctx *gin.Context) {
-	accounts, err := c.svc.GetAccountList(context.Background(), )
+	accounts, err := c.svc.GetAccountList(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return

@@ -92,7 +92,7 @@ func toWhatsAppCloudVO(a *model.WhatsAppCloudAccount) *whatsAppCloudAccountVO {
 
 // List 列出所有 WhatsApp Cloud 账号
 func (ctrl *WhatsAppCloudAccountController) List(c *gin.Context) {
-	accs, err := ctrl.svc.ListAccounts(context.Background(), )
+	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return

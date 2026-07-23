@@ -90,7 +90,7 @@ func toFeishuVO(a *model.FeishuAccount) *feishuAccountVO {
 
 // List 列出所有飞书账号
 func (ctrl *FeishuAccountController) List(c *gin.Context) {
-	accs, err := ctrl.svc.ListAccounts(context.Background(), )
+	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
 		return

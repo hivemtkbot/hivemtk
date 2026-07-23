@@ -418,7 +418,7 @@ type mockExecDispatcher struct {
 	dispatchFn func(task *dispatchTask)
 }
 
-func (m *mockExecDispatcher) DispatchOrLog(ctx context.Context, task *dispatchTask)  {
+func (m *mockExecDispatcher) DispatchOrLog(ctx context.Context, task *dispatchTask) {
 	if m.dispatchFn != nil {
 		m.dispatchFn(task)
 	}

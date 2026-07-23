@@ -31,140 +31,140 @@ import (
 type InboxChannel string
 
 const (
-	InboxChannelWeChat	InboxChannel	= "wechat"
-	InboxChannelDouyin	InboxChannel	= "douyin"
-	InboxChannelXiaohongshu	InboxChannel	= "xiaohongshu"
-	InboxChannelEmail	InboxChannel	= "email"
-	InboxChannelWeb		InboxChannel	= "web"
+	InboxChannelWeChat      InboxChannel = "wechat"
+	InboxChannelDouyin      InboxChannel = "douyin"
+	InboxChannelXiaohongshu InboxChannel = "xiaohongshu"
+	InboxChannelEmail       InboxChannel = "email"
+	InboxChannelWeb         InboxChannel = "web"
 )
 
 // InboxMessage 收件箱消息（已绑定 OneID）
 type InboxMessage struct {
-	MessageID	string		`json:"message_id"`
-	Channel		InboxChannel	`json:"channel"`
-	ChannelLabel	string		`json:"channel_label"`
-	UnifiedID	string		`json:"unified_id"`	// OneID
-	CustomerID	string		`json:"customer_id"`	// 客户内部ID
-	CustomerName	string		`json:"customer_name"`	// 客户展示名
-	SenderID	string		`json:"sender_id"`
-	SenderName	string		`json:"sender_name"`
-	Content		string		`json:"content"`
-	ContentType	string		`json:"content_type"`
-	ReceivedAt	time.Time	`json:"received_at"`
-	IsRead		bool		`json:"is_read"`
-	IsReplied	bool		`json:"is_replied"`
-	IsInbound	bool		`json:"is_inbound"`	// true=客户→我们 false=我们→客户
+	MessageID    string       `json:"message_id"`
+	Channel      InboxChannel `json:"channel"`
+	ChannelLabel string       `json:"channel_label"`
+	UnifiedID    string       `json:"unified_id"`    // OneID
+	CustomerID   string       `json:"customer_id"`   // 客户内部ID
+	CustomerName string       `json:"customer_name"` // 客户展示名
+	SenderID     string       `json:"sender_id"`
+	SenderName   string       `json:"sender_name"`
+	Content      string       `json:"content"`
+	ContentType  string       `json:"content_type"`
+	ReceivedAt   time.Time    `json:"received_at"`
+	IsRead       bool         `json:"is_read"`
+	IsReplied    bool         `json:"is_replied"`
+	IsInbound    bool         `json:"is_inbound"` // true=客户→我们 false=我们→客户
 	// 旅程相关（自动启动后填充）
-	JourneyStage	string	`json:"journey_stage,omitempty"`
-	JourneyLabel	string	`json:"journey_label,omitempty"`
+	JourneyStage string `json:"journey_stage,omitempty"`
+	JourneyLabel string `json:"journey_label,omitempty"`
 	// AI 谈单相关
-	AIHandled	bool	`json:"ai_handled"`
-	TransferTo	string	`json:"transfer_to,omitempty"`
+	AIHandled  bool   `json:"ai_handled"`
+	TransferTo string `json:"transfer_to,omitempty"`
 }
 
 // InboxThread 同一客户跨渠道的对话线
 // 商业产品级关键：销售不需要切换 4 个 tab，所有渠道统一为一条 thread
 type InboxThread struct {
-	UnifiedID	string		`json:"unified_id"`
-	CustomerID	string		`json:"customer_id"`
-	CustomerName	string		`json:"customer_name"`
-	Phone		string		`json:"phone"`
-	Email		string		`json:"email"`
-	Channels	[]InboxChannel	`json:"channels"`	// 该客户使用的渠道
-	ChannelLabels	[]string	`json:"channel_labels"`
-	TotalMessages	int		`json:"total_messages"`
-	UnreadCount	int		`json:"unread_count"`
-	LastMessageAt	time.Time	`json:"last_message_at"`
-	LastMessage	string		`json:"last_message"`
-	LastChannel	InboxChannel	`json:"last_channel"`
-	JourneyStage	string		`json:"journey_stage"`
-	JourneyLabel	string		`json:"journey_label"`
-	OwnerID		string		`json:"owner_id,omitempty"`
-	Tags		[]string	`json:"tags"`
-	HasOpenFollowup	bool		`json:"has_open_followup"`
-	FollowupDueAt	*time.Time	`json:"followup_due_at,omitempty"`
-	RecentMessages	[]*InboxMessage	`json:"recent_messages,omitempty"`	// 最近 N 条
+	UnifiedID       string          `json:"unified_id"`
+	CustomerID      string          `json:"customer_id"`
+	CustomerName    string          `json:"customer_name"`
+	Phone           string          `json:"phone"`
+	Email           string          `json:"email"`
+	Channels        []InboxChannel  `json:"channels"` // 该客户使用的渠道
+	ChannelLabels   []string        `json:"channel_labels"`
+	TotalMessages   int             `json:"total_messages"`
+	UnreadCount     int             `json:"unread_count"`
+	LastMessageAt   time.Time       `json:"last_message_at"`
+	LastMessage     string          `json:"last_message"`
+	LastChannel     InboxChannel    `json:"last_channel"`
+	JourneyStage    string          `json:"journey_stage"`
+	JourneyLabel    string          `json:"journey_label"`
+	OwnerID         string          `json:"owner_id,omitempty"`
+	Tags            []string        `json:"tags"`
+	HasOpenFollowup bool            `json:"has_open_followup"`
+	FollowupDueAt   *time.Time      `json:"followup_due_at,omitempty"`
+	RecentMessages  []*InboxMessage `json:"recent_messages,omitempty"` // 最近 N 条
 }
 
 // InboxSummary 收件箱摘要
 type InboxSummary struct {
-	Threads		[]*InboxThread	`json:"threads"`
-	TotalThreads	int		`json:"total_threads"`
-	UnreadThreads	int		`json:"unread_threads"`
-	TotalUnread	int		`json:"total_unread"`
-	ChannelStats	map[string]int	`json:"channel_stats"`	// 各渠道未读数
-	GeneratedAt	time.Time	`json:"generated_at"`
+	Threads       []*InboxThread `json:"threads"`
+	TotalThreads  int            `json:"total_threads"`
+	UnreadThreads int            `json:"unread_threads"`
+	TotalUnread   int            `json:"total_unread"`
+	ChannelStats  map[string]int `json:"channel_stats"` // 各渠道未读数
+	GeneratedAt   time.Time      `json:"generated_at"`
 }
 
 // InboxFilter 收件箱过滤
 type InboxFilter struct {
-	Channel		InboxChannel	// 按渠道过滤
-	OnlyUnread	bool		// 仅未读
-	OnlyAIHandled	bool		// 仅 AI 处理
-	OnlyFollowup	bool		// 仅有待办跟进
-	JourneyStage	JourneyStage	// 按旅程阶段
-	OwnerID		string		// 按销售
-	Keyword		string		// 关键词
-	Limit		int
-	Offset		int
+	Channel       InboxChannel // 按渠道过滤
+	OnlyUnread    bool         // 仅未读
+	OnlyAIHandled bool         // 仅 AI 处理
+	OnlyFollowup  bool         // 仅有待办跟进
+	JourneyStage  JourneyStage // 按旅程阶段
+	OwnerID       string       // 按销售
+	Keyword       string       // 关键词
+	Limit         int
+	Offset        int
 }
 
 // UnifiedInboxService 统一收件箱服务
 // 商业逻辑：所有渠道的私信都汇入此服务，自动绑定 OneID，启动旅程，联动下游
 type UnifiedInboxService struct {
-	mu	sync.RWMutex
+	mu sync.RWMutex
 
 	// 消息存储（按 OneID 分组）
-	messages	map[string][]*InboxMessage	// unifiedID → messages
+	messages map[string][]*InboxMessage // unifiedID → messages
 
 	// 客户身份映射（OneID → 客户身份）
-	customerByUnifiedID	map[string]*OneIDCustomerLite
+	customerByUnifiedID map[string]*OneIDCustomerLite
 
 	// 身份索引（phone/email/openID → unifiedID）
-	phoneIndex	map[string]string
-	emailIndex	map[string]string
-	wechatIndex	map[string]string
-	douyinIndex	map[string]string
-	xhsIndex	map[string]string
+	phoneIndex  map[string]string
+	emailIndex  map[string]string
+	wechatIndex map[string]string
+	douyinIndex map[string]string
+	xhsIndex    map[string]string
 
 	// 已读状态
-	readSet	map[string]bool	// messageID → isRead
+	readSet map[string]bool // messageID → isRead
 
 	// 联动组件
-	journey		*CustomerJourneyService
-	followup	*FollowUpService
-	tagger		*AITagger
+	journey  *CustomerJourneyService
+	followup *FollowUpService
+	tagger   *AITagger
 }
 
 // OneIDCustomerLite 收件箱用的客户简化模型（不依赖数据库）
 type OneIDCustomerLite struct {
-	UnifiedID	string		`json:"unified_id"`
-	CustomerID	string		`json:"customer_id"`
-	CustomerName	string		`json:"customer_name"`
-	Phone		string		`json:"phone"`
-	Email		string		`json:"email"`
-	WechatOpenID	string		`json:"wechat_open_id"`
-	DouyinOpenID	string		`json:"douyin_open_id"`
-	XiaohongshuID	string		`json:"xiaohongshu_id"`
-	OwnerID		string		`json:"owner_id"`
-	Tags		[]string	`json:"tags"`
-	CreatedAt	time.Time	`json:"created_at"`
+	UnifiedID     string    `json:"unified_id"`
+	CustomerID    string    `json:"customer_id"`
+	CustomerName  string    `json:"customer_name"`
+	Phone         string    `json:"phone"`
+	Email         string    `json:"email"`
+	WechatOpenID  string    `json:"wechat_open_id"`
+	DouyinOpenID  string    `json:"douyin_open_id"`
+	XiaohongshuID string    `json:"xiaohongshu_id"`
+	OwnerID       string    `json:"owner_id"`
+	Tags          []string  `json:"tags"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // NewUnifiedInboxService 创建统一收件箱服务
 func NewUnifiedInboxService(journey *CustomerJourneyService, followup *FollowUpService, tagger *AITagger) *UnifiedInboxService {
 	return &UnifiedInboxService{
-		messages:		make(map[string][]*InboxMessage),
-		customerByUnifiedID:	make(map[string]*OneIDCustomerLite),
-		phoneIndex:		make(map[string]string),
-		emailIndex:		make(map[string]string),
-		wechatIndex:		make(map[string]string),
-		douyinIndex:		make(map[string]string),
-		xhsIndex:		make(map[string]string),
-		readSet:		make(map[string]bool),
-		journey:		journey,
-		followup:		followup,
-		tagger:			tagger,
+		messages:            make(map[string][]*InboxMessage),
+		customerByUnifiedID: make(map[string]*OneIDCustomerLite),
+		phoneIndex:          make(map[string]string),
+		emailIndex:          make(map[string]string),
+		wechatIndex:         make(map[string]string),
+		douyinIndex:         make(map[string]string),
+		xhsIndex:            make(map[string]string),
+		readSet:             make(map[string]bool),
+		journey:             journey,
+		followup:            followup,
+		tagger:              tagger,
 	}
 }
 
@@ -321,13 +321,13 @@ func (s *UnifiedInboxService) resolveOneID(ctx context.Context, msg *InboxMessag
 
 	// 4) 实在找不到 → 创建新客户
 	cust := &OneIDCustomerLite{
-		UnifiedID:	fmt.Sprintf("oneid-%d", time.Now().UnixNano()),
-		CustomerID:	fmt.Sprintf("cust-%d", time.Now().UnixNano()),
-		CustomerName:	msg.SenderName,
-		Phone:		phone,
-		Email:		email,
-		CreatedAt:	time.Now(),
-		Tags:		[]string{},
+		UnifiedID:    fmt.Sprintf("oneid-%d", time.Now().UnixNano()),
+		CustomerID:   fmt.Sprintf("cust-%d", time.Now().UnixNano()),
+		CustomerName: msg.SenderName,
+		Phone:        phone,
+		Email:        email,
+		CreatedAt:    time.Now(),
+		Tags:         []string{},
 	}
 	// 按渠道填 OpenID
 	switch msg.Channel {
@@ -422,17 +422,17 @@ func (s *UnifiedInboxService) findUnifiedByPlatformID(ctx context.Context, chann
 // 关键：消息入站后必须自动联动下游组件，不能让销售手动跑 5 个页面
 func (s *UnifiedInboxService) triggerDownstream(ctx context.Context, cust *OneIDCustomerLite, msg *InboxMessage) error {
 	if !msg.IsInbound {
-		return nil	// 只对客户→我们的消息触发
+		return nil // 只对客户→我们的消息触发
 	}
 	// AI 自动打标签（基于消息内容）
 	if s.tagger != nil {
 		// 简单的意图识别：基于关键词
 		intent := detectIntentFromText(msg.Content)
 		s.tagger.TagFromSalesResponse(ctx, cust.CustomerID, &SalesResponse{
-			Reply:	"",
+			Reply: "",
 			Intent: &dto.RecognizeResult{
-				IntentType:	intent,
-				Confidence:	0.7,
+				IntentType: intent,
+				Confidence: 0.7,
 			},
 		})
 	}
@@ -524,25 +524,25 @@ func (s *UnifiedInboxService) ListThreads(ctx context.Context, filter InboxFilte
 		}
 
 		thread := &InboxThread{
-			UnifiedID:		unifiedID,
-			CustomerID:		cust.CustomerID,
-			CustomerName:		cust.CustomerName,
-			Phone:			cust.Phone,
-			Email:			cust.Email,
-			Channels:		channels,
-			ChannelLabels:		channelLabels,
-			TotalMessages:		len(msgs),
-			UnreadCount:		unread,
-			LastMessageAt:		last.ReceivedAt,
-			LastMessage:		inboxTruncate(last.Content, 80),
-			LastChannel:		last.Channel,
-			JourneyStage:		stage,
-			JourneyLabel:		stageLabel,
-			OwnerID:		cust.OwnerID,
-			Tags:			cust.Tags,
-			HasOpenFollowup:	hasFollowup,
-			FollowupDueAt:		followupDue,
-			RecentMessages:		recent,
+			UnifiedID:       unifiedID,
+			CustomerID:      cust.CustomerID,
+			CustomerName:    cust.CustomerName,
+			Phone:           cust.Phone,
+			Email:           cust.Email,
+			Channels:        channels,
+			ChannelLabels:   channelLabels,
+			TotalMessages:   len(msgs),
+			UnreadCount:     unread,
+			LastMessageAt:   last.ReceivedAt,
+			LastMessage:     inboxTruncate(last.Content, 80),
+			LastChannel:     last.Channel,
+			JourneyStage:    stage,
+			JourneyLabel:    stageLabel,
+			OwnerID:         cust.OwnerID,
+			Tags:            cust.Tags,
+			HasOpenFollowup: hasFollowup,
+			FollowupDueAt:   followupDue,
+			RecentMessages:  recent,
 		}
 		threads = append(threads, thread)
 	}
@@ -608,12 +608,12 @@ func (s *UnifiedInboxService) ListThreads(ctx context.Context, filter InboxFilte
 	paged := filtered[offset:end]
 
 	return &InboxSummary{
-		Threads:	paged,
-		TotalThreads:	len(filtered),
-		UnreadThreads:	unreadThreads,
-		TotalUnread:	totalUnread,
-		ChannelStats:	channelStats,
-		GeneratedAt:	time.Now(),
+		Threads:       paged,
+		TotalThreads:  len(filtered),
+		UnreadThreads: unreadThreads,
+		TotalUnread:   totalUnread,
+		ChannelStats:  channelStats,
+		GeneratedAt:   time.Now(),
 	}
 }
 
@@ -653,21 +653,21 @@ func (s *UnifiedInboxService) GetThread(ctx context.Context, unifiedID string) (
 		}
 	}
 	thread := &InboxThread{
-		UnifiedID:	unifiedID,
-		CustomerID:	cust.CustomerID,
-		CustomerName:	cust.CustomerName,
-		Phone:		cust.Phone,
-		Email:		cust.Email,
-		Channels:	channels,
-		ChannelLabels:	channelLabels,
-		TotalMessages:	len(msgs),
-		LastMessageAt:	last.ReceivedAt,
-		LastMessage:	inboxTruncate(last.Content, 80),
-		LastChannel:	last.Channel,
-		JourneyStage:	stage,
-		JourneyLabel:	stageLabel,
-		OwnerID:	cust.OwnerID,
-		Tags:		cust.Tags,
+		UnifiedID:     unifiedID,
+		CustomerID:    cust.CustomerID,
+		CustomerName:  cust.CustomerName,
+		Phone:         cust.Phone,
+		Email:         cust.Email,
+		Channels:      channels,
+		ChannelLabels: channelLabels,
+		TotalMessages: len(msgs),
+		LastMessageAt: last.ReceivedAt,
+		LastMessage:   inboxTruncate(last.Content, 80),
+		LastChannel:   last.Channel,
+		JourneyStage:  stage,
+		JourneyLabel:  stageLabel,
+		OwnerID:       cust.OwnerID,
+		Tags:          cust.Tags,
 	}
 	// 复制消息（避免外部修改）
 	msgCopy := make([]*InboxMessage, len(msgs))

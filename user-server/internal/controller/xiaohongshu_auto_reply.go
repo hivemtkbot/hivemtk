@@ -19,33 +19,33 @@ import (
 )
 
 type XiaohongshuAutoReplyController struct {
-	svc		*service.XiaohongshuAutoReplyService
-	manager		*browser.AutoReplyManager
-	infra		*browser.AutoReplyInfra
-	ragStack	*knowledgesvc.RAGStack
+	svc      *service.XiaohongshuAutoReplyService
+	manager  *browser.AutoReplyManager
+	infra    *browser.AutoReplyInfra
+	ragStack *knowledgesvc.RAGStack
 }
 
 func NewXiaohongshuAutoReplyController(svc *service.XiaohongshuAutoReplyService, ragStack *knowledgesvc.RAGStack) *XiaohongshuAutoReplyController {
 	return &XiaohongshuAutoReplyController{
-		svc:		svc,
-		manager:	GetAutoReplyManager(),
-		infra:		browser.GetAutoReplyInfra(),
-		ragStack:	ragStack,
+		svc:      svc,
+		manager:  GetAutoReplyManager(),
+		infra:    browser.GetAutoReplyInfra(),
+		ragStack: ragStack,
 	}
 }
 
 type xhsAccountReq struct {
-	Username	string	`json:"username"`
-	Cookie		string	`json:"cookie"`
-	Headless	*bool	`json:"headless,omitempty"`
+	Username string `json:"username"`
+	Cookie   string `json:"cookie"`
+	Headless *bool  `json:"headless,omitempty"`
 }
 
 type xhsRuleReq struct {
-	Keywords	string	`json:"keywords"`
-	ReplyContent	string	`json:"reply_content"`
-	Frequency	int	`json:"frequency"`
-	DailyLimit	int	`json:"daily_limit"`
-	IsActive	bool	`json:"is_active"`
+	Keywords     string `json:"keywords"`
+	ReplyContent string `json:"reply_content"`
+	Frequency    int    `json:"frequency"`
+	DailyLimit   int    `json:"daily_limit"`
+	IsActive     bool   `json:"is_active"`
 }
 
 func (c *XiaohongshuAutoReplyController) extractUserID(ctx *gin.Context) uint {
@@ -61,15 +61,15 @@ func (c *XiaohongshuAutoReplyController) extractUserID(ctx *gin.Context) uint {
 
 func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 	var req struct {
-		Username	string	`json:"username"`
-		Headless	*bool	`json:"headless,omitempty"`
+		Username string `json:"username"`
+		Headless *bool  `json:"headless,omitempty"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
 
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -81,8 +81,8 @@ func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 	}
 	now := time.Now()
 	item := &model.AutoReplyAccount{
-		UserID:	userID, Platform: "xiaohongshu", Username: req.Username,
-		IsActive:	true, Headless: headless, LoginAt: &now,
+		UserID: userID, Platform: "xiaohongshu", Username: req.Username,
+		IsActive: true, Headless: headless, LoginAt: &now,
 	}
 	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
@@ -94,7 +94,7 @@ func (c *XiaohongshuAutoReplyController) StartLogin(ctx *gin.Context) {
 
 func (c *XiaohongshuAutoReplyController) LoginStatus(ctx *gin.Context) {
 	username := ctx.Query("username")
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -117,7 +117,7 @@ func (c *XiaohongshuAutoReplyController) LoginStatus(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) ListAccounts(ctx *gin.Context) {
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	items, _ := c.svc.ListAccounts(context.Background(), userID)
 	response.Success(ctx, gin.H{"list": items}, "ok")
 }
@@ -128,15 +128,15 @@ func (c *XiaohongshuAutoReplyController) UpsertAccount(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	headless := true
 	if req.Headless != nil {
 		headless = *req.Headless
 	}
 	now := time.Now()
 	item := &model.AutoReplyAccount{
-		UserID:	userID, Platform: "xiaohongshu", Username: req.Username,
-		Cookie:	req.Cookie, IsActive: true, Headless: headless, LoginAt: &now,
+		UserID: userID, Platform: "xiaohongshu", Username: req.Username,
+		Cookie: req.Cookie, IsActive: true, Headless: headless, LoginAt: &now,
 	}
 	if err := c.svc.UpsertAccount(context.Background(), item); err != nil {
 		HandleServiceError(ctx, err)
@@ -160,7 +160,7 @@ func (c *XiaohongshuAutoReplyController) SaveCookies(ctx *gin.Context) {
 		response.Error(ctx, 400, "id 参数非法")
 		return
 	}
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -180,7 +180,7 @@ func (c *XiaohongshuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 		response.Error(ctx, 400, "id 参数非法")
 		return
 	}
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -193,7 +193,7 @@ func (c *XiaohongshuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) GetRule(ctx *gin.Context) {
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	rule, err := c.svc.GetRule(context.Background(), userID)
 	if err != nil {
 		response.Success(ctx, gin.H{"rule": nil}, "ok")
@@ -208,11 +208,11 @@ func (c *XiaohongshuAutoReplyController) SaveRule(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	rule := &model.AutoReplyRule{
-		UserID:	userID, Platform: "xiaohongshu", Keywords: req.Keywords,
-		ReplyContent:	req.ReplyContent, Frequency: req.Frequency,
-		DailyLimit:	req.DailyLimit, IsActive: req.IsActive,
+		UserID: userID, Platform: "xiaohongshu", Keywords: req.Keywords,
+		ReplyContent: req.ReplyContent, Frequency: req.Frequency,
+		DailyLimit: req.DailyLimit, IsActive: req.IsActive,
 	}
 	if err := c.svc.SaveRule(context.Background(), rule); err != nil {
 		HandleServiceError(ctx, err)
@@ -222,7 +222,7 @@ func (c *XiaohongshuAutoReplyController) SaveRule(ctx *gin.Context) {
 }
 
 func (c *XiaohongshuAutoReplyController) ListLogs(ctx *gin.Context) {
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	page, pageSize, err := pagination.Parse(ctx)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
@@ -238,7 +238,7 @@ func (c *XiaohongshuAutoReplyController) ListLogs(ctx *gin.Context) {
 
 func (c *XiaohongshuAutoReplyController) Start(ctx *gin.Context) {
 	platform := "xiaohongshu"
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -280,10 +280,10 @@ func (c *XiaohongshuAutoReplyController) Start(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, gin.H{
-		"started":	true,
-		"platform":	platform,
-		"account_id":	account.ID,
-		"headless":	account.Headless,
+		"started":    true,
+		"platform":   platform,
+		"account_id": account.ID,
+		"headless":   account.Headless,
 	}, "小红书机器人启动成功")
 }
 
@@ -299,9 +299,9 @@ func (c *XiaohongshuAutoReplyController) Health(ctx *gin.Context) {
 	platform := "xiaohongshu"
 	bot, botErr := c.manager.GetBot(browser.Platform(platform))
 	status := gin.H{
-		"platform":	platform,
-		"bot_running":	botErr == nil && bot.IsRunning(),
-		"rate_limit":	c.infra.RateLimiter.Stats("xiaohongshu_" + platform),
+		"platform":    platform,
+		"bot_running": botErr == nil && bot.IsRunning(),
+		"rate_limit":  c.infra.RateLimiter.Stats("xiaohongshu_" + platform),
 	}
 	if botErr == nil && bot != nil {
 		status["headless"] = bot.IsHeadless()

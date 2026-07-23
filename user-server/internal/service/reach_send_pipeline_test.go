@@ -618,7 +618,7 @@ func (m *recordingJourneyTracker) RecordTouch(ctx context.Context, customerID, c
 	return nil
 }
 
-func (m *recordingJourneyTracker) Calls(ctx context.Context)  []journeyCall {
+func (m *recordingJourneyTracker) Calls(ctx context.Context) []journeyCall {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]journeyCall, len(m.calls))

@@ -26,9 +26,9 @@ import (
 
 // TakeoverRequest 坐席接管请求
 type TakeoverRequest struct {
-	SessionID	uint	`json:"session_id" binding:"required"`
-	AgentID		uint	`json:"agent_id" binding:"required"`
-	Reason		string	`json:"reason"`	// 接管原因：AI 答非所问 / 客户要求 / 投诉升级
+	SessionID uint   `json:"session_id" binding:"required"`
+	AgentID   uint   `json:"agent_id" binding:"required"`
+	Reason    string `json:"reason"` // 接管原因：AI 答非所问 / 客户要求 / 投诉升级
 }
 
 // TakeoverByAgent 坐席接管 AI 会话
@@ -103,17 +103,17 @@ func (s *CustomerSessionService) TakeoverByAgent(ctx context.Context, req *Takeo
 	_ = s.lockHumanSession(ctx, updated.SessionID, req.Reason)
 	_ = s.notifySessionUpdate(ctx, updated, "handler_changed", "human")
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id":	updated.SessionID,
-		"handler":	"human",
-		"reason":	"客服已接管，正在为您服务",
+		"session_id": updated.SessionID,
+		"handler":    "human",
+		"reason":     "客服已接管，正在为您服务",
 	}, updated.SessionID)
 	return nil
 }
 
 // ReleaseToAIRequest 释放回 AI 请求
 type ReleaseToAIRequest struct {
-	SessionID	uint	`json:"session_id" binding:"required"`
-	AgentID		uint	`json:"agent_id" binding:"required"`
+	SessionID uint `json:"session_id" binding:"required"`
+	AgentID   uint `json:"agent_id" binding:"required"`
 }
 
 // ReleaseToAI 坐席释放会话回 AI 托管
@@ -150,19 +150,19 @@ func (s *CustomerSessionService) ReleaseToAI(ctx context.Context, req *ReleaseTo
 	_ = s.unlockHumanSession(ctx, session.SessionID)
 	_ = s.notifySessionUpdate(ctx, session, "handler_changed", "ai")
 	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id":	session.SessionID,
-		"handler":	"ai",
-		"reason":	"已切回 AI 托管，请稍候",
+		"session_id": session.SessionID,
+		"handler":    "ai",
+		"reason":     "已切回 AI 托管，请稍候",
 	}, session.SessionID)
 	return nil
 }
 
 // SwitchHandlerRequest AI/人工切换请求（统一接口）
 type SwitchHandlerRequest struct {
-	SessionID	uint			`json:"session_id" binding:"required"`
-	AgentID		uint			`json:"agent_id"`
-	HandlerType	model.HandlerType	`json:"handler_type" binding:"required"`	// ai / human
-	Reason		string			`json:"reason"`
+	SessionID   uint              `json:"session_id" binding:"required"`
+	AgentID     uint              `json:"agent_id"`
+	HandlerType model.HandlerType `json:"handler_type" binding:"required"` // ai / human
+	Reason      string            `json:"reason"`
 }
 
 // SwitchHandler 通用 AI/人工切换（前端按钮只调一个接口）
@@ -178,9 +178,9 @@ func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchH
 			return errors.New("切人工时 agent_id required")
 		}
 		return s.TakeoverByAgent(ctx, &TakeoverRequest{
-			SessionID:	req.SessionID,
-			AgentID:	req.AgentID,
-			Reason:		req.Reason,
+			SessionID: req.SessionID,
+			AgentID:   req.AgentID,
+			Reason:    req.Reason,
 		})
 	case model.HandlerTypeAI:
 		if req.AgentID == 0 {
@@ -196,8 +196,8 @@ func (s *CustomerSessionService) SwitchHandler(ctx context.Context, req *SwitchH
 			}
 		}
 		return s.ReleaseToAI(ctx, &ReleaseToAIRequest{
-			SessionID:	req.SessionID,
-			AgentID:	req.AgentID,
+			SessionID: req.SessionID,
+			AgentID:   req.AgentID,
 		})
 	default:
 		return fmt.Errorf("invalid handler_type: %s", req.HandlerType)
@@ -230,10 +230,10 @@ func (s *CustomerSessionService) unlockHumanSession(ctx context.Context, session
 func (s *CustomerSessionService) notifySessionUpdate(ctx context.Context, session *model.CustomerSession, event, handler string) error {
 	agentID := strconv.FormatUint(uint64(session.AgentID), 10)
 	return websocket.NotifySessionUpdate(agentID, map[string]any{
-		"session_id":	session.SessionID,
-		"handler_type":	handler,
-		"event":	event,
-		"status":	session.Status,
-		"updated_at":	time.Now().Unix(),
+		"session_id":   session.SessionID,
+		"handler_type": handler,
+		"event":        event,
+		"status":       session.Status,
+		"updated_at":   time.Now().Unix(),
 	})
 }

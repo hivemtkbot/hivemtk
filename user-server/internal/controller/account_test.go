@@ -282,9 +282,9 @@ func TestAccountController_CreateAccount_MinimalRequest(t *testing.T) {
 	router.POST("/accounts", ctrl.CreateAccount)
 
 	createReq := dto.CreateAccountRequest{
-		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		Price:        "100.0",
-		GroupID:      123,
+		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+		Price:      "100.0",
+		GroupID:    123,
 	}
 	body, _ := json.Marshal(createReq)
 
@@ -335,10 +335,10 @@ func TestAccountController_UpdateAccount_PartialUpdate(t *testing.T) {
 	router := setupGinEngine()
 
 	account := model.Account{
-		ID:           "test-account-id",
-		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		Price:        "100.0",
-		GroupID:      123,
+		ID:         "test-account-id",
+		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+		Price:      "100.0",
+		GroupID:    123,
 	}
 	database.Create(&account)
 
@@ -368,8 +368,7 @@ func TestAccountController_GetAccounts_MultipleAccounts(t *testing.T) {
 	router.GET("/accounts", ctrl.GetAccounts)
 
 	// 创建多个测试账户
-	accounts := []model.Account{
-	}
+	accounts := []model.Account{}
 	for _, account := range accounts {
 		database.Create(&account)
 	}
@@ -399,9 +398,9 @@ func TestAccountController_CreateAccount_WithoutHeadless(t *testing.T) {
 	router.POST("/accounts", ctrl.CreateAccount)
 
 	createReq := dto.CreateAccountRequest{
-		TgBotToken:   "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-		Price:        "100.0",
-		GroupID:      123,
+		TgBotToken: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+		Price:      "100.0",
+		GroupID:    123,
 	}
 	body, _ := json.Marshal(createReq)
 

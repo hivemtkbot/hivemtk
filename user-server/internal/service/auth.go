@@ -21,52 +21,52 @@ import (
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username	string	`json:"username" binding:"required"`
-	Password	string	`json:"password" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	Token		string			`json:"token,omitempty"`
-	User		*SystemUserResponse	`json:"user,omitempty"`
-	Expires		int64			`json:"expires,omitempty"`
-	NeedMFA		bool			`json:"need_mfa,omitempty"`	// 是否需要 MFA 二次验证
-	TempToken	string			`json:"temp_token,omitempty"`	// 临时令牌（MFA 验证用）
+	Token     string              `json:"token,omitempty"`
+	User      *SystemUserResponse `json:"user,omitempty"`
+	Expires   int64               `json:"expires,omitempty"`
+	NeedMFA   bool                `json:"need_mfa,omitempty"`   // 是否需要 MFA 二次验证
+	TempToken string              `json:"temp_token,omitempty"` // 临时令牌（MFA 验证用）
 }
 
 // SystemUserResponse 系统用户响应
 type SystemUserResponse struct {
-	ID			uint		`json:"id"`
-	Username		string		`json:"username"`
-	Email			string		`json:"email"`
-	Phone			string		`json:"phone"`
-	RealName		string		`json:"real_name"`
-	Role			string		`json:"role"`
-	Status			int		`json:"status"`
-	LastLogin		*time.Time	`json:"last_login"`
-	LastLoginAt		*time.Time	`json:"last_login_at"`	// 兼容前端驼峰命名
-	MustChangePassword	bool		`json:"must_change_password"`
-	CreatedAt		time.Time	`json:"created_at"`
-	UpdatedAt		time.Time	`json:"updated_at"`
+	ID                 uint       `json:"id"`
+	Username           string     `json:"username"`
+	Email              string     `json:"email"`
+	Phone              string     `json:"phone"`
+	RealName           string     `json:"real_name"`
+	Role               string     `json:"role"`
+	Status             int        `json:"status"`
+	LastLogin          *time.Time `json:"last_login"`
+	LastLoginAt        *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
+	MustChangePassword bool       `json:"must_change_password"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // ChangePasswordRequest 修改密码请求
 type ChangePasswordRequest struct {
-	OldPassword	string	`json:"old_password" binding:"required"`
-	NewPassword	string	`json:"new_password" binding:"required"`
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }
 
 // AuthService 认证服务
 type AuthService struct {
-	jwtUtils	*utils.JWTUtils
-	systemUserRepo	repository.SystemUserRepository
+	jwtUtils       *utils.JWTUtils
+	systemUserRepo repository.SystemUserRepository
 }
 
 // NewAuthService 创建认证服务实例
 func NewAuthService() *AuthService {
 	return &AuthService{
-		jwtUtils:	utils.NewJWTUtils(utils.DefaultJWTConfig),
-		systemUserRepo:	repository.NewSystemUserRepository(),
+		jwtUtils:       utils.NewJWTUtils(utils.DefaultJWTConfig),
+		systemUserRepo: repository.NewSystemUserRepository(),
 	}
 }
 
@@ -123,8 +123,8 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 			return nil, errors.New("登录失败，请稍后重试")
 		}
 		return &LoginResponse{
-			NeedMFA:	true,
-			TempToken:	tempToken,
+			NeedMFA:   true,
+			TempToken: tempToken,
 		}, nil
 	}
 
@@ -144,9 +144,9 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 
 	// 构建响应
 	response := &LoginResponse{
-		Token:		token,
-		User:		s.toUserResponse(ctx, user),
-		Expires:	time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
+		Token:   token,
+		User:    s.toUserResponse(ctx, user),
+		Expires: time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
 	}
 
 	return response, nil
@@ -227,17 +227,17 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 // toUserResponse 转换为用户响应
 func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
-		ID:		user.ID,
-		Username:	user.Username,
-		Email:		user.Email,
-		Phone:		user.Phone,
-		RealName:	user.RealName,
-		Role:		user.Role,
-		Status:		user.Status,
-		LastLogin:	user.LastLogin,
-		LastLoginAt:	user.LastLogin,
-		CreatedAt:	user.CreatedAt,
-		UpdatedAt:	user.UpdatedAt,
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		RealName:    user.RealName,
+		Role:        user.Role,
+		Status:      user.Status,
+		LastLogin:   user.LastLogin,
+		LastLoginAt: user.LastLogin,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}
 }
 
@@ -307,13 +307,13 @@ func (s *AuthService) InitChangePassword(ctx context.Context, username, newPassw
 // forgotTokenStore 全局：保存 reset_token → {username, expire_at}
 // 单实例部署够用；多实例需改用 Redis（架构升级时再迁移）
 var (
-	forgotTokenStore	= make(map[string]forgotTokenEntry)
-	forgotTokenStoreMutex	sync.RWMutex
+	forgotTokenStore      = make(map[string]forgotTokenEntry)
+	forgotTokenStoreMutex sync.RWMutex
 )
 
 type forgotTokenEntry struct {
-	Username	string
-	ExpiresAt	time.Time
+	Username  string
+	ExpiresAt time.Time
 }
 
 // CreateForgotPasswordToken 创建"忘记密码"一次性 token
@@ -349,12 +349,12 @@ func (s *AuthService) CreateForgotPasswordToken(ctx context.Context, username st
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", errors.New("生成 token 失败")
 	}
-	token := hex.EncodeToString(tokenBytes)	// 64 字符
+	token := hex.EncodeToString(tokenBytes) // 64 字符
 
 	// 5. 存入 store（5 分钟过期）
 	entry := forgotTokenEntry{
-		Username:	username,
-		ExpiresAt:	time.Now().Add(5 * time.Minute),
+		Username:  username,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
 	forgotTokenStoreMutex.Lock()
 	forgotTokenStore[token] = entry
@@ -386,7 +386,7 @@ func (s *AuthService) ResetAdminPasswordWithToken(ctx context.Context, username,
 	forgotTokenStoreMutex.Lock()
 	entry, ok := forgotTokenStore[token]
 	if ok {
-		delete(forgotTokenStore, token)	// 一次性
+		delete(forgotTokenStore, token) // 一次性
 	}
 	forgotTokenStoreMutex.Unlock()
 

@@ -8,23 +8,23 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
-	"context"
 )
 
 type MessageQueueService struct {
-	db	*gorm.DB
-	queues	map[string][]model.QueuedMessage
-	status	map[string]model.QueueStatus
-	mu	sync.RWMutex
+	db     *gorm.DB
+	queues map[string][]model.QueuedMessage
+	status map[string]model.QueueStatus
+	mu     sync.RWMutex
 }
 
 func NewMessageQueueService(db *gorm.DB) *MessageQueueService {
 	return &MessageQueueService{
-		db:	db,
-		queues:	make(map[string][]model.QueuedMessage),
-		status:	make(map[string]model.QueueStatus),
+		db:     db,
+		queues: make(map[string][]model.QueuedMessage),
+		status: make(map[string]model.QueueStatus),
 	}
 }
 
@@ -32,11 +32,11 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 	queueID := generateQueueID()
 
 	queueStatus := &model.WhatsAppQueueStatus{
-		QueueID:	queueID,
-		Total:		len(messages),
-		Sent:		0,
-		Failed:		0,
-		Status:		"pending",
+		QueueID: queueID,
+		Total:   len(messages),
+		Sent:    0,
+		Failed:  0,
+		Status:  "pending",
 	}
 	if err := mq.db.Create(queueStatus).Error; err != nil {
 		return "", fmt.Errorf("持久化队列状态失败: %w", err)
@@ -45,12 +45,12 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 	dbMessages := make([]*model.WhatsAppMessageQueue, 0, len(messages))
 	for _, msg := range messages {
 		dbMessages = append(dbMessages, &model.WhatsAppMessageQueue{
-			QueueID:	queueID,
-			MessageID:	msg.ID,
-			Content:	msg.Content,
-			Status:		"pending",
-			Platform:	"whatsapp",
-			Recipient:	msg.PhoneNumber,
+			QueueID:   queueID,
+			MessageID: msg.ID,
+			Content:   msg.Content,
+			Status:    "pending",
+			Platform:  "whatsapp",
+			Recipient: msg.PhoneNumber,
 		})
 	}
 	if err := mq.db.Create(&dbMessages).Error; err != nil {
@@ -63,12 +63,12 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 
 	mq.queues[queueID] = messages
 	mq.status[queueID] = model.QueueStatus{
-		Total:		len(messages),
-		Sent:		0,
-		Failed:		0,
-		Status:		"pending",
-		Created:	time.Now(),
-		Updated:	time.Now(),
+		Total:   len(messages),
+		Sent:    0,
+		Failed:  0,
+		Status:  "pending",
+		Created: time.Now(),
+		Updated: time.Now(),
 	}
 
 	return queueID, nil
@@ -94,10 +94,10 @@ func (mq *MessageQueueService) GetQueue(ctx context.Context, queueID string) []m
 	messages := make([]model.QueuedMessage, 0, len(dbMessages))
 	for _, m := range dbMessages {
 		messages = append(messages, model.QueuedMessage{
-			ID:		m.MessageID,
-			PhoneNumber:	m.Recipient,
-			Content:	m.Content,
-			Status:		m.Status,
+			ID:          m.MessageID,
+			PhoneNumber: m.Recipient,
+			Content:     m.Content,
+			Status:      m.Status,
 		})
 	}
 	return messages
@@ -122,10 +122,10 @@ func (mq *MessageQueueService) UpdateStatus(ctx context.Context, queueID, messag
 	if err := mq.db.Model(&model.WhatsAppQueueStatus{}).
 		Where("queue_id = ?", queueID).
 		UpdateColumns(map[string]any{
-			"sent":		gorm.Expr("sent + CASE WHEN ? THEN 1 ELSE 0 END", success),
-			"failed":	gorm.Expr("failed + CASE WHEN ? THEN 0 ELSE 1 END", success),
-			"status":	gorm.Expr("CASE WHEN (sent + CASE WHEN ? THEN 1 ELSE 0 END) + (failed + CASE WHEN ? THEN 0 ELSE 1 END) >= total THEN 'completed' ELSE status END", success, success),
-			"updated_at":	gorm.Expr("NOW()"),
+			"sent":       gorm.Expr("sent + CASE WHEN ? THEN 1 ELSE 0 END", success),
+			"failed":     gorm.Expr("failed + CASE WHEN ? THEN 0 ELSE 1 END", success),
+			"status":     gorm.Expr("CASE WHEN (sent + CASE WHEN ? THEN 1 ELSE 0 END) + (failed + CASE WHEN ? THEN 0 ELSE 1 END) >= total THEN 'completed' ELSE status END", success, success),
+			"updated_at": gorm.Expr("NOW()"),
 		}).Error; err != nil {
 		logger.Errorf("更新队列聚合状态失败 queueID=%s: %v", queueID, err)
 	}
@@ -161,15 +161,15 @@ func (mq *MessageQueueService) GetStatus(ctx context.Context, queueID string) mo
 	}
 
 	return model.QueueStatus{
-		QueueID:	dbStatus.QueueID,
-		Total:		dbStatus.Total,
-		Sent:		dbStatus.Sent,
-		Failed:		dbStatus.Failed,
-		Status:		dbStatus.Status,
+		QueueID: dbStatus.QueueID,
+		Total:   dbStatus.Total,
+		Sent:    dbStatus.Sent,
+		Failed:  dbStatus.Failed,
+		Status:  dbStatus.Status,
 	}
 }
 
-func (mq *MessageQueueService) ListAllStatuses(ctx context.Context,) []model.QueueStatus {
+func (mq *MessageQueueService) ListAllStatuses(ctx context.Context) []model.QueueStatus {
 	var dbStatuses []model.WhatsAppQueueStatus
 	if err := mq.db.Order("created_at DESC").Find(&dbStatuses).Error; err != nil {
 		logger.Errorf("列出队列状态失败: %v", err)
@@ -179,11 +179,11 @@ func (mq *MessageQueueService) ListAllStatuses(ctx context.Context,) []model.Que
 	result := make([]model.QueueStatus, 0, len(dbStatuses))
 	for _, s := range dbStatuses {
 		result = append(result, model.QueueStatus{
-			QueueID:	s.QueueID,
-			Total:		s.Total,
-			Sent:		s.Sent,
-			Failed:		s.Failed,
-			Status:		s.Status,
+			QueueID: s.QueueID,
+			Total:   s.Total,
+			Sent:    s.Sent,
+			Failed:  s.Failed,
+			Status:  s.Status,
 		})
 	}
 	return result
@@ -195,13 +195,13 @@ func generateQueueID() string {
 
 func (mq *MessageQueueService) RecordGroupMessage(ctx context.Context, message model.QueuedMessage, status, errMsg string) {
 	record := &model.WhatsappGroupMessage{
-		ID:		uuid.New().String(),
-		Phone:		message.PhoneNumber,
-		Content:	message.Content,
-		TemplateID:	message.TemplateID,
-		Status:		status,
-		ErrorMsg:	errMsg,
-		SentAt:		time.Now(),
+		ID:         uuid.New().String(),
+		Phone:      message.PhoneNumber,
+		Content:    message.Content,
+		TemplateID: message.TemplateID,
+		Status:     status,
+		ErrorMsg:   errMsg,
+		SentAt:     time.Now(),
 	}
 	if err := mq.db.Create(record).Error; err != nil {
 		logger.Errorf("写入群发记录失败: %v", err)

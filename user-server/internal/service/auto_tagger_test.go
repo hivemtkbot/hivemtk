@@ -303,7 +303,7 @@ func TestAutoTagger_buildCustomerDataSnapshot(t *testing.T) {
 }
 
 // getTimeDaysAgo 获取 N 天前的时间
-func (a *AutoTagger) getTimeDaysAgo(ctx context.Context, days int)  time.Time {
+func (a *AutoTagger) getTimeDaysAgo(ctx context.Context, days int) time.Time {
 	return time.Now().AddDate(0, 0, -days)
 }
 

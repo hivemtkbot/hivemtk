@@ -54,7 +54,7 @@ func (c *ObjectionHandlerController) Classify(ctx *gin.Context) {
 
 // ListCategories 列出类别
 func (c *ObjectionHandlerController) ListCategories(ctx *gin.Context) {
-	cats := c.svc.ListCategories(context.Background(), )
+	cats := c.svc.ListCategories(context.Background())
 	response.SuccessWithList(ctx, cats, int64(len(cats)))
 }
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"marketing/internal/pkg/utils/httpclient"
 	"context"
+	"marketing/internal/pkg/utils/httpclient"
 )
 
 // ============================================================================
@@ -83,19 +83,19 @@ func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret,
 	switch mt {
 	case "text":
 		payload, err = json.Marshal(map[string]any{
-			"msgtype":	"text",
-			"text":		map[string]string{"content": content},
+			"msgtype": "text",
+			"text":    map[string]string{"content": content},
 		})
 	case "markdown":
 		payload, err = json.Marshal(map[string]any{
-			"msgtype":	"markdown",
-			"markdown":	map[string]string{"title": "消息", "text": content},
+			"msgtype":  "markdown",
+			"markdown": map[string]string{"title": "消息", "text": content},
 		})
 	default:
 		// link / action_card：content 为对应结构的 JSON 字符串
 		payload, err = json.Marshal(map[string]any{
-			"msgtype":	mt,
-			mt:		json.RawMessage(content),
+			"msgtype": mt,
+			mt:        json.RawMessage(content),
 		})
 	}
 	if err != nil {
@@ -115,8 +115,8 @@ func (s *DingTalkService) SendRobot(ctx context.Context, webhookOrToken, secret,
 	defer resp.Body.Close()
 
 	var out struct {
-		ErrCode	int	`json:"errcode"`
-		ErrMsg	string	`json:"errmsg"`
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return "", fmt.Errorf("dingtalk: decode response: %w", err)

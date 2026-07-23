@@ -57,7 +57,7 @@ type ProviderConfig struct {
 //   - MinQuality: 最低质量门槛（QualityScore 低于此值的 provider 被跳过）
 //   - Version:    路由版本号（自增），用于审计与回滚（2026-07-23 补）
 //   - Weight:     灰度发布权重 0-100，0=全量回滚、100=全量新路由
-//                当次 Dispatch 按 Weight 决定走新路由还是旧路由（2026-07-23 补）
+//     当次 Dispatch 按 Weight 决定走新路由还是旧路由（2026-07-23 补）
 //   - CanaryKey:  灰度判定 key（如 user_id），空时按权重随机抽样
 //   - CanaryRoute: 灰度时的对照路由（仅当 Weight>0 且 <100 时生效）
 type ScenarioRoute struct {
@@ -424,15 +424,15 @@ func (d *Dispatcher) LogModelLifecycle(ctx context.Context, action, provider, op
 		return
 	}
 	row := map[string]any{
-		"scenario":      "model_lifecycle",
-		"version":       0,
-		"prev_provider": "",
-		"new_provider":  provider,
+		"scenario":       "model_lifecycle",
+		"version":        0,
+		"prev_provider":  "",
+		"new_provider":   provider,
 		"prev_fallbacks": "",
 		"new_fallbacks":  "",
-		"action":        action,
-		"operator":      operator,
-		"trace_id":      traceID,
+		"action":         action,
+		"operator":       operator,
+		"trace_id":       traceID,
 	}
 	if err := db.WithContext(ctx).Table("llm_routing_audit").Create(row).Error; err != nil {
 		logger.Warnf("[LLM] write model lifecycle audit failed: %v", err)
@@ -1158,9 +1158,10 @@ func (s *InMemoryAlertSink) Snapshot() []AlertEvent {
 //
 // 建议在 main.go 启动期调用，把全局 alertHook 替换为 logging + memory 双写。
 // 用法：
-//   sink := llm.NewInMemoryAlertSink(200)
-//   llm.InitDefaultAlertHook(sink)
-//   // 之后 ops 端点通过 sink.Snapshot() / sink.Drain() 读取告警
+//
+//	sink := llm.NewInMemoryAlertSink(200)
+//	llm.InitDefaultAlertHook(sink)
+//	// 之后 ops 端点通过 sink.Snapshot() / sink.Drain() 读取告警
 func InitDefaultAlertHook(sink *InMemoryAlertSink) {
 	if sink == nil {
 		sink = NewInMemoryAlertSink(200)

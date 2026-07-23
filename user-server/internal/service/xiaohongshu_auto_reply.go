@@ -21,11 +21,11 @@ func NewXiaohongshuAutoReplyService(db *gorm.DB) *XiaohongshuAutoReplyService {
 	return &XiaohongshuAutoReplyService{db: db}
 }
 
-func (s *XiaohongshuAutoReplyService) GetDB(ctx context.Context,) *gorm.DB	{ return s.db }
+func (s *XiaohongshuAutoReplyService) GetDB(ctx context.Context) *gorm.DB { return s.db }
 
 func (s *XiaohongshuAutoReplyService) TestMatching(ctx context.Context, platform, message string, userID uint) (*model.AutoReplyRule, error) {
 	var rules []model.AutoReplyRule
-	if err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).Find(&rules).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).Find(&rules).Error; err != nil {
 		return nil, err
 	}
 	for _, rule := range rules {
@@ -40,13 +40,13 @@ func (s *XiaohongshuAutoReplyService) TestMatching(ctx context.Context, platform
 
 func (s *XiaohongshuAutoReplyService) ListAccounts(ctx context.Context, userID uint) ([]model.AutoReplyAccount, error) {
 	var items []model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xiaohongshu", userID).Find(&items).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xiaohongshu", userID).Find(&items).Error
 	return items, err
 }
 
 func (s *XiaohongshuAutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReplyAccount) error {
 	var existing model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where( "user_id = ? AND platform = ? AND username = ?", a.UserID, "xiaohongshu", a.Username).First(&existing).Error
+	err := s.db.WithContext(ctx).Where("user_id = ? AND platform = ? AND username = ?", a.UserID, "xiaohongshu", a.Username).First(&existing).Error
 	if err == nil {
 		// 加密存储Cookie(避免在 model 中保留业务方法)
 		encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
@@ -72,7 +72,7 @@ func (s *XiaohongshuAutoReplyService) UpsertAccount(ctx context.Context, a *mode
 // R8 修复：新增 userID 参数并校验账号所有权，防止 IDOR。
 func (s *XiaohongshuAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	var account model.AutoReplyAccount
-	if err := s.db.WithContext(ctx).First( &account, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&account, id).Error; err != nil {
 		return err
 	}
 	// 所有权校验：仅账号所有者可修改 Cookie
@@ -90,7 +90,7 @@ func (s *XiaohongshuAutoReplyService) SaveCookies(ctx context.Context, id uint, 
 
 func (s *XiaohongshuAutoReplyService) GetRule(ctx context.Context, userID uint) (*model.AutoReplyRule, error) {
 	var rule model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xiaohongshu", userID).Order("id DESC").First(&rule).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xiaohongshu", userID).Order("id DESC").First(&rule).Error
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *XiaohongshuAutoReplyService) GetRule(ctx context.Context, userID uint) 
 
 func (s *XiaohongshuAutoReplyService) SaveRule(ctx context.Context, rule *model.AutoReplyRule) error {
 	var existing model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xiaohongshu", rule.UserID).First(&existing).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xiaohongshu", rule.UserID).First(&existing).Error
 	if err == nil {
 		existing.Keywords = rule.Keywords
 		existing.ReplyContent = rule.ReplyContent
@@ -124,16 +124,16 @@ func (s *XiaohongshuAutoReplyService) ListRecentLogs(ctx context.Context, userID
 	s.db.Model(&model.AutoReplyLog{}).
 		Where("platform = ? AND user_id = ? AND created_at >= ?", "xiaohongshu", userID, cutoff).
 		Count(&total)
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ? AND created_at >= ?", "xiaohongshu", userID, cutoff).
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND created_at >= ?", "xiaohongshu", userID, cutoff).
 		Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&logs).Error
 	return logs, total, err
 }
 
 func (s *XiaohongshuAutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{
-		UserID:	userID, AccountID: accountID, RuleID: ruleID,
-		Platform:	platform, TargetContent: target, ReplyContent: reply,
-		Status:	status, ErrorMsg: errMsg, CreatedAt: time.Now(),
+		UserID: userID, AccountID: accountID, RuleID: ruleID,
+		Platform: platform, TargetContent: target, ReplyContent: reply,
+		Status: status, ErrorMsg: errMsg, CreatedAt: time.Now(),
 	}
 	return s.db.Create(item).Error
 }
@@ -157,7 +157,7 @@ func (s *XiaohongshuAutoReplyService) StartLoginBrowser(ctx context.Context, use
 		cookie, ok := a.WaitAuthCookieHeader(browser.Xiaohongshu, 5*time.Minute)
 		if ok {
 			var account model.AutoReplyAccount
-			if err := s.db.WithContext(ctx).First( &account, accountID).Error; err == nil {
+			if err := s.db.WithContext(ctx).First(&account, accountID).Error; err == nil {
 				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
 				if encErr == nil {
 					account.Cookie = encrypted
@@ -172,5 +172,5 @@ func (s *XiaohongshuAutoReplyService) StartLoginBrowser(ctx context.Context, use
 }
 
 func (s *XiaohongshuAutoReplyService) DeleteAccount(ctx context.Context, id uint, userID uint) error {
-	return s.db.WithContext(ctx).Where( "id = ? AND user_id = ? AND platform = ?", id, userID, "xiaohongshu").Delete(&model.AutoReplyAccount{}).Error
+	return s.db.WithContext(ctx).Where("id = ? AND user_id = ? AND platform = ?", id, userID, "xiaohongshu").Delete(&model.AutoReplyAccount{}).Error
 }

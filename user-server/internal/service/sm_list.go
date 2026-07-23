@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 type SmlistService struct {
@@ -32,13 +32,13 @@ func (s *SmlistService) GetSmlistList(ctx context.Context, page int, limit int) 
 	return s.repo.GetSmlistList(ctx, page, limit)
 }
 
-func (s *SmlistService) GetSmlistAllList(ctx context.Context,) ([]*model.Smlist, int64, error) {
+func (s *SmlistService) GetSmlistAllList(ctx context.Context) ([]*model.Smlist, int64, error) {
 	return s.repo.GetSmlistAllList(ctx)
 }
 
 func (s *SmlistService) DeleteSmlist(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
-func (s *SmlistService) GetRecentSmlistList(ctx context.Context,) ([]*model.Smlist, error) {
+func (s *SmlistService) GetRecentSmlistList(ctx context.Context) ([]*model.Smlist, error) {
 	return s.repo.GetRecentSmlistList(ctx)
 }

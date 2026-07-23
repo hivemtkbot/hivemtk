@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // ClueScoreService 线索评分服务
@@ -18,17 +18,17 @@ import (
 //
 //	channel 25% / verify 20% / profile 20% / engagement 25% / recency 10%
 type ClueScoreService struct {
-	scoreRepo	repository.ClueScoreRepository
-	engageRepo	repository.ClueEngagementRepository
-	clueRepo	repository.ClueRepository
+	scoreRepo  repository.ClueScoreRepository
+	engageRepo repository.ClueEngagementRepository
+	clueRepo   repository.ClueRepository
 }
 
 // NewClueScoreService 创建线索评分服务实例
 func NewClueScoreService() *ClueScoreService {
 	return &ClueScoreService{
-		scoreRepo:	repository.NewClueScoreRepository(),
-		engageRepo:	repository.NewClueEngagementRepository(),
-		clueRepo:	repository.NewClueRepository(),
+		scoreRepo:  repository.NewClueScoreRepository(),
+		engageRepo: repository.NewClueEngagementRepository(),
+		clueRepo:   repository.NewClueRepository(),
 	}
 }
 
@@ -51,7 +51,7 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	if clue.IsVerify == 1 {
 		verifyScore = 100
 	} else if clue.IsVerify == 0 {
-		verifyScore = 20	// 未验证给基础分
+		verifyScore = 20 // 未验证给基础分
 	}
 
 	// 3. 资料完整度 (0-100)
@@ -86,37 +86,37 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	confidence := calcConfidence(channelScore, verifyScore, profileScore, engagementScore, recencyScore)
 
 	factors := map[string]any{
-		"channel":	channelScore,
-		"verify":	verifyScore,
-		"profile":	profileScore,
-		"engagement":	engagementScore,
-		"recency":	recencyScore,
+		"channel":    channelScore,
+		"verify":     verifyScore,
+		"profile":    profileScore,
+		"engagement": engagementScore,
+		"recency":    recencyScore,
 		"weights": map[string]float64{
-			"channel":	0.25,
-			"verify":	0.20,
-			"profile":	0.20,
-			"engagement":	0.25,
-			"recency":	0.10,
+			"channel":    0.25,
+			"verify":     0.20,
+			"profile":    0.20,
+			"engagement": 0.25,
+			"recency":    0.10,
 		},
-		"clue_type":	clue.Type,
-		"is_verify":	clue.IsVerify,
+		"clue_type": clue.Type,
+		"is_verify": clue.IsVerify,
 	}
 	factorsJSON, _ := json.Marshal(factors)
 
 	score := &model.ClueScore{
-		ClueID:			clue.ID,
-		Account:		clue.Account,
-		TotalScore:		total,
-		Grade:			model.CalcGradeFromScore(total),
-		Confidence:		confidence,
-		ChannelScore:		channelScore,
-		VerifyScore:		verifyScore,
-		ProfileScore:		profileScore,
-		EngagementScore:	engagementScore,
-		RecencyScore:		recencyScore,
-		FactorsJSON:		string(factorsJSON),
-		ModelVersion:		"h-score-1",
-		ScoredAt:		time.Now(),
+		ClueID:          clue.ID,
+		Account:         clue.Account,
+		TotalScore:      total,
+		Grade:           model.CalcGradeFromScore(total),
+		Confidence:      confidence,
+		ChannelScore:    channelScore,
+		VerifyScore:     verifyScore,
+		ProfileScore:    profileScore,
+		EngagementScore: engagementScore,
+		RecencyScore:    recencyScore,
+		FactorsJSON:     string(factorsJSON),
+		ModelVersion:    "h-score-1",
+		ScoredAt:        time.Now(),
 	}
 	if err := s.scoreRepo.Upsert(ctx, score); err != nil {
 		return nil, err
@@ -154,10 +154,10 @@ func (s *ClueScoreService) RecordEngagement(ctx context.Context, clueID, eventTy
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	evt := &model.ClueEngagementEvent{
-		ClueID:		clueID,
-		EventType:	eventType,
-		Channel:	channel,
-		Payload:	string(payloadBytes),
+		ClueID:    clueID,
+		EventType: eventType,
+		Channel:   channel,
+		Payload:   string(payloadBytes),
 	}
 	return s.engageRepo.Create(ctx, evt)
 }
@@ -200,17 +200,17 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 // 依据：电话/微信/Whatsapp 触达成功率高于纯社交账号
 func scoreChannel(clueType int64) int {
 	switch clueType {
-	case 1:	// QQ
+	case 1: // QQ
 		return 60
-	case 2:	// 微信
+	case 2: // 微信
 		return 85
-	case 3:	// 电话
+	case 3: // 电话
 		return 95
-	case 4:	// Telegram
+	case 4: // Telegram
 		return 80
-	case 5:	// Whatsapp
+	case 5: // Whatsapp
 		return 90
-	case 6:	// twitter
+	case 6: // twitter
 		return 55
 	default:
 		return 50

@@ -111,7 +111,7 @@ func newMockRecoveryRepo() *mockRecoveryRepo {
 	}
 }
 
-func (m *mockRecoveryRepo) Create(ctx context.Context, item *model.RecoveryQueue)  error {
+func (m *mockRecoveryRepo) Create(ctx context.Context, item *model.RecoveryQueue) error {
 	if item.CustomerID == "" {
 		return errEmpty{msg: "customer_id"}
 	}
@@ -126,19 +126,19 @@ func (m *mockRecoveryRepo) Create(ctx context.Context, item *model.RecoveryQueue
 	return nil
 }
 
-func (m *mockRecoveryRepo) Update(ctx context.Context, item *model.RecoveryQueue)  error {
+func (m *mockRecoveryRepo) Update(ctx context.Context, item *model.RecoveryQueue) error {
 	m.items[item.ID] = item
 	return nil
 }
 
-func (m *mockRecoveryRepo) GetByID(ctx context.Context, id uint64)  (*model.RecoveryQueue, error) {
+func (m *mockRecoveryRepo) GetByID(ctx context.Context, id uint64) (*model.RecoveryQueue, error) {
 	if v, ok := m.items[id]; ok {
 		return v, nil
 	}
 	return nil, errNotFound{msg: "队列项不存在"}
 }
 
-func (m *mockRecoveryRepo) GetActiveByCustomerID(ctx context.Context, customerID string)  (*model.RecoveryQueue, error) {
+func (m *mockRecoveryRepo) GetActiveByCustomerID(ctx context.Context, customerID string) (*model.RecoveryQueue, error) {
 	for _, v := range m.items {
 		if v.CustomerID == customerID && (v.Stage == model.RecoveryStageQueued || v.Stage == model.RecoveryStageRunning) {
 			return v, nil
@@ -147,7 +147,7 @@ func (m *mockRecoveryRepo) GetActiveByCustomerID(ctx context.Context, customerID
 	return nil, errNotFound{msg: "无活跃队列"}
 }
 
-func (m *mockRecoveryRepo) ListByStage(ctx context.Context, stage string, page, pageSize int)  ([]*model.RecoveryQueue, int64, error) {
+func (m *mockRecoveryRepo) ListByStage(ctx context.Context, stage string, page, pageSize int) ([]*model.RecoveryQueue, int64, error) {
 	var out []*model.RecoveryQueue
 	for _, v := range m.items {
 		if stage == "" || v.Stage == stage {
@@ -157,7 +157,7 @@ func (m *mockRecoveryRepo) ListByStage(ctx context.Context, stage string, page, 
 	return out, int64(len(out)), nil
 }
 
-func (m *mockRecoveryRepo) ListReadyForAttempt(ctx context.Context, now time.Time, limit int)  ([]*model.RecoveryQueue, error) {
+func (m *mockRecoveryRepo) ListReadyForAttempt(ctx context.Context, now time.Time, limit int) ([]*model.RecoveryQueue, error) {
 	var out []*model.RecoveryQueue
 	for _, v := range m.items {
 		if v.Stage == model.RecoveryStageQueued && v.Attempts < v.MaxAttempts {
@@ -172,7 +172,7 @@ func (m *mockRecoveryRepo) ListReadyForAttempt(ctx context.Context, now time.Tim
 	return out, nil
 }
 
-func (m *mockRecoveryRepo) MarkAttempt(ctx context.Context, id uint64, channel, result string, nextAt *time.Time)  error {
+func (m *mockRecoveryRepo) MarkAttempt(ctx context.Context, id uint64, channel, result string, nextAt *time.Time) error {
 	if v, ok := m.items[id]; ok {
 		v.Attempts++
 		v.LastChannel = channel
@@ -185,7 +185,7 @@ func (m *mockRecoveryRepo) MarkAttempt(ctx context.Context, id uint64, channel, 
 	return errNotFound{msg: "队列项不存在"}
 }
 
-func (m *mockRecoveryRepo) MarkStage(ctx context.Context, id uint64, stage string)  error {
+func (m *mockRecoveryRepo) MarkStage(ctx context.Context, id uint64, stage string) error {
 	if v, ok := m.items[id]; ok {
 		v.Stage = stage
 		return nil
@@ -193,7 +193,7 @@ func (m *mockRecoveryRepo) MarkStage(ctx context.Context, id uint64, stage strin
 	return errNotFound{msg: "队列项不存在"}
 }
 
-func (m *mockRecoveryRepo) CountByStage(ctx context.Context)  (map[string]int64, error) {
+func (m *mockRecoveryRepo) CountByStage(ctx context.Context) (map[string]int64, error) {
 	out := make(map[string]int64)
 	for _, v := range m.items {
 		out[v.Stage]++
@@ -201,19 +201,19 @@ func (m *mockRecoveryRepo) CountByStage(ctx context.Context)  (map[string]int64,
 	return out, nil
 }
 
-func (m *mockRecoveryRepo) Delete(ctx context.Context, id uint64)  error {
+func (m *mockRecoveryRepo) Delete(ctx context.Context, id uint64) error {
 	delete(m.items, id)
 	return nil
 }
 
 type errEmpty struct{ msg string }
 
-func (e errEmpty) Error(ctx context.Context)  string { return e.msg }
+func (e errEmpty) Error(ctx context.Context) string { return e.msg }
 
 type errAlreadyQueued struct{ msg string }
 
-func (e errAlreadyQueued) Error(ctx context.Context)  string { return e.msg }
+func (e errAlreadyQueued) Error(ctx context.Context) string { return e.msg }
 
 type errNotFound struct{ msg string }
 
-func (e errNotFound) Error(ctx context.Context)  string { return e.msg }
+func (e errNotFound) Error(ctx context.Context) string { return e.msg }

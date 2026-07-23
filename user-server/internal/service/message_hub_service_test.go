@@ -1041,14 +1041,14 @@ func (s *testSub) OnMessage(_ context.Context, msg *model.MessageHub) error {
 	return nil
 }
 
-func (s *testSub) Filter(ctx context.Context, msg *model.MessageHub)  bool {
+func (s *testSub) Filter(ctx context.Context, msg *model.MessageHub) bool {
 	if s.filter == nil {
 		return true
 	}
 	return s.filter(msg)
 }
 
-func (s *testSub) Count(ctx context.Context)  int {
+func (s *testSub) Count(ctx context.Context) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.calls)

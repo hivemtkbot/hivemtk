@@ -30,18 +30,18 @@ func NewAgentStatusService() *AgentStatusService {
 
 // CreateAgentRequest 创建客服请求
 type CreateAgentRequest struct {
-	AgentID		uint	`json:"agent_id" binding:"required"`
-	AgentName	string	`json:"agent_name" binding:"required"`
-	MaxSessions	int	`json:"max_sessions"`
+	AgentID     uint   `json:"agent_id" binding:"required"`
+	AgentName   string `json:"agent_name" binding:"required"`
+	MaxSessions int    `json:"max_sessions"`
 }
 
 // CreateAgent 创建客服状态记录
 func (s *AgentStatusService) CreateAgent(ctx context.Context, req *CreateAgentRequest) (*model.AgentStatus, error) {
 	agent := &model.AgentStatus{
-		AgentID:	req.AgentID,
-		AgentName:	req.AgentName,
-		Status:		"offline",
-		MaxSessions:	req.MaxSessions,
+		AgentID:     req.AgentID,
+		AgentName:   req.AgentName,
+		Status:      "offline",
+		MaxSessions: req.MaxSessions,
 	}
 	if agent.MaxSessions == 0 {
 		agent.MaxSessions = 5

@@ -31,12 +31,12 @@ const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secre
 //
 // 每个收件人 + 每个 job 独立 token，避免泄露后影响其他收件人
 type EmailTrackingClaim struct {
-	Email	string	`json:"email"`
-	JobID	string	`json:"job_id"`
-	Type	string	`json:"type"`			// open / click
-	Target	string	`json:"target,omitempty"`	// click 事件跳转目标 URL
-	Expire	int64	`json:"expire"`
-	Nonce	string	`json:"nonce"`
+	Email  string `json:"email"`
+	JobID  string `json:"job_id"`
+	Type   string `json:"type"`             // open / click
+	Target string `json:"target,omitempty"` // click 事件跳转目标 URL
+	Expire int64  `json:"expire"`
+	Nonce  string `json:"nonce"`
 }
 
 // EmailTrackingService 邮件追踪服务
@@ -78,12 +78,12 @@ func (s *EmailTrackingService) generateToken(ctx context.Context, email, jobID, 
 		return "", errors.New("email 不能为空")
 	}
 	claim := EmailTrackingClaim{
-		Email:	email,
-		JobID:	jobID,
-		Type:	tokenType,
-		Target:	target,
-		Expire:	time.Now().Add(90 * 24 * time.Hour).Unix(),	// 追踪 token 90 天有效
-		Nonce:	fmt.Sprintf("track-%s", uuid.NewString()),
+		Email:  email,
+		JobID:  jobID,
+		Type:   tokenType,
+		Target: target,
+		Expire: time.Now().Add(90 * 24 * time.Hour).Unix(), // 追踪 token 90 天有效
+		Nonce:  fmt.Sprintf("track-%s", uuid.NewString()),
 	}
 	payload, err := json.Marshal(claim)
 	if err != nil {
@@ -179,13 +179,13 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 	}
 
 	event := &model.EmailTrackingEvent{
-		EventID:	eventID,
-		Email:		email,
-		JobID:		jobID,
-		EventType:	eventType,
-		UserAgent:	ua,
-		IP:		ip,
-		Timestamp:	time.Now(),
+		EventID:   eventID,
+		Email:     email,
+		JobID:     jobID,
+		EventType: eventType,
+		UserAgent: ua,
+		IP:        ip,
+		Timestamp: time.Now(),
 	}
 	if err := s.repo.CreateEvent(ctx, event); err != nil {
 		logger.Errorf("记录邮件追踪事件失败 email=%s type=%s: %v", email, eventType, err)
@@ -274,12 +274,12 @@ func (s *EmailTrackingService) GetEmailMetrics(ctx context.Context, start, end t
 	}
 
 	metric := &model.EmailJobMetric{
-		JobID:			"range",
-		TotalSent:		sent,
-		TotalOpened:		opened,
-		TotalClicked:		clicked,
-		TotalBounced:		bounced,
-		TotalUnsubscribed:	unsub,
+		JobID:             "range",
+		TotalSent:         sent,
+		TotalOpened:       opened,
+		TotalClicked:      clicked,
+		TotalBounced:      bounced,
+		TotalUnsubscribed: unsub,
 	}
 	if sent > 0 {
 		metric.OpenRate = round2(float64(opened) / float64(sent) * 100)

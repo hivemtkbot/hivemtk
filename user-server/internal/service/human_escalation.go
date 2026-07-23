@@ -44,14 +44,14 @@ const (
 
 // EscalationEvent 转人工事件载荷（推送到商户通知队列）
 type EscalationEvent struct {
-	Event     string    `json:"event"`      // 事件类型（TRANSFER_TO_HUMAN）
-	SessionID string    `json:"session_id"` // 会话 ID
-	Reason    string    `json:"reason"`     // 转人工原因
-	Severity  string    `json:"severity"`   // 严重度（high/medium/low）
-	Timestamp time.Time `json:"timestamp"`  // 事件时间
-	Channel   string    `json:"channel,omitempty"`    // 渠道
-	CustomerID string   `json:"customer_id,omitempty"` // 客户 ID
-	AgentCode  string   `json:"agent_code,omitempty"`  // 智能体代号
+	Event      string    `json:"event"`                 // 事件类型（TRANSFER_TO_HUMAN）
+	SessionID  string    `json:"session_id"`            // 会话 ID
+	Reason     string    `json:"reason"`                // 转人工原因
+	Severity   string    `json:"severity"`              // 严重度（high/medium/low）
+	Timestamp  time.Time `json:"timestamp"`             // 事件时间
+	Channel    string    `json:"channel,omitempty"`     // 渠道
+	CustomerID string    `json:"customer_id,omitempty"` // 客户 ID
+	AgentCode  string    `json:"agent_code,omitempty"`  // 智能体代号
 }
 
 // HumanEscalationManager 转人工协同状态机中枢
@@ -77,12 +77,12 @@ type Notifier interface {
 
 // EscalationStats 转人工统计
 type EscalationStats struct {
-	TotalTriggers      int64      // 总触发次数
-	TotalRejections    int64      // 缓存拒绝次数
-	TotalNotifications int64      // 通知推送成功次数
-	LastTriggerAt      time.Time  // 最近触发时间
-	LastSessionID      string     // 最近会话 ID
-	TriggersByReason   sync.Map   // reason -> count
+	TotalTriggers      int64     // 总触发次数
+	TotalRejections    int64     // 缓存拒绝次数
+	TotalNotifications int64     // 通知推送成功次数
+	LastTriggerAt      time.Time // 最近触发时间
+	LastSessionID      string    // 最近会话 ID
+	TriggersByReason   sync.Map  // reason -> count
 }
 
 // NewHumanEscalationManager 构造转人工管理器
@@ -97,7 +97,7 @@ func NewHumanEscalationManager(c cache.Cache) *HumanEscalationManager {
 }
 
 // SetNotifier 自定义通知实现（如 Kafka / RocketMQ）
-func (h *HumanEscalationManager) SetNotifier(ctx context.Context, n Notifier)  {
+func (h *HumanEscalationManager) SetNotifier(ctx context.Context, n Notifier) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.notifier = n
@@ -213,7 +213,7 @@ func (h *HumanEscalationManager) ReleaseHumanLock(ctx context.Context, sessionID
 }
 
 // GetStats 获取统计
-func (h *HumanEscalationManager) GetStats(ctx context.Context)  EscalationStats {
+func (h *HumanEscalationManager) GetStats(ctx context.Context) EscalationStats {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.stats

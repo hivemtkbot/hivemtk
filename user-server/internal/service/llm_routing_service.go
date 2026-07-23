@@ -68,53 +68,53 @@ type UpdateStrategiesRequest struct {
 
 // UsageSummary 用量汇总（按场景维度）
 type UsageSummary struct {
-	TotalCalls     int64                       `json:"total_calls"`
-	TotalSuccess   int64                       `json:"total_success"`
-	TotalFailed    int64                       `json:"total_failed"`
-	TotalTokens    int64                       `json:"total_tokens"`
-	TotalCost      float64                     `json:"total_cost"`
-	ActiveModels   int64                       `json:"active_models"`
-	EnabledModels  int64                       `json:"enabled_models"`
-	WindowLabel    string                      `json:"window_label"`
-	ByScenario     []ScenarioUsage             `json:"by_scenario"`
-	ByProvider     []ProviderUsage             `json:"by_provider"`
-	ByScenarioProv []llm.ScenarioStat          `json:"by_scenario_provider"`
+	TotalCalls     int64              `json:"total_calls"`
+	TotalSuccess   int64              `json:"total_success"`
+	TotalFailed    int64              `json:"total_failed"`
+	TotalTokens    int64              `json:"total_tokens"`
+	TotalCost      float64            `json:"total_cost"`
+	ActiveModels   int64              `json:"active_models"`
+	EnabledModels  int64              `json:"enabled_models"`
+	WindowLabel    string             `json:"window_label"`
+	ByScenario     []ScenarioUsage    `json:"by_scenario"`
+	ByProvider     []ProviderUsage    `json:"by_provider"`
+	ByScenarioProv []llm.ScenarioStat `json:"by_scenario_provider"`
 }
 
 // ScenarioUsage 场景维度用量
 type ScenarioUsage struct {
-	Scenario     string  `json:"scenario"`
-	CallCount    int64   `json:"call_count"`
-	TotalTokens  int64   `json:"total_tokens"`
-	TotalCost    float64 `json:"total_cost"`
+	Scenario    string  `json:"scenario"`
+	CallCount   int64   `json:"call_count"`
+	TotalTokens int64   `json:"total_tokens"`
+	TotalCost   float64 `json:"total_cost"`
 }
 
 // ProviderUsage provider 维度用量
 type ProviderUsage struct {
-	Provider     string  `json:"provider"`
-	CallCount    int64   `json:"call_count"`
-	TotalTokens  int64   `json:"total_tokens"`
-	TotalCost    float64 `json:"total_cost"`
+	Provider    string  `json:"provider"`
+	CallCount   int64   `json:"call_count"`
+	TotalTokens int64   `json:"total_tokens"`
+	TotalCost   float64 `json:"total_cost"`
 }
 
 // TestModelRequest 测试模型请求
 type TestModelRequest struct {
-	Provider string  `json:"provider"`
-	Model    string  `json:"model"`
-	Prompt   string  `json:"prompt"`
-	Timeout  int     `json:"timeout_seconds"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Prompt   string `json:"prompt"`
+	Timeout  int    `json:"timeout_seconds"`
 }
 
 // TestModelResult 测试模型结果
 type TestModelResult struct {
-	Provider   string  `json:"provider"`
-	Model      string  `json:"model"`
-	Content    string  `json:"content"`
-	LatencyMs  int64   `json:"latency_ms"`
-	TotalTokens int    `json:"total_tokens"`
-	Cost       float64 `json:"cost"`
-	Success    bool    `json:"success"`
-	Error      string  `json:"error,omitempty"`
+	Provider    string  `json:"provider"`
+	Model       string  `json:"model"`
+	Content     string  `json:"content"`
+	LatencyMs   int64   `json:"latency_ms"`
+	TotalTokens int     `json:"total_tokens"`
+	Cost        float64 `json:"cost"`
+	Success     bool    `json:"success"`
+	Error       string  `json:"error,omitempty"`
 }
 
 // LLMRoutingService LLM 路由服务

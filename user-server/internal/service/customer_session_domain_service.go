@@ -1,8 +1,8 @@
 package service
 
 import (
-	"marketing/internal/model"
 	"context"
+	"marketing/internal/model"
 )
 
 // ============================================================================

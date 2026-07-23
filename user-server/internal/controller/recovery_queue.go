@@ -153,7 +153,7 @@ func (c *RecoveryQueueController) ListByStage(ctx *gin.Context) {
 // @Success 200 {object} object{data=dto.RecoveryDistributionResponse}
 // @Router /api/recovery-queue/distribution [get]
 func (c *RecoveryQueueController) Distribution(ctx *gin.Context) {
-	dist, err := c.svc.Distribution(context.Background(), )
+	dist, err := c.svc.Distribution(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return

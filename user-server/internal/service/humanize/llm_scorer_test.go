@@ -13,9 +13,9 @@ package humanize
 //  8. 边界用例（空输入、dispatcher nil）
 
 import (
-	"marketing/internal/model"
 	"context"
 	"errors"
+	"marketing/internal/model"
 	"math/rand"
 	"testing"
 

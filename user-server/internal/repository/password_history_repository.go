@@ -5,6 +5,9 @@ package repository
 // 五层架构归属：L4 数据访问层
 // 表：password_history
 // 私域独立部署：无 merchant_id 字段
+//
+// 阶段 2 重构：SystemUserRepository 已迁出至 system_user.go
+// 本文件仅承载密码历史仓储，避免混杂。
 
 import (
 	"context"
@@ -75,4 +78,3 @@ func (r *passwordHistoryRepo) Latest(ctx context.Context, userID uint) (*model.P
 
 // compile-time 接口断言
 var _ PasswordHistoryRepository = (*passwordHistoryRepo)(nil)
-

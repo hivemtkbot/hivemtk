@@ -72,9 +72,9 @@ func (FeishuMessage) TableName() string { return "feishu_messages" }
 
 // TelegramAccount Telegram 机器人账号
 type TelegramAccount struct {
-	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	AccountName    string     `gorm:"type:varchar(100);not null" json:"account_name"`
-	BotToken       string     `gorm:"type:varchar(200);not null" json:"bot_token"`
+	ID          uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	AccountName string `gorm:"type:varchar(100);not null" json:"account_name"`
+	BotToken    string `gorm:"type:varchar(200);not null" json:"bot_token"`
 	// BotUsername 机器人的 @username（由 BotFather 分配），用于群内「@机器人 才回复」的提及识别。
 	// 注册 webhook 时通过 getMe 自动回填，无需商户手动填写。
 	BotUsername    string     `gorm:"type:varchar(64)" json:"bot_username"`

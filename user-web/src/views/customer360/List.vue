@@ -16,9 +16,9 @@
         >
           <el-table-column prop="name" label="姓名" min-width="120" show-overflow-tooltip />
           <el-table-column prop="phone" label="手机号" min-width="140" show-overflow-tooltip />
-          <el-table-column label="来源" min-width="120" show-overflow-tooltip>
-            <template #default="{ row }">{{ getChannelLabel(row.source) || '-' }}</template>
-          </el-table-column>
+          <el-table-column label="来源" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ getChannelLabel(row.source) || '-' }}</template>
+        </el-table-column>
         </el-table>
         <el-pagination
           v-if="customers.length > pageSize"

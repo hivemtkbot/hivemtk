@@ -29,7 +29,7 @@ func (s *XianyuAutoReplyService) GetDB(ctx context.Context) *gorm.DB {
 
 func (s *XianyuAutoReplyService) TestMatching(ctx context.Context, platform, message string, userID uint) (*model.AutoReplyRule, error) {
 	var rules []model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).Find(&rules).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).Find(&rules).Error
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +47,13 @@ func (s *XianyuAutoReplyService) TestMatching(ctx context.Context, platform, mes
 
 func (s *XianyuAutoReplyService) ListAccounts(ctx context.Context, userID uint) ([]model.AutoReplyAccount, error) {
 	var items []model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xianyu", userID).Find(&items).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", userID).Find(&items).Error
 	return items, err
 }
 
 func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReplyAccount) error {
 	var existing model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where( "user_id = ? AND platform = ? AND username = ?", a.UserID, "xianyu", a.Username).First(&existing).Error
+	err := s.db.WithContext(ctx).Where("user_id = ? AND platform = ? AND username = ?", a.UserID, "xianyu", a.Username).First(&existing).Error
 	if err == nil {
 		// 加密存储Cookie(避免在 model 中保留业务方法)
 		encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
@@ -80,7 +80,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	// 获取现有的账号记录
 	var account model.AutoReplyAccount
-	if err := s.db.WithContext(ctx).First( &account, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&account, id).Error; err != nil {
 		return err
 	}
 
@@ -102,7 +102,7 @@ func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cooki
 
 func (s *XianyuAutoReplyService) GetRule(ctx context.Context, userID uint) (*model.AutoReplyRule, error) {
 	var rule model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xianyu", userID).Order("id DESC").First(&rule).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", userID).Order("id DESC").First(&rule).Error
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *XianyuAutoReplyService) GetRule(ctx context.Context, userID uint) (*mod
 
 func (s *XianyuAutoReplyService) SaveRule(ctx context.Context, rule *model.AutoReplyRule) error {
 	var existing model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ?", "xianyu", rule.UserID).First(&existing).Error
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", rule.UserID).First(&existing).Error
 	if err == nil {
 		existing.Keywords = rule.Keywords
 		existing.ReplyContent = rule.ReplyContent
@@ -138,7 +138,7 @@ func (s *XianyuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint
 		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	err := s.db.WithContext(ctx).Where( "platform = ? AND user_id = ? AND created_at >= ?", "xianyu", userID, cutoff).
+	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND created_at >= ?", "xianyu", userID, cutoff).
 		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
@@ -174,7 +174,7 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 		if ok {
 			// 加密存储Cookie
 			var account model.AutoReplyAccount
-			if err := s.db.WithContext(ctx).First( &account, accountID).Error; err == nil {
+			if err := s.db.WithContext(ctx).First(&account, accountID).Error; err == nil {
 				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
 				if encErr == nil {
 					account.Cookie = encrypted
@@ -194,7 +194,7 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 }
 
 func (s *XianyuAutoReplyService) DeleteAccount(ctx context.Context, id uint, userID uint) error {
-	return s.db.WithContext(ctx).Where( "id = ? AND user_id = ? AND platform = ?", id, userID, "xianyu").Delete(&model.AutoReplyAccount{}).Error
+	return s.db.WithContext(ctx).Where("id = ? AND user_id = ? AND platform = ?", id, userID, "xianyu").Delete(&model.AutoReplyAccount{}).Error
 }
 
 // MarkWSConnected 记录账号最近一次 WebSocket 连接成功时间

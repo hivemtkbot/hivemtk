@@ -93,16 +93,16 @@ func LogRoutingDecision(ctx context.Context, scenario DispatchScenario, provider
 
 // ScenarioStat 场景维度统计（用于 Usage API）
 type ScenarioStat struct {
-	Scenario      string  `json:"scenario"`
-	Provider      string  `json:"provider"`
-	Model         string  `json:"model"`
-	CallCount     int64   `json:"call_count"`
-	SuccessCount  int64   `json:"success_count"`
-	FailedCount   int64   `json:"failed_count"`
-	TotalTokens   int64   `json:"total_tokens"`
-	TotalCost     float64 `json:"total_cost"`
-	AvgLatencyMs  int64   `json:"avg_latency_ms"`
-	WindowLabel   string  `json:"window_label"` // "today" / "week" / "month" / "all"
+	Scenario     string  `json:"scenario"`
+	Provider     string  `json:"provider"`
+	Model        string  `json:"model"`
+	CallCount    int64   `json:"call_count"`
+	SuccessCount int64   `json:"success_count"`
+	FailedCount  int64   `json:"failed_count"`
+	TotalTokens  int64   `json:"total_tokens"`
+	TotalCost    float64 `json:"total_cost"`
+	AvgLatencyMs int64   `json:"avg_latency_ms"`
+	WindowLabel  string  `json:"window_label"` // "today" / "week" / "month" / "all"
 }
 
 // QueryScenarioStats 查 llm_routing_logs 按 (scenario, provider) 聚合
@@ -187,8 +187,8 @@ func QueryAuditHistory(ctx context.Context, scenario string, limit int) ([]map[s
 //   - Weight = 0：返回 nil（灰度未启用，走主路由）
 //   - Weight = 100：返回 CanaryRoute（全部走灰度）
 //   - 0 < Weight < 100：
-//       1) 若 CanaryKey 非空 → 用 fnv32(canaryKey) % 100 与 Weight 比较
-//       2) 若 CanaryKey 为空 → 用 time.Now().UnixNano() % 100 与 Weight 比较
+//     1) 若 CanaryKey 非空 → 用 fnv32(canaryKey) % 100 与 Weight 比较
+//     2) 若 CanaryKey 为空 → 用 time.Now().UnixNano() % 100 与 Weight 比较
 //   - 返回 nil 时走主 route；返回非 nil 时走 canary route
 func DecideCanaryRoute(route *ScenarioRoute, canaryKey string) *ScenarioRoute {
 	if route == nil || route.Weight <= 0 || route.CanaryRoute == nil {

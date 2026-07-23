@@ -43,7 +43,7 @@ func (c *IntegrationController) CreateAccount(ctx *gin.Context) {
 // GetAccountList 获取对接账号列表
 func (c *IntegrationController) GetAccountList(ctx *gin.Context) {
 
-	accounts, err := c.integrationService.GetIntegrationAccountList(context.Background(), )
+	accounts, err := c.integrationService.GetIntegrationAccountList(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

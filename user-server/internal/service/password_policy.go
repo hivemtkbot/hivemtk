@@ -33,32 +33,32 @@ import (
 //   - forbid_reuse: true（最近 5 个密码不能重复）
 //   - expiry_days: 90（密码 90 天过期，0 表示不过期）
 type PasswordPolicy struct {
-	MinLength		int		`json:"min_length"`
-	MaxLength		int		`json:"max_length"`
-	RequireUppercase	bool		`json:"require_uppercase"`
-	RequireLowercase	bool		`json:"require_lowercase"`
-	RequireDigit		bool		`json:"require_digit"`
-	RequireSpecial		bool		`json:"require_special"`
-	ForbidCommon		bool		`json:"forbid_common"`
-	CommonPasswords		[]string	`json:"common_passwords"`
-	ForbidReuse		bool		`json:"forbid_reuse"`
-	ReuseCount		int		`json:"reuse_count"`	// 禁止重复最近 N 个密码
-	ExpiryDays		int		`json:"expiry_days"`	// 密码过期天数（0=不过期）
+	MinLength        int      `json:"min_length"`
+	MaxLength        int      `json:"max_length"`
+	RequireUppercase bool     `json:"require_uppercase"`
+	RequireLowercase bool     `json:"require_lowercase"`
+	RequireDigit     bool     `json:"require_digit"`
+	RequireSpecial   bool     `json:"require_special"`
+	ForbidCommon     bool     `json:"forbid_common"`
+	CommonPasswords  []string `json:"common_passwords"`
+	ForbidReuse      bool     `json:"forbid_reuse"`
+	ReuseCount       int      `json:"reuse_count"` // 禁止重复最近 N 个密码
+	ExpiryDays       int      `json:"expiry_days"` // 密码过期天数（0=不过期）
 }
 
 // DefaultPasswordPolicy 默认密码策略
 var DefaultPasswordPolicy = PasswordPolicy{
-	MinLength:		8,
-	MaxLength:		64,
-	RequireUppercase:	true,
-	RequireLowercase:	true,
-	RequireDigit:		true,
-	RequireSpecial:		false,
-	ForbidCommon:		true,
-	CommonPasswords:	DefaultCommonPasswords,
-	ForbidReuse:		true,
-	ReuseCount:		5,
-	ExpiryDays:		90,
+	MinLength:        8,
+	MaxLength:        64,
+	RequireUppercase: true,
+	RequireLowercase: true,
+	RequireDigit:     true,
+	RequireSpecial:   false,
+	ForbidCommon:     true,
+	CommonPasswords:  DefaultCommonPasswords,
+	ForbidReuse:      true,
+	ReuseCount:       5,
+	ExpiryDays:       90,
 }
 
 // DefaultCommonPasswords 默认弱密码列表
@@ -78,8 +78,8 @@ var specialCharRegex = regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~
 
 // policyCache 策略缓存（避免每次校验都查库）
 var (
-	policyCache		*PasswordPolicy
-	policyCacheMutex	sync.RWMutex
+	policyCache      *PasswordPolicy
+	policyCacheMutex sync.RWMutex
 )
 
 // PolicyKVKey 密码策略在 system_config_kv 表中存储的 key
@@ -87,17 +87,17 @@ const PolicyKVKey = "password_policy"
 
 // PasswordPolicyService 密码策略服务
 type PasswordPolicyService struct {
-	kvRepo		repository.SystemConfigKVRepository
-	historyRepo	repository.PasswordHistoryRepository
-	systemUserRepo	repository.SystemUserRepository
+	kvRepo         repository.SystemConfigKVRepository
+	historyRepo    repository.PasswordHistoryRepository
+	systemUserRepo repository.SystemUserRepository
 }
 
 // NewPasswordPolicyService 创建密码策略服务
 func NewPasswordPolicyService() *PasswordPolicyService {
 	return &PasswordPolicyService{
-		kvRepo:		repository.NewSystemConfigKVRepository(),
-		historyRepo:	repository.NewPasswordHistoryRepository(),
-		systemUserRepo:	repository.NewSystemUserRepository(),
+		kvRepo:         repository.NewSystemConfigKVRepository(),
+		historyRepo:    repository.NewPasswordHistoryRepository(),
+		systemUserRepo: repository.NewSystemUserRepository(),
 	}
 }
 
@@ -310,7 +310,7 @@ func (s *PasswordPolicyService) checkPasswordHistory(ctx context.Context, userID
 	histories, err := s.historyRepo.ListRecent(ctx, userID, reuseCount)
 	if err != nil {
 		logger.Errorf("查询密码历史失败: %v", err)
-		return nil	// 查询失败不阻塞
+		return nil // 查询失败不阻塞
 	}
 
 	for _, h := range histories {
@@ -330,10 +330,10 @@ func (s *PasswordPolicyService) RecordPasswordHistory(ctx context.Context, userI
 	}
 
 	history := &model.PasswordHistory{
-		UserID:		userID,
-		PasswordHash:	hashed,
-		ChangedAt:	time.Now(),
-		Source:		source,
+		UserID:       userID,
+		PasswordHash: hashed,
+		ChangedAt:    time.Now(),
+		Source:       source,
 	}
 	if history.Source == "" {
 		history.Source = model.PasswordSourceChangePassword

@@ -54,7 +54,7 @@ func NewFeedbackLoopCron(db *gorm.DB, components *FeedbackLoopComponents) *Feedb
 }
 
 // Stop 停止所有 cron
-func (c *FeedbackLoopCron) Stop(ctx context.Context)  {
+func (c *FeedbackLoopCron) Stop(ctx context.Context) {
 	close(c.stopCh)
 	c.wg.Wait()
 }
@@ -63,7 +63,7 @@ func (c *FeedbackLoopCron) Stop(ctx context.Context)  {
 // 1. ChampionBaseline 月度刷新（每月 1 日 02:00）
 // ----------------------------------------------------------------------------
 
-func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *gorm.DB)  {
+func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *gorm.DB) {
 	defer c.wg.Done()
 	for {
 		next := nextMonthlyRun(1, 2, 0) // 每月 1 日 02:00
@@ -172,7 +172,7 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 // 2. ChampionDialogue 周度分析（每周日 03:00）
 // ----------------------------------------------------------------------------
 
-func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context)  {
+func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context) {
 	defer c.wg.Done()
 	for {
 		next := nextWeeklyRun(time.Sunday, 3, 0) // 每周日 03:00
@@ -197,7 +197,7 @@ func (c *FeedbackLoopCron) runChampionDialogueWeekly(ctx context.Context)  {
 // 3. PromptIterator 日度迭代（每日 04:00）
 // ----------------------------------------------------------------------------
 
-func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context)  {
+func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 	defer c.wg.Done()
 	for {
 		next := nextDailyRun(4, 0) // 每日 04:00
@@ -324,7 +324,7 @@ func isPromptableNodeType(t string) bool {
 // 4. BanditAllocator 收敛检查（每 6 小时）
 // ----------------------------------------------------------------------------
 
-func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context)  {
+func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 	defer c.wg.Done()
 	for {
 		select {

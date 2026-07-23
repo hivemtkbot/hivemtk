@@ -36,13 +36,13 @@ import (
 
 const (
 	// RagMetricsAggregationInterval 聚合窗口间隔（5 分钟）
-	RagMetricsAggregationInterval	= 5 * time.Minute
+	RagMetricsAggregationInterval = 5 * time.Minute
 	// RagMetricsBatchSize 异步写入批次大小
-	RagMetricsBatchSize	= 100
+	RagMetricsBatchSize = 100
 	// RagMetricsFlushInterval 异步刷写间隔
-	RagMetricsFlushInterval	= 2 * time.Second
+	RagMetricsFlushInterval = 2 * time.Second
 	// RagMetricsLowRecallDefault 默认低召回阈值
-	RagMetricsLowRecallDefault	= 0.3
+	RagMetricsLowRecallDefault = 0.3
 )
 
 // ----------------------------------------------------------------------------
@@ -51,15 +51,15 @@ const (
 
 // RagMetricsService RAG 召回率监控服务
 type RagMetricsService struct {
-	db	*gorm.DB
+	db *gorm.DB
 
 	// 异步批量写入队列
-	mu	sync.Mutex
-	queue	[]*model.RagQueryLog
-	flushCh	chan struct{}
-	stopCh	chan struct{}
-	wg	sync.WaitGroup
-	started	bool
+	mu      sync.Mutex
+	queue   []*model.RagQueryLog
+	flushCh chan struct{}
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
+	started bool
 }
 
 // NewRagMetricsService 创建召回率监控服务
@@ -68,10 +68,10 @@ type RagMetricsService struct {
 // 但 RecordQuery 会降级为 no-op
 func NewRagMetricsService(db *gorm.DB) *RagMetricsService {
 	s := &RagMetricsService{
-		db:		db,
-		queue:		make([]*model.RagQueryLog, 0, RagMetricsBatchSize),
-		flushCh:	make(chan struct{}, 1),
-		stopCh:		make(chan struct{}),
+		db:      db,
+		queue:   make([]*model.RagQueryLog, 0, RagMetricsBatchSize),
+		flushCh: make(chan struct{}, 1),
+		stopCh:  make(chan struct{}),
 	}
 	return s
 }
@@ -137,19 +137,19 @@ func (s *RagMetricsService) flushLoop(ctx context.Context) {
 
 // RecordQueryRequest 记录查询请求
 type RecordQueryRequest struct {
-	Query		string
-	SessionID	string
-	ProductID	int64
-	RetrievedDocIDs	[]string
-	RelevantDocIDs	[]string
-	Latency		time.Duration
-	TopK		int
-	Source		string
+	Query           string
+	SessionID       string
+	ProductID       int64
+	RetrievedDocIDs []string
+	RelevantDocIDs  []string
+	Latency         time.Duration
+	TopK            int
+	Source          string
 
 	// 2026-07-21 新增：Top-1 命中与最高相似度，供 RagRecallMonitor 计算 Top-K / Top-1 命中率与平均相似度
-	Top1DocID	string
-	HitInTop1	bool
-	TopSimilarity	float64
+	Top1DocID     string
+	HitInTop1     bool
+	TopSimilarity float64
 }
 
 // RecordQuery 异步记录一次检索（不阻塞调用方）
@@ -212,24 +212,24 @@ func (s *RagMetricsService) buildQueryLog(ctx context.Context, req *RecordQueryR
 		source = "hybrid"
 	}
 	return &model.RagQueryLog{
-		Query:			req.Query,
-		QueryHash:		hashQueryShort(req.Query),
-		SessionID:		req.SessionID,
-		ProductID:		req.ProductID,
-		RetrievedDocIDs:	toJSONString(req.RetrievedDocIDs),
-		RelevantDocIDs:		toJSONString(req.RelevantDocIDs),
-		RetrievedCount:		len(retrievedSet),
-		RelevantCount:		len(relevantSet),
-		HitCount:		hit,
-		Top1DocID:		req.Top1DocID,
-		HitInTop1:		req.HitInTop1,
-		TopSimilarity:		req.TopSimilarity,
-		Precision:		precision,
-		Recall:			recall,
-		LatencyMs:		latencyMs,
-		TopK:			topK,
-		Source:			source,
-		CreatedAt:		time.Now(),
+		Query:           req.Query,
+		QueryHash:       hashQueryShort(req.Query),
+		SessionID:       req.SessionID,
+		ProductID:       req.ProductID,
+		RetrievedDocIDs: toJSONString(req.RetrievedDocIDs),
+		RelevantDocIDs:  toJSONString(req.RelevantDocIDs),
+		RetrievedCount:  len(retrievedSet),
+		RelevantCount:   len(relevantSet),
+		HitCount:        hit,
+		Top1DocID:       req.Top1DocID,
+		HitInTop1:       req.HitInTop1,
+		TopSimilarity:   req.TopSimilarity,
+		Precision:       precision,
+		Recall:          recall,
+		LatencyMs:       latencyMs,
+		TopK:            topK,
+		Source:          source,
+		CreatedAt:       time.Now(),
 	}
 }
 
@@ -262,15 +262,15 @@ func (s *RagMetricsService) flush(ctx context.Context) error {
 
 // RecallMetrics 召回指标聚合结果
 type RecallMetrics struct {
-	WindowStart	time.Time	`json:"window_start"`
-	WindowEnd	time.Time	`json:"window_end"`
-	TotalQueries	int64		`json:"total_queries"`
-	AvgRecall	float64		`json:"avg_recall"`
-	AvgPrecision	float64		`json:"avg_precision"`
-	AvgLatencyMs	float64		`json:"avg_latency_ms"`
-	P99LatencyMs	int64		`json:"p99_latency_ms"`
-	ZeroHitCount	int64		`json:"zero_hit_count"`
-	LowRecallCount	int64		`json:"low_recall_count"`
+	WindowStart    time.Time `json:"window_start"`
+	WindowEnd      time.Time `json:"window_end"`
+	TotalQueries   int64     `json:"total_queries"`
+	AvgRecall      float64   `json:"avg_recall"`
+	AvgPrecision   float64   `json:"avg_precision"`
+	AvgLatencyMs   float64   `json:"avg_latency_ms"`
+	P99LatencyMs   int64     `json:"p99_latency_ms"`
+	ZeroHitCount   int64     `json:"zero_hit_count"`
+	LowRecallCount int64     `json:"low_recall_count"`
 }
 
 // GetRecallMetrics 查询时间窗口内的召回指标
@@ -289,12 +289,12 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 
 	// 1) 基础聚合：count / avg recall / avg precision / avg latency
 	row := struct {
-		Total		int64
-		AvgRecall	float64
-		AvgPrecision	float64
-		AvgLatency	float64
-		ZeroHit		int64
-		LowRecall	int64
+		Total        int64
+		AvgRecall    float64
+		AvgPrecision float64
+		AvgLatency   float64
+		ZeroHit      int64
+		LowRecall    int64
 	}{}
 	if err := s.db.WithContext(ctx).
 		Model(&model.RagQueryLog{}).
@@ -352,16 +352,16 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 
 // LowRecallQuery 低召回样本
 type LowRecallQuery struct {
-	ID		int64		`json:"id"`
-	Query		string		`json:"query"`
-	SessionID	string		`json:"session_id"`
-	Recall		float64		`json:"recall"`
-	Precision	float64		`json:"precision"`
-	LatencyMs	int64		`json:"latency_ms"`
-	RetrievedCount	int		`json:"retrieved_count"`
-	RelevantCount	int		`json:"relevant_count"`
-	HitCount	int		`json:"hit_count"`
-	CreatedAt	time.Time	`json:"created_at"`
+	ID             int64     `json:"id"`
+	Query          string    `json:"query"`
+	SessionID      string    `json:"session_id"`
+	Recall         float64   `json:"recall"`
+	Precision      float64   `json:"precision"`
+	LatencyMs      int64     `json:"latency_ms"`
+	RetrievedCount int       `json:"retrieved_count"`
+	RelevantCount  int       `json:"relevant_count"`
+	HitCount       int       `json:"hit_count"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // GetLowRecallQueries 查询召回率低于阈值的样本（用于调优）
@@ -410,16 +410,16 @@ func (s *RagMetricsService) AggregateWindow(ctx context.Context, windowStart, wi
 		return nil, err
 	}
 	daily := &model.RagMetricsDaily{
-		WindowStart:	windowStart,
-		WindowEnd:	windowEnd,
-		TotalQueries:	metrics.TotalQueries,
-		AvgRecall:	metrics.AvgRecall,
-		AvgPrecision:	metrics.AvgPrecision,
-		AvgLatencyMs:	metrics.AvgLatencyMs,
-		P99LatencyMs:	metrics.P99LatencyMs,
-		ZeroHitCount:	metrics.ZeroHitCount,
-		LowRecallCount:	metrics.LowRecallCount,
-		CreatedAt:	time.Now(),
+		WindowStart:    windowStart,
+		WindowEnd:      windowEnd,
+		TotalQueries:   metrics.TotalQueries,
+		AvgRecall:      metrics.AvgRecall,
+		AvgPrecision:   metrics.AvgPrecision,
+		AvgLatencyMs:   metrics.AvgLatencyMs,
+		P99LatencyMs:   metrics.P99LatencyMs,
+		ZeroHitCount:   metrics.ZeroHitCount,
+		LowRecallCount: metrics.LowRecallCount,
+		CreatedAt:      time.Now(),
 	}
 	// 幂等：先查再决定 Create/Update
 	var existing model.RagMetricsDaily
@@ -520,9 +520,9 @@ func hashQueryShort(query string) string {
 
 // RagMetricsCron 召回指标聚合定时任务
 type RagMetricsCron struct {
-	svc	*RagMetricsService
-	stopCh	chan struct{}
-	wg	sync.WaitGroup
+	svc    *RagMetricsService
+	stopCh chan struct{}
+	wg     sync.WaitGroup
 }
 
 // NewRagMetricsCron 创建 cron
@@ -531,19 +531,19 @@ func NewRagMetricsCron(svc *RagMetricsService) *RagMetricsCron {
 }
 
 // Start 启动 cron
-func (c *RagMetricsCron) Start(ctx context.Context)  {
+func (c *RagMetricsCron) Start(ctx context.Context) {
 	c.wg.Add(1)
 	go c.run(ctx)
 }
 
 // Stop 停止 cron
-func (c *RagMetricsCron) Stop(ctx context.Context)  {
+func (c *RagMetricsCron) Stop(ctx context.Context) {
 	close(c.stopCh)
 	c.wg.Wait()
 }
 
 // run 定时循环
-func (c *RagMetricsCron) run(ctx context.Context)  {
+func (c *RagMetricsCron) run(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(RagMetricsAggregationInterval)
 	defer ticker.Stop()

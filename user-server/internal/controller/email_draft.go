@@ -39,7 +39,7 @@ func (c *EmailDraftController) CreateEmailDraft(ctx *gin.Context) {
 
 // GetEmailDraftList 获取草稿列表
 func (c *EmailDraftController) GetEmailDraftList(ctx *gin.Context) {
-	resp, err := c.svc.GetEmailDraftListDTO(context.Background(), )
+	resp, err := c.svc.GetEmailDraftListDTO(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取列表失败："+err.Error())
 		return

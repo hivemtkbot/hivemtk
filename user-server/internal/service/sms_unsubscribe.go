@@ -76,11 +76,11 @@ func (s *SmsUnsubscribeService) UnsubscribePhone(ctx context.Context, phone, rea
 	}
 
 	record := &model.SmsUnsubscribe{
-		Phone:			phone,
-		Reason:			reason,
-		UnsubscribedAt:		now,
-		SourceMessageID:	msgID,
-		KeywordMatched:		keyword,
+		Phone:           phone,
+		Reason:          reason,
+		UnsubscribedAt:  now,
+		SourceMessageID: msgID,
+		KeywordMatched:  keyword,
 	}
 	return s.repo.Create(ctx, record)
 }
@@ -145,7 +145,7 @@ func (s *SmsUnsubscribeService) ListUnsubscribes(ctx context.Context, page, limi
 }
 
 // ListAllUnsubscribes 查询全部退订名单（导出使用）
-func (s *SmsUnsubscribeService) ListAllUnsubscribes(ctx context.Context,) ([]*model.SmsUnsubscribe, error) {
+func (s *SmsUnsubscribeService) ListAllUnsubscribes(ctx context.Context) ([]*model.SmsUnsubscribe, error) {
 	return s.repo.ListAll(ctx)
 }
 

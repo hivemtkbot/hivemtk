@@ -66,12 +66,12 @@ func NewSOPOutboxDispatcher(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPO
 }
 
 // SetTickInterval 设置轮询周期（用于测试）
-func (o *SOPOutboxDispatcher) SetTickInterval(ctx context.Context, d time.Duration)  {
+func (o *SOPOutboxDispatcher) SetTickInterval(ctx context.Context, d time.Duration) {
 	o.tickInterval = d
 }
 
 // Start 启动 Outbox 调度器
-func (o *SOPOutboxDispatcher) Start(ctx context.Context)  {
+func (o *SOPOutboxDispatcher) Start(ctx context.Context) {
 	o.runMu.Lock()
 	defer o.runMu.Unlock()
 	if o.running {
@@ -80,7 +80,7 @@ func (o *SOPOutboxDispatcher) Start(ctx context.Context)  {
 	o.running = true
 	o.stopCh = make(chan struct{})
 	o.wg.Add(1)
-	go o.loop(context.Background(), )
+	go o.loop(context.Background())
 	logger.GetLogger().Info().
 		Dur("tick_interval", o.tickInterval).
 		Int("batch_size", o.batchSize).
@@ -88,7 +88,7 @@ func (o *SOPOutboxDispatcher) Start(ctx context.Context)  {
 }
 
 // Stop 停止 Outbox 调度器
-func (o *SOPOutboxDispatcher) Stop(ctx context.Context)  {
+func (o *SOPOutboxDispatcher) Stop(ctx context.Context) {
 	o.runMu.Lock()
 	if !o.running {
 		o.runMu.Unlock()
@@ -102,20 +102,20 @@ func (o *SOPOutboxDispatcher) Stop(ctx context.Context)  {
 }
 
 // loop 主循环
-func (o *SOPOutboxDispatcher) loop(ctx context.Context)  {
+func (o *SOPOutboxDispatcher) loop(ctx context.Context) {
 	defer o.wg.Done()
 	ticker := time.NewTicker(o.tickInterval)
 	defer ticker.Stop()
 
 	// 启动时立即执行一次
-	o.processDueTimers(context.Background(), )
+	o.processDueTimers(context.Background())
 
 	for {
 		select {
 		case <-o.stopCh:
 			return
 		case <-ticker.C:
-			o.processDueTimers(context.Background(), )
+			o.processDueTimers(context.Background())
 		}
 	}
 }
@@ -124,7 +124,7 @@ func (o *SOPOutboxDispatcher) loop(ctx context.Context)  {
 //
 // 幂等性保障：通过 WHERE status='pending' 原子更新为 'fired'，
 // 多实例并发时只有第一个实例能成功更新，其他实例 RowsAffected=0 直接跳过。
-func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context)  {
+func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	if o.db == nil || o.execDispatcher == nil {
 		return
 	}
@@ -231,17 +231,17 @@ func NewSOPStuckDetector(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPStuc
 }
 
 // SetTickInterval 设置扫描周期（用于测试）
-func (d *SOPStuckDetector) SetTickInterval(ctx context.Context, interval time.Duration)  {
+func (d *SOPStuckDetector) SetTickInterval(ctx context.Context, interval time.Duration) {
 	d.tickInterval = interval
 }
 
 // SetMaxIdleTime 设置节点级卡死阈值（用于测试）
-func (d *SOPStuckDetector) SetMaxIdleTime(ctx context.Context, t time.Duration)  {
+func (d *SOPStuckDetector) SetMaxIdleTime(ctx context.Context, t time.Duration) {
 	d.maxIdleTime = t
 }
 
 // Start 启动卡死检测器
-func (d *SOPStuckDetector) Start(ctx context.Context)  {
+func (d *SOPStuckDetector) Start(ctx context.Context) {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	if d.running {
@@ -250,7 +250,7 @@ func (d *SOPStuckDetector) Start(ctx context.Context)  {
 	d.running = true
 	d.stopCh = make(chan struct{})
 	d.wg.Add(1)
-	go d.loop(context.Background(), )
+	go d.loop(context.Background())
 	logger.GetLogger().Info().
 		Dur("tick_interval", d.tickInterval).
 		Dur("max_idle_time", d.maxIdleTime).
@@ -259,7 +259,7 @@ func (d *SOPStuckDetector) Start(ctx context.Context)  {
 }
 
 // Stop 停止卡死检测器
-func (d *SOPStuckDetector) Stop(ctx context.Context)  {
+func (d *SOPStuckDetector) Stop(ctx context.Context) {
 	d.runMu.Lock()
 	if !d.running {
 		d.runMu.Unlock()
@@ -273,7 +273,7 @@ func (d *SOPStuckDetector) Stop(ctx context.Context)  {
 }
 
 // loop 主循环
-func (d *SOPStuckDetector) loop(ctx context.Context)  {
+func (d *SOPStuckDetector) loop(ctx context.Context) {
 	defer d.wg.Done()
 	ticker := time.NewTicker(d.tickInterval)
 	defer ticker.Stop()
@@ -283,7 +283,7 @@ func (d *SOPStuckDetector) loop(ctx context.Context)  {
 		case <-d.stopCh:
 			return
 		case <-ticker.C:
-			d.scanStuckExecutions(context.Background(), )
+			d.scanStuckExecutions(context.Background())
 		}
 	}
 }
@@ -298,7 +298,7 @@ func (d *SOPStuckDetector) loop(ctx context.Context)  {
 //     即无 pending timer（wait 节点不算卡死）
 //
 // 恢复策略：重新派发当前节点任务（attempt=0）
-func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context)  {
+func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	if d.db == nil {
 		return
 	}
@@ -390,7 +390,7 @@ var (
 func InitSOPOutboxDispatcher(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *SOPOutboxDispatcher {
 	outboxOnce.Do(func() {
 		globalOutboxDispatcher = NewSOPOutboxDispatcher(db, execDispatcher)
-		globalOutboxDispatcher.Start(context.Background(), )
+		globalOutboxDispatcher.Start(context.Background())
 	})
 	return globalOutboxDispatcher
 }
@@ -404,7 +404,7 @@ func GetSOPOutboxDispatcher() *SOPOutboxDispatcher {
 func InitSOPStuckDetector(db *gorm.DB, execDispatcher *SOPExecutionDispatcher) *SOPStuckDetector {
 	stuckOnce.Do(func() {
 		globalStuckDetector = NewSOPStuckDetector(db, execDispatcher)
-		globalStuckDetector.Start(context.Background(), )
+		globalStuckDetector.Start(context.Background())
 	})
 	return globalStuckDetector
 }

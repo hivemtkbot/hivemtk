@@ -178,6 +178,7 @@ const submitForm = async () => {
       const payload = {
         title: form.value.title,
         category: form.value.category,
+        scenario: form.value.scenario || '',
         content: form.value.content,
         variables: (form.value.variables || '')
           .split(',').map(s => String(s).trim()).filter(Boolean),

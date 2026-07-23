@@ -96,7 +96,7 @@ type AppConfigResp struct {
 // GetAppConfig 获取应用配置
 func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
 	// 获取当前系统配置
-	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background(), )
+	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
 		return
@@ -178,7 +178,7 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 	}
 
 	// 获取当前配置
-	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background(), )
+	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
 		return
@@ -192,7 +192,7 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 	}
 
 	// 从 service 获取真实用量统计（用户数、请求数近似值）
-	userCount, requestCount := c.sysConfigSvc.GetUsageStats(context.Background(), )
+	userCount, requestCount := c.sysConfigSvc.GetUsageStats(context.Background())
 
 	// 构造上报数据
 	usageReport := UsageReportInfo{
@@ -255,7 +255,7 @@ func (c *AppConfigController) HealthCheck(ctx *gin.Context) {
 
 	// 实际检查数据库连接状态（经 service，controller 不直连 DB）
 	dbStatus := "disconnected"
-	if c.sysConfigSvc.PingDB(context.Background(), ) {
+	if c.sysConfigSvc.PingDB(context.Background()) {
 		dbStatus = "connected"
 	}
 

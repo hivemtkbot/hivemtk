@@ -46,17 +46,17 @@ func IsShortLinkActive(s *model.ShortLink) bool {
 
 // shortLinkService 短链服务实现
 type shortLinkService struct {
-	shortLinkRepo	repository.ShortLinkRepository
-	domainRepo	repository.DomainPoolRepository
-	accessRepo	repository.ShortLinkAccessRepository
+	shortLinkRepo repository.ShortLinkRepository
+	domainRepo    repository.DomainPoolRepository
+	accessRepo    repository.ShortLinkAccessRepository
 }
 
 // NewShortLinkService 创建短链服务实例
 func NewShortLinkService(db *gorm.DB) ShortLinkService {
 	return &shortLinkService{
-		shortLinkRepo:	repository.NewShortLinkRepository(db),
-		domainRepo:	repository.NewDomainPoolRepository(db),
-		accessRepo:	repository.NewShortLinkAccessRepository(db),
+		shortLinkRepo: repository.NewShortLinkRepository(db),
+		domainRepo:    repository.NewDomainPoolRepository(db),
+		accessRepo:    repository.NewShortLinkAccessRepository(db),
 	}
 }
 
@@ -81,14 +81,14 @@ func (s *shortLinkService) Create(ctx context.Context, req *dto.CreateShortLinkR
 
 	// 创建短链
 	shortLink := &model.ShortLink{
-		ShortCode:	req.ShortCode,
-		OriginalURL:	req.OriginalURL,
-		Title:		req.Title,
-		Description:	req.Description,
-		DomainID:	req.DomainID,
-		Password:	req.Password,
-		ExpireTime:	req.ExpireTime,
-		Status:		1,
+		ShortCode:   req.ShortCode,
+		OriginalURL: req.OriginalURL,
+		Title:       req.Title,
+		Description: req.Description,
+		DomainID:    req.DomainID,
+		Password:    req.Password,
+		ExpireTime:  req.ExpireTime,
+		Status:      1,
 	}
 
 	err := s.shortLinkRepo.Create(context.Background(), shortLink)
@@ -145,7 +145,7 @@ func (s *shortLinkService) Update(ctx context.Context, req *dto.UpdateShortLinkR
 }
 
 // Delete 删除短链
-func (s *shortLinkService) Delete(ctx context.Context, id uint)  error {
+func (s *shortLinkService) Delete(ctx context.Context, id uint) error {
 	_, err := s.shortLinkRepo.GetByID(context.Background(), id)
 	if err != nil {
 		return errors.New("短链不存在")
@@ -155,7 +155,7 @@ func (s *shortLinkService) Delete(ctx context.Context, id uint)  error {
 }
 
 // GetByID 根据ID获取短链
-func (s *shortLinkService) GetByID(ctx context.Context, id uint)  (*dto.ShortLinkResponse, error) {
+func (s *shortLinkService) GetByID(ctx context.Context, id uint) (*dto.ShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), id)
 	if err != nil {
 		return nil, errors.New("短链不存在")
@@ -165,7 +165,7 @@ func (s *shortLinkService) GetByID(ctx context.Context, id uint)  (*dto.ShortLin
 }
 
 // GetByShortCode 根据短码获取短链
-func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string)  (*dto.ShortLinkResponse, error) {
+func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string) (*dto.ShortLinkResponse, error) {
 	shortLink, err := s.shortLinkRepo.GetByShortCode(context.Background(), shortCode)
 	if err != nil {
 		return nil, errors.New("短链不存在")
@@ -175,7 +175,7 @@ func (s *shortLinkService) GetByShortCode(ctx context.Context, shortCode string)
 }
 
 // GetList 获取短链列表
-func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRequest)  (*dto.ShortLinkListResponse, error) {
+func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRequest) (*dto.ShortLinkListResponse, error) {
 	// 设置默认分页参数
 	if req.Page <= 0 {
 		req.Page = 1
@@ -195,13 +195,13 @@ func (s *shortLinkService) GetList(ctx context.Context, req *dto.ListShortLinkRe
 	}
 
 	return &dto.ShortLinkListResponse{
-		List:	responses,
-		Total:	total,
+		List:  responses,
+		Total: total,
 	}, nil
 }
 
 // AccessShortLink 访问短链
-func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessShortLinkRequest)  (*dto.AccessShortLinkResponse, error) {
+func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessShortLinkRequest) (*dto.AccessShortLinkResponse, error) {
 	// 根据短码获取短链
 	shortLink, err := s.shortLinkRepo.GetByShortCode(context.Background(), req.ShortCode)
 	if err != nil {
@@ -227,15 +227,15 @@ func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessS
 
 	// 记录访问信息
 	accessRecord := &model.ShortLinkAccess{
-		ShortLinkID:	shortLink.ID,
-		IP:		req.IP,
-		UserAgent:	req.UserAgent,
-		Referer:	req.Referer,
-		DeviceType:	utils.ParseDeviceType(req.UserAgent),
-		Browser:	utils.ParseBrowser(req.UserAgent),
-		OS:		utils.ParseOS(req.UserAgent),
-		Location:	utils.ParseLocation(req.IP),
-		AccessTime:	time.Now(),
+		ShortLinkID: shortLink.ID,
+		IP:          req.IP,
+		UserAgent:   req.UserAgent,
+		Referer:     req.Referer,
+		DeviceType:  utils.ParseDeviceType(req.UserAgent),
+		Browser:     utils.ParseBrowser(req.UserAgent),
+		OS:          utils.ParseOS(req.UserAgent),
+		Location:    utils.ParseLocation(req.IP),
+		AccessTime:  time.Now(),
 	}
 
 	err = s.accessRepo.Create(context.Background(), accessRecord)
@@ -245,13 +245,13 @@ func (s *shortLinkService) AccessShortLink(ctx context.Context, req *dto.AccessS
 	}
 
 	return &dto.AccessShortLinkResponse{
-		OriginalURL:	shortLink.OriginalURL,
-		Title:		shortLink.Title,
+		OriginalURL: shortLink.OriginalURL,
+		Title:       shortLink.Title,
 	}, nil
 }
 
 // GenerateShortCode 生成短码
-func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.GenerateShortCodeRequest)  (*dto.GenerateShortCodeResponse, error) {
+func (s *shortLinkService) GenerateShortCode(ctx context.Context, req *dto.GenerateShortCodeRequest) (*dto.GenerateShortCodeResponse, error) {
 	// 设置默认长度
 	if req.Length <= 0 {
 		req.Length = 6
@@ -299,24 +299,24 @@ func (s *shortLinkService) modelToResponse(ctx context.Context, shortLink *model
 	}
 
 	return &dto.ShortLinkResponse{
-		ID:		shortLink.ID,
-		ShortCode:	shortLink.ShortCode,
-		OriginalURL:	shortLink.OriginalURL,
-		Title:		shortLink.Title,
-		Description:	shortLink.Description,
-		DomainID:	shortLink.DomainID,
-		Password:	shortLink.Password,
-		ExpireTime:	shortLink.ExpireTime,
-		ClickCount:	shortLink.ClickCount,
-		Status:		shortLink.Status,
-		StatusStr:	statusStr,
-		CreatedAt:	shortLink.CreatedAt,
-		UpdatedAt:	shortLink.UpdatedAt,
+		ID:          shortLink.ID,
+		ShortCode:   shortLink.ShortCode,
+		OriginalURL: shortLink.OriginalURL,
+		Title:       shortLink.Title,
+		Description: shortLink.Description,
+		DomainID:    shortLink.DomainID,
+		Password:    shortLink.Password,
+		ExpireTime:  shortLink.ExpireTime,
+		ClickCount:  shortLink.ClickCount,
+		Status:      shortLink.Status,
+		StatusStr:   statusStr,
+		CreatedAt:   shortLink.CreatedAt,
+		UpdatedAt:   shortLink.UpdatedAt,
 	}
 }
 
 // GetStats 获取短链统计
-func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStatsRequest)  (*dto.ShortLinkStatsResponse, error) {
+func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStatsRequest) (*dto.ShortLinkStatsResponse, error) {
 	// 获取短链信息
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), req.ID)
 	if err != nil {
@@ -391,9 +391,9 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 			}
 
 			deviceStats = append(deviceStats, dto.DeviceTypeStats{
-				DeviceType:	deviceType,
-				Count:		count,
-				Percentage:	percentage,
+				DeviceType: deviceType,
+				Count:      count,
+				Percentage: percentage,
 			})
 		}
 	}
@@ -407,26 +407,26 @@ func (s *shortLinkService) GetStats(ctx context.Context, req *dto.ShortLinkStats
 			count, _ := stat["count"].(int64)
 
 			dailyStatsResponse = append(dailyStatsResponse, dto.DailyStats{
-				Date:	date,
-				Count:	count,
+				Date:  date,
+				Count: count,
 			})
 		}
 	}
 
 	return &dto.ShortLinkStatsResponse{
-		ShortLinkID:		shortLink.ID,
-		ShortCode:		shortLink.ShortCode,
-		OriginalURL:		shortLink.OriginalURL,
-		Title:			shortLink.Title,
-		TotalAccess:		totalAccess,
-		TodayAccess:		todayAccess,
-		DeviceTypeStats:	deviceStats,
-		DailyStats:		dailyStatsResponse,
+		ShortLinkID:     shortLink.ID,
+		ShortCode:       shortLink.ShortCode,
+		OriginalURL:     shortLink.OriginalURL,
+		Title:           shortLink.Title,
+		TotalAccess:     totalAccess,
+		TodayAccess:     todayAccess,
+		DeviceTypeStats: deviceStats,
+		DailyStats:      dailyStatsResponse,
 	}, nil
 }
 
 // GetAllStats 获取所有短链统计
-func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLinksStatsRequest)  (*dto.AllShortLinksStatsResponse, error) {
+func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLinksStatsRequest) (*dto.AllShortLinksStatsResponse, error) {
 	// 解析日期
 	var startDate, endDate time.Time
 	var err error
@@ -488,9 +488,9 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 			}
 
 			deviceStats = append(deviceStats, dto.DeviceTypeStats{
-				DeviceType:	deviceType,
-				Count:		count,
-				Percentage:	percentage,
+				DeviceType: deviceType,
+				Count:      count,
+				Percentage: percentage,
 			})
 		}
 	}
@@ -504,8 +504,8 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 			count, _ := stat["count"].(int64)
 
 			dailyStatsResponse = append(dailyStatsResponse, dto.DailyStats{
-				Date:	date,
-				Count:	count,
+				Date:  date,
+				Count: count,
 			})
 		}
 	}
@@ -521,25 +521,25 @@ func (s *shortLinkService) GetAllStats(ctx context.Context, req *dto.AllShortLin
 			accessCount, _ := stat["access_count"].(int64)
 
 			shortLinksStatsResponse = append(shortLinksStatsResponse, dto.ShortLinkBasicStats{
-				ID:		id,
-				ShortCode:	shortCode,
-				Title:		title,
-				AccessCount:	accessCount,
+				ID:          id,
+				ShortCode:   shortCode,
+				Title:       title,
+				AccessCount: accessCount,
 			})
 		}
 	}
 
 	return &dto.AllShortLinksStatsResponse{
-		TotalAccess:		totalAccess,
-		TodayAccess:		todayAccess,
-		DeviceTypeStats:	deviceStats,
-		DailyStats:		dailyStatsResponse,
-		ShortLinkStats:		shortLinksStatsResponse,
+		TotalAccess:     totalAccess,
+		TodayAccess:     todayAccess,
+		DeviceTypeStats: deviceStats,
+		DailyStats:      dailyStatsResponse,
+		ShortLinkStats:  shortLinksStatsResponse,
 	}, nil
 }
 
 // ShareShortLink 分享短链
-func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareShortLinkRequest)  (*dto.ShareShortLinkResponse, error) {
+func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareShortLinkRequest) (*dto.ShareShortLinkResponse, error) {
 	// 获取短链信息
 	shortLink, err := s.shortLinkRepo.GetByID(context.Background(), req.ID)
 	if err != nil {
@@ -553,7 +553,7 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 	qrCode := utils.GenerateQRCode(shortURL)
 
 	return &dto.ShareShortLinkResponse{
-		ShortURL:	shortURL,
-		QRCode:		qrCode,
+		ShortURL: shortURL,
+		QRCode:   qrCode,
 	}, nil
 }

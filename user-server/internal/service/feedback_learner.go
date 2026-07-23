@@ -79,7 +79,7 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 }
 
 // updateIntentCache 更新意图缓存
-func (f *FeedbackLearner) updateIntentCache(ctx context.Context, record *FeedbackRecord)  {
+func (f *FeedbackLearner) updateIntentCache(ctx context.Context, record *FeedbackRecord) {
 	if record.IntentType == "" {
 		return
 	}
@@ -101,7 +101,7 @@ func (f *FeedbackLearner) updateIntentCache(ctx context.Context, record *Feedbac
 }
 
 // updateSOPCache 更新 SOP 缓存
-func (f *FeedbackLearner) updateSOPCache(ctx context.Context, record *FeedbackRecord)  {
+func (f *FeedbackLearner) updateSOPCache(ctx context.Context, record *FeedbackRecord) {
 	if record.SOPName == "" {
 		return
 	}
@@ -123,7 +123,7 @@ func (f *FeedbackLearner) updateSOPCache(ctx context.Context, record *FeedbackRe
 }
 
 // GetIntentStats 获取意图统计
-func (f *FeedbackLearner) GetIntentStats(ctx context.Context, intentType string)  *IntentStats {
+func (f *FeedbackLearner) GetIntentStats(ctx context.Context, intentType string) *IntentStats {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	if stats, ok := f.intentCache[intentType]; ok {
@@ -134,7 +134,7 @@ func (f *FeedbackLearner) GetIntentStats(ctx context.Context, intentType string)
 }
 
 // GetAllIntentStats 获取所有意图统计
-func (f *FeedbackLearner) GetAllIntentStats(ctx context.Context)  []*IntentStats {
+func (f *FeedbackLearner) GetAllIntentStats(ctx context.Context) []*IntentStats {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	stats := make([]*IntentStats, 0, len(f.intentCache))
@@ -146,7 +146,7 @@ func (f *FeedbackLearner) GetAllIntentStats(ctx context.Context)  []*IntentStats
 }
 
 // GetSOPStats 获取 SOP 统计
-func (f *FeedbackLearner) GetSOPStats(ctx context.Context, sopName string)  *SOPStats {
+func (f *FeedbackLearner) GetSOPStats(ctx context.Context, sopName string) *SOPStats {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	if stats, ok := f.sopCache[sopName]; ok {
@@ -157,7 +157,7 @@ func (f *FeedbackLearner) GetSOPStats(ctx context.Context, sopName string)  *SOP
 }
 
 // SuggestBestSOP 建议最佳 SOP（基于历史表现）
-func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string)  string {
+func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string) string {
 	// 实际生产：根据 sopCache 中 positiveRate 排序，返回 Top1
 	// 当前简化：返回空，让 SOPService.MatchByIntent 决定
 	return ""
@@ -165,7 +165,7 @@ func (f *FeedbackLearner) SuggestBestSOP(ctx context.Context, intentType string)
 
 // SuggestConfidenceFloor 建议该意图的最低置信度阈值
 // 历史数据：投诉类意图置信度低时容易误判，建议提高阈值
-func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType string)  float64 {
+func (f *FeedbackLearner) SuggestConfidenceFloor(ctx context.Context, intentType string) float64 {
 	stats := f.GetIntentStats(ctx, intentType)
 	if stats == nil || stats.TotalCount < 10 {
 		return 0.5 // 冷启动默认 0.5

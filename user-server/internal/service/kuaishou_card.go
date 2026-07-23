@@ -32,10 +32,10 @@ type KuaishouCardService interface {
 
 // kuaishouCardService 快手卡片服务实现
 type kuaishouCardService struct {
-	repo			repository.KuaishouCardRepository
-	shortLinkService	ShortLinkService
-	domainPoolService	DomainPoolService
-	templateService		*template.TemplateService
+	repo              repository.KuaishouCardRepository
+	shortLinkService  ShortLinkService
+	domainPoolService DomainPoolService
+	templateService   *template.TemplateService
 }
 
 // NewKuaishouCardService 创建快手卡片服务实例
@@ -43,10 +43,10 @@ func NewKuaishouCardService(db any) KuaishouCardService {
 	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
 	return &kuaishouCardService{
-		repo:			repository.NewKuaishouCardRepository(gormDB),
-		shortLinkService:	NewShortLinkService(gormDB),
-		domainPoolService:	NewDomainPoolService(gormDB),
-		templateService:	template.NewTemplateService("internal/template"),
+		repo:              repository.NewKuaishouCardRepository(gormDB),
+		shortLinkService:  NewShortLinkService(gormDB),
+		domainPoolService: NewDomainPoolService(gormDB),
+		templateService:   template.NewTemplateService("internal/template"),
 	}
 }
 
@@ -65,13 +65,13 @@ func (s *kuaishouCardService) Create(ctx context.Context, req *dto.KuaishouCardC
 	}
 
 	card := &model.KuaishouCard{
-		Title:		req.Title,
-		Description:	req.Description,
-		ImageURL:	req.ImageURL,
-		RedirectURL:	redirectURL,
-		DomainPoolID:	req.DomainPoolID,
-		Tags:		req.Tags,
-		IsActive:	req.IsActive,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		RedirectURL:  redirectURL,
+		DomainPoolID: req.DomainPoolID,
+		Tags:         req.Tags,
+		IsActive:     req.IsActive,
 	}
 
 	createdCard, err := s.repo.Create(ctx, card)
@@ -238,8 +238,8 @@ func (s *kuaishouCardService) GetList(ctx context.Context, req *dto.KuaishouCard
 	}
 
 	return &dto.KuaishouCardListResponse{
-		List:	responseList,
-		Total:	total,
+		List:  responseList,
+		Total: total,
 	}, nil
 }
 
@@ -255,10 +255,10 @@ func (s *kuaishouCardService) LikeCard(ctx context.Context, id uint) error {
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
-		CardID:		id,
-		ActivityType:	"like",
-		IPAddress:	ip,
-		UserAgent:	userAgent,
+		CardID:       id,
+		ActivityType: "like",
+		IPAddress:    ip,
+		UserAgent:    userAgent,
 	}
 	return s.repo.CreateActivity(ctx, activity)
 }
@@ -275,10 +275,10 @@ func (s *kuaishouCardService) ViewCard(ctx context.Context, id uint) error {
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
-		CardID:		id,
-		ActivityType:	"view",
-		IPAddress:	ip,
-		UserAgent:	userAgent,
+		CardID:       id,
+		ActivityType: "view",
+		IPAddress:    ip,
+		UserAgent:    userAgent,
 	}
 	return s.repo.CreateActivity(ctx, activity)
 }
@@ -301,10 +301,10 @@ func (s *kuaishouCardService) ShareCard(ctx context.Context, id uint, platform s
 	ip, _ := ctx.Value("ip").(string)
 	userAgent, _ := ctx.Value("user_agent").(string)
 	activity := &model.KuaishouCardActivity{
-		CardID:		id,
-		ActivityType:	"share",
-		IPAddress:	ip,
-		UserAgent:	userAgent,
+		CardID:       id,
+		ActivityType: "share",
+		IPAddress:    ip,
+		UserAgent:    userAgent,
 	}
 	_ = s.repo.CreateActivity(ctx, activity)
 
@@ -321,10 +321,10 @@ func (s *kuaishouCardService) GenerateHTMLPage(ctx context.Context, id uint) (st
 
 	// 使用模板服务生成HTML页面
 	data := &template.CardTemplateData{
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
+		Title:       card.Title,
+		Description: card.Description,
+		ImageURL:    card.ImageURL,
+		RedirectURL: card.RedirectURL,
 	}
 
 	html, err := s.templateService.GenerateKuaishouCardPage(data)
@@ -364,7 +364,7 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 	logger.Infof("生成的短码: %s", generateResp.ShortCode)
 
 	// 获取域名池域名
-	var domainID uint = 0	// 默认不绑定域名，避免依赖不存在的 domain_id=1
+	var domainID uint = 0 // 默认不绑定域名，避免依赖不存在的 domain_id=1
 	if card.DomainPoolID != 0 {
 		// 当用户指定了域名池 ID 时，使用该 ID 创建短链
 		domainID = card.DomainPoolID
@@ -372,11 +372,11 @@ func (s *kuaishouCardService) GenerateShortLink(ctx context.Context, card *model
 
 	// 创建短链
 	shortLinkReq := &dto.CreateShortLinkRequest{
-		ShortCode:	generateResp.ShortCode,
-		OriginalURL:	fmt.Sprintf("/kuaishou/card/%d", card.ID),	// 指向快手卡片页面
-		Title:		card.Title,
-		Description:	card.Description,
-		DomainID:	domainID,	// 使用域名池ID作为域名ID
+		ShortCode:   generateResp.ShortCode,
+		OriginalURL: fmt.Sprintf("/kuaishou/card/%d", card.ID), // 指向快手卡片页面
+		Title:       card.Title,
+		Description: card.Description,
+		DomainID:    domainID, // 使用域名池ID作为域名ID
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)
@@ -426,21 +426,21 @@ func (s *kuaishouCardService) toResponse(ctx context.Context, card *model.Kuaish
 	}
 
 	return &dto.KuaishouCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&card.DomainPoolID,	// 转换为指针类型以保持API兼容性
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		LikeCount:	card.LikeCount,
-		ShareCount:	card.ShareCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:	card.UpdatedAt.Format(time.RFC3339),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		LikeCount:    card.LikeCount,
+		ShareCount:   card.ShareCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -452,20 +452,20 @@ func (s *kuaishouCardService) toResponseWithShortLink(ctx context.Context, card 
 	}
 
 	return &dto.KuaishouCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&card.DomainPoolID,	// 转换为指针类型以保持API兼容性
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		LikeCount:	card.LikeCount,
-		ShareCount:	card.ShareCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:	card.UpdatedAt.Format(time.RFC3339),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		LikeCount:    card.LikeCount,
+		ShareCount:   card.ShareCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }

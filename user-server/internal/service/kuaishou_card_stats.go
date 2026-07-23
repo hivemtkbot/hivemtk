@@ -7,8 +7,8 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // KuaishouCardStatsService 快手卡片统计服务
@@ -31,7 +31,7 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 
 	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0)	// 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
@@ -50,9 +50,9 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 		Group("DATE(created_at), activity_type")
 
 	var results []struct {
-		Date		string	`json:"date"`
-		ActivityType	string	`json:"activity_type"`
-		Count		int	`json:"count"`
+		Date         string `json:"date"`
+		ActivityType string `json:"activity_type"`
+		Count        int    `json:"count"`
 	}
 
 	if err := query.Scan(&results).Error; err != nil {
@@ -65,8 +65,8 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 		dateStr := result.Date
 		if _, exists := dateMap[dateStr]; !exists {
 			dateMap[dateStr] = &dto.DailyStat{
-				Date:	dateStr,
-				View:	0,
+				Date: dateStr,
+				View: 0,
 			}
 		}
 
@@ -89,10 +89,10 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 
 	// 构建响应
 	response := &dto.KuaishouCardStatsResponse{
-		CardID:		card.ID,
-		CardTitle:	card.Title,
-		TotalViews:	int(totalViews),
-		DailyStats:	dailyStats,
+		CardID:     card.ID,
+		CardTitle:  card.Title,
+		TotalViews: int(totalViews),
+		DailyStats: dailyStats,
 	}
 
 	return response, nil
@@ -102,7 +102,7 @@ func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.Ku
 func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto.KuaishouCardOverallStatsRequest) (*dto.KuaishouCardOverallStatsResponse, error) {
 	// 设置默认时间范围
 	if req.StartDate.IsZero() {
-		req.StartDate = time.Now().AddDate(0, -1, 0)	// 默认最近一个月
+		req.StartDate = time.Now().AddDate(0, -1, 0) // 默认最近一个月
 	}
 	if req.EndDate.IsZero() {
 		req.EndDate = time.Now()
@@ -143,10 +143,10 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 	var popularCardDTOs []dto.PopularCard
 	for _, card := range popularCards {
 		popularCardDTOs = append(popularCardDTOs, dto.PopularCard{
-			ID:		card.ID,
-			Title:		card.Title,
-			ViewCount:	card.ViewCount,
-			CreatedAt:	card.CreatedAt.Format("2006-01-02"),
+			ID:        card.ID,
+			Title:     card.Title,
+			ViewCount: card.ViewCount,
+			CreatedAt: card.CreatedAt.Format("2006-01-02"),
 		})
 	}
 
@@ -158,9 +158,9 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		Group("DATE(created_at), activity_type")
 
 	var results []struct {
-		Date		string	`json:"date"`
-		ActivityType	string	`json:"activity_type"`
-		Count		int	`json:"count"`
+		Date         string `json:"date"`
+		ActivityType string `json:"activity_type"`
+		Count        int    `json:"count"`
 	}
 
 	if err := query.Scan(&results).Error; err != nil {
@@ -173,8 +173,8 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 		dateStr := result.Date
 		if _, exists := dateMap[dateStr]; !exists {
 			dateMap[dateStr] = &dto.DailyStat{
-				Date:	dateStr,
-				View:	0,
+				Date: dateStr,
+				View: 0,
 			}
 		}
 
@@ -201,12 +201,12 @@ func (s *KuaishouCardStatsService) GetOverallStats(ctx context.Context, req *dto
 
 	// 构建响应
 	response := &dto.KuaishouCardOverallStatsResponse{
-		TotalCards:		int(totalCards),
-		ActiveCards:		int(activeCards),
-		TotalViews:		int(totalViews),
-		PopularCards:		popularCardDTOs,
-		DailyStats:		dailyStats,
-		RecentActivities:	recentActivities,
+		TotalCards:       int(totalCards),
+		ActiveCards:      int(activeCards),
+		TotalViews:       int(totalViews),
+		PopularCards:     popularCardDTOs,
+		DailyStats:       dailyStats,
+		RecentActivities: recentActivities,
 	}
 
 	return response, nil
@@ -221,11 +221,11 @@ func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID ui
 
 	// 创建活动记录
 	activity := model.KuaishouCardActivity{
-		CardID:		cardID,
-		ActivityType:	action,
-		IPAddress:	userIP,
-		UserAgent:	userAgent,
-		ExtraData:	extraData,
+		CardID:       cardID,
+		ActivityType: action,
+		IPAddress:    userIP,
+		UserAgent:    userAgent,
+		ExtraData:    extraData,
 	}
 
 	if err := s.db.Create(&activity).Error; err != nil {

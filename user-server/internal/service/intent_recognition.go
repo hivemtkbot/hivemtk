@@ -35,7 +35,7 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 }
 
 // SetSOPService 注入 SOP 服务用于意图→SOP 联动（P0-12）
-func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService)  {
+func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService) {
 	s.sopService = svc
 }
 
@@ -245,7 +245,7 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 }
 
 // recognizeByRule 规则匹配
-func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string)  *dto.RecognizeResult {
+func (s *IntentRecognizer) recognizeByRule(ctx context.Context, text string) *dto.RecognizeResult {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
@@ -448,7 +448,7 @@ func extractJSONFromStr(s string) string {
 }
 
 // GetIntentStats 获取意图统计
-func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int)  (map[string]int, error) {
+func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int) (map[string]int, error) {
 	if s.db == nil {
 		return map[string]int{}, nil
 	}
@@ -463,12 +463,11 @@ func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int)  (map[s
 	for _, r := range records {
 		stats[r.IntentType]++
 	}
-	stats["total"] = len(records)
 	return stats, nil
 }
 
 // GetRecentIntents 客户近期意图历史
-func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID string, limit int)  ([]model.IntentRecord, error) {
+func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID string, limit int) ([]model.IntentRecord, error) {
 	if s.db == nil {
 		return nil, nil
 	}
@@ -476,26 +475,6 @@ func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID stri
 	err := s.db.Where("customer_id = ?", customerID).
 		Order("created_at DESC").Limit(limit).Find(&records).Error
 	return records, err
-}
-
-// ListRecentIntents 近期意图列表（支持意图类型过滤与分页）
-func (s *IntentRecognizer) ListRecentIntents(ctx context.Context, intentType string, offset, limit int) ([]model.IntentRecord, int64, error) {
-	if s.db == nil {
-		return nil, 0, nil
-	}
-	q := s.db.Model(&model.IntentRecord{}).Order("id DESC")
-	if intentType != "" {
-		q = q.Where("intent_type = ?", intentType)
-	}
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.IntentRecord
-	if err := q.Offset(offset).Limit(limit).Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-	return list, total, nil
 }
 
 // 全局实例管理

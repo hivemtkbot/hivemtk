@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -254,13 +255,13 @@ func (c *LLMRoutingController) CostStats(ctx *gin.Context) {
 	}
 	// 转换为前端期望的形态
 	out := gin.H{
-		"window":        summary.WindowLabel,
-		"monthly_cost":  summary.TotalCost,
-		"total_tokens":  summary.TotalTokens,
-		"total_calls":   summary.TotalCalls,
-		"by_scenario":   summary.ByScenario,
-		"by_provider":   summary.ByProvider,
-		"by_model":      summary.ByProvider, // 前端字段别名
+		"window":         summary.WindowLabel,
+		"monthly_cost":   summary.TotalCost,
+		"total_tokens":   summary.TotalTokens,
+		"total_calls":    summary.TotalCalls,
+		"by_scenario":    summary.ByScenario,
+		"by_provider":    summary.ByProvider,
+		"by_model":       summary.ByProvider, // 前端字段别名
 		"enabled_models": summary.EnabledModels,
 		"active_models":  summary.ActiveModels,
 	}
@@ -283,4 +284,209 @@ func (c *LLMRoutingController) FallbackConfig(ctx *gin.Context) {
 		})
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
+}
+
+// ============================================================================
+// 补全端点（2026-07-24 E2E 完整性补齐）
+// ----------------------------------------------------------------------------
+//   1. /api/llm/scenarios        场景列表（strategies 别名）
+//   2. /api/llm/health           整体健康度（聚合 provider 维度）
+//   3. /api/llm/scenario-stats   场景聚合统计（Usage 别名）
+//   4. /api/llm/model-type-stats 模型类型聚合（local/cloud）
+//   5. /api/llm/egress-alerts    出域告警
+//   6. /api/llm/egress-audit     出域审计
+// ============================================================================
+
+// ListScenarios 场景列表（与 strategies 同义）
+//
+// GET /api/llm/scenarios
+func (c *LLMRoutingController) ListScenarios(ctx *gin.Context) {
+	routes := c.routingService.ListStrategies(ctx.Request.Context())
+	models := c.routingService.ListModels(ctx.Request.Context())
+	modelOf := make(map[string]string, len(models))
+	for _, m := range models {
+		modelOf[m.Name] = m.Model
+	}
+	out := make([]gin.H, 0, len(routes))
+	for _, r := range routes {
+		out = append(out, gin.H{
+			"scenario":  r.Scenario,
+			"provider":  r.Provider,
+			"model":     modelOf[r.Provider],
+			"weight":    r.Weight,
+			"fallbacks": r.Fallbacks,
+			"version":   r.Version,
+		})
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 0, "data": out})
+}
+
+// Health 整体健康度
+//
+// GET /api/llm/health
+// 返回：{status, providers: [{name, enabled, healthy, latency_ms}]}
+func (c *LLMRoutingController) Health(ctx *gin.Context) {
+	models := c.routingService.ListModels(ctx.Request.Context())
+	providers := make([]gin.H, 0, len(models))
+	healthyCount := 0
+	for _, m := range models {
+		healthy := m.Enabled && m.BaseURL != ""
+		if healthy {
+			healthyCount++
+		}
+		providers = append(providers, gin.H{
+			"name":         m.Name,
+			"enabled":      m.Enabled,
+			"healthy":      healthy,
+			"avg_latency":  m.AvgLatencyMs,
+			"quality":      m.QualityScore,
+		})
+	}
+	status := "ok"
+	if len(models) == 0 {
+		status = "empty"
+	} else if healthyCount == 0 {
+		status = "down"
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":   0,
+		"data": gin.H{
+			"status":          status,
+			"total_providers": len(models),
+			"healthy_providers": healthyCount,
+			"providers":       providers,
+		},
+	})
+}
+
+// ScenarioStats 场景聚合统计（Usage 别名）
+//
+// GET /api/llm/scenario-stats?window=today|week|month|all
+func (c *LLMRoutingController) ScenarioStats(ctx *gin.Context) {
+	window := ctx.DefaultQuery("window", "month")
+	summary, err := c.routingService.Usage(ctx.Request.Context(), window)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"window":      summary.WindowLabel,
+			"by_scenario": summary.ByScenario,
+			"total_calls": summary.TotalCalls,
+			"total_tokens": summary.TotalTokens,
+			"total_cost":  summary.TotalCost,
+		},
+	})
+}
+
+// ModelTypeStats 模型类型聚合（local / cloud）
+//
+// GET /api/llm/model-type-stats?window=today|week|month|all
+// 当前实现：从 in-memory stats + 场景聚合结果按 provider 推导。
+// 后续可在 llm_routing_logs 表加 model_type 字段后改走 SQL 聚合。
+func (c *LLMRoutingController) ModelTypeStats(ctx *gin.Context) {
+	window := ctx.DefaultQuery("window", "month")
+	summary, err := c.routingService.Usage(ctx.Request.Context(), window)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	models := c.routingService.ListModels(ctx.Request.Context())
+	providerToType := make(map[string]string, len(models))
+	for _, m := range models {
+		// BaseURL 为空或 localhost/127.0.0.1/self_hosted → 本地
+		isLocal := m.BaseURL == "" ||
+			strings.Contains(m.BaseURL, "localhost") ||
+			strings.Contains(m.BaseURL, "127.0.0.1") ||
+			strings.Contains(strings.ToLower(m.Vendor), "self") ||
+			strings.HasPrefix(m.Name, "default")
+		if isLocal {
+			providerToType[m.Name] = "local"
+		} else {
+			providerToType[m.Name] = "cloud"
+		}
+	}
+	localCalls, cloudCalls := int64(0), int64(0)
+	localTokens, cloudTokens := int64(0), int64(0)
+	localCost, cloudCost := 0.0, 0.0
+	for _, p := range summary.ByProvider {
+		if providerToType[p.Provider] == "local" {
+			localCalls += p.CallCount
+			localTokens += p.TotalTokens
+			localCost += p.TotalCost
+		} else {
+			cloudCalls += p.CallCount
+			cloudTokens += p.TotalTokens
+			cloudCost += p.TotalCost
+		}
+	}
+	total := localCalls + cloudCalls
+	selfSuf := 0.0
+	if total > 0 {
+		selfSuf = float64(localCalls) / float64(total)
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"window": window,
+			"by_provider_type": []gin.H{
+				{
+					"model_type":  "local",
+					"call_count":  localCalls,
+					"total_tokens": localTokens,
+					"total_cost":  localCost,
+				},
+				{
+					"model_type":  "cloud",
+					"call_count":  cloudCalls,
+					"total_tokens": cloudTokens,
+					"total_cost":  cloudCost,
+				},
+			},
+			"self_sufficiency": selfSuf,
+		},
+	})
+}
+
+// EgressAlerts 出域告警（"应该本地推理但出域到云端"）
+//
+// GET /api/llm/egress-alerts
+// 当前实现：列出标记为"local"但有非空 base_url 的 provider（潜在出域配置错误）。
+// 后续可接 LLMEgressAuditor 做更精细审计。
+func (c *LLMRoutingController) EgressAlerts(ctx *gin.Context) {
+	models := c.routingService.ListModels(ctx.Request.Context())
+	alerts := make([]gin.H, 0)
+	for _, m := range models {
+		base := strings.ToLower(m.BaseURL)
+		// 标记为本地但实际指向云端 → 出域告警
+		isLocalHint := strings.HasPrefix(m.Name, "default") || m.Vendor == "self_hosted"
+		isRemoteHost := base != "" && !strings.Contains(base, "localhost") &&
+			!strings.Contains(base, "127.0.0.1") && !strings.Contains(base, "0.0.0.0")
+		if isLocalHint && isRemoteHost {
+			alerts = append(alerts, gin.H{
+				"severity":   "high",
+				"alert_type": "local_egress",
+				"provider":   m.Name,
+				"base_url":   m.BaseURL,
+				"enabled":    m.Enabled,
+				"description": "本地推理 provider 配置了外部 base_url，可能导致数据出域",
+			})
+		}
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"alerts": alerts,
+			"count":  len(alerts),
+		},
+	})
+}
+
+// EgressAudit 出域审计（同 EgressAlerts，别名）
+//
+// GET /api/llm/egress-audit?window=hour
+func (c *LLMRoutingController) EgressAudit(ctx *gin.Context) {
+	c.EgressAlerts(ctx)
 }

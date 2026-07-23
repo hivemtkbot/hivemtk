@@ -8,7 +8,6 @@ package dto
 // 私域独立部署: 无 merchant_id 字段
 
 import (
-	"strconv"
 	"time"
 
 	"marketing/internal/model"
@@ -98,64 +97,36 @@ type ABTestAnalysis struct {
 }
 
 // ThresholdPolicyRequest 阈值策略 Upsert 请求 DTO
-// 契约对齐前端置信度面板(Tab3): 前端发送 id/name/scenario/base_threshold/vip_threshold/transfer_low/is_active/remark
 type ThresholdPolicyRequest struct {
-	ID              int64   `json:"id"` // 编辑时传入(model.ID), 新建为 0
-	Name            string  `json:"name" binding:"required,max=128"`
-	Scenario        string  `json:"scenario" binding:"max=64"`
-	BaseThreshold   float64 `json:"base_threshold" binding:"min=0,max=1"`
-	VipThreshold    float64 `json:"vip_threshold" binding:"min=0,max=1"`
-	TransferLow     float64 `json:"transfer_low" binding:"min=0,max=1"`
-	IsActive        *bool   `json:"is_active"`
-	Remark          string  `json:"remark"`
-	// 兼容字段(可选, 后端自动派生默认值)
-	PolicyID         string `json:"policy_id"`
-	IntentType       string `json:"intent_type"`
-	ReviewSLASeconds int    `json:"review_sla_seconds"`
-	Version          int    `json:"version"`
+	PolicyID                string  `json:"policy_id" binding:"required,min=1,max=64"`
+	IntentType              string  `json:"intent_type" binding:"required,min=1,max=64"`
+	BaseThreshold           float64 `json:"base_threshold" binding:"required,min=0,max=1"`
+	CustomerLevelWeight     float64 `json:"customer_level_weight" binding:"min=0,max=1"`
+	TimeslotWeight          float64 `json:"timeslot_weight" binding:"min=0,max=1"`
+	AgentAvailabilityWeight float64 `json:"agent_availability_weight" binding:"min=0,max=1"`
+	BandHandoffUpper        float64 `json:"band_handoff_upper" binding:"min=0,max=1"`
+	BandFallbackUpper       float64 `json:"band_fallback_upper" binding:"min=0,max=1"`
+	BandReviewUpper         float64 `json:"band_review_upper" binding:"min=0,max=1"`
+	ReviewSLASeconds        int     `json:"review_sla_seconds" binding:"min=1"`
+	Version                 int     `json:"version" binding:"min=1"`
 }
 
 // ToModel 转 Model(供 Service/Repository 使用)
 func (r *ThresholdPolicyRequest) ToModel() *model.ThresholdPolicy {
 	now := time.Now()
-	isActive := true
-	if r.IsActive != nil {
-		isActive = *r.IsActive
+	return &model.ThresholdPolicy{
+		PolicyID:                r.PolicyID,
+		IntentType:              r.IntentType,
+		BaseThreshold:           r.BaseThreshold,
+		CustomerLevelWeight:     r.CustomerLevelWeight,
+		TimeslotWeight:          r.TimeslotWeight,
+		AgentAvailabilityWeight: r.AgentAvailabilityWeight,
+		BandHandoffUpper:        r.BandHandoffUpper,
+		BandFallbackUpper:       r.BandFallbackUpper,
+		BandReviewUpper:         r.BandReviewUpper,
+		ReviewSLASeconds:        r.ReviewSLASeconds,
+		Version:                 r.Version,
+		CreatedAt:               now,
+		UpdatedAt:               now,
 	}
-	m := &model.ThresholdPolicy{
-		Name:             r.Name,
-		Scenario:         r.Scenario,
-		BaseThreshold:    r.BaseThreshold,
-		VipThreshold:     r.VipThreshold,
-		TransferLow:      r.TransferLow,
-		IsActive:         isActive,
-		Remark:           r.Remark,
-		IntentType:       r.IntentType,
-		ReviewSLASeconds: r.ReviewSLASeconds,
-		Version:          r.Version,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-	}
-	if r.ID > 0 {
-		m.ID = r.ID
-	}
-	if r.PolicyID != "" {
-		m.PolicyID = r.PolicyID
-	}
-	if m.IntentType == "" {
-		m.IntentType = "all"
-	}
-	if m.Scenario == "" {
-		m.Scenario = "all"
-	}
-	if m.ReviewSLASeconds <= 0 {
-		m.ReviewSLASeconds = 30
-	}
-	if m.Version <= 0 {
-		m.Version = 1
-	}
-	if m.PolicyID == "" {
-		m.PolicyID = "pol_" + strconv.FormatInt(now.UnixNano(), 36)
-	}
-	return m
 }

@@ -40,7 +40,7 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 
 // ListStaffs 列出员工
 func (c *SalesPersonaController) ListStaffs(ctx *gin.Context) {
-	staffs, err := c.svc.ListStaffs(context.Background(), )
+	staffs, err := c.svc.ListStaffs(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

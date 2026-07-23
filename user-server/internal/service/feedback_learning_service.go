@@ -44,34 +44,34 @@ func NewFeedbackLearningService(db *gorm.DB) *FeedbackLearningService {
 
 // ChampionDimensionScore 单维度得分
 type ChampionDimensionScore struct {
-	Dimension	model.SalesChampionDimension	`json:"dimension"`
-	Name		string				`json:"name"`
-	Score		float64				`json:"score"`	// 0-100
-	SampleCount	int				`json:"sample_count"`
-	PositiveCount	int				`json:"positive_count"`
-	NegativeCount	int				`json:"negative_count"`
-	EvidenceTags	[]string			`json:"evidence_tags"`
+	Dimension     model.SalesChampionDimension `json:"dimension"`
+	Name          string                       `json:"name"`
+	Score         float64                      `json:"score"` // 0-100
+	SampleCount   int                          `json:"sample_count"`
+	PositiveCount int                          `json:"positive_count"`
+	NegativeCount int                          `json:"negative_count"`
+	EvidenceTags  []string                     `json:"evidence_tags"`
 }
 
 // ChampionProfileReport 销冠画像报告（5 维度雷达）
 type ChampionProfileReport struct {
-	StaffID		uint				`json:"staff_id"`
-	StaffName	string				`json:"staff_name"`
-	Scenario	string				`json:"scenario"`	// ai_champion / staff_xxx
-	Dimensions	[]ChampionDimensionScore	`json:"dimensions"`
-	OverallScore	float64				`json:"overall_score"`	// 5 维度平均
-	PeriodStart	time.Time			`json:"period_start"`
-	PeriodEnd	time.Time			`json:"period_end"`
-	GeneratedAt	time.Time			`json:"generated_at"`
+	StaffID      uint                     `json:"staff_id"`
+	StaffName    string                   `json:"staff_name"`
+	Scenario     string                   `json:"scenario"` // ai_champion / staff_xxx
+	Dimensions   []ChampionDimensionScore `json:"dimensions"`
+	OverallScore float64                  `json:"overall_score"` // 5 维度平均
+	PeriodStart  time.Time                `json:"period_start"`
+	PeriodEnd    time.Time                `json:"period_end"`
+	GeneratedAt  time.Time                `json:"generated_at"`
 }
 
 // DimensionDimensionName 维度中文名映射
 var dimensionNameMap = map[model.SalesChampionDimension]string{
-	model.DimensionObjectionHandling:	"异议处理能力",
-	model.DimensionClosingInvitation:	"逼单邀约能力",
-	model.DimensionFollowupActivation:	"跟进激活能力",
-	model.DimensionNurturingConversion:	"培育转化能力",
-	model.DimensionRepurchaseOperation:	"复购运营能力",
+	model.DimensionObjectionHandling:   "异议处理能力",
+	model.DimensionClosingInvitation:   "逼单邀约能力",
+	model.DimensionFollowupActivation:  "跟进激活能力",
+	model.DimensionNurturingConversion: "培育转化能力",
+	model.DimensionRepurchaseOperation: "复购运营能力",
 }
 
 // DimensionName 维度中文名
@@ -111,12 +111,12 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 	customerMsgMap, _ := s.queryCustomerMessages(ctx, sessionIDs, periodStart, periodEnd)
 
 	report := &ChampionProfileReport{
-		StaffID:	staffID,
-		StaffName:	staffName,
-		Scenario:	scenario,
-		PeriodStart:	periodStart,
-		PeriodEnd:	periodEnd,
-		GeneratedAt:	time.Now(),
+		StaffID:     staffID,
+		StaffName:   staffName,
+		Scenario:    scenario,
+		PeriodStart: periodStart,
+		PeriodEnd:   periodEnd,
+		GeneratedAt: time.Now(),
 	}
 
 	// 逐维度提取
@@ -147,8 +147,8 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 // extractDimension 提取单维度得分
 func (s *FeedbackLearningService) extractDimension(ctx context.Context, dim model.SalesChampionDimension, messages []model.SessionMessage, customerMsgs map[string][]model.SessionMessage) ChampionDimensionScore {
 	score := ChampionDimensionScore{
-		Dimension:	dim,
-		EvidenceTags:	[]string{},
+		Dimension:    dim,
+		EvidenceTags: []string{},
 	}
 
 	var positive, negative int
@@ -194,8 +194,8 @@ func (s *FeedbackLearningService) extractDimension(ctx context.Context, dim mode
 
 // dimensionEvidence 维度证据
 type dimensionEvidence struct {
-	positive	bool
-	tag		string
+	positive bool
+	tag      string
 }
 
 // classifyDimensionHit 判断该消息是否命中指定维度
@@ -386,28 +386,28 @@ func classifyRepurchaseOperation(aiReply, customerMsg string) (bool, dimensionEv
 
 // SOPNodeConversionStats SOP 节点转化率统计
 type SOPNodeConversionStats struct {
-	SOPID			uint			`json:"sop_id"`
-	SOPName			string			`json:"sop_name"`
-	Variant			string			`json:"variant"`	// A/B 测试 variant
-	Nodes			[]NodeConversionDetail	`json:"nodes"`
-	TotalExecutions		int64			`json:"total_executions"`
-	OverallConversion	float64			`json:"overall_conversion"`	// 端到端转化率
-	GeneratedAt		time.Time		`json:"generated_at"`
+	SOPID             uint                   `json:"sop_id"`
+	SOPName           string                 `json:"sop_name"`
+	Variant           string                 `json:"variant"` // A/B 测试 variant
+	Nodes             []NodeConversionDetail `json:"nodes"`
+	TotalExecutions   int64                  `json:"total_executions"`
+	OverallConversion float64                `json:"overall_conversion"` // 端到端转化率
+	GeneratedAt       time.Time              `json:"generated_at"`
 }
 
 // NodeConversionDetail 节点转化详情
 type NodeConversionDetail struct {
-	NodeID		string	`json:"node_id"`
-	NodeName	string	`json:"node_name"`
-	NodeType	string	`json:"node_type"`
-	EnteredCount	int	`json:"entered_count"`		// 进入该节点的执行数
-	SuccessCount	int	`json:"success_count"`		// 成功推进数
-	AbandonedCount	int	`json:"abandoned_count"`	// 流失数
-	FailedCount	int	`json:"failed_count"`		// 失败数
-	ConversionRate	float64	`json:"conversion_rate"`	// 转化率 = success / entered * 100
-	DropRate	float64	`json:"drop_rate"`		// 流失率 = abandoned / entered * 100
-	AvgDurationMs	int	`json:"avg_duration_ms"`	// 平均停留时长
-	IsBottleneck	bool	`json:"is_bottleneck"`		// 是否瓶颈节点
+	NodeID         string  `json:"node_id"`
+	NodeName       string  `json:"node_name"`
+	NodeType       string  `json:"node_type"`
+	EnteredCount   int     `json:"entered_count"`   // 进入该节点的执行数
+	SuccessCount   int     `json:"success_count"`   // 成功推进数
+	AbandonedCount int     `json:"abandoned_count"` // 流失数
+	FailedCount    int     `json:"failed_count"`    // 失败数
+	ConversionRate float64 `json:"conversion_rate"` // 转化率 = success / entered * 100
+	DropRate       float64 `json:"drop_rate"`       // 流失率 = abandoned / entered * 100
+	AvgDurationMs  int     `json:"avg_duration_ms"` // 平均停留时长
+	IsBottleneck   bool    `json:"is_bottleneck"`   // 是否瓶颈节点
 }
 
 // AnalyzeNodeConversion 分析 SOP 节点转化率
@@ -434,10 +434,10 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 	}
 
 	stats := &SOPNodeConversionStats{
-		SOPID:		sopID,
-		SOPName:	agent.Name,
-		Variant:	variant,
-		GeneratedAt:	time.Now(),
+		SOPID:       sopID,
+		SOPName:     agent.Name,
+		Variant:     variant,
+		GeneratedAt: time.Now(),
 	}
 
 	// 按节点聚合
@@ -446,8 +446,8 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		node := nodeMap[t.ToNode]
 		if node == nil {
 			node = &NodeConversionDetail{
-				NodeID:		t.ToNode,
-				NodeType:	t.NodeType,
+				NodeID:   t.ToNode,
+				NodeType: t.NodeType,
 			}
 			nodeMap[t.ToNode] = node
 		}
@@ -501,11 +501,11 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 
 // OptimizationSuggestionInput 优化建议生成输入
 type OptimizationSuggestionInput struct {
-	SOPID			uint
-	SOPName			string
-	NodeConversion		*SOPNodeConversionStats
-	LowScoreThreshold	float64	// 转化率低于此值生成建议（默认 50）
-	MinSampleCount		int	// 最小样本数（默认 5）
+	SOPID             uint
+	SOPName           string
+	NodeConversion    *SOPNodeConversionStats
+	LowScoreThreshold float64 // 转化率低于此值生成建议（默认 50）
+	MinSampleCount    int     // 最小样本数（默认 5）
 }
 
 // GenerateOptimizationSuggestions 为低转化节点生成优化建议
@@ -549,15 +549,15 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 // buildOptimizationSuggestion 根据节点类型和问题生成建议
 func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversionDetail, threshold float64) model.OptimizationSuggestion {
 	sug := model.OptimizationSuggestion{
-		SOPID:		sopID,
-		SOPName:	sopName,
-		NodeID:		node.NodeID,
-		NodeName:	node.NodeName,
-		NodeType:	node.NodeType,
-		CurrentScore:	node.ConversionRate,
-		Threshold:	threshold,
-		SampleCount:	node.EnteredCount,
-		Status:		model.SuggestionStatusPending,
+		SOPID:        sopID,
+		SOPName:      sopName,
+		NodeID:       node.NodeID,
+		NodeName:     node.NodeName,
+		NodeType:     node.NodeType,
+		CurrentScore: node.ConversionRate,
+		Threshold:    threshold,
+		SampleCount:  node.EnteredCount,
+		Status:       model.SuggestionStatusPending,
 	}
 
 	// 根据节点类型和流失情况生成建议
@@ -605,13 +605,13 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 
 	// 证据数据
 	sug.EvidenceData = map[string]any{
-		"entered_count":	node.EnteredCount,
-		"success_count":	node.SuccessCount,
-		"abandoned_count":	node.AbandonedCount,
-		"failed_count":		node.FailedCount,
-		"conversion_rate":	node.ConversionRate,
-		"drop_rate":		node.DropRate,
-		"is_bottleneck":	node.IsBottleneck,
+		"entered_count":   node.EnteredCount,
+		"success_count":   node.SuccessCount,
+		"abandoned_count": node.AbandonedCount,
+		"failed_count":    node.FailedCount,
+		"conversion_rate": node.ConversionRate,
+		"drop_rate":       node.DropRate,
+		"is_bottleneck":   node.IsBottleneck,
 	}
 
 	return sug
@@ -659,8 +659,8 @@ func (s *FeedbackLearningService) ReviewSuggestion(ctx context.Context, suggesti
 	}
 	now := time.Now()
 	updates := map[string]any{
-		"reviewed_by":	reviewerID,
-		"reviewed_at":	&now,
+		"reviewed_by": reviewerID,
+		"reviewed_at": &now,
 	}
 	switch action {
 	case "approve":
@@ -685,7 +685,7 @@ func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID 
 	}
 	q := s.db.WithContext(ctx).Model(&model.SalesChampionProfileSnapshot{}).
 		Order("generated_at DESC").
-		Limit(5)	// 每维度最新 1 条，共 5 条
+		Limit(5) // 每维度最新 1 条，共 5 条
 	if staffID > 0 {
 		q = q.Where("staff_id = ?", staffID)
 	}
@@ -707,17 +707,17 @@ func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID 
 func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, report *ChampionProfileReport) error {
 	for _, dim := range report.Dimensions {
 		snapshot := model.SalesChampionProfileSnapshot{
-			StaffID:	report.StaffID,
-			StaffName:	report.StaffName,
-			Scenario:	report.Scenario,
-			Dimension:	string(dim.Dimension),
-			Score:		dim.Score,
-			SampleCount:	dim.SampleCount,
-			PositiveCount:	dim.PositiveCount,
-			NegativeCount:	dim.NegativeCount,
-			EvidenceTags:	toStringArray(dim.EvidenceTags),
-			PeriodStart:	report.PeriodStart,
-			PeriodEnd:	report.PeriodEnd,
+			StaffID:       report.StaffID,
+			StaffName:     report.StaffName,
+			Scenario:      report.Scenario,
+			Dimension:     string(dim.Dimension),
+			Score:         dim.Score,
+			SampleCount:   dim.SampleCount,
+			PositiveCount: dim.PositiveCount,
+			NegativeCount: dim.NegativeCount,
+			EvidenceTags:  toStringArray(dim.EvidenceTags),
+			PeriodStart:   report.PeriodStart,
+			PeriodEnd:     report.PeriodEnd,
 		}
 		if err := s.db.WithContext(ctx).Create(&snapshot).Error; err != nil {
 			return fmt.Errorf("persist snapshot: %w", err)

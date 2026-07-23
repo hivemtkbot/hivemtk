@@ -99,7 +99,6 @@ func TestAccount_WithEmptyFields(t *testing.T) {
 	}
 }
 
-
 func TestAccount_WithProxyConfig(t *testing.T) {
 	account := &Account{
 		ProxyEnableProxy: true,

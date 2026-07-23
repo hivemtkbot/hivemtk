@@ -80,12 +80,12 @@ func InitMemorySystem(db *gorm.DB) *MemorySystem {
 
 // SetEmbeddingService 替换 Embedding 服务（用于测试注入 HashEmbeddingService）
 // 非并发安全，应在初始化阶段调用
-func (m *MemorySystem) SetEmbeddingService(ctx context.Context, svc llm.EmbeddingServiceInterface)  {
+func (m *MemorySystem) SetEmbeddingService(ctx context.Context, svc llm.EmbeddingServiceInterface) {
 	m.embeddingSvc = svc
 }
 
 // WithEmbeddingService 链式调用注入 Embedding 服务
-func (m *MemorySystem) WithEmbeddingService(ctx context.Context, svc llm.EmbeddingServiceInterface)  *MemorySystem {
+func (m *MemorySystem) WithEmbeddingService(ctx context.Context, svc llm.EmbeddingServiceInterface) *MemorySystem {
 	m.embeddingSvc = svc
 	return m
 }
@@ -647,7 +647,7 @@ func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, qu
 // rerank 重排序：综合得分 = similarity * 0.6 + importance_score * 0.3 + recency_score * 0.1
 //   - importance_score = importance / 10
 //   - recency_score = 1 - (now - created_at) / 30d（30 天衰减为 0，clamp 到 [0,1]）
-func (m *MemorySystem) rerank(ctx context.Context, rows []longTermMemoryRow, limit int)  []LongTermMemoryRecallResult {
+func (m *MemorySystem) rerank(ctx context.Context, rows []longTermMemoryRow, limit int) []LongTermMemoryRecallResult {
 	now := time.Now()
 	results := make([]LongTermMemoryRecallResult, 0, len(rows))
 	for _, r := range rows {

@@ -86,13 +86,13 @@ func NewSSEClient(id, ip string, topics []string) *SSEClient {
 }
 
 // ID 返回客户端 ID
-func (c *SSEClient) ID(ctx context.Context)  string { return c.id }
+func (c *SSEClient) ID(ctx context.Context) string { return c.id }
 
 // IP 返回客户端 IP
-func (c *SSEClient) IP(ctx context.Context)  string { return c.ip }
+func (c *SSEClient) IP(ctx context.Context) string { return c.ip }
 
 // Topics 返回订阅的 topics
-func (c *SSEClient) Topics(ctx context.Context)  []string {
+func (c *SSEClient) Topics(ctx context.Context) []string {
 	out := make([]string, 0, len(c.topics))
 	for t := range c.topics {
 		out = append(out, t)
@@ -101,12 +101,12 @@ func (c *SSEClient) Topics(ctx context.Context)  []string {
 }
 
 // IsSubscribed 判断是否订阅了指定 topic
-func (c *SSEClient) IsSubscribed(ctx context.Context, topic string)  bool {
+func (c *SSEClient) IsSubscribed(ctx context.Context, topic string) bool {
 	return c.topics[topic]
 }
 
 // Send 发送事件到客户端缓冲区（非阻塞，缓冲区满时关闭连接）
-func (c *SSEClient) Send(ctx context.Context, event SSEEvent)  bool {
+func (c *SSEClient) Send(ctx context.Context, event SSEEvent) bool {
 	if c.closed.Load() {
 		return false
 	}
@@ -120,24 +120,24 @@ func (c *SSEClient) Send(ctx context.Context, event SSEEvent)  bool {
 }
 
 // Events 返回事件 channel（供 controller 读取）
-func (c *SSEClient) Events(ctx context.Context)  <-chan SSEEvent {
+func (c *SSEClient) Events(ctx context.Context) <-chan SSEEvent {
 	return c.eventCh
 }
 
 // CloseCh 返回关闭信号 channel
-func (c *SSEClient) CloseCh(ctx context.Context)  <-chan struct{} {
+func (c *SSEClient) CloseCh(ctx context.Context) <-chan struct{} {
 	return c.closeCh
 }
 
 // Close 关闭客户端
-func (c *SSEClient) Close(ctx context.Context)  {
+func (c *SSEClient) Close(ctx context.Context) {
 	if c.closed.CompareAndSwap(false, true) {
 		close(c.closeCh)
 	}
 }
 
 // Closed 判断是否已关闭
-func (c *SSEClient) Closed(ctx context.Context)  bool {
+func (c *SSEClient) Closed(ctx context.Context) bool {
 	return c.closed.Load()
 }
 
@@ -161,7 +161,7 @@ func NewSSEHub() *SSEHub {
 
 // Register 注册新客户端
 // 返回 nil 表示超过单 IP 连接上限
-func (h *SSEHub) Register(ctx context.Context, client *SSEClient)  error {
+func (h *SSEHub) Register(ctx context.Context, client *SSEClient) error {
 	if client == nil {
 		return fmt.Errorf("client is nil")
 	}
@@ -183,7 +183,7 @@ func (h *SSEHub) Register(ctx context.Context, client *SSEClient)  error {
 }
 
 // Unregister 注销客户端
-func (h *SSEHub) Unregister(ctx context.Context, clientID string)  {
+func (h *SSEHub) Unregister(ctx context.Context, clientID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	client, ok := h.clients[clientID]
@@ -197,11 +197,11 @@ func (h *SSEHub) Unregister(ctx context.Context, clientID string)  {
 			delete(h.ipCount, client.ip)
 		}
 	}
-	client.Close(context.Background(), )
+	client.Close(context.Background())
 }
 
 // Publish 向指定 topic 的所有订阅者广播事件
-func (h *SSEHub) Publish(ctx context.Context, event SSEEvent)  {
+func (h *SSEHub) Publish(ctx context.Context, event SSEEvent) {
 	if h.stopped.Load() {
 		return
 	}
@@ -225,28 +225,28 @@ func (h *SSEHub) Publish(ctx context.Context, event SSEEvent)  {
 }
 
 // GetClientCount 返回当前客户端总数
-func (h *SSEHub) GetClientCount(ctx context.Context)  int {
+func (h *SSEHub) GetClientCount(ctx context.Context) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
 }
 
 // GetIPCount 返回指定 IP 的连接数
-func (h *SSEHub) GetIPCount(ctx context.Context, ip string)  int {
+func (h *SSEHub) GetIPCount(ctx context.Context, ip string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.ipCount[ip]
 }
 
 // GetClient 返回指定 ID 的客户端
-func (h *SSEHub) GetClient(ctx context.Context, clientID string)  *SSEClient {
+func (h *SSEHub) GetClient(ctx context.Context, clientID string) *SSEClient {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.clients[clientID]
 }
 
 // ListClients 列出所有客户端信息（用于管理 API）
-func (h *SSEHub) ListClients(ctx context.Context)  []map[string]any {
+func (h *SSEHub) ListClients(ctx context.Context) []map[string]any {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	out := make([]map[string]any, 0, len(h.clients))
@@ -254,7 +254,7 @@ func (h *SSEHub) ListClients(ctx context.Context)  []map[string]any {
 		out = append(out, map[string]any{
 			"id":         c.id,
 			"ip":         c.ip,
-			"topics":     c.Topics(context.Background(), ),
+			"topics":     c.Topics(context.Background()),
 			"created_at": c.createdAt,
 			"uptime_sec": int(time.Since(c.createdAt).Seconds()),
 		})
@@ -263,12 +263,12 @@ func (h *SSEHub) ListClients(ctx context.Context)  []map[string]any {
 }
 
 // Stop 停止 Hub（关闭所有客户端连接）
-func (h *SSEHub) Stop(ctx context.Context)  {
+func (h *SSEHub) Stop(ctx context.Context) {
 	if h.stopped.CompareAndSwap(false, true) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		for _, c := range h.clients {
-			c.Close(context.Background(), )
+			c.Close(context.Background())
 		}
 		h.clients = make(map[string]*SSEClient)
 		h.ipCount = make(map[string]int)
@@ -277,7 +277,7 @@ func (h *SSEHub) Stop(ctx context.Context)  {
 }
 
 // Stopped 返回是否已停止
-func (h *SSEHub) Stopped(ctx context.Context)  bool {
+func (h *SSEHub) Stopped(ctx context.Context) bool {
 	return h.stopped.Load()
 }
 
@@ -307,7 +307,7 @@ func GetGlobalSSEHub() *SSEHub {
 // PublishSSEEvent 便捷方法：发布事件到全局 SSE Hub
 func PublishSSEEvent(topic, eventType string, data any, traceID string) {
 	hub := GetGlobalSSEHub()
-	if hub == nil || hub.Stopped(context.Background(), ) {
+	if hub == nil || hub.Stopped(context.Background()) {
 		return
 	}
 	hub.Publish(context.Background(), SSEEvent{
@@ -412,7 +412,7 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 		EventType: "connected",
 		Data: map[string]any{
 			"client_id": client.id,
-			"topics":    client.Topics(context.Background(), ),
+			"topics":    client.Topics(context.Background()),
 			"message":   "SSE connected",
 		},
 		Timestamp: time.Now(),
@@ -431,10 +431,10 @@ func SSEStreamHandler(c *gin.Context, hub *SSEHub, client *SSEClient) {
 		case <-hub.stopCh:
 			// Hub 停止
 			return
-		case <-client.CloseCh(context.Background(), ):
+		case <-client.CloseCh(context.Background()):
 			// 客户端被关闭
 			return
-		case event := <-client.Events(context.Background(), ):
+		case event := <-client.Events(context.Background()):
 			// 推送事件
 			if err := SSEWriteEvent(c, event); err != nil {
 				return

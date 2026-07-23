@@ -22,7 +22,7 @@ func NewSystemConfigController() *SystemConfigController {
 
 // GetConfig 获取系统配置
 func (c *SystemConfigController) GetConfig(ctx *gin.Context) {
-	config, err := c.svc.GetConfig(context.Background(), )
+	config, err := c.svc.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -47,7 +47,7 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 
 // ResetSystem 重置系统
 func (c *SystemConfigController) ResetSystem(ctx *gin.Context) {
-	err := c.svc.ResetSystem(context.Background(), )
+	err := c.svc.ResetSystem(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

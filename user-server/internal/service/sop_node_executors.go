@@ -367,7 +367,7 @@ func defaultScriptForNodeType(nodeType string) string {
 // 设计：sop_dispatcher 启动时 WSHub 为 nil（避免循环依赖），
 // 启动后由 main.go 调用 dispatcher.SetWSHub(hub) 注入，再由 dispatcher
 // 调用每个 MessageNodeBase.SetWSHub 真正注入到执行器。
-func (b *MessageNodeBase) SetWSHub(ctx context.Context, hub *websocket.Hub)  {
+func (b *MessageNodeBase) SetWSHub(ctx context.Context, hub *websocket.Hub) {
 	b.wsHub = hub
 }
 
@@ -778,7 +778,7 @@ func RegisterAllNodeExecutors(registry *NodeExecutorRegistry, deps *SOPNodeExecu
 	registry.Register(context.Background(), &ConditionExecutor{nodeType: SOPNodeTypeBranch})
 
 	logger.GetLogger().Info().
-		Strs("registered_types", registry.AllRegistered(context.Background(), )).
+		Strs("registered_types", registry.AllRegistered(context.Background())).
 		Msg("all sop node executors registered")
 }
 

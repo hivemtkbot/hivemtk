@@ -321,6 +321,16 @@ func AutoMigrate() *gorm.DB {
 	for _, m := range allModels() {
 		if err := DB.AutoMigrate(m); err != nil {
 			if isTolerableMigrateError(err) {
+				// 兜底（缺陷闭环）：可容忍错误（历史约束命名漂移等）可能来自
+				// 级联关联模型的迁移——例如 platform_account_configs 的 belongs-to
+				// 关联 RagProduct 在迁移时触发 rag_products 的约束漂移错误，导致
+				// 整个 AutoMigrate 在「本表尚未创建」时被中断。此时用 CreateTable
+				// 仅建本表（不递归迁移关联模型），并先剔除可能残留的同名
+				// composite type（历史手动建表/部分迁移遗留），避开建表名冲突，
+				// 保证表真实落地。
+				if !DB.Migrator().HasTable(m) {
+					createTableFallback(m)
+				}
 				tolerated++
 				continue
 			}
@@ -389,4 +399,31 @@ func missingTables(db *gorm.DB, models ...any) []string {
 		}
 	}
 	return missing
+}
+
+// tableNameOf 通过 GORM 解析模型对应的表名（含自定义 TableName）。
+func tableNameOf(db *gorm.DB, m any) string {
+	stmt := &gorm.Statement{DB: db, Dest: m}
+	stmt.Parse(m)
+	return stmt.Table
+}
+
+// createTableFallback 在 AutoMigrate 被可容忍错误中断、但本表尚未建成时，
+// 仅建本表（CreateTable 不递归迁移关联模型，避开级联约束漂移），并先剔除
+// 可能残留的同名 composite type（历史手动建表 / 部分迁移遗留），否则
+// CREATE TABLE 会因类型名冲突而静默失败（"type already exists" 被误判可容忍）。
+// 建表后二次核对：仍缺失则直接 panic，不留瑕疵。
+func createTableFallback(m any) {
+	if tn := tableNameOf(DB, m); tn != "" {
+		// 剔除同名 composite type，避免 CREATE TABLE 名冲突导致静默失败。
+		DB.Exec(fmt.Sprintf("DROP TYPE IF EXISTS %s CASCADE", tn))
+	}
+	if cerr := DB.Migrator().CreateTable(m); cerr != nil && !isTolerableMigrateError(cerr) {
+		panic(fmt.Sprintf("AutoMigrate 兜底 CreateTable(%T) 失败: %v", m, cerr))
+	}
+	if DB.Migrator().HasTable(m) {
+		logger.Warn(fmt.Sprintf("AutoMigrate 兜底 CreateTable 已重建缺失表: %s", tableNameOf(DB, m)))
+	} else {
+		panic(fmt.Sprintf("AutoMigrate 兜底 CreateTable(%T) 后表仍缺失，需排查建表失败根因", m))
+	}
 }

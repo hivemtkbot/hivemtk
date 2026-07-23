@@ -275,7 +275,7 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 
 // recognizeFineByRule 精细意图规则匹配
 // 优先匹配子类关键词，未命中子类则匹配大类通用关键词
-func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string)  *IntentResult {
+func (s *IntentRecognizer) recognizeFineByRule(ctx context.Context, text string) *IntentResult {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
@@ -487,7 +487,7 @@ func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessio
 //   - customerID: 客户 ID（可选，空表示不限）
 //   - major: 大类过滤（可选，空表示不限）
 //   - limit: 返回条数上限
-func (s *IntentRecognizer) GetIntentLogs(ctx context.Context, customerID, major string, limit int)  ([]model.IntentLog, error) {
+func (s *IntentRecognizer) GetIntentLogs(ctx context.Context, customerID, major string, limit int) ([]model.IntentLog, error) {
 	if s.db == nil {
 		return nil, nil
 	}
@@ -510,7 +510,7 @@ func (s *IntentRecognizer) GetIntentLogs(ctx context.Context, customerID, major 
 //
 // 参数：
 //   - days: 统计最近 N 天的数据
-func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int)  (map[string]any, error) {
+func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int) (map[string]any, error) {
 	if s.db == nil {
 		return nil, nil
 	}
@@ -574,7 +574,7 @@ func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int)  (ma
 
 // QueryIntentLogsByTraceID 通过 trace_id 查询该 trace 关联的所有 IntentLog
 // 供 trace API 使用，由 controller 调用
-func (s *IntentRecognizer) QueryIntentLogsByTraceID(ctx context.Context, traceID string)  ([]model.IntentLog, error) {
+func (s *IntentRecognizer) QueryIntentLogsByTraceID(ctx context.Context, traceID string) ([]model.IntentLog, error) {
 	if s.db == nil || traceID == "" {
 		return nil, nil
 	}

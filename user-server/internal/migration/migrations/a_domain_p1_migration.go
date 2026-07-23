@@ -33,7 +33,9 @@ func NewADomainP1Migration(db *gorm.DB) *ADomainP1Migration {
 func (m *ADomainP1Migration) Version() string { return "v2.11.0" }
 
 // Name 返回迁移名称
-func (m *ADomainP1Migration) Name() string { return "A 域 P1 缺口修复 - 团队用户表已并入 system_users" }
+func (m *ADomainP1Migration) Name() string {
+	return "A 域 P1 缺口修复 - 团队用户表已并入 system_users"
+}
 
 // Description 返回迁移描述
 func (m *ADomainP1Migration) Description() string {

@@ -28,27 +28,27 @@ func NewQuickReplyService() *QuickReplyService {
 
 // CreateReplyRequest 创建快捷回复请求
 type CreateReplyRequest struct {
-	Category	string	`json:"category" binding:"required"`
-	Title		string	`json:"title" binding:"required"`
-	Content		string	`json:"content" binding:"required"`
-	Channel		string	`json:"channel"`
-	SortOrder	int	`json:"sort_order"`
-	IsPublic	bool	`json:"is_public"`
+	Category  string `json:"category" binding:"required"`
+	Title     string `json:"title" binding:"required"`
+	Content   string `json:"content" binding:"required"`
+	Channel   string `json:"channel"`
+	SortOrder int    `json:"sort_order"`
+	IsPublic  bool   `json:"is_public"`
 }
 
 // CreateReply 创建快捷回复
 func (s *QuickReplyService) CreateReply(ctx context.Context, createdBy uint, req *CreateReplyRequest) (*model.QuickReply, error) {
 	reply := &model.QuickReply{
-		Category:	req.Category,
-		Title:		req.Title,
-		Content:	req.Content,
-		Channel:	req.Channel,
-		SortOrder:	req.SortOrder,
-		IsPublic:	req.IsPublic,
-		CreatedBy:	createdBy,
+		Category:  req.Category,
+		Title:     req.Title,
+		Content:   req.Content,
+		Channel:   req.Channel,
+		SortOrder: req.SortOrder,
+		IsPublic:  req.IsPublic,
+		CreatedBy: createdBy,
 	}
 	if !reply.IsPublic {
-		reply.IsPublic = true	// 默认公开
+		reply.IsPublic = true // 默认公开
 	}
 
 	if err := s.replyRepo.Create(ctx, reply); err != nil {
@@ -96,6 +96,6 @@ func (s *QuickReplyService) GetReplies(ctx context.Context, category string) ([]
 }
 
 // GetCategories 获取快捷回复分类
-func (s *QuickReplyService) GetCategories(ctx context.Context,) ([]string, error) {
+func (s *QuickReplyService) GetCategories(ctx context.Context) ([]string, error) {
 	return s.replyRepo.GetCategories(ctx)
 }

@@ -81,7 +81,7 @@ func (c *MigrationController) GetUpgradeHistory(ctx *gin.Context) {
 
 // GetMigrationRecords 获取迁移记录
 func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
-	records, err := c.migrationService.GetMigrationRecords(context.Background(), )
+	records, err := c.migrationService.GetMigrationRecords(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -92,7 +92,7 @@ func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
 
 // GetCurrentVersion 获取当前数据库版本
 func (c *MigrationController) GetCurrentVersion(ctx *gin.Context) {
-	version, err := c.migrationService.GetCurrentVersion(context.Background(), )
+	version, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -112,7 +112,7 @@ func (c *MigrationController) CreateUpgradeTask(ctx *gin.Context) {
 	}
 
 	// 获取当前版本
-	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background(), )
+	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -149,14 +149,14 @@ func (c *MigrationController) Rollback(ctx *gin.Context) {
 // GetAvailableUpgrades 获取可执行的迁移列表
 func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 	// 获取当前版本
-	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background(), )
+	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// 获取待执行的迁移
-	pendingMigrations, err := c.migrationService.GetPendingMigrations(context.Background(), )
+	pendingMigrations, err := c.migrationService.GetPendingMigrations(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

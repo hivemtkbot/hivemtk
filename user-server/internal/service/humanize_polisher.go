@@ -102,7 +102,7 @@ func (p *HumanizePolisher) Polish(ctx context.Context, raw string, pctx *PolishC
 }
 
 // removeAITraces 去除 AI 痕迹
-func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string)  string {
+func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string) string {
 	aiTraces := []string{
 		"作为 AI 助手",
 		"作为人工智能",
@@ -123,7 +123,7 @@ func (p *HumanizePolisher) removeAITraces(ctx context.Context, text string)  str
 }
 
 // removeExtraSymbols 去除多余符号
-func (p *HumanizePolisher) removeExtraSymbols(ctx context.Context, text string)  string {
+func (p *HumanizePolisher) removeExtraSymbols(ctx context.Context, text string) string {
 	// 把连续的"！"压缩成1个（半角 + 全角）
 	multiBang := regexp.MustCompile(`[!！]{2,}`)
 	text = multiBang.ReplaceAllString(text, "！")
@@ -140,7 +140,7 @@ func (p *HumanizePolisher) removeExtraSymbols(ctx context.Context, text string) 
 }
 
 // applyPlatformStyle 应用平台风格
-func (p *HumanizePolisher) applyPlatformStyle(ctx context.Context, text string, pctx *PolishContext)  string {
+func (p *HumanizePolisher) applyPlatformStyle(ctx context.Context, text string, pctx *PolishContext) string {
 	if pctx == nil || pctx.Platform == "" {
 		return text
 	}
@@ -162,7 +162,7 @@ func (p *HumanizePolisher) applyPlatformStyle(ctx context.Context, text string, 
 }
 
 // getStyleForPlatform 获取平台风格
-func (p *HumanizePolisher) getStyleForPlatform(ctx context.Context, platform string)  PlatformStyle {
+func (p *HumanizePolisher) getStyleForPlatform(ctx context.Context, platform string) PlatformStyle {
 	switch strings.ToLower(platform) {
 	case "wechat", "weixin":
 		return PlatformStyle{AllowEmoji: true, AllowFormality: false, StyleName: "wechat"}
@@ -184,7 +184,7 @@ func (p *HumanizePolisher) getStyleForPlatform(ctx context.Context, platform str
 }
 
 // truncateByLength 按长度截断
-func (p *HumanizePolisher) truncateByLength(ctx context.Context, text string, maxLen int)  string {
+func (p *HumanizePolisher) truncateByLength(ctx context.Context, text string, maxLen int) string {
 	// 按 rune 计数（中文友好）
 	runes := []rune(text)
 	if len(runes) <= maxLen {
@@ -198,7 +198,7 @@ func (p *HumanizePolisher) truncateByLength(ctx context.Context, text string, ma
 }
 
 // personalize 个性化称呼
-func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform string)  string {
+func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform string) string {
 	if name == "" {
 		return text
 	}
@@ -218,7 +218,7 @@ func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform
 }
 
 // shouldAddParticle 是否应添加语气词
-func (p *HumanizePolisher) shouldAddParticle(ctx context.Context, pctx *PolishContext)  bool {
+func (p *HumanizePolisher) shouldAddParticle(ctx context.Context, pctx *PolishContext) bool {
 	// 投诉、流失倾向不添加（避免火上浇油）
 	noParticleIntents := map[string]bool{
 		IntentComplaint: true,
@@ -232,7 +232,7 @@ func (p *HumanizePolisher) shouldAddParticle(ctx context.Context, pctx *PolishCo
 }
 
 // addNaturalParticle 添加自然语气词
-func (p *HumanizePolisher) addNaturalParticle(ctx context.Context, text string, pctx *PolishContext)  string {
+func (p *HumanizePolisher) addNaturalParticle(ctx context.Context, text string, pctx *PolishContext) string {
 	// 极轻量化：仅在首句添加，最多 1 个
 	if text == "" || len([]rune(text)) > 60 {
 		return text

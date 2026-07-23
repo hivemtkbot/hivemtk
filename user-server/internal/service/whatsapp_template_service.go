@@ -8,13 +8,13 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/repository"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 type WhatsAppTemplateService struct {
-	db	*gorm.DB	// 保留以维持签名兼容（controller 直接传入）
-	repo	*repository.WhatsappTemplateRepository
+	db   *gorm.DB // 保留以维持签名兼容（controller 直接传入）
+	repo *repository.WhatsappTemplateRepository
 }
 
 func NewWhatsAppTemplateService(db *gorm.DB) *WhatsAppTemplateService {

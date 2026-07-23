@@ -30,15 +30,15 @@ var smsNonRetryableErrorPrefixes = []string{"ERR_4"}
 
 // DeliveryReportRequest 运营商状态报告 webhook 请求体
 type DeliveryReportRequest struct {
-	MessageID	string	`json:"messageId" binding:"required"`
-	Phone		string	`json:"phone"`
-	JobID		string	`json:"jobId"`
-	Provider	string	`json:"provider"`
-	Status		string	`json:"status" binding:"required"`	// delivered / failed / pending / sent
-	ErrorCode	string	`json:"errorCode"`
-	ErrorMsg	string	`json:"errorMsg"`
-	SentAt		string	`json:"sentAt"`
-	DeliveredAt	string	`json:"deliveredAt"`
+	MessageID   string `json:"messageId" binding:"required"`
+	Phone       string `json:"phone"`
+	JobID       string `json:"jobId"`
+	Provider    string `json:"provider"`
+	Status      string `json:"status" binding:"required"` // delivered / failed / pending / sent
+	ErrorCode   string `json:"errorCode"`
+	ErrorMsg    string `json:"errorMsg"`
+	SentAt      string `json:"sentAt"`
+	DeliveredAt string `json:"deliveredAt"`
 }
 
 // SmsTrackingService 短信追踪服务
@@ -124,19 +124,19 @@ func (s *SmsTrackingService) RecordDeliveryReport(ctx context.Context, req *Deli
 
 	// 新记录
 	record := &model.SmsDeliveryStatus{
-		MessageID:	req.MessageID,
-		Phone:		NormalizePhone(req.Phone),
-		JobID:		req.JobID,
-		Provider:	req.Provider,
-		Status:		status,
-		ErrorCode:	req.ErrorCode,
-		ErrorMsg:	req.ErrorMsg,
-		IsRetryable:	isRetryable,
-		RetryCount:	0,
-		MaxRetry:	smsMaxRetryCount,
-		SentAt:		sentAt,
-		DeliveredAt:	deliveredAt,
-		ReceivedAt:	now,
+		MessageID:   req.MessageID,
+		Phone:       NormalizePhone(req.Phone),
+		JobID:       req.JobID,
+		Provider:    req.Provider,
+		Status:      status,
+		ErrorCode:   req.ErrorCode,
+		ErrorMsg:    req.ErrorMsg,
+		IsRetryable: isRetryable,
+		RetryCount:  0,
+		MaxRetry:    smsMaxRetryCount,
+		SentAt:      sentAt,
+		DeliveredAt: deliveredAt,
+		ReceivedAt:  now,
 	}
 	return s.repo.CreateStatus(ctx, record)
 }
@@ -245,7 +245,7 @@ func (s *SmsTrackingService) GetJobMetrics(ctx context.Context, jobID string) (*
 
 	metric.TotalSent = sent
 	metric.TotalDelivered = delivered
-	metric.TotalFailed = failed + retryable	// failed 含永久失败 + 待重试
+	metric.TotalFailed = failed + retryable // failed 含永久失败 + 待重试
 	metric.TotalRetried = retryable
 
 	if sent > 0 {
@@ -286,11 +286,11 @@ func (s *SmsTrackingService) GetRangeMetrics(ctx context.Context, start, end tim
 	}
 
 	metric := &model.SmsJobMetric{
-		JobID:		"range",
-		TotalSent:	sent,
-		TotalDelivered:	delivered,
-		TotalFailed:	failed + retryable,
-		TotalRetried:	retryable,
+		JobID:          "range",
+		TotalSent:      sent,
+		TotalDelivered: delivered,
+		TotalFailed:    failed + retryable,
+		TotalRetried:   retryable,
 	}
 	if sent > 0 {
 		metric.DeliveryRate = round2(float64(delivered) / float64(sent) * 100)

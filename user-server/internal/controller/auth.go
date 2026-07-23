@@ -345,7 +345,7 @@ func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
 	}
 
 	// 颁发正式 JWT
-	jwtUtils := c.authService.JwtUtils(context.Background(), )
+	jwtUtils := c.authService.JwtUtils(context.Background())
 	token, err := jwtUtils.GenerateToken(userID, username, role)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "颁发令牌失败")
@@ -483,7 +483,7 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 // GET /api/auth/password-policy
 func (c *AuthController) GetPasswordPolicy(ctx *gin.Context) {
 	policySvc := service.NewPasswordPolicyService()
-	policy := policySvc.GetPolicy(context.Background(), )
+	policy := policySvc.GetPolicy(context.Background())
 	response.Success(ctx, policy, "查询成功")
 }
 

@@ -27,7 +27,7 @@ func NewEventTracker(customerService *CustomerService) *EventTracker {
 }
 
 // DisableAsync 禁用异步处理（用于测试）
-func (s *EventTracker) DisableAsync(ctx context.Context)  {
+func (s *EventTracker) DisableAsync(ctx context.Context) {
 	s.disableAsync = true
 }
 
@@ -123,7 +123,7 @@ func (s *EventTracker) TrackPurchase(ctx context.Context, customerID string, amo
 }
 
 // GetEventHistory 获取客户事件历史
-func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, limit int)  ([]*model.CustomerEvent, error) {
+func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error) {
 	if limit <= 0 {
 		limit = DefaultLimit
 	}
@@ -135,7 +135,7 @@ func (s *EventTracker) GetEventHistory(ctx context.Context, customerID string, l
 }
 
 // GetStats 获取事件统计
-func (s *EventTracker) GetStats(ctx context.Context, start, end string)  (*repository.EventStats, error) {
+func (s *EventTracker) GetStats(ctx context.Context, start, end string) (*repository.EventStats, error) {
 	// 解析时间范围
 	startTime, err := time.Parse("2006-01-02", start)
 	if err != nil {
@@ -217,7 +217,7 @@ func (s *EventTracker) GetEventCount(ctx context.Context, customerID string) (in
 }
 
 // DeleteByCustomerID 删除指定客户的所有事件，返回删除条数
-func (s *EventTracker) DeleteByCustomerID(ctx context.Context, customerID string)  (int64, error) {
+func (s *EventTracker) DeleteByCustomerID(ctx context.Context, customerID string) (int64, error) {
 	return s.repo.DeleteByCustomerID(ctx, customerID)
 }
 

@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"marketing/internal/repository"
 	"context"
+	"marketing/internal/repository"
 )
 
 // processStartTime 记录进程启动时间，用于计算系统运行时长
@@ -133,16 +133,16 @@ func (s *SystemMonitorService) GetSystemStats(ctx context.Context) (map[string]a
 	diskUsage := getDiskUsage()
 
 	stats := map[string]any{
-		"total_users":		totalUsers,
-		"total_orders":		totalOrders,
-		"total_cards":		totalCards,
-		"total_short_links":	totalShortLinks,
-		"today_visits":		todayVisits,
-		"system_uptime":	uptime,
-		"cpu_usage":		cpuUsage,
-		"memory_usage":		memUsage,
-		"disk_usage":		diskUsage,
-		"timestamp":		time.Now(),
+		"total_users":       totalUsers,
+		"total_orders":      totalOrders,
+		"total_cards":       totalCards,
+		"total_short_links": totalShortLinks,
+		"today_visits":      todayVisits,
+		"system_uptime":     uptime,
+		"cpu_usage":         cpuUsage,
+		"memory_usage":      memUsage,
+		"disk_usage":        diskUsage,
+		"timestamp":         time.Now(),
 	}
 
 	return stats, nil
@@ -183,24 +183,24 @@ func (s *SystemMonitorService) GetDetailedSystemStats(ctx context.Context) (map[
 
 	detailedStats := map[string]any{
 		"basic_stats": map[string]any{
-			"total_users":		totalUsers,
-			"total_orders":		totalOrders,
-			"total_cards":		totalCards,
-			"total_short_links":	totalShortLinks,
-			"today_visits":		todayVisits,
-			"active_users_today":	activeUsers,
-			"total_merchants":	totalMerchants,
+			"total_users":        totalUsers,
+			"total_orders":       totalOrders,
+			"total_cards":        totalCards,
+			"total_short_links":  totalShortLinks,
+			"today_visits":       todayVisits,
+			"active_users_today": activeUsers,
+			"total_merchants":    totalMerchants,
 			// 开源版：移除 total_licenses 字段
 		},
 		"business_stats": map[string]any{
-			"total_auto_reply_accounts":	totalAutoReplyAccounts,
-			"total_auto_reply_rules":	totalAutoReplyRules,
-			"total_email_lists":		totalEmailLists,
-			"total_email_jobs":		totalEmailJobs,
-			"total_materials":		totalMaterials,
+			"total_auto_reply_accounts": totalAutoReplyAccounts,
+			"total_auto_reply_rules":    totalAutoReplyRules,
+			"total_email_lists":         totalEmailLists,
+			"total_email_jobs":          totalEmailJobs,
+			"total_materials":           totalMaterials,
 		},
-		"system_metrics":	systemMetrics,
-		"timestamp":		time.Now(),
+		"system_metrics": systemMetrics,
+		"timestamp":      time.Now(),
 	}
 
 	return detailedStats, nil

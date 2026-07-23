@@ -18,11 +18,11 @@ type RegistryInitializer func(*MigrationRegistry, *gorm.DB)
 
 // MigrationService 迁移服务
 type MigrationService struct {
-	registry	*MigrationRegistry
-	db		*gorm.DB
-	taskRepo	*repository.UpgradeTaskRepository
-	recordRepo	*repository.MigrationRecordRepository
-	checkpointRepo	*repository.MigrationCheckpointRepository
+	registry       *MigrationRegistry
+	db             *gorm.DB
+	taskRepo       *repository.UpgradeTaskRepository
+	recordRepo     *repository.MigrationRecordRepository
+	checkpointRepo *repository.MigrationCheckpointRepository
 }
 
 // NewMigrationService 创建迁移服务实例(保留旧签名,兼容旧调用)
@@ -30,11 +30,11 @@ func NewMigrationService(registry *MigrationRegistry, db *gorm.DB, initFunc Regi
 	// 注册所有迁移
 	initFunc(registry, db)
 	return &MigrationService{
-		registry:	registry,
-		db:		db,
-		taskRepo:	repository.NewUpgradeTaskRepository(),
-		recordRepo:	repository.NewMigrationRecordRepository(),
-		checkpointRepo:	repository.NewMigrationCheckpointRepository(),
+		registry:       registry,
+		db:             db,
+		taskRepo:       repository.NewUpgradeTaskRepository(),
+		recordRepo:     repository.NewMigrationRecordRepository(),
+		checkpointRepo: repository.NewMigrationCheckpointRepository(),
 	}
 }
 
@@ -46,9 +46,9 @@ func NewMigrationServiceDefault(registry *MigrationRegistry, initFunc RegistryIn
 // ExecuteUpgrade 执行升级
 func (s *MigrationService) ExecuteUpgrade(ctx context.Context, fromVersion, toVersion string) (*model.UpgradeTask, error) {
 	task := &model.UpgradeTask{
-		FromVersion:	fromVersion,
-		ToVersion:	toVersion,
-		Status:		"pending",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		Status:      "pending",
 	}
 	if err := s.taskRepo.Create(ctx, task); err != nil {
 		return nil, err
@@ -122,12 +122,12 @@ func (s *MigrationService) executeUpgradeAsync(parentCtx context.Context, taskID
 		}
 
 		record := &model.MigrationRecord{
-			Version:	migration.Version(),
-			Name:		migration.Name(),
-			Type:		"database",
-			Status:		"completed",
-			ExecutedAt:	time.Now(),
-			ExecutedBy:	"system",
+			Version:    migration.Version(),
+			Name:       migration.Name(),
+			Type:       "database",
+			Status:     "completed",
+			ExecutedAt: time.Now(),
+			ExecutedBy: "system",
 		}
 		s.recordRepo.Create(bgCtx, record)
 	}
@@ -179,8 +179,8 @@ func (s *MigrationService) SaveCheckpoint(ctx context.Context, checkpoint string
 	}
 
 	cp := &model.MigrationCheckpoint{
-		Checkpoint:	checkpoint,
-		Data:		string(dataJSON),
+		Checkpoint: checkpoint,
+		Data:       string(dataJSON),
 	}
 	return s.checkpointRepo.Upsert(ctx, cp)
 }

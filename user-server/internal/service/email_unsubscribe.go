@@ -31,10 +31,10 @@ const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev
 
 // UnsubscribeClaim 退订 token 中携带的声明
 type UnsubscribeClaim struct {
-	Email	string	`json:"email"`
-	JobID	string	`json:"job_id"`
-	Expire	int64	`json:"expire"`
-	Nonce	string	`json:"nonce"`
+	Email  string `json:"email"`
+	JobID  string `json:"job_id"`
+	Expire int64  `json:"expire"`
+	Nonce  string `json:"nonce"`
 }
 
 // EmailUnsubscribeService 邮件退订服务
@@ -84,13 +84,13 @@ func (s *EmailUnsubscribeService) UnsubscribeEmail(ctx context.Context, email, r
 	}
 
 	record := &model.EmailUnsubscribe{
-		Email:		email,
-		Reason:		reason,
-		UnsubscribedAt:	now,
-		SourceLink:	sourceLink,
-		IP:		ip,
-		UA:		ua,
-		JobID:		jobID,
+		Email:          email,
+		Reason:         reason,
+		UnsubscribedAt: now,
+		SourceLink:     sourceLink,
+		IP:             ip,
+		UA:             ua,
+		JobID:          jobID,
 	}
 	return s.repo.Create(ctx, record)
 }
@@ -129,10 +129,10 @@ func (s *EmailUnsubscribeService) GenerateUnsubscribeLink(ctx context.Context, e
 	}
 
 	claim := UnsubscribeClaim{
-		Email:	email,
-		JobID:	jobID,
-		Expire:	time.Now().Add(emailUnsubscribeTokenTTL).Unix(),
-		Nonce:	fmt.Sprintf("unsub-%d", time.Now().UnixNano()),
+		Email:  email,
+		JobID:  jobID,
+		Expire: time.Now().Add(emailUnsubscribeTokenTTL).Unix(),
+		Nonce:  fmt.Sprintf("unsub-%d", time.Now().UnixNano()),
 	}
 
 	payload, err := json.Marshal(claim)

@@ -65,7 +65,7 @@ func (c *AgentStatusController) GetAgentStatus(ctx *gin.Context) {
 
 // GetOnlineAgents 获取在线客服列表
 func (c *AgentStatusController) GetOnlineAgents(ctx *gin.Context) {
-	agents, err := c.agentService.GetOnlineAgents(context.Background(), )
+	agents, err := c.agentService.GetOnlineAgents(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -109,7 +109,7 @@ func (c *AgentStatusController) GetMyAgent(ctx *gin.Context) {
 
 // ListAllAgents 列出全部客服（监管控制台）
 func (c *AgentStatusController) ListAllAgents(ctx *gin.Context) {
-	agents, err := c.agentService.ListAllAgents(context.Background(), )
+	agents, err := c.agentService.ListAllAgents(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

@@ -19,66 +19,66 @@ import (
 
 // SOPService SOP 智能体服务
 type SOPService struct {
-	db		*gorm.DB
-	dispatcher	*llm.Dispatcher
+	db         *gorm.DB
+	dispatcher *llm.Dispatcher
 }
 
 // 常量定义
 const (
-	SOPStatusPending	= "pending"
-	SOPStatusRunning	= "running"
-	SOPStatusSuccess	= "success"
-	SOPStatusFailed		= "failed"
-	SOPStatusPaused		= "paused"
-	SOPStatusCanceled	= "canceled"
+	SOPStatusPending  = "pending"
+	SOPStatusRunning  = "running"
+	SOPStatusSuccess  = "success"
+	SOPStatusFailed   = "failed"
+	SOPStatusPaused   = "paused"
+	SOPStatusCanceled = "canceled"
 
 	// 兼容旧版节点类型（保留以向后兼容）
-	SOPNodeTypeStart	= "start"
-	SOPNodeTypeMessage	= "message"
-	SOPNodeTypeBranch	= "branch"
-	SOPNodeTypeWait		= "wait"
-	SOPNodeTypeAction	= "action"
-	SOPNodeTypeEnd		= "end"
-	SOPNodeTypeAIDecide	= "ai_decide"
-	SOPNodeTypeSendOffer	= "send_offer"
+	SOPNodeTypeStart     = "start"
+	SOPNodeTypeMessage   = "message"
+	SOPNodeTypeBranch    = "branch"
+	SOPNodeTypeWait      = "wait"
+	SOPNodeTypeAction    = "action"
+	SOPNodeTypeEnd       = "end"
+	SOPNodeTypeAIDecide  = "ai_decide"
+	SOPNodeTypeSendOffer = "send_offer"
 
 	// 商用级 14 节点类型（PRD §5.2 P0-2 标准）
-	SOPNodeTypeGreeting	= "greeting"	// 问候
-	SOPNodeTypeInquire	= "inquire"	// 询问需求
-	SOPNodeTypeIntroduce	= "introduce"	// 介绍产品
-	SOPNodeTypeHandle	= "handle"	// 异议处理
-	SOPNodeTypeClose	= "close"	// 促单
-	SOPNodeTypeInvite	= "invite"	// 邀约
-	SOPNodeTypeFollowUp	= "follow_up"	// 跟进
-	SOPNodeTypeActivate	= "activate"	// 激活沉默客户
-	SOPNodeTypeNurture	= "nurture"	// 培育线索
-	SOPNodeTypeCondition	= "condition"	// 条件分支（替代旧 branch）
-	SOPNodeTypeLLM		= "llm"		// LLM 决策节点
+	SOPNodeTypeGreeting  = "greeting"  // 问候
+	SOPNodeTypeInquire   = "inquire"   // 询问需求
+	SOPNodeTypeIntroduce = "introduce" // 介绍产品
+	SOPNodeTypeHandle    = "handle"    // 异议处理
+	SOPNodeTypeClose     = "close"     // 促单
+	SOPNodeTypeInvite    = "invite"    // 邀约
+	SOPNodeTypeFollowUp  = "follow_up" // 跟进
+	SOPNodeTypeActivate  = "activate"  // 激活沉默客户
+	SOPNodeTypeNurture   = "nurture"   // 培育线索
+	SOPNodeTypeCondition = "condition" // 条件分支（替代旧 branch）
+	SOPNodeTypeLLM       = "llm"       // LLM 决策节点
 
-	SOPTriggerManual	= "manual"
-	SOPTriggerAuto		= "auto"
-	SOPTriggerIntent	= "intent"
-	SOPTriggerSchedule	= "schedule"
+	SOPTriggerManual   = "manual"
+	SOPTriggerAuto     = "auto"
+	SOPTriggerIntent   = "intent"
+	SOPTriggerSchedule = "schedule"
 )
 
 // SOPNodeSupportedTypes 当前支持的节点类型集合（用于校验）
 var SOPNodeSupportedTypes = map[string]bool{
-	SOPNodeTypeStart:	true, SOPNodeTypeMessage: true, SOPNodeTypeBranch: true,
-	SOPNodeTypeWait:	true, SOPNodeTypeAction: true, SOPNodeTypeEnd: true,
-	SOPNodeTypeAIDecide:	true, SOPNodeTypeSendOffer: true,
-	SOPNodeTypeGreeting:	true, SOPNodeTypeInquire: true, SOPNodeTypeIntroduce: true,
-	SOPNodeTypeHandle:	true, SOPNodeTypeClose: true, SOPNodeTypeInvite: true,
-	SOPNodeTypeFollowUp:	true, SOPNodeTypeActivate: true, SOPNodeTypeNurture: true,
-	SOPNodeTypeCondition:	true, SOPNodeTypeLLM: true,
+	SOPNodeTypeStart: true, SOPNodeTypeMessage: true, SOPNodeTypeBranch: true,
+	SOPNodeTypeWait: true, SOPNodeTypeAction: true, SOPNodeTypeEnd: true,
+	SOPNodeTypeAIDecide: true, SOPNodeTypeSendOffer: true,
+	SOPNodeTypeGreeting: true, SOPNodeTypeInquire: true, SOPNodeTypeIntroduce: true,
+	SOPNodeTypeHandle: true, SOPNodeTypeClose: true, SOPNodeTypeInvite: true,
+	SOPNodeTypeFollowUp: true, SOPNodeTypeActivate: true, SOPNodeTypeNurture: true,
+	SOPNodeTypeCondition: true, SOPNodeTypeLLM: true,
 }
 
 // 错误定义
 var (
-	ErrSOPNotFound		= errors.New("sop not found")
-	ErrSOPInvalidGraph	= errors.New("invalid sop graph")
-	ErrSOPNoStart		= errors.New("sop graph has no start node")
-	ErrSOPExecNotFound	= errors.New("execution not found")
-	ErrSOPExecNotRunning	= errors.New("execution is not running")
+	ErrSOPNotFound       = errors.New("sop not found")
+	ErrSOPInvalidGraph   = errors.New("invalid sop graph")
+	ErrSOPNoStart        = errors.New("sop graph has no start node")
+	ErrSOPExecNotFound   = errors.New("execution not found")
+	ErrSOPExecNotRunning = errors.New("execution is not running")
 )
 
 // SOPNode SOP 节点（商用级增强版，向后兼容旧字段）
@@ -138,7 +138,7 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
 		if r := GetAssetResolver(); r != nil {
 			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
-				if cfg := plan.ToSOPABTestConfig(context.Background(), ); cfg.Validate() == nil {
+				if cfg := plan.ToSOPABTestConfig(context.Background()); cfg.Validate() == nil {
 					req.ABTestConfig = cfg
 				}
 			}
@@ -160,16 +160,16 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	}
 	agent := &model.SOPAgent{
 
-		Name:		req.Name,
-		Scenario:	req.Scenario,
-		Description:	req.Description,
-		TriggerType:	req.TriggerType,
-		TriggerConfig:	triggerMap,
-		SOPGraph:	toJSONMapBytes(graphData),
-		Priority:	req.Priority,
-		ABTestConfig:	abMap,
-		CreatedBy:	req.CreatedBy,
-		IsActive:	true,
+		Name:          req.Name,
+		Scenario:      req.Scenario,
+		Description:   req.Description,
+		TriggerType:   req.TriggerType,
+		TriggerConfig: triggerMap,
+		SOPGraph:      toJSONMapBytes(graphData),
+		Priority:      req.Priority,
+		ABTestConfig:  abMap,
+		CreatedBy:     req.CreatedBy,
+		IsActive:      true,
 	}
 	if agent.TriggerConfig == nil {
 		agent.TriggerConfig = model.JSONMap{}
@@ -190,7 +190,7 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
 	var agent model.SOPAgent
-	if err := s.db.WithContext(ctx).First( &agent, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&agent, id).Error; err != nil {
 		return nil, ErrSOPNotFound
 	}
 	graphData, _ := json.Marshal(req.SOPGraph)
@@ -217,7 +217,7 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 // Get 获取 SOP
 func (s *SOPService) Get(ctx context.Context, id uint) (*model.SOPAgent, error) {
 	var agent model.SOPAgent
-	if err := s.db.WithContext(ctx).First( &agent, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&agent, id).Error; err != nil {
 		return nil, ErrSOPNotFound
 	}
 	return &agent, nil
@@ -249,7 +249,7 @@ func (s *SOPService) List(ctx context.Context, scenario string, page, pageSize i
 
 // Delete 删除 SOP
 func (s *SOPService) Delete(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Where( "id = ?", id).Delete(&model.SOPAgent{})
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPAgent{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -317,15 +317,15 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	}
 
 	exec := &model.SOPExecution{
-		SOPID:		req.SOPID,
-		CustomerID:	req.CustomerID,
-		SessionID:	req.SessionID,
-		Status:		SOPStatusRunning,
-		CurrentNodeIdx:	0,
-		StartedAt:	time.Now(),
-		ExecutionData:	model.JSONMap(req.Input),
-		Variant:	variantName,
-		TraceID:	traceID,
+		SOPID:          req.SOPID,
+		CustomerID:     req.CustomerID,
+		SessionID:      req.SessionID,
+		Status:         SOPStatusRunning,
+		CurrentNodeIdx: 0,
+		StartedAt:      time.Now(),
+		ExecutionData:  model.JSONMap(req.Input),
+		Variant:        variantName,
+		TraceID:        traceID,
 	}
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
@@ -357,10 +357,10 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	// 若调度器未初始化（如测试场景），仅返回 Execution，节点流转由调用方 Step 推进（向后兼容）
 	if dispatcher := GetSOPExecutionDispatcher(); dispatcher != nil {
 		dispatcher.DispatchOrLog(&dispatchTask{
-			ExecutionID:	exec.ID,
-			NodeID:		startNode.ID,
-			Attempt:	0,
-			TraceID:	traceID,
+			ExecutionID: exec.ID,
+			NodeID:      startNode.ID,
+			Attempt:     0,
+			TraceID:     traceID,
 		})
 	}
 	return exec, nil
@@ -374,7 +374,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 //   - 调度器不存在时（如测试场景）：保持原有同步推进逻辑（向后兼容）
 func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOPExecution, error) {
 	var exec model.SOPExecution
-	if err := s.db.WithContext(ctx).First( &exec, req.ExecutionID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&exec, req.ExecutionID).Error; err != nil {
 		return nil, ErrSOPExecNotFound
 	}
 	if exec.Status != SOPStatusRunning {
@@ -407,10 +407,10 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 			traceID = logger.GenerateTraceID()
 		}
 		dispatcher.DispatchOrLog(&dispatchTask{
-			ExecutionID:	exec.ID,
-			NodeID:		exec.CurrentNode,
-			Attempt:	0,
-			TraceID:	traceID,
+			ExecutionID: exec.ID,
+			NodeID:      exec.CurrentNode,
+			Attempt:     0,
+			TraceID:     traceID,
 		})
 		return &exec, nil
 	}
@@ -491,15 +491,15 @@ func (s *SOPService) Cancel(ctx context.Context, execID uint) error {
 	now := time.Now()
 	return s.db.Model(&model.SOPExecution{}).Where("id = ?", execID).
 		Updates(map[string]any{
-			"status":	SOPStatusCanceled,
-			"completed_at":	now,
+			"status":       SOPStatusCanceled,
+			"completed_at": now,
 		}).Error
 }
 
 // GetExecution 获取执行
 func (s *SOPService) GetExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
 	var exec model.SOPExecution
-	if err := s.db.WithContext(ctx).First( &exec, execID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&exec, execID).Error; err != nil {
 		return nil, ErrSOPExecNotFound
 	}
 	return &exec, nil
@@ -561,11 +561,11 @@ func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]mo
 // Stats 统计
 func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats := map[string]int64{
-		"total":	0,
-		"active":	0,
-		"running":	0,
-		"success":	0,
-		"failed":	0,
+		"total":   0,
+		"active":  0,
+		"running": 0,
+		"success": 0,
+		"failed":  0,
 	}
 	if s.db == nil {
 		return stats, nil
@@ -812,8 +812,8 @@ func nextNode(graph *SOPGraph, current *SOPNode, data model.JSONMap) *SOPNode {
 
 // ===== 全局实例 =====
 var (
-	sopOnce		sync.Once
-	sopInstance	*SOPService
+	sopOnce     sync.Once
+	sopInstance *SOPService
 )
 
 func GetSOPService() *SOPService {
@@ -833,33 +833,33 @@ func InitSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
 func NewWelcomeSOP() *CreateRequest {
 	return &CreateRequest{
 
-		Name:		"客户欢迎 SOP",
-		Scenario:	"welcome",
-		Description:	"新客户接入时的标准欢迎流程（14 节点类型示范）",
-		TriggerType:	SOPTriggerAuto,
+		Name:        "客户欢迎 SOP",
+		Scenario:    "welcome",
+		Description: "新客户接入时的标准欢迎流程（14 节点类型示范）",
+		TriggerType: SOPTriggerAuto,
 		SOPGraph: SOPGraph{
-			Name:		"welcome_graph",
-			Scenario:	"welcome",
-			Version:	"2.0",
-			Entry:		"start",
-			Exits:		[]string{"end"},
+			Name:     "welcome_graph",
+			Scenario: "welcome",
+			Version:  "2.0",
+			Entry:    "start",
+			Exits:    []string{"end"},
 			Nodes: []SOPNode{
 				{ID: "start", Type: SOPNodeTypeStart, Name: "开始", Next: []string{"greeting"}},
 				{
-					ID:		"greeting",
-					Type:		SOPNodeTypeGreeting,
-					Name:		"问候",
-					Description:	"标准化客户问候",
-					Prompt:		"您好，欢迎咨询，我是您的专属顾问",
-					Next:		[]string{"inquire"},
+					ID:          "greeting",
+					Type:        SOPNodeTypeGreeting,
+					Name:        "问候",
+					Description: "标准化客户问候",
+					Prompt:      "您好，欢迎咨询，我是您的专属顾问",
+					Next:        []string{"inquire"},
 				},
 				{
-					ID:		"inquire",
-					Type:		SOPNodeTypeInquire,
-					Name:		"询问需求",
-					Description:	"了解客户核心诉求",
-					Prompt:		"请问您想了解什么产品或服务？",
-					Next:		[]string{"end"},
+					ID:          "inquire",
+					Type:        SOPNodeTypeInquire,
+					Name:        "询问需求",
+					Description: "了解客户核心诉求",
+					Prompt:      "请问您想了解什么产品或服务？",
+					Next:        []string{"end"},
 				},
 				{ID: "end", Type: SOPNodeTypeEnd, Name: "结束"},
 			},
@@ -871,32 +871,32 @@ func NewWelcomeSOP() *CreateRequest {
 func NewObjectionSOP() *CreateRequest {
 	return &CreateRequest{
 
-		Name:		"价格异议处理 SOP",
-		Scenario:	"objection_price",
-		Description:	"客户价格异议时使用，按意向分数路由不同处理路径",
-		TriggerType:	SOPTriggerIntent,
-		TriggerConfig:	map[string]any{"intents": []string{"objection_price"}},
+		Name:          "价格异议处理 SOP",
+		Scenario:      "objection_price",
+		Description:   "客户价格异议时使用，按意向分数路由不同处理路径",
+		TriggerType:   SOPTriggerIntent,
+		TriggerConfig: map[string]any{"intents": []string{"objection_price"}},
 		SOPGraph: SOPGraph{
-			Name:		"objection_price_graph",
-			Scenario:	"objection_price",
-			Version:	"2.0",
-			Entry:		"start",
-			Exits:		[]string{"end"},
+			Name:     "objection_price_graph",
+			Scenario: "objection_price",
+			Version:  "2.0",
+			Entry:    "start",
+			Exits:    []string{"end"},
 			Nodes: []SOPNode{
 				{ID: "start", Type: SOPNodeTypeStart, Name: "开始", Next: []string{"handle"}},
 				{
-					ID:		"handle",
-					Type:		SOPNodeTypeHandle,
-					Name:		"异议处理",
-					Description:	"共情客户异议",
-					Prompt:		"理解您的考虑，价格确实是重要因素",
-					Next:		[]string{"cond"},
+					ID:          "handle",
+					Type:        SOPNodeTypeHandle,
+					Name:        "异议处理",
+					Description: "共情客户异议",
+					Prompt:      "理解您的考虑，价格确实是重要因素",
+					Next:        []string{"cond"},
 				},
 				{
-					ID:		"cond",
-					Type:		SOPNodeTypeCondition,
-					Name:		"意向判断",
-					Description:	"按 intent_score 路由不同优惠力度",
+					ID:          "cond",
+					Type:        SOPNodeTypeCondition,
+					Name:        "意向判断",
+					Description: "按 intent_score 路由不同优惠力度",
 					Conditions: []SOPConditionBranch{
 						{Label: "高意向", Condition: "intent_score gte 0.7", Next: "close", Priority: 100},
 						{Label: "中意向", Condition: "intent_score gte 0.4", Next: "nurture", Priority: 50},
@@ -904,28 +904,28 @@ func NewObjectionSOP() *CreateRequest {
 					},
 				},
 				{
-					ID:		"close",
-					Type:		SOPNodeTypeClose,
-					Name:		"促单",
-					Description:	"高意向客户直接促单 + 大力度优惠",
-					Prompt:		"针对您这样的高意向客户，我们可以提供 15% 折扣",
-					Next:		[]string{"end"},
+					ID:          "close",
+					Type:        SOPNodeTypeClose,
+					Name:        "促单",
+					Description: "高意向客户直接促单 + 大力度优惠",
+					Prompt:      "针对您这样的高意向客户，我们可以提供 15% 折扣",
+					Next:        []string{"end"},
 				},
 				{
-					ID:		"nurture",
-					Type:		SOPNodeTypeNurture,
-					Name:		"培育",
-					Description:	"中意向客户培育 + 中等优惠",
-					Prompt:		"我们提供 10% 折扣，您可以先试用一周",
-					Next:		[]string{"end"},
+					ID:          "nurture",
+					Type:        SOPNodeTypeNurture,
+					Name:        "培育",
+					Description: "中意向客户培育 + 中等优惠",
+					Prompt:      "我们提供 10% 折扣，您可以先试用一周",
+					Next:        []string{"end"},
 				},
 				{
-					ID:		"follow_up",
-					Type:		SOPNodeTypeFollowUp,
-					Name:		"跟进",
-					Description:	"低意向客户后续跟进",
-					Prompt:		"好的，我先把资料发给您，后续再聊",
-					Next:		[]string{"end"},
+					ID:          "follow_up",
+					Type:        SOPNodeTypeFollowUp,
+					Name:        "跟进",
+					Description: "低意向客户后续跟进",
+					Prompt:      "好的，我先把资料发给您，后续再聊",
+					Next:        []string{"end"},
 				},
 				{ID: "end", Type: SOPNodeTypeEnd, Name: "结束"},
 			},

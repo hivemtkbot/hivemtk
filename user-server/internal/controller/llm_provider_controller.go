@@ -164,12 +164,12 @@ func (c *LLMProviderController) ResolveRoute(ctx *gin.Context) {
 	}
 	canary := llm.DecideCanaryRoute(route, body.CanaryKey)
 	resp := gin.H{
-		"scenario":   body.Scenario,
-		"provider":   route.Provider,
-		"fallbacks":  route.Fallbacks,
-		"version":    route.Version,
-		"weight":     route.Weight,
-		"is_canary":  canary != nil,
+		"scenario":  body.Scenario,
+		"provider":  route.Provider,
+		"fallbacks": route.Fallbacks,
+		"version":   route.Version,
+		"weight":    route.Weight,
+		"is_canary": canary != nil,
 	}
 	if canary != nil {
 		resp["provider"] = canary.Provider

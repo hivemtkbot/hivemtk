@@ -1,9 +1,9 @@
 /**
  * 统一通用枚举：角色（role）
  *
- * 跨业务复用：teamUser 成员角色 / community 社区角色 / dialogueMemory 对话角色 / chat 发件人角色
+ * 跨业务复用：systemUser 成员角色 / community 社区角色 / dialogueMemory 对话角色 / chat 发件人角色
  *
- * 业务视图禁止再各自维护 role label map（teamUser 已有 ROLE_LABELS、dialogueMemory 已有 getRoleLabel 等）。
+ * 业务视图禁止再各自维护 role label map（统一在此处）。
  */
 
 export const ROLE_OPTIONS = Object.freeze([

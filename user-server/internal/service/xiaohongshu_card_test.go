@@ -124,7 +124,6 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	// 先创建卡片
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Original Card",
@@ -169,7 +168,6 @@ func TestXiaohongshuCardService_Update_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	updateReq := &dto.XiaohongshuCardUpdateRequest{
 		ID:    999,
 		Title: "Non-existent Card",
@@ -185,7 +183,6 @@ func TestXiaohongshuCardService_Update_NotFound(t *testing.T) {
 func TestXiaohongshuCardService_Delete_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card to Delete",
@@ -215,7 +212,6 @@ func TestXiaohongshuCardService_Delete_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	// Service 的 Delete 方法会先检查卡片是否存在
 	// 对于不存在的卡片会返回错误
 	err := service.Delete(ctx, 999)
@@ -228,7 +224,6 @@ func TestXiaohongshuCardService_Delete_NotFound(t *testing.T) {
 func TestXiaohongshuCardService_GetByID_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Test Card",
@@ -262,7 +257,6 @@ func TestXiaohongshuCardService_GetByID_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	_, err := service.GetByID(ctx, 999)
 	if err == nil {
 		t.Error("Expected error for getting non-existent card")
@@ -273,7 +267,6 @@ func TestXiaohongshuCardService_GetByID_NotFound(t *testing.T) {
 func TestXiaohongshuCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Test Card",
@@ -304,7 +297,6 @@ func TestXiaohongshuCardService_GetCardModelByID_Success(t *testing.T) {
 func TestXiaohongshuCardService_GetList_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	for i := 1; i <= 5; i++ {
 		createReq := &dto.XiaohongshuCardCreateRequest{
@@ -341,7 +333,6 @@ func TestXiaohongshuCardService_GetList_Success(t *testing.T) {
 func TestXiaohongshuCardService_GetList_Pagination(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	for i := 1; i <= 15; i++ {
 		createReq := &dto.XiaohongshuCardCreateRequest{
@@ -386,7 +377,6 @@ func TestXiaohongshuCardService_GetList_EmptyList(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	listReq := &dto.XiaohongshuCardListRequest{
 		Page:     1,
 		PageSize: 10,
@@ -408,7 +398,6 @@ func TestXiaohongshuCardService_GetList_EmptyList(t *testing.T) {
 func TestXiaohongshuCardService_ShareCard_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Share Test Card",
@@ -433,7 +422,6 @@ func TestXiaohongshuCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	_, err := service.ShareCard(ctx, 999, "wechat")
 	if err == nil {
 		t.Error("Expected error for sharing non-existent card")
@@ -444,7 +432,6 @@ func TestXiaohongshuCardService_ShareCard_NotFound(t *testing.T) {
 func TestXiaohongshuCardService_Create_WithTags(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	req := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card with Tags",
@@ -469,7 +456,6 @@ func TestXiaohongshuCardService_Create_WithTags(t *testing.T) {
 func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
-
 
 	req := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Inactive Card",

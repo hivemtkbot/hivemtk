@@ -16,23 +16,23 @@ import (
 
 // SessionAssignmentService 会话分配服务
 type SessionAssignmentService struct {
-	sessionRepo		*repository.CustomerSessionRepository
-	messageRepo		*repository.SessionMessageRepository
-	agentRepo		*repository.AgentStatusRepository
-	ragEngine		*rag_core.RAGEngine
-	llmService		*llm.LLMService
-	confidenceThreshold	float64	// 置信度阈值，低于此值转人工
+	sessionRepo         *repository.CustomerSessionRepository
+	messageRepo         *repository.SessionMessageRepository
+	agentRepo           *repository.AgentStatusRepository
+	ragEngine           *rag_core.RAGEngine
+	llmService          *llm.LLMService
+	confidenceThreshold float64 // 置信度阈值，低于此值转人工
 }
 
 // NewSessionAssignmentService 创建会话分配服务
 func NewSessionAssignmentService() *SessionAssignmentService {
 	return &SessionAssignmentService{
-		sessionRepo:		repository.NewCustomerSessionRepository(),
-		messageRepo:		repository.NewSessionMessageRepository(),
-		agentRepo:		repository.NewAgentStatusRepository(),
-		ragEngine:		rag_core.NewRAGEngine(nil),
-		llmService:		llm.NewLLMService(),
-		confidenceThreshold:	0.7,	// 默认置信度阈值为 0.7
+		sessionRepo:         repository.NewCustomerSessionRepository(),
+		messageRepo:         repository.NewSessionMessageRepository(),
+		agentRepo:           repository.NewAgentStatusRepository(),
+		ragEngine:           rag_core.NewRAGEngine(nil),
+		llmService:          llm.NewLLMService(),
+		confidenceThreshold: 0.7, // 默认置信度阈值为 0.7
 	}
 }
 
@@ -105,20 +105,20 @@ func (s *SessionAssignmentService) createSession(ctx context.Context, msg *model
 	sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), msg.MessageID[:8])
 
 	session := &model.CustomerSession{
-		SessionID:		sessionID,
-		Platform:		msg.Platform,
-		AccountID:		msg.AccountID,
-		UserID:			msg.SenderID,
-		UserName:		msg.SenderName,
-		UserAvatar:		msg.SenderAvatar,
-		Status:			model.SessionStatusPending,
-		Priority:		0,
-		LastMessage:		msg.Content,
-		LastMessageAt:		&msg.ReceivedAt,
-		LastMessageBy:		"user",
-		MessageCount:		0,
-		AIReplyCount:		0,
-		HumanReplyCount:	0,
+		SessionID:       sessionID,
+		Platform:        msg.Platform,
+		AccountID:       msg.AccountID,
+		UserID:          msg.SenderID,
+		UserName:        msg.SenderName,
+		UserAvatar:      msg.SenderAvatar,
+		Status:          model.SessionStatusPending,
+		Priority:        0,
+		LastMessage:     msg.Content,
+		LastMessageAt:   &msg.ReceivedAt,
+		LastMessageBy:   "user",
+		MessageCount:    0,
+		AIReplyCount:    0,
+		HumanReplyCount: 0,
 	}
 
 	err := s.sessionRepo.Create(ctx, session)
@@ -132,14 +132,14 @@ func (s *SessionAssignmentService) createSession(ctx context.Context, msg *model
 // saveMessageToSession 保存消息到会话
 func (s *SessionAssignmentService) saveMessageToSession(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) error {
 	message := &model.SessionMessage{
-		SessionID:	session.SessionID,
-		Content:	msg.Content,
-		ContentType:	model.MessageTypeText,
-		MediaURL:	msg.MediaURL,
-		SenderType:	"user",
-		SenderID:	msg.SenderID,
-		SenderName:	msg.SenderName,
-		SenderAvatar:	msg.SenderAvatar,
+		SessionID:    session.SessionID,
+		Content:      msg.Content,
+		ContentType:  model.MessageTypeText,
+		MediaURL:     msg.MediaURL,
+		SenderType:   "user",
+		SenderID:     msg.SenderID,
+		SenderName:   msg.SenderName,
+		SenderAvatar: msg.SenderAvatar,
 	}
 
 	return s.messageRepo.Create(ctx, message)
@@ -147,19 +147,19 @@ func (s *SessionAssignmentService) saveMessageToSession(ctx context.Context, ses
 
 // HandlerDecision 处理者决策
 type HandlerDecision struct {
-	HandlerType	model.HandlerType	// ai 或 human
-	Confidence	float64
-	ShouldTransfer	bool
-	TransferReason	string
-	AIResponse	string
-	Priority	int
+	HandlerType    model.HandlerType // ai 或 human
+	Confidence     float64
+	ShouldTransfer bool
+	TransferReason string
+	AIResponse     string
+	Priority       int
 }
 
 // decideHandler 决策如何处理会话
 func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *model.CustomerSession, msg *model.UnifiedMessage) (*HandlerDecision, error) {
 	decision := &HandlerDecision{
-		HandlerType:	model.HandlerTypeAI,
-		Confidence:	0,
+		HandlerType: model.HandlerTypeAI,
+		Confidence:  0,
 	}
 
 	// 1. 检查会话是否已分配给人工
@@ -177,7 +177,7 @@ func (s *SessionAssignmentService) decideHandler(ctx context.Context, session *m
 	if s.isUrgentOrComplaint(ctx, msg.Content) {
 		decision.HandlerType = model.HandlerTypeHuman
 		decision.TransferReason = "检测到紧急或投诉内容"
-		decision.Priority = 2	// 紧急优先级
+		decision.Priority = 2 // 紧急优先级
 		return decision, nil
 	}
 
@@ -245,11 +245,11 @@ func (s *SessionAssignmentService) generateLLMResponse(ctx context.Context, cont
 回复：`, content)
 
 	config := &llm.LLMConfig{
-		Model:		"gpt-3.5-turbo",
-		APIType:	"openai",
-		Temperature:	0.7,
-		MaxTokens:	500,
-		ResponseFormat:	"text",
+		Model:          "gpt-3.5-turbo",
+		APIType:        "openai",
+		Temperature:    0.7,
+		MaxTokens:      500,
+		ResponseFormat: "text",
 	}
 
 	output, err := s.llmService.Generate(ctx, config, prompt)
@@ -295,14 +295,14 @@ func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *mode
 
 	// 发送 AI 回复
 	message := &model.SessionMessage{
-		SessionID:	session.SessionID,
-		Content:	response,
-		ContentType:	model.MessageTypeText,
-		SenderType:	"ai",
-		SenderID:	"system",
-		SenderName:	"AI 助手",
-		AIConfidence:	0.8,
-		AISource:	"llm",
+		SessionID:    session.SessionID,
+		Content:      response,
+		ContentType:  model.MessageTypeText,
+		SenderType:   "ai",
+		SenderID:     "system",
+		SenderName:   "AI 助手",
+		AIConfidence: 0.8,
+		AISource:     "llm",
 	}
 
 	err = s.messageRepo.Create(ctx, message)
@@ -325,9 +325,9 @@ func (s *SessionAssignmentService) handleByAI(ctx context.Context, session *mode
 	// 如果有客服在线，通知 AI 已回复
 	if session.AgentID > 0 {
 		websocket.NotifySessionUpdate(strconv.FormatUint(uint64(session.AgentID), 10), map[string]any{
-			"session_id":	session.SessionID,
-			"status":	model.SessionStatusAIHandling,
-			"ai_replied":	true,
+			"session_id": session.SessionID,
+			"status":     model.SessionStatusAIHandling,
+			"ai_replied": true,
 		})
 	}
 
@@ -385,11 +385,11 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 
 	// 通知客服
 	websocket.NotifyNewSession(strconv.FormatUint(uint64(selectedAgent.AgentID), 10), map[string]any{
-		"session_id":		session.SessionID,
-		"user_name":		session.UserName,
-		"last_message":		session.LastMessage,
-		"transfer_reason":	reason,
-		"priority":		session.Priority,
+		"session_id":      session.SessionID,
+		"user_name":       session.UserName,
+		"last_message":    session.LastMessage,
+		"transfer_reason": reason,
+		"priority":        session.Priority,
 	})
 
 	return nil
@@ -435,15 +435,15 @@ func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionI
 		}
 		// 通知新客服
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(agentID), 10), map[string]any{
-			"session_id":		session.SessionID,
-			"user_name":		session.UserName,
-			"last_message":		session.LastMessage,
-			"transfer_reason":	reason,
+			"session_id":      session.SessionID,
+			"user_name":       session.UserName,
+			"last_message":    session.LastMessage,
+			"transfer_reason": reason,
 		})
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id":	session.SessionID,
-			"handler":	"human",
-			"reason":	"已为您转接客服，请稍候",
+			"session_id": session.SessionID,
+			"handler":    "human",
+			"reason":     "已为您转接客服，请稍候",
 		}, session.SessionID)
 	}
 

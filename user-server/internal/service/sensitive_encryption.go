@@ -50,7 +50,7 @@ func NewSensitiveFieldEncryption() *SensitiveFieldEncryption {
 
 // Encrypt 加密敏感字段
 // 输出格式：base64(nonce + ciphertext + tag)
-func (e *SensitiveFieldEncryption) Encrypt(ctx context.Context, plaintext string)  (string, error) {
+func (e *SensitiveFieldEncryption) Encrypt(ctx context.Context, plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil
 	}
@@ -63,7 +63,7 @@ func (e *SensitiveFieldEncryption) Encrypt(ctx context.Context, plaintext string
 }
 
 // Decrypt 解密敏感字段
-func (e *SensitiveFieldEncryption) Decrypt(ctx context.Context, encrypted string)  (string, error) {
+func (e *SensitiveFieldEncryption) Decrypt(ctx context.Context, encrypted string) (string, error) {
 	if encrypted == "" {
 		return "", nil
 	}
@@ -84,7 +84,7 @@ func (e *SensitiveFieldEncryption) Decrypt(ctx context.Context, encrypted string
 }
 
 // EncryptAccountCookie 加密平台账号 Cookie
-func (e *SensitiveFieldEncryption) EncryptAccountCookie(ctx context.Context, platform, cookie string)  (string, error) {
+func (e *SensitiveFieldEncryption) EncryptAccountCookie(ctx context.Context, platform, cookie string) (string, error) {
 	if cookie == "" {
 		return "", nil
 	}
@@ -94,7 +94,7 @@ func (e *SensitiveFieldEncryption) EncryptAccountCookie(ctx context.Context, pla
 }
 
 // DecryptAccountCookie 解密平台账号 Cookie
-func (e *SensitiveFieldEncryption) DecryptAccountCookie(ctx context.Context, encrypted string)  (platform, cookie string, err error) {
+func (e *SensitiveFieldEncryption) DecryptAccountCookie(ctx context.Context, encrypted string) (platform, cookie string, err error) {
 	plain, err := e.Decrypt(context.Background(), encrypted)
 	if err != nil {
 		return "", "", err
@@ -108,11 +108,11 @@ func (e *SensitiveFieldEncryption) DecryptAccountCookie(ctx context.Context, enc
 }
 
 // EncryptPhone 加密手机号（用于存储客户敏感信息）
-func (e *SensitiveFieldEncryption) EncryptPhone(ctx context.Context, phone string)  (string, error) {
+func (e *SensitiveFieldEncryption) EncryptPhone(ctx context.Context, phone string) (string, error) {
 	return e.Encrypt(context.Background(), phone)
 }
 
 // DecryptPhone 解密手机号
-func (e *SensitiveFieldEncryption) DecryptPhone(ctx context.Context, encrypted string)  (string, error) {
+func (e *SensitiveFieldEncryption) DecryptPhone(ctx context.Context, encrypted string) (string, error) {
 	return e.Decrypt(context.Background(), encrypted)
 }

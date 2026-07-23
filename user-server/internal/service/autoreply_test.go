@@ -723,7 +723,6 @@ func TestAutoReplyService_TestMatching(t *testing.T) {
 	}
 	database.Create(rule)
 
-
 	// 测试精确匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "你好,请问这个多少钱", 1)
 	if err != nil {
@@ -748,7 +747,6 @@ func TestAutoReplyService_TestMatching_NoMatch(t *testing.T) {
 		IsActive:     true,
 	}
 	database.Create(rule)
-
 
 	// 测试不匹配的消息
 	matchedRule, err := service.TestMatching(ctx, "douyin", "完全不相关的内容", 1)
@@ -776,7 +774,6 @@ func TestAutoReplyService_TestMatching_FuzzyPattern(t *testing.T) {
 	}
 	database.Create(rule)
 
-
 	// 测试通配符匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "今天有什么优惠活动", 1)
 	if err != nil {
@@ -803,7 +800,6 @@ func TestAutoReplyService_TestMatching_RegexPattern(t *testing.T) {
 	}
 	database.Create(rule)
 
-
 	// 测试正则匹配
 	matchedRule, err := service.TestMatching(ctx, "douyin", "我的电话是 12345", 1)
 	if err != nil {
@@ -828,7 +824,6 @@ func TestAutoReplyService_TestMatching_CaseInsensitive(t *testing.T) {
 		IsActive:     true,
 	}
 	database.Create(rule)
-
 
 	// 测试小写消息匹配大写关键词
 	matchedRule, err := service.TestMatching(ctx, "douyin", "hello world", 1)
@@ -997,7 +992,6 @@ func TestAutoReplyService_SimulateMessage_Matched(t *testing.T) {
 	}
 	database.Create(rule)
 
-
 	log, err := service.SimulateMessage(ctx, "douyin", "这是一条测试消息", "sender", 1, 1)
 	if err != nil {
 		t.Fatalf("SimulateMessage failed: %v", err)
@@ -1017,7 +1011,6 @@ func TestAutoReplyService_SimulateMessage_Matched(t *testing.T) {
 func TestAutoReplyService_SimulateMessage_NoMatch(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
-
 
 	log, err := service.SimulateMessage(ctx, "douyin", "不相关的内容", "sender", 1, 1)
 	if err != nil {
@@ -1082,7 +1075,6 @@ func TestAutoReplyService_TestBatchMatching(t *testing.T) {
 func TestAutoReplyService_TestRateLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
-
 
 	results, err := service.TestRateLimit(ctx, "douyin", 1, 1, 10)
 	if err != nil {
@@ -1270,7 +1262,6 @@ func TestAutoReplyService_TestMatching_MultipleKeywords(t *testing.T) {
 	}
 	database.Create(rule)
 
-
 	// 测试匹配第二个关键词
 	matchedRule, err := service.TestMatching(ctx, "douyin", "包含关键词 2 的消息", 1)
 	if err != nil {
@@ -1295,7 +1286,6 @@ func TestAutoReplyService_TestMatching_InvalidRegex(t *testing.T) {
 		IsActive:     true,
 	}
 	database.Create(rule)
-
 
 	// 无效正则会失败,但不应崩溃
 	matchedRule, err := service.TestMatching(ctx, "douyin", "测试消息", 1)

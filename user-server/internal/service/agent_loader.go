@@ -11,16 +11,16 @@ import (
 
 // AgentPersona 运行时人设
 type AgentPersona struct {
-	ID                string                   `json:"id"`
-	Name              string                   `json:"name"`
-	Industry          string                   `json:"industry"`
-	SystemPrompt      string                   `json:"system_prompt"`
-	Persona           map[string]interface{}   `json:"persona"`
-	GreetingTemplates []string                 `json:"greeting_templates"`
-	ObjectionHandlers []map[string]string      `json:"objection_handlers"`
-	ToolWhitelist     []string                 `json:"tool_whitelist"`
-	KBRefs            []string                 `json:"kb_refs"`
-	DefaultTuning     map[string]interface{}   `json:"default_tuning"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Industry          string                 `json:"industry"`
+	SystemPrompt      string                 `json:"system_prompt"`
+	Persona           map[string]interface{} `json:"persona"`
+	GreetingTemplates []string               `json:"greeting_templates"`
+	ObjectionHandlers []map[string]string    `json:"objection_handlers"`
+	ToolWhitelist     []string               `json:"tool_whitelist"`
+	KBRefs            []string               `json:"kb_refs"`
+	DefaultTuning     map[string]interface{} `json:"default_tuning"`
 }
 
 // AgentLoader 智能体人设加载器

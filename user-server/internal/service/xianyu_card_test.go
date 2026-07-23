@@ -111,7 +111,6 @@ func TestXianyuCardService_Update_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	// 先创建卡片
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Original Card",
@@ -168,7 +167,6 @@ func TestXianyuCardService_Update_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	updateReq := &dto.XianyuCardUpdateRequest{
 		ID:    999,
 		Title: "Non-existent Card",
@@ -184,7 +182,6 @@ func TestXianyuCardService_Update_NotFound(t *testing.T) {
 func TestXianyuCardService_Delete_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Card to Delete",
@@ -214,7 +211,6 @@ func TestXianyuCardService_Delete_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	err := service.Delete(ctx, 999)
 	if err == nil {
 		t.Error("Expected error for deleting non-existent card")
@@ -225,7 +221,6 @@ func TestXianyuCardService_Delete_NotFound(t *testing.T) {
 func TestXianyuCardService_GetByID_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Test Card",
@@ -259,7 +254,6 @@ func TestXianyuCardService_GetByID_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	_, err := service.GetByID(ctx, 999)
 	if err == nil {
 		t.Error("Expected error for getting non-existent card")
@@ -270,7 +264,6 @@ func TestXianyuCardService_GetByID_NotFound(t *testing.T) {
 func TestXianyuCardService_GetByIDWithRefresh_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Test Card",
@@ -298,7 +291,6 @@ func TestXianyuCardService_GetByIDWithRefresh_Success(t *testing.T) {
 func TestXianyuCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Test Card",
@@ -329,7 +321,6 @@ func TestXianyuCardService_GetCardModelByID_Success(t *testing.T) {
 func TestXianyuCardService_GetList_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	for i := 1; i <= 5; i++ {
 		createReq := &dto.XianyuCardCreateRequest{
@@ -366,7 +357,6 @@ func TestXianyuCardService_GetList_Success(t *testing.T) {
 func TestXianyuCardService_GetList_Pagination(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	for i := 1; i <= 15; i++ {
 		createReq := &dto.XianyuCardCreateRequest{
@@ -411,7 +401,6 @@ func TestXianyuCardService_GetList_EmptyList(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	listReq := &dto.XianyuCardListRequest{
 		Page:     1,
 		PageSize: 10,
@@ -433,7 +422,6 @@ func TestXianyuCardService_GetList_EmptyList(t *testing.T) {
 func TestXianyuCardService_ShareCard_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	createReq := &dto.XianyuCardCreateRequest{
 		Title:        "Share Test Card",
@@ -458,7 +446,6 @@ func TestXianyuCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-
 	err := service.ShareCard(ctx, 999, "wechat")
 	if err == nil {
 		t.Error("Expected error for sharing non-existent card")
@@ -469,7 +456,6 @@ func TestXianyuCardService_ShareCard_NotFound(t *testing.T) {
 func TestXianyuCardService_Create_WithTags(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	req := &dto.XianyuCardCreateRequest{
 		Title:        "Card with Tags",
@@ -494,7 +480,6 @@ func TestXianyuCardService_Create_WithTags(t *testing.T) {
 func TestXianyuCardService_Create_InactiveCard(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
-
 
 	req := &dto.XianyuCardCreateRequest{
 		Title:        "Inactive Card",

@@ -9,11 +9,11 @@
 //  3. Weave 织布算法动态拼装最终 prompt（资产包 + RAG + 历史 + 当前问题）
 //
 // 命名规范遵循五层架构：
-//  - 此文件属于 model 层：仅含实体定义，禁止业务方法
-//  - CRUD 操作 → repository/asset_bundle_repo.go
-//  - 业务逻辑 → service/asset_bundle.go
-//  - API DTO → dto/asset_bundle.go
-//  - HTTP 路由 → controller/asset_bundle.go
+//   - 此文件属于 model 层：仅含实体定义，禁止业务方法
+//   - CRUD 操作 → repository/asset_bundle_repo.go
+//   - 业务逻辑 → service/asset_bundle.go
+//   - API DTO → dto/asset_bundle.go
+//   - HTTP 路由 → controller/asset_bundle.go
 package model
 
 import (
@@ -42,10 +42,10 @@ const (
 type AssetBundleStatus string
 
 const (
-	AssetBundleStatusDraft    AssetBundleStatus = "draft"     // 草稿（开发中）
-	AssetBundleStatusActive   AssetBundleStatus = "active"    // 启用
-	AssetBundleStatusInactive AssetBundleStatus = "inactive"  // 停用
-	AssetBundleStatusArchived AssetBundleStatus = "archived"  // 归档
+	AssetBundleStatusDraft    AssetBundleStatus = "draft"    // 草稿（开发中）
+	AssetBundleStatusActive   AssetBundleStatus = "active"   // 启用
+	AssetBundleStatusInactive AssetBundleStatus = "inactive" // 停用
+	AssetBundleStatusArchived AssetBundleStatus = "archived" // 归档
 )
 
 // AssetBundleMessage 资产包内的单条消息（OpenAI ChatML 协议）
@@ -97,22 +97,22 @@ func (m *AssetBundleMessages) Scan(src any) error {
 //  5. Scope 区分私有/共享/官方
 //  6. Tags 数组便于多维筛选（行业/语言/品类）
 type AssetBundle struct {
-	ID            int64               `gorm:"primaryKey;autoIncrement" json:"id"`
-	AssetID       string              `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
-	Title         string              `gorm:"size:256;not null" json:"title"`
-	Description   string              `gorm:"type:text" json:"description"`
-	Author        string              `gorm:"size:64;index" json:"author"`
-	Version       string              `gorm:"size:16;default:'1.0.0'" json:"version"`
-	Scope         AssetBundleScope    `gorm:"size:16;index;default:'private'" json:"scope"`
-	Status        AssetBundleStatus   `gorm:"size:16;index;default:'draft'" json:"status"`
-	Industry      string              `gorm:"size:32;index" json:"industry"`  // 行业：跨境电商/美妆/3C...
-	Language      string              `gorm:"size:8;index;default:'zh'" json:"language"`
-	Tags          pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
-	Messages      AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
+	ID          int64               `gorm:"primaryKey;autoIncrement" json:"id"`
+	AssetID     string              `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
+	Title       string              `gorm:"size:256;not null" json:"title"`
+	Description string              `gorm:"type:text" json:"description"`
+	Author      string              `gorm:"size:64;index" json:"author"`
+	Version     string              `gorm:"size:16;default:'1.0.0'" json:"version"`
+	Scope       AssetBundleScope    `gorm:"size:16;index;default:'private'" json:"scope"`
+	Status      AssetBundleStatus   `gorm:"size:16;index;default:'draft'" json:"status"`
+	Industry    string              `gorm:"size:32;index" json:"industry"` // 行业：跨境电商/美妆/3C...
+	Language    string              `gorm:"size:8;index;default:'zh'" json:"language"`
+	Tags        pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
+	Messages    AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
 	// 统计字段
-	UseCount    int64      `gorm:"default:0" json:"use_count"`
-	Rating      float64    `gorm:"default:0" json:"rating"`
-	RatingCount int        `gorm:"default:0" json:"rating_count"`
+	UseCount    int64   `gorm:"default:0" json:"use_count"`
+	Rating      float64 `gorm:"default:0" json:"rating"`
+	RatingCount int     `gorm:"default:0" json:"rating_count"`
 	// 时间戳
 	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
@@ -124,13 +124,13 @@ func (AssetBundle) TableName() string { return "asset_bundles" }
 
 // AssetBundleVersionLog 资产包版本变更日志
 type AssetBundleVersionLog struct {
-	ID         int64       `gorm:"primaryKey;autoIncrement" json:"id"`
-	AssetID    string      `gorm:"size:64;index;not null" json:"asset_id"`
-	FromVer    string      `gorm:"size:16" json:"from_ver"`
-	ToVer      string      `gorm:"size:16;not null" json:"to_ver"`
-	ChangeNote string      `gorm:"type:text" json:"change_note"`
-	Operator   string      `gorm:"size:64" json:"operator"`
-	CreatedAt  time.Time   `gorm:"autoCreateTime" json:"created_at"`
+	ID         int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	AssetID    string         `gorm:"size:64;index;not null" json:"asset_id"`
+	FromVer    string         `gorm:"size:16" json:"from_ver"`
+	ToVer      string         `gorm:"size:16;not null" json:"to_ver"`
+	ChangeNote string         `gorm:"type:text" json:"change_note"`
+	Operator   string         `gorm:"size:64" json:"operator"`
+	CreatedAt  time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 

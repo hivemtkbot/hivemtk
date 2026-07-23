@@ -32,40 +32,40 @@ func getRAGStack() *knowledgesvc.RAGStack {
 }
 
 type XianyuAutoReplyController struct {
-	svc		*service.XianyuAutoReplyService
-	manager		*browser.AutoReplyManager
-	infra		*browser.AutoReplyInfra
-	ragStack	*knowledgesvc.RAGStack
+	svc      *service.XianyuAutoReplyService
+	manager  *browser.AutoReplyManager
+	infra    *browser.AutoReplyInfra
+	ragStack *knowledgesvc.RAGStack
 }
 
 func NewXianyuAutoReplyController(svc *service.XianyuAutoReplyService, ragStack *knowledgesvc.RAGStack) *XianyuAutoReplyController {
 	return &XianyuAutoReplyController{
-		svc:		svc,
-		manager:	GetAutoReplyManager(),
-		infra:		browser.GetAutoReplyInfra(),
-		ragStack:	ragStack,
+		svc:      svc,
+		manager:  GetAutoReplyManager(),
+		infra:    browser.GetAutoReplyInfra(),
+		ragStack: ragStack,
 	}
 }
 
 type xianyuUpsertAccountReq struct {
-	Username	string	`json:"username"`
-	Cookie		string	`json:"cookie"`
-	Headless	*bool	`json:"headless,omitempty"`
+	Username string `json:"username"`
+	Cookie   string `json:"cookie"`
+	Headless *bool  `json:"headless,omitempty"`
 }
 
 type xianyuSaveRuleReq struct {
-	Keywords	string	`json:"keywords"`
-	ReplyContent	string	`json:"reply_content"`
-	Frequency	int	`json:"frequency"`
-	DailyLimit	int	`json:"daily_limit"`
-	IsActive	bool	`json:"is_active"`
+	Keywords     string `json:"keywords"`
+	ReplyContent string `json:"reply_content"`
+	Frequency    int    `json:"frequency"`
+	DailyLimit   int    `json:"daily_limit"`
+	IsActive     bool   `json:"is_active"`
 }
 
 // 启动登录流程：创建账号记录并打开浏览器到咸鱼页面，登录后自动保存 Cookie
 func (c *XianyuAutoReplyController) StartLogin(ctx *gin.Context) {
 	var req struct {
-		Username	string	`json:"username"`
-		Headless	*bool	`json:"headless,omitempty"`	// 无头模式，可选参数
+		Username string `json:"username"`
+		Headless *bool  `json:"headless,omitempty"` // 无头模式，可选参数
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, 400, "参数错误")
@@ -326,7 +326,7 @@ func (c *XianyuAutoReplyController) ListLogs(ctx *gin.Context) {
 
 func (c *XianyuAutoReplyController) Start(ctx *gin.Context) {
 	platform := "xianyu"
-	userID := c.extractUserID(ctx, )
+	userID := c.extractUserID(ctx)
 	if userID == 0 {
 		response.Error(ctx, 401, "用户未认证")
 		return
@@ -384,11 +384,11 @@ func (c *XianyuAutoReplyController) Start(ctx *gin.Context) {
 		}
 	}
 	response.Success(ctx, gin.H{
-		"started":	true,
-		"platform":	platform,
-		"account_id":	account.ID,
-		"headless":	headless,
-		"ws_mode":	useWS,
+		"started":    true,
+		"platform":   platform,
+		"account_id": account.ID,
+		"headless":   headless,
+		"ws_mode":    useWS,
 	}, "闲鱼机器人启动成功")
 }
 
@@ -400,8 +400,8 @@ func (c *XianyuAutoReplyController) Stop(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, gin.H{
-		"stopped":	true,
-		"platform":	platform,
+		"stopped":  true,
+		"platform": platform,
 	}, "闲鱼机器人停止成功")
 }
 
@@ -424,9 +424,9 @@ func (c *XianyuAutoReplyController) Health(ctx *gin.Context) {
 	rateKey := "xianyu_" + platform
 
 	status := gin.H{
-		"platform":	platform,
-		"bot_running":	botErr == nil && bot.IsRunning(),
-		"rate_limit":	c.infra.RateLimiter.Stats(rateKey),
+		"platform":    platform,
+		"bot_running": botErr == nil && bot.IsRunning(),
+		"rate_limit":  c.infra.RateLimiter.Stats(rateKey),
 	}
 
 	if botErr == nil && bot != nil {

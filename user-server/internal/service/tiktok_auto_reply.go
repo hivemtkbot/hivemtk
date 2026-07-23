@@ -9,16 +9,16 @@ import (
 	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // TikTokAutoReplyService TikTok 自动回复服务(基于通用 AutoReplyService,锁定 platform=tiktok)
 type TikTokAutoReplyService struct {
-	db		*gorm.DB
-	accountRepo	*repository.AutoReplyAccountRepository
-	reply		*AutoReplyService
-	platform	string
+	db          *gorm.DB
+	accountRepo *repository.AutoReplyAccountRepository
+	reply       *AutoReplyService
+	platform    string
 }
 
 const TikTokPlatform = "tiktok"
@@ -31,10 +31,10 @@ func NewTikTokAutoReplyService() *TikTokAutoReplyService {
 	accountRepo := repository.NewAutoReplyAccountRepositoryAuto()
 	replySvc := NewAutoReplyServiceAuto()
 	return &TikTokAutoReplyService{
-		db:		nil, // 兼容旧字段类型，不再用于直接 SQL；所有 SQL 通过 accountRepo 走仓储
-		accountRepo:	accountRepo,
-		reply:		replySvc,
-		platform:	TikTokPlatform,
+		db:          nil, // 兼容旧字段类型，不再用于直接 SQL；所有 SQL 通过 accountRepo 走仓储
+		accountRepo: accountRepo,
+		reply:       replySvc,
+		platform:    TikTokPlatform,
 	}
 }
 
@@ -52,11 +52,11 @@ func (s *TikTokAutoReplyService) ListAccounts(ctx context.Context, userID uint) 
 
 // UpsertAccountRequest 创建/更新账号请求
 type UpsertAccountRequest struct {
-	ID		uint	`json:"id"`
-	Username	string	`json:"username" binding:"required"`
-	DisplayName	string	`json:"display_name"`
-	IsActive	bool	`json:"is_active"`
-	Cookie		string	`json:"cookie"`
+	ID          uint   `json:"id"`
+	Username    string `json:"username" binding:"required"`
+	DisplayName string `json:"display_name"`
+	IsActive    bool   `json:"is_active"`
+	Cookie      string `json:"cookie"`
 }
 
 // UpsertAccount 创建或更新 TikTok 账号
@@ -68,11 +68,11 @@ func (s *TikTokAutoReplyService) UpsertAccount(ctx context.Context, userID uint,
 		return nil, errors.New("username 不能为空")
 	}
 	account := &model.AutoReplyAccount{
-		UserID:		userID,
-		Platform:	s.platform,
-		Username:	req.Username,
-		IsActive:	req.IsActive,
-		Headless:	true,
+		UserID:   userID,
+		Platform: s.platform,
+		Username: req.Username,
+		IsActive: req.IsActive,
+		Headless: true,
 	}
 	if req.Cookie != "" {
 		encrypted, encErr := utils.Encrypt(req.Cookie, utils.GetCookieEncryptionKey())
@@ -93,13 +93,13 @@ func (s *TikTokAutoReplyService) GetRule(ctx context.Context, userID uint) (*mod
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &model.AutoReplyRule{
-				UserID:		userID,
-				Platform:	s.platform,
-				Keywords:	"",
-				ReplyContent:	"",
-				Frequency:	60,
-				DailyLimit:	100,
-				IsActive:	false,
+				UserID:       userID,
+				Platform:     s.platform,
+				Keywords:     "",
+				ReplyContent: "",
+				Frequency:    60,
+				DailyLimit:   100,
+				IsActive:     false,
 			}, nil
 		}
 		return nil, err
@@ -109,13 +109,13 @@ func (s *TikTokAutoReplyService) GetRule(ctx context.Context, userID uint) (*mod
 
 // SaveRuleRequest 保存规则请求
 type SaveRuleRequest struct {
-	Keywords	string	`json:"keywords"`
-	ReplyContent	string	`json:"reply_content"`
-	Frequency	int	`json:"frequency"`
-	DailyLimit	int	`json:"daily_limit"`
-	StartTime	*string	`json:"start_time"`
-	EndTime		*string	`json:"end_time"`
-	IsActive	bool	`json:"is_active"`
+	Keywords     string  `json:"keywords"`
+	ReplyContent string  `json:"reply_content"`
+	Frequency    int     `json:"frequency"`
+	DailyLimit   int     `json:"daily_limit"`
+	StartTime    *string `json:"start_time"`
+	EndTime      *string `json:"end_time"`
+	IsActive     bool    `json:"is_active"`
 }
 
 // SaveRule 保存 TikTok 规则
@@ -124,15 +124,15 @@ func (s *TikTokAutoReplyService) SaveRule(ctx context.Context, userID uint, req 
 		return nil, errors.New("user_id 不能为空")
 	}
 	rule := &model.AutoReplyRule{
-		UserID:		userID,
-		Platform:	s.platform,
-		Keywords:	req.Keywords,
-		ReplyContent:	req.ReplyContent,
-		Frequency:	req.Frequency,
-		DailyLimit:	req.DailyLimit,
-		StartTime:	req.StartTime,
-		EndTime:	req.EndTime,
-		IsActive:	req.IsActive,
+		UserID:       userID,
+		Platform:     s.platform,
+		Keywords:     req.Keywords,
+		ReplyContent: req.ReplyContent,
+		Frequency:    req.Frequency,
+		DailyLimit:   req.DailyLimit,
+		StartTime:    req.StartTime,
+		EndTime:      req.EndTime,
+		IsActive:     req.IsActive,
 	}
 	if err := s.reply.SaveRule(ctx, rule); err != nil {
 		return nil, err
@@ -195,11 +195,11 @@ func (s *TikTokAutoReplyService) Status(ctx context.Context, userID uint) (map[s
 		replying = true
 	}
 	return map[string]any{
-		"running":	replying,
-		"active_count":	activeCount,
-		"total_count":	totalCount,
-		"checked_at":	time.Now().Format("2006-01-02 15:04:05"),
-		"platform":	s.platform,
-		"user_id":	strconv.FormatUint(uint64(userID), 10),
+		"running":      replying,
+		"active_count": activeCount,
+		"total_count":  totalCount,
+		"checked_at":   time.Now().Format("2006-01-02 15:04:05"),
+		"platform":     s.platform,
+		"user_id":      strconv.FormatUint(uint64(userID), 10),
 	}, nil
 }

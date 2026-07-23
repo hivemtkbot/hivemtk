@@ -36,7 +36,7 @@ func NewUserService() UserService {
 	}
 }
 
-func (s *userService) RegisterUser(ctx context.Context, req *dto.CreateUserRequest)  (*dto.UserResponse, error) {
+func (s *userService) RegisterUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error) {
 	// 检查用户名是否已存在
 	exists, err := s.userRepo.UsernameExists(ctx, req.Username, "")
 	if err != nil {
@@ -84,7 +84,7 @@ func (s *userService) RegisterUser(ctx context.Context, req *dto.CreateUserReque
 	}, nil
 }
 
-func (s *userService) GetUser(ctx context.Context, id string)  (*dto.UserResponse, error) {
+func (s *userService) GetUser(ctx context.Context, id string) (*dto.UserResponse, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (s *userService) GetUser(ctx context.Context, id string)  (*dto.UserRespons
 	}, nil
 }
 
-func (s *userService) GetUserByUsername(ctx context.Context, username string)  (*dto.UserResponse, error) {
+func (s *userService) GetUserByUsername(ctx context.Context, username string) (*dto.UserResponse, error) {
 	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string)  (
 	}, nil
 }
 
-func (s *userService) GetUserList(ctx context.Context, page int, limit int)  (*dto.GetUserListResponse, error) {
+func (s *userService) GetUserList(ctx context.Context, page int, limit int) (*dto.GetUserListResponse, error) {
 	users, total, err := s.userRepo.GetUserList(ctx, page, limit)
 	if err != nil {
 		return nil, err
@@ -155,11 +155,11 @@ func (s *userService) GetUserList(ctx context.Context, page int, limit int)  (*d
 	}, nil
 }
 
-func (s *userService) DeleteUser(ctx context.Context, id string)  error {
+func (s *userService) DeleteUser(ctx context.Context, id string) error {
 	return s.userRepo.Delete(ctx, id)
 }
 
-func (s *userService) UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest)  (*dto.UserResponse, error) {
+func (s *userService) UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req *dto.Update
 	}, nil
 }
 
-func (s *userService) UpdatePassword(ctx context.Context, id string, req *dto.UpdatePasswordRequest)  error {
+func (s *userService) UpdatePassword(ctx context.Context, id string, req *dto.UpdatePasswordRequest) error {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func (s *userService) UpdatePassword(ctx context.Context, id string, req *dto.Up
 	return s.userRepo.UpdatePassword(ctx, id, hashedPassword)
 }
 
-func (s *userService) Login(ctx context.Context, req *dto.LoginRequest)  (*dto.LoginResponse, error) {
+func (s *userService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {
 	user, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, errors.New("用户名或密码错误")
@@ -291,7 +291,7 @@ func (s *userService) Login(ctx context.Context, req *dto.LoginRequest)  (*dto.L
 	}, nil
 }
 
-func (s *userService) InitUser(ctx context.Context, accountID string, tgID int64, FirstName string, LastName string, UserName string)  (string, error) {
+func (s *userService) InitUser(ctx context.Context, accountID string, tgID int64, FirstName string, LastName string, UserName string) (string, error) {
 	userId, exists := s.userRepo.UserIsExist(ctx, accountID, tgID, FirstName, LastName, UserName)
 	if exists {
 		return userId, nil

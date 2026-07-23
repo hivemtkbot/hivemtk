@@ -633,7 +633,7 @@ type outboundCaptureTransport struct {
 	target string // 本地 httptest 服务地址
 }
 
-func (t *outboundCaptureTransport) RoundTrip(ctx context.Context, req *http.Request)  (*http.Response, error) {
+func (t *outboundCaptureTransport) RoundTrip(ctx context.Context, req *http.Request) (*http.Response, error) {
 	target, err := url.Parse(t.target)
 	if err != nil {
 		return nil, err

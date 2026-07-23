@@ -184,6 +184,15 @@ func Setup(r *gin.Engine) {
 		// 系统管理
 		setupSystemRoutes(auth)
 
+		// 人员管理（v3.1 §3.1：/api/system/users/*）
+		setupSystemUserRoutes(auth)
+
+		// 角色管理（v3.1 §3.2：/api/system/roles/*）
+		setupRoleRoutes(auth)
+
+		// 授权管理（v3.1 §3.4：/api/system/permissions/*）
+		setupPermissionRoutes(auth)
+
 		// RAG 知识库
 		setupRagRoutes(auth)
 

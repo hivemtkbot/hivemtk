@@ -28,23 +28,23 @@ func NewSessionTagService() *SessionTagService {
 
 // CreateTagRequest 创建标签请求
 type CreateTagRequest struct {
-	Name		string	`json:"name" binding:"required"`
-	Code		string	`json:"code" binding:"required"`
-	Group		string	`json:"group"`
-	Color		string	`json:"color"`
-	Description	string	`json:"description"`
-	SortOrder	int	`json:"sort_order"`
+	Name        string `json:"name" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+	Group       string `json:"group"`
+	Color       string `json:"color"`
+	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
 }
 
 // CreateTag 创建标签
 func (s *SessionTagService) CreateTag(ctx context.Context, req *CreateTagRequest) (*model.SessionTag, error) {
 	tag := &model.SessionTag{
-		Name:		req.Name,
-		Code:		req.Code,
-		Group:		req.Group,
-		Color:		req.Color,
-		Description:	req.Description,
-		SortOrder:	req.SortOrder,
+		Name:        req.Name,
+		Code:        req.Code,
+		Group:       req.Group,
+		Color:       req.Color,
+		Description: req.Description,
+		SortOrder:   req.SortOrder,
 	}
 	if tag.Color == "" {
 		tag.Color = "#1890ff"
@@ -90,6 +90,6 @@ func (s *SessionTagService) DeleteTag(ctx context.Context, id uint) error {
 }
 
 // GetTags 获取标签列表
-func (s *SessionTagService) GetTags(ctx context.Context,) ([]*model.SessionTag, error) {
+func (s *SessionTagService) GetTags(ctx context.Context) ([]*model.SessionTag, error) {
 	return s.tagRepo.GetByMerchant(ctx)
 }

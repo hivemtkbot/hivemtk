@@ -44,40 +44,40 @@ type DomainHealthService interface {
 
 // HealthCheckResult 一次健康度探测的完整结果
 type HealthCheckResult struct {
-	DomainID	int		`json:"domain_id"`
-	Domain		string		`json:"domain"`
-	Port		int		`json:"port"`
-	CheckedAt	time.Time	`json:"checked_at"`
-	DNSOK		bool		`json:"dns_ok"`
-	DNSError	string		`json:"dns_error,omitempty"`
-	HTTPOk		bool		`json:"http_ok"`
-	HTTPStatus	int		`json:"http_status"`
-	HTTPLatency	int		`json:"http_latency_ms"`
-	HTTPErrorMsg	string		`json:"http_error,omitempty"`
-	OnBlacklist	bool		`json:"on_blacklist"`
-	BlacklistSrc	string		`json:"blacklist_source,omitempty"`
-	HealthScore	int		`json:"health_score"`
-	ActionTaken	string		`json:"action_taken"`	// none / mark_unhealthy / switch_over
+	DomainID     int       `json:"domain_id"`
+	Domain       string    `json:"domain"`
+	Port         int       `json:"port"`
+	CheckedAt    time.Time `json:"checked_at"`
+	DNSOK        bool      `json:"dns_ok"`
+	DNSError     string    `json:"dns_error,omitempty"`
+	HTTPOk       bool      `json:"http_ok"`
+	HTTPStatus   int       `json:"http_status"`
+	HTTPLatency  int       `json:"http_latency_ms"`
+	HTTPErrorMsg string    `json:"http_error,omitempty"`
+	OnBlacklist  bool      `json:"on_blacklist"`
+	BlacklistSrc string    `json:"blacklist_source,omitempty"`
+	HealthScore  int       `json:"health_score"`
+	ActionTaken  string    `json:"action_taken"` // none / mark_unhealthy / switch_over
 }
 
 // 评分阈值（导出常量，供测试断言使用）
 const (
-	HealthScoreSwitchThreshold	= 30	// 评分低于此值触发自动切换
-	HealthScoreHealthy		= 80
-	HealthScoreWarn			= 60
-	ConsecutiveFailureLimit		= 3	// 连续失败 3 次触发切换
-	HealthCheckTimeout		= 5 * time.Second
-	HealthLogRetentionDays		= 30
+	HealthScoreSwitchThreshold = 30 // 评分低于此值触发自动切换
+	HealthScoreHealthy         = 80
+	HealthScoreWarn            = 60
+	ConsecutiveFailureLimit    = 3 // 连续失败 3 次触发切换
+	HealthCheckTimeout         = 5 * time.Second
+	HealthLogRetentionDays     = 30
 )
 
 // domainHealthService 实现
 type domainHealthService struct {
-	repo		repository.DomainPoolRepository
-	logRepo		*repository.DomainHealthLogRepository
-	blacklistR	*repository.DomainBlacklistRepository
-	httpClient	*http.Client
-	probeTarget	string	// 可选：HTTP 探测时的 Path，默认 "/"
-	mu		sync.Mutex
+	repo        repository.DomainPoolRepository
+	logRepo     *repository.DomainHealthLogRepository
+	blacklistR  *repository.DomainBlacklistRepository
+	httpClient  *http.Client
+	probeTarget string // 可选：HTTP 探测时的 Path，默认 "/"
+	mu          sync.Mutex
 }
 
 // NewDomainHealthService 创建域名健康度服务
@@ -86,11 +86,11 @@ func NewDomainHealthService(db interface{}, repo repository.DomainPoolRepository
 	_ = db
 	blRepo := repository.NewDomainBlacklistRepository(nil)
 	return &domainHealthService{
-		repo:		repo,
-		logRepo:	repository.NewDomainHealthLogRepository(nil),
-		blacklistR:	blRepo,
-		httpClient:	&http.Client{Timeout: HealthCheckTimeout},
-		probeTarget:	"/",
+		repo:        repo,
+		logRepo:     repository.NewDomainHealthLogRepository(nil),
+		blacklistR:  blRepo,
+		httpClient:  &http.Client{Timeout: HealthCheckTimeout},
+		probeTarget: "/",
 	}
 }
 
@@ -103,11 +103,11 @@ func NewDomainHealthServiceWithDeps(repo repository.DomainPoolRepository, logRep
 		blRepo = repository.NewDomainBlacklistRepository(nil)
 	}
 	return &domainHealthService{
-		repo:		repo,
-		logRepo:	logRepo,
-		blacklistR:	blRepo,
-		httpClient:	&http.Client{Timeout: HealthCheckTimeout},
-		probeTarget:	"/",
+		repo:        repo,
+		logRepo:     logRepo,
+		blacklistR:  blRepo,
+		httpClient:  &http.Client{Timeout: HealthCheckTimeout},
+		probeTarget: "/",
 	}
 }
 
@@ -200,19 +200,19 @@ func (s *domainHealthService) checkAndPersist(ctx context.Context, dp *model.Dom
 
 	// 写日志
 	logRow := &model.DomainHealthLog{
-		DomainID:	dp.ID,
-		Domain:		dp.Domain,
-		CheckedAt:	time.Now(),
-		DNSOK:		probe.DNSOK,
-		DNSError:	probe.DNSError,
-		HTTPOk:		probe.HTTPOk,
-		HTTPStatus:	probe.HTTPStatus,
-		HTTPLatency:	probe.HTTPLatency,
-		HTTPErrorMsg:	probe.HTTPErrorMsg,
-		OnBlacklist:	blacklisted,
-		BlacklistSrc:	blSrc,
-		HealthScore:	score,
-		ActionTaken:	action,
+		DomainID:     dp.ID,
+		Domain:       dp.Domain,
+		CheckedAt:    time.Now(),
+		DNSOK:        probe.DNSOK,
+		DNSError:     probe.DNSError,
+		HTTPOk:       probe.HTTPOk,
+		HTTPStatus:   probe.HTTPStatus,
+		HTTPLatency:  probe.HTTPLatency,
+		HTTPErrorMsg: probe.HTTPErrorMsg,
+		OnBlacklist:  blacklisted,
+		BlacklistSrc: blSrc,
+		HealthScore:  score,
+		ActionTaken:  action,
 	}
 	if err := s.logRepo.Create(ctx, logRow); err != nil {
 		logger.Errorf("写入健康度日志失败 id=%d: %v", dp.ID, err)
@@ -278,8 +278,8 @@ func calcHealthScore(prevScore, prevFailures int, probe *HealthCheckResult, blac
 // ProbeOnce 不写库的纯探测（用于单点调试 / 单元测试）
 func (s *domainHealthService) ProbeOnce(ctx context.Context, domain string) (*HealthCheckResult, error) {
 	res := &HealthCheckResult{
-		Domain:		domain,
-		CheckedAt:	time.Now(),
+		Domain:    domain,
+		CheckedAt: time.Now(),
 	}
 
 	// 1) DNS 解析

@@ -28,11 +28,6 @@ func setupAssetMarketRoutes(auth *gin.RouterGroup) {
 		auth.Group("/asset-market"),
 	}
 	for _, market := range groups {
-		// 前端实际调用路径（兼容）
-		market.GET("", h.ListMarket)            // GET /api/v1/asset-market  → listAssets
-		market.GET("/:asset_id", h.MarketDetail) // GET /api/v1/asset-market/:id → getAssetDetail
-		market.GET("/my", h.MyPurchases)         // GET /api/v1/asset-market/my → getMyAssets
-		// 历史/备用路径
 		market.GET("/list", h.ListMarket)
 		market.GET("/detail/:asset_id", h.MarketDetail)
 		market.POST("/purchase", h.Purchase)

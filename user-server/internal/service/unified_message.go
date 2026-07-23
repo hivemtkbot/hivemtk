@@ -15,17 +15,17 @@ import (
 
 // ReplyDecisionEngine 回复决策引擎
 type ReplyDecisionEngine struct {
-	ruleRepo	*repository.AutoReplyRuleRepository
-	knowledgeRepo	*repository.KnowledgeRepository
-	llmService	*llm.LLMService
+	ruleRepo      *repository.AutoReplyRuleRepository
+	knowledgeRepo *repository.KnowledgeRepository
+	llmService    *llm.LLMService
 }
 
 // NewReplyDecisionEngine 创建回复决策引擎
 func NewReplyDecisionEngine() *ReplyDecisionEngine {
 	return &ReplyDecisionEngine{
-		ruleRepo:	repository.NewAutoReplyRuleRepository(),
-		knowledgeRepo:	repository.NewKnowledgeRepository(),
-		llmService:	llm.NewLLMService(),
+		ruleRepo:      repository.NewAutoReplyRuleRepository(),
+		knowledgeRepo: repository.NewKnowledgeRepository(),
+		llmService:    llm.NewLLMService(),
 	}
 }
 
@@ -48,9 +48,9 @@ func (e *ReplyDecisionEngine) Decide(ctx context.Context, msg *model.UnifiedMess
 
 	// 4. 无法自动回复，转人工
 	return &model.ReplyDecision{
-		ShouldReply:	false,
-		ReplyType:	"human",
-		Reason:		"无法自动回复，需要人工处理",
+		ShouldReply: false,
+		ReplyType:   "human",
+		Reason:      "无法自动回复，需要人工处理",
 	}, nil
 }
 
@@ -84,12 +84,12 @@ func (e *ReplyDecisionEngine) matchRule(ctx context.Context, msg *model.UnifiedM
 		// 匹配关键词
 		if e.matchKeywords(context.Background(), msg.Content, rule.Keywords) {
 			return &model.ReplyDecision{
-				ShouldReply:	true,
-				ReplyType:	"rule",
-				Content:	rule.ReplyContent,
-				Confidence:	1.0,
-				Reason:		"规则匹配成功",
-				RuleMatched:	rule,
+				ShouldReply: true,
+				ReplyType:   "rule",
+				Content:     rule.ReplyContent,
+				Confidence:  1.0,
+				Reason:      "规则匹配成功",
+				RuleMatched: rule,
 			}
 		}
 	}
@@ -98,7 +98,7 @@ func (e *ReplyDecisionEngine) matchRule(ctx context.Context, msg *model.UnifiedM
 }
 
 // matchKeywords 关键词匹配
-func (e *ReplyDecisionEngine) matchKeywords(ctx context.Context, content, keywords string)  bool {
+func (e *ReplyDecisionEngine) matchKeywords(ctx context.Context, content, keywords string) bool {
 	if content == "" || keywords == "" {
 		return false
 	}
@@ -124,7 +124,7 @@ func (e *ReplyDecisionEngine) matchKeywords(ctx context.Context, content, keywor
 }
 
 // splitKeywords 智能分割关键词，处理正则表达式中的逗号
-func (e *ReplyDecisionEngine) splitKeywords(ctx context.Context, keywords string)  []string {
+func (e *ReplyDecisionEngine) splitKeywords(ctx context.Context, keywords string) []string {
 	var result []string
 	var current strings.Builder
 	bracketDepth := 0
@@ -152,7 +152,7 @@ func (e *ReplyDecisionEngine) splitKeywords(ctx context.Context, keywords string
 }
 
 // isInTimeRange 检查是否在时间范围内
-func (e *ReplyDecisionEngine) isInTimeRange(ctx context.Context, rule *model.AutoReplyRule)  bool {
+func (e *ReplyDecisionEngine) isInTimeRange(ctx context.Context, rule *model.AutoReplyRule) bool {
 	if rule.StartTime == nil || rule.EndTime == nil {
 		return true
 	}
@@ -174,19 +174,19 @@ func (e *ReplyDecisionEngine) ragSearch(ctx context.Context, msg *model.UnifiedM
 	// 取最高分的命中结果
 	bestHit := hits[0]
 	if bestHit.Score < 0.7 {
-		return nil	// 置信度太低
+		return nil // 置信度太低
 	}
 
 	// 使用命中内容作为回复
 	content := bestHit.Content
 
 	return &model.ReplyDecision{
-		ShouldReply:	true,
-		ReplyType:	"rag",
-		Content:	content,
-		Confidence:	bestHit.Score,
-		Reason:		"知识库检索命中",
-		KnowledgeHit:	bestHit,
+		ShouldReply:  true,
+		ReplyType:    "rag",
+		Content:      content,
+		Confidence:   bestHit.Score,
+		Reason:       "知识库检索命中",
+		KnowledgeHit: bestHit,
 	}
 }
 
@@ -199,11 +199,11 @@ func (e *ReplyDecisionEngine) llmGenerate(ctx context.Context, msg *model.Unifie
 
 	// 检查是否有 API 密钥配置
 	config := &llm.LLMConfig{
-		Model:		"gpt-3.5-turbo",
-		APIType:	"openai",
-		Temperature:	0.7,
-		MaxTokens:	500,
-		ResponseFormat:	"text",
+		Model:          "gpt-3.5-turbo",
+		APIType:        "openai",
+		Temperature:    0.7,
+		MaxTokens:      500,
+		ResponseFormat: "text",
 	}
 
 	// 验证配置，如果没有 API 密钥，返回 nil 让人工处理
@@ -220,11 +220,11 @@ func (e *ReplyDecisionEngine) llmGenerate(ctx context.Context, msg *model.Unifie
 	}
 
 	return &model.ReplyDecision{
-		ShouldReply:	true,
-		ReplyType:	"llm",
-		Content:	output,
-		Confidence:	0.6,
-		Reason:		"LLM 生成回复",
+		ShouldReply: true,
+		ReplyType:   "llm",
+		Content:     output,
+		Confidence:  0.6,
+		Reason:      "LLM 生成回复",
 	}
 }
 
@@ -236,19 +236,19 @@ func (e *ReplyDecisionEngine) llmGenerate(ctx context.Context, msg *model.Unifie
 
 // UnifiedMessageService 统一消息服务
 type UnifiedMessageService struct {
-	messageRepo	repository.UnifiedMessageRepository
-	replyRepo	repository.UnifiedReplyRepository
-	decisionEngine	*ReplyDecisionEngine
-	adapterRegistry	*platform.AdapterRegistry
+	messageRepo     repository.UnifiedMessageRepository
+	replyRepo       repository.UnifiedReplyRepository
+	decisionEngine  *ReplyDecisionEngine
+	adapterRegistry *platform.AdapterRegistry
 }
 
 // NewUnifiedMessageService 创建统一消息服务
 func NewUnifiedMessageService() *UnifiedMessageService {
 	return &UnifiedMessageService{
-		messageRepo:		repository.NewUnifiedMessageRepository(),
-		replyRepo:		repository.NewUnifiedReplyRepository(),
-		decisionEngine:		NewReplyDecisionEngine(),
-		adapterRegistry:	platform.GetAdapterRegistry(),
+		messageRepo:     repository.NewUnifiedMessageRepository(),
+		replyRepo:       repository.NewUnifiedReplyRepository(),
+		decisionEngine:  NewReplyDecisionEngine(),
+		adapterRegistry: platform.GetAdapterRegistry(),
 	}
 }
 
@@ -274,16 +274,16 @@ func (s *UnifiedMessageService) ProcessMessage(ctx context.Context, msg *model.U
 	// 执行回复
 	if decision.ShouldReply {
 		reply := &model.UnifiedReply{
-			ReplyID:	platform.NewDouyinAdapter().GenerateReplyID(msg.MessageID),
-			MessageID:	msg.MessageID,
-			Platform:	msg.Platform,
-			AccountID:	msg.AccountID,
-			ChatID:		msg.ChatID,
-			Content:	decision.Content,
-			ContentType:	model.MessageTypeText,
-			ReplyType:	decision.ReplyType,
-			Confidence:	decision.Confidence,
-			Status:		model.ReplyStatusPending,
+			ReplyID:     platform.NewDouyinAdapter().GenerateReplyID(msg.MessageID),
+			MessageID:   msg.MessageID,
+			Platform:    msg.Platform,
+			AccountID:   msg.AccountID,
+			ChatID:      msg.ChatID,
+			Content:     decision.Content,
+			ContentType: model.MessageTypeText,
+			ReplyType:   decision.ReplyType,
+			Confidence:  decision.Confidence,
+			Status:      model.ReplyStatusPending,
 		}
 
 		// 发送回复

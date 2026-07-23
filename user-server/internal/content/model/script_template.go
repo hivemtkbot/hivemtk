@@ -24,7 +24,6 @@ type ScriptTemplate struct {
 	EffectivenessScore float64   `gorm:"type:decimal(3,2);default:0" json:"effectiveness_score"` // 0-1 有效性评分
 	TriggerKeywords    string    `gorm:"type:varchar(500)" json:"trigger_keywords"`              // 触发关键词（逗号分隔）
 	JourneyStage       string    `gorm:"type:varchar(30)" json:"journey_stage"`                  // lead/contact/consider/decide/retain
-	Scenario           string    `gorm:"type:varchar(100)" json:"scenario"`                     // 业务场景(售前/售后/...)，前端列表筛选与展示用
 	ChampionDialogueID uint      `json:"champion_dialogue_id"`                                   // 来源销冠对话 ID
 	CreatedBy          uint      `json:"created_by"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`

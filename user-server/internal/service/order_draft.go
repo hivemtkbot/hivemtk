@@ -38,101 +38,101 @@ import (
 type DraftStatus string
 
 const (
-	DraftStatusPending	DraftStatus	= "pending"	// 待确认
-	DraftStatusConfirmed	DraftStatus	= "confirmed"	// 已确认 → 已生成正式订单
-	DraftStatusCancelled	DraftStatus	= "cancelled"	// 已取消（客户/销售主动取消）
-	DraftStatusExpired	DraftStatus	= "expired"	// 已过期（超时未确认）
+	DraftStatusPending   DraftStatus = "pending"   // 待确认
+	DraftStatusConfirmed DraftStatus = "confirmed" // 已确认 → 已生成正式订单
+	DraftStatusCancelled DraftStatus = "cancelled" // 已取消（客户/销售主动取消）
+	DraftStatusExpired   DraftStatus = "expired"   // 已过期（超时未确认）
 )
 
 // OrderDraft 订单草稿
 type OrderDraft struct {
-	ID		string		`json:"id"`
-	CustomerID	string		`json:"customer_id"`
-	OneID		string		`json:"one_id,omitempty"`
-	OwnerID		string		`json:"owner_id"`	// 负责销售
-	ProductName	string		`json:"product_name"`	// 产品名称
-	ProductID	string		`json:"product_id,omitempty"`
-	Category	string		`json:"category"`	// 产品分类
-	Quantity	int		`json:"quantity"`	// 数量
-	UnitPrice	float64		`json:"unit_price"`	// 单价
-	TotalAmount	float64		`json:"total_amount"`	// 总价
-	Confidence	float64		`json:"confidence"`	// 来源置信度（0-1）
-	Source		string		`json:"source"`		// ai_chat / manual
-	SourceText	string		`json:"source_text"`	// 触发草稿的原始对话
-	IntentID	string		`json:"intent_id,omitempty"`
-	Status		DraftStatus	`json:"status"`
-	OrderID		string		`json:"order_id,omitempty"`	// 确认后关联的正式订单 ID
-	Note		string		`json:"note,omitempty"`		// 销售备注
-	CancelReason	string		`json:"cancel_reason,omitempty"`
-	CreatedAt	time.Time	`json:"created_at"`
-	UpdatedAt	time.Time	`json:"updated_at"`
-	ExpiresAt	time.Time	`json:"expires_at"`	// 过期时间
-	ConfirmedAt	*time.Time	`json:"confirmed_at,omitempty"`
-	CancelledAt	*time.Time	`json:"cancelled_at,omitempty"`
-	Metadata	map[string]any	`json:"metadata,omitempty"`
+	ID           string         `json:"id"`
+	CustomerID   string         `json:"customer_id"`
+	OneID        string         `json:"one_id,omitempty"`
+	OwnerID      string         `json:"owner_id"`     // 负责销售
+	ProductName  string         `json:"product_name"` // 产品名称
+	ProductID    string         `json:"product_id,omitempty"`
+	Category     string         `json:"category"`     // 产品分类
+	Quantity     int            `json:"quantity"`     // 数量
+	UnitPrice    float64        `json:"unit_price"`   // 单价
+	TotalAmount  float64        `json:"total_amount"` // 总价
+	Confidence   float64        `json:"confidence"`   // 来源置信度（0-1）
+	Source       string         `json:"source"`       // ai_chat / manual
+	SourceText   string         `json:"source_text"`  // 触发草稿的原始对话
+	IntentID     string         `json:"intent_id,omitempty"`
+	Status       DraftStatus    `json:"status"`
+	OrderID      string         `json:"order_id,omitempty"` // 确认后关联的正式订单 ID
+	Note         string         `json:"note,omitempty"`     // 销售备注
+	CancelReason string         `json:"cancel_reason,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	ExpiresAt    time.Time      `json:"expires_at"` // 过期时间
+	ConfirmedAt  *time.Time     `json:"confirmed_at,omitempty"`
+	CancelledAt  *time.Time     `json:"cancelled_at,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // CreateDraftRequest 手动创建草稿请求
 type CreateDraftRequest struct {
-	CustomerID	string	`json:"customer_id"`
-	OneID		string	`json:"one_id,omitempty"`
-	OwnerID		string	`json:"owner_id"`
-	ProductName	string	`json:"product_name"`
-	ProductID	string	`json:"product_id,omitempty"`
-	Category	string	`json:"category,omitempty"`
-	Quantity	int	`json:"quantity"`
-	UnitPrice	float64	`json:"unit_price"`
-	Note		string	`json:"note,omitempty"`
+	CustomerID  string  `json:"customer_id"`
+	OneID       string  `json:"one_id,omitempty"`
+	OwnerID     string  `json:"owner_id"`
+	ProductName string  `json:"product_name"`
+	ProductID   string  `json:"product_id,omitempty"`
+	Category    string  `json:"category,omitempty"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	Note        string  `json:"note,omitempty"`
 }
 
 // DraftUpdates 草稿更新字段
 type DraftUpdates struct {
-	ProductName	*string		`json:"product_name,omitempty"`
-	Quantity	*int		`json:"quantity,omitempty"`
-	UnitPrice	*float64	`json:"unit_price,omitempty"`
-	Note		*string		`json:"note,omitempty"`
+	ProductName *string  `json:"product_name,omitempty"`
+	Quantity    *int     `json:"quantity,omitempty"`
+	UnitPrice   *float64 `json:"unit_price,omitempty"`
+	Note        *string  `json:"note,omitempty"`
 }
 
 // DraftConfirmResult 草稿确认结果
 type DraftConfirmResult struct {
-	Draft		*OrderDraft	`json:"draft"`
-	OrderID		string		`json:"order_id"`		// 新创建的正式订单 ID
-	Order		*orderRecord	`json:"order,omitempty"`	// 订单快照
-	StageAdvanced	string		`json:"stage_advanced"`		// 推进到的客户旅程阶段
-	FollowUpID	string		`json:"followup_id,omitempty"`	// 自动安排的售后跟进 ID
+	Draft         *OrderDraft  `json:"draft"`
+	OrderID       string       `json:"order_id"`              // 新创建的正式订单 ID
+	Order         *orderRecord `json:"order,omitempty"`       // 订单快照
+	StageAdvanced string       `json:"stage_advanced"`        // 推进到的客户旅程阶段
+	FollowUpID    string       `json:"followup_id,omitempty"` // 自动安排的售后跟进 ID
 }
 
 // orderRecord 订单快照（避免直接依赖 model.Order 以保持模块解耦）
 type orderRecord struct {
-	ID		string		`json:"id"`
-	AccountID	string		`json:"account_id"`
-	ProductName	string		`json:"product_name"`
-	Quantity	int		`json:"quantity"`
-	UnitPrice	float64		`json:"unit_price"`
-	TotalAmount	float64		`json:"total_amount"`
-	Status		string		`json:"status"`
-	Source		string		`json:"source"`	// draft/ai/manual
-	CreatedAt	time.Time	`json:"created_at"`
+	ID          string    `json:"id"`
+	AccountID   string    `json:"account_id"`
+	ProductName string    `json:"product_name"`
+	Quantity    int       `json:"quantity"`
+	UnitPrice   float64   `json:"unit_price"`
+	TotalAmount float64   `json:"total_amount"`
+	Status      string    `json:"status"`
+	Source      string    `json:"source"` // draft/ai/manual
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // OrderDraftService 订单草稿服务
 type OrderDraftService struct {
-	mu	sync.RWMutex
+	mu sync.RWMutex
 
 	// 草稿索引
-	drafts		map[string]*OrderDraft		// id → draft
-	byCustomer	map[string][]*OrderDraft	// customerID → drafts (便于查询)
-	byOwner		map[string][]*OrderDraft	// ownerID → drafts
+	drafts     map[string]*OrderDraft   // id → draft
+	byCustomer map[string][]*OrderDraft // customerID → drafts (便于查询)
+	byOwner    map[string][]*OrderDraft // ownerID → drafts
 
 	// 下游依赖（可选注入，nil 时跳过对应联动）
-	orderService	*OrderService
-	journey		*CustomerJourneyService
-	dashboard	*SalesDashboard
-	followup	*FollowUpService
-	trigger		*SalesActionTrigger
+	orderService *OrderService
+	journey      *CustomerJourneyService
+	dashboard    *SalesDashboard
+	followup     *FollowUpService
+	trigger      *SalesActionTrigger
 
 	// 配置
-	defaultExpiry	time.Duration	// 草稿默认有效期
+	defaultExpiry time.Duration // 草稿默认有效期
 }
 
 // OrderDraftConfig 草稿服务配置
@@ -146,13 +146,13 @@ func NewOrderDraftService(cfg *OrderDraftConfig) *OrderDraftService {
 		cfg = &OrderDraftConfig{}
 	}
 	if cfg.DefaultExpiry == 0 {
-		cfg.DefaultExpiry = 7 * 24 * time.Hour	// 默认 7 天
+		cfg.DefaultExpiry = 7 * 24 * time.Hour // 默认 7 天
 	}
 	return &OrderDraftService{
-		drafts:		make(map[string]*OrderDraft),
-		byCustomer:	make(map[string][]*OrderDraft),
-		byOwner:	make(map[string][]*OrderDraft),
-		defaultExpiry:	cfg.DefaultExpiry,
+		drafts:        make(map[string]*OrderDraft),
+		byCustomer:    make(map[string][]*OrderDraft),
+		byOwner:       make(map[string][]*OrderDraft),
+		defaultExpiry: cfg.DefaultExpiry,
 	}
 }
 
@@ -245,27 +245,27 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 	}
 
 	draft := &OrderDraft{
-		ID:		generateDraftID(),
-		CustomerID:	intent.CustomerID,
-		OneID:		intent.OneID,
-		OwnerID:	ownerID,
-		ProductName:	intent.ProductName,
-		ProductID:	intent.ProductID,
-		Category:	intent.Category,
-		Quantity:	quantity,
-		UnitPrice:	unitPrice,
-		TotalAmount:	totalAmount,
-		Confidence:	conf,
-		Source:		"ai_chat",
-		SourceText:	intent.RawText,
-		IntentID:	intent.RawText,	// 用 RawText 作为关联键
-		Status:		DraftStatusPending,
-		CreatedAt:	now,
-		UpdatedAt:	now,
-		ExpiresAt:	now.Add(s.defaultExpiry),
+		ID:          generateDraftID(),
+		CustomerID:  intent.CustomerID,
+		OneID:       intent.OneID,
+		OwnerID:     ownerID,
+		ProductName: intent.ProductName,
+		ProductID:   intent.ProductID,
+		Category:    intent.Category,
+		Quantity:    quantity,
+		UnitPrice:   unitPrice,
+		TotalAmount: totalAmount,
+		Confidence:  conf,
+		Source:      "ai_chat",
+		SourceText:  intent.RawText,
+		IntentID:    intent.RawText, // 用 RawText 作为关联键
+		Status:      DraftStatusPending,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		ExpiresAt:   now.Add(s.defaultExpiry),
 		Metadata: map[string]any{
-			"category":	intent.Category,
-			"raw_intent":	intent.RawText,
+			"category":   intent.Category,
+			"raw_intent": intent.RawText,
 		},
 	}
 
@@ -278,15 +278,15 @@ func (s *OrderDraftService) CreateFromIntent(ctx context.Context, intent *OrderI
 	// 3. 仪表盘记录草稿创建事件
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
-			DraftID:	draft.ID,
-			CustomerID:	draft.CustomerID,
-			OwnerID:	draft.OwnerID,
-			ProductName:	draft.ProductName,
-			Amount:		draft.TotalAmount,
-			Action:		"created",
-			Source:		"ai_chat",
-			Confidence:	draft.Confidence,
-			OccurredAt:	now,
+			DraftID:     draft.ID,
+			CustomerID:  draft.CustomerID,
+			OwnerID:     draft.OwnerID,
+			ProductName: draft.ProductName,
+			Amount:      draft.TotalAmount,
+			Action:      "created",
+			Source:      "ai_chat",
+			Confidence:  draft.Confidence,
+			OccurredAt:  now,
 		})
 	}
 	return draft
@@ -315,24 +315,24 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 
 	now := time.Now()
 	draft := &OrderDraft{
-		ID:		generateDraftID(),
-		CustomerID:	req.CustomerID,
-		OneID:		req.OneID,
-		OwnerID:	req.OwnerID,
-		ProductName:	req.ProductName,
-		ProductID:	req.ProductID,
-		Category:	req.Category,
-		Quantity:	req.Quantity,
-		UnitPrice:	req.UnitPrice,
-		TotalAmount:	req.UnitPrice * float64(req.Quantity),
-		Confidence:	1.0,	// 手动创建置信度 100%
-		Source:		"manual",
-		Status:		DraftStatusPending,
-		Note:		req.Note,
-		CreatedAt:	now,
-		UpdatedAt:	now,
-		ExpiresAt:	now.Add(s.defaultExpiry),
-		Metadata:	make(map[string]any),
+		ID:          generateDraftID(),
+		CustomerID:  req.CustomerID,
+		OneID:       req.OneID,
+		OwnerID:     req.OwnerID,
+		ProductName: req.ProductName,
+		ProductID:   req.ProductID,
+		Category:    req.Category,
+		Quantity:    req.Quantity,
+		UnitPrice:   req.UnitPrice,
+		TotalAmount: req.UnitPrice * float64(req.Quantity),
+		Confidence:  1.0, // 手动创建置信度 100%
+		Source:      "manual",
+		Status:      DraftStatusPending,
+		Note:        req.Note,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		ExpiresAt:   now.Add(s.defaultExpiry),
+		Metadata:    make(map[string]any),
 	}
 
 	s.mu.Lock()
@@ -344,15 +344,15 @@ func (s *OrderDraftService) CreateManual(ctx context.Context, req *CreateDraftRe
 	// 仪表盘记录
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
-			DraftID:	draft.ID,
-			CustomerID:	draft.CustomerID,
-			OwnerID:	draft.OwnerID,
-			ProductName:	draft.ProductName,
-			Amount:		draft.TotalAmount,
-			Action:		"created",
-			Source:		"manual",
-			Confidence:	1.0,
-			OccurredAt:	now,
+			DraftID:     draft.ID,
+			CustomerID:  draft.CustomerID,
+			OwnerID:     draft.OwnerID,
+			ProductName: draft.ProductName,
+			Amount:      draft.TotalAmount,
+			Action:      "created",
+			Source:      "manual",
+			Confidence:  1.0,
+			OccurredAt:  now,
 		})
 	}
 	return draft, nil
@@ -397,8 +397,8 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 	s.mu.Unlock()
 
 	result := &DraftConfirmResult{
-		Draft:		draft,
-		StageAdvanced:	string(StageWon),
+		Draft:         draft,
+		StageAdvanced: string(StageWon),
 	}
 
 	// 1. 创建正式订单
@@ -411,15 +411,15 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 			orderID = order.ID
 			result.OrderID = orderID
 			result.Order = &orderRecord{
-				ID:		order.ID,
-				AccountID:	order.AccountID,
-				ProductName:	draft.ProductName,
-				Quantity:	draft.Quantity,
-				UnitPrice:	draft.UnitPrice,
-				TotalAmount:	draft.TotalAmount,
-				Status:		"pending",
-				Source:		"draft",
-				CreatedAt:	now,
+				ID:          order.ID,
+				AccountID:   order.AccountID,
+				ProductName: draft.ProductName,
+				Quantity:    draft.Quantity,
+				UnitPrice:   draft.UnitPrice,
+				TotalAmount: draft.TotalAmount,
+				Status:      "pending",
+				Source:      "draft",
+				CreatedAt:   now,
 			}
 			// 回写订单 ID 到草稿
 			s.mu.Lock()
@@ -441,34 +441,34 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 	if s.journey != nil {
 		_, _ = s.journey.Transition(ctx, draft.CustomerID, StageWon, "draft_confirm", confirmedBy,
 			"草稿确认自动成单: "+draft.ProductName, map[string]any{
-				"draft_id":	draft.ID,
-				"order_id":	orderID,
-				"amount":	draft.TotalAmount,
-				"confirmed_by":	confirmedBy,
+				"draft_id":     draft.ID,
+				"order_id":     orderID,
+				"amount":       draft.TotalAmount,
+				"confirmed_by": confirmedBy,
 			})
 	}
 
 	// 3. 仪表盘记录订单（复用 SalesActionTrigger 同样的逻辑）
 	if s.dashboard != nil {
 		s.dashboard.RecordOrder(ctx, OrderEvent{
-			OrderID:	orderID,
-			CustomerID:	draft.CustomerID,
-			OwnerID:	draft.OwnerID,
-			Amount:		draft.TotalAmount,
-			ProductName:	draft.ProductName,
-			IsAIHandled:	draft.Source == "ai_chat",
-			OrderedAt:	now,
+			OrderID:     orderID,
+			CustomerID:  draft.CustomerID,
+			OwnerID:     draft.OwnerID,
+			Amount:      draft.TotalAmount,
+			ProductName: draft.ProductName,
+			IsAIHandled: draft.Source == "ai_chat",
+			OrderedAt:   now,
 		})
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
-			DraftID:	draft.ID,
-			CustomerID:	draft.CustomerID,
-			OwnerID:	draft.OwnerID,
-			ProductName:	draft.ProductName,
-			Amount:		draft.TotalAmount,
-			Action:		"confirmed",
-			Source:		draft.Source,
-			Confidence:	draft.Confidence,
-			OccurredAt:	now,
+			DraftID:     draft.ID,
+			CustomerID:  draft.CustomerID,
+			OwnerID:     draft.OwnerID,
+			ProductName: draft.ProductName,
+			Amount:      draft.TotalAmount,
+			Action:      "confirmed",
+			Source:      draft.Source,
+			Confidence:  draft.Confidence,
+			OccurredAt:  now,
 		})
 	}
 
@@ -476,10 +476,10 @@ func (s *OrderDraftService) Confirm(ctx context.Context, draftID, confirmedBy st
 	if s.followup != nil {
 		r, _ := s.followup.Schedule(ctx, draft.CustomerID, draft.OwnerID,
 			ReminderAfterSaleCare, 7*24*time.Hour, &ScheduleOptions{
-				Title:		"售后回访: " + draft.ProductName,
-				Description:	fmt.Sprintf("草稿 %s 确认后自动安排（订单 %s）", draft.ID, orderID),
-				Priority:	PriorityNormal,
-				AutoHandle:	true,
+				Title:       "售后回访: " + draft.ProductName,
+				Description: fmt.Sprintf("草稿 %s 确认后自动安排（订单 %s）", draft.ID, orderID),
+				Priority:    PriorityNormal,
+				AutoHandle:  true,
 			})
 		if r != nil {
 			result.FollowUpID = r.ID
@@ -516,15 +516,15 @@ func (s *OrderDraftService) Cancel(ctx context.Context, draftID, reason, cancell
 	// 仪表盘记录
 	if s.dashboard != nil {
 		s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
-			DraftID:	draft.ID,
-			CustomerID:	draft.CustomerID,
-			OwnerID:	draft.OwnerID,
-			ProductName:	draft.ProductName,
-			Amount:		draft.TotalAmount,
-			Action:		"cancelled",
-			Source:		draft.Source,
-			Confidence:	draft.Confidence,
-			OccurredAt:	now,
+			DraftID:     draft.ID,
+			CustomerID:  draft.CustomerID,
+			OwnerID:     draft.OwnerID,
+			ProductName: draft.ProductName,
+			Amount:      draft.TotalAmount,
+			Action:      "cancelled",
+			Source:      draft.Source,
+			Confidence:  draft.Confidence,
+			OccurredAt:  now,
 		})
 	}
 	return nil
@@ -661,15 +661,15 @@ func (s *OrderDraftService) ExpireOverdue(ctx context.Context) int {
 			// 仪表盘记录
 			if s.dashboard != nil {
 				s.dashboard.RecordOrderDraft(ctx, OrderDraftEvent{
-					DraftID:	d.ID,
-					CustomerID:	d.CustomerID,
-					OwnerID:	d.OwnerID,
-					ProductName:	d.ProductName,
-					Amount:		d.TotalAmount,
-					Action:		"expired",
-					Source:		d.Source,
-					Confidence:	d.Confidence,
-					OccurredAt:	now,
+					DraftID:     d.ID,
+					CustomerID:  d.CustomerID,
+					OwnerID:     d.OwnerID,
+					ProductName: d.ProductName,
+					Amount:      d.TotalAmount,
+					Action:      "expired",
+					Source:      d.Source,
+					Confidence:  d.Confidence,
+					OccurredAt:  now,
 				})
 			}
 		}
@@ -718,15 +718,15 @@ func (s *OrderDraftService) createOrderFromDraft(ctx context.Context, draft *Ord
 		return nil, errors.New("订单创建返回为空")
 	}
 	return &orderRecord{
-		ID:		order.ID,
-		AccountID:	order.AccountID,
-		ProductName:	draft.ProductName,
-		Quantity:	draft.Quantity,
-		UnitPrice:	draft.UnitPrice,
-		TotalAmount:	draft.TotalAmount,
-		Status:		"pending",
-		Source:		"draft",
-		CreatedAt:	time.Now(),
+		ID:          order.ID,
+		AccountID:   order.AccountID,
+		ProductName: draft.ProductName,
+		Quantity:    draft.Quantity,
+		UnitPrice:   draft.UnitPrice,
+		TotalAmount: draft.TotalAmount,
+		Status:      "pending",
+		Source:      "draft",
+		CreatedAt:   time.Now(),
 	}, nil
 }
 

@@ -4,22 +4,22 @@ import (
 	"errors"
 	"time"
 
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // RecoveryQueueService 流失挽回队列服务
 type RecoveryQueueService struct {
-	repo	repository.RecoveryQueueRepository
-	nowFunc	func() time.Time
+	repo    repository.RecoveryQueueRepository
+	nowFunc func() time.Time
 }
 
 // NewRecoveryQueueService 创建挽回队列服务
 func NewRecoveryQueueService() *RecoveryQueueService {
 	return &RecoveryQueueService{
-		repo:		repository.NewRecoveryQueueRepository(),
-		nowFunc:	time.Now,
+		repo:    repository.NewRecoveryQueueRepository(),
+		nowFunc: time.Now,
 	}
 }
 
@@ -43,14 +43,14 @@ func (s *RecoveryQueueService) Enqueue(ctx context.Context, customerID, unifiedI
 		strategy = "sms_coupon"
 	}
 	item := &model.RecoveryQueue{
-		CustomerID:	customerID,
-		UnifiedID:	unifiedID,
-		Account:	account,
-		Reason:		reason,
-		Strategy:	strategy,
-		Priority:	priority,
-		Stage:		model.RecoveryStageQueued,
-		MaxAttempts:	3,
+		CustomerID:  customerID,
+		UnifiedID:   unifiedID,
+		Account:     account,
+		Reason:      reason,
+		Strategy:    strategy,
+		Priority:    priority,
+		Stage:       model.RecoveryStageQueued,
+		MaxAttempts: 3,
 	}
 	if err := s.repo.Create(ctx, item); err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (s *RecoveryQueueService) ListByStage(ctx context.Context, stage string, pa
 }
 
 // Distribution 阶段统计
-func (s *RecoveryQueueService) Distribution(ctx context.Context,) (map[string]int64, error) {
+func (s *RecoveryQueueService) Distribution(ctx context.Context) (map[string]int64, error) {
 	return s.repo.CountByStage(ctx)
 }
 

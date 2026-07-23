@@ -42,18 +42,18 @@ type AgentContext = dto.AgentContext
 
 // AIAgentService AI 智能体服务
 type AIAgentService struct {
-	repo	*repository.AIAgentRepository
-	db	*gorm.DB
+	repo *repository.AIAgentRepository
+	db   *gorm.DB
 
 	// AgentContext 缓存：agentID → *AgentContext（带 TTL）
-	cacheMu		sync.RWMutex
-	cache		map[uint]*agentCacheEntry
-	cacheTTL	time.Duration
+	cacheMu  sync.RWMutex
+	cache    map[uint]*agentCacheEntry
+	cacheTTL time.Duration
 }
 
 type agentCacheEntry struct {
-	ctx		*AgentContext
-	expiresAt	time.Time
+	ctx       *AgentContext
+	expiresAt time.Time
 }
 
 // NewAIAgentService 创建智能体服务(无参,内部用 dbUtil.GetDB())
@@ -66,10 +66,10 @@ func NewAIAgentServiceWithDB(db *gorm.DB) *AIAgentService {
 	repo := repository.NewAIAgentRepository()
 	repo.SetDB(context.Background(), db)
 	return &AIAgentService{
-		repo:		repo,
-		db:		db,
-		cache:		make(map[uint]*agentCacheEntry),
-		cacheTTL:	30 * time.Second,	// 30s 缓存 TTL，平衡一致性与性能
+		repo:     repo,
+		db:       db,
+		cache:    make(map[uint]*agentCacheEntry),
+		cacheTTL: 30 * time.Second, // 30s 缓存 TTL，平衡一致性与性能
 	}
 }
 
@@ -193,43 +193,43 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 		return nil, err
 	}
 	if agent.Status != 1 {
-		return nil, nil	// 禁用智能体视为未绑定
+		return nil, nil // 禁用智能体视为未绑定
 	}
 
 	// 3. 构造 AgentContext
 	agentCtx := &AgentContext{
-		AgentID:		agent.ID,
-		AgentCode:		agent.AgentCode,
-		Name:			agent.Name,
-		AgentType:		agent.AgentType,
-		Persona:		agent.Persona,
-		SystemPrompt:		agent.SystemPrompt,
-		Greeting:		agent.Greeting,
-		RagProductIDs:		[]string(agent.RagProductIDs),
-		SOPIDs:			[]string(agent.SOPIDs),
-		ScriptLibraryIDs:	[]string(agent.ScriptLibraryIDs),
-		LLMModel:		agent.LLMModel,
-		LLMProviderConfig:	agent.LLMProviderConfig,
-		Temperature:		agent.Temperature,
-		MaxTokens:		agent.MaxTokens,
-		TopP:			agent.TopP,
-		FrequencyPenalty:	agent.FrequencyPenalty,
-		PresencePenalty:	agent.PresencePenalty,
-		EnableRAG:		agent.EnableRAG,
-		EnableScriptMatch:	agent.EnableScriptMatch,
-		EnableHumanizePolish:	agent.EnableHumanizePolish,
-		EnableContentAudit:	agent.EnableContentAudit,
-		EnablePlaybook:		agent.EnablePlaybook,
-		RAGTopK:		agent.RAGTopK,
-		ConfidenceThreshold:	agent.ConfidenceThreshold,
-		MaxAIConsecutive:	agent.MaxAIConsecutive,
+		AgentID:              agent.ID,
+		AgentCode:            agent.AgentCode,
+		Name:                 agent.Name,
+		AgentType:            agent.AgentType,
+		Persona:              agent.Persona,
+		SystemPrompt:         agent.SystemPrompt,
+		Greeting:             agent.Greeting,
+		RagProductIDs:        []string(agent.RagProductIDs),
+		SOPIDs:               []string(agent.SOPIDs),
+		ScriptLibraryIDs:     []string(agent.ScriptLibraryIDs),
+		LLMModel:             agent.LLMModel,
+		LLMProviderConfig:    agent.LLMProviderConfig,
+		Temperature:          agent.Temperature,
+		MaxTokens:            agent.MaxTokens,
+		TopP:                 agent.TopP,
+		FrequencyPenalty:     agent.FrequencyPenalty,
+		PresencePenalty:      agent.PresencePenalty,
+		EnableRAG:            agent.EnableRAG,
+		EnableScriptMatch:    agent.EnableScriptMatch,
+		EnableHumanizePolish: agent.EnableHumanizePolish,
+		EnableContentAudit:   agent.EnableContentAudit,
+		EnablePlaybook:       agent.EnablePlaybook,
+		RAGTopK:              agent.RAGTopK,
+		ConfidenceThreshold:  agent.ConfidenceThreshold,
+		MaxAIConsecutive:     agent.MaxAIConsecutive,
 	}
 
 	// 4. 写缓存
 	s.cacheMu.Lock()
 	s.cache[agentID] = &agentCacheEntry{
-		ctx:		agentCtx,
-		expiresAt:	time.Now().Add(s.cacheTTL),
+		ctx:       agentCtx,
+		expiresAt: time.Now().Add(s.cacheTTL),
 	}
 	s.cacheMu.Unlock()
 
@@ -258,9 +258,9 @@ func (s *AIAgentService) TestAgent(ctx context.Context, agentID uint, customerID
 		return nil, errors.New("SalesEngine 未注入")
 	}
 	req := &SalesRequest{
-		CustomerID:	customerID,
-		UserMessage:	message,
-		AutoExecute:	true,
+		CustomerID:  customerID,
+		UserMessage: message,
+		AutoExecute: true,
 	}
 	return engine.HandleWithAgent(ctx, req, agentCtx)
 }
@@ -271,10 +271,10 @@ func (s *AIAgentService) TestAgent(ctx context.Context, agentID uint, customerID
 
 // ChannelAgentBindingService 渠道绑定服务
 type ChannelAgentBindingService struct {
-	repo		*repository.ChannelAgentBindingRepository
-	agentRepo	*repository.AIAgentRepository
-	agentSvc	*AIAgentService
-	db		*gorm.DB
+	repo      *repository.ChannelAgentBindingRepository
+	agentRepo *repository.AIAgentRepository
+	agentSvc  *AIAgentService
+	db        *gorm.DB
 }
 
 // NewChannelAgentBindingService 创建渠道绑定服务(无参,内部用 dbUtil.GetDB())
@@ -289,10 +289,10 @@ func NewChannelAgentBindingServiceWithDB(db *gorm.DB, agentSvc *AIAgentService) 
 	agentRepo := repository.NewAIAgentRepository()
 	agentRepo.SetDB(context.Background(), db)
 	return &ChannelAgentBindingService{
-		repo:		repo,
-		agentRepo:	agentRepo,
-		agentSvc:	agentSvc,
-		db:		db,
+		repo:      repo,
+		agentRepo: agentRepo,
+		agentSvc:  agentSvc,
+		db:        db,
 	}
 }
 
@@ -418,10 +418,10 @@ func NormalizeChannelType(ch string) string {
 
 // CustomerServiceAgentService 客服挂载服务
 type CustomerServiceAgentService struct {
-	repo			*repository.CustomerServiceAgentRepository
-	agentRepo		*repository.AIAgentRepository
-	agentSvc		*AIAgentService
-	agentStatusRepo	*repository.AgentStatusRepository
+	repo            *repository.CustomerServiceAgentRepository
+	agentRepo       *repository.AIAgentRepository
+	agentSvc        *AIAgentService
+	agentStatusRepo *repository.AgentStatusRepository
 }
 
 // NewCustomerServiceAgentService 创建客服挂载服务(无参,内部用 dbUtil.GetDB())
@@ -437,10 +437,10 @@ func NewCustomerServiceAgentServiceWithDB(db *gorm.DB, agentSvc *AIAgentService)
 	agentRepo.SetDB(context.Background(), db)
 	agentStatusRepo := repository.NewAgentStatusRepositoryWithDB(db)
 	return &CustomerServiceAgentService{
-		repo:			repo,
-		agentRepo:		agentRepo,
-		agentSvc:		agentSvc,
-		agentStatusRepo:	agentStatusRepo,
+		repo:            repo,
+		agentRepo:       agentRepo,
+		agentSvc:        agentSvc,
+		agentStatusRepo: agentStatusRepo,
 	}
 }
 
@@ -542,10 +542,10 @@ func (s *CustomerServiceAgentService) GetOrCreateAgentStatusByUserID(ctx context
 	}
 	// 创建座席状态
 	newStatus := &model.AgentStatus{
-		AgentID:		userID,
-		AgentName:		name,
-		Status:			"offline",
-		MaxSessions:	5,
+		AgentID:     userID,
+		AgentName:   name,
+		Status:      "offline",
+		MaxSessions: 5,
 	}
 	if err := s.agentStatusRepo.Create(ctx, newStatus); err != nil {
 		return nil, fmt.Errorf("创建座席状态失败: %w", err)
@@ -561,7 +561,7 @@ func (s *CustomerServiceAgentService) ListByUserID(ctx context.Context, userID u
 	st, err := s.agentStatusRepo.GetByAgentID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return []*model.CustomerServiceAgent{}, nil	// 无座席状态则无挂载
+			return []*model.CustomerServiceAgent{}, nil // 无座席状态则无挂载
 		}
 		return nil, fmt.Errorf("查询座席状态失败: %w", err)
 	}
@@ -578,10 +578,10 @@ func (s *CustomerServiceAgentService) CreateByUserID(ctx context.Context, userID
 		return nil, err
 	}
 	m := &model.CustomerServiceAgent{
-		AgentStatusID:	st.ID,
-		AIAgentID:	aiAgentID,
-		IsPrimary:	isPrimary,
-		Enabled:	true,
+		AgentStatusID: st.ID,
+		AIAgentID:     aiAgentID,
+		IsPrimary:     isPrimary,
+		Enabled:       true,
 	}
 	if err := s.Create(ctx, m); err != nil {
 		return nil, err

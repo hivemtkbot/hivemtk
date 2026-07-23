@@ -18,47 +18,47 @@ import (
 // 异常登录阈值
 const (
 	// abnormalHourStart / abnormalHourEnd: 凌晨异常时段（2-5 点）
-	abnormalHourStart	= 2
-	abnormalHourEnd		= 5
+	abnormalHourStart = 2
+	abnormalHourEnd   = 5
 
 	// frequentFailureThreshold: 1 小时内失败次数阈值
-	frequentFailureThreshold	= 5
+	frequentFailureThreshold = 5
 
 	// frequentFailureWindow: 失败计数窗口
-	frequentFailureWindow	= 1 * time.Hour
+	frequentFailureWindow = 1 * time.Hour
 
 	// locationDistanceThreshold: 异地登录距离阈值（千米）
-	locationDistanceThreshold	= 1000.0
+	locationDistanceThreshold = 1000.0
 
 	// deviceFingerprintChangeWindow: 设备指纹变更检查窗口（7 天）
-	deviceFingerprintChangeWindow	= 7 * 24 * time.Hour
+	deviceFingerprintChangeWindow = 7 * 24 * time.Hour
 )
 
 // LoginRiskContext 登录风险检测上下文
 // 由 controller 在登录入口收集，传给 LoginRiskService.Evaluate
 type LoginRiskContext struct {
-	UserID			uint
-	Username		string
-	IP			string
-	UserAgent		string
-	DeviceFingerprint	string
-	Success			bool
-	LoginAt			time.Time
-	Reason			string	// 失败原因
+	UserID            uint
+	Username          string
+	IP                string
+	UserAgent         string
+	DeviceFingerprint string
+	Success           bool
+	LoginAt           time.Time
+	Reason            string // 失败原因
 }
 
 // LoginRiskResult 风险评估结果
 type LoginRiskResult struct {
-	RiskLevel		model.RiskLevel
-	ShouldAlert		bool	// 是否需要触发告警
-	ShouldForceMFA		bool	// 是否需要强制二次验证
-	AlertType		string	// 告警类型（ShouldAlert=true 时有效）
-	AlertTitle		string
-	AlertDescription	string
-	Reasons			[]string	// 触发风险的原因列表
-	Location		string		// IP 地理位置（暂用 IP 段模拟）
-	LoginEventID		uint		// 写入的 LoginEvent.ID
-	SecurityAlertID		uint		// 写入的 SecurityAlert.ID（如有）
+	RiskLevel        model.RiskLevel
+	ShouldAlert      bool   // 是否需要触发告警
+	ShouldForceMFA   bool   // 是否需要强制二次验证
+	AlertType        string // 告警类型（ShouldAlert=true 时有效）
+	AlertTitle       string
+	AlertDescription string
+	Reasons          []string // 触发风险的原因列表
+	Location         string   // IP 地理位置（暂用 IP 段模拟）
+	LoginEventID     uint     // 写入的 LoginEvent.ID
+	SecurityAlertID  uint     // 写入的 SecurityAlert.ID（如有）
 }
 
 // LoginRiskService 登录风险评估服务
@@ -168,16 +168,16 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 
 	// 写入 login_events
 	loginEvent := &model.LoginEvent{
-		UserID:			riskCtx.UserID,
-		Username:		riskCtx.Username,
-		IP:			riskCtx.IP,
-		UserAgent:		riskCtx.UserAgent,
-		DeviceFingerprint:	riskCtx.DeviceFingerprint,
-		LoginAt:		riskCtx.LoginAt,
-		Success:		riskCtx.Success,
-		RiskLevel:		result.RiskLevel,
-		Location:		result.Location,
-		Reason:			strings.Join(result.Reasons, "; "),
+		UserID:            riskCtx.UserID,
+		Username:          riskCtx.Username,
+		IP:                riskCtx.IP,
+		UserAgent:         riskCtx.UserAgent,
+		DeviceFingerprint: riskCtx.DeviceFingerprint,
+		LoginAt:           riskCtx.LoginAt,
+		Success:           riskCtx.Success,
+		RiskLevel:         result.RiskLevel,
+		Location:          result.Location,
+		Reason:            strings.Join(result.Reasons, "; "),
 	}
 	created, err := s.repo.CreateLoginEvent(rctx, loginEvent)
 	if err != nil {
@@ -189,16 +189,16 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 	// high/critical 写入 security_alerts
 	if result.ShouldAlert {
 		alert := &model.SecurityAlert{
-			UserID:		riskCtx.UserID,
-			Username:	riskCtx.Username,
-			AlertType:	result.AlertType,
-			RiskLevel:	result.RiskLevel,
-			Title:		result.AlertTitle,
-			Description:	result.AlertDescription,
-			IP:		riskCtx.IP,
-			Location:	result.Location,
-			LoginEventID:	created.ID,
-			Status:		model.SecurityAlertStatusOpen,
+			UserID:       riskCtx.UserID,
+			Username:     riskCtx.Username,
+			AlertType:    result.AlertType,
+			RiskLevel:    result.RiskLevel,
+			Title:        result.AlertTitle,
+			Description:  result.AlertDescription,
+			IP:           riskCtx.IP,
+			Location:     result.Location,
+			LoginEventID: created.ID,
+			Status:       model.SecurityAlertStatusOpen,
 		}
 		savedAlert, err := s.repo.CreateSecurityAlert(rctx, alert)
 		if err != nil {
@@ -214,7 +214,7 @@ func (s *LoginRiskService) Evaluate(ctx context.Context, riskCtx *LoginRiskConte
 }
 
 // isAbnormalHour 判断是否在凌晨异常时段
-func (s *LoginRiskService) isAbnormalHour(ctx context.Context, t time.Time)  bool {
+func (s *LoginRiskService) isAbnormalHour(ctx context.Context, t time.Time) bool {
 	hour := t.Hour()
 	return hour >= abnormalHourStart && hour < abnormalHourEnd
 }
@@ -259,7 +259,7 @@ func (s *LoginRiskService) isDeviceFingerprintChanged(ctx context.Context, userI
 // resolveLocation 根据 IP 解析地理位置
 // 私域部署简化版：根据 IP 前缀做粗略地理分类
 // 生产环境应接入专业 IP 库（如阿里云 IP 库 / MaxMind GeoIP）
-func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string)  string {
+func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string) string {
 	if ip == "" {
 		return "unknown"
 	}
@@ -282,7 +282,7 @@ func (s *LoginRiskService) resolveLocation(ctx context.Context, ip string)  stri
 
 // calculateDistance 计算两个 location 字符串之间的距离（千米）
 // 简化版：使用 Haversine 公式
-func (s *LoginRiskService) calculateDistance(ctx context.Context, loc1, loc2 string)  float64 {
+func (s *LoginRiskService) calculateDistance(ctx context.Context, loc1, loc2 string) float64 {
 	lat1, lon1, ok1 := s.parseGeo(ctx, loc1)
 	lat2, lon2, ok2 := s.parseGeo(ctx, loc2)
 	if !ok1 || !ok2 {
@@ -303,7 +303,7 @@ func (s *LoginRiskService) calculateDistance(ctx context.Context, loc1, loc2 str
 }
 
 // parseGeo 解析 "geo(lat,lon)" 格式
-func (s *LoginRiskService) parseGeo(ctx context.Context, s_ string)  (float64, float64, bool) {
+func (s *LoginRiskService) parseGeo(ctx context.Context, s_ string) (float64, float64, bool) {
 	var lat, lon float64
 	if _, err := fmt.Sscanf(s_, "geo(%f,%f)", &lat, &lon); err != nil {
 		return 0, 0, false
@@ -317,12 +317,12 @@ func toRadians(deg float64) float64 {
 }
 
 // upgradeRisk 升级风险等级（只升不降）
-func (s *LoginRiskService) upgradeRisk(ctx context.Context, current, target model.RiskLevel)  model.RiskLevel {
+func (s *LoginRiskService) upgradeRisk(ctx context.Context, current, target model.RiskLevel) model.RiskLevel {
 	order := map[model.RiskLevel]int{
-		model.RiskLevelLow:		0,
-		model.RiskLevelMedium:		1,
-		model.RiskLevelHigh:		2,
-		model.RiskLevelCritical:	3,
+		model.RiskLevelLow:      0,
+		model.RiskLevelMedium:   1,
+		model.RiskLevelHigh:     2,
+		model.RiskLevelCritical: 3,
 	}
 	if order[target] > order[current] {
 		return target
@@ -363,10 +363,10 @@ func (s *LoginRiskService) pushNotification(ctx context.Context, alert *model.Se
 		return
 	}
 	notif := &model.Notification{
-		UserID:		alert.UserID,
-		Type:		model.NotificationTypeWarning,
-		Title:		alert.Title,
-		Content:	alert.Description,
+		UserID:  alert.UserID,
+		Type:    model.NotificationTypeWarning,
+		Title:   alert.Title,
+		Content: alert.Description,
 	}
 	if err := s.repo.CreateNotification(ctx, notif); err != nil {
 		logger.Errorf("推送安全告警通知失败: %v", err)
@@ -395,7 +395,7 @@ func ComputeDeviceFingerprint(userAgent, ip string) string {
 }
 
 // ListLoginEvents 查询用户登录事件列表（分页）
-func (s *LoginRiskService) ListLoginEvents(ctx context.Context, userID uint, page, pageSize int)  ([]*model.LoginEvent, int64, error) {
+func (s *LoginRiskService) ListLoginEvents(ctx context.Context, userID uint, page, pageSize int) ([]*model.LoginEvent, int64, error) {
 	if s.repo == nil {
 		return nil, 0, errors.New("repo 未初始化")
 	}
@@ -403,7 +403,7 @@ func (s *LoginRiskService) ListLoginEvents(ctx context.Context, userID uint, pag
 }
 
 // ListSecurityAlerts 查询安全告警列表
-func (s *LoginRiskService) ListSecurityAlerts(ctx context.Context, userID uint, status string, page, pageSize int)  ([]*model.SecurityAlert, int64, error) {
+func (s *LoginRiskService) ListSecurityAlerts(ctx context.Context, userID uint, status string, page, pageSize int) ([]*model.SecurityAlert, int64, error) {
 	if s.repo == nil {
 		return nil, 0, errors.New("repo 未初始化")
 	}
@@ -411,7 +411,7 @@ func (s *LoginRiskService) ListSecurityAlerts(ctx context.Context, userID uint, 
 }
 
 // ResolveSecurityAlert 处理安全告警
-func (s *LoginRiskService) ResolveSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string)  error {
+func (s *LoginRiskService) ResolveSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string) error {
 	if s.repo == nil {
 		return errors.New("repo 未初始化")
 	}
@@ -419,7 +419,7 @@ func (s *LoginRiskService) ResolveSecurityAlert(ctx context.Context, alertID, re
 }
 
 // IgnoreSecurityAlert 忽略告警
-func (s *LoginRiskService) IgnoreSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string)  error {
+func (s *LoginRiskService) IgnoreSecurityAlert(ctx context.Context, alertID, resolverUserID uint, note string) error {
 	if s.repo == nil {
 		return errors.New("repo 未初始化")
 	}

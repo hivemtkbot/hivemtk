@@ -1,10 +1,10 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/platform"
 	"marketing/internal/repository"
-	"context"
 )
 
 // PlatformAccountService 平台账号服务
@@ -21,17 +21,17 @@ func NewPlatformAccountService() *PlatformAccountService {
 
 // CreatePlatformAccountRequest 创建平台账号请求
 type CreatePlatformAccountRequest struct {
-	Platform	model.Platform	`json:"platform" binding:"required"`
-	AccountID	string		`json:"account_id"`
-	AccountName	string		`json:"account_name"`
-	Config		string		`json:"config"`
+	Platform    model.Platform `json:"platform" binding:"required"`
+	AccountID   string         `json:"account_id"`
+	AccountName string         `json:"account_name"`
+	Config      string         `json:"config"`
 }
 
 // UpdatePlatformAccountRequest 更新平台账号请求
 type UpdatePlatformAccountRequest struct {
-	AccountName	string	`json:"account_name"`
-	Config		string	`json:"config"`
-	Status		*int	`json:"status"`
+	AccountName string `json:"account_name"`
+	Config      string `json:"config"`
+	Status      *int   `json:"status"`
 }
 
 // PlatformLoginRequest 平台登录请求
@@ -52,11 +52,11 @@ func (s *PlatformAccountService) GetAccountByID(ctx context.Context, id uint) (*
 // CreateAccount 创建账号
 func (s *PlatformAccountService) CreateAccount(ctx context.Context, req *CreatePlatformAccountRequest) (*model.PlatformAccount, error) {
 	account := &model.PlatformAccount{
-		Platform:	req.Platform,
-		AccountID:	req.AccountID,
-		AccountName:	req.AccountName,
-		Config:		req.Config,
-		Status:		1,
+		Platform:    req.Platform,
+		AccountID:   req.AccountID,
+		AccountName: req.AccountName,
+		Config:      req.Config,
+		Status:      1,
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {
@@ -146,6 +146,6 @@ var ErrPermissionDenied = &PermissionDeniedError{}
 
 type PermissionDeniedError struct{}
 
-func (e *PermissionDeniedError) Error(ctx context.Context)  string {
+func (e *PermissionDeniedError) Error(ctx context.Context) string {
 	return "权限不足"
 }

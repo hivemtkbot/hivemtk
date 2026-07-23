@@ -22,18 +22,18 @@ func NewCustomerService() *CustomerService {
 
 // CustomerDTO 客户数据传输对象
 type CustomerDTO struct {
-	Phone		string	`json:"phone"`
-	Email		string	`json:"email"`
-	WechatOpenID	string	`json:"wechat_open_id"`
-	DouyinOpenID	string	`json:"douyin_open_id"`
-	XiaohongshuID	string	`json:"xiaohongshu_id"`
+	Phone         string `json:"phone"`
+	Email         string `json:"email"`
+	WechatOpenID  string `json:"wechat_open_id"`
+	DouyinOpenID  string `json:"douyin_open_id"`
+	XiaohongshuID string `json:"xiaohongshu_id"`
 }
 
 // CustomerProfile 客户 360 视图
 type CustomerProfile struct {
-	Customer	*model.Customer		`json:"customer"`
-	RecentEvents	[]*model.CustomerEvent	`json:"recent_events"`
-	Tags		[]string		`json:"tags"`
+	Customer     *model.Customer        `json:"customer"`
+	RecentEvents []*model.CustomerEvent `json:"recent_events"`
+	Tags         []string               `json:"tags"`
 }
 
 // ErrCustomerNotFound 客户未找到
@@ -44,9 +44,9 @@ var ErrInvalidDTO = errors.New("无效的客戶 DTO")
 
 // 分页常量
 const (
-	DefaultLimit	= 50
-	MaxLimit	= 1000
-	DefaultPage	= 1
+	DefaultLimit = 50
+	MaxLimit     = 1000
+	DefaultPage  = 1
 )
 
 // CreateOrUpdate 创建或更新客户
@@ -80,13 +80,13 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 
 	// 创建新客户
 	customer := &model.Customer{
-		Phone:		dto.Phone,
-		Email:		dto.Email,
-		WechatOpenID:	dto.WechatOpenID,
-		DouyinOpenID:	dto.DouyinOpenID,
-		XiaohongshuID:	dto.XiaohongshuID,
-		Tags:		"[]",
-		ChurnRisk:	"low",
+		Phone:         dto.Phone,
+		Email:         dto.Email,
+		WechatOpenID:  dto.WechatOpenID,
+		DouyinOpenID:  dto.DouyinOpenID,
+		XiaohongshuID: dto.XiaohongshuID,
+		Tags:          "[]",
+		ChurnRisk:     "low",
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {
@@ -117,9 +117,9 @@ func (s *CustomerService) GetCustomerProfile(ctx context.Context, customerID str
 	tags := GetCustomerTags(customer)
 
 	return &CustomerProfile{
-		Customer:	customer,
-		RecentEvents:	events,
-		Tags:		tags,
+		Customer:     customer,
+		RecentEvents: events,
+		Tags:         tags,
 	}, nil
 }
 

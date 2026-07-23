@@ -1,10 +1,10 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 	"marketing/internal/repository"
-	"context"
 )
 
 type AccountService struct {
@@ -26,7 +26,7 @@ func (s *AccountService) GetAccount(ctx context.Context, id string) (*model.Acco
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *AccountService) GetAccountList(ctx context.Context,) ([]*model.Account, error) {
+func (s *AccountService) GetAccountList(ctx context.Context) ([]*model.Account, error) {
 	return s.repo.GetAccountList(ctx)
 }
 

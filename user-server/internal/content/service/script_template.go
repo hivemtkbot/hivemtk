@@ -28,7 +28,6 @@ type CreateScriptTemplateRequest struct {
 	Category  string   `json:"category" binding:"required"`
 	Title     string   `json:"title" binding:"required"`
 	Content   string   `json:"content" binding:"required"`
-	Scenario  string   `json:"scenario"`
 	Variables []string `json:"variables"`
 	Tags      string   `json:"tags"`
 	IsPublic  bool     `json:"is_public"`
@@ -43,7 +42,6 @@ func (s *ScriptTemplateService) CreateTemplate(createdBy uint, req *CreateScript
 		Name:      req.Title,
 		Title:     req.Title,
 		Content:   req.Content,
-		Scenario:  req.Scenario,
 		Variables: string(variables),
 		Tags:      req.Tags,
 		IsPublic:  req.IsPublic,
@@ -76,7 +74,6 @@ type UpdateTemplateRequest struct {
 	Category  string   `json:"category"`
 	Title     string   `json:"title"`
 	Content   string   `json:"content"`
-	Scenario  string   `json:"scenario"`
 	Variables []string `json:"variables"`
 	Tags      string   `json:"tags"`
 	IsPublic  bool     `json:"is_public"`
@@ -97,9 +94,6 @@ func (s *ScriptTemplateService) UpdateTemplate(id uint, req *UpdateTemplateReque
 	}
 	if req.Content != "" {
 		template.Content = req.Content
-	}
-	if req.Scenario != "" {
-		template.Scenario = req.Scenario
 	}
 	if req.Variables != nil {
 		variables, _ := json.Marshal(req.Variables)

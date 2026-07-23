@@ -247,7 +247,7 @@ func NewMemorySendRateLimiter() *MemorySendRateLimiter {
 	return l
 }
 
-func (l *MemorySendRateLimiter) shardOf(ctx context.Context, key string)  *rateLimiterShard {
+func (l *MemorySendRateLimiter) shardOf(ctx context.Context, key string) *rateLimiterShard {
 	var h uint32
 	for i := 0; i < len(key); i++ {
 		h = h*31 + uint32(key[i])
@@ -285,7 +285,7 @@ func (l *MemorySendRateLimiter) Allow(ctx context.Context, key string, limit Rat
 }
 
 // Reset 重置指定 key 的限流（用于测试）
-func (l *MemorySendRateLimiter) Reset(ctx context.Context, key string)  {
+func (l *MemorySendRateLimiter) Reset(ctx context.Context, key string) {
 	s := l.shardOf(ctx, key)
 	s.mu.Lock()
 	delete(s.buckets, key)
@@ -325,7 +325,7 @@ func NewDefaultContentAuditor() *DefaultContentAuditor {
 }
 
 // ensureCompiled 在词表变更后惰性重建自动机（性能审计 P3-4）
-func (a *DefaultContentAuditor) ensureCompiled(ctx context.Context)  {
+func (a *DefaultContentAuditor) ensureCompiled(ctx context.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if !a.dirty {
@@ -366,7 +366,7 @@ func (a *DefaultContentAuditor) Audit(ctx context.Context, channel, content stri
 }
 
 // AddSensitiveWord 动态添加敏感词
-func (a *DefaultContentAuditor) AddSensitiveWord(ctx context.Context, words ...string)  {
+func (a *DefaultContentAuditor) AddSensitiveWord(ctx context.Context, words ...string) {
 	a.mu.Lock()
 	a.SensitiveWords = append(a.SensitiveWords, words...)
 	a.dirty = true
@@ -374,7 +374,7 @@ func (a *DefaultContentAuditor) AddSensitiveWord(ctx context.Context, words ...s
 }
 
 // AddAdLawKeyword 动态添加广告法词
-func (a *DefaultContentAuditor) AddAdLawKeyword(ctx context.Context, words ...string)  {
+func (a *DefaultContentAuditor) AddAdLawKeyword(ctx context.Context, words ...string) {
 	a.mu.Lock()
 	a.AdLawKeywords = append(a.AdLawKeywords, words...)
 	a.dirty = true
@@ -438,7 +438,7 @@ func newACAutomaton(words []string) *acAutomaton {
 }
 
 // match 返回内容中命中的全部模式串（去重）
-func (a *acAutomaton) match(ctx context.Context, content string)  []string {
+func (a *acAutomaton) match(ctx context.Context, content string) []string {
 	var hits []string
 	seen := make(map[string]bool)
 	cur := 0
@@ -517,7 +517,7 @@ func (l *MemorySendAuditLogger) LogSend(ctx context.Context, req *ReachSendReque
 }
 
 // Entries 返回所有审计日志
-func (l *MemorySendAuditLogger) Entries(ctx context.Context)  []*SendAuditEntry {
+func (l *MemorySendAuditLogger) Entries(ctx context.Context) []*SendAuditEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	out := make([]*SendAuditEntry, len(l.entries))
@@ -559,7 +559,7 @@ func NewMemorySendCostTracker(initialBalance float64) *MemorySendCostTracker {
 }
 
 // SetCost 设置渠道单价
-func (t *MemorySendCostTracker) SetCost(ctx context.Context, channel string, cost float64)  {
+func (t *MemorySendCostTracker) SetCost(ctx context.Context, channel string, cost float64) {
 	t.mu.Lock()
 	t.costs[channel] = cost
 	t.mu.Unlock()
@@ -579,14 +579,14 @@ func (t *MemorySendCostTracker) Charge(ctx context.Context, channel string, req 
 }
 
 // Balance 返回当前余额
-func (t *MemorySendCostTracker) Balance(ctx context.Context)  float64 {
+func (t *MemorySendCostTracker) Balance(ctx context.Context) float64 {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.balance
 }
 
 // TotalUsed 返回累计消费
-func (t *MemorySendCostTracker) TotalUsed(ctx context.Context)  float64 {
+func (t *MemorySendCostTracker) TotalUsed(ctx context.Context) float64 {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.totalUsed
@@ -909,7 +909,7 @@ func (p *defaultSendPipeline) executeSendWithFallback(ctx context.Context, req *
 }
 
 // isRetryable 是否可重试
-func (p *defaultSendPipeline) isRetryable(ctx context.Context, err error, retryableErrors []string)  bool {
+func (p *defaultSendPipeline) isRetryable(ctx context.Context, err error, retryableErrors []string) bool {
 	if err == nil {
 		return false
 	}
@@ -927,7 +927,7 @@ func (p *defaultSendPipeline) isRetryable(ctx context.Context, err error, retrya
 }
 
 // computeBackoff 计算退避时间
-func (p *defaultSendPipeline) computeBackoff(ctx context.Context, policy SendRetryPolicy, attempt int)  time.Duration {
+func (p *defaultSendPipeline) computeBackoff(ctx context.Context, policy SendRetryPolicy, attempt int) time.Duration {
 	interval := policy.IntervalMs
 	if policy.Backoff == "exponential" {
 		mult := 1
@@ -1107,7 +1107,7 @@ func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 }
 
 // Stats 返回统计快照
-func (p *countedSendPipeline) Stats(ctx context.Context)  SendPipelineStats {
+func (p *countedSendPipeline) Stats(ctx context.Context) SendPipelineStats {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.stats
@@ -1136,7 +1136,7 @@ func (m *FuncChannelAdapter) Send(ctx context.Context, req *ReachSendRequest) (s
 }
 
 // Count 返回调用次数
-func (m *FuncChannelAdapter) Count(ctx context.Context)  int32 {
+func (m *FuncChannelAdapter) Count(ctx context.Context) int32 {
 	return atomic.LoadInt32(&m.CallCnt)
 }
 
@@ -1161,7 +1161,7 @@ func (a *AlwaysFailAdapter) Send(ctx context.Context, req *ReachSendRequest) (st
 }
 
 // Count 返回调用次数
-func (a *AlwaysFailAdapter) Count(ctx context.Context)  int32 {
+func (a *AlwaysFailAdapter) Count(ctx context.Context) int32 {
 	return atomic.LoadInt32(&a.CallCnt)
 }
 
@@ -1190,6 +1190,6 @@ func (a *FlakyAdapter) Send(ctx context.Context, req *ReachSendRequest) (string,
 }
 
 // Count 返回调用次数
-func (a *FlakyAdapter) Count(ctx context.Context)  int32 {
+func (a *FlakyAdapter) Count(ctx context.Context) int32 {
 	return atomic.LoadInt32(&a.CallCnt)
 }

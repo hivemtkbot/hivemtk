@@ -113,12 +113,12 @@ func NewAnomalyLoginDetectorWithConfig(cfg AnomalyLoginDetectorConfig) *AnomalyL
 }
 
 // SetAdminEmails 设置管理员邮箱
-func (d *AnomalyLoginDetector) SetAdminEmails(ctx context.Context, emails []string)  {
+func (d *AnomalyLoginDetector) SetAdminEmails(ctx context.Context, emails []string) {
 	d.config.AdminEmails = emails
 }
 
 // SetConfig 整体替换配置
-func (d *AnomalyLoginDetector) SetConfig(ctx context.Context, cfg AnomalyLoginDetectorConfig)  {
+func (d *AnomalyLoginDetector) SetConfig(ctx context.Context, cfg AnomalyLoginDetectorConfig) {
 	d.config = cfg
 }
 
@@ -213,7 +213,7 @@ func (d *AnomalyLoginDetector) writeAuditLog(ctx context.Context, lctx *LoginRis
 }
 
 // writeInboxNotification 写站内通知
-func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult)  error {
+func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	notif := &model.Notification{
 		UserID:  lctx.UserID,
 		Type:    model.NotificationTypeWarning,
@@ -228,7 +228,7 @@ func (d *AnomalyLoginDetector) writeInboxNotification(ctx context.Context, lctx 
 // sendEmailAlert 发送邮件告警
 //
 // 简化实现：仅当存在 SMTP 配置时尝试发送；私域部署允许无 SMTP（仅走审计+站内信）
-func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult)  error {
+func (d *AnomalyLoginDetector) sendEmailAlert(ctx context.Context, lctx *LoginRiskContext, result *LoginRiskResult) error {
 	subject := fmt.Sprintf(d.config.EmailSubjectTemplate,
 		strings.ToUpper(string(result.RiskLevel)),
 		lctx.Username,

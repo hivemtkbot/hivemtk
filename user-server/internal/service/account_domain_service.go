@@ -3,10 +3,10 @@ package service
 import (
 	"strconv"
 
+	"context"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // ============================================================================
@@ -22,17 +22,17 @@ func NewAccountServiceWithRepo(repo repository.AccountRepository) *AccountServic
 // CreateAccountDTO 根据请求 DTO 创建商户账户，并返回响应 DTO
 func (s *AccountService) CreateAccountDTO(ctx context.Context, req dto.CreateAccountRequest) (*dto.AccountResponse, error) {
 	account := model.Account{
-		TgBotToken:		req.TgBotToken,
-		Price:			req.Price,
-		GroupID:		req.GroupID,
-		ProxyEnableProxy:	req.ProxyEnableProxy,
-		ProxyProtoclo:		req.ProxyProtoclo,
-		ProxyHost:		req.ProxyHost,
-		ProxyPort:		req.ProxyPort,
-		DouyinHeadless:		req.DouyinHeadless,
-		KuaishouHeadless:	req.KuaishouHeadless,
-		XiaohongshuHeadless:	req.XiaohongshuHeadless,
-		XianyuHeadless:		req.XianyuHeadless,
+		TgBotToken:          req.TgBotToken,
+		Price:               req.Price,
+		GroupID:             req.GroupID,
+		ProxyEnableProxy:    req.ProxyEnableProxy,
+		ProxyProtoclo:       req.ProxyProtoclo,
+		ProxyHost:           req.ProxyHost,
+		ProxyPort:           req.ProxyPort,
+		DouyinHeadless:      req.DouyinHeadless,
+		KuaishouHeadless:    req.KuaishouHeadless,
+		XiaohongshuHeadless: req.XiaohongshuHeadless,
+		XianyuHeadless:      req.XianyuHeadless,
 	}
 	created, err := s.CreateAccount(ctx, account)
 	if err != nil {
@@ -57,8 +57,8 @@ func (s *AccountService) GetAccountListDTO(ctx context.Context) (*dto.GetAccount
 		return nil, err
 	}
 	resp := &dto.GetAccountListResponse{
-		Total:	int64(len(accounts)),
-		List:	[]*dto.AccountResponse{},
+		Total: int64(len(accounts)),
+		List:  []*dto.AccountResponse{},
 	}
 	for _, a := range accounts {
 		resp.List = append(resp.List, toAccountResponse(a))
@@ -69,19 +69,19 @@ func (s *AccountService) GetAccountListDTO(ctx context.Context) (*dto.GetAccount
 // UpdateAccountDTO 根据请求 DTO 更新账户，并返回响应 DTO
 func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAccountRequest) (*dto.AccountResponse, error) {
 	account := model.Account{
-		ID:			req.ID,
-		TgName:			req.TgName,
-		TgBotToken:		req.TgBotToken,
-		Price:			req.Price,
-		GroupID:		req.GroupID,
-		ProxyEnableProxy:	req.ProxyEnableProxy,
-		ProxyProtoclo:		req.ProxyProtoclo,
-		ProxyHost:		req.ProxyHost,
-		ProxyPort:		req.ProxyPort,
-		DouyinHeadless:		req.DouyinHeadless,
-		KuaishouHeadless:	req.KuaishouHeadless,
-		XiaohongshuHeadless:	req.XiaohongshuHeadless,
-		XianyuHeadless:		req.XianyuHeadless,
+		ID:                  req.ID,
+		TgName:              req.TgName,
+		TgBotToken:          req.TgBotToken,
+		Price:               req.Price,
+		GroupID:             req.GroupID,
+		ProxyEnableProxy:    req.ProxyEnableProxy,
+		ProxyProtoclo:       req.ProxyProtoclo,
+		ProxyHost:           req.ProxyHost,
+		ProxyPort:           req.ProxyPort,
+		DouyinHeadless:      req.DouyinHeadless,
+		KuaishouHeadless:    req.KuaishouHeadless,
+		XiaohongshuHeadless: req.XiaohongshuHeadless,
+		XianyuHeadless:      req.XianyuHeadless,
 	}
 	if err := s.UpdateAccount(ctx, account); err != nil {
 		return nil, err
@@ -92,23 +92,23 @@ func (s *AccountService) UpdateAccountDTO(ctx context.Context, req dto.UpdateAcc
 // toAccountResponse 将 model.Account 转换为 dto.AccountResponse
 func toAccountResponse(a *model.Account) *dto.AccountResponse {
 	return &dto.AccountResponse{
-		ID:			a.ID,
-		TgName:			a.TgName,
-		TgBotToken:		a.TgBotToken,
-		Price:			a.Price,
-		GroupID:		a.GroupID,
-		ProxyEnableProxy:	a.ProxyEnableProxy,
-		ProxyProtoclo:		a.ProxyProtoclo,
-		ProxyHost:		a.ProxyHost,
-		ProxyPort:		a.ProxyPort,
-		Status:			a.Status,
-		CreateTime:		a.CreateTime,
-		Msg:			a.Msg,
-		URL:			a.URL,
-		DouyinHeadless:		a.DouyinHeadless,
-		KuaishouHeadless:	a.KuaishouHeadless,
-		XiaohongshuHeadless:	a.XiaohongshuHeadless,
-		XianyuHeadless:		a.XianyuHeadless,
+		ID:                  a.ID,
+		TgName:              a.TgName,
+		TgBotToken:          a.TgBotToken,
+		Price:               a.Price,
+		GroupID:             a.GroupID,
+		ProxyEnableProxy:    a.ProxyEnableProxy,
+		ProxyProtoclo:       a.ProxyProtoclo,
+		ProxyHost:           a.ProxyHost,
+		ProxyPort:           a.ProxyPort,
+		Status:              a.Status,
+		CreateTime:          a.CreateTime,
+		Msg:                 a.Msg,
+		URL:                 a.URL,
+		DouyinHeadless:      a.DouyinHeadless,
+		KuaishouHeadless:    a.KuaishouHeadless,
+		XiaohongshuHeadless: a.XiaohongshuHeadless,
+		XianyuHeadless:      a.XianyuHeadless,
 	}
 }
 
@@ -121,12 +121,12 @@ func (s *ClueService) BatchImportCluesFromDTO(ctx context.Context, reqs []dto.Im
 			return 0, 0, err
 		}
 		clues = append(clues, &model.Clue{
-			Name:		item.Name,
-			Account:	item.Account,
-			City:		item.City,
-			Address:	item.Address,
-			Type:		clueType,
-			IsVerify:	0,
+			Name:     item.Name,
+			Account:  item.Account,
+			City:     item.City,
+			Address:  item.Address,
+			Type:     clueType,
+			IsVerify: 0,
 		})
 	}
 	return s.BatchImportClues(ctx, clues)
