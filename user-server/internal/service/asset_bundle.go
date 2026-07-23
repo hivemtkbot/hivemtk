@@ -62,6 +62,10 @@ type WeaveInput struct {
 
 	// 可选：织布策略
 	Options	WeaveOptions
+
+	// 可选：沙箱/预览模式。开发者 Playground 的本地试运行使用该模式，
+	// 跳过「热插拔门禁」与「使用次数累加」，避免开发者自测受生产热启用态影响。
+	Sandbox bool
 }
 
 // RAGDocument RAG 检索结果（商户本地知识库）
@@ -660,12 +664,12 @@ func splitTags(raw string) []string {
 //
 // 热插拔管控（方向 D1）：当热插拔缓存非空（已有资产包被 EnableBundle 启用）时，
 // 只放行已热启用的资产包；冷启动（缓存为空）时走 permissive 回退，保持向后兼容。
-func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQuery string, in WeaveInput) ([]model.AssetBundleMessage, error) {
+func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQuery string, in *WeaveInput) ([]model.AssetBundleMessage, error) {
 	if assetID == "" {
 		return nil, errors.New("asset_id required")
 	}
 	// 热插拔管控：缓存非空时只放行已热启用的资产包
-	if !s.hotPlug.isEmpty(ctx) && !s.hotPlug.has(ctx, assetID) {
+	if !s.hotPlug.isEmpty(ctx) && !in.Sandbox && !s.hotPlug.has(ctx, assetID) {
 		return nil, ErrBundleNotHotEnabled
 	}
 	if in.Asset == nil {
@@ -680,8 +684,11 @@ func (s *AssetBundleService) WeaveForRequest(ctx context.Context, assetID, userQ
 		in.UserQuery = userQuery
 	}
 	// 累加使用次数
-	_ = s.repo.IncrementUseCount(ctx, assetID)
-	return Weave(in)
+	// 沙箱预览不计入真实使用次数（避免本地自测污染用量上报）
+	if !in.Sandbox {
+		_ = s.repo.IncrementUseCount(ctx, assetID)
+	}
+	return Weave(*in)
 }
 
 // ============================================================================
@@ -822,6 +829,14 @@ func buildMerchantSystemPrompt(req dto.MerchantFormSaveRequest) string {
 	if req.CrisisThreshold != "" {
 		sb.WriteString("- 危机感触发阈值: " + req.CrisisThreshold + "（达到此分数强制转人工）\n")
 	}
+	// 商户配置快照（机器可读，供编辑回显；勿修改格式）
+	sb.WriteString("\n# 商户配置快照（勿修改）\n")
+	sb.WriteString("- 危机感触发阈值: " + req.CrisisThreshold + "\n")
+	sb.WriteString("- 语气词等级: " + req.ToneLevel + "\n")
+	sb.WriteString("- 反审查尺度: " + req.CensorshipLevel + "\n")
+	if len(req.EnabledIntents) > 0 {
+		sb.WriteString("- 启用结算意图: " + strings.Join(req.EnabledIntents, ",") + "\n")
+	}
 	return sb.String()
 }
 
@@ -914,6 +929,19 @@ func ParseBundleToMerchantForm(bundle *model.AssetBundle) dto.MerchantFormParseR
 		// 客服联系方式
 		if m := regexp.MustCompile(`客服联系方式[:：]\s*(.+)`).FindStringSubmatch(content); len(m) > 1 {
 			resp.SupportContact = strings.TrimSpace(m[1])
+		}
+		// 6 维拟人门禁指标（从「商户配置快照」快照块还原）
+		if m := regexp.MustCompile(`危机感触发阈值[:：]\s*(\d+)`).FindStringSubmatch(content); len(m) > 1 {
+			resp.CrisisThreshold = strings.TrimSpace(m[1])
+		}
+		if m := regexp.MustCompile(`语气词等级[:：]\s*(\S+)`).FindStringSubmatch(content); len(m) > 1 {
+			resp.ToneLevel = strings.TrimSpace(m[1])
+		}
+		if m := regexp.MustCompile(`反审查尺度[:：]\s*(\S+)`).FindStringSubmatch(content); len(m) > 1 {
+			resp.CensorshipLevel = strings.TrimSpace(m[1])
+		}
+		if m := regexp.MustCompile(`启用结算意图[:：]\s*([\w,]+)`).FindStringSubmatch(content); len(m) > 1 {
+			resp.EnabledIntents = strings.Split(strings.TrimSpace(m[1]), ",")
 		}
 	}
 	// 2. 从 Few-Shots 提取 QA 卡片（user + 紧跟的 assistant 对）

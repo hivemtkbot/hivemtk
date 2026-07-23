@@ -378,6 +378,10 @@ const loadBundle = async () => {
       if (parsed.enabled_intents && parsed.enabled_intents.length) {
         form.enabled_intents = parsed.enabled_intents
       }
+      // 6 维拟人门禁指标回显（保存时写入 system 快照，编辑时还原，避免重置为默认值）
+      form.crisis_threshold = parsed.crisis_threshold || '4'
+      form.tone_level = parsed.tone_level || 'medium'
+      form.censorship_level = parsed.censorship_level || 'default'
     }
   } catch (e) {
     ElMessage.error('加载资产包失败: ' + (e?.message || e))

@@ -448,9 +448,11 @@ const runSandbox = async () => {
 
   try {
     // 第一步：调 weave 接口织布（拿最终 messages 数组）
+    let weaveOk = false
     const weaveResp = await weaveBundle({
       asset_id: bundle.asset_id,
       user_query: userQuery,
+      sandbox: true,
       chat_history: sandbox.history.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
       options: {
         rag_position: 'after_fewshots',
@@ -459,6 +461,7 @@ const runSandbox = async () => {
         include_merchant_vars: false
       }
     })
+    weaveOk = true
     const weaveData = weaveResp?.data || weaveResp
     const wovenMessages = weaveData?.messages || []
     sandbox.wovenMessages = wovenMessages
@@ -493,11 +496,21 @@ const runSandbox = async () => {
       durationMs: Date.now() - startTs
     }
   } catch (e) {
-    sandbox.history.push({
-      role: 'assistant',
-      content: `[LLM 调用失败] ${e?.message || e}\n\n提示：\n1. 请确认本地已启动 Ollama / vLLM\n2. 推理端地址正确（默认 http://localhost:11434/v1/chat/completions）\n3. CORS 已允许（Ollama 设置 OLLAMA_ORIGINS=*）`
-    })
-    ElMessage.error('LLM 调用失败')
+    if (!weaveOk) {
+      // 失败发生在 weave 织布阶段（后端拦截/参数错误），给出真实错误信息而非误报为 LLM 故障
+      const msg = (e && e.message) ? e.message : '织布失败'
+      ElMessage.error('织布失败：' + msg)
+      sandbox.history.push({
+        role: 'assistant',
+        content: `[织布失败] ${msg}\n\n提示：\n1. 请先「保存」资产包（织布需按 asset_id 读取已保存的 messages）\n2. 确认 asset_id 正确且未被删除`
+      })
+    } else {
+      sandbox.history.push({
+        role: 'assistant',
+        content: `[LLM 调用失败] ${e?.message || e}\n\n提示：\n1. 请确认本地已启动 Ollama / vLLM\n2. 推理端地址正确（默认 http://localhost:11434/v1/chat/completions）\n3. CORS 已允许（Ollama 设置 OLLAMA_ORIGINS=*）`
+      })
+      ElMessage.error('LLM 调用失败')
+    }
   } finally {
     sandbox.running = false
     await nextTick()

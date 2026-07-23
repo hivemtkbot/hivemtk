@@ -95,10 +95,10 @@ func TestWeave_RAGAfterSystem(t *testing.T) {
 	in := WeaveInput{
 		Asset:     buildStandardAsset(),
 		UserQuery: "测试",
-		RAGDocs: []RAGDocument{{Content: "RAG 文档", Score: 0.9}},
+		RAGDocs:   []RAGDocument{{Content: "RAG 文档", Score: 0.9}},
 		Options: WeaveOptions{
-			RAGPosition:        RAGPositionAfterSystem,
-			StripFewShotJSON:   false,
+			RAGPosition:         RAGPositionAfterSystem,
+			StripFewShotJSON:    false,
 			IncludeMerchantVars: false,
 		},
 	}
@@ -590,7 +590,7 @@ func (r *mockAssetBundleRepo) Update(_ context.Context, m *model.AssetBundle) er
 }
 
 func (r *mockAssetBundleRepo) Save(ctx context.Context, m *model.AssetBundle) error {
-	return r.Update(ctx, m)
+	return r.Update(context.Background(), m)
 }
 
 func (r *mockAssetBundleRepo) SoftDelete(_ context.Context, id int64) error {
@@ -606,7 +606,7 @@ func (r *mockAssetBundleRepo) SoftDelete(_ context.Context, id int64) error {
 }
 
 func (r *mockAssetBundleRepo) HardDelete(ctx context.Context, id int64) error {
-	return r.SoftDelete(ctx, id)
+	return r.SoftDelete(context.Background(), id)
 }
 
 func (r *mockAssetBundleRepo) FindByID(_ context.Context, id int64) (*model.AssetBundle, error) {
@@ -691,8 +691,8 @@ func (r *mockAssetBundleRepo) ExistsByAssetID(_ context.Context, assetID string)
 
 // mockVersionLogRepo 内存版版本日志仓储
 type mockVersionLogRepo struct {
-	mu    sync.Mutex
-	logs  []*model.AssetBundleVersionLog
+	mu   sync.Mutex
+	logs []*model.AssetBundleVersionLog
 }
 
 func (r *mockVersionLogRepo) Create(_ context.Context, m *model.AssetBundleVersionLog) error {
@@ -728,7 +728,7 @@ func TestService_CreateBundle(t *testing.T) {
 			{Role: "system", Content: "你是助手"},
 		},
 	}
-	if err := svc.CreateBundle(ctx, bundle); err != nil {
+	if err := svc.CreateBundle(context.Background(), bundle); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if bundle.ID == 0 {
@@ -747,7 +747,7 @@ func TestService_CreateBundle(t *testing.T) {
 		Title:    "重复",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle2); err == nil {
+	if err := svc.CreateBundle(context.Background(), bundle2); err == nil {
 		t.Error("expected duplicate asset_id error")
 	}
 
@@ -757,7 +757,7 @@ func TestService_CreateBundle(t *testing.T) {
 		Title:    "无 system",
 		Messages: []model.AssetBundleMessage{{Role: "user", Content: "x"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle3); err == nil {
+	if err := svc.CreateBundle(context.Background(), bundle3); err == nil {
 		t.Error("expected missing system error")
 	}
 
@@ -766,7 +766,7 @@ func TestService_CreateBundle(t *testing.T) {
 		AssetID:  "test_003",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle4); err == nil {
+	if err := svc.CreateBundle(context.Background(), bundle4); err == nil {
 		t.Error("expected missing title error")
 	}
 }
@@ -783,17 +783,17 @@ func TestService_UpdateBundle_VersionLog(t *testing.T) {
 		Version:  "1.0.0",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle); err != nil {
+	if err := svc.CreateBundle(context.Background(), bundle); err != nil {
 		t.Fatal(err)
 	}
 
 	// 升级到 1.1.0
 	bundle.Version = "1.1.0"
 	bundle.Title = "v1 升级"
-	if err := svc.UpdateBundle(ctx, bundle); err != nil {
+	if err := svc.UpdateBundle(context.Background(), bundle); err != nil {
 		t.Fatal(err)
 	}
-	logs, _ := ver.List(ctx, "ver_001", 10)
+	logs, _ := ver.List(context.Background(), "ver_001", 10)
 	if len(logs) != 1 {
 		t.Fatalf("expected 1 version log, got %d", len(logs))
 	}
@@ -811,22 +811,22 @@ func TestService_PublishArchive(t *testing.T) {
 		Title:    "x",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "x"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle); err != nil {
+	if err := svc.CreateBundle(context.Background(), bundle); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := svc.PublishBundle(ctx, bundle.ID); err != nil {
+	if err := svc.PublishBundle(context.Background(), bundle.ID); err != nil {
 		t.Fatal(err)
 	}
-	got, _ := svc.GetBundle(ctx, bundle.ID)
+	got, _ := svc.GetBundle(context.Background(), bundle.ID)
 	if got.Status != model.AssetBundleStatusActive {
 		t.Errorf("after publish: status = %s, want active", got.Status)
 	}
 
-	if err := svc.ArchiveBundle(ctx, bundle.ID); err != nil {
+	if err := svc.ArchiveBundle(context.Background(), bundle.ID); err != nil {
 		t.Fatal(err)
 	}
-	got, _ = svc.GetBundle(ctx, bundle.ID)
+	got, _ = svc.GetBundle(context.Background(), bundle.ID)
 	if got.Status != model.AssetBundleStatusArchived {
 		t.Errorf("after archive: status = %s, want archived", got.Status)
 	}
@@ -841,10 +841,10 @@ func TestService_WeaveForRequest(t *testing.T) {
 		Title:    "x",
 		Messages: []model.AssetBundleMessage{{Role: "system", Content: "你是助手"}},
 	}
-	if err := svc.CreateBundle(ctx, bundle); err != nil {
+	if err := svc.CreateBundle(context.Background(), bundle); err != nil {
 		t.Fatal(err)
 	}
-	out, err := svc.WeaveForRequest(ctx, "weave_001", "用户问题", WeaveInput{
+	out, err := svc.WeaveForRequest(context.Background(), "weave_001", "用户问题", &WeaveInput{
 		Options: WeaveOptions{IncludeMerchantVars: false, StripFewShotJSON: false},
 	})
 	if err != nil {
@@ -854,7 +854,7 @@ func TestService_WeaveForRequest(t *testing.T) {
 		t.Errorf("len = %d, want 2 (system + user)", len(out))
 	}
 	// 验证 use_count 累加
-	got, _ := svc.GetBundle(ctx, bundle.ID)
+	got, _ := svc.GetBundle(context.Background(), bundle.ID)
 	if got.UseCount != 1 {
 		t.Errorf("use_count = %d, want 1", got.UseCount)
 	}
@@ -864,7 +864,7 @@ func TestService_WeaveForRequest(t *testing.T) {
 func TestService_WeaveForRequest_AssetNotFound(t *testing.T) {
 	repo := newMockAssetBundleRepo()
 	svc := NewAssetBundleService(repo, nil)
-	_, err := svc.WeaveForRequest(context.Background(), "non_exist", "x", WeaveInput{})
+	_, err := svc.WeaveForRequest(context.Background(), "non_exist", "x", &WeaveInput{})
 	if err == nil {
 		t.Error("expected not found error")
 	}

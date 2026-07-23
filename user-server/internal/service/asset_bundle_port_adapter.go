@@ -71,7 +71,7 @@ func (a *AssetBundleWeavePortAdapter) WeaveForRequest(ctx context.Context, in po
 			IncludeMerchantVars: in.Options.IncludeMerchantVars,
 		},
 	}
-	msgs, err := a.svc.WeaveForRequest(ctx, in.AssetID, in.UserQuery, weaveIn)
+	msgs, err := a.svc.WeaveForRequest(ctx, in.AssetID, in.UserQuery, &weaveIn)
 	if err != nil {
 		// 把 service 包 sentinel 映射为 portcontract sentinel
 		if errors.Is(err, ErrBundleNotHotEnabled) {

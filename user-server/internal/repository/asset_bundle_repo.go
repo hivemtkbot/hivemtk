@@ -112,7 +112,8 @@ func (r *assetBundleRepo) FindByAssetID(ctx context.Context, assetID string) (*m
 func (r *assetBundleRepo) List(ctx context.Context, f AssetBundleFilter) ([]*model.AssetBundle, int64, error) {
 	var list []*model.AssetBundle
 	var total int64
-	q := r.db.WithContext(ctx).Model(&model.AssetBundle{})
+	// 显式排除软删除行（防御性，避免 deleted_at 非 NULL 的已删记录泄漏到列表）
+	q := r.db.WithContext(ctx).Model(&model.AssetBundle{}).Where("deleted_at IS NULL")
 
 	if strings.TrimSpace(f.Keyword) != "" {
 		kw := "%" + f.Keyword + "%"
