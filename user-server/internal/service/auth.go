@@ -443,3 +443,82 @@ func CheckPassword(u *model.SystemUser, password string) bool {
 func HashPassword(password string) (string, error) {
 	return bcrypt.HashPassword(password)
 }
+
+// ============== 阶段 3：系统初始化 InitAdmin ==============
+
+// InitAdmin 初始化系统首个超管（公开，无 JWT）
+//
+// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+//   - 调用方必须在请求体中传入 username/password/email（不再读 config 默认值）
+//   - 密码强度：至少 8 位，含大小写字母 + 数字
+//   - username 唯一性、email 唯一性、system_users 表为空（防重复初始化）
+//   - 创建后写 install.lock（AdminUsername + Initialized=true），作为"已初始化"标记
+//
+// 失败语义：
+//   - 已有用户 → errors.New("超管已存在，无法重复创建")
+//   - 密码强度不达标 → 复用 service.validatePassword 返回的错误
+//   - username/email 冲突 → 透传 repo 错误
+func (s *AuthService) InitAdmin(ctx context.Context, username, password, email string) error {
+	username = strings.TrimSpace(username)
+	email = strings.TrimSpace(email)
+	if username == "" || password == "" || email == "" {
+		return errors.New("username/password/email 均不能为空")
+	}
+
+	// 1. 幂等检查：system_users 表已有任何用户 → 拒绝重复初始化
+	count, err := s.systemUserRepo.Count(ctx)
+	if err != nil {
+		logger.Error(err, "InitAdmin 统计用户失败")
+		return errors.New("系统状态异常，请稍后重试")
+	}
+	if count > 0 {
+		return errors.New("超管已存在，无法重复创建")
+	}
+
+	// 2. 密码强度校验（与 system_init.go 一致：≥8 位 + 大小写 + 数字）
+	if err := validatePassword(password); err != nil {
+		return err
+	}
+
+	// 3. 邮箱格式校验
+	if err := validateEmail(email); err != nil {
+		return err
+	}
+
+	// 4. 用户名格式校验（3-20 位字母数字下划线）
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+
+	// 5. 唯一性预检：username / email
+	if exists, _ := s.systemUserRepo.UsernameExists(ctx, username, 0); exists {
+		return errors.New("用户名已存在")
+	}
+	if exists, _ := s.systemUserRepo.EmailExists(ctx, email, 0); exists {
+		return errors.New("邮箱已被使用")
+	}
+
+	// 6. 创建超管（BeforeCreate 钩子自动 bcrypt 加密 + DataScope 初始化）
+	user := &model.SystemUser{
+		Username: username,
+		Password: password,
+		Email:    email,
+		Role:     model.SystemUserRoleAdmin,
+		Status:   1,
+		Enabled:  true,
+	}
+	if err := s.systemUserRepo.Create(ctx, user); err != nil {
+		logger.Error(err, "InitAdmin 创建超管失败")
+		return errors.New("创建超管失败: " + err.Error())
+	}
+
+	// 7. 同步 install.lock：标记 AdminUsername + Initialized=true
+	// 开源版：直接走 install 包（不依赖中间件避免 import cycle）
+	if err := install.MarkAdminInitialized(username); err != nil {
+		// 标记失败不阻塞主流程（用户已创建成功），仅记日志
+		logger.Error(err, "InitAdmin 写 install.lock 失败")
+	}
+
+	logger.Info("InitAdmin 超管创建成功: " + username)
+	return nil
+}

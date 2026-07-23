@@ -64,9 +64,21 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// 前端再调用此接口提交 temp_token + 6 位 TOTP 码完成登录
 	public.POST("/auth/mfa/verify", controller.NewAuthController().VerifyMFALogin)
 
-	// 系统初始化
-	systemUserCtrl := controller.NewSystemUserController()
-	public.POST("/system/create-default-admin", systemUserCtrl.CreateDefaultAdmin)
+	// ============== 阶段 3 改造：InitAdmin 路由整合到 AuthController ==============
+	// 旧路由 /system/create-default-admin（由 SystemUserController.CreateDefaultAdmin 暴露）
+	//   - 行为：读取 config.GetAdminConfig().DefaultAdmin（硬编码 Admin@123456）
+	//   - 风险：默认值暴露在任何被误部署的环境中，造成供应链 / 误用即被入侵
+	//   - 阶段 3：删除该路由。新逻辑统一走 /system/init-admin（AuthController），
+	//     强制调用方在请求体中传 password。
+	// 旧路由 /system/init-admin（由 SystemInitController.InitAdmin 暴露）
+	//   - 阶段 3：删除该路由。新实现由 AuthController.InitAdmin 提供，路径不变。
+	//   - 行为差异：新实现不再做"半初始化自愈 + 平台上报"，仅做最小职责（创建超管 + install.lock），
+	//     其它初始化相关步骤（install 上报 / init-complete 等）由后续 sub-agent 接管。
+	systemInitCtrl := controller.NewSystemInitController()
+	authCtrl := controller.NewAuthController()
+	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
+	public.POST("/system/init-admin", authCtrl.InitAdmin)
+	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
 	// 为兼容前端 Layout.vue 对 /api/license/status 的探测（开源版无授权概念），
@@ -77,11 +89,6 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/license/features", func(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "data": []interface{}{}, "msg": "ok"})
 	})
-
-	systemInitCtrl := controller.NewSystemInitController()
-	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
-	public.POST("/system/init-admin", systemInitCtrl.InitAdmin)
-	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 短链/活码跳转
 	redirectCtrl := controller.NewRedirectController(
