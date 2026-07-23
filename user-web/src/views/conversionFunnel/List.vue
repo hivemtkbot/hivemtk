@@ -36,10 +36,10 @@
               <el-table-column prop="name" label="阶段" />
               <el-table-column prop="count" label="数量" />
               <el-table-column label="阶段转化率">
-                <template slot-scope="{ row }">{{ row.rate.toFixed(1) }}%</template>
+                <template #default="{ row }">{{ (row.rate || 0).toFixed(1) }}%</template>
               </el-table-column>
               <el-table-column label="流失率">
-                <template slot-scope="{ row }">{{ row.dropRate.toFixed(1) }}%</template>
+                <template #default="{ row }">{{ (row.dropRate || 0).toFixed(1) }}%</template>
               </el-table-column>
             </el-table>
           </el-card>
@@ -58,11 +58,13 @@
         <el-descriptions v-if="loss" :column="3" border>
           <el-descriptions-item label="阶段">{{ loss.name }}</el-descriptions-item>
           <el-descriptions-item label="数量">{{ loss.count }}</el-descriptions-item>
-          <el-descriptions-item label="阶段转化率">{{ loss.rate.toFixed(1) }}%</el-descriptions-item>
+          <el-descriptions-item label="阶段转化率">{{ (loss.rate || 0).toFixed(1) }}%</el-descriptions-item>
           <el-descriptions-item label="平均停留(秒)">{{ loss.avgDuration.toFixed(1) }}</el-descriptions-item>
         </el-descriptions>
         <el-table v-if="loss && loss.topSources.length" :data="loss.topSources" stripe class="src-table">
-          <el-table-column prop="source" label="来源(账号)" />
+          <el-table-column label="来源(账号)">
+            <template #default="{ row }">{{ getChannelLabel(row.source) }}</template>
+          </el-table-column>
           <el-table-column prop="count" label="数量" />
         </el-table>
       </el-card>
@@ -73,6 +75,7 @@
 <script>
 import * as echarts from 'echarts'
 import ConversionFunnelApi from '@/api/conversionFunnel'
+import { getChannelLabel } from '@/constants/channel'
 
 export default {
   name: 'ConversionFunnelList',
@@ -99,6 +102,7 @@ export default {
     }
   },
   methods: {
+    getChannelLabel,
     async loadAll() {
       const res = await ConversionFunnelApi.getFunnel({})
       if (this._destroyed) return
