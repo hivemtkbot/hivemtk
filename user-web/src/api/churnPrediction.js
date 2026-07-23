@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 // 流失预警 - 匹配后端真实路由 /api/churn-prediction/*
 export function getChurnPrediction(params) {
-  return request({ url: '/api/churn-prediction', method: 'get', params })
+  return request({ url: '/api/churn/prediction', method: 'get', params })
 }
 export function getChurnPredictions(params) {
   return request({ url: '/api/churn-prediction', method: 'get', params })
@@ -17,7 +17,7 @@ export function getUnhandledWarnings(params) {
   return request({ url: '/api/churn-prediction/unhandled-warnings', method: 'get', params })
 }
 export function markWarningHandled(id, data) {
-  return request({ url: `/api/churn-prediction/warnings/${id}/handle`, method: 'post', data })
+  return request({ url: `/api/churn/warnings/${id}/handle`, method: 'post', data })
 }
 export function getChurnModelConfig() {
   return request({ url: '/api/churn-prediction/model-config', method: 'get' })
@@ -37,7 +37,7 @@ export function runChurnPrediction() {
   return calculateRFM({ type: 'churn' })
 }
 export function interveneUser(data) {
-  return request({ url: '/api/churn-prediction/warnings/intervene', method: 'post', data })
+  return request({ url: '/api/churn/warnings/intervene', method: 'post', data })
 }
 export function getChurnStats(params) {
   return getChurnStatistics(params)

@@ -15,24 +15,8 @@
       <el-col :span="6">
         <el-card>
           <div class="stat-item">
-            <div class="stat-label">{{ $t('今日事件') }}</div>
-            <div class="stat-value">{{ stats.today }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('本周事件') }}</div>
-            <div class="stat-value">{{ stats.week }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('活跃用户') }}</div>
-            <div class="stat-value">{{ stats.activeUsers }}</div>
+            <div class="stat-label">{{ $t('总事件数') }}</div>
+            <div class="stat-value">{{ stats.total }}</div>
           </div>
         </el-card>
       </el-col>
@@ -40,6 +24,22 @@
         <el-card>
           <div class="stat-item">
             <div class="stat-label">{{ $t('事件类型') }}</div>
+            <div class="stat-value">{{ stats.typeCount }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <div class="stat-item">
+            <div class="stat-label">{{ $t('事件来源') }}</div>
+            <div class="stat-value">{{ stats.sourceCount }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <div class="stat-item">
+            <div class="stat-label">{{ $t('事件总量') }}</div>
             <div class="stat-value">{{ stats.eventTypes }}</div>
           </div>
         </el-card>
@@ -93,6 +93,11 @@
 
     <el-dialog v-model="dialogVisible" title="创建自定义事件" width="600px">
       <el-form :model="form" label-width="100px">
+        <el-form-item label="关联客户" required>
+          <el-select v-model="form.customerId" filterable placeholder="选择客户" style="width: 100%">
+            <el-option v-for="c in customerOptions" :key="c.id" :label="(c.name || c.id) + (c.phone ? ' (' + c.phone + ')' : '')" :value="c.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="事件名称">
           <el-input v-model="form.name" />
         </el-form-item>
@@ -105,13 +110,6 @@
         </el-form-item>
         <el-form-item label="触发条件">
           <el-input v-model="form.trigger" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item label="关联用户">
-          <el-radio-group v-model="form.userScope">
-            <el-radio label="all">全部</el-radio>
-            <el-radio label="segment">分群</el-radio>
-            <el-radio label="specific">指定</el-radio>
-          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -167,7 +165,7 @@ import i18n from '@/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getCustomerEventHistory, getEventStats, createEvent } from '@/api/customerEvent.js'
+import { getCustomerEventHistory, getEventStats, trackEvent } from '@/api/customerEvent.js'
 import { getCustomerList } from '@/api/customer360.js'
 
 const loading = ref(false)
@@ -176,7 +174,7 @@ const filterType = ref('')
 const dateRange = ref([])
 const dialogVisible = ref(false)
 const form = ref({ name: '', eventType: 'view', trigger: '', userScope: 'all' })
-const stats = ref({ today: 0, week: 0, activeUsers: 0, eventTypes: 0 })
+const stats = ref({ total: 0, typeCount: 0, sourceCount: 0, eventTypes: 0 })
 const pagination = ref({ page: 1, size: 20, total: 0 })
 const detailDialogVisible = ref(false)
 const currentEvent = ref(null)
@@ -235,17 +233,48 @@ const loadEvents = async () => {
 }
 
 const loadStats = async () => {
-  const res = await getEventStats()
-  stats.value = res || stats.value
+  try {
+    const res = await getEventStats()
+    const byType = res?.by_event_type || []
+    const bySource = res?.by_event_source || []
+    stats.value = {
+      total: res?.total_events || 0,
+      typeCount: byType.length,
+      sourceCount: bySource.length,
+      eventTypes: byType.reduce((s, x) => s + (x.count || 0), 0)
+    }
+  } catch (e) {
+    console.error('加载统计失败', e)
+  }
+}
+
+const customerOptions = ref([])
+const loadCustomerOptions = async () => {
+  try {
+    const res = await getCustomerList({ pageSize: 200 })
+    customerOptions.value = res?.list || []
+  } catch (e) {
+    console.error('加载客户选项失败', e)
+  }
 }
 
 const showCreateDialog = () => {
-  form.value = { name: '', eventType: 'view', trigger: '', userScope: 'all' }
+  form.value = { customerId: '', name: '', eventType: 'view', trigger: '' }
   dialogVisible.value = true
+  loadCustomerOptions()
 }
 
 const submitForm = async () => {
-  await createEvent(form.value)
+  if (!form.value.customerId) {
+    ElMessage.warning('请选择关联客户')
+    return
+  }
+  await trackEvent({
+    customer_id: form.value.customerId,
+    event_type: form.value.eventType,
+    event_source: 'manual',
+    event_data: { name: form.value.name, trigger: form.value.trigger }
+  })
   ElMessage.success(i18n.global.t('事件创建成功'))
   dialogVisible.value = false
   loadEvents()

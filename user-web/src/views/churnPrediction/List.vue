@@ -2,92 +2,168 @@
   <div class="churn-prediction-page">
     <el-card class="header-card">
       <div class="header-content">
-        <h2>{{ $t('流失预测') }}</h2>
-        <p class="subtitle">{{ $t('基于机器学习预测用户流失风险，提前干预') }}</p>
+        <h2>流失预测</h2>
+        <p class="subtitle">基于机器学习预测用户流失风险，提前干预</p>
       </div>
       <div>
-        <el-button type="primary" @click="runPrediction">
+        <el-button type="primary" :loading="predicting" @click="runPrediction">
           <el-icon><Operation /></el-icon>
-          {{ $t('运行预测') }}
+          运行预测
         </el-button>
-        <el-button @click="refreshData">
+        <el-button @click="refreshAll">
           <el-icon><Refresh /></el-icon>
-          {{ $t('刷新') }}
+          刷新
         </el-button>
       </div>
     </el-card>
 
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('高风险用户') }}</div>
-            <div class="stat-value" style="color: #EF4444">{{ stats.highRisk }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('中风险用户') }}</div>
-            <div class="stat-value" style="color: #F59E0B">{{ stats.mediumRisk }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('低风险用户') }}</div>
-            <div class="stat-value" style="color: #10B981">{{ stats.lowRisk }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('模型准确率') }}</div>
-            <div class="stat-value">{{ stats.accuracy }}%</div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <el-tabs v-model="activeTab">
+      <!-- 预测列表 -->
+      <el-tab-pane label="预测列表" name="predictions">
+        <el-row :gutter="20" class="stats-row">
+          <el-col :span="6">
+            <el-card>
+              <div class="stat-item">
+                <div class="stat-label">高风险用户</div>
+                <div class="stat-value" style="color: #EF4444">{{ stats.highRisk }}</div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card>
+              <div class="stat-item">
+                <div class="stat-label">中风险用户</div>
+                <div class="stat-value" style="color: #F59E0B">{{ stats.mediumRisk }}</div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card>
+              <div class="stat-item">
+                <div class="stat-label">低风险用户</div>
+                <div class="stat-value" style="color: #10B981">{{ stats.lowRisk }}</div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card>
+              <div class="stat-item">
+                <div class="stat-label">极高风险用户</div>
+                <div class="stat-value" style="color: #B91C1C">{{ stats.criticalRisk }}</div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
 
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('高风险用户列表') }}</span>
-          <el-input v-model="searchKeyword" :placeholder="$t('搜索用户')" clearable style="width: 200px" />
-        </div>
-      </template>
-      <el-table :data="filteredUsers" v-loading="loading" stripe>
-        <el-table-column prop="user_id" label="用户ID" width="100" />
-        <el-table-column prop="name" label="用户名称" min-width="120" />
-        <el-table-column prop="phone" label="手机号" width="130" />
-        <el-table-column prop="last_activity_at" label="最后活跃" width="180" />
-        <el-table-column prop="churn_score" label="风险评分" width="120">
-          <template #default="{ row }">
-            <el-progress :percentage="row.churn_score" :color="getRiskColor(row.churn_score)" />
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <span>高风险用户列表</span>
+              <el-input v-model="searchKeyword" placeholder="搜索用户ID" clearable style="width: 200px" />
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="churn_risk" label="风险等级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getRiskLevelType(row.churn_risk)">{{ row.churn_risk }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="predicted_at" label="预测流失日期" width="150" />
-        <el-table-column prop="risk_factors" label="流失原因" min-width="200" show-overflow-tooltip />
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="viewUserDetail(row)">详情</el-button>
-            <el-button link type="success" @click="intervene(row)">干预</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty description="暂无数据" />
-        </template>
-      </el-table>
-    </el-card>
+          <el-table :data="filteredUsers" v-loading="loadingPred" stripe>
+            <el-table-column prop="user_id" label="用户ID" width="120" />
+            <el-table-column prop="churn_score" label="风险评分" width="160">
+              <template #default="{ row }">
+                <el-progress :percentage="Math.round(row.churn_score || 0)" :color="getRiskColor(row.churn_score)" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="churn_risk" label="风险等级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getRiskLevelType(row.churn_risk)">{{ row.churn_risk }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="last_activity_at" label="最后活跃" min-width="180" />
+            <el-table-column prop="predicted_at" label="预测时间" min-width="180" />
+            <el-table-column prop="risk_factors" label="流失原因" min-width="200" show-overflow-tooltip />
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="viewUserDetail(row)">详情</el-button>
+                <el-button link type="success" @click="intervene(row)">干预</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty description="暂无数据" />
+            </template>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
 
+      <!-- 预警列表 -->
+      <el-tab-pane label="预警列表" name="warnings">
+        <el-card>
+          <el-table :data="warnings" v-loading="loadingWarn" stripe>
+            <el-table-column prop="user_id" label="用户ID" width="120" />
+            <el-table-column prop="warning_level" label="预警等级" width="100">
+              <template #default="{ row }">
+                <el-tag :type="warnLevelType(row.warning_level)">{{ row.warning_level }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="warning_type" label="类型" width="140" />
+            <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="suggestion" label="建议措施" min-width="200" show-overflow-tooltip />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.is_handled ? 'success' : 'danger'">
+                  {{ row.is_handled ? '已处理' : '未处理' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="!row.is_handled" size="small" type="primary" @click="handleWarning(row)">
+                  标记已处理
+                </el-button>
+                <span v-else class="handled-text">已处理</span>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty description="暂无预警" />
+            </template>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <!-- 模型配置 -->
+      <el-tab-pane label="模型配置" name="config">
+        <el-card>
+          <el-form :model="configForm" label-width="170px" style="max-width: 640px">
+            <el-divider content-position="left">权重配置</el-divider>
+            <el-form-item label="未活跃天数权重">
+              <el-input-number v-model="configForm.inactive_days_weight" :step="0.05" :min="0" :max="1" />
+            </el-form-item>
+            <el-form-item label="购买频率权重">
+              <el-input-number v-model="configForm.purchase_freq_weight" :step="0.05" :min="0" :max="1" />
+            </el-form-item>
+            <el-form-item label="订单金额权重">
+              <el-input-number v-model="configForm.order_value_weight" :step="0.05" :min="0" :max="1" />
+            </el-form-item>
+            <el-form-item label="互动频率权重">
+              <el-input-number v-model="configForm.engagement_weight" :step="0.05" :min="0" :max="1" />
+            </el-form-item>
+            <el-divider content-position="left">阈值配置</el-divider>
+            <el-form-item label="未活跃阈值(天)">
+              <el-input-number v-model="configForm.inactive_threshold" :min="1" :max="365" />
+            </el-form-item>
+            <el-form-item label="未购买阈值(天)">
+              <el-input-number v-model="configForm.purchase_threshold" :min="1" :max="365" />
+            </el-form-item>
+            <el-form-item label="高风险分数">
+              <el-input-number v-model="configForm.high_risk_score" :min="0" :max="100" />
+            </el-form-item>
+            <el-form-item label="极高风险分数">
+              <el-input-number v-model="configForm.critical_risk_score" :min="0" :max="100" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="savingConfig" @click="saveConfig">保存配置</el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- 干预 -->
     <el-dialog v-model="interveneDialogVisible" title="流失干预" width="500px">
       <el-form :model="interveneForm" label-width="100px">
         <el-form-item label="干预方式">
@@ -104,27 +180,26 @@
       </el-form>
       <template #footer>
         <el-button @click="interveneDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmIntervene">确认干预</el-button>
+        <el-button type="primary" :loading="submittingIntervene" @click="confirmIntervene">确认干预</el-button>
       </template>
     </el-dialog>
 
+    <!-- 详情 -->
     <el-dialog v-model="detailVisible" title="用户流失风险详情" width="700px" v-loading="detailLoading">
       <template v-if="currentUser">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="用户ID">{{ currentUser.user_id }}</el-descriptions-item>
-          <el-descriptions-item label="用户名称">{{ currentUser.name }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{ currentUser.phone }}</el-descriptions-item>
-          <el-descriptions-item label="最后活跃">{{ currentUser.last_activity_at }}</el-descriptions-item>
           <el-descriptions-item label="风险等级">
             <el-tag :type="getRiskLevelType(currentUser.churn_risk)">{{ currentUser.churn_risk }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="预测流失日期">{{ currentUser.predicted_at }}</el-descriptions-item>
+          <el-descriptions-item label="最后活跃">{{ currentUser.last_activity_at }}</el-descriptions-item>
+          <el-descriptions-item label="预测时间">{{ currentUser.predicted_at }}</el-descriptions-item>
         </el-descriptions>
 
         <el-divider content-position="left">风险评分</el-divider>
         <div style="padding: 0 20px">
           <el-progress
-            :percentage="currentUser.churn_score"
+            :percentage="Math.round(currentUser.churn_score || 0)"
             :color="getRiskColor(currentUser.churn_score)"
             :stroke-width="20"
           />
@@ -132,8 +207,8 @@
 
         <el-divider content-position="left">流失原因分析</el-divider>
         <el-alert
-          v-if="currentUser.reasons"
-          :title="currentUser.reasons"
+          v-if="currentUser.risk_factors"
+          :title="currentUser.risk_factors"
           type="warning"
           :closable="false"
           show-icon
@@ -153,53 +228,60 @@
             <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
           </el-table>
         </template>
-
-        <template v-if="currentUser.interventionHistory && currentUser.interventionHistory.length">
-          <el-divider content-position="left">干预历史</el-divider>
-          <el-timeline>
-            <el-timeline-item
-              v-for="(item, idx) in currentUser.interventionHistory"
-              :key="idx"
-              :timestamp="item.date"
-            >
-              {{ item.content }}
-            </el-timeline-item>
-          </el-timeline>
-        </template>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import i18n from '@/i18n'
-
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, onMounted, onActivated } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Operation, Refresh } from '@element-plus/icons-vue'
 import {
   getChurnPredictions,
   getChurnPrediction,
-  getChurnStats,
+  getChurnWarnings,
+  getChurnModelConfig,
+  saveChurnModelConfig,
   runChurnPrediction,
-  interveneUser
+  interveneUser,
+  markWarningHandled,
 } from '@/api/churnPrediction.js'
 import { toList } from '@/utils/list.js'
 
-const loading = ref(false)
+const activeTab = ref('predictions')
+const loadingPred = ref(false)
+const loadingWarn = ref(false)
+const predicting = ref(false)
+const savingConfig = ref(false)
+const submittingIntervene = ref(false)
+
 const searchKeyword = ref('')
 const users = ref([])
-const stats = ref({ highRisk: 0, mediumRisk: 0, lowRisk: 0, accuracy: 0 })
-const interveneDialogVisible = ref(false)
-const interveneForm = ref({ userId: 0, method: 'coupon', content: '' })
+const warnings = ref([])
+const stats = reactive({ highRisk: 0, mediumRisk: 0, lowRisk: 0, criticalRisk: 0 })
 
+const configForm = reactive({
+  id: 0,
+  inactive_days_weight: 0.3,
+  purchase_freq_weight: 0.3,
+  order_value_weight: 0.2,
+  engagement_weight: 0.2,
+  inactive_threshold: 30,
+  purchase_threshold: 60,
+  high_risk_score: 70,
+  critical_risk_score: 85,
+})
+
+const interveneDialogVisible = ref(false)
+const interveneForm = reactive({ userId: 0, method: 'coupon', content: '' })
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const currentUser = ref(null)
 
 const filteredUsers = computed(() => {
   if (!searchKeyword.value) return users.value
-  return users.value.filter(u => (u.user_id || '').includes(searchKeyword.value))
+  return users.value.filter((u) => (u.user_id || '').includes(searchKeyword.value))
 })
 
 const getRiskColor = (score) => {
@@ -208,63 +290,115 @@ const getRiskColor = (score) => {
   return '#10B981'
 }
 const getRiskLevelType = (level) => {
-  const map = { '高': 'danger', '中': 'warning', '低': 'success' }
-  return map[level]}
+  const map = { high: 'danger', critical: 'danger', medium: 'warning', low: 'success' }
+  return map[(level || '').toLowerCase()] || 'info'
+}
+const warnLevelType = (level) => {
+  const map = { high: 'danger', critical: 'danger', medium: 'warning', low: 'success' }
+  return map[(level || '').toLowerCase()] || 'info'
+}
 
-const refreshData = async () => {
-  loading.value = true
+const computeStats = (list) => {
+  const counts = { high: 0, medium: 0, low: 0, critical: 0 }
+  for (const u of list) {
+    const level = (u.churn_risk || '').toLowerCase()
+    if (level === 'high') counts.high++
+    else if (level === 'critical') counts.critical++
+    else if (level === 'medium') counts.medium++
+    else if (level === 'low') counts.low++
+  }
+  stats.highRisk = counts.high
+  stats.mediumRisk = counts.medium
+  stats.lowRisk = counts.low
+  stats.criticalRisk = counts.critical
+}
+
+const loadPredictions = async () => {
+  loadingPred.value = true
   try {
-    const params = { start_date: '2026-06-22', end_date: '2026-07-22' }
-    const [usersRes, statsRes] = await Promise.all([
-      getChurnPredictions(params),
-      getChurnStats(params)
-    ])
-    users.value = toList(usersRes?.data ?? usersRes)
-    // 后端 /api/churn/statistics 返回数组，统计需从预测列表按 churn_risk 聚合
-    const counts = { high: 0, medium: 0, low: 0 }
-    for (const u of users.value) {
-      const level = (u.churn_risk || '').toString().toLowerCase()
-      if (level === 'high') counts.high++
-      else if (level === 'medium') counts.medium++
-      else if (level === 'low') counts.low++
-    }
-    stats.value = {
-      highRisk: counts.high,
-      mediumRisk: counts.medium,
-      lowRisk: counts.low,
-      accuracy: 0
-    }
+    const res = await getChurnPredictions({ page: 1, page_size: 100 })
+    users.value = toList(res?.data ?? res)
+    computeStats(users.value)
+  } catch (e) {
+    ElMessage.error('加载预测失败：' + (e && e.message ? e.message : ''))
   } finally {
-    loading.value = false
+    loadingPred.value = false
   }
 }
 
+const loadWarnings = async () => {
+  loadingWarn.value = true
+  try {
+    const res = await getChurnWarnings({ page: 1, page_size: 100 })
+    warnings.value = toList(res?.data ?? res)
+  } catch (e) {
+    ElMessage.error('加载预警失败：' + (e && e.message ? e.message : ''))
+  } finally {
+    loadingWarn.value = false
+  }
+}
+
+const loadConfig = async () => {
+  try {
+    const res = await getChurnModelConfig()
+    const cfg = res?.data ?? res
+    if (cfg && typeof cfg === 'object') {
+      Object.assign(configForm, {
+        id: cfg.id || 0,
+        inactive_days_weight: cfg.inactive_days_weight ?? 0.3,
+        purchase_freq_weight: cfg.purchase_freq_weight ?? 0.3,
+        order_value_weight: cfg.order_value_weight ?? 0.2,
+        engagement_weight: cfg.engagement_weight ?? 0.2,
+        inactive_threshold: cfg.inactive_threshold ?? 30,
+        purchase_threshold: cfg.purchase_threshold ?? 60,
+        high_risk_score: cfg.high_risk_score ?? 70,
+        critical_risk_score: cfg.critical_risk_score ?? 85,
+      })
+    }
+  } catch (e) {
+    // 配置可选，失败不阻断
+  }
+}
+
+const refreshAll = async () => {
+  await Promise.all([loadPredictions(), loadWarnings(), loadConfig()])
+}
+
 const runPrediction = async () => {
-  const loading = ElMessage({ message: i18n.global.t('正在运行预测模型...'), type: 'info', duration: 0 })
+  predicting.value = true
   try {
     await runChurnPrediction()
-    loading.close()
-    ElMessage.success(i18n.global.t('预测完成'))
-    refreshData()
-  } catch (error) {
-    loading.close()
-    ElMessage.error(i18n.global.t('预测失败'))
+    ElMessage.success('预测完成')
+    await refreshAll()
+  } catch (e) {
+    ElMessage.error('预测失败：' + (e && e.message ? e.message : ''))
+  } finally {
+    predicting.value = false
   }
 }
 
 const intervene = (row) => {
-  interveneForm.value = { userId: row.id, method: 'coupon', content: '' }
+  interveneForm.userId = row.user_id
+  interveneForm.method = 'coupon'
+  interveneForm.content = ''
   interveneDialogVisible.value = true
 }
 
 const confirmIntervene = async () => {
-  await interveneUser({
-    warning_id: interveneForm.value.userId,
-    intervention_type: interveneForm.value.method,
-    note: interveneForm.value.content
-  })
-  ElMessage.success(i18n.global.t('干预已执行'))
-  interveneDialogVisible.value = false
+  submittingIntervene.value = true
+  try {
+    await interveneUser({
+      warning_id: interveneForm.userId,
+      intervention_type: interveneForm.method,
+      note: interveneForm.content,
+    })
+    ElMessage.success('干预已执行')
+    interveneDialogVisible.value = false
+  } catch (e) {
+    ElMessage.error('干预失败：' + (e && e.message ? e.message : ''))
+  } finally {
+    submittingIntervene.value = false
+  }
 }
 
 const viewUserDetail = async (row) => {
@@ -272,9 +406,13 @@ const viewUserDetail = async (row) => {
   detailLoading.value = true
   try {
     const res = await getChurnPrediction({ user_id: row.user_id })
-    let data = res || {}
+    let data = res?.data ?? res ?? {}
     if (typeof data.risk_factors === 'string' && data.risk_factors) {
-      try { data.risk_factors = JSON.parse(data.risk_factors) } catch (e) { data.risk_factors = [] }
+      try {
+        data.risk_factors = JSON.parse(data.risk_factors)
+      } catch (e) {
+        data.risk_factors = []
+      }
     }
     currentUser.value = data
   } catch {
@@ -284,7 +422,37 @@ const viewUserDetail = async (row) => {
   }
 }
 
-onMounted(() => refreshData())
+const handleWarning = async (row) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入处理备注', '标记预警已处理', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+    })
+    await markWarningHandled(row.id, { note: value || '' })
+    ElMessage.success('已标记为处理')
+    await loadWarnings()
+  } catch (e) {
+    if (e !== 'cancel' && e && e.message) {
+      ElMessage.error('操作失败：' + e.message)
+    }
+  }
+}
+
+const saveConfig = async () => {
+  savingConfig.value = true
+  try {
+    await saveChurnModelConfig({ ...configForm })
+    ElMessage.success('配置已保存')
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e && e.message ? e.message : ''))
+  } finally {
+    savingConfig.value = false
+  }
+}
+
+onMounted(() => refreshAll())
+onActivated(() => refreshAll())
 </script>
 
 <style scoped lang="scss">
@@ -308,4 +476,5 @@ onMounted(() => refreshData())
   justify-content: space-between;
   align-items: center;
 }
+.handled-text { color: #909399; }
 </style>

@@ -189,6 +189,12 @@
         <el-empty v-if="recentEvents.length === 0" description="暂无事件" />
       </el-timeline>
     </el-card>
+
+    <el-dialog v-model="stageDialog" :title="`${selectedStageLabel} · 客户明细`" width="600px">
+      <el-table v-loading="stageLoading" :data="stageCustomers" stripe max-height="420" empty-text="该阶段暂无客户">
+        <el-table-column prop="customer_id" label="客户ID" />
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -202,7 +208,7 @@ import {
   DataLine, Bell, Right
 } from '@element-plus/icons-vue'
 import {
-  getJourneyOverview, listJourneyStages
+  getJourneyOverview, listJourneyStages, listByStage
 } from '@/api/customerJourney.js'
 
 const loading = ref(false)
@@ -259,8 +265,24 @@ const formatTime = (val) => {
   return d.toLocaleString('zh-CN', { hour12: false })
 }
 
-const selectStage = (stage) => {
-  ElMessage.info(`已选择阶段: ${stage.label} (${stage.count} 人)`)
+const stageDialog = ref(false)
+const stageLoading = ref(false)
+const stageCustomers = ref([])
+const selectedStageLabel = ref('')
+const selectStage = async (stage) => {
+  selectedStageLabel.value = stage.label
+  stageDialog.value = true
+  stageLoading.value = true
+  stageCustomers.value = []
+  try {
+    const res = await listByStage(stage.stage)
+    const ids = (res && res.customer_ids) || []
+    stageCustomers.value = ids.map((id) => ({ customer_id: id }))
+  } catch (e) {
+    ElMessage.error('加载阶段客户失败：' + (e && e.message ? e.message : ''))
+  } finally {
+    stageLoading.value = false
+  }
 }
 
 const loadOverview = async () => {

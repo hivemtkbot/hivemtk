@@ -81,8 +81,8 @@ export const knowledgeAPI = {
   syncOpenAPISource(id, params) {
     return http.post(`/api/knowledge/openapi/sources/${id}/sync`, null, { params })
   },
-  testOpenAPISource(data) {
-    return http.post('/api/knowledge/openapi/sources/test', data)
+  testOpenAPISource(id, data) {
+    return http.post(`/api/knowledge/openapi/sources/${id}/test`, data)
   },
   toggleOpenAPISource(id, data, params) {
     return http.post(`/api/knowledge/openapi/sources/${id}/toggle`, data, { params })

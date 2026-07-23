@@ -1,365 +1,441 @@
 <template>
-  <div class="ab-experiment-page">
-    <el-card class="header-card">
-      <div class="header-content">
-        <h2>A/B 测试</h2>
-        <p class="subtitle">创建并管理 A/B 测试实验，对比不同方案效果</p>
+  <div class="ab-experiment">
+    <el-card class="filter-container">
+      <div class="stats-row" v-if="stats">
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.running }}</div>
+          <div class="stat-label">{{ t('ab.running') }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.completed }}</div>
+          <div class="stat-label">{{ t('ab.completed') }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.winner }}</div>
+          <div class="stat-label">{{ t('ab.winner') }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.totalUsers }}</div>
+          <div class="stat-label">{{ t('ab.totalUsers') }}</div>
+        </div>
       </div>
-      <el-button type="primary" @click="showCreateDialog">
-        <el-icon><Plus /></el-icon>
-        {{ $t('创建实验') }}
-      </el-button>
+
+      <el-form :inline="true" class="filter-form">
+        <el-form-item :label="t('ab.status')">
+          <el-select v-model="statusFilter" :placeholder="t('common.all')" clearable style="width: 140px">
+            <el-option label="Draft" value="draft" />
+            <el-option label="Running" value="running" />
+            <el-option label="Paused" value="paused" />
+            <el-option label="Completed" value="completed" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('ab.experimentName')">
+          <el-input v-model="searchKeyword" :placeholder="t('ab.experimentNamePlaceholder')" clearable style="width: 200px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">{{ t('common.search') }}</el-button>
+          <el-button @click="handleReset">{{ t('common.reset') }}</el-button>
+          <el-button @click="refreshData">{{ t('common.refresh') }}</el-button>
+          <el-button type="success" @click="showCreateDialog">{{ t('ab.newExperiment') }}</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('进行中实验') }}</div>
-            <div class="stat-value">{{ stats.running }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('已完成实验') }}</div>
-            <div class="stat-value">{{ stats.completed }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('显著胜出') }}</div>
-            <div class="stat-value" style="color: #10B981">{{ stats.winner }}</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="stat-item">
-            <div class="stat-label">{{ $t('总参与用户') }}</div>
-            <div class="stat-value">{{ stats.totalUsers }}</div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('实验列表') }}</span>
-          <div>
-            <el-select v-model="filterStatus" :placeholder="$t('状态')" clearable style="width: 120px; margin-right: 10px">
-              <el-option :label="$t('进行中')" value="running" />
-              <el-option :label="$t('已完成')" value="completed" />
-              <el-option :label="$t('已暂停')" value="paused" />
-            </el-select>
-            <el-input v-model="searchKeyword" :placeholder="$t('搜索实验')" clearable style="width: 200px" />
-          </div>
-        </div>
-      </template>
       <el-table :data="filteredExperiments" v-loading="loading" stripe>
-        <el-table-column prop="name" label="实验名称" min-width="180" />
-        <el-table-column prop="type" label="实验类型" width="120">
+        <el-table-column prop="name" :label="t('ab.experimentName')" min-width="160" />
+        <el-table-column :label="t('ab.sourceType')" min-width="160">
           <template #default="{ row }">
-            <el-tag>{{ row.type }}</el-tag>
+            <span>{{ row.source_type || '-' }}</span>
+            <span v-if="row.source_id" class="source-id">#{{ row.source_id }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="variants" label="变体数" width="80" />
-        <el-table-column prop="participants" label="参与用户" width="100" />
-        <el-table-column prop="winner" label="胜出变体" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column :label="t('ab.trafficSplit')" width="120">
+          <template #default="{ row }">{{ row.traffic_split || 0 }}%</template>
+        </el-table-column>
+        <el-table-column :label="t('ab.status')" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
+            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="startDate" label="开始日期" width="120" />
-        <el-table-column prop="endDate" label="结束日期" width="120" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column :label="t('ab.startDate')" width="120">
+          <template #default="{ row }">{{ fmtDate(row.start_date) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('ab.endDate')" width="120">
+          <template #default="{ row }">{{ fmtDate(row.end_date) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('ab.operation')" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
-            <el-button link type="primary" @click="editExperiment(row)">编辑</el-button>
-            <el-button link type="warning" v-if="row.status === 'running'" @click="pauseExp(row)">暂停</el-button>
-            <el-button link type="success" v-if="row.status === 'paused'" @click="resumeExp(row)">继续</el-button>
-            <el-button link type="danger" @click="deleteExp(row)">删除</el-button>
+            <el-button size="small" @click="showDetail(row)">{{ t('ab.detail') }}</el-button>
+            <el-button size="small" type="primary" @click="showEditDialog(row)">{{ t('ab.edit') }}</el-button>
+            <el-button
+              v-if="row.status === 'running'"
+              size="small"
+              type="warning"
+              @click="handlePause(row)"
+            >{{ t('ab.pause') }}</el-button>
+            <el-button
+              v-else-if="row.status !== 'completed'"
+              size="small"
+              type="success"
+              @click="handleStart(row)"
+            >{{ t('ab.resume') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)">{{ t('ab.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="800px">
-      <el-form :model="form" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item label="实验名称" prop="name">
-          <el-input v-model="form.name" />
+    <!-- 创建 / 编辑 -->
+    <el-dialog :title="editingId ? t('ab.edit') : t('ab.create')" v-model="createDialogVisible" width="720px">
+      <el-form :model="createForm" label-width="120px">
+        <el-form-item :label="t('ab.experimentName')" required>
+          <el-input v-model="createForm.name" :placeholder="t('ab.experimentNamePlaceholder')" />
         </el-form-item>
-        <el-form-item label="实验类型" prop="type">
-          <el-select v-model="form.type" style="width: 100%">
-            <el-option label="标题测试" value="title" />
-            <el-option label="图片测试" value="image" />
-            <el-option label="内容测试" value="content" />
-            <el-option label="CTA测试" value="cta" />
+        <el-form-item :label="t('ab.sourceType')" required>
+          <el-select v-model="createForm.source_type" :placeholder="t('ab.sourceTypePlaceholder')" style="width: 100%">
+            <el-option :label="t('ab.sourceTypePage')" value="page" />
+            <el-option :label="t('ab.sourceTypeComponent')" value="component" />
+            <el-option :label="t('ab.sourceTypeMessage')" value="message" />
+            <el-option :label="t('ab.sourceTypeOther')" value="other" />
           </el-select>
         </el-form-item>
-        <el-form-item label="实验描述">
-          <el-input v-model="form.description" type="textarea" :rows="2" />
+        <el-form-item :label="t('ab.sourceId')" required>
+          <el-input v-model="createForm.source_id" :placeholder="t('ab.sourceIdPlaceholder')" />
         </el-form-item>
-        <el-form-item label="变体配置">
-          <div v-for="(variant, idx) in form.variants" :key="idx" class="variant-item">
-            <el-input v-model="variant.name" placeholder="变体名称" style="width: 150px; margin-right: 10px" />
-            <el-input v-model="variant.content" placeholder="变体内容" style="flex: 1; margin-right: 10px" />
-            <el-input-number v-model="variant.traffic" :min="0" :max="100" placeholder="流量%" style="width: 120px" />
-            <el-button type="danger" link @click="removeVariant(idx)" v-if="form.variants.length > 2">删除</el-button>
+        <el-form-item :label="t('ab.description')">
+          <el-input v-model="createForm.description" type="textarea" :rows="2" :placeholder="t('ab.descriptionPlaceholder')" />
+        </el-form-item>
+        <el-form-item :label="t('ab.trafficSplit')">
+          <el-slider v-model="createForm.traffic_split" :min="0" :max="100" show-input style="width: 100%" />
+        </el-form-item>
+        <el-form-item :label="t('ab.startDate')">
+          <el-date-picker v-model="createForm.start_date" type="date" :placeholder="t('ab.startDate')" value-format="YYYY-MM-DD" />
+        </el-form-item>
+        <el-form-item :label="t('ab.endDate')">
+          <el-date-picker v-model="createForm.end_date" type="date" :placeholder="t('ab.endDate')" value-format="YYYY-MM-DD" />
+        </el-form-item>
+        <el-form-item :label="t('ab.addVariant')">
+          <div class="variants">
+            <div v-for="(v, idx) in createForm.variants" :key="idx" class="variant-row">
+              <el-input v-model="v.name" :placeholder="t('ab.variantName')" style="width: 140px" />
+              <el-checkbox v-model="v.is_control">{{ t('ab.isControl') }}</el-checkbox>
+              <el-input-number v-model="v.weight" :min="0" :max="100" :placeholder="t('ab.weight')" />
+              <el-button type="danger" text @click="removeVariant(idx)">{{ t('ab.removeVariant') }}</el-button>
+            </div>
+            <el-button @click="addVariant">{{ t('ab.addVariant') }}</el-button>
           </div>
-          <el-button @click="addVariant" type="primary" link>添加变体</el-button>
-        </el-form-item>
-        <el-form-item label="开始日期">
-          <el-date-picker v-model="form.startDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="结束日期">
-          <el-date-picker v-model="form.endDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
+        <el-button @click="createDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitForm">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" title="实验详情" width="800px" v-loading="detailLoading">
-      <template v-if="currentExperiment">
+    <!-- 详情 -->
+    <el-dialog :title="t('ab.detail')" v-model="detailDialogVisible" width="760px">
+      <template v-if="detailData">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="实验名称">{{ currentExperiment.name }}</el-descriptions-item>
-          <el-descriptions-item label="实验类型">
-            <el-tag>{{ currentExperiment.type }}</el-tag>
+          <el-descriptions-item :label="t('ab.experimentName')">{{ detailData.name }}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.status')">
+            <el-tag :type="statusTagType(detailData.status)">{{ statusLabel(detailData.status) }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="getStatusType(currentExperiment.status)">{{ getStatusText(currentExperiment.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="参与用户">{{ currentExperiment.participants }}</el-descriptions-item>
-          <el-descriptions-item label="开始日期">{{ currentExperiment.startDate }}</el-descriptions-item>
-          <el-descriptions-item label="结束日期">{{ currentExperiment.endDate }}</el-descriptions-item>
-          <el-descriptions-item label="实验描述" :span="2">{{ currentExperiment.description}}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.sourceType')">{{ detailData.source_type }}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.sourceId')">{{ detailData.source_id }}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.trafficSplit')">{{ detailData.traffic_split || 0 }}%</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.startDate')">{{ fmtDate(detailData.start_date) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.endDate')">{{ fmtDate(detailData.end_date) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('ab.description')">{{ detailData.description || '-' }}</el-descriptions-item>
         </el-descriptions>
 
-        <el-divider content-position="left">变体配置</el-divider>
-        <el-table v-if="currentExperiment.variants && currentExperiment.variants.length" :data="currentExperiment.variants" border size="small">
-          <el-table-column prop="name" label="变体名称" width="120" />
-          <el-table-column prop="content" label="变体内容" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="traffic" label="流量分配(%)" width="120" />
+        <div class="results-title">{{ t('ab.results') }}</div>
+        <el-table :data="results" v-loading="resultsLoading" stripe empty-text="No data">
+          <el-table-column prop="variant_name" :label="t('ab.resultVariant')" />
+          <el-table-column prop="traffic_count" :label="t('ab.resultTraffic')" />
+          <el-table-column prop="conversion_count" :label="t('ab.resultConversion')" />
+          <el-table-column :label="t('ab.resultRate')">
+            <template #default="{ row }">{{ (row.conversion_rate || 0).toFixed(2) }}%</template>
+          </el-table-column>
+          <el-table-column :label="t('ab.winner')">
+            <template #default="{ row }">
+              <el-tag v-if="row.is_winner" type="success">Winner</el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
         </el-table>
-
-        <el-divider content-position="left">实验结果</el-divider>
-        <template v-if="currentResults && currentResults.length">
-          <el-table :data="currentResults" border size="small">
-            <el-table-column prop="variant" label="变体" width="100" />
-            <el-table-column prop="impressions" label="曝光量" width="120" />
-            <el-table-column prop="conversions" label="转化量" width="120" />
-            <el-table-column prop="conversionRate" label="转化率" width="120">
-              <template #default="{ row }">{{ (row.conversionRate * 100).toFixed(2) }}%</template>
-            </el-table-column>
-            <el-table-column prop="lift" label="提升率" width="120">
-              <template #default="{ row }">
-                <span :style="{ color: row.lift > 0 ? '#10B981' : row.lift < 0 ? '#EF4444' : '' }">
-                  {{ row.lift > 0 ? '+' : '' }}{{ (row.lift * 100).toFixed(2) }}%
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="confidence" label="置信度" width="120">
-              <template #default="{ row }">{{ (row.confidence * 100).toFixed(1) }}%</template>
-            </el-table-column>
-          </el-table>
-        </template>
-        <el-empty v-else description="暂无实验结果数据" />
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import i18n from '@/i18n'
-
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { toList } from '@/utils/list'
 import {
   getExperiments,
   createExperiment,
   updateExperiment,
   deleteExperiment,
+  startExperiment,
   pauseExperiment,
-  resumeExperiment,
-  getExperimentStats,
-  getExperiment,
-  getExperimentResults
+  getExperimentDetail,
+  getExperimentResults,
 } from '@/api/abExperiment.js'
 
-const loading = ref(false)
-const searchKeyword = ref('')
-const filterStatus = ref('')
-const experiments = ref([])
-const stats = ref({ running: 0, completed: 0, winner: 0, totalUsers: 0 })
-const dialogVisible = ref(false)
-const dialogTitle = ref('创建实验')
-const formRef = ref()
-const form = ref({
-  id: 0,
-  name: '',
-  type: 'title',
-  description: '',
-  variants: [
-    { name: 'A', content: '', traffic: 50 },
-    { name: 'B', content: '', traffic: 50 }
-  ],
-  startDate: '',
-  endDate: ''
-})
-const formRules = {
-  name: [{ required: true, message: i18n.global.t('请输入实验名称'), trigger: 'blur' }],
-  type: [{ required: true, message: i18n.global.t('请选择实验类型'), trigger: 'change' }]
-}
+const { t } = useI18n()
 
-const detailVisible = ref(false)
-const detailLoading = ref(false)
-const currentExperiment = ref(null)
-const currentResults = ref(null)
+const experiments = ref([])
+const loading = ref(false)
+const statusFilter = ref('')
+const searchKeyword = ref('')
+const createDialogVisible = ref(false)
+const detailDialogVisible = ref(false)
+const editingId = ref(null)
+const submitting = ref(false)
+const detailData = ref(null)
+const results = ref([])
+const resultsLoading = ref(false)
+
+const stats = reactive({ running: 0, completed: 0, winner: 0, totalUsers: 0 })
+
+const createForm = reactive({
+  name: '',
+  source_type: '',
+  source_id: '',
+  description: '',
+  traffic_split: 50,
+  start_date: null,
+  end_date: null,
+  variants: [
+    { name: 'A', is_control: true, weight: 50 },
+    { name: 'B', is_control: false, weight: 50 },
+  ],
+})
 
 const filteredExperiments = computed(() => {
-  let result = experiments.value
-  if (filterStatus.value) result = result.filter(e => e.status === filterStatus.value)
-  if (searchKeyword.value) result = result.filter(e => e.name.includes(searchKeyword.value))
-  return result
+  return experiments.value.filter((e) => {
+    if (statusFilter.value && e.status !== statusFilter.value) return false
+    if (searchKeyword.value && !(e.name || '').toLowerCase().includes(searchKeyword.value.toLowerCase())) return false
+    return true
+  })
 })
 
-const getStatusType = (status) => {
-  const map = { running: 'success', completed: 'info', paused: 'warning' }
-  return map[status]}
-const getStatusText = (status) => {
-  const map = { running: '进行中', completed: '已完成', paused: '已暂停' }
-  return map[status] || status
+function computeStats() {
+  stats.running = experiments.value.filter((e) => e.status === 'running').length
+  stats.completed = experiments.value.filter((e) => e.status === 'completed').length
+  stats.winner = 0
+  stats.totalUsers = 0
 }
 
-const refreshData = async () => {
+async function refreshData() {
   loading.value = true
   try {
-    const [expRes, statsRes] = await Promise.all([getExperiments(), getExperimentStats()])
-    experiments.value = toList(expRes)
-    stats.value = statsRes || { running: 0, completed: 0, winner: 0, totalUsers: 0 }
+    const res = await getExperiments({ page: 1, page_size: 100 })
+    experiments.value = res.list || res.data || []
+    computeStats()
+  } catch (e) {
+    ElMessage.error('加载失败：' + (e && e.message ? e.message : ''))
   } finally {
     loading.value = false
   }
 }
 
-const showCreateDialog = () => {
-  form.value = { id: 0, name: '', type: 'title', description: '', variants: [{ name: 'A', content: '', traffic: 50 }, { name: 'B', content: '', traffic: 50 }], startDate: '', endDate: '' }
-  dialogTitle.value = '创建实验'
-  dialogVisible.value = true
+function handleSearch() {
+  // 前端过滤，直接依赖 computed
+}
+function handleReset() {
+  statusFilter.value = ''
+  searchKeyword.value = ''
 }
 
-const editExperiment = (row) => {
-  form.value = { ...row, variants: [...row.variants] }
-  dialogTitle.value = '编辑实验'
-  dialogVisible.value = true
+function statusTagType(status) {
+  if (status === 'running') return 'success'
+  if (status === 'paused') return 'warning'
+  if (status === 'completed') return 'info'
+  return ''
+}
+function statusLabel(status) {
+  if (status === 'running') return t('ab.statusRunning')
+  if (status === 'paused') return t('ab.statusPaused')
+  if (status === 'completed') return t('ab.statusCompleted')
+  if (status === 'draft') return t('ab.statusDraft')
+  return status || '-'
 }
 
-const addVariant = () => {
-  const idx = form.value.variants.length
-  form.value.variants.push({ name: String.fromCharCode(65 + idx), content: '', traffic: 0 })
+function fmtDate(d) {
+  if (!d) return '-'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '-'
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const day = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-const removeVariant = (idx) => {
-  form.value.variants.splice(idx, 1)
+function addVariant() {
+  createForm.variants.push({ name: '', is_control: false, weight: 50 })
+}
+function removeVariant(idx) {
+  if (createForm.variants.length > 1) createForm.variants.splice(idx, 1)
 }
 
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-    try {
-      if (form.value.id) {
-        await updateExperiment(form.value.id, form.value)
-      } else {
-        await createExperiment(form.value)
-      }
-      ElMessage.success(i18n.global.t('操作成功'))
-      dialogVisible.value = false
-      refreshData()
-    } catch (error) {
-      ElMessage.error(i18n.global.t('操作失败'))
+function resetForm() {
+  createForm.name = ''
+  createForm.source_type = ''
+  createForm.source_id = ''
+  createForm.description = ''
+  createForm.traffic_split = 50
+  createForm.start_date = null
+  createForm.end_date = null
+  createForm.variants = [
+    { name: 'A', is_control: true, weight: 50 },
+    { name: 'B', is_control: false, weight: 50 },
+  ]
+}
+
+function showCreateDialog() {
+  editingId.value = null
+  resetForm()
+  createDialogVisible.value = true
+}
+
+async function showEditDialog(row) {
+  editingId.value = row.id
+  resetForm()
+  try {
+    const detail = await getExperimentDetail(row.id)
+    createForm.name = detail.name || ''
+    createForm.source_type = detail.source_type || ''
+    createForm.source_id = detail.source_id || ''
+    createForm.description = detail.description || ''
+    createForm.traffic_split = detail.traffic_split || 50
+    createForm.start_date = detail.start_date ? fmtDate(detail.start_date) : null
+    createForm.end_date = detail.end_date ? fmtDate(detail.end_date) : null
+  } catch (e) {
+    ElMessage.error('加载详情失败：' + (e && e.message ? e.message : ''))
+  }
+  createDialogVisible.value = true
+}
+
+function buildPayload() {
+  return {
+    name: createForm.name,
+    source_type: createForm.source_type,
+    source_id: createForm.source_id,
+    description: createForm.description,
+    traffic_split: createForm.traffic_split || 0,
+    start_date: createForm.start_date || null,
+    end_date: createForm.end_date || null,
+    variants: createForm.variants.map((v) => ({
+      name: v.name,
+      is_control: !!v.is_control,
+      weight: v.weight || 0,
+    })),
+  }
+}
+
+async function submitForm() {
+  if (!createForm.name) return ElMessage.warning(t('ab.experimentNamePlaceholder'))
+  if (!createForm.source_type) return ElMessage.warning(t('ab.sourceTypePlaceholder'))
+  if (!createForm.source_id) return ElMessage.warning(t('ab.sourceIdPlaceholder'))
+  submitting.value = true
+  try {
+    const payload = buildPayload()
+    if (editingId.value) {
+      await updateExperiment(editingId.value, payload)
+      ElMessage.success(t('common.updateSuccess'))
+    } else {
+      await createExperiment(payload)
+      ElMessage.success(t('common.createSuccess'))
     }
-  })
-}
-
-const pauseExp = async (row) => {
-  await pauseExperiment(row.id)
-  ElMessage.success(i18n.global.t('已暂停'))
-  refreshData()
-}
-
-const resumeExp = async (row) => {
-  await resumeExperiment(row.id)
-  ElMessage.success(i18n.global.t('已继续'))
-  refreshData()
-}
-
-const deleteExp = async (row) => {
-  try {
-    await ElMessageBox.confirm(`确定删除实验 "${row.name}" 吗？`, '确认', { type: 'warning' })
-    await deleteExperiment(row.id)
-    ElMessage.success(i18n.global.t('删除成功'))
-    refreshData()
-  } catch (error) {
-    if (error !== 'cancel') ElMessage.error(i18n.global.t('删除失败'))
-  }
-}
-
-const viewDetail = async (row) => {
-  detailVisible.value = true
-  detailLoading.value = true
-  try {
-    const [expRes, resultsRes] = await Promise.all([
-      getExperiment(row.id),
-      getExperimentResults(row.id)
-    ])
-    currentExperiment.value = expRes
-    currentResults.value = toList(resultsRes)
-  } catch {
-    ElMessage.error(i18n.global.t('获取实验详情失败'))
+    createDialogVisible.value = false
+    await refreshData()
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e && e.message ? e.message : ''))
   } finally {
-    detailLoading.value = false
+    submitting.value = false
   }
 }
 
-onMounted(() => refreshData())
+async function handleStart(row) {
+  try {
+    await startExperiment(row.id)
+    ElMessage.success(t('common.operationSuccess'))
+    await refreshData()
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e && e.message ? e.message : ''))
+  }
+}
+
+async function handlePause(row) {
+  try {
+    await pauseExperiment(row.id)
+    ElMessage.success(t('common.operationSuccess'))
+    await refreshData()
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e && e.message ? e.message : ''))
+  }
+}
+
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm(t('common.confirmDelete'), t('common.warning'), {
+      type: 'warning',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+    })
+  } catch {
+    return
+  }
+  try {
+    await deleteExperiment(row.id)
+    ElMessage.success(t('common.deleteSuccess'))
+    await refreshData()
+  } catch (e) {
+    ElMessage.error('删除失败：' + (e && e.message ? e.message : ''))
+  }
+}
+
+async function showDetail(row) {
+  detailData.value = row
+  detailDialogVisible.value = true
+  resultsLoading.value = true
+  results.value = []
+  try {
+    const res = await getExperimentResults(row.id)
+    results.value = Array.isArray(res) ? res : (res.list || [])
+  } catch (e) {
+    // 无结果数据不报错
+  } finally {
+    resultsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  refreshData()
+})
+
+onActivated(() => {
+  refreshData()
+})
 </script>
 
-<style scoped lang="scss">
-.ab-experiment-page { padding: 20px; }
-.header-card {
-  margin-bottom: 20px;
-  :deep(.el-card__body) { display: flex; justify-content: space-between; align-items: center; }
-  h2 { margin: 0 0 8px 0; }
-  .subtitle { color: #909399; margin: 0; }
+<style scoped>
+.filter-container { margin-bottom: 16px; }
+.stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.stat-card {
+  flex: 1;
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
 }
-.stats-row {
-  margin-bottom: 20px;
-  .stat-item {
-    text-align: center;
-    .stat-label { color: #909399; font-size: 14px; margin-bottom: 10px; }
-    .stat-value { font-size: 28px; font-weight: bold; }
-  }
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.variant-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  gap: 10px;
-}
+.stat-value { font-size: 28px; font-weight: 600; color: #409eff; }
+.stat-label { font-size: 13px; color: #909399; margin-top: 4px; }
+.source-id { color: #909399; margin-left: 6px; font-size: 12px; }
+.variants { display: flex; flex-direction: column; gap: 8px; }
+.variant-row { display: flex; align-items: center; gap: 12px; }
+.results-title { font-weight: 600; margin: 16px 0 8px; }
 </style>

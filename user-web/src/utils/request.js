@@ -122,6 +122,12 @@ const addInterceptors = () => {
       const { data, config } = response
       const silent = !!(config && config._silent)
 
+      // 0) Blob 下载响应（导出文件等）：responseType 为 blob 时 axios 已返回二进制，
+      // 不做业务码/JSON 解析，直接透传 Blob 供调用方下载（否则导出会报“非 JSON 响应”）。
+      if (config && config.responseType === 'blob') {
+        return response.data
+      }
+
       // 1) 非 JSON 响应（如反向代理把 404 兜底成前端 HTML 页面）
       if (!isJsonResponse(response) || typeof data !== 'object') {
         if (import.meta.env?.DEV) {

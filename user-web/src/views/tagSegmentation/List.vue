@@ -429,7 +429,12 @@ const deleteRule = async (row) => {
 
 const saveStrategy = async () => {
   try {
-    await TagSegmentationApi.saveLayerStrategy(strategyList.value)
+    // 仅提交后端所需的 layer/description，避免把绑定的 tagIds 等前端字段误传
+    const payload = strategyList.value.map(r => ({
+      layer: r.layer,
+      description: r.description || ''
+    }))
+    await TagSegmentationApi.saveLayerStrategy(payload)
     ElMessage.success(i18n.global.t('策略已保存'))
   } catch (e) {
     ElMessage.error(i18n.global.t('保存失败'))

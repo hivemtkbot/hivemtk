@@ -368,7 +368,7 @@ const handleTest = async (row) => {
       request_template: row.request_template,
       response_path: row.response_path
     }
-    const res = await knowledgeAPI.testOpenAPISource(payload)
+    const res = await knowledgeAPI.testOpenAPISource(row.id, payload)
     testResult.value = res
     showTestResultDialog.value = true
   } catch (e) {

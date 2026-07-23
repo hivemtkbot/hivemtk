@@ -242,7 +242,7 @@
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Refresh, UploadFilled } from '@element-plus/icons-vue'
@@ -476,7 +476,7 @@ onUnmounted(() => {
 
 // 工具函数
 const sourceTypeLabel = (t) => ({ upload: '文件', text: '文本', url: 'URL', openapi: 'OpenAPI', batch: '批量' }[t] || t)
-const sourceTypeTag = (t) => ({ upload: '', text: 'success', url: 'warning', openapi: 'info' }[t] || '')
+const sourceTypeTag = (t) => ({ upload: 'info', text: 'success', url: 'warning', openapi: 'info' }[t] || 'info')
 const embedStatusLabel = (s) => ({ pending: '待处理', processing: '处理中', indexed: '已索引', failed: '失败' }[s] || s)
 const embedStatusTag = (s) => ({ pending: 'info', processing: 'warning', indexed: 'success', failed: 'danger' }[s] || '')
 const formatNumber = (n) => n == null ? '-' : Number(n).toLocaleString()

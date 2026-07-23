@@ -92,11 +92,16 @@ export default {
     this.loadAll()
   },
   beforeDestroy() {
-    if (this.chartInst) this.chartInst.dispose()
+    this._destroyed = true
+    if (this.chartInst) {
+      this.chartInst.dispose()
+      this.chartInst = null
+    }
   },
   methods: {
     async loadAll() {
       const res = await ConversionFunnelApi.getFunnel({})
+      if (this._destroyed) return
       this.report = res || {}
       const stages = Array.isArray(this.report.stages) ? this.report.stages : []
       this.stageTable = stages.map((s) => ({
@@ -106,11 +111,13 @@ export default {
         rate: s.rate || 0,
         dropRate: s.drop_rate || 0
       }))
+      const firstStage = stages[0]
       const lastStage = stages[stages.length - 1]
+      const firstCount = firstStage ? firstStage.count : 0
       this.summary = {
-        totalEnter: this.report.total || 0,
+        totalEnter: firstCount,
         totalConvert: lastStage ? lastStage.count : 0,
-        overallRate: this.report.conversion || 0,
+        overallRate: firstCount && lastStage ? (lastStage.count / firstCount) * 100 : 0,
         avgLossRate: stages.length ? stages.reduce((a, s) => a + (s.drop_rate || 0), 0) / stages.length : 0
       }
       this.renderFunnel()
@@ -119,6 +126,7 @@ export default {
     async loadLoss() {
       if (!this.selectedStage) return
       const res = await ConversionFunnelApi.getStageDetails(this.selectedStage, {})
+      if (this._destroyed) return
       const d = res || {}
       this.loss = {
         name: d.name || this.selectedStage,

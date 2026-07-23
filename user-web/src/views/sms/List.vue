@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>{{ $t('短信列表') }}</span>
-          <el-button type="primary">{{ $t('发送短信') }}</el-button>
+          <el-button type="primary" @click="handleSendSms">{{ $t('发送短信') }}</el-button>
         </div>
       </template>
       
@@ -70,13 +70,29 @@
         />
       </div>
     </el-card>
+
+    <!-- 发送短信对话框 -->
+    <el-dialog v-model="sendDialogVisible" title="发送短信" width="500px">
+      <el-form :model="sendForm" label-width="80px">
+        <el-form-item label="手机号">
+          <el-input v-model="sendForm.phone" placeholder="请输入手机号" maxlength="11" />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="sendForm.content" type="textarea" :rows="5" placeholder="请输入短信内容" maxlength="500" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="sendDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="sending" @click="submitSendSms">确定发送</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
 
@@ -191,6 +207,39 @@ const handleCurrentChange = (val) => {
 onMounted(() => {
   getSmsList()
 })
+
+// 发送短信
+const sendDialogVisible = ref(false)
+const sending = ref(false)
+const sendForm = reactive({ phone: '', content: '' })
+
+const handleSendSms = () => {
+  sendForm.phone = ''
+  sendForm.content = ''
+  sendDialogVisible.value = true
+}
+
+const submitSendSms = async () => {
+  if (!/^1[3-9]\d{9}$/.test(sendForm.phone)) {
+    ElMessage.warning('请输入正确的手机号')
+    return
+  }
+  if (!sendForm.content.trim()) {
+    ElMessage.warning('请输入短信内容')
+    return
+  }
+  sending.value = true
+  try {
+    await smsApi.sendSms({ phone: sendForm.phone, content: sendForm.content })
+    ElMessage.success('短信发送成功')
+    sendDialogVisible.value = false
+    getSmsList()
+  } catch (error) {
+    ElMessage.error('短信发送失败')
+  } finally {
+    sending.value = false
+  }
+}
 </script>
 
 <style scoped>

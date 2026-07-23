@@ -157,7 +157,7 @@ import i18n from '@/i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { listOneID, resolveIdentity, getIdentityMappings, mergeOneID } from '@/api/oneid'
+import { listOneID, resolveIdentity, getIdentityMappings, linkIdentity } from '@/api/oneid'
 
 const list = ref([])
 const total = ref(0)
@@ -240,10 +240,17 @@ const handleResolve = async () => {
 
   const handleLink = async () => {
     try {
-      await mergeOneID({
-        primary_id: linkForm.value.customerId,
-        secondary_id: linkForm.value.customerId
-      })
+      const { customerId, ...identifiers } = linkForm.value
+      if (!customerId) {
+        ElMessage.warning(i18n.global.t('请先选择客户'))
+        return
+      }
+      // 至少填写一个身份标识
+      if (!identifiers.phone && !identifiers.email && !identifiers.wechat_open_id && !identifiers.douyin_open_id) {
+        ElMessage.warning(i18n.global.t('请至少填写一个身份标识（手机号/邮箱/微信/抖音）'))
+        return
+      }
+      await linkIdentity(customerId, identifiers)
       ElMessage.success(i18n.global.t('链接成功'))
       linkDialogVisible.value = false
       loadList()

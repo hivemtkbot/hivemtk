@@ -5,8 +5,8 @@
         <template #header>
           <span>{{ $t('客户搜索') }}</span>
         </template>
-        <el-input v-model="searchKeyword" placeholder="搜索客户(姓名/手机/邮箱)" clearable @change="loadCustomers" />
-        <el-table :data="customers" v-loading="loading" highlight-current-row @row-click="selectCustomer" style="margin-top: 15px">
+        <el-input v-model="searchKeyword" placeholder="搜索客户(姓名/手机/邮箱)" clearable />
+        <el-table :data="filteredCustomers" v-loading="loading" highlight-current-row @row-click="selectCustomer" style="margin-top: 15px">
           <el-table-column prop="name" label="姓名" width="100" />
           <el-table-column prop="phone" label="手机号" />
           <el-table-column prop="source" label="来源" width="100" />
@@ -151,7 +151,7 @@
 <script setup>
 import i18n from '@/i18n'
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCustomerList, getCustomerDetail, addCustomerTag, removeCustomerTag } from '@/api/customer360.js'
 import { createSession, sendMessage } from '@/api/customerSession.js'
@@ -161,6 +161,16 @@ import { toList } from '@/utils/list'
 const loading = ref(false)
 const searchKeyword = ref('')
 const customers = ref([])
+// 后端 GetCustomerList 暂不支持 keyword，这里做前端本地过滤（姓名/手机/邮箱）
+const filteredCustomers = computed(() => {
+  const k = (searchKeyword.value || '').trim().toLowerCase()
+  if (!k) return customers.value
+  return customers.value.filter(c =>
+    (c.name || '').toLowerCase().includes(k) ||
+    (c.phone || '').includes(k) ||
+    (c.email || '').toLowerCase().includes(k)
+  )
+})
 const current = ref(null)
 const activeTab = ref('basic')
 const behaviors = ref([])
@@ -183,6 +193,7 @@ const loadCustomers = async () => {
             id: b.user_id || uid,
             name: b.user_name || uid,
             phone: b.user_phone || '',
+            email: b.user_email || '',
             source: b.source_platform || ''
           }
         })

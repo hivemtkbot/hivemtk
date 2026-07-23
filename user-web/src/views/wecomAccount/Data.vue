@@ -8,6 +8,7 @@
           clearable
           filterable
           style="width: 240px"
+          @change="onAccountChange"
         >
           <el-option
             v-for="a in accounts"
@@ -16,7 +17,37 @@
             :value="a.account.id"
           />
         </el-select>
+        <el-button type="primary" :icon="Refresh" :loading="loadingAny" @click="refreshAll">刷新数据</el-button>
         <span class="tip">客户「发消息」将用所选账号从企业微信外部联系人通道下发</span>
+      </div>
+
+      <!-- 概览卡片 -->
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="summary-value">{{ total.customers || 0 }}</div>
+          <div class="summary-label">客户总数</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">{{ total.groups || 0 }}</div>
+          <div class="summary-label">客户群总数</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">{{ total.messages || 0 }}</div>
+          <div class="summary-label">消息总数</div>
+        </div>
+      </div>
+
+      <!-- 图表 -->
+      <div class="chart-grid">
+        <el-card shadow="hover" class="chart-card">
+          <div ref="sourceChart" class="chart-box"></div>
+        </el-card>
+        <el-card shadow="hover" class="chart-card">
+          <div ref="groupSizeChart" class="chart-box"></div>
+        </el-card>
+        <el-card shadow="hover" class="chart-card chart-card-wide">
+          <div ref="msgTrendChart" class="chart-box chart-box-wide"></div>
+        </el-card>
       </div>
 
       <el-tabs v-model="activeTab" @tab-change="onTabChange">
@@ -124,14 +155,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import * as echarts from 'echarts'
 import { wecomAccountApi } from '@/api/wecomAccount'
 import WeComSendDialog from '@/components/WeComSendDialog.vue'
 import { toList } from '@/utils/list'
 
 const activeTab = ref('customers')
 const pageSize = 20
+const chartPageSize = 1000
 
 const accounts = ref([])
 const selectedAccountId = ref(null)
@@ -144,10 +178,19 @@ const messages = ref([])
 const total = reactive({ customers: 0, groups: 0, messages: 0 })
 const page = reactive({ customers: 1, groups: 1, messages: 1 })
 
-const loading = reactive({ customers: false, groups: false, tags: false, messages: false })
+const loading = reactive({ customers: false, groups: false, tags: false, messages: false, charts: false })
+const loadingAny = ref(false)
 
 const sendVisible = ref(false)
 const sendExternalUserID = ref('')
+
+// 图表实例
+const sourceChart = ref(null)
+const groupSizeChart = ref(null)
+const msgTrendChart = ref(null)
+let sourceChartInst = null
+let groupSizeChartInst = null
+let msgTrendChartInst = null
 
 const formatTime = (v) => {
   if (!v) return '-'
@@ -155,6 +198,13 @@ const formatTime = (v) => {
   if (isNaN(d.getTime())) return v
   const p = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+const dayKey = (v) => {
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return null
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 const previewContent = (row) => {
@@ -227,11 +277,144 @@ const loadMessages = async () => {
   }
 }
 
+// ===== 图表数据聚合 =====
+const loadChartData = async () => {
+  loading.charts = true
+  try {
+    const [cRes, gRes, mRes] = await Promise.all([
+      wecomAccountApi.getCustomers({ page: 1, page_size: chartPageSize }),
+      wecomAccountApi.getGroups({ page: 1, page_size: chartPageSize }),
+      wecomAccountApi.getMessages({ page: 1, page_size: chartPageSize })
+    ])
+    const allCustomers = toList(cRes.list)
+    const allGroups = toList(gRes.list)
+    const allMessages = toList(mRes.list)
+
+    // 客户来源分布
+    const sourceMap = {}
+    for (const c of allCustomers) {
+      const k = c.source || '未知'
+      sourceMap[k] = (sourceMap[k] || 0) + 1
+    }
+    const sourceData = Object.keys(sourceMap).map((k) => ({ name: k, value: sourceMap[k] }))
+
+    // 客户群规模 Top10
+    const topGroups = [...allGroups]
+      .sort((a, b) => (Number(b.member_count) || 0) - (Number(a.member_count) || 0))
+      .slice(0, 10)
+    const groupNames = topGroups.map((g) => g.name || g.chat_id || '群')
+    const groupSizes = topGroups.map((g) => Number(g.member_count) || 0)
+
+    // 消息趋势（近30天）
+    const days = []
+    const now = new Date()
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(now.getDate() - i)
+      const p = (n) => String(n).padStart(2, '0')
+      days.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
+    }
+    const trendMap = {}
+    for (const d of days) trendMap[d] = 0
+    for (const m of allMessages) {
+      const k = dayKey(m.created_at)
+      if (k && trendMap[k] !== undefined) trendMap[k] += 1
+    }
+    const trendData = days.map((d) => trendMap[d])
+
+    nextTick(() => {
+      renderSourceChart(sourceData)
+      renderGroupSizeChart(groupNames, groupSizes)
+      renderMsgTrendChart(days, trendData)
+    })
+  } catch (e) {
+    ElMessage.error('图表数据加载失败：' + (e.message || e))
+  } finally {
+    loading.charts = false
+  }
+}
+
+const renderSourceChart = (data) => {
+  if (sourceChartInst) sourceChartInst.dispose()
+  if (!sourceChart.value) return
+  sourceChartInst = echarts.init(sourceChart.value)
+  sourceChartInst.setOption({
+    title: { text: '客户来源分布', left: 'center' },
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [
+      {
+        name: '客户来源',
+        type: 'pie',
+        radius: '55%',
+        center: ['50%', '45%'],
+        data: data.length ? data : [{ name: '暂无数据', value: 1 }],
+        label: { formatter: '{b}: {c}' }
+      }
+    ]
+  })
+}
+
+const renderGroupSizeChart = (names, sizes) => {
+  if (groupSizeChartInst) groupSizeChartInst.dispose()
+  if (!groupSizeChart.value) return
+  groupSizeChartInst = echarts.init(groupSizeChart.value)
+  groupSizeChartInst.setOption({
+    title: { text: '客户群规模 Top10', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    grid: { left: 80, right: 20, top: 50, bottom: 30 },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: names.slice().reverse() },
+    series: [
+      {
+        name: '成员数',
+        type: 'bar',
+        data: sizes.slice().reverse(),
+        itemStyle: { color: '#409EFF' }
+      }
+    ]
+  })
+}
+
+const renderMsgTrendChart = (days, data) => {
+  if (msgTrendChartInst) msgTrendChartInst.dispose()
+  if (!msgTrendChart.value) return
+  msgTrendChartInst = echarts.init(msgTrendChart.value)
+  msgTrendChartInst.setOption({
+    title: { text: '消息趋势（近30天）', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    grid: { left: 50, right: 20, top: 50, bottom: 50 },
+    xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, interval: 3 } },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '消息数',
+        type: 'line',
+        smooth: true,
+        data: data,
+        areaStyle: { opacity: 0.15 },
+        itemStyle: { color: '#67C23A' }
+      }
+    ]
+  })
+}
+
+const resizeCharts = () => {
+  if (sourceChartInst) sourceChartInst.resize()
+  if (groupSizeChartInst) groupSizeChartInst.resize()
+  if (msgTrendChartInst) msgTrendChartInst.resize()
+}
+
 const onTabChange = (tab) => {
   if (tab === 'customers' && !customers.value.length) loadCustomers()
   if (tab === 'groups' && !groups.value.length) loadGroups()
   if (tab === 'tags' && !tags.value.length) loadTags()
   if (tab === 'messages' && !messages.value.length) loadMessages()
+}
+
+const onAccountChange = () => {
+  // 账号切换后刷新概览与图表（列表按当前账号过滤由后端依据登录态处理，这里整体刷新）
+  refreshAll()
 }
 
 const openSendTo = (externalUserid) => {
@@ -243,9 +426,30 @@ const openSendTo = (externalUserid) => {
   sendVisible.value = true
 }
 
+const refreshAll = () => {
+  loadingAny.value = true
+  Promise.all([
+    loadCustomers(),
+    loadGroups(),
+    loadMessages(),
+    loadChartData()
+  ]).finally(() => { loadingAny.value = false })
+}
+
 onMounted(() => {
   loadAccounts()
   loadCustomers()
+  loadGroups()
+  loadMessages()
+  loadChartData()
+  window.addEventListener('resize', resizeCharts)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', resizeCharts)
+  if (sourceChartInst) sourceChartInst.dispose()
+  if (groupSizeChartInst) groupSizeChartInst.dispose()
+  if (msgTrendChartInst) msgTrendChartInst.dispose()
 })
 </script>
 
@@ -263,6 +467,47 @@ onMounted(() => {
 .tip {
   color: #909399;
   font-size: 12px;
+}
+.summary-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.summary-card {
+  flex: 1;
+  min-width: 160px;
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  color: #fff;
+  border-radius: 10px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.25);
+}
+.summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.summary-label {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.chart-card-wide {
+  grid-column: 1 / 3;
+}
+.chart-box {
+  width: 100%;
+  height: 300px;
+}
+.chart-box-wide {
+  height: 320px;
 }
 .pager {
   margin-top: 12px;
