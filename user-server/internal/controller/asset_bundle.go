@@ -174,8 +174,10 @@ func (c *AssetBundleController) GetByAssetID(ctx *gin.Context) {
 // List 分页
 func (c *AssetBundleController) List(ctx *gin.Context) {
 	var req dto.AssetBundleListRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
-		if err2 := ctx.ShouldBindJSON(&req); err2 != nil {
+	// 前端以 POST + JSON body 调用，优先按 JSON 绑定；空 query 时 ShouldBindQuery
+	// 会误判成功而跳过 JSON 绑定，故必须先 JSON 后 query。
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err2 := ctx.ShouldBindQuery(&req); err2 != nil {
 			response.Error(ctx, http.StatusBadRequest, err.Error())
 			return
 		}

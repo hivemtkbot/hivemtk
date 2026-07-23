@@ -603,7 +603,12 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		itemsJSON, _ := json.Marshal(items)
 
 		// 解析时间
-		var payTime, shipTime *time.Time
+		var payTime, shipTime, orderTime *time.Time
+		if t.Created != "" {
+			if ct, err := time.Parse("2006-01-02 15:04:05", t.Created); err == nil {
+				orderTime = &ct
+			}
+		}
 		if t.PayTime != "" {
 			pt, _ := time.Parse("2006-01-02 15:04:05", t.PayTime)
 			payTime = &pt
@@ -617,6 +622,7 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 			Platform:	account.Platform,
 			OrderID:	t.TID,
 			Status:		t.Status,
+			OrderTime:	orderTime,
 			PayAmount:	yuanToFen(t.Payment),
 			UserName:	t.ReceiverName,
 			UserPhone:	t.ReceiverPhone,
@@ -749,7 +755,12 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		itemsJSON, _ := json.Marshal(items)
 
 		// 解析时间
-		var payTime, shipTime *time.Time
+		var payTime, shipTime, orderTime *time.Time
+		if o.OrderStartTime != "" {
+			if st, err := time.Parse("2006-01-02 15:04:05", o.OrderStartTime); err == nil {
+				orderTime = &st
+			}
+		}
 		if o.OrderPaymentTime != "" {
 			pt, _ := time.Parse("2006-01-02 15:04:05", o.OrderPaymentTime)
 			payTime = &pt
@@ -763,6 +774,7 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 			Platform:	account.Platform,
 			OrderID:	o.OrderID,
 			Status:		o.OrderStatus,
+			OrderTime:	orderTime,
 			PayAmount:	yuanToFen(o.OrderPayment),
 			UserName:	o.Consignee,
 			UserPhone:	o.Telephone,
@@ -1034,19 +1046,25 @@ func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platfor
 	}
 	_ = s.webhookEventRepo.Create(ctx, webhookEvent)
 	existing, _ := s.orderRepo.GetByOrderID(ctx, platform, orderID)
+	// 基于已存在记录叠加，避免 Save 全量覆盖把未传字段清零（关键：upsert 语义）
 	o := &model.ExternalOrder{
 		Platform: platform,
 		OrderID:  orderID,
-		Status:   status,
 	}
+	if existing != nil {
+		o = existing
+		o.Platform = platform
+		o.OrderID = orderID
+	}
+	o.Status = status
 	if raw != nil {
-		if v, ok := raw["order_no"].(string); ok {
+		if v, ok := raw["order_no"].(string); ok && v != "" {
 			o.OrderNo = v
 		}
-		if v, ok := raw["user_phone"].(string); ok {
+		if v, ok := raw["user_phone"].(string); ok && v != "" {
 			o.UserPhone = v
 		}
-		if v, ok := raw["user_name"].(string); ok {
+		if v, ok := raw["user_name"].(string); ok && v != "" {
 			o.UserName = v
 		}
 		if v, ok := raw["total_amount"].(float64); ok {
@@ -1055,7 +1073,7 @@ func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platfor
 		if v, ok := raw["pay_amount"].(float64); ok {
 			o.PayAmount = int64(v)
 		}
-		if v, ok := raw["items"].(string); ok {
+		if v, ok := raw["items"].(string); ok && v != "" {
 			o.Items = v
 		}
 		if t, ok := parseWebhookTime(raw["order_time"]); ok {
@@ -1065,10 +1083,31 @@ func (s *IntegrationService) UpsertOrderFromWebhook(ctx context.Context, platfor
 		}
 	}
 	if existing != nil {
-		o.ID = existing.ID
 		return s.orderRepo.Update(ctx, o)
 	}
 	return s.orderRepo.Create(ctx, o)
+}
+
+// parseWebhookTime 将 webhook raw 中可能为 string(RFC3339/常见格式) 或 time.Time 的值解析为 *time.Time。
+func parseWebhookTime(v any) (*time.Time, bool) {
+	switch t := v.(type) {
+	case time.Time:
+		return &t, true
+	case *time.Time:
+		return t, true
+	case string:
+		if t == "" {
+			return nil, false
+		}
+		for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02"} {
+			if parsed, err := time.Parse(layout, t); err == nil {
+				return &parsed, true
+			}
+		}
+		return nil, false
+	default:
+		return nil, false
+	}
 }
 
 // GetExternalProducts 获取外部商品列表

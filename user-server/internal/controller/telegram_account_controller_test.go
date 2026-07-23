@@ -315,7 +315,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	if err := repo.Createacc); err != nil {
+	if err := repo.Create(acc); err != nil {
 		t.Fatalf("创建测试账号失败: %v", err)
 	}
 	accID := acc.ID

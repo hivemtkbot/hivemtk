@@ -31,6 +31,7 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 		"order_no":     "NO-FT-001",
 		"user_phone":   phone,
 		"user_name":    name,
+		"order_time":   "2026-07-23 10:00:00",
 		"total_amount": float64(19900),
 		"pay_amount":   float64(19900),
 		"items":        `[{"title":"测试商品","price":199.00,"quantity":1}]`,
@@ -69,6 +70,9 @@ func TestOrderWebhookAndCustomerLookup_FT(t *testing.T) {
 	}
 	if found.Platform != "taobao" {
 		t.Errorf("platform 期望=taobao, 实际=%s", found.Platform)
+	}
+	if found.OrderTime == nil {
+		t.Errorf("order_time 期望被 webhook 回填, 实际为 nil")
 	}
 
 	t.Logf("PASS: order_id=%s platform=%s status=%s pay=%.2f元 items=%s",
