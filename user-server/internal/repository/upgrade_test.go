@@ -96,7 +96,7 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 		CurrentStep:     3,
 		CurrentStepDesc: "Processing",
 	}
-	repo.Createtask)
+	repo.Create(task)
 
 	tests := []struct {
 		name    string
@@ -117,7 +117,7 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := repo.GetByIDtt.id)
+			_, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -215,7 +215,7 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 		ToVersion:   "2.0.0",
 		Status:      "running",
 	}
-	repo.CreatelatestTask)
+	repo.Create(latestTask)
 
 	result, err := repo.GetLatestTask(context.Background())
 	if err != nil {
@@ -240,7 +240,7 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 		CurrentStep:     0,
 		CurrentStepDesc: "Waiting",
 	}
-	repo.Createtask)
+	repo.Create(task)
 
 	// 更新
 	task.Status = "running"
@@ -253,7 +253,7 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDtask.ID)
+	updated, _ := repo.GetByID(task.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
 	}
@@ -273,7 +273,7 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 		Status:      "pending",
 		Progress:    0,
 	}
-	repo.Createtask)
+	repo.Create(task)
 
 	// 更新状态
 	err := repo.UpdateStatus(context.Background(), task.ID, "running", 50, 3, "Processing step 3", "")
@@ -281,7 +281,7 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDtask.ID)
+	updated, _ := repo.GetByID(task.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
 	}
@@ -307,7 +307,7 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 		Status:      "running",
 		Progress:    90,
 	}
-	repo.Createtask)
+	repo.Create(task)
 
 	// 完成更新
 	err := repo.UpdateStatus(context.Background(), task.ID, "completed", 100, 5, "Final step", "")
@@ -315,7 +315,7 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDtask.ID)
+	updated, _ := repo.GetByID(task.ID)
 	if updated.Status != "completed" {
 		t.Errorf("Expected status 'completed', got '%s'", updated.Status)
 	}
@@ -387,7 +387,7 @@ func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 		Type:    "database",
 		Status:  "completed",
 	}
-	repo.Createrecord)
+	repo.Create(record)
 
 	tests := []struct {
 		name    string
@@ -471,7 +471,7 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 		Type:    "database",
 		Status:  "pending",
 	}
-	repo.Createrecord)
+	repo.Create(record)
 
 	// 更新
 	record.Name = "Updated Name"

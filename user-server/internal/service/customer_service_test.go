@@ -230,13 +230,13 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	}
 
 	// 验证次要客户已删除
-	_, err = service.repo.GetByIDsecondary.ID)
+	_, err = service.repo.GetByID(secondary.ID)
 	if err == nil || err.Error() != "记录未找到" {
 		// 历史备注：错误消息格式与具体驱动相关
 	}
 
 	// 验证主要客户有合并的标签
-	merged, _ := service.repo.GetByIDprimary.ID)
+	merged, _ := service.repo.GetByID(primary.ID)
 	mergedTags := merged.GetTags()
 	hasPrimaryTag := false
 	hasSecondaryTag := false

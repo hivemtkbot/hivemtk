@@ -105,7 +105,7 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 		Phone: "13800138000",
 		City:  "Beijing",
 	}
-	repo.Createsmlist)
+	repo.Create(smlist)
 
 	tests := []struct {
 		name    string
@@ -126,7 +126,7 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -250,14 +250,14 @@ func TestSmlistRepository_Delete(t *testing.T) {
 		Phone: "13800138000",
 		City:  "Beijing",
 	}
-	repo.Createsmlist)
+	repo.Create(smlist)
 
 	err := repo.Deletesmlist.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDsmlist.ID)
+	_, err = repo.GetByID(smlist.ID)
 	if err == nil {
 		t.Error("Expected smlist to be deleted")
 	}
@@ -289,7 +289,7 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 		Phone: "13800138003",
 		City:  "Guangzhou",
 	}
-	repo.CreateoldSmlist)
+	repo.Create(oldSmlist)
 
 	// 手动更新旧数据的时间
 	db.GetDB().Model(&model.Smlist{}).Where("id = ?", oldSmlist.ID).Update("created_at", time.Now().Add(-time.Hour*72))

@@ -100,7 +100,7 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 		Password: "password",
 		Limit:    100,
 	}
-	repo.Createsmtp)
+	repo.Create(smtp)
 
 	tests := []struct {
 		name    string
@@ -121,7 +121,7 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -178,7 +178,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 		Password: "original_password",
 		Limit:    100,
 	}
-	repo.Createsmtp)
+	repo.Create(smtp)
 
 	// 更新
 	smtp.Name = "Updated SMTP"
@@ -191,7 +191,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDsmtp.ID)
+	updated, _ := repo.GetByID(smtp.ID)
 	if updated.Server != "smtp.updated.com" {
 		t.Errorf("Expected server 'smtp.updated.com', got '%s'", updated.Server)
 	}
@@ -216,14 +216,14 @@ func TestEmailSmtpRepository_Delete(t *testing.T) {
 		Password: "password",
 		Limit:    100,
 	}
-	repo.Createsmtp)
+	repo.Create(smtp)
 
 	err := repo.Deletesmtp.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDsmtp.ID)
+	_, err = repo.GetByID(smtp.ID)
 	if err == nil {
 		t.Error("Expected SMTP config to be deleted")
 	}

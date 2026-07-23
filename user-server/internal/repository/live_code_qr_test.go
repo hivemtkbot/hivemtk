@@ -102,7 +102,7 @@ func TestLiveCodeQRRepository_Update(t *testing.T) {
 		Priority:   1,
 		Status:     1,
 	}
-	repo.CreateqrCode)
+	repo.Create(qrCode)
 
 	// 更新
 	qrCode.QRTitle = "Updated Title"
@@ -114,7 +114,7 @@ func TestLiveCodeQRRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDqrCode.ID)
+	updated, _ := repo.GetByID(qrCode.ID)
 	if updated.QRTitle != "Updated Title" {
 		t.Errorf("Expected QRTitle 'Updated Title', got '%s'", updated.QRTitle)
 	}
@@ -138,14 +138,14 @@ func TestLiveCodeQRRepository_Delete(t *testing.T) {
 		QRTitle:    "To Delete",
 		Status:     1,
 	}
-	repo.CreateqrCode)
+	repo.Create(qrCode)
 
 	err := repo.DeleteqrCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDqrCode.ID)
+	_, err = repo.GetByID(qrCode.ID)
 	if err == nil {
 		t.Error("Expected QR code to be deleted")
 	}
@@ -163,7 +163,7 @@ func TestLiveCodeQRRepository_GetByID(t *testing.T) {
 		QRTitle:    "GetByID QR",
 		Status:     1,
 	}
-	repo.CreateqrCode)
+	repo.Create(qrCode)
 
 	tests := []struct {
 		name    string
@@ -184,7 +184,7 @@ func TestLiveCodeQRRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -251,7 +251,7 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 		QRTitle:    "Available QR",
 		Status:     1,
 	}
-	repo.CreateavailableQR)
+	repo.Create(availableQR)
 
 	// 创建禁用的二维码 - GORM default:1 会覆盖 Status: 0，所以先创建后更新
 	disabledQR := &model.LiveCodeQR{
@@ -261,7 +261,7 @@ func TestLiveCodeQRRepository_GetAvailableQR(t *testing.T) {
 		QRTitle:    "Disabled QR",
 		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
 	}
-	repo.CreatedisabledQR)
+	repo.Create(disabledQR)
 	// 更新为禁用状态
 	disabledQR.Status = 0
 	repo.UpdatedisabledQR)
@@ -291,7 +291,7 @@ func TestLiveCodeQRRepository_GetAvailableQR_NotFound(t *testing.T) {
 		QRTitle:    "Only Disabled",
 		Status:     1, // 先设置为 1 以绕过 GORM 的 default 行为
 	}
-	repo.CreatedisabledQR)
+	repo.Create(disabledQR)
 	// 更新为禁用状态
 	disabledQR.Status = 0
 	repo.UpdatedisabledQR)

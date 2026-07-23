@@ -182,7 +182,7 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 		(os.Getenv("IS_TEST_MODE") == "1" && os.Getenv("WECOM_ALLOW_OUTBOUND") != "1")
 	if !disableOutbound {
 		var wa model.WeComAccount
-		if err := s.db.First(ctx, &wa, req.AccountID).Error; err == nil && wa.CorpID != "" && wa.CorpSecret != "" {
+		if err := s.db.WithContext(ctx).First( &wa, req.AccountID).Error; err == nil && wa.CorpID != "" && wa.CorpSecret != "" {
 			if _, serr := s.wecom.SendMessage(ctx, &wa, &WeComSendMessageRequest{
 				ToUser:		req.ExternalUserID,
 				MsgType:	req.MsgType,

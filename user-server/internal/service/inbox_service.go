@@ -160,7 +160,7 @@ func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.Mess
 		cid = msg.ReceiverID
 	}
 	var conv model.InboxConversation
-	if err := s.db.Where(ctx, "platform = ? AND account_id = ? AND customer_id = ?", msg.Platform, msg.AccountID, cid).First(&conv).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where( "platform = ? AND account_id = ? AND customer_id = ?", msg.Platform, msg.AccountID, cid).First(&conv).Error; err != nil {
 		return nil, err
 	}
 	return &conv, nil
@@ -338,7 +338,7 @@ func (s *InboxService) GetByID(ctx context.Context, id uint) (*model.InboxConver
 		return nil, nil
 	}
 	var conv model.InboxConversation
-	if err := s.db.First(ctx, &conv, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &conv, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInboxConversationMissing
 		}

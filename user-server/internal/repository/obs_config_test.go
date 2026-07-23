@@ -90,7 +90,7 @@ func TestObsConfigRepository_GetByID(t *testing.T) {
 		Bucket:   "getbyid-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Createconfig)
+	repo.Create(config)
 
 	tests := []struct {
 		name    string
@@ -111,7 +111,7 @@ func TestObsConfigRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -253,7 +253,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 		Bucket:   "original-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Createconfig)
+	repo.Create(config)
 
 	// 更新
 	config.Name = "Updated Name"
@@ -264,7 +264,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDconfig.ID)
+	updated, _ := repo.GetByID(config.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -284,14 +284,14 @@ func TestObsConfigRepository_Delete(t *testing.T) {
 		Bucket:   "delete-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Createconfig)
+	repo.Create(config)
 
 	err := repo.Deleteconfig.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDconfig.ID)
+	_, err = repo.GetByID(config.ID)
 	if err == nil {
 		t.Error("Expected config to be deleted")
 	}
@@ -316,7 +316,7 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 		IsDefault: true,
 		Status:    model.ObsStatusActive,
 	}
-	repo.CreatedefaultConfig)
+	repo.Create(defaultConfig)
 
 	result, err := repo.GetDefault(context.Background())
 	if err != nil {
@@ -341,7 +341,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 		IsDefault: false,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Createconfig1)
+	repo.Create(config1)
 
 	config2 := &model.ObsConfig{
 		Name:      "Config 2",
@@ -349,7 +349,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 		IsDefault: false,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Createconfig2)
+	repo.Create(config2)
 
 	// 设置 config1 为默认
 	err := repo.SetDefault(context.Background(), config1.ID)
@@ -358,7 +358,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 	}
 
 	// 验证 config1 是默认
-	config1Updated, _ := repo.GetByIDconfig1.ID)
+	config1Updated, _ := repo.GetByID(config1.ID)
 	if !config1Updated.IsDefault {
 		t.Error("Expected config1 to be default")
 	}
@@ -370,8 +370,8 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 	}
 
 	// 验证 config2 是默认，config1 不再是默认
-	config1Updated2, _ := repo.GetByIDconfig1.ID)
-	config2Updated, _ := repo.GetByIDconfig2.ID)
+	config1Updated2, _ := repo.GetByID(config1.ID)
+	config2Updated, _ := repo.GetByID(config2.ID)
 
 	if config1Updated2.IsDefault {
 		t.Error("Expected config1 to not be default after setting config2")
@@ -392,14 +392,14 @@ func TestObsConfigRepository_ClearDefault(t *testing.T) {
 		IsDefault: true,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Createconfig)
+	repo.Create(config)
 
 	err := repo.ClearDefault(context.Background())
 	if err != nil {
 		t.Errorf("ClearDefault() error = %v", err)
 	}
 
-	result, _ := repo.GetByIDconfig.ID)
+	result, _ := repo.GetByID(config.ID)
 	if result.IsDefault {
 		t.Error("Expected IsDefault to be false after clearing")
 	}
@@ -417,7 +417,7 @@ func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 		Provider: model.ObsProviderAliyun,
 		Status:   model.ObsStatusActive,
 	}
-	repo.Createconfig)
+	repo.Create(config)
 
 	// 更新状态
 	err := repo.UpdateStatus(context.Background(), config.ID, model.ObsStatusInactive)
@@ -425,7 +425,7 @@ func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDconfig.ID)
+	updated, _ := repo.GetByID(config.ID)
 	if updated.Status != model.ObsStatusInactive {
 		t.Errorf("Expected status 'inactive', got '%s'", updated.Status)
 	}

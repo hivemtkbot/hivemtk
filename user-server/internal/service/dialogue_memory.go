@@ -40,7 +40,7 @@ func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID
 		return nil, fmt.Errorf("db is nil")
 	}
 	var mem model.DialogueMemory
-	err := s.db.Where(ctx, "session_id = ?", sessionID).First(&mem).Error
+	err := s.db.WithContext(ctx).Where( "session_id = ?", sessionID).First(&mem).Error
 	if err == nil {
 		return &mem, nil
 	}

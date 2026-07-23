@@ -190,7 +190,7 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
 	var agent model.SOPAgent
-	if err := s.db.First(ctx, &agent, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &agent, id).Error; err != nil {
 		return nil, ErrSOPNotFound
 	}
 	graphData, _ := json.Marshal(req.SOPGraph)
@@ -217,7 +217,7 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 // Get 获取 SOP
 func (s *SOPService) Get(ctx context.Context, id uint) (*model.SOPAgent, error) {
 	var agent model.SOPAgent
-	if err := s.db.First(ctx, &agent, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &agent, id).Error; err != nil {
 		return nil, ErrSOPNotFound
 	}
 	return &agent, nil
@@ -249,7 +249,7 @@ func (s *SOPService) List(ctx context.Context, scenario string, page, pageSize i
 
 // Delete 删除 SOP
 func (s *SOPService) Delete(ctx context.Context, id uint) error {
-	res := s.db.Where(ctx, "id = ?", id).Delete(&model.SOPAgent{})
+	res := s.db.WithContext(ctx).Where( "id = ?", id).Delete(&model.SOPAgent{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -374,7 +374,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 //   - 调度器不存在时（如测试场景）：保持原有同步推进逻辑（向后兼容）
 func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOPExecution, error) {
 	var exec model.SOPExecution
-	if err := s.db.First(ctx, &exec, req.ExecutionID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &exec, req.ExecutionID).Error; err != nil {
 		return nil, ErrSOPExecNotFound
 	}
 	if exec.Status != SOPStatusRunning {
@@ -499,7 +499,7 @@ func (s *SOPService) Cancel(ctx context.Context, execID uint) error {
 // GetExecution 获取执行
 func (s *SOPService) GetExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
 	var exec model.SOPExecution
-	if err := s.db.First(ctx, &exec, execID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &exec, execID).Error; err != nil {
 		return nil, ErrSOPExecNotFound
 	}
 	return &exec, nil

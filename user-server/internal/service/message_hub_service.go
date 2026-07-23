@@ -255,7 +255,7 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 		return false, 0, nil
 	}
 	var existing model.MessageHub
-	err := s.db.Where(ctx, "platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
+	err := s.db.WithContext(ctx).Where( "platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
 		First(&existing).Error
 	if err == nil {
 		return true, existing.ID, nil
@@ -590,7 +590,7 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 			// 没有 stream，尝试从 DB 取最后一条
 			if s.db != nil {
 				var msg model.MessageHub
-				err := s.db.Where(ctx, "platform = ? AND account_id = ?", platform, accountID).
+				err := s.db.WithContext(ctx).Where( "platform = ? AND account_id = ?", platform, accountID).
 					Order("sent_at DESC").First(&msg).Error
 				if err == nil {
 					return &msg, nil

@@ -136,7 +136,7 @@ func TestEmailListRepository_GetByID(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Createlist)
+	repo.Create(list)
 
 	tests := []struct {
 		name    string
@@ -157,7 +157,7 @@ func TestEmailListRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -257,7 +257,7 @@ func TestEmailListRepository_Update(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Createlist)
+	repo.Create(list)
 
 	// 更新
 	list.Subject = "Updated Subject"
@@ -269,7 +269,7 @@ func TestEmailListRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDlist.ID)
+	updated, _ := repo.GetByID(list.ID)
 	if updated.Subject != "Updated Subject" {
 		t.Errorf("Expected subject 'Updated Subject', got '%s'", updated.Subject)
 	}
@@ -291,14 +291,14 @@ func TestEmailListRepository_Delete(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Createlist)
+	repo.Create(list)
 
 	err := repo.Deletelist.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDlist.ID)
+	_, err = repo.GetByID(list.ID)
 	if err == nil {
 		t.Error("Expected list to be deleted")
 	}
@@ -406,7 +406,7 @@ func TestEmailListRepository_GetByTraceID(t *testing.T) {
 		TraceID: traceID,
 		IsSend:  0,
 	}
-	repo.Createlist)
+	repo.Create(list)
 
 	tests := []struct {
 		name    string

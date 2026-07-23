@@ -85,7 +85,7 @@ func TestDouyinCardRepository_GetByID(t *testing.T) {
 		Description: "GetByID Description",
 		IsActive:    true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	tests := []struct {
 		name    string
@@ -106,7 +106,7 @@ func TestDouyinCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -248,7 +248,7 @@ func TestDouyinCardRepository_Update(t *testing.T) {
 		IsActive:    true,
 		ShortLinkID: 0,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	card.Title = "Updated Title"
 	card.ShortLinkID = 123
@@ -275,14 +275,14 @@ func TestDouyinCardRepository_Delete(t *testing.T) {
 		Title:    "To Delete",
 		IsActive: true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	err := repo.Deletecard.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDcard.ID)
+	_, err = repo.GetByID(card.ID)
 	if err == nil {
 		t.Error("Expected card to be deleted")
 	}
@@ -297,7 +297,7 @@ func TestDouyinCardRepository_IncrementViewCount(t *testing.T) {
 		Title:     "View Count Test",
 		ViewCount: 0,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	updated, err := repo.IncrementViewCount(context.Background(), card.ID)
 	if err != nil {
@@ -318,14 +318,14 @@ func TestDouyinCardRepository_IncrementShareCount(t *testing.T) {
 		Title:      "Share Count Test",
 		ShareCount: 0,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	err := repo.IncrementShareCount(context.Background(), card.ID)
 	if err != nil {
 		t.Errorf("IncrementShareCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDcard.ID)
+	updated, _ := repo.GetByID(card.ID)
 	if updated.ShareCount != 1 {
 		t.Errorf("Expected ShareCount 1, got %d", updated.ShareCount)
 	}

@@ -612,7 +612,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 		if e.Title == "张销冠的独门话术" {
 			found = true
 			if e.CreatedBy != "张销冠" {
-				t.Errorf("创建者应为张销冠，实际: %s", e.CreatedBy)
+				t.Errorf("创建者应为张销冠，实际: %s", e.Create(dBy)
 			}
 		}
 	}
@@ -634,7 +634,7 @@ func TestPlaybook_TimestampSet(t *testing.T) {
 	if entry.UpdatedAt.IsZero() {
 		t.Error("UpdatedAt 应自动设置")
 	}
-	if time.Since(entry.CreatedAt) > 1*time.Second {
+	if time.Since(entry.Create(dAt) > 1*time.Second {
 		t.Error("时间戳应为当前时间")
 	}
 	t.Logf("✅ 时间戳自动设置")

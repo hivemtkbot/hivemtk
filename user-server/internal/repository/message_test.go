@@ -42,7 +42,7 @@ func TestMessageRepository_Create(t *testing.T) {
 		Text:      "Test message",
 	}
 
-	err := repo.Createmessage)
+	err := repo.Create(message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 		Text:      "",
 	}
 
-	err := repo.Createmessage)
+	err := repo.Create(message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestMessageRepository_GetMessageList(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 5)
@@ -137,7 +137,7 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	messages, _, err := repo.GetMessageList(context.Background(), 2, 5)
@@ -164,7 +164,7 @@ func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 			UserID:    "user123",
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -196,7 +196,7 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 			UserID:    userID,
 			Text:      "Message from " + userID,
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -227,7 +227,7 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Valid Message " + string(rune('0'+i)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	for i := 0; i < 2; i++ {
@@ -238,7 +238,7 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('a'+i)),
 			Text:      "Invalid Message " + string(rune('a'+i)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	_, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -265,7 +265,7 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Batch message " + string(rune('0'+i%10)),
 		}
-		repo.Createmessage)
+		repo.Create(message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 50)
@@ -304,7 +304,7 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      text,
 		}
-		repo.Createmsg)
+		repo.Create(msg)
 	}
 
 	_, total, err := repo.GetMessageList(context.Background(), 1, 10)

@@ -90,7 +90,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.CreateliveCode)
+	repo.Create(liveCode)
 
 	tests := []struct {
 		name    string
@@ -111,7 +111,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -139,7 +139,7 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.CreateliveCode)
+	repo.Create(liveCode)
 
 	tests := []struct {
 		name      string
@@ -188,7 +188,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.CreateliveCode)
+	repo.Create(liveCode)
 
 	liveCode.Name = "Updated Name"
 	liveCode.Status = 0
@@ -198,7 +198,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDliveCode.ID)
+	updated, _ := repo.GetByID(liveCode.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -220,14 +220,14 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.CreateliveCode)
+	repo.Create(liveCode)
 
 	err := repo.DeleteliveCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDliveCode.ID)
+	_, err = repo.GetByID(liveCode.ID)
 	if err == nil {
 		t.Error("Expected live code to be deleted")
 	}

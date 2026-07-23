@@ -492,7 +492,7 @@ func TestRagAlert_GetActiveAlerts_Basic(t *testing.T) {
 	}
 	// 验证按 created_at DESC 排序（a2 比 a1 晚创建）
 	if len(rows) >= 2 {
-		if rows[0].CreatedAt.Before(rows[1].CreatedAt) {
+		if rows[0].CreatedAt.Before(rows[1].Create(dAt) {
 			t.Error("Expected DESC order by created_at")
 		}
 	}

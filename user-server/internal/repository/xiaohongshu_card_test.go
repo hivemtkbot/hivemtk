@@ -85,7 +85,7 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 		Description: "GetByID Description",
 		IsActive:    true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	tests := []struct {
 		name    string
@@ -106,7 +106,7 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -238,7 +238,7 @@ func TestXiaohongshuCardRepository_Update(t *testing.T) {
 		Description: "Original Description",
 		IsActive:    true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	card.Title = "Updated Title"
 	shortLinkID := uint(123)
@@ -266,14 +266,14 @@ func TestXiaohongshuCardRepository_Delete(t *testing.T) {
 		Title:    "To Delete",
 		IsActive: true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	err := repo.Deletecard.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDcard.ID)
+	_, err = repo.GetByID(card.ID)
 	if err == nil {
 		t.Error("Expected card to be deleted")
 	}
@@ -288,7 +288,7 @@ func TestXiaohongshuCardRepository_IncrementViewCount(t *testing.T) {
 		Title:     "View Count Test",
 		ViewCount: 0,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	updated, err := repo.IncrementViewCount(context.Background(), card.ID)
 	if err != nil {
@@ -309,7 +309,7 @@ func TestXiaohongshuCardRepository_CreateActivity(t *testing.T) {
 		Title:    "Activity Test Card",
 		IsActive: true,
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	// 创建测试数据
 	activity := &model.XiaohongshuCardActivity{
@@ -342,7 +342,7 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 	card := &model.XiaohongshuCard{
 		Title: "ShortLink Test",
 	}
-	repo.Createcard)
+	repo.Create(card)
 
 	shortLinkID := uint(456)
 	err := repo.UpdateShortLinkID(context.Background(), card.ID, &shortLinkID)
@@ -350,7 +350,7 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("UpdateShortLinkID() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDcard.ID)
+	updated, _ := repo.GetByID(card.ID)
 	if updated.ShortLinkID == nil || *updated.ShortLinkID != 456 {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}

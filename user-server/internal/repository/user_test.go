@@ -43,7 +43,7 @@ func TestUserRepository_Create(t *testing.T) {
 		RealName: "Test User",
 	}
 
-	err := repo.Createuser)
+	err := repo.Create(user)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -70,10 +70,10 @@ func TestUserRepository_GetByID(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 根据 ID 获取
-	fetchedUser, err := repo.GetByIDuser.ID)
+	fetchedUser, err := repo.GetByID(user.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestUserRepository_GetByUsername(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 根据用户名获取
 	fetchedUser, err := repo.GetByUsername(context.Background(), "testuser")
@@ -145,7 +145,7 @@ func TestUserRepository_GetUserList(t *testing.T) {
 			Password: "password123",
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
 		}
-		repo.Createuser)
+		repo.Create(user)
 	}
 
 	// 获取第一页
@@ -176,7 +176,7 @@ func TestUserRepository_GetUserList_Pagination(t *testing.T) {
 			Password: "password123",
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
 		}
-		repo.Createuser)
+		repo.Create(user)
 	}
 
 	// 获取第一页（每页 5 条）
@@ -220,7 +220,7 @@ func TestUserRepository_Delete(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 删除用户
 	err := repo.Deleteuser.ID)
@@ -229,7 +229,7 @@ func TestUserRepository_Delete(t *testing.T) {
 	}
 
 	// 验证用户已被删除
-	_, err = repo.GetByIDuser.ID)
+	_, err = repo.GetByID(user.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -248,7 +248,7 @@ func TestUserRepository_Update(t *testing.T) {
 		Email:    "test@example.com",
 		RealName: "Test User",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 更新用户
 	user.RealName = "Updated Name"
@@ -258,7 +258,7 @@ func TestUserRepository_Update(t *testing.T) {
 	}
 
 	// 验证更新
-	fetchedUser, _ := repo.GetByIDuser.ID)
+	fetchedUser, _ := repo.GetByID(user.ID)
 	if fetchedUser.RealName != "Updated Name" {
 		t.Errorf("Expected RealName 'Updated Name', got %s", fetchedUser.RealName)
 	}
@@ -276,7 +276,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 		Password: "oldpassword",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 	oldHashedPassword := user.Password
 
 	// 更新密码
@@ -287,7 +287,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 	}
 
 	// 验证密码已更新
-	fetchedUser, _ := repo.GetByIDuser.ID)
+	fetchedUser, _ := repo.GetByID(user.ID)
 	if fetchedUser.Password == oldHashedPassword {
 		t.Error("Expected password to be updated")
 	}
@@ -313,7 +313,7 @@ func TestUserRepository_UserIsExist(t *testing.T) {
 		LastName:  "Doe",
 		UserName:  "johndoe",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 检查用户是否存在
 	id, exists := repo.UserIsExist(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
@@ -343,7 +343,7 @@ func TestUserRepository_UsernameExists(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 检查用户名是否存在
 	exists, err := repo.UsernameExists(context.Background(), "testuser", "")
@@ -385,7 +385,7 @@ func TestUserRepository_EmailExists(t *testing.T) {
 		Password: "password123",
 		Email:    "test@example.com",
 	}
-	repo.Createuser)
+	repo.Create(user)
 
 	// 检查邮箱是否存在
 	exists, err := repo.EmailExists(context.Background(), "test@example.com", "")

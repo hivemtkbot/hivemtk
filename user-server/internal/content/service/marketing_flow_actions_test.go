@@ -427,7 +427,7 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 				}
 
 				// 验证数据库中 OperationLog 记录
-				logEntry, lerr := service.operationLogRepo.GetByIDtaskID)
+				logEntry, lerr := service.operationLogRepo.GetByID(taskID)
 				if lerr != nil {
 					t.Fatalf("GetByID(%d) failed: %v", taskID, lerr)
 				}

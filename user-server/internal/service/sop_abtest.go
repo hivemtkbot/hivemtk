@@ -176,7 +176,7 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 
 	// 加载指定 ID 的 SOP 图
 	var target model.SOPAgent
-	if err := s.db.First(ctx, &target, graphID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First( &target, graphID).Error; err != nil {
 		return SOPGraph{}, fmt.Errorf("variant SOP 图加载失败（sop_id=%d）：%w", graphID, err)
 	}
 	var graph SOPGraph

@@ -96,7 +96,7 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 		IP:          "192.168.1.100",
 		DeviceType:  "desktop",
 	}
-	repo.Createaccess)
+	repo.Create(access)
 
 	tests := []struct {
 		name    string
@@ -117,7 +117,7 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)

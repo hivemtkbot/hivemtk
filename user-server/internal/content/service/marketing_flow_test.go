@@ -79,7 +79,7 @@ func TestMarketingFlowService_CreateFlow(t *testing.T) {
 		t.Errorf("Expected version 1, got %d", flow.Version)
 	}
 	if flow.CreatedBy != 1 {
-		t.Errorf("Expected created_by 1, got %d", flow.CreatedBy)
+		t.Errorf("Expected created_by 1, got %d", flow.Create(dBy)
 	}
 }
 

@@ -129,7 +129,7 @@ func TestCustomerTagRepository_GetByID(t *testing.T) {
 		Category: model.TagCategoryDemographic,
 		Source:   model.TagSourceManual,
 	}
-	repo.Createtag)
+	repo.Create(tag)
 
 	tests := []struct {
 		name    string
@@ -150,7 +150,7 @@ func TestCustomerTagRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if err != nil {
 				t.Errorf("GetByID() error = %v", err)
@@ -184,7 +184,7 @@ func TestCustomerTagRepository_ListByMerchant(t *testing.T) {
 	}
 
 	for _, tag := range tags {
-		repo.Createtag)
+		repo.Create(tag)
 	}
 
 	result, err := repo.ListByMerchant(context.Background())
@@ -211,7 +211,7 @@ func TestCustomerTagRepository_ListAutoTags(t *testing.T) {
 	}
 
 	for _, tag := range tags {
-		repo.Createtag)
+		repo.Create(tag)
 	}
 
 	result, err := repo.ListAutoTags(context.Background())
@@ -242,7 +242,7 @@ func TestCustomerTagRepository_ListAutoTags_WithNoAutoTags(t *testing.T) {
 	}
 
 	for _, tag := range tags {
-		repo.Createtag)
+		repo.Create(tag)
 	}
 
 	result, err := repo.ListAutoTags(context.Background())
@@ -266,7 +266,7 @@ func TestCustomerTagRepository_Delete(t *testing.T) {
 		Category: model.TagCategoryDemographic,
 		Source:   model.TagSourceManual,
 	}
-	repo.Createtag)
+	repo.Create(tag)
 
 	// Delete tag
 	err := repo.Deletetag.ID)
@@ -275,7 +275,7 @@ func TestCustomerTagRepository_Delete(t *testing.T) {
 	}
 
 	// Verify deletion
-	deleted, err := repo.GetByIDtag.ID)
+	deleted, err := repo.GetByID(tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -306,13 +306,13 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 		t.Errorf("SetRule() error = %v", err)
 	}
 
-	err = repo.Createtag)
+	err = repo.Create(tag)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
 	// Retrieve and verify rule
-	result, err := repo.GetByIDtag.ID)
+	result, err := repo.GetByID(tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -349,13 +349,13 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 		t.Errorf("SetRuleString() error = %v", err)
 	}
 
-	err = repo.Createtag)
+	err = repo.Create(tag)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
 	// Retrieve and verify rule
-	result, err := repo.GetByIDtag.ID)
+	result, err := repo.GetByID(tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -392,7 +392,7 @@ func TestCustomerTagRepository_AllCategories(t *testing.T) {
 			Category: category,
 			Source:   model.TagSourceManual,
 		}
-		err := repo.Createtag)
+		err := repo.Create(tag)
 		if err != nil {
 			t.Errorf("Create() error for category %s = %v", category, err)
 		}
@@ -423,7 +423,7 @@ func TestCustomerTagRepository_BothSources(t *testing.T) {
 			Category: model.TagCategoryDemographic,
 			Source:   source,
 		}
-		err := repo.Createtag)
+		err := repo.Create(tag)
 		if err != nil {
 			t.Errorf("Create() error for source %s = %v", source, err)
 		}
@@ -465,12 +465,12 @@ func TestCustomerTagRepository_EmptyRule(t *testing.T) {
 		Rule:     "",
 	}
 
-	err := repo.Createtag)
+	err := repo.Create(tag)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	result, err := repo.GetByIDtag.ID)
+	result, err := repo.GetByID(tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -513,12 +513,12 @@ func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 		t.Errorf("SetRule() error = %v", err)
 	}
 
-	err = repo.Createtag)
+	err = repo.Create(tag)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	result, err := repo.GetByIDtag.ID)
+	result, err := repo.GetByID(tag.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}

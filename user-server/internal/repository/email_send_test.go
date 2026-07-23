@@ -110,7 +110,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 			return &t
 		}(),
 	}
-	repo.Createemail)
+	repo.Create(email)
 
 	tests := []struct {
 		name    string
@@ -132,7 +132,7 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := uuid.MustParse(tt.id)
-			result, err := repo.GetByIDid)
+			result, err := repo.GetByID(id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -183,7 +183,7 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 		Content: "Delete content",
 		Status:  0,
 	}
-	repo.Createemail)
+	repo.Create(email)
 
 	id := uuid.MustParse(email.ID)
 	err := repo.Deleteid)
@@ -191,7 +191,7 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDid)
+	_, err = repo.GetByID(id)
 	if err == nil {
 		t.Error("Expected email to be deleted")
 	}
@@ -208,7 +208,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		Content: "Content",
 		Status:  0, // pending
 	}
-	repo.Createemail)
+	repo.Create(email)
 
 	id := uuid.MustParse(email.ID)
 
@@ -218,7 +218,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDid)
+	updated, _ := repo.GetByID(id)
 	if updated.Status != 1 {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
@@ -229,7 +229,7 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated2, _ := repo.GetByIDid)
+	updated2, _ := repo.GetByID(id)
 	if updated2.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated2.Status)
 	}

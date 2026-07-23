@@ -116,7 +116,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 		FileSize:   512,
 		CreatedBy:  1,
 	}
-	backupRepo.Createbackup)
+	backupRepo.Create(backup)
 
 	tests := []struct {
 		name    string
@@ -166,7 +166,7 @@ func TestBackupRepository_Update(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	backupRepo.Createbackup)
+	backupRepo.Create(backup)
 
 	tests := []struct {
 		name       string
@@ -231,7 +231,7 @@ func TestBackupRepository_Delete(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	backupRepo.Createbackup)
+	backupRepo.Create(backup)
 
 	tests := []struct {
 		name        string

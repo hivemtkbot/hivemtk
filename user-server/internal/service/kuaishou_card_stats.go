@@ -25,7 +25,7 @@ func NewKuaishouCardStatsService(db *gorm.DB) *KuaishouCardStatsService {
 func (s *KuaishouCardStatsService) GetCardStats(ctx context.Context, req *dto.KuaishouCardStatsRequest) (*dto.KuaishouCardStatsResponse, error) {
 	// 获取卡片信息
 	var card model.KuaishouCard
-	if err := s.db.First(ctx, &card, req.CardID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&card, req.CardID).Error; err != nil {
 		return nil, fmt.Errorf("卡片不存在: %w", err)
 	}
 
@@ -234,7 +234,7 @@ func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID ui
 
 	// 更新卡片统计
 	var card model.KuaishouCard
-	if err := s.db.First(ctx, &card, cardID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&card, cardID).Error; err != nil {
 		return fmt.Errorf("获取卡片失败: %w", err)
 	}
 

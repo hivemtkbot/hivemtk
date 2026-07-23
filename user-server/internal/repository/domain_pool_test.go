@@ -81,7 +81,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	tests := []struct {
 		name    string
@@ -102,7 +102,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -132,7 +132,7 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	tests := []struct {
 		name    string
@@ -290,7 +290,7 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	domain.Port = 443
 	domain.Purpose = "Updated Purpose"
@@ -300,7 +300,7 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDdomain.ID)
+	updated, _ := repo.GetByID(domain.ID)
 	if updated.Port != 443 {
 		t.Errorf("Expected port 443, got %d", updated.Port)
 	}
@@ -320,14 +320,14 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	err := repo.Deletedomain.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDdomain.ID)
+	_, err = repo.GetByID(domain.ID)
 	if err == nil {
 		t.Error("Expected domain to be deleted")
 	}
@@ -344,14 +344,14 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	err := repo.UpdateStatus(context.Background(), domain.ID, 2)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDdomain.ID)
+	updated, _ := repo.GetByID(domain.ID)
 	if updated.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated.Status)
 	}
@@ -368,7 +368,7 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Time{},
 	}
-	repo.Createdomain)
+	repo.Create(domain)
 
 	checkTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 	err := repo.UpdateLastCheck(context.Background(), domain.ID, checkTime)
@@ -376,7 +376,7 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		t.Errorf("UpdateLastCheck() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDdomain.ID)
+	updated, _ := repo.GetByID(domain.ID)
 	if updated.LastCheck.IsZero() {
 		t.Error("Expected LastCheck to be updated")
 	}

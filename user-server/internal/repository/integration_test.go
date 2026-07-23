@@ -101,7 +101,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 		AccountName: "GetByID Account",
 		APIKey:      "test-key",
 	}
-	repo.Createaccount)
+	repo.Create(account)
 
 	tests := []struct {
 		name    string
@@ -122,7 +122,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -207,7 +207,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 		AccountName: "Original Name",
 		Status:      1,
 	}
-	repo.Createaccount)
+	repo.Create(account)
 
 	account.AccountName = "Updated Name"
 	account.Status = 0
@@ -217,7 +217,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDaccount.ID)
+	updated, _ := repo.GetByID(account.ID)
 	if updated.AccountName != "Updated Name" {
 		t.Errorf("Expected account name 'Updated Name', got '%s'", updated.AccountName)
 	}
@@ -235,7 +235,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Token Test",
 	}
-	repo.Createaccount)
+	repo.Create(account)
 
 	expiresAt := time.Now().Add(time.Hour * 24)
 	err := repo.UpdateToken(context.Background(), account.ID, "new-access-token", &expiresAt)
@@ -243,7 +243,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		t.Errorf("UpdateToken() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDaccount.ID)
+	updated, _ := repo.GetByID(account.ID)
 	if updated.AccessToken != "new-access-token" {
 		t.Errorf("Expected access token 'new-access-token', got '%s'", updated.AccessToken)
 	}
@@ -261,14 +261,14 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "To Delete",
 	}
-	repo.Createaccount)
+	repo.Create(account)
 
 	err := repo.Deleteaccount.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDaccount.ID)
+	_, err = repo.GetByID(account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -283,14 +283,14 @@ func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Sync Test",
 	}
-	repo.Createaccount)
+	repo.Create(account)
 
 	err := repo.UpdateSyncTime(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("UpdateSyncTime() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDaccount.ID)
+	updated, _ := repo.GetByID(account.ID)
 	if updated.LastSyncAt == nil {
 		t.Error("Expected LastSyncAt to be updated")
 	}

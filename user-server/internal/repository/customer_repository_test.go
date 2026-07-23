@@ -96,7 +96,7 @@ func TestCustomerRepository_GetByID(t *testing.T) {
 		Email:        "test@example.com",
 		WechatOpenID: "wechat_open_id",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	tests := []struct {
 		name    string
@@ -117,7 +117,7 @@ func TestCustomerRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if err != nil {
 				t.Errorf("GetByID() error = %v", err)
@@ -148,7 +148,7 @@ func TestCustomerRepository_GetByPhone(t *testing.T) {
 		Phone: "13900139000",
 		Email: "phone_test@example.com",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	tests := []struct {
 		name    string
@@ -196,7 +196,7 @@ func TestCustomerRepository_GetByEmail(t *testing.T) {
 		Email: "unique_email@example.com",
 		Phone: "13700137000",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	result, err := repo.GetByEmail(context.Background(), "unique_email@example.com")
 	if err != nil {
@@ -220,7 +220,7 @@ func TestCustomerRepository_GetByWechatOpenID(t *testing.T) {
 		WechatOpenID: "unique_wechat_openid",
 		Phone:        "13600136000",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	result, err := repo.GetByWechatOpenID(context.Background(), "unique_wechat_openid")
 	if err != nil {
@@ -244,7 +244,7 @@ func TestCustomerRepository_GetByDouyinOpenID(t *testing.T) {
 		DouyinOpenID: "unique_douyin_openid",
 		Phone:        "13500135000",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	result, err := repo.GetByDouyinOpenID(context.Background(), "unique_douyin_openid")
 	if err != nil {
@@ -271,7 +271,7 @@ func TestCustomerRepository_Update(t *testing.T) {
 		Email:        "original@example.com",
 		WechatOpenID: "wechat_original",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	// Update customer
 	customer.Email = "updated@example.com"
@@ -284,7 +284,7 @@ func TestCustomerRepository_Update(t *testing.T) {
 	}
 
 	// Verify update
-	updated, err := repo.GetByIDcustomer.ID)
+	updated, err := repo.GetByID(customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -309,7 +309,7 @@ func TestCustomerRepository_Delete(t *testing.T) {
 		ID:    "delete-test-id",
 		Phone: "13800138000",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	// Delete customer
 	err := repo.Deletecustomer.ID)
@@ -318,7 +318,7 @@ func TestCustomerRepository_Delete(t *testing.T) {
 	}
 
 	// Verify deletion
-	deleted, err := repo.GetByIDcustomer.ID)
+	deleted, err := repo.GetByID(customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -339,7 +339,7 @@ func TestCustomerRepository_List(t *testing.T) {
 			Phone: string(rune('1' + i)),
 			Email: string(rune('a' + i)),
 		}
-		repo.Createcustomer)
+		repo.Create(customer)
 	}
 
 	// Test first page
@@ -393,7 +393,7 @@ func TestCustomerRepository_FindByIdentity(t *testing.T) {
 		WechatOpenID: "find_wechat_id",
 		DouyinOpenID: "find_douyin_id",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	tests := []struct {
 		name         string
@@ -460,7 +460,7 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	customer := &model.Customer{
 		Phone: "13800138000",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	// Phone-based unified ID should be "phone:13800138000"
 	result, err := repo.GetByUnifiedID(context.Background(), "phone:13800138000")
@@ -491,10 +491,10 @@ func TestCustomerRepository_Tags(t *testing.T) {
 		t.Errorf("SetTags() error = %v", err)
 	}
 
-	repo.Createcustomer)
+	repo.Create(customer)
 
 	// Retrieve and verify tags
-	result, err := repo.GetByIDcustomer.ID)
+	result, err := repo.GetByID(customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -530,9 +530,9 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 		RFMScore:  8,
 		ChurnRisk: "high",
 	}
-	repo.Createcustomer)
+	repo.Create(customer)
 
-	result, err := repo.GetByIDcustomer.ID)
+	result, err := repo.GetByID(customer.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -553,7 +553,7 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, err := repo.GetByIDresult.ID)
+	updated, err := repo.GetByID(result.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
@@ -574,7 +574,7 @@ func TestCustomerRepository_Timestamps(t *testing.T) {
 	customer := &model.Customer{
 		Phone: "13800138000",
 	}
-	err := repo.Createcustomer)
+	err := repo.Create(customer)
 	afterCreate := time.Now()
 
 	if err != nil {

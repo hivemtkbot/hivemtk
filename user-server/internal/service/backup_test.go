@@ -74,7 +74,7 @@ func TestBackupService_CreateBackup(t *testing.T) {
 	}
 
 	if backup.CreatedBy != 1 {
-		t.Errorf("Expected CreatedBy 1, got %d", backup.CreatedBy)
+		t.Errorf("Expected CreatedBy 1, got %d", backup.Create(dBy)
 	}
 
 	// 验证备份记录已保存到数据库

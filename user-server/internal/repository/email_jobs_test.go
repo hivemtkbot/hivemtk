@@ -90,7 +90,7 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 		FailTotal:    2,
 		ReadTotal:    5,
 	}
-	repo.Createjob)
+	repo.Create(job)
 
 	tests := []struct {
 		name    string
@@ -111,7 +111,7 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -209,7 +209,7 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	repo.Createjob)
+	repo.Create(job)
 
 	// 更新进度
 	job.SendTotal = 50
@@ -222,7 +222,7 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDjob.ID)
+	updated, _ := repo.GetByID(job.ID)
 	if updated.SendTotal != 50 {
 		t.Errorf("Expected SendTotal 50, got %d", updated.SendTotal)
 	}
@@ -249,14 +249,14 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 		FailTotal:    0,
 		ReadTotal:    0,
 	}
-	repo.Createjob)
+	repo.Create(job)
 
 	err := repo.Deletejob.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDjob.ID)
+	_, err = repo.GetByID(job.ID)
 	if err == nil {
 		t.Error("Expected job to be deleted")
 	}
@@ -303,12 +303,12 @@ func TestEmailJobsRepository_Create_WithStats(t *testing.T) {
 		ReadTotal:    600,
 	}
 
-	err := repo.Createjob)
+	err := repo.Create(job)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	result, _ := repo.GetByIDjob.ID)
+	result, _ := repo.GetByID(job.ID)
 	if result.EmailTotal != 1000 {
 		t.Errorf("Expected EmailTotal 1000, got %d", result.EmailTotal)
 	}

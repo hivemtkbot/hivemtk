@@ -34,7 +34,7 @@ func TestSecurityAuditRepository_Create(t *testing.T) {
 		StartedAt: &now,
 	}
 
-	err := repo.Createrecord)
+	err := repo.Create(record)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 		Status:    "running",
 		StartedAt: &now,
 	}
-	repo.Createrecord)
+	repo.Create(record)
 
 	updates := map[string]any{
 		"status":        "completed",
@@ -104,9 +104,9 @@ func TestSecurityAuditRepository_GetByID(t *testing.T) {
 		Status:    "completed",
 		StartedAt: &now,
 	}
-	repo.Createrecord)
+	repo.Create(record)
 
-	result, err := repo.GetByIDrecord.ID)
+	result, err := repo.GetByID(record.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}

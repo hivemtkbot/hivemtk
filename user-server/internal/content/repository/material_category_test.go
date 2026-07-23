@@ -119,7 +119,7 @@ func TestMaterialCategoryRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -364,7 +364,7 @@ func TestMaterialCategoryRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDcategory.ID)
+	updated, _ := repo.GetByID(category.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -393,7 +393,7 @@ func TestMaterialCategoryRepository_Delete(t *testing.T) {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDcategory.ID)
+	_, err = repo.GetByID(category.ID)
 	if err == nil {
 		t.Error("Expected category to be deleted")
 	}
@@ -548,7 +548,7 @@ func TestMaterialCategoryRepository_UpdateMaterialCount(t *testing.T) {
 		t.Errorf("UpdateMaterialCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDcategory.ID)
+	updated, _ := repo.GetByID(category.ID)
 	if updated.MaterialCount != 3 {
 		t.Errorf("Expected MaterialCount 3, got %d", updated.MaterialCount)
 	}

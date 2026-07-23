@@ -100,7 +100,7 @@ func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID str
 	// 优先按 ID 解析
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(ctx, &acc, id).Error; err == nil {
+		if err := s.db.WithContext(ctx).First( &acc, id).Error; err == nil {
 			return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 		}
 	}
@@ -376,7 +376,7 @@ func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID s
 	var acc model.TelegramAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(ctx, &acc, id).Error; err == nil {
+		if err := s.db.WithContext(ctx).First( &acc, id).Error; err == nil {
 			return acc.BotToken, acc.WebhookSecret, nil
 		}
 	}
@@ -570,7 +570,7 @@ func (s *WhatsAppCloudService) GetSecretsByAccountID(ctx context.Context, accoun
 	var acc model.WhatsAppCloudAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.First(ctx, &acc, id).Error; err == nil {
+		if err := s.db.WithContext(ctx).First( &acc, id).Error; err == nil {
 			return acc.AccessToken, acc.AppSecret, nil
 		}
 	}

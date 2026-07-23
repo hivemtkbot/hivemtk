@@ -87,7 +87,7 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 		Subject: "GetByID Test",
 		Content: "Test content",
 	}
-	repo.Createdraft)
+	repo.Create(draft)
 
 	tests := []struct {
 		name    string
@@ -108,7 +108,7 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -157,7 +157,7 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 		Subject: "Original Subject",
 		Content: "Original content",
 	}
-	repo.Createdraft)
+	repo.Create(draft)
 
 	// 更新
 	draft.Subject = "Updated Subject"
@@ -168,7 +168,7 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDdraft.ID)
+	updated, _ := repo.GetByID(draft.ID)
 	if updated.Subject != "Updated Subject" {
 		t.Errorf("Expected subject 'Updated Subject', got '%s'", updated.Subject)
 	}
@@ -186,14 +186,14 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 		Subject: "To Delete",
 		Content: "Delete content",
 	}
-	repo.Createdraft)
+	repo.Create(draft)
 
 	err := repo.Deletedraft.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDdraft.ID)
+	_, err = repo.GetByID(draft.ID)
 	if err == nil {
 		t.Error("Expected draft to be deleted")
 	}
@@ -232,7 +232,7 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 		Subject: "Timestamp Test",
 		Content: "Content",
 	}
-	repo.Createdraft)
+	repo.Create(draft)
 
 	// 等待一小段时间
 	time.Sleep(10 * time.Millisecond)
@@ -244,8 +244,8 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDdraft.ID)
-	if updated.UpdatedAt.Before(draft.CreatedAt) {
+	updated, _ := repo.GetByID(draft.ID)
+	if updated.UpdatedAt.Before(draft.Create(dAt) {
 		t.Error("Expected UpdatedAt to be after CreatedAt")
 	}
 }

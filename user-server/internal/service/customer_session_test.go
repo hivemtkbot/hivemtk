@@ -837,7 +837,7 @@ func TestQuickReplyService_CreateReply_Success(t *testing.T) {
 		t.Errorf("Expected title '你好', got '%s'", reply.Title)
 	}
 	if reply.CreatedBy != 123 {
-		t.Errorf("Expected created_by 123, got %d", reply.CreatedBy)
+		t.Errorf("Expected created_by 123, got %d", reply.Create(dBy)
 	}
 }
 

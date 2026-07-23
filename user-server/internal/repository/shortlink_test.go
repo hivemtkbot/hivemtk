@@ -79,7 +79,7 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 		OriginalURL: "https://example.com",
 		Title:       "GetByID Link",
 	}
-	repo.Createlink)
+	repo.Create(link)
 
 	tests := []struct {
 		name    string
@@ -100,7 +100,7 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByIDtt.id)
+			result, err := repo.GetByID(tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -125,7 +125,7 @@ func TestShortLinkRepository_GetByShortCode(t *testing.T) {
 		OriginalURL: "https://example.com/test",
 		Title:       "Test Link",
 	}
-	repo.Createlink)
+	repo.Create(link)
 
 	tests := []struct {
 		name      string
@@ -271,7 +271,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 		OriginalURL: "https://example.com/original",
 		Title:       "Original Title",
 	}
-	repo.Createlink)
+	repo.Create(link)
 
 	link.Title = "Updated Title"
 	link.Description = "New Description"
@@ -281,7 +281,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDlink.ID)
+	updated, _ := repo.GetByID(link.ID)
 	if updated.Title != "Updated Title" {
 		t.Errorf("Expected title 'Updated Title', got '%s'", updated.Title)
 	}
@@ -299,14 +299,14 @@ func TestShortLinkRepository_Delete(t *testing.T) {
 		ShortCode:   "delete",
 		OriginalURL: "https://example.com/delete",
 	}
-	repo.Createlink)
+	repo.Create(link)
 
 	err := repo.Deletelink.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByIDlink.ID)
+	_, err = repo.GetByID(link.ID)
 	if err == nil {
 		t.Error("Expected link to be deleted")
 	}
@@ -344,14 +344,14 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 		OriginalURL: "https://example.com",
 		ClickCount:  0,
 	}
-	repo.Createlink)
+	repo.Create(link)
 
 	err := repo.IncreaseClickCount(context.Background(), link.ID)
 	if err != nil {
 		t.Errorf("IncreaseClickCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByIDlink.ID)
+	updated, _ := repo.GetByID(link.ID)
 	if updated.ClickCount != 1 {
 		t.Errorf("Expected ClickCount 1, got %d", updated.ClickCount)
 	}
@@ -362,7 +362,7 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 		t.Errorf("IncreaseClickCount() error = %v", err)
 	}
 
-	updated2, _ := repo.GetByIDlink.ID)
+	updated2, _ := repo.GetByID(link.ID)
 	if updated2.ClickCount != 2 {
 		t.Errorf("Expected ClickCount 2, got %d", updated2.ClickCount)
 	}
@@ -416,12 +416,12 @@ func TestShortLinkRepository_WithExpireTime(t *testing.T) {
 		OriginalURL: "https://example.com",
 		ExpireTime:  &futureTime,
 	}
-	err := repo.Createlink)
+	err := repo.Create(link)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	updated, err := repo.GetByIDlink.ID)
+	updated, err := repo.GetByID(link.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}
