@@ -132,7 +132,7 @@ func (s *tuningService) ListThresholdPolicies(ctx context.Context) ([]model.Thre
 }
 
 func (s *tuningService) UpsertThresholdPolicy(ctx context.Context, p *model.ThresholdPolicy) error {
-	p.IsActive = true
+	// 注意: IsActive 已由 DTO.ToModel 依据前端请求设置(支持停用), 此处不再强制置 true
 	p.UpdatedAt = time.Now()
 	return s.policyRepo.Save(ctx, p)
 }
