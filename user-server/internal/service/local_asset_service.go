@@ -56,6 +56,32 @@ type CreateAssetInput struct {
 	Data      json.RawMessage `json:"data"`
 }
 
+// platformNameIntoData 把平台 payload 顶层的 name 合并进 data 对象。
+// 平台侧约定 name 位于 payload 顶层、data 仅含类型内容；而本地校验与前端自建
+// 资产均要求 data 含 name。这里做一次归一化，避免购买/同步时校验失败。
+func platformNameIntoData(raw json.RawMessage, name string) json.RawMessage {
+	if name == "" {
+		return raw
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return raw
+	}
+	if _, ok := m["name"]; ok {
+		return raw // 已含 name，不覆盖
+	}
+	nameJSON, err := json.Marshal(name)
+	if err != nil {
+		return raw
+	}
+	m["name"] = nameJSON
+	out, err := json.Marshal(m)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
 // UpdateAssetInput 更新输入
 type UpdateAssetInput struct {
 	AssetType string          `json:"asset_type"`
@@ -79,6 +105,10 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 	if err != nil {
 		return bizerr.Wrap(bizerr.CodeSyncFailed, "拉取平台数据失败", err)
 	}
+	// 平台返回的 data 不含 name（name 位于 payload 顶层），而本地校验约定 data 含
+	// name（与前端自建资产一致）。把顶层 name 合并进 data，避免校验失败并保持数据
+	// 结构与自建资产一致。
+	payload.Data = platformNameIntoData(payload.Data, payload.Name)
 
 	if err := asset.ValidateAssetData(asset.AssetType(payload.AssetType), payload.Data); err != nil {
 		return bizerr.Wrap(bizerr.CodeAssetInvalid, "平台数据校验失败", err)
@@ -128,6 +158,8 @@ func (s *LocalAssetService) SyncFromPlatform(ctx context.Context, assetID string
 		})
 		return bizerr.Wrap(bizerr.CodeSyncFailed, "拉取失败", err)
 	}
+	// 与购买同步保持一致：顶层 name 合并进 data。
+	payload.Data = platformNameIntoData(payload.Data, payload.Name)
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		la.Version = payload.Version

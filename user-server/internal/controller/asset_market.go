@@ -31,11 +31,13 @@ func NewAssetMarketController(localSvc *service.LocalAssetService, marketSvc *se
 func assetFail(c *gin.Context, err error) {
 	var be *bizerr.BizError
 	if errors.As(err, &be) {
-		// 使用 response.Error 保留自定义错误码（通过 ErrorCode 字段）
-		response.Error(c, be.Code, be.Message)
+		// 业务错误码（如 5001/6001）只能放在响应体 code 字段，不能作为 HTTP 状态码
+		// 传给 response.Error（gin 会 panic: invalid WriteHeader code）。前端按响应体
+		// code 判断成功/失败，与平台返回约定一致，故统一以 HTTP 200 返回业务码。
+		c.JSON(http.StatusOK, gin.H{"code": be.Code, "message": be.Message, "data": nil})
 		return
 	}
-	response.Error(c, http.StatusInternalServerError, err.Error())
+	c.JSON(http.StatusOK, gin.H{"code": bizerr.CodeInternal, "message": err.Error(), "data": nil})
 }
 
 func assetOK(c *gin.Context, data interface{}) {

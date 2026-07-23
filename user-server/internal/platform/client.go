@@ -36,7 +36,13 @@ func NewClient(merchantKey string) *Client {
 
 func (c *Client) sign(method, path string, body []byte) (string, string, error) {
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	payload := method + "\n" + path + "\n" + timestamp + "\n" + string(body)
+	// 平台 MerchantAuth 使用 c.Request.URL.Path（不含 query）参与签名，
+	// 这里必须把 query 去掉，否则 GET 列表等带参数的请求会签名不一致返回 401。
+	pathNoQuery := path
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		pathNoQuery = path[:i]
+	}
+	payload := method + "\n" + pathNoQuery + "\n" + timestamp + "\n" + string(body)
 
 	secret := os.Getenv("MERCHANT_API_SECRET")
 	if secret == "" && config.PlatformCfg != nil {
