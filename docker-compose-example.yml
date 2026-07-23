@@ -116,7 +116,8 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 512M
+          # 实测 memory.peak=463M / 512M 已 90%, 改为 768M 留余量给 shared_buffers + page cache
+          memory: 768M
         reservations:
           cpus: '0.5'
           memory: 256M
@@ -250,7 +251,9 @@ services:
       # user-server 二进制在容器内固定以 localhost:8202 连接数据库（配置解析后 host 为空，
       # pgx 默认回落到 localhost），此处把容器内的 localhost 指向 mtk-postgres 容器 IP
       - "localhost:172.32.0.2"
-    shm_size: '2gb'
+    # shm_size 默认 64M,Go runtime 在高并发/大响应时偶发 tmpfs 不够,提到 512M 已够用
+    # 原 2G 容易被误读为"user-server 占用 2G 内存",实际只是 /dev/shm 文件系统上限,Used 一直为 0
+    shm_size: '512m'
     depends_on:
       mtk-postgres:
         condition: service_healthy
@@ -329,8 +332,9 @@ services:
       resources:
         limits:
           cpus: "4"
-          # 1.5B Q4 ≈ 1.1GB 常驻 + KV cache；14B 需 6G+
-          memory: ${LLM_MEM_LIMIT:-1.5G}
+          # 1.5B Q4 ≈ 1.1GB 常驻 + KV cache + 上下文 8192 token 峰值
+          # 实测 memory.peak=1.61G, 1.5G 限额触发 memory.high 1769 次,改为 2.5G 留 1G 余量
+          memory: ${LLM_MEM_LIMIT:-2.5G}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8207'"]
       interval: 30s
@@ -400,8 +404,10 @@ services:
       resources:
         limits:
           cpus: "2"
-          # bge-reranker-base dev 档（278M 参数，~1.1GB safetensors）需 ~1G
-          memory: ${RERANK_MEM_LIMIT:-1G}
+          # bge-reranker-base dev 档（278M 参数，~1.1GB safetensors）
+          # 实测 memory.peak=1.07G 已超 1G 限额, memory.high 触发 5594 次
+          # 改为 1.5G 留余量;若需更省可加 --max-batch-tokens 限制
+          memory: ${RERANK_MEM_LIMIT:-1.5G}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8209'"]
       interval: 30s
