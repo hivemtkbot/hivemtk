@@ -10,7 +10,12 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/db"
+	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
+
+	"gorm.io/gorm"
+)_db "marketing/internal/pkg/utils/db"
 
 	"gorm.io/gorm"
 )
@@ -68,14 +73,14 @@ func NewAIAgentService(db *gorm.DB) *AIAgentService {
 }
 
 // SetRepository 注入 repository（用于测试）
-func (s *AIAgentService) SetRepository(repo *repository.AIAgentRepository) {
+func (s *AIAgentService) SetRepository(ctx context.Context, repo *repository.AIAgentRepository) {
 	if repo != nil {
 		s.repo = repo
 	}
 }
 
 // Create 创建智能体
-func (s *AIAgentService) Create(a *model.AIAgent) error {
+func (s *AIAgentService) Create(ctx context.Context, a *model.AIAgent) error {
 	if a.AgentCode == "" {
 		return errors.New("agent_code 不能为空")
 	}
@@ -89,33 +94,33 @@ func (s *AIAgentService) Create(a *model.AIAgent) error {
 		a.AgentType = string(model.AgentTypeSales)
 	}
 	// 校验 agent_code 唯一性
-	if existing, _ := s.repo.GetByCode(a.AgentCode); existing != nil {
+	if existing, _ := s.repo.GetByCode(ctx, a.AgentCode); existing != nil {
 		return fmt.Errorf("agent_code %s 已存在", a.AgentCode)
 	}
-	if err := s.repo.Create(a); err != nil {
+	if err := s.repo.Create(ctx, a); err != nil {
 		return err
 	}
-	s.invalidateCache(a.ID)
+	s.invalidateCache(ctx, a.ID)
 	return nil
 }
 
 // GetByID 获取智能体详情
-func (s *AIAgentService) GetByID(id uint) (*model.AIAgent, error) {
-	return s.repo.GetByID(id)
+func (s *AIAgentService) GetByID(ctx context.Context, id uint) (*model.AIAgent, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // List 列表查询
-func (s *AIAgentService) List(agentType string, status int, keyword string) ([]*model.AIAgent, error) {
-	return s.repo.List(agentType, status, keyword)
+func (s *AIAgentService) List(ctx context.Context, agentType string, status int, keyword string) ([]*model.AIAgent, error) {
+	return s.repo.List(ctx, agentType, status, keyword)
 }
 
 // ListEnabled 获取所有启用的智能体（供下拉选择）
-func (s *AIAgentService) ListEnabled() ([]*model.AIAgent, error) {
-	return s.repo.ListEnabled()
+func (s *AIAgentService) ListEnabled(ctx context.Context) ([]*model.AIAgent, error) {
+	return s.repo.ListEnabled(ctx)
 }
 
 // Update 更新智能体
-func (s *AIAgentService) Update(a *model.AIAgent) error {
+func (s *AIAgentService) Update(ctx context.Context, a *model.AIAgent) error {
 	if a.ID == 0 {
 		return errors.New("id 不能为空")
 	}
@@ -127,40 +132,40 @@ func (s *AIAgentService) Update(a *model.AIAgent) error {
 	}
 	// version + 1 标记配置已变更
 	a.Version = a.Version + 1
-	if err := s.repo.Update(a); err != nil {
+	if err := s.repo.Update(ctx, a); err != nil {
 		return err
 	}
-	s.invalidateCache(a.ID)
+	s.invalidateCache(ctx, a.ID)
 	return nil
 }
 
 // UpdateStatus 更新状态
-func (s *AIAgentService) UpdateStatus(id uint, status int) error {
-	if err := s.repo.UpdateStatus(id, status); err != nil {
+func (s *AIAgentService) UpdateStatus(ctx context.Context, id uint, status int) error {
+	if err := s.repo.UpdateStatus(ctx, id, status); err != nil {
 		return err
 	}
-	s.invalidateCache(id)
+	s.invalidateCache(ctx, id)
 	return nil
 }
 
 // Delete 删除智能体
 // 业务约束：若智能体被渠道绑定或客服挂载引用，应先解绑
-func (s *AIAgentService) Delete(id uint) error {
+func (s *AIAgentService) Delete(ctx context.Context, id uint) error {
 	// 校验是否被引用
 	var bindings int64
-	s.repo.GetDB().Model(&model.ChannelAgentBinding{}).Where("agent_id = ?", id).Count(&bindings)
+	s.repo.GetDB(ctx).Model(&model.ChannelAgentBinding{}).Where("agent_id = ?", id).Count(&bindings)
 	if bindings > 0 {
 		return fmt.Errorf("智能体被 %d 个渠道账号绑定，请先解绑", bindings)
 	}
 	var mounts int64
-	s.repo.GetDB().Model(&model.CustomerServiceAgent{}).Where("ai_agent_id = ?", id).Count(&mounts)
+	s.repo.GetDB(ctx).Model(&model.CustomerServiceAgent{}).Where("ai_agent_id = ?", id).Count(&mounts)
 	if mounts > 0 {
 		return fmt.Errorf("智能体被 %d 个客服座席挂载，请先解挂", mounts)
 	}
-	if err := s.repo.Delete(id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
-	s.invalidateCache(id)
+	s.invalidateCache(ctx, id)
 	return nil
 }
 
@@ -179,7 +184,7 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 	s.cacheMu.RUnlock()
 
 	// 2. 查数据库
-	agent, err := s.repo.GetByID(agentID)
+	agent, err := s.repo.GetByID(ctx, agentID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -231,7 +236,7 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 }
 
 // invalidateCache 失效缓存
-func (s *AIAgentService) invalidateCache(agentID uint) {
+func (s *AIAgentService) invalidateCache(ctx context.Context, agentID uint) {
 	s.cacheMu.Lock()
 	delete(s.cache, agentID)
 	s.cacheMu.Unlock()
@@ -287,7 +292,7 @@ func NewChannelAgentBindingService(db *gorm.DB, agentSvc *AIAgentService) *Chann
 
 // Create 创建绑定
 // 业务约束：agentID 必须存在且启用；若 is_primary=true，需先清除同账号其他主绑定
-func (s *ChannelAgentBindingService) Create(b *model.ChannelAgentBinding) error {
+func (s *ChannelAgentBindingService) Create(ctx context.Context, b *model.ChannelAgentBinding) error {
 	if b.ChannelType == "" {
 		return errors.New("channel_type 不能为空")
 	}
@@ -298,7 +303,7 @@ func (s *ChannelAgentBindingService) Create(b *model.ChannelAgentBinding) error 
 		return errors.New("agent_id 不能为空")
 	}
 	// 校验智能体存在
-	agent, err := s.agentRepo.GetByID(b.AgentID)
+	agent, err := s.agentRepo.GetByID(ctx, b.AgentID)
 	if err != nil {
 		return fmt.Errorf("智能体不存在: %w", err)
 	}
@@ -307,61 +312,61 @@ func (s *ChannelAgentBindingService) Create(b *model.ChannelAgentBinding) error 
 	}
 	// 主绑定切换：先清空同账号其他主绑定
 	if b.IsPrimary {
-		if err := s.repo.ClearPrimaryByChannelAccount(b.ChannelType, b.AccountID); err != nil {
+		if err := s.repo.ClearPrimaryByChannelAccount(ctx, b.ChannelType, b.AccountID); err != nil {
 			return fmt.Errorf("清除旧主绑定失败: %w", err)
 		}
 	}
-	return s.repo.Create(b)
+	return s.repo.Create(ctx, b)
 }
 
 // ListByChannelAccount 按渠道账号查询所有绑定
-func (s *ChannelAgentBindingService) ListByChannelAccount(channelType, accountID string) ([]*model.ChannelAgentBinding, error) {
-	return s.repo.ListByChannelAccount(channelType, accountID)
+func (s *ChannelAgentBindingService) ListByChannelAccount(ctx context.Context, channelType, accountID string) ([]*model.ChannelAgentBinding, error) {
+	return s.repo.ListByChannelAccount(ctx, channelType, accountID)
 }
 
 // ListByAgentID 反查智能体被哪些渠道使用
-func (s *ChannelAgentBindingService) ListByAgentID(agentID uint) ([]*model.ChannelAgentBinding, error) {
-	return s.repo.ListByAgentID(agentID)
+func (s *ChannelAgentBindingService) ListByAgentID(ctx context.Context, agentID uint) ([]*model.ChannelAgentBinding, error) {
+	return s.repo.ListByAgentID(ctx, agentID)
 }
 
 // GetByID 获取绑定详情
-func (s *ChannelAgentBindingService) GetByID(id uint) (*model.ChannelAgentBinding, error) {
-	return s.repo.GetByID(id)
+func (s *ChannelAgentBindingService) GetByID(ctx context.Context, id uint) (*model.ChannelAgentBinding, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // Update 更新绑定
-func (s *ChannelAgentBindingService) Update(b *model.ChannelAgentBinding) error {
+func (s *ChannelAgentBindingService) Update(ctx context.Context, b *model.ChannelAgentBinding) error {
 	if b.IsPrimary {
 		// 主绑定切换：先清除同账号其他主绑定（排除自身）
-		existing, _ := s.repo.GetByID(b.ID)
+		existing, _ := s.repo.GetByID(ctx, b.ID)
 		if existing != nil && (existing.ChannelType != b.ChannelType || existing.AccountID != b.AccountID) {
 			// 渠道/账号变更，清除新账号下的旧主绑定
-			if err := s.repo.ClearPrimaryByChannelAccount(b.ChannelType, b.AccountID); err != nil {
+			if err := s.repo.ClearPrimaryByChannelAccount(ctx, b.ChannelType, b.AccountID); err != nil {
 				return err
 			}
 		} else if existing != nil {
 			// 同账号内切换主绑定，先清除其他
-			if err := s.repo.ClearPrimaryByChannelAccount(existing.ChannelType, existing.AccountID); err != nil {
+			if err := s.repo.ClearPrimaryByChannelAccount(ctx, existing.ChannelType, existing.AccountID); err != nil {
 				return err
 			}
 		}
 	}
-	if err := s.repo.Update(b); err != nil {
+	if err := s.repo.Update(ctx, b); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除绑定
-func (s *ChannelAgentBindingService) Delete(id uint) error {
-	return s.repo.Delete(id)
+func (s *ChannelAgentBindingService) Delete(ctx context.Context, id uint) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // LoadAgentForChannel 加载渠道账号绑定的主智能体上下文
 // WebhookService.triggerSalesEngine 调用此方法
 // 返回 nil, nil 表示未绑定（调用方回退默认配置）
 func (s *ChannelAgentBindingService) LoadAgentForChannel(ctx context.Context, channelType, accountID string) (*AgentContext, error) {
-	binding, err := s.repo.GetPrimaryByChannelAccount(channelType, accountID)
+	binding, err := s.repo.GetPrimaryByChannelAccount(ctx, channelType, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -425,8 +430,19 @@ func NewCustomerServiceAgentService(db *gorm.DB, agentSvc *AIAgentService) *Cust
 	}
 }
 
+// NewCustomerServiceAgentServiceViaPort 通过 Port 模式创建客服挂载服务
+//
+// 2026-07-23 五层架构治理（二轮）：原 NewCustomerServiceAgentService 必须传入 db，
+// 导致 controller 层误用 dbutil.GetDB() 取得 db。改为从外部注入 *AIAgentService，
+// 服务内部通过全局 _db.GetDB() 取 db（service 构造函数内允许）。
+//
+// 注意：仍持有 *gorm.DB，但只用于内部初始化，方法体不直接使用（持久化走 repo）。
+func NewCustomerServiceAgentServiceViaPort(agentSvc *AIAgentService) *CustomerServiceAgentService {
+	return NewCustomerServiceAgentService(_db.GetDB(), agentSvc)
+}
+
 // Create 创建挂载
-func (s *CustomerServiceAgentService) Create(c *model.CustomerServiceAgent) error {
+func (s *CustomerServiceAgentService) Create(ctx context.Context, c *model.CustomerServiceAgent) error {
 	if c.AgentStatusID == 0 {
 		return errors.New("agent_status_id 不能为空")
 	}
@@ -434,7 +450,7 @@ func (s *CustomerServiceAgentService) Create(c *model.CustomerServiceAgent) erro
 		return errors.New("ai_agent_id 不能为空")
 	}
 	// 校验智能体存在
-	agent, err := s.agentRepo.GetByID(c.AIAgentID)
+	agent, err := s.agentRepo.GetByID(ctx, c.AIAgentID)
 	if err != nil {
 		return fmt.Errorf("智能体不存在: %w", err)
 	}
@@ -443,51 +459,51 @@ func (s *CustomerServiceAgentService) Create(c *model.CustomerServiceAgent) erro
 	}
 	// 主挂载切换：先清除同座席其他主挂载
 	if c.IsPrimary {
-		if err := s.repo.ClearPrimaryByAgentStatusID(c.AgentStatusID); err != nil {
+		if err := s.repo.ClearPrimaryByAgentStatusID(ctx, c.AgentStatusID); err != nil {
 			return fmt.Errorf("清除旧主挂载失败: %w", err)
 		}
 	}
-	return s.repo.Create(c)
+	return s.repo.Create(ctx, c)
 }
 
 // ListByAgentStatusID 按座席查询所有挂载
-func (s *CustomerServiceAgentService) ListByAgentStatusID(agentStatusID uint) ([]*model.CustomerServiceAgent, error) {
-	return s.repo.ListByAgentStatusID(agentStatusID)
+func (s *CustomerServiceAgentService) ListByAgentStatusID(ctx context.Context, agentStatusID uint) ([]*model.CustomerServiceAgent, error) {
+	return s.repo.ListByAgentStatusID(ctx, agentStatusID)
 }
 
 // ListByAIAgentID 反查智能体被哪些客服使用
-func (s *CustomerServiceAgentService) ListByAIAgentID(aiAgentID uint) ([]*model.CustomerServiceAgent, error) {
-	return s.repo.ListByAIAgentID(aiAgentID)
+func (s *CustomerServiceAgentService) ListByAIAgentID(ctx context.Context, aiAgentID uint) ([]*model.CustomerServiceAgent, error) {
+	return s.repo.ListByAIAgentID(ctx, aiAgentID)
 }
 
 // GetByID 获取挂载详情
-func (s *CustomerServiceAgentService) GetByID(id uint) (*model.CustomerServiceAgent, error) {
-	return s.repo.GetByID(id)
+func (s *CustomerServiceAgentService) GetByID(ctx context.Context, id uint) (*model.CustomerServiceAgent, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // Update 更新挂载
-func (s *CustomerServiceAgentService) Update(c *model.CustomerServiceAgent) error {
+func (s *CustomerServiceAgentService) Update(ctx context.Context, c *model.CustomerServiceAgent) error {
 	if c.IsPrimary {
-		existing, _ := s.repo.GetByID(c.ID)
+		existing, _ := s.repo.GetByID(ctx, c.ID)
 		if existing != nil {
-			if err := s.repo.ClearPrimaryByAgentStatusID(existing.AgentStatusID); err != nil {
+			if err := s.repo.ClearPrimaryByAgentStatusID(ctx, existing.AgentStatusID); err != nil {
 				return err
 			}
 		}
 	}
-	return s.repo.Update(c)
+	return s.repo.Update(ctx, c)
 }
 
 // Delete 删除挂载
-func (s *CustomerServiceAgentService) Delete(id uint) error {
-	return s.repo.Delete(id)
+func (s *CustomerServiceAgentService) Delete(ctx context.Context, id uint) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // LoadAgentForSeat 加载客服座席挂载的主智能体上下文
 // SmartCSOrchestrator 处理消息时调用此方法
 // 返回 nil, nil 表示未挂载
 func (s *CustomerServiceAgentService) LoadAgentForSeat(ctx context.Context, agentStatusID uint) (*AgentContext, error) {
-	mount, err := s.repo.GetPrimaryByAgentStatusID(agentStatusID)
+	mount, err := s.repo.GetPrimaryByAgentStatusID(ctx, agentStatusID)
 	if err != nil {
 		return nil, err
 	}
@@ -499,12 +515,12 @@ func (s *CustomerServiceAgentService) LoadAgentForSeat(ctx context.Context, agen
 
 // GetOrCreateAgentStatusByUserID 按用户ID查找座席状态，不存在则创建
 // 用于前端"为团队成员挂载AI智能体"场景：团队成员即座席，AgentStatus.AgentID = 用户ID
-func (s *CustomerServiceAgentService) GetOrCreateAgentStatusByUserID(userID uint, name string) (*model.AgentStatus, error) {
+func (s *CustomerServiceAgentService) GetOrCreateAgentStatusByUserID(ctx context.Context, userID uint, name string) (*model.AgentStatus, error) {
 	if userID == 0 {
 		return nil, errors.New("user_id 不能为空")
 	}
 	var st model.AgentStatus
-	err := s.db.Where("agent_id = ?", userID).First(&st).Error
+	err := s.db.WithContext(ctx).Where("agent_id = ?", userID).First(&st).Error
 	if err == nil {
 		return &st, nil
 	}
@@ -518,34 +534,34 @@ func (s *CustomerServiceAgentService) GetOrCreateAgentStatusByUserID(userID uint
 		Status:      "offline",
 		MaxSessions: 5,
 	}
-	if err := s.db.Create(&st).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(&st).Error; err != nil {
 		return nil, fmt.Errorf("创建座席状态失败: %w", err)
 	}
 	return &st, nil
 }
 
 // ListByUserID 按用户ID查询挂载（先查 AgentStatus，再查挂载）
-func (s *CustomerServiceAgentService) ListByUserID(userID uint) ([]*model.CustomerServiceAgent, error) {
+func (s *CustomerServiceAgentService) ListByUserID(ctx context.Context, userID uint) ([]*model.CustomerServiceAgent, error) {
 	if userID == 0 {
 		return nil, errors.New("user_id 不能为空")
 	}
 	var st model.AgentStatus
-	err := s.db.Where("agent_id = ?", userID).First(&st).Error
+	err := s.db.WithContext(ctx).Where("agent_id = ?", userID).First(&st).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return []*model.CustomerServiceAgent{}, nil // 无座席状态则无挂载
 		}
 		return nil, fmt.Errorf("查询座席状态失败: %w", err)
 	}
-	return s.repo.ListByAgentStatusID(st.ID)
+	return s.repo.ListByAgentStatusID(ctx, st.ID)
 }
 
 // CreateByUserID 按用户ID创建挂载（自动创建 AgentStatus）
-func (s *CustomerServiceAgentService) CreateByUserID(userID uint, userName string, aiAgentID uint, isPrimary bool) (*model.CustomerServiceAgent, error) {
+func (s *CustomerServiceAgentService) CreateByUserID(ctx context.Context, userID uint, userName string, aiAgentID uint, isPrimary bool) (*model.CustomerServiceAgent, error) {
 	if aiAgentID == 0 {
 		return nil, errors.New("ai_agent_id 不能为空")
 	}
-	st, err := s.GetOrCreateAgentStatusByUserID(userID, userName)
+	st, err := s.GetOrCreateAgentStatusByUserID(ctx, userID, userName)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +571,7 @@ func (s *CustomerServiceAgentService) CreateByUserID(userID uint, userName strin
 		IsPrimary:     isPrimary,
 		Enabled:       true,
 	}
-	if err := s.Create(m); err != nil {
+	if err := s.Create(ctx, m); err != nil {
 		return nil, err
 	}
 	return m, nil

@@ -29,14 +29,12 @@ import (
 // CustomerSessionController 客服会话控制器
 type CustomerSessionController struct {
 	sessionService *service.CustomerSessionService
-	agentService   *service.AgentStatusService
 }
 
 // NewCustomerSessionController 创建客服会话控制器实例
 func NewCustomerSessionController() *CustomerSessionController {
 	return &CustomerSessionController{
 		sessionService: service.NewCustomerSessionService(),
-		agentService:   service.NewAgentStatusService(),
 	}
 }
 

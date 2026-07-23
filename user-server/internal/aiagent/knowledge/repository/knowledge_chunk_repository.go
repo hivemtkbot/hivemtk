@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"marketing/internal/aiagent/knowledge/model"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -177,4 +178,54 @@ func (r *KnowledgeChunkRepository) BatchUpdateLastIndexed(ctx context.Context, d
 	return r.db.WithContext(ctx).Model(&model.KnowledgeChunk{}).
 		Where("document_id = ?", documentID).
 		Update("created_at", time.Now()).Error
+}
+
+// UpdateEmbeddingsBatch 事务式批量更新分段 embedding
+//
+// 2026-07-23 五层架构治理（二轮）：
+// 原 `service.KnowledgeService.persistChunkEmbeddings` 中直接 tx.Exec 写
+// `UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed'`
+// 违反 §3.5"service 不应写 SQL"。下沉到本方法后，service 仅负责调用。
+//
+// 要求 chunks 与 embeddings 长度一致；使用参数化 SQL 防止注入；事务保证原子性。
+func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
+	if len(chunks) != len(embeddings) {
+		return errors.New("chunks 与 embeddings 长度不一致")
+	}
+	if len(chunks) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i, c := range chunks {
+			vec := vecToPGString(embeddings[i])
+			if err := tx.Exec(
+				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed' WHERE id = ?",
+				vec, c.ID,
+			).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// vecToPGString 把 []float32 序列化为 pgvector 字面量字符串
+//
+// pgvector 支持的格式: '[1.0,2.0,3.0,...]'
+// 必须用科学计数或保留小数位，否则 PG 会报 dimension mismatch
+func vecToPGString(v []float32) string {
+	if len(v) == 0 {
+		return "[]"
+	}
+	var b []byte
+	b = append(b, '[')
+	for i, f := range v {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		// 'g' 格式：根据数值大小自动选择定点或科学计数，无尾随零
+		b = strconv.AppendFloat(b, float64(f), 'g', -1, 32)
+	}
+	b = append(b, ']')
+	return string(b)
 }

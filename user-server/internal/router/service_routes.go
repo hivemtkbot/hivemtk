@@ -2,6 +2,7 @@ package router
 
 import (
 	"marketing/internal/controller"
+	"marketing/internal/service"
 	opsctrl "marketing/internal/ops/controller"
 	"marketing/internal/websocket"
 
@@ -10,7 +11,10 @@ import (
 )
 
 // setupCustomerServiceRoutes 客服会话管理路由
-func setupCustomerServiceRoutes(auth *gin.RouterGroup) {
+//
+// 2026-07-23 五层架构治理（二轮）：传入 aiAgentSvc 以满足 agent_status controller
+// 装配（控制器零 db 引用）。
+func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService) {
 	// 客服会话管理
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	auth.GET("/customer-sessions", customerSessionCtrl.GetSessions)
@@ -38,7 +42,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup) {
 	auth.GET("/customer-sessions/:id", customerSessionCtrl.GetSessionByID)
 
 	// 客服状态管理
-	agentStatusCtrl := controller.NewAgentStatusController()
+	agentStatusCtrl := controller.NewAgentStatusController(aiAgentSvc)
 	auth.POST("/agents", agentStatusCtrl.CreateAgent)
 	auth.GET("/agents/me", agentStatusCtrl.GetMyAgent)
 	auth.GET("/agents/all", agentStatusCtrl.ListAllAgents)
@@ -144,7 +148,7 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/messages/:id", unifiedMsgCtrl.GetMessageByID)
 
 	// 消息中台 MQ
-	messageHubCtrl := controller.NewMessageHubController(db)
+	messageHubCtrl := controller.NewMessageHubController()
 	auth.POST("/message-hub/push", messageHubCtrl.Push)
 	auth.POST("/message-hub/push-batch", messageHubCtrl.PushBatch)
 	auth.POST("/message-hub/push-from-channel", messageHubCtrl.PushFromChannel)
@@ -155,7 +159,7 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/message-hub/:id/read", messageHubCtrl.MarkRead)
 
 	// 统一收件箱
-	inboxCtrl := controller.NewInboxController(db)
+	inboxCtrl := controller.NewInboxController()
 	auth.GET("/inbox", inboxCtrl.List)
 	auth.GET("/inbox/stats", inboxCtrl.Stats)
 	auth.GET("/inbox/assignments", inboxCtrl.ListAssignments)
@@ -172,7 +176,7 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/inbox/:id/messages", inboxCtrl.GetMessages)
 
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台 - 人工接管控制
-	inboxIngressCtrl := controller.NewInboxIngressController(db)
+	inboxIngressCtrl := controller.NewInboxIngressController()
 	auth.POST("/inbox/lock-human", inboxIngressCtrl.LockHuman)
 	auth.POST("/inbox/unlock-human/:session_id", inboxIngressCtrl.UnlockHuman)
 }
@@ -192,7 +196,7 @@ func setupPlatformAccountRoutes(auth *gin.RouterGroup) {
 
 // setupWeComHealthRoutes 企微账号健康度路由
 func setupWeComHealthRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	wcHCtrl := controller.NewWeComHealthController(db)
+	wcHCtrl := controller.NewWeComHealthController()
 	auth.GET("/wecom/health/accounts", wcHCtrl.ListAccountsWithHealth)
 	auth.GET("/wecom/health/accounts/risks", wcHCtrl.GetRiskAccounts)
 	auth.GET("/wecom/health/accounts/select", wcHCtrl.SelectHealthyAccount)
@@ -209,7 +213,7 @@ func setupWeComHealthRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 
 // setupIntentRoutes 意图识别路由
 func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	intentCtrl := controller.NewIntentController(db)
+	intentCtrl := controller.NewIntentController()
 	auth.POST("/intent/recognize", intentCtrl.Recognize)
 	auth.POST("/intent/recognize/batch", intentCtrl.BatchRecognize)
 	auth.GET("/intent/stats", intentCtrl.Stats)
@@ -250,7 +254,7 @@ func setupSSEDashboardRoutes(auth *gin.RouterGroup) {
 
 // setupDialogueMemoryRoutes 对话记忆路由
 func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	memCtrl := controller.NewDialogueMemoryController(db)
+	memCtrl := controller.NewDialogueMemoryController()
 	auth.POST("/memory/messages", memCtrl.AppendMessage)
 	auth.GET("/memory/short", memCtrl.ShortTerm)
 	auth.GET("/memory/long", memCtrl.LongTerm)
@@ -265,7 +269,7 @@ func setupDialogueMemoryRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 
 // setupSOPRoutes SOP 智能体路由
 func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	sopCtrl := controller.NewSOPController(db)
+	sopCtrl := controller.NewSOPController()
 	auth.GET("/sop", sopCtrl.List)
 	auth.POST("/sop", sopCtrl.Create)
 	auth.GET("/sop/stats", sopCtrl.Stats)
@@ -289,7 +293,7 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 
 // setupReachPipelineRoutes 触达 Pipeline 路由
 func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	reachCtrl := controller.NewReachPipelineController(db)
+	reachCtrl := controller.NewReachPipelineController()
 	auth.GET("/reach/pipelines", reachCtrl.ListPipelines)
 	auth.POST("/reach/pipelines", reachCtrl.CreatePipeline)
 	auth.GET("/reach/stats", reachCtrl.Stats)

@@ -32,49 +32,49 @@ import (
 
 // KnowledgeService 知识库服务(V2.0 统一入口)
 type KnowledgeService struct {
-	db            *gorm.DB
-	processor     *etl.DocumentProcessor
-	vectorizer    *ragretrieval.Vectorizer
-	indexer       ragretrieval.IndexManagerInterface
-	ragRepo       *repository.RagConfigRepository
-	docRepo       *repository.KnowledgeDocumentRepository
-	chunkRepo     *repository.KnowledgeChunkRepository
-	importLogRepo *repository.KnowledgeImportLogRepository
-	searchLogRepo *repository.KnowledgeSearchLogRepository
-	embeddingSvc  *llm.EmbeddingService
-	llmSvc        *llm.LLMService
+	db		*gorm.DB
+	processor	*etl.DocumentProcessor
+	vectorizer	*ragretrieval.Vectorizer
+	indexer		ragretrieval.IndexManagerInterface
+	ragRepo		*repository.RagConfigRepository
+	docRepo		*repository.KnowledgeDocumentRepository
+	chunkRepo	*repository.KnowledgeChunkRepository
+	importLogRepo	*repository.KnowledgeImportLogRepository
+	searchLogRepo	*repository.KnowledgeSearchLogRepository
+	embeddingSvc	*llm.EmbeddingService
+	llmSvc		*llm.LLMService
 }
 
 // NewKnowledgeService 创建知识库服务
 func NewKnowledgeService() *KnowledgeService {
 	return &KnowledgeService{
-		db:            dbGetDB(),
-		processor:     etl.NewDocumentProcessor(nil),
-		vectorizer:    ragretrieval.NewVectorizer(1024, nil),
-		indexer:       nil,
-		ragRepo:       repository.NewRagConfigRepository(dbGetDB()),
-		docRepo:       repository.NewKnowledgeDocumentRepository(dbGetDB()),
-		chunkRepo:     repository.NewKnowledgeChunkRepository(dbGetDB()),
-		importLogRepo: repository.NewKnowledgeImportLogRepository(dbGetDB()),
-		searchLogRepo: repository.NewKnowledgeSearchLogRepository(dbGetDB()),
-		embeddingSvc:  llm.NewEmbeddingService(),
-		llmSvc:        llm.NewLLMService(),
+		db:		dbGetDB(),
+		processor:	etl.NewDocumentProcessor(nil),
+		vectorizer:	ragretrieval.NewVectorizer(1024, nil),
+		indexer:	nil,
+		ragRepo:	repository.NewRagConfigRepository(dbGetDB()),
+		docRepo:	repository.NewKnowledgeDocumentRepository(dbGetDB()),
+		chunkRepo:	repository.NewKnowledgeChunkRepository(dbGetDB()),
+		importLogRepo:	repository.NewKnowledgeImportLogRepository(dbGetDB()),
+		searchLogRepo:	repository.NewKnowledgeSearchLogRepository(dbGetDB()),
+		embeddingSvc:	llm.NewEmbeddingService(),
+		llmSvc:		llm.NewLLMService(),
 	}
 }
 
 // NewKnowledgeServiceWithDB 创建带 DB 的知识库服务(用于测试)
 func NewKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 	return &KnowledgeService{
-		db:            gdb,
-		processor:     etl.NewDocumentProcessor(nil),
-		vectorizer:    ragretrieval.NewVectorizer(1024, nil),
-		ragRepo:       repository.NewRagConfigRepository(gdb),
-		docRepo:       repository.NewKnowledgeDocumentRepository(gdb),
-		chunkRepo:     repository.NewKnowledgeChunkRepository(gdb),
-		importLogRepo: repository.NewKnowledgeImportLogRepository(gdb),
-		searchLogRepo: repository.NewKnowledgeSearchLogRepository(gdb),
-		embeddingSvc:  llm.NewEmbeddingService(),
-		llmSvc:        llm.NewLLMService(),
+		db:		gdb,
+		processor:	etl.NewDocumentProcessor(nil),
+		vectorizer:	ragretrieval.NewVectorizer(1024, nil),
+		ragRepo:	repository.NewRagConfigRepository(gdb),
+		docRepo:	repository.NewKnowledgeDocumentRepository(gdb),
+		chunkRepo:	repository.NewKnowledgeChunkRepository(gdb),
+		importLogRepo:	repository.NewKnowledgeImportLogRepository(gdb),
+		searchLogRepo:	repository.NewKnowledgeSearchLogRepository(gdb),
+		embeddingSvc:	llm.NewEmbeddingService(),
+		llmSvc:		llm.NewLLMService(),
 	}
 }
 
@@ -84,32 +84,32 @@ func NewKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 
 // ImportRequest 统一导入请求
 type ImportRequest struct {
-	ProductID  string
-	SourceType model.SourceType
-	Title      string
-	Content    string
-	SourceRef  string
-	Category   string
-	Tags       []string
-	File       multipart.File
-	FileHeader *multipart.FileHeader
-	Operator   string
-	IP         string
-	UserAgent  string
-	BatchNo    string
+	ProductID	string
+	SourceType	model.SourceType
+	Title		string
+	Content		string
+	SourceRef	string
+	Category	string
+	Tags		[]string
+	File		multipart.File
+	FileHeader	*multipart.FileHeader
+	Operator	string
+	IP		string
+	UserAgent	string
+	BatchNo		string
 	// Metadata 附加字段：承载业务上下文（订单信息、客户ID、渠道等）。
 	// 入库时写入 KnowledgeDocument.Metadata，并逐片复制到 KnowledgeChunk.Metadata，
 	// 检索时随分片返回，供智能体使用。
-	Metadata map[string]any `json:"metadata"`
+	Metadata	map[string]any	`json:"metadata"`
 }
 
 // ImportResult 统一导入结果(知识库专用)
 type KnowledgeImportResult struct {
-	DocumentID uint64    `json:"document_id"`
-	Title      string    `json:"title"`
-	Status     string    `json:"status"`
-	SourceType string    `json:"source_type"`
-	CreatedAt  time.Time `json:"created_at"`
+	DocumentID	uint64		`json:"document_id"`
+	Title		string		`json:"title"`
+	Status		string		`json:"status"`
+	SourceType	string		`json:"source_type"`
+	CreatedAt	time.Time	`json:"created_at"`
 }
 
 // Import 统一导入入口
@@ -127,7 +127,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	if product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := HashStringToInt64(product.ID) // UUID 哈希到 int64,匹配知识库 INTEGER 字段
+	productNumericID := HashStringToInt64(product.ID)	// UUID 哈希到 int64,匹配知识库 INTEGER 字段
 
 	start := time.Now()
 	var doc *model.KnowledgeDocument
@@ -168,11 +168,11 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	}(doc.ID, productNumericID, doc.FilePath, doc.FileName, req.Content, doc.MimeType, doc.Title, req.SourceType, req.Metadata)
 
 	return &KnowledgeImportResult{
-		DocumentID: doc.ID,
-		Title:      doc.Title,
-		Status:     string(doc.EmbedStatus),
-		SourceType: string(doc.SourceType),
-		CreatedAt:  doc.CreatedAt,
+		DocumentID:	doc.ID,
+		Title:		doc.Title,
+		Status:		string(doc.EmbedStatus),
+		SourceType:	string(doc.SourceType),
+		CreatedAt:	doc.CreatedAt,
 	}, nil
 }
 
@@ -230,20 +230,20 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 	tagsJSON, _ := json.Marshal(req.Tags)
 	doc := &model.KnowledgeDocument{
 
-		ProductID:   productNumericID,
-		SourceType:  req.SourceType,
-		SourceRef:   req.SourceRef,
-		Title:       title,
-		FileName:    req.FileHeader.Filename,
-		FilePath:    filePath,
-		FileType:    ext,
-		FileSize:    size,
-		MimeType:    getMimeType(ext),
-		EmbedStatus: model.EmbedStatusPending,
-		Category:    req.Category,
-		Tags:        string(tagsJSON),
-		Metadata:    metaToJSON(req.Metadata),
-		Status:      1,
+		ProductID:	productNumericID,
+		SourceType:	req.SourceType,
+		SourceRef:	req.SourceRef,
+		Title:		title,
+		FileName:	req.FileHeader.Filename,
+		FilePath:	filePath,
+		FileType:	ext,
+		FileSize:	size,
+		MimeType:	getMimeType(ext),
+		EmbedStatus:	model.EmbedStatusPending,
+		Category:	req.Category,
+		Tags:		string(tagsJSON),
+		Metadata:	metaToJSON(req.Metadata),
+		Status:		1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(filePath)
@@ -271,20 +271,20 @@ func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, p
 	}
 	doc := &model.KnowledgeDocument{
 
-		ProductID:   productNumericID,
-		SourceType:  req.SourceType,
-		SourceRef:   req.SourceRef,
-		Title:       req.Title,
-		FileName:    req.Title + ".txt",
-		FilePath:    textFile,
-		FileType:    ".txt",
-		FileSize:    int64(len(req.Content)),
-		MimeType:    "text/plain",
-		EmbedStatus: model.EmbedStatusPending,
-		Category:    req.Category,
-		Tags:        string(tagsJSON),
-		Metadata:    metaToJSON(req.Metadata),
-		Status:      1,
+		ProductID:	productNumericID,
+		SourceType:	req.SourceType,
+		SourceRef:	req.SourceRef,
+		Title:		req.Title,
+		FileName:	req.Title + ".txt",
+		FilePath:	textFile,
+		FileType:	".txt",
+		FileSize:	int64(len(req.Content)),
+		MimeType:	"text/plain",
+		EmbedStatus:	model.EmbedStatusPending,
+		Category:	req.Category,
+		Tags:		string(tagsJSON),
+		Metadata:	metaToJSON(req.Metadata),
+		Status:		1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(textFile)
@@ -338,20 +338,20 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 	}
 	doc := &model.KnowledgeDocument{
 
-		ProductID:   productNumericID,
-		SourceType:  model.SourceTypeURL,
-		SourceRef:   req.SourceRef,
-		Title:       title,
-		FileName:    title + ".html",
-		FilePath:    textFile,
-		FileType:    ".html",
-		FileSize:    int64(len(content)),
-		MimeType:    "text/html",
-		EmbedStatus: model.EmbedStatusPending,
-		Category:    req.Category,
-		Tags:        string(tagsJSON),
-		Metadata:    metaToJSON(req.Metadata),
-		Status:      1,
+		ProductID:	productNumericID,
+		SourceType:	model.SourceTypeURL,
+		SourceRef:	req.SourceRef,
+		Title:		title,
+		FileName:	title + ".html",
+		FilePath:	textFile,
+		FileType:	".html",
+		FileSize:	int64(len(content)),
+		MimeType:	"text/html",
+		EmbedStatus:	model.EmbedStatusPending,
+		Category:	req.Category,
+		Tags:		string(tagsJSON),
+		Metadata:	metaToJSON(req.Metadata),
+		Status:		1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(textFile)
@@ -414,15 +414,15 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 
 	// 3. 分片
 	ragDoc := rag_core.Document{
-		ID:      fmt.Sprintf("kb_doc_%d", documentID),
-		Content: content,
+		ID:		fmt.Sprintf("kb_doc_%d", documentID),
+		Content:	content,
 		Metadata: map[string]any{
-			"document_id": documentID,
-			"product_id":  productID,
-			"title":       title,
-			"source":      string(source),
+			"document_id":	documentID,
+			"product_id":	productID,
+			"title":	title,
+			"source":	string(source),
 		},
-		CreatedAt: time.Now(),
+		CreatedAt:	time.Now(),
 	}
 	chunks, err := s.processor.ProcessDocument(bgCtx, ragDoc)
 	if err != nil {
@@ -439,10 +439,10 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 
 	// 4. 写入分段表（分片携带文档级基础信息 + 业务附加字段）
 	baseMeta := map[string]any{
-		"document_id": float64(documentID),
-		"product_id":  float64(productID),
-		"title":       title,
-		"source":      string(source),
+		"document_id":	float64(documentID),
+		"product_id":	float64(productID),
+		"title":	title,
+		"source":	string(source),
 	}
 	for k, v := range docMeta {
 		baseMeta[k] = v
@@ -458,15 +458,15 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		}
 		metaBytes, _ := json.Marshal(chunkMeta)
 		chunkModels = append(chunkModels, model.KnowledgeChunk{
-			DocumentID: documentID,
-			ProductID:  productID,
+			DocumentID:	documentID,
+			ProductID:	productID,
 
-			ChunkIndex:  idx,
-			Content:     c.Content,
-			ContentHash: hashStr,
-			TokenCount:  c.TokenCount,
-			CharCount:   len(c.Content),
-			Metadata:    string(metaBytes),
+			ChunkIndex:	idx,
+			Content:	c.Content,
+			ContentHash:	hashStr,
+			TokenCount:	c.TokenCount,
+			CharCount:	len(c.Content),
+			Metadata:	string(metaBytes),
 		})
 		totalTokens += c.TokenCount
 	}
@@ -506,14 +506,14 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		idxChunks := make([]ragretrieval.Chunk, len(chunks))
 		for i, c := range chunks {
 			idxChunks[i] = ragretrieval.Chunk{
-				ID:         c.ID,
-				DocumentID: c.DocumentID,
-				Content:    c.Content,
-				Metadata:   c.Metadata,
-				Embedding:  embeddings[i],
-				Score:      c.Score,
-				TokenCount: c.TokenCount,
-				ChunkIndex: i,
+				ID:		c.ID,
+				DocumentID:	c.DocumentID,
+				Content:	c.Content,
+				Metadata:	c.Metadata,
+				Embedding:	embeddings[i],
+				Score:		c.Score,
+				TokenCount:	c.TokenCount,
+				ChunkIndex:	i,
 			}
 		}
 		_ = s.indexer.BuildIndex(bgCtx, fmt.Sprintf("product_%d", productID), idxChunks)
@@ -578,14 +578,14 @@ func (s *KnowledgeService) GetProgress(ctx context.Context, documentID uint64) (
 		return nil, err
 	}
 	return map[string]any{
-		"id":             doc.ID,
-		"title":          doc.Title,
-		"embed_status":   doc.EmbedStatus,
-		"embed_progress": doc.EmbedProgress,
-		"chunk_count":    doc.ChunkCount,
-		"total_tokens":   doc.TotalTokens,
-		"error_msg":      doc.ErrorMsg,
-		"last_index_at":  doc.LastIndexAt,
+		"id":			doc.ID,
+		"title":		doc.Title,
+		"embed_status":		doc.EmbedStatus,
+		"embed_progress":	doc.EmbedProgress,
+		"chunk_count":		doc.ChunkCount,
+		"total_tokens":		doc.TotalTokens,
+		"error_msg":		doc.ErrorMsg,
+		"last_index_at":	doc.LastIndexAt,
 	}, nil
 }
 
@@ -670,38 +670,27 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 			dim = 1024
 		}
 		cfg := &llm.EmbeddingConfig{
-			APIType:        prod.EmbeddingProviderConfig.APIType,
-			BaseURL:        prod.EmbeddingProviderConfig.BaseURL,
-			Model:          prod.EmbeddingProviderConfig.Model,
-			APIKey:         prod.EmbeddingProviderConfig.APIKey,
-			Dimension:      dim,
-			AllowFallback:  false,
-			RequestTimeout: 60,
-			MaxRetries:     2,
+			APIType:	prod.EmbeddingProviderConfig.APIType,
+			BaseURL:	prod.EmbeddingProviderConfig.BaseURL,
+			Model:		prod.EmbeddingProviderConfig.Model,
+			APIKey:		prod.EmbeddingProviderConfig.APIKey,
+			Dimension:	dim,
+			AllowFallback:	false,
+			RequestTimeout:	60,
+			MaxRetries:	2,
 		}
 		return llm.NewEmbeddingServiceWithConfig(cfg), cfg
 	}
 	return s.embeddingSvc, nil
 }
 
-// persistChunkEmbeddings 将向量写入 knowledge_chunks.embedding（pgvector vector(1024)），
-// 并标记 embed_status='indexed'。这是检索侧 vectorSearch 能读到向量的前提。
+// persistChunkEmbeddings 委托给 chunkRepo 持久化 embedding
+//
+// 2026-07-23 五层架构治理（二轮）：原实现直接在 service 中 tx.Exec 写 SQL，
+// 违反 §3.5"service 不应写 SQL"。已下沉到
+// `repository.KnowledgeChunkRepository.UpdateEmbeddingsBatch`。
 func (s *KnowledgeService) persistChunkEmbeddings(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
-	if len(chunks) != len(embeddings) {
-		return fmt.Errorf("分片数与向量数不一致: %d != %d", len(chunks), len(embeddings))
-	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for i, c := range chunks {
-			vec := vecToPGString(embeddings[i])
-			if err := tx.Exec(
-				"UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed' WHERE id = $2",
-				vec, c.ID,
-			).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return s.chunkRepo.UpdateEmbeddingsBatch(ctx, chunks, embeddings)
 }
 
 // EmbedAndPersistChunks 向量化指定分片并写入 knowledge_chunks.embedding（per-product 配置优先）。
@@ -761,8 +750,8 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID, id int64) err
 func (s *KnowledgeService) RebuildIndex(ctx context.Context, productID int64) error {
 	docs, _, err := s.docRepo.List(ctx, repository.ListFilter{
 
-		ProductID: productID,
-		PageSize:  10000,
+		ProductID:	productID,
+		PageSize:	10000,
 	})
 	if err != nil {
 		return err
@@ -813,16 +802,16 @@ func (s *KnowledgeService) logImport(ctx context.Context, req *ImportRequest, do
 	productNumericID := HashStringToInt64(req.ProductID)
 	log := &model.KnowledgeImportLog{
 
-		ProductID:   productNumericID,
-		DocumentID:  docIDPtr,
-		SourceType:  string(req.SourceType),
-		BatchNo:     req.BatchNo,
-		Status:      status,
-		Operator:    req.Operator,
-		IP:          req.IP,
-		UserAgent:   req.UserAgent,
-		DurationMs:  durationMs,
-		ErrorDetail: errMsg,
+		ProductID:	productNumericID,
+		DocumentID:	docIDPtr,
+		SourceType:	string(req.SourceType),
+		BatchNo:	req.BatchNo,
+		Status:		status,
+		Operator:	req.Operator,
+		IP:		req.IP,
+		UserAgent:	req.UserAgent,
+		DurationMs:	durationMs,
+		ErrorDetail:	errMsg,
 	}
 	return s.importLogRepo.Create(ctx, log)
 }
@@ -924,6 +913,7 @@ func getMimeType(ext string) string {
 }
 
 // dbGetDB 内部获取 DB(避免循环依赖)
+// 五层架构合规:仅在 service 构造函数处使用 _db.GetDB(),service 方法体内不直接调
 func dbGetDB() *gorm.DB {
 	return db.GetDB()
 }

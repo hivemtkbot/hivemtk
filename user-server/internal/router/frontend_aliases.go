@@ -33,6 +33,9 @@ import (
 // 此函数必须在其他 setup* 函数之后调用，避免被更具体的路由抢先匹配。
 // 通过 recover 机制捕获 Gin 在重复注册时的 panic，保证已存在路由不影响其他别名。
 func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
+	// 2026-07-23 五层架构治理（二轮）：构造本地 aiAgentSvc 供 agent_status controller
+	// 使用，避免 controller 直接调 dbutil.GetDB()。
+	aiAgentSvc := service.NewAIAgentService(db.GetDB())
 	// 通用 helper：注册时捕获重复注册的 panic
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {
 		defer func() {
@@ -69,7 +72,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 1. 通知中心 - 别名（前端用 /api/notifications）
 	// 已在 auth_routes.go 中注册基础路由
 	// ============================================================
-	notifCtrl := controller.NewNotificationController(db.GetDB())
+	notifCtrl := controller.NewNotificationController()
 	doReg("GET", "/notifications/list", notifCtrl.List)
 
 	// ============================================================
@@ -174,7 +177,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 9. 统一收件箱 - 别名（前端用 /api/inbox/conversations）
 	// ============================================================
-	inboxCtrl := controller.NewInboxController(db.GetDB())
+	inboxCtrl := controller.NewInboxController()
 	doReg("GET", "/inbox/conversations", inboxCtrl.List)
 	doReg("GET", "/inbox/conversations/list", inboxCtrl.List)
 	doReg("GET", "/inbox/messages", inboxCtrl.GetMessages)
@@ -200,7 +203,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 11. 意图识别 - 别名（前端用 /api/intent-records）
 	// ============================================================
-	intentCtrl := controller.NewIntentController(db.GetDB())
+	intentCtrl := controller.NewIntentController()
 	doReg("GET", "/intent-records", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/list", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/stats", intentCtrl.Stats)
@@ -211,7 +214,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 12. 对话记忆 - 别名（前端用 /api/dialogue-memories）
 	// ============================================================
-	memCtrl := controller.NewDialogueMemoryController(db.GetDB())
+	memCtrl := controller.NewDialogueMemoryController()
 	doReg("GET", "/dialogue-memories", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/list", memCtrl.Stats)
 	doReg("GET", "/dialogue-memories/stats", memCtrl.Stats)
@@ -251,7 +254,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 14. 触达 Pipeline - 别名（前端用 /api/reach-pipelines）
 	// ============================================================
-	reachCtrl := controller.NewReachPipelineController(db.GetDB())
+	reachCtrl := controller.NewReachPipelineController()
 	doReg("GET", "/reach-pipelines", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/list", reachCtrl.ListPipelines)
 	doReg("GET", "/reach-pipelines/:id", reachCtrl.GetPipeline)
@@ -284,7 +287,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 17. SOP 智能体 - 别名
 	// ============================================================
-	sopCtrl := controller.NewSOPController(db.GetDB())
+	sopCtrl := controller.NewSOPController()
 	doReg("GET", "/sop-agents", sopCtrl.List)
 	doReg("GET", "/sop-agents/list", sopCtrl.List)
 	doReg("GET", "/sop-agents/stats", sopCtrl.Stats)
@@ -316,7 +319,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 19. 坐席状态 - 别名（前端用 /api/agent-statuses）
 	// ============================================================
-	agentStatusCtrl := controller.NewAgentStatusController()
+	agentStatusCtrl := controller.NewAgentStatusController(aiAgentSvc)
 	doReg("GET", "/agent-statuses", agentStatusCtrl.GetOnlineAgents)
 	doReg("GET", "/agent-statuses/online", agentStatusCtrl.GetOnlineAgents)
 	doReg("GET", "/agent-statuses/list", agentStatusCtrl.ListAllAgents)
@@ -463,7 +466,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 31. TikTok 卡片 - 别名
 	// ============================================================
-	tiktokCtrl := controller.NewTikTokCardController()
+	tiktokCtrl := controller.NewTikTokCardController(service.NewTikTokCardServiceWithDB(db.GetDB()))
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/:id", tiktokCtrl.Get)
@@ -485,7 +488,7 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 33. Telegram - 别名
 	// ============================================================
-	tgCtrl := controller.NewTelegramAccountController()
+	tgCtrl := controller.NewTelegramAccountController(service.NewTelegramService(db.GetDB()))
 	doReg("GET", "/telegram/accounts", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/list", tgCtrl.List)
 	doReg("GET", "/telegram/accounts/:id", tgCtrl.Get)

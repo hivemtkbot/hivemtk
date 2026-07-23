@@ -207,7 +207,7 @@ func Setup(r *gin.Engine) {
 		setupWeComRoutes(auth)
 
 		// 客服会话管理
-		setupCustomerServiceRoutes(auth)
+		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal)
 
 		// P0-10 ADR-010: 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
 		setupChatChannelAdminRoutes(auth, db.GetDB())
