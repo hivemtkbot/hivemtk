@@ -149,8 +149,9 @@ import { ElMessage } from 'element-plus'
 import { Refresh, DataLine, CircleCheck, Warning, Plus } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { clueApi } from '@/api/clue'
-import { getClueName } from '@/utils/map'
 import { getChannelLabel } from '@/constants/channel'
+// 线索类型：取自统一 cardPlatform 常量
+import { getClueTypeLabel } from '@/constants/cardPlatform'
 
 const dateRange = ref([])
 const loading = ref(false)
@@ -166,7 +167,7 @@ const typeRef = ref(null)
 const verifyRef = ref(null)
 const charts = {}
 
-const getClueType = (t) => getClueName(t)
+const getClueType = (t) => getClueTypeLabel(t)
 
 const fetchAll = async () => {
   loading.value = true

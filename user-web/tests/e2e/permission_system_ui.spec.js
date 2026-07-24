@@ -76,15 +76,36 @@ async function createCustomerServiceUser(token) {
   return { id: data?.data?.id, username, password }
 }
 
-// webLogin: 强制 locale=zh，避免 i18n 检测歧义
-// 用 addInitScript 在页面加载前注入 localStorage，避开 i18n init 时 localStorage 尚未写入的问题
-async function webLogin(page, username, password) {
+// webLogin: 优先用 token + userInfo 直接注入 localStorage，避免重复登录触发防爆破
+// fallback: 当未传 token 时走 UI 登录表单
+async function webLogin(page, username, password, token, userInfo) {
+  // 1. 决定用 token 还是 UI 登录
+  const useToken = token || null
+
   // 先访问根 URL 注入 init script（必须在任何页面加载前）
-  await page.addInitScript(() => {
+  await page.addInitScript(({ tok, locale, info, initFlag, name }) => {
     try {
-      localStorage.setItem('app_locale', 'zh')
+      localStorage.setItem('app_locale', locale)
+      localStorage.setItem('system_initialized', initFlag)
+      if (tok) localStorage.setItem('token', tok)
+      if (info) localStorage.setItem('user_info', JSON.stringify(info))
     } catch (e) {}
+  }, {
+    tok: useToken,
+    locale: 'zh',
+    info: userInfo || null,
+    initFlag: 'true',
+    name: username
   })
+
+  if (useToken) {
+    // 直接访问受保护页面（router 守卫会读取 localStorage.token 放行）
+    await page.goto(`${BASE}/#/unifiedInbox/list`)
+    await page.waitForTimeout(1500)
+    return
+  }
+
+  // fallback：UI 登录（仅在没有 token 时使用）
   await page.goto(`${BASE}/#/login`)
   try {
     await page.waitForSelector('.login-box', { timeout: 10000 })
@@ -149,8 +170,25 @@ async function clickAsideSubMenu(page, text) {
 test.describe('权限系统 UI 多角色验证', () => {
   let adminToken = ''
   let adminPassword = ''
+  let adminUserInfo = null
   let csUsername = ''
   let csPassword = ''
+  let csToken = ''
+  let csUserInfo = null
+
+  // 直接用 API 登录客服账号拿到 token（与 CSRF/防爆破隔离）
+  async function loginByApi(username, password) {
+    const resp = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    })
+    const data = await resp.json()
+    if (data?.code === 'SUCCESS' && data?.data?.token) {
+      return { token: data.data.token, user: data.data.user }
+    }
+    return null
+  }
 
   test.beforeAll(async () => {
     const result = await adminLogin()
@@ -159,12 +197,32 @@ test.describe('权限系统 UI 多角色验证', () => {
     }
     adminToken = result.token
     adminPassword = result.password
+    // 构造 user_info（user store 期望的字段）
+    adminUserInfo = {
+      id: 136,
+      username: 'admin',
+      role: 'admin',
+      real_name: '系统超管',
+      email: 'admin@hivemtk.demo'
+    }
     console.log(`✓ admin token 获取成功 (pwd=${adminPassword})`)
 
     const cs = await createCustomerServiceUser(adminToken)
     if (cs) {
       csUsername = cs.username
       csPassword = cs.password
+      // 直接登录客服拿 token
+      const login = await loginByApi(csUsername, csPassword)
+      if (login) {
+        csToken = login.token
+        csUserInfo = {
+          id: login.user?.id || 0,
+          username: csUsername,
+          role: 'customer_service',
+          real_name: login.user?.real_name || 'UI测试客服',
+          email: login.user?.email || `${csUsername}@test.com`
+        }
+      }
       console.log(`✓ 测试客服账号创建成功: ${csUsername}`)
     } else {
       console.log(`⚠ 创建客服失败（/api/system/users 路由可能未注册）`)
@@ -174,7 +232,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 1. admin 顶栏能看到"系统设置"和"团队"菜单 -----
   test('1. admin 顶栏能看到"系统设置"菜单', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.screenshot({ path: `${SCREENSHOT_DIR}/admin-home.png`, fullPage: true })
 
     // 强制 locale=zh，菜单项使用硬编码中文
@@ -200,7 +258,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 2. admin 点击"系统设置"出现"团队"侧边栏 -----
   test('2. admin 点击"系统设置"出现"团队"侧边栏', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.waitForTimeout(1000)
 
     await clickTopMenu(page, '系统设置')
@@ -215,7 +273,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 3. admin 团队菜单下能看到 3 个子项 -----
   test('3. admin 团队菜单下能看到 3 个子项（人员/角色/授权）', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.waitForTimeout(1000)
 
     await clickTopMenu(page, '系统设置')
@@ -245,7 +303,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 4. admin 点击"人员管理"能进入 /system/users -----
   test('4. admin 点击"人员管理"能进入 /system/users', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.waitForTimeout(1000)
 
     await clickTopMenu(page, '系统设置')
@@ -269,7 +327,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 5. admin 点击"角色管理"能进入 /system/roles -----
   test('5. admin 点击"角色管理"能进入 /system/roles', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.waitForTimeout(1000)
 
     await clickTopMenu(page, '系统设置')
@@ -293,7 +351,7 @@ test.describe('权限系统 UI 多角色验证', () => {
   // ----- 6. admin 点击"授权管理"能进入 /system/permissions -----
   test('6. admin 点击"授权管理"能进入 /system/permissions', async ({ page }) => {
     test.setTimeout(60000)
-    await webLogin(page, 'admin', adminPassword)
+    await webLogin(page, 'admin', adminPassword, adminToken, adminUserInfo)
     await page.waitForTimeout(1000)
 
     await clickTopMenu(page, '系统设置')
@@ -319,7 +377,7 @@ test.describe('权限系统 UI 多角色验证', () => {
     test.setTimeout(60000)
     test.skip(!csUsername, '客服账号不可用（/api/system/users 路由未注册）')
 
-    await webLogin(page, csUsername, csPassword)
+    await webLogin(page, csUsername, csPassword, csToken, csUserInfo)
     await page.screenshot({ path: `${SCREENSHOT_DIR}/cs-home.png`, fullPage: true })
 
     // 客服看不到"系统设置"顶菜单（因为 roles 限定 admin）
@@ -339,7 +397,7 @@ test.describe('权限系统 UI 多角色验证', () => {
     test.setTimeout(60000)
     test.skip(!csUsername, '客服账号不可用')
 
-    await webLogin(page, csUsername, csPassword)
+    await webLogin(page, csUsername, csPassword, csToken, csUserInfo)
     await page.goto(`${BASE}/#/system/users`)
     await page.waitForTimeout(2500)
     await page.screenshot({ path: `${SCREENSHOT_DIR}/cs-direct-users.png`, fullPage: true })

@@ -13,6 +13,7 @@
       <el-menu
         :default-active="activeTopMenu"
         mode="horizontal"
+        :ellipsis="false"
         @select="handleTopMenuSelect"
         class="top-menu"
       >
@@ -728,9 +729,21 @@ onMounted(async () => {
 }
 .top-menu {
   flex: 1;
+  min-width: 0; /* 允许 flex 子项收缩，配合下方 overflow 让菜单可横向滚动 */
   border-bottom: none;
   background: transparent;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
+/* 强制 el-menu 内部容器按内容宽度展开，避免 el-menu 自行将溢出项 hidden 掉 */
+.top-menu.el-menu,
+.top-menu > .el-menu,
+.top-menu .el-menu--horizontal {
+  min-width: max-content;
+}
+.top-menu::-webkit-scrollbar { height: 4px; }
+.top-menu::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
 .top-menu .el-menu-item {
   height: 64px;
   line-height: 64px;

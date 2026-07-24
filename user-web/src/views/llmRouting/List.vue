@@ -266,6 +266,124 @@
           </el-table>
         </el-card>
       </el-tab-pane>
+
+      <!-- Tab 6: 分类统计与出域审计（v3.7.0 补：本地/云端分类 + 健康度 + 出域告警） -->
+      <el-tab-pane label="分类统计与出域审计" name="modeltype">
+        <el-row :gutter="20" class="stat-row">
+          <el-col :span="12">
+            <el-card v-loading="loading.modelType">
+              <template #header>
+                <div class="card-header">
+                  <span>本地 vs 云端 分类统计</span>
+                  <el-radio-group v-model="modelTypeWindow" size="small" @change="loadModelType">
+                    <el-radio-button label="today">今日</el-radio-button>
+                    <el-radio-button label="week">近 7 天</el-radio-button>
+                    <el-radio-button label="month">近 30 天</el-radio-button>
+                    <el-radio-button label="all">全部</el-radio-button>
+                  </el-radio-group>
+                </div>
+              </template>
+              <el-row :gutter="12">
+                <el-col :span="8">
+                  <div class="metric-box local">
+                    <div class="metric-label">本地模型调用</div>
+                    <div class="metric-value">{{ getModelTypeCount('local') }}</div>
+                    <div class="metric-sub">¥{{ getModelTypeCost('local').toFixed(4) }}</div>
+                  </div>
+                </el-col>
+                <el-col :span="8">
+                  <div class="metric-box cloud">
+                    <div class="metric-label">云端模型调用</div>
+                    <div class="metric-value">{{ getModelTypeCount('cloud') }}</div>
+                    <div class="metric-sub">¥{{ getModelTypeCost('cloud').toFixed(4) }}</div>
+                  </div>
+                </el-col>
+                <el-col :span="8">
+                  <div class="metric-box">
+                    <div class="metric-label">缺失计量（missing）</div>
+                    <div class="metric-value">{{ getModelTypeCount('missing') }}</div>
+                    <div class="metric-sub">{{ getMissingRatio() }}%</div>
+                  </div>
+                </el-col>
+              </el-row>
+              <el-divider />
+              <div class="self-sufficiency">
+                <div class="metric-label">本地自给率（{{ formatPercent(getSelfSufficiency()) }}%）</div>
+                <el-progress
+                  :percentage="formatPercent(getSelfSufficiency())"
+                  :stroke-width="14"
+                  :color="['#67c23a', '#e6a23c', '#f56c6c']"
+                />
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card v-loading="loading.health">
+              <template #header>
+                <div class="card-header">
+                  <span>Provider 健康度（含熔断器）</span>
+                  <el-button size="small" @click="loadHealth">
+                    <el-icon><Refresh /></el-icon> 刷新
+                  </el-button>
+                </div>
+              </template>
+              <el-table :data="llmHealth.providers || []" stripe size="small">
+                <template #empty><el-empty description="暂无健康数据" /></template>
+                <el-table-column prop="name" label="Provider" min-width="120" />
+                <el-table-column prop="vendor" label="厂商" width="100" />
+                <el-table-column label="状态" width="100" align="center">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.healthy" type="success" size="small">健康</el-tag>
+                    <el-tag v-else-if="row.circuit_open" type="danger" size="small">熔断</el-tag>
+                    <el-tag v-else type="warning" size="small">降级</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="错误" width="80" align="center">
+                  <template #default="{ row }">{{ row.error_count || 0 }}</template>
+                </el-table-column>
+                <el-table-column prop="avg_latency" label="时延(ms)" width="100" align="center" />
+                <el-table-column label="最后错误" min-width="160" show-overflow-tooltip>
+                  <template #default="{ row }">{{ row.last_error || '-' }}</template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </el-col>
+        </el-row>
+        <el-card style="margin-top: 20px" v-loading="loading.egress">
+          <template #header>
+            <div class="card-header">
+              <span>出域告警（应本地但走云端的异常调用）</span>
+              <el-button size="small" @click="loadEgressAlerts">
+                <el-icon><Refresh /></el-icon> 刷新
+              </el-button>
+            </div>
+          </template>
+          <el-alert
+            v-if="egressAlerts.length === 0"
+            type="success"
+            :closable="false"
+            title="未发现出域异常"
+            description="所有应当本地推理的请求均未出域"
+            show-icon
+          />
+          <el-table v-else :data="egressAlerts" stripe size="small">
+            <el-table-column prop="scenario" label="场景" min-width="120" />
+            <el-table-column prop="provider" label="Provider" min-width="120" />
+            <el-table-column prop="model" label="Model" min-width="140" />
+            <el-table-column prop="base_url" label="出域 URL" min-width="240" show-overflow-tooltip />
+            <el-table-column prop="vendor" label="厂商" width="100" />
+            <el-table-column label="出域次数" width="100" align="center">
+              <template #default="{ row }">{{ row.call_count || 0 }}</template>
+            </el-table-column>
+            <el-table-column label="首次出现" min-width="180">
+              <template #default="{ row }">{{ formatTime(row.first_seen) }}</template>
+            </el-table-column>
+            <el-table-column label="最近出现" min-width="180">
+              <template #default="{ row }">{{ formatTime(row.last_seen) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 模型新增/编辑 dialog（字段映射 ProviderConfig） -->
@@ -351,7 +469,7 @@ import { Plus, Refresh } from '@element-plus/icons-vue'
 import { LlmRoutingApi } from '@/api/llmRouting.js'
 
 const activeTab = ref('models')
-const loading = reactive({ models: false, routing: false, fallback: false, cost: false, audit: false })
+const loading = reactive({ models: false, routing: false, fallback: false, cost: false, audit: false, modelType: false, health: false, egress: false })
 
 // 数据
 const models = ref([])
@@ -359,6 +477,12 @@ const sceneRouting = ref([])
 const costStats = ref({})
 const auditList = ref([])
 const costWindow = ref('month')
+
+// 分类统计 / 健康度 / 出域审计
+const modelTypeWindow = ref('month')
+const modelTypeStats = ref({ by_provider_type: [], self_sufficiency: 0, total_calls: 0 })
+const llmHealth = ref({ status: 'unknown', providers: [], healthy_providers: 0, total_providers: 0 })
+const egressAlerts = ref([])
 
 // Fallback 视图：取 sceneRouting 的 provider+fallbacks
 const fallbackRows = computed(() => sceneRouting.value.map(r => ({
@@ -480,11 +604,86 @@ const loadAudit = async () => {
   }
 }
 
+// ============================================================================
+// v3.7.0：分类统计 / 健康度 / 出域审计 加载
+// ============================================================================
+
+const loadModelType = async () => {
+  loading.modelType = true
+  try {
+    const res = await LlmRoutingApi.getModelTypeStats(modelTypeWindow.value)
+    modelTypeStats.value = res || { by_provider_type: [], self_sufficiency: 0, total_calls: 0 }
+  } catch (e) {
+    modelTypeStats.value = { by_provider_type: [], self_sufficiency: 0, total_calls: 0 }
+  } finally {
+    loading.modelType = false
+  }
+}
+
+const loadHealth = async () => {
+  loading.health = true
+  try {
+    const res = await LlmRoutingApi.getHealth()
+    llmHealth.value = res || { status: 'unknown', providers: [], healthy_providers: 0, total_providers: 0 }
+  } catch (e) {
+    llmHealth.value = { status: 'unknown', providers: [], healthy_providers: 0, total_providers: 0 }
+  } finally {
+    loading.health = false
+  }
+}
+
+const loadEgressAlerts = async () => {
+  loading.egress = true
+  try {
+    const res = await LlmRoutingApi.getEgressAlerts()
+    egressAlerts.value = Array.isArray(res) ? res : (res?.list || res?.items || res?.data || [])
+  } catch (e) {
+    egressAlerts.value = []
+  } finally {
+    loading.egress = false
+  }
+}
+
+// 从 by_provider_type 数组中取指定 model_type 的行
+const findModelTypeRow = (modelType) => {
+  const arr = modelTypeStats.value.by_provider_type || []
+  return arr.find(r => r.model_type === modelType) || {}
+}
+
+const getModelTypeCount = (modelType) => {
+  return Number(findModelTypeRow(modelType).call_count || 0)
+}
+
+const getModelTypeCost = (modelType) => {
+  return Number(findModelTypeRow(modelType).total_cost || 0)
+}
+
+const getSelfSufficiency = () => {
+  // 服务端可能返回 0~1 或 0~100，兼容两种
+  const raw = Number(modelTypeStats.value.self_sufficiency || 0)
+  return raw <= 1 ? raw * 100 : raw
+}
+
+const getMissingRatio = () => {
+  const total = Number(modelTypeStats.value.total_calls || 0)
+  if (total === 0) return '0.00'
+  const missing = getModelTypeCount('missing')
+  return ((missing / total) * 100).toFixed(2)
+}
+
+const formatPercent = (v) => {
+  const n = Number(v || 0)
+  return Math.min(100, Math.max(0, n)).toFixed(2)
+}
+
 const refreshAll = () => {
   loadModels()
   loadRouting()
   loadCost()
   loadAudit()
+  loadModelType()
+  loadHealth()
+  loadEgressAlerts()
 }
 
 // ============================================================================
@@ -691,4 +890,19 @@ onMounted(() => {
 .text-muted { color: #c0c4cc; }
 .cost-free { color: #67C23A; }
 .cost-paid { color: #F56C6C; }
+
+// v3.7.0：分类统计 / 自给率 metric-box
+.metric-box {
+  padding: 16px 8px;
+  border-radius: 8px;
+  background: #f7f8fa;
+  text-align: center;
+  margin-bottom: 8px;
+  .metric-label { color: #909399; font-size: 13px; }
+  .metric-value { font-size: 28px; font-weight: 700; color: #303133; margin: 4px 0; }
+  .metric-sub { color: #909399; font-size: 12px; }
+  &.local { background: #f0f9eb; }
+  &.cloud { background: #fdf6ec; }
+}
+.self-sufficiency { padding: 0 4px; }
 </style>

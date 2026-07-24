@@ -11,10 +11,12 @@
       <el-form :model="filterForm" inline label-width="80px" style="margin-bottom: 20px;">
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" placeholder="选择线索状态" clearable>
-            <el-option label="新线索" value="new" />
-            <el-option label="已联系" value="contacted" />
-            <el-option label="已转化" value="converted" />
-            <el-option label="已流失" value="lost" />
+            <el-option
+              v-for="opt in leadStatusOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
           </el-select>
         </el-form-item>
         
@@ -111,11 +113,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as clueApi from '@/api/clue'
 import { useRouter } from 'vue-router'
+import { LEAD_STATUS_OPTIONS_SIMPLE, getLeadStatusLabel, getLeadStatusTagType } from '@/constants/leadStatus'
 
 const router = useRouter()
 const loading = ref(false)
 const leads = ref([])
 const selectedLeads = ref([])
+const leadStatusOptions = LEAD_STATUS_OPTIONS_SIMPLE
 
 const pagination = reactive({
   currentPage: 1,

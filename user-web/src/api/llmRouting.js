@@ -3,7 +3,7 @@ import { http } from '@/utils/request'
 /**
  * LLM 多模型路由 API
  *
- * 端点对齐（2026-07-23 重构）：
+ * 端点对齐（2026-07-24 补全）：
  *  - GET    /api/llm/models            列出所有 provider
  *  - GET    /api/llm/models/:name      单个 provider
  *  - POST   /api/llm/models            新增 provider
@@ -12,6 +12,7 @@ import { http } from '@/utils/request'
  *  - POST   /api/llm/models/:name/test 测试 provider 连通性
  *  - GET    /api/llm/strategies        列出场景路由
  *  - PUT    /api/llm/strategies        批量更新场景路由
+ *  - GET    /api/llm/scenarios         场景列表（strategies 别名）
  *  - GET    /api/llm/scene-routing     列出场景路由（兼容旧前端）
  *  - PUT    /api/llm/scene-routing     批量更新场景路由（兼容旧前端）
  *  - GET    /api/llm/fallback          Fallback 兜底配置
@@ -19,6 +20,10 @@ import { http } from '@/utils/request'
  *  - GET    /api/llm/stats             进程内实时统计
  *  - GET    /api/llm/usage             跨进程历史统计
  *  - GET    /api/llm/cost-stats        成本统计（含按场景维度）
+ *  - GET    /api/llm/health            整体健康度（含熔断器）
+ *  - GET    /api/llm/model-type-stats  本地/云端分类统计
+ *  - GET    /api/llm/egress-audit      出域审计
+ *  - GET    /api/llm/egress-alerts     出域告警
  */
 export const LlmRoutingApi = {
   // ===== Provider / Model 管理 =====
@@ -66,6 +71,11 @@ export const LlmRoutingApi = {
     return http.get('/api/llm/scene-routing')
   },
 
+  // 获取场景列表（与 strategies 同义）
+  getScenarios: () => {
+    return http.get('/api/llm/scenarios')
+  },
+
   // 保存场景路由配置（批量更新）
   // data 应为 { routes: [...] } 或直接数组
   saveSceneRouting: (data) => {
@@ -105,5 +115,29 @@ export const LlmRoutingApi = {
   // 成本统计（含按场景维度，含 by_model 字段别名）
   getCostStats: (window = 'month') => {
     return http.get('/api/llm/cost-stats', { window })
+  },
+
+  // ===== 健康度 =====
+
+  // 整体健康度（含熔断器、错误计数、最后错误）
+  getHealth: () => {
+    return http.get('/api/llm/health')
+  },
+
+  // ===== 本地/云端分类统计与出域审计 =====
+
+  // 本地 vs 云端分类统计（按 model_type 维度）
+  getModelTypeStats: (window = 'month') => {
+    return http.get('/api/llm/model-type-stats', { window })
+  },
+
+  // 出域审计（检测"应该本地但走云端"的异常调用）
+  getEgressAudit: (params = {}) => {
+    return http.get('/api/llm/egress-audit', params)
+  },
+
+  // 出域告警
+  getEgressAlerts: (params = {}) => {
+    return http.get('/api/llm/egress-alerts', params)
   }
 }

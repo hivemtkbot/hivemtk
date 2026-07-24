@@ -176,6 +176,8 @@ import i18n from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
+// 订单/作业状态：取自统一 orderStatus 常量
+import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
 import DOMPurify from 'dompurify'
 
 // 任务列表数据

@@ -20,6 +20,11 @@
  * - intentType.js  对话意图（purchase/price_inquiry/...）
  * - trend.js       趋势方向（up/down/flat）
  * - status.js      业务级 status 集（任务/同步/备份/实验/群组/内容/审核/提示词/黑名单/会话/阶段/对话/嵌入/坐席/通过失败/分群类型）
+ * - leadStatus.js  线索状态（new/contacted/qualified/negotiating/converted/lost/invalid）
+ * - customerTag.js 客户状态/标签（active/inactive/lost/churn/vip/high_value/...）
+ * - accountType.js 账号状态（1/2/3，active/online/offline/banned + 风险等级）
+ * - orderStatus.js 订单/作业状态（pending/running/paused/completed/failed/cancelled/...）
+ * - cardPlatform.js 卡片/线索平台（douyin/kuaishou/xiaohongshu/xianyu/tiktok + 1-4 数字线索类型）
  */
 
 export * as channel from './channel'
@@ -37,6 +42,11 @@ export * as rating from './rating'
 export * as intentType from './intentType'
 export * as trend from './trend'
 export * as status from './status'
+export * as leadStatus from './leadStatus'
+export * as customerTag from './customerTag'
+export * as accountType from './accountType'
+export * as orderStatus from './orderStatus'
+export * as cardPlatform from './cardPlatform'
 
 export { default as channelDefault } from './channel'
 export { default as sourceDefault } from './source'
@@ -53,3 +63,8 @@ export { default as ratingDefault } from './rating'
 export { default as intentTypeDefault } from './intentType'
 export { default as trendDefault } from './trend'
 export { default as statusDefault } from './status'
+export { default as leadStatusDefault } from './leadStatus'
+export { default as customerTagDefault } from './customerTag'
+export { default as accountTypeDefault } from './accountType'
+export { default as orderStatusDefault } from './orderStatus'
+export { default as cardPlatformDefault } from './cardPlatform'

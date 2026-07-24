@@ -233,6 +233,8 @@ import { Refresh, Plus, ArrowDown, Link, Promotion, RefreshRight, DataLine } fro
 import { wecomAccountApi } from '@/api/wecomAccount.js'
 import AgentBindingDialog from '@/components/AgentBindingDialog.vue'
 import WeComSendDialog from '@/components/WeComSendDialog.vue'
+// 账号登录状态/风险等级：取自统一 accountType 常量
+import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType'
 
 const router = useRouter()
 

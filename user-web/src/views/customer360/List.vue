@@ -181,14 +181,17 @@ import { getExternalOrdersByCustomer } from '@/api/integration.js'
 import { toList } from '@/utils/list'
 // 渠道 label：取自统一 channel 常量
 import { getChannelLabel } from '@/constants/channel'
+// 客户状态 label/type：取自统一 customerTag 常量（active/inactive/lost/churn）
+import {
+  getCustomerStatusLabel as getCustomerStatusLabelFromConst,
+  getCustomerStatusTagType as getCustomerStatusTagTypeFromConst
+} from '@/constants/customerTag'
 // 客户状态 label/type：取自统一 enabled 常量（active/disabled）
 import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
 
 // 客户状态 label/type：active=正常，inactive/lost=流失/不活跃
-const CUSTOMER_STATUS_LABEL = { active: '正常', inactive: '不活跃', lost: '已流失', churn: '已流失' }
-const CUSTOMER_STATUS_TAG = { active: 'success', inactive: 'info', lost: 'danger', churn: 'danger' }
-const getCustomerStatusLabel = (s) => CUSTOMER_STATUS_LABEL[s] || getEnabledLabel(s)
-const getCustomerStatusTagType = (s) => CUSTOMER_STATUS_TAG[s] || getEnabledTagType(s)
+const getCustomerStatusLabel = (s) => getCustomerStatusLabelFromConst(s) || getEnabledLabel(s)
+const getCustomerStatusTagType = (s) => getCustomerStatusTagTypeFromConst(s) || getEnabledTagType(s)
 
 const loading = ref(false)
 const searchKeyword = ref('')

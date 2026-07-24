@@ -205,8 +205,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, RefreshRight, Upload } from '@element-plus/icons-vue'
 import { clueApi } from '@/api/clue'
-import { getClueName, getClueMap } from '@/utils/map'
 import { getChannelLabel, getChannelTagType } from '@/constants/channel'
+// 线索类型：取自统一 cardPlatform 常量
+import { getClueTypeLabel, CLUE_TYPE_OPTIONS } from '@/constants/cardPlatform'
 
 // 列表数据
 const cluelist = ref([])
@@ -214,7 +215,7 @@ const cluetotal = ref(0)
 const cluepage = ref(1)
 const cluelimit = ref(10)
 const loading = ref(false)
-const clueTypeMap = ref(getClueMap())
+const clueTypeMap = ref(CLUE_TYPE_OPTIONS.slice())
 const stats = ref({ total: 0, verified: 0, unverified: 0, today: 0 })
 
 // 筛选
@@ -254,7 +255,7 @@ const filteredList = computed(() => {
   return arr
 })
 
-const getClueType = (type) => getClueName(type)
+const getClueType = (type) => getClueTypeLabel(type)
 
 const handlePageChange = (val) => {
   if (cluepage.value === val) return

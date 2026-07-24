@@ -266,6 +266,8 @@ import {
   restoreBackup as callRestoreApi,
   getRestoreList
 } from '@/api/backup.js'
+// 备份状态：取自统一 status 常量
+import { BACKUP_STATUS, getStatusLabel as getStatusLabelFromArr, getStatusTagType as getStatusTagTypeFromArr } from '@/constants/status'
 
 const activeTab = ref('backup')
 
@@ -346,14 +348,9 @@ const getTypeTag = (type) => {
   const map = { full: 'primary', incremental: 'success', differential: 'warning' }
   return map[type] || 'info'
 }
-const getStatusText = (status) => {
-  const map = { pending: '待执行', running: '进行中', completed: '已完成', failed: '失败' }
-  return map[status] || status
-}
-const getStatusType = (status) => {
-  const map = { pending: 'info', running: 'warning', completed: 'success', failed: 'danger' }
-  return map[status] || 'info'
-}
+// 状态显示（统一取自 status 常量 BACKUP_STATUS）
+const getStatusText = (status) => getStatusLabelFromArr(status, BACKUP_STATUS)
+const getStatusType = (status) => getStatusTagTypeFromArr(status, BACKUP_STATUS)
 const formatSize = (bytes) => {
   if (!bytes || bytes <= 0) return '-'
   const units = ['B', 'KB', 'MB', 'GB']

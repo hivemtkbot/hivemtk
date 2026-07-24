@@ -95,6 +95,8 @@ import i18n from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import smsApi from '@/api/sms'
+// 短信发送状态：取自统一 orderStatus 常量
+import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
 
 // 搜索表单
 const searchForm = ref({
