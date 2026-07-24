@@ -189,15 +189,11 @@ type UserProfile struct {
 func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) (*Customer360DTO, error) {
 	dto := &Customer360DTO{}
 
-	// 1. 获取基本信息和会话统计
-	sessions, _, _ := s.sessionRepo.GetByMerchant(ctx, "", 1, 1000)
-
-	// 过滤出该用户的会话
-	var userSessions []*model.CustomerSession
-	for _, session := range sessions {
-		if session.UserID == userID {
-			userSessions = append(userSessions, session)
-		}
+	// 1. 获取该用户的会话（CC-P2 N+1 优化：原 GetByMerchant("", 1, 1000) + 内存过滤，
+	//    改为 GetByUserID 直接走 user_id 索引，单 SQL 拉全该用户会话）
+	userSessions, err := s.sessionRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(userSessions) == 0 {
@@ -213,14 +209,14 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 	// 4. 填充会话历史
 	dto.SessionHistory = s.buildSessionHistory(ctx, userSessions)
 
-	// 5. 填充消息历史
+	// 5. 填充消息历史（CC-P2 N+1 优化：批量拉所有 session 消息，按 session_id 分桶）
 	dto.MessageHistory, _ = s.buildMessageHistory(ctx, userSessions)
 
-	// 6. 填充线索信息
-	dto.ClueInfo, _ = s.buildClueInfo(ctx, userID)
+	// 6. 填充线索信息（CC-P2 N+1 优化：单次 SQL 取代 6 次 GetClueAllList + 内存过滤）
+	dto.ClueInfo, _ = s.buildClueInfo(ctx, userID, userSessions)
 
-	// 7. 填充订单信息
-	dto.OrderInfo, _ = s.buildOrderInfo(ctx, userID)
+	// 7. 填充订单信息（CC-P2 N+1 优化：单次 SQL 取代 GetOrderList(1,10000) + 内存过滤）
+	dto.OrderInfo, _ = s.buildOrderInfo(ctx, userID, userSessions)
 
 	// 8. 填充互动统计
 	dto.InteractionStats = s.buildInteractionStats(ctx, userSessions)
@@ -336,13 +332,43 @@ func (s *Customer360Service) buildSessionHistory(ctx context.Context, sessions [
 }
 
 // buildMessageHistory 构建消息历史
+//
+// CC-P2 N+1 优化：原实现「for session → messageRepo.GetBySessionID」是典型 N+1，
+// 现在改为 ListBySessionIDsBatch 单次 SQL 拉所有 session 的消息，按 session_id 分桶后拼接。
 func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions []*model.CustomerSession) ([]*MessageHistoryItem, error) {
 	history := make([]*MessageHistoryItem, 0)
+	if len(sessions) == 0 {
+		return history, nil
+	}
 
+	// 收集所有 sessionID（按出现顺序去重）
+	sessionIDs := make([]string, 0, len(sessions))
+	seen := make(map[string]struct{}, len(sessions))
 	for _, session := range sessions {
-		messages, _, _ := s.messageRepo.GetBySessionID(ctx, session.SessionID, 1, 100)
+		if session.SessionID == "" {
+			continue
+		}
+		if _, ok := seen[session.SessionID]; ok {
+			continue
+		}
+		seen[session.SessionID] = struct{}{}
+		sessionIDs = append(sessionIDs, session.SessionID)
+	}
+	if len(sessionIDs) == 0 {
+		return history, nil
+	}
+
+	// 单次 SQL 拉所有 session 的消息
+	messageMap, err := s.messageRepo.ListBySessionIDsBatch(ctx, sessionIDs, 100)
+	if err != nil {
+		return history, err
+	}
+
+	// 按 sessions 顺序拼接，保证 message_history 与 session_history 顺序对齐
+	for _, session := range sessions {
+		messages := messageMap[session.SessionID]
 		for _, msg := range messages {
-			item := &MessageHistoryItem{
+			history = append(history, &MessageHistoryItem{
 				SessionID:    msg.SessionID,
 				Content:      msg.Content,
 				SenderType:   msg.SenderType,
@@ -350,8 +376,7 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 				ContentType:  string(msg.ContentType),
 				CreatedAt:    msg.CreatedAt.Format("2006-01-02 15:04:05"),
 				AIConfidence: msg.AIConfidence,
-			}
-			history = append(history, item)
+			})
 		}
 	}
 
@@ -359,16 +384,14 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 }
 
 // buildClueInfo 构建线索信息
-func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string) (*ClueInfo, error) {
-	// 首先获取用户的会话信息来查找联系方式
-	sessions, _, err := s.sessionRepo.GetByMerchant(ctx, "", 1, 1000)
-	if err != nil {
-		return nil, err
-	}
-
-	// 查找该用户的会话
+//
+// CC-P2 N+1 优化：
+//   - 取消「GetByMerchant("", 1, 1000) + 内存过滤」重复 IO，直接复用上层传入的 userSessions
+//   - 取消「遍历 6 种 type → GetClueAllList + 内存过滤」N+1，改为 clueRepo.ListByAccounts 单次 SQL
+func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*ClueInfo, error) {
+	// 从已加载的 userSessions 提取 phone / email / accountID（CC-P2 优化：避免再次 GetByMerchant 拉全表）
 	var userPhone, userEmail, accountID string
-	for _, session := range sessions {
+	for _, session := range userSessions {
 		if session.UserID == userID {
 			userPhone = session.UserPhone
 			userEmail = session.UserEmail
@@ -381,37 +404,17 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string) (
 		return nil, nil
 	}
 
-	// 通过电话或邮箱查询线索
-	var clues []*model.Clue
-
-	// 获取所有线索（遍历常见类型）
-	for _, clueType := range []int64{0, 1, 2, 3, 4, 5} {
-		allClues, _, err := s.clueRepo.GetClueAllList(ctx, clueType)
-		if err == nil {
-			for _, clue := range allClues {
-				// 匹配 Account、Name（手机号）或邮箱
-				if clue.Account == accountID || clue.Account == userPhone || clue.Name == userPhone {
-					// 检查是否已存在，避免重复
-					found := false
-					for _, existing := range clues {
-						if existing.ID == clue.ID {
-							found = true
-							break
-						}
-					}
-					if !found {
-						clues = append(clues, clue)
-					}
-				}
-			}
-		}
+	// 单次 SQL 取代「for type=0..5 → GetClueAllList + 内存去重」（CC-P2 N+1 优化）
+	clues, err := s.clueRepo.ListByAccounts(ctx, []string{accountID, userPhone, userEmail})
+	if err != nil {
+		return nil, err
 	}
 
 	if len(clues) == 0 {
 		return nil, nil
 	}
 
-	// 返回最新的线索
+	// 复用 listByAccounts 的 create_time DESC 排序，取首条即最新
 	latestClue := clues[0]
 	clueInfo := &ClueInfo{
 		ClueID:    latestClue.ID,
@@ -432,16 +435,14 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string) (
 }
 
 // buildOrderInfo 构建订单信息
-func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string) (*OrderInfo, error) {
-	// 首先获取用户的会话信息来获取 AccountID
-	sessions, _, err := s.sessionRepo.GetByMerchant(ctx, "", 1, 1000)
-	if err != nil {
-		return nil, err
-	}
-
-	// 查找该用户的 AccountID
+//
+// CC-P2 N+1 优化：
+//   - 取消「GetByMerchant("", 1, 1000) + 内存过滤」重复 IO，直接复用上层传入的 userSessions
+//   - 取消「GetOrderList(1, 10000) + 内存过滤」N+1，改为 orderRepo.ListByAccountIDs 单次 SQL
+func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*OrderInfo, error) {
+	// 从已加载的 userSessions 提取 accountID（CC-P2 优化：避免再次 GetByMerchant 拉全表）
 	var accountID string
-	for _, session := range sessions {
+	for _, session := range userSessions {
 		if session.UserID == userID {
 			accountID = session.AccountID
 			break
@@ -454,20 +455,12 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string) 
 		}, nil
 	}
 
-	// 获取所有订单（OrderRepository 没有按 AccountID 查询的方法，需要获取所有后过滤）
-	allOrders, _, err := s.orderRepo.GetOrderList(ctx, 1, 10000)
+	// 单次 SQL 取代「GetOrderList(1, 10000) + 内存遍历过滤」（CC-P2 N+1 优化）
+	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, []string{accountID})
 	if err != nil {
 		return &OrderInfo{
 			Orders: make([]*OrderItem, 0),
 		}, nil
-	}
-
-	// 过滤出该用户的订单
-	var userOrders []*model.Order
-	for _, order := range allOrders {
-		if order.AccountID == accountID {
-			userOrders = append(userOrders, order)
-		}
 	}
 
 	if len(userOrders) == 0 {
@@ -476,19 +469,14 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string) 
 		}, nil
 	}
 
-	// 计算统计数据
+	// 计算统计数据（ListByAccountIDs 已按 create_time DESC 排序，首条即最新）
 	var totalAmount float64
-	var lastOrder *model.Order
+	lastOrder := userOrders[0]
 	orderItems := make([]*OrderItem, 0, len(userOrders))
 
 	for _, order := range userOrders {
 		amount, _ := strconv.ParseFloat(order.Price, 64)
 		totalAmount += amount
-
-		// 检查是否是最新订单
-		if lastOrder == nil || order.CreateTime > lastOrder.CreateTime {
-			lastOrder = order
-		}
 
 		orderItems = append(orderItems, &OrderItem{
 			OrderID:     order.ID,
@@ -615,6 +603,11 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 }
 
 // GetCustomerList 获取客户列表（带分页和筛选）
+//
+// CC-P2 N+1 优化：原实现为「GetByMerchant 拿分页 sessions → for userID → GetCustomer360
+// （内部又走 5+ 次 DB）」，N 个用户产生 5N+1 次 IO。
+// 新实现先 batch 拉取全量用户会话 + 一次性拉所有 session 的消息 / 线索 / 订单，
+// 再纯内存按 userID 分桶组装 DTO，把 IO 收敛到常数级别。
 func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error) {
 	sessions, total, err := s.sessionRepo.GetByMerchant(ctx, "", page, pageSize)
 	if err != nil {
@@ -622,22 +615,203 @@ func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize
 	}
 
 	// 按用户分组
-	userSessions := make(map[string][]*model.CustomerSession)
+	userSessionsMap := make(map[string][]*model.CustomerSession)
 	for _, session := range sessions {
-		userSessions[session.UserID] = append(userSessions[session.UserID], session)
+		userSessionsMap[session.UserID] = append(userSessionsMap[session.UserID], session)
 	}
 
-	// 构建每个客户的 360 视图
-	result := make(map[string]*Customer360DTO)
-	for userID := range userSessions {
-		dto, err := s.GetCustomer360(ctx, userID)
-		if err != nil {
+	// 收集该页所有 sessionID / userID / accountID
+	allSessionIDs := make([]string, 0, len(sessions))
+	seenSess := make(map[string]struct{}, len(sessions))
+	userIDs := make([]string, 0, len(userSessionsMap))
+	accountIDs := make([]string, 0, len(userSessionsMap))
+	seenAcct := make(map[string]struct{}, len(userSessionsMap))
+
+	for _, session := range sessions {
+		if session.SessionID != "" {
+			if _, ok := seenSess[session.SessionID]; !ok {
+				seenSess[session.SessionID] = struct{}{}
+				allSessionIDs = append(allSessionIDs, session.SessionID)
+			}
+		}
+		if session.AccountID != "" {
+			if _, ok := seenAcct[session.AccountID]; !ok {
+				seenAcct[session.AccountID] = struct{}{}
+				accountIDs = append(accountIDs, session.AccountID)
+			}
+		}
+	}
+	for uid := range userSessionsMap {
+		userIDs = append(userIDs, uid)
+	}
+
+	// 单次 SQL 拉所有 session 的消息
+	messageMap, _ := s.messageRepo.ListBySessionIDsBatch(ctx, allSessionIDs, 100)
+
+	// 单次 SQL 拉所有相关线索（按 account / phone / email 三类 key）
+	allAccounts := make([]string, 0, len(accountIDs)+len(userSessionsMap))
+	allAccounts = append(allAccounts, accountIDs...)
+	for _, ss := range sessions {
+		allAccounts = append(allAccounts, ss.AccountID, ss.UserPhone, ss.UserEmail)
+	}
+	clueMap := s.indexCluesByAccount(ctx, allAccounts)
+
+	// 单次 SQL 拉所有相关订单
+	orders, _ := s.orderRepo.ListByAccountIDs(ctx, accountIDs)
+	orderMap := make(map[string][]*model.Order, len(accountIDs))
+	for _, o := range orders {
+		orderMap[o.AccountID] = append(orderMap[o.AccountID], o)
+	}
+
+	// 内存组装每个客户的 360 视图
+	result := make(map[string]*Customer360DTO, len(userSessionsMap))
+	for userID, userSessions := range userSessionsMap {
+		dto := s.assembleCustomer360DTO(userSessions, messageMap, clueMap, orderMap)
+		if dto == nil {
 			continue
 		}
 		result[userID] = dto
 	}
 
 	return result, total, nil
+}
+
+// indexCluesByAccount 拉取线索并按 account / name 索引为 map（供 GetCustomerList 批量组装 DTO）
+func (s *Customer360Service) indexCluesByAccount(ctx context.Context, accounts []string) map[string][]*model.Clue {
+	out := make(map[string][]*model.Clue)
+	if len(accounts) == 0 {
+		return out
+	}
+	clues, err := s.clueRepo.ListByAccounts(ctx, accounts)
+	if err != nil {
+		return out
+	}
+	for _, c := range clues {
+		if c.Account != "" {
+			out[c.Account] = append(out[c.Account], c)
+		}
+		if c.Name != "" {
+			out[c.Name] = append(out[c.Name], c)
+		}
+	}
+	return out
+}
+
+// assembleCustomer360DTO 由 GetCustomerList 在内存中组装单个用户 DTO（CC-P2 内部辅助）
+func (s *Customer360Service) assembleCustomer360DTO(
+	userSessions []*model.CustomerSession,
+	messageMap map[string][]*model.SessionMessage,
+	clueMap map[string][]*model.Clue,
+	orderMap map[string][]*model.Order,
+) *Customer360DTO {
+	if len(userSessions) == 0 {
+		return nil
+	}
+	dto := &Customer360DTO{}
+	dto.BasicInfo = s.buildBasicInfo(nil, userSessions)
+	dto.SessionStats = s.buildSessionStats(nil, userSessions)
+	dto.SessionHistory = s.buildSessionHistory(nil, userSessions)
+	dto.MessageHistory = s.buildMessageHistoryFromMap(userSessions, messageMap)
+	dto.ClueInfo = s.buildClueInfoFromMap(userSessions, clueMap)
+	dto.OrderInfo = s.buildOrderInfoFromMap(userSessions, orderMap)
+	dto.InteractionStats = s.buildInteractionStats(nil, userSessions)
+	dto.UserProfile = s.buildUserProfile(nil, userSessions, dto.InteractionStats, dto.OrderInfo)
+	return dto
+}
+
+// buildMessageHistoryFromMap 由已 batch 拉取的 messageMap 拼装消息历史（无 IO）
+func (s *Customer360Service) buildMessageHistoryFromMap(sessions []*model.CustomerSession, messageMap map[string][]*model.SessionMessage) []*MessageHistoryItem {
+	history := make([]*MessageHistoryItem, 0)
+	for _, session := range sessions {
+		messages := messageMap[session.SessionID]
+		for _, msg := range messages {
+			history = append(history, &MessageHistoryItem{
+				SessionID:    msg.SessionID,
+				Content:      msg.Content,
+				SenderType:   msg.SenderType,
+				SenderName:   msg.SenderName,
+				ContentType:  string(msg.ContentType),
+				CreatedAt:    msg.CreatedAt.Format("2006-01-02 15:04:05"),
+				AIConfidence: msg.AIConfidence,
+			})
+		}
+	}
+	return history
+}
+
+// buildClueInfoFromMap 由已 batch 拉取的 clueMap 取首条（按 create_time DESC）最新线索（无 IO）
+func (s *Customer360Service) buildClueInfoFromMap(userSessions []*model.CustomerSession, clueMap map[string][]*model.Clue) *ClueInfo {
+	if len(userSessions) == 0 {
+		return nil
+	}
+	first := userSessions[0]
+	// 合并查询的 keys：accountID / phone / email
+	keys := []string{first.AccountID, first.UserPhone, first.UserEmail}
+	var latest *model.Clue
+	for _, k := range keys {
+		for _, c := range clueMap[k] {
+			if latest == nil || c.CreateTime > latest.CreateTime {
+				latest = c
+			}
+		}
+	}
+	if latest == nil {
+		return nil
+	}
+	clueInfo := &ClueInfo{
+		ClueID:    latest.ID,
+		Source:    "platform",
+		Name:      latest.Name,
+		Phone:     latest.Account,
+		Status:    "new",
+		Level:     "warm",
+		CreatedAt: time.Unix(latest.CreateTime, 0).Format("2006-01-02 15:04:05"),
+	}
+	if latest.IsVerify == 1 {
+		clueInfo.Status = "qualified"
+	}
+	return clueInfo
+}
+
+// buildOrderInfoFromMap 由已 batch 拉取的 orderMap 拼装订单信息（无 IO）
+func (s *Customer360Service) buildOrderInfoFromMap(userSessions []*model.CustomerSession, orderMap map[string][]*model.Order) *OrderInfo {
+	if len(userSessions) == 0 {
+		return &OrderInfo{Orders: make([]*OrderItem, 0)}
+	}
+	accountID := userSessions[0].AccountID
+	if accountID == "" {
+		return &OrderInfo{Orders: make([]*OrderItem, 0)}
+	}
+	userOrders := orderMap[accountID]
+	if len(userOrders) == 0 {
+		return &OrderInfo{Orders: make([]*OrderItem, 0)}
+	}
+	var totalAmount float64
+	lastOrder := userOrders[0] // ListByAccountIDs 已按 create_time DESC 排序
+	orderItems := make([]*OrderItem, 0, len(userOrders))
+	for _, order := range userOrders {
+		amount, _ := strconv.ParseFloat(order.Price, 64)
+		totalAmount += amount
+		orderItems = append(orderItems, &OrderItem{
+			OrderID:     order.ID,
+			Amount:      amount,
+			Status:      orderStatusToString(order.Status),
+			CreatedAt:   time.Unix(order.CreateTime, 0).Format("2006-01-02 15:04:05"),
+			ProductName: "平台商品",
+		})
+	}
+	orderInfo := &OrderInfo{
+		TotalOrders: int64(len(userOrders)),
+		TotalAmount: totalAmount,
+		Orders:      orderItems,
+	}
+	if lastOrder != nil {
+		orderInfo.LastOrderID = lastOrder.ID
+		orderInfo.LastOrderAt = time.Unix(lastOrder.CreateTime, 0).Format("2006-01-02 15:04:05")
+		amount, _ := strconv.ParseFloat(lastOrder.Price, 64)
+		orderInfo.LastOrderAmount = amount
+	}
+	return orderInfo
 }
 
 // Customer360ServiceForTest 用于测试的 Customer360Service（公开字段）

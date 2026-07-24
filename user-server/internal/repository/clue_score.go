@@ -103,6 +103,9 @@ type ClueEngagementRepository interface {
 	CountByClueID(ctx context.Context, clueID string, since time.Time) (int64, error)
 	CountByType(ctx context.Context, clueID string) (map[string]int64, error)
 	LastByClueID(ctx context.Context, clueID string, limit int) ([]*model.ClueEngagementEvent, error)
+	// CountByClueIDsBatch 批量统计多个 clue_id 在 since 之后的互动事件数（CC-P2 N+1 优化）
+	// 替代「for clue → CountByClueID」N+1；返回 map[clueID]count，未命中为 0。
+	CountByClueIDsBatch(ctx context.Context, clueIDs []string, since time.Time) (map[string]int64, error)
 }
 
 type clueEngagementRepo struct {
@@ -129,6 +132,53 @@ func (r *clueEngagementRepo) CountByClueID(ctx context.Context, clueID string, s
 	err := r.db.Model(&model.ClueEngagementEvent{}).
 		Where("clue_id = ? AND created_at >= ?", clueID, since).Count(&count).Error
 	return count, err
+}
+
+// CountByClueIDsBatch 批量按 clue_id 统计 since 之后的互动事件数（CC-P2 N+1 优化）
+//
+// 单次 SQL：SELECT clue_id, COUNT(*) FROM clue_engagement_events
+// WHERE clue_id IN (...) AND created_at >= ? GROUP BY clue_id
+//
+// 返回 map[clueID]count，未出现在 GROUP BY 结果中的 clueID 默认 0。
+// 入参 clueIDs 去重 + 跳过空串。
+func (r *clueEngagementRepo) CountByClueIDsBatch(ctx context.Context, clueIDs []string, since time.Time) (map[string]int64, error) {
+	result := make(map[string]int64, len(clueIDs))
+	if len(clueIDs) == 0 {
+		return result, nil
+	}
+	unique := make([]string, 0, len(clueIDs))
+	seen := make(map[string]struct{}, len(clueIDs))
+	for _, id := range clueIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	type row struct {
+		ClueID string
+		Cnt    int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).
+		Model(&model.ClueEngagementEvent{}).
+		Select("clue_id, COUNT(*) as cnt").
+		Where("clue_id IN ? AND created_at >= ?", unique, since).
+		Group("clue_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		result[r.ClueID] = r.Cnt
+	}
+	return result, nil
 }
 
 func (r *clueEngagementRepo) CountByType(ctx context.Context, clueID string) (map[string]int64, error) {

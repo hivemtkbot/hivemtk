@@ -315,6 +315,9 @@ func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, prima
 	eventRepo := repository.NewCustomerEventRepository()
 	secondaryEvents, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
 	if err == nil && len(secondaryEvents) > 0 {
+		// CC-P2 N+1 优化：原实现「for event → eventRepo.Record」每个事件一次 INSERT，
+		// 现改为在内存中更新 event 字段后单次 eventRepo.RecordBatch 批量插入。
+		migrated := make([]*model.CustomerEvent, 0, len(secondaryEvents))
 		for _, event := range secondaryEvents {
 			event.CustomerID = primaryID
 			// 更新事件数据，记录合并信息
@@ -324,8 +327,10 @@ func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, prima
 			_ = SetCustomerEventData(event, eventData)
 			// 创建新事件记录（因为 ID 已存在）
 			event.ID = ""
-			eventRepo.Record(ctx, event)
+			migrated = append(migrated, event)
 		}
+		// best-effort：批量插入失败不阻塞主合并流程，与原 Record 单条 best-effort 语义对齐
+		_ = eventRepo.RecordBatch(ctx, migrated)
 	}
 
 	// 执行基本合并

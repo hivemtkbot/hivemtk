@@ -24,6 +24,9 @@ type OrderRepository interface {
 	GetByTgID(ctx context.Context, tgID int64) ([]*model.Order, error)
 	GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error)
 	Update(ctx context.Context, order *model.Order) error
+	// ListByAccountIDs 批量按 account_id 查询订单（CC-P2 N+1 优化）
+	// 替代「GetOrderList(1, 10000) + 内存过滤」模式，SQL 一次拉全。
+	ListByAccountIDs(ctx context.Context, accountIDs []string) ([]*model.Order, error)
 }
 
 type orderRepo struct {
@@ -116,4 +119,42 @@ func (r *orderRepo) GetDistinctPaidTgIDs(ctx context.Context) ([]int64, error) {
 // Update 更新订单
 func (r *orderRepo) Update(ctx context.Context, order *model.Order) error {
 	return r.db.Save(order).Error
+}
+
+// ListByAccountIDs 批量按 account_id 拉取订单（CC-P2 N+1 优化）
+//
+// 单次 SQL 取代「GetOrderList(1, 10000) + 内存遍历过滤」：
+//   - 入参 accountIDs 去重 + 跳过空串
+//   - WHERE account_id IN (...) ORDER BY create_time DESC
+//
+// 空入参时直接返回 (nil, nil)，不查库；返回结果按 create_time DESC 排序，
+// 方便 service 层做"最近一笔订单"判断。
+func (r *orderRepo) ListByAccountIDs(ctx context.Context, accountIDs []string) ([]*model.Order, error) {
+	if len(accountIDs) == 0 {
+		return nil, nil
+	}
+	unique := make([]string, 0, len(accountIDs))
+	seen := make(map[string]struct{}, len(accountIDs))
+	for _, id := range accountIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return nil, nil
+	}
+	var orders []*model.Order
+	err := r.db.WithContext(ctx).
+		Where("account_id IN ?", unique).
+		Order("create_time DESC").
+		Find(&orders).Error
+	if err != nil {
+		return nil, err
+	}
+	return orders, nil
 }

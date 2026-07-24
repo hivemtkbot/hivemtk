@@ -153,19 +153,6 @@ func AssertCanOperateSystemUser(operatorID uint, operatorRole, action string, ta
 	return ErrServicePermissionDenied
 }
 
-// AssertCanOperateTeamUser 旧名兼容（委托给 AssertCanOperateSystemUser）
-// 保留原因：service/team_user.go 之外的旧调用方可能仍使用此函数
-func AssertCanOperateTeamUser(operatorID uint, operatorRole, action string, targetID uint) error {
-	return AssertCanOperateSystemUser(operatorID, operatorRole, action, targetID)
-}
-
-// IsValidTeamUserRole 旧名兼容：使用新 3 档定义
-func IsValidTeamUserRole(role string) bool {
-	return IsValidSystemUserRoleCode(role) ||
-		role == LegacyTeamUserRoleManager ||
-		role == LegacyTeamUserRoleViewer
-}
-
 // ============== PermissionService 细粒度权限（从 service/team_user.go 迁移） ==============
 
 // PermissionService 权限服务
