@@ -529,7 +529,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	// Update
 	got.AIAgentEnabled = false
 	got.LastErrorMsg = "test error"
-	if err := repo.Updategot); err != nil {
+	if err := repo.Update(got); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	updated, _ := repo.GetByID(acc.ID)

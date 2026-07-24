@@ -174,6 +174,7 @@ func TestPromptIterator_IterateForNode_InsufficientSamples(t *testing.T) {
 //   - bandit arms 含 arm_0_original + 2 个新 arm
 func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 
 	// 插入 active prompt
 	cand := model.PromptCandidate{
