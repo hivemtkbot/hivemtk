@@ -123,19 +123,11 @@ const handleLogin = async () => {
     if (response) {
       const token = response.token || response.Token
       const user = response.user || response.User
-      const mustChangePassword = response.must_change_password || false
-      const initRedirect = response.init_redirect || ''
 
       if (token && user) {
         userStore.login(user, token)
         localStorage.setItem('system_initialized', 'true')
         ElMessage.success(t('core.login.success'))
-
-        if (mustChangePassword) {
-          ElMessage.warning(t('system.firstLoginChangePassword'))
-          router.push(initRedirect || '/change-password')
-          return
-        }
         router.push('/')
       } else {
         console.error('登录响应数据异常:', response)

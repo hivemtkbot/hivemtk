@@ -61,7 +61,7 @@ HiveMtk 的**主动触达模块**（短信、邮件、微信公众号 / 企业�
 
 **🎯 一句话定位**:**把七端社媒、AI 智能体、零出域数据安全三件事同时做透**的私域营销 OS。
 
-**🌐 七端打通** · **🤖 ReAct 自主智能体(41 工具)** · **🔒 100% 私域零出域** · **📦 62 业务模块** · **⚡ 5 分钟一键起**
+**🌐 七端打通** · **🤖 ReAct 自主智能体(41 工具)** · **🔒 100% 私域零出域** · **📦 94 业务模块** · **⚡ 5 分钟一键起**
 
 ```bash
 # ⚡ 3 步 5 分钟跑起来
@@ -85,7 +85,7 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 | AI 智能体自动回复 | `docs/assets/screenshots/agent.png` (待补) | ReAct 循环可视化:感知→规划→调工具→反思 |
 | 工作台数据看板 | `docs/assets/screenshots/dashboard.png` (待补) | RFM 分层 / 转化漏斗 / 实时会话 / ROI 报表 |
 
-> 截图补全计划见 [冷启动作战日历](docs/architecture/COLD_START_FEASIBILITY_REPORT.md#5-12-周作战日历立即可执行) W1-W4。
+> 截图补全计划见 [冷启动作战日历](docs/analysis/COLD_START_FEASIBILITY_REPORT.md#5-12-周作战日历立即可执行) W1-W4。
 
 ---
 
@@ -282,11 +282,11 @@ hivemtk/                              # 用户端仓库
 ├── user-server/                      # Go 后端(核心业务,五层架构)
 ├── user-web/                         # Vue 3 前端(B 端工作台)
 ├── embed-sdk/                        # 嵌入式客服 Web Widget(IIFE/ESM)
-├── migrations/                       # 数据库迁移 SQL(17 个版本)
+├── migrations/                       # 数据库迁移 SQL(24 个版本,缺口 018-023)
 ├── scripts/inference/                # 推理栈辅助脚本(entrypoint/warmup/smoke)
 ├── docs/
 │   ├── architecture/                 # 架构文档(架构图/部署方案/ADR)
-│   ├── marketing-features/           # 62 个营销功能模块详细文档
+│   ├── marketing-features/           # 94 个营销功能模块详细文档
 │   └── operations/                   # 运维文档(部署手册/初始化流程/Widget 嵌入)
 ├── docker-compose-example.yml        # 容器编排示例(业务栈 + 推理栈合一)
 ├── Makefile                          # 一键安装/启动/停止
@@ -320,13 +320,13 @@ hivemtk/                              # 用户端仓库
 |------|------|
 | 仓库总览 | [README.md](README.md) · [README.en.md](README.en.md) |
 | 文档索引 | [docs/INDEX.md](docs/INDEX.md) |
-| 营销功能 62 模块 | [docs/marketing-features/README.md](docs/marketing-features/README.md) |
+| 营销功能 94 模块 | [docs/marketing-features/README.md](docs/marketing-features/README.md) |
 | 架构图(C4 + 五层) | [docs/architecture/ARCHITECTURE_DIAGRAM.md](docs/architecture/ARCHITECTURE_DIAGRAM.md) |
-| 冷启动作战日历 | [docs/architecture/COLD_START_FEASIBILITY_REPORT.md](docs/architecture/COLD_START_FEASIBILITY_REPORT.md) |
+| 冷启动作战日历 | [docs/analysis/COLD_START_FEASIBILITY_REPORT.md](docs/analysis/COLD_START_FEASIBILITY_REPORT.md) |
 | 部署架构 | [docs/architecture/部署方案_用户端.md](docs/architecture/部署方案_用户端.md) |
 | 部署手册 | [docs/operations/MERCHANT_DEPLOYMENT.md](docs/operations/MERCHANT_DEPLOYMENT.md) |
 | 初始化流程 | [docs/operations/MERCHANT_INITIALIZATION_FLOW.md](docs/operations/MERCHANT_INITIALIZATION_FLOW.md) |
-| 本地推理优化 | [docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md](docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md) |
+| 本地推理优化 | [docs/architecture/HOST_INFERENCE_PLAN.md](docs/architecture/HOST_INFERENCE_PLAN.md) |
 | FRP 私域穿透 | [docs/architecture/FRP私域部署指南.md](docs/architecture/FRP私域部署指南.md) |
 | Chat Widget 嵌入 | [embed-sdk/README.md](embed-sdk/README.md) · [docs/operations/CHAT_WIDGET_EMBED.md](docs/operations/CHAT_WIDGET_EMBED.md) |
 | 变更日志 | [CHANGELOG.md](CHANGELOG.md) |

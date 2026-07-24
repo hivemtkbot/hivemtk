@@ -5,10 +5,9 @@
 > **文档定位**: 营销工具既有功能独立文档，遵循 [FEATURE_DOCUMENTATION_TEMPLATE.md](../standards/FEATURE_DOCUMENTATION_TEMPLATE.md) 与 [MASTER_RULES.md](../standards/MASTER_RULES.md)。
 
 > **📌 边界说明**: 本文档聚焦**新商户首次入驻的多步骤配置流程**(企业信息 → 联系人 → 功能模块 → 默认配置 → 完成确认)。
-> - 平台对**已存在 License** 的签发、吊销、续期管理见 [platform-license.md](platform-license.md)
-> - 平台对**商户主体**的 CRUD / 审批 / 统计见 [platform-merchant.md](platform-merchant.md)
-> - 商户与平台之间的**通信接口**(`/merchant-api`)见 [merchant-api.md](merchant-api.md)
-> - 注意:初始化流程**生成 license_key + API Key**,但**不签发 License**;License 由平台单独签发后绑定
+> - 平台对**商户主体**的 CRUD / 审批 / 统计见 [platform-merchant.md](../../hivemtk-platform/docs/platform-features/platform-merchant.md)
+> - 商户与平台之间的**通信接口**(`/merchant-api`)见 [merchant-api.md](../../hivemtk-platform/docs/platform-features/merchant-api.md)
+> - 注意:初始化流程生成商户标识 `merchant_key` + API Key,开源版无 License 流程
 
 ---
 
@@ -69,7 +68,7 @@
 | 输入 | contact_name | string | 是 | 联系人 |
 | 输入 | contact_phone | string | 是 | 联系手机 |
 | 输入 | enabled_modules | []string | 是 | 启用的功能模块 |
-| 输出 | license_key | string | 是 | 授权码(唯一标识) |
+| 输出 | merchant_key | string | 是 | 商户标识(唯一) |
 | 输出 | api_key | string | 是 | API 密钥 |
 
 ---
@@ -138,7 +137,7 @@ MerchantInit.vue (5 步表单)
   → [merchant.go] → [merchant_init_service]
   → [merchant_repo] → [PostgreSQL]
   → 草稿写入 Redis（24h TTL）
-  → 完成时生成 license_key + api_key
+  → 完成时生成 merchant_key + api_key
   → 写入 merchants 表
 ```
 
@@ -161,7 +160,7 @@ MerchantInit.vue (5 步表单)
 3. 业务校验（手机号格式、必填项）
 4. 保存草稿到 Redis
 5. 步骤5 完成时持久化到 PostgreSQL
-6. 生成 license_key + api_key
+6. 生成 merchant_key + api_key
 7. 失效草稿
 8. 写初始化日志
 
@@ -209,7 +208,7 @@ MerchantInit.vue (5 步表单)
 
 | 用例编号 | 用例描述 | 输入 | 预期输出 | 状态 |
 |---|---|---|---|---|
-| TC-001 | 完整初始化 | 5步完整数据 | license_key + api_key | ✅ |
+| TC-001 | 完整初始化 | 5步完整数据 | merchant_key + api_key | ✅ |
 | TC-002 | 断点续填 | 步骤2退出 | 步骤3加载步骤1-2数据 | ✅ |
 | TC-003 | 重复初始化 | 已完成用户 | 409001 | ✅ |
 | TC-004 | API Key 唯一性 | 并发生成 | 全部唯一 | ✅ |
@@ -230,9 +229,8 @@ MerchantInit.vue (5 步表单)
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md)
-- [platform-license.md](platform-license.md)
-- [ARCHITECTURE_V6.md](../standards/ARCHITECTURE_DIAGRAM.md)
+- [ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
+- [platform-merchant.md](../../hivemtk-platform/docs/platform-features/platform-merchant.md)
 
 ---
 

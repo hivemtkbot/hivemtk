@@ -39,7 +39,7 @@ type CreateInitAdminParams struct {
 //   - 用户名长度 3-20，字母数字下划线
 //   - 密码长度 ≥ 8，必须含大小写字母+数字
 //   - 邮箱格式正确
-//   - role='admin'，must_change_password=true
+//   - role='admin'，创建后直接可用（开源版不再强制首登改密）
 func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAdminParams) error {
 	// 1. 系统已有任何用户 → 拒绝
 	count, err := s.userService.CountUsers(ctx)
@@ -68,13 +68,12 @@ func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAd
 
 	// 5. 创建超管
 	_, err = s.userService.CreateUser(ctx, &CreateUserRequest{
-		Username:           p.Username,
-		Password:           p.Password,
-		Email:              p.Email,
-		RealName:           p.RealName,
-		Role:               "admin",
-		Status:             1,
-		MustChangePassword: true,
+		Username: p.Username,
+		Password: p.Password,
+		Email:    p.Email,
+		RealName: p.RealName,
+		Role:     "admin",
+		Status:   1,
 	})
 	if err != nil {
 		logger.Error(err, "SystemInitService 创建超管失败")

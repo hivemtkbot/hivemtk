@@ -1643,7 +1643,6 @@
   "追踪信息": "Trace Info",
   "system": {
     "appName": "Marketing Management System",
-    "firstLoginChangePassword": "You must change your password on first login",
     "completeInitFirst": "Please complete system initialization first",
     "profile": "Profile",
     "logout": "Log out",

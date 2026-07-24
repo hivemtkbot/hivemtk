@@ -199,9 +199,8 @@ func (c *AuthController) ResetAdminPassword(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, gin.H{
-		"username":             req.Username,
-		"must_change_password": true, // 重置后下次登录必须再改一次
-		"message":              "超管密码已重置，请使用新密码登录（首次登录将强制修改密码）",
+		"username": req.Username,
+		"message":  "超管密码已重置，请使用新密码登录",
 	}, "密码重置成功")
 }
 

@@ -45,7 +45,6 @@ type SystemUserResponse struct {
 	Status             int        `json:"status"`
 	LastLogin          *time.Time `json:"last_login"`
 	LastLoginAt        *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
-	MustChangePassword bool       `json:"must_change_password"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -349,8 +348,6 @@ func (s *AuthService) ResetAdminPasswordWithToken(ctx context.Context, username,
 		return errors.New("用户不存在")
 	}
 	user.Password = hashed
-	// 强制下次登录再改一次
-	user.MustChangePassword = true
 	if err := s.systemUserRepo.Update(ctx, user); err != nil {
 		return errors.New("保存失败，请稍后重试")
 	}

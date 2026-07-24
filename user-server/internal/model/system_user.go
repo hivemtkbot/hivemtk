@@ -67,7 +67,6 @@ type SystemUser struct {
 	Status             int        `json:"status" gorm:"default:1"`                             // 状态：1-启用，0-禁用（审计保留）
 	Enabled            bool       `json:"enabled" gorm:"column:enabled;default:true;not null"` // 启用/禁用开关（阶段 1 新增）
 	LastLogin          *time.Time `json:"last_login"`                                          // 最后登录时间
-	MustChangePassword bool       `json:"must_change_password" gorm:"default:false"`           // 是否必须修改密码（首次登录）
 	DataScope          string     `json:"data_scope" gorm:"size:20;default:'self'"`            // P1-4：数据范围 all/department/team/self
 	DepartmentID       uint       `json:"department_id" gorm:"index;default:0"`                // P1-4：所属部门 ID（0=未分配）
 	TeamID             uint       `json:"team_id" gorm:"index;default:0"`                      // P1-4：所属团队 ID（0=未分配）

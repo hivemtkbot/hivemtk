@@ -550,8 +550,8 @@ docker-compose up -d
 
 特点:
 - 一次性安装
-- 内置 License 检查(本地 install.lock)
-- 离线模型(Ollama 二期)
+- 开源无认证（无需 License）
+- 本地推理栈（llama.cpp + TEI/bge-m3）
 - 数据本地存储
 ```
 
@@ -567,7 +567,6 @@ docker-compose up -d
 │  │  认证层                                                │    │
 │  │  - JWT (HS256) + Refresh Token                       │    │
 │  │  - API Key (租户级)                                  │    │
-│  │  - License 授权 (3 分钟心跳)                         │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐    │
@@ -687,18 +686,12 @@ docker-compose up -d
 **原因**: 已有 130+ Service 成熟稳定,重写风险大。  
 **影响**: 后续 AI 集成只新增调用层。
 
-### ADR-005:LICENSE 3 分钟心跳
-
-**决策**: License 检查每 3 分钟一次,3 次失败退出。  
-**原因**: 平衡实时性与服务器压力。  
-**生效**: 2026-06 起。
-
 ---
 
 **文档版本**: v1.4  
 **生效日期**: 2026-07-22  
-**配套文档**: [TECH_STACK.md](./TECH_STACK.md) │ [BACKEND_CODING_STANDARDS.md](./BACKEND_CODING_STANDARDS.md) │ [FRONTEND_CODING_STANDARDS.md](./FRONTEND_CODING_STANDARDS.md) │ [API_CONTRACT.md](./API_CONTRACT.md) │ [aiagent 模块说明](../architecture/AIAgent_MODULE.md) │ **[Go 五层架构编码规范](./GO_FIVE_LAYER_ARCHITECTURE.md) ⭐⭐⭐(AI 必读)** │ [平台端规范](../../hivemtk-platform/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
-**命名铁律（强制）**: 平台层统一称「**智能体**」(AIAgent),**禁止**在文档/UI/代码注释中混用「AI 客服 / AI 销售」。`AIAgent.AgentType`(sales/customer_service/hybrid) 仅作智能体内部子类型,对外一律称智能体。详见 [TERMINOLOGY_DICT.md](../standards/TERMINOLOGY_DICT.md)。
+**配套文档**: **[Go 五层架构编码规范](./GO_FIVE_LAYER_ARCHITECTURE.md) ⭐⭐⭐(AI 必读)** │ [平台端规范](../../hivemtk-platform/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) │ [资产市场同源同构](./ASSET_MARKET_INTEGRATION.md) │ [宿主机推理方案](./HOST_INFERENCE_PLAN.md)
+**命名铁律（强制）**: 平台层统一称「**智能体**」(AIAgent),**禁止**在文档/UI/代码注释中混用「AI 客服 / AI 销售」。`AIAgent.AgentType`(sales/customer_service/hybrid) 仅作智能体内部子类型,对外一律称智能体。
 **变更说明**:
 - v1.1（2026-07-16）：在 L4 能力层 RAG 知识中心明确"Embedding 走本地",在数据层增加本地 embedding 容器说明,对齐私域部署下"LLM 走外部 API,Embedding 走本地 docker 容器"基线。
 - v1.2（2026-07-16）：原计划 TEI 容器因国内网络拉取失败(ghcr.io 镜像 1.7GB,启动 120s),改用自研纯 Go embedding-server(约 20MB,启动 ~1s);架构图相应更新为"自研纯 Go embedding-server"。

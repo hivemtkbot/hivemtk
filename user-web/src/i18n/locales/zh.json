@@ -1648,7 +1648,6 @@
   "追踪信息": "追踪信息",
   "system": {
     "appName": "营销管理系统",
-    "firstLoginChangePassword": "首次登录必须修改密码",
     "completeInitFirst": "请先完成系统初始化",
     "profile": "个人资料",
     "logout": "退出登录",

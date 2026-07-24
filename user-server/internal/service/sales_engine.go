@@ -816,12 +816,15 @@ func (e *SalesEngine) generateCandidate(
 	}
 
 	// 原始路径：一次性 LLM 调用（向后兼容）
+	// 2026-07-24 性能优化：启用 Dispatch 缓存（相同 scenario+prompt 1h 内秒回，省 30-180s LLM 推理）
 	result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 		Scenario:     scenario,
 		Prompt:       prompt,
 		SystemPrompt: req.Config.Persona,
 		MaxTokens:    req.Config.MaxTokens,
 		Temperature:  req.Config.Temperature,
+		CacheKey:     llm.CacheKey(scenario, prompt),
+		CacheTTL:     3600,
 	})
 	if err != nil {
 		return "", nil, err
@@ -916,12 +919,15 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	if len(toolDefs) == 0 {
 		// 所有工具序列化失败，降级到无工具调用
+		// 2026-07-24 性能优化：启用 Dispatch 缓存
 		result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt,
 			SystemPrompt: req.Config.Persona,
 			MaxTokens:    req.Config.MaxTokens,
 			Temperature:  req.Config.Temperature,
+			CacheKey:     llm.CacheKey(scenario, prompt),
+			CacheTTL:     3600,
 		})
 		if err != nil {
 			return "", nil, err

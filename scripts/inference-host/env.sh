@@ -63,15 +63,20 @@ LLAMACPP_BIN="$(detect_llamacpp_bin)"
 # Qwen2.5 / bge-m3 / bge-reranker 均已支持；如遇兼容性问题设为 off
 : "${FLASH_ATTN:=on}"
 # mlock：锁定模型在 RAM，防止换页导致延迟飙升（需足够的物理内存）
-: "${USE_MLOCK:=true}"
+# 2026-07-24 性能优化：8 核 16G 内存下 3 模型 mlock 占满 RAM 导致 swap 风暴，
+# 改为 false 让 OS 管理内存；LLM 推理时活跃页会被保留在 RAM。
+# 32G+ 内存服务器可改回 true。
+: "${USE_MLOCK:=false}"
 # KV cache 量化（仅 LLM 有 KV cache；embedding/rerank 无 KV cache）
 # f16=无损默认 | q8_0=减 50% 内存几乎无损 | q4_0=减 75% 内存轻微精度损失
 : "${CACHE_TYPE_K:=f16}"
 : "${CACHE_TYPE_V:=f16}"
 # LLM 并行槽位数（--parallel）：允许同时处理多个请求
+# 2026-07-24 性能优化：2→1。8 核 16G 内存下 2 slots 的 KV cache 翻倍导致 swap；
+# 客服场景串行即可，Go 端 Dispatch 有并发闸门保护。
 # embedding/rerank 默认 1（CPU bound，并发无收益反而内存带宽竞争）
 # 如需提高 embedding 并发，同步设置 EMBEDDING_CONCURRENCY 环境变量（Go 端闸门）
-: "${LLM_PARALLEL:=2}"
+: "${LLM_PARALLEL:=1}"
 : "${EMBEDDING_PARALLEL:=1}"
 : "${RERANK_PARALLEL:=1}"
 # LLM 连续批处理（--cont-batching）：允许新请求插入正在处理的批次

@@ -1626,7 +1626,6 @@
   "前往操作": "操作へ",
   "system": {
     "appName": "マーケティング管理システム",
-    "firstLoginChangePassword": "初回ログイン時はパスワードの変更が必要です",
     "completeInitFirst": "まずシステムの初期化を完了してください",
     "profile": "プロフィール",
     "logout": "ログアウト",

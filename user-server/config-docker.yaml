@@ -59,12 +59,12 @@ inference:
   llm:
     mode: local
     base_url: "http://mtk-llm:8207/v1"          # 宿主机 llama.cpp（OpenAI 兼容 /v1/chat/completions）
-    model: "Qwen2.5-3B-Instruct"               # dev 轻量档（Q4_K_M，Qwen2.5-3B-Instruct-GGUF）
+    model: "Qwen2.5-1.5B-Instruct"               # dev 轻量档（Q4_K_M，与 .env LLM_MODEL_FILE 对齐）
     api_key: ""                                 # 本地模型无需密钥
     temperature: 0.7
-    # 2026-07-24 性能优化：2048→512。客服回复通常 <200 字（~300 token），
-    # CPU 推理时间与生成 token 数近似线性，降 4 倍可省 ~75% 单次推理时间。
-    max_tokens: 512
+    # 2026-07-24 性能优化：2048→1024。客服回复通常 <200 字（~300 token），
+    # CPU 推理时间与生成 token 数近似线性，降 2 倍可省 ~50% 单次推理时间。
+    max_tokens: 1024
     timeout_seconds: 90
     # 2026-07-24 性能优化：3→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义。
     max_retries: 1
