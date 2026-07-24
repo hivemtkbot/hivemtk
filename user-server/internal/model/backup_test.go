@@ -75,7 +75,7 @@ func TestBackup_BasicFields(t *testing.T) {
 		t.Errorf("Expected FileSize 1073741824, got %d", backup.FileSize)
 	}
 	if backup.CreatedBy != 100 {
-		t.Errorf("Expected CreatedBy 100, got %d", backup.Create(dBy)
+		t.Errorf("Expected CreatedBy 100, got %d", backup.CreatedBy)
 	}
 }
 

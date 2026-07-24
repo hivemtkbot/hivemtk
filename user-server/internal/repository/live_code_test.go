@@ -25,6 +25,7 @@ func setupLiveCodeRepository(t *testing.T) LiveCodeRepository {
 
 // TestLiveCodeRepository_Create 测试创建活码
 func TestLiveCodeRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
 	tests := []struct {
@@ -62,7 +63,7 @@ func TestLiveCodeRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.card)
+			err := repo.Create(ctx, tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -79,6 +80,7 @@ func TestLiveCodeRepository_Create(t *testing.T) {
 
 // TestLiveCodeRepository_GetByID 测试根据 ID 获取活码
 func TestLiveCodeRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
 	// 创建测试数据
@@ -111,7 +113,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -128,6 +130,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 
 // TestLiveCodeRepository_GetByShortLink 测试根据短链获取活码
 func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
 	// 创建测试数据
@@ -177,6 +180,7 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 
 // TestLiveCodeRepository_Update 测试更新活码
 func TestLiveCodeRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
 	// 创建测试数据
@@ -193,7 +197,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 	liveCode.Name = "Updated Name"
 	liveCode.Status = 0
 
-	err := repo.UpdateliveCode)
+	err := repo.Update(ctx, liveCode)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -209,6 +213,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 
 // TestLiveCodeRepository_Delete 测试删除活码
 func TestLiveCodeRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
 	// 创建测试数据
@@ -222,7 +227,7 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 	}
 	repo.Create(liveCode)
 
-	err := repo.DeleteliveCode.ID)
+	err := repo.Delete(ctx, liveCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -235,6 +240,7 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 
 // TestLiveCodeRepository_GetList 测试获取活码列表
 func TestLiveCodeRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	database := setupLiveCodeTestDB(t)
 	repo := NewLiveCodeRepository(database)
 
@@ -313,6 +319,7 @@ func TestLiveCodeRepository_GetList(t *testing.T) {
 
 // TestLiveCodeRepository_GetAvailableLiveCodes 测试获取可用的活码
 func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
+	ctx := context.Background()
 	database := setupLiveCodeTestDB(t)
 	repo := NewLiveCodeRepository(database)
 
@@ -356,9 +363,10 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 
 // TestLiveCodeRepository_GetByID_NotFound 测试获取不存在的活码
 func TestLiveCodeRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	_, err := repo.GetByID"non-existing-id")
+	_, err := repo.GetByID(ctx, "non-existing-id"))
 	if err == nil {
 		t.Error("Expected error when getting non-existing live code")
 	}
@@ -366,9 +374,10 @@ func TestLiveCodeRepository_GetByID_NotFound(t *testing.T) {
 
 // TestLiveCodeRepository_Delete_NotFound 测试删除不存在的活码
 func TestLiveCodeRepository_Delete_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	err := repo.Delete"non-existing-id")
+	err := repo.Delete(ctx, "non-existing-id")
 	if err != nil {
 		// GORM Delete 不会返回错误，即使没有记录被删除
 		// 这里只检查是否 panic

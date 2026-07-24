@@ -70,7 +70,7 @@ func TestUpgradeTaskRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.task)
+			err := repo.Create(ctx, tt.task)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -117,7 +117,7 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := repo.GetByID(tt.id)
+			_, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -136,7 +136,7 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.UpgradeTask{
+		repo.Create(ctx, &model.UpgradeTask){
 			FromVersion: "1.0.0",
 			ToVersion:   "2." + string(rune('0'+i)) + ".0",
 			Status:      "completed",
@@ -144,7 +144,7 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 	}
 
 	// 创建其他任务
-	repo.Create&model.UpgradeTask{
+	repo.Create(ctx, &model.UpgradeTask){
 		FromVersion: "1.0.0",
 		ToVersion:   "2.0.0",
 		Status:      "pending",
@@ -204,7 +204,7 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 
 	// 创建测试数据
-	repo.Create&model.UpgradeTask{
+	repo.Create(ctx, &model.UpgradeTask){
 		FromVersion: "1.0.0",
 		ToVersion:   "1.5.0",
 		Status:      "completed",
@@ -248,7 +248,7 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 	task.CurrentStep = 3
 	task.CurrentStepDesc = "Processing"
 
-	err := repo.Updatetask)
+	err := repo.Update(ctx, task)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -363,7 +363,7 @@ func TestMigrationRecordRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.record)
+			err := repo.Create(ctx, tt.record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -428,21 +428,21 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 
 	// 创建测试数据
-	repo.Create&model.MigrationRecord{
+	repo.Create(ctx, &model.MigrationRecord){
 		Version: "1.0.0",
 		Name:    "Migration 1",
 		Type:    "database",
 		Status:  "completed",
 	})
 
-	repo.Create&model.MigrationRecord{
+	repo.Create(ctx, &model.MigrationRecord){
 		Version: "1.1.0",
 		Name:    "Migration 2",
 		Type:    "database",
 		Status:  "completed",
 	})
 
-	repo.Create&model.MigrationRecord{
+	repo.Create(ctx, &model.MigrationRecord){
 		Version: "1.2.0",
 		Name:    "Migration 3",
 		Type:    "database",
@@ -477,7 +477,7 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 	record.Name = "Updated Name"
 	record.Status = "completed"
 
-	err := repo.Updaterecord)
+	err := repo.Update(ctx, record)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}

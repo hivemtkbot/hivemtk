@@ -45,6 +45,7 @@ func setupIntegrationRepositories(t *testing.T) (
 
 // TestIntegrationAccountRepository_Create 测试创建对接账号
 func TestIntegrationAccountRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -78,7 +79,7 @@ func TestIntegrationAccountRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.account)
+			err := repo.Create(ctx, tt.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -93,6 +94,7 @@ func TestIntegrationAccountRepository_Create(t *testing.T) {
 
 // TestIntegrationAccountRepository_GetByID 测试根据 ID 获取对接账号
 func TestIntegrationAccountRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -122,7 +124,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -142,14 +144,15 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 
 // TestIntegrationAccountRepository_GetByPlatform 测试根据平台获取对接账号
 func TestIntegrationAccountRepository_GetByPlatform(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	repo.Create&model.IntegrationAccount{
+	repo.Create(ctx, &model.IntegrationAccount){
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "CRM Account",
 	})
-	repo.Create&model.IntegrationAccount{
+	repo.Create(ctx, &model.IntegrationAccount){
 		Platform:    "ecommerce_taobao",
 		AccountName: "TB Account",
 	})
@@ -199,6 +202,7 @@ func TestIntegrationAccountRepository_GetByPlatform(t *testing.T) {
 
 // TestIntegrationAccountRepository_Update 测试更新对接账号
 func TestIntegrationAccountRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -212,7 +216,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 	account.AccountName = "Updated Name"
 	account.Status = 0
 
-	err := repo.Updateaccount)
+	err := repo.Update(ctx, account)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -228,6 +232,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 
 // TestIntegrationAccountRepository_UpdateToken 测试更新访问令牌
 func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -254,6 +259,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 
 // TestIntegrationAccountRepository_Delete 测试删除对接账号
 func TestIntegrationAccountRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -263,7 +269,7 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 	}
 	repo.Create(account)
 
-	err := repo.Deleteaccount.ID)
+	err := repo.Delete(ctx, account.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -276,6 +282,7 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 
 // TestIntegrationAccountRepository_UpdateSyncTime 测试更新同步时间
 func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
+	ctx := context.Background()
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -298,6 +305,7 @@ func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
 
 // TestSyncLogRepository_Create 测试创建同步日志
 func TestSyncLogRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -345,6 +353,7 @@ func TestSyncLogRepository_Create(t *testing.T) {
 
 // TestSyncLogRepository_GetByID 测试根据 ID 获取同步日志
 func TestSyncLogRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -395,6 +404,7 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 
 // TestSyncLogRepository_Update 测试更新同步日志
 func TestSyncLogRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -425,6 +435,7 @@ func TestSyncLogRepository_Update(t *testing.T) {
 
 // TestSyncLogRepository_UpdateStatus 测试更新同步状态
 func TestSyncLogRepository_UpdateStatus(t *testing.T) {
+	ctx := context.Background()
 	_, syncRepo, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -484,6 +495,7 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 
 // TestExternalCustomerRepository_Create 测试创建外部客户
 func TestExternalCustomerRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -535,6 +547,7 @@ func TestExternalCustomerRepository_Create(t *testing.T) {
 
 // TestExternalCustomerRepository_GetByID 测试根据 ID 获取外部客户
 func TestExternalCustomerRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -585,6 +598,7 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 
 // TestExternalCustomerRepository_GetByExternalID 测试根据外部 ID 获取外部客户
 func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -612,6 +626,7 @@ func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
 }
 
 func TestExternalCustomerRepository_GetByPlatform(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -670,6 +685,7 @@ func TestExternalCustomerRepository_GetByPlatform(t *testing.T) {
 
 // TestExternalCustomerRepository_Update 测试更新外部客户
 func TestExternalCustomerRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -700,6 +716,7 @@ func TestExternalCustomerRepository_Update(t *testing.T) {
 
 // TestExternalCustomerRepository_Delete 测试删除外部客户
 func TestExternalCustomerRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -723,6 +740,7 @@ func TestExternalCustomerRepository_Delete(t *testing.T) {
 
 // TestExternalOrderRepository_Create 测试创建外部订单
 func TestExternalOrderRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -781,6 +799,7 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 
 // TestExternalOrderRepository_GetByOrderID 测试根据外部订单号获取订单
 func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -835,6 +854,7 @@ func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
 }
 
 func TestExternalOrderRepository_GetByPlatform(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -895,6 +915,7 @@ func TestExternalOrderRepository_GetByPlatform(t *testing.T) {
 
 // TestExternalOrderRepository_Update 测试更新外部订单
 func TestExternalOrderRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -928,6 +949,7 @@ func TestExternalOrderRepository_Update(t *testing.T) {
 
 // TestExternalOrderRepository_Delete 测试删除外部订单
 func TestExternalOrderRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -952,6 +974,7 @@ func TestExternalOrderRepository_Delete(t *testing.T) {
 
 // TestExternalProductRepository_Create 测试创建外部商品
 func TestExternalProductRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -1007,6 +1030,7 @@ func TestExternalProductRepository_Create(t *testing.T) {
 
 // TestExternalProductRepository_GetByProductID 测试根据商品 ID 获取商品
 func TestExternalProductRepository_GetByProductID(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1059,6 +1083,7 @@ func TestExternalProductRepository_GetByProductID(t *testing.T) {
 
 // TestExternalProductRepository_Update 测试更新外部商品
 func TestExternalProductRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1095,6 +1120,7 @@ func TestExternalProductRepository_Update(t *testing.T) {
 
 // TestExternalProductRepository_Delete 测试删除外部商品
 func TestExternalProductRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, productRepo, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1119,6 +1145,7 @@ func TestExternalProductRepository_Delete(t *testing.T) {
 
 // TestWebhookEventRepository_Create 测试创建 Webhook 事件
 func TestWebhookEventRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	tests := []struct {
@@ -1167,6 +1194,7 @@ func TestWebhookEventRepository_Create(t *testing.T) {
 
 // TestWebhookEventRepository_GetByEventID 测试根据事件 ID 获取 Webhook 事件
 func TestWebhookEventRepository_GetByEventID(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1217,6 +1245,7 @@ func TestWebhookEventRepository_GetByEventID(t *testing.T) {
 
 // TestWebhookEventRepository_GetUnprocessed 测试获取未处理的 Webhook 事件
 func TestWebhookEventRepository_GetUnprocessed(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1251,6 +1280,7 @@ func TestWebhookEventRepository_GetUnprocessed(t *testing.T) {
 
 // TestWebhookEventRepository_MarkProcessed 测试标记 Webhook 事件为已处理
 func TestWebhookEventRepository_MarkProcessed(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据
@@ -1278,6 +1308,7 @@ func TestWebhookEventRepository_MarkProcessed(t *testing.T) {
 
 // TestWebhookEventRepository_Update 测试更新 Webhook 事件
 func TestWebhookEventRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据

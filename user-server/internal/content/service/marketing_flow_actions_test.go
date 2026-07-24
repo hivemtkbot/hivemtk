@@ -405,7 +405,8 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.sendActionCreateTask(context.Background(), tt.config, tt.userID, tt.data)
+			ctx := context.Background()
+			result, err := service.sendActionCreateTask(ctx, tt.config, tt.userID, tt.data)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("sendActionCreateTask() error = %v, wantErr %v", err, tt.wantErr)
@@ -882,7 +883,8 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.sendActionCreateOrder(context.Background(), tt.config, tt.userID, tt.data)
+			ctx := context.Background()
+			result, err := service.sendActionCreateOrder(ctx, tt.config, tt.userID, tt.data)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("sendActionCreateOrder() error = %v, wantErr %v", err, tt.wantErr)
@@ -904,7 +906,7 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 				}
 
 				// 验证数据库中的订单
-				order, oerr := service.orderRepo.GetByStringID(orderID)
+				order, oerr := service.orderRepo.GetByStringID(ctx, orderID)
 				if oerr != nil {
 					t.Fatalf("GetByStringID(%q) failed: %v", orderID, oerr)
 				}

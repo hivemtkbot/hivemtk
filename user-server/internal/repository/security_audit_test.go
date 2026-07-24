@@ -134,7 +134,7 @@ func TestSecurityAuditRepository_List(t *testing.T) {
 	// 创建 5 条记录
 	for i := 0; i < 5; i++ {
 		now := time.Now()
-		repo.Create&model.SecurityAuditResult{
+		repo.Create(ctx, &model.SecurityAuditResult){
 			AuditName: fmt.Sprintf("audit_%d", i),
 			Status:    "completed",
 			StartedAt: &now,

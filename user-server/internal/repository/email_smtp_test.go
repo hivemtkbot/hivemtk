@@ -27,6 +27,7 @@ func setupEmailSmtpRepository(t *testing.T) EmailSmtpRepository {
 
 // TestEmailSmtpRepository_Create 测试创建 SMTP 配置
 func TestEmailSmtpRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	tests := []struct {
@@ -74,7 +75,7 @@ func TestEmailSmtpRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.smtp)
+			err := repo.Create(ctx, tt.smtp)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -89,6 +90,7 @@ func TestEmailSmtpRepository_Create(t *testing.T) {
 
 // TestEmailSmtpRepository_GetByID 测试根据 ID 获取 SMTP 配置
 func TestEmailSmtpRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	// 创建测试数据
@@ -121,7 +123,7 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -141,11 +143,12 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 
 // TestEmailSmtpRepository_GetEmailSmtpList 测试获取 SMTP 列表
 func TestEmailSmtpRepository_GetEmailSmtpList(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.EmailSmtp{
+		repo.Create(ctx, &model.EmailSmtp){
 			Name:     "SMTP " + string(rune('0'+i)),
 			Server:   "smtp" + string(rune('0'+i)) + ".example.com",
 			Port:     587,
@@ -167,6 +170,7 @@ func TestEmailSmtpRepository_GetEmailSmtpList(t *testing.T) {
 
 // TestEmailSmtpRepository_Update 测试更新 SMTP 配置
 func TestEmailSmtpRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	// 创建测试数据
@@ -186,7 +190,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 	smtp.Port = 465
 	smtp.Password = "new_password"
 
-	err := repo.Updatesmtp)
+	err := repo.Update(ctx, smtp)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -205,6 +209,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 
 // TestEmailSmtpRepository_Delete 测试删除 SMTP 配置
 func TestEmailSmtpRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	// 创建测试数据
@@ -218,7 +223,7 @@ func TestEmailSmtpRepository_Delete(t *testing.T) {
 	}
 	repo.Create(smtp)
 
-	err := repo.Deletesmtp.ID)
+	err := repo.Delete(ctx, smtp.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -231,9 +236,10 @@ func TestEmailSmtpRepository_Delete(t *testing.T) {
 
 // TestEmailSmtpRepository_GetByID_NotFound 测试获取不存在的 SMTP 配置
 func TestEmailSmtpRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	_, err := repo.GetByID"non-existing-id")
+	_, err := repo.GetByID(ctx, "non-existing-id"))
 	if err == nil {
 		t.Error("Expected error when getting non-existing SMTP config")
 	}
@@ -241,6 +247,7 @@ func TestEmailSmtpRepository_GetByID_NotFound(t *testing.T) {
 
 // TestEmailSmtpRepository_GetEmailSmtpList_EmptyResult 测试获取空列表
 func TestEmailSmtpRepository_GetEmailSmtpList_EmptyResult(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
 	results, err := repo.GetEmailSmtpList(context.Background())

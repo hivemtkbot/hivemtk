@@ -25,6 +25,7 @@ func setupShortLinkRepository(t *testing.T) ShortLinkRepository {
 
 // TestShortLinkRepository_Create 测试创建短链
 func TestShortLinkRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	tests := []struct {
@@ -56,7 +57,7 @@ func TestShortLinkRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.link)
+			err := repo.Create(ctx, tt.link)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -71,6 +72,7 @@ func TestShortLinkRepository_Create(t *testing.T) {
 
 // TestShortLinkRepository_GetByID 测试根据 ID 获取短链
 func TestShortLinkRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
@@ -100,7 +102,7 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -117,6 +119,7 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 
 // TestShortLinkRepository_GetByShortCode 测试根据短码获取短链
 func TestShortLinkRepository_GetByShortCode(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
@@ -163,6 +166,7 @@ func TestShortLinkRepository_GetByShortCode(t *testing.T) {
 
 // TestShortLinkRepository_GetList 测试获取短链列表
 func TestShortLinkRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	database := setupShortLinkTestDB(t)
 	repo := NewShortLinkRepository(database)
 
@@ -263,6 +267,7 @@ func TestShortLinkRepository_GetList(t *testing.T) {
 
 // TestShortLinkRepository_Update 测试更新短链
 func TestShortLinkRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
@@ -276,7 +281,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 	link.Title = "Updated Title"
 	link.Description = "New Description"
 
-	err := repo.Updatelink)
+	err := repo.Update(ctx, link)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -292,6 +297,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 
 // TestShortLinkRepository_Delete 测试删除短链
 func TestShortLinkRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
@@ -301,7 +307,7 @@ func TestShortLinkRepository_Delete(t *testing.T) {
 	}
 	repo.Create(link)
 
-	err := repo.Deletelink.ID)
+	err := repo.Delete(ctx, link.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -314,11 +320,12 @@ func TestShortLinkRepository_Delete(t *testing.T) {
 
 // TestShortLinkRepository_GetTotalCount 测试获取短链总数
 func TestShortLinkRepository_GetTotalCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.ShortLink{
+		repo.Create(ctx, &model.ShortLink){
 			ShortCode:   "code" + string(rune('0'+i)),
 			OriginalURL: "https://example.com",
 		})
@@ -336,6 +343,7 @@ func TestShortLinkRepository_GetTotalCount(t *testing.T) {
 
 // TestShortLinkRepository_IncreaseClickCount 测试增加点击次数
 func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	// 创建测试数据
@@ -370,6 +378,7 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 
 // TestShortLinkRepository_GetByID_NotFound 测试获取不存在的短链
 func TestShortLinkRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	_, err := repo.GetByID99999)
@@ -380,6 +389,7 @@ func TestShortLinkRepository_GetByID_NotFound(t *testing.T) {
 
 // TestShortLinkRepository_GetByShortCode_NotFound 测试获取不存在的短码
 func TestShortLinkRepository_GetByShortCode_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	_, err := repo.GetByShortCode(context.Background(), "nonexistent")
@@ -390,6 +400,7 @@ func TestShortLinkRepository_GetByShortCode_NotFound(t *testing.T) {
 
 // TestShortLinkRepository_GetList_EmptyResult 测试获取空结果
 func TestShortLinkRepository_GetList_EmptyResult(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	results, total, err := repo.GetList1, 10, "", "", 0)
@@ -408,6 +419,7 @@ func TestShortLinkRepository_GetList_EmptyResult(t *testing.T) {
 
 // TestShortLinkRepository_WithExpireTime 测试有过期时间的短链
 func TestShortLinkRepository_WithExpireTime(t *testing.T) {
+	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
 	futureTime := time.Now().Add(24 * time.Hour)

@@ -27,6 +27,7 @@ func setupObsConfigRepository(t *testing.T) ObsConfigRepository {
 
 // TestObsConfigRepository_Create 测试创建 OBS 配置
 func TestObsConfigRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	tests := []struct {
@@ -66,7 +67,7 @@ func TestObsConfigRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.config)
+			err := repo.Create(ctx, tt.config)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -81,6 +82,7 @@ func TestObsConfigRepository_Create(t *testing.T) {
 
 // TestObsConfigRepository_GetByID 测试根据 ID 获取配置
 func TestObsConfigRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
@@ -111,7 +113,7 @@ func TestObsConfigRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -128,11 +130,12 @@ func TestObsConfigRepository_GetByID(t *testing.T) {
 
 // TestObsConfigRepository_GetList 测试获取配置列表
 func TestObsConfigRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.ObsConfig{
+		repo.Create(ctx, &model.ObsConfig){
 			Name:     "Config " + string(rune('0'+i)),
 			Provider: model.ObsProviderAliyun,
 			Bucket:   "bucket-" + string(rune('0'+i)),
@@ -141,14 +144,14 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 	}
 
 	// 创建其他提供商的配置
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:     "Qiniu Config",
 		Provider: model.ObsProviderQiniu,
 		Bucket:   "qiniu-bucket",
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:     "Inactive Config",
 		Provider: model.ObsProviderTencent,
 		Bucket:   "tencent-bucket",
@@ -244,6 +247,7 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 
 // TestObsConfigRepository_Update 测试更新配置
 func TestObsConfigRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
@@ -259,7 +263,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 	config.Name = "Updated Name"
 	config.Bucket = "updated-bucket"
 
-	err := repo.Updateconfig)
+	err := repo.Update(ctx, config)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -275,6 +279,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 
 // TestObsConfigRepository_Delete 测试删除配置
 func TestObsConfigRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
@@ -286,7 +291,7 @@ func TestObsConfigRepository_Delete(t *testing.T) {
 	}
 	repo.Create(config)
 
-	err := repo.Deleteconfig.ID)
+	err := repo.Delete(ctx, config.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -299,10 +304,11 @@ func TestObsConfigRepository_Delete(t *testing.T) {
 
 // TestObsConfigRepository_GetDefault 测试获取默认配置
 func TestObsConfigRepository_GetDefault(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建非默认配置
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:      "Non-default Config",
 		Provider:  model.ObsProviderAliyun,
 		IsDefault: false,
@@ -332,6 +338,7 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 
 // TestObsConfigRepository_SetDefault 测试设置默认配置
 func TestObsConfigRepository_SetDefault(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
@@ -383,6 +390,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 
 // TestObsConfigRepository_ClearDefault 测试清除默认配置
 func TestObsConfigRepository_ClearDefault(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建默认配置
@@ -409,6 +417,7 @@ func TestObsConfigRepository_ClearDefault(t *testing.T) {
 
 // TestObsConfigRepository_UpdateStatus 测试更新状态
 func TestObsConfigRepository_UpdateStatus(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
@@ -433,22 +442,23 @@ func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 
 // TestObsConfigRepository_CountByStatus 测试按状态统计数量
 func TestObsConfigRepository_CountByStatus(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:     "Active 1",
 		Provider: model.ObsProviderAliyun,
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:     "Active 2",
 		Provider: model.ObsProviderQiniu,
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create&model.ObsConfig{
+	repo.Create(ctx, &model.ObsConfig){
 		Name:     "Inactive 1",
 		Provider: model.ObsProviderTencent,
 		Status:   model.ObsStatusInactive,
@@ -475,9 +485,10 @@ func TestObsConfigRepository_CountByStatus(t *testing.T) {
 
 // TestObsConfigRepository_GetByID_NotFound 测试获取不存在的配置
 func TestObsConfigRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
-	_, err := repo.GetByID"non-existing-id")
+	_, err := repo.GetByID(ctx, "non-existing-id"))
 	if err == nil {
 		t.Error("Expected error when getting non-existing config")
 	}

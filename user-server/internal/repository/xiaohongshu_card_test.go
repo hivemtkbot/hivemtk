@@ -25,6 +25,7 @@ func setupXiaohongshuCardRepository(t *testing.T) XiaohongshuCardRepository {
 
 // TestXiaohongshuCardRepository_Create 测试创建小红书卡片
 func TestXiaohongshuCardRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	tests := []struct {
@@ -57,7 +58,7 @@ func TestXiaohongshuCardRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.Creatett.card)
+			result, err := repo.Create(ctx, tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -77,6 +78,7 @@ func TestXiaohongshuCardRepository_Create(t *testing.T) {
 
 // TestXiaohongshuCardRepository_GetByID 测试根据 ID 获取小红书卡片
 func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试数据
@@ -106,7 +108,7 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -123,6 +125,7 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 
 // TestXiaohongshuCardRepository_GetList 测试获取小红书卡片列表
 func TestXiaohongshuCardRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	database := setupXiaohongshuCardTestDB(t)
 	repo := NewXiaohongshuCardRepository(database)
 
@@ -211,7 +214,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.req)
+			results, total, err := repo.GetList(ctx, tt.req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
@@ -230,6 +233,7 @@ func TestXiaohongshuCardRepository_GetList(t *testing.T) {
 
 // TestXiaohongshuCardRepository_Update 测试更新小红书卡片
 func TestXiaohongshuCardRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试数据
@@ -244,7 +248,7 @@ func TestXiaohongshuCardRepository_Update(t *testing.T) {
 	shortLinkID := uint(123)
 	card.ShortLinkID = &shortLinkID
 
-	updated, err := repo.Updatecard)
+	updated, err := repo.Update(ctx, card)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -259,6 +263,7 @@ func TestXiaohongshuCardRepository_Update(t *testing.T) {
 
 // TestXiaohongshuCardRepository_Delete 测试删除小红书卡片
 func TestXiaohongshuCardRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试数据
@@ -268,7 +273,7 @@ func TestXiaohongshuCardRepository_Delete(t *testing.T) {
 	}
 	repo.Create(card)
 
-	err := repo.Deletecard.ID)
+	err := repo.Delete(ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -281,6 +286,7 @@ func TestXiaohongshuCardRepository_Delete(t *testing.T) {
 
 // TestXiaohongshuCardRepository_IncrementViewCount 测试增加浏览次数
 func TestXiaohongshuCardRepository_IncrementViewCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试数据
@@ -302,6 +308,7 @@ func TestXiaohongshuCardRepository_IncrementViewCount(t *testing.T) {
 
 // TestXiaohongshuCardRepository_CreateActivity 测试创建活动记录
 func TestXiaohongshuCardRepository_CreateActivity(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试卡片
@@ -336,6 +343,7 @@ func TestXiaohongshuCardRepository_CreateActivity(t *testing.T) {
 
 // TestXiaohongshuCardRepository_UpdateShortLinkID 测试更新短链 ID
 func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupXiaohongshuCardRepository(t)
 
 	// 创建测试数据

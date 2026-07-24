@@ -22,6 +22,7 @@ func setupTestRepositoryDB(t *testing.T) *gorm.DB {
 
 // TestNewUserRepository 测试创建 UserRepository
 func TestNewUserRepository(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -32,6 +33,7 @@ func TestNewUserRepository(t *testing.T) {
 
 // TestUserRepository_Create 测试创建用户
 func TestUserRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -60,6 +62,7 @@ func TestUserRepository_Create(t *testing.T) {
 
 // TestUserRepository_GetByID 测试根据 ID 获取用户
 func TestUserRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -85,11 +88,12 @@ func TestUserRepository_GetByID(t *testing.T) {
 
 // TestUserRepository_GetByID_NotFound 测试获取不存在的用户
 func TestUserRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
 
-	_, err := repo.GetByID"non-existent-id")
+	_, err := repo.GetByID(ctx, "non-existent-id"))
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -97,6 +101,7 @@ func TestUserRepository_GetByID_NotFound(t *testing.T) {
 
 // TestUserRepository_GetByUsername 测试根据用户名获取用户
 func TestUserRepository_GetByUsername(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -122,6 +127,7 @@ func TestUserRepository_GetByUsername(t *testing.T) {
 
 // TestUserRepository_GetByUsername_NotFound 测试获取不存在的用户
 func TestUserRepository_GetByUsername_NotFound(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -134,6 +140,7 @@ func TestUserRepository_GetByUsername_NotFound(t *testing.T) {
 
 // TestUserRepository_GetUserList 测试获取用户列表
 func TestUserRepository_GetUserList(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -165,6 +172,7 @@ func TestUserRepository_GetUserList(t *testing.T) {
 
 // TestUserRepository_GetUserList_Pagination 测试分页
 func TestUserRepository_GetUserList_Pagination(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -210,6 +218,7 @@ func TestUserRepository_GetUserList_Pagination(t *testing.T) {
 
 // TestUserRepository_Delete 测试删除用户
 func TestUserRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -223,7 +232,7 @@ func TestUserRepository_Delete(t *testing.T) {
 	repo.Create(user)
 
 	// 删除用户
-	err := repo.Deleteuser.ID)
+	err := repo.Delete(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
@@ -237,6 +246,7 @@ func TestUserRepository_Delete(t *testing.T) {
 
 // TestUserRepository_Update 测试更新用户
 func TestUserRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -252,7 +262,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 	// 更新用户
 	user.RealName = "Updated Name"
-	err := repo.Updateuser)
+	err := repo.Update(ctx, user)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -266,6 +276,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 // TestUserRepository_UpdatePassword 测试更新密码
 func TestUserRepository_UpdatePassword(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -298,6 +309,7 @@ func TestUserRepository_UpdatePassword(t *testing.T) {
 
 // TestUserRepository_UserIsExist 测试用户是否存在
 func TestUserRepository_UserIsExist(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -333,6 +345,7 @@ func TestUserRepository_UserIsExist(t *testing.T) {
 
 // TestUserRepository_UsernameExists 测试用户名是否存在
 func TestUserRepository_UsernameExists(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()
@@ -375,6 +388,7 @@ func TestUserRepository_UsernameExists(t *testing.T) {
 
 // TestUserRepository_EmailExists 测试邮箱是否存在
 func TestUserRepository_EmailExists(t *testing.T) {
+	ctx := context.Background()
 	setupTestRepositoryDB(t)
 
 	repo := NewUserRepository()

@@ -82,7 +82,7 @@ func TestCustomReportService_CreateReport_Success(t *testing.T) {
 	}
 
 	if report.CreatedBy != 123 {
-		t.Errorf("Expected created_by 123, got %d", report.Create(dBy)
+		t.Errorf("Expected created_by 123, got %d", report.CreatedBy)
 	}
 }
 

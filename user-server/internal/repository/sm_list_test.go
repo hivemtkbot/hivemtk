@@ -28,6 +28,7 @@ func setupSmlistRepository(t *testing.T) SmlistRepository {
 
 // TestSmlistRepository_Create 测试创建短信列表
 func TestSmlistRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	tests := []struct {
@@ -81,7 +82,7 @@ func TestSmlistRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.smlist)
+			err := repo.Create(ctx, tt.smlist)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -96,6 +97,7 @@ func TestSmlistRepository_Create(t *testing.T) {
 
 // TestSmlistRepository_GetByID 测试根据 ID 获取短信列表
 func TestSmlistRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	// 创建测试数据
@@ -126,7 +128,7 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -143,11 +145,12 @@ func TestSmlistRepository_GetByID(t *testing.T) {
 
 // TestSmlistRepository_GetSmlistList 测试获取短信列表（分页）
 func TestSmlistRepository_GetSmlistList(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 15; i++ {
-		repo.Create&model.Smlist{
+		repo.Create(ctx, &model.Smlist){
 			QQ:    "qq" + string(rune('0'+i)),
 			Name:  "User " + string(rune('0'+i)),
 			Phone: "1380013800" + string(rune('0'+(i%10))),
@@ -213,11 +216,12 @@ func TestSmlistRepository_GetSmlistList(t *testing.T) {
 
 // TestSmlistRepository_GetSmlistAllList 测试获取所有短信列表
 func TestSmlistRepository_GetSmlistAllList(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 8; i++ {
-		repo.Create&model.Smlist{
+		repo.Create(ctx, &model.Smlist){
 			QQ:    "qq" + string(rune('0'+i)),
 			Name:  "All User " + string(rune('0'+i)),
 			Phone: "1380013800" + string(rune('0'+(i%10))),
@@ -241,6 +245,7 @@ func TestSmlistRepository_GetSmlistAllList(t *testing.T) {
 
 // TestSmlistRepository_Delete 测试删除短信列表
 func TestSmlistRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	// 创建测试数据
@@ -252,7 +257,7 @@ func TestSmlistRepository_Delete(t *testing.T) {
 	}
 	repo.Create(smlist)
 
-	err := repo.Deletesmlist.ID)
+	err := repo.Delete(ctx, smlist.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -265,17 +270,18 @@ func TestSmlistRepository_Delete(t *testing.T) {
 
 // TestSmlistRepository_GetRecentSmlistList 测试获取最近的短信列表
 func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	// 创建最近的数据（48 小时内）
-	repo.Create&model.Smlist{
+	repo.Create(ctx, &model.Smlist){
 		QQ:    "recent1",
 		Name:  "Recent User 1",
 		Phone: "13800138001",
 		City:  "Beijing",
 	})
 
-	repo.Create&model.Smlist{
+	repo.Create(ctx, &model.Smlist){
 		QQ:    "recent2",
 		Name:  "Recent User 2",
 		Phone: "13800138002",
@@ -307,9 +313,10 @@ func TestSmlistRepository_GetRecentSmlistList(t *testing.T) {
 
 // TestSmlistRepository_GetByID_NotFound 测试获取不存在的短信列表
 func TestSmlistRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
-	_, err := repo.GetByID"non-existing-id")
+	_, err := repo.GetByID(ctx, "non-existing-id"))
 	if err == nil {
 		t.Error("Expected error when getting non-existing smlist")
 	}
@@ -317,6 +324,7 @@ func TestSmlistRepository_GetByID_NotFound(t *testing.T) {
 
 // TestSmlistRepository_GetSmlistList_Empty 测试获取空列表
 func TestSmlistRepository_GetSmlistList_Empty(t *testing.T) {
+	ctx := context.Background()
 	repo := setupSmlistRepository(t)
 
 	results, total, err := repo.GetSmlistList(context.Background(), 1, 10)

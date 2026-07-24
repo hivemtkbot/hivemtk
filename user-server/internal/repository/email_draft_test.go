@@ -29,6 +29,7 @@ func setupEmailDraftRepository(t *testing.T) EmailDraftRepository {
 
 // TestEmailDraftRepository_Create 测试创建邮件草稿
 func TestEmailDraftRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	tests := []struct {
@@ -65,7 +66,7 @@ func TestEmailDraftRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.draft)
+			err := repo.Create(ctx, tt.draft)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -80,6 +81,7 @@ func TestEmailDraftRepository_Create(t *testing.T) {
 
 // TestEmailDraftRepository_GetByID 测试根据 ID 获取草稿
 func TestEmailDraftRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	// 创建测试数据
@@ -108,7 +110,7 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -128,11 +130,12 @@ func TestEmailDraftRepository_GetByID(t *testing.T) {
 
 // TestEmailDraftRepository_List 测试获取草稿列表
 func TestEmailDraftRepository_List(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.EmailDraft{
+		repo.Create(ctx, &model.EmailDraft){
 			Subject: "Draft " + string(rune('0'+i)),
 			Content: "Content " + string(rune('0'+i)),
 		})
@@ -150,6 +153,7 @@ func TestEmailDraftRepository_List(t *testing.T) {
 
 // TestEmailDraftRepository_Update 测试更新草稿
 func TestEmailDraftRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	// 创建测试数据
@@ -163,7 +167,7 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 	draft.Subject = "Updated Subject"
 	draft.Content = "Updated content"
 
-	err := repo.Updatedraft)
+	err := repo.Update(ctx, draft)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -179,6 +183,7 @@ func TestEmailDraftRepository_Update(t *testing.T) {
 
 // TestEmailDraftRepository_Delete 测试删除草稿
 func TestEmailDraftRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	// 创建测试数据
@@ -188,7 +193,7 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 	}
 	repo.Create(draft)
 
-	err := repo.Deletedraft.ID)
+	err := repo.Delete(ctx, draft.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -201,6 +206,7 @@ func TestEmailDraftRepository_Delete(t *testing.T) {
 
 // TestEmailDraftRepository_GetByID_NotFound 测试获取不存在的草稿
 func TestEmailDraftRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	_, err := repo.GetByIDuuid.New())
@@ -211,6 +217,7 @@ func TestEmailDraftRepository_GetByID_NotFound(t *testing.T) {
 
 // TestEmailDraftRepository_List_EmptyResult 测试获取空列表
 func TestEmailDraftRepository_List_EmptyResult(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	results, err := repo.List(context.Background())
@@ -225,6 +232,7 @@ func TestEmailDraftRepository_List_EmptyResult(t *testing.T) {
 
 // TestEmailDraftRepository_Update_WithUpdatedAt 测试更新时间戳
 func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailDraftRepository(t)
 
 	// 创建测试数据
@@ -239,7 +247,7 @@ func TestEmailDraftRepository_Update_WithUpdatedAt(t *testing.T) {
 
 	// 更新
 	draft.Subject = "Updated Subject"
-	err := repo.Updatedraft)
+	err := repo.Update(ctx, draft)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}

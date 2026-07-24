@@ -191,7 +191,7 @@ func TestEmailDraftService_GetEmailDraftList(t *testing.T) {
 
 	// 验证按 created_at DESC 排序
 	for i := 0; i < len(drafts)-1; i++ {
-		if drafts[i].CreatedAt.Before(drafts[i+1].Create(dAt) {
+		if drafts[i].CreatedAt.Before(drafts[i+1].CreatedAt) {
 			t.Errorf("Expected drafts to be sorted by created_at DESC")
 		}
 	}

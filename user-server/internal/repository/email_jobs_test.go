@@ -28,6 +28,7 @@ func setupEmailJobsRepository(t *testing.T) EmailJobsRepository {
 
 // TestEmailJobsRepository_Create 测试创建邮件任务
 func TestEmailJobsRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	tests := []struct {
@@ -63,7 +64,7 @@ func TestEmailJobsRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.job)
+			err := repo.Create(ctx, tt.job)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -80,6 +81,7 @@ func TestEmailJobsRepository_Create(t *testing.T) {
 
 // TestEmailJobsRepository_GetByID 测试根据 ID 获取邮件任务
 func TestEmailJobsRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	// 创建测试数据
@@ -111,7 +113,7 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -128,11 +130,12 @@ func TestEmailJobsRepository_GetByID(t *testing.T) {
 
 // TestEmailJobsRepository_List 测试获取邮件任务列表
 func TestEmailJobsRepository_List(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	// 创建测试数据
 	for i := 1; i <= 15; i++ {
-		repo.Create&model.EmailJobs{
+		repo.Create(ctx, &model.EmailJobs){
 			Subject:      "Email Job " + string(rune('A'+i-1)),
 			EmailTotal:   int64(i * 10),
 			SuccessTotal: int64(i * 8),
@@ -199,6 +202,7 @@ func TestEmailJobsRepository_List(t *testing.T) {
 
 // TestEmailJobsRepository_Update 测试更新邮件任务
 func TestEmailJobsRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	// 创建测试数据
@@ -217,7 +221,7 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 	job.FailTotal = 5
 	job.ReadTotal = 20
 
-	err := repo.Updatejob)
+	err := repo.Update(ctx, job)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -239,6 +243,7 @@ func TestEmailJobsRepository_Update(t *testing.T) {
 
 // TestEmailJobsRepository_Delete 测试删除邮件任务
 func TestEmailJobsRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	// 创建测试数据
@@ -251,7 +256,7 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 	}
 	repo.Create(job)
 
-	err := repo.Deletejob.ID)
+	err := repo.Delete(ctx, job.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -264,6 +269,7 @@ func TestEmailJobsRepository_Delete(t *testing.T) {
 
 // TestEmailJobsRepository_GetByID_NotFound 测试获取不存在的任务
 func TestEmailJobsRepository_GetByID_NotFound(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	_, err := repo.GetByIDuuid.New())
@@ -274,6 +280,7 @@ func TestEmailJobsRepository_GetByID_NotFound(t *testing.T) {
 
 // TestEmailJobsRepository_List_EmptyResult 测试获取空结果
 func TestEmailJobsRepository_List_EmptyResult(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	results, total, err := repo.List(context.Background(), 1, 10)
@@ -292,6 +299,7 @@ func TestEmailJobsRepository_List_EmptyResult(t *testing.T) {
 
 // TestEmailJobsRepository_Create_WithStats 测试创建带统计数据的任务
 func TestEmailJobsRepository_Create_WithStats(t *testing.T) {
+	ctx := context.Background()
 	repo := setupEmailJobsRepository(t)
 
 	job := &model.EmailJobs{

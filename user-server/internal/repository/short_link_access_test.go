@@ -73,7 +73,7 @@ func TestShortLinkAccessRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.access)
+			err := repo.Create(ctx, tt.access)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -117,7 +117,7 @@ func TestShortLinkAccessRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -138,7 +138,7 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.ShortLinkAccess{
+		repo.Create(ctx, &model.ShortLinkAccess){
 			ShortLinkID: 1,
 			IP:          "192.168.1." + string(rune('0'+i)),
 			DeviceType:  "desktop",
@@ -146,7 +146,7 @@ func TestShortLinkAccessRepository_GetByShortLinkID(t *testing.T) {
 	}
 
 	// 创建其他短链的访问记录
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 99,
 		IP:          "192.168.2.1",
 		DeviceType:  "mobile",
@@ -219,7 +219,7 @@ func TestShortLinkAccessRepository_GetStatsByShortLinkID(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 10; i++ {
-		repo.Create&model.ShortLinkAccess{
+		repo.Create(ctx, &model.ShortLinkAccess){
 			ShortLinkID: 1,
 			IP:          "192.168.1." + string(rune('0'+i)),
 		})
@@ -246,7 +246,7 @@ func TestShortLinkAccessRepository_GetDailyStatsByShortLinkID(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 	})
@@ -269,19 +269,19 @@ func TestShortLinkAccessRepository_GetDeviceTypeStatsByShortLinkID(t *testing.T)
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建不同设备类型的访问记录
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 		DeviceType:  "desktop",
 	})
 
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.2",
 		DeviceType:  "mobile",
 	})
 
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.3",
 		DeviceType:  "mobile",
@@ -305,12 +305,12 @@ func TestShortLinkAccessRepository_GetAllDailyStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 	})
 
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 2,
 		IP:          "192.168.1.2",
 	})
@@ -333,13 +333,13 @@ func TestShortLinkAccessRepository_GetAllDeviceTypeStats(t *testing.T) {
 	repo := setupShortLinkAccessRepository(t)
 
 	// 创建测试数据
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 1,
 		IP:          "192.168.1.1",
 		DeviceType:  "desktop",
 	})
 
-	repo.Create&model.ShortLinkAccess{
+	repo.Create(ctx, &model.ShortLinkAccess){
 		ShortLinkID: 2,
 		IP:          "192.168.1.2",
 		DeviceType:  "mobile",

@@ -87,7 +87,7 @@ func TestDashboardScreenService_CreateScreen(t *testing.T) {
 	}
 
 	if screen.CreatedBy != createdBy {
-		t.Errorf("Expected created_by %d, got %d", createdBy, screen.Create(dBy)
+		t.Errorf("Expected created_by %d, got %d", createdBy, screen.CreatedBy)
 	}
 
 	if screen.Code == "" {

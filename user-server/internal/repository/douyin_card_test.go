@@ -24,6 +24,7 @@ func setupDouyinCardRepository(t *testing.T) DouyinCardRepository {
 
 // TestDouyinCardRepository_Create 测试创建抖音卡片
 func TestDouyinCardRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	tests := []struct {
@@ -57,7 +58,7 @@ func TestDouyinCardRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.Creatett.card)
+			result, err := repo.Create(ctx, tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -77,6 +78,7 @@ func TestDouyinCardRepository_Create(t *testing.T) {
 
 // TestDouyinCardRepository_GetByID 测试根据 ID 获取抖音卡片
 func TestDouyinCardRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	// 创建测试数据
@@ -106,7 +108,7 @@ func TestDouyinCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -123,6 +125,7 @@ func TestDouyinCardRepository_GetByID(t *testing.T) {
 
 // TestDouyinCardRepository_GetList 测试获取抖音卡片列表
 func TestDouyinCardRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	database := setupDouyinCardTestDB(t)
 	repo := NewDouyinCardRepository(database)
 
@@ -220,7 +223,7 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.req)
+			results, total, err := repo.GetList(ctx, tt.req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
@@ -239,6 +242,7 @@ func TestDouyinCardRepository_GetList(t *testing.T) {
 
 // TestDouyinCardRepository_Update 测试更新抖音卡片
 func TestDouyinCardRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	// 创建测试数据
@@ -253,7 +257,7 @@ func TestDouyinCardRepository_Update(t *testing.T) {
 	card.Title = "Updated Title"
 	card.ShortLinkID = 123
 
-	updated, err := repo.Updatecard)
+	updated, err := repo.Update(ctx, card)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -268,6 +272,7 @@ func TestDouyinCardRepository_Update(t *testing.T) {
 
 // TestDouyinCardRepository_Delete 测试删除抖音卡片
 func TestDouyinCardRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	// 创建测试数据
@@ -277,7 +282,7 @@ func TestDouyinCardRepository_Delete(t *testing.T) {
 	}
 	repo.Create(card)
 
-	err := repo.Deletecard.ID)
+	err := repo.Delete(ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -290,6 +295,7 @@ func TestDouyinCardRepository_Delete(t *testing.T) {
 
 // TestDouyinCardRepository_IncrementViewCount 测试增加浏览次数
 func TestDouyinCardRepository_IncrementViewCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	// 创建测试数据
@@ -311,6 +317,7 @@ func TestDouyinCardRepository_IncrementViewCount(t *testing.T) {
 
 // TestDouyinCardRepository_IncrementShareCount 测试增加分享次数
 func TestDouyinCardRepository_IncrementShareCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupDouyinCardRepository(t)
 
 	// 创建测试数据

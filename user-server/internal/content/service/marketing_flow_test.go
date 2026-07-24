@@ -79,7 +79,7 @@ func TestMarketingFlowService_CreateFlow(t *testing.T) {
 		t.Errorf("Expected version 1, got %d", flow.Version)
 	}
 	if flow.CreatedBy != 1 {
-		t.Errorf("Expected created_by 1, got %d", flow.Create(dBy)
+		t.Errorf("Expected created_by 1, got %d", flow.CreatedBy)
 	}
 }
 
@@ -662,12 +662,12 @@ func TestMarketingFlowService_handleDelay(t *testing.T) {
 func TestMarketingFlowService_sendActionSendMessage(t *testing.T) {
 	service := setupMarketingFlowService(t)
 
-	// 创建测试用的自动回复账号
+	// 创建测试用的自动回复账号（直接写明文 Cookie 字段，测试发送动作不需要解密）
 	testAccount := &cdpmodel.AutoReplyAccount{
 		Platform: "xiaohongshu",
 		Username: "account-1",
+		Cookie:   "test-session-cookie-value",
 	}
-	testAccount.SetCookie("test-session-cookie-value")
 	db.GetDB().Create(testAccount)
 
 	tests := []struct {

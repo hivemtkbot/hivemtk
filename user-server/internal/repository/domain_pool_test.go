@@ -56,7 +56,7 @@ func TestDomainPoolRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.domain)
+			err := repo.Create(ctx, tt.domain)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -81,7 +81,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
 	tests := []struct {
 		name    string
@@ -102,7 +102,7 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -132,7 +132,7 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
 	tests := []struct {
 		name    string
@@ -174,7 +174,7 @@ func TestDomainPoolRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.DomainPool{
+		repo.Create(ctx, &model.DomainPool{
 			Domain:    string(rune('a'+i-1)) + "domain.com",
 			Port:      80 + i,
 			Purpose:   "Test domain " + string(rune('0'+i)),
@@ -245,19 +245,19 @@ func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 
 	// 创建测试数据
-	repo.Create&model.DomainPool{
+	repo.Create(ctx, &model.DomainPool{
 		Domain:    "test-example.com",
 		Port:      443,
 		Status:    1,
 		LastCheck: time.Now(),
 	})
-	repo.Create&model.DomainPool{
+	repo.Create(ctx, &model.DomainPool{
 		Domain:    "example-site.com",
 		Port:      80,
 		Status:    1,
 		LastCheck: time.Now(),
 	})
-	repo.Create&model.DomainPool{
+	repo.Create(ctx, &model.DomainPool{
 		Domain:    "other.com",
 		Port:      8080,
 		Status:    1,
@@ -290,17 +290,17 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
 	domain.Port = 443
 	domain.Purpose = "Updated Purpose"
 
-	err := repo.Updatedomain)
+	err := repo.Update(ctx, domain)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(ctx, domain.ID)
 	if updated.Port != 443 {
 		t.Errorf("Expected port 443, got %d", updated.Port)
 	}
@@ -320,14 +320,14 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
-	err := repo.Deletedomain.ID)
+	err := repo.Delete(ctx, domain.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(domain.ID)
+	_, err = repo.GetByID(ctx, domain.ID)
 	if err == nil {
 		t.Error("Expected domain to be deleted")
 	}
@@ -344,14 +344,14 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Now(),
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
 	err := repo.UpdateStatus(context.Background(), domain.ID, 2)
 	if err != nil {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(ctx, domain.ID)
 	if updated.Status != 2 {
 		t.Errorf("Expected status 2, got %d", updated.Status)
 	}
@@ -368,7 +368,7 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		Status:    1,
 		LastCheck: time.Time{},
 	}
-	repo.Create(domain)
+	repo.Create(ctx, domain)
 
 	checkTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 	err := repo.UpdateLastCheck(context.Background(), domain.ID, checkTime)
@@ -376,7 +376,7 @@ func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 		t.Errorf("UpdateLastCheck() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(domain.ID)
+	updated, _ := repo.GetByID(ctx, domain.ID)
 	if updated.LastCheck.IsZero() {
 		t.Error("Expected LastCheck to be updated")
 	}

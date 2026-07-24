@@ -25,6 +25,7 @@ func setupKuaishouCardRepository(t *testing.T) KuaishouCardRepository {
 
 // TestKuaishouCardRepository_Create 测试创建快手卡片
 func TestKuaishouCardRepository_Create(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	tests := []struct {
@@ -57,7 +58,7 @@ func TestKuaishouCardRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.Creatett.card)
+			result, err := repo.Create(ctx, tt.card)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -77,6 +78,7 @@ func TestKuaishouCardRepository_Create(t *testing.T) {
 
 // TestKuaishouCardRepository_GetByID 测试根据 ID 获取快手卡片
 func TestKuaishouCardRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -106,7 +108,7 @@ func TestKuaishouCardRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+			result, err := repo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -123,6 +125,7 @@ func TestKuaishouCardRepository_GetByID(t *testing.T) {
 
 // TestKuaishouCardRepository_GetList 测试获取快手卡片列表
 func TestKuaishouCardRepository_GetList(t *testing.T) {
+	ctx := context.Background()
 	database := setupKuaishouCardTestDB(t)
 	repo := NewKuaishouCardRepository(database)
 
@@ -211,7 +214,7 @@ func TestKuaishouCardRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.req)
+			results, total, err := repo.GetList(ctx, tt.req)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
@@ -230,6 +233,7 @@ func TestKuaishouCardRepository_GetList(t *testing.T) {
 
 // TestKuaishouCardRepository_Update 测试更新快手卡片
 func TestKuaishouCardRepository_Update(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -244,7 +248,7 @@ func TestKuaishouCardRepository_Update(t *testing.T) {
 	shortLinkID := uint(123)
 	card.ShortLinkID = &shortLinkID
 
-	updated, err := repo.Updatecard)
+	updated, err := repo.Update(ctx, card)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
@@ -259,6 +263,7 @@ func TestKuaishouCardRepository_Update(t *testing.T) {
 
 // TestKuaishouCardRepository_Delete 测试删除快手卡片
 func TestKuaishouCardRepository_Delete(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -268,7 +273,7 @@ func TestKuaishouCardRepository_Delete(t *testing.T) {
 	}
 	repo.Create(card)
 
-	err := repo.Deletecard.ID)
+	err := repo.Delete(ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -281,6 +286,7 @@ func TestKuaishouCardRepository_Delete(t *testing.T) {
 
 // TestKuaishouCardRepository_IncrementViewCount 测试增加浏览次数
 func TestKuaishouCardRepository_IncrementViewCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -302,6 +308,7 @@ func TestKuaishouCardRepository_IncrementViewCount(t *testing.T) {
 
 // TestKuaishouCardRepository_IncrementLikeCount 测试增加点赞次数
 func TestKuaishouCardRepository_IncrementLikeCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -324,6 +331,7 @@ func TestKuaishouCardRepository_IncrementLikeCount(t *testing.T) {
 
 // TestKuaishouCardRepository_IncrementShareCount 测试增加分享次数
 func TestKuaishouCardRepository_IncrementShareCount(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据
@@ -346,6 +354,7 @@ func TestKuaishouCardRepository_IncrementShareCount(t *testing.T) {
 
 // TestKuaishouCardRepository_CreateActivity 测试创建活动记录
 func TestKuaishouCardRepository_CreateActivity(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试卡片
@@ -379,6 +388,7 @@ func TestKuaishouCardRepository_CreateActivity(t *testing.T) {
 
 // TestKuaishouCardRepository_UpdateShortLinkID 测试更新短链 ID
 func TestKuaishouCardRepository_UpdateShortLinkID(t *testing.T) {
+	ctx := context.Background()
 	repo := setupKuaishouCardRepository(t)
 
 	// 创建测试数据

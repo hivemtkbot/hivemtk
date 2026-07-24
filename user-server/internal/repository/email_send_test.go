@@ -82,7 +82,7 @@ func TestEmailSendRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Creatett.email)
+			err := repo.Create(ctx, tt.email)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -153,7 +153,7 @@ func TestEmailSendRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create&model.EmailSend{
+		repo.Create(ctx, &model.EmailSend){
 			To:       "user" + string(rune('0'+i)) + "@example.com",
 			Subject:  "Email " + string(rune('0'+i)),
 			Content:  "Content " + string(rune('0'+i)),
@@ -186,7 +186,7 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 	repo.Create(email)
 
 	id := uuid.MustParse(email.ID)
-	err := repo.Deleteid)
+	err := repo.Delete(ctx, id)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
@@ -241,7 +241,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建待发送的邮件（发送时间在过去）
 	pastTime := time.Now().Add(-time.Hour)
-	repo.Create&model.EmailSend{
+	repo.Create(ctx, &model.EmailSend){
 		To:       "pending1@example.com",
 		Subject:  "Pending Email 1",
 		Content:  "Content 1",
@@ -249,7 +249,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 		SendTime: &pastTime,
 	})
 
-	repo.Create&model.EmailSend{
+	repo.Create(ctx, &model.EmailSend){
 		To:       "pending2@example.com",
 		Subject:  "Pending Email 2",
 		Content:  "Content 2",
@@ -258,7 +258,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 	})
 
 	// 创建已发送的邮件
-	repo.Create&model.EmailSend{
+	repo.Create(ctx, &model.EmailSend){
 		To:       "sent@example.com",
 		Subject:  "Sent Email",
 		Content:  "Sent content",
@@ -268,7 +268,7 @@ func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 
 	// 创建计划发送时间在未来的邮件
 	futureTime := time.Now().Add(time.Hour)
-	repo.Create&model.EmailSend{
+	repo.Create(ctx, &model.EmailSend){
 		To:       "future@example.com",
 		Subject:  "Future Email",
 		Content:  "Future content",
