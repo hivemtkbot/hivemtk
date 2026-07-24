@@ -97,6 +97,10 @@ download_role() {
 download_role llm        "$LLM_REPO"       "$LLM_FILE"       "$LLM_MODEL_DIR"       master
 download_role embedding  "$EMBEDDING_REPO" "$EMBEDDING_FILE" "$EMBEDDING_MODEL_DIR" master
 download_role rerank     "$RERANK_REPO"    "$RERANK_FILE"    "$RERANK_MODEL_DIR"    master
+# draft-simple 草稿模型：仅当 LLM_DRAFT_FILE 已配置（prod 档）才下载
+if [[ -n "${LLM_DRAFT_FILE:-}" ]]; then
+  download_role llm-draft "$LLM_DRAFT_REPO" "$LLM_DRAFT_FILE" "$LLM_MODEL_DIR" master
+fi
 
 echo "============================================================"
 echo "[download] 汇总：成功 $roles_done / 失败 $roles_failed"

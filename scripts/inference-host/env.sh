@@ -83,23 +83,27 @@ fi
 
 # ---- 推测解码（Speculative Decoding，仅 LLM 生成器生效）----
 # 原理：草稿/本模型 ngram 一次起草 N token，目标模型一次验证，突破内存带宽瓶颈提速。
-# 本地策略（Apple M1 / 16G / Qwen2.5-1.5B 目标）：
-#   - 默认 ngram-cache：零额外下载、零显存增量；客服模板/JSON 命中率高；长会话持久缓存跨请求复用。
-#   - draft-simple 需 vocab 兼容的小模型（Qwen2.5 同族词表一致天然兼容），但本地无 0.5B 草稿模型，
-#     且 1.5B 目标与草稿差距小、额外开销易抵消收益 ⇒ dev 默认不启用。
-#     prod(14B) 可设 SPEC_TYPE=draft-simple 并配置 LLM_DRAFT_FILE 启用（典型 1.5-2.5x）。
-#   - draft-mtp / draft-eagle3 不适用 Qwen2.5（无原生 nextn 多 token 预测头）。
 # 取值（llama-server v10090）：none | draft-simple | draft-eagle3 | draft-mtp | draft-dflash
 #                           | ngram-simple | ngram-map-k | ngram-map-k4v | ngram-mod | ngram-cache
-: "${SPEC_TYPE:=ngram-cache}"
+#   - ngram-cache / ngram-simple：零额外下载、零显存增量，客服模板/JSON 命中率高，长会话持久缓存。
+#   - draft-simple：需 vocab 兼容的小模型；Qwen2.5 同族词表一致天然兼容。
+#   - draft-mtp / draft-eagle3：不适用 Qwen2.5（无原生 nextn 多 token 预测头）。
+# 策略（结合 HIVEMTK_PROFILE 自动选择，可用同名环境变量覆盖）：
+#   - dev（1.5B 目标）：与草稿差距小、额外开销易抵消收益 ⇒ 默认 ngram-cache 零成本自投机。
+#   - prod（14B 目标）：14B + 0.5B 同族草稿，典型 1.5-2.5x ⇒ 默认 draft-simple。
+: "${LLM_DRAFT_REPO:=Qwen/Qwen2.5-0.5B-Instruct-GGUF}"   # draft-simple 草稿仓库（Qwen2.5 同族）
+if [[ "$HIVEMTK_PROFILE" == "prod" ]]; then
+  : "${SPEC_TYPE:=draft-simple}"
+  : "${LLM_DRAFT_FILE:=qwen2.5-0.5b-instruct-q4_k_m.gguf}"   # 0.5B 同族草稿（与 14B 词表兼容）
+else
+  : "${SPEC_TYPE:=ngram-cache}"
+  : "${LLM_DRAFT_FILE:=}"                                     # dev 不配置草稿模型
+fi
 : "${SPEC_DRAFT_N_MAX:=5}"       # draft-simple 起草 token 数（默认 3，长文可 5-8）
 # ngram-simple 可调尺寸（ngram-cache 走内部默认，忽略以下三项）
 : "${SPEC_NGRAM_SIMPLE_N:=64}"   # 查表长度（默认 64）
 : "${SPEC_NGRAM_SIMPLE_M:=4}"    # 单次起草长度（默认 4）
 : "${SPEC_NGRAM_MIN_HITS:=1}"    # 最小命中次数（越小越激进，默认 1）
-# draft-simple 可选草稿模型（prod 用，dev 不下载；设 LLM_DRAFT_FILE 即启用 draft-simple）
-: "${LLM_DRAFT_REPO:=Qwen/Qwen2.5-0.5B-Instruct-GGUF}"
-: "${LLM_DRAFT_FILE:=}"
 # LLM 并行槽位数（--parallel）：允许同时处理多个请求
 # 2026-07-24 性能优化：2→1。8 核 16G 内存下 2 slots 的 KV cache 翻倍导致 swap；
 # 客服场景串行即可，Go 端 Dispatch 有并发闸门保护。
