@@ -54,8 +54,35 @@ LLAMACPP_BIN="$(detect_llamacpp_bin)"
 : "${CTX_SIZE:=8192}"          # 上下文窗口
 : "${THREADS:=0}"              # 0=自动检测
 : "${NGL:=0}"                  # GPU 卸载层数（Apple Silicon Metal=999，CPU=0）
-: "${BATCH_SIZE:=512}"         # 批处理大小
+: "${BATCH_SIZE:=512}"         # 逻辑批处理大小
+: "${UBATCH_SIZE:=512}"        # 物理批处理大小（默认与 batch 一致；GPU 可调到 1024）
 : "${LLAMACPP_EXTRA_ARGS:=}"   # 透传额外参数
+
+# ---- 性能优化开关（2026-07-24 性能审查新增）----
+# Flash Attention 2：显著加速推理（2-4x），减少 KV cache 内存（50%+）
+# Qwen2.5 / bge-m3 / bge-reranker 均已支持；如遇兼容性问题设为 off
+: "${FLASH_ATTN:=on}"
+# mlock：锁定模型在 RAM，防止换页导致延迟飙升（需足够的物理内存）
+: "${USE_MLOCK:=true}"
+# KV cache 量化（仅 LLM 有 KV cache；embedding/rerank 无 KV cache）
+# f16=无损默认 | q8_0=减 50% 内存几乎无损 | q4_0=减 75% 内存轻微精度损失
+: "${CACHE_TYPE_K:=f16}"
+: "${CACHE_TYPE_V:=f16}"
+# LLM 并行槽位数（--parallel）：允许同时处理多个请求
+# embedding/rerank 默认 1（CPU bound，并发无收益反而内存带宽竞争）
+# 如需提高 embedding 并发，同步设置 EMBEDDING_CONCURRENCY 环境变量（Go 端闸门）
+: "${LLM_PARALLEL:=2}"
+: "${EMBEDDING_PARALLEL:=1}"
+: "${RERANK_PARALLEL:=1}"
+# LLM 连续批处理（--cont-batching）：允许新请求插入正在处理的批次
+: "${LLM_CONT_BATCHING:=true}"
+# HTTP 读写超时（秒）；LLM 生成可能较慢，设 300s 足够
+: "${SERVER_TIMEOUT:=300}"
+# Prometheus 指标端点（/metrics）
+: "${ENABLE_METRICS:=true}"
+# 模型别名（确保 API 的 model 字段与 config.yaml 一致）
+# 各 role 通过 start_role 注入 --alias ${ROLE}_SERVED_NAME
+: "${USE_ALIAS:=true}"
 
 # ---- 下载源顺序（逗号分隔）----
 : "${DOWNLOAD_SOURCE:=modelscope,hf-mirror,hf}"

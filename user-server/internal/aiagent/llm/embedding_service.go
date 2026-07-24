@@ -73,11 +73,29 @@ var sharedEmbeddingTransport = &http.Transport{
 	TLSHandshakeTimeout: 10 * time.Second,
 }
 
-// embeddingSem 进程级并发闸门：本地 TEI 容器以 --max-concurrent-requests=1 运行，
-// 同一时刻只允许 1 个 embedding 请求在飞。所有 EmbeddingService 实例共享此闸门，
-// 把全部 Embed 调用串行化，从根上消除「no permits available / 429 Model is
-// overloaded」这类自竞争 429（此前多文档并发上传时高频触发，导致 embed_status=failed）。
-var embeddingSem = make(chan struct{}, 1)
+// embeddingSem 进程级并发闸门：控制同一时刻在飞的 embedding 请求数。
+//
+// 历史：TEI 容器以 --max-concurrent-requests=1 运行，容量硬编码 1。
+// 现在（2026-07-24）：切换到 llama.cpp，其 embedding 模式默认 --parallel 1，
+// 但可通过 EMBEDDING_PARALLEL 环境变量调高（llama-server 端 --parallel + Go 端闸门同步）。
+//
+// 容量来源（init 时读取）：
+//   - 环境变量 EMBEDDING_CONCURRENCY（优先；与 start-embedding.sh --parallel 对应）
+//   - 默认 1（保守，避免内存带宽竞争；CPU bound 场景并发收益有限）
+//
+// 注意：调高此值时，必须同步调高 llama-server 的 --parallel（见 env.sh EMBEDDING_PARALLEL），
+// 否则多余的请求会在 llama-server 队列中排队，不会带来实际并发收益。
+var embeddingSem = newEmbeddingSem()
+
+func newEmbeddingSem() chan struct{} {
+	n := 1
+	if v := strings.TrimSpace(os.Getenv("EMBEDDING_CONCURRENCY")); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 1 && parsed <= 16 {
+			n = parsed
+		}
+	}
+	return make(chan struct{}, n)
+}
 
 // NewEmbeddingService 构造真实 Embedding 服务
 func NewEmbeddingService() *EmbeddingService {

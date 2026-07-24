@@ -116,17 +116,61 @@ start_role() {
   esac
 
   # 构造 llama-server 参数
-  # 通用参数：--model --host --port -c -t --jinja
-  # LLM  加 --jinja（Qwen2.5 chat template）   --port=chat port
-  # Embed 加 --embeddings --pooling mean       --port=embed port
-  # Rerank 加 --reranking（不加 --pooling，cross-encoder 直接输出相关性分数）
+  # 通用参数：--model --host --port -c -t -ngl -b -ub --flash-attn --mlock --timeout --metrics
+  # LLM  加 --jinja --alias --cont-batching --parallel -ctk -ctv
+  # Embed 加 --embeddings --pooling mean --alias
+  # Rerank 加 --reranking --alias（不加 --pooling，cross-encoder 直接输出相关性分数）
+  #
+  # 性能优化（2026-07-24 审查）：
+  #   --flash-attn on  : Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+
+  #   --mlock           : 锁定模型在 RAM，防止换页导致延迟飙升
+  #   --timeout         : HTTP 读写超时（默认 300s，防止慢请求占用资源）
+  #   --metrics         : Prometheus 指标端点（/metrics），便于监控
+  #   --alias           : 模型别名，确保 API 的 model 字段与 config.yaml 一致
+  #   LLM 专属：
+  #     --cont-batching : 连续批处理，允许新请求插入正在处理的批次，提高吞吐
+  #     --parallel N    : 并行槽位数，允许同时处理多个请求
+  #     -ctk/-ctv       : KV cache 量化（默认 f16 无损；内存紧张可改 q8_0）
   local extra=()
   case "$mode_flag" in
-    llm)         extra=(--jinja) ;;
-    --embeddings) extra=(--embeddings --pooling mean) ;;
-    --reranking)  extra=(--reranking) ;;
+    llm)
+      extra=(--jinja)
+      # LLM 专属性能参数
+      if [[ "$LLM_CONT_BATCHING" == "true" ]]; then
+        extra+=(--cont-batching)
+      fi
+      extra+=(--parallel "$LLM_PARALLEL")
+      extra+=(-ctk "$CACHE_TYPE_K" -ctv "$CACHE_TYPE_V")
+      ;;
+    --embeddings)
+      extra=(--embeddings --pooling mean)
+      extra+=(--parallel "$EMBEDDING_PARALLEL")
+      ;;
+    --reranking)
+      extra=(--reranking)
+      extra+=(--parallel "$RERANK_PARALLEL")
+      ;;
     *)           log_err "[$role] 未知 mode_flag: $mode_flag"; return 1 ;;
   esac
+
+  # 通用性能参数
+  extra+=(--flash-attn "$FLASH_ATTN")
+  if [[ "$USE_MLOCK" == "true" ]]; then
+    extra+=(--mlock)
+  fi
+  extra+=(--timeout "$SERVER_TIMEOUT")
+  if [[ "$ENABLE_METRICS" == "true" ]]; then
+    extra+=(--metrics)
+  fi
+  # 模型别名：确保 API 的 model 字段与 config.yaml 一致
+  # 各 role 的 SERVED_NAME 变量名格式：${ROLE}_SERVED_NAME（如 LLM_SERVED_NAME）
+  if [[ "$USE_ALIAS" == "true" ]]; then
+    local served_name_var="${role^^}_SERVED_NAME"
+    local served_name="${!served_name_var:-}"
+    if [[ -n "$served_name" ]]; then
+      extra+=(--alias "$served_name")
+    fi
+  fi
 
   local cmd=(
     "$LLAMACPP_BIN"
@@ -137,6 +181,7 @@ start_role() {
     -t "$THREADS"
     -ngl "$NGL"
     -b "$BATCH_SIZE"
+    -ub "$UBATCH_SIZE"
     "${extra[@]}"
     $LLAMACPP_EXTRA_ARGS
   )

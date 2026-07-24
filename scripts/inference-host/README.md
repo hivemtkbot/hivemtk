@@ -143,11 +143,87 @@ bash scripts/inference-host/start-llm.sh
 | /health 200 但 /v1/... 返回 503 | 显存/内存不足，调小 `-b` 或 `--ctx-size` |
 | 模型下载失败 | 检查网络；尝试 `DOWNLOAD_SOURCE=hf` |
 | embedding 维度不匹配 | 改用 `bge-m3` 系列（1024 维）；或同步修改 pgvector 维度 |
-| llama-server 启动报 unknown argument | 旧版 llama.cpp 不支持 `--jinja` / `--reranking`；升级到 b3000+ |
+| llama-server 启动报 unknown argument | 旧版 llama.cpp 不支持 `--jinja` / `--reranking` / `--flash-attn`；升级到 b3000+ |
+| `--mlock` 启动失败 | 物理内存不足；设 `USE_MLOCK=false` 关闭 |
+| `--flash-attn` 不兼容 | 部分老模型不支持；设 `FLASH_ATTN=off` 关闭 |
 
-## 九、依赖
+## 九、性能调优（2026-07-24 审查）
 
-- llama.cpp ≥ b2300（支持 `--reranking`）
+### 9.1 默认已启用的优化
+
+以下优化参数默认启用（可通过环境变量关闭）：
+
+| 参数 | 环境变量 | 默认值 | 效果 |
+|------|----------|--------|------|
+| `--flash-attn on` | `FLASH_ATTN` | `on` | Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+ |
+| `--mlock` | `USE_MLOCK` | `true` | 锁定模型在 RAM，防止换页导致延迟飙升 |
+| `--timeout 300` | `SERVER_TIMEOUT` | `300` | HTTP 读写超时 300s，防止慢请求占用资源 |
+| `--metrics` | `ENABLE_METRICS` | `true` | Prometheus 指标端点（`/metrics`），便于监控 |
+| `--alias` | `USE_ALIAS` | `true` | 模型别名，确保 API 的 `model` 字段与 config.yaml 一致 |
+| `--ubatch` | `UBATCH_SIZE` | `512` | 物理批处理大小（GPU 可调到 1024） |
+| LLM `--cont-batching` | `LLM_CONT_BATCHING` | `true` | 连续批处理，新请求插入正在处理的批次 |
+| LLM `--parallel 2` | `LLM_PARALLEL` | `2` | LLM 并行槽位数，允许同时处理 2 个请求 |
+| LLM `-ctk/-ctv f16` | `CACHE_TYPE_K/V` | `f16` | KV cache 量化（内存紧张可改 `q8_0` 减 50% 几乎无损） |
+
+### 9.2 并发调优
+
+embedding/rerank 默认单并发（`EMBEDDING_PARALLEL=1` / `RERANK_PARALLEL=1`）。
+如需提高 embedding 并发（如多文档批量上传场景），需**同步**调高两端：
+
+```bash
+# 1. llama-server 端（env.sh）
+export EMBEDDING_PARALLEL=4        # llama-server --parallel 4
+
+# 2. Go 客户端闸门（user-server 端）
+export EMBEDDING_CONCURRENCY=4     # Go embeddingSem 容量 4
+
+# 3. 重启两端
+bash scripts/inference-host/stop-all.sh
+bash scripts/inference-host/start-all.sh
+# 重启 user-server（air 会自动重启）
+```
+
+> 注意：embedding 是 CPU bound，并发过高会因内存带宽竞争反而变慢。建议 2-4 即可。
+
+### 9.3 GPU 加速
+
+Apple Silicon（M1/M2/M3/M4）默认已启用 Metal 加速（`-ngl 999`）：
+```bash
+export NGL=999    # 全部层卸载到 GPU
+```
+
+NVIDIA GPU 需安装 CUDA 版 llama.cpp，然后：
+```bash
+export NGL=999    # 全部层卸载到 VRAM
+export UBATCH_SIZE=1024  # GPU 可处理更大 ubatch
+```
+
+### 9.4 warmup 预热策略
+
+`warmup.sh` 已优化为**并行预热**三服务（总耗时 = max 而非 sum），每服务发多轮不同长度请求：
+- LLM：3 轮（短/中/长 prompt + system 消息）
+- Embedding：2 轮（单条/批量 5 条）
+- Rerank：2 轮（短候选 2 条/长候选 8 条）
+
+预热后业务首请求可享受亚秒级响应（避免 KV-cache 首次编译延迟）。
+
+### 9.5 Prometheus 监控
+
+三服务均启用 `--metrics`，可通过 `http://127.0.0.1:{port}/metrics` 采集：
+```bash
+curl http://127.0.0.1:8207/metrics | grep llama
+```
+
+关键指标：
+- `llamacpp:tokens_predicted_count`：生成 token 总数
+- `llamacpp:prompt_tokens_count`：输入 token 总数
+- `llamacpp:kv_cache_usage_ratio`：KV cache 使用率
+- `llamacpp:requests_processing`：正在处理的请求数
+- `llamacpp:requests_deferred`：排队中的请求数
+
+## 十、依赖
+
+- llama.cpp ≥ b3000（支持 `--flash-attn` / `--cont-batching` / `--metrics`）
 - macOS 13+ / Ubuntu 22.04+ / Debian 12+
 - 内存：dev 档 ≥ 8G，prod 档 ≥ 16G
 - 磁盘：dev 档 ≥ 6G，prod 档 ≥ 18G（仅模型）
