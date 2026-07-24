@@ -9,6 +9,7 @@ import (
 	"marketing/internal/service"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -71,6 +72,15 @@ func (c *DomainPoolController) Delete(ctx *gin.Context) {
 
 	err = c.domainPoolService.Delete(context.Background(), id)
 	if err != nil {
+		// 外键约束（live_codes.short_domain_id/entry_domain_id/landing_domain_id 引用）时返回 400 友好提示
+		if strings.Contains(err.Error(), "violates foreign key") || strings.Contains(err.Error(), "constraint") {
+			response.Error(ctx, http.StatusBadRequest, "该域名仍被活码引用，请先解绑或删除相关活码后再删除域名")
+			return
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "record not found") {
+			response.Error(ctx, http.StatusNotFound, "域名不存在")
+			return
+		}
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

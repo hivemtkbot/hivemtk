@@ -308,6 +308,7 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 	cfg.FlushInterval = 50 * time.Millisecond
 	cfg.BatchSize = 100
 	c := NewFeedbackCollector(db, cfg)
+	ctx := context.Background()
 
 	for i := 0; i < 10; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
