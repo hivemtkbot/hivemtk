@@ -375,7 +375,7 @@ const conversationList = ref([])
 const stats = ref({})
 const messageList = ref([])
 
-const platformOptions = ref(['wecom', 'personal_wx', 'douyin', 'kuaishou', 'xiaohongshu', 'xianyu', 'tiktok', 'whatsapp', 'sms', 'email'])
+const platformOptions = ref(['wecom', 'personal_wx', 'douyin', 'kuaishou', 'xiaohongshu', 'xianyu', 'tiktok', 'whatsapp', 'sms', 'email', 'web', 'web_embed'])
 
 const searchForm = reactive({
   platform: '',

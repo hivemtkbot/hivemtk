@@ -229,7 +229,7 @@
             </el-table-column>
             <el-table-column label="平台" width="90">
               <template #default="{ row }">
-                <el-tag v-if="row.platform" size="small" effect="plain">{{ row.platform }}</el-tag>
+                <el-tag v-if="row.platform" size="small" effect="plain">{{ getChannelLabel(row.platform) }}</el-tag>
                 <span v-else>-</span>
               </template>
             </el-table-column>
@@ -296,6 +296,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Aim, Refresh } from '@element-plus/icons-vue'
 import { intentApi } from '@/api/intentRecognition.js'
+import { getChannelLabel } from '@/constants/channel'
 // 统一枚举：识别方法（LLM / 规则）
 const RECOGNIZE_METHOD = { llm: 'LLM', rule: '规则', keyword: '关键词', bert: 'BERT', hybrid: '混合' }
 const RECOGNIZE_METHOD_TAG = { llm: 'danger', rule: 'info', keyword: 'success', bert: 'warning', hybrid: 'primary' }

@@ -94,6 +94,7 @@ import {
   updateQuickReply,
   deleteQuickReply
 } from '@/api/customerService.js'
+import { getChannelLabel } from '@/constants/channel'
 
 const loading = ref(false)
 const search = ref('')

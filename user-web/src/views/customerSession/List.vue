@@ -75,7 +75,7 @@
                   </el-icon>
                   {{ session.handlerType === 'human' ? '人工' : 'AI' }}
                 </el-tag>
-                <el-tag size="small" effect="plain">{{ session.channel }}</el-tag>
+                <el-tag size="small" effect="plain">{{ getChannelLabel(session.channel) }}</el-tag>
                 <!-- C2：拉黑后会话状态变更展示 -->
                 <el-tag
                   v-if="blacklistedSessionIds.includes(session.id)"
@@ -99,7 +99,7 @@
             <div class="chat-header">
               <div class="customer-info">
                 <h3>{{ currentSession.customerName }}</h3>
-                <span class="channel">{{ currentSession.channel }}</span>
+                <span class="channel">{{ getChannelLabel(currentSession.channel) }}</span>
                 <!-- AI/人工状态指示器：含状态点指示灯（AI 托管=绿灯脉冲 / 人工接管=蓝灯） -->
                 <el-tag
                   :type="currentHandler === 'human' ? 'success' : 'info'"
@@ -318,7 +318,7 @@
             </div>
             <div class="profile-row">
               <span class="label">渠道</span>
-              <span class="value">{{ currentSession.channel }}</span>
+              <span class="value">{{ getChannelLabel(currentSession.channel) }}</span>
             </div>
             <div class="profile-row">
               <span class="label">首次接入</span>
@@ -419,7 +419,7 @@
           <template #default="{ row }">{{ row.user_id ?? row.UserID ?? row.userId ?? '-' }}</template>
         </el-table-column>
         <el-table-column label="平台" width="100">
-          <template #default="{ row }">{{ row.platform ?? row.Platform ?? '-' }}</template>
+          <template #default="{ row }">{{ getChannelLabel(row.platform ?? row.Platform) }}</template>
         </el-table-column>
         <el-table-column label="拉黑原因" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">{{ row.reason ?? row.Reason ?? '-' }}</template>
@@ -482,6 +482,7 @@ import {
   useAISuggestion
 } from '@/api/customerService.js'
 import AgentSocket from '@/utils/agentSocket'
+import { getChannelLabel } from '@/constants/channel'
 
 // ===== 会话核心状态 =====
 const sessions = ref([])
