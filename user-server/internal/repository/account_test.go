@@ -33,6 +33,7 @@ func TestAccountRepository_Create(t *testing.T) {
 	setupAccountTestDB(t)
 
 	repo := NewAccountRepository()
+	ctx := context.Background()
 
 	account := &model.Account{
 		TgName:     "testtg",
@@ -55,6 +56,7 @@ func TestAccountRepository_GetByID(t *testing.T) {
 	setupAccountTestDB(t)
 
 	repo := NewAccountRepository()
+	ctx := context.Background()
 
 	account := &model.Account{
 		TgName:     "testtg",

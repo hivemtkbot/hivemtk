@@ -99,6 +99,7 @@ func TestAutoReplyService_ListAccounts(t *testing.T) {
 func TestAutoReplyService_UpsertAccount_Create(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	account := &model.AutoReplyAccount{
 		UserID:   1,
@@ -108,7 +109,7 @@ func TestAutoReplyService_UpsertAccount_Create(t *testing.T) {
 		IsActive: true,
 	}
 
-	err := service.UpsertAccount(account)
+	err := service.UpsertAccount(ctx, account)
 	if err != nil {
 		t.Fatalf("UpsertAccount failed: %v", err)
 	}
@@ -132,6 +133,7 @@ func TestAutoReplyService_UpsertAccount_Create(t *testing.T) {
 func TestAutoReplyService_UpsertAccount_Update(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 先创建账号
 	existing := &model.AutoReplyAccount{
@@ -152,7 +154,7 @@ func TestAutoReplyService_UpsertAccount_Update(t *testing.T) {
 		IsActive: true,
 	}
 
-	err := service.UpsertAccount(updateAccount)
+	err := service.UpsertAccount(ctx, updateAccount)
 	if err != nil {
 		t.Fatalf("UpsertAccount failed: %v", err)
 	}
@@ -169,6 +171,7 @@ func TestAutoReplyService_UpsertAccount_Update(t *testing.T) {
 func TestAutoReplyService_SaveCookies(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 先创建账号
 	account := &model.AutoReplyAccount{
@@ -181,7 +184,7 @@ func TestAutoReplyService_SaveCookies(t *testing.T) {
 
 	// 保存新 Cookie（R8: 现需传入 userID 做所有权校验）
 	newCookie := "new_test_cookie"
-	err := service.SaveCookies(account.ID, newCookie, account.UserID)
+	err := service.SaveCookies(ctx, account.ID, newCookie, account.UserID)
 	if err != nil {
 		t.Fatalf("SaveCookies failed: %v", err)
 	}
@@ -194,7 +197,7 @@ func TestAutoReplyService_SaveCookies(t *testing.T) {
 	}
 
 	// 验证可以正确解密
-	decrypted, err := updated.GetCookie()
+	decrypted, err := GetAutoReplyAccountCookie(&updated)
 	if err != nil {
 		t.Errorf("GetCookie failed: %v", err)
 	}
@@ -207,9 +210,10 @@ func TestAutoReplyService_SaveCookies(t *testing.T) {
 func TestAutoReplyService_SaveCookies_NotFound(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// R8: 现需传入 userID
-	err := service.SaveCookies(99999, "test_cookie", 1)
+	err := service.SaveCookies(ctx, 99999, "test_cookie", 1)
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -221,6 +225,7 @@ func TestAutoReplyService_SaveCookies_NotFound(t *testing.T) {
 func TestAutoReplyService_SaveCookies_OwnershipCheck(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 用户 A 创建账号
 	accountA := &model.AutoReplyAccount{
@@ -232,7 +237,7 @@ func TestAutoReplyService_SaveCookies_OwnershipCheck(t *testing.T) {
 	database.Create(accountA)
 
 	// 用户 B 尝试修改用户 A 的账号 Cookie：应返回 ErrAccountNotOwned
-	err := service.SaveCookies(accountA.ID, "hijacked_cookie", 200)
+	err := service.SaveCookies(ctx, accountA.ID, "hijacked_cookie", 200)
 	if err == nil {
 		t.Fatal("Expected ErrAccountNotOwned when user B modifies user A's account")
 	}
@@ -241,7 +246,7 @@ func TestAutoReplyService_SaveCookies_OwnershipCheck(t *testing.T) {
 	}
 
 	// 用户 A 自己修改：应成功
-	err = service.SaveCookies(accountA.ID, "new_cookie_by_owner", 100)
+	err = service.SaveCookies(ctx, accountA.ID, "new_cookie_by_owner", 100)
 	if err != nil {
 		t.Errorf("Expected success for owner, got: %v", err)
 	}
@@ -307,6 +312,7 @@ func TestAutoReplyService_DeleteAccount_WrongUser(t *testing.T) {
 func TestAutoReplyService_GetRule(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建测试规则
 	rule := &model.AutoReplyRule{
@@ -321,7 +327,7 @@ func TestAutoReplyService_GetRule(t *testing.T) {
 	database.Create(rule)
 
 	// 获取规则
-	result, err := service.GetRule("douyin", 1)
+	result, err := service.GetRule(ctx, "douyin", 1)
 	if err != nil {
 		t.Fatalf("GetRule failed: %v", err)
 	}
@@ -337,8 +343,9 @@ func TestAutoReplyService_GetRule(t *testing.T) {
 func TestAutoReplyService_GetRule_NotFound(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
-	_, err := service.GetRule("douyin", 1)
+	_, err := service.GetRule(ctx, "douyin", 1)
 	if err == nil {
 		t.Error("Expected error for non-existent rule")
 	}
@@ -348,6 +355,7 @@ func TestAutoReplyService_GetRule_NotFound(t *testing.T) {
 func TestAutoReplyService_SaveRule_Create(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	startTime := "09:00"
 	endTime := "18:00"
@@ -363,7 +371,7 @@ func TestAutoReplyService_SaveRule_Create(t *testing.T) {
 		IsActive:     true,
 	}
 
-	err := service.SaveRule(rule)
+	err := service.SaveRule(ctx, rule)
 	if err != nil {
 		t.Fatalf("SaveRule failed: %v", err)
 	}
@@ -380,6 +388,7 @@ func TestAutoReplyService_SaveRule_Create(t *testing.T) {
 func TestAutoReplyService_SaveRule_Update(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 先创建规则
 	existing := &model.AutoReplyRule{
@@ -404,7 +413,7 @@ func TestAutoReplyService_SaveRule_Update(t *testing.T) {
 		IsActive:     false,
 	}
 
-	err := service.SaveRule(updateRule)
+	err := service.SaveRule(ctx, updateRule)
 	if err != nil {
 		t.Fatalf("SaveRule failed: %v", err)
 	}
@@ -424,6 +433,7 @@ func TestAutoReplyService_SaveRule_Update(t *testing.T) {
 func TestAutoReplyService_ListRules(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建测试数据
 	for i := 0; i < 5; i++ {
@@ -463,6 +473,7 @@ func TestAutoReplyService_ListRules(t *testing.T) {
 func TestAutoReplyService_CreateRule(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	startTime := "08:00"
 	endTime := "20:00"
@@ -497,6 +508,7 @@ func TestAutoReplyService_CreateRule(t *testing.T) {
 func TestAutoReplyService_UpdateRule(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 先创建规则
 	existing := &model.AutoReplyRule{
@@ -540,6 +552,7 @@ func TestAutoReplyService_UpdateRule(t *testing.T) {
 func TestAutoReplyService_UpdateRule_NotFound(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	req := &dto.AutoReplyRuleRequest{
 		UserID:       1,
@@ -558,6 +571,7 @@ func TestAutoReplyService_UpdateRule_NotFound(t *testing.T) {
 func TestAutoReplyService_DeleteRule(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建规则
 	rule := &model.AutoReplyRule{
@@ -587,6 +601,7 @@ func TestAutoReplyService_DeleteRule(t *testing.T) {
 func TestAutoReplyService_ListRecentLogs(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	now := time.Now()
 
@@ -606,7 +621,7 @@ func TestAutoReplyService_ListRecentLogs(t *testing.T) {
 	}
 
 	// 获取日志
-	logs, total, err := service.ListRecentLogs("douyin", 1, 1, 10)
+	logs, total, err := service.ListRecentLogs(ctx, "douyin", 1, 1, 10)
 	if err != nil {
 		t.Fatalf("ListRecentLogs failed: %v", err)
 	}
@@ -622,6 +637,7 @@ func TestAutoReplyService_ListRecentLogs(t *testing.T) {
 func TestAutoReplyService_ListRecentLogs_Pagination(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	now := time.Now()
 
@@ -639,7 +655,7 @@ func TestAutoReplyService_ListRecentLogs_Pagination(t *testing.T) {
 	}
 
 	// 第一页
-	logs, total, err := service.ListRecentLogs("douyin", 1, 1, 5)
+	logs, total, err := service.ListRecentLogs(ctx, "douyin", 1, 1, 5)
 	if err != nil {
 		t.Fatalf("ListRecentLogs failed: %v", err)
 	}
@@ -651,7 +667,7 @@ func TestAutoReplyService_ListRecentLogs_Pagination(t *testing.T) {
 	}
 
 	// 第二页
-	logs, total, err = service.ListRecentLogs("douyin", 1, 2, 5)
+	logs, total, err = service.ListRecentLogs(ctx, "douyin", 1, 2, 5)
 	if err != nil {
 		t.Fatalf("ListRecentLogs failed: %v", err)
 	}
@@ -664,9 +680,10 @@ func TestAutoReplyService_ListRecentLogs_Pagination(t *testing.T) {
 func TestAutoReplyService_ListRecentLogs_InvalidPage(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 页码 <= 0 应该默认为 1
-	logs, _, err := service.ListRecentLogs("douyin", 1, 0, 10)
+	logs, _, err := service.ListRecentLogs(ctx, "douyin", 1, 0, 10)
 	if err != nil {
 		t.Fatalf("ListRecentLogs failed: %v", err)
 	}
@@ -709,6 +726,7 @@ func TestAutoReplyService_AppendLog(t *testing.T) {
 func TestAutoReplyService_TestMatching(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建激活的规则（不设置时间段和日限制以避免被跳过）
 	// 注意：关键词使用英文逗号分隔
@@ -737,6 +755,7 @@ func TestAutoReplyService_TestMatching(t *testing.T) {
 func TestAutoReplyService_TestMatching_NoMatch(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建激活的规则
 	rule := &model.AutoReplyRule{
@@ -762,6 +781,7 @@ func TestAutoReplyService_TestMatching_NoMatch(t *testing.T) {
 func TestAutoReplyService_TestMatching_FuzzyPattern(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建带通配符的规则
 	rule := &model.AutoReplyRule{
@@ -788,6 +808,7 @@ func TestAutoReplyService_TestMatching_FuzzyPattern(t *testing.T) {
 func TestAutoReplyService_TestMatching_RegexPattern(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建带正则表达式的规则
 	rule := &model.AutoReplyRule{
@@ -814,6 +835,7 @@ func TestAutoReplyService_TestMatching_RegexPattern(t *testing.T) {
 func TestAutoReplyService_TestMatching_CaseInsensitive(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建规则
 	rule := &model.AutoReplyRule{
@@ -841,6 +863,7 @@ func TestAutoReplyService_TestMatching_CaseInsensitive(t *testing.T) {
 func TestAutoReplyService_isWithinTimeRange_NormalRange(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	startTime := "09:00"
 	endTime := "18:00"
@@ -851,7 +874,7 @@ func TestAutoReplyService_isWithinTimeRange_NormalRange(t *testing.T) {
 
 	// 在工作时间内（假设当前时间在 9-18 点之间）
 	// 由于测试运行时间不确定,我们测试边界逻辑
-	if !service.isWithinTimeRange(rule) {
+	if !service.isWithinTimeRange(ctx, rule) {
 		// 如果当前时间不在 9-18 点,这是预期的
 		t.Logf("Current time may be outside 09:00-18:00")
 	}
@@ -861,6 +884,7 @@ func TestAutoReplyService_isWithinTimeRange_NormalRange(t *testing.T) {
 func TestAutoReplyService_isWithinTimeRange_NilTime(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	rule := model.AutoReplyRule{
 		StartTime: nil,
@@ -868,7 +892,7 @@ func TestAutoReplyService_isWithinTimeRange_NilTime(t *testing.T) {
 	}
 
 	// nil 时间应该始终允许
-	allowed := service.isWithinTimeRange(rule)
+	allowed := service.isWithinTimeRange(ctx, rule)
 	if !allowed {
 		t.Error("Expected true for nil time range")
 	}
@@ -878,6 +902,7 @@ func TestAutoReplyService_isWithinTimeRange_NilTime(t *testing.T) {
 func TestAutoReplyService_isWithinTimeRange_InvalidFormat(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	invalidTime := "invalid"
 	rule := model.AutoReplyRule{
@@ -886,7 +911,7 @@ func TestAutoReplyService_isWithinTimeRange_InvalidFormat(t *testing.T) {
 	}
 
 	// 无效格式应该允许（fallback 行为）
-	allowed := service.isWithinTimeRange(rule)
+	allowed := service.isWithinTimeRange(ctx, rule)
 	if !allowed {
 		t.Error("Expected true for invalid time format")
 	}
@@ -896,6 +921,7 @@ func TestAutoReplyService_isWithinTimeRange_InvalidFormat(t *testing.T) {
 func TestAutoReplyService_isWithinTimeRange_CrossDay(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 跨天情况：22:00 - 06:00
 	startTime := "22:00"
@@ -906,7 +932,7 @@ func TestAutoReplyService_isWithinTimeRange_CrossDay(t *testing.T) {
 	}
 
 	// 测试跨天逻辑（实际结果取决于当前时间）
-	_ = service.isWithinTimeRange(rule)
+	_ = service.isWithinTimeRange(ctx, rule)
 }
 
 // ============== 每日配额测试 ==============
@@ -915,6 +941,7 @@ func TestAutoReplyService_isWithinTimeRange_CrossDay(t *testing.T) {
 func TestAutoReplyService_hasRemainingDailyQuota_NoLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	rule := model.AutoReplyRule{
 		ID:         1,
@@ -931,6 +958,7 @@ func TestAutoReplyService_hasRemainingDailyQuota_NoLimit(t *testing.T) {
 func TestAutoReplyService_hasRemainingDailyQuota_WithLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建日限制为 5 的规则
 	rule := model.AutoReplyRule{
@@ -981,6 +1009,7 @@ func TestAutoReplyService_hasRemainingDailyQuota_WithLimit(t *testing.T) {
 func TestAutoReplyService_SimulateMessage_Matched(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建规则
 	rule := &model.AutoReplyRule{
@@ -1011,6 +1040,7 @@ func TestAutoReplyService_SimulateMessage_Matched(t *testing.T) {
 func TestAutoReplyService_SimulateMessage_NoMatch(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	log, err := service.SimulateMessage(ctx, "douyin", "不相关的内容", "sender", 1, 1)
 	if err != nil {
@@ -1030,6 +1060,7 @@ func TestAutoReplyService_SimulateMessage_NoMatch(t *testing.T) {
 func TestAutoReplyService_TestBatchMatching(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建规则（使用英文逗号分隔关键词）
 	rule := &model.AutoReplyRule{
@@ -1075,6 +1106,7 @@ func TestAutoReplyService_TestBatchMatching(t *testing.T) {
 func TestAutoReplyService_TestRateLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	results, err := service.TestRateLimit(ctx, "douyin", 1, 1, 10)
 	if err != nil {
@@ -1109,6 +1141,7 @@ func TestAutoReplyService_TestRateLimit(t *testing.T) {
 func TestAutoReplyService_ResetDailyLimit(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	err := service.ResetDailyLimit(ctx, "douyin", 1, 1)
 	if err != nil {
@@ -1122,6 +1155,7 @@ func TestAutoReplyService_ResetDailyLimit(t *testing.T) {
 func TestAutoReplyService_GetRateLimitStats(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	stats, err := service.GetRateLimitStats(ctx, "douyin", 1, 1)
 	if err != nil {
@@ -1145,6 +1179,7 @@ func TestAutoReplyService_GetRateLimitStats(t *testing.T) {
 func TestAutoReplyService_GetConcurrentStats(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	stats, err := service.GetConcurrentStats(ctx, "douyin", 1)
 	if err != nil {
@@ -1181,6 +1216,7 @@ func TestAutoReplyService_ListAccounts_EmptyPlatform(t *testing.T) {
 func TestAutoReplyService_ListRules_EmptyRequest(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	req := &dto.AutoReplyRuleListRequest{
 		Page:     1,
@@ -1203,6 +1239,7 @@ func TestAutoReplyService_ListRules_EmptyRequest(t *testing.T) {
 func TestAutoReplyService_ListRecentLogs_OldLogs(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	now := time.Now()
 
@@ -1230,7 +1267,7 @@ func TestAutoReplyService_ListRecentLogs_OldLogs(t *testing.T) {
 		database.Create(log)
 	}
 
-	logs, total, err := service.ListRecentLogs("douyin", 1, 1, 20)
+	logs, total, err := service.ListRecentLogs(ctx, "douyin", 1, 1, 20)
 	if err != nil {
 		t.Fatalf("ListRecentLogs failed: %v", err)
 	}
@@ -1250,6 +1287,7 @@ func TestAutoReplyService_ListRecentLogs_OldLogs(t *testing.T) {
 func TestAutoReplyService_TestMatching_MultipleKeywords(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建带多个关键词的规则（使用英文逗号分隔）
 	rule := &model.AutoReplyRule{
@@ -1276,6 +1314,7 @@ func TestAutoReplyService_TestMatching_MultipleKeywords(t *testing.T) {
 func TestAutoReplyService_TestMatching_InvalidRegex(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建带无效正则的规则
 	rule := &model.AutoReplyRule{
@@ -1320,6 +1359,7 @@ func TestAutoReplyService_SimulateMessage_WithContextCancellation(t *testing.T) 
 func TestAutoReplyService_CreateRule_EmptyContent(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	req := &dto.AutoReplyRuleRequest{
 		UserID:       1,
@@ -1344,6 +1384,7 @@ func TestAutoReplyService_CreateRule_EmptyContent(t *testing.T) {
 func TestAutoReplyService_ListRules_LargePageSize(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	// 创建 100 条规则
 	for i := 0; i < 100; i++ {
@@ -1378,6 +1419,7 @@ func TestAutoReplyService_ListRules_LargePageSize(t *testing.T) {
 func TestAutoReplyService_DeleteRule_NonExistent(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
+	ctx := context.Background()
 
 	err := service.DeleteRule(ctx, 99999)
 	if err != nil {

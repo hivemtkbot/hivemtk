@@ -81,7 +81,7 @@ func TestShortLinkRepository_GetByID(t *testing.T) {
 		OriginalURL: "https://example.com",
 		Title:       "GetByID Link",
 	}
-	repo.Create(link)
+	repo.Create(ctx, link)
 
 	tests := []struct {
 		name    string
@@ -128,7 +128,7 @@ func TestShortLinkRepository_GetByShortCode(t *testing.T) {
 		OriginalURL: "https://example.com/test",
 		Title:       "Test Link",
 	}
-	repo.Create(link)
+	repo.Create(ctx, link)
 
 	tests := []struct {
 		name      string
@@ -248,7 +248,7 @@ func TestShortLinkRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.page, tt.pageSize, tt.shortCode, tt.originalURL, tt.status)
+			results, total, err := repo.GetList(ctx, tt.page, tt.pageSize, tt.shortCode, tt.originalURL, tt.status)
 
 			if err != nil {
 				t.Errorf("GetList() error = %v", err)
@@ -276,7 +276,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 		OriginalURL: "https://example.com/original",
 		Title:       "Original Title",
 	}
-	repo.Create(link)
+	repo.Create(ctx, link)
 
 	link.Title = "Updated Title"
 	link.Description = "New Description"
@@ -286,7 +286,7 @@ func TestShortLinkRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(link.ID)
+	updated, _ := repo.GetByID(ctx, link.ID)
 	if updated.Title != "Updated Title" {
 		t.Errorf("Expected title 'Updated Title', got '%s'", updated.Title)
 	}
@@ -305,14 +305,14 @@ func TestShortLinkRepository_Delete(t *testing.T) {
 		ShortCode:   "delete",
 		OriginalURL: "https://example.com/delete",
 	}
-	repo.Create(link)
+	repo.Create(ctx, link)
 
 	err := repo.Delete(ctx, link.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(link.ID)
+	_, err = repo.GetByID(ctx, link.ID)
 	if err == nil {
 		t.Error("Expected link to be deleted")
 	}
@@ -325,7 +325,7 @@ func TestShortLinkRepository_GetTotalCount(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(ctx, &model.ShortLink){
+		repo.Create(ctx, &model.ShortLink{
 			ShortCode:   "code" + string(rune('0'+i)),
 			OriginalURL: "https://example.com",
 		})
@@ -352,14 +352,14 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 		OriginalURL: "https://example.com",
 		ClickCount:  0,
 	}
-	repo.Create(link)
+	repo.Create(ctx, link)
 
 	err := repo.IncreaseClickCount(context.Background(), link.ID)
 	if err != nil {
 		t.Errorf("IncreaseClickCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(link.ID)
+	updated, _ := repo.GetByID(ctx, link.ID)
 	if updated.ClickCount != 1 {
 		t.Errorf("Expected ClickCount 1, got %d", updated.ClickCount)
 	}
@@ -370,7 +370,7 @@ func TestShortLinkRepository_IncreaseClickCount(t *testing.T) {
 		t.Errorf("IncreaseClickCount() error = %v", err)
 	}
 
-	updated2, _ := repo.GetByID(link.ID)
+	updated2, _ := repo.GetByID(ctx, link.ID)
 	if updated2.ClickCount != 2 {
 		t.Errorf("Expected ClickCount 2, got %d", updated2.ClickCount)
 	}
@@ -381,7 +381,7 @@ func TestShortLinkRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	_, err := repo.GetByID99999)
+	_, err := repo.GetByID(ctx, 99999)
 	if err == nil {
 		t.Error("Expected error when getting non-existing link")
 	}
@@ -392,7 +392,7 @@ func TestShortLinkRepository_GetByShortCode_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	_, err := repo.GetByShortCode(context.Background(), "nonexistent")
+	_, err := repo.GetByShortCode(ctx, "nonexistent")
 	if err == nil {
 		t.Error("Expected error when getting non-existing short code")
 	}
@@ -403,7 +403,7 @@ func TestShortLinkRepository_GetList_EmptyResult(t *testing.T) {
 	ctx := context.Background()
 	repo := setupShortLinkRepository(t)
 
-	results, total, err := repo.GetList1, 10, "", "", 0)
+	results, total, err := repo.GetList(ctx, 1, 10, "", "", 0)
 	if err != nil {
 		t.Errorf("GetList() error = %v", err)
 	}
@@ -428,12 +428,12 @@ func TestShortLinkRepository_WithExpireTime(t *testing.T) {
 		OriginalURL: "https://example.com",
 		ExpireTime:  &futureTime,
 	}
-	err := repo.Create(link)
+	err := repo.Create(ctx, link)
 	if err != nil {
 		t.Errorf("Create() error = %v", err)
 	}
 
-	updated, err := repo.GetByID(link.ID)
+	updated, err := repo.GetByID(ctx, link.ID)
 	if err != nil {
 		t.Errorf("GetByID() error = %v", err)
 	}

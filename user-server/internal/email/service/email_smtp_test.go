@@ -48,7 +48,7 @@ func TestEmailSmtpService_CreateEmailSmtp(t *testing.T) {
 		Limit:    100,
 	}
 
-	created, err := service.CreateEmailSmtp(emailSmtp)
+	created, err := service.CreateEmailSmtp(context.Background(), emailSmtp)
 	if err != nil {
 		t.Fatalf("CreateEmailSmtp failed: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestEmailSmtpService_GetEmailSmtp(t *testing.T) {
 	database.Create(&emailSmtp)
 
 	// 获取 SMTP 配置
-	retrieved, err := service.GetEmailSmtp(emailSmtp.ID)
+	retrieved, err := service.GetEmailSmtp(context.Background(), emailSmtp.ID)
 	if err != nil {
 		t.Fatalf("GetEmailSmtp failed: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestEmailSmtpService_GetEmailSmtp_NotFound(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	_, err := service.GetEmailSmtp("non-existent-id")
+	_, err := service.GetEmailSmtp(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent SMTP")
 	}
@@ -131,7 +131,7 @@ func TestEmailSmtpService_GetEmailSmtpList(t *testing.T) {
 	}
 
 	// 获取列表
-	list, err := service.GetEmailSmtpList()
+	list, err := service.GetEmailSmtpList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailSmtpList failed: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestEmailSmtpService_GetEmailSmtpList_Empty(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	list, err := service.GetEmailSmtpList()
+	list, err := service.GetEmailSmtpList(context.Background())
 	if err != nil {
 		t.Fatalf("GetEmailSmtpList failed: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestEmailSmtpService_UpdateEmailSmtp(t *testing.T) {
 	// 更新 SMTP 配置
 	emailSmtp.Name = "new@qq.com"
 	emailSmtp.Limit = 200
-	err := service.UpdateEmailSmtp(emailSmtp)
+	err := service.UpdateEmailSmtp(context.Background(), emailSmtp)
 	if err != nil {
 		t.Fatalf("UpdateEmailSmtp failed: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestEmailSmtpService_DeleteEmailSmtp(t *testing.T) {
 	database.Create(&emailSmtp)
 
 	// 删除 SMTP 配置
-	err := service.DeleteEmailSmtp(emailSmtp.ID)
+	err := service.DeleteEmailSmtp(context.Background(), emailSmtp.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailSmtp failed: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestEmailSmtpService_GetRandEmailSmtp(t *testing.T) {
 	database.Create(&emailSmtp)
 
 	// 获取随机 SMTP
-	retrieved, err := service.GetRandEmailSmtp()
+	retrieved, err := service.GetRandEmailSmtp(context.Background())
 	if err != nil {
 		t.Fatalf("GetRandEmailSmtp failed: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestEmailSmtpService_GetRandEmailSmtp_EmptyList(t *testing.T) {
 	service := NewEmailSmtpService()
 
 	// 获取随机 SMTP，应该返回错误
-	_, err := service.GetRandEmailSmtp()
+	_, err := service.GetRandEmailSmtp(context.Background())
 	if err == nil {
 		t.Error("Expected error for empty SMTP list")
 	}
@@ -281,7 +281,7 @@ func TestEmailSmtpService_GetRandEmailSmtp_NoAvailable(t *testing.T) {
 	database.Create(&emailSmtp)
 
 	// 获取随机 SMTP，应该返回错误
-	_, err := service.GetRandEmailSmtp()
+	_, err := service.GetRandEmailSmtp(context.Background())
 	if err == nil {
 		t.Error("Expected error for no available SMTP")
 	}
@@ -317,7 +317,7 @@ func TestEmailSmtpService_GetRandEmailSmtp_WithLimit(t *testing.T) {
 	database.Create(&emailSmtp2)
 
 	// 获取随机 SMTP，应该返回第一个 SMTP（因为都没有达到限制）
-	retrieved, err := service.GetRandEmailSmtp()
+	retrieved, err := service.GetRandEmailSmtp(context.Background())
 	if err != nil {
 		t.Fatalf("GetRandEmailSmtp failed: %v", err)
 	}
@@ -342,7 +342,7 @@ func TestEmailSmtpService_CreateEmailSmtp_EmptyFields(t *testing.T) {
 		Limit:    0,
 	}
 
-	created, err := service.CreateEmailSmtp(emailSmtp)
+	created, err := service.CreateEmailSmtp(context.Background(), emailSmtp)
 	if err != nil {
 		t.Fatalf("CreateEmailSmtp failed: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestEmailSmtpService_UpdateEmailSmtp_NotFound(t *testing.T) {
 	}
 
 	// GORM Save 会插入新记录，不应该报错
-	err := service.UpdateEmailSmtp(emailSmtp)
+	err := service.UpdateEmailSmtp(context.Background(), emailSmtp)
 	if err != nil {
 		t.Errorf("UpdateEmailSmtp should not fail: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestEmailSmtpService_DeleteEmailSmtp_NotFound(t *testing.T) {
 	setupEmailSmtpServiceTestDB(t)
 	service := NewEmailSmtpService()
 
-	err := service.DeleteEmailSmtp("non-existent-id")
+	err := service.DeleteEmailSmtp(context.Background(), "non-existent-id")
 	if err != nil {
 		t.Errorf("DeleteEmailSmtp should not fail for non-existent ID: %v", err)
 	}

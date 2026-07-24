@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"marketing/internal/dto"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ import (
 type MockXiaohongshuCardStatsService struct {
 	cardStats      map[uint]*dto.XiaohongshuCardStatsResponse
 	overallStats   *dto.XiaohongshuCardOverallStatsResponse
-	recordActivity func(cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
+	recordActivity func(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error
 }
 
 func NewMockXiaohongshuCardStatsService() *MockXiaohongshuCardStatsService {
@@ -32,7 +33,7 @@ func NewMockXiaohongshuCardStatsService() *MockXiaohongshuCardStatsService {
 	}
 }
 
-func (m *MockXiaohongshuCardStatsService) GetCardStats(req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
+func (m *MockXiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
 	if resp, ok := m.cardStats[req.CardID]; ok {
 		return resp, nil
 	}
@@ -51,13 +52,13 @@ func (m *MockXiaohongshuCardStatsService) GetCardStats(req *dto.XiaohongshuCardS
 	}, nil
 }
 
-func (m *MockXiaohongshuCardStatsService) GetOverallStats(req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
+func (m *MockXiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
 	return m.overallStats, nil
 }
 
-func (m *MockXiaohongshuCardStatsService) RecordActivity(cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
+func (m *MockXiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	if m.recordActivity != nil {
-		return m.recordActivity(cardID, userID, action, username, ipAddress, userAgent)
+		return m.recordActivity(ctx, cardID, userID, action, username, ipAddress, userAgent)
 	}
 	return nil
 }

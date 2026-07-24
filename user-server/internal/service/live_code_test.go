@@ -41,9 +41,9 @@ func createTestDomains(t *testing.T, db *gorm.DB) (shortDomain, entryDomain, lan
 		Status: 1,
 	}
 
-	db.Create(context.Background(), shortDomain)
-	db.Create(context.Background(), entryDomain)
-	db.Create(context.Background(), landingDomain)
+	db.Create(shortDomain)
+	db.Create(entryDomain)
+	db.Create(landingDomain)
 	return
 }
 

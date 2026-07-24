@@ -76,7 +76,7 @@ func TestGetOrCreateCardChannel_AllPlatforms(t *testing.T) {
 
 	for platform, meta := range expectedCardMetas {
 		t.Run(platform, func(t *testing.T) {
-			ch, err := svc.GetOrCreateCardChannel(platform)
+			ch, err := svc.GetOrCreateCardChannel(context.Background(), platform)
 			if err != nil {
 				t.Fatalf("GetOrCreateCardChannel(%q) 失败: %v", platform, err)
 			}
@@ -116,12 +116,12 @@ func TestGetOrCreateCardChannel_Idempotent(t *testing.T) {
 	svc := MustNewChatChannelService(database)
 
 	// 第一次创建
-	ch1, err := svc.GetOrCreateCardChannel("douyin")
+	ch1, err := svc.GetOrCreateCardChannel(context.Background(), "douyin")
 	if err != nil {
 		t.Fatalf("首次创建失败: %v", err)
 	}
 	// 第二次应返回同一渠道
-	ch2, err := svc.GetOrCreateCardChannel("douyin")
+	ch2, err := svc.GetOrCreateCardChannel(context.Background(), "douyin")
 	if err != nil {
 		t.Fatalf("二次获取失败: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestGetOrCreateCardChannel_RejectsUnknownPlatform(t *testing.T) {
 	db.SetTestDB(database)
 	svc := MustNewChatChannelService(database)
 
-	_, err := svc.GetOrCreateCardChannel("tiktok")
+	_, err := svc.GetOrCreateCardChannel(context.Background(), "tiktok")
 	if err == nil {
 		t.Fatal("GetOrCreateCardChannel 对未知平台应返回错误")
 	}
@@ -173,13 +173,13 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 	)
 	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
 	channelSvc := MustNewChatChannelService(database)
-	visitorSvc := NewVisitorChatService(database, channelSvc, orch, nil)
+	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 
 	for platform := range expectedCardMetas {
 		t.Run(platform, func(t *testing.T) {
 			channelRef := platform + "_card"
 			visitorID := "v_card_test_" + platform
-			open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+			open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 				ChannelID:   channelRef,
 				VisitorID:   visitorID,
 				VisitorName: platform + "访客",
@@ -198,7 +198,7 @@ func TestVisitorChatService_ResolveCardChannel(t *testing.T) {
 				t.Error("首次打开应为新会话")
 			}
 			// 验证渠道已被创建
-			ch, err := channelSvc.GetByChannelID(channelRef)
+			ch, err := channelSvc.GetByChannelID(context.Background(), channelRef)
 			if err != nil {
 				t.Fatalf("渠道创建后查询失败: %v", err)
 			}
@@ -237,7 +237,7 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 	engine := NewSalesEngine(database, nil, nil, nil, nil, nil, nil, nil)
 	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
 	channelSvc := MustNewChatChannelService(database)
-	visitorSvc := NewVisitorChatService(database, channelSvc, orch, nil)
+	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 
 	cases := []struct {
 		name        string
@@ -275,7 +275,7 @@ func TestVisitorChatService_OpenSessionWithVisitorMeta(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			channelRef := tc.platform + "_card"
 			visitorID := "v_meta_test_" + tc.platform
-			open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+			open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 				ChannelID:   channelRef,
 				VisitorID:   visitorID,
 				VisitorName: tc.platform + "访客",

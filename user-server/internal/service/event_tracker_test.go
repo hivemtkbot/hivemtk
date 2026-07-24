@@ -27,7 +27,7 @@ func setupEventTracker(t *testing.T) *EventTracker {
 	setupEventTrackerTestDB(t)
 	customerService := NewCustomerService()
 	tracker := NewEventTracker(customerService)
-	tracker.DisableAsync() // 禁用异步处理避免测试冲突
+	tracker.DisableAsync(context.Background()) // 禁用异步处理避免测试冲突
 	return tracker
 }
 
@@ -46,7 +46,7 @@ func TestEventTracker_Track(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138010",
 	})
 
@@ -57,13 +57,13 @@ func TestEventTracker_Track(t *testing.T) {
 		EventData:   map[string]any{"url": "/home"},
 	}
 
-	err := tracker.Track(ctx, dto)
+	err := tracker.Track(context.Background(), dto)
 	if err != nil {
 		t.Fatalf("Track failed: %v", err)
 	}
 
 	// 验证事件已记录
-	events, err := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, err := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetByCustomerID failed: %v", err)
 	}
@@ -76,12 +76,12 @@ func TestEventTracker_Track(t *testing.T) {
 func TestEventTracker_Track_InvalidDTO(t *testing.T) {
 	tracker := setupEventTracker(t)
 
-	err := tracker.Track(ctx, nil)
+	err := tracker.Track(context.Background(), nil)
 	if err != ErrInvalidDTO {
 		t.Errorf("Expected ErrInvalidDTO, got %v", err)
 	}
 
-	err = tracker.Track(ctx, &EventDTO{})
+	err = tracker.Track(context.Background(), &EventDTO{})
 	if err != ErrInvalidDTO {
 		t.Errorf("Expected ErrInvalidDTO for empty customer ID, got %v", err)
 	}
@@ -93,17 +93,17 @@ func TestEventTracker_TrackPageView(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138011",
 	})
 
-	err := tracker.TrackPageView(ctx, customer.ID, "/products", "Product Page")
+	err := tracker.TrackPageView(context.Background(), customer.ID, "/products", "Product Page")
 	if err != nil {
 		t.Fatalf("TrackPageView failed: %v", err)
 	}
 
 	// 验证事件
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
@@ -111,7 +111,7 @@ func TestEventTracker_TrackPageView(t *testing.T) {
 		t.Errorf("Expected event type page_view, got %s", events[0].EventType)
 	}
 
-	eventData := events[0].GetEventData()
+	eventData := GetCustomerEventData(events[0])
 	if url, ok := eventData["url"].(string); !ok || url != "/products" {
 		t.Errorf("Expected url /products, got %s", url)
 	}
@@ -123,16 +123,16 @@ func TestEventTracker_TrackClick(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138012",
 	})
 
-	err := tracker.TrackClick(ctx, customer.ID, "buy-button", "product-123")
+	err := tracker.TrackClick(context.Background(), customer.ID, "buy-button", "product-123")
 	if err != nil {
 		t.Fatalf("TrackClick failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
@@ -147,17 +147,17 @@ func TestEventTracker_TrackPurchase(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138013",
 	})
 
 	items := []string{"product-1", "product-2"}
-	err := tracker.TrackPurchase(ctx, customer.ID, 199.99, items)
+	err := tracker.TrackPurchase(context.Background(), customer.ID, 199.99, items)
 	if err != nil {
 		t.Fatalf("TrackPurchase failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
@@ -165,7 +165,7 @@ func TestEventTracker_TrackPurchase(t *testing.T) {
 		t.Errorf("Expected event type purchase, got %s", events[0].EventType)
 	}
 
-	eventData := events[0].GetEventData()
+	eventData := GetCustomerEventData(events[0])
 	amount, ok := eventData["amount"].(float64)
 	if !ok || amount != 199.99 {
 		t.Errorf("Expected amount 199.99, got %v", eventData["amount"])
@@ -178,17 +178,17 @@ func TestEventTracker_GetEventHistory(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138014",
 	})
 
 	// 创建多个事件
 	for i := 0; i < 5; i++ {
-		tracker.TrackPageView(ctx, customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
+		tracker.TrackPageView(context.Background(), customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
 
 	// 获取历史
-	events, err := tracker.GetEventHistory(customer.ID, 10)
+	events, err := tracker.GetEventHistory(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetEventHistory failed: %v", err)
 	}
@@ -203,17 +203,17 @@ func TestEventTracker_GetEventHistory_Limit(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138015",
 	})
 
 	// 创建多个事件
 	for i := 0; i < 20; i++ {
-		tracker.TrackPageView(ctx, customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
+		tracker.TrackPageView(context.Background(), customer.ID, "/page"+string(rune('0'+i)), "Page "+string(rune('0'+i)))
 	}
 
 	// 获取前 10 条
-	events, err := tracker.GetEventHistory(customer.ID, 10)
+	events, err := tracker.GetEventHistory(context.Background(), customer.ID, 10)
 	if err != nil {
 		t.Fatalf("GetEventHistory failed: %v", err)
 	}
@@ -228,18 +228,18 @@ func TestEventTracker_GetStats(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138016",
 	})
 
 	// 创建事件
-	tracker.TrackPageView(ctx, customer.ID, "/home", "Home")
-	tracker.TrackPurchase(ctx, customer.ID, 99.99, []string{"item-1"})
+	tracker.TrackPageView(context.Background(), customer.ID, "/home", "Home")
+	tracker.TrackPurchase(context.Background(), customer.ID, 99.99, []string{"item-1"})
 
 	// 获取统计
 	start := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	end := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
-	stats, err := tracker.GetStats(start, end)
+	stats, err := tracker.GetStats(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
@@ -255,16 +255,16 @@ func TestEventTracker_TrackSignup(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138017",
 	})
 
-	err := tracker.TrackSignup(ctx, customer.ID, "email")
+	err := tracker.TrackSignup(context.Background(), customer.ID, "email")
 	if err != nil {
 		t.Fatalf("TrackSignup failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
@@ -279,16 +279,16 @@ func TestEventTracker_TrackLogin(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138018",
 	})
 
-	err := tracker.TrackLogin(ctx, customer.ID, "wechat")
+	err := tracker.TrackLogin(context.Background(), customer.ID, "wechat")
 	if err != nil {
 		t.Fatalf("TrackLogin failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if events[0].EventType != model.EventTypeLogin {
 		t.Errorf("Expected event type login, got %s", events[0].EventType)
 	}
@@ -300,21 +300,21 @@ func TestEventTracker_TrackAddToCart(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138019",
 	})
 
-	err := tracker.TrackAddToCart(ctx, customer.ID, "prod-1", "Test Product", 59.99, 2)
+	err := tracker.TrackAddToCart(context.Background(), customer.ID, "prod-1", "Test Product", 59.99, 2)
 	if err != nil {
 		t.Fatalf("TrackAddToCart failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
 	if events[0].EventType != model.EventTypeAddToCart {
 		t.Errorf("Expected event type add_to_cart, got %s", events[0].EventType)
 	}
 
-	eventData := events[0].GetEventData()
+	eventData := GetCustomerEventData(events[0])
 	price, _ := eventData["price"].(float64)
 	if price != 59.99 {
 		t.Errorf("Expected price 59.99, got %v", eventData["price"])
@@ -327,16 +327,16 @@ func TestEventTracker_GetEventCount(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138020",
 	})
 
 	// 创建 3 个事件
-	tracker.TrackPageView(ctx, customer.ID, "/page1", "Page 1")
-	tracker.TrackPageView(ctx, customer.ID, "/page2", "Page 2")
-	tracker.TrackPurchase(ctx, customer.ID, 50.00, []string{"item"})
+	tracker.TrackPageView(context.Background(), customer.ID, "/page1", "Page 1")
+	tracker.TrackPageView(context.Background(), customer.ID, "/page2", "Page 2")
+	tracker.TrackPurchase(context.Background(), customer.ID, 50.00, []string{"item"})
 
-	count, err := tracker.GetEventCount(customer.ID)
+	count, err := tracker.GetEventCount(context.Background(), customer.ID)
 	if err != nil {
 		t.Fatalf("GetEventCount failed: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestEventTracker_TrackWithEventData(t *testing.T) {
 
 	// 先创建客户
 	customerService := NewCustomerService()
-	customer, _ := customerService.CreateOrUpdate(&CustomerDTO{
+	customer, _ := customerService.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138021",
 	})
 
@@ -359,13 +359,13 @@ func TestEventTracker_TrackWithEventData(t *testing.T) {
 		"custom_field": "custom_value",
 		"score":        100,
 	}
-	err := tracker.TrackWithEventData(ctx, customer.ID, "custom_event", "app", customData)
+	err := tracker.TrackWithEventData(context.Background(), customer.ID, "custom_event", "app", customData)
 	if err != nil {
 		t.Fatalf("TrackWithEventData failed: %v", err)
 	}
 
-	events, _ := tracker.repo.GetByCustomerID(customer.ID, 10)
-	eventData := events[0].GetEventData()
+	events, _ := tracker.repo.GetByCustomerID(context.Background(), customer.ID, 10)
+	eventData := GetCustomerEventData(events[0])
 	if val, ok := eventData["custom_field"].(string); !ok || val != "custom_value" {
 		t.Errorf("Expected custom_field to be preserved")
 	}

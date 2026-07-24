@@ -115,7 +115,7 @@ func TestEmailListRepository_BatchCreate(t *testing.T) {
 		},
 	}
 
-	count, err := repo.BatchCreate(context.Background(), lists)
+	count, err := repo.BatchCreate(ctx, lists)
 	if err != nil {
 		t.Errorf("BatchCreate() error = %v", err)
 	}
@@ -139,7 +139,7 @@ func TestEmailListRepository_GetByID(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Create(list)
+	repo.Create(ctx, list)
 
 	tests := []struct {
 		name    string
@@ -182,7 +182,7 @@ func TestEmailListRepository_List(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 15; i++ {
-		repo.Create(ctx, &model.EmailList){
+		repo.Create(ctx, &model.EmailList{
 			To:      "user" + string(rune('0'+i)) + "@example.com",
 			Subject: "Email " + string(rune('0'+i)),
 			Content: "Content " + string(rune('0'+i)),
@@ -231,7 +231,7 @@ func TestEmailListRepository_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.List(context.Background(), tt.page, tt.pageSize)
+			results, total, err := repo.List(ctx, tt.page, tt.pageSize)
 
 			if err != nil {
 				t.Errorf("List() error = %v", err)
@@ -262,7 +262,7 @@ func TestEmailListRepository_Update(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Create(list)
+	repo.Create(ctx, list)
 
 	// 更新
 	list.Subject = "Updated Subject"
@@ -274,7 +274,7 @@ func TestEmailListRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(list.ID)
+	updated, _ := repo.GetByID(ctx, list.ID)
 	if updated.Subject != "Updated Subject" {
 		t.Errorf("Expected subject 'Updated Subject', got '%s'", updated.Subject)
 	}
@@ -297,14 +297,14 @@ func TestEmailListRepository_Delete(t *testing.T) {
 		TraceID: uuid.New(),
 		IsSend:  0,
 	}
-	repo.Create(list)
+	repo.Create(ctx, list)
 
 	err := repo.Delete(ctx, list.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(list.ID)
+	_, err = repo.GetByID(ctx, list.ID)
 	if err == nil {
 		t.Error("Expected list to be deleted")
 	}
@@ -316,7 +316,7 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 	repo := setupEmailListRepository(t)
 
 	// 创建未发送的邮件
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:      "unsent1@example.com",
 		Subject: "Unsent Email 1",
 		Content: "Content 1",
@@ -325,7 +325,7 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 		IsSend:  0,
 	})
 
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:      "unsent2@example.com",
 		Subject: "Unsent Email 2",
 		Content: "Content 2",
@@ -335,7 +335,7 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 	})
 
 	// 创建已发送的邮件
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:      "sent@example.com",
 		Subject: "Sent Email",
 		Content: "Sent content",
@@ -344,7 +344,7 @@ func TestEmailListRepository_GetUnsentEmailList(t *testing.T) {
 		IsSend:  1,
 	})
 
-	results, err := repo.GetUnsentEmailList(context.Background(), 10)
+	results, err := repo.GetUnsentEmailList(ctx, 10)
 	if err != nil {
 		t.Errorf("GetUnsentEmailList() error = %v", err)
 	}
@@ -360,7 +360,7 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 	repo := setupEmailListRepository(t)
 
 	// 创建今日发送的邮件
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:       "today1@example.com",
 		Subject:  "Today Email 1",
 		Content:  "Content 1",
@@ -370,7 +370,7 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 		SendTime: time.Now(),
 	})
 
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:       "today2@example.com",
 		Subject:  "Today Email 2",
 		Content:  "Content 2",
@@ -381,7 +381,7 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 	})
 
 	// 创建其他发送者的邮件
-	repo.Create(ctx, &model.EmailList){
+	repo.Create(ctx, &model.EmailList{
 		To:       "other@example.com",
 		Subject:  "Other Email",
 		Content:  "Other content",
@@ -391,7 +391,7 @@ func TestEmailListRepository_GetTodayCountByFrom(t *testing.T) {
 		SendTime: time.Now(),
 	})
 
-	count, err := repo.GetTodayCountByFrom(context.Background(), "test_sender")
+	count, err := repo.GetTodayCountByFrom(ctx, "test_sender")
 	if err != nil {
 		t.Errorf("GetTodayCountByFrom() error = %v", err)
 	}
@@ -415,7 +415,7 @@ func TestEmailListRepository_GetByTraceID(t *testing.T) {
 		TraceID: traceID,
 		IsSend:  0,
 	}
-	repo.Create(list)
+	repo.Create(ctx, list)
 
 	tests := []struct {
 		name    string
@@ -436,7 +436,7 @@ func TestEmailListRepository_GetByTraceID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByTraceID(context.Background(), tt.traceID)
+			result, err := repo.GetByTraceID(ctx, tt.traceID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByTraceID() error = %v, wantErr %v", err, tt.wantErr)
@@ -456,7 +456,7 @@ func TestEmailListRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	_, err := repo.GetByIDuuid.New())
+	_, err := repo.GetByID(ctx, uuid.New())
 	if err == nil {
 		t.Error("Expected error when getting non-existing list")
 	}
@@ -467,7 +467,7 @@ func TestEmailListRepository_List_EmptyResult(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailListRepository(t)
 
-	results, total, err := repo.List(context.Background(), 1, 10)
+	results, total, err := repo.List(ctx, 1, 10)
 	if err != nil {
 		t.Errorf("List() error = %v", err)
 	}

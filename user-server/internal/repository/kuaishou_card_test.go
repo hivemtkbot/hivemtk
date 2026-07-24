@@ -87,7 +87,7 @@ func TestKuaishouCardRepository_GetByID(t *testing.T) {
 		Description: "GetByID Description",
 		IsActive:    true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	tests := []struct {
 		name    string
@@ -242,7 +242,7 @@ func TestKuaishouCardRepository_Update(t *testing.T) {
 		Description: "Original Description",
 		IsActive:    true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	card.Title = "Updated Title"
 	shortLinkID := uint(123)
@@ -271,14 +271,14 @@ func TestKuaishouCardRepository_Delete(t *testing.T) {
 		Title:    "To Delete",
 		IsActive: true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	err := repo.Delete(ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(card.ID)
+	_, err = repo.GetByID(ctx, card.ID)
 	if err == nil {
 		t.Error("Expected card to be deleted")
 	}
@@ -294,7 +294,7 @@ func TestKuaishouCardRepository_IncrementViewCount(t *testing.T) {
 		Title:     "View Count Test",
 		ViewCount: 0,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	updated, err := repo.IncrementViewCount(context.Background(), card.ID)
 	if err != nil {
@@ -316,14 +316,14 @@ func TestKuaishouCardRepository_IncrementLikeCount(t *testing.T) {
 		Title:     "Like Count Test",
 		LikeCount: 0,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	err := repo.IncrementLikeCount(context.Background(), card.ID)
 	if err != nil {
 		t.Errorf("IncrementLikeCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(card.ID)
+	updated, _ := repo.GetByID(ctx, card.ID)
 	if updated.LikeCount != 1 {
 		t.Errorf("Expected LikeCount 1, got %d", updated.LikeCount)
 	}
@@ -339,14 +339,14 @@ func TestKuaishouCardRepository_IncrementShareCount(t *testing.T) {
 		Title:      "Share Count Test",
 		ShareCount: 0,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	err := repo.IncrementShareCount(context.Background(), card.ID)
 	if err != nil {
 		t.Errorf("IncrementShareCount() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(card.ID)
+	updated, _ := repo.GetByID(ctx, card.ID)
 	if updated.ShareCount != 1 {
 		t.Errorf("Expected ShareCount 1, got %d", updated.ShareCount)
 	}
@@ -362,7 +362,7 @@ func TestKuaishouCardRepository_CreateActivity(t *testing.T) {
 		Title:    "Activity Test Card",
 		IsActive: true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	// 创建测试数据
 	activity := &model.KuaishouCardActivity{
@@ -395,7 +395,7 @@ func TestKuaishouCardRepository_UpdateShortLinkID(t *testing.T) {
 	card := &model.KuaishouCard{
 		Title: "ShortLink Test",
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	shortLinkID := uint(456)
 	err := repo.UpdateShortLinkID(context.Background(), card.ID, &shortLinkID)
@@ -403,7 +403,7 @@ func TestKuaishouCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("UpdateShortLinkID() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(card.ID)
+	updated, _ := repo.GetByID(ctx, card.ID)
 	if updated.ShortLinkID == nil || *updated.ShortLinkID != 456 {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"bytes"
 	"encoding/json"
 	sysmodel "marketing/internal/model"

@@ -52,7 +52,7 @@ func mkWeComAccount(id uint) *model.WeComAccount {
 // 1. 基本正常上报
 func TestReportHealth_Normal(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, err := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 
 		AccountID:   1,
@@ -79,7 +79,7 @@ func TestReportHealth_Normal(t *testing.T) {
 // 2. 高配额使用率
 func TestReportHealth_HighQuotaUsage(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 460, QuotaTotal: 500, SuccessRate: 99, ErrorCount: 0,
@@ -93,7 +93,7 @@ func TestReportHealth_HighQuotaUsage(t *testing.T) {
 // 3. 极低成功率
 func TestReportHealth_LowSuccessRate(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 10, QuotaTotal: 500, SuccessRate: 30, ErrorCount: 0,
@@ -106,7 +106,7 @@ func TestReportHealth_LowSuccessRate(t *testing.T) {
 // 4. 封禁状态
 func TestReportHealth_Banned(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginBanned,
@@ -123,7 +123,7 @@ func TestReportHealth_Banned(t *testing.T) {
 // 5. 离线状态
 func TestReportHealth_Offline(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginOffline,
@@ -137,7 +137,7 @@ func TestReportHealth_Offline(t *testing.T) {
 // 6. 多错误数
 func TestReportHealth_ManyErrors(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 500, SuccessRate: 99, ErrorCount: 100,
@@ -162,7 +162,7 @@ func TestReportHealth_EmptyAccount(t *testing.T) {
 // 9. 默认 platform
 func TestReportHealth_DefaultPlatform(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 500, SuccessRate: 100, ErrorCount: 0,
@@ -175,7 +175,7 @@ func TestReportHealth_DefaultPlatform(t *testing.T) {
 // 10. 自定义 metrics
 func TestReportHealth_CustomMetrics(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	metrics := map[string]any{"cpu": 50.0, "memory": 60.0}
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
@@ -192,7 +192,7 @@ func TestReportHealth_CustomMetrics(t *testing.T) {
 // 11. 拉取最新健康度
 func TestGetLatestHealth_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginOnline,
@@ -227,7 +227,7 @@ func TestGetLatestHealth_NotFound(t *testing.T) {
 // 13. 历史列表
 func TestListHealthHistory_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	for i := 0; i < 5; i++ {
 		svc.ReportHealth(context.Background(), &ReportHealthRequest{
 			AccountID: 1,
@@ -249,7 +249,7 @@ func TestListHealthHistory_Success(t *testing.T) {
 // 14. 分页
 func TestListHealthHistory_Page2(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	for i := 0; i < 7; i++ {
 		svc.ReportHealth(context.Background(), &ReportHealthRequest{
 			AccountID: 1,
@@ -279,13 +279,13 @@ func TestGetRiskAccounts_WithRisks(t *testing.T) {
 	// 创建一个 warning 账号
 	a1 := mkWeComAccount(1)
 	a1.RiskLevel = WeComRiskWarning
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	// 创建一个 normal
-	db.Create(context.Background(), mkWeComAccount(2))
+	db.Create(mkWeComAccount(2))
 	// critical
 	a3 := mkWeComAccount(3)
 	a3.RiskLevel = WeComRiskCritical
-	db.Create(context.Background(), a3)
+	db.Create(a3)
 
 	risks, err := svc.GetRiskAccounts(context.Background())
 	if err != nil {
@@ -299,8 +299,8 @@ func TestGetRiskAccounts_WithRisks(t *testing.T) {
 // 17. 没有风险账号
 func TestGetRiskAccounts_AllNormal(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
-	db.Create(context.Background(), mkWeComAccount(2))
+	db.Create(mkWeComAccount(1))
+	db.Create(mkWeComAccount(2))
 	risks, _ := svc.GetRiskAccounts(context.Background())
 	if len(risks) != 0 {
 		t.Errorf("expected 0, got %d", len(risks))
@@ -314,13 +314,13 @@ func TestSelectHealthyAccount_QuotaFirst(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgUsed = 100
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
 	a2.DailyMsgUsed = 50
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	a3 := mkWeComAccount(3)
 	a3.DailyMsgUsed = 200
-	db.Create(context.Background(), a3)
+	db.Create(a3)
 	best, err := svc.SelectHealthyAccount(context.Background())
 	if err != nil {
 		t.Fatalf("select: %v", err)
@@ -335,9 +335,9 @@ func TestSelectHealthyAccount_SkipBanned(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.RiskLevel = WeComRiskBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	best, _ := svc.SelectHealthyAccount(context.Background())
 	if best.ID != 2 {
 		t.Errorf("expected account 2, got %d", best.ID)
@@ -350,7 +350,7 @@ func TestSelectHealthyAccount_NoneAvailable(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	// 设置 login_state 为 banned，使账号不可用
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	_, err := svc.SelectHealthyAccount(context.Background())
 	if err == nil {
 		t.Error("expected error")
@@ -363,9 +363,9 @@ func TestSelectHealthyAccount_SkipDisabled(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	// 设置 login_state 为 banned，使账号被跳过
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	best, _ := svc.SelectHealthyAccount(context.Background())
 	if best.ID != 2 {
 		t.Errorf("expected 2, got %d", best.ID)
@@ -378,11 +378,11 @@ func TestSelectHealthyAccount_ByWeight(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.Weight = 50
 	a1.DailyMsgUsed = 0
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
 	a2.Weight = 100
 	a2.DailyMsgUsed = 0
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	best, _ := svc.SelectHealthyAccount(context.Background())
 	if best.ID != 2 {
 		t.Errorf("expected 2 (weight 100), got %d", best.ID)
@@ -394,7 +394,7 @@ func TestSelectHealthyAccount_ByWeight(t *testing.T) {
 // 23. 配额消耗
 func TestConsumeQuota_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	if err := svc.ConsumeQuota(context.Background(), 1, 10); err != nil {
 		t.Fatalf("consume: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestConsumeQuota_Exceeded(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgUsed = 490
 	a1.DailyMsgQuota = 500
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	err := svc.ConsumeQuota(context.Background(), 1, 20)
 	if err != ErrWeComQuotaExceeded {
 		t.Errorf("expected quota exceeded, got %v", err)
@@ -426,7 +426,7 @@ func TestConsumeQuota_Banned(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	err := svc.ConsumeQuota(context.Background(), 1, 10)
 	if err != ErrWeComAccountBanned {
 		t.Errorf("expected banned, got %v", err)
@@ -437,7 +437,7 @@ func TestConsumeQuota_Banned(t *testing.T) {
 func TestConsumeQuota_Disabled(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	// 显式更新 status=0（避免 GORM 零值跳过）
 	db.Model(&model.WeComAccount{}).Where("id = ?", 1).Update("status", 0)
 	err := svc.ConsumeQuota(context.Background(), 1, 10)
@@ -449,7 +449,7 @@ func TestConsumeQuota_Disabled(t *testing.T) {
 // 27. 多次消耗
 func TestConsumeQuota_Multiple(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ConsumeQuota(context.Background(), 1, 5)
 	svc.ConsumeQuota(context.Background(), 1, 10)
 	svc.ConsumeQuota(context.Background(), 1, 15)
@@ -463,7 +463,7 @@ func TestConsumeQuota_Multiple(t *testing.T) {
 // 28. 零消耗
 func TestConsumeQuota_Zero(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	if err := svc.ConsumeQuota(context.Background(), 1, 0); err != nil {
 		t.Errorf("expected nil, got %v", err)
 	}
@@ -472,7 +472,7 @@ func TestConsumeQuota_Zero(t *testing.T) {
 // 29. 负数消耗
 func TestConsumeQuota_Negative(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	if err := svc.ConsumeQuota(context.Background(), 1, -5); err != nil {
 		t.Errorf("expected nil, got %v", err)
 	}
@@ -494,10 +494,10 @@ func TestResetDailyQuota_Success(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgUsed = 100
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
 	a2.DailyMsgUsed = 200
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	n, _ := svc.ResetDailyQuota(context.Background())
 	if n != 2 {
 		t.Errorf("expected 2, got %d", n)
@@ -521,7 +521,7 @@ func TestResetDailyQuota_Empty(t *testing.T) {
 // 33. 重置设置 QuotaResetAt
 func TestResetDailyQuota_SetsTime(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ResetDailyQuota(context.Background())
 	var a model.WeComAccount
 	db.First(&a, 1)
@@ -535,13 +535,13 @@ func TestResetDailyQuota_SetsTime(t *testing.T) {
 // 34. 健康概览
 func TestGetHealthSummary_Basic(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	a2 := mkWeComAccount(2)
 	a2.LoginState = WeComLoginOffline
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	a3 := mkWeComAccount(3)
 	a3.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a3)
+	db.Create(a3)
 	summary, err := svc.GetHealthSummary(context.Background())
 	if err != nil {
 		t.Fatalf("summary: %v", err)
@@ -580,8 +580,8 @@ func TestGetHealthSummary_IncludesRisk(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.RiskLevel = WeComRiskCritical
-	db.Create(context.Background(), a1)
-	db.Create(context.Background(), mkWeComAccount(2))
+	db.Create(a1)
+	db.Create(mkWeComAccount(2))
 	summary, _ := svc.GetHealthSummary(context.Background())
 	if summary.CriticalCount != 1 {
 		t.Errorf("expected 1 critical, got %d", summary.CriticalCount)
@@ -597,7 +597,7 @@ func TestGetHealthSummary_AccountDetails(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgUsed = 250
 	a1.DailyMsgQuota = 500
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	summary, _ := svc.GetHealthSummary(context.Background())
 	if len(summary.Accounts) != 1 {
 		t.Fatalf("expected 1 account, got %d", len(summary.Accounts))
@@ -802,7 +802,7 @@ func TestSyncAccountState_LastActiveAt(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.LastActiveAt = nil
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -817,7 +817,7 @@ func TestSyncAccountState_LastActiveAt(t *testing.T) {
 // 62. 同步账号状态 - 错误计数
 func TestSyncAccountState_ErrorCount(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -836,7 +836,7 @@ func TestSyncAccountState_ErrorCount(t *testing.T) {
 // 63. 同步账号状态 - last_error_at
 func TestSyncAccountState_LastErrorAt(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -854,7 +854,7 @@ func TestSyncAccountState_AutoDegradeOnQuota(t *testing.T) {
 	svc, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.RiskLevel = WeComRiskNormal
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 92, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -869,7 +869,7 @@ func TestSyncAccountState_AutoDegradeOnQuota(t *testing.T) {
 // 65. 同步账号状态 - 封禁同步 risk
 func TestSyncAccountState_BannedRisk(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginBanned,
@@ -888,7 +888,7 @@ func TestSyncAccountState_BannedRisk(t *testing.T) {
 // 66. 同步账号状态 - 离线降权
 func TestSyncAccountState_OfflineWeight(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginOffline,
@@ -907,7 +907,7 @@ func TestSyncAccountState_OnlineRestores(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.Weight = 0
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID:  1,
 		LoginState: WeComLoginOnline,
@@ -925,7 +925,7 @@ func TestSyncAccountState_OnlineRestores(t *testing.T) {
 // 68. WeCom 集成 - IngestMessage 创建消息与会话
 func TestWeComIntegration_IngestMessage(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, conv, err := integ.IngestMessage(context.Background(), &IngestRequest{
 
@@ -953,7 +953,7 @@ func TestWeComIntegration_IngestMessage(t *testing.T) {
 // 69. 集成 - 多次 ingest 累加
 func TestWeComIntegration_IngestAccumulate(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	for i := 0; i < 3; i++ {
 		integ.IngestMessage(context.Background(), &IngestRequest{
@@ -978,7 +978,7 @@ func TestWeComIntegration_IngestAccumulate(t *testing.T) {
 // 70. 集成 - 群消息
 func TestWeComIntegration_IngestGroupMessage(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _, err := integ.IngestMessage(context.Background(), &IngestRequest{
 
@@ -1026,7 +1026,7 @@ func TestWeComIntegration_MissingUser(t *testing.T) {
 // 74. 集成 - 自动生成 MsgID
 func TestWeComIntegration_AutoMsgID(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _, err := integ.IngestMessage(context.Background(), &IngestRequest{
 
@@ -1045,7 +1045,7 @@ func TestWeComIntegration_AutoMsgID(t *testing.T) {
 // 75. 集成 - 自动生成 ConversationID
 func TestWeComIntegration_AutoConvID(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _, _ := integ.IngestMessage(context.Background(), &IngestRequest{
 
@@ -1061,7 +1061,7 @@ func TestWeComIntegration_AutoConvID(t *testing.T) {
 // 76. 集成 - 幂等 (同一 MsgID)
 func TestWeComIntegration_Idempotent(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	_, _, _ = integ.IngestMessage(context.Background(), &IngestRequest{
 
@@ -1079,7 +1079,7 @@ func TestWeComIntegration_Idempotent(t *testing.T) {
 // 77. 集成 - SendMessage
 func TestWeComIntegration_SendMessage(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, err := integ.SendMessage(context.Background(), &WeComSendRequest{
 		AccountID:      1,
@@ -1097,7 +1097,7 @@ func TestWeComIntegration_SendMessage(t *testing.T) {
 // 78. 集成 - Send AI 标记
 func TestWeComIntegration_SendAI(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _ := integ.SendMessage(context.Background(), &WeComSendRequest{
 		AccountID:      1,
@@ -1118,7 +1118,7 @@ func TestWeComIntegration_SendQuotaExceeded(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgUsed = 500
 	a1.DailyMsgQuota = 500
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	integ := NewWeComIntegrationService(db)
 	_, err := integ.SendMessage(context.Background(), &WeComSendRequest{
 		AccountID:      1,
@@ -1135,7 +1135,7 @@ func TestWeComIntegration_SendBanned(t *testing.T) {
 	_, db := newWeComHealthService(t)
 	a1 := mkWeComAccount(1)
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	integ := NewWeComIntegrationService(db)
 	_, err := integ.SendMessage(context.Background(), &WeComSendRequest{
 		AccountID:      1,
@@ -1164,7 +1164,7 @@ func TestWeComIntegration_SendNoAccount(t *testing.T) {
 // 82. 集成 - UpdateAccountStatus 封禁
 func TestWeComIntegration_UpdateStatusBanned(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	integ.UpdateAccountStatus(context.Background(), 1, WeComLoginBanned, "")
 	var a model.WeComAccount
@@ -1177,7 +1177,7 @@ func TestWeComIntegration_UpdateStatusBanned(t *testing.T) {
 // 83. 集成 - UpdateAccountStatus 离线
 func TestWeComIntegration_UpdateStatusOffline(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	integ.UpdateAccountStatus(context.Background(), 1, WeComLoginOffline, "")
 	var a model.WeComAccount
@@ -1193,7 +1193,7 @@ func TestWeComIntegration_UpdateStatusOnline(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.Weight = 0
 	a1.LoginState = WeComLoginBanned
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	integ := NewWeComIntegrationService(db)
 	integ.UpdateAccountStatus(context.Background(), 1, WeComLoginOnline, "")
 	var a model.WeComAccount
@@ -1206,7 +1206,7 @@ func TestWeComIntegration_UpdateStatusOnline(t *testing.T) {
 // 85. 集成 - ListAccountsWithHealth
 func TestWeComIntegration_ListAccountsWithHealth(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	list, err := integ.ListAccountsWithHealth(context.Background())
 	if err != nil {
@@ -1221,7 +1221,7 @@ func TestWeComIntegration_ListAccountsWithHealth(t *testing.T) {
 func TestWeComIntegration_ListAccountsWithHealth_Multiple(t *testing.T) {
 	_, db := newWeComHealthService(t)
 	for i := uint(1); i <= 5; i++ {
-		db.Create(context.Background(), mkWeComAccount(i))
+		db.Create(mkWeComAccount(i))
 	}
 	integ := NewWeComIntegrationService(db)
 	list, _ := integ.ListAccountsWithHealth(context.Background())
@@ -1233,7 +1233,7 @@ func TestWeComIntegration_ListAccountsWithHealth_Multiple(t *testing.T) {
 // 87. 集成 - ListAccountsWithHealth 包含 health
 func TestWeComIntegration_ListAccountsWithHealth_WithHealth(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -1248,7 +1248,7 @@ func TestWeComIntegration_ListAccountsWithHealth_WithHealth(t *testing.T) {
 // 88. 集成 - ReceiveCallback
 func TestWeComIntegration_ReceiveCallback(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, conv, err := integ.ReceiveCallback(context.Background(), &ReceiveCallbackRequest{
 		AccountID: 1,
@@ -1266,7 +1266,7 @@ func TestWeComIntegration_ReceiveCallback(t *testing.T) {
 // 89. 集成 - ReceiveCallback 群
 func TestWeComIntegration_ReceiveCallbackGroup(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _, _ := integ.ReceiveCallback(context.Background(), &ReceiveCallbackRequest{
 		AccountID: 1,
@@ -1358,7 +1358,7 @@ func TestAccountHealthFromModel(t *testing.T) {
 // 96. ReportHealth 多次累加错误数
 func TestReportHealth_AccumulatesErrors(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	for i := 0; i < 3; i++ {
 		svc.ReportHealth(context.Background(), &ReportHealthRequest{
 			AccountID: 1,
@@ -1376,7 +1376,7 @@ func TestReportHealth_AccumulatesErrors(t *testing.T) {
 // 97. 配额使用率 0
 func TestReportHealth_QuotaZero(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 0, SuccessRate: 100, ErrorCount: 0,
@@ -1389,7 +1389,7 @@ func TestReportHealth_QuotaZero(t *testing.T) {
 // 98. nil metrics 自动初始化
 func TestReportHealth_NilMetrics(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	rec, _ := svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -1412,7 +1412,7 @@ func TestListHealthHistory_EmptyPage(t *testing.T) {
 // 100. ListHealthHistory pageSize 上限
 func TestListHealthHistory_PageSizeLimit(t *testing.T) {
 	svc, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	svc.ReportHealth(context.Background(), &ReportHealthRequest{
 		AccountID: 1,
 		QuotaUsed: 0, QuotaTotal: 100, SuccessRate: 100, ErrorCount: 0,
@@ -1427,7 +1427,7 @@ func TestListHealthHistory_PageSizeLimit(t *testing.T) {
 // 101. 集成 Ingest 设置 ReceivedAt
 func TestWeComIntegration_IngestReceivedAt(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	now := time.Now()
 	hubMsg, _, _ := integ.IngestMessage(context.Background(), &IngestRequest{
@@ -1456,7 +1456,7 @@ func TestComputeHealthScore_MultipleBounds(t *testing.T) {
 // 103. 集成 SendMessage 媒体ID
 func TestWeComIntegration_SendMedia(t *testing.T) {
 	_, db := newWeComHealthService(t)
-	db.Create(context.Background(), mkWeComAccount(1))
+	db.Create(mkWeComAccount(1))
 	integ := NewWeComIntegrationService(db)
 	hubMsg, _ := integ.SendMessage(context.Background(), &WeComSendRequest{
 		AccountID:      1,
@@ -1477,11 +1477,11 @@ func TestGetHealthSummary_TotalQuota(t *testing.T) {
 	a1 := mkWeComAccount(1)
 	a1.DailyMsgQuota = 1000
 	a1.DailyMsgUsed = 200
-	db.Create(context.Background(), a1)
+	db.Create(a1)
 	a2 := mkWeComAccount(2)
 	a2.DailyMsgQuota = 2000
 	a2.DailyMsgUsed = 500
-	db.Create(context.Background(), a2)
+	db.Create(a2)
 	summary, _ := svc.GetHealthSummary(context.Background())
 	if summary.TotalQuota != 3000 {
 		t.Errorf("expected 3000, got %d", summary.TotalQuota)

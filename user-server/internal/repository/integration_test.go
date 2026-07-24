@@ -103,7 +103,7 @@ func TestIntegrationAccountRepository_GetByID(t *testing.T) {
 		AccountName: "GetByID Account",
 		APIKey:      "test-key",
 	}
-	repo.Create(account)
+	repo.Create(ctx, account)
 
 	tests := []struct {
 		name    string
@@ -148,11 +148,11 @@ func TestIntegrationAccountRepository_GetByPlatform(t *testing.T) {
 	repo, _, _, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	repo.Create(ctx, &model.IntegrationAccount){
+	repo.Create(ctx, &model.IntegrationAccount{
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "CRM Account",
 	})
-	repo.Create(ctx, &model.IntegrationAccount){
+	repo.Create(ctx, &model.IntegrationAccount{
 		Platform:    "ecommerce_taobao",
 		AccountName: "TB Account",
 	})
@@ -211,7 +211,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 		AccountName: "Original Name",
 		Status:      1,
 	}
-	repo.Create(account)
+	repo.Create(ctx, account)
 
 	account.AccountName = "Updated Name"
 	account.Status = 0
@@ -221,7 +221,7 @@ func TestIntegrationAccountRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(account.ID)
+	updated, _ := repo.GetByID(ctx, account.ID)
 	if updated.AccountName != "Updated Name" {
 		t.Errorf("Expected account name 'Updated Name', got '%s'", updated.AccountName)
 	}
@@ -240,7 +240,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Token Test",
 	}
-	repo.Create(account)
+	repo.Create(ctx, account)
 
 	expiresAt := time.Now().Add(time.Hour * 24)
 	err := repo.UpdateToken(context.Background(), account.ID, "new-access-token", &expiresAt)
@@ -248,7 +248,7 @@ func TestIntegrationAccountRepository_UpdateToken(t *testing.T) {
 		t.Errorf("UpdateToken() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(account.ID)
+	updated, _ := repo.GetByID(ctx, account.ID)
 	if updated.AccessToken != "new-access-token" {
 		t.Errorf("Expected access token 'new-access-token', got '%s'", updated.AccessToken)
 	}
@@ -267,14 +267,14 @@ func TestIntegrationAccountRepository_Delete(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "To Delete",
 	}
-	repo.Create(account)
+	repo.Create(ctx, account)
 
 	err := repo.Delete(ctx, account.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(account.ID)
+	_, err = repo.GetByID(ctx, account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -290,14 +290,14 @@ func TestIntegrationAccountRepository_UpdateSyncTime(t *testing.T) {
 		Platform:    "crm_xiaoshouyi",
 		AccountName: "Sync Test",
 	}
-	repo.Create(account)
+	repo.Create(ctx, account)
 
 	err := repo.UpdateSyncTime(context.Background(), account.ID)
 	if err != nil {
 		t.Errorf("UpdateSyncTime() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(account.ID)
+	updated, _ := repo.GetByID(ctx, account.ID)
 	if updated.LastSyncAt == nil {
 		t.Error("Expected LastSyncAt to be updated")
 	}
@@ -338,7 +338,7 @@ func TestSyncLogRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := syncRepo.Create(tt.log)
+			err := syncRepo.Create(ctx, tt.log)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -363,7 +363,7 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 		Status:      1,
 		RecordCount: 100,
 	}
-	syncRepo.Create(log)
+	syncRepo.Create(ctx, log)
 
 	tests := []struct {
 		name    string
@@ -384,7 +384,7 @@ func TestSyncLogRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := syncRepo.GetByID(tt.id)
+			result, err := syncRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -414,17 +414,17 @@ func TestSyncLogRepository_Update(t *testing.T) {
 		Status:      0,
 		RecordCount: 0,
 	}
-	syncRepo.Create(log)
+	syncRepo.Create(ctx, log)
 
 	log.Status = 1
 	log.RecordCount = 100
 
-	err := syncRepo.Update(log)
+	err := syncRepo.Update(ctx, log)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := syncRepo.GetByID(log.ID)
+	updated, _ := syncRepo.GetByID(ctx, log.ID)
 	if updated.Status != 1 {
 		t.Errorf("Expected status 1, got %d", updated.Status)
 	}
@@ -444,7 +444,7 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 		SyncType: "customer",
 		Status:   0,
 	}
-	syncRepo.Create(log)
+	syncRepo.Create(ctx, log)
 
 	tests := []struct {
 		name         string
@@ -478,7 +478,7 @@ func TestSyncLogRepository_UpdateStatus(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				updated, _ := syncRepo.GetByID(log.ID)
+				updated, _ := syncRepo.GetByID(ctx, log.ID)
 				if updated.Status != tt.status {
 					t.Errorf("Expected status %d, got %d", tt.status, updated.Status)
 				}
@@ -532,7 +532,7 @@ func TestExternalCustomerRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := customerRepo.Create(tt.customer)
+			err := customerRepo.Create(ctx, tt.customer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -557,7 +557,7 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 		Name:       "GetByID Customer",
 		Phone:      "13800138000",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
 	tests := []struct {
 		name    string
@@ -578,7 +578,7 @@ func TestExternalCustomerRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := customerRepo.GetByID(tt.id)
+			result, err := customerRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -607,7 +607,7 @@ func TestExternalCustomerRepository_GetByExternalID(t *testing.T) {
 		ExternalID: "unique-external-id",
 		Name:       "Unique Customer",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
 	result, err := customerRepo.GetByExternalID(context.Background(), "crm_xiaoshouyi", "unique-external-id")
 	if err != nil {
@@ -630,12 +630,12 @@ func TestExternalCustomerRepository_GetByPlatform(t *testing.T) {
 	_, _, customerRepo, _, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	customerRepo.Create(&model.ExternalCustomer{
+	customerRepo.Create(ctx, &model.ExternalCustomer{
 		Platform:   "crm_xiaoshouyi",
 		ExternalID: "crm-1",
 		Name:       "CRM Customer 1",
 	})
-	customerRepo.Create(&model.ExternalCustomer{
+	customerRepo.Create(ctx, &model.ExternalCustomer{
 		Platform:   "ecommerce_taobao",
 		ExternalID: "tb-1",
 		Name:       "TB Customer 1",
@@ -695,17 +695,17 @@ func TestExternalCustomerRepository_Update(t *testing.T) {
 		Name:       "Original Name",
 		Phone:      "13800138000",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
 	customer.Name = "Updated Name"
 	customer.Email = "updated@example.com"
 
-	err := customerRepo.Update(customer)
+	err := customerRepo.Update(ctx, customer)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := customerRepo.GetByID(customer.ID)
+	updated, _ := customerRepo.GetByID(ctx, customer.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -725,14 +725,14 @@ func TestExternalCustomerRepository_Delete(t *testing.T) {
 		ExternalID: "ext-delete",
 		Name:       "To Delete",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
-	err := customerRepo.Delete(customer.ID)
+	err := customerRepo.Delete(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = customerRepo.GetByID(customer.ID)
+	_, err = customerRepo.GetByID(ctx, customer.ID)
 	if err == nil {
 		t.Error("Expected customer to be deleted")
 	}
@@ -784,7 +784,7 @@ func TestExternalOrderRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := orderRepo.Create(tt.order)
+			err := orderRepo.Create(ctx, tt.order)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -811,7 +811,7 @@ func TestExternalOrderRepository_GetByOrderID(t *testing.T) {
 		UserName:    "Order User",
 		TotalAmount: 15000, // 150 元 = 15000 分
 	}
-	orderRepo.Create(order)
+	orderRepo.Create(ctx, order)
 
 	tests := []struct {
 		name       string
@@ -858,13 +858,13 @@ func TestExternalOrderRepository_GetByPlatform(t *testing.T) {
 	_, _, _, orderRepo, _, _ := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	orderRepo.Create(&model.ExternalOrder{
+	orderRepo.Create(ctx, &model.ExternalOrder{
 		Platform: "ecommerce_taobao",
 		OrderID:  "tb-order-1",
 		OrderNo:  "tb-1",
 		UserID:   "user-1",
 	})
-	orderRepo.Create(&model.ExternalOrder{
+	orderRepo.Create(ctx, &model.ExternalOrder{
 		Platform: "ecommerce_jd",
 		OrderID:  "jd-order-1",
 		OrderNo:  "jd-1",
@@ -928,17 +928,17 @@ func TestExternalOrderRepository_Update(t *testing.T) {
 		TotalAmount: 10000, // 100 元 = 10000 分
 		Status:      "pending",
 	}
-	orderRepo.Create(order)
+	orderRepo.Create(ctx, order)
 
 	order.UserName = "Updated User"
 	order.Status = "paid"
 
-	err := orderRepo.Update(order)
+	err := orderRepo.Update(ctx, order)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := orderRepo.GetByID(order.ID)
+	updated, _ := orderRepo.GetByID(ctx, order.ID)
 	if updated.UserName != "Updated User" {
 		t.Errorf("Expected user name 'Updated User', got '%s'", updated.UserName)
 	}
@@ -959,14 +959,14 @@ func TestExternalOrderRepository_Delete(t *testing.T) {
 		OrderNo:  "internal-delete",
 		UserID:   "user-123",
 	}
-	orderRepo.Create(order)
+	orderRepo.Create(ctx, order)
 
-	err := orderRepo.Delete(order.ID)
+	err := orderRepo.Delete(ctx, order.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = orderRepo.GetByID(order.ID)
+	_, err = orderRepo.GetByID(ctx, order.ID)
 	if err == nil {
 		t.Error("Expected order to be deleted")
 	}
@@ -1015,7 +1015,7 @@ func TestExternalProductRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := productRepo.Create(tt.product)
+			err := productRepo.Create(ctx, tt.product)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1042,7 +1042,7 @@ func TestExternalProductRepository_GetByProductID(t *testing.T) {
 		OriginalPrice: 19900, // 199 元 = 19900 分
 		Stock:         100,
 	}
-	productRepo.Create(product)
+	productRepo.Create(ctx, product)
 
 	tests := []struct {
 		name      string
@@ -1095,18 +1095,18 @@ func TestExternalProductRepository_Update(t *testing.T) {
 		Stock:     100,
 		Status:    1,
 	}
-	productRepo.Create(product)
+	productRepo.Create(ctx, product)
 
 	product.Name = "Updated Name"
 	product.Price = 14900 // 149.00 元 = 14900 分
 	product.Stock = 50
 
-	err := productRepo.Update(product)
+	err := productRepo.Update(ctx, product)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := productRepo.GetByID(product.ID)
+	updated, _ := productRepo.GetByID(ctx, product.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -1130,14 +1130,14 @@ func TestExternalProductRepository_Delete(t *testing.T) {
 		Name:      "To Delete",
 		Price:     9900, // 99.00 元 = 9900 分
 	}
-	productRepo.Create(product)
+	productRepo.Create(ctx, product)
 
-	err := productRepo.Delete(product.ID)
+	err := productRepo.Delete(ctx, product.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = productRepo.GetByID(product.ID)
+	_, err = productRepo.GetByID(ctx, product.ID)
 	if err == nil {
 		t.Error("Expected product to be deleted")
 	}
@@ -1179,7 +1179,7 @@ func TestWebhookEventRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := webhookRepo.Create(tt.event)
+			err := webhookRepo.Create(ctx, tt.event)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -1204,7 +1204,7 @@ func TestWebhookEventRepository_GetByEventID(t *testing.T) {
 		EventType: "order.paid",
 		RawData:   `{"data": "test"}`,
 	}
-	webhookRepo.Create(event)
+	webhookRepo.Create(ctx, event)
 
 	tests := []struct {
 		name    string
@@ -1249,19 +1249,19 @@ func TestWebhookEventRepository_GetUnprocessed(t *testing.T) {
 	_, _, _, _, _, webhookRepo := setupIntegrationRepositories(t)
 
 	// 创建测试数据
-	webhookRepo.Create(&model.WebhookEvent{
+	webhookRepo.Create(ctx, &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unprocessed-1",
 		EventType: "order.paid",
 		Processed: false,
 	})
-	webhookRepo.Create(&model.WebhookEvent{
+	webhookRepo.Create(ctx, &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "unprocessed-2",
 		EventType: "order.shipped",
 		Processed: false,
 	})
-	webhookRepo.Create(&model.WebhookEvent{
+	webhookRepo.Create(ctx, &model.WebhookEvent{
 		Platform:  "ecommerce_taobao",
 		EventID:   "processed-1",
 		EventType: "order.delivered",
@@ -1290,14 +1290,14 @@ func TestWebhookEventRepository_MarkProcessed(t *testing.T) {
 		EventType: "order.paid",
 		Processed: false,
 	}
-	webhookRepo.Create(event)
+	webhookRepo.Create(ctx, event)
 
 	err := webhookRepo.MarkProcessed(context.Background(), event.ID)
 	if err != nil {
 		t.Errorf("MarkProcessed() error = %v", err)
 	}
 
-	updated, _ := webhookRepo.GetByID(event.ID)
+	updated, _ := webhookRepo.GetByID(ctx, event.ID)
 	if !updated.Processed {
 		t.Error("Expected event to be marked as processed")
 	}
@@ -1319,17 +1319,17 @@ func TestWebhookEventRepository_Update(t *testing.T) {
 		RawData:   `{"original": "data"}`,
 		Processed: false,
 	}
-	webhookRepo.Create(event)
+	webhookRepo.Create(ctx, event)
 
 	event.EventType = "order.updated"
 	event.RawData = `{"updated": "data"}`
 
-	err := webhookRepo.Update(event)
+	err := webhookRepo.Update(ctx, event)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := webhookRepo.GetByID(event.ID)
+	updated, _ := webhookRepo.GetByID(ctx, event.ID)
 	if updated.EventType != "order.updated" {
 		t.Errorf("Expected event type 'order.updated', got '%s'", updated.EventType)
 	}

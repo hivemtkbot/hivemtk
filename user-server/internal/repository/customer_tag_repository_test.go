@@ -59,6 +59,8 @@ func setupCustomerTagRepository(t *testing.T) CustomerTagRepository {
 // TestCustomerTagRepository_Create tests creating customer tags
 func TestCustomerTagRepository_Create(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -121,6 +123,8 @@ func TestCustomerTagRepository_Create(t *testing.T) {
 // TestCustomerTagRepository_GetByID tests retrieving tag by ID
 func TestCustomerTagRepository_GetByID(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	tag := &model.CustomerTag{
@@ -174,6 +178,8 @@ func TestCustomerTagRepository_GetByID(t *testing.T) {
 
 func TestCustomerTagRepository_ListByMerchant(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	// Create test tags
 	tags := []*model.CustomerTag{
@@ -200,6 +206,8 @@ func TestCustomerTagRepository_ListByMerchant(t *testing.T) {
 // TestCustomerTagRepository_ListAutoTags tests listing only auto tags
 func TestCustomerTagRepository_ListAutoTags(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	// Create mix of auto and manual tags
 	tags := []*model.CustomerTag{
@@ -234,6 +242,8 @@ func TestCustomerTagRepository_ListAutoTags(t *testing.T) {
 // TestCustomerTagRepository_ListAutoTags_WithNoAutoTags tests when no auto tags exist
 func TestCustomerTagRepository_ListAutoTags_WithNoAutoTags(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	// Create only manual tags
 	tags := []*model.CustomerTag{
@@ -258,6 +268,8 @@ func TestCustomerTagRepository_ListAutoTags_WithNoAutoTags(t *testing.T) {
 // TestCustomerTagRepository_Delete tests deleting a tag
 func TestCustomerTagRepository_Delete(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	tag := &model.CustomerTag{
@@ -288,6 +300,8 @@ func TestCustomerTagRepository_Delete(t *testing.T) {
 // TestCustomerTagRepository_TagRule tests tag rule serialization
 func TestCustomerTagRepository_TagRule(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	tag := &model.CustomerTag{
 		Name:     "High Spender",
@@ -335,6 +349,8 @@ func TestCustomerTagRepository_TagRule(t *testing.T) {
 // TestCustomerTagRepository_TagRuleString tests tag rule string serialization
 func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	tag := &model.CustomerTag{
 		Name:     "Frequent Visitor",
@@ -378,6 +394,8 @@ func TestCustomerTagRepository_TagRuleString(t *testing.T) {
 // TestCustomerTagRepository_AllCategories tests all tag categories
 func TestCustomerTagRepository_AllCategories(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	categories := []model.TagCategory{
 		model.TagCategoryDemographic,
@@ -411,6 +429,8 @@ func TestCustomerTagRepository_AllCategories(t *testing.T) {
 // TestCustomerTagRepository_BothSources tests both tag sources
 func TestCustomerTagRepository_BothSources(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	sources := []model.TagSource{
 		model.TagSourceAuto,
@@ -457,6 +477,8 @@ func TestCustomerTagRepository_BothSources(t *testing.T) {
 // TestCustomerTagRepository_EmptyRule tests tag with empty rule
 func TestCustomerTagRepository_EmptyRule(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	tag := &model.CustomerTag{
 		Name:     "Simple Tag",
@@ -484,6 +506,8 @@ func TestCustomerTagRepository_EmptyRule(t *testing.T) {
 // TestCustomerTagRepository_ComplexRule tests tag with complex rule
 func TestCustomerTagRepository_ComplexRule(t *testing.T) {
 	repo := setupCustomerTagRepository(t)
+	ctx := context.Background()
+
 
 	tag := &model.CustomerTag{
 		Name:     "VIP High Spender",

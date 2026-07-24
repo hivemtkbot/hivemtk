@@ -37,7 +37,7 @@ func TestLongTermMemory_Remember_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	item, err := m.Remember(ctx, "c-1", model.LongTermMemoryPreference, "客户预算 5000 元", 8)
+	item, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryPreference, "客户预算 5000 元", 8)
 	if err != nil {
 		t.Fatalf("remember: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestLongTermMemory_Remember_ImportanceClamp(t *testing.T) {
 	m := newLongTermMemorySystem(db)
 
 	// importance = 0 应被裁剪到 defaultImp=5
-	item1, err := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "内容1", 0)
+	item1, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "内容1", 0)
 	if err != nil {
 		t.Fatalf("remember 1: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestLongTermMemory_Remember_ImportanceClamp(t *testing.T) {
 	}
 
 	// importance = 11 应被裁剪到 defaultImp=5
-	item2, err := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "内容2", 11)
+	item2, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "内容2", 11)
 	if err != nil {
 		t.Fatalf("remember 2: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestLongTermMemory_Remember_ImportanceClamp(t *testing.T) {
 	}
 
 	// importance = -1 应被裁剪到 defaultImp=5
-	item3, err := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "内容3", -1)
+	item3, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "内容3", -1)
 	if err != nil {
 		t.Fatalf("remember 3: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestLongTermMemory_Remember_AllMemoryTypes(t *testing.T) {
 		model.LongTermMemoryFact,
 	}
 	for i, mt := range types {
-		item, err := m.Remember(ctx, "c-1", mt, "内容-"+string(rune('A'+i)), 5)
+		item, err := m.Remember(context.Background(), "c-1", mt, "内容-"+string(rune('A'+i)), 5)
 		if err != nil {
 			t.Errorf("remember %s: %v", mt, err)
 		}
@@ -172,7 +172,7 @@ func TestLongTermMemory_RememberWithSource(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	item, err := m.RememberWithSource(ctx, "c-1", model.LongTermMemoryFact, "客户是 VIP", 9,
+	item, err := m.RememberWithSource(context.Background(), "c-1", model.LongTermMemoryFact, "客户是 VIP", 9,
 		model.LongTermMemorySourceTool, map[string]any{"channel": "douyin", "tag": "vip"})
 	if err != nil {
 		t.Fatalf("remember with source: %v", err)
@@ -198,16 +198,16 @@ func TestLongTermMemory_PRDAcceptance_BudgetRecall(t *testing.T) {
 
 	// 第一次对话：客户说预算 5000
 	// AI 应通过 Remember 把这个关键事实存入长期记忆
-	_, err := m.Remember(ctx, "c-budget", model.LongTermMemoryPreference, "客户预算 5000 元", 9)
+	_, err := m.Remember(context.Background(), "c-budget", model.LongTermMemoryPreference, "客户预算 5000 元", 9)
 	if err != nil {
 		t.Fatalf("first conversation remember: %v", err)
 	}
 	// 同时存一些其他记忆作为干扰
-	m.Remember(ctx, "c-budget", model.LongTermMemoryFact, "客户姓张", 5)
-	m.Remember(ctx, "c-budget", model.LongTermMemoryHabit, "客户喜欢晚上联系", 4)
+	m.Remember(context.Background(), "c-budget", model.LongTermMemoryFact, "客户姓张", 5)
+	m.Remember(context.Background(), "c-budget", model.LongTermMemoryHabit, "客户喜欢晚上联系", 4)
 
 	// 第二次对话：AI 想知道客户预算，通过 Recall 查询
-	results, err := m.Recall(ctx, "c-budget", "预算是多少", 5)
+	results, err := m.Recall(context.Background(), "c-budget", "预算是多少", 5)
 	if err != nil {
 		t.Fatalf("second conversation recall: %v", err)
 	}
@@ -252,15 +252,15 @@ func TestLongTermMemory_Recall_MultiCustomerIsolation(t *testing.T) {
 	m := newLongTermMemorySystem(db)
 
 	// 客户 A 记忆
-	m.Remember(ctx, "c-A", model.LongTermMemoryFact, "客户 A 喜欢运动", 7)
-	m.Remember(ctx, "c-A", model.LongTermMemoryPreference, "客户 A 预算 1 万", 8)
+	m.Remember(context.Background(), "c-A", model.LongTermMemoryFact, "客户 A 喜欢运动", 7)
+	m.Remember(context.Background(), "c-A", model.LongTermMemoryPreference, "客户 A 预算 1 万", 8)
 
 	// 客户 B 记忆
-	m.Remember(ctx, "c-B", model.LongTermMemoryFact, "客户 B 喜欢读书", 7)
-	m.Remember(ctx, "c-B", model.LongTermMemoryPreference, "客户 B 预算 5000", 8)
+	m.Remember(context.Background(), "c-B", model.LongTermMemoryFact, "客户 B 喜欢读书", 7)
+	m.Remember(context.Background(), "c-B", model.LongTermMemoryPreference, "客户 B 预算 5000", 8)
 
 	// 客户 A Recall 不应看到 B 的记忆
-	results, err := m.Recall(ctx, "c-A", "预算", 10)
+	results, err := m.Recall(context.Background(), "c-A", "预算", 10)
 	if err != nil {
 		t.Fatalf("recall A: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestLongTermMemory_Recall_MultiCustomerIsolation(t *testing.T) {
 	}
 
 	// 客户 B Recall 不应看到 A 的记忆
-	resultsB, _ := m.Recall(ctx, "c-B", "预算", 10)
+	resultsB, _ := m.Recall(context.Background(), "c-B", "预算", 10)
 	for _, r := range resultsB {
 		if r.Memory.CustomerID != "c-B" {
 			t.Errorf("客户隔离失败：客户 B 召回到客户 %s 的记忆", r.Memory.CustomerID)
@@ -291,11 +291,11 @@ func TestLongTermMemory_Recall_LimitTruncation(t *testing.T) {
 
 	// 写 8 条记忆
 	for i := 0; i < 8; i++ {
-		m.Remember(ctx, "c-1", model.LongTermMemoryFact, "记忆内容-"+string(rune('A'+i)), 5)
+		m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "记忆内容-"+string(rune('A'+i)), 5)
 	}
 
 	// limit=3 应只返回 3 条
-	results, err := m.Recall(ctx, "c-1", "记忆", 3)
+	results, err := m.Recall(context.Background(), "c-1", "记忆", 3)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
@@ -304,13 +304,13 @@ func TestLongTermMemory_Recall_LimitTruncation(t *testing.T) {
 	}
 
 	// limit=0 应使用默认值 5
-	results0, _ := m.Recall(ctx, "c-1", "记忆", 0)
+	results0, _ := m.Recall(context.Background(), "c-1", "记忆", 0)
 	if len(results0) != 5 {
 		t.Errorf("expected default limit 5, got %d", len(results0))
 	}
 
 	// limit=-1 也应使用默认值 5
-	resultsNeg, _ := m.Recall(ctx, "c-1", "记忆", -1)
+	resultsNeg, _ := m.Recall(context.Background(), "c-1", "记忆", -1)
 	if len(resultsNeg) != 5 {
 		t.Errorf("expected default limit 5 for -1, got %d", len(resultsNeg))
 	}
@@ -331,14 +331,14 @@ func TestLongTermMemory_Recall_ExpiredExcluded(t *testing.T) {
 		Embedding:  string(float32SliceToBytes(hashVecForTest("过期的记忆"))),
 		ExpiresAt:  &pastTime,
 	}
-	if err := db.Create(context.Background(), expired).Error; err != nil {
+	if err := db.Create(expired).Error; err != nil {
 		t.Fatalf("create expired: %v", err)
 	}
 
 	// 写一条正常的记忆
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "正常的记忆", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "正常的记忆", 5)
 
-	results, err := m.Recall(ctx, "c-1", "记忆", 10)
+	results, err := m.Recall(context.Background(), "c-1", "记忆", 10)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
@@ -382,10 +382,10 @@ func TestLongTermMemory_Recall_ResultsHaveScore(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "客户预算 5000 元", 8)
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "客户喜欢运动", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "客户预算 5000 元", 8)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "客户喜欢运动", 5)
 
-	results, err := m.Recall(ctx, "c-1", "预算", 5)
+	results, err := m.Recall(context.Background(), "c-1", "预算", 5)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestLongTermMemory_Rerank_ImportanceBoost(t *testing.T) {
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "高重要性", Importance: 10, Source: "conversation", CreatedAt: now, Similarity: 0.5},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 2)
+	results := m.rerank(context.Background(), rows, 2)
 	if results[0].Memory.ID != 2 {
 		t.Errorf("expected ID=2 first (high importance), got ID=%d", results[0].Memory.ID)
 	}
@@ -444,7 +444,7 @@ func TestLongTermMemory_Rerank_RecencyBoost(t *testing.T) {
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "新记忆", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.5},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 2)
+	results := m.rerank(context.Background(), rows, 2)
 	if results[0].Memory.ID != 2 {
 		t.Errorf("expected ID=2 first (recent), got ID=%d", results[0].Memory.ID)
 	}
@@ -458,7 +458,7 @@ func TestLongTermMemory_Rerank_SimilarityBoost(t *testing.T) {
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "高相似", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.9},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 2)
+	results := m.rerank(context.Background(), rows, 2)
 	if results[0].Memory.ID != 2 {
 		t.Errorf("expected ID=2 first (high similarity), got ID=%d", results[0].Memory.ID)
 	}
@@ -479,7 +479,7 @@ func TestLongTermMemory_Rerank_LimitTruncation(t *testing.T) {
 		{ID: 4, CustomerID: "c-1", Importance: 7, CreatedAt: now, Similarity: 0.7},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 2)
+	results := m.rerank(context.Background(), rows, 2)
 	if len(results) != 2 {
 		t.Errorf("expected 2 results, got %d", len(results))
 	}
@@ -497,7 +497,7 @@ func TestLongTermMemory_Rerank_RecencyClampToZero(t *testing.T) {
 		{ID: 1, CustomerID: "c-1", Importance: 5, CreatedAt: veryOld, Similarity: 0.5},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 1)
+	results := m.rerank(context.Background(), rows, 1)
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -518,7 +518,7 @@ func TestLongTermMemory_Rerank_MetadataPreserved(t *testing.T) {
 		},
 	}
 	m := &MemorySystem{}
-	results := m.rerank(rows, 1)
+	results := m.rerank(context.Background(), rows, 1)
 	if results[0].Memory.Metadata["k1"] != "v1" {
 		t.Errorf("expected k1=v1, got %v", results[0].Memory.Metadata["k1"])
 	}
@@ -533,11 +533,11 @@ func TestLongTermMemory_ListLongTermMemories_HappyPath(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实1", 5)
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实2", 7)
-	m.Remember(ctx, "c-1", model.LongTermMemoryPreference, "偏好1", 8)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实1", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实2", 7)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryPreference, "偏好1", 8)
 
-	list, err := m.ListLongTermMemories(ctx, "c-1", "", 10)
+	list, err := m.ListLongTermMemories(context.Background(), "c-1", "", 10)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -554,11 +554,11 @@ func TestLongTermMemory_ListLongTermMemories_FilterByType(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实", 5)
-	m.Remember(ctx, "c-1", model.LongTermMemoryPreference, "偏好", 5)
-	m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实2", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryPreference, "偏好", 5)
+	m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实2", 5)
 
-	list, _ := m.ListLongTermMemories(ctx, "c-1", string(model.LongTermMemoryFact), 10)
+	list, _ := m.ListLongTermMemories(context.Background(), "c-1", string(model.LongTermMemoryFact), 10)
 	if len(list) != 2 {
 		t.Errorf("expected 2 facts, got %d", len(list))
 	}
@@ -575,11 +575,11 @@ func TestLongTermMemory_ListLongTermMemories_DefaultLimit(t *testing.T) {
 
 	// 写 60 条
 	for i := 0; i < 60; i++ {
-		m.Remember(ctx, "c-1", model.LongTermMemoryFact, "事实", 5)
+		m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "事实", 5)
 	}
 
 	// limit=0 应使用默认值 50
-	list, _ := m.ListLongTermMemories(ctx, "c-1", "", 0)
+	list, _ := m.ListLongTermMemories(context.Background(), "c-1", "", 0)
 	if len(list) != 50 {
 		t.Errorf("expected default limit 50, got %d", len(list))
 	}
@@ -611,13 +611,13 @@ func TestLongTermMemory_DeleteLongTermMemory(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
 	m := newLongTermMemorySystem(db)
 
-	item, _ := m.Remember(ctx, "c-1", model.LongTermMemoryFact, "待删除", 5)
-	if err := m.DeleteLongTermMemory(ctx, item.ID); err != nil {
+	item, _ := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "待删除", 5)
+	if err := m.DeleteLongTermMemory(context.Background(), item.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
 	// 验证已删除
-	list, _ := m.ListLongTermMemories(ctx, "c-1", "", 10)
+	list, _ := m.ListLongTermMemories(context.Background(), "c-1", "", 10)
 	if len(list) != 0 {
 		t.Errorf("expected 0 after delete, got %d", len(list))
 	}

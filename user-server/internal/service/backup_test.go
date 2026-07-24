@@ -11,8 +11,9 @@ import (
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
 
-	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
+
+	"gorm.io/gorm"
 )
 
 // setupBackupServiceTestDB 设置备份服务测试数据库
@@ -41,6 +42,7 @@ func newTestRestoreRecordRepository(database *gorm.DB) *repository.RestoreRecord
 // TestBackupService_CreateBackup 测试创建备份
 func TestBackupService_CreateBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -50,7 +52,7 @@ func TestBackupService_CreateBackup(t *testing.T) {
 	}
 
 	// 私域部署：不传 merchantID（单租户无此字段）
-	backup, err := service.CreateBackup(1, req)
+	backup, err := service.CreateBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("CreateBackup failed: %v", err)
 	}
@@ -88,6 +90,7 @@ func TestBackupService_CreateBackup(t *testing.T) {
 // TestBackupService_CreateBackup_EmptyName 测试创建备份时名称为空
 func TestBackupService_CreateBackup_EmptyName(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -96,7 +99,7 @@ func TestBackupService_CreateBackup_EmptyName(t *testing.T) {
 		BackupType: model.BackupTypeFull,
 	}
 
-	backup, err := service.CreateBackup(1, req)
+	backup, err := service.CreateBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("CreateBackup failed: %v", err)
 	}
@@ -110,6 +113,7 @@ func TestBackupService_CreateBackup_EmptyName(t *testing.T) {
 // TestBackupService_CreateBackup_EmptyType 测试创建备份时类型为空
 func TestBackupService_CreateBackup_EmptyType(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -118,7 +122,7 @@ func TestBackupService_CreateBackup_EmptyType(t *testing.T) {
 		BackupType: "",
 	}
 
-	backup, err := service.CreateBackup(1, req)
+	backup, err := service.CreateBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("CreateBackup failed: %v", err)
 	}
@@ -131,6 +135,7 @@ func TestBackupService_CreateBackup_EmptyType(t *testing.T) {
 // TestBackupService_GetBackupList 测试获取备份列表
 func TestBackupService_GetBackupList(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -146,7 +151,7 @@ func TestBackupService_GetBackupList(t *testing.T) {
 	}
 
 	// 获取列表
-	backups, total, err := service.GetBackupList(1, 10)
+	backups, total, err := service.GetBackupList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetBackupList failed: %v", err)
 	}
@@ -163,6 +168,7 @@ func TestBackupService_GetBackupList(t *testing.T) {
 // TestBackupService_GetBackupList_Pagination 测试备份列表分页
 func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -177,7 +183,7 @@ func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 	}
 
 	// 第一页，每页 5 条
-	backups, total, err := service.GetBackupList(1, 5)
+	backups, total, err := service.GetBackupList(ctx, 1, 5)
 	if err != nil {
 		t.Fatalf("GetBackupList failed: %v", err)
 	}
@@ -194,6 +200,7 @@ func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 // TestBackupService_GetBackupByID 测试根据 ID 获取备份
 func TestBackupService_GetBackupByID(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -206,7 +213,7 @@ func TestBackupService_GetBackupByID(t *testing.T) {
 	repo.Create(context.Background(), backup)
 
 	// 获取备份
-	retrievedBackup, err := service.GetBackupByID(backup.ID)
+	retrievedBackup, err := service.GetBackupByID(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("GetBackupByID failed: %v", err)
 	}
@@ -219,10 +226,11 @@ func TestBackupService_GetBackupByID(t *testing.T) {
 // TestBackupService_GetBackupByID_NotFound 测试获取不存在的备份
 func TestBackupService_GetBackupByID_NotFound(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	_, err := service.GetBackupByID(99999)
+	_, err := service.GetBackupByID(ctx, 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent backup")
 	}
@@ -231,6 +239,7 @@ func TestBackupService_GetBackupByID_NotFound(t *testing.T) {
 // TestBackupService_GetBackupByID_SingleTenant 单租户模式下任意用户可访问备份
 func TestBackupService_GetBackupByID_SingleTenant(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -242,7 +251,7 @@ func TestBackupService_GetBackupByID_SingleTenant(t *testing.T) {
 	repo.Create(context.Background(), backup)
 
 	// 单租户模式下，无需 merchant 鉴权，任意用户可访问
-	got, err := service.GetBackupByID(backup.ID)
+	got, err := service.GetBackupByID(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("GetBackupByID failed: %v", err)
 	}
@@ -254,6 +263,7 @@ func TestBackupService_GetBackupByID_SingleTenant(t *testing.T) {
 // TestBackupService_DeleteBackup 测试删除备份
 func TestBackupService_DeleteBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -266,7 +276,7 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 	repo.Create(context.Background(), backup)
 
 	// 删除备份
-	err := service.DeleteBackup(backup.ID)
+	err := service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
@@ -282,10 +292,11 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 // TestBackupService_DeleteBackup_NotFound 测试删除不存在的备份
 func TestBackupService_DeleteBackup_NotFound(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	err := service.DeleteBackup(99999)
+	err := service.DeleteBackup(ctx, 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent backup")
 	}
@@ -294,6 +305,7 @@ func TestBackupService_DeleteBackup_NotFound(t *testing.T) {
 // TestBackupService_DeleteBackup_SingleTenant 单租户模式下任意用户可删除备份
 func TestBackupService_DeleteBackup_SingleTenant(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -305,7 +317,7 @@ func TestBackupService_DeleteBackup_SingleTenant(t *testing.T) {
 	repo.Create(context.Background(), backup)
 
 	// 单租户模式下无需 merchant 校验，删除成功
-	err := service.DeleteBackup(backup.ID)
+	err := service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
@@ -320,6 +332,7 @@ func TestBackupService_DeleteBackup_SingleTenant(t *testing.T) {
 // TestBackupService_DeleteBackup_WithFile 测试删除带文件的备份
 func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -341,7 +354,7 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 	repo.Create(context.Background(), backup)
 
 	// 删除备份（应同时删除文件）
-	err = service.DeleteBackup(backup.ID)
+	err = service.DeleteBackup(ctx, backup.ID)
 	if err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
@@ -355,6 +368,7 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 // TestRestoreService_RestoreBackup 测试恢复备份
 func TestRestoreService_RestoreBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -377,7 +391,7 @@ func TestRestoreService_RestoreBackup(t *testing.T) {
 		BackupID: backup.ID,
 	}
 
-	record, err := service.RestoreBackup(1, req)
+	record, err := service.RestoreBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("RestoreBackup failed: %v", err)
 	}
@@ -405,6 +419,7 @@ func TestRestoreService_RestoreBackup(t *testing.T) {
 // TestRestoreService_RestoreBackup_NotFound 测试恢复不存在的备份
 func TestRestoreService_RestoreBackup_NotFound(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -416,7 +431,7 @@ func TestRestoreService_RestoreBackup_NotFound(t *testing.T) {
 		BackupID: 99999,
 	}
 
-	_, err := service.RestoreBackup(1, req)
+	_, err := service.RestoreBackup(ctx, 1, req)
 	if err == nil {
 		t.Error("Expected error for non-existent backup")
 	}
@@ -425,6 +440,7 @@ func TestRestoreService_RestoreBackup_NotFound(t *testing.T) {
 // TestRestoreService_RestoreBackup_SingleTenant 单租户模式下任意用户可恢复备份
 func TestRestoreService_RestoreBackup_SingleTenant(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -444,7 +460,7 @@ func TestRestoreService_RestoreBackup_SingleTenant(t *testing.T) {
 	}
 
 	// 单租户模式下无需 merchant 校验
-	_, err := service.RestoreBackup(1, req)
+	_, err := service.RestoreBackup(ctx, 1, req)
 	if err != nil {
 		t.Fatalf("RestoreBackup failed: %v", err)
 	}
@@ -453,6 +469,7 @@ func TestRestoreService_RestoreBackup_SingleTenant(t *testing.T) {
 // TestRestoreService_RestoreBackup_Incomplete 测试恢复未完成的备份
 func TestRestoreService_RestoreBackup_Incomplete(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -472,7 +489,7 @@ func TestRestoreService_RestoreBackup_Incomplete(t *testing.T) {
 		BackupID: backup.ID,
 	}
 
-	_, err := service.RestoreBackup(1, req)
+	_, err := service.RestoreBackup(ctx, 1, req)
 	if err == nil {
 		t.Error("Expected error for incomplete backup")
 	}
@@ -484,6 +501,7 @@ func TestRestoreService_RestoreBackup_Incomplete(t *testing.T) {
 // TestRestoreService_GetRestoreList 测试获取恢复记录列表
 func TestRestoreService_GetRestoreList(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -503,7 +521,7 @@ func TestRestoreService_GetRestoreList(t *testing.T) {
 	}
 
 	// 获取列表
-	records, total, err := service.GetRestoreList(1, 10)
+	records, total, err := service.GetRestoreList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetRestoreList failed: %v", err)
 	}
@@ -520,6 +538,7 @@ func TestRestoreService_GetRestoreList(t *testing.T) {
 // TestRestoreService_GetLastRestore 测试获取最近一次恢复记录
 func TestRestoreService_GetLastRestore(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -545,7 +564,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 	})
 
 	// 获取最近的恢复记录
-	lastRecord, err := service.GetLastRestore()
+	lastRecord, err := service.GetLastRestore(ctx)
 	if err != nil {
 		t.Fatalf("GetLastRestore failed: %v", err)
 	}
@@ -558,6 +577,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 // TestRestoreService_GetLastRestore_Empty 测试没有恢复记录的情况
 func TestRestoreService_GetLastRestore_Empty(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -565,7 +585,7 @@ func TestRestoreService_GetLastRestore_Empty(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	_, err := service.GetLastRestore()
+	_, err := service.GetLastRestore(ctx)
 	if err == nil {
 		t.Error("Expected error for empty restore records")
 	}
@@ -574,9 +594,10 @@ func TestRestoreService_GetLastRestore_Empty(t *testing.T) {
 // TestScheduleBackupService_CreateDailyBackup 测试创建每日备份
 func TestScheduleBackupService_CreateDailyBackup(t *testing.T) {
 	setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	service := NewScheduleBackupService()
 
-	err := service.CreateDailyBackup()
+	err := service.CreateDailyBackup(ctx)
 	if err != nil {
 		t.Fatalf("CreateDailyBackup failed: %v", err)
 	}
@@ -594,6 +615,7 @@ func TestRunDailyBackup(t *testing.T) {
 // TestBackupService_ExecuteBackup_DirCreationError 测试创建备份目录失败
 func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -608,7 +630,7 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 	// 直接调用 executeBackup（同步测试）
 	// 注意：在 PostgreSQL 测试环境中，目录创建可能成功（因为使用临时目录）
 	// 所以这个测试主要验证异步备份流程不会崩溃
-	service.executeBackup(backup)
+	service.executeBackup(ctx, backup)
 
 	// 等待异步操作完成
 	time.Sleep(100 * time.Millisecond)
@@ -626,6 +648,7 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 // TestBackupService_CompressBackup 测试压缩备份功能
 func TestBackupService_CompressBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -640,7 +663,7 @@ func TestBackupService_CompressBackup(t *testing.T) {
 	outputFile := filepath.Join(tmpDir, "output.zip")
 
 	// 测试压缩
-	err = service.compressBackup(tmpDir, outputFile)
+	err = service.compressBackup(ctx, tmpDir, outputFile)
 	if err != nil {
 		t.Fatalf("compressBackup failed: %v", err)
 	}
@@ -654,6 +677,7 @@ func TestBackupService_CompressBackup(t *testing.T) {
 // TestRestoreService_DecompressBackup 测试解压备份功能
 func TestRestoreService_DecompressBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -675,7 +699,7 @@ func TestRestoreService_DecompressBackup(t *testing.T) {
 
 	// 使用 service 的 compressBackup 创建有效的 zip 文件
 	testService := &BackupService{backupRepo: backupRepo}
-	err = testService.compressBackup(tmpDir, zipFile)
+	err = testService.compressBackup(ctx, tmpDir, zipFile)
 	if err != nil {
 		t.Fatalf("Failed to create valid zip: %v", err)
 	}
@@ -684,7 +708,7 @@ func TestRestoreService_DecompressBackup(t *testing.T) {
 	os.Remove(testFile)
 
 	// 测试解压
-	err = service.decompressBackup(zipFile)
+	err = service.decompressBackup(ctx, zipFile)
 	if err != nil {
 		t.Fatalf("decompressBackup failed: %v", err)
 	}
@@ -693,6 +717,7 @@ func TestRestoreService_DecompressBackup(t *testing.T) {
 // TestRestoreService_ExecuteRestore_FailedBackup 测试恢复失败的处理
 func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -719,7 +744,7 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 	backupRepo.Create(context.Background(), backup)
 
 	// 执行恢复（会失败）
-	service.executeRestore(record, backup)
+	service.executeRestore(ctx, record, backup)
 
 	// 验证状态为失败
 	updatedRecord, _ := restoreRepo.GetByID(context.Background(), record.ID)
@@ -731,10 +756,11 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 
 func TestBackupService_GetBackupList_EmptyMerchant(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
-	backups, total, err := service.GetBackupList(1, 10)
+	backups, total, err := service.GetBackupList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetBackupList failed: %v", err)
 	}
@@ -750,6 +776,7 @@ func TestBackupService_GetBackupList_EmptyMerchant(t *testing.T) {
 
 func TestRestoreService_GetRestoreList_EmptyMerchant(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	backupRepo := newTestBackupRepository(database)
 	restoreRepo := newTestRestoreRecordRepository(database)
 	service := &RestoreService{
@@ -757,7 +784,7 @@ func TestRestoreService_GetRestoreList_EmptyMerchant(t *testing.T) {
 		backupRepo:  backupRepo,
 	}
 
-	records, total, err := service.GetRestoreList(1, 10)
+	records, total, err := service.GetRestoreList(ctx, 1, 10)
 	if err != nil {
 		t.Fatalf("GetRestoreList failed: %v", err)
 	}
@@ -774,6 +801,7 @@ func TestRestoreService_GetRestoreList_EmptyMerchant(t *testing.T) {
 // TestBackupService_MultipleBackupTypes 测试多种备份类型
 func TestBackupService_MultipleBackupTypes(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
+	ctx := context.Background()
 	repo := newTestBackupRepository(database)
 	service := &BackupService{backupRepo: repo}
 
@@ -782,7 +810,7 @@ func TestBackupService_MultipleBackupTypes(t *testing.T) {
 		BackupName: "full-backup",
 		BackupType: model.BackupTypeFull,
 	}
-	fullBackup, err := service.CreateBackup(1, fullReq)
+	fullBackup, err := service.CreateBackup(ctx, 1, fullReq)
 	if err != nil {
 		t.Fatalf("CreateBackup (full) failed: %v", err)
 	}
@@ -795,7 +823,7 @@ func TestBackupService_MultipleBackupTypes(t *testing.T) {
 		BackupName: "incremental-backup",
 		BackupType: model.BackupTypeIncremental,
 	}
-	incrementalBackup, err := service.CreateBackup(1, incrementalReq)
+	incrementalBackup, err := service.CreateBackup(ctx, 1, incrementalReq)
 	if err != nil {
 		t.Fatalf("CreateBackup (incremental) failed: %v", err)
 	}
@@ -807,6 +835,7 @@ func TestBackupService_MultipleBackupTypes(t *testing.T) {
 // TestBackupService_RepositoryNil 测试仓库为 nil 的情况
 func TestBackupService_RepositoryNil(t *testing.T) {
 	service := &BackupService{backupRepo: nil}
+	ctx := context.Background()
 
 	req := &CreateBackupRequest{
 		BackupName: "test-backup",
@@ -823,7 +852,7 @@ func TestBackupService_RepositoryNil(t *testing.T) {
 		}
 	}()
 
-	_, _ = service.CreateBackup(1, req)
+	_, _ = service.CreateBackup(ctx, 1, req)
 }
 
 // TestRestoreService_RepositoryNil 测试恢复服务仓库为 nil 的情况
@@ -832,6 +861,7 @@ func TestRestoreService_RepositoryNil(t *testing.T) {
 		restoreRepo: nil,
 		backupRepo:  nil,
 	}
+	ctx := context.Background()
 
 	req := &RestoreBackupRequest{
 		BackupID: 1,
@@ -847,7 +877,7 @@ func TestRestoreService_RepositoryNil(t *testing.T) {
 		}
 	}()
 
-	_, _ = service.RestoreBackup(1, req)
+	_, _ = service.RestoreBackup(ctx, 1, req)
 }
 
 // TestBackupService_BackupStatusTransitions 测试备份状态转换

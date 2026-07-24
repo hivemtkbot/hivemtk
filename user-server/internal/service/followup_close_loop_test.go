@@ -22,19 +22,19 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(dashboard)
+	followup.SetDashboard(context.Background(), dashboard)
 
 	custID := "cust_close_001"
 	ownerID := "sales_001"
 
 	// 1. 客户从陌生阶段起步
-	state0 := journey.GetState(custID)
+	state0 := journey.GetState(context.Background(), custID)
 	if state0.CurrentStage != StageStranger {
 		t.Fatalf("初始阶段应为陌生，实际: %s", state0.CurrentStage)
 	}
 
 	// 2. 安排一个首次跟进
-	r, err := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+	r, err := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title:    "首次跟进",
 		Priority: PriorityHigh,
 	})
@@ -49,7 +49,7 @@ func TestFollowUp_CompleteWithResult_StageAdvance(t *testing.T) {
 	}
 
 	// 4. 验证：客户旅程已推进到感兴趣
-	state1 := journey.GetState(custID)
+	state1 := journey.GetState(context.Background(), custID)
 	if state1.CurrentStage != StageInterested {
 		t.Errorf("客户旅程应推进到 %s，实际: %s", StageInterested, state1.CurrentStage)
 	}
@@ -66,15 +66,15 @@ func TestFollowUp_CompleteWithResult_Quoted(t *testing.T) {
 
 	custID := "cust_close_002"
 	ownerID := "sales_002"
-	_, _ = journey.Transition(ctx, custID, StageLead, "test", ownerID, "测试", nil)
+	_, _ = journey.Transition(context.Background(), custID, StageLead, "test", ownerID, "测试", nil)
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "报价", Priority: PriorityHigh,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultQuoted, "已发送报价单"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageQuoted {
 		t.Errorf("应推进到 %s，实际: %s", StageQuoted, state.CurrentStage)
 	}
@@ -88,15 +88,15 @@ func TestFollowUp_CompleteWithResult_Converted(t *testing.T) {
 
 	custID := "cust_close_003"
 	ownerID := "sales_003"
-	_, _ = journey.Transition(ctx, custID, StageQuoted, "test", ownerID, "已报价", nil)
+	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityUrgent,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultConverted, "客户付款了 ¥9800"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("应推进到 %s，实际: %s", StageWon, state.CurrentStage)
 	}
@@ -110,15 +110,15 @@ func TestFollowUp_CompleteWithResult_Lost(t *testing.T) {
 
 	custID := "cust_close_004"
 	ownerID := "sales_004"
-	_, _ = journey.Transition(ctx, custID, StageInterested, "test", ownerID, "客户咨询", nil)
+	_, _ = journey.Transition(context.Background(), custID, StageInterested, "test", ownerID, "客户咨询", nil)
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityNormal,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultLost, "客户选择竞品"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageLost {
 		t.Errorf("应推进到 %s，实际: %s", StageLost, state.CurrentStage)
 	}
@@ -132,15 +132,15 @@ func TestFollowUp_CompleteWithResult_NoResponse(t *testing.T) {
 
 	custID := "cust_close_005"
 	ownerID := "sales_005"
-	_, _ = journey.Transition(ctx, custID, StageContact, "test", ownerID, "已联系", nil)
+	_, _ = journey.Transition(context.Background(), custID, StageContact, "test", ownerID, "已联系", nil)
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "二次跟进", Priority: PriorityNormal,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultNoResponse, "客户未回消息"); err != nil {
 		t.Fatalf("完成跟进失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageSleeping {
 		t.Errorf("应推进到 %s，实际: %s", StageSleeping, state.CurrentStage)
 	}
@@ -152,21 +152,21 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(dashboard)
+	followup.SetDashboard(context.Background(), dashboard)
 
 	ownerID := "sales_006"
 	cust1 := "cust_dash_001"
 	cust2 := "cust_dash_002"
 
 	// 1. 安排并完成 2 个跟进：1 个成交，1 个报价
-	r1, _ := followup.Schedule(ctx, cust1, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+	r1, _ := followup.Schedule(context.Background(), cust1, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityHigh,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r1.ID, FollowUpResultConverted, "成交"); err != nil {
 		t.Fatalf("完成跟进1失败: %v", err)
 	}
 
-	r2, _ := followup.Schedule(ctx, cust2, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+	r2, _ := followup.Schedule(context.Background(), cust2, ownerID, ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 		Title: "催单", Priority: PriorityHigh,
 	})
 	if err := followup.CompleteWithResult(context.Background(), r2.ID, FollowUpResultQuoted, "报价"); err != nil {
@@ -174,7 +174,7 @@ func TestFollowUp_CompleteWithResult_DashboardRealtime(t *testing.T) {
 	}
 
 	// 2. 验证：仪表盘能查到该销售的跟进数据
-	perf := dashboard.GetSalesPerformance(ownerID, time.Time{})
+	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf == nil {
 		t.Fatal("应能查询到该销售的业绩")
 	}
@@ -193,7 +193,7 @@ func TestFollowUp_CompleteWithResult_DashboardNil(t *testing.T) {
 	custID := "cust_safe_001"
 	ownerID := "sales_safe"
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "测试",
 	})
 	if err := followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "test"); err != nil {
@@ -221,14 +221,14 @@ func TestFollowUp_CompleteWithResult_DefaultContacted(t *testing.T) {
 	custID := "cust_def_001"
 	ownerID := "sales_def"
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title: "首次",
 	})
 	// 用基础 Complete()，应该等同于 CompleteWithResult(Contacted)
-	if err := followup.Complete(r.ID); err != nil {
+	if err := followup.Complete(context.Background(), r.ID); err != nil {
 		t.Fatalf("Complete 失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageContact {
 		t.Errorf("默认跟进结果应推进到 %s，实际: %s", StageContact, state.CurrentStage)
 	}
@@ -243,7 +243,7 @@ func TestFollowUp_CompleteWithResult_NoteRecorded(t *testing.T) {
 	custID := "cust_note_001"
 	ownerID := "sales_note"
 
-	r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+	r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 		Title:       "首次",
 		Description: "原始描述",
 	})
@@ -272,12 +272,12 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(dashboard)
+	followup.SetDashboard(context.Background(), dashboard)
 
 	ownerID := "sales_multi"
 	for i := 0; i < 10; i++ {
 		custID := "cust_multi_" + intToStr(i)
-		r, _ := followup.Schedule(ctx, custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+		r, _ := followup.Schedule(context.Background(), custID, ownerID, ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "跟进", Priority: PriorityNormal,
 		})
 		// 5 个 interested, 3 个 quoted, 2 个 lost
@@ -295,7 +295,7 @@ func TestFollowUp_CompleteWithResult_MultipleCustomers(t *testing.T) {
 	interestedCount, quotedCount, lostCount := 0, 0, 0
 	for i := 0; i < 10; i++ {
 		custID := "cust_multi_" + intToStr(i)
-		state := journey.GetState(custID)
+		state := journey.GetState(context.Background(), custID)
 		switch state.CurrentStage {
 		case StageInterested:
 			interestedCount++
@@ -323,28 +323,28 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 	// 4. 5 客户成交
 	for i := 0; i < 50; i++ {
 		custID := "funnel_c" + intToStr(i)
-		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+		r, _ := followup.Schedule(context.Background(), custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "首次",
 		})
 		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultContacted, "")
 	}
 	for i := 50; i < 80; i++ {
 		custID := "funnel_i" + intToStr(i)
-		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
+		r, _ := followup.Schedule(context.Background(), custID, "sales_funnel", ReminderFirstContact, 1*time.Hour, &ScheduleOptions{
 			Title: "首次",
 		})
 		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultInterested, "")
 	}
 	for i := 80; i < 95; i++ {
 		custID := "funnel_q" + intToStr(i)
-		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+		r, _ := followup.Schedule(context.Background(), custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 			Title: "报价",
 		})
 		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultQuoted, "")
 	}
 	for i := 95; i < 100; i++ {
 		custID := "funnel_w" + intToStr(i)
-		r, _ := followup.Schedule(ctx, custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
+		r, _ := followup.Schedule(context.Background(), custID, "sales_funnel", ReminderQuoteFollowup, 1*time.Hour, &ScheduleOptions{
 			Title: "催单",
 		})
 		_ = followup.CompleteWithResult(context.Background(), r.ID, FollowUpResultConverted, "")
@@ -367,7 +367,7 @@ func TestFollowUp_CompleteWithResult_FunnelTracking(t *testing.T) {
 		default:
 			custID = "funnel_w" + intToStr(i)
 		}
-		state := journey.GetState(custID)
+		state := journey.GetState(context.Background(), custID)
 		switch state.CurrentStage {
 		case StageContact:
 			contactedCount++

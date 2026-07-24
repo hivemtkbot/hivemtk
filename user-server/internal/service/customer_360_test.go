@@ -46,7 +46,7 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 		UserPhone: "13800138000",
 		AccountID: "account-123",
 	}
-	db.Create(context.Background(), session)
+	db.Create(session)
 
 	// 创建测试线索
 	clue := &model.Clue{
@@ -57,7 +57,7 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 		IsVerify:   1,
 		CreateTime: 1700000000,
 	}
-	db.Create(context.Background(), clue)
+	db.Create(clue)
 
 	tests := []struct {
 		name       string
@@ -99,10 +99,11 @@ func TestCustomer360Service_buildClueInfo(t *testing.T) {
 					UserPhone: "99999999999",
 					AccountID: "account-456",
 				}
-				db.Create(context.Background(), session2)
+				db.Create(session2)
 			}
 
-			result, err := service.buildClueInfo(tt.userID)
+			userSessions, _ := service.sessionRepo.GetByUserID(context.Background(), tt.userID)
+			result, err := service.buildClueInfo(context.Background(), tt.userID, userSessions)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildClueInfo() error = %v, wantErr %v", err, tt.wantErr)
@@ -139,7 +140,7 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 		UserID:    "user-123",
 		AccountID: "account-123",
 	}
-	db.Create(context.Background(), session)
+	db.Create(session)
 
 	// 创建测试订单 - 先创建 order1
 	order1 := &model.Order{
@@ -149,7 +150,7 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 		Status:    1, // success
 		TgID:      12345,
 	}
-	db.Create(context.Background(), order1)
+	db.Create(order1)
 
 	// 稍微延迟一下再创建 order2，确保 CreateTime 不同
 	time.Sleep(10 * time.Millisecond)
@@ -161,10 +162,10 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 		Status:    0, // pending
 		TgID:      12345,
 	}
-	db.Create(context.Background(), order2)
+	db.Create(order2)
 
 	// 创建其他用户的订单
-	db.Create(context.Background(), &model.Order{
+	db.Create(&model.Order{
 		ID:        "order-3",
 		AccountID: "account-456",
 		Price:     "300.00",
@@ -208,7 +209,8 @@ func TestCustomer360Service_buildOrderInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.buildOrderInfo(tt.userID)
+			userSessions, _ := service.sessionRepo.GetByUserID(context.Background(), tt.userID)
+			result, err := service.buildOrderInfo(context.Background(), tt.userID, userSessions)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildOrderInfo() error = %v, wantErr %v", err, tt.wantErr)
@@ -255,7 +257,7 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 		Platform:  model.PlatformDouyin,
 		Status:    model.SessionStatusResolved,
 	}
-	if err := db.Create(context.Background(), session).Error; err != nil {
+	if err := db.Create(session).Error; err != nil {
 		t.Fatalf("创建测试会话失败：%v", err)
 	}
 
@@ -284,7 +286,7 @@ func TestCustomer360Service_GetCustomer360(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.GetCustomer360(tt.userID)
+			result, err := service.GetCustomer360(context.Background(), tt.userID)
 
 			// 1. 校验错误预期
 			if (err != nil) != tt.wantErr {

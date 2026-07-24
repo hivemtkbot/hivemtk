@@ -26,6 +26,8 @@ func setupDomainPoolRepository(t *testing.T) DomainPoolRepository {
 // TestDomainPoolRepository_Create 测试创建域名池记录
 func TestDomainPoolRepository_Create(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -72,6 +74,8 @@ func TestDomainPoolRepository_Create(t *testing.T) {
 // TestDomainPoolRepository_GetByID 测试根据 ID 获取域名
 func TestDomainPoolRepository_GetByID(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -123,6 +127,8 @@ func TestDomainPoolRepository_GetByID(t *testing.T) {
 // TestDomainPoolRepository_GetByDomain 测试根据域名获取
 func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -171,6 +177,8 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 // TestDomainPoolRepository_List 测试获取域名列表
 func TestDomainPoolRepository_List(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
@@ -243,6 +251,8 @@ func TestDomainPoolRepository_List(t *testing.T) {
 // TestDomainPoolRepository_List_WithDomainFilter 测试带域名过滤的列表
 func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	repo.Create(ctx, &model.DomainPool{
@@ -281,6 +291,8 @@ func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 // TestDomainPoolRepository_Update 测试更新域名
 func TestDomainPoolRepository_Update(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -312,6 +324,8 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 // TestDomainPoolRepository_Delete 测试删除域名
 func TestDomainPoolRepository_Delete(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -336,6 +350,8 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 // TestDomainPoolRepository_UpdateStatus 测试更新域名状态
 func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -360,6 +376,8 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 // TestDomainPoolRepository_UpdateLastCheck 测试更新最后检查时间
 func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	domain := &model.DomainPool{

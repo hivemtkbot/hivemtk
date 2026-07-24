@@ -76,7 +76,7 @@ func (c *RagSafetyGuardController) SafetyCheck(ctx *gin.Context) {
 // @Success      200  {object}  service.SafetyLexicon
 // @Router       /api/rag/safety/lexicon [get]
 func (c *RagSafetyGuardController) GetLexicon(ctx *gin.Context) {
-	response.Success(ctx, c.svc.GetLexicon(context.Background(), ), "ok")
+	response.Success(ctx, c.svc.GetLexicon(context.Background()), "ok")
 }
 
 // UpdateLexiconRequest 替换词库
@@ -106,7 +106,7 @@ func (c *RagSafetyGuardController) UpdateLexicon(ctx *gin.Context) {
 		AdPhrases:       req.AdPhrases,
 		CompetitorWords: req.CompetitorWords,
 	})
-	response.Success(ctx, gin.H{"updatedAt": c.svc.LastUpdate(context.Background(), )}, "ok")
+	response.Success(ctx, gin.H{"updatedAt": c.svc.LastUpdate(context.Background())}, "ok")
 }
 
 // AddWordRequest 新增词

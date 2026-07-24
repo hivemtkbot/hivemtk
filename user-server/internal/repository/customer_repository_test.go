@@ -29,6 +29,8 @@ func setupCustomerRepository(t *testing.T) CustomerRepository {
 // TestCustomerRepository_Create tests creating customers
 func TestCustomerRepository_Create(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name     string
@@ -88,6 +90,8 @@ func TestCustomerRepository_Create(t *testing.T) {
 // TestCustomerRepository_GetByID tests retrieving customer by ID
 func TestCustomerRepository_GetByID(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	customer := &model.Customer{
@@ -142,6 +146,8 @@ func TestCustomerRepository_GetByID(t *testing.T) {
 // TestCustomerRepository_GetByPhone tests retrieving customer by phone
 func TestCustomerRepository_GetByPhone(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	customer := &model.Customer{
@@ -191,6 +197,8 @@ func TestCustomerRepository_GetByPhone(t *testing.T) {
 // TestCustomerRepository_GetByEmail tests retrieving customer by email
 func TestCustomerRepository_GetByEmail(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		Email: "unique_email@example.com",
@@ -215,6 +223,8 @@ func TestCustomerRepository_GetByEmail(t *testing.T) {
 // TestCustomerRepository_GetByWechatOpenID tests retrieving customer by Wechat OpenID
 func TestCustomerRepository_GetByWechatOpenID(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		WechatOpenID: "unique_wechat_openid",
@@ -239,6 +249,8 @@ func TestCustomerRepository_GetByWechatOpenID(t *testing.T) {
 // TestCustomerRepository_GetByDouyinOpenID tests retrieving customer by Douyin OpenID
 func TestCustomerRepository_GetByDouyinOpenID(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		DouyinOpenID: "unique_douyin_openid",
@@ -263,6 +275,8 @@ func TestCustomerRepository_GetByDouyinOpenID(t *testing.T) {
 // TestCustomerRepository_Update tests updating customer
 func TestCustomerRepository_Update(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	customer := &model.Customer{
@@ -303,6 +317,8 @@ func TestCustomerRepository_Update(t *testing.T) {
 // TestCustomerRepository_Delete tests deleting customer
 func TestCustomerRepository_Delete(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	customer := &model.Customer{
@@ -331,6 +347,8 @@ func TestCustomerRepository_Delete(t *testing.T) {
 // TestCustomerRepository_List tests listing customers with pagination
 func TestCustomerRepository_List(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 
@@ -384,6 +402,8 @@ func TestCustomerRepository_List(t *testing.T) {
 // TestCustomerRepository_FindByIdentity tests finding customer by any identity field
 func TestCustomerRepository_FindByIdentity(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	// Create test data
 	customer := &model.Customer{
@@ -456,6 +476,8 @@ func TestCustomerRepository_FindByIdentity(t *testing.T) {
 // TestCustomerRepository_GetByUnifiedID tests retrieving customer by unified ID
 func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		Phone: "13800138000",
@@ -480,6 +502,8 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 // TestCustomerRepository_Tags tests customer tags functionality
 func TestCustomerRepository_Tags(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		Phone: "13800138000",
@@ -524,6 +548,8 @@ func TestCustomerRepository_Tags(t *testing.T) {
 // TestCustomerRepository_ChurnRiskAndRFM tests churn risk and RFM score
 func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	customer := &model.Customer{
 		Phone:     "13800138000",
@@ -569,6 +595,8 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 // TestCustomerRepository_Timestamps tests that timestamps are set correctly
 func TestCustomerRepository_Timestamps(t *testing.T) {
 	repo := setupCustomerRepository(t)
+	ctx := context.Background()
+
 
 	beforeCreate := time.Now()
 	customer := &model.Customer{

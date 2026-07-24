@@ -64,7 +64,7 @@ func TestCustomerSessionService_CreateSession_Success(t *testing.T) {
 		UserEmail:  "test@example.com",
 	}
 
-	session, err := service.CreateSession(req)
+	session, err := service.CreateSession(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateSession failed: %v", err)
 	}
@@ -92,11 +92,11 @@ func TestCustomerSessionService_GetSessions_Success(t *testing.T) {
 			AccountID: "account_" + string(rune('0'+i)),
 			UserID:    "user_" + string(rune('0'+i)),
 		}
-		service.CreateSession(req)
+		service.CreateSession(context.Background(), req)
 	}
 
 	// 获取列表
-	sessions, total, err := service.GetSessions(model.SessionStatusPending, 1, 10)
+	sessions, total, err := service.GetSessions(context.Background(), model.SessionStatusPending, 1, 10)
 	if err != nil {
 		t.Fatalf("GetSessions failed: %v", err)
 	}
@@ -119,10 +119,10 @@ func TestCustomerSessionService_GetSessionByID_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	created, _ := service.CreateSession(req)
+	created, _ := service.CreateSession(context.Background(), req)
 
 	// 获取会话详情
-	session, err := service.GetSessionByID(created.ID)
+	session, err := service.GetSessionByID(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("GetSessionByID failed: %v", err)
 	}
@@ -143,13 +143,13 @@ func TestCustomerSessionService_GetSessionByID_SingleTenant(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	created, err := service.CreateSession(req)
+	created, err := service.CreateSession(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateSession failed: %v", err)
 	}
 
 	// 正常访问应返回会话
-	got, err := service.GetSessionByID(created.ID)
+	got, err := service.GetSessionByID(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("GetSessionByID failed: %v", err)
 	}
@@ -178,20 +178,20 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
+	session, _ := service.CreateSession(context.Background(), sessionReq)
 
 	// 分配会话
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   123,
 	}
-	err := service.AssignSession(assignReq)
+	err := service.AssignSession(context.Background(), assignReq)
 	if err != nil {
 		t.Fatalf("AssignSession failed: %v", err)
 	}
 
 	// 验证会话已分配
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 123 {
 		t.Errorf("Expected agent_id 123, got %d", updated.AgentID)
 	}
@@ -207,14 +207,14 @@ func TestCustomerSessionService_AssignSession_AgentNotFound(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 分配会话给不存在的客服
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   999999,
 	}
-	err := service.AssignSession(assignReq)
+	err := service.AssignSession(context.Background(), assignReq)
 	if err == nil {
 		t.Error("Expected error for non-existent agent")
 	}
@@ -240,14 +240,14 @@ func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 分配会话
 	assignReq := &AssignSessionRequest{
 		SessionID: session.ID,
 		AgentID:   123,
 	}
-	err := service.AssignSession(assignReq)
+	err := service.AssignSession(context.Background(), assignReq)
 	if err == nil {
 		t.Error("Expected error for offline agent")
 	}
@@ -273,16 +273,16 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 自动分配
-	err := service.AutoAssign(session.ID)
+	err := service.AutoAssign(context.Background(), session.ID)
 	if err != nil {
 		t.Fatalf("AutoAssign failed: %v", err)
 	}
 
 	// 验证会话已分配
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 123 {
 		t.Errorf("Expected agent_id 123, got %d", updated.AgentID)
 	}
@@ -298,10 +298,10 @@ func TestCustomerSessionService_AutoAssign_NoAgents(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 自动分配
-	err := service.AutoAssign(session.ID)
+	err := service.AutoAssign(context.Background(), session.ID)
 	if err == nil {
 		t.Error("Expected error for no available agents")
 	}
@@ -317,7 +317,7 @@ func TestCustomerSessionService_SendMessage_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 发送消息
 	msgReq := &SendMessageRequest{
@@ -326,7 +326,7 @@ func TestCustomerSessionService_SendMessage_Success(t *testing.T) {
 		SenderType: "user",
 		SenderID:   "user_123",
 	}
-	message, err := service.SendMessage(msgReq)
+	message, err := service.SendMessage(context.Background(), msgReq)
 	if err != nil {
 		t.Fatalf("SendMessage failed: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestCustomerSessionService_SendMessage_SessionNotFound(t *testing.T) {
 		Content:    "Hello",
 		SenderType: "user",
 	}
-	_, err := service.SendMessage(req)
+	_, err := service.SendMessage(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for non-existent session")
 	}
@@ -365,7 +365,7 @@ func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
+	session, _ := service.CreateSession(context.Background(), sessionReq)
 
 	// 发送消息
 	for i := 0; i < 5; i++ {
@@ -374,11 +374,11 @@ func TestCustomerSessionService_GetMessages_Success(t *testing.T) {
 			Content:    "Message " + string(rune('0'+i)),
 			SenderType: "user",
 		}
-		service.SendMessage(msgReq)
+		service.SendMessage(context.Background(), msgReq)
 	}
 
 	// 获取消息
-	messages, total, err := service.GetMessages(session.SessionID, 1, 10)
+	messages, total, err := service.GetMessages(context.Background(), session.SessionID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 分配客服
 	agent := &model.AgentStatus{
@@ -412,16 +412,16 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 		ActiveSessions: 1,
 	}
 	service.agentRepo.Create(context.Background(), agent)
-	service.sessionRepo.AssignAgent(session.ID, 123, "客服 A")
+	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
 	// 更新状态为已解决
-	err := service.UpdateSessionStatus(session.ID, model.SessionStatusResolved)
+	err := service.UpdateSessionStatus(context.Background(), session.ID, model.SessionStatusResolved)
 	if err != nil {
 		t.Fatalf("UpdateSessionStatus failed: %v", err)
 	}
 
 	// 验证状态已更新
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Status != model.SessionStatusResolved {
 		t.Errorf("Expected status resolved, got %v", updated.Status)
 	}
@@ -437,16 +437,16 @@ func TestCustomerSessionService_RateSession_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 评价会话
-	err := service.RateSession(session.ID, 5, "Excellent service!")
+	err := service.RateSession(context.Background(), session.ID, 5, "Excellent service!")
 	if err != nil {
 		t.Fatalf("RateSession failed: %v", err)
 	}
 
 	// 验证评价
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Rating != 5 {
 		t.Errorf("Expected rating 5, got %d", updated.Rating)
 	}
@@ -483,17 +483,17 @@ func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
-	service.sessionRepo.AssignAgent(session.ID, 123, "客服 A")
+	session, _ := service.CreateSession(context.Background(), sessionReq)
+	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
 	// 转接给客服 B
-	err := service.TransferSession(session.ID, 456)
+	err := service.TransferSession(context.Background(), session.ID, 456)
 	if err != nil {
 		t.Fatalf("TransferSession failed: %v", err)
 	}
 
 	// 验证会话已转接
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.AgentID != 456 {
 		t.Errorf("Expected agent_id 456, got %d", updated.AgentID)
 	}
@@ -509,17 +509,17 @@ func TestCustomerSessionService_TagSession_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(req)
+	session, _ := service.CreateSession(context.Background(), req)
 
 	// 标记会话
 	tags := []string{"urgent", "vip", "complaint"}
-	err := service.TagSession(session.ID, tags)
+	err := service.TagSession(context.Background(), session.ID, tags)
 	if err != nil {
 		t.Fatalf("TagSession failed: %v", err)
 	}
 
 	// 验证标签
-	updated, _ := service.GetSessionByID(session.ID)
+	updated, _ := service.GetSessionByID(context.Background(), session.ID)
 	if updated.Tags == "" {
 		t.Error("Expected tags to be set")
 	}
@@ -536,7 +536,7 @@ func TestAgentStatusService_CreateAgent_Success(t *testing.T) {
 		MaxSessions: 10,
 	}
 
-	agent, err := agentService.CreateAgent(req)
+	agent, err := agentService.CreateAgent(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateAgent failed: %v", err)
 	}
@@ -568,7 +568,7 @@ func TestAgentStatusService_GetAgentStatus_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 
 	// 获取客服状态
-	retrieved, err := agentService.GetAgentStatus(123)
+	retrieved, err := agentService.GetAgentStatus(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GetAgentStatus failed: %v", err)
 	}
@@ -603,7 +603,7 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent2)
 
 	// 获取在线客服
-	agents, err := agentService.GetOnlineAgents()
+	agents, err := agentService.GetOnlineAgents(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetOnlineAgents failed: %v", err)
 	}
@@ -631,13 +631,13 @@ func TestAgentStatusService_GoOnline_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 
 	// 上线
-	err := agentService.GoOnline(123)
+	err := agentService.GoOnline(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GoOnline failed: %v", err)
 	}
 
 	// 验证状态
-	updated, _ := agentService.GetAgentStatus(123)
+	updated, _ := agentService.GetAgentStatus(context.Background(), 123)
 	if updated.Status != "online" {
 		t.Errorf("Expected status 'online', got '%s'", updated.Status)
 	}
@@ -659,13 +659,13 @@ func TestAgentStatusService_GoOffline_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 
 	// 下线
-	err := agentService.GoOffline(123)
+	err := agentService.GoOffline(context.Background(), 123)
 	if err != nil {
 		t.Fatalf("GoOffline failed: %v", err)
 	}
 
 	// 验证状态
-	updated, _ := agentService.GetAgentStatus(123)
+	updated, _ := agentService.GetAgentStatus(context.Background(), 123)
 	if updated.Status != "offline" {
 		t.Errorf("Expected status 'offline', got '%s'", updated.Status)
 	}
@@ -687,7 +687,7 @@ func TestAgentStatusService_GoOffline_WithActiveSessions(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent)
 
 	// 下线
-	err := agentService.GoOffline(123)
+	err := agentService.GoOffline(context.Background(), 123)
 	if err == nil {
 		t.Error("Expected error for active sessions")
 	}
@@ -704,7 +704,7 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
+	session, _ := service.CreateSession(context.Background(), sessionReq)
 
 	// 分配客服
 	agent := &model.AgentStatus{
@@ -715,7 +715,7 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 		ActiveSessions: 1,
 	}
 	service.agentRepo.Create(context.Background(), agent)
-	service.sessionRepo.AssignAgent(session.ID, 123, "客服 A")
+	service.sessionRepo.AssignAgent(context.Background(), session.ID, 123, "客服 A")
 
 	// 创建消息
 	message := &model.SessionMessage{
@@ -726,7 +726,7 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 	service.messageRepo.Create(context.Background(), message)
 
 	// 创建 AI 建议
-	suggestion, err := suggestionService.CreateSuggestion(session.SessionID,
+	suggestion, err := suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 		message.ID,
 		"这是建议回复",
 		0.95,
@@ -755,11 +755,11 @@ func TestAISuggestionService_GetSuggestions_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
+	session, _ := service.CreateSession(context.Background(), sessionReq)
 
 	// 创建 AI 建议
 	for i := 0; i < 3; i++ {
-		suggestionService.CreateSuggestion(session.SessionID,
+		suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 			1,
 			"Suggestion "+string(rune('0'+i)),
 			0.9,
@@ -768,7 +768,7 @@ func TestAISuggestionService_GetSuggestions_Success(t *testing.T) {
 	}
 
 	// 获取建议
-	suggestions, err := suggestionService.GetSuggestions(session.SessionID)
+	suggestions, err := suggestionService.GetSuggestions(context.Background(), session.SessionID)
 	if err != nil {
 		t.Fatalf("GetSuggestions failed: %v", err)
 	}
@@ -789,10 +789,10 @@ func TestAISuggestionService_UseSuggestion_Success(t *testing.T) {
 		AccountID: "account_123",
 		UserID:    "user_123",
 	}
-	session, _ := service.CreateSession(sessionReq)
+	session, _ := service.CreateSession(context.Background(), sessionReq)
 
 	// 创建 AI 建议
-	suggestion, _ := suggestionService.CreateSuggestion(session.SessionID,
+	suggestion, _ := suggestionService.CreateSuggestion(context.Background(), session.SessionID,
 		1,
 		"这是建议",
 		0.9,
@@ -800,13 +800,13 @@ func TestAISuggestionService_UseSuggestion_Success(t *testing.T) {
 	)
 
 	// 使用建议
-	err := suggestionService.UseSuggestion(suggestion.ID, 123)
+	err := suggestionService.UseSuggestion(context.Background(), suggestion.ID, 123)
 	if err != nil {
 		t.Fatalf("UseSuggestion failed: %v", err)
 	}
 
 	// 验证已使用 - use GetBySessionID since GetByID doesn't exist
-	suggestions, _ := suggestionService.suggestionRepo.GetBySessionID(session.SessionID)
+	suggestions, _ := suggestionService.suggestionRepo.GetBySessionID(context.Background(), session.SessionID)
 	if len(suggestions) == 0 || !suggestions[0].IsUsed {
 		t.Error("Expected suggestion to be marked as used")
 	}
@@ -825,7 +825,7 @@ func TestQuickReplyService_CreateReply_Success(t *testing.T) {
 		IsPublic:  true,
 	}
 
-	reply, err := replyService.CreateReply(123, req)
+	reply, err := replyService.CreateReply(context.Background(), 123, req)
 	if err != nil {
 		t.Fatalf("CreateReply failed: %v", err)
 	}
@@ -853,7 +853,7 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 		Content:  "您好",
 		IsPublic: true,
 	}
-	created, _ := replyService.CreateReply(123, createReq)
+	created, _ := replyService.CreateReply(context.Background(), 123, createReq)
 
 	// 更新快捷回复
 	updateReq := &CreateReplyRequest{
@@ -862,7 +862,7 @@ func TestQuickReplyService_UpdateReply_Success(t *testing.T) {
 		Content:  "您好，有什么可以帮助您的吗？",
 		IsPublic: true,
 	}
-	updated, err := replyService.UpdateReply(created.ID, updateReq)
+	updated, err := replyService.UpdateReply(context.Background(), created.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateReply failed: %v", err)
 	}
@@ -887,10 +887,10 @@ func TestQuickReplyService_DeleteReply_Success(t *testing.T) {
 		Content:  "您好",
 		IsPublic: true,
 	}
-	created, _ := replyService.CreateReply(123, req)
+	created, _ := replyService.CreateReply(context.Background(), 123, req)
 
 	// 删除快捷回复
-	err := replyService.DeleteReply(created.ID)
+	err := replyService.DeleteReply(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("DeleteReply failed: %v", err)
 	}
@@ -915,11 +915,11 @@ func TestQuickReplyService_GetReplies_Success(t *testing.T) {
 			Content:  "内容",
 			IsPublic: true,
 		}
-		replyService.CreateReply(123, req)
+		replyService.CreateReply(context.Background(), 123, req)
 	}
 
 	// 获取列表
-	replies, err := replyService.GetReplies("问候语")
+	replies, err := replyService.GetReplies(context.Background(), "问候语")
 	if err != nil {
 		t.Fatalf("GetReplies failed: %v", err)
 	}
@@ -947,11 +947,11 @@ func TestQuickReplyService_GetCategories_Success(t *testing.T) {
 		Content:  "再见",
 		IsPublic: true,
 	}
-	replyService.CreateReply(123, req1)
-	replyService.CreateReply(123, req2)
+	replyService.CreateReply(context.Background(), 123, req1)
+	replyService.CreateReply(context.Background(), 123, req2)
 
 	// 获取分类
-	categories, err := replyService.GetCategories()
+	categories, err := replyService.GetCategories(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetCategories failed: %v", err)
 	}
@@ -972,7 +972,7 @@ func TestSessionTagService_CreateTag_Success(t *testing.T) {
 		SortOrder: 1,
 	}
 
-	tag, err := tagService.CreateTag(req)
+	tag, err := tagService.CreateTag(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
 	}
@@ -995,7 +995,7 @@ func TestSessionTagService_CreateTag_DefaultColor(t *testing.T) {
 		SortOrder: 1,
 	}
 
-	tag, err := tagService.CreateTag(req)
+	tag, err := tagService.CreateTag(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
 	}
@@ -1016,7 +1016,7 @@ func TestSessionTagService_UpdateTag_Success(t *testing.T) {
 		Color:     "#1890ff",
 		SortOrder: 1,
 	}
-	created, _ := tagService.CreateTag(createReq)
+	created, _ := tagService.CreateTag(context.Background(), createReq)
 
 	// 更新标签
 	updateReq := &CreateTagRequest{
@@ -1024,7 +1024,7 @@ func TestSessionTagService_UpdateTag_Success(t *testing.T) {
 		Color:     "#FF0000",
 		SortOrder: 2,
 	}
-	updated, err := tagService.UpdateTag(created.ID, updateReq)
+	updated, err := tagService.UpdateTag(context.Background(), created.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateTag failed: %v", err)
 	}
@@ -1048,10 +1048,10 @@ func TestSessionTagService_DeleteTag_Success(t *testing.T) {
 		Color:     "#1890ff",
 		SortOrder: 1,
 	}
-	created, _ := tagService.CreateTag(req)
+	created, _ := tagService.CreateTag(context.Background(), req)
 
 	// 删除标签
-	err := tagService.DeleteTag(created.ID)
+	err := tagService.DeleteTag(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("DeleteTag failed: %v", err)
 	}
@@ -1077,13 +1077,13 @@ func TestSessionTagService_GetTags_Success(t *testing.T) {
 			Color:     "#1890ff",
 			SortOrder: i,
 		}
-		if _, err := tagService.CreateTag(req); err != nil {
+		if _, err := tagService.CreateTag(context.Background(), req); err != nil {
 			t.Fatalf("CreateTag[%d] failed: %v", i, err)
 		}
 	}
 
 	// 获取列表
-	tags, err := tagService.GetTags()
+	tags, err := tagService.GetTags(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetTags failed: %v", err)
 	}

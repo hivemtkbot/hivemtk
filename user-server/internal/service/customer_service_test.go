@@ -48,7 +48,7 @@ func TestCustomerService_CreateOrUpdate(t *testing.T) {
 		WechatOpenID: "wechat123",
 	}
 
-	customer, err := service.CreateOrUpdate(dto)
+	customer, err := service.CreateOrUpdate(context.Background(), dto)
 	if err != nil {
 		t.Fatalf("CreateOrUpdate failed: %v", err)
 	}
@@ -73,14 +73,14 @@ func TestCustomerService_CreateOrUpdate_Update(t *testing.T) {
 		Phone: "13800138001",
 		Email: "test@example.com",
 	}
-	service.CreateOrUpdate(dto)
+	service.CreateOrUpdate(context.Background(), dto)
 
 	// 更新客户
 	updateDTO := &CustomerDTO{
 		Phone: "13800138001",
 		Email: "updated@example.com",
 	}
-	updated, err := service.CreateOrUpdate(updateDTO)
+	updated, err := service.CreateOrUpdate(context.Background(), updateDTO)
 	if err != nil {
 		t.Fatalf("CreateOrUpdate update failed: %v", err)
 	}
@@ -98,10 +98,10 @@ func TestCustomerService_GetCustomerProfile(t *testing.T) {
 	dto := &CustomerDTO{
 		Phone: "13800138002",
 	}
-	customer, _ := service.CreateOrUpdate(dto)
+	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
 	// 获取档案
-	profile, err := service.GetCustomerProfile(customer.ID)
+	profile, err := service.GetCustomerProfile(context.Background(), customer.ID)
 	if err != nil {
 		t.Fatalf("GetCustomerProfile failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestCustomerService_GetCustomerProfile(t *testing.T) {
 func TestCustomerService_GetCustomerProfile_NotFound(t *testing.T) {
 	service := setupCustomerService(t)
 
-	_, err := service.GetCustomerProfile("non-existent-id")
+	_, err := service.GetCustomerProfile(context.Background(), "non-existent-id")
 	if err != ErrCustomerNotFound {
 		t.Errorf("Expected ErrCustomerNotFound, got %v", err)
 	}
@@ -133,7 +133,7 @@ func TestCustomerService_List(t *testing.T) {
 		dto := &CustomerDTO{
 			Phone: "1380013800" + string(rune('0'+i)),
 		}
-		service.CreateOrUpdate(dto)
+		service.CreateOrUpdate(context.Background(), dto)
 	}
 
 	// 获取列表
@@ -158,7 +158,7 @@ func TestCustomerService_AddTags(t *testing.T) {
 	dto := &CustomerDTO{
 		Phone: "13800138003",
 	}
-	customer, _ := service.CreateOrUpdate(dto)
+	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
 	// 添加标签
 	tags := []string{"VIP", "high-value"}
@@ -169,7 +169,7 @@ func TestCustomerService_AddTags(t *testing.T) {
 
 	// 验证标签已添加
 	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
-	currentTags := updated.GetTags()
+	currentTags := model.GetCustomerTags(updated)
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags, got %d", len(currentTags))
 	}
@@ -183,7 +183,7 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 	dto := &CustomerDTO{
 		Phone: "13800138004",
 	}
-	customer, _ := service.CreateOrUpdate(dto)
+	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 	service.AddTags(context.Background(), customer.ID, []string{"VIP", "high-value", "active"})
 
 	// 移除标签
@@ -194,7 +194,7 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 
 	// 验证标签已移除
 	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
-	currentTags := updated.GetTags()
+	currentTags := model.GetCustomerTags(updated)
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags after removal, got %d", len(currentTags))
 	}
@@ -210,11 +210,11 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	service := setupCustomerService(t)
 
 	// 创建两个客户
-	primary, _ := service.CreateOrUpdate(&CustomerDTO{
+	primary, _ := service.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Phone: "13800138005",
 		Email: "primary@example.com",
 	})
-	secondary, _ := service.CreateOrUpdate(&CustomerDTO{
+	secondary, _ := service.CreateOrUpdate(context.Background(), &CustomerDTO{
 		Email:        "secondary@example.com",
 		WechatOpenID: "wechat456",
 	})
@@ -224,7 +224,7 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	service.AddTags(context.Background(), secondary.ID, []string{"secondary-tag"})
 
 	// 合并
-	err := service.MergeCustomers(primary.ID, secondary.ID)
+	err := service.MergeCustomers(context.Background(), primary.ID, secondary.ID)
 	if err != nil {
 		t.Fatalf("MergeCustomers failed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 
 	// 验证主要客户有合并的标签
 	merged, _ := service.repo.GetByID(context.Background(), primary.ID)
-	mergedTags := merged.GetTags()
+	mergedTags := model.GetCustomerTags(merged)
 	hasPrimaryTag := false
 	hasSecondaryTag := false
 	for _, tag := range mergedTags {
@@ -257,7 +257,7 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 func TestCustomerService_MergeCustomers_SameID(t *testing.T) {
 	service := setupCustomerService(t)
 
-	err := service.MergeCustomers("same-id", "same-id")
+	err := service.MergeCustomers(context.Background(), "same-id", "same-id")
 	if err == nil {
 		t.Error("Expected error when merging same customer")
 	}
@@ -273,16 +273,16 @@ func TestCustomerService_GetCustomerByIdentity(t *testing.T) {
 		Email:        "identity@example.com",
 		WechatOpenID: "wechat789",
 	}
-	customer, _ := service.CreateOrUpdate(dto)
+	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
 	// 通过手机号查找
-	found, _ := service.GetCustomerByIdentity("13800138006", "", "", "")
+	found, _ := service.GetCustomerByIdentity(context.Background(), "13800138006", "", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by phone")
 	}
 
 	// 通过邮箱查找
-	found, _ = service.GetCustomerByIdentity("", "identity@example.com", "", "")
+	found, _ = service.GetCustomerByIdentity(context.Background(), "", "identity@example.com", "", "")
 	if found == nil || found.ID != customer.ID {
 		t.Error("Expected to find customer by email")
 	}
@@ -293,7 +293,7 @@ func TestCustomerService_GetCustomerByIdentity(t *testing.T) {
 func TestCustomerService_CreateOrUpdate_InvalidDTO(t *testing.T) {
 	service := setupCustomerService(t)
 
-	_, err := service.CreateOrUpdate(nil)
+	_, err := service.CreateOrUpdate(context.Background(), nil)
 	if err != ErrInvalidDTO {
 		t.Errorf("Expected ErrInvalidDTO, got %v", err)
 	}
@@ -306,7 +306,7 @@ func TestCustomerService_AddTags_EmptyTags(t *testing.T) {
 	dto := &CustomerDTO{
 		Phone: "13800138007",
 	}
-	customer, _ := service.CreateOrUpdate(dto)
+	customer, _ := service.CreateOrUpdate(context.Background(), dto)
 
 	err := service.AddTags(context.Background(), customer.ID, []string{})
 	if err != nil {

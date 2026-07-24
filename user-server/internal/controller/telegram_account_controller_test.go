@@ -188,7 +188,7 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &listResp)
 
 	// 直接用 service 查 ID（避免列表结构差异）
-	accs, _ := ctrl.svc.ListAccounts()
+	accs, _ := ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 1 {
 		t.Fatalf("应有 1 条记录, 实际 %d", len(accs))
 	}
@@ -221,7 +221,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	accs, _ := ctrl.svc.ListAccounts()
+	accs, _ := ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 1 {
 		t.Fatalf("创建后应有 1 条")
 	}
@@ -274,7 +274,7 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	accs, _ := ctrl.svc.ListAccounts()
+	accs, _ := ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 1 {
 		t.Fatalf("创建后应有 1 条")
 	}
@@ -289,7 +289,7 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	}
 
 	// 验证已删除
-	accs, _ = ctrl.svc.ListAccounts()
+	accs, _ = ctrl.svc.ListAccounts(context.Background())
 	if len(accs) != 0 {
 		t.Errorf("删除后应有 0 条, 实际 %d", len(accs))
 	}
@@ -307,7 +307,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 
 	// 1. 先创建 Bot 账号（通过 repo 直接创建，避免 controller 路由差异）
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(database)
+	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName:    "E2E测试Bot",
 		BotToken:       "333:ccc",
@@ -315,14 +315,14 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	if err := repo.Create(acc); err != nil {
+	if err := repo.Create(context.Background(), acc); err != nil {
 		t.Fatalf("创建测试账号失败: %v", err)
 	}
 	accID := acc.ID
 
 	// 2. 设置 webhook 路由
 	router, svc := setupTelegramWebhookRouter(database)
-	defer svc.Stop()
+	defer svc.Stop(context.Background())
 
 	// 3. 发送 TG 入群事件 payload
 	joinPayload := `{
@@ -381,7 +381,7 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(database)
+	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName:    "消息测试Bot",
 		BotToken:       "444:ddd",
@@ -389,11 +389,11 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	repo.Create(acc)
+	repo.Create(context.Background(), acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
-	defer svc.Stop()
+	defer svc.Stop(context.Background())
 
 	// 发送普通消息
 	msgPayload := `{
@@ -442,17 +442,17 @@ func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(database)
+	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "退群测试Bot",
 		BotToken:    "555:eee",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Create(context.Background(), acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
-	defer svc.Stop()
+	defer svc.Stop(context.Background())
 
 	leftPayload := `{
 		"update_id": 4001,
@@ -488,17 +488,17 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(database)
+	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "Bot过滤测试",
 		BotToken:    "666:fff",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Create(context.Background(), acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
-	defer svc.Stop()
+	defer svc.Stop(context.Background())
 
 	// 仅 bot 成员入群
 	botOnlyPayload := `{
@@ -536,17 +536,17 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 	database := setupTelegramControllerTestDB(t)
 
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(database)
+	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "幂等测试Bot",
 		BotToken:    "777:ggg",
 		Status:      1,
 	}
-	repo.Create(acc)
+	repo.Create(context.Background(), acc)
 	accID := acc.ID
 
 	router, svc := setupTelegramWebhookRouter(database)
-	defer svc.Stop()
+	defer svc.Stop(context.Background())
 
 	payload := `{
 		"update_id": 6001,

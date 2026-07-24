@@ -63,7 +63,7 @@ func TestEmailListService_CreateEmailList(t *testing.T) {
 	content := "测试邮件内容，Hello {name}，你在 {city}"
 	attachments := "[]"
 
-	total, err := service.CreateEmailList(subject, content, attachments)
+	total, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestEmailListService_CreateEmailList_NoClues(t *testing.T) {
 	content := "测试邮件内容"
 	attachments := "[]"
 
-	_, err := service.CreateEmailList(subject, content, attachments)
+	_, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err == nil {
 		t.Error("Expected error for no clues")
 	}
@@ -131,7 +131,7 @@ func TestEmailListService_CreateEmailList_EmptyAccount(t *testing.T) {
 	content := "测试邮件内容"
 	attachments := "[]"
 
-	total, err := service.CreateEmailList(subject, content, attachments)
+	total, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestEmailListService_GetEmailListByID(t *testing.T) {
 	database.Create(&emailList)
 
 	// 获取邮件列表
-	retrieved, err := service.GetEmailListByID(emailList.ID)
+	retrieved, err := service.GetEmailListByID(context.Background(), emailList.ID)
 	if err != nil {
 		t.Fatalf("GetEmailListByID failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestEmailListService_GetEmailListByID_NotFound(t *testing.T) {
 	service := NewEmailListService()
 
 	testID := uuid.New()
-	_, err := service.GetEmailListByID(testID)
+	_, err := service.GetEmailListByID(context.Background(), testID)
 	if err == nil {
 		t.Error("Expected error for non-existent email list")
 	}
@@ -210,7 +210,7 @@ func TestEmailListService_GetEmailListList(t *testing.T) {
 	}
 
 	// 获取列表
-	list, total, err := service.GetEmailListList(1, 10)
+	list, total, err := service.GetEmailListList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestEmailListService_GetEmailListList_WithPagination(t *testing.T) {
 	}
 
 	// 第一页
-	list, total, err := service.GetEmailListList(1, 5)
+	list, total, err := service.GetEmailListList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestEmailListService_GetEmailListList_WithPagination(t *testing.T) {
 	}
 
 	// 第二页
-	list2, total2, err := service.GetEmailListList(2, 5)
+	list2, total2, err := service.GetEmailListList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestEmailListService_UpdateEmailList(t *testing.T) {
 	emailList.Subject = "新主题"
 	emailList.Content = "新内容"
 	emailList.IsSend = 1
-	err := service.UpdateEmailList(emailList)
+	err := service.UpdateEmailList(context.Background(), emailList)
 	if err != nil {
 		t.Fatalf("UpdateEmailList failed: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestEmailListService_DeleteEmailList(t *testing.T) {
 	database.Create(&emailList)
 
 	// 删除邮件列表
-	err := service.DeleteEmailList(testID)
+	err := service.DeleteEmailList(context.Background(), testID)
 	if err != nil {
 		t.Fatalf("DeleteEmailList failed: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestEmailListService_GetUnsentEmailList(t *testing.T) {
 	}
 
 	// 获取未发送的邮件列表
-	list, err := service.GetUnsentEmailList(10)
+	list, err := service.GetUnsentEmailList(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetUnsentEmailList failed: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestEmailListService_GetUnsentEmailList_WithLimit(t *testing.T) {
 	}
 
 	// 限制获取 5 个
-	list, err := service.GetUnsentEmailList(5)
+	list, err := service.GetUnsentEmailList(context.Background(), 5)
 	if err != nil {
 		t.Fatalf("GetUnsentEmailList failed: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestEmailListService_GetTodayCountByFrom(t *testing.T) {
 	}
 
 	// 获取今日发送数量
-	count, err := service.GetTodayCountByFrom(from)
+	count, err := service.GetTodayCountByFrom(context.Background(), from)
 	if err != nil {
 		t.Fatalf("GetTodayCountByFrom failed: %v", err)
 	}
@@ -499,7 +499,7 @@ func TestEmailListService_GetTodayCountByFrom_Empty(t *testing.T) {
 
 	from := "nonexistent@qq.com"
 
-	count, err := service.GetTodayCountByFrom(from)
+	count, err := service.GetTodayCountByFrom(context.Background(), from)
 	if err != nil {
 		t.Fatalf("GetTodayCountByFrom failed: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestEmailListService_UpdateEmailListReadInfo(t *testing.T) {
 	database.Create(&emailList)
 
 	// 更新阅读信息
-	err := service.UpdateEmailListReadInfo(traceID)
+	err := service.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err != nil {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestEmailListService_UpdateEmailListReadInfo_AlreadyRead(t *testing.T) {
 	database.Create(&emailList)
 
 	// 更新阅读信息（应该直接返回，不做任何操作）
-	err := service.UpdateEmailListReadInfo(traceID)
+	err := service.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err != nil {
 		t.Fatalf("UpdateEmailListReadInfo failed: %v", err)
 	}
@@ -618,7 +618,7 @@ func TestEmailListService_UpdateEmailListReadInfo_NotFound(t *testing.T) {
 	service := NewEmailListService()
 
 	traceID := uuid.New()
-	err := service.UpdateEmailListReadInfo(traceID)
+	err := service.UpdateEmailListReadInfo(context.Background(), traceID)
 	if err == nil {
 		t.Error("Expected error for non-existent email")
 	}
@@ -650,7 +650,7 @@ func TestEmailListService_CreateEmailList_WithQqEmail(t *testing.T) {
 	content := "测试邮件内容"
 	attachments := "[]"
 
-	_, err := service.CreateEmailList(subject, content, attachments)
+	_, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -692,7 +692,7 @@ func TestEmailListService_CreateEmailList_WithFullEmail(t *testing.T) {
 	content := "测试邮件内容"
 	attachments := "[]"
 
-	_, err := service.CreateEmailList(subject, content, attachments)
+	_, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -731,7 +731,7 @@ func TestEmailListService_CreateEmailList_TemplateParse(t *testing.T) {
 	content := "你在 {city}，地址是 {address}，账号是 {account}"
 	attachments := "[]"
 
-	_, err := service.CreateEmailList(subject, content, attachments)
+	_, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -779,7 +779,7 @@ func TestEmailListService_CreateEmailList_TraceID(t *testing.T) {
 	content := "测试内容"
 	attachments := "[]"
 
-	_, err := service.CreateEmailList(subject, content, attachments)
+	_, err := service.CreateEmailList(context.Background(), subject, content, attachments)
 	if err != nil {
 		t.Fatalf("CreateEmailList failed: %v", err)
 	}
@@ -802,7 +802,7 @@ func TestEmailListService_GetEmailListList_Empty(t *testing.T) {
 	setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	list, total, err := service.GetEmailListList(1, 10)
+	list, total, err := service.GetEmailListList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetEmailListList failed: %v", err)
 	}
@@ -821,7 +821,7 @@ func TestEmailListService_GetUnsentEmailList_Empty(t *testing.T) {
 	setupEmailListServiceTestDB(t)
 	service := NewEmailListService()
 
-	list, err := service.GetUnsentEmailList(10)
+	list, err := service.GetUnsentEmailList(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetUnsentEmailList failed: %v", err)
 	}

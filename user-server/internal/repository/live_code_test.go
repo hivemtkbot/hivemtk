@@ -92,7 +92,7 @@ func TestLiveCodeRepository_GetByID(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(ctx, liveCode)
 
 	tests := []struct {
 		name    string
@@ -142,7 +142,7 @@ func TestLiveCodeRepository_GetByShortLink(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(ctx, liveCode)
 
 	tests := []struct {
 		name      string
@@ -192,7 +192,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(ctx, liveCode)
 
 	liveCode.Name = "Updated Name"
 	liveCode.Status = 0
@@ -202,7 +202,7 @@ func TestLiveCodeRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(liveCode.ID)
+	updated, _ := repo.GetByID(ctx, liveCode.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -225,14 +225,14 @@ func TestLiveCodeRepository_Delete(t *testing.T) {
 		LandingDomainID: 3,
 		Status:          1,
 	}
-	repo.Create(liveCode)
+	repo.Create(ctx, liveCode)
 
 	err := repo.Delete(ctx, liveCode.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(liveCode.ID)
+	_, err = repo.GetByID(ctx, liveCode.ID)
 	if err == nil {
 		t.Error("Expected live code to be deleted")
 	}
@@ -300,7 +300,7 @@ func TestLiveCodeRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.page, tt.pageSize, tt.nameFilter, "")
+			results, total, err := repo.GetList(ctx, tt.page, tt.pageSize, tt.nameFilter, "")
 
 			if err != nil {
 				t.Errorf("GetList() error = %v", err)
@@ -349,7 +349,7 @@ func TestLiveCodeRepository_GetAvailableLiveCodes(t *testing.T) {
 	// Then update to status 0
 	database.Model(&model.LiveCode{}).Where("id = ?", disabledCode.ID).Update("status", 0)
 
-	availableCodes, err := repo.GetAvailableLiveCodes(context.Background())
+	availableCodes, err := repo.GetAvailableLiveCodes(ctx)
 	if err != nil {
 		t.Errorf("GetAvailableLiveCodes() error = %v", err)
 	}
@@ -366,7 +366,7 @@ func TestLiveCodeRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupLiveCodeRepository(t)
 
-	_, err := repo.GetByID(ctx, "non-existing-id"))
+	_, err := repo.GetByID(ctx, "non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing live code")
 	}

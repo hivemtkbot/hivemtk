@@ -102,7 +102,7 @@ func TestEmailSmtpRepository_GetByID(t *testing.T) {
 		Password: "password",
 		Limit:    100,
 	}
-	repo.Create(smtp)
+	repo.Create(ctx, smtp)
 
 	tests := []struct {
 		name    string
@@ -148,7 +148,7 @@ func TestEmailSmtpRepository_GetEmailSmtpList(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(ctx, &model.EmailSmtp){
+		repo.Create(ctx, &model.EmailSmtp{
 			Name:     "SMTP " + string(rune('0'+i)),
 			Server:   "smtp" + string(rune('0'+i)) + ".example.com",
 			Port:     587,
@@ -158,7 +158,7 @@ func TestEmailSmtpRepository_GetEmailSmtpList(t *testing.T) {
 		})
 	}
 
-	results, err := repo.GetEmailSmtpList(context.Background())
+	results, err := repo.GetEmailSmtpList(ctx)
 	if err != nil {
 		t.Errorf("GetEmailSmtpList() error = %v", err)
 	}
@@ -182,7 +182,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 		Password: "original_password",
 		Limit:    100,
 	}
-	repo.Create(smtp)
+	repo.Create(ctx, smtp)
 
 	// 更新
 	smtp.Name = "Updated SMTP"
@@ -195,7 +195,7 @@ func TestEmailSmtpRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(smtp.ID)
+	updated, _ := repo.GetByID(ctx, smtp.ID)
 	if updated.Server != "smtp.updated.com" {
 		t.Errorf("Expected server 'smtp.updated.com', got '%s'", updated.Server)
 	}
@@ -221,14 +221,14 @@ func TestEmailSmtpRepository_Delete(t *testing.T) {
 		Password: "password",
 		Limit:    100,
 	}
-	repo.Create(smtp)
+	repo.Create(ctx, smtp)
 
 	err := repo.Delete(ctx, smtp.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(smtp.ID)
+	_, err = repo.GetByID(ctx, smtp.ID)
 	if err == nil {
 		t.Error("Expected SMTP config to be deleted")
 	}
@@ -239,7 +239,7 @@ func TestEmailSmtpRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	_, err := repo.GetByID(ctx, "non-existing-id"))
+	_, err := repo.GetByID(ctx, "non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing SMTP config")
 	}
@@ -250,7 +250,7 @@ func TestEmailSmtpRepository_GetEmailSmtpList_EmptyResult(t *testing.T) {
 	ctx := context.Background()
 	repo := setupEmailSmtpRepository(t)
 
-	results, err := repo.GetEmailSmtpList(context.Background())
+	results, err := repo.GetEmailSmtpList(ctx)
 	if err != nil {
 		t.Errorf("GetEmailSmtpList() error = %v", err)
 	}

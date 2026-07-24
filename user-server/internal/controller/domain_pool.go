@@ -162,7 +162,7 @@ func (c *DomainPoolController) CheckDomain(ctx *gin.Context) {
 
 // CheckAllDomains 检查所有域名是否可访问
 func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
-	results, err := c.domainPoolService.CheckAllDomains(context.Background(), )
+	results, err := c.domainPoolService.CheckAllDomains(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -201,7 +201,7 @@ func (c *DomainPoolController) HealthCheck(ctx *gin.Context) {
 // @Success 200 {object} object{data=[]service.HealthCheckResult}
 // @Router /api/domainpool/health-check-all [post]
 func (c *DomainPoolController) HealthCheckAll(ctx *gin.Context) {
-	results, err := c.healthService.CheckAll(context.Background(), )
+	results, err := c.healthService.CheckAll(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -259,7 +259,7 @@ func (c *DomainPoolController) AutoSwitchBest(ctx *gin.Context) {
 // @Success 200 {object} object{data=model.DomainPool}
 // @Router /api/domainpool/active [get]
 func (c *DomainPoolController) GetActiveDomain(ctx *gin.Context) {
-	active, err := c.healthService.GetActiveDomain(context.Background(), )
+	active, err := c.healthService.GetActiveDomain(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

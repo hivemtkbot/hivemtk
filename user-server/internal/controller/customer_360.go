@@ -513,7 +513,7 @@ func (c *Customer360Controller) DeleteTagRule(ctx *gin.Context) {
 // GetTagStats 获取标签统计
 // GET /api/customer-360/tag-stats
 func (c *Customer360Controller) GetTagStats(ctx *gin.Context) {
-	stats, err := c.tagRuleSvc.GetTagStats(ctx.Request.Context(), )
+	stats, err := c.tagRuleSvc.GetTagStats(ctx.Request.Context())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取标签失败: "+err.Error())
 		return

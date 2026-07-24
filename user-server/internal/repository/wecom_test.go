@@ -35,6 +35,8 @@ func setupWeComRepositories(t *testing.T) (*WeComAccountRepository, *WeComCustom
 // TestWeComAccountRepository_Create 测试创建企业微信账号
 func TestWeComAccountRepository_Create(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -63,7 +65,7 @@ func TestWeComAccountRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := accountRepo.Create(tt.account)
+			err := accountRepo.Create(ctx, tt.account)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -79,13 +81,15 @@ func TestWeComAccountRepository_Create(t *testing.T) {
 // TestWeComAccountRepository_GetByID 测试根据 ID 获取账号
 func TestWeComAccountRepository_GetByID(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 		Status: 1,
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(ctx, account)
 
 	tests := []struct {
 		name    string
@@ -106,7 +110,7 @@ func TestWeComAccountRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := accountRepo.GetByID(tt.id)
+			result, err := accountRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -124,22 +128,24 @@ func TestWeComAccountRepository_GetByID(t *testing.T) {
 // TestWeComAccountRepository_Update 测试更新账号
 func TestWeComAccountRepository_Update(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 		Status: 1,
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(ctx, account)
 
 	account.CorpSecret = "updated_secret"
 
-	err := accountRepo.Update(account)
+	err := accountRepo.Update(ctx, account)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(account.ID)
+	updated, _ := accountRepo.GetByID(ctx, account.ID)
 	if updated.CorpSecret != "updated_secret" {
 		t.Errorf("Expected CorpSecret 'updated_secret', got '%s'", updated.CorpSecret)
 	}
@@ -148,19 +154,21 @@ func TestWeComAccountRepository_Update(t *testing.T) {
 // TestWeComAccountRepository_UpdateToken 测试更新访问令牌
 func TestWeComAccountRepository_UpdateToken(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(ctx, account)
 
 	err := accountRepo.UpdateToken(context.Background(), account.ID, "new_token_123", account.CreatedAt.AddDate(0, 0, 7))
 	if err != nil {
 		t.Errorf("UpdateToken() error = %v", err)
 	}
 
-	updated, _ := accountRepo.GetByID(account.ID)
+	updated, _ := accountRepo.GetByID(ctx, account.ID)
 	if updated.AccessToken != "new_token_123" {
 		t.Errorf("Expected AccessToken 'new_token_123', got '%s'", updated.AccessToken)
 	}
@@ -169,19 +177,21 @@ func TestWeComAccountRepository_UpdateToken(t *testing.T) {
 // TestWeComAccountRepository_Delete 测试删除账号
 func TestWeComAccountRepository_Delete(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	accountRepo.Create(account)
+	accountRepo.Create(ctx, account)
 
-	err := accountRepo.Delete(account.ID)
+	err := accountRepo.Delete(ctx, account.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = accountRepo.GetByID(account.ID)
+	_, err = accountRepo.GetByID(ctx, account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -190,19 +200,21 @@ func TestWeComAccountRepository_Delete(t *testing.T) {
 // TestWeComAccountRepository_UpdateSyncTime 测试更新同步时间
 func TestWeComAccountRepository_UpdateSyncTime(t *testing.T) {
 	accountRepo, _, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	account := &model.WeComAccount{
 		CorpID: "ww123456",
 	}
-	if err := accountRepo.Create(account); err != nil {
+	if err := accountRepo.Create(ctx, account); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 
 	if err := accountRepo.UpdateSyncTime(context.Background(), account.ID); err != nil {
 		t.Errorf("UpdateSyncTime() error = %v", err)
 	}
-	updated, err := accountRepo.GetByID(account.ID)
+	updated, err := accountRepo.GetByID(ctx, account.ID)
 	if err != nil {
 		t.Fatalf("GetByID() error = %v", err)
 	}
@@ -214,6 +226,8 @@ func TestWeComAccountRepository_UpdateSyncTime(t *testing.T) {
 // TestWeComCustomerRepository_Create 测试创建企业微信客户
 func TestWeComCustomerRepository_Create(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name     string
@@ -241,7 +255,7 @@ func TestWeComCustomerRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := customerRepo.Create(tt.customer)
+			err := customerRepo.Create(ctx, tt.customer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -257,6 +271,8 @@ func TestWeComCustomerRepository_Create(t *testing.T) {
 // TestWeComCustomerRepository_GetByID 测试根据 ID 获取客户
 func TestWeComCustomerRepository_GetByID(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	customer := &model.WeComCustomer{
@@ -264,7 +280,7 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 		ExternalUserID: "ext123",
 		Name:           "Test Customer",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
 	tests := []struct {
 		name    string
@@ -285,7 +301,7 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := customerRepo.GetByID(tt.id)
+			result, err := customerRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -303,6 +319,8 @@ func TestWeComCustomerRepository_GetByID(t *testing.T) {
 // TestWeComCustomerRepository_Update 测试更新客户
 func TestWeComCustomerRepository_Update(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	customer := &model.WeComCustomer{
@@ -310,16 +328,16 @@ func TestWeComCustomerRepository_Update(t *testing.T) {
 		ExternalUserID: "ext123",
 		Name:           "Original Name",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
 	customer.Name = "Updated Name"
 
-	err := customerRepo.Update(customer)
+	err := customerRepo.Update(ctx, customer)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := customerRepo.GetByID(customer.ID)
+	updated, _ := customerRepo.GetByID(ctx, customer.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -328,20 +346,22 @@ func TestWeComCustomerRepository_Update(t *testing.T) {
 // TestWeComCustomerRepository_Delete 测试删除客户
 func TestWeComCustomerRepository_Delete(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	customer := &model.WeComCustomer{
 		EmployeeID:     "emp123",
 		ExternalUserID: "ext123",
 	}
-	customerRepo.Create(customer)
+	customerRepo.Create(ctx, customer)
 
-	err := customerRepo.Delete(customer.ID)
+	err := customerRepo.Delete(ctx, customer.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = customerRepo.GetByID(customer.ID)
+	_, err = customerRepo.GetByID(ctx, customer.ID)
 	if err == nil {
 		t.Error("Expected customer to be deleted")
 	}
@@ -350,15 +370,17 @@ func TestWeComCustomerRepository_Delete(t *testing.T) {
 // TestWeComCustomerRepository_GetByEmployeeID 测试根据员工 ID 获取客户列表
 func TestWeComCustomerRepository_GetByEmployeeID(t *testing.T) {
 	_, customerRepo, _ := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	for i := 1; i <= 3; i++ {
-		customerRepo.Create(&model.WeComCustomer{
+		customerRepo.Create(ctx, &model.WeComCustomer{
 			EmployeeID:     "emp123",
 			ExternalUserID: "ext" + string(rune('0'+i)),
 		})
 	}
-	customerRepo.Create(&model.WeComCustomer{
+	customerRepo.Create(ctx, &model.WeComCustomer{
 		EmployeeID:     "emp456",
 		ExternalUserID: "ext999",
 	})
@@ -380,6 +402,8 @@ func TestWeComCustomerRepository_GetByEmployeeID(t *testing.T) {
 // TestWeComGroupRepository_Create 测试创建企业微信客户群
 func TestWeComGroupRepository_Create(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -407,7 +431,7 @@ func TestWeComGroupRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := groupRepo.Create(tt.group)
+			err := groupRepo.Create(ctx, tt.group)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -423,13 +447,15 @@ func TestWeComGroupRepository_Create(t *testing.T) {
 // TestWeComGroupRepository_GetByID 测试根据 ID 获取群
 func TestWeComGroupRepository_GetByID(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Test Group",
 	}
-	groupRepo.Create(group)
+	groupRepo.Create(ctx, group)
 
 	tests := []struct {
 		name    string
@@ -450,7 +476,7 @@ func TestWeComGroupRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := groupRepo.GetByID(tt.id)
+			result, err := groupRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -468,13 +494,15 @@ func TestWeComGroupRepository_GetByID(t *testing.T) {
 // TestWeComGroupRepository_GetByChatID 测试根据群 ID 获取群
 func TestWeComGroupRepository_GetByChatID(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Test Group",
 	}
-	groupRepo.Create(group)
+	groupRepo.Create(ctx, group)
 
 	tests := []struct {
 		name    string
@@ -513,22 +541,24 @@ func TestWeComGroupRepository_GetByChatID(t *testing.T) {
 // TestWeComGroupRepository_Update 测试更新群
 func TestWeComGroupRepository_Update(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 		Name:   "Original Name",
 	}
-	groupRepo.Create(group)
+	groupRepo.Create(ctx, group)
 
 	group.Name = "Updated Name"
 
-	err := groupRepo.Update(group)
+	err := groupRepo.Update(ctx, group)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := groupRepo.GetByID(group.ID)
+	updated, _ := groupRepo.GetByID(ctx, group.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -537,19 +567,21 @@ func TestWeComGroupRepository_Update(t *testing.T) {
 // TestWeComGroupRepository_Delete 测试删除群
 func TestWeComGroupRepository_Delete(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID: "chat123",
 	}
-	groupRepo.Create(group)
+	groupRepo.Create(ctx, group)
 
-	err := groupRepo.Delete(group.ID)
+	err := groupRepo.Delete(ctx, group.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = groupRepo.GetByID(group.ID)
+	_, err = groupRepo.GetByID(ctx, group.ID)
 	if err == nil {
 		t.Error("Expected group to be deleted")
 	}
@@ -558,13 +590,15 @@ func TestWeComGroupRepository_Delete(t *testing.T) {
 // TestWeComGroupRepository_UpdateMemberCount 测试更新成员数量
 func TestWeComGroupRepository_UpdateMemberCount(t *testing.T) {
 	_, _, groupRepo := setupWeComRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	group := &model.WeComGroup{
 		ChatID:      "chat123",
 		MemberCount: 5,
 	}
-	groupRepo.Create(group)
+	groupRepo.Create(ctx, group)
 
 	err := groupRepo.UpdateMemberCount(context.Background(), "chat123", 15)
 	if err != nil {

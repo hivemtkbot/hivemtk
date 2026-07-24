@@ -123,7 +123,7 @@ func TestEmailJobsService_GetEmailJobsByID(t *testing.T) {
 	database.Create(jobs)
 
 	// 获取任务
-	retrievedJobs, err := service.GetEmailJobsByID(jobs.ID)
+	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), jobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestEmailJobsService_GetEmailJobsByID_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	_, err := service.GetEmailJobsByID(uuid.Nil)
+	_, err := service.GetEmailJobsByID(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent jobs")
 	}
@@ -190,7 +190,7 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 	}
 
 	// 获取列表（第一页，每页 5 条）
-	jobsLists, total, err := service.GetEmailJobsList(1, 5)
+	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList failed: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestEmailJobsService_GetEmailJobsList(t *testing.T) {
 	}
 
 	// 获取第二页
-	jobsLists2, total2, err := service.GetEmailJobsList(2, 5)
+	jobsLists2, total2, err := service.GetEmailJobsList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList page 2 failed: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestEmailJobsService_GetEmailJobsList_Empty(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	jobsLists, total, err := service.GetEmailJobsList(1, 10)
+	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList failed: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestEmailJobsService_GetEmailJobsList_PageBeyond(t *testing.T) {
 	}
 
 	// 获取第 10 页（超出范围）
-	jobsLists, total, err := service.GetEmailJobsList(10, 5)
+	jobsLists, total, err := service.GetEmailJobsList(context.Background(), 10, 5)
 	if err != nil {
 		t.Fatalf("GetEmailJobsList failed: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestEmailJobsService_UpdateEmailJobs(t *testing.T) {
 	jobs.FailTotal = 5
 	jobs.ReadTotal = 30
 
-	err := service.UpdateEmailJobs(*jobs)
+	err := service.UpdateEmailJobs(context.Background(), *jobs)
 	if err != nil {
 		t.Fatalf("UpdateEmailJobs failed: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestEmailJobsService_UpdateEmailJobs_NotFound(t *testing.T) {
 		ReadTotal:    0,
 	}
 
-	err := service.UpdateEmailJobs(jobs)
+	err := service.UpdateEmailJobs(context.Background(), jobs)
 	// GORM Save 行为：对于不存在的记录可能不会返回错误
 	// 这里我们只验证方法可以调用
 	t.Logf("UpdateEmailJobs for non-existent jobs returned: %v", err)
@@ -358,7 +358,7 @@ func TestEmailJobsService_DeleteEmailJobs(t *testing.T) {
 	database.Create(jobs)
 
 	// 删除任务
-	err := service.DeleteEmailJobs(jobs.ID)
+	err := service.DeleteEmailJobs(context.Background(), jobs.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailJobs failed: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestEmailJobsService_DeleteEmailJobs_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	err := service.DeleteEmailJobs(uuid.Nil)
+	err := service.DeleteEmailJobs(context.Background(), uuid.Nil)
 	if err != nil {
 		t.Logf("DeleteEmailJobs for non-existent jobs: %v", err)
 	}
@@ -409,7 +409,7 @@ func TestEmailJobsService_IncreaseSendTotal(t *testing.T) {
 
 	// 增加发送总数 3 次
 	for i := 0; i < 3; i++ {
-		err := service.IncreaseSendTotal(jobs.ID)
+		err := service.IncreaseSendTotal(context.Background(), jobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSendTotal failed: %v", err)
 		}
@@ -429,7 +429,7 @@ func TestEmailJobsService_IncreaseSendTotal_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	err := service.IncreaseSendTotal(uuid.Nil)
+	err := service.IncreaseSendTotal(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent jobs")
 	}
@@ -454,7 +454,7 @@ func TestEmailJobsService_IncreaseSuccessTotal(t *testing.T) {
 
 	// 增加成功总数 5 次
 	for i := 0; i < 5; i++ {
-		err := service.IncreaseSuccessTotal(jobs.ID)
+		err := service.IncreaseSuccessTotal(context.Background(), jobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSuccessTotal failed: %v", err)
 		}
@@ -474,7 +474,7 @@ func TestEmailJobsService_IncreaseSuccessTotal_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	err := service.IncreaseSuccessTotal(uuid.Nil)
+	err := service.IncreaseSuccessTotal(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent jobs")
 	}
@@ -499,7 +499,7 @@ func TestEmailJobsService_IncreaseFailTotal(t *testing.T) {
 
 	// 增加失败总数 3 次
 	for i := 0; i < 3; i++ {
-		err := service.IncreaseFailTotal(jobs.ID)
+		err := service.IncreaseFailTotal(context.Background(), jobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseFailTotal failed: %v", err)
 		}
@@ -519,7 +519,7 @@ func TestEmailJobsService_IncreaseFailTotal_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	err := service.IncreaseFailTotal(uuid.Nil)
+	err := service.IncreaseFailTotal(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent jobs")
 	}
@@ -544,7 +544,7 @@ func TestEmailJobsService_IncreaseReadTotal(t *testing.T) {
 
 	// 增加阅读总数 10 次
 	for i := 0; i < 10; i++ {
-		err := service.IncreaseReadTotal(jobs.ID)
+		err := service.IncreaseReadTotal(context.Background(), jobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseReadTotal failed: %v", err)
 		}
@@ -564,7 +564,7 @@ func TestEmailJobsService_IncreaseReadTotal_NotFound(t *testing.T) {
 	repo := newTestEmailJobsRepository(database)
 	service := &EmailJobsService{repo: repo}
 
-	err := service.IncreaseReadTotal(uuid.Nil)
+	err := service.IncreaseReadTotal(context.Background(), uuid.Nil)
 	if err == nil {
 		t.Error("Expected error for non-existent jobs")
 	}
@@ -592,7 +592,7 @@ func TestEmailJobsService_CreateAndGet(t *testing.T) {
 	}
 
 	// 根据 ID 获取
-	retrievedJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -639,7 +639,7 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 
 	// 模拟发送过程
 	for i := 0; i < 50; i++ {
-		err := service.IncreaseSendTotal(createdJobs.ID)
+		err := service.IncreaseSendTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSendTotal failed: %v", err)
 		}
@@ -647,7 +647,7 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 
 	// 模拟成功
 	for i := 0; i < 45; i++ {
-		err := service.IncreaseSuccessTotal(createdJobs.ID)
+		err := service.IncreaseSuccessTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSuccessTotal failed: %v", err)
 		}
@@ -655,7 +655,7 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 
 	// 模拟失败
 	for i := 0; i < 5; i++ {
-		err := service.IncreaseFailTotal(createdJobs.ID)
+		err := service.IncreaseFailTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseFailTotal failed: %v", err)
 		}
@@ -663,14 +663,14 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 
 	// 模拟阅读
 	for i := 0; i < 30; i++ {
-		err := service.IncreaseReadTotal(createdJobs.ID)
+		err := service.IncreaseReadTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseReadTotal failed: %v", err)
 		}
 	}
 
 	// 验证最终状态
-	finalJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	finalJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -690,19 +690,19 @@ func TestEmailJobsService_FullWorkflow(t *testing.T) {
 
 	// 更新任务
 	finalJobs.Subject = "已完成的工作流"
-	err = service.UpdateEmailJobs(*finalJobs)
+	err = service.UpdateEmailJobs(context.Background(), *finalJobs)
 	if err != nil {
 		t.Fatalf("UpdateEmailJobs failed: %v", err)
 	}
 
 	// 删除任务
-	err = service.DeleteEmailJobs(finalJobs.ID)
+	err = service.DeleteEmailJobs(context.Background(), finalJobs.ID)
 	if err != nil {
 		t.Fatalf("DeleteEmailJobs failed: %v", err)
 	}
 
 	// 验证删除后无法获取
-	_, err = service.GetEmailJobsByID(finalJobs.ID)
+	_, err = service.GetEmailJobsByID(context.Background(), finalJobs.ID)
 	if err == nil {
 		t.Error("Expected error for getting deleted jobs")
 	}
@@ -730,18 +730,18 @@ func TestEmailJobsService_LargeCounters(t *testing.T) {
 
 	// 批量增加计数器
 	for i := 0; i < 1000; i++ {
-		err := service.IncreaseSendTotal(createdJobs.ID)
+		err := service.IncreaseSendTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSendTotal failed: %v", err)
 		}
-		err = service.IncreaseSuccessTotal(createdJobs.ID)
+		err = service.IncreaseSuccessTotal(context.Background(), createdJobs.ID)
 		if err != nil {
 			t.Fatalf("IncreaseSuccessTotal failed: %v", err)
 		}
 	}
 
 	// 验证
-	finalJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	finalJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -776,7 +776,7 @@ func TestEmailJobsService_NegativeCounters(t *testing.T) {
 	}
 
 	// 验证负数被保存
-	retrievedJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestEmailJobsService_LongSubject(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	retrievedJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -842,7 +842,7 @@ func TestEmailJobsService_SpecialCharactersInSubject(t *testing.T) {
 		t.Fatalf("CreateEmailJobs failed: %v", err)
 	}
 
-	retrievedJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	retrievedJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}
@@ -878,16 +878,16 @@ func TestEmailJobsService_CountersConsistency(t *testing.T) {
 	failCount := 5
 
 	for i := 0; i < sendCount; i++ {
-		service.IncreaseSendTotal(createdJobs.ID)
+		service.IncreaseSendTotal(context.Background(), createdJobs.ID)
 	}
 	for i := 0; i < successCount; i++ {
-		service.IncreaseSuccessTotal(createdJobs.ID)
+		service.IncreaseSuccessTotal(context.Background(), createdJobs.ID)
 	}
 	for i := 0; i < failCount; i++ {
-		service.IncreaseFailTotal(createdJobs.ID)
+		service.IncreaseFailTotal(context.Background(), createdJobs.ID)
 	}
 
-	finalJobs, err := service.GetEmailJobsByID(createdJobs.ID)
+	finalJobs, err := service.GetEmailJobsByID(context.Background(), createdJobs.ID)
 	if err != nil {
 		t.Fatalf("GetEmailJobsByID failed: %v", err)
 	}

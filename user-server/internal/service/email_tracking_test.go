@@ -42,7 +42,7 @@ func TestEmailTracking_GeneratePixelToken(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	token, err := svc.GenerateTrackingPixelToken("Open@Demo.com", "job-1")
+	token, err := svc.GenerateTrackingPixelToken(context.Background(), "Open@Demo.com", "job-1")
 	if err != nil {
 		t.Fatalf("GenerateTrackingPixelToken failed: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestEmailTracking_GeneratePixelToken_EmptyEmail(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	_, err := svc.GenerateTrackingPixelToken("", "job-1")
+	_, err := svc.GenerateTrackingPixelToken(context.Background(), "", "job-1")
 	if err == nil {
 		t.Error("Expected error for empty email")
 	}
@@ -67,7 +67,7 @@ func TestEmailTracking_GenerateClickLink(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	link, err := svc.GenerateClickTrackingLink("click@demo.com", "job-2", "https://example.com/landing")
+	link, err := svc.GenerateClickTrackingLink(context.Background(), "click@demo.com", "job-2", "https://example.com/landing")
 	if err != nil {
 		t.Fatalf("GenerateClickTrackingLink failed: %v", err)
 	}
@@ -84,8 +84,8 @@ func TestEmailTracking_VerifyToken_Valid(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	token, _ := svc.GenerateTrackingPixelToken("verify@demo.com", "job-3")
-	claim, err := svc.VerifyTrackingToken(token)
+	token, _ := svc.GenerateTrackingPixelToken(context.Background(), "verify@demo.com", "job-3")
+	claim, err := svc.VerifyTrackingToken(context.Background(), token)
 	if err != nil {
 		t.Fatalf("VerifyTrackingToken failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestEmailTracking_VerifyToken_Invalid(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	_, err := svc.VerifyTrackingToken("malformed")
+	_, err := svc.VerifyTrackingToken(context.Background(), "malformed")
 	if err == nil {
 		t.Error("Expected error for malformed token")
 	}
@@ -116,9 +116,9 @@ func TestEmailTracking_VerifyToken_Tampered(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	token, _ := svc.GenerateTrackingPixelToken("tamper@demo.com", "job-4")
+	token, _ := svc.GenerateTrackingPixelToken(context.Background(), "tamper@demo.com", "job-4")
 	tampered := token[:len(token)-5] + "XXXXX"
-	_, err := svc.VerifyTrackingToken(tampered)
+	_, err := svc.VerifyTrackingToken(context.Background(), tampered)
 	if err == nil {
 		t.Error("Expected error for tampered token")
 	}
@@ -129,7 +129,7 @@ func TestEmailTracking_VerifyToken_Empty(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	_, err := svc.VerifyTrackingToken("")
+	_, err := svc.VerifyTrackingToken(context.Background(), "")
 	if err == nil {
 		t.Error("Expected error for empty token")
 	}
@@ -140,7 +140,7 @@ func TestEmailTracking_RecordOpenEvent(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	token, _ := svc.GenerateTrackingPixelToken("open-event@demo.com", "job-5")
+	token, _ := svc.GenerateTrackingPixelToken(context.Background(), "open-event@demo.com", "job-5")
 	if err := svc.RecordOpenEvent(context.Background(), token, "127.0.0.1", "Mozilla/5.0"); err != nil {
 		t.Fatalf("RecordOpenEvent failed: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestEmailTracking_RecordClickEvent(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	link, _ := svc.GenerateClickTrackingLink("click-event@demo.com", "job-6", "https://example.com/x")
+	link, _ := svc.GenerateClickTrackingLink(context.Background(), "click-event@demo.com", "job-6", "https://example.com/x")
 	idx := strings.Index(link, "/click/") + len("/click/")
 	endIdx := strings.Index(link[idx:], "?")
 	if endIdx < 0 {
@@ -251,11 +251,11 @@ func TestEmailTracking_GetJobMetrics(t *testing.T) {
 	}
 
 	// 设置 TotalSent = 10 用于比率计算
-	if err := svc.repo.UpsertJobMetric(&model.EmailJobMetric{JobID: jobID, TotalSent: 10}); err != nil {
+	if err := svc.repo.UpsertJobMetric(context.Background(), &model.EmailJobMetric{JobID: jobID, TotalSent: 10}); err != nil {
 		t.Fatalf("UpsertJobMetric failed: %v", err)
 	}
 
-	metric, err := svc.GetJobMetrics(jobID)
+	metric, err := svc.GetJobMetrics(context.Background(), jobID)
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestEmailTracking_GetJobMetrics_EmptyJob(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	metric, err := svc.GetJobMetrics("empty-job")
+	metric, err := svc.GetJobMetrics(context.Background(), "empty-job")
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestEmailTracking_GetJobMetrics_EmptyJobID(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	_, err := svc.GetJobMetrics("")
+	_, err := svc.GetJobMetrics(context.Background(), "")
 	if err == nil {
 		t.Error("Expected error for empty job_id")
 	}
@@ -325,7 +325,7 @@ func TestEmailTracking_GetEmailMetrics(t *testing.T) {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
 
-	metric, err := svc.GetEmailMetrics(start, end)
+	metric, err := svc.GetEmailMetrics(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("GetEmailMetrics failed: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestEmailTracking_GetEmailMetrics_InvalidRange(t *testing.T) {
 
 	now := time.Now()
 	// end 早于 start
-	_, err := svc.GetEmailMetrics(now, now.Add(-1*time.Hour))
+	_, err := svc.GetEmailMetrics(context.Background(), now, now.Add(-1*time.Hour))
 	if err == nil {
 		t.Error("Expected error for invalid range")
 	}
@@ -361,7 +361,7 @@ func TestEmailTracking_GetEmailMetrics_EmptyRange(t *testing.T) {
 	database := setupEmailTrackingTestDB(t)
 	svc := newEmailTrackingService(database)
 
-	_, err := svc.GetEmailMetrics(time.Time{}, time.Time{})
+	_, err := svc.GetEmailMetrics(context.Background(), time.Time{}, time.Time{})
 	if err == nil {
 		t.Error("Expected error for empty range")
 	}
@@ -415,7 +415,7 @@ func TestEmailTracking_ListJobEvents(t *testing.T) {
 	}
 
 	// 第 1 页，每页 2 条
-	events, total, err := svc.ListJobEvents(jobID, 1, 2)
+	events, total, err := svc.ListJobEvents(context.Background(), jobID, 1, 2)
 	if err != nil {
 		t.Fatalf("ListJobEvents failed: %v", err)
 	}
@@ -449,7 +449,7 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 	jobID := "job-full"
 
 	// 1. 生成像素 token
-	pixelToken, err := svc.GenerateTrackingPixelToken(email, jobID)
+	pixelToken, err := svc.GenerateTrackingPixelToken(context.Background(), email, jobID)
 	if err != nil {
 		t.Fatalf("GenerateTrackingPixelToken failed: %v", err)
 	}
@@ -460,7 +460,7 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 	}
 
 	// 3. 生成点击链接
-	clickLink, err := svc.GenerateClickTrackingLink(email, jobID, "https://target.example.com")
+	clickLink, err := svc.GenerateClickTrackingLink(context.Background(), email, jobID, "https://target.example.com")
 	if err != nil {
 		t.Fatalf("GenerateClickTrackingLink failed: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 	}
 
 	// 5. 查询指标
-	metric, err := svc.GetJobMetrics(jobID)
+	metric, err := svc.GetJobMetrics(context.Background(), jobID)
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestEmailTracking_FullFlow(t *testing.T) {
 		t.Fatalf("RefreshJobMetrics failed: %v", err)
 	}
 	// OpenRate = 1/1 * 100 = 100
-	metric, _ = svc.GetJobMetrics(jobID)
+	metric, _ = svc.GetJobMetrics(context.Background(), jobID)
 	if metric.OpenRate != 100.00 {
 		t.Errorf("Expected OpenRate 100, got %f", metric.OpenRate)
 	}

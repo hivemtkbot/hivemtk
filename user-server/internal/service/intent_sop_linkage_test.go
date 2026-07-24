@@ -23,7 +23,7 @@ func TestIntentSOP_SetSOPService(t *testing.T) {
 	if rec.sopService != nil {
 		t.Error("expected nil initially")
 	}
-	rec.SetSOPService(&SOPService{})
+	rec.SetSOPService(context.Background(), &SOPService{})
 	if rec.sopService == nil {
 		t.Error("expected non-nil after SetSOPService")
 	}
@@ -39,7 +39,7 @@ func TestIntentSOP_TriggerSOPByIntent_LowConfidence(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	// 创建匹配的 SOP
 	agent := &model.SOPAgent{
@@ -51,7 +51,7 @@ func TestIntentSOP_TriggerSOPByIntent_LowConfidence(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestIntentSOP_TriggerSOPByIntent_MatchAndExecute(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "price-objection",
@@ -79,7 +79,7 @@ func TestIntentSOP_TriggerSOPByIntent_MatchAndExecute(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestIntentSOP_TriggerSOPByIntent_InactiveAgent(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "price-objection",
@@ -109,7 +109,7 @@ func TestIntentSOP_TriggerSOPByIntent_InactiveAgent(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	// 由于 model IsActive 默认值是 true，强制更新为 false 模拟停用
@@ -129,7 +129,7 @@ func TestIntentSOP_TriggerSOPByIntent_DuplicateGuard(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "price-objection",
@@ -140,7 +140,7 @@ func TestIntentSOP_TriggerSOPByIntent_DuplicateGuard(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestIntentSOP_TriggerSOPByIntent_NoMatch(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "price-objection",
@@ -171,7 +171,7 @@ func TestIntentSOP_TriggerSOPByIntent_NoMatch(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestIntentSOP_Recognize_EmptyCustomer(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "test",
@@ -198,7 +198,7 @@ func TestIntentSOP_Recognize_EmptyCustomer(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -216,7 +216,7 @@ func TestIntentSOP_Recognize_TriggersSOP(t *testing.T) {
 	db := setupIntentSOPSBTestDB(t)
 	svc := NewSOPService(db, nil)
 	rec := NewIntentRecognizer(db, nil, nil)
-	rec.SetSOPService(svc)
+	rec.SetSOPService(context.Background(), svc)
 
 	agent := &model.SOPAgent{
 		Name:          "price-inquiry-sop",
@@ -227,7 +227,7 @@ func TestIntentSOP_Recognize_TriggersSOP(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(context.Background(), agent).Error; err != nil {
+	if err := db.Create(agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 

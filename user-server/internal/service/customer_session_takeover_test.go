@@ -17,7 +17,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
 	// 准备：1 个 AI 状态会话
-	sess, err := svc.CreateSession(&CreateSessionRequest{
+	sess, err := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_1",
 		UserID:    "u_1",
@@ -34,7 +34,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 	}
 
 	// 接管
-	err = svc.TakeoverByAgent(ctx, &TakeoverRequest{
+	err = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{
 		SessionID: sess.ID,
 		AgentID:   101,
 		Reason:    "AI 答非所问",
@@ -44,7 +44,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 	}
 
 	// 验证
-	got, _ := svc.GetSessionByID(sess.ID)
+	got, _ := svc.GetSessionByID(context.Background(), sess.ID)
 	if got.HandlerType != model.HandlerTypeHuman {
 		t.Errorf("handler_type = %s, want human", got.HandlerType)
 	}
@@ -55,7 +55,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 		t.Errorf("agent_id = %d, want 101", got.AgentID)
 	}
 	// 坐席活跃数 +1
-	a, _ := svc.agentRepo.GetByAgentID(101)
+	a, _ := svc.agentRepo.GetByAgentID(context.Background(), 101)
 	if a.ActiveSessions != 1 {
 		t.Errorf("agent active = %d, want 1", a.ActiveSessions)
 	}
@@ -65,7 +65,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform:  model.PlatformWeb,
 		AccountID: "acc_1",
 		UserID:    "u_1",
@@ -73,7 +73,7 @@ func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 	offline := &model.AgentStatus{AgentID: 200, AgentName: "客服乙", Status: "offline", MaxSessions: 5}
 	_ = svc.agentRepo.Create(context.Background(), offline)
 
-	err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 200})
+	err := svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 200})
 	if err == nil {
 		t.Error("expected error for offline agent")
 	}
@@ -83,13 +83,13 @@ func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 func TestTakeoverByAgent_AgentFull(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 300, AgentName: "客服丙", Status: "online", MaxSessions: 1, ActiveSessions: 1}
 	_ = svc.agentRepo.Create(context.Background(), agent)
 
-	err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 300})
+	err := svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 300})
 	if err == nil {
 		t.Error("expected error for full agent")
 	}
@@ -99,22 +99,22 @@ func TestTakeoverByAgent_AgentFull(t *testing.T) {
 func TestTakeoverByAgent_Idempotent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 400, AgentName: "客服丁", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	_ = svc.agentRepo.Create(context.Background(), agent)
 
 	// 第一次接管
-	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 400})
-	a, _ := svc.agentRepo.GetByAgentID(400)
+	_ = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 400})
+	a, _ := svc.agentRepo.GetByAgentID(context.Background(), 400)
 	if a.ActiveSessions != 1 {
 		t.Fatalf("after 1st takeover active = %d, want 1", a.ActiveSessions)
 	}
 
 	// 第二次接管：幂等，活跃数不应再 +1
-	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 400})
-	a, _ = svc.agentRepo.GetByAgentID(400)
+	_ = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 400})
+	a, _ = svc.agentRepo.GetByAgentID(context.Background(), 400)
 	if a.ActiveSessions != 1 {
 		t.Errorf("after 2nd takeover active = %d, want still 1 (idempotent)", a.ActiveSessions)
 	}
@@ -124,7 +124,7 @@ func TestTakeoverByAgent_Idempotent(t *testing.T) {
 func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	a1 := &model.AgentStatus{AgentID: 500, AgentName: "甲", Status: "online", MaxSessions: 5, ActiveSessions: 1}
@@ -132,22 +132,22 @@ func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 	_ = svc.agentRepo.Create(context.Background(), a1)
 	_ = svc.agentRepo.Create(context.Background(), a2)
 	// 让会话先归属 a1
-	_ = svc.sessionRepo.AssignAgent(sess.ID, 500, "甲")
-	a1Got, _ := svc.agentRepo.GetByAgentID(500)
+	_ = svc.sessionRepo.AssignAgent(context.Background(), sess.ID, 500, "甲")
+	a1Got, _ := svc.agentRepo.GetByAgentID(context.Background(), 500)
 	a1Got.ActiveSessions = 1
 	_ = svc.agentRepo.Update(context.Background(), a1Got)
 
 	// a2 接管
-	if err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 501}); err != nil {
+	if err := svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 501}); err != nil {
 		t.Fatalf("takeover: %v", err)
 	}
 	// a1 活跃 -1
-	old, _ := svc.agentRepo.GetByAgentID(500)
+	old, _ := svc.agentRepo.GetByAgentID(context.Background(), 500)
 	if old.ActiveSessions != 0 {
 		t.Errorf("a1 active = %d, want 0", old.ActiveSessions)
 	}
 	// a2 活跃 +1
-	newA, _ := svc.agentRepo.GetByAgentID(501)
+	newA, _ := svc.agentRepo.GetByAgentID(context.Background(), 501)
 	if newA.ActiveSessions != 1 {
 		t.Errorf("a2 active = %d, want 1", newA.ActiveSessions)
 	}
@@ -157,19 +157,19 @@ func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 func TestReleaseToAI(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 600, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	_ = svc.agentRepo.Create(context.Background(), agent)
 	// 接管一次
-	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 600})
+	_ = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 600})
 
 	// 释放
-	if err := svc.ReleaseToAI(ctx, &ReleaseToAIRequest{SessionID: sess.ID, AgentID: 600}); err != nil {
+	if err := svc.ReleaseToAI(context.Background(), &ReleaseToAIRequest{SessionID: sess.ID, AgentID: 600}); err != nil {
 		t.Fatalf("ReleaseToAI: %v", err)
 	}
-	got, _ := svc.GetSessionByID(sess.ID)
+	got, _ := svc.GetSessionByID(context.Background(), sess.ID)
 	if got.HandlerType != model.HandlerTypeAI {
 		t.Errorf("handler = %s, want ai", got.HandlerType)
 	}
@@ -179,7 +179,7 @@ func TestReleaseToAI(t *testing.T) {
 	if got.AgentID != 0 {
 		t.Errorf("agent_id = %d, want 0", got.AgentID)
 	}
-	a, _ := svc.agentRepo.GetByAgentID(600)
+	a, _ := svc.agentRepo.GetByAgentID(context.Background(), 600)
 	if a.ActiveSessions != 0 {
 		t.Errorf("active = %d, want 0", a.ActiveSessions)
 	}
@@ -189,17 +189,17 @@ func TestReleaseToAI(t *testing.T) {
 func TestReleaseToAI_NotOwner(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	a1 := &model.AgentStatus{AgentID: 700, AgentName: "甲", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	a2 := &model.AgentStatus{AgentID: 701, AgentName: "乙", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	_ = svc.agentRepo.Create(context.Background(), a1)
 	_ = svc.agentRepo.Create(context.Background(), a2)
-	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 700})
+	_ = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 700})
 
 	// a2 想释放 → 拒绝
-	err := svc.ReleaseToAI(ctx, &ReleaseToAIRequest{SessionID: sess.ID, AgentID: 701})
+	err := svc.ReleaseToAI(context.Background(), &ReleaseToAIRequest{SessionID: sess.ID, AgentID: 701})
 	if err == nil {
 		t.Error("expected permission denied")
 	}
@@ -209,13 +209,13 @@ func TestReleaseToAI_NotOwner(t *testing.T) {
 func TestSwitchHandler_Human(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 800, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	_ = svc.agentRepo.Create(context.Background(), agent)
 
-	err := svc.SwitchHandler(ctx, &SwitchHandlerRequest{
+	err := svc.SwitchHandler(context.Background(), &SwitchHandlerRequest{
 		SessionID:   sess.ID,
 		AgentID:     800,
 		HandlerType: model.HandlerTypeHuman,
@@ -224,7 +224,7 @@ func TestSwitchHandler_Human(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SwitchHandler: %v", err)
 	}
-	got, _ := svc.GetSessionByID(sess.ID)
+	got, _ := svc.GetSessionByID(context.Background(), sess.ID)
 	if got.HandlerType != model.HandlerTypeHuman {
 		t.Errorf("handler = %s, want human", got.HandlerType)
 	}
@@ -234,15 +234,15 @@ func TestSwitchHandler_Human(t *testing.T) {
 func TestSwitchHandler_AI(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 900, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	_ = svc.agentRepo.Create(context.Background(), agent)
-	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 900})
+	_ = svc.TakeoverByAgent(context.Background(), &TakeoverRequest{SessionID: sess.ID, AgentID: 900})
 
 	// AgentID 留空，让 service 从会话读
-	err := svc.SwitchHandler(ctx, &SwitchHandlerRequest{
+	err := svc.SwitchHandler(context.Background(), &SwitchHandlerRequest{
 		SessionID:   sess.ID,
 		AgentID:     0,
 		HandlerType: model.HandlerTypeAI,
@@ -250,7 +250,7 @@ func TestSwitchHandler_AI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SwitchHandler: %v", err)
 	}
-	got, _ := svc.GetSessionByID(sess.ID)
+	got, _ := svc.GetSessionByID(context.Background(), sess.ID)
 	if got.HandlerType != model.HandlerTypeAI {
 		t.Errorf("handler = %s, want ai", got.HandlerType)
 	}
@@ -260,11 +260,11 @@ func TestSwitchHandler_AI(t *testing.T) {
 func TestSwitchHandler_AI_NoAgent(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	// 未接管直接切 AI
-	err := svc.SwitchHandler(ctx, &SwitchHandlerRequest{
+	err := svc.SwitchHandler(context.Background(), &SwitchHandlerRequest{
 		SessionID:   sess.ID,
 		HandlerType: model.HandlerTypeAI,
 	})
@@ -277,10 +277,10 @@ func TestSwitchHandler_AI_NoAgent(t *testing.T) {
 func TestSwitchHandler_InvalidType(t *testing.T) {
 	svc := setupCustomerSessionService(t)
 
-	sess, _ := svc.CreateSession(&CreateSessionRequest{
+	sess, _ := svc.CreateSession(context.Background(), &CreateSessionRequest{
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
-	err := svc.SwitchHandler(ctx, &SwitchHandlerRequest{
+	err := svc.SwitchHandler(context.Background(), &SwitchHandlerRequest{
 		SessionID:   sess.ID,
 		HandlerType: "robot", // 非法
 	})

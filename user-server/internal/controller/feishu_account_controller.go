@@ -72,10 +72,10 @@ func (ctrl *FeishuAccountController) TestSendQuery(c *gin.Context) {
 	if openID == "" || content == "" {
 		// 探测场景：仅校验账号存在，不真正发送
 		response.Success(c, gin.H{
-			"account_id":         acc.ID,
-			"account_name":       acc.AccountName,
-			"app_secret_masked":  maskFeishuSecret(acc.AppSecret),
-			"test_send_ready":    true,
+			"account_id":        acc.ID,
+			"account_name":      acc.AccountName,
+			"app_secret_masked": maskFeishuSecret(acc.AppSecret),
+			"test_send_ready":   true,
 		}, "测试发送参数缺失，账号校验通过")
 		return
 	}

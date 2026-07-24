@@ -46,7 +46,7 @@ func TestPlatformAccountService_GetAccounts(t *testing.T) {
 	// 直接使用 db 写入测试数据并通过 service 读取
 	db := database
 	for i := 0; i < 3; i++ {
-		db.Create(context.Background(), &model.PlatformAccount{
+		db.Create(&model.PlatformAccount{
 			Platform:    model.PlatformDouyin,
 			AccountID:   "acc-" + string(rune('0'+i)),
 			AccountName: "测试账号" + string(rune('0'+i)),
@@ -219,7 +219,7 @@ func newPlatformAccountRepoForTest(database *gorm.DB) repository.PlatformAccount
 }
 
 func (r *platformAccountRepoForTest) Create(ctx context.Context, account *model.PlatformAccount)  error {
-	return r.db.Create(context.Background(), account).Error
+	return r.db.Create(account).Error
 }
 
 func (r *platformAccountRepoForTest) GetByID(ctx context.Context, id uint)  (*model.PlatformAccount, error) {

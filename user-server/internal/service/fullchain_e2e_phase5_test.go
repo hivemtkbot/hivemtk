@@ -89,7 +89,7 @@ func TestE2E_FullChain_ReachToSalesFeedback(t *testing.T) {
 	}
 
 	// 5. 验证 FeedbackLearner 累积了 4 个渠道的反馈
-	allStats := fl.GetAllIntentStats()
+	allStats := fl.GetAllIntentStats(context.Background())
 	totalCount := 0
 	for _, s := range allStats {
 		totalCount += s.TotalCount
@@ -112,7 +112,7 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 
 	// 模拟同一客户 15 轮对话（超过冷启动阈值 10）
 	for i := 0; i < 15; i++ {
-		_, _ = engine.ProcessIncomingMessage(ctx, &ChannelMessage{
+		_, _ = engine.ProcessIncomingMessage(context.Background(), &ChannelMessage{
 			Channel:      "wecom",
 			AccountID:    "1",
 			ExternalUser: customer,
@@ -125,7 +125,7 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 	}
 
 	// 验证累积统计
-	stats := fl.GetAllIntentStats()
+	stats := fl.GetAllIntentStats(context.Background())
 	if len(stats) == 0 {
 		t.Fatal("应累积意图统计")
 	}

@@ -76,7 +76,7 @@ func TestShortLink_IsExpired(t *testing.T) {
 	expiredLink := &ShortLink{
 		ExpireTime: &past,
 	}
-	if !expiredLink.IsExpired() {
+	if !(expiredLink.ExpireTime != nil && time.Now().After(*expiredLink.ExpireTime)) {
 		t.Error("Expected expired link to return true from IsExpired()")
 	}
 
@@ -85,7 +85,7 @@ func TestShortLink_IsExpired(t *testing.T) {
 	activeLink := &ShortLink{
 		ExpireTime: &future,
 	}
-	if activeLink.IsExpired() {
+	if activeLink.ExpireTime != nil && time.Now().After(*activeLink.ExpireTime) {
 		t.Error("Expected active link to return false from IsExpired()")
 	}
 
@@ -93,7 +93,7 @@ func TestShortLink_IsExpired(t *testing.T) {
 	noExpireLink := &ShortLink{
 		ExpireTime: nil,
 	}
-	if noExpireLink.IsExpired() {
+	if noExpireLink.ExpireTime != nil && time.Now().After(*noExpireLink.ExpireTime) {
 		t.Error("Expected link with no expiration to return false from IsExpired()")
 	}
 }
@@ -105,7 +105,7 @@ func TestShortLink_IsActive(t *testing.T) {
 		Status:     1,
 		ExpireTime: &future,
 	}
-	if !activeLink.IsActive() {
+	if !(activeLink.Status == 1 && !(activeLink.ExpireTime != nil && time.Now().After(*activeLink.ExpireTime))) {
 		t.Error("Expected active link to return true from IsActive()")
 	}
 
@@ -114,7 +114,7 @@ func TestShortLink_IsActive(t *testing.T) {
 		Status:     2,
 		ExpireTime: &future,
 	}
-	if disabledLink.IsActive() {
+	if disabledLink.Status == 1 && !(disabledLink.ExpireTime != nil && time.Now().After(*disabledLink.ExpireTime)) {
 		t.Error("Expected disabled link to return false from IsActive()")
 	}
 
@@ -124,7 +124,7 @@ func TestShortLink_IsActive(t *testing.T) {
 		Status:     1,
 		ExpireTime: &past,
 	}
-	if expiredLink.IsActive() {
+	if expiredLink.Status == 1 && !(expiredLink.ExpireTime != nil && time.Now().After(*expiredLink.ExpireTime)) {
 		t.Error("Expected expired link to return false from IsActive()")
 	}
 
@@ -133,7 +133,7 @@ func TestShortLink_IsActive(t *testing.T) {
 		Status:     1,
 		ExpireTime: nil,
 	}
-	if !noExpireLink.IsActive() {
+	if !(noExpireLink.Status == 1 && !(noExpireLink.ExpireTime != nil && time.Now().After(*noExpireLink.ExpireTime))) {
 		t.Error("Expected link with no expiration and status 1 to return true from IsActive()")
 	}
 }

@@ -23,6 +23,7 @@ import (
 
 // TestHumanEscalation_BasicFlow 完整流程
 func TestHumanEscalation_BasicFlow(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_basic"
@@ -61,6 +62,7 @@ func TestHumanEscalation_BasicFlow(t *testing.T) {
 
 // TestHumanEscalation_MultipleSessions 多会话并发测试
 func TestHumanEscalation_MultipleSessions(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 
@@ -80,6 +82,7 @@ func TestHumanEscalation_MultipleSessions(t *testing.T) {
 
 // TestHumanEscalation_EmptySessionID 边界：空 sessionID
 func TestHumanEscalation_EmptySessionID(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 
@@ -96,6 +99,7 @@ func TestHumanEscalation_EmptySessionID(t *testing.T) {
 
 // TestHumanEscalation_NotificationPushed 验证通知已入队
 func TestHumanEscalation_NotificationPushed(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_notif"
@@ -128,6 +132,7 @@ func TestHumanEscalation_NotificationPushed(t *testing.T) {
 
 // TestHumanEscalation_ReleaseClearsReason 释放会清除原因
 func TestHumanEscalation_ReleaseClearsReason(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_release"
@@ -148,6 +153,7 @@ func TestHumanEscalation_ReleaseClearsReason(t *testing.T) {
 
 // TestHumanEscalation_Stats 统计验证
 func TestHumanEscalation_Stats(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 
@@ -155,7 +161,7 @@ func TestHumanEscalation_Stats(t *testing.T) {
 	_ = mgr.TriggerCensorshipEscalation(ctx, "s2", "reason_a")
 	_ = mgr.TriggerCensorshipEscalation(ctx, "s3", "reason_b")
 
-	stats := mgr.GetStats()
+	stats := mgr.GetStats(ctx)
 	if stats.TotalTriggers != 3 {
 		t.Errorf("TotalTriggers = %d, want 3", stats.TotalTriggers)
 	}
@@ -166,6 +172,7 @@ func TestHumanEscalation_Stats(t *testing.T) {
 
 // TestHumanEscalation_Concurrent 100 并发触发
 func TestHumanEscalation_Concurrent(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 	var wg sync.WaitGroup
@@ -194,11 +201,12 @@ func TestHumanEscalation_Concurrent(t *testing.T) {
 
 // TestHumanEscalation_CustomNotifier 自定义通知器
 func TestHumanEscalation_CustomNotifier(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 
 	received := make(chan *EscalationEvent, 1)
-	mgr.SetNotifier(&captureNotifier{ch: received})
+	mgr.SetNotifier(ctx, &captureNotifier{ch: received})
 
 	_ = mgr.TriggerCensorshipEscalation(ctx, "session_capture", "test_reason")
 
@@ -217,6 +225,7 @@ func TestHumanEscalation_CustomNotifier(t *testing.T) {
 
 // TestHumanEscalation_GatekeeperIntegration 与方向6 门禁阶段集成
 func TestHumanEscalation_GatekeeperIntegration(t *testing.T) {
+	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	mgr := NewHumanEscalationManager(c)
 	sessionID := "session_integration"

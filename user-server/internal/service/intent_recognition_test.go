@@ -642,7 +642,7 @@ func TestRecentIntents_Basic(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
 	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 10)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 2 {
 		t.Errorf("expected 2, got %d", len(list))
 	}
@@ -654,7 +654,7 @@ func TestRecentIntents_CustomerIsolation(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-2", "多少钱")
 	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 10)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -667,7 +667,7 @@ func TestRecentIntents_Limit(t *testing.T) {
 		rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	}
 	time.Sleep(500 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 3)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 3)
 	if len(list) != 3 {
 		t.Errorf("expected 3, got %d", len(list))
 	}
@@ -680,7 +680,7 @@ func TestRecentIntents_OrderDesc(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
 	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 10)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 2 {
 		t.Fatalf("expected 2, got %d", len(list))
 	}
@@ -818,7 +818,7 @@ func TestEntitiesToMap_BadJSON(t *testing.T) {
 // 78. recognizeByRule 优先级 - 完全匹配
 func TestRecognizeByRule_ExactPriority(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeByRule("这个多少钱？")
+	r := rec.recognizeByRule(context.Background(), "这个多少钱？")
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -830,7 +830,7 @@ func TestRecognizeByRule_ExactPriority(t *testing.T) {
 // 79. recognizeByRule 关键词降级
 func TestRecognizeByRule_KeywordFallback(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeByRule("随便问一下价格")
+	r := rec.recognizeByRule(context.Background(), "随便问一下价格")
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -839,7 +839,7 @@ func TestRecognizeByRule_KeywordFallback(t *testing.T) {
 // 80. recognizeByRule 零匹配
 func TestRecognizeByRule_NoMatch(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeByRule("xxxxxxxxxxxx")
+	r := rec.recognizeByRule(context.Background(), "xxxxxxxxxxxx")
 	if r != nil {
 		t.Error("expected nil for no match")
 	}
@@ -848,7 +848,7 @@ func TestRecognizeByRule_NoMatch(t *testing.T) {
 // 81. recognizeByRule 空格trim
 func TestRecognizeByRule_TrimSpaces(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeByRule("   多少钱   ")
+	r := rec.recognizeByRule(context.Background(), "   多少钱   ")
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -857,7 +857,7 @@ func TestRecognizeByRule_TrimSpaces(t *testing.T) {
 // 82. recognizeByRule 置信度封顶
 func TestRecognizeByRule_ConfCapped(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeByRule("价格太贵了不划算不值这个价")
+	r := rec.recognizeByRule(context.Background(), "价格太贵了不划算不值这个价")
 	if r == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -1133,7 +1133,7 @@ func TestRecognize_SameCustomerMultiple(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 10)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 3 {
 		t.Errorf("expected 3, got %d", len(list))
 	}
@@ -1158,7 +1158,7 @@ func TestRecognize_MultiSession(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-2", "u-1", "多少钱")
 	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents("u-1", 10)
+	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
 	if len(list) != 2 {
 		t.Errorf("expected 2 across sessions, got %d", len(list))
 	}

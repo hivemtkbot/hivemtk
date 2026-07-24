@@ -464,7 +464,7 @@ func TestHumanize_GetStyleForPlatform(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.platform, func(t *testing.T) {
-			style := p.getStyleForPlatform(c.platform)
+			style := p.getStyleForPlatform(context.Background(), c.platform)
 			if style.StyleName != c.expectName {
 				t.Errorf("platform=%q want name=%q got %q", c.platform, c.expectName, style.StyleName)
 			}
@@ -481,23 +481,23 @@ func TestHumanize_GetStyleForPlatform(t *testing.T) {
 func TestHumanize_TruncateByLengthBoundary(t *testing.T) {
 	p := NewHumanizePolisher()
 	// maxLen = 0 不截断
-	if out := p.truncateByLength("中文", 0); out != "中文" {
+	if out := p.truncateByLength(context.Background(), "中文", 0); out != "中文" {
 		t.Errorf("maxLen=0 should not truncate, got %q", out)
 	}
 	// maxLen = 1 截到 0 + … = "…"
-	if out := p.truncateByLength("中文", 1); out != "…" {
+	if out := p.truncateByLength(context.Background(), "中文", 1); out != "…" {
 		t.Errorf("maxLen=1 want '…' got %q", out)
 	}
 	// 不超长
-	if out := p.truncateByLength("abc", 10); out != "abc" {
+	if out := p.truncateByLength(context.Background(), "abc", 10); out != "abc" {
 		t.Errorf("len<max should not truncate, got %q", out)
 	}
 	// 正好等于
-	if out := p.truncateByLength("abcde", 5); out != "abcde" {
+	if out := p.truncateByLength(context.Background(), "abcde", 5); out != "abcde" {
 		t.Errorf("len==max should not truncate, got %q", out)
 	}
 	// 多 1 个
-	if out := p.truncateByLength("abcdef", 5); out != "abcd…" {
+	if out := p.truncateByLength(context.Background(), "abcdef", 5); out != "abcd…" {
 		t.Errorf("len>max should truncate, got %q", out)
 	}
 }
@@ -505,23 +505,23 @@ func TestHumanize_TruncateByLengthBoundary(t *testing.T) {
 func TestHumanize_ShouldAddParticle(t *testing.T) {
 	p := NewHumanizePolisher()
 	// 投诉不加
-	if p.shouldAddParticle(&PolishContext{Intent: "complaint"}) {
+	if p.shouldAddParticle(context.Background(), &PolishContext{Intent: "complaint"}) {
 		t.Error("complaint should not add particle")
 	}
-	if p.shouldAddParticle(&PolishContext{Intent: "churn"}) {
+	if p.shouldAddParticle(context.Background(), &PolishContext{Intent: "churn"}) {
 		t.Error("churn should not add particle")
 	}
-	if p.shouldAddParticle(&PolishContext{Intent: "after_sale"}) {
+	if p.shouldAddParticle(context.Background(), &PolishContext{Intent: "after_sale"}) {
 		t.Error("after_sale should not add particle")
 	}
 	// 其他加
-	if !p.shouldAddParticle(&PolishContext{Intent: "greeting"}) {
+	if !p.shouldAddParticle(context.Background(), &PolishContext{Intent: "greeting"}) {
 		t.Error("greeting should add particle")
 	}
-	if !p.shouldAddParticle(&PolishContext{Intent: "product_inquiry"}) {
+	if !p.shouldAddParticle(context.Background(), &PolishContext{Intent: "product_inquiry"}) {
 		t.Error("product_inquiry should add particle")
 	}
-	if !p.shouldAddParticle(nil) {
+	if !p.shouldAddParticle(context.Background(), nil) {
 		t.Error("nil context should add particle (default)")
 	}
 }
@@ -529,19 +529,19 @@ func TestHumanize_ShouldAddParticle(t *testing.T) {
 func TestHumanize_Personalize(t *testing.T) {
 	p := NewHumanizePolisher()
 	// 空名字
-	if out := p.personalize("ok", "", "wechat"); out != "ok" {
+	if out := p.personalize(context.Background(), "ok", "", "wechat"); out != "ok" {
 		t.Errorf("empty name should not personalize, got %q", out)
 	}
 	// 已包含名字
-	if out := p.personalize("王先生好", "王先生", "wechat"); out != "王先生好" {
+	if out := p.personalize(context.Background(), "王先生好", "王先生", "wechat"); out != "王先生好" {
 		t.Errorf("existing name should not duplicate, got %q", out)
 	}
 	// 已包含 亲
-	if out := p.personalize("亲，欢迎", "张三", "wechat"); out != "亲，欢迎" {
+	if out := p.personalize(context.Background(), "亲，欢迎", "张三", "wechat"); out != "亲，欢迎" {
 		t.Errorf("existing 亲 should not add, got %q", out)
 	}
 	// 已包含 您
-	if out := p.personalize("您说的对", "张三", "wechat"); out != "您说的对" {
+	if out := p.personalize(context.Background(), "您说的对", "张三", "wechat"); out != "您说的对" {
 		t.Errorf("existing 您 should not add, got %q", out)
 	}
 }

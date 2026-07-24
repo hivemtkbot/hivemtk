@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +16,9 @@ func dingtalkTestServer(t *testing.T, wantErrcode int, capture *url.Values) *htt
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if capture != nil {
 			q := r.URL.Query()
-			capture.Add("ts", q.Get(context.Background(), "ts"))
-			capture.Add("sign", q.Get(context.Background(), "sign"))
-			capture.Add("access_token", q.Get(context.Background(), "access_token"))
+			capture.Add("ts", q.Get("ts"))
+			capture.Add("sign", q.Get("sign"))
+			capture.Add("access_token", q.Get("access_token"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -43,7 +44,7 @@ func TestDingTalkSendRobot_HappyPath(t *testing.T) {
 	defer srv.Close()
 
 	svc := NewDingTalkService()
-	msgID, err := svc.SendRobot(srv.URL, "", "text", "hello dingtalk")
+	msgID, err := svc.SendRobot(context.Background(), srv.URL, "", "text", "hello dingtalk")
 	if err != nil {
 		t.Fatalf("SendRobot 失败: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestDingTalkSendRobot_AccessTokenOnly(t *testing.T) {
 	defer func() { dingtalkRobotBase = orig }()
 
 	svc := NewDingTalkService()
-	if _, err := svc.SendRobot("test-token-xyz", "", "text", "hi"); err != nil {
+	if _, err := svc.SendRobot(context.Background(), "test-token-xyz", "", "text", "hi"); err != nil {
 		t.Fatalf("仅 access_token 应自动拼接 base: %v", err)
 	}
 }
@@ -74,10 +75,10 @@ func TestDingTalkSendRobot_WithSign(t *testing.T) {
 
 	svc := NewDingTalkService()
 	// webhook|secret 形式携带加签密钥
-	if _, err := svc.SendRobot(srv.URL+"|my-secret", "", "text", "signed"); err != nil {
+	if _, err := svc.SendRobot(context.Background(), srv.URL+"|my-secret", "", "text", "signed"); err != nil {
 		t.Fatalf("带签名发送失败: %v", err)
 	}
-	if captured.Get(context.Background(), "sign") == "" || captured.Get(context.Background(), "ts") == "" {
+	if captured.Get("sign") == "" || captured.Get("ts") == "" {
 		t.Fatalf("加签模式下应携带 ts 与 sign 查询参数: %v", captured)
 	}
 }
@@ -87,14 +88,14 @@ func TestDingTalkSendRobot_ApiError(t *testing.T) {
 	defer srv.Close()
 
 	svc := NewDingTalkService()
-	if _, err := svc.SendRobot(srv.URL, "", "text", "boom"); err == nil {
+	if _, err := svc.SendRobot(context.Background(), srv.URL, "", "text", "boom"); err == nil {
 		t.Fatal("errcode != 0 应返回错误")
 	}
 }
 
 func TestDingTalkSendRobot_MissingWebhook(t *testing.T) {
 	svc := NewDingTalkService()
-	if _, err := svc.SendRobot("", "", "text", "x"); err == nil {
+	if _, err := svc.SendRobot(context.Background(), "", "", "text", "x"); err == nil {
 		t.Fatal("空 webhook 应返回错误")
 	}
 }
@@ -103,7 +104,7 @@ func TestIntegrationReachAdapter_SendDingTalk_NilService(t *testing.T) {
 	// 独立的适配器接线测试见 internal/aiagent/agent/tooluse 包（可访问私有字段）。
 	// 此处仅校验 DingTalkService 零值不会 nil panic（生产由 NewIntegrationReachAdapterFromDB 注入）。
 	svc := &DingTalkService{}
-	if _, err := svc.SendRobot("", "", "text", "x"); err == nil {
+	if _, err := svc.SendRobot(context.Background(), "", "", "text", "x"); err == nil {
 		t.Fatal("空 webhook 应返回错误（零值服务不应 panic）")
 	}
 }

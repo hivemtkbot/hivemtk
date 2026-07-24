@@ -47,7 +47,7 @@ func seedAIMessages(db *gorm.DB, sessionID string, contents []string, baseTime t
 			ContentType: "text",
 			CreatedAt:   baseTime.Add(time.Duration(i) * time.Minute),
 		}
-		if err := db.Create(context.Background(), &msg).Error; err != nil {
+		if err := db.Create(&msg).Error; err != nil {
 			panic(err)
 		}
 	}
@@ -63,7 +63,7 @@ func seedCustomerMessages(db *gorm.DB, sessionID string, contents []string, base
 			ContentType: "text",
 			CreatedAt:   baseTime.Add(time.Duration(i) * time.Minute),
 		}
-		if err := db.Create(context.Background(), &msg).Error; err != nil {
+		if err := db.Create(&msg).Error; err != nil {
 			panic(err)
 		}
 	}
@@ -328,7 +328,7 @@ func seedSOPAgent(db *gorm.DB, name string) uint {
 		IsActive: true,
 		Version:  1,
 	}
-	if err := db.Create(context.Background(), &agent).Error; err != nil {
+	if err := db.Create(&agent).Error; err != nil {
 		panic(err)
 	}
 	return agent.ID
@@ -344,7 +344,7 @@ func seedNodeTransition(db *gorm.DB, sopID, execID uint, toNode, nodeType, outco
 		Outcome:     outcome,
 		DurationMs:  durationMs,
 	}
-	if err := db.Create(context.Background(), &t).Error; err != nil {
+	if err := db.Create(&t).Error; err != nil {
 		panic(err)
 	}
 }
@@ -430,7 +430,7 @@ func TestAnalyzeNodeConversion_WithVariant(t *testing.T) {
 			SOPID: sopID, ExecutionID: uint(i + 1), Variant: "A",
 			ToNode: "node_a", NodeType: "llm", Outcome: model.NodeOutcomeSuccess,
 		}
-		db.Create(context.Background(), &t)
+		db.Create(&t)
 	}
 	// Variant B
 	for i := 0; i < 5; i++ {
@@ -438,7 +438,7 @@ func TestAnalyzeNodeConversion_WithVariant(t *testing.T) {
 			SOPID: sopID, ExecutionID: uint(i + 6), Variant: "B",
 			ToNode: "node_b", NodeType: "llm", Outcome: model.NodeOutcomeSuccess,
 		}
-		db.Create(context.Background(), &t)
+		db.Create(&t)
 	}
 
 	// 查询 Variant A
@@ -688,7 +688,7 @@ func TestReviewSuggestion_Approve(t *testing.T) {
 		SuggestionText: "test",
 		Status:         model.SuggestionStatusPending,
 	}
-	db.Create(context.Background(), &sug)
+	db.Create(&sug)
 
 	err := svc.ReviewSuggestion(context.Background(), sug.ID, 100, "approve")
 	if err != nil {
@@ -721,7 +721,7 @@ func TestReviewSuggestion_Apply(t *testing.T) {
 		SuggestionText: "test",
 		Status:         model.SuggestionStatusPending,
 	}
-	db.Create(context.Background(), &sug)
+	db.Create(&sug)
 
 	err := svc.ReviewSuggestion(context.Background(), sug.ID, 200, "apply")
 	if err != nil {
@@ -751,7 +751,7 @@ func TestReviewSuggestion_Reject(t *testing.T) {
 		SuggestionText: "test",
 		Status:         model.SuggestionStatusPending,
 	}
-	db.Create(context.Background(), &sug)
+	db.Create(&sug)
 
 	err := svc.ReviewSuggestion(context.Background(), sug.ID, 300, "reject")
 	if err != nil {
@@ -773,7 +773,7 @@ func TestReviewSuggestion_InvalidAction(t *testing.T) {
 	sug := model.OptimizationSuggestion{
 		SOPID: 1, SOPName: "test", NodeID: "n1", SuggestionText: "test", Status: model.SuggestionStatusPending,
 	}
-	db.Create(context.Background(), &sug)
+	db.Create(&sug)
 
 	err := svc.ReviewSuggestion(context.Background(), sug.ID, 100, "invalid")
 	if err == nil {
@@ -841,7 +841,7 @@ func TestListPendingSuggestions(t *testing.T) {
 			SuggestionText: "test", Status: model.SuggestionStatusPending,
 			Priority: i,
 		}
-		db.Create(context.Background(), &sug)
+		db.Create(&sug)
 	}
 	// 创建一条已审核的
 	applied := model.OptimizationSuggestion{
@@ -849,7 +849,7 @@ func TestListPendingSuggestions(t *testing.T) {
 		SuggestionType: model.SuggestionTypeBranchPrune,
 		SuggestionText: "applied", Status: model.SuggestionStatusApplied,
 	}
-	db.Create(context.Background(), &applied)
+	db.Create(&applied)
 
 	list, err := svc.ListPendingSuggestions(context.Background(), 1, 10)
 	if err != nil {
@@ -878,7 +878,7 @@ func TestListPendingSuggestions_PriorityOrder(t *testing.T) {
 			SuggestionText: "test", Status: model.SuggestionStatusPending,
 			Priority: p,
 		}
-		db.Create(context.Background(), &sug)
+		db.Create(&sug)
 	}
 
 	list, err := svc.ListPendingSuggestions(context.Background(), 1, 10)
@@ -913,12 +913,12 @@ func TestGetLatestProfile(t *testing.T) {
 			StaffID: 1, StaffName: "A", Scenario: "ai_champion",
 			Dimension: string(dim), Score: 60, GeneratedAt: now.Add(-2 * time.Hour),
 		}
-		db.Create(context.Background(), &s1)
+		db.Create(&s1)
 		s2 := model.SalesChampionProfileSnapshot{
 			StaffID: 1, StaffName: "A", Scenario: "ai_champion",
 			Dimension: string(dim), Score: 80, GeneratedAt: now.Add(-1 * time.Hour),
 		}
-		db.Create(context.Background(), &s2)
+		db.Create(&s2)
 	}
 
 	list, err := svc.GetLatestProfile(context.Background(), 1, "ai_champion")

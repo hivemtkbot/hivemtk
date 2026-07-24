@@ -32,7 +32,7 @@ func newMemoryService(t *testing.T) (*DialogueMemoryService, *gorm.DB) {
 // 1. 第一次创建
 func TestGetOrCreate_New(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem, err := svc.GetOrCreateMemory("s-1", "u-1")
+	mem, err := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,8 +47,8 @@ func TestGetOrCreate_New(t *testing.T) {
 // 2. 第二次获取
 func TestGetOrCreate_Existing(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetOrCreateMemory("s-1", "u-1")
-	mem2, _ := svc.GetOrCreateMemory("s-1", "u-1")
+	mem1, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	mem2, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	if mem1.ID != mem2.ID {
 		t.Errorf("expected same ID, got %d vs %d", mem1.ID, mem2.ID)
 	}
@@ -57,8 +57,8 @@ func TestGetOrCreate_Existing(t *testing.T) {
 // 3. 不同 session 独立
 func TestGetOrCreate_DiffSession(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetOrCreateMemory("s-1", "u-1")
-	mem2, _ := svc.GetOrCreateMemory("s-2", "u-1")
+	mem1, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	mem2, _ := svc.GetOrCreateMemory(context.Background(), "s-2", "u-1")
 	if mem1.ID == mem2.ID {
 		t.Error("expected different IDs")
 	}
@@ -67,7 +67,7 @@ func TestGetOrCreate_DiffSession(t *testing.T) {
 // 4. nil db
 func TestGetOrCreate_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	_, err := svc.GetOrCreateMemory("s-1", "u-1")
+	_, err := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -147,14 +147,14 @@ func TestShortTerm_FromHub(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 5; i++ {
-		db.Create(context.Background(), &model.MessageHub{
+		db.Create(&model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("msg %d", i),
 			ConversationID: "s-1", SentAt: now.Add(time.Duration(i) * time.Second),
 		})
 	}
-	msgs, err := svc.GetShortTermMemory("s-1")
+	msgs, err := svc.GetShortTermMemory(context.Background(), "s-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,18 +167,18 @@ func TestShortTerm_FromHub(t *testing.T) {
 func TestShortTerm_Order(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "first", ConversationID: "s-1", SentAt: now,
 	})
 	time.Sleep(10 * time.Millisecond)
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "second", ConversationID: "s-1", SentAt: time.Now(),
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2, got %d", len(msgs))
 	}
@@ -192,14 +192,14 @@ func TestShortTerm_Window(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 20; i++ {
-		db.Create(context.Background(), &model.MessageHub{
+		db.Create(&model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("msg %d", i),
 			ConversationID: "s-1", SentAt: now.Add(time.Duration(i) * time.Second),
 		})
 	}
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if len(msgs) != shortTermWindow {
 		t.Errorf("expected %d, got %d", shortTermWindow, len(msgs))
 	}
@@ -209,13 +209,13 @@ func TestShortTerm_Window(t *testing.T) {
 func TestShortTerm_OutboundIsAI(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "outbound", MsgType: "text",
 		SenderID: "a-1", ReceiverID: "u-1", Content: "AI reply",
 		ConversationID: "s-1", SentAt: now, IsAIReply: true,
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if msgs[0].Role != "ai" {
 		t.Errorf("expected ai, got %s", msgs[0].Role)
 	}
@@ -225,18 +225,18 @@ func TestShortTerm_OutboundIsAI(t *testing.T) {
 func TestShortTerm_SessionIsolation(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "session1", ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "session2", ConversationID: "s-2", SentAt: now,
 	})
-	msgs1, _ := svc.GetShortTermMemory("s-1")
-	msgs2, _ := svc.GetShortTermMemory("s-2")
+	msgs1, _ := svc.GetShortTermMemory(context.Background(), "s-1")
+	msgs2, _ := svc.GetShortTermMemory(context.Background(), "s-2")
 	if len(msgs1) != 1 || len(msgs2) != 1 {
 		t.Error("expected isolation")
 	}
@@ -245,7 +245,7 @@ func TestShortTerm_SessionIsolation(t *testing.T) {
 // 14. 短期记忆 - 空
 func TestShortTerm_Empty(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if len(msgs) != 0 {
 		t.Errorf("expected 0, got %d", len(msgs))
 	}
@@ -256,7 +256,7 @@ func TestShortTerm_Empty(t *testing.T) {
 // 15. 长期记忆 - 不存在则创建
 func TestLongTerm_NotFoundCreates(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem, _ := svc.GetLongTermMemory("s-1")
+	mem, _ := svc.GetLongTermMemory(context.Background(), "s-1")
 	if mem == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -268,8 +268,8 @@ func TestLongTerm_NotFoundCreates(t *testing.T) {
 // 16. 长期记忆 - 存在则返回
 func TestLongTerm_Exists(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetLongTermMemory("s-1")
-	mem2, _ := svc.GetLongTermMemory("s-1")
+	mem1, _ := svc.GetLongTermMemory(context.Background(), "s-1")
+	mem2, _ := svc.GetLongTermMemory(context.Background(), "s-1")
 	if mem1.ID != mem2.ID {
 		t.Error("expected same")
 	}
@@ -280,7 +280,7 @@ func TestLongTerm_Exists(t *testing.T) {
 // 17. 更新 name 事实
 func TestUpdateKeyFacts_Name(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerName != "Alice" {
@@ -291,7 +291,7 @@ func TestUpdateKeyFacts_Name(t *testing.T) {
 // 18. 更新 phone 事实
 func TestUpdateKeyFacts_Phone(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"phone": "13800001111"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"phone": "13800001111"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerPhone != "13800001111" {
@@ -302,7 +302,7 @@ func TestUpdateKeyFacts_Phone(t *testing.T) {
 // 19. 更新 wechat 事实
 func TestUpdateKeyFacts_Wechat(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"wechat": "wx123"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"wechat": "wx123"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerWechat != "wx123" {
@@ -313,7 +313,7 @@ func TestUpdateKeyFacts_Wechat(t *testing.T) {
 // 20. 更新 budget 事实
 func TestUpdateKeyFacts_Budget(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"budget": "10000"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"budget": "10000"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.Budget != "10000" {
@@ -324,7 +324,7 @@ func TestUpdateKeyFacts_Budget(t *testing.T) {
 // 21. 更新 demand 事实
 func TestUpdateKeyFacts_Demand(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"demand": "高性价比"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"demand": "高性价比"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.Demand != "高性价比" {
@@ -335,8 +335,8 @@ func TestUpdateKeyFacts_Demand(t *testing.T) {
 // 22. 多事实合并
 func TestUpdateKeyFacts_Merge(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice", "phone": "138"})
-	svc.UpdateKeyFacts("s-1", map[string]string{"wechat": "wx"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice", "phone": "138"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"wechat": "wx"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerName != "Alice" || mem.CustomerPhone != "138" || mem.CustomerWechat != "wx" {
@@ -347,8 +347,8 @@ func TestUpdateKeyFacts_Merge(t *testing.T) {
 // 23. 事实覆盖
 func TestUpdateKeyFacts_Override(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice"})
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Bob"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Bob"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerName != "Bob" {
@@ -359,7 +359,7 @@ func TestUpdateKeyFacts_Override(t *testing.T) {
 // 24. 自定义事实
 func TestUpdateKeyFacts_Custom(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"industry": "教育"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"industry": "教育"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.KeyFacts == nil {
@@ -372,7 +372,7 @@ func TestUpdateKeyFacts_Custom(t *testing.T) {
 // 25. 记录异议
 func TestRecordObjection_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordObjection("s-1", "price", "太贵了")
+	svc.RecordObjection(context.Background(), "s-1", "price", "太贵了")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.Objections) == 0 {
@@ -383,9 +383,9 @@ func TestRecordObjection_Basic(t *testing.T) {
 // 26. 多次记录异议
 func TestRecordObjection_Multiple(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordObjection("s-1", "price", "太贵了")
-	svc.RecordObjection("s-1", "need", "不需要")
-	svc.RecordObjection("s-1", "trust", "信不过")
+	svc.RecordObjection(context.Background(), "s-1", "price", "太贵了")
+	svc.RecordObjection(context.Background(), "s-1", "need", "不需要")
+	svc.RecordObjection(context.Background(), "s-1", "trust", "信不过")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.Objections) != 3 {
@@ -398,7 +398,7 @@ func TestRecordObjection_Multiple(t *testing.T) {
 // 27. 购买意向 high
 func TestUpdatePurchaseIntent_High(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "high")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "high")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.PurchaseIntent != "high" {
@@ -409,7 +409,7 @@ func TestUpdatePurchaseIntent_High(t *testing.T) {
 // 28. 购买意向 medium
 func TestUpdatePurchaseIntent_Medium(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "medium")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "medium")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.PurchaseIntent != "medium" {
@@ -420,7 +420,7 @@ func TestUpdatePurchaseIntent_Medium(t *testing.T) {
 // 29. 购买意向 low
 func TestUpdatePurchaseIntent_Low(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "low")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "low")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.PurchaseIntent != "low" {
@@ -431,7 +431,7 @@ func TestUpdatePurchaseIntent_Low(t *testing.T) {
 // 30. 非法值降级为 low
 func TestUpdatePurchaseIntent_Invalid(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "invalid")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "invalid")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.PurchaseIntent != "low" {
@@ -444,7 +444,7 @@ func TestUpdatePurchaseIntent_Invalid(t *testing.T) {
 // 31. 记录意图
 func TestRecordIntent_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordIntent("s-1", "price_inquiry")
+	svc.RecordIntent(context.Background(), "s-1", "price_inquiry")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.IntentTrail) == 0 {
@@ -455,9 +455,9 @@ func TestRecordIntent_Basic(t *testing.T) {
 // 32. 多次记录意图
 func TestRecordIntent_Multiple(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordIntent("s-1", "price_inquiry")
-	svc.RecordIntent("s-1", "objection_price")
-	svc.RecordIntent("s-1", "purchase")
+	svc.RecordIntent(context.Background(), "s-1", "price_inquiry")
+	svc.RecordIntent(context.Background(), "s-1", "objection_price")
+	svc.RecordIntent(context.Background(), "s-1", "purchase")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.IntentTrail) != 3 {
@@ -469,7 +469,7 @@ func TestRecordIntent_Multiple(t *testing.T) {
 func TestRecordIntent_OverflowTrim(t *testing.T) {
 	svc, db := newMemoryService(t)
 	for i := 0; i < 50; i++ {
-		svc.RecordIntent("s-1", fmt.Sprintf("intent-%d", i))
+		svc.RecordIntent(context.Background(), "s-1", fmt.Sprintf("intent-%d", i))
 	}
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
@@ -483,7 +483,7 @@ func TestRecordIntent_OverflowTrim(t *testing.T) {
 // 34. 记录 SOP
 func TestRecordSOP_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordSOP("s-1", "开场破冰")
+	svc.RecordSOP(context.Background(), "s-1", "开场破冰")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.SOPHistory) == 0 {
@@ -494,9 +494,9 @@ func TestRecordSOP_Basic(t *testing.T) {
 // 35. 多次记录 SOP
 func TestRecordSOP_Multiple(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.RecordSOP("s-1", "sop1")
-	svc.RecordSOP("s-1", "sop2")
-	svc.RecordSOP("s-1", "sop3")
+	svc.RecordSOP(context.Background(), "s-1", "sop1")
+	svc.RecordSOP(context.Background(), "s-1", "sop2")
+	svc.RecordSOP(context.Background(), "s-1", "sop3")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if len(mem.SOPHistory) != 3 {
@@ -509,9 +509,9 @@ func TestRecordSOP_Multiple(t *testing.T) {
 // 36. 客户列表
 func TestListByCustomer_Basic(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
-	svc.GetOrCreateMemory("s-2", "u-1")
-	list, total, _ := svc.ListByCustomerID("u-1", 10)
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-2", "u-1")
+	list, total, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if total != 2 {
 		t.Errorf("expected 2, got %d", total)
 	}
@@ -523,9 +523,9 @@ func TestListByCustomer_Basic(t *testing.T) {
 // 37. 客户隔离
 func TestListByCustomer_CustomerIsolation(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
-	svc.GetOrCreateMemory("s-2", "u-2")
-	list, _, _ := svc.ListByCustomerID("u-1", 10)
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-2", "u-2")
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -533,9 +533,9 @@ func TestListByCustomer_CustomerIsolation(t *testing.T) {
 
 func TestListByCustomer_MerchantIsolation(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
-	svc.GetOrCreateMemory("s-1", "u-1")
-	list, _, _ := svc.ListByCustomerID("u-1", 10)
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -545,9 +545,9 @@ func TestListByCustomer_MerchantIsolation(t *testing.T) {
 func TestListByCustomer_LimitCap(t *testing.T) {
 	svc, _ := newMemoryService(t)
 	for i := 0; i < 5; i++ {
-		svc.GetOrCreateMemory(fmt.Sprintf("s-%d", i), "u-1")
+		svc.GetOrCreateMemory(context.Background(), fmt.Sprintf("s-%d", i), "u-1")
 	}
-	list, _, _ := svc.ListByCustomerID("u-1", 2)
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 2)
 	if len(list) != 2 {
 		t.Errorf("expected 2, got %d", len(list))
 	}
@@ -556,8 +556,8 @@ func TestListByCustomer_LimitCap(t *testing.T) {
 // 40. 客户列表 - limit 0 修正为 10
 func TestListByCustomer_ZeroLimit(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
-	list, _, _ := svc.ListByCustomerID("u-1", 0)
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 0)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -566,8 +566,8 @@ func TestListByCustomer_ZeroLimit(t *testing.T) {
 // 41. 客户列表 - 超过200 截断
 func TestListByCustomer_OverLimit(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
-	list, _, _ := svc.ListByCustomerID("u-1", 9999)
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 9999)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -578,15 +578,15 @@ func TestListByCustomer_OverLimit(t *testing.T) {
 // 42. 构建上下文
 func TestBuildContext_Basic(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice"})
-	svc.UpdatePurchaseIntent("s-1", "high")
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice"})
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "high")
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "hi", ConversationID: "s-1", SentAt: now,
 	})
-	s, _ := svc.BuildContext("s-1", "u-1")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "Alice") {
 		t.Error("expected Alice in context")
 	}
@@ -601,8 +601,8 @@ func TestBuildContext_Basic(t *testing.T) {
 // 43. 上下文 - 含异议
 func TestBuildContext_WithObjection(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.RecordObjection("s-1", "price", "太贵了")
-	s, _ := svc.BuildContext("s-1", "u-1")
+	svc.RecordObjection(context.Background(), "s-1", "price", "太贵了")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "异议") {
 		t.Error("expected 异议 in context")
 	}
@@ -611,10 +611,10 @@ func TestBuildContext_WithObjection(t *testing.T) {
 // 44. 上下文 - 含摘要
 func TestBuildContext_WithSummary(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	db.Model(&model.DialogueMemory{}).Where("session_id = ?", "s-1").
 		Update("summary", "客户对价格敏感")
-	s, _ := svc.BuildContext("s-1", "u-1")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "客户对价格敏感") {
 		t.Error("expected summary in context")
 	}
@@ -623,7 +623,7 @@ func TestBuildContext_WithSummary(t *testing.T) {
 // 45. 上下文 - 空
 func TestBuildContext_Empty(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	s, _ := svc.BuildContext("s-1", "u-1")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if s == "" {
 		t.Error("expected non-empty")
 	}
@@ -707,11 +707,11 @@ func TestFullFlow(t *testing.T) {
 			Role: role, Content: fmt.Sprintf("msg %d", i), Timestamp: time.Now(),
 		})
 	}
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice", "phone": "138"})
-	svc.UpdatePurchaseIntent("s-1", "high")
-	svc.RecordObjection("s-1", "price", "太贵了")
-	svc.RecordIntent("s-1", "price_inquiry")
-	svc.RecordSOP("s-1", "开场破冰")
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice", "phone": "138"})
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "high")
+	svc.RecordObjection(context.Background(), "s-1", "price", "太贵了")
+	svc.RecordIntent(context.Background(), "s-1", "price_inquiry")
+	svc.RecordSOP(context.Background(), "s-1", "开场破冰")
 
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
@@ -755,14 +755,14 @@ func TestLastActiveAt_Update(t *testing.T) {
 // 55. 不同客户独立
 func TestDiffCustomer(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice"})
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Bob"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Alice"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "Bob"})
 	var mem1, mem2 model.DialogueMemory
 	db.First(&mem1, "session_id = ?", "s-1")
 	_ = mem2
 	// 测试 ListByCustomer 隔离
-	list1, _, _ := svc.ListByCustomerID("u-1", 10)
-	list2, _, _ := svc.ListByCustomerID("u-1", 10)
+	list1, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
+	list2, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	_ = list1
 	_ = list2
 }
@@ -770,7 +770,7 @@ func TestDiffCustomer(t *testing.T) {
 // 56. 字段默认值
 func TestDefaultFields(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem, _ := svc.GetOrCreateMemory("s-1", "u-1")
+	mem, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	if mem.KeyFacts == nil {
 		t.Error("expected non-nil key_facts")
 	}
@@ -809,12 +809,12 @@ func TestAppendMessage_LargeLoop(t *testing.T) {
 // 59. 短期记忆 - SenderName 不影响
 func TestShortTerm_DoesNotAffectHub(t *testing.T) {
 	svc, db := newMemoryService(t)
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "image",
 		SenderID: "u-1", Content: "img", ConversationID: "s-1", SentAt: time.Now(),
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if msgs[0].Content != "img" {
 		t.Errorf("expected img, got %s", msgs[0].Content)
 	}
@@ -824,12 +824,12 @@ func TestShortTerm_DoesNotAffectHub(t *testing.T) {
 func TestShortTerm_DifferentMsgType(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "audio",
 		SenderID: "u-1", Content: "audio", ConversationID: "s-1", SentAt: now,
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if len(msgs) != 1 {
 		t.Errorf("expected 1, got %d", len(msgs))
 	}
@@ -840,7 +840,7 @@ func TestShortTerm_DifferentMsgType(t *testing.T) {
 // 61-100. 各种事实/异议/意图组合
 func TestFacts_AllFields(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{
 		"name":     "Alice",
 		"phone":    "13800000000",
 		"wechat":   "wxid_001",
@@ -871,7 +871,7 @@ func TestFacts_AllFields(t *testing.T) {
 // 62. 中文长姓名
 func TestFacts_LongName(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "爱新觉罗·弘历"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "爱新觉罗·弘历"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerName != "爱新觉罗·弘历" {
@@ -882,7 +882,7 @@ func TestFacts_LongName(t *testing.T) {
 // 63. 空事实
 func TestUpdateKeyFacts_Empty(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	if err := svc.UpdateKeyFacts("s-1", map[string]string{}); err != nil {
+	if err := svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{}); err != nil {
 		t.Error(err)
 	}
 }
@@ -890,7 +890,7 @@ func TestUpdateKeyFacts_Empty(t *testing.T) {
 // 64. nil 事实
 func TestUpdateKeyFacts_Nil(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	if err := svc.UpdateKeyFacts("s-1", nil); err != nil {
+	if err := svc.UpdateKeyFacts(context.Background(), "s-1", nil); err != nil {
 		t.Error(err)
 	}
 }
@@ -898,8 +898,8 @@ func TestUpdateKeyFacts_Nil(t *testing.T) {
 // 65. 多次覆盖手机号
 func TestFacts_OverridePhone(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"phone": "111"})
-	svc.UpdateKeyFacts("s-1", map[string]string{"phone": "222"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"phone": "111"})
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"phone": "222"})
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.CustomerPhone != "222" {
@@ -910,7 +910,7 @@ func TestFacts_OverridePhone(t *testing.T) {
 // 66. 异议带特殊字符
 func TestRecordObjection_SpecialChar(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	if err := svc.RecordObjection("s-1", "price", "<>'\""); err != nil {
+	if err := svc.RecordObjection(context.Background(), "s-1", "price", "<>'\""); err != nil {
 		t.Error(err)
 	}
 }
@@ -918,7 +918,7 @@ func TestRecordObjection_SpecialChar(t *testing.T) {
 // 67. 购买意向大小写
 func TestUpdatePurchaseIntent_LowerCase(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "HIGH")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "HIGH")
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
 	if mem.PurchaseIntent != "low" {
@@ -929,8 +929,8 @@ func TestUpdatePurchaseIntent_LowerCase(t *testing.T) {
 // 68. 上下文 - 包含预算
 func TestBuildContext_WithBudget(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"budget": "100000"})
-	s, _ := svc.BuildContext("s-1", "u-1")
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"budget": "100000"})
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "100000") {
 		t.Error("expected 100000")
 	}
@@ -942,8 +942,8 @@ func TestBuildContext_WithBudget(t *testing.T) {
 // 69. 上下文 - 包含需求
 func TestBuildContext_WithDemand(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"demand": "高性价比"})
-	s, _ := svc.BuildContext("s-1", "u-1")
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"demand": "高性价比"})
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "需求") {
 		t.Error("expected 需求")
 	}
@@ -952,8 +952,8 @@ func TestBuildContext_WithDemand(t *testing.T) {
 // 70. 上下文 - 包含购买意向
 func TestBuildContext_WithPurchaseIntent(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.UpdatePurchaseIntent("s-1", "high")
-	s, _ := svc.BuildContext("s-1", "u-1")
+	svc.UpdatePurchaseIntent(context.Background(), "s-1", "high")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "购买意向") {
 		t.Error("expected 购买意向")
 	}
@@ -962,8 +962,8 @@ func TestBuildContext_WithPurchaseIntent(t *testing.T) {
 // 71. 上下文 - 包含客户姓名
 func TestBuildContext_WithName(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{"name": "张三"})
-	s, _ := svc.BuildContext("s-1", "u-1")
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "张三"})
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if !strings.Contains(s, "客户姓名") {
 		t.Error("expected 客户姓名")
 	}
@@ -975,10 +975,10 @@ func TestBuildContext_WithName(t *testing.T) {
 // 72. 客户列表 - 按时间倒序
 func TestListByCustomer_OrderDesc(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	time.Sleep(10 * time.Millisecond)
-	svc.GetOrCreateMemory("s-2", "u-1")
-	list, _, _ := svc.ListByCustomerID("u-1", 10)
+	svc.GetOrCreateMemory(context.Background(), "s-2", "u-1")
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if list[0].SessionID != "s-2" {
 		t.Errorf("expected s-2 first, got %s", list[0].SessionID)
 	}
@@ -987,7 +987,7 @@ func TestListByCustomer_OrderDesc(t *testing.T) {
 // 73. 客户列表 - 空客户
 func TestListByCustomer_EmptyCustomer(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	list, _, _ := svc.ListByCustomerID("u-nonexistent", 10)
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-nonexistent", 10)
 	if len(list) != 0 {
 		t.Errorf("expected 0, got %d", len(list))
 	}
@@ -996,7 +996,7 @@ func TestListByCustomer_EmptyCustomer(t *testing.T) {
 // 74. 意图记录 - 数字
 func TestRecordIntent_Number(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	if err := svc.RecordIntent("s-1", "123"); err != nil {
+	if err := svc.RecordIntent(context.Background(), "s-1", "123"); err != nil {
 		t.Error(err)
 	}
 }
@@ -1004,7 +1004,7 @@ func TestRecordIntent_Number(t *testing.T) {
 // 75. SOP记录 - 数字
 func TestRecordSOP_Number(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	if err := svc.RecordSOP("s-1", "123"); err != nil {
+	if err := svc.RecordSOP(context.Background(), "s-1", "123"); err != nil {
 		t.Error(err)
 	}
 }
@@ -1062,17 +1062,17 @@ func TestLastAction_UserNotUpdate(t *testing.T) {
 func TestShortTerm_AcrossAccounts(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "x", ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "y", ConversationID: "s-1", SentAt: now,
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if len(msgs) != 2 {
 		t.Errorf("expected 2, got %d", len(msgs))
 	}
@@ -1081,8 +1081,8 @@ func TestShortTerm_AcrossAccounts(t *testing.T) {
 // 81. GetLongTerm - 多session
 func TestLongTerm_MultiSession(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetLongTermMemory("s-1")
-	mem2, _ := svc.GetLongTermMemory("s-2")
+	mem1, _ := svc.GetLongTermMemory(context.Background(), "s-1")
+	mem2, _ := svc.GetLongTermMemory(context.Background(), "s-2")
 	if mem1.ID == mem2.ID {
 		t.Error("expected different")
 	}
@@ -1092,8 +1092,8 @@ func TestLongTerm_MultiSession(t *testing.T) {
 // 私域独立部署：以 session_id 为主键；同 session 不同 customer 返回同一记忆
 func TestGetOrCreate_DiffCustomer(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetOrCreateMemory("s-1", "u-1")
-	mem2, _ := svc.GetOrCreateMemory("s-1", "u-2")
+	mem1, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	mem2, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-2")
 	if mem1.ID != mem2.ID {
 		t.Error("私域独立部署：同 session_id 应返回同一记忆")
 	}
@@ -1102,7 +1102,7 @@ func TestGetOrCreate_DiffCustomer(t *testing.T) {
 // 83. 复杂事实值
 func TestUpdateKeyFacts_ComplexValue(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.UpdateKeyFacts("s-1", map[string]string{
+	svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{
 		"product":  "豪华版",
 		"quantity": "10",
 		"time":     "2026Q4",
@@ -1118,7 +1118,7 @@ func TestUpdateKeyFacts_ComplexValue(t *testing.T) {
 func TestRecordObjection_Ten(t *testing.T) {
 	svc, db := newMemoryService(t)
 	for i := 0; i < 10; i++ {
-		svc.RecordObjection("s-1", "type", fmt.Sprintf("content %d", i))
+		svc.RecordObjection(context.Background(), "s-1", "type", fmt.Sprintf("content %d", i))
 	}
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
@@ -1131,9 +1131,9 @@ func TestRecordObjection_Ten(t *testing.T) {
 func TestListByCustomer_Bulk(t *testing.T) {
 	svc, _ := newMemoryService(t)
 	for i := 0; i < 50; i++ {
-		svc.GetOrCreateMemory(fmt.Sprintf("s-%d", i), "u-1")
+		svc.GetOrCreateMemory(context.Background(), fmt.Sprintf("s-%d", i), "u-1")
 	}
-	list, total, _ := svc.ListByCustomerID("u-1", 100)
+	list, total, _ := svc.ListByCustomerID(context.Background(), "u-1", 100)
 	if total != 50 {
 		t.Errorf("expected 50, got %d", total)
 	}
@@ -1146,7 +1146,7 @@ func TestListByCustomer_Bulk(t *testing.T) {
 func TestRecordSOP_Ten(t *testing.T) {
 	svc, db := newMemoryService(t)
 	for i := 0; i < 10; i++ {
-		svc.RecordSOP("s-1", fmt.Sprintf("sop-%d", i))
+		svc.RecordSOP(context.Background(), "s-1", fmt.Sprintf("sop-%d", i))
 	}
 	var mem model.DialogueMemory
 	db.First(&mem, "session_id = ?", "s-1")
@@ -1158,10 +1158,10 @@ func TestRecordSOP_Ten(t *testing.T) {
 // 87. 上下文 - 含推荐
 func TestBuildContext_WithSuggestion(t *testing.T) {
 	svc, db := newMemoryService(t)
-	svc.GetOrCreateMemory("s-1", "u-1")
+	svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
 	db.Model(&model.DialogueMemory{}).Where("session_id = ?", "s-1").
 		Update("next_action_suggestion", "发送优惠券")
-	s, _ := svc.BuildContext("s-1", "u-1")
+	s, _ := svc.BuildContext(context.Background(), "s-1", "u-1")
 	if s == "" {
 		t.Error("expected non-empty")
 	}
@@ -1172,7 +1172,7 @@ func TestAppendMessage_CrossSession(t *testing.T) {
 	svc, _ := newMemoryService(t)
 	svc.AppendMessage(context.Background(), "s-1", "u-1", dto.Message{Role: "user", Content: "x", Timestamp: time.Now()})
 	svc.AppendMessage(context.Background(), "s-2", "u-1", dto.Message{Role: "user", Content: "y", Timestamp: time.Now()})
-	list, total, _ := svc.ListByCustomerID("u-1", 10)
+	list, total, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if total != 2 {
 		t.Errorf("expected 2, got %d", total)
 	}
@@ -1185,8 +1185,8 @@ func TestAppendMessage_CrossSession(t *testing.T) {
 // 私域独立部署：无 merchant_id 字段；同 customer 不同 session 各自独立
 func TestGetOrCreate_CrossMerchant(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	mem1, _ := svc.GetOrCreateMemory("s-1", "u-1")
-	mem2, _ := svc.GetOrCreateMemory("s-2", "u-1")
+	mem1, _ := svc.GetOrCreateMemory(context.Background(), "s-1", "u-1")
+	mem2, _ := svc.GetOrCreateMemory(context.Background(), "s-2", "u-1")
 	if mem1.ID == mem2.ID {
 		t.Error("expected different")
 	}
@@ -1197,14 +1197,14 @@ func TestShortTerm_OrderDESC(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 3; i++ {
-		db.Create(context.Background(), &model.MessageHub{
+		db.Create(&model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("c-%d", i),
 			ConversationID: "s-1", SentAt: now.Add(time.Duration(i) * time.Second),
 		})
 	}
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if msgs[0].Content != "c-0" {
 		t.Errorf("expected c-0 first, got %s", msgs[0].Content)
 	}
@@ -1214,19 +1214,19 @@ func TestShortTerm_OrderDESC(t *testing.T) {
 func TestShortTerm_RoleAssignment(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "user msg",
 		ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 
 		MsgID: "m-2", Direction: "outbound", MsgType: "text",
 		SenderID: "a-1", ReceiverID: "u-1", Content: "agent reply",
 		ConversationID: "s-1", SentAt: now.Add(1 * time.Second),
 	})
-	msgs, _ := svc.GetShortTermMemory("s-1")
+	msgs, _ := svc.GetShortTermMemory(context.Background(), "s-1")
 	if msgs[0].Role != "user" {
 		t.Errorf("expected user, got %s", msgs[0].Role)
 	}
@@ -1237,7 +1237,7 @@ func TestShortTerm_RoleAssignment(t *testing.T) {
 
 func TestListByCustomer_EmptyMerchant(t *testing.T) {
 	svc, _ := newMemoryService(t)
-	list, _, _ := svc.ListByCustomerID("u-1", 10)
+	list, _, _ := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if len(list) != 0 {
 		t.Errorf("expected 0")
 	}
@@ -1272,7 +1272,7 @@ func TestAppendMessage_NilDB(t *testing.T) {
 // 95. nil db 在 GetShortTermMemory
 func TestShortTerm_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	msgs, err := svc.GetShortTermMemory("s-1")
+	msgs, err := svc.GetShortTermMemory(context.Background(), "s-1")
 	if err != nil {
 		t.Error("expected nil err")
 	}
@@ -1284,7 +1284,7 @@ func TestShortTerm_NilDB(t *testing.T) {
 // 96. nil db 在 GetLongTermMemory
 func TestLongTerm_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	_, err := svc.GetLongTermMemory("s-1")
+	_, err := svc.GetLongTermMemory(context.Background(), "s-1")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -1293,7 +1293,7 @@ func TestLongTerm_NilDB(t *testing.T) {
 // 97. nil db 在 UpdateKeyFacts
 func TestUpdateKeyFacts_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	err := svc.UpdateKeyFacts("s-1", map[string]string{"name": "x"})
+	err := svc.UpdateKeyFacts(context.Background(), "s-1", map[string]string{"name": "x"})
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -1302,7 +1302,7 @@ func TestUpdateKeyFacts_NilDB(t *testing.T) {
 // 98. nil db 在 RecordObjection
 func TestRecordObjection_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	err := svc.RecordObjection("s-1", "t", "c")
+	err := svc.RecordObjection(context.Background(), "s-1", "t", "c")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -1311,7 +1311,7 @@ func TestRecordObjection_NilDB(t *testing.T) {
 // 99. nil db 在 RecordIntent
 func TestRecordIntent_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	err := svc.RecordIntent("s-1", "t")
+	err := svc.RecordIntent(context.Background(), "s-1", "t")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -1320,7 +1320,7 @@ func TestRecordIntent_NilDB(t *testing.T) {
 // 100. nil db 在 RecordSOP
 func TestRecordSOP_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	err := svc.RecordSOP("s-1", "sop")
+	err := svc.RecordSOP(context.Background(), "s-1", "sop")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -1329,7 +1329,7 @@ func TestRecordSOP_NilDB(t *testing.T) {
 // 101. nil db 在 ListByCustomer
 func TestListByCustomer_NilDB(t *testing.T) {
 	svc := NewDialogueMemoryService(nil, nil)
-	list, total, err := svc.ListByCustomerID("u-1", 10)
+	list, total, err := svc.ListByCustomerID(context.Background(), "u-1", 10)
 	if err != nil {
 		t.Error("expected nil err")
 	}

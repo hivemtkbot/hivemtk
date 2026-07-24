@@ -26,6 +26,7 @@ func setupSecurityAuditTestDB(t *testing.T) *gorm.DB {
 func TestSecurityAuditRepository_Create(t *testing.T) {
 	database := setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
+	ctx := context.Background()
 
 	now := time.Now()
 	record := &model.SecurityAuditResult{
@@ -34,7 +35,7 @@ func TestSecurityAuditRepository_Create(t *testing.T) {
 		StartedAt: &now,
 	}
 
-	err := repo.Create(record)
+	err := repo.Create(ctx, record)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -57,6 +58,7 @@ func TestSecurityAuditRepository_Create(t *testing.T) {
 func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 	database := setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
+	ctx := context.Background()
 
 	now := time.Now()
 	record := &model.SecurityAuditResult{
@@ -64,7 +66,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 		Status:    "running",
 		StartedAt: &now,
 	}
-	repo.Create(record)
+	repo.Create(ctx, record)
 
 	updates := map[string]any{
 		"status":        "completed",
@@ -97,6 +99,7 @@ func TestSecurityAuditRepository_UpdateResults(t *testing.T) {
 func TestSecurityAuditRepository_GetByID(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
+	ctx := context.Background()
 
 	now := time.Now()
 	record := &model.SecurityAuditResult{
@@ -104,9 +107,9 @@ func TestSecurityAuditRepository_GetByID(t *testing.T) {
 		Status:    "completed",
 		StartedAt: &now,
 	}
-	repo.Create(record)
+	repo.Create(ctx, record)
 
-	result, err := repo.GetByID(record.ID)
+	result, err := repo.GetByID(ctx, record.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -119,8 +122,9 @@ func TestSecurityAuditRepository_GetByID(t *testing.T) {
 func TestSecurityAuditRepository_GetByID_NotFound(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
+	ctx := context.Background()
 
-	_, err := repo.GetByID99999)
+	_, err := repo.GetByID(ctx, 99999)
 	if err == nil {
 		t.Error("expected error for non-existent ID")
 	}
@@ -130,11 +134,12 @@ func TestSecurityAuditRepository_GetByID_NotFound(t *testing.T) {
 func TestSecurityAuditRepository_List(t *testing.T) {
 	setupSecurityAuditTestDB(t)
 	repo := NewSecurityAuditRepository()
+	ctx := context.Background()
 
 	// 创建 5 条记录
 	for i := 0; i < 5; i++ {
 		now := time.Now()
-		repo.Create(ctx, &model.SecurityAuditResult){
+		repo.Create(ctx, &model.SecurityAuditResult{
 			AuditName: fmt.Sprintf("audit_%d", i),
 			Status:    "completed",
 			StartedAt: &now,

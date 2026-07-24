@@ -35,6 +35,7 @@ func setupBackupRepositories(t *testing.T) (*BackupRepository, *RestoreRecordRep
 // TestBackupRepository_Create 测试创建备份记录
 func TestBackupRepository_Create(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	now := time.Now()
 	tests := []struct {
@@ -91,7 +92,7 @@ func TestBackupRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := backupRepo.Create(tt.backup)
+			err := backupRepo.Create(ctx, tt.backup)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -107,6 +108,7 @@ func TestBackupRepository_Create(t *testing.T) {
 // TestBackupRepository_GetByID 测试根据 ID 获取备份记录
 func TestBackupRepository_GetByID(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	backup := &model.Backup{
@@ -116,7 +118,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 		FileSize:   512,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(ctx, backup)
 
 	tests := []struct {
 		name    string
@@ -137,7 +139,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := backupRepo.GetByID(tt.id)
+			result, err := backupRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -158,6 +160,7 @@ func TestBackupRepository_GetByID(t *testing.T) {
 // TestBackupRepository_Update 测试更新备份记录
 func TestBackupRepository_Update(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	backup := &model.Backup{
@@ -166,7 +169,7 @@ func TestBackupRepository_Update(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(ctx, backup)
 
 	tests := []struct {
 		name       string
@@ -203,7 +206,7 @@ func TestBackupRepository_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.updateFunc(backup)
-			err := backupRepo.Update(backup)
+			err := backupRepo.Update(ctx, backup)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
@@ -211,7 +214,7 @@ func TestBackupRepository_Update(t *testing.T) {
 
 			if !tt.wantErr {
 				// 验证更新
-				updated, _ := backupRepo.GetByID(backup.ID)
+				updated, _ := backupRepo.GetByID(ctx, backup.ID)
 				if updated.Status != backup.Status {
 					t.Errorf("Expected status '%s', got '%s'", backup.Status, updated.Status)
 				}
@@ -223,6 +226,7 @@ func TestBackupRepository_Update(t *testing.T) {
 // TestBackupRepository_Delete 测试删除备份记录
 func TestBackupRepository_Delete(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	backup := &model.Backup{
@@ -231,7 +235,7 @@ func TestBackupRepository_Delete(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(ctx, backup)
 
 	tests := []struct {
 		name        string
@@ -255,14 +259,14 @@ func TestBackupRepository_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := backupRepo.Delete(tt.id)
+			err := backupRepo.Delete(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if tt.name == "delete existing backup" {
-				_, err := backupRepo.GetByID(tt.id)
+				_, err := backupRepo.GetByID(ctx, tt.id)
 				if err == nil {
 					t.Error("Expected backup to be deleted")
 				}
@@ -274,27 +278,28 @@ func TestBackupRepository_Delete(t *testing.T) {
 // TestBackupRepository_GetRecentBackups 测试获取最近的备份记录
 func TestBackupRepository_GetRecentBackups(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据 - 不同状态的备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Completed 1",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Completed 2",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Pending",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Failed",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusFailed,
@@ -334,20 +339,21 @@ func TestBackupRepository_GetRecentBackups(t *testing.T) {
 // TestBackupRepository_CleanupOldBackups 测试清理旧的备份记录
 func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 	backupRepo, _ := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	now := time.Now()
 	oldDate := now.AddDate(0, 0, -31) // 31 天前
 
 	// 创建旧备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Old Backup 1",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
 		CreatedAt:  oldDate,
 		CreatedBy:  1,
 	})
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "Old Backup 2",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
@@ -356,7 +362,7 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 	})
 
 	// 创建新备份
-	backupRepo.Create(&model.Backup{
+	backupRepo.Create(ctx, &model.Backup{
 		BackupName: "New Backup",
 		BackupType: model.BackupTypeFull,
 		Status:     model.BackupStatusCompleted,
@@ -385,6 +391,7 @@ func TestBackupRepository_CleanupOldBackups(t *testing.T) {
 // TestRestoreRecordRepository_Create 测试创建恢复记录
 func TestRestoreRecordRepository_Create(t *testing.T) {
 	_, restoreRepo := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	now := time.Now()
 	tests := []struct {
@@ -428,7 +435,7 @@ func TestRestoreRecordRepository_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := restoreRepo.Create(tt.record)
+			err := restoreRepo.Create(ctx, tt.record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
@@ -444,6 +451,7 @@ func TestRestoreRecordRepository_Create(t *testing.T) {
 // TestRestoreRecordRepository_GetByID 测试根据 ID 获取恢复记录
 func TestRestoreRecordRepository_GetByID(t *testing.T) {
 	_, restoreRepo := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	record := &model.RestoreRecord{
@@ -451,7 +459,7 @@ func TestRestoreRecordRepository_GetByID(t *testing.T) {
 		BackupName: "GetByID Restore",
 		Status:     "completed",
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(ctx, record)
 
 	tests := []struct {
 		name    string
@@ -472,7 +480,7 @@ func TestRestoreRecordRepository_GetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := restoreRepo.GetByID(tt.id)
+			result, err := restoreRepo.GetByID(ctx, tt.id)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetByID() error = %v, wantErr %v", err, tt.wantErr)
@@ -493,6 +501,7 @@ func TestRestoreRecordRepository_GetByID(t *testing.T) {
 // TestRestoreRecordRepository_Update 测试更新恢复记录
 func TestRestoreRecordRepository_Update(t *testing.T) {
 	_, restoreRepo := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据
 	record := &model.RestoreRecord{
@@ -500,7 +509,7 @@ func TestRestoreRecordRepository_Update(t *testing.T) {
 		BackupName: "Original Restore",
 		Status:     "pending",
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(ctx, record)
 
 	tests := []struct {
 		name       string
@@ -527,14 +536,14 @@ func TestRestoreRecordRepository_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.updateFunc(record)
-			err := restoreRepo.Update(record)
+			err := restoreRepo.Update(ctx, record)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				updated, _ := restoreRepo.GetByID(record.ID)
+				updated, _ := restoreRepo.GetByID(ctx, record.ID)
 				if updated.Status != record.Status {
 					t.Errorf("Expected status '%s', got '%s'", record.Status, updated.Status)
 				}
@@ -546,19 +555,20 @@ func TestRestoreRecordRepository_Update(t *testing.T) {
 // TestRestoreRecordRepository_GetLastRestore 测试获取最近一次恢复记录
 func TestRestoreRecordRepository_GetLastRestore(t *testing.T) {
 	_, restoreRepo := setupBackupRepositories(t)
+	ctx := context.Background()
 
 	// 创建测试数据 - 按时间顺序创建（最后创建的就是最近一次）
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(ctx, &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "First Restore",
 		Status:     "completed",
 	})
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(ctx, &model.RestoreRecord{
 		BackupID:   2,
 		BackupName: "Second Restore",
 		Status:     "completed",
 	})
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(ctx, &model.RestoreRecord{
 		BackupID:   3,
 		BackupName: "Last Restore",
 		Status:     "completed",

@@ -32,14 +32,15 @@ for p in "$LLM_PORT" "$EMBEDDING_PORT" "$RERANK_PORT"; do
   fi
 done
 
-# 记录预热开始时间
+# 记录预热开始时间（秒级；macOS date 不支持 %3N 毫秒）
 warmup_start=$(date +%s)
 
 # ------------------------------------------------------------
 # 并行预热三服务（各自后台执行，最后 wait）
 # ------------------------------------------------------------
 warmup_llm() {
-  local start=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local start
+  start=$(date +%s)
   echo "[warmup] LLM 预热中（3 轮：短/中/长 prompt）..."
 
   # 第 1 轮：短 prompt（触发 KV-cache 编译）
@@ -66,13 +67,15 @@ warmup_llm() {
     --max-time 120 || echo "000")
   [ "$code3" = "200" ] || { log_err "LLM 预热第 3 轮失败 (HTTP $code3)"; return 1; }
 
-  local end=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local end
+  end=$(date +%s)
   local elapsed=$(( end - start ))
-  log_ok "LLM 预热完成（3 轮，${elapsed}ms）"
+  log_ok "LLM 预热完成（3 轮，${elapsed}s）"
 }
 
 warmup_embedding() {
-  local start=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local start
+  start=$(date +%s)
   echo "[warmup] Embedding 预热中（2 轮：单条/批量）..."
 
   # 第 1 轮：单条短文本

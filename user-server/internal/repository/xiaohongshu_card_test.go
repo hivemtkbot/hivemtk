@@ -87,7 +87,7 @@ func TestXiaohongshuCardRepository_GetByID(t *testing.T) {
 		Description: "GetByID Description",
 		IsActive:    true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	tests := []struct {
 		name    string
@@ -242,7 +242,7 @@ func TestXiaohongshuCardRepository_Update(t *testing.T) {
 		Description: "Original Description",
 		IsActive:    true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	card.Title = "Updated Title"
 	shortLinkID := uint(123)
@@ -271,14 +271,14 @@ func TestXiaohongshuCardRepository_Delete(t *testing.T) {
 		Title:    "To Delete",
 		IsActive: true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	err := repo.Delete(ctx, card.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(card.ID)
+	_, err = repo.GetByID(ctx, card.ID)
 	if err == nil {
 		t.Error("Expected card to be deleted")
 	}
@@ -294,7 +294,7 @@ func TestXiaohongshuCardRepository_IncrementViewCount(t *testing.T) {
 		Title:     "View Count Test",
 		ViewCount: 0,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	updated, err := repo.IncrementViewCount(context.Background(), card.ID)
 	if err != nil {
@@ -316,7 +316,7 @@ func TestXiaohongshuCardRepository_CreateActivity(t *testing.T) {
 		Title:    "Activity Test Card",
 		IsActive: true,
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	// 创建测试数据
 	activity := &model.XiaohongshuCardActivity{
@@ -350,7 +350,7 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 	card := &model.XiaohongshuCard{
 		Title: "ShortLink Test",
 	}
-	repo.Create(card)
+	repo.Create(ctx, card)
 
 	shortLinkID := uint(456)
 	err := repo.UpdateShortLinkID(context.Background(), card.ID, &shortLinkID)
@@ -358,7 +358,7 @@ func TestXiaohongshuCardRepository_UpdateShortLinkID(t *testing.T) {
 		t.Errorf("UpdateShortLinkID() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(card.ID)
+	updated, _ := repo.GetByID(ctx, card.ID)
 	if updated.ShortLinkID == nil || *updated.ShortLinkID != 456 {
 		t.Errorf("Expected ShortLinkID 456, got %v", updated.ShortLinkID)
 	}

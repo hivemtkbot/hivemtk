@@ -422,14 +422,14 @@ func TestGetIntentLogs_ByCustomerID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	// 写入测试数据
 	now := time.Now()
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-A", SessionID: "s-A", Message: "msg1",
+	db.Create(&model.IntentLog{CustomerID: "c-A", SessionID: "s-A", Message: "msg1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-B", SessionID: "s-B", Message: "msg2",
+	db.Create(&model.IntentLog{CustomerID: "c-B", SessionID: "s-B", Message: "msg2",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.8, Method: "rule", Timestamp: now})
 
-	logs, err := rec.GetIntentLogs("c-A", "", 10)
+	logs, err := rec.GetIntentLogs(context.Background(), "c-A", "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,14 +445,14 @@ func TestGetIntentLogs_ByCustomerID(t *testing.T) {
 func TestGetIntentLogs_ByMajor(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg1",
+	db.Create(&model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg2",
+	db.Create(&model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg2",
 		IntentMajor: IntentMajorComplaint, IntentMinor: IntentMinorComplaintService,
 		Confidence: 0.85, Method: "rule", Timestamp: now})
 
-	logs, err := rec.GetIntentLogs("", IntentMajorComplaint, 10)
+	logs, err := rec.GetIntentLogs(context.Background(), "", IntentMajorComplaint, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -469,11 +469,11 @@ func TestGetIntentLogs_LimitTruncation(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
 	for i := 0; i < 5; i++ {
-		db.Create(context.Background(), &model.IntentLog{CustomerID: "c-L", SessionID: "s-L", Message: "msg",
+		db.Create(&model.IntentLog{CustomerID: "c-L", SessionID: "s-L", Message: "msg",
 			IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 			Confidence: 0.9, Method: "rule", Timestamp: now})
 	}
-	logs, err := rec.GetIntentLogs("c-L", "", 2)
+	logs, err := rec.GetIntentLogs(context.Background(), "c-L", "", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -485,7 +485,7 @@ func TestGetIntentLogs_LimitTruncation(t *testing.T) {
 // 35. GetIntentLogs limit 默认值
 func TestGetIntentLogs_LimitDefault(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	logs, err := rec.GetIntentLogs("", "", 0)
+	logs, err := rec.GetIntentLogs(context.Background(), "", "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,17 +501,17 @@ func TestGetIntentLogs_LimitDefault(t *testing.T) {
 func TestGetIntentLogStats_ByMajor(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-1", SessionID: "s-1", Message: "m",
+	db.Create(&model.IntentLog{CustomerID: "c-1", SessionID: "s-1", Message: "m",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-2", SessionID: "s-2", Message: "m",
+	db.Create(&model.IntentLog{CustomerID: "c-2", SessionID: "s-2", Message: "m",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.8, Method: "rule", Timestamp: now})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-3", SessionID: "s-3", Message: "m",
+	db.Create(&model.IntentLog{CustomerID: "c-3", SessionID: "s-3", Message: "m",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.7, Method: "rule", Timestamp: now})
 
-	stats, err := rec.GetIntentLogStats(7)
+	stats, err := rec.GetIntentLogStats(context.Background(), 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +533,7 @@ func TestGetIntentLogStats_ByMajor(t *testing.T) {
 // 37. GetIntentLogStats 默认 7 天
 func TestGetIntentLogStats_DefaultDays(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	stats, err := rec.GetIntentLogStats(0)
+	stats, err := rec.GetIntentLogStats(context.Background(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,17 +549,17 @@ func TestGetIntentLogStats_DefaultDays(t *testing.T) {
 func TestQueryIntentLogsByTraceID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m1",
+	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", TraceID: "trace-abc", Timestamp: now})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m2",
+	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m2",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.8, Method: "rule", TraceID: "trace-abc", Timestamp: now.Add(time.Second)})
-	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m3",
+	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m3",
 		IntentMajor: IntentMajorComplaint, IntentMinor: IntentMinorComplaintService,
 		Confidence: 0.7, Method: "rule", TraceID: "trace-other", Timestamp: now})
 
-	logs, err := rec.QueryIntentLogsByTraceID("trace-abc")
+	logs, err := rec.QueryIntentLogsByTraceID(context.Background(), "trace-abc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +575,7 @@ func TestQueryIntentLogsByTraceID(t *testing.T) {
 // 39. QueryIntentLogsByTraceID 空 trace_id 返回 nil
 func TestQueryIntentLogsByTraceID_EmptyTraceID(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	logs, err := rec.QueryIntentLogsByTraceID("")
+	logs, err := rec.QueryIntentLogsByTraceID(context.Background(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -659,7 +659,7 @@ func TestGetDefaultMinor(t *testing.T) {
 // 43. recognizeFineByRule 空字符串
 func TestRecognizeFineByRule_Empty(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	if r := rec.recognizeFineByRule(""); r != nil {
+	if r := rec.recognizeFineByRule(context.Background(), ""); r != nil {
 		t.Errorf("expected nil for empty, got %+v", r)
 	}
 }
@@ -667,7 +667,7 @@ func TestRecognizeFineByRule_Empty(t *testing.T) {
 // 44. recognizeFineByRule 未命中
 func TestRecognizeFineByRule_NoMatch(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	if r := rec.recognizeFineByRule("asdfqwer"); r != nil {
+	if r := rec.recognizeFineByRule(context.Background(), "asdfqwer"); r != nil {
 		t.Errorf("expected nil for no match, got %+v", r)
 	}
 }
@@ -675,7 +675,7 @@ func TestRecognizeFineByRule_NoMatch(t *testing.T) {
 // 45. recognizeFineByRule 命中子类
 func TestRecognizeFineByRule_HitMinor(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	r := rec.recognizeFineByRule("我要退货退款")
+	r := rec.recognizeFineByRule(context.Background(), "我要退货退款")
 	if r == nil {
 		t.Fatal("expected non-nil result")
 	}
@@ -703,7 +703,7 @@ func TestRecognizeFineByRule_MultiKeywordBestScore(t *testing.T) {
 func TestRecognizeFineByRule_MajorOnlyFallback(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	// "报价" 是 price_inquiry 大类关键词，未命中具体子类
-	r := rec.recognizeFineByRule("请给我报价")
+	r := rec.recognizeFineByRule(context.Background(), "请给我报价")
 	if r == nil {
 		t.Fatal("expected non-nil result for major-only hit")
 	}

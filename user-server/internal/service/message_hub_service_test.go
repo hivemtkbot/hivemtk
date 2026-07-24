@@ -1345,7 +1345,7 @@ func TestNormalize_AIReply(t *testing.T) {
 func TestConsume_WithDBFallback(t *testing.T) {
 	svc, db := newTestService(t)
 	// 直接插库，跳过队列
-	db.Create(context.Background(), &model.MessageHub{
+	db.Create(&model.MessageHub{
 		MsgID:     "db-1",
 		Platform:  "wecom",
 		AccountID: "db-acc",

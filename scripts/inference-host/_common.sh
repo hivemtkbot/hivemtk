@@ -162,10 +162,15 @@ start_role() {
   if [[ "$ENABLE_METRICS" == "true" ]]; then
     extra+=(--metrics)
   fi
+  # 日志前缀（时间戳 + role），便于排查
+  extra+=(--log-prefix)
   # 模型别名：确保 API 的 model 字段与 config.yaml 一致
   # 各 role 的 SERVED_NAME 变量名格式：${ROLE}_SERVED_NAME（如 LLM_SERVED_NAME）
+  # 注意：${role^^} 是 bash 4.0+ 语法，macOS 默认 bash 3.2 不支持，用 tr 转大写
   if [[ "$USE_ALIAS" == "true" ]]; then
-    local served_name_var="${role^^}_SERVED_NAME"
+    local role_upper
+    role_upper=$(echo "$role" | tr '[:lower:]' '[:upper:]')
+    local served_name_var="${role_upper}_SERVED_NAME"
     local served_name="${!served_name_var:-}"
     if [[ -n "$served_name" ]]; then
       extra+=(--alias "$served_name")

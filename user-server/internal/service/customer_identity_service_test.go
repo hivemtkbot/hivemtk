@@ -45,7 +45,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_Phone(t *testing.T) {
 		Phone: "13800138040",
 	}
 
-	customer, err := service.IdentifyOrCreate(identifiers)
+	customer, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate failed: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_Email(t *testing.T) {
 		Email: "test@example.com",
 	}
 
-	customer, err := service.IdentifyOrCreate(identifiers)
+	customer, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate failed: %v", err)
 	}
@@ -84,10 +84,10 @@ func TestCustomerIdentityService_IdentifyOrCreate_Existing(t *testing.T) {
 	identifiers := identity.Identifiers{
 		Phone: "13800138041",
 	}
-	first, _ := service.IdentifyOrCreate(identifiers)
+	first, _ := service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 再次识别（使用相同手机号）
-	second, err := service.IdentifyOrCreate(identifiers)
+	second, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate second time failed: %v", err)
 	}
@@ -105,14 +105,14 @@ func TestCustomerIdentityService_IdentifyOrCreate_Priority(t *testing.T) {
 	phoneIdentifiers := identity.Identifiers{
 		Phone: "13800138042",
 	}
-	first, _ := service.IdentifyOrCreate(phoneIdentifiers)
+	first, _ := service.IdentifyOrCreate(context.Background(), phoneIdentifiers)
 
 	// 使用邮箱 + 手机号识别（应该匹配现有客户）
 	combinedIdentifiers := identity.Identifiers{
 		Phone: "13800138042",
 		Email: "new@example.com",
 	}
-	second, err := service.IdentifyOrCreate(combinedIdentifiers)
+	second, err := service.IdentifyOrCreate(context.Background(), combinedIdentifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate with combined failed: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_NoIdentity(t *testing.T) {
 
 	identifiers := identity.Identifiers{}
 
-	_, err := service.IdentifyOrCreate(identifiers)
+	_, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != ErrIdentityNotFound {
 		t.Errorf("Expected ErrIdentityNotFound, got %v", err)
 	}
@@ -142,10 +142,10 @@ func TestCustomerIdentityService_Identify(t *testing.T) {
 	identifiers := identity.Identifiers{
 		Phone: "13800138043",
 	}
-	service.IdentifyOrCreate(identifiers)
+	service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 识别
-	found, err := service.Identify(identifiers)
+	found, err := service.Identify(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("Identify failed: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestCustomerIdentityService_Identify_NotFound(t *testing.T) {
 		Phone: "13800138999", // 不存在的手机号
 	}
 
-	_, err := service.Identify(identifiers)
+	_, err := service.Identify(context.Background(), identifiers)
 	if err != ErrIdentityNotFound {
 		t.Errorf("Expected ErrIdentityNotFound, got %v", err)
 	}
@@ -180,10 +180,10 @@ func TestCustomerIdentityService_LinkIdentity(t *testing.T) {
 	identifiers := identity.Identifiers{
 		Phone: "13800138044",
 	}
-	customer, _ := service.IdentifyOrCreate(identifiers)
+	customer, _ := service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 绑定邮箱
-	err := service.LinkIdentity(customer.ID, "", "linked@example.com", "", "")
+	err := service.LinkIdentity(context.Background(), customer.ID, "", "linked@example.com", "", "")
 	if err != nil {
 		t.Fatalf("LinkIdentity failed: %v", err)
 	}
@@ -200,11 +200,11 @@ func TestCustomerIdentityService_LinkIdentity_Conflict(t *testing.T) {
 	service := setupCustomerIdentityService(t)
 
 	// 创建两个客户
-	customer1, _ := service.IdentifyOrCreate(identity.Identifiers{Phone: "13800138045"})
-	_, _ = service.IdentifyOrCreate(identity.Identifiers{Email: "existing@example.com"})
+	customer1, _ := service.IdentifyOrCreate(context.Background(), identity.Identifiers{Phone: "13800138045"})
+	_, _ = service.IdentifyOrCreate(context.Background(), identity.Identifiers{Email: "existing@example.com"})
 
 	// 尝试将 customer1 绑定到 customer2 的邮箱
-	err := service.LinkIdentity(customer1.ID, "", "existing@example.com", "", "")
+	err := service.LinkIdentity(context.Background(), customer1.ID, "", "existing@example.com", "", "")
 	if err == nil {
 		t.Error("Expected error when linking conflicting email")
 	}
@@ -218,10 +218,10 @@ func TestCustomerIdentityService_GetCustomerByUnifiedID(t *testing.T) {
 	identifiers := identity.Identifiers{
 		Phone: "13800138046",
 	}
-	customer, _ := service.IdentifyOrCreate(identifiers)
+	customer, _ := service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 通过 UnifiedID 获取
-	found, err := service.GetCustomerByUnifiedID(customer.UnifiedID)
+	found, err := service.GetCustomerByUnifiedID(context.Background(), customer.UnifiedID)
 	if err != nil {
 		t.Fatalf("GetCustomerByUnifiedID failed: %v", err)
 	}
@@ -241,10 +241,10 @@ func TestCustomerIdentityService_ResolveIdentity(t *testing.T) {
 		Email:        "resolve@example.com",
 		WechatOpenID: "wechat_resolve",
 	}
-	service.IdentifyOrCreate(identifiers)
+	service.IdentifyOrCreate(context.Background(), identifiers)
 
 	// 解析（应该只返回一个客户）
-	customers, err := service.ResolveIdentity(identity.Identifiers{
+	customers, err := service.ResolveIdentity(context.Background(), identity.Identifiers{
 		Phone: "13800138047",
 	})
 	if err != nil {
@@ -264,7 +264,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_Wechat(t *testing.T) {
 		WechatOpenID: "wechat_open_id_123",
 	}
 
-	customer, err := service.IdentifyOrCreate(identifiers)
+	customer, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate failed: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_Douyin(t *testing.T) {
 		DouyinOpenID: "douyin_open_id_456",
 	}
 
-	customer, err := service.IdentifyOrCreate(identifiers)
+	customer, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate failed: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestCustomerIdentityService_IdentifyOrCreate_SingleTenant(t *testing.T) {
 		Phone: "13800138048",
 	}
 
-	customer, err := service.IdentifyOrCreate(identifiers)
+	customer, err := service.IdentifyOrCreate(context.Background(), identifiers)
 	if err != nil {
 		t.Fatalf("IdentifyOrCreate in single-tenant should not return error, got: %v", err)
 	}
@@ -319,12 +319,12 @@ func TestCustomerIdentityService_LinkIdentity_Wechat(t *testing.T) {
 	service := setupCustomerIdentityService(t)
 
 	// 创建客户
-	customer, _ := service.IdentifyOrCreate(identity.Identifiers{
+	customer, _ := service.IdentifyOrCreate(context.Background(), identity.Identifiers{
 		Phone: "13800138049",
 	})
 
 	// 绑定微信
-	err := service.LinkIdentity(customer.ID, "", "", "wechat_bind", "")
+	err := service.LinkIdentity(context.Background(), customer.ID, "", "", "wechat_bind", "")
 	if err != nil {
 		t.Fatalf("LinkIdentity failed: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestCustomerIdentityService_UpdateIdentifiers(t *testing.T) {
 		Email: "update@example.com",
 	}
 
-	service.updateCustomerIdentifiers(customer, identifiers)
+	service.updateCustomerIdentifiers(context.Background(), customer, identifiers)
 
 	if customer.Phone != "13800138050" {
 		t.Errorf("Expected phone 13800138050, got %s", customer.Phone)
@@ -375,7 +375,7 @@ func TestCustomerIdentityService_UpdateIdentifiers_NotOverwrite(t *testing.T) {
 		Email: "new@example.com",
 	}
 
-	service.updateCustomerIdentifiers(customer, identifiers)
+	service.updateCustomerIdentifiers(context.Background(), customer, identifiers)
 
 	// 应该保留原有手机号
 	if customer.Phone != "13800138000" {

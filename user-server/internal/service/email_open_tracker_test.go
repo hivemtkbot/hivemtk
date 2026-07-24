@@ -42,7 +42,7 @@ func TestEmailOpenTracker_NewService(t *testing.T) {
 // 2) GenerateOpenPixelURL
 func TestEmailOpenTracker_GenerateOpenPixelURL(t *testing.T) {
 	s := newOpenTracker(t)
-	url, err := s.GenerateOpenPixelURL("user@demo.com", "job-1")
+	url, err := s.GenerateOpenPixelURL(context.Background(), "user@demo.com", "job-1")
 	if err != nil {
 		t.Fatalf("GenerateOpenPixelURL failed: %v", err)
 	}

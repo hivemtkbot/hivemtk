@@ -387,7 +387,7 @@ func TestDomainPoolService_CheckDomain(t *testing.T) {
 	created, _ := service.Create(context.Background(), "nonexistent.invalid.domain", 80, "测试")
 
 	// 检查域名（应该返回 false，因为域名不存在）
-	accessible, err := service.CheckDomain(created.ID)
+	accessible, err := service.CheckDomain(context.Background(), created.ID)
 	if err != nil {
 		t.Fatalf("CheckDomain failed: %v", err)
 	}
@@ -408,7 +408,7 @@ func TestDomainPoolService_CheckDomain_NotFound(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	_, err := service.CheckDomain(99999)
+	_, err := service.CheckDomain(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent record")
 	}
@@ -424,7 +424,7 @@ func TestDomainPoolService_CheckAllDomains(t *testing.T) {
 	_, _ = service.Create(context.Background(), "example2.invalid", 8080, "测试 2")
 
 	// 检查所有域名
-	results, err := service.CheckAllDomains()
+	results, err := service.CheckAllDomains(context.Background())
 	if err != nil {
 		t.Fatalf("CheckAllDomains failed: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestDomainPoolService_CheckAllDomains_EmptyList(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	results, err := service.CheckAllDomains()
+	results, err := service.CheckAllDomains(context.Background())
 	if err != nil {
 		t.Fatalf("CheckAllDomains failed: %v", err)
 	}
@@ -534,7 +534,7 @@ func TestDomainPoolService_Update_LastCheck(t *testing.T) {
 	created, _ := service.Create(context.Background(), "example.com", 8080, "API 服务")
 
 	// 检查域名会更新 UpdatedAt
-	_, _ = service.CheckDomain(created.ID)
+	_, _ = service.CheckDomain(context.Background(), created.ID)
 
 	updated, _ := service.GetByID(context.Background(), created.ID)
 	if updated.UpdatedAt.Before(created.CreatedAt) {
@@ -550,7 +550,7 @@ func TestDomainPoolService_CheckDomain_VerifyLastCheck(t *testing.T) {
 	created, _ := service.Create(context.Background(), "nonexistent.invalid", 80, "测试")
 
 	beforeCheck := time.Now()
-	_, _ = service.CheckDomain(created.ID)
+	_, _ = service.CheckDomain(context.Background(), created.ID)
 	afterCheck := time.Now()
 
 	updated, _ := service.GetByID(context.Background(), created.ID)
@@ -568,7 +568,7 @@ func TestDomainPoolService_CheckAllDomains_VerifyLastCheck(t *testing.T) {
 	_, _ = service.Create(context.Background(), "nonexistent2.invalid", 80, "测试 2")
 
 	beforeCheck := time.Now()
-	_, _ = service.CheckAllDomains()
+	_, _ = service.CheckAllDomains(context.Background())
 	afterCheck := time.Now()
 
 	// 验证所有记录的 LastCheck 都被更新

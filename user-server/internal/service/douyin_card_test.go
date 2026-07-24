@@ -61,7 +61,7 @@ func TestDouyinCardService_Create_Success(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -98,7 +98,7 @@ func TestDouyinCardService_Create_EmptyTitle(t *testing.T) {
 		ImageURL:    "https://example.com/image.jpg",
 	}
 
-	_, err := service.Create(context.Background(), ctx, req)
+	_, err := service.Create(context.Background(), req)
 
 	// 空标题应该创建成功（由数据库约束或业务逻辑决定）
 	// 如果期望失败，使用：if err == nil { t.Error("Expected error for empty title") }
@@ -120,7 +120,7 @@ func TestDouyinCardService_Create_EmptyRedirectURL(t *testing.T) {
 		// 不提供 RedirectURL，应该使用默认值
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -148,7 +148,7 @@ func TestDouyinCardService_Update_Success(t *testing.T) {
 		Tags:         "original",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestDouyinCardService_Update_Success(t *testing.T) {
 		IsActive:    true,
 	}
 
-	updatedCard, err := service.Update(context.Background(), ctx, updateReq)
+	updatedCard, err := service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestDouyinCardService_Update_NotFound(t *testing.T) {
 		Title: "Non-existent Card",
 	}
 
-	_, err := service.Update(context.Background(), ctx, updateReq)
+	_, err := service.Update(context.Background(), updateReq)
 	if err == nil {
 		t.Error("Expected error for updating non-existent card")
 	}
@@ -210,19 +210,19 @@ func TestDouyinCardService_Delete_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 删除卡片
-	err = service.Delete(context.Background(), ctx, createdCard.ID)
+	err = service.Delete(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// 验证卡片已被删除
-	_, err = service.GetByID(context.Background(), ctx, createdCard.ID)
+	_, err = service.GetByID(context.Background(), createdCard.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted card")
 	}
@@ -235,7 +235,7 @@ func TestDouyinCardService_Delete_NotFound(t *testing.T) {
 
 	// GORM 的 Delete 方法在删除不存在的记录时不会返回错误
 	// 这是预期行为，测试验证删除操作不会 panic
-	err := service.Delete(context.Background(), ctx, 999)
+	err := service.Delete(context.Background(), 999)
 	// 不期望错误，因为 GORM 不会对不存在的记录报错
 	if err != nil {
 		t.Errorf("Delete should not return error for non-existent card: %v", err)
@@ -257,13 +257,13 @@ func TestDouyinCardService_GetByID_Success(t *testing.T) {
 		Tags:         "test",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 获取卡片
-	fetchedCard, err := service.GetByID(context.Background(), ctx, createdCard.ID)
+	fetchedCard, err := service.GetByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestDouyinCardService_GetByID_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	_, err := service.GetByID(context.Background(), ctx, 999)
+	_, err := service.GetByID(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for getting non-existent card")
 	}
@@ -300,13 +300,13 @@ func TestDouyinCardService_GetByIDWithRefresh_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 获取卡片（强制刷新）
-	fetchedCard, err := service.GetByIDWithRefresh(ctx, createdCard.ID)
+	fetchedCard, err := service.GetByIDWithRefresh(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByIDWithRefresh failed: %v", err)
 	}
@@ -329,13 +329,13 @@ func TestDouyinCardService_GetCardModelByID_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 获取卡片模型
-	modelCard, err := service.GetCardModelByID(ctx, createdCard.ID)
+	modelCard, err := service.GetCardModelByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetCardModelByID failed: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestDouyinCardService_GetList_Success(t *testing.T) {
 			DomainPoolID: 1,
 			IsActive:     true,
 		}
-		_, err := service.Create(context.Background(), ctx, createReq)
+		_, err := service.Create(context.Background(), createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -373,7 +373,7 @@ func TestDouyinCardService_GetList_Success(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 			DomainPoolID: 1,
 			IsActive:     true,
 		}
-		_, err := service.Create(context.Background(), ctx, createReq)
+		_, err := service.Create(context.Background(), createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -411,7 +411,7 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestDouyinCardService_GetList_Pagination(t *testing.T) {
 
 	// 获取第二页
 	listReq.Page = 2
-	listResp2, err := service.GetList(context.Background(), ctx, listReq)
+	listResp2, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestDouyinCardService_GetList_EmptyList(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -467,13 +467,13 @@ func TestDouyinCardService_ShareCard_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
 	// 分享卡片
-	err = service.ShareCard(ctx, createdCard.ID, "wechat")
+	err = service.ShareCard(context.Background(), createdCard.ID, "wechat")
 	if err != nil {
 		t.Fatalf("ShareCard failed: %v", err)
 	}
@@ -484,7 +484,7 @@ func TestDouyinCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupDouyinCardServiceTestDB(t)
 	service := NewDouyinCardService(database)
 
-	err := service.ShareCard(ctx, 999, "wechat")
+	err := service.ShareCard(context.Background(), 999, "wechat")
 	if err == nil {
 		t.Error("Expected error for sharing non-existent card")
 	}
@@ -503,7 +503,7 @@ func TestDouyinCardService_GenerateShortLink_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -538,7 +538,7 @@ func TestDouyinCardService_ToResponse(t *testing.T) {
 
 	// 使用反射调用私有方法 toResponse 进行测试
 	// 由于 toResponse 是私有方法，我们通过公共方法间接测试
-	fetchedCard, err := service.GetByID(context.Background(), ctx, card.ID)
+	fetchedCard, err := service.GetByID(context.Background(), card.ID)
 	if err == nil {
 		if fetchedCard.Title != card.Title {
 			t.Errorf("Expected title %s, got %s", card.Title, fetchedCard.Title)
@@ -559,7 +559,7 @@ func TestDouyinCardService_ToResponseWithShortLink(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -583,7 +583,7 @@ func TestDouyinCardService_Create_WithTags(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -606,7 +606,7 @@ func TestDouyinCardService_Create_InactiveCard(t *testing.T) {
 		IsActive:     false,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -632,7 +632,7 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -647,7 +647,7 @@ func TestDouyinCardService_Update_DomainPoolChange(t *testing.T) {
 		IsActive:     true,
 	}
 
-	_, err = service.Update(context.Background(), ctx, updateReq)
+	_, err = service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}

@@ -50,7 +50,7 @@ func TestEmailSendService_SendEmail_ImmediateSend(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -65,7 +65,7 @@ func TestEmailSendService_SendEmail_ImmediateSend(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestEmailSendService_SendEmail_ScheduledSend(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -135,7 +135,7 @@ func TestEmailSendService_SendEmail_ScheduledSend(t *testing.T) {
 		ImmediateSend: false,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestEmailSendService_SendEmail_EmptyAttachments(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -184,7 +184,7 @@ func TestEmailSendService_SendEmail_EmptyAttachments(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestEmailSendService_SendEmail_WithDraftId(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -243,7 +243,7 @@ func TestEmailSendService_SendEmail_WithDraftId(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestEmailSendService_SendEmail_MultipleRecipients(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -288,7 +288,7 @@ func TestEmailSendService_SendEmail_MultipleRecipients(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestEmailSendService_SendEmail_SpecialCharacters(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -337,7 +337,7 @@ func TestEmailSendService_SendEmail_SpecialCharacters(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -364,7 +364,7 @@ func TestEmailSendService_ProcessPendingEmails_NoPendingEmails(t *testing.T) {
 
 	service := NewEmailSendService()
 
-	err := service.ProcessPendingEmails()
+	err := service.ProcessPendingEmails(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -437,7 +437,7 @@ func TestEmailSendService_ProcessPendingEmails_WithPendingEmails(t *testing.T) {
 
 	service := NewEmailSendService()
 
-	err := service.ProcessPendingEmails()
+	err := service.ProcessPendingEmails(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestEmailSendService_ProcessPendingEmails_WithMixedStatusEmails(t *testing.
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -496,7 +496,7 @@ func TestEmailSendService_ProcessPendingEmails_WithMixedStatusEmails(t *testing.
 
 	service := NewEmailSendService()
 
-	err := service.ProcessPendingEmails()
+	err := service.ProcessPendingEmails(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessPendingEmails failed: %v", err)
 	}
@@ -537,7 +537,7 @@ func TestEmailSendService_SendEmail_LongContent(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -557,7 +557,7 @@ func TestEmailSendService_SendEmail_LongContent(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -591,7 +591,7 @@ func TestEmailSendService_SendEmail_UnicodeContent(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -606,7 +606,7 @@ func TestEmailSendService_SendEmail_UnicodeContent(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -640,7 +640,7 @@ func TestEmailSendService_SendEmail_NilSendTime(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -655,7 +655,7 @@ func TestEmailSendService_SendEmail_NilSendTime(t *testing.T) {
 		// SendTime 不设置，应为 nil
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -678,7 +678,7 @@ func TestEmailSendService_ProcessPendingEmails_EmptyDatabase(t *testing.T) {
 
 	service := NewEmailSendService()
 
-	err := service.ProcessPendingEmails()
+	err := service.ProcessPendingEmails(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessPendingEmails failed with empty database: %v", err)
 	}
@@ -705,7 +705,7 @@ func TestEmailSendService_SendEmail_VerifyDatabaseRecord(t *testing.T) {
 		Password: "verify123",
 		Limit:    50,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -720,7 +720,7 @@ func TestEmailSendService_SendEmail_VerifyDatabaseRecord(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -771,7 +771,7 @@ func TestEmailSendService_SendEmail_SingleAttachment(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -786,7 +786,7 @@ func TestEmailSendService_SendEmail_SingleAttachment(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SendEmail failed: %v", err)
 	}
@@ -821,7 +821,7 @@ func TestEmailSendService_SendEmail_RequiredFieldsValidation(t *testing.T) {
 		Password: "password123",
 		Limit:    100,
 	}
-	if err := smtpRepo.Create(smtp); err != nil {
+	if err := smtpRepo.Create(context.Background(), smtp); err != nil {
 		t.Fatalf("Failed to create SMTP: %v", err)
 	}
 
@@ -836,7 +836,7 @@ func TestEmailSendService_SendEmail_RequiredFieldsValidation(t *testing.T) {
 		ImmediateSend: true,
 	}
 
-	email, err := service.SendEmail(req)
+	email, err := service.SendEmail(context.Background(), req)
 	// 当前实现不会返回错误
 	if err != nil {
 		t.Logf("SendEmail returned error (may be expected in future): %v", err)

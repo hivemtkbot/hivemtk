@@ -69,7 +69,7 @@ func TestIntegrationService_CreateIntegrationAccount(t *testing.T) {
 		Config:      map[string]any{"key": "value"},
 	}
 
-	account, err := service.CreateIntegrationAccount(req)
+	account, err := service.CreateIntegrationAccount(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateIntegrationAccount failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestIntegrationService_CreateIntegrationAccount_EmptyConfig(t *testing.T) {
 		APISecret:   "test_secret_2",
 	}
 
-	account, err := service.CreateIntegrationAccount(req)
+	account, err := service.CreateIntegrationAccount(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateIntegrationAccount failed: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestIntegrationService_GetIntegrationAccountList(t *testing.T) {
 		})
 	}
 
-	accounts, err := service.GetIntegrationAccountList()
+	accounts, err := service.GetIntegrationAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetIntegrationAccountList failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestIntegrationService_GetIntegrationAccountByID(t *testing.T) {
 	db.GetDB().Create(account)
 
 	// 获取账号
-	result, err := service.GetIntegrationAccountByID(account.ID)
+	result, err := service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetIntegrationAccountByID failed: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestIntegrationService_GetIntegrationAccountByID_SingleTenant(t *testing.T)
 	db.GetDB().Create(account)
 
 	// 单租户下正常访问
-	got, err := service.GetIntegrationAccountByID(account.ID)
+	got, err := service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetIntegrationAccountByID should succeed in single-tenant mode, got: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestIntegrationService_UpdateIntegrationAccount(t *testing.T) {
 		Config:      map[string]any{"updated": true},
 	}
 
-	updated, err := service.UpdateIntegrationAccount(account.ID, req)
+	updated, err := service.UpdateIntegrationAccount(context.Background(), account.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateIntegrationAccount failed: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestIntegrationService_UpdateIntegrationAccount_SingleTenant(t *testing.T) 
 	req := &CreateIntegrationAccountRequest{
 		AccountName: "Updated",
 	}
-	updated, err := service.UpdateIntegrationAccount(account.ID, req)
+	updated, err := service.UpdateIntegrationAccount(context.Background(), account.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateIntegrationAccount should succeed in single-tenant mode, got: %v", err)
 	}
@@ -265,13 +265,13 @@ func TestIntegrationService_DeleteIntegrationAccount(t *testing.T) {
 	db.GetDB().Create(account)
 
 	// 删除账号
-	err := service.DeleteIntegrationAccount(account.ID)
+	err := service.DeleteIntegrationAccount(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("DeleteIntegrationAccount failed: %v", err)
 	}
 
 	// 验证已删除
-	_, err = service.GetIntegrationAccountByID(account.ID)
+	_, err = service.GetIntegrationAccountByID(context.Background(), account.ID)
 	if err == nil {
 		t.Error("Expected account to be deleted")
 	}
@@ -293,7 +293,7 @@ func TestIntegrationService_DeleteIntegrationAccount_SingleTenant(t *testing.T) 
 	db.GetDB().Create(account)
 
 	// 单租户下正常删除
-	if err := service.DeleteIntegrationAccount(account.ID); err != nil {
+	if err := service.DeleteIntegrationAccount(context.Background(), account.ID); err != nil {
 		t.Fatalf("DeleteIntegrationAccount should succeed in single-tenant mode, got: %v", err)
 	}
 
@@ -313,7 +313,7 @@ func TestIntegrationService_SyncCustomers_UnsupportedPlatform(t *testing.T) {
 		Platform: "unsupported_platform",
 	}
 
-	_, err := service.SyncCustomers(account)
+	_, err := service.SyncCustomers(context.Background(), account)
 	if err == nil {
 		t.Error("Expected error for unsupported platform")
 	}
@@ -327,7 +327,7 @@ func TestIntegrationService_SyncOrders_UnsupportedPlatform(t *testing.T) {
 		Platform: "unsupported_platform",
 	}
 
-	_, err := service.SyncOrders(account)
+	_, err := service.SyncOrders(context.Background(), account)
 	if err == nil {
 		t.Error("Expected error for unsupported platform")
 	}
@@ -341,7 +341,7 @@ func TestIntegrationService_SyncProducts_UnsupportedPlatform(t *testing.T) {
 		Platform: "unsupported_platform",
 	}
 
-	_, err := service.SyncProducts(account)
+	_, err := service.SyncProducts(context.Background(), account)
 	if err == nil {
 		t.Error("Expected error for unsupported platform")
 	}
@@ -361,7 +361,7 @@ func TestIntegrationService_GetSyncLogs(t *testing.T) {
 		})
 	}
 
-	logs, total, err := service.GetSyncLogs(1, 10)
+	logs, total, err := service.GetSyncLogs(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSyncLogs failed: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestIntegrationService_GetExternalCustomers(t *testing.T) {
 	}
 
 	// 按平台筛选
-	customers, total, err := service.GetExternalCustomers("crm_xiaoshouyi", 1, 10)
+	customers, total, err := service.GetExternalCustomers(context.Background(), "crm_xiaoshouyi", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalCustomers failed: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestIntegrationService_GetExternalCustomers_NoPlatformFilter(t *testing.T) 
 	})
 
 	// 不筛选平台
-	customers, total, err := service.GetExternalCustomers("", 1, 10)
+	customers, total, err := service.GetExternalCustomers(context.Background(), "", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalCustomers failed: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestIntegrationService_GetExternalOrders(t *testing.T) {
 		})
 	}
 
-	orders, total, err := service.GetExternalOrders("ecommerce_taobao", 1, 10)
+	orders, total, err := service.GetExternalOrders(context.Background(), "ecommerce_taobao", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalOrders failed: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestIntegrationService_GetExternalOrders_NoPlatformFilter(t *testing.T) {
 	})
 
 	// 不筛选平台
-	orders, total, err := service.GetExternalOrders("", 1, 10)
+	orders, total, err := service.GetExternalOrders(context.Background(), "", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalOrders failed: %v", err)
 	}
@@ -502,7 +502,7 @@ func TestIntegrationService_GetExternalProducts(t *testing.T) {
 		})
 	}
 
-	products, total, err := service.GetExternalProducts("ecommerce_taobao", 1, 10)
+	products, total, err := service.GetExternalProducts(context.Background(), "ecommerce_taobao", 1, 10)
 	if err != nil {
 		t.Fatalf("GetExternalProducts failed: %v", err)
 	}

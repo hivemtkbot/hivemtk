@@ -92,7 +92,7 @@ func TestObsConfigRepository_GetByID(t *testing.T) {
 		Bucket:   "getbyid-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Create(config)
+	repo.Create(ctx, config)
 
 	tests := []struct {
 		name    string
@@ -135,7 +135,7 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(ctx, &model.ObsConfig){
+		repo.Create(ctx, &model.ObsConfig{
 			Name:     "Config " + string(rune('0'+i)),
 			Provider: model.ObsProviderAliyun,
 			Bucket:   "bucket-" + string(rune('0'+i)),
@@ -144,14 +144,14 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 	}
 
 	// 创建其他提供商的配置
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:     "Qiniu Config",
 		Provider: model.ObsProviderQiniu,
 		Bucket:   "qiniu-bucket",
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:     "Inactive Config",
 		Provider: model.ObsProviderTencent,
 		Bucket:   "tencent-bucket",
@@ -225,7 +225,7 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetListtt.page, tt.limit, tt.provider, tt.status)
+			results, total, err := repo.GetList(ctx, tt.page, tt.limit, tt.provider, tt.status)
 
 			if err != nil {
 				t.Errorf("GetList() error = %v", err)
@@ -257,7 +257,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 		Bucket:   "original-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Create(config)
+	repo.Create(ctx, config)
 
 	// 更新
 	config.Name = "Updated Name"
@@ -268,7 +268,7 @@ func TestObsConfigRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(config.ID)
+	updated, _ := repo.GetByID(ctx, config.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got '%s'", updated.Name)
 	}
@@ -289,14 +289,14 @@ func TestObsConfigRepository_Delete(t *testing.T) {
 		Bucket:   "delete-bucket",
 		Status:   model.ObsStatusActive,
 	}
-	repo.Create(config)
+	repo.Create(ctx, config)
 
 	err := repo.Delete(ctx, config.ID)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	_, err = repo.GetByID(config.ID)
+	_, err = repo.GetByID(ctx, config.ID)
 	if err == nil {
 		t.Error("Expected config to be deleted")
 	}
@@ -308,7 +308,7 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 	repo := setupObsConfigRepository(t)
 
 	// 创建非默认配置
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:      "Non-default Config",
 		Provider:  model.ObsProviderAliyun,
 		IsDefault: false,
@@ -322,7 +322,7 @@ func TestObsConfigRepository_GetDefault(t *testing.T) {
 		IsDefault: true,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Create(defaultConfig)
+	repo.Create(ctx, defaultConfig)
 
 	result, err := repo.GetDefault(context.Background())
 	if err != nil {
@@ -348,7 +348,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 		IsDefault: false,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Create(config1)
+	repo.Create(ctx, config1)
 
 	config2 := &model.ObsConfig{
 		Name:      "Config 2",
@@ -356,7 +356,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 		IsDefault: false,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Create(config2)
+	repo.Create(ctx, config2)
 
 	// 设置 config1 为默认
 	err := repo.SetDefault(context.Background(), config1.ID)
@@ -365,7 +365,7 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 	}
 
 	// 验证 config1 是默认
-	config1Updated, _ := repo.GetByID(config1.ID)
+	config1Updated, _ := repo.GetByID(ctx, config1.ID)
 	if !config1Updated.IsDefault {
 		t.Error("Expected config1 to be default")
 	}
@@ -377,8 +377,8 @@ func TestObsConfigRepository_SetDefault(t *testing.T) {
 	}
 
 	// 验证 config2 是默认，config1 不再是默认
-	config1Updated2, _ := repo.GetByID(config1.ID)
-	config2Updated, _ := repo.GetByID(config2.ID)
+	config1Updated2, _ := repo.GetByID(ctx, config1.ID)
+	config2Updated, _ := repo.GetByID(ctx, config2.ID)
 
 	if config1Updated2.IsDefault {
 		t.Error("Expected config1 to not be default after setting config2")
@@ -400,14 +400,14 @@ func TestObsConfigRepository_ClearDefault(t *testing.T) {
 		IsDefault: true,
 		Status:    model.ObsStatusActive,
 	}
-	repo.Create(config)
+	repo.Create(ctx, config)
 
 	err := repo.ClearDefault(context.Background())
 	if err != nil {
 		t.Errorf("ClearDefault() error = %v", err)
 	}
 
-	result, _ := repo.GetByID(config.ID)
+	result, _ := repo.GetByID(ctx, config.ID)
 	if result.IsDefault {
 		t.Error("Expected IsDefault to be false after clearing")
 	}
@@ -426,7 +426,7 @@ func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 		Provider: model.ObsProviderAliyun,
 		Status:   model.ObsStatusActive,
 	}
-	repo.Create(config)
+	repo.Create(ctx, config)
 
 	// 更新状态
 	err := repo.UpdateStatus(context.Background(), config.ID, model.ObsStatusInactive)
@@ -434,7 +434,7 @@ func TestObsConfigRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(config.ID)
+	updated, _ := repo.GetByID(ctx, config.ID)
 	if updated.Status != model.ObsStatusInactive {
 		t.Errorf("Expected status 'inactive', got '%s'", updated.Status)
 	}
@@ -446,19 +446,19 @@ func TestObsConfigRepository_CountByStatus(t *testing.T) {
 	repo := setupObsConfigRepository(t)
 
 	// 创建测试数据
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:     "Active 1",
 		Provider: model.ObsProviderAliyun,
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:     "Active 2",
 		Provider: model.ObsProviderQiniu,
 		Status:   model.ObsStatusActive,
 	})
 
-	repo.Create(ctx, &model.ObsConfig){
+	repo.Create(ctx, &model.ObsConfig{
 		Name:     "Inactive 1",
 		Provider: model.ObsProviderTencent,
 		Status:   model.ObsStatusInactive,
@@ -488,7 +488,7 @@ func TestObsConfigRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := setupObsConfigRepository(t)
 
-	_, err := repo.GetByID(ctx, "non-existing-id"))
+	_, err := repo.GetByID(ctx, "non-existing-id")
 	if err == nil {
 		t.Error("Expected error when getting non-existing config")
 	}

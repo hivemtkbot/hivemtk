@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"marketing/internal/service"
 )
 
 func TestRoundTo(t *testing.T) {
@@ -61,10 +63,7 @@ func TestNewDashboardSSEController_Defaults(t *testing.T) {
 
 func TestCollectSnapshot_NoDB(t *testing.T) {
 	c := NewDashboardSSEController(nil)
-	snap, err := c.collectSnapshot(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	snap := c.collectSnapshot(context.Background())
 	if snap == nil {
 		t.Fatal("expected non-nil snapshot")
 	}
@@ -85,12 +84,12 @@ func TestCollectSnapshot_NoDB(t *testing.T) {
 func TestCollectSnapshot_CacheHit(t *testing.T) {
 	c := NewDashboardSSEController(nil)
 	c.cacheTTL = 1 * time.Hour
-	snap1, _ := c.collectSnapshot(context.Background())
+	snap1 := c.collectSnapshot(context.Background())
 	c.cacheMu.Lock()
 	c.lastUpdateAt = time.Now()
 	c.lastSnapshot.GeneratedAt = time.Now().Add(-1 * time.Minute)
 	c.cacheMu.Unlock()
-	snap2, _ := c.collectSnapshot(context.Background())
+	snap2 := c.collectSnapshot(context.Background())
 	if snap1 != snap2 {
 		t.Error("expected cache hit (same pointer)")
 	}
@@ -99,33 +98,39 @@ func TestCollectSnapshot_CacheHit(t *testing.T) {
 func TestCollectSnapshot_CacheMiss(t *testing.T) {
 	c := NewDashboardSSEController(nil)
 	c.cacheTTL = 1 * time.Millisecond
-	snap1, _ := c.collectSnapshot(context.Background())
+	snap1 := c.collectSnapshot(context.Background())
 	time.Sleep(2 * time.Millisecond)
-	snap2, _ := c.collectSnapshot(context.Background())
+	snap2 := c.collectSnapshot(context.Background())
 	if snap1 == snap2 {
 		t.Error("expected cache miss (new pointer)")
 	}
 }
 
 func TestCollectFunnel_NoDB(t *testing.T) {
+	// collectFunnel 已下沉到 service.DashboardStatsService.CollectFunnel，
+	// controller 离线模式下通过 collectSnapshot 返回空 FunnelProgress。
+	// 这里通过 collectSnapshot 验证离线场景的 Funnel 默认值。
 	c := NewDashboardSSEController(nil)
-	funnel := c.collectFunnel(context.Background())
-	if funnel == nil {
+	snap := c.collectSnapshot(context.Background())
+	if snap.Funnel == nil {
 		t.Fatal("expected non-nil funnel")
 	}
-	if len(funnel.Stages) != 0 {
-		t.Errorf("expected empty stages when db=nil, got %d", len(funnel.Stages))
+	if len(snap.Funnel.Stages) != 0 {
+		t.Errorf("expected empty stages when db=nil, got %d", len(snap.Funnel.Stages))
 	}
 }
 
 func TestCollectHumanizeDistribution_NoDB(t *testing.T) {
+	// collectHumanizeDistribution 已下沉到 service.DashboardStatsService.CollectHumanizeDistribution，
+	// controller 离线模式下通过 collectSnapshot 返回默认 HumanizeDistribution。
+	// 这里通过 collectSnapshot 验证离线场景的分布默认值。
 	c := NewDashboardSSEController(nil)
-	dist := c.collectHumanizeDistribution(context.Background())
-	if dist.WindowHours != 1 {
-		t.Errorf("expected 1h window, got %d", dist.WindowHours)
+	snap := c.collectSnapshot(context.Background())
+	if snap.HumanizeDistribution.WindowHours != 1 {
+		t.Errorf("expected 1h window, got %d", snap.HumanizeDistribution.WindowHours)
 	}
-	if dist.TotalScored != 0 {
-		t.Errorf("expected 0 total, got %d", dist.TotalScored)
+	if snap.HumanizeDistribution.TotalScored != 0 {
+		t.Errorf("expected 0 total, got %d", snap.HumanizeDistribution.TotalScored)
 	}
 }
 
@@ -149,9 +154,9 @@ func TestSnapshot_HTTPEndpoint(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var resp struct {
-		Code    string             `json:"code"`
-		Data    *DashboardSnapshot `json:"data"`
-		Message string             `json:"message"`
+		Code    string                     `json:"code"`
+		Data    *service.DashboardSnapshot `json:"data"`
+		Message string                     `json:"message"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)

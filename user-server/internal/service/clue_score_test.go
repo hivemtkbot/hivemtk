@@ -37,7 +37,7 @@ func TestClueScoreService_ScoreClue_Verify(t *testing.T) {
 		Desc:       "高质量客户",
 		CreateTime: time.Now().Unix(),
 	}
-	score, err := svc.ScoreClue(clue)
+	score, err := svc.ScoreClue(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("ScoreClue failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestClueScoreService_ScoreClue_LowQuality(t *testing.T) {
 		IsVerify: 0,
 		// 全部字段为空
 	}
-	score, err := svc.ScoreClue(clue)
+	score, err := svc.ScoreClue(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("ScoreClue failed: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestClueScoreService_ScoreClue_ChannelScore(t *testing.T) {
 	// twitter 应该得低分
 	c2 := &model.Clue{ID: "c-tw", Account: "a2", Type: 6, IsVerify: 1, Name: "A"}
 
-	s1, _ := svc.ScoreClue(c1)
-	s2, _ := svc.ScoreClue(c2)
+	s1, _ := svc.ScoreClue(context.Background(), c1)
+	s2, _ := svc.ScoreClue(context.Background(), c2)
 
 	if s1.ChannelScore <= s2.ChannelScore {
 		t.Errorf("phone channel score should be > twitter; got phone=%d tw=%d", s1.ChannelScore, s2.ChannelScore)
@@ -93,7 +93,7 @@ func TestClueScoreService_RecordEngagement(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	err := svc.RecordEngagement("c-eng-1", "reply", "wechat", map[string]any{"k": "v"})
+	err := svc.RecordEngagement(context.Background(), "c-eng-1", "reply", "wechat", map[string]any{"k": "v"})
 	if err != nil {
 		t.Fatalf("RecordEngagement failed: %v", err)
 	}
@@ -104,12 +104,12 @@ func TestClueScoreService_GetByClueID(t *testing.T) {
 
 	svc := NewClueScoreService()
 	clue := &model.Clue{ID: "c-get", Account: "a", Type: 2, IsVerify: 1, Name: "A"}
-	created, err := svc.ScoreClue(clue)
+	created, err := svc.ScoreClue(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("ScoreClue failed: %v", err)
 	}
 
-	got, err := svc.GetByClueID("c-get")
+	got, err := svc.GetByClueID(context.Background(), "c-get")
 	if err != nil {
 		t.Fatalf("GetByClueID failed: %v", err)
 	}
@@ -123,11 +123,11 @@ func TestClueScoreService_ListByGrade(t *testing.T) {
 
 	svc := NewClueScoreService()
 	// 高分
-	svc.ScoreClue(&model.Clue{ID: "g1", Account: "g1", Type: 3, IsVerify: 1, Name: "A", City: "B", Address: "C", Desc: "D"})
+	svc.ScoreClue(context.Background(), &model.Clue{ID: "g1", Account: "g1", Type: 3, IsVerify: 1, Name: "A", City: "B", Address: "C", Desc: "D"})
 	// 低分
-	svc.ScoreClue(&model.Clue{ID: "g2", Account: "g2", Type: 6, IsVerify: 0})
+	svc.ScoreClue(context.Background(), &model.Clue{ID: "g2", Account: "g2", Type: 6, IsVerify: 0})
 
-	list, total, err := svc.ListByGrade("", 1, 10)
+	list, total, err := svc.ListByGrade(context.Background(), "", 1, 10)
 	if err != nil {
 		t.Fatalf("ListByGrade failed: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestClueScoreService_LoadClueForScoring(t *testing.T) {
 	if actualID == "" {
 		t.Fatal("created clue should have an auto-generated ID")
 	}
-	got, err := svc.LoadClueForScoring(actualID)
+	got, err := svc.LoadClueForScoring(context.Background(), actualID)
 	if err != nil {
 		t.Fatalf("LoadClueForScoring failed: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestClueScoreService_LoadClueForScoring_NotFound(t *testing.T) {
 	_ = setupClueScoreTestDB(t)
 
 	svc := NewClueScoreService()
-	_, err := svc.LoadClueForScoring("non-existent")
+	_, err := svc.LoadClueForScoring(context.Background(), "non-existent")
 	if err == nil {
 		t.Error("expected error for non-existent clue")
 	}

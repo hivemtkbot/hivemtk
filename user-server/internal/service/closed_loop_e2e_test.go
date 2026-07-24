@@ -32,6 +32,7 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	ctx := context.Background()
 
 	custID := "mb_e2e_001"
 	ownerID := "sales_amy"
@@ -55,7 +56,7 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	}
 
 	// 4. 验证：自动打标签
-	tags := tagger.GetTags(custID)
+	tags := tagger.GetTags(ctx, custID)
 	hasPriceSensitive := false
 	for _, tag := range tags {
 		if tag.Tag == "behavior:price_sensitive" {
@@ -67,14 +68,14 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	}
 
 	// 5. 验证：自动推进客户旅程
-	state := journey.GetState(custID)
+	state := journey.GetState(ctx, custID)
 	if state.CurrentStage == StageStranger {
 		t.Errorf("客户旅程应该从陌生推进，实际仍为: %s", state.CurrentStage)
 	}
 	t.Logf("客户旅程: %s", state.CurrentStage)
 
 	// 6. 验证：自动安排跟进
-	pending := followup.ListPending(ownerID, 0)
+	pending := followup.ListPending(ctx, ownerID, 0)
 	if len(pending) == 0 {
 		t.Error("应自动安排跟进，实际无待办")
 	}
@@ -89,7 +90,7 @@ func TestE2E_MedicalBeauty_PriceInquiry(t *testing.T) {
 	}
 
 	// 7. 验证：销售仪表盘记录 AI 谈单
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(ctx, time.Time{})
 	if prod.TotalAIDeals < 1 {
 		t.Errorf("仪表盘应记录至少 1 个 AI 谈单，实际 %d", prod.TotalAIDeals)
 	}
@@ -106,13 +107,14 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	ctx := context.Background()
 	repurchase := NewRepurchaseEngine()
 
 	custID := "edu_e2e_001"
 	ownerID := "sales_bob"
 
 	// 1. 100 天前有购买记录 → 沉睡了
-	repurchase.RecordPurchase(PurchaseEvent{
+	repurchase.RecordPurchase(ctx, PurchaseEvent{
 		OrderID:     "ord_old",
 		CustomerID:  custID,
 		Amount:      3000,
@@ -124,7 +126,7 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	if err := repurchase.TriggerJourney(ctx, custID, journey); err != nil {
 		t.Fatalf("RFM 推旅程失败: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(ctx, custID)
 	if state.CurrentStage != StageSleeping {
 		t.Fatalf("沉睡客户应在 sleeping，实际 %s", state.CurrentStage)
 	}
@@ -137,11 +139,11 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	rec := trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
 
 	// 4. 验证：客户旅程从 sleeping 推到 interested 或 quoted
-	state = journey.GetState(custID)
+	state = journey.GetState(ctx, custID)
 	t.Logf("客户旅程: %s", state.CurrentStage)
 
 	// 5. 验证：触发了跟进（高优先级）
-	pending := followup.ListPending(ownerID, 0)
+	pending := followup.ListPending(ctx, ownerID, 0)
 	foundHighPriority := false
 	for _, r := range pending {
 		if r.CustomerID == custID && r.Priority == PriorityHigh {
@@ -156,13 +158,13 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	trigger.TriggerAfterFollowUp(ctx, "rem_fake", custID, ownerID, "converted")
 
 	// 7. 验证：旅程推到 won
-	state = journey.GetState(custID)
+	state = journey.GetState(ctx, custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("成交后应在 won，实际 %s", state.CurrentStage)
 	}
 
 	// 8. 验证：仪表盘记录了订单
-	perf := dashboard.GetSalesPerformance(ownerID, time.Time{})
+	perf := dashboard.GetSalesPerformance(ctx, ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Errorf("应记录 1 个订单，实际 %d", perf.TotalOrders)
 	}
@@ -171,7 +173,7 @@ func TestE2E_Education_Reactivation(t *testing.T) {
 	}
 
 	// 9. 验证：成交后自动安排售后 SOP
-	pending = followup.ListPending(ownerID, 0)
+	pending = followup.ListPending(ctx, ownerID, 0)
 	foundAfterSale := false
 	for _, r := range pending {
 		if r.CustomerID == custID && r.Type == ReminderAfterSaleCare {
@@ -194,6 +196,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	ctx := context.Background()
 
 	ownerID := "ai_sales_007"
 
@@ -221,7 +224,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	}
 
 	// 2. 验证：仪表盘统计了所有 AI 谈单 + 订单
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(ctx, time.Time{})
 	if prod.TotalAIDeals != 50 {
 		t.Errorf("应记录 50 个 AI 谈单，实际 %d", prod.TotalAIDeals)
 	}
@@ -230,7 +233,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	}
 
 	// 3. 验证：所有客户都在仪表盘的漏斗中
-	funnel := dashboard.FunnelByJourney()
+	funnel := dashboard.FunnelByJourney(ctx)
 	total := 0
 	for _, s := range funnel.Stages {
 		total += s.Customers
@@ -240,7 +243,7 @@ func TestE2E_Ecommerce_HighFrequency(t *testing.T) {
 	}
 
 	// 4. 验证：触发了高优先级跟进（Purchase 意图）
-	pending := followup.ListPending(ownerID, 0)
+	pending := followup.ListPending(ctx, ownerID, 0)
 	highPriorityCount := 0
 	for _, r := range pending {
 		if r.Priority == PriorityHigh {
@@ -263,6 +266,7 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	ctx := context.Background()
 
 	custID := "complaint_e2e_001"
 	ownerID := "sales_carol"
@@ -277,7 +281,7 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	rec := trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
 
 	// 2. 验证：自动打了 churn_risk 标签
-	tags := tagger.GetTags(custID)
+	tags := tagger.GetTags(ctx, custID)
 	hasChurnRisk := false
 	for _, tag := range tags {
 		if tag.Tag == "lifecycle:churn_risk" {
@@ -289,7 +293,7 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	}
 
 	// 3. 验证：自动安排紧急跟进（30 分钟内）
-	pending := followup.ListPending(ownerID, 0)
+	pending := followup.ListPending(ctx, ownerID, 0)
 	foundUrgent := false
 	for _, r := range pending {
 		if r.CustomerID == custID && r.Priority == PriorityUrgent {
@@ -304,13 +308,13 @@ func TestE2E_Complaint_LostFlow(t *testing.T) {
 	trigger.TriggerAfterFollowUp(ctx, "rem_fake", custID, ownerID, "lost")
 
 	// 5. 验证：客户旅程推到 lost
-	state := journey.GetState(custID)
+	state := journey.GetState(ctx, custID)
 	if state.CurrentStage != StageLost {
 		t.Errorf("无法挽回的应推到 lost，实际 %s", state.CurrentStage)
 	}
 
 	// 6. 验证：仪表盘记录了转人工
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(ctx, time.Time{})
 	if prod.TransferredCount < 1 {
 		t.Error("应记录至少 1 个转人工")
 	}
@@ -327,6 +331,7 @@ func TestE2E_OrderIntent_AutoExtract(t *testing.T) {
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
+	ctx := context.Background()
 
 	custID := "order_e2e_001"
 	ownerID := "sales_dan"

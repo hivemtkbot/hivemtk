@@ -31,6 +31,8 @@ func TestMessageRepository_New(t *testing.T) {
 
 func TestMessageRepository_Create(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -42,7 +44,7 @@ func TestMessageRepository_Create(t *testing.T) {
 		Text:      "Test message",
 	}
 
-	err := repo.Create(message)
+	err := repo.Create(ctx, message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -54,6 +56,8 @@ func TestMessageRepository_Create(t *testing.T) {
 
 func TestMessageRepository_Create_EmptyText(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -65,7 +69,7 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 		Text:      "",
 	}
 
-	err := repo.Create(message)
+	err := repo.Create(ctx, message)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -77,6 +81,8 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 
 func TestMessageRepository_GetMessageList(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -88,7 +94,7 @@ func TestMessageRepository_GetMessageList(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 5)
@@ -126,6 +132,8 @@ func TestMessageRepository_GetMessageList_Empty(t *testing.T) {
 
 func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -137,7 +145,7 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	messages, _, err := repo.GetMessageList(context.Background(), 2, 5)
@@ -152,6 +160,8 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 
 func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -164,7 +174,7 @@ func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 			UserID:    "user123",
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -183,6 +193,8 @@ func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 
 func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -196,7 +208,7 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 			UserID:    userID,
 			Text:      "Message from " + userID,
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -215,6 +227,8 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 
 func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -227,7 +241,7 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Valid Message " + string(rune('0'+i)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	for i := 0; i < 2; i++ {
@@ -238,7 +252,7 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 			UserID:    "user" + string(rune('a'+i)),
 			Text:      "Invalid Message " + string(rune('a'+i)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	_, total, err := repo.GetMessageList(context.Background(), 1, 10)
@@ -253,6 +267,8 @@ func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 
 func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -265,7 +281,7 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      "Batch message " + string(rune('0'+i%10)),
 		}
-		repo.Create(message)
+		repo.Create(ctx, message)
 	}
 
 	messages, total, err := repo.GetMessageList(context.Background(), 1, 50)
@@ -284,6 +300,8 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 
 func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 	setupMessageTestDB(t)
+	ctx := context.Background()
+
 
 	repo := NewMessageRepository()
 
@@ -304,7 +322,7 @@ func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 			UserID:    "user" + string(rune('0'+i)),
 			Text:      text,
 		}
-		repo.Create(msg)
+		repo.Create(ctx, msg)
 	}
 
 	_, total, err := repo.GetMessageList(context.Background(), 1, 10)

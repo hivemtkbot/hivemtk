@@ -52,6 +52,7 @@ playwright-report/
 playwright-report-api/
 test-results/
 playwright/.cache
+tests/.audit/
 
 # ---------- 证书和密钥 ----------
 *.pem

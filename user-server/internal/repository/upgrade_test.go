@@ -34,6 +34,8 @@ func setupUpgradeRepositories(t *testing.T) (*UpgradeTaskRepository, *MigrationR
 // TestUpgradeTaskRepository_Create 测试创建升级任务
 func TestUpgradeTaskRepository_Create(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -86,6 +88,8 @@ func TestUpgradeTaskRepository_Create(t *testing.T) {
 // TestUpgradeTaskRepository_GetByID 测试根据 ID 获取升级任务
 func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	task := &model.UpgradeTask{
@@ -96,7 +100,7 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 		CurrentStep:     3,
 		CurrentStepDesc: "Processing",
 	}
-	repo.Create(task)
+	repo.Create(ctx, task)
 
 	tests := []struct {
 		name    string
@@ -133,10 +137,12 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 // TestUpgradeTaskRepository_GetAll 测试获取所有升级任务列表
 func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
-		repo.Create(ctx, &model.UpgradeTask){
+		repo.Create(ctx, &model.UpgradeTask{
 			FromVersion: "1.0.0",
 			ToVersion:   "2." + string(rune('0'+i)) + ".0",
 			Status:      "completed",
@@ -144,7 +150,7 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 	}
 
 	// 创建其他任务
-	repo.Create(ctx, &model.UpgradeTask){
+	repo.Create(ctx, &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "2.0.0",
 		Status:      "pending",
@@ -182,7 +188,7 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetAlltt.page, tt.pageSize)
+			results, total, err := repo.GetAll(ctx, tt.page, tt.pageSize)
 
 			if err != nil {
 				t.Errorf("GetAll() error = %v", err)
@@ -202,9 +208,11 @@ func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 // TestUpgradeTaskRepository_GetLatestTask 测试获取最新的升级任务
 func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
-	repo.Create(ctx, &model.UpgradeTask){
+	repo.Create(ctx, &model.UpgradeTask{
 		FromVersion: "1.0.0",
 		ToVersion:   "1.5.0",
 		Status:      "completed",
@@ -215,7 +223,7 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 		ToVersion:   "2.0.0",
 		Status:      "running",
 	}
-	repo.Create(latestTask)
+	repo.Create(ctx, latestTask)
 
 	result, err := repo.GetLatestTask(context.Background())
 	if err != nil {
@@ -230,6 +238,8 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 // TestUpgradeTaskRepository_Update 测试更新升级任务
 func TestUpgradeTaskRepository_Update(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	task := &model.UpgradeTask{
@@ -240,7 +250,7 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 		CurrentStep:     0,
 		CurrentStepDesc: "Waiting",
 	}
-	repo.Create(task)
+	repo.Create(ctx, task)
 
 	// 更新
 	task.Status = "running"
@@ -253,7 +263,7 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(task.ID)
+	updated, _ := repo.GetByID(ctx, task.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
 	}
@@ -265,6 +275,8 @@ func TestUpgradeTaskRepository_Update(t *testing.T) {
 // TestUpgradeTaskRepository_UpdateStatus 测试更新状态
 func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	task := &model.UpgradeTask{
@@ -273,7 +285,7 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 		Status:      "pending",
 		Progress:    0,
 	}
-	repo.Create(task)
+	repo.Create(ctx, task)
 
 	// 更新状态
 	err := repo.UpdateStatus(context.Background(), task.ID, "running", 50, 3, "Processing step 3", "")
@@ -281,7 +293,7 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(task.ID)
+	updated, _ := repo.GetByID(ctx, task.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got '%s'", updated.Status)
 	}
@@ -299,6 +311,8 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 // TestUpgradeTaskRepository_UpdateStatus_WithCompletion 测试完成时设置完成时间
 func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	task := &model.UpgradeTask{
@@ -307,7 +321,7 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 		Status:      "running",
 		Progress:    90,
 	}
-	repo.Create(task)
+	repo.Create(ctx, task)
 
 	// 完成更新
 	err := repo.UpdateStatus(context.Background(), task.ID, "completed", 100, 5, "Final step", "")
@@ -315,7 +329,7 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 		t.Errorf("UpdateStatus() error = %v", err)
 	}
 
-	updated, _ := repo.GetByID(task.ID)
+	updated, _ := repo.GetByID(ctx, task.ID)
 	if updated.Status != "completed" {
 		t.Errorf("Expected status 'completed', got '%s'", updated.Status)
 	}
@@ -332,6 +346,8 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 // TestMigrationRecordRepository_Create 测试创建迁移记录
 func TestMigrationRecordRepository_Create(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	tests := []struct {
 		name    string
@@ -379,6 +395,8 @@ func TestMigrationRecordRepository_Create(t *testing.T) {
 // TestMigrationRecordRepository_GetByVersion 测试根据版本获取迁移记录
 func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	record := &model.MigrationRecord{
@@ -387,7 +405,7 @@ func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 		Type:    "database",
 		Status:  "completed",
 	}
-	repo.Create(record)
+	repo.Create(ctx, record)
 
 	tests := []struct {
 		name    string
@@ -426,23 +444,25 @@ func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 // TestMigrationRecordRepository_GetExecutedVersions 测试获取已执行的版本列表
 func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
-	repo.Create(ctx, &model.MigrationRecord){
+	repo.Create(ctx, &model.MigrationRecord{
 		Version: "1.0.0",
 		Name:    "Migration 1",
 		Type:    "database",
 		Status:  "completed",
 	})
 
-	repo.Create(ctx, &model.MigrationRecord){
+	repo.Create(ctx, &model.MigrationRecord{
 		Version: "1.1.0",
 		Name:    "Migration 2",
 		Type:    "database",
 		Status:  "completed",
 	})
 
-	repo.Create(ctx, &model.MigrationRecord){
+	repo.Create(ctx, &model.MigrationRecord{
 		Version: "1.2.0",
 		Name:    "Migration 3",
 		Type:    "database",
@@ -463,6 +483,8 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 // TestMigrationRecordRepository_Update 测试更新迁移记录
 func TestMigrationRecordRepository_Update(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
+	ctx := context.Background()
+
 
 	// 创建测试数据
 	record := &model.MigrationRecord{
@@ -471,7 +493,7 @@ func TestMigrationRecordRepository_Update(t *testing.T) {
 		Type:    "database",
 		Status:  "pending",
 	}
-	repo.Create(record)
+	repo.Create(ctx, record)
 
 	// 更新
 	record.Name = "Updated Name"

@@ -40,7 +40,7 @@ func TestCommunityService_GetGroups_Empty(t *testing.T) {
 
 	service := NewCommunityService()
 
-	groups, total, err := service.GetGroups(1, 20, "")
+	groups, total, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestCommunityService_GetGroups_WithResults(t *testing.T) {
 		database.Create(group)
 	}
 
-	groups, total, err := service.GetGroups(1, 20, "")
+	groups, total, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestCommunityService_GetGroups_WithSearch(t *testing.T) {
 	database.Create(&model.CommunityGroup{ID: "2", Name: "产品讨论群", Description: "产品相关"})
 	database.Create(&model.CommunityGroup{ID: "3", Name: "技术支持群", Description: "技术问题解答"})
 
-	groups, total, err := service.GetGroups(1, 20, "技术")
+	groups, total, err := service.GetGroups(context.Background(), 1, 20, "技术")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestCommunityService_GetGroups_Pagination(t *testing.T) {
 		database.Create(group)
 	}
 
-	groups, total, err := service.GetGroups(1, 10, "")
+	groups, total, err := service.GetGroups(context.Background(), 1, 10, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestCommunityService_GetGroups_Pagination(t *testing.T) {
 	}
 
 	// 获取第二页
-	groups2, total2, err := service.GetGroups(2, 10, "")
+	groups2, total2, err := service.GetGroups(context.Background(), 2, 10, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestCommunityService_CreateGroup(t *testing.T) {
 		Description: "这是一个测试群组",
 	}
 
-	group, err := service.CreateGroup(req)
+	group, err := service.CreateGroup(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestCommunityService_CreateGroup_EmptyName(t *testing.T) {
 		Description: "描述",
 	}
 
-	_, err := service.CreateGroup(req)
+	_, err := service.CreateGroup(context.Background(), req)
 	if err != nil {
 		// 空名称应该导致错误（由 binding 验证）
 		t.Logf("CreateGroup with empty name returned error: %v", err)
@@ -230,7 +230,7 @@ func TestCommunityService_CreateGroup_EmptyDescription(t *testing.T) {
 		Description: "",
 	}
 
-	group, err := service.CreateGroup(req)
+	group, err := service.CreateGroup(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestCommunityService_UpdateGroup(t *testing.T) {
 		Description: "新描述",
 	}
 
-	err := service.UpdateGroup(group.ID, req)
+	err := service.UpdateGroup(context.Background(), group.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestCommunityService_UpdateGroup_Partial(t *testing.T) {
 		Description: "",
 	}
 
-	err := service.UpdateGroup(group.ID, req)
+	err := service.UpdateGroup(context.Background(), group.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestCommunityService_UpdateGroup_NotFound(t *testing.T) {
 		Name: "新名称",
 	}
 
-	err := service.UpdateGroup("non-existent-id", req)
+	err := service.UpdateGroup(context.Background(), "non-existent-id", req)
 	if err == nil {
 		t.Error("Expected error for non-existent group")
 	}
@@ -354,7 +354,7 @@ func TestCommunityService_DeleteGroup(t *testing.T) {
 	}
 	database.Create(group)
 
-	err := service.DeleteGroup(group.ID)
+	err := service.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestCommunityService_DeleteGroup_WithMembers(t *testing.T) {
 	database.Create(member1)
 	database.Create(member2)
 
-	err := service.DeleteGroup(group.ID)
+	err := service.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
@@ -437,7 +437,7 @@ func TestCommunityService_DeleteGroup_NotFound(t *testing.T) {
 
 	service := NewCommunityService()
 
-	err := service.DeleteGroup("non-existent-id")
+	err := service.DeleteGroup(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent group")
 	}
@@ -451,7 +451,7 @@ func TestCommunityService_GetMembers_Empty(t *testing.T) {
 
 	service := NewCommunityService()
 
-	members, total, err := service.GetMembers("group-id", 1, 20, "")
+	members, total, err := service.GetMembers(context.Background(), "group-id", 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -501,7 +501,7 @@ func TestCommunityService_GetMembers_WithResults(t *testing.T) {
 		database.Create(member)
 	}
 
-	members, total, err := service.GetMembers(group.ID, 1, 20, "")
+	members, total, err := service.GetMembers(context.Background(), group.ID, 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -549,7 +549,7 @@ func TestCommunityService_GetMembers_WithSearch(t *testing.T) {
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	members, total, err := service.GetMembers(group.ID, 1, 20, "张")
+	members, total, err := service.GetMembers(context.Background(), group.ID, 1, 20, "张")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -585,7 +585,7 @@ func TestCommunityService_AddMember(t *testing.T) {
 		Role:     "member",
 	}
 
-	member, err := service.AddMember(req)
+	member, err := service.AddMember(context.Background(), req)
 	if err != nil {
 		t.Fatalf("AddMember failed: %v", err)
 	}
@@ -638,7 +638,7 @@ func TestCommunityService_AddMember_DuplicateUsername(t *testing.T) {
 		Username: "sameuser",
 		Role:     "member",
 	}
-	_, err := service.AddMember(member1)
+	_, err := service.AddMember(context.Background(), member1)
 	if err != nil {
 		t.Fatalf("AddMember failed: %v", err)
 	}
@@ -650,7 +650,7 @@ func TestCommunityService_AddMember_DuplicateUsername(t *testing.T) {
 		Username: "sameuser",
 		Role:     "member",
 	}
-	_, err = service.AddMember(member2)
+	_, err = service.AddMember(context.Background(), member2)
 	if err == nil {
 		t.Error("Expected error for duplicate username")
 	}
@@ -683,7 +683,7 @@ func TestCommunityService_UpdateMember(t *testing.T) {
 		Status: "banned",
 	}
 
-	err := service.UpdateMember(member.ID, req)
+	err := service.UpdateMember(context.Background(), member.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateMember failed: %v", err)
 	}
@@ -729,7 +729,7 @@ func TestCommunityService_UpdateMember_Partial(t *testing.T) {
 		Status: "",
 	}
 
-	err := service.UpdateMember(member.ID, req)
+	err := service.UpdateMember(context.Background(), member.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateMember failed: %v", err)
 	}
@@ -759,7 +759,7 @@ func TestCommunityService_UpdateMember_NotFound(t *testing.T) {
 		Name: "新名称",
 	}
 
-	err := service.UpdateMember("non-existent-id", req)
+	err := service.UpdateMember(context.Background(), "non-existent-id", req)
 	if err == nil {
 		t.Error("Expected error for non-existent member")
 	}
@@ -799,7 +799,7 @@ func TestCommunityService_RemoveMember(t *testing.T) {
 	}
 	database.Create(member)
 
-	err := service.RemoveMember(member.ID)
+	err := service.RemoveMember(context.Background(), member.ID)
 	if err != nil {
 		t.Fatalf("RemoveMember failed: %v", err)
 	}
@@ -825,7 +825,7 @@ func TestCommunityService_RemoveMember_NotFound(t *testing.T) {
 
 	service := NewCommunityService()
 
-	err := service.RemoveMember("non-existent-id")
+	err := service.RemoveMember(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent member")
 	}
@@ -839,7 +839,7 @@ func TestCommunityService_GetMessages_Empty(t *testing.T) {
 
 	service := NewCommunityService()
 
-	messages, total, err := service.GetMessages("group-id", 1, 20)
+	messages, total, err := service.GetMessages(context.Background(), "group-id", 1, 20)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -876,7 +876,7 @@ func TestCommunityService_GetMessages_WithResults(t *testing.T) {
 		database.Create(message)
 	}
 
-	messages, total, err := service.GetMessages("group-id", 1, 20)
+	messages, total, err := service.GetMessages(context.Background(), "group-id", 1, 20)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -911,7 +911,7 @@ func TestCommunityService_GetMessages_Pagination(t *testing.T) {
 		database.Create(message)
 	}
 
-	messages, total, err := service.GetMessages("group-id", 1, 10)
+	messages, total, err := service.GetMessages(context.Background(), "group-id", 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessages failed: %v", err)
 	}
@@ -934,7 +934,7 @@ func TestCommunityService_GetStatistics_Empty(t *testing.T) {
 
 	service := NewCommunityService()
 
-	stats, err := service.GetStatistics()
+	stats, err := service.GetStatistics(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -982,7 +982,7 @@ func TestCommunityService_GetStatistics_WithData(t *testing.T) {
 	database.Create(msg1)
 	database.Create(msg2)
 
-	stats, err := service.GetStatistics()
+	stats, err := service.GetStatistics(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1017,7 +1017,7 @@ func TestCommunityService_GetStatistics_ActiveGroups(t *testing.T) {
 	msg1 := &model.CommunityMessage{ID: "msg1", GroupID: "g1", UserID: "u1", UserName: "用户 1", Content: "消息 1", MessageType: "text", Timestamp: time.Now(), CreatedAt: time.Now()}
 	database.Create(msg1)
 
-	stats, err := service.GetStatistics()
+	stats, err := service.GetStatistics(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1047,7 +1047,7 @@ func TestCommunityService_GetStatistics_NewMembersToday(t *testing.T) {
 	database.Create(member1)
 	database.Create(member2)
 
-	stats, err := service.GetStatistics()
+	stats, err := service.GetStatistics(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1065,7 +1065,7 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 	service := NewCommunityService()
 
 	// 1. 获取空列表
-	_, total, err := service.GetGroups(1, 20, "")
+	_, total, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -1078,13 +1078,13 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		Name:        "技术交流群",
 		Description: "技术交流与分享",
 	}
-	group, err := service.CreateGroup(createReq)
+	group, err := service.CreateGroup(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
 
 	// 3. 验证列表
-	_, total, err = service.GetGroups(1, 20, "")
+	_, total, err = service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}
@@ -1097,7 +1097,7 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 		Name:        "技术交流群（已更名）",
 		Description: "更新后的描述",
 	}
-	err = service.UpdateGroup(group.ID, updateReq)
+	err = service.UpdateGroup(context.Background(), group.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
@@ -1110,14 +1110,14 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 			Username: "user" + string(rune('1'+i)),
 			Role:     "member",
 		}
-		_, err := service.AddMember(memberReq)
+		_, err := service.AddMember(context.Background(), memberReq)
 		if err != nil {
 			t.Fatalf("AddMember failed: %v", err)
 		}
 	}
 
 	// 6. 获取成员列表
-	members, memberTotal, err := service.GetMembers(group.ID, 1, 20, "")
+	members, memberTotal, err := service.GetMembers(context.Background(), group.ID, 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -1131,14 +1131,14 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 			Role:   "admin",
 			Status: "active",
 		}
-		err = service.UpdateMember(members[0].ID, updateMemberReq)
+		err = service.UpdateMember(context.Background(), members[0].ID, updateMemberReq)
 		if err != nil {
 			t.Fatalf("UpdateMember failed: %v", err)
 		}
 	}
 
 	// 8. 获取统计
-	stats, err := service.GetStatistics()
+	stats, err := service.GetStatistics(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1151,14 +1151,14 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 
 	// 9. 删除成员
 	if len(members) > 0 {
-		err = service.RemoveMember(members[0].ID)
+		err = service.RemoveMember(context.Background(), members[0].ID)
 		if err != nil {
 			t.Fatalf("RemoveMember failed: %v", err)
 		}
 	}
 
 	// 10. 验证成员数量
-	members2, memberTotal2, err := service.GetMembers(group.ID, 1, 20, "")
+	members2, memberTotal2, err := service.GetMembers(context.Background(), group.ID, 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetMembers failed: %v", err)
 	}
@@ -1170,13 +1170,13 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 	}
 
 	// 11. 删除群组
-	err = service.DeleteGroup(group.ID)
+	err = service.DeleteGroup(context.Background(), group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
 
 	// 12. 验证已删除
-	groups2, total2, err := service.GetGroups(1, 20, "")
+	groups2, total2, err := service.GetGroups(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("GetGroups failed: %v", err)
 	}

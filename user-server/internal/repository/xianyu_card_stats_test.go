@@ -480,6 +480,8 @@ func TestXianyuCardStatsRepository_GetCardStats_StatsByDate(t *testing.T) {
 // TestXianyuCardStatsRepository_RecordActivity_WithContext 测试使用 Context
 func TestXianyuCardStatsRepository_RecordActivity_WithContext(t *testing.T) {
 	repo := setupXianyuCardStatsRepository(t)
+	ctx := context.Background()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // 取消 context
 

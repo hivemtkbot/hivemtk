@@ -288,7 +288,7 @@ func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
 func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	// 注入 secret
-	db.Create(context.Background(), &model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
+	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
 	defer s.Stop()
 
@@ -308,7 +308,7 @@ func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
 
 func TestWebhookService_Receive_HMAC_BadSig(t *testing.T) {
 	db := setupWebhookTestDB(t)
-	db.Create(context.Background(), &model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
+	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
 	defer s.Stop()
 
@@ -325,7 +325,7 @@ func TestWebhookService_Receive_HMAC_BadSig(t *testing.T) {
 
 func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
 	db := setupWebhookTestDB(t)
-	db.Create(context.Background(), &model.IntegrationAccount{Platform: "kuaishou", APISecret: "ks_secret", Status: 1})
+	db.Create(&model.IntegrationAccount{Platform: "kuaishou", APISecret: "ks_secret", Status: 1})
 	s := NewWebhookService(db)
 	defer s.Stop()
 
@@ -342,7 +342,7 @@ func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
 
 func TestWebhookService_Receive_HMAC_Xiaohongshu(t *testing.T) {
 	db := setupWebhookTestDB(t)
-	db.Create(context.Background(), &model.IntegrationAccount{Platform: "xiaohongshu", APISecret: "xhs", Status: 1})
+	db.Create(&model.IntegrationAccount{Platform: "xiaohongshu", APISecret: "xhs", Status: 1})
 	s := NewWebhookService(db)
 	defer s.Stop()
 
@@ -473,7 +473,7 @@ func TestWebhookService_HandleJob_MarksProcessed(t *testing.T) {
 	s := NewWebhookService(db)
 	defer s.Stop()
 	evt := &model.WebhookEvent{Platform: "custom", EventID: "h1", EventType: "message", RawData: "{}", Processed: false}
-	db.Create(context.Background(), evt)
+	db.Create(evt)
 	body := []byte(`{"event_id":"h1","content":"hi","sender":"u1","chat_id":"c1"}`)
 	job := &webhookJob{event: evt, raw: body, header: nil}
 	s.handleJob(job)
@@ -490,7 +490,7 @@ func TestWebhookService_HandleJob_BadJSON(t *testing.T) {
 	s := NewWebhookService(db)
 	defer s.Stop()
 	evt := &model.WebhookEvent{Platform: "custom", EventID: "h2", EventType: "message"}
-	db.Create(context.Background(), evt)
+	db.Create(evt)
 	job := &webhookJob{event: evt, raw: []byte("bad"), header: nil}
 	s.handleJob(job)
 	// 不应 panic，event 保留为未处理
@@ -513,8 +513,8 @@ func TestWebhookService_PendingCount(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop()
-	db.Create(context.Background(), &model.WebhookEvent{Platform: "c", EventID: "p1", EventType: "e", Processed: false})
-	db.Create(context.Background(), &model.WebhookEvent{Platform: "c", EventID: "p2", EventType: "e", Processed: true})
+	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p1", EventType: "e", Processed: false})
+	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p2", EventType: "e", Processed: true})
 	if got := s.PendingCount(); got != 1 {
 		t.Errorf("expected 1 pending, got %d", got)
 	}
