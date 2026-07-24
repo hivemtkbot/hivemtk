@@ -55,11 +55,9 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	// 授权相关
-	// P0-21 修复：登录路由挂载 BruteForceGuard（5 次/5 分钟失败阈值，超限 429）
+	// P0-21 修复：登录路由挂载 BruteForceGuard（5 次/15 分钟失败阈值，超限 429）
 	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
-	loginCfg := middleware.LoginBruteForceConfig
-	loginCfg.Endpoint = "auth.login"
-	public.POST("/auth/login", middleware.BruteForceGuardWithConfig(loginCfg), controller.NewAuthController().Login)
+	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
 	// 开源版：已移除"首次强制改密"(init-change-password) 与"通过授权找回密码"
 	// (forgot-admin-password / reset-admin-password) 流程。找回密码统一在账号个人中心进行。

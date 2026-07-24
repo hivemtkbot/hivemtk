@@ -112,3 +112,6 @@ install.lock
 
 # ---------- 运行时上传目录（知识库样本数据，不进版本库；由运行时生成）----------
 internal/aiagent/knowledge/controller/uploads/
+# ---------- 一次性调试/构建产物 ----------
+/seed
+seed

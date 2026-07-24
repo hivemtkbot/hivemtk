@@ -344,8 +344,8 @@ func Setup(r *gin.Engine) {
 		setupMigrationRoutes(auth)
 
 		// 文件上传
-		uploadCtrl := controller.NewUploadController()
-		auth.POST("/upload", uploadCtrl.UploadFile)
+		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
+		auth.POST("/upload", controller.UploadFile)
 
 		// 多 AI 智能体架构（MULTI_AI_AGENT_DESIGN）
 		// 使用提前构建的共享 service 实例，确保 AIAgentService 缓存在所有使用方之间一致

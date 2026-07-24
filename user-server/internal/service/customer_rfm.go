@@ -147,6 +147,11 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 }
 
 // ComputeAll 计算所有客户 RFM（limit 限制）
+//
+// CC-P2 N+1 优化：原实现为「for c → ComputeForCustomer → customerRepo.GetByID」，
+// N 个客户产生 N 次额外 SELECT（外层 List 已拿到 customers 仍重复查）。
+// 现改为：复用 List 返回的 customers 切片，直接在循环里算，跳过重复 GetByID。
+// orders 仍然每客户一次 GetByCustomerID（进一步优化可预拉，参见 ListByAccountIDs）。
 func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, error) {
 	if limit < 1 || limit > 1000 {
 		limit = 200
@@ -158,12 +163,92 @@ func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, er
 	cfg := DefaultRFMConfig()
 	success := 0
 	for _, c := range customers {
-		if _, err := s.ComputeForCustomer(ctx, c.ID, cfg); err != nil {
+		if _, err := s.computeForCustomerLoaded(ctx, c, cfg); err != nil {
 			return success, err
 		}
 		success++
 	}
 	return success, nil
+}
+
+// computeForCustomerLoaded 复用已加载的 customer 对象进行 RFM 计算（CC-P2 内部辅助）
+//
+// 与 ComputeForCustomer 行为一致，差异在于不再调 customerRepo.GetByID（外层已加载）。
+// 公共 ComputeForCustomer 入口保留以便 controller 单独按 ID 调用。
+func (s *CustomerRFMService) computeForCustomerLoaded(ctx context.Context, cust *model.Customer, cfg RFMConfig) (*model.CustomerRFM, error) {
+	if cust == nil {
+		return nil, errors.New("客户不能为空")
+	}
+	if cust.ID == "" {
+		return nil, errors.New("客户 ID 不能为空")
+	}
+
+	// 解析 account_id（用于 order 关联）
+	accountID := cust.ID
+	if cust.Phone != "" {
+		accountID = cust.Phone
+	}
+
+	// 计算 R / F / M
+	r, f, m, lastActive, err := s.computeRawMetrics(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 1-5 分映射
+	rs := rfmScoreRecency(r, cfg.RecencyBuckets)
+	fs := rfmScoreFrequency(f, cfg.FrequencyBuckets)
+	ms := rfmScoreMonetary(m, cfg.MonetaryBuckets)
+
+	composite := int(float64(rs)*30 + float64(fs)*30 + float64(ms)*40)
+	if composite < 0 {
+		composite = 0
+	}
+	if composite > 100 {
+		composite = 100
+	}
+
+	segment := determineSegment(rs, fs, ms, r, cfg.ChurnRecencyThreshold)
+	churnRisk, churnScore := calcChurnRisk(r, f, m, cfg)
+
+	avgOrder := int64(0)
+	if f > 0 {
+		avgOrder = m / int64(f)
+	}
+
+	rfm := &model.CustomerRFM{
+		CustomerID:     cust.ID,
+		UnifiedID:      cust.UnifiedID,
+		RecencyDays:    r,
+		Frequency:      f,
+		MonetaryTotal:  m,
+		AvgOrderValue:  avgOrder,
+		RScore:         rs,
+		FScore:         fs,
+		MScore:         ms,
+		CompositeScore: composite,
+		Segment:        segment,
+		ChurnRiskLevel: churnRisk,
+		ChurnScore:     churnScore,
+		LastActiveAt:   lastActive,
+		ComputedAt:     s.nowFunc(),
+	}
+	if err := s.rfmRepo.Upsert(ctx, rfm); err != nil {
+		return nil, err
+	}
+
+	// 流失客户自动入挽回队列
+	if cfg.AutoEnqueueRecovery && segment == model.RFMSegmentChurn {
+		s.enqueueRecovery(ctx, rfm)
+	}
+
+	// 联动业务编排层
+	// CustomerRFMService 通过 NewCustomerRFMService() 无构造函数注入 orchestrator，
+	// 此处直接走 GetGlobalOrchestrator() 全局单例兜底（与 event_tracker / chat_visitor_service 模式一致）。
+	if orch := GetGlobalOrchestrator(); orch != nil {
+		orch.OnRFMComputed(ctx, cust.ID, string(segment))
+	}
+	return rfm, nil
 }
 
 // GetByCustomerID 查询客户 RFM

@@ -21,6 +21,8 @@ type CustomerRepository interface {
 	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error)
 	CountNotEmpty(ctx context.Context, fieldName string) (int64, error)
 	CountMultiIdentity(ctx context.Context) (int64, error)
+	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+	ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error)
 }
 
 // customerRepository implements CustomerRepository
@@ -199,4 +201,40 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 		return 0, err
 	}
 	return n, nil
+}
+
+// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+//
+// 单次 SQL：SELECT * FROM customers WHERE id IN (...)。
+// 入参 ids 去重 + 跳过空串；未命中的 ID 不会出现在结果 map 中。
+// 用于 ComputeAll / ListCustomersWithProfile 等"先 List 再 GetByID"场景，
+// 把 N 次 IO 收敛为 1 次。
+func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error) {
+	result := make(map[string]*model.Customer, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	var customers []*model.Customer
+	if err := _db.GetDB().WithContext(ctx).Where("id IN ?", unique).Find(&customers).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range customers {
+		result[c.ID] = c
+	}
+	return result, nil
 }
