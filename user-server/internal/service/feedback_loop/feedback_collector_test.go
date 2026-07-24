@@ -347,6 +347,7 @@ func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 	cfg.FlushInterval = 10 * time.Second
 	c := NewFeedbackCollector(db, cfg)
 	defer c.Stop()
+	ctx := context.Background()
 
 	// 填满队列（QueueSize=2，缓冲 2 条）
 	// 第 1 条立即被 worker select 消费 → 入队成功

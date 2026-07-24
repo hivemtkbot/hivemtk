@@ -612,7 +612,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 		if e.Title == "张销冠的独门话术" {
 			found = true
 			if e.CreatedBy != "张销冠" {
-				t.Errorf("创建者应为张销冠，实际: %s", e.Create(dBy)
+				t.Errorf("创建者应为张销冠，实际: %s", e.CreatedBy)
 			}
 		}
 	}
