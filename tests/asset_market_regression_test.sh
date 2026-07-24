@@ -43,10 +43,11 @@ LOG="$LOG_DIR/asset_market_regression_test.log"
 TOKEN=$(node -e "
 const crypto=require('crypto');
 const secret='$JWT_SECRET';
-const h=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//,'_');
+const b64url=(o)=>Buffer.from(JSON.stringify(o)).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+const h=b64url({alg:'HS256',typ:'JWT'});
 const now=Math.floor(Date.now()/1000);
-const p=Buffer.from(JSON.stringify({user_id:'1',username:'admin',role:'admin',data_scope:'all',department_id:0,team_id:0,exp:now+86400,iat:now,nbf:now,iss:'marketing-system'})).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//,'_');
-const s=crypto.createHmac('sha256',secret).update(h+'.'+p).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//,'_');
+const p=b64url({user_id:'1',username:'admin',role:'admin',data_scope:'all',department_id:0,team_id:0,exp:now+86400,iat:now,nbf:now,iss:'marketing-system'});
+const s=crypto.createHmac('sha256',secret).update(h+'.'+p).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
 console.log(h+'.'+p+'.'+s);
 ")
 
