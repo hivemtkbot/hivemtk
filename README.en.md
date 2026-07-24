@@ -14,6 +14,20 @@
 
 ---
 
+## 🚀 Live Demo
+
+> Skip the local setup. Log in to the public demo with the credentials below to explore HiveMtk's full capabilities: all-channel aggregation, AI agents, sales-champion SOP, and customer CDP.
+
+| Item | Value |
+|------|-------|
+| **Demo URL** | https://hiveuser.xapptool.cn/ |
+| **Username** | `admin` |
+| **Password** | `Seed@123456` |
+
+> ⚠️ The demo runs on shared sample data and is open to everyone — please do not upload real business data. The demo account may be reset by others; contact the maintainer if login fails.
+
+---
+
 ## One-Line Pitch
 
 > The self-hosted AI marketing OS that nails three things at once: **all-channel reach**, **true AI autonomy**, **zero data egress**.
