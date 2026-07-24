@@ -247,7 +247,7 @@ const topMenus = ref([
     key: 'aiAgent',
     title: '智能体',
     icon: 'Cpu',
-    roles: ['admin', 'manager'],
+    roles: ['admin', 'manager', 'customer_service'],
     children: [
       {
         key: 'agentManage',
@@ -263,7 +263,7 @@ const topMenus = ref([
         title: '被动应答',
         icon: 'ChatDotRound',
         children: [
-          { key: 'unifiedInbox', title: '统一收件箱', icon: 'Inbox', path: '/unifiedInbox/list', roles: ['admin', 'manager', 'sales'] },
+          { key: 'unifiedInbox', title: '统一收件箱', icon: 'Inbox', path: '/unifiedInbox/list', roles: ['admin', 'manager', 'sales', 'customer_service'] },
           { key: 'customerSession', title: '客服会话', icon: 'Service', path: '/customerSession/list' },
           { key: 'intentRecognition', title: '意图识别', icon: 'Aim', path: '/intentRecognition/list' },
           { key: 'dialogueMemory', title: '对话记忆', icon: 'ChatDotRound', path: '/dialogueMemory/list' },
@@ -293,7 +293,7 @@ const topMenus = ref([
         key: 'agentWorkbench',
         title: '客服工作台',
         icon: 'Headset',
-        roles: ['admin', 'manager', 'sales'],
+        roles: ['admin', 'manager', 'sales', 'customer_service'],
         children: [
           { key: 'agentStatus', title: '坐席状态', icon: 'Headset', path: '/customerService/agentStatus' },
           { key: 'quickReply', title: '快捷回复', icon: 'ChatLineSquare', path: '/customerService/quickReply' },
