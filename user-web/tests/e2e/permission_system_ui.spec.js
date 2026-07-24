@@ -404,7 +404,10 @@ test.describe('权限系统 UI 多角色验证', () => {
 
     const finalHash = await page.evaluate(() => window.location.hash)
     console.log(`  客服访问 /system/users 后 hash: ${finalHash}`)
-    // 客服被重定向到其他页面（不允许看到 /system/users）
-    expect(finalHash.includes('/system/users')).toBe(false)
+    // 解析路径（去掉 ?from=* 等 query），仅校验 pathname
+    const pathOnly = finalHash.split('?')[0]
+    console.log(`  pathname: ${pathOnly}`)
+    // 客服被重定向到非 /system/users 页面（403 → NotFound）
+    expect(pathOnly.includes('/system/users')).toBe(false)
   })
 })

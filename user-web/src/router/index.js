@@ -264,7 +264,22 @@ router.beforeEach(async (to, from, next) => {
   // 其他路径需要检查初始化 + 登录态
   if (!isInitialized()) {
     next('/setup')
-  } else if (to.meta.requiresAuth) {
+    return
+  }
+
+  // F-P1-74: requiresAdmin 守卫
+  // 路由 meta.requiresAdmin = true 时，仅 admin 角色可访问；非 admin 跳转 403 提示
+  if (to.meta?.requiresAdmin) {
+    const userStore = useUserStore()
+    if (userStore.role !== 'admin') {
+      ElMessage.error('无权访问（403）：仅管理员可使用该功能')
+      // 跳到 NotFound 并通过 query 标记 403，由 NotFound 展示对应文案
+      next({ name: 'NotFound', query: { status: '403', from: to.fullPath }, replace: true })
+      return
+    }
+  }
+
+  if (to.meta.requiresAuth) {
     const userStore = useUserStore()
     if (userStore.isLoggedIn) {
       next()

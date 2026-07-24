@@ -104,9 +104,10 @@ log_line "${CYAN}=== 2. 人员管理 ===${NC}"
 run_test "GET /api/system/users (列表)" '"code":"SUCCESS"' \
     "curl -s $BASE/api/system/users -H 'Authorization: Bearer $ADMIN_TOKEN'"
 
-# 2.2 详情（用 admin 自己）
-run_test "GET /api/system/users/1 (admin 详情)" '"code":"SUCCESS"' \
-    "curl -s $BASE/api/system/users/1 -H 'Authorization: Bearer $ADMIN_TOKEN'"
+# 2.2 详情（用 admin 自己，从 current-user 接口拿 id）
+ADMIN_ID=$(curl -s $BASE/api/auth/current-user -H "Authorization: Bearer $ADMIN_TOKEN" | grep -o '"id":[0-9]*' | head -1 | grep -o '[0-9]*')
+run_test "GET /api/system/users/$ADMIN_ID (admin 详情)" '"code":"SUCCESS"' \
+    "curl -s $BASE/api/system/users/$ADMIN_ID -H 'Authorization: Bearer $ADMIN_TOKEN'"
 
 # 2.3 创建客服
 RAND1=$RANDOM
