@@ -10,6 +10,7 @@ import (
 
 // TestInferenceConfigLoads 校验 config.yaml 的 inference 段（优化二/三 配置 schema 契约）
 // 从 user-server 根目录读取 config.yaml（相对本包 4 级上）。
+// 2026-07-24 重构：dev 档统一切到 bge-m3 + bge-reranker-v2-m3（与 scripts/inference-host/models.env 一致）
 func TestInferenceConfigLoads(t *testing.T) {
 	p := filepath.Join("..", "..", "..", "..", "config.yaml")
 	data, err := os.ReadFile(p)
@@ -23,17 +24,16 @@ func TestInferenceConfigLoads(t *testing.T) {
 	if c.Inference.Profile != "dev" {
 		t.Fatalf("profile 应为 dev，实际 %s", c.Inference.Profile)
 	}
-	if c.Inference.Embedding.Model != "Qwen3-Embedding-0.6B" {
-		t.Fatalf("embedding model 应为 Qwen3-Embedding-0.6B，实际 %s", c.Inference.Embedding.Model)
+	// 2026-07-24：dev 档 embedding 切到 bge-m3（1024 维），与 pgvector vector(1024) 对齐
+	if c.Inference.Embedding.Model != "bge-m3" {
+		t.Fatalf("embedding model 应为 bge-m3（dev 档），实际 %s", c.Inference.Embedding.Model)
 	}
 	if c.Inference.Embedding.Dimension != 1024 {
 		t.Fatalf("embedding 维度必须 1024，实际 %d", c.Inference.Embedding.Dimension)
 	}
-	if !c.Inference.Embedding.AllowFallback {
-		// dev 默认禁止 hash 降级
-	}
-	if c.Inference.Rerank.Model != "bge-reranker-large" {
-		t.Fatalf("rerank model 应为 bge-reranker-large（config.yaml 已从 bge-reranker-v2-minicpm-light 切换为更省内存的 large 版本），实际 %s", c.Inference.Rerank.Model)
+	// 2026-07-24：dev 档 rerank 切到 bge-reranker-v2-m3
+	if c.Inference.Rerank.Model != "bge-reranker-v2-m3" {
+		t.Fatalf("rerank model 应为 bge-reranker-v2-m3（dev 档），实际 %s", c.Inference.Rerank.Model)
 	}
 	if !c.Inference.Rerank.Enabled {
 		t.Fatal("rerank 应启用")
@@ -46,5 +46,12 @@ func TestInferenceConfigLoads(t *testing.T) {
 	}
 	if c.Inference.LLM.Mode != InferenceModeLocal {
 		t.Fatalf("llm mode 应为 local，实际 %s", c.Inference.LLM.Mode)
+	}
+	// 2026-07-24：embedding / rerank base_url 必须是宿主机 127.0.0.1
+	if c.Inference.Embedding.BaseURL != "http://127.0.0.1:8208/v1" {
+		t.Fatalf("embedding base_url 应为 http://127.0.0.1:8208/v1，实际 %s", c.Inference.Embedding.BaseURL)
+	}
+	if c.Inference.Rerank.BaseURL != "http://127.0.0.1:8209" {
+		t.Fatalf("rerank base_url 应为 http://127.0.0.1:8209，实际 %s", c.Inference.Rerank.BaseURL)
 	}
 }

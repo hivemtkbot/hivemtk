@@ -55,7 +55,8 @@ download_one() {
       auth=(-H "Authorization: Bearer $HF_TOKEN")
     fi
     local tmp="$out.part"
-    if curl -fL --retry 2 --retry-delay 2 --max-time 600 -C - "${auth[@]}" -o "$tmp" "$u" 2>/dev/null; then
+    # ${auth[@]+...} 兼容 bash 3.2 (macOS 默认)：空数组在 set -u 下不报 unbound
+    if curl -fL --retry 2 --retry-delay 2 --max-time 600 -C - ${auth[@]+"${auth[@]}"} -o "$tmp" "$u" 2>/dev/null; then
       if [[ -s "$tmp" ]]; then
         mv -f "$tmp" "$out"
         echo "[download] [$role] ✅ 成功 ($file): $out ($(du -h "$out" | cut -f1))"
