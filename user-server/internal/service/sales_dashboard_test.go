@@ -17,6 +17,7 @@ import (
 
 // 场景 1：医美完整旅程
 func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
+	ctx := context.Background()
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
@@ -26,7 +27,7 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	custID := "mb_001"
 
 	// 1. 陌生 → 留资（客户问价格）
-	tags := tagger.TagFromSalesResponse(custID, &SalesResponse{
+	tags := tagger.TagFromSalesResponse(context.Background(), custID, &SalesResponse{
 		Intent: &dto.RecognizeResult{IntentType: IntentPriceInquiry, Confidence: 0.9},
 	})
 	if len(tags) == 0 {
@@ -34,7 +35,7 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	}
 
 	// 2. 提取订单意向
-	intents := extractor.ExtractFromText(custID, "我想要光子嫩肤套餐，880元一次")
+	intents := extractor.ExtractFromText(context.Background(), custID, "我想要光子嫩肤套餐，880元一次")
 	if len(intents) == 0 {
 		t.Fatal("should extract order intent")
 	}
@@ -65,7 +66,7 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	journey.Transition(ctx, custID, StageWon, "order", "system", "支付成功", nil)
 
 	// 7. 销售记录订单
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID:     "ord_001",
 		CustomerID:  custID,
 		OwnerID:     "sales_01",
@@ -76,7 +77,7 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	})
 
 	// 8. AI 谈单记录
-	dashboard.RecordAIDeal(AIDealEvent{
+	dashboard.RecordAIDeal(context.Background(), AIDealEvent{
 		CustomerID: custID,
 		OwnerID:    "sales_01",
 		Intent:     IntentPriceInquiry,
@@ -87,13 +88,13 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	})
 
 	// 9. 验证客户最终状态
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("expected Won, got %s", state.CurrentStage)
 	}
 
 	// 10. 验证自动标签已累积
-	allTags := tagger.GetTags(custID)
+	allTags := tagger.GetTags(context.Background(), custID)
 	hasPrice := false
 	for _, tag := range allTags {
 		if tag.Tag == "behavior:price_sensitive" {
@@ -105,7 +106,7 @@ func TestScenario_MedicalBeauty_CompleteJourney(t *testing.T) {
 	}
 
 	// 11. 验证跟进
-	pending := followup.ListPending("sales_01", 0)
+	pending := followup.ListPending(context.Background(), "sales_01", 0)
 	if len(pending) < 1 {
 		t.Errorf("should have at least 1 pending followup")
 	}
@@ -120,7 +121,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	custID := "edu_001"
 
 	// 1. 100 天前有购买记录（recency=100 -> r=2, f=1 -> Attention/Hibernating）
-	engine.RecordPurchase(PurchaseEvent{
+	engine.RecordPurchase(context.Background(), PurchaseEvent{
 		OrderID:     "ord_2025",
 		CustomerID:  custID,
 		Amount:      3000,
@@ -129,7 +130,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	})
 
 	// 2. 计算 RFM
-	rfm := engine.ComputeRFM(custID)
+	rfm := engine.ComputeRFM(context.Background(), custID)
 	if rfm.Segment != RFMTYPEHibernating && rfm.Segment != RFMTYPEAttention && rfm.Segment != RFMTYPELost {
 		t.Errorf("expected Hibernating/Attention/Lost, got %s", rfm.Segment)
 	}
@@ -138,7 +139,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	if err := engine.TriggerJourney(context.Background(), custID, journey); err != nil {
 		t.Fatalf("trigger journey failed: %v", err)
 	}
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	// Attention/Hibernating -> StageSleeping; Lost -> StageLost
 	if rfm.Segment == RFMTYPEAttention || rfm.Segment == RFMTYPEHibernating {
 		if state.CurrentStage != StageSleeping {
@@ -153,7 +154,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	}
 
 	// 4. 生成激活计划
-	plan := engine.GenerateReactivationPlan(custID)
+	plan := engine.GenerateReactivationPlan(context.Background(), custID)
 	if len(plan) == 0 {
 		t.Error("hibernating should have plan")
 	}
@@ -163,7 +164,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	}
 
 	// 5. 销售记录：第 1 波跟进
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: custID,
 		OwnerID:    "sales_02",
 		Channel:    "wechat",
@@ -173,7 +174,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	})
 
 	// 6. 第 2 波跟进 → 激活成功
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: custID,
 		OwnerID:    "sales_02",
 		Channel:    "wechat",
@@ -183,7 +184,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	})
 
 	// 7. 重新激活后成交
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID:     "ord_2026",
 		CustomerID:  custID,
 		OwnerID:     "sales_02",
@@ -194,7 +195,7 @@ func TestScenario_Education_Reactivation(t *testing.T) {
 	})
 
 	// 8. 预测复购概率（激活后）
-	pred := engine.Predict(custID)
+	pred := engine.Predict(context.Background(), custID)
 	if pred.Probability < 0 {
 		t.Error("prediction should not be negative")
 	}
@@ -214,26 +215,26 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 		{SalesID: "s_05", Name: "小孙", Team: "B", Tags: []string{"新员工"}},
 	}
 	for _, s := range sales {
-		dashboard.RegisterSales(s)
+		dashboard.RegisterSales(context.Background(), s)
 	}
 
 	// 给每个销售注入订单
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 50000, OrderedAt: time.Now()})
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 30000, OrderedAt: time.Now()})
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_02", Amount: 40000, OrderedAt: time.Now()})
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_03", Amount: 5000, OrderedAt: time.Now()})
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_04", Amount: 2000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 50000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 30000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_02", Amount: 40000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_03", Amount: 5000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_04", Amount: 2000, OrderedAt: time.Now()})
 
 	// 跟进数据
 	for i := 0; i < 20; i++ {
-		dashboard.RecordFollowUp(FollowUpEvent{
+		dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 			OwnerID:    "s_01",
 			Result:     "converted",
 			OccurredAt: time.Now(),
 		})
 	}
 	for i := 0; i < 30; i++ {
-		dashboard.RecordFollowUp(FollowUpEvent{
+		dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 			OwnerID:    "s_02",
 			Result:     "no_reply",
 			OccurredAt: time.Now(),
@@ -242,7 +243,7 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 
 	// AI 谈单
 	for i := 0; i < 100; i++ {
-		dashboard.RecordAIDeal(AIDealEvent{
+		dashboard.RecordAIDeal(context.Background(), AIDealEvent{
 			OwnerID:     "s_01",
 			Replied:     true,
 			Transferred: i%5 == 0,
@@ -252,10 +253,10 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 		})
 	}
 	// AI 独立成单
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 10000, IsAIHandled: true, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 10000, IsAIHandled: true, OrderedAt: time.Now()})
 
 	// 1. 排行榜
-	rankings := dashboard.GetTeamRanking(time.Time{}, 5)
+	rankings := dashboard.GetTeamRanking(context.Background(), time.Time{}, 5)
 	if len(rankings) != 5 {
 		t.Errorf("expected 5 rankings, got %d", len(rankings))
 	}
@@ -267,7 +268,7 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 	}
 
 	// 2. AI 产能
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(context.Background(), time.Time{})
 	if prod.TotalAIDeals != 100 {
 		t.Errorf("expected 100 AI deals, got %d", prod.TotalAIDeals)
 	}
@@ -276,7 +277,7 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 	}
 
 	// 3. 销冠画像
-	champion := dashboard.GetChampionProfile(time.Time{})
+	champion := dashboard.GetChampionProfile(context.Background(), time.Time{})
 	if len(champion.TopPerformers) < 1 {
 		t.Error("should have at least 1 top performer")
 	}
@@ -289,6 +290,7 @@ func TestScenario_Dashboard_TopPerformers(t *testing.T) {
 
 // Sales Dashboard 单元测试
 func TestSalesDashboard_FunnelByJourney(t *testing.T) {
+	ctx := context.Background()
 	journey := NewCustomerJourneyService()
 	dashboard := NewSalesDashboard(journey)
 
@@ -300,7 +302,7 @@ func TestSalesDashboard_FunnelByJourney(t *testing.T) {
 	_, _ = journey.Transition(ctx, "c5", StageQuoted, "ai", "ai", "", nil)
 	_, _ = journey.Transition(ctx, "c6", StageWon, "ai", "ai", "", nil)
 
-	funnel := dashboard.FunnelByJourney()
+	funnel := dashboard.FunnelByJourney(context.Background())
 	if funnel == nil {
 		t.Fatal("funnel should not be nil")
 	}
@@ -315,14 +317,14 @@ func TestSalesDashboard_FunnelByJourney(t *testing.T) {
 func TestSalesDashboard_GetSalesPerformance(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	dashboard := NewSalesDashboard(journey)
-	dashboard.RegisterSales(SalesProfile{SalesID: "s_01", Name: "小张", Team: "A"})
+	dashboard.RegisterSales(context.Background(), SalesProfile{SalesID: "s_01", Name: "小张", Team: "A"})
 
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 1000, OrderedAt: time.Now()})
-	dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 2000, OrderedAt: time.Now()})
-	dashboard.RecordFollowUp(FollowUpEvent{OwnerID: "s_01", Result: "converted", OccurredAt: time.Now()})
-	dashboard.RecordFollowUp(FollowUpEvent{OwnerID: "s_01", Result: "no_reply", OccurredAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 1000, OrderedAt: time.Now()})
+	dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 2000, OrderedAt: time.Now()})
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{OwnerID: "s_01", Result: "converted", OccurredAt: time.Now()})
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{OwnerID: "s_01", Result: "no_reply", OccurredAt: time.Now()})
 
-	perf := dashboard.GetSalesPerformance("s_01", time.Time{})
+	perf := dashboard.GetSalesPerformance(context.Background(), "s_01", time.Time{})
 	if perf.TotalOrders != 2 {
 		t.Errorf("expected 2 orders, got %d", perf.TotalOrders)
 	}
@@ -343,7 +345,7 @@ func TestSalesDashboard_AIProductivity(t *testing.T) {
 
 	// 50 个 AI 谈单
 	for i := 0; i < 50; i++ {
-		dashboard.RecordAIDeal(AIDealEvent{
+		dashboard.RecordAIDeal(context.Background(), AIDealEvent{
 			OwnerID:     "s_01",
 			Replied:     i%2 == 0,
 			Transferred: i%10 == 0,
@@ -354,17 +356,17 @@ func TestSalesDashboard_AIProductivity(t *testing.T) {
 	}
 	// 5 个 AI 独立成单
 	for i := 0; i < 5; i++ {
-		dashboard.RecordOrder(OrderEvent{OwnerID: "s_01", Amount: 500, IsAIHandled: true, OrderedAt: time.Now()})
+		dashboard.RecordOrder(context.Background(), OrderEvent{OwnerID: "s_01", Amount: 500, IsAIHandled: true, OrderedAt: time.Now()})
 	}
 	// 100 个 AI 谈单
 	for i := 0; i < 100; i++ {
-		dashboard.RecordFollowUp(FollowUpEvent{OwnerID: "s_01", IsAI: false, Result: "converted", OccurredAt: time.Now()})
+		dashboard.RecordFollowUp(context.Background(), FollowUpEvent{OwnerID: "s_01", IsAI: false, Result: "converted", OccurredAt: time.Now()})
 	}
 	for i := 0; i < 200; i++ {
-		dashboard.RecordFollowUp(FollowUpEvent{OwnerID: "s_01", IsAI: false, Result: "no_reply", OccurredAt: time.Now()})
+		dashboard.RecordFollowUp(context.Background(), FollowUpEvent{OwnerID: "s_01", IsAI: false, Result: "no_reply", OccurredAt: time.Now()})
 	}
 
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(context.Background(), time.Time{})
 	if prod.TotalAIDeals != 50 {
 		t.Errorf("expected 50 AI deals, got %d", prod.TotalAIDeals)
 	}
@@ -382,9 +384,9 @@ func TestSalesDashboard_AIProductivity(t *testing.T) {
 func TestSalesDashboard_TeamDashboard(t *testing.T) {
 	journey := NewCustomerJourneyService()
 	dashboard := NewSalesDashboard(journey)
-	dashboard.RegisterSales(SalesProfile{SalesID: "s_01", Name: "小张"})
+	dashboard.RegisterSales(context.Background(), SalesProfile{SalesID: "s_01", Name: "小张"})
 
-	td := dashboard.GetTeamDashboard(time.Time{})
+	td := dashboard.GetTeamDashboard(context.Background(), time.Time{})
 	if td == nil {
 		t.Fatal("team dashboard should not be nil")
 	}
@@ -405,6 +407,7 @@ func TestSalesDashboard_TeamDashboard(t *testing.T) {
 // TestEndToEnd_CompleteLoop 商业产品级端到端：客户从接触到成单 + 仪表盘统计 + 复购预测
 // 这个测试模拟真实业务的全流程闭环
 func TestEndToEnd_CompleteLoop(t *testing.T) {
+	ctx := context.Background()
 	journey := NewCustomerJourneyService()
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
@@ -436,11 +439,11 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 	for _, c := range customers {
 		// 1. AI 谈单
 		intentResult := &dto.RecognizeResult{IntentType: c.Intent, Confidence: c.Conf}
-		tagger.TagFromSalesResponse(c.ID, &SalesResponse{Intent: intentResult})
+		tagger.TagFromSalesResponse(context.Background(), c.ID, &SalesResponse{Intent: intentResult})
 
 		// 2. 提取订单意向
 		if c.Product != "" {
-			extractor.ExtractFromText(c.ID, "客户说"+c.Product)
+			extractor.ExtractFromText(context.Background(), c.ID, "客户说"+c.Product)
 		}
 
 		// 3. 旅程迁移
@@ -452,7 +455,7 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 			_, _ = journey.Transition(ctx, c.ID, StageWon, "order", "system", "", nil)
 
 			// 4. 记录订单
-			dashboard.RecordOrder(OrderEvent{
+			dashboard.RecordOrder(context.Background(), OrderEvent{
 				CustomerID:  c.ID,
 				OwnerID:     "s_01",
 				Amount:      c.Amount,
@@ -462,7 +465,7 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 			})
 
 			// 5. 复购引擎记录
-			repurchase.RecordPurchase(PurchaseEvent{
+			repurchase.RecordPurchase(context.Background(), PurchaseEvent{
 				CustomerID:  c.ID,
 				Amount:      c.Amount,
 				ProductName: c.Product,
@@ -476,7 +479,7 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 		}
 
 		// 6. 记录 AI 谈单
-		dashboard.RecordAIDeal(AIDealEvent{
+		dashboard.RecordAIDeal(context.Background(), AIDealEvent{
 			CustomerID: c.ID,
 			OwnerID:    "s_01",
 			Intent:     c.Intent,
@@ -492,13 +495,13 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 
 	// 验证闭环
 	// 1. 4 个客户成单
-	wonCount := len(journey.ListByStage(StageWon))
+	wonCount := len(journey.ListByStage(context.Background(), StageWon))
 	if wonCount != 4 {
 		t.Errorf("expected 4 won, got %d", wonCount)
 	}
 
 	// 2. 销售业绩
-	perf := dashboard.GetSalesPerformance("s_01", time.Time{})
+	perf := dashboard.GetSalesPerformance(context.Background(), "s_01", time.Time{})
 	if perf.TotalOrders != 4 {
 		t.Errorf("expected 4 orders, got %d", perf.TotalOrders)
 	}
@@ -508,19 +511,19 @@ func TestEndToEnd_CompleteLoop(t *testing.T) {
 	}
 
 	// 3. AI 产能
-	prod := dashboard.GetAIProductivity(time.Time{})
+	prod := dashboard.GetAIProductivity(context.Background(), time.Time{})
 	if prod.TotalAIDeals != 10 {
 		t.Errorf("expected 10 AI deals, got %d", prod.TotalAIDeals)
 	}
 
 	// 4. 旅程漏斗
-	funnel := dashboard.FunnelByJourney()
+	funnel := dashboard.FunnelByJourney(context.Background())
 	if funnel.TotalWon != 4 {
 		t.Errorf("funnel won should be 4, got %d", funnel.TotalWon)
 	}
 
 	// 5. 跟进待办
-	pending := followup.ListPending("s_01", 0)
+	pending := followup.ListPending(context.Background(), "s_01", 0)
 	if len(pending) < 10 {
 		t.Errorf("expected >= 10 pending, got %d", len(pending))
 	}

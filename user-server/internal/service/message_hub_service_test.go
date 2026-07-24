@@ -125,7 +125,7 @@ func TestNormalize_InvalidPlatform(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Platform = "unknown_platform"
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for invalid platform")
 	}
@@ -138,7 +138,7 @@ func TestNormalize_EmptyAccountID(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.AccountID = ""
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for empty account_id")
 	}
@@ -148,7 +148,7 @@ func TestNormalize_EmptyMsgID(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgID = ""
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for empty msg_id")
 	}
@@ -158,7 +158,7 @@ func TestNormalize_InvalidDirection(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Direction = "sideways"
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for invalid direction")
 	}
@@ -168,7 +168,7 @@ func TestNormalize_InvalidMsgType(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgType = "sticker"
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for invalid msg_type")
 	}
@@ -178,7 +178,7 @@ func TestNormalize_EmptyTextContent(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Content = "   "
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for empty text content")
 	}
@@ -189,7 +189,7 @@ func TestNormalize_EmptyImageContent(t *testing.T) {
 	req := newReq()
 	req.MsgType = "image"
 	req.Content = ""
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err != nil {
 		t.Errorf("image with empty content should be allowed, got %v", err)
 	}
@@ -197,10 +197,10 @@ func TestNormalize_EmptyImageContent(t *testing.T) {
 
 func TestNormalize_ContentTooLarge(t *testing.T) {
 	svc, _ := newTestService(t)
-	svc.WithMaxContent(100)
+	svc.WithMaxContent(context.Background(), 100)
 	req := newReq()
 	req.Content = strings.Repeat("x", 200)
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Fatal("expected error for content too large")
 	}
@@ -211,7 +211,7 @@ func TestNormalize_CustomSentAt(t *testing.T) {
 	req := newReq()
 	custom := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	req.SentAt = &custom
-	msg, err := svc.Normalize(&req)
+	msg, err := svc.Normalize(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("normalize: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestNormalize_TrimWhitespace(t *testing.T) {
 	req := newReq()
 	req.SenderID = "  user-001  "
 	req.SenderName = "  张三  "
-	msg, err := svc.Normalize(&req)
+	msg, err := svc.Normalize(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("normalize: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestNormalize_NilExtra(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Extra = nil
-	msg, err := svc.Normalize(&req)
+	msg, err := svc.Normalize(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("normalize: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestNormalize_AllPlatforms(t *testing.T) {
 		req := newReq()
 		req.Platform = p
 		req.MsgID = fmt.Sprintf("msg-%s-%d", p, time.Now().UnixNano())
-		_, err := svc.Normalize(&req)
+		_, err := svc.Normalize(context.Background(), &req)
 		if err != nil {
 			t.Errorf("platform %s normalize: %v", p, err)
 		}
@@ -269,8 +269,8 @@ func TestNormalize_AllPlatforms(t *testing.T) {
 
 func TestIdempotencyKey_Stable(t *testing.T) {
 	svc, _ := newTestService(t)
-	k1 := svc.IdempotencyKey("wecom", "acc-1", "msg-1")
-	k2 := svc.IdempotencyKey("wecom", "acc-1", "msg-1")
+	k1 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
+	k2 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
 	if k1 != k2 {
 		t.Errorf("expected same key, got %q vs %q", k1, k2)
 	}
@@ -278,12 +278,12 @@ func TestIdempotencyKey_Stable(t *testing.T) {
 
 func TestIdempotencyKey_Different(t *testing.T) {
 	svc, _ := newTestService(t)
-	k1 := svc.IdempotencyKey("wecom", "acc-1", "msg-1")
-	k2 := svc.IdempotencyKey("wecom", "acc-2", "msg-1")
+	k1 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
+	k2 := svc.IdempotencyKey(context.Background(), "wecom", "acc-2", "msg-1")
 	if k1 == k2 {
 		t.Error("expected different keys for different account")
 	}
-	k3 := svc.IdempotencyKey("wecom", "acc-1", "msg-2")
+	k3 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-2")
 	if k1 == k3 {
 		t.Error("expected different keys for different msg")
 	}
@@ -304,11 +304,11 @@ func TestCheckIdempotent_DuplicateMessage(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgID = "msg-dup-1"
-	_, err := svc.Push(ctx, &req)
+	_, err := svc.Push(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("first push: %v", err)
 	}
-	exist, id, err := svc.CheckIdempotent(ctx, "wecom", req.AccountID, "msg-dup-1")
+	exist, id, err := svc.CheckIdempotent(context.Background(), "wecom", req.AccountID, "msg-dup-1")
 	if err != nil {
 		t.Fatalf("check: %v", err)
 	}
@@ -324,8 +324,8 @@ func TestCheckIdempotent_DifferentAccount(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgID = "msg-cross"
-	_, _ = svc.Push(ctx, &req)
-	exist, _, _ := svc.CheckIdempotent(ctx, "wecom", "different-acc", "msg-cross")
+	_, _ = svc.Push(context.Background(), &req)
+	exist, _, _ := svc.CheckIdempotent(context.Background(), "wecom", "different-acc", "msg-cross")
 	if exist {
 		t.Error("expected not exist for different account")
 	}
@@ -338,7 +338,7 @@ func TestCheckIdempotent_DifferentAccount(t *testing.T) {
 func TestPush_Success(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
-	msg, err := svc.Push(ctx, &req)
+	msg, err := svc.Push(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
@@ -352,11 +352,11 @@ func TestPush_DuplicateError(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgID = "msg-push-dup"
-	_, err := svc.Push(ctx, &req)
+	_, err := svc.Push(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("first push: %v", err)
 	}
-	_, err = svc.Push(ctx, &req)
+	_, err = svc.Push(context.Background(), &req)
 	if err != ErrMessageHubIdempotent {
 		t.Errorf("expected ErrMessageHubIdempotent, got %v", err)
 	}
@@ -376,23 +376,23 @@ func TestPush_QueueAfterDB(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.MsgID = "msg-q-1"
-	_, err := svc.Push(ctx, &req)
+	_, err := svc.Push(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
 	// 队列中应该有
-	if size := svc.Size("wecom", req.AccountID); size < 1 {
+	if size := svc.Size(context.Background(), "wecom", req.AccountID); size < 1 {
 		t.Errorf("expected queue size >= 1, got %d", size)
 	}
 }
 
 func TestPush_QueueFull(t *testing.T) {
 	svc, _ := newTestService(t)
-	svc.WithQueueSize(2)
+	svc.WithQueueSize(context.Background(), 2)
 	for i := 0; i < 3; i++ {
 		req := newReq()
 		req.MsgID = fmt.Sprintf("full-%d", i)
-		_, _ = svc.Push(ctx, &req)
+		_, _ = svc.Push(context.Background(), &req)
 	}
 	// 第四个应该报队列满（至少有一个会被 Push 失败）
 	// 注意 DB 入库成功后入队失败不会回滚 DB
@@ -403,7 +403,7 @@ func TestPushBatch_AllSuccess(t *testing.T) {
 	reqs := []PushMessageRequest{
 		newReq(), newReq(), newReq(),
 	}
-	results, errs := svc.PushBatch(ctx, reqs)
+	results, errs := svc.PushBatch(context.Background(), reqs)
 	if len(results) != 3 || len(errs) != 3 {
 		t.Fatalf("expected 3 results, got %d/%d", len(results), len(errs))
 	}
@@ -418,11 +418,11 @@ func TestPushBatch_PartialError(t *testing.T) {
 	svc, _ := newTestService(t)
 	r1 := newReq()
 	r1.MsgID = "batch-dup"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgID = "batch-2"
 	reqs := []PushMessageRequest{r1, r2}
-	results, errs := svc.PushBatch(ctx, reqs)
+	results, errs := svc.PushBatch(context.Background(), reqs)
 	if errs[0] != ErrMessageHubIdempotent {
 		t.Errorf("expected first to be idempotent error, got %v", errs[0])
 	}
@@ -447,9 +447,9 @@ func TestList_DefaultPage(t *testing.T) {
 	for i := 0; i < 25; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("list-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	list, total, err := svc.List(context.Background(), ctx, ListQuery{})
+	list, total, err := svc.List(context.Background(), ListQuery{})
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -466,12 +466,12 @@ func TestList_FilterPlatform(t *testing.T) {
 	r1 := newReq()
 	r1.Platform = "wecom"
 	r1.MsgID = "w1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.Platform = "douyin"
 	r2.MsgID = "d1"
-	_, _ = svc.Push(ctx, &r2)
-	list, total, _ := svc.List(context.Background(), ctx, ListQuery{Platform: "douyin"})
+	_, _ = svc.Push(context.Background(), &r2)
+	list, total, _ := svc.List(context.Background(), ListQuery{Platform: "douyin"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -485,12 +485,12 @@ func TestList_FilterDirection(t *testing.T) {
 	r1 := newReq()
 	r1.Direction = "inbound"
 	r1.MsgID = "i1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.Direction = "outbound"
 	r2.MsgID = "o1"
-	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{Direction: "outbound"})
+	_, _ = svc.Push(context.Background(), &r2)
+	_, total, _ := svc.List(context.Background(), ListQuery{Direction: "outbound"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -501,12 +501,12 @@ func TestList_FilterMsgType(t *testing.T) {
 	r1 := newReq()
 	r1.MsgType = "text"
 	r1.MsgID = "t1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgType = "image"
 	r2.MsgID = "img1"
-	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{MsgType: "image"})
+	_, _ = svc.Push(context.Background(), &r2)
+	_, total, _ := svc.List(context.Background(), ListQuery{MsgType: "image"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -517,13 +517,13 @@ func TestList_FilterKeyword(t *testing.T) {
 	r1 := newReq()
 	r1.Content = "hello world"
 	r1.MsgID = "kw1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.Content = "你好世界"
 	r2.MsgID = "kw2"
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	// 测试 GORM Raw 关键词陷阱：用含中文的 keyword 仍能工作（用 Contains）
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{Keyword: "hello"})
+	_, total, _ := svc.List(context.Background(), ListQuery{Keyword: "hello"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -533,13 +533,13 @@ func TestList_FilterIsRead(t *testing.T) {
 	svc, _ := newTestService(t)
 	r1 := newReq()
 	r1.MsgID = "rd1"
-	m1, _ := svc.Push(ctx, &r1)
-	_ = svc.MarkRead(ctx, []uint{m1.ID})
+	m1, _ := svc.Push(context.Background(), &r1)
+	_ = svc.MarkRead(context.Background(), []uint{m1.ID})
 	r2 := newReq()
 	r2.MsgID = "rd2"
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	read := true
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{IsRead: &read})
+	_, total, _ := svc.List(context.Background(), ListQuery{IsRead: &read})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -550,13 +550,13 @@ func TestList_FilterIsGroup(t *testing.T) {
 	r1 := newReq()
 	r1.IsGroup = true
 	r1.MsgID = "g1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.IsGroup = false
 	r2.MsgID = "ng1"
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	isGroup := true
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{IsGroup: &isGroup})
+	_, total, _ := svc.List(context.Background(), ListQuery{IsGroup: &isGroup})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -568,14 +568,14 @@ func TestList_FilterTimeRange(t *testing.T) {
 	r1.MsgID = "tr1"
 	past := time.Now().Add(-2 * time.Hour)
 	r1.SentAt = &past
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgID = "tr2"
 	now := time.Now()
 	r2.SentAt = &now
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	start := time.Now().Add(-1 * time.Hour)
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{StartTime: &start})
+	_, total, _ := svc.List(context.Background(), ListQuery{StartTime: &start})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -586,10 +586,10 @@ func TestList_PageSize(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("page-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	_, total1, _ := svc.List(context.Background(), ctx, ListQuery{Page: 1, PageSize: 10})
-	_, total2, _ := svc.List(context.Background(), ctx, ListQuery{Page: 1, PageSize: 100})
+	_, total1, _ := svc.List(context.Background(), ListQuery{Page: 1, PageSize: 10})
+	_, total2, _ := svc.List(context.Background(), ListQuery{Page: 1, PageSize: 100})
 	if total1 != 50 || total2 != 50 {
 		t.Errorf("expected total=50, got %d/%d", total1, total2)
 	}
@@ -600,15 +600,15 @@ func TestList_OrderBy(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("ord-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
 	// 合法 order by
-	_, _, err := svc.List(context.Background(), ctx, ListQuery{OrderBy: "sent_at ASC"})
+	_, _, err := svc.List(context.Background(), ListQuery{OrderBy: "sent_at ASC"})
 	if err != nil {
 		t.Errorf("expected no error for valid order by, got %v", err)
 	}
 	// 非法 order by 应被忽略
-	_, _, err = svc.List(context.Background(), ctx, ListQuery{OrderBy: "DROP TABLE"})
+	_, _, err = svc.List(context.Background(), ListQuery{OrderBy: "DROP TABLE"})
 	if err != nil {
 		t.Errorf("expected no error for invalid order by (whitelist), got %v", err)
 	}
@@ -619,12 +619,12 @@ func TestList_FilterConversationID(t *testing.T) {
 	r1 := newReq()
 	r1.ConversationID = "conv-A"
 	r1.MsgID = "ca1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.ConversationID = "conv-B"
 	r2.MsgID = "cb1"
-	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{ConversationID: "conv-B"})
+	_, _ = svc.Push(context.Background(), &r2)
+	_, total, _ := svc.List(context.Background(), ListQuery{ConversationID: "conv-B"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -635,12 +635,12 @@ func TestList_FilterSenderID(t *testing.T) {
 	r1 := newReq()
 	r1.SenderID = "sender-A"
 	r1.MsgID = "sa1"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.SenderID = "sender-B"
 	r2.MsgID = "sb1"
-	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{SenderID: "sender-A"})
+	_, _ = svc.Push(context.Background(), &r2)
+	_, total, _ := svc.List(context.Background(), ListQuery{SenderID: "sender-A"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -667,8 +667,8 @@ func TestGetByID_NotFound(t *testing.T) {
 func TestGetByID_Success(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
-	msg, _ := svc.Push(ctx, &req)
-	got, err := svc.GetByID(context.Background(), ctx, msg.ID)
+	msg, _ := svc.Push(context.Background(), &req)
+	got, err := svc.GetByID(context.Background(), msg.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -684,11 +684,11 @@ func TestGetByID_Success(t *testing.T) {
 func TestMarkRead_SingleID(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
-	msg, _ := svc.Push(ctx, &req)
-	if err := svc.MarkRead(ctx, []uint{msg.ID}); err != nil {
+	msg, _ := svc.Push(context.Background(), &req)
+	if err := svc.MarkRead(context.Background(), []uint{msg.ID}); err != nil {
 		t.Fatalf("mark: %v", err)
 	}
-	got, _ := svc.GetByID(context.Background(), ctx, msg.ID)
+	got, _ := svc.GetByID(context.Background(), msg.ID)
 	if !got.IsRead {
 		t.Error("expected is_read=true")
 	}
@@ -703,14 +703,14 @@ func TestMarkRead_MultipleIDs(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("mr-%d", i)
-		m, _ := svc.Push(ctx, &r)
+		m, _ := svc.Push(context.Background(), &r)
 		ids = append(ids, m.ID)
 	}
-	if err := svc.MarkRead(ctx, ids); err != nil {
+	if err := svc.MarkRead(context.Background(), ids); err != nil {
 		t.Fatalf("mark: %v", err)
 	}
 	for _, id := range ids {
-		got, _ := svc.GetByID(context.Background(), ctx, id)
+		got, _ := svc.GetByID(context.Background(), id)
 		if !got.IsRead {
 			t.Errorf("expected id %d read=true", id)
 		}
@@ -748,15 +748,15 @@ func TestStats_TotalInboundOutbound(t *testing.T) {
 		r := newReq()
 		r.Direction = "inbound"
 		r.MsgID = fmt.Sprintf("i-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
 	for i := 0; i < 2; i++ {
 		r := newReq()
 		r.Direction = "outbound"
 		r.MsgID = fmt.Sprintf("o-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.Total != 5 {
 		t.Errorf("expected total=5, got %d", stats.Total)
 	}
@@ -773,12 +773,12 @@ func TestStats_Unread(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("unread-%d", i)
-		m, _ := svc.Push(ctx, &r)
+		m, _ := svc.Push(context.Background(), &r)
 		if i == 0 {
-			_ = svc.MarkRead(ctx, []uint{m.ID})
+			_ = svc.MarkRead(context.Background(), []uint{m.ID})
 		}
 	}
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.Unread != 3 {
 		t.Errorf("expected unread=3, got %d", stats.Unread)
 	}
@@ -790,9 +790,9 @@ func TestStats_ByPlatform(t *testing.T) {
 		r := newReq()
 		r.Platform = p
 		r.MsgID = fmt.Sprintf("p-%s-%d", p, time.Now().UnixNano())
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.ByPlatform["wecom"] != 2 {
 		t.Errorf("expected wecom=2, got %d", stats.ByPlatform["wecom"])
 	}
@@ -807,9 +807,9 @@ func TestStats_ByMsgType(t *testing.T) {
 		r := newReq()
 		r.MsgType = mt
 		r.MsgID = fmt.Sprintf("mt-%s-%d", mt, time.Now().UnixNano())
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.ByMsgType["text"] != 2 {
 		t.Errorf("expected text=2, got %d", stats.ByMsgType["text"])
 	}
@@ -820,11 +820,11 @@ func TestStats_Recent24h(t *testing.T) {
 	r1 := newReq()
 	r1.MsgID = "r24-1"
 	r1.SentAt = ptrTime(time.Now().Add(-25 * time.Hour))
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgID = "r24-2"
-	_, _ = svc.Push(ctx, &r2)
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	_, _ = svc.Push(context.Background(), &r2)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.Recent24h != 1 {
 		t.Errorf("expected recent24h=1, got %d", stats.Recent24h)
 	}
@@ -835,13 +835,13 @@ func TestStats_TimeRange(t *testing.T) {
 	r1 := newReq()
 	r1.MsgID = "range-1"
 	r1.SentAt = ptrTime(time.Now().Add(-2 * time.Hour))
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgID = "range-2"
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	start := time.Now().Add(-1 * time.Hour)
 	end := time.Now()
-	stats, _ := svc.GetStats(ctx, &start, &end)
+	stats, _ := svc.GetStats(context.Background(), &start, &end)
 	if stats.Total != 1 {
 		t.Errorf("expected total=1 in range, got %d", stats.Total)
 	}
@@ -871,9 +871,9 @@ func TestConsume_OrderBySentAt(t *testing.T) {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("ord-c-%d", i)
 		r.SentAt = ptrTime(time.Now().Add(time.Duration(i) * time.Second))
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
-	got, _ := svc.Consume(ctx, "wecom", "acc-001", 0)
+	got, _ := svc.Consume(context.Background(), "wecom", "acc-001", 0)
 	if got == nil {
 		t.Fatal("expected message")
 	}
@@ -884,13 +884,13 @@ func TestConsume_PartitionIsolation(t *testing.T) {
 	r1 := newReq()
 	r1.AccountID = "acc-A"
 	r1.MsgID = "p-a"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.AccountID = "acc-B"
 	r2.MsgID = "p-b"
-	_, _ = svc.Push(ctx, &r2)
-	sizeA := svc.Size("wecom", "acc-A")
-	sizeB := svc.Size("wecom", "acc-B")
+	_, _ = svc.Push(context.Background(), &r2)
+	sizeA := svc.Size(context.Background(), "wecom", "acc-A")
+	sizeB := svc.Size(context.Background(), "wecom", "acc-B")
 	if sizeA < 1 || sizeB < 1 {
 		t.Errorf("expected both partitions to have messages, got %d/%d", sizeA, sizeB)
 	}
@@ -911,17 +911,17 @@ func TestPeek_NonDestructive(t *testing.T) {
 	svc, _ := newTestService(t)
 	r := newReq()
 	r.MsgID = "peek-1"
-	_, _ = svc.Push(ctx, &r)
-	_, _ = svc.Peek(ctx, "wecom", "acc-001")
-	_, _ = svc.Peek(ctx, "wecom", "acc-001")
-	if size := svc.Size("wecom", "acc-001"); size < 1 {
+	_, _ = svc.Push(context.Background(), &r)
+	_, _ = svc.Peek(context.Background(), "wecom", "acc-001")
+	_, _ = svc.Peek(context.Background(), "wecom", "acc-001")
+	if size := svc.Size(context.Background(), "wecom", "acc-001"); size < 1 {
 		t.Errorf("expected peek to be non-destructive, size=%d", size)
 	}
 }
 
 func TestSize_Empty(t *testing.T) {
 	svc, _ := newTestService(t)
-	if size := svc.Size("wecom", "none"); size != 0 {
+	if size := svc.Size(context.Background(), "wecom", "none"); size != 0 {
 		t.Errorf("expected 0, got %d", size)
 	}
 }
@@ -944,7 +944,7 @@ func TestConvertFromChannel_Basic(t *testing.T) {
 		MsgType:        "text",
 		ConversationID: "conv-c1",
 	}
-	req := svc.ConvertFromChannel(raw)
+	req := svc.ConvertFromChannel(context.Background(), raw)
 
 	if req.Direction != "inbound" {
 		t.Errorf("expected direction=inbound, got %s", req.Direction)
@@ -957,7 +957,7 @@ func TestConvertFromChannel_Basic(t *testing.T) {
 func TestConvertFromChannel_DefaultMsgType(t *testing.T) {
 	svc, _ := newTestService(t)
 	raw := &RawChannelMessage{Platform: "wecom", AccountID: "a", MsgID: "m", Content: "c"}
-	req := svc.ConvertFromChannel(raw)
+	req := svc.ConvertFromChannel(context.Background(), raw)
 	if req.MsgType != "text" {
 		t.Errorf("expected default text, got %s", req.MsgType)
 	}
@@ -969,7 +969,7 @@ func TestConvertFromChannel_PreservesExtra(t *testing.T) {
 		Platform: "wecom", AccountID: "a", MsgID: "m", Content: "c",
 		Extra: map[string]any{"k1": "v1", "n": 42},
 	}
-	req := svc.ConvertFromChannel(raw)
+	req := svc.ConvertFromChannel(context.Background(), raw)
 	if req.Extra["k1"] != "v1" {
 		t.Error("expected extra preserved")
 	}
@@ -982,7 +982,7 @@ func TestConvertFromChannel_AllPlatforms(t *testing.T) {
 	svc, _ := newTestService(t)
 	for _, p := range ListPlatforms() {
 		raw := &RawChannelMessage{Platform: p, AccountID: "a", MsgID: "m-" + p, Content: "c"}
-		req := svc.ConvertFromChannel(raw)
+		req := svc.ConvertFromChannel(context.Background(), raw)
 		if req.Platform != p {
 			t.Errorf("platform %s not preserved", p)
 		}
@@ -1000,14 +1000,14 @@ func TestMarshalUnmarshal(t *testing.T) {
 		MsgID: "m1", Direction: "inbound", MsgType: "text", Content: "hi",
 		Extra: model.JSONMap{"k": "v"},
 	}
-	data, err := svc.MarshalToJSON(orig)
+	data, err := svc.MarshalToJSON(context.Background(), orig)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 	if data == "" {
 		t.Fatal("expected non-empty data")
 	}
-	got, err := svc.UnmarshalFromJSON(data)
+	got, err := svc.UnmarshalFromJSON(context.Background(), data)
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -1018,7 +1018,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 func TestUnmarshal_InvalidJSON(t *testing.T) {
 	svc, _ := newTestService(t)
-	_, err := svc.UnmarshalFromJSON("{invalid")
+	_, err := svc.UnmarshalFromJSON(context.Background(), "{invalid")
 	if err == nil {
 		t.Error("expected error for invalid json")
 	}
@@ -1041,14 +1041,14 @@ func (s *testSub) OnMessage(_ context.Context, msg *model.MessageHub) error {
 	return nil
 }
 
-func (s *testSub) Filter(ctx context.Context, msg *model.MessageHub) bool {
+func (s *testSub) Filter(msg *model.MessageHub) bool {
 	if s.filter == nil {
 		return true
 	}
 	return s.filter(msg)
 }
 
-func (s *testSub) Count(ctx context.Context) int {
+func (s *testSub) Count() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.calls)
@@ -1057,11 +1057,11 @@ func (s *testSub) Count(ctx context.Context) int {
 func TestSubscriber_ReceivesAll(t *testing.T) {
 	svc, _ := newTestService(t)
 	sub := &testSub{}
-	svc.Subscribe(sub)
+	svc.Subscribe(context.Background(), sub)
 	for i := 0; i < 3; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("sub-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
 	// 等待 goroutine 完成
 	time.Sleep(100 * time.Millisecond)
@@ -1073,15 +1073,15 @@ func TestSubscriber_ReceivesAll(t *testing.T) {
 func TestSubscriber_Filtered(t *testing.T) {
 	svc, _ := newTestService(t)
 	sub := &testSub{filter: func(m *model.MessageHub) bool { return m.Platform == "wecom" }}
-	svc.Subscribe(sub)
+	svc.Subscribe(context.Background(), sub)
 	r1 := newReq()
 	r1.MsgID = "f-1"
 	r1.Platform = "wecom"
-	_, _ = svc.Push(ctx, &r1)
+	_, _ = svc.Push(context.Background(), &r1)
 	r2 := newReq()
 	r2.MsgID = "f-2"
 	r2.Platform = "douyin"
-	_, _ = svc.Push(ctx, &r2)
+	_, _ = svc.Push(context.Background(), &r2)
 	time.Sleep(100 * time.Millisecond)
 	if sub.Count() != 1 {
 		t.Errorf("expected 1 filtered message, got %d", sub.Count())
@@ -1120,7 +1120,7 @@ func TestGenerateMsgID_Format(t *testing.T) {
 
 func TestWithIdemTTL(t *testing.T) {
 	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
-	svc.WithIdemTTL(1 * time.Hour)
+	svc.WithIdemTTL(context.Background(), 1 * time.Hour)
 	if svc.idemTTL != 1*time.Hour {
 		t.Errorf("expected 1h, got %v", svc.idemTTL)
 	}
@@ -1128,7 +1128,7 @@ func TestWithIdemTTL(t *testing.T) {
 
 func TestWithMaxContent(t *testing.T) {
 	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
-	svc.WithMaxContent(1000)
+	svc.WithMaxContent(context.Background(), 1000)
 	if svc.maxContent != 1000 {
 		t.Errorf("expected 1000, got %d", svc.maxContent)
 	}
@@ -1136,7 +1136,7 @@ func TestWithMaxContent(t *testing.T) {
 
 func TestWithQueueSize(t *testing.T) {
 	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
-	svc.WithQueueSize(500)
+	svc.WithQueueSize(context.Background(), 500)
 	if svc.streamSize != 500 {
 		t.Errorf("expected 500, got %d", svc.streamSize)
 	}
@@ -1152,7 +1152,7 @@ func TestPush_Concurrent(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("conc-%d", i)
-		_, err := svc.Push(ctx, &r)
+		_, err := svc.Push(context.Background(), &r)
 		if err != nil {
 			t.Fatalf("push %d: %v", i, err)
 		}
@@ -1163,7 +1163,7 @@ func TestPush_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, total, _ := svc.List(context.Background(), ctx, ListQuery{})
+			_, total, _ := svc.List(context.Background(), ListQuery{})
 			if total != 20 {
 				t.Errorf("expected 20 messages, got %d", total)
 			}
@@ -1178,14 +1178,14 @@ func TestConsume_ConcurrentSafe(t *testing.T) {
 		r := newReq()
 		r.AccountID = "cons-acc"
 		r.MsgID = fmt.Sprintf("cons-%d", i)
-		_, _ = svc.Push(ctx, &r)
+		_, _ = svc.Push(context.Background(), &r)
 	}
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, _ = svc.Consume(ctx, "wecom", "cons-acc", 100*time.Millisecond)
+			_, _ = svc.Consume(context.Background(), "wecom", "cons-acc", 100*time.Millisecond)
 		}()
 	}
 	wg.Wait()
@@ -1202,21 +1202,21 @@ func TestEndToEnd_PushListReadStats(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("e2e-%d", i)
-		m, err := svc.Push(ctx, &r)
+		m, err := svc.Push(context.Background(), &r)
 		if err != nil {
 			t.Fatalf("push %d: %v", i, err)
 		}
 		ids = append(ids, m.ID)
 	}
 	// 2. 列表查询
-	list, total, _ := svc.List(context.Background(), ctx, ListQuery{})
+	list, total, _ := svc.List(context.Background(), ListQuery{})
 	if total != 10 || len(list) != 10 {
 		t.Errorf("expected 10/10, got %d/%d", total, len(list))
 	}
 	// 3. 标记已读
-	_ = svc.MarkRead(ctx, ids[:5])
+	_ = svc.MarkRead(context.Background(), ids[:5])
 	// 4. 统计
-	stats, _ := svc.GetStats(ctx, nil, nil)
+	stats, _ := svc.GetStats(context.Background(), nil, nil)
 	if stats.Total != 10 {
 		t.Errorf("expected total=10, got %d", stats.Total)
 	}
@@ -1231,7 +1231,7 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 	r.MsgID = "idem-e2e"
 	// 5 次重复推送
 	for i := 0; i < 5; i++ {
-		_, err := svc.Push(ctx, &r)
+		_, err := svc.Push(context.Background(), &r)
 		if i == 0 {
 			if err != nil {
 				t.Fatalf("first push: %v", err)
@@ -1243,7 +1243,7 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 		}
 	}
 	// 数据库应只有 1 条
-	_, total, _ := svc.List(context.Background(), ctx, ListQuery{})
+	_, total, _ := svc.List(context.Background(), ListQuery{})
 	if total != 1 {
 		t.Errorf("expected 1 message, got %d", total)
 	}
@@ -1256,8 +1256,8 @@ func TestEndToEnd_FromChannel(t *testing.T) {
 		From: "customer-1", FromName: "Customer", Content: "我想要咨询",
 		MsgType: "text", ConversationID: "conv-ch-1",
 	}
-	req := svc.ConvertFromChannel(raw)
-	msg, err := svc.Push(ctx, req)
+	req := svc.ConvertFromChannel(context.Background(), raw)
+	msg, err := svc.Push(context.Background(), req)
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
@@ -1286,7 +1286,7 @@ func TestNormalize_ChinesePlatformName(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Platform = "微信"
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Error("expected error for chinese platform name")
 	}
@@ -1296,7 +1296,7 @@ func TestNormalize_UppercasePlatform(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	req.Platform = "WECOM"
-	_, err := svc.Normalize(&req)
+	_, err := svc.Normalize(context.Background(), &req)
 	if err == nil {
 		t.Error("expected error for uppercase platform (case sensitive)")
 	}
@@ -1306,7 +1306,7 @@ func TestNormalize_DefaultSentAt(t *testing.T) {
 	svc, _ := newTestService(t)
 	before := time.Now()
 	req := newReq()
-	msg, _ := svc.Normalize(&req)
+	msg, _ := svc.Normalize(context.Background(), &req)
 	after := time.Now()
 	if msg.SentAt.Before(before) || msg.SentAt.After(after) {
 		t.Errorf("expected sent_at between %v and %v, got %v", before, after, msg.SentAt)
@@ -1318,7 +1318,7 @@ func TestNormalize_GroupMessage(t *testing.T) {
 	req := newReq()
 	req.IsGroup = true
 	req.GroupID = "group-001"
-	msg, _ := svc.Normalize(&req)
+	msg, _ := svc.Normalize(context.Background(), &req)
 	if !msg.IsGroup {
 		t.Error("expected is_group=true")
 	}
@@ -1333,7 +1333,7 @@ func TestNormalize_AIReply(t *testing.T) {
 	req.Direction = "outbound"
 	req.IsAIReply = true
 	req.AIAgent = "sales_champion_v1"
-	msg, _ := svc.Normalize(&req)
+	msg, _ := svc.Normalize(context.Background(), &req)
 	if !msg.IsAIReply {
 		t.Error("expected is_ai_reply=true")
 	}
@@ -1354,7 +1354,7 @@ func TestConsume_WithDBFallback(t *testing.T) {
 		Content:   "from db",
 		SentAt:    time.Now(),
 	})
-	msg, err := svc.Consume(ctx, "wecom", "db-acc", 0)
+	msg, err := svc.Consume(context.Background(), "wecom", "db-acc", 0)
 	if err != nil {
 		t.Fatalf("consume: %v", err)
 	}

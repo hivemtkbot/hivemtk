@@ -40,7 +40,7 @@ func TestUserService_RegisterUser(t *testing.T) {
 		Role:     "user",
 	}
 
-	response, err := service.RegisterUser(req)
+	response, err := service.RegisterUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("RegisterUser failed: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestUserService_RegisterUser_DuplicateUsername(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	service.RegisterUser(req)
+	service.RegisterUser(context.Background(), req)
 
 	// 尝试注册相同用户名的用户
 	req2 := &dto.CreateUserRequest{
@@ -80,7 +80,7 @@ func TestUserService_RegisterUser_DuplicateUsername(t *testing.T) {
 		Role:     "user",
 	}
 
-	_, err := service.RegisterUser(req2)
+	_, err := service.RegisterUser(context.Background(), req2)
 	if err == nil {
 		t.Error("Expected error for duplicate username")
 	}
@@ -102,7 +102,7 @@ func TestUserService_RegisterUser_DuplicateEmail(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	service.RegisterUser(req)
+	service.RegisterUser(context.Background(), req)
 
 	// 尝试注册相同邮箱的用户
 	req2 := &dto.CreateUserRequest{
@@ -112,7 +112,7 @@ func TestUserService_RegisterUser_DuplicateEmail(t *testing.T) {
 		Role:     "user",
 	}
 
-	_, err := service.RegisterUser(req2)
+	_, err := service.RegisterUser(context.Background(), req2)
 	if err == nil {
 		t.Error("Expected error for duplicate email")
 	}
@@ -134,10 +134,10 @@ func TestUserService_GetUser(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 获取用户
-	response, err := service.GetUser(regResp.ID)
+	response, err := service.GetUser(context.Background(), regResp.ID)
 	if err != nil {
 		t.Fatalf("GetUser failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestUserService_GetUser_NotFound(t *testing.T) {
 
 	service := NewUserService()
 
-	_, err := service.GetUser("non-existent-id")
+	_, err := service.GetUser(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -170,10 +170,10 @@ func TestUserService_GetUserByUsername(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 根据用户名获取
-	response, err := service.GetUserByUsername("testuser")
+	response, err := service.GetUserByUsername(context.Background(), "testuser")
 	if err != nil {
 		t.Fatalf("GetUserByUsername failed: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestUserService_GetUserByUsername_NotFound(t *testing.T) {
 
 	service := NewUserService()
 
-	_, err := service.GetUserByUsername("nonexistent")
+	_, err := service.GetUserByUsername(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("Expected error for non-existent username")
 	}
@@ -207,11 +207,11 @@ func TestUserService_GetUserList(t *testing.T) {
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
 			Role:     "user",
 		}
-		service.RegisterUser(req)
+		service.RegisterUser(context.Background(), req)
 	}
 
 	// 获取用户列表
-	response, err := service.GetUserList(1, 10)
+	response, err := service.GetUserList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUserList failed: %v", err)
 	}
@@ -237,16 +237,16 @@ func TestUserService_DeleteUser(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 删除用户
-	err := service.DeleteUser(regResp.ID)
+	err := service.DeleteUser(context.Background(), regResp.ID)
 	if err != nil {
 		t.Fatalf("DeleteUser failed: %v", err)
 	}
 
 	// 验证用户已被删除
-	_, err = service.GetUser(regResp.ID)
+	_, err = service.GetUser(context.Background(), regResp.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -264,7 +264,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 更新用户
 	status := 1
@@ -274,7 +274,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 		Status:   &status,
 	}
 
-	response, err := service.UpdateUser(regResp.ID, updateReq)
+	response, err := service.UpdateUser(context.Background(), regResp.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestUserService_UpdateUser_DuplicateUsername(t *testing.T) {
 		Email:    "test1@example.com",
 		Role:     "user",
 	}
-	_, _ = service.RegisterUser(regReq1)
+	_, _ = service.RegisterUser(context.Background(), regReq1)
 
 	regReq2 := &dto.CreateUserRequest{
 		Username: "testuser2",
@@ -308,14 +308,14 @@ func TestUserService_UpdateUser_DuplicateUsername(t *testing.T) {
 		Email:    "test2@example.com",
 		Role:     "user",
 	}
-	regResp2, _ := service.RegisterUser(regReq2)
+	regResp2, _ := service.RegisterUser(context.Background(), regReq2)
 
 	// 尝试将 user2 的用户名改为 user1 的用户名（已存在）
 	updateReq := &dto.UpdateUserRequest{
 		Username: "testuser1",
 	}
 
-	_, err := service.UpdateUser(regResp2.ID, updateReq)
+	_, err := service.UpdateUser(context.Background(), regResp2.ID, updateReq)
 	if err == nil {
 		t.Error("Expected error for duplicate username")
 	}
@@ -337,7 +337,7 @@ func TestUserService_UpdatePassword(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 更新密码
 	updateReq := &dto.UpdatePasswordRequest{
@@ -345,7 +345,7 @@ func TestUserService_UpdatePassword(t *testing.T) {
 		NewPassword: "newpassword123",
 	}
 
-	err := service.UpdatePassword(regResp.ID, updateReq)
+	err := service.UpdatePassword(context.Background(), regResp.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdatePassword failed: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestUserService_UpdatePassword_WrongOldPassword(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 尝试使用错误的旧密码更新
 	updateReq := &dto.UpdatePasswordRequest{
@@ -385,7 +385,7 @@ func TestUserService_UpdatePassword_WrongOldPassword(t *testing.T) {
 		NewPassword: "newpassword",
 	}
 
-	err := service.UpdatePassword(regResp.ID, updateReq)
+	err := service.UpdatePassword(context.Background(), regResp.ID, updateReq)
 	if err == nil {
 		t.Error("Expected error for wrong old password")
 	}
@@ -407,7 +407,7 @@ func TestUserService_Login(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 登录
 	loginReq := &dto.LoginRequest{
@@ -445,7 +445,7 @@ func TestUserService_Login_WrongPassword(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	service.RegisterUser(regReq)
+	service.RegisterUser(context.Background(), regReq)
 
 	// 使用错误密码登录
 	loginReq := &dto.LoginRequest{
@@ -469,7 +469,7 @@ func TestUserService_InitUser(t *testing.T) {
 	service := NewUserService()
 
 	// 初始化用户
-	userID, err := service.InitUser("account123", 12345, "John", "Doe", "johndoe")
+	userID, err := service.InitUser(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
 	if err != nil {
 		t.Fatalf("InitUser failed: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestUserService_InitUser(t *testing.T) {
 	}
 
 	// 再次初始化相同用户，应该返回相同的 ID
-	userID2, err := service.InitUser("account123", 12345, "John", "Doe", "johndoe")
+	userID2, err := service.InitUser(context.Background(), "account123", 12345, "John", "Doe", "johndoe")
 	if err != nil {
 		t.Fatalf("InitUser second call failed: %v", err)
 	}
@@ -501,7 +501,7 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 		Email:    "test@example.com",
 		Role:     "user",
 	}
-	regResp, _ := service.RegisterUser(regReq)
+	regResp, _ := service.RegisterUser(context.Background(), regReq)
 
 	// 手动禁用用户
 	db.GetDB().Model(&model.User{}).Where("id = ?", regResp.ID).Update("status", 0)

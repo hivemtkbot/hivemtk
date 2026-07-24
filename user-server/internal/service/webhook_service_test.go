@@ -29,7 +29,7 @@ func setupWebhookTestDB(t *testing.T) *gorm.DB {
 func TestWebhookService_ParsePayload_BasicKeys(t *testing.T) {
 	s := &WebhookService{}
 	body := []byte(`{"event_id":"e1","event_type":"message","content":"hi","sender":"u1","chat_id":"c1"}`)
-	p, err := s.ParsePayload(ChannelCustom, body)
+	p, err := s.ParsePayload(context.Background(), ChannelCustom, body)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestWebhookService_ParsePayload_AliasKeys(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			p, err := s.ParsePayload(ChannelCustom, []byte(c.body))
+			p, err := s.ParsePayload(context.Background(), ChannelCustom, []byte(c.body))
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
@@ -68,7 +68,7 @@ func TestWebhookService_ParsePayload_AliasKeys(t *testing.T) {
 
 func TestWebhookService_ParsePayload_Invalid(t *testing.T) {
 	s := &WebhookService{}
-	_, err := s.ParsePayload(ChannelCustom, []byte("not json"))
+	_, err := s.ParsePayload(context.Background(), ChannelCustom, []byte("not json"))
 	if err == nil {
 		t.Error("expected error for invalid json")
 	}
@@ -76,7 +76,7 @@ func TestWebhookService_ParsePayload_Invalid(t *testing.T) {
 
 func TestWebhookService_ParsePayload_EmptyKeys(t *testing.T) {
 	s := &WebhookService{}
-	p, _ := s.ParsePayload(ChannelCustom, []byte(`{}`))
+	p, _ := s.ParsePayload(context.Background(), ChannelCustom, []byte(`{}`))
 	if p == nil {
 		t.Fatal("expected payload")
 	}
@@ -88,7 +88,7 @@ func TestWebhookService_ParsePayload_EmptyKeys(t *testing.T) {
 func TestWebhookService_ParsePayload_NestedJSON(t *testing.T) {
 	s := &WebhookService{}
 	body := []byte(`{"data":{"event_id":"nested1","content":"deep"}}`)
-	p, err := s.ParsePayload(ChannelCustom, body)
+	p, err := s.ParsePayload(context.Background(), ChannelCustom, body)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestWebhookService_VerifyWechat_WrongSig(t *testing.T) {
 
 func TestWebhookService_Receive_EmptyBody(t *testing.T) {
 	s := NewWebhookService(setupWebhookTestDB(t))
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: nil})
 	if err != nil {
 		t.Fatalf("recv: %v", err)
@@ -205,7 +205,7 @@ func TestWebhookService_Receive_EmptyBody(t *testing.T) {
 
 func TestWebhookService_Receive_NoAccount(t *testing.T) {
 	s := NewWebhookService(setupWebhookTestDB(t))
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, Body: []byte("{}")})
 	if r.Accepted {
 		t.Error("expected rejected for missing account")
@@ -215,7 +215,7 @@ func TestWebhookService_Receive_NoAccount(t *testing.T) {
 func TestWebhookService_Receive_Custom_NoSecret(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	body := []byte(`{"event_id":"e1","event_type":"message","content":"hi"}`)
 	r, err := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if err != nil {
@@ -232,7 +232,7 @@ func TestWebhookService_Receive_Custom_NoSecret(t *testing.T) {
 func TestWebhookService_Receive_Duplicate(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	body := []byte(`{"event_id":"dup1","event_type":"message","content":"hi"}`)
 	r1, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r1.Accepted || r1.Duplicate {
@@ -247,7 +247,7 @@ func TestWebhookService_Receive_Duplicate(t *testing.T) {
 func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	body := []byte(`{"content":"hi"}`) // 没有 event_id
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
@@ -264,7 +264,7 @@ func TestWebhookService_Receive_GeneratedEventID(t *testing.T) {
 func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	body := []byte(`{"event_id":"e1","content":"hi"}`) // 没有 event_type
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
@@ -278,7 +278,7 @@ func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 func TestWebhookService_Receive_InvalidJSON(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: []byte("not json")})
 	if r.Accepted {
 		t.Error("expected rejected")
@@ -290,7 +290,7 @@ func TestWebhookService_Receive_HMAC_Douyin(t *testing.T) {
 	// 注入 secret
 	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 
 	body := []byte(`{"event_id":"d1","content":"hi"}`)
 	mac := hmac.New(sha256.New, []byte("secret123"))
@@ -310,7 +310,7 @@ func TestWebhookService_Receive_HMAC_BadSig(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "douyin", APISecret: "secret123", Status: 1})
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 
 	body := []byte(`{"event_id":"d1"}`)
 	hdr := map[string]string{"X-Douyin-Signature": "badsig"}
@@ -327,7 +327,7 @@ func TestWebhookService_Receive_HMAC_Kuaishou(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "kuaishou", APISecret: "ks_secret", Status: 1})
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 
 	body := []byte(`{"event_id":"k1"}`)
 	mac := hmac.New(sha256.New, []byte("ks_secret"))
@@ -344,7 +344,7 @@ func TestWebhookService_Receive_HMAC_Xiaohongshu(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	db.Create(&model.IntegrationAccount{Platform: "xiaohongshu", APISecret: "xhs", Status: 1})
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 
 	body := []byte(`{"event_id":"x1"}`)
 	mac := hmac.New(sha256.New, []byte("xhs"))
@@ -382,7 +382,7 @@ func TestWebhookService_Receive_WeCom(t *testing.T) {
 func TestWebhookService_Receive_RateLimit(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	// 创建专用 key 走独立限流桶
 	key := "custom:rl-test"
 	// 强行清空 token
@@ -403,7 +403,7 @@ func TestWebhookService_Receive_RateLimit(t *testing.T) {
 func TestWebhookService_ToUnifiedMessage(t *testing.T) {
 	s := &WebhookService{}
 	p := &ParsedPayload{EventID: "e1", Content: "hi", Sender: "u1", ChatID: "c1"}
-	um := s.ToUnifiedMessage(ChannelDouyin, "a1", p)
+	um := s.ToUnifiedMessage(context.Background(), ChannelDouyin, "a1", p)
 	if um.Platform != model.PlatformDouyin {
 		t.Errorf("expected douyin platform, got %s", um.Platform)
 	}
@@ -422,7 +422,7 @@ func TestWebhookService_TruncateForStore(t *testing.T) {
 	s := &WebhookService{}
 	// 短字符串不截断
 	short := []byte("hello")
-	if s.TruncateForStore(short) != "hello" {
+	if s.TruncateForStore(context.Background(), short) != "hello" {
 		t.Error("short should not truncate")
 	}
 	// 长字符串截断
@@ -430,7 +430,7 @@ func TestWebhookService_TruncateForStore(t *testing.T) {
 	for i := range long {
 		long[i] = 'a'
 	}
-	out := s.TruncateForStore(long)
+	out := s.TruncateForStore(context.Background(), long)
 	if len(out) <= 64*1024 {
 		t.Errorf("expected truncation, got len=%d", len(out))
 	}
@@ -442,12 +442,12 @@ func TestWebhookService_TruncateForStore(t *testing.T) {
 func TestWebhookService_GenerateEventID_Stable(t *testing.T) {
 	s := &WebhookService{}
 	body := []byte(`{"a":1}`)
-	id1 := s.generateEventID(ChannelCustom, "a1", body)
-	id2 := s.generateEventID(ChannelCustom, "a1", body)
+	id1 := s.generateEventID(context.Background(), ChannelCustom, "a1", body)
+	id2 := s.generateEventID(context.Background(), ChannelCustom, "a1", body)
 	if id1 != id2 {
 		t.Error("expected same id for same body")
 	}
-	id3 := s.generateEventID(ChannelCustom, "a2", body)
+	id3 := s.generateEventID(context.Background(), ChannelCustom, "a2", body)
 	if id1 == id3 {
 		t.Error("expected different id for different account")
 	}
@@ -456,9 +456,9 @@ func TestWebhookService_GenerateEventID_Stable(t *testing.T) {
 func TestWebhookService_DispatchToUnified_InsertsRow(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	um := &model.UnifiedMessage{MessageID: "msg_x", Platform: "douyin", Content: "hi"}
-	if err := s.dispatchToUnified(um); err != nil {
+	if err := s.dispatchToUnified(context.Background(), um); err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
 	var n int64
@@ -471,12 +471,12 @@ func TestWebhookService_DispatchToUnified_InsertsRow(t *testing.T) {
 func TestWebhookService_HandleJob_MarksProcessed(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	evt := &model.WebhookEvent{Platform: "custom", EventID: "h1", EventType: "message", RawData: "{}", Processed: false}
 	db.Create(evt)
 	body := []byte(`{"event_id":"h1","content":"hi","sender":"u1","chat_id":"c1"}`)
 	job := &webhookJob{event: evt, raw: body, header: nil}
-	s.handleJob(job)
+	s.handleJob(context.Background(), job)
 	// 等异步 worker 不行（已同步）, 直接查
 	var got model.WebhookEvent
 	db.First(&got, evt.ID)
@@ -488,11 +488,11 @@ func TestWebhookService_HandleJob_MarksProcessed(t *testing.T) {
 func TestWebhookService_HandleJob_BadJSON(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	evt := &model.WebhookEvent{Platform: "custom", EventID: "h2", EventType: "message"}
 	db.Create(evt)
 	job := &webhookJob{event: evt, raw: []byte("bad"), header: nil}
-	s.handleJob(job)
+	s.handleJob(context.Background(), job)
 	// 不应 panic，event 保留为未处理
 	var got model.WebhookEvent
 	db.First(&got, evt.ID)
@@ -503,19 +503,19 @@ func TestWebhookService_HandleJob_BadJSON(t *testing.T) {
 
 func TestWebhookService_QueueLen(t *testing.T) {
 	s := NewWebhookService(setupWebhookTestDB(t))
-	defer s.Stop()
-	if s.QueueLen() != 0 {
-		t.Errorf("expected empty queue, got %d", s.QueueLen())
+	defer s.Stop(context.Background(), )
+	if s.QueueLen(context.Background(), ) != 0 {
+		t.Errorf("expected empty queue, got %d", s.QueueLen(context.Background(), ))
 	}
 }
 
 func TestWebhookService_PendingCount(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
-	defer s.Stop()
+	defer s.Stop(context.Background(), )
 	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p1", EventType: "e", Processed: false})
 	db.Create(&model.WebhookEvent{Platform: "c", EventID: "p2", EventType: "e", Processed: true})
-	if got := s.PendingCount(); got != 1 {
+	if got := s.PendingCount(context.Background(), ); got != 1 {
 		t.Errorf("expected 1 pending, got %d", got)
 	}
 }
@@ -526,20 +526,20 @@ func TestWebhookService_Dedup_ExpiresAfterTTL(t *testing.T) {
 	}
 	// 手动塞入过期项
 	s.dedup.Store("old", time.Now().Add(-time.Minute))
-	if s.isDuplicate("old") {
+	if s.isDuplicate(context.Background(), "old") {
 		// 已过期应被视为非重复
 		t.Error("expected expired to be removed")
 	}
 	// 新增
 	s.dedup.Store("new", time.Now().Add(time.Minute))
-	if !s.isDuplicate("new") {
+	if !s.isDuplicate(context.Background(), "new") {
 		t.Error("expected new to be duplicate")
 	}
 }
 
 func TestWebhookService_Dedup_EmptyID(t *testing.T) {
 	s := &WebhookService{dedup: sync.Map{}}
-	if s.isDuplicate("") {
+	if s.isDuplicate(context.Background(), "") {
 		t.Error("empty id should not be duplicate")
 	}
 }
@@ -547,12 +547,12 @@ func TestWebhookService_Dedup_EmptyID(t *testing.T) {
 func TestWebhookService_TokenBucket(t *testing.T) {
 	b := &tokenBucket{capacity: 5, refillRate: 1, tokens: 5, lastRefill: time.Now()}
 	for i := 0; i < 5; i++ {
-		if !b.allow() {
+		if !b.allow(context.Background(), ) {
 			t.Errorf("expected allow at iter %d", i)
 		}
 	}
 	// 第 6 次应被拒
-	if b.allow() {
+	if b.allow(context.Background(), ) {
 		t.Error("expected reject after exhaustion")
 	}
 }
@@ -565,14 +565,14 @@ func TestWebhookService_AllChannels(t *testing.T) {
 		ChannelTiktok, ChannelWechat, ChannelWeCom,
 		ChannelWhatsapp, ChannelTelegram, ChannelCustom,
 	} {
-		_, _ = s.Verify(ch, "a1", []byte("{}"), map[string]string{}, map[string]string{})
+		_, _ = s.Verify(context.Background(), ch, "a1", []byte("{}"), map[string]string{}, map[string]string{})
 	}
 }
 
 func TestWebhookService_PayloadSize_Small(t *testing.T) {
 	s := &WebhookService{}
 	body, _ := json.Marshal(map[string]any{"a": 1, "b": "test"})
-	p, err := s.ParsePayload(ChannelCustom, body)
+	p, err := s.ParsePayload(context.Background(), ChannelCustom, body)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -588,7 +588,7 @@ func TestWebhookService_PayloadSize_Large(t *testing.T) {
 		large[fmtKey(i)] = "value"
 	}
 	body, _ := json.Marshal(large)
-	p, err := s.ParsePayload(ChannelCustom, body)
+	p, err := s.ParsePayload(context.Background(), ChannelCustom, body)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

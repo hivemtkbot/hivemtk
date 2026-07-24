@@ -128,7 +128,13 @@ func main() {
 	// 推理栈本地优先初始化（优化三）：用配置构建 dispatcher，默认走本地 mtk-llm，
 	// 云端厂商仅在配置 api_key 时作为可选 fallback，避免空密钥误用/数据出域。
 	// 2026-07-23 修复：InitGlobalDispatcherWithDB 注入 gorm DB，让 SetRouteWithAudit / LogModelLifecycle / LogRoutingDecision 可用
-	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(config.GetAppConfig()), db.GetDB())
+	// 2026-07-24：超时全链路对齐——NewDispatcherFromConfig 内部已从 inference.llm.timeout_seconds
+	// 派生 dispatcher.MaxLatency 与 llm_service.httpClient.Timeout；此处再注入 sales_engine.agentLoopTotalTimeout，
+	// 确保父级 ctx（sales_engine）→ 子级 ctx（dispatcher）→ HTTP client 三层超时共享同一配置源，
+	// 不再出现"父级 ctx 提前 cancel 子级 LLM 调用"的降级问题。
+	appCfg := config.GetAppConfig()
+	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
+	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
 	// 2026-07-23 P1 补：注入默认告警（LoggingAlertHook + InMemoryAlertSink 组合）
 	// 替代 NoopAlertHook 默认实现，确保降级事件有日志+可查询 buffer

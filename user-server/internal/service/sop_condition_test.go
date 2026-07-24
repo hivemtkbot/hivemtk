@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"marketing/internal/model"
@@ -523,7 +524,7 @@ func TestValidateGraph_NewNodeTypes(t *testing.T) {
 			{ID: "end", Type: SOPNodeTypeEnd},
 		},
 	}
-	if err := svc.validateGraph(graph); err != nil {
+	if err := svc.validateGraph(context.Background(), graph); err != nil {
 		t.Errorf("expected valid graph, got err: %v", err)
 	}
 
@@ -535,7 +536,7 @@ func TestValidateGraph_NewNodeTypes(t *testing.T) {
 			{ID: "end", Type: SOPNodeTypeEnd},
 		},
 	}
-	if err := svc.validateGraph(badGraph); err == nil {
+	if err := svc.validateGraph(context.Background(), badGraph); err == nil {
 		t.Error("expected error for unsupported node type")
 	}
 
@@ -553,7 +554,7 @@ func TestValidateGraph_NewNodeTypes(t *testing.T) {
 			{ID: "end", Type: SOPNodeTypeEnd},
 		},
 	}
-	if err := svc.validateGraph(badCondGraph); err == nil {
+	if err := svc.validateGraph(context.Background(), badCondGraph); err == nil {
 		t.Error("expected error for missing condition branch target")
 	}
 }

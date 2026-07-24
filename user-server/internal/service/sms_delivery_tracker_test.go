@@ -117,7 +117,7 @@ func TestSmsDeliveryTracker_DetectAndRecordPortability_UnknownCarrier(t *testing
 func TestSmsDeliveryTracker_GetCurrentCarrier_FromCache(t *testing.T) {
 	s := newDeliveryTracker()
 	s.carrierCache["13800138000"] = SmsCarrierMobile
-	if got := s.GetCurrentCarrier("13800138000"); got != SmsCarrierMobile {
+	if got := s.GetCurrentCarrier(context.Background(), "13800138000"); got != SmsCarrierMobile {
 		t.Errorf("Expected mobile, got %s", got)
 	}
 }
@@ -125,7 +125,7 @@ func TestSmsDeliveryTracker_GetCurrentCarrier_FromCache(t *testing.T) {
 func TestSmsDeliveryTracker_GetCurrentCarrier_Fallback(t *testing.T) {
 	s := newDeliveryTracker()
 	// 缓存未命中 → 用号段识别
-	got := s.GetCurrentCarrier("18600186000")
+	got := s.GetCurrentCarrier(context.Background(), "18600186000")
 	if got != SmsCarrierUnicom {
 		t.Errorf("Expected unicom, got %s", got)
 	}

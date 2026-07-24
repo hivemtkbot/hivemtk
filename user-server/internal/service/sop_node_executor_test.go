@@ -23,7 +23,7 @@ import (
 func TestNodeExecutorRegistry_RegisterAndGet(t *testing.T) {
 	r := NewNodeExecutorRegistry()
 	exec := &StartExecutor{}
-	r.Register(exec)
+	r.Register(context.Background(), exec)
 
 	got, err := r.Get(context.Background(), SOPNodeTypeStart)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestNodeExecutorRegistry_GetNotFound(t *testing.T) {
 func TestNodeExecutorRegistry_MustGetFallbackToNoop(t *testing.T) {
 	r := NewNodeExecutorRegistry()
 	// 未注册类型应返回 NoopExecutor 兜底
-	got := r.MustGet("non_existent_type")
+	got := r.MustGet(context.Background(), "non_existent_type")
 	if got == nil {
 		t.Fatal("MustGet returned nil")
 	}
@@ -56,14 +56,14 @@ func TestNodeExecutorRegistry_MustGetFallbackToNoop(t *testing.T) {
 
 func TestNodeExecutorRegistry_MustGetRegistered(t *testing.T) {
 	r := NewNodeExecutorRegistry()
-	r.Register(&StartExecutor{})
-	r.Register(&EndExecutor{})
+	r.Register(context.Background(), &StartExecutor{})
+	r.Register(context.Background(), &EndExecutor{})
 
-	got := r.MustGet(SOPNodeTypeStart)
+	got := r.MustGet(context.Background(), SOPNodeTypeStart)
 	if _, ok := got.(*StartExecutor); !ok {
 		t.Errorf("expected *StartExecutor, got %T", got)
 	}
-	got2 := r.MustGet(SOPNodeTypeEnd)
+	got2 := r.MustGet(context.Background(), SOPNodeTypeEnd)
 	if _, ok := got2.(*EndExecutor); !ok {
 		t.Errorf("expected *EndExecutor, got %T", got2)
 	}
@@ -71,22 +71,22 @@ func TestNodeExecutorRegistry_MustGetRegistered(t *testing.T) {
 
 func TestNodeExecutorRegistry_DuplicateRegisterPanics(t *testing.T) {
 	r := NewNodeExecutorRegistry()
-	r.Register(&StartExecutor{})
+	r.Register(context.Background(), &StartExecutor{})
 
 	defer func() {
 		if rec := recover(); rec == nil {
 			t.Error("expected panic on duplicate registration")
 		}
 	}()
-	r.Register(&StartExecutor{})
+	r.Register(context.Background(), &StartExecutor{})
 }
 
 func TestNodeExecutorRegistry_AllRegistered(t *testing.T) {
 	r := NewNodeExecutorRegistry()
-	r.Register(&StartExecutor{})
-	r.Register(&EndExecutor{})
+	r.Register(context.Background(), &StartExecutor{})
+	r.Register(context.Background(), &EndExecutor{})
 
-	all := r.AllRegistered()
+	all := r.AllRegistered(context.Background())
 	if len(all) != 2 {
 		t.Errorf("expected 2 registered, got %d", len(all))
 	}

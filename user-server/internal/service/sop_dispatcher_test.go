@@ -28,15 +28,15 @@ import (
 func TestSOPRetryPolicy_Backoff(t *testing.T) {
 	p := DefaultSOPRetryPolicy()
 	// attempt=1 应返回 InitialBackoff=1s
-	if d := p.Backoff(1); d != 1*time.Second {
+	if d := p.Backoff(context.Background(), 1); d != 1*time.Second {
 		t.Errorf("Backoff(1)=%v want=1s", d)
 	}
 	// attempt=2 应返回 2s
-	if d := p.Backoff(2); d != 2*time.Second {
+	if d := p.Backoff(context.Background(), 2); d != 2*time.Second {
 		t.Errorf("Backoff(2)=%v want=2s", d)
 	}
 	// attempt=3 应返回 4s
-	if d := p.Backoff(3); d != 4*time.Second {
+	if d := p.Backoff(context.Background(), 3); d != 4*time.Second {
 		t.Errorf("Backoff(3)=%v want=4s", d)
 	}
 }
@@ -49,7 +49,7 @@ func TestSOPRetryPolicy_BackoffCappedAtMax(t *testing.T) {
 		Multiplier:     2.0,
 	}
 	// attempt=10 应被 cap 在 MaxBackoff=5s
-	if d := p.Backoff(10); d != 5*time.Second {
+	if d := p.Backoff(context.Background(), 10); d != 5*time.Second {
 		t.Errorf("Backoff(10)=%v want=5s (capped)", d)
 	}
 }
@@ -57,10 +57,10 @@ func TestSOPRetryPolicy_BackoffCappedAtMax(t *testing.T) {
 func TestSOPRetryPolicy_BackoffAttemptZeroOrNegative(t *testing.T) {
 	p := DefaultSOPRetryPolicy()
 	// attempt<=1 应返回 InitialBackoff
-	if d := p.Backoff(0); d != 1*time.Second {
+	if d := p.Backoff(context.Background(), 0); d != 1*time.Second {
 		t.Errorf("Backoff(0)=%v want=1s", d)
 	}
-	if d := p.Backoff(-1); d != 1*time.Second {
+	if d := p.Backoff(context.Background(), -1); d != 1*time.Second {
 		t.Errorf("Backoff(-1)=%v want=1s", d)
 	}
 }
@@ -75,7 +75,7 @@ func TestSOPExecutionDispatcher_DispatchQueued(t *testing.T) {
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
 	task := &dispatchTask{ExecutionID: 1, NodeID: "n1", Attempt: 0, TraceID: "t1"}
-	if err := d.Dispatch(task); err != nil {
+	if err := d.Dispatch(context.Background(), task); err != nil {
 		t.Fatalf("Dispatch failed: %v", err)
 	}
 	// 队列中应有 1 个任务
@@ -93,7 +93,7 @@ func TestSOPExecutionDispatcher_DispatchQueueFull(t *testing.T) {
 	}
 	d.dispatchQueue <- &dispatchTask{ExecutionID: 1, NodeID: "n1"}
 	// 再 Dispatch 应失败
-	err := d.Dispatch(&dispatchTask{ExecutionID: 2, NodeID: "n2"})
+	err := d.Dispatch(context.Background(), &dispatchTask{ExecutionID: 2, NodeID: "n2"})
 	if err == nil {
 		t.Error("expected error when queue full")
 	}
@@ -107,7 +107,7 @@ func TestSOPExecutionDispatcher_DispatchAfterStop(t *testing.T) {
 		retryPolicy:   DefaultSOPRetryPolicy(),
 	}
 	close(d.stopCh)
-	err := d.Dispatch(&dispatchTask{ExecutionID: 1, NodeID: "n1"})
+	err := d.Dispatch(context.Background(), &dispatchTask{ExecutionID: 1, NodeID: "n1"})
 	if err == nil {
 		t.Error("expected error after stop")
 	}
@@ -177,7 +177,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 
 	outbox := NewSOPOutboxDispatcher(db, nil)
 	outbox.execDispatcher = mockDispatcher
-	outbox.processDueTimers()
+	outbox.processDueTimers(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 1 {
 		t.Errorf("dispatchedCount=%d want=1", dispatchedCount)
@@ -224,7 +224,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 	}
 	outbox := NewSOPOutboxDispatcher(db, nil)
 	outbox.execDispatcher = mockDispatcher
-	outbox.processDueTimers()
+	outbox.processDueTimers(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 0 {
 		t.Errorf("dispatchedCount=%d want=0 (future timer should not fire)", dispatchedCount)
@@ -275,7 +275,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing
 			defer wg.Done()
 			o := NewSOPOutboxDispatcher(db, nil)
 			o.execDispatcher = mockDispatcher
-			o.processDueTimers()
+			o.processDueTimers(context.Background())
 		}()
 	}
 	wg.Wait()
@@ -312,8 +312,8 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(30 * time.Minute)
-	detector.scanStuckExecutions()
+	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 0 {
 		t.Errorf("dispatchedCount=%d want=0 (recent event, not stuck)", dispatchedCount)
@@ -358,8 +358,8 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(30 * time.Minute)
-	detector.scanStuckExecutions()
+	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 0 {
 		t.Errorf("dispatchedCount=%d want=0 (wait node with pending timer not stuck)", dispatchedCount)
@@ -398,8 +398,8 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(30 * time.Minute)
-	detector.scanStuckExecutions()
+	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 1 {
 		t.Fatalf("dispatchedCount=%d want=1 (stuck execution should be recovered)", dispatchedCount)
@@ -418,7 +418,7 @@ type mockExecDispatcher struct {
 	dispatchFn func(task *dispatchTask)
 }
 
-func (m *mockExecDispatcher) DispatchOrLog(ctx context.Context, task *dispatchTask) {
+func (m *mockExecDispatcher) DispatchOrLog(task *dispatchTask) {
 	if m.dispatchFn != nil {
 		m.dispatchFn(task)
 	}

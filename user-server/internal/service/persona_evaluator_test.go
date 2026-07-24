@@ -51,7 +51,7 @@ func TestRuleBasedPersonaEvaluator_AITracesLowNaturalness(t *testing.T) {
 		AIReply:         "作为 AI 助手，我无法直接推荐产品，但我可以给您一些建议。",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	nat, ok := result.ScoreByDimension(PersonaDimensionNaturalness)
+	nat, ok := result.ScoreByDimension(context.Background(), PersonaDimensionNaturalness)
 	if !ok {
 		t.Fatal("expected naturalness score")
 	}
@@ -67,7 +67,7 @@ func TestRuleBasedPersonaEvaluator_AdLawWordsLowCompliance(t *testing.T) {
 		AIReply:         "这是全网最好的产品，销量第一，国家级认证！",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	comp, _ := result.ScoreByDimension(PersonaDimensionCompliance)
+	comp, _ := result.ScoreByDimension(context.Background(), PersonaDimensionCompliance)
 	if comp >= 0.4 {
 		t.Errorf("expected low compliance (< 0.4) for ad law words, got %.3f", comp)
 	}
@@ -80,7 +80,7 @@ func TestRuleBasedPersonaEvaluator_FalsePromiseLowCompliance(t *testing.T) {
 		AIReply:         "绝对有效，保证见效，包治百病！",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	comp, _ := result.ScoreByDimension(PersonaDimensionCompliance)
+	comp, _ := result.ScoreByDimension(context.Background(), PersonaDimensionCompliance)
 	if comp >= 0.4 {
 		t.Errorf("expected low compliance for false promise, got %.3f", comp)
 	}
@@ -93,7 +93,7 @@ func TestRuleBasedPersonaEvaluator_LongReplyLowConciseness(t *testing.T) {
 		AIReply: longReply,
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	conc, _ := result.ScoreByDimension(PersonaDimensionConciseness)
+	conc, _ := result.ScoreByDimension(context.Background(), PersonaDimensionConciseness)
 	if conc > 0.3 {
 		t.Errorf("expected low conciseness (<= 0.3) for long reply, got %.3f", conc)
 	}
@@ -105,7 +105,7 @@ func TestRuleBasedPersonaEvaluator_ShortReplyHighConciseness(t *testing.T) {
 		AIReply: "好的，马上给您安排。",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	conc, _ := result.ScoreByDimension(PersonaDimensionConciseness)
+	conc, _ := result.ScoreByDimension(context.Background(), PersonaDimensionConciseness)
 	if conc < 0.9 {
 		t.Errorf("expected high conciseness (>= 0.9) for short reply, got %.3f", conc)
 	}
@@ -118,7 +118,7 @@ func TestRuleBasedPersonaEvaluator_LowRelevance(t *testing.T) {
 		AIReply:         "今天天气真好，适合出门散步。",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	rel, _ := result.ScoreByDimension(PersonaDimensionRelevance)
+	rel, _ := result.ScoreByDimension(context.Background(), PersonaDimensionRelevance)
 	if rel > 0.4 {
 		t.Errorf("expected low relevance (<= 0.4) for off-topic, got %.3f", rel)
 	}
@@ -131,7 +131,7 @@ func TestRuleBasedPersonaEvaluator_HighRelevance(t *testing.T) {
 		AIReply:         "这款手机 5G 版本售价 3999，支持双模 5G，您喜欢吗？",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	rel, _ := result.ScoreByDimension(PersonaDimensionRelevance)
+	rel, _ := result.ScoreByDimension(context.Background(), PersonaDimensionRelevance)
 	if rel < 0.7 {
 		t.Errorf("expected high relevance (>= 0.7), got %.3f", rel)
 	}
@@ -145,7 +145,7 @@ func TestRuleBasedPersonaEvaluator_ComplaintNeedEmpathy(t *testing.T) {
 		Intent:          "complaint",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	emo, _ := result.ScoreByDimension(PersonaDimensionEmotion)
+	emo, _ := result.ScoreByDimension(context.Background(), PersonaDimensionEmotion)
 	if emo > 0.5 {
 		t.Errorf("expected low emotion (<= 0.5) for complaint without empathy, got %.3f", emo)
 	}
@@ -159,7 +159,7 @@ func TestRuleBasedPersonaEvaluator_ComplaintWithEmpathy(t *testing.T) {
 		Intent:          "complaint",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	emo, _ := result.ScoreByDimension(PersonaDimensionEmotion)
+	emo, _ := result.ScoreByDimension(context.Background(), PersonaDimensionEmotion)
 	if emo < 0.8 {
 		t.Errorf("expected high emotion (>= 0.8) with empathy, got %.3f", emo)
 	}
@@ -173,7 +173,7 @@ func TestRuleBasedPersonaEvaluator_PersonaMatch(t *testing.T) {
 		Industry: "美妆",
 	}
 	result, _ := e.Evaluate(context.Background(), input)
-	per, _ := result.ScoreByDimension(PersonaDimensionPersona)
+	per, _ := result.ScoreByDimension(context.Background(), PersonaDimensionPersona)
 	if per < 0.85 {
 		t.Errorf("expected high persona score with match, got %.3f", per)
 	}
@@ -190,7 +190,7 @@ func TestRuleBasedPersonaEvaluator_AllDimensionsPresent(t *testing.T) {
 	}
 	// 所有维度都应有得分
 	for _, dim := range AllPersonaDimensions {
-		if _, ok := result.ScoreByDimension(dim); !ok {
+		if _, ok := result.ScoreByDimension(context.Background(), dim); !ok {
 			t.Errorf("missing dimension: %s", dim)
 		}
 	}
@@ -239,7 +239,7 @@ func TestRuleBasedPersonaEvaluator_EmptyReply(t *testing.T) {
 }
 
 func TestRuleBasedPersonaEvaluator_CustomThreshold(t *testing.T) {
-	e := NewRuleBasedPersonaEvaluator().WithThreshold(0.95)
+	e := NewRuleBasedPersonaEvaluator().WithThreshold(context.Background(), 0.95)
 	input := &PersonaEvaluationInput{
 		AIReply: "好的，亲",
 	}
@@ -348,7 +348,7 @@ func TestPersonaEvaluationService_EvaluateWithRetry_PassOnSecondAttempt(t *testi
 func TestPersonaEvaluationService_EvaluateWithRetry_ExhaustedAndCollect(t *testing.T) {
 	db := setupPersonaTestDB(t)
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).
-		WithSampleCollector(NewDBLowQualitySampleCollector(db))
+		WithSampleCollector(context.Background(), NewDBLowQualitySampleCollector(db))
 	// 始终低质量
 	input := &PersonaEvaluationInput{
 		AIReply:         "全网最好的产品，绝对保证",
@@ -439,7 +439,7 @@ func TestPersonaEvaluationService_EvaluateWithRetry_NilInput(t *testing.T) {
 }
 
 func TestPersonaEvaluationService_WithThreshold(t *testing.T) {
-	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).WithThreshold(0.5)
+	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).WithThreshold(context.Background(), 0.5)
 	input := &PersonaEvaluationInput{
 		AIReply: "好的",
 	}
@@ -450,7 +450,7 @@ func TestPersonaEvaluationService_WithThreshold(t *testing.T) {
 }
 
 func TestPersonaEvaluationService_WithMaxRetry(t *testing.T) {
-	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).WithMaxRetry(5)
+	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).WithMaxRetry(context.Background(), 5)
 	input := &PersonaEvaluationInput{
 		AIReply: "全网最好的产品",
 	}
@@ -565,11 +565,11 @@ func TestParsePersonaEvaluationResult_ScoreClamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	nat, _ := result.ScoreByDimension(PersonaDimensionNaturalness)
+	nat, _ := result.ScoreByDimension(context.Background(), PersonaDimensionNaturalness)
 	if nat != 1.0 {
 		t.Errorf("expected clamp to 1.0, got %.3f", nat)
 	}
-	rel, _ := result.ScoreByDimension(PersonaDimensionRelevance)
+	rel, _ := result.ScoreByDimension(context.Background(), PersonaDimensionRelevance)
 	if rel != 0.0 {
 		t.Errorf("expected clamp to 0.0, got %.3f", rel)
 	}
@@ -876,11 +876,11 @@ func TestPersonaEvaluationResult_ScoreByDimension(t *testing.T) {
 			{Dimension: PersonaDimensionCompliance, Score: 1.0},
 		},
 	}
-	nat, ok := r.ScoreByDimension(PersonaDimensionNaturalness)
+	nat, ok := r.ScoreByDimension(context.Background(), PersonaDimensionNaturalness)
 	if !ok || nat != 0.9 {
 		t.Errorf("expected 0.9 naturalness, got %f (ok=%v)", nat, ok)
 	}
-	_, ok = r.ScoreByDimension(PersonaDimensionEmotion)
+	_, ok = r.ScoreByDimension(context.Background(), PersonaDimensionEmotion)
 	if ok {
 		t.Error("expected not found for missing dimension")
 	}
@@ -893,7 +893,7 @@ func TestPersonaEvaluationResult_ScoreByDimension(t *testing.T) {
 func TestPersonaEvaluation_PRDAcceptance_RetryAndCollect(t *testing.T) {
 	db := setupPersonaTestDB(t)
 	svc := NewPersonaEvaluationService(NewRuleBasedPersonaEvaluator()).
-		WithSampleCollector(NewDBLowQualitySampleCollector(db))
+		WithSampleCollector(context.Background(), NewDBLowQualitySampleCollector(db))
 
 	// 模拟始终低质量回复
 	input := &PersonaEvaluationInput{

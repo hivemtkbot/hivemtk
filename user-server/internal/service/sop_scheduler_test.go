@@ -33,24 +33,24 @@ func TestSOPScheduler_StartStop(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, 100*time.Millisecond)
-	s.Start()
+	s.Start(context.Background())
 	time.Sleep(150 * time.Millisecond)
-	s.Stop()
+	s.Stop(context.Background())
 }
 
 func TestSOPScheduler_StartTwiceIsIdempotent(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Second)
-	s.Start()
-	s.Start() // 不应该 panic
-	s.Stop()
+	s.Start(context.Background())
+	s.Start(context.Background()) // 不应该 panic
+	s.Stop(context.Background())
 }
 
 func TestSOPScheduler_StopTwiceSafe(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Second)
-	s.Start()
-	s.Stop()
+	s.Start(context.Background())
+	s.Stop(context.Background())
 	// 二次 Stop 由于 close 已关闭 channel 会 panic，这里不应再次调用
 	// 验证 running 标记
 	if s.running {
@@ -60,6 +60,7 @@ func TestSOPScheduler_StopTwiceSafe(t *testing.T) {
 
 func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
+	ctx := context.Background()
 	now := time.Now()
 
 	// 卡死的执行（25 小时前开始）
@@ -107,6 +108,7 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 
 func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
+	ctx := context.Background()
 
 	// 创建一个 auto 类型的 SOP
 	agent := &model.SOPAgent{
@@ -195,6 +197,7 @@ func TestSOPScheduler_DispatchScheduledSOP_IntervalGuard(t *testing.T) {
 
 func TestSOPScheduler_TryExecute_DuplicateGuard(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
+	ctx := context.Background()
 	agent := &model.SOPAgent{
 		Name:          "dup",
 		Scenario:      "dup",
@@ -271,12 +274,12 @@ func TestSOPScheduler_FmtUintSafe(t *testing.T) {
 
 func TestSOPScheduler_Tick_NilDB(t *testing.T) {
 	s := NewSOPScheduler(nil, nil, time.Hour)
-	s.tick() // 不应 panic
+	s.tick(context.Background()) // 不应 panic
 }
 
 func TestSOPScheduler_Tick_WithDB_NoData(t *testing.T) {
 	db := setupSOPSchedulerTestDB(t)
 	svc := NewSOPService(db, nil)
 	s := NewSOPScheduler(svc, db, time.Hour)
-	s.tick() // 空库，不应 panic
+	s.tick(context.Background()) // 空库，不应 panic
 }

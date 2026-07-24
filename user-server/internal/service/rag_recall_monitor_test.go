@@ -64,7 +64,7 @@ func TestRagRecallMonitor_CollectAndStore_NilDB(t *testing.T) {
 		t.Error("Expected error for nil db")
 	}
 	// 内存缓存仍然应被设置（即使持久化失败）
-	snap, _ := s.GetLatestSnapshot()
+	snap, _ := s.GetLatestSnapshot(context.Background())
 	if snap == nil {
 		// 设计：db 为 nil 时 CollectAndStore 在持久化阶段就报错，不会更新缓存
 		// 这里允许 nil
@@ -75,7 +75,7 @@ func TestRagRecallMonitor_CollectAndStore_NilDB(t *testing.T) {
 // 3) GetLatestSnapshot
 func TestRagRecallMonitor_GetLatestSnapshot_Empty(t *testing.T) {
 	s := newRecallMonitor()
-	snap, ts := s.GetLatestSnapshot()
+	snap, ts := s.GetLatestSnapshot(context.Background())
 	if snap != nil {
 		t.Errorf("Expected nil snapshot, got %v", snap)
 	}
@@ -87,13 +87,13 @@ func TestRagRecallMonitor_GetLatestSnapshot_Empty(t *testing.T) {
 // 4) Start/Stop
 func TestRagRecallMonitor_StartStop(t *testing.T) {
 	s := NewRagRecallMonitorService(nil, 50*time.Millisecond, time.Hour)
-	s.Start()
+	s.Start(context.Background())
 	// 重复 Start 应当幂等
-	s.Start()
+	s.Start(context.Background())
 	time.Sleep(80 * time.Millisecond)
-	s.Stop()
+	s.Stop(context.Background())
 	// 重复 Stop 必须安全（用 recover 保护，不应 panic）
-	s.Stop()
+	s.Stop(context.Background())
 }
 
 // 5) EnsureSchema

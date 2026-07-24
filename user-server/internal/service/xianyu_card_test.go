@@ -48,7 +48,7 @@ func TestXianyuCardService_Create_Success(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -76,7 +76,7 @@ func TestXianyuCardService_Create_EmptyTitle(t *testing.T) {
 		ImageURL:    "https://example.com/image.jpg",
 	}
 
-	_, err := service.Create(context.Background(), ctx, req)
+	_, err := service.Create(context.Background(), req)
 
 	if err != nil {
 		t.Logf("Create with empty title failed (expected): %v", err)
@@ -95,7 +95,7 @@ func TestXianyuCardService_Create_EmptyRedirectURL(t *testing.T) {
 		DomainPoolID: 1,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -121,7 +121,7 @@ func TestXianyuCardService_Update_Success(t *testing.T) {
 		Tags:         "original",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestXianyuCardService_Update_Success(t *testing.T) {
 		IsActive:    true,
 	}
 
-	updatedCard, err := service.Update(context.Background(), ctx, updateReq)
+	updatedCard, err := service.Update(context.Background(), updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestXianyuCardService_Update_NotFound(t *testing.T) {
 		Title: "Non-existent Card",
 	}
 
-	_, err := service.Update(context.Background(), ctx, updateReq)
+	_, err := service.Update(context.Background(), updateReq)
 	if err == nil {
 		t.Error("Expected error for updating non-existent card")
 	}
@@ -190,17 +190,17 @@ func TestXianyuCardService_Delete_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	err = service.Delete(context.Background(), ctx, createdCard.ID)
+	err = service.Delete(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	_, err = service.GetByID(context.Background(), ctx, createdCard.ID)
+	_, err = service.GetByID(context.Background(), createdCard.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted card")
 	}
@@ -211,7 +211,7 @@ func TestXianyuCardService_Delete_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-	err := service.Delete(context.Background(), ctx, 999)
+	err := service.Delete(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for deleting non-existent card")
 	}
@@ -231,12 +231,12 @@ func TestXianyuCardService_GetByID_Success(t *testing.T) {
 		Tags:         "test",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	fetchedCard, err := service.GetByID(context.Background(), ctx, createdCard.ID)
+	fetchedCard, err := service.GetByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestXianyuCardService_GetByID_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-	_, err := service.GetByID(context.Background(), ctx, 999)
+	_, err := service.GetByID(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for getting non-existent card")
 	}
@@ -272,12 +272,12 @@ func TestXianyuCardService_GetByIDWithRefresh_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	fetchedCard, err := service.GetByIDWithRefresh(ctx, createdCard.ID)
+	fetchedCard, err := service.GetByIDWithRefresh(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByIDWithRefresh failed: %v", err)
 	}
@@ -299,12 +299,12 @@ func TestXianyuCardService_GetCardModelByID_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	modelCard, err := service.GetCardModelByID(ctx, createdCard.ID)
+	modelCard, err := service.GetCardModelByID(context.Background(), createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetCardModelByID failed: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestXianyuCardService_GetList_Success(t *testing.T) {
 			DomainPoolID: 1,
 			IsActive:     true,
 		}
-		_, err := service.Create(context.Background(), ctx, createReq)
+		_, err := service.Create(context.Background(), createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -340,7 +340,7 @@ func TestXianyuCardService_GetList_Success(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -366,7 +366,7 @@ func TestXianyuCardService_GetList_Pagination(t *testing.T) {
 			DomainPoolID: 1,
 			IsActive:     true,
 		}
-		_, err := service.Create(context.Background(), ctx, createReq)
+		_, err := service.Create(context.Background(), createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -376,7 +376,7 @@ func TestXianyuCardService_GetList_Pagination(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestXianyuCardService_GetList_Pagination(t *testing.T) {
 	}
 
 	listReq.Page = 2
-	listResp2, err := service.GetList(context.Background(), ctx, listReq)
+	listResp2, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestXianyuCardService_GetList_EmptyList(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(context.Background(), ctx, listReq)
+	listResp, err := service.GetList(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -430,12 +430,12 @@ func TestXianyuCardService_ShareCard_Success(t *testing.T) {
 		DomainPoolID: 1,
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(context.Background(), ctx, createReq)
+	createdCard, err := service.Create(context.Background(), createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	err = service.ShareCard(ctx, createdCard.ID, "wechat")
+	err = service.ShareCard(context.Background(), createdCard.ID, "wechat")
 	if err != nil {
 		t.Fatalf("ShareCard failed: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestXianyuCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
 
-	err := service.ShareCard(ctx, 999, "wechat")
+	err := service.ShareCard(context.Background(), 999, "wechat")
 	if err == nil {
 		t.Error("Expected error for sharing non-existent card")
 	}
@@ -466,7 +466,7 @@ func TestXianyuCardService_Create_WithTags(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestXianyuCardService_Create_InactiveCard(t *testing.T) {
 		IsActive:     false,
 	}
 
-	card, err := service.Create(context.Background(), ctx, req)
+	card, err := service.Create(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}

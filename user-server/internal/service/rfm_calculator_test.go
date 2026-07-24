@@ -70,7 +70,7 @@ func TestRFMCalculatorService_calcRScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			score := service.calcRScore(tt.lastTx, rule)
+			score := service.calcRScore(context.Background(), tt.lastTx, rule)
 			if score != tt.expected {
 				t.Errorf("Expected R score %d, got %d", tt.expected, score)
 			}
@@ -102,7 +102,7 @@ func TestRFMCalculatorService_calcFScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			score := service.calcFScore(tt.count, rule)
+			score := service.calcFScore(context.Background(), tt.count, rule)
 			if score != tt.expected {
 				t.Errorf("Expected F score %d, got %d", tt.expected, score)
 			}
@@ -135,7 +135,7 @@ func TestRFMCalculatorService_calcMScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			score := service.calcMScore(tt.amount, rule)
+			score := service.calcMScore(context.Background(), tt.amount, rule)
 			if score != tt.expected {
 				t.Errorf("Expected M score %d, got %d", tt.expected, score)
 			}
@@ -171,7 +171,7 @@ func TestRFMCalculatorService_determineLayer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			layer := service.determineLayer(tt.rScore, tt.fScore, tt.mScore, tt.lastTx)
+			layer := service.determineLayer(context.Background(), tt.rScore, tt.fScore, tt.mScore, tt.lastTx)
 			if layer != tt.expected {
 				t.Errorf("Expected layer %s, got %s", tt.expected, layer)
 			}
@@ -190,7 +190,7 @@ func TestRFMCalculatorService_CalculateRFM(t *testing.T) {
 	}
 
 	// 由于 getUserStats 返回空数据，测试主要验证结构
-	rfm, err := service.CalculateRFM(1, rule)
+	rfm, err := service.CalculateRFM(context.Background(), 1, rule)
 	if err != nil {
 		t.Fatalf("CalculateRFM failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestRFMCalculatorService_CalculateRFM(t *testing.T) {
 func TestRFMCalculatorService_getDefaultRule(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	rule := service.getDefaultRule()
+	rule := service.getDefaultRule(context.Background())
 	if rule == nil {
 		t.Fatal("Expected default rule to be returned")
 	}
@@ -279,7 +279,7 @@ func TestRFMCalculatorService_SaveRFMRule(t *testing.T) {
 		IsActive: true,
 	}
 
-	rule, err := service.SaveRFMRule(req)
+	rule, err := service.SaveRFMRule(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SaveRFMRule failed: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestRFMCalculatorService_SaveRFMRule_DefaultValues(t *testing.T) {
 		// RDays1 为 0，应该使用默认值 7
 	}
 
-	rule, err := service.SaveRFMRule(req)
+	rule, err := service.SaveRFMRule(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SaveRFMRule failed: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestRFMCalculatorService_GetRFMRule(t *testing.T) {
 	db.GetDB().Create(rule)
 
 	// 获取规则
-	result, err := service.GetRFMRule()
+	result, err := service.GetRFMRule(context.Background())
 	if err != nil {
 		t.Fatalf("GetRFMRule failed: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestRFMCalculatorService_UpdateRFMRule(t *testing.T) {
 		RDays1: 10,
 	}
 
-	updated, err := service.UpdateRFMRule(rule.ID, req)
+	updated, err := service.UpdateRFMRule(context.Background(), rule.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateRFMRule failed: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestRFMCalculatorService_UpdateRFMRule_NotFound(t *testing.T) {
 		Name: "Test",
 	}
 
-	_, err := service.UpdateRFMRule(999, req)
+	_, err := service.UpdateRFMRule(context.Background(), 999, req)
 	if err == nil {
 		t.Error("Expected error for non-existent rule")
 	}
@@ -393,7 +393,7 @@ func TestRFMCalculatorService_UpdateRFMRule_NoPermission(t *testing.T) {
 		Name: "Updated",
 	}
 
-	_, err := service.UpdateRFMRule(99999, req)
+	_, err := service.UpdateRFMRule(context.Background(), 99999, req)
 	if err == nil {
 		t.Error("Expected error for non-existent rule")
 	}
@@ -403,7 +403,7 @@ func TestRFMCalculatorService_UpdateRFMRule_NoPermission(t *testing.T) {
 func TestRFMCalculatorService_GetRFMStats(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	stats, err := service.GetRFMStats()
+	stats, err := service.GetRFMStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetRFMStats failed: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestRFMCalculatorService_GetUsersByLayer(t *testing.T) {
 	}
 	db.GetDB().Create(rfm)
 
-	users, total, err := service.GetUsersByLayer("important_value", 1, 10)
+	users, total, err := service.GetUsersByLayer(context.Background(), "important_value", 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsersByLayer failed: %v", err)
 	}
@@ -455,7 +455,7 @@ func TestRFMCalculatorService_GetRFMList(t *testing.T) {
 	}
 	db.GetDB().Create(rfm)
 
-	users, total, err := service.GetRFMList(1, 10)
+	users, total, err := service.GetRFMList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetRFMList failed: %v", err)
 	}
@@ -481,7 +481,7 @@ func TestRFMCalculatorService_GetUserRFM(t *testing.T) {
 	}
 	db.GetDB().Create(rfm)
 
-	result, err := service.GetUserRFM(1)
+	result, err := service.GetUserRFM(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("GetUserRFM failed: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestRFMCalculatorService_GetUserRFM(t *testing.T) {
 func TestRFMCalculatorService_GetUserRFM_NotFound(t *testing.T) {
 	service := setupRFMCalculatorService(t)
 
-	_, err := service.GetUserRFM(999)
+	_, err := service.GetUserRFM(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -515,7 +515,7 @@ func TestRFMCalculatorService_enrichUserData(t *testing.T) {
 		},
 	}
 
-	result := service.enrichUserData(rfms)
+	result := service.enrichUserData(context.Background(), rfms)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(result))
 	}

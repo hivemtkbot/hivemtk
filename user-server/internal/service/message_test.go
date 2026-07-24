@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 	"testing"
@@ -36,7 +37,7 @@ func TestMessageService_Register(t *testing.T) {
 		Text:      "Test message content",
 	}
 
-	result, err := service.Register(message)
+	result, err := service.Register(context.Background(), message)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -66,10 +67,10 @@ func TestMessageService_GetMessage(t *testing.T) {
 		TgID:      12345,
 		Text:      "Test message",
 	}
-	registered, _ := service.Register(message)
+	registered, _ := service.Register(context.Background(), message)
 
 	// Get message via list since repository GetByID uses uint but model has string ID
-	messages, total, err := service.GetMessageList(1, 10)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestMessageService_GetMessage_NotFound(t *testing.T) {
 
 	service := NewMessageService()
 
-	_, err := service.GetMessage(999)
+	_, err := service.GetMessage(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for non-existent message")
 	}
@@ -107,11 +108,11 @@ func TestMessageService_GetMessageList(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		service.Register(message)
+		service.Register(context.Background(), message)
 	}
 
 	// Get message list
-	messages, total, err := service.GetMessageList(1, 10)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -138,11 +139,11 @@ func TestMessageService_GetMessageList_Pagination(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		service.Register(message)
+		service.Register(context.Background(), message)
 	}
 
 	// Get first page
-	messages, total, err := service.GetMessageList(1, 5)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -156,7 +157,7 @@ func TestMessageService_GetMessageList_Pagination(t *testing.T) {
 	}
 
 	// Get second page
-	messages2, _, err := service.GetMessageList(2, 5)
+	messages2, _, err := service.GetMessageList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetMessageList page 2 failed: %v", err)
 	}
@@ -178,17 +179,17 @@ func TestMessageService_DeleteMessage(t *testing.T) {
 		TgID:      12345,
 		Text:      "Test message",
 	}
-	registered, _ := service.Register(message)
+	registered, _ := service.Register(context.Background(), message)
 
 	// Delete the message (repository expects string ID)
-	err := service.DeleteMessage(registered.ID)
+	err := service.DeleteMessage(context.Background(), registered.ID)
 	if err != nil {
 		// Note: repository 层对 string ID 的 Delete 行为有历史问题
 		t.Logf("DeleteMessage returned error (known repository bug): %v", err)
 	}
 
 	// Verify message status
-	_, total, _ := service.GetMessageList(1, 10)
+	_, total, _ := service.GetMessageList(context.Background(), 1, 10)
 	if total == 0 {
 		t.Log("Delete succeeded")
 	} else {
@@ -202,7 +203,7 @@ func TestMessageService_InitMessage(t *testing.T) {
 	service := NewMessageService()
 
 	// Initialize a message
-	messageID, err := service.InitMessage("account123", "user456", 67890, "Init message text")
+	messageID, err := service.InitMessage(context.Background(), "account123", "user456", 67890, "Init message text")
 	if err != nil {
 		t.Fatalf("InitMessage failed: %v", err)
 	}
@@ -212,7 +213,7 @@ func TestMessageService_InitMessage(t *testing.T) {
 	}
 
 	// Verify the message was created via list
-	messages, total, err := service.GetMessageList(1, 10)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -245,7 +246,7 @@ func TestMessageService_InitMessage_EmptyValues(t *testing.T) {
 	service := NewMessageService()
 
 	// Initialize a message with empty values
-	messageID, err := service.InitMessage("", "", 0, "")
+	messageID, err := service.InitMessage(context.Background(), "", "", 0, "")
 	if err != nil {
 		t.Fatalf("InitMessage with empty values failed: %v", err)
 	}
@@ -261,7 +262,7 @@ func TestMessageService_GetMessageList_Empty(t *testing.T) {
 	service := NewMessageService()
 
 	// Get message list when empty
-	messages, total, err := service.GetMessageList(1, 10)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -288,14 +289,14 @@ func TestMessageService_Register_MultipleMessages(t *testing.T) {
 			TgID:      12345,
 			Text:      "Message " + string(rune('0'+i)),
 		}
-		_, err := service.Register(message)
+		_, err := service.Register(context.Background(), message)
 		if err != nil {
 			t.Fatalf("Register message %d failed: %v", i, err)
 		}
 	}
 
 	// Verify all messages are saved
-	_, total, _ := service.GetMessageList(1, 10)
+	_, total, _ := service.GetMessageList(context.Background(), 1, 10)
 	if total != 3 {
 		t.Errorf("Expected total 3, got %d", total)
 	}
@@ -309,7 +310,7 @@ func TestMessageService_InitMessage_DifferentUsers(t *testing.T) {
 	// Initialize messages for different users
 	users := []string{"user1", "user2", "user3"}
 	for i, user := range users {
-		messageID, err := service.InitMessage("account123", user, int64(1000+i), "Message for "+user)
+		messageID, err := service.InitMessage(context.Background(), "account123", user, int64(1000+i), "Message for "+user)
 		if err != nil {
 			t.Fatalf("InitMessage for %s failed: %v", user, err)
 		}
@@ -319,7 +320,7 @@ func TestMessageService_InitMessage_DifferentUsers(t *testing.T) {
 	}
 
 	// Verify all messages are saved
-	_, total, _ := service.GetMessageList(1, 10)
+	_, total, _ := service.GetMessageList(context.Background(), 1, 10)
 	if total != 3 {
 		t.Errorf("Expected total 3, got %d", total)
 	}
@@ -331,7 +332,7 @@ func TestMessageService_DeleteMessage_NonExistent(t *testing.T) {
 	service := NewMessageService()
 
 	// Try to delete non-existent message
-	err := service.DeleteMessage("non-existent-id")
+	err := service.DeleteMessage(context.Background(), "non-existent-id")
 	if err != nil {
 		// GORM may not return error for non-existent delete
 		t.Logf("DeleteMessage returned: %v", err)

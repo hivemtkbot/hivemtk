@@ -14,7 +14,7 @@ func TestRecoveryQueueService_Enqueue_Default(t *testing.T) {
 	mock := newMockRecoveryRepo()
 	svc.repo = mock
 
-	item, err := svc.Enqueue("c1", "u1", "a1", "", "", 0)
+	item, err := svc.Enqueue(context.Background(), "c1", "u1", "a1", "", "", 0)
 	if err != nil {
 		t.Fatalf("Enqueue failed: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestRecoveryQueueService_Enqueue_Custom(t *testing.T) {
 	svc := NewRecoveryQueueService()
 	svc.repo = newMockRecoveryRepo()
 
-	item, err := svc.Enqueue("c1", "u1", "a1", "complaint", "phone_call", 2)
+	item, err := svc.Enqueue(context.Background(), "c1", "u1", "a1", "complaint", "phone_call", 2)
 	if err != nil {
 		t.Fatalf("Enqueue failed: %v", err)
 	}
@@ -50,8 +50,8 @@ func TestRecoveryQueueService_MarkAttempt(t *testing.T) {
 	mock := newMockRecoveryRepo()
 	svc.repo = mock
 
-	item, _ := svc.Enqueue("c1", "u1", "a1", "churn", "sms", 5)
-	if err := svc.MarkAttempt(item.ID, "sms", "delivered", "failed", 30*time.Second); err != nil {
+	item, _ := svc.Enqueue(context.Background(), "c1", "u1", "a1", "churn", "sms", 5)
+	if err := svc.MarkAttempt(context.Background(), item.ID, "sms", "delivered", "failed", 30*time.Second); err != nil {
 		t.Fatalf("MarkAttempt failed: %v", err)
 	}
 	got, _ := mock.GetByID(context.Background(), item.ID)
@@ -69,8 +69,8 @@ func TestRecoveryQueueService_MarkAttempt(t *testing.T) {
 func TestRecoveryQueueService_MarkRecovered(t *testing.T) {
 	svc := NewRecoveryQueueService()
 	svc.repo = newMockRecoveryRepo()
-	item, _ := svc.Enqueue("c1", "u1", "a1", "churn", "sms", 5)
-	if err := svc.MarkRecovered(item.ID, 99000); err != nil {
+	item, _ := svc.Enqueue(context.Background(), "c1", "u1", "a1", "churn", "sms", 5)
+	if err := svc.MarkRecovered(context.Background(), item.ID, 99000); err != nil {
 		t.Fatalf("MarkRecovered failed: %v", err)
 	}
 	got, _ := svc.repo.GetByID(context.Background(), item.ID)
@@ -85,7 +85,7 @@ func TestRecoveryQueueService_MarkRecovered(t *testing.T) {
 func TestRecoveryQueueService_Cancel(t *testing.T) {
 	svc := NewRecoveryQueueService()
 	svc.repo = newMockRecoveryRepo()
-	item, _ := svc.Enqueue("c1", "u1", "a1", "churn", "sms", 5)
+	item, _ := svc.Enqueue(context.Background(), "c1", "u1", "a1", "churn", "sms", 5)
 	if err := svc.Cancel(context.Background(), item.ID); err != nil {
 		t.Fatalf("Cancel failed: %v", err)
 	}
@@ -208,12 +208,12 @@ func (m *mockRecoveryRepo) Delete(ctx context.Context, id uint64) error {
 
 type errEmpty struct{ msg string }
 
-func (e errEmpty) Error(ctx context.Context) string { return e.msg }
+func (e errEmpty) Error() string { return e.msg }
 
 type errAlreadyQueued struct{ msg string }
 
-func (e errAlreadyQueued) Error(ctx context.Context) string { return e.msg }
+func (e errAlreadyQueued) Error() string { return e.msg }
 
 type errNotFound struct{ msg string }
 
-func (e errNotFound) Error(ctx context.Context) string { return e.msg }
+func (e errNotFound) Error() string { return e.msg }

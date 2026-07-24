@@ -31,20 +31,20 @@ func TestRagSafetyGuard_NewService(t *testing.T) {
 	if s == nil {
 		t.Fatal("Expected non-nil service")
 	}
-	lex := s.GetLexicon()
+	lex := s.GetLexicon(context.Background())
 	if len(lex.AdPhrases) == 0 {
 		t.Error("Expected default ad phrases non-empty")
 	}
-	if s.LastUpdate().IsZero() {
+	if s.LastUpdate(context.Background()).IsZero() {
 		// 默认构造 updatedAt 为零，允许
-		_ = s.LastUpdate()
+		_ = s.LastUpdate(context.Background())
 	}
 }
 
 // 2) 敏感词命中 block
 func TestRagSafetyGuard_SensitiveWord_Block(t *testing.T) {
 	s := newSafetyGuard()
-	_ = s.AddSensitiveWord("违禁词TEST")
+	_ = s.AddSensitiveWord(context.Background(), "违禁词TEST")
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
 		UserID:  "u1",
 		Content: "这是一段包含违禁词TEST的内容",
@@ -105,7 +105,7 @@ func TestRagSafetyGuard_AdCompliance_Warn(t *testing.T) {
 // 4) 竞品词 block
 func TestRagSafetyGuard_Competitor_Block(t *testing.T) {
 	s := newSafetyGuard()
-	_ = s.AddCompetitorWord("竞品X")
+	_ = s.AddCompetitorWord(context.Background(), "竞品X")
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
 		Content: "对比竞品X 我们更便宜",
 	})
@@ -156,8 +156,8 @@ func TestRagSafetyGuard_PersonaAuthz(t *testing.T) {
 // 6) 同时命中多个规则
 func TestRagSafetyGuard_MultipleRules(t *testing.T) {
 	s := newSafetyGuard()
-	_ = s.AddSensitiveWord("BOMB")
-	_ = s.AddCompetitorWord("COMPET")
+	_ = s.AddSensitiveWord(context.Background(), "BOMB")
+	_ = s.AddCompetitorWord(context.Background(), "COMPET")
 
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
 		Content: "BOMB vs COMPET 我们最佳",
@@ -184,10 +184,10 @@ func TestRagSafetyGuard_MultipleRules(t *testing.T) {
 // 7) 词库动态新增 / 去重
 func TestRagSafetyGuard_Lexicon_Dedup(t *testing.T) {
 	s := newSafetyGuard()
-	_ = s.AddSensitiveWord("A")
-	_ = s.AddSensitiveWord("A")
-	_ = s.AddSensitiveWord("B")
-	lex := s.GetLexicon()
+	_ = s.AddSensitiveWord(context.Background(), "A")
+	_ = s.AddSensitiveWord(context.Background(), "A")
+	_ = s.AddSensitiveWord(context.Background(), "B")
+	lex := s.GetLexicon(context.Background())
 	count := 0
 	for _, w := range lex.SensitiveWords {
 		if w == "A" {
@@ -208,7 +208,7 @@ func TestRagSafetyGuard_FilterSourcesByTenant(t *testing.T) {
 		{DocID: "3", OwnerID: "T1"},
 		{DocID: "4", OwnerID: ""},
 	}
-	kept, dropped := s.FilterSourcesByTenant(srcs, "T1")
+	kept, dropped := s.FilterSourcesByTenant(context.Background(), srcs, "T1")
 	if dropped != 1 {
 		t.Errorf("Expected dropped=1, got %d", dropped)
 	}
@@ -220,7 +220,7 @@ func TestRagSafetyGuard_FilterSourcesByTenant(t *testing.T) {
 // 9) safeReplacement
 func TestRagSafetyGuard_SafeReplacement(t *testing.T) {
 	s := newSafetyGuard()
-	r := s.safeReplacement()
+	r := s.safeReplacement(context.Background())
 	if r == "" {
 		t.Error("Expected non-empty replacement")
 	}
@@ -248,10 +248,10 @@ func TestRagSafetyGuard_EmptyContent(t *testing.T) {
 
 func TestRagSafetyGuard_AddWordEmpty(t *testing.T) {
 	s := newSafetyGuard()
-	if err := s.AddSensitiveWord("   "); err == nil {
+	if err := s.AddSensitiveWord(context.Background(), "   "); err == nil {
 		t.Error("Expected error for empty word")
 	}
-	if err := s.AddCompetitorWord("   "); err == nil {
+	if err := s.AddCompetitorWord(context.Background(), "   "); err == nil {
 		t.Error("Expected error for empty competitor word")
 	}
 }
@@ -272,23 +272,23 @@ func TestRagSafetyGuard_Latency(t *testing.T) {
 
 func TestRagSafetyGuard_SetLexicon(t *testing.T) {
 	s := newSafetyGuard()
-	s.SetLexicon(SafetyLexicon{
+	s.SetLexicon(context.Background(), SafetyLexicon{
 		SensitiveWords:  []string{"x", "y", "x"}, // 重复
 		AdPhrases:       []string{"a"},
 		CompetitorWords: []string{"c"},
 	})
-	lex := s.GetLexicon()
+	lex := s.GetLexicon(context.Background())
 	if len(lex.SensitiveWords) != 2 {
 		t.Errorf("Expected dedup to 2, got %d", len(lex.SensitiveWords))
 	}
-	if s.LastUpdate().IsZero() {
+	if s.LastUpdate(context.Background()).IsZero() {
 		t.Error("Expected updated_at set")
 	}
 }
 
 func TestRagSafetyGuard_StageIgnored(t *testing.T) {
 	s := newSafetyGuard()
-	_ = s.AddSensitiveWord("BANG")
+	_ = s.AddSensitiveWord(context.Background(), "BANG")
 	for _, stage := range []string{"input", "output", "retrieval"} {
 		res, _ := s.Check(context.Background(), &SafetyCheckRequest{
 			Stage:   stage,

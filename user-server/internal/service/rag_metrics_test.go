@@ -69,7 +69,7 @@ func TestRagMetrics_NewService_NilDB(t *testing.T) {
 		t.Fatal("Expected non-nil service even with nil db")
 	}
 	// nil db 下 RecordQuery 应降级为 no-op
-	svc.RecordQuery(&RecordQueryRequest{Query: "test"})
+	svc.RecordQuery(context.Background(), &RecordQueryRequest{Query: "test"})
 	// nil db 下 GetRecallMetrics 应返回错误
 	_, err := svc.GetRecallMetrics(context.Background(), time.Now().Add(-time.Hour), time.Now())
 	if err == nil {
@@ -81,8 +81,8 @@ func TestRagMetrics_NewService_NilDB(t *testing.T) {
 func TestRagMetrics_NewService_NilReceiver(t *testing.T) {
 	var svc *RagMetricsService
 	// nil receiver 不应 panic
-	svc.RecordQuery(&RecordQueryRequest{Query: "x"})
-	svc.RecordQuery(nil)
+	svc.RecordQuery(context.Background(), &RecordQueryRequest{Query: "x"})
+	svc.RecordQuery(context.Background(), nil)
 	_, err := svc.GetRecallMetrics(context.Background(), time.Now(), time.Now())
 	if err == nil {
 		t.Error("Expected error for nil receiver")
@@ -112,7 +112,7 @@ func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
 		TopK:            5,
 		Source:          "hybrid",
 	}
-	if err := svc.RecordQuerySync(ctx, req); err != nil {
+	if err := svc.RecordQuerySync(context.Background(), req); err != nil {
 		t.Fatalf("RecordQuerySync failed: %v", err)
 	}
 
@@ -227,12 +227,12 @@ func TestRagMetrics_GetRecallMetrics_Aggregation(t *testing.T) {
 			Latency:         time.Duration(10*(i+1)) * time.Millisecond,
 			TopK:            5,
 		}
-		if err := svc.RecordQuerySync(ctx, req); err != nil {
+		if err := svc.RecordQuerySync(context.Background(), req); err != nil {
 			t.Fatalf("RecordQuerySync %d failed: %v", i, err)
 		}
 	}
 
-	m, err := svc.GetRecallMetrics(ctx, now.Add(-time.Hour), now.Add(time.Hour))
+	m, err := svc.GetRecallMetrics(context.Background(), now.Add(-time.Hour), now.Add(time.Hour))
 	if err != nil {
 		t.Fatalf("GetRecallMetrics failed: %v", err)
 	}
@@ -292,12 +292,12 @@ func TestRagMetrics_GetRecallMetrics_ZeroHit(t *testing.T) {
 			req.RetrievedDocIDs = []string{"x"}
 			req.RelevantDocIDs = []string{"x"}
 		}
-		if err := svc.RecordQuerySync(ctx, req); err != nil {
+		if err := svc.RecordQuerySync(context.Background(), req); err != nil {
 			t.Fatalf("RecordQuerySync %d failed: %v", i, err)
 		}
 	}
 
-	m, err := svc.GetRecallMetrics(ctx, now.Add(-time.Hour), now.Add(time.Hour))
+	m, err := svc.GetRecallMetrics(context.Background(), now.Add(-time.Hour), now.Add(time.Hour))
 	if err != nil {
 		t.Fatalf("GetRecallMetrics failed: %v", err)
 	}
@@ -334,13 +334,13 @@ func TestRagMetrics_GetLowRecallQueries_Basic(t *testing.T) {
 			RelevantDocIDs:  q.relevant,
 			Latency:         10 * time.Millisecond,
 		}
-		if err := svc.RecordQuerySync(ctx, req); err != nil {
+		if err := svc.RecordQuerySync(context.Background(), req); err != nil {
 			t.Fatalf("RecordQuerySync %d failed: %v", i, err)
 		}
 	}
 
 	// 阈值 0.3：仅 q1 (recall=0.25) 满足 recall<0.3 AND relevant>0
-	rows, err := svc.GetLowRecallQueries(ctx, 0.3, 100)
+	rows, err := svc.GetLowRecallQueries(context.Background(), 0.3, 100)
 	if err != nil {
 		t.Fatalf("GetLowRecallQueries failed: %v", err)
 	}
@@ -368,12 +368,12 @@ func TestRagMetrics_GetLowRecallQueries_DefaultThreshold(t *testing.T) {
 		RelevantDocIDs:  []string{"a", "b", "c", "d", "e"},
 		Latency:         5 * time.Millisecond,
 	}
-	if err := svc.RecordQuerySync(ctx, req); err != nil {
+	if err := svc.RecordQuerySync(context.Background(), req); err != nil {
 		t.Fatalf("RecordQuerySync failed: %v", err)
 	}
 
 	// threshold=0 应触发默认 0.3
-	rows, err := svc.GetLowRecallQueries(ctx, 0, 0)
+	rows, err := svc.GetLowRecallQueries(context.Background(), 0, 0)
 	if err != nil {
 		t.Fatalf("GetLowRecallQueries failed: %v", err)
 	}
@@ -395,10 +395,10 @@ func TestRagMetrics_GetLowRecallQueries_LimitClamp(t *testing.T) {
 			RelevantDocIDs:  []string{}, // recall=0, relevant=0 → 被过滤
 			Latency:         5 * time.Millisecond,
 		}
-		_ = svc.RecordQuerySync(ctx, req)
+		_ = svc.RecordQuerySync(context.Background(), req)
 	}
 	// limit=0 应使用默认 100；limit=10000 应使用默认 100
-	rows, err := svc.GetLowRecallQueries(ctx, 0.5, 0)
+	rows, err := svc.GetLowRecallQueries(context.Background(), 0.5, 0)
 	if err != nil {
 		t.Fatalf("GetLowRecallQueries failed: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
 	end := start.Add(5 * time.Minute)
 
 	// 第一次聚合（空数据）
-	d1, err := svc.AggregateWindow(ctx, start, end)
+	d1, err := svc.AggregateWindow(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("AggregateWindow 1 failed: %v", err)
 	}
@@ -436,14 +436,14 @@ func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
 		Latency:         10 * time.Millisecond,
 	}
 	// 把 created_at 设置在窗口内
-	log := svc.buildQueryLog(req)
+	log := svc.buildQueryLog(context.Background(), req)
 	log.CreatedAt = start.Add(time.Minute)
 	if err := db.Create(log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
 	// 第二次聚合（应有数据，且更新同一条 daily）
-	d2, err := svc.AggregateWindow(ctx, start, end)
+	d2, err := svc.AggregateWindow(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("AggregateWindow 2 failed: %v", err)
 	}
@@ -488,13 +488,13 @@ func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 		RelevantDocIDs:  []string{"a"},
 		Latency:         5 * time.Millisecond,
 	}
-	log := svc.buildQueryLog(req)
+	log := svc.buildQueryLog(context.Background(), req)
 	log.CreatedAt = now.Add(-time.Minute)
 	if err := db.Create(log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	d, err := svc.AggregateLastWindow(ctx)
+	d, err := svc.AggregateLastWindow(context.Background())
 	if err != nil {
 		t.Fatalf("AggregateLastWindow failed: %v", err)
 	}
@@ -531,7 +531,7 @@ func TestRagMetrics_GetLatestMetrics(t *testing.T) {
 	}
 
 	// 获取最近 3 条
-	rows, err := svc.GetLatestMetrics(ctx, 3)
+	rows, err := svc.GetLatestMetrics(context.Background(), 3)
 	if err != nil {
 		t.Fatalf("GetLatestMetrics failed: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestRagMetrics_GetLatestMetrics_LimitClamp(t *testing.T) {
 	svc := NewRagMetricsService(db)
 
 	// limit=0 → 默认 20；limit=10000 → 默认 20
-	rows, err := svc.GetLatestMetrics(ctx, 0)
+	rows, err := svc.GetLatestMetrics(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("GetLatestMetrics failed: %v", err)
 	}
@@ -575,12 +575,12 @@ func TestRagMetrics_StartStop(t *testing.T) {
 	svc := NewRagMetricsService(db)
 
 	// Start 应幂等
-	svc.Start()
-	svc.Start() // 第二次应 no-op
+	svc.Start(context.Background())
+	svc.Start(context.Background()) // 第二次应 no-op
 
 	// 写入数据触发 flush
 	for i := 0; i < 3; i++ {
-		svc.RecordQuery(&RecordQueryRequest{
+		svc.RecordQuery(context.Background(), &RecordQueryRequest{
 			Query:           fmt.Sprintf("async-%d", i),
 			RetrievedDocIDs: []string{"a"},
 			RelevantDocIDs:  []string{"a"},
@@ -607,20 +607,20 @@ func TestRagMetrics_StartStop(t *testing.T) {
 	}
 
 	// Stop 应幂等
-	svc.Stop()
-	svc.Stop() // 第二次应 no-op
+	svc.Stop(context.Background())
+	svc.Stop(context.Background()) // 第二次应 no-op
 }
 
 // TestRagMetrics_FlushBatchTrigger 测试批量阈值触发 flush
 func TestRagMetrics_FlushBatchTrigger(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	svc.Start()
-	defer svc.Stop()
+	svc.Start(context.Background())
+	defer svc.Stop(context.Background())
 
 	// 写入 ≥ BatchSize 条记录触发 flush
 	for i := 0; i < RagMetricsBatchSize+5; i++ {
-		svc.RecordQuery(&RecordQueryRequest{
+		svc.RecordQuery(context.Background(), &RecordQueryRequest{
 			Query:           fmt.Sprintf("batch-%d", i),
 			RetrievedDocIDs: []string{"a"},
 			RelevantDocIDs:  []string{"a"},
@@ -658,9 +658,9 @@ func TestRagMetrics_Cron_StartStop(t *testing.T) {
 		t.Fatal("Expected non-nil cron")
 	}
 
-	cron.Start()
+	cron.Start(context.Background())
 	// 立即 Stop（不等 ticker 触发）
-	cron.Stop()
+	cron.Stop(context.Background())
 	// 再次 Stop 不应 panic（虽然 close 已关闭会 panic，所以测试只调一次）
 }
 
@@ -696,7 +696,7 @@ func TestRagMetrics_BuildQueryLog_Calc(t *testing.T) {
 				RelevantDocIDs:  c.relevant,
 				Latency:         10 * time.Millisecond,
 			}
-			log := svc.buildQueryLog(req)
+			log := svc.buildQueryLog(context.Background(), req)
 			if log.HitCount != c.wantHit {
 				t.Errorf("Hit: want %d, got %d", c.wantHit, log.HitCount)
 			}
@@ -787,8 +787,8 @@ func TestRagMetrics_HashQueryShort(t *testing.T) {
 func TestRagMetrics_ConcurrentRecordQuery(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)
-	svc.Start()
-	defer svc.Stop()
+	svc.Start(context.Background())
+	defer svc.Stop(context.Background())
 
 	const N = 50
 	var wg sync.WaitGroup
@@ -796,7 +796,7 @@ func TestRagMetrics_ConcurrentRecordQuery(t *testing.T) {
 	for i := 0; i < N; i++ {
 		go func(i int) {
 			defer wg.Done()
-			svc.RecordQuery(&RecordQueryRequest{
+			svc.RecordQuery(context.Background(), &RecordQueryRequest{
 				Query:           fmt.Sprintf("concurrent-%d", i),
 				RetrievedDocIDs: []string{"a"},
 				RelevantDocIDs:  []string{"a"},

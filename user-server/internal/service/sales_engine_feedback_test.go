@@ -172,7 +172,7 @@ func TestSalesEngine_RecordFeedback_WithSOP(t *testing.T) {
 	engine.recordFeedback(context.Background(), req, resp)
 
 	// 验证 SOP 统计
-	sopStats := fl.GetSOPStats(sopName)
+	sopStats := fl.GetSOPStats(context.Background(), sopName)
 	if sopStats == nil {
 		t.Fatal("应记录 SOP 统计")
 	}

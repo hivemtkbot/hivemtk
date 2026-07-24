@@ -58,7 +58,7 @@ func TestPlatformAccountService_GetAccounts(t *testing.T) {
 	repo := newPlatformAccountRepoForTest(db)
 	service := NewPlatformAccountServiceWithRepo(repo)
 
-	accounts, err := service.GetAccounts()
+	accounts, err := service.GetAccounts(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccounts failed: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestPlatformAccountService_GetAccountByID(t *testing.T) {
 	repo := newPlatformAccountRepoForTest(database)
 	service := NewPlatformAccountServiceWithRepo(repo)
 
-	retrieved, err := service.GetAccountByID(account.ID)
+	retrieved, err := service.GetAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetAccountByID failed: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestPlatformAccountService_GetAccountByID_NotFound(t *testing.T) {
 	repo := newPlatformAccountRepoForTest(database)
 	service := NewPlatformAccountServiceWithRepo(repo)
 
-	_, err := service.GetAccountByID(99999)
+	_, err := service.GetAccountByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}

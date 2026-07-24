@@ -136,11 +136,21 @@ func NewDispatcher(llmService *LLMService) *Dispatcher {
 //   - 云端厂商（deepseek/qwen/gpt-4o/glm-4/kimi）仅在配置 api_key 且 enabled=true 时启用，
 //     否则保持禁用，绝不作为默认路由（避免空密钥 401 风暴、数据出域）。
 //   - 所有场景主路由均为 default（本地），云端仅作可选 fallback。
+//   - 超时全链路对齐：从 inference.llm.timeout_seconds 派生 MaxLatency、HTTP client timeout、
+//     LLMConfig.RequestTimeout，避免硬编码常量导致父级 ctx 提前 cancel 子级 LLM 调用。
 func NewDispatcherFromConfig(cfg config.AppConfig) *Dispatcher {
+	// 单一配置源：inference.llm.timeout_seconds
+	// 默认 180s（覆盖大多数 CPU 推理场景），开发模式可在 config.yaml 设大值（如 720s）
+	timeoutSec := cfg.Inference.LLM.TimeoutSeconds
+	if timeoutSec <= 0 {
+		timeoutSec = 180
+	}
+	// 同步注入 llm_service HTTP client timeout（与 MaxLatency 一致）
+	setDefaultHTTPTimeout(time.Duration(timeoutSec) * time.Second)
 	d := newDispatcherBase(NewLLMService())
 	d.registerLocalProvider(cfg.Inference.LLM)
 	d.registerCloudProvidersFromConfig(cfg.Inference.LLM)
-	d.registerLocalFirstRoutes()
+	d.registerLocalFirstRoutes(timeoutSec * 1000) // ms
 	return d
 }
 
@@ -229,22 +239,26 @@ func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLM
 
 // registerLocalFirstRoutes 注册本地优先的场景路由（default 为主，云端为可选 fallback）
 //
-// 注意：本地 mtk-llm（Qwen2.5-1.5B q4）单次生成约 30-60s（CPU 推理），
+// 注意：本地 mtk-llm（Qwen2.5-1.5B/3B q4）单次生成 30-180s（CPU 推理），
 // MaxLatency 必须大于 LLM 实际推理时间，否则 dispatcher 的 context.WithTimeout
 // 会在本地推理完成前掐断请求（context deadline exceeded），
 // 进而退回已禁用的云端兜底导致 AI 直答失败、错误转人工。
-// 2026-07-22：把 MaxLatency 全部提升到 90s，给 1.5B Q4 在 M1 CPU 上留足时间。
-// 2026-07-24：进一步提升到 180s（friendly_chat 等场景含 system prompt + RAG context，
-//             CPU 推理 Qwen2.5-3B 实测 46s+，加上 RAG 检索 17s，90s 不够）。
-func (d *Dispatcher) registerLocalFirstRoutes() {
+//
+// 2026-07-24：MaxLatency 改为参数注入（maxLatencyMs），由 NewDispatcherFromConfig
+// 从 inference.llm.timeout_seconds 派生（默认 180000ms，开发模式可在 config.yaml 设大值如 720000）。
+// 与 sales_engine.agentLoopTotalTimeout、llm_service.httpClient.Timeout 共享同一配置源。
+func (d *Dispatcher) registerLocalFirstRoutes(maxLatencyMs int) {
+	if maxLatencyMs <= 0 {
+		maxLatencyMs = 180000
+	}
 	routes := []*ScenarioRoute{
-		{Scenario: ScenarioIntentRecognize, Provider: "default", Fallbacks: []string{"deepseek", "qwen"}, CostWeight: 5, MaxLatency: 180000, MinQuality: 0.8},
-		{Scenario: ScenarioSOPReply, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 2, MaxLatency: 180000, MinQuality: 0.9},
-		{Scenario: ScenarioObjection, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: 180000, MinQuality: 0.92},
-		{Scenario: ScenarioFriendlyChat, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 4, MaxLatency: 180000, MinQuality: 0.8},
-		{Scenario: ScenarioLongSummary, Provider: "default", Fallbacks: []string{"kimi", "qwen"}, CostWeight: 3, MaxLatency: 180000, MinQuality: 0.85},
-		{Scenario: ScenarioHighQuality, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: 180000, MinQuality: 0.95},
-		{Scenario: ScenarioLowCost, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 5, MaxLatency: 180000, MinQuality: 0.7},
+		{Scenario: ScenarioIntentRecognize, Provider: "default", Fallbacks: []string{"deepseek", "qwen"}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioSOPReply, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 2, MaxLatency: maxLatencyMs, MinQuality: 0.9},
+		{Scenario: ScenarioObjection, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.92},
+		{Scenario: ScenarioFriendlyChat, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 4, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioLongSummary, Provider: "default", Fallbacks: []string{"kimi", "qwen"}, CostWeight: 3, MaxLatency: maxLatencyMs, MinQuality: 0.85},
+		{Scenario: ScenarioHighQuality, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.95},
+		{Scenario: ScenarioLowCost, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.7},
 	}
 	for _, r := range routes {
 		d.routes[r.Scenario] = r

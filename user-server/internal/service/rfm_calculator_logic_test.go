@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"testing"
 	"time"
@@ -73,7 +74,7 @@ func TestRFM_CalcRScore(t *testing.T) {
 			if tt.days >= 0 {
 				lastT = daysAgo(tt.days)
 			}
-			got := svc.calcRScore(lastT, rule)
+			got := svc.calcRScore(context.Background(), lastT, rule)
 			if got != tt.want {
 				t.Errorf("[%s] days=%d got=%d want=%d", tt.name, tt.days, got, tt.want)
 				failed++
@@ -84,7 +85,7 @@ func TestRFM_CalcRScore(t *testing.T) {
 	}
 
 	// nil 时间
-	if got := svc.calcRScore(nil, rule); got != 1 {
+	if got := svc.calcRScore(context.Background(), nil, rule); got != 1 {
 		t.Errorf("[nil_time] got=%d want=1", got)
 		failed++
 	} else {
@@ -134,7 +135,7 @@ func TestRFM_CalcFScore(t *testing.T) {
 	passed, failed := 0, 0
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := svc.calcFScore(tt.count, rule)
+			got := svc.calcFScore(context.Background(), tt.count, rule)
 			if got != tt.want {
 				t.Errorf("[%s] count=%d got=%d want=%d", tt.name, tt.count, got, tt.want)
 				failed++
@@ -194,7 +195,7 @@ func TestRFM_CalcMScore(t *testing.T) {
 	passed, failed := 0, 0
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := svc.calcMScore(tt.amount, rule)
+			got := svc.calcMScore(context.Background(), tt.amount, rule)
 			if got != tt.want {
 				t.Errorf("[%s] amount=%d got=%d want=%d", tt.name, tt.amount, got, tt.want)
 				failed++
@@ -274,7 +275,7 @@ func TestRFM_DetermineLayer(t *testing.T) {
 			if tt.days >= 0 {
 				lastT = daysAgo(tt.days)
 			}
-			got := svc.determineLayer(tt.r, tt.f, tt.m, lastT)
+			got := svc.determineLayer(context.Background(), tt.r, tt.f, tt.m, lastT)
 			if got != tt.want {
 				t.Errorf("[%s] r=%d f=%d m=%d days=%d got=%s want=%s",
 					tt.name, tt.r, tt.f, tt.m, tt.days, got, tt.want)
@@ -291,7 +292,7 @@ func TestRFM_DetermineLayer(t *testing.T) {
 // 金额字段单位：分（100 元 = 10000 分）
 func TestRFM_GetDefaultRule(t *testing.T) {
 	svc := &RFMCalculatorService{}
-	r := svc.getDefaultRule()
+	r := svc.getDefaultRule(context.Background())
 	if r == nil {
 		t.Fatal("default rule should not be nil")
 	}

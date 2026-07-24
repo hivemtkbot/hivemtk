@@ -240,7 +240,7 @@ func TestSmsTracking_IsRetryable_RetryableCodes(t *testing.T) {
 		"ERR_5999",                         // 其他 5xxx
 	}
 	for _, code := range cases {
-		if !svc.IsRetryable(code) {
+		if !svc.IsRetryable(context.Background(), code) {
 			t.Errorf("Expected IsRetryable(%q)=true", code)
 		}
 	}
@@ -259,7 +259,7 @@ func TestSmsTracking_IsRetryable_NonRetryableCodes(t *testing.T) {
 		"ERR_4999",                         // 其他 4xxx
 	}
 	for _, code := range cases {
-		if svc.IsRetryable(code) {
+		if svc.IsRetryable(context.Background(), code) {
 			t.Errorf("Expected IsRetryable(%q)=false", code)
 		}
 	}
@@ -271,14 +271,14 @@ func TestSmsTracking_IsRetryable_EmptyAndUnknown(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	// 空错误码 → 不重试（保守策略）
-	if svc.IsRetryable("") {
+	if svc.IsRetryable(context.Background(), "") {
 		t.Error("Expected IsRetryable('')=false")
 	}
 	// 未知错误码 → 不重试（保守策略）
-	if svc.IsRetryable("UNKNOWN_999") {
+	if svc.IsRetryable(context.Background(), "UNKNOWN_999") {
 		t.Error("Expected IsRetryable('UNKNOWN_999')=false")
 	}
-	if svc.IsRetryable("ERR_7000") {
+	if svc.IsRetryable(context.Background(), "ERR_7000") {
 		t.Error("Expected IsRetryable('ERR_7000')=false")
 	}
 }
@@ -429,7 +429,7 @@ func TestSmsTracking_GetJobMetrics_WithMetrics(t *testing.T) {
 		}
 	}
 
-	metric, err := svc.GetJobMetrics("job-metrics")
+	metric, err := svc.GetJobMetrics(context.Background(), "job-metrics")
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -461,7 +461,7 @@ func TestSmsTracking_GetJobMetrics_Empty(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	metric, err := svc.GetJobMetrics("job-empty")
+	metric, err := svc.GetJobMetrics(context.Background(), "job-empty")
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -478,7 +478,7 @@ func TestSmsTracking_GetJobMetrics_EmptyJobID(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	_, err := svc.GetJobMetrics("")
+	_, err := svc.GetJobMetrics(context.Background(), "")
 	if err == nil {
 		t.Error("Expected error for empty job_id")
 	}
@@ -518,7 +518,7 @@ func TestSmsTracking_GetRangeMetrics_WithMetrics(t *testing.T) {
 
 	start := time.Now().Add(-1 * time.Hour)
 	end := time.Now().Add(1 * time.Hour)
-	metric, err := svc.GetRangeMetrics(start, end)
+	metric, err := svc.GetRangeMetrics(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("GetRangeMetrics failed: %v", err)
 	}
@@ -540,7 +540,7 @@ func TestSmsTracking_GetRangeMetrics_InvalidRange(t *testing.T) {
 
 	start := time.Now()
 	end := time.Now().Add(-1 * time.Hour) // end < start
-	_, err := svc.GetRangeMetrics(start, end)
+	_, err := svc.GetRangeMetrics(context.Background(), start, end)
 	if err == nil {
 		t.Error("Expected error for invalid range")
 	}
@@ -551,7 +551,7 @@ func TestSmsTracking_GetRangeMetrics_EmptyRange(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-	_, err := svc.GetRangeMetrics(time.Time{}, time.Now())
+	_, err := svc.GetRangeMetrics(context.Background(), time.Time{}, time.Now())
 	if err == nil {
 		t.Error("Expected error for zero start time")
 	}
@@ -613,7 +613,7 @@ func TestSmsTracking_ListJobStatuses(t *testing.T) {
 	}
 
 	// 第 1 页，每页 3 条
-	statuses, total, err := svc.ListJobStatuses("job-list", 1, 3)
+	statuses, total, err := svc.ListJobStatuses(context.Background(), "job-list", 1, 3)
 	if err != nil {
 		t.Fatalf("ListJobStatuses failed: %v", err)
 	}
@@ -625,7 +625,7 @@ func TestSmsTracking_ListJobStatuses(t *testing.T) {
 	}
 
 	// 第 2 页
-	statuses2, _, err := svc.ListJobStatuses("job-list", 2, 3)
+	statuses2, _, err := svc.ListJobStatuses(context.Background(), "job-list", 2, 3)
 	if err != nil {
 		t.Fatalf("ListJobStatuses page 2 failed: %v", err)
 	}
@@ -640,7 +640,7 @@ func TestSmsTracking_ListJobStatuses_DefaultPaging(t *testing.T) {
 	svc := newSmsTrackingService(database)
 
 	// page<1 / limit<1 应使用默认值
-	statuses, _, err := svc.ListJobStatuses("job-default", 0, 0)
+	statuses, _, err := svc.ListJobStatuses(context.Background(), "job-default", 0, 0)
 	if err != nil {
 		t.Fatalf("ListJobStatuses failed: %v", err)
 	}
@@ -668,7 +668,7 @@ func TestSmsTracking_ListPhoneStatuses(t *testing.T) {
 	}
 
 	// 用未规范化的手机号查询，应能匹配
-	statuses, total, err := svc.ListPhoneStatuses("138-0013-8000", 1, 10)
+	statuses, total, err := svc.ListPhoneStatuses(context.Background(), "138-0013-8000", 1, 10)
 	if err != nil {
 		t.Fatalf("ListPhoneStatuses failed: %v", err)
 	}
@@ -755,10 +755,11 @@ func TestSmsTracking_ParseSmsTime(t *testing.T) {
 	}
 }
 
-// TestSmsTracking_FullFlow 测试完整流程：发送 → webhook 报告 → 重试 → 最终成功
+// // TestSmsTracking_FullFlow 测试完整流程：发送 → webhook 报告 → 重试 → 最终成功
 func TestSmsTracking_FullFlow(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
+	ctx := context.Background()
 
 	// 1. 发送中 → pending
 	req1 := &DeliveryReportRequest{
@@ -818,7 +819,7 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 		t.Errorf("Expected RetryCount=1, got %d", record.RetryCount)
 	}
 
-	metric, err := svc.GetJobMetrics("job-flow")
+	metric, err := svc.GetJobMetrics(context.Background(), "job-flow")
 	if err != nil {
 		t.Fatalf("GetJobMetrics failed: %v", err)
 	}
@@ -837,6 +838,7 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
+	ctx := context.Background()
 
 	// 创建可重试失败记录
 	req := &DeliveryReportRequest{

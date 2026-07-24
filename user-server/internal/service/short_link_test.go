@@ -533,7 +533,7 @@ func TestShortLinkService_GetByShortCode(t *testing.T) {
 	}
 
 	// 获取短链
-	resp, err := service.GetByShortCode("getbysc")
+	resp, err := service.GetByShortCode(context.Background(), "getbysc")
 	if err != nil {
 		t.Fatalf("GetByShortCode failed: %v", err)
 	}
@@ -551,7 +551,7 @@ func TestShortLinkService_GetByShortCode_NotFound(t *testing.T) {
 	database := setupShortLinkServiceTestDB(t)
 	service := newTestShortLinkService(database)
 
-	_, err := service.GetByShortCode("nonexistent")
+	_, err := service.GetByShortCode(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("Expected error for non-existent short code")
 	}
@@ -775,7 +775,7 @@ func TestShortLinkService_AccessShortLink(t *testing.T) {
 		Referer:   "https://google.com",
 	}
 
-	resp, err := service.AccessShortLink(accessReq)
+	resp, err := service.AccessShortLink(context.Background(), accessReq)
 	if err != nil {
 		t.Fatalf("AccessShortLink failed: %v", err)
 	}
@@ -788,7 +788,7 @@ func TestShortLinkService_AccessShortLink(t *testing.T) {
 	}
 
 	// 验证点击次数已增加
-	link, err := service.GetByShortCode("access")
+	link, err := service.GetByShortCode(context.Background(), "access")
 	if err != nil {
 		t.Fatalf("GetByShortCode failed: %v", err)
 	}
@@ -806,7 +806,7 @@ func TestShortLinkService_AccessShortLink_NotFound(t *testing.T) {
 		ShortCode: "nonexistent",
 	}
 
-	_, err := service.AccessShortLink(accessReq)
+	_, err := service.AccessShortLink(context.Background(), accessReq)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -836,7 +836,7 @@ func TestShortLinkService_AccessShortLink_Expired(t *testing.T) {
 		ShortCode: "expired",
 	}
 
-	_, err = service.AccessShortLink(accessReq)
+	_, err = service.AccessShortLink(context.Background(), accessReq)
 	if err == nil {
 		t.Error("Expected error for expired short link")
 	}
@@ -878,7 +878,7 @@ func TestShortLinkService_AccessShortLink_Disabled(t *testing.T) {
 		ShortCode: "disabled",
 	}
 
-	_, err = service.AccessShortLink(accessReq)
+	_, err = service.AccessShortLink(context.Background(), accessReq)
 	if err == nil {
 		t.Error("Expected error for disabled short link")
 	}
@@ -909,7 +909,7 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 		Password:  "wrong",
 	}
 
-	_, err = service.AccessShortLink(accessReqWrong)
+	_, err = service.AccessShortLink(context.Background(), accessReqWrong)
 	if err == nil {
 		t.Error("Expected error for wrong password")
 	}
@@ -923,7 +923,7 @@ func TestShortLinkService_AccessShortLink_WithPassword(t *testing.T) {
 		Password:  "secret123",
 	}
 
-	resp, err := service.AccessShortLink(accessReqCorrect)
+	resp, err := service.AccessShortLink(context.Background(), accessReqCorrect)
 	if err != nil {
 		t.Fatalf("AccessShortLink with correct password failed: %v", err)
 	}
@@ -953,14 +953,14 @@ func TestShortLinkService_AccessShortLink_WithDeviceParsing(t *testing.T) {
 		ShortCode: "device",
 		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
 	}
-	_, err = service.AccessShortLink(mobileReq)
+	_, err = service.AccessShortLink(context.Background(), mobileReq)
 	if err != nil {
 		t.Fatalf("Mobile access failed: %v", err)
 	}
 
 	// 验证访问记录
 	accessRepo := newTestShortLinkAccessRepository(database)
-	accesses, _, err := accessRepo.GetByShortLinkID(1, 1, 10)
+	accesses, _, err := accessRepo.GetByShortLinkID(context.Background(), 1, 1, 10)
 	if err != nil {
 		t.Fatalf("GetByShortLinkID failed: %v", err)
 	}
@@ -984,7 +984,7 @@ func TestShortLinkService_GenerateShortCode(t *testing.T) {
 		Length: 6,
 	}
 
-	resp, err := service.GenerateShortCode(req)
+	resp, err := service.GenerateShortCode(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GenerateShortCode failed: %v", err)
 	}
@@ -1003,7 +1003,7 @@ func TestShortLinkService_GenerateShortCode_DefaultLength(t *testing.T) {
 		// 不指定长度
 	}
 
-	resp, err := service.GenerateShortCode(req)
+	resp, err := service.GenerateShortCode(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GenerateShortCode failed: %v", err)
 	}
@@ -1024,7 +1024,7 @@ func TestShortLinkService_GenerateShortCode_Uniqueness(t *testing.T) {
 		req := &dto.GenerateShortCodeRequest{
 			Length: 8,
 		}
-		resp, err := service.GenerateShortCode(req)
+		resp, err := service.GenerateShortCode(context.Background(), req)
 		if err != nil {
 			t.Fatalf("GenerateShortCode failed: %v", err)
 		}
@@ -1057,13 +1057,13 @@ func TestShortLinkService_GenerateShortCode_WithExistingShortCodes(t *testing.T)
 	genReq := &dto.GenerateShortCodeRequest{
 		Length: 8,
 	}
-	resp, err := service.GenerateShortCode(genReq)
+	resp, err := service.GenerateShortCode(context.Background(), genReq)
 	if err != nil {
 		t.Fatalf("GenerateShortCode failed: %v", err)
 	}
 
 	// 验证生成的短码不与已存在的短码重复
-	_, err = service.GetByShortCode(resp.ShortCode)
+	_, err = service.GetByShortCode(context.Background(), resp.ShortCode)
 	if err == nil {
 		t.Error("Generated short code should not exist")
 	}
@@ -1094,7 +1094,7 @@ func TestShortLinkService_GetStats(t *testing.T) {
 			IP:        "192.168.1." + string(rune('1'+i)),
 			UserAgent: "Mozilla/5.0",
 		}
-		_, _ = service.AccessShortLink(accessReq)
+		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
 	// 获取统计
@@ -1102,7 +1102,7 @@ func TestShortLinkService_GetStats(t *testing.T) {
 		ID: createResp.ID,
 	}
 
-	stats, err := service.GetStats(statsReq)
+	stats, err := service.GetStats(context.Background(), statsReq)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
@@ -1127,7 +1127,7 @@ func TestShortLinkService_GetStats_NotFound(t *testing.T) {
 		ID: 99999,
 	}
 
-	_, err := service.GetStats(statsReq)
+	_, err := service.GetStats(context.Background(), statsReq)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -1156,7 +1156,7 @@ func TestShortLinkService_GetStats_InvalidDateFormat(t *testing.T) {
 		StartDate: "invalid-date",
 	}
 
-	_, err = service.GetStats(statsReq)
+	_, err = service.GetStats(context.Background(), statsReq)
 	if err == nil {
 		t.Error("Expected error for invalid date format")
 	}
@@ -1185,7 +1185,7 @@ func TestShortLinkService_GetStats_WithDateRange(t *testing.T) {
 		ShortCode: "statsrange",
 		UserAgent: "Mozilla/5.0",
 	}
-	_, _ = service.AccessShortLink(accessReq)
+	_, _ = service.AccessShortLink(context.Background(), accessReq)
 
 	// 获取统计（使用今天作为日期范围）
 	today := time.Now().Format("2006-01-02")
@@ -1195,7 +1195,7 @@ func TestShortLinkService_GetStats_WithDateRange(t *testing.T) {
 		EndDate:   today,
 	}
 
-	stats, err := service.GetStats(statsReq)
+	stats, err := service.GetStats(context.Background(), statsReq)
 	if err != nil {
 		t.Fatalf("GetStats with date range failed: %v", err)
 	}
@@ -1225,21 +1225,21 @@ func TestShortLinkService_GetStats_DeviceTypeStats(t *testing.T) {
 		ShortCode: "statsdevice",
 		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
 	}
-	_, _ = service.AccessShortLink(mobileReq)
+	_, _ = service.AccessShortLink(context.Background(), mobileReq)
 
 	desktopReq := &dto.AccessShortLinkRequest{
 		ShortCode: "statsdevice",
 		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 	}
-	_, _ = service.AccessShortLink(desktopReq)
-	_, _ = service.AccessShortLink(desktopReq)
+	_, _ = service.AccessShortLink(context.Background(), desktopReq)
+	_, _ = service.AccessShortLink(context.Background(), desktopReq)
 
 	// 获取统计
 	statsReq := &dto.ShortLinkStatsRequest{
 		ID: createResp.ID,
 	}
 
-	stats, err := service.GetStats(statsReq)
+	stats, err := service.GetStats(context.Background(), statsReq)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
@@ -1275,13 +1275,13 @@ func TestShortLinkService_GetAllStats(t *testing.T) {
 			ShortCode: "allstats" + string(rune('0'+i)),
 			UserAgent: "Mozilla/5.0",
 		}
-		_, _ = service.AccessShortLink(accessReq)
+		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
 	// 获取所有统计
 	allStatsReq := &dto.AllShortLinksStatsRequest{}
 
-	allStats, err := service.GetAllStats(allStatsReq)
+	allStats, err := service.GetAllStats(context.Background(), allStatsReq)
 	if err != nil {
 		t.Fatalf("GetAllStats failed: %v", err)
 	}
@@ -1311,7 +1311,7 @@ func TestShortLinkService_GetAllStats_WithDateRange(t *testing.T) {
 		ShortCode: "allstatsrange",
 		UserAgent: "Mozilla/5.0",
 	}
-	_, _ = service.AccessShortLink(accessReq)
+	_, _ = service.AccessShortLink(context.Background(), accessReq)
 
 	// 获取统计（使用今天作为日期范围）
 	today := time.Now().Format("2006-01-02")
@@ -1320,7 +1320,7 @@ func TestShortLinkService_GetAllStats_WithDateRange(t *testing.T) {
 		EndDate:   today,
 	}
 
-	allStats, err := service.GetAllStats(allStatsReq)
+	allStats, err := service.GetAllStats(context.Background(), allStatsReq)
 	if err != nil {
 		t.Fatalf("GetAllStats with date range failed: %v", err)
 	}
@@ -1339,7 +1339,7 @@ func TestShortLinkService_GetAllStats_InvalidDateFormat(t *testing.T) {
 		StartDate: "invalid-date",
 	}
 
-	_, err := service.GetAllStats(allStatsReq)
+	_, err := service.GetAllStats(context.Background(), allStatsReq)
 	if err == nil {
 		t.Error("Expected error for invalid date format")
 	}
@@ -1355,7 +1355,7 @@ func TestShortLinkService_GetAllStats_EmptyStats(t *testing.T) {
 
 	allStatsReq := &dto.AllShortLinksStatsRequest{}
 
-	allStats, err := service.GetAllStats(allStatsReq)
+	allStats, err := service.GetAllStats(context.Background(), allStatsReq)
 	if err != nil {
 		t.Fatalf("GetAllStats failed: %v", err)
 	}
@@ -1388,7 +1388,7 @@ func TestShortLinkService_ShareShortLink(t *testing.T) {
 		ID: createResp.ID,
 	}
 
-	resp, err := service.ShareShortLink(shareReq)
+	resp, err := service.ShareShortLink(context.Background(), shareReq)
 	if err != nil {
 		t.Fatalf("ShareShortLink failed: %v", err)
 	}
@@ -1415,7 +1415,7 @@ func TestShortLinkService_ShareShortLink_NotFound(t *testing.T) {
 		ID: 99999,
 	}
 
-	_, err := service.ShareShortLink(shareReq)
+	_, err := service.ShareShortLink(context.Background(), shareReq)
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -1526,7 +1526,7 @@ func TestShortLinkService_AccessShortLink_MultipleTimes(t *testing.T) {
 			ShortCode: "multiaccess",
 			UserAgent: "Mozilla/5.0",
 		}
-		_, _ = service.AccessShortLink(accessReq)
+		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
 	// 验证点击次数
@@ -1561,7 +1561,7 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 			ShortCode: "todaystats",
 			UserAgent: "Mozilla/5.0",
 		}
-		_, _ = service.AccessShortLink(accessReq)
+		_, _ = service.AccessShortLink(context.Background(), accessReq)
 	}
 
 	// 获取统计
@@ -1569,7 +1569,7 @@ func TestShortLinkService_GetStats_TodayAccess(t *testing.T) {
 		ID: createResp.ID,
 	}
 
-	stats, err := service.GetStats(statsReq)
+	stats, err := service.GetStats(context.Background(), statsReq)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
@@ -1591,7 +1591,7 @@ func TestShortLinkService_GenerateShortCode_DifferentLengths(t *testing.T) {
 			Length: length,
 		}
 
-		resp, err := service.GenerateShortCode(req)
+		resp, err := service.GenerateShortCode(context.Background(), req)
 		if err != nil {
 			t.Fatalf("GenerateShortCode with length %d failed: %v", length, err)
 		}

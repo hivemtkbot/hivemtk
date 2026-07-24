@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -115,11 +116,11 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	hub := &model.MessageHub{MsgID: "m-1", ConversationID: "conv-alice", SenderID: "123"}
 
 	// 首次：寒暄 意向分 8 → 新建（非商机，newOpportunity=false）
-	newOpp := svc.mineTelegramGroupLead(hub, "-1001", "群A", "123", "alice", "Alice", "大家好呀")
+	newOpp := svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "大家好呀")
 	if newOpp {
 		t.Fatalf("寒暄不应标记为新晋商机")
 	}
-	got, err := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account)
+	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account)
 	if err != nil || got == nil {
 		t.Fatalf("首次挖掘应创建线索: err=%v got=%v", err, got)
 	}
@@ -141,11 +142,11 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	}
 
 	// 再次：高意向（请问12+价格25+多少12+批发25+base8=82）→ 增量更新到 82，仍 1 条，且新晋为商机
-	newOpp = svc.mineTelegramGroupLead(hub, "-1001", "群A", "123", "alice", "Alice", "请问价格多少批发")
+	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "请问价格多少批发")
 	if !newOpp {
 		t.Fatalf("跨过阈值应为新晋商机")
 	}
-	got, _ = svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account)
+	got, _ = svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account)
 	if !strings.Contains(got.Desc, "[意向分:82]") {
 		t.Fatalf("应升级到意向分82: %s", got.Desc)
 	}
@@ -160,11 +161,11 @@ func TestMineTelegramGroupLead_CreateDedupUpgrade(t *testing.T) {
 	}
 
 	// 再次：低意向 8 → 不降级（保留 82）；已为商机，newOpportunity=false
-	newOpp = svc.mineTelegramGroupLead(hub, "-1001", "群A", "123", "alice", "Alice", "你好啊")
+	newOpp = svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "123", "alice", "Alice", "你好啊")
 	if newOpp {
 		t.Fatalf("非跨阈值升级不应再标记新晋商机")
 	}
-	got, _ = svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account)
+	got, _ = svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account)
 	if !strings.Contains(got.Desc, "[意向分:82]") {
 		t.Fatalf("低意向不应覆盖高分: %s", got.Desc)
 	}
@@ -182,11 +183,11 @@ func TestMineTelegramGroupLead_NoiseSkipped(t *testing.T) {
 	account := "@bob"
 	hub := &model.MessageHub{MsgID: "m-b", ConversationID: "conv-bob", SenderID: "999"}
 
-	svc.mineTelegramGroupLead(hub, "-1001", "群A", "999", "bob", "Bob", "/start") // 命令
-	svc.mineTelegramGroupLead(hub, "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    // 纯表情
-	svc.mineTelegramGroupLead(hub, "-1001", "群A", "999", "bob", "Bob", "   ")    // 空白
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "/start") // 命令
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "😀😀😀")    // 纯表情
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "999", "bob", "Bob", "   ")    // 空白
 
-	if got, _ := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, account); got != nil {
+	if got, _ := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, account); got != nil {
 		t.Fatalf("噪声消息不应建线索，实际: %+v", got)
 	}
 	if n := countClues(t, db, account); n != 0 {
@@ -199,8 +200,8 @@ func TestMineTelegramGroupLead_FallbackID(t *testing.T) {
 	svc := &WebhookService{db: db}
 	hub := &model.MessageHub{MsgID: "m-c", ConversationID: "conv-555", SenderID: "555"}
 	// 无 username → 用 tg:<id> 作去重键
-	svc.mineTelegramGroupLead(hub, "-1001", "群A", "555", "", "Unknown", "我想采购一批货")
-	got, err := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, "tg:555")
+	svc.mineTelegramGroupLead(context.Background(), hub, "-1001", "群A", "555", "", "Unknown", "我想采购一批货")
+	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "tg:555")
 	if err != nil || got == nil {
 		t.Fatalf("无 username 应回退 tg:<id> 建线索: err=%v got=%v", err, got)
 	}
@@ -227,11 +228,11 @@ func TestDispatchTelegram_MinesHumanGroupMessage(t *testing.T) {
 			"text": "这个怎么买代理"
 		}
 	}`)
-	_, extra, err := svc.dispatchTelegram("1", &ParsedPayload{EventID: "tg_mine_1", EventType: "message"}, payload)
+	_, extra, err := svc.dispatchTelegram(context.Background(), "1", &ParsedPayload{EventID: "tg_mine_1", EventType: "message"}, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram failed: %v", err)
 	}
-	got, err := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, "@carol77")
+	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "@carol77")
 	if err != nil || got == nil {
 		t.Fatalf("真人群发言应建线索: err=%v got=%v", err, got)
 	}
@@ -261,10 +262,10 @@ func TestDispatchTelegram_DoesNotMineBotItself(t *testing.T) {
 			"text": "大家好，我是销售助手"
 		}
 	}`)
-	if _, _, err := svc.dispatchTelegram("1", &ParsedPayload{EventID: "tg_mine_2", EventType: "message"}, payload); err != nil {
+	if _, _, err := svc.dispatchTelegram(context.Background(), "1", &ParsedPayload{EventID: "tg_mine_2", EventType: "message"}, payload); err != nil {
 		t.Fatalf("dispatchTelegram failed: %v", err)
 	}
-	if got, _ := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, "@mybot"); got != nil {
+	if got, _ := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "@mybot"); got != nil {
 		t.Fatalf("机器人自身发言不应建线索: %+v", got)
 	}
 }
@@ -283,10 +284,10 @@ func TestDispatchTelegram_MinesPrivateHumanDM(t *testing.T) {
 			"text": "请问怎么合作代理"
 		}
 	}`)
-	if _, _, err := svc.dispatchTelegram("1", &ParsedPayload{EventID: "tg_mine_3", EventType: "message"}, payload); err != nil {
+	if _, _, err := svc.dispatchTelegram(context.Background(), "1", &ParsedPayload{EventID: "tg_mine_3", EventType: "message"}, payload); err != nil {
 		t.Fatalf("dispatchTelegram failed: %v", err)
 	}
-	got, err := svc.clueRepo.FindByTypeAndAccount(ClueTypeTelegram, "@dave99")
+	got, err := svc.clueRepo.FindByTypeAndAccount(context.Background(), ClueTypeTelegram, "@dave99")
 	if err != nil || got == nil {
 		t.Fatalf("私聊真人应建线索: err=%v got=%v", err, got)
 	}
@@ -330,15 +331,15 @@ func TestTgLeadOutreachAllowed(t *testing.T) {
 	key2 := "acc1:-100:u2"
 
 	// 首次均允许
-	if !svc.tgLeadOutreachAllowed("acc1", "-100", "u1") {
+	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
 		t.Fatalf("首次应允许触达")
 	}
 	// 同一发言者冷却期内拒绝
-	if svc.tgLeadOutreachAllowed("acc1", "-100", "u1") {
+	if svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
 		t.Fatalf("冷却期内不应重复触达同一发言者")
 	}
 	// 不同发言者不受影响
-	if !svc.tgLeadOutreachAllowed("acc1", "-100", "u2") {
+	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u2") {
 		t.Fatalf("不同发言者不受前者冷却影响")
 	}
 	// key1/key2 都已记录
@@ -353,7 +354,7 @@ func TestTgLeadOutreachAllowed(t *testing.T) {
 	svc.tgOutreachMu.Lock()
 	svc.tgOutreachLast[key1] = time.Now().Add(-(tgLeadOutreachCooldown + time.Minute))
 	svc.tgOutreachMu.Unlock()
-	if !svc.tgLeadOutreachAllowed("acc1", "-100", "u1") {
+	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
 		t.Fatalf("冷却到期后应再次允许触达")
 	}
 }

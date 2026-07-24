@@ -59,7 +59,7 @@ func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
 
 	// nil 响应
-	if c := o.extractConfidence(nil); c != 0 {
+	if c := o.extractConfidence(context.Background(), nil); c != 0 {
 		t.Errorf("nil 响应置信度应为 0，实际 %.2f", c)
 	}
 
@@ -67,7 +67,7 @@ func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 	resp := &SalesResponse{
 		Intent: &dto.RecognizeResult{Confidence: 0.85},
 	}
-	if c := o.extractConfidence(resp); c != 0.85 {
+	if c := o.extractConfidence(context.Background(), resp); c != 0.85 {
 		t.Errorf("意图置信度 0.85 应直接返回，实际 %.2f", c)
 	}
 
@@ -78,7 +78,7 @@ func TestSmartCSOrchestrator_ExtractConfidence(t *testing.T) {
 		Audited:   true,
 		RAGChunks: []RAGChunk{{Content: "x"}},
 	}
-	c := o.extractConfidence(resp2)
+	c := o.extractConfidence(context.Background(), resp2)
 	if c <= 0.5 {
 		t.Errorf("完整链路置信度应 > 0.5，实际 %.2f", c)
 	}
@@ -101,7 +101,7 @@ func TestSmartCSOrchestrator_IsUrgentOrComplaint(t *testing.T) {
 		"退钱！",
 	}
 	for _, c := range urgentCases {
-		if !o.isUrgentOrComplaint(c) {
+		if !o.isUrgentOrComplaint(context.Background(), c) {
 			t.Errorf("应识别为紧急/投诉: %q", c)
 		}
 	}
@@ -113,7 +113,7 @@ func TestSmartCSOrchestrator_IsUrgentOrComplaint(t *testing.T) {
 		"hello",
 	}
 	for _, c := range normalCases {
-		if o.isUrgentOrComplaint(c) {
+		if o.isUrgentOrComplaint(context.Background(), c) {
 			t.Errorf("不应识别为紧急/投诉: %q", c)
 		}
 	}
@@ -180,7 +180,7 @@ func TestSmartCSOrchestrator_SafeMessageID(t *testing.T) {
 // TestSmartCSOrchestrator_AgentTakeover_NoSession 座席接管不存在的会话
 func TestSmartCSOrchestrator_AgentTakeover_NoSession(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
-	err := o.AgentTakeover("nonexistent_session_xyz", 1)
+	err := o.AgentTakeover(context.Background(), "nonexistent_session_xyz", 1)
 	if err == nil {
 		t.Error("不存在的会话应返回错误")
 	}
@@ -192,7 +192,7 @@ func TestSmartCSOrchestrator_AgentTakeover_NoSession(t *testing.T) {
 // TestSmartCSOrchestrator_AgentReply_NoSession 座席回复不存在的会话
 func TestSmartCSOrchestrator_AgentReply_NoSession(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
-	err := o.AgentReply("nonexistent_session_xyz", 1, "您好")
+	err := o.AgentReply(context.Background(), "nonexistent_session_xyz", 1, "您好")
 	if err == nil {
 		t.Error("不存在的会话应返回错误")
 	}
@@ -202,7 +202,7 @@ func TestSmartCSOrchestrator_AgentReply_NoSession(t *testing.T) {
 func TestSmartCSOrchestrator_IsAgentOnline_NilRepo(t *testing.T) {
 	o := NewSmartCSOrchestrator(nil, nil)
 	// agentRepo 非 nil（NewSmartCSOrchestrator 会创建），但查询不存在的 agentID
-	if o.isAgentOnline(99999) {
+	if o.isAgentOnline(context.Background(), 99999) {
 		t.Error("不存在的座席应不在线")
 	}
 }

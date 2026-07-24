@@ -93,7 +93,7 @@ func TestWeComService_GetAccountList(t *testing.T) {
 	}
 
 	// 获取账号列表
-	results, err := service.GetAccountList()
+	results, err := service.GetAccountList(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestWeComService_GetAccountByID(t *testing.T) {
 	database.Create(account)
 
 	// 获取账号
-	retrievedAccount, err := service.GetAccountByID(account.ID)
+	retrievedAccount, err := service.GetAccountByID(context.Background(), account.ID)
 	if err != nil {
 		t.Fatalf("GetAccountByID failed: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestWeComService_GetAccountByID_NotFound(t *testing.T) {
 	database := setupWeComServiceTestDB(t)
 	service := NewWeComServiceWithDB(database)
 
-	_, err := service.GetAccountByID(99999)
+	_, err := service.GetAccountByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -224,7 +224,7 @@ func TestWeComService_GetAccessToken_Cached(t *testing.T) {
 	}
 	database.Create(account)
 
-	token, err := service.GetAccessToken(account)
+	token, err := service.GetAccessToken(context.Background(), account)
 	if err != nil {
 		t.Fatalf("GetAccessToken failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestWeComService_GetCustomerList(t *testing.T) {
 	}
 
 	// 获取客户列表
-	customers, total, err := service.GetCustomerList(1, 10)
+	customers, total, err := service.GetCustomerList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetCustomerList failed: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestWeComService_GetCustomerList_Pagination(t *testing.T) {
 	}
 
 	// 第一页
-	customers, total, err := service.GetCustomerList(1, 5)
+	customers, total, err := service.GetCustomerList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetCustomerList failed: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestWeComService_GetCustomerList_Pagination(t *testing.T) {
 	}
 
 	// 第二页
-	customers2, _, err := service.GetCustomerList(2, 5)
+	customers2, _, err := service.GetCustomerList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetCustomerList page 2 failed: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestWeComService_GetGroupList(t *testing.T) {
 	}
 
 	// 获取群列表
-	groups, total, err := service.GetGroupList(1, 10)
+	groups, total, err := service.GetGroupList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetGroupList failed: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestWeComService_GetMessageList(t *testing.T) {
 	}
 
 	// 获取消息列表
-	messages, total, err := service.GetMessageList(1, 10)
+	messages, total, err := service.GetMessageList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetMessageList failed: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestWeComService_GetTagList(t *testing.T) {
 	}
 
 	// 获取标签列表
-	tags, err := service.GetTagList()
+	tags, err := service.GetTagList(context.Background(), )
 	if err != nil {
 		t.Fatalf("GetTagList failed: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestWeComService_GetAccessToken_NilAccount(t *testing.T) {
 	_ = database
 
 	// nil 账号应返回错误
-	_, err := service.GetAccessToken(nil)
+	_, err := service.GetAccessToken(context.Background(), nil)
 	if err == nil {
 		t.Error("Expected error for nil account")
 	}
@@ -416,7 +416,7 @@ func TestWeComService_SendMessage_NilAccount(t *testing.T) {
 		Content: "test",
 	}
 
-	_, err := service.SendMessage(nil, req)
+	_, err := service.SendMessage(context.Background(), nil, req)
 	if err == nil {
 		t.Error("Expected error for nil account")
 	}

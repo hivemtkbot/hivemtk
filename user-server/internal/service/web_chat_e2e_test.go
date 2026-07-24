@@ -208,7 +208,7 @@ func setupWebChatE2E(t *testing.T) (*VisitorChatService, *SmartCSOrchestrator, *
 	)
 	orch := NewSmartCSOrchestrator(engine, DefaultOrchestratorConfig())
 	channelSvc := MustNewChatChannelService(database)
-	visitorSvc := NewVisitorChatService(database, channelSvc, orch, nil)
+	visitorSvc := NewVisitorChatService(context.Background(), database, channelSvc, orch, nil)
 	return visitorSvc, orch, rag, database
 }
 
@@ -220,7 +220,7 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 	visitorSvc, _, rag, _ := setupWebChatE2E(t)
 
 	// 1. 访客打开会话（默认渠道自动创建）
-	open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+	open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 		ChannelID:   "default",
 		VisitorID:   "v_e2e_001",
 		VisitorName: "测试访客",
@@ -236,7 +236,7 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 	}
 
 	// 2. 访客发送正常咨询（触发 AI 自动回复）
-	send, err := visitorSvc.SendMessage(&VisitorSendMessageRequest{
+	send, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_001",
 		SessionID: open.Session.SessionID,
@@ -281,7 +281,7 @@ func TestE2E_WebChat_VisitorAsk_AIReplyWithRAG(t *testing.T) {
 func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	visitorSvc, _, _, _ := setupWebChatE2E(t)
 
-	open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+	open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_002",
 	})
@@ -290,7 +290,7 @@ func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 	}
 
 	// 发送含"转人工"关键词的消息
-	send, err := visitorSvc.SendMessage(&VisitorSendMessageRequest{
+	send, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_002",
 		SessionID: open.Session.SessionID,
@@ -316,7 +316,7 @@ func TestE2E_WebChat_KeywordTransferToHuman(t *testing.T) {
 func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 	visitorSvc, orch, _, _ := setupWebChatE2E(t)
 
-	open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+	open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_003",
 	})
@@ -324,7 +324,7 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 		t.Fatalf("OpenSession 失败: %v", err)
 	}
 	// 先触发转人工
-	if _, err := visitorSvc.SendMessage(&VisitorSendMessageRequest{
+	if _, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_003",
 		SessionID: open.Session.SessionID,
@@ -335,12 +335,12 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 
 	// 坐席回复
 	agentID := uint(1)
-	if err := orch.AgentReply(open.Session.SessionID, agentID, "您好，我是人工客服，已为您接入，请问还有什么可以帮您？"); err != nil {
+	if err := orch.AgentReply(context.Background(), open.Session.SessionID, agentID, "您好，我是人工客服，已为您接入，请问还有什么可以帮您？"); err != nil {
 		t.Fatalf("AgentReply 失败: %v", err)
 	}
 
 	// 断言坐席消息已落库
-	msgs, _, err := visitorSvc.GetMessages("default", "v_e2e_003", open.Session.SessionID, 1, 50)
+	msgs, _, err := visitorSvc.GetMessages(context.Background(), "default", "v_e2e_003", open.Session.SessionID, 1, 50)
 	if err != nil {
 		t.Fatalf("GetMessages 失败: %v", err)
 	}
@@ -366,7 +366,7 @@ func TestE2E_WebChat_AgentReplyAfterTransfer(t *testing.T) {
 func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	visitorSvc, orch, rag, database := setupWebChatE2E(t)
 
-	open, err := visitorSvc.OpenSession(&VisitorOpenSessionRequest{
+	open, err := visitorSvc.OpenSession(context.Background(), &VisitorOpenSessionRequest{
 		ChannelID: "default",
 		VisitorID: "v_e2e_004",
 	})
@@ -376,7 +376,7 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	sid := open.Session.SessionID
 
 	// 步骤1：AI 回复（RAG 命中）
-	s1, err := visitorSvc.SendMessage(&VisitorSendMessageRequest{
+	s1, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default", VisitorID: "v_e2e_004", SessionID: sid,
 		Content: "请问你们的套餐价格？",
 	})
@@ -388,7 +388,7 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	}
 
 	// 步骤2：转人工
-	s2, err := visitorSvc.SendMessage(&VisitorSendMessageRequest{
+	s2, err := visitorSvc.SendMessage(context.Background(), &VisitorSendMessageRequest{
 		ChannelID: "default", VisitorID: "v_e2e_004", SessionID: sid,
 		Content: "我要转人工",
 	})
@@ -397,7 +397,7 @@ func TestE2E_WebChat_FullBusinessLine(t *testing.T) {
 	}
 
 	// 步骤3：坐席回复（复用场景C 逻辑）
-	if err := orch.AgentReply(sid, 1, "您好，人工客服已接入，正在为您处理价格问题。"); err != nil {
+	if err := orch.AgentReply(context.Background(), sid, 1, "您好，人工客服已接入，正在为您处理价格问题。"); err != nil {
 		t.Fatalf("步骤3 坐席回复失败: %v", err)
 	}
 

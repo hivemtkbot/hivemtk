@@ -308,7 +308,7 @@ func TestWeCom_GetWeComSecrets_FromDB(t *testing.T) {
 	db.Create(acc)
 
 	svc := NewWebhookService(db)
-	token, aesKey, err := svc.GetWeComSecrets(fmt.Sprintf("%d", acc.ID))
+	token, aesKey, err := svc.GetWeComSecrets(context.Background(), fmt.Sprintf("%d", acc.ID))
 	if err != nil {
 		t.Fatalf("getWeComSecrets: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestWeCom_GetWeComSecrets_FromDB(t *testing.T) {
 	}
 
 	// 错误 ID 回落到第一个 webhook enabled 账号
-	token2, _, err := svc.GetWeComSecrets("99999")
+	token2, _, err := svc.GetWeComSecrets(context.Background(), "99999")
 	if err != nil {
 		t.Fatalf("fallback: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestNormalizeChannelMessage(t *testing.T) {
 		MsgType:      "text",
 		ChatID:       "c1",
 	}
-	content, sessionID, customerID := engine.normalizeChannelMessage(m)
+	content, sessionID, customerID := engine.normalizeChannelMessage(context.Background(), m)
 	if content != "hello" {
 		t.Errorf("content: %s", content)
 	}
@@ -489,7 +489,7 @@ func TestNormalizeChannelMessage_Image(t *testing.T) {
 		MsgType:  "image",
 		MediaURL: "https://example.com/img.jpg",
 	}
-	content, _, _ := engine.normalizeChannelMessage(m)
+	content, _, _ := engine.normalizeChannelMessage(context.Background(), m)
 	if !strings.Contains(content, "[图片]") {
 		t.Errorf("expected [图片], got %s", content)
 	}
@@ -576,7 +576,7 @@ func TestWebhook_MultiChannelConcurrent(t *testing.T) {
 func TestParsePayload_Common(t *testing.T) {
 	svc := NewWebhookService(nil)
 	body := []byte(`{"FromUserName":"u1","MsgType":"text","Content":"hi","MsgId":"m1"}`)
-	p, err := svc.ParsePayload(ChannelWeCom, body)
+	p, err := svc.ParsePayload(context.Background(), ChannelWeCom, body)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestParsePayload_Common(t *testing.T) {
 // TestParsePayload_Invalid 无效 JSON
 func TestParsePayload_Invalid(t *testing.T) {
 	svc := NewWebhookService(nil)
-	_, err := svc.ParsePayload(ChannelWeCom, []byte(`not json`))
+	_, err := svc.ParsePayload(context.Background(), ChannelWeCom, []byte(`not json`))
 	if err == nil {
 		t.Error("expected err on invalid JSON")
 	}
@@ -626,7 +626,7 @@ func TestDispatchToUnified_Integration(t *testing.T) {
 // TestWebhookStats 统计
 func TestWebhookStats(t *testing.T) {
 	svc := NewWebhookService(nil)
-	if svc.QueueLen() < 0 {
+	if svc.QueueLen(context.Background(), ) < 0 {
 		t.Error("queue len error")
 	}
 }

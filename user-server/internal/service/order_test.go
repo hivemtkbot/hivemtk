@@ -38,7 +38,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 		Status:    _type.OrderStatusPending,
 	}
 
-	result, err := service.CreateOrder(order)
+	result, err := service.CreateOrder(context.Background(), order)
 	if err != nil {
 		t.Fatalf("CreateOrder failed: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestOrderService_GetOrder(t *testing.T) {
 		TgID:      12345,
 		Status:    _type.OrderStatusPending,
 	}
-	registered, _ := service.CreateOrder(order)
+	registered, _ := service.CreateOrder(context.Background(), order)
 
 	// Get the order via list since repository GetByID uses uint but model has string ID
 	orders, total, err := service.GetOrderList(context.Background(), 1, 10)
@@ -90,7 +90,7 @@ func TestOrderService_GetOrder_NotFound(t *testing.T) {
 
 	service := NewOrderService()
 
-	_, err := service.GetOrder(999)
+	_, err := service.GetOrder(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for non-existent order")
 	}
@@ -109,7 +109,7 @@ func TestOrderService_GetOrderList(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Status:    _type.OrderStatusPending,
 		}
-		service.CreateOrder(order)
+		service.CreateOrder(context.Background(), order)
 	}
 
 	// Get order list
@@ -140,7 +140,7 @@ func TestOrderService_GetOrderList_Pagination(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Status:    _type.OrderStatusPending,
 		}
-		service.CreateOrder(order)
+		service.CreateOrder(context.Background(), order)
 	}
 
 	// Get first page
@@ -170,10 +170,10 @@ func TestOrderService_DeleteOrder(t *testing.T) {
 		TgID:      12345,
 		Status:    _type.OrderStatusPending,
 	}
-	registered, _ := service.CreateOrder(order)
+	registered, _ := service.CreateOrder(context.Background(), order)
 
 	// Delete the order (repository expects string ID)
-	err := service.DeleteOrder(registered.ID)
+	err := service.DeleteOrder(context.Background(), registered.ID)
 	if err != nil {
 		// Note: repository 层对 string ID 的 Delete 行为有历史问题
 		t.Logf("DeleteOrder returned error (known repository bug): %v", err)
@@ -200,10 +200,10 @@ func TestOrderService_UpdateOrderStatusById(t *testing.T) {
 		TgID:      12345,
 		Status:    _type.OrderStatusPending,
 	}
-	registered, _ := service.CreateOrder(order)
+	registered, _ := service.CreateOrder(context.Background(), order)
 
 	// Update order status to success
-	err := service.UpdateOrderStatusById(registered.ID, _type.OrderStatusSuccess)
+	err := service.UpdateOrderStatusById(context.Background(), registered.ID, _type.OrderStatusSuccess)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestOrderService_UpdateOrderStatusById_NotFound(t *testing.T) {
 	service := NewOrderService()
 
 	// Try to update non-existent order
-	err := service.UpdateOrderStatusById("non-existent-id", _type.OrderStatusSuccess)
+	err := service.UpdateOrderStatusById(context.Background(), "non-existent-id", _type.OrderStatusSuccess)
 	if err == nil {
 		t.Error("Expected error for non-existent order")
 	}
@@ -243,10 +243,10 @@ func TestOrderService_GetRecentOrderList(t *testing.T) {
 		TgID:      12345,
 		Status:    _type.OrderStatusPending,
 	}
-	service.CreateOrder(order)
+	service.CreateOrder(context.Background(), order)
 
 	// Get recent orders - note: repository uses create_time column which exists in model
-	recentOrders, err := service.GetRecentOrderList()
+	recentOrders, err := service.GetRecentOrderList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentOrderList failed: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Status:    _type.OrderStatusPending,
 		}
-		service.CreateOrder(order)
+		service.CreateOrder(context.Background(), order)
 	}
 
 	for i := 3; i < 5; i++ {
@@ -284,7 +284,7 @@ func TestOrderService_GetOrderList_WithStatusFilter(t *testing.T) {
 			TgID:      int64(10000 + i),
 			Status:    _type.OrderStatusSuccess,
 		}
-		service.CreateOrder(order)
+		service.CreateOrder(context.Background(), order)
 	}
 
 	// Get all orders
@@ -329,10 +329,10 @@ func TestOrderService_UpdateOrderStatusById_ToClosed(t *testing.T) {
 		TgID:      12345,
 		Status:    _type.OrderStatusPending,
 	}
-	registered, _ := service.CreateOrder(order)
+	registered, _ := service.CreateOrder(context.Background(), order)
 
 	// Update order status to force close
-	err := service.UpdateOrderStatusById(registered.ID, _type.OrderStatusForceClose)
+	err := service.UpdateOrderStatusById(context.Background(), registered.ID, _type.OrderStatusForceClose)
 	if err != nil {
 		t.Fatalf("UpdateOrderStatusById failed: %v", err)
 	}

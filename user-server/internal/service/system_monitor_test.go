@@ -51,7 +51,7 @@ func TestSystemMonitorService_GetSystemStats_Empty(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestSystemMonitorService_GetSystemStats_WithData(t *testing.T) {
 		database.Create(&shortLink)
 	}
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestSystemMonitorService_GetSystemStats_CardTables(t *testing.T) {
 
 	// 由于卡片表（douyin_cards, kuaishou_cards 等）未迁移，
 	// GetSystemStats 应该优雅地处理这些不存在的表
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats should handle missing card tables gracefully: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_Empty(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_WithData(t *testing.T) {
 		database.Create(&metric)
 	}
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_ActiveUsers(t *testing.T) {
 		database.Create(&user)
 	}
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestSystemMonitorService_GetSystemStats_MemoryUsage(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestSystemMonitorService_GetSystemStats_Timestamp(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_Timestamp(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_ShortLinks(t *testing.T) {
 		database.Create(&shortLink)
 	}
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -516,7 +516,7 @@ func TestSystemMonitorService_GetSystemStats_Orders(t *testing.T) {
 		database.Create(&order)
 	}
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestSystemMonitorService_GetDetailedSystemStats_AllSections(t *testing.T) {
 	setupSystemMonitorTestDB(t)
 	service := NewSystemMonitorService()
 
-	stats, err := service.GetDetailedSystemStats()
+	stats, err := service.GetDetailedSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetDetailedSystemStats failed: %v", err)
 	}
@@ -603,7 +603,7 @@ func TestSystemMonitorService_GetSystemStats_VisitLogsOld(t *testing.T) {
 		database.Create(&visitLog)
 	}
 
-	stats, err := service.GetSystemStats()
+	stats, err := service.GetSystemStats(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemStats failed: %v", err)
 	}

@@ -55,7 +55,7 @@ func TestValidatePassword_TooShort(t *testing.T) {
 		RequireLowercase: true,
 		RequireDigit:     true,
 	}
-	err := s.ValidatePasswordWithPolicy("Ab1", 0, policy)
+	err := s.ValidatePasswordWithPolicy(context.Background(), "Ab1", 0, policy)
 	if err == nil {
 		t.Fatal("短密码应验证失败")
 	}
@@ -75,7 +75,7 @@ func TestValidatePassword_TooLong(t *testing.T) {
 		RequireDigit:     true,
 	}
 	longPwd := "Abc1234567890ABCDEFG"
-	err := s.ValidatePasswordWithPolicy(longPwd, 0, policy)
+	err := s.ValidatePasswordWithPolicy(context.Background(), longPwd, 0, policy)
 	if err == nil {
 		t.Fatal("超长密码应验证失败")
 	}
@@ -88,7 +88,7 @@ func TestValidatePassword_TooLong(t *testing.T) {
 func TestValidatePassword_Empty(t *testing.T) {
 	s := NewPasswordPolicyService()
 	policy := &DefaultPasswordPolicy
-	err := s.ValidatePasswordWithPolicy("", 0, policy)
+	err := s.ValidatePasswordWithPolicy(context.Background(), "", 0, policy)
 	if err == nil {
 		t.Fatal("空密码应验证失败")
 	}
@@ -120,7 +120,7 @@ func TestValidatePassword_MissingCharacterClasses(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := s.ValidatePasswordWithPolicy(c.pwd, 0, policy)
+			err := s.ValidatePasswordWithPolicy(context.Background(), c.pwd, 0, policy)
 			if err == nil {
 				t.Fatalf("密码 %q 应验证失败（缺 %s）", c.pwd, c.want)
 			}
@@ -144,11 +144,11 @@ func TestValidatePassword_RequireSpecial(t *testing.T) {
 	}
 
 	// 无特殊字符
-	if err := s.ValidatePasswordWithPolicy("Abcdefg1", 0, policy); err == nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdefg1", 0, policy); err == nil {
 		t.Error("缺特殊字符应失败")
 	}
 	// 含特殊字符
-	if err := s.ValidatePasswordWithPolicy("Abcdefg1@", 0, policy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdefg1@", 0, policy); err != nil {
 		t.Errorf("含特殊字符应通过: %v", err)
 	}
 }
@@ -176,7 +176,7 @@ func TestValidatePassword_ForbidCommon(t *testing.T) {
 
 	for _, pwd := range cases {
 		t.Run(pwd, func(t *testing.T) {
-			err := s.ValidatePasswordWithPolicy(pwd, 0, policy)
+			err := s.ValidatePasswordWithPolicy(context.Background(), pwd, 0, policy)
 			if err == nil {
 				t.Errorf("弱密码 %q 应被拒绝", pwd)
 			}
@@ -184,7 +184,7 @@ func TestValidatePassword_ForbidCommon(t *testing.T) {
 	}
 
 	// 强密码应通过
-	if err := s.ValidatePasswordWithPolicy("Xkp9!aB#", 0, policy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Xkp9!aB#", 0, policy); err != nil {
 		t.Errorf("强密码应通过: %v", err)
 	}
 }
@@ -227,7 +227,7 @@ func TestValidatePassword_ForbidReuse(t *testing.T) {
 	}
 
 	// 1. 使用历史密码应失败
-	err := s.ValidatePasswordWithPolicy(oldPwd, user.ID, policy)
+	err := s.ValidatePasswordWithPolicy(context.Background(), oldPwd, user.ID, policy)
 	if err == nil {
 		t.Fatal("历史密码应被拒绝")
 	}
@@ -236,7 +236,7 @@ func TestValidatePassword_ForbidReuse(t *testing.T) {
 	}
 
 	// 2. 使用新密码应通过
-	if err := s.ValidatePasswordWithPolicy("BrandNewP@ss1", user.ID, policy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "BrandNewP@ss1", user.ID, policy); err != nil {
 		t.Errorf("新密码应通过: %v", err)
 	}
 }
@@ -255,22 +255,22 @@ func TestValidatePassword_Boundary(t *testing.T) {
 	}
 
 	// 8 位（最小）应通过
-	if err := s.ValidatePasswordWithPolicy("Abcdefg1", 0, policy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdefg1", 0, policy); err != nil {
 		t.Errorf("8 位密码应通过: %v", err)
 	}
 
 	// 16 位（最大）应通过（"Abcdefg123456789" = 15 字符，MaxLength=16）
-	if err := s.ValidatePasswordWithPolicy("Abcdefg123456789", 0, policy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdefg123456789", 0, policy); err != nil {
 		t.Errorf("15 位密码应通过: %v", err)
 	}
 
 	// 7 位应失败
-	if err := s.ValidatePasswordWithPolicy("Abcdef1", 0, policy); err == nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdef1", 0, policy); err == nil {
 		t.Error("7 位密码应失败")
 	}
 
 	// 17 位应失败
-	if err := s.ValidatePasswordWithPolicy("Abcdefg12345678901", 0, policy); err == nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "Abcdefg12345678901", 0, policy); err == nil {
 		t.Error("17 位密码应失败")
 	}
 }
@@ -290,7 +290,7 @@ func TestRecordPasswordHistory(t *testing.T) {
 	database.Create(user)
 
 	// 写入密码历史
-	if err := s.RecordPasswordHistory(user.ID, "NewPassword123", model.PasswordSourceChangePassword); err != nil {
+	if err := s.RecordPasswordHistory(context.Background(), user.ID, "NewPassword123", model.PasswordSourceChangePassword); err != nil {
 		t.Fatalf("RecordPasswordHistory 失败: %v", err)
 	}
 
@@ -326,7 +326,7 @@ func TestRecordPasswordHistory_DefaultSource(t *testing.T) {
 	database.Create(user)
 
 	// 不传 source
-	if err := s.RecordPasswordHistory(user.ID, "Test1234", ""); err != nil {
+	if err := s.RecordPasswordHistory(context.Background(), user.ID, "Test1234", ""); err != nil {
 		t.Fatalf("RecordPasswordHistory 失败: %v", err)
 	}
 
@@ -360,7 +360,7 @@ func TestValidatePolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := s.validatePolicy(c.policy)
+			err := s.validatePolicy(context.Background(), c.policy)
 			if c.wantOK && err != nil {
 				t.Errorf("期望通过但失败: %v", err)
 			}
@@ -378,11 +378,11 @@ func TestIsPasswordExpired_Disabled(t *testing.T) {
 	s := NewPasswordPolicyService()
 	policy := &PasswordPolicy{MinLength: 8, MaxLength: 64, ExpiryDays: 0}
 	// 保存并立即失效缓存（虽然 db 未初始化 system_config_kv 表，但 SavePolicy 内部会创建）
-	if err := s.SavePolicy(policy); err != nil {
+	if err := s.SavePolicy(context.Background(), policy); err != nil {
 		t.Fatalf("SavePolicy failed: %v", err)
 	}
 	// 验证: 即便 db 实际无 system_config_kv，禁用过期必须直接返回 (false, nil)
-	expired, err := s.IsPasswordExpired(1)
+	expired, err := s.IsPasswordExpired(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("IsPasswordExpired 应无错: %v", err)
 	}
@@ -399,8 +399,8 @@ func TestIsPasswordExpired_FreshHistory(t *testing.T) {
 
 	// 强制使用短期过期的策略
 	policy := &PasswordPolicy{ExpiryDays: 90}
-	_ = s.SavePolicy(policy)
-	s.InvalidatePolicyCache()
+	_ = s.SavePolicy(context.Background(), policy)
+	s.InvalidatePolicyCache(context.Background())
 
 	user := &model.SystemUser{
 		Username: "fresh_user",
@@ -421,7 +421,7 @@ func TestIsPasswordExpired_FreshHistory(t *testing.T) {
 	}
 	database.Create(history)
 
-	expired, err := s.IsPasswordExpired(user.ID)
+	expired, err := s.IsPasswordExpired(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("IsPasswordExpired 失败: %v", err)
 	}
@@ -438,7 +438,7 @@ func TestIsPasswordExpired_OldHistory(t *testing.T) {
 	// 1 天过期（不要 InvalidatePolicyCache，否则 SavePolicy 设的 cache 被清掉，
 	// GetPolicy 会回退到 defaultPolicy=90 天，导致 2 天前密码不算过期）
 	policy := &PasswordPolicy{MinLength: 8, MaxLength: 64, ExpiryDays: 1}
-	if err := s.SavePolicy(policy); err != nil {
+	if err := s.SavePolicy(context.Background(), policy); err != nil {
 		t.Fatalf("SavePolicy failed: %v", err)
 	}
 
@@ -461,7 +461,7 @@ func TestIsPasswordExpired_OldHistory(t *testing.T) {
 	}
 	database.Create(history)
 
-	expired, err := s.IsPasswordExpired(user.ID)
+	expired, err := s.IsPasswordExpired(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("IsPasswordExpired 失败: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestSavePolicy_Invalid(t *testing.T) {
 	s := NewPasswordPolicyService()
 
 	// min < 4
-	err := s.SavePolicy(&PasswordPolicy{MinLength: 2, MaxLength: 64, ReuseCount: 5})
+	err := s.SavePolicy(context.Background(), &PasswordPolicy{MinLength: 2, MaxLength: 64, ReuseCount: 5})
 	if err == nil {
 		t.Error("min<4 的策略应被拒")
 	}
@@ -487,7 +487,7 @@ func TestDefaultPasswordPolicy_Valid(t *testing.T) {
 	s := NewPasswordPolicyService()
 
 	// 强力密码应通过
-	if err := s.ValidatePasswordWithPolicy("StrongP@ssw0rd", 0, &DefaultPasswordPolicy); err != nil {
+	if err := s.ValidatePasswordWithPolicy(context.Background(), "StrongP@ssw0rd", 0, &DefaultPasswordPolicy); err != nil {
 		t.Errorf("强密码应通过默认策略: %v", err)
 	}
 }

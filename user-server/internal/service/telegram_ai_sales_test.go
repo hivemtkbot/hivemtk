@@ -56,7 +56,7 @@ func TestDispatchTelegram_JoinEvent_NewChatMembers(t *testing.T) {
 		EventID:   "tg_join_evt_1",
 		EventType: "message",
 	}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram join event failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestDispatchTelegram_JoinEvent_OnlyBotsSkipped(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_join_evt_2", EventType: "message"}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestDispatchTelegram_LeftEvent_RecordsToHub(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_left_evt_1", EventType: "message"}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram left event failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestDispatchTelegram_RegularMessage_TextToHub(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_msg_1", EventType: "message"}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram text message failed: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestDispatchTelegram_GroupMessage_IsGroupTrue(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_group_msg_1", EventType: "message"}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("dispatchTelegram group message failed: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestDispatchTelegram_SystemNotification_Skipped(t *testing.T) {
 	}`)
 
 	p := &ParsedPayload{EventID: "tg_sys_1", EventType: "message"}
-	hub, _, err := svc.dispatchTelegram("1", p, payload)
+	hub, _, err := svc.dispatchTelegram(context.Background(), "1", p, payload)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestDispatchTelegram_SystemNotification_Skipped(t *testing.T) {
 func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	tgRepo := repository.NewTelegramAccountRepository()
-	tgRepo.SetDB(db)
+	tgRepo.SetDB(context.Background(), db)
 
 	cases := []struct {
 		name            string
@@ -343,7 +343,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 				telegramRepo: tgRepo,
 				salesEngine:  &SalesEngine{}, // 非 nil 即可触发判定
 			}
-			got := svc.shouldTriggerAI(ChannelTelegram, c.accountID)
+			got := svc.shouldTriggerAI(context.Background(), ChannelTelegram, c.accountID)
 			if got != c.expectedTrigger {
 				t.Errorf("case=%s expected %v, got %v", c.name, c.expectedTrigger, got)
 			}
@@ -355,7 +355,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 func TestShouldTriggerAI_NilSalesEngineReturnsFalse(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	tgRepo := repository.NewTelegramAccountRepository()
-	tgRepo.SetDB(db)
+	tgRepo.SetDB(context.Background(), db)
 	acc := &model.TelegramAccount{
 		AccountName:    "test-bot",
 		BotToken:       "tok",
@@ -371,7 +371,7 @@ func TestShouldTriggerAI_NilSalesEngineReturnsFalse(t *testing.T) {
 		telegramRepo: tgRepo,
 		salesEngine:  nil,
 	}
-	if svc.shouldTriggerAI(ChannelTelegram, "1") {
+	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "1") {
 		t.Error("expected false when salesEngine is nil")
 	}
 }
@@ -380,7 +380,7 @@ func TestShouldTriggerAI_NilSalesEngineReturnsFalse(t *testing.T) {
 func TestShouldTriggerAI_InvalidAccountIDReturnsFalse(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	tgRepo := repository.NewTelegramAccountRepository()
-	tgRepo.SetDB(db)
+	tgRepo.SetDB(context.Background(), db)
 
 	svc := &WebhookService{
 		db:           db,
@@ -388,15 +388,15 @@ func TestShouldTriggerAI_InvalidAccountIDReturnsFalse(t *testing.T) {
 		salesEngine:  &SalesEngine{},
 	}
 	// 非数字
-	if svc.shouldTriggerAI(ChannelTelegram, "abc") {
+	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "abc") {
 		t.Error("expected false for non-numeric accountID")
 	}
 	// 0
-	if svc.shouldTriggerAI(ChannelTelegram, "0") {
+	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "0") {
 		t.Error("expected false for accountID=0")
 	}
 	// 空
-	if svc.shouldTriggerAI(ChannelTelegram, "") {
+	if svc.shouldTriggerAI(context.Background(), ChannelTelegram, "") {
 		t.Error("expected false for empty accountID")
 	}
 }
@@ -410,14 +410,14 @@ func TestTriggerTelegramJoinSales_NilSalesEngineNoCrash(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := &WebhookService{db: db, salesEngine: nil}
 	// 不应 panic
-	svc.triggerTelegramJoinSales("1", "-1001234567890", "8888", "新用户加入群组")
+	svc.triggerTelegramJoinSales(context.Background(), "1", "-1001234567890", "8888", "新用户加入群组")
 }
 
 // TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled 验证 AI 关闭时不触发
 func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	tgRepo := repository.NewTelegramAccountRepository()
-	tgRepo.SetDB(db)
+	tgRepo.SetDB(context.Background(), db)
 	// 创建一个 AI 关闭的账号
 	acc := &model.TelegramAccount{
 		AccountName:    "ai-off",
@@ -434,7 +434,7 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 		salesEngine:  &SalesEngine{}, // 非 nil 但 AI 关闭
 	}
 	// 不应 panic，也不应调用 salesEngine.Handle
-	svc.triggerTelegramJoinSales("1", "-1001234567890", "8888", "新用户加入群组")
+	svc.triggerTelegramJoinSales(context.Background(), "1", "-1001234567890", "8888", "新用户加入群组")
 }
 
 // =============================================================================
@@ -446,7 +446,7 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := NewWebhookService(db)
-	defer svc.Stop()
+	defer svc.Stop(context.Background(), )
 
 	payload := []byte(`{
 		"update_id": 2001,
@@ -486,7 +486,7 @@ func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
 func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	repo := repository.NewTelegramAccountRepository()
-	repo.SetDB(db)
+	repo.SetDB(context.Background(), db)
 
 	// Create
 	acc := &model.TelegramAccount{

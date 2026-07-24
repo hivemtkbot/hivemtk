@@ -47,12 +47,12 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 	extractor := NewOrderIntentExtractor()
 	dashboard := NewSalesDashboard(journey)
 	draftSvc := NewOrderDraftService(nil)
-	draftSvc.SetJourney(journey)
-	draftSvc.SetDashboard(dashboard)
-	draftSvc.SetFollowUp(followup)
+	draftSvc.SetJourney(context.Background(), journey)
+	draftSvc.SetDashboard(context.Background(), dashboard)
+	draftSvc.SetFollowUp(context.Background(), followup)
 	trigger := NewSalesActionTrigger(tagger, journey, followup, extractor, dashboard, nil)
 	// SalesActionTrigger 自动创建草稿依赖 draftService 注入（NewSalesActionTrigger 不会自动绑定）
-	trigger.SetDraftService(draftSvc)
+	trigger.SetDraftService(context.Background(), draftSvc)
 	return journey, followup, tagger, extractor, dashboard, draftSvc, trigger
 }
 
@@ -63,7 +63,7 @@ func setupDraftEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AI
 // TestDraft_CreateManual 手动创建草稿
 func TestDraft_CreateManual(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, err := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID:  "cust_001",
 		OwnerID:     "sales_001",
 		ProductName: "光子嫩肤",
@@ -97,12 +97,12 @@ func TestDraft_CreateManual(t *testing.T) {
 func TestDraft_CreateFromIntent(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
 	// 模拟 AI 提取的订单意向
-	intents := extractor.ExtractFromText("cust_002", "我想要光子嫩肤套餐 3 次 2280 元")
+	intents := extractor.ExtractFromText(context.Background(), "cust_002", "我想要光子嫩肤套餐 3 次 2280 元")
 	if len(intents) == 0 {
 		t.Fatal("提取器应能从对话中提取光子嫩肤")
 	}
 	intent := intents[0]
-	draft := draftSvc.CreateFromIntent(&intent, "sales_002")
+	draft := draftSvc.CreateFromIntent(context.Background(), &intent, "sales_002")
 	if draft == nil {
 		t.Fatal("应能创建草稿")
 	}
@@ -133,18 +133,18 @@ func TestDraft_CreateFromIntent(t *testing.T) {
 func TestDraft_Deduplication(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
 	// 第一次意向
-	intents1 := extractor.ExtractFromText("cust_003", "光子嫩肤 3 次 2280 元")
+	intents1 := extractor.ExtractFromText(context.Background(), "cust_003", "光子嫩肤 3 次 2280 元")
 	if len(intents1) == 0 {
 		t.Fatal("第一次应能提取")
 	}
-	draft1 := draftSvc.CreateFromIntent(&intents1[0], "sales_003")
+	draft1 := draftSvc.CreateFromIntent(context.Background(), &intents1[0], "sales_003")
 	if draft1 == nil {
 		t.Fatal("第一次草稿应创建")
 	}
 	// 第二次意向（同一产品）
-	intents2 := extractor.ExtractFromText("cust_003", "我要光子嫩肤")
+	intents2 := extractor.ExtractFromText(context.Background(), "cust_003", "我要光子嫩肤")
 	if len(intents2) > 0 {
-		draft2 := draftSvc.CreateFromIntent(&intents2[0], "sales_003")
+		draft2 := draftSvc.CreateFromIntent(context.Background(), &intents2[0], "sales_003")
 		if draft2 == nil {
 			t.Fatal("第二次草稿应返回（去重）")
 		}
@@ -153,7 +153,7 @@ func TestDraft_Deduplication(t *testing.T) {
 		}
 	}
 	// 验证：客户只有 1 个草稿
-	all := draftSvc.ListByCustomer("cust_003")
+	all := draftSvc.ListByCustomer(context.Background(), "cust_003")
 	if len(all) != 1 {
 		t.Errorf("应有 1 个草稿（去重），实际: %d", len(all))
 	}
@@ -163,14 +163,14 @@ func TestDraft_Deduplication(t *testing.T) {
 // TestDraft_MultipleProducts 同一客户多个产品独立草稿
 func TestDraft_MultipleProducts(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
-	intents := extractor.ExtractFromText("cust_004", "我要光子嫩肤 3 次 2280 元 和 水光针 1 次 980 元")
+	intents := extractor.ExtractFromText(context.Background(), "cust_004", "我要光子嫩肤 3 次 2280 元 和 水光针 1 次 980 元")
 	if len(intents) < 2 {
 		t.Fatalf("提取器应至少提取 2 个产品，实际: %d（正则失效或文本不匹配）", len(intents))
 	}
 	for _, in := range intents {
-		draftSvc.CreateFromIntent(&in, "sales_004")
+		draftSvc.CreateFromIntent(context.Background(), &in, "sales_004")
 	}
-	all := draftSvc.ListByCustomer("cust_004")
+	all := draftSvc.ListByCustomer(context.Background(), "cust_004")
 	if len(all) < 2 {
 		t.Errorf("多产品应有多个草稿，实际: %d", len(all))
 	}
@@ -180,10 +180,10 @@ func TestDraft_MultipleProducts(t *testing.T) {
 // TestDraft_NilIntent nil 意向安全
 func TestDraft_NilIntent(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	if draft := draftSvc.CreateFromIntent(nil, "sales"); draft != nil {
+	if draft := draftSvc.CreateFromIntent(context.Background(), nil, "sales"); draft != nil {
 		t.Error("nil 意向应返回 nil")
 	}
-	if draft := draftSvc.CreateFromIntent(&OrderIntent{}, "sales"); draft != nil {
+	if draft := draftSvc.CreateFromIntent(context.Background(), &OrderIntent{}, "sales"); draft != nil {
 		t.Error("空 ProductName 意向应返回 nil")
 	}
 }
@@ -191,16 +191,16 @@ func TestDraft_NilIntent(t *testing.T) {
 // TestDraft_ManualValidation 手动创建参数校验
 func TestDraft_ManualValidation(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	if _, err := draftSvc.CreateManual(nil); err == nil {
+	if _, err := draftSvc.CreateManual(context.Background(), nil); err == nil {
 		t.Error("nil 请求应报错")
 	}
-	if _, err := draftSvc.CreateManual(&CreateDraftRequest{}); err == nil {
+	if _, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{}); err == nil {
 		t.Error("缺客户应报错")
 	}
-	if _, err := draftSvc.CreateManual(&CreateDraftRequest{CustomerID: "c1"}); err == nil {
+	if _, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{CustomerID: "c1"}); err == nil {
 		t.Error("缺产品应报错")
 	}
-	if _, err := draftSvc.CreateManual(&CreateDraftRequest{
+	if _, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", ProductName: "X", UnitPrice: -1,
 	}); err == nil {
 		t.Error("负单价应报错")
@@ -218,9 +218,9 @@ func TestDraft_Confirm(t *testing.T) {
 	custID := "cust_confirm_001"
 	ownerID := "sales_confirm"
 	// 客户在"报价"阶段
-	_, _ = journey.Transition(ctx, custID, StageQuoted, "test", ownerID, "已报价", nil)
+	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
 
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID:  custID,
 		OwnerID:     ownerID,
 		ProductName: "光子嫩肤",
@@ -228,7 +228,7 @@ func TestDraft_Confirm(t *testing.T) {
 		UnitPrice:   880.0,
 	})
 
-	result, err := draftSvc.Confirm(draft.ID, ownerID)
+	result, err := draftSvc.Confirm(context.Background(), draft.ID, ownerID)
 	if err != nil {
 		t.Fatalf("确认失败: %v", err)
 	}
@@ -243,13 +243,13 @@ func TestDraft_Confirm(t *testing.T) {
 	}
 
 	// 验证：客户旅程推到 won
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
 
 	// 验证：仪表盘记录订单
-	perf := dashboard.GetSalesPerformance(ownerID, time.Time{})
+	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Errorf("仪表盘应记录订单，实际: %d", perf.TotalOrders)
 	}
@@ -258,7 +258,7 @@ func TestDraft_Confirm(t *testing.T) {
 	if result.FollowUpID == "" {
 		t.Error("应自动安排售后跟进")
 	}
-	pending := followup.ListPending(ownerID, 0)
+	pending := followup.ListPending(context.Background(), ownerID, 0)
 	foundAfterSale := false
 	for _, r := range pending {
 		if r.Type == ReminderAfterSaleCare && r.CustomerID == custID {
@@ -284,7 +284,7 @@ func TestDraft_Confirm(t *testing.T) {
 // TestDraft_Confirm_NotFound 确认不存在的草稿
 func TestDraft_Confirm_NotFound(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	_, err := draftSvc.Confirm("not_exist_id", "sales")
+	_, err := draftSvc.Confirm(context.Background(), "not_exist_id", "sales")
 	if err == nil {
 		t.Error("不存在的草稿应报错")
 	}
@@ -296,13 +296,13 @@ func TestDraft_Confirm_NotFound(t *testing.T) {
 // TestDraft_Confirm_AlreadyConfirmed 重复确认
 func TestDraft_Confirm_AlreadyConfirmed(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	if _, err := draftSvc.Confirm(draft.ID, "s1"); err != nil {
+	if _, err := draftSvc.Confirm(context.Background(), draft.ID, "s1"); err != nil {
 		t.Fatalf("首次确认失败: %v", err)
 	}
-	if _, err := draftSvc.Confirm(draft.ID, "s1"); err == nil {
+	if _, err := draftSvc.Confirm(context.Background(), draft.ID, "s1"); err == nil {
 		t.Error("重复确认应报错")
 	}
 }
@@ -314,7 +314,7 @@ func TestDraft_Cancel(t *testing.T) {
 	ownerID := "sales_cancel"
 	_, _ = journey.Transition(context.Background(), custID, StageQuoted, "test", ownerID, "已报价", nil)
 
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: custID, OwnerID: ownerID, ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	if err := draftSvc.Cancel(context.Background(), draft.ID, "客户改变主意", ownerID); err != nil {
@@ -327,7 +327,7 @@ func TestDraft_Cancel(t *testing.T) {
 		t.Errorf("取消原因错误: %s", draft.CancelReason)
 	}
 	// 仪表盘应记录 cancelled
-	stats := dashboard.GetDraftStats(ownerID, time.Time{})
+	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
 	if stats.ByAction["cancelled"] < 1 {
 		t.Error("仪表盘应记录 cancelled 事件")
 	}
@@ -337,14 +337,14 @@ func TestDraft_Cancel(t *testing.T) {
 // TestDraft_Edit 编辑草稿
 func TestDraft_Edit(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "光子嫩肤", Quantity: 1, UnitPrice: 1000,
 	})
 	// 修改数量 + 单价
 	newQty := 3
 	newPrice := 880.0
 	newNote := "客户砍价后调整"
-	if err := draftSvc.Edit(draft.ID, DraftUpdates{
+	if err := draftSvc.Edit(context.Background(), draft.ID, DraftUpdates{
 		Quantity:  &newQty,
 		UnitPrice: &newPrice,
 		Note:      &newNote,
@@ -364,12 +364,12 @@ func TestDraft_Edit(t *testing.T) {
 // TestDraft_Edit_NotPending 编辑已确认草稿
 func TestDraft_Edit_NotPending(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	_, _ = draftSvc.Confirm(draft.ID, "s1")
+	_, _ = draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	newQty := 5
-	if err := draftSvc.Edit(draft.ID, DraftUpdates{Quantity: &newQty}); err == nil {
+	if err := draftSvc.Edit(context.Background(), draft.ID, DraftUpdates{Quantity: &newQty}); err == nil {
 		t.Error("编辑已确认草稿应报错")
 	}
 }
@@ -378,12 +378,12 @@ func TestDraft_Edit_NotPending(t *testing.T) {
 // 商业产品级：销售工作台 7 天前的草稿自动过期，避免堆积
 func TestDraft_Expire(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	// 模拟过期
 	draft.ExpiresAt = time.Now().Add(-1 * time.Hour)
-	expired := draftSvc.ExpireOverdue()
+	expired := draftSvc.ExpireOverdue(context.Background())
 	if expired < 1 {
 		t.Error("应有 1 个草稿被过期")
 	}
@@ -403,20 +403,20 @@ func TestDraft_ListPending(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
 	// 创建 3 个 pending + 1 个 confirmed + 1 个 cancelled
 	for i := 0; i < 3; i++ {
-		draftSvc.CreateManual(&CreateDraftRequest{
+		draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: "sales_list", ProductName: "P", Quantity: 1, UnitPrice: 100,
 		})
 	}
-	d4, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d4, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "sales_list", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	draftSvc.Confirm(d4.ID, "sales_list")
-	d5, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draftSvc.Confirm(context.Background(), d4.ID, "sales_list")
+	d5, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "sales_list", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	draftSvc.Cancel(context.Background(), d5.ID, "test", "sales_list")
 
-	pending := draftSvc.ListPending("sales_list", 0)
+	pending := draftSvc.ListPending(context.Background(), "sales_list", 0)
 	if len(pending) != 3 {
 		t.Errorf("应有 3 个 pending，实际: %d", len(pending))
 	}
@@ -431,20 +431,20 @@ func TestDraft_ListPending(t *testing.T) {
 // TestDraft_ListPending_Sort 列表排序（高置信度 + 大金额优先）
 func TestDraft_ListPending_Sort(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	d1, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d1, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "低", Quantity: 1, UnitPrice: 10,
 	})
-	d2, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d2, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "高", Quantity: 1, UnitPrice: 9999,
 	})
-	d3, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d3, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "中", Quantity: 1, UnitPrice: 500,
 	})
 	// 调整置信度
 	d1.Confidence = 0.5
 	d2.Confidence = 0.7
 	d3.Confidence = 0.9
-	pending := draftSvc.ListPending("s1", 0)
+	pending := draftSvc.ListPending(context.Background(), "s1", 0)
 	if len(pending) != 3 {
 		t.Fatalf("应有 3 个")
 	}
@@ -458,20 +458,20 @@ func TestDraft_ListPending_Sort(t *testing.T) {
 func TestDraft_ListByOwner(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
 	for i := 0; i < 5; i++ {
-		draftSvc.CreateManual(&CreateDraftRequest{
+		draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: "alice", ProductName: "P", Quantity: 1, UnitPrice: 100,
 		})
 	}
 	for i := 0; i < 3; i++ {
-		draftSvc.CreateManual(&CreateDraftRequest{
+		draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: "bob", ProductName: "P", Quantity: 1, UnitPrice: 100,
 		})
 	}
-	alice := draftSvc.ListByOwner("alice")
+	alice := draftSvc.ListByOwner(context.Background(), "alice")
 	if len(alice) != 5 {
 		t.Errorf("alice 应有 5 个，实际: %d", len(alice))
 	}
-	bob := draftSvc.ListByOwner("bob")
+	bob := draftSvc.ListByOwner(context.Background(), "bob")
 	if len(bob) != 3 {
 		t.Errorf("bob 应有 3 个，实际: %d", len(bob))
 	}
@@ -481,15 +481,15 @@ func TestDraft_ListByOwner(t *testing.T) {
 func TestDraft_ListByCustomer(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
 	for i := 0; i < 3; i++ {
-		draftSvc.CreateManual(&CreateDraftRequest{
+		draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "alice_cust", OwnerID: "s1", ProductName: "P" + intToStr(i), Quantity: 1, UnitPrice: 100,
 		})
 	}
-	all := draftSvc.ListByCustomer("alice_cust")
+	all := draftSvc.ListByCustomer(context.Background(), "alice_cust")
 	if len(all) != 3 {
 		t.Errorf("应有 3 个，实际: %d", len(all))
 	}
-	empty := draftSvc.ListByCustomer("not_exist_cust")
+	empty := draftSvc.ListByCustomer(context.Background(), "not_exist_cust")
 	if len(empty) != 0 {
 		t.Errorf("不存在的客户应返回空")
 	}
@@ -498,7 +498,7 @@ func TestDraft_ListByCustomer(t *testing.T) {
 // TestDraft_GetByID 按 ID 查询
 func TestDraft_GetByID(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	d, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	got := draftSvc.GetByID(context.Background(), d.ID)
@@ -529,7 +529,7 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 		Reply:  "好的，光子嫩肤 3 次套餐 2280 元，预约周六可以吗？",
 		Intent: &dto.RecognizeResult{IntentType: IntentPurchase, IntentName: "准备购买", Confidence: 0.92},
 	}
-	rec := trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
+	rec := trigger.TriggerAfterSales(context.Background(), custID, ownerID, resp)
 	if rec == nil {
 		t.Fatal("触发器应返回记录")
 	}
@@ -546,7 +546,7 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 	}
 
 	// 验证：草稿存在
-	pending := draftSvc.ListPending(ownerID, 0)
+	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) == 0 {
 		t.Fatal("应有 1 个 pending 草稿")
 	}
@@ -555,14 +555,14 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 	}
 
 	// 验证：标签已打、阶段已推进
-	_ = tagger.GetTags(custID)
-	state := journey.GetState(custID)
+	_ = tagger.GetTags(context.Background(), custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage == StageStranger {
 		t.Error("客户旅程应推进")
 	}
 
 	// 验证：仪表盘记录草稿
-	_ = dashboard.GetDraftStats(ownerID, time.Time{})
+	_ = dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
 	t.Logf("✅ 触发器自动创建草稿: 阶段=%s, 草稿数=%d", state.CurrentStage, len(pending))
 }
 
@@ -578,10 +578,10 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 		Reply:  "好的，光子嫩肤 3 次套餐 2280 元，给您下单",
 		Intent: &dto.RecognizeResult{IntentType: IntentPurchase, IntentName: "购买", Confidence: 0.95},
 	}
-	trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
+	trigger.TriggerAfterSales(context.Background(), custID, ownerID, resp)
 
 	// 2. 销售在工作台看到待确认草稿
-	pending := draftSvc.ListPending(ownerID, 0)
+	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) != 1 {
 		t.Fatalf("应有 1 个待确认草稿，实际: %d", len(pending))
 	}
@@ -589,7 +589,7 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	t.Logf("   草稿: %s %s x %d = %.2f", draft.ProductName, draft.ProductName, draft.Quantity, draft.TotalAmount)
 
 	// 3. 销售点击"确认"
-	result, err := draftSvc.Confirm(draft.ID, ownerID)
+	result, err := draftSvc.Confirm(context.Background(), draft.ID, ownerID)
 	if err != nil {
 		t.Fatalf("确认失败: %v", err)
 	}
@@ -600,17 +600,17 @@ func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 		t.Error("应创建订单")
 	}
 	// 4.2 客户旅程推到 won
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
 	// 4.3 仪表盘记录订单
-	perf := dashboard.GetSalesPerformance(ownerID, time.Time{})
+	perf := dashboard.GetSalesPerformance(context.Background(), ownerID, time.Time{})
 	if perf.TotalOrders < 1 {
 		t.Error("仪表盘应记录订单")
 	}
 	// 4.4 售后跟进已安排
-	followups := followup.ListPending(ownerID, 0)
+	followups := followup.ListPending(context.Background(), ownerID, 0)
 	foundAfterSale := false
 	for _, f := range followups {
 		if f.Type == ReminderAfterSaleCare && f.CustomerID == custID {
@@ -634,9 +634,9 @@ func TestDraft_TriggerMultipleIntents(t *testing.T) {
 		Reply:  "我想要光子嫩肤 3 次 2280 元 和 水光针 1 次 980 元",
 		Intent: &dto.RecognizeResult{IntentType: IntentPurchase, IntentName: "购买", Confidence: 0.9},
 	}
-	trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
+	trigger.TriggerAfterSales(context.Background(), custID, ownerID, resp)
 
-	pending := draftSvc.ListPending(ownerID, 0)
+	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) < 1 {
 		t.Errorf("应至少有 1 个草稿（取决于提取器能力），实际: %d", len(pending))
 	}
@@ -653,9 +653,9 @@ func TestDraft_TriggerNoIntent(t *testing.T) {
 		Reply:  "你好，请问你们是正规公司吗？",
 		Intent: &dto.RecognizeResult{IntentType: IntentSocial, IntentName: "社交", Confidence: 0.85},
 	}
-	trigger.TriggerAfterSales(ctx, custID, ownerID, resp)
+	trigger.TriggerAfterSales(context.Background(), custID, ownerID, resp)
 
-	pending := draftSvc.ListPending(ownerID, 0)
+	pending := draftSvc.ListPending(context.Background(), ownerID, 0)
 	if len(pending) != 0 {
 		t.Errorf("无产品信号不应创建草稿，实际: %d", len(pending))
 	}
@@ -668,11 +668,11 @@ func TestDraft_TriggerNoIntent(t *testing.T) {
 // TestDraft_Confirm_Expired 确认过期草稿
 func TestDraft_Confirm_Expired(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	draft, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	draft.ExpiresAt = time.Now().Add(-1 * time.Hour) // 已过期
-	_, err := draftSvc.Confirm(draft.ID, "s1")
+	_, err := draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	if err == nil {
 		t.Error("过期草稿不应能确认")
 	}
@@ -688,16 +688,16 @@ func TestDraft_DashboardStats(t *testing.T) {
 	ownerID := "sales_stats"
 	// 创建 5 个，确认 2 个，取消 1 个
 	for i := 0; i < 5; i++ {
-		d, _ := draftSvc.CreateManual(&CreateDraftRequest{
+		d, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 			CustomerID: "c1", OwnerID: ownerID, ProductName: "P", Quantity: 1, UnitPrice: 1000,
 		})
 		if i < 2 {
-			draftSvc.Confirm(d.ID, ownerID)
+			draftSvc.Confirm(context.Background(), d.ID, ownerID)
 		} else if i == 2 {
 			draftSvc.Cancel(context.Background(), d.ID, "test", ownerID)
 		}
 	}
-	stats := dashboard.GetDraftStats(ownerID, time.Time{})
+	stats := dashboard.GetDraftStats(context.Background(), ownerID, time.Time{})
 	// Total = 5 created + 2 confirmed + 1 cancelled = 8 events
 	if stats.Total != 8 {
 		t.Errorf("总事件数应为 8，实际: %d", stats.Total)
@@ -722,7 +722,7 @@ func TestDraft_DashboardStats(t *testing.T) {
 // TestDraft_DefaultQuantity 缺省数量处理
 func TestDraft_DefaultQuantity(t *testing.T) {
 	_, _, _, _, _, draftSvc, _ := setupDraftEnv(t)
-	d1, _ := draftSvc.CreateManual(&CreateDraftRequest{
+	d1, _ := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 0, UnitPrice: 100,
 	})
 	if d1.Quantity != 1 {
@@ -734,14 +734,14 @@ func TestDraft_DefaultQuantity(t *testing.T) {
 func TestDraft_NilServiceSafe(t *testing.T) {
 	// 不注入任何下游服务
 	draftSvc := NewOrderDraftService(nil)
-	draft, err := draftSvc.CreateManual(&CreateDraftRequest{
+	draft, err := draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: "s1", ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
 	// 确认（无 orderService 也能跑，生成模拟订单 ID）
-	result, err := draftSvc.Confirm(draft.ID, "s1")
+	result, err := draftSvc.Confirm(context.Background(), draft.ID, "s1")
 	if err != nil {
 		t.Fatalf("确认失败: %v", err)
 	}
@@ -762,14 +762,14 @@ func TestDraft_ConfidenceBoost(t *testing.T) {
 		UnitPrice:   880,
 		Confidence:  0.7,
 	}
-	d1 := draftSvc.CreateFromIntent(&intent1, "s1")
+	d1 := draftSvc.CreateFromIntent(context.Background(), &intent1, "s1")
 	// 弱信号（产品+价格+数量都没有）
 	intent2 := OrderIntent{
 		CustomerID:  "c2",
 		ProductName: "光子嫩肤",
 		Confidence:  0.5,
 	}
-	d2 := draftSvc.CreateFromIntent(&intent2, "s2")
+	d2 := draftSvc.CreateFromIntent(context.Background(), &intent2, "s2")
 	if d1.Confidence <= d2.Confidence {
 		t.Errorf("强信号草稿应置信度更高: d1=%.2f d2=%.2f", d1.Confidence, d2.Confidence)
 	}
@@ -783,7 +783,7 @@ func TestDraft_ConcurrentSafe(t *testing.T) {
 	done := make(chan bool, 100)
 	for i := 0; i < 100; i++ {
 		go func(idx int) {
-			draftSvc.CreateManual(&CreateDraftRequest{
+			draftSvc.CreateManual(context.Background(), &CreateDraftRequest{
 				CustomerID:  "c" + intToStr(idx),
 				OwnerID:     "s_concurrent",
 				ProductName: "P",
@@ -796,7 +796,7 @@ func TestDraft_ConcurrentSafe(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		<-done
 	}
-	all := draftSvc.ListByOwner("s_concurrent")
+	all := draftSvc.ListByOwner(context.Background(), "s_concurrent")
 	if len(all) != 100 {
 		t.Errorf("并发创建后应有 100 个，实际: %d", len(all))
 	}

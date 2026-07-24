@@ -20,6 +20,7 @@ func TestUnifiedInbox_MultiChannel_OneIDBinding(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 客户在微信渠道留了手机号 13800138000
 	wechatMsg := &InboxMessage{
@@ -63,7 +64,7 @@ func TestUnifiedInbox_MultiChannel_OneIDBinding(t *testing.T) {
 	}
 
 	// 4. 验证：客户档案已绑定两个渠道 OpenID
-	cust := inbox.GetCustomerByUnifiedID(r1.UnifiedID)
+	cust := inbox.GetCustomerByUnifiedID(ctx, r1.UnifiedID)
 	if cust == nil {
 		t.Fatal("客户档案不存在")
 	}
@@ -78,7 +79,7 @@ func TestUnifiedInbox_MultiChannel_OneIDBinding(t *testing.T) {
 	}
 
 	// 5. 验证：客户旅程已自动启动
-	state := journey.GetState(cust.CustomerID)
+	state := journey.GetState(ctx, cust.CustomerID)
 	if state.CurrentStage == StageStranger {
 		t.Error("旅程应已自动从陌生推进")
 	}
@@ -91,6 +92,7 @@ func TestUnifiedInbox_ThreadAggregation(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 3 个不同客户分别在 3 个渠道发消息
 	customers := []struct {
@@ -119,7 +121,7 @@ func TestUnifiedInbox_ThreadAggregation(t *testing.T) {
 	}
 
 	// 2. 列出 thread 列表
-	summary := inbox.ListThreads(InboxFilter{Limit: 10})
+	summary := inbox.ListThreads(ctx, InboxFilter{Limit: 10})
 	if summary.TotalThreads != 3 {
 		t.Errorf("应有 3 个 thread，实际: %d", summary.TotalThreads)
 	}
@@ -158,7 +160,7 @@ func TestUnifiedInbox_ThreadAggregation(t *testing.T) {
 	}
 
 	// 5. 由于邮件 sender_id 是邮箱（不是手机号），应被识别为新客户
-	summary2 := inbox.ListThreads(InboxFilter{Limit: 10})
+	summary2 := inbox.ListThreads(ctx, InboxFilter{Limit: 10})
 	if summary2.TotalThreads != 4 {
 		t.Errorf("应有 4 个 thread（新邮件+原 3 个），实际: %d", summary2.TotalThreads)
 	}
@@ -171,6 +173,7 @@ func TestUnifiedInbox_AutoTag_IntentRecognize(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 客户咨询价格
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -187,7 +190,7 @@ func TestUnifiedInbox_AutoTag_IntentRecognize(t *testing.T) {
 	}
 
 	// 2. 验证：自动打了价格敏感标签
-	tags := tagger.GetTags(r.CustomerID)
+	tags := tagger.GetTags(ctx, r.CustomerID)
 	hasPriceTag := false
 	for _, tag := range tags {
 		if tag.Tag == "behavior:price_sensitive" {
@@ -206,6 +209,7 @@ func TestUnifiedInbox_JourneyAutoStart(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 新客户首次互动
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -222,7 +226,7 @@ func TestUnifiedInbox_JourneyAutoStart(t *testing.T) {
 	}
 
 	// 2. 验证：journey 中应有该客户
-	state := journey.GetState(r.CustomerID)
+	state := journey.GetState(ctx, r.CustomerID)
 	if state.CurrentStage == StageStranger {
 		t.Error("首次互动后客户旅程应已启动，不应仍为陌生")
 	}
@@ -238,6 +242,7 @@ func TestUnifiedInbox_MergeAccounts(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 创建 2 个独立客户
 	r1, _ := inbox.IngestMessage(ctx, &InboxMessage{
@@ -253,17 +258,17 @@ func TestUnifiedInbox_MergeAccounts(t *testing.T) {
 	}
 
 	// 2. 手动合并
-	err := inbox.MergeAccounts(r1.UnifiedID, r2.UnifiedID)
+	err := inbox.MergeAccounts(ctx, r1.UnifiedID, r2.UnifiedID)
 	if err != nil {
 		t.Fatalf("合并失败: %v", err)
 	}
 
 	// 3. 验证：次要客户已删除
-	if c := inbox.GetCustomerByUnifiedID(r2.UnifiedID); c != nil {
+	if c := inbox.GetCustomerByUnifiedID(ctx, r2.UnifiedID); c != nil {
 		t.Error("次要客户应已被删除")
 	}
 	// 4. 验证：主客户有 2 个渠道
-	c := inbox.GetCustomerByUnifiedID(r1.UnifiedID)
+	c := inbox.GetCustomerByUnifiedID(ctx, r1.UnifiedID)
 	if c == nil {
 		t.Fatal("主客户应存在")
 	}
@@ -279,6 +284,7 @@ func TestUnifiedInbox_UnreadFilter(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 客户 1 发 2 条消息
 	for i := 0; i < 2; i++ {
@@ -295,13 +301,13 @@ func TestUnifiedInbox_UnreadFilter(t *testing.T) {
 	})
 
 	// 3. 列出所有 thread
-	all := inbox.ListThreads(InboxFilter{Limit: 10})
+	all := inbox.ListThreads(ctx, InboxFilter{Limit: 10})
 	if all.TotalUnread != 3 {
 		t.Errorf("未读总数应为 3，实际: %d", all.TotalUnread)
 	}
 
 	// 4. 仅未读
-	unread := inbox.ListThreads(InboxFilter{OnlyUnread: true, Limit: 10})
+	unread := inbox.ListThreads(ctx, InboxFilter{OnlyUnread: true, Limit: 10})
 	if unread.TotalThreads != 2 {
 		t.Errorf("仅未读 thread 应为 2，实际: %d", unread.TotalThreads)
 	}
@@ -314,6 +320,7 @@ func TestUnifiedInbox_GetThread(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 1. 同一客户 3 个渠道发消息（首次微信已带手机号，后续通过手机号合并）
 	r1, _ := inbox.IngestMessage(ctx, &InboxMessage{
@@ -332,7 +339,7 @@ func TestUnifiedInbox_GetThread(t *testing.T) {
 	})
 
 	// 2. 获取 thread 详情
-	thread, msgs, err := inbox.GetThread(r1.UnifiedID)
+	thread, msgs, err := inbox.GetThread(ctx, r1.UnifiedID)
 	if err != nil {
 		t.Fatalf("获取 thread 失败: %v", err)
 	}
@@ -351,6 +358,7 @@ func TestUnifiedInbox_ContactExtractFromText(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	// 客户在消息里说"我的微信 13800138003 / foo@bar.com"
 	r, err := inbox.IngestMessage(ctx, &InboxMessage{
@@ -365,7 +373,7 @@ func TestUnifiedInbox_ContactExtractFromText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("入站失败: %v", err)
 	}
-	cust := inbox.GetCustomerByUnifiedID(r.UnifiedID)
+	cust := inbox.GetCustomerByUnifiedID(ctx, r.UnifiedID)
 	if cust == nil {
 		t.Fatal("客户应存在")
 	}
@@ -384,6 +392,7 @@ func TestUnifiedInbox_MarkRead(t *testing.T) {
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	inbox := NewUnifiedInboxService(journey, followup, tagger)
+	ctx := context.Background()
 
 	r, _ := inbox.IngestMessage(ctx, &InboxMessage{
 		Channel: InboxChannelWeChat, SenderID: "wx_read_001", SenderName: "测试",
@@ -395,14 +404,14 @@ func TestUnifiedInbox_MarkRead(t *testing.T) {
 	})
 
 	// 标记第 1 条已读
-	count := inbox.MarkRead(r.UnifiedID, []string{r.MessageID})
+	count := inbox.MarkRead(ctx, r.UnifiedID, []string{r.MessageID})
 	if count != 1 {
 		t.Errorf("应标记 1 条已读，实际: %d", count)
 	}
 	_ = r2
 
 	// 验证：还有 1 条未读
-	summary := inbox.ListThreads(InboxFilter{OnlyUnread: true, Limit: 10})
+	summary := inbox.ListThreads(ctx, InboxFilter{OnlyUnread: true, Limit: 10})
 	if summary.TotalUnread != 1 {
 		t.Errorf("应剩 1 条未读，实际: %d", summary.TotalUnread)
 	}

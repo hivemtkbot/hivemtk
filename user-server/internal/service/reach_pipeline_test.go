@@ -145,21 +145,21 @@ func TestDefaultRateLimit_Fields(t *testing.T) {
 
 func TestValidateSteps_AllDefault(t *testing.T) {
 	svc := &ReachPipelineService{}
-	if err := svc.validateSteps(DefaultPipelineSteps); err != nil {
+	if err := svc.validateSteps(context.Background(), DefaultPipelineSteps); err != nil {
 		t.Errorf("default steps should be valid, got %v", err)
 	}
 }
 
 func TestValidateSteps_Empty(t *testing.T) {
 	svc := &ReachPipelineService{}
-	if err := svc.validateSteps([]string{}); err == nil {
+	if err := svc.validateSteps(context.Background(), []string{}); err == nil {
 		t.Error("expected error on empty steps")
 	}
 }
 
 func TestValidateSteps_UnknownStep(t *testing.T) {
 	svc := &ReachPipelineService{}
-	err := svc.validateSteps([]string{"unknown_step"})
+	err := svc.validateSteps(context.Background(), []string{"unknown_step"})
 	if err == nil {
 		t.Error("expected error on unknown step")
 	}
@@ -168,7 +168,7 @@ func TestValidateSteps_UnknownStep(t *testing.T) {
 func TestValidateSteps_NoSend(t *testing.T) {
 	svc := &ReachPipelineService{}
 	steps := []string{StepAudience, StepContentPrepare, StepReport}
-	err := svc.validateSteps(steps)
+	err := svc.validateSteps(context.Background(), steps)
 	if err == nil {
 		t.Error("expected error when send is missing")
 	}
@@ -177,7 +177,7 @@ func TestValidateSteps_NoSend(t *testing.T) {
 func TestValidateSteps_MixedValid(t *testing.T) {
 	svc := &ReachPipelineService{}
 	steps := []string{StepAudience, StepSend, StepReport}
-	if err := svc.validateSteps(steps); err != nil {
+	if err := svc.validateSteps(context.Background(), steps); err != nil {
 		t.Errorf("expected valid, got %v", err)
 	}
 }
@@ -230,18 +230,18 @@ func TestComputeNextRunTime_ExponentialCapped(t *testing.T) {
 func TestRateBucket_InitialBurst(t *testing.T) {
 	b := &rateBucket{tokens: 5, lastFill: time.Now(), burst: 5, qps: 1}
 	for i := 0; i < 5; i++ {
-		if !b.allow() {
+		if !b.allow(context.Background()) {
 			t.Errorf("expected allow at %d", i)
 		}
 	}
-	if b.allow() {
+	if b.allow(context.Background()) {
 		t.Error("expected deny after burst exhausted")
 	}
 }
 
 func TestRateBucket_Refill(t *testing.T) {
 	b := &rateBucket{tokens: 0, lastFill: time.Now().Add(-1 * time.Second), burst: 1, qps: 10}
-	if !b.allow() {
+	if !b.allow(context.Background()) {
 		t.Error("expected allow after refill")
 	}
 }
@@ -250,7 +250,7 @@ func TestRateBucket_BurstBounded(t *testing.T) {
 	b := &rateBucket{tokens: 5, lastFill: time.Now().Add(-10 * time.Second), burst: 3, qps: 100}
 	// 长时间不调用，token 不应超过 burst
 	for i := 0; i < 10; i++ {
-		b.allow()
+		b.allow(context.Background())
 	}
 	if b.tokens > float64(b.burst) {
 		t.Errorf("expected tokens <= burst, got %f", b.tokens)
@@ -990,7 +990,7 @@ func TestExecuteJob_RateLimited(t *testing.T) {
 func TestCheckRateLimit_NoLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{}
-	if !svc.checkRateLimit("wecom", "acc", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl) {
 		t.Error("expected allow when no limits set")
 	}
 }
@@ -998,9 +998,9 @@ func TestCheckRateLimit_NoLimit(t *testing.T) {
 func TestCheckRateLimit_DailyQuotaExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 2}
-	svc.checkRateLimit("wecom", "acc1", "u-1", &rl)
-	svc.checkRateLimit("wecom", "acc2", "u-1", &rl)
-	if svc.checkRateLimit("wecom", "acc3", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl)
+	if svc.checkRateLimit(context.Background(), "wecom", "acc3", "u-1", &rl) {
 		t.Error("expected deny after quota exceeded")
 	}
 }
@@ -1008,14 +1008,14 @@ func TestCheckRateLimit_DailyQuotaExceeded(t *testing.T) {
 func TestCheckRateLimit_DailyReset(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 1}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
 	// 模拟跨日
 	svc.dailyQuotaMu.Lock()
 	for k := range svc.dailyQuota {
 		svc.dailyQuota[k] = &dailyCounter{date: "2020-01-01", count: 0}
 	}
 	svc.dailyQuotaMu.Unlock()
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow after day reset")
 	}
 }
@@ -1023,9 +1023,9 @@ func TestCheckRateLimit_DailyReset(t *testing.T) {
 func TestCheckRateLimit_PerUserExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 2, CooldownSecs: 60}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
-	if svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny after per-user limit")
 	}
 }
@@ -1035,15 +1035,15 @@ func TestCheckRateLimit_PerUserExceeded(t *testing.T) {
 func TestCheckRateLimit_PerUserDifferent(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 1, CooldownSecs: 60}
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow for first call")
 	}
 	// 同一用户第 2 次：应被限流
-	if svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny for same user second call")
 	}
 	// 不同用户：应被允许
-	if !svc.checkRateLimit("wecom", "a", "u-2", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-2", &rl) {
 		t.Error("expected allow for different user")
 	}
 }
@@ -1051,9 +1051,9 @@ func TestCheckRateLimit_PerUserDifferent(t *testing.T) {
 func TestCheckRateLimit_PerUserCooldown(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{PerUserLimit: 1, CooldownSecs: 0}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
 	// 冷却 0 秒 -> 立即过期
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow after cooldown=0")
 	}
 }
@@ -1061,11 +1061,11 @@ func TestCheckRateLimit_PerUserCooldown(t *testing.T) {
 func TestCheckRateLimit_QPSExceeded(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow for first call")
 	}
 	// 同一秒内第二次
-	if svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny for second call in same second")
 	}
 }
@@ -1073,8 +1073,8 @@ func TestCheckRateLimit_QPSExceeded(t *testing.T) {
 func TestCheckRateLimit_DifferentAccount(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit("wecom", "acc1", "u-1", &rl)
-	if !svc.checkRateLimit("wecom", "acc2", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "acc1", "u-1", &rl)
+	if !svc.checkRateLimit(context.Background(), "wecom", "acc2", "u-1", &rl) {
 		t.Error("expected allow for different account")
 	}
 }
@@ -1082,22 +1082,22 @@ func TestCheckRateLimit_DifferentAccount(t *testing.T) {
 func TestResetRateLimit(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
-	if svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	if svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected deny before reset")
 	}
-	svc.ResetRateLimit("wecom")
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	svc.ResetRateLimit(context.Background(), "wecom")
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow after reset")
 	}
 }
 
 func TestConsumeDailyQuota(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	if !svc.ConsumeDailyQuota("wecom") {
+	if !svc.ConsumeDailyQuota(context.Background(), "wecom") {
 		t.Error("expected allow")
 	}
-	if !svc.ConsumeDailyQuota("wecom") {
+	if !svc.ConsumeDailyQuota(context.Background(), "wecom") {
 		t.Error("expected allow second")
 	}
 }
@@ -1280,7 +1280,7 @@ func TestRunStep_RateLimit_Pass(t *testing.T) {
 func TestRunStep_RateLimit_Deny(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{QPS: 1, Burst: 1}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
 	job := &model.ReachJob{Channel: "wecom", AccountID: "a", CustomerID: "u"}
 	res := svc.runStep(context.Background(), StepRateLimit, job, &rl)
 	if res.Success {
@@ -1452,7 +1452,7 @@ func TestJobStateMachine_RateLimitedToPending(t *testing.T) {
 	}
 	// 改为 pending 并可执行
 	db.Model(&model.ReachJob{}).Where("id = ?", job.ID).Update("state", JobStatePending)
-	svc.ResetRateLimit("wecom")
+	svc.ResetRateLimit(context.Background(), "wecom")
 	got2, _ := svc.GetJob(context.Background(), job.ID)
 	if got2.State != JobStatePending {
 		t.Errorf("expected pending, got %s", got2.State)
@@ -1532,7 +1532,7 @@ func TestCheckRateLimit_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			svc.checkRateLimit("wecom", "acc", "u-1", &rl)
+			svc.checkRateLimit(context.Background(), "wecom", "acc", "u-1", &rl)
 		}()
 	}
 	wg.Wait()
@@ -1660,15 +1660,15 @@ func TestListPipelines_PageBoundaries(t *testing.T) {
 func TestResetRateLimit_EmptyChannel(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	// 不应 panic
-	svc.ResetRateLimit("")
+	svc.ResetRateLimit(context.Background(), "")
 }
 
 func TestCheckRateLimit_AfterReset(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	rl := RateLimitConfig{DailyQuota: 1}
-	svc.checkRateLimit("wecom", "a", "u-1", &rl)
-	svc.ResetRateLimit("wecom")
-	if !svc.checkRateLimit("wecom", "a", "u-1", &rl) {
+	svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl)
+	svc.ResetRateLimit(context.Background(), "wecom")
+	if !svc.checkRateLimit(context.Background(), "wecom", "a", "u-1", &rl) {
 		t.Error("expected allow after reset")
 	}
 }
@@ -1758,7 +1758,7 @@ func TestAppendStepResult(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	svc.appendStepResult(job, StepResult{Step: "test", Success: true})
+	svc.appendStepResult(context.Background(), job, StepResult{Step: "test", Success: true})
 	// 重新获取
 	got, _ := svc.GetJob(context.Background(), job.ID)
 	if len(got.StepResults) == 0 {
@@ -1786,7 +1786,7 @@ func jsonUnmarshal(data []byte, v any) error {
 
 func TestPrepareContent_NilJob(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	_, err := svc.prepareContent(nil)
+	_, err := svc.prepareContent(context.Background(), nil)
 	if err == nil {
 		t.Error("expected error on nil job")
 	}
@@ -1794,7 +1794,7 @@ func TestPrepareContent_NilJob(t *testing.T) {
 
 func TestPrepareContent_NoContent(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	_, err := svc.prepareContent(&model.ReachJob{Payload: model.JSONMap{}})
+	_, err := svc.prepareContent(context.Background(), &model.ReachJob{Payload: model.JSONMap{}})
 	if err == nil {
 		t.Error("expected error on empty payload")
 	}
@@ -1807,7 +1807,7 @@ func TestPrepareContent_FromStringTemplate(t *testing.T) {
 		Channel:    "wecom",
 		Payload:    model.JSONMap{"content": "Hi {{customer_id}}, welcome to {{channel}}!"},
 	}
-	got, err := svc.prepareContent(job)
+	got, err := svc.prepareContent(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1828,7 +1828,7 @@ func TestPrepareContent_FromPayloadVars(t *testing.T) {
 			"code":    12345,
 		},
 	}
-	got, err := svc.prepareContent(job)
+	got, err := svc.prepareContent(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1843,7 +1843,7 @@ func TestPrepareContent_UnfilledKeyPreserved(t *testing.T) {
 	job := &model.ReachJob{
 		Payload: model.JSONMap{"content": "Hello {{unknown_key}}"},
 	}
-	got, err := svc.prepareContent(job)
+	got, err := svc.prepareContent(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1856,7 +1856,7 @@ func TestPrepareContent_UnfilledKeyPreserved(t *testing.T) {
 func TestPrepareContent_EmptyString(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	job := &model.ReachJob{Payload: model.JSONMap{"content": ""}}
-	_, err := svc.prepareContent(job)
+	_, err := svc.prepareContent(context.Background(), job)
 	if err == nil {
 		t.Error("expected error on empty content")
 	}
@@ -1868,7 +1868,7 @@ func TestGenerateMessage_TrimsAndFolds(t *testing.T) {
 		CustomerID: "u-1",
 		Payload:    model.JSONMap{"content": "  Hello\n\n   World  \n\n"},
 	}
-	got, err := svc.generateMessage(job)
+	got, err := svc.generateMessage(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1887,7 +1887,7 @@ func TestGenerateMessage_ChannelFooter(t *testing.T) {
 			"include_channel_footer": true,
 		},
 	}
-	got, err := svc.generateMessage(job)
+	got, err := svc.generateMessage(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1903,7 +1903,7 @@ func TestGenerateMessage_NoFooter(t *testing.T) {
 		Channel:    "wecom",
 		Payload:    model.JSONMap{"content": "Hello"},
 	}
-	got, err := svc.generateMessage(job)
+	got, err := svc.generateMessage(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1983,7 +1983,7 @@ func TestDispatchOutbound_MessageIDFormat(t *testing.T) {
 
 func TestTrackSendResult_NilJob(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	err := svc.trackSendResult(nil, StepResult{})
+	err := svc.trackSendResult(context.Background(), nil, StepResult{})
 	if err == nil {
 		t.Error("expected error on nil job")
 	}
@@ -2004,7 +2004,7 @@ func TestTrackSendResult_WritesTracking(t *testing.T) {
 			},
 		},
 	}
-	if err := svc.trackSendResult(job, StepResult{}); err != nil {
+	if err := svc.trackSendResult(context.Background(), job, StepResult{}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	tracking, _ := job.Payload["_tracking"].(map[string]any)
@@ -2024,7 +2024,7 @@ func TestTrackSendResult_WritesTracking(t *testing.T) {
 
 func TestAggregateReport_NilJob(t *testing.T) {
 	svc := NewReachPipelineService(nil)
-	_, err := svc.aggregateReport(nil)
+	_, err := svc.aggregateReport(context.Background(), nil)
 	if err == nil {
 		t.Error("expected error on nil job")
 	}
@@ -2033,7 +2033,7 @@ func TestAggregateReport_NilJob(t *testing.T) {
 func TestAggregateReport_EmptyResults(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	job := &model.ReachJob{}
-	report, err := svc.aggregateReport(job)
+	report, err := svc.aggregateReport(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2060,7 +2060,7 @@ func TestAggregateReport_WithStepResults(t *testing.T) {
 			"channel":    "wecom",
 		},
 	}
-	report, err := svc.aggregateReport(job)
+	report, err := svc.aggregateReport(context.Background(), job)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2091,7 +2091,7 @@ func TestAggregateReport_UpdatesPipelineCounters(t *testing.T) {
 	job.StepResults = model.JSONArray{
 		map[string]any{"step": StepSend, "success": true, "duration_ms": 50},
 	}
-	if _, err := svc.aggregateReport(job); err != nil {
+	if _, err := svc.aggregateReport(context.Background(), job); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// 验证 Pipeline 计数器被更新

@@ -167,7 +167,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 		}
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestRagHealth_GetHealth_EmbeddingFailure(t *testing.T) {
 		}
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 		}
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 	}
 
 	// 用 1 小时窗口 → 不包含 2 小时前的数据
-	r1, err := svc.GetHealth(ctx, time.Hour)
+	r1, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth 1 failed: %v", err)
 	}
@@ -404,7 +404,7 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 	}
 
 	// 用 3 小时窗口 → 包含 2 小时前的数据
-	r2, err := svc.GetHealth(ctx, 3*time.Hour)
+	r2, err := svc.GetHealth(context.Background(), 3*time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth 2 failed: %v", err)
 	}
@@ -427,7 +427,7 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 	svc := NewRagHealthService(db, nil, nil)
 
 	// 第一次调用 → 未命中缓存
-	r1, err := svc.GetHealthCached(ctx, time.Hour)
+	r1, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 1 failed: %v", err)
 	}
@@ -449,7 +449,7 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 	}
 
 	// 第二次调用（缓存未过期） → 应命中缓存，返回相同结果
-	r2, err := svc.GetHealthCached(ctx, time.Hour)
+	r2, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 2 failed: %v", err)
 	}
@@ -458,8 +458,8 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 	}
 
 	// 清缓存后再调
-	svc.ClearCache()
-	r3, err := svc.GetHealthCached(ctx, time.Hour)
+	svc.ClearCache(context.Background())
+	r3, err := svc.GetHealthCached(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealthCached 3 failed: %v", err)
 	}
@@ -577,7 +577,7 @@ func TestRagHealth_ComputeDimensions_AllHealthy(t *testing.T) {
 		AvgRecall:    1.0,
 		P99LatencyMs: 100,
 	}
-	dims := svc.computeDimensions(recall, 0.0, 10, 1500, 0)
+	dims := svc.computeDimensions(context.Background(), recall, 0.0, 10, 1500, 0)
 	if len(dims) != 6 {
 		t.Fatalf("Expected 6 dims, got %d", len(dims))
 	}
@@ -598,7 +598,7 @@ func TestRagHealth_ComputeDimensions_AllCritical(t *testing.T) {
 	recall := &RecallMetrics{
 		TotalQueries: 0, // 空数据
 	}
-	dims := svc.computeDimensions(recall, 0.0, 0, 0, 20) // 20 个预警
+	dims := svc.computeDimensions(context.Background(), recall, 0.0, 0, 0, 20) // 20 个预警
 	if len(dims) != 6 {
 		t.Fatalf("Expected 6 dims, got %d", len(dims))
 	}
@@ -652,13 +652,13 @@ func TestRagHealth_ClearCache(t *testing.T) {
 	svc := NewRagHealthService(db, nil, nil)
 
 	// 第一次调用填充缓存
-	_, _ = svc.GetHealthCached(ctx, time.Hour)
+	_, _ = svc.GetHealthCached(context.Background(), time.Hour)
 	if svc.cached == nil {
 		t.Fatal("Expected non-nil cache after GetHealthCached")
 	}
 
 	// 清缓存
-	svc.ClearCache()
+	svc.ClearCache(context.Background())
 	if svc.cached != nil {
 		t.Error("Expected nil cache after ClearCache")
 	}
@@ -729,7 +729,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		}
 	}
 
-	r, err := svc.GetHealth(ctx, time.Hour)
+	r, err := svc.GetHealth(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatalf("GetHealth failed: %v", err)
 	}

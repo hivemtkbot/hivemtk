@@ -43,7 +43,7 @@ func TestSystemConfigService_GetConfig_Empty(t *testing.T) {
 	repo := newTestSystemConfigRepository(database)
 	service := &SystemConfigService{repo: repo}
 
-	config, err := service.GetConfig()
+	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSystemConfigService_GetConfig_WithDB(t *testing.T) {
 	database.Create(config)
 
 	// 获取配置
-	retrievedConfig, err := service.GetConfig()
+	retrievedConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestSystemConfigService_SaveConfig(t *testing.T) {
 		WebsiteURL: "https://newexample.com",
 	}
 
-	savedConfig, err := service.SaveConfig(newConfig)
+	savedConfig, err := service.SaveConfig(context.Background(), newConfig)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestSystemConfigService_SaveConfig_EmptyFields(t *testing.T) {
 		WebsiteURL: "",
 	}
 
-	savedConfig, err := service.SaveConfig(emptyConfig)
+	savedConfig, err := service.SaveConfig(context.Background(), emptyConfig)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestSystemConfigService_SaveConfig_WithSpecialChars(t *testing.T) {
 		WebsiteURL: "https://example.com/path?query=value&param=test",
 	}
 
-	savedConfig, err := service.SaveConfig(specialConfig)
+	savedConfig, err := service.SaveConfig(context.Background(), specialConfig)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestSystemConfigService_SaveConfig_LongFields(t *testing.T) {
 		WebsiteURL: longURL,
 	}
 
-	savedConfig, err := service.SaveConfig(longConfig)
+	savedConfig, err := service.SaveConfig(context.Background(), longConfig)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
@@ -215,14 +215,14 @@ func TestSystemConfigService_SaveConfig_MultipleUpdates(t *testing.T) {
 		Name:       "配置 1",
 		WebsiteURL: "https://example1.com",
 	}
-	service.SaveConfig(config1)
+	service.SaveConfig(context.Background(), config1)
 
 	// 第二次保存（应该更新）
 	config2 := &model.SystemConfig{
 		Name:       "配置 2",
 		WebsiteURL: "https://example2.com",
 	}
-	service.SaveConfig(config2)
+	service.SaveConfig(context.Background(), config2)
 
 	// 验证最终配置
 	var count int64
@@ -232,7 +232,7 @@ func TestSystemConfigService_SaveConfig_MultipleUpdates(t *testing.T) {
 	}
 
 	// 获取配置验证内容
-	finalConfig, err := service.GetConfig()
+	finalConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestSystemConfigService_Integration(t *testing.T) {
 	service := &SystemConfigService{repo: repo}
 
 	// 1. 初始状态应返回空配置
-	config, err := service.GetConfig()
+	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestSystemConfigService_Integration(t *testing.T) {
 		Name:       "集成测试系统",
 		WebsiteURL: "https://test.example.com",
 	}
-	savedConfig, err := service.SaveConfig(newConfig)
+	savedConfig, err := service.SaveConfig(context.Background(), newConfig)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestSystemConfigService_Integration(t *testing.T) {
 	}
 
 	// 4. 再次获取配置验证一致性
-	finalConfig, err := service.GetConfig()
+	finalConfig, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}

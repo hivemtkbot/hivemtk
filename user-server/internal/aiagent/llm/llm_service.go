@@ -99,14 +99,27 @@ type LLMService struct {
 	httpClient *http.Client
 }
 
+// defaultHTTPTimeout 默认 HTTP 客户端超时
+// 2026-07-24：改为可配置，由 NewDispatcherFromConfig 启动时通过 setDefaultHTTPTimeout 注入
+// 默认 180s（覆盖大多数 CPU 推理场景）；开发模式可在 config.yaml 设 720s 等大值。
+// 与 dispatcher.MaxLatency、sales_engine.agentLoopTotalTimeout 共享同一配置源。
+var defaultHTTPTimeout = 180 * time.Second
+
+// setDefaultHTTPTimeout 注入 HTTP 客户端默认超时
+// 由 NewDispatcherFromConfig 启动时调用，从 inference.llm.timeout_seconds 派生
+func setDefaultHTTPTimeout(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	defaultHTTPTimeout = d
+}
+
 // NewLLMService 创建新的LLM服务
 func NewLLMService() *LLMService {
 	return &LLMService{
-		// 2026-07-22：私域部署在 Mac M1 / CPU 上跑 1.5B Q4 GGUF，
-		// prompt eval + 生成需要 60-120s。把单次 HTTP 超时从 60s 提升到 180s，
-		// 否则会被 http.Client 提前 cancel，导致 agentLoopTotalTimeout 兜底降级生效。
+		// 单次 HTTP 超时由 defaultHTTPTimeout 控制（默认 180s，可由配置注入）
 		httpClient: &http.Client{
-			Timeout: 180 * time.Second,
+			Timeout: defaultHTTPTimeout,
 		},
 	}
 }

@@ -62,7 +62,7 @@ func TestSmlistService_Register(t *testing.T) {
 		Images:  "image1.jpg,image2.jpg",
 	}
 
-	result, err := service.Register(smlist)
+	result, err := service.Register(context.Background(), smlist)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestSmlistService_Register_EmptyFields(t *testing.T) {
 		Name: "仅名称",
 	}
 
-	result, err := service.Register(smlist)
+	result, err := service.Register(context.Background(), smlist)
 	if err != nil {
 		t.Fatalf("Register with empty fields failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestSmlistService_GetSmlist(t *testing.T) {
 	database.Create(smlist)
 
 	// 获取
-	result, err := service.GetSmlist(smlist.ID)
+	result, err := service.GetSmlist(context.Background(), smlist.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestSmlistService_GetSmlist_NotFound(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	_, err := service.GetSmlist("non-existent-id")
+	_, err := service.GetSmlist(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent Smlist")
 	}
@@ -161,7 +161,7 @@ func TestSmlistService_GetSmlistList(t *testing.T) {
 	}
 
 	// 获取列表
-	list, total, err := service.GetSmlistList(1, 10)
+	list, total, err := service.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestSmlistService_GetSmlistList_Pagination(t *testing.T) {
 	}
 
 	// 第一页，每页 5 条
-	list, total, err := service.GetSmlistList(1, 5)
+	list, total, err := service.GetSmlistList(context.Background(), 1, 5)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestSmlistService_GetSmlistList_Pagination(t *testing.T) {
 	}
 
 	// 第二页
-	list2, total2, err := service.GetSmlistList(2, 5)
+	list2, total2, err := service.GetSmlistList(context.Background(), 2, 5)
 	if err != nil {
 		t.Fatalf("GetSmlistList page 2 failed: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestSmlistService_GetSmlistList_Empty(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	list, total, err := service.GetSmlistList(1, 10)
+	list, total, err := service.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestSmlistService_GetSmlistAllList(t *testing.T) {
 	}
 
 	// 获取全部列表
-	list, total, err := service.GetSmlistAllList()
+	list, total, err := service.GetSmlistAllList(context.Background())
 	if err != nil {
 		t.Fatalf("GetSmlistAllList failed: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestSmlistService_GetSmlistAllList_Empty(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	list, total, err := service.GetSmlistAllList()
+	list, total, err := service.GetSmlistAllList(context.Background())
 	if err != nil {
 		t.Fatalf("GetSmlistAllList failed: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestSmlistService_DeleteSmlist(t *testing.T) {
 	database.Create(smlist)
 
 	// 删除
-	err := service.DeleteSmlist(smlist.ID)
+	err := service.DeleteSmlist(context.Background(), smlist.ID)
 	if err != nil {
 		t.Fatalf("DeleteSmlist failed: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestSmlistService_DeleteSmlist_NotFound(t *testing.T) {
 
 	// 生成一个不存在的 UUID
 	nonExistentID := "00000000-0000-0000-0000-000000000000"
-	err := service.DeleteSmlist(nonExistentID)
+	err := service.DeleteSmlist(context.Background(), nonExistentID)
 	if err != nil {
 		t.Logf("DeleteSmlist for non-existent ID returned error (expected): %v", err)
 	}
@@ -349,7 +349,7 @@ func TestSmlistService_GetRecentSmlistList(t *testing.T) {
 	}
 
 	// 获取最近列表
-	list, err := service.GetRecentSmlistList()
+	list, err := service.GetRecentSmlistList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentSmlistList failed: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestSmlistService_GetRecentSmlistList_Empty(t *testing.T) {
 	repo := newTestSmlistRepository(database)
 	service := NewSmlistService(repo)
 
-	list, err := service.GetRecentSmlistList()
+	list, err := service.GetRecentSmlistList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentSmlistList failed: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestSmlistService_GetRecentSmlistList_OrderByCreateTime(t *testing.T) {
 	database.Create(smlist2)
 	database.Create(smlist3)
 
-	list, err := service.GetRecentSmlistList()
+	list, err := service.GetRecentSmlistList(context.Background())
 	if err != nil {
 		t.Fatalf("GetRecentSmlistList failed: %v", err)
 	}
@@ -423,13 +423,13 @@ func TestSmlistService_Integration(t *testing.T) {
 		Address: "测试地址",
 	}
 
-	registered, err := service.Register(smlist)
+	registered, err := service.Register(context.Background(), smlist)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
 
 	// 2. 查询
-	retrieved, err := service.GetSmlist(registered.ID)
+	retrieved, err := service.GetSmlist(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist failed: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestSmlistService_Integration(t *testing.T) {
 	}
 
 	// 3. 列表
-	list, total, err := service.GetSmlistList(1, 10)
+	list, total, err := service.GetSmlistList(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
 	}
@@ -453,13 +453,13 @@ func TestSmlistService_Integration(t *testing.T) {
 	}
 
 	// 4. 删除
-	err = service.DeleteSmlist(registered.ID)
+	err = service.DeleteSmlist(context.Background(), registered.ID)
 	if err != nil {
 		t.Fatalf("DeleteSmlist failed: %v", err)
 	}
 
 	// 5. 验证删除后查询失败
-	_, err = service.GetSmlist(registered.ID)
+	_, err = service.GetSmlist(context.Background(), registered.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
 	}
@@ -482,7 +482,7 @@ func TestSmlistService_ConcurrentRegister(t *testing.T) {
 				Name:  "并发测试" + string(rune('0'+idx)),
 				Phone: "1381234567" + string(rune('0'+idx)),
 			}
-			_, err := service.Register(smlist)
+			_, err := service.Register(context.Background(), smlist)
 			if err != nil {
 				t.Errorf("Concurrent Register failed: %v", err)
 			}
@@ -496,7 +496,7 @@ func TestSmlistService_ConcurrentRegister(t *testing.T) {
 	}
 
 	// 验证数据数量
-	list, total, err := service.GetSmlistList(1, 20)
+	list, total, err := service.GetSmlistList(context.Background(), 1, 20)
 	if err != nil {
 		t.Fatalf("GetSmlistList failed: %v", err)
 	}
@@ -525,21 +525,21 @@ func TestSmlistService_BoundaryConditions(t *testing.T) {
 	database.Create(smlist)
 
 	// 第 0 页（边界情况）
-	list, total, err := service.GetSmlistList(0, 10)
+	list, total, err := service.GetSmlistList(context.Background(), 0, 10)
 	if err != nil {
 		t.Fatalf("GetSmlistList page 0 failed: %v", err)
 	}
 	t.Logf("Page 0: total=%d, len=%d", total, len(list))
 
 	// limit 为 0 的情况
-	list2, total2, err := service.GetSmlistList(1, 0)
+	list2, total2, err := service.GetSmlistList(context.Background(), 1, 0)
 	if err != nil {
 		t.Fatalf("GetSmlistList limit 0 failed: %v", err)
 	}
 	t.Logf("Limit 0: total=%d, len=%d", total2, len(list2))
 
 	// 负数分页
-	list3, total3, err := service.GetSmlistList(-1, -10)
+	list3, total3, err := service.GetSmlistList(context.Background(), -1, -10)
 	if err != nil {
 		t.Fatalf("GetSmlistList negative params failed: %v", err)
 	}
@@ -559,7 +559,7 @@ func TestSmlistService_SpecialCharacters(t *testing.T) {
 		Desc:    "描述中包含 emoji 🎉🚀",
 	}
 
-	result, err := service.Register(smlist)
+	result, err := service.Register(context.Background(), smlist)
 	if err != nil {
 		t.Fatalf("Register with special characters failed: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestSmlistService_SpecialCharacters(t *testing.T) {
 	}
 
 	// 验证能正确查询
-	retrieved, err := service.GetSmlist(result.ID)
+	retrieved, err := service.GetSmlist(context.Background(), result.ID)
 	if err != nil {
 		t.Fatalf("GetSmlist with special characters failed: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestSmlistService_LongStrings(t *testing.T) {
 		Desc:    longString,
 	}
 
-	result, err := service.Register(smlist)
+	result, err := service.Register(context.Background(), smlist)
 	if err != nil {
 		t.Fatalf("Register with long strings failed: %v", err)
 	}

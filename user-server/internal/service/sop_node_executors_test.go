@@ -781,7 +781,7 @@ func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
 		SOPNodeTypeAIDecide, SOPNodeTypeBranch,
 	}
 	registered := map[string]bool{}
-	for _, t := range r.AllRegistered() {
+	for _, t := range r.AllRegistered(context.Background()) {
 		registered[t] = true
 	}
 	for _, typ := range expectedTypes {
@@ -789,8 +789,8 @@ func TestRegisterAllNodeExecutors_AllTypesRegistered(t *testing.T) {
 			t.Errorf("node type %s not registered", typ)
 		}
 	}
-	if len(r.AllRegistered()) != len(expectedTypes) {
-		t.Errorf("registered count=%d want=%d", len(r.AllRegistered()), len(expectedTypes))
+	if len(r.AllRegistered(context.Background())) != len(expectedTypes) {
+		t.Errorf("registered count=%d want=%d", len(r.AllRegistered(context.Background())), len(expectedTypes))
 	}
 }
 

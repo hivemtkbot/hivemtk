@@ -42,20 +42,20 @@ func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService,
 	followup := NewFollowUpService(journey)
 	tagger := NewAITagger()
 	dashboard := NewSalesDashboard(journey)
-	followup.SetDashboard(dashboard)
+	followup.SetDashboard(context.Background(), dashboard)
 
 	draft := NewOrderDraftService(nil)
-	draft.SetJourney(journey)
-	draft.SetDashboard(dashboard)
-	draft.SetFollowUp(followup)
-	draft.SetOrderService(NewOrderService())
+	draft.SetJourney(context.Background(), journey)
+	draft.SetDashboard(context.Background(), dashboard)
+	draft.SetFollowUp(context.Background(), followup)
+	draft.SetOrderService(context.Background(), NewOrderService())
 
 	workbench := NewSalesWorkbenchService()
-	workbench.SetDashboard(dashboard)
-	workbench.SetJourney(journey)
-	workbench.SetFollowUp(followup)
-	workbench.SetDraft(draft)
-	workbench.SetTagger(tagger)
+	workbench.SetDashboard(context.Background(), dashboard)
+	workbench.SetJourney(context.Background(), journey)
+	workbench.SetFollowUp(context.Background(), followup)
+	workbench.SetDraft(context.Background(), draft)
+	workbench.SetTagger(context.Background(), tagger)
 
 	return journey, followup, tagger, dashboard, draft, workbench
 }
@@ -69,14 +69,14 @@ func TestWorkbench_Todos_Drafts(t *testing.T) {
 	_, _, _, _, draft, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_todo_001"
 	// 2 个草稿
-	draft.CreateManual(&CreateDraftRequest{
+	draft.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: salesID, ProductName: "光子嫩肤", Quantity: 1, UnitPrice: 1000,
 	})
-	draft.CreateManual(&CreateDraftRequest{
+	draft.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c2", OwnerID: salesID, ProductName: "水光针", Quantity: 1, UnitPrice: 500,
 	})
 
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if len(overview.Todos) < 2 {
 		t.Errorf("待办应包含 2 个草稿，实际: %d", len(overview.Todos))
 	}
@@ -107,7 +107,7 @@ func TestWorkbench_Todos_Followups(t *testing.T) {
 		Title: "首次跟进", Priority: PriorityNormal,
 	})
 
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	followupCount := 0
 	for _, td := range overview.Todos {
 		if td.Type == "followup" {
@@ -132,11 +132,11 @@ func TestWorkbench_Todos_PrioritySort(t *testing.T) {
 		Title: "低优先级", Priority: PriorityLow,
 	})
 	// 高优先级草稿
-	draft.CreateManual(&CreateDraftRequest{
+	draft.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: custID, OwnerID: salesID, ProductName: "P", Quantity: 1, UnitPrice: 1000,
 	})
 
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if len(overview.Todos) < 2 {
 		t.Fatalf("应有至少 2 个待办，实际: %d", len(overview.Todos))
 	}
@@ -163,7 +163,7 @@ func TestWorkbench_Todos_Overdue(t *testing.T) {
 	followup.reminders[r.ID].DueAt = time.Now().Add(-1 * time.Hour)
 	followup.mu.Unlock()
 
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	found := false
 	for _, td := range overview.Todos {
 		if td.Type == "followup" && td.Title == "【逾期】跟进：已逾期" {
@@ -188,29 +188,29 @@ func TestWorkbench_Today(t *testing.T) {
 	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_today"
 	// 2 个今日订单
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o1", CustomerID: "c1", OwnerID: salesID, Amount: 1000, ProductName: "P", OrderedAt: time.Now(),
 	})
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o2", CustomerID: "c2", OwnerID: salesID, Amount: 500, ProductName: "P2", OrderedAt: time.Now(),
 	})
 	// 1 个 30 天前订单（不算今日）
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o3", CustomerID: "c3", OwnerID: salesID, Amount: 100, ProductName: "P3",
 		OrderedAt: time.Now().AddDate(0, 0, -30),
 	})
 	// 3 个今日跟进（1 个成交）
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c1", OwnerID: salesID, Result: "converted", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c2", OwnerID: salesID, Result: "no_reply", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c3", OwnerID: salesID, Result: "no_reply", OccurredAt: time.Now(),
 	})
 
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if overview.Today.NewOrders != 2 {
 		t.Errorf("今日订单应为 2，实际: %d", overview.Today.NewOrders)
 	}
@@ -236,17 +236,17 @@ func TestWorkbench_Month(t *testing.T) {
 	salesID := "sales_month"
 	// 5 个本月订单
 	for i := 0; i < 5; i++ {
-		dashboard.RecordOrder(OrderEvent{
+		dashboard.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o" + intToStr(i), CustomerID: "c" + intToStr(i), OwnerID: salesID,
 			Amount: 1000, ProductName: "P", OrderedAt: time.Now(),
 		})
 	}
 	// 1 个上月订单
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_last", CustomerID: "c_last", OwnerID: salesID,
 		Amount: 9999, ProductName: "P", OrderedAt: time.Now().AddDate(0, -1, 0),
 	})
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if overview.Month.TotalOrders != 5 {
 		t.Errorf("本月订单应为 5，实际: %d", overview.Month.TotalOrders)
 	}
@@ -270,16 +270,16 @@ func TestWorkbench_AIProduct(t *testing.T) {
 	salesID := "sales_ai"
 	// AI 处理 3 笔 + 独立成单 1 笔
 	for i := 0; i < 3; i++ {
-		dashboard.RecordAIDeal(AIDealEvent{
+		dashboard.RecordAIDeal(context.Background(), AIDealEvent{
 			CustomerID: "c" + intToStr(i), OwnerID: salesID, Intent: "inquiry",
 			Replied: true, OccurredAt: time.Now(), CostTokens: 100, LatencyMs: 500,
 		})
 	}
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_ai", CustomerID: "c1", OwnerID: salesID,
 		Amount: 1000, IsAIHandled: true, OrderedAt: time.Now(),
 	})
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if overview.AIProduct == nil {
 		t.Fatal("AI 产能不应为 nil")
 	}
@@ -308,14 +308,14 @@ func TestWorkbench_Leaderboard(t *testing.T) {
 		{"sales_low", 1000},
 	}
 	for _, s := range salesList {
-		dashboard.RegisterSales(SalesProfile{SalesID: s.id, Name: s.id})
-		dashboard.RecordOrder(OrderEvent{
+		dashboard.RegisterSales(context.Background(), SalesProfile{SalesID: s.id, Name: s.id})
+		dashboard.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o_" + s.id, CustomerID: "c1", OwnerID: s.id,
 			Amount: s.revenue, OrderedAt: time.Now(),
 		})
 	}
 
-	overview := workbench.GetOverview("sales_mid")
+	overview := workbench.GetOverview(context.Background(),"sales_mid")
 	if len(overview.Leaderboard) != 3 {
 		t.Errorf("排行榜应有 3 人，实际: %d", len(overview.Leaderboard))
 	}
@@ -345,7 +345,7 @@ func TestWorkbench_Funnel(t *testing.T) {
 		_, _ = journey.Transition(context.Background(), "c_funnel_"+intToStr(i),
 			StageWon, "test", "s", "test", nil)
 	}
-	overview := workbench.GetOverview("s")
+	overview := workbench.GetOverview(context.Background(),"s")
 	if overview.Funnel == nil {
 		t.Fatal("漏斗不应为 nil")
 	}
@@ -365,24 +365,24 @@ func TestWorkbench_Metrics(t *testing.T) {
 	salesID := "sales_metrics"
 	// 1 个客户 3 笔订单 = 复购
 	for i := 0; i < 3; i++ {
-		dashboard.RecordOrder(OrderEvent{
+		dashboard.RecordOrder(context.Background(), OrderEvent{
 			OrderID: "o" + intToStr(i), CustomerID: "c_loyal", OwnerID: salesID,
 			Amount: 100, OrderedAt: time.Now(),
 		})
 	}
 	// 1 个新客户 1 笔
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o_new", CustomerID: "c_new", OwnerID: salesID,
 		Amount: 200, OrderedAt: time.Now(),
 	})
 	// AI 辅助跟进
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c_loyal", OwnerID: salesID, IsAI: true, Result: "success", OccurredAt: time.Now(),
 	})
-	dashboard.RecordFollowUp(FollowUpEvent{
+	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c_new", OwnerID: salesID, IsAI: false, Result: "no_reply", OccurredAt: time.Now(),
 	})
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if overview.Metrics == nil {
 		t.Fatal("关键指标不应为 nil")
 	}
@@ -406,7 +406,7 @@ func TestWorkbench_Metrics(t *testing.T) {
 // TestWorkbench_QuickActions 快捷入口
 func TestWorkbench_QuickActions(t *testing.T) {
 	_, _, _, _, _, workbench := setupWorkbenchEnv(t)
-	actions := workbench.GetQuickActions("s1")
+	actions := workbench.GetQuickActions(context.Background(), "s1")
 	if len(actions) == 0 {
 		t.Fatal("应有快捷入口")
 	}
@@ -432,7 +432,7 @@ func TestWorkbench_QuickActions(t *testing.T) {
 // TestWorkbench_NilDependencies 无依赖场景
 func TestWorkbench_NilDependencies(t *testing.T) {
 	workbench := NewSalesWorkbenchService()
-	overview := workbench.GetOverview("s1")
+	overview := workbench.GetOverview(context.Background(),"s1")
 	if overview == nil {
 		t.Fatal("应返回概览（即使无依赖）")
 	}
@@ -455,10 +455,10 @@ func TestWorkbench_NilDependencies(t *testing.T) {
 func TestWorkbench_TodosOnly(t *testing.T) {
 	_, _, _, _, draft, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_todos_only"
-	draft.CreateManual(&CreateDraftRequest{
+	draft.CreateManual(context.Background(), &CreateDraftRequest{
 		CustomerID: "c1", OwnerID: salesID, ProductName: "P", Quantity: 1, UnitPrice: 100,
 	})
-	todos := workbench.GetTodosOnly(salesID)
+	todos := workbench.GetTodosOnly(context.Background(), salesID)
 	if len(todos) < 1 {
 		t.Error("应有 1 个待办")
 	}
@@ -476,7 +476,7 @@ func TestWorkbench_FullLoop(t *testing.T) {
 	intent := OrderIntent{
 		CustomerID: custID, ProductName: "光子嫩肤", UnitPrice: 1000, Quantity: 1, Confidence: 0.9,
 	}
-	draft.CreateFromIntent(&intent, salesID)
+	draft.CreateFromIntent(context.Background(), &intent, salesID)
 
 	// 2. 客户旅程推到 lead（用于生成跟进）
 	_, _ = journey.Transition(context.Background(), custID, StageLead, "test", salesID, "test", nil)
@@ -485,34 +485,34 @@ func TestWorkbench_FullLoop(t *testing.T) {
 	})
 
 	// 3. 销售工作台首页
-	overview := workbench.GetOverview(salesID)
+	overview := workbench.GetOverview(context.Background(),salesID)
 	if len(overview.Todos) < 1 {
 		t.Errorf("应有至少 1 个待办，实际: %d", len(overview.Todos))
 	}
 
 	// 4. 销售确认草稿 → 创建订单
-	pending := draft.ListPending(salesID, 1)
+	pending := draft.ListPending(context.Background(), salesID, 1)
 	if len(pending) > 0 {
-		d, _ := draft.Confirm(pending[0].ID, salesID)
+		d, _ := draft.Confirm(context.Background(), pending[0].ID, salesID)
 		if d != nil {
 			t.Logf("✅ 草稿确认: 订单=%s", d.OrderID)
 		}
 	}
 
 	// 5. 销售完成跟进
-	pendings := followup.ListPending(salesID, 0)
+	pendings := followup.ListPending(context.Background(), salesID, 0)
 	if len(pendings) > 0 {
 		_ = followup.CompleteWithResult(context.Background(), pendings[0].ID, FollowUpResultConverted, "客户已成交")
 	}
 
 	// 6. 客户旅程推到 won
-	state := journey.GetState(custID)
+	state := journey.GetState(context.Background(), custID)
 	if state.CurrentStage != StageWon {
 		t.Errorf("客户旅程应为 won，实际: %s", state.CurrentStage)
 	}
 
 	// 7. 业绩更新
-	overview2 := workbench.GetOverview(salesID)
+	overview2 := workbench.GetOverview(context.Background(),salesID)
 	if overview2.Today.NewOrders < 1 {
 		t.Errorf("今日订单应≥1，实际: %d", overview2.Today.NewOrders)
 	}
@@ -524,14 +524,14 @@ func TestWorkbench_ConcurrentGetOverview(t *testing.T) {
 	_, _, _, dashboard, _, workbench := setupWorkbenchEnv(t)
 	salesID := "sales_concurrent"
 	// 添加一些数据
-	dashboard.RecordOrder(OrderEvent{
+	dashboard.RecordOrder(context.Background(), OrderEvent{
 		OrderID: "o1", CustomerID: "c1", OwnerID: salesID, Amount: 1000, OrderedAt: time.Now(),
 	})
 	const n = 20
 	done := make(chan bool, n)
 	for i := 0; i < n; i++ {
 		go func() {
-			_ = workbench.GetOverview(salesID)
+			_ = workbench.GetOverview(context.Background(),salesID)
 			done <- true
 		}()
 	}

@@ -240,7 +240,7 @@ func TestSendPipeline_SensitiveWordBlocked(t *testing.T) {
 	if stepExists(resp, SendStepSend) {
 		t.Error("敏感词后不应执行 send 步骤")
 	}
-	if adapter.Count() > 0 {
+	if adapter.Count(context.Background()) > 0 {
 		t.Error("敏感词拦截后 adapter 不应被调用")
 	}
 }
@@ -305,8 +305,8 @@ func TestSendPipeline_RetryWithFlakyAdapter(t *testing.T) {
 	if resp.RetryCount < 2 {
 		t.Errorf("期望 retry_count>=2（前 2 次失败），实际 %d", resp.RetryCount)
 	}
-	if adapter.Count() < 3 {
-		t.Errorf("期望 adapter 至少调用 3 次，实际 %d", adapter.Count())
+	if adapter.Count(context.Background()) < 3 {
+		t.Errorf("期望 adapter 至少调用 3 次，实际 %d", adapter.Count(context.Background()))
 	}
 	// 验证指数退避：2 次重试，间隔 10ms + 20ms = 30ms（最少）
 	if elapsed < 25*time.Millisecond {
@@ -337,8 +337,8 @@ func TestSendPipeline_RetryExhaustedAllFail(t *testing.T) {
 		t.Fatal("期望失败（全部重试失败）")
 	}
 	// MaxRetries=2，应调用 3 次（1 + 2 retries）
-	if adapter.Count() != 3 {
-		t.Errorf("期望 adapter 调用 3 次（1 + 2 retries），实际 %d", adapter.Count())
+	if adapter.Count(context.Background()) != 3 {
+		t.Errorf("期望 adapter 调用 3 次（1 + 2 retries），实际 %d", adapter.Count(context.Background()))
 	}
 	if resp.RetryCount != 2 {
 		t.Errorf("期望 retry_count=2，实际 %d", resp.RetryCount)
@@ -377,11 +377,11 @@ func TestSendPipeline_FallbackToBackupChannel(t *testing.T) {
 	if resp.MessageID == "" {
 		t.Error("期望返回 message_id")
 	}
-	if primaryAdapter.Count() < 1 {
-		t.Errorf("主渠道至少调用 1 次，实际 %d", primaryAdapter.Count())
+	if primaryAdapter.Count(context.Background()) < 1 {
+		t.Errorf("主渠道至少调用 1 次，实际 %d", primaryAdapter.Count(context.Background()))
 	}
-	if backupAdapter.Count() < 1 {
-		t.Errorf("备用渠道至少调用 1 次，实际 %d", backupAdapter.Count())
+	if backupAdapter.Count(context.Background()) < 1 {
+		t.Errorf("备用渠道至少调用 1 次，实际 %d", backupAdapter.Count(context.Background()))
 	}
 }
 
@@ -408,7 +408,7 @@ func TestSendPipeline_FallbackDisabled(t *testing.T) {
 	if resp.Success {
 		t.Fatal("期望失败（降级未启用）")
 	}
-	if backupAdapter.Count() > 0 {
+	if backupAdapter.Count(context.Background()) > 0 {
 		t.Error("降级未启用时备用渠道不应被调用")
 	}
 }
@@ -436,7 +436,7 @@ func TestSendPipeline_AuditLogRecorded(t *testing.T) {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
 	// 审计日志至少记录 1 条（成功）
-	entries := auditLogger.Entries()
+	entries := auditLogger.Entries(context.Background())
 	if len(entries) == 0 {
 		t.Fatal("期望至少 1 条审计日志，实际 0 条")
 	}
@@ -473,7 +473,7 @@ func TestSendPipeline_AuditLogRecordsContent(t *testing.T) {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
 
-	entries := auditLogger.Entries()
+	entries := auditLogger.Entries(context.Background())
 	if len(entries) == 0 {
 		t.Fatal("期望审计日志非空")
 	}
@@ -510,7 +510,7 @@ func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
 	if resp.Success {
 		t.Fatal("期望失败（敏感词）")
 	}
-	entries := auditLogger.Entries()
+	entries := auditLogger.Entries(context.Background())
 	if len(entries) == 0 {
 		t.Fatal("PRD 合规失败：失败时未记录审计日志")
 	}
@@ -548,11 +548,11 @@ func TestSendPipeline_CostTrackerCharged(t *testing.T) {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
 	// sms 单价 0.05，余额应从 100 减为 99.95
-	balance := costTracker.Balance()
+	balance := costTracker.Balance(context.Background())
 	if balance >= 100.0 {
 		t.Errorf("期望余额 < 100，实际 %f", balance)
 	}
-	used := costTracker.TotalUsed()
+	used := costTracker.TotalUsed(context.Background())
 	if used <= 0 {
 		t.Errorf("期望累计消费 > 0，实际 %f", used)
 	}
@@ -643,7 +643,7 @@ func TestSendPipeline_JourneyTrackerRecorded(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
-	calls := tracker.Calls()
+	calls := tracker.Calls(context.Background())
 	if len(calls) == 0 {
 		t.Fatal("期望客户轨迹至少记录 1 次")
 	}
@@ -733,7 +733,7 @@ func TestCountedSendPipeline_Stats(t *testing.T) {
 		}
 	}
 
-	stats := counted.Stats()
+	stats := counted.Stats(context.Background())
 	if stats.TotalSends != 3 {
 		t.Errorf("期望 total_sends=3，实际 %d", stats.TotalSends)
 	}
@@ -768,7 +768,7 @@ func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
 		Content:     "Hello",
 	})
 
-	stats := counted.Stats()
+	stats := counted.Stats(context.Background())
 	if stats.TotalSends != 2 {
 		t.Errorf("期望 total_sends=2，实际 %d", stats.TotalSends)
 	}
@@ -802,6 +802,7 @@ func TestDefaultContentAuditor_EmptyContent(t *testing.T) {
 // ===== 14. MemorySendRateLimiter 令牌桶行为 =====
 
 func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
+	ctx := context.Background()
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 2, Burst: 2}
 
@@ -824,6 +825,7 @@ func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
 }
 
 func TestMemorySendRateLimiter_DifferentKeys(t *testing.T) {
+	ctx := context.Background()
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 1, Burst: 1}
 
@@ -841,6 +843,7 @@ func TestMemorySendRateLimiter_DifferentKeys(t *testing.T) {
 }
 
 func TestMemorySendRateLimiter_Reset(t *testing.T) {
+	ctx := context.Background()
 	limiter := NewMemorySendRateLimiter()
 	spec := RateLimitSpec{QPS: 1, Burst: 1}
 
@@ -851,7 +854,7 @@ func TestMemorySendRateLimiter_Reset(t *testing.T) {
 		t.Error("k1 第 2 次应该被限流")
 	}
 	// Reset 后应允许
-	limiter.Reset("k1")
+	limiter.Reset(context.Background(), "k1")
 	if !limiter.Allow(ctx, "k1", spec) {
 		t.Error("Reset 后 k1 应该允许")
 	}
@@ -868,7 +871,7 @@ func TestMemorySendAuditLogger_MaxSize(t *testing.T) {
 			Content:     "x",
 		}, &SendResponse{Success: true, MessageID: fmt.Sprintf("m%d", i)})
 	}
-	entries := logger.Entries()
+	entries := logger.Entries(context.Background())
 	if len(entries) != 3 {
 		t.Errorf("期望保留 3 条（容量上限），实际 %d", len(entries))
 	}
@@ -959,7 +962,7 @@ func TestComputeBackoff_Exponential(t *testing.T) {
 		{3, 800 * time.Millisecond},
 	}
 	for _, c := range cases {
-		got := p.computeBackoff(policy, c.attempt)
+		got := p.computeBackoff(context.Background(), policy, c.attempt)
 		if got != c.expect {
 			t.Errorf("attempt %d: 期望 %v，实际 %v", c.attempt, c.expect, got)
 		}
@@ -975,7 +978,7 @@ func TestComputeBackoff_MaxIntervalCap(t *testing.T) {
 		MaxIntervalMs: 5000, // cap at 5s
 	}
 	// attempt 5: 1000 * 2^5 = 32000ms > 5000ms cap
-	got := p.computeBackoff(policy, 5)
+	got := p.computeBackoff(context.Background(), policy, 5)
 	if got != 5000*time.Millisecond {
 		t.Errorf("期望被 cap 到 5000ms，实际 %v", got)
 	}
@@ -989,7 +992,7 @@ func TestComputeBackoff_Fixed(t *testing.T) {
 		Backoff:    "fixed",
 	}
 	for attempt := 0; attempt < 5; attempt++ {
-		got := p.computeBackoff(policy, attempt)
+		got := p.computeBackoff(context.Background(), policy, attempt)
 		if got != 200*time.Millisecond {
 			t.Errorf("attempt %d: 期望固定 200ms，实际 %v", attempt, got)
 		}
@@ -1001,10 +1004,10 @@ func TestComputeBackoff_Fixed(t *testing.T) {
 func TestIsRetryable_DefaultAllRetryable(t *testing.T) {
 	p := &defaultSendPipeline{}
 	// 默认 RetryableErrors 为空 → 所有错误可重试
-	if !p.isRetryable(errors.New("any error"), nil) {
+	if !p.isRetryable(context.Background(), errors.New("any error"), nil) {
 		t.Error("默认所有错误应该可重试")
 	}
-	if !p.isRetryable(errors.New("network error"), []string{}) {
+	if !p.isRetryable(context.Background(), errors.New("network error"), []string{}) {
 		t.Error("空 RetryableErrors 应该所有错误可重试")
 	}
 }
@@ -1012,16 +1015,16 @@ func TestIsRetryable_DefaultAllRetryable(t *testing.T) {
 func TestIsRetryable_SpecificErrors(t *testing.T) {
 	p := &defaultSendPipeline{}
 	retryable := []string{"timeout", "connection reset"}
-	if !p.isRetryable(errors.New("request timeout"), retryable) {
+	if !p.isRetryable(context.Background(), errors.New("request timeout"), retryable) {
 		t.Error("'timeout' 应该匹配")
 	}
-	if !p.isRetryable(errors.New("connection reset by peer"), retryable) {
+	if !p.isRetryable(context.Background(), errors.New("connection reset by peer"), retryable) {
 		t.Error("'connection reset' 应该匹配")
 	}
-	if p.isRetryable(errors.New("invalid argument"), retryable) {
+	if p.isRetryable(context.Background(), errors.New("invalid argument"), retryable) {
 		t.Error("'invalid argument' 不应该匹配")
 	}
-	if p.isRetryable(nil, retryable) {
+	if p.isRetryable(context.Background(), nil, retryable) {
 		t.Error("nil 错误不应该可重试")
 	}
 }
@@ -1142,13 +1145,13 @@ func TestMemorySendCostTracker_DifferentChannelCosts(t *testing.T) {
 		}
 	}
 	// 设置新单价
-	tracker.SetCost("sms", 5.0)
-	balanceBefore := tracker.Balance()
+	tracker.SetCost(context.Background(), "sms", 5.0)
+	balanceBefore := tracker.Balance(context.Background())
 	_, err := tracker.Charge(context.Background(), "sms", &ReachSendRequest{})
 	if err != nil {
 		t.Errorf("设置单价后扣费不应报错: %v", err)
 	}
-	balanceAfter := tracker.Balance()
+	balanceAfter := tracker.Balance(context.Background())
 	if balanceAfter != balanceBefore-5.0 {
 		t.Errorf("期望扣 5.0，实际从 %f 到 %f", balanceBefore, balanceAfter)
 	}

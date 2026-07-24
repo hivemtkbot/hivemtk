@@ -137,11 +137,11 @@ func TestSmsUnsubscribe_IsUnsubscribed_True(t *testing.T) {
 		t.Fatalf("退订失败: %v", err)
 	}
 
-	if !svc.IsUnsubscribed("13700137000") {
+	if !svc.IsUnsubscribed(context.Background(), "13700137000") {
 		t.Error("Expected IsUnsubscribed=true")
 	}
 	// 带格式也应当命中
-	if !svc.IsUnsubscribed("+86-137-0013-7000") {
+	if !svc.IsUnsubscribed(context.Background(), "+86-137-0013-7000") {
 		t.Error("Expected IsUnsubscribed=true for formatted phone")
 	}
 }
@@ -151,7 +151,7 @@ func TestSmsUnsubscribe_IsUnsubscribed_False(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	if svc.IsUnsubscribed("13600136000") {
+	if svc.IsUnsubscribed(context.Background(), "13600136000") {
 		t.Error("Expected IsUnsubscribed=false for unknown phone")
 	}
 }
@@ -161,7 +161,7 @@ func TestSmsUnsubscribe_IsUnsubscribed_EmptyPhone(t *testing.T) {
 	database := setupSmsUnsubscribeTestDB(t)
 	svc := newSmsUnsubscribeService(database)
 
-	if svc.IsUnsubscribed("") {
+	if svc.IsUnsubscribed(context.Background(), "") {
 		t.Error("Expected IsUnsubscribed=false for empty phone")
 	}
 }
@@ -175,7 +175,7 @@ func TestSmsUnsubscribe_ResubscribePhone_Success(t *testing.T) {
 	if err := svc.UnsubscribePhone(context.Background(), "13500135000", "", "", "TD"); err != nil {
 		t.Fatalf("退订失败: %v", err)
 	}
-	if !svc.IsUnsubscribed("13500135000") {
+	if !svc.IsUnsubscribed(context.Background(), "13500135000") {
 		t.Fatal("Expected unsubscribed")
 	}
 
@@ -183,7 +183,7 @@ func TestSmsUnsubscribe_ResubscribePhone_Success(t *testing.T) {
 	if err := svc.ResubscribePhone(context.Background(), "13500135000"); err != nil {
 		t.Fatalf("重新订阅失败: %v", err)
 	}
-	if svc.IsUnsubscribed("13500135000") {
+	if svc.IsUnsubscribed(context.Background(), "13500135000") {
 		t.Error("Expected IsUnsubscribed=false after resubscribe")
 	}
 }
@@ -221,7 +221,7 @@ func TestSmsUnsubscribe_ProcessReply_MatchedTD(t *testing.T) {
 	if matched == "" {
 		t.Error("Expected matched keyword for 'TD'")
 	}
-	if !svc.IsUnsubscribed("13300133000") {
+	if !svc.IsUnsubscribed(context.Background(), "13300133000") {
 		t.Error("Expected IsUnsubscribed=true after reply TD")
 	}
 }
@@ -242,7 +242,7 @@ func TestSmsUnsubscribe_ProcessReply_MatchedChinese(t *testing.T) {
 		if matched == "" {
 			t.Errorf("Expected matched keyword for '%s'", kw)
 		}
-		if !svc.IsUnsubscribed(phone) {
+		if !svc.IsUnsubscribed(context.Background(), phone) {
 			t.Errorf("Expected IsUnsubscribed=true after reply '%s'", kw)
 		}
 	}
@@ -267,7 +267,7 @@ func TestSmsUnsubscribe_ProcessReply_NotMatched(t *testing.T) {
 		if matched != "" {
 			t.Errorf("Expected no match for '%s', got '%s'", content, matched)
 		}
-		if svc.IsUnsubscribed(phone) {
+		if svc.IsUnsubscribed(context.Background(), phone) {
 			t.Errorf("Expected IsUnsubscribed=false after reply '%s'", content)
 		}
 	}
@@ -396,7 +396,7 @@ func TestSmsUnsubscribe_ListUnsubscribes(t *testing.T) {
 	}
 
 	// 查询全部
-	records, total, err := svc.ListUnsubscribes(1, 20, "")
+	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 20, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
 	}
@@ -408,7 +408,7 @@ func TestSmsUnsubscribe_ListUnsubscribes(t *testing.T) {
 	}
 
 	// 关键词过滤（手机号）
-	records, total, err = svc.ListUnsubscribes(1, 20, "13800138001")
+	records, total, err = svc.ListUnsubscribes(context.Background(), 1, 20, "13800138001")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes with keyword failed: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestSmsUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 	}
 
 	// 第 1 页，每页 2 条
-	records, total, err := svc.ListUnsubscribes(1, 2, "")
+	records, total, err := svc.ListUnsubscribes(context.Background(), 1, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 1 failed: %v", err)
 	}
@@ -445,7 +445,7 @@ func TestSmsUnsubscribe_ListUnsubscribes_Pagination(t *testing.T) {
 	}
 
 	// 第 3 页（超出范围）
-	records, _, err = svc.ListUnsubscribes(3, 2, "")
+	records, _, err = svc.ListUnsubscribes(context.Background(), 3, 2, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes page 3 failed: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestSmsUnsubscribe_ListUnsubscribes_DefaultPaging(t *testing.T) {
 	}
 
 	// 传入 page=0, limit=0，应被规范化为 page=1, limit=20
-	records, total, err := svc.ListUnsubscribes(0, 0, "")
+	records, total, err := svc.ListUnsubscribes(context.Background(), 0, 0, "")
 	if err != nil {
 		t.Fatalf("ListUnsubscribes failed: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestSmsUnsubscribe_ListAllUnsubscribes(t *testing.T) {
 		}
 	}
 
-	all, err := svc.ListAllUnsubscribes()
+	all, err := svc.ListAllUnsubscribes(context.Background())
 	if err != nil {
 		t.Fatalf("ListAllUnsubscribes failed: %v", err)
 	}
@@ -505,7 +505,7 @@ func TestSmsUnsubscribe_FullLifecycle(t *testing.T) {
 	phone := "13500135001"
 
 	// 1. 初始未退订
-	if svc.IsUnsubscribed(phone) {
+	if svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Initial state should be not unsubscribed")
 	}
 
@@ -519,12 +519,12 @@ func TestSmsUnsubscribe_FullLifecycle(t *testing.T) {
 	}
 
 	// 3. 验证已退订
-	if !svc.IsUnsubscribed(phone) {
+	if !svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Should be unsubscribed after ProcessUnsubscribeReply")
 	}
 
 	// 4. 重新发送会被 IsUnsubscribed 拦截
-	if !svc.IsUnsubscribed(phone) {
+	if !svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("SendSms pre-check should block unsubscribed phone")
 	}
 
@@ -534,7 +534,7 @@ func TestSmsUnsubscribe_FullLifecycle(t *testing.T) {
 	}
 
 	// 6. 验证已重新订阅
-	if svc.IsUnsubscribed(phone) {
+	if svc.IsUnsubscribed(context.Background(), phone) {
 		t.Error("Should be resubscribed after ResubscribePhone")
 	}
 }
@@ -556,7 +556,7 @@ func TestSmsUnsubscribe_FullFlow_AllKeywords(t *testing.T) {
 		if matched == "" {
 			t.Errorf("Expected matched keyword for '%s'", kw)
 		}
-		if !svc.IsUnsubscribed(phone) {
+		if !svc.IsUnsubscribed(context.Background(), phone) {
 			t.Errorf("Expected IsUnsubscribed=true after reply '%s' (phone=%s)", kw, phone)
 		}
 	}

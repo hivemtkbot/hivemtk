@@ -836,11 +836,27 @@ func (e *SalesEngine) generateCandidate(
 const agentLoopMaxIterations = 5
 
 // agentLoopTotalTimeout Agent Loop wall-clock 总超时
-// 2026-07-22：私域部署在 Mac M1 / 普通 CPU 上跑 1.5B Q4 GGUF 模型
-// prompt eval + 生成会超过 30s（实测约 35-60s）。
-// 提升到 120s 以保证 1.5B 模型在 CPU 推理下也能正常完成单轮 chat-completions。
-// 仍保留降级到 fallback 内容的兜底逻辑。
-const agentLoopTotalTimeout = 120 * time.Second
+//
+// 演进：
+//   - 2026-07-22：120s（1.5B Q4 CPU 推理 35-60s）
+//   - 2026-07-24：改为可配置，由 main.go 启动时从 inference.llm.timeout_seconds 注入
+//
+// 设计：默认 180s（保守值，覆盖大多数 CPU 推理场景）。
+// 开发模式可在 config.yaml 设大值（如 720s）确保 LLM 调用不被 ctx 掐断；
+// 生产环境推荐 120-180s，超时后由 fallback 兜底。
+// 由 SetAgentLoopTimeout 注入；与 dispatcher.MaxLatency、llm_service.httpClient.Timeout
+// 共享同一配置源（inference.llm.timeout_seconds），全链路一致。
+var agentLoopTotalTimeout = 180 * time.Second
+
+// SetAgentLoopTimeout 注入 Agent Loop 总超时（秒）
+// 由 main.go 启动时调用：service.SetAgentLoopTimeout(cfg.Inference.LLM.TimeoutSeconds)
+// ≤0 时保持默认 180s
+func SetAgentLoopTimeout(seconds int) {
+	if seconds <= 0 {
+		return
+	}
+	agentLoopTotalTimeout = time.Duration(seconds) * time.Second
+}
 
 // runAgentLoop 真正的智能体 Agent Loop（P0-3 核心实现）
 //

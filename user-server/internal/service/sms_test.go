@@ -52,7 +52,7 @@ func TestSmsService_GetConfig_Default(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	config, err := service.GetConfig()
+	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -104,13 +104,13 @@ func TestSmsService_SaveConfig(t *testing.T) {
 		},
 	}
 
-	err := service.SaveConfig(req)
+	err := service.SaveConfig(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SaveConfig failed: %v", err)
 	}
 
 	// 验证配置已保存
-	config, err := service.GetConfig()
+	config, err := service.GetConfig(context.Background())
 	if err != nil {
 		t.Fatalf("GetConfig failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestSmsService_SendSms(t *testing.T) {
 		Content: "【测试签名】您的验证码是 123456",
 	}
 
-	err := service.SendSms(req)
+	err := service.SendSms(context.Background(), req)
 	// 真实 API 调用会因测试凭据失败,这是预期行为
 	if err == nil {
 		t.Log("SendSms succeeded (unexpected for test credentials)")
@@ -205,7 +205,7 @@ func TestSmsService_ResendSms(t *testing.T) {
 	database.Create(record)
 
 	// 重发（由于使用测试凭证，API调用会失败，但应验证逻辑正确性）
-	err := service.ResendSms(record.ID)
+	err := service.ResendSms(context.Background(), record.ID)
 	// 由于使用测试凭证，API调用会失败，这是预期的
 	if err != nil {
 		// 验证记录状态已更新为失败（因为API调用失败）
@@ -248,7 +248,7 @@ func TestSmsService_ResendSms_NotFailed(t *testing.T) {
 	database.Create(record)
 
 	// 尝试重发
-	err := service.ResendSms(record.ID)
+	err := service.ResendSms(context.Background(), record.ID)
 	if err == nil {
 		t.Error("Expected error for resending non-failed SMS")
 	}
@@ -268,7 +268,7 @@ func TestSmsService_CreateDraft(t *testing.T) {
 		Content: "【测试签名】这是一条测试短信",
 	}
 
-	err := service.CreateDraft(req)
+	err := service.CreateDraft(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateDraft failed: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestSmsService_GetDraftByID(t *testing.T) {
 	database.Create(draft)
 
 	// 获取草稿
-	retrievedDraft, err := service.GetDraftByID(draft.ID)
+	retrievedDraft, err := service.GetDraftByID(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("GetDraftByID failed: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestSmsService_GetDraftByID_NotFound(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	_, err := service.GetDraftByID(99999)
+	_, err := service.GetDraftByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent draft")
 	}
@@ -336,7 +336,7 @@ func TestSmsService_UpdateDraft(t *testing.T) {
 		Content: "新内容",
 	}
 
-	err := service.UpdateDraft(draft.ID, updateReq)
+	err := service.UpdateDraft(context.Background(), draft.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateDraft failed: %v", err)
 	}
@@ -366,7 +366,7 @@ func TestSmsService_DeleteDraft(t *testing.T) {
 	database.Create(draft)
 
 	// 删除草稿
-	err := service.DeleteDraft(draft.ID)
+	err := service.DeleteDraft(context.Background(), draft.ID)
 	if err != nil {
 		t.Fatalf("DeleteDraft failed: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestSmsService_SendDraft(t *testing.T) {
 
 	// 发送草稿
 	phone := "13812345678"
-	err := service.SendDraft(draft.ID, phone)
+	err := service.SendDraft(context.Background(), draft.ID, phone)
 	if err != nil {
 		t.Logf("SendDraft expectedly failed with test credentials: %v", err)
 	}
@@ -438,7 +438,7 @@ func TestSmsService_SendDraft_NotFound(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	err := service.SendDraft(99999, "13812345678")
+	err := service.SendDraft(context.Background(), 99999, "13812345678")
 	if err == nil {
 		t.Error("Expected error for non-existent draft")
 	}
@@ -465,7 +465,7 @@ func TestSmsService_GetDraftList(t *testing.T) {
 		Limit: 10,
 	}
 
-	drafts, total, err := service.GetDraftList(req)
+	drafts, total, err := service.GetDraftList(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GetDraftList failed: %v", err)
 	}
@@ -496,7 +496,7 @@ func TestSmsService_GetDraftList_WithTitleFilter(t *testing.T) {
 		Title: "测试",
 	}
 
-	drafts, total, err := service.GetDraftList(req)
+	drafts, total, err := service.GetDraftList(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GetDraftList failed: %v", err)
 	}
@@ -522,7 +522,7 @@ func TestSmsService_CreateJob(t *testing.T) {
 		Content:   "【测试签名】这是一条群发短信",
 	}
 
-	err := service.CreateJob(req)
+	err := service.CreateJob(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateJob failed: %v", err)
 	}
@@ -561,7 +561,7 @@ func TestSmsService_CreateJob_WithScheduleTime(t *testing.T) {
 		ScheduleTime: &scheduleTime,
 	}
 
-	err := service.CreateJob(req)
+	err := service.CreateJob(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateJob failed: %v", err)
 	}
@@ -589,7 +589,7 @@ func TestSmsService_GetJobByID(t *testing.T) {
 	database.Create(job)
 
 	// 获取任务
-	retrievedJob, err := service.GetJobByID(job.ID)
+	retrievedJob, err := service.GetJobByID(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("GetJobByID failed: %v", err)
 	}
@@ -605,7 +605,7 @@ func TestSmsService_GetJobByID_NotFound(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	_, err := service.GetJobByID(99999)
+	_, err := service.GetJobByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent job")
 	}
@@ -628,7 +628,7 @@ func TestSmsService_GetJobList(t *testing.T) {
 		Limit: 10,
 	}
 
-	jobs, total, err := service.GetJobList(req)
+	jobs, total, err := service.GetJobList(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GetJobList failed: %v", err)
 	}
@@ -659,7 +659,7 @@ func TestSmsService_GetJobList_WithStatusFilter(t *testing.T) {
 		Status: "running",
 	}
 
-	jobs, total, err := service.GetJobList(req)
+	jobs, total, err := service.GetJobList(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GetJobList failed: %v", err)
 	}
@@ -687,7 +687,7 @@ func TestSmsService_PauseJob(t *testing.T) {
 	database.Create(job)
 
 	// 暂停任务
-	err := service.PauseJob(job.ID)
+	err := service.PauseJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("PauseJob failed: %v", err)
 	}
@@ -714,7 +714,7 @@ func TestSmsService_PauseJob_InvalidStatus(t *testing.T) {
 	database.Create(job)
 
 	// 尝试暂停
-	err := service.PauseJob(job.ID)
+	err := service.PauseJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for pausing non-running job")
 	}
@@ -737,7 +737,7 @@ func TestSmsService_ResumeJob(t *testing.T) {
 	database.Create(job)
 
 	// 继续任务
-	err := service.ResumeJob(job.ID)
+	err := service.ResumeJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("ResumeJob failed: %v", err)
 	}
@@ -764,7 +764,7 @@ func TestSmsService_ResumeJob_InvalidStatus(t *testing.T) {
 	database.Create(job)
 
 	// 尝试继续
-	err := service.ResumeJob(job.ID)
+	err := service.ResumeJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for resuming non-paused job")
 	}
@@ -787,7 +787,7 @@ func TestSmsService_StopJob(t *testing.T) {
 	database.Create(job)
 
 	// 停止任务
-	err := service.StopJob(job.ID)
+	err := service.StopJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("StopJob failed: %v", err)
 	}
@@ -814,7 +814,7 @@ func TestSmsService_StopJob_InvalidStatus(t *testing.T) {
 	database.Create(job)
 
 	// 尝试停止
-	err := service.StopJob(job.ID)
+	err := service.StopJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for stopping completed job")
 	}
@@ -846,7 +846,7 @@ func TestSmsService_DeleteJob(t *testing.T) {
 	database.Create(detail)
 
 	// 删除任务
-	err := service.DeleteJob(job.ID)
+	err := service.DeleteJob(context.Background(), job.ID)
 	if err != nil {
 		t.Fatalf("DeleteJob failed: %v", err)
 	}
@@ -884,7 +884,7 @@ func TestSmsService_DeleteJob_InvalidStatus(t *testing.T) {
 	database.Create(job)
 
 	// 尝试删除
-	err := service.DeleteJob(job.ID)
+	err := service.DeleteJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("Expected error for deleting running job")
 	}
@@ -918,7 +918,7 @@ func TestSmsService_GetJobRecords(t *testing.T) {
 	}
 
 	// 获取记录
-	records, total, err := service.GetJobRecords(job.ID, 1, 10)
+	records, total, err := service.GetJobRecords(context.Background(), job.ID, 1, 10)
 	if err != nil {
 		t.Fatalf("GetJobRecords failed: %v", err)
 	}
@@ -937,7 +937,7 @@ func TestSmsService_GetJobRecords_JobNotFound(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	_, _, err := service.GetJobRecords(99999, 1, 10)
+	_, _, err := service.GetJobRecords(context.Background(), 99999, 1, 10)
 	if err == nil {
 		t.Error("Expected error for non-existent job")
 	}
@@ -966,7 +966,7 @@ func TestSmsService_GetSmsList(t *testing.T) {
 		Limit: 10,
 	}
 
-	records, total, err := service.GetSmsList(req)
+	records, total, err := service.GetSmsList(context.Background(), req)
 	if err != nil {
 		t.Fatalf("GetSmsList failed: %v", err)
 	}
@@ -995,7 +995,7 @@ func TestSmsService_GetSmsByID(t *testing.T) {
 	database.Create(record)
 
 	// 获取短信
-	retrievedRecord, err := service.GetSmsByID(record.ID)
+	retrievedRecord, err := service.GetSmsByID(context.Background(), record.ID)
 	if err != nil {
 		t.Fatalf("GetSmsByID failed: %v", err)
 	}
@@ -1011,7 +1011,7 @@ func TestSmsService_GetSmsByID_NotFound(t *testing.T) {
 	repo := newTestSmsRepository(database)
 	service := NewSmsService(repo)
 
-	_, err := service.GetSmsByID(99999)
+	_, err := service.GetSmsByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent SMS")
 	}

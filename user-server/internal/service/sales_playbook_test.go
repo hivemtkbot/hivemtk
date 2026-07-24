@@ -80,7 +80,7 @@ func TestPlaybook_Recommend_IndustryStageObjection(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 医美+感兴趣阶段+价格异议
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry:  IndustryMedicalBeauty,
 		Stage:     StageInterested,
 		Objection: PlayObjectionPrice,
@@ -109,20 +109,20 @@ func TestPlaybook_Recommend_PriorityBySuccessRate(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 模拟两条话术：一条成功率高，一条使用次数多
-	highRate, _ := svc.Add(&PlaybookEntry{
+	highRate, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryB2B, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "高成功率话术", Content: "ROI 计算话术",
 		UseCount: 10, SuccessCount: 9, // 90%
 		CreatedBy: "tester",
 	})
-	lowRate, _ := svc.Add(&PlaybookEntry{
+	lowRate, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryB2B, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "低成功率话术", Content: "ROI 计算话术",
 		UseCount: 100, SuccessCount: 10, // 10%
 		CreatedBy: "tester",
 	})
 
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry: IndustryB2B, Stage: StageInterested, Objection: PlayObjectionPrice, Limit: 10,
 	})
 	if len(got) < 2 {
@@ -145,7 +145,7 @@ func TestPlaybook_RecommendForResponse(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 价格异议意图 → 应推荐价格话术
-	got := svc.RecommendForResponse(IndustryAuto, "", StageInterested, IntentObjectionPrice)
+	got := svc.RecommendForResponse(context.Background(), IndustryAuto, "", StageInterested, IntentObjectionPrice)
 	if len(got) == 0 {
 		t.Fatal("价格异议意图应推荐价格话术")
 	}
@@ -156,7 +156,7 @@ func TestPlaybook_RecommendForResponse(t *testing.T) {
 	}
 
 	// 信任异议意图 → 应推荐信任话术
-	got2 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageContact, IntentObjectionTrust)
+	got2 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageContact, IntentObjectionTrust)
 	if len(got2) == 0 {
 		t.Fatal("信任异议意图应推荐信任话术")
 	}
@@ -167,7 +167,7 @@ func TestPlaybook_RecommendForResponse(t *testing.T) {
 	}
 
 	// 竞品异议 → 竞品话术
-	got3 := svc.RecommendForResponse(IndustryAuto, "", StageContact, IntentObjectionCompetitor)
+	got3 := svc.RecommendForResponse(context.Background(), IndustryAuto, "", StageContact, IntentObjectionCompetitor)
 	if len(got3) == 0 {
 		t.Fatal("竞品异议意图应推荐竞品话术")
 	}
@@ -177,14 +177,14 @@ func TestPlaybook_RecommendForResponse(t *testing.T) {
 // TestPlaybook_RecordUse_UsageStats 使用统计
 func TestPlaybook_RecordUse_UsageStats(t *testing.T) {
 	svc := NewPlaybookService()
-	entry, _ := svc.Add(&PlaybookEntry{
+	entry, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryEcommerce, Stage: StageQuoted,
 		Title: "电商逼单", Content: "限时折扣", CreatedBy: "tester",
 	})
 
 	// 模拟销售调用 5 次，3 次成功
 	for i := 0; i < 5; i++ {
-		svc.RecordUse(entry.ID, i < 3)
+		svc.RecordUse(context.Background(), entry.ID, i < 3)
 	}
 
 	got := svc.GetByID(context.Background(), entry.ID)
@@ -214,15 +214,15 @@ func TestPlaybook_Add_Validation(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// nil
-	if _, err := svc.Add(nil); err == nil {
+	if _, err := svc.Add(context.Background(), nil); err == nil {
 		t.Error("nil 入参应报错")
 	}
 	// 标题为空
-	if _, err := svc.Add(&PlaybookEntry{Content: "test"}); err == nil {
+	if _, err := svc.Add(context.Background(), &PlaybookEntry{Content: "test"}); err == nil {
 		t.Error("标题为空应报错")
 	}
 	// 内容为空
-	if _, err := svc.Add(&PlaybookEntry{Title: "test"}); err == nil {
+	if _, err := svc.Add(context.Background(), &PlaybookEntry{Title: "test"}); err == nil {
 		t.Error("内容为空应报错")
 	}
 }
@@ -231,13 +231,13 @@ func TestPlaybook_Add_Validation(t *testing.T) {
 func TestPlaybook_Recommend_Limit(t *testing.T) {
 	svc := NewPlaybookService()
 	for i := 0; i < 20; i++ {
-		_, _ = svc.Add(&PlaybookEntry{
+		_, _ = svc.Add(context.Background(), &PlaybookEntry{
 			Industry: IndustryFinance, Stage: StageInterested, Objection: PlayObjectionPrice,
 			Title: fmt.Sprintf("理财话术 %d", i), Content: "内容",
 			CreatedBy: "tester",
 		})
 	}
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry: IndustryFinance, Stage: StageInterested, Objection: PlayObjectionPrice, Limit: 3,
 	})
 	if len(got) != 3 {
@@ -249,7 +249,7 @@ func TestPlaybook_Recommend_Limit(t *testing.T) {
 // TestPlaybook_Recommend_EmptyResult 无匹配时返回空
 func TestPlaybook_Recommend_EmptyResult(t *testing.T) {
 	svc := NewPlaybookService()
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry: IndustryFinance, Stage: StageAfterSale, Objection: PlayObjectionStall,
 	})
 	if len(got) == 0 {
@@ -260,12 +260,12 @@ func TestPlaybook_Recommend_EmptyResult(t *testing.T) {
 // TestPlaybook_FormatPlaybook 富文本输出
 func TestPlaybook_FormatPlaybook(t *testing.T) {
 	svc := NewPlaybookService()
-	entry, _ := svc.Add(&PlaybookEntry{
+	entry, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryEducation, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "教培价格异议", Content: "内容 X", Tips: "强调：分摊到每节课",
 		UseCount: 10, SuccessCount: 8, CreatedBy: "tester",
 	})
-	formatted := svc.FormatPlaybook(entry)
+	formatted := svc.FormatPlaybook(context.Background(), entry)
 	if !strings.Contains(formatted, "教培价格异议") {
 		t.Error("输出应包含标题")
 	}
@@ -284,18 +284,18 @@ func TestPlaybook_FormatPlaybook(t *testing.T) {
 // TestPlaybook_Concurrent 安全并发
 func TestPlaybook_Concurrent(t *testing.T) {
 	svc := NewPlaybookService()
-	entry, _ := svc.Add(&PlaybookEntry{
+	entry, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryB2B, Title: "并发测试", Content: "X", CreatedBy: "tester",
 	})
 
 	done := make(chan bool, 100)
 	for i := 0; i < 50; i++ {
 		go func() {
-			svc.Recommend(PlaybookQuery{Industry: IndustryB2B, Limit: 5})
+			svc.Recommend(context.Background(), PlaybookQuery{Industry: IndustryB2B, Limit: 5})
 			done <- true
 		}()
 		go func() {
-			svc.RecordUse(entry.ID, true)
+			svc.RecordUse(context.Background(), entry.ID, true)
 			done <- true
 		}()
 	}
@@ -317,7 +317,7 @@ func TestSalesEngine_SetPlaybook_Integration(t *testing.T) {
 	}
 
 	// 不应有 nil 错误
-	got := engine.RecommendPlaybook(IndustryMedicalBeauty, "prod_1", StageInterested, IntentObjectionPrice)
+	got := engine.RecommendPlaybook(context.Background(), IndustryMedicalBeauty, "prod_1", StageInterested, IntentObjectionPrice)
 	if len(got) == 0 {
 		t.Error("应推荐话术")
 	}
@@ -327,7 +327,7 @@ func TestSalesEngine_SetPlaybook_Integration(t *testing.T) {
 // TestSalesEngine_RecommendPlaybook_NilSafe nil 时安全
 func TestSalesEngine_RecommendPlaybook_NilSafe(t *testing.T) {
 	engine := &SalesEngine{} // 未注入 playbook
-	got := engine.RecommendPlaybook(IndustryMedicalBeauty, "", StageInterested, IntentObjectionPrice)
+	got := engine.RecommendPlaybook(context.Background(), IndustryMedicalBeauty, "", StageInterested, IntentObjectionPrice)
 	if got != nil {
 		t.Error("未注入话术库时应返回 nil")
 	}
@@ -346,46 +346,46 @@ func TestPlaybook_E2E_MedicalBeauty(t *testing.T) {
 	_ = custID
 
 	// 1. 客户首次咨询 → 推荐破冰话术
-	got1 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageStranger, IntentGreeting)
+	got1 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageStranger, IntentGreeting)
 	if len(got1) == 0 {
 		t.Fatal("破冰话术缺失")
 	}
 	t.Logf("  1️⃣  破冰：%s", got1[0].Title)
 
 	// 2. 留资 → 推荐首次回访
-	got2 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageLead, IntentSocial)
+	got2 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageLead, IntentSocial)
 	if len(got2) == 0 {
 		t.Fatal("回访话术缺失")
 	}
 	t.Logf("  2️⃣  回访：%s", got2[0].Title)
 
 	// 3. 客户说"太贵了" → 推荐价格异议
-	got3 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageInterested, IntentObjectionPrice)
+	got3 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageInterested, IntentObjectionPrice)
 	if len(got3) == 0 {
 		t.Fatal("价格异议话术缺失")
 	}
 	// 销售使用此话术，记录
-	svc.RecordUse(got3[0].ID, true)
+	svc.RecordUse(context.Background(), got3[0].ID, true)
 	t.Logf("  3️⃣  价格异议：%s", got3[0].Title)
 
 	// 4. 客户怕不安全 → 推荐信任异议
-	got4 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageContact, IntentObjectionTrust)
+	got4 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageContact, IntentObjectionTrust)
 	if len(got4) == 0 {
 		t.Fatal("信任异议话术缺失")
 	}
-	svc.RecordUse(got4[0].ID, false) // 这次没成功
+	svc.RecordUse(context.Background(), got4[0].ID, false) // 这次没成功
 	t.Logf("  4️⃣  信任异议：%s", got4[0].Title)
 
 	// 5. 报价后客户要问老公 → 决策权异议
-	got5 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageQuoted, IntentStall)
+	got5 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageQuoted, IntentStall)
 	if len(got5) == 0 {
 		t.Fatal("决策权话术缺失")
 	}
-	svc.RecordUse(got5[0].ID, true)
+	svc.RecordUse(context.Background(), got5[0].ID, true)
 	t.Logf("  5️⃣  决策权：%s", got5[0].Title)
 
 	// 6. 逼单
-	got6 := svc.RecommendForResponse(IndustryMedicalBeauty, "", StageQuoted, IntentPurchase)
+	got6 := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "", StageQuoted, IntentPurchase)
 	t.Logf("  6️⃣  逼单：%d 条", len(got6))
 
 	t.Logf("✅ 医美完整闭环：5 个阶段 + 5 类异议全部覆盖")
@@ -397,28 +397,28 @@ func TestPlaybook_E2E_B2B(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 1. 客户留资需求模糊
-	got1 := svc.RecommendForResponse(IndustryB2B, "", StageLead, IntentAskProduct)
+	got1 := svc.RecommendForResponse(context.Background(), IndustryB2B, "", StageLead, IntentAskProduct)
 	if len(got1) == 0 {
 		t.Fatal("B2B 需求异议话术缺失")
 	}
 	t.Logf("  1️⃣  需求探查：%s", got1[0].Title)
 
 	// 2. 预算异议
-	got2 := svc.RecommendForResponse(IndustryB2B, "", StageInterested, IntentObjectionPrice)
+	got2 := svc.RecommendForResponse(context.Background(), IndustryB2B, "", StageInterested, IntentObjectionPrice)
 	if len(got2) == 0 {
 		t.Fatal("B2B 价格异议话术缺失")
 	}
 	t.Logf("  2️⃣  预算异议：%s", got2[0].Title)
 
 	// 3. 怕不稳定
-	got3 := svc.RecommendForResponse(IndustryB2B, "", StageContact, IntentObjectionTrust)
+	got3 := svc.RecommendForResponse(context.Background(), IndustryB2B, "", StageContact, IntentObjectionTrust)
 	if len(got3) == 0 {
 		t.Fatal("B2B 信任异议话术缺失")
 	}
 	t.Logf("  3️⃣  信任异议：%s", got3[0].Title)
 
 	// 4. 决策权异议（要走流程）
-	got4 := svc.RecommendForResponse(IndustryB2B, "", StageQuoted, IntentStall)
+	got4 := svc.RecommendForResponse(context.Background(), IndustryB2B, "", StageQuoted, IntentStall)
 	if len(got4) == 0 {
 		t.Fatal("B2B 决策权话术缺失")
 	}
@@ -432,21 +432,21 @@ func TestPlaybook_E2E_RealEstate(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 看房客户
-	got1 := svc.RecommendForResponse(IndustryRealEstate, "", StageStranger, IntentGreeting)
+	got1 := svc.RecommendForResponse(context.Background(), IndustryRealEstate, "", StageStranger, IntentGreeting)
 	if len(got1) == 0 || got1[0].Industry != IndustryRealEstate {
 		t.Errorf("房产破冰话术缺失或行业不匹配")
 	}
 	t.Logf("  1️⃣  破冰：%s", got1[0].Title)
 
 	// 怕烂尾
-	got2 := svc.RecommendForResponse(IndustryRealEstate, "", StageQuoted, IntentObjectionTrust)
+	got2 := svc.RecommendForResponse(context.Background(), IndustryRealEstate, "", StageQuoted, IntentObjectionTrust)
 	if len(got2) == 0 {
 		t.Fatal("房产信任异议话术缺失")
 	}
 	t.Logf("  2️⃣  防烂尾：%s", got2[0].Title)
 
 	// 稀缺房源逼单
-	got3 := svc.RecommendForResponse(IndustryRealEstate, "", StageQuoted, IntentPurchase)
+	got3 := svc.RecommendForResponse(context.Background(), IndustryRealEstate, "", StageQuoted, IntentPurchase)
 	if len(got3) == 0 {
 		t.Fatal("房产逼单话术缺失")
 	}
@@ -460,20 +460,20 @@ func TestPlaybook_Priority_NewVsOld(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 高成功率旧话术（10 次使用，9 成功 = 90%）
-	oldOne, _ := svc.Add(&PlaybookEntry{
+	oldOne, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryAuto, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "低成功率老话术", Content: "老版本",
 		UseCount: 100, SuccessCount: 10, // 10% 成功率
 		CreatedBy: "tester",
 	})
 	// 新话术（0 次使用）
-	newOne, _ := svc.Add(&PlaybookEntry{
+	newOne, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryAuto, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "新话术", Content: "新版本", CreatedBy: "tester",
 	})
 	_ = oldOne
 
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry: IndustryAuto, Stage: StageInterested, Objection: PlayObjectionPrice, Limit: 5,
 	})
 	if len(got) < 3 {
@@ -523,16 +523,16 @@ func TestPlaybook_BusinessScenario_AITagger(t *testing.T) {
 	resp := &SalesResponse{
 		Intent: &dto.RecognizeResult{IntentType: IntentObjectionPrice, IntentName: "价格异议", Confidence: 0.9},
 	}
-	tagger.TagFromSalesResponse(custID, resp)
+	tagger.TagFromSalesResponse(context.Background(), custID, resp)
 
 	// 2. 销售跟进：客户已 Interested 阶段 + 价格异议
-	recs := svc.RecommendForResponse(IndustryMedicalBeauty, "prod_001", StageInterested, IntentObjectionPrice)
+	recs := svc.RecommendForResponse(context.Background(), IndustryMedicalBeauty, "prod_001", StageInterested, IntentObjectionPrice)
 	if len(recs) == 0 {
 		t.Fatal("推荐失败")
 	}
 
 	// 3. 销售使用第一条
-	svc.RecordUse(recs[0].ID, true)
+	svc.RecordUse(context.Background(), recs[0].ID, true)
 	t.Logf("✅ 业务流贯通：标签→推荐→使用→统计")
 }
 
@@ -549,7 +549,7 @@ func TestPlaybook_BusinessScenario_FullLoop(t *testing.T) {
 	intent := IntentObjectionPrice
 
 	// 1. 销售自己加一条新话术（演示自定义话术）
-	customEntry, _ := svc.Add(&PlaybookEntry{
+	customEntry, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry:  industry,
 		ProductID: productID,
 		Stage:     stage,
@@ -561,7 +561,7 @@ func TestPlaybook_BusinessScenario_FullLoop(t *testing.T) {
 	})
 
 	// 2. 引擎自动推荐话术
-	recs := engine.RecommendPlaybook(industry, productID, stage, intent)
+	recs := engine.RecommendPlaybook(context.Background(), industry, productID, stage, intent)
 	if len(recs) == 0 {
 		t.Fatal("应推荐话术")
 	}
@@ -578,7 +578,7 @@ func TestPlaybook_BusinessScenario_FullLoop(t *testing.T) {
 			break
 		}
 	}
-	svc.RecordUse(chosen.ID, true)
+	svc.RecordUse(context.Background(), chosen.ID, true)
 
 	// 4. 验证：话术使用统计正确
 	got := svc.GetByID(context.Background(), chosen.ID)
@@ -596,7 +596,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 	svc := NewPlaybookService()
 
 	// 销冠添加自己的话术
-	custom, _ := svc.Add(&PlaybookEntry{
+	custom, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryRealEstate, Stage: StageInterested, Objection: PlayObjectionPrice,
 		Title: "张销冠的独门话术", Content: "独家秘诀...",
 		Tags: []string{"销冠秘籍"}, CreatedBy: "张销冠",
@@ -604,7 +604,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 	_ = custom
 
 	// 推荐时能找到
-	got := svc.Recommend(PlaybookQuery{
+	got := svc.Recommend(context.Background(), PlaybookQuery{
 		Industry: IndustryRealEstate, Stage: StageInterested, Objection: PlayObjectionPrice, Limit: 10,
 	})
 	found := false
@@ -625,7 +625,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 // TestPlaybook_TimestampSet 时间戳自动设置
 func TestPlaybook_TimestampSet(t *testing.T) {
 	svc := NewPlaybookService()
-	entry, _ := svc.Add(&PlaybookEntry{
+	entry, _ := svc.Add(context.Background(), &PlaybookEntry{
 		Industry: IndustryEcommerce, Title: "时间戳测试", Content: "x", CreatedBy: "tester",
 	})
 	if entry.CreatedAt.IsZero() {

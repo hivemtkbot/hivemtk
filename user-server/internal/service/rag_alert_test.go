@@ -128,7 +128,7 @@ func TestRagAlert_CheckAndAlert_LowRecall(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	result, err := svc.CheckAndAlert(ctx, start, end)
+	result, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestRagAlert_CheckAndAlert_EmbeddingFailure(t *testing.T) {
 		}
 	}
 
-	result, err := svc.CheckAndAlert(ctx, start, end)
+	result, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestRagAlert_CheckAndAlert_HighLatency(t *testing.T) {
 		t.Fatalf("create log failed: %v", err)
 	}
 
-	result, err := svc.CheckAndAlert(ctx, start, end)
+	result, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestRagAlert_CheckAndAlert_ZeroHit(t *testing.T) {
 		}
 	}
 
-	result, err := svc.CheckAndAlert(ctx, start, end)
+	result, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestRagAlert_CheckAndAlert_Idempotent(t *testing.T) {
 	}
 
 	// 第一次检查：应触发 low_recall
-	r1, err := svc.CheckAndAlert(ctx, start, end)
+	r1, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert 1 failed: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestRagAlert_CheckAndAlert_Idempotent(t *testing.T) {
 	firstCount := len(r1.TriggeredAlerts)
 
 	// 第二次检查同窗口：应跳过所有重复
-	r2, err := svc.CheckAndAlert(ctx, start, end)
+	r2, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert 2 failed: %v", err)
 	}
@@ -389,7 +389,7 @@ func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 		t.Fatalf("create cur log failed: %v", err)
 	}
 
-	r, err := svc.CheckAndAlert(ctx, curStart, curEnd)
+	r, err := svc.CheckAndAlert(context.Background(), curStart, curEnd)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestRagAlert_CheckAndAlert_EmptyData(t *testing.T) {
 	start := time.Now().Add(-5 * time.Minute)
 	end := time.Now()
 
-	r, err := svc.CheckAndAlert(ctx, start, end)
+	r, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
@@ -483,7 +483,7 @@ func TestRagAlert_GetActiveAlerts_Basic(t *testing.T) {
 		}
 	}
 
-	rows, err := svc.GetActiveAlerts(ctx, "", 0)
+	rows, err := svc.GetActiveAlerts(context.Background(), "", 0)
 	if err != nil {
 		t.Fatalf("GetActiveAlerts failed: %v", err)
 	}
@@ -514,7 +514,7 @@ func TestRagAlert_GetActiveAlerts_FilterByType(t *testing.T) {
 		}
 	}
 
-	rows, err := svc.GetActiveAlerts(ctx, "low_recall", 0)
+	rows, err := svc.GetActiveAlerts(context.Background(), "low_recall", 0)
 	if err != nil {
 		t.Fatalf("GetActiveAlerts failed: %v", err)
 	}
@@ -550,7 +550,7 @@ func TestRagAlert_GetActiveAlerts_LimitClamp(t *testing.T) {
 	}
 
 	// limit=0 → 默认 100
-	rows, err := svc.GetActiveAlerts(ctx, "", 0)
+	rows, err := svc.GetActiveAlerts(context.Background(), "", 0)
 	if err != nil {
 		t.Fatalf("GetActiveAlerts failed: %v", err)
 	}
@@ -582,7 +582,7 @@ func TestRagAlert_GetAlertHistory(t *testing.T) {
 	}
 
 	// 历史查询应包含已解决
-	rows, err := svc.GetAlertHistory(ctx, "", 0)
+	rows, err := svc.GetAlertHistory(context.Background(), "", 0)
 	if err != nil {
 		t.Fatalf("GetAlertHistory failed: %v", err)
 	}
@@ -614,7 +614,7 @@ func TestRagAlert_ResolveAlert(t *testing.T) {
 		t.Fatalf("create alert failed: %v", err)
 	}
 
-	resolved, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin", "fixed")
+	resolved, err := svc.ResolveAlert(context.Background(), a.ID, "admin", "fixed")
 	if err != nil {
 		t.Fatalf("ResolveAlert failed: %v", err)
 	}
@@ -680,7 +680,7 @@ func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 	}
 
 	// 第一次解决
-	r1, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin", "first")
+	r1, err := svc.ResolveAlert(context.Background(), a.ID, "admin", "first")
 	if err != nil {
 		t.Fatalf("ResolveAlert 1 failed: %v", err)
 	}
@@ -690,7 +690,7 @@ func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 	firstAt := r1.ResolvedAt
 
 	// 第二次解决（应幂等返回）
-	r2, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin2", "second")
+	r2, err := svc.ResolveAlert(context.Background(), a.ID, "admin2", "second")
 	if err != nil {
 		t.Fatalf("ResolveAlert 2 failed: %v", err)
 	}
@@ -732,7 +732,7 @@ func TestRagAlert_ResolveAllActive(t *testing.T) {
 	}
 
 	// 按类型批量解决 low_recall
-	n, err := svc.ResolveAllActive(ctx, "low_recall", "admin", "batch fix")
+	n, err := svc.ResolveAllActive(context.Background(), "low_recall", "admin", "batch fix")
 	if err != nil {
 		t.Fatalf("ResolveAllActive failed: %v", err)
 	}
@@ -741,7 +741,7 @@ func TestRagAlert_ResolveAllActive(t *testing.T) {
 	}
 
 	// 验证 high_latency 仍未解决
-	rows, err := svc.GetActiveAlerts(ctx, "high_latency", 0)
+	rows, err := svc.GetActiveAlerts(context.Background(), "high_latency", 0)
 	if err != nil {
 		t.Fatalf("GetActiveAlerts failed: %v", err)
 	}
@@ -750,7 +750,7 @@ func TestRagAlert_ResolveAllActive(t *testing.T) {
 	}
 
 	// 全部批量解决
-	n2, err := svc.ResolveAllActive(ctx, "", "admin", "all fix")
+	n2, err := svc.ResolveAllActive(context.Background(), "", "admin", "all fix")
 	if err != nil {
 		t.Fatalf("ResolveAllActive 2 failed: %v", err)
 	}
@@ -771,8 +771,8 @@ func TestRagAlert_Cron_StartStop(t *testing.T) {
 	if cron == nil {
 		t.Fatal("Expected non-nil cron")
 	}
-	cron.Start()
-	cron.Stop()
+	cron.Start(context.Background())
+	cron.Stop(context.Background())
 }
 
 // ----------------------------------------------------------------------------
@@ -799,7 +799,7 @@ func TestRagAlert_GetEmbeddingFailureRate(t *testing.T) {
 		}
 	}
 
-	rate, total, err := svc.getEmbeddingFailureRate(ctx)
+	rate, total, err := svc.getEmbeddingFailureRate(context.Background())
 	if err != nil {
 		t.Fatalf("getEmbeddingFailureRate failed: %v", err)
 	}
@@ -894,7 +894,7 @@ func TestRagAlert_CheckAndAlert_MultipleConditions(t *testing.T) {
 		}
 	}
 
-	r, err := svc.CheckAndAlert(ctx, start, end)
+	r, err := svc.CheckAndAlert(context.Background(), start, end)
 	if err != nil {
 		t.Fatalf("CheckAndAlert failed: %v", err)
 	}
