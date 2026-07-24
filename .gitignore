@@ -16,6 +16,8 @@ __pycache__/
 .env.*.local
 *.env
 # 说明：.env 为本地真实配置（忽略）；.env-example 为示例模板，纳入版本追踪。
+# 例外：推理栈模型定义文件（非敏感配置，需纳入版本追踪）
+!scripts/inference-host/models.env
 
 # ---------- 日志 ----------
 logs/

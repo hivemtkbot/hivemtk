@@ -25,12 +25,16 @@ source "$SCRIPT_DIR/models.env"
 ONLY_ROLE="${1:-}"
 
 # ---- 工具函数 ----
+# build_urls <repo> <branch> <file> [ms_file]
+# ms_file: ModelScope 上的实际文件名（个别仓库首尾带空格），不传则用 file
 build_urls() {
-  local repo="$1" branch="$2" f="$3"
+  local repo="$1" branch="$2" f="$3" msf="${4:-$3}"
+  # ModelScope URL-encode 空格
+  local msf_encoded="${msf// /%20}"
   IFS=',' read -ra SRCS <<< "$DOWNLOAD_SOURCE"
   for s in "${SRCS[@]}"; do
     case "$s" in
-      modelscope) echo "https://modelscope.cn/models/${repo}/resolve/${branch}/${f}" ;;
+      modelscope) echo "https://modelscope.cn/models/${repo}/resolve/${branch}/${msf_encoded}" ;;
       hf-mirror)  echo "https://hf-mirror.com/${repo}/resolve/main/${f}" ;;
       hf)         echo "https://huggingface.co/${repo}/resolve/main/${f}" ;;
       *)          echo "[download] 未知源：$s（跳过）" >&2 ;;
@@ -39,7 +43,7 @@ build_urls() {
 }
 
 download_one() {
-  local role="$1" repo="$2" branch="$3" file="$4" target_dir="$5"
+  local role="$1" repo="$2" branch="$3" file="$4" target_dir="$5" msf="${6:-}"
   local out="$target_dir/$file"
   if [[ -s "$out" ]]; then
     echo "[download] [$role] 已存在且非空，跳过: $out ($(du -h "$out" | cut -f1))"
@@ -47,7 +51,7 @@ download_one() {
   fi
   mkdir -p "$target_dir"
   local urls=()
-  while IFS= read -r u; do urls+=("$u"); done < <(build_urls "$repo" "$branch" "$file")
+  while IFS= read -r u; do urls+=("$u"); done < <(build_urls "$repo" "$branch" "$file" "$msf")
   for u in "${urls[@]}"; do
     echo "[download] [$role] 尝试: $u"
     local auth=()
@@ -78,10 +82,10 @@ roles_done=0
 roles_failed=0
 
 download_role() {
-  local role="$1" repo="$2" file="$3" dir="$4" branch="${5:-master}"
+  local role="$1" repo="$2" file="$3" dir="$4" branch="${5:-master}" msf="${6:-}"
   if [[ -n "$ONLY_ROLE" && "$ONLY_ROLE" != "$role" ]]; then return 0; fi
   echo "[download] [$role] 仓库=$repo, 文件=$file, 目标=$dir"
-  if download_one "$role" "$repo" "$branch" "$file" "$dir"; then
+  if download_one "$role" "$repo" "$branch" "$file" "$dir" "$msf"; then
     roles_done=$((roles_done + 1))
   else
     roles_failed=$((roles_failed + 1))
@@ -90,7 +94,7 @@ download_role() {
 }
 
 # ModelScope 大多 master；HF main
-download_role llm       "$LLM_REPO"       "$LLM_FILE"       "$LLM_MODEL_DIR"       master
+download_role llm        "$LLM_REPO"       "$LLM_FILE"       "$LLM_MODEL_DIR"       master
 download_role embedding  "$EMBEDDING_REPO" "$EMBEDDING_FILE" "$EMBEDDING_MODEL_DIR" master
 download_role rerank     "$RERANK_REPO"    "$RERANK_FILE"    "$RERANK_MODEL_DIR"    master
 

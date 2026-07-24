@@ -120,7 +120,7 @@ case "$OS" in
     install_linux_apt || install_linux_source
     ;;
   *)
-    echo "❌ 不支持的平台：$OS（仅 macOS / Linux）" >&2
+    echo "❌ 不支持的平台：${OS}（仅 macOS / Linux）" >&2
     exit 1
     ;;
 esac

@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
 print_inference_host_banner
-log_info "目标 embedding 维度: $EMBEDDING_DIM（必须与 pgvector vector($EMBEDDING_DIM) 一致）"
+log_info "目标 embedding 维度: ${EMBEDDING_DIM}（必须与 pgvector vector(${EMBEDDING_DIM}) 一致）"
 start_role embedding "$EMBEDDING_FILE" "$EMBEDDING_PORT" "$EMBEDDING_MODEL_DIR" --embeddings
 
 log_info "等待 /health（最多 120s）..."

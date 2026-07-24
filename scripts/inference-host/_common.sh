@@ -118,13 +118,13 @@ start_role() {
   # 构造 llama-server 参数
   # 通用参数：--model --host --port -c -t --jinja
   # LLM  加 --jinja（Qwen2.5 chat template）   --port=chat port
-  # Embed 加 --embeddings                      --port=embed port
-  # Rerank 加 --reranking                      --port=rerank port
+  # Embed 加 --embeddings --pooling mean       --port=embed port
+  # Rerank 加 --reranking（不加 --pooling，cross-encoder 直接输出相关性分数）
   local extra=()
   case "$mode_flag" in
     llm)         extra=(--jinja) ;;
     --embeddings) extra=(--embeddings --pooling mean) ;;
-    --reranking)  extra=(--reranking --pooling mean) ;;
+    --reranking)  extra=(--reranking) ;;
     *)           log_err "[$role] 未知 mode_flag: $mode_flag"; return 1 ;;
   esac
 
