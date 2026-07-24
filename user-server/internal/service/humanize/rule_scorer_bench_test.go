@@ -84,6 +84,7 @@ func BenchmarkRuleScorer_RuleOnly(b *testing.B) {
 			Intent:          sample.intent,
 			CustomerMessage: sample.message,
 		}
+		ctx := context.Background()
 		_, err := s.Evaluate(ctx, input)
 		if err != nil {
 			b.Fatal(err)
