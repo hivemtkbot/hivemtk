@@ -162,6 +162,26 @@ func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
 	return out
 }
 
+// ResolveProviderName 将路径参数（可能是 provider Name 或 Model）解析为实际的 provider Name。
+// 优先按 Name 精确匹配，其次按 Model 精确匹配。未找到返回空字符串。
+// 这支撑前端 /api/llm/models/:name 端点同时接受 provider name（如 "deepseek"）和 model name（如 "gpt-4o"）。
+func (s *LLMRoutingService) ResolveProviderName(name string) string {
+	if s.dispatcher == nil || name == "" {
+		return ""
+	}
+	// 1. 按 provider Name 精确匹配
+	if s.dispatcher.GetProvider(name) != nil {
+		return name
+	}
+	// 2. 按 Model 字段精确匹配
+	for _, p := range s.dispatcher.GetAllProviders() {
+		if p.Model == name {
+			return p.Name
+		}
+	}
+	return ""
+}
+
 // CreateModel 注册新 provider
 func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInfo) error {
 	if s.dispatcher == nil {

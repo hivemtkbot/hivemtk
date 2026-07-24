@@ -14,7 +14,8 @@ type EventTracker struct {
 	repo         repository.CustomerEventRepository
 	customerRepo repository.CustomerRepository
 	autoTagger   *AutoTagger
-	disableAsync bool // 用于测试禁用异步处理
+	orchestrator *CustomerOrchestrator // F-P0-09 业务编排层（可选）
+	disableAsync bool                  // 用于测试禁用异步处理
 }
 
 // NewEventTracker 创建事件追踪服务实例
@@ -24,6 +25,12 @@ func NewEventTracker(customerService *CustomerService) *EventTracker {
 		customerRepo: repository.NewCustomerRepository(),
 		autoTagger:   NewAutoTagger(),
 	}
+}
+
+// SetOrchestrator 注入客户业务编排层（F-P0-09）。
+// 未注入时 Track 仅完成事件落库与 autoTagger，不联动旅程阶段迁移。
+func (s *EventTracker) SetOrchestrator(o *CustomerOrchestrator) {
+	s.orchestrator = o
 }
 
 // DisableAsync 禁用异步处理（用于测试）
@@ -65,7 +72,7 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 		return err
 	}
 
-	// 异步触发自动标签处理
+	// 异步触发自动标签处理 + 业务编排层联动（旅程 / 标签）
 	if !s.disableAsync {
 		// R6 修复：原 goroutine 无 recover，panic 会杀进程。添加 recover 保护。
 		go func() {
@@ -78,6 +85,17 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 				logger.Errorf("AutoTagger.ProcessEvent error: %v", err)
 			}
 		}()
+		// F-P0-09: 联动业务编排层（旅程阶段迁移 / 标签更新）
+		if s.orchestrator != nil {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Errorf("event_tracker: orchestrator.OnCustomerEvent recovered from panic: %v", r)
+					}
+				}()
+				s.orchestrator.OnCustomerEvent(ctx, dto.CustomerID, event)
+			}()
+		}
 	}
 
 	return nil
@@ -187,6 +205,45 @@ func (s *EventTracker) TrackAddToCart(ctx context.Context, customerID, productID
 			"quantity":     quantity,
 		},
 	})
+}
+
+// RecordReachEvent 将触达结果回流为客户事件 (F-P1-91)。
+//
+// 实现 ReachEventRecorder 接口，由 reach_send_pipeline.defaultSendPipeline.Send
+// 在触达完成后调用（成功/失败均记录），补全 CDP 数据回流闭环。
+//
+// 设计：
+//   - 事件类型 = "reach"，事件来源 = channel（sms/email/wecom/...）
+//   - EventData 记录 message_id / success / error，便于后续分析触达效果
+//   - 失败仅记录日志，不向上游返回错误（best-effort，不阻塞触达主流程）
+func (s *EventTracker) RecordReachEvent(ctx context.Context, customerID, channel, messageID string, success bool, errMsg string) error {
+	if customerID == "" {
+		return nil // 无客户 ID 不记录（避免污染事件表）
+	}
+	eventType := model.EventType("reach")
+	eventSource := model.EventSource(channel)
+	if eventSource == "" {
+		eventSource = model.EventSourceWebsite
+	}
+	eventData := map[string]any{
+		"channel":    channel,
+		"message_id": messageID,
+		"success":    success,
+	}
+	if errMsg != "" {
+		eventData["error"] = errMsg
+	}
+	if err := s.Track(ctx, &EventDTO{
+		CustomerID:  customerID,
+		EventType:   eventType,
+		EventSource: eventSource,
+		EventData:   eventData,
+	}); err != nil {
+		logger.Errorf("[F-P1-91] RecordReachEvent failed customer=%s channel=%s err=%v",
+			customerID, channel, err)
+		return err
+	}
+	return nil
 }
 
 // TrackWithEventData 追踪带自定义数据的事件

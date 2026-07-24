@@ -187,6 +187,28 @@ func BusinessError(c *gin.Context, message string, details ...string) {
 	Error(c, utils.ErrorCodeBusiness, message, detail)
 }
 
+// ErrorWithBusinessCode 以 HTTP 200 返回业务错误码响应。
+//
+// 适用场景：业务错误码（如 5001/6001）只能放在响应体 code 字段，
+// 不能作为 HTTP 状态码（gin 会 panic: invalid WriteHeader code）。
+// 前端按响应体 code 判断成功/失败，与平台返回约定一致。
+//
+// 对应架构规范：controller 应使用 response.* 统一响应，禁止直接 c.JSON。
+//
+// 可选 data 参数：传入非 nil 值（如 gin.H{}）时会在响应体中携带 data 字段，
+// 避免 data:null 占位符；不传则 data 字段被 omitempty 省略。
+func ErrorWithBusinessCode(c *gin.Context, code int, message string, data ...any) {
+	var d any
+	if len(data) > 0 {
+		d = data[0]
+	}
+	c.JSON(http.StatusOK, Response{
+		Code:    code,
+		Message: i18n.Localize(localeOf(c), message),
+		Data:    d,
+	})
+}
+
 // AuthError 认证错误响应
 func AuthError(c *gin.Context, message string) {
 	Error(c, utils.ErrorCodeUnauthorized, message)

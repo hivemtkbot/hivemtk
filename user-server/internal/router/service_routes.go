@@ -25,6 +25,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.GET("/customer-sessions/:id/messages", customerSessionCtrl.GetMessages)
 	auth.POST("/customer-sessions/:id/messages", customerSessionCtrl.SendMessage)
 	auth.POST("/customer-sessions/:id/auto-assign", customerSessionCtrl.AutoAssignSession)
+	auth.POST("/customer-sessions/:id/close", customerSessionCtrl.CloseSession)
 	auth.POST("/customer-sessions/:id/rate", customerSessionCtrl.RateSession)
 	auth.POST("/customer-sessions/:id/transfer", customerSessionCtrl.TransferSession)
 	auth.POST("/customer-sessions/:id/tags", customerSessionCtrl.TagSession)
@@ -239,8 +240,9 @@ func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
 	auth.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
 	// 文档承诺的 /api/llm-routings/* 端点（前端 ops/llm-routing 看板使用）
+	// F-P0-10 修复：统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
 	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
-	auth.GET("/llm-routings/providers/:name/health", llmProvCtrl.GetProviderHealth)
+	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
 	auth.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
 	auth.GET("/llm-routings/policy", llmProvCtrl.GetPolicy)
 	auth.PUT("/llm-routings/policy", llmProvCtrl.UpdatePolicy)
@@ -333,6 +335,10 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	dispatcher := getGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)
 	llmCtrl := controller.NewLLMRoutingController(routingService)
+	// v3.7.0 P1 补：注入熔断器，Health 端点可展示 circuit_open / error_count / last_error
+	if f := getGlobalProviderFailover(); f != nil {
+		llmCtrl.SetFailover(f)
+	}
 	// Provider / Model 管理（:name 而非 :id）
 	auth.GET("/llm/models", llmCtrl.ListModels)
 	auth.GET("/llm/models/:name", llmCtrl.GetModel)

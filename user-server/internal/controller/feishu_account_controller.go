@@ -47,8 +47,46 @@ func (ctrl *FeishuAccountController) RegisterRoutes(router *gin.RouterGroup) {
 		g.PUT("/:id", ctrl.Update)
 		g.DELETE("/:id", ctrl.Delete)
 		g.POST("/:id/test-send", ctrl.TestSend)
+		g.GET("/:id/test-send", ctrl.TestSendQuery)
 		g.POST("/:id/refresh-token", ctrl.RefreshToken)
+		g.GET("/:id/refresh-token", ctrl.RefreshToken)
 	}
+}
+
+// TestSendQuery 兼容 GET 请求的测试发送：从 query 读取 open_id 与 content，
+// 用于前端探测或浏览器直接访问场景。
+// GET /api/feishu/accounts/:id/test-send?open_id=xxx&content=hello
+func (ctrl *FeishuAccountController) TestSendQuery(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
+		return
+	}
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
+	openID := c.Query("open_id")
+	content := c.Query("content")
+	if openID == "" || content == "" {
+		// 探测场景：仅校验账号存在，不真正发送
+		response.Success(c, gin.H{
+			"account_id":         acc.ID,
+			"account_name":       acc.AccountName,
+			"app_secret_masked":  maskFeishuSecret(acc.AppSecret),
+			"test_send_ready":    true,
+		}, "测试发送参数缺失，账号校验通过")
+		return
+	}
+	integration := ctrl.integrationSvc
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := integration.SendMessage(ctx, uint(id), openID, content); err != nil {
+		response.Error(c, http.StatusInternalServerError, "发送失败", err.Error())
+		return
+	}
+	response.Success(c, nil, "发送成功")
 }
 
 // feishuAccountVO 列表/详情返回视图（敏感字段掩码）
@@ -239,6 +277,11 @@ func (ctrl *FeishuAccountController) TestSend(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ID 错误", err.Error())
 		return
 	}
+	acc, err := ctrl.svc.GetAccount(context.Background(), uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
+		return
+	}
 	var req feishuTestSendReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
@@ -247,7 +290,7 @@ func (ctrl *FeishuAccountController) TestSend(c *gin.Context) {
 	integration := ctrl.integrationSvc
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := integration.SendMessage(ctx, uint(id), req.OpenID, req.Content); err != nil {
+	if err := integration.SendMessage(ctx, acc.ID, req.OpenID, req.Content); err != nil {
 		response.Error(c, http.StatusInternalServerError, "发送失败", err.Error())
 		return
 	}

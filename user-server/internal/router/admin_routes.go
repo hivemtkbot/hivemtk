@@ -3,6 +3,7 @@ package router
 import (
 	knowledgectrl "marketing/internal/aiagent/knowledge/controller"
 	"marketing/internal/controller"
+	"marketing/internal/middleware"
 	"marketing/internal/repository"
 	"marketing/internal/service"
 
@@ -54,7 +55,11 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	// 授权相关
-	public.POST("/auth/login", controller.NewAuthController().Login)
+	// P0-21 修复：登录路由挂载 BruteForceGuard（5 次/5 分钟失败阈值，超限 429）
+	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
+	loginCfg := middleware.LoginBruteForceConfig
+	loginCfg.Endpoint = "auth.login"
+	public.POST("/auth/login", middleware.BruteForceGuardWithConfig(loginCfg), controller.NewAuthController().Login)
 
 	// 开源版：已移除"首次强制改密"(init-change-password) 与"通过授权找回密码"
 	// (forgot-admin-password / reset-admin-password) 流程。找回密码统一在账号个人中心进行。
@@ -82,9 +87,18 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 
 	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
 	// 为兼容前端 Layout.vue 对 /api/license/status 的探测（开源版无授权概念），
-	// 提供只读占位接口：返回 200 + 空数据，不触发前端报错与 404 网络日志。
+	// 提供只读占位接口：返回 200 + 固定状态（开源版默认全功能可用），不触发前端报错与 404 网络日志。
 	public.GET("/license/status", func(c *gin.Context) {
-		c.JSON(200, gin.H{"code": 200, "data": nil, "msg": "ok"})
+		c.JSON(200, gin.H{
+			"code": 200,
+			"data": gin.H{
+				"edition":  "open_source",
+				"licensed": true,
+				"status":   "active",
+				"message":  "开源版无需授权",
+			},
+			"msg": "ok",
+		})
 	})
 	public.GET("/license/features", func(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "data": []interface{}{}, "msg": "ok"})
@@ -100,6 +114,12 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	)
 	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)
+
+	// F-P0-18 补完：活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
+	//   - GET  /api/livecode/:id        渲染活码落地页（HTML）
+	//   - POST /api/livecode/:id/click  记录访客点击（用于统计聚合）
+	public.GET("/livecode/:id", liveCodeController.RenderLiveCodePage)
+	public.POST("/livecode/:id/click", liveCodeController.RecordClick)
 
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
 	public.POST("/platform/report-api-log", platformCtrl.ReportAPILog)
