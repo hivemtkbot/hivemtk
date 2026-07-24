@@ -14,6 +14,7 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -169,8 +170,12 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 	if r := s.recognizeByRule(ctx, text); r != nil {
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
-	} else if s.dispatcher != nil {
-		// 2. LLM 识别
+	} else if s.dispatcher != nil && !isLocalLLMBaseURL(config.GetAppConfig().Inference.LLM.BaseURL) {
+		// 2. LLM 识别（仅云端 SaaS 启用）
+		// 2026-07-24 性能优化：本地小模型（1.5B/3B q4 CPU）单次推理 30-180s，
+		// 规则词典已覆盖 13 种核心意图；未命中时直接走兜底 IntentUnknown，
+		// 意图理解由 Step 6 generateCandidate 的 LLM 在生成回复时一并完成。
+		// 云端 SaaS（base_url 指向公网 API）保留 LLM 意图识别以提升精度。
 		if r, err := s.recognizeByLLM(ctx, text); err == nil && r != nil {
 			s.saveRecord(ctx, sessionID, customerID, text, r, r.LLMModel, r.CostTokens, r.LatencyMs)
 			result = r
