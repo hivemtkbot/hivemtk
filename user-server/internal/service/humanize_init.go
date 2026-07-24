@@ -23,6 +23,7 @@ import (
 
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/dto"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	humanizesvc "marketing/internal/service/humanize"
@@ -85,6 +86,18 @@ func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizes
 			if disabled, _ := strconv.ParseBool(v); disabled {
 				HumanizeEvaluatorEnabled = false
 				logger.Info("[humanize] MTK_HUMANIZE_EVAL_DISABLED=true，拟人度评估器已禁用（私域本地 LLM 模式）")
+			}
+		}
+		// 2. 自动检测：未显式禁用时，若 LLM base_url 指向本地推理服务
+		//    （127.0.0.1/localhost/mtk-llm），自动禁用拟人度评估。
+		//    原因：1.5B/3B q4 本地模型在 CPU 上拟人度普遍 < 0.85，
+		//    硬走 0.85 阈值会触发 3 次重生成仍失败 → 转人工，AI 实际无自动回复。
+		//    线上 SaaS（base_url 指向云端 API）不受影响，保持启用。
+		if HumanizeEvaluatorEnabled {
+			llmBaseURL := config.GetAppConfig().Inference.LLM.BaseURL
+			if isLocalLLMBaseURL(llmBaseURL) {
+				HumanizeEvaluatorEnabled = false
+				logger.Infof("[humanize] 检测到本地 LLM（base_url=%s），拟人度评估器自动禁用（本地小模型拟人度 <0.85，避免无效重生成）", llmBaseURL)
 			}
 		}
 		if HumanizeEvaluatorEnabled {
@@ -190,4 +203,22 @@ func SetHumanizeRegenerateDispatcher(dispatcher *llm.Dispatcher) {
 		adapter := &humanizeRegenerateAdapter{dispatcher: dispatcher}
 		return adapter.Regenerate(ctx, input, last)
 	})
+}
+
+// isLocalLLMBaseURL 判断 LLM base_url 是否指向本地推理服务
+//
+// 本地推理服务的特征地址：
+//   - 127.0.0.1 / localhost（宿主机直连 llama.cpp）
+//   - mtk-llm（Docker 容器名）
+//
+// 当 base_url 指向这些地址时，说明使用的是本地小模型（1.5B/3B q4），
+// 其在 CPU 上的拟人度普遍 < 0.85，应自动禁用拟人度评估避免无效重生成。
+func isLocalLLMBaseURL(baseURL string) bool {
+	if baseURL == "" {
+		return true // 未配置 base_url 视为本地默认
+	}
+	lower := strings.ToLower(baseURL)
+	return strings.Contains(lower, "127.0.0.1") ||
+		strings.Contains(lower, "localhost") ||
+		strings.Contains(lower, "mtk-llm")
 }

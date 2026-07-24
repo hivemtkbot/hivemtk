@@ -28,17 +28,60 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_product_id ON knowledge_embe
 CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_chunk_id ON knowledge_embeddings(chunk_id);
 
 -- RAG 产品配置表
+-- 2026-07-24 修复：与 Go 模型 RagProduct 对齐（id 为 VARCHAR(64) UUID，
+-- 含 is_active / 嵌入式 llm_/emb_/rerank_ 配置列）。
+-- 历史版本用 SERIAL INTEGER 主键且缺 is_active 列，导致 AutoMigrate 无法
+-- 修正列类型，GET /api/rag-config/products 因 is_active 不存在而 500。
 CREATE TABLE IF NOT EXISTS rag_products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(128) NOT NULL,
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     description TEXT,
+    category VARCHAR(100),
     vector_table VARCHAR(128) UNIQUE,
     embedding_model VARCHAR(64) DEFAULT 'bge-m3',
-    llm_model VARCHAR(64),
-    temperature FLOAT DEFAULT 0.7,
-    top_k INTEGER DEFAULT 5,
+    embedding_dim INTEGER DEFAULT 1024,
+    llm_model VARCHAR(100) DEFAULT 'gpt-3.5-turbo',
+    -- LLMProviderConfig (embeddedPrefix:llm_)
+    llm_api_key VARCHAR(255),
+    llm_base_url VARCHAR(255),
+    llm_api_type VARCHAR(32),
+    llm_model_detail VARCHAR(100),
+    llm_max_retries INTEGER DEFAULT 3,
+    llm_request_timeout INTEGER DEFAULT 60,
+    -- EmbeddingProviderConfig (embeddedPrefix:emb_)
+    emb_api_key VARCHAR(255),
+    emb_base_url VARCHAR(255),
+    emb_api_type VARCHAR(32),
+    emb_model VARCHAR(100),
+    emb_dimension INTEGER DEFAULT 1024,
+    emb_enabled BOOLEAN DEFAULT TRUE,
+    -- RerankProviderConfig (embeddedPrefix:rerank_)
+    rerank_api_key VARCHAR(255),
+    rerank_base_url VARCHAR(255),
+    rerank_api_type VARCHAR(32),
+    rerank_model VARCHAR(100),
+    rerank_enabled BOOLEAN DEFAULT TRUE,
+    temperature DOUBLE PRECISION DEFAULT 0.7,
+    max_tokens INTEGER DEFAULT 1000,
+    top_p DOUBLE PRECISION DEFAULT 0.9,
+    frequency_penalty DOUBLE PRECISION DEFAULT 0.5,
+    presence_penalty DOUBLE PRECISION DEFAULT 0.5,
+    response_format VARCHAR(50) DEFAULT 'json_object',
     system_prompt TEXT,
+    top_k INTEGER DEFAULT 5,
+    chunk_size INTEGER DEFAULT 800,
+    chunk_overlap INTEGER DEFAULT 100,
+    similarity_threshold DOUBLE PRECISION DEFAULT 0.6,
+    is_active BOOLEAN DEFAULT TRUE,
     status INTEGER DEFAULT 1,
+    doc_count INTEGER DEFAULT 0,
+    chunk_count BIGINT DEFAULT 0,
+    last_import_at TIMESTAMP,
+    last_search_at TIMESTAMP,
+    search_count BIGINT DEFAULT 0,
+    intent_classification TEXT,
+    enabled_intents TEXT,
+    intent_sop_map TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -47,9 +90,12 @@ CREATE TABLE IF NOT EXISTS rag_products (
 CREATE INDEX IF NOT EXISTS idx_rag_products_vector_table ON rag_products(vector_table);
 
 -- 知识库文档表
+-- 2026-07-24：移除 product_id 对 rag_products(id) 的 FK 约束 ——
+-- rag_products.id 已改为 VARCHAR(64) UUID，而 workspace 模型 KnowledgeDocument.ProductID
+-- 为 int64（BIGINT），类型不兼容。GORM 模型未声明 foreignKey，故此处不再建 FK。
 CREATE TABLE IF NOT EXISTS knowledge_documents (
     id SERIAL PRIMARY KEY,
-    product_id INTEGER REFERENCES rag_products(id),
+    product_id BIGINT,
     filename VARCHAR(256) NOT NULL,
     file_type VARCHAR(32),
     file_size INTEGER,
@@ -124,24 +170,35 @@ CREATE TABLE IF NOT EXISTS customer_tags (
 );
 
 -- RAG 会话表
+-- 2026-07-24：与 Go 模型 RagSession 对齐（id 为 VARCHAR(64) UUID，
+-- 字段 user_id/platform/kb_id/status/config，不再有 product_id FK）。
 CREATE TABLE IF NOT EXISTS rag_sessions (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER REFERENCES rag_products(id),
-    session_id VARCHAR(64) NOT NULL UNIQUE,
-    status VARCHAR(32) DEFAULT 'active',
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),
+    platform VARCHAR(20),
+    kb_id VARCHAR(64),
+    status VARCHAR(20) DEFAULT 'active',
+    config TEXT DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_rag_sessions_user_id ON rag_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_rag_sessions_platform ON rag_sessions(platform);
+CREATE INDEX IF NOT EXISTS idx_rag_sessions_status ON rag_sessions(status);
 
 -- RAG 消息表
+-- 2026-07-24：与 Go 模型 RagMessage 对齐（message_id / timestamp 字段）。
 CREATE TABLE IF NOT EXISTS rag_messages (
     id SERIAL PRIMARY KEY,
     session_id VARCHAR(64) NOT NULL,
-    role VARCHAR(32) NOT NULL,
+    message_id VARCHAR(64),
+    role VARCHAR(20) NOT NULL,
     content TEXT,
-    metadata JSONB,
+    timestamp TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_rag_messages_session_id ON rag_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_rag_messages_timestamp ON rag_messages(timestamp);
 
 -- OBS 配置表
 CREATE TABLE IF NOT EXISTS obs_configs (

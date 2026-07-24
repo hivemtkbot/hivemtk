@@ -241,67 +241,6 @@ func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser
 	}
 }
 
-// InitChangePassword 初始化流程的首次强制改密
-// 规则：
-//   - 必须存在 username 匹配、且 must_change_password=true 的系统用户
-//   - 不需要旧密码（初始化阶段特殊通道）
-//   - 改密成功后清除 must_change_password 标志
-//   - 改密成功后调用 LicenseChecker.MarkAdminInitialized()，使 install.lock 进入 INITIALIZED
-//   - 改密失败不影响 install.lock 状态
-func (s *AuthService) InitChangePassword(ctx context.Context, username, newPassword string) error {
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return errors.New("用户名不能为空")
-	}
-
-	// 1. 密码强度校验（与初始化时一致）
-	if err := validatePassword(newPassword); err != nil {
-		return err
-	}
-
-	// 2. 查找用户（必须存在 + must_change_password=true）
-	user, err := s.systemUserRepo.GetByUsername(ctx, username)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("用户不存在或无需强制改密")
-		}
-		logger.Error(err, "InitChangePassword 查询用户失败")
-		return errors.New("改密失败，请稍后重试")
-	}
-
-	if !user.MustChangePassword {
-		return errors.New("此账号无需强制改密，请使用普通改密流程")
-	}
-
-	// 3. 更新密码
-	hashed, err := HashPassword(newPassword)
-	if err != nil {
-		logger.Error(err, "InitChangePassword 密码加密失败")
-		return errors.New("改密失败，请稍后重试")
-	}
-	user.Password = hashed
-	user.MustChangePassword = false
-	// 保证 role=admin（防御性：万一被错改）
-	if user.Role != "admin" {
-		user.Role = "admin"
-	}
-
-	if err := s.systemUserRepo.Update(ctx, user); err != nil {
-		logger.Error(err, "InitChangePassword 保存用户失败")
-		return errors.New("改密失败，请稍后重试")
-	}
-
-	// 4. 标记 install.lock 为 AdminInitialized=true（关键修复 P0-2）
-	// 开源版：直接走 install 包（不依赖中间件避免 import cycle）
-	if err := install.MarkAdminInitializedStandalone(); err != nil {
-		// 不影响主流程，但必须记录
-		logger.Error(err, "InitChangePassword 标记 install.lock 失败")
-	}
-
-	logger.Info("InitChangePassword 首次改密完成: " + username)
-	return nil
-}
-
 // ============== P0-4 平台超管忘记密码流程 ==============
 
 // forgotTokenStore 全局：保存 reset_token → {username, expire_at}

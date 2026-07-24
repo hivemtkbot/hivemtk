@@ -5,11 +5,15 @@ import (
 )
 
 // LLMProviderConfig LLM 提供商配置(嵌入式)
+// 列前缀 llm_（由 embeddedPrefix 自动添加）。
+// 注意：Model 字段 column 标签为 model_detail（而非 model），否则会与
+// RagProduct.LLMModel（列 llm_model）冲突。最终列名 = llm_model_detail，
+// 与 repository UpdateRagProduct 中 updates["llm_model_detail"] 一致。
 type LLMProviderConfig struct {
 	APIKey         string `json:"api_key" gorm:"column:api_key"`
 	BaseURL        string `json:"base_url" gorm:"column:base_url"`
 	APIType        string `json:"api_type" gorm:"column:api_type"` // openai, anthropic, custom, azure
-	Model          string `json:"model" gorm:"column:model"`
+	Model          string `json:"model" gorm:"column:model_detail"`
 	MaxRetries     int    `json:"max_retries" gorm:"column:max_retries;default:3"`
 	RequestTimeout int    `json:"request_timeout" gorm:"column:request_timeout;default:60"`
 }

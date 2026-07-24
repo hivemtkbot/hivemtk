@@ -365,6 +365,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshRight, DataAnalysis, Top, StarFilled, ArrowDown } from '@element-plus/icons-vue'
 import { unifiedInboxApi } from '@/api/unifiedInbox.js'
+import { getChannelLabel, getChannelTagType } from '@/constants/channel.js'
 
 const loading = ref(false)
 const statsLoading = ref(false)
@@ -403,36 +404,9 @@ const barWidth = (count) => {
   return Math.round((count / maxPlatformCount.value) * 100)
 }
 
-const platformLabelMap = {
-  wecom: '企业微信',
-  personal_wx: '个人微信',
-  douyin: '抖音',
-  kuaishou: '快手',
-  xiaohongshu: '小红书',
-  xianyu: '闲鱼',
-  tiktok: 'TikTok',
-  whatsapp: 'WhatsApp',
-  sms: '短信',
-  email: '邮件'
-}
+const platformLabel = (p) => getChannelLabel(p) || '-'
 
-const platformLabel = (p) => platformLabelMap[p] || p || '-'
-
-const platformTagType = (p) => {
-  const map = {
-    wecom: 'success',
-    personal_wx: 'success',
-    douyin: '',
-    kuaishou: '',
-    xiaohongshu: 'danger',
-    xianyu: 'warning',
-    tiktok: '',
-    whatsapp: 'success',
-    sms: 'info',
-    email: 'info'
-  }
-  return map[p] || ''
-}
+const platformTagType = (p) => getChannelTagType(p)
 
 const statusLabelMap = {
   unread: '未读',

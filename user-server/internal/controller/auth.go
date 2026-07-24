@@ -146,39 +146,6 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	response.Success(ctx, nil, "修改密码成功")
 }
 
-// InitChangePasswordRequest 初始化强制改密请求（仅首次改密使用，无需旧密码）
-type InitChangePasswordRequest struct {
-	Username    string `json:"username" binding:"required,min=3,max=20"`
-	NewPassword string `json:"new_password" binding:"required,min=8"`
-}
-
-// InitChangePassword 初始化流程的首次强制改密
-// 规则：
-//   - 必须存在 must_change_password=true 的超管（与请求 username 匹配）
-//   - 不需要旧密码（系统初始化阶段的特殊通道）
-//   - 不需要 JWT 鉴权（InitGuard 白名单保护）
-//   - 改密成功后：清除 must_change_password、标记 install.lock.AdminInitialized=true
-//   - 改密成功后：将角色 admin 写入 user.role（确保 admin 标识）
-func (c *AuthController) InitChangePassword(ctx *gin.Context) {
-	var req InitChangePasswordRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
-		return
-	}
-
-	if err := c.authService.InitChangePassword(context.Background(), req.Username, req.NewPassword); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	response.Success(ctx, gin.H{
-		"username":             req.Username,
-		"must_change_password": false,
-		"admin_initialized":    true,
-		"message":              "首次改密完成，install.lock 已标记为 INITIALIZED，请使用新密码登录",
-	}, "首次改密成功")
-}
-
 // ============== P0-4 平台超管忘记密码流程 ==============
 
 // ForgotAdminPasswordRequest 申请重置超管密码请求
