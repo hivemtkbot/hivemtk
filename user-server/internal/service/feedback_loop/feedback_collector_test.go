@@ -420,6 +420,7 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	c := NewFeedbackCollector(db, DefaultFeedbackCollectorConfig())
 	defer c.Stop()
+	ctx := context.Background()
 
 	const N = 20
 	var wg sync.WaitGroup
