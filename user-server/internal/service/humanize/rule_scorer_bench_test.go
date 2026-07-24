@@ -99,6 +99,7 @@ func BenchmarkRuleScorer_AllSamples(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
 		for _, sample := range benchReplies {
 			input := &dto.HumanizeEvalInput{
 				AIReply:         sample.reply,
@@ -118,6 +119,7 @@ func BenchmarkRuleScorer_Parallel(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
+		ctx := context.Background()
 		for pb.Next() {
 			input := &dto.HumanizeEvalInput{
 				AIReply:         sample.reply,

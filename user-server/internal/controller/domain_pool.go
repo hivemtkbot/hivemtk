@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // DomainPoolController 域名池控制器
