@@ -188,7 +188,7 @@ type AuditorInterface interface {
 
 // PlaybookRecommenderInterface 销冠话术推荐抽象
 type PlaybookRecommenderInterface interface {
-	RecommendForResponse(industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry
+	RecommendForResponse(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry
 }
 
 // FeedbackRecorderInterface 反馈记录抽象
@@ -487,13 +487,26 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 			candidate = "您好，请问有什么可以帮您？"
 		}
 	} else {
-		resp.Steps = append(resp.Steps, dto.SalesStepLog{
-			Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),
-			Extra: map[string]any{
-				"provider": llmResult.Provider, "model": llmResult.Model,
-				"tokens": llmResult.TotalTokens, "cost": llmResult.Cost,
-			},
-		})
+		// v3.7.0 修复：generateCandidate 可能返回 (candidate, nil, nil)（如走 script/rag 兜底）
+		// 此时 llmResult 为 nil，不能直接访问其字段，否则 panic
+		if llmResult != nil {
+			resp.Steps = append(resp.Steps, dto.SalesStepLog{
+				Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),
+				Extra: map[string]any{
+					"provider": llmResult.Provider, "model": llmResult.Model,
+					"tokens": llmResult.TotalTokens, "cost": llmResult.Cost,
+				},
+			})
+		} else {
+			resp.Steps = append(resp.Steps, dto.SalesStepLog{
+				Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),
+				Extra: map[string]any{
+					"provider": "", "model": "",
+					"tokens": 0, "cost": float64(0),
+					"note": "candidate from script/rag fallback (no LLM call)",
+				},
+			})
+		}
 	}
 	if llmResult != nil {
 		resp.LLMProvider = llmResult.Provider
@@ -756,7 +769,7 @@ func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, 
 	if e.playbook == nil {
 		return nil
 	}
-	return e.playbook.RecommendForResponse(industry, productID, stage, intent)
+	return e.playbook.RecommendForResponse(ctx, industry, productID, stage, intent)
 }
 
 // fetchPlaybookSuggestions 在 Handle 流程中根据客户阶段+意图自动拉取话术建议
@@ -764,7 +777,7 @@ func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Ind
 	if e.playbook == nil {
 		return nil
 	}
-	return e.playbook.RecommendForResponse(industry, productID, stage, intent)
+	return e.playbook.RecommendForResponse(ctx, industry, productID, stage, intent)
 }
 
 // generateCandidate LLM 生成候选回复

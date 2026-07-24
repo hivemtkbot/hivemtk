@@ -307,8 +307,10 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"source":            entry.Source,
 		"scenario_provider": entry.ScenarioProvider,
 	}
-	if err := d.WithContext(ctx).Table("llm_routing_logs").Create(row).Error; err != nil {
+	if err := d.WithContext(context.Background()).Table("llm_routing_logs").Create(row).Error; err != nil {
 		// 写日志失败不阻塞主流程，但记录警告便于排查（如建表失败、字段缺失等）
+		// v3.7.0 修复：使用 context.Background() 而非传入的 ctx，避免父请求超时/取消
+		// 导致日志写入也被取消（context canceled），确保即使请求超时，路由日志也能落库
 		logger.Warnf("[LLM] LogRoutingDecision write failed: %v (entry=%+v)", err, entry)
 	}
 	// 更新 missing 计数器（用于占比告警）
