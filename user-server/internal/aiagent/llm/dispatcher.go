@@ -748,7 +748,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		Model:          provider.Model,
 		Temperature:    temperature,
 		MaxTokens:      maxTokens,
-		MaxRetries:     2,
+		MaxRetries:     1, // 2026-07-24 性能优化：2→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义只会空等 backoff（2s+4s）。失败由 dispatcher 候选 provider failover 兜底。
 		RequestTimeout: route.MaxLatency / 1000,
 		SystemPrompt:   req.SystemPrompt,
 	}
