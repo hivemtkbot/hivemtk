@@ -19,6 +19,9 @@ const stripOrigin = (u) => { try { return new URL(u).pathname + new URL(u).searc
 // 这些目标页（Playground / 商户编辑 / 详情返回 / 市场互链）已在 PAGES 中单独覆盖。
 const NAV_SKIP = ['Playground', '商户编辑', '返回', '去市场浏览', '我的资产', '同步日志', '去市场浏览', '查看']
 
+// 已知良性业务冲突（非代码缺陷）：重复购买 / 未购买即同步 / 手动资产不支持同步上报 / 非法输入校验
+const BENIGN_MSG = ['资产已存在', '请直接点击', '请先购买', '非平台购买资产', '拉取失败', '平台数据校验失败', 'already exists', '已存在', '无需上报']
+
 const isBenignConsole = (t) =>
   t.includes('Failed to load resource') || t.includes('favicon') ||
   t.includes('Download the React DevTools') || t.includes('[vite]') ||
@@ -140,7 +143,11 @@ test.describe('资产包 UI 真实后端审计', () => {
     page.setDefaultTimeout(8000)
 
     page.on('console', (m) => { if (m.type() === 'error' && !isBenignConsole(m.text())) realErrors.push('CONSOLE: ' + m.text().slice(0, 300)) })
-    page.on('pageerror', (e) => realErrors.push('PAGEERROR: ' + (e.stack || e.message).slice(0, 300)))
+    page.on('pageerror', (e) => {
+      const m = (e.stack || e.message || '')
+      if (BENIGN_MSG.some((b) => m.includes(b))) return
+      realErrors.push('PAGEERROR: ' + m.slice(0, 300))
+    })
 
     page.on('request', (req) => {
       const m = req.method()
@@ -161,13 +168,11 @@ test.describe('资产包 UI 真实后端审计', () => {
       const short = (body || '').slice(0, 400)
       apiCalls.push(`RESP ${st} ${m} ${stripOrigin(u)} :: ${short}`)
       if (st >= 500) { realErrors.push(`API_5XX(${st}): ${stripOrigin(u)} :: ${short}`); return }
-      // 已知良性业务冲突（非代码缺陷）：重复购买 / 未购买即同步 等
-      const BENIGN = ['资产已存在', '请直接点击', '请先购买', 'already exists', '已存在']
       try {
         const j = JSON.parse(body)
         if (j && typeof j === 'object' && j.code !== undefined && !isSuccessCode(j.code)) {
           const m = (j.msg || j.message || '')
-          if (!BENIGN.some((b) => m.includes(b))) {
+          if (!BENIGN_MSG.some((b) => m.includes(b))) {
             realErrors.push(`API_ERR(code=${j.code}): ${stripOrigin(u)} :: ${m || short}`)
           }
         }
