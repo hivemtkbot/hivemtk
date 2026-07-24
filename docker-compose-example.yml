@@ -1,12 +1,22 @@
 # ============================================================
-# HiveMtk 用户端 - Docker Compose（独立部署单元）
-#
-# 部署定位（2026-07-21 重构）：
+# ⚠️  【已废弃，仅向后兼容保留】2026-07-24 全面迁移到宿主机 llama.cpp
+# ------------------------------------------------------------
+# 历史背景（2026-07-21 重构 → 2026-07-24 再次重构）：
 #   - 本文件包含【用户端】全部组件：PostgreSQL(user_db) + Redis + user-server
 #     + 本地推理栈（mtk-llm / mtk-embedding / mtk-rerank）。
-#   - 用户端由各商户/用户自行部署，与【平台端】物理隔离。
-#   - 前端（user-web）与嵌入 SDK（embed-sdk）在【宿主机】构建后挂载到容器。
+#   - 容器化推理栈消耗大量 CPU/内存，且 TEI 与 llama.cpp 接口不统一，
+#     已于 2026-07-24 全部切到宿主机 llama.cpp。
 #
+# 🚀 新部署请改用：
+#   1) docker-compose-host.yml    —— 仅 PG + Redis（宿主机部署）
+#   2) scripts/inference-host/    —— 宿主机 llama.cpp 三件套
+#   3) Makefile 的 inference-host-up / make dev
+#
+# 📚 完整方案：docs/architecture/HOST_INFERENCE_PLAN.md
+# 📚 端到端部署：docs/architecture/HOST_SETUP.md
+# ============================================================
+# 以下为旧【全栈 Docker】部署参考，老用户可继续使用，新用户请用 host 版。
+# ============================================================
 # 所有容器统一 mtk- 前缀，服务名即容器名：
 #   - mtk-postgres：PostgreSQL(user_db) + pgvector，容器内端口 8202（宿主机映射 8232）
 #   - mtk-redis：Redis 7 缓存，端口 8203

@@ -31,35 +31,35 @@ vector_database:
   type: pgvector
   pgvector:
     table: knowledge_embeddings
-    # 私域基线：本地 TEI + Qwen3-Embedding-0.6B，向量维度 1024
+    # 2026-07-24：本地 llama.cpp + bge-m3（1024 维），与 pgvector vector(1024) 对齐
     dimension: 1024
 
 # 本地推理栈（embedding / rerank / llm）统一配置
-# 设计详见 docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md
+# 设计详见 docs/architecture/HOST_INFERENCE_PLAN.md
 # 三个能力默认走本地（mtk-embedding/mtk-rerank/mtk-llm，服务名在 mtk-inference-net 网络解析），
 # 仅在 base_url+api_key 填线上地址时切到线上（OpenAI 兼容）。
-# profile=dev：本机轻量档（Qwen2.5-1.5B-Instruct + Qwen3-Embedding-0.6B + bge-reranker-base）；embedding 维度硬性 1024。
+# profile=dev：本机轻量档（Qwen2.5-3B-Instruct + bge-m3 + bge-reranker-v2-m3）；embedding 维度硬性 1024。
 #
-# 【2026-07-20 待重构】当前推理配置为文件驱动，编译交付后终端用户无法修改。
-# 后续改为：从数据库读取（管理员在后台 UI 填写 LLM/embedding/rerank 的 base_url+api_key+model），
-# 运行时覆盖本文件的本地默认值。本文件仅保留"本地推理栈"回退默认值。
+# ⚠️ 2026-07-24：本文件为【Docker 全栈部署】专用配置，user-server 容器内使用。
+# 新部署请用 config.yaml（宿主机部署），仅当需要把 user-server 跑在容器内时才用本文件。
+# 本文件保留目的是：旧部署升级时仍可继续运行（容器名 mtk-* 服务名解析在 mtk-inference-net 网络内仍有效）。
 inference:
   profile: dev
   embedding:
     mode: local
-    base_url: "http://mtk-embedding:8208/v1"   # 统一本地推理栈（TEI + Qwen3-Embedding-0.6B，1024 维，OpenAI 兼容 /v1/embeddings）
-    model: "Qwen3-Embedding-0.6B"              # dev 轻量档（1024 维，真实向量）
+    base_url: "http://mtk-embedding:8208/v1"   # 宿主机 llama.cpp（OpenAI 兼容 /v1/embeddings）
+    model: "bge-m3"                            # dev 轻量档（1024 维，Xorbits/bge-m3-gguf Q4_K_M）
     dimension: 1024
     allow_fallback: false                       # 禁止静默降级 hash 伪向量（仅单测显式开启）
   rerank:
     mode: local
     base_url: "http://mtk-rerank:8209"
-    model: "bge-reranker-base"
+    model: "bge-reranker-v2-m3"                # dev 轻量档（gaoshengwinner/bge-reranker-v2-m3-Q4_K_M-GGUF）
     enabled: true
   llm:
     mode: local
-    base_url: "http://mtk-llm:8207/v1"          # 本地 llama.cpp（OpenAI 兼容 /v1/chat/completions）
-    model: "Qwen2.5-1.5B-Instruct"             # dev 轻量档（Q4，本机/小内存部署）
+    base_url: "http://mtk-llm:8207/v1"          # 宿主机 llama.cpp（OpenAI 兼容 /v1/chat/completions）
+    model: "Qwen2.5-3B-Instruct"               # dev 轻量档（Q4_K_M，Qwen2.5-3B-Instruct-GGUF）
     api_key: ""                                 # 本地模型无需密钥
     temperature: 0.7
     max_tokens: 2048

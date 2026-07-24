@@ -1,0 +1,156 @@
+# ============================================================
+# HiveMtk 用户端 - 宿主机部署版 Docker Compose（推荐）
+# ------------------------------------------------------------
+# 部署定位（2026-07-24 重构）：
+#   - 仅包含【数据层】两个服务：PostgreSQL(user_db) + Redis
+#   - 推理栈（llm / embedding / rerank）已迁移到宿主机 llama.cpp
+#     （见 scripts/inference-host/），容器不再承载推理，节省 CPU/内存
+#   - user-server 与 user-web 在宿主机运行（user-server 用 air 热更新）
+#   - 端口通过 127.0.0.1:8202/8203 暴露，user-server 走 127.0.0.1 访问
+#
+# 端口：
+#   - mtk-postgres：容器内 8202 → 宿主机 127.0.0.1:8202
+#   - mtk-redis：容器内 8203 → 宿主机 127.0.0.1:8203
+#   - LLM       ：宿主机 127.0.0.1:8207（llama-server，scripts/inference-host/start-llm.sh）
+#   - Embedding ：宿主机 127.0.0.1:8208（llama-server，scripts/inference-host/start-embedding.sh）
+#   - Rerank    ：宿主机 127.0.0.1:8209（llama-server，scripts/inference-host/start-rerank.sh）
+#
+# 启动：
+#   docker compose -f docker-compose-host.yml up -d
+# 停止：
+#   docker compose -f docker-compose-host.yml down
+# 一键全栈（PG+Redis+推理+user-server+user-web）：
+#   make dev-all
+# ============================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "5"
+    labels: "service,environment"
+
+networks:
+  mtk-user-network:
+    name: mtk_user_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/16
+
+volumes:
+  mtk_user_redis_data:
+    name: mtk_user_redis_data
+  mtk_user_logs:
+    name: mtk_user_logs
+  mtk_user_uploads:
+    name: mtk_user_uploads
+  mtk_user_data:
+    name: mtk_user_data
+
+services:
+  # ============================================================
+  # 用户端 PostgreSQL 15+ + pgvector
+  # ============================================================
+  mtk-postgres:
+    image: pgvector/pgvector:pg15
+    container_name: mtk-postgres
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env (use: openssl rand -hex 24)}"
+      POSTGRES_DB: ${USER_DB_NAME:-user_db}
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=vector,pg_stat_statements
+      - -c
+      - max_connections=500
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - port=8202
+    # 关键：宿主机部署版把端口直接绑到 127.0.0.1
+    # user-server 走 127.0.0.1:8202 访问，避免容器网络解析
+    ports:
+      - "127.0.0.1:${USER_POSTGRES_HOST_PORT:-8202}:8202"
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+      - ./migrations/init-user-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-postgres
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-admin} -d ${USER_DB_NAME:-user_db} -p 8202
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # ============================================================
+  # Redis 缓存
+  # ============================================================
+  mtk-redis:
+    image: redis:7-alpine
+    container_name: mtk-redis
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      - redis-server
+      - --port
+      - "8203"
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 1gb
+      - --maxmemory-policy
+      - "allkeys-lru"
+      - --requirepass
+      - ${REDIS_PASSWORD:-}
+    # 关键：宿主机部署版绑到 127.0.0.1
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-8203}:8203"
+    volumes:
+      - mtk_user_redis_data:/data
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "8203", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
