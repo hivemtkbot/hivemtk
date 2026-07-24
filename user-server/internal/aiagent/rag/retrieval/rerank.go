@@ -45,15 +45,17 @@ type RerankConfig struct {
 	MaxRetries int
 }
 
-// LocalReranker 基于本地推理服务的重排实现（OpenAI 兼容 /rerank）
+// LocalReranker 基于本地推理服务的重排实现（OpenAI 兼容 /v1/rerank）
 //
-// 私域部署基线（2026-07-18）：rerank 与 embedding 同走本地推理容器，
+// 私域部署基线（2026-07-24 修订）：rerank 与 embedding 同走本地推理服务（llama.cpp），
 // 使用 bge-reranker-v2-m3（跨编码器），数据不出域。
 //
-// 端点约定（与 embedding 类似，直接在 BaseURL 后追加 /rerank）：
-//   - TEI:         BaseURL=http://host:port        → POST {BaseURL}/rerank
-//   - llama.cpp:   BaseURL=http://host:port/v1     → POST {BaseURL}/rerank（即 /v1/rerank）
+// 端点约定（与 embedding 类似，在 BaseURL 后追加 /rerank）：
+//   - TEI:       BaseURL=http://host:port      → POST {BaseURL}/rerank（根路径）
+//   - llama.cpp: BaseURL=http://host:port/v1   → POST {BaseURL}/rerank（即 /v1/rerank）
 //
+// 代码层会自动补齐 /v1（与 embedding_service.go 一致），config.yaml 中 base_url
+// 无论是否带 /v1 后缀都能正确路由到 /v1/rerank。
 // 两者响应字段一致：results[].index / results[].relevance_score，业务代码零改动。
 type LocalReranker struct {
 	httpClient *http.Client
@@ -100,12 +102,12 @@ const (
 //
 // 优先级（与 Embedding 一致的私域基线）：
 //  1. config.yaml / config-docker.yaml 的 rerank 段（为准）
-//     - 宿主机：http://127.0.0.1:9998/v1（OrbStack 暴露的本地 TEI rerank）
-//     - docker：http://tei-rerank:9998/v1（容器内服务名）
+//     - 宿主机：http://127.0.0.1:8209/v1（宿主机 llama.cpp，端口 8209）
+//     - docker：http://mtk-rerank:8209/v1（容器内服务名，端口 8209）
 //  2. 环境变量（RERANK_*）仅在配置文件未指定时回退读取
-//  3. 内置默认：http://tei-rerank:9998/v1（docker 网络，仅当配置与环境都缺失时生效）
+//  3. 内置默认：http://mtk-rerank:8209/v1（docker 网络，仅当配置与环境都缺失时生效）
 //
-// 必须以配置文件为准，否则宿主机被 docker 专用的 tei-rerank 服务名带偏（宿主机无法解析）。
+// 必须以配置文件为准，否则宿主机被 docker 专用的 mtk-rerank 服务名带偏（宿主机无法解析）。
 func DefaultRerankConfig() *RerankConfig {
 	// 1) 配置文件为准
 	fileCfg := config.GetAppConfig().Inference.Rerank
@@ -129,10 +131,10 @@ func DefaultRerankConfig() *RerankConfig {
 		enabled = false
 	}
 
-	// 3) 内置默认（docker 网络内本地 TEI rerank 服务名）
+	// 3) 内置默认（docker 网络内本地 rerank 服务名，端口 8209）
 	if baseURL == "" {
-		// fallback 必须指向 rerank 服务（teirank），不能 fallback 到 embedding（9997）
-		baseURL = "http://mtk-rerank:9998/v1"
+		// fallback 必须指向 rerank 服务（mtk-rerank:8209），不能 fallback 到 embedding（8208）
+		baseURL = "http://mtk-rerank:8209/v1"
 	}
 	if model == "" {
 		model = RerankModelBgeV2M3
@@ -157,9 +159,9 @@ func DefaultRerankConfig() *RerankConfig {
 }
 
 type rerankRequest struct {
-	Model string   `json:"model"`
-	Query string   `json:"query"`
-	Texts []string `json:"texts"`
+	Model     string   `json:"model"`
+	Query     string   `json:"query"`
+	Documents []string `json:"documents"` // llama.cpp /v1/rerank 规范字段（与 smoke-test.sh / warmup.sh 一致）
 }
 
 type rerankResponse struct {
@@ -192,10 +194,14 @@ func (r *LocalReranker) Rerank(ctx context.Context, query string, docs []RerankD
 	}
 
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
-	// 端点约定：直接在 BaseURL 后追加 /rerank。
+	// 端点约定：在 BaseURL 后追加 /rerank。
 	//   - TEI:       BaseURL=http://host:port      → /rerank（根路径）
 	//   - llama.cpp: BaseURL=http://host:port/v1   → /v1/rerank
-	// 两种部署响应字段一致，商户仅需切换 BaseURL 即可。
+	// 与 embedding_service.go 一致：BaseURL 未显式含 /v1 时自动补齐，
+	// 使 config.yaml 中 base_url 无论是否带 /v1 后缀都能正确路由到 /v1/rerank。
+	if !strings.HasSuffix(baseURL, "/v1") && !strings.HasSuffix(baseURL, "/v1/") {
+		baseURL = baseURL + "/v1"
+	}
 	endpoint := baseURL + "/rerank"
 	timeout := time.Duration(cfg.Timeout) * time.Second
 	if timeout <= 0 {
@@ -228,7 +234,7 @@ func (r *LocalReranker) Rerank(ctx context.Context, query string, docs []RerankD
 }
 
 func (r *LocalReranker) callOnce(ctx context.Context, endpoint string, timeout time.Duration, cfg *RerankConfig, query string, texts []string) (*rerankResponse, error) {
-	body, err := json.Marshal(rerankRequest{Model: cfg.Model, Query: query, Texts: texts})
+	body, err := json.Marshal(rerankRequest{Model: cfg.Model, Query: query, Documents: texts})
 	if err != nil {
 		return nil, fmt.Errorf("marshal rerank request: %w", err)
 	}

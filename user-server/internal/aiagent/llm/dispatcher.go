@@ -144,13 +144,13 @@ func NewDispatcherFromConfig(cfg config.AppConfig) *Dispatcher {
 	return d
 }
 
-// registerLocalProvider 注册本地默认 provider（指向 mtk-llm / 宿主 127.0.0.1:9000）
+// registerLocalProvider 注册本地默认 provider（指向 mtk-llm / 宿主 127.0.0.1:8207）
 func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
 	baseURL := llmCfg.BaseURL
 	model := llmCfg.Model
 	apiKey := llmCfg.APIKey
 	if baseURL == "" {
-		baseURL = "http://127.0.0.1:9000/v1"
+		baseURL = "http://127.0.0.1:8207/v1"
 	}
 	if model == "" {
 		model = "Qwen2.5-3B-Instruct"

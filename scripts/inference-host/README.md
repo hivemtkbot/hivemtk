@@ -131,7 +131,7 @@ bash scripts/inference-host/start-llm.sh
 |------|------|------|-----------------|
 | LLM | 8207 | OpenAI `/v1/chat/completions` | `inference.llm.base_url=http://127.0.0.1:8207/v1` |
 | Embedding | 8208 | OpenAI `/v1/embeddings` | `inference.embedding.base_url=http://127.0.0.1:8208/v1` |
-| Rerank | 8209 | OpenAI `/v1/rerank` | `inference.rerank.base_url=http://127.0.0.1:8209` |
+| Rerank | 8209 | OpenAI `/v1/rerank` | `inference.rerank.base_url=http://127.0.0.1:8209/v1` |
 | PostgreSQL | 8202 | TCP | `database.postgres.host=127.0.0.1` |
 | Redis | 8203 | TCP | `REDIS_HOST=127.0.0.1` |
 

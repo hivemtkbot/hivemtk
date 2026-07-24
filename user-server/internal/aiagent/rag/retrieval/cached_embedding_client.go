@@ -5,18 +5,18 @@ package ragretrieval
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.4.10
 //
-// 装饰模式: 包装 llm.EmbeddingServiceInterface，命中缓存直接返回，未命中走真实 TEI
+// 装饰模式: 包装 llm.EmbeddingServiceInterface，命中缓存直接返回，未命中走真实推理服务
 // 缓存层:
 //   - L1: Redis（热查询，TTL 7 天）
 //   - L2: PostgreSQL embedding_cache 表（持久化，TTL 30 天）
-//   - L3: 真实 TEI 容器（http://tei-embedding:9997/v1/embeddings）
+//   - L3: 真实推理服务（http://mtk-embedding:8208/v1/embeddings）
 //
 // 设计原则:
 //   - 装饰器透明：调用方无感知（实现同一接口 EmbeddingServiceInterface）
 //   - 仅缓存 query embedding；chunk embedding 走 knowledge_chunks.embedding 列
 //   - 缓存 key = rag:emb:{model}:{sha256(normalized_text)}
-//   - 失败降级: Redis/DB 不可用时不阻塞，直接走 TEI
-//   - 维度强约束 1024（与 TEI bge-m3 一致）
+//   - 失败降级: Redis/DB 不可用时不阻塞，直接走推理服务
+//   - 维度强约束 1024（与 bge-m3 一致）
 //   - 私域独立部署: 无 merchant_id 字段
 
 import (
@@ -32,27 +32,27 @@ import (
 
 // CachedEmbeddingClient Embedding 服务的 Redis 缓存装饰器
 type CachedEmbeddingClient struct {
-	inner		llm.EmbeddingServiceInterface	// 真实 EmbeddingService
-	redis		RedisClient
-	db		*gorm.DB
-	ttlRedis	time.Duration	// 默认 7 天
-	ttlDB		time.Duration	// 默认 30 天
-	disableCache	bool		// 调试用，跳过缓存
+	inner        llm.EmbeddingServiceInterface // 真实 EmbeddingService
+	redis        RedisClient
+	db           *gorm.DB
+	ttlRedis     time.Duration // 默认 7 天
+	ttlDB        time.Duration // 默认 30 天
+	disableCache bool          // 调试用，跳过缓存
 }
 
 // CachedEmbeddingClientConfig 配置
 type CachedEmbeddingClientConfig struct {
-	TTLRedis	time.Duration
-	TTLDB		time.Duration
-	DisableCache	bool
+	TTLRedis     time.Duration
+	TTLDB        time.Duration
+	DisableCache bool
 }
 
 // DefaultCachedEmbeddingClientConfig 默认配置
 func DefaultCachedEmbeddingClientConfig() *CachedEmbeddingClientConfig {
 	return &CachedEmbeddingClientConfig{
-		TTLRedis:	7 * 24 * time.Hour,
-		TTLDB:		30 * 24 * time.Hour,
-		DisableCache:	false,
+		TTLRedis:     7 * 24 * time.Hour,
+		TTLDB:        30 * 24 * time.Hour,
+		DisableCache: false,
 	}
 }
 
@@ -70,12 +70,12 @@ func NewCachedEmbeddingClient(
 		cfg = DefaultCachedEmbeddingClientConfig()
 	}
 	return &CachedEmbeddingClient{
-		inner:		inner,
-		redis:		redis,
-		db:		db,
-		ttlRedis:	cfg.TTLRedis,
-		ttlDB:		cfg.TTLDB,
-		disableCache:	cfg.DisableCache,
+		inner:        inner,
+		redis:        redis,
+		db:           db,
+		ttlRedis:     cfg.TTLRedis,
+		ttlDB:        cfg.TTLDB,
+		disableCache: cfg.DisableCache,
 	}
 }
 

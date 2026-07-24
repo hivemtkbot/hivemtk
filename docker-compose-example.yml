@@ -236,8 +236,8 @@ services:
       EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       EMBEDDING_ALLOW_FALLBACK: ${EMBEDDING_ALLOW_FALLBACK:-false}
-      # Rerank
-      RERANK_BASE_URL: ${RERANK_BASE_URL:-http://mtk-rerank:8209}
+      # Rerank（base_url 统一带 /v1 后缀，与 llm/embedding 一致；rerank 端点 = base_url + /rerank = /v1/rerank）
+      RERANK_BASE_URL: ${RERANK_BASE_URL:-http://mtk-rerank:8209/v1}
       RERANK_MODEL: ${RERANK_MODEL:-bge-reranker-base}
       RERANK_API_KEY: ${RERANK_API_KEY:-}
       RERANK_ENABLED: ${RERANK_ENABLED:-true}

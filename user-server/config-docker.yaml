@@ -53,7 +53,7 @@ inference:
     allow_fallback: false                       # 禁止静默降级 hash 伪向量（仅单测显式开启）
   rerank:
     mode: local
-    base_url: "http://mtk-rerank:8209"
+    base_url: "http://mtk-rerank:8209/v1"
     model: "bge-reranker-v2-m3"                # dev 轻量档（gaoshengwinner/bge-reranker-v2-m3-Q4_K_M-GGUF）
     enabled: true
   llm:

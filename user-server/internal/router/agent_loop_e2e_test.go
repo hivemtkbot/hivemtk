@@ -75,7 +75,7 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 //
 // 测试环境关键设置：
 //   - EMBEDDING_ALLOW_FALLBACK=true：让 embedding 服务降级为哈希伪向量（生产代码路径）
-//     避免依赖外部 TEI 容器（http://mtk-embedding:9997），同时保持 rag.search 真实走完全链路
+//     避免依赖外部推理服务（http://mtk-embedding:8208），同时保持 rag.search 真实走完全链路
 //   - knowledgeDeps.RagSearcher.SetHybridSearcher(nil)：禁用 hybridSearcher（含 reranker 等额外依赖）
 //     让检索走 legacy vectorSearch + BM25-lite 兜底，与生产降级路径一致
 func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
@@ -96,7 +96,7 @@ func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 		t.Fatalf("注册触达工具失败：%v", err)
 	}
 	knowledgeDeps := tooluse.NewKnowledgeToolDepsWithDB(db)
-	// 关键修复：禁用 hybridSearcher，避免依赖外部 embedding 服务（http://mtk-embedding:9997）
+	// 关键修复：禁用 hybridSearcher，避免依赖外部 embedding 服务（http://mtk-embedding:8208）
 	// 测试场景走 BM25-lite 兜底路径（纯文本检索，无需向量化）
 	// 这与生产路径功能等价：embedding 服务不可用时生产代码也会自动 fallback 到 BM25-lite
 	knowledgeDeps.RagSearcher.SetHybridSearcher(nil)

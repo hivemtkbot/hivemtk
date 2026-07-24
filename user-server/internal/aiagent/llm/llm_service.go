@@ -547,7 +547,7 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 
 // GetDefaultConfig 获取默认配置（本地优先）
 //
-// 优先级：config.yaml inference.llm > 环境变量 LLM_* > 内置本地默认（127.0.0.1:9000）。
+// 优先级：config.yaml inference.llm > 环境变量 LLM_* > 内置本地默认（127.0.0.1:8207）。
 // 默认即本地 mtk-llm（llama.cpp，OpenAI 兼容）；用户配置线上 base_url+api_key 即切线上。
 func (s *LLMService) GetDefaultConfig() *LLMConfig {
 	inf := config.GetAppConfig().Inference.LLM
@@ -558,8 +558,8 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		baseURL = os.Getenv("LLM_BASE_URL")
 	}
 	if baseURL == "" {
-		// 内置本地默认（宿主 127.0.0.1:9000；docker 由 config-docker.yaml 显式设置 mtk-llm:8080）
-		baseURL = "http://127.0.0.1:9000/v1"
+		// 内置本地默认（宿主 127.0.0.1:8207；docker 由 config-docker.yaml 显式设置 mtk-llm:8207）
+		baseURL = "http://127.0.0.1:8207/v1"
 	}
 	if model == "" {
 		if v := os.Getenv("LLM_MODEL"); v != "" {

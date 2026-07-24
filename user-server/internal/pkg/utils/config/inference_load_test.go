@@ -47,11 +47,12 @@ func TestInferenceConfigLoads(t *testing.T) {
 	if c.Inference.LLM.Mode != InferenceModeLocal {
 		t.Fatalf("llm mode 应为 local，实际 %s", c.Inference.LLM.Mode)
 	}
-	// 2026-07-24：embedding / rerank base_url 必须是宿主机 127.0.0.1
+	// 2026-07-24：embedding / rerank base_url 必须是宿主机 127.0.0.1，且统一带 /v1 后缀
+	// （与 llm.base_url 一致；rerank.go 端点 = base_url + "/rerank" = /v1/rerank）
 	if c.Inference.Embedding.BaseURL != "http://127.0.0.1:8208/v1" {
 		t.Fatalf("embedding base_url 应为 http://127.0.0.1:8208/v1，实际 %s", c.Inference.Embedding.BaseURL)
 	}
-	if c.Inference.Rerank.BaseURL != "http://127.0.0.1:8209" {
-		t.Fatalf("rerank base_url 应为 http://127.0.0.1:8209，实际 %s", c.Inference.Rerank.BaseURL)
+	if c.Inference.Rerank.BaseURL != "http://127.0.0.1:8209/v1" {
+		t.Fatalf("rerank base_url 应为 http://127.0.0.1:8209/v1，实际 %s", c.Inference.Rerank.BaseURL)
 	}
 }

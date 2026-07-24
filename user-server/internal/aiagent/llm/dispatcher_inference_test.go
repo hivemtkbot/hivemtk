@@ -12,15 +12,15 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 		Inference: config.InferenceConfig{
 			Profile: "dev",
 			Embedding: config.InferenceEmbeddingConfig{
-				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:9997/v1",
-				Model: "Qwen3-Embedding-0.6B", Dimension: 1024,
+				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:8208/v1",
+				Model: "bge-m3", Dimension: 1024,
 			},
 			Rerank: config.InferenceRerankConfig{
-				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:9998",
-				Model: "bge-reranker-v2-minicpm-light", Enabled: true,
+				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:8209/v1",
+				Model: "bge-reranker-v2-m3", Enabled: true,
 			},
 			LLM: config.InferenceLLMConfig{
-				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:9000/v1",
+				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:8207/v1",
 				Model: "Qwen2.5-3B-Instruct",
 			},
 		},
@@ -36,7 +36,7 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 	if !def.Enabled {
 		t.Fatal("default provider 应为启用（本地优先）")
 	}
-	if def.BaseURL != "http://127.0.0.1:9000/v1" {
+	if def.BaseURL != "http://127.0.0.1:8207/v1" {
 		t.Fatalf("default base_url 错误: %s", def.BaseURL)
 	}
 
@@ -67,7 +67,7 @@ func TestNewDispatcherFromConfig_CloudOptIn(t *testing.T) {
 	cfg := config.AppConfig{
 		Inference: config.InferenceConfig{
 			LLM: config.InferenceLLMConfig{
-				BaseURL: "http://127.0.0.1:9000/v1",
+				BaseURL: "http://127.0.0.1:8207/v1",
 				Model:   "Qwen2.5-3B-Instruct",
 				CloudProviders: []config.InferenceCloudProviderConfig{
 					{Name: "deepseek", BaseURL: "https://api.deepseek.com", APIType: "openai",

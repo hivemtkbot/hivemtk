@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线（2026-07-18）：
-// Embedding 默认指向本地 TEI 容器（真实 bge-m3），禁止走 LLM 厂商 API。
+// TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线（2026-07-24 修订）：
+// Embedding 默认指向本地推理服务（真实 bge-m3），禁止走 LLM 厂商 API。
 func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	// 清理所有可能影响默认值的环境变量
 	clearEmbeddingEnv(t)
@@ -18,11 +18,11 @@ func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
 
-	if cfg.BaseURL != "http://mtk-embedding:9997/v1" {
-		t.Errorf("私域基线违规：默认 BaseURL 必须是 http://mtk-embedding:9997/v1（本地 TEI），实际: %s", cfg.BaseURL)
+	if cfg.BaseURL != "http://mtk-embedding:8208/v1" {
+		t.Errorf("私域基线违规：默认 BaseURL 必须是 http://mtk-embedding:8208/v1（本地推理服务），实际: %s", cfg.BaseURL)
 	}
 	if cfg.Model != "bge-m3" {
-		t.Errorf("默认 Model 必须是 bge-m3（TEI 模型名），实际: %s", cfg.Model)
+		t.Errorf("默认 Model 必须是 bge-m3（bge-m3 模型名），实际: %s", cfg.Model)
 	}
 	if cfg.Dimension != 1024 {
 		t.Errorf("默认 Dimension 必须是 1024，实际: %d", cfg.Dimension)

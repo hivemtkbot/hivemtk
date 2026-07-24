@@ -54,7 +54,7 @@ inference:
     allow_fallback: false          # 禁止静默降级哈希伪向量（仅单测显式开启）
   rerank:
     mode: local
-    base_url: "http://127.0.0.1:8209"
+    base_url: "http://127.0.0.1:8209/v1"
     # dev 轻量档：bge-reranker-v2-m3 (Q4_K_M)，多语言跨编码器
     model: "bge-reranker-v2-m3"
     enabled: true

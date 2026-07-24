@@ -20,12 +20,12 @@ import (
 
 // EmbeddingConfig Embedding 配置
 //
-// 私域部署基线（2026-07-18）：Embedding 必须在本地 TEI 容器内完成，
+// 私域部署基线（2026-07-18，2026-07-24 修订）：Embedding 必须在本地推理服务内完成，
 // 跑真实 BGE 模型（bge-m3，1024 维），不允许静默走公网 LLM 厂商 API，
 // 也不允许静默降级到哈希伪向量。
 //
 //   - 正常路径：POST {BaseURL}/v1/embeddings（bge-m3，dim=1024）
-//   - 强约束：BaseURL 默认 http://tei-embedding:9997/v1（docker 网络内本地 TEI 服务）
+//   - 强约束：BaseURL 默认 http://mtk-embedding:8208/v1（docker 网络）或 http://127.0.0.1:8208/v1（宿主机）
 //   - 离线/单测：需显式设置 EMBEDDING_ALLOW_FALLBACK=true 才允许 hash 降级
 type EmbeddingConfig struct {
 	APIKey         string
@@ -47,8 +47,8 @@ type EmbeddingServiceInterface interface {
 
 // EmbeddingService 真实 Embedding 服务
 //
-// 默认对接本地 TEI 容器（http://tei-embedding:9997/v1，私域部署强制）；
-// 调用 /v1/embeddings（TEI OpenAI 兼容协议，底层跑真实 bge-m3 模型）。
+// 默认对接本地推理服务（http://mtk-embedding:8208/v1 docker / http://127.0.0.1:8208/v1 宿主机，私域部署强制）；
+// 调用 /v1/embeddings（OpenAI 兼容协议，底层跑真实 bge-m3 模型）。
 //
 // 强约束（2026-07-18）：
 //  1. 不再 fallback 到任何云端 LLM 厂商（OpenAI/Azure/通义/智谱/Moonshot）
@@ -99,14 +99,14 @@ func NewEmbeddingServiceWithConfig(cfg *EmbeddingConfig) *EmbeddingService {
 
 // DefaultConfig 读取配置得到默认配置（配置文件为准，其次环境变量，最后内置 docker 默认）
 //
-// 优先级（私域部署基线 2026-07-18 修订）：
+// 优先级（私域部署基线 2026-07-24 修订）：
 //  1. config.yaml / config-docker.yaml 的 embedding 段（按环境提供正确的本地服务地址，为准）：
-//     - 宿主机：http://127.0.0.1:9997/v1（OrbStack 暴露的本地 TEI）
-//     - docker：http://tei-embedding:9997/v1（容器内服务名）
+//     - 宿主机：http://127.0.0.1:8208/v1（宿主机 llama.cpp，端口 8208）
+//     - docker：http://mtk-embedding:8208/v1（容器内服务名，端口 8208）
 //  2. 环境变量（EMBEDDING_*）仅在配置文件未指定时回退读取，便于部署层/调试显式覆盖
-//  3. 内置默认：http://tei-embedding:9997/v1（docker 网络，仅当配置与环境都缺失时生效）
+//  3. 内置默认：http://mtk-embedding:8208/v1（docker 网络，仅当配置与环境都缺失时生效）
 //
-// 注意：必须以配置文件为准，否则宿主机会被 docker 专用的 tei-embedding 服务名带偏
+// 注意：必须以配置文件为准，否则宿主机会被 docker 专用的 mtk-embedding 服务名带偏
 // （宿主机无法解析该名，导致 embedding 不可达并静默降级哈希伪向量）。
 func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	// per 知识库覆盖：实例被显式赋予配置时优先返回（不读全局 config.yaml）
@@ -140,9 +140,9 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 		allowFallback = v == "true" || v == "1" || v == "yes"
 	}
 
-	// 3) 内置默认（docker 网络内本地 TEI 服务名；仅当配置与环境都缺失时生效）
+	// 3) 内置默认（docker 网络内本地 embedding 服务名，端口 8208；仅当配置与环境都缺失时生效）
 	if baseURL == "" {
-		baseURL = "http://mtk-embedding:9997/v1"
+		baseURL = "http://mtk-embedding:8208/v1"
 	}
 	if model == "" {
 		model = "bge-m3"
@@ -201,9 +201,9 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 
 // callProviderWithRetry 带重试的本地 embedding 调用
 //
-// 候选 BaseURL：docker 内 EMBEDDING_BASE_URL 默认指向服务名 tei-embedding；
-// 宿主机（macOS 等）无法解析该服务名时，自动回退到 localhost（同一 TEI 实例），
-// 不影响 docker 内解析（docker 中 tei-embedding 首轮即成功，不会触发回退）。
+// 候选 BaseURL：docker 内 EMBEDDING_BASE_URL 默认指向服务名 mtk-embedding；
+// 宿主机（macOS 等）无法解析该服务名时，自动回退到 localhost（同一实例），
+// 不影响 docker 内解析（docker 中 mtk-embedding 首轮即成功，不会触发回退）。
 func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
 	maxRetries := cfg.MaxRetries
 	if maxRetries <= 0 {
@@ -262,15 +262,17 @@ func (s *EmbeddingService) callProviderWithRetry(ctx context.Context, cfg *Embed
 }
 
 // baseURLCandidates 返回候选 BaseURL 列表。
-// 当配置 host 为 tei-embedding 时，附带 localhost 候选（保留原端口），用于宿主机部署回退。
+// 当配置 host 为 mtk-embedding（docker 服务名）时，附带 localhost 候选（保留原端口），
+// 用于宿主机部署回退（宿主机无法解析 docker 服务名时自动切到 localhost）。
 func (s *EmbeddingService) baseURLCandidates(raw string) []string {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
 		return []string{raw}
 	}
-	if strings.HasPrefix(u.Host, "tei-embedding") {
+	if strings.HasPrefix(u.Host, "mtk-embedding") || strings.HasPrefix(u.Host, "tei-embedding") {
 		alt := *u
-		alt.Host = "localhost" + strings.TrimPrefix(u.Host, "tei-embedding")
+		alt.Host = "localhost" + strings.TrimPrefix(u.Host, "mtk-embedding")
+		alt.Host = strings.TrimPrefix(alt.Host, "tei-embedding")
 		return []string{raw, alt.String()}
 	}
 	return []string{raw}
@@ -345,7 +347,7 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 		return nil, fmt.Errorf("EMBEDDING_BASE_URL 未配置")
 	}
 
-	// 兼容 baseURL 已含 /v1 后缀的情况（如 http://tei-embedding:9997/v1）
+	// 兼容 baseURL 已含 /v1 后缀的情况（如 http://mtk-embedding:8208/v1）
 	// 私域部署基线：BaseURL 默认就是 /v1 结尾的 OpenAI 兼容根路径
 	if !strings.HasSuffix(baseURL, "/v1") && !strings.HasSuffix(baseURL, "/v1/") {
 		baseURL = baseURL + "/v1"
