@@ -800,7 +800,6 @@
 
 | # | 函数 | method | url | 行 |
 |---|------|--------|-----|----|
-| 539 | `resetSystem` | POST | `/api/system/reset` | - |
 | 540 | `SystemApi.getConfig` | GET | `/api/system/config` | - |
 | 541 | `SystemApi.saveConfig` | POST | `/api/system/config` | - |
 

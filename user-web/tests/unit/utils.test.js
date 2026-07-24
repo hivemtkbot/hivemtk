@@ -16,7 +16,6 @@ globalThis.localStorage = {
 import {
   isInitialized,
   markInitializationComplete,
-  resetInitialization,
   INIT_STATUS_KEY
 } from '@/utils/initHelper.js'
 import {
@@ -42,13 +41,6 @@ describe('initHelper', () => {
     markInitializationComplete()
     expect(localStorage.setItem).toHaveBeenCalledWith(INIT_STATUS_KEY, 'true')
     expect(isInitialized()).toBe(true)
-  })
-
-  it('resetInitialization 后恢复未初始化', () => {
-    markInitializationComplete()
-    expect(isInitialized()).toBe(true)
-    resetInitialization()
-    expect(isInitialized()).toBe(false)
   })
 
   it('INIT_STATUS_KEY 是稳定的常量', () => {

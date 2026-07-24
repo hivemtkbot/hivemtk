@@ -44,15 +44,6 @@ func currentUserID(ctx *gin.Context) uint {
 	return 0
 }
 
-// ResetSystem 重置系统数据（高危，仅限 admin）。委托 SystemConfigService 实现。
-func (c *SystemOpsController) ResetSystem(ctx *gin.Context) {
-	if err := service.NewSystemConfigService().ResetSystem(context.Background()); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
-		return
-	}
-	response.Success(ctx, nil, "系统重置成功")
-}
-
 // RestartServer 系统热重启（高危，仅限 admin）。
 // 实际重启由进程守护（systemd/Docker restart=always）接管：先回写响应，
 // 仅当显式设置 ALLOW_SELF_RESTART=true 时才退出进程，避免误杀开发/调试进程。

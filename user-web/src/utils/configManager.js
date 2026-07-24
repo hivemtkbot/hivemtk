@@ -73,14 +73,4 @@ export const testApiConnection = async (config) => {
   }
 }
 
-// 重置配置
-export const resetConfig = async () => {
-  try {
-    // 清除localStorage中的配置
-    localStorage.removeItem('apiConfig')
-    
-    return { success: true }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-}
+

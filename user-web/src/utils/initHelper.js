@@ -1,6 +1,5 @@
 // 初始化辅助工具函数
 import { saveApiConfig, testApiConnection as testConnection, getApiConfig as getConfig } from './configManager'
-import { http } from '@/utils/request'
 
 // 本地存储键名
 export const INIT_STATUS_KEY = 'system_initialized'
@@ -56,17 +55,6 @@ export const createDefaultAdmin = async () => {
 // 检查是否已初始化
 export const isInitialized = () => {
   return localStorage.getItem(INIT_STATUS_KEY) === 'true'
-}
-
-// 重置初始化状态
-export const resetInitialization = () => {
-  localStorage.removeItem(INIT_STATUS_KEY)
-}
-
-// 服务器端数据重置
-export const resetServerData = async () => {
-  const res = await http.post('/api/system/reset')
-  return res
 }
 
 // 获取API配置

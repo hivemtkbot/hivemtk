@@ -5609,17 +5609,6 @@
     "dbDelta": "no-change",
     "at": "2026-07-21T19:17:00.785Z"
   },
-  "system.js::resetSystem": {
-    "method": "POST",
-    "url": "/api/system/reset",
-    "status": 200,
-    "kind": "PASS",
-    "ok": true,
-    "code": null,
-    "msg": "",
-    "dbDelta": "no-change",
-    "at": "2026-07-21T19:17:46.382Z"
-  },
   "system.js::SystemApi.getConfig": {
     "method": "GET",
     "url": "/api/system/config",

@@ -13,20 +13,43 @@
  * 但已弃用，请勿在新代码中继续 import '@/utils/map'。
  */
 
-import { getCardPlatformLabel, getCardPlatformTagType, getClueTypeOptions, CLUE_TYPE_OPTIONS_LEGACY } from '@/constants/cardPlatform'
+import { getClueTypeOptions, CLUE_TYPE_OPTIONS_LEGACY } from '@/constants/cardPlatform'
 import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
 
 // ============ Deprecated: 平台相关 ============
-
-/**
- * @deprecated 使用 @/constants/cardPlatform#getCardPlatformTagType 代替
- */
-export const getPlatformTag = (type) => getCardPlatformTagType(type)
+// 旧版平台类型（1=小红书 2=视频号 3=抖音 4=快手），与 channel.js 兼容的线索平台。
+// 注意：此处与 cardPlatform.js 的 CLUE_TYPE_OPTIONS_LEGACY（1=QQ/2=微信/…）是两套不同的 1-6 体系，
+// 二者在 1-4 上语义冲突，故 deprecated 函数保留独立映射，确保历史行为稳定，不被 channel 映射覆盖。
+const _LEGACY_PLATFORM_NAME_MAP = {
+  '1': '小红书',
+  '2': '视频号',
+  '3': '抖音',
+  '4': '快手'
+}
+const _LEGACY_PLATFORM_TAG_MAP = {
+  '1': 'success',
+  '2': 'success',
+  '3': 'warning',
+  '4': 'info'
+}
 
 /**
  * @deprecated 使用 @/constants/cardPlatform#getCardPlatformLabel 代替
+ * 旧版 1-4 平台中文名：1=小红书 2=视频号 3=抖音 4=快手；未知返回 "未知"
  */
-export const getPlatformName = (type) => getCardPlatformLabel(type)
+export const getPlatformName = (type) => {
+  if (type === undefined || type === null || type === '') return '未知'
+  return _LEGACY_PLATFORM_NAME_MAP[String(type)] ?? '未知'
+}
+
+/**
+ * @deprecated 使用 @/constants/cardPlatform#getCardPlatformTagType 代替
+ * 旧版 1-4 平台标签：1=success 4=info；未知返回 "未知"
+ */
+export const getPlatformTag = (type) => {
+  if (type === undefined || type === null || type === '') return '未知'
+  return _LEGACY_PLATFORM_TAG_MAP[String(type)] ?? '未知'
+}
 
 /**
  * @deprecated 使用 @/constants/cardPlatform#getClueTypeOptions 代替

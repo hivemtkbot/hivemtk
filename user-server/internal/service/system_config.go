@@ -2,7 +2,6 @@ package service
 
 import (
 	"marketing/internal/model"
-	"marketing/internal/platform"
 	"marketing/internal/repository"
 
 	"context"
@@ -55,29 +54,6 @@ func (s *SystemConfigService) SaveBasicConfig(ctx context.Context, appName, webs
 		Name:       appName,
 		WebsiteURL: websiteURL,
 	})
-}
-
-// ResetSystem 重置系统数据
-func (s *SystemConfigService) ResetSystem(ctx context.Context) error {
-	// 停止所有后台任务
-	platform.StopAllTasks()
-
-	// 重置表结构 + 清空业务表(下沉到 repository)
-	if _, clearErr := s.repo.ResetSystemData(ctx); clearErr != nil {
-		return clearErr
-	}
-
-	// 重置系统配置为默认
-	if _, err := s.repo.SaveConfig(ctx, s.defaultConfig(ctx)); err != nil {
-		// 忽略配置保存错误
-	}
-
-	// 重新启动后台任务
-	if err := platform.InitSync(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // GetUsageStats 统计用量信息（用户数、请求数近似值）

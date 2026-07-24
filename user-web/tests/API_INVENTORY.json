@@ -3634,13 +3634,6 @@
   },
   {
     "file": "system.js",
-    "function": "resetSystem",
-    "method": "POST",
-    "url": "/api/system/reset",
-    "hasPathParam": false
-  },
-  {
-    "file": "system.js",
     "function": "SystemApi.getConfig",
     "method": "GET",
     "url": "/api/system/config",

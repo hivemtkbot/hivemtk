@@ -45,12 +45,4 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 	response.Success(ctx, config, "success")
 }
 
-// ResetSystem 重置系统
-func (c *SystemConfigController) ResetSystem(ctx *gin.Context) {
-	err := c.svc.ResetSystem(context.Background())
-	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
-		return
-	}
-	response.Success(ctx, nil, "系统重置成功")
-}
+

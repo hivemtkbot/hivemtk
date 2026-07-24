@@ -48,7 +48,6 @@
       "password": "Password",
       "submit": "Log In",
       "forgot": "Forgot password?",
-      "reset": "One-click reset",
       "pleaseUsername": "Please enter username",
       "pleasePassword": "Please enter password",
       "success": "Login successful",
@@ -80,7 +79,6 @@
     "notifications": "Notifications",
     "profile": "Profile",
     "logout": "Log out",
-    "reset": "One-click reset",
     "login": "Log in",
     "unknown": "Unknown",
     "collapseMenu": "Collapse menu",
@@ -1648,7 +1646,6 @@
     "completeInitFirst": "Please complete system initialization first",
     "profile": "Profile",
     "logout": "Log out",
-    "reset": "One-click reset",
     "login": "Log in",
     "notifications": "Notifications"
   },

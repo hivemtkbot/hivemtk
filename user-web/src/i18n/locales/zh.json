@@ -48,7 +48,6 @@
       "password": "密码",
       "submit": "登录",
       "forgot": "忘记密码？",
-      "reset": "一键重置",
       "pleaseUsername": "请输入用户名",
       "pleasePassword": "请输入密码",
       "success": "登录成功",
@@ -80,7 +79,6 @@
     "notifications": "通知",
     "profile": "个人资料",
     "logout": "退出登录",
-    "reset": "一键重置",
     "login": "登录",
     "unknown": "未知",
     "collapseMenu": "收起菜单",
@@ -1653,7 +1651,6 @@
     "completeInitFirst": "请先完成系统初始化",
     "profile": "个人资料",
     "logout": "退出登录",
-    "reset": "一键重置",
     "login": "登录",
     "notifications": "通知中心"
   },

@@ -18,8 +18,6 @@ type SystemConfigRepository interface {
 	CountAutoReplyLogs(ctx context.Context) (int64, error)
 	// PingDB 检查数据库连通性
 	PingDB(ctx context.Context) bool
-	// ResetSystemData 清空业务表（保留 system_users/system_config），返回受影响行数近似
-	ResetSystemData(ctx context.Context) (int64, error)
 }
 
 type systemConfigRepo struct {
@@ -67,37 +65,4 @@ func (r *systemConfigRepo) PingDB(ctx context.Context) bool {
 	return r.db.WithContext(ctx).Exec("SELECT 1").Error == nil
 }
 
-// ResetSystemData 清空业务表（保留 system_users / system_config）。
-// 注意：资产包(AssetBundle)等系统内容表刻意排除，避免误清用户低代码资产。
-func (r *systemConfigRepo) ResetSystemData(ctx context.Context) (int64, error) {
-	businessModels := []interface{}{
-		&model.AutoReplyAccount{},
-		&model.AutoReplyRule{},
-		&model.AutoReplyLog{},
-		&model.UnifiedMessage{},
-		&model.UnifiedReply{},
-		&model.Clue{},
-		&model.ClueEngagementEvent{},
-		&model.ClueScore{},
-		&model.CommunityGroup{},
-		&model.CommunityMember{},
-		&model.CommunityMessage{},
-		&model.EmailDraft{},
-		&model.EmailJobs{},
-		&model.EmailList{},
-		&model.EmailSend{},
-		&model.EmailSmtp{},
-		&model.EmailTrackingEvent{},
-		&model.EmailUnsubscribe{},
-		&model.Order{},
-	}
-	var total int64
-	for _, m := range businessModels {
-		if err := r.db.WithContext(ctx).
-			Session(&gorm.Session{AllowGlobalUpdate: true}).
-			Where("1 = 1").Delete(m).Error; err != nil {
-			return total, err
-		}
-	}
-	return total, nil
-}
+

@@ -48,7 +48,6 @@
       "password": "パスワード",
       "submit": "ログイン",
       "forgot": "パスワードをお忘れですか？",
-      "reset": "ワンクリックリセット",
       "pleaseUsername": "ユーザー名を入力してください",
       "pleasePassword": "パスワードを入力してください",
       "success": "ログインしました",
@@ -80,7 +79,6 @@
     "notifications": "通知",
     "profile": "プロフィール",
     "logout": "ログアウト",
-    "reset": "ワンクリックリセット",
     "login": "ログイン",
     "unknown": "不明",
     "collapseMenu": "メニューを折りたたむ",
@@ -1631,7 +1629,6 @@
     "completeInitFirst": "まずシステムの初期化を完了してください",
     "profile": "プロフィール",
     "logout": "ログアウト",
-    "reset": "ワンクリックリセット",
     "login": "ログイン",
     "notifications": "通知センター"
   },

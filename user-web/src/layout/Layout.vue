@@ -51,9 +51,6 @@
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>{{ t('layout.logout') }}
               </el-dropdown-item>
-              <el-dropdown-item command="reset" v-if="userStore.role === 'admin'">
-                <el-icon><RefreshLeft /></el-icon>{{ t('layout.reset') }}
-              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -134,7 +131,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import SubMenuItem from '@/components/SubMenuItem.vue'
 import MessageNotification from '@/components/MessageNotification.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
@@ -142,9 +139,8 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import i18n from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { getLicenseStatus } from '@/api/license'
-import { resetSystem as resetSystemApi } from '@/api/system'
-import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, RefreshLeft, Fold, Expand } from '@element-plus/icons-vue'
-void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void RefreshLeft; void Fold; void Expand
+import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand } from '@element-plus/icons-vue'
+void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void Fold; void Expand
 
 // 创建图标组件映射
 const iconComponents = {}
@@ -648,55 +644,21 @@ const toggleSidebar = () => {
   persistSidebarCollapsed()
 }
 
-const handleReset = () => {
-  ElMessageBox.confirm(
-    '确定要重置系统吗？此操作将清除所有数据并恢复到初始状态。',
-    '系统重置确认',
-    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
-    resetSystem()
-  }).catch(() => {})
-}
-
 const handleUserCommand = (command) => {
   switch (command) {
     case 'profile':
       router.push({ name: 'Profile' })
       break
-    case 'reset':
-      handleReset()
-      break
-    case 'logout':
-      userStore.logout()
-      ElMessage.success('已退出登录')
-      if (route.meta.requiresAuth) router.push('/login')
-      break
+      case 'logout':
+        userStore.logout()
+        ElMessage.success('已退出登录')
+        router.replace('/login')
+        break
   }
 }
 
 const handleLogin = () => {
   router.push('/login')
-}
-
-const resetSystem = async () => {
-  try {
-    await resetSystemApi()
-    const { resetConfig } = await import('@/utils/configManager')
-    const result = await resetConfig()
-    if (result.success) {
-      const { updateRequestConfig } = await import('@/utils/request')
-      await updateRequestConfig()
-      const { resetInitialization } = await import('@/utils/initHelper')
-      resetInitialization()
-      ElMessage.success('系统重置成功，即将跳转到初始化页面')
-      setTimeout(() => router.push('/setup'), 1500)
-    } else {
-      ElMessage.error(`重置失败: ${result.error}`)
-    }
-  } catch (error) {
-    console.error('重置系统时出错:', error)
-    ElMessage.error(`重置失败: ${error?.message || '未知错误'}`)
-  }
 }
 
 onMounted(async () => {

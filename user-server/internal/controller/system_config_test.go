@@ -100,22 +100,6 @@ func TestSystemConfigController_SaveConfig_InvalidJSON(t *testing.T) {
 	}
 }
 
-// TestSystemConfigController_ResetSystem_Success 测试重置系统成功
-func TestSystemConfigController_ResetSystem_Success(t *testing.T) {
-	setupSystemConfigTestDB(t)
-	ctrl, router := setupSystemConfigController(t)
-	router.POST("/system/reset", ctrl.ResetSystem)
-
-	req, _ := http.NewRequest("POST", "/system/reset", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	// 由于服务层依赖外部系统，接受 200 或 500
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status OK or Internal Server Error, got %d, body: %s", w.Code, w.Body.String())
-	}
-}
-
 // TestSystemConfigController_NewSystemConfigController 测试构造函数
 func TestSystemConfigController_NewSystemConfigController(t *testing.T) {
 	ctrl := NewSystemConfigController()

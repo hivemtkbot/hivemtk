@@ -285,10 +285,4 @@ func TestSystemConfigService_Integration(t *testing.T) {
 	}
 }
 
-// TestSystemConfigService_ResetSystem 测试重置系统（基础测试）
-// 注意：由于 ResetSystem 依赖 platform.StopAllTasks 和 platform.InitSync，
-// 在测试环境中可能会有副作用，因此这里进行基础功能测试
-func TestSystemConfigService_ResetSystem(t *testing.T) {
-	t.Skip("ResetSystem 测试会停止后台任务，跳过以避免副作用")
-	// 如需测试，需要在集成测试环境中进行
-}
+
