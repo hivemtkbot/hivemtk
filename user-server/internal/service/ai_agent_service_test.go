@@ -136,7 +136,7 @@ func TestAIAgentService_List(t *testing.T) {
 	_ = svc.Create(context.Background(), makeAgent("c1", "客服1", "customer_service"))
 
 	// 全部
-	list, err := svc.List("", -1, "")
+	list, err := svc.List(context.Background(), "", -1, "")
 	if err != nil {
 		t.Fatalf("查询列表失败: %v", err)
 	}
@@ -145,19 +145,19 @@ func TestAIAgentService_List(t *testing.T) {
 	}
 
 	// 按类型
-	list, _ = svc.List("sales", -1, "")
+	list, _ = svc.List(context.Background(), "sales", -1, "")
 	if len(list) != 2 {
 		t.Errorf("sales 类型期望 2 条, 实际 %d", len(list))
 	}
 
 	// 按状态
-	list, _ = svc.List("", 1, "")
+	list, _ = svc.List(context.Background(), "", 1, "")
 	if len(list) != 3 {
 		t.Errorf("启用状态期望 3 条, 实际 %d", len(list))
 	}
 
 	// 按关键词
-	list, _ = svc.List("", -1, "销售")
+	list, _ = svc.List(context.Background(), "", -1, "销售")
 	if len(list) != 2 {
 		t.Errorf("关键词'销售'期望 2 条, 实际 %d", len(list))
 	}
@@ -195,7 +195,7 @@ func TestAIAgentService_UpdateStatus(t *testing.T) {
 	agent := makeAgent("st_01", "状态测试", "sales")
 	_ = svc.Create(context.Background(), agent)
 
-	if err := svc.UpdateStatus(agent.ID, 0); err != nil {
+	if err := svc.UpdateStatus(context.Background(), agent.ID, 0); err != nil {
 		t.Fatalf("禁用失败: %v", err)
 	}
 	got, _ := svc.GetByID(context.Background(), agent.ID)
@@ -311,7 +311,7 @@ func TestChannelBinding_CreateAndList(t *testing.T) {
 		t.Fatalf("创建绑定失败: %v", err)
 	}
 
-	list, err := bindSvc.ListByChannelAccount("telegram", "tg_acc_1")
+	list, err := bindSvc.ListByChannelAccount(context.Background(), "telegram", "tg_acc_1")
 	if err != nil {
 		t.Fatalf("查询绑定失败: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestChannelBinding_PrimarySwitch(t *testing.T) {
 	}
 	_ = bindSvc.Create(context.Background(), b2)
 
-	list, _ := bindSvc.ListByChannelAccount("telegram", "acc_x")
+	list, _ := bindSvc.ListByChannelAccount(context.Background(), "telegram", "acc_x")
 	if len(list) != 2 {
 		t.Fatalf("期望 2 条绑定, 实际 %d", len(list))
 	}
@@ -404,7 +404,7 @@ func TestChannelBinding_BindDisabledAgent(t *testing.T) {
 	_ = agentSvc.Create(context.Background(), agent)
 	// 注意：Status 字段有 gorm default:1 标签，GORM 创建时会忽略零值 0
 	// 必须用 UpdateStatus 显式置为 0 才能真正禁用
-	if err := agentSvc.UpdateStatus(agent.ID, 0); err != nil {
+	if err := agentSvc.UpdateStatus(context.Background(), agent.ID, 0); err != nil {
 		t.Fatalf("禁用智能体失败: %v", err)
 	}
 
@@ -445,7 +445,7 @@ func TestCSAgentMount_CreateAndList(t *testing.T) {
 		t.Fatalf("创建挂载失败: %v", err)
 	}
 
-	list, err := mountSvc.ListByAgentStatusID(st.ID)
+	list, err := mountSvc.ListByAgentStatusID(context.Background(), st.ID)
 	if err != nil {
 		t.Fatalf("查询挂载失败: %v", err)
 	}
@@ -480,7 +480,7 @@ func TestCSAgentMount_PrimarySwitch(t *testing.T) {
 	}
 	_ = mountSvc.Create(context.Background(), m2)
 
-	list, _ := mountSvc.ListByAgentStatusID(st.ID)
+	list, _ := mountSvc.ListByAgentStatusID(context.Background(), st.ID)
 	primaryCount := 0
 	for _, m := range list {
 		if m.IsPrimary {
@@ -532,7 +532,7 @@ func TestCSAgentMount_GetOrCreateAgentStatusByUserID(t *testing.T) {
 	mountSvc := NewCustomerServiceAgentServiceWithDB(db.GetDB(), agentSvc)
 
 	// 不存在时创建
-	st, err := mountSvc.GetOrCreateAgentStatusByUserID(500, "用户A")
+	st, err := mountSvc.GetOrCreateAgentStatusByUserID(context.Background(), 500, "用户A")
 	if err != nil {
 		t.Fatalf("创建座席状态失败: %v", err)
 	}
@@ -541,7 +541,7 @@ func TestCSAgentMount_GetOrCreateAgentStatusByUserID(t *testing.T) {
 	}
 
 	// 再次调用应返回同一条
-	st2, err := mountSvc.GetOrCreateAgentStatusByUserID(500, "用户A")
+	st2, err := mountSvc.GetOrCreateAgentStatusByUserID(context.Background(), 500, "用户A")
 	if err != nil {
 		t.Fatalf("查询座席状态失败: %v", err)
 	}
@@ -560,7 +560,7 @@ func TestCSAgentMount_ListByUserID(t *testing.T) {
 	_ = agentSvc.Create(context.Background(), agent)
 
 	// 无座席状态时应返回空列表
-	list, err := mountSvc.ListByUserID(600)
+	list, err := mountSvc.ListByUserID(context.Background(), 600)
 	if err != nil {
 		t.Fatalf("查询失败: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestCSAgentMount_ListByUserID(t *testing.T) {
 	}
 
 	// 创建挂载
-	m, err := mountSvc.CreateByUserID(600, "用户B", agent.ID, true)
+	m, err := mountSvc.CreateByUserID(context.Background(), 600, "用户B", agent.ID, true)
 	if err != nil {
 		t.Fatalf("按用户ID创建挂载失败: %v", err)
 	}
@@ -578,7 +578,7 @@ func TestCSAgentMount_ListByUserID(t *testing.T) {
 	}
 
 	// 查询应有 1 条
-	list, _ = mountSvc.ListByUserID(600)
+	list, _ = mountSvc.ListByUserID(context.Background(), 600)
 	if len(list) != 1 {
 		t.Errorf("期望 1 条挂载, 实际 %d", len(list))
 	}
@@ -594,7 +594,7 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 	_ = agentSvc.Create(context.Background(), agent)
 
 	// 按用户ID创建挂载（应自动创建 AgentStatus）
-	m, err := mountSvc.CreateByUserID(700, "用户C", agent.ID, true)
+	m, err := mountSvc.CreateByUserID(context.Background(), 700, "用户C", agent.ID, true)
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
@@ -617,11 +617,11 @@ func TestCSAgentMount_CreateByUserID(t *testing.T) {
 	_ = agentSvc.Create(context.Background(), disabledAgent)
 	// 注意：Status 字段有 gorm default:1 标签，GORM 创建时会忽略零值 0
 	// 必须用 UpdateStatus 显式置为 0 才能真正禁用
-	if err := agentSvc.UpdateStatus(disabledAgent.ID, 0); err != nil {
+	if err := agentSvc.UpdateStatus(context.Background(), disabledAgent.ID, 0); err != nil {
 		t.Fatalf("禁用智能体失败: %v", err)
 	}
 
-	_, err = mountSvc.CreateByUserID(700, "用户C", disabledAgent.ID, false)
+	_, err = mountSvc.CreateByUserID(context.Background(), 700, "用户C", disabledAgent.ID, false)
 	if err == nil {
 		t.Fatal("挂载已禁用智能体应失败")
 	}
@@ -753,7 +753,7 @@ func TestE2E_UserMountToLoadContext(t *testing.T) {
 	_ = agentSvc.Create(context.Background(), agent)
 
 	// 2. 按用户ID创建挂载（自动创建座席）
-	m, err := mountSvc.CreateByUserID(800, "客服张三", agent.ID, true)
+	m, err := mountSvc.CreateByUserID(context.Background(), 800, "客服张三", agent.ID, true)
 	if err != nil {
 		t.Fatalf("创建挂载失败: %v", err)
 	}

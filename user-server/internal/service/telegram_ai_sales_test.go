@@ -331,7 +331,7 @@ func TestShouldTriggerAI_TelegramAccountStates(t *testing.T) {
 		if i == 3 {
 			break
 		}
-		if err := tgRepo.Create(c.account); err != nil {
+		if err := tgRepo.Create(context.Background(), c.account); err != nil {
 			t.Fatalf("create account %d: %v", i, err)
 		}
 	}
@@ -362,7 +362,7 @@ func TestShouldTriggerAI_NilSalesEngineReturnsFalse(t *testing.T) {
 		AIAgentEnabled: true,
 		Status:         1,
 	}
-	if err := tgRepo.Create(acc); err != nil {
+	if err := tgRepo.Create(context.Background(), acc); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -425,7 +425,7 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 		AIAgentEnabled: false,
 		Status:         1,
 	}
-	if err := tgRepo.Create(acc); err != nil {
+	if err := tgRepo.Create(context.Background(), acc); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	svc := &WebhookService{
@@ -498,7 +498,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 		AIAgentEnabled: true,
 		Status:         1,
 	}
-	if err := repo.Create(acc); err != nil {
+	if err := repo.Create(context.Background(), acc); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if acc.ID == 0 {
@@ -506,7 +506,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// GetByID
-	got, err := repo.GetByID(acc.ID)
+	got, err := repo.GetByID(context.Background(), acc.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -518,7 +518,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// GetAll
-	all, err := repo.GetAll()
+	all, err := repo.GetAll(context.Background(), )
 	if err != nil {
 		t.Fatalf("all: %v", err)
 	}
@@ -529,10 +529,10 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	// Update
 	got.AIAgentEnabled = false
 	got.LastErrorMsg = "test error"
-	if err := repo.Update(got); err != nil {
+	if err := repo.Update(context.Background(), got); err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	updated, _ := repo.GetByID(acc.ID)
+	updated, _ := repo.GetByID(context.Background(), acc.ID)
 	if updated.AIAgentEnabled {
 		t.Error("expected AIAgentEnabled=false after update")
 	}
@@ -541,10 +541,10 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := repo.Deleteacc.ID); err != nil {
+	if err := repo.Delete(context.Background(), acc.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	all2, _ := repo.GetAll()
+	all2, _ := repo.GetAll(context.Background(), )
 	if len(all2) != 0 {
 		t.Errorf("expected 0 after delete, got %d", len(all2))
 	}

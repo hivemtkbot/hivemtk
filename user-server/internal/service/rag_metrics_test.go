@@ -438,7 +438,7 @@ func TestRagMetrics_AggregateWindow_Idempotent(t *testing.T) {
 	// 把 created_at 设置在窗口内
 	log := svc.buildQueryLog(req)
 	log.CreatedAt = start.Add(time.Minute)
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -490,7 +490,7 @@ func TestRagMetrics_AggregateLastWindow(t *testing.T) {
 	}
 	log := svc.buildQueryLog(req)
 	log.CreatedAt = now.Add(-time.Minute)
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -525,7 +525,7 @@ func TestRagMetrics_GetLatestMetrics(t *testing.T) {
 			AvgRecall:    float64(i) * 0.1,
 			CreatedAt:    time.Now(),
 		}
-		if err := db.Create(d).Error; err != nil {
+		if err := db.Create(context.Background(), d).Error; err != nil {
 			t.Fatalf("create daily %d failed: %v", i, err)
 		}
 	}

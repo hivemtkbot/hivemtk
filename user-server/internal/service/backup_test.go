@@ -142,7 +142,7 @@ func TestBackupService_GetBackupList(t *testing.T) {
 			Status:     model.BackupStatusCompleted,
 			CreatedBy:  1,
 		}
-		repo.Create(backup)
+		repo.Create(context.Background(), backup)
 	}
 
 	// 获取列表
@@ -173,7 +173,7 @@ func TestBackupService_GetBackupList_Pagination(t *testing.T) {
 			Status:     model.BackupStatusCompleted,
 			CreatedBy:  1,
 		}
-		repo.Create(backup)
+		repo.Create(context.Background(), backup)
 	}
 
 	// 第一页，每页 5 条
@@ -203,7 +203,7 @@ func TestBackupService_GetBackupByID(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 获取备份
 	retrievedBackup, err := service.GetBackupByID(backup.ID)
@@ -239,7 +239,7 @@ func TestBackupService_GetBackupByID_SingleTenant(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 单租户模式下，无需 merchant 鉴权，任意用户可访问
 	got, err := service.GetBackupByID(backup.ID)
@@ -263,7 +263,7 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 删除备份
 	err := service.DeleteBackup(backup.ID)
@@ -302,7 +302,7 @@ func TestBackupService_DeleteBackup_SingleTenant(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 单租户模式下无需 merchant 校验，删除成功
 	err := service.DeleteBackup(backup.ID)
@@ -338,7 +338,7 @@ func TestBackupService_DeleteBackup_WithFile(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 删除备份（应同时删除文件）
 	err = service.DeleteBackup(backup.ID)
@@ -371,7 +371,7 @@ func TestRestoreService_RestoreBackup(t *testing.T) {
 		StartedAt:   time.Now(),
 		CompletedAt: func() *time.Time { t := time.Now(); return &t }(),
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	req := &RestoreBackupRequest{
 		BackupID: backup.ID,
@@ -437,7 +437,7 @@ func TestRestoreService_RestoreBackup_SingleTenant(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	req := &RestoreBackupRequest{
 		BackupID: backup.ID,
@@ -466,7 +466,7 @@ func TestRestoreService_RestoreBackup_Incomplete(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	req := &RestoreBackupRequest{
 		BackupID: backup.ID,
@@ -499,7 +499,7 @@ func TestRestoreService_GetRestoreList(t *testing.T) {
 			Status:     "completed",
 			CreatedBy:  1,
 		}
-		restoreRepo.Create(record)
+		restoreRepo.Create(context.Background(), record)
 	}
 
 	// 获取列表
@@ -528,7 +528,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 	}
 
 	// 创建多个恢复记录
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   1,
 		BackupName: "backup-1",
 		Status:     "completed",
@@ -537,7 +537,7 @@ func TestRestoreService_GetLastRestore(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond) // 确保时间有差异
 
-	restoreRepo.Create(&model.RestoreRecord{
+	restoreRepo.Create(context.Background(), &model.RestoreRecord{
 		BackupID:   2,
 		BackupName: "backup-2",
 		Status:     "completed",
@@ -603,7 +603,7 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 直接调用 executeBackup（同步测试）
 	// 注意：在 PostgreSQL 测试环境中，目录创建可能成功（因为使用临时目录）
@@ -707,7 +707,7 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 		Status:     "pending",
 		CreatedBy:  1,
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(context.Background(), record)
 
 	// 创建不存在的备份文件路径
 	backup := &model.Backup{
@@ -716,13 +716,13 @@ func TestRestoreService_ExecuteRestore_FailedBackup(t *testing.T) {
 		Status:     model.BackupStatusCompleted,
 		CreatedBy:  1,
 	}
-	backupRepo.Create(backup)
+	backupRepo.Create(context.Background(), backup)
 
 	// 执行恢复（会失败）
 	service.executeRestore(record, backup)
 
 	// 验证状态为失败
-	updatedRecord, _ := restoreRepo.GetByID(record.ID)
+	updatedRecord, _ := restoreRepo.GetByID(context.Background(), record.ID)
 
 	if updatedRecord.Status != "failed" {
 		t.Errorf("Expected status 'failed', got %s", updatedRecord.Status)
@@ -861,22 +861,22 @@ func TestBackupService_BackupStatusTransitions(t *testing.T) {
 		Status:     model.BackupStatusPending,
 		CreatedBy:  1,
 	}
-	repo.Create(backup)
+	repo.Create(context.Background(), backup)
 
 	// 手动测试状态转换
 	backup.Status = model.BackupStatusRunning
-	repo.Update(backup)
+	repo.Update(context.Background(), backup)
 
-	updated, _ := repo.GetByID(backup.ID)
+	updated, _ := repo.GetByID(context.Background(), backup.ID)
 	if updated.Status != model.BackupStatusRunning {
 		t.Errorf("Expected status 'running', got %s", updated.Status)
 	}
 
 	// 转换到完成状态
 	backup.Status = model.BackupStatusCompleted
-	repo.Update(backup)
+	repo.Update(context.Background(), backup)
 
-	updated, _ = repo.GetByID(backup.ID)
+	updated, _ = repo.GetByID(context.Background(), backup.ID)
 	if updated.Status != model.BackupStatusCompleted {
 		t.Errorf("Expected status 'completed', got %s", updated.Status)
 	}
@@ -894,22 +894,22 @@ func TestRestoreService_RestoreStatusTransitions(t *testing.T) {
 		Status:     "pending",
 		CreatedBy:  1,
 	}
-	restoreRepo.Create(record)
+	restoreRepo.Create(context.Background(), record)
 
 	// 手动测试状态转换
 	record.Status = "running"
-	restoreRepo.Update(record)
+	restoreRepo.Update(context.Background(), record)
 
-	updated, _ := restoreRepo.GetByID(record.ID)
+	updated, _ := restoreRepo.GetByID(context.Background(), record.ID)
 	if updated.Status != "running" {
 		t.Errorf("Expected status 'running', got %s", updated.Status)
 	}
 
 	// 转换到完成状态
 	record.Status = "completed"
-	restoreRepo.Update(record)
+	restoreRepo.Update(context.Background(), record)
 
-	updated, _ = restoreRepo.GetByID(record.ID)
+	updated, _ = restoreRepo.GetByID(context.Background(), record.ID)
 	if updated.Status != "completed" {
 		t.Errorf("Expected status 'completed', got %s", updated.Status)
 	}

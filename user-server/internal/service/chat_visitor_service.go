@@ -66,7 +66,7 @@ func NewVisitorChatService(ctx context.Context, db *gorm.DB, channelSvc *ChatCha
 func newInboxConversationRepo(db *gorm.DB) *repository.InboxConversationRepository {
 	repo := repository.NewInboxConversationRepository()
 	if db != nil {
-		repo.SetDB(db)
+		repo.SetDB(context.Background(), db)
 	}
 	return repo
 }

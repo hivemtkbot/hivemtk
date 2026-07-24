@@ -271,6 +271,7 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 // AutoApprove=false 时仅入库 draft 状态候选，不创建 A/B 测试
 func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 
 	// 插入 active prompt
 	cand := model.PromptCandidate{
@@ -334,6 +335,7 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 // TestPromptIterator_IterateForNode_LLMFailure LLM 失败返回错误
 func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 
 	// 插入 active prompt
 	cand := model.PromptCandidate{
@@ -381,6 +383,7 @@ func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 // TestPromptIterator_IterateForNode_LLMInvalidJSON LLM 返回非 JSON 报错
 func TestPromptIterator_IterateForNode_LLMInvalidJSON(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
+	ctx := context.Background()
 
 	cand := model.PromptCandidate{
 		SOPNodeID: "node_1", SOPID: 1, Scenario: "sop_reply", Version: "v1.0",

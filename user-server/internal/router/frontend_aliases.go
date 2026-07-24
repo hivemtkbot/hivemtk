@@ -448,7 +448,10 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 31. TikTok 卡片 - 别名
 	// ============================================================
-	tiktokCtrl := controller.NewTikTokCardController()
+	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
+	tiktokCtrl := controller.NewTikTokCardController(
+		service.NewTikTokCardServiceWithDB(db.GetDB()),
+	)
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/:id", tiktokCtrl.Get)
@@ -664,7 +667,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 
 	// 注意：原 /api/platform/version/* 由 setupPlatformRoutes 负责注册（平台端路由组）。
 	// 平台端 version 路由已在 setupPlatformRoutes 中同步删除。
-
 
 	// ============================================================
 	// 52. 第三方对接 - 别名

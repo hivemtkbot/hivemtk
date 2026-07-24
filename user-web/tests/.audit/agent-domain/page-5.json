@@ -1,0 +1,10 @@
+{
+  "idx": 5,
+  "title": "对话记忆",
+  "path": "/#/dialogueMemory/list",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

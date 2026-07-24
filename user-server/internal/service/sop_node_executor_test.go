@@ -25,7 +25,7 @@ func TestNodeExecutorRegistry_RegisterAndGet(t *testing.T) {
 	exec := &StartExecutor{}
 	r.Register(exec)
 
-	got, err := r.Get(SOPNodeTypeStart)
+	got, err := r.Get(context.Background(), SOPNodeTypeStart)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestNodeExecutorRegistry_RegisterAndGet(t *testing.T) {
 
 func TestNodeExecutorRegistry_GetNotFound(t *testing.T) {
 	r := NewNodeExecutorRegistry()
-	_, err := r.Get("non_existent_type")
+	_, err := r.Get(context.Background(), "non_existent_type")
 	if err == nil {
 		t.Error("expected error for non-existent type")
 	}

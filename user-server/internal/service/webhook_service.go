@@ -199,7 +199,7 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 	}
 	accountRepo := repository.NewIntegrationAccountRepository()
 	if db != nil {
-		accountRepo.SetDB(db)
+		accountRepo.SetDB(context.Background(), db)
 	}
 	eventRepo := repository.NewWebhookEventRepository()
 	if db != nil {

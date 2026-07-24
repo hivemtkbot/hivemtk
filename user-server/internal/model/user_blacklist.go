@@ -31,13 +31,8 @@ func (UserBlacklist) TableName() string {
 	return "user_blacklist"
 }
 
-// IsExpired 判断当前黑名单是否已过期
-//
-// 返回 true 的条件：ExpiresAt 非 nil 且早于当前时间。
-// 注意：纯领域规则（无数据库访问），不违反"model 不含业务方法"原则。
-func (b *UserBlacklist) IsExpired() bool {
-	if b == nil || b.ExpiresAt == nil {
-		return false
-	}
-	return time.Now().After(*b.ExpiresAt)
-}
+// 注：五层架构 §三.1 规定 model 不含业务方法。
+// 原 (b *UserBlacklist) IsExpired() bool 已迁出至 service / repository 层：
+//   - service: IsBlacklistExpired(*model.UserBlacklist) bool
+//   - repository/user_blacklist.go: 私有 isExpired(*model.UserBlacklist) bool
+// 任何上层需要判断过期时，请走 service/repository，不要在 model 上扩展方法。

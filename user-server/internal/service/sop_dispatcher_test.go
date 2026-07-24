@@ -146,7 +146,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		CurrentNode: "wait_node",
 		StartedAt:   time.Now(),
 	}
-	if err := db.Create(exec).Error; err != nil {
+	if err := db.Create(context.Background(), exec).Error; err != nil {
 		t.Fatalf("create execution: %v", err)
 	}
 
@@ -157,7 +157,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_FiresPendingTimers(t *testing.T) {
 		WaitUntil:   time.Now().Add(-1 * time.Second), // 已过期
 		Status:      "pending",
 	}
-	if err := db.Create(timer).Error; err != nil {
+	if err := db.Create(context.Background(), timer).Error; err != nil {
 		t.Fatalf("create timer: %v", err)
 	}
 
@@ -204,7 +204,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
 		CurrentNode: "wait", StartedAt: time.Now(),
 	}
-	db.Create(exec)
+	db.Create(context.Background(), exec)
 
 	// 未来 1 小时才到期的 timer
 	futureTimer := &model.SOPTimer{
@@ -214,7 +214,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_SkipsFutureTimers(t *testing.T) {
 		WaitUntil:   time.Now().Add(1 * time.Hour),
 		Status:      "pending",
 	}
-	db.Create(futureTimer)
+	db.Create(context.Background(), futureTimer)
 
 	var dispatchedCount int32
 	mockDispatcher := &mockExecDispatcher{
@@ -249,7 +249,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
 		CurrentNode: "wait", StartedAt: time.Now(),
 	}
-	db.Create(exec)
+	db.Create(context.Background(), exec)
 
 	timer := &model.SOPTimer{
 		ExecutionID: exec.ID,
@@ -258,7 +258,7 @@ func TestSOPOutboxDispatcher_ProcessDueTimers_MultiInstanceIdempotent(t *testing
 		WaitUntil:   time.Now().Add(-1 * time.Second),
 		Status:      "pending",
 	}
-	db.Create(timer)
+	db.Create(context.Background(), timer)
 
 	var dispatchedCount int32
 	mockDispatcher := &mockExecDispatcher{
@@ -301,7 +301,7 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 		CurrentNode: "n1", StartedAt: now.Add(-1 * time.Hour),
 		LastEventAt: &recentEvent,
 	}
-	db.Create(exec)
+	db.Create(context.Background(), exec)
 
 	var dispatchedCount int32
 	mockDispatcher := &mockExecDispatcher{
@@ -337,7 +337,7 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 		LastEventAt: &oldEvent,
 		WaitEvent:   WaitEventCustomerReply,
 	}
-	db.Create(exec)
+	db.Create(context.Background(), exec)
 
 	// 创建 pending timer
 	timer := &model.SOPTimer{
@@ -347,7 +347,7 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 		WaitUntil:   now.Add(20 * time.Hour), // 还没到期
 		Status:      "pending",
 	}
-	db.Create(timer)
+	db.Create(context.Background(), timer)
 
 	var dispatchedCount int32
 	mockDispatcher := &mockExecDispatcher{
@@ -382,7 +382,7 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 		CurrentNode: "stuck_node", StartedAt: now.Add(-48 * time.Hour),
 		LastEventAt: &oldEvent,
 	}
-	db.Create(exec)
+	db.Create(context.Background(), exec)
 	// 无 pending timer、无近期 sop_exec_events
 
 	var dispatchedCount int32

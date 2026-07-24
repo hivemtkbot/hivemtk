@@ -1,0 +1,10 @@
+{
+  "idx": 9,
+  "title": "反馈学习闭环",
+  "path": "/#/feedbackLoop/panel",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

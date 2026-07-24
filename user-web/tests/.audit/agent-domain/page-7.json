@@ -1,0 +1,10 @@
+{
+  "idx": 7,
+  "title": "置信度运营",
+  "path": "/#/confidence/panel",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

@@ -277,7 +277,6 @@ func TestAutoReply_FullChain(t *testing.T) {
 			}
 		}
 	})
-	_ = ctx
 	_ = http.MethodGet
 	_ = strings.TrimSpace
 	_ = json.Number("")

@@ -20,7 +20,9 @@ func NewAfterSaleRepository() *AfterSaleRepository {
 }
 
 // SetDB 注入 db（测试 / 显式装配用）
-func (r *AfterSaleRepository) SetDB(db *gorm.DB) {
+//
+// 五层架构 §三.5 + §七：仓库方法必须首参为 ctx context.Context。
+func (r *AfterSaleRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}

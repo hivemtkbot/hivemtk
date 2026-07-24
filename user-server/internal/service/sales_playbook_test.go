@@ -37,7 +37,7 @@ func TestPlaybook_DefaultSeeds_AllIndustries(t *testing.T) {
 	}
 
 	for _, ind := range industries {
-		entries := svc.List(ind, "")
+		entries := svc.List(context.Background(), ind, "")
 		if len(entries) == 0 {
 			t.Errorf("行业 %s 应有默认话术，实际为空", ind)
 		}
@@ -63,7 +63,7 @@ func TestPlaybook_DefaultSeeds_AllStages(t *testing.T) {
 	coverage := 0
 	for _, st := range stages {
 		// 检查每个阶段在医美行业是否有话术
-		entries := svc.List(IndustryMedicalBeauty, st)
+		entries := svc.List(context.Background(), IndustryMedicalBeauty, st)
 		if len(entries) > 0 {
 			coverage++
 		} else {

@@ -49,7 +49,7 @@ func TestUpsertFromMessage_NewConversation(t *testing.T) {
 	svc, db := newInboxService(t)
 	msg := mkMsg("a")
 	msg.ID = 100
-	db.Create(msg)
+	db.Create(context.Background(), msg)
 	if err := svc.UpsertFromMessage(context.Background(), msg); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestUpsertFromMessage_OutboundStaff(t *testing.T) {
 	svc, db := newInboxService(t)
 	msg := mkMsg("o1")
 	msg.ID = 1
-	db.Create(msg)
+	db.Create(context.Background(), msg)
 	if err := svc.UpsertFromMessage(context.Background(), msg); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestUpsertFromMessage_OutboundStaff(t *testing.T) {
 	msg2.ID = 2
 	msg2.Direction = "outbound"
 	msg2.ReceiverID = "user-001"
-	db.Create(msg2)
+	db.Create(context.Background(), msg2)
 	if err := svc.UpsertFromMessage(context.Background(), msg2); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestUpsertFromMessage_OutboundAI(t *testing.T) {
 	svc, db := newInboxService(t)
 	msg := mkMsg("ai1")
 	msg.ID = 1
-	db.Create(msg)
+	db.Create(context.Background(), msg)
 	svc.UpsertFromMessage(context.Background(), msg)
 
 	reply := mkMsg("ai2")
@@ -116,7 +116,7 @@ func TestUpsertFromMessage_OutboundAI(t *testing.T) {
 	reply.Direction = "outbound"
 	reply.ReceiverID = "user-001"
 	reply.IsAIReply = true
-	db.Create(reply)
+	db.Create(context.Background(), reply)
 	svc.UpsertFromMessage(context.Background(), reply)
 
 	var conv model.InboxConversation
@@ -132,7 +132,7 @@ func TestUpsertFromMessage_IncrementUnread(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		m := mkMsg(fmt.Sprintf("m%d", i))
 		m.ID = uint(i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	var conv model.InboxConversation
@@ -171,7 +171,7 @@ func TestUpsertFromMessage_ContentTruncate(t *testing.T) {
 	msg := mkMsg("trunc")
 	msg.Content = strings.Repeat("a", 500)
 	msg.ID = 1
-	db.Create(msg)
+	db.Create(context.Background(), msg)
 	svc.UpsertFromMessage(context.Background(), msg)
 	var conv model.InboxConversation
 	db.First(&conv)
@@ -187,7 +187,7 @@ func TestList_Default(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("L%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	conv, total, err := svc.List(context.Background(), InboxQuery{})
@@ -208,14 +208,14 @@ func TestInboxList_FilterPlatform(t *testing.T) {
 	m1 := mkMsg("p1")
 	m1.ID = 1
 	m1.Platform = "wecom"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 
 	m2 := mkMsg("p2")
 	m2.ID = 2
 	m2.Platform = "douyin"
 	m2.SenderID = "user-2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 
 	conv, total, _ := svc.List(context.Background(), InboxQuery{Platform: "wecom"})
@@ -230,14 +230,14 @@ func TestList_FilterAccount(t *testing.T) {
 	m1 := mkMsg("a1")
 	m1.ID = 1
 	m1.AccountID = "acc-A"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 
 	m2 := mkMsg("a2")
 	m2.ID = 2
 	m2.AccountID = "acc-B"
 	m2.SenderID = "user-2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 
 	conv, _, _ := svc.List(context.Background(), InboxQuery{AccountID: "acc-A"})
@@ -251,7 +251,7 @@ func TestList_FilterStatus(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("s1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 
 	conv, _ := svc.GetByID(context.Background(), 1)
@@ -268,7 +268,7 @@ func TestList_FilterAssignedTo(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("as1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	conv, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -288,7 +288,7 @@ func TestList_Page(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("p%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	_, total, _ := svc.List(context.Background(), InboxQuery{Page: 1, PageSize: 3})
@@ -311,13 +311,13 @@ func TestList_Keyword(t *testing.T) {
 	m1 := mkMsg("k1")
 	m1.ID = 1
 	m1.Content = "价格多少"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("k2")
 	m2.ID = 2
 	m2.SenderID = "user-2"
 	m2.Content = "发货时间"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	_, total, _ := svc.List(context.Background(), InboxQuery{Keyword: "价格"})
 	if total != 1 {
@@ -330,12 +330,12 @@ func TestList_FilterPinned(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("pn1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("pn2")
 	m2.ID = 2
 	m2.SenderID = "user-2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 
 	c1, _ := svc.GetByID(context.Background(), 1)
@@ -352,13 +352,13 @@ func TestList_OrderPinnedFirst(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("ord1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 
 	m2 := mkMsg("ord2")
 	m2.ID = 2
 	m2.SenderID = "user-2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 
 	c2, _ := svc.GetByID(context.Background(), 2)
@@ -376,14 +376,14 @@ func TestList_OrderLatest(t *testing.T) {
 	m1 := mkMsg("lt1")
 	m1.ID = 1
 	m1.SentAt = time.Now().Add(-2 * time.Hour)
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 
 	m2 := mkMsg("lt2")
 	m2.ID = 2
 	m2.SenderID = "user-2"
 	m2.SentAt = time.Now()
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 
 	conv, _, _ := svc.List(context.Background(), InboxQuery{OrderBy: "latest_desc"})
@@ -406,7 +406,7 @@ func TestInboxGetByID_Success(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("gs")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, err := svc.GetByID(context.Background(), 1)
 	if err != nil {
@@ -425,7 +425,7 @@ func TestMarkRead(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("mr")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	if c.UnreadCount != 1 {
@@ -448,7 +448,7 @@ func TestPin_Unpin(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("pin")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Pin(context.Background(), c.ID, true)
@@ -468,7 +468,7 @@ func TestStar_Unstar(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("star")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Star(context.Background(), c.ID, true)
@@ -483,7 +483,7 @@ func TestMute_Unmute(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("mt")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Mute(context.Background(), c.ID, true)
@@ -498,7 +498,7 @@ func TestAddTag(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("tg")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.AddTag(context.Background(), c.ID, "VIP")
@@ -516,7 +516,7 @@ func TestRemoveTag(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rt")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.AddTag(context.Background(), c.ID, "VIP")
@@ -533,7 +533,7 @@ func TestRemoveTag_NotExist(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rtx")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	if err := svc.RemoveTag(context.Background(), c.ID, "ghost"); err != nil {
@@ -546,7 +546,7 @@ func TestAssign_Human(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("as1")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	h, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -576,7 +576,7 @@ func TestAssign_SOP(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("assop")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -597,7 +597,7 @@ func TestAssign_Reassign(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rea")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -622,7 +622,7 @@ func TestAssign_Release(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rl")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -649,7 +649,7 @@ func TestAssign_Close(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("cl")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -672,7 +672,7 @@ func TestAssign_Reopen(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("ro")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: c.ID, Action: InboxActionClose})
@@ -705,7 +705,7 @@ func TestAssign_HumanMissingUser(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("hm")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -721,7 +721,7 @@ func TestAssign_SOPMissingID(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("sm")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -762,7 +762,7 @@ func TestAutoAssign_PickMinLoad(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("a%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	// 给 staff-1 分配 2 个
@@ -791,7 +791,7 @@ func TestAutoAssign_AllAtCapacity(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("cap%d", i))
 		m.ID = uint(i + 1)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 		svc.Assign(context.Background(), InboxAssignRequest{
 			ConversationID: uint(i + 1), Action: InboxActionAssign,
@@ -801,7 +801,7 @@ func TestAutoAssign_AllAtCapacity(t *testing.T) {
 	m := mkMsg("ext")
 	m.ID = 100
 	m.SenderID = "extra"
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	_, err := svc.AutoAssign(context.Background(), 100, []string{"staff-1"}, "op-1")
 	if err == nil {
@@ -826,7 +826,7 @@ func TestRoundRobinAssign(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("rr%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	h1, _ := svc.RoundRobinAssign(context.Background(), 1, []string{"staff-1", "staff-2", "staff-3"}, "op-1")
@@ -853,7 +853,7 @@ func TestBatchAssign(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("b%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	results, errs := svc.BatchAssign(context.Background(), []InboxAssignRequest{
@@ -878,7 +878,7 @@ func TestStaffLoad(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("sl%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("user-%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -900,7 +900,7 @@ func TestListAssignments(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("la")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -924,7 +924,7 @@ func TestListAssignments_ByMerchant(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("lbm")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -953,7 +953,7 @@ func TestStats_Status(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("st%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	// 第一个分配
@@ -984,19 +984,19 @@ func TestInboxStats_ByPlatform(t *testing.T) {
 	m1 := mkMsg("bp1")
 	m1.ID = 1
 	m1.Platform = "wecom"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("bp2")
 	m2.ID = 2
 	m2.Platform = "wecom"
 	m2.SenderID = "u2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	m3 := mkMsg("bp3")
 	m3.ID = 3
 	m3.Platform = "douyin"
 	m3.SenderID = "u3"
-	db.Create(m3)
+	db.Create(context.Background(), m3)
 	svc.UpsertFromMessage(context.Background(), m3)
 	stats, _ := svc.GetStats(context.Background())
 	if stats.ByPlatform["wecom"] != 2 {
@@ -1013,7 +1013,7 @@ func TestStats_Overdue(t *testing.T) {
 	m := mkMsg("ov")
 	m.ID = 1
 	m.SentAt = time.Now().Add(-2 * time.Hour)
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	// 修正 LastMessageAt 为 2 小时前，模拟超时会话
 	db.Model(&model.InboxConversation{}).
@@ -1032,7 +1032,7 @@ func TestStats_ByAssigned(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("sa%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 		svc.Assign(context.Background(), InboxAssignRequest{
 			ConversationID: uint(i), Action: InboxActionAssign,
@@ -1051,7 +1051,7 @@ func TestGetMessagesByConversation(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		m := mkMsg(fmt.Sprintf("gm%d", i))
 		m.ID = uint(i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	// 客服回复
@@ -1059,7 +1059,7 @@ func TestGetMessagesByConversation(t *testing.T) {
 	reply.ID = 4
 	reply.Direction = "outbound"
 	reply.ReceiverID = "user-001"
-	db.Create(reply)
+	db.Create(context.Background(), reply)
 	svc.UpsertFromMessage(context.Background(), reply)
 	c, _ := svc.GetByID(context.Background(), 1)
 	list, total, _ := svc.GetMessagesByConversation(context.Background(), c.ID, 1, 10)
@@ -1085,7 +1085,7 @@ func TestAssign_LoadTracking(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("lt")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -1108,7 +1108,7 @@ func TestUpsertFromMessage_ReopenClosed(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rc1")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: c.ID, Action: InboxActionClose})
@@ -1116,7 +1116,7 @@ func TestUpsertFromMessage_ReopenClosed(t *testing.T) {
 	m2 := mkMsg("rc2")
 	m2.ID = 2
 	m2.SentAt = time.Now().Add(time.Minute)
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	c2, _ := svc.GetByID(context.Background(), 1)
 	if c2.Status == InboxStatusClosed {
@@ -1129,14 +1129,14 @@ func TestUpsertFromMessage_AssignedNoUser(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("an1")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	// 强制设为 assigned 但无 AssignedTo
 	db.Model(&c).Update("status", InboxStatusAssigned)
 	m2 := mkMsg("an2")
 	m2.ID = 2
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	c2, _ := svc.GetByID(context.Background(), 1)
 	if c2.Status != InboxStatusUnread {
@@ -1163,7 +1163,7 @@ func TestList_StarredFilter(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("sf%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	c1, _ := svc.GetByID(context.Background(), 1)
@@ -1180,7 +1180,7 @@ func TestList_MutedFilter(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("mf1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	c1, _ := svc.GetByID(context.Background(), 1)
 	svc.Mute(context.Background(), c1.ID, true)
@@ -1196,7 +1196,7 @@ func TestList_AssignedSOPFilter(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("asf1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	c1, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -1216,14 +1216,14 @@ func TestList_OrderUnread(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("ou%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 		// 多发几条
 		for j := 0; j < i; j++ {
 			mx := mkMsg(fmt.Sprintf("ou%d-%d", i, j))
 			mx.ID = uint(i*10 + j)
 			mx.SenderID = fmt.Sprintf("u%d", i)
-			db.Create(mx)
+			db.Create(context.Background(), mx)
 			svc.UpsertFromMessage(context.Background(), mx)
 		}
 	}
@@ -1241,7 +1241,7 @@ func TestList_OrderOldest(t *testing.T) {
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
 		m.SentAt = time.Now().Add(time.Duration(-i) * time.Hour)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	conv, _, _ := svc.List(context.Background(), InboxQuery{OrderBy: "oldest_asc"})
@@ -1255,14 +1255,14 @@ func TestUpsertFromMessage_OutboundEmptyReceiver(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("oe1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("oe2")
 	m2.ID = 2
 	m2.Direction = "outbound"
 	m2.ReceiverID = ""
 	m2.SenderID = "user-001"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	if err := svc.UpsertFromMessage(context.Background(), m2); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -1287,12 +1287,12 @@ func TestUpsertFromMessage_CustomerName(t *testing.T) {
 	m1 := mkMsg("cn1")
 	m1.ID = 1
 	m1.SenderName = "Alice"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("cn2")
 	m2.ID = 2
 	m2.SenderName = ""
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	var conv model.InboxConversation
 	db.First(&conv)
@@ -1307,12 +1307,12 @@ func TestUpsertFromMessage_ConvID(t *testing.T) {
 	m1 := mkMsg("ci1")
 	m1.ID = 1
 	m1.ConversationID = "conv-A"
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("ci2")
 	m2.ID = 2
 	m2.ConversationID = ""
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	var conv model.InboxConversation
 	db.First(&conv)
@@ -1326,7 +1326,7 @@ func TestList_PageOverflow(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("po1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	conv, _, _ := svc.List(context.Background(), InboxQuery{Page: 10, PageSize: 5})
 	if len(conv) != 0 {
@@ -1372,7 +1372,7 @@ func TestAddTag_EmptyTag(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("ae")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	if err := svc.AddTag(context.Background(), c.ID, ""); err != nil {
@@ -1396,7 +1396,7 @@ func TestAutoAssign_MultipleCandidates(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("am%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	// staff-1 分配 2
@@ -1419,7 +1419,7 @@ func TestStatusTransitions(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("stt")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	if c.Status != InboxStatusUnread {
@@ -1452,7 +1452,7 @@ func TestPin_Idempotent(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("pi")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Pin(context.Background(), c.ID, true)
@@ -1468,7 +1468,7 @@ func TestAssign_HistoryRecorded(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("hr")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -1495,7 +1495,7 @@ func TestRelease_History(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rh")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -1516,7 +1516,7 @@ func TestReleaseSOP_History(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("rsh")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{
@@ -1537,7 +1537,7 @@ func TestAssign_AI(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("ai")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	_, err := svc.Assign(context.Background(), InboxAssignRequest{
@@ -1561,12 +1561,12 @@ func TestList_PinnedOrder(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("lpo1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	m2 := mkMsg("lpo2")
 	m2.ID = 2
 	m2.SenderID = "u2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	c1, _ := svc.GetByID(context.Background(), 1)
 	svc.Pin(context.Background(), c1.ID, true)
@@ -1583,7 +1583,7 @@ func TestList_CustomerFilter(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("cf%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	_, total, _ := svc.List(context.Background(), InboxQuery{CustomerID: "u1"})
@@ -1631,7 +1631,7 @@ func TestListAssignments_Page(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("lap")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	for i := 0; i < 5; i++ {
@@ -1654,7 +1654,7 @@ func TestStats_NoAssignee(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("sna")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	stats, _ := svc.GetStats(context.Background())
 	if len(stats.ByAssignedTo) != 0 {
@@ -1669,7 +1669,7 @@ func TestUpsertFromMessage_ConsecutiveInbound(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("ci%d", i))
 		m.ID = uint(i)
 		m.Content = fmt.Sprintf("第%d条", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	var conv model.InboxConversation
@@ -1684,13 +1684,13 @@ func TestMarkRead_ReUnread(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("mru1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.MarkRead(context.Background(), c.ID)
 	m2 := mkMsg("mru2")
 	m2.ID = 2
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	c2, _ := svc.GetByID(context.Background(), 1)
 	if c2.UnreadCount != 1 {
@@ -1703,13 +1703,13 @@ func TestAutoAssign_CacheHit(t *testing.T) {
 	svc, db := newInboxService(t)
 	m1 := mkMsg("ach1")
 	m1.ID = 1
-	db.Create(m1)
+	db.Create(context.Background(), m1)
 	svc.UpsertFromMessage(context.Background(), m1)
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: 1, Action: InboxActionAssign, ToType: InboxAssignToHuman, ToUserID: "staff-A"})
 	m2 := mkMsg("ach2")
 	m2.ID = 2
 	m2.SenderID = "u2"
-	db.Create(m2)
+	db.Create(context.Background(), m2)
 	svc.UpsertFromMessage(context.Background(), m2)
 	h, _ := svc.AutoAssign(context.Background(), 2, []string{"staff-A", "staff-B"}, "op-1")
 	if h.ToUserID != "staff-B" {
@@ -1722,7 +1722,7 @@ func TestAssign_SOPToHuman(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("sh")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	c, _ := svc.GetByID(context.Background(), 1)
 	svc.Assign(context.Background(), InboxAssignRequest{ConversationID: c.ID, Action: InboxActionAssign, ToType: InboxAssignToSOP, ToSOPID: 1})
@@ -1738,7 +1738,7 @@ func TestList_PageDefaults(t *testing.T) {
 	svc, db := newInboxService(t)
 	m := mkMsg("pd")
 	m.ID = 1
-	db.Create(m)
+	db.Create(context.Background(), m)
 	svc.UpsertFromMessage(context.Background(), m)
 	conv, _, _ := svc.List(context.Background(), InboxQuery{Page: -1, PageSize: -1})
 	if len(conv) != 1 {
@@ -1829,7 +1829,7 @@ func TestAutoAssign_Reentrant(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("re%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
-		db.Create(m)
+		db.Create(context.Background(), m)
 		svc.UpsertFromMessage(context.Background(), m)
 	}
 	for i := 1; i <= 5; i++ {

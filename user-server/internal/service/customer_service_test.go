@@ -137,7 +137,7 @@ func TestCustomerService_List(t *testing.T) {
 	}
 
 	// 获取列表
-	customers, total, err := service.List(1, 10)
+	customers, total, err := service.List(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCustomerService_AddTags(t *testing.T) {
 	}
 
 	// 验证标签已添加
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags, got %d", len(currentTags))
@@ -193,7 +193,7 @@ func TestCustomerService_RemoveTags(t *testing.T) {
 	}
 
 	// 验证标签已移除
-	updated, _ := service.repo.GetByID(customer.ID)
+	updated, _ := service.repo.GetByID(context.Background(), customer.ID)
 	currentTags := updated.GetTags()
 	if len(currentTags) != 2 {
 		t.Errorf("Expected 2 tags after removal, got %d", len(currentTags))
@@ -230,13 +230,13 @@ func TestCustomerService_MergeCustomers(t *testing.T) {
 	}
 
 	// 验证次要客户已删除
-	_, err = service.repo.GetByID(secondary.ID)
+	_, err = service.repo.GetByID(context.Background(), secondary.ID)
 	if err == nil || err.Error() != "记录未找到" {
 		// 历史备注：错误消息格式与具体驱动相关
 	}
 
 	// 验证主要客户有合并的标签
-	merged, _ := service.repo.GetByID(primary.ID)
+	merged, _ := service.repo.GetByID(context.Background(), primary.ID)
 	mergedTags := merged.GetTags()
 	hasPrimaryTag := false
 	hasSecondaryTag := false

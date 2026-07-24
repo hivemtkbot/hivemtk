@@ -80,7 +80,10 @@ func setupDingTalkAppRoutes(auth *gin.RouterGroup, dingtalkAppSvc *service.DingT
 // setupTiktokRoutes TikTok 管理路由
 func setupTiktokRoutes(auth *gin.RouterGroup) {
 	// TikTok 卡片管理
-	tiktokCardCtrl := controller.NewTikTokCardController()
+	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
+	tiktokCardCtrl := controller.NewTikTokCardController(
+		service.NewTikTokCardServiceWithDB(db.GetDB()),
+	)
 	tiktokCardCtrl.RegisterRoutes(auth)
 
 	// TikTok 自动回复管理

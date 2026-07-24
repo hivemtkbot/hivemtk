@@ -124,7 +124,7 @@ func TestRagAlert_CheckAndAlert_LowRecall(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      start.Add(time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -170,7 +170,7 @@ func TestRagAlert_CheckAndAlert_EmbeddingFailure(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: status,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}
@@ -212,7 +212,7 @@ func TestRagAlert_CheckAndAlert_HighLatency(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      start.Add(time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -258,7 +258,7 @@ func TestRagAlert_CheckAndAlert_ZeroHit(t *testing.T) {
 			log.Recall = 1.0
 			log.Precision = 1.0
 		}
-		if err := db.Create(log).Error; err != nil {
+		if err := db.Create(context.Background(), log).Error; err != nil {
 			t.Fatalf("create log %d failed: %v", i, err)
 		}
 	}
@@ -300,7 +300,7 @@ func TestRagAlert_CheckAndAlert_Idempotent(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      start.Add(time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -352,7 +352,7 @@ func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 			Source:         "hybrid",
 			CreatedAt:      wStart.Add(time.Minute),
 		}
-		if err := db.Create(log).Error; err != nil {
+		if err := db.Create(context.Background(), log).Error; err != nil {
 			t.Fatalf("create hist log %d failed: %v", i, err)
 		}
 		// 创建历史预警
@@ -367,7 +367,7 @@ func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 			Resolved:    false,
 			CreatedAt:   wStart,
 		}
-		if err := db.Create(a).Error; err != nil {
+		if err := db.Create(context.Background(), a).Error; err != nil {
 			t.Fatalf("create hist alert %d failed: %v", i, err)
 		}
 	}
@@ -385,7 +385,7 @@ func TestRagAlert_CheckAndAlert_SeverityEscalation(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      curStart.Add(time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create cur log failed: %v", err)
 	}
 
@@ -478,7 +478,7 @@ func TestRagAlert_GetActiveAlerts_Basic(t *testing.T) {
 		{AlertType: "zero_hit", Severity: "message", MetricValue: 0.5, Threshold: 0.2, Message: "a3", WindowStart: now, WindowEnd: now, Resolved: true, CreatedAt: now.Add(-time.Hour)},
 	}
 	for i := range alerts {
-		if err := db.Create(&alerts[i]).Error; err != nil {
+		if err := db.Create(context.Background(), &alerts[i]).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -509,7 +509,7 @@ func TestRagAlert_GetActiveAlerts_FilterByType(t *testing.T) {
 		{AlertType: "high_latency", Severity: "warning", MetricValue: 3000, Threshold: 2000, Message: "a2", WindowStart: now, WindowEnd: now, CreatedAt: now},
 	}
 	for i := range alerts {
-		if err := db.Create(&alerts[i]).Error; err != nil {
+		if err := db.Create(context.Background(), &alerts[i]).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -544,7 +544,7 @@ func TestRagAlert_GetActiveAlerts_LimitClamp(t *testing.T) {
 			WindowEnd:   now,
 			CreatedAt:   now.Add(time.Duration(-i) * time.Minute),
 		}
-		if err := db.Create(&a).Error; err != nil {
+		if err := db.Create(context.Background(), &a).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -576,7 +576,7 @@ func TestRagAlert_GetAlertHistory(t *testing.T) {
 		{AlertType: "zero_hit", Severity: "message", MetricValue: 0.5, Threshold: 0.2, Message: "a3", WindowStart: now, WindowEnd: now, Resolved: true, CreatedAt: now.Add(-time.Hour)},
 	}
 	for i := range alerts {
-		if err := db.Create(&alerts[i]).Error; err != nil {
+		if err := db.Create(context.Background(), &alerts[i]).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -610,11 +610,11 @@ func TestRagAlert_ResolveAlert(t *testing.T) {
 		WindowStart: now,
 		WindowEnd:   now,
 	}
-	if err := db.Create(&a).Error; err != nil {
+	if err := db.Create(context.Background(), &a).Error; err != nil {
 		t.Fatalf("create alert failed: %v", err)
 	}
 
-	resolved, err := svc.ResolveAlert(ctx, a.ID, "admin", "fixed")
+	resolved, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin", "fixed")
 	if err != nil {
 		t.Fatalf("ResolveAlert failed: %v", err)
 	}
@@ -675,12 +675,12 @@ func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 		WindowStart: now,
 		WindowEnd:   now,
 	}
-	if err := db.Create(&a).Error; err != nil {
+	if err := db.Create(context.Background(), &a).Error; err != nil {
 		t.Fatalf("create alert failed: %v", err)
 	}
 
 	// 第一次解决
-	r1, err := svc.ResolveAlert(ctx, a.ID, "admin", "first")
+	r1, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin", "first")
 	if err != nil {
 		t.Fatalf("ResolveAlert 1 failed: %v", err)
 	}
@@ -690,7 +690,7 @@ func TestRagAlert_ResolveAlert_Idempotent(t *testing.T) {
 	firstAt := r1.ResolvedAt
 
 	// 第二次解决（应幂等返回）
-	r2, err := svc.ResolveAlert(ctx, a.ID, "admin2", "second")
+	r2, err := svc.ResolveAlert(context.Background(), ctx, a.ID, "admin2", "second")
 	if err != nil {
 		t.Fatalf("ResolveAlert 2 failed: %v", err)
 	}
@@ -726,7 +726,7 @@ func TestRagAlert_ResolveAllActive(t *testing.T) {
 		{AlertType: "high_latency", Severity: "message", MetricValue: 3000, Threshold: 2000, Message: "a3", WindowStart: now, WindowEnd: now, CreatedAt: now},
 	}
 	for i := range alerts {
-		if err := db.Create(&alerts[i]).Error; err != nil {
+		if err := db.Create(context.Background(), &alerts[i]).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -794,7 +794,7 @@ func TestRagAlert_GetEmbeddingFailureRate(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: status,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}
@@ -879,7 +879,7 @@ func TestRagAlert_CheckAndAlert_MultipleConditions(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      start.Add(time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -889,7 +889,7 @@ func TestRagAlert_CheckAndAlert_MultipleConditions(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: kbmodel.EmbedStatusFailed,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}

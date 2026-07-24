@@ -449,7 +449,7 @@ func TestList_DefaultPage(t *testing.T) {
 		r.MsgID = fmt.Sprintf("list-%d", i)
 		_, _ = svc.Push(ctx, &r)
 	}
-	list, total, err := svc.List(ctx, ListQuery{})
+	list, total, err := svc.List(context.Background(), ctx, ListQuery{})
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestList_FilterPlatform(t *testing.T) {
 	r2.Platform = "douyin"
 	r2.MsgID = "d1"
 	_, _ = svc.Push(ctx, &r2)
-	list, total, _ := svc.List(ctx, ListQuery{Platform: "douyin"})
+	list, total, _ := svc.List(context.Background(), ctx, ListQuery{Platform: "douyin"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -490,7 +490,7 @@ func TestList_FilterDirection(t *testing.T) {
 	r2.Direction = "outbound"
 	r2.MsgID = "o1"
 	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(ctx, ListQuery{Direction: "outbound"})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{Direction: "outbound"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -506,7 +506,7 @@ func TestList_FilterMsgType(t *testing.T) {
 	r2.MsgType = "image"
 	r2.MsgID = "img1"
 	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(ctx, ListQuery{MsgType: "image"})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{MsgType: "image"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -523,7 +523,7 @@ func TestList_FilterKeyword(t *testing.T) {
 	r2.MsgID = "kw2"
 	_, _ = svc.Push(ctx, &r2)
 	// 测试 GORM Raw 关键词陷阱：用含中文的 keyword 仍能工作（用 Contains）
-	_, total, _ := svc.List(ctx, ListQuery{Keyword: "hello"})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{Keyword: "hello"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -539,7 +539,7 @@ func TestList_FilterIsRead(t *testing.T) {
 	r2.MsgID = "rd2"
 	_, _ = svc.Push(ctx, &r2)
 	read := true
-	_, total, _ := svc.List(ctx, ListQuery{IsRead: &read})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{IsRead: &read})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -556,7 +556,7 @@ func TestList_FilterIsGroup(t *testing.T) {
 	r2.MsgID = "ng1"
 	_, _ = svc.Push(ctx, &r2)
 	isGroup := true
-	_, total, _ := svc.List(ctx, ListQuery{IsGroup: &isGroup})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{IsGroup: &isGroup})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -575,7 +575,7 @@ func TestList_FilterTimeRange(t *testing.T) {
 	r2.SentAt = &now
 	_, _ = svc.Push(ctx, &r2)
 	start := time.Now().Add(-1 * time.Hour)
-	_, total, _ := svc.List(ctx, ListQuery{StartTime: &start})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{StartTime: &start})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -588,8 +588,8 @@ func TestList_PageSize(t *testing.T) {
 		r.MsgID = fmt.Sprintf("page-%d", i)
 		_, _ = svc.Push(ctx, &r)
 	}
-	_, total1, _ := svc.List(ctx, ListQuery{Page: 1, PageSize: 10})
-	_, total2, _ := svc.List(ctx, ListQuery{Page: 1, PageSize: 100})
+	_, total1, _ := svc.List(context.Background(), ctx, ListQuery{Page: 1, PageSize: 10})
+	_, total2, _ := svc.List(context.Background(), ctx, ListQuery{Page: 1, PageSize: 100})
 	if total1 != 50 || total2 != 50 {
 		t.Errorf("expected total=50, got %d/%d", total1, total2)
 	}
@@ -603,12 +603,12 @@ func TestList_OrderBy(t *testing.T) {
 		_, _ = svc.Push(ctx, &r)
 	}
 	// 合法 order by
-	_, _, err := svc.List(ctx, ListQuery{OrderBy: "sent_at ASC"})
+	_, _, err := svc.List(context.Background(), ctx, ListQuery{OrderBy: "sent_at ASC"})
 	if err != nil {
 		t.Errorf("expected no error for valid order by, got %v", err)
 	}
 	// 非法 order by 应被忽略
-	_, _, err = svc.List(ctx, ListQuery{OrderBy: "DROP TABLE"})
+	_, _, err = svc.List(context.Background(), ctx, ListQuery{OrderBy: "DROP TABLE"})
 	if err != nil {
 		t.Errorf("expected no error for invalid order by (whitelist), got %v", err)
 	}
@@ -624,7 +624,7 @@ func TestList_FilterConversationID(t *testing.T) {
 	r2.ConversationID = "conv-B"
 	r2.MsgID = "cb1"
 	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(ctx, ListQuery{ConversationID: "conv-B"})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{ConversationID: "conv-B"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -640,7 +640,7 @@ func TestList_FilterSenderID(t *testing.T) {
 	r2.SenderID = "sender-B"
 	r2.MsgID = "sb1"
 	_, _ = svc.Push(ctx, &r2)
-	_, total, _ := svc.List(ctx, ListQuery{SenderID: "sender-A"})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{SenderID: "sender-A"})
 	if total != 1 {
 		t.Errorf("expected total=1, got %d", total)
 	}
@@ -668,7 +668,7 @@ func TestGetByID_Success(t *testing.T) {
 	svc, _ := newTestService(t)
 	req := newReq()
 	msg, _ := svc.Push(ctx, &req)
-	got, err := svc.GetByID(ctx, msg.ID)
+	got, err := svc.GetByID(context.Background(), ctx, msg.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -688,7 +688,7 @@ func TestMarkRead_SingleID(t *testing.T) {
 	if err := svc.MarkRead(ctx, []uint{msg.ID}); err != nil {
 		t.Fatalf("mark: %v", err)
 	}
-	got, _ := svc.GetByID(ctx, msg.ID)
+	got, _ := svc.GetByID(context.Background(), ctx, msg.ID)
 	if !got.IsRead {
 		t.Error("expected is_read=true")
 	}
@@ -710,7 +710,7 @@ func TestMarkRead_MultipleIDs(t *testing.T) {
 		t.Fatalf("mark: %v", err)
 	}
 	for _, id := range ids {
-		got, _ := svc.GetByID(ctx, id)
+		got, _ := svc.GetByID(context.Background(), ctx, id)
 		if !got.IsRead {
 			t.Errorf("expected id %d read=true", id)
 		}
@@ -1163,7 +1163,7 @@ func TestPush_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, total, _ := svc.List(ctx, ListQuery{})
+			_, total, _ := svc.List(context.Background(), ctx, ListQuery{})
 			if total != 20 {
 				t.Errorf("expected 20 messages, got %d", total)
 			}
@@ -1209,7 +1209,7 @@ func TestEndToEnd_PushListReadStats(t *testing.T) {
 		ids = append(ids, m.ID)
 	}
 	// 2. 列表查询
-	list, total, _ := svc.List(ctx, ListQuery{})
+	list, total, _ := svc.List(context.Background(), ctx, ListQuery{})
 	if total != 10 || len(list) != 10 {
 		t.Errorf("expected 10/10, got %d/%d", total, len(list))
 	}
@@ -1243,7 +1243,7 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 		}
 	}
 	// 数据库应只有 1 条
-	_, total, _ := svc.List(ctx, ListQuery{})
+	_, total, _ := svc.List(context.Background(), ctx, ListQuery{})
 	if total != 1 {
 		t.Errorf("expected 1 message, got %d", total)
 	}
@@ -1345,7 +1345,7 @@ func TestNormalize_AIReply(t *testing.T) {
 func TestConsume_WithDBFallback(t *testing.T) {
 	svc, db := newTestService(t)
 	// 直接插库，跳过队列
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 		MsgID:     "db-1",
 		Platform:  "wecom",
 		AccountID: "db-acc",

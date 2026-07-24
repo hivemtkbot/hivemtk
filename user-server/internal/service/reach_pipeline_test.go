@@ -952,7 +952,7 @@ func TestExecuteJob_PipelineNotFound(t *testing.T) {
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
 	// 删除 pipeline
-	db.Delete(pipe)
+	db.Delete(context.Background(), pipe)
 	_, err := svc.ExecuteJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("expected error when pipeline deleted")
@@ -1677,7 +1677,7 @@ func TestExecuteJob_AfterPipelineDeleted(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	db.Delete(pipe)
+	db.Delete(context.Background(), pipe)
 	_, err := svc.ExecuteJob(context.Background(), job.ID)
 	if err != ErrReachPipelineNotFound {
 		t.Errorf("expected ErrReachPipelineNotFound, got %v", err)

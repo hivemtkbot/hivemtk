@@ -145,7 +145,7 @@ func TestClueScoreService_LoadClueForScoring(t *testing.T) {
 	svc := NewClueScoreService()
 	// Clue.BeforeCreate 会覆盖 ID 为 UUID，因此创建后用实际 ID 重新查找
 	clue := &model.Clue{Account: "la", Type: 2, IsVerify: 1, Name: "load"}
-	err := svc.clueRepo.Create(clue)
+	err := svc.clueRepo.Create(context.Background(), clue)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}

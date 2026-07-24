@@ -288,8 +288,6 @@ func TestAIAgent_FullChain(t *testing.T) {
 			t.Logf("✅ 清理完成，删除智能体 ID=%v", agentID)
 		}
 	})
-
-	_ = ctx
 }
 
 // 防止 os 引用

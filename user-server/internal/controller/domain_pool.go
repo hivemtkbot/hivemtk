@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // DomainPoolController 域名池控制器
@@ -78,7 +77,8 @@ func (c *DomainPoolController) Delete(ctx *gin.Context) {
 			response.Error(ctx, http.StatusBadRequest, "该域名仍被活码引用，请先解绑或删除相关活码后再删除域名")
 			return
 		}
-		if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "record not found") {
+		// 五层架构合规：controller 不直接引用 gorm，通过 IsNotFoundError 字符串匹配判断
+		if IsNotFoundError(err) {
 			response.Error(ctx, http.StatusNotFound, "域名不存在")
 			return
 		}

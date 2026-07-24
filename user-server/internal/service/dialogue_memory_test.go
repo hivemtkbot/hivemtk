@@ -147,7 +147,7 @@ func TestShortTerm_FromHub(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 5; i++ {
-		db.Create(&model.MessageHub{
+		db.Create(context.Background(), &model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("msg %d", i),
@@ -167,13 +167,13 @@ func TestShortTerm_FromHub(t *testing.T) {
 func TestShortTerm_Order(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "first", ConversationID: "s-1", SentAt: now,
 	})
 	time.Sleep(10 * time.Millisecond)
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "second", ConversationID: "s-1", SentAt: time.Now(),
@@ -192,7 +192,7 @@ func TestShortTerm_Window(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 20; i++ {
-		db.Create(&model.MessageHub{
+		db.Create(context.Background(), &model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("msg %d", i),
@@ -209,7 +209,7 @@ func TestShortTerm_Window(t *testing.T) {
 func TestShortTerm_OutboundIsAI(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "outbound", MsgType: "text",
 		SenderID: "a-1", ReceiverID: "u-1", Content: "AI reply",
@@ -225,12 +225,12 @@ func TestShortTerm_OutboundIsAI(t *testing.T) {
 func TestShortTerm_SessionIsolation(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "session1", ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "session2", ConversationID: "s-2", SentAt: now,
@@ -581,7 +581,7 @@ func TestBuildContext_Basic(t *testing.T) {
 	svc.UpdateKeyFacts("s-1", map[string]string{"name": "Alice"})
 	svc.UpdatePurchaseIntent("s-1", "high")
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "hi", ConversationID: "s-1", SentAt: now,
@@ -809,7 +809,7 @@ func TestAppendMessage_LargeLoop(t *testing.T) {
 // 59. 短期记忆 - SenderName 不影响
 func TestShortTerm_DoesNotAffectHub(t *testing.T) {
 	svc, db := newMemoryService(t)
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "image",
 		SenderID: "u-1", Content: "img", ConversationID: "s-1", SentAt: time.Now(),
@@ -824,7 +824,7 @@ func TestShortTerm_DoesNotAffectHub(t *testing.T) {
 func TestShortTerm_DifferentMsgType(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "audio",
 		SenderID: "u-1", Content: "audio", ConversationID: "s-1", SentAt: now,
@@ -1062,12 +1062,12 @@ func TestLastAction_UserNotUpdate(t *testing.T) {
 func TestShortTerm_AcrossAccounts(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "x", ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-2", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "y", ConversationID: "s-1", SentAt: now,
@@ -1197,7 +1197,7 @@ func TestShortTerm_OrderDESC(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
 	for i := 0; i < 3; i++ {
-		db.Create(&model.MessageHub{
+		db.Create(context.Background(), &model.MessageHub{
 
 			MsgID: fmt.Sprintf("m-%d", i), Direction: "inbound", MsgType: "text",
 			SenderID: "u-1", Content: fmt.Sprintf("c-%d", i),
@@ -1214,13 +1214,13 @@ func TestShortTerm_OrderDESC(t *testing.T) {
 func TestShortTerm_RoleAssignment(t *testing.T) {
 	svc, db := newMemoryService(t)
 	now := time.Now()
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-1", Direction: "inbound", MsgType: "text",
 		SenderID: "u-1", Content: "user msg",
 		ConversationID: "s-1", SentAt: now,
 	})
-	db.Create(&model.MessageHub{
+	db.Create(context.Background(), &model.MessageHub{
 
 		MsgID: "m-2", Direction: "outbound", MsgType: "text",
 		SenderID: "a-1", ReceiverID: "u-1", Content: "agent reply",

@@ -51,7 +51,7 @@ func TestIntentSOP_TriggerSOPByIntent_LowConfidence(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -79,7 +79,7 @@ func TestIntentSOP_TriggerSOPByIntent_MatchAndExecute(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -109,7 +109,7 @@ func TestIntentSOP_TriggerSOPByIntent_InactiveAgent(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	// 由于 model IsActive 默认值是 true，强制更新为 false 模拟停用
@@ -140,7 +140,7 @@ func TestIntentSOP_TriggerSOPByIntent_DuplicateGuard(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestIntentSOP_TriggerSOPByIntent_NoMatch(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -198,7 +198,7 @@ func TestIntentSOP_Recognize_EmptyCustomer(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -227,7 +227,7 @@ func TestIntentSOP_Recognize_TriggersSOP(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 

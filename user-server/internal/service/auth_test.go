@@ -70,7 +70,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 		Password: "admin123",
 	}
 
-	response, err := service.Login(req)
+	response, err := service.Login(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestAuthService_Login_ExistingUser(t *testing.T) {
 		Username: "admin",
 		Password: "admin123",
 	}
-	_, _ = service.Login(firstUserReq)
+	_, _ = service.Login(context.Background(), firstUserReq)
 
 	// 创建第二个普通用户
 	database := db.GetDB()
@@ -122,7 +122,7 @@ func TestAuthService_Login_ExistingUser(t *testing.T) {
 		Password: "password123",
 	}
 
-	response, err := service.Login(loginReq)
+	response, err := service.Login(context.Background(), loginReq)
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	service := setupAuthService(t)
 
 	// 先创建第一个用户
-	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
+	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	// 测试错误密码
 	req := &LoginRequest{
@@ -145,7 +145,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 		Password: "wrongpassword",
 	}
 
-	_, err := service.Login(req)
+	_, err := service.Login(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for wrong password")
 	}
@@ -156,7 +156,7 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 	service := setupAuthService(t)
 
 	// 先创建第一个用户
-	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
+	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	// 创建一个被禁用的用户
 	database := db.GetDB()
@@ -177,7 +177,7 @@ func TestAuthService_Login_DisabledUser(t *testing.T) {
 		Password: "password123",
 	}
 
-	_, err := service.Login(req)
+	_, err := service.Login(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for disabled user")
 	}
@@ -188,14 +188,14 @@ func TestAuthService_Login_NonExistentUser(t *testing.T) {
 	service := setupAuthService(t)
 
 	// 先创建第一个用户
-	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
+	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	req := &LoginRequest{
 		Username: "nonexistent",
 		Password: "password123",
 	}
 
-	_, err := service.Login(req)
+	_, err := service.Login(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -206,7 +206,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	service := setupAuthService(t)
 
 	// 先创建第一个用户并登录获取令牌
-	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
+	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	// 生成一个新令牌用于测试刷新
 	jwtUtils := service.JwtUtils(context.Background())
@@ -216,7 +216,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	}
 
 	// 测试刷新令牌
-	newToken, err := service.RefreshToken(token)
+	newToken, err := service.RefreshToken(context.Background(), token)
 	if err != nil {
 		t.Fatalf("RefreshToken failed: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestAuthService_GetCurrentUser(t *testing.T) {
 	}
 
 	// 获取用户信息
-	userInfo, err := service.GetCurrentUser(adminUser.ID)
+	userInfo, err := service.GetCurrentUser(context.Background(), adminUser.ID)
 	if err != nil {
 		t.Fatalf("GetCurrentUser failed: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestAuthService_GetCurrentUser(t *testing.T) {
 func TestAuthService_GetCurrentUser_NonExistent(t *testing.T) {
 	service := setupAuthService(t)
 
-	_, err := service.GetCurrentUser(999)
+	_, err := service.GetCurrentUser(context.Background(), 999)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -291,7 +291,7 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		NewPassword: "N3wSecur3Pwd!",
 	}
 
-	err := service.ChangePassword(adminUser.ID, req)
+	err := service.ChangePassword(context.Background(), adminUser.ID, req)
 	if err != nil {
 		t.Fatalf("ChangePassword failed: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		Username: "admin",
 		Password: "N3wSecur3Pwd!",
 	}
-	response, err := service.Login(loginReq)
+	response, err := service.Login(context.Background(), loginReq)
 	if err != nil {
 		t.Fatalf("Login with new password failed: %v", err)
 	}
@@ -315,14 +315,14 @@ func TestAuthService_ChangePassword_WrongOldPassword(t *testing.T) {
 	service := setupAuthService(t)
 
 	// 先创建第一个用户
-	_, _ = service.Login(&LoginRequest{Username: "admin", Password: "admin123"})
+	_, _ = service.Login(context.Background(), &LoginRequest{Username: "admin", Password: "admin123"})
 
 	req := &ChangePasswordRequest{
 		OldPassword: "wrongpassword",
 		NewPassword: "newpassword123",
 	}
 
-	err := service.ChangePassword(1, req)
+	err := service.ChangePassword(context.Background(), 1, req)
 	if err == nil {
 		t.Error("Expected error for wrong old password")
 	}
@@ -337,7 +337,7 @@ func TestAuthService_ChangePassword_NonExistentUser(t *testing.T) {
 		NewPassword: "newpassword",
 	}
 
-	err := service.ChangePassword(999, req)
+	err := service.ChangePassword(context.Background(), 999, req)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -358,7 +358,7 @@ func TestAuthService_toUserResponse(t *testing.T) {
 		LastLogin: &now,
 	}
 
-	response := service.toUserResponse(user)
+	response := service.toUserResponse(context.Background(), user)
 	if response == nil {
 		t.Fatal("Expected response to be returned")
 	}
@@ -391,7 +391,7 @@ func TestAuthService_loginWithUser(t *testing.T) {
 	}
 
 	// 直接测试 loginWithUser 方法
-	response, err := service.loginWithUser(user)
+	response, err := service.loginWithUser(context.Background(), user)
 	if err != nil {
 		t.Fatalf("loginWithUser failed: %v", err)
 	}

@@ -355,7 +355,7 @@ func TestUserService_UpdatePassword(t *testing.T) {
 		Username: "testuser",
 		Password: "newpassword123",
 	}
-	loginResp, err := service.Login(loginReq)
+	loginResp, err := service.Login(context.Background(), loginReq)
 	if err != nil {
 		t.Fatalf("Login with new password failed: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestUserService_Login(t *testing.T) {
 		Password: "password123",
 	}
 
-	loginResp, err := service.Login(loginReq)
+	loginResp, err := service.Login(context.Background(), loginReq)
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
 	}
@@ -453,7 +453,7 @@ func TestUserService_Login_WrongPassword(t *testing.T) {
 		Password: "wrongpassword",
 	}
 
-	_, err := service.Login(loginReq)
+	_, err := service.Login(context.Background(), loginReq)
 	if err == nil {
 		t.Error("Expected error for wrong password")
 	}
@@ -512,7 +512,7 @@ func TestUserService_Login_DisabledUser(t *testing.T) {
 		Password: "password123",
 	}
 
-	_, err := service.Login(loginReq)
+	_, err := service.Login(context.Background(), loginReq)
 	if err == nil {
 		t.Error("Expected error for disabled user")
 	}

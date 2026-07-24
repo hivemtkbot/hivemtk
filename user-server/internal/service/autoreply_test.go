@@ -42,7 +42,7 @@ func TestAutoReplyService_GetDB(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	db := service.GetDB()
+	db := service.GetDB(context.Background())
 	if db == nil {
 		t.Error("Expected non-nil database")
 	}
@@ -68,7 +68,7 @@ func TestAutoReplyService_ListAccounts(t *testing.T) {
 	}
 
 	// 测试获取用户 1 的抖音账号
-	result, err := service.ListAccounts("douyin", 1)
+	result, err := service.ListAccounts(context.Background(), "douyin", 1)
 	if err != nil {
 		t.Fatalf("ListAccounts failed: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestAutoReplyService_ListAccounts(t *testing.T) {
 	}
 
 	// 测试获取用户 2 的抖音账号
-	result, err = service.ListAccounts("douyin", 2)
+	result, err = service.ListAccounts(context.Background(), "douyin", 2)
 	if err != nil {
 		t.Fatalf("ListAccounts failed: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestAutoReplyService_ListAccounts(t *testing.T) {
 	}
 
 	// 测试获取不存在的用户
-	result, err = service.ListAccounts("douyin", 999)
+	result, err = service.ListAccounts(context.Background(), "douyin", 999)
 	if err != nil {
 		t.Fatalf("ListAccounts failed: %v", err)
 	}
@@ -1168,7 +1168,7 @@ func TestAutoReplyService_ListAccounts_EmptyPlatform(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)
 
-	result, err := service.ListAccounts("", 1)
+	result, err := service.ListAccounts(context.Background(), "", 1)
 	if err != nil {
 		t.Fatalf("ListAccounts failed: %v", err)
 	}
