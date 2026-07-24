@@ -1,7 +1,5 @@
 <div align="center">
 
-![HiveMtk — 私域 AI 营销操作系统](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20SaaS%20product%20hero%20banner%20hexagonal%20honeycomb%20neural%20network%20pattern%20blue%20purple%20gradient%20AI%20agent%20visualization%20seven%20social%20media%20channel%20icons%20minimalist%20flat%20design%20professional%20landing%20page%20clean%20typography&image_size=landscape_16_9)
-
 # 🐝 HiveMtk
 
 ### 私域部署的 AI 营销操作系统
