@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"marketing/internal/domain/asset"
 	bizerr "marketing/internal/domain/errors"
@@ -128,11 +129,30 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 			PurchasedAt: &now,
 			SyncedAt:    now,
 		}
-		if err := tx.Create(la).Error; err != nil {
+		// 使用 upsert：已存在的资产（含被软删除的）重新购买时更新并恢复（清空 deleted_at），
+		// 同时避免并发购买触发 UNIQUE(asset_id) 重复键导致 500。
+		if err := tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "asset_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"asset_type", "industry", "name", "version", "source",
+				"is_active", "purchase_id", "purchased_at", "synced_at", "deleted_at", "updated_at",
+			}),
+		}).Create(la).Error; err != nil {
 			return bizerr.Wrap(bizerr.CodeInternal, "保存资产主表失败", err)
 		}
+		// upsert 命中冲突时 GORM 不会回填主键，需按 asset_id 取回，确保子表关联正确。
+		if la.ID == 0 {
+			var got model.LocalAsset
+			if ferr := tx.Where("asset_id = ?", la.AssetID).First(&got).Error; ferr == nil {
+				la.ID = got.ID
+			}
+		}
+		// local_asset_data.local_asset_id 唯一：重新购买（或恢复软删除）时更新而非重复插入。
 		lad := &model.LocalAssetData{LocalAssetID: la.ID, Data: payload.Data, UpdatedAt: now}
-		if err := tx.Create(lad).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "local_asset_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"data", "updated_at"}),
+		}).Create(lad).Error; err != nil {
 			return bizerr.Wrap(bizerr.CodeInternal, "保存资产数据失败", err)
 		}
 		return tx.Create(&model.LocalAssetSyncLog{
@@ -187,7 +207,7 @@ func (s *LocalAssetService) CreateManual(ctx context.Context, in *CreateAssetInp
 		return nil, bizerr.New(bizerr.CodeParamInvalid, "asset_type 非法")
 	}
 	if !asset.Industry(in.Industry).Valid() {
-		return nil, bizerr.New(bizerr.CodeParamInvalid, "industry 必须是 5 行业之一")
+		return nil, bizerr.New(bizerr.CodeParamInvalid, "industry 不在支持列表内")
 	}
 	if err := asset.ValidateAssetData(asset.AssetType(in.AssetType), in.Data); err != nil {
 		return nil, bizerr.Wrap(bizerr.CodeAssetInvalid, "资产 JSON 校验失败", err)

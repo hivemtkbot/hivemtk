@@ -648,25 +648,30 @@ func (s *InboxService) GetStats(ctx context.Context) (*InboxStats, error) {
 		ByPlatform:   map[string]int64{},
 		ByAssignedTo: map[string]int64{},
 	}
-	// 状态分布
-	for _, st := range []string{InboxStatusUnread, InboxStatusOpen, InboxStatusAssigned, InboxStatusClosed} {
-		var n int64
-		if err := s.db.Model(&model.InboxConversation{}).
-			Where("status = ?", st).
-			Count(&n).Error; err != nil {
-			return nil, err
-		}
-		switch st {
+	// 状态分布：P1-16 修复，原 4 次循环 SQL 合并为单次 Group By 查询
+	type sc struct {
+		Status string
+		C      int64
+	}
+	var scs []sc
+	if err := s.db.Model(&model.InboxConversation{}).
+		Select("status, COUNT(*) AS c").
+		Where("status IN ?", []string{InboxStatusUnread, InboxStatusOpen, InboxStatusAssigned, InboxStatusClosed}).
+		Group("status").Scan(&scs).Error; err != nil {
+		return nil, err
+	}
+	for _, s := range scs {
+		switch s.Status {
 		case InboxStatusUnread:
-			stats.Unread = n
+			stats.Unread = s.C
 		case InboxStatusOpen:
-			stats.Open = n
+			stats.Open = s.C
 		case InboxStatusAssigned:
-			stats.Assigned = n
+			stats.Assigned = s.C
 		case InboxStatusClosed:
-			stats.Closed = n
+			stats.Closed = s.C
 		}
-		stats.Total += n
+		stats.Total += s.C
 	}
 
 	// 平台分布
@@ -707,10 +712,17 @@ func (s *InboxService) GetStats(ctx context.Context) (*InboxStats, error) {
 	return stats, nil
 }
 
-// GetMessagesByConversation 拉取会话下的消息（来自 message_hub）
-func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversationID uint, page, pageSize int) ([]*model.MessageHub, int64, error) {
+// GetMessagesByConversation 拉取会话下的消息。
+//
+// 统一收件箱的消息来源有两套存储，必须合并后才能给坐席看到完整会话流：
+//  1. message_hub：webhook / 渠道接入（企微、抖音等）的消息中台；
+//  2. session_messages：网页 widget 访客消息 + 坐席在客服会话里的回复，
+//     以 session_id 关联（InboxConversation.ConversationID == SessionMessage.SessionID）。
+//
+// 历史实现只读 message_hub，导致网页端发的消息在统一收件箱点开后空白。
+func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversationID uint, page, pageSize int) ([]map[string]any, int64, error) {
 	if s.db == nil {
-		return []*model.MessageHub{}, 0, nil
+		return []map[string]any{}, 0, nil
 	}
 	conv, err := s.GetByID(ctx, conversationID)
 	if err != nil {
@@ -722,17 +734,88 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 	if pageSize <= 0 || pageSize > 200 {
 		pageSize = 20
 	}
-	tx := s.db.Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND (sender_id = ? OR receiver_id = ?)", conv.Platform, conv.AccountID, conv.CustomerID, conv.CustomerID)
-	var total int64
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
+
+	// 1) 消息中台（渠道接入）
+	var hubs []*model.MessageHub
+	s.db.WithContext(ctx).Model(&model.MessageHub{}).
+		Where("platform = ? AND account_id = ? AND (sender_id = ? OR receiver_id = ?)",
+			conv.Platform, conv.AccountID, conv.CustomerID, conv.CustomerID).
+		Find(&hubs)
+
+	// 2) 客服会话实时消息流（网页 widget / 坐席回复）
+	var sms []*model.SessionMessage
+	if s.db.Migrator().HasTable(&model.SessionMessage{}) {
+		s.db.WithContext(ctx).Model(&model.SessionMessage{}).
+			Where("session_id = ?", conv.ConversationID).
+			Find(&sms)
 	}
-	var list []*model.MessageHub
-	if err := tx.Order("sent_at ASC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
-		return nil, 0, err
+
+	type mergedMsg struct {
+		ts   time.Time
+		data map[string]any
 	}
-	return list, total, nil
+	merged := make([]mergedMsg, 0, len(hubs)+len(sms))
+	for _, h := range hubs {
+		merged = append(merged, mergedMsg{
+			ts: h.SentAt,
+			data: map[string]any{
+				"id":             h.ID,
+				"msg_id":         h.MsgID,
+				"conversation_id": h.ConversationID,
+				"platform":       h.Platform,
+				"account_id":     h.AccountID,
+				"sender_id":      h.SenderID,
+				"sender_name":    h.SenderName,
+				"receiver_id":    h.ReceiverID,
+				"content":        h.Content,
+				"content_type":   h.MsgType,
+				"media_url":      h.MediaURL,
+				"is_ai_reply":    h.IsAIReply,
+				"is_read":        h.IsRead,
+				"sent_at":        h.SentAt,
+				"created_at":     h.CreatedAt,
+			},
+		})
+	}
+	for _, sm := range sms {
+		merged = append(merged, mergedMsg{
+			ts: sm.CreatedAt,
+			data: map[string]any{
+				"id":             sm.ID,
+				"conversation_id": sm.SessionID,
+				"sender_id":      sm.SenderID,
+				"sender_name":    sm.SenderName,
+				"sender_type":    sm.SenderType,
+				"content":        sm.Content,
+				"content_type":   sm.ContentType,
+				"media_url":      sm.MediaURL,
+				"is_ai_reply":    sm.SenderType == "ai",
+				"is_read":        sm.IsRead,
+				"sent_at":        sm.CreatedAt,
+				"created_at":     sm.CreatedAt,
+			},
+		})
+	}
+
+	// 按时间正序（聊天流从旧到新）
+	sort.SliceStable(merged, func(i, j int) bool {
+		return merged[i].ts.Before(merged[j].ts)
+	})
+
+	total := int64(len(merged))
+	start := (page - 1) * pageSize
+	if start > len(merged) {
+		start = len(merged)
+	}
+	end := start + pageSize
+	if end > len(merged) {
+		end = len(merged)
+	}
+	out := make([]map[string]any, 0, end-start)
+	for _, m := range merged[start:end] {
+		out = append(out, m.data)
+	}
+	return out, total, nil
 }
 
 // ---- 内部辅助 ----

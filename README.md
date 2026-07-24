@@ -20,13 +20,13 @@
 
 ## 🚀 在线体验
 
-> 不想本地部署？直接用公开账号登录线上演示环境，体验 HiveMTK 七端聚合、AI 智能体、销冠 SOP 与客户 CDP 的完整能力。
+> 不想本地部署？可使用线上公开演示环境体验 HiveMTK 七端聚合、AI 智能体、销冠 SOP 与客户 CDP 的完整能力。
+> 演示环境为公共示例，请勿上传真实业务数据；如需获取演示账号请通过 Gitee / GitHub Issue 留言。
 
 | 项目 | 值 |
 |------|-----|
 | **体验地址** | https://hiveuser.xapptool.cn/ |
-| **登录账号** | `admin` |
-| **登录密码** | `Seed@123456` |
+| **登录账号** | 演示环境为公开注册制，登录页自行注册体验账号 |
 
 > ⚠️ 演示环境数据为公共示例，任何人可访问，请勿上传真实业务数据；体验账号可能被其他人重置或修改，如遇登录异常请联系作者。
 
@@ -67,7 +67,7 @@ HiveMtk 的**主动触达模块**（短信、邮件、微信公众号 / 企业�
 # ⚡ 3 步 5 分钟跑起来
 git clone https://gitee.com/xhpmayun/hivemtk.git && cd hivemtk
 make install   # 自动生成 .env + docker-compose.yml + 构建前端
-vim .env       # 改 4 个密钥:POSTGRES_PASSWORD / REDIS_PASSWORD / JWT_SECRET / ADMIN_PASSWORD
+vim .env       # 改 4 个密钥:POSTGRES_PASSWORD / REDIS_PASSWORD / JWT_SECRET / PLATFORM_ADMIN_PASSWORD
 make up        # 启动所有服务 → http://localhost:8204(默认账号 admin + 你设置的密码)
 ```
 
@@ -252,15 +252,14 @@ vim .env
 #   POSTGRES_PASSWORD         openssl rand -hex 24
 #   REDIS_PASSWORD            openssl rand -hex 24
 #   JWT_SECRET                openssl rand -hex 32
-#   PLATFORM_LICENSE_SECRET   openssl rand -hex 32
-#   ADMIN_PASSWORD            自定义超管密码
+#   PLATFORM_ADMIN_PASSWORD    平台代理管理员密码（与平台端 .env 保持一致）
 
 # 4. 启动所有服务
 make up
 
 # 5. 访问
 # 用户端后台: http://localhost:8204
-# 默认管理员: admin / (.env 中设置的 ADMIN_PASSWORD)
+# 默认管理员: admin / (库内 bcrypt 密码，由 init-admin 设置，非 .env 凭据)
 # 健康检查:   curl http://localhost:8204/health
 ```
 

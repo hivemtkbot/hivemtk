@@ -21,6 +21,16 @@ type AgentPersona struct {
 	ToolWhitelist     []string               `json:"tool_whitelist"`
 	KBRefs            []string               `json:"kb_refs"`
 	DefaultTuning     map[string]interface{} `json:"default_tuning"`
+	BasicInfo         map[string]interface{} `json:"basic_info"`
+	QAPairs           []AssetQAPair          `json:"qa_pairs"`
+}
+
+// AssetQAPair 资产包 Q&A 样本
+type AssetQAPair struct {
+	ID       int    `json:"id"`
+	Category string `json:"category"`
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
 }
 
 // AgentLoader 智能体人设加载器

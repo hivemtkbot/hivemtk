@@ -131,19 +131,19 @@ psql -U postgres -d user_db -f ../migrations/001_team_user_management.sql
 
 # 2. 配置环境变量
 cp config.yaml config.local.yaml
-# 修改 config.local.yaml 中的 postgres 密码、JWT_SECRET、平台对接密钥
-export POSTGRES_PASSWORD=your_password
-export JWT_SECRET=$(openssl rand -hex 32)
-export PLATFORM_LICENSE_SECRET=$(openssl rand -hex 32)
+# 修改 config.local.yaml 中的 postgres 密码、JWT_SECRET、PLATFORM_API_URL（平台端地址）
+# （开发态用 air 启动时，数据库 / JWT / 推理等变量已由 .air.toml 的 [env] 内置，无需手动 export；
+#   如需覆盖平台地址等，在启动前 export 同名变量或编辑 .air.toml 即可）
 
-# 3. 拉取依赖并编译
+# 3. 拉取依赖
 go mod download
-go build -o bin/user-server ./cmd/api
-go build -o bin/embedding-server ./cmd/embedding-server  # 可选
 
-# 4. 启动
-./bin/user-server
-# 或开发态带热重载：air -c .air.toml  （需先 go install github.com/cosmtrek/air@latest）
+# 4. 启动（开发态 · 热重载，推荐）
+# 先安装 air（一次性）：go install github.com/cosmtrek/air@latest
+air -c .air.toml
+# air 自动编译并在代码变更后热重启，开发调试零停机。
+# 仅生产 / 单次运行才手动编译二进制：
+# go build -o bin/user-server ./cmd/api && ./bin/user-server
 ```
 
 #### 验证
@@ -186,11 +186,14 @@ EMBEDDING_PORT=8208 \
 ## 🛠 常用命令
 
 ```bash
-# 构建
+# 开发热重载（推荐）
+air -c .air.toml
+
+# 生产构建（仅发布时用）
 go build -o bin/user-server ./cmd/api
 go build -o bin/embedding-server ./cmd/embedding-server
 
-# 运行
+# 生产运行
 ./bin/user-server
 
 # 测试（串行化，避免共享测试库并发 TRUNCATE 污染）

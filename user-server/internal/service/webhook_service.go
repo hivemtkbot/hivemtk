@@ -1556,6 +1556,10 @@ func (s *WebhookService) dispatchToUnified(ctx context.Context, um *model.Unifie
 func (s *WebhookService) retryWithBackoff(ctx context.Context, job *webhookJob, payload *ParsedPayload, origErr error) {
 	delays := []time.Duration{2 * time.Second, 10 * time.Second, 30 * time.Second}
 	for i := 0; i < WebhookMaxRetries; i++ {
+		// 防御性守卫：若 delays 被裁短或常量被改动，至少不会 panic 越界。
+		if i >= len(delays) {
+			i = len(delays) - 1
+		}
 		time.Sleep(delays[i])
 		um := s.ToUnifiedMessage(ctx, job.channel, job.account, payload)
 		if err := s.dispatchToUnified(ctx, um); err == nil {

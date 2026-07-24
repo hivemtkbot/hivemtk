@@ -187,7 +187,7 @@ func (s *SecurityAuditService) checkCORSConfig(ctx context.Context) CheckResult 
 	return CheckResult{
 		Name:    "CORS 配置",
 		Status:  "pass",
-		Message: "CORS 配置已通过配置文件中心化管理",
+		Message: "本地/私域部署不启用 CORS（同源部署 + 内网访问），该项不适用",
 		Score:   100,
 	}
 }

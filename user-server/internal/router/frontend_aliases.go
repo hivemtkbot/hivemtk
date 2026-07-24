@@ -184,13 +184,20 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 11. 意图识别 - 别名（前端用 /api/intent-records）
 	// ============================================================
-	intentCtrl := controller.NewIntentController(service.NewIntentRecognizer(db.GetDB(), nil, nil))
+	intentRec := service.GetIntentRecognizer()
+	if intentRec == nil {
+		intentRec = service.NewIntentRecognizer(db.GetDB(), getGlobalDispatcher(), nil)
+	}
+	intentCtrl := controller.NewIntentController(intentRec)
 	doReg("GET", "/intent-records", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/list", intentCtrl.RecentIntents)
 	doReg("GET", "/intent-records/stats", intentCtrl.Stats)
 	doReg("GET", "/intent-records/dict", intentCtrl.Intents)
 	doReg("POST", "/intent-records/recognize", intentCtrl.Recognize)
 	doReg("POST", "/intent-records/recognize/batch", intentCtrl.BatchRecognize)
+	// 意图识别配置管理（前端 user-web 意图识别页面在线开关）
+	doReg("GET", "/intent-records/config", intentCtrl.GetConfig)
+	doReg("PUT", "/intent-records/config", intentCtrl.UpdateConfig)
 
 	// ============================================================
 	// 12. 对话记忆 - 别名（前端用 /api/dialogue-memories）

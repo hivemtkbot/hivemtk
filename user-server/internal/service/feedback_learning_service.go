@@ -535,11 +535,11 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 		suggestions = append(suggestions, sug)
 	}
 
-	// 持久化
-	for i := range suggestions {
-		if err := s.db.WithContext(ctx).Create(&suggestions[i]).Error; err != nil {
-			// 持久化失败不阻断，返回已生成的建议
-			continue
+	// 持久化：P1-17 修复，原循环单条 Create 改为 CreateInBatches 批写
+	if len(suggestions) > 0 {
+		if err := s.db.WithContext(ctx).CreateInBatches(suggestions, 100).Error; err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Int("count", len(suggestions)).
+				Msg("[feedback] batch insert suggestions failed")
 		}
 	}
 

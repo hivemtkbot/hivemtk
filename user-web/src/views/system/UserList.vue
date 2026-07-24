@@ -68,7 +68,7 @@
               <el-option
                 v-for="opt in filterRoleOptions"
                 :key="opt.value"
-                :label="opt.label"
+                :label="getRoleLabel(opt.value)"
                 :value="opt.value"
               />
             </el-select>
@@ -194,17 +194,20 @@ import {
   deleteSystemUser
 } from '@/api/systemUser.js'
 import PageState from '@/components/PageState.vue'
-import { getRoleLabel, getRoleTagType, filterRolesByGroup } from '@/constants/role'
+import { getRoleLabel, getRoleTagType } from '@/constants/role'
 import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
-// 角色选项：只允许 team 群组下的可作为系统登录账号的角色
-// 与后端 model.SystemRoles 严格对应：admin / customer_service / staff / supervisor
-const editableRoleOptions = filterRolesByGroup('team')
-// 筛选下拉：仅展示业务常用角色，避免 ghost 项
+// 角色选项须与后端 CreateUserByAdminRequest.Role 校验严格一致（oneof=admin customer_service staff），
+// 不能暴露 owner/supervisor/agent 等不可分配角色，否则创建/更新会返回 400。
+const editableRoleOptions = ['admin', 'customer_service', 'staff'].map((v) => ({
+  value: v,
+  label: getRoleLabel(v)
+}))
+// 筛选下拉：与可分配角色保持一致
 const filterRoleOptions = editableRoleOptions.filter((o) =>
-  ['admin', 'supervisor', 'agent', 'customer_service'].includes(o.value)
+  ['admin', 'customer_service', 'staff'].includes(o.value)
 )
 
 const loading = ref(false)
@@ -224,7 +227,7 @@ const form = ref({
   username: '',
   name: '',
   email: '',
-  role: 'agent',
+  role: 'customer_service',
   phone: '',
   password: '',
   status: 1
@@ -239,7 +242,10 @@ const formRules = computed(() => ({
   email: [
     { required: true, type: 'email', message: t('systemUser.validEmail'), trigger: 'blur' }
   ],
-  role: [{ required: true, message: t('systemUser.rolePlaceholder'), trigger: 'change' }]
+  role: [{ required: true, message: t('systemUser.rolePlaceholder'), trigger: 'change' }],
+  password: [
+    { required: true, min: 8, max: 64, message: t('systemUser.passwordPlaceholder'), trigger: 'blur' }
+  ]
 }))
 
 const filteredUsers = computed(() => users.value)
@@ -253,7 +259,7 @@ const formatTime = (val) => {
   if (!val) return '-'
   const d = typeof val === 'number' ? new Date(val * 1000) : new Date(val)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('zh-CN', { hour12: false })
+  return d.toLocaleString(locale.value, { hour12: false })
 }
 
 const refreshData = async () => {
@@ -274,7 +280,7 @@ const refreshData = async () => {
     stats.value = {
       total: pagination.total,
       admins: list.filter((u) => u.role === 'admin').length,
-      agents: list.filter((u) => u.role === 'agent' || u.role === 'customer_service').length,
+      agents: list.filter((u) => u.role === 'customer_service').length,
       disabled: list.filter((u) => Number(u.status) === 0).length
     }
   } catch (e) {
@@ -298,7 +304,7 @@ const editUser = (row) => {
     username: row.username || '',
     name: row.name || '',
     email: row.email || '',
-    role: row.role || 'agent',
+    role: row.role || 'customer_service',
     phone: row.phone || '',
     password: '',
     status: typeof row.status === 'number' ? row.status : 1
@@ -312,7 +318,7 @@ const resetForm = () => {
     username: '',
     name: '',
     email: '',
-    role: 'agent',
+    role: 'customer_service',
     phone: '',
     password: '',
     status: 1

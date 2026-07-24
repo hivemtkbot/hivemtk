@@ -231,7 +231,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第五章](../architecture/FUNCTION_DETAILS.md#五线索模块)
 - [customer-360.md](customer-360.md)
 - [platform-lead.md](platform-lead.md)
 

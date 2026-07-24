@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,33 +28,6 @@ import (
 	"marketing/internal/service"
 	"marketing/internal/websocket"
 )
-
-// corsAllowAll 允许所有来源跨域（反射 Origin，支持凭证）。
-// 适用于内网局域网 / 自有站点演示 / 开发环境，无需限定域名白名单。
-func corsAllowAll() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
-		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
-		}
-		c.Header("Vary", "Origin")
-		if hdr := c.Request.Header.Get("Access-Control-Request-Headers"); hdr != "" {
-			c.Header("Access-Control-Allow-Headers", hdr)
-		} else {
-			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-KEY, X-Knowledge-Token, X-Requested-With, X-Trace-ID")
-		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD")
-		c.Header("Access-Control-Max-Age", "86400")
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	}
-}
 
 // buildRedisClient 依据环境变量构建 Redis 客户端。
 // 仅当 REDIS_HOST 显式配置时返回非 nil；否则返回 nil，
@@ -136,6 +108,13 @@ func main() {
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
 	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
+	// 2026-07-24：初始化全局意图识别器（供 /api/intent/* 直连路由 + 销冠 sales_engine 复用）
+	//   - 注入全局 dispatcher：直连路由也可走 LLM 二次识别（仅云端 SaaS）
+	//   - 注入 db：识别结果异步落库
+	//   - 注入 nil cache：进程内规则匹配 + LLM 兜底
+	service.InitIntentRecognizer(db.GetDB(), llm.GetGlobalDispatcher(), nil)
+	logger.Info("[IntentRecognition] global instance initialized, dispatcher wired")
+
 	// 2026-07-23 P1 补：注入默认告警（LoggingAlertHook + InMemoryAlertSink 组合）
 	// 替代 NoopAlertHook 默认实现，确保降级事件有日志+可查询 buffer
 	llm.InitDefaultAlertHook(llm.NewInMemoryAlertSink(200))
@@ -195,14 +174,6 @@ func main() {
 	} else {
 		// 没有 HTML 模板时跳过 LoadHTMLGlob 避免 Must 触发 panic
 		logger.Warnf("HTML 模板目录为空（%s），跳过 LoadHTMLGlob", tmplPath)
-	}
-
-	// CORS：基于本项目部署特性（内网局域网/自有站点演示/开发环境），允许所有来源跨域
-	if config.LoadCORSConfig().Enabled {
-		r.Use(corsAllowAll())
-		logger.Info("CORS 已启用（允许所有来源）")
-	} else {
-		logger.Info("CORS 已禁用")
 	}
 
 	db.InitDB()

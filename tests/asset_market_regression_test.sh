@@ -25,7 +25,8 @@ BASE_USER="${BASE_USER_URL:-http://localhost:8204}"
 BASE_PLATFORM="${BASE_PLATFORM_URL:-http://localhost:8205}"
 JWT_SECRET="$(grep -E '^JWT_SECRET=' .env 2>/dev/null | head -1 | cut -d= -f2-)"
 if [ -z "$JWT_SECRET" ]; then
-  JWT_SECRET="e12a780c716a6aebfb4254960d90fce4e89568bc42a15343ac71da3fbd13f6d8"
+  echo -e "${RED}ERROR: JWT_SECRET 未在 .env 中找到，请确认 .env 文件存在并已配置 JWT_SECRET${NC}" >&2
+  exit 1
 fi
 
 GREEN='\033[0;32m'

@@ -141,6 +141,33 @@ start_role() {
       fi
       extra+=(--parallel "$LLM_PARALLEL")
       extra+=(-ctk "$CACHE_TYPE_K" -ctv "$CACHE_TYPE_V")
+      # 推测解码（仅 LLM）：ngram 零成本自投机；draft-simple 需 vocab 兼容草稿模型
+      local spec_type_resolved="none"
+      if [[ -n "${SPEC_TYPE:-}" && "$SPEC_TYPE" != "none" ]]; then
+        if [[ "$SPEC_TYPE" == *draft* && -z "${LLM_DRAFT_FILE:-}" ]]; then
+          log_warn "[llm] SPEC_TYPE=$SPEC_TYPE 需要 LLM_DRAFT_FILE，已回退 none"
+        else
+          spec_type_resolved="$SPEC_TYPE"
+        fi
+      fi
+      if [[ "$spec_type_resolved" != "none" ]]; then
+        extra+=(--spec-type "$spec_type_resolved")
+        case "$spec_type_resolved" in
+          *draft*)
+            ensure_model_file llm-draft "$LLM_DRAFT_FILE" "$LLM_MODEL_DIR"
+            extra+=(--spec-draft-model "$LLM_MODEL_DIR/$LLM_DRAFT_FILE"
+                    --spec-draft-ngl "$NGL"
+                    --spec-draft-n-max "$SPEC_DRAFT_N_MAX"
+                    --spec-draft-type-k "$CACHE_TYPE_K"
+                    --spec-draft-type-v "$CACHE_TYPE_V")
+            ;;
+          *ngram-simple*)
+            extra+=(--spec-ngram-simple-size-n "$SPEC_NGRAM_SIMPLE_N"
+                    --spec-ngram-simple-size-m "$SPEC_NGRAM_SIMPLE_M"
+                    --spec-ngram-simple-min-hits "$SPEC_NGRAM_MIN_HITS")
+            ;;
+        esac
+      fi
       ;;
     --embeddings)
       extra=(--embeddings --pooling mean)

@@ -265,7 +265,6 @@
 ## 九、参考资料
 
 - BROWSER_ASSISTANT.md
-- [FUNCTION_DETAILS.md 第九章](../architecture/FUNCTION_DETAILS.md#九rag模块---自动回复)
 
 ---
 

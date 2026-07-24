@@ -202,9 +202,9 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md)
 - [auth-login-jwt.md](auth-login-jwt.md)
-- [team-user-management.md](team-user-management.md)
+- 五层架构：[GO_FIVE_LAYER_ARCHITECTURE.md](../architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
+- 菜单与权限规划：[MENU_PERMISSION_PLAN.md](../architecture/MENU_PERMISSION_PLAN.md)
 
 ---
 

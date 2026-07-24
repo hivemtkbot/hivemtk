@@ -225,7 +225,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第六章](../architecture/FUNCTION_DETAILS.md#六消息模块---邮件营销)
 - [email-jobs-management.md](email-jobs-management.md)
 - [email-send-execution.md](email-send-execution.md)
 

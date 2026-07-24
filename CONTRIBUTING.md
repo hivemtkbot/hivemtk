@@ -26,7 +26,7 @@
 # 1. 复制环境变量
 cp .env-example .env
 # 编辑 .env，至少设置：
-#   POSTGRES_PASSWORD、REDIS_PASSWORD、JWT_SECRET、PLATFORM_LICENSE_SECRET
+#   POSTGRES_PASSWORD、REDIS_PASSWORD、JWT_SECRET
 
 # 2. 启动本地推理栈
 make inference-up           # 拉起 mtk-llm / mtk-embedding / mtk-rerank（模型档位在 .env 中配置，默认 prod）

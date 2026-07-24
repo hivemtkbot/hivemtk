@@ -77,77 +77,6 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 // 保留不变的方法(已正确实现)
 // =============================================================================
 
-// 获取最新消息
-func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
-	message, err := platform.GetLatestMessage()
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取最新消息失败", err.Error())
-		return
-	}
-
-	if message == nil {
-		response.Success(c, nil, "暂无消息")
-		return
-	}
-
-	response.Success(c, message, "获取成功")
-}
-
-// 标记消息已读(调用平台 API,失败时回退到本地处理)
-func (pc *PlatformController) MarkMessageRead(c *gin.Context) {
-	messageId := c.Param("id")
-	if messageId == "" {
-		response.Error(c, http.StatusBadRequest, "消息ID不能为空")
-		return
-	}
-
-	// 优先调用平台 API 标记消息已读
-	if pc.platformClient != nil {
-		path := fmt.Sprintf("/merchant-api/messages/%s/read", messageId)
-		var resp map[string]any
-		if err := pc.platformClient.Do("POST", path, nil, &resp); err == nil {
-			response.Success(c, resp, "标记成功")
-			return
-		}
-		// 平台 API 调用失败,回退到本地处理
-	}
-
-	// 本地处理:平台 API 不可用时,仅记录已读状态并返回
-	response.Success(c, gin.H{
-		"message_id": messageId,
-		"read":       true,
-		"processed":  "local",
-	}, "标记成功(本地处理)")
-}
-
-// 上报 API 日志(异步上报)
-func (pc *PlatformController) ReportAPILog(c *gin.Context) {
-	var req struct {
-		Method     string `json:"method" binding:"required"`
-		Path       string `json:"path" binding:"required"`
-		StatusCode int    `json:"status_code"`
-		Duration   int64  `json:"duration"`
-		UserAgent  string `json:"user_agent"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "参数错误")
-		return
-	}
-
-	go func() {
-		logReq := platform.ReportAPILogReq{
-			Method:     req.Method,
-			Path:       req.Path,
-			StatusCode: req.StatusCode,
-			Duration:   req.Duration,
-			UserAgent:  req.UserAgent,
-		}
-		platform.ReportAPILog(logReq)
-	}()
-
-	response.Success(c, nil, "上报成功")
-}
-
 // =============================================================================
 // 平台 API 代理方法(真实 HTTP 调用)
 // =============================================================================
@@ -268,6 +197,29 @@ func (pc *PlatformController) MarkPlatformMessageRead(c *gin.Context) {
 	path := fmt.Sprintf("/platform/message/%s/read", messageID)
 	var resp map[string]any
 	pc.platformCall(c, "POST", path, nil, &resp, "标记站内信已读失败")
+}
+
+// 平台端方法 - 最新站内信 - GET /platform/message/latest
+// 供前端 MessageNotification 全局轮询。平台客户端未初始化或平台不可达/无该端点时，
+// 静默返回 null（而非 404/5xx），避免每次页面加载都产生控制台噪声。
+func (pc *PlatformController) GetLatestMessage(c *gin.Context) {
+	if pc.platformClient == nil {
+		response.Success(c, nil, "")
+		return
+	}
+	var resp struct {
+		List []map[string]any `json:"list"`
+	}
+	path := "/platform/message/list?page=1&page_size=1"
+	if err := pc.platformClient.Do(http.MethodGet, path, nil, &resp); err != nil {
+		response.Success(c, nil, "")
+		return
+	}
+	if len(resp.List) > 0 {
+		response.Success(c, resp.List[0], "")
+		return
+	}
+	response.Success(c, nil, "")
 }
 
 // 平台端方法 - 用户管理 - GET /platform/user/list

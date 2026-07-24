@@ -46,9 +46,6 @@ func Setup(r *gin.Engine) {
 	// 基础中间件
 	r.Use(gin.Recovery())
 
-	// 跨域中间件：必须尽早注册，覆盖所有路由（含公开 API 与鉴权路由）
-	r.Use(middleware.CORS())
-
 	// 多语言：解析请求语言注入上下文，供业务层返回本地化提示
 	r.Use(middleware.LocaleMiddleware())
 

@@ -1,11 +1,14 @@
 # User-Web（商户端）单点登录 + 单表用户化 实施计划
 
-> 计划版本：**v3.1** ｜ 计划日期：2026-07-23
+> 计划版本：**v3.1** ｜ 计划日期：2026-07-23 ｜ 状态更新：2026-07-24
 > 计划目标：**统一单用户表 + 启用/禁用二元管控 + 三模块管理** —— 所有账号（含超管、客服）全部存储在 `system_users`；彻底清理历史 `team_users` / `team_roles` 双轨制。**user-web 是商户端（单租户、单角色），不引入菜单权限树，不做精细化授权**；超管侧提供 3 个独立管理模块：**人员管理 / 角色管理 / 授权管理**。
 > 关联文档：
 > - 五层架构：[GO_FIVE_LAYER_ARCHITECTURE.md](./GO_FIVE_LAYER_ARCHITECTURE.md)
-> - 现有团队用户文档：[team-user-management.md](../marketing-features/team-user-management.md)（清理后将删除）
 > - 用户记忆硬约束：开源自部署、超管默认全权限、菜单不控制到按钮、密码入库
+>
+> **2026-07-24 状态更新**：
+> - `must_change_password` 强制首登改密机制已彻底移除（commit 65079e5），下文涉及该机制的步骤/解决方案视为已失效。
+> - `team-user-management.md` 文档已删除（双轨制清理完成）。
 
 ---
 
@@ -92,7 +95,7 @@
 [admin.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/config/admin.go) 三处来源：
 1. 硬编码默认值 `admin / Admin@123456`（`defaultAdminConfig`）
 2. `./.env/admin.json` 配置文件
-3. 环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD`
+3. 环境变量 `ADMIN_USERNAME` / `PLATFORM_ADMIN_PASSWORD`
 
 [auth.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/controller/auth.go) `CreateDefaultAdmin` 仍从 `config.GetAdminConfig().DefaultAdmin` 读取并入库。
 
@@ -125,11 +128,10 @@
 | 阶段 | 入口 | 现状 |
 | --- | --- | --- |
 | 1. 状态探测 | `GET /api/system/init-status`（公开） | 读 `install.lock` |
-| 2. 创建超管 | `POST /api/system/create-default-admin`（公开） | 读 `config.GetAdminConfig()` ← 痛点 |
-| 3. 首登改密 | `must_change_password` 强制 | — |
-| 4. 标记初始化 | `install.MarkAdminInitialized(username)` | 写 `install.lock.AdminInitialized=true` |
+| 2. 创建超管 | `POST /api/system/init-admin`（公开，AuthController.InitAdmin） | 入参传 password（已迁移自 config） |
+| 3. 标记初始化 | `POST /api/system/init-complete` → `install.MarkAdminInitialized(username)` | 写 `install.lock.initialized=true` |
 
-> **结论**：初始化链路完整，但**超管密码默认值必须从 config 迁移到入参**。
+> **2026-07-24 变更**：原"3. 首登改密（`must_change_password` 强制）"步骤已移除（commit 65079e5）。开源版创建超管后直接可用，登录不再跳转 `/change-password`。详见 [MERCHANT_INITIALIZATION_FLOW.md](../operations/MERCHANT_INITIALIZATION_FLOW.md)。
 
 ---
 
@@ -584,7 +586,7 @@ DROP TABLE IF EXISTS team_users CASCADE;
 | --- | --- | --- | --- |
 | L21 | 授权管理 audit-logs 数据源 | `operation_logs` 表是否记录启停/改密？ | 验证：现有 operation_logs 写入逻辑是否覆盖 system_users 的写操作；如果不覆盖，需在 controller/system_user.go 的 SetEnabled/ResetPassword 中**手动写入** operation_logs |
 | L22 | 启停自己的账号 | 超管禁用自己 → 系统无人可管理 | service 层：`if id == actor_id { return error("不能禁用自己") }` |
-| L23 | 改密后未通知用户 | 客服改密后旧密码失效无感知 | 改密响应中 `return { must_change_password: true }`；前端下次登录后强制改密（沿用现有 must_change_password 机制） |
+| L23 | 改密后未通知用户 | 客服改密后旧密码失效无感知 | 改密响应返回提示消息；前端登录时若密码已被客服重置，由 JWT 校验失败引导重新登录（开源版已移除 `must_change_password` 机制，不再强制首登改密） |
 | L24 | audit-logs 分页 + 过滤 | 大量日志翻页慢 | 提供 `?actor_id=&target_id=&action=&date_from=&date_to=` 多维过滤 |
 | L25 | audit-logs 导出格式 | CSV vs Excel | v1 先做 CSV；Excel 留作未来增强 |
 | L26 | 启停后 token 立即失效 | 旧 token 仍可用 | 配合 L9 的 version 机制；启停时 `UPDATE system_users SET version = uuid_generate_v4() WHERE id = ?`；旧 token 失效 |

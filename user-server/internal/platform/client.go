@@ -276,40 +276,6 @@ func (c *Client) GetLicenseStatus() (*LicenseStatusResp, error) {
 	return &data, nil
 }
 
-// ReportAPILog 上报 API 日志
-func (c *Client) ReportAPILog(req ReportAPILogReq) error {
-	logger.Info(fmt.Sprintf("开始上报API日志，请求数据: %+v", req))
-	var resp BaseResp
-	err := c.do("POST", "/merchant-api/logs/report", req, &resp)
-	if err != nil {
-		logger.Error(err, "上报API日志失败")
-		return err
-	}
-	logger.Info("上报API日志成功")
-	return nil
-}
-
-// GetLatestMessage 获取最新站内信
-func (c *Client) GetLatestMessage() (*LatestMessageResp, error) {
-	logger.Info("开始获取最新站内信")
-	var resp BaseResp
-	if err := c.do("GET", "/merchant-api/messages/latest", nil, &resp); err != nil {
-		logger.Error(err, "获取最新站内信失败")
-		return nil, err
-	}
-	if resp.Data == nil {
-		logger.Info("没有最新站内信")
-		return nil, nil
-	}
-	var data LatestMessageResp
-	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		logger.Error(err, "解析最新站内信响应失败")
-		return nil, err
-	}
-	logger.Info(fmt.Sprintf("获取最新站内信成功: ID=%s, 标题=%s", data.ID, data.Title))
-	return &data, nil
-}
-
 type BaseResp struct {
 	Code int             `json:"code"`
 	Msg  string          `json:"msg"`
@@ -353,35 +319,6 @@ type LicenseStatusResp struct {
 	Status    string    `json:"status"`
 	ExpireAt  time.Time `json:"expire_at"`
 	Remaining int       `json:"remaining_days"`
-}
-
-type ReportAPILogReq struct {
-	Method     string `json:"method"`
-	Path       string `json:"path"`
-	StatusCode int    `json:"status_code"`
-	Duration   int64  `json:"duration"`
-	UserAgent  string `json:"user_agent"`
-	DeviceInfo string `json:"device_info"`
-}
-
-type LatestMessageResp struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
-}
-
-// CheckUpdateResp 检查更新响应
-type CheckUpdateResp struct {
-	HasUpdate     bool   `json:"has_update"`
-	Version       string `json:"version"`
-	BuildNumber   int    `json:"build_number"`
-	Description   string `json:"description"`
-	ReleaseNotes  string `json:"release_notes"`
-	DownloadURL   string `json:"download_url"`
-	FileSize      int64  `json:"file_size"`
-	FileHash      string `json:"file_hash"`
-	IsForceUpdate bool   `json:"is_force_update"`
-	PublishAt     string `json:"publish_at"`
 }
 
 // ReportInstallReq 安装信息上报请求（开源版：一个安装信息 = 一个商户）
@@ -468,26 +405,4 @@ func (c *Client) ReportHeartbeat(req *ReportHeartbeatReq) error {
 // 心跳上报为公开统计接口，不要求商户签名，故使用空 merchantKey。
 func ReportHeartbeatDefault(req *ReportHeartbeatReq) error {
 	return NewClient("").ReportHeartbeat(req)
-}
-
-// CheckUpdate 检查更新
-func (c *Client) CheckUpdate(currentVersion, clientType string) (*CheckUpdateResp, error) {
-	logger.Info(fmt.Sprintf("开始检查更新，当前版本: %s, 客户端类型: %s", currentVersion, clientType))
-
-	params := fmt.Sprintf("?current_version=%s&client_type=%s", currentVersion, clientType)
-	var resp BaseResp
-	if err := c.do("GET", "/public/version/check-update"+params, nil, &resp); err != nil {
-		logger.Error(err, "检查更新失败")
-		return nil, err
-	}
-
-	var data CheckUpdateResp
-	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		logger.Error(err, "解析更新检查响应失败")
-		return nil, err
-	}
-
-	logger.Info(fmt.Sprintf("检查更新成功: 有更新=%t, 版本=%s, 是否强制更新=%t",
-		data.HasUpdate, data.Version, data.IsForceUpdate))
-	return &data, nil
 }

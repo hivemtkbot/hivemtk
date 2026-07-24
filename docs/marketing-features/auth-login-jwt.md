@@ -260,7 +260,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第一章](../architecture/FUNCTION_DETAILS.md#一-认证模块)
 - [API_CONTRACT.md](../standards/API_CONTRACT.md)
 - [BACKEND_CODING_STANDARDS.md](../standards/BACKEND_CODING_STANDARDS.md)
 

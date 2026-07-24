@@ -32,7 +32,7 @@ func (t AssetType) Label() string {
 	}[t]
 }
 
-// Industry 5 行业
+// Industry 行业（原 5 行业 + 7 行业资产包扩展）
 type Industry string
 
 const (
@@ -41,11 +41,21 @@ const (
 	IndustryYiMei     Industry = "医美"
 	IndustryQiChe     Industry = "汽车"
 	IndustryJinRong   Industry = "金融"
+	// 7 行业资产包扩展
+	IndustryECig      Industry = "电子烟"
+	IndustryAdult     Industry = "成人用品"
+	IndustrySexHealth Industry = "两性健康"
+	IndustryCarRent   Industry = "租车"
+	IndustryHomestay  Industry = "民宿"
+	IndustryFreight   Industry = "货代"
+	IndustryImmigra   Industry = "移民"
 )
 
 func (i Industry) Valid() bool {
 	switch i {
-	case IndustryMeiZhuang, IndustryJiaoPei, IndustryYiMei, IndustryQiChe, IndustryJinRong:
+	case IndustryMeiZhuang, IndustryJiaoPei, IndustryYiMei, IndustryQiChe, IndustryJinRong,
+		IndustryECig, IndustryAdult, IndustrySexHealth, IndustryCarRent,
+		IndustryHomestay, IndustryFreight, IndustryImmigra:
 		return true
 	}
 	return false

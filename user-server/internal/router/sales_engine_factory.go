@@ -35,14 +35,25 @@ import (
 
 // buildSalesEngine 构建智能体销冠引擎（真实依赖注入）
 // 调用方：router.Setup()
+//
+// 意图识别实例统一复用全局单例（main.go 中 InitIntentRecognizer 初始化），
+// 与 /api/intent/* 直连路由共享：
+//   - 同一份 dispatcher / db / cache
+//   - 同一份 SOP service 联动
+//   - 同一份 IntentEnabled 开关
+// 避免双实例导致 SOP 联动只在直连路由生效、销售引擎调用不生效的分裂问题。
 func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	dispatcher := llm.GetGlobalDispatcher()
 
 	// ② 对话记忆服务
 	memorySvc := service.NewDialogueMemoryService(gormDB, dispatcher)
 
-	// ③ 意图识别服务（cache 传 nil，使用进程内规则匹配 + LLM 兜底）
-	intentSvc := service.NewIntentRecognizer(gormDB, dispatcher, nil)
+	// ③ 意图识别服务：复用全局实例
+	//   - 兜底：若全局未初始化(单测等场景)则临时创建一个
+	intentSvc := service.GetIntentRecognizer()
+	if intentSvc == nil {
+		intentSvc = service.NewIntentRecognizer(gormDB, dispatcher, nil)
+	}
 
 	// ④ SOP 智能体服务
 	sopSvc := service.NewSOPService(gormDB, dispatcher)

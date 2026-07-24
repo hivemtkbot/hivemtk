@@ -1,7 +1,7 @@
 # HiveMtk 用户端 - 首次启动初始化流程
 
-> 用户端独立部署的初始化流程
-> 适用版本：2026-07-21
+> 用户端独立部署的初始化流程（开源版）
+> 适用版本：2026-07-24（已移除 License 授权流程）
 
 ---
 
@@ -11,42 +11,52 @@
 docker compose up -d
         │
         ▼
-user-server 启动 ──▶ 检查 install.lock
+user-server 启动 ──▶ 读取 install.lock
         │                      │
-        │                  不存在 / 不合法
-        │                      │
-        │                      ▼
-        │              监听 /api/system/init-license
-        │              等待管理员提交 LicenseKey
+        │                  不存在
         │                      │
         │                      ▼
-        │              校验 LicenseKey（与 PLATFORM_LICENSE_SECRET 配合 HMAC）
+        │              EnsureInstallID 生成 install_id
+        │              写入最小 install.lock（initialized=false）
         │                      │
         │                      ▼
-        │              写入 install.lock（install_id / company / expires_at / ...）
+        │              State = NOT_INSTALLED
+        │              InitGuard 仅放行白名单 API
         │                      │
         │                      ▼
+        │              监听 POST /api/system/init-admin
+        │              等待管理员提交超管账号
+        │                      │
+        │                      ▼
+        │              service.AuthService.InitAdmin：
+        │                - 强密码校验 + 用户名唯一性
+        │                - 写入 system_users 表
+        │                - 回写 install.lock（admin_username + initialized=true）
+        │                      │
+        │                      ▼
+        │              State = HAS_ADMIN → INITIALIZED
+        │                      │
         ▼                      │
 user-server 重启校验 install.lock   ◀────────┘
         │
         ▼
-   install.lock 合法？
+   install.lock.initialized == true？
         │
     ┌───┴────┐
    是        否
     │        │
-    │        └─▶ 进入 7 天免费试用
+    │        └─▶ 重新进入初始化流程
     │
     ▼
- 监听 /api/system/init-admin
- 等待超管账号创建
+ 监听 POST /api/system/init-complete
+ 标记初始化完成（推进到 INITIALIZED）
         │
         ▼
- 创建超管（must_change_password=true）
-        │
-        ▼
- 系统就绪
+ 系统就绪（不再强制首登改密）
 ```
+
+> **状态机**：`NOT_INSTALLED` → `HAS_ADMIN`（已写超管） → `INITIALIZED`（`initialized=true`）
+> 详见 `internal/system/install/install.go` 的 `GetStatus()`。
 
 ---
 
@@ -54,9 +64,17 @@ user-server 重启校验 install.lock   ◀────────┘
 
 | 文件 | 作用 |
 |------|------|
-| `install.lock` | 部署凭证（install_id / LicenseKey 摘要 / 过期时间 / 公司信息）|
-| `migrations/015_init_flow_enhancement.sql` | `system_users.must_change_password` 字段 |
-| `migrations/016_merchants_key_length.sql` | `merchants.merchant_key` 长度 64 |
+| `install.lock` | 部署凭证（最小字段：`install_id` / `install_time` / `admin_username` / `initialized` / `version`） |
+| `internal/system/install/install.go` | install.lock 读写 + 状态机查询（带 2 秒内存缓存） |
+| `internal/controller/system_init.go` | HTTP API：`GET /api/system/init-status` + `POST /api/system/init-complete` |
+| `internal/controller/auth.go` | `POST /api/system/init-admin`（由 AuthController.InitAdmin 提供） |
+| `internal/middleware/init_guard.go` | 初始化保护中间件：未完成初始化时仅放行白名单 API |
+| `internal/middleware/license_checker.go` | install.lock 状态查询封装（开源版不校验 LicenseKey） |
+
+> **开源版变更**：
+> - 移除原 `init-license` 步骤与 LicenseKey 字段
+> - 移除 `must_change_password` 强制改密机制（commit 65079e5）
+> - 移除 `PLATFORM_LICENSE_SECRET` HMAC 签名与 7 天免费试用
 
 ---
 
@@ -70,14 +88,19 @@ docker compose up -d user-server
 
 容器启动后，user-server 会：
 
-1. 检查 `/app/data/install.lock` 是否存在
+1. 读取 `/app/data/install.lock`（路径优先级：`INSTALL_LOCK_PATH` 环境变量 > `./install.lock`）
 2. **若不存在**：
-   - 进入**初始化模式**
-   - 监听 `/api/system/init-license` 接收 LicenseKey
+   - 调用 `EnsureInstallID()` 生成 32 位 `install_id`（`ins-` + 16 字节随机十六进制）
+   - 写入最小 install.lock（`initialized=false`）
+   - 进入 `NOT_INSTALLED` 状态
 3. **若存在**：
-   - 校验 install.lock 签名（HMAC-SHA256 with `PLATFORM_LICENSE_SECRET`）
-   - 校验通过：进入正常工作模式
-   - 校验失败：进入**初始化模式**（允许重新绑定 LicenseKey）
+   - 解析 install.lock，按字段推断状态：
+     - `admin_username != ""` 且 `initialized == true` → `INITIALIZED`（直接进入正常工作模式）
+     - `admin_username != ""` 且 `initialized == false` → `HAS_ADMIN`（需调用 `init-complete`）
+     - 否则 → `NOT_INSTALLED`（进入初始化模式）
+
+> **InitGuard 中间件**：未 `INITIALIZED` 时拦截所有非白名单业务 API，引导前端跳转 `/setup`。
+> 白名单：`/api/system/init-status` / `/api/system/init-admin` / `/api/system/init-complete` / `/health` 等。
 
 ### 3.2 浏览器访问初始化页面
 
@@ -86,64 +109,53 @@ docker compose up -d user-server
 ```
 ┌────────────────────────────────────────────┐
 │  欢迎使用 HiveMtk                            │
-│  请输入您的 LicenseKey 激活系统                  │
-│                                            │
-│  LicenseKey: [___________________________]  │
-│                                            │
-│  [   激活系统   ]                           │
-│                                            │
-│  试用版说明：未绑定 LicenseKey 时可使用 7 天    │
-└────────────────────────────────────────────┘
-```
-
-### 3.3 提交 LicenseKey
-
-LicenseKey 是 32 位十六进制字符串，格式 `XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX`（含连字符时为 35 字符）。
-
-校验流程：
-
-1. user-server 接收 LicenseKey
-2. 调用平台端 `POST {PLATFORM_API_URL}/api/platform/license/validate`
-3. 平台端返回：
-   - `valid: true` + License 元数据（company / contact / expires_at）
-   - `valid: false` + 原因
-4. user-server 校验通过后写入 `install.lock`：
-   ```json
-   {
-     "license_key": "XXXX-XXXX-XXXX-XXXX",
-     "install_id": "<UUID v4>",
-     "company": "...",
-     "contact_email": "...",
-     "issued_at": "2026-07-21T00:00:00Z",
-     "expires_at": "2027-07-21T00:00:00Z",
-     "trial": false,
-     "version": "1.0.0",
-     "signed_at": "2026-07-21T...",
-     "signature": "<HMAC-SHA256>"
-   }
-   ```
-
-### 3.4 创建超管账号
-
-LicenseKey 绑定成功后，进入「创建超管账号」页面：
-
-```
-┌────────────────────────────────────────────┐
-│  创建超级管理员                                │
+│  请创建超级管理员账号                          │
 │                                            │
 │  用户名: [admin_____________]              │
 │  密码:   [_________________]                │
 │  确认密码: [_________________]              │
 │  姓名:   [_________________]                │
 │  邮箱:   [_________________]                │
+│  手机:   [_________________]                │
 │                                            │
 │  [   创建账号   ]                           │
 └────────────────────────────────────────────┘
 ```
 
-- 密码强度：≥ 12 字符 + 大小写 + 数字 + 特殊字符
-- 创建后 `system_users.must_change_password = true`
-- 提示：「首次登录后会强制修改密码」
+> 开源版无需 LicenseKey。手机号、邮箱、姓名均为选填，作为商户联系信息上报平台端。
+
+### 3.3 创建超管账号
+
+提交 `POST /api/system/init-admin`（由 `AuthController.InitAdmin` 处理）：
+
+```json
+{
+  "username": "admin",
+  "password": "YourStrongPassword!",
+  "email": "admin@example.com",
+  "real_name": "超级管理员",
+  "contact_phone": "13800138000"
+}
+```
+
+服务端流程（`service.AuthService.InitAdmin`）：
+
+1. 加载 install.lock
+2. 校验用户名唯一性（DB 查询）
+3. 强密码校验（≥ 8 字符）
+4. bcrypt 哈希密码，写入 `system_users` 表
+5. **同步 install.lock**：写入 `admin_username` + `initialized=true`
+6. 返回成功，state 推进到 `INITIALIZED`
+
+### 3.4 完成初始化
+
+调用 `POST /api/system/init-complete`（由 `SystemInitController.InitComplete` 处理）：
+
+- 前置校验：`HasInstallLockAdmin() == true`（必须先创建超管）
+- 写入 `install.lock.initialized = true`（幂等：已 `INITIALIZED` 时重复调用无副作用）
+- 返回 `next_action: "login"` 引导跳转登录页
+
+> 此接口用于前端向导完成时显式标记；若 `init-admin` 已自动写入 `initialized=true`，此步骤可省略。
 
 ### 3.5 登录
 
@@ -151,62 +163,84 @@ LicenseKey 绑定成功后，进入「创建超管账号」页面：
 http://<your-server-ip>:8204/login
 ```
 
-使用刚创建的超管账号登录。
-
-**首次登录强制改密**：
-- 系统检测到 `must_change_password=true`
-- 跳转到「修改密码」页面
-- 用户设置新密码后 `must_change_password=false`
-- 进入系统主页
+使用刚创建的超管账号登录（JWT 鉴权）。开源版**不再强制首登改密**，登录后直接进入系统主页。
 
 ### 3.6 系统就绪
 
 完成上述步骤后：
 
 - 系统正式可用
-- 所有功能（AI / RAG / 客服 / 营销）按 License 范围开放
-- 7 天免费试用结束前会显示告警
+- 所有功能（AI / RAG / 客服 / 营销）全开放，无 License 范围限制
+- 平台端心跳上报为 best-effort：失败仅 Warn，不影响本地业务
 
 ---
 
-## 四、7 天免费试用
+## 四、install.lock 文件结构（开源版精简）
 
-未绑定商户标识时，user-server 仍可正常运行（开源版无授权限制）：
+```json
+{
+  "install_id": "ins-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "install_time": "2026-07-24T10:00:00Z",
+  "admin_username": "admin",
+  "initialized": true,
+  "version": "1.0.0"
+}
+```
 
-- 全部功能可用，无使用期限
-- 数据持久化（重装后配置仍保留）
-- install.lock 模板见 `offline-deploy/install.lock.example`
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `install_id` | string | 一次安装的唯一标识（`ins-` + 16 字节随机十六进制） |
+| `install_time` | string | 安装时间（UTC RFC3339） |
+| `admin_username` | string | 超管账号（创建后写入） |
+| `initialized` | bool | 是否已完成初始化向导 |
+| `version` | string | 客户端版本号（用于统计上报） |
 
-首次初始化绑定商户标识（merchant_key）：
-
-- 访问 `/setup` 提交商户标识
-- 系统校验后写入本地配置，完成初始化
+> **不包含**：`license_key` / `expires_at` / `company` / `contact_email` / `signature` 等授权相关字段（已移除）。
 
 ---
 
-## 五、平台端不可达
+## 五、平台端心跳上报（best-effort）
 
-若平台端暂时不可达（如未配置 `PLATFORM_API_URL` 或网络故障）：
+user-server 初始化完成后，会通过 `PLATFORM_API_URL` 向平台端低频上报心跳与安装信息：
 
-- 试用模式下不受影响
-- 正式 LicenseKey 校验失败时，进入**待重试**状态
-- 平台端恢复后可重新提交
+- `POST /api/platform/install` — 安装信息上报（一次性）
+- `POST /api/platform/heartbeat` — 周期性心跳
+
+特性：
+
+- 失败仅 `Warn` 日志，**不阻塞**本地业务
+- 平台端不可达时，user-server 仍正常运行
+- 用于平台端统计商户活跃度与版本分布，不用于授权校验
 
 ---
 
 ## 六、安全
 
-- `install.lock` 由 `PLATFORM_LICENSE_SECRET` HMAC 签名
-- LicenseKey 不可篡改（修改后签名不匹配）
-- 迁移机器后 `install.lock` 仍可校验
-- 卸载软件会保留 install.lock（在 `/app/data/` 命名卷中），重装不丢
+- `install.lock` 不含敏感凭证（无 HMAC 签名、无 LicenseKey）
+- 超管密码使用 bcrypt 哈希存储（cost=10）
+- JWT 鉴权：登录后下发 token，后续 API 携带 `Authorization: Bearer <token>`
+- 迁移机器后 `install.lock` 可直接复制（无需重新初始化，但建议重新生成 `install_id`）
+- 卸载软件会保留 `install.lock`（在 `/app/data/` 命名卷中），重装不丢
 
 ---
 
 ## 七、相关代码
 
-- `internal/service/system_init.go` - 初始化流程主逻辑
-- `internal/controller/system_init.go` - HTTP API
-- `internal/middleware/init_guard.go` - 初始化保护（未绑定 LicenseKey 时拒绝业务请求）
-- `internal/model/system_user.go` - system_users model（含 must_change_password）
-- `migrations/015_init_flow_enhancement.sql` - 字段迁移
+| 文件 | 作用 |
+|------|------|
+| `internal/system/install/install.go` | install.lock 读写 + 状态机（`GetStatus` / `MarkAdminInitialized` / `EnsureInstallID`） |
+| `internal/controller/system_init.go` | `GET /api/system/init-status` + `POST /api/system/init-complete` |
+| `internal/controller/auth.go` | `POST /api/system/init-admin`（`AuthController.InitAdmin`） |
+| `internal/service/auth.go` | `AuthService.InitAdmin`：超管创建主逻辑 |
+| `internal/middleware/init_guard.go` | 初始化保护中间件（未 `INITIALIZED` 时拦截业务 API） |
+| `internal/middleware/license_checker.go` | install.lock 状态查询封装（开源版不校验 LicenseKey） |
+| `internal/model/system_user.go` | `system_users` 模型（已移除 `must_change_password` 字段） |
+
+---
+
+## 八、相关文档
+
+- 部署手册：[MERCHANT_DEPLOYMENT.md](MERCHANT_DEPLOYMENT.md)
+- 商户初始化向导（业务侧）：[../marketing-features/merchant-initialization.md](../marketing-features/merchant-initialization.md)
+- 部署方案：[../architecture/部署方案_用户端.md](../architecture/部署方案_用户端.md)
+- 平台端 / 用户端分工：[`hivemtk-platform/docs/architecture/部署方案_平台端与用户端.md`](../../../hivemtk-platform/docs/architecture/部署方案_平台端与用户端.md)

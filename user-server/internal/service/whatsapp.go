@@ -8,6 +8,7 @@ import (
 	whatsapp "github.com/Rhymen/go-whatsapp"
 	"github.com/google/uuid"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, t
 	s.connMu.Unlock()
 
 	qrChan := make(chan string)
-	go func() {
+	utils.SafeGo(ctx, "whatsapp.StartLogin", func(ctx context.Context) {
 		sess, err := wac.Login(qrChan)
 		if err != nil {
 			return
@@ -82,7 +83,7 @@ func (s *WhatsappService) StartLogin(ctx context.Context, accountID uuid.UUID, t
 			acc.Status = model.WhatsappStatusOnline
 			_ = s.repo.UpdateAccount(ctx, acc)
 		}
-	}()
+	})
 
 	// capture first QR code string
 	qr := <-qrChan
@@ -210,7 +211,7 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 	}
 
 	// start sending in background
-	go func() {
+	utils.SafeGo(ctx, "whatsapp.SendBulk", func(ctx context.Context) {
 		job.Status = model.WhatsappJobRunning
 		_ = s.repo.UpdateJob(ctx, job)
 		idx := 0
@@ -249,7 +250,7 @@ func (s *WhatsappService) CreateBulkJob(ctx context.Context, draftID uuid.UUID) 
 		}
 		job.Status = model.WhatsappJobFinished
 		_ = s.repo.UpdateJob(ctx, job)
-	}()
+	})
 
 	return job, nil
 }

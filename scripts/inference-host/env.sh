@@ -53,7 +53,15 @@ LLAMACPP_BIN="$(detect_llamacpp_bin)"
 # ---- 推理参数（按需调优）----
 : "${CTX_SIZE:=8192}"          # 上下文窗口
 : "${THREADS:=0}"              # 0=自动检测
-: "${NGL:=0}"                  # GPU 卸载层数（Apple Silicon Metal=999，CPU=0）
+# GPU 卸载层数（结合本地环境自动探测）：
+#   Apple Silicon(Metal 统一内存)全量卸载到 GPU 收益最大 → 999；
+#   纯 CPU 服务器(或 Linux 无 Metal) → 0。
+# 通过 uname 探测，可被显式 NGL 环境变量覆盖（如 NGL=0 强制 CPU）。
+if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+  : "${NGL:=999}"
+else
+  : "${NGL:=0}"
+fi
 : "${BATCH_SIZE:=512}"         # 逻辑批处理大小
 : "${UBATCH_SIZE:=512}"        # 物理批处理大小（默认与 batch 一致；GPU 可调到 1024）
 : "${LLAMACPP_EXTRA_ARGS:=}"   # 透传额外参数
@@ -68,9 +76,30 @@ LLAMACPP_BIN="$(detect_llamacpp_bin)"
 # 32G+ 内存服务器可改回 true。
 : "${USE_MLOCK:=false}"
 # KV cache 量化（仅 LLM 有 KV cache；embedding/rerank 无 KV cache）
-# f16=无损默认 | q8_0=减 50% 内存几乎无损 | q4_0=减 75% 内存轻微精度损失
-: "${CACHE_TYPE_K:=f16}"
-: "${CACHE_TYPE_V:=f16}"
+# f16=无损默认 | q8_0=减 50% 内存几乎无损（推荐）| q4_0=减 75% 内存轻微精度损失
+# 本地 16G 改为 q8_0：KV 内存减半，对话质量无感知差异；若内存极端紧张可改 q4_0。
+: "${CACHE_TYPE_K:=q8_0}"
+: "${CACHE_TYPE_V:=q8_0}"
+
+# ---- 推测解码（Speculative Decoding，仅 LLM 生成器生效）----
+# 原理：草稿/本模型 ngram 一次起草 N token，目标模型一次验证，突破内存带宽瓶颈提速。
+# 本地策略（Apple M1 / 16G / Qwen2.5-1.5B 目标）：
+#   - 默认 ngram-cache：零额外下载、零显存增量；客服模板/JSON 命中率高；长会话持久缓存跨请求复用。
+#   - draft-simple 需 vocab 兼容的小模型（Qwen2.5 同族词表一致天然兼容），但本地无 0.5B 草稿模型，
+#     且 1.5B 目标与草稿差距小、额外开销易抵消收益 ⇒ dev 默认不启用。
+#     prod(14B) 可设 SPEC_TYPE=draft-simple 并配置 LLM_DRAFT_FILE 启用（典型 1.5-2.5x）。
+#   - draft-mtp / draft-eagle3 不适用 Qwen2.5（无原生 nextn 多 token 预测头）。
+# 取值（llama-server v10090）：none | draft-simple | draft-eagle3 | draft-mtp | draft-dflash
+#                           | ngram-simple | ngram-map-k | ngram-map-k4v | ngram-mod | ngram-cache
+: "${SPEC_TYPE:=ngram-cache}"
+: "${SPEC_DRAFT_N_MAX:=5}"       # draft-simple 起草 token 数（默认 3，长文可 5-8）
+# ngram-simple 可调尺寸（ngram-cache 走内部默认，忽略以下三项）
+: "${SPEC_NGRAM_SIMPLE_N:=64}"   # 查表长度（默认 64）
+: "${SPEC_NGRAM_SIMPLE_M:=4}"    # 单次起草长度（默认 4）
+: "${SPEC_NGRAM_MIN_HITS:=1}"    # 最小命中次数（越小越激进，默认 1）
+# draft-simple 可选草稿模型（prod 用，dev 不下载；设 LLM_DRAFT_FILE 即启用 draft-simple）
+: "${LLM_DRAFT_REPO:=Qwen/Qwen2.5-0.5B-Instruct-GGUF}"
+: "${LLM_DRAFT_FILE:=}"
 # LLM 并行槽位数（--parallel）：允许同时处理多个请求
 # 2026-07-24 性能优化：2→1。8 核 16G 内存下 2 slots 的 KV cache 翻倍导致 swap；
 # 客服场景串行即可，Go 端 Dispatch 有并发闸门保护。

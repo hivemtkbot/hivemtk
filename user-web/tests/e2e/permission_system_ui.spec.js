@@ -29,7 +29,8 @@ fs.mkdirSync(SCREENSHOT_DIR, { recursive: true })
 const CANDIDATE_PASSWORDS = [
   'Admin@12345678',
   'Admin@123456',
-  '62cfdc6bf1b075830734cc6f9a63501b'
+  '62cfdc6bf1b075830734cc6f9a63501b',
+  '9eb623e1979ad575b98bad24e12669a2f58205e9a8c79f61a7083f8468fc18b3'
 ]
 
 // ---- 工具函数 ----

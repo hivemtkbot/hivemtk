@@ -148,19 +148,7 @@ func (c *AppConfigController) UpdateAppConfig(ctx *gin.Context) {
 		return
 	}
 
-	// 尝试向平台同步配置
-	go func() {
-		reportReq := platform.ReportAPILogReq{
-			Method:     "POST",
-			Path:       "/api/app-config/update",
-			StatusCode: 200,
-			Duration:   0,
-			UserAgent:  "Marketing-Tools-Merchant",
-			DeviceInfo: req.UsageReport.SystemInfo,
-		}
-		platform.ReportAPILog(reportReq)
-	}()
-
+	// 开源版：仅依赖 ReportInstall + ReportHeartbeat，不再上报 API 日志
 	response.Success(ctx, gin.H{
 		"status":    "success",
 		"message":   "配置更新成功",
@@ -202,19 +190,9 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 		LastUpdateTime: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	// 单租户模式：平台不可用时跳过上报，不阻塞
-	if platformAvailable {
-		reportReq := platform.ReportAPILogReq{
-			Method:     "SYNC",
-			Path:       "/app-config",
-			StatusCode: 200,
-			Duration:   0,
-			UserAgent:  "Marketing-Tools-Merchant",
-			DeviceInfo: usageReport.SystemInfo,
-		}
-		if syncErr := platform.ReportAPILog(reportReq); syncErr != nil {
-			logger.Errorf("[app-config/sync] 平台上报跳过: %v", syncErr)
-		}
+	// 开源版：仅依赖 ReportInstall + ReportHeartbeat，平台不可用时不阻塞主流程
+	if !platformAvailable {
+		logger.Info("[app-config/sync] 平台不可用，跳过 API 日志上报")
 	}
 
 	// 返回同步结果

@@ -1,37 +1,51 @@
 package cache
 
 import (
+	"container/list"
 	"context"
 	"encoding/json"
 	"sync"
 	"time"
 )
 
-// MemoryCache 内存缓存实现
+// DefaultMaxKeys 默认 LRU 上限（P1-18 修复：限制内存使用）
+const DefaultMaxKeys = 10_000
+
+// MemoryCache 内存缓存实现（带 LRU 上限）
 type MemoryCache struct {
-	data   map[string]cacheItem
-	mu     sync.RWMutex
-	stop   chan struct{} // 停止信号，用于关闭清理 goroutine
-	closed chan struct{} // 标记已关闭，防止重复关闭
+	data    map[string]*list.Element
+	order   *list.List // LRU 双向链表：front=最近使用，back=最久未用
+	mu      sync.RWMutex
+	stop    chan struct{} // 停止信号，用于关闭清理 goroutine
+	closed  chan struct{} // 标记已关闭，防止重复关闭
+	maxKeys int
 }
 
 type cacheItem struct {
+	key        string
 	value      any
 	expiration time.Time
-	// listMode 标识当前 key 是否为 list 模式
-	listMode bool
-	// listItems 仅在 listMode=true 时使用
-	listItems []string
+	listMode   bool
+	listItems  []string
 }
 
-// NewMemoryCache 创建内存缓存
+// NewMemoryCache 创建内存缓存（默认 LRU 上限 10000）
 func NewMemoryCache() *MemoryCache {
-	cache := &MemoryCache{
-		data:   make(map[string]cacheItem),
-		stop:   make(chan struct{}),
-		closed: make(chan struct{}),
+	return NewMemoryCacheWithLimit(DefaultMaxKeys)
+}
+
+// NewMemoryCacheWithLimit 创建带 LRU 上限的内存缓存
+func NewMemoryCacheWithLimit(maxKeys int) *MemoryCache {
+	if maxKeys <= 0 {
+		maxKeys = DefaultMaxKeys
 	}
-	// 启动清理过期缓存的 goroutine
+	cache := &MemoryCache{
+		data:    make(map[string]*list.Element),
+		order:   list.New(),
+		stop:    make(chan struct{}),
+		closed:  make(chan struct{}),
+		maxKeys: maxKeys,
+	}
 	go cache.cleanup()
 	return cache
 }
@@ -67,27 +81,66 @@ func (m *MemoryCache) deleteExpired() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := time.Now()
-	for key, item := range m.data {
+	for ele := m.order.Back(); ele != nil; {
+		prev := ele.Prev()
+		item := ele.Value.(*cacheItem)
 		if !item.expiration.IsZero() && item.expiration.Before(now) {
-			delete(m.data, key)
+			m.order.Remove(ele)
+			delete(m.data, item.key)
 		}
+		ele = prev
 	}
+}
+
+// touch 将元素移动到链表头部（最近使用）
+func (m *MemoryCache) touch(ele *list.Element) {
+	m.order.MoveToFront(ele)
+}
+
+// evictIfNeeded 超过 maxKeys 时淘汰最久未用的元素
+func (m *MemoryCache) evictIfNeeded() {
+	for m.order.Len() > m.maxKeys {
+		back := m.order.Back()
+		if back == nil {
+			return
+		}
+		item := back.Value.(*cacheItem)
+		m.order.Remove(back)
+		delete(m.data, item.key)
+	}
+}
+
+// peekItem 读锁下取元素并刷新 LRU
+func (m *MemoryCache) peekItem(key string) (*cacheItem, bool) {
+	m.mu.RLock()
+	ele, ok := m.data[key]
+	if !ok {
+		m.mu.RUnlock()
+		return nil, false
+	}
+	item := ele.Value.(*cacheItem)
+	// 升级为写锁以更新 LRU 顺序
+	m.mu.RUnlock()
+	m.mu.Lock()
+	// 二次校验：可能已被淘汰
+	if ele2, ok2 := m.data[key]; ok2 && ele2 == ele {
+		m.touch(ele)
+		m.mu.Unlock()
+		return item, true
+	}
+	m.mu.Unlock()
+	return nil, false
 }
 
 // Get 获取缓存
 func (m *MemoryCache) Get(ctx context.Context, key string) (string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	item, exists := m.data[key]
-	if !exists {
+	item, ok := m.peekItem(key)
+	if !ok {
 		return "", nil
 	}
-
 	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
 		return "", nil
 	}
-
 	switch v := item.value.(type) {
 	case string:
 		return v, nil
@@ -110,10 +163,14 @@ func (m *MemoryCache) Set(ctx context.Context, key string, value any, expiration
 		exp = time.Now().Add(expiration)
 	}
 
-	m.data[key] = cacheItem{
-		value:      value,
-		expiration: exp,
+	if ele, ok := m.data[key]; ok {
+		ele.Value = &cacheItem{key: key, value: value, expiration: exp}
+		m.touch(ele)
+		return nil
 	}
+	ele := m.order.PushFront(&cacheItem{key: key, value: value, expiration: exp})
+	m.data[key] = ele
+	m.evictIfNeeded()
 	return nil
 }
 
@@ -122,16 +179,20 @@ func (m *MemoryCache) SetNX(ctx context.Context, key string, value any, expirati
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if item, exists := m.data[key]; exists {
+	if ele, exists := m.data[key]; exists {
+		item := ele.Value.(*cacheItem)
 		if item.expiration.IsZero() || item.expiration.After(time.Now()) {
 			return false, nil
 		}
 	}
+
 	var exp time.Time
 	if expiration > 0 {
 		exp = time.Now().Add(expiration)
 	}
-	m.data[key] = cacheItem{value: value, expiration: exp}
+	ele := m.order.PushFront(&cacheItem{key: key, value: value, expiration: exp})
+	m.data[key] = ele
+	m.evictIfNeeded()
 	return true, nil
 }
 
@@ -141,23 +202,22 @@ func (m *MemoryCache) LPush(ctx context.Context, key string, value any, expirati
 	defer m.mu.Unlock()
 
 	s := stringifyValue(value)
-	item, ok := m.data[key]
-	if !ok || !item.listMode {
-		m.data[key] = cacheItem{
-			listMode:  true,
-			listItems: []string{s},
-		}
+	var item *cacheItem
+	if ele, ok := m.data[key]; ok {
+		item = ele.Value.(*cacheItem)
+		m.touch(ele)
+	}
+	if item == nil || !item.listMode {
+		item = &cacheItem{key: key, listMode: true, listItems: []string{s}}
+		ele := m.order.PushFront(item)
+		m.data[key] = ele
 	} else {
-		// 头部插入
 		item.listItems = append([]string{s}, item.listItems...)
-		m.data[key] = item
 	}
 	if expiration > 0 {
-		exp := time.Now().Add(expiration)
-		ci := m.data[key]
-		ci.expiration = exp
-		m.data[key] = ci
+		item.expiration = time.Now().Add(expiration)
 	}
+	m.evictIfNeeded()
 	return nil
 }
 
@@ -167,22 +227,22 @@ func (m *MemoryCache) RPush(ctx context.Context, key string, value any, expirati
 	defer m.mu.Unlock()
 
 	s := stringifyValue(value)
-	item, ok := m.data[key]
-	if !ok || !item.listMode {
-		m.data[key] = cacheItem{
-			listMode:  true,
-			listItems: []string{s},
-		}
+	var item *cacheItem
+	if ele, ok := m.data[key]; ok {
+		item = ele.Value.(*cacheItem)
+		m.touch(ele)
+	}
+	if item == nil || !item.listMode {
+		item = &cacheItem{key: key, listMode: true, listItems: []string{s}}
+		ele := m.order.PushFront(item)
+		m.data[key] = ele
 	} else {
 		item.listItems = append(item.listItems, s)
-		m.data[key] = item
 	}
 	if expiration > 0 {
-		exp := time.Now().Add(expiration)
-		ci := m.data[key]
-		ci.expiration = exp
-		m.data[key] = ci
+		item.expiration = time.Now().Add(expiration)
 	}
+	m.evictIfNeeded()
 	return nil
 }
 
@@ -191,16 +251,21 @@ func (m *MemoryCache) LPop(ctx context.Context, key string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	item, ok := m.data[key]
-	if !ok || !item.listMode || len(item.listItems) == 0 {
+	ele, ok := m.data[key]
+	if !ok {
+		return "", nil
+	}
+	item := ele.Value.(*cacheItem)
+	if !item.listMode || len(item.listItems) == 0 {
 		return "", nil
 	}
 	v := item.listItems[0]
 	item.listItems = item.listItems[1:]
 	if len(item.listItems) == 0 {
+		m.order.Remove(ele)
 		delete(m.data, key)
 	} else {
-		m.data[key] = item
+		m.touch(ele)
 	}
 	return v, nil
 }
@@ -210,8 +275,12 @@ func (m *MemoryCache) LRange(ctx context.Context, key string, start, stop int64)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	item, ok := m.data[key]
-	if !ok || !item.listMode || len(item.listItems) == 0 {
+	ele, ok := m.data[key]
+	if !ok {
+		return []string{}, nil
+	}
+	item := ele.Value.(*cacheItem)
+	if !item.listMode || len(item.listItems) == 0 {
 		return []string{}, nil
 	}
 	items := item.listItems
@@ -239,8 +308,12 @@ func (m *MemoryCache) LLen(ctx context.Context, key string) (int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	item, ok := m.data[key]
-	if !ok || !item.listMode {
+	ele, ok := m.data[key]
+	if !ok {
+		return 0, nil
+	}
+	item := ele.Value.(*cacheItem)
+	if !item.listMode {
 		return 0, nil
 	}
 	return int64(len(item.listItems)), nil
@@ -262,45 +335,40 @@ func stringifyValue(v any) string {
 func (m *MemoryCache) Delete(ctx context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.data, key)
+	if ele, ok := m.data[key]; ok {
+		m.order.Remove(ele)
+		delete(m.data, key)
+	}
 	return nil
 }
 
 // Exists 检查缓存是否存在
 func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	item, exists := m.data[key]
-	if !exists {
+	item, ok := m.peekItem(key)
+	if !ok {
 		return false, nil
 	}
-
 	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
 		return false, nil
 	}
-
 	return true, nil
 }
 
 // GetJSON 获取 JSON 缓存并反序列化
+// P1-19 优化：SetJSON 写入时已序列化缓存，命中时直接反序列化，跳过 Marshal
 func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	item, exists := m.data[key]
-	if !exists {
+	item, ok := m.peekItem(key)
+	if !ok {
 		return nil
 	}
-
 	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
 		return nil
 	}
-
-	// 如果已经是目标类型，直接赋值
 	switch v := item.value.(type) {
 	case string:
 		return json.Unmarshal([]byte(v), dest)
+	case []byte:
+		return json.Unmarshal(v, dest)
 	default:
 		data, err := json.Marshal(v)
 		if err != nil {
@@ -311,14 +379,21 @@ func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
 }
 
 // SetJSON 设置 JSON 缓存
+// P1-19 优化：写入时一次性序列化，避免 GetJSON 每次 Marshal 浪费 CPU
 func (m *MemoryCache) SetJSON(ctx context.Context, key string, value any, expiration time.Duration) error {
-	return m.Set(ctx, key, value, expiration)
+	// 兼容历史调用：传 struct 时仅做一次性 JSON 序列化并以 []byte 形式存储
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return m.Set(ctx, key, data, expiration)
 }
 
 // Clear 清空缓存
 func (m *MemoryCache) Clear(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.data = make(map[string]cacheItem)
+	m.data = make(map[string]*list.Element)
+	m.order = list.New()
 	return nil
 }

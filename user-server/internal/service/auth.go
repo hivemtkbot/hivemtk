@@ -387,11 +387,11 @@ func HashPassword(password string) (string, error) {
 // 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
 //   - 调用方必须在请求体中传入 username/password/email（不再读 config 默认值）
 //   - 密码强度：至少 8 位，含大小写字母 + 数字
-//   - username 唯一性、email 唯一性、system_users 表为空（防重复初始化）
+//   - username 唯一性、email 唯一性（防重复初始化由路由层 install.lock 闸负责，见 admin_routes.go）
 //   - 创建后写 install.lock（AdminUsername + Initialized=true），作为"已初始化"标记
 //
 // 失败语义：
-//   - 已有用户 → errors.New("超管已存在，无法重复创建")
+//   - 已初始化（install.lock 存在）→ 由路由层返回 403 禁止重复创建，不到达本方法
 //   - 密码强度不达标 → 复用 service.validatePassword 返回的错误
 //   - username/email 冲突 → 透传 repo 错误
 func (s *AuthService) InitAdmin(ctx context.Context, username, password, email string) error {
@@ -401,17 +401,7 @@ func (s *AuthService) InitAdmin(ctx context.Context, username, password, email s
 		return errors.New("username/password/email 均不能为空")
 	}
 
-	// 1. 幂等检查：system_users 表已有任何用户 → 拒绝重复初始化
-	count, err := s.systemUserRepo.Count(ctx)
-	if err != nil {
-		logger.Error(err, "InitAdmin 统计用户失败")
-		return errors.New("系统状态异常，请稍后重试")
-	}
-	if count > 0 {
-		return errors.New("超管已存在，无法重复创建")
-	}
-
-	// 2. 密码强度校验（与 system_init.go 一致：≥8 位 + 大小写 + 数字）
+	// 密码强度校验（与 system_init.go 一致：≥8 位 + 大小写 + 数字）
 	if err := validatePassword(password); err != nil {
 		return err
 	}

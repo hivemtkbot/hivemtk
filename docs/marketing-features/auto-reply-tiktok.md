@@ -168,7 +168,6 @@ TikTok 海外多市场，私信咨询需用当地语言回复。需支持英语/
 
 - [auto-reply-universal.md](auto-reply-universal.md)
 - [card-tiktok.md](card-tiktok.md)
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md#九rag模块---自动回复)
 
 ---
 

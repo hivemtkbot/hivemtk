@@ -46,27 +46,10 @@ func RegisterMerchant(req RegisterMerchantReq) error {
 	return cli.RegisterMerchant(req)
 }
 
-// GetLatestMessage 获取平台最新公告消息
-func GetLatestMessage() (*LatestMessageResp, error) {
-	cli := NewClient(merchantKey)
-	message, err := cli.GetLatestMessage()
-	if err != nil {
-		logger.Errorf("获取最新消息失败: %v", err)
-		return nil, nil
-	}
-	return message, nil
-}
-
 // GetLicenseStatus 获取授权状态
 func GetLicenseStatus() (*LicenseStatusResp, error) {
 	cli := NewClient(merchantKey)
 	return cli.GetLicenseStatus()
-}
-
-// ReportAPILog 上报 API 调用日志
-func ReportAPILog(req ReportAPILogReq) error {
-	cli := NewClient(merchantKey)
-	return cli.ReportAPILog(req)
 }
 
 // GetMerchantKey 返回当前部署实例的 merchant key

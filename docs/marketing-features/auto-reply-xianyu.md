@@ -185,7 +185,6 @@
 
 - [auto-reply-universal.md](auto-reply-universal.md)
 - [card-xianyu.md](card-xianyu.md)
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md#九rag模块---自动回复)
 
 ---
 

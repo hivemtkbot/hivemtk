@@ -1,9 +1,13 @@
-// 注意：默认密码已废弃。初始化超管必须由调用方传 password。
+// user-server 管理员配置：
+//   - 私域合规基线：超管账号/密码完全由 InitAdmin 接口入库（POST /api/system/init-admin），
+//     不再读取任何 .env / 配置文件中的密码，杜绝「部署即被入侵」风险。
+//   - 本文件仅保留：UI 文案相关的非敏感默认值（登录页提示、自动登录开关等）。
+//   - 真正的超管密码 → 唯一来源：system_users.password（bcrypt 哈希）。
 //
-// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
-//   - 不再硬编码默认密码 Admin@123456（防止供应链 / 误部署直接落入生产）
-//   - 创建初始超管统一走 POST /api/system/init-admin，由调用方在请求体中传 password
-//   - config 仅保留 Username / Email / RealName 等非敏感默认值，Password 留空
+// 删除项（2026-07-24）：
+//   - os.Getenv("PLATFORM_ADMIN_PASSWORD")  // 平台代理管理员密码改由 config/platform.yaml 的 admin_password 读取
+//   - GetDefaultAdminCredentials()              // 移除暴露密码的辅助函数
+//   - defaultAdminConfig.DefaultAdmin.Password // 永远为空，禁止任何硬编码默认密码
 package config
 
 import (
@@ -13,17 +17,19 @@ import (
 	"strconv"
 )
 
-// AdminConfig 管理员配置
+// AdminConfig 管理员配置（仅承载非敏感的 UI 行为配置，不再含密码字段）
 type AdminConfig struct {
 	DefaultAdmin DefaultAdminConfig `json:"default_admin" yaml:"default_admin"`
 	AutoLogin    AutoLoginConfig    `json:"auto_login" yaml:"auto_login"`
 	Login        LoginConfig        `json:"login" yaml:"login"`
 }
 
-// DefaultAdminConfig 默认管理员配置
+// DefaultAdminConfig 默认管理员展示信息
+//
+// Password 字段已彻底移除：超管密码只能由 InitAdmin 流程写入 DB，
+// 任何代码路径都不应再持有「默认密码」概念。
 type DefaultAdminConfig struct {
 	Username string `json:"username" yaml:"username"`
-	Password string `json:"password" yaml:"password"`
 	Email    string `json:"email" yaml:"email"`
 	RealName string `json:"real_name" yaml:"real_name"`
 }
@@ -34,26 +40,25 @@ type AutoLoginConfig struct {
 	UseDefaultAdmin bool `json:"use_default_admin" yaml:"use_default_admin"`
 }
 
-// LoginConfig 登录配置
+// LoginConfig 登录页提示配置
 type LoginConfig struct {
 	ShowDefaultCredentials bool   `json:"show_default_credentials" yaml:"show_default_credentials"`
 	DefaultCredentialsHint string `json:"default_credentials_hint" yaml:"default_credentials_hint"`
 }
 
-// 默认管理员配置
+// defaultAdminConfig 默认配置（仅 UI 行为；密码字段不存在）
 //
-// Password 字段已废弃：阶段 3 起，初始化超管必须由调用方在请求体中传入。
-// 此处保留空字符串（不预置 Admin@123456），防止任何代码路径误用默认值。
+// 2026-07-24：移除硬编码 Admin@123456；DefaultAdmin 改名为 Username/Email/RealName 三段。
+// ShowDefaultCredentials 强制 false：登录页不再展示默认账号提示，避免引导用户使用弱口令。
 var defaultAdminConfig = AdminConfig{
 	DefaultAdmin: DefaultAdminConfig{
 		Username: "admin",
-		Password: "",
 		Email:    "admin@example.com",
 		RealName: "系统管理员",
 	},
 	AutoLogin: AutoLoginConfig{
-		Enabled:         true,
-		UseDefaultAdmin: true,
+		Enabled:         false,
+		UseDefaultAdmin: false,
 	},
 	Login: LoginConfig{
 		ShowDefaultCredentials: false,
@@ -61,11 +66,13 @@ var defaultAdminConfig = AdminConfig{
 	},
 }
 
-// GetAdminConfig 获取管理员配置
+// GetAdminConfig 获取管理员配置（仅 UI 行为）
+//
+// 不再返回任何形式的密码字段；调用方若需要登录凭据，必须查询 DB。
 func GetAdminConfig() *AdminConfig {
 	config := defaultAdminConfig
 
-	// 优先从配置文件读取（可选）：默认 ./.env/admin.json；也可通过 ADMIN_CONFIG_FILE 指定路径
+	// 可选：读取 .env/admin.json 覆盖 UI 行为配置（不覆盖密码相关字段，因为密码字段已删除）
 	cfgPath := os.Getenv("ADMIN_CONFIG_FILE")
 	if cfgPath == "" {
 		cfgPath = filepath.Join(".env", "admin.json")
@@ -73,12 +80,8 @@ func GetAdminConfig() *AdminConfig {
 	if b, err := os.ReadFile(cfgPath); err == nil && len(b) > 0 {
 		var fileCfg AdminConfig
 		if jsonErr := json.Unmarshal(b, &fileCfg); jsonErr == nil {
-			// 合并文件配置到默认配置
 			if fileCfg.DefaultAdmin.Username != "" {
 				config.DefaultAdmin.Username = fileCfg.DefaultAdmin.Username
-			}
-			if fileCfg.DefaultAdmin.Password != "" {
-				config.DefaultAdmin.Password = fileCfg.DefaultAdmin.Password
 			}
 			if fileCfg.DefaultAdmin.Email != "" {
 				config.DefaultAdmin.Email = fileCfg.DefaultAdmin.Email
@@ -97,12 +100,9 @@ func GetAdminConfig() *AdminConfig {
 		}
 	}
 
-	// 从环境变量读取配置（如果存在）
+	// 环境变量只覆盖非敏感展示字段
 	if username := os.Getenv("ADMIN_USERNAME"); username != "" {
 		config.DefaultAdmin.Username = username
-	}
-	if password := os.Getenv("ADMIN_PASSWORD"); password != "" {
-		config.DefaultAdmin.Password = password
 	}
 	if email := os.Getenv("ADMIN_EMAIL"); email != "" {
 		config.DefaultAdmin.Email = email
@@ -123,7 +123,7 @@ func GetAdminConfig() *AdminConfig {
 		}
 	}
 
-	// 登录配置
+	// 登录页提示配置
 	if showHint := os.Getenv("SHOW_DEFAULT_CREDENTIALS"); showHint != "" {
 		if show, err := strconv.ParseBool(showHint); err == nil {
 			config.Login.ShowDefaultCredentials = show
@@ -134,10 +134,4 @@ func GetAdminConfig() *AdminConfig {
 	}
 
 	return &config
-}
-
-// GetDefaultAdminCredentials 获取默认管理员凭据
-func GetDefaultAdminCredentials() (string, string) {
-	config := GetAdminConfig()
-	return config.DefaultAdmin.Username, config.DefaultAdmin.Password
 }

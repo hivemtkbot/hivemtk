@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
@@ -134,7 +135,11 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 
 	now := time.Now()
 	var timers []model.SOPTimer
-	if err := o.db.Where("status = ? AND wait_until <= ?", "pending", now).
+	// P1-21：使用 FOR UPDATE SKIP LOCKED 让多实例并行安全抢占
+	// 第一个拿到行的实例进入事务处理，其他实例立即跳过该行
+	if err := o.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+		Where("status = ? AND wait_until <= ?", "pending", now).
 		Order("wait_until ASC").
 		Limit(o.batchSize).
 		Find(&timers).Error; err != nil {

@@ -14,7 +14,8 @@ const PW = process.env.E2E_ADMIN_PW || 'Admin@12345678'
 const CANDIDATES = [
   'Admin@12345678',
   'Admin@123456',
-  '62cfdc6bf1b075830734cc6f9a63501b'
+  '62cfdc6bf1b075830734cc6f9a63501b',
+  '9eb623e1979ad575b98bad24e12669a2f58205e9a8c79f61a7083f8468fc18b3'
 ]
 
 const RESULT_DIR = path.resolve(process.cwd(), 'tests/.audit/agent-domain')

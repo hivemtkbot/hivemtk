@@ -19,6 +19,7 @@ jobs:
   test:
     name: Build & Test (user-server)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: pgvector/pgvector:pg15
@@ -62,14 +63,10 @@ jobs:
 
       - name: 架构合规检查(五层)
         # 对应 docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md
-        # 当前为 warn-only(已存量违规待清理),违规清零后改为阻断
-        continue-on-error: false
+        # 阻断模式：违规直接 fail，强制修复而非 warn-only 放行
         run: |
           chmod +x scripts/check-architecture.sh
-          bash scripts/check-architecture.sh || {
-            echo "::warning::架构检查发现违规,详见 GO_FIVE_LAYER_ARCHITECTURE.md"
-            bash scripts/check-architecture.sh || true
-          }
+          bash scripts/check-architecture.sh
 
       - name: go vet
         working-directory: user-server

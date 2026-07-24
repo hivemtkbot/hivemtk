@@ -8,11 +8,31 @@
           <p class="subtitle">基于规则 + LLM 双引擎识别客户对话意图，支撑销冠 SOP 智能体决策</p>
         </div>
         <div class="header-actions">
+          <el-tooltip
+            :content="intentEnabled ? '关闭后业务链路将直接走 IntentUnknown 兜底，不再调用规则/LLM 识别' : '开启后业务链路进入规则 + LLM 识别流程'"
+            placement="bottom"
+            :show-after="200"
+          >
+            <el-switch
+              v-model="intentEnabled"
+              :loading="configLoading"
+              inline-prompt
+              active-text="启用"
+              inactive-text="关闭"
+              style="margin-right: 12px"
+              @change="onToggleIntent"
+            />
+          </el-tooltip>
           <el-button @click="refreshAll" :loading="loading">
             <el-icon><Refresh /></el-icon>
             {{ $t('刷新') }}
           </el-button>
         </div>
+      </div>
+      <div v-if="configMeta.updated_at" class="config-meta">
+        <el-tag size="small" effect="plain" type="info">
+          最近更新：{{ formatTime(configMeta.updated_at) }} · by {{ configMeta.updated_by || 'system' }}
+        </el-tag>
       </div>
     </el-card>
 
@@ -255,6 +275,109 @@
       </el-col>
     </el-row>
 
+    <!-- ===== M-2 P1 精细意图识别（8 大类 + 7 子类） ===== -->
+    <el-card shadow="never" class="test-card">
+      <template #header>
+        <div class="card-header">
+          <span><el-icon><MagicStick /></el-icon> 精细意图识别（8 大类 + 7 子类）</span>
+          <el-button link type="primary" @click="fillFineExample">{{ $t('填入示例') }}</el-button>
+        </div>
+      </template>
+      <el-form :model="fineForm" label-width="90px" inline>
+        <el-form-item label="客户消息">
+          <el-input v-model="fineForm.message" type="textarea" :rows="2" placeholder="输入客户消息，如：你们这个产品跟别家有什么区别？" style="width: 460px" />
+        </el-form-item>
+        <el-form-item label="客户 ID">
+          <el-input v-model="fineForm.customer_id" placeholder="可选" clearable style="width: 180px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="fineLoading" @click="runRecognizeFine">
+            <el-icon><MagicStick /></el-icon> 精细识别
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <template v-if="fineResult">
+        <el-divider content-position="left">精细识别结果</el-divider>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="大类">
+            <el-tag type="primary" effect="dark">{{ fineResult.major || '-' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="子类">
+            <el-tag effect="plain">{{ fineResult.minor || '-' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="置信度">
+            <el-progress
+              :percentage="Math.round((fineResult.confidence || 0) * 100)"
+              :color="(fineResult.confidence || 0) >= 0.7 ? '#10B981' : '#F59E0B'"
+              :stroke-width="14"
+              style="width: 220px"
+            />
+          </el-descriptions-item>
+          <el-descriptions-item label="方法">
+            <el-tag :type="getFineMethodType(fineResult.method)" size="small">
+              {{ getFineMethodLabel(fineResult.method) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="fineResult.llm_model" label="LLM 模型">
+            <el-tag size="small" effect="plain">{{ fineResult.llm_model }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="fineResult.latency_ms" label="耗时">
+            {{ fineResult.latency_ms }} ms
+          </el-descriptions-item>
+          <el-descriptions-item v-if="fineResult.reasoning" label="推理说明" :span="2">
+            {{ fineResult.reasoning }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </template>
+    </el-card>
+
+    <!-- 精细意图日志 -->
+    <el-card shadow="never" class="dict-card">
+      <template #header>
+        <div class="card-header">
+          <span>精细意图识别日志（最近 {{ fineLogs.length }} 条）</span>
+          <div class="header-controls">
+            <el-select v-model="filterFineMajor" placeholder="大类筛选" clearable size="small" style="width: 160px" @change="loadFineLogs">
+              <el-option v-for="m in fineMajorOptions" :key="m" :label="m" :value="m" />
+            </el-select>
+            <el-button size="small" type="primary" @click="loadFineLogs">查询</el-button>
+          </div>
+        </div>
+      </template>
+      <el-table :data="fineLogs" v-loading="fineLogsLoading" stripe size="small">
+        <el-table-column label="消息内容" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.message || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="大类" width="120">
+          <template #default="{ row }">
+            <el-tag type="primary" size="small" effect="plain">{{ row.intent_major || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="子类" width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.intent_minor || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="置信度" width="100">
+          <template #default="{ row }">{{ Math.round((row.confidence || 0) * 100) }}%</template>
+        </el-table-column>
+        <el-table-column label="方法" width="80">
+          <template #default="{ row }">
+            <el-tag :type="getFineMethodType(row.method)" size="small" effect="plain">
+              {{ getFineMethodLabel(row.method) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="耗时" width="80">
+          <template #default="{ row }">{{ row.latency_ms || 0 }}ms</template>
+        </el-table-column>
+        <el-table-column label="时间" width="150">
+          <template #default="{ row }">{{ formatTime(row.timestamp || row.created_at) }}</template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无精细识别日志" :image-size="80" />
+        </template>
+      </el-table>
+    </el-card>
+
     <!-- 意图词典 -->
     <el-card shadow="never" class="dict-card">
       <template #header>
@@ -294,7 +417,7 @@ import i18n from '@/i18n'
 
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Aim, Refresh } from '@element-plus/icons-vue'
+import { Aim, MagicStick, Refresh } from '@element-plus/icons-vue'
 import { intentApi } from '@/api/intentRecognition.js'
 import { getChannelLabel } from '@/constants/channel'
 // 统一枚举：识别方法（LLM / 规则）
@@ -326,7 +449,71 @@ const recognizeResult = ref(null)
 const batchLoading = ref(false)
 const batchResults = ref([])
 
+// ===== M-2 P1 精细意图识别（8 大类 + 7 子类）=====
+const fineLoading = ref(false)
+const fineForm = ref({ message: '', customer_id: '' })
+const fineResult = ref(null)
+const fineLogsLoading = ref(false)
+const fineLogs = ref([])
+const filterFineMajor = ref('')
+// 8 大类常量,避免硬编码不一致
+const fineMajorOptions = [
+  'consult', 'price_inquiry', 'objection', 'after_sale',
+  'complaint', 'churn', 'intent_buy', 'ask_product'
+]
+const FINE_METHOD_LABEL = { rule: '规则', llm: 'LLM', hybrid: '规则+LLM' }
+const FINE_METHOD_TAG = { rule: 'success', llm: 'danger', hybrid: 'warning' }
+const getFineMethodLabel = (m) => FINE_METHOD_LABEL[m] || m || '-'
+const getFineMethodType = (m) => FINE_METHOD_TAG[m] || 'info'
+
 const loading = ref(false)
+
+// ===== 意图识别总开关（user-web 在线配置，不走 env）=====
+const configLoading = ref(false)
+const intentEnabled = ref(true)
+const configMeta = ref({ updated_at: '', updated_by: '' })
+
+// 加载意图识别配置
+const loadIntentConfig = async () => {
+  configLoading.value = true
+  try {
+    const res = await intentApi.getConfig()
+    if (res && typeof res === 'object') {
+      intentEnabled.value = res.enabled !== false
+      configMeta.value = {
+        updated_at: res.updated_at || '',
+        updated_by: res.updated_by || ''
+      }
+    }
+  } catch (e) {
+    // 加载失败时默认开启（与后端默认一致），并提示
+    intentEnabled.value = true
+    ElMessage.warning('加载意图识别配置失败，已使用默认开启状态：' + (e.message || '未知错误'))
+  } finally {
+    configLoading.value = false
+  }
+}
+
+// 切换意图识别开关
+const onToggleIntent = async (val) => {
+  configLoading.value = true
+  try {
+    const res = await intentApi.updateConfig({ enabled: val })
+    if (res && typeof res === 'object') {
+      configMeta.value = {
+        updated_at: res.updated_at || '',
+        updated_by: res.updated_by || ''
+      }
+    }
+    ElMessage.success(`意图识别已${val ? '启用' : '关闭'}，业务链路立即生效`)
+  } catch (e) {
+    // 回滚 UI 状态
+    intentEnabled.value = !val
+    ElMessage.error('更新意图识别配置失败：' + (e.message || '未知错误'))
+  } finally {
+    configLoading.value = false
+  }
+}
 
 // 意图名称映射
 const intentNameMap = computed(() => {
@@ -533,7 +720,61 @@ const runBatchRecognize = async () => {
   }
 }
 
-onMounted(() => refreshAll())
+// ===== M-2 P1 精细意图识别方法 =====
+
+const fillFineExample = () => {
+  const examples = [
+    '你们这个产品跟别家有什么区别？',
+    '太贵了，能便宜点吗？',
+    '我要怎么付款？',
+    '我刚买的那个有质量问题，要求退款',
+    '别家只要 299，你们太贵了',
+    '我想确认下具体功能再决定'
+  ]
+  fineForm.value.message = examples[Math.floor(Math.random() * examples.length)]
+}
+
+const runRecognizeFine = async () => {
+  if (!fineForm.value.message || !fineForm.value.message.trim()) {
+    ElMessage.warning(i18n.global.t('请输入客户消息'))
+    return
+  }
+  fineLoading.value = true
+  fineResult.value = null
+  try {
+    const data = { message: fineForm.value.message }
+    if (fineForm.value.customer_id) data.customer_id = fineForm.value.customer_id
+    const res = await intentApi.recognizeFine(data)
+    fineResult.value = res
+    ElMessage.success(i18n.global.t('精细识别完成'))
+    loadFineLogs()
+  } catch (e) {
+    ElMessage.error('精细识别失败：' + (e.message || '未知错误'))
+  } finally {
+    fineLoading.value = false
+  }
+}
+
+const loadFineLogs = async () => {
+  fineLogsLoading.value = true
+  try {
+    const params = { limit: 50 }
+    if (filterFineMajor.value) params.major = filterFineMajor.value
+    const res = await intentApi.getLogs(params)
+    fineLogs.value = Array.isArray(res) ? res : (res?.list || [])
+  } catch (e) {
+    ElMessage.error('加载精细识别日志失败：' + (e.message || '未知错误'))
+    fineLogs.value = []
+  } finally {
+    fineLogsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadIntentConfig()
+  refreshAll()
+  loadFineLogs()
+})
 </script>
 
 <style scoped lang="scss">
@@ -551,6 +792,7 @@ onMounted(() => refreshAll())
   }
   .header-actions { display: flex; gap: 8px; }
 }
+.config-meta { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ebeef5; }
 
 .test-card { margin-bottom: 16px; }
 

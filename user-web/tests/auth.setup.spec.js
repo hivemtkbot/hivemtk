@@ -4,12 +4,12 @@ import path from 'path'
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8213'
 const STATE = path.resolve(process.cwd(), 'tests/.auth/user.json')
 
-// 候选密码：覆盖历史重置值(Admin@123456)与容器播种值(ADMIN_PASSWORD 环境变量)，
+// 候选密码：覆盖历史重置值(Admin@123456)与平台代理凭证(PLATFORM_ADMIN_PASSWORD 环境变量)，
 // 逐一尝试直到登录成功，避免容器重建后凭据失效导致整套测试无法运行。
 const CANDIDATES = [
   'Admin@12345678',
   'Admin@123456',
-  '62cfdc6bf1b075830734cc6f9a63501b',
+  '62cfdc6bf1b075830734cc6f9a63501b'
 ]
 
 test.use({ baseURL: BASE })

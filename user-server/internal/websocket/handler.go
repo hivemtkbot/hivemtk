@@ -55,6 +55,8 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
+	// 本地/私域部署：WebSocket 入口不做 token 鉴权（与关闭 CORS 一致），仅依据 agent_id 路由身份。
+
 	// 分配/透传追踪 ID，绑定 module=websocket，使该连接生命周期内的所有日志共享同一追踪标识
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")

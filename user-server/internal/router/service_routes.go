@@ -213,8 +213,16 @@ func setupWeComHealthRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupIntentRoutes 意图识别路由
+//
+// 使用全局 IntentRecognizer（main.go 中 InitIntentRecognizer 初始化），
+// 复用 dispatcher/db,避免每个请求重建对象。
 func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	intentCtrl := controller.NewIntentController(service.NewIntentRecognizer(db, nil, nil))
+	rec := service.GetIntentRecognizer()
+	if rec == nil {
+		// 兜底：若全局未初始化(单测等场景)则临时创建一个
+		rec = service.NewIntentRecognizer(db, getGlobalDispatcher(), nil)
+	}
+	intentCtrl := controller.NewIntentController(rec)
 	auth.POST("/intent/recognize", intentCtrl.Recognize)
 	auth.POST("/intent/recognize/batch", intentCtrl.BatchRecognize)
 	auth.GET("/intent/stats", intentCtrl.Stats)
@@ -224,6 +232,9 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/intent/recognize/fine", intentCtrl.RecognizeFine)
 	auth.GET("/intent/logs", intentCtrl.IntentLogs)
 	auth.GET("/intent/stats/fine", intentCtrl.IntentStatsFine)
+	// 意图识别配置（在线开关 + 持久化）
+	auth.GET("/intent/config", intentCtrl.GetConfig)
+	auth.PUT("/intent/config", intentCtrl.UpdateConfig)
 }
 
 // setupLLMProviderRoutes LLM Provider 降级管理路由（M-1 P1）

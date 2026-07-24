@@ -222,7 +222,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第四章](../architecture/FUNCTION_DETAILS.md#四营销模块---活码管理)
 - [shortlink-management.md](shortlink-management.md)
 
 ---

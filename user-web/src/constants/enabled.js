@@ -13,6 +13,8 @@
  *   :type="getEnabledTagType(row.status)"
  */
 
+import i18n from '@/i18n'
+
 export const ENABLED_OPTIONS = Object.freeze([
   { value: 1,        label: '启用',   tagType: 'success', aliases: ['active', 'enabled', 'online', 'on', 1, '1', true] },
   { value: 0,        label: '禁用',   tagType: 'danger',  aliases: ['inactive', 'disabled', 'offline', 'off', 0, '0', false] }
@@ -70,6 +72,12 @@ export const isEnabled = (v) => normalizeEnabled(v) === 1
  */
 export const getEnabledLabel = (v) => {
   if (v === undefined || v === null || v === '') return '-'
+  const n = normalizeEnabled(v)
+  if (n === 1 || n === 0) {
+    const key = n === 1 ? 'enabledLabel.enabled' : 'enabledLabel.disabled'
+    const tr = i18n.global.t(key)
+    if (tr && tr !== key) return tr
+  }
   const key = String(v).toLowerCase()
   return ENABLED_LABEL_MAP[key] || String(v)
 }

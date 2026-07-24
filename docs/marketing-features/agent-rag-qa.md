@@ -296,7 +296,6 @@
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **RAG 权威基线 V2.0**
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **V2.0 统一架构**
 - rag-customer-service-guide.md ⭐ **V3.0 用户指南**
-- [FUNCTION_DETAILS.md 第八章](../architecture/FUNCTION_DETAILS.md#八rag模块---智能体)
 
 ---
 

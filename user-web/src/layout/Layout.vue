@@ -68,16 +68,27 @@
 
     <el-container class="app-body">
       <!-- 侧边栏 -->
-      <el-aside width="240px" v-if="currentTopMenu && currentTopMenu.children" class="app-aside">
+      <el-aside :width="sidebarCollapsed ? '64px' : '240px'" v-if="currentTopMenu && currentTopMenu.children" class="app-aside" :class="{ 'is-collapsed': sidebarCollapsed }">
         <div class="aside-brand">
-          <el-icon><Menu /></el-icon>
-          <span>{{ t('menu.' + currentTopMenu.key) }}</span>
+          <el-icon v-show="!sidebarCollapsed"><Menu /></el-icon>
+          <span v-show="!sidebarCollapsed">{{ t('menu.' + currentTopMenu.key) }}</span>
+          <el-button
+            class="collapse-btn"
+            :class="{ 'collapse-btn--collapsed': sidebarCollapsed }"
+            text
+            :title="sidebarCollapsed ? t('layout.expandMenu') : t('layout.collapseMenu')"
+            @click="toggleSidebar"
+          >
+            <el-icon><Fold v-if="!sidebarCollapsed" /><Expand v-else /></el-icon>
+          </el-button>
         </div>
         <el-scrollbar>
           <el-menu
             :default-active="route.path"
             @select="handleSubMenuSelect"
             :unique-opened="false"
+            :collapse="sidebarCollapsed"
+            :collapse-transition="true"
             mode="vertical"
           >
             <template v-for="subMenu in currentTopMenu.children" :key="subMenu.key">
@@ -87,7 +98,7 @@
         </el-scrollbar>
 
         <!-- 授权信息显示 -->
-        <div class="license-info" v-if="licenseInfo">
+        <div class="license-info" v-if="licenseInfo && !sidebarCollapsed">
           <div class="license-expiry" :class="{ 'expired': isLicenseExpired }">
             <el-icon><Timer /></el-icon>
             <span>{{ t('layout.licenseExpiry') }}: {{ formattedExpiryTime }}</span>
@@ -132,8 +143,8 @@ import i18n from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { getLicenseStatus } from '@/api/license'
 import { resetSystem as resetSystemApi } from '@/api/system'
-import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, RefreshLeft } from '@element-plus/icons-vue'
-void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void RefreshLeft
+import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, RefreshLeft, Fold, Expand } from '@element-plus/icons-vue'
+void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void RefreshLeft; void Fold; void Expand
 
 // 创建图标组件映射
 const iconComponents = {}
@@ -149,6 +160,22 @@ const t = i18n.global.t
 const activeTopMenu = ref('')
 const activeSubMenu = ref(route.path)
 const unreadCount = ref(0)
+const SIDEBAR_COLLAPSED_KEY = 'hivemtk_sidebar_collapsed'
+const readSidebarCollapsed = () => {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const sidebarCollapsed = ref(readSidebarCollapsed())
+const persistSidebarCollapsed = () => {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
+  } catch {
+    // localStorage 不可用时静默忽略
+  }
+}
 
 // 授权信息相关
 const licenseInfo = ref(null)
@@ -616,6 +643,11 @@ const handleSubMenuSelect = (path) => {
   router.push(path)
 }
 
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  persistSidebarCollapsed()
+}
+
 const handleReset = () => {
   ElMessageBox.confirm(
     '确定要重置系统吗？此操作将清除所有数据并恢复到初始状态。',
@@ -835,6 +867,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.25s ease;
 }
 .aside-brand {
   display: flex;
@@ -850,6 +883,22 @@ onMounted(async () => {
 .aside-brand .el-icon {
   font-size: 18px;
   color: #818CF8;
+}
+.collapse-btn {
+  margin-left: auto;
+  color: #C7D2FE;
+}
+.app-aside.is-collapsed .aside-brand {
+  justify-content: center;
+  padding: 18px 0;
+  gap: 0;
+}
+.app-aside.is-collapsed .collapse-btn {
+  margin-left: 0;
+}
+.collapse-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
 }
 .app-aside :deep(.el-scrollbar) {
   flex: 1;

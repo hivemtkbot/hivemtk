@@ -82,7 +82,9 @@
     "logout": "Log out",
     "reset": "One-click reset",
     "login": "Log in",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu"
   },
   "role": {
     "title": "Role Management",
@@ -1773,5 +1775,22 @@
     "save": "Save",
     "cancel": "Cancel",
     "confirm": "Confirm"
+  },
+  "roleName": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "supervisor": "Supervisor",
+    "agent": "Agent",
+    "member": "Member",
+    "guest": "Guest",
+    "user": "User",
+    "ai": "AI",
+    "system": "System",
+      "customer_service": "Customer Service",
+      "staff": "Staff"
+  },
+  "enabledLabel": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   }
 }

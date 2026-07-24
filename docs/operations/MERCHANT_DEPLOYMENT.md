@@ -1,7 +1,7 @@
 # HiveMtk 用户端 - 部署手册
 
-> 用户端独立部署（私域模式）
-> 适用版本：2026-07-21
+> 用户端独立部署（私域模式，开源版）
+> 适用版本：2026-07-24（已移除 License 授权流程与 OTA 升级）
 > 适用对象：商户 / 终端用户
 
 ---
@@ -12,10 +12,11 @@ HiveMtk 用户端采用**私域独立部署**模式：
 
 - 部署在商户自己的服务器（或私有云、混合云）
 - 数据库、推理栈、用户数据全部本地化
-- 平台端（License 验证、版本管理）以公网 API 形式调用，数据不落地平台端
+- 平台端（安装信息收集、心跳上报）通过 `PLATFORM_API_URL` 低频 HTTPS 调用，数据不落地平台端
 - 每个商户独立一套完整系统（user-server + PostgreSQL + Redis + 推理栈）
 
 > **禁止 SaaS / 多租户模式**：无 `merchant_id` 字段，所有数据归属当前部署实例。
+> **开源版无 License 校验**：所有功能全开放，无 7 天试用、无授权码、无强制首登改密。
 
 ---
 
@@ -51,27 +52,37 @@ cp .env-example .env
 # 关键变量（必须修改）
 POSTGRES_PASSWORD=$(openssl rand -hex 24)
 JWT_SECRET=$(openssl rand -hex 32)
-PLATFORM_LICENSE_SECRET=$(openssl rand -hex 32)
-ADMIN_PASSWORD=$(openssl rand -hex 16)
+PLATFORM_ADMIN_PASSWORD=$(openssl rand -hex 16)
 
-# 平台端地址（同机部署用 host.docker.internal）
-PLATFORM_API_URL=http://host.docker.internal:8205
+# 平台端地址（同机部署用 127.0.0.1）
+PLATFORM_API_URL=http://127.0.0.1:8205
 # 跨机/生产：改为平台端公网域名，如 https://api.example.com
 ```
+
+> 开源版**无需**生成 `PLATFORM_LICENSE_SECRET`、`LicenseKey` 等授权相关密钥（已下线）。
 
 ### 步骤 3：启动本地推理栈
 
 ```bash
-# 模型档位在 .env 中配置：默认 dev 轻量档（Qwen2.5-1.5B-Instruct + Qwen3-Embedding-0.6B + bge-reranker-base）
-# prod 重量档（生产服务器 32GB+）：改为 Qwen2.5-14B-Instruct + bge-m3 + bge-reranker-v2-m3（见 .env 注释）
+# 方式 A：宿主机 llama.cpp 推理栈（推荐，零虚拟化损耗）
+bash scripts/inference-host/install-llama-cpp.sh
+HIVEMTK_PROFILE=dev bash scripts/inference-host/download-models.sh
+bash scripts/inference-host/start-all.sh
+
+# 方式 B：Docker 推理栈（向后兼容）
+# 模型档位在 .env 中配置：默认 dev 轻量档（Qwen2.5-3B-Instruct + bge-m3 + bge-reranker-v2-m3）
 make inference-up
 ```
 
-等待 `mtk-llm` / `mtk-embedding` / `mtk-rerank` 三个容器都 `healthy` 后继续。
+等待三个推理服务（LLM/Embedding/Rerank）health-check 通过后继续。
 
 ### 步骤 4：启动用户端服务
 
 ```bash
+# 方式 A：宿主机开发模式（推荐，air 热更新）
+cd user-server && air
+
+# 方式 B：Docker 全栈模式
 # 先构建前端（仅首次部署或前端有更新时需要）
 cd user-web && npm install && npm run build && cd ..
 cd embed-sdk && npm install && npm run build && cd ..
@@ -84,11 +95,15 @@ docker compose up -d
 
 浏览器访问 `http://your-server-ip:8204/setup`：
 
-1. 输入在 HiveMtk 官网注册获得的 32 位 LicenseKey
-2. 设置超管账号（首次登录会强制改密）
-3. 完成系统初始化
+1. 创建超级管理员账号（用户名 + 密码 + 选填联系方式）
+2. 提交后立即生效，系统进入 `INITIALIZED` 状态
+3. 跳转登录页，用刚创建的超管账号登录
 
-> **7 天免费试用**：未绑定 LicenseKey 时可使用全部功能 7 天；到期前需在平台端购买正式 License。
+> **开源版特性**：
+> - 无需输入 LicenseKey
+> - 无 7 天免费试用限制（功能全开放）
+> - 无强制首登改密（commit 65079e5 已移除 `must_change_password` 机制）
+> - 详见 [MERCHANT_INITIALIZATION_FLOW.md](MERCHANT_INITIALIZATION_FLOW.md)
 
 ---
 
@@ -100,8 +115,8 @@ docker compose up -d
 | 8202 | PostgreSQL (user_db) | 容器内端口 |
 | 8203 | Redis | 容器内端口 |
 | 8207 | mtk-llm | llama.cpp 推理 |
-| 8208 | mtk-embedding | TEI bge-m3 (1024 维) |
-| 8209 | mtk-rerank | TEI bge-reranker-v2-m3 |
+| 8208 | mtk-embedding | bge-m3 (1024 维) |
+| 8209 | mtk-rerank | bge-reranker-v2-m3 |
 
 ---
 
@@ -115,7 +130,7 @@ docker compose up -d
 | `mtk_user_redis_data` | Redis 数据 |
 | `mtk_user_logs` | 应用日志 |
 | `mtk_user_uploads` | 用户上传文件 |
-| `mtk_user_data` | install.lock 等运行时凭证 |
+| `mtk_user_data` | install.lock 等运行时文件 |
 
 > **不要**用 bind mount 替换这些卷，否则数据可能丢失。
 
@@ -150,10 +165,10 @@ docker compose down -v
 # 备份 PostgreSQL
 docker exec mtk-user-postgres pg_dump -U admin user_db > backup-$(date +%Y%m%d).sql
 
-# 备份 install.lock（重要！丢失则需重新绑定 License）
+# 备份 install.lock（重要！丢失则需重新初始化）
 docker cp mtk-user-server:/app/data/install.lock ./install.lock.bak
 
-# 备份运行时凭证
+# 备份运行时文件
 docker run --rm -v mtk_user_data:/data -v $(pwd):/backup alpine tar czf /backup/data-backup-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
@@ -170,6 +185,8 @@ docker cp ./install.lock.bak mtk-user-server:/app/data/install.lock
 ---
 
 ## 八、升级
+
+> 开源版采用**纯 git 提交推送**发布：客户自行 `git pull` 拉取升级，无 OTA 下发。
 
 ```bash
 # 1. 备份数据
@@ -213,7 +230,9 @@ curl http://localhost:8207/health
 docker exec mtk-llm nvidia-smi
 ```
 
-### 9.3 平台端调用失败
+### 9.3 平台端心跳上报失败
+
+> 平台端心跳为 best-effort，失败仅 Warn 日志，**不阻塞**本地业务。
 
 ```bash
 # 检查 PLATFORM_API_URL 配置
@@ -226,7 +245,7 @@ docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
 
 ## 十、迁移到生产
 
-参考 `architecture/部署方案_平台端与用户端.md` 了解详细论证。
+参考 `architecture/部署方案_用户端.md` 了解详细论证。
 
 生产环境额外建议：
 
@@ -243,4 +262,6 @@ docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
 - 官网：https://hivemtk.com
 - 文档：本目录 `docs/INDEX.md`
 - 邮箱：support@hivemtk.com
-- License 问题：通过平台端工单系统
+- 开源仓库：
+  - GitHub：https://github.com/xiaofang142/hivemtk
+  - Gitee：https://gitee.com/xhpmayun/hivemtk

@@ -95,8 +95,7 @@
 | PostgreSQL 密码 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` |
 | Redis 密码 | `REDIS_PASSWORD` | `openssl rand -hex 24` |
 | JWT 签名密钥 | `JWT_SECRET` | `openssl rand -hex 32` |
-| 平台 License 密钥 | `PLATFORM_LICENSE_SECRET` | `openssl rand -hex 32` |
-| 超管密码 | `ADMIN_PASSWORD` | 自定义强密码 |
+| 平台代理密码 | `PLATFORM_ADMIN_PASSWORD` | 自定义强密码（与平台端 .env 保持一致） |
 
 ### 4.2 鉴权模型
 

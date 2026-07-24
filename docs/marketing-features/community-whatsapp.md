@@ -217,7 +217,6 @@ WhatsApp 作为全球最大即时通讯工具，是跨境营销主战场。通�
 
 - BROWSER_ASSISTANT.md
 - [auto-reply-universal.md](auto-reply-universal.md)
-- [FUNCTION_DETAILS.md 第七章](../architecture/FUNCTION_DETAILS.md#七消息模块---whatsapp营销)
 
 ---
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 	"sync"
@@ -78,16 +79,24 @@ func saveAuditBatch(logs []*model.OperationLog) {
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		successCount := 0
-		failedLogs := make([]*model.OperationLog, 0)
+		failedLogs := make([]*model.OperationLog, 0, len(logs))
 
 		for _, log := range logs {
 			if err := repo.Create(context.Background(), log); err == nil {
 				successCount++
+			} else {
+				// 关键修复：将失败的日志收集到 failedLogs，确保下次重试
+				failedLogs = append(failedLogs, log)
 			}
 		}
 
 		if len(failedLogs) == 0 {
 			return // 全部成功
+		}
+
+		// 记录最后一次失败的日志数量
+		if attempt == maxRetries-1 {
+			log.Printf("[audit] %d 条审计日志在 %d 次重试后仍写入失败", len(failedLogs), maxRetries)
 		}
 
 		// 部分失败，等待后重试

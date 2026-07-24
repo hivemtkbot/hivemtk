@@ -237,7 +237,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第二章](../architecture/FUNCTION_DETAILS.md#二营销模块---卡片管理)
 - [shortlink-management.md](shortlink-management.md)
 
 ---

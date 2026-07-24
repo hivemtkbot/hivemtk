@@ -4,11 +4,14 @@ import (
 	knowledgectrl "marketing/internal/aiagent/knowledge/controller"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
+	"marketing/internal/pkg/utils/response"
 	"marketing/internal/repository"
 	"marketing/internal/service"
+	"marketing/internal/system/install"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"net/http"
 )
 
 // setupPlatformRoutes 平台端管理路由（需要平台权限）
@@ -80,7 +83,15 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	systemInitCtrl := controller.NewSystemInitController()
 	authCtrl := controller.NewAuthController()
 	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
-	public.POST("/system/init-admin", authCtrl.InitAdmin)
+	// 初始化闸：系统已初始化（install.lock 已记录超管）后，从入口关闭该公开接口，
+	// 禁止通过 POST /system/init-admin 重复创建超管。首装可带 username/password/email 正常创建。
+	public.POST("/system/init-admin", func(ctx *gin.Context) {
+		if install.GetStatus().Initialized {
+			response.Error(ctx, http.StatusForbidden, response.ErrSystemAlreadyInitialized)
+			return
+		}
+		authCtrl.InitAdmin(ctx)
+	})
 	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
@@ -120,8 +131,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.POST("/livecode/:id/click", liveCodeController.RecordClick)
 
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
-	public.POST("/platform/report-api-log", platformCtrl.ReportAPILog)
-	// 开源版：移除 OTA 客户端更新检查接口（/platform/check-update）
+	// 开源版：移除 OTA 客户端更新检查接口（/platform/check-update）和 API 日志上报接口（/platform/report-api-log）
 
 	// P0-14 外部系统知识库接入（公开，使用 API Token 鉴权，不需要 JWT）
 	// 商户自部署场景：商户自有 CRM/ERP/Helpdesk 通过此入口推送文档

@@ -14,9 +14,36 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/dto"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
+
+// IntentEnabled 意图识别总开关（内存态）
+//
+// 2026-07-25 重构：业务链路统一使用一个总开关管控意图识别流程
+//
+// 行为：
+//   - true:  进入意图识别流程（规则匹配 → LLM 识别 → 兜底）
+//   - false: 跳过意图识别流程，直接返回 IntentUnknown 兜底
+//
+// 不管 LLM 是本地 API 还是云端 API，都由本开关统一控制；
+// 本开关关闭时，规则匹配和 LLM 识别都不会被调用，业务链路步骤 3 直接走兜底，
+// 后续 SOP 匹配/RAG 召回/LLM 生成等步骤仍可继续。
+//
+// 持久化：存于 system_config_kv 表，key=intent_recognition_config；
+// 由 InitIntentRecognizer 启动加载、UpdateIntentConfig 写入更新。
+// 前端 user-web 意图识别页面可在线开关，无需重启服务。
+var IntentEnabled = true
+
+// IntentConfigKey system_config_kv 表的存储 key
+const IntentConfigKey = "intent_recognition_config"
+
+// IntentConfig 意图识别配置（DB 持久化结构）
+type IntentConfig struct {
+	Enabled   bool   `json:"enabled"`             // 是否启用意图识别
+	UpdatedAt string `json:"updated_at,omitempty"` // 更新时间（RFC3339）
+	UpdatedBy string `json:"updated_by,omitempty"` // 更新人
+}
 
 // IntentRecognizer 销售意图识别器
 type IntentRecognizer struct {
@@ -159,9 +186,30 @@ var DefaultIntents = []IntentDef{
 // 使用 dto.RecognizeResult 替代本地类型
 
 // Recognize 识别意图
+//
+// 流程（2026-07-25 重构）：
+//  1. 文本为空 → 直接返回 IntentUnknown
+//  2. 总开关 IntentEnabled 关闭 → 直接返回 IntentUnknown（不进入流程）
+//  3. 总开关开启：
+//     a. 规则匹配 → 命中即返回
+//     b. 规则未命中 → LLM 识别（本地/云端 API 统一）
+//     c. 全部失败 → IntentUnknown 兜底
+//  4. 意图→SOP 联动
 func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID, text string) (*dto.RecognizeResult, error) {
 	if text == "" {
 		return &dto.RecognizeResult{IntentType: IntentUnknown, Confidence: 0, Method: "rule"}, nil
+	}
+
+	// 总开关：未开启直接返回 IntentUnknown，不进入规则/LLM 流程
+	if !IntentEnabled {
+		return &dto.RecognizeResult{
+			IntentType:      IntentUnknown,
+			IntentName:      "未知",
+			Confidence:      0.3,
+			ConfidenceLevel: "low",
+			Sentiment:       "neutral",
+			Method:          "disabled",
+		}, nil
 	}
 
 	var result *dto.RecognizeResult
@@ -170,12 +218,9 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 	if r := s.recognizeByRule(ctx, text); r != nil {
 		s.saveRecord(ctx, sessionID, customerID, text, r, "", 0, 0)
 		result = r
-	} else if s.dispatcher != nil && !isLocalLLMBaseURL(config.GetAppConfig().Inference.LLM.BaseURL) {
-		// 2. LLM 识别（仅云端 SaaS 启用）
-		// 2026-07-24 性能优化：本地小模型（1.5B/3B q4 CPU）单次推理 30-180s，
-		// 规则词典已覆盖 13 种核心意图；未命中时直接走兜底 IntentUnknown，
-		// 意图理解由 Step 6 generateCandidate 的 LLM 在生成回复时一并完成。
-		// 云端 SaaS（base_url 指向公网 API）保留 LLM 意图识别以提升精度。
+	} else if s.dispatcher != nil {
+		// 2. LLM 识别（本地/云端 API 统一走 LLM 兜底）
+		// 2026-07-25 重构：移除 isLocalLLMBaseURL 限制，规则未命中时统一调 LLM
 		if r, err := s.recognizeByLLM(ctx, text); err == nil && r != nil {
 			s.saveRecord(ctx, sessionID, customerID, text, r, r.LLMModel, r.CostTokens, r.LatencyMs)
 			result = r
@@ -471,6 +516,37 @@ func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int) (map[st
 	return stats, nil
 }
 
+// GetMethodLevelStats 获取 method/level 维度统计
+//
+//   - by_method:  {"rule": 12, "llm": 3}
+//   - by_level:   {"high": 5, "medium": 8, "low": 2}
+//
+// 当 DB 不可用或无记录时返回空 map,前端可降级为不显示该卡片
+func (s *IntentRecognizer) GetMethodLevelStats(ctx context.Context, days int) (map[string]int, map[string]int) {
+	byMethod := map[string]int{}
+	byLevel := map[string]int{}
+	if s.db == nil {
+		return byMethod, byLevel
+	}
+	since := time.Now().AddDate(0, 0, -days)
+	type row struct {
+		Method          string
+		ConfidenceLevel string
+	}
+	var rows []row
+	if err := s.db.Model(&model.IntentRecord{}).
+		Select("method, confidence_level").
+		Where("created_at > ?", since).
+		Scan(&rows).Error; err != nil {
+		return byMethod, byLevel
+	}
+	for _, r := range rows {
+		byMethod[r.Method]++
+		byLevel[r.ConfidenceLevel]++
+	}
+	return byMethod, byLevel
+}
+
 // GetRecentIntents 客户近期意图历史
 func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID string, limit int) ([]model.IntentRecord, error) {
 	if s.db == nil {
@@ -480,6 +556,51 @@ func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID stri
 	err := s.db.Where("customer_id = ?", customerID).
 		Order("created_at DESC").Limit(limit).Find(&records).Error
 	return records, err
+}
+
+// GetRecentIntentsPaged 分页查询最近意图历史,支持意图类型筛选
+//
+//   - customerID: 空表示全量
+//   - intentType: 空表示不筛选
+//   - page:       1-based
+//   - pageSize:   每页条数
+//
+// 返回 (records, total, error)
+func (s *IntentRecognizer) GetRecentIntentsPaged(ctx context.Context, customerID, intentType string, page, pageSize int) ([]model.IntentRecord, int64, error) {
+	if s.db == nil {
+		return nil, 0, nil
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	q := s.db.WithContext(ctx).Model(&model.IntentRecord{})
+	if customerID != "" {
+		q = q.Where("customer_id = ?", customerID)
+	}
+	if intentType != "" {
+		q = q.Where("intent_type = ?", intentType)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var records []model.IntentRecord
+	if err := q.Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&records).Error; err != nil {
+		return nil, 0, err
+	}
+	return records, total, nil
 }
 
 // 全局实例管理
@@ -493,9 +614,85 @@ func GetIntentRecognizer() *IntentRecognizer {
 	return intentRecognizer
 }
 
+// SetIntentEnabled 设置意图识别开关（仅更新内存态，供 router/main 注入或热更新）
+func SetIntentEnabled(enabled bool) {
+	IntentEnabled = enabled
+}
+
+// LoadIntentConfig 从 system_config_kv 表加载意图识别配置
+//
+// 行为：
+//   - DB 不可用 / 无记录：返回默认配置（Enabled=true）+ nil
+//   - DB 有记录但 JSON 损坏：返回错误（由调用方决定兜底）
+func LoadIntentConfig(ctx context.Context) (*IntentConfig, error) {
+	repo := repository.NewSystemConfigKVRepository()
+	val, err := repo.Get(ctx, IntentConfigKey)
+	if err != nil {
+		// DB 错误时使用默认配置，避免阻断服务
+		logger.Ctx(ctx).Warn().Err(err).Msg("[intent] 加载意图识别配置失败，使用默认配置（Enabled=true）")
+		return &IntentConfig{Enabled: true}, nil
+	}
+	if val == "" {
+		// 无配置记录时使用默认
+		return &IntentConfig{Enabled: true}, nil
+	}
+	var cfg IntentConfig
+	if err := json.Unmarshal([]byte(val), &cfg); err != nil {
+		return nil, fmt.Errorf("parse intent config: %w", err)
+	}
+	return &cfg, nil
+}
+
+// SaveIntentConfig 保存意图识别配置到 system_config_kv 表（仅持久化，不更新内存）
+//
+// 由 controller UpdateConfig 调用持久化后再调用 SetIntentEnabled 更新内存态。
+func SaveIntentConfig(ctx context.Context, cfg *IntentConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("intent config is nil")
+	}
+	repo := repository.NewSystemConfigKVRepository()
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal intent config: %w", err)
+	}
+	if _, err := repo.Upsert(ctx, IntentConfigKey, string(data)); err != nil {
+		return fmt.Errorf("upsert intent config: %w", err)
+	}
+	return nil
+}
+
+// UpdateIntentConfig 一站式：保存到 DB + 更新内存态 IntentEnabled
+//
+// 用于 controller UpdateConfig 接口，原子化保证前端开关变化立即生效。
+func UpdateIntentConfig(ctx context.Context, cfg *IntentConfig) error {
+	if err := SaveIntentConfig(ctx, cfg); err != nil {
+		return err
+	}
+	SetIntentEnabled(cfg.Enabled)
+	logger.Infof("[intent] 意图识别配置已更新：Enabled=%v", cfg.Enabled)
+	return nil
+}
+
 // InitIntentRecognizer 初始化意图识别器
+//
+// 启动时从 system_config_kv 表加载意图识别开关：
+//   - 表无记录：使用默认 Enabled=true
+//   - 表有记录：以 DB 配置为准
+//   - DB 不可用：降级为默认 Enabled=true（不阻断服务启动）
 func InitIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.Client) *IntentRecognizer {
 	intentRecognizerOnce.Do(func() {
+		// 1. 从 DB 加载配置
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cfg, err := LoadIntentConfig(ctx)
+		if err != nil {
+			logger.Errorf("[intent] 加载意图识别配置失败：%v，使用默认 Enabled=true", err)
+			IntentEnabled = true
+		} else {
+			IntentEnabled = cfg.Enabled
+			logger.Infof("[intent] 已从 DB 加载意图识别配置：Enabled=%v", IntentEnabled)
+		}
+
 		intentRecognizer = NewIntentRecognizer(db, dispatcher, cache)
 	})
 	return intentRecognizer

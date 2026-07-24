@@ -59,6 +59,8 @@ build/
 /user-server/marketing
 /user-server/perf
 /user-server/user-server
+/user-server/reset-admin
+/user-server/tmp/
 /user-server/embedding-server
 /user-server/bin/
 /user-server/internal/plugin/main/*.so

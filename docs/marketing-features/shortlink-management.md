@@ -235,7 +235,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md 第三章](../architecture/FUNCTION_DETAILS.md#三营销模块---短链接管理)
 - [domain-pool.md](domain-pool.md)
 - [livecode-management.md](livecode-management.md)
 

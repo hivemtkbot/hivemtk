@@ -169,15 +169,14 @@ vim .env
 #   POSTGRES_PASSWORD         openssl rand -hex 24
 #   REDIS_PASSWORD            openssl rand -hex 24
 #   JWT_SECRET                openssl rand -hex 32
-#   PLATFORM_LICENSE_SECRET   openssl rand -hex 32
-#   ADMIN_PASSWORD            your super-admin password
+#   PLATFORM_ADMIN_PASSWORD    platform proxy admin password (keep same as platform .env)
 
 # 4. Start everything
 make up
 
 # 5. Access
 # Admin console:  http://localhost:8204
-# Default admin:  admin / (ADMIN_PASSWORD set in .env)
+# Default admin:  admin / (DB bcrypt password set via init-admin, not .env)
 # Health check:   curl http://localhost:8204/health
 ```
 

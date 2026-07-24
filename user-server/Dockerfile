@@ -26,8 +26,8 @@ COPY . .
 # 同时构建两个二进制:
 #   - user-server: 主业务服务
 #   - embedding-server: 私域本地 Embedding HTTP 服务（纯 Go，替代 TEI）
-RUN go build -ldflags="-s -w" -o user-server ./cmd/api/main.go && \
-    go build -ldflags="-s -w" -o embedding-server ./cmd/embedding-server/main.go
+RUN go build -trimpath -buildvcs=false -ldflags="-s -w" -o user-server ./cmd/api/main.go && \
+    go build -trimpath -buildvcs=false -ldflags="-s -w" -o embedding-server ./cmd/embedding-server/main.go
 
 # 阶段 2: 运行镜像
 FROM alpine:3.19
@@ -83,6 +83,12 @@ RUN chmod +x /app/user-server /app/embedding-server 2>/dev/null || true
 RUN mkdir -p /app/logs /app/uploads /app/data
 # /data/chromium 仅 chromium 用户数据目录使用，chromium 已注释故不再创建
 # RUN mkdir -p /data/chromium
+
+# 阶段 2 切到非 root 用户运行（最小权限原则，防容器逃逸）
+# 容器若被 RCE 攻击，仅获得 app 用户权限，宿主机 root 不会被触达
+RUN addgroup -S app && adduser -S app -G app && \
+    chown -R app:app /app /app/logs /app/uploads /app/data
+USER app
 
 EXPOSE 8204 80
 # 8206 为 chromium 远程调试端口（CDP），chromium 已注释，暂不暴露

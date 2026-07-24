@@ -228,7 +228,6 @@ RAG 系统需要针对每个产品/账号配置独立知识库和 LLM 参数。�
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **V2.0 统一架构**
 - [agent-rag-qa.md](agent-rag-qa.md)
 - [knowledge-management.md](knowledge-management.md)
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md#八rag模块---智能客服)
 
 ---
 

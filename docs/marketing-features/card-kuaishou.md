@@ -218,7 +218,6 @@
 
 ## 九、参考资料
 
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md#二营销模块---卡片管理)
 - [card-douyin.md](card-douyin.md)
 
 ---

@@ -2,7 +2,7 @@
 
 > 版本：2026-07-24
 > 适用项目：hivemtk 用户端（user-server + user-web）
-> 关联文档：[LOCAL_INFERENCE_OPTIMIZATION.md](./LOCAL_INFERENCE_OPTIMIZATION.md)
+> 关联文档：[部署方案_用户端.md](./部署方案_用户端.md)、[GO_FIVE_LAYER_ARCHITECTURE.md](./GO_FIVE_LAYER_ARCHITECTURE.md)
 
 ---
 
@@ -110,7 +110,7 @@ $HIVEMTK_RUNTIME_DIR/
 | 前端 | `hivemtk/user-web/.env.development` | 修改 | 保持相对路径，无需改动 |
 | 前端 | `hivemtk/user-web/.env.example` | 保留 | 解释注释补充 |
 | 文档 | `hivemtk/docs/architecture/HOST_INFERENCE_PLAN.md` | 新增 | 本文档 |
-| 文档 | `hivemtk/docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md` | 修改 | 反映新架构 |
+| 文档 | `hivemtk/docs/architecture/HOST_INFERENCE_PLAN.md` | 新增 | 宿主机 llama.cpp 推理栈实施计划（替代原 LOCAL_INFERENCE_OPTIMIZATION.md） |
 | 文档 | `hivemtk/docs/architecture/HOST_SETUP.md` | 新增 | 宿主机一键部署说明（端到端） |
 
 ### 2.3 不动的文件
@@ -347,7 +347,7 @@ inference-host-warmup: warmup.sh
 
 - `docs/architecture/HOST_INFERENCE_PLAN.md`：本文件。
 - `docs/architecture/HOST_SETUP.md`：端到端 5 分钟部署说明。
-- `docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md`：更新为宿主机架构。
+- `docs/architecture/HOST_INFERENCE_PLAN.md`：本文档（替代原 LOCAL_INFERENCE_OPTIMIZATION.md）。
 - `scripts/inference-host/README.md`：脚本级说明。
 
 ---

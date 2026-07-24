@@ -303,7 +303,6 @@ CREATE TABLE marketing_flows (
 ## 九、参考资料
 
 - PROJECT_FUNCTIONAL_ARCHITECTURE.md 第 3.1.9 节
-- [FUNCTION_DETAILS.md](../architecture/FUNCTION_DETAILS.md) 营销自动化章节
 - [MASTER_RULES.md](../standards/MASTER_RULES.md)
 
 ---
