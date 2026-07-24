@@ -27,6 +27,9 @@ yarn-debug.log*
 yarn-error.log*
 .workbuddy-ai/*
 
+# ---------- 运行时产物（PID / 进程日志）----------
+.runtime/
+
 # ---------- 编辑器 / IDE ----------
 .vscode/
 .idea/
