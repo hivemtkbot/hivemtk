@@ -33,6 +33,32 @@ func (c *UserSegmentController) GetRFMRule(ctx *gin.Context) {
 	response.Success(ctx, rule, "获取成功")
 }
 
+// ListRFMRules 列出所有 RFM 规则（分页）
+func (c *UserSegmentController) ListRFMRules(ctx *gin.Context) {
+	page := 1
+	pageSize := 20
+	if p := ctx.Query("page"); p != "" {
+		page, _ = strconv.Atoi(p)
+	}
+	if ps := ctx.Query("page_size"); ps != "" {
+		pageSize, _ = strconv.Atoi(ps)
+		if pageSize > 100 {
+			pageSize = 100
+		}
+	}
+	rules, total, err := c.rfmService.ListRFMRules(context.Background(), page, pageSize)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{
+		"list":      rules,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}, "获取成功")
+}
+
 // SaveRFMRule 保存 RFM 规则
 func (c *UserSegmentController) SaveRFMRule(ctx *gin.Context) {
 	var req service.SaveRFMRuleRequest

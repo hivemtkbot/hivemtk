@@ -299,6 +299,30 @@ func (s *RFMCalculatorService) GetRFMRule(ctx context.Context) (*model.RFMRule, 
 	return s.rfmRuleRepo.GetActiveRule(ctx)
 }
 
+// ListRFMRules 列出所有 RFM 规则（用于分群管理页）
+func (s *RFMCalculatorService) ListRFMRules(ctx context.Context, page, pageSize int) ([]*model.RFMRule, int64, error) {
+	all, err := s.rfmRuleRepo.GetAll(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := int64(len(all))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	start := (page - 1) * pageSize
+	if start >= len(all) {
+		return []*model.RFMRule{}, total, nil
+	}
+	end := start + pageSize
+	if end > len(all) {
+		end = len(all)
+	}
+	return all[start:end], total, nil
+}
+
 // DeleteRFMRule 删除 RFM 规则
 func (s *RFMCalculatorService) DeleteRFMRule(ctx context.Context, id uint) error {
 	return s.rfmRuleRepo.Delete(ctx, id)

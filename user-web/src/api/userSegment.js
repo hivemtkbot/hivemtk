@@ -28,7 +28,7 @@ export function getLayerDescription() {
 
 // 兼容旧接口
 export function getUserSegments(params) {
-  return getRFMList(params)
+  return request({ url: '/api/user-segments', method: 'get', params })
 }
 export function getSegmentStats() {
   return getRFMStats()

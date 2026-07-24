@@ -130,8 +130,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// 5. 用户分层 RFM - 别名
 	// ============================================================
 	userSegmentCtrl := controller.NewUserSegmentController()
-	doReg("GET", "/user-segments", userSegmentCtrl.GetRFMList)
-	doReg("GET", "/user-segments/list", userSegmentCtrl.GetRFMList)
+	doReg("GET", "/user-segments", userSegmentCtrl.ListRFMRules)
+	doReg("GET", "/user-segments/list", userSegmentCtrl.ListRFMRules)
 	doReg("GET", "/user-segments/rfm/list", userSegmentCtrl.GetRFMList)
 	doReg("GET", "/user-segments/rfm/stats", userSegmentCtrl.GetRFMStats)
 	doReg("GET", "/user-segments/layers", userSegmentCtrl.GetLayerDescription)

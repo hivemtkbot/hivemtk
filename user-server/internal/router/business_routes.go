@@ -53,6 +53,7 @@ func setupAIContentRoutes(auth *gin.RouterGroup) {
 func setupUserSegmentRoutes(auth *gin.RouterGroup) {
 	userSegmentCtrl := controller.NewUserSegmentController()
 	auth.GET("/user-segment/rfm/rule", userSegmentCtrl.GetRFMRule)
+	auth.GET("/user-segment/rfm/rules", userSegmentCtrl.ListRFMRules)
 	auth.POST("/user-segment/rfm/rule", userSegmentCtrl.SaveRFMRule)
 	auth.PUT("/user-segment/rfm/rule/:id", userSegmentCtrl.UpdateRFMRule)
 	auth.DELETE("/user-segment/rfm/rule/:id", userSegmentCtrl.DeleteRFMRule)
