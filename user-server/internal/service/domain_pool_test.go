@@ -537,7 +537,7 @@ func TestDomainPoolService_Update_LastCheck(t *testing.T) {
 	_, _ = service.CheckDomain(created.ID)
 
 	updated, _ := service.GetByID(context.Background(), created.ID)
-	if updated.UpdatedAt.Before(created.Create(dAt) {
+	if updated.UpdatedAt.Before(created.CreatedAt) {
 		t.Error("Expected UpdatedAt to be updated")
 	}
 }

@@ -19,10 +19,10 @@ export const platformAPI = {
     })
   },
 
-  // 获取授权状态
+  // 获取授权状态 - 实际后端路由为 /api/license/status（开源自部署，无 OTA 授权）
   getLicenseStatus() {
     return request({
-      url: '/api/platform/license/status',
+      url: '/api/license/status',
       method: 'get'
     })
   },
