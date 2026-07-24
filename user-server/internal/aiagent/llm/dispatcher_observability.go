@@ -3,13 +3,113 @@ package llm
 import (
 	"context"
 	"hash/fnv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
 
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/pkg/utils/logger"
 )
+
+// ============================================================================
+// Token 计量三档（actual / estimated / missing）
+// ----------------------------------------------------------------------------
+// 符合项目硬约束：
+//   - token_source=actual   : LLM 响应携带 usage 字段，直接采用
+//   - token_source=estimated: LLM 未返回 usage，本地字符加权估算
+//   - token_source=missing  : LLM 响应为空/异常，无法计量（触发告警）
+// ============================================================================
+
+const (
+	TokenSourceActual    = "actual"
+	TokenSourceEstimated = "estimated"
+	TokenSourceMissing   = "missing"
+
+	ModelTypeLocal = "local"
+	ModelTypeCloud = "cloud"
+
+	SourceDispatch  = "dispatch"
+	SourceCache     = "cache"
+	SourceFallback  = "fallback"
+	SourceEmpty     = "null"
+
+	EstimatorCharWeight  = "char_weight"
+	EstimatorEmptyFallback = "empty_fallback"
+)
+
+// missingCounter 全局 missing 计数器（用于占比告警）
+var (
+	missingCounter   int64
+	totalCounter     int64
+	missingThreshold = int64(20) // missing 占比 >= 20% 触发告警
+)
+
+// ============================================================================
+// 厂商/模型类型推断（与 service/llm_routing_service.vendorFromBaseURL 对齐）
+// ============================================================================
+
+// InferVendor 根据 BaseURL 推断厂商
+//
+// 与 service/llm_routing_service.go 的 vendorFromBaseURL 保持一致，
+// 避免 service → llm 包的反向依赖。
+func InferVendor(baseURL string) string {
+	low := strings.ToLower(baseURL)
+	switch {
+	case strings.Contains(low, "deepseek"):
+		return "deepseek"
+	case strings.Contains(low, "dashscope"), strings.Contains(low, "qwen"):
+		return "qwen"
+	case strings.Contains(low, "openai"), strings.Contains(low, "gpt"):
+		return "openai"
+	case strings.Contains(low, "zhipu"), strings.Contains(low, "glm"), strings.Contains(low, "bigmodel"):
+		return "zhipu"
+	case strings.Contains(low, "moonshot"), strings.Contains(low, "kimi"):
+		return "moonshot"
+	case strings.Contains(low, "127.0.0.1"), strings.Contains(low, "localhost"), strings.Contains(low, "mtk-llm"):
+		return "local"
+	default:
+		return "other"
+	}
+}
+
+// InferModelType 根据 BaseURL 推断模型类型（local / cloud）
+func InferModelType(baseURL string) string {
+	low := strings.ToLower(baseURL)
+	if low == "" || strings.Contains(low, "127.0.0.1") || strings.Contains(low, "localhost") || strings.Contains(low, "mtk-llm") {
+		return ModelTypeLocal
+	}
+	return ModelTypeCloud
+}
+
+// InferTokenSource 根据 LLM 真实 Usage 判定 token_source
+//
+//   - TotalTokens > 0 → actual（LLM 返回了真实 usage）
+//   - TotalTokens == 0 且有 content → estimated（需要字符估算兜底）
+//   - 无 content 且无 usage → missing（响应异常）
+func InferTokenSource(totalTokens int, content string) string {
+	if totalTokens > 0 {
+		return TokenSourceActual
+	}
+	if content != "" {
+		return TokenSourceEstimated
+	}
+	return TokenSourceMissing
+}
+
+// ClassifyEstimator 根据估算路径标记 estimator 字段
+func ClassifyEstimator(tokenSource string) string {
+	switch tokenSource {
+	case TokenSourceEstimated:
+		return EstimatorCharWeight
+	case TokenSourceMissing:
+		return EstimatorEmptyFallback
+	default:
+		return ""
+	}
+}
 
 // ============================================================================
 // 可观测性补充（2026-07-23）
@@ -50,45 +150,205 @@ func AttachAuditDB(d *gorm.DB) {
 // 路由决策日志（每次 Dispatch 落一条到 llm_routing_logs）
 // ============================================================================
 
-// LogRoutingDecision 记录一次 dispatch 决策
+// LogEntry 路由决策日志条目（包含 v3.6.0 基础字段 + v3.7.0 扩展字段）
+//
+// 设计原则：
+//   - 一份结构体承载所有字段，避免函数参数爆炸
+//   - 调用方通过 NewLogEntry 构造，保证扩展字段自动填充
+//   - 落库失败仅记日志，不阻塞业务
+type LogEntry struct {
+	TraceID          string           `json:"trace_id"`
+	Scenario         DispatchScenario `json:"scenario"`
+	Provider         string           `json:"provider"`
+	Model            string           `json:"model"`
+	PromptTokens     int              `json:"prompt_tokens"`
+	CompletionTokens int              `json:"completion_tokens"`
+	TotalTokens      int              `json:"total_tokens"`
+	Cost             float64          `json:"cost"`
+	LatencyMs        int              `json:"latency_ms"`
+	Success          bool             `json:"success"`
+	ErrorMsg         string           `json:"error_msg"`
+	FromCache        bool             `json:"from_cache"`
+	// v3.7.0 扩展字段（本地/云端 token 计量三档、厂商归集、出域审计、降级率统计）
+	ModelType        string  `json:"model_type"`         // local / cloud
+	Vendor           string  `json:"vendor"`             // deepseek/qwen/openai/zhipu/moonshot/local/other
+	BaseURL          string  `json:"base_url"`           // 出域审计
+	IsFallback       bool    `json:"is_fallback"`        // 是否为降级调用（attempted > 1）
+	PromptCost       float64 `json:"prompt_cost"`        // prompt 单价计费
+	CompletionCost   float64 `json:"completion_cost"`    // completion 单价计费
+	TokenSource      string  `json:"token_source"`       // actual / estimated / missing
+	Estimator        string  `json:"estimator"`          // char_weight / empty_fallback
+	Source           string  `json:"source"`             // dispatch / cache / fallback / null
+	ScenarioProvider string  `json:"scenario_provider"`  // 聚合键 (scenario|provider)
+}
+
+// NewLogEntry 根据基础信息构造 LogEntry，自动填充扩展字段
 //
 // 参数：
-//   - scenario:  调度场景
-//   - provider:  命中的 provider
-//   - model:     实际调用的 model
-//   - tokens:    prompt/completion/total
-//   - cost:      估算成本
-//   - latency:   调用耗时
-//   - success:   是否成功
-//   - errMsg:    失败原因
-//   - fromCache: 是否命中缓存
-//   - traceID:   请求 trace_id
+//   - scenario:    调度场景
+//   - provider:    命中的 provider 配置（用于推断 vendor/model_type/base_url）
+//   - model:       实际调用的 model 名
+//   - usage:       LLM 真实 token 用量（PromptTokens/CompletionTokens/TotalTokens）
+//   - cost:        总成本（用于 cost 字段，prompt/completion 拆分按 token 比例计算）
+//   - latencyMs:   调用耗时
+//   - success:     是否成功
+//   - errMsg:      失败原因
+//   - fromCache:   是否命中缓存
+//   - isFallback:  是否为降级调用
+//   - traceID:     请求 trace_id
+//   - content:     LLM 响应内容（用于判定 token_source 是否 estimated）
+//   - source:      调用来源（dispatch/cache/fallback/null）
+func NewLogEntry(scenario DispatchScenario, provider *ProviderConfig, model string,
+	promptTokens, completionTokens, totalTokens int, cost float64, latencyMs int,
+	success bool, errMsg string, fromCache, isFallback bool, traceID, content, source string) *LogEntry {
+
+	baseURL := ""
+	if provider != nil {
+		baseURL = provider.BaseURL
+	}
+	tokenSource := InferTokenSource(totalTokens, content)
+	estimator := ClassifyEstimator(tokenSource)
+	modelType := InferModelType(baseURL)
+	vendor := InferVendor(baseURL)
+
+	// prompt/completion 成本按 token 比例拆分
+	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
+
+	// 缓存命中时强制 source=cache
+	if fromCache {
+		source = SourceCache
+	}
+
+	return &LogEntry{
+		TraceID:          traceID,
+		Scenario:         scenario,
+		Provider:         providerName(provider),
+		Model:            model,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		TotalTokens:      totalTokens,
+		Cost:             cost,
+		LatencyMs:        latencyMs,
+		Success:          success,
+		ErrorMsg:         errMsg,
+		FromCache:        fromCache,
+		ModelType:        modelType,
+		Vendor:           vendor,
+		BaseURL:          baseURL,
+		IsFallback:       isFallback,
+		PromptCost:       promptCost,
+		CompletionCost:   completionCost,
+		TokenSource:      tokenSource,
+		Estimator:        estimator,
+		Source:           source,
+		ScenarioProvider: string(scenario) + "|" + providerName(provider),
+	}
+}
+
+// providerName 安全获取 provider 名
+func providerName(p *ProviderConfig) string {
+	if p == nil {
+		return ""
+	}
+	return p.Name
+}
+
+// splitCost 按 prompt/completion token 比例拆分总成本
 //
+// 当 totalTokens == 0 时，全部计入 prompt_cost（避免除零）。
+// 本地模型 cost 通常为 0（CostPer1k=0），拆分后仍为 0。
+func splitCost(totalCost float64, promptTokens, completionTokens, totalTokens int) (promptCost, completionCost float64) {
+	if totalTokens <= 0 {
+		return totalCost, 0
+	}
+	ratio := float64(promptTokens) / float64(totalTokens)
+	promptCost = totalCost * ratio
+	completionCost = totalCost - promptCost
+	return
+}
+
+// LogRoutingDecision 记录一次 dispatch 决策（v3.7.0 重构版）
+//
+// 调用方优先使用 NewLogEntry 构造 entry，再传入本函数。
 // 落库失败仅记录日志，不阻塞业务。
-func LogRoutingDecision(ctx context.Context, scenario DispatchScenario, provider, model string, promptTokens, completionTokens, totalTokens int, cost float64, latencyMs int, success bool, errMsg string, fromCache bool, traceID string) {
+// 同时维护 missing 计数器，超过阈值时触发告警。
+func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
+	if entry == nil {
+		return
+	}
 	d := getAuditDB()
 	if d == nil {
+		// DB 未注入，仍更新计数器（用于进程内监控）
+		updateMissingCounter(entry)
 		return
 	}
 	row := map[string]any{
-		"trace_id":          traceID,
-		"scenario":          string(scenario),
-		"provider":          provider,
-		"model":             model,
-		"prompt_tokens":     promptTokens,
-		"completion_tokens": completionTokens,
-		"total_tokens":      totalTokens,
-		"cost":              cost,
-		"latency_ms":        latencyMs,
-		"success":           success,
-		"error_msg":         errMsg,
-		"from_cache":        fromCache,
+		"trace_id":          entry.TraceID,
+		"scenario":          string(entry.Scenario),
+		"provider":          entry.Provider,
+		"model":             entry.Model,
+		"prompt_tokens":     entry.PromptTokens,
+		"completion_tokens": entry.CompletionTokens,
+		"total_tokens":      entry.TotalTokens,
+		"cost":              entry.Cost,
+		"latency_ms":        entry.LatencyMs,
+		"success":           entry.Success,
+		"error_msg":         entry.ErrorMsg,
+		"from_cache":        entry.FromCache,
+		// v3.7.0 扩展字段
+		"model_type":        entry.ModelType,
+		"vendor":            entry.Vendor,
+		"base_url":          entry.BaseURL,
+		"is_fallback":       entry.IsFallback,
+		"prompt_cost":       entry.PromptCost,
+		"completion_cost":   entry.CompletionCost,
+		"token_source":      entry.TokenSource,
+		"estimator":         entry.Estimator,
+		"source":            entry.Source,
+		"scenario_provider": entry.ScenarioProvider,
 	}
 	if err := d.WithContext(ctx).Table("llm_routing_logs").Create(row).Error; err != nil {
-		// 写日志失败不应影响主流程
-		// 走包内 logger 即可（已 import）
-		_ = err
+		// 写日志失败不阻塞主流程，但记录警告便于排查（如建表失败、字段缺失等）
+		logger.Warnf("[LLM] LogRoutingDecision write failed: %v (entry=%+v)", err, entry)
 	}
+	// 更新 missing 计数器（用于占比告警）
+	updateMissingCounter(entry)
+}
+
+// updateMissingCounter 更新 missing 计数器并检查阈值
+//
+// 每 100 次调用检查一次 missing 占比，超过阈值时打印告警日志。
+// 计数器为进程级，重启后归零。
+func updateMissingCounter(entry *LogEntry) {
+	if entry == nil {
+		return
+	}
+	total := atomic.AddInt64(&totalCounter, 1)
+	if entry.TokenSource == TokenSourceMissing {
+		atomic.AddInt64(&missingCounter, 1)
+	}
+	// 每 100 次调用检查一次占比，避免每次调用都计算
+	if total%100 == 0 {
+		missing := atomic.LoadInt64(&missingCounter)
+		if total > 0 {
+			ratio := missing * 100 / total
+			if ratio >= missingThreshold {
+				logger.Errorf("[LLM] token_source=missing 占比告警: %d/%d (%d%%) >= %d%%阈值，请检查 LLM API 响应完整性",
+					missing, total, ratio, missingThreshold)
+			}
+		}
+	}
+}
+
+// GetTokenSourceStats 获取进程内 token_source 统计（供监控 API 查询）
+func GetTokenSourceStats() (total, missing int64) {
+	return atomic.LoadInt64(&totalCounter), atomic.LoadInt64(&missingCounter)
+}
+
+// ResetTokenSourceStats 重置计数器（仅供测试使用）
+func ResetTokenSourceStats() {
+	atomic.StoreInt64(&totalCounter, 0)
+	atomic.StoreInt64(&missingCounter, 0)
 }
 
 // ScenarioStat 场景维度统计（用于 Usage API）

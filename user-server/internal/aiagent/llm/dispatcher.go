@@ -521,6 +521,13 @@ type DispatchResult struct {
 	// 由 provider 响应中的 usage 字段填充
 	// TokenUsage 类型在下方定义
 	Usage TokenUsage `json:"usage,omitempty"`
+	// v3.7.0 扩展：token 计量元数据（用于 llm_routing_logs 落库）
+	BaseURL        string  `json:"base_url,omitempty"`        // 出域审计
+	IsFallback     bool    `json:"is_fallback,omitempty"`     // 是否为降级调用
+	TokenSource    string  `json:"token_source,omitempty"`    // actual/estimated/missing
+	Estimator      string  `json:"estimator,omitempty"`       // char_weight/empty_fallback
+	PromptCost     float64 `json:"prompt_cost,omitempty"`     // prompt 单价计费
+	CompletionCost float64 `json:"completion_cost,omitempty"` // completion 单价计费
 }
 
 // TokenUsage LLM token 使用量（基础版）
@@ -626,9 +633,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 				req.Scenario, providerName, traceID, attempted, len(candidates), err)
 			// 触发告警（默认 AlertHook：累计失败计数）
 			AlertProviderFailure(string(req.Scenario), providerName, err, traceID)
-			// 2026-07-23 P1 补：失败时也落决策日志（供事后追查哪次降级）
-			LogRoutingDecision(ctx, req.Scenario, providerName, provider.Model,
-				0, 0, 0, 0, 0, false, err.Error(), false, traceID)
+			// v3.7.0：失败时也落决策日志（标记 is_fallback + token_source=missing）
+			isFallback := attempted > 1
+			failEntry := NewLogEntry(req.Scenario, provider, provider.Model,
+				0, 0, 0, 0, 0, false, err.Error(), false, isFallback, traceID, "", SourceFallback)
+			LogRoutingDecision(ctx, failEntry)
 			continue
 		}
 		// 命中成功
@@ -645,10 +654,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		if req.CacheKey != "" && req.CacheTTL > 0 {
 			d.setCache(req.CacheKey, req.CacheTTL, result.Content)
 		}
-		// 2026-07-23 P1 补：成功决策日志
-		LogRoutingDecision(ctx, req.Scenario, providerName, result.Model,
+		// v3.7.0：成功决策日志（含真实 usage + 扩展字段）
+		isFallback := attempted > 1
+		successEntry := NewLogEntry(req.Scenario, provider, result.Model,
 			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
-			result.Cost, result.LatencyMs, true, "", false, traceID)
+			result.Cost, result.LatencyMs, true, "", false, isFallback, traceID, result.Content, SourceDispatch)
+		LogRoutingDecision(ctx, successEntry)
 		return result, nil
 	}
 	if lastErr == nil {
@@ -764,68 +775,60 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	}
 
 	start := time.Now()
-	// P0-2: 当 req.Tools 或 req.Messages 非空（智能体循环场景）走 GenerateWithTools；
-	//       否则走原始 Generate 路径以保持 token 估算等行为不变。
-	if len(req.Tools) > 0 || len(req.Messages) > 0 {
-		result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
-		latency := int(time.Since(start).Milliseconds())
-		if err != nil {
-			return nil, fmt.Errorf("provider %s: %w", provider.Name, err)
-		}
-		// token 估算：GenerateWithTools 已返回真实 Usage（如本地推理栈支持），
-		// 优先使用真实值，否则降级为估算
-		totalTokens := result.Usage.TotalTokens
-		if totalTokens <= 0 {
-			totalTokens = estimateTokens(req.Prompt) + estimateTokens(result.Content)
-		}
-		cost := float64(totalTokens) / 1000.0 * provider.CostPer1k
-		// P1-D：填充 Usage（来自 LLM 真实响应；零值时省略）
-		var usage TokenUsage
-		if result.Usage.TotalTokens > 0 {
-			usage = TokenUsage{
-				PromptTokens:     result.Usage.PromptTokens,
-				CompletionTokens: result.Usage.CompletionTokens,
-				TotalTokens:      result.Usage.TotalTokens,
-			}
-		}
-		dispatchResult := &DispatchResult{
-			Provider:     provider.Name,
-			Model:        provider.Model,
-			Content:      result.Content,
-			TotalTokens:  totalTokens,
-			Cost:         cost,
-			LatencyMs:    latency,
-			FinishReason: result.FinishReason,
-			ToolCalls:    result.ToolCalls,
-			Usage:        usage, // P1-D
-		}
-		// P2-A: ReAct 适配 - 解析 LLM 文本输出为 ToolCall
-		if reactMode {
-			dispatchResult = d.getReActAdapter().AdaptResult(dispatchResult)
-		}
-		return dispatchResult, nil
-	}
-
-	content, err := d.llmService.Generate(ctx, config, req.Prompt)
+	// v3.7.0 统一走 GenerateWithTools 路径，确保所有调用都能拿到真实 Usage
+	// （Generate 内部本身就是调用 GenerateWithTools，只是丢弃了 Usage，导致简单调用场景
+	//   无法获取真实 token 用量。此处直接调用 GenerateWithTools 修复该缺陷。）
+	result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
 	latency := int(time.Since(start).Milliseconds())
 	if err != nil {
 		return nil, fmt.Errorf("provider %s: %w", provider.Name, err)
 	}
 
-	// 估算 tokens（粗略：1 token ≈ 1.5 个中文字符或 4 个英文）
-	totalTokens := estimateTokens(req.Prompt) + estimateTokens(content)
+	// token 用量：优先使用 LLM 真实 Usage，零值时降级为字符估算
+	promptTokens := result.Usage.PromptTokens
+	completionTokens := result.Usage.CompletionTokens
+	totalTokens := result.Usage.TotalTokens
+	if totalTokens <= 0 {
+		// LLM 未返回 usage，按字符加权估算（标记为 estimated）
+		promptTokens = estimateTokens(req.Prompt)
+		completionTokens = estimateTokens(result.Content)
+		totalTokens = promptTokens + completionTokens
+	}
 	cost := float64(totalTokens) / 1000.0 * provider.CostPer1k
+	tokenSource := InferTokenSource(result.Usage.TotalTokens, result.Content)
+	estimator := ClassifyEstimator(tokenSource)
+	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
 
-	return &DispatchResult{
-		Provider:    provider.Name,
-		Model:       provider.Model,
-		Content:     content,
-		TotalTokens: totalTokens,
-		Cost:        cost,
-		LatencyMs:   latency,
-		// P0-3 修复：LLMService 尚未透传时，FinishReason 默认为 "stop"
-		FinishReason: "stop",
-	}, nil
+	// P1-D：填充 Usage（来自 LLM 真实响应；零值时省略）
+	var usage TokenUsage
+	if result.Usage.TotalTokens > 0 {
+		usage = TokenUsage{
+			PromptTokens:     result.Usage.PromptTokens,
+			CompletionTokens: result.Usage.CompletionTokens,
+			TotalTokens:      result.Usage.TotalTokens,
+		}
+	}
+	dispatchResult := &DispatchResult{
+		Provider:       provider.Name,
+		Model:          provider.Model,
+		Content:        result.Content,
+		TotalTokens:    totalTokens,
+		Cost:           cost,
+		LatencyMs:      latency,
+		FinishReason:   result.FinishReason,
+		ToolCalls:      result.ToolCalls,
+		Usage:          usage, // P1-D
+		BaseURL:        provider.BaseURL,
+		TokenSource:    tokenSource,
+		Estimator:      estimator,
+		PromptCost:     promptCost,
+		CompletionCost: completionCost,
+	}
+	// P2-A: ReAct 适配 - 解析 LLM 文本输出为 ToolCall
+	if reactMode {
+		dispatchResult = d.getReActAdapter().AdaptResult(dispatchResult)
+	}
+	return dispatchResult, nil
 }
 
 // DispatchStructured 结构化输出
@@ -847,12 +850,19 @@ func (d *Dispatcher) DispatchStructured(ctx context.Context, req DispatchRequest
 	return result, nil
 }
 
-// estimateTokens 估算 token 数
+// estimateTokens 估算 token 数（仅作为 LLM 未返回 usage 时的兜底，标记 token_source=estimated）
+//
+// 估算公式：
+//   - 中文字符（U+4E00~U+9FFF）：每字符计 1 token
+//   - 其他字符（ASCII/标点/空白）：每 4 字节计 1 token（UTF-8 编码下英文为 1 字节/字符）
+//
+// 注意：本函数仅为兜底，优先使用 LLM 真实 Usage（token_source=actual）。
+// 本地 llama-server / vLLM / Ollama 等主流推理栈均默认返回 usage 字段，
+// 实际生产中 estimated 路径极少触发，missing 路径触发即告警。
 func estimateTokens(text string) int {
 	if text == "" {
 		return 0
 	}
-	// 粗略估算：每个中文字符 1.5 token, 每 4 个英文 1 token
 	cn := 0
 	for _, r := range text {
 		if r >= 0x4E00 && r <= 0x9FFF {

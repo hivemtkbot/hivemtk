@@ -170,5 +170,6 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewAssetBundleMigration(db))
 	// 2026-07-23:LLM 路由可观测性 — llm_routing_logs / llm_routing_audit 两张表
 	registry.Register(NewLLMRoutingLogsMigration(db))
+	registry.Register(NewLLMRoutingLogsExtendMigration(db))
 	// 继续添加新的迁移...
 }

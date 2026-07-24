@@ -45,35 +45,35 @@ func (m *WecomWebhookFieldsMigration) Up(ctx context.Context) error {
 		WebhookPath    string `gorm:"type:varchar(200)"`
 		AIAgentEnabled bool   `gorm:"default:false"`
 	}{}, "CallbackToken") {
-		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN callback_token VARCHAR(100)").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN IF NOT EXISTS callback_token VARCHAR(100)").Error; err != nil {
 			return err
 		}
 	}
 	if !m.db.Migrator().HasColumn(&struct {
 		EncodingAESKey string `gorm:"type:varchar(200)"`
 	}{}, "EncodingAESKey") {
-		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN encoding_aes_key VARCHAR(200)").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN IF NOT EXISTS encoding_aes_key VARCHAR(200)").Error; err != nil {
 			return err
 		}
 	}
 	if !m.db.Migrator().HasColumn(&struct {
 		WebhookEnabled bool `gorm:"default:false"`
 	}{}, "WebhookEnabled") {
-		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN webhook_enabled BOOLEAN DEFAULT FALSE").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN IF NOT EXISTS webhook_enabled BOOLEAN DEFAULT FALSE").Error; err != nil {
 			return err
 		}
 	}
 	if !m.db.Migrator().HasColumn(&struct {
 		WebhookPath string `gorm:"type:varchar(200)"`
 	}{}, "WebhookPath") {
-		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN webhook_path VARCHAR(200)").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN IF NOT EXISTS webhook_path VARCHAR(200)").Error; err != nil {
 			return err
 		}
 	}
 	if !m.db.Migrator().HasColumn(&struct {
 		AIAgentEnabled bool `gorm:"default:false"`
 	}{}, "AIAgentEnabled") {
-		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN ai_agent_enabled BOOLEAN DEFAULT FALSE").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE wecom_accounts ADD COLUMN IF NOT EXISTS ai_agent_enabled BOOLEAN DEFAULT FALSE").Error; err != nil {
 			return err
 		}
 	}

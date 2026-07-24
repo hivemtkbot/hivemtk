@@ -299,7 +299,7 @@ func (m *FeedbackLoopMigration) alterSOPAgents(ctx context.Context) error {
 	stmt := `DO $$
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sop_agents' AND column_name = 'use_bandit') THEN
-		ALTER TABLE sop_agents ADD COLUMN use_bandit BOOLEAN NOT NULL DEFAULT FALSE;
+		ALTER TABLE sop_agents ADD COLUMN IF NOT EXISTS use_bandit BOOLEAN NOT NULL DEFAULT FALSE;
 	END IF;
 END $$`
 	return execAllFeedbackLoop(ctx, m.db, []string{stmt})
@@ -311,19 +311,19 @@ func (m *FeedbackLoopMigration) alterScriptTemplates(ctx context.Context) error 
 		`DO $$
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'script_templates' AND column_name = 'source') THEN
-		ALTER TABLE script_templates ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'manual';
+		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'manual';
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'script_templates' AND column_name = 'effectiveness_score') THEN
-		ALTER TABLE script_templates ADD COLUMN effectiveness_score DECIMAL(3,2) NOT NULL DEFAULT 0;
+		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS effectiveness_score DECIMAL(3,2) NOT NULL DEFAULT 0;
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'script_templates' AND column_name = 'trigger_keywords') THEN
-		ALTER TABLE script_templates ADD COLUMN trigger_keywords VARCHAR(500) DEFAULT '';
+		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS trigger_keywords VARCHAR(500) DEFAULT '';
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'script_templates' AND column_name = 'journey_stage') THEN
-		ALTER TABLE script_templates ADD COLUMN journey_stage VARCHAR(30) DEFAULT '';
+		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS journey_stage VARCHAR(30) DEFAULT '';
 	END IF;
 	IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'script_templates' AND column_name = 'champion_dialogue_id') THEN
-		ALTER TABLE script_templates ADD COLUMN champion_dialogue_id BIGINT DEFAULT 0;
+		ALTER TABLE script_templates ADD COLUMN IF NOT EXISTS champion_dialogue_id BIGINT DEFAULT 0;
 	END IF;
 END $$`,
 		// 为话术来源 + 旅程阶段建立联合索引，便于 ScriptLookup 检索 champion_extract 类型话术

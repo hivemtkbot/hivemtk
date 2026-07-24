@@ -54,7 +54,7 @@ func (m *AIAgentExtensionMigration) Up(ctx context.Context) error {
 	if !m.db.Migrator().HasColumn(&struct {
 		DecisionStrategyIDs string `gorm:"type:text[]"`
 	}{}, "DecisionStrategyIDs") {
-		if err := m.db.Exec("ALTER TABLE ai_agents ADD COLUMN decision_strategy_ids TEXT[] DEFAULT '{}'").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS decision_strategy_ids TEXT[] DEFAULT '{}'").Error; err != nil {
 			return err
 		}
 	}
@@ -63,7 +63,7 @@ func (m *AIAgentExtensionMigration) Up(ctx context.Context) error {
 	if !m.db.Migrator().HasColumn(&struct {
 		ABExperimentIDs string `gorm:"type:text[]"`
 	}{}, "ABExperimentIDs") {
-		if err := m.db.Exec("ALTER TABLE ai_agents ADD COLUMN ab_experiment_ids TEXT[] DEFAULT '{}'").Error; err != nil {
+		if err := m.db.Exec("ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS ab_experiment_ids TEXT[] DEFAULT '{}'").Error; err != nil {
 			return err
 		}
 	}
