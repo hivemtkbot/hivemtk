@@ -830,10 +830,21 @@ func (e *SalesEngine) generateCandidate(
 }
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数
-// 防止 LLM 无限调用工具或陷入循环；5 次足够覆盖大部分业务场景：
-//   - 1 次工具调用（如查询客户档案） + 1 次工具调用（如查询订单） + 1 次工具调用（如查询优惠券）
-//   - + 1 次回灌后再调用工具 + 1 次最终生成回复
-const agentLoopMaxIterations = 5
+// 防止 LLM 无限调用工具或陷入循环。
+//
+// 2026-07-24 性能优化：5→2。每次迭代 = 1 次 LLM 调用（本地 CPU 推理 30-180s），
+// 5 次迭代最坏 900s。2 次迭代足够覆盖"1 次工具调用 + 1 次最终生成回复"的核心场景；
+// 复杂多工具场景可由 SetAgentLoopMaxIterations 或 env MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖。
+var agentLoopMaxIterations = 2
+
+// SetAgentLoopMaxIterations 注入 Agent Loop 最大迭代次数
+// 由 main.go 启动时调用；≤0 时保持默认 2
+func SetAgentLoopMaxIterations(n int) {
+	if n <= 0 {
+		return
+	}
+	agentLoopMaxIterations = n
+}
 
 // agentLoopTotalTimeout Agent Loop wall-clock 总超时
 //
