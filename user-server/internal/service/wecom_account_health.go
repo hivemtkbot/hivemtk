@@ -20,36 +20,36 @@ type WeComAccountHealthService struct {
 
 // 常量定义
 const (
-	WeComHealthScoreNormal		= 100
-	WeComHealthScoreWarning		= 70
-	WeComHealthScoreCritical	= 40
-	WeComHealthScoreBanned		= 0
+	WeComHealthScoreNormal   = 100
+	WeComHealthScoreWarning  = 70
+	WeComHealthScoreCritical = 40
+	WeComHealthScoreBanned   = 0
 
-	WeComRiskNormal		= "normal"
-	WeComRiskWarning	= "warning"
-	WeComRiskCritical	= "critical"
-	WeComRiskBanned		= "banned"
+	WeComRiskNormal   = "normal"
+	WeComRiskWarning  = "warning"
+	WeComRiskCritical = "critical"
+	WeComRiskBanned   = "banned"
 
-	WeComLoginOnline	= "online"
-	WeComLoginOffline	= "offline"
-	WeComLoginBanned	= "banned"
+	WeComLoginOnline  = "online"
+	WeComLoginOffline = "offline"
+	WeComLoginBanned  = "banned"
 
 	// 默认权重配置
-	WeComDefaultWeight	= 100
+	WeComDefaultWeight = 100
 	// 错误率超阈值后自动降权
-	WeComErrorRateDegradeThreshold	= 0.3
+	WeComErrorRateDegradeThreshold = 0.3
 	// 配额超阈值后自动降权
-	WeComQuotaDegradeThreshold	= 0.9
+	WeComQuotaDegradeThreshold = 0.9
 )
 
 // 错误定义
 var (
-	ErrWeComAccountNotFound		= errors.New("account not found")
-	ErrWeComInvalidAccountID	= errors.New("invalid account_id")
-	ErrWeComQuotaExceeded		= errors.New("daily quota exceeded")
-	ErrWeComAccountBanned		= errors.New("account is banned")
-	ErrWeComAccountOffline		= errors.New("account is offline")
-	ErrWeComHealthNotFound		= errors.New("health record not found")
+	ErrWeComAccountNotFound  = errors.New("account not found")
+	ErrWeComInvalidAccountID = errors.New("invalid account_id")
+	ErrWeComQuotaExceeded    = errors.New("daily quota exceeded")
+	ErrWeComAccountBanned    = errors.New("account is banned")
+	ErrWeComAccountOffline   = errors.New("account is offline")
+	ErrWeComHealthNotFound   = errors.New("health record not found")
 )
 
 // NewWeComAccountHealthService 创建账号健康度服务
@@ -59,15 +59,15 @@ func NewWeComAccountHealthService(db *gorm.DB) *WeComAccountHealthService {
 
 // ReportHealthRequest 上报健康度
 type ReportHealthRequest struct {
-	AccountID	uint		`json:"account_id"`
-	Platform	string		`json:"platform"`
-	LoginState	string		`json:"login_state"`
-	QuotaUsed	int		`json:"quota_used"`
-	QuotaTotal	int		`json:"quota_total"`
-	SuccessRate	float64		`json:"success_rate"`
-	ErrorCount	int		`json:"error_count"`
-	LastError	string		`json:"last_error"`
-	Metrics		map[string]any	`json:"metrics"`
+	AccountID   uint           `json:"account_id"`
+	Platform    string         `json:"platform"`
+	LoginState  string         `json:"login_state"`
+	QuotaUsed   int            `json:"quota_used"`
+	QuotaTotal  int            `json:"quota_total"`
+	SuccessRate float64        `json:"success_rate"`
+	ErrorCount  int            `json:"error_count"`
+	LastError   string         `json:"last_error"`
+	Metrics     map[string]any `json:"metrics"`
 }
 
 // ReportHealth 上报账号健康度，自动计算健康分与风险等级
@@ -99,19 +99,19 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 	now := time.Now()
 	rec := &model.WeComAccountHealth{
 
-		AccountID:	req.AccountID,
-		Platform:	platform,
-		HealthScore:	score,
-		RiskLevel:	risk,
-		LoginState:	req.LoginState,
-		QuotaUsed:	req.QuotaUsed,
-		QuotaTotal:	req.QuotaTotal,
-		QuotaUsageRate:	quotaRate * 100,
-		SuccessRate:	req.SuccessRate,
-		ErrorCount:	req.ErrorCount,
-		LastError:	req.LastError,
-		Metrics:	model.JSONMap(req.Metrics),
-		ReportedAt:	now,
+		AccountID:      req.AccountID,
+		Platform:       platform,
+		HealthScore:    score,
+		RiskLevel:      risk,
+		LoginState:     req.LoginState,
+		QuotaUsed:      req.QuotaUsed,
+		QuotaTotal:     req.QuotaTotal,
+		QuotaUsageRate: quotaRate * 100,
+		SuccessRate:    req.SuccessRate,
+		ErrorCount:     req.ErrorCount,
+		LastError:      req.LastError,
+		Metrics:        model.JSONMap(req.Metrics),
+		ReportedAt:     now,
 	}
 	if rec.Metrics == nil {
 		rec.Metrics = model.JSONMap{}
@@ -247,9 +247,9 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	return s.db.Model(&model.WeComAccount{}).
 		Where("id = ?", accountID).
 		Updates(map[string]any{
-			"daily_msg_used":	acc.DailyMsgUsed + count,
-			"total_sent":		acc.TotalSent + int64(count),
-			"last_active_at":	time.Now(),
+			"daily_msg_used": acc.DailyMsgUsed + count,
+			"total_sent":     acc.TotalSent + int64(count),
+			"last_active_at": time.Now(),
 		}).Error
 }
 
@@ -264,39 +264,39 @@ func (s *WeComAccountHealthService) ResetDailyQuota(ctx context.Context) (int64,
 	res := s.db.Model(&model.WeComAccount{}).
 		Where("1 = 1").
 		Updates(map[string]any{
-			"daily_msg_used":	0,
-			"quota_reset_at":	now,
+			"daily_msg_used": 0,
+			"quota_reset_at": now,
 		})
 	return res.RowsAffected, res.Error
 }
 
 // AccountHealthSummary 账号健康概览
 type AccountHealthSummary struct {
-	TotalAccounts	int				`json:"total_accounts"`
-	OnlineCount	int				`json:"online_count"`
-	OfflineCount	int				`json:"offline_count"`
-	BannedCount	int				`json:"banned_count"`
-	WarningCount	int				`json:"warning_count"`
-	CriticalCount	int				`json:"critical_count"`
-	AvgScore	float64				`json:"avg_score"`
-	TotalQuota	int				`json:"total_quota"`
-	TotalUsed	int				`json:"total_used"`
-	Accounts	[]AccountHealthSummaryEntry	`json:"accounts"`
-	RiskAccounts	[]model.WeComAccount		`json:"risk_accounts"`
+	TotalAccounts int                         `json:"total_accounts"`
+	OnlineCount   int                         `json:"online_count"`
+	OfflineCount  int                         `json:"offline_count"`
+	BannedCount   int                         `json:"banned_count"`
+	WarningCount  int                         `json:"warning_count"`
+	CriticalCount int                         `json:"critical_count"`
+	AvgScore      float64                     `json:"avg_score"`
+	TotalQuota    int                         `json:"total_quota"`
+	TotalUsed     int                         `json:"total_used"`
+	Accounts      []AccountHealthSummaryEntry `json:"accounts"`
+	RiskAccounts  []model.WeComAccount        `json:"risk_accounts"`
 }
 
 // AccountHealthSummaryEntry 单账号健康概览
 type AccountHealthSummaryEntry struct {
-	AccountID	uint	`json:"account_id"`
-	CorpID		string	`json:"corp_id"`
-	LoginState	string	`json:"login_state"`
-	RiskLevel	string	`json:"risk_level"`
-	HealthScore	int	`json:"health_score"`
-	QuotaUsageRate	float64	`json:"quota_usage_rate"`
-	SuccessRate	float64	`json:"success_rate"`
-	TotalSent	int64	`json:"total_sent"`
-	TotalReceived	int64	`json:"total_received"`
-	ErrorCount	int	`json:"error_count"`
+	AccountID      uint    `json:"account_id"`
+	CorpID         string  `json:"corp_id"`
+	LoginState     string  `json:"login_state"`
+	RiskLevel      string  `json:"risk_level"`
+	HealthScore    int     `json:"health_score"`
+	QuotaUsageRate float64 `json:"quota_usage_rate"`
+	SuccessRate    float64 `json:"success_rate"`
+	TotalSent      int64   `json:"total_sent"`
+	TotalReceived  int64   `json:"total_received"`
+	ErrorCount     int     `json:"error_count"`
 }
 
 // GetHealthSummary 汇总账号健康度
@@ -341,15 +341,15 @@ func (s *WeComAccountHealthService) GetHealthSummary(ctx context.Context) (*Acco
 			quotaRate = float64(a.DailyMsgUsed) / float64(a.DailyMsgQuota)
 		}
 		summary.Accounts = append(summary.Accounts, AccountHealthSummaryEntry{
-			AccountID:	a.ID,
-			CorpID:		a.CorpID,
-			LoginState:	a.LoginState,
-			RiskLevel:	a.RiskLevel,
-			HealthScore:	a.Weight,
-			QuotaUsageRate:	quotaRate,
-			TotalSent:	a.TotalSent,
-			TotalReceived:	a.TotalReceived,
-			ErrorCount:	a.ErrorCount,
+			AccountID:      a.ID,
+			CorpID:         a.CorpID,
+			LoginState:     a.LoginState,
+			RiskLevel:      a.RiskLevel,
+			HealthScore:    a.Weight,
+			QuotaUsageRate: quotaRate,
+			TotalSent:      a.TotalSent,
+			TotalReceived:  a.TotalReceived,
+			ErrorCount:     a.ErrorCount,
 		})
 	}
 	summary.AvgScore = float64(scoreSum) / float64(len(accounts))
@@ -424,10 +424,10 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 		return
 	}
 	updates := map[string]any{
-		"login_state":		loginState,
-		"risk_level":		risk,
-		"weight":		score,
-		"last_active_at":	time.Now(),
+		"login_state":    loginState,
+		"risk_level":     risk,
+		"weight":         score,
+		"last_active_at": time.Now(),
 	}
 	if lastErr != "" {
 		updates["last_error_at"] = time.Now()
@@ -454,8 +454,8 @@ func accountHealthFromModel(a *model.WeComAccount) int {
 
 // 全局实例
 var (
-	wecomHealthOnce		sync.Once
-	wecomHealthInstance	*WeComAccountHealthService
+	wecomHealthOnce     sync.Once
+	wecomHealthInstance *WeComAccountHealthService
 )
 
 // GetWeComAccountHealthService 获取账号健康度服务

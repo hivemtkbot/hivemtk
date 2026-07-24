@@ -22,7 +22,9 @@ func NewIntegrationAccountRepository() *IntegrationAccountRepository {
 }
 
 // SetDB 注入 db
-func (r *IntegrationAccountRepository) SetDB(db *gorm.DB) {
+//
+// 五层架构 §三.5 + §七：仓库方法必须首参为 ctx context.Context。
+func (r *IntegrationAccountRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}
@@ -30,7 +32,7 @@ func (r *IntegrationAccountRepository) SetDB(db *gorm.DB) {
 
 // SetIntegrationAccountRepoDB 工具函数
 func SetIntegrationAccountRepoDB(r *IntegrationAccountRepository, db *gorm.DB) {
-	r.SetDB(db)
+	r.SetDB(context.Background(), db)
 }
 
 // Create 创建对接账号
@@ -380,7 +382,9 @@ func NewWebhookEventRepository() *WebhookEventRepository {
 }
 
 // SetDB 注入 db（用于测试）
-func (r *WebhookEventRepository) SetDB(db *gorm.DB) {
+//
+// 五层架构 §三.5 + §七：仓库方法必须首参为 ctx context.Context。
+func (r *WebhookEventRepository) SetDB(ctx context.Context, db *gorm.DB) {
 	if db != nil {
 		r.db = db
 	}
@@ -388,7 +392,7 @@ func (r *WebhookEventRepository) SetDB(db *gorm.DB) {
 
 // SetWebhookEventRepoDB 工具函数（service 层使用）
 func SetWebhookEventRepoDB(r *WebhookEventRepository, db *gorm.DB) {
-	r.SetDB(db)
+	r.SetDB(context.Background(), db)
 }
 
 // Create 创建 Webhook 事件

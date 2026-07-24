@@ -24,6 +24,8 @@ type ClueRepository interface {
 	GetDistinctTypes(ctx context.Context) ([]int64, error)
 	// UpdateByID 按主键更新指定字段，用于营销流程 update_lead 动作
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
+	// ListByAccounts 批量按 account / Name 查询线索（CC-P2 N+1 优化）
+	ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error)
 }
 
 type clueRepo struct {
@@ -163,4 +165,43 @@ func (r *clueRepo) UpdateByID(ctx context.Context, id string, updates map[string
 		return errors.New("线索不存在或未更新")
 	}
 	return nil
+}
+
+// ListByAccounts 批量按 account / Name（手机号）查询线索（CC-P2 N+1 优化）
+//
+// 单次 SQL 取代「遍历 6 种 type → GetClueAllList → 内存过滤」模式：
+//  1. 主条件：account IN (去重后的手机号 / 邮箱 / accountID 列表)
+//  2. 兜底条件：name IN (...) 兼容历史数据中 name 字段实际存储手机号的情形
+//
+// 命中任一条件即返回，结果按 create_time DESC 排序。
+// 入参 accounts 全部为空时返回 (nil, nil)，不查库。
+func (r *clueRepo) ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error) {
+	if len(accounts) == 0 {
+		return nil, nil
+	}
+	// 去重 + 跳过空串
+	unique := make([]string, 0, len(accounts))
+	seen := make(map[string]struct{}, len(accounts))
+	for _, a := range accounts {
+		if a == "" {
+			continue
+		}
+		if _, ok := seen[a]; ok {
+			continue
+		}
+		seen[a] = struct{}{}
+		unique = append(unique, a)
+	}
+	if len(unique) == 0 {
+		return nil, nil
+	}
+	var clues []*model.Clue
+	err := r.db.WithContext(ctx).
+		Where("account IN ? OR name IN ?", unique, unique).
+		Order("create_time DESC").
+		Find(&clues).Error
+	if err != nil {
+		return nil, err
+	}
+	return clues, nil
 }

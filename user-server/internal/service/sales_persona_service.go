@@ -3,15 +3,15 @@ package service
 import (
 	"time"
 
+	"context"
 	"gorm.io/gorm"
 	"marketing/internal/repository"
-	"context"
 )
 
 // SalesPersonaService 销冠能力画像服务
 type SalesPersonaService struct {
-	db	*gorm.DB	// 保留以维持构造签名兼容
-	repo	*repository.SalesPersonaRepository
+	db   *gorm.DB // 保留以维持构造签名兼容
+	repo *repository.SalesPersonaRepository
 }
 
 // NewSalesPersonaService 创建服务
@@ -45,29 +45,29 @@ func (s *SalesPersonaService) ensureReposFromDB(ctx context.Context) {
 
 // PersonaItem 能力画像项
 type PersonaItem struct {
-	Tag	string	`json:"tag"`
-	Name	string	`json:"name"`
-	Score	float64	`json:"score"`
-	Sample	int64	`json:"sample"`
-	Trend	string	`json:"trend"`	// up/down/stable
+	Tag    string  `json:"tag"`
+	Name   string  `json:"name"`
+	Score  float64 `json:"score"`
+	Sample int64   `json:"sample"`
+	Trend  string  `json:"trend"` // up/down/stable
 }
 
 // PersonaReport 销冠画像报告
 type PersonaReport struct {
-	StaffID		uint		`json:"staff_id"`
-	StaffName	string		`json:"staff_name"`
-	OverallScore	float64		`json:"overall_score"`
-	Items		[]PersonaItem	`json:"items"`
-	GeneratedAt	time.Time	`json:"generated_at"`
+	StaffID      uint          `json:"staff_id"`
+	StaffName    string        `json:"staff_name"`
+	OverallScore float64       `json:"overall_score"`
+	Items        []PersonaItem `json:"items"`
+	GeneratedAt  time.Time     `json:"generated_at"`
 }
 
 // BuildReport 构建销冠能力画像
 func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*PersonaReport, error) {
 	s.ensureReposFromDB(ctx)
 	report := &PersonaReport{
-		StaffID:	staffID,
-		Items:		make([]PersonaItem, 0, 8),
-		GeneratedAt:	time.Now(),
+		StaffID:     staffID,
+		Items:       make([]PersonaItem, 0, 8),
+		GeneratedAt: time.Now(),
 	}
 
 	// 1. 响应速度 (基于 session_messages 的平均响应时间)
@@ -81,7 +81,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		respScore = 90
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"response_speed", Name: "响应速度", Score: respScore, Sample: 100, Trend: "stable",
+		Tag: "response_speed", Name: "响应速度", Score: respScore, Sample: 100, Trend: "stable",
 	})
 
 	// 2. 转化能力 (订单数 / 会话数)
@@ -94,7 +94,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		}
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"conversion", Name: "转化能力", Score: convScore, Sample: sessions, Trend: "stable",
+		Tag: "conversion", Name: "转化能力", Score: convScore, Sample: sessions, Trend: "stable",
 	})
 
 	// 3. SOP 使用率
@@ -104,7 +104,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		sopScore = 100
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"sop_usage", Name: "SOP 使用率", Score: sopScore, Sample: sopCount, Trend: "up",
+		Tag: "sop_usage", Name: "SOP 使用率", Score: sopScore, Sample: sopCount, Trend: "up",
 	})
 
 	// 4. 知识库调用
@@ -114,7 +114,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		ragScore = 100
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"knowledge_usage", Name: "知识库调用", Score: ragScore, Sample: ragCount, Trend: "up",
+		Tag: "knowledge_usage", Name: "知识库调用", Score: ragScore, Sample: ragCount, Trend: "up",
 	})
 
 	// 5. 异议处理
@@ -124,7 +124,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		objScore = 100
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"objection_handling", Name: "异议处理", Score: objScore, Sample: objCount, Trend: "stable",
+		Tag: "objection_handling", Name: "异议处理", Score: objScore, Sample: objCount, Trend: "stable",
 	})
 
 	// 6. 客户满意度 (来自 customer_session.rating)
@@ -134,7 +134,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 	}
 	satScore := satStats.Avg / 5.0 * 100
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"satisfaction", Name: "客户满意度", Score: satScore, Sample: satStats.Count, Trend: "up",
+		Tag: "satisfaction", Name: "客户满意度", Score: satScore, Sample: satStats.Count, Trend: "up",
 	})
 
 	// 7. 跟进及时性 (会话关单率)
@@ -147,7 +147,7 @@ func (s *SalesPersonaService) BuildReport(ctx context.Context, staffID uint) (*P
 		closeScore = float64(closeStats.Closed) / float64(closeStats.Total) * 100
 	}
 	report.Items = append(report.Items, PersonaItem{
-		Tag:	"followup", Name: "跟进及时性", Score: closeScore, Sample: closeStats.Total, Trend: "stable",
+		Tag: "followup", Name: "跟进及时性", Score: closeScore, Sample: closeStats.Total, Trend: "stable",
 	})
 
 	// 综合得分
@@ -170,8 +170,8 @@ func (s *SalesPersonaService) ListStaffs(ctx context.Context) ([]map[string]any,
 	out := make([]map[string]any, len(rows))
 	for i, r := range rows {
 		out[i] = map[string]any{
-			"staff_id":		r.AgentID,
-			"session_count":	r.Count,
+			"staff_id":      r.AgentID,
+			"session_count": r.Count,
 		}
 	}
 	return out, nil

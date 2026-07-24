@@ -1,0 +1,10 @@
+{
+  "idx": 2,
+  "title": "创建智能体",
+  "path": "/#/aiAgent/create",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

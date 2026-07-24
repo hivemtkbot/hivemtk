@@ -19,6 +19,10 @@ type CustomerRepository interface {
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, page, limit int) ([]*model.Customer, int64, error)
 	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error)
+	CountNotEmpty(ctx context.Context, fieldName string) (int64, error)
+	CountMultiIdentity(ctx context.Context) (int64, error)
+	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+	ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error)
 }
 
 // customerRepository implements CustomerRepository
@@ -154,4 +158,83 @@ func (r *customerRepository) FindByIdentity(ctx context.Context, phone, email, w
 	}
 
 	return &customer, nil
+}
+
+// CountNotEmpty 统计指定字段非空的客户数
+// fieldName: phone / email / wechat_open_id / douyin_open_id / xiaohongshu_id
+func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string) (int64, error) {
+	if fieldName == "" {
+		return 0, nil
+	}
+	var n int64
+	// 列名直接拼接：仅允许白名单字段（防 SQL 注入）
+	allowed := map[string]bool{
+		"phone":           true,
+		"email":           true,
+		"wechat_open_id":  true,
+		"douyin_open_id":  true,
+		"xiaohongshu_id":  true,
+	}
+	if !allowed[fieldName] {
+		return 0, nil
+	}
+	stmt := fieldName + " <> '' AND " + fieldName + " IS NOT NULL"
+	if err := _db.GetDB().WithContext(ctx).Model(&model.Customer{}).Where(stmt).Count(&n).Error; err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// CountMultiIdentity 统计具有 2 个及以上身份标识的客户数
+// 多身份：phone+email / phone+openid 等任意两种以上
+func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, error) {
+	// 计算每个客户的"已绑定身份数"，筛选 >= 2 的
+	expr := "(CASE WHEN phone IS NOT NULL AND phone <> '' THEN 1 ELSE 0 END) + " +
+		"(CASE WHEN email IS NOT NULL AND email <> '' THEN 1 ELSE 0 END) + " +
+		"(CASE WHEN wechat_open_id IS NOT NULL AND wechat_open_id <> '' THEN 1 ELSE 0 END) + " +
+		"(CASE WHEN douyin_open_id IS NOT NULL AND douyin_open_id <> '' THEN 1 ELSE 0 END) + " +
+		"(CASE WHEN xiaohongshu_id IS NOT NULL AND xiaohongshu_id <> '' THEN 1 ELSE 0 END)"
+	var n int64
+	if err := _db.GetDB().WithContext(ctx).Raw(
+		"SELECT COUNT(*) FROM customers WHERE "+expr+" >= 2",
+	).Scan(&n).Error; err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+//
+// 单次 SQL：SELECT * FROM customers WHERE id IN (...)。
+// 入参 ids 去重 + 跳过空串；未命中的 ID 不会出现在结果 map 中。
+// 用于 ComputeAll / ListCustomersWithProfile 等"先 List 再 GetByID"场景，
+// 把 N 次 IO 收敛为 1 次。
+func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error) {
+	result := make(map[string]*model.Customer, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	var customers []*model.Customer
+	if err := _db.GetDB().WithContext(ctx).Where("id IN ?", unique).Find(&customers).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range customers {
+		result[c.ID] = c
+	}
+	return result, nil
 }

@@ -25,20 +25,20 @@ import (
 
 // OpenAPIService 知识库 OpenAPI 数据源同步服务
 type OpenAPIService struct {
-	db		*gorm.DB
-	srcRepo		*knowledgerepo.KnowledgeOpenAPIRepository
-	docRepo		*knowledgerepo.KnowledgeDocumentRepository
-	kbService	*knowledgesvc.KnowledgeService
-	client		*http.Client
+	db        *gorm.DB
+	srcRepo   *knowledgerepo.KnowledgeOpenAPIRepository
+	docRepo   *knowledgerepo.KnowledgeDocumentRepository
+	kbService *knowledgesvc.KnowledgeService
+	client    *http.Client
 }
 
 // NewOpenAPIService 创建 OpenAPI 服务
 func NewOpenAPIService() *OpenAPIService {
 	return &OpenAPIService{
-		db:		dbUtil.GetDB(),
-		srcRepo:	knowledgerepo.NewKnowledgeOpenAPIRepository(dbUtil.GetDB()),
-		docRepo:	knowledgerepo.NewKnowledgeDocumentRepository(dbUtil.GetDB()),
-		kbService:	knowledgesvc.NewKnowledgeService(),
+		db:        dbUtil.GetDB(),
+		srcRepo:   knowledgerepo.NewKnowledgeOpenAPIRepository(dbUtil.GetDB()),
+		docRepo:   knowledgerepo.NewKnowledgeDocumentRepository(dbUtil.GetDB()),
+		kbService: knowledgesvc.NewKnowledgeService(),
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -48,10 +48,10 @@ func NewOpenAPIService() *OpenAPIService {
 // NewOpenAPIServiceWithDB 带 DB 的 OpenAPI 服务(用于测试)
 func NewOpenAPIServiceWithDB(gdb *gorm.DB) *OpenAPIService {
 	return &OpenAPIService{
-		db:		gdb,
-		srcRepo:	knowledgerepo.NewKnowledgeOpenAPIRepository(gdb),
-		docRepo:	knowledgerepo.NewKnowledgeDocumentRepository(gdb),
-		kbService:	knowledgesvc.NewKnowledgeServiceWithDB(gdb),
+		db:        gdb,
+		srcRepo:   knowledgerepo.NewKnowledgeOpenAPIRepository(gdb),
+		docRepo:   knowledgerepo.NewKnowledgeDocumentRepository(gdb),
+		kbService: knowledgesvc.NewKnowledgeServiceWithDB(gdb),
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -127,14 +127,14 @@ func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID, id int64,
 
 // SyncResult 同步结果
 type SyncResult struct {
-	SourceID	uint64	`json:"source_id"`
-	TotalItems	int	`json:"total_items"`
-	ImportedNum	int	`json:"imported_num"`
-	SkippedNum	int	`json:"skipped_num"`
-	FailedNum	int	`json:"failed_num"`
-	DurationMs	int64	`json:"duration_ms"`
-	Status		string	`json:"status"`
-	ErrorMsg	string	`json:"error_msg"`
+	SourceID    uint64 `json:"source_id"`
+	TotalItems  int    `json:"total_items"`
+	ImportedNum int    `json:"imported_num"`
+	SkippedNum  int    `json:"skipped_num"`
+	FailedNum   int    `json:"failed_num"`
+	DurationMs  int64  `json:"duration_ms"`
+	Status      string `json:"status"`
+	ErrorMsg    string `json:"error_msg"`
 }
 
 // SyncSource 同步指定数据源(全量或增量)
@@ -207,12 +207,12 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		}
 		importReq := &knowledgesvc.ImportRequest{
 
-			ProductID:	fmt.Sprintf("%d", productID),
-			SourceType:	model.SourceTypeOpenAPI,
-			Title:		title,
-			Content:	content,
-			SourceRef:	ref,
-			Operator:	"system:openapi",
+			ProductID:  fmt.Sprintf("%d", productID),
+			SourceType: model.SourceTypeOpenAPI,
+			Title:      title,
+			Content:    content,
+			SourceRef:  ref,
+			Operator:   "system:openapi",
 		}
 		_, err := s.kbService.Import(ctx, importReq)
 		if err != nil {
@@ -270,20 +270,20 @@ func (s *OpenAPIService) TestConnection(ctx context.Context, src *model.Knowledg
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return map[string]any{
-			"success":	false,
-			"error":	err.Error(),
-			"latency_ms":	time.Since(start).Milliseconds(),
+			"success":    false,
+			"error":      err.Error(),
+			"latency_ms": time.Since(start).Milliseconds(),
 		}, nil
 	}
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	return map[string]any{
-		"success":	resp.StatusCode < 400,
-		"status_code":	resp.StatusCode,
-		"latency_ms":	time.Since(start).Milliseconds(),
-		"body_size":	len(respBody),
-		"body_sample":	truncateString(string(respBody), 500),
+		"success":     resp.StatusCode < 400,
+		"status_code": resp.StatusCode,
+		"latency_ms":  time.Since(start).Milliseconds(),
+		"body_size":   len(respBody),
+		"body_sample": truncateString(string(respBody), 500),
 	}, nil
 }
 
@@ -337,10 +337,10 @@ func (s *OpenAPIService) buildRequest(ctx context.Context, src *model.KnowledgeO
 		}
 		var buf bytes.Buffer
 		ctx := map[string]any{
-			"now":		time.Now().Unix(),
-			"timestamp":	time.Now().Format(time.RFC3339),
-			"date":		time.Now().Format("2006-01-02"),
-			"last_sync_at":	formatLastSync(src.LastSyncAt),
+			"now":          time.Now().Unix(),
+			"timestamp":    time.Now().Format(time.RFC3339),
+			"date":         time.Now().Format("2006-01-02"),
+			"last_sync_at": formatLastSync(src.LastSyncAt),
 		}
 		if err := tmpl.Execute(&buf, ctx); err != nil {
 			return nil, nil, fmt.Errorf("请求模板渲染失败: %w", err)

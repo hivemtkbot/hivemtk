@@ -1,11 +1,11 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
-	"context"
 )
 
 // ============================================================================
@@ -33,78 +33,78 @@ import (
 
 // WorkbenchTodo 待办事项（销售工作台首页核心）
 type WorkbenchTodo struct {
-	Type		string		`json:"type"`		// draft / followup / comment
-	Priority	int		`json:"priority"`	// 1-5,5 最高
-	Title		string		`json:"title"`
-	Description	string		`json:"description"`
-	TargetID	string		`json:"target_id"`	// 关联 ID
-	TargetType	string		`json:"target_type"`	// customer/post/order
-	CustomerID	string		`json:"customer_id"`
-	DueAt		time.Time	`json:"due_at"`
-	CreatedAt	time.Time	`json:"created_at"`
-	URL		string		`json:"url"`	// 跳转 URL
+	Type        string    `json:"type"`     // draft / followup / comment
+	Priority    int       `json:"priority"` // 1-5,5 最高
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	TargetID    string    `json:"target_id"`   // 关联 ID
+	TargetType  string    `json:"target_type"` // customer/post/order
+	CustomerID  string    `json:"customer_id"`
+	DueAt       time.Time `json:"due_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	URL         string    `json:"url"` // 跳转 URL
 }
 
 // WorkbenchToday 今日业绩
 type WorkbenchToday struct {
-	Date		time.Time	`json:"date"`
-	NewOrders	int		`json:"new_orders"`
-	NewRevenue	float64		`json:"new_revenue"`
-	FollowUps	int		`json:"follow_ups"`
-	Conversions	int		`json:"conversions"`
-	ConversionRate	float64		`json:"conversion_rate"`
-	AIDeals		int		`json:"ai_deals"`
+	Date           time.Time `json:"date"`
+	NewOrders      int       `json:"new_orders"`
+	NewRevenue     float64   `json:"new_revenue"`
+	FollowUps      int       `json:"follow_ups"`
+	Conversions    int       `json:"conversions"`
+	ConversionRate float64   `json:"conversion_rate"`
+	AIDeals        int       `json:"ai_deals"`
 }
 
 // WorkbenchMonth 本月业绩
 type WorkbenchMonth struct {
-	Month		string	`json:"month"`	// YYYY-MM
-	TotalOrders	int	`json:"total_orders"`
-	TotalRevenue	float64	`json:"total_revenue"`
-	FollowUps	int	`json:"follow_ups"`
-	Conversions	int	`json:"conversions"`
-	ConversionRate	float64	`json:"conversion_rate"`
-	AvgDealAmount	float64	`json:"avg_deal_amount"`
-	NewCustomers	int	`json:"new_customers"`
+	Month          string  `json:"month"` // YYYY-MM
+	TotalOrders    int     `json:"total_orders"`
+	TotalRevenue   float64 `json:"total_revenue"`
+	FollowUps      int     `json:"follow_ups"`
+	Conversions    int     `json:"conversions"`
+	ConversionRate float64 `json:"conversion_rate"`
+	AvgDealAmount  float64 `json:"avg_deal_amount"`
+	NewCustomers   int     `json:"new_customers"`
 }
 
 // WorkbenchKeyMetrics 关键指标
 type WorkbenchKeyMetrics struct {
-	RenewalRate		float64	`json:"renewal_rate"`		// 续约率
-	AvgDealAmount		float64	`json:"avg_deal_amount"`	// 客单价
-	RepurchaseRate		float64	`json:"repurchase_rate"`	// 复购率
-	ChurnRate		float64	`json:"churn_rate"`		// 流失率
-	AIAssistRate		float64	`json:"ai_assist_rate"`		// AI 辅助率
-	ActiveCustomers		int	`json:"active_customers"`	// 活跃客户
-	DormantCustomers	int	`json:"dormant_customers"`	// 沉睡客户
+	RenewalRate      float64 `json:"renewal_rate"`      // 续约率
+	AvgDealAmount    float64 `json:"avg_deal_amount"`   // 客单价
+	RepurchaseRate   float64 `json:"repurchase_rate"`   // 复购率
+	ChurnRate        float64 `json:"churn_rate"`        // 流失率
+	AIAssistRate     float64 `json:"ai_assist_rate"`    // AI 辅助率
+	ActiveCustomers  int     `json:"active_customers"`  // 活跃客户
+	DormantCustomers int     `json:"dormant_customers"` // 沉睡客户
 }
 
 // WorkbenchOverview 工作台首页综合数据
 type WorkbenchOverview struct {
-	SalesID		string			`json:"sales_id"`
-	Name		string			`json:"name"`
-	Team		string			`json:"team"`
-	Todos		[]*WorkbenchTodo	`json:"todos"`
-	Today		*WorkbenchToday		`json:"today"`
-	Month		*WorkbenchMonth		`json:"month"`
-	AIProduct	*AIProductivity		`json:"ai_product"`
-	Funnel		*JourneyFunnel		`json:"funnel"`
-	Leaderboard	[]*SalesPerformance	`json:"leaderboard"`
-	MyRank		int			`json:"my_rank"`
-	Metrics		*WorkbenchKeyMetrics	`json:"metrics"`
-	GeneratedAt	time.Time		`json:"generated_at"`
+	SalesID     string               `json:"sales_id"`
+	Name        string               `json:"name"`
+	Team        string               `json:"team"`
+	Todos       []*WorkbenchTodo     `json:"todos"`
+	Today       *WorkbenchToday      `json:"today"`
+	Month       *WorkbenchMonth      `json:"month"`
+	AIProduct   *AIProductivity      `json:"ai_product"`
+	Funnel      *JourneyFunnel       `json:"funnel"`
+	Leaderboard []*SalesPerformance  `json:"leaderboard"`
+	MyRank      int                  `json:"my_rank"`
+	Metrics     *WorkbenchKeyMetrics `json:"metrics"`
+	GeneratedAt time.Time            `json:"generated_at"`
 }
 
 // SalesWorkbenchService 销售工作台服务
 type SalesWorkbenchService struct {
-	mu	sync.RWMutex
+	mu sync.RWMutex
 
 	// 下游依赖
-	dashboard	*SalesDashboard
-	journey		*CustomerJourneyService
-	followup	*FollowUpService
-	draft		*OrderDraftService
-	tagger		*AITagger
+	dashboard *SalesDashboard
+	journey   *CustomerJourneyService
+	followup  *FollowUpService
+	draft     *OrderDraftService
+	tagger    *AITagger
 }
 
 // NewSalesWorkbenchService 创建工作台服务
@@ -163,9 +163,9 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	overview := &WorkbenchOverview{
-		SalesID:	salesID,
-		GeneratedAt:	now,
-		Todos:		[]*WorkbenchTodo{},
+		SalesID:     salesID,
+		GeneratedAt: now,
+		Todos:       []*WorkbenchTodo{},
 	}
 
 	// 1. 待办清单（核心）
@@ -184,7 +184,7 @@ func (s *SalesWorkbenchService) GetOverview(ctx context.Context, salesID string)
 
 	// 5. 客户漏斗（使用 dashboard 的旅程漏斗，纯内存）
 	if dash != nil {
-		overview.Funnel = dash.FunnelByJourney(context.Background(), )
+		overview.Funnel = dash.FunnelByJourney(context.Background())
 	}
 
 	// 6. 销冠排行
@@ -217,16 +217,16 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 	if draft != nil {
 		for _, d := range draft.ListPending(context.Background(), salesID, 0) {
 			todos = append(todos, &WorkbenchTodo{
-				Type:		"draft",
-				Priority:	5,
-				Title:		"待确认订单草稿",
-				Description:	fmt.Sprintf("%s x %d = ¥%.2f（置信度 %.0f%%）", d.ProductName, d.Quantity, d.TotalAmount, d.Confidence*100),
-				TargetID:	d.ID,
-				TargetType:	"order_draft",
-				CustomerID:	d.CustomerID,
-				DueAt:		d.ExpiresAt,
-				CreatedAt:	d.CreatedAt,
-				URL:		"/dashboard/drafts/" + d.ID,
+				Type:        "draft",
+				Priority:    5,
+				Title:       "待确认订单草稿",
+				Description: fmt.Sprintf("%s x %d = ¥%.2f（置信度 %.0f%%）", d.ProductName, d.Quantity, d.TotalAmount, d.Confidence*100),
+				TargetID:    d.ID,
+				TargetType:  "order_draft",
+				CustomerID:  d.CustomerID,
+				DueAt:       d.ExpiresAt,
+				CreatedAt:   d.CreatedAt,
+				URL:         "/dashboard/drafts/" + d.ID,
 			})
 		}
 	}
@@ -245,31 +245,31 @@ func (s *SalesWorkbenchService) aggregateTodos(ctx context.Context, salesID stri
 				priority = 3
 			}
 			todos = append(todos, &WorkbenchTodo{
-				Type:		"followup",
-				Priority:	priority,
-				Title:		"跟进：" + r.Title,
-				Description:	r.Description,
-				TargetID:	r.ID,
-				TargetType:	"reminder",
-				CustomerID:	r.CustomerID,
-				DueAt:		r.DueAt,
-				CreatedAt:	r.CreatedAt,
-				URL:		"/dashboard/followups/" + r.ID,
+				Type:        "followup",
+				Priority:    priority,
+				Title:       "跟进：" + r.Title,
+				Description: r.Description,
+				TargetID:    r.ID,
+				TargetType:  "reminder",
+				CustomerID:  r.CustomerID,
+				DueAt:       r.DueAt,
+				CreatedAt:   r.CreatedAt,
+				URL:         "/dashboard/followups/" + r.ID,
 			})
 		}
 		// 逾期未完成也展示（优先级 5）
 		for _, r := range followup.ListOverdue(context.Background(), salesID) {
 			todos = append(todos, &WorkbenchTodo{
-				Type:		"followup",
-				Priority:	5,
-				Title:		"【逾期】跟进：" + r.Title,
-				Description:	"已逾期 " + now.Sub(r.DueAt).Round(time.Hour).String(),
-				TargetID:	r.ID,
-				TargetType:	"reminder",
-				CustomerID:	r.CustomerID,
-				DueAt:		r.DueAt,
-				CreatedAt:	r.CreatedAt,
-				URL:		"/dashboard/followups/" + r.ID,
+				Type:        "followup",
+				Priority:    5,
+				Title:       "【逾期】跟进：" + r.Title,
+				Description: "已逾期 " + now.Sub(r.DueAt).Round(time.Hour).String(),
+				TargetID:    r.ID,
+				TargetType:  "reminder",
+				CustomerID:  r.CustomerID,
+				DueAt:       r.DueAt,
+				CreatedAt:   r.CreatedAt,
+				URL:         "/dashboard/followups/" + r.ID,
 			})
 		}
 	}
@@ -413,7 +413,7 @@ func (s *SalesWorkbenchService) aggregateMetrics(ctx context.Context, salesID st
 	}
 	if totalOrders > 0 {
 		metrics.RepurchaseRate = float64(repurchaseOrders) / float64(totalOrders) * 100
-		metrics.AvgDealAmount = 0	// 月业绩里有
+		metrics.AvgDealAmount = 0 // 月业绩里有
 	}
 	metrics.ActiveCustomers = len(uniqueCustomers)
 
@@ -494,9 +494,9 @@ func (s *SalesWorkbenchService) GetQuickActions(ctx context.Context, salesID str
 
 // QuickAction 快捷入口
 type QuickAction struct {
-	ID	string	`json:"id"`
-	Title	string	`json:"title"`
-	Icon	string	`json:"icon"`
-	URL	string	`json:"url"`
-	Badge	int	`json:"badge"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Icon  string `json:"icon"`
+	URL   string `json:"url"`
+	Badge int    `json:"badge"`
 }

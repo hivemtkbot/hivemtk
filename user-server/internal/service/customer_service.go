@@ -22,18 +22,18 @@ func NewCustomerService() *CustomerService {
 
 // CustomerDTO 客户数据传输对象
 type CustomerDTO struct {
-	Phone		string	`json:"phone"`
-	Email		string	`json:"email"`
-	WechatOpenID	string	`json:"wechat_open_id"`
-	DouyinOpenID	string	`json:"douyin_open_id"`
-	XiaohongshuID	string	`json:"xiaohongshu_id"`
+	Phone         string `json:"phone"`
+	Email         string `json:"email"`
+	WechatOpenID  string `json:"wechat_open_id"`
+	DouyinOpenID  string `json:"douyin_open_id"`
+	XiaohongshuID string `json:"xiaohongshu_id"`
 }
 
 // CustomerProfile 客户 360 视图
 type CustomerProfile struct {
-	Customer	*model.Customer		`json:"customer"`
-	RecentEvents	[]*model.CustomerEvent	`json:"recent_events"`
-	Tags		[]string		`json:"tags"`
+	Customer     *model.Customer        `json:"customer"`
+	RecentEvents []*model.CustomerEvent `json:"recent_events"`
+	Tags         []string               `json:"tags"`
 }
 
 // ErrCustomerNotFound 客户未找到
@@ -44,9 +44,9 @@ var ErrInvalidDTO = errors.New("无效的客戶 DTO")
 
 // 分页常量
 const (
-	DefaultLimit	= 50
-	MaxLimit	= 1000
-	DefaultPage	= 1
+	DefaultLimit = 50
+	MaxLimit     = 1000
+	DefaultPage  = 1
 )
 
 // CreateOrUpdate 创建或更新客户
@@ -80,13 +80,13 @@ func (s *CustomerService) CreateOrUpdate(ctx context.Context, dto *CustomerDTO) 
 
 	// 创建新客户
 	customer := &model.Customer{
-		Phone:		dto.Phone,
-		Email:		dto.Email,
-		WechatOpenID:	dto.WechatOpenID,
-		DouyinOpenID:	dto.DouyinOpenID,
-		XiaohongshuID:	dto.XiaohongshuID,
-		Tags:		"[]",
-		ChurnRisk:	"low",
+		Phone:         dto.Phone,
+		Email:         dto.Email,
+		WechatOpenID:  dto.WechatOpenID,
+		DouyinOpenID:  dto.DouyinOpenID,
+		XiaohongshuID: dto.XiaohongshuID,
+		Tags:          "[]",
+		ChurnRisk:     "low",
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {
@@ -117,9 +117,9 @@ func (s *CustomerService) GetCustomerProfile(ctx context.Context, customerID str
 	tags := GetCustomerTags(customer)
 
 	return &CustomerProfile{
-		Customer:	customer,
-		RecentEvents:	events,
-		Tags:		tags,
+		Customer:     customer,
+		RecentEvents: events,
+		Tags:         tags,
 	}, nil
 }
 
@@ -315,6 +315,9 @@ func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, prima
 	eventRepo := repository.NewCustomerEventRepository()
 	secondaryEvents, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
 	if err == nil && len(secondaryEvents) > 0 {
+		// CC-P2 N+1 优化：原实现「for event → eventRepo.Record」每个事件一次 INSERT，
+		// 现改为在内存中更新 event 字段后单次 eventRepo.RecordBatch 批量插入。
+		migrated := make([]*model.CustomerEvent, 0, len(secondaryEvents))
 		for _, event := range secondaryEvents {
 			event.CustomerID = primaryID
 			// 更新事件数据，记录合并信息
@@ -324,8 +327,10 @@ func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, prima
 			_ = SetCustomerEventData(event, eventData)
 			// 创建新事件记录（因为 ID 已存在）
 			event.ID = ""
-			eventRepo.Record(ctx, event)
+			migrated = append(migrated, event)
 		}
+		// best-effort：批量插入失败不阻塞主合并流程，与原 Record 单条 best-effort 语义对齐
+		_ = eventRepo.RecordBatch(ctx, migrated)
 	}
 
 	// 执行基本合并

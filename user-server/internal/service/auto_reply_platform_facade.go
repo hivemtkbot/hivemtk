@@ -3,8 +3,8 @@ package service
 import (
 	"time"
 
-	"marketing/internal/model"
 	"context"
+	"marketing/internal/model"
 )
 
 // ============================================================================
@@ -14,24 +14,24 @@ import (
 
 // XiaohongshuAccountCreateReq 小红书账号创建/更新请求
 type XiaohongshuAccountCreateReq struct {
-	UserID		uint
-	Username	string
-	Cookie		string
-	IsActive	bool
-	Headless	bool
-	LoginAt		*time.Time
+	UserID   uint
+	Username string
+	Cookie   string
+	IsActive bool
+	Headless bool
+	LoginAt  *time.Time
 }
 
 // UpsertAccountDTO 根据请求 DTO 创建/更新小红书账号，返回账号 ID
 func (s *XiaohongshuAutoReplyService) UpsertAccountDTO(ctx context.Context, req XiaohongshuAccountCreateReq) (uint, error) {
 	item := &model.AutoReplyAccount{
-		UserID:		req.UserID,
-		Platform:	"xiaohongshu",
-		Username:	req.Username,
-		Cookie:		req.Cookie,
-		IsActive:	req.IsActive,
-		Headless:	req.Headless,
-		LoginAt:	req.LoginAt,
+		UserID:   req.UserID,
+		Platform: "xiaohongshu",
+		Username: req.Username,
+		Cookie:   req.Cookie,
+		IsActive: req.IsActive,
+		Headless: req.Headless,
+		LoginAt:  req.LoginAt,
 	}
 	if err := s.UpsertAccount(ctx, item); err != nil {
 		return 0, err
@@ -41,48 +41,48 @@ func (s *XiaohongshuAutoReplyService) UpsertAccountDTO(ctx context.Context, req 
 
 // XiaohongshuRuleSaveReq 小红书规则保存请求
 type XiaohongshuRuleSaveReq struct {
-	UserID		uint
-	Keywords	string
-	ReplyContent	string
-	Frequency	int
-	DailyLimit	int
-	IsActive	bool
+	UserID       uint
+	Keywords     string
+	ReplyContent string
+	Frequency    int
+	DailyLimit   int
+	IsActive     bool
 }
 
 // SaveRuleDTO 根据请求 DTO 保存小红书规则
 func (s *XiaohongshuAutoReplyService) SaveRuleDTO(ctx context.Context, req XiaohongshuRuleSaveReq) error {
 	rule := &model.AutoReplyRule{
-		UserID:		req.UserID,
-		Platform:	"xiaohongshu",
-		Keywords:	req.Keywords,
-		ReplyContent:	req.ReplyContent,
-		Frequency:	req.Frequency,
-		DailyLimit:	req.DailyLimit,
-		IsActive:	req.IsActive,
+		UserID:       req.UserID,
+		Platform:     "xiaohongshu",
+		Keywords:     req.Keywords,
+		ReplyContent: req.ReplyContent,
+		Frequency:    req.Frequency,
+		DailyLimit:   req.DailyLimit,
+		IsActive:     req.IsActive,
 	}
 	return s.SaveRule(ctx, rule)
 }
 
 // XianyuAccountCreateReq 闲鱼账号创建/更新请求
 type XianyuAccountCreateReq struct {
-	UserID		uint
-	Username	string
-	Cookie		string
-	IsActive	bool
-	Headless	bool
-	LoginAt		*time.Time
+	UserID   uint
+	Username string
+	Cookie   string
+	IsActive bool
+	Headless bool
+	LoginAt  *time.Time
 }
 
 // UpsertAccountDTO 根据请求 DTO 创建/更新闲鱼账号，返回账号 ID
 func (s *XianyuAutoReplyService) UpsertAccountDTO(ctx context.Context, req XianyuAccountCreateReq) (uint, error) {
 	item := &model.AutoReplyAccount{
-		UserID:		req.UserID,
-		Platform:	"xianyu",
-		Username:	req.Username,
-		Cookie:		req.Cookie,
-		IsActive:	req.IsActive,
-		Headless:	req.Headless,
-		LoginAt:	req.LoginAt,
+		UserID:   req.UserID,
+		Platform: "xianyu",
+		Username: req.Username,
+		Cookie:   req.Cookie,
+		IsActive: req.IsActive,
+		Headless: req.Headless,
+		LoginAt:  req.LoginAt,
 	}
 	if err := s.UpsertAccount(ctx, item); err != nil {
 		return 0, err
@@ -92,24 +92,24 @@ func (s *XianyuAutoReplyService) UpsertAccountDTO(ctx context.Context, req Xiany
 
 // XianyuRuleSaveReq 闲鱼规则保存请求
 type XianyuRuleSaveReq struct {
-	UserID		uint
-	Keywords	string
-	ReplyContent	string
-	Frequency	int
-	DailyLimit	int
-	IsActive	bool
+	UserID       uint
+	Keywords     string
+	ReplyContent string
+	Frequency    int
+	DailyLimit   int
+	IsActive     bool
 }
 
 // SaveRuleDTO 根据请求 DTO 保存闲鱼规则
 func (s *XianyuAutoReplyService) SaveRuleDTO(ctx context.Context, req XianyuRuleSaveReq) error {
 	rule := &model.AutoReplyRule{
-		UserID:		req.UserID,
-		Platform:	"xianyu",
-		Keywords:	req.Keywords,
-		ReplyContent:	req.ReplyContent,
-		Frequency:	req.Frequency,
-		DailyLimit:	req.DailyLimit,
-		IsActive:	req.IsActive,
+		UserID:       req.UserID,
+		Platform:     "xianyu",
+		Keywords:     req.Keywords,
+		ReplyContent: req.ReplyContent,
+		Frequency:    req.Frequency,
+		DailyLimit:   req.DailyLimit,
+		IsActive:     req.IsActive,
 	}
 	return s.SaveRule(ctx, rule)
 }

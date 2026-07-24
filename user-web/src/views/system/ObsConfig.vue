@@ -27,8 +27,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-              {{ row.status === 'active' ? '正常' : '禁用' }}
+            <el-tag :type="getStatusTagType(row.status)">
+              {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -136,6 +136,12 @@ import i18n from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getObsConfigList, createObsConfig, updateObsConfig, deleteObsConfig, testObsConnection, setDefaultObsConfig } from '@/api/obs'
+// 统一枚举：观测配置启用状态
+// "active"=正常（success/绿），"disabled"=禁用（danger/红）
+const OBS_STATUS = { active: '正常', disabled: '禁用', inactive: '禁用' }
+const OBS_STATUS_TAG = { active: 'success', disabled: 'danger', inactive: 'danger' }
+const getStatusLabel = (s) => OBS_STATUS[s] || s || '-'
+const getStatusTagType = (s) => OBS_STATUS_TAG[s] || ''
 
 const loading = ref(false)
 const configList = ref([])

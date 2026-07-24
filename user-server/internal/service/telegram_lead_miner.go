@@ -36,9 +36,9 @@ var tgMeaningfulRe = regexp.MustCompile(`[\p{L}\p{N}]`)
 
 // 联系方式信号（出现即视为强购买/合作意向）
 var (
-	tgEmailRe	= regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
-	tgPhoneRe	= regexp.MustCompile(`\+?\d[\d\-\s]{6,}\d`)
-	tgLinkRe	= regexp.MustCompile(`(?i)(t\.me/|wa\.me/|https?://|whatsapp|wechat|微信|vx[:：]?|加我|私聊)`)
+	tgEmailRe = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+	tgPhoneRe = regexp.MustCompile(`\+?\d[\d\-\s]{6,}\d`)
+	tgLinkRe  = regexp.MustCompile(`(?i)(t\.me/|wa\.me/|https?://|whatsapp|wechat|微信|vx[:：]?|加我|私聊)`)
 )
 
 // tgHighIntentKeywords 高意向关键词（每命中一次 +25），覆盖中英双语典型购买/合作信号
@@ -70,7 +70,7 @@ func DetectTelegramIntent(text string) (score int, signals []string, isOpportuni
 		return 0, nil, false
 	}
 	lower := strings.ToLower(t)
-	score = 8	// 任意有效发言的基础意向分（发言即潜在线索）
+	score = 8 // 任意有效发言的基础意向分（发言即潜在线索）
 	seen := map[string]bool{}
 	add := func(sig string, w int) {
 		if seen[sig] {
@@ -180,10 +180,10 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 		return false
 	}
 	t := strings.TrimSpace(text)
-	if t == "" || strings.HasPrefix(t, "/") {	// 空消息 / 命令(含 /callback) 不作为线索
+	if t == "" || strings.HasPrefix(t, "/") { // 空消息 / 命令(含 /callback) 不作为线索
 		return false
 	}
-	if !tgMeaningfulRe.MatchString(t) {	// 纯表情 / 纯标点 过滤
+	if !tgMeaningfulRe.MatchString(t) { // 纯表情 / 纯标点 过滤
 		return false
 	}
 	account := telegramLeadAccountKey(username, fromID)
@@ -210,7 +210,7 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 	if hub != nil {
 		msgID = hub.MsgID
 		convID = hub.ConversationID
-		oneID = hub.SenderID	// 入站消息的 sender 即统一客户（OneID）在 TG 侧的标识
+		oneID = hub.SenderID // 入站消息的 sender 即统一客户（OneID）在 TG 侧的标识
 	}
 
 	existing, err := s.clueRepo.FindByTypeAndAccount(ctx, ClueTypeTelegram, account)
@@ -221,16 +221,16 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 
 	if existing == nil {
 		clue := &model.Clue{
-			SourceID:	groupID,
-			Account:	account,
-			Type:		ClueTypeTelegram,
-			Name:		name,
-			Desc:		desc,
-			IntentScore:	int64(score),
-			IsOpportunity:	boolToInt64(isOpp),
-			MessageID:	msgID,
-			ConversationID:	convID,
-			OneID:		oneID,
+			SourceID:       groupID,
+			Account:        account,
+			Type:           ClueTypeTelegram,
+			Name:           name,
+			Desc:           desc,
+			IntentScore:    int64(score),
+			IsOpportunity:  boolToInt64(isOpp),
+			MessageID:      msgID,
+			ConversationID: convID,
+			OneID:          oneID,
 		}
 		if cerr := s.clueRepo.Create(ctx, clue); cerr != nil {
 			// 并发下另一条 goroutine 可能已抢先插入（唯一键冲突），或任意写入异常：
@@ -245,7 +245,7 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 			}
 		} else {
 			logger.Infof("[LeadMiner] 新增 TG 线索 account=%s 意向分=%d 商机=%v 群=%s", account, score, isOpp, groupTitle)
-			newOpportunity = isOpp	// 新线索即达到商机阈值 → 新晋商机
+			newOpportunity = isOpp // 新线索即达到商机阈值 → 新晋商机
 			s.recordTelegramLeadScore(ctx, clue, isOpp)
 			return newOpportunity
 		}
@@ -256,13 +256,13 @@ func (s *WebhookService) mineTelegramGroupLead(ctx context.Context, hub *model.M
 	if int64(score) > existing.IntentScore {
 		wasOpp := existing.IsOpportunity != 0
 		updates := map[string]any{
-			"desc":			desc,
-			"source_id":		groupID,
-			"intent_score":		int64(score),
-			"is_opportunity":	boolToInt64(isOpp),
-			"message_id":		msgID,
-			"conversation_id":	convID,
-			"one_id":		oneID,
+			"desc":            desc,
+			"source_id":       groupID,
+			"intent_score":    int64(score),
+			"is_opportunity":  boolToInt64(isOpp),
+			"message_id":      msgID,
+			"conversation_id": convID,
+			"one_id":          oneID,
 		}
 		if uerr := s.clueRepo.UpdateByID(ctx, existing.ID, updates); uerr != nil {
 			logger.Warnf("[LeadMiner] 更新 TG 线索失败 id=%s: %v", existing.ID, uerr)

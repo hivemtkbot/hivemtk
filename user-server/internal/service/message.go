@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 type MessageService struct {
@@ -36,10 +36,10 @@ func (s *MessageService) DeleteMessage(ctx context.Context, id string) error {
 func (s *MessageService) InitMessage(ctx context.Context, accountID string, userID string, tgID int64, text string) (string, error) {
 	// 直接使用string类型的ID
 	message := model.Message{
-		AccountID:	accountID,
-		UserID:		userID,
-		TgID:		tgID,
-		Text:		text,
+		AccountID: accountID,
+		UserID:    userID,
+		TgID:      tgID,
+		Text:      text,
 	}
 	if err := s.repo.Create(ctx, &message); err != nil {
 		return "", err

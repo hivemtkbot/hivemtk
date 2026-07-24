@@ -61,3 +61,11 @@ export function resolveIdentity(data) {
     data
   })
 }
+
+// OneID 统计（总数 / 关联手机号 / 关联邮箱 / 多身份）
+export function getOneIDStats() {
+  return request({
+    url: '/api/customer/oneid/stats',
+    method: 'get'
+  })
+}

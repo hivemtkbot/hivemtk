@@ -14,17 +14,17 @@ import (
 	"marketing/internal/repository"
 	"time"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 type WeComService struct {
-	accountRepo	*repository.WeComAccountRepository
-	customerRepo	*repository.WeComCustomerRepository
-	groupRepo	*repository.WeComGroupRepository
-	memberRepo	*repository.WeComGroupMemberRepository
-	messageRepo	*repository.WeComMessageRepository
-	tagRepo		*repository.WeComTagRepository
+	accountRepo  *repository.WeComAccountRepository
+	customerRepo *repository.WeComCustomerRepository
+	groupRepo    *repository.WeComGroupRepository
+	memberRepo   *repository.WeComGroupMemberRepository
+	messageRepo  *repository.WeComMessageRepository
+	tagRepo      *repository.WeComTagRepository
 }
 
 // NewWeComService 创建企业微信服务实例(无参,内部用 dbUtil.GetDB())
@@ -35,21 +35,21 @@ func NewWeComService() *WeComService {
 // NewWeComServiceWithDB 创建带 DB 的企业微信服务实例(显式注入 db,兼容旧调用)
 func NewWeComServiceWithDB(db *gorm.DB) *WeComService {
 	return &WeComService{
-		accountRepo:	repository.NewWeComAccountRepository(),
-		customerRepo:	repository.NewWeComCustomerRepository(),
-		groupRepo:	repository.NewWeComGroupRepository(),
-		memberRepo:	repository.NewWeComGroupMemberRepository(),
-		messageRepo:	repository.NewWeComMessageRepository(),
-		tagRepo:	repository.NewWeComTagRepository(db),
+		accountRepo:  repository.NewWeComAccountRepository(),
+		customerRepo: repository.NewWeComCustomerRepository(),
+		groupRepo:    repository.NewWeComGroupRepository(),
+		memberRepo:   repository.NewWeComGroupMemberRepository(),
+		messageRepo:  repository.NewWeComMessageRepository(),
+		tagRepo:      repository.NewWeComTagRepository(db),
 	}
 }
 
 // WeComTokenResponse 获取访问令牌响应
 type WeComTokenResponse struct {
-	ErrCode		int	`json:"errcode"`
-	ErrMsg		string	`json:"errmsg"`
-	AccessToken	string	`json:"access_token"`
-	ExpiresIn	int	`json:"expires_in"`
+	ErrCode     int    `json:"errcode"`
+	ErrMsg      string `json:"errmsg"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
 }
 
 // GetAccessToken 获取访问令牌
@@ -93,31 +93,31 @@ func (s *WeComService) GetAccessToken(ctx context.Context, account *model.WeComA
 
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
-	CorpID		string	`json:"corp_id" binding:"required"`
-	CorpSecret	string	`json:"corp_secret" binding:"required"`
-	AgentID		int	`json:"agent_id"`
-	AgentSecret	string	`json:"agent_secret"`
+	CorpID      string `json:"corp_id" binding:"required"`
+	CorpSecret  string `json:"corp_secret" binding:"required"`
+	AgentID     int    `json:"agent_id"`
+	AgentSecret string `json:"agent_secret"`
 	// 入站回调（接收客户消息 → 智能体自动回复）配置
-	CallbackToken  string `json:"callback_token"`  // 企微管理端"接收事件服务器"配置的 Token
+	CallbackToken  string `json:"callback_token"`   // 企微管理端"接收事件服务器"配置的 Token
 	EncodingAESKey string `json:"encoding_aes_key"` // 43 字符 EncodingAESKey（消息体加解密）
-	WebhookEnabled bool   `json:"webhook_enabled"` // 是否启用 webhook 接收
+	WebhookEnabled bool   `json:"webhook_enabled"`  // 是否启用 webhook 接收
 	AIAgentEnabled bool   `json:"ai_agent_enabled"` // 是否启用智能体自动回复
-	WebhookPath    string `json:"webhook_path"`    // 自定义回调路径（默认 /api/webhook/wecom/{id}）
+	WebhookPath    string `json:"webhook_path"`     // 自定义回调路径（默认 /api/webhook/wecom/{id}）
 }
 
 // CreateAccount 创建企业微信账号
 func (s *WeComService) CreateAccount(ctx context.Context, req *CreateAccountRequest) (*model.WeComAccount, error) {
 	account := &model.WeComAccount{
-		CorpID:		req.CorpID,
-		CorpSecret:	req.CorpSecret,
-		AgentID:	req.AgentID,
-		AgentSecret:	req.AgentSecret,
-		CallbackToken:	req.CallbackToken,
-		EncodingAESKey:	req.EncodingAESKey,
-		WebhookEnabled:	req.WebhookEnabled,
-		AIAgentEnabled:	req.AIAgentEnabled,
-		WebhookPath:	req.WebhookPath,
-		Status:		1,
+		CorpID:         req.CorpID,
+		CorpSecret:     req.CorpSecret,
+		AgentID:        req.AgentID,
+		AgentSecret:    req.AgentSecret,
+		CallbackToken:  req.CallbackToken,
+		EncodingAESKey: req.EncodingAESKey,
+		WebhookEnabled: req.WebhookEnabled,
+		AIAgentEnabled: req.AIAgentEnabled,
+		WebhookPath:    req.WebhookPath,
+		Status:         1,
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {
@@ -188,9 +188,9 @@ func (s *WeComService) SyncCustomers(ctx context.Context, account *model.WeComAc
 	}
 
 	var result struct {
-		ErrCode		int		`json:"errcode"`
-		ErrMsg		string		`json:"errmsg"`
-		ExternalUserID	[]string	`json:"external_userid_list"`
+		ErrCode        int      `json:"errcode"`
+		ErrMsg         string   `json:"errmsg"`
+		ExternalUserID []string `json:"external_userid_list"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return 0, err
@@ -237,33 +237,33 @@ func (s *WeComService) getCustomerDetail(ctx context.Context, token, userID stri
 	}
 
 	var result struct {
-		ErrCode		int	`json:"errcode"`
-		ErrMsg		string	`json:"errmsg"`
-		ExternalContact	struct {
-			ExternalUserID	string	`json:"external_userid"`
-			Name		string	`json:"name"`
-			Avatar		string	`json:"avatar"`
-			Gender		int	`json:"gender"`
-			UnionID		string	`json:"union"`
-			Type		int	`json:"type"`
-		}	`json:"external_contact"`
-		FollowUser	[]struct {
-			UserID		string	`json:"userid"`
-			Nickname	string	`json:"nickname"`
-			AddTime		int64	`json:"add_time"`
-		}	`json:"follow_user"`
+		ErrCode         int    `json:"errcode"`
+		ErrMsg          string `json:"errmsg"`
+		ExternalContact struct {
+			ExternalUserID string `json:"external_userid"`
+			Name           string `json:"name"`
+			Avatar         string `json:"avatar"`
+			Gender         int    `json:"gender"`
+			UnionID        string `json:"union"`
+			Type           int    `json:"type"`
+		} `json:"external_contact"`
+		FollowUser []struct {
+			UserID   string `json:"userid"`
+			Nickname string `json:"nickname"`
+			AddTime  int64  `json:"add_time"`
+		} `json:"follow_user"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
 
 	customer := &model.WeComCustomer{
-		ExternalUserID:	result.ExternalContact.ExternalUserID,
-		Name:		result.ExternalContact.Name,
-		Avatar:		result.ExternalContact.Avatar,
-		Gender:		result.ExternalContact.Gender,
-		UnionID:	result.ExternalContact.UnionID,
-		Type:		result.ExternalContact.Type,
+		ExternalUserID: result.ExternalContact.ExternalUserID,
+		Name:           result.ExternalContact.Name,
+		Avatar:         result.ExternalContact.Avatar,
+		Gender:         result.ExternalContact.Gender,
+		UnionID:        result.ExternalContact.UnionID,
+		Type:           result.ExternalContact.Type,
 	}
 
 	if len(result.FollowUser) > 0 {
@@ -306,12 +306,12 @@ func (s *WeComService) SyncGroups(ctx context.Context, account *model.WeComAccou
 	}
 
 	var result struct {
-		ErrCode		int	`json:"errcode"`
-		ErrMsg		string	`json:"errmsg"`
-		GroupChatList	[]struct {
-			ChatID	string	`json:"chat_id"`
-			Status	int	`json:"status"`
-		}	`json:"group_chat_list"`
+		ErrCode       int    `json:"errcode"`
+		ErrMsg        string `json:"errmsg"`
+		GroupChatList []struct {
+			ChatID string `json:"chat_id"`
+			Status int    `json:"status"`
+		} `json:"group_chat_list"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return 0, err
@@ -363,27 +363,27 @@ func (s *WeComService) getGroupDetail(ctx context.Context, token, chatID string)
 	}
 
 	var result struct {
-		ErrCode		int	`json:"errcode"`
-		ErrMsg		string	`json:"errmsg"`
-		GroupChat	struct {
-			ChatID		string	`json:"chat_id"`
-			Name		string	`json:"name"`
-			Owner		string	`json:"owner"`
-			MemberCount	int	`json:"member_count"`
-			CreateTime	int64	`json:"create_time"`
-		}	`json:"group_chat"`
+		ErrCode   int    `json:"errcode"`
+		ErrMsg    string `json:"errmsg"`
+		GroupChat struct {
+			ChatID      string `json:"chat_id"`
+			Name        string `json:"name"`
+			Owner       string `json:"owner"`
+			MemberCount int    `json:"member_count"`
+			CreateTime  int64  `json:"create_time"`
+		} `json:"group_chat"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
 
 	group := &model.WeComGroup{
-		ChatID:		result.GroupChat.ChatID,
-		Name:		result.GroupChat.Name,
-		OwnerID:	result.GroupChat.Owner,
-		MemberCount:	result.GroupChat.MemberCount,
-		CreateTime:	time.Unix(result.GroupChat.CreateTime, 0),
-		Status:		1,
+		ChatID:      result.GroupChat.ChatID,
+		Name:        result.GroupChat.Name,
+		OwnerID:     result.GroupChat.Owner,
+		MemberCount: result.GroupChat.MemberCount,
+		CreateTime:  time.Unix(result.GroupChat.CreateTime, 0),
+		Status:      1,
 	}
 
 	return group, nil
@@ -396,15 +396,15 @@ func (s *WeComService) GetGroupList(ctx context.Context, page, pageSize int) ([]
 
 // WeComSendMessageRequest 发送消息请求
 type WeComSendMessageRequest struct {
-	ToUser	string	`json:"to_user"`
-	ToParty	string	`json:"to_party"`
-	MsgType	string	`json:"msg_type" binding:"required"`
-	Content	string	`json:"content"`
-	MediaID	string	`json:"media_id"`
-	Title	string	`json:"title"`
-	Desc	string	`json:"desc"`
-	URL	string	`json:"url"`
-	PicURL	string	`json:"pic_url"`
+	ToUser  string `json:"to_user"`
+	ToParty string `json:"to_party"`
+	MsgType string `json:"msg_type" binding:"required"`
+	Content string `json:"content"`
+	MediaID string `json:"media_id"`
+	Title   string `json:"title"`
+	Desc    string `json:"desc"`
+	URL     string `json:"url"`
+	PicURL  string `json:"pic_url"`
 }
 
 // SendMessage 发送消息
@@ -427,9 +427,9 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 	}
 
 	msgData := map[string]any{
-		"external_userid":	externalUserIDs,
-		"msgtype":		req.MsgType,
-		"agentid":		account.AgentID,
+		"external_userid": externalUserIDs,
+		"msgtype":         req.MsgType,
+		"agentid":         account.AgentID,
 	}
 
 	switch req.MsgType {
@@ -439,10 +439,10 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 		msgData["image"] = map[string]string{"media_id": req.MediaID}
 	case "link":
 		msgData["link"] = map[string]string{
-			"title":	req.Title,
-			"desc":		req.Desc,
-			"url":		req.URL,
-			"picurl":	req.PicURL,
+			"title":  req.Title,
+			"desc":   req.Desc,
+			"url":    req.URL,
+			"picurl": req.PicURL,
 		}
 	}
 
@@ -459,9 +459,9 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 	}
 
 	var result struct {
-		ErrCode	int	`json:"errcode"`
-		ErrMsg	string	`json:"errmsg"`
-		MsgID	string	`json:"msgid"`
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+		MsgID   string `json:"msgid"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", err
@@ -473,13 +473,13 @@ func (s *WeComService) SendMessage(ctx context.Context, account *model.WeComAcco
 
 	now := time.Now()
 	message := &model.WeComMessage{
-		AccountID:	account.ID,
-		MsgID:		result.MsgID,
-		MsgType:	req.MsgType,
-		ToUser:		req.ToUser,
-		Content:	req.Content,
-		Status:		1,
-		SendTime:	&now,
+		AccountID: account.ID,
+		MsgID:     result.MsgID,
+		MsgType:   req.MsgType,
+		ToUser:    req.ToUser,
+		Content:   req.Content,
+		Status:    1,
+		SendTime:  &now,
 	}
 	s.messageRepo.Create(ctx, message)
 
@@ -516,13 +516,13 @@ func (s *WeComService) SyncTags(ctx context.Context, account *model.WeComAccount
 	}
 
 	var result struct {
-		ErrCode	int	`json:"errcode"`
-		ErrMsg	string	`json:"errmsg"`
-		TagList	[]struct {
-			TagID		int	`json:"tagid"`
-			TagName		string	`json:"tagname"`
-			UserCount	int	`json:"user_count"`
-		}	`json:"taglist"`
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+		TagList []struct {
+			TagID     int    `json:"tagid"`
+			TagName   string `json:"tagname"`
+			UserCount int    `json:"user_count"`
+		} `json:"taglist"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return 0, err
@@ -535,10 +535,10 @@ func (s *WeComService) SyncTags(ctx context.Context, account *model.WeComAccount
 	count := 0
 	for _, t := range result.TagList {
 		tag := &model.WeComTag{
-			AccountID:	account.ID,
-			TagID:		fmt.Sprintf("%d", t.TagID),
-			TagName:	t.TagName,
-			CustomerCount:	t.UserCount,
+			AccountID:     account.ID,
+			TagID:         fmt.Sprintf("%d", t.TagID),
+			TagName:       t.TagName,
+			CustomerCount: t.UserCount,
 		}
 		s.tagRepo.Create(ctx, tag)
 		count++

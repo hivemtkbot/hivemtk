@@ -112,7 +112,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 // @Success 200 {object} object{data=dto.RFMDistributionResponse}
 // @Router /api/customer-rfm/distribution [get]
 func (c *CustomerRFMController) Distribution(ctx *gin.Context) {
-	dist, err := c.svc.Distribution(context.Background(), )
+	dist, err := c.svc.Distribution(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
 		return

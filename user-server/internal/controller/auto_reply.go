@@ -444,7 +444,7 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 		userID = id
 	}
 	// 获取商户账户的无头模式设置（下沉到 service，controller 不直连 DB）
-	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background(), )
+	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取商户账户信息失败")
 		return
@@ -511,7 +511,7 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 	dedup := browser.NewInMemoryDedup(5 * time.Minute)
 	bot.SetDedup(dedup)
 
-	replyService := service.NewAutoReplyService(c.svc.GetDB(context.Background(), ))
+	replyService := service.NewAutoReplyService(c.svc.GetDB(context.Background()))
 
 	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
 		c.ragStack.Integration,
@@ -559,7 +559,7 @@ func (c *AutoReplyController) Stop(ctx *gin.Context) {
 // GetHeadlessMode 获取无头模式设置
 func (c *AutoReplyController) GetHeadlessMode(ctx *gin.Context) {
 	// 获取商户账户的无头模式设置（下沉到 service，不存在则返回默认 true）
-	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background(), )
+	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取商户账户信息失败")
 		return
@@ -620,7 +620,7 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 	}
 
 	// 读取最新设置并更新单例管理器
-	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background(), )
+	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "读取无头模式设置失败")
 		return
@@ -723,7 +723,7 @@ func (c *AutoReplyController) GetDebugStatus(ctx *gin.Context) {
 	}
 
 	// 获取商户账户无头模式设置（下沉到 service，不存在则返回默认 true）
-	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background(), )
+	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取商户账户信息失败")
 		return

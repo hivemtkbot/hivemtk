@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // ClueScoreService 线索评分服务
@@ -18,17 +18,17 @@ import (
 //
 //	channel 25% / verify 20% / profile 20% / engagement 25% / recency 10%
 type ClueScoreService struct {
-	scoreRepo	repository.ClueScoreRepository
-	engageRepo	repository.ClueEngagementRepository
-	clueRepo	repository.ClueRepository
+	scoreRepo  repository.ClueScoreRepository
+	engageRepo repository.ClueEngagementRepository
+	clueRepo   repository.ClueRepository
 }
 
 // NewClueScoreService 创建线索评分服务实例
 func NewClueScoreService() *ClueScoreService {
 	return &ClueScoreService{
-		scoreRepo:	repository.NewClueScoreRepository(),
-		engageRepo:	repository.NewClueEngagementRepository(),
-		clueRepo:	repository.NewClueRepository(),
+		scoreRepo:  repository.NewClueScoreRepository(),
+		engageRepo: repository.NewClueEngagementRepository(),
+		clueRepo:   repository.NewClueRepository(),
 	}
 }
 
@@ -51,7 +51,7 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	if clue.IsVerify == 1 {
 		verifyScore = 100
 	} else if clue.IsVerify == 0 {
-		verifyScore = 20	// 未验证给基础分
+		verifyScore = 20 // 未验证给基础分
 	}
 
 	// 3. 资料完整度 (0-100)
@@ -86,37 +86,37 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 	confidence := calcConfidence(channelScore, verifyScore, profileScore, engagementScore, recencyScore)
 
 	factors := map[string]any{
-		"channel":	channelScore,
-		"verify":	verifyScore,
-		"profile":	profileScore,
-		"engagement":	engagementScore,
-		"recency":	recencyScore,
+		"channel":    channelScore,
+		"verify":     verifyScore,
+		"profile":    profileScore,
+		"engagement": engagementScore,
+		"recency":    recencyScore,
 		"weights": map[string]float64{
-			"channel":	0.25,
-			"verify":	0.20,
-			"profile":	0.20,
-			"engagement":	0.25,
-			"recency":	0.10,
+			"channel":    0.25,
+			"verify":     0.20,
+			"profile":    0.20,
+			"engagement": 0.25,
+			"recency":    0.10,
 		},
-		"clue_type":	clue.Type,
-		"is_verify":	clue.IsVerify,
+		"clue_type": clue.Type,
+		"is_verify": clue.IsVerify,
 	}
 	factorsJSON, _ := json.Marshal(factors)
 
 	score := &model.ClueScore{
-		ClueID:			clue.ID,
-		Account:		clue.Account,
-		TotalScore:		total,
-		Grade:			model.CalcGradeFromScore(total),
-		Confidence:		confidence,
-		ChannelScore:		channelScore,
-		VerifyScore:		verifyScore,
-		ProfileScore:		profileScore,
-		EngagementScore:	engagementScore,
-		RecencyScore:		recencyScore,
-		FactorsJSON:		string(factorsJSON),
-		ModelVersion:		"h-score-1",
-		ScoredAt:		time.Now(),
+		ClueID:          clue.ID,
+		Account:         clue.Account,
+		TotalScore:      total,
+		Grade:           model.CalcGradeFromScore(total),
+		Confidence:      confidence,
+		ChannelScore:    channelScore,
+		VerifyScore:     verifyScore,
+		ProfileScore:    profileScore,
+		EngagementScore: engagementScore,
+		RecencyScore:    recencyScore,
+		FactorsJSON:     string(factorsJSON),
+		ModelVersion:    "h-score-1",
+		ScoredAt:        time.Now(),
 	}
 	if err := s.scoreRepo.Upsert(ctx, score); err != nil {
 		return nil, err
@@ -125,6 +125,11 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 }
 
 // ScoreAll 对所有线索进行评分（受 limit 限制）
+//
+// CC-P2 N+1 优化：原实现「for clue → ScoreClue → engageRepo.CountByClueID」对每条
+// 线索单独跑 1 次互动事件计数 SQL，limit=200 时产生 200+1 次 IO。
+// 现改为：单次 SQL 用 CountByClueIDsBatch 拉所有线索的互动计数，缓存为 map，
+// 评分时从 map 取，IO 收敛到 2 次。
 func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error) {
 	if limit < 1 || limit > 1000 {
 		limit = 200
@@ -133,15 +138,111 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 	if err != nil {
 		return 0, err
 	}
+	if len(clues) == 0 {
+		return 0, nil
+	}
+
+	// 1) 一次性 batch 拉所有线索的近 7 天互动计数（CC-P2 N+1 优化）
+	since := time.Now().Add(-7 * 24 * time.Hour)
+	clueIDs := make([]string, 0, len(clues))
+	for _, c := range clues {
+		clueIDs = append(clueIDs, c.ID)
+	}
+	engagementMap, err := s.engageRepo.CountByClueIDsBatch(ctx, clueIDs, since)
+	if err != nil {
+		// 互动查询失败不阻塞评分，使用空 map 走 0 分路径
+		engagementMap = make(map[string]int64, len(clues))
+	}
+
 	success := 0
 	for _, c := range clues {
-		// clue.id 是 varchar，但 GetByID 接收 uint；忽略 ID 类型，按 list 返回对象评分
-		if _, err := s.ScoreClue(ctx, c); err != nil {
+		if _, err := s.scoreClueWithEngagement(ctx, c, engagementMap[c.ID]); err != nil {
 			return success, fmt.Errorf("评分失败 (clue_id=%s): %w", c.ID, err)
 		}
 		success++
 	}
 	return success, nil
+}
+
+// scoreClueWithEngagement 使用已 batch 拉取的 engagement count 评分单条线索（CC-P2 内部辅助）
+func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *model.Clue, engagementCount int64) (*model.ClueScore, error) {
+	if clue == nil {
+		return nil, errors.New("线索不能为空")
+	}
+
+	channelScore := scoreChannel(clue.Type)
+
+	verifyScore := 0
+	if clue.IsVerify == 1 {
+		verifyScore = 100
+	} else if clue.IsVerify == 0 {
+		verifyScore = 20
+	}
+
+	profileScore := scoreProfile(clue)
+
+	// 直接用 batch 预拉的 count，不再查 DB
+	c := engagementCount
+	if c > 8 {
+		c = 8
+	}
+	engagementScore := int(c) * 12
+
+	recencyScore := clueScoreRecency(clue.CreateTime)
+
+	total := int(math.Round(
+		float64(channelScore)*0.25 +
+			float64(verifyScore)*0.20 +
+			float64(profileScore)*0.20 +
+			float64(engagementScore)*0.25 +
+			float64(recencyScore)*0.10,
+	))
+	if total < 0 {
+		total = 0
+	}
+	if total > 100 {
+		total = 100
+	}
+
+	confidence := calcConfidence(channelScore, verifyScore, profileScore, engagementScore, recencyScore)
+
+	factors := map[string]any{
+		"channel":    channelScore,
+		"verify":     verifyScore,
+		"profile":    profileScore,
+		"engagement": engagementScore,
+		"recency":    recencyScore,
+		"weights": map[string]float64{
+			"channel":    0.25,
+			"verify":     0.20,
+			"profile":    0.20,
+			"engagement": 0.25,
+			"recency":    0.10,
+		},
+		"clue_type": clue.Type,
+		"is_verify": clue.IsVerify,
+	}
+	factorsJSON, _ := json.Marshal(factors)
+
+	score := &model.ClueScore{
+		ClueID:          clue.ID,
+		Account:         clue.Account,
+		TotalScore:      total,
+		Grade:           model.CalcGradeFromScore(total),
+		Confidence:      confidence,
+		ChannelScore:    channelScore,
+		VerifyScore:     verifyScore,
+		ProfileScore:    profileScore,
+		EngagementScore: engagementScore,
+		RecencyScore:    recencyScore,
+		FactorsJSON:     string(factorsJSON),
+		ModelVersion:    "h-score-1",
+		ScoredAt:        time.Now(),
+	}
+	if err := s.scoreRepo.Upsert(ctx, score); err != nil {
+		return nil, err
+	}
+	return score, nil
 }
 
 // RecordEngagement 记录一次互动事件
@@ -154,10 +255,10 @@ func (s *ClueScoreService) RecordEngagement(ctx context.Context, clueID, eventTy
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	evt := &model.ClueEngagementEvent{
-		ClueID:		clueID,
-		EventType:	eventType,
-		Channel:	channel,
-		Payload:	string(payloadBytes),
+		ClueID:    clueID,
+		EventType: eventType,
+		Channel:   channel,
+		Payload:   string(payloadBytes),
 	}
 	return s.engageRepo.Create(ctx, evt)
 }
@@ -200,17 +301,17 @@ func (s *ClueScoreService) LoadClueForScoring(ctx context.Context, clueID string
 // 依据：电话/微信/Whatsapp 触达成功率高于纯社交账号
 func scoreChannel(clueType int64) int {
 	switch clueType {
-	case 1:	// QQ
+	case 1: // QQ
 		return 60
-	case 2:	// 微信
+	case 2: // 微信
 		return 85
-	case 3:	// 电话
+	case 3: // 电话
 		return 95
-	case 4:	// Telegram
+	case 4: // Telegram
 		return 80
-	case 5:	// Whatsapp
+	case 5: // Whatsapp
 		return 90
-	case 6:	// twitter
+	case 6: // twitter
 		return 55
 	default:
 		return 50

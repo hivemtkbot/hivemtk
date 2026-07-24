@@ -95,7 +95,7 @@ type fakeMemory struct{}
 func (fakeMemory) AppendMessage(ctx context.Context, sessionID, customerID string, msg dto.Message) error {
 	return nil
 }
-func (fakeMemory) GetOrCreateMemory(ctx context.Context, sessionID, customerID string)  (*model.DialogueMemory, error) {
+func (fakeMemory) GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error) {
 	return &model.DialogueMemory{}, nil
 }
 

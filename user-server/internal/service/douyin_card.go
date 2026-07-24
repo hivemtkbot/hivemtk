@@ -30,11 +30,11 @@ type DouyinCardService interface {
 
 // douyinCardService 抖音卡片服务实现
 type douyinCardService struct {
-	repo			repository.DouyinCardRepository
-	statsService		DouyinCardStatsService
-	shortLinkService	ShortLinkService
-	domainPoolService	DomainPoolService
-	templateService		*template.TemplateService
+	repo              repository.DouyinCardRepository
+	statsService      DouyinCardStatsService
+	shortLinkService  ShortLinkService
+	domainPoolService DomainPoolService
+	templateService   *template.TemplateService
 }
 
 // NewDouyinCardService 创建抖音卡片服务
@@ -42,11 +42,11 @@ func NewDouyinCardService(db any) DouyinCardService {
 	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
 	return &douyinCardService{
-		repo:			repository.NewDouyinCardRepository(gormDB),
-		statsService:		NewDouyinCardStatsService(gormDB),
-		shortLinkService:	NewShortLinkService(gormDB),
-		domainPoolService:	NewDomainPoolService(gormDB),
-		templateService:	template.NewTemplateService("internal/template"),
+		repo:              repository.NewDouyinCardRepository(gormDB),
+		statsService:      NewDouyinCardStatsService(gormDB),
+		shortLinkService:  NewShortLinkService(gormDB),
+		domainPoolService: NewDomainPoolService(gormDB),
+		templateService:   template.NewTemplateService("internal/template"),
 	}
 }
 
@@ -61,13 +61,13 @@ func (s *douyinCardService) Create(ctx context.Context, req *dto.DouyinCardCreat
 	}
 
 	card := &model.DouyinCard{
-		Title:		req.Title,
-		Description:	req.Description,
-		ImageURL:	req.ImageURL,
-		RedirectURL:	redirectURL,
-		DomainPoolID:	req.DomainPoolID,
-		Tags:		req.Tags,
-		IsActive:	req.IsActive,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		RedirectURL:  redirectURL,
+		DomainPoolID: req.DomainPoolID,
+		Tags:         req.Tags,
+		IsActive:     req.IsActive,
 	}
 
 	createdCard, err := s.repo.Create(ctx, card)
@@ -219,8 +219,8 @@ func (s *douyinCardService) GetList(ctx context.Context, req *dto.DouyinCardList
 	}
 
 	return &dto.DouyinCardListResponse{
-		List:	responses,
-		Total:	total,
+		List:  responses,
+		Total: total,
 	}, nil
 }
 
@@ -246,10 +246,10 @@ func (s *douyinCardService) GenerateHTMLPage(ctx context.Context, id uint) (stri
 
 	// 准备模板数据
 	data := &template.CardTemplateData{
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
+		Title:       card.Title,
+		Description: card.Description,
+		ImageURL:    card.ImageURL,
+		RedirectURL: card.RedirectURL,
 	}
 
 	// 生成HTML页面
@@ -273,17 +273,17 @@ func (s *douyinCardService) GenerateCardChatPage(ctx context.Context, id uint, b
 // toResponse 将模型转换为响应DTO
 func (s *douyinCardService) toResponse(ctx context.Context, card *model.DouyinCard) *dto.DouyinCardResponse {
 	return &dto.DouyinCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&card.DomainPoolID,	// 转换为指针类型以保持API兼容性
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:	card.UpdatedAt.Format(time.RFC3339),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -295,19 +295,19 @@ func (s *douyinCardService) toResponseWithShortLink(ctx context.Context, card *m
 	}
 
 	return &dto.DouyinCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&card.DomainPoolID,	// 转换为指针类型以保持API兼容性
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:	card.UpdatedAt.Format(time.RFC3339),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &card.DomainPoolID, // 转换为指针类型以保持API兼容性
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    card.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -331,7 +331,7 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 	logger.Infof("生成的短码: %s", generateResp.ShortCode)
 
 	// 获取域名池域名
-	var domainID uint = 1	// 默认使用ID为1的域名
+	var domainID uint = 1 // 默认使用ID为1的域名
 	if card.DomainPoolID != 0 {
 		// 这里需要根据域名池信息找到对应的域名ID
 		// 假设域名池ID和域名ID相同，实际可能需要查询映射关系
@@ -340,11 +340,11 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	// 创建短链
 	shortLinkReq := &dto.CreateShortLinkRequest{
-		ShortCode:	generateResp.ShortCode,
-		OriginalURL:	fmt.Sprintf("/douyin/card/%d", card.ID),	// 指向抖音卡片页面
-		Title:		card.Title,
-		Description:	card.Description,
-		DomainID:	domainID,	// 使用域名池ID作为域名ID
+		ShortCode:   generateResp.ShortCode,
+		OriginalURL: fmt.Sprintf("/douyin/card/%d", card.ID), // 指向抖音卡片页面
+		Title:       card.Title,
+		Description: card.Description,
+		DomainID:    domainID, // 使用域名池ID作为域名ID
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, shortLinkReq)

@@ -16,7 +16,7 @@ import (
 //   - 异步写入 operation_logs 表
 //
 // 设计说明：
-//   - 与 TeamUserService.logOperation 解耦，主流程不再等待日志写入完成
+//   - 与业务 Service 解耦，主流程不再等待日志写入完成
 //   - 写入失败仅记录日志，不影响主业务（best-effort）
 type OperationLogSubscriber struct {
 	repo repository.OperationLogRepository

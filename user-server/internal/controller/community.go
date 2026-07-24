@@ -209,7 +209,7 @@ func (c *CommunityController) GetMessages(ctx *gin.Context) {
 
 // GetStatistics 获取社群统计
 func (c *CommunityController) GetStatistics(ctx *gin.Context) {
-	stats, err := c.svc.GetStatistics(context.Background(), )
+	stats, err := c.svc.GetStatistics(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取统计信息失败", err.Error())
 		return

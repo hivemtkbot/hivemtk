@@ -100,7 +100,7 @@ func (c *EmailUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 // ExportUnsubscribes GET /api/email/unsubscribe/export
 // 导出退订名单 CSV
 func (c *EmailUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
-	records, err := c.svc.ListAllUnsubscribes(context.Background(), )
+	records, err := c.svc.ListAllUnsubscribes(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "导出退订名单失败："+err.Error())
 		return

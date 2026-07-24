@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	bizerr "marketing/internal/domain/errors"
+	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 
@@ -34,10 +35,11 @@ func assetFail(c *gin.Context, err error) {
 		// 业务错误码（如 5001/6001）只能放在响应体 code 字段，不能作为 HTTP 状态码
 		// 传给 response.Error（gin 会 panic: invalid WriteHeader code）。前端按响应体
 		// code 判断成功/失败，与平台返回约定一致，故统一以 HTTP 200 返回业务码。
-		c.JSON(http.StatusOK, gin.H{"code": be.Code, "message": be.Message, "data": nil})
+		// 携带 data:gin.H{} 避免 data:null 占位符。
+		response.ErrorWithBusinessCode(c, be.Code, be.Message, gin.H{})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": bizerr.CodeInternal, "message": err.Error(), "data": nil})
+	response.ErrorWithBusinessCode(c, bizerr.CodeInternal, err.Error(), gin.H{})
 }
 
 func assetOK(c *gin.Context, data interface{}) {
@@ -61,6 +63,8 @@ func (h *AssetMarketController) ListMarket(c *gin.Context) {
 func (h *AssetMarketController) MarketDetail(c *gin.Context) {
 	detail, err := h.marketSvc.GetMarketAssetDetail(c.Request.Context(), c.Param("asset_id"))
 	if err != nil {
+		// 平台不可用或资产不存在时返回业务错误码（5001）+ data:gin.H{}，
+		// 既保留业务语义又避免 data:null 占位符。
 		assetFail(c, err)
 		return
 	}
@@ -69,9 +73,7 @@ func (h *AssetMarketController) MarketDetail(c *gin.Context) {
 
 // Purchase POST /api/v1/asset-market/purchase
 func (h *AssetMarketController) Purchase(c *gin.Context) {
-	var body struct {
-		AssetID string `json:"asset_id" binding:"required"`
-	}
+	var body dto.PurchaseRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误")
 		return
@@ -85,9 +87,7 @@ func (h *AssetMarketController) Purchase(c *gin.Context) {
 
 // Sync POST /api/v1/asset-market/sync
 func (h *AssetMarketController) Sync(c *gin.Context) {
-	var body struct {
-		AssetID string `json:"asset_id" binding:"required"`
-	}
+	var body dto.SyncRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误")
 		return
@@ -123,6 +123,8 @@ func (h *AssetMarketController) GetLocal(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	la, data, err := h.localSvc.Get(c.Request.Context(), id)
 	if err != nil {
+		// 资产不存在（含软删）时返回业务错误码（6001）+ data:gin.H{}，
+		// 既保留业务语义又避免 data:null 占位符。
 		assetFail(c, err)
 		return
 	}
@@ -195,9 +197,7 @@ func (h *AssetMarketController) DeleteLocal(c *gin.Context) {
 // ToggleActive PUT /api/v1/local-assets/:id/toggle-active
 func (h *AssetMarketController) ToggleActive(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	var body struct {
-		Active bool `json:"active"`
-	}
+	var body dto.ToggleActiveRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误")
 		return
@@ -223,9 +223,7 @@ func (h *AssetMarketController) SyncLog(c *gin.Context) {
 // ReportUsage POST /api/asset-market/report-usage
 // 将本地累计使用次数回传平台（闭环：本地使用 → 平台统计）。
 func (h *AssetMarketController) ReportUsage(c *gin.Context) {
-	var body struct {
-		AssetID string `json:"asset_id" binding:"required"`
-	}
+	var body dto.ReportUsageRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误")
 		return
@@ -235,4 +233,14 @@ func (h *AssetMarketController) ReportUsage(c *gin.Context) {
 		return
 	}
 	assetOK(c, gin.H{"message": "上报成功"})
+}
+
+// MyPurchases GET /api/v1/asset-market/my-purchases
+func (h *AssetMarketController) MyPurchases(c *gin.Context) {
+	list, err := h.marketSvc.MyPurchases(c.Request.Context())
+	if err != nil {
+		assetFail(c, err)
+		return
+	}
+	assetOK(c, list)
 }

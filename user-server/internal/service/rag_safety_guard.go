@@ -41,11 +41,11 @@ type SafetySeverity string
 
 const (
 	// SafetySeverityBlock 立即拦截，不进入下游
-	SafetySeverityBlock	SafetySeverity	= "block"
+	SafetySeverityBlock SafetySeverity = "block"
 	// SafetySeverityWarn 告警并放行（记录审计日志）
-	SafetySeverityWarn	SafetySeverity	= "warn"
+	SafetySeverityWarn SafetySeverity = "warn"
 	// SafetySeverityNotice 提示（仅展示给前端）
-	SafetySeverityNotice	SafetySeverity	= "notice"
+	SafetySeverityNotice SafetySeverity = "notice"
 )
 
 // SafetyAction 命中后的处理动作
@@ -53,11 +53,11 @@ type SafetyAction string
 
 const (
 	// SafetyActionBlock 拒绝回答
-	SafetyActionBlock	SafetyAction	= "block"
+	SafetyActionBlock SafetyAction = "block"
 	// SafetyActionReplace 替换为安全回复
-	SafetyActionReplace	SafetyAction	= "replace"
+	SafetyActionReplace SafetyAction = "replace"
 	// SafetyActionAudit 放行但记录审计
-	SafetyActionAudit	SafetyAction	= "audit"
+	SafetyActionAudit SafetyAction = "audit"
 )
 
 // SafetyIssueType 风控问题类型
@@ -65,13 +65,13 @@ type SafetyIssueType string
 
 const (
 	// SafetyIssueSensitiveWord 敏感词
-	SafetyIssueSensitiveWord	SafetyIssueType	= "sensitive_word"
+	SafetyIssueSensitiveWord SafetyIssueType = "sensitive_word"
 	// SafetyIssueAdCompliance 广告法违规
-	SafetyIssueAdCompliance	SafetyIssueType	= "ad_compliance"
+	SafetyIssueAdCompliance SafetyIssueType = "ad_compliance"
 	// SafetyIssueCompetitor 竞品拦截
-	SafetyIssueCompetitor	SafetyIssueType	= "competitor"
+	SafetyIssueCompetitor SafetyIssueType = "competitor"
 	// SafetyIssuePersonaAuthz 画像越权
-	SafetyIssuePersonaAuthz	SafetyIssueType	= "persona_authz"
+	SafetyIssuePersonaAuthz SafetyIssueType = "persona_authz"
 )
 
 // ----------------------------------------------------------------------------
@@ -81,49 +81,49 @@ const (
 // SafetyCheckRequest 内容风控检测请求
 type SafetyCheckRequest struct {
 	// UserID 当前请求用户
-	UserID	string
+	UserID string
 	// TenantID 租户（私域部署下唯一隔离维度）
-	TenantID	string
+	TenantID string
 	// Content 待检测内容（RAG 回答 / 用户输入 / 检索片段）
-	Content	string
+	Content string
 	// Sources 检索来源（用于画像越权判断：每个 source 含 productID/ownerID）
-	Sources	[]SafetySource
+	Sources []SafetySource
 	// Stage 检测阶段：input（用户输入）/ output（LLM 回答）/ retrieval（检索片段）
-	Stage	string
+	Stage string
 }
 
 // SafetySource 检索片段来源
 type SafetySource struct {
-	DocID		string
-	OwnerID		string	// 拥有者 tenantID
-	ProductID	int64
-	Content		string
+	DocID     string
+	OwnerID   string // 拥有者 tenantID
+	ProductID int64
+	Content   string
 }
 
 // SafetyIssue 单个风控问题
 type SafetyIssue struct {
-	Type		SafetyIssueType	`json:"type"`
-	Severity	SafetySeverity	`json:"severity"`
-	Action		SafetyAction	`json:"action"`
-	MatchWord	string		`json:"match_word"`
-	Description	string		`json:"description"`
-	Location	string		`json:"location"`
+	Type        SafetyIssueType `json:"type"`
+	Severity    SafetySeverity  `json:"severity"`
+	Action      SafetyAction    `json:"action"`
+	MatchWord   string          `json:"match_word"`
+	Description string          `json:"description"`
+	Location    string          `json:"location"`
 }
 
 // SafetyCheckResult 检测结果
 type SafetyCheckResult struct {
 	// Passed 是否通过（true = 无 block 级问题）
-	Passed	bool	`json:"passed"`
+	Passed bool `json:"passed"`
 	// Blocked 是否被拦截
-	Blocked	bool	`json:"blocked"`
+	Blocked bool `json:"blocked"`
 	// ReplacedContent 替换后的内容（仅 Action=replace 时使用）
-	ReplacedContent	string	`json:"replaced_content,omitempty"`
+	ReplacedContent string `json:"replaced_content,omitempty"`
 	// Issues 命中明细
-	Issues	[]SafetyIssue	`json:"issues"`
+	Issues []SafetyIssue `json:"issues"`
 	// CheckedAt 检测时间
-	CheckedAt	time.Time	`json:"checked_at"`
+	CheckedAt time.Time `json:"checked_at"`
 	// LatencyMs 检测耗时（毫秒）
-	LatencyMs	int64	`json:"latency_ms"`
+	LatencyMs int64 `json:"latency_ms"`
 }
 
 // ----------------------------------------------------------------------------
@@ -132,9 +132,9 @@ type SafetyCheckResult struct {
 
 // SafetyLexicon 词库
 type SafetyLexicon struct {
-	SensitiveWords	[]string	`json:"sensitive_words"`
-	AdPhrases	[]string	`json:"ad_phrases"`
-	CompetitorWords	[]string	`json:"competitor_words"`
+	SensitiveWords  []string `json:"sensitive_words"`
+	AdPhrases       []string `json:"ad_phrases"`
+	CompetitorWords []string `json:"competitor_words"`
 }
 
 // ----------------------------------------------------------------------------
@@ -143,11 +143,11 @@ type SafetyLexicon struct {
 
 // RagSafetyGuardService RAG 内容风控卫士
 type RagSafetyGuardService struct {
-	db	*gorm.DB
+	db *gorm.DB
 
-	mu		sync.RWMutex
-	lexicon		SafetyLexicon
-	updatedAt	time.Time
+	mu        sync.RWMutex
+	lexicon   SafetyLexicon
+	updatedAt time.Time
 }
 
 // NewRagSafetyGuardService 创建 RAG 内容风控卫士
@@ -155,8 +155,8 @@ type RagSafetyGuardService struct {
 // db 为 nil 时使用内置默认词库；词库通过 ReloadLexicon 可从数据库热加载
 func NewRagSafetyGuardService(db *gorm.DB) *RagSafetyGuardService {
 	return &RagSafetyGuardService{
-		db:		db,
-		lexicon:	defaultSafetyLexicon(),
+		db:      db,
+		lexicon: defaultSafetyLexicon(),
 	}
 }
 
@@ -175,7 +175,7 @@ func defaultSafetyLexicon() SafetyLexicon {
 			// 《广告法》绝对化用语
 			"最佳", "最好", "第一", "国家级", "顶级", "最高级", "唯一",
 		},
-		CompetitorWords:	[]string{
+		CompetitorWords: []string{
 			// 竞品词为空，由租户配置
 		},
 	}
@@ -186,9 +186,9 @@ func (s *RagSafetyGuardService) GetLexicon(ctx context.Context) SafetyLexicon {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return SafetyLexicon{
-		SensitiveWords:		append([]string(nil), s.lexicon.SensitiveWords...),
-		AdPhrases:		append([]string(nil), s.lexicon.AdPhrases...),
-		CompetitorWords:	append([]string(nil), s.lexicon.CompetitorWords...),
+		SensitiveWords:  append([]string(nil), s.lexicon.SensitiveWords...),
+		AdPhrases:       append([]string(nil), s.lexicon.AdPhrases...),
+		CompetitorWords: append([]string(nil), s.lexicon.CompetitorWords...),
 	}
 }
 
@@ -197,9 +197,9 @@ func (s *RagSafetyGuardService) SetLexicon(ctx context.Context, lex SafetyLexico
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lexicon = SafetyLexicon{
-		SensitiveWords:		dedupAndSort(lex.SensitiveWords),
-		AdPhrases:		dedupAndSort(lex.AdPhrases),
-		CompetitorWords:	dedupAndSort(lex.CompetitorWords),
+		SensitiveWords:  dedupAndSort(lex.SensitiveWords),
+		AdPhrases:       dedupAndSort(lex.AdPhrases),
+		CompetitorWords: dedupAndSort(lex.CompetitorWords),
 	}
 	s.updatedAt = time.Now()
 }
@@ -260,15 +260,15 @@ func (s *RagSafetyGuardService) Check(ctx context.Context, req *SafetyCheckReque
 	}
 	if req.Content == "" && len(req.Sources) == 0 {
 		return &SafetyCheckResult{
-			Passed:		true,
-			CheckedAt:	time.Now(),
+			Passed:    true,
+			CheckedAt: time.Now(),
 		}, nil
 	}
 
 	start := time.Now()
 	result := &SafetyCheckResult{
-		Issues:		[]SafetyIssue{},
-		CheckedAt:	start,
+		Issues:    []SafetyIssue{},
+		CheckedAt: start,
 	}
 
 	// 1) 敏感词检测（最高优先级）
@@ -333,12 +333,12 @@ func (s *RagSafetyGuardService) checkSensitive(ctx context.Context, content stri
 		}
 		if strings.Contains(content, w) {
 			issues = append(issues, SafetyIssue{
-				Type:		SafetyIssueSensitiveWord,
-				Severity:	SafetySeverityBlock,
-				Action:		SafetyActionBlock,
-				MatchWord:	w,
-				Description:	"命中敏感词",
-				Location:	locOf(content, w),
+				Type:        SafetyIssueSensitiveWord,
+				Severity:    SafetySeverityBlock,
+				Action:      SafetyActionBlock,
+				MatchWord:   w,
+				Description: "命中敏感词",
+				Location:    locOf(content, w),
 			})
 		}
 	}
@@ -360,12 +360,12 @@ func (s *RagSafetyGuardService) checkAdCompliance(ctx context.Context, content s
 		}
 		if strings.Contains(content, w) {
 			issues = append(issues, SafetyIssue{
-				Type:		SafetyIssueAdCompliance,
-				Severity:	SafetySeverityWarn,
-				Action:		SafetyActionAudit,
-				MatchWord:	w,
-				Description:	"命中《广告法》绝对化用语，建议修改后发送",
-				Location:	locOf(content, w),
+				Type:        SafetyIssueAdCompliance,
+				Severity:    SafetySeverityWarn,
+				Action:      SafetyActionAudit,
+				MatchWord:   w,
+				Description: "命中《广告法》绝对化用语，建议修改后发送",
+				Location:    locOf(content, w),
 			})
 		}
 	}
@@ -387,12 +387,12 @@ func (s *RagSafetyGuardService) checkCompetitor(ctx context.Context, content str
 		}
 		if strings.Contains(content, w) {
 			issues = append(issues, SafetyIssue{
-				Type:		SafetyIssueCompetitor,
-				Severity:	SafetySeverityBlock,
-				Action:		SafetyActionBlock,
-				MatchWord:	w,
-				Description:	"命中竞品词，已拦截以避免商业敏感信息外泄",
-				Location:	locOf(content, w),
+				Type:        SafetyIssueCompetitor,
+				Severity:    SafetySeverityBlock,
+				Action:      SafetyActionBlock,
+				MatchWord:   w,
+				Description: "命中竞品词，已拦截以避免商业敏感信息外泄",
+				Location:    locOf(content, w),
 			})
 		}
 	}
@@ -417,12 +417,12 @@ func (s *RagSafetyGuardService) checkPersonaAuthz(ctx context.Context, req *Safe
 		}
 		if !strings.EqualFold(src.OwnerID, req.TenantID) {
 			issues = append(issues, SafetyIssue{
-				Type:		SafetyIssuePersonaAuthz,
-				Severity:	SafetySeverityWarn,
-				Action:		SafetyActionAudit,
-				MatchWord:	src.DocID,
-				Description:	fmt.Sprintf("检索片段 owner=%s 与当前租户 %s 不一致，存在越权", src.OwnerID, req.TenantID),
-				Location:	src.DocID,
+				Type:        SafetyIssuePersonaAuthz,
+				Severity:    SafetySeverityWarn,
+				Action:      SafetyActionAudit,
+				MatchWord:   src.DocID,
+				Description: fmt.Sprintf("检索片段 owner=%s 与当前租户 %s 不一致，存在越权", src.OwnerID, req.TenantID),
+				Location:    src.DocID,
 			})
 		}
 	}

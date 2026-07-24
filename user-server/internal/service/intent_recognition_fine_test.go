@@ -422,10 +422,10 @@ func TestGetIntentLogs_ByCustomerID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	// 写入测试数据
 	now := time.Now()
-	db.Create(&model.IntentLog{CustomerID: "c-A", SessionID: "s-A", Message: "msg1",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-A", SessionID: "s-A", Message: "msg1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(&model.IntentLog{CustomerID: "c-B", SessionID: "s-B", Message: "msg2",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-B", SessionID: "s-B", Message: "msg2",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.8, Method: "rule", Timestamp: now})
 
@@ -445,10 +445,10 @@ func TestGetIntentLogs_ByCustomerID(t *testing.T) {
 func TestGetIntentLogs_ByMajor(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(&model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg1",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(&model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg2",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-X", SessionID: "s-X", Message: "msg2",
 		IntentMajor: IntentMajorComplaint, IntentMinor: IntentMinorComplaintService,
 		Confidence: 0.85, Method: "rule", Timestamp: now})
 
@@ -469,7 +469,7 @@ func TestGetIntentLogs_LimitTruncation(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
 	for i := 0; i < 5; i++ {
-		db.Create(&model.IntentLog{CustomerID: "c-L", SessionID: "s-L", Message: "msg",
+		db.Create(context.Background(), &model.IntentLog{CustomerID: "c-L", SessionID: "s-L", Message: "msg",
 			IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 			Confidence: 0.9, Method: "rule", Timestamp: now})
 	}
@@ -501,13 +501,13 @@ func TestGetIntentLogs_LimitDefault(t *testing.T) {
 func TestGetIntentLogStats_ByMajor(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(&model.IntentLog{CustomerID: "c-1", SessionID: "s-1", Message: "m",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-1", SessionID: "s-1", Message: "m",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", Timestamp: now})
-	db.Create(&model.IntentLog{CustomerID: "c-2", SessionID: "s-2", Message: "m",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-2", SessionID: "s-2", Message: "m",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.8, Method: "rule", Timestamp: now})
-	db.Create(&model.IntentLog{CustomerID: "c-3", SessionID: "s-3", Message: "m",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-3", SessionID: "s-3", Message: "m",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.7, Method: "rule", Timestamp: now})
 
@@ -549,13 +549,13 @@ func TestGetIntentLogStats_DefaultDays(t *testing.T) {
 func TestQueryIntentLogsByTraceID(t *testing.T) {
 	rec, db := newIntentRecognizer(t)
 	now := time.Now()
-	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m1",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m1",
 		IntentMajor: IntentMajorConsult, IntentMinor: IntentMinorConsultGeneral,
 		Confidence: 0.9, Method: "rule", TraceID: "trace-abc", Timestamp: now})
-	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m2",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m2",
 		IntentMajor: IntentMajorPriceInquiry, IntentMinor: IntentMinorPriceBudgetCheck,
 		Confidence: 0.8, Method: "rule", TraceID: "trace-abc", Timestamp: now.Add(time.Second)})
-	db.Create(&model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m3",
+	db.Create(context.Background(), &model.IntentLog{CustomerID: "c-T", SessionID: "s-T", Message: "m3",
 		IntentMajor: IntentMajorComplaint, IntentMinor: IntentMinorComplaintService,
 		Confidence: 0.7, Method: "rule", TraceID: "trace-other", Timestamp: now})
 

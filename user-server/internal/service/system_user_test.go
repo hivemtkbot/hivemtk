@@ -33,7 +33,7 @@ func TestSystemUserService_GetUsers_Empty(t *testing.T) {
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestSystemUserService_GetUsers_WithUsers(t *testing.T) {
 		database.Create(&user)
 	}
 
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestSystemUserService_GetUsers_Pagination(t *testing.T) {
 	}
 
 	// 第一页
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers page 1 failed: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestSystemUserService_GetUsers_Pagination(t *testing.T) {
 	}
 
 	// 第二页
-	users, total, err = service.GetUsers(2, 10)
+	users, total, err = service.GetUsers(context.Background(), 2, 10)
 	if err != nil {
 		t.Fatalf("GetUsers page 2 failed: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestSystemUserService_GetUserByID(t *testing.T) {
 	database.Create(&user)
 
 	// 获取用户
-	retrievedUser, err := service.GetUserByID(user.ID)
+	retrievedUser, err := service.GetUserByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetUserByID failed: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestSystemUserService_GetUserByID_NotFound(t *testing.T) {
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	_, err := service.GetUserByID(99999)
+	_, err := service.GetUserByID(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -205,7 +205,7 @@ func TestSystemUserService_CreateUser(t *testing.T) {
 		Status:   1,
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestSystemUserService_CreateUser_DuplicateUsername(t *testing.T) {
 		Status:   1,
 	}
 
-	_, err := service.CreateUser(req)
+	_, err := service.CreateUser(context.Background(), req)
 	if err == nil {
 		t.Error("Expected error for duplicate username")
 	}
@@ -282,7 +282,7 @@ func TestSystemUserService_CreateUser_AdminRole(t *testing.T) {
 		Status:   1,
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestSystemUserService_CreateUser_DefaultStatus(t *testing.T) {
 		// Status 不设置，应该默认为 1
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestSystemUserService_CreateUser_WithMerchantID(t *testing.T) {
 		Status:   1,
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestSystemUserService_UpdateUser(t *testing.T) {
 		Status:   2, // 使用非 0 值
 	}
 
-	updatedUser, err := service.UpdateUser(user.ID, req)
+	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -394,7 +394,7 @@ func TestSystemUserService_UpdateUser_NotFound(t *testing.T) {
 		Email: "updated@example.com",
 	}
 
-	_, err := service.UpdateUser(99999, req)
+	_, err := service.UpdateUser(context.Background(), 99999, req)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -426,7 +426,7 @@ func TestSystemUserService_UpdateUser_PartialUpdate(t *testing.T) {
 		// 其他字段为空
 	}
 
-	updatedUser, err := service.UpdateUser(user.ID, req)
+	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestSystemUserService_UpdateUser_WithMerchantID(t *testing.T) {
 
 	req := &UpdateUserRequest{}
 
-	_, err := service.UpdateUser(user.ID, req)
+	_, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -487,13 +487,13 @@ func TestSystemUserService_DeleteUser(t *testing.T) {
 	database.Create(&user)
 
 	// 删除用户
-	err := service.DeleteUser(user.ID)
+	err := service.DeleteUser(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("DeleteUser failed: %v", err)
 	}
 
 	// 验证用户已被删除
-	_, err = service.GetUserByID(user.ID)
+	_, err = service.GetUserByID(context.Background(), user.ID)
 	if err == nil {
 		t.Error("Expected error after delete")
 	}
@@ -508,7 +508,7 @@ func TestSystemUserService_DeleteUser_NotFound(t *testing.T) {
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	err := service.DeleteUser(99999)
+	err := service.DeleteUser(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -534,14 +534,14 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	database.Create(&user)
 
 	// 验证旧密码
-	oldUser, _ := service.GetUserByID(user.ID)
+	oldUser, _ := service.GetUserByID(context.Background(), user.ID)
 	if oldUser.Username != "testuser" {
 		t.Fatal("Failed to create user")
 	}
 
 	// 重置密码
 	newPassword := "newpassword123"
-	err := service.ResetPassword(user.ID, newPassword)
+	err := service.ResetPassword(context.Background(), user.ID, newPassword)
 	if err != nil {
 		t.Fatalf("ResetPassword failed: %v", err)
 	}
@@ -551,12 +551,12 @@ func TestSystemUserService_ResetPassword(t *testing.T) {
 	database.First(&updatedUser, user.ID)
 
 	// 新密码应该可以验证通过
-	if !CheckPassword(&updatedUser,newPassword) {
+	if !CheckPassword(&updatedUser, newPassword) {
 		t.Error("New password should be valid")
 	}
 
 	// 旧密码应该验证失败
-	if CheckPassword(&updatedUser,"oldpassword123") {
+	if CheckPassword(&updatedUser, "oldpassword123") {
 		t.Error("Old password should be invalid")
 	}
 }
@@ -566,7 +566,7 @@ func TestSystemUserService_ResetPassword_NotFound(t *testing.T) {
 	setupSystemUserServiceTestDB(t)
 	service := NewSystemUserService()
 
-	err := service.ResetPassword(99999, "newpassword123")
+	err := service.ResetPassword(context.Background(), 99999, "newpassword123")
 	if err == nil {
 		t.Error("Expected error for non-existent user")
 	}
@@ -593,7 +593,7 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 
 	// 重置密码
 	newPassword := "newpassword123"
-	err := service.ResetPassword(user.ID, newPassword)
+	err := service.ResetPassword(context.Background(), user.ID, newPassword)
 	if err != nil {
 		t.Fatalf("ResetPassword failed: %v", err)
 	}
@@ -607,7 +607,7 @@ func TestSystemUserService_ResetPassword_PasswordHashing(t *testing.T) {
 	}
 
 	// 验证密码可以正确验证
-	if !CheckPassword(&updatedUser,newPassword) {
+	if !CheckPassword(&updatedUser, newPassword) {
 		t.Error("Password verification should succeed")
 	}
 }
@@ -630,7 +630,7 @@ func TestSystemUserService_GetUsers_OrderByCreatedAt(t *testing.T) {
 		database.Create(&user)
 	}
 
-	users, _, err := service.GetUsers(1, 10)
+	users, _, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -660,7 +660,7 @@ func TestSystemUserService_CreateUser_InvalidRole(t *testing.T) {
 	}
 
 	// 服务层现在会拒绝无效角色
-	_, err := service.CreateUser(req)
+	_, err := service.CreateUser(context.Background(), req)
 	if err == nil {
 		t.Fatal("CreateUser should fail for invalid role")
 	}
@@ -693,7 +693,7 @@ func TestSystemUserService_UpdateUser_InvalidRole(t *testing.T) {
 
 	// 服务层不会验证角色，所以会更新成功
 	// 角色验证由控制器的 binding 标签处理
-	updatedUser, err := service.UpdateUser(user.ID, req)
+	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser should not fail at service level for invalid role: %v", err)
 	}
@@ -716,7 +716,7 @@ func TestSystemUserService_CreateUser_EmptyPassword(t *testing.T) {
 		Status:   1,
 	}
 
-	_, err := service.CreateUser(req)
+	_, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		// 空密码应该被拒绝或处理
 		t.Logf("CreateUser with empty password returned: %v", err)
@@ -738,7 +738,7 @@ func TestSystemUserService_GetUserByID_AdminRole(t *testing.T) {
 	}
 	database.Create(&user)
 
-	retrievedUser, err := service.GetUserByID(user.ID)
+	retrievedUser, err := service.GetUserByID(context.Background(), user.ID)
 	if err != nil {
 		t.Fatalf("GetUserByID failed: %v", err)
 	}
@@ -768,7 +768,7 @@ func TestSystemUserService_UpdateUser_ToAdmin(t *testing.T) {
 		Role: "admin",
 	}
 
-	updatedUser, err := service.UpdateUser(user.ID, req)
+	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -807,7 +807,7 @@ func TestSystemUserService_GetUsers_DisabledUsers(t *testing.T) {
 		database.Create(&user)
 	}
 
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -836,7 +836,7 @@ func TestSystemUserService_CreateUser_SpecialCharacters(t *testing.T) {
 		Status:   1,
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(context.Background(), req)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -870,7 +870,7 @@ func TestSystemUserService_UpdateUser_EmptyFields(t *testing.T) {
 		Status:   0, // Status 为 0 不会更新（服务代码逻辑：if req.Status != 0）
 	}
 
-	updatedUser, err := service.UpdateUser(user.ID, req)
+	updatedUser, err := service.UpdateUser(context.Background(), user.ID, req)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -911,7 +911,7 @@ func TestSystemUserService_toUserResponse(t *testing.T) {
 	database.Create(&user)
 
 	// 获取响应
-	response := service.toUserResponse(&user)
+	response := service.toUserResponse(context.Background(), &user)
 
 	if response == nil {
 		t.Fatal("Expected non-nil response")
@@ -960,7 +960,7 @@ func TestSystemUserService_CreateUser_MultipleUsers(t *testing.T) {
 			Status:   1,
 		}
 
-		user, err := service.CreateUser(req)
+		user, err := service.CreateUser(context.Background(), req)
 		if err != nil {
 			t.Fatalf("CreateUser %d failed: %v", i, err)
 		}
@@ -971,7 +971,7 @@ func TestSystemUserService_CreateUser_MultipleUsers(t *testing.T) {
 	}
 
 	// 验证所有用户都已创建
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -1006,14 +1006,14 @@ func TestSystemUserService_DeleteUser_MultipleUsers(t *testing.T) {
 
 	// 逐个删除
 	for _, id := range userIDs {
-		err := service.DeleteUser(id)
+		err := service.DeleteUser(context.Background(), id)
 		if err != nil {
 			t.Fatalf("DeleteUser %d failed: %v", id, err)
 		}
 	}
 
 	// 验证所有用户都已删除
-	users, total, err := service.GetUsers(1, 10)
+	users, total, err := service.GetUsers(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetUsers failed: %v", err)
 	}
@@ -1045,7 +1045,7 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 	// 多次重置密码
 	passwords := []string{"password2", "password3", "password4"}
 	for _, pwd := range passwords {
-		err := service.ResetPassword(user.ID, pwd)
+		err := service.ResetPassword(context.Background(), user.ID, pwd)
 		if err != nil {
 			t.Fatalf("ResetPassword failed: %v", err)
 		}
@@ -1053,7 +1053,7 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 		// 验证新密码有效
 		var updatedUser model.SystemUser
 		database.First(&updatedUser, user.ID)
-		if !CheckPassword(&updatedUser,pwd) {
+		if !CheckPassword(&updatedUser, pwd) {
 			t.Errorf("Password %s should be valid", pwd)
 		}
 	}
@@ -1061,10 +1061,10 @@ func TestSystemUserService_ResetPassword_MultipleTimes(t *testing.T) {
 	// 验证只有最后一个密码有效
 	var finalUser model.SystemUser
 	database.First(&finalUser, user.ID)
-	if !CheckPassword(&finalUser,"password4") {
+	if !CheckPassword(&finalUser, "password4") {
 		t.Error("Final password should be valid")
 	}
-	if CheckPassword(&finalUser,"password1") {
+	if CheckPassword(&finalUser, "password1") {
 		t.Error("Initial password should be invalid")
 	}
 }

@@ -67,6 +67,57 @@ func (r *SessionMessageRepository) GetBySessionID(ctx context.Context, sessionID
 	return messages, total, err
 }
 
+// ListBySessionIDsBatch 批量按多个 session_id 取消息，返回按 session_id 分组的 map（CC-P2 N+1 优化）
+//
+// 单次 SQL 拉取所有 session 的消息，service 层按 session_id 分桶，
+// 避免「for session → GetBySessionID」造成的 N+1 查询。
+//   - sessionIDs: 待查询的 session id 列表，空时返回 nil
+//   - perSessionLimit: 每个 session 最多取多少条（<=0 时默认 100）；为防止单 session 拉爆整体
+//
+// 返回值：map[sessionID][]*SessionMessage，key 一定是入参中的 sessionID 之一。
+func (r *SessionMessageRepository) ListBySessionIDsBatch(ctx context.Context, sessionIDs []string, perSessionLimit int) (map[string][]*model.SessionMessage, error) {
+	result := make(map[string][]*model.SessionMessage, len(sessionIDs))
+	if len(sessionIDs) == 0 {
+		return result, nil
+	}
+	if perSessionLimit <= 0 {
+		perSessionLimit = 100
+	}
+	// 去重，避免 IN 列表出现重复 session_id
+	unique := make([]string, 0, len(sessionIDs))
+	seen := make(map[string]struct{}, len(sessionIDs))
+	for _, id := range sessionIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	var rows []*model.SessionMessage
+	err := r.db.WithContext(ctx).
+		Where("session_id IN ?", unique).
+		Order("session_id ASC, created_at ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	// 按 session_id 分桶 + 单 session 限流
+	for _, m := range rows {
+		bucket := result[m.SessionID]
+		if len(bucket) >= perSessionLimit {
+			continue
+		}
+		result[m.SessionID] = append(bucket, m)
+	}
+	return result, nil
+}
+
 // MarkAsRead 标记消息已读
 func (r *SessionMessageRepository) MarkAsRead(ctx context.Context, sessionID string, beforeTime time.Time) error {
 	now := time.Now()

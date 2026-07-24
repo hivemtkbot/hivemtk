@@ -16,16 +16,18 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="平台" prop="platform">
-              <el-select 
-                v-model="form.platform" 
+              <el-select
+                v-model="form.platform"
                 placeholder="选择平台"
                 @change="onPlatformChange"
                 style="width: 100%;"
               >
-                <el-option label="抖音" value="douyin"></el-option>
-                <el-option label="快手" value="kuaishou"></el-option>
-                <el-option label="小红书" value="xiaohongshu"></el-option>
-                <el-option label="闲鱼" value="xianyu"></el-option>
+                <el-option
+                  v-for="opt in cardPlatformOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -178,6 +180,10 @@ import i18n from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ragProductConfigAPI } from '@/api/rag-product-config'
+// 卡片/线索平台：取自统一 cardPlatform 常量
+import { CARD_PLATFORM_OPTIONS } from '@/constants/cardPlatform'
+
+const cardPlatformOptions = CARD_PLATFORM_OPTIONS
 
 const formRef = ref()
 

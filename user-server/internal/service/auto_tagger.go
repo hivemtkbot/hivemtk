@@ -107,7 +107,7 @@ func (s *AutoTagger) ProcessEvent(ctx context.Context, event *model.CustomerEven
 }
 
 // evaluateRuleWithEvents 使用事件数据评估标签规则
-func (s *AutoTagger) evaluateRuleWithEvents(ctx context.Context, customerData map[string]any, ruleStr string)  bool {
+func (s *AutoTagger) evaluateRuleWithEvents(ctx context.Context, customerData map[string]any, ruleStr string) bool {
 	// 解析规则
 	var rule map[string]any
 	if err := json.Unmarshal([]byte(ruleStr), &rule); err != nil {
@@ -136,7 +136,7 @@ func (s *AutoTagger) evaluateRuleWithEvents(ctx context.Context, customerData ma
 }
 
 // evaluateSimpleRule 评估简单规则
-func (s *AutoTagger) evaluateSimpleRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
+func (s *AutoTagger) evaluateSimpleRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	field, _ := rule["field"].(string)
 	operator, _ := rule["operator"].(string)
 	value := rule["value"]
@@ -154,7 +154,7 @@ func (s *AutoTagger) evaluateSimpleRule(ctx context.Context, customerData map[st
 }
 
 // evaluateEventCountRule 评估事件数量规则
-func (s *AutoTagger) evaluateEventCountRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
+func (s *AutoTagger) evaluateEventCountRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	eventType, _ := rule["event_type"].(string)
 	operator, _ := rule["operator"].(string)
 
@@ -186,7 +186,7 @@ func (s *AutoTagger) evaluateEventCountRule(ctx context.Context, customerData ma
 }
 
 // evaluatePurchaseAmountRule 评估购买金额规则
-func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
+func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	operator, _ := rule["operator"].(string)
 	threshold := rule["threshold"].(float64)
 
@@ -196,7 +196,7 @@ func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerDat
 }
 
 // evaluateDaysSinceRule 评估距离某天数的规则
-func (s *AutoTagger) evaluateDaysSinceRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
+func (s *AutoTagger) evaluateDaysSinceRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	field, _ := rule["field"].(string) // days_since_last_purchase, days_since_active
 	operator, _ := rule["operator"].(string)
 
@@ -223,7 +223,7 @@ func (s *AutoTagger) evaluateDaysSinceRule(ctx context.Context, customerData map
 }
 
 // evaluateCustomRule 评估自定义规则
-func (s *AutoTagger) evaluateCustomRule(ctx context.Context, customerData map[string]any, rule map[string]any)  bool {
+func (s *AutoTagger) evaluateCustomRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	// 自定义规则可以扩展更复杂的逻辑
 	conditions, ok := rule["conditions"].([]any)
 	if !ok {
@@ -267,7 +267,7 @@ func (s *AutoTagger) evaluateCustomRule(ctx context.Context, customerData map[st
 }
 
 // buildCustomerDataSnapshot 构建客户数据快照用于规则评估
-func (s *AutoTagger) buildCustomerDataSnapshot(ctx context.Context, customer *model.Customer, events []*model.CustomerEvent)  map[string]any {
+func (s *AutoTagger) buildCustomerDataSnapshot(ctx context.Context, customer *model.Customer, events []*model.CustomerEvent) map[string]any {
 	now := time.Now()
 
 	// 计算购买相关统计

@@ -26,11 +26,11 @@ import (
 
 // SLAMonitorService SLA 监控服务
 type SLAMonitorService struct {
-	repo		*repository.SLAMonitorRepository
-	signalRepo	*repository.ConfidenceSignalRepository
-	handoffRepo	*repository.HandoffDecisionRepository
-	reviewRepo	*repository.ReviewQueueRepository
-	calibRepo	*repository.ConfidenceCalibrationRepository
+	repo        *repository.SLAMonitorRepository
+	signalRepo  *repository.ConfidenceSignalRepository
+	handoffRepo *repository.HandoffDecisionRepository
+	reviewRepo  *repository.ReviewQueueRepository
+	calibRepo   *repository.ConfidenceCalibrationRepository
 }
 
 // NewSLAMonitorService 创建 SLA 监控服务
@@ -42,11 +42,11 @@ func NewSLAMonitorService(
 	calibRepo *repository.ConfidenceCalibrationRepository,
 ) *SLAMonitorService {
 	return &SLAMonitorService{
-		repo:		repo,
-		signalRepo:	signalRepo,
-		handoffRepo:	handoffRepo,
-		reviewRepo:	reviewRepo,
-		calibRepo:	calibRepo,
+		repo:        repo,
+		signalRepo:  signalRepo,
+		handoffRepo: handoffRepo,
+		reviewRepo:  reviewRepo,
+		calibRepo:   calibRepo,
 	}
 }
 
@@ -110,15 +110,15 @@ func (s *SLAMonitorService) AggregateMinute(ctx context.Context) error {
 
 	// 4. 构造监控记录
 	monitor := &model.SLAMonitor{
-		MonitorID:		uuid.NewString(),
-		BucketMinute:		bucketStart,
-		AutoReplyRate:		safeDivF(float64(autoReply), float64(total)),
-		HandoffRate:		safeDivF(float64(handoff), float64(total)),
-		ReviewTimeoutRate:	safeDivF(float64(reviewTimeout), float64(total)),
-		AvgAssignmentSeconds:	safeDivF(assignSum, float64(max1(assignCount))),
-		PostHandoffAcceptRate:	safeDivF(float64(acceptedCount), float64(max1(handoff))),
-		ECE:			s.computeECE(ctx),
-		TotalMessages:		total,
+		MonitorID:             uuid.NewString(),
+		BucketMinute:          bucketStart,
+		AutoReplyRate:         safeDivF(float64(autoReply), float64(total)),
+		HandoffRate:           safeDivF(float64(handoff), float64(total)),
+		ReviewTimeoutRate:     safeDivF(float64(reviewTimeout), float64(total)),
+		AvgAssignmentSeconds:  safeDivF(assignSum, float64(max1(assignCount))),
+		PostHandoffAcceptRate: safeDivF(float64(acceptedCount), float64(max1(handoff))),
+		ECE:                   s.computeECE(ctx),
+		TotalMessages:         total,
 	}
 	monitor.AlertsTriggered = s.detectAlerts(ctx, monitor)
 	return s.repo.Create(ctx, monitor)

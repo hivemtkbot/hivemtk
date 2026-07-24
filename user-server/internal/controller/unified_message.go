@@ -100,7 +100,7 @@ func NewPlatformAccountController() *PlatformAccountController {
 // GetAccounts 获取平台账号列表
 func (c *PlatformAccountController) GetAccounts(ctx *gin.Context) {
 
-	accounts, err := c.accountService.GetAccounts(context.Background(), )
+	accounts, err := c.accountService.GetAccounts(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

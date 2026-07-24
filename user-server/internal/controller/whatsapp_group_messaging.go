@@ -263,7 +263,7 @@ func (gmc *GroupMessagingController) sendMessageToWhatsApp(message model.QueuedM
 	}
 
 	// 获取所有可用的WhatsApp账号
-	accounts, err := gmc.whatsappService.ListAccounts(context.Background(), )
+	accounts, err := gmc.whatsappService.ListAccounts(context.Background())
 	if err != nil || len(accounts) == 0 {
 		logger.Errorf("获取WhatsApp账号失败或无可用账号: %v", err)
 		gmc.persistSendFailure(message, "无可用账号")
@@ -448,7 +448,7 @@ func (gmc *GroupMessagingController) GetSendRecords(c *gin.Context) {
 	}
 
 	// 从数据库读取所有队列状态
-	allStatuses := gmc.messageQueue.ListAllStatuses(context.Background(), )
+	allStatuses := gmc.messageQueue.ListAllStatuses(context.Background())
 
 	statuses := make([]map[string]any, 0, len(allStatuses))
 	for _, status := range allStatuses {

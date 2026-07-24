@@ -40,7 +40,7 @@ func (c *WebhookController) SetDingTalkAppService(svc *service.DingTalkAppServic
 // Stop 关闭后台 worker（用于测试或优雅退出）
 func (c *WebhookController) Stop() {
 	if c.svc != nil {
-		c.svc.Stop(context.Background(), )
+		c.svc.Stop(context.Background())
 	}
 }
 
@@ -182,7 +182,9 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 // WhatsAppVerify 处理 Meta 回调 URL 验证挑战（GET）
 // 路由: GET /api/webhook/whatsapp/{account_id}
 // Meta 在「Webhook 配置」中填入回调 URL 后会发送 GET 校验：
-//   hub.mode=subscribe & hub.verify_token=<配置的 token> & hub.challenge=<随机串>
+//
+//	hub.mode=subscribe & hub.verify_token=<配置的 token> & hub.challenge=<随机串>
+//
 // 仅当 hub.verify_token 与账号存储的 VerifyToken 一致时才回显 hub.challenge。
 func (c *WebhookController) WhatsAppVerify(ctx *gin.Context) {
 	accountIDStr := ctx.Param("account_id")
@@ -270,8 +272,8 @@ func (c *WebhookController) DingTalkReceive(ctx *gin.Context) {
 
 // Stats 统计
 func (c *WebhookController) Stats(ctx *gin.Context) {
-	pending := c.svc.PendingCount(context.Background(), )
-	queueLen := c.svc.QueueLen(context.Background(), )
+	pending := c.svc.PendingCount(context.Background())
+	queueLen := c.svc.QueueLen(context.Background())
 	ctx.JSON(http.StatusOK, gin.H{
 		"pending_events": pending,
 		"queue_length":   queueLen,

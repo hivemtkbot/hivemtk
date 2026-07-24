@@ -1,3 +1,9 @@
+// 注意：默认密码已废弃。初始化超管必须由调用方传 password。
+//
+// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+//   - 不再硬编码默认密码 Admin@123456（防止供应链 / 误部署直接落入生产）
+//   - 创建初始超管统一走 POST /api/system/init-admin，由调用方在请求体中传 password
+//   - config 仅保留 Username / Email / RealName 等非敏感默认值，Password 留空
 package config
 
 import (
@@ -35,10 +41,13 @@ type LoginConfig struct {
 }
 
 // 默认管理员配置
+//
+// Password 字段已废弃：阶段 3 起，初始化超管必须由调用方在请求体中传入。
+// 此处保留空字符串（不预置 Admin@123456），防止任何代码路径误用默认值。
 var defaultAdminConfig = AdminConfig{
 	DefaultAdmin: DefaultAdminConfig{
 		Username: "admin",
-		Password: "Admin@123456",
+		Password: "",
 		Email:    "admin@example.com",
 		RealName: "系统管理员",
 	},
@@ -47,8 +56,8 @@ var defaultAdminConfig = AdminConfig{
 		UseDefaultAdmin: true,
 	},
 	Login: LoginConfig{
-		ShowDefaultCredentials: true,
-		DefaultCredentialsHint: "默认账户：admin / Admin@123456",
+		ShowDefaultCredentials: false,
+		DefaultCredentialsHint: "",
 	},
 }
 

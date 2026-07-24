@@ -213,7 +213,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 13. LLM 路由 - 别名
 	// ============================================================
-	llmCtrl := controller.NewLLMRoutingController()
+	routingSvc := service.NewLLMRoutingService(getGlobalDispatcher())
+	llmCtrl := controller.NewLLMRoutingController(routingSvc)
 	doReg("GET", "/llm-routing/rules", llmCtrl.ListStrategies)
 	doReg("GET", "/llm-routing/models", llmCtrl.ListModels)
 	doReg("PUT", "/llm-routing/strategies", llmCtrl.UpdateStrategies)
@@ -447,7 +448,10 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	// ============================================================
 	// 31. TikTok 卡片 - 别名
 	// ============================================================
-	tiktokCtrl := controller.NewTikTokCardController()
+	// 五层架构：service 由 router 层注入，controller 不再 import repository / db
+	tiktokCtrl := controller.NewTikTokCardController(
+		service.NewTikTokCardServiceWithDB(db.GetDB()),
+	)
 	doReg("GET", "/tiktok-cards", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/list", tiktokCtrl.List)
 	doReg("GET", "/tiktok-cards/:id", tiktokCtrl.Get)
@@ -650,18 +654,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("DELETE", "/domain-pool/:id", domainCtrl.Delete)
 
 	// ============================================================
-	// 48. 团队成员 - 别名
-	// ============================================================
-	teamCtrl := controller.NewTeamUserController()
-	doReg("GET", "/team-users", teamCtrl.GetList)
-	doReg("GET", "/team-users/list", teamCtrl.GetList)
-	doReg("GET", "/team-users/:id", teamCtrl.GetByID)
-	doReg("POST", "/team-users", teamCtrl.Create)
-	doReg("PUT", "/team-users/:id", teamCtrl.Update)
-	doReg("DELETE", "/team-users/:id", teamCtrl.Delete)
-	doReg("POST", "/team-users/:id/reset-password", teamCtrl.ResetPassword)
-
-	// ============================================================
 	// 49. 授权管理 - 别名（开源版：License 模型已删除，全部移除）
 	// ============================================================
 	// 开源版：以下 License 相关路由全部下线（License 模型删除，授权流程移除）。
@@ -675,7 +667,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 
 	// 注意：原 /api/platform/version/* 由 setupPlatformRoutes 负责注册（平台端路由组）。
 	// 平台端 version 路由已在 setupPlatformRoutes 中同步删除。
-
 
 	// ============================================================
 	// 52. 第三方对接 - 别名

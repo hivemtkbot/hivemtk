@@ -102,4 +102,15 @@ func setupCardStatsRoutes(auth *gin.RouterGroup) {
 	auth.GET("/xianyu-card/overall-stats", xianyuStatsCtrl.GetOverallStats)
 	auth.GET("/xianyu/stats/card/:id", xianyuStatsCtrl.GetCardStats)
 	auth.GET("/xianyu/stats/overall", xianyuStatsCtrl.GetOverallStats)
+
+	// LM-P2：统一平台路由（card_stats_factory）— 通过 :platform 路径参数选择 service
+	factory := controller.NewCardStatsFactoryController(
+		service.NewPlatformDouyinCardStatsAdapter(service.NewDouyinCardStatsService(db.GetDB())),
+		service.NewPlatformKuaishouCardStatsAdapter(service.NewKuaishouCardStatsService(db.GetDB())),
+		service.NewPlatformXiaohongshuCardStatsAdapter(service.NewXiaohongshuCardStatsService(db.GetDB())),
+		service.NewPlatformXianyuCardStatsAdapter(service.NewXianyuCardStatsService(db.GetDB())),
+		service.NewPlatformTiktokCardStatsAdapter(service.NewTikTokCardServiceWithDB(db.GetDB()), db.GetDB()),
+	)
+	auth.GET("/card-stats/:platform/stats/:id", factory.GetCardStats)
+	auth.GET("/card-stats/:platform/overall", factory.GetOverallStats)
 }

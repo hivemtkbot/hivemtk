@@ -12,31 +12,31 @@ import (
 
 // RFMCalculatorService RFM 计算服务
 type RFMCalculatorService struct {
-	rfmRuleRepo	*repository.RFMRuleRepository
-	userRfmRepo	*repository.UserRFMRepository
-	orderRepo	repository.OrderRepository
-	clueRepo	repository.ClueRepository
-	userRepo	repository.UserRepository
+	rfmRuleRepo *repository.RFMRuleRepository
+	userRfmRepo *repository.UserRFMRepository
+	orderRepo   repository.OrderRepository
+	clueRepo    repository.ClueRepository
+	userRepo    repository.UserRepository
 }
 
 // NewRFMCalculatorService 创建 RFM 计算服务
 func NewRFMCalculatorService() *RFMCalculatorService {
 	return &RFMCalculatorService{
-		rfmRuleRepo:	repository.NewRFMRuleRepository(),
-		userRfmRepo:	repository.NewUserRFMRepository(),
-		orderRepo:	repository.NewOrderRepository(),
-		clueRepo:	repository.NewClueRepository(),
-		userRepo:	repository.NewUserRepository(),
+		rfmRuleRepo: repository.NewRFMRuleRepository(),
+		userRfmRepo: repository.NewUserRFMRepository(),
+		orderRepo:   repository.NewOrderRepository(),
+		clueRepo:    repository.NewClueRepository(),
+		userRepo:    repository.NewUserRepository(),
 	}
 }
 
 // UserStats 用户统计信息
 type UserStats struct {
-	UserID			uint
-	LastTransactionAt	*time.Time
-	TransactionCount	int
-	TotalAmount		int64	// 总消费金额（分）
-	AvgAmount		int64	// 平均消费金额（分）
+	UserID            uint
+	LastTransactionAt *time.Time
+	TransactionCount  int
+	TotalAmount       int64 // 总消费金额（分）
+	AvgAmount         int64 // 平均消费金额（分）
 }
 
 // CalculateRFM 计算单个用户的 RFM 值
@@ -58,16 +58,16 @@ func (s *RFMCalculatorService) CalculateRFM(ctx context.Context, userID uint, ru
 	layer := s.determineLayer(ctx, rScore, fScore, mScore, stats.LastTransactionAt)
 
 	rfm := &model.UserRFM{
-		UserID:			userID,
-		RScore:			rScore,
-		FScore:			fScore,
-		MScore:			mScore,
-		TotalScore:		totalScore,
-		Layer:			string(layer),
-		LastTransactionAt:	stats.LastTransactionAt,
-		TransactionCount:	stats.TransactionCount,
-		TotalAmount:		stats.TotalAmount,
-		AvgAmount:		stats.AvgAmount,
+		UserID:            userID,
+		RScore:            rScore,
+		FScore:            fScore,
+		MScore:            mScore,
+		TotalScore:        totalScore,
+		Layer:             string(layer),
+		LastTransactionAt: stats.LastTransactionAt,
+		TransactionCount:  stats.TransactionCount,
+		TotalAmount:       stats.TotalAmount,
+		AvgAmount:         stats.AvgAmount,
 	}
 
 	return rfm, nil
@@ -83,10 +83,10 @@ func (s *RFMCalculatorService) getUserStats(ctx context.Context, userID uint) (*
 	}
 
 	stats := &UserStats{
-		UserID:			userID,
-		TransactionCount:	0,
-		TotalAmount:		0,
-		AvgAmount:		0,
+		UserID:           userID,
+		TransactionCount: 0,
+		TotalAmount:      0,
+		AvgAmount:        0,
 	}
 
 	for _, order := range orders {
@@ -269,10 +269,10 @@ func (s *RFMCalculatorService) CalculateAllUsers(ctx context.Context) (int, erro
 // 金额字段单位：分（100 元 = 10000 分）
 func (s *RFMCalculatorService) getDefaultRule(ctx context.Context) *model.RFMRule {
 	return &model.RFMRule{
-		RDays1:	7, RDays2: 14, RDays3: 30, RDays4: 60, RDays5: 90,
-		FCount1:	1, FCount2: 3, FCount3: 5, FCount4: 10, FCount5: 20,
-		MAmount1:	10000, MAmount2: 50000, MAmount3: 100000, MAmount4: 500000, MAmount5: 1000000,
-		IsActive:	true,
+		RDays1: 7, RDays2: 14, RDays3: 30, RDays4: 60, RDays5: 90,
+		FCount1: 1, FCount2: 3, FCount3: 5, FCount4: 10, FCount5: 20,
+		MAmount1: 10000, MAmount2: 50000, MAmount3: 100000, MAmount4: 500000, MAmount5: 1000000,
+		IsActive: true,
 	}
 }
 
@@ -307,23 +307,23 @@ func (s *RFMCalculatorService) DeleteRFMRule(ctx context.Context, id uint) error
 // SaveRFMRule 保存 RFM 规则
 func (s *RFMCalculatorService) SaveRFMRule(ctx context.Context, req *SaveRFMRuleRequest) (*model.RFMRule, error) {
 	rule := &model.RFMRule{
-		Name:		req.Name,
-		RDays1:		req.RDays1,
-		RDays2:		req.RDays2,
-		RDays3:		req.RDays3,
-		RDays4:		req.RDays4,
-		RDays5:		req.RDays5,
-		FCount1:	req.FCount1,
-		FCount2:	req.FCount2,
-		FCount3:	req.FCount3,
-		FCount4:	req.FCount4,
-		FCount5:	req.FCount5,
-		MAmount1:	req.MAmount1,
-		MAmount2:	req.MAmount2,
-		MAmount3:	req.MAmount3,
-		MAmount4:	req.MAmount4,
-		MAmount5:	req.MAmount5,
-		IsActive:	req.IsActive,
+		Name:     req.Name,
+		RDays1:   req.RDays1,
+		RDays2:   req.RDays2,
+		RDays3:   req.RDays3,
+		RDays4:   req.RDays4,
+		RDays5:   req.RDays5,
+		FCount1:  req.FCount1,
+		FCount2:  req.FCount2,
+		FCount3:  req.FCount3,
+		FCount4:  req.FCount4,
+		FCount5:  req.FCount5,
+		MAmount1: req.MAmount1,
+		MAmount2: req.MAmount2,
+		MAmount3: req.MAmount3,
+		MAmount4: req.MAmount4,
+		MAmount5: req.MAmount5,
+		IsActive: req.IsActive,
 	}
 
 	// 如果规则无效，使用默认值
@@ -342,23 +342,23 @@ func (s *RFMCalculatorService) SaveRFMRule(ctx context.Context, req *SaveRFMRule
 // SaveRFMRuleRequest 保存 RFM 规则请求
 // 金额字段单位：分（前端展示时 / 100 转元）
 type SaveRFMRuleRequest struct {
-	Name		string	`json:"name"`
-	RDays1		int	`json:"r_days_1"`
-	RDays2		int	`json:"r_days_2"`
-	RDays3		int	`json:"r_days_3"`
-	RDays4		int	`json:"r_days_4"`
-	RDays5		int	`json:"r_days_5"`
-	FCount1		int	`json:"f_count_1"`
-	FCount2		int	`json:"f_count_2"`
-	FCount3		int	`json:"f_count_3"`
-	FCount4		int	`json:"f_count_4"`
-	FCount5		int	`json:"f_count_5"`
-	MAmount1	int64	`json:"m_amount_1"`
-	MAmount2	int64	`json:"m_amount_2"`
-	MAmount3	int64	`json:"m_amount_3"`
-	MAmount4	int64	`json:"m_amount_4"`
-	MAmount5	int64	`json:"m_amount_5"`
-	IsActive	bool	`json:"is_active"`
+	Name     string `json:"name"`
+	RDays1   int    `json:"r_days_1"`
+	RDays2   int    `json:"r_days_2"`
+	RDays3   int    `json:"r_days_3"`
+	RDays4   int    `json:"r_days_4"`
+	RDays5   int    `json:"r_days_5"`
+	FCount1  int    `json:"f_count_1"`
+	FCount2  int    `json:"f_count_2"`
+	FCount3  int    `json:"f_count_3"`
+	FCount4  int    `json:"f_count_4"`
+	FCount5  int    `json:"f_count_5"`
+	MAmount1 int64  `json:"m_amount_1"`
+	MAmount2 int64  `json:"m_amount_2"`
+	MAmount3 int64  `json:"m_amount_3"`
+	MAmount4 int64  `json:"m_amount_4"`
+	MAmount5 int64  `json:"m_amount_5"`
+	IsActive bool   `json:"is_active"`
 }
 
 // UpdateRFMRule 更新 RFM 规则
@@ -407,31 +407,31 @@ func (s *RFMCalculatorService) GetRFMStats(ctx context.Context) (map[string]any,
 	}
 
 	return map[string]any{
-		"total_users":	totalUsers,
-		"layer_count":	layerCount,
+		"total_users": totalUsers,
+		"layer_count": layerCount,
 		"layer_names": map[string]string{
-			"important_value":	"重要价值用户",
-			"important_keep":	"重要保持用户",
-			"important_develop":	"重要发展用户",
-			"important_stay":	"重要挽留用户",
-			"general_value":	"一般价值用户",
-			"general_keep":		"一般保持用户",
-			"general_develop":	"一般发展用户",
-			"general_stay":		"一般挽留用户",
-			"new":			"新用户",
-			"sleep":		"沉睡用户",
-			"lost":			"流失用户",
+			"important_value":   "重要价值用户",
+			"important_keep":    "重要保持用户",
+			"important_develop": "重要发展用户",
+			"important_stay":    "重要挽留用户",
+			"general_value":     "一般价值用户",
+			"general_keep":      "一般保持用户",
+			"general_develop":   "一般发展用户",
+			"general_stay":      "一般挽留用户",
+			"new":               "新用户",
+			"sleep":             "沉睡用户",
+			"lost":              "流失用户",
 		},
 	}, nil
 }
 
 // UserRFMWithUser 带用户信息的 RFM
 type UserRFMWithUser struct {
-	UserRFM		*model.UserRFM	`json:"rfm"`
-	UserName	string		`json:"user_name"`
-	UserPhone	string		`json:"user_phone"`
-	UserEmail	string		`json:"user_email"`
-	LayerDesc	string		`json:"layer_desc"`
+	UserRFM   *model.UserRFM `json:"rfm"`
+	UserName  string         `json:"user_name"`
+	UserPhone string         `json:"user_phone"`
+	UserEmail string         `json:"user_email"`
+	LayerDesc string         `json:"layer_desc"`
 }
 
 // GetUsersByLayer 根据分层获取用户列表
@@ -476,8 +476,8 @@ func (s *RFMCalculatorService) enrichUserData(ctx context.Context, rfms []*model
 
 	for _, rfm := range rfms {
 		item := &UserRFMWithUser{
-			UserRFM:	rfm,
-			LayerDesc:	model.GetLayerDescription(model.RFMLayer(rfm.Layer)),
+			UserRFM:   rfm,
+			LayerDesc: model.GetLayerDescription(model.RFMLayer(rfm.Layer)),
 		}
 
 		// 通过 TgID 查询用户详情

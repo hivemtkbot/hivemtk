@@ -51,16 +51,16 @@ import (
 
 // DashboardSSEController 实时驾驶舱 SSE 控制器
 type DashboardSSEController struct {
-	statsSvc	service.DashboardStatsService
+	statsSvc service.DashboardStatsService
 
 	// 缓存（最近一次查询结果，避免每次推送都查库）
-	cacheMu		sync.RWMutex
-	lastSnapshot	*service.DashboardSnapshot
-	lastUpdateAt	time.Time
-	cacheTTL	time.Duration
+	cacheMu      sync.RWMutex
+	lastSnapshot *service.DashboardSnapshot
+	lastUpdateAt time.Time
+	cacheTTL     time.Duration
 
 	// 流订阅者统计
-	subscriberCount	atomic.Int64
+	subscriberCount atomic.Int64
 }
 
 // NewDashboardSSEController 创建实时驾驶舱 SSE 控制器
@@ -69,8 +69,8 @@ type DashboardSSEController struct {
 // 传入 nil 时进入"离线模式"：SSE 仍可连接但跳过 DB 采集，返回零值快照。
 func NewDashboardSSEController(statsSvc service.DashboardStatsService) *DashboardSSEController {
 	return &DashboardSSEController{
-		statsSvc:	statsSvc,
-		cacheTTL:	2 * time.Second,
+		statsSvc: statsSvc,
+		cacheTTL: 2 * time.Second,
 	}
 }
 
@@ -106,10 +106,10 @@ func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 
 	// 推送连接成功事件
 	_ = writeDashboardRawEvent(ctx, "connected", map[string]any{
-		"client_ip":	ctx.ClientIP(),
-		"subscriber":	c.subscriberCount.Load(),
-		"message":	"dashboard event stream connected",
-		"refresh_sec":	int(c.cacheTTL.Seconds()),
+		"client_ip":   ctx.ClientIP(),
+		"subscriber":  c.subscriberCount.Load(),
+		"message":     "dashboard event stream connected",
+		"refresh_sec": int(c.cacheTTL.Seconds()),
 	})
 
 	// 定时推送循环
@@ -133,8 +133,8 @@ func (c *DashboardSSEController) StreamEventStream(ctx *gin.Context) {
 			}
 		case <-heartbeatTicker.C:
 			if writeErr := writeDashboardRawEvent(ctx, "heartbeat", map[string]any{
-				"ts":		time.Now().UTC().Format(time.RFC3339Nano),
-				"subscriber":	c.subscriberCount.Load(),
+				"ts":         time.Now().UTC().Format(time.RFC3339Nano),
+				"subscriber": c.subscriberCount.Load(),
 			}); writeErr != nil {
 				return
 			}
@@ -161,10 +161,10 @@ func (c *DashboardSSEController) Metrics(ctx *gin.Context) {
 	}
 	// 附加订阅者数 / 缓存时间
 	response.Success(ctx, map[string]any{
-		"snapshot":		snapshot,
-		"subscriber_count":	c.subscriberCount.Load(),
-		"cache_ttl_sec":	int(c.cacheTTL.Seconds()),
-		"server_time":		time.Now().UTC().Format(time.RFC3339Nano),
+		"snapshot":         snapshot,
+		"subscriber_count": c.subscriberCount.Load(),
+		"cache_ttl_sec":    int(c.cacheTTL.Seconds()),
+		"server_time":      time.Now().UTC().Format(time.RFC3339Nano),
 	}, "ok")
 }
 
@@ -182,7 +182,7 @@ func (c *DashboardSSEController) collectSnapshot(ctx context.Context) *service.D
 		GeneratedAt: time.Now(),
 	}
 
-	if c.statsSvc != nil && c.statsSvc.Available(context.Background(), ) {
+	if c.statsSvc != nil && c.statsSvc.Available(context.Background()) {
 		// 1. 在线会话数
 		c.statsSvc.CollectSessionStats(ctx, snap)
 		// 2. 拟人度分布

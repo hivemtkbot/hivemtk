@@ -3,6 +3,7 @@ package router
 import (
 	knowledgectrl "marketing/internal/aiagent/knowledge/controller"
 	"marketing/internal/controller"
+	"marketing/internal/middleware"
 	"marketing/internal/repository"
 	"marketing/internal/service"
 
@@ -54,7 +55,9 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	// 授权相关
-	public.POST("/auth/login", controller.NewAuthController().Login)
+	// P0-21 修复：登录路由挂载 BruteForceGuard（5 次/15 分钟失败阈值，超限 429）
+	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
+	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
 	// 开源版：已移除"首次强制改密"(init-change-password) 与"通过授权找回密码"
 	// (forgot-admin-password / reset-admin-password) 流程。找回密码统一在账号个人中心进行。
@@ -64,24 +67,40 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// 前端再调用此接口提交 temp_token + 6 位 TOTP 码完成登录
 	public.POST("/auth/mfa/verify", controller.NewAuthController().VerifyMFALogin)
 
-	// 系统初始化
-	systemUserCtrl := controller.NewSystemUserController()
-	public.POST("/system/create-default-admin", systemUserCtrl.CreateDefaultAdmin)
+	// ============== 阶段 3 改造：InitAdmin 路由整合到 AuthController ==============
+	// 旧路由 /system/create-default-admin（由 SystemUserController.CreateDefaultAdmin 暴露）
+	//   - 行为：读取 config.GetAdminConfig().DefaultAdmin（硬编码 Admin@123456）
+	//   - 风险：默认值暴露在任何被误部署的环境中，造成供应链 / 误用即被入侵
+	//   - 阶段 3：删除该路由。新逻辑统一走 /system/init-admin（AuthController），
+	//     强制调用方在请求体中传 password。
+	// 旧路由 /system/init-admin（由 SystemInitController.InitAdmin 暴露）
+	//   - 阶段 3：删除该路由。新实现由 AuthController.InitAdmin 提供，路径不变。
+	//   - 行为差异：新实现不再做"半初始化自愈 + 平台上报"，仅做最小职责（创建超管 + install.lock），
+	//     其它初始化相关步骤（install 上报 / init-complete 等）由后续 sub-agent 接管。
+	systemInitCtrl := controller.NewSystemInitController()
+	authCtrl := controller.NewAuthController()
+	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
+	public.POST("/system/init-admin", authCtrl.InitAdmin)
+	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
 	// 为兼容前端 Layout.vue 对 /api/license/status 的探测（开源版无授权概念），
-	// 提供只读占位接口：返回 200 + 空数据，不触发前端报错与 404 网络日志。
+	// 提供只读占位接口：返回 200 + 固定状态（开源版默认全功能可用），不触发前端报错与 404 网络日志。
 	public.GET("/license/status", func(c *gin.Context) {
-		c.JSON(200, gin.H{"code": 200, "data": nil, "msg": "ok"})
+		c.JSON(200, gin.H{
+			"code": 200,
+			"data": gin.H{
+				"edition":  "open_source",
+				"licensed": true,
+				"status":   "active",
+				"message":  "开源版无需授权",
+			},
+			"msg": "ok",
+		})
 	})
 	public.GET("/license/features", func(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "data": []interface{}{}, "msg": "ok"})
 	})
-
-	systemInitCtrl := controller.NewSystemInitController()
-	public.GET("/system/init-status", systemInitCtrl.GetInitStatus)
-	public.POST("/system/init-admin", systemInitCtrl.InitAdmin)
-	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
 	// 短链/活码跳转
 	redirectCtrl := controller.NewRedirectController(
@@ -93,6 +112,12 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	)
 	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)
+
+	// F-P0-18 补完：活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
+	//   - GET  /api/livecode/:id        渲染活码落地页（HTML）
+	//   - POST /api/livecode/:id/click  记录访客点击（用于统计聚合）
+	public.GET("/livecode/:id", liveCodeController.RenderLiveCodePage)
+	public.POST("/livecode/:id/click", liveCodeController.RecordClick)
 
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
 	public.POST("/platform/report-api-log", platformCtrl.ReportAPILog)

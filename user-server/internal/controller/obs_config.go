@@ -171,7 +171,7 @@ func (c *ObsConfigController) SetDefault(ctx *gin.Context) {
 
 // GetDefaultConfig 获取默认配置（开源版：全局默认）
 func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
-	config, err := c.service.GetDefaultConfig(context.Background(), )
+	config, err := c.service.GetDefaultConfig(context.Background())
 	if err != nil {
 		if isNotFoundError(err) {
 			// 不存在时返回空数据而非 404，便于前端统一处理

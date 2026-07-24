@@ -1,9 +1,9 @@
 package repository
 
 import (
+	"context"
 	"gorm.io/gorm"
 	"marketing/internal/model"
-	"context"
 )
 
 // XiaohongshuCardRepository 小红书卡片仓储接口

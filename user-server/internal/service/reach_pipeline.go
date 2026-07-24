@@ -21,15 +21,15 @@ import (
 
 // 9 步 Pipeline 类型常量
 const (
-	StepAudience		= "audience"		// 1. 受众筛选
-	StepContentPrepare	= "content_prepare"	// 2. 内容准备
-	StepAccountSelect	= "account_select"	// 3. 账号选择
-	StepRateLimit		= "rate_limit"		// 4. 限流控制
-	StepMessageGen		= "message_gen"		// 5. 文案生成
-	StepSend		= "send"		// 6. 发送执行
-	StepTrackResult		= "track_result"	// 7. 结果追踪
-	StepRetry		= "retry"		// 8. 失败重试
-	StepReport		= "report"		// 9. 汇总报告
+	StepAudience       = "audience"        // 1. 受众筛选
+	StepContentPrepare = "content_prepare" // 2. 内容准备
+	StepAccountSelect  = "account_select"  // 3. 账号选择
+	StepRateLimit      = "rate_limit"      // 4. 限流控制
+	StepMessageGen     = "message_gen"     // 5. 文案生成
+	StepSend           = "send"            // 6. 发送执行
+	StepTrackResult    = "track_result"    // 7. 结果追踪
+	StepRetry          = "retry"           // 8. 失败重试
+	StepReport         = "report"          // 9. 汇总报告
 )
 
 // 全部 9 步顺序
@@ -40,48 +40,48 @@ var DefaultPipelineSteps = []string{
 
 // Pipeline 状态
 const (
-	PipelineStatusActive	= "active"
-	PipelineStatusPaused	= "paused"
-	PipelineStatusArchived	= "archived"
+	PipelineStatusActive   = "active"
+	PipelineStatusPaused   = "paused"
+	PipelineStatusArchived = "archived"
 )
 
 // Job 状态
 const (
-	JobStatePending		= "pending"
-	JobStateRunning		= "running"
-	JobStateSuccess		= "success"
-	JobStateFailed		= "failed"
-	JobStateCanceled	= "canceled"
-	JobStateRetrying	= "retrying"
-	JobStateRateLimited	= "rate_limited"
+	JobStatePending     = "pending"
+	JobStateRunning     = "running"
+	JobStateSuccess     = "success"
+	JobStateFailed      = "failed"
+	JobStateCanceled    = "canceled"
+	JobStateRetrying    = "retrying"
+	JobStateRateLimited = "rate_limited"
 )
 
 // 渠道白名单
 // 私域独立部署：每商户独立部署一套系统，所有触达渠道共享同一份白名单
 // 2026-07-17 新增：telegram / whatsapp（Cloud API）/ feishu 三个境外/协作平台
 var ReachChannels = map[string]bool{
-	"wecom":	true,
-	"sms":		true,
-	"email":	true,
-	"card":		true,
-	"dingtalk":	true,
-	"douyin":	true,
-	"kuaishou":	true,
-	"xiaohongshu":	true,
-	"telegram":	true,	// Telegram Bot API（境外 IM）
-	"whatsapp":	true,	// WhatsApp Cloud API（Meta 商业）
-	"feishu":	true,	// 飞书 Open API（协作 + 业务）
+	"wecom":       true,
+	"sms":         true,
+	"email":       true,
+	"card":        true,
+	"dingtalk":    true,
+	"douyin":      true,
+	"kuaishou":    true,
+	"xiaohongshu": true,
+	"telegram":    true, // Telegram Bot API（境外 IM）
+	"whatsapp":    true, // WhatsApp Cloud API（Meta 商业）
+	"feishu":      true, // 飞书 Open API（协作 + 业务）
 }
 
 // 错误定义
 var (
-	ErrReachInvalidChannel		= errors.New("invalid channel")
-	ErrReachInvalidSteps		= errors.New("invalid steps")
-	ErrReachPipelineNotFound	= errors.New("pipeline not found")
-	ErrReachJobNotFound		= errors.New("job not found")
-	ErrReachRateLimited		= errors.New("rate limit exceeded")
-	ErrReachJobNotPending		= errors.New("job is not pending/running")
-	ErrReachInvalidPayload		= errors.New("invalid payload")
+	ErrReachInvalidChannel   = errors.New("invalid channel")
+	ErrReachInvalidSteps     = errors.New("invalid steps")
+	ErrReachPipelineNotFound = errors.New("pipeline not found")
+	ErrReachJobNotFound      = errors.New("job not found")
+	ErrReachRateLimited      = errors.New("rate limit exceeded")
+	ErrReachJobNotPending    = errors.New("job is not pending/running")
+	ErrReachInvalidPayload   = errors.New("invalid payload")
 )
 
 // toJSONArray 将 JSON 字节转换为 model.JSONArray
@@ -122,78 +122,78 @@ func toJSONMapBytes(data []byte) model.JSONMap {
 
 // StepResult 单步结果
 type StepResult struct {
-	Step		string		`json:"step"`
-	Success		bool		`json:"success"`
-	StartedAt	time.Time	`json:"started_at"`
-	EndedAt		time.Time	`json:"ended_at"`
-	DurationMs	int		`json:"duration_ms"`
-	Output		map[string]any	`json:"output,omitempty"`
-	Error		string		`json:"error,omitempty"`
+	Step       string         `json:"step"`
+	Success    bool           `json:"success"`
+	StartedAt  time.Time      `json:"started_at"`
+	EndedAt    time.Time      `json:"ended_at"`
+	DurationMs int            `json:"duration_ms"`
+	Output     map[string]any `json:"output,omitempty"`
+	Error      string         `json:"error,omitempty"`
 }
 
 // RetryPolicy 重试策略
 type RetryPolicy struct {
-	MaxRetries	int		`json:"max_retries"`		// 最大重试次数
-	IntervalMs	int		`json:"interval_ms"`		// 重试间隔 (ms)
-	Backoff		string		`json:"backoff"`		// fixed/exponential
-	MaxIntervalMs	int		`json:"max_interval_ms"`	// 指数退避上限
-	RetryableErrors	[]string	`json:"retryable_errors,omitempty"`
+	MaxRetries      int      `json:"max_retries"`     // 最大重试次数
+	IntervalMs      int      `json:"interval_ms"`     // 重试间隔 (ms)
+	Backoff         string   `json:"backoff"`         // fixed/exponential
+	MaxIntervalMs   int      `json:"max_interval_ms"` // 指数退避上限
+	RetryableErrors []string `json:"retryable_errors,omitempty"`
 }
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
-	QPS		int	`json:"qps"`		// 每秒请求数
-	Burst		int	`json:"burst"`		// 突发容量
-	DailyQuota	int	`json:"daily_quota"`	// 每日配额
-	PerUserLimit	int	`json:"per_user_limit"`	// 单用户频次
-	CooldownSecs	int	`json:"cooldown_secs"`	// 冷却秒数
+	QPS          int `json:"qps"`            // 每秒请求数
+	Burst        int `json:"burst"`          // 突发容量
+	DailyQuota   int `json:"daily_quota"`    // 每日配额
+	PerUserLimit int `json:"per_user_limit"` // 单用户频次
+	CooldownSecs int `json:"cooldown_secs"`  // 冷却秒数
 }
 
 // DefaultRetryPolicy 默认重试策略
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
-		MaxRetries:	3,
-		IntervalMs:	1000,
-		Backoff:	"exponential",
-		MaxIntervalMs:	60000,
+		MaxRetries:    3,
+		IntervalMs:    1000,
+		Backoff:       "exponential",
+		MaxIntervalMs: 60000,
 	}
 }
 
 // DefaultRateLimit 默认限流配置
 func DefaultRateLimit() RateLimitConfig {
 	return RateLimitConfig{
-		QPS:		10,
-		Burst:		20,
-		DailyQuota:	10000,
-		PerUserLimit:	3,
-		CooldownSecs:	60,
+		QPS:          10,
+		Burst:        20,
+		DailyQuota:   10000,
+		PerUserLimit: 3,
+		CooldownSecs: 60,
 	}
 }
 
 // ReachPipelineService 触达 Pipeline 服务
 type ReachPipelineService struct {
-	db	*gorm.DB
+	db *gorm.DB
 
 	// 限流状态（按渠道+账号）
-	rateMu		sync.RWMutex
-	rateState	map[string]*rateBucket
+	rateMu    sync.RWMutex
+	rateState map[string]*rateBucket
 	// 渠道每日配额
-	dailyQuotaMu	sync.RWMutex
-	dailyQuota	map[string]*dailyCounter
+	dailyQuotaMu sync.RWMutex
+	dailyQuota   map[string]*dailyCounter
 	// 用户频次
-	perUserMu	sync.RWMutex
-	perUserHits	map[string][]time.Time
+	perUserMu   sync.RWMutex
+	perUserHits map[string][]time.Time
 }
 
 // rateBucket 令牌桶
 type rateBucket struct {
-	tokens		float64
-	lastFill	time.Time
-	burst		int
-	qps		int
+	tokens   float64
+	lastFill time.Time
+	burst    int
+	qps      int
 }
 
-func (b *rateBucket) allow(ctx context.Context)  bool {
+func (b *rateBucket) allow(ctx context.Context) bool {
 	now := time.Now()
 	elapsed := now.Sub(b.lastFill).Seconds()
 	b.tokens = math.Min(float64(b.burst), b.tokens+elapsed*float64(b.qps))
@@ -207,29 +207,29 @@ func (b *rateBucket) allow(ctx context.Context)  bool {
 
 // dailyCounter 每日计数器
 type dailyCounter struct {
-	date	string
-	count	int
+	date  string
+	count int
 }
 
 // NewReachPipelineService 创建触达 Pipeline 服务
 func NewReachPipelineService(db *gorm.DB) *ReachPipelineService {
 	return &ReachPipelineService{
-		db:		db,
-		rateState:	make(map[string]*rateBucket),
-		dailyQuota:	make(map[string]*dailyCounter),
-		perUserHits:	make(map[string][]time.Time),
+		db:          db,
+		rateState:   make(map[string]*rateBucket),
+		dailyQuota:  make(map[string]*dailyCounter),
+		perUserHits: make(map[string][]time.Time),
 	}
 }
 
 // CreateRequest 创建 Pipeline 请求
 type CreatePipelineRequest struct {
-	Name		string		`json:"name" binding:"required"`
-	Description	string		`json:"description"`
-	Channel		string		`json:"channel" binding:"required"`
-	Steps		[]string	`json:"steps"`
-	RetryPolicy	RetryPolicy	`json:"retry_policy"`
-	RateLimit	RateLimitConfig	`json:"rate_limit"`
-	Extra		map[string]any	`json:"extra,omitempty"`
+	Name        string          `json:"name" binding:"required"`
+	Description string          `json:"description"`
+	Channel     string          `json:"channel" binding:"required"`
+	Steps       []string        `json:"steps"`
+	RetryPolicy RetryPolicy     `json:"retry_policy"`
+	RateLimit   RateLimitConfig `json:"rate_limit"`
+	Extra       map[string]any  `json:"extra,omitempty"`
 }
 
 // CreatePipeline 创建 Pipeline
@@ -262,14 +262,14 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 
 	pipe := &model.ReachPipeline{
 
-		Name:		req.Name,
-		Description:	req.Description,
-		Channel:	req.Channel,
-		Steps:		model.JSONArray(toIfaceSliceFromStrings(steps)),
-		RetryPolicy:	retryMap,
-		RateLimit:	rateMap,
-		Status:		PipelineStatusActive,
-		Version:	1,
+		Name:        req.Name,
+		Description: req.Description,
+		Channel:     req.Channel,
+		Steps:       model.JSONArray(toIfaceSliceFromStrings(steps)),
+		RetryPolicy: retryMap,
+		RateLimit:   rateMap,
+		Status:      PipelineStatusActive,
+		Version:     1,
 	}
 	if pipe.Steps == nil {
 		pipe.Steps = model.JSONArray{}
@@ -399,13 +399,13 @@ func (s *ReachPipelineService) ArchivePipeline(ctx context.Context, id uint) err
 
 // EnqueueJobRequest 入队任务请求
 type EnqueueJobRequest struct {
-	PipelineID	uint		`json:"pipeline_id" binding:"required"`
-	Channel		string		`json:"channel"`
-	CustomerID	string		`json:"customer_id" binding:"required"`
-	AccountID	string		`json:"account_id"`
-	Payload		map[string]any	`json:"payload" binding:"required"`
-	MaxRetry	int		`json:"max_retry"`
-	RunAt		*time.Time	`json:"run_at"`
+	PipelineID uint           `json:"pipeline_id" binding:"required"`
+	Channel    string         `json:"channel"`
+	CustomerID string         `json:"customer_id" binding:"required"`
+	AccountID  string         `json:"account_id"`
+	Payload    map[string]any `json:"payload" binding:"required"`
+	MaxRetry   int            `json:"max_retry"`
+	RunAt      *time.Time     `json:"run_at"`
 }
 
 // EnqueueJob 入队任务
@@ -453,14 +453,14 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 	}
 	job := &model.ReachJob{
 
-		PipelineID:	req.PipelineID,
-		Channel:	channel,
-		CustomerID:	req.CustomerID,
-		AccountID:	req.AccountID,
-		Payload:	payloadMap,
-		State:		JobStatePending,
-		MaxRetry:	maxRetry,
-		NextRunAt:	req.RunAt,
+		PipelineID: req.PipelineID,
+		Channel:    channel,
+		CustomerID: req.CustomerID,
+		AccountID:  req.AccountID,
+		Payload:    payloadMap,
+		State:      JobStatePending,
+		MaxRetry:   maxRetry,
+		NextRunAt:  req.RunAt,
 	}
 	if job.Payload == nil {
 		job.Payload = model.JSONMap{}
@@ -513,8 +513,8 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
 	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
 		Updates(map[string]any{
-			"state":	JobStateCanceled,
-			"completed_at":	time.Now(),
+			"state":        JobStateCanceled,
+			"completed_at": time.Now(),
 		})
 	if res.Error != nil {
 		return res.Error
@@ -529,9 +529,9 @@ func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
 func (s *ReachPipelineService) RetryJob(ctx context.Context, id uint) error {
 	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
 		Updates(map[string]any{
-			"state":		JobStatePending,
-			"next_run_at":		time.Now(),
-			"error_message":	"",
+			"state":         JobStatePending,
+			"next_run_at":   time.Now(),
+			"error_message": "",
 		})
 	if res.Error != nil {
 		return res.Error
@@ -686,9 +686,9 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"prepared":		true,
-				"content":		content,
-				"content_bytes":	len(content),
+				"prepared":      true,
+				"content":       content,
+				"content_bytes": len(content),
 			}
 		}
 	case StepAccountSelect:
@@ -718,9 +718,9 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"generated":		true,
-				"message":		message,
-				"message_bytes":	len(message),
+				"generated":     true,
+				"message":       message,
+				"message_bytes": len(message),
 			}
 		}
 	case StepSend:
@@ -735,9 +735,9 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"sent":		true,
-				"message_id":	messageID,
-				"channel":	job.Channel,
+				"sent":       true,
+				"message_id": messageID,
+				"channel":    job.Channel,
 			}
 		}
 	case StepTrackResult:
@@ -748,10 +748,10 @@ func (s *ReachPipelineService) runStep(ctx context.Context, step string, job *mo
 		} else {
 			res.Success = true
 			res.Output = map[string]any{
-				"tracked":	true,
-				"job_id":	job.ID,
-				"customer_id":	job.CustomerID,
-				"channel":	job.Channel,
+				"tracked":     true,
+				"job_id":      job.ID,
+				"customer_id": job.CustomerID,
+				"channel":     job.Channel,
 			}
 		}
 	case StepRetry:
@@ -856,7 +856,7 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 	}
 	// 轻量清理
 	cleaned := strings.TrimSpace(base)
-	cleaned = strings.Join(strings.Fields(cleaned), " ")	// 折叠空白
+	cleaned = strings.Join(strings.Fields(cleaned), " ") // 折叠空白
 	// 渠道后缀（仅在显式开启时追加）
 	if v, ok := job.Payload["include_channel_footer"]; ok {
 		if b, _ := v.(bool); b && job.Channel != "" {
@@ -897,9 +897,9 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 		id = id[:50]
 	}
 	implemented := map[string]bool{
-		"wecom":	true, "feishu": true, "telegram": true, "whatsapp": true,
-		"sms":	true, "email": true, "card": true, "dingtalk": true,
-		"douyin":	false, "kuaishou": false, "xiaohongshu": false,	// V3 待接入
+		"wecom": true, "feishu": true, "telegram": true, "whatsapp": true,
+		"sms": true, "email": true, "card": true, "dingtalk": true,
+		"douyin": false, "kuaishou": false, "xiaohongshu": false, // V3 待接入
 	}
 	if !implemented[job.Channel] {
 		return "", fmt.Errorf("channel %s 暂未实现主动出站（V3 待接入）", job.Channel)
@@ -909,9 +909,9 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 		job.Payload = model.JSONMap{}
 	}
 	job.Payload["_last_send"] = map[string]any{
-		"message_id":	id,
-		"channel":	job.Channel,
-		"sent_at":	time.Now().Format(time.RFC3339),
+		"message_id": id,
+		"channel":    job.Channel,
+		"sent_at":    time.Now().Format(time.RFC3339),
 	}
 	return id, nil
 }
@@ -970,14 +970,14 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 		}
 	}
 	report := map[string]any{
-		"job_id":		job.ID,
-		"pipeline_id":		job.PipelineID,
-		"channel":		job.Channel,
-		"customer_id":		job.CustomerID,
-		"total_steps":		len(results),
-		"success_steps":	0,
-		"failed_steps":		0,
-		"total_duration_ms":	0,
+		"job_id":            job.ID,
+		"pipeline_id":       job.PipelineID,
+		"channel":           job.Channel,
+		"customer_id":       job.CustomerID,
+		"total_steps":       len(results),
+		"success_steps":     0,
+		"failed_steps":      0,
+		"total_duration_ms": 0,
 	}
 	success, failed, totalDur, maxStep, maxDur := 0, 0, 0, "", 0
 	for _, r := range results {
@@ -1035,12 +1035,12 @@ func renderReachTemplate(template string, job *model.ReachJob) string {
 		return template
 	}
 	autoVars := map[string]string{
-		"customer_id":	job.CustomerID,
-		"account_id":	job.AccountID,
-		"channel":	job.Channel,
-		"date":		time.Now().Format("2006-01-02"),
-		"time":		time.Now().Format("15:04:05"),
-		"datetime":	time.Now().Format("2006-01-02 15:04:05"),
+		"customer_id": job.CustomerID,
+		"account_id":  job.AccountID,
+		"channel":     job.Channel,
+		"date":        time.Now().Format("2006-01-02"),
+		"time":        time.Now().Format("15:04:05"),
+		"datetime":    time.Now().Format("2006-01-02 15:04:05"),
 	}
 	var b strings.Builder
 	b.Grow(len(template))
@@ -1113,10 +1113,10 @@ func (s *ReachPipelineService) checkRateLimit(ctx context.Context, channel, acco
 		b, ok := s.rateState[key]
 		if !ok {
 			b = &rateBucket{
-				tokens:		float64(rl.Burst),
-				lastFill:	time.Now(),
-				burst:		rl.Burst,
-				qps:		rl.QPS,
+				tokens:   float64(rl.Burst),
+				lastFill: time.Now(),
+				burst:    rl.Burst,
+				qps:      rl.QPS,
 			}
 			s.rateState[key] = b
 		}
@@ -1258,16 +1258,16 @@ func computeNextRunTime(rp RetryPolicy, retryCount int) time.Time {
 // Stats 统计
 func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, error) {
 	stats := map[string]int64{
-		"total":	0,
-		"active":	0,
-		"paused":	0,
-		"jobs":		0,
-		"pending":	0,
-		"running":	0,
-		"success":	0,
-		"failed":	0,
-		"rate_limited":	0,
-		"canceled":	0,
+		"total":        0,
+		"active":       0,
+		"paused":       0,
+		"jobs":         0,
+		"pending":      0,
+		"running":      0,
+		"success":      0,
+		"failed":       0,
+		"rate_limited": 0,
+		"canceled":     0,
 	}
 	if s.db == nil {
 		return stats, nil
@@ -1323,8 +1323,8 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 
 // ===== 全局实例 =====
 var (
-	reachOnce	sync.Once
-	reachInstance	*ReachPipelineService
+	reachOnce     sync.Once
+	reachInstance *ReachPipelineService
 )
 
 func GetReachPipelineService() *ReachPipelineService {

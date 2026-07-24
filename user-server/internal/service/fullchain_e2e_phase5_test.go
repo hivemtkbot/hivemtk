@@ -132,7 +132,7 @@ func TestE2E_FullChain_FeedbackAccumulation(t *testing.T) {
 
 	// 验证 SuggestConfidenceFloor 能给出建议（冷启动后）
 	for _, s := range stats {
-		floor := fl.SuggestConfidenceFloor(s.IntentType)
+		floor := fl.SuggestConfidenceFloor(context.Background(), s.IntentType)
 		if floor <= 0 {
 			t.Errorf("意图 %s 的 SuggestConfidenceFloor 应 > 0", s.IntentType)
 		}

@@ -29,7 +29,7 @@ func TestTakeoverByAgent_Success(t *testing.T) {
 
 	// 准备：1 个在线客服
 	agent := &model.AgentStatus{AgentID: 101, AgentName: "客服甲", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	if err := svc.agentRepo.Create(agent); err != nil {
+	if err := svc.agentRepo.Create(context.Background(), agent); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,7 +71,7 @@ func TestTakeoverByAgent_OfflineAgent(t *testing.T) {
 		UserID:    "u_1",
 	})
 	offline := &model.AgentStatus{AgentID: 200, AgentName: "客服乙", Status: "offline", MaxSessions: 5}
-	_ = svc.agentRepo.Create(offline)
+	_ = svc.agentRepo.Create(context.Background(), offline)
 
 	err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 200})
 	if err == nil {
@@ -87,7 +87,7 @@ func TestTakeoverByAgent_AgentFull(t *testing.T) {
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 300, AgentName: "客服丙", Status: "online", MaxSessions: 1, ActiveSessions: 1}
-	_ = svc.agentRepo.Create(agent)
+	_ = svc.agentRepo.Create(context.Background(), agent)
 
 	err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 300})
 	if err == nil {
@@ -103,7 +103,7 @@ func TestTakeoverByAgent_Idempotent(t *testing.T) {
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 400, AgentName: "客服丁", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(agent)
+	_ = svc.agentRepo.Create(context.Background(), agent)
 
 	// 第一次接管
 	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 400})
@@ -129,13 +129,13 @@ func TestTakeoverByAgent_TakeoverFromAnother(t *testing.T) {
 	})
 	a1 := &model.AgentStatus{AgentID: 500, AgentName: "甲", Status: "online", MaxSessions: 5, ActiveSessions: 1}
 	a2 := &model.AgentStatus{AgentID: 501, AgentName: "乙", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(a1)
-	_ = svc.agentRepo.Create(a2)
+	_ = svc.agentRepo.Create(context.Background(), a1)
+	_ = svc.agentRepo.Create(context.Background(), a2)
 	// 让会话先归属 a1
 	_ = svc.sessionRepo.AssignAgent(sess.ID, 500, "甲")
 	a1Got, _ := svc.agentRepo.GetByAgentID(500)
 	a1Got.ActiveSessions = 1
-	_ = svc.agentRepo.Update(a1Got)
+	_ = svc.agentRepo.Update(context.Background(), a1Got)
 
 	// a2 接管
 	if err := svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 501}); err != nil {
@@ -161,7 +161,7 @@ func TestReleaseToAI(t *testing.T) {
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 600, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(agent)
+	_ = svc.agentRepo.Create(context.Background(), agent)
 	// 接管一次
 	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 600})
 
@@ -194,8 +194,8 @@ func TestReleaseToAI_NotOwner(t *testing.T) {
 	})
 	a1 := &model.AgentStatus{AgentID: 700, AgentName: "甲", Status: "online", MaxSessions: 5, ActiveSessions: 0}
 	a2 := &model.AgentStatus{AgentID: 701, AgentName: "乙", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(a1)
-	_ = svc.agentRepo.Create(a2)
+	_ = svc.agentRepo.Create(context.Background(), a1)
+	_ = svc.agentRepo.Create(context.Background(), a2)
 	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 700})
 
 	// a2 想释放 → 拒绝
@@ -213,7 +213,7 @@ func TestSwitchHandler_Human(t *testing.T) {
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 800, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(agent)
+	_ = svc.agentRepo.Create(context.Background(), agent)
 
 	err := svc.SwitchHandler(ctx, &SwitchHandlerRequest{
 		SessionID:   sess.ID,
@@ -238,7 +238,7 @@ func TestSwitchHandler_AI(t *testing.T) {
 		Platform: model.PlatformWeb, AccountID: "acc_1", UserID: "u_1",
 	})
 	agent := &model.AgentStatus{AgentID: 900, AgentName: "客服", Status: "online", MaxSessions: 5, ActiveSessions: 0}
-	_ = svc.agentRepo.Create(agent)
+	_ = svc.agentRepo.Create(context.Background(), agent)
 	_ = svc.TakeoverByAgent(ctx, &TakeoverRequest{SessionID: sess.ID, AgentID: 900})
 
 	// AgentID 留空，让 service 从会话读

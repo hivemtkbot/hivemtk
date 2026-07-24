@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"marketing/internal/pkg/utils/logger"
 	"context"
+	"marketing/internal/pkg/utils/logger"
 )
 
 // SystemInitService 系统初始化服务
@@ -27,10 +27,10 @@ func NewSystemInitService() *SystemInitService {
 
 // CreateInitAdminParams 创建初始化超管参数
 type CreateInitAdminParams struct {
-	Username	string
-	Password	string
-	Email		string
-	RealName	string
+	Username string
+	Password string
+	Email    string
+	RealName string
 }
 
 // CreateInitAdmin 创建初始化超管
@@ -68,13 +68,13 @@ func (s *SystemInitService) CreateInitAdmin(ctx context.Context, p *CreateInitAd
 
 	// 5. 创建超管
 	_, err = s.userService.CreateUser(ctx, &CreateUserRequest{
-		Username:		p.Username,
-		Password:		p.Password,
-		Email:			p.Email,
-		RealName:		p.RealName,
-		Role:			"admin",
-		Status:			1,
-		MustChangePassword:	true,
+		Username:           p.Username,
+		Password:           p.Password,
+		Email:              p.Email,
+		RealName:           p.RealName,
+		Role:               "admin",
+		Status:             1,
+		MustChangePassword: true,
 	})
 	if err != nil {
 		logger.Error(err, "SystemInitService 创建超管失败")
@@ -99,9 +99,9 @@ func validateUsername(u string) error {
 
 // validatePassword 校验密码强度：至少 8 位，含大小写字母 + 数字
 var (
-	hasLower	= regexp.MustCompile(`[a-z]`)
-	hasUpper	= regexp.MustCompile(`[A-Z]`)
-	hasDigit	= regexp.MustCompile(`[0-9]`)
+	hasLower = regexp.MustCompile(`[a-z]`)
+	hasUpper = regexp.MustCompile(`[A-Z]`)
+	hasDigit = regexp.MustCompile(`[0-9]`)
 )
 
 func validatePassword(p string) error {

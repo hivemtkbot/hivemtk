@@ -46,100 +46,6 @@ func (m *InitialSchemaMigration) Down(ctx context.Context) error {
 // Ensure InitialSchemaMigration implements Migration interface
 var _ migration.Migration = (*InitialSchemaMigration)(nil)
 
-// TeamUserSchemaMigration 团队成员管理迁移(原 V120Migration 重命名)
-type TeamUserSchemaMigration struct {
-	db *gorm.DB
-}
-
-// NewTeamUserSchemaMigration 创建团队成员迁移
-func NewTeamUserSchemaMigration(db *gorm.DB) *TeamUserSchemaMigration {
-	return &TeamUserSchemaMigration{db: db}
-}
-
-// Version 返回版本号
-func (m *TeamUserSchemaMigration) Version() string {
-	return "v1.2.0"
-}
-
-// Name 返回迁移名称
-func (m *TeamUserSchemaMigration) Name() string {
-	return "团队成员管理"
-}
-
-// Description 返回迁移描述
-func (m *TeamUserSchemaMigration) Description() string {
-	return "添加团队成员、角色和权限表"
-}
-
-// Up 执行升级
-func (m *TeamUserSchemaMigration) Up(ctx context.Context) error {
-	// 创建团队成员表
-	m.db.Exec(`
-		CREATE TABLE IF NOT EXISTS team_users (
-			id BIGSERIAL PRIMARY KEY,
-			username VARCHAR(50) NOT NULL UNIQUE,
-			password VARCHAR(255) NOT NULL,
-			name VARCHAR(50),
-			email VARCHAR(100) UNIQUE,
-			phone VARCHAR(20),
-			role VARCHAR(20) DEFAULT 'viewer',
-			status INTEGER DEFAULT 1,
-			last_login_at TIMESTAMP,
-			last_login_ip VARCHAR(50),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-
-	// 创建团队角色表
-	m.db.Exec(`
-		CREATE TABLE IF NOT EXISTS team_roles (
-			id BIGSERIAL PRIMARY KEY,
-			code VARCHAR(20) NOT NULL UNIQUE,
-			name VARCHAR(50) NOT NULL,
-			permissions TEXT,
-			is_system BOOLEAN DEFAULT FALSE,
-			status INTEGER DEFAULT 1,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-
-	// 创建操作日志表
-	m.db.Exec(`
-		CREATE TABLE IF NOT EXISTS operation_logs (
-			id BIGSERIAL PRIMARY KEY,
-			user_id BIGINT NOT NULL,
-			username VARCHAR(50),
-			action VARCHAR(20),
-			module VARCHAR(50),
-			resource VARCHAR(50),
-			resource_id VARCHAR(50),
-			detail TEXT,
-			old_value TEXT,
-			new_value TEXT,
-			ip VARCHAR(50),
-			user_agent VARCHAR(255),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-
-	// 创建索引
-	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_operation_logs_user_time ON operation_logs(user_id, created_at)")
-	m.db.Exec("CREATE INDEX IF NOT EXISTS idx_operation_logs_user ON operation_logs(user_id)")
-
-	return nil
-}
-
-// Down 执行降级
-func (m *TeamUserSchemaMigration) Down(ctx context.Context) error {
-	m.db.Exec("DROP TABLE IF EXISTS operation_logs")
-	m.db.Exec("DROP TABLE IF EXISTS team_roles")
-	m.db.Exec("DROP TABLE IF EXISTS team_users")
-	return nil
-}
-
-var _ migration.Migration = (*TeamUserSchemaMigration)(nil)
-
 // MarketingFlowSchemaMigration 营销自动化迁移(原 V130Migration 重命名)
 type MarketingFlowSchemaMigration struct {
 	db *gorm.DB
@@ -219,7 +125,6 @@ var _ migration.Migration = (*MarketingFlowSchemaMigration)(nil)
 // RegisterMigrations 注册所有迁移
 func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewInitialSchemaMigration(db))
-	registry.Register(NewTeamUserSchemaMigration(db))
 	registry.Register(NewMarketingFlowSchemaMigration(db))
 	registry.Register(NewUnmultitenantSchemaMigration(db))
 	// 私域部署:merchant_id 字段可空化(幂等,可重入)
@@ -263,5 +168,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewLLMUsageRecordsMigration(db))
 	// 2026-07-22:方向9 资产包模式 — asset_bundles / asset_bundle_version_logs
 	registry.Register(NewAssetBundleMigration(db))
+	// 2026-07-23:LLM 路由可观测性 — llm_routing_logs / llm_routing_audit 两张表
+	registry.Register(NewLLMRoutingLogsMigration(db))
 	// 继续添加新的迁移...
 }

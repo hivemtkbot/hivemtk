@@ -42,7 +42,7 @@
 
       <el-table :data="filteredLogs" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="userName" :label="$t('操作人')" width="100" />
+        <el-table-column prop="username" :label="$t('操作人')" width="100" />
         <el-table-column prop="module" :label="$t('模块')" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ row.module }}</el-tag>
@@ -53,18 +53,16 @@
             <el-tag :type="getActionType(row.action)" size="small">{{ getActionText(row.action) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="target" label="目标对象" min-width="150" />
-        <el-table-column prop="description" label="操作描述" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="ip" label="IP地址" width="130" />
-        <el-table-column prop="userAgent" label="浏览器" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="status" label="结果" width="100">
+        <el-table-column prop="resource" label="目标对象" min-width="150">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'success' ? '成功' : '失败' }}
-            </el-tag>
+            <span v-if="row.resource_id">{{ row.resource }} #{{ row.resource_id }}</span>
+            <span v-else>{{ row.resource }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="时间" width="180" />
+        <el-table-column prop="detail" label="操作描述" min-width="250" show-overflow-tooltip />
+        <el-table-column prop="ip" label="IP地址" width="130" />
+        <el-table-column prop="user_agent" label="浏览器" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="created_at" label="时间" width="180" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
@@ -84,21 +82,23 @@
 
     <el-dialog v-model="detailVisible" title="日志详情" width="700px">
       <el-descriptions :column="1" border v-if="currentLog">
-        <el-descriptions-item label="操作人">{{ currentLog.userName }}</el-descriptions-item>
+        <el-descriptions-item label="操作人">{{ currentLog.username }}</el-descriptions-item>
         <el-descriptions-item label="模块">{{ currentLog.module }}</el-descriptions-item>
         <el-descriptions-item label="操作类型">{{ currentLog.action }}</el-descriptions-item>
-        <el-descriptions-item label="目标对象">{{ currentLog.target }}</el-descriptions-item>
-        <el-descriptions-item label="操作描述">{{ currentLog.description }}</el-descriptions-item>
-        <el-descriptions-item label="请求参数">
-          <pre>{{ JSON.stringify(currentLog.request, null, 2) }}</pre>
+        <el-descriptions-item label="目标对象">
+          <span v-if="currentLog.resource_id">{{ currentLog.resource }} #{{ currentLog.resource_id }}</span>
+          <span v-else>{{ currentLog.resource }}</span>
         </el-descriptions-item>
-        <el-descriptions-item label="响应结果">
-          <pre>{{ JSON.stringify(currentLog.response, null, 2) }}</pre>
+        <el-descriptions-item label="操作描述">{{ currentLog.detail }}</el-descriptions-item>
+        <el-descriptions-item label="修改前">
+          <pre>{{ currentLog.old_value }}</pre>
+        </el-descriptions-item>
+        <el-descriptions-item label="修改后">
+          <pre>{{ currentLog.new_value }}</pre>
         </el-descriptions-item>
         <el-descriptions-item label="IP地址">{{ currentLog.ip }}</el-descriptions-item>
-        <el-descriptions-item label="浏览器">{{ currentLog.userAgent }}</el-descriptions-item>
-        <el-descriptions-item label="结果">{{ currentLog.status }}</el-descriptions-item>
-        <el-descriptions-item label="时间">{{ currentLog.createdAt }}</el-descriptions-item>
+        <el-descriptions-item label="浏览器">{{ currentLog.user_agent }}</el-descriptions-item>
+        <el-descriptions-item label="时间">{{ currentLog.created_at }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -128,7 +128,7 @@ const filteredLogs = computed(() => {
   if (searchKeyword.value) result = result.filter(l => l.description?.includes(searchKeyword.value))
   if (filterModule.value) result = result.filter(l => l.module === filterModule.value)
   if (filterAction.value) result = result.filter(l => l.action === filterAction.value)
-  if (filterUser.value) result = result.filter(l => l.userName === filterUser.value)
+  if (filterUser.value) result = result.filter(l => l.username === filterUser.value)
   return result
 })
 

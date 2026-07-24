@@ -308,6 +308,7 @@ func TestFeedbackCollector_Collect_AsyncPersist(t *testing.T) {
 	cfg.FlushInterval = 50 * time.Millisecond
 	cfg.BatchSize = 100
 	c := NewFeedbackCollector(db, cfg)
+	ctx := context.Background()
 
 	for i := 0; i < 10; i++ {
 		err := c.Collect(ctx, &dto.CollectRequest{
@@ -346,6 +347,7 @@ func TestFeedbackCollector_Collect_QueueFull(t *testing.T) {
 	cfg.FlushInterval = 10 * time.Second
 	c := NewFeedbackCollector(db, cfg)
 	defer c.Stop()
+	ctx := context.Background()
 
 	// 填满队列（QueueSize=2，缓冲 2 条）
 	// 第 1 条立即被 worker select 消费 → 入队成功
@@ -418,6 +420,7 @@ func TestFeedbackCollector_ConcurrentCollectSync(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	c := NewFeedbackCollector(db, DefaultFeedbackCollectorConfig())
 	defer c.Stop()
+	ctx := context.Background()
 
 	const N = 20
 	var wg sync.WaitGroup

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"gorm.io/gorm"
 	"marketing/internal/model"
 	_type "marketing/internal/pkg/utils/type"
 	"marketing/internal/repository"
-	"gorm.io/gorm"
 )
 
 type OrderService struct {

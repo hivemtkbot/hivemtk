@@ -4,10 +4,10 @@ import (
 	"sort"
 	"strings"
 
+	"context"
 	"gorm.io/gorm"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // ObjectionHandlerService 异议处理服务
@@ -24,31 +24,31 @@ func NewObjectionHandlerService() *ObjectionHandlerService {
 type ObjectionCategory string
 
 const (
-	ObjectionPrice		ObjectionCategory	= "price"	// 价格异议
-	ObjectionNeed		ObjectionCategory	= "need"	// 需求异议
-	ObjectionTrust		ObjectionCategory	= "trust"	// 信任异议
-	ObjectionTiming		ObjectionCategory	= "timing"	// 时机异议
-	ObjectionCompare	ObjectionCategory	= "compare"	// 比较异议
-	ObjectionFeature	ObjectionCategory	= "feature"	// 特性异议
-	ObjectionOther		ObjectionCategory	= "other"	// 其他
+	ObjectionPrice   ObjectionCategory = "price"   // 价格异议
+	ObjectionNeed    ObjectionCategory = "need"    // 需求异议
+	ObjectionTrust   ObjectionCategory = "trust"   // 信任异议
+	ObjectionTiming  ObjectionCategory = "timing"  // 时机异议
+	ObjectionCompare ObjectionCategory = "compare" // 比较异议
+	ObjectionFeature ObjectionCategory = "feature" // 特性异议
+	ObjectionOther   ObjectionCategory = "other"   // 其他
 )
 
 // ObjectionTemplate 异议处理模板
 type ObjectionTemplate struct {
-	ID		uint			`json:"id"`
-	Category	ObjectionCategory	`json:"category"`
-	Keywords	[]string		`json:"keywords"`
-	Title		string			`json:"title"`
-	Content		string			`json:"content"`
-	UsageCount	int			`json:"usage_count"`
-	SuccessRate	float64			`json:"success_rate"`
+	ID          uint              `json:"id"`
+	Category    ObjectionCategory `json:"category"`
+	Keywords    []string          `json:"keywords"`
+	Title       string            `json:"title"`
+	Content     string            `json:"content"`
+	UsageCount  int               `json:"usage_count"`
+	SuccessRate float64           `json:"success_rate"`
 }
 
 // objectionRule 关键词 → 类别映射
 var objectionRules = []struct {
-	Keywords	[]string
-	Category	ObjectionCategory
-	Name		string
+	Keywords []string
+	Category ObjectionCategory
+	Name     string
 }{
 	{Keywords: []string{"贵", "太贵", "便宜点", "折扣", "降价", "优惠", "price", "expensive"}, Category: ObjectionPrice, Name: "价格异议"},
 	{Keywords: []string{"不需要", "没需求", "已经有了", "用不上", "不需要", "don't need"}, Category: ObjectionNeed, Name: "需求异议"},
@@ -73,29 +73,29 @@ func (s *ObjectionHandlerService) Classify(ctx context.Context, text string) (Ob
 
 // HandleRequest 异议处理请求
 type HandleRequest struct {
-	Text		string	`json:"text"`
-	Category	string	`json:"category"`
-	UseLLM		bool	`json:"use_llm"`
+	Text     string `json:"text"`
+	Category string `json:"category"`
+	UseLLM   bool   `json:"use_llm"`
 }
 
 // HandleResponse 异议处理响应
 type HandleResponse struct {
-	Category	ObjectionCategory	`json:"category"`
-	CategoryName	string			`json:"category_name"`
-	Confidence	float64			`json:"confidence"`
-	Template	*ObjectionTemplate	`json:"template,omitempty"`
-	Templates	[]ObjectionTemplate	`json:"templates"`
-	Suggestion	string			`json:"suggestion"`
+	Category     ObjectionCategory   `json:"category"`
+	CategoryName string              `json:"category_name"`
+	Confidence   float64             `json:"confidence"`
+	Template     *ObjectionTemplate  `json:"template,omitempty"`
+	Templates    []ObjectionTemplate `json:"templates"`
+	Suggestion   string              `json:"suggestion"`
 }
 
 // Handle 处理异议
 func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest) (*HandleResponse, error) {
 	category, name := s.Classify(ctx, req.Text)
 	resp := &HandleResponse{
-		Category:	category,
-		CategoryName:	name,
-		Confidence:	0.85,
-		Templates:	make([]ObjectionTemplate, 0),
+		Category:     category,
+		CategoryName: name,
+		Confidence:   0.85,
+		Templates:    make([]ObjectionTemplate, 0),
 	}
 
 	// 从 script_library 拉取匹配模板
@@ -110,12 +110,12 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 
 	for _, sc := range scripts {
 		ot := ObjectionTemplate{
-			ID:		sc.ID,
-			Category:	ObjectionCategory(sc.Category),
-			Title:		sc.Title,
-			Content:	sc.Content,
-			UsageCount:	sc.UsageCount,
-			SuccessRate:	sc.ConversionRate,
+			ID:          sc.ID,
+			Category:    ObjectionCategory(sc.Category),
+			Title:       sc.Title,
+			Content:     sc.Content,
+			UsageCount:  sc.UsageCount,
+			SuccessRate: sc.ConversionRate,
 		}
 		if sc.Tags != nil {
 			kws := make([]string, len(sc.Tags))
@@ -172,8 +172,8 @@ func (s *ObjectionHandlerService) ListCategories(ctx context.Context) []map[stri
 	out := make([]map[string]string, 0, len(objectionRules))
 	for _, r := range objectionRules {
 		out = append(out, map[string]string{
-			"category":	string(r.Category),
-			"name":		r.Name,
+			"category": string(r.Category),
+			"name":     r.Name,
 		})
 	}
 	return out

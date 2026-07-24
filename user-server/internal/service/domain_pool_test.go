@@ -281,7 +281,7 @@ func TestDomainPoolService_List(t *testing.T) {
 	}
 
 	// 获取列表
-	list, total, err := service.List(1, 10, "", 0)
+	list, total, err := service.List(context.Background(), 1, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestDomainPoolService_List_WithDomainFilter(t *testing.T) {
 	_, _ = service.Create(context.Background(), "other.com", 8080, "其他服务")
 
 	// 获取列表，使用域名过滤
-	list, total, err := service.List(1, 10, "example", 0)
+	list, total, err := service.List(context.Background(), 1, 10, "example", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -331,7 +331,7 @@ func TestDomainPoolService_List_WithStatusFilter(t *testing.T) {
 	database.Model(&model.DomainPool{}).Where("domain = ?", "example2.com").Update("status", 2)
 
 	// 获取列表，使用状态过滤
-	list, total, err := service.List(1, 10, "", 1)
+	list, total, err := service.List(context.Background(), 1, 10, "", 1)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -356,13 +356,13 @@ func TestDomainPoolService_List_Pagination(t *testing.T) {
 	}
 
 	// 获取第一页
-	list1, total1, err := service.List(1, 10, "", 0)
+	list1, total1, err := service.List(context.Background(), 1, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List page 1 failed: %v", err)
 	}
 
 	// 获取第二页
-	list2, _, err := service.List(2, 10, "", 0)
+	list2, _, err := service.List(context.Background(), 2, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List page 2 failed: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestDomainPoolService_List_EmptyList(t *testing.T) {
 	database := setupDomainPoolServiceTestDB(t)
 	service := NewDomainPoolService(database)
 
-	list, total, err := service.List(1, 10, "", 0)
+	list, total, err := service.List(context.Background(), 1, 10, "", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -513,7 +513,7 @@ func TestDomainPoolService_List_LargePageSize(t *testing.T) {
 	}
 
 	// 使用大分页尺寸
-	list, total, err := service.List(1, 1000, "", 0)
+	list, total, err := service.List(context.Background(), 1, 1000, "", 0)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -537,7 +537,7 @@ func TestDomainPoolService_Update_LastCheck(t *testing.T) {
 	_, _ = service.CheckDomain(created.ID)
 
 	updated, _ := service.GetByID(context.Background(), created.ID)
-	if updated.UpdatedAt.Before(created.Create(dAt) {
+	if updated.UpdatedAt.Before(created.CreatedAt) {
 		t.Error("Expected UpdatedAt to be updated")
 	}
 }

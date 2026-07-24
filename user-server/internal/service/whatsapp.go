@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,16 +11,15 @@ import (
 	"marketing/internal/repository"
 	"sync"
 	"time"
-	"context"
 )
 
 type WhatsappService struct {
-	repo		repository.WhatsappRepository
-	clueRepo	repository.ClueRepository
-	connMu		sync.RWMutex
-	conns		map[uuid.UUID]*whatsapp.Conn
-	qrMu		sync.RWMutex
-	qrs		map[uuid.UUID]string
+	repo     repository.WhatsappRepository
+	clueRepo repository.ClueRepository
+	connMu   sync.RWMutex
+	conns    map[uuid.UUID]*whatsapp.Conn
+	qrMu     sync.RWMutex
+	qrs      map[uuid.UUID]string
 }
 
 // NewWhatsappService 创建 WhatsappService。
@@ -27,10 +27,10 @@ type WhatsappService struct {
 // 现改为内部构造 repo，保持五层架构（Controller → Service → Repository）。
 func NewWhatsappService() *WhatsappService {
 	return &WhatsappService{
-		repo:		repository.NewWhatsappRepository(),
-		clueRepo:	repository.NewClueRepository(),
-		conns:		make(map[uuid.UUID]*whatsapp.Conn),
-		qrs:		make(map[uuid.UUID]string),
+		repo:     repository.NewWhatsappRepository(),
+		clueRepo: repository.NewClueRepository(),
+		conns:    make(map[uuid.UUID]*whatsapp.Conn),
+		qrs:      make(map[uuid.UUID]string),
 	}
 }
 

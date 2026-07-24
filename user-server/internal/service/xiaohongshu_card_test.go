@@ -24,7 +24,7 @@ func setupXiaohongshuCardServiceTestDB(t *testing.T) *gorm.DB {
 	db.SetTestDB(database)
 	// 预 seed 一条 ID=1 的可用域名池记录，所有测试用例都使用 DomainPoolID=uintPtr(1)
 	// 若缺少该记录，XiaohongshuCardService.Create → GenerateShortLink → ShortLinkService.Create
-	// 会因 domainRepo.GetByID(1) 失败而返回"域名不存在"。
+	// 会因 domainRepo.GetByID(context.Background(), 1) 失败而返回"域名不存在"。
 	if err := database.Create(&model.DomainPool{
 		ID:      1,
 		Domain:  "example.com",
@@ -61,7 +61,7 @@ func TestXiaohongshuCardService_Create_Success(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(ctx, req)
+	card, err := service.Create(context.Background(), ctx, req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -89,7 +89,7 @@ func TestXiaohongshuCardService_Create_EmptyTitle(t *testing.T) {
 		ImageURL:    "https://example.com/image.jpg",
 	}
 
-	_, err := service.Create(ctx, req)
+	_, err := service.Create(context.Background(), ctx, req)
 
 	if err != nil {
 		t.Logf("Create with empty title failed (expected): %v", err)
@@ -108,7 +108,7 @@ func TestXiaohongshuCardService_Create_EmptyRedirectURL(t *testing.T) {
 		DomainPoolID: uintPtr(1),
 	}
 
-	card, err := service.Create(ctx, req)
+	card, err := service.Create(context.Background(), ctx, req)
 
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -124,7 +124,6 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	// 先创建卡片
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Original Card",
@@ -135,7 +134,7 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 		Tags:         "original",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(ctx, createReq)
+	createdCard, err := service.Create(context.Background(), ctx, createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -151,7 +150,7 @@ func TestXiaohongshuCardService_Update_Success(t *testing.T) {
 		IsActive:    true,
 	}
 
-	updatedCard, err := service.Update(ctx, updateReq)
+	updatedCard, err := service.Update(context.Background(), ctx, updateReq)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -169,13 +168,12 @@ func TestXiaohongshuCardService_Update_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	updateReq := &dto.XiaohongshuCardUpdateRequest{
 		ID:    999,
 		Title: "Non-existent Card",
 	}
 
-	_, err := service.Update(ctx, updateReq)
+	_, err := service.Update(context.Background(), ctx, updateReq)
 	if err == nil {
 		t.Error("Expected error for updating non-existent card")
 	}
@@ -186,7 +184,6 @@ func TestXiaohongshuCardService_Delete_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card to Delete",
 		Description:  "This card will be deleted",
@@ -194,17 +191,17 @@ func TestXiaohongshuCardService_Delete_Success(t *testing.T) {
 		DomainPoolID: uintPtr(1),
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(ctx, createReq)
+	createdCard, err := service.Create(context.Background(), ctx, createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	err = service.Delete(ctx, createdCard.ID)
+	err = service.Delete(context.Background(), ctx, createdCard.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	_, err = service.GetByID(ctx, createdCard.ID)
+	_, err = service.GetByID(context.Background(), ctx, createdCard.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted card")
 	}
@@ -215,10 +212,9 @@ func TestXiaohongshuCardService_Delete_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	// Service 的 Delete 方法会先检查卡片是否存在
 	// 对于不存在的卡片会返回错误
-	err := service.Delete(ctx, 999)
+	err := service.Delete(context.Background(), ctx, 999)
 	if err == nil {
 		t.Error("Expected error for deleting non-existent card")
 	}
@@ -229,7 +225,6 @@ func TestXiaohongshuCardService_GetByID_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -239,12 +234,12 @@ func TestXiaohongshuCardService_GetByID_Success(t *testing.T) {
 		Tags:         "test",
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(ctx, createReq)
+	createdCard, err := service.Create(context.Background(), ctx, createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	fetchedCard, err := service.GetByID(ctx, createdCard.ID)
+	fetchedCard, err := service.GetByID(context.Background(), ctx, createdCard.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
 	}
@@ -262,8 +257,7 @@ func TestXiaohongshuCardService_GetByID_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
-	_, err := service.GetByID(ctx, 999)
+	_, err := service.GetByID(context.Background(), ctx, 999)
 	if err == nil {
 		t.Error("Expected error for getting non-existent card")
 	}
@@ -274,7 +268,6 @@ func TestXiaohongshuCardService_GetCardModelByID_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Test Card",
 		Description:  "Test description",
@@ -282,7 +275,7 @@ func TestXiaohongshuCardService_GetCardModelByID_Success(t *testing.T) {
 		DomainPoolID: uintPtr(1),
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(ctx, createReq)
+	createdCard, err := service.Create(context.Background(), ctx, createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -305,7 +298,6 @@ func TestXiaohongshuCardService_GetList_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	for i := 1; i <= 5; i++ {
 		createReq := &dto.XiaohongshuCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -314,7 +306,7 @@ func TestXiaohongshuCardService_GetList_Success(t *testing.T) {
 			DomainPoolID: uintPtr(1),
 			IsActive:     true,
 		}
-		_, err := service.Create(ctx, createReq)
+		_, err := service.Create(context.Background(), ctx, createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -324,7 +316,7 @@ func TestXiaohongshuCardService_GetList_Success(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(ctx, listReq)
+	listResp, err := service.GetList(context.Background(), ctx, listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -342,7 +334,6 @@ func TestXiaohongshuCardService_GetList_Pagination(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	for i := 1; i <= 15; i++ {
 		createReq := &dto.XiaohongshuCardCreateRequest{
 			Title:        "Card " + string(rune('0'+i)),
@@ -351,7 +342,7 @@ func TestXiaohongshuCardService_GetList_Pagination(t *testing.T) {
 			DomainPoolID: uintPtr(1),
 			IsActive:     true,
 		}
-		_, err := service.Create(ctx, createReq)
+		_, err := service.Create(context.Background(), ctx, createReq)
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
@@ -361,7 +352,7 @@ func TestXiaohongshuCardService_GetList_Pagination(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(ctx, listReq)
+	listResp, err := service.GetList(context.Background(), ctx, listReq)
 	if err != nil {
 		t.Fatalf("GetList page 1 failed: %v", err)
 	}
@@ -371,7 +362,7 @@ func TestXiaohongshuCardService_GetList_Pagination(t *testing.T) {
 	}
 
 	listReq.Page = 2
-	listResp2, err := service.GetList(ctx, listReq)
+	listResp2, err := service.GetList(context.Background(), ctx, listReq)
 	if err != nil {
 		t.Fatalf("GetList page 2 failed: %v", err)
 	}
@@ -386,12 +377,11 @@ func TestXiaohongshuCardService_GetList_EmptyList(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	listReq := &dto.XiaohongshuCardListRequest{
 		Page:     1,
 		PageSize: 10,
 	}
-	listResp, err := service.GetList(ctx, listReq)
+	listResp, err := service.GetList(context.Background(), ctx, listReq)
 	if err != nil {
 		t.Fatalf("GetList failed: %v", err)
 	}
@@ -409,7 +399,6 @@ func TestXiaohongshuCardService_ShareCard_Success(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	createReq := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Share Test Card",
 		Description:  "This card will be shared",
@@ -417,7 +406,7 @@ func TestXiaohongshuCardService_ShareCard_Success(t *testing.T) {
 		DomainPoolID: uintPtr(1),
 		IsActive:     true,
 	}
-	createdCard, err := service.Create(ctx, createReq)
+	createdCard, err := service.Create(context.Background(), ctx, createReq)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -433,7 +422,6 @@ func TestXiaohongshuCardService_ShareCard_NotFound(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	_, err := service.ShareCard(ctx, 999, "wechat")
 	if err == nil {
 		t.Error("Expected error for sharing non-existent card")
@@ -445,7 +433,6 @@ func TestXiaohongshuCardService_Create_WithTags(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	req := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Card with Tags",
 		Description:  "This card has tags",
@@ -455,7 +442,7 @@ func TestXiaohongshuCardService_Create_WithTags(t *testing.T) {
 		IsActive:     true,
 	}
 
-	card, err := service.Create(ctx, req)
+	card, err := service.Create(context.Background(), ctx, req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -470,7 +457,6 @@ func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 	database := setupXiaohongshuCardServiceTestDB(t)
 	service := NewXiaohongshuCardService(database)
 
-
 	req := &dto.XiaohongshuCardCreateRequest{
 		Title:        "Inactive Card",
 		Description:  "This card is inactive",
@@ -479,7 +465,7 @@ func TestXiaohongshuCardService_Create_InactiveCard(t *testing.T) {
 		IsActive:     false,
 	}
 
-	card, err := service.Create(ctx, req)
+	card, err := service.Create(context.Background(), ctx, req)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}

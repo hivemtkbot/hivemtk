@@ -83,6 +83,67 @@ func (r *CustomerSessionRepository) GetByMerchant(ctx context.Context, status mo
 	return sessions, total, err
 }
 
+// GetByUserID 获取某用户的所有会话（CC-P2 N+1 优化）
+//
+// 替代 service 层「GetByMerchant(空 merchant, 1, 1000) + 内存过滤」模式，
+// 直接按 user_id 走索引，单 SQL 拉全该用户会话。
+func (r *CustomerSessionRepository) GetByUserID(ctx context.Context, userID string) ([]*model.CustomerSession, error) {
+	if userID == "" {
+		return nil, nil
+	}
+	var sessions []*model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at ASC").
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+// ListByUserIDsBatch 批量按 user_id 拉取会话，返回按 user_id 分组的 map（CC-P2 N+1 优化）
+//
+// 用于「客户列表 → 每用户 360 视图」场景：单次 SQL 拉所有用户的会话，
+// 避免 N 个用户各跑一次 GetByUserID 造成的 N+1。
+//   - userIDs: 待查询的 user id 列表，空时返回 (empty map, nil)
+//   - 入参去重 + 跳过空串
+//
+// 返回值：map[userID][]*CustomerSession，未命中的 userID 不会出现在 map 中。
+func (r *CustomerSessionRepository) ListByUserIDsBatch(ctx context.Context, userIDs []string) (map[string][]*model.CustomerSession, error) {
+	result := make(map[string][]*model.CustomerSession, len(userIDs))
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+	unique := make([]string, 0, len(userIDs))
+	seen := make(map[string]struct{}, len(userIDs))
+	for _, id := range userIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return result, nil
+	}
+	var sessions []*model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("user_id IN ?", unique).
+		Order("user_id ASC, created_at ASC").
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range sessions {
+		result[s.UserID] = append(result[s.UserID], s)
+	}
+	return result, nil
+}
+
 // GetPendingSessions 获取等待处理的会话
 func (r *CustomerSessionRepository) GetPendingSessions(ctx context.Context) ([]*model.CustomerSession, error) {
 	var sessions []*model.CustomerSession

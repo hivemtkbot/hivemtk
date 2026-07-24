@@ -2,11 +2,12 @@ import request from '@/utils/request'
 
 // 平台相关API
 export const platformAPI = {
-  // 获取最新消息
+  // 获取最新消息（后台轮询，平台不可用时静默，避免反复弹错误 toast）
   getLatestMessage() {
     return request({
       url: '/api/platform/message/latest',
-      method: 'get'
+      method: 'get',
+      _silent: true
     })
   },
 

@@ -19,28 +19,28 @@
 
     <!-- RFM 概览 -->
     <el-row :gutter="20" class="overview-row">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-label">{{ $t('总用户数') }}</div>
-          <div class="stat-value">{{ stats.totalUsers }}</div>
+          <div class="stat-value">{{ stats.totalUsers ?? stats.total ?? 0 }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-label">{{ $t('高价值客户') }}</div>
-          <div class="stat-value" style="color: #10B981">{{ stats.highValue }}</div>
+          <div class="stat-value" style="color: #10B981">{{ stats.highValue ?? stats.high_value ?? 0 }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-label">{{ $t('活跃客户') }}</div>
-          <div class="stat-value" style="color: #4F46E5">{{ stats.active }}</div>
+          <div class="stat-value" style="color: #4F46E5">{{ stats.active ?? stats.active_count ?? 0 }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-label">{{ $t('流失风险') }}</div>
-          <div class="stat-value" style="color: #EF4444">{{ stats.churnRisk }}</div>
+          <div class="stat-value" style="color: #EF4444">{{ stats.churnRisk ?? stats.churn_risk ?? 0 }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -63,21 +63,48 @@
           <tbody>
             <tr>
               <th>高 M (高额)</th>
-              <td class="cell high-value">重要价值客户</td>
-              <td class="cell good">重要发展客户</td>
-              <td class="cell warn">重要保持客户</td>
+              <td class="cell high-value" @click="onCellClick('high_value')">
+                <div class="cell-name">重要价值客户</div>
+                <div class="cell-count">{{ matrixCounts.high_value || 0 }} 人</div>
+              </td>
+              <td class="cell good" @click="onCellClick('important_develop')">
+                <div class="cell-name">重要发展客户</div>
+                <div class="cell-count">{{ matrixCounts.important_develop || 0 }} 人</div>
+              </td>
+              <td class="cell warn" @click="onCellClick('important_keep')">
+                <div class="cell-name">重要保持客户</div>
+                <div class="cell-count">{{ matrixCounts.important_keep || 0 }} 人</div>
+              </td>
             </tr>
             <tr>
               <th>中 M</th>
-              <td class="cell good">一般价值客户</td>
-              <td class="cell normal">一般发展客户</td>
-              <td class="cell warn">一般保持客户</td>
+              <td class="cell good" @click="onCellClick('general_value')">
+                <div class="cell-name">一般价值客户</div>
+                <div class="cell-count">{{ matrixCounts.general_value || 0 }} 人</div>
+              </td>
+              <td class="cell normal" @click="onCellClick('general_develop')">
+                <div class="cell-name">一般发展客户</div>
+                <div class="cell-count">{{ matrixCounts.general_develop || 0 }} 人</div>
+              </td>
+              <td class="cell warn" @click="onCellClick('general_keep')">
+                <div class="cell-name">一般保持客户</div>
+                <div class="cell-count">{{ matrixCounts.general_keep || 0 }} 人</div>
+              </td>
             </tr>
             <tr>
               <th>低 M (低额)</th>
-              <td class="cell normal">潜在价值客户</td>
-              <td class="cell warn">潜在发展客户</td>
-              <td class="cell low-value">流失客户</td>
+              <td class="cell normal" @click="onCellClick('potential_value')">
+                <div class="cell-name">潜在价值客户</div>
+                <div class="cell-count">{{ matrixCounts.potential_value || 0 }} 人</div>
+              </td>
+              <td class="cell warn" @click="onCellClick('potential_develop')">
+                <div class="cell-name">潜在发展客户</div>
+                <div class="cell-count">{{ matrixCounts.potential_develop || 0 }} 人</div>
+              </td>
+              <td class="cell low-value" @click="onCellClick('churn')">
+                <div class="cell-name">流失客户</div>
+                <div class="cell-count">{{ matrixCounts.churn || 0 }} 人</div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -101,7 +128,7 @@
         <el-table-column prop="name" label="分群名称" min-width="150" />
         <el-table-column prop="type" label="分群类型" width="120">
           <template #default="{ row }">
-            <el-tag :type="getTypeTagType(row.type)">{{ row.type }}</el-tag>
+            <el-tag :type="getTypeTagType(row.type)">{{ getTypeLabel(row.type) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="userCount" label="用户数" width="100" />
@@ -109,9 +136,7 @@
         <el-table-column prop="createdAt" label="创建时间" width="180" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
-            </el-tag>
+            <el-tag :type="getStatusTagType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="250" fixed="right">
@@ -213,6 +238,9 @@ import {
   getSegmentUsers
 } from '@/api/userSegment.js'
 import { toList } from '@/utils/list.js'
+// 统一枚举：分群类型/启用状态
+import { SEGMENT_TYPE, GROUP_STATUS, getStatusLabel as getStatusLabelFromArr, getStatusTagType as getStatusTagTypeFromArr } from '@/constants/status'
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
 
 const router = useRouter()
 
@@ -220,6 +248,7 @@ const loading = ref(false)
 const searchKeyword = ref('')
 const segments = ref([])
 const stats = ref({ totalUsers: 0, highValue: 0, active: 0, churnRisk: 0 })
+const matrixCounts = ref({})
 const dialogVisible = ref(false)
 const dialogTitle = ref('创建分群')
 const viewUsersDialogVisible = ref(false)
@@ -249,9 +278,18 @@ const filteredSegments = computed(() => {
   return segments.value.filter(s => s.name.includes(searchKeyword.value))
 })
 
+// 分群类型 label/type：取自统一 status 集（SEGMENT_TYPE）
+// 同时兼容旧的 RFM/CUSTOM/BEHAVIOR 三个值（业务约定），未命中时回退 SEGMENT_TYPE
+const LEGACY_SEGMENT_TYPE = { RFM: 'RFM', CUSTOM: '自定义', BEHAVIOR: '行为' }
+const getTypeLabel = (type) => LEGACY_SEGMENT_TYPE[type] || getStatusLabelFromArr(type, SEGMENT_TYPE)
 const getTypeTagType = (type) => {
   const map = { RFM: 'success', CUSTOM: 'primary', BEHAVIOR: 'warning' }
-  return map[type]}
+  return map[type] || getStatusTagTypeFromArr(type, SEGMENT_TYPE) || 'info'
+}
+
+// 分群启用/禁用 label/type：取自统一 enabled 模块（兼容 active/disabled 与 1/0）
+const getStatusLabel = (s) => getEnabledLabel(s)
+const getStatusTagType = (s) => getEnabledTagType(s)
 
 const refreshData = async () => {
   loading.value = true
@@ -261,12 +299,37 @@ const refreshData = async () => {
       getSegmentStats()
     ])
     segments.value = toList(segRes)
-    stats.value = statsRes || { totalUsers: 0, highValue: 0, active: 0, churnRisk: 0 }
+    const s = statsRes || {}
+    stats.value = {
+      totalUsers: s.totalUsers ?? s.total_users ?? s.total ?? 0,
+      highValue: s.highValue ?? s.high_value ?? 0,
+      active: s.active ?? s.active_count ?? 0,
+      churnRisk: s.churnRisk ?? s.churn_risk ?? 0
+    }
+    matrixCounts.value = s.matrix || s.matrix_counts || s.rfmMatrix || {}
   } catch (error) {
-    ElMessage.error(i18n.global.t('加载数据失败'))
+    console.error('加载数据失败', error)
   } finally {
     loading.value = false
   }
+}
+
+const onCellClick = (key) => {
+  const map = {
+    high_value: '重要价值客户',
+    important_develop: '重要发展客户',
+    important_keep: '重要保持客户',
+    general_value: '一般价值客户',
+    general_develop: '一般发展客户',
+    general_keep: '一般保持客户',
+    potential_value: '潜在价值客户',
+    potential_develop: '潜在发展客户',
+    churn: '流失客户'
+  }
+  ElMessage.info(`查看分群：${map[key] || key}`)
+  // 跳转到分群列表并预填筛选
+  const fakeSegment = { id: key, name: map[key] }
+  viewUsers(fakeSegment)
 }
 
 const showCreateDialog = () => {

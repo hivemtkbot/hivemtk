@@ -1,37 +1,25 @@
 package migrations
 
-// a_domain_p1_migration.go A 域 P1 缺口修复迁移 (v2.11.0)
+// a_domain_p1_migration.go A 域 P1 缺口修复占位（2026-07 阶段 1：单表化 system_users）
 //
-// 五层架构归属: L5 数据层
-// 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
-//          A 域 P1 缺口修复 (2026-07-21)
-//          - P1-1 MFA 多因素认证（已有 auth_security_migration，本版本不再重复）
-//          - P1-2 异常登录预警（已有 auth_security_migration，本版本不再重复）
-//          - P1-3 密码策略（已有 auth_security_migration，本版本不再重复）
-//          - P1-4 数据行级权限（team_user 新增 data_scope / department_id / team_id / custom_dept_ids）
+// 原始职责：
+//   - team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段
 //
-// 本迁移要点：
-//   1. team_users 表新增 4 个字段：
-//      - data_scope SMALLINT DEFAULT 3  （1=全部 2=本部门 3=本人 4=自定义）
-//      - department_id BIGINT DEFAULT 0
-//      - team_id BIGINT DEFAULT 0
-//      - custom_dept_ids TEXT
-//   2. 字段已通过 GORM 模型同步（TeamUser struct）；本迁移是幂等兜底
-//   3. 为部门/团队字段添加索引（加速按部门/团队过滤）
-//   4. 老数据回填：admin 角色 → data_scope=1，其他 → 3（self）
-//
-// 幂等性：使用 ADD COLUMN IF NOT EXISTS，可重入
+// 阶段 1 重构：
+//   - team_users 表已 DROP（见 migrations/025_unify_system_users.sql）
+//   - data_scope 字段已在 system_users 表保留
+//   - 本文件保留 v2.11.0 版本号占位，避免破坏迁移历史记录
+//   - Up/Down 改为 no-op（不再对 team_users 做 DDL）
 
 import (
 	"context"
-	"fmt"
 
 	"marketing/internal/migration"
 
 	"gorm.io/gorm"
 )
 
-// ADomainP1Migration A 域 P1 缺口修复迁移
+// ADomainP1Migration A 域 P1 缺口修复迁移（阶段 1：已并入 system_users，no-op）
 type ADomainP1Migration struct {
 	db *gorm.DB
 }
@@ -45,66 +33,23 @@ func NewADomainP1Migration(db *gorm.DB) *ADomainP1Migration {
 func (m *ADomainP1Migration) Version() string { return "v2.11.0" }
 
 // Name 返回迁移名称
-func (m *ADomainP1Migration) Name() string { return "A 域 P1 缺口修复 - team_user 数据范围" }
+func (m *ADomainP1Migration) Name() string {
+	return "A 域 P1 缺口修复 - 团队用户表已并入 system_users"
+}
 
 // Description 返回迁移描述
 func (m *ADomainP1Migration) Description() string {
-	return "team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段，支持 P1-4 行级权限"
+	return "阶段 1 单表化重构：team_users 表已 DROP，data_scope 字段保留在 system_users"
 }
 
-// Up 执行升级
+// Up 执行升级（no-op，team_users 已 DROP）
 func (m *ADomainP1Migration) Up(ctx context.Context) error {
-	if m.db == nil {
-		return fmt.Errorf("db is nil")
-	}
-
-	// 1. 确认 team_users 表存在（依赖 v1.2.0 TeamUserSchemaMigration）
-	if !m.db.Migrator().HasTable("team_users") {
-		// 表不存在则直接返回（不强制创建，让 initial_schema 负责）
-		return nil
-	}
-
-	// 2. 新增列（PG 9.6+ 支持 IF NOT EXISTS）
-	stmts := []string{
-		`ALTER TABLE team_users ADD COLUMN IF NOT EXISTS data_scope SMALLINT NOT NULL DEFAULT 3`,
-		`ALTER TABLE team_users ADD COLUMN IF NOT EXISTS department_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE team_users ADD COLUMN IF NOT EXISTS team_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE team_users ADD COLUMN IF NOT EXISTS custom_dept_ids TEXT`,
-		`CREATE INDEX IF NOT EXISTS idx_team_users_data_scope ON team_users(data_scope)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_users_department_id ON team_users(department_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_users_team_id ON team_users(team_id)`,
-	}
-	if err := execAllA(ctx, m.db, stmts); err != nil {
-		return fmt.Errorf("添加 team_users 行级权限字段失败: %w", err)
-	}
-
-	// 3. 老数据回填：admin 角色 → data_scope=1（全部）
-	if err := m.db.WithContext(ctx).Exec(`
-		UPDATE team_users
-		SET data_scope = 1
-		WHERE role = 'admin' AND data_scope = 3
-	`).Error; err != nil {
-		return fmt.Errorf("admin 角色 data_scope 回填失败: %w", err)
-	}
-
+	// team_users 表已在 025 单表化迁移中 DROP，本迁移保留版本号占位即可
 	return nil
 }
 
-// Down 执行降级（不删除列，避免误删数据；如需回滚请手动处理）
+// Down 执行降级（no-op）
 func (m *ADomainP1Migration) Down(ctx context.Context) error {
-	return nil
-}
-
-// execAllA 批量执行 SQL（出错即返回）
-func execAllA(ctx context.Context, db *gorm.DB, stmts []string) error {
-	if db == nil {
-		return fmt.Errorf("db is nil")
-	}
-	for _, sql := range stmts {
-		if err := db.WithContext(ctx).Exec(sql).Error; err != nil {
-			return fmt.Errorf("exec failed (%s): %w", sql, err)
-		}
-	}
 	return nil
 }
 

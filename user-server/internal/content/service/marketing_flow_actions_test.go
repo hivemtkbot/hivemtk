@@ -427,7 +427,7 @@ func TestMarketingFlowService_sendActionCreateTask(t *testing.T) {
 				}
 
 				// 验证数据库中 OperationLog 记录
-				logEntry, lerr := service.operationLogRepo.GetByID(taskID)
+				logEntry, lerr := service.operationLogRepo.GetByID(ctx, taskID)
 				if lerr != nil {
 					t.Fatalf("GetByID(%d) failed: %v", taskID, lerr)
 				}
@@ -904,7 +904,7 @@ func TestMarketingFlowService_sendActionCreateOrder(t *testing.T) {
 				}
 
 				// 验证数据库中的订单
-				order, oerr := service.orderRepo.GetByStringIDorderID)
+				order, oerr := service.orderRepo.GetByStringID(orderID)
 				if oerr != nil {
 					t.Fatalf("GetByStringID(%q) failed: %v", orderID, oerr)
 				}

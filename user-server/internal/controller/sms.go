@@ -64,7 +64,7 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 
 // GetConfig 获取短信配置
 func (c *SmsController) GetConfig(ctx *gin.Context) {
-	config, err := c.service.GetConfig(context.Background(), )
+	config, err := c.service.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取配置失败: "+err.Error())
 		return
@@ -194,7 +194,7 @@ func (c *SmsController) SendSms(ctx *gin.Context) {
 	}
 
 	// 在调用外部短信服务前，验证短信提供商凭证是否已配置
-	config, err := c.service.GetConfig(context.Background(), )
+	config, err := c.service.GetConfig(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "SMS service not configured")
 		return

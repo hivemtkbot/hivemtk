@@ -603,7 +603,7 @@ func TestRecognize_RecordFields(t *testing.T) {
 // 55. 统计为空
 func TestIntentStats_Empty(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
-	stats, _ := rec.GetIntentStats(7)
+	stats, _ := rec.GetIntentStats(context.Background(), 7)
 	if len(stats) != 0 {
 		t.Errorf("expected 0, got %d", len(stats))
 	}
@@ -616,7 +616,7 @@ func TestStats_Populated(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
 	time.Sleep(200 * time.Millisecond)
-	stats, _ := rec.GetIntentStats(7)
+	stats, _ := rec.GetIntentStats(context.Background(), 7)
 	if stats[IntentPriceInquiry] != 1 {
 		t.Errorf("expected 1, got %d", stats[IntentPriceInquiry])
 	}
@@ -630,7 +630,7 @@ func TestStats_ZeroDays(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	time.Sleep(200 * time.Millisecond)
-	stats, _ := rec.GetIntentStats(0)
+	stats, _ := rec.GetIntentStats(context.Background(), 0)
 	_ = stats
 }
 

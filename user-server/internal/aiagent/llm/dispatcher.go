@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"marketing/internal/pkg/utils/config"
@@ -46,13 +47,30 @@ type ProviderConfig struct {
 }
 
 // ScenarioRoute 场景路由策略
+//
+// 设计依据：docs/marketing-features/llm-routing.md
+// 字段含义：
+//   - Provider:   首选 provider name
+//   - Fallbacks:  备选（按顺序）
+//   - CostWeight: 1-5 成本权重（仅作展示，Dispatch 暂不消费，留待智能路由 P1）
+//   - MaxLatency: 单次调用最大时延（ms）
+//   - MinQuality: 最低质量门槛（QualityScore 低于此值的 provider 被跳过）
+//   - Version:    路由版本号（自增），用于审计与回滚（2026-07-23 补）
+//   - Weight:     灰度发布权重 0-100，0=全量回滚、100=全量新路由
+//     当次 Dispatch 按 Weight 决定走新路由还是旧路由（2026-07-23 补）
+//   - CanaryKey:  灰度判定 key（如 user_id），空时按权重随机抽样
+//   - CanaryRoute: 灰度时的对照路由（仅当 Weight>0 且 <100 时生效）
 type ScenarioRoute struct {
-	Scenario   DispatchScenario `json:"scenario"`
-	Provider   string           `json:"provider"`    // 首选 provider name
-	Fallbacks  []string         `json:"fallbacks"`   // 备选
-	CostWeight int              `json:"cost_weight"` // 1-5
-	MaxLatency int              `json:"max_latency"` // ms
-	MinQuality float64          `json:"min_quality"`
+	Scenario    DispatchScenario `json:"scenario"`
+	Provider    string           `json:"provider"`
+	Fallbacks   []string         `json:"fallbacks"`
+	CostWeight  int              `json:"cost_weight"`
+	MaxLatency  int              `json:"max_latency"`
+	MinQuality  float64          `json:"min_quality"`
+	Version     int              `json:"version"`
+	Weight      int              `json:"weight"`
+	CanaryKey   string           `json:"canary_key,omitempty"`
+	CanaryRoute *ScenarioRoute   `json:"canary_route,omitempty"`
 }
 
 // Dispatcher 多模型调度器
@@ -68,6 +86,9 @@ type Dispatcher struct {
 	// 懒初始化，首次需要时创建（避免无工具调用场景的开销）
 	reactAdapter   *ReActAdapter
 	reactAdapterMu sync.Once
+	// testMode: 当为 true 时，callProvider 跳过所有告警/统计/AvgLatency 更新副作用
+	// 仅供 CallProviderForTest 临时置位
+	testMode atomic.Bool
 }
 
 type rpmBucket struct {
@@ -151,22 +172,25 @@ func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
 		// P2-A: 本地 Qwen2.5-3B-Instruct 不支持 OpenAI Function Calling
 		// 启用 ReAct 适配器，通过 Thought/Action/Action Input 文本协议完成工具调用
 		// 用户可通过 inference.llm.no_fc=false 显式关闭（如果模型已升级支持 FC）
-		NoFC: getNoFCFromConfig(llmCfg),
+		NoFC: resolveNoFC(llmCfg),
 	}
 }
 
-// getNoFCFromConfig 从配置读取 NoFC 标记
-// 默认 true（mtk-llm 本地 Qwen2.5-3B-Instruct 不支持 FC）
-// 用户在 config.yaml 设置 inference.llm.no_fc=false 可显式关闭
-func getNoFCFromConfig(llmCfg config.InferenceLLMConfig) bool {
-	// 简化：未配置时默认 true（本地 LLM 不支持 FC）
-	// 若用户配置了 no_fc: false，则返回 false
-	// 这里通过 reflect 或类型断言读取，简化为 env 变量
-	// 实际项目中可在 config 包添加 NoFC 字段
-	if v := llmCfg.BaseURL; v == "" || strings.Contains(v, "127.0.0.1") || strings.Contains(v, "mtk-llm") {
-		return true // 本地 LLM 默认 NoFC
+// resolveNoFC 解析 NoFC 标记
+//
+// 配置优先级：用户在 config.yaml 显式写 no_fc 字段（true / false） > URL 启发式
+//   - 用户显式写 no_fc: true  → 启用 ReAct 适配器
+//   - 用户显式写 no_fc: false → 走原生 OpenAI Function Calling
+//   - 用户未写              → 走 URL 启发式（本地默认 true，云端默认 false）
+//
+// 启发式规则：BaseURL 含 127.0.0.1 / localhost / mtk-llm 视为本地 → true
+func resolveNoFC(llmCfg config.InferenceLLMConfig) bool {
+	if llmCfg.NoFC {
+		return true
 	}
-	return false
+	// URL 启发式兜底
+	base := strings.ToLower(llmCfg.BaseURL)
+	return base == "" || strings.Contains(base, "127.0.0.1") || strings.Contains(base, "localhost") || strings.Contains(base, "mtk-llm")
 }
 
 // registerCloudProvidersFromConfig 注册云端可选 fallback
@@ -352,11 +376,102 @@ func (d *Dispatcher) AddProvider(p ProviderConfig) {
 	d.providers[p.Name] = &p
 }
 
-// SetRoute 设置场景路由
-func (d *Dispatcher) SetRoute(r ScenarioRoute) {
+// SetRoute 设置场景路由（含版本号自增 + 灰度支持）
+//
+// 行为：
+//   - 若同 scenario 已存在路由：Version 自增 1（用于审计与回滚）
+//   - 新增：Version 从 1 开始
+//   - 若传入 r.Version=0：自动分配（自增或初始化为 1）
+//   - 若传入 r.Version>0：以传入为准（外部可手动指定版本）
+//
+// 返回：实际生效的 route（含 version）。调用方负责将 prev + new 写入审计日志。
+func (d *Dispatcher) SetRoute(r ScenarioRoute) ScenarioRoute {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.routes[r.Scenario] = &r
+	prev, hasPrev := d.routes[r.Scenario]
+	if r.Version == 0 {
+		if hasPrev {
+			r.Version = prev.Version + 1
+		} else {
+			r.Version = 1
+		}
+	}
+	cp := r
+	d.routes[r.Scenario] = &cp
+	return cp
+}
+
+// SetRouteWithAudit 设置场景路由 + 写入审计日志
+//
+// 这是 SetRoute 的增强版，自动把 prev/new 写入 llm_routing_audit 表。
+// 写审计失败仅记录日志，不阻塞路由变更（保证路由生效的可用性）。
+func (d *Dispatcher) SetRouteWithAudit(ctx context.Context, r ScenarioRoute, action, operator, traceID string) ScenarioRoute {
+	prev := d.GetRoute(r.Scenario)
+	applied := d.SetRoute(r)
+	d.writeAuditLog(ctx, r.Scenario, prev, &applied, action, operator, traceID)
+	return applied
+}
+
+// LogModelLifecycle 记录模型生命周期事件（新增/删除），不污染 routes map
+//
+// 区别于 SetRouteWithAudit：模型生命周期事件与场景路由无关，
+// 单独写 audit 行（action=create_model/delete_model），不动 routes。
+// 2026-07-23 修复：原本 CreateModel/DeleteModel 误用 SetRouteWithAudit，
+// 会把 low_cost 场景路由覆盖为新增/待删除的 provider name，导致路由污染。
+func (d *Dispatcher) LogModelLifecycle(ctx context.Context, action, provider, operator, traceID string) {
+	db := getAuditDB()
+	if db == nil {
+		return
+	}
+	row := map[string]any{
+		"scenario":       "model_lifecycle",
+		"version":        0,
+		"prev_provider":  "",
+		"new_provider":   provider,
+		"prev_fallbacks": "",
+		"new_fallbacks":  "",
+		"action":         action,
+		"operator":       operator,
+		"trace_id":       traceID,
+	}
+	if err := db.WithContext(ctx).Table("llm_routing_audit").Create(row).Error; err != nil {
+		logger.Warnf("[LLM] write model lifecycle audit failed: %v", err)
+	}
+}
+
+// writeAuditLog 写入 llm_routing_audit 表
+func (d *Dispatcher) writeAuditLog(ctx context.Context, scenario DispatchScenario, prev, next *ScenarioRoute, action, operator, traceID string) {
+	db := getAuditDB()
+	if db == nil {
+		return
+	}
+	var prevProvider, newProvider, prevFallbacks, newFallbacks string
+	if prev != nil {
+		prevProvider = prev.Provider
+		prevFallbacks = strings.Join(prev.Fallbacks, ",")
+	}
+	if next != nil {
+		newProvider = next.Provider
+		newFallbacks = strings.Join(next.Fallbacks, ",")
+	}
+	version := 0
+	if next != nil {
+		version = next.Version
+	}
+	row := map[string]any{
+		"scenario":       string(scenario),
+		"version":        version,
+		"prev_provider":  prevProvider,
+		"new_provider":   newProvider,
+		"prev_fallbacks": prevFallbacks,
+		"new_fallbacks":  newFallbacks,
+		"action":         action,
+		"operator":       operator,
+		"trace_id":       traceID,
+	}
+	if err := db.WithContext(ctx).Table("llm_routing_audit").Create(row).Error; err != nil {
+		logger.Warnf("[LLM] write routing audit failed: %v", err)
+	}
 }
 
 // DispatchRequest 调度请求
@@ -379,6 +494,9 @@ type DispatchRequest struct {
 	// Messages: 多轮对话历史（含 tool 角色回灌工具结果）
 	// 非空时 Prompt 字段被忽略，使用 Messages 进行多轮对话
 	Messages []ChatMessage `json:"messages,omitempty"`
+	// CanaryKey: 灰度发布判定 key（如 user_id），空时按权重随机抽样
+	// 2026-07-23 P1 补：让 Dispatch 走灰度路由
+	CanaryKey string `json:"canary_key,omitempty"`
 }
 
 // DispatchResult 调度结果
@@ -452,6 +570,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	}
 	d.mu.RUnlock()
 
+	// 灰度路由决策：0<Weight<100 时按 CanaryKey 抽样走 CanaryRoute
+	activeRoute := route
+	if canary := DecideCanaryRoute(route, req.CanaryKey); canary != nil {
+		activeRoute = canary
+	}
+
 	// 命中缓存直接返回（提升相同 prompt 的吞吐、降低成本）
 	if req.CacheKey != "" && req.CacheTTL > 0 {
 		if c, hit := d.getCache(req.CacheKey); hit {
@@ -460,8 +584,8 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	}
 
 	// 候选 provider 列表（首选 + 备选）
-	candidates := []string{route.Provider}
-	candidates = append(candidates, route.Fallbacks...)
+	candidates := []string{activeRoute.Provider}
+	candidates = append(candidates, activeRoute.Fallbacks...)
 
 	// 提取 trace_id（用于降级日志关联）
 	traceID := logger.TraceIDFromContext(ctx)
@@ -477,10 +601,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		}
 
 		// 质量/时延感知：跳过不满足场景最低质量或超出最大时延的 provider
-		if route.MinQuality > 0 && provider.QualityScore < route.MinQuality {
+		if activeRoute.MinQuality > 0 && provider.QualityScore < activeRoute.MinQuality {
 			continue
 		}
-		if route.MaxLatency > 0 && provider.AvgLatencyMs > route.MaxLatency {
+		if activeRoute.MaxLatency > 0 && provider.AvgLatencyMs > activeRoute.MaxLatency {
 			continue
 		}
 
@@ -490,14 +614,21 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		}
 
 		attempted++
-		result, err := d.callProvider(ctx, provider, req, route)
+		result, err := d.callProvider(ctx, provider, req, activeRoute)
 		if err != nil {
 			lastErr = err
+			// test 模式：跳过所有告警/统计/审计副作用
+			if d.testMode.Load() {
+				continue
+			}
 			// 降级日志：本次 provider 失败，准备尝试下一级
 			logger.Warnf("[LLM Fallback] scenario=%s provider=%s trace_id=%s failed (attempt %d/%d): %v",
 				req.Scenario, providerName, traceID, attempted, len(candidates), err)
 			// 触发告警（默认 AlertHook：累计失败计数）
 			AlertProviderFailure(string(req.Scenario), providerName, err, traceID)
+			// 2026-07-23 P1 补：失败时也落决策日志（供事后追查哪次降级）
+			LogRoutingDecision(ctx, req.Scenario, providerName, provider.Model,
+				0, 0, 0, 0, 0, false, err.Error(), false, traceID)
 			continue
 		}
 		// 命中成功
@@ -505,11 +636,19 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			logger.Infof("[LLM Fallback] scenario=%s succeeded on provider=%s (after %d attempts) trace_id=%s",
 				req.Scenario, providerName, attempted, traceID)
 		}
+		// test 模式：跳过成功路径的告警/统计/缓存写入副作用
+		if d.testMode.Load() {
+			return result, nil
+		}
 		// 成功：触发告警恢复
 		AlertProviderSuccess(string(req.Scenario), providerName, traceID)
 		if req.CacheKey != "" && req.CacheTTL > 0 {
 			d.setCache(req.CacheKey, req.CacheTTL, result.Content)
 		}
+		// 2026-07-23 P1 补：成功决策日志
+		LogRoutingDecision(ctx, req.Scenario, providerName, result.Model,
+			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
+			result.Cost, result.LatencyMs, true, "", false, traceID)
 		return result, nil
 	}
 	if lastErr == nil {
@@ -738,15 +877,44 @@ func (d *Dispatcher) GetProviderList() []ProviderConfig {
 	return list
 }
 
-// GetRouteList 获取所有路由
-func (d *Dispatcher) GetRouteList() []ScenarioRoute {
+// GetAllProviders 获取所有 provider（GetProviderList 的语义别名）
+//
+// 注意：GetProviderList / GetProvider / GetRoute / RemoveProvider 的实际定义
+// 在 dispatcher_registry.go（保持向后兼容的返回签名）。本文件仅提供
+// GetAllProviders / GetAllRoutes / SetRoute / SetRouteWithAudit / Dispatch /
+// RegisterProvider / CallProviderForTest 等 dispatcher 核心逻辑。
+func (d *Dispatcher) GetAllProviders() []ProviderConfig {
+	return d.GetProviderList()
+}
+
+// GetAllRoutes 获取所有路由（语义别名）
+func (d *Dispatcher) GetAllRoutes() []ScenarioRoute {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	list := make([]ScenarioRoute, 0, len(d.routes))
+	out := make([]ScenarioRoute, 0, len(d.routes))
 	for _, r := range d.routes {
-		list = append(list, *r)
+		out = append(out, *r)
 	}
-	return list
+	return out
+}
+
+// CallProviderForTest 调 provider 一次（不触发告警/熔断/统计）
+//
+// 用途：LLMRoutingService.TestModel 在管理后台测试 provider 连通性。
+// 关键不变量：
+//   - 不调 AlertProviderFailure/Success
+//   - 不调 LogRoutingDecision
+//   - 不更新 provider.AvgLatencyMs
+//   - 走 callProvider 同一逻辑，但屏蔽所有副作用
+//
+// 实现：通过一个开关字段（isTest）让 callProvider 跳过告警/统计。
+// 本方法在 callProvider 之前注入 isTest，callProvider 检查后跳过副作用。
+func (d *Dispatcher) CallProviderForTest(ctx context.Context, provider *ProviderConfig, req DispatchRequest, route *ScenarioRoute) (*DispatchResult, error) {
+	// 设置 test 标志
+	d.testMode.Store(true)
+	defer d.testMode.Store(false)
+	// 构造调用：max_latency 已经由 testRoute 拉宽
+	return d.callProvider(ctx, provider, req, route)
 }
 
 // DispatchMultiModel 多模型投票（用于异议处理等高质量场景）
@@ -866,6 +1034,154 @@ func (NoopAlertHook) OnProviderSuccess(string, string, string) {}
 
 // OnAllProvidersFailed 默认空实现
 func (NoopAlertHook) OnAllProvidersFailed(string, error, string) {}
+
+// LoggingAlertHook 写入日志的告警实现（推荐默认）
+//
+// 把所有 provider 失败 / 全部失败事件以 WARN/ERROR 级别写日志，
+// 满足"必须能感知到降级"的运维诉求，无需对接外部系统。
+// 2026-07-23 P1 补：替换 NoopAlertHook 作为默认。
+type LoggingAlertHook struct {
+	OnFailure   func(scenario, provider, traceID string, err error)
+	OnSuccess   func(scenario, provider, traceID string)
+	OnAllFailed func(scenario, traceID string, err error)
+}
+
+// OnProviderFailure 写 WARN 日志
+func (h LoggingAlertHook) OnProviderFailure(scenario, provider string, err error, traceID string) {
+	logger.Warnf("[LLM Alert] provider failure scenario=%s provider=%s trace_id=%s err=%v",
+		scenario, provider, traceID, err)
+	if h.OnFailure != nil {
+		h.OnFailure(scenario, provider, traceID, err)
+	}
+}
+
+// OnProviderSuccess 写 INFO 日志
+func (h LoggingAlertHook) OnProviderSuccess(scenario, provider, traceID string) {
+	logger.Infof("[LLM Alert] provider recovered scenario=%s provider=%s trace_id=%s",
+		scenario, provider, traceID)
+	if h.OnSuccess != nil {
+		h.OnSuccess(scenario, provider, traceID)
+	}
+}
+
+// OnAllProvidersFailed 写 ERROR 日志
+func (h LoggingAlertHook) OnAllProvidersFailed(scenario string, err error, traceID string) {
+	logger.Errorf("[LLM Alert] all providers FAILED scenario=%s trace_id=%s err=%v",
+		scenario, traceID, err)
+	if h.OnAllFailed != nil {
+		h.OnAllFailed(scenario, traceID, err)
+	}
+}
+
+// InMemoryAlertSink 进程内累计告警（用于 /api/llm-routings/alerts 端点）
+//
+// 保留最近 N 条告警，环形 buffer；提供 Drain 消费。
+type InMemoryAlertSink struct {
+	mu     sync.Mutex
+	buffer []AlertEvent
+	cap    int
+}
+
+// AlertEvent 单条告警
+type AlertEvent struct {
+	Time     time.Time `json:"time"`
+	Severity string    `json:"severity"`
+	Scenario string    `json:"scenario"`
+	Provider string    `json:"provider,omitempty"`
+	TraceID  string    `json:"trace_id"`
+	Message  string    `json:"message"`
+}
+
+// NewInMemoryAlertSink 创建 sink
+func NewInMemoryAlertSink(cap int) *InMemoryAlertSink {
+	if cap <= 0 {
+		cap = 200
+	}
+	return &InMemoryAlertSink{cap: cap, buffer: make([]AlertEvent, 0, cap)}
+}
+
+// record 写一条
+func (s *InMemoryAlertSink) record(ev AlertEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.buffer) >= s.cap {
+		// 丢最旧的
+		s.buffer = s.buffer[1:]
+	}
+	s.buffer = append(s.buffer, ev)
+}
+
+// OnProviderFailure 累计失败
+func (s *InMemoryAlertSink) OnProviderFailure(scenario, provider string, err error, traceID string) {
+	s.record(AlertEvent{
+		Time: time.Now(), Severity: "warn", Scenario: scenario,
+		Provider: provider, TraceID: traceID, Message: err.Error(),
+	})
+}
+
+// OnProviderSuccess 累计成功（用于计算成功率）
+func (s *InMemoryAlertSink) OnProviderSuccess(scenario, provider, traceID string) {
+	s.record(AlertEvent{
+		Time: time.Now(), Severity: "info", Scenario: scenario,
+		Provider: provider, TraceID: traceID, Message: "recovered",
+	})
+}
+
+// OnAllProvidersFailed 累计全部失败
+func (s *InMemoryAlertSink) OnAllProvidersFailed(scenario string, err error, traceID string) {
+	s.record(AlertEvent{
+		Time: time.Now(), Severity: "error", Scenario: scenario,
+		TraceID: traceID, Message: err.Error(),
+	})
+}
+
+// Drain 消费所有告警（消费后清空）
+func (s *InMemoryAlertSink) Drain() []AlertEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]AlertEvent, len(s.buffer))
+	copy(out, s.buffer)
+	s.buffer = s.buffer[:0]
+	return out
+}
+
+// Snapshot 快照
+func (s *InMemoryAlertSink) Snapshot() []AlertEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]AlertEvent, len(s.buffer))
+	copy(out, s.buffer)
+	return out
+}
+
+// InitDefaultAlertHook 初始化默认告警（LoggingAlertHook + InMemoryAlertSink 组合）
+//
+// 建议在 main.go 启动期调用，把全局 alertHook 替换为 logging + memory 双写。
+// 用法：
+//
+//	sink := llm.NewInMemoryAlertSink(200)
+//	llm.InitDefaultAlertHook(sink)
+//	// 之后 ops 端点通过 sink.Snapshot() / sink.Drain() 读取告警
+func InitDefaultAlertHook(sink *InMemoryAlertSink) {
+	if sink == nil {
+		sink = NewInMemoryAlertSink(200)
+	}
+	final := AlertHookFunc{
+		OnFailure: func(scenario, provider string, err error, traceID string) {
+			LoggingAlertHook{}.OnProviderFailure(scenario, provider, err, traceID)
+			sink.OnProviderFailure(scenario, provider, err, traceID)
+		},
+		OnSuccess: func(scenario, provider, traceID string) {
+			LoggingAlertHook{}.OnProviderSuccess(scenario, provider, traceID)
+			sink.OnProviderSuccess(scenario, provider, traceID)
+		},
+		OnAllFailed: func(scenario string, err error, traceID string) {
+			LoggingAlertHook{}.OnAllProvidersFailed(scenario, err, traceID)
+			sink.OnAllProvidersFailed(scenario, err, traceID)
+		},
+	}
+	SetAlertHook(final)
+}
 
 // AlertProviderFailure 触发告警：单 provider 失败
 func AlertProviderFailure(scenario, provider string, err error, traceID string) {

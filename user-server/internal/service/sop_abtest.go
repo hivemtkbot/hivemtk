@@ -50,12 +50,12 @@ func ParseSOPABTestConfig(raw model.JSONMap) SOPABTestConfig {
 
 // SOPABTestVariantStats A/B 测试 variant 统计
 type SOPABTestVariantStats struct {
-	Variant		string	`json:"variant"`
-	ExecutionCount	int64	`json:"execution_count"`
-	SuccessCount	int64	`json:"success_count"`
-	FailedCount	int64	`json:"failed_count"`
-	RunningCount	int64	`json:"running_count"`
-	SuccessRate	float64	`json:"success_rate"`	// 成功率（百分比）
+	Variant        string  `json:"variant"`
+	ExecutionCount int64   `json:"execution_count"`
+	SuccessCount   int64   `json:"success_count"`
+	FailedCount    int64   `json:"failed_count"`
+	RunningCount   int64   `json:"running_count"`
+	SuccessRate    float64 `json:"success_rate"` // 成功率（百分比）
 }
 
 // GetABTestStats 查询指定 SOP 的 A/B 测试 variant 统计
@@ -106,12 +106,12 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 		}
 
 		stats = append(stats, SOPABTestVariantStats{
-			Variant:	v.Name,
-			ExecutionCount:	execCount,
-			SuccessCount:	successCount,
-			FailedCount:	failedCount,
-			RunningCount:	runningCount,
-			SuccessRate:	successRate,
+			Variant:        v.Name,
+			ExecutionCount: execCount,
+			SuccessCount:   successCount,
+			FailedCount:    failedCount,
+			RunningCount:   runningCount,
+			SuccessRate:    successRate,
 		})
 	}
 
@@ -176,7 +176,7 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 
 	// 加载指定 ID 的 SOP 图
 	var target model.SOPAgent
-	if err := s.db.WithContext(ctx).First( &target, graphID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&target, graphID).Error; err != nil {
 		return SOPGraph{}, fmt.Errorf("variant SOP 图加载失败（sop_id=%d）：%w", graphID, err)
 	}
 	var graph SOPGraph

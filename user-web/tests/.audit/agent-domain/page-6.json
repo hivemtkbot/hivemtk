@@ -1,0 +1,10 @@
+{
+  "idx": 6,
+  "title": "SOP 智能体",
+  "path": "/#/sopAgent/list",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

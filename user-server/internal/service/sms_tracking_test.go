@@ -760,7 +760,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
 
-
 	// 1. 发送中 → pending
 	req1 := &DeliveryReportRequest{
 		MessageID: "flow-001",
@@ -838,7 +837,6 @@ func TestSmsTracking_FullFlow(t *testing.T) {
 func TestSmsTracking_FullFlow_MaxRetryExhausted(t *testing.T) {
 	database := setupSmsTrackingTestDB(t)
 	svc := newSmsTrackingService(database)
-
 
 	// 创建可重试失败记录
 	req := &DeliveryReportRequest{

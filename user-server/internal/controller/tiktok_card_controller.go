@@ -5,9 +5,7 @@ import (
 	"strconv"
 
 	"marketing/internal/dto"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/response"
-	"marketing/internal/repository"
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -17,10 +15,12 @@ type TikTokCardController struct {
 	svc service.TikTokCardService
 }
 
-func NewTikTokCardController() *TikTokCardController {
-	return &TikTokCardController{
-		svc: service.NewTikTokCardService(repository.NewTikTokCardRepository(db.DB), repository.NewShortLinkRepository(db.DB)),
-	}
+// NewTikTokCardController 创建 TikTok 卡片控制器
+//
+// 五层架构合规：service 由 router 层注入（service.NewTikTokCardServiceWithDB），
+// controller 不直接 import repository / db 包。
+func NewTikTokCardController(svc service.TikTokCardService) *TikTokCardController {
+	return &TikTokCardController{svc: svc}
 }
 
 func (ctrl *TikTokCardController) RegisterRoutes(router *gin.RouterGroup) {

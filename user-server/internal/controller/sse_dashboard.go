@@ -47,7 +47,7 @@ func (c *SSEDashboardController) WithHub(hub *service.SSEHub) *SSEDashboardContr
 // Stream SSE 流连接
 // GET /api/dashboard/sse?topics=llm_calls,intent_recognition
 func (c *SSEDashboardController) Stream(ctx *gin.Context) {
-	if c.hub == nil || c.hub.Stopped(context.Background(), ) {
+	if c.hub == nil || c.hub.Stopped(context.Background()) {
 		response.Error(ctx, http.StatusServiceUnavailable, "SSE hub not available")
 		return
 	}
@@ -83,7 +83,7 @@ func (c *SSEDashboardController) ListClients(ctx *gin.Context) {
 		response.Success(ctx, []any{}, "no hub")
 		return
 	}
-	clients := c.hub.ListClients(context.Background(), )
+	clients := c.hub.ListClients(context.Background())
 	response.SuccessWithList(ctx, clients, int64(len(clients)))
 }
 
@@ -98,7 +98,7 @@ type BroadcastRequest struct {
 // Broadcast 广播事件（管理员测试用）
 // POST /api/dashboard/broadcast
 func (c *SSEDashboardController) Broadcast(ctx *gin.Context) {
-	if c.hub == nil || c.hub.Stopped(context.Background(), ) {
+	if c.hub == nil || c.hub.Stopped(context.Background()) {
 		response.Error(ctx, http.StatusServiceUnavailable, "SSE hub not available")
 		return
 	}
@@ -119,7 +119,7 @@ func (c *SSEDashboardController) Broadcast(ctx *gin.Context) {
 		Timestamp: time.Now(),
 	})
 	response.Success(ctx, map[string]any{
-		"client_count": c.hub.GetClientCount(context.Background(), ),
+		"client_count": c.hub.GetClientCount(context.Background()),
 		"topic":        req.Topic,
 	}, "broadcast success")
 }
@@ -167,8 +167,8 @@ func (c *SSEDashboardController) Stats(ctx *gin.Context) {
 		return
 	}
 	stats := map[string]any{
-		"client_count":    c.hub.GetClientCount(context.Background(), ),
-		"stopped":         c.hub.Stopped(context.Background(), ),
+		"client_count":    c.hub.GetClientCount(context.Background()),
+		"stopped":         c.hub.Stopped(context.Background()),
 		"max_conn_per_ip": service.SSEMaxConnPerIP,
 		"buffer_size":     service.SSEClientBufferSize,
 		"heartbeat_sec":   int(service.SSEHeartbeatInterval / time.Second),

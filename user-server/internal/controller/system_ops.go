@@ -46,7 +46,7 @@ func currentUserID(ctx *gin.Context) uint {
 
 // ResetSystem 重置系统数据（高危，仅限 admin）。委托 SystemConfigService 实现。
 func (c *SystemOpsController) ResetSystem(ctx *gin.Context) {
-	if err := service.NewSystemConfigService().ResetSystem(context.Background(), ); err != nil {
+	if err := service.NewSystemConfigService().ResetSystem(context.Background()); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -104,7 +104,7 @@ func defaultLogPath() string {
 
 // GetSystemStats 获取系统统计信息
 func (c *SystemOpsController) GetSystemStats(ctx *gin.Context) {
-	stats, err := c.monitorService.GetSystemStats(context.Background(), )
+	stats, err := c.monitorService.GetSystemStats(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

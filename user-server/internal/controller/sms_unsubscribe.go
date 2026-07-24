@@ -137,7 +137,7 @@ func (c *SmsUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 //
 // 导出退订名单 CSV
 func (c *SmsUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
-	records, err := c.svc.ListAllUnsubscribes(context.Background(), )
+	records, err := c.svc.ListAllUnsubscribes(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "导出退订名单失败："+err.Error())
 		return

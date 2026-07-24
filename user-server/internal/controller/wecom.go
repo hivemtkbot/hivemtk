@@ -45,7 +45,7 @@ func (c *WeComController) CreateAccount(ctx *gin.Context) {
 // GetAccountList 获取企业微信账号列表
 func (c *WeComController) GetAccountList(ctx *gin.Context) {
 
-	accounts, err := c.wecomService.GetAccountList(context.Background(), )
+	accounts, err := c.wecomService.GetAccountList(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -301,7 +301,7 @@ func (c *WeComController) GetMessageList(ctx *gin.Context) {
 // GetTagList 获取企业微信标签列表
 func (c *WeComController) GetTagList(ctx *gin.Context) {
 
-	tags, err := c.wecomService.GetTagList(context.Background(), )
+	tags, err := c.wecomService.GetTagList(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

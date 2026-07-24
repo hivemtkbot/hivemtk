@@ -80,7 +80,7 @@ func TestSalesEngine_RecordFeedback_RecordSuccess(t *testing.T) {
 	}
 
 	// 验证 FeedbackLearner 收到记录
-	stats := fl.GetIntentStats(IntentAskProduct)
+	stats := fl.GetIntentStats(context.Background(), IntentAskProduct)
 	if stats == nil {
 		t.Fatal("FeedbackLearner 应记录 intent 统计")
 	}
@@ -133,7 +133,7 @@ func TestSalesEngine_RecordFeedback_Transferred(t *testing.T) {
 	}
 
 	// 验证 FeedbackLearner 记录了投诉意图
-	stats := fl.GetIntentStats(IntentComplaint)
+	stats := fl.GetIntentStats(context.Background(), IntentComplaint)
 	if stats == nil {
 		t.Fatal("应记录投诉意图")
 	}
@@ -209,13 +209,13 @@ func TestSalesEngine_RecordFeedback_MultipleCalls(t *testing.T) {
 		}, resp)
 	}
 
-	stats := fl.GetIntentStats(IntentAskProduct)
+	stats := fl.GetIntentStats(context.Background(), IntentAskProduct)
 	if stats.TotalCount != 12 {
 		t.Errorf("TotalCount 应为 12，实际 %d", stats.TotalCount)
 	}
 
 	// 验证 SuggestConfidenceFloor 能基于历史数据给出建议
-	floor := fl.SuggestConfidenceFloor(IntentAskProduct)
+	floor := fl.SuggestConfidenceFloor(context.Background(), IntentAskProduct)
 	if floor <= 0 {
 		t.Errorf("SuggestConfidenceFloor 应 > 0，实际 %.2f", floor)
 	}

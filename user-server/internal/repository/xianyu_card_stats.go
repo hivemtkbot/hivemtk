@@ -27,11 +27,11 @@ type CardTopStats struct {
 
 // CardStatsResult 卡片统计数据结果（repository 层本地类型，service 层负责转 dto）
 type CardStatsResult struct {
-	CardID       uint
-	Views        int
-	Clicks       int
-	Shares       int
-	StatsByDate  []CardStatsByDate
+	CardID      uint
+	Views       int
+	Clicks      int
+	Shares      int
+	StatsByDate []CardStatsByDate
 }
 
 // CardOverallStatsResult 整体统计数据结果（repository 层本地类型，service 层负责转 dto）

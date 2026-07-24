@@ -331,7 +331,7 @@ func TestLongTermMemory_Recall_ExpiredExcluded(t *testing.T) {
 		Embedding:  string(float32SliceToBytes(hashVecForTest("过期的记忆"))),
 		ExpiresAt:  &pastTime,
 	}
-	if err := db.Create(expired).Error; err != nil {
+	if err := db.Create(context.Background(), expired).Error; err != nil {
 		t.Fatalf("create expired: %v", err)
 	}
 

@@ -665,7 +665,7 @@ func TestListLowQualitySamples_HappyPath(t *testing.T) {
 	db := setupPersonaTestDB(t)
 	// 插入 3 条
 	for i := 0; i < 3; i++ {
-		db.Create(&model.LowQualitySample{
+		db.Create(context.Background(), &model.LowQualitySample{
 			CustomerID:   fmt.Sprintf("c-%d", i),
 			SampleType:   model.LowQualitySampleRetryExhausted,
 			AIReply:      "差回复",
@@ -687,8 +687,8 @@ func TestListLowQualitySamples_HappyPath(t *testing.T) {
 
 func TestListLowQualitySamples_FilterByHandled(t *testing.T) {
 	db := setupPersonaTestDB(t)
-	db.Create(&model.LowQualitySample{CustomerID: "c-1", AIReply: "差", Handled: false})
-	db.Create(&model.LowQualitySample{CustomerID: "c-2", AIReply: "差", Handled: true})
+	db.Create(context.Background(), &model.LowQualitySample{CustomerID: "c-1", AIReply: "差", Handled: false})
+	db.Create(context.Background(), &model.LowQualitySample{CustomerID: "c-2", AIReply: "差", Handled: true})
 	handled := false
 	list, total, _ := ListLowQualitySamples(db, &handled, "", 10, 0)
 	if total != 1 {
@@ -701,8 +701,8 @@ func TestListLowQualitySamples_FilterByHandled(t *testing.T) {
 
 func TestListLowQualitySamples_FilterByType(t *testing.T) {
 	db := setupPersonaTestDB(t)
-	db.Create(&model.LowQualitySample{CustomerID: "c-1", AIReply: "差", SampleType: model.LowQualitySampleRetryExhausted})
-	db.Create(&model.LowQualitySample{CustomerID: "c-2", AIReply: "差", SampleType: model.LowQualitySamplePersona})
+	db.Create(context.Background(), &model.LowQualitySample{CustomerID: "c-1", AIReply: "差", SampleType: model.LowQualitySampleRetryExhausted})
+	db.Create(context.Background(), &model.LowQualitySample{CustomerID: "c-2", AIReply: "差", SampleType: model.LowQualitySamplePersona})
 	list, total, _ := ListLowQualitySamples(db, nil, string(model.LowQualitySamplePersona), 10, 0)
 	if total != 1 {
 		t.Errorf("expected 1 persona type, got %d", total)
@@ -722,7 +722,7 @@ func TestListLowQualitySamples_NilDB(t *testing.T) {
 func TestMarkLowQualitySampleHandled(t *testing.T) {
 	db := setupPersonaTestDB(t)
 	sample := &model.LowQualitySample{CustomerID: "c-1", AIReply: "差", Handled: false}
-	db.Create(sample)
+	db.Create(context.Background(), sample)
 	if err := MarkLowQualitySampleHandled(db, sample.ID, "operator-1", "已人工修正"); err != nil {
 		t.Fatalf("mark: %v", err)
 	}

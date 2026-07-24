@@ -84,14 +84,14 @@ func NewRepurchaseEngine() *RepurchaseEngine {
 }
 
 // RecordPurchase 记录购买
-func (e *RepurchaseEngine) RecordPurchase(ctx context.Context, event PurchaseEvent)  {
+func (e *RepurchaseEngine) RecordPurchase(ctx context.Context, event PurchaseEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.history[event.CustomerID] = append(e.history[event.CustomerID], event)
 }
 
 // ComputeRFM 计算 RFM
-func (e *RepurchaseEngine) ComputeRFM(ctx context.Context, customerID string)  *RFMScore {
+func (e *RepurchaseEngine) ComputeRFM(ctx context.Context, customerID string) *RFMScore {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	events := e.history[customerID]
@@ -190,7 +190,7 @@ func scoreMonetary(amount float64) int {
 //   - 有过购买但 R=1（>90 天未购）→ Hibernating（沉睡，仍可激活）
 //   - 完全无购买记录（amount=0）→ Lost（流失，重新激活成本高）
 //   - 关键修复：原实现把 100 天前 1 次购买的客户误判为 Lost，应为 Hibernating
-func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int)  RFMType {
+func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int) RFMType {
 	switch {
 	case r >= 4 && f >= 4 && m >= 4:
 		return RFMTYPEChampion
@@ -215,7 +215,7 @@ func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int)  RFMTyp
 }
 
 // Predict 预测复购概率
-func (e *RepurchaseEngine) Predict(ctx context.Context, customerID string)  *RepurchasePrediction {
+func (e *RepurchaseEngine) Predict(ctx context.Context, customerID string) *RepurchasePrediction {
 	rfm := e.ComputeRFM(ctx, customerID)
 	probability := 0.0
 	predictedDays := 365
@@ -266,7 +266,7 @@ func (e *RepurchaseEngine) Predict(ctx context.Context, customerID string)  *Rep
 // ListReactivationCandidates 列出需要激活的客户
 // 商业逻辑：3-12 个月未购 + 金额 > 0 的客户均纳入候选
 // 修复：原实现仅基于已 ComputeRFM 的缓存，导致首次 RecordPurchase 后查不到
-func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit int)  []string {
+func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit int) []string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	// 先为所有有历史但无 score 的客户计算 RFM
@@ -291,7 +291,7 @@ func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit
 }
 
 // computeRFMLocked 内部计算（不重新加锁）
-func (e *RepurchaseEngine) computeRFMLocked(ctx context.Context, customerID string)  *RFMScore {
+func (e *RepurchaseEngine) computeRFMLocked(ctx context.Context, customerID string) *RFMScore {
 	events := e.history[customerID]
 	if len(events) == 0 {
 		return nil
@@ -341,7 +341,7 @@ type ReactivationWave struct {
 
 // GenerateReactivationPlan 生成多波次激活计划
 // 商业逻辑：第 1 波 7 天后（轻触达：问候+福利）→ 14 天后（强激活：限时优惠）→ 30 天后（最后触达）
-func (e *RepurchaseEngine) GenerateReactivationPlan(ctx context.Context, customerID string)  []ReactivationWave {
+func (e *RepurchaseEngine) GenerateReactivationPlan(ctx context.Context, customerID string) []ReactivationWave {
 	rfm := e.ComputeRFM(ctx, customerID)
 	now := time.Now()
 	plan := []ReactivationWave{}

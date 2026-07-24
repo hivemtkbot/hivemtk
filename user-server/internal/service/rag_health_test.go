@@ -139,7 +139,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 			Source:         "hybrid",
 			CreatedAt:      time.Now().Add(-30 * time.Minute),
 		}
-		if err := db.Create(log).Error; err != nil {
+		if err := db.Create(context.Background(), log).Error; err != nil {
 			t.Fatalf("create log %d failed: %v", i, err)
 		}
 	}
@@ -150,7 +150,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: kbmodel.EmbedStatusIndexed,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}
@@ -162,7 +162,7 @@ func TestRagHealth_GetHealth_Perfect(t *testing.T) {
 			ChunkIndex: i,
 			Content:    fmt.Sprintf("chunk-%d", i),
 		}
-		if err := db.Create(chunk).Error; err != nil {
+		if err := db.Create(context.Background(), chunk).Error; err != nil {
 			t.Fatalf("create chunk %d failed: %v", i, err)
 		}
 	}
@@ -224,7 +224,7 @@ func TestRagHealth_GetHealth_LowRecall(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -260,7 +260,7 @@ func TestRagHealth_GetHealth_HighLatency(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -292,7 +292,7 @@ func TestRagHealth_GetHealth_EmbeddingFailure(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: status,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}
@@ -329,7 +329,7 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 			Source:         "hybrid",
 			CreatedAt:      now.Add(-30 * time.Minute),
 		}
-		if err := db.Create(log).Error; err != nil {
+		if err := db.Create(context.Background(), log).Error; err != nil {
 			t.Fatalf("create log %d failed: %v", i, err)
 		}
 	}
@@ -346,7 +346,7 @@ func TestRagHealth_GetHealth_ActiveAlerts(t *testing.T) {
 			WindowEnd:   now,
 			CreatedAt:   now,
 		}
-		if err := db.Create(&a).Error; err != nil {
+		if err := db.Create(context.Background(), &a).Error; err != nil {
 			t.Fatalf("create alert %d failed: %v", i, err)
 		}
 	}
@@ -386,7 +386,7 @@ func TestRagHealth_GetHealth_CustomWindow(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-2 * time.Hour),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -444,7 +444,7 @@ func TestRagHealth_GetHealthCached(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      time.Now(),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -702,7 +702,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 		Source:         "hybrid",
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 	}
-	if err := db.Create(log).Error; err != nil {
+	if err := db.Create(context.Background(), log).Error; err != nil {
 		t.Fatalf("create log failed: %v", err)
 	}
 
@@ -712,7 +712,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 			Title:       fmt.Sprintf("doc-%d", i),
 			EmbedStatus: kbmodel.EmbedStatusIndexed,
 		}
-		if err := db.Create(doc).Error; err != nil {
+		if err := db.Create(context.Background(), doc).Error; err != nil {
 			t.Fatalf("create doc %d failed: %v", i, err)
 		}
 	}
@@ -724,7 +724,7 @@ func TestRagHealth_GetHealth_BGrade(t *testing.T) {
 			ChunkIndex: i,
 			Content:    fmt.Sprintf("chunk-%d", i),
 		}
-		if err := db.Create(chunk).Error; err != nil {
+		if err := db.Create(context.Background(), chunk).Error; err != nil {
 			t.Fatalf("create chunk %d failed: %v", i, err)
 		}
 	}

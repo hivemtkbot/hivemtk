@@ -24,7 +24,7 @@ func NewUserSegmentController() *UserSegmentController {
 
 // GetRFMRule 获取 RFM 规则
 func (c *UserSegmentController) GetRFMRule(ctx *gin.Context) {
-	rule, err := c.rfmService.GetRFMRule(context.Background(), )
+	rule, err := c.rfmService.GetRFMRule(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusNotFound, "未找到 RFM 规则")
 		return
@@ -131,7 +131,7 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 
 // GetRFMStats 获取 RFM 统计
 func (c *UserSegmentController) GetRFMStats(ctx *gin.Context) {
-	stats, err := c.rfmService.GetRFMStats(context.Background(), )
+	stats, err := c.rfmService.GetRFMStats(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

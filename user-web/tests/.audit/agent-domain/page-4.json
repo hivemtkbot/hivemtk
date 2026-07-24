@@ -1,0 +1,10 @@
+{
+  "idx": 4,
+  "title": "意图识别",
+  "path": "/#/intentRecognition/list",
+  "status": "fail",
+  "checks": {},
+  "errors": [
+    "login failed"
+  ]
+}

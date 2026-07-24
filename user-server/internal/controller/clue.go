@@ -75,7 +75,7 @@ func (c *ClueController) DeleteClue(ctx *gin.Context) {
 
 // GetClueStatistics 获取线索统计
 func (c *ClueController) GetClueStatistics(ctx *gin.Context) {
-	statistics, err := c.svc.GetClueStatistics(context.Background(), )
+	statistics, err := c.svc.GetClueStatistics(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取线索统计失败")
 		return
@@ -125,7 +125,7 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 
 // GetClueTypes 获取线索类型列表
 func (c *ClueController) GetClueTypes(ctx *gin.Context) {
-	types, err := c.svc.GetClueTypes(context.Background(), )
+	types, err := c.svc.GetClueTypes(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "获取线索类型失败")
 		return

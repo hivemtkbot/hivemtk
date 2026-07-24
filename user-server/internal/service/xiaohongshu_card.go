@@ -28,19 +28,19 @@ type XiaohongshuCardService interface {
 
 // xiaohongshuCardService 小红书卡片服务实现
 type xiaohongshuCardService struct {
-	repo			repository.XiaohongshuCardRepository
-	templateService		*template.TemplateService
-	shortLinkService	ShortLinkService
-	domainPoolService	DomainPoolService
+	repo              repository.XiaohongshuCardRepository
+	templateService   *template.TemplateService
+	shortLinkService  ShortLinkService
+	domainPoolService DomainPoolService
 }
 
 // NewXiaohongshuCardService 创建小红书卡片服务实例
 func NewXiaohongshuCardService(db *gorm.DB) XiaohongshuCardService {
 	return &xiaohongshuCardService{
-		repo:			repository.NewXiaohongshuCardRepository(db),
-		templateService:	template.NewTemplateService("internal/template"),
-		shortLinkService:	NewShortLinkService(db),
-		domainPoolService:	NewDomainPoolService(db),
+		repo:              repository.NewXiaohongshuCardRepository(db),
+		templateService:   template.NewTemplateService("internal/template"),
+		shortLinkService:  NewShortLinkService(db),
+		domainPoolService: NewDomainPoolService(db),
 	}
 }
 
@@ -53,14 +53,14 @@ func (s *xiaohongshuCardService) Create(ctx context.Context, req *dto.Xiaohongsh
 	}
 
 	card := &model.XiaohongshuCard{
-		Title:		req.Title,
-		Description:	req.Description,
-		ImageURL:	req.ImageURL,
-		RedirectURL:	redirectURL,
-		DomainPoolID:	req.DomainPoolID,
-		Tags:		req.Tags,
-		ViewCount:	0,
-		IsActive:	req.IsActive,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		RedirectURL:  redirectURL,
+		DomainPoolID: req.DomainPoolID,
+		Tags:         req.Tags,
+		ViewCount:    0,
+		IsActive:     req.IsActive,
 	}
 
 	createdCard, err := s.repo.Create(ctx, card)
@@ -208,25 +208,25 @@ func (s *xiaohongshuCardService) GetList(ctx context.Context, req *dto.Xiaohongs
 		}
 
 		responses[i] = dto.XiaohongshuCardResponse{
-			ID:		card.ID,
-			Title:		card.Title,
-			Description:	card.Description,
-			ImageURL:	card.ImageURL,
-			RedirectURL:	card.RedirectURL,
-			DomainPoolID:	card.DomainPoolID,
-			ShortLinkURL:	shortLinkURL,
-			ShortCode:	shortCode,
-			Tags:		card.Tags,
-			ViewCount:	card.ViewCount,
-			IsActive:	card.IsActive,
-			CreatedAt:	card.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:	card.UpdatedAt.Format("2006-01-02 15:04:05"),
+			ID:           card.ID,
+			Title:        card.Title,
+			Description:  card.Description,
+			ImageURL:     card.ImageURL,
+			RedirectURL:  card.RedirectURL,
+			DomainPoolID: card.DomainPoolID,
+			ShortLinkURL: shortLinkURL,
+			ShortCode:    shortCode,
+			Tags:         card.Tags,
+			ViewCount:    card.ViewCount,
+			IsActive:     card.IsActive,
+			CreatedAt:    card.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
 	return &dto.XiaohongshuCardListResponse{
-		List:	responses,
-		Total:	total,
+		List:  responses,
+		Total: total,
 	}, nil
 }
 
@@ -240,9 +240,9 @@ func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platfor
 
 	// 记录活动
 	activity := &model.XiaohongshuCardActivity{
-		CardID:		id,
-		ActivityType:	"share",
-		Content:	platform,
+		CardID:       id,
+		ActivityType: "share",
+		Content:      platform,
 	}
 	_ = s.repo.CreateActivity(ctx, activity)
 
@@ -252,9 +252,9 @@ func (s *xiaohongshuCardService) ShareCard(ctx context.Context, id uint, platfor
 // recordActivity 记录卡片活动
 func (s *xiaohongshuCardService) recordActivity(ctx context.Context, cardID uint, activityType string) error {
 	activity := &model.XiaohongshuCardActivity{
-		CardID:		cardID,
-		ActivityType:	activityType,
-		CreatedAt:	time.Now(),
+		CardID:       cardID,
+		ActivityType: activityType,
+		CreatedAt:    time.Now(),
 	}
 
 	return s.repo.CreateActivity(ctx, activity)
@@ -270,10 +270,10 @@ func (s *xiaohongshuCardService) GenerateHTMLPage(ctx context.Context, id uint) 
 
 	// 使用模板服务生成HTML页面
 	data := &template.CardTemplateData{
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
+		Title:       card.Title,
+		Description: card.Description,
+		ImageURL:    card.ImageURL,
+		RedirectURL: card.RedirectURL,
 	}
 
 	html, err := s.templateService.GenerateXiaohongshuCardPage(data)
@@ -302,7 +302,7 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 	}
 
 	// 获取域名池信息
-	var domainID uint = 0	// 默认域名ID为0
+	var domainID uint = 0 // 默认域名ID为0
 	if card.DomainPoolID != nil {
 		// 这里需要根据域名池信息找到对应的域名ID
 		// 假设域名池ID和域名ID相同，实际可能需要查询映射关系
@@ -320,11 +320,11 @@ func (s *xiaohongshuCardService) GenerateShortLink(ctx context.Context, card *mo
 
 	// 创建短链
 	createReq := &dto.CreateShortLinkRequest{
-		ShortCode:	shortCodeResp.ShortCode,
-		OriginalURL:	fmt.Sprintf("/xiaohongshu/card/%d", card.ID),	// 指向小红书卡片页面
-		Title:		card.Title,
-		Description:	card.Description,
-		DomainID:	domainID,	// 使用域名池ID作为域名ID
+		ShortCode:   shortCodeResp.ShortCode,
+		OriginalURL: fmt.Sprintf("/xiaohongshu/card/%d", card.ID), // 指向小红书卡片页面
+		Title:       card.Title,
+		Description: card.Description,
+		DomainID:    domainID, // 使用域名池ID作为域名ID
 	}
 
 	shortLinkResp, err := s.shortLinkService.Create(ctx, createReq)
@@ -355,19 +355,19 @@ func (s *xiaohongshuCardService) toResponse(ctx context.Context, card *model.Xia
 	}
 
 	return &dto.XiaohongshuCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	card.DomainPoolID,
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:	card.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: card.DomainPoolID,
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 
@@ -379,18 +379,18 @@ func (s *xiaohongshuCardService) toResponseWithShortLink(ctx context.Context, ca
 	}
 
 	return &dto.XiaohongshuCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	card.DomainPoolID,
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		ViewCount:	card.ViewCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:	card.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: card.DomainPoolID,
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		ViewCount:    card.ViewCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }

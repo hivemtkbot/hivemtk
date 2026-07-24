@@ -92,7 +92,7 @@ func NewSmartCSOrchestrator(engine *SalesEngine, cfg *OrchestratorConfig) *Smart
 // SetCustomerServiceAgentService 注入客服座席智能体挂载服务
 // 注入后 HandleIncomingWithAgent 会按座席挂载的智能体覆盖渠道默认智能体
 // 优先级：座席挂载 > 渠道绑定 > 默认配置
-func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context, svc *CustomerServiceAgentService)  {
+func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context, svc *CustomerServiceAgentService) {
 	o.csAgentSvc = svc
 }
 
@@ -100,7 +100,7 @@ func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context
 // SmartCSOrchestrator 即 agent/lifecycle 体系下的「被动模式」实现——
 // 消息/事件进入系统后由它调用智能体完成对话并返回（对话域主路径）。
 // 主动模式（active）由后续主动触达引擎落地（详见 ADR-013）。
-func (o *SmartCSOrchestrator) Mode(ctx context.Context)  string { return string(model.AgentModePassive) }
+func (o *SmartCSOrchestrator) Mode(ctx context.Context) string { return string(model.AgentModePassive) }
 
 // ----------------------------------------------------------------------------
 // 入口：处理入站消息
@@ -304,7 +304,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 // ----------------------------------------------------------------------------
 
 // findOrCreateSession 查找或创建会话
-func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext)  (*model.CustomerSession, error) {
+func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
 	// 查找活跃会话：直接按 user_id + 活跃状态点查（命中 user_id 索引）。
 	// 性能审计 P1-3：原实现 GetByMerchant("",1,20) 会对全量会话做 COUNT + 取最近 20 条再线性匹配，
 	// 在 1000 万/日被动回复下每条消息都触发一次全表 COUNT，且只扫 20 条会漏掉用户真实会话。
@@ -342,7 +342,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 //	会导致同一条用户消息被保存两次（数据库中 2 条 row，前端列表重复）。
 //	解决：在保存前查最近 5 秒内是否已存在同 (session, content, sender) 的消息，
 //	若有则跳过保存，返回已存在消息的引用。
-func (o *SmartCSOrchestrator) saveInboundMessage(ctx context.Context, session *model.CustomerSession, in *IncomingContext)  error {
+func (o *SmartCSOrchestrator) saveInboundMessage(ctx context.Context, session *model.CustomerSession, in *IncomingContext) error {
 	if existing, _ := o.messageRepo.FindRecentDuplicate(ctx, session.SessionID, "user", in.SenderID, in.Content, 5*time.Second); existing != nil {
 		return nil
 	}
@@ -359,7 +359,7 @@ func (o *SmartCSOrchestrator) saveInboundMessage(ctx context.Context, session *m
 }
 
 // saveOutboundMessage 保存出站消息（去重：避免与 visitor 端双保存）
-func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *model.CustomerSession, content string, aiGenerated bool)  error {
+func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *model.CustomerSession, content string, aiGenerated bool) error {
 	senderType := "agent"
 	if aiGenerated {
 		senderType = "ai"
@@ -379,7 +379,7 @@ func (o *SmartCSOrchestrator) saveOutboundMessage(ctx context.Context, session *
 }
 
 // saveAISuggestion 保存 AI 建议供座席参考
-func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID string, resp *SalesResponse)  uint {
+func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID string, resp *SalesResponse) uint {
 	if o.suggestionRepo == nil || resp == nil || resp.Reply == "" {
 		return 0
 	}
@@ -397,7 +397,7 @@ func (o *SmartCSOrchestrator) saveAISuggestion(ctx context.Context, sessionID st
 }
 
 // markSuggestionUsed 标记建议被采用
-func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint)  error {
+func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint) error {
 	if id == 0 || o.suggestionRepo == nil {
 		return nil
 	}
@@ -405,7 +405,7 @@ func (o *SmartCSOrchestrator) markSuggestionUsed(ctx context.Context, id uint)  
 }
 
 // transferToHuman 转人工（联动 SessionAssignmentService 真正分配在线座席）
-func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *model.CustomerSession, reason string)  error {
+func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *model.CustomerSession, reason string) error {
 	// 1. 更新会话状态为待人工
 	session.Status = model.SessionStatusWaiting
 	session.HandlerType = model.HandlerTypeHuman
@@ -425,7 +425,7 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 }
 
 // incrementAIReplyCount 增加 AI 回复计数
-func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session *model.CustomerSession)  error {
+func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session *model.CustomerSession) error {
 	session.AIReplyCount++
 	session.Status = model.SessionStatusAIHandling
 	now := time.Now()
@@ -434,7 +434,7 @@ func (o *SmartCSOrchestrator) incrementAIReplyCount(ctx context.Context, session
 }
 
 // isAgentOnline 座席是否在线
-func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint)  (online bool) {
+func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint) (online bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			online = false
@@ -451,7 +451,7 @@ func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint)  
 }
 
 // isUrgentOrComplaint 是否紧急/投诉
-func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content string)  bool {
+func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content string) bool {
 	urgentKeywords := []string{
 		"投诉", "举报", "曝光", "315", "消协", "工商局",
 		"紧急", "着急", "马上", "立刻", "赶紧", "快点",
@@ -468,7 +468,7 @@ func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content s
 }
 
 // extractConfidence 从 SalesResponse 提取置信度
-func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *SalesResponse)  float64 {
+func (o *SmartCSOrchestrator) extractConfidence(ctx context.Context, resp *SalesResponse) float64 {
 	if resp == nil {
 		return 0
 	}
@@ -512,7 +512,7 @@ func safeMessageID(id string) string {
 
 // AgentTakeover 座席接管 AI 会话
 // 当座席认为 AI 回复不合适时，可主动接管会话
-func (o *SmartCSOrchestrator) AgentTakeover(ctx context.Context, sessionID string, agentID uint)  (err error) {
+func (o *SmartCSOrchestrator) AgentTakeover(ctx context.Context, sessionID string, agentID uint) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("session not found (repo panic): %s, %v", sessionID, r)
@@ -531,7 +531,7 @@ func (o *SmartCSOrchestrator) AgentTakeover(ctx context.Context, sessionID strin
 }
 
 // AgentReply 座席手动回复（覆盖 AI 建议）
-func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, agentID uint, content string)  (err error) {
+func (o *SmartCSOrchestrator) AgentReply(ctx context.Context, sessionID string, agentID uint, content string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("session not found (repo panic): %s, %v", sessionID, r)

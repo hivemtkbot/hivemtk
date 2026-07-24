@@ -41,22 +41,22 @@ import (
 type PersonaDimension string
 
 const (
-	PersonaDimensionNaturalness	PersonaDimension	= "naturalness"	// 自然度：口语化、无机械感
-	PersonaDimensionRelevance	PersonaDimension	= "relevance"	// 相关性：答非所问检测
-	PersonaDimensionPersona		PersonaDimension	= "persona"	// 人设：销冠角色 + 行业专业度
-	PersonaDimensionEmotion		PersonaDimension	= "emotion"	// 情绪：共情客户情绪
-	PersonaDimensionConciseness	PersonaDimension	= "conciseness"	// 简洁性：字数控制
-	PersonaDimensionCompliance	PersonaDimension	= "compliance"	// 合规：广告法 + 虚假承诺
+	PersonaDimensionNaturalness PersonaDimension = "naturalness" // 自然度：口语化、无机械感
+	PersonaDimensionRelevance   PersonaDimension = "relevance"   // 相关性：答非所问检测
+	PersonaDimensionPersona     PersonaDimension = "persona"     // 人设：销冠角色 + 行业专业度
+	PersonaDimensionEmotion     PersonaDimension = "emotion"     // 情绪：共情客户情绪
+	PersonaDimensionConciseness PersonaDimension = "conciseness" // 简洁性：字数控制
+	PersonaDimensionCompliance  PersonaDimension = "compliance"  // 合规：广告法 + 虚假承诺
 )
 
 // PersonaDimensionWeight 6 维度权重（对应 PRD §5.2 P1-2 G6）
 var PersonaDimensionWeight = map[PersonaDimension]float64{
-	PersonaDimensionNaturalness:	0.25,
-	PersonaDimensionRelevance:	0.20,
-	PersonaDimensionPersona:	0.20,
-	PersonaDimensionEmotion:	0.15,
-	PersonaDimensionConciseness:	0.10,
-	PersonaDimensionCompliance:	0.10,
+	PersonaDimensionNaturalness: 0.25,
+	PersonaDimensionRelevance:   0.20,
+	PersonaDimensionPersona:     0.20,
+	PersonaDimensionEmotion:     0.15,
+	PersonaDimensionConciseness: 0.10,
+	PersonaDimensionCompliance:  0.10,
 }
 
 // AllPersonaDimensions 全部 6 维度（用于遍历）
@@ -71,36 +71,36 @@ var AllPersonaDimensions = []PersonaDimension{
 
 // PersonaEvaluationInput 评估输入
 type PersonaEvaluationInput struct {
-	CustomerID	string	// 客户 ID（用于低质样本追溯）
-	SessionID	string	// 会话 ID
-	CustomerMessage	string	// 客户消息
-	AIReply		string	// AI 回复
-	Persona		string	// 销冠人设（如"美妆顾问"/"3C 数码专家"）
-	Industry	string	// 行业（如"美妆"/"3C"/"服饰"）
-	Platform	string	// 平台（wechat/douyin/xiaohongshu/...）
-	Intent		string	// 意图（price_inquiry/complaint/...）
+	CustomerID      string // 客户 ID（用于低质样本追溯）
+	SessionID       string // 会话 ID
+	CustomerMessage string // 客户消息
+	AIReply         string // AI 回复
+	Persona         string // 销冠人设（如"美妆顾问"/"3C 数码专家"）
+	Industry        string // 行业（如"美妆"/"3C"/"服饰"）
+	Platform        string // 平台（wechat/douyin/xiaohongshu/...）
+	Intent          string // 意图（price_inquiry/complaint/...）
 }
 
 // PersonaDimensionScore 单维度得分
 type PersonaDimensionScore struct {
-	Dimension	PersonaDimension	`json:"dimension"`
-	Score		float64			`json:"score"`	// 0-1
-	Reason		string			`json:"reason"`
+	Dimension PersonaDimension `json:"dimension"`
+	Score     float64          `json:"score"` // 0-1
+	Reason    string           `json:"reason"`
 }
 
 // PersonaEvaluationResult 评估结果
 type PersonaEvaluationResult struct {
-	Scores		[]PersonaDimensionScore	`json:"scores"`
-	TotalScore	float64			`json:"total_score"`	// 加权综合分
-	Passed		bool			`json:"passed"`		// 是否 ≥ threshold
-	AttemptCount	int			`json:"attempt_count"`
-	FinalReply	string			`json:"final_reply"`	// 最终回复
-	AllReplies	[]string		`json:"all_replies"`	// 所有候选回复（调试用）
-	Input		*PersonaEvaluationInput	`json:"input,omitempty"`
+	Scores       []PersonaDimensionScore `json:"scores"`
+	TotalScore   float64                 `json:"total_score"` // 加权综合分
+	Passed       bool                    `json:"passed"`      // 是否 ≥ threshold
+	AttemptCount int                     `json:"attempt_count"`
+	FinalReply   string                  `json:"final_reply"` // 最终回复
+	AllReplies   []string                `json:"all_replies"` // 所有候选回复（调试用）
+	Input        *PersonaEvaluationInput `json:"input,omitempty"`
 }
 
 // ScoreByDimension 按维度查询得分
-func (r *PersonaEvaluationResult) ScoreByDimension(ctx context.Context, dim PersonaDimension)  (float64, bool) {
+func (r *PersonaEvaluationResult) ScoreByDimension(ctx context.Context, dim PersonaDimension) (float64, bool) {
 	for _, s := range r.Scores {
 		if s.Dimension == dim {
 			return s.Score, true
@@ -127,20 +127,20 @@ type LowQualitySampleCollector interface {
 
 // LLMPersonaEvaluator 基于 LLM 的拟人度评估器
 type LLMPersonaEvaluator struct {
-	dispatcher	*llm.Dispatcher
-	threshold	float64	// 默认 0.85
+	dispatcher *llm.Dispatcher
+	threshold  float64 // 默认 0.85
 }
 
 // NewLLMPersonaEvaluator 构造 LLM 评估器
 func NewLLMPersonaEvaluator(dispatcher *llm.Dispatcher) *LLMPersonaEvaluator {
 	return &LLMPersonaEvaluator{
-		dispatcher:	dispatcher,
-		threshold:	0.85,
+		dispatcher: dispatcher,
+		threshold:  0.85,
 	}
 }
 
 // Threshold 设置阈值（链式）
-func (e *LLMPersonaEvaluator) WithThreshold(ctx context.Context, t float64)  *LLMPersonaEvaluator {
+func (e *LLMPersonaEvaluator) WithThreshold(ctx context.Context, t float64) *LLMPersonaEvaluator {
 	if t > 0 && t <= 1 {
 		e.threshold = t
 	}
@@ -161,11 +161,11 @@ func (e *LLMPersonaEvaluator) Evaluate(ctx context.Context, input *PersonaEvalua
 
 	prompt := buildPersonaEvaluationPrompt(input)
 	req := llm.DispatchRequest{
-		Scenario:	llm.ScenarioHighQuality,
-		Prompt:		prompt,
-		SystemPrompt:	"你是销售对话质检员，严格按 6 维度评估 AI 回复质量，返回 JSON。维度：naturalness/relevance/persona/emotion/conciseness/compliance。",
-		JSONMode:	true,
-		MaxTokens:	800,
+		Scenario:     llm.ScenarioHighQuality,
+		Prompt:       prompt,
+		SystemPrompt: "你是销售对话质检员，严格按 6 维度评估 AI 回复质量，返回 JSON。维度：naturalness/relevance/persona/emotion/conciseness/compliance。",
+		JSONMode:     true,
+		MaxTokens:    800,
 	}
 	result, err := e.dispatcher.Dispatch(ctx, req)
 	if err != nil {
@@ -222,8 +222,8 @@ func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, err
 	}
 
 	var raw struct {
-		Scores		[]PersonaDimensionScore	`json:"scores"`
-		TotalScore	float64			`json:"total_score"`
+		Scores     []PersonaDimensionScore `json:"scores"`
+		TotalScore float64                 `json:"total_score"`
 	}
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w (content=%s)", err, content)
@@ -246,8 +246,8 @@ func parsePersonaEvaluationResult(content string) (*PersonaEvaluationResult, err
 		totalScore = computeWeightedScore(raw.Scores)
 	}
 	return &PersonaEvaluationResult{
-		Scores:		raw.Scores,
-		TotalScore:	totalScore,
+		Scores:     raw.Scores,
+		TotalScore: totalScore,
 	}, nil
 }
 
@@ -285,7 +285,7 @@ func NewRuleBasedPersonaEvaluator() *RuleBasedPersonaEvaluator {
 }
 
 // WithThreshold 设置阈值（链式）
-func (e *RuleBasedPersonaEvaluator) WithThreshold(ctx context.Context, t float64)  *RuleBasedPersonaEvaluator {
+func (e *RuleBasedPersonaEvaluator) WithThreshold(ctx context.Context, t float64) *RuleBasedPersonaEvaluator {
 	if t > 0 && t <= 1 {
 		e.threshold = t
 	}
@@ -310,10 +310,10 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 	}
 	total := computeWeightedScore(scores)
 	return &PersonaEvaluationResult{
-		Scores:		scores,
-		TotalScore:	total,
-		Passed:		total >= e.threshold,
-		Input:		input,
+		Scores:     scores,
+		TotalScore: total,
+		Passed:     total >= e.threshold,
+		Input:      input,
 	}, nil
 }
 
@@ -321,9 +321,9 @@ func (e *RuleBasedPersonaEvaluator) Evaluate(ctx context.Context, input *Persona
 //   - 包含 AI 痕迹词 → 严重扣分
 //   - 口语化词（"嗯"/"哦"/"呢"等）→ 加分
 //   - 基础分 0.88：纯中文、正常表达的回复默认较自然
-func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input *PersonaEvaluationInput)  float64 {
+func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.88	// 基础分
+	score := 0.88 // 基础分
 	// AI 痕迹词（每个 -0.3）
 	aiTraces := []string{
 		"作为 AI", "作为人工智能", "我是 AI", "我是人工智能",
@@ -355,9 +355,9 @@ func (e *RuleBasedPersonaEvaluator) scoreNaturalness(ctx context.Context, input 
 //   - 客户消息的关键词是否在 AI 回复中体现
 //   - 完全无关联 → 低分
 //   - 语义意图对齐（价格问询/推荐等场景）→ 显著加分
-func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *PersonaEvaluationInput)  float64 {
+func (e *RuleBasedPersonaEvaluator) scoreRelevance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	if input.CustomerMessage == "" {
-		return 0.8	// 无客户消息上下文，给中等分
+		return 0.8 // 无客户消息上下文，给中等分
 	}
 	// 提取客户消息的关键词（中文按 2-3 字分词简化）
 	keywords := extractKeywords(input.CustomerMessage)
@@ -449,8 +449,8 @@ func containsAny(text string, words []string) bool {
 //   - 是否包含人设关键词
 //   - 是否包含行业专业词
 //   - 基础分 0.75：合理的销售话术默认人设表现良好
-func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *PersonaEvaluationInput)  float64 {
-	score := 0.75	// 基础分
+func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *PersonaEvaluationInput) float64 {
+	score := 0.75 // 基础分
 	reply := input.AIReply
 	if input.Persona != "" && strings.Contains(reply, input.Persona) {
 		score += 0.1
@@ -477,9 +477,9 @@ func (e *RuleBasedPersonaEvaluator) scorePersona(ctx context.Context, input *Per
 //   - 共情词（"理解"/"抱歉"/"恭喜"/"开心"等）→ 加分
 //   - 投诉场景必须共情，否则扣分
 //   - 基础分 0.75：中性专业语气（不冷漠也不过度热情）作为正常基线
-func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *PersonaEvaluationInput)  float64 {
+func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
-	score := 0.8	// 基础分：中性专业语气作为正常基线
+	score := 0.8 // 基础分：中性专业语气作为正常基线
 	empathyWords := []string{"理解", "抱歉", "不好意思", "恭喜", "开心", "放心", "别担心", "明白您的", "感谢"}
 	for _, w := range empathyWords {
 		if strings.Contains(reply, w) {
@@ -525,7 +525,7 @@ func (e *RuleBasedPersonaEvaluator) scoreEmotion(ctx context.Context, input *Per
 //   - 100-180 字 → 0.7
 //   - 180-300 字 → 0.25
 //   - >300 字 → 0.1
-func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input *PersonaEvaluationInput)  float64 {
+func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	length := len([]rune(input.AIReply))
 	switch {
 	case length <= 60:
@@ -544,7 +544,7 @@ func (e *RuleBasedPersonaEvaluator) scoreConciseness(ctx context.Context, input 
 // scoreCompliance 合规评分：
 //   - 广告法极限词（"最好"/"第一"/"国家级"等）→ 严重扣分
 //   - 虚假承诺词（"100%"/"绝对"/"保证"等）→ 扣分
-func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *PersonaEvaluationInput)  float64 {
+func (e *RuleBasedPersonaEvaluator) scoreCompliance(ctx context.Context, input *PersonaEvaluationInput) float64 {
 	reply := input.AIReply
 	score := 1.0
 	// 广告法极限词（每个 -0.4）
@@ -657,20 +657,20 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 	}
 
 	sample := &model.LowQualitySample{
-		CustomerID:		input.CustomerID,
-		SessionID:		input.SessionID,
-		SampleType:		sampleType,
-		CustomerMessage:	input.CustomerMessage,
-		AIReply:		result.FinalReply,
-		Persona:		input.Persona,
-		Industry:		input.Industry,
-		Platform:		input.Platform,
-		Intent:			input.Intent,
-		DimensionScores:	string(scoresJSON),
-		TotalScore:		result.TotalScore,
-		Threshold:		0.85,
-		AttemptCount:		result.AttemptCount,
-		CandidateReplies:	string(repliesJSON),
+		CustomerID:       input.CustomerID,
+		SessionID:        input.SessionID,
+		SampleType:       sampleType,
+		CustomerMessage:  input.CustomerMessage,
+		AIReply:          result.FinalReply,
+		Persona:          input.Persona,
+		Industry:         input.Industry,
+		Platform:         input.Platform,
+		Intent:           input.Intent,
+		DimensionScores:  string(scoresJSON),
+		TotalScore:       result.TotalScore,
+		Threshold:        0.85,
+		AttemptCount:     result.AttemptCount,
+		CandidateReplies: string(repliesJSON),
 	}
 	if err := c.db.WithContext(ctx).Create(sample).Error; err != nil {
 		return fmt.Errorf("save low quality sample: %w", err)
@@ -683,10 +683,10 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 // PersonaEvaluationService 拟人度评估服务
 // 职责：组合单次评估器 + 重生成循环 + 低质样本收集
 type PersonaEvaluationService struct {
-	evaluator	PersonaEvaluator
-	threshold	float64
-	maxRetry	int
-	sampleCollector	LowQualitySampleCollector
+	evaluator       PersonaEvaluator
+	threshold       float64
+	maxRetry        int
+	sampleCollector LowQualitySampleCollector
 }
 
 // DefaultPersonaThreshold 默认阈值（PRD：≥ 0.85）
@@ -698,10 +698,10 @@ const DefaultPersonaMaxRetry = 3
 // NewPersonaEvaluationService 构造评估服务
 func NewPersonaEvaluationService(evaluator PersonaEvaluator) *PersonaEvaluationService {
 	return &PersonaEvaluationService{
-		evaluator:		evaluator,
-		threshold:		DefaultPersonaThreshold,
-		maxRetry:		DefaultPersonaMaxRetry,
-		sampleCollector:	&LogLowQualitySampleCollector{},
+		evaluator:       evaluator,
+		threshold:       DefaultPersonaThreshold,
+		maxRetry:        DefaultPersonaMaxRetry,
+		sampleCollector: &LogLowQualitySampleCollector{},
 	}
 }
 
@@ -832,10 +832,10 @@ func (s *PersonaEvaluationService) EvaluateWithRetry(ctx context.Context, input 
 
 // Compile-time interface compliance checks
 var (
-	_	PersonaEvaluator		= (*LLMPersonaEvaluator)(nil)
-	_	PersonaEvaluator		= (*RuleBasedPersonaEvaluator)(nil)
-	_	LowQualitySampleCollector	= (*LogLowQualitySampleCollector)(nil)
-	_	LowQualitySampleCollector	= (*DBLowQualitySampleCollector)(nil)
+	_ PersonaEvaluator          = (*LLMPersonaEvaluator)(nil)
+	_ PersonaEvaluator          = (*RuleBasedPersonaEvaluator)(nil)
+	_ LowQualitySampleCollector = (*LogLowQualitySampleCollector)(nil)
+	_ LowQualitySampleCollector = (*DBLowQualitySampleCollector)(nil)
 )
 
 // =================== 辅助：低质样本查询（用于 UI 展示） ===================
@@ -871,10 +871,10 @@ func MarkLowQualitySampleHandled(db *gorm.DB, id uint64, handler, note string) e
 	}
 	now := time.Now()
 	return db.Model(&model.LowQualitySample{}).Where("id = ?", id).Updates(map[string]any{
-		"handled":	true,
-		"handled_by":	handler,
-		"handled_at":	&now,
-		"handled_note":	note,
+		"handled":      true,
+		"handled_by":   handler,
+		"handled_at":   &now,
+		"handled_note": note,
 	}).Error
 }
 

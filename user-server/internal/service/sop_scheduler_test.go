@@ -69,7 +69,7 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 		Status:     SOPStatusRunning,
 		StartedAt:  now.Add(-25 * time.Hour),
 	}
-	if err := db.Create(stuck).Error; err != nil {
+	if err := db.Create(context.Background(), stuck).Error; err != nil {
 		t.Fatalf("create stuck: %v", err)
 	}
 
@@ -80,7 +80,7 @@ func TestSOPScheduler_CleanupStuckExecutions(t *testing.T) {
 		Status:     SOPStatusRunning,
 		StartedAt:  now.Add(-1 * time.Hour),
 	}
-	if err := db.Create(fresh).Error; err != nil {
+	if err := db.Create(context.Background(), fresh).Error; err != nil {
 		t.Fatalf("create fresh: %v", err)
 	}
 
@@ -118,7 +118,7 @@ func TestSOPScheduler_DispatchAutoSOP(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestSOPScheduler_DispatchScheduledSOP_FirstRun(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	svc := NewSOPService(db, nil)
@@ -179,7 +179,7 @@ func TestSOPScheduler_DispatchScheduledSOP_IntervalGuard(t *testing.T) {
 		IsActive:  true,
 		CreatedBy: 1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	svc := NewSOPService(db, nil)
@@ -204,7 +204,7 @@ func TestSOPScheduler_TryExecute_DuplicateGuard(t *testing.T) {
 		IsActive:      true,
 		CreatedBy:     1,
 	}
-	if err := db.Create(agent).Error; err != nil {
+	if err := db.Create(context.Background(), agent).Error; err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	svc := NewSOPService(db, nil)

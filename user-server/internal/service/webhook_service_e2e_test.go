@@ -223,7 +223,7 @@ func TestWeCom_Dispatch_Ingest(t *testing.T) {
 		EncodingAESKey: "K",
 		WebhookEnabled: true,
 	}
-	db.Create(acc)
+	db.Create(context.Background(), acc)
 
 	integ := NewWeComIntegrationService(db)
 	hub, conv, err := integ.IngestMessage(context.Background(), &IngestRequest{
@@ -270,7 +270,7 @@ func TestWeCom_Dispatch_GroupMsg(t *testing.T) {
 		EncodingAESKey: "K",
 		WebhookEnabled: true,
 	}
-	db.Create(acc)
+	db.Create(context.Background(), acc)
 
 	integ := NewWeComIntegrationService(db)
 	hub, _, err := integ.IngestMessage(context.Background(), &IngestRequest{
@@ -305,7 +305,7 @@ func TestWeCom_GetWeComSecrets_FromDB(t *testing.T) {
 		EncodingAESKey: "K_test",
 		WebhookEnabled: true,
 	}
-	db.Create(acc)
+	db.Create(context.Background(), acc)
 
 	svc := NewWebhookService(db)
 	token, aesKey, err := svc.GetWeComSecrets(fmt.Sprintf("%d", acc.ID))
@@ -339,7 +339,7 @@ func TestWeCom_ReceiveCallback(t *testing.T) {
 		EncodingAESKey: "K",
 		WebhookEnabled: true,
 	}
-	db.Create(acc)
+	db.Create(context.Background(), acc)
 
 	integ := NewWeComIntegrationService(db)
 	hub, _, err := integ.ReceiveCallback(context.Background(), &ReceiveCallbackRequest{

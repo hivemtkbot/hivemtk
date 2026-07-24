@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 type ClueService struct {
@@ -76,18 +76,18 @@ func (s *ClueService) BatchImportClues(ctx context.Context, clues []*model.Clue)
 
 // ClueType 线索类型
 type ClueType struct {
-	Value	string	`json:"value"`
-	Label	string	`json:"label"`
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 // clueTypeMap 预定义的线索类型映射（与前端 utils/map.js 保持一致）
 var clueTypeMap = map[int64]string{
-	1:	"QQ",
-	2:	"微信",
-	3:	"电话",
-	4:	"Telegram",
-	5:	"Whatsapp",
-	6:	"twitter",
+	1: "QQ",
+	2: "微信",
+	3: "电话",
+	4: "Telegram",
+	5: "Whatsapp",
+	6: "twitter",
 }
 
 // defaultClueTypes 默认线索类型列表

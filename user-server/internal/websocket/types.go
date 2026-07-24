@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 )
@@ -60,4 +61,26 @@ type Envelope struct {
 	TS      int64           `json:"ts,omitempty"`
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+// AgentSessionExecutor 坐席 WebSocket 操作执行器接口
+//
+// 设计动机：WebSocket 上行消息（已读 / 接管 / 转接 / 关闭）会触达 CustomerSessionService
+// 的领域方法。为避免 websocket 包反向 import service（导致 import cycle），
+// 在 web 层（websocket 包）定义本接口，由 service 层提供实现（ws_agent_executor.go）。
+//
+// 调用方：WSHandler / VisitorWSHandler
+// 实现方：service.WSAgentExecutor
+//
+// sessionID 语义：WebSocket 协议使用业务字符串 session_id（sess_xxx），实现方负责
+// 兼容数字主键与业务字符串两种形态。
+type AgentSessionExecutor interface {
+	// MarkSessionRead 标记会话内消息已读
+	MarkSessionRead(ctx context.Context, agentID uint, sessionID string) error
+	// TakeoverSession 坐席接管会话
+	TakeoverSession(ctx context.Context, agentID uint, sessionID string, reason string) error
+	// TransferSession 转接会话给目标坐席
+	TransferSession(ctx context.Context, fromAgentID uint, sessionID string, toAgentID uint) error
+	// CloseSession 关闭会话
+	CloseSession(ctx context.Context, agentID uint, sessionID string) error
 }

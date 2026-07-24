@@ -72,7 +72,7 @@
         <template #default="{ row }">
           <el-button size="small" type="primary" link @click="$router.push(`/asset-bundle/playground/${row.asset_id}`)">Playground</el-button>
           <el-button size="small" type="warning" link @click="$router.push(`/asset-bundle/merchant/${row.asset_id}`)">商户编辑</el-button>
-          <el-button v-if="row.status !== 'active'" size="small" type="success" link @click="handleEnable(row)">热启用</el-button>
+          <el-button v-if="!hotEnabledIds.has(row.id)" size="small" type="success" link @click="handleEnable(row)">热启用</el-button>
           <el-button v-else size="small" type="info" link @click="handleDisable(row)">热禁用</el-button>
           <el-button v-if="row.status === 'draft'" size="small" type="primary" link @click="handlePublish(row)">发布</el-button>
           <el-button size="small" type="danger" link @click="handleDelete(row)">删除</el-button>
@@ -110,6 +110,8 @@ const list = ref([])
 const total = ref(0)
 const loading = ref(false)
 const enabledList = ref([])
+// 当前已热启用（运行时热插拔缓存）的资产包 id 集合，驱动列表「热启用/热禁用」按钮显隐
+const hotEnabledIds = ref(new Set())
 
 const scopeLabel = (s) => ({ private: '私有', shared: '共享', official: '官方' }[s] || s)
 const scopeTagType = (s) => ({ private: 'info', shared: 'warning', official: 'success' }[s] || '')
@@ -149,7 +151,9 @@ const fetchEnabled = async () => {
   try {
     const resp = await listEnabledBundles()
     const data = resp?.data || resp || {}
-    enabledList.value = data.list || []
+    const list = data.list || []
+    enabledList.value = list
+    hotEnabledIds.value = new Set(list.map(b => b.id))
   } catch (e) {
     // 静默失败
   }
@@ -158,8 +162,7 @@ const fetchEnabled = async () => {
 const handleEnable = async (row) => {
   try {
     await enableBundle(row.id)
-    row.status = 'active'
-    ElMessage.success('已热启用')
+    ElMessage.success('已热启用（即时生效，重启后需重新热启用）')
     fetchEnabled()
   } catch (e) {
     ElMessage.error('热启用失败: ' + (e?.message || e))
@@ -169,8 +172,7 @@ const handleEnable = async (row) => {
 const handleDisable = async (row) => {
   try {
     await disableBundle(row.id)
-    row.status = 'inactive'
-    ElMessage.success('已热禁用')
+    ElMessage.success('已热禁用（即时生效）')
     fetchEnabled()
   } catch (e) {
     ElMessage.error('热禁用失败: ' + (e?.message || e))

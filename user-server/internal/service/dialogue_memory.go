@@ -17,13 +17,13 @@ import (
 
 // DialogueMemoryService 对话记忆服务（短期+长期）
 type DialogueMemoryService struct {
-	db		*gorm.DB
-	dispatcher	*llm.Dispatcher
+	db         *gorm.DB
+	dispatcher *llm.Dispatcher
 }
 
 const (
-	shortTermWindow	= 10	// 短期记忆保留最近 10 轮
-	memoryTTL	= 30 * 24 * time.Hour
+	shortTermWindow = 10 // 短期记忆保留最近 10 轮
+	memoryTTL       = 30 * 24 * time.Hour
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
@@ -40,7 +40,7 @@ func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID
 		return nil, fmt.Errorf("db is nil")
 	}
 	var mem model.DialogueMemory
-	err := s.db.WithContext(ctx).Where( "session_id = ?", sessionID).First(&mem).Error
+	err := s.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&mem).Error
 	if err == nil {
 		return &mem, nil
 	}
@@ -49,14 +49,14 @@ func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID
 	}
 	// 创建
 	mem = model.DialogueMemory{
-		SessionID:	sessionID,
-		CustomerID:	customerID,
-		KeyFacts:	model.JSONMap{},
-		Objections:	model.JSONArray{},
-		IntentTrail:	model.JSONArray{},
-		SOPHistory:	model.JSONArray{},
-		LastActiveAt:	time.Now(),
-		MessageCount:	0,
+		SessionID:    sessionID,
+		CustomerID:   customerID,
+		KeyFacts:     model.JSONMap{},
+		Objections:   model.JSONArray{},
+		IntentTrail:  model.JSONArray{},
+		SOPHistory:   model.JSONArray{},
+		LastActiveAt: time.Now(),
+		MessageCount: 0,
 	}
 	if err := s.db.WithContext(ctx).Create(&mem).Error; err != nil {
 		return nil, err
@@ -111,9 +111,9 @@ func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionI
 			role = "ai"
 		}
 		msgs = append(msgs, dto.Message{
-			Role:		role,
-			Content:	r.Content,
-			Timestamp:	r.SentAt,
+			Role:      role,
+			Content:   r.Content,
+			Timestamp: r.SentAt,
 		})
 	}
 	return msgs, nil
@@ -195,9 +195,9 @@ func (s *DialogueMemoryService) RecordObjection(ctx context.Context, sessionID, 
 		_ = json.Unmarshal(mustJSON(mem.Objections), &objs)
 	}
 	objs = append(objs, map[string]any{
-		"type":		objectionType,
-		"content":	content,
-		"time":		time.Now(),
+		"type":    objectionType,
+		"content": content,
+		"time":    time.Now(),
 	})
 	mem.Objections = model.JSONArray(toIfaceSlice(objs))
 	return s.db.WithContext(ctx).Save(mem).Error
@@ -307,19 +307,19 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 }`, mem.Summary, mem.KeyFacts, mem.Objections, mem.IntentTrail, lastMsg.Content)
 
 	result, err := s.dispatcher.Dispatch(ctx, llm.DispatchRequest{
-		Scenario:	llm.ScenarioLongSummary,
-		Prompt:		prompt,
-		JSONMode:	true,
-		MaxTokens:	500,
-		Temperature:	0.3,
+		Scenario:    llm.ScenarioLongSummary,
+		Prompt:      prompt,
+		JSONMode:    true,
+		MaxTokens:   500,
+		Temperature: 0.3,
 	})
 	if err != nil {
 		return
 	}
 	var parsed struct {
-		Summary			string			`json:"summary"`
-		KeyFacts		map[string]string	`json:"key_facts"`
-		NextActionSuggestion	string			`json:"next_action_suggestion"`
+		Summary              string            `json:"summary"`
+		KeyFacts             map[string]string `json:"key_facts"`
+		NextActionSuggestion string            `json:"next_action_suggestion"`
 	}
 	if err := json.Unmarshal([]byte(extractJSONFromStr(result.Content)), &parsed); err != nil {
 		return
@@ -333,8 +333,8 @@ func (s *DialogueMemoryService) updateLongTermSummary(ctx context.Context, mem *
 
 // 全局实例
 var (
-	dialogueMemoryOnce	sync.Once
-	dialogueMemory		*DialogueMemoryService
+	dialogueMemoryOnce sync.Once
+	dialogueMemory     *DialogueMemoryService
 )
 
 func GetDialogueMemory() *DialogueMemoryService {

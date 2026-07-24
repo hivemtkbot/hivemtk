@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"marketing/internal/config"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
@@ -346,7 +345,7 @@ func (c *AuthController) VerifyMFALogin(ctx *gin.Context) {
 	}
 
 	// 颁发正式 JWT
-	jwtUtils := c.authService.JwtUtils(context.Background(), )
+	jwtUtils := c.authService.JwtUtils(context.Background())
 	token, err := jwtUtils.GenerateToken(userID, username, role)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "颁发令牌失败")
@@ -484,7 +483,7 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 // GET /api/auth/password-policy
 func (c *AuthController) GetPasswordPolicy(ctx *gin.Context) {
 	policySvc := service.NewPasswordPolicyService()
-	policy := policySvc.GetPolicy(context.Background(), )
+	policy := policySvc.GetPolicy(context.Background())
 	response.Success(ctx, policy, "查询成功")
 }
 
@@ -664,37 +663,58 @@ func (c *SystemUserController) ResetPassword(ctx *gin.Context) {
 	response.Success(ctx, nil, "重置密码成功")
 }
 
-// CreateDefaultAdmin 创建默认管理员账户（不需要认证）
+// InitAdmin 公开：初始化系统超管
+// 路由：POST /api/system/init-admin（详见 admin_routes.go setupPublicRoutes）
+// 流程：BindJSON → service.AuthService.InitAdmin → install.lock
+//
+// InitAdminRequest 复用 controller/system_init.go 已有的同 struct（避免重复定义）：
+//   - Username: 3-20 位
+//   - Password: ≥8 位
+//   - Email:    可选，格式合法
+//   - RealName / ContactPhone: 可选（开源版 init 上报用，本流程不消费）
+func (c *AuthController) InitAdmin(ctx *gin.Context) {
+	var req InitAdminRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		return
+	}
+
+	if err := c.authService.InitAdmin(context.Background(), req.Username, req.Password, req.Email); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"username": req.Username,
+		"message":  "超管创建成功，请使用此账号登录",
+	}, "超管初始化完成")
+}
+
+// CreateDefaultAdmin 创建默认管理员账户（不需要认证，保留兼容旧前端）
+//
+// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+//   - 函数名保留（避免破坏旧路由 / 测试 / 文档引用）
+//   - 函数体重写：不再读取 config.GetAdminConfig().DefaultAdmin 的硬编码密码，
+//     改为强制从请求体 InitAdminRequest 读取 username/password/email
+//   - 委派给 service.AuthService.InitAdmin（统一的强密码 / 唯一性 / install.lock 流程）
+//   - 路由 /api/system/create-default-admin 已从 public 中移除（见 admin_routes.go），
+//     但函数保留以便 init_guard 白名单 / 历史测试 / 第三方集成仍可调用
 func (c *SystemUserController) CreateDefaultAdmin(ctx *gin.Context) {
-	// 检查是否已存在管理员
-	users, _, err := c.userService.GetUsers(context.Background(), 1, 1)
-	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "检查用户失败")
+	var req InitAdminRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
 		return
 	}
 
-	// 如果已存在用户，返回成功，避免重复创建
-	if len(users) > 0 {
-		response.Success(ctx, gin.H{"message": "管理员已存在"}, "管理员已存在")
+	// 委派给 AuthService（与 AuthController.InitAdmin 共享同一份业务逻辑）
+	authSvc := service.NewAuthService()
+	if err := authSvc.InitAdmin(context.Background(), req.Username, req.Password, req.Email); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// 创建默认管理员（读取配置文件或环境变量）
-	adminCfg := config.GetAdminConfig().DefaultAdmin
-	req := &service.CreateUserRequest{
-		Username: adminCfg.Username,
-		Password: adminCfg.Password,
-		Email:    adminCfg.Email,
-		RealName: adminCfg.RealName,
-		Role:     "admin",
-		Status:   1,
-	}
-
-	user, err := c.userService.CreateUser(context.Background(), req)
-	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建默认管理员失败", err.Error())
-		return
-	}
-
-	response.Success(ctx, user, "默认管理员创建成功")
+	response.Success(ctx, gin.H{
+		"username": req.Username,
+		"message":  "默认管理员创建成功（兼容旧路由）",
+	}, "默认管理员创建成功")
 }

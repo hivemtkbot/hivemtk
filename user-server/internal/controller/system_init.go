@@ -103,8 +103,8 @@ func (c *SystemInitController) InitAdmin(ctx *gin.Context) {
 	// 半初始化自愈：install.lock 未记录超管，但 DB 已存在用户
 	// （旧构建 init-admin 把超管写库却未回写 lock，导致 init-complete 永远报"请先创建超管"）
 	// 此时从 DB 取出已有超管用户名，补写 install.lock，使初始化向导可继续完成。
-	if count, _ := c.userService.CountUsers(context.Background(), ); count > 0 {
-		existing, gerr := c.userService.GetFirstAdminUsername(context.Background(), )
+	if count, _ := c.userService.CountUsers(context.Background()); count > 0 {
+		existing, gerr := c.userService.GetFirstAdminUsername(context.Background())
 		if gerr != nil || existing == "" {
 			response.Error(ctx, http.StatusConflict, "系统已存在用户但未找到超管账号，请走找回密码流程（个人中心）重置")
 			return

@@ -29,7 +29,7 @@ const isApiUrl = (s) => s.includes('/api/') && !s.includes('/src/')
 let AUTH = { token: '', user: null }
 test.beforeAll(async () => {
   const ctx = await request.newContext({ baseURL: process.env.E2E_BASE_URL || 'http://localhost:8214' })
-  const resp = await ctx.post('/api/auth/login', { data: { username: 'admin', password: 'Admin@123456' } })
+  const resp = await ctx.post('/api/auth/login', { data: { username: 'admin', password: 'Admin@12345678' } })
   const body = await resp.json().catch(() => ({}))
   AUTH = { token: body?.data?.token || '', user: body?.data?.user || null }
   await ctx.dispose()
@@ -103,7 +103,7 @@ test.describe('系统设置模块 真实后端 E2E', () => {
       })
 
       page.setDefaultTimeout(5000)
-      await page.goto(p.path, { waitUntil: 'domcontentloaded' })
+      await page.goto('#' + p.path, { waitUntil: 'domcontentloaded' })
       try { await page.waitForSelector('.app-main', { state: 'visible', timeout: 15000 }) } catch (_) {}
       await page.waitForTimeout(800)
 

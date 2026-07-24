@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { isInitialized } from '@/utils/initHelper'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 
 // 路由模块 - 使用 import.meta.glob 实现懒加载（Vite 兼容）
 // Vite 在构建时会静态分析 glob 模式，将所有匹配的模块打包进产物
@@ -65,7 +66,7 @@ const moduleNames = [
   // OneID 客户身份统一 (身份归一化 / 冲突解决)
   'oneid',
   'dashboardScreen', 'integration', 'marketingFlow', 'operationLog',
-  'ragProductConfig', 'scriptTemplate', 'teamUser', 'userSegment',
+  'ragProductConfig', 'scriptTemplate', 'userSegment',
   'community', 'unifiedMessage', 'platformAccount', 'messageHub',
   // 销冠 SOP 智能体相关模块（意图识别 / 对话记忆 / SOP 智能体）
   'intentRecognition', 'dialogueMemory', 'sopAgent',
@@ -97,7 +98,13 @@ const moduleNames = [
   // 飞书账号管理（配合 reach.feishu.send 工具）
   'feishu',
   // 置信度/拟人度/反馈学习 统一管理面板
-  'tuning'
+  'tuning',
+  // 阶段 4：人员管理（v3.1 §3.1）
+  'systemUser',
+  // 阶段 5：角色管理（v3.1 §3.2）
+  'role',
+  // 阶段 6：授权管理（v3.1 §3.4）
+  'permission'
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)
@@ -221,20 +228,25 @@ router.beforeEach(async (to, from, next) => {
 
   // 兼容修复：/system/ 命名空间下的某些路径定义在非 system 模块中
   // 例如 /system/rag-product-config 实际在 ragProductConfig 模块
+  // /system/users → systemUser, /system/roles → role, /system/permissions → permission
   // 当首次访问 system 路径且未匹配到路由时，尝试加载所有相关模块
-  if (to.path.startsWith('/system/') && !loadedModules.has('ragProductConfig')) {
-    try {
-      const mod = await lazyModule('ragProductConfig')()
-      const moduleRoutes = mod.default || mod
-      if (Array.isArray(moduleRoutes)) {
-        moduleRoutes.forEach(route => {
-          router.addRoute('Layout', route)
-          loadedRoutes.push(route)
-        })
+  if (to.path.startsWith('/system/')) {
+    const extraModules = ['ragProductConfig', 'systemUser', 'role', 'permission']
+    for (const modName of extraModules) {
+      if (loadedModules.has(modName)) continue
+      try {
+        const mod = await lazyModule(modName)()
+        const moduleRoutes = mod.default || mod
+        if (Array.isArray(moduleRoutes)) {
+          moduleRoutes.forEach(route => {
+            router.addRoute('Layout', route)
+            loadedRoutes.push(route)
+          })
+        }
+        loadedModules.add(modName)
+      } catch (err) {
+        console.error(`[Lazy Router] Failed to load ${modName}:`, err)
       }
-      loadedModules.add('ragProductConfig')
-    } catch (err) {
-      console.error('[Lazy Router] Failed to load ragProductConfig:', err)
     }
   }
 
@@ -252,7 +264,22 @@ router.beforeEach(async (to, from, next) => {
   // 其他路径需要检查初始化 + 登录态
   if (!isInitialized()) {
     next('/setup')
-  } else if (to.meta.requiresAuth) {
+    return
+  }
+
+  // F-P1-74: requiresAdmin 守卫
+  // 路由 meta.requiresAdmin = true 时，仅 admin 角色可访问；非 admin 跳转 403 提示
+  if (to.meta?.requiresAdmin) {
+    const userStore = useUserStore()
+    if (userStore.role !== 'admin') {
+      ElMessage.error('无权访问（403）：仅管理员可使用该功能')
+      // 跳到 NotFound 并通过 query 标记 403，由 NotFound 展示对应文案
+      next({ name: 'NotFound', query: { status: '403', from: to.fullPath }, replace: true })
+      return
+    }
+  }
+
+  if (to.meta.requiresAuth) {
     const userStore = useUserStore()
     if (userStore.isLoggedIn) {
       next()

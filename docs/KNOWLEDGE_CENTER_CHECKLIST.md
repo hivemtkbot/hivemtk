@@ -68,3 +68,34 @@
 - [ ] 控制台无报错、无 CSP 告警
 - [ ] 关键写操作落库成功（DB 校验）
 - [ ] 遵守 `docs/marketing-features/*.md` 契约
+
+## 第二轮深度实测（真实 JWT + 真实后端 + DB 落库校验，2026-07-23~24）
+
+用真实 JWT 对 12 页逐页发起真实后端调用 + DB 校验，发现并修复 4 个后端真实缺陷：
+
+1. **【P9】OpenAPI 源创建/编辑必 400**：`KnowledgeOpenAPISource.ProductID` 是 int64，前端传 UUID 字符串无法绑入。修复：`knowledge_workspace_controller.go` 的 Create/Update handler 以 string 收 `product_id` 再 `resolveProductID`(UUID→int64) 转。✅ 已验（落库成功）。
+2. **【P2】短文本 <100 字无法入库**：`document_processor.go` 默认 `MinChunkSize=100`/`MinLengthPerChunk=50`，`postProcessChunks` 把 <100 字整块丢弃→「分片结果为空」。改为阈值=1（仅过滤空白）。✅ 已验（19 字文本可切分+向量化+playground 召回）。
+3. **【P5】反馈列表默认隐藏非中性反馈**：`ListFeedbacks` 把默认 `rating=0` 当 `WHERE rating=0` 等值过滤。改为仅 -1/1 作具体过滤、0=全部(sentinel 999)。✅ 已验（total 由 0 恢复为 1）。
+4. **【P10/P11】`platform_account_configs` 表缺失（账号配置 GET/PUT 报 500 relation does not exist）**——根因 & 闭环如下。
+
+### P10/P11 根因（已彻底闭环，非临时兜底）
+
+**真因**：`AutoMigrate(&PlatformAccountConfig{})` 会**级联迁移其 belongs-to 关联 `RagProduct`**；`rag_products` 表存在历史约束命名漂移（`uni_rag_products_vector_table` 不存在，SQLSTATE 42704），该错误被 `isTolerableMigrateError` 判为「可容忍」→ 整个 `AutoMigrate` 调用在**本表尚未创建**时即被中断并返回 nil，导致 `platform_account_configs` 从未建表。随后 `CREATE TABLE IF NOT EXISTS` 因残留的同名 composite `pg_type platform_account_configs`（历史手动建表遗留）名冲突、同样被「already exists」判为可容忍而静默跳过——形成「表实际不存在、GORM 却以为已建」的死结，`HasTable`(查 relkind='r') 返回 false。新鲜测试库无此漂移，故 `TestAutoMigrate_Complete` 通过、唯独真实库漏建，极具迷惑性。
+
+**修复**（`internal/pkg/utils/db/migrate.go`）：
+- `AutoMigrate()` 收尾新增 `missingTables` 终校验：逐模型 `Migrator().HasTable` 探测，任一注册模型表缺失即**启动期 panic**（部署阶段暴露，非生产 500）。
+- 循环内新增 `createTableFallback`：当某模型 `AutoMigrate` 命中可容忍错误且 `HasTable` 为 false 时，先 `DROP TYPE IF EXISTS <表名> CASCADE` 剔除同名 composite type（消除名冲突），再 `CreateTable`（仅建本表、不递归迁移关联模型，避开级联漂移），建后二次核对，仍缺失则 panic。
+- 该兜底对 `platform_account_configs` 在真实库（含 rag_products 漂移）下可自动重建表，且不影响其他 270+ 表。
+
+**验证（真实库 user_db@8232）**：
+- 删除 `platform_account_configs` 后重启 user-server（携带修复），启动无 panic，表自动重建（`to_regclass` 返回 `platform_account_configs`）。
+- `GET /api/rag-config/accounts/config` → HTTP 200；`PUT` → 200 "Configuration updated successfully"，回读确认落库。✅ 端到端无 500。
+
+### 部署附带修复（2026-07-24）
+
+`internal/router/team_routes.go` 为新增文件，但其 handler 引用了不存在的 `TeamUserController` 方法名（`GetCurrentTeamUser` 等），导致 `cmd/api` **无法编译**、阻塞上述修复部署。已将其对齐到真实实现方法（`GetCurrentUser`/`GetList`/`Create`/`Update`/`Delete`/`ChangePassword`/`ResetPassword`），并补 `TeamRoleController`（`GetList`/`Create`/`Update`/`Delete`/`GetPermissions`）与 `OperationLogController`（`GetStatistics`/`GetList`/`GetByID`/`ExportLogs`/`DeleteLogs`/`CleanLogs`）。✅ `go build ./cmd/api/` 通过。
+
+### 环境注意事项
+- user-server 重启会重置 admin 密码，需 `psql` 重置为已知 bcrypt 哈希后再登录。
+- 本机 Docker 工具链安装（apk gcc）偶发网络挂起，无法走 `docker compose build`；采用本地 `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build` 交叉编译 + `docker cp` 注入容器二进制的方式完成部署（等价、可复现）。镜像重建待网络恢复后补做。
+- 测试数据已清理（删除 `test-acc-001`）。

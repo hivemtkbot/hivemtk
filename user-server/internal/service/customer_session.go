@@ -34,21 +34,21 @@ import (
 
 // CustomerSessionService 客服会话服务
 type CustomerSessionService struct {
-	sessionRepo	*repository.CustomerSessionRepository
-	messageRepo	*repository.SessionMessageRepository
-	agentRepo	*repository.AgentStatusRepository
-	suggestionRepo	*repository.AISuggestionRepository
-	blacklistRepo	*repository.UserBlacklistRepository
+	sessionRepo    *repository.CustomerSessionRepository
+	messageRepo    *repository.SessionMessageRepository
+	agentRepo      *repository.AgentStatusRepository
+	suggestionRepo *repository.AISuggestionRepository
+	blacklistRepo  *repository.UserBlacklistRepository
 }
 
 // NewCustomerSessionService 创建客服会话服务实例
 func NewCustomerSessionService() *CustomerSessionService {
 	return &CustomerSessionService{
-		sessionRepo:	repository.NewCustomerSessionRepository(),
-		messageRepo:	repository.NewSessionMessageRepository(),
-		agentRepo:	repository.NewAgentStatusRepository(),
-		suggestionRepo:	repository.NewAISuggestionRepository(),
-		blacklistRepo:	repository.NewUserBlacklistRepository(),
+		sessionRepo:    repository.NewCustomerSessionRepository(),
+		messageRepo:    repository.NewSessionMessageRepository(),
+		agentRepo:      repository.NewAgentStatusRepository(),
+		suggestionRepo: repository.NewAISuggestionRepository(),
+		blacklistRepo:  repository.NewUserBlacklistRepository(),
 	}
 }
 
@@ -58,23 +58,23 @@ func NewCustomerSessionService() *CustomerSessionService {
 // 避免依赖全局 db.GetDB()，保证 reach.web.send 等触达链路使用调用方真实 DB。
 func NewCustomerSessionServiceWithDB(db *gorm.DB) *CustomerSessionService {
 	return &CustomerSessionService{
-		sessionRepo:	repository.NewCustomerSessionRepositoryWithDB(db),
-		messageRepo:	repository.NewSessionMessageRepositoryWithDB(db),
-		agentRepo:	repository.NewAgentStatusRepositoryWithDB(db),
-		suggestionRepo:	repository.NewAISuggestionRepositoryWithDB(db),
-		blacklistRepo:	repository.NewUserBlacklistRepositoryWithDB(db),
+		sessionRepo:    repository.NewCustomerSessionRepositoryWithDB(db),
+		messageRepo:    repository.NewSessionMessageRepositoryWithDB(db),
+		agentRepo:      repository.NewAgentStatusRepositoryWithDB(db),
+		suggestionRepo: repository.NewAISuggestionRepositoryWithDB(db),
+		blacklistRepo:  repository.NewUserBlacklistRepositoryWithDB(db),
 	}
 }
 
 // CreateSessionRequest 创建会话请求
 type CreateSessionRequest struct {
-	Platform	model.Platform	`json:"platform" binding:"required"`
-	AccountID	string		`json:"account_id" binding:"required"`
-	UserID		string		`json:"user_id" binding:"required"`
-	UserName	string		`json:"user_name"`
-	UserAvatar	string		`json:"user_avatar"`
-	UserPhone	string		`json:"user_phone"`
-	UserEmail	string		`json:"user_email"`
+	Platform   model.Platform `json:"platform" binding:"required"`
+	AccountID  string         `json:"account_id" binding:"required"`
+	UserID     string         `json:"user_id" binding:"required"`
+	UserName   string         `json:"user_name"`
+	UserAvatar string         `json:"user_avatar"`
+	UserPhone  string         `json:"user_phone"`
+	UserEmail  string         `json:"user_email"`
 }
 
 // CreateSession 创建会话
@@ -91,16 +91,16 @@ func (s *CustomerSessionService) CreateSession(ctx context.Context, req *CreateS
 	sessionID := generateSessionID()
 
 	session := &model.CustomerSession{
-		SessionID:	sessionID,
-		Platform:	req.Platform,
-		AccountID:	req.AccountID,
-		UserID:		req.UserID,
-		UserName:	req.UserName,
-		UserAvatar:	req.UserAvatar,
-		UserPhone:	req.UserPhone,
-		UserEmail:	req.UserEmail,
-		Status:		model.SessionStatusPending,
-		Priority:	0,
+		SessionID:  sessionID,
+		Platform:   req.Platform,
+		AccountID:  req.AccountID,
+		UserID:     req.UserID,
+		UserName:   req.UserName,
+		UserAvatar: req.UserAvatar,
+		UserPhone:  req.UserPhone,
+		UserEmail:  req.UserEmail,
+		Status:     model.SessionStatusPending,
+		Priority:   0,
 	}
 
 	if err := s.sessionRepo.Create(ctx, session); err != nil {
@@ -166,19 +166,19 @@ func (s *CustomerSessionService) GetSessionByID(ctx context.Context, id uint) (*
 
 // SendMessageRequest 发送消息请求
 type SendMessageRequest struct {
-	SessionID	string			`json:"session_id"`
-	Content		string			`json:"content" binding:"required"`
-	ContentType	model.MessageType	`json:"content_type"`
-	MediaURL	string			`json:"media_url"`
+	SessionID   string            `json:"session_id"`
+	Content     string            `json:"content" binding:"required"`
+	ContentType model.MessageType `json:"content_type"`
+	MediaURL    string            `json:"media_url"`
 	// 2026-07-21 修复：SenderType 不再 binding:"required"，发送者身份由 controller 从鉴权上下文派生。
 	// 旧 binding:"required" 会导致坐席/管理员调用 API 时必须伪造 sender_type 字段（即使 controller 会覆盖），
 	// 否则直接 400。这是安全加固的反向副作用——把"必填校验"留在 controller 中更合适。
-	SenderType	string	`json:"sender_type"`
-	SenderID	string	`json:"sender_id"`
-	SenderName	string	`json:"sender_name"`
-	SenderAvatar	string	`json:"sender_avatar"`
-	AIConfidence	float64	`json:"ai_confidence"`
-	AISource	string	`json:"ai_source"`
+	SenderType   string  `json:"sender_type"`
+	SenderID     string  `json:"sender_id"`
+	SenderName   string  `json:"sender_name"`
+	SenderAvatar string  `json:"sender_avatar"`
+	AIConfidence float64 `json:"ai_confidence"`
+	AISource     string  `json:"ai_source"`
 }
 
 // SendMessage 发送消息
@@ -191,16 +191,16 @@ func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessa
 
 	// 创建消息
 	message := &model.SessionMessage{
-		SessionID:	req.SessionID,
-		Content:	req.Content,
-		ContentType:	req.ContentType,
-		MediaURL:	req.MediaURL,
-		SenderType:	req.SenderType,
-		SenderID:	req.SenderID,
-		SenderName:	req.SenderName,
-		SenderAvatar:	req.SenderAvatar,
-		AIConfidence:	req.AIConfidence,
-		AISource:	req.AISource,
+		SessionID:    req.SessionID,
+		Content:      req.Content,
+		ContentType:  req.ContentType,
+		MediaURL:     req.MediaURL,
+		SenderType:   req.SenderType,
+		SenderID:     req.SenderID,
+		SenderName:   req.SenderName,
+		SenderAvatar: req.SenderAvatar,
+		AIConfidence: req.AIConfidence,
+		AISource:     req.AISource,
 	}
 
 	if req.ContentType == "" {
@@ -245,15 +245,15 @@ func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessa
 // 若访客在线则标记 delivered_at，避免重连时离线补发重复展示
 func (s *CustomerSessionService) pushToVisitor(ctx context.Context, sessionID string, message *model.SessionMessage) {
 	payload := map[string]any{
-		"session_id":	sessionID,
-		"id":		message.ID,
-		"content":	message.Content,
-		"content_type":	message.ContentType,
-		"media_url":	message.MediaURL,
-		"sender_type":	message.SenderType,
-		"sender_name":	message.SenderName,
-		"sender_id":	message.SenderID,
-		"created_at":	message.CreatedAt,
+		"session_id":   sessionID,
+		"id":           message.ID,
+		"content":      message.Content,
+		"content_type": message.ContentType,
+		"media_url":    message.MediaURL,
+		"sender_type":  message.SenderType,
+		"sender_name":  message.SenderName,
+		"sender_id":    message.SenderID,
+		"created_at":   message.CreatedAt,
 	}
 	if websocket.IsVisitorOnline(sessionID) {
 		_ = websocket.SendToVisitor(websocket.TypeMessage, payload, sessionID)
@@ -297,8 +297,8 @@ func (s *CustomerSessionService) UpdateSessionStatus(ctx context.Context, sessio
 	// 通知客服
 	if session.AgentID > 0 {
 		websocket.NotifySessionUpdate(strconv.FormatUint(uint64(session.AgentID), 10), map[string]any{
-			"session_id":	session.SessionID,
-			"status":	status,
+			"session_id": session.SessionID,
+			"status":     status,
 		})
 	}
 

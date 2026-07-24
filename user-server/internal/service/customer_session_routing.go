@@ -20,8 +20,8 @@ import (
 
 // AssignSessionRequest 分配会话请求
 type AssignSessionRequest struct {
-	SessionID	uint	`json:"session_id" binding:"required"`
-	AgentID		uint	`json:"agent_id" binding:"required"`
+	SessionID uint `json:"session_id" binding:"required"`
+	AgentID   uint `json:"agent_id" binding:"required"`
 }
 
 // AssignSession 分配会话给客服
@@ -56,9 +56,9 @@ func (s *CustomerSessionService) AssignSession(ctx context.Context, req *AssignS
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(req.AgentID), 10), session)
 		// 通知访客：人工客服已接入（完成网页客服渠道的坐席侧闭环）
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id":	session.SessionID,
-			"handler":	"human",
-			"reason":	"客服已接入，正在为您服务",
+			"session_id": session.SessionID,
+			"handler":    "human",
+			"reason":     "客服已接入，正在为您服务",
 		}, session.SessionID)
 	}
 
@@ -82,8 +82,8 @@ func (s *CustomerSessionService) AutoAssign(ctx context.Context, sessionID uint)
 	}
 
 	return s.AssignSession(ctx, &AssignSessionRequest{
-		SessionID:	sessionID,
-		AgentID:	selectedAgent.AgentID,
+		SessionID: sessionID,
+		AgentID:   selectedAgent.AgentID,
 	})
 }
 
@@ -121,9 +121,9 @@ func (s *CustomerSessionService) TransferSession(ctx context.Context, sessionID 
 		websocket.NotifyNewSession(strconv.FormatUint(uint64(newAgentID), 10), session)
 		// 通知访客：已转接至其他客服
 		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id":	session.SessionID,
-			"handler":	"human",
-			"reason":	"已为您转接客服，请稍候",
+			"session_id": session.SessionID,
+			"handler":    "human",
+			"reason":     "已为您转接客服，请稍候",
 		}, session.SessionID)
 	}
 

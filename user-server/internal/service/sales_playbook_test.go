@@ -37,7 +37,7 @@ func TestPlaybook_DefaultSeeds_AllIndustries(t *testing.T) {
 	}
 
 	for _, ind := range industries {
-		entries := svc.List(ind, "")
+		entries := svc.List(context.Background(), ind, "")
 		if len(entries) == 0 {
 			t.Errorf("行业 %s 应有默认话术，实际为空", ind)
 		}
@@ -63,7 +63,7 @@ func TestPlaybook_DefaultSeeds_AllStages(t *testing.T) {
 	coverage := 0
 	for _, st := range stages {
 		// 检查每个阶段在医美行业是否有话术
-		entries := svc.List(IndustryMedicalBeauty, st)
+		entries := svc.List(context.Background(), IndustryMedicalBeauty, st)
 		if len(entries) > 0 {
 			coverage++
 		} else {
@@ -612,7 +612,7 @@ func TestPlaybook_CustomAddAndRecommend(t *testing.T) {
 		if e.Title == "张销冠的独门话术" {
 			found = true
 			if e.CreatedBy != "张销冠" {
-				t.Errorf("创建者应为张销冠，实际: %s", e.Create(dBy)
+				t.Errorf("创建者应为张销冠，实际: %s", e.CreatedBy)
 			}
 		}
 	}
@@ -634,7 +634,7 @@ func TestPlaybook_TimestampSet(t *testing.T) {
 	if entry.UpdatedAt.IsZero() {
 		t.Error("UpdatedAt 应自动设置")
 	}
-	if time.Since(entry.Create(dAt) > 1*time.Second {
+	if time.Since(entry.CreatedAt) > 1*time.Second {
 		t.Error("时间戳应为当前时间")
 	}
 	t.Logf("✅ 时间戳自动设置")

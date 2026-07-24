@@ -55,20 +55,20 @@ type dingTalkAppAccountRequest struct {
 }
 
 type dingTalkAppAccountVO struct {
-	ID             uint       `json:"id"`
-	AccountName    string     `json:"account_name"`
-	AppKey         string     `json:"app_key"`
-	AgentID        string     `json:"agent_id"`
-	Token          string     `json:"token"`
-	AESKeyMasked   string     `json:"aes_key_masked"`
-	InboundEnabled bool       `json:"inbound_enabled"`
-	AIAgentID      string     `json:"ai_agent_id"`
-	AppSecretMasked string    `json:"app_secret_masked"`
-	LastErrorAt    *time.Time `json:"last_error_at"`
-	LastErrorMsg   string     `json:"last_error_msg"`
-	Status         int        `json:"status"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID              uint       `json:"id"`
+	AccountName     string     `json:"account_name"`
+	AppKey          string     `json:"app_key"`
+	AgentID         string     `json:"agent_id"`
+	Token           string     `json:"token"`
+	AESKeyMasked    string     `json:"aes_key_masked"`
+	InboundEnabled  bool       `json:"inbound_enabled"`
+	AIAgentID       string     `json:"ai_agent_id"`
+	AppSecretMasked string     `json:"app_secret_masked"`
+	LastErrorAt     *time.Time `json:"last_error_at"`
+	LastErrorMsg    string     `json:"last_error_msg"`
+	Status          int        `json:"status"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 func toDingTalkAppVO(a *model.DingTalkAppAccount) *dingTalkAppAccountVO {

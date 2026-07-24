@@ -109,6 +109,8 @@ import { ref, reactive, onMounted } from 'vue'
 import api from '@/api/whatsapp'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
+// 订单/作业状态：取自统一 orderStatus 常量
+import { getOrderStatusLabel, getOrderStatusTagType } from '@/constants/orderStatus'
 
 const loading = ref(false)
 const creating = ref(false)

@@ -44,11 +44,6 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.GET("/auth/password-policy", authCtrl.GetPasswordPolicy)
 	auth.PUT("/auth/password-policy", authCtrl.SavePasswordPolicy)
 
-	// P1-4 数据行级权限（team_user）
-	rowLevelCtrl := controller.NewRowLevelSecurityController()
-	auth.GET("/team/users/:id/data-scope", rowLevelCtrl.GetUserDataScope)
-	auth.PUT("/team/users/:id/data-scope", rowLevelCtrl.UpdateUserDataScope)
-
 	// 通知中心（站内通知 / 顶部铃铛 badge）
 	notifCtrl := controller.NewNotificationController(service.NewNotificationService(db.GetDB()))
 	auth.GET("/auth/notifications", notifCtrl.List)
@@ -61,6 +56,11 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.GET("/notifications/unread-count", notifCtrl.UnreadCount)
 	auth.POST("/notifications/:id/read", notifCtrl.MarkRead)
 	auth.POST("/notifications/read-all", notifCtrl.MarkAllRead)
+
+	// 阶段 4-6：人员 / 角色 / 授权管理路由统一由 router.go 的 Setup() 在
+	// 装配完其它子路由后集中注册（参见 Setup() 中 setupSystemUserRoutes /
+	// setupRoleRoutes / setupPermissionRoutes 调用），避免在 auth_routes 中
+	// 重复注册导致 gin panic("handlers are already registered for path ...")。
 }
 
 // setupUserRoutes 用户管理路由

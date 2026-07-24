@@ -288,6 +288,7 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 		UserQuery:    req.UserQuery,
 		ChatHistory:  req.ChatHistory,
 		MerchantVars: req.MerchantVars,
+		Sandbox:      req.Sandbox,
 	}
 	for _, d := range req.RAGDocs {
 		in.RAGDocs = append(in.RAGDocs, service.RAGDocument{
@@ -302,7 +303,7 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 			IncludeMerchantVars: req.Options.IncludeMerchantVars,
 		}
 	}
-	msgs, err := c.svc.WeaveForRequest(ctx.Request.Context(), req.AssetID, req.UserQuery, in)
+	msgs, err := c.svc.WeaveForRequest(ctx.Request.Context(), req.AssetID, req.UserQuery, &in)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

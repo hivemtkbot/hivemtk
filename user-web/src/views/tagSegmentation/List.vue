@@ -29,22 +29,34 @@
         </div>
         <el-table :data="filteredTags" v-loading="loading.tags" stripe>
           <template #empty><el-empty description="暂无标签数据" /></template>
-          <el-table-column prop="name" label="标签名称" min-width="150" />
-          <el-table-column prop="type" label="类型" width="100">
+          <el-table-column prop="name" label="标签名称" min-width="180" show-overflow-tooltip />
+          <el-table-column label="类型" min-width="90">
             <template #default="{ row }">
-              <el-tag :type="getTypeColor(row.type || 'manual')" size="small">{{ getTypeText(row.type || 'manual') }}</el-tag>
+              <el-tag :type="getTypeColor(row.tag_type || row.type || 'manual')" size="small">
+                {{ getTypeText(row.tag_type || row.type || 'manual') }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="group" label="分类" width="140">
+          <el-table-column label="分类" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">{{ row.group || row.category || '默认' }}</template>
           </el-table-column>
-          <el-table-column prop="userCount" label="用户数" width="100" align="center" />
-          <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
-          <el-table-column prop="createdAt" label="创建时间" width="180" />
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="用户数" min-width="90" align="center">
+            <template #default="{ row }">{{ row.user_count ?? row.userCount ?? 0 }}</template>
+          </el-table-column>
+          <el-table-column label="状态" min-width="90" align="center">
             <template #default="{ row }">
-              <el-button link type="primary" @click="showTagDialog(row)">编辑</el-button>
-              <el-button link type="danger" @click="deleteTag(row)">删除</el-button>
+              <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
+                {{ row.is_active ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" min-width="160" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatTime(row.created_at || row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" min-width="160" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="showTagDialog(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="deleteTag(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -71,8 +83,8 @@
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'enabled' ? 'success' : 'info'" size="small">
-                  {{ row.status === 'enabled' ? '启用' : '禁用' }}
+                <el-tag :type="getStatusTagType(row.status)" size="small">
+                  {{ getStatusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -215,6 +227,11 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { TagSegmentationApi } from '@/api/tagSegmentation.js'
+// 统一枚举：标签启用/禁用（兼容 enabled/disabled 与 1/0）
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+
+const getStatusLabel = (s) => getEnabledLabel(s)
+const getStatusTagType = (s) => getEnabledTagType(s)
 
 const activeTab = ref('tags')
 const loading = reactive({ tags: false, rules: false, strategy: false, stats: false })
@@ -337,6 +354,38 @@ const showTagDialog = (row) => {
     tagDialogTitle.value = '新增标签'
   }
   tagDialogVisible.value = true
+}
+
+const formatDate = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) {
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    if (hours === 0) {
+      const minutes = Math.floor(diff / (1000 * 60))
+      return minutes <= 1 ? '刚刚' : `${minutes}分钟前`
+    }
+    return `${hours}小时前`
+  } else if (days === 1) {
+    return '昨天'
+  } else if (days < 7) {
+    return `${days}天前`
+  } else {
+    return formatDate(date)
+  }
 }
 
 const genTagCode = (name) => {

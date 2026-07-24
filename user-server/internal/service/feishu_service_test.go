@@ -38,7 +38,7 @@ type feishuMockTransport struct {
 	code int // 用于错误用例：非 0 表示 API 业务错误
 }
 
-func (m feishuMockTransport) RoundTrip(ctx context.Context, r *http.Request)  (*http.Response, error) {
+func (m feishuMockTransport) RoundTrip(ctx context.Context, r *http.Request) (*http.Response, error) {
 	var body []byte
 	status := http.StatusOK
 	switch r.URL.Path {

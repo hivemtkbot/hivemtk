@@ -23,105 +23,105 @@ import (
 
 // 消息中台 - 业务错误码
 var (
-	ErrMessageHubInvalidPlatform	= errors.New("invalid platform")
-	ErrMessageHubInvalidMsgID	= errors.New("invalid msg_id")
-	ErrMessageHubInvalidContent	= errors.New("invalid content")
-	ErrMessageHubInvalidAccount	= errors.New("invalid account_id")
-	ErrMessageHubInvalidDirection	= errors.New("invalid direction")
-	ErrMessageHubInvalidMsgType	= errors.New("invalid msg_type")
-	ErrMessageHubEmptyMerchant	= errors.New("user_id is required")
-	ErrMessageHubTooLarge		= errors.New("content too large")
-	ErrMessageHubIdempotent		= errors.New("duplicate message (idempotent)")
-	ErrMessageHubQueueFull		= errors.New("queue is full")
-	ErrMessageHubStreamNotFound	= errors.New("stream not found")
-	ErrMessageHubPartitionMismatch	= errors.New("partition mismatch")
+	ErrMessageHubInvalidPlatform   = errors.New("invalid platform")
+	ErrMessageHubInvalidMsgID      = errors.New("invalid msg_id")
+	ErrMessageHubInvalidContent    = errors.New("invalid content")
+	ErrMessageHubInvalidAccount    = errors.New("invalid account_id")
+	ErrMessageHubInvalidDirection  = errors.New("invalid direction")
+	ErrMessageHubInvalidMsgType    = errors.New("invalid msg_type")
+	ErrMessageHubEmptyMerchant     = errors.New("user_id is required")
+	ErrMessageHubTooLarge          = errors.New("content too large")
+	ErrMessageHubIdempotent        = errors.New("duplicate message (idempotent)")
+	ErrMessageHubQueueFull         = errors.New("queue is full")
+	ErrMessageHubStreamNotFound    = errors.New("stream not found")
+	ErrMessageHubPartitionMismatch = errors.New("partition mismatch")
 )
 
 // 支持的平台白名单
 var messageHubPlatforms = map[string]bool{
-	"wecom":	true,	// 企业微信
-	"personal_wx":	true,	// 个人微信
-	"douyin":	true,	// 抖音
-	"kuaishou":	true,	// 快手
-	"xiaohongshu":	true,	// 小红书
-	"xianyu":	true,	// 闲鱼
-	"tiktok":	true,	// TikTok
-	"whatsapp":	true,	// WhatsApp
-	"sms":		true,	// 短信
-	"email":	true,	// 邮件
-	"telegram":	true,	// Telegram（Phase3 接入）
-	"feishu":	true,	// 飞书（Phase4 接入）
+	"wecom":       true, // 企业微信
+	"personal_wx": true, // 个人微信
+	"douyin":      true, // 抖音
+	"kuaishou":    true, // 快手
+	"xiaohongshu": true, // 小红书
+	"xianyu":      true, // 闲鱼
+	"tiktok":      true, // TikTok
+	"whatsapp":    true, // WhatsApp
+	"sms":         true, // 短信
+	"email":       true, // 邮件
+	"telegram":    true, // Telegram（Phase3 接入）
+	"feishu":      true, // 飞书（Phase4 接入）
 }
 
 // 支持的消息类型
 var messageHubMsgTypes = map[string]bool{
-	"text":		true,
-	"image":	true,
-	"file":		true,
-	"audio":	true,
-	"video":	true,
-	"link":		true,
-	"card":		true,
-	"location":	true,
+	"text":     true,
+	"image":    true,
+	"file":     true,
+	"audio":    true,
+	"video":    true,
+	"link":     true,
+	"card":     true,
+	"location": true,
 }
 
 // 支持的方向
 var messageHubDirections = map[string]bool{
-	"inbound":	true,
-	"outbound":	true,
+	"inbound":  true,
+	"outbound": true,
 }
 
 // 消息中台常量
 const (
-	MessageHubDefaultIdemTTL	= 24 * time.Hour	// 默认幂等窗口 24h
-	MessageHubDefaultMaxContent	= 64 * 1024		// 64KB 单条上限
-	MessageHubDefaultQueueSize	= 10000			// 内存队列容量
-	MessageHubStreamKeyPrefix	= "msg:hub:stream:"
-	MessageHubIdemKeyPrefix		= "msg:hub:idem:"
+	MessageHubDefaultIdemTTL    = 24 * time.Hour // 默认幂等窗口 24h
+	MessageHubDefaultMaxContent = 64 * 1024      // 64KB 单条上限
+	MessageHubDefaultQueueSize  = 10000          // 内存队列容量
+	MessageHubStreamKeyPrefix   = "msg:hub:stream:"
+	MessageHubIdemKeyPrefix     = "msg:hub:idem:"
 )
 
 // PushMessageRequest 推送消息到中台
 type PushMessageRequest struct {
-	Platform	string		`json:"platform"`
-	AccountID	string		`json:"account_id"`
-	MsgID		string		`json:"msg_id"`
-	Direction	string		`json:"direction"`
-	MsgType		string		`json:"msg_type"`
-	SenderID	string		`json:"sender_id"`
-	SenderName	string		`json:"sender_name"`
-	ReceiverID	string		`json:"receiver_id"`
-	ReceiverName	string		`json:"receiver_name"`
-	Content		string		`json:"content"`
-	MediaURL	string		`json:"media_url"`
-	ConversationID	string		`json:"conversation_id"`
-	IsGroup		bool		`json:"is_group"`
-	GroupID		string		`json:"group_id"`
-	IsAIReply	bool		`json:"is_ai_reply"`
-	AIAgent		string		`json:"ai_agent"`
-	Extra		map[string]any	`json:"extra"`
-	SentAt		*time.Time	`json:"sent_at"`
+	Platform       string         `json:"platform"`
+	AccountID      string         `json:"account_id"`
+	MsgID          string         `json:"msg_id"`
+	Direction      string         `json:"direction"`
+	MsgType        string         `json:"msg_type"`
+	SenderID       string         `json:"sender_id"`
+	SenderName     string         `json:"sender_name"`
+	ReceiverID     string         `json:"receiver_id"`
+	ReceiverName   string         `json:"receiver_name"`
+	Content        string         `json:"content"`
+	MediaURL       string         `json:"media_url"`
+	ConversationID string         `json:"conversation_id"`
+	IsGroup        bool           `json:"is_group"`
+	GroupID        string         `json:"group_id"`
+	IsAIReply      bool           `json:"is_ai_reply"`
+	AIAgent        string         `json:"ai_agent"`
+	Extra          map[string]any `json:"extra"`
+	SentAt         *time.Time     `json:"sent_at"`
 }
 
 // MessageHubService 消息中台服务
 type MessageHubService struct {
-	db		*gorm.DB
-	cache		cache.Cache
-	mu		sync.RWMutex
-	streams		map[string]*hubStream	// platform:account -> stream
-	streamSize	int
-	idemTTL		time.Duration
-	maxContent	int
-	subscribers	[]MessageSubscriber
-	subMu		sync.RWMutex
+	db          *gorm.DB
+	cache       cache.Cache
+	mu          sync.RWMutex
+	streams     map[string]*hubStream // platform:account -> stream
+	streamSize  int
+	idemTTL     time.Duration
+	maxContent  int
+	subscribers []MessageSubscriber
+	subMu       sync.RWMutex
 }
 
 // hubStream 内存流（Redis 不可用时降级）
 type hubStream struct {
-	mu		sync.Mutex
-	cond		*sync.Cond
-	messages	[]*model.MessageHub
-	closed		bool
-	partition	string
+	mu        sync.Mutex
+	cond      *sync.Cond
+	messages  []*model.MessageHub
+	closed    bool
+	partition string
 }
 
 // MessageSubscriber 消息订阅者
@@ -143,12 +143,12 @@ func NewMessageHubServiceWithDB(db *gorm.DB, c cache.Cache) *MessageHubService {
 		c = cache.GetGlobalCache()
 	}
 	s := &MessageHubService{
-		db:		db,
-		cache:		c,
-		streams:	make(map[string]*hubStream),
-		streamSize:	MessageHubDefaultQueueSize,
-		idemTTL:	MessageHubDefaultIdemTTL,
-		maxContent:	MessageHubDefaultMaxContent,
+		db:         db,
+		cache:      c,
+		streams:    make(map[string]*hubStream),
+		streamSize: MessageHubDefaultQueueSize,
+		idemTTL:    MessageHubDefaultIdemTTL,
+		maxContent: MessageHubDefaultMaxContent,
 	}
 	return s
 }
@@ -221,25 +221,25 @@ func (s *MessageHubService) Normalize(ctx context.Context, req *PushMessageReque
 
 	return &model.MessageHub{
 
-		MsgID:		req.MsgID,
-		Platform:	req.Platform,
-		AccountID:	req.AccountID,
-		Direction:	req.Direction,
-		MsgType:	req.MsgType,
-		SenderID:	strings.TrimSpace(req.SenderID),
-		SenderName:	strings.TrimSpace(req.SenderName),
-		ReceiverID:	strings.TrimSpace(req.ReceiverID),
-		ReceiverName:	strings.TrimSpace(req.ReceiverName),
-		Content:	req.Content,
-		MediaURL:	req.MediaURL,
-		ConversationID:	req.ConversationID,
-		IsGroup:	req.IsGroup,
-		GroupID:	req.GroupID,
-		IsAIReply:	req.IsAIReply,
-		AIAgent:	req.AIAgent,
-		IsRead:		false,
-		SentAt:		sentAt,
-		Extra:		extra,
+		MsgID:          req.MsgID,
+		Platform:       req.Platform,
+		AccountID:      req.AccountID,
+		Direction:      req.Direction,
+		MsgType:        req.MsgType,
+		SenderID:       strings.TrimSpace(req.SenderID),
+		SenderName:     strings.TrimSpace(req.SenderName),
+		ReceiverID:     strings.TrimSpace(req.ReceiverID),
+		ReceiverName:   strings.TrimSpace(req.ReceiverName),
+		Content:        req.Content,
+		MediaURL:       req.MediaURL,
+		ConversationID: req.ConversationID,
+		IsGroup:        req.IsGroup,
+		GroupID:        req.GroupID,
+		IsAIReply:      req.IsAIReply,
+		AIAgent:        req.AIAgent,
+		IsRead:         false,
+		SentAt:         sentAt,
+		Extra:          extra,
 	}, nil
 }
 
@@ -255,7 +255,7 @@ func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accou
 		return false, 0, nil
 	}
 	var existing model.MessageHub
-	err := s.db.WithContext(ctx).Where( "platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
+	err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
 		First(&existing).Error
 	if err == nil {
 		return true, existing.ID, nil
@@ -318,20 +318,20 @@ func (s *MessageHubService) PushBatch(ctx context.Context, reqs []PushMessageReq
 
 // ListQuery 列表查询条件
 type ListQuery struct {
-	Platform	string
-	AccountID	string
-	ConversationID	string
-	SenderID	string
-	Direction	string
-	MsgType		string
-	Keyword		string
-	IsRead		*bool
-	IsGroup		*bool
-	StartTime	*time.Time
-	EndTime		*time.Time
-	Page		int
-	PageSize	int
-	OrderBy		string
+	Platform       string
+	AccountID      string
+	ConversationID string
+	SenderID       string
+	Direction      string
+	MsgType        string
+	Keyword        string
+	IsRead         *bool
+	IsGroup        *bool
+	StartTime      *time.Time
+	EndTime        *time.Time
+	Page           int
+	PageSize       int
+	OrderBy        string
 }
 
 // List 列表查询
@@ -427,22 +427,22 @@ func (s *MessageHubService) MarkRead(ctx context.Context, ids []uint) error {
 	// 使用 GORM Updates（map 形式）避免 bool 字段零值问题，无需 Raw SQL
 	return s.db.WithContext(ctx).Model(&model.MessageHub{}).Where("id IN ?", ids).
 		Updates(map[string]any{
-			"is_read":	true,
-			"read_at":	now,
+			"is_read": true,
+			"read_at": now,
 		}).Error
 }
 
 // Stats 统计
 type HubStats struct {
-	Total		int64			`json:"total"`
-	Inbound		int64			`json:"inbound"`
-	Outbound	int64			`json:"outbound"`
-	Unread		int64			`json:"unread"`
-	ByPlatform	map[string]int64	`json:"by_platform"`
-	ByDirection	map[string]int64	`json:"by_direction"`
-	ByMsgType	map[string]int64	`json:"by_msg_type"`
-	ByAccount	map[string]int64	`json:"by_account"`
-	Recent24h	int64			`json:"recent_24h"`
+	Total       int64            `json:"total"`
+	Inbound     int64            `json:"inbound"`
+	Outbound    int64            `json:"outbound"`
+	Unread      int64            `json:"unread"`
+	ByPlatform  map[string]int64 `json:"by_platform"`
+	ByDirection map[string]int64 `json:"by_direction"`
+	ByMsgType   map[string]int64 `json:"by_msg_type"`
+	ByAccount   map[string]int64 `json:"by_account"`
+	Recent24h   int64            `json:"recent_24h"`
 }
 
 // GetStats 统计
@@ -475,14 +475,14 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 		Where("(is_read = ? OR is_read IS NULL)", false).
 		Count(&unread)
 	stats := &HubStats{
-		Total:	total, Inbound: inbound, Outbound: outbound, Unread: unread,
-		ByPlatform:	map[string]int64{}, ByDirection: map[string]int64{},
-		ByMsgType:	map[string]int64{}, ByAccount: map[string]int64{},
+		Total: total, Inbound: inbound, Outbound: outbound, Unread: unread,
+		ByPlatform: map[string]int64{}, ByDirection: map[string]int64{},
+		ByMsgType: map[string]int64{}, ByAccount: map[string]int64{},
 	}
 	// 平台分布
 	type pcount struct {
-		Platform	string
-		C		int64
+		Platform string
+		C        int64
 	}
 	var pCounts []pcount
 	s.db.WithContext(ctx).Model(&model.MessageHub{}).
@@ -495,8 +495,8 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 方向分布
 	type dcount struct {
-		Direction	string
-		C		int64
+		Direction string
+		C         int64
 	}
 	var dCounts []dcount
 	s.db.WithContext(ctx).Model(&model.MessageHub{}).
@@ -508,8 +508,8 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 消息类型分布
 	type tcount struct {
-		MsgType	string
-		C	int64
+		MsgType string
+		C       int64
 	}
 	var tCounts []tcount
 	s.db.WithContext(ctx).Model(&model.MessageHub{}).
@@ -521,8 +521,8 @@ func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time)
 	}
 	// 账号分布 Top 50
 	type acount struct {
-		AccountID	string
-		C		int64
+		AccountID string
+		C         int64
 	}
 	var aCounts []acount
 	s.db.WithContext(ctx).Model(&model.MessageHub{}).
@@ -590,7 +590,7 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 			// 没有 stream，尝试从 DB 取最后一条
 			if s.db != nil {
 				var msg model.MessageHub
-				err := s.db.WithContext(ctx).Where( "platform = ? AND account_id = ?", platform, accountID).
+				err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ?", platform, accountID).
 					Order("sent_at DESC").First(&msg).Error
 				if err == nil {
 					return &msg, nil
@@ -709,21 +709,21 @@ func GenerateMsgID(platform, accountID string) string {
 
 // 标准化不同渠道的原始消息到 PushMessageRequest
 type RawChannelMessage struct {
-	Platform	string		`json:"platform"`
-	AccountID	string		`json:"account_id"`
-	MsgID		string		`json:"msg_id"`
-	From		string		`json:"from"`
-	FromName	string		`json:"from_name"`
-	To		string		`json:"to"`
-	ToName		string		`json:"to_name"`
-	Content		string		`json:"content"`
-	MsgType		string		`json:"msg_type"`
-	MediaURL	string		`json:"media_url"`
-	ConversationID	string		`json:"conversation_id"`
-	IsGroup		bool		`json:"is_group"`
-	GroupID		string		`json:"group_id"`
-	SentAt		*time.Time	`json:"sent_at"`
-	Extra		map[string]any	`json:"extra"`
+	Platform       string         `json:"platform"`
+	AccountID      string         `json:"account_id"`
+	MsgID          string         `json:"msg_id"`
+	From           string         `json:"from"`
+	FromName       string         `json:"from_name"`
+	To             string         `json:"to"`
+	ToName         string         `json:"to_name"`
+	Content        string         `json:"content"`
+	MsgType        string         `json:"msg_type"`
+	MediaURL       string         `json:"media_url"`
+	ConversationID string         `json:"conversation_id"`
+	IsGroup        bool           `json:"is_group"`
+	GroupID        string         `json:"group_id"`
+	SentAt         *time.Time     `json:"sent_at"`
+	Extra          map[string]any `json:"extra"`
 }
 
 // ConvertFromChannel 渠道原始消息 → PushMessageRequest
@@ -733,22 +733,22 @@ func (s *MessageHubService) ConvertFromChannel(ctx context.Context, raw *RawChan
 	}
 	return &PushMessageRequest{
 
-		Platform:	raw.Platform,
-		AccountID:	raw.AccountID,
-		MsgID:		raw.MsgID,
-		Direction:	"inbound",
-		MsgType:	raw.MsgType,
-		SenderID:	raw.From,
-		SenderName:	raw.FromName,
-		ReceiverID:	raw.To,
-		ReceiverName:	raw.ToName,
-		Content:	raw.Content,
-		MediaURL:	raw.MediaURL,
-		ConversationID:	raw.ConversationID,
-		IsGroup:	raw.IsGroup,
-		GroupID:	raw.GroupID,
-		SentAt:		raw.SentAt,
-		Extra:		raw.Extra,
+		Platform:       raw.Platform,
+		AccountID:      raw.AccountID,
+		MsgID:          raw.MsgID,
+		Direction:      "inbound",
+		MsgType:        raw.MsgType,
+		SenderID:       raw.From,
+		SenderName:     raw.FromName,
+		ReceiverID:     raw.To,
+		ReceiverName:   raw.ToName,
+		Content:        raw.Content,
+		MediaURL:       raw.MediaURL,
+		ConversationID: raw.ConversationID,
+		IsGroup:        raw.IsGroup,
+		GroupID:        raw.GroupID,
+		SentAt:         raw.SentAt,
+		Extra:          raw.Extra,
 	}
 }
 

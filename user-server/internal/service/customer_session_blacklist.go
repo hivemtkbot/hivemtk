@@ -24,20 +24,20 @@ import (
 
 // BlacklistRequest 拉黑请求
 type BlacklistRequest struct {
-	SessionID	uint	`json:"session_id" binding:"required"`
-	Reason		string	`json:"reason"`		// 拉黑原因
-	OperatorID	uint	`json:"operator_id"`	// 操作人（坐席 ID）
-	OperatorName	string	`json:"operator_name"`	// 操作人姓名
-	TTLHours	int	`json:"ttl_hours"`	// 0 = 永久
+	SessionID    uint   `json:"session_id" binding:"required"`
+	Reason       string `json:"reason"`        // 拉黑原因
+	OperatorID   uint   `json:"operator_id"`   // 操作人（坐席 ID）
+	OperatorName string `json:"operator_name"` // 操作人姓名
+	TTLHours     int    `json:"ttl_hours"`     // 0 = 永久
 }
 
 // BlacklistSource 黑名单来源枚举
 type BlacklistSource string
 
 const (
-	BlacklistSourceManual	BlacklistSource	= "manual"	// 坐席手动
-	BlacklistSourceAuto	BlacklistSource	= "auto"	// 系统自动
-	BlacklistSourceRisk	BlacklistSource	= "risk"	// 风控引擎
+	BlacklistSourceManual BlacklistSource = "manual" // 坐席手动
+	BlacklistSourceAuto   BlacklistSource = "auto"   // 系统自动
+	BlacklistSourceRisk   BlacklistSource = "risk"   // 风控引擎
 )
 
 // BlacklistUser 拉黑当前会话对应的访客（user_id 维度）
@@ -50,7 +50,7 @@ const (
 //
 // 错误：返回业务语义化错误（含中文 message 供前端直接展示）。
 func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *BlacklistRequest) error {
-	_ = ctx	// 当前实现未使用，预留支持 context 超时/链路追踪
+	_ = ctx // 当前实现未使用，预留支持 context 超时/链路追踪
 	if req == nil {
 		return errors.New("请求体不能为空")
 	}
@@ -72,15 +72,15 @@ func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *Blackli
 	}
 
 	blacklistRecord := &model.UserBlacklist{
-		UserID:		session.UserID,
-		Platform:	session.Platform,
-		Reason:		req.Reason,
-		Source:		string(BlacklistSourceManual),
-		OperatorID:	req.OperatorID,
-		OperatorName:	req.OperatorName,
-		SessionID:	session.SessionID,
-		Active:		true,
-		ExpiresAt:	expiresAt,
+		UserID:       session.UserID,
+		Platform:     session.Platform,
+		Reason:       req.Reason,
+		Source:       string(BlacklistSourceManual),
+		OperatorID:   req.OperatorID,
+		OperatorName: req.OperatorName,
+		SessionID:    session.SessionID,
+		Active:       true,
+		ExpiresAt:    expiresAt,
 	}
 	if err := s.blacklistRepo.Add(ctx, blacklistRecord); err != nil {
 		return fmt.Errorf("写入黑名单失败: %w", err)
@@ -97,10 +97,10 @@ func (s *CustomerSessionService) BlacklistUser(ctx context.Context, req *Blackli
 		_ = err
 	}
 	if err := websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-		"session_id":	session.SessionID,
-		"handler":	"human",
-		"reason":	"因违反服务条款，该访客已被加入黑名单",
-		"blacklisted":	true,
+		"session_id":  session.SessionID,
+		"handler":     "human",
+		"reason":      "因违反服务条款，该访客已被加入黑名单",
+		"blacklisted": true,
 	}, session.SessionID); err != nil {
 		_ = err
 	}
@@ -168,7 +168,7 @@ func (s *CustomerSessionService) preCreateBlacklistGuard(ctx context.Context, re
 		return errors.New("请求体不能为空")
 	}
 	if req.UserID == "" {
-		return nil	// 匿名访客不参与黑名单
+		return nil // 匿名访客不参与黑名单
 	}
 	banned, err := s.blacklistRepo.IsBlacklisted(ctx, req.UserID, req.Platform)
 	if err != nil {

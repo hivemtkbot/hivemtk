@@ -102,7 +102,7 @@ func maskBotToken(token string) string {
 
 // List 列表
 func (ctrl *TelegramAccountController) List(c *gin.Context) {
-	accs, err := ctrl.svc.ListAccounts(context.Background(), )
+	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "获取列表失败", err.Error())
 		return

@@ -1,13 +1,13 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"marketing/internal/integration/templates"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 // IntegrationTemplateService 第三方对接模板服务
@@ -109,7 +109,7 @@ func (s *IntegrationTemplateService) List(ctx context.Context, platform, categor
 }
 
 // ListBuiltIn 列出所有预置模板
-func (s *IntegrationTemplateService) ListBuiltIn(ctx context.Context,) ([]*model.IntegrationTemplate, error) {
+func (s *IntegrationTemplateService) ListBuiltIn(ctx context.Context) ([]*model.IntegrationTemplate, error) {
 	return s.repo.ListBuiltIn(ctx)
 }
 
@@ -123,7 +123,7 @@ func (s *IntegrationTemplateService) Export(ctx context.Context, id uint64) ([]b
 }
 
 // ExportAll 导出全部
-func (s *IntegrationTemplateService) ExportAll(ctx context.Context,) ([]byte, error) {
+func (s *IntegrationTemplateService) ExportAll(ctx context.Context) ([]byte, error) {
 	items, err := s.repo.ListBuiltIn(ctx)
 	if err != nil {
 		return nil, err
@@ -134,9 +134,9 @@ func (s *IntegrationTemplateService) ExportAll(ctx context.Context,) ([]byte, er
 	}
 	all := append(items, customList...)
 	return json.MarshalIndent(map[string]any{
-		"version":	"1.0.0",
-		"count":	len(all),
-		"templates":	all,
+		"version":   "1.0.0",
+		"count":     len(all),
+		"templates": all,
 	}, "", "  ")
 }
 
@@ -159,8 +159,8 @@ func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (i
 	}
 	// 集合
 	var bundle struct {
-		Version		string				`json:"version"`
-		Templates	[]model.IntegrationTemplate	`json:"templates"`
+		Version   string                      `json:"version"`
+		Templates []model.IntegrationTemplate `json:"templates"`
 	}
 	if err := json.Unmarshal(data, &bundle); err != nil {
 		return 0, fmt.Errorf("解析失败: %w", err)
@@ -184,7 +184,7 @@ func (s *IntegrationTemplateService) Import(ctx context.Context, data []byte) (i
 
 // SeedBuiltIn 种子化预置模板（幂等）
 // 建议在 migration 之后或服务启动时调用
-func (s *IntegrationTemplateService) SeedBuiltIn(ctx context.Context,) (int, error) {
+func (s *IntegrationTemplateService) SeedBuiltIn(ctx context.Context) (int, error) {
 	all := templates.All()
 	success := 0
 	for _, t := range all {

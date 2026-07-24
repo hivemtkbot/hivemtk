@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"marketing/internal/model"
 	"context"
+	"marketing/internal/model"
 )
 
 // ============================================================================
@@ -16,65 +16,65 @@ import (
 
 // FeishuAccountVO 飞书账号视图（敏感字段掩码）
 type FeishuAccountVO struct {
-	ID			uint		`json:"id"`
-	AccountName		string		`json:"account_name"`
-	AppID			string		`json:"app_id"`
-	AppSecretMasked		string		`json:"app_secret_masked"`
-	VerificationToken	string		`json:"verification_token"`
-	EncryptKeyMasked	string		`json:"encrypt_key_masked"`
-	WebhookEnabled		bool		`json:"webhook_enabled"`
-	AIAgentEnabled		bool		`json:"ai_agent_enabled"`
-	LastSyncAt		*time.Time	`json:"last_sync_at"`
-	LastErrorAt		*time.Time	`json:"last_error_at"`
-	LastErrorMsg		string		`json:"last_error_msg"`
-	Status			int		`json:"status"`
-	CreatedAt		time.Time	`json:"created_at"`
-	UpdatedAt		time.Time	`json:"updated_at"`
+	ID                uint       `json:"id"`
+	AccountName       string     `json:"account_name"`
+	AppID             string     `json:"app_id"`
+	AppSecretMasked   string     `json:"app_secret_masked"`
+	VerificationToken string     `json:"verification_token"`
+	EncryptKeyMasked  string     `json:"encrypt_key_masked"`
+	WebhookEnabled    bool       `json:"webhook_enabled"`
+	AIAgentEnabled    bool       `json:"ai_agent_enabled"`
+	LastSyncAt        *time.Time `json:"last_sync_at"`
+	LastErrorAt       *time.Time `json:"last_error_at"`
+	LastErrorMsg      string     `json:"last_error_msg"`
+	Status            int        `json:"status"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 func toFeishuVO(a *model.FeishuAccount) *FeishuAccountVO {
 	return &FeishuAccountVO{
-		ID:			a.ID,
-		AccountName:		a.AccountName,
-		AppID:			a.AppID,
-		AppSecretMasked:	maskSecret(a.AppSecret),
-		VerificationToken:	a.VerificationToken,
-		EncryptKeyMasked:	maskSecret(a.EncryptKey),
-		WebhookEnabled:		a.WebhookEnabled,
-		AIAgentEnabled:		a.AIAgentEnabled,
-		LastSyncAt:		a.LastSyncAt,
-		LastErrorAt:		a.LastErrorAt,
-		LastErrorMsg:		a.LastErrorMsg,
-		Status:			a.Status,
-		CreatedAt:		a.CreatedAt,
-		UpdatedAt:		a.UpdatedAt,
+		ID:                a.ID,
+		AccountName:       a.AccountName,
+		AppID:             a.AppID,
+		AppSecretMasked:   maskSecret(a.AppSecret),
+		VerificationToken: a.VerificationToken,
+		EncryptKeyMasked:  maskSecret(a.EncryptKey),
+		WebhookEnabled:    a.WebhookEnabled,
+		AIAgentEnabled:    a.AIAgentEnabled,
+		LastSyncAt:        a.LastSyncAt,
+		LastErrorAt:       a.LastErrorAt,
+		LastErrorMsg:      a.LastErrorMsg,
+		Status:            a.Status,
+		CreatedAt:         a.CreatedAt,
+		UpdatedAt:         a.UpdatedAt,
 	}
 }
 
 // FeishuAccountCreateReq 飞书账号创建请求
 type FeishuAccountCreateReq struct {
-	AccountName		string
-	AppID			string
-	AppSecret		string
-	VerificationToken	string
-	EncryptKey		string
-	WebhookEnabled		bool
-	AIAgentEnabled		bool
+	AccountName       string
+	AppID             string
+	AppSecret         string
+	VerificationToken string
+	EncryptKey        string
+	WebhookEnabled    bool
+	AIAgentEnabled    bool
 }
 
 // FeishuAccountUpdateReq 飞书账号更新请求
 type FeishuAccountUpdateReq struct {
-	AccountName		*string
-	AppSecret		*string
-	VerificationToken	*string
-	EncryptKey		*string
-	WebhookEnabled		*bool
-	AIAgentEnabled		*bool
-	Status			*int
+	AccountName       *string
+	AppSecret         *string
+	VerificationToken *string
+	EncryptKey        *string
+	WebhookEnabled    *bool
+	AIAgentEnabled    *bool
+	Status            *int
 }
 
 // ListFeishuAccountVOs 列出所有飞书账号（视图）
-func (s *FeishuService) ListFeishuAccountVOs(ctx context.Context,) ([]*FeishuAccountVO, error) {
+func (s *FeishuService) ListFeishuAccountVOs(ctx context.Context) ([]*FeishuAccountVO, error) {
 	accs, err := s.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -98,14 +98,14 @@ func (s *FeishuService) GetFeishuAccountVO(ctx context.Context, id uint) (*Feish
 // CreateFeishuAccountVO 创建飞书账号（视图）
 func (s *FeishuService) CreateFeishuAccountVO(ctx context.Context, req FeishuAccountCreateReq) (*FeishuAccountVO, error) {
 	acc := &model.FeishuAccount{
-		AccountName:		req.AccountName,
-		AppID:			req.AppID,
-		AppSecret:		req.AppSecret,
-		VerificationToken:	req.VerificationToken,
-		EncryptKey:		req.EncryptKey,
-		WebhookEnabled:		req.WebhookEnabled,
-		AIAgentEnabled:		req.AIAgentEnabled,
-		Status:			1,
+		AccountName:       req.AccountName,
+		AppID:             req.AppID,
+		AppSecret:         req.AppSecret,
+		VerificationToken: req.VerificationToken,
+		EncryptKey:        req.EncryptKey,
+		WebhookEnabled:    req.WebhookEnabled,
+		AIAgentEnabled:    req.AIAgentEnabled,
+		Status:            1,
 	}
 	out, err := s.CreateAccount(ctx, acc)
 	if err != nil {
@@ -156,68 +156,68 @@ func (s *FeishuService) DeleteFeishuAccountVO(ctx context.Context, id uint) erro
 
 // WhatsAppCloudAccountVO WhatsApp Cloud 账号视图（敏感字段掩码）
 type WhatsAppCloudAccountVO struct {
-	ID			uint		`json:"id"`
-	AccountName		string		`json:"account_name"`
-	PhoneNumberID		string		`json:"phone_number_id"`
-	WhatsAppBusinessID	string		`json:"whatsapp_business_id"`
-	AccessTokenMasked	string		`json:"access_token_masked"`
-	VerifyToken		string		`json:"verify_token"`
-	AppSecretMasked		string		`json:"app_secret_masked"`
-	WebhookEnabled		bool		`json:"webhook_enabled"`
-	AIAgentEnabled		bool		`json:"ai_agent_enabled"`
-	LastSyncAt		*time.Time	`json:"last_sync_at"`
-	LastErrorAt		*time.Time	`json:"last_error_at"`
-	LastErrorMsg		string		`json:"last_error_msg"`
-	Status			int		`json:"status"`
-	CreatedAt		time.Time	`json:"created_at"`
-	UpdatedAt		time.Time	`json:"updated_at"`
+	ID                 uint       `json:"id"`
+	AccountName        string     `json:"account_name"`
+	PhoneNumberID      string     `json:"phone_number_id"`
+	WhatsAppBusinessID string     `json:"whatsapp_business_id"`
+	AccessTokenMasked  string     `json:"access_token_masked"`
+	VerifyToken        string     `json:"verify_token"`
+	AppSecretMasked    string     `json:"app_secret_masked"`
+	WebhookEnabled     bool       `json:"webhook_enabled"`
+	AIAgentEnabled     bool       `json:"ai_agent_enabled"`
+	LastSyncAt         *time.Time `json:"last_sync_at"`
+	LastErrorAt        *time.Time `json:"last_error_at"`
+	LastErrorMsg       string     `json:"last_error_msg"`
+	Status             int        `json:"status"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 func toWhatsAppCloudVO(a *model.WhatsAppCloudAccount) *WhatsAppCloudAccountVO {
 	return &WhatsAppCloudAccountVO{
-		ID:			a.ID,
-		AccountName:		a.AccountName,
-		PhoneNumberID:		a.PhoneNumberID,
-		WhatsAppBusinessID:	a.WhatsAppBusinessID,
-		AccessTokenMasked:	maskSecret(a.AccessToken),
-		VerifyToken:		a.VerifyToken,
-		AppSecretMasked:	maskSecret(a.AppSecret),
-		WebhookEnabled:		a.WebhookEnabled,
-		AIAgentEnabled:		a.AIAgentEnabled,
-		LastSyncAt:		a.LastSyncAt,
-		LastErrorAt:		a.LastErrorAt,
-		LastErrorMsg:		a.LastErrorMsg,
-		Status:			a.Status,
-		CreatedAt:		a.CreatedAt,
-		UpdatedAt:		a.UpdatedAt,
+		ID:                 a.ID,
+		AccountName:        a.AccountName,
+		PhoneNumberID:      a.PhoneNumberID,
+		WhatsAppBusinessID: a.WhatsAppBusinessID,
+		AccessTokenMasked:  maskSecret(a.AccessToken),
+		VerifyToken:        a.VerifyToken,
+		AppSecretMasked:    maskSecret(a.AppSecret),
+		WebhookEnabled:     a.WebhookEnabled,
+		AIAgentEnabled:     a.AIAgentEnabled,
+		LastSyncAt:         a.LastSyncAt,
+		LastErrorAt:        a.LastErrorAt,
+		LastErrorMsg:       a.LastErrorMsg,
+		Status:             a.Status,
+		CreatedAt:          a.CreatedAt,
+		UpdatedAt:          a.UpdatedAt,
 	}
 }
 
 // WhatsAppCloudAccountCreateReq WhatsApp Cloud 账号创建请求
 type WhatsAppCloudAccountCreateReq struct {
-	AccountName		string
-	PhoneNumberID		string
-	WhatsAppBusinessID	string
-	AccessToken		string
-	VerifyToken		string
-	AppSecret		string
-	WebhookEnabled		bool
-	AIAgentEnabled		bool
+	AccountName        string
+	PhoneNumberID      string
+	WhatsAppBusinessID string
+	AccessToken        string
+	VerifyToken        string
+	AppSecret          string
+	WebhookEnabled     bool
+	AIAgentEnabled     bool
 }
 
 // WhatsAppCloudAccountUpdateReq WhatsApp Cloud 账号更新请求
 type WhatsAppCloudAccountUpdateReq struct {
-	AccountName	*string
-	AccessToken	*string
-	VerifyToken	*string
-	AppSecret	*string
-	WebhookEnabled	*bool
-	AIAgentEnabled	*bool
-	Status		*int
+	AccountName    *string
+	AccessToken    *string
+	VerifyToken    *string
+	AppSecret      *string
+	WebhookEnabled *bool
+	AIAgentEnabled *bool
+	Status         *int
 }
 
 // ListWhatsAppCloudAccountVOs 列出所有 WhatsApp Cloud 账号（视图）
-func (s *WhatsAppCloudService) ListWhatsAppCloudAccountVOs(ctx context.Context,) ([]*WhatsAppCloudAccountVO, error) {
+func (s *WhatsAppCloudService) ListWhatsAppCloudAccountVOs(ctx context.Context) ([]*WhatsAppCloudAccountVO, error) {
 	accs, err := s.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -241,15 +241,15 @@ func (s *WhatsAppCloudService) GetWhatsAppCloudAccountVO(ctx context.Context, id
 // CreateWhatsAppCloudAccountVO 创建 WhatsApp Cloud 账号（视图）
 func (s *WhatsAppCloudService) CreateWhatsAppCloudAccountVO(ctx context.Context, req WhatsAppCloudAccountCreateReq) (*WhatsAppCloudAccountVO, error) {
 	acc := &model.WhatsAppCloudAccount{
-		AccountName:		req.AccountName,
-		PhoneNumberID:		req.PhoneNumberID,
-		WhatsAppBusinessID:	req.WhatsAppBusinessID,
-		AccessToken:		req.AccessToken,
-		VerifyToken:		req.VerifyToken,
-		AppSecret:		req.AppSecret,
-		WebhookEnabled:		req.WebhookEnabled,
-		AIAgentEnabled:		req.AIAgentEnabled,
-		Status:			1,
+		AccountName:        req.AccountName,
+		PhoneNumberID:      req.PhoneNumberID,
+		WhatsAppBusinessID: req.WhatsAppBusinessID,
+		AccessToken:        req.AccessToken,
+		VerifyToken:        req.VerifyToken,
+		AppSecret:          req.AppSecret,
+		WebhookEnabled:     req.WebhookEnabled,
+		AIAgentEnabled:     req.AIAgentEnabled,
+		Status:             1,
 	}
 	out, err := s.CreateAccount(ctx, acc)
 	if err != nil {

@@ -29,9 +29,9 @@ type DomainPoolService interface {
 
 // domainPoolService 域名池服务实现
 type domainPoolService struct {
-	domainPoolRepo  repository.DomainPoolRepository
-	blacklistRepo   *repository.DomainBlacklistRepository
-	db              *gorm.DB
+	domainPoolRepo repository.DomainPoolRepository
+	blacklistRepo  *repository.DomainBlacklistRepository
+	db             *gorm.DB
 }
 
 // NewDomainPoolService 创建域名池服务实例
@@ -44,7 +44,7 @@ func NewDomainPoolService(db *gorm.DB) DomainPoolService {
 }
 
 // Create 创建域名池记录
-func (s *domainPoolService) Create(ctx context.Context, domain string, port int, purpose string)  (*model.DomainPool, error) {
+func (s *domainPoolService) Create(ctx context.Context, domain string, port int, purpose string) (*model.DomainPool, error) {
 	// 检查域名是否已存在
 	existingDomain, _ := s.domainPoolRepo.GetByDomain(ctx, domain)
 	if existingDomain != nil {
@@ -75,7 +75,7 @@ func (s *domainPoolService) Create(ctx context.Context, domain string, port int,
 }
 
 // Update 更新域名池记录
-func (s *domainPoolService) Update(ctx context.Context, id int, domain string, port int, purpose string, status int)  (*model.DomainPool, error) {
+func (s *domainPoolService) Update(ctx context.Context, id int, domain string, port int, purpose string, status int) (*model.DomainPool, error) {
 	// 获取现有记录
 	domainPool, err := s.domainPoolRepo.GetByID(ctx, id)
 	if err != nil {
@@ -111,22 +111,22 @@ func (s *domainPoolService) Update(ctx context.Context, id int, domain string, p
 }
 
 // Delete 删除域名池记录
-func (s *domainPoolService) Delete(ctx context.Context, id int)  error {
+func (s *domainPoolService) Delete(ctx context.Context, id int) error {
 	return s.domainPoolRepo.Delete(context.Background(), id)
 }
 
 // GetByID 根据ID获取域名池记录
-func (s *domainPoolService) GetByID(ctx context.Context, id int)  (*model.DomainPool, error) {
+func (s *domainPoolService) GetByID(ctx context.Context, id int) (*model.DomainPool, error) {
 	return s.domainPoolRepo.GetByID(context.Background(), id)
 }
 
 // List 获取域名池列表
-func (s *domainPoolService) List(ctx context.Context, page, pageSize int, domain string, status int)  ([]*model.DomainPool, int64, error) {
+func (s *domainPoolService) List(ctx context.Context, page, pageSize int, domain string, status int) ([]*model.DomainPool, int64, error) {
 	return s.domainPoolRepo.List(context.Background(), page, pageSize, domain, status)
 }
 
 // CheckDomain 检查单个域名是否可访问
-func (s *domainPoolService) CheckDomain(ctx context.Context, id int)  (bool, error) {
+func (s *domainPoolService) CheckDomain(ctx context.Context, id int) (bool, error) {
 	// 获取域名记录
 	domainPool, err := s.domainPoolRepo.GetByID(ctx, id)
 	if err != nil {
@@ -158,7 +158,7 @@ func (s *domainPoolService) CheckDomain(ctx context.Context, id int)  (bool, err
 }
 
 // CheckAllDomains 检查所有域名是否可访问
-func (s *domainPoolService) CheckAllDomains(ctx context.Context)  ([]dto.DomainPoolCheckResponse, error) {
+func (s *domainPoolService) CheckAllDomains(ctx context.Context) ([]dto.DomainPoolCheckResponse, error) {
 	// 获取所有域名
 	domainPools, _, err := s.domainPoolRepo.List(ctx, 1, 1000, "", 0)
 	if err != nil {
@@ -212,7 +212,7 @@ func (s *domainPoolService) CheckAllDomains(ctx context.Context)  ([]dto.DomainP
 
 // AddBlacklist 添加域名到黑名单
 // ttlHours=0 表示永久,>0 表示 TTL(小时)
-func (s *domainPoolService) AddBlacklist(ctx context.Context, domain, platform, reason, source string, ttlHours int)  error {
+func (s *domainPoolService) AddBlacklist(ctx context.Context, domain, platform, reason, source string, ttlHours int) error {
 	var expiresAt *time.Time
 	if ttlHours > 0 {
 		t := time.Now().Add(time.Duration(ttlHours) * time.Hour)
@@ -222,11 +222,11 @@ func (s *domainPoolService) AddBlacklist(ctx context.Context, domain, platform, 
 }
 
 // RemoveBlacklist 从黑名单移除域名(软删除:置 active=false)
-func (s *domainPoolService) RemoveBlacklist(ctx context.Context, domain string)  error {
+func (s *domainPoolService) RemoveBlacklist(ctx context.Context, domain string) error {
 	return s.blacklistRepo.Remove(ctx, domain)
 }
 
 // ListBlacklist 查询黑名单分页列表
-func (s *domainPoolService) ListBlacklist(ctx context.Context, page, pageSize int)  ([]*model.DomainBlacklist, int64, error) {
+func (s *domainPoolService) ListBlacklist(ctx context.Context, page, pageSize int) ([]*model.DomainBlacklist, int64, error) {
 	return s.blacklistRepo.List(ctx, page, pageSize)
 }

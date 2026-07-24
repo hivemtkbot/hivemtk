@@ -34,7 +34,7 @@ func (c *CustomerJourneyController) GetOverview(ctx *gin.Context) {
 	}
 
 	// 全量阶段总览
-	overview := c.svc.GetOverview(context.Background(), )
+	overview := c.svc.GetOverview(context.Background())
 	response.Success(ctx, overview, "查询成功")
 }
 

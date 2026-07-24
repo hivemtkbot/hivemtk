@@ -27,7 +27,7 @@ func NewWhatsappController() *WhatsappController {
 
 // Accounts
 func (c *WhatsappController) ListAccounts(ctx *gin.Context) {
-	list, err := c.svc.ListAccounts(context.Background(), )
+	list, err := c.svc.ListAccounts(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取账号列表失败", err.Error())
 		return
@@ -93,7 +93,7 @@ type createDraftReq struct {
 }
 
 func (c *WhatsappController) ListDrafts(ctx *gin.Context) {
-	list, err := c.svc.ListDrafts(context.Background(), )
+	list, err := c.svc.ListDrafts(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取草稿失败", err.Error())
 		return
@@ -233,7 +233,7 @@ func (c *WhatsappController) DeleteDraft(ctx *gin.Context) {
 
 // ListJobs 列出群发任务
 func (c *WhatsappController) ListJobs(ctx *gin.Context) {
-	list, err := c.svc.ListJobs(context.Background(), )
+	list, err := c.svc.ListJobs(context.Background())
 	if err != nil {
 		response.Error(ctx, 500, "获取任务列表失败", err.Error())
 		return

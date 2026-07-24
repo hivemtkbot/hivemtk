@@ -42,7 +42,7 @@ func TestHumanizePolisher_RemoveExtraSymbols(t *testing.T) {
 	}
 	for _, c := range cases {
 		got, _ := p.Polish(nil, c.in, nil)
-		if strings.Count(context.Background(), got, "！") > 1 && strings.Contains(c.in, "！") {
+		if strings.Count(got, "！") > 1 && strings.Contains(c.in, "！") {
 			t.Errorf("multi-bang not collapsed: %q -> %q", c.in, got)
 		}
 		_ = c.want
@@ -177,7 +177,7 @@ func TestFeedbackLearner_Record(t *testing.T) {
 		Transferred:    true,
 		Tokens:         120,
 	})
-	stats := f.GetIntentStats("price_inquiry")
+	stats := f.GetIntentStats(context.Background(), "price_inquiry")
 	if stats == nil {
 		t.Fatal("stats should not be nil")
 	}
@@ -189,7 +189,7 @@ func TestFeedbackLearner_Record(t *testing.T) {
 func TestFeedbackLearner_ConfidenceFloor(t *testing.T) {
 	f := NewFeedbackLearner(nil)
 	// 冷启动默认 0.5
-	if got := f.SuggestConfidenceFloor("unknown"); got != 0.5 {
+	if got := f.SuggestConfidenceFloor(context.Background(), "unknown"); got != 0.5 {
 		t.Errorf("cold start should be 0.5, got %f", got)
 	}
 }
@@ -197,9 +197,9 @@ func TestFeedbackLearner_ConfidenceFloor(t *testing.T) {
 func TestFeedbackLearner_StatsCopy(t *testing.T) {
 	f := NewFeedbackLearner(nil)
 	_ = f.RecordFeedback(nil, &FeedbackRecord{IntentType: "test", Confidence: 0.5, CustomerAccept: true})
-	stats := f.GetIntentStats("test")
+	stats := f.GetIntentStats(context.Background(), "test")
 	stats.TotalCount = 9999 // 修改拷贝
-	original := f.GetIntentStats("test")
+	original := f.GetIntentStats(context.Background(), "test")
 	if original.TotalCount == 9999 {
 		t.Error("stats should be returned by value (copy)")
 	}

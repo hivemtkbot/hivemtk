@@ -5,8 +5,8 @@ import (
 	"marketing/internal/platform"
 	"marketing/internal/repository"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // SystemConfigService 系统配置服务
@@ -52,8 +52,8 @@ func (s *SystemConfigService) SaveConfig(ctx context.Context, config *model.Syst
 // SaveBasicConfig 仅更新应用基础配置（名称、站点 URL），由 service 组装 model 实体
 func (s *SystemConfigService) SaveBasicConfig(ctx context.Context, appName, websiteURL string) (*model.SystemConfig, error) {
 	return s.SaveConfig(ctx, &model.SystemConfig{
-		Name:		appName,
-		WebsiteURL:	websiteURL,
+		Name:       appName,
+		WebsiteURL: websiteURL,
 	})
 }
 
@@ -100,23 +100,23 @@ func (s *SystemConfigService) PingDB(ctx context.Context) bool {
 // defaultConfig 返回默认配置
 func (s *SystemConfigService) defaultConfig(ctx context.Context) *model.SystemConfig {
 	return &model.SystemConfig{
-		Name:			"",
-		WebsiteURL:		"",
-		LogoURL:		"",
-		ThemeColor:		"#409EFF",
-		SEOKeywords:		"",
-		SEODescription:		"",
-		ServicePhone:		"",
-		ServiceEmail:		"",
-		ICPRecord:		"",
-		PoliceRecord:		"",
-		EnableRegister:		true,
-		EnableEmailMarketing:	true,
-		EnableRAG:		true,
-		MaintenanceMode:	false,
+		Name:                 "",
+		WebsiteURL:           "",
+		LogoURL:              "",
+		ThemeColor:           "#409EFF",
+		SEOKeywords:          "",
+		SEODescription:       "",
+		ServicePhone:         "",
+		ServiceEmail:         "",
+		ICPRecord:            "",
+		PoliceRecord:         "",
+		EnableRegister:       true,
+		EnableEmailMarketing: true,
+		EnableRAG:            true,
+		MaintenanceMode:      false,
 		// 私域独立部署:不限制用户数(MaxUsers 保留为兼容字段,固定 0)
-		MaxUsers:		0,
-		MaxUploadSizeMB:	50,
-		AutoReplyHeadless:	true,
+		MaxUsers:          0,
+		MaxUploadSizeMB:   50,
+		AutoReplyHeadless: true,
 	}
 }

@@ -85,7 +85,7 @@
             <el-table-column prop="user" label="用户" width="120" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
+                <el-tag :type="getStatusTagType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -212,19 +212,19 @@ const stats = ref({
 // 最近活动数据
 const activities = ref([])
 
-// 获取状态标签类型
+// 状态 label/type：取自统一 PASS_FAIL_STATUS 集（兼容"成功/失败/进行中"中文字面量）
+const STATUS_ZH_TO_VALUE = { '成功': 'success', '失败': 'failed', '进行中': 'running' }
 const getStatusTagType = (status) => {
-  switch (status) {
-    case '成功':
-      return 'success'
-    case '失败':
-      return 'danger'
-    case '进行中':
-      return 'warning'
-    default:
-      return 'info'
+  const v = STATUS_ZH_TO_VALUE[status] || status
+  switch (v) {
+    case 'success': return 'success'
+    case 'failed':  return 'danger'
+    case 'running': return 'warning'
+    default:        return 'info'
   }
 }
+const STATUS_ZH_LABEL = { '成功': '成功', '失败': '失败', '进行中': '进行中' }
+const getStatusLabel = (status) => STATUS_ZH_LABEL[status] || (status === 'success' ? '成功' : status === 'failed' ? '失败' : status === 'running' ? '进行中' : status)
 
 // 跳转到配置页面
 const goToConfig = () => {

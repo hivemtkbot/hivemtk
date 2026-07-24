@@ -126,8 +126,8 @@
           </el-table-column>
           <el-table-column label="方法" width="80">
             <template #default="{ row }">
-              <el-tag :type="row.method === 'llm' ? 'danger' : 'info'" size="small" effect="plain">
-                {{ row.method === 'llm' ? 'LLM' : '规则' }}
+              <el-tag :type="getMethodTagType(row.method)" size="small" effect="plain">
+                {{ getMethodLabel(row.method) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -296,6 +296,11 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Aim, Refresh } from '@element-plus/icons-vue'
 import { intentApi } from '@/api/intentRecognition.js'
+// 统一枚举：识别方法（LLM / 规则）
+const RECOGNIZE_METHOD = { llm: 'LLM', rule: '规则', keyword: '关键词', bert: 'BERT', hybrid: '混合' }
+const RECOGNIZE_METHOD_TAG = { llm: 'danger', rule: 'info', keyword: 'success', bert: 'warning', hybrid: 'primary' }
+const getMethodLabel = (m) => RECOGNIZE_METHOD[m] || m || '-'
+const getMethodTagType = (m) => RECOGNIZE_METHOD_TAG[m] || ''
 
 // 统计
 const statsLoading = ref(false)

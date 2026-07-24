@@ -170,7 +170,7 @@ func TestCustomerSessionService_AssignSession_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 创建会话
 	sessionReq := &CreateSessionRequest{
@@ -232,7 +232,7 @@ func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 创建会话
 	req := &CreateSessionRequest{
@@ -265,7 +265,7 @@ func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 创建会话
 	req := &CreateSessionRequest{
@@ -411,7 +411,7 @@ func TestCustomerSessionService_UpdateSessionStatus_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 1,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 	service.sessionRepo.AssignAgent(session.ID, 123, "客服 A")
 
 	// 更新状态为已解决
@@ -474,8 +474,8 @@ func TestCustomerSessionService_TransferSession_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	service.agentRepo.Create(agent1)
-	service.agentRepo.Create(agent2)
+	service.agentRepo.Create(context.Background(), agent1)
+	service.agentRepo.Create(context.Background(), agent2)
 
 	// 创建会话并分配给客服 A
 	sessionReq := &CreateSessionRequest{
@@ -565,7 +565,7 @@ func TestAgentStatusService_GetAgentStatus_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 2,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 获取客服状态
 	retrieved, err := agentService.GetAgentStatus(123)
@@ -599,8 +599,8 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 		Status:      "offline",
 		MaxSessions: 5,
 	}
-	service.agentRepo.Create(agent1)
-	service.agentRepo.Create(agent2)
+	service.agentRepo.Create(context.Background(), agent1)
+	service.agentRepo.Create(context.Background(), agent2)
 
 	// 获取在线客服
 	agents, err := agentService.GetOnlineAgents()
@@ -628,7 +628,7 @@ func TestAgentStatusService_GoOnline_Success(t *testing.T) {
 		Status:      "offline",
 		MaxSessions: 5,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 上线
 	err := agentService.GoOnline(123)
@@ -656,7 +656,7 @@ func TestAgentStatusService_GoOffline_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 0,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 下线
 	err := agentService.GoOffline(123)
@@ -684,7 +684,7 @@ func TestAgentStatusService_GoOffline_WithActiveSessions(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 2,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 
 	// 下线
 	err := agentService.GoOffline(123)
@@ -714,7 +714,7 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 		MaxSessions:    5,
 		ActiveSessions: 1,
 	}
-	service.agentRepo.Create(agent)
+	service.agentRepo.Create(context.Background(), agent)
 	service.sessionRepo.AssignAgent(session.ID, 123, "客服 A")
 
 	// 创建消息
@@ -723,7 +723,7 @@ func TestAISuggestionService_CreateSuggestion_Success(t *testing.T) {
 		Content:    "用户消息",
 		SenderType: "user",
 	}
-	service.messageRepo.Create(message)
+	service.messageRepo.Create(context.Background(), message)
 
 	// 创建 AI 建议
 	suggestion, err := suggestionService.CreateSuggestion(session.SessionID,
@@ -837,7 +837,7 @@ func TestQuickReplyService_CreateReply_Success(t *testing.T) {
 		t.Errorf("Expected title '你好', got '%s'", reply.Title)
 	}
 	if reply.CreatedBy != 123 {
-		t.Errorf("Expected created_by 123, got %d", reply.Create(dBy)
+		t.Errorf("Expected created_by 123, got %d", reply.CreatedBy)
 	}
 }
 
@@ -896,7 +896,7 @@ func TestQuickReplyService_DeleteReply_Success(t *testing.T) {
 	}
 
 	// 验证已删除
-	_, err = replyService.replyRepo.GetByID(created.ID)
+	_, err = replyService.replyRepo.GetByID(context.Background(), created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
 	}
@@ -1057,7 +1057,7 @@ func TestSessionTagService_DeleteTag_Success(t *testing.T) {
 	}
 
 	// 验证已删除
-	_, err = tagService.tagRepo.GetByID(created.ID)
+	_, err = tagService.tagRepo.GetByID(context.Background(), created.ID)
 	if err == nil {
 		t.Error("Expected error after deletion")
 	}

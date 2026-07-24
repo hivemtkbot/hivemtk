@@ -86,12 +86,12 @@ func (s *CustomerIdentityService) IdentifyOrCreate(ctx context.Context, identifi
 
 	// 未找到现有客户，创建新客户
 	customer = &model.Customer{
-		Phone:		identifiers.Phone,
-		Email:		identifiers.Email,
-		WechatOpenID:	identifiers.WechatOpenID,
-		DouyinOpenID:	identifiers.DouyinOpenID,
-		Tags:		"[]",
-		ChurnRisk:	"low",
+		Phone:        identifiers.Phone,
+		Email:        identifiers.Email,
+		WechatOpenID: identifiers.WechatOpenID,
+		DouyinOpenID: identifiers.DouyinOpenID,
+		Tags:         "[]",
+		ChurnRisk:    "low",
 	}
 
 	if err := s.repo.Create(ctx, customer); err != nil {

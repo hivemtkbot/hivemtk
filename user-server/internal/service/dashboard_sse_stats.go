@@ -97,7 +97,7 @@ func NewDashboardStatsService(db *gorm.DB) DashboardStatsService {
 }
 
 // Available 表示底层 db 是否可用
-func (s *dashboardStatsService) Available(ctx context.Context)  bool {
+func (s *dashboardStatsService) Available(ctx context.Context) bool {
 	return s.db != nil
 }
 

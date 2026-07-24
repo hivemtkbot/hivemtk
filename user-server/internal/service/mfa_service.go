@@ -28,24 +28,24 @@ import (
 //   - 哈希算法：SHA1
 //   - 密钥长度：20 字节（base32 编码后 32 字符）
 const (
-	totpTimeStep	= 30
-	totpDigits	= 6
-	totpSecretBytes	= 20
+	totpTimeStep    = 30
+	totpDigits      = 6
+	totpSecretBytes = 20
 	// 允许前后各 1 个时间窗口（±30 秒），平衡时钟漂移与安全
-	totpAllowedWindow	= 1
+	totpAllowedWindow = 1
 )
 
 // MFASetupResponse MFA 设置响应
 type MFASetupResponse struct {
-	Secret		string	`json:"secret"`		// base32 密钥（前端可手动输入）
-	OTPAuthURL	string	`json:"otpauth_url"`	// otpauth://provisioning URI（前端生成二维码）
-	QRCodeURL	string	`json:"qr_code_url"`	// 直接可渲染的二维码图片 URL（chart API）
+	Secret     string `json:"secret"`      // base32 密钥（前端可手动输入）
+	OTPAuthURL string `json:"otpauth_url"` // otpauth://provisioning URI（前端生成二维码）
+	QRCodeURL  string `json:"qr_code_url"` // 直接可渲染的二维码图片 URL（chart API）
 }
 
 // MFAVerifyRequest MFA 验证请求
 type MFAVerifyRequest struct {
-	TempToken	string	`json:"temp_token" binding:"required"`	// 登录后下发的临时令牌
-	Code		string	`json:"code" binding:"required,len=6"`	// 6 位 TOTP 码
+	TempToken string `json:"temp_token" binding:"required"` // 登录后下发的临时令牌
+	Code      string `json:"code" binding:"required,len=6"` // 6 位 TOTP 码
 }
 
 // MFASetupVerifyRequest MFA 设置确认请求（用户扫码后输入 6 位码确认）
@@ -55,36 +55,36 @@ type MFASetupVerifyRequest struct {
 
 // MFADisableRequest MFA 禁用请求
 type MFADisableRequest struct {
-	Code		string	`json:"code" binding:"required,len=6"`
-	Password	string	`json:"password" binding:"required"`
+	Code     string `json:"code" binding:"required,len=6"`
+	Password string `json:"password" binding:"required"`
 }
 
 // MFAService MFA 服务
 type MFAService struct {
-	mfaRepo		repository.UserMFARepository
-	systemUserRepo	repository.SystemUserRepository
+	mfaRepo        repository.UserMFARepository
+	systemUserRepo repository.SystemUserRepository
 }
 
 // NewMFAService 创建 MFA 服务
 func NewMFAService() *MFAService {
 	return &MFAService{
-		mfaRepo:	repository.NewUserMFARepository(),
-		systemUserRepo:	repository.NewSystemUserRepository(),
+		mfaRepo:        repository.NewUserMFARepository(),
+		systemUserRepo: repository.NewSystemUserRepository(),
 	}
 }
 
 // tempTokenStore 临时令牌存储（登录后等待 MFA 验证阶段）
 // 设计：单进程内存，5 分钟过期；多实例部署需迁移到 Redis
 var (
-	tempTokenStore		= make(map[string]tempTokenEntry)
-	tempTokenStoreMutex	sync.RWMutex
+	tempTokenStore      = make(map[string]tempTokenEntry)
+	tempTokenStoreMutex sync.RWMutex
 )
 
 type tempTokenEntry struct {
-	UserID		uint
-	Username	string
-	Role		string
-	ExpiresAt	time.Time
+	UserID    uint
+	Username  string
+	Role      string
+	ExpiresAt time.Time
 }
 
 // GenerateMFASecret 生成 TOTP 密钥
@@ -186,7 +186,6 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 
 	otpAuthURL := s.GenerateOTPAuthURL(ctx, secret, username, "MarketingSystem")
 
-
 	// 查找或创建 MFA 记录
 	existing, err := s.mfaRepo.GetByUserID(ctx, userID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -195,10 +194,10 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 	}
 
 	mfa := &model.UserMFA{
-		UserID:		userID,
-		MFASecret:	secret,
-		MFAEnabled:	false,	// 设置阶段不启用，需用户验证一次后启用
-		MFAType:	model.MFATypeTOTP,
+		UserID:     userID,
+		MFASecret:  secret,
+		MFAEnabled: false, // 设置阶段不启用，需用户验证一次后启用
+		MFAType:    model.MFATypeTOTP,
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -217,9 +216,9 @@ func (s *MFAService) SetupMFA(ctx context.Context, userID uint, username string)
 	}
 
 	return &MFASetupResponse{
-		Secret:		secret,
-		OTPAuthURL:	otpAuthURL,
-		QRCodeURL:	fmt.Sprintf("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=%s", url.QueryEscape(otpAuthURL)),
+		Secret:     secret,
+		OTPAuthURL: otpAuthURL,
+		QRCodeURL:  fmt.Sprintf("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=%s", url.QueryEscape(otpAuthURL)),
 	}, nil
 }
 
@@ -319,10 +318,10 @@ func (s *MFAService) IssueTempToken(ctx context.Context, userID uint, username, 
 	defer tempTokenStoreMutex.Unlock()
 
 	tempTokenStore[token] = tempTokenEntry{
-		UserID:		userID,
-		Username:	username,
-		Role:		role,
-		ExpiresAt:	time.Now().Add(5 * time.Minute),
+		UserID:    userID,
+		Username:  username,
+		Role:      role,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
 
 	// 异步清理过期令牌

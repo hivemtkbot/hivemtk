@@ -141,8 +141,6 @@ func TestAutoReplyAccount_GetCookie_WithCookie(t *testing.T) {
 	}
 }
 
-
-
 func TestAutoReplyAccount_UnmarshalJSON_InvalidJSON(t *testing.T) {
 	account := &AutoReplyAccount{}
 

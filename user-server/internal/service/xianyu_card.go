@@ -29,11 +29,11 @@ type XianyuCardService interface {
 
 // xianyuCardService 咸鱼卡片服务实现
 type xianyuCardService struct {
-	repo			repository.XianyuCardRepository
-	statsService		XianyuCardStatsService
-	shortLinkService	ShortLinkService
-	domainPoolService	DomainPoolService
-	templateService		*template.TemplateService
+	repo              repository.XianyuCardRepository
+	statsService      XianyuCardStatsService
+	shortLinkService  ShortLinkService
+	domainPoolService DomainPoolService
+	templateService   *template.TemplateService
 }
 
 // NewXianyuCardService 创建咸鱼卡片服务
@@ -41,11 +41,11 @@ func NewXianyuCardService(db any) XianyuCardService {
 	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
 	return &xianyuCardService{
-		repo:			repository.NewXianyuCardRepository(gormDB),
-		statsService:		NewXianyuCardStatsService(gormDB),
-		shortLinkService:	NewShortLinkService(gormDB),
-		domainPoolService:	NewDomainPoolService(gormDB),
-		templateService:	template.NewTemplateService("internal/template"),
+		repo:              repository.NewXianyuCardRepository(gormDB),
+		statsService:      NewXianyuCardStatsService(gormDB),
+		shortLinkService:  NewShortLinkService(gormDB),
+		domainPoolService: NewDomainPoolService(gormDB),
+		templateService:   template.NewTemplateService("internal/template"),
 	}
 }
 
@@ -53,13 +53,13 @@ func NewXianyuCardService(db any) XianyuCardService {
 func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreateRequest) (*dto.XianyuCardResponse, error) {
 	// 创建卡片模型
 	card := &model.XianyuCard{
-		Title:		req.Title,
-		Description:	req.Description,
-		ImageURL:	req.ImageURL,
-		RedirectURL:	req.RedirectURL,
-		DomainPoolID:	req.DomainPoolID,
-		Tags:		req.Tags,
-		IsActive:	req.IsActive,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		RedirectURL:  req.RedirectURL,
+		DomainPoolID: req.DomainPoolID,
+		Tags:         req.Tags,
+		IsActive:     req.IsActive,
 	}
 
 	// 保存到数据库
@@ -161,11 +161,11 @@ func (s *xianyuCardService) GetList(ctx context.Context, req *dto.XianyuCardList
 	}
 
 	return &dto.XianyuCardListResponse{
-		List:		list,
-		Total:		total,
-		Page:		req.Page,
-		PageSize:	req.PageSize,
-		TotalPage:	totalPage,
+		List:      list,
+		Total:     total,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+		TotalPage: totalPage,
 	}, nil
 }
 
@@ -238,18 +238,18 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 	}
 
 	// 获取域名池域名
-	var domainID uint = 0	// 默认不绑定域名，避免依赖不存在的 domain_id=1
+	var domainID uint = 0 // 默认不绑定域名，避免依赖不存在的 domain_id=1
 	if card.DomainPoolID != 0 {
 		domainID = card.DomainPoolID
 	}
 
 	// 创建短链
 	shortLink, err := s.shortLinkService.Create(ctx, &dto.CreateShortLinkRequest{
-		ShortCode:	generateResp.ShortCode,
-		OriginalURL:	fmt.Sprintf("/xianyu/card/%d", card.ID),	// 指向咸鱼卡片页面
-		Title:		card.Title,
-		Description:	card.Description,
-		DomainID:	domainID,
+		ShortCode:   generateResp.ShortCode,
+		OriginalURL: fmt.Sprintf("/xianyu/card/%d", card.ID), // 指向咸鱼卡片页面
+		Title:       card.Title,
+		Description: card.Description,
+		DomainID:    domainID,
 	})
 	if err != nil {
 		return fmt.Errorf("创建短链失败: %w", err)
@@ -275,20 +275,20 @@ func (s *xianyuCardService) convertToResponse(ctx context.Context, card *model.X
 	}
 
 	return &dto.XianyuCardResponse{
-		ID:		card.ID,
-		Title:		card.Title,
-		Description:	card.Description,
-		ImageURL:	card.ImageURL,
-		RedirectURL:	card.RedirectURL,
-		DomainPoolID:	&card.DomainPoolID,
-		ShortLinkURL:	shortLinkURL,
-		ShortCode:	shortCode,
-		Tags:		card.Tags,
-		LikeCount:	card.LikeCount,
-		ShareCount:	card.ShareCount,
-		ViewCount:	card.ViewCount,
-		IsActive:	card.IsActive,
-		CreatedAt:	card.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:	card.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:           card.ID,
+		Title:        card.Title,
+		Description:  card.Description,
+		ImageURL:     card.ImageURL,
+		RedirectURL:  card.RedirectURL,
+		DomainPoolID: &card.DomainPoolID,
+		ShortLinkURL: shortLinkURL,
+		ShortCode:    shortCode,
+		Tags:         card.Tags,
+		LikeCount:    card.LikeCount,
+		ShareCount:   card.ShareCount,
+		ViewCount:    card.ViewCount,
+		IsActive:     card.IsActive,
+		CreatedAt:    card.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    card.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }

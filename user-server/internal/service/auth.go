@@ -21,54 +21,52 @@ import (
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username	string	`json:"username" binding:"required"`
-	Password	string	`json:"password" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	Token		string			`json:"token,omitempty"`
-	User		*SystemUserResponse	`json:"user,omitempty"`
-	Expires		int64			`json:"expires,omitempty"`
-	NeedMFA		bool			`json:"need_mfa,omitempty"`	// 是否需要 MFA 二次验证
-	TempToken	string			`json:"temp_token,omitempty"`	// 临时令牌（MFA 验证用）
+	Token     string              `json:"token,omitempty"`
+	User      *SystemUserResponse `json:"user,omitempty"`
+	Expires   int64               `json:"expires,omitempty"`
+	NeedMFA   bool                `json:"need_mfa,omitempty"`   // 是否需要 MFA 二次验证
+	TempToken string              `json:"temp_token,omitempty"` // 临时令牌（MFA 验证用）
 }
 
 // SystemUserResponse 系统用户响应
 type SystemUserResponse struct {
-	ID			uint		`json:"id"`
-	Username		string		`json:"username"`
-	Email			string		`json:"email"`
-	Phone			string		`json:"phone"`
-	RealName		string		`json:"real_name"`
-	Role			string		`json:"role"`
-	Status			int		`json:"status"`
-	LastLogin		*time.Time	`json:"last_login"`
-	LastLoginAt		*time.Time	`json:"last_login_at"`	// 兼容前端驼峰命名
-	MustChangePassword	bool		`json:"must_change_password"`
-	CreatedAt		time.Time	`json:"created_at"`
-	UpdatedAt		time.Time	`json:"updated_at"`
+	ID                 uint       `json:"id"`
+	Username           string     `json:"username"`
+	Email              string     `json:"email"`
+	Phone              string     `json:"phone"`
+	RealName           string     `json:"real_name"`
+	Role               string     `json:"role"`
+	Status             int        `json:"status"`
+	LastLogin          *time.Time `json:"last_login"`
+	LastLoginAt        *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
+	MustChangePassword bool       `json:"must_change_password"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // ChangePasswordRequest 修改密码请求
 type ChangePasswordRequest struct {
-	OldPassword	string	`json:"old_password" binding:"required"`
-	NewPassword	string	`json:"new_password" binding:"required"`
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }
 
 // AuthService 认证服务
 type AuthService struct {
-	jwtUtils	*utils.JWTUtils
-	systemUserRepo	repository.SystemUserRepository
-	teamUserRepo	repository.TeamUserRepository
+	jwtUtils       *utils.JWTUtils
+	systemUserRepo repository.SystemUserRepository
 }
 
 // NewAuthService 创建认证服务实例
 func NewAuthService() *AuthService {
 	return &AuthService{
-		jwtUtils:	utils.NewJWTUtils(utils.DefaultJWTConfig),
-		systemUserRepo:	repository.NewSystemUserRepository(),
-		teamUserRepo:	repository.NewTeamUserRepository(),
+		jwtUtils:       utils.NewJWTUtils(utils.DefaultJWTConfig),
+		systemUserRepo: repository.NewSystemUserRepository(),
 	}
 }
 
@@ -77,7 +75,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 	return s.jwtUtils
 }
 
-// Login 用户登录
+// Login 用户登录（2026-07 阶段 1 重构：单表 system_users）
 //
 // 严格规则（修复 P0-3）：
 //  1. 不再"系统无用户 → 自动注册为超管"——该机制绕过 InitGuard/LicenseGuard，
@@ -86,7 +84,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 //  3. 用户名/密码错误一律返回"用户名或密码错误"（防枚举）。
 //  4. 用户被禁用直接拒绝（明确反馈）。
 //  5. 密码用 bcrypt 验证。
-//  6. 先查询 system_users 表，找不到再查询 team_users 表（支持团队用户登录）。
+//  6. 阶段 1：team_users 已被合并到 system_users，仅查 system_users。
 func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 
 	user, err := s.systemUserRepo.GetByUsername(ctx, req.Username)
@@ -96,67 +94,10 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		teamUser, err := s.teamUserRepo.GetByUsername(ctx, req.Username)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errors.New("用户名或密码错误")
-			}
-			logger.Error(err, "查询团队用户失败")
-			return nil, errors.New("登录失败，请稍后重试")
-		}
-
-		if teamUser.Status != model.TeamUserStatusActive {
-			return nil, errors.New("用户已被禁用")
-		}
-
-		if bcrypt.CheckPassword(teamUser.Password, req.Password) != nil {
-			return nil, errors.New("用户名或密码错误")
-		}
-
-		// 检查是否启用 MFA（P1-1 缺口修复：登录后第二步 TOTP 验证）
-		mfaSvc := NewMFAService()
-		mfaEnabled, err := mfaSvc.IsMFAEnabled(ctx, teamUser.ID)
-		if err != nil {
-			logger.Errorf("TeamUser MFA 状态查询失败: %v", err)
-		}
-		if mfaEnabled {
-			tempToken, err := mfaSvc.IssueTempToken(ctx, teamUser.ID, teamUser.Username, teamUser.Role)
-			if err != nil {
-				return nil, errors.New("登录失败，请稍后重试")
-			}
-			return &LoginResponse{
-				NeedMFA:	true,
-				TempToken:	tempToken,
-			}, nil
-		}
-
-		now := time.Now()
-		teamUser.LastLoginAt = &now
-		if err := s.teamUserRepo.Update(ctx, teamUser); err != nil {
-			logger.Errorf("更新团队用户最后登录时间失败: %v", err)
-		}
-
-		token, err := s.jwtUtils.GenerateToken(teamUser.ID, teamUser.Username, teamUser.Role)
-		if err != nil {
-			logger.Error(err, "生成JWT令牌失败")
-			return nil, errors.New("登录失败，请稍后重试")
-		}
-
-		return &LoginResponse{
-			Token:	token,
-			User: &SystemUserResponse{
-				ID:		teamUser.ID,
-				Username:	teamUser.Username,
-				Role:		teamUser.Role,
-				Status:		int(teamUser.Status),
-				CreatedAt:	teamUser.CreatedAt,
-				UpdatedAt:	teamUser.UpdatedAt,
-			},
-			Expires:	time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
-		}, nil
+		return nil, errors.New("用户名或密码错误")
 	}
 
-	if user.Status != 1 {
+	if user.Status != 1 || !user.Enabled {
 		return nil, errors.New("用户已被禁用")
 	}
 
@@ -182,8 +123,8 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 			return nil, errors.New("登录失败，请稍后重试")
 		}
 		return &LoginResponse{
-			NeedMFA:	true,
-			TempToken:	tempToken,
+			NeedMFA:   true,
+			TempToken: tempToken,
 		}, nil
 	}
 
@@ -203,9 +144,9 @@ func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser)
 
 	// 构建响应
 	response := &LoginResponse{
-		Token:		token,
-		User:		s.toUserResponse(ctx, user),
-		Expires:	time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
+		Token:   token,
+		User:    s.toUserResponse(ctx, user),
+		Expires: time.Now().Add(time.Hour * time.Duration(utils.DefaultJWTConfig.ExpiresHours)).Unix(),
 	}
 
 	return response, nil
@@ -286,17 +227,17 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 // toUserResponse 转换为用户响应
 func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser) *SystemUserResponse {
 	return &SystemUserResponse{
-		ID:		user.ID,
-		Username:	user.Username,
-		Email:		user.Email,
-		Phone:		user.Phone,
-		RealName:	user.RealName,
-		Role:		user.Role,
-		Status:		user.Status,
-		LastLogin:	user.LastLogin,
-		LastLoginAt:	user.LastLogin,
-		CreatedAt:	user.CreatedAt,
-		UpdatedAt:	user.UpdatedAt,
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		RealName:    user.RealName,
+		Role:        user.Role,
+		Status:      user.Status,
+		LastLogin:   user.LastLogin,
+		LastLoginAt: user.LastLogin,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}
 }
 
@@ -366,13 +307,13 @@ func (s *AuthService) InitChangePassword(ctx context.Context, username, newPassw
 // forgotTokenStore 全局：保存 reset_token → {username, expire_at}
 // 单实例部署够用；多实例需改用 Redis（架构升级时再迁移）
 var (
-	forgotTokenStore	= make(map[string]forgotTokenEntry)
-	forgotTokenStoreMutex	sync.RWMutex
+	forgotTokenStore      = make(map[string]forgotTokenEntry)
+	forgotTokenStoreMutex sync.RWMutex
 )
 
 type forgotTokenEntry struct {
-	Username	string
-	ExpiresAt	time.Time
+	Username  string
+	ExpiresAt time.Time
 }
 
 // CreateForgotPasswordToken 创建"忘记密码"一次性 token
@@ -408,12 +349,12 @@ func (s *AuthService) CreateForgotPasswordToken(ctx context.Context, username st
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", errors.New("生成 token 失败")
 	}
-	token := hex.EncodeToString(tokenBytes)	// 64 字符
+	token := hex.EncodeToString(tokenBytes) // 64 字符
 
 	// 5. 存入 store（5 分钟过期）
 	entry := forgotTokenEntry{
-		Username:	username,
-		ExpiresAt:	time.Now().Add(5 * time.Minute),
+		Username:  username,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
 	forgotTokenStoreMutex.Lock()
 	forgotTokenStore[token] = entry
@@ -445,7 +386,7 @@ func (s *AuthService) ResetAdminPasswordWithToken(ctx context.Context, username,
 	forgotTokenStoreMutex.Lock()
 	entry, ok := forgotTokenStore[token]
 	if ok {
-		delete(forgotTokenStore, token)	// 一次性
+		delete(forgotTokenStore, token) // 一次性
 	}
 	forgotTokenStoreMutex.Unlock()
 
@@ -501,4 +442,83 @@ func CheckPassword(u *model.SystemUser, password string) bool {
 // HashPassword 对明文密码进行 bcrypt 哈希
 func HashPassword(password string) (string, error) {
 	return bcrypt.HashPassword(password)
+}
+
+// ============== 阶段 3：系统初始化 InitAdmin ==============
+
+// InitAdmin 初始化系统首个超管（公开，无 JWT）
+//
+// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+//   - 调用方必须在请求体中传入 username/password/email（不再读 config 默认值）
+//   - 密码强度：至少 8 位，含大小写字母 + 数字
+//   - username 唯一性、email 唯一性、system_users 表为空（防重复初始化）
+//   - 创建后写 install.lock（AdminUsername + Initialized=true），作为"已初始化"标记
+//
+// 失败语义：
+//   - 已有用户 → errors.New("超管已存在，无法重复创建")
+//   - 密码强度不达标 → 复用 service.validatePassword 返回的错误
+//   - username/email 冲突 → 透传 repo 错误
+func (s *AuthService) InitAdmin(ctx context.Context, username, password, email string) error {
+	username = strings.TrimSpace(username)
+	email = strings.TrimSpace(email)
+	if username == "" || password == "" || email == "" {
+		return errors.New("username/password/email 均不能为空")
+	}
+
+	// 1. 幂等检查：system_users 表已有任何用户 → 拒绝重复初始化
+	count, err := s.systemUserRepo.Count(ctx)
+	if err != nil {
+		logger.Error(err, "InitAdmin 统计用户失败")
+		return errors.New("系统状态异常，请稍后重试")
+	}
+	if count > 0 {
+		return errors.New("超管已存在，无法重复创建")
+	}
+
+	// 2. 密码强度校验（与 system_init.go 一致：≥8 位 + 大小写 + 数字）
+	if err := validatePassword(password); err != nil {
+		return err
+	}
+
+	// 3. 邮箱格式校验
+	if err := validateEmail(email); err != nil {
+		return err
+	}
+
+	// 4. 用户名格式校验（3-20 位字母数字下划线）
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+
+	// 5. 唯一性预检：username / email
+	if exists, _ := s.systemUserRepo.UsernameExists(ctx, username, 0); exists {
+		return errors.New("用户名已存在")
+	}
+	if exists, _ := s.systemUserRepo.EmailExists(ctx, email, 0); exists {
+		return errors.New("邮箱已被使用")
+	}
+
+	// 6. 创建超管（BeforeCreate 钩子自动 bcrypt 加密 + DataScope 初始化）
+	user := &model.SystemUser{
+		Username: username,
+		Password: password,
+		Email:    email,
+		Role:     model.SystemUserRoleAdmin,
+		Status:   1,
+		Enabled:  true,
+	}
+	if err := s.systemUserRepo.Create(ctx, user); err != nil {
+		logger.Error(err, "InitAdmin 创建超管失败")
+		return errors.New("创建超管失败: " + err.Error())
+	}
+
+	// 7. 同步 install.lock：标记 AdminUsername + Initialized=true
+	// 开源版：直接走 install 包（不依赖中间件避免 import cycle）
+	if err := install.MarkAdminInitialized(username); err != nil {
+		// 标记失败不阻塞主流程（用户已创建成功），仅记日志
+		logger.Error(err, "InitAdmin 写 install.lock 失败")
+	}
+
+	logger.Info("InitAdmin 超管创建成功: " + username)
+	return nil
 }

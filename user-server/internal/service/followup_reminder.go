@@ -22,20 +22,20 @@ import (
 type ReminderType string
 
 const (
-	ReminderFirstContact	ReminderType	= "first_contact"	// 首次跟进
-	ReminderQuoteFollowup	ReminderType	= "quote_followup"	// 报价后跟进
-	ReminderAfterSaleCare	ReminderType	= "after_sale_care"	// 售后回访
-	ReminderRepurchase	ReminderType	= "repurchase"		// 复购提醒
-	ReminderReactivation	ReminderType	= "reactivation"	// 沉睡激活
-	ReminderBirthday	ReminderType	= "birthday"		// 生日祝福
-	ReminderCustom		ReminderType	= "custom"		// 自定义
+	ReminderFirstContact  ReminderType = "first_contact"   // 首次跟进
+	ReminderQuoteFollowup ReminderType = "quote_followup"  // 报价后跟进
+	ReminderAfterSaleCare ReminderType = "after_sale_care" // 售后回访
+	ReminderRepurchase    ReminderType = "repurchase"      // 复购提醒
+	ReminderReactivation  ReminderType = "reactivation"    // 沉睡激活
+	ReminderBirthday      ReminderType = "birthday"        // 生日祝福
+	ReminderCustom        ReminderType = "custom"          // 自定义
 )
 
 // ReminderPriority 优先级
 type ReminderPriority int
 
 const (
-	PriorityLow	ReminderPriority	= iota
+	PriorityLow ReminderPriority = iota
 	PriorityNormal
 	PriorityHigh
 	PriorityUrgent
@@ -43,37 +43,37 @@ const (
 
 // Reminder 跟进提醒
 type Reminder struct {
-	ID		string			`json:"id"`
-	CustomerID	string			`json:"customer_id"`
-	OneID		string			`json:"one_id"`
-	OwnerID		string			`json:"owner_id"`	// 负责销售
-	Type		ReminderType		`json:"type"`
-	Priority	ReminderPriority	`json:"priority"`
-	Title		string			`json:"title"`
-	Description	string			`json:"description"`
-	DueAt		time.Time		`json:"due_at"`
-	CreatedAt	time.Time		`json:"created_at"`
-	CompletedAt	*time.Time		`json:"completed_at,omitempty"`
-	Status		string			`json:"status"`	// pending/in_progress/done/canceled
-	SOPName		string			`json:"sop_name,omitempty"`
-	AutoHandle	bool			`json:"auto_handle"`		// AI 是否自动处理
-	Channel		string			`json:"channel,omitempty"`	// 触达渠道
+	ID          string           `json:"id"`
+	CustomerID  string           `json:"customer_id"`
+	OneID       string           `json:"one_id"`
+	OwnerID     string           `json:"owner_id"` // 负责销售
+	Type        ReminderType     `json:"type"`
+	Priority    ReminderPriority `json:"priority"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	DueAt       time.Time        `json:"due_at"`
+	CreatedAt   time.Time        `json:"created_at"`
+	CompletedAt *time.Time       `json:"completed_at,omitempty"`
+	Status      string           `json:"status"` // pending/in_progress/done/canceled
+	SOPName     string           `json:"sop_name,omitempty"`
+	AutoHandle  bool             `json:"auto_handle"`       // AI 是否自动处理
+	Channel     string           `json:"channel,omitempty"` // 触达渠道
 }
 
 // FollowUpService 跟进提醒服务
 type FollowUpService struct {
-	mu		sync.RWMutex
-	reminders	map[string]*Reminder	// id → reminder
-	journey		*CustomerJourneyService
+	mu        sync.RWMutex
+	reminders map[string]*Reminder // id → reminder
+	journey   *CustomerJourneyService
 	// P1-CLOSE-10 联动：跟进完成 → 自动推进旅程 + 仪表盘实时更新
-	dashboard	*SalesDashboard
+	dashboard *SalesDashboard
 }
 
 // NewFollowUpService 创建跟进服务
 func NewFollowUpService(journey *CustomerJourneyService) *FollowUpService {
 	return &FollowUpService{
-		reminders:	make(map[string]*Reminder),
-		journey:	journey,
+		reminders: make(map[string]*Reminder),
+		journey:   journey,
 	}
 }
 
@@ -89,20 +89,20 @@ func (s *FollowUpService) Schedule(ctx context.Context, customerID, ownerID stri
 		opts = &ScheduleOptions{}
 	}
 	r := &Reminder{
-		ID:		generateReminderID(),
-		CustomerID:	customerID,
-		OneID:		opts.OneID,
-		OwnerID:	ownerID,
-		Type:		rType,
-		Priority:	opts.Priority,
-		Title:		opts.Title,
-		Description:	opts.Description,
-		DueAt:		time.Now().Add(dueIn),
-		CreatedAt:	time.Now(),
-		Status:		"pending",
-		SOPName:	opts.SOPName,
-		AutoHandle:	opts.AutoHandle,
-		Channel:	opts.Channel,
+		ID:          generateReminderID(),
+		CustomerID:  customerID,
+		OneID:       opts.OneID,
+		OwnerID:     ownerID,
+		Type:        rType,
+		Priority:    opts.Priority,
+		Title:       opts.Title,
+		Description: opts.Description,
+		DueAt:       time.Now().Add(dueIn),
+		CreatedAt:   time.Now(),
+		Status:      "pending",
+		SOPName:     opts.SOPName,
+		AutoHandle:  opts.AutoHandle,
+		Channel:     opts.Channel,
 	}
 	if r.Title == "" {
 		r.Title = string(rType)
@@ -118,14 +118,14 @@ func (s *FollowUpService) Schedule(ctx context.Context, customerID, ownerID stri
 
 // ScheduleOptions 安排选项
 type ScheduleOptions struct {
-	OneID		string
-	Priority	ReminderPriority
-	Title		string
-	Description	string
-	Note		string
-	SOPName		string
-	AutoHandle	bool
-	Channel		string
+	OneID       string
+	Priority    ReminderPriority
+	Title       string
+	Description string
+	Note        string
+	SOPName     string
+	AutoHandle  bool
+	Channel     string
 }
 
 // generateReminderID 生成提醒 ID
@@ -147,28 +147,28 @@ func (s *FollowUpService) Complete(ctx context.Context, reminderID string) error
 type FollowUpResult string
 
 const (
-	FollowUpResultContacted		FollowUpResult	= "contacted"	// 已联系，继续跟进
-	FollowUpResultInterested	FollowUpResult	= "interested"	// 客户表达了兴趣
-	FollowUpResultQuoted		FollowUpResult	= "quoted"	// 已报价
-	FollowUpResultConverted		FollowUpResult	= "converted"	// 已成交
-	FollowUpResultRejected		FollowUpResult	= "rejected"	// 已拒绝
-	FollowUpResultLost		FollowUpResult	= "lost"	// 已流失
-	FollowUpResultNoResponse	FollowUpResult	= "no_response"	// 客户未回应
+	FollowUpResultContacted  FollowUpResult = "contacted"   // 已联系，继续跟进
+	FollowUpResultInterested FollowUpResult = "interested"  // 客户表达了兴趣
+	FollowUpResultQuoted     FollowUpResult = "quoted"      // 已报价
+	FollowUpResultConverted  FollowUpResult = "converted"   // 已成交
+	FollowUpResultRejected   FollowUpResult = "rejected"    // 已拒绝
+	FollowUpResultLost       FollowUpResult = "lost"        // 已流失
+	FollowUpResultNoResponse FollowUpResult = "no_response" // 客户未回应
 )
 
 // FollowUpResultInfo 跟进结果元信息（影响客户旅程推进）
 var FollowUpResultInfo = map[FollowUpResult]struct {
-	TargetStage	JourneyStage	// 目标客户旅程阶段
-	Weight		int		// 仪表盘贡献权重
-	IsPositive	bool		// 是否正向（影响 RFM/复购评分）
+	TargetStage JourneyStage // 目标客户旅程阶段
+	Weight      int          // 仪表盘贡献权重
+	IsPositive  bool         // 是否正向（影响 RFM/复购评分）
 }{
-	FollowUpResultContacted:	{StageContact, 1, true},
-	FollowUpResultInterested:	{StageInterested, 3, true},
-	FollowUpResultQuoted:		{StageQuoted, 5, true},
-	FollowUpResultConverted:	{StageWon, 10, true},
-	FollowUpResultRejected:		{StageLost, -2, false},
-	FollowUpResultLost:		{StageLost, -5, false},
-	FollowUpResultNoResponse:	{StageSleeping, -1, false},
+	FollowUpResultContacted:  {StageContact, 1, true},
+	FollowUpResultInterested: {StageInterested, 3, true},
+	FollowUpResultQuoted:     {StageQuoted, 5, true},
+	FollowUpResultConverted:  {StageWon, 10, true},
+	FollowUpResultRejected:   {StageLost, -2, false},
+	FollowUpResultLost:       {StageLost, -5, false},
+	FollowUpResultNoResponse: {StageSleeping, -1, false},
 }
 
 // CompleteWithResult 标记跟进完成（带结果，自动推进旅程 + 仪表盘实时更新）
@@ -200,9 +200,9 @@ func (s *FollowUpService) CompleteWithResult(ctx context.Context, reminderID str
 		if info, ok := FollowUpResultInfo[result]; ok {
 			_, _ = s.journey.Transition(ctx, customerID, info.TargetStage, "followup", ownerID,
 				"跟进完成自动推进: "+string(result)+" | "+note, map[string]any{
-					"reminder_id":	reminderID,
-					"result":	string(result),
-					"note":		note,
+					"reminder_id": reminderID,
+					"result":      string(result),
+					"note":        note,
 				})
 		}
 	}
@@ -210,10 +210,10 @@ func (s *FollowUpService) CompleteWithResult(ctx context.Context, reminderID str
 	// 2) 实时更新销售仪表盘
 	if s.dashboard != nil {
 		s.dashboard.RecordFollowUp(ctx, FollowUpEvent{
-			CustomerID:	customerID,
-			OwnerID:	ownerID,
-			Result:		string(result),
-			OccurredAt:	now,
+			CustomerID: customerID,
+			OwnerID:    ownerID,
+			Result:     string(result),
+			OccurredAt: now,
 		})
 	}
 
@@ -347,11 +347,11 @@ func (s *FollowUpService) AutoScheduleByJourney(ctx context.Context, customerID,
 		rType = ReminderCustom
 	}
 	return s.Schedule(ctx, customerID, ownerID, rType, meta.DefaultFollowup, &ScheduleOptions{
-		Title:		"阶段跟进: " + meta.Label,
-		Description:	meta.Description,
-		Priority:	PriorityNormal,
-		SOPName:	meta.RecommendedSOP,
-		AutoHandle:	meta.AllowAIHandle,
+		Title:       "阶段跟进: " + meta.Label,
+		Description: meta.Description,
+		Priority:    PriorityNormal,
+		SOPName:     meta.RecommendedSOP,
+		AutoHandle:  meta.AllowAIHandle,
 	})
 }
 
@@ -375,10 +375,10 @@ func (s *FollowUpService) ScheduleForStage(ctx context.Context, customerID, owne
 		rType = ReminderFirstContact
 	}
 	return s.Schedule(ctx, customerID, ownerID, rType, meta.DefaultFollowup, &ScheduleOptions{
-		Title:		"跟进: " + meta.Label,
-		Description:	meta.Description,
-		Priority:	PriorityNormal,
-		SOPName:	meta.RecommendedSOP,
-		AutoHandle:	meta.AllowAIHandle,
+		Title:       "跟进: " + meta.Label,
+		Description: meta.Description,
+		Priority:    PriorityNormal,
+		SOPName:     meta.RecommendedSOP,
+		AutoHandle:  meta.AllowAIHandle,
 	})
 }

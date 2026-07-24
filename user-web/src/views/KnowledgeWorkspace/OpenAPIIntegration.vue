@@ -35,7 +35,7 @@
         </el-table-column>
         <el-table-column label="方法" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.method === 'GET' ? '' : 'warning'" size="small">{{ row.method }}</el-tag>
+            <el-tag :type="getMethodTagType(row.method)" size="small">{{ getMethodLabel(row.method) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="endpoint" label="端点" min-width="280" show-overflow-tooltip>
@@ -54,9 +54,9 @@
         <el-table-column label="上次同步" width="180">
           <template #default="{ row }">
             <div>{{ row.last_sync_at ? formatDate(row.last_sync_at) : '从未同步' }}</div>
-            <el-tag v-if="row.last_status === 'success'" type="success" size="small">成功</el-tag>
-            <el-tag v-else-if="row.last_status === 'failed'" type="danger" size="small">失败</el-tag>
-            <el-tag v-else size="small">{{ row.last_status || '待同步' }}</el-tag>
+            <el-tag :type="getLastStatusTagType(row.last_status)" size="small">
+              {{ getLastStatusLabel(row.last_status) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="total_synced" label="累计同步" width="100" />
@@ -198,6 +198,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/rag-product-config'
+// 统一枚举：HTTP 方法/认证类型/同步状态
+import { getAuthTypeLabel } from '@/constants/authType'
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+
+// HTTP 方法 label/type：GET 显示普通色，其他（POST/PUT/DELETE/PATCH）高亮
+const HTTP_METHOD_TAG = { GET: '', POST: 'success', PUT: 'warning', DELETE: 'danger', PATCH: 'warning' }
+const getMethodLabel = (m) => (m || '').toUpperCase()
+const getMethodTagType = (m) => HTTP_METHOD_TAG[(m || '').toUpperCase()] || 'info'
+// 同步成功/失败 label/type
+const getLastStatusLabel = (s) => (s ? getStatusLabel(s, PASS_FAIL_STATUS) : '待同步')
+const getLastStatusTagType = (s) => (s ? getStatusTagType(s, PASS_FAIL_STATUS) : 'info')
 
 const loading = ref(false)
 const saving = ref(false)
@@ -409,7 +420,7 @@ const handleDelete = async (row) => {
   }
 }
 
-const authTypeLabel = (t) => ({ none: '无', bearer: 'Bearer', api_key: 'API Key', hmac: 'HMAC', basic: 'Basic' }[t] || t)
+const authTypeLabel = (t) => getAuthTypeLabel(t)
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : '-'
 const formatFileSize = (b) => {
   if (!b || b <= 0) return '-'

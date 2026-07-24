@@ -29,6 +29,8 @@ type EventStats struct {
 // CustomerEventRepository defines the interface for customer event data access
 type CustomerEventRepository interface {
 	Record(ctx context.Context, event *model.CustomerEvent) error
+	// RecordBatch 批量插入事件，单次 SQL 替代「for event → Record」（CC-P2 N+1 优化）
+	RecordBatch(ctx context.Context, events []*model.CustomerEvent) error
 	GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error)
 	GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error)
 	GetStats(ctx context.Context, start, end time.Time) (*EventStats, error)
@@ -46,6 +48,31 @@ func NewCustomerEventRepository() CustomerEventRepository {
 // Record records a new customer event
 func (r *customerEventRepository) Record(ctx context.Context, event *model.CustomerEvent) error {
 	return _db.GetDB().WithContext(ctx).Create(event).Error
+}
+
+// RecordBatch 批量插入事件（CC-P2 N+1 优化）
+//
+// 使用 gorm.Create 批量插入，单次 SQL 取代 N 次单条插入。
+//   - events 为空时直接返回 nil（noop）
+//   - events 中含 nil 元素时跳过
+func (r *customerEventRepository) RecordBatch(ctx context.Context, events []*model.CustomerEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+	// 过滤 nil 元素，避免 gorm 报 invalid value
+	filtered := make([]*model.CustomerEvent, 0, len(events))
+	for _, e := range events {
+		if e != nil {
+			filtered = append(filtered, e)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	if len(filtered) == 1 {
+		return _db.GetDB().WithContext(ctx).Create(filtered[0]).Error
+	}
+	return _db.GetDB().WithContext(ctx).Create(filtered).Error
 }
 
 // GetByCustomerID retrieves events for a specific customer

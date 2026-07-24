@@ -35,8 +35,6 @@ func (m *UnmultitenantSchemaMigration) Description() string {
 
 // 注意：与 system_config 等系统级表无关，仅针对业务数据表
 var businessTablesWithMerchantID = []string{
-	"team_users",
-	"team_roles",
 	"operation_logs",
 	"marketing_flows",
 	"flow_executions",
@@ -135,9 +133,7 @@ func (m *UnmultitenantSchemaMigration) Up(ctx context.Context) error {
 	m.db.Exec("DROP TABLE IF EXISTS platform_licenses")
 	m.db.Exec("DROP TABLE IF EXISTS platform_installs")
 
-	// team_users.username 已通过 schema 改为 UNIQUE，索引会自动创建
-	// team_roles.code 同上
-	// 此处不再做额外处理
+	// 阶段 1：team_users / team_roles / team_user_permissions 已在 025 单表化迁移中 DROP
 
 	return nil
 }

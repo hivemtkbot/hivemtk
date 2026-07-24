@@ -62,10 +62,9 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="评价" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.rating === 1" type="success">相关</el-tag>
-            <el-tag v-else-if="row.rating === 0" type="info">一般</el-tag>
-            <el-tag v-else-if="row.rating === -1" type="danger">不相关</el-tag>
-            <el-tag v-else>{{ row.rating }}</el-tag>
+            <el-tag :type="getRatingTagType(row.rating)" :class="getRatingClass(row.rating)">
+              {{ getRatingLabel(row.rating) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="query" label="查询文本" min-width="200" show-overflow-tooltip />
@@ -110,6 +109,11 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
 import { ragProductConfigAPI } from '@/api/rag-product-config'
+// 统一枚举：评分/反馈
+import { getRatingLabel, getRatingTagType } from '@/constants/rating'
+
+// 兼容保留 class 钩子（业务侧可能基于 class 做样式）
+const getRatingClass = (r) => `rating-${r}`
 
 const loading = ref(false)
 const feedbacks = ref([])

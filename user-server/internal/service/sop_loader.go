@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"marketing/internal/dto"
 	"gorm.io/gorm"
+	"marketing/internal/dto"
 )
 
 // IndustrySOP 行业 SOP
@@ -108,7 +108,7 @@ func mapActionToSOPNodeType(action string) string {
 // ToCreateRequest 将行业 SOP 资产转换为创建 SOP 的请求（M2 运行时覆盖默认）。
 // 资产步骤被串成 开始 -> 各步骤 -> 结束 的线性流程；宽松的 action 字段映射为
 // 受支持的节点类型，无法识别时降级为 message 节点。
-func (s *IndustrySOP) ToCreateRequest(ctx context.Context, scenario string)  *dto.CreateRequest {
+func (s *IndustrySOP) ToCreateRequest(ctx context.Context, scenario string) *dto.CreateRequest {
 	nodes := make([]dto.SOPNode, 0, len(s.Steps)+2)
 	nodes = append(nodes, dto.SOPNode{ID: "start", Type: "start", Name: "开始"})
 	prevID := "start"

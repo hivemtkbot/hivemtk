@@ -132,13 +132,17 @@ type MerchantCardButton struct {
 // 前端用正则解析 messages[0].content 提取参数
 // 解析结果返回给前端用于回显
 type MerchantFormParseResponse struct {
-	ShopName       string              `json:"shop_name"`
-	CampaignName   string              `json:"campaign_name"`
-	DiscountPct    string              `json:"discount_pct"`
-	SupportContact string              `json:"support_contact"`
-	QACards        []MerchantQACard    `json:"qa_cards"`
-	CardConfig     MerchantCardConfig  `json:"card_config"`
-	EnabledIntents []string            `json:"enabled_intents"`
+	ShopName        string              `json:"shop_name"`
+	CampaignName    string              `json:"campaign_name"`
+	DiscountPct     string              `json:"discount_pct"`
+	SupportContact  string              `json:"support_contact"`
+	QACards         []MerchantQACard    `json:"qa_cards"`
+	CardConfig      MerchantCardConfig  `json:"card_config"`
+	EnabledIntents  []string            `json:"enabled_intents"`
+	// 6 维拟人门禁指标阀门（保存时写入 system 快照，编辑回显时还原）
+	CrisisThreshold string `json:"crisis_threshold"`
+	ToneLevel       string `json:"tone_level"`
+	CensorshipLevel string `json:"censorship_level"`
 }
 
 // WeaveRequest Weave 算法请求
@@ -149,6 +153,8 @@ type WeaveRequest struct {
 	ChatHistory   []model.AssetBundleMessage     `json:"chat_history"`
 	MerchantVars  map[string]string              `json:"merchant_vars"`
 	Options       *WeaveOptionsDTO               `json:"options"`
+	// 沙箱/预览模式：开发者 Playground 本地试运行置 true，跳过热插拔门禁与用量累加
+	Sandbox       bool                           `json:"sandbox"`
 }
 
 // WeaveResponse Weave 响应

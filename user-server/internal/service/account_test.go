@@ -203,7 +203,7 @@ func TestAccountService_UpdateAccountStatusById(t *testing.T) {
 	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Update account status to inactive
-	err := service.UpdateAccountStatusById(registered.ID, _type.AccountStatusInactive, "Test reason")
+	err := service.UpdateAccountStatusById(context.Background(), registered.ID, _type.AccountStatusInactive, "Test reason")
 	if err != nil {
 		t.Fatalf("UpdateAccountStatusById failed: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestAccountService_UpdateAccountStatusById_NotFound(t *testing.T) {
 	service := NewAccountService()
 
 	// Try to update non-existent account
-	err := service.UpdateAccountStatusById("non-existent-id", _type.AccountStatusInactive, "Test reason")
+	err := service.UpdateAccountStatusById(context.Background(), "non-existent-id", _type.AccountStatusInactive, "Test reason")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -247,7 +247,7 @@ func TestAccountService_UpdateAccountTgNameById(t *testing.T) {
 	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// Update TgName
-	err := service.UpdateAccountTgNameById(registered.ID, "new_telegram_name")
+	err := service.UpdateAccountTgNameById(context.Background(), registered.ID, "new_telegram_name")
 	if err != nil {
 		t.Fatalf("UpdateAccountTgNameById failed: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestAccountService_UpdateAccountTgNameById_NotFound(t *testing.T) {
 	service := NewAccountService()
 
 	// Try to update non-existent account
-	err := service.UpdateAccountTgNameById("non-existent-id", "new_name")
+	err := service.UpdateAccountTgNameById(context.Background(), "non-existent-id", "new_name")
 	if err == nil {
 		t.Error("Expected error for non-existent account")
 	}
@@ -431,7 +431,7 @@ func TestAccountService_UpdateAccountStatusById_DifferentStatuses(t *testing.T) 
 	}
 
 	for _, status := range statuses {
-		err := service.UpdateAccountStatusById(registered.ID, status, "Status change test")
+		err := service.UpdateAccountStatusById(context.Background(), registered.ID, status, "Status change test")
 		if err != nil {
 			t.Fatalf("UpdateAccountStatusById failed for status %d: %v", status, err)
 		}
@@ -683,7 +683,7 @@ func TestAccountService_UpdateAccountStatusById_DuplicateStatus(t *testing.T) {
 	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 更新为相同的状态
-	err := service.UpdateAccountStatusById(registered.ID, _type.AccountStatusActive, "Same status update")
+	err := service.UpdateAccountStatusById(context.Background(), registered.ID, _type.AccountStatusActive, "Same status update")
 	if err != nil {
 		t.Fatalf("UpdateAccountStatusById with same status failed: %v", err)
 	}
@@ -710,7 +710,7 @@ func TestAccountService_UpdateAccountTgNameById_WithEmptyName(t *testing.T) {
 	registered, _ := service.CreateAccount(context.Background(), account)
 
 	// 更新为空名称
-	err := service.UpdateAccountTgNameById(registered.ID, "")
+	err := service.UpdateAccountTgNameById(context.Background(), registered.ID, "")
 	if err != nil {
 		t.Fatalf("UpdateAccountTgNameById with empty name failed: %v", err)
 	}

@@ -32,7 +32,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 	if svc == nil {
 		return
 	}
-	accs, err := svc.ListAccounts(context.Background(), )
+	accs, err := svc.ListAccounts(context.Background())
 	if err != nil {
 		logger.Warnf("[TG-Bootstrap] 列举 Telegram 账号失败: %v", err)
 		return

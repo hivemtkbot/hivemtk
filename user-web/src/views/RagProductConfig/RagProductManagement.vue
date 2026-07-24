@@ -22,7 +22,7 @@
         <el-table-column prop="category" label="类别" width="100">
           <template #default="{ row }">
             <el-tag :type="getCategoryTagType(row.category)">
-              {{ row.category }}
+              {{ getCategoryLabel(row.category) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -325,10 +325,20 @@ onMounted(() => {
   loadProducts()
 })
 
+// 类别 label：常见类别映射中文标签；未命中时回退原始 category 字符串
+const CATEGORY_LABELS = {
+  agent_persona: '智能体人设',
+  sales_script: '销售脚本',
+  knowledge: '知识库',
+  prompt: '提示词',
+  workflow: '工作流',
+  tool: '工具'
+}
+const getCategoryLabel = (c) => CATEGORY_LABELS[c] || c || '-'
 const getCategoryTagType = (category) => {
   // 基于分类名称的哈希值生成颜色类型，确保相同分类始终显示相同颜色
   if (!category) return 'info'
-  
+
   const types = ['primary', 'success', 'warning', 'danger', 'info']
   let hash = 0
   for (let i = 0; i < category.length; i++) {

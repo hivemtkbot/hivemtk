@@ -3,8 +3,8 @@
     <div class="page-header">
       <h1>{{ $t('邮件列表') }}</h1>
       <div class="toolbar">
-        <el-button type="primary" @click="openSend">{{ $t('sendEmail') }}</el-button>
-        <el-button @click="fetchEmailList">{{ $t('refresh') }}</el-button>
+        <el-button type="primary" @click="openSend">{{ $t('发送邮件') }}</el-button>
+        <el-button @click="fetchEmailList">{{ $t('刷新') }}</el-button>
       </div>
     </div>
     
@@ -39,8 +39,8 @@
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" @click="openTrace(scope.row)">{{ $t('viewTrace') }}</el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row)">{{ $t('delete') }}</el-button>
+            <el-button link type="primary" @click="openTrace(scope.row)">{{ $t('查看追踪') }}</el-button>
+            <el-button link type="danger" @click="handleDelete(scope.row)">{{ $t('删除') }}</el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -60,10 +60,10 @@
     </div>
 
     <!-- 发送邮件 -->
-    <el-dialog v-model="sendVisible" :title="$t('sendEmail')" width="640px">
+    <el-dialog v-model="sendVisible" :title="$t('发送邮件')" width="640px">
       <el-form :model="sendForm" label-width="80px">
-        <el-form-item :label="$t('emailSubject')">
-          <el-input v-model="sendForm.subject" :placeholder="$t('emailSubject')" />
+        <el-form-item :label="$t('主题')">
+          <el-input v-model="sendForm.subject" :placeholder="$t('主题')" />
         </el-form-item>
         <el-form-item label="内容">
           <el-input v-model="sendForm.content" type="textarea" :rows="6" placeholder="邮件内容" />
@@ -73,13 +73,13 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="sendVisible = false">{{ $t('cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitSend">{{ $t('confirm') }}</el-button>
+        <el-button @click="sendVisible = false">{{ $t('取消') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitSend">{{ $t('确定') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 追踪 -->
-    <el-dialog v-model="traceVisible" :title="$t('traceInfo')" width="640px">
+    <el-dialog v-model="traceVisible" :title="$t('追踪信息')" width="640px">
       <div v-loading="traceLoading">
         <div v-if="traceData && traceData.length">
           <el-table :data="traceData" border>

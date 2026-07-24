@@ -38,7 +38,9 @@ func NewShortLinkColumnsMigration(db *gorm.DB) *ShortLinkColumnsMigration {
 func (m *ShortLinkColumnsMigration) Version() string { return "v2.11.1" }
 
 // Name 返回迁移名称
-func (m *ShortLinkColumnsMigration) Name() string { return "short_links 字段补齐 (title/description/domain_id/password/expire_time)" }
+func (m *ShortLinkColumnsMigration) Name() string {
+	return "short_links 字段补齐 (title/description/domain_id/password/expire_time)"
+}
 
 // Description 返回迁移描述
 func (m *ShortLinkColumnsMigration) Description() string {

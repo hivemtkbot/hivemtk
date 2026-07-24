@@ -3,8 +3,8 @@ package repository
 import (
 	"marketing/internal/model"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // TikTokCardRepository TikTok 卡片仓储接口
@@ -18,9 +18,9 @@ type TikTokCardRepository interface {
 	IncrementLikeCount(ctx context.Context, id uint) error
 	IncrementShareCount(ctx context.Context, id uint) error
 	CreateActivity(ctx context.Context, activity *model.TikTokCardActivity) error
-	GetOverallStats(ctx context.Context,) (int64, int64, int64, []model.TikTokCard, error)
+	GetOverallStats(ctx context.Context) (int64, int64, int64, []model.TikTokCard, error)
 	GetCardStats(ctx context.Context, id uint, days int) (*model.TikTokCard, []model.TikTokCardActivity, error)
-	ListAll(ctx context.Context,) ([]model.TikTokCard, error)
+	ListAll(ctx context.Context) ([]model.TikTokCard, error)
 	CountDailyView(ctx context.Context, day string) (int64, error)
 	CountCardDailyView(ctx context.Context, cardID uint, day string) (int64, error)
 	ListRecentActivities(ctx context.Context, limit int) ([]model.TikTokCardActivity, error)
@@ -128,7 +128,7 @@ func (r *tiktokCardRepository) CreateActivity(ctx context.Context, activity *mod
 }
 
 // GetOverallStats 获取总体统计（独立部署：单租户）
-func (r *tiktokCardRepository) GetOverallStats(ctx context.Context,) (int64, int64, int64, []model.TikTokCard, error) {
+func (r *tiktokCardRepository) GetOverallStats(ctx context.Context) (int64, int64, int64, []model.TikTokCard, error) {
 	var totalCards, activeCards, totalViews int64
 
 	if err := r.db.Model(&model.TikTokCard{}).Count(&totalCards).Error; err != nil {
@@ -166,7 +166,7 @@ func (r *tiktokCardRepository) GetCardStats(ctx context.Context, id uint, days i
 }
 
 // ListAll 列出所有卡片（独立部署：单租户）
-func (r *tiktokCardRepository) ListAll(ctx context.Context,) ([]model.TikTokCard, error) {
+func (r *tiktokCardRepository) ListAll(ctx context.Context) ([]model.TikTokCard, error) {
 	var cards []model.TikTokCard
 	if err := r.db.Find(&cards).Error; err != nil {
 		return nil, err

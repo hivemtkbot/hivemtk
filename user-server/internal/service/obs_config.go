@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"marketing/internal/dto"
@@ -11,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"context"
 )
 
 // ObsConfigService OBS（对象存储）配置服务
@@ -53,10 +53,10 @@ func (s *obsConfigService) GetConfigList(ctx context.Context, page, limit int, p
 	}
 
 	return &dto.GetObsConfigListResponse{
-		List:	list,
-		Total:	total,
-		Page:	page,
-		Limit:	limit,
+		List:  list,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	}, nil
 }
 
@@ -75,19 +75,19 @@ func (s *obsConfigService) CreateConfig(ctx context.Context, req *dto.CreateObsC
 	}
 
 	config := &model.ObsConfig{
-		Name:		req.Name,
-		Provider:	model.ObsProvider(req.Provider),
-		AccessKey:	req.AccessKey,
-		SecretKey:	req.SecretKey,
-		Bucket:		req.Bucket,
-		Region:		req.Region,
-		Endpoint:	req.Endpoint,
-		Domain:		req.Domain,
-		PathPrefix:	req.PathPrefix,
-		Config:		req.Config,
-		MaxSize:	req.MaxSize,
-		MaxCount:	req.MaxCount,
-		Status:		model.ObsStatusActive,
+		Name:       req.Name,
+		Provider:   model.ObsProvider(req.Provider),
+		AccessKey:  req.AccessKey,
+		SecretKey:  req.SecretKey,
+		Bucket:     req.Bucket,
+		Region:     req.Region,
+		Endpoint:   req.Endpoint,
+		Domain:     req.Domain,
+		PathPrefix: req.PathPrefix,
+		Config:     req.Config,
+		MaxSize:    req.MaxSize,
+		MaxCount:   req.MaxCount,
+		Status:     model.ObsStatusActive,
 	}
 
 	// 如果这是第一个配置，设为默认
@@ -291,28 +291,28 @@ func (s *obsConfigService) validateCreateRequest(ctx context.Context, req *dto.C
 
 func (s *obsConfigService) convertToDTO(ctx context.Context, config *model.ObsConfig) *dto.ObsConfigResponse {
 	return &dto.ObsConfigResponse{
-		ID:		config.ID,
-		Name:		config.Name,
-		Provider:	string(config.Provider),
-		ProviderName:	obsConfigProviderName(config),
-		AccessKey:	config.AccessKey,
-		SecretKey:	"***",	// 不返回完整的SecretKey
-		Bucket:		config.Bucket,
-		Region:		config.Region,
-		Endpoint:	config.Endpoint,
-		Domain:		config.Domain,
-		PathPrefix:	config.PathPrefix,
-		Config:		config.Config,
-		MaxSize:	config.MaxSize,
-		MaxCount:	config.MaxCount,
-		Status:		string(config.Status),
-		LastError:	config.LastError,
-		LastTestAt:	config.LastTestAt,
-		TotalSize:	config.TotalSize,
-		FileCount:	config.FileCount,
-		IsDefault:	config.IsDefault,
-		CreatedAt:	config.CreatedAt,
-		UpdatedAt:	config.UpdatedAt,
+		ID:           config.ID,
+		Name:         config.Name,
+		Provider:     string(config.Provider),
+		ProviderName: obsConfigProviderName(config),
+		AccessKey:    config.AccessKey,
+		SecretKey:    "***", // 不返回完整的SecretKey
+		Bucket:       config.Bucket,
+		Region:       config.Region,
+		Endpoint:     config.Endpoint,
+		Domain:       config.Domain,
+		PathPrefix:   config.PathPrefix,
+		Config:       config.Config,
+		MaxSize:      config.MaxSize,
+		MaxCount:     config.MaxCount,
+		Status:       string(config.Status),
+		LastError:    config.LastError,
+		LastTestAt:   config.LastTestAt,
+		TotalSize:    config.TotalSize,
+		FileCount:    config.FileCount,
+		IsDefault:    config.IsDefault,
+		CreatedAt:    config.CreatedAt,
+		UpdatedAt:    config.UpdatedAt,
 	}
 }
 

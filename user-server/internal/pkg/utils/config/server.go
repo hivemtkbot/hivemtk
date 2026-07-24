@@ -132,6 +132,9 @@ type InferenceRerankConfig struct {
 // 默认走本地 mtk-llm（llama.cpp，OpenAI 兼容 /v1/chat/completions）。
 // 若 mode=remote 或 base_url 指向线上 OpenAI 兼容服务且 api_key 非空，则自动走线上。
 // CloudProviders 为可选的云端 fallback（deepseek/qwen/gpt-4o 等），仅在配置 api_key 后启用。
+// NoFC: 标记该 LLM 是否支持 OpenAI Function Calling；本地 Qwen2.5-3B-Instruct 不支持，
+// 启用 ReAct 适配器（thought/action 文本协议）走工具调用；用户在 config.yaml
+// 设置 inference.llm.no_fc=false 可显式关闭（如果模型已升级支持 FC）。
 type InferenceLLMConfig struct {
 	Mode           InferenceMode                  `yaml:"mode" json:"mode"`
 	BaseURL        string                         `yaml:"base_url" json:"base_url"`
@@ -141,6 +144,7 @@ type InferenceLLMConfig struct {
 	MaxTokens      int                            `yaml:"max_tokens" json:"max_tokens"`
 	TimeoutSeconds int                            `yaml:"timeout_seconds" json:"timeout_seconds"`
 	MaxRetries     int                            `yaml:"max_retries" json:"max_retries"`
+	NoFC           bool                           `yaml:"no_fc" json:"no_fc"`
 	CloudProviders []InferenceCloudProviderConfig `yaml:"cloud_providers" json:"cloud_providers"`
 }
 

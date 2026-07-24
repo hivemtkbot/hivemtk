@@ -6,11 +6,29 @@
           <span>{{ $t('客户搜索') }}</span>
         </template>
         <el-input v-model="searchKeyword" placeholder="搜索客户(姓名/手机/邮箱)" clearable />
-        <el-table :data="filteredCustomers" v-loading="loading" highlight-current-row @row-click="selectCustomer" style="margin-top: 15px">
-          <el-table-column prop="name" label="姓名" width="100" />
-          <el-table-column prop="phone" label="手机号" />
-          <el-table-column prop="source" label="来源" width="100" />
+        <el-table
+          :data="pagedCustomers"
+          v-loading="loading"
+          highlight-current-row
+          @row-click="selectCustomer"
+          style="margin-top: 15px"
+          empty-text="暂无客户"
+        >
+          <el-table-column prop="name" label="姓名" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="phone" label="手机号" min-width="140" show-overflow-tooltip />
+          <el-table-column label="来源" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ getChannelLabel(row.source) || '-' }}</template>
+        </el-table-column>
         </el-table>
+        <el-pagination
+          v-if="customers.length > pageSize"
+          v-model="currentPage"
+          :page-size="pageSize"
+          :total="customers.length"
+          layout="prev, pager, next, total"
+          small
+          class="pagination"
+        />
       </el-card>
     </div>
 
@@ -34,11 +52,11 @@
           <el-descriptions-item label="手机号">{{ current.phone }}</el-descriptions-item>
           <el-descriptions-item label="邮箱">{{ current.email }}</el-descriptions-item>
           <el-descriptions-item label="微信号">{{ current.wechat }}</el-descriptions-item>
-          <el-descriptions-item label="来源">{{ current.source }}</el-descriptions-item>
+          <el-descriptions-item label="来源">{{ getChannelLabel(current.source) }}</el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ current.createdAt }}</el-descriptions-item>
           <el-descriptions-item label="最后活跃">{{ current.lastActive }}</el-descriptions-item>
           <el-descriptions-item label="客户状态">
-            <el-tag :type="current.status === 'active' ? 'success' : 'info'">{{ current.status }}</el-tag>
+            <el-tag :type="getCustomerStatusTagType(current.status)">{{ getCustomerStatusLabel(current.status) }}</el-tag>
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
@@ -66,7 +84,7 @@
                 :timestamp="item.time"
                 :type="item.type"
               >
-                <h4>{{ item.action }}</h4>
+                <h4>{{ item.action || '-' }}</h4>
                 <p>{{ item.detail }}</p>
               </el-timeline-item>
             </el-timeline>
@@ -82,7 +100,7 @@
                 :timestamp="item.time"
                 :type="item.direction === 'in' ? 'primary' : 'success'"
               >
-                <h4>{{ item.channel }} - {{ item.direction === 'in' ? '客户' : '我方' }}</h4>
+                <h4>{{ getChannelLabel(item.channel) }} - {{ item.direction === 'in' ? '客户' : '我方' }}</h4>
                 <p>{{ item.content }}</p>
               </el-timeline-item>
             </el-timeline>
@@ -109,7 +127,11 @@
             </div>
             <el-table v-else :data="orders" v-loading="ordersLoading" empty-text="暂无订单记录">
               <el-table-column prop="order_id" label="订单号" width="170" />
-              <el-table-column prop="platform" label="平台" width="100" />
+              <el-table-column label="平台" width="100">
+                <template #default="{ row }">
+                  {{ getChannelLabel(row.platform) }}
+                </template>
+              </el-table-column>
               <el-table-column prop="status" label="状态" width="110" />
               <el-table-column label="金额" width="120">
                 <template #default="{ row }">¥{{ ((row.total_amount || 0) / 100).toFixed(2) }}</template>
@@ -157,6 +179,19 @@ import { getCustomerList, getCustomerDetail, addCustomerTag, removeCustomerTag }
 import { createSession, sendMessage } from '@/api/customerSession.js'
 import { getExternalOrdersByCustomer } from '@/api/integration.js'
 import { toList } from '@/utils/list'
+// 渠道 label：取自统一 channel 常量
+import { getChannelLabel } from '@/constants/channel'
+// 客户状态 label/type：取自统一 customerTag 常量（active/inactive/lost/churn）
+import {
+  getCustomerStatusLabel as getCustomerStatusLabelFromConst,
+  getCustomerStatusTagType as getCustomerStatusTagTypeFromConst
+} from '@/constants/customerTag'
+// 客户状态 label/type：取自统一 enabled 常量（active/disabled）
+import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+
+// 客户状态 label/type：active=正常，inactive/lost=流失/不活跃
+const getCustomerStatusLabel = (s) => getCustomerStatusLabelFromConst(s) || getEnabledLabel(s)
+const getCustomerStatusTagType = (s) => getCustomerStatusTagTypeFromConst(s) || getEnabledTagType(s)
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -179,6 +214,13 @@ const orders = ref([])
 const ordersLoading = ref(false)
 const contactVisible = ref(false)
 const contactForm = ref({ content: '' })
+const currentPage = ref(1)
+const pageSize = ref(20)
+
+const pagedCustomers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredCustomers.value.slice(start, start + pageSize.value)
+})
 
 const loadCustomers = async () => {
   loading.value = true
@@ -227,7 +269,7 @@ const selectCustomer = async (row) => {
   behaviors.value = messages.map((m) => ({
     time: m.created_at,
     type: m.sender_type === 'user' ? 'primary' : 'success',
-    action: m.sender_name || m.sender_type,
+    action: m.sender_name || getRoleLabel(m.sender_type),
     detail: m.content
   }))
   communications.value = messages.map((m) => ({
@@ -333,5 +375,9 @@ onMounted(() => loadCustomers())
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
 }
 </style>

@@ -38,7 +38,7 @@ func (c *EmailSmtpController) CreateEmailSmtp(ctx *gin.Context) {
 
 // GetEmailSmtpList 获取SMTP配置列表
 func (c *EmailSmtpController) GetEmailSmtpList(ctx *gin.Context) {
-	resp, err := c.svc.GetEmailSmtpListDTO(context.Background(), )
+	resp, err := c.svc.GetEmailSmtpListDTO(context.Background())
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return

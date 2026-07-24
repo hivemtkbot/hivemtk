@@ -31,7 +31,7 @@ func NewXiaohongshuCardStatsService(db *gorm.DB) XiaohongshuCardStatsService {
 }
 
 // GetCardStats 获取单个卡片的统计数据
-func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest)  (*dto.XiaohongshuCardStatsResponse, error) {
+func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
 	// 查询卡片信息
 	var card model.XiaohongshuCard
 	if err := s.db.First(&card, req.CardID).Error; err != nil {
@@ -138,7 +138,7 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 }
 
 // GetOverallStats 获取所有卡片的总体统计数据
-func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest)  (*dto.XiaohongshuCardOverallStatsResponse, error) {
+func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
 	// 获取卡片总数和激活数
 	var totalCards, activeCards int64
 	s.db.Model(&model.XiaohongshuCard{}).Count(&totalCards)
@@ -257,7 +257,7 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 }
 
 // RecordActivity 记录卡片活动
-func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string)  error {
+func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID uint, userID uint, action string, username, ipAddress, userAgent string) error {
 	// 只记录浏览活动
 	if action != "view" {
 		return nil

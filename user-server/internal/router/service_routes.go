@@ -2,8 +2,8 @@ package router
 
 import (
 	"marketing/internal/controller"
-	"marketing/internal/service"
 	opsctrl "marketing/internal/ops/controller"
+	"marketing/internal/service"
 	"marketing/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +25,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	auth.GET("/customer-sessions/:id/messages", customerSessionCtrl.GetMessages)
 	auth.POST("/customer-sessions/:id/messages", customerSessionCtrl.SendMessage)
 	auth.POST("/customer-sessions/:id/auto-assign", customerSessionCtrl.AutoAssignSession)
+	auth.POST("/customer-sessions/:id/close", customerSessionCtrl.CloseSession)
 	auth.POST("/customer-sessions/:id/rate", customerSessionCtrl.RateSession)
 	auth.POST("/customer-sessions/:id/transfer", customerSessionCtrl.TransferSession)
 	auth.POST("/customer-sessions/:id/tags", customerSessionCtrl.TagSession)
@@ -113,6 +114,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	// 注意：静态路径必须在参数路径之前注册
 	oneIDCtrl := controller.NewCustomerOneIDController()
 	auth.GET("/customer/oneid/list", oneIDCtrl.ListOneID)
+	auth.GET("/customer/oneid/stats", oneIDCtrl.OneIDStats)
 	auth.GET("/customer/oneid/conflicts", oneIDCtrl.ListConflicts)
 	auth.POST("/customer/oneid/merge", oneIDCtrl.MergeIdentity)
 	auth.POST("/customer/oneid/resolve", oneIDCtrl.ResolveIdentity)
@@ -225,14 +227,26 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupLLMProviderRoutes LLM Provider 降级管理路由（M-1 P1）
+//
+// failover 为 nil 时使用占位 controller（所有端点返回 503）。
+// 生产环境 main.go 应通过 NewSetupLLMProviderRoutes 注入真实 failover。
 func setupLLMProviderRoutes(auth *gin.RouterGroup) {
-	llmProvCtrl := controller.NewLLMProviderController()
+	failover := getGlobalProviderFailover()
+	llmProvCtrl := controller.NewLLMProviderController(failover)
 	auth.GET("/llm/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm/providers/health/:provider", llmProvCtrl.GetProviderHealth)
 	auth.POST("/llm/providers/circuit/reset", llmProvCtrl.ResetCircuit)
 	auth.POST("/llm/providers/circuit/reset/:provider", llmProvCtrl.ResetCircuit)
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
 	auth.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
+	// 文档承诺的 /api/llm-routings/* 端点（前端 ops/llm-routing 看板使用）
+	// F-P0-10 修复：统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
+	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
+	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
+	auth.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
+	auth.GET("/llm-routings/policy", llmProvCtrl.GetPolicy)
+	auth.PUT("/llm-routings/policy", llmProvCtrl.UpdatePolicy)
+	auth.POST("/llm-routings/resolve", llmProvCtrl.ResolveRoute)
 }
 
 // setupTraceRoutes 全链路追踪路由（M-3 P1）
@@ -312,27 +326,50 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupLLMRoutingRoutes LLM 多模型路由
+//
+// 修复 2026-07-23：
+//  1. URL 路径 :id 改 :name（语义清晰）
+//  2. 注入 service 依赖（不再使用 no-args 构造）
+//  3. 新增 /llm/audit 审计历史 + /llm/cost-stats cost-stats 端点
 func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
-	llmCtrl := controller.NewLLMRoutingController()
+	dispatcher := getGlobalDispatcher()
+	routingService := service.NewLLMRoutingService(dispatcher)
+	llmCtrl := controller.NewLLMRoutingController(routingService)
+	// v3.7.0 P1 补：注入熔断器，Health 端点可展示 circuit_open / error_count / last_error
+	if f := getGlobalProviderFailover(); f != nil {
+		llmCtrl.SetFailover(f)
+	}
+	// Provider / Model 管理（:name 而非 :id）
 	auth.GET("/llm/models", llmCtrl.ListModels)
+	auth.GET("/llm/models/:name", llmCtrl.GetModel)
 	auth.POST("/llm/models", llmCtrl.CreateModel)
-	auth.PUT("/llm/models/:id", llmCtrl.UpdateModel)
-	auth.DELETE("/llm/models/:id", llmCtrl.DeleteModel)
-	// P0-A 修复：原 POST /llm/models/test 缺少 :id 参数，导致 ctx.Param("id") 永远为空
-	// 改为标准 REST 风格：POST /llm/models/:id/test，URL 路径明确指定被测模型
-	auth.POST("/llm/models/:id/test", llmCtrl.TestModel)
+	auth.PUT("/llm/models/:name", llmCtrl.UpdateModel)
+	auth.DELETE("/llm/models/:name", llmCtrl.DeleteModel)
+	auth.POST("/llm/models/:name/test", llmCtrl.TestModel)
+	// 场景路由
 	auth.GET("/llm/strategies", llmCtrl.ListStrategies)
 	auth.PUT("/llm/strategies", llmCtrl.UpdateStrategies)
+	auth.POST("/llm/strategies", llmCtrl.UpdateStrategies)
+	// 路由审计
+	auth.GET("/llm/audit", llmCtrl.ListAuditHistory)
+	// 用量统计
 	auth.GET("/llm/stats", llmCtrl.Stats)
 	auth.GET("/llm/usage", llmCtrl.Usage)
+	auth.GET("/llm/cost-stats", llmCtrl.CostStats)
+	auth.GET("/llm/fallback", llmCtrl.FallbackConfig)
 	// 兼容前端路径别名
 	auth.GET("/llm/scene-routing", llmCtrl.ListStrategies)
-	auth.PUT("/llm/scene-routing", llmCtrl.UpdateStrategies)
-	auth.POST("/llm/scene-routing", llmCtrl.UpdateStrategies)
-	auth.GET("/llm/fallback", llmCtrl.ListStrategies)
-	auth.PUT("/llm/fallback", llmCtrl.UpdateStrategies)
-	auth.POST("/llm/fallback", llmCtrl.UpdateStrategies)
-	auth.GET("/llm/cost-stats", llmCtrl.Usage)
+	auth.PUT("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
+	auth.POST("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
+	auth.PUT("/llm/fallback", llmCtrl.UpdateSceneRouting)
+	auth.POST("/llm/fallback", llmCtrl.UpdateSceneRouting)
+	// 补全端点（2026-07-24 E2E 完整性补齐）
+	auth.GET("/llm/scenarios", llmCtrl.ListScenarios)
+	auth.GET("/llm/health", llmCtrl.Health)
+	auth.GET("/llm/scenario-stats", llmCtrl.ScenarioStats)
+	auth.GET("/llm/model-type-stats", llmCtrl.ModelTypeStats)
+	auth.GET("/llm/egress-alerts", llmCtrl.EgressAlerts)
+	auth.GET("/llm/egress-audit", llmCtrl.EgressAudit)
 }
 
 // setupAnalyticsRoutes 数据分析 (转化漏斗 + AI 产能 + 销冠画像)

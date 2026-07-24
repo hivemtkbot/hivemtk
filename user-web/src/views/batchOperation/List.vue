@@ -126,8 +126,8 @@
           <el-table-column prop="action" label="操作" width="150" />
           <el-table-column prop="status" label="预览状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
-                {{ row.status === 'success' ? '可通过' : '失败' }}
+              <el-tag :type="getPreviewStatusTagType(row.status)" size="small">
+                {{ getPreviewStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -203,6 +203,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, User, ChatLineRound, Promotion, Money, Document, Bell, ShoppingCart } from '@element-plus/icons-vue'
 import { getBatchTools, runBatch, getBatchHistories, cancelBatch, previewBatch, getBatchDetail } from '@/api/batchOperation.js'
 import { toList } from '@/utils/list.js'
+// 统一枚举：通用成功/失败状态
+import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
+
+// 预览状态 label/type：success=可通过，failed=失败
+const getPreviewStatusLabel = (s) => getStatusLabel(s, PASS_FAIL_STATUS) === '成功' ? '可通过' : (getStatusLabel(s, PASS_FAIL_STATUS) || s || '-')
+const getPreviewStatusTagType = (s) => getStatusTagType(s, PASS_FAIL_STATUS)
 
 const loading = ref(false)
 const tools = ref([])

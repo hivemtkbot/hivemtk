@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
@@ -28,6 +29,20 @@ func Setup(r *gin.Engine) {
 	var webhookSvc *service.WebhookService
 	var dingtalkAppSvc *service.DingTalkAppService
 
+	// 启用 405 Method Not Allowed：当路径已注册但 HTTP 方法不匹配时，
+	// 返回 405 而非默认 404，便于客户端（含 API 扫描器）区分「路径不存在」与「方法错误」。
+	// 例如 POST /api/customer-sessions/:id/takeover 被以 GET 访问时，
+	// 返回 405 而非 404，避免误判为「路由缺失」。
+	r.HandleMethodNotAllowed = true
+	r.NoMethod(func(c *gin.Context) {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{
+			"code":    "METHOD_NOT_ALLOWED_405",
+			"message": "请求方法不被支持",
+			"method":  c.Request.Method,
+			"path":    c.Request.URL.Path,
+		})
+	})
+
 	// 基础中间件
 	r.Use(gin.Recovery())
 
@@ -36,6 +51,9 @@ func Setup(r *gin.Engine) {
 
 	// 多语言：解析请求语言注入上下文，供业务层返回本地化提示
 	r.Use(middleware.LocaleMiddleware())
+
+	// ContextMiddleware：注入 IP / User-Agent 等公共上下文字段，供后续 handler / service 复用
+	r.Use(middleware.ContextMiddleware())
 
 	// P1-4: 初始化全局事件总线（在 Service 构造之前）
 	// 试点：OperationLog 异步写入；后续可在 initEventBus 中追加订阅者
@@ -132,7 +150,7 @@ func Setup(r *gin.Engine) {
 
 	// 认证路由
 	auth := r.Group("/api")
-	auth.Use(middleware.InitGuard())         // 1) 系统必须已初始化
+	auth.Use(middleware.InitGuard()) // 1) 系统必须已初始化
 	// 开源版：移除 LicenseGuard 中间件（License 模型删除，授权流程下线）
 	auth.Use(middleware.JWTAuthMiddleware()) // 2) JWT 必须有效
 	{
@@ -184,23 +202,32 @@ func Setup(r *gin.Engine) {
 		// 系统管理
 		setupSystemRoutes(auth)
 
+		// 人员管理（v3.1 §3.1：/api/system/users/*）
+		setupSystemUserRoutes(auth)
+
+		// 角色管理（v3.1 §3.2：/api/system/roles/*）
+		setupRoleRoutes(auth)
+
+		// 授权管理（v3.1 §3.4：/api/system/permissions/*）
+		setupPermissionRoutes(auth)
+
 		// RAG 知识库
 		setupRagRoutes(auth)
 
 		// 知识库管理
 		setupKnowledgeBaseRoutes(auth)
 
-	// WhatsApp (Web 扫码)
-	setupWhatsappRoutes(auth)
+		// WhatsApp (Web 扫码)
+		setupWhatsappRoutes(auth)
 
-	// WhatsApp Cloud (Meta 商业 API)
-	whatsappCloudSvc = service.NewWhatsAppCloudService(db.GetDB())
-	setupWhatsAppCloudRoutes(auth, whatsappCloudSvc)
+		// WhatsApp Cloud (Meta 商业 API)
+		whatsappCloudSvc = service.NewWhatsAppCloudService(db.GetDB())
+		setupWhatsAppCloudRoutes(auth, whatsappCloudSvc)
 
-	// 钉钉企业内部应用（支持回调收消息）
-	webhookSvc = service.NewWebhookService(db.GetDB())
-	dingtalkAppSvc = service.NewDingTalkAppService(db.GetDB(), webhookSvc)
-	setupDingTalkAppRoutes(auth, dingtalkAppSvc)
+		// 钉钉企业内部应用（支持回调收消息）
+		webhookSvc = service.NewWebhookService(db.GetDB())
+		dingtalkAppSvc = service.NewDingTalkAppService(db.GetDB(), webhookSvc)
+		setupDingTalkAppRoutes(auth, dingtalkAppSvc)
 
 		// Telegram
 		setupTelegramRoutes(auth)
@@ -265,9 +292,6 @@ func Setup(r *gin.Engine) {
 		// 性能压测 + 安全审计
 		setupQualityRoutes(auth)
 
-		// 团队用户管理
-		setupTeamRoutes(auth)
-
 		// 批量操作
 		setupBatchRoutes(auth)
 
@@ -320,6 +344,7 @@ func Setup(r *gin.Engine) {
 		setupMigrationRoutes(auth)
 
 		// 文件上传
+		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
 		auth.POST("/upload", controller.UploadFile)
 
 		// 多 AI 智能体架构（MULTI_AI_AGENT_DESIGN）

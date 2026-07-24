@@ -32,7 +32,7 @@ func NewCustomerPortAdapter(svc *CustomerService) *CustomerPortAdapter {
 	return &CustomerPortAdapter{svc: svc}
 }
 
-func (a *CustomerPortAdapter) GetCustomerProfile(customerID string)  (*portcontract.CustomerProfileView, error) {
+func (a *CustomerPortAdapter) GetCustomerProfile(customerID string) (*portcontract.CustomerProfileView, error) {
 	p, err := a.svc.GetCustomerProfile(context.Background(), customerID)
 	if err != nil {
 		// 把 service 包 sentinel 映射为 portcontract sentinel,避免工具层反向依赖 service
@@ -51,7 +51,7 @@ func (a *CustomerPortAdapter) GetCustomerProfile(customerID string)  (*portcontr
 	}, nil
 }
 
-func (a *CustomerPortAdapter) CreateOrUpdate(identity *portcontract.CustomerIdentity)  (*model.Customer, error) {
+func (a *CustomerPortAdapter) CreateOrUpdate(identity *portcontract.CustomerIdentity) (*model.Customer, error) {
 	if identity == nil {
 		return nil, ErrInvalidDTO
 	}
@@ -64,15 +64,15 @@ func (a *CustomerPortAdapter) CreateOrUpdate(identity *portcontract.CustomerIden
 	})
 }
 
-func (a *CustomerPortAdapter) MergeCustomers(primaryID, secondaryID string)  error {
+func (a *CustomerPortAdapter) MergeCustomers(primaryID, secondaryID string) error {
 	return a.svc.MergeCustomers(context.Background(), primaryID, secondaryID)
 }
 
-func (a *CustomerPortAdapter) AddTags(customerID string, tags []string)  error {
+func (a *CustomerPortAdapter) AddTags(customerID string, tags []string) error {
 	return a.svc.AddTags(context.Background(), customerID, tags)
 }
 
-func (a *CustomerPortAdapter) RemoveTags(customerID string, tags []string)  error {
+func (a *CustomerPortAdapter) RemoveTags(customerID string, tags []string) error {
 	return a.svc.RemoveTags(context.Background(), customerID, tags)
 }
 
@@ -105,7 +105,7 @@ func (a *SessionPortAdapter) CreateSession(ctx context.Context, in *portcontract
 	})
 }
 
-func (a *SessionPortAdapter) GetMessages(sessionID string, page, pageSize int)  ([]*model.SessionMessage, int64, error) {
+func (a *SessionPortAdapter) GetMessages(sessionID string, page, pageSize int) ([]*model.SessionMessage, int64, error) {
 	return a.svc.GetMessages(context.Background(), sessionID, page, pageSize)
 }
 
@@ -167,15 +167,15 @@ func parseReminderPriority(p string) ReminderPriority {
 	}
 }
 
-func (a *FollowUpPortAdapter) CompleteWithResult(reminderID string, result, note string)  error {
+func (a *FollowUpPortAdapter) CompleteWithResult(reminderID string, result, note string) error {
 	return a.svc.CompleteWithResult(context.Background(), reminderID, FollowUpResult(result), note)
 }
 
-func (a *FollowUpPortAdapter) Cancel(reminderID string)  error {
+func (a *FollowUpPortAdapter) Cancel(reminderID string) error {
 	return a.svc.Cancel(context.Background(), reminderID)
 }
 
-func (a *FollowUpPortAdapter) ResultInfo(result string)  (stage string, ok bool) {
+func (a *FollowUpPortAdapter) ResultInfo(result string) (stage string, ok bool) {
 	info, ok := FollowUpResultInfo[FollowUpResult(result)]
 	if !ok {
 		return "", false

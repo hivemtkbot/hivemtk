@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"image"
 	"image/png"
 	"marketing/internal/dto"

@@ -67,7 +67,8 @@ const checkNewMessage = async () => {
       dismissed.value = false
     }
   } catch (error) {
-    console.error('获取最新消息失败:', error)
+    // 后台轮询：平台不可用时仅开发态记录，避免生产控制台噪声
+    if (import.meta.env?.DEV) console.warn('获取最新消息失败:', error)
   }
 }
 

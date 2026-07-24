@@ -233,6 +233,8 @@ import {
   Plus, Search, RefreshRight, Edit, Delete, Platform, SwitchButton, Check
 } from '@element-plus/icons-vue'
 import { platformAccountApi } from '@/api/platformAccount'
+// 状态显示：统一取自 accountType 常量
+import { getAccountStatusLabel, getAccountStatusTagType } from '@/constants/accountType'
 
 // 响应式数据
 const loading = ref(false)
@@ -497,18 +499,9 @@ const handleCheckStatus = async (row) => {
   }
 }
 
-// 状态显示
-const getStatusType = (status) => {
-  if (status === 1) return 'success'
-  if (status === 2) return 'danger'
-  return 'warning'
-}
-
-const getStatusText = (status) => {
-  if (status === 1) return '正常'
-  if (status === 2) return '异常'
-  return '未登录'
-}
+// 状态显示（统一取自 accountType 常量）
+const getStatusType = (status) => getAccountStatusTagType(status)
+const getStatusText = (status) => getAccountStatusLabel(status)
 </script>
 
 <style lang="scss" scoped>

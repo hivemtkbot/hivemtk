@@ -103,7 +103,7 @@ func TestDefaultAnomalyLoginDetectorConfig(t *testing.T) {
 func TestSetAdminEmails(t *testing.T) {
 	d := NewAnomalyLoginDetector()
 	emails := []string{"a@x.com", "b@y.com"}
-	d.SetAdminEmails(emails)
+	d.SetAdminEmails(context.Background(), emails)
 	if len(d.config.AdminEmails) != 2 {
 		t.Errorf("AdminEmails 长度 = %d, want 2", len(d.config.AdminEmails))
 	}
@@ -119,7 +119,7 @@ func TestSetConfig(t *testing.T) {
 		EmailSubjectTemplate: "X",
 		EmailBodyTemplate:    "Y",
 	}
-	d.SetConfig(newCfg)
+	d.SetConfig(context.Background(), newCfg)
 	if d.config.EmailEnabled {
 		t.Error("EmailEnabled 应为 false")
 	}
@@ -418,7 +418,7 @@ func TestListAlerts(t *testing.T) {
 		database.Create(alert)
 	}
 
-	alerts, total, err := d.ListAlerts(1, "", 1, 10)
+	alerts, total, err := d.ListAlerts(context.Background(), 1, "", 1, 10)
 	if err != nil {
 		t.Fatalf("ListAlerts 失败: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestListAlerts_FilterByStatus(t *testing.T) {
 		RiskLevel: model.RiskLevelHigh, Title: "resolved", Status: model.SecurityAlertStatusResolved,
 	})
 
-	open, total, err := d.ListAlerts(1, "open", 1, 10)
+	open, total, err := d.ListAlerts(context.Background(), 1, "open", 1, 10)
 	if err != nil {
 		t.Fatalf("ListAlerts 失败: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestListLoginEvents(t *testing.T) {
 		})
 	}
 
-	events, total, err := d.ListLoginEvents(1, 1, 10)
+	events, total, err := d.ListLoginEvents(context.Background(), 1, 1, 10)
 	if err != nil {
 		t.Fatalf("ListLoginEvents 失败: %v", err)
 	}
@@ -502,7 +502,7 @@ func TestResolveAlert(t *testing.T) {
 	}
 	database.Create(alert)
 
-	err := d.ResolveAlert(alert.ID, 1, "handled by admin")
+	err := d.ResolveAlert(context.Background(), alert.ID, 1, "handled by admin")
 	if err != nil {
 		t.Fatalf("ResolveAlert 失败: %v", err)
 	}
@@ -536,7 +536,7 @@ func TestIgnoreAlert(t *testing.T) {
 	}
 	database.Create(alert)
 
-	err := d.IgnoreAlert(alert.ID, 1, "false positive")
+	err := d.IgnoreAlert(context.Background(), alert.ID, 1, "false positive")
 	if err != nil {
 		t.Fatalf("IgnoreAlert 失败: %v", err)
 	}

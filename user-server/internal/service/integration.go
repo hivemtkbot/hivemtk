@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-	"context"
 )
 
 // yuanToFen 将元（float64）转换为分（int64）
@@ -24,27 +24,27 @@ func yuanToFen(yuan float64) int64 {
 
 // IntegrationService 第三方对接服务
 type IntegrationService struct {
-	accountRepo		*repository.IntegrationAccountRepository
-	syncLogRepo		*repository.SyncLogRepository
-	customerRepo		*repository.ExternalCustomerRepository
-	orderRepo		*repository.ExternalOrderRepository
-	productRepo		*repository.ExternalProductRepository
-	webhookEventRepo	*repository.WebhookEventRepository
+	accountRepo      *repository.IntegrationAccountRepository
+	syncLogRepo      *repository.SyncLogRepository
+	customerRepo     *repository.ExternalCustomerRepository
+	orderRepo        *repository.ExternalOrderRepository
+	productRepo      *repository.ExternalProductRepository
+	webhookEventRepo *repository.WebhookEventRepository
 }
 
 var (
-	_ *repository.IntegrationAccountRepository	// 用于静态检查
+	_ *repository.IntegrationAccountRepository // 用于静态检查
 )
 
 // NewIntegrationService 创建第三方对接服务实例
 func NewIntegrationService() *IntegrationService {
 	return &IntegrationService{
-		accountRepo:		repository.NewIntegrationAccountRepository(),
-		syncLogRepo:		repository.NewSyncLogRepository(),
-		customerRepo:		repository.NewExternalCustomerRepository(),
-		orderRepo:		repository.NewExternalOrderRepository(),
-		productRepo:		repository.NewExternalProductRepository(),
-		webhookEventRepo:	repository.NewWebhookEventRepository(),
+		accountRepo:      repository.NewIntegrationAccountRepository(),
+		syncLogRepo:      repository.NewSyncLogRepository(),
+		customerRepo:     repository.NewExternalCustomerRepository(),
+		orderRepo:        repository.NewExternalOrderRepository(),
+		productRepo:      repository.NewExternalProductRepository(),
+		webhookEventRepo: repository.NewWebhookEventRepository(),
 	}
 }
 
@@ -52,19 +52,19 @@ func NewIntegrationService() *IntegrationService {
 type Platform string
 
 const (
-	PlatformXiaoshouyi	Platform	= "crm_xiaoshouyi"	// 销售易
-	PlatformFenxiangxiao	Platform	= "crm_fenxiangxiao"	// 纷享销客
-	PlatformTaobao		Platform	= "ecommerce_taobao"	// 淘宝
-	PlatformJD		Platform	= "ecommerce_jd"	// 京东
+	PlatformXiaoshouyi   Platform = "crm_xiaoshouyi"   // 销售易
+	PlatformFenxiangxiao Platform = "crm_fenxiangxiao" // 纷享销客
+	PlatformTaobao       Platform = "ecommerce_taobao" // 淘宝
+	PlatformJD           Platform = "ecommerce_jd"     // 京东
 )
 
 // CreateIntegrationAccountRequest 创建对接账号请求
 type CreateIntegrationAccountRequest struct {
-	Platform	string		`json:"platform" binding:"required"`
-	AccountName	string		`json:"account_name"`
-	APIKey		string		`json:"api_key"`
-	APISecret	string		`json:"api_secret"`
-	Config		map[string]any	`json:"config"`
+	Platform    string         `json:"platform" binding:"required"`
+	AccountName string         `json:"account_name"`
+	APIKey      string         `json:"api_key"`
+	APISecret   string         `json:"api_secret"`
+	Config      map[string]any `json:"config"`
 }
 
 // CreateIntegrationAccount 创建对接账号
@@ -76,12 +76,12 @@ func (s *IntegrationService) CreateIntegrationAccount(ctx context.Context, req *
 	}
 
 	account := &model.IntegrationAccount{
-		Platform:	req.Platform,
-		AccountName:	req.AccountName,
-		APIKey:		req.APIKey,
-		APISecret:	req.APISecret,
-		Config:		configJSON,
-		Status:		1,
+		Platform:    req.Platform,
+		AccountName: req.AccountName,
+		APIKey:      req.APIKey,
+		APISecret:   req.APISecret,
+		Config:      configJSON,
+		Status:      1,
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {
@@ -132,22 +132,22 @@ func (s *IntegrationService) DeleteIntegrationAccount(ctx context.Context, id ui
 
 // XiaoshouyiClient 销售易 API 客户端
 type XiaoshouyiClient struct {
-	accountRepo	*repository.IntegrationAccountRepository
-	account		*model.IntegrationAccount
-	httpClient	*http.Client
+	accountRepo *repository.IntegrationAccountRepository
+	account     *model.IntegrationAccount
+	httpClient  *http.Client
 }
 
 // NewXiaoshouyiClient 创建销售易 API 客户端
 func NewXiaoshouyiClient(account *model.IntegrationAccount, accountRepo *repository.IntegrationAccountRepository) *XiaoshouyiClient {
 	return &XiaoshouyiClient{
-		accountRepo:	accountRepo,
-		account:	account,
-		httpClient:	httpclient.NewWithTimeout(30 * time.Second),
+		accountRepo: accountRepo,
+		account:     account,
+		httpClient:  httpclient.NewWithTimeout(30 * time.Second),
 	}
 }
 
 // GetAccessToken 获取访问令牌
-func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context)  (string, error) {
+func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context) (string, error) {
 	if c.account.AccessToken != "" && c.account.TokenExpires != nil && time.Now().Before(*c.account.TokenExpires) {
 		return c.account.AccessToken, nil
 	}
@@ -155,9 +155,9 @@ func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context)  (string, error) 
 	// 销售易 OAuth2.0 令牌获取
 	tokenURL := "https://api.xiaoshouyi.com/oauth/token"
 	data := url.Values{
-		"grant_type":		{"client_credentials"},
-		"client_id":		{c.account.APIKey},
-		"client_secret":	{c.account.APISecret},
+		"grant_type":    {"client_credentials"},
+		"client_id":     {c.account.APIKey},
+		"client_secret": {c.account.APISecret},
 	}
 
 	resp, err := c.httpClient.PostForm(tokenURL, data)
@@ -172,9 +172,9 @@ func (c *XiaoshouyiClient) GetAccessToken(ctx context.Context)  (string, error) 
 	}
 
 	var result struct {
-		AccessToken	string	`json:"access_token"`
-		ExpiresIn	int	`json:"expires_in"`
-		Error		string	`json:"error"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		Error       string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", err
@@ -213,10 +213,10 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"customer",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "customer",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -242,24 +242,24 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 	}
 
 	var result struct {
-		Data	[]struct {
-			ID		string	`json:"id"`
-			Name		string	`json:"name"`
-			Phone		string	`json:"phone"`
-			Email		string	`json:"email"`
-			Company		string	`json:"company"`
-			Industry	string	`json:"industry"`
-			OwnerID		string	`json:"owner_id"`
-			OwnerName	string	`json:"owner_name"`
-			Status		string	`json:"status"`
-			Source		string	`json:"source"`
-			CreatedTime	int64	`json:"created_time"`
-			ModifiedTime	int64	`json:"modified_time"`
-		}	`json:"data"`
-		Error	struct {
-			Code	int	`json:"code"`
-			Message	string	`json:"message"`
-		}	`json:"error"`
+		Data []struct {
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			Phone        string `json:"phone"`
+			Email        string `json:"email"`
+			Company      string `json:"company"`
+			Industry     string `json:"industry"`
+			OwnerID      string `json:"owner_id"`
+			OwnerName    string `json:"owner_name"`
+			Status       string `json:"status"`
+			Source       string `json:"source"`
+			CreatedTime  int64  `json:"created_time"`
+			ModifiedTime int64  `json:"modified_time"`
+		} `json:"data"`
+		Error struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 2, 0, err.Error())
@@ -275,18 +275,18 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 	count := 0
 	for _, c := range result.Data {
 		customer := &model.ExternalCustomer{
-			Platform:	account.Platform,
-			ExternalID:	c.ID,
-			Name:		c.Name,
-			Phone:		c.Phone,
-			Email:		c.Email,
-			Company:	c.Company,
-			Industry:	c.Industry,
-			OwnerID:	c.OwnerID,
-			OwnerName:	c.OwnerName,
-			Status:		c.Status,
-			Source:		c.Source,
-			LastContactAt:	func() *time.Time { t := time.Unix(c.ModifiedTime, 0); return &t }(),
+			Platform:      account.Platform,
+			ExternalID:    c.ID,
+			Name:          c.Name,
+			Phone:         c.Phone,
+			Email:         c.Email,
+			Company:       c.Company,
+			Industry:      c.Industry,
+			OwnerID:       c.OwnerID,
+			OwnerName:     c.OwnerName,
+			Status:        c.Status,
+			Source:        c.Source,
+			LastContactAt: func() *time.Time { t := time.Unix(c.ModifiedTime, 0); return &t }(),
 		}
 
 		// 检查是否已存在
@@ -309,22 +309,22 @@ func (s *IntegrationService) syncXiaoshouyiCustomers(ctx context.Context, accoun
 
 // FenxiangxiaoClient 纷享销客 API 客户端
 type FenxiangxiaoClient struct {
-	accountRepo	*repository.IntegrationAccountRepository
-	account		*model.IntegrationAccount
-	httpClient	*http.Client
+	accountRepo *repository.IntegrationAccountRepository
+	account     *model.IntegrationAccount
+	httpClient  *http.Client
 }
 
 // NewFenxiangxiaoClient 创建纷享销客 API 客户端
 func NewFenxiangxiaoClient(account *model.IntegrationAccount, accountRepo *repository.IntegrationAccountRepository) *FenxiangxiaoClient {
 	return &FenxiangxiaoClient{
-		accountRepo:	accountRepo,
-		account:	account,
-		httpClient:	httpclient.NewWithTimeout(30 * time.Second),
+		accountRepo: accountRepo,
+		account:     account,
+		httpClient:  httpclient.NewWithTimeout(30 * time.Second),
 	}
 }
 
 // GetAccessToken 获取访问令牌
-func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context)  (string, error) {
+func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context) (string, error) {
 	if c.account.AccessToken != "" && c.account.TokenExpires != nil && time.Now().Before(*c.account.TokenExpires) {
 		return c.account.AccessToken, nil
 	}
@@ -332,9 +332,9 @@ func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context)  (string, error
 	// 纷享销客 OAuth2.0 令牌获取
 	tokenURL := "https://api.fxiaoke.com/oauth2/token"
 	data := url.Values{
-		"grant_type":	{"client_credentials"},
-		"app_key":	{c.account.APIKey},
-		"app_secret":	{c.account.APISecret},
+		"grant_type": {"client_credentials"},
+		"app_key":    {c.account.APIKey},
+		"app_secret": {c.account.APISecret},
 	}
 
 	resp, err := c.httpClient.PostForm(tokenURL, data)
@@ -349,10 +349,10 @@ func (c *FenxiangxiaoClient) GetAccessToken(ctx context.Context)  (string, error
 	}
 
 	var result struct {
-		AccessToken	string	`json:"access_token"`
-		ExpiresIn	int	`json:"expires_in"`
-		Errcode		int	`json:"errcode"`
-		Errmsg		string	`json:"errmsg"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		Errcode     int    `json:"errcode"`
+		Errmsg      string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", err
@@ -379,10 +379,10 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"customer",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "customer",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -391,8 +391,8 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 	// 获取客户列表
 	apiURL := "https://api.fxiaoke.com/crm/lead/v2/list"
 	reqBody := map[string]any{
-		"page":		1,
-		"pagesize":	100,
+		"page":     1,
+		"pagesize": 100,
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
@@ -414,24 +414,24 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 	}
 
 	var result struct {
-		Response	struct {
-			Data	[]struct {
-				ID		string		`json:"id"`
-				Name		string		`json:"name"`
-				Phone		string		`json:"mobile"`
-				Email		string		`json:"email"`
-				Company		string		`json:"company_name"`
-				Position	string		`json:"position"`
-				OwnerID		string		`json:"owner_id"`
-				OwnerName	string		`json:"owner_name"`
-				Status		string		`json:"status"`
-				Source		string		`json:"source"`
-				Tags		[]string	`json:"tags"`
-			}	`json:"data"`
-			TotalCount	int	`json:"total_count"`
-		}	`json:"response"`
-		Errcode	int	`json:"errcode"`
-		Errmsg	string	`json:"errmsg"`
+		Response struct {
+			Data []struct {
+				ID        string   `json:"id"`
+				Name      string   `json:"name"`
+				Phone     string   `json:"mobile"`
+				Email     string   `json:"email"`
+				Company   string   `json:"company_name"`
+				Position  string   `json:"position"`
+				OwnerID   string   `json:"owner_id"`
+				OwnerName string   `json:"owner_name"`
+				Status    string   `json:"status"`
+				Source    string   `json:"source"`
+				Tags      []string `json:"tags"`
+			} `json:"data"`
+			TotalCount int `json:"total_count"`
+		} `json:"response"`
+		Errcode int    `json:"errcode"`
+		Errmsg  string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 2, 0, err.Error())
@@ -448,18 +448,18 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 	for _, c := range result.Response.Data {
 		tagsJSON, _ := json.Marshal(c.Tags)
 		customer := &model.ExternalCustomer{
-			Platform:	account.Platform,
-			ExternalID:	c.ID,
-			Name:		c.Name,
-			Phone:		c.Phone,
-			Email:		c.Email,
-			Company:	c.Company,
-			Position:	c.Position,
-			OwnerID:	c.OwnerID,
-			OwnerName:	c.OwnerName,
-			Status:		c.Status,
-			Source:		c.Source,
-			Tags:		string(tagsJSON),
+			Platform:   account.Platform,
+			ExternalID: c.ID,
+			Name:       c.Name,
+			Phone:      c.Phone,
+			Email:      c.Email,
+			Company:    c.Company,
+			Position:   c.Position,
+			OwnerID:    c.OwnerID,
+			OwnerName:  c.OwnerName,
+			Status:     c.Status,
+			Source:     c.Source,
+			Tags:       string(tagsJSON),
 		}
 
 		// 检查是否已存在
@@ -484,19 +484,19 @@ func (s *IntegrationService) syncFenxiangxiaoCustomers(ctx context.Context, acco
 
 // TaobaoClient 淘宝 API 客户端
 type TaobaoClient struct {
-	account		*model.IntegrationAccount
-	httpClient	*http.Client
-	appKey		string
-	appSecret	string
+	account    *model.IntegrationAccount
+	httpClient *http.Client
+	appKey     string
+	appSecret  string
 }
 
 // NewTaobaoClient 创建淘宝 API 客户端
 func NewTaobaoClient(account *model.IntegrationAccount) *TaobaoClient {
 	return &TaobaoClient{
-		account:	account,
-		httpClient:	httpclient.NewWithTimeout(30 * time.Second),
-		appKey:		account.APIKey,
-		appSecret:	account.APISecret,
+		account:    account,
+		httpClient: httpclient.NewWithTimeout(30 * time.Second),
+		appKey:     account.APIKey,
+		appSecret:  account.APISecret,
 	}
 }
 
@@ -518,10 +518,10 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"order",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "order",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -530,15 +530,15 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 	// 淘宝 API 签名请求（简化版本，实际需要复杂签名）
 	apiURL := "https://gw.api.taobao.com/router/rest"
 	params := url.Values{
-		"app_key":		{client.appKey},
-		"method":		{"taobao.trades.sold.get"},
-		"format":		{"json"},
-		"v":			{"2.0"},
-		"start_created":	{time.Now().AddDate(0, -1, 0).Format("2006-01-02 15:04:05")},
-		"end_created":		{time.Now().Format("2006-01-02 15:04:05")},
-		"page":			{"1"},
-		"page_size":		{"100"},
-		"fields":		{"tid,type,status,payment,receiver_name,receiver_phone,created,orders"},
+		"app_key":       {client.appKey},
+		"method":        {"taobao.trades.sold.get"},
+		"format":        {"json"},
+		"v":             {"2.0"},
+		"start_created": {time.Now().AddDate(0, -1, 0).Format("2006-01-02 15:04:05")},
+		"end_created":   {time.Now().Format("2006-01-02 15:04:05")},
+		"page":          {"1"},
+		"page_size":     {"100"},
+		"fields":        {"tid,type,status,payment,receiver_name,receiver_phone,created,orders"},
 	}
 
 	// Add signature calculation (requires app_secret)
@@ -561,23 +561,23 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		TradesSoldGetResponse struct {
 			Trades struct {
 				Trade []struct {
-					TID		string	`json:"tid"`
-					Type		string	`json:"type"`
-					Status		string	`json:"status"`
-					Payment		float64	`json:"payment"`
-					ReceiverName	string	`json:"receiver_name"`
-					ReceiverPhone	string	`json:"receiver_phone"`
-					Created		string	`json:"created"`
-					PayTime		string	`json:"pay_time"`
-					ConsentTime	string	`json:"consign_time"`
-					Orders		struct {
+					TID           string  `json:"tid"`
+					Type          string  `json:"type"`
+					Status        string  `json:"status"`
+					Payment       float64 `json:"payment"`
+					ReceiverName  string  `json:"receiver_name"`
+					ReceiverPhone string  `json:"receiver_phone"`
+					Created       string  `json:"created"`
+					PayTime       string  `json:"pay_time"`
+					ConsentTime   string  `json:"consign_time"`
+					Orders        struct {
 						Order []struct {
-							Title		string	`json:"title"`
-							Price		float64	`json:"price"`
-							Num		int	`json:"num"`
-							OuterIid	string	`json:"outer_iid"`
+							Title    string  `json:"title"`
+							Price    float64 `json:"price"`
+							Num      int     `json:"num"`
+							OuterIid string  `json:"outer_iid"`
 						} `json:"order"`
-					}	`json:"orders"`
+					} `json:"orders"`
 				} `json:"trade"`
 			} `json:"trades"`
 		} `json:"trades_sold_get_response"`
@@ -594,10 +594,10 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		var items []map[string]any
 		for _, o := range t.Orders.Order {
 			items = append(items, map[string]any{
-				"title":	o.Title,
-				"price":	o.Price,
-				"quantity":	o.Num,
-				"product_id":	o.OuterIid,
+				"title":      o.Title,
+				"price":      o.Price,
+				"quantity":   o.Num,
+				"product_id": o.OuterIid,
 			})
 		}
 		itemsJSON, _ := json.Marshal(items)
@@ -619,16 +619,16 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 		}
 
 		order := &model.ExternalOrder{
-			Platform:	account.Platform,
-			OrderID:	t.TID,
-			Status:		t.Status,
-			OrderTime:	orderTime,
-			PayAmount:	yuanToFen(t.Payment),
-			UserName:	t.ReceiverName,
-			UserPhone:	t.ReceiverPhone,
-			PayTime:	payTime,
-			ShipTime:	shipTime,
-			Items:		string(itemsJSON),
+			Platform:  account.Platform,
+			OrderID:   t.TID,
+			Status:    t.Status,
+			OrderTime: orderTime,
+			PayAmount: yuanToFen(t.Payment),
+			UserName:  t.ReceiverName,
+			UserPhone: t.ReceiverPhone,
+			PayTime:   payTime,
+			ShipTime:  shipTime,
+			Items:     string(itemsJSON),
 		}
 
 		// 检查是否已存在
@@ -653,19 +653,19 @@ func (s *IntegrationService) syncTaobaoOrders(ctx context.Context, account *mode
 
 // JDClient 京东 API 客户端
 type JDClient struct {
-	account		*model.IntegrationAccount
-	httpClient	*http.Client
-	appKey		string
-	appSecret	string
+	account    *model.IntegrationAccount
+	httpClient *http.Client
+	appKey     string
+	appSecret  string
 }
 
 // NewJDClient 创建京东 API 客户端
 func NewJDClient(account *model.IntegrationAccount) *JDClient {
 	return &JDClient{
-		account:	account,
-		httpClient:	httpclient.NewWithTimeout(30 * time.Second),
-		appKey:		account.APIKey,
-		appSecret:	account.APISecret,
+		account:    account,
+		httpClient: httpclient.NewWithTimeout(30 * time.Second),
+		appKey:     account.APIKey,
+		appSecret:  account.APISecret,
 	}
 }
 
@@ -675,10 +675,10 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"order",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "order",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -687,14 +687,14 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 	// 京东 API 请求（简化版本，实际需要 JOSN 签名）
 	apiURL := "https://api.jd.com/routerjson"
 	params := url.Values{
-		"app_key":	{client.appKey},
-		"method":	{"jingdong.pop.order.search"},
-		"format":	{"json"},
-		"v":		{"2.0"},
-		"start_date":	{time.Now().AddDate(0, -1, 0).Format("2006-01-02 15:04:05")},
-		"end_date":	{time.Now().Format("2006-01-02 15:04:05")},
-		"page":		{"1"},
-		"page_size":	{"100"},
+		"app_key":    {client.appKey},
+		"method":     {"jingdong.pop.order.search"},
+		"format":     {"json"},
+		"v":          {"2.0"},
+		"start_date": {time.Now().AddDate(0, -1, 0).Format("2006-01-02 15:04:05")},
+		"end_date":   {time.Now().Format("2006-01-02 15:04:05")},
+		"page":       {"1"},
+		"page_size":  {"100"},
 	}
 
 	resp, err := client.httpClient.Get(apiURL + "?" + params.Encode())
@@ -712,27 +712,27 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 
 	// 解析响应（简化版本）
 	var result struct {
-		OrderSearchResponse	struct {
-			Orders	[]struct {
-				OrderID			string	`json:"order_id"`
-				OrderStatus		string	`json:"order_status"`
-				OrderTotal		float64	`json:"order_total_price"`
-				OrderPayment		float64	`json:"order_payment"`
-				Consignee		string	`json:"consignee"`
-				Telephone		string	`json:"telephone"`
-				OrderStartTime		string	`json:"order_start_time"`
-				OrderPaymentTime	string	`json:"order_payment_time"`
-				OrderOutboundTime	string	`json:"order_outbound_time"`
-				SKUList			[]struct {
-					SkuID	string	`json:"sku_id"`
-					SkuName	string	`json:"sku_name"`
-					Price	float64	`json:"price"`
-					Num	int	`json:"num"`
-				}	`json:"sku_list"`
-			}	`json:"orders"`
-			Total	int	`json:"total"`
-		}	`json:"jingdong_pop_order_search_response"`
-		ErrMsg	string	`json:"error_response"`
+		OrderSearchResponse struct {
+			Orders []struct {
+				OrderID           string  `json:"order_id"`
+				OrderStatus       string  `json:"order_status"`
+				OrderTotal        float64 `json:"order_total_price"`
+				OrderPayment      float64 `json:"order_payment"`
+				Consignee         string  `json:"consignee"`
+				Telephone         string  `json:"telephone"`
+				OrderStartTime    string  `json:"order_start_time"`
+				OrderPaymentTime  string  `json:"order_payment_time"`
+				OrderOutboundTime string  `json:"order_outbound_time"`
+				SKUList           []struct {
+					SkuID   string  `json:"sku_id"`
+					SkuName string  `json:"sku_name"`
+					Price   float64 `json:"price"`
+					Num     int     `json:"num"`
+				} `json:"sku_list"`
+			} `json:"orders"`
+			Total int `json:"total"`
+		} `json:"jingdong_pop_order_search_response"`
+		ErrMsg string `json:"error_response"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		s.syncLogRepo.UpdateStatus(ctx, syncLog.ID, 2, 0, err.Error())
@@ -746,10 +746,10 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		var items []map[string]any
 		for _, sku := range o.SKUList {
 			items = append(items, map[string]any{
-				"title":	sku.SkuName,
-				"price":	sku.Price,
-				"quantity":	sku.Num,
-				"product_id":	sku.SkuID,
+				"title":      sku.SkuName,
+				"price":      sku.Price,
+				"quantity":   sku.Num,
+				"product_id": sku.SkuID,
 			})
 		}
 		itemsJSON, _ := json.Marshal(items)
@@ -771,16 +771,16 @@ func (s *IntegrationService) syncJDOrders(ctx context.Context, account *model.In
 		}
 
 		order := &model.ExternalOrder{
-			Platform:	account.Platform,
-			OrderID:	o.OrderID,
-			Status:		o.OrderStatus,
-			OrderTime:	orderTime,
-			PayAmount:	yuanToFen(o.OrderPayment),
-			UserName:	o.Consignee,
-			UserPhone:	o.Telephone,
-			PayTime:	payTime,
-			ShipTime:	shipTime,
-			Items:		string(itemsJSON),
+			Platform:  account.Platform,
+			OrderID:   o.OrderID,
+			Status:    o.OrderStatus,
+			OrderTime: orderTime,
+			PayAmount: yuanToFen(o.OrderPayment),
+			UserName:  o.Consignee,
+			UserPhone: o.Telephone,
+			PayTime:   payTime,
+			ShipTime:  shipTime,
+			Items:     string(itemsJSON),
 		}
 
 		// 检查是否已存在
@@ -819,10 +819,10 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"product",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "product",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -831,13 +831,13 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 	// 淘宝 API 请求（简化版本）
 	apiURL := "https://gw.api.taobao.com/router/rest"
 	params := url.Values{
-		"app_key":	{client.appKey},
-		"method":	{"taobao.items.seller.get"},
-		"format":	{"json"},
-		"v":		{"2.0"},
-		"page":		{"1"},
-		"page_size":	{"100"},
-		"fields":	{"num_iid,title,price,num,pic_url,cid,status"},
+		"app_key":   {client.appKey},
+		"method":    {"taobao.items.seller.get"},
+		"format":    {"json"},
+		"v":         {"2.0"},
+		"page":      {"1"},
+		"page_size": {"100"},
+		"fields":    {"num_iid,title,price,num,pic_url,cid,status"},
 	}
 
 	resp, err := client.httpClient.Get(apiURL + "?" + params.Encode())
@@ -857,13 +857,13 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 		ItemsSellerGetResponse struct {
 			Items struct {
 				Item []struct {
-					NumIid	string	`json:"num_iid"`
-					Title	string	`json:"title"`
-					Price	float64	`json:"price"`
-					Num	int	`json:"num"`
-					PicURL	string	`json:"pic_url"`
-					Cid	string	`json:"cid"`
-					Status	string	`json:"status"`
+					NumIid string  `json:"num_iid"`
+					Title  string  `json:"title"`
+					Price  float64 `json:"price"`
+					Num    int     `json:"num"`
+					PicURL string  `json:"pic_url"`
+					Cid    string  `json:"cid"`
+					Status string  `json:"status"`
 				} `json:"item"`
 			} `json:"items"`
 		} `json:"items_seller_get_response"`
@@ -883,14 +883,14 @@ func (s *IntegrationService) syncTaobaoProducts(ctx context.Context, account *mo
 		}
 
 		product := &model.ExternalProduct{
-			Platform:	account.Platform,
-			ProductID:	item.NumIid,
-			Name:		item.Title,
-			Price:		yuanToFen(item.Price),
-			Stock:		item.Num,
-			CategoryID:	item.Cid,
-			Images:		string(imagesJSON),
-			Status:		status,
+			Platform:   account.Platform,
+			ProductID:  item.NumIid,
+			Name:       item.Title,
+			Price:      yuanToFen(item.Price),
+			Stock:      item.Num,
+			CategoryID: item.Cid,
+			Images:     string(imagesJSON),
+			Status:     status,
 		}
 
 		// 检查是否已存在
@@ -917,10 +917,10 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 
 	// 创建同步日志
 	syncLog := &model.SyncLog{
-		Platform:	account.Platform,
-		SyncType:	"product",
-		Status:		0,
-		StartTime:	time.Now(),
+		Platform:  account.Platform,
+		SyncType:  "product",
+		Status:    0,
+		StartTime: time.Now(),
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		return 0, err
@@ -929,12 +929,12 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 	// 京东 API 请求（简化版本）
 	apiURL := "https://api.jd.com/routerjson"
 	params := url.Values{
-		"app_key":	{client.appKey},
-		"method":	{"jingdong.pop.ware.sku.list"},
-		"format":	{"json"},
-		"v":		{"2.0"},
-		"page":		{"1"},
-		"page_size":	{"100"},
+		"app_key":   {client.appKey},
+		"method":    {"jingdong.pop.ware.sku.list"},
+		"format":    {"json"},
+		"v":         {"2.0"},
+		"page":      {"1"},
+		"page_size": {"100"},
 	}
 
 	resp, err := client.httpClient.Get(apiURL + "?" + params.Encode())
@@ -952,16 +952,16 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 
 	var result struct {
 		SkuListResponse struct {
-			Skus	[]struct {
-				SkuId		string		`json:"sku_id"`
-				Name		string		`json:"name"`
-				Price		float64		`json:"price"`
-				StockNum	int		`json:"stock_num"`
-				Category	string		`json:"category"`
-				Images		[]string	`json:"images"`
-				Status		int		`json:"status"`
-			}	`json:"skus"`
-			Total	int	`json:"total"`
+			Skus []struct {
+				SkuId    string   `json:"sku_id"`
+				Name     string   `json:"name"`
+				Price    float64  `json:"price"`
+				StockNum int      `json:"stock_num"`
+				Category string   `json:"category"`
+				Images   []string `json:"images"`
+				Status   int      `json:"status"`
+			} `json:"skus"`
+			Total int `json:"total"`
 		} `json:"jingdong_pop_ware_sku_list_response"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -975,14 +975,14 @@ func (s *IntegrationService) syncJDProducts(ctx context.Context, account *model.
 		imagesJSON, _ := json.Marshal(sku.Images)
 
 		product := &model.ExternalProduct{
-			Platform:	account.Platform,
-			ProductID:	sku.SkuId,
-			Name:		sku.Name,
-			Price:		yuanToFen(sku.Price),
-			Stock:		sku.StockNum,
-			CategoryID:	sku.Category,
-			Images:		string(imagesJSON),
-			Status:		sku.Status,
+			Platform:   account.Platform,
+			ProductID:  sku.SkuId,
+			Name:       sku.Name,
+			Price:      yuanToFen(sku.Price),
+			Stock:      sku.StockNum,
+			CategoryID: sku.Category,
+			Images:     string(imagesJSON),
+			Status:     sku.Status,
 		}
 
 		// 检查是否已存在

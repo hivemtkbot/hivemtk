@@ -6,6 +6,7 @@ import (
 	knowledgemodel "marketing/internal/aiagent/knowledge/model"
 	knowledgerepo "marketing/internal/aiagent/knowledge/repository"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
+	syscontroller "marketing/internal/controller"
 	"marketing/internal/pkg/utils/response"
 	systemservice "marketing/internal/service"
 	"net/http"
@@ -371,6 +372,10 @@ func (ctrl *KnowledgeWorkspaceController) DeleteDocument(c *gin.Context) {
 	}
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.kbService.Delete(c.Request.Context(), productID, int64(id)); err != nil {
+		if syscontroller.IsNotFoundError(err) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -386,6 +391,10 @@ func (ctrl *KnowledgeWorkspaceController) ReindexDocument(c *gin.Context) {
 	}
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.kbService.Reindex(c.Request.Context(), productID, uint64(id)); err != nil {
+		if syscontroller.IsNotFoundError(err) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -620,6 +629,10 @@ func (ctrl *KnowledgeWorkspaceController) SyncOpenAPISource(c *gin.Context) {
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	result, err := ctrl.openapiService.SyncSource(c.Request.Context(), productID, int64(id))
 	if err != nil {
+		if syscontroller.IsNotFoundError(err) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -650,6 +663,10 @@ func (ctrl *KnowledgeWorkspaceController) ToggleOpenAPISource(c *gin.Context) {
 	_ = c.ShouldBindJSON(&body)
 	productID := ctrl.resolveProductID(c.DefaultQuery("product_id", "0"))
 	if err := ctrl.openapiService.ToggleEnabled(c.Request.Context(), productID, int64(id), body.Enabled); err != nil {
+		if syscontroller.IsNotFoundError(err) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
