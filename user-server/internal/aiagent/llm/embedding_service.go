@@ -197,6 +197,12 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 	}
 }
 
+// embeddingMaxBatch 单次 embedding 请求最大文本数。
+// 超过此值时自动分片串行请求，避免单次请求体过大导致 llama-server OOM 或超时。
+// llama-server 默认 --batch-size=512（token 级），64 条短文本约 6400 token 会分批处理，
+// 设 64 是兼顾吞吐与内存安全的经验值。
+const embeddingMaxBatch = 64
+
 // Embed 批量向量化
 func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
@@ -209,12 +215,36 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 	// 私域部署基线（2026-07-16）：禁止静默降级
 	// 除非显式开启 EMBEDDING_ALLOW_FALLBACK=true（仅供单元测试）
 	if !cfg.AllowFallback {
-		return s.callProviderWithRetry(ctx, cfg, texts)
+		// 大批量分片：超过 embeddingMaxBatch 时串行分批，避免 OOM/超时
+		if len(texts) <= embeddingMaxBatch {
+			return s.callProviderWithRetry(ctx, cfg, texts)
+		}
+		return s.embedInBatches(ctx, cfg, texts)
 	}
 
 	// 显式允许降级（单测场景）：打 ERROR 日志后回退
 	logger.Errorf("[Embedding] ERROR: EMBEDDING_ALLOW_FALLBACK=true,降级为本地哈希向量(仅供离线/单测,严禁生产环境使用)")
 	return s.fallback.Embed(ctx, cfg, texts)
+}
+
+// embedInBatches 将大批量文本分片串行请求，合并结果保持原始顺序
+func (s *EmbeddingService) embedInBatches(ctx context.Context, cfg *EmbeddingConfig, texts []string) ([][]float32, error) {
+	total := len(texts)
+	result := make([][]float32, total)
+	for i := 0; i < total; i += embeddingMaxBatch {
+		end := i + embeddingMaxBatch
+		if end > total {
+			end = total
+		}
+		batch := texts[i:end]
+		vectors, err := s.callProviderWithRetry(ctx, cfg, batch)
+		if err != nil {
+			return nil, fmt.Errorf("embedding 分片 %d-%d 失败: %w", i, end-1, err)
+		}
+		copy(result[i:end], vectors)
+	}
+	logger.Infof("[Embedding] 大批量分片完成: %d 条文本, 分 %d 批", total, (total+embeddingMaxBatch-1)/embeddingMaxBatch)
+	return result, nil
 }
 
 // callProviderWithRetry 带重试的本地 embedding 调用
@@ -375,7 +405,10 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
-	client := &http.Client{Transport: sharedEmbeddingTransport, Timeout: timeout}
+	// 复用 s.httpClient（共享 Transport 连接池），通过 context.WithTimeout 控制超时
+	// 避免每次请求创建新 http.Client 对象增加 GC 压力
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	body, err := json.Marshal(embeddingRequest{Model: cfg.Model, Input: texts})
 	if err != nil {
@@ -391,7 +424,7 @@ func (s *EmbeddingService) callProvider(ctx context.Context, cfg *EmbeddingConfi
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}

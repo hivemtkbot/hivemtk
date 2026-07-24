@@ -464,7 +464,7 @@ func TestLiveCodeService_GetByShortLink(t *testing.T) {
 	_, _ = service.Create(context.Background(), createReq)
 
 	// 获取活码
-	retrieved, err := service.GetByShortLink("test-short-link")
+	retrieved, err := service.GetByShortLink(context.Background(), "test-short-link")
 	if err != nil {
 		t.Fatalf("GetByShortLink failed: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestLiveCodeService_GetByShortLink_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	_, err := service.GetByShortLink("non-existent-link")
+	_, err := service.GetByShortLink(context.Background(), "non-existent-link")
 	if err == nil {
 		t.Error("Expected error for non-existent short link")
 	}
@@ -640,7 +640,7 @@ func TestLiveCodeService_GetStats(t *testing.T) {
 	database.Exec("UPDATE live_codes SET total_views = 100, today_views = 20, total_clicks = 50, daily_clicks = 10 WHERE id = ?", response.ID)
 
 	// 获取统计
-	stats, err := service.GetStats(response.ID)
+	stats, err := service.GetStats(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
@@ -667,7 +667,7 @@ func TestLiveCodeService_GetStats_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	_, err := service.GetStats("non-existent-id")
+	_, err := service.GetStats(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}
@@ -699,7 +699,7 @@ func TestLiveCodeService_GenerateQRCode(t *testing.T) {
 		Status:     1,
 	}
 
-	qrResponse, err := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, err := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 	if err != nil {
 		t.Fatalf("GenerateQRCode failed: %v", err)
 	}
@@ -731,7 +731,7 @@ func TestLiveCodeService_GenerateQRCode_NotFound(t *testing.T) {
 		Status:     1,
 	}
 
-	_, err := service.GenerateQRCode("non-existent-id", generateReq)
+	_, err := service.GenerateQRCode(context.Background(), "non-existent-id", generateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}
@@ -763,11 +763,11 @@ func TestLiveCodeService_GetQRCodes(t *testing.T) {
 			ExpireDays: 7,
 			Status:     1,
 		}
-		_, _ = service.GenerateQRCode(response.ID, generateReq)
+		_, _ = service.GenerateQRCode(context.Background(), response.ID, generateReq)
 	}
 
 	// 获取二维码列表
-	qrCodes, err := service.GetQRCodes(response.ID)
+	qrCodes, err := service.GetQRCodes(context.Background(), response.ID)
 	if err != nil {
 		t.Fatalf("GetQRCodes failed: %v", err)
 	}
@@ -782,7 +782,7 @@ func TestLiveCodeService_GetQRCodes_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	_, err := service.GetQRCodes("non-existent-id")
+	_, err := service.GetQRCodes(context.Background(), "non-existent-id")
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}
@@ -813,10 +813,10 @@ func TestLiveCodeService_GetQRStats(t *testing.T) {
 		ExpireDays: 7,
 		Status:     1,
 	}
-	qrResponse, _ := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 获取统计
-	stats, err := service.GetQRStats(qrResponse.ID)
+	stats, err := service.GetQRStats(context.Background(), qrResponse.ID)
 	if err != nil {
 		t.Fatalf("GetQRStats failed: %v", err)
 	}
@@ -839,7 +839,7 @@ func TestLiveCodeService_GetQRStats_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	_, err := service.GetQRStats("non-existent-qr-id")
+	_, err := service.GetQRStats(context.Background(), "non-existent-qr-id")
 	if err == nil {
 		t.Error("Expected error for non-existent QR code")
 	}
@@ -870,7 +870,7 @@ func TestLiveCodeService_Share(t *testing.T) {
 		ExpireDays: 7,
 		Status:     1,
 	}
-	qrResponse, _ := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 分享活码
 	shareReq := &dto.ShareLiveCodeRequest{
@@ -878,7 +878,7 @@ func TestLiveCodeService_Share(t *testing.T) {
 		UserAgent: "Mozilla/5.0",
 	}
 
-	shareResponse, err := service.Share(response.ID, shareReq)
+	shareResponse, err := service.Share(context.Background(), response.ID, shareReq)
 	if err != nil {
 		t.Fatalf("Share failed: %v", err)
 	}
@@ -902,7 +902,7 @@ func TestLiveCodeService_Share_NotFound(t *testing.T) {
 		UserAgent: "Mozilla/5.0",
 	}
 
-	_, err := service.Share("non-existent-id", shareReq)
+	_, err := service.Share(context.Background(), "non-existent-id", shareReq)
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}
@@ -934,7 +934,7 @@ func TestLiveCodeService_Share_NoAvailableQR(t *testing.T) {
 		UserAgent: "Mozilla/5.0",
 	}
 
-	_, err := service.Share(response.ID, shareReq)
+	_, err := service.Share(context.Background(), response.ID, shareReq)
 	if err == nil {
 		t.Error("Expected error for no available QR code")
 	}
@@ -965,16 +965,16 @@ func TestLiveCodeService_DeleteQRCode(t *testing.T) {
 		ExpireDays: 7,
 		Status:     1,
 	}
-	qrResponse, _ := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 删除二维码
-	err := service.DeleteQRCode(qrResponse.ID)
+	err := service.DeleteQRCode(context.Background(), qrResponse.ID)
 	if err != nil {
 		t.Fatalf("DeleteQRCode failed: %v", err)
 	}
 
 	// 验证已删除
-	_, err = service.GetQRStats(qrResponse.ID)
+	_, err = service.GetQRStats(context.Background(), qrResponse.ID)
 	if err == nil {
 		t.Error("Expected error for deleted QR code")
 	}
@@ -985,7 +985,7 @@ func TestLiveCodeService_DeleteQRCode_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	err := service.DeleteQRCode("non-existent-qr-id")
+	err := service.DeleteQRCode(context.Background(), "non-existent-qr-id")
 	if err == nil {
 		t.Error("Expected error for non-existent QR code")
 	}
@@ -1016,7 +1016,7 @@ func TestLiveCodeService_UpdateQRCode(t *testing.T) {
 		ExpireDays: 7,
 		Status:     1,
 	}
-	qrResponse, _ := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 更新二维码
 	newStatus := 0
@@ -1026,7 +1026,7 @@ func TestLiveCodeService_UpdateQRCode(t *testing.T) {
 		ExpireDays: &newExpireDays,
 	}
 
-	err := service.UpdateQRCode(qrResponse.ID, updateReq)
+	err := service.UpdateQRCode(context.Background(), qrResponse.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateQRCode failed: %v", err)
 	}
@@ -1051,7 +1051,7 @@ func TestLiveCodeService_UpdateQRCode_NotFound(t *testing.T) {
 		Status: new(int),
 	}
 
-	err := service.UpdateQRCode("non-existent-qr-id", updateReq)
+	err := service.UpdateQRCode(context.Background(), "non-existent-qr-id", updateReq)
 	if err == nil {
 		t.Error("Expected error for non-existent QR code")
 	}
@@ -1078,7 +1078,7 @@ func TestLiveCodeService_RotateLiveCodes(t *testing.T) {
 	response, _ := service.Create(context.Background(), createReq)
 
 	// 轮询活码
-	err := service.RotateLiveCodes()
+	err := service.RotateLiveCodes(context.Background())
 	if err != nil {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
 	}
@@ -1115,7 +1115,7 @@ func TestLiveCodeService_RotateLiveCodes_DailyLimitReached(t *testing.T) {
 	database.Save(&liveCode)
 
 	// 轮询活码
-	err := service.RotateLiveCodes()
+	err := service.RotateLiveCodes(context.Background())
 	if err != nil {
 		t.Fatalf("RotateLiveCodes failed: %v", err)
 	}
@@ -1150,10 +1150,10 @@ func TestLiveCodeService_RecordClick(t *testing.T) {
 		ExpireDays: 7,
 		Status:     1,
 	}
-	qrResponse, _ := service.GenerateQRCode(response.ID, generateReq)
+	qrResponse, _ := service.GenerateQRCode(context.Background(), response.ID, generateReq)
 
 	// 记录点击
-	err := service.RecordClick(qrResponse.ID, "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), qrResponse.ID, "Mozilla/5.0", "https://referrer.com")
 	if err != nil {
 		t.Fatalf("RecordClick failed: %v", err)
 	}
@@ -1171,7 +1171,7 @@ func TestLiveCodeService_RecordClick_NotFound(t *testing.T) {
 	database := setupLiveCodeServiceTestDB(t)
 	service := newTestLiveCodeService(database)
 
-	err := service.RecordClick("non-existent-qr-id", "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), "non-existent-qr-id", "Mozilla/5.0", "https://referrer.com")
 	if err == nil {
 		t.Error("Expected error for non-existent QR code")
 	}
@@ -1191,7 +1191,7 @@ func TestLiveCodeService_RecordClick_LiveCodeNotFound(t *testing.T) {
 	}
 	database.Create(qrCode)
 
-	err := service.RecordClick(qrCode.ID, "Mozilla/5.0", "https://referrer.com")
+	err := service.RecordClick(context.Background(), qrCode.ID, "Mozilla/5.0", "https://referrer.com")
 	if err == nil {
 		t.Error("Expected error for non-existent live code")
 	}

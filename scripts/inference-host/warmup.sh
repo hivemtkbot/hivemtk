@@ -94,13 +94,15 @@ warmup_embedding() {
     --max-time 60 || echo "000")
   [ "$code2" = "200" ] || { log_err "Embedding 预热第 2 轮失败 (HTTP $code2)"; return 1; }
 
-  local end=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local end
+  end=$(date +%s)
   local elapsed=$(( end - start ))
-  log_ok "Embedding 预热完成（2 轮，${elapsed}ms）"
+  log_ok "Embedding 预热完成（2 轮，${elapsed}s）"
 }
 
 warmup_rerank() {
-  local start=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local start
+  start=$(date +%s)
   echo "[warmup] Rerank 预热中（2 轮：短/长候选列表）..."
 
   # 第 1 轮：短候选列表
@@ -119,9 +121,10 @@ warmup_rerank() {
     --max-time 60 || echo "000")
   [ "$code2" = "200" ] || { log_err "Rerank 预热第 2 轮失败 (HTTP $code2)"; return 1; }
 
-  local end=$(date +%s%3N 2>/dev/null || python3 -c 'import time;print(int(time.time()*1000))')
+  local end
+  end=$(date +%s)
   local elapsed=$(( end - start ))
-  log_ok "Rerank 预热完成（2 轮，${elapsed}ms）"
+  log_ok "Rerank 预热完成（2 轮，${elapsed}s）"
 }
 
 # 并行启动三服务预热

@@ -238,6 +238,10 @@ func (r *LocalReranker) callOnce(ctx context.Context, endpoint string, timeout t
 	if err != nil {
 		return nil, fmt.Errorf("marshal rerank request: %w", err)
 	}
+	// 复用 r.httpClient（共享 Transport 连接池），通过 context.WithTimeout 控制超时
+	// 避免每次请求创建新 http.Client 对象增加 GC 压力
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -247,8 +251,7 @@ func (r *LocalReranker) callOnce(ctx context.Context, endpoint string, timeout t
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
 
-	client := &http.Client{Transport: sharedRerankTransport, Timeout: timeout}
-	resp, err := client.Do(req)
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
