@@ -1,0 +1,72 @@
+{
+  "route": "/xianyuCard",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "Statistical analysis",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Add a card",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "请选择",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "搜索",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "重置",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "10/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "(表单) 填充输入+点击搜索/筛选",
+      "type": "form",
+      "action": "fill+submit",
+      "consoleErrors": [
+        "Error: Initialize failed: invalid dom.\n    at Module.init2 (http://127.0.0.1:8211/node_modules/.vite/deps/echarts.js?v=4b1db9bf:25446:15)\n    at initCharts (http://127.0.0.1:8211/src/views/xianyuCard/Stats.vue?t=1784903033279:64:32)\n    at fetchStats (http://127.0.0.1:8211/src/views/xianyuCard/Stats.vue?t=1784903033279:147:7)"
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 1
+}

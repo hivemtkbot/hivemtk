@@ -1,0 +1,71 @@
+{
+  "route": "/churnPrediction/list",
+  "module": "数据分析",
+  "errors": [],
+  "items": [
+    {
+      "text": "运行预测",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "刷新",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "(无文本)",
+      "type": "other",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "保存配置",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "预测列表",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "预警列表",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "模型配置",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

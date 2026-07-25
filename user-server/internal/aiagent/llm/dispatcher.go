@@ -513,6 +513,11 @@ type DispatchRequest struct {
 	// CanaryKey: 灰度发布判定 key（如 user_id），空时按权重随机抽样
 	// 2026-07-23 P1 补：让 Dispatch 走灰度路由
 	CanaryKey string `json:"canary_key,omitempty"`
+	// 多语言方案：跨语言生成元数据（由 service/i18n 层注入）
+	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
+	TargetLang      string `json:"target_lang,omitempty"`      // 对外输出语言
+	CrossLingual    bool   `json:"cross_lingual,omitempty"`    // 是否跨语言生成（InternalLang != TargetLang）
+	GlossaryVersion string `json:"glossary_version,omitempty"` // 术语表版本（落库审计）
 }
 
 // DispatchResult 调度结果
@@ -616,6 +621,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 					Source:           SourceCache,
 					TokenSource:      TokenSourceActual, // 缓存命中无新 token 消耗，actual=0
 					ScenarioProvider: string(req.Scenario) + "|cache",
+					InternalLang:    req.InternalLang,
+					TargetLang:      req.TargetLang,
+					CrossLingual:    req.CrossLingual,
+					GlossaryVersion: req.GlossaryVersion,
+					CacheHit:        req.CacheKey != "",
 				}
 				LogRoutingDecision(ctx, cacheEntry)
 			}
@@ -670,6 +680,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			isFallback := attempted > 1
 			failEntry := NewLogEntry(req.Scenario, provider, provider.Model,
 				0, 0, 0, 0, 0, false, err.Error(), false, isFallback, traceID, "", SourceFallback)
+			failEntry.InternalLang = req.InternalLang
+			failEntry.TargetLang = req.TargetLang
+			failEntry.CrossLingual = req.CrossLingual
+			failEntry.GlossaryVersion = req.GlossaryVersion
+			failEntry.CacheHit = req.CacheKey != ""
 			LogRoutingDecision(ctx, failEntry)
 			continue
 		}
@@ -692,6 +707,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		successEntry := NewLogEntry(req.Scenario, provider, result.Model,
 			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
 			result.Cost, result.LatencyMs, true, "", false, isFallback, traceID, result.Content, SourceDispatch)
+		successEntry.InternalLang = req.InternalLang
+		successEntry.TargetLang = req.TargetLang
+		successEntry.CrossLingual = req.CrossLingual
+		successEntry.GlossaryVersion = req.GlossaryVersion
+		successEntry.CacheHit = req.CacheKey != ""
 		LogRoutingDecision(ctx, successEntry)
 		return result, nil
 	}

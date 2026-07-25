@@ -26,13 +26,17 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 // SOPAutoOptimizer SOP 自动优化器
 type SOPAutoOptimizer struct {
+	// db 保留用于兼容测试中的直接构造 &SOPAutoOptimizer{db: db}；
+	// 生产代码全部通过 repo 字段访问 DB。
 	db     *gorm.DB
+	repo   *repository.FeedbackLoopRepository
 	bandit BanditAllocatorInterface
 	config SOPAutoOptimizerConfig
 }
@@ -53,9 +57,21 @@ func NewSOPAutoOptimizer(db *gorm.DB, bandit BanditAllocatorInterface, cfg SOPAu
 	}
 	return &SOPAutoOptimizer{
 		db:     db,
+		repo:   repository.NewFeedbackLoopRepositoryWithDB(db),
 		bandit: bandit,
 		config: cfg,
 	}
+}
+
+// getRepo 获取 repository
+//
+// 兼容测试中直接构造 &SOPAutoOptimizer{db: db} 的场景：此时 repo 为 nil，
+// 通过 db 懒加载 repository。生产路径在构造函数中已设置 repo。
+func (o *SOPAutoOptimizer) getRepo() *repository.FeedbackLoopRepository {
+	if o.repo == nil && o.db != nil {
+		o.repo = repository.NewFeedbackLoopRepositoryWithDB(o.db)
+	}
+	return o.repo
 }
 
 // ProcessPendingSuggestions 处理待审核建议
@@ -69,18 +85,16 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 		RunAt:  time.Now(),
 		Errors: make([]string, 0),
 	}
-	if o.db == nil {
-		return report, fmt.Errorf("db is nil")
+	repo := o.getRepo()
+	if repo == nil {
+		return report, fmt.Errorf("repo is nil")
 	}
 
 	// 1. 自动应用高 priority
-	var autoApply []model.OptimizationSuggestion
-	result := o.db.WithContext(ctx).
-		Where("status = ? AND priority >= ?", model.SuggestionStatusPending, o.config.AutoApplyPriority).
-		Find(&autoApply)
-	if result.Error != nil {
-		report.Errors = append(report.Errors, fmt.Sprintf("query pending suggestions: %v", result.Error))
-		return report, result.Error
+	autoApply, err := repo.ListPendingSuggestions(ctx, o.config.AutoApplyPriority)
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("query pending suggestions: %v", err))
+		return report, err
 	}
 	report.PendingCount = len(autoApply)
 
@@ -91,13 +105,9 @@ func (o *SOPAutoOptimizer) ProcessPendingSuggestions(ctx context.Context) (*dto.
 			continue
 		}
 		// 更新 suggestion 状态为 applied
-		now := time.Now()
-		o.db.WithContext(ctx).Model(&model.OptimizationSuggestion{}).
-			Where("id = ?", autoApply[i].ID).
-			Updates(map[string]any{
-				"status":     model.SuggestionStatusApplied,
-				"applied_at": now,
-			})
+		if err := repo.MarkSuggestionApplied(ctx, autoApply[i].ID, time.Now()); err != nil {
+			report.Errors = append(report.Errors, fmt.Sprintf("mark suggestion %d applied: %v", autoApply[i].ID, err))
+		}
 		report.AppliedCount++
 	}
 
@@ -137,142 +147,27 @@ func (o *SOPAutoOptimizer) autoApply(ctx context.Context, sug *model.Optimizatio
 //
 // 注意：实际节点 graph 修改逻辑由 SOPService 已有方法处理，此处仅创建 SOP 副本与 A/B 测试配置
 func (o *SOPAutoOptimizer) applyBranchPrune(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var original model.SOPAgent
-		if err := tx.First(&original, sug.SOPID).Error; err != nil {
-			return fmt.Errorf("query original sop: %w", err)
-		}
-		variantB := original
-		variantB.ID = 0
-		variantB.Name = original.Name + " [优化-剪枝]"
-		if err := tx.Create(&variantB).Error; err != nil {
-			return fmt.Errorf("create variant sop: %w", err)
-		}
-		return o.createSOPABTest(tx, original.ID, variantB.ID, "branch_prune")
-	})
+	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-剪枝]", "branch_prune")
 }
 
 // applyNodeMerge 合并相邻 action 节点（占位实现，实际逻辑由 SOPService 处理）
 func (o *SOPAutoOptimizer) applyNodeMerge(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	// 当前阶段仅创建 A/B 测试框架，节点合并的具体 graph 修改由运营人工审核后执行
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var original model.SOPAgent
-		if err := tx.First(&original, sug.SOPID).Error; err != nil {
-			return err
-		}
-		variantB := original
-		variantB.ID = 0
-		variantB.Name = original.Name + " [优化-节点合并]"
-		if err := tx.Create(&variantB).Error; err != nil {
-			return err
-		}
-		return o.createSOPABTest(tx, original.ID, variantB.ID, "node_merge")
-	})
+	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-节点合并]", "node_merge")
 }
 
 // applyAddObjection 注入异议处理子分支（占位实现）
 func (o *SOPAutoOptimizer) applyAddObjection(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var original model.SOPAgent
-		if err := tx.First(&original, sug.SOPID).Error; err != nil {
-			return err
-		}
-		variantB := original
-		variantB.ID = 0
-		variantB.Name = original.Name + " [优化-异议处理]"
-		if err := tx.Create(&variantB).Error; err != nil {
-			return err
-		}
-		return o.createSOPABTest(tx, original.ID, variantB.ID, "add_objection")
-	})
+	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-异议处理]", "add_objection")
 }
 
 // applyAddEmpathy 修改 LLM 节点 system_prompt 补充共情（占位实现）
 func (o *SOPAutoOptimizer) applyAddEmpathy(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var original model.SOPAgent
-		if err := tx.First(&original, sug.SOPID).Error; err != nil {
-			return err
-		}
-		variantB := original
-		variantB.ID = 0
-		variantB.Name = original.Name + " [优化-共情补充]"
-		if err := tx.Create(&variantB).Error; err != nil {
-			return err
-		}
-		return o.createSOPABTest(tx, original.ID, variantB.ID, "add_empathy")
-	})
+	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-共情补充]", "add_empathy")
 }
 
 // applyTimingAdjust 调整 wait 节点 duration（占位实现）
 func (o *SOPAutoOptimizer) applyTimingAdjust(ctx context.Context, sug *model.OptimizationSuggestion) error {
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var original model.SOPAgent
-		if err := tx.First(&original, sug.SOPID).Error; err != nil {
-			return err
-		}
-		variantB := original
-		variantB.ID = 0
-		variantB.Name = original.Name + " [优化-时机调整]"
-		if err := tx.Create(&variantB).Error; err != nil {
-			return err
-		}
-		return o.createSOPABTest(tx, original.ID, variantB.ID, "timing_adjust")
-	})
-}
-
-// createSOPABTest 创建 SOP variant A/B 测试
-//
-// experiment_id: sop_variant_{originalID}_{variantID}_{unix}
-// arm_keys: ["arm_a_original", "arm_b_variant"]
-// 原 SOP 作为 arm_a（兜底），优化后 SOP 作为 arm_b
-func (o *SOPAutoOptimizer) createSOPABTest(tx *gorm.DB, originalID, variantID uint, optimizationType string) error {
-	experimentID := fmt.Sprintf("sop_variant_%d_%d_%d", originalID, variantID, time.Now().Unix())
-	now := time.Now()
-	armKeys := []any{"arm_a_original", "arm_b_variant"}
-	abTest := &model.PromptABTest{
-		ExperimentID:   experimentID,
-		ExperimentType: model.BanditExperimentTypeSOPVariant,
-		SOPID:          originalID,
-		Name:           fmt.Sprintf("SOP %d 优化（%s）→ variant %d", originalID, optimizationType, variantID),
-		Description:    fmt.Sprintf("优化类型: %s, 原 SOP ID: %d, 新 variant ID: %d", optimizationType, originalID, variantID),
-		ArmKeys:        model.JSONArray(armKeys),
-		Config:         model.JSONMap{"min_traffic": 10, "max_traffic": 60, "min_samples": 100, "posterior_threshold": 0.95},
-		Status:         model.PromptABTestStatusRunning,
-		StartedAt:      &now,
-		AutoPromote:    true,
-	}
-	if err := tx.Create(abTest).Error; err != nil {
-		return fmt.Errorf("create ab test: %w", err)
-	}
-
-	// 创建 bandit arms
-	arms := []model.BanditArm{
-		{
-			ExperimentID:   experimentID,
-			ExperimentType: model.BanditExperimentTypeSOPVariant,
-			ArmKey:         "arm_a_original",
-			SOPID:          originalID,
-			Variant:        "A",
-			Alpha:          2,
-			Beta:           2,
-			Status:         model.BanditArmStatusExploring,
-		},
-		{
-			ExperimentID:   experimentID,
-			ExperimentType: model.BanditExperimentTypeSOPVariant,
-			ArmKey:         "arm_b_variant",
-			SOPID:          variantID,
-			Variant:        "B",
-			Alpha:          2,
-			Beta:           2,
-			Status:         model.BanditArmStatusExploring,
-		},
-	}
-	if err := tx.CreateInBatches(arms, 100).Error; err != nil {
-		return fmt.Errorf("create bandit arms: %w", err)
-	}
-	return nil
+	return o.getRepo().CloneSOPAndCreateABTest(ctx, sug.SOPID, " [优化-时机调整]", "timing_adjust")
 }
 
 // checkAndRollback 检查 A/B 测试是否需要回滚
@@ -281,10 +176,11 @@ func (o *SOPAutoOptimizer) createSOPABTest(tx *gorm.DB, originalID, variantID ui
 //  1. 实验组 vs 对照组转化率下降 > RollbackDropThreshold（20%）
 //  2. 实验组 vs 对照组投诉率上升 > RollbackComplaintRatio（50%）
 func (o *SOPAutoOptimizer) checkAndRollback(ctx context.Context, report *dto.OptimizationReport) {
-	var tests []model.PromptABTest
-	o.db.WithContext(ctx).
-		Where("status = ? AND experiment_type = ?", model.PromptABTestStatusRunning, model.BanditExperimentTypeSOPVariant).
-		Find(&tests)
+	tests, err := o.getRepo().ListRunningABTestsByType(ctx, model.BanditExperimentTypeSOPVariant)
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("list running ab tests: %v", err))
+		return
+	}
 	for _, t := range tests {
 		// 比较实验组 vs 对照组的转化率
 		controlRate, experimentRate := o.fetchConversionRates(ctx, t.ID)
@@ -313,8 +209,11 @@ func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.Opti
 	if o.bandit == nil {
 		return
 	}
-	var tests []model.PromptABTest
-	o.db.WithContext(ctx).Where("status = ?", model.PromptABTestStatusRunning).Find(&tests)
+	tests, err := o.getRepo().ListRunningABTests(ctx)
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("list running ab tests for promote: %v", err))
+		return
+	}
 	for _, t := range tests {
 		winner, ok := o.bandit.CheckConvergence(ctx, t.ExperimentID)
 		if !ok {
@@ -326,13 +225,13 @@ func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.Opti
 		}
 		// 更新测试状态
 		now := time.Now()
-		o.db.WithContext(ctx).Model(&model.PromptABTest{}).
-			Where("id = ?", t.ID).
-			Updates(map[string]any{
-				"status":         model.PromptABTestStatusCompleted,
-				"winner_arm_key": winner,
-				"ended_at":       now,
-			})
+		if err := o.getRepo().UpdateABTestFields(ctx, t.ID, map[string]any{
+			"status":         model.PromptABTestStatusCompleted,
+			"winner_arm_key": winner,
+			"ended_at":       now,
+		}); err != nil {
+			report.Errors = append(report.Errors, fmt.Sprintf("update ab test %d to completed: %v", t.ID, err))
+		}
 		report.PromotedCount++
 	}
 }
@@ -343,29 +242,20 @@ func (o *SOPAutoOptimizer) checkAndPromote(ctx context.Context, report *dto.Opti
 //   - 对照组：variant=A, outcome=success 的占比
 //   - 实验组：variant=B, outcome=success 的占比
 func (o *SOPAutoOptimizer) fetchConversionRates(ctx context.Context, testID uint) (controlRate, experimentRate float64) {
-	var test model.PromptABTest
-	if err := o.db.WithContext(ctx).First(&test, testID).Error; err != nil {
+	repo := o.getRepo()
+	test, err := repo.GetPromptABTest(ctx, testID)
+	if err != nil || test == nil {
 		return 0, 0
 	}
 	// 对照组转化率
-	var controlTotal, controlSuccess int64
-	o.db.WithContext(ctx).Model(&model.FeedbackSignal{}).
-		Where("sop_id = ? AND variant = ?", test.SOPID, "A").
-		Count(&controlTotal)
-	o.db.WithContext(ctx).Model(&model.FeedbackSignal{}).
-		Where("sop_id = ? AND variant = ? AND outcome = ?", test.SOPID, "A", model.FeedbackSignalOutcomeSuccess).
-		Count(&controlSuccess)
+	controlTotal, _ := repo.CountFeedbackSignalsByVariant(ctx, test.SOPID, "A")
+	controlSuccess, _ := repo.CountFeedbackSignalsByVariantAndOutcome(ctx, test.SOPID, "A", model.FeedbackSignalOutcomeSuccess)
 	if controlTotal > 0 {
 		controlRate = float64(controlSuccess) / float64(controlTotal)
 	}
 	// 实验组转化率
-	var expTotal, expSuccess int64
-	o.db.WithContext(ctx).Model(&model.FeedbackSignal{}).
-		Where("sop_id = ? AND variant = ?", test.SOPID, "B").
-		Count(&expTotal)
-	o.db.WithContext(ctx).Model(&model.FeedbackSignal{}).
-		Where("sop_id = ? AND variant = ? AND outcome = ?", test.SOPID, "B", model.FeedbackSignalOutcomeSuccess).
-		Count(&expSuccess)
+	expTotal, _ := repo.CountFeedbackSignalsByVariant(ctx, test.SOPID, "B")
+	expSuccess, _ := repo.CountFeedbackSignalsByVariantAndOutcome(ctx, test.SOPID, "B", model.FeedbackSignalOutcomeSuccess)
 	if expTotal > 0 {
 		experimentRate = float64(expSuccess) / float64(expTotal)
 	}
@@ -377,29 +267,20 @@ func (o *SOPAutoOptimizer) fetchConversionRates(ctx context.Context, testID uint
 // 基于 feedback_events 表：
 //   - 投诉率 = signal_key='complaint' 事件数 / 总事件数
 func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint) (controlRate, experimentRate float64) {
-	var test model.PromptABTest
-	if err := o.db.WithContext(ctx).First(&test, testID).Error; err != nil {
+	repo := o.getRepo()
+	test, err := repo.GetPromptABTest(ctx, testID)
+	if err != nil || test == nil {
 		return 0, 0
 	}
 	// 对照组投诉率
-	var controlTotal, controlComplaint int64
-	o.db.WithContext(ctx).Model(&model.FeedbackEvent{}).
-		Where("sop_id = ? AND variant = ?", test.SOPID, "A").
-		Count(&controlTotal)
-	o.db.WithContext(ctx).Model(&model.FeedbackEvent{}).
-		Where("sop_id = ? AND variant = ? AND signal_key = ?", test.SOPID, "A", model.FeedbackSignalComplaint).
-		Count(&controlComplaint)
+	controlTotal, _ := repo.CountFeedbackEventsByVariant(ctx, test.SOPID, "A")
+	controlComplaint, _ := repo.CountFeedbackEventsByVariantAndSignalKey(ctx, test.SOPID, "A", model.FeedbackSignalComplaint)
 	if controlTotal > 0 {
 		controlRate = float64(controlComplaint) / float64(controlTotal)
 	}
 	// 实验组投诉率
-	var expTotal, expComplaint int64
-	o.db.WithContext(ctx).Model(&model.FeedbackEvent{}).
-		Where("sop_id = ? AND variant = ?", test.SOPID, "B").
-		Count(&expTotal)
-	o.db.WithContext(ctx).Model(&model.FeedbackEvent{}).
-		Where("sop_id = ? AND variant = ? AND signal_key = ?", test.SOPID, "B", model.FeedbackSignalComplaint).
-		Count(&expComplaint)
+	expTotal, _ := repo.CountFeedbackEventsByVariant(ctx, test.SOPID, "B")
+	expComplaint, _ := repo.CountFeedbackEventsByVariantAndSignalKey(ctx, test.SOPID, "B", model.FeedbackSignalComplaint)
 	if expTotal > 0 {
 		experimentRate = float64(expComplaint) / float64(expTotal)
 	}
@@ -410,30 +291,7 @@ func (o *SOPAutoOptimizer) fetchComplaintRates(ctx context.Context, testID uint)
 //
 // 1. test.status = rolled_back
 // 2. 所有 bandit_arms status = retired, retired_at = NOW()
-// 3. 记录 retired_reason
+// 3. 记录 retired_reason（reason 参数保留用于日志/未来扩展，当前未持久化）
 func (o *SOPAutoOptimizer) rollbackTest(ctx context.Context, testID uint, reason string) error {
-	return o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var test model.PromptABTest
-		if err := tx.First(&test, testID).Error; err != nil {
-			return err
-		}
-		now := time.Now()
-		// 更新测试状态
-		if err := tx.Model(&model.PromptABTest{}).
-			Where("id = ?", testID).
-			Updates(map[string]any{
-				"status":   model.PromptABTestStatusRolledBack,
-				"ended_at": now,
-			}).Error; err != nil {
-			return err
-		}
-		// 退役所有 bandit arms
-		return tx.Model(&model.BanditArm{}).
-			Where("experiment_id = ?", test.ExperimentID).
-			Updates(map[string]any{
-				"status":     model.BanditArmStatusRetired,
-				"retired_at": now,
-				"updated_at": now,
-			}).Error
-	})
+	return o.getRepo().RollbackABTest(ctx, testID)
 }

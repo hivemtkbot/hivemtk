@@ -41,18 +41,17 @@ import (
 
 // FeishuService 飞书账号管理
 type FeishuService struct {
-	db          *gorm.DB
 	accountRepo *repository.FeishuAccountRepository
 }
 
 // NewFeishuService 创建飞书服务
 func NewFeishuService(db *gorm.DB) *FeishuService {
-	r := repository.NewFeishuAccountRepository()
-	if db != nil {
-		r.SetDB(context.Background(), db)
+	if db == nil {
+		return &FeishuService{}
 	}
+	r := repository.NewFeishuAccountRepository()
+	r.SetDB(context.Background(), db)
 	return &FeishuService{
-		db:          db,
 		accountRepo: r,
 	}
 }
@@ -93,23 +92,23 @@ func (s *FeishuService) DeleteAccount(ctx context.Context, id uint) error {
 
 // GetSecretsByAccountID 获取 app_id + verification_token + encrypt_key（按 ID）
 func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID string) (appID, token, encryptKey string, err error) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return "", "", "", errors.New("db nil")
 	}
-	var acc model.FeishuAccount
 	// 优先按 ID 解析
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.WithContext(ctx).First(&acc, id).Error; err == nil {
+		if acc, gerr := s.accountRepo.GetByID(ctx, id); gerr == nil && acc != nil {
 			return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 		}
 	}
 	// 兜底：取第一个启用的账号
-	if err := s.db.Where("webhook_enabled = ? AND status = ?", true, 1).First(&acc).Error; err == nil {
+	if acc, gerr := s.accountRepo.GetFirstEnabled(ctx); gerr == nil && acc != nil {
 		return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
 	}
 	// 最后兜底：第一条
-	if err := s.db.Order("id ASC").First(&acc).Error; err != nil {
+	acc, err := s.accountRepo.GetFirst(ctx)
+	if err != nil {
 		return "", "", "", err
 	}
 	return acc.AppID, acc.VerificationToken, acc.EncryptKey, nil
@@ -117,19 +116,24 @@ func (s *FeishuService) GetSecretsByAccountID(ctx context.Context, accountID str
 
 // FeishuIntegrationService 飞书消息分发 + 出站
 type FeishuIntegrationService struct {
-	db     *gorm.DB
-	feishu *FeishuService
-	hub    *MessageHubService
-	inbox  *InboxService
+	feishu        *FeishuService
+	hub           *MessageHubService
+	inbox         *InboxService
+	feishuMsgRepo *repository.FeishuMessageRepository
 }
 
 // NewFeishuIntegrationService 创建集成服务
 func NewFeishuIntegrationService(db *gorm.DB) *FeishuIntegrationService {
+	var msgRepo *repository.FeishuMessageRepository
+	if db != nil {
+		msgRepo = repository.NewFeishuMessageRepository()
+		msgRepo.SetDB(context.Background(), db)
+	}
 	return &FeishuIntegrationService{
-		db:     db,
-		feishu: NewFeishuService(db),
-		hub:    NewMessageHubServiceWithDB(db, nil),
-		inbox:  NewInboxServiceWithDB(db),
+		feishu:        NewFeishuService(db),
+		hub:           NewMessageHubServiceWithDB(db, nil),
+		inbox:         NewInboxServiceWithDB(db),
+		feishuMsgRepo: msgRepo,
 	}
 }
 
@@ -149,7 +153,7 @@ type FeishuIngestRequest struct {
 
 // IngestMessage 飞书入站消息入消息中台 + 收件箱
 func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *FeishuIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
-	if s.db == nil {
+	if s.feishuMsgRepo == nil {
 		return nil, nil, errors.New("db nil")
 	}
 	if req.MsgType == "" {
@@ -195,7 +199,7 @@ func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *Feish
 // SendMessage 通过飞书 Open API 发送文本消息
 // 参考：https://open.feishu.cn/document/server-docs/im-v1/message/create
 func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content string) error {
-	if s.db == nil {
+	if s.feishuMsgRepo == nil {
 		return errors.New("db nil")
 	}
 	acc, err := s.feishu.GetAccount(ctx, accountID)
@@ -244,7 +248,9 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 		Content:   content,
 		Direction: "outbound",
 	}
-	_ = s.db.Create(outMsg).Error
+	if err := s.feishuMsgRepo.Create(ctx, outMsg); err != nil {
+		logger.Errorf("[Feishu] 出站消息落库失败 msg_id=%s: %v", outMsg.MsgID, err)
+	}
 	// 写消息中台出站
 	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
 		Platform:       "feishu",
@@ -327,16 +333,16 @@ func (s *FeishuIntegrationService) GetAccessTokenForTest(ctx context.Context, ac
 
 // TelegramService Telegram 账号管理
 type TelegramService struct {
-	db      *gorm.DB
 	accRepo *repository.TelegramAccountRepository
 }
 
 func NewTelegramService(db *gorm.DB) *TelegramService {
-	r := repository.NewTelegramAccountRepository()
-	if db != nil {
-		r.SetDB(context.Background(), db)
+	if db == nil {
+		return &TelegramService{}
 	}
-	return &TelegramService{db: db, accRepo: r}
+	r := repository.NewTelegramAccountRepository()
+	r.SetDB(context.Background(), db)
+	return &TelegramService{accRepo: r}
 }
 
 func (s *TelegramService) CreateAccount(ctx context.Context, acc *model.TelegramAccount) (*model.TelegramAccount, error) {
@@ -370,20 +376,20 @@ func (s *TelegramService) DeleteAccount(ctx context.Context, id uint) error {
 
 // GetSecretsByAccountID 获取 bot_token + webhook_secret
 func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID string) (botToken, webhookSecret string, err error) {
-	if s.db == nil {
+	if s.accRepo == nil {
 		return "", "", errors.New("db nil")
 	}
-	var acc model.TelegramAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.WithContext(ctx).First(&acc, id).Error; err == nil {
+		if acc, gerr := s.accRepo.GetByID(ctx, id); gerr == nil && acc != nil {
 			return acc.BotToken, acc.WebhookSecret, nil
 		}
 	}
-	if err := s.db.Where("webhook_enabled = ? AND status = ?", true, 1).First(&acc).Error; err == nil {
+	if acc, gerr := s.accRepo.GetFirstEnabled(ctx); gerr == nil && acc != nil {
 		return acc.BotToken, acc.WebhookSecret, nil
 	}
-	if err := s.db.Order("id ASC").First(&acc).Error; err != nil {
+	acc, err := s.accRepo.GetFirst(ctx)
+	if err != nil {
 		return "", "", err
 	}
 	return acc.BotToken, acc.WebhookSecret, nil
@@ -391,7 +397,6 @@ func (s *TelegramService) GetSecretsByAccountID(ctx context.Context, accountID s
 
 // TelegramIntegrationService Telegram 消息分发 + 出站
 type TelegramIntegrationService struct {
-	db    *gorm.DB
 	tg    *TelegramService
 	hub   *MessageHubService
 	inbox *InboxService
@@ -399,7 +404,6 @@ type TelegramIntegrationService struct {
 
 func NewTelegramIntegrationService(db *gorm.DB) *TelegramIntegrationService {
 	return &TelegramIntegrationService{
-		db:    db,
 		tg:    NewTelegramService(db),
 		hub:   NewMessageHubServiceWithDB(db, nil),
 		inbox: NewInboxServiceWithDB(db),
@@ -421,7 +425,7 @@ type TelegramIngestRequest struct {
 
 // IngestMessage Telegram 入站
 func (s *TelegramIntegrationService) IngestMessage(ctx context.Context, req *TelegramIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
-	if s.db == nil {
+	if s.tg == nil {
 		return nil, nil, errors.New("db nil")
 	}
 	if req.MsgType == "" {
@@ -461,7 +465,7 @@ func (s *TelegramIntegrationService) IngestMessage(ctx context.Context, req *Tel
 // SendMessage 通过 Telegram Bot API 发送消息
 // POST https://api.telegram.org/bot<token>/sendMessage
 func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID uint, chatID int64, content string) error {
-	if s.db == nil {
+	if s.tg == nil {
 		return errors.New("db nil")
 	}
 	acc, err := s.tg.GetAccount(ctx, accountID)
@@ -517,16 +521,16 @@ func subtleConstantTimeEqual(a, b string) bool {
 
 // WhatsAppCloudService WhatsApp Cloud API 账号管理
 type WhatsAppCloudService struct {
-	db      *gorm.DB
 	accRepo *repository.WhatsAppCloudAccountRepository
 }
 
 func NewWhatsAppCloudService(db *gorm.DB) *WhatsAppCloudService {
-	r := repository.NewWhatsAppCloudAccountRepository()
-	if db != nil {
-		r.SetDB(context.Background(), db)
+	if db == nil {
+		return &WhatsAppCloudService{}
 	}
-	return &WhatsAppCloudService{db: db, accRepo: r}
+	r := repository.NewWhatsAppCloudAccountRepository()
+	r.SetDB(context.Background(), db)
+	return &WhatsAppCloudService{accRepo: r}
 }
 
 func (s *WhatsAppCloudService) CreateAccount(ctx context.Context, acc *model.WhatsAppCloudAccount) (*model.WhatsAppCloudAccount, error) {
@@ -564,20 +568,20 @@ func (s *WhatsAppCloudService) DeleteAccount(ctx context.Context, id uint) error
 
 // GetSecretsByAccountID 获取 access_token + app_secret
 func (s *WhatsAppCloudService) GetSecretsByAccountID(ctx context.Context, accountID string) (token, appSecret string, err error) {
-	if s.db == nil {
+	if s.accRepo == nil {
 		return "", "", errors.New("db nil")
 	}
-	var acc model.WhatsAppCloudAccount
 	var id uint
 	if _, scanErr := fmt.Sscanf(accountID, "%d", &id); scanErr == nil && id > 0 {
-		if err := s.db.WithContext(ctx).First(&acc, id).Error; err == nil {
+		if acc, gerr := s.accRepo.GetByID(ctx, id); gerr == nil && acc != nil {
 			return acc.AccessToken, acc.AppSecret, nil
 		}
 	}
-	if err := s.db.Where("webhook_enabled = ? AND status = ?", true, 1).First(&acc).Error; err == nil {
+	if acc, gerr := s.accRepo.GetFirstEnabled(ctx); gerr == nil && acc != nil {
 		return acc.AccessToken, acc.AppSecret, nil
 	}
-	if err := s.db.Order("id ASC").First(&acc).Error; err != nil {
+	acc, err := s.accRepo.GetFirst(ctx)
+	if err != nil {
 		return "", "", err
 	}
 	return acc.AccessToken, acc.AppSecret, nil
@@ -597,7 +601,6 @@ func VerifyWhatsAppSignature(appSecret string, body []byte, signature string) bo
 
 // WhatsAppCloudIntegrationService WhatsApp Cloud 消息分发 + 出站
 type WhatsAppCloudIntegrationService struct {
-	db    *gorm.DB
 	wa    *WhatsAppCloudService
 	hub   *MessageHubService
 	inbox *InboxService
@@ -605,7 +608,6 @@ type WhatsAppCloudIntegrationService struct {
 
 func NewWhatsAppCloudIntegrationService(db *gorm.DB) *WhatsAppCloudIntegrationService {
 	return &WhatsAppCloudIntegrationService{
-		db:    db,
 		wa:    NewWhatsAppCloudService(db),
 		hub:   NewMessageHubServiceWithDB(db, nil),
 		inbox: NewInboxServiceWithDB(db),
@@ -624,7 +626,7 @@ type WhatsAppIngestRequest struct {
 
 // IngestMessage WhatsApp Cloud 入站
 func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req *WhatsAppIngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
-	if s.db == nil {
+	if s.wa == nil {
 		return nil, nil, errors.New("db nil")
 	}
 	if req.MsgType == "" {
@@ -661,7 +663,7 @@ func (s *WhatsAppCloudIntegrationService) IngestMessage(ctx context.Context, req
 // SendMessage 通过 WhatsApp Cloud API 发送文本
 // POST https://graph.facebook.com/v18.0/<phone_number_id>/messages
 func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accountID uint, toPhone, content string) error {
-	if s.db == nil {
+	if s.wa == nil {
 		return errors.New("db nil")
 	}
 	acc, err := s.wa.GetAccount(ctx, accountID)

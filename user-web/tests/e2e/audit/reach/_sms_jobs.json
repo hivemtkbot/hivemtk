@@ -1,0 +1,17 @@
+{
+  "route": "/sms/jobs",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "10/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

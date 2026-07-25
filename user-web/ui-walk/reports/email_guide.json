@@ -1,0 +1,104 @@
+{
+  "route": "/email/guide",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:29:40.502Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Go to Operation",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/src/api/email.js?t=1784917780188",
+          "status": 200,
+          "ok": true,
+          "sample": ""
+        },
+        {
+          "method": "GET",
+          "url": "/api/email/smtp",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total\":0,\"list\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Go to Operation",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "Go to Operation",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/email/drafts",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total\":0,\"list\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "Go to Operation",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/email/jobs?page=1&limit=10",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total\":0,\"list\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:29:54.457Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 24
+}

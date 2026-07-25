@@ -66,6 +66,18 @@
           <span class="form-tip">低于此值转人工（0-1，推荐 0.70）</span>
         </el-form-item>
 
+        <el-form-item :label="$t('目标语言')" prop="target_language">
+          <el-select v-model="form.target_language" :placeholder="$t('请选择目标语言')" clearable style="width: 100%">
+            <el-option
+              v-for="lang in targetLanguageOptions"
+              :key="lang.value"
+              :label="lang.label"
+              :value="lang.value"
+            />
+          </el-select>
+          <div class="form-tip">渠道对外输出语言，覆盖智能体配置。空表示跟随智能体配置。</div>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="onSubmit">{{ $t('创建并获取凭证') }}</el-button>
           <el-button @click="goBack">{{ $t('取消') }}</el-button>
@@ -124,6 +136,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { createChannel } from '@/api/chatChannel'
+import { TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const router = useRouter()
 const formRef = ref()
@@ -131,6 +144,7 @@ const saving = ref(false)
 const credentialsVisible = ref(false)
 const createdData = ref(null)
 const originsText = ref('')
+const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
 const form = ref({
   channel_name: '',
@@ -140,7 +154,8 @@ const form = ref({
   widget_position: 'bottom-right',
   widget_title: '在线客服',
   auto_assign: true,
-  confidence_threshold: 0.70
+  confidence_threshold: 0.70,
+  target_language: ''
 })
 
 const rules = {

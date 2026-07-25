@@ -1,0 +1,63 @@
+{
+  "route": "/knowledge/feedbacks",
+  "module": "知识中心",
+  "errors": [],
+  "items": [
+    {
+      "text": "选择产品",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "评价",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "搜索",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "刷新",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "20/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "(表单) 填充输入+点击搜索/筛选",
+      "type": "form",
+      "action": "fill+submit",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 1
+}

@@ -1,0 +1,26 @@
+{
+  "route": "/customerJourney/dashboard",
+  "module": "数据分析",
+  "errors": [],
+  "items": [
+    {
+      "text": "手动 自动刷新",
+      "type": "switch",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

@@ -1,0 +1,220 @@
+{
+  "route": "/knowledge/management",
+  "module": "知识中心",
+  "errors": [],
+  "items": [
+    {
+      "text": "Select Products",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Status oEmbed",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Source Type",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Search",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Import Files",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 项目概述与定位",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function"
+      ],
+      "apiErrors": []
+    },
+    {
+      "text": "详情",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/platform/message/latest",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    },
+    {
+      "text": "删除",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 开源信息与协议",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "重建索引",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 部署指南",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 运维手册",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function"
+      ],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 架构说明",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function"
+      ],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 功能模块",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function"
+      ],
+      "apiErrors": []
+    },
+    {
+      "text": "HiveMTK 资产市场与 AI 智能体",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/knowledge/stats/overview?product_id=",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/platform/message/latest",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    },
+    {
+      "text": "HiveMTK 常见问题 FAQ",
+      "type": "link",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function",
+        "_ctx.embedStatusTag is not a function"
+      ],
+      "apiErrors": []
+    },
+    {
+      "text": "20/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 25
+}

@@ -16,6 +16,7 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // MemorySystem 4 层记忆系统入口
@@ -29,7 +30,7 @@ import (
 //   - Remember/Recall 提供向量检索 + 重排序（importance + 时间衰减）
 //   - 与原 L2SaveFact/L2ListFacts 并行，互不干扰
 type MemorySystem struct {
-	db           *gorm.DB
+	memoryRepo   repository.MemoryRepository
 	embeddingSvc llm.EmbeddingServiceInterface
 	mu           sync.Mutex
 }
@@ -62,16 +63,20 @@ func GetMemorySystem() *MemorySystem {
 //
 // 注意：测试模式下（IS_TEST_MODE=1）跳过 sync.Once 缓存，每次返回新实例，
 // 避免测试间状态污染（不同测试用不同 DB 时全局缓存会导致数据写到错误 DB）。
+//
+// 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
+// 保留 db 参数以兼容调用方（main.go），内部转换为 MemoryRepository。
 func InitMemorySystem(db *gorm.DB) *MemorySystem {
+	repo := repository.NewMemoryRepositoryWithDB(db)
 	if os.Getenv("IS_TEST_MODE") == "1" {
 		return &MemorySystem{
-			db:           db,
+			memoryRepo:   repo,
 			embeddingSvc: llm.NewEmbeddingService(),
 		}
 	}
 	memorySystemOnce.Do(func() {
 		memorySystem = &MemorySystem{
-			db:           db,
+			memoryRepo:   repo,
 			embeddingSvc: llm.NewEmbeddingService(),
 		}
 	})
@@ -94,7 +99,7 @@ func (m *MemorySystem) WithEmbeddingService(ctx context.Context, svc llm.Embeddi
 
 // L1Append 追加一条短期消息
 func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role, content string) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
 	exp := time.Now().Add(L1TTLHours)
@@ -107,7 +112,7 @@ func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role
 		Content:    content,
 		ExpiresAt:  &exp,
 	}
-	if err := m.db.WithContext(ctx).Create(item).Error; err != nil {
+	if err := m.memoryRepo.CreateMemoryItem(ctx, item); err != nil {
 		return err
 	}
 	// 滑动窗口裁剪：保留最近 L1WindowSize 条
@@ -117,40 +122,31 @@ func (m *MemorySystem) L1Append(ctx context.Context, sessionID, customerID, role
 
 // L1List 获取会话最近 N 条消息
 func (m *MemorySystem) L1List(ctx context.Context, sessionID string, limit int) ([]model.MemoryItem, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = L1WindowSize
 	}
-	var items []model.MemoryItem
-	err := m.db.WithContext(ctx).
-		Where("layer = ? AND session_id = ?", model.MemoryLayerShortTerm, sessionID).
-		Order("created_at DESC").Limit(limit).
-		Find(&items).Error
-	return items, err
+	return m.memoryRepo.ListShortTermMemoryBySession(ctx, sessionID, limit)
 }
 
 // L1Clear 清空某会话短期记忆
 func (m *MemorySystem) L1Clear(ctx context.Context, sessionID string) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
-	return m.db.WithContext(ctx).
-		Where("layer = ? AND session_id = ?", model.MemoryLayerShortTerm, sessionID).
-		Delete(&model.MemoryItem{}).Error
+	return m.memoryRepo.DeleteShortTermMemoryBySession(ctx, sessionID)
 }
 
 // l1Trim 裁剪到 L1WindowSize
 func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return
 	}
 	// 计算当前总数
-	var count int64
-	if err := m.db.WithContext(ctx).Model(&model.MemoryItem{}).
-		Where("layer = ? AND session_id = ?", model.MemoryLayerShortTerm, sessionID).
-		Count(&count).Error; err != nil {
+	count, err := m.memoryRepo.CountShortTermMemoryBySession(ctx, sessionID)
+	if err != nil {
 		return
 	}
 	if count <= int64(L1WindowSize) {
@@ -158,15 +154,12 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 	}
 	// 删除超出窗口的旧消息
 	exceed := count - int64(L1WindowSize)
-	var oldIDs []uint
-	if err := m.db.WithContext(ctx).Model(&model.MemoryItem{}).
-		Where("layer = ? AND session_id = ?", model.MemoryLayerShortTerm, sessionID).
-		Order("created_at ASC").Limit(int(exceed)).
-		Pluck("id", &oldIDs).Error; err != nil {
+	oldIDs, err := m.memoryRepo.PluckOldestShortTermMemoryIDs(ctx, sessionID, int(exceed))
+	if err != nil {
 		return
 	}
 	if len(oldIDs) > 0 {
-		m.db.WithContext(ctx).Where("id IN ?", oldIDs).Delete(&model.MemoryItem{})
+		_ = m.memoryRepo.DeleteMemoryItemsByIDs(ctx, oldIDs)
 	}
 }
 
@@ -174,7 +167,7 @@ func (m *MemorySystem) l1Trim(ctx context.Context, sessionID string) {
 
 // L2SaveFact 保存一条长期事实
 func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value string, importance int) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
 	if importance <= 0 || importance > 10 {
@@ -188,12 +181,12 @@ func (m *MemorySystem) L2SaveFact(ctx context.Context, customerID, key, value st
 		Importance: importance,
 		Metadata:   model.JSONMap{"key": key},
 	}
-	return m.db.WithContext(ctx).Create(item).Error
+	return m.memoryRepo.CreateMemoryItem(ctx, item)
 }
 
 // L2SaveSummary 保存长期摘要
 func (m *MemorySystem) L2SaveSummary(ctx context.Context, customerID, summary string) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
 	item := &model.MemoryItem{
@@ -203,39 +196,31 @@ func (m *MemorySystem) L2SaveSummary(ctx context.Context, customerID, summary st
 		Content:    summary,
 		Importance: 8,
 	}
-	return m.db.WithContext(ctx).Create(item).Error
+	return m.memoryRepo.CreateMemoryItem(ctx, item)
 }
 
 // L2ListFacts 获取客户的长期事实
 func (m *MemorySystem) L2ListFacts(ctx context.Context, customerID string, limit int) ([]model.MemoryItem, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = 50
 	}
-	var items []model.MemoryItem
-	err := m.db.WithContext(ctx).
-		Where("layer = ? AND customer_id = ? AND item_type LIKE ?", model.MemoryLayerLongTerm, customerID, "fact:%").
-		Order("importance DESC, created_at DESC").Limit(limit).
-		Find(&items).Error
-	return items, err
+	return m.memoryRepo.ListFacts(ctx, customerID, limit)
 }
 
 // L2GetLatestSummary 获取客户最新长期摘要
 func (m *MemorySystem) L2GetLatestSummary(ctx context.Context, customerID string) (string, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return "", nil
 	}
-	var item model.MemoryItem
-	err := m.db.WithContext(ctx).
-		Where("layer = ? AND customer_id = ? AND item_type = ?", model.MemoryLayerLongTerm, customerID, "summary").
-		Order("created_at DESC").First(&item).Error
+	item, err := m.memoryRepo.GetLatestSummary(ctx, customerID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return "", nil
-		}
 		return "", err
+	}
+	if item == nil {
+		return "", nil
 	}
 	return item.Content, nil
 }
@@ -244,51 +229,37 @@ func (m *MemorySystem) L2GetLatestSummary(ctx context.Context, customerID string
 
 // L3SaveSOPState 保存 SOP 状态
 func (m *MemorySystem) L3SaveSOPState(ctx context.Context, state *model.SOPStateMemory) error {
-	if m.db == nil || state == nil {
+	if m.memoryRepo == nil || state == nil {
 		return nil
 	}
 	state.LastStepAt = time.Now()
-	return m.db.WithContext(ctx).Save(state).Error
+	return m.memoryRepo.SaveSOPState(ctx, state)
 }
 
 // L3GetSOPState 获取会话当前 SOP 状态
 func (m *MemorySystem) L3GetSOPState(ctx context.Context, sessionID string) (*model.SOPStateMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
-	var state model.SOPStateMemory
-	err := m.db.WithContext(ctx).
-		Where("session_id = ?", sessionID).
-		Order("updated_at DESC").First(&state).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &state, nil
+	return m.memoryRepo.GetSOPStateBySession(ctx, sessionID)
 }
 
 // L3ListByCustomer 获取客户的所有 SOP 状态
 func (m *MemorySystem) L3ListByCustomer(ctx context.Context, customerID string, limit int) ([]model.SOPStateMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = 20
 	}
-	var list []model.SOPStateMemory
-	err := m.db.WithContext(ctx).
-		Where("customer_id = ?", customerID).
-		Order("updated_at DESC").Limit(limit).Find(&list).Error
-	return list, err
+	return m.memoryRepo.ListSOPStatesByCustomer(ctx, customerID, limit)
 }
 
 // =================== L4 业务记忆 ===================
 
 // L4Record 记录业务记忆
 func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, content, relatedID string, importance int, metadata map[string]any) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
 	if importance <= 0 || importance > 10 {
@@ -298,18 +269,12 @@ func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, con
 	defer m.mu.Unlock()
 
 	// 限额裁剪：超过 L4MaxPerCust 删旧的
-	var count int64
-	m.db.WithContext(ctx).Model(&model.BusinessMemory{}).
-		Where("customer_id = ?", customerID).Count(&count)
+	count, _ := m.memoryRepo.CountBusinessMemoriesByCustomer(ctx, customerID)
 	if count >= int64(L4MaxPerCust) {
 		exceed := count - int64(L4MaxPerCust) + 1
-		var oldIDs []uint
-		m.db.WithContext(ctx).Model(&model.BusinessMemory{}).
-			Where("customer_id = ?", customerID).
-			Order("importance ASC, created_at ASC").Limit(int(exceed)).
-			Pluck("id", &oldIDs)
+		oldIDs, _ := m.memoryRepo.PluckOldestBusinessMemoryIDs(ctx, customerID, int(exceed))
 		if len(oldIDs) > 0 {
-			m.db.WithContext(ctx).Where("id IN ?", oldIDs).Delete(&model.BusinessMemory{})
+			_ = m.memoryRepo.DeleteBusinessMemoriesByIDs(ctx, oldIDs)
 		}
 	}
 
@@ -327,31 +292,25 @@ func (m *MemorySystem) L4Record(ctx context.Context, customerID, memoryType, con
 		Importance: importance,
 		Metadata:   meta,
 	}
-	return m.db.WithContext(ctx).Create(item).Error
+	return m.memoryRepo.CreateBusinessMemory(ctx, item)
 }
 
 // L4ListByCustomer 获取客户业务记忆
 func (m *MemorySystem) L4ListByCustomer(ctx context.Context, customerID string, memoryType string, limit int) ([]model.BusinessMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
 	if limit <= 0 {
 		limit = 50
 	}
-	q := m.db.WithContext(ctx).Model(&model.BusinessMemory{}).Where("customer_id = ?", customerID)
-	if memoryType != "" {
-		q = q.Where("memory_type = ?", memoryType)
-	}
-	var list []model.BusinessMemory
-	err := q.Order("importance DESC, created_at DESC").Limit(limit).Find(&list).Error
-	return list, err
+	return m.memoryRepo.ListBusinessMemories(ctx, customerID, memoryType, limit)
 }
 
 // =================== 跨层聚合 ===================
 
 // BuildFullContext 构造 4 层汇总上下文（用于 LLM 提示）
 func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customerID string) (string, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return "", nil
 	}
 	var sb strings.Builder
@@ -414,7 +373,7 @@ func (m *MemorySystem) BuildFullContext(ctx context.Context, sessionID, customer
 // SyncFromDialogueMemory 从老的 DialogueMemory 同步到 4 层结构
 // 兼容层：保证重启后老数据也能被 4 层系统看到
 func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.DialogueMemory) {
-	if m.db == nil || mem == nil {
+	if m.memoryRepo == nil || mem == nil {
 		return
 	}
 	if mem.CustomerID == "" {
@@ -453,20 +412,6 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 
 // =================== P1-1 G5 L2 长期记忆（pgvector 增强） ===================
 
-// longTermMemoryRow Recall 内部统一行结构（PG pgvector 召回结果）
-type longTermMemoryRow struct {
-	ID         uint64
-	CustomerID string
-	MemoryType string
-	Content    string
-	Importance int
-	Source     string
-	Metadata   string
-	CreatedAt  time.Time
-	ExpiresAt  *time.Time
-	Similarity float64
-}
-
 // LongTermMemoryRecallResult Recall 结果
 type LongTermMemoryRecallResult struct {
 	Memory     *model.CustomerLongTermMemory
@@ -478,7 +423,7 @@ type LongTermMemoryRecallResult struct {
 // 对应 PRD §5.2 P1-1 G5：MemorySystem.Remember(ctx, customerID, memType, content, importance)
 // 验收：第一次对话客户说预算 5000，第二次对话 Recall 能主动返回该记忆
 func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int) (*model.CustomerLongTermMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, fmt.Errorf("memory system db not initialized")
 	}
 	if customerID == "" {
@@ -516,7 +461,7 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 		Embedding:  embeddingToString(vec),
 		Metadata:   model.JSONMap{},
 	}
-	if err := m.db.WithContext(ctx).Create(item).Error; err != nil {
+	if err := m.memoryRepo.CreateLongTermMemory(ctx, item); err != nil {
 		return nil, fmt.Errorf("save long term memory: %w", err)
 	}
 	return item, nil
@@ -524,7 +469,7 @@ func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType 
 
 // RememberWithSource 记录长期记忆（带来源 + 元信息）
 func (m *MemorySystem) RememberWithSource(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int, source model.LongTermMemorySource, metadata map[string]any) (*model.CustomerLongTermMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, fmt.Errorf("memory system db not initialized")
 	}
 	if m.embeddingSvc == nil {
@@ -542,7 +487,7 @@ func (m *MemorySystem) RememberWithSource(ctx context.Context, customerID string
 		}
 		item.Metadata = meta
 	}
-	if err := m.db.WithContext(ctx).Save(item).Error; err != nil {
+	if err := m.memoryRepo.SaveLongTermMemory(ctx, item); err != nil {
 		return nil, fmt.Errorf("update long term memory meta: %w", err)
 	}
 	return item, nil
@@ -554,7 +499,7 @@ func (m *MemorySystem) RememberWithSource(ctx context.Context, customerID string
 //   - PG 环境：使用 pgvector 索引召回
 //   - 无 pgvector（如未初始化 embedding）：降级为扫表 + 内存计算余弦相似度 + 重排序
 func (m *MemorySystem) Recall(ctx context.Context, customerID, query string, limit int) ([]LongTermMemoryRecallResult, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, fmt.Errorf("memory system db not initialized")
 	}
 	if customerID == "" {
@@ -573,7 +518,7 @@ func (m *MemorySystem) Recall(ctx context.Context, customerID, query string, lim
 		return nil, fmt.Errorf("query embedding failed: %w", err)
 	}
 
-	dialect := m.db.Dialector.Name()
+	dialect := m.memoryRepo.DialectName(ctx)
 	if dialect == "postgres" {
 		return m.recallPostgres(ctx, customerID, queryVec, limit)
 	}
@@ -593,16 +538,8 @@ func (m *MemorySystem) recallPostgres(ctx context.Context, customerID string, qu
 	// 报 "invalid input syntax for type vector"。
 	// 因此必须使用 string 形式（embeddingToString 输出 JSON 数组文本）。
 	queryVecStr := embeddingToString(queryVec)
-	sql := `
-		SELECT id, customer_id, memory_type, content, importance, source, metadata, created_at, expires_at,
-		       1 - (embedding <=> ?::vector) as similarity
-		FROM customer_long_term_memory
-		WHERE customer_id = ? AND (expires_at IS NULL OR expires_at > NOW())
-		ORDER BY embedding <=> ?::vector
-		LIMIT ?
-	`
-	var rows []longTermMemoryRow
-	if err := m.db.WithContext(ctx).Raw(sql, queryVecStr, customerID, queryVecStr, fetchN).Scan(&rows).Error; err != nil {
+	rows, err := m.memoryRepo.SearchLongTermMemoriesByVector(ctx, queryVecStr, customerID, fetchN)
+	if err != nil {
 		return nil, fmt.Errorf("pgvector search: %w", err)
 	}
 	return m.rerank(ctx, rows, limit), nil
@@ -611,14 +548,12 @@ func (m *MemorySystem) recallPostgres(ctx context.Context, customerID string, qu
 // recallFallback pgvector 缺失降级路径：内存计算余弦相似度
 // 不依赖 pgvector，仅在 embedding 服务未初始化或 pgvector 扩展不可用时使用
 func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, queryVec []float32, limit int) ([]LongTermMemoryRecallResult, error) {
-	var items []model.CustomerLongTermMemory
-	if err := m.db.WithContext(ctx).
-		Where("customer_id = ? AND (expires_at IS NULL OR expires_at > ?)", customerID, time.Now()).
-		Find(&items).Error; err != nil {
+	items, err := m.memoryRepo.ListLongTermMemoriesForFallback(ctx, customerID, time.Now())
+	if err != nil {
 		return nil, fmt.Errorf("fallback fetch: %w", err)
 	}
 
-	rows := make([]longTermMemoryRow, 0, len(items))
+	rows := make([]repository.LongTermMemoryVectorRow, 0, len(items))
 	for _, it := range items {
 		vec := bytesToFloat32Slice([]byte(it.Embedding))
 		sim := cosineSimilarity(queryVec, vec)
@@ -628,7 +563,7 @@ func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, qu
 				meta = string(b)
 			}
 		}
-		rows = append(rows, longTermMemoryRow{
+		rows = append(rows, repository.LongTermMemoryVectorRow{
 			ID:         it.ID,
 			CustomerID: it.CustomerID,
 			MemoryType: string(it.MemoryType),
@@ -647,7 +582,7 @@ func (m *MemorySystem) recallFallback(ctx context.Context, customerID string, qu
 // rerank 重排序：综合得分 = similarity * 0.6 + importance_score * 0.3 + recency_score * 0.1
 //   - importance_score = importance / 10
 //   - recency_score = 1 - (now - created_at) / 30d（30 天衰减为 0，clamp 到 [0,1]）
-func (m *MemorySystem) rerank(ctx context.Context, rows []longTermMemoryRow, limit int) []LongTermMemoryRecallResult {
+func (m *MemorySystem) rerank(ctx context.Context, rows []repository.LongTermMemoryVectorRow, limit int) []LongTermMemoryRecallResult {
 	now := time.Now()
 	results := make([]LongTermMemoryRecallResult, 0, len(rows))
 	for _, r := range rows {
@@ -697,7 +632,7 @@ func (m *MemorySystem) rerank(ctx context.Context, rows []longTermMemoryRow, lim
 // ListLongTermMemories 列出客户长期记忆（按 importance + created_at 降序，不走向量检索）
 // 用于 UI 展示 / 调试
 func (m *MemorySystem) ListLongTermMemories(ctx context.Context, customerID string, memType string, limit int) ([]model.CustomerLongTermMemory, error) {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil, nil
 	}
 	if customerID == "" {
@@ -706,21 +641,15 @@ func (m *MemorySystem) ListLongTermMemories(ctx context.Context, customerID stri
 	if limit <= 0 {
 		limit = 50
 	}
-	q := m.db.WithContext(ctx).Model(&model.CustomerLongTermMemory{}).Where("customer_id = ?", customerID)
-	if memType != "" {
-		q = q.Where("memory_type = ?", memType)
-	}
-	var list []model.CustomerLongTermMemory
-	err := q.Order("importance DESC, created_at DESC").Limit(limit).Find(&list).Error
-	return list, err
+	return m.memoryRepo.ListLongTermMemories(ctx, customerID, memType, limit)
 }
 
 // DeleteLongTermMemory 删除指定 ID 的长期记忆
 func (m *MemorySystem) DeleteLongTermMemory(ctx context.Context, id uint64) error {
-	if m.db == nil {
+	if m.memoryRepo == nil {
 		return nil
 	}
-	return m.db.WithContext(ctx).Delete(&model.CustomerLongTermMemory{}, id).Error
+	return m.memoryRepo.DeleteLongTermMemoryByID(ctx, id)
 }
 
 // float32SliceToBytes 将 float32 切片序列化为 []byte（JSON 格式，pgvector 兼容）

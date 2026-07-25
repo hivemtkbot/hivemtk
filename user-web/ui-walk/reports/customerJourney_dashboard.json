@@ -1,0 +1,62 @@
+{
+  "route": "/customerJourney/dashboard",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:48:45.702Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "DIV",
+      "text": "手动 自动刷新",
+      "cls": "el-switch",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-journey/overview",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"total_customers\":0,\"stages\":[{\"stage\":\"stranger\",\"label\":\"陌生客户\",\"count\":0,\"rate\":0,\"avg_stay_hours\":0},{\"stage\":\"lead\",\"label\":\"已留资\",\"count\":0,\"rate\":0,\"avg_stay_hours\":0},{\"stage\":\"contact\",\"label\":\"已加微\",\"count\":0,\"rate\":0,\"avg_stay_hours\":0},{\"stage\":\"interested\",\"label\":\"有意向\",\"count\":0,\"rate\":0,\"avg_stay_hours\":0},{\"stage\":\"quoted\",\"label\""
+        },
+        {
+          "method": "GET",
+          "url": "/api/customer-journey/stages",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":[{\"allow_ai_handle\":true,\"auto_next_stage\":\"\",\"default_followup\":\"0s\",\"description\":\"首次接触，未留资\",\"label\":\"陌生客户\",\"owner_role\":\"ai\",\"recommended_sop\":\"welcome_greeting\",\"stage\":\"stranger\"},{\"allow_ai_handle\":true,\"auto_next_stage\":\"\",\"default_followup\":\"30m0s\",\"description\":\"留下联系方式，待分配\",\"label\":\"已留资\",\"owner_role\":\"ai\",\"recommended_sop\":\"first_conta"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:48:54.346Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 23
+}

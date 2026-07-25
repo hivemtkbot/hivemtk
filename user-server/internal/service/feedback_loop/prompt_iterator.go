@@ -27,18 +27,21 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 // PromptIterator Prompt 迭代器
 type PromptIterator struct {
-	db         *gorm.DB
+	repo       *repository.FeedbackLoopRepository
 	dispatcher LLMDispatcher
 	config     PromptIteratorConfig
 }
 
 // NewPromptIterator 构造迭代器
+//
+// 参数 db 仅为构造签名兼容保留，内部用 db 构造 repository，不存到 struct
 func NewPromptIterator(db *gorm.DB, dispatcher LLMDispatcher, cfg PromptIteratorConfig) *PromptIterator {
 	if cfg.MinSamplesForIteration == 0 {
 		cfg.MinSamplesForIteration = 50
@@ -50,7 +53,7 @@ func NewPromptIterator(db *gorm.DB, dispatcher LLMDispatcher, cfg PromptIterator
 		cfg.CandidatesPerRun = 3
 	}
 	return &PromptIterator{
-		db:         db,
+		repo:       repository.NewFeedbackLoopRepositoryWithDB(db),
 		dispatcher: dispatcher,
 		config:     cfg,
 	}
@@ -68,18 +71,15 @@ func NewPromptIterator(db *gorm.DB, dispatcher LLMDispatcher, cfg PromptIterator
 //
 // 返回：生成的候选列表
 func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID string) ([]model.PromptCandidate, error) {
-	if p.db == nil {
-		return nil, fmt.Errorf("db is nil")
+	if p.repo == nil {
+		return nil, fmt.Errorf("repo is nil")
 	}
 	if sopID == 0 || nodeID == "" {
 		return nil, ErrInvalidInput
 	}
 
 	// 1. 拉取当前 active Prompt
-	var current model.PromptCandidate
-	err := p.db.WithContext(ctx).
-		Where("sop_id = ? AND sop_node_id = ? AND status = ?", sopID, nodeID, model.PromptCandidateStatusActive).
-		First(&current).Error
+	current, err := p.repo.GetActivePromptCandidate(ctx, sopID, nodeID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrActivePromptNotFound
@@ -104,7 +104,7 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 	}
 
 	// 3. LLM 生成候选
-	candidates, err := p.generateCandidates(ctx, current, samples)
+	candidates, err := p.generateCandidates(ctx, *current, samples)
 	if err != nil {
 		return nil, fmt.Errorf("generate candidates: %w", err)
 	}
@@ -123,7 +123,7 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 			candidates[i].Status = model.PromptCandidateStatusApproved
 			candidates[i].ReviewedAt = &now
 		}
-		if err := p.db.WithContext(ctx).Create(&candidates[i]).Error; err != nil {
+		if err := p.repo.CreatePromptCandidate(ctx, &candidates[i]); err != nil {
 			// 单条失败不阻断，但记录到候选的 ImprovementNotes
 			continue
 		}
@@ -131,7 +131,7 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 
 	// 5. 自动创建 A/B 测试（包含原 Prompt 作为兜底臂）
 	if p.config.AutoApprove && len(candidates) > 0 {
-		p.createABTest(ctx, sopID, nodeID, current, candidates)
+		p.createABTest(ctx, sopID, nodeID, *current, candidates)
 	}
 
 	return candidates, nil
@@ -144,47 +144,21 @@ func (p *PromptIterator) IterateForNode(ctx context.Context, sopID uint, nodeID 
 //
 // 注意：本函数仅返回 Top-20 样本，不能用于阈值判定；
 // 阈值判定应使用 countNegativeSamples 查询全量计数。
-func (p *PromptIterator) fetchNegativeSamples(ctx context.Context, sopID uint, since time.Time) ([]negativeSample, error) {
-	var rows []negativeSample
-	err := p.db.WithContext(ctx).Raw(`
-		SELECT fe.customer_msg, fe.ai_reply, fe.reward, fe.signal_key
-		FROM feedback_events fe
-		WHERE fe.sop_id = ? AND fe.created_at >= ? AND fe.reward < ?
-		ORDER BY fe.reward ASC LIMIT 20`,
-		sopID, since, p.config.NegativeRewardThreshold).Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	return rows, nil
+func (p *PromptIterator) fetchNegativeSamples(ctx context.Context, sopID uint, since time.Time) ([]repository.NegativeSample, error) {
+	return p.repo.FetchNegativeSamples(ctx, sopID, since, p.config.NegativeRewardThreshold)
 }
 
 // countNegativeSamples 统计指定时间窗口内的负反馈样本总数
 //
 // 用于 MinSamplesForIteration 阈值判定（与 fetchNegativeSamples 的 LIMIT 20 解耦）
 func (p *PromptIterator) countNegativeSamples(ctx context.Context, sopID uint, since time.Time) (int64, error) {
-	var count int64
-	err := p.db.WithContext(ctx).Raw(`
-		SELECT COUNT(*) FROM feedback_events fe
-		WHERE fe.sop_id = ? AND fe.created_at >= ? AND fe.reward < ?`,
-		sopID, since, p.config.NegativeRewardThreshold).Scan(&count).Error
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-// negativeSample 负反馈样本
-type negativeSample struct {
-	CustomerMsg string  `gorm:"column:customer_msg"`
-	AIReply     string  `gorm:"column:ai_reply"`
-	Reward      float64 `gorm:"column:reward"`
-	SignalKey   string  `gorm:"column:signal_key"`
+	return p.repo.CountNegativeSamples(ctx, sopID, since, p.config.NegativeRewardThreshold)
 }
 
 // generateCandidates LLM 生成候选 Prompt
 //
 // Prompt 模板：当前 System/User Prompt + N 条负反馈样本 → 输出 N 个改进版本 JSON
-func (p *PromptIterator) generateCandidates(ctx context.Context, current model.PromptCandidate, samples []negativeSample) ([]model.PromptCandidate, error) {
+func (p *PromptIterator) generateCandidates(ctx context.Context, current model.PromptCandidate, samples []repository.NegativeSample) ([]model.PromptCandidate, error) {
 	if p.dispatcher == nil {
 		return nil, ErrDispatcherNotConfig
 	}
@@ -272,7 +246,7 @@ func (p *PromptIterator) createABTest(ctx context.Context, sopID uint, nodeID st
 		StartedAt:      &now,
 		AutoPromote:    true,
 	}
-	if err := p.db.WithContext(ctx).Create(abTest).Error; err != nil {
+	if err := p.repo.CreatePromptABTest(ctx, abTest); err != nil {
 		return
 	}
 
@@ -301,7 +275,7 @@ func (p *PromptIterator) createABTest(ctx context.Context, sopID uint, nodeID st
 			Status:            model.BanditArmStatusExploring,
 		})
 	}
-	_ = p.db.WithContext(ctx).CreateInBatches(arms, 100).Error
+	_ = p.repo.CreateBanditArmsInBatches(ctx, arms, 100)
 }
 
 // armKeysToInterface 将 []string 转为 []interface{}（用于 JSONArray）

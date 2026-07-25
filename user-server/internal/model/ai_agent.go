@@ -109,6 +109,12 @@ type AIAgent struct {
 	FrequencyPenalty  float64           `gorm:"default:0.5" json:"frequency_penalty"`
 	PresencePenalty   float64           `gorm:"default:0.5" json:"presence_penalty"`
 
+	// 多语言配置（v1.2 出海多语言方案）
+	// InternalLanguage 商户内部语言（知识库语言+内部工具prompt语言），默认 zh
+	// TargetLanguage   对外目标语言（空则退化=InternalLanguage）
+	InternalLanguage string `gorm:"type:varchar(8);default:'zh'" json:"internal_language"`
+	TargetLanguage   string `gorm:"type:varchar(8);default:''" json:"target_language"`
+
 	// 销售引擎开关
 	EnableRAG            bool `gorm:"default:true" json:"enable_rag"`
 	EnableScriptMatch    bool `gorm:"default:true" json:"enable_script_match"`

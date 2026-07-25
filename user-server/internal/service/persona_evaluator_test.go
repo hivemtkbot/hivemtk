@@ -635,7 +635,7 @@ func TestDBLowQualitySampleCollector_HappyPath(t *testing.T) {
 }
 
 func TestDBLowQualitySampleCollector_NilDB(t *testing.T) {
-	c := &DBLowQualitySampleCollector{db: nil}
+	c := &DBLowQualitySampleCollector{}
 	err := c.Collect(context.Background(), &PersonaEvaluationInput{AIReply: "x"}, &PersonaEvaluationResult{})
 	if err != nil {
 		t.Errorf("expected nil err for nil db, got %v", err)

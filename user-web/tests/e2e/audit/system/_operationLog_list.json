@@ -1,0 +1,87 @@
+{
+  "route": "/operationLog/list",
+  "module": "系统设置",
+  "errors": [],
+  "items": [
+    {
+      "text": "Export",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/team/logs/export",
+          "status": 429
+        }
+      ]
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "pageErrors": [
+        "请求过于频繁，请稍后再试"
+      ],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/team/logs?page=1&size=20",
+          "status": 429
+        }
+      ]
+    },
+    {
+      "text": "Module",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Operation Type",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Who",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "详情",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "(无文本)",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 5
+}

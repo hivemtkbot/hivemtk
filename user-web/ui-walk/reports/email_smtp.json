@@ -1,0 +1,34 @@
+{
+  "route": "/email/smtp",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:28:28.629Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Add Mail Agent",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:28:34.509Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 15
+}

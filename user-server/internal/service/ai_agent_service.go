@@ -447,8 +447,8 @@ func NewCustomerServiceAgentServiceWithDB(db *gorm.DB, agentSvc *AIAgentService)
 // NewCustomerServiceAgentServiceViaPort 通过 Port 模式创建客服挂载服务
 //
 // 2026-07-23 五层架构治理（二轮）：原 NewCustomerServiceAgentService 必须传入 db，
-// 导致 controller 层误用 dbutil.GetDB() 取得 db。改为从外部注入 *AIAgentService，
-// 服务内部通过全局 _db.GetDB() 取 db（service 构造函数内允许）。
+// 导致 controller 层误用 dbutil 取得 db。改为从外部注入 *AIAgentService，
+// 服务内部通过全局 dbutil 取得 db（service 构造函数内允许）。
 //
 // 注意：所有持久化操作走 repo（含新增的 agentStatusRepo），方法体不再直接持有 *gorm.DB。
 func NewCustomerServiceAgentServiceViaPort(agentSvc *AIAgentService) *CustomerServiceAgentService {

@@ -1,0 +1,102 @@
+{
+  "route": "/dialogueMemory/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:50:24.141Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/memory/list?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":15,\"session_id\":\"\",\"customer_id\":\"\",\"summary\":\"客户首次见面，表示很高兴见到客户，并询问是否有需要帮助的地方。\",\"key_facts\":{},\"customer_name\":\"\",\"customer_phone\":\"\",\"customer_wechat\":\"\",\"budget\":\"\",\"demand\":\"\",\"objections\":[],\"purchase_intent\":\"\",\"intent_trail\":[],\"sop_history\":[],\"last_action\":\"尊敬的客户，您好！我们已为您成功绑定资产包并复述了您的话术标记。有什么问题或需要帮助的，请随时联系我们。感谢您的理解与支持！\\n\\n[话术] objection_…\",\"next_acti"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Query",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/memory/list?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":15,\"session_id\":\"\",\"customer_id\":\"\",\"summary\":\"客户首次见面，表示很高兴见到客户，并询问是否有需要帮助的地方。\",\"key_facts\":{},\"customer_name\":\"\",\"customer_phone\":\"\",\"customer_wechat\":\"\",\"budget\":\"\",\"demand\":\"\",\"objections\":[],\"purchase_intent\":\"\",\"intent_trail\":[],\"sop_history\":[],\"last_action\":\"尊敬的客户，您好！我们已为您成功绑定资产包并复述了您的话术标记。有什么问题或需要帮助的，请随时联系我们。感谢您的理解与支持！\\n\\n[话术] objection_…\",\"next_acti"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "查看记忆",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "构建上下文",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:50:40.621Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 29
+}

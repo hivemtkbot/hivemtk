@@ -1,0 +1,811 @@
+{
+  "route": "/oneid/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:45:26.919Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Search",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer/oneid/list?page=1&page_size=20&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":\"e56cd5ac-0719-4937-a6fb-fa9b0cc4110e\",\"unified_id\":\"visitor:default:e2e-final-1784688126\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 10:42:06\",\"updated_at\":\"2026-07-22 10:42:06\"},{\"id\":\"f1e17daf-458a-473c-a587-68c74ccad0cc\",\"unified_id\":\"visitor:default:e2e-fina"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "解析/创建 OneID",
+      "cls": "el-button el-button--success",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/e56cd5ac-0719-4937-a6fb-fa9b0cc4110e/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"e56cd5ac-0719-4937-a6fb-fa9b0cc4110e\",\"unified_id\":\"visitor:default:e2e-final-1784688126\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 10:42:06\",\"updated_at\":\"2026-07-22 10:42:06\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/f1e17daf-458a-473c-a587-68c74ccad0cc/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"f1e17daf-458a-473c-a587-68c74ccad0cc\",\"unified_id\":\"visitor:default:e2e-final2-1784688600\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 10:50:02\",\"updated_at\":\"2026-07-22 10:50:02\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/7b86d893-3978-4aee-908a-a41ae533e121/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"7b86d893-3978-4aee-908a-a41ae533e121\",\"unified_id\":\"visitor:default:e2e-final3-1784688716\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 10:51:57\",\"updated_at\":\"2026-07-22 10:51:57\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/483357a9-fe14-4b83-982c-25b991fed509/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"483357a9-fe14-4b83-982c-25b991fed509\",\"unified_id\":\"visitor:default:e2e-test-visitor-002\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 11:04:17\",\"updated_at\":\"2026-07-22 11:04:17\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 10,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/a95437f3-7469-4ac1-ba8e-d58c50b7e34b/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"a95437f3-7469-4ac1-ba8e-d58c50b7e34b\",\"unified_id\":\"visitor:default:e2e-visitor-001\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-22 11:25:16\",\"updated_at\":\"2026-07-22 11:25:16\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 11,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 12,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/a452740b-dfcb-4b3f-9b4d-97c8332056f3/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"a452740b-dfcb-4b3f-9b4d-97c8332056f3\",\"unified_id\":\"visitor:default:test-visitor-1784870347\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 13:19:07\",\"updated_at\":\"2026-07-24 13:19:07\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 13,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 14,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/abbfdad5-4343-41b4-b887-92f29bac18da/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"abbfdad5-4343-41b4-b887-92f29bac18da\",\"unified_id\":\"visitor:default:test-visitor-1784870679\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 13:24:40\",\"updated_at\":\"2026-07-24 13:24:40\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 15,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 16,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/423f6f0d-d0cf-40a1-bb97-ef5e601041bf/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"423f6f0d-d0cf-40a1-bb97-ef5e601041bf\",\"unified_id\":\"visitor:default:e2e-visitor-1784871047\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 13:30:48\",\"updated_at\":\"2026-07-24 13:30:48\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 17,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 18,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/fed55868-f0cf-4bca-9518-d80343af106a/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"fed55868-f0cf-4bca-9518-d80343af106a\",\"unified_id\":\"visitor:default:v_gqiryz3cmrt50t30\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 13:47:21\",\"updated_at\":\"2026-07-24 13:47:21\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 19,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 20,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/da0a814f-21a6-461d-8817-543f96037e47/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"da0a814f-21a6-461d-8817-543f96037e47\",\"unified_id\":\"visitor:default:e2e-test-1784872169\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 13:49:41\",\"updated_at\":\"2026-07-24 13:49:41\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 21,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 22,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/aa991be9-2aa0-49d2-a6cb-25db75b02dea/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"aa991be9-2aa0-49d2-a6cb-25db75b02dea\",\"unified_id\":\"visitor:default:e2e-test-1784872803\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 14:00:11\",\"updated_at\":\"2026-07-24 14:00:11\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 23,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 24,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/b546685e-1ae7-42a0-bbcb-4f30bc34a46d/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"b546685e-1ae7-42a0-bbcb-4f30bc34a46d\",\"unified_id\":\"visitor:default:e2e-test-1784873108\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 14:05:16\",\"updated_at\":\"2026-07-24 14:05:16\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 25,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 26,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/8fcaa7b5-7a7f-46c8-a2d1-0a7796ffaf3e/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"8fcaa7b5-7a7f-46c8-a2d1-0a7796ffaf3e\",\"unified_id\":\"visitor:default:v_test_1784877753\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 15:22:33\",\"updated_at\":\"2026-07-24 15:22:33\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 27,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 28,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/b0252fde-f1ce-4dab-9c49-04b1fc780d47/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"b0252fde-f1ce-4dab-9c49-04b1fc780d47\",\"unified_id\":\"visitor:default:v_cn27dpramryoi8do\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 16:29:17\",\"updated_at\":\"2026-07-24 16:29:17\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 29,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 30,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/d6dd0a1d-b215-4ae1-a991-6de839573166/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"d6dd0a1d-b215-4ae1-a991-6de839573166\",\"unified_id\":\"visitor:default:v_e2e_1784890541\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 18:56:11\",\"updated_at\":\"2026-07-24 18:56:11\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 31,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 32,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/e08bb5d2-7fb7-45d5-a16d-bb170577059e/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"e08bb5d2-7fb7-45d5-a16d-bb170577059e\",\"unified_id\":\"visitor:default:v_fixtest_2026\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 19:34:18\",\"updated_at\":\"2026-07-24 19:34:18\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 33,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 34,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/7a347d42-6812-4220-b076-2273a7942673/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"7a347d42-6812-4220-b076-2273a7942673\",\"unified_id\":\"visitor:default:v_smoke_air_1\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 19:37:29\",\"updated_at\":\"2026-07-24 19:37:29\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 35,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 36,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/2a1593cd-6676-41e6-a1cf-c301b1b6039c/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"2a1593cd-6676-41e6-a1cf-c301b1b6039c\",\"unified_id\":\"visitor:default:v_final_check\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 19:38:54\",\"updated_at\":\"2026-07-24 19:38:54\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 37,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 38,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/4f9e3c3a-4a88-4fd0-b312-e9a90a7ffafb/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"4f9e3c3a-4a88-4fd0-b312-e9a90a7ffafb\",\"unified_id\":\"visitor:default:v_air_check_2\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 19:46:28\",\"updated_at\":\"2026-07-24 19:46:28\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 39,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 40,
+      "tag": "BUTTON",
+      "text": "查看身份",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer-oneid/248b8479-da74-428c-bcaa-96877a9d7eb3/identities",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"customer\":{\"id\":\"248b8479-da74-428c-bcaa-96877a9d7eb3\",\"unified_id\":\"visitor:default:autotest-ced09e48e272\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 19:55:57\",\"updated_at\":\"2026-07-24 19:55:57\"},\"identities\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 41,
+      "tag": "BUTTON",
+      "text": "链接身份",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 42,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 43,
+      "tag": "LI",
+      "text": "2",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer/oneid/list?page=2&page_size=20&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":\"f770512b-8f80-4ded-a61c-125fbd9e476b\",\"unified_id\":\"visitor:default:autotest-352474be7f8c\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 20:01:10\",\"updated_at\":\"2026-07-24 20:01:10\"},{\"id\":\"950bccf2-b59d-4628-b4bf-0df2bf1b68b9\",\"unified_id\":\"visitor:default:autotes"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 44,
+      "tag": "LI",
+      "text": "3",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer/oneid/list?page=3&page_size=20&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":\"c7493e5c-a322-4f17-adb7-71829febc9b4\",\"unified_id\":\"visitor:default:autotest-66dc43420a80\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 23:59:17\",\"updated_at\":\"2026-07-24 23:59:17\"},{\"id\":\"e78ce3a1-4f1c-415f-8c57-27fc1aa2575f\",\"unified_id\":\"visitor:default:autotes"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 45,
+      "tag": "BUTTON",
+      "text": "Go to next page",
+      "cls": "btn-next",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/customer/oneid/list?page=2&page_size=20&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":\"f770512b-8f80-4ded-a61c-125fbd9e476b\",\"unified_id\":\"visitor:default:autotest-352474be7f8c\",\"phone\":\"\",\"email\":\"\",\"wechat_open_id\":\"\",\"douyin_open_id\":\"\",\"xiaohongshu_id\":\"\",\"created_at\":\"2026-07-24 20:01:10\",\"updated_at\":\"2026-07-24 20:01:10\"},{\"id\":\"950bccf2-b59d-4628-b4bf-0df2bf1b68b9\",\"unified_id\":\"visitor:default:autotes"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 46,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:47:34.874Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 225
+}

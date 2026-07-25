@@ -1,0 +1,63 @@
+{
+  "route": "/abExperiment/list",
+  "module": "数据分析",
+  "errors": [],
+  "items": [
+    {
+      "text": "All",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Search",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Reset",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "New Experiment",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    }
+  ],
+  "errorCount": 3
+}

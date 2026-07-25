@@ -15,6 +15,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // 触达 Pipeline 框架 - 9 步抽象
@@ -172,7 +173,8 @@ func DefaultRateLimit() RateLimitConfig {
 
 // ReachPipelineService 触达 Pipeline 服务
 type ReachPipelineService struct {
-	db *gorm.DB
+	// 五层架构整改：db 操作全部下沉到 repository 层，service 不再持有 *gorm.DB
+	repo *repository.ReachPipelineRepository
 
 	// 限流状态（按渠道+账号）
 	rateMu    sync.RWMutex
@@ -212,9 +214,12 @@ type dailyCounter struct {
 }
 
 // NewReachPipelineService 创建触达 Pipeline 服务
+//
+// 五层架构整改：保留 db 参数以维持调用方签名兼容（router / reach_tools / 测试），
+// 内部用 db 构造 repository，service 不再直接持有 *gorm.DB。
 func NewReachPipelineService(db *gorm.DB) *ReachPipelineService {
 	return &ReachPipelineService{
-		db:          db,
+		repo:        repository.NewReachPipelineRepository(db),
 		rateState:   make(map[string]*rateBucket),
 		dailyQuota:  make(map[string]*dailyCounter),
 		perUserHits: make(map[string][]time.Time),
@@ -236,7 +241,7 @@ type CreatePipelineRequest struct {
 //
 // 2026-07-17 二次审核修复：删除 if false 死代码（私有部署模式已移除 merchant_id）
 func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*model.ReachPipeline, error) {
-	if s.db == nil {
+	if s.repo == nil || !s.repo.Available() {
 		return nil, fmt.Errorf("db is nil")
 	}
 	if !ReachChannels[req.Channel] {
@@ -280,7 +285,7 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 	if pipe.RateLimit == nil {
 		pipe.RateLimit = model.JSONMap{}
 	}
-	if err := s.db.WithContext(ctx).Create(pipe).Error; err != nil {
+	if err := s.repo.CreatePipeline(ctx, pipe); err != nil {
 		return nil, err
 	}
 	return pipe, nil
@@ -288,7 +293,7 @@ func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePi
 
 // UpdatePipeline 更新 Pipeline
 func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req *CreatePipelineRequest) (*model.ReachPipeline, error) {
-	if s.db == nil {
+	if s.repo == nil || !s.repo.Available() {
 		return nil, fmt.Errorf("db is nil")
 	}
 	if !ReachChannels[req.Channel] {
@@ -301,8 +306,8 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 	if err := s.validateSteps(ctx, steps); err != nil {
 		return nil, err
 	}
-	var pipe model.ReachPipeline
-	if err := s.db.WithContext(ctx).First(&pipe, id).Error; err != nil {
+	pipe, err := s.repo.FindPipelineByID(ctx, id)
+	if err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
 	retryMap := model.JSONMap{}
@@ -322,19 +327,19 @@ func (s *ReachPipelineService) UpdatePipeline(ctx context.Context, id uint, req 
 	pipe.RetryPolicy = retryMap
 	pipe.RateLimit = rateMap
 	pipe.Version++
-	if err := s.db.WithContext(ctx).Save(&pipe).Error; err != nil {
+	if err := s.repo.SavePipeline(ctx, pipe); err != nil {
 		return nil, err
 	}
-	return &pipe, nil
+	return pipe, nil
 }
 
 // GetPipeline 获取 Pipeline
 func (s *ReachPipelineService) GetPipeline(ctx context.Context, id uint) (*model.ReachPipeline, error) {
-	var pipe model.ReachPipeline
-	if err := s.db.WithContext(ctx).First(&pipe, id).Error; err != nil {
+	pipe, err := s.repo.FindPipelineByID(ctx, id)
+	if err != nil {
 		return nil, ErrReachPipelineNotFound
 	}
-	return &pipe, nil
+	return pipe, nil
 }
 
 // ListPipelines 列出 Pipeline
@@ -345,29 +350,16 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 	if pageSize < 1 || pageSize > 200 {
 		pageSize = 20
 	}
-	var total int64
-	q := s.db.WithContext(ctx).Model(&model.ReachPipeline{})
-	if channel != "" {
-		q = q.Where("channel = ?", channel)
-	}
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.ReachPipeline
-	err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
-	return list, total, err
+	return s.repo.ListPipelines(ctx, channel, status, page, pageSize)
 }
 
 // DeletePipeline 删除 Pipeline
 func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ReachPipeline{})
-	if res.Error != nil {
-		return res.Error
+	rowsAffected, err := s.repo.DeletePipeline(ctx, id)
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrReachPipelineNotFound
 	}
 	return nil
@@ -376,25 +368,19 @@ func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) erro
 // PausePipeline 暂停
 func (s *ReachPipelineService) PausePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
-		Where("id = ?", id).
-		Update("status", PipelineStatusPaused).Error
+	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusPaused)
 }
 
 // ResumePipeline 恢复
 func (s *ReachPipelineService) ResumePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
-		Where("id = ?", id).
-		Update("status", PipelineStatusActive).Error
+	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusActive)
 }
 
 // ArchivePipeline 归档
 func (s *ReachPipelineService) ArchivePipeline(ctx context.Context, id uint) error {
 	// 私域独立部署：无 merchant_id 字段
-	return s.db.WithContext(ctx).Model(&model.ReachPipeline{}).
-		Where("id = ?", id).
-		Update("status", PipelineStatusArchived).Error
+	return s.repo.UpdatePipelineStatus(ctx, id, PipelineStatusArchived)
 }
 
 // EnqueueJobRequest 入队任务请求
@@ -410,7 +396,7 @@ type EnqueueJobRequest struct {
 
 // EnqueueJob 入队任务
 func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRequest) (*model.ReachJob, error) {
-	if s.db == nil {
+	if s.repo == nil || !s.repo.Available() {
 		return nil, fmt.Errorf("db is nil")
 	}
 	if req.Payload == nil {
@@ -469,7 +455,7 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 		now := time.Now()
 		job.NextRunAt = &now
 	}
-	if err := s.db.WithContext(ctx).Create(job).Error; err != nil {
+	if err := s.repo.CreateJob(ctx, job); err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -477,11 +463,11 @@ func (s *ReachPipelineService) EnqueueJob(ctx context.Context, req *EnqueueJobRe
 
 // GetJob 获取任务
 func (s *ReachPipelineService) GetJob(ctx context.Context, id uint) (*model.ReachJob, error) {
-	var job model.ReachJob
-	if err := s.db.WithContext(ctx).First(&job, id).Error; err != nil {
+	job, err := s.repo.FindJobByID(ctx, id)
+	if err != nil {
 		return nil, ErrReachJobNotFound
 	}
-	return &job, nil
+	return job, nil
 }
 
 // ListJobs 列出任务
@@ -492,34 +478,21 @@ func (s *ReachPipelineService) ListJobs(ctx context.Context, channel, state stri
 	if pageSize < 1 || pageSize > 200 {
 		pageSize = 20
 	}
-	var total int64
-	q := s.db.WithContext(ctx).Model(&model.ReachJob{})
-
-	if channel != "" {
-		q = q.Where("channel = ?", channel)
-	}
-	if state != "" {
-		q = q.Where("state = ?", state)
-	}
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.ReachJob
-	err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
-	return list, total, err
+	return s.repo.ListJobs(ctx, channel, state, page, pageSize)
 }
 
 // CancelJob 取消任务
 func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state IN ?", id, []string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited}).
-		Updates(map[string]any{
+	rowsAffected, err := s.repo.UpdateJobStateWithCond(ctx, id,
+		[]string{JobStatePending, JobStateRunning, JobStateRetrying, JobStateRateLimited},
+		map[string]any{
 			"state":        JobStateCanceled,
 			"completed_at": time.Now(),
 		})
-	if res.Error != nil {
-		return res.Error
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrReachJobNotPending
 	}
 	return nil
@@ -527,16 +500,17 @@ func (s *ReachPipelineService) CancelJob(ctx context.Context, id uint) error {
 
 // RetryJob 手动重试
 func (s *ReachPipelineService) RetryJob(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("id = ? AND state = ?", id, JobStateFailed).
-		Updates(map[string]any{
+	rowsAffected, err := s.repo.UpdateJobStateWithCond(ctx, id,
+		[]string{JobStateFailed},
+		map[string]any{
 			"state":         JobStatePending,
 			"next_run_at":   time.Now(),
 			"error_message": "",
 		})
-	if res.Error != nil {
-		return res.Error
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrReachJobNotPending
 	}
 	return nil
@@ -583,11 +557,10 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	now := time.Now()
 	job.State = JobStateRunning
 	job.StartedAt = &now
-	s.db.WithContext(ctx).Save(job)
+	s.repo.SaveJob(ctx, job)
 
 	// 累计 Pipeline 运行次数
-	s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
-		Update("total_runs", gorm.Expr("total_runs + 1"))
+	s.repo.IncrementPipelineField(ctx, pipe.ID, "total_runs", 1)
 
 	results := []StepResult{}
 	job.StepResults = toJSONArray(mustJSON(results))
@@ -604,7 +577,7 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 				job.State = JobStateRateLimited
 				job.ErrorMessage = res.Error
 				job.StepResults = toJSONArray(mustJSON(results))
-				s.db.WithContext(ctx).Save(job)
+				s.repo.SaveJob(ctx, job)
 				s.appendStepResult(ctx, job, res)
 				return job, ErrReachRateLimited
 			}
@@ -627,17 +600,15 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	if success {
 		job.State = JobStateSuccess
 		job.ErrorMessage = ""
-		s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
-			Update("total_success", gorm.Expr("total_success + 1"))
+		s.repo.IncrementPipelineField(ctx, pipe.ID, "total_success", 1)
 	} else {
 		job.State = JobStateFailed
 		// V3 整改：把失败 step 信息持久化到 ErrorMessage
 		// 格式：[step=content_prepare] content prepare failed: ...
 		job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
-		s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", pipe.ID).
-			Update("total_failure", gorm.Expr("total_failure + 1"))
+		s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
 	}
-	if err := s.db.WithContext(ctx).Save(job).Error; err != nil {
+	if err := s.repo.SaveJob(ctx, job); err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -801,7 +772,7 @@ func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.Re
 	// 兜底：template_id 走数据库（ScriptTemplate/ScriptLibrary/ContentTemplate）
 	if raw == "" {
 		if v, ok := job.Payload["template_id"]; ok {
-			if tmplID, ok := v.(string); ok && tmplID != "" && s.db != nil {
+			if tmplID, ok := v.(string); ok && tmplID != "" && s.repo != nil && s.repo.Available() {
 				tmplContent, err := s.loadTemplateContent(ctx, tmplID)
 				if err != nil {
 					return "", fmt.Errorf("load template %s: %w", tmplID, err)
@@ -820,25 +791,14 @@ func (s *ReachPipelineService) prepareContent(ctx context.Context, job *model.Re
 //
 // 兼容多张历史话术表（ScriptTemplate / ScriptLibrary），按 ID 优先匹配。
 // 私域独立部署：单租户，不带 merchant_id 过滤。
+//
+// 五层架构整改：原 Table().Select().Where().Scan() 下沉到
+// repository.ReachPipelineRepository.GetScriptContent。
 func (s *ReachPipelineService) loadTemplateContent(ctx context.Context, templateID string) (string, error) {
-	if s.db == nil {
+	if s.repo == nil || !s.repo.Available() {
 		return "", fmt.Errorf("db is nil")
 	}
-	// 优先 ScriptTemplate
-	var st struct {
-		Content string `gorm:"column:content"`
-	}
-	if err := s.db.WithContext(ctx).Table("script_templates").Select("content").Where("id = ?", templateID).Scan(&st).Error; err == nil && st.Content != "" {
-		return st.Content, nil
-	}
-	// 兜底 ScriptLibrary
-	var sl struct {
-		Content string `gorm:"column:content"`
-	}
-	if err := s.db.WithContext(ctx).Table("script_libraries").Select("content").Where("id = ?", templateID).Scan(&sl).Error; err == nil && sl.Content != "" {
-		return sl.Content, nil
-	}
-	return "", fmt.Errorf("template %s not found", templateID)
+	return s.repo.GetScriptContent(ctx, templateID)
 }
 
 // generateMessage 消息个性化（V3 整改）
@@ -1010,13 +970,11 @@ func (s *ReachPipelineService) aggregateReport(ctx context.Context, job *model.R
 		}
 	}
 	// 真实更新 Pipeline 计数器
-	if s.db != nil && job.PipelineID > 0 {
+	if s.repo != nil && s.repo.Available() && job.PipelineID > 0 {
 		if success > 0 && failed == 0 {
-			s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
-				Update("total_success", gorm.Expr("total_success + ?", 1))
+			s.repo.IncrementPipelineField(ctx, job.PipelineID, "total_success", 1)
 		} else if failed > 0 {
-			s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("id = ?", job.PipelineID).
-				Update("total_failure", gorm.Expr("total_failure + ?", 1))
+			s.repo.IncrementPipelineField(ctx, job.PipelineID, "total_failure", 1)
 		}
 	}
 	return report, nil
@@ -1088,7 +1046,7 @@ func (s *ReachPipelineService) appendStepResult(ctx context.Context, job *model.
 	results = append(results, res)
 	data, _ := json.Marshal(results)
 	job.StepResults = toJSONArray(data)
-	s.db.WithContext(ctx).Save(job)
+	s.repo.SaveJob(ctx, job)
 }
 
 // checkRateLimit 检查限流
@@ -1269,55 +1227,25 @@ func (s *ReachPipelineService) Stats(ctx context.Context) (map[string]int64, err
 		"rate_limited": 0,
 		"canceled":     0,
 	}
-	if s.db == nil {
+	if s.repo == nil || !s.repo.Available() {
 		return stats, nil
 	}
 
-	// Pipeline 统计
-	var totalPipes, activePipes, pausedPipes int64
-	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Count(&totalPipes).Error; err != nil {
-		return nil, fmt.Errorf("count pipelines: %w", err)
+	// 五层架构整改：原 10 次零散 Count 调用下沉为 repo.GetStats 一次性返回
+	rs, err := s.repo.GetStats(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusActive).Count(&activePipes).Error; err != nil {
-		return nil, fmt.Errorf("count active pipelines: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachPipeline{}).Where("status = ?", PipelineStatusPaused).Count(&pausedPipes).Error; err != nil {
-		return nil, fmt.Errorf("count paused pipelines: %w", err)
-	}
-	stats["total"] = totalPipes
-	stats["active"] = activePipes
-	stats["paused"] = pausedPipes
-
-	// Job 统计
-	var totalJobs, pendingJobs, runningJobs, successJobs, failedJobs, rateLimitedJobs, canceledJobs int64
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Count(&totalJobs).Error; err != nil {
-		return nil, fmt.Errorf("count jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStatePending).Count(&pendingJobs).Error; err != nil {
-		return nil, fmt.Errorf("count pending jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateRunning).Count(&runningJobs).Error; err != nil {
-		return nil, fmt.Errorf("count running jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateSuccess).Count(&successJobs).Error; err != nil {
-		return nil, fmt.Errorf("count success jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateFailed).Count(&failedJobs).Error; err != nil {
-		return nil, fmt.Errorf("count failed jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateRateLimited).Count(&rateLimitedJobs).Error; err != nil {
-		return nil, fmt.Errorf("count rate_limited jobs: %w", err)
-	}
-	if err := s.db.WithContext(ctx).Model(&model.ReachJob{}).Where("state = ?", JobStateCanceled).Count(&canceledJobs).Error; err != nil {
-		return nil, fmt.Errorf("count canceled jobs: %w", err)
-	}
-	stats["jobs"] = totalJobs
-	stats["pending"] = pendingJobs
-	stats["running"] = runningJobs
-	stats["success"] = successJobs
-	stats["failed"] = failedJobs
-	stats["rate_limited"] = rateLimitedJobs
-	stats["canceled"] = canceledJobs
+	stats["total"] = rs.TotalPipelines
+	stats["active"] = rs.ActivePipelines
+	stats["paused"] = rs.PausedPipelines
+	stats["jobs"] = rs.TotalJobs
+	stats["pending"] = rs.PendingJobs
+	stats["running"] = rs.RunningJobs
+	stats["success"] = rs.SuccessJobs
+	stats["failed"] = rs.FailedJobs
+	stats["rate_limited"] = rs.RateLimitedJobs
+	stats["canceled"] = rs.CanceledJobs
 	return stats, nil
 }
 

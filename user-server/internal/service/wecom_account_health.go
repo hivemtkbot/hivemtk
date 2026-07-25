@@ -11,11 +11,13 @@ import (
 	"gorm.io/gorm"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // WeComAccountHealthService 企微账号健康度服务
 type WeComAccountHealthService struct {
-	db *gorm.DB
+	accountRepo *repository.WeComAccountRepository
+	healthRepo  *repository.WeComAccountHealthRepository
 }
 
 // 常量定义
@@ -54,7 +56,16 @@ var (
 
 // NewWeComAccountHealthService 创建账号健康度服务
 func NewWeComAccountHealthService(db *gorm.DB) *WeComAccountHealthService {
-	return &WeComAccountHealthService{db: db}
+	accountRepo := repository.NewWeComAccountRepository()
+	healthRepo := repository.NewWeComAccountHealthRepository()
+	if db != nil {
+		accountRepo.SetDB(context.Background(), db)
+		healthRepo.SetDB(context.Background(), db)
+	}
+	return &WeComAccountHealthService{
+		accountRepo: accountRepo,
+		healthRepo:  healthRepo,
+	}
 }
 
 // ReportHealthRequest 上报健康度
@@ -72,7 +83,7 @@ type ReportHealthRequest struct {
 
 // ReportHealth 上报账号健康度，自动计算健康分与风险等级
 func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *ReportHealthRequest) (*model.WeComAccountHealth, error) {
-	if s.db == nil {
+	if s.healthRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
 	// 私域独立部署：无 merchant_id 校验
@@ -116,7 +127,7 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 	if rec.Metrics == nil {
 		rec.Metrics = model.JSONMap{}
 	}
-	if err := s.db.Create(rec).Error; err != nil {
+	if err := s.healthRepo.Create(ctx, rec); err != nil {
 		return nil, err
 	}
 
@@ -128,23 +139,23 @@ func (s *WeComAccountHealthService) ReportHealth(ctx context.Context, req *Repor
 
 // GetLatestHealth 获取最新健康度
 func (s *WeComAccountHealthService) GetLatestHealth(ctx context.Context, accountID uint) (*model.WeComAccountHealth, error) {
-	if s.db == nil {
+	if s.healthRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	var rec model.WeComAccountHealth
 	// 私域独立部署：无 merchant_id 字段
-	if err := s.db.WithContext(ctx).Where("account_id = ?", accountID).Order("reported_at DESC").First(&rec).Error; err != nil {
+	rec, err := s.healthRepo.GetLatestByAccountID(ctx, accountID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWeComHealthNotFound
 		}
 		return nil, err
 	}
-	return &rec, nil
+	return rec, nil
 }
 
 // ListHealthHistory 列出健康度历史
 func (s *WeComAccountHealthService) ListHealthHistory(ctx context.Context, accountID uint, page, pageSize int) ([]model.WeComAccountHealth, int64, error) {
-	if s.db == nil {
+	if s.healthRepo == nil {
 		return nil, 0, nil
 	}
 	if page < 1 {
@@ -153,45 +164,28 @@ func (s *WeComAccountHealthService) ListHealthHistory(ctx context.Context, accou
 	if pageSize < 1 || pageSize > 200 {
 		pageSize = 20
 	}
-	var total int64
 	// 私域独立部署：无 merchant_id 字段
-	if err := s.db.Model(&model.WeComAccountHealth{}).
-		Where("account_id = ?", accountID).
-		Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.WeComAccountHealth
-	err := s.db.Model(&model.WeComAccountHealth{}).
-		Where("account_id = ?", accountID).
-		Order("reported_at DESC").
-		Offset((page - 1) * pageSize).Limit(pageSize).
-		Find(&list).Error
-	return list, total, err
+	return s.healthRepo.ListByAccountIDPaged(ctx, accountID, page, pageSize)
 }
 
 // GetRiskAccounts 列出风险账号
 func (s *WeComAccountHealthService) GetRiskAccounts(ctx context.Context) ([]model.WeComAccount, error) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return nil, nil
 	}
-	var accounts []model.WeComAccount
-	if err := s.db.WithContext(ctx).Where("risk_level IN ?",
-		[]string{WeComRiskWarning, WeComRiskCritical, WeComRiskBanned}).
-		Find(&accounts).Error; err != nil {
-		return nil, err
-	}
-	return accounts, nil
+	return s.accountRepo.FindByRiskLevels(ctx,
+		[]string{WeComRiskWarning, WeComRiskCritical, WeComRiskBanned})
 }
 
 // SelectHealthyAccount 路由选号 - 选出最佳账号
 func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*model.WeComAccount, error) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	var accounts []model.WeComAccount
-	if err := s.db.WithContext(ctx).Where("risk_level IN ? AND login_state != ? AND login_state != ?",
-		[]string{WeComRiskNormal, WeComRiskWarning}, WeComLoginBanned, WeComLoginOffline).
-		Find(&accounts).Error; err != nil {
+	accounts, err := s.accountRepo.FindHealthyAccounts(ctx,
+		[]string{WeComRiskNormal, WeComRiskWarning},
+		[]string{WeComLoginBanned, WeComLoginOffline})
+	if err != nil {
 		return nil, err
 	}
 	if len(accounts) == 0 {
@@ -224,15 +218,15 @@ func (s *WeComAccountHealthService) SelectHealthyAccount(ctx context.Context) (*
 
 // ConsumeQuota 消耗配额
 func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID uint, count int) error {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return nil
 	}
 	if count <= 0 {
 		return nil
 	}
 	// 检查账号状态
-	var acc model.WeComAccount
-	if err := s.db.WithContext(ctx).First(&acc, accountID).Error; err != nil {
+	acc, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil {
 		return err
 	}
 	if acc.Status != 1 {
@@ -244,30 +238,25 @@ func (s *WeComAccountHealthService) ConsumeQuota(ctx context.Context, accountID 
 	if acc.DailyMsgUsed+count > acc.DailyMsgQuota {
 		return ErrWeComQuotaExceeded
 	}
-	return s.db.Model(&model.WeComAccount{}).
-		Where("id = ?", accountID).
-		Updates(map[string]any{
-			"daily_msg_used": acc.DailyMsgUsed + count,
-			"total_sent":     acc.TotalSent + int64(count),
-			"last_active_at": time.Now(),
-		}).Error
+	return s.accountRepo.UpdateFields(ctx, accountID, map[string]any{
+		"daily_msg_used": acc.DailyMsgUsed + count,
+		"total_sent":     acc.TotalSent + int64(count),
+		"last_active_at": time.Now(),
+	})
 }
 
 // ResetDailyQuota 重置日配额（每日凌晨）
 func (s *WeComAccountHealthService) ResetDailyQuota(ctx context.Context) (int64, error) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return 0, nil
 	}
 	now := time.Now()
 	// 单租户部署：无 merchant_id 字段，重置所有账号的日配额
 	// GORM 批量 Updates 必须带 WHERE，使用 1=1 占位（语义上等同无条件更新）
-	res := s.db.Model(&model.WeComAccount{}).
-		Where("1 = 1").
-		Updates(map[string]any{
-			"daily_msg_used": 0,
-			"quota_reset_at": now,
-		})
-	return res.RowsAffected, res.Error
+	return s.accountRepo.UpdateAllFields(ctx, map[string]any{
+		"daily_msg_used": 0,
+		"quota_reset_at": now,
+	})
 }
 
 // AccountHealthSummary 账号健康概览
@@ -301,11 +290,11 @@ type AccountHealthSummaryEntry struct {
 
 // GetHealthSummary 汇总账号健康度
 func (s *WeComAccountHealthService) GetHealthSummary(ctx context.Context) (*AccountHealthSummary, error) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	var accounts []model.WeComAccount
-	if err := s.db.WithContext(ctx).Find(&accounts).Error; err != nil {
+	accounts, err := s.accountRepo.ListAllOrderByIDDesc(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -420,7 +409,7 @@ func computeRiskLevel(score int, loginState string) string {
 
 // syncAccountState 同步账号主表状态
 func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accountID uint, loginState string, score int, risk string, quotaRate float64, lastErr string) {
-	if s.db == nil {
+	if s.accountRepo == nil {
 		return
 	}
 	updates := map[string]any{
@@ -432,17 +421,15 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 	if lastErr != "" {
 		updates["last_error_at"] = time.Now()
 		updates["last_error_msg"] = lastErr
-		// 原实现误用 s.db.Raw(...) 把 *gorm.DB 当作 error_count 的值塞进 updates map，
+		// 原实现误用 Raw(...) 把 *gorm.DB 当作 error_count 的值塞进 updates map，
 		// 既不执行 SQL 也产生类型污染。已删除 dead code，直接使用 gorm.Expr 自增。（R5 修复）
 		updates["error_count"] = gorm.Expr("error_count + 1")
 	}
 	if quotaRate > WeComQuotaDegradeThreshold && risk == WeComRiskNormal {
 		updates["risk_level"] = WeComRiskWarning
 	}
-	s.db.Model(&model.WeComAccount{}).
-		// 私域独立部署：无 merchant_id 字段
-		Where("id = ?", accountID).
-		Updates(updates)
+	// 私域独立部署：无 merchant_id 字段
+	_ = s.accountRepo.UpdateFields(ctx, accountID, updates)
 }
 
 func accountHealthFromModel(a *model.WeComAccount) int {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"context"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // ChatChannelService 客服 Web Widget 渠道管理服务
@@ -26,9 +27,10 @@ import (
 //   - AppSecret 哈希校验
 //   - 渠道使用统计（visitor_count / session_count）
 //
-// 五层架构：Service 层，依赖 Repository/GORM，被 Controller 调用。
+// 五层架构：Service 层，依赖 Repository，被 Controller 调用。
+// service 层禁止直接持有/调用 *gorm.DB，db 仅在构造期用于绑定 repository。
 type ChatChannelService struct {
-	db *gorm.DB
+	repo *repository.ChatChannelRepository
 }
 
 // NewChatChannelService 构造 ChatChannelService
@@ -39,7 +41,7 @@ func NewChatChannelService(db *gorm.DB) (*ChatChannelService, error) {
 	if db == nil {
 		return nil, errors.New("ChatChannelService: db is nil")
 	}
-	return &ChatChannelService{db: db}, nil
+	return &ChatChannelService{repo: repository.NewChatChannelRepositoryWithDB(db)}, nil
 }
 
 // MustNewChatChannelService 兼容性构造（db 为 nil 时 panic）
@@ -95,6 +97,8 @@ type CreateChannelRequest struct {
 	WidgetTitle         string   `json:"widget_title"`
 	AutoAssign          *bool    `json:"auto_assign"`
 	ConfidenceThreshold *float64 `json:"confidence_threshold"`
+	// v1.2 出海多语言方案：渠道目标输出语言（空则退化到智能体配置）
+	TargetLanguage string `json:"target_language"`
 }
 
 // UpdateChannelRequest 更新渠道请求
@@ -109,6 +113,8 @@ type UpdateChannelRequest struct {
 	Status              *string   `json:"status"`
 	AutoAssign          *bool     `json:"auto_assign"`
 	ConfidenceThreshold *float64  `json:"confidence_threshold"`
+	// v1.2 出海多语言方案：渠道目标输出语言（传空串清空，nil 不更新）
+	TargetLanguage *string `json:"target_language"`
 }
 
 // ChannelCreateResult 渠道创建结果（含一次性返回的明文凭证）
@@ -153,6 +159,7 @@ func (s *ChatChannelService) Create(ctx context.Context, req *CreateChannelReque
 		Status:              model.ChatChannelStatusActive,
 		AutoAssign:          true,
 		ConfidenceThreshold: 0.70,
+		TargetLanguage:      req.TargetLanguage,
 		CreatedBy:           createdBy,
 	}
 	if req.AutoAssign != nil {
@@ -162,7 +169,7 @@ func (s *ChatChannelService) Create(ctx context.Context, req *CreateChannelReque
 		channel.ConfidenceThreshold = *req.ConfidenceThreshold
 	}
 
-	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
+	if err := s.repo.Create(ctx, channel); err != nil {
 		return nil, fmt.Errorf("保存渠道失败: %w", err)
 	}
 
@@ -212,12 +219,15 @@ func (s *ChatChannelService) Update(ctx context.Context, channelID string, req *
 	if req.ConfidenceThreshold != nil {
 		updates["confidence_threshold"] = *req.ConfidenceThreshold
 	}
+	if req.TargetLanguage != nil {
+		updates["target_language"] = *req.TargetLanguage
+	}
 
 	if len(updates) == 0 {
 		return channel, nil
 	}
 
-	if err := s.db.WithContext(ctx).Model(channel).Updates(updates).Error; err != nil {
+	if err := s.repo.Updates(ctx, channel.ID, updates); err != nil {
 		return nil, fmt.Errorf("更新渠道失败: %w", err)
 	}
 	return s.GetByChannelID(ctx, channelID)
@@ -229,12 +239,12 @@ func (s *ChatChannelService) Delete(ctx context.Context, channelID string) error
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(channel).Update("status", model.ChatChannelStatusDisabled).Error
+	return s.repo.UpdateField(ctx, channel.ID, "status", model.ChatChannelStatusDisabled)
 }
 
 // HardDelete 硬删除（管理后台使用）
 func (s *ChatChannelService) HardDelete(ctx context.Context, channelID string) error {
-	return s.db.WithContext(ctx).Where("channel_id = ?", channelID).Delete(ctx, &model.ChatChannel{}).Error
+	return s.repo.HardDeleteByChannelID(ctx, channelID)
 }
 
 // GetByChannelID 根据 channel_id 查询
@@ -242,21 +252,21 @@ func (s *ChatChannelService) GetByChannelID(ctx context.Context, channelID strin
 	if strings.TrimSpace(channelID) == "" {
 		return nil, errors.New("channel_id 不能为空")
 	}
-	var channel model.ChatChannel
 	// 兼容查询：前端列表返回的是数字主键 id，这里既支持按字符串 channel_id 查询，
 	// 也支持按数字 id 查询（避免详情/编辑/删除接口因标识符不一致而 404）。
 	if id, err := strconv.ParseUint(channelID, 10, 64); err == nil {
-		if err2 := s.db.WithContext(ctx).Where("id = ?", uint(id)).First(&channel).Error; err2 == nil {
-			return &channel, nil
+		if ch, err2 := s.repo.GetByID(ctx, uint(id)); err2 == nil && ch != nil {
+			return ch, nil
 		}
 	}
-	if err := s.db.WithContext(ctx).Where("channel_id = ?", channelID).First(&channel).Error; err != nil {
+	ch, err := s.repo.GetByChannelID(ctx, channelID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("渠道不存在: %s", channelID)
 		}
 		return nil, err
 	}
-	return &channel, nil
+	return ch, nil
 }
 
 // GetByAppKey 根据 AppKey 查询
@@ -264,14 +274,14 @@ func (s *ChatChannelService) GetByAppKey(ctx context.Context, appKey string) (*m
 	if strings.TrimSpace(appKey) == "" {
 		return nil, errors.New("app_key 不能为空")
 	}
-	var channel model.ChatChannel
-	if err := s.db.WithContext(ctx).Where("app_key = ?", appKey).First(&channel).Error; err != nil {
+	channel, err := s.repo.GetByAppKey(ctx, appKey)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("AppKey 无效: %s", appKey)
 		}
 		return nil, err
 	}
-	return &channel, nil
+	return channel, nil
 }
 
 // GetOrCreateDefaultChannel 获取或自动创建默认渠道（私域部署用）
@@ -300,7 +310,7 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 		AutoAssign:          true,
 		ConfidenceThreshold: 0.70,
 	}
-	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
+	if err := s.repo.Create(ctx, channel); err != nil {
 		return nil, fmt.Errorf("创建默认渠道失败: %w", err)
 	}
 	return channel, nil
@@ -363,7 +373,7 @@ func (s *ChatChannelService) GetOrCreateCardChannel(ctx context.Context, platfor
 		AutoAssign:          true,
 		ConfidenceThreshold: 0.70,
 	}
-	if err := s.db.WithContext(ctx).Create(channel).Error; err != nil {
+	if err := s.repo.Create(ctx, channel); err != nil {
 		return nil, fmt.Errorf("创建卡片渠道失败: %w", err)
 	}
 	return channel, nil
@@ -371,32 +381,12 @@ func (s *ChatChannelService) GetOrCreateCardChannel(ctx context.Context, platfor
 
 // List 列出渠道
 func (s *ChatChannelService) List(ctx context.Context, keyword string, status string, page, pageSize int) ([]model.ChatChannel, int64, error) {
-	query := s.db.WithContext(ctx).Model(&model.ChatChannel{})
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		query = query.Where("channel_name LIKE ? OR app_key LIKE ?", like, like)
-	}
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	var channels []model.ChatChannel
-	if err := query.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&channels).Error; err != nil {
-		return nil, 0, err
-	}
-	return channels, total, nil
+	return s.repo.ListByQuery(ctx, repository.ChatChannelListQuery{
+		Keyword:  keyword,
+		Status:   status,
+		Page:     page,
+		PageSize: pageSize,
+	})
 }
 
 // RotateAppKey 轮换 AppKey（保留 AppSecret 不变）
@@ -409,7 +399,7 @@ func (s *ChatChannelService) RotateAppKey(ctx context.Context, channelID string)
 	if err != nil {
 		return "", fmt.Errorf("生成 AppKey 失败: %w", err)
 	}
-	if err := s.db.WithContext(ctx).Model(channel).Update("app_key", newKey).Error; err != nil {
+	if err := s.repo.UpdateField(ctx, channel.ID, "app_key", newKey); err != nil {
 		return "", err
 	}
 	return newKey, nil
@@ -425,7 +415,7 @@ func (s *ChatChannelService) ResetAppSecret(ctx context.Context, channelID strin
 	if err != nil {
 		return "", fmt.Errorf("生成 AppSecret 失败: %w", err)
 	}
-	if err := s.db.WithContext(ctx).Model(channel).Update("app_secret_hash", hashAppSecret(newSecret)).Error; err != nil {
+	if err := s.repo.UpdateField(ctx, channel.ID, "app_secret_hash", hashAppSecret(newSecret)); err != nil {
 		return "", err
 	}
 	return newSecret, nil
@@ -433,16 +423,12 @@ func (s *ChatChannelService) ResetAppSecret(ctx context.Context, channelID strin
 
 // IncrementVisitorCount 增加访客计数
 func (s *ChatChannelService) IncrementVisitorCount(ctx context.Context, channelID string) error {
-	return s.db.WithContext(ctx).Model(&model.ChatChannel{}).
-		Where("channel_id = ?", channelID).
-		UpdateColumn("visitor_count", gorm.Expr("visitor_count + 1")).Error
+	return s.repo.IncrementVisitorCount(ctx, channelID)
 }
 
 // IncrementSessionCount 增加会话计数
 func (s *ChatChannelService) IncrementSessionCount(ctx context.Context, channelID string) error {
-	return s.db.WithContext(ctx).Model(&model.ChatChannel{}).
-		Where("channel_id = ?", channelID).
-		UpdateColumn("session_count", gorm.Expr("session_count + 1")).Error
+	return s.repo.IncrementSessionCount(ctx, channelID)
 }
 
 // ============================================================================

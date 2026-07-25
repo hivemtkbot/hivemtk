@@ -1,0 +1,188 @@
+{
+  "route": "/backup/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:39:04.559Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/backups?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[],\"page\":1,\"page_size\":20,\"total\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Backup Now",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "Backup Type",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "DIV",
+      "text": "Status",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "DIV",
+      "text": "20/page",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 6,
+      "tag": "DIV",
+      "text": "状态",
+      "cls": "el-select",
+      "clicked": false,
+      "clickError": "Error: locator.click: Element is not visible\nCall log:\n  - waiting for locator('.app-main').locator('button:not([disabled]),a:not([disabled]),[role=\"button\"],.el-tabs__item,.el-radio,.el-checkbox,.el-",
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 7,
+      "tag": "DIV",
+      "text": "20/page",
+      "cls": "el-select",
+      "clicked": false,
+      "clickError": "Error: locator.click: Element is not visible\nCall log:\n  - waiting for locator('.app-main').locator('button:not([disabled]),a:not([disabled]),[role=\"button\"],.el-tabs__item,.el-radio,.el-checkbox,.el-",
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/platform/message/latest",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"\"}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": false,
+      "clickError": "Error: locator.click: Element is not visible\nCall log:\n  - waiting for locator('.app-main').locator('button:not([disabled]),a:not([disabled]),[role=\"button\"],.el-tabs__item,.el-radio,.el-checkbox,.el-",
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "DIV",
+      "text": "Backup Record",
+      "cls": "el-tabs__item is-top is-active",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 10,
+      "tag": "DIV",
+      "text": "恢复记录",
+      "cls": "el-tabs__item is-top",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/restore/list?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[],\"page\":1,\"page_size\":20,\"total\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:39:52.548Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 48
+}

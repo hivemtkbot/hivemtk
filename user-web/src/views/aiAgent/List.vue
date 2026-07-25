@@ -87,6 +87,14 @@
         <el-table-column prop="llm_model" label="LLM模型" width="140" show-overflow-tooltip>
           <template #default="{ row }">{{ row.llm_model || '-' }}</template>
         </el-table-column>
+        <el-table-column label="语言" width="170">
+          <template #default="{ row }">
+            <div class="lang-cell">
+              <span>内部：{{ getLanguageLabel(row.internal_language || 'zh') }}</span>
+              <span>目标：{{ row.target_language ? getLanguageLabel(row.target_language) : '跟随内部' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="人设摘要" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="persona-text">{{ truncateText(row.persona, 50) }}</span>
@@ -233,6 +241,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, Search, User, VideoPlay } from '@element-plus/icons-vue'
 import { listAgents, deleteAgent, toggleAgent, testAgent } from '@/api/aiAgent.js'
 import { listBindingsByAgent } from '@/api/channelAgentBinding.js'
+import { getLanguageLabel } from '@/constants/languages'
 
 const router = useRouter()
 
@@ -447,6 +456,14 @@ onMounted(() => {
 .filter-card { margin-bottom: 16px; }
 
 .persona-text { color: #606266; }
+
+.lang-cell {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #606266;
+  line-height: 1.6;
+}
 
 .reply-box {
   white-space: pre-wrap;

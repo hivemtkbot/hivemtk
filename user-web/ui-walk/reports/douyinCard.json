@@ -1,0 +1,211 @@
+{
+  "route": "/douyinCard",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:10:38.006Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Statistical analysis",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/douyin/stats/overall?groupBy=day&startDate=2026-07-18&endDate=2026-07-25",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"totalCards\":1,\"activeCards\":1,\"totalViews\":0,\"popularCards\":[{\"id\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"viewCount\":0,\"createdAt\":\"2026-07-24T18:22:42+08:00\"}],\"dailyStats\":null,\"recentActivity\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Add a card",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "请选择",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "搜索",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/douyin/list?page=1&page_size=10&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"content\":\"\",\"image_url\":\"https://hive.xapptool.cn/wechat.jpg\",\"redirect_url\":\"https://hive.xapptool.cn\",\"domain_pool_id\":1,\"short_link_url\":\"/s/QSTarY\",\"short_code\":\"QSTarY\",\"tags\":\"AI客服,智能体\",\"like_count\":0,\"shar"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "重置",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/douyin/list?page=1&page_size=10&keyword=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"content\":\"\",\"image_url\":\"https://hive.xapptool.cn/wechat.jpg\",\"redirect_url\":\"https://hive.xapptool.cn\",\"domain_pool_id\":1,\"short_link_url\":\"/s/QSTarY\",\"short_code\":\"QSTarY\",\"tags\":\"AI客服,智能体\",\"like_count\":0,\"shar"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "编辑",
+      "cls": "el-button el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/douyin/1",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"content\":\"\",\"image_url\":\"https://hive.xapptool.cn/wechat.jpg\",\"redirect_url\":\"https://hive.xapptool.cn\",\"domain_pool_id\":1,\"short_link_url\":\"/s/QSTarY\",\"short_code\":\"QSTarY\",\"tags\":\"AI客服,智能体\",\"like_count\":0,\"share_count\":"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "删除",
+      "cls": "el-button el-button--danger el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "统计",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/douyin/1",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"content\":\"\",\"image_url\":\"https://hive.xapptool.cn/wechat.jpg\",\"redirect_url\":\"https://hive.xapptool.cn\",\"domain_pool_id\":1,\"short_link_url\":\"/s/QSTarY\",\"short_code\":\"QSTarY\",\"tags\":\"AI客服,智能体\",\"like_count\":0,\"share_count\":"
+        },
+        {
+          "method": "GET",
+          "url": "/api/douyin/stats/card/1?groupBy=day&startDate=2026-07-18&endDate=2026-07-25",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"cardId\":1,\"title\":\"别再给 SaaS交高额 Token 税了\",\"viewCount\":0,\"dailyStats\":null,\"recentActivity\":[]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "复制链接",
+      "cls": "el-button el-button--info el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "DIV",
+      "text": "10/page",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 10,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:11:10.866Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 65
+}

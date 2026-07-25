@@ -1,0 +1,717 @@
+{
+  "route": "/operationLog/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:47:44.386Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Export",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/export",
+          "status": 200,
+          "ok": true,
+          "sample": ""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=1&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":762,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"2\",\"resource\":\"2\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:41:37.114442+08:00\"},{\"id\":761,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"1\",\"resource\":\"1\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:41:27.113914+08:00\"},{\"id\":760,\"user_i"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "Module",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "DIV",
+      "text": "Operation Type",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "DIV",
+      "text": "Who",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/762",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":762,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"2\",\"resource\":\"2\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:41:37.114442+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/761",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":761,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"1\",\"resource\":\"1\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:41:27.113914+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/760",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":760,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:38:27.113108+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/759",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":759,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:38:02.111071+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/758",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":758,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:57.113409+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 10,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/757",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":757,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:47.117743+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 11,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/756",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":756,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:47.11328+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 12,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/755",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":755,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:42.113411+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 13,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/754",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":754,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:37.113809+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 14,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/753",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":753,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:27.112998+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 15,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/752",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":752,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:22.113152+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 16,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/751",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":751,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:12.11366+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 17,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/750",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":750,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:02.13267+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 18,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/749",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":749,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"models\",\"resource\":\"models\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:37:02.124961+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 19,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/748",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":748,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"rule\",\"resource\":\"rule\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:36:12.116743+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 20,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/747",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":747,\"user_id\":2,\"username\":\"admin\",\"action\":\"update\",\"module\":\"config\",\"resource\":\"config\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:30:27.111076+08:00\"}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/platform/message/latest",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"\"}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 21,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/746",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":746,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"check\",\"resource\":\"check\",\"resource_id\":\"1\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:26:07.07397+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 22,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/745",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":745,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"checkall\",\"resource\":\"checkall\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:25:57.073676+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 23,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/744",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":744,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"notifications\",\"resource\":\"notifications\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:22:22.074145+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 24,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs/743",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取日志详情成功\",\"data\":{\"id\":743,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"1\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:19:10.913491+08:00\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 25,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 26,
+      "tag": "LI",
+      "text": "2",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=2&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":742,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"2\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:19:10.908717+08:00\"},{\"id\":741,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"3\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:19:05.916045"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 27,
+      "tag": "LI",
+      "text": "3",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=3&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":722,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"2\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:09:55.938146+08:00\"},{\"id\":721,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"2\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:09:55.929904"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 28,
+      "tag": "LI",
+      "text": "4",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=4&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":702,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"check\",\"resource\":\"check\",\"resource_id\":\"1\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:51:21.988191+08:00\"},{\"id\":701,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"checkall\",\"resource\":\"checkall\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:51:06.988444+08"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 29,
+      "tag": "LI",
+      "text": "5",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=5&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":682,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"enabled\",\"resource\":\"enabled\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:42.022612+08:00\"},{\"id\":681,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"5\",\"resource\":\"5\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:42.01294+08:00\"},{\"id\":"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 30,
+      "tag": "LI",
+      "text": "6",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=6&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":662,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"list\",\"resource\":\"list\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:22.008185+08:00\"},{\"id\":661,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"enabled\",\"resource\":\"enabled\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:22.005546+08:00\"}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 31,
+      "tag": "LI",
+      "text": "Next 5 pages",
+      "cls": "more btn-quicknext el-icon",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=6&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":662,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"list\",\"resource\":\"list\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:22.008185+08:00\"},{\"id\":661,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"enabled\",\"resource\":\"enabled\",\"resource_id\":\"\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T01:35:22.005546+08:00\"}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/platform/message/latest",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"\"}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 32,
+      "tag": "LI",
+      "text": "39",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=39&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":2,\"user_id\":1,\"username\":\"admin\",\"action\":\"delete\",\"module\":\"1\",\"resource\":\"1\",\"resource_id\":\"\",\"ip\":\"172.33.0.1\",\"created_at\":\"2026-07-22T11:21:02.60004+08:00\"},{\"id\":1,\"user_id\":1,\"username\":\"admin\",\"action\":\"create\",\"module\":\"unknown\",\"resource\":\"unknown\",\"resource_id\":\"\",\"ip\":\"172.33.0.1\",\"created_at\":\"2026-07-22T11:21:02.563675+08:0"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 33,
+      "tag": "BUTTON",
+      "text": "Go to next page",
+      "cls": "btn-next",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/team/logs?page=2&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取操作日志成功\",\"data\":{\"list\":[{\"id\":742,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"2\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:19:10.908717+08:00\"},{\"id\":741,\"user_id\":2,\"username\":\"admin\",\"action\":\"create\",\"module\":\"message\",\"resource\":\"message\",\"resource_id\":\"3\",\"ip\":\"::1\",\"created_at\":\"2026-07-25T02:19:05.916045"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 34,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:49:20.442Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 147
+}

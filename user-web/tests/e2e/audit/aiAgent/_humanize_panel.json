@@ -1,0 +1,69 @@
+{
+  "route": "/humanize/panel",
+  "module": "智能体",
+  "errors": [],
+  "items": [
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/admin/tuning/humanize/scores?page=1&page_size=20",
+          "status": 429
+        }
+      ]
+    },
+    {
+      "text": "20/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "刷新",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "<g id=\"Bold\">Assessment Results</g>",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "销冠基线",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "低质样本",
+      "type": "tab",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 2
+}

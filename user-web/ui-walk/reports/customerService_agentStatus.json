@@ -1,0 +1,220 @@
+{
+  "route": "/customerService/agentStatus",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:48:54.783Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Add seats",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "上线",
+      "cls": "el-button el-button--success is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/agents/1/online",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"上线成功\"}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/agents/all",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[{\"id\":1,\"agent_id\":1,\"agent_name\":\"admin\",\"status\":\"online\",\"max_sessions\":5,\"active_sessions\":0,\"today_sessions\":0,\"today_messages\":0,\"avg_response_time\":0,\"online_at\":\"2026-07-25T01:49:02.310145+08:00\",\"offline_at\":null,\"last_active_at\":\"2026-07-25T01:49:02.310145+08:00\",\"updated_at\":\"2026-07-25T01:49:02.310497+08:00\"},{\"id\":2,\"agent_id\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "修改状态",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "查看会话",
+      "cls": "el-button el-button--info is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/agents/1/sessions",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[]}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "上线",
+      "cls": "el-button el-button--success is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/agents/2/online",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"上线成功\"}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/agents/all",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[{\"id\":1,\"agent_id\":1,\"agent_name\":\"admin\",\"status\":\"online\",\"max_sessions\":5,\"active_sessions\":0,\"today_sessions\":0,\"today_messages\":0,\"avg_response_time\":0,\"online_at\":\"2026-07-25T01:49:02.310145+08:00\",\"offline_at\":null,\"last_active_at\":\"2026-07-25T01:49:02.310145+08:00\",\"updated_at\":\"2026-07-25T01:49:02.310497+08:00\"},{\"id\":2,\"agent_id\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "修改状态",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "查看会话",
+      "cls": "el-button el-button--info is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/agents/2/sessions",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[]}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "上线",
+      "cls": "el-button el-button--success is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/agents/4/online",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"上线成功\"}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/agents/all",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[{\"id\":1,\"agent_id\":1,\"agent_name\":\"admin\",\"status\":\"online\",\"max_sessions\":5,\"active_sessions\":0,\"today_sessions\":0,\"today_messages\":0,\"avg_response_time\":0,\"online_at\":\"2026-07-25T01:49:02.310145+08:00\",\"offline_at\":null,\"last_active_at\":\"2026-07-25T01:49:02.310145+08:00\",\"updated_at\":\"2026-07-25T01:49:02.310497+08:00\"},{\"id\":2,\"agent_id\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "修改状态",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "查看会话",
+      "cls": "el-button el-button--info is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/agents/4/sessions",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":[]}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:49:24.741Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 51
+}

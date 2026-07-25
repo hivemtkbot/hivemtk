@@ -245,3 +245,83 @@ func (r *CustomerSessionRepository) IncrementHumanReplyCount(ctx context.Context
 	return r.db.Model(&model.CustomerSession{}).Where("id = ?", id).
 		Update("human_reply_count", gorm.Expr("human_reply_count + 1")).Error
 }
+
+// UpdateHandlerType 更新会话处理方类型（ai / human）
+//
+// 用于关键词触发自动转人工但 AutoAssign 失败的场景：
+// 仅修改 handler_type，不动 status（由调用方另行控制）。
+func (r *CustomerSessionRepository) UpdateHandlerType(ctx context.Context, id uint, handlerType model.HandlerType) error {
+	return r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+		Where("id = ?", id).
+		Update("handler_type", handlerType).Error
+}
+
+// GetBySessionIDPlatformAccountUser 按 (session_id, platform, account_id, user_id) 查询会话
+//
+// 用于访客侧按 session_id 拉取会话时校验归属：
+// 仅当 4 元组完全匹配才返回，避免越权访问。
+// 未命中返回 (nil, gorm.ErrRecordNotFound)（与 service 层历史 errors.Is 检查兼容）。
+func (r *CustomerSessionRepository) GetBySessionIDPlatformAccountUser(
+	ctx context.Context, sessionID string, platform model.Platform,
+	accountID, userID string,
+) (*model.CustomerSession, error) {
+	var session model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("session_id = ? AND platform = ? AND account_id = ? AND user_id = ?",
+			sessionID, platform, accountID, userID).
+		First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetLatestActiveByPlatformAccountUser 拉取最近一条未结束会话
+//
+// 用于访客 OpenSession(Resume=true) 与离线消息续接：
+//   - 按 (platform, account_id, user_id) 过滤
+//   - 排除已结束状态（excludeStatuses，通常为 [resolved, closed]）
+//   - 按 last_message_at DESC NULLS LAST, created_at DESC 排序，取首条
+//
+// 未命中返回 (nil, gorm.ErrRecordNotFound)（与历史行为一致）。
+func (r *CustomerSessionRepository) GetLatestActiveByPlatformAccountUser(
+	ctx context.Context, platform model.Platform,
+	accountID, userID string, excludeStatuses []model.SessionStatus,
+) (*model.CustomerSession, error) {
+	var session model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND user_id = ?", platform, accountID, userID).
+		Where("status NOT IN ?", excludeStatuses).
+		Order("last_message_at DESC NULLS LAST, created_at DESC").
+		First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// ListRecentClosedByPlatformAccountUser 拉取最近 N 天内已结束会话
+//
+// 用于访客离线消息列表展示：
+//   - 按 (platform, account_id, user_id) 过滤
+//   - status IN includeStatuses（通常为 [resolved, closed]）
+//   - created_at > since
+//   - 按 created_at DESC 排序，limit 限制条数
+func (r *CustomerSessionRepository) ListRecentClosedByPlatformAccountUser(
+	ctx context.Context, platform model.Platform,
+	accountID, userID string, includeStatuses []model.SessionStatus,
+	since time.Time, limit int,
+) ([]*model.CustomerSession, error) {
+	var sessions []*model.CustomerSession
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND user_id = ?", platform, accountID, userID).
+		Where("status IN ?", includeStatuses).
+		Where("created_at > ?", since).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}

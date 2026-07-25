@@ -1,0 +1,28 @@
+{
+  "route": "/wecomAccount/list",
+  "module": "工作台",
+  "errors": [],
+  "items": [
+    {
+      "text": "Add account",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 1
+}

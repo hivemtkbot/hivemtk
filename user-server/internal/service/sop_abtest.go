@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"sort"
 
 	"gorm.io/gorm"
 
@@ -19,9 +21,9 @@ import (
 //  3. 支持 variant 维度的执行/成功统计，用于效果对比
 //  4. 不影响未启用 A/B 测试的 SOP（向后兼容）
 //
-// 注：SOPABTestConfig / SOPABTestVariant 类型及 Validate / SelectVariant 方法
-// 已迁移至 dto 包。service 包通过类型别名（type alias）保持向后兼容。
-// 因 Go 不允许为非本地类型（alias）定义方法，方法定义必须放在 dto 包内。
+// 架构合规：SOPABTestConfig / SOPABTestVariant 类型定义在 dto 包（纯数据结构），
+// 业务方法（Validate / SelectVariant）以包级函数形式定义在本文件，
+// 符合五层架构规范：DTO 层不含业务逻辑。
 
 // SOPABTestVariant A/B 测试 variant 定义
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
@@ -30,6 +32,88 @@ type SOPABTestVariant = dto.SOPABTestVariant
 // SOPABTestConfig A/B 测试配置
 // 已迁移至 dto 包
 type SOPABTestConfig = dto.SOPABTestConfig
+
+// ValidateSOPABTestConfig 校验 A/B 测试配置
+// 规则：
+//   - enabled=false 时直接通过
+//   - variants 至少 2 个
+//   - 每个 variant 必须有 name 和 weight>0
+//   - 所有 variant 权重之和必须为 100
+//   - variant name 不能重复
+func ValidateSOPABTestConfig(c SOPABTestConfig) error {
+	if !c.Enabled {
+		return nil
+	}
+	if len(c.Variants) < 2 {
+		return fmt.Errorf("A/B 测试至少需要 2 个 variant，当前 %d 个", len(c.Variants))
+	}
+	names := map[string]bool{}
+	totalWeight := 0
+	for _, v := range c.Variants {
+		if v.Name == "" {
+			return fmt.Errorf("variant 名称不能为空")
+		}
+		if names[v.Name] {
+			return fmt.Errorf("variant 名称重复：%s", v.Name)
+		}
+		names[v.Name] = true
+		if v.Weight <= 0 {
+			return fmt.Errorf("variant [%s] 权重必须 > 0", v.Name)
+		}
+		totalWeight += v.Weight
+	}
+	if totalWeight != 100 {
+		return fmt.Errorf("variant 权重之和必须为 100，当前 %d", totalWeight)
+	}
+	return nil
+}
+
+// SelectSOPABTestVariant 根据分流键选择 variant
+// 算法：FNV-1a 哈希 + 取模，确保同一 customer_id 始终命中同一 variant
+// 分流键为空时使用 "customer_id" 作为默认
+// 未启用 A/B 测试或配置非法时返回空 variant（表示使用主图）
+func SelectSOPABTestVariant(c SOPABTestConfig, customerID string) SOPABTestVariant {
+	if !c.Enabled || len(c.Variants) == 0 {
+		return SOPABTestVariant{}
+	}
+
+	salt := c.Salt
+	if salt == "" {
+		salt = "customer_id"
+	}
+
+	// 一致性哈希
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(salt + ":" + customerID))
+	hashVal := h.Sum64()
+
+	// 按权重累积选择
+	// 先按 Name 排序确保稳定性
+	variants := make([]SOPABTestVariant, len(c.Variants))
+	copy(variants, c.Variants)
+	sort.Slice(variants, func(i, j int) bool {
+		return variants[i].Name < variants[j].Name
+	})
+
+	totalWeight := 0
+	for _, v := range variants {
+		totalWeight += v.Weight
+	}
+	if totalWeight <= 0 {
+		return SOPABTestVariant{}
+	}
+
+	target := int(hashVal % uint64(totalWeight))
+	cumulative := 0
+	for _, v := range variants {
+		cumulative += v.Weight
+		if target < cumulative {
+			return v
+		}
+	}
+	// 兜底：返回最后一个
+	return variants[len(variants)-1]
+}
 
 // ParseSOPABTestConfig 从 model.SOPAgent.ABTestConfig (JSONMap) 解析配置
 // 配置为空或解析失败时返回 disabled 配置
@@ -76,27 +160,23 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 		var execCount, successCount, failedCount, runningCount int64
 
 		// 总执行数
-		if err := s.db.Model(&model.SOPExecution{}).
-			Where("sop_id = ? AND variant = ?", sopID, v.Name).
-			Count(&execCount).Error; err != nil {
+		execCount, err := s.execRepo.CountBySOPIDAndVariant(ctx, sopID, v.Name)
+		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 执行数失败：%w", v.Name, err)
 		}
 		// 成功数
-		if err := s.db.Model(&model.SOPExecution{}).
-			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusSuccess).
-			Count(&successCount).Error; err != nil {
+		successCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusSuccess)
+		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 成功数失败：%w", v.Name, err)
 		}
 		// 失败数
-		if err := s.db.Model(&model.SOPExecution{}).
-			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusFailed).
-			Count(&failedCount).Error; err != nil {
+		failedCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusFailed)
+		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 失败数失败：%w", v.Name, err)
 		}
 		// 运行中
-		if err := s.db.Model(&model.SOPExecution{}).
-			Where("sop_id = ? AND variant = ? AND status = ?", sopID, v.Name, SOPStatusRunning).
-			Count(&runningCount).Error; err != nil {
+		runningCount, err = s.execRepo.CountBySOPIDAndVariantAndStatus(ctx, sopID, v.Name, SOPStatusRunning)
+		if err != nil {
 			return nil, fmt.Errorf("查询 variant [%s] 运行中数失败：%w", v.Name, err)
 		}
 
@@ -120,7 +200,7 @@ func (s *SOPService) GetABTestStats(ctx context.Context, sopID uint) ([]SOPABTes
 
 // UpdateABTestConfig 更新 SOP 的 A/B 测试配置
 func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOPABTestConfig) (*model.SOPAgent, error) {
-	if err := cfg.Validate(); err != nil {
+	if err := ValidateSOPABTestConfig(cfg); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
 
@@ -142,7 +222,7 @@ func (s *SOPService) UpdateABTestConfig(ctx context.Context, sopID uint, cfg SOP
 	agent.ABTestConfig = abMap
 	agent.Version++
 
-	if err := s.db.Save(agent).Error; err != nil {
+	if err := s.agentRepo.Save(ctx, agent); err != nil {
 		return nil, err
 	}
 	return agent, nil
@@ -156,10 +236,10 @@ func (s *SOPService) resolveABTestVariant(ctx context.Context, agent *model.SOPA
 	if !cfg.Enabled {
 		return "", 0, nil
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := ValidateSOPABTestConfig(cfg); err != nil {
 		return "", 0, err
 	}
-	variant := cfg.SelectVariant(customerID)
+	variant := SelectSOPABTestVariant(cfg, customerID)
 	return variant.Name, variant.SOPGraphID, nil
 }
 
@@ -175,8 +255,8 @@ func (s *SOPService) loadSOPGraph(ctx context.Context, agent *model.SOPAgent, gr
 	}
 
 	// 加载指定 ID 的 SOP 图
-	var target model.SOPAgent
-	if err := s.db.WithContext(ctx).First(&target, graphID).Error; err != nil {
+	target, err := s.agentRepo.GetByID(ctx, graphID)
+	if err != nil {
 		return SOPGraph{}, fmt.Errorf("variant SOP 图加载失败（sop_id=%d）：%w", graphID, err)
 	}
 	var graph SOPGraph

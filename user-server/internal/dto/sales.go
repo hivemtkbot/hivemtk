@@ -206,6 +206,11 @@ type AgentContext struct {
 	// A/B 实验挂载 — 2026-07-17 新增(ADR-008 §2.3)
 	ABExperimentIDs []string `json:"ab_experiment_ids"`
 
+	// 资产包绑定 — 智能体可绑定一个资产包（AssetBundle），
+	// 在 SalesEngine 执行前由 AssetBundleResolver 解析为 system prompt，
+	// 覆盖原 Persona（实现「渠道→智能体→资产包」三层接线）
+	AssetBundleID string `json:"asset_bundle_id,omitempty"`
+
 	// 版本号(用于缓存失效)
 	Version int `json:"version"`
 }

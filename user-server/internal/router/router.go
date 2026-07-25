@@ -9,7 +9,9 @@ import (
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -112,6 +114,14 @@ func Setup(r *gin.Engine) {
 	// 注入到 SmartCSOrchestrator（客服座席挂载智能体路由）
 	orchestrator.SetCustomerServiceAgentService(context.Background(), csAgentSvcGlobal)
 
+	// v1.2 出海方案：初始化 LangConfigResolver（双语言配置读取器）。
+	// 注入到所有用户消息入口（chat HTTP / WS / webhook），实现多层兜底解析。
+	// resolver 自身永不报错，下游即便配置缺失也会拿到默认 zh。
+	langResolver := i18nservice.NewLangConfigResolver(
+		repository.NewChatChannelRepository(),
+		repository.NewAIAgentRepository(),
+	)
+
 	// M2：初始化资产市场运行时覆盖层（业务运行时优先读取生效中的已购资产）
 	service.InitAssetResolver(db.GetDB())
 	// 注入「读取生效中 marketing_workflow 资产」函数，打破 content/service 循环依赖
@@ -131,11 +141,11 @@ func Setup(r *gin.Engine) {
 	{
 		setupPublicRoutes(public, liveCodeController, platformCtrl, db.GetDB())
 		// P0-10 ADR-010: 公开 chat API（AppKey 鉴权）
-		setupChatPublicRoutes(public, db.GetDB(), orchestrator)
+		setupChatPublicRoutes(public, db.GetDB(), orchestrator, langResolver)
 	}
 
 	// P0-10 ADR-010: 访客 WebSocket（公开，无鉴权）
-	setupChatPublicWebSocket(r)
+	setupChatPublicWebSocket(r, langResolver)
 
 	// 卡片分享路由（公开，不需要认证）
 	setupCardShareRoutes(r)
@@ -239,10 +249,13 @@ func Setup(r *gin.Engine) {
 		setupWeComRoutes(auth)
 
 		// 客服会话管理
-		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal)
+		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
 		// P0-10 ADR-010: 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
 		setupChatChannelAdminRoutes(auth, db.GetDB())
+
+		// v1.2 出海多语言方案：术语表管理 + 校验预览
+		setupI18nRoutes(auth, db.GetDB())
 
 		// 客户事件追踪(CDP)
 		setupEventRoutes(auth)
@@ -376,6 +389,8 @@ func Setup(r *gin.Engine) {
 	// Phase 3：注入智能体统一编排器（LLM + 客服座席结合体）
 	// Webhook 入站消息优先走 SmartCSOrchestrator.HandleIncoming 9 步编排
 	webhookCtrl.SetSmartOrchestrator(orchestrator)
+	// v1.2 出海方案：注入多语言解析器，供 webhook 入口注入双语言 ctx
+	webhookCtrl.SetLangResolver(langResolver)
 	webhookCtrl.RegisterRoutes(r)
 	defer webhookCtrl.Stop()
 

@@ -34,13 +34,14 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 // FeedbackCollector 反馈信号采集器
 type FeedbackCollector struct {
-	db     *gorm.DB
+	repo   *repository.FeedbackLoopRepository
 	config FeedbackCollectorConfig
 	queue  chan *dto.CollectRequest // 异步队列
 	stopCh chan struct{}            // 通知 worker 优雅关闭
@@ -51,7 +52,7 @@ type FeedbackCollector struct {
 //
 // 参数：
 //
-//	db     - GORM DB（写入 feedback_events / feedback_signals）
+//	db     - GORM DB（写入 feedback_events / feedback_signals，由 repository 层使用）
 //	cfg    - 配置（零值字段会用默认值填充）
 func NewFeedbackCollector(db *gorm.DB, cfg FeedbackCollectorConfig) *FeedbackCollector {
 	if cfg.QueueSize == 0 {
@@ -67,7 +68,7 @@ func NewFeedbackCollector(db *gorm.DB, cfg FeedbackCollectorConfig) *FeedbackCol
 		cfg.Weights = DefaultSignalWeights
 	}
 	c := &FeedbackCollector{
-		db:     db,
+		repo:   repository.NewFeedbackLoopRepositoryWithDB(db),
 		config: cfg,
 		queue:  make(chan *dto.CollectRequest, cfg.QueueSize),
 		stopCh: make(chan struct{}),
@@ -178,12 +179,12 @@ func (c *FeedbackCollector) flushBatch(ctx context.Context, batch []*dto.Collect
 
 // persist 持久化单条事件 + upsert feedback_signals
 //
-// 事务：
+// 事务（由 repository 封装）：
 //  1. 写 feedback_events（事件流水）
 //  2. upsert feedback_signals（按 session_id 聚合）
 func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest) error {
-	if c.db == nil {
-		return fmt.Errorf("db is nil")
+	if c.repo == nil {
+		return fmt.Errorf("repo is nil")
 	}
 	weight := c.lookupWeight(req.SignalKey)
 	reward := c.computeReward(req.SignalKey, req.SignalValue, weight)
@@ -213,46 +214,17 @@ func (c *FeedbackCollector) persist(ctx context.Context, req *dto.CollectRequest
 		CreatedBy:         req.CreatedBy,
 	}
 
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(event).Error; err != nil {
-			return fmt.Errorf("create feedback_event: %w", err)
-		}
-		return c.upsertSignal(tx, req, reward)
-	})
-}
-
-// upsertSignal upsert 反馈信号聚合记录
-//
-// SQL：INSERT ... ON CONFLICT (session_id) DO UPDATE
-//   - 新 session：插入，aggregated_reward = reward, signal_count = 1
-//   - 已有 session：累加 reward，signal_count + 1, updated_at = NOW()
-func (c *FeedbackCollector) upsertSignal(tx *gorm.DB, req *dto.CollectRequest, reward float64) error {
-	// signal_breakdown 用 JSON 增量更新（PG jsonb || 操作符）
 	breakdownJSON := fmt.Sprintf(`{"%s":1}`, string(req.SignalKey))
-	var sopID any = req.SOPID
-	if req.SOPID == 0 {
-		sopID = nil
+	sig := repository.FeedbackSignalUpsert{
+		SessionID:         req.SessionID,
+		CustomerID:        req.CustomerID,
+		SOPID:             req.SOPID,
+		Variant:           req.Variant,
+		PromptCandidateID: req.PromptCandidateID,
+		Reward:            reward,
+		BreakdownJSON:     breakdownJSON,
 	}
-	var promptID any = req.PromptCandidateID
-	if req.PromptCandidateID == 0 {
-		promptID = nil
-	}
-
-	sql := `
-		INSERT INTO feedback_signals
-			(session_id, customer_id, sop_id, variant, prompt_candidate_id,
-			 aggregated_reward, signal_count, signal_breakdown, outcome, is_champion,
-			 created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 1, ?::jsonb, 'pending', FALSE, NOW(), NOW())
-		ON CONFLICT (session_id) DO UPDATE SET
-			aggregated_reward = feedback_signals.aggregated_reward + EXCLUDED.aggregated_reward,
-			signal_count = feedback_signals.signal_count + 1,
-			signal_breakdown = feedback_signals.signal_breakdown || ?::jsonb,
-			updated_at = NOW()`
-
-	return tx.Exec(sql,
-		req.SessionID, req.CustomerID, sopID, req.Variant, promptID,
-		reward, breakdownJSON, breakdownJSON).Error
+	return c.repo.PersistFeedback(ctx, event, sig)
 }
 
 // ----------------------------------------------------------------------------

@@ -1,0 +1,17 @@
+{
+  "route": "/dashboardScreen/list",
+  "module": "数据分析",
+  "errors": [],
+  "items": [
+    {
+      "text": "全屏",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

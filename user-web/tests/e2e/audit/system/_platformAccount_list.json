@@ -1,0 +1,101 @@
+{
+  "route": "/platformAccount/list",
+  "module": "系统设置",
+  "errors": [],
+  "items": [
+    {
+      "text": "Supported platforms",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/platform/message/latest",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    },
+    {
+      "text": "Add account",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "please_chose_game_channel",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Please choose status",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Search",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Reset",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/platform/message/latest",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    },
+    {
+      "text": "10/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/platform/message/latest",
+          "status": "FAILED",
+          "err": "net::ERR_ABORTED"
+        }
+      ]
+    }
+  ],
+  "errorCount": 10
+}

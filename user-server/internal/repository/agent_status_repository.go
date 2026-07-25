@@ -94,3 +94,18 @@ func (r *AgentStatusRepository) IncrementTodayMessages(ctx context.Context, agen
 	return r.db.Model(&model.AgentStatus{}).Where("agent_id = ?", agentID).
 		Update("today_messages", gorm.Expr("today_messages + 1")).Error
 }
+
+// CountOnlineAgents 统计在线坐席数（status IN ['online', 'busy']）
+//
+// 用于访客侧 OpenSession / SendMessage 时广播新会话通知前的快速判断：
+// 仅返回数量，不返回坐席详情（避免不必要的扫描）。
+func (r *AgentStatusRepository) CountOnlineAgents(ctx context.Context) (int, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AgentStatus{}).
+		Where("status IN ?", []string{"online", "busy"}).
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}

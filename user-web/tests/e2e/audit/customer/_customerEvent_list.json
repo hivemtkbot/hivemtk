@@ -1,0 +1,111 @@
+{
+  "route": "/customerEvent/list",
+  "module": "客户中心",
+  "errors": [],
+  "items": [
+    {
+      "text": "Create Event",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Event Type",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "pageErrors": [],
+      "apiErrors": [
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/autotest-a982f57c9d8f?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/autotest-ced09e48e272?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/autotest-cdc891459020?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/autotest-de77aaff1532?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/e2e-test-visitor-001?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/e2e-final-1784688118?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/test-visitor-1784870325?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/test123?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_23hf10mjmryokr61?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_26owkyxwmryo8da9?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_6491rucamryiknvo?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_air_check_2?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_9ffqiek4mrytztb6?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_ga0azgsbmryrurth?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_lk4okam8mryobsgy?limit=50",
+          "status": 429
+        },
+        {
+          "url": "http://127.0.0.1:8211/api/events/customer/v_v07vprdbmrvfuoc9?limit=50",
+          "status": 429
+        }
+      ]
+    }
+  ],
+  "errorCount": 35
+}

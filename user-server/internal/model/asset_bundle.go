@@ -108,7 +108,9 @@ type AssetBundle struct {
 	Industry    string              `gorm:"size:32;index" json:"industry"` // 行业：跨境电商/美妆/3C...
 	Language    string              `gorm:"size:8;index;default:'zh'" json:"language"`
 	Tags        pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
-	Messages    AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
+	Messages           AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
+	Examples           JSONArray            `gorm:"type:jsonb;column:examples;default:'[]'" json:"examples"`                // 多语言 few-shot 示例
+	SupportedLanguages pq.StringArray       `gorm:"type:text[];column:supported_languages;default:'{}'" json:"supported_languages"` // 声明支持的目标语言
 	// 统计字段
 	UseCount    int64   `gorm:"default:0" json:"use_count"`
 	Rating      float64 `gorm:"default:0" json:"rating"`

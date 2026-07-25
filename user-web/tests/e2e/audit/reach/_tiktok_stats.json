@@ -1,0 +1,26 @@
+{
+  "route": "/tiktok/stats",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "day of",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

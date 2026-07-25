@@ -8,6 +8,7 @@ import (
 
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
@@ -26,7 +27,7 @@ func setupLongTermMemoryTestDB(t *testing.T) *gorm.DB {
 // 数据库 customer_long_term_memory.embedding 字段已为 vector(1024)。
 func newLongTermMemorySystem(db *gorm.DB) *MemorySystem {
 	return &MemorySystem{
-		db:           db,
+		memoryRepo:   repository.NewMemoryRepositoryWithDB(db),
 		embeddingSvc: llm.NewHashEmbeddingService(1024),
 	}
 }
@@ -99,7 +100,7 @@ func TestLongTermMemory_Remember_InvalidMemoryType(t *testing.T) {
 
 func TestLongTermMemory_Remember_NoEmbeddingSvc(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
-	m := &MemorySystem{db: db} // 无 embeddingSvc
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)} // 无 embeddingSvc
 	_, err := m.Remember(context.Background(), "c-1", model.LongTermMemoryFact, "内容", 5)
 	if err == nil {
 		t.Error("expected error for missing embedding service")
@@ -354,7 +355,7 @@ func TestLongTermMemory_Recall_ExpiredExcluded(t *testing.T) {
 
 func TestLongTermMemory_Recall_NoEmbeddingSvc(t *testing.T) {
 	db := setupLongTermMemoryTestDB(t)
-	m := &MemorySystem{db: db} // 无 embeddingSvc
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)} // 无 embeddingSvc
 	_, err := m.Recall(context.Background(), "c-1", "查询", 5)
 	if err == nil {
 		t.Error("expected error for missing embedding service")
@@ -418,7 +419,7 @@ func TestLongTermMemory_Recall_ResultsHaveScore(t *testing.T) {
 func TestLongTermMemory_Rerank_ImportanceBoost(t *testing.T) {
 	// 相同 similarity + 相同时间，importance 高的应排前面
 	now := time.Now()
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", MemoryType: "fact", Content: "低重要性", Importance: 1, Source: "conversation", CreatedAt: now, Similarity: 0.5},
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "高重要性", Importance: 10, Source: "conversation", CreatedAt: now, Similarity: 0.5},
 	}
@@ -439,7 +440,7 @@ func TestLongTermMemory_Rerank_RecencyBoost(t *testing.T) {
 	// 相同 similarity + 相同 importance，时间新的应排前面
 	now := time.Now()
 	old := now.Add(-29 * 24 * time.Hour) // 29 天前，recency_score ≈ 0.033
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", MemoryType: "fact", Content: "旧记忆", Importance: 5, Source: "conversation", CreatedAt: old, Similarity: 0.5},
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "新记忆", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.5},
 	}
@@ -453,7 +454,7 @@ func TestLongTermMemory_Rerank_RecencyBoost(t *testing.T) {
 func TestLongTermMemory_Rerank_SimilarityBoost(t *testing.T) {
 	// 相同 importance + 相同时间，similarity 高的应排前面
 	now := time.Now()
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", MemoryType: "fact", Content: "低相似", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.3},
 		{ID: 2, CustomerID: "c-1", MemoryType: "fact", Content: "高相似", Importance: 5, Source: "conversation", CreatedAt: now, Similarity: 0.9},
 	}
@@ -472,7 +473,7 @@ func TestLongTermMemory_Rerank_SimilarityBoost(t *testing.T) {
 
 func TestLongTermMemory_Rerank_LimitTruncation(t *testing.T) {
 	now := time.Now()
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", Importance: 1, CreatedAt: now, Similarity: 0.1},
 		{ID: 2, CustomerID: "c-1", Importance: 5, CreatedAt: now, Similarity: 0.5},
 		{ID: 3, CustomerID: "c-1", Importance: 10, CreatedAt: now, Similarity: 0.9},
@@ -493,7 +494,7 @@ func TestLongTermMemory_Rerank_RecencyClampToZero(t *testing.T) {
 	// 超过 30 天的，recency_score 应 clamp 到 0
 	now := time.Now()
 	veryOld := now.Add(-60 * 24 * time.Hour) // 60 天前
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{ID: 1, CustomerID: "c-1", Importance: 5, CreatedAt: veryOld, Similarity: 0.5},
 	}
 	m := &MemorySystem{}
@@ -510,7 +511,7 @@ func TestLongTermMemory_Rerank_RecencyClampToZero(t *testing.T) {
 
 func TestLongTermMemory_Rerank_MetadataPreserved(t *testing.T) {
 	now := time.Now()
-	rows := []longTermMemoryRow{
+	rows := []repository.LongTermMemoryVectorRow{
 		{
 			ID: 1, CustomerID: "c-1", MemoryType: "fact", Content: "内容",
 			Importance: 5, Source: "manual", Metadata: `{"k1":"v1","k2":42}`,

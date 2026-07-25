@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"time"
 
-	"context"
 	"marketing/internal/model"
 )
 
@@ -116,5 +116,5 @@ func (s *XianyuAutoReplyService) SaveRuleDTO(ctx context.Context, req XianyuRule
 
 // UpdateWSLastConnected 更新闲鱼账号最近一次 WS 连接时间（替代 controller 直接 DB 操作）
 func (s *XianyuAutoReplyService) UpdateWSLastConnected(ctx context.Context, accountID uint, t time.Time) error {
-	return s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", accountID).Update("last_ws_connected_at", t).Error
+	return s.accountRepo.UpdateWSLastConnectedAt(ctx, accountID, t)
 }

@@ -36,24 +36,25 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 // BanditAllocator Multi-Armed Bandit 流量分配器
 type BanditAllocator struct {
-	db     *gorm.DB
-	mu     sync.RWMutex
-	cache  map[string][]*model.BanditArm // experimentID → arms（内存缓存）
-	rng    *rand.Rand                    // 独立 PRNG（线程安全由 mu 保护）
-	config BanditConfig
+	banditRepo *repository.FeedbackLoopRepository
+	mu         sync.RWMutex
+	cache      map[string][]*model.BanditArm // experimentID → arms（内存缓存）
+	rng        *rand.Rand                    // 独立 PRNG（线程安全由 mu 保护）
+	config     BanditConfig
 }
 
 // NewBanditAllocator 构造分配器
 //
 // 参数：
 //
-//	db     - GORM DB（用于读写 bandit_arms 表）
+//	db     - GORM DB（用于读写 bandit_arms 表，内部下沉到 repository 层使用）
 //	cfg    - 配置（零值字段会用默认值填充）
 //	seed   - PRNG 种子（测试时可固定；生产用 time.Now().UnixNano()）
 func NewBanditAllocator(db *gorm.DB, cfg BanditConfig, seed int64) *BanditAllocator {
@@ -79,10 +80,10 @@ func NewBanditAllocator(db *gorm.DB, cfg BanditConfig, seed int64) *BanditAlloca
 		seed = time.Now().UnixNano()
 	}
 	return &BanditAllocator{
-		db:     db,
-		cache:  make(map[string][]*model.BanditArm),
-		rng:    rand.New(rand.NewSource(seed)),
-		config: cfg,
+		banditRepo: repository.NewFeedbackLoopRepositoryWithDB(db),
+		cache:      make(map[string][]*model.BanditArm),
+		rng:        rand.New(rand.NewSource(seed)),
+		config:     cfg,
 	}
 }
 
@@ -169,13 +170,7 @@ func (b *BanditAllocator) SelectArm(ctx context.Context, experimentID string) (a
 // 查找当前 running 的 prompt 实验，调用 SelectArm，并返回关联的 PromptCandidateID
 // 若无运行中的实验或无可用臂，返回 0 表示使用默认 Prompt
 func (b *BanditAllocator) SelectPrompt(ctx context.Context, sopID uint, nodeID string) (uint, string, error) {
-	if b.db == nil {
-		return 0, "", ErrInvalidInput
-	}
-	var test model.PromptABTest
-	err := b.db.WithContext(ctx).
-		Where("sop_id = ? AND sop_node_id = ? AND status = ?", sopID, nodeID, model.PromptABTestStatusRunning).
-		First(&test).Error
+	test, err := b.banditRepo.GetRunningPromptABTestBySOPNode(ctx, sopID, nodeID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 无运行中的实验，返回 0 表示使用默认 Prompt
@@ -191,10 +186,7 @@ func (b *BanditAllocator) SelectPrompt(ctx context.Context, sopID uint, nodeID s
 		return 0, "", nil
 	}
 	// arm_key → prompt_candidate_id
-	var arm model.BanditArm
-	err = b.db.WithContext(ctx).
-		Where("experiment_id = ? AND arm_key = ?", test.ExperimentID, armKey).
-		First(&arm).Error
+	arm, err := b.banditRepo.GetBanditArmByExperimentAndKey(ctx, test.ExperimentID, armKey)
 	if err != nil {
 		return 0, armKey, fmt.Errorf("query arm: %w", err)
 	}
@@ -208,29 +200,13 @@ func (b *BanditAllocator) SelectPrompt(ctx context.Context, sopID uint, nodeID s
 // 失败：beta += 1
 // 通用：total_trials += 1, sum_reward += reward, avg_reward = sum_reward / total_trials
 func (b *BanditAllocator) UpdateReward(ctx context.Context, experimentID, armKey string, success bool, reward float64) error {
-	if b.db == nil || experimentID == "" || armKey == "" {
+	if experimentID == "" || armKey == "" {
 		return ErrInvalidInput
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	updates := map[string]any{
-		"total_trials": gorm.Expr("total_trials + 1"),
-		"sum_reward":   gorm.Expr("sum_reward + ?", reward),
-		"avg_reward":   gorm.Expr("CASE WHEN total_trials + 1 > 0 THEN (sum_reward + ?) / (total_trials + 1) ELSE 0 END", reward),
-		"updated_at":   time.Now(),
-	}
-	if success {
-		updates["alpha"] = gorm.Expr("alpha + 1")
-		updates["success_trials"] = gorm.Expr("success_trials + 1")
-	} else {
-		updates["beta"] = gorm.Expr("beta + 1")
-	}
-
-	err := b.db.WithContext(ctx).Model(&model.BanditArm{}).
-		Where("experiment_id = ? AND arm_key = ?", experimentID, armKey).
-		Updates(updates).Error
-	if err != nil {
+	if err := b.banditRepo.UpdateBanditArmReward(ctx, experimentID, armKey, success, reward); err != nil {
 		return fmt.Errorf("update bandit arm: %w", err)
 	}
 	// 失效缓存
@@ -298,33 +274,10 @@ func (b *BanditAllocator) CheckConvergence(ctx context.Context, experimentID str
 //  1. winner → status=promoted, promoted_at=NOW()
 //  2. 其他 → status=retired, retired_at=NOW()
 func (b *BanditAllocator) PromoteArm(ctx context.Context, experimentID, winnerKey string) error {
-	if b.db == nil || experimentID == "" || winnerKey == "" {
+	if experimentID == "" || winnerKey == "" {
 		return ErrInvalidInput
 	}
-	return b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		now := time.Now()
-		// winner → promoted
-		if err := tx.Model(&model.BanditArm{}).
-			Where("experiment_id = ? AND arm_key = ?", experimentID, winnerKey).
-			Updates(map[string]any{
-				"status":      model.BanditArmStatusPromoted,
-				"promoted_at": now,
-				"updated_at":  now,
-			}).Error; err != nil {
-			return fmt.Errorf("promote winner: %w", err)
-		}
-		// 其他 → retired
-		if err := tx.Model(&model.BanditArm{}).
-			Where("experiment_id = ? AND arm_key != ?", experimentID, winnerKey).
-			Updates(map[string]any{
-				"status":     model.BanditArmStatusRetired,
-				"retired_at": now,
-				"updated_at": now,
-			}).Error; err != nil {
-			return fmt.Errorf("retire losers: %w", err)
-		}
-		return nil
-	})
+	return b.banditRepo.PromoteBanditArmWinner(ctx, experimentID, winnerKey)
 }
 
 // InvalidateCache 失效指定实验的缓存（外部数据变更后调用）
@@ -347,13 +300,7 @@ func (b *BanditAllocator) loadArms(ctx context.Context, experimentID string) ([]
 	}
 	b.mu.RUnlock()
 
-	if b.db == nil {
-		return nil, fmt.Errorf("db is nil")
-	}
-	var arms []*model.BanditArm
-	err := b.db.WithContext(ctx).
-		Where("experiment_id = ? AND status IN ?", experimentID, []string{model.BanditArmStatusExploring, model.BanditArmStatusExploiting}).
-		Find(&arms).Error
+	arms, err := b.banditRepo.ListActiveBanditArms(ctx, experimentID)
 	if err != nil {
 		return nil, err
 	}
@@ -399,16 +346,10 @@ func pickLowestTrafficArm(arms []*model.BanditArm, excludeKey string) string {
 
 // markSampledAsync 异步标记采样时间（不阻塞主链路）
 func (b *BanditAllocator) markSampledAsync(experimentID, armKey string) {
-	if b.db == nil {
-		return
-	}
 	// 用独立 ctx，避免主链路 ctx 取消导致标记失败
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	now := time.Now()
-	_ = b.db.WithContext(ctx).Model(&model.BanditArm{}).
-		Where("experiment_id = ? AND arm_key = ?", experimentID, armKey).
-		Update("last_sampled_at", now).Error
+	_ = b.banditRepo.UpdateBanditArmLastSampled(ctx, experimentID, armKey, time.Now())
 }
 
 // ----------------------------------------------------------------------------

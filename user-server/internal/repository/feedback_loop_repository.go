@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -131,4 +134,246 @@ func (r *FeedbackLoopRepository) ListBanditArms(ctx context.Context, experimentI
 		return nil, 0, err
 	}
 	return rows, total, nil
+}
+
+// ----------------------------------------------------------------------------
+// P0-5 反馈学习闭环：service 层专用方法（五层架构 - DB 操作下沉到 repository）
+// ----------------------------------------------------------------------------
+
+// NewFeedbackLoopRepositoryWithDB 使用指定 *gorm.DB 构造（供 service 构造函数与测试使用）
+func NewFeedbackLoopRepositoryWithDB(db *gorm.DB) *FeedbackLoopRepository {
+	return &FeedbackLoopRepository{db: db}
+}
+
+// FeedbackSignalUpsert 反馈信号 upsert 参数
+type FeedbackSignalUpsert struct {
+	SessionID         string
+	CustomerID        string
+	SOPID             uint
+	Variant           string
+	PromptCandidateID uint
+	Reward            float64
+	BreakdownJSON     string
+}
+
+// PersistFeedback 事务：写 feedback_event + upsert feedback_signal
+func (r *FeedbackLoopRepository) PersistFeedback(ctx context.Context, event *model.FeedbackEvent, sig FeedbackSignalUpsert) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(event).Error; err != nil {
+			return fmt.Errorf("create feedback_event: %w", err)
+		}
+		return upsertFeedbackSignal(tx, sig)
+	})
+}
+
+// upsertFeedbackSignal 按 session_id 聚合：存在则累加 reward/count，不存在则插入
+func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
+	var existing model.FeedbackSignal
+	err := tx.Where("session_id = ?", sig.SessionID).First(&existing).Error
+	if err == nil {
+		existing.AggregatedReward += sig.Reward
+		existing.SignalCount += 1
+		var newBreakdown model.JSONMap
+		if err := json.Unmarshal([]byte(sig.BreakdownJSON), &newBreakdown); err == nil {
+			if existing.SignalBreakdown == nil {
+				existing.SignalBreakdown = model.JSONMap{}
+			}
+			for k, v := range newBreakdown {
+				if cur, ok := existing.SignalBreakdown[k].(float64); ok {
+					if nv, ok := v.(float64); ok {
+						existing.SignalBreakdown[k] = cur + nv
+						continue
+					}
+				}
+				existing.SignalBreakdown[k] = v
+			}
+		}
+		return tx.Save(&existing).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	var breakdown model.JSONMap
+	if err := json.Unmarshal([]byte(sig.BreakdownJSON), &breakdown); err != nil {
+		breakdown = model.JSONMap{}
+	}
+	newSig := model.FeedbackSignal{
+		SessionID:         sig.SessionID,
+		CustomerID:        sig.CustomerID,
+		SOPID:             sig.SOPID,
+		Variant:           sig.Variant,
+		PromptCandidateID: sig.PromptCandidateID,
+		AggregatedReward:  sig.Reward,
+		SignalCount:       1,
+		SignalBreakdown:   breakdown,
+		Outcome:           model.FeedbackSignalOutcomePending,
+	}
+	return tx.Create(&newSig).Error
+}
+
+// ListPendingSuggestions 查询待审核建议（priority >= 给定阈值）
+func (r *FeedbackLoopRepository) ListPendingSuggestions(ctx context.Context, minPriority int) ([]model.OptimizationSuggestion, error) {
+	var rows []model.OptimizationSuggestion
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND priority >= ?", model.SuggestionStatusPending, minPriority).
+		Find(&rows).Error
+	return rows, err
+}
+
+// MarkSuggestionApplied 标记建议为已应用
+func (r *FeedbackLoopRepository) MarkSuggestionApplied(ctx context.Context, id uint, appliedAt time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&model.OptimizationSuggestion{}).
+		Where("id = ?", id).
+		Updates(map[string]any{"status": model.SuggestionStatusApplied, "applied_at": appliedAt}).Error
+}
+
+// CloneSOPAndCreateABTest 事务：克隆 SOP 为 variant B + 创建 A/B 测试 + 2 个 bandit arms
+func (r *FeedbackLoopRepository) CloneSOPAndCreateABTest(ctx context.Context, sopID uint, nameSuffix string, experimentTag string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var original model.SOPAgent
+		if err := tx.First(&original, sopID).Error; err != nil {
+			return fmt.Errorf("fetch sop %d: %w", sopID, err)
+		}
+		clone := original
+		clone.ID = 0
+		clone.Name = original.Name + nameSuffix
+		clone.IsActive = false
+		clone.ExecutionCount = 0
+		clone.SuccessCount = 0
+		if err := tx.Create(&clone).Error; err != nil {
+			return fmt.Errorf("create variant sop: %w", err)
+		}
+		expID := fmt.Sprintf("sop_%d_%d", sopID, time.Now().UnixNano())
+		now := time.Now()
+		abTest := model.PromptABTest{
+			ExperimentID:   expID,
+			ExperimentType: model.BanditExperimentTypeSOPVariant,
+			SOPID:          sopID,
+			Name:           original.Name + nameSuffix,
+			ArmKeys:        model.JSONArray{"arm_a_original", "arm_b_variant"},
+			Config:         model.JSONMap{"tag": experimentTag},
+			Status:         model.PromptABTestStatusRunning,
+			StartedAt:      &now,
+		}
+		if err := tx.Create(&abTest).Error; err != nil {
+			return fmt.Errorf("create ab test: %w", err)
+		}
+		arms := []model.BanditArm{
+			{ExperimentID: expID, ExperimentType: model.BanditExperimentTypeSOPVariant, ArmKey: "arm_a_original", SOPID: sopID, Variant: "A", Status: model.BanditArmStatusExploring},
+			{ExperimentID: expID, ExperimentType: model.BanditExperimentTypeSOPVariant, ArmKey: "arm_b_variant", SOPID: clone.ID, Variant: "B", Status: model.BanditArmStatusExploring},
+		}
+		if err := tx.Create(&arms).Error; err != nil {
+			return fmt.Errorf("create bandit arms: %w", err)
+		}
+		return nil
+	})
+}
+
+// ListRunningABTestsByType 查询指定实验类型中 running 状态的 A/B 测试
+func (r *FeedbackLoopRepository) ListRunningABTestsByType(ctx context.Context, experimentType string) ([]model.PromptABTest, error) {
+	var rows []model.PromptABTest
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND experiment_type = ?", model.PromptABTestStatusRunning, experimentType).
+		Find(&rows).Error
+	return rows, err
+}
+
+// ListRunningABTests 查询所有 running 状态的 A/B 测试
+func (r *FeedbackLoopRepository) ListRunningABTests(ctx context.Context) ([]model.PromptABTest, error) {
+	var rows []model.PromptABTest
+	err := r.db.WithContext(ctx).
+		Where("status = ?", model.PromptABTestStatusRunning).
+		Find(&rows).Error
+	return rows, err
+}
+
+// UpdateABTestFields 按主键更新 A/B 测试指定字段
+func (r *FeedbackLoopRepository) UpdateABTestFields(ctx context.Context, id uint, fields map[string]any) error {
+	return r.db.WithContext(ctx).
+		Model(&model.PromptABTest{}).
+		Where("id = ?", id).
+		Updates(fields).Error
+}
+
+// UpdateABTestByExperimentID 按 experiment_id 更新 A/B 测试指定字段
+// 用于 FeedbackLoopCron Bandit 收敛后标记实验为 completed 并记录 winner_arm
+func (r *FeedbackLoopRepository) UpdateABTestByExperimentID(ctx context.Context, experimentID string, fields map[string]any) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.PromptABTest{}).
+		Where("experiment_id = ?", experimentID).
+		Updates(fields).Error
+}
+
+// GetPromptABTest 根据 ID 获取 A/B 测试
+func (r *FeedbackLoopRepository) GetPromptABTest(ctx context.Context, id uint) (*model.PromptABTest, error) {
+	var test model.PromptABTest
+	if err := r.db.WithContext(ctx).First(&test, id).Error; err != nil {
+		return nil, err
+	}
+	return &test, nil
+}
+
+// CountFeedbackSignalsByVariant 统计指定 SOP + variant 的反馈信号数
+func (r *FeedbackLoopRepository) CountFeedbackSignalsByVariant(ctx context.Context, sopID uint, variant string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.FeedbackSignal{}).
+		Where("sop_id = ? AND variant = ?", sopID, variant).
+		Count(&count).Error
+	return count, err
+}
+
+// CountFeedbackSignalsByVariantAndOutcome 统计指定 SOP + variant + outcome 的反馈信号数
+func (r *FeedbackLoopRepository) CountFeedbackSignalsByVariantAndOutcome(ctx context.Context, sopID uint, variant string, outcome string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.FeedbackSignal{}).
+		Where("sop_id = ? AND variant = ? AND outcome = ?", sopID, variant, outcome).
+		Count(&count).Error
+	return count, err
+}
+
+// CountFeedbackEventsByVariant 统计指定 SOP + variant 的反馈事件数
+func (r *FeedbackLoopRepository) CountFeedbackEventsByVariant(ctx context.Context, sopID uint, variant string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.FeedbackEvent{}).
+		Where("sop_id = ? AND variant = ?", sopID, variant).
+		Count(&count).Error
+	return count, err
+}
+
+// CountFeedbackEventsByVariantAndSignalKey 统计指定 SOP + variant + signal_key 的反馈事件数
+func (r *FeedbackLoopRepository) CountFeedbackEventsByVariantAndSignalKey(ctx context.Context, sopID uint, variant string, signalKey string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.FeedbackEvent{}).
+		Where("sop_id = ? AND variant = ? AND signal_key = ?", sopID, variant, signalKey).
+		Count(&count).Error
+	return count, err
+}
+
+// RollbackABTest 事务：回滚 A/B 测试（test 状态→rolled_back，arms 状态→retired）
+func (r *FeedbackLoopRepository) RollbackABTest(ctx context.Context, testID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var test model.PromptABTest
+		if err := tx.First(&test, testID).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		if err := tx.Model(&model.PromptABTest{}).Where("id = ?", testID).
+			Updates(map[string]any{"status": model.PromptABTestStatusRolledBack, "ended_at": now}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.BanditArm{}).
+			Where("experiment_id = ?", test.ExperimentID).
+			Updates(map[string]any{"status": model.BanditArmStatusRetired, "retired_at": now}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }

@@ -1,0 +1,19 @@
+{
+  "route": "/chat/embed/:channel_ref",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": false,
+  "startedAt": "2026-07-24T17:01:45.273Z",
+  "loginOk": null,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [],
+  "summary": {
+    "total": 0,
+    "withIssue": 0,
+    "issues": []
+  },
+  "finishedAt": "2026-07-24T17:01:47.124Z",
+  "consoleErrorsTotal": 6,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 9
+}

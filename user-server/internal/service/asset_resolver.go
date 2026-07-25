@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"gorm.io/gorm"
+
+	"marketing/internal/repository"
 )
 
 // AssetResolver 资产市场运行时覆盖层（M2：运行时覆盖默认）。
@@ -14,25 +16,25 @@ import (
 // 五种资产类型分别由对应的 Loader 提供 DB 优先、代码默认兜底的读取能力，
 // 本 resolver 在其之上封装「取生效资产」语义，供业务运行时调用。
 type AssetResolver struct {
-	db       *gorm.DB
-	agent    *AgentLoader
-	script   *ScriptLoader
-	sop      *SOPLoader
-	abtest   *ABTestLoader
-	workflow *WorkflowLoader
+	assetRepo repository.LocalAssetRepository
+	agent     *AgentLoader
+	script    *ScriptLoader
+	sop       *SOPLoader
+	abtest    *ABTestLoader
+	workflow  *WorkflowLoader
 }
 
 var assetResolverInstance *AssetResolver
 
-// InitAssetResolver 初始化全局运行时覆盖层，应在服务启动时（router 初始化阶段）调用一次。
+// InitAssetResolver 初始化全局运行时覆盖层，应在服务启动时调用一次。
 func InitAssetResolver(db *gorm.DB) {
 	assetResolverInstance = &AssetResolver{
-		db:       db,
-		agent:    NewAgentLoader(db),
-		script:   NewScriptLoader(db),
-		sop:      NewSOPLoader(db),
-		abtest:   NewABTestLoader(db),
-		workflow: NewWorkflowLoader(db),
+		assetRepo: repository.NewLocalAssetRepository(db),
+		agent:     NewAgentLoader(db),
+		script:    NewScriptLoader(db),
+		sop:       NewSOPLoader(db),
+		abtest:    NewABTestLoader(db),
+		workflow:  NewWorkflowLoader(db),
 	}
 }
 
@@ -44,17 +46,10 @@ func GetAssetResolver() *AssetResolver {
 // activeAssetID 返回某类型下「生效中」资产的 asset_id（按最近同步时间取第一条）。
 // 不存在时返回 ("", false)。
 func (r *AssetResolver) activeAssetID(ctx context.Context, assetType string) (string, bool) {
-	if r == nil || r.db == nil {
+	if r == nil || r.assetRepo == nil {
 		return "", false
 	}
-	var aid string
-	err := r.db.WithContext(ctx).
-		Table("local_assets").
-		Select("asset_id").
-		Where("asset_type = ? AND is_active = ? AND deleted_at IS NULL", assetType, true).
-		Order("synced_at DESC").
-		Limit(1).
-		Scan(&aid).Error
+	aid, err := r.assetRepo.FindActiveAssetIDByType(ctx, assetType)
 	if err != nil || aid == "" {
 		return "", false
 	}

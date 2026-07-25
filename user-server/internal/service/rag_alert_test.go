@@ -54,8 +54,8 @@ func TestRagAlert_NewService(t *testing.T) {
 	if svc == nil {
 		t.Fatal("Expected non-nil service")
 	}
-	if svc.db == nil {
-		t.Error("Expected non-nil db")
+	if svc.repo == nil {
+		t.Error("Expected non-nil repo")
 	}
 	if svc.metric == nil {
 		t.Error("Expected non-nil metric service")

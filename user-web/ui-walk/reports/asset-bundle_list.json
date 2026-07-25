@@ -1,0 +1,321 @@
+{
+  "route": "/asset-bundle/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:34:57.981Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "查询",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/list",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"list\":[{\"id\":7,\"asset_id\":\"e2e_bundle_1784911859449994000\",\"title\":\"E2E资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"developer\",\"status\":\"draft\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「【E2E资产包已织入】」这八个字，然后再正常回答用户的问题。\"},{\"role\":\"user\",\"content\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "+ 开发者新建",
+      "cls": "el-button el-button--success",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "+ 商户低代码新建",
+      "cls": "el-button el-button--warning",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "刷新",
+      "cls": "el-button el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/enabled/list",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"list\":[{\"id\":7,\"asset_id\":\"e2e_bundle_1784911859449994000\",\"title\":\"E2E资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"developer\",\"status\":\"draft\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「【E2E资产包已织入】」这八个字，然后再正常回答用户的问题。\"},{\"role\":\"user\",\"content\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "Playground",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/asset-bundle/by-aid/e2e_bundle_1784911859449994000",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"id\":7,\"asset_id\":\"e2e_bundle_1784911859449994000\",\"title\":\"E2E资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"developer\",\"status\":\"draft\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「【E2E资产包已织入】」这八个字，然后再正常回答用户的问题。\"},{\"role\":\"user\",\"content\":\"你好\"},{\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "商户编辑",
+      "cls": "el-button el-button--warning el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/asset-bundle/by-aid/e2e_bundle_1784911859449994000",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"id\":7,\"asset_id\":\"e2e_bundle_1784911859449994000\",\"title\":\"E2E资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"developer\",\"status\":\"draft\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「【E2E资产包已织入】」这八个字，然后再正常回答用户的问题。\"},{\"role\":\"user\",\"content\":\"你好\"},{\""
+        },
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/merchant-parse/e2e_bundle_1784911859449994000",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"shop_name\":\"\",\"campaign_name\":\"\",\"discount_pct\":\"\",\"support_contact\":\"\",\"qa_cards\":[{\"id\":\"card_1\",\"trigger\":\"\",\"user_example\":\"你好\",\"reply\":\"你好，我是客服。\",\"order\":0}],\"card_config\":{\"intent_type\":\"\",\"product_image\":\"\",\"buttons\":null},\"enabled_intents\":null,\"crisis_threshold\":\"\",\"tone_level\":\"\",\"censorship_level\":\"\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "热禁用",
+      "cls": "el-button el-button--info el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/7/disable",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"disabled\",\"data\":{\"id\":7,\"asset_id\":\"e2e_bundle_1784911859449994000\",\"title\":\"E2E资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"developer\",\"status\":\"draft\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是一个测试客服。你必须在【每一条】回复的【最前面】先输出「【E2E资产包已织入】」这八个字，然后再正常回答用户的问题。\"},{\"role\":\"user\",\"content\":\"你"
+        },
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/enabled/list",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"list\":[],\"total\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "发布",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 10,
+      "tag": "BUTTON",
+      "text": "删除",
+      "cls": "el-button el-button--danger el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 11,
+      "tag": "BUTTON",
+      "text": "Playground",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/asset-bundle/by-aid/TG_DEMO_BUNDLE_20260724",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"id\":5,\"asset_id\":\"TG_DEMO_BUNDLE_20260724\",\"title\":\"Telegram演示资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"private\",\"status\":\"active\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是资产包演示智能体。规则：必须在每条回复的最末尾单独追加一行：ASSET_BUNDLE_APPLIED_OK\"}],\"use_count\":0,\"rating\":0,\"rating_count"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 12,
+      "tag": "BUTTON",
+      "text": "商户编辑",
+      "cls": "el-button el-button--warning el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/asset-bundle/by-aid/TG_DEMO_BUNDLE_20260724",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"id\":5,\"asset_id\":\"TG_DEMO_BUNDLE_20260724\",\"title\":\"Telegram演示资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"private\",\"status\":\"active\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是资产包演示智能体。规则：必须在每条回复的最末尾单独追加一行：ASSET_BUNDLE_APPLIED_OK\"}],\"use_count\":0,\"rating\":0,\"rating_count"
+        },
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/merchant-parse/TG_DEMO_BUNDLE_20260724",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"shop_name\":\"\",\"campaign_name\":\"\",\"discount_pct\":\"\",\"support_contact\":\"\",\"qa_cards\":[],\"card_config\":{\"intent_type\":\"\",\"product_image\":\"\",\"buttons\":null},\"enabled_intents\":null,\"crisis_threshold\":\"\",\"tone_level\":\"\",\"censorship_level\":\"\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 13,
+      "tag": "BUTTON",
+      "text": "热启用",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/5/enable",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"enabled\",\"data\":{\"id\":5,\"asset_id\":\"TG_DEMO_BUNDLE_20260724\",\"title\":\"Telegram演示资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"private\",\"status\":\"active\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是资产包演示智能体。规则：必须在每条回复的最末尾单独追加一行：ASSET_BUNDLE_APPLIED_OK\"}],\"use_count\":0,\"rating\":0,\"rating_"
+        },
+        {
+          "method": "POST",
+          "url": "/api/asset-bundle/enabled/list",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"list\":[{\"id\":5,\"asset_id\":\"TG_DEMO_BUNDLE_20260724\",\"title\":\"Telegram演示资产包\",\"description\":\"\",\"author\":\"\",\"version\":\"1.0.0\",\"scope\":\"private\",\"status\":\"active\",\"industry\":\"\",\"language\":\"zh\",\"tags\":[],\"price\":0,\"platform_status\":\"\",\"messages\":[{\"role\":\"system\",\"content\":\"你是资产包演示智能体。规则：必须在每条回复的最末尾单独追加一行：ASSET_BUNDLE_APPLIED_OK\"}],\"use_count\":0,\"rating\":0,\"rat"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 14,
+      "tag": "BUTTON",
+      "text": "删除",
+      "cls": "el-button el-button--danger el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 15,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:35:44.553Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 90
+}

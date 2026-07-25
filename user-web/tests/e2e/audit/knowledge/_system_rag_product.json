@@ -1,0 +1,26 @@
+{
+  "route": "/system/rag-product",
+  "module": "知识中心",
+  "errors": [],
+  "items": [
+    {
+      "text": "Link New Product",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    },
+    {
+      "text": "20/page",
+      "type": "select-ui",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

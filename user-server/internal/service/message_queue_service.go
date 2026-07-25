@@ -11,18 +11,23 @@ import (
 	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 type MessageQueueService struct {
-	db     *gorm.DB
+	repo  *repository.MessageQueueRepository
 	queues map[string][]model.QueuedMessage
 	status map[string]model.QueueStatus
 	mu     sync.RWMutex
 }
 
+// NewMessageQueueService 构造消息队列服务
+//
+// 五层架构 §三.5：构造函数保留 db *gorm.DB 参数（调用方不变），
+// 内部创建 repository 实例，service 不再持有 db。
 func NewMessageQueueService(db *gorm.DB) *MessageQueueService {
 	return &MessageQueueService{
-		db:     db,
+		repo:   repository.NewMessageQueueRepositoryWithDB(db),
 		queues: make(map[string][]model.QueuedMessage),
 		status: make(map[string]model.QueueStatus),
 	}
@@ -38,7 +43,7 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 		Failed:  0,
 		Status:  "pending",
 	}
-	if err := mq.db.Create(queueStatus).Error; err != nil {
+	if err := mq.repo.CreateQueueStatus(ctx, queueStatus); err != nil {
 		return "", fmt.Errorf("持久化队列状态失败: %w", err)
 	}
 
@@ -53,8 +58,9 @@ func (mq *MessageQueueService) AddBatch(ctx context.Context, messages []model.Qu
 			Recipient: msg.PhoneNumber,
 		})
 	}
-	if err := mq.db.Create(&dbMessages).Error; err != nil {
-		mq.db.Where("queue_id = ?", queueID).Delete(&model.WhatsAppQueueStatus{})
+	if err := mq.repo.CreateMessages(ctx, dbMessages); err != nil {
+		// 回滚已写入的队列状态记录
+		_ = mq.repo.DeleteQueueStatusByQueueID(ctx, queueID)
 		return "", fmt.Errorf("持久化队列消息失败: %w", err)
 	}
 
@@ -82,8 +88,8 @@ func (mq *MessageQueueService) GetQueue(ctx context.Context, queueID string) []m
 		return queue
 	}
 
-	var dbMessages []model.WhatsAppMessageQueue
-	if err := mq.db.Where("queue_id = ?", queueID).Order("id ASC").Find(&dbMessages).Error; err != nil {
+	dbMessages, err := mq.repo.ListMessagesByQueueID(ctx, queueID)
+	if err != nil {
 		logger.Errorf("从数据库加载队列消息失败 queueID=%s: %v", queueID, err)
 		return []model.QueuedMessage{}
 	}
@@ -110,23 +116,14 @@ func (mq *MessageQueueService) UpdateStatus(ctx context.Context, queueID, messag
 	}
 
 	// 1) 更新单条消息状态（不同表，必须独立语句）
-	if err := mq.db.Model(&model.WhatsAppMessageQueue{}).
-		Where("queue_id = ? AND message_id = ?", queueID, messageID).
-		Update("status", msgStatus).Error; err != nil {
+	if err := mq.repo.UpdateMessageStatus(ctx, queueID, messageID, msgStatus); err != nil {
 		logger.Errorf("更新队列消息状态失败 queueID=%s messageID=%s: %v", queueID, messageID, err)
 	}
 
 	// 性能审计 P3-2：原实现 First + Save 是 read-modify-write，存在并发竞态（两并发同读 sent=5 同写 6），
 	// 且每条消息多 2 次查询（1000 万/日主动触达 = 2000 万额外查询）。
 	// 改为单条原子 UPDATE，DB 侧自增 sent/failed 并判定完成态，消除竞态与额外查询。
-	if err := mq.db.Model(&model.WhatsAppQueueStatus{}).
-		Where("queue_id = ?", queueID).
-		UpdateColumns(map[string]any{
-			"sent":       gorm.Expr("sent + CASE WHEN ? THEN 1 ELSE 0 END", success),
-			"failed":     gorm.Expr("failed + CASE WHEN ? THEN 0 ELSE 1 END", success),
-			"status":     gorm.Expr("CASE WHEN (sent + CASE WHEN ? THEN 1 ELSE 0 END) + (failed + CASE WHEN ? THEN 0 ELSE 1 END) >= total THEN 'completed' ELSE status END", success, success),
-			"updated_at": gorm.Expr("NOW()"),
-		}).Error; err != nil {
+	if err := mq.repo.UpdateQueueStatusAtomic(ctx, queueID, success); err != nil {
 		logger.Errorf("更新队列聚合状态失败 queueID=%s: %v", queueID, err)
 	}
 
@@ -155,8 +152,8 @@ func (mq *MessageQueueService) GetStatus(ctx context.Context, queueID string) mo
 		return qs
 	}
 
-	var dbStatus model.WhatsAppQueueStatus
-	if err := mq.db.Where("queue_id = ?", queueID).First(&dbStatus).Error; err != nil {
+	dbStatus, err := mq.repo.GetQueueStatusByQueueID(ctx, queueID)
+	if err != nil || dbStatus == nil {
 		return model.QueueStatus{}
 	}
 
@@ -170,8 +167,8 @@ func (mq *MessageQueueService) GetStatus(ctx context.Context, queueID string) mo
 }
 
 func (mq *MessageQueueService) ListAllStatuses(ctx context.Context) []model.QueueStatus {
-	var dbStatuses []model.WhatsAppQueueStatus
-	if err := mq.db.Order("created_at DESC").Find(&dbStatuses).Error; err != nil {
+	dbStatuses, err := mq.repo.ListAllQueueStatuses(ctx)
+	if err != nil {
 		logger.Errorf("列出队列状态失败: %v", err)
 		return []model.QueueStatus{}
 	}
@@ -203,7 +200,7 @@ func (mq *MessageQueueService) RecordGroupMessage(ctx context.Context, message m
 		ErrorMsg:   errMsg,
 		SentAt:     time.Now(),
 	}
-	if err := mq.db.Create(record).Error; err != nil {
+	if err := mq.repo.CreateGroupMessage(ctx, record); err != nil {
 		logger.Errorf("写入群发记录失败: %v", err)
 	}
 }

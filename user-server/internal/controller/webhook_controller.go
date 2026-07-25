@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"marketing/internal/middleware"
+	i18nservice "marketing/internal/service/i18n"
 	"marketing/internal/service"
 )
 
@@ -15,9 +17,10 @@ import (
 // 对应 P0-14 多渠道 Webhook
 // 提供 9 个渠道的回调入口
 type WebhookController struct {
-	svc        *service.WebhookService
-	waCloudSvc *service.WhatsAppCloudService
-	dtAppSvc   *service.DingTalkAppService
+	svc          *service.WebhookService
+	waCloudSvc   *service.WhatsAppCloudService
+	dtAppSvc     *service.DingTalkAppService
+	langResolver *i18nservice.LangConfigResolver
 }
 
 // NewWebhookController 创建 Webhook 控制器
@@ -35,6 +38,12 @@ func (c *WebhookController) SetWhatsAppCloudService(svc *service.WhatsAppCloudSe
 // SetDingTalkAppService 注入钉钉应用账号服务（用于回调验签 + 入站收消息）
 func (c *WebhookController) SetDingTalkAppService(svc *service.DingTalkAppService) {
 	c.dtAppSvc = svc
+}
+
+// SetLangResolver 注入多语言解析器（v1.2 出海方案）。
+// 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
+func (c *WebhookController) SetLangResolver(r *i18nservice.LangConfigResolver) {
+	c.langResolver = r
 }
 
 // Stop 关闭后台 worker（用于测试或优雅退出）
@@ -82,6 +91,12 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 		return
 	}
 
+	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。
+	// Webhook 入站的 channel 是平台类型（wecom/whatsapp/...），不是 ChatChannel.ChannelID，
+	// 故传空 channel_id；resolver 走 agent_id 兜底（此处亦无）→ 最终默认 zh。
+	// 真正按渠道语言的细粒度解析由 service 层在加载渠道账号后完成。
+	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
+
 	req := &service.ReceiveRequest{
 		Channel:   channel,
 		AccountID: accountID,
@@ -91,7 +106,7 @@ func (c *WebhookController) Receive(ctx *gin.Context) {
 		Query:     extractQuery(ctx),
 	}
 
-	result, _ := c.svc.Receive(ctx.Request.Context(), req)
+	result, _ := c.svc.Receive(reqCtx, req)
 	status := http.StatusOK
 	if !result.Accepted {
 		status = http.StatusBadRequest
@@ -122,6 +137,9 @@ func (c *WebhookController) ReceiveWithoutAccount(ctx *gin.Context) {
 	// 从 body 解析 account_id（如果提供）
 	accountID := extractAccountID(body)
 
+	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。参见 Receive 注释。
+	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
+
 	req := &service.ReceiveRequest{
 		Channel:   channel,
 		AccountID: accountID,
@@ -131,7 +149,7 @@ func (c *WebhookController) ReceiveWithoutAccount(ctx *gin.Context) {
 		Query:     extractQuery(ctx),
 	}
 
-	result, _ := c.svc.Receive(ctx.Request.Context(), req)
+	result, _ := c.svc.Receive(reqCtx, req)
 	status := http.StatusOK
 	if !result.Accepted {
 		status = http.StatusBadRequest
@@ -263,7 +281,9 @@ func (c *WebhookController) DingTalkReceive(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": "read body: " + err.Error()})
 		return
 	}
-	if err := c.dtAppSvc.ReceiveMessage(ctx.Request.Context(), uint(accountID), body); err != nil {
+	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。
+	reqCtx := middleware.InjectLangToCtx(ctx.Request.Context(), c.langResolver, "", 0)
+	if err := c.dtAppSvc.ReceiveMessage(reqCtx, uint(accountID), body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"accepted": false, "reason": err.Error()})
 		return
 	}

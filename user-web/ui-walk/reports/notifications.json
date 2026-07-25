@@ -1,0 +1,120 @@
+{
+  "route": "/notifications",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:25:22.430Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/auth/notifications?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"ok\",\"data\":{\"list\":[{\"id\":4,\"user_id\":0,\"type\":\"success\",\"title\":\"知识库已就绪\",\"content\":\"RAG 知识库配置完成，智能体可基于本地文档回答客户问题。可在「知识中心」上传更多语料。\",\"link\":\"/knowledge/management\",\"is_read\":true,\"read_at\":\"2026-07-25T02:22:17.060697+08:00\",\"metadata\":\"\",\"created_at\":\"2026-07-22T08:41:37.883309+08:00\",\"updated_at\":\"2026-07-25T02:22:17.062062+08:00\"},{\"id\":3,\"user_id\":0,\"type\":\"warning\",\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "Type",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "Status",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "查看",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "查看",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "查看",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "查看",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:25:44.189Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 33
+}

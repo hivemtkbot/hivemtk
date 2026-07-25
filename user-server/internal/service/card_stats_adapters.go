@@ -7,6 +7,7 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -338,13 +339,16 @@ func (a *xianyuCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 // TikTok 没有独立的 stats service，统计能力挂在 TikTokCardService
 // （Stats / StatsOverall / RecordView）。此处通过聚合这些方法满足统一接口。
 type tiktokCardStatsAdapter struct {
-	inner TikTokCardService
-	db    *gorm.DB // 注入 db 用于补充 activity 写入（保持与其他平台一致的 RecordActivity 行为）
+	inner    TikTokCardService
+	activity repository.TikTokCardRepository // 用于补充 activity 写入（保持与其他平台一致的 RecordActivity 行为）
 }
 
 // NewPlatformTiktokCardStatsAdapter 创建 TikTok 统一接口适配器
+//
+// 注：保留 gormDB *gorm.DB 入参以维持向后兼容（router 装配不改动），
+// 内部在构造函数中实例化 repository，service struct 不直接持有 *gorm.DB。
 func NewPlatformTiktokCardStatsAdapter(inner TikTokCardService, gormDB *gorm.DB) PlatformCardStatsService {
-	return &tiktokCardStatsAdapter{inner: inner, db: gormDB}
+	return &tiktokCardStatsAdapter{inner: inner, activity: repository.NewTikTokCardRepository(gormDB)}
 }
 
 func (a *tiktokCardStatsAdapter) Platform() string { return PlatformCardStatsTiktok }
@@ -423,9 +427,9 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 	if err := a.inner.RecordView(ctx, cardID, ipAddress, userAgent); err != nil {
 		return err
 	}
-	// 补充 user 信息（仅当提供且 db 可用时；TikTokCardActivity 的 UserID 为 string 类型，
+	// 补充 user 信息（仅当提供且 repository 可用时；TikTokCardActivity 的 UserID 为 string 类型，
 	// 原模型无 Username 列，username 透传到 UserAgent 前缀以保留可观测性）。
-	if a.db != nil && (userID > 0 || username != "") {
+	if a.activity != nil && (userID > 0 || username != "") {
 		uidStr := fmt.Sprintf("%d", userID)
 		ua := userAgent
 		if username != "" {
@@ -439,7 +443,7 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 			UserAgent:    ua,
 			Platform:     PlatformCardStatsTiktok,
 		}
-		_ = a.db.WithContext(ctx).Create(activity).Error
+		_ = a.activity.CreateActivity(ctx, activity)
 	}
 	return nil
 }

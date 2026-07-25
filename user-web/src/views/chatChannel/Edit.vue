@@ -54,6 +54,17 @@
         <el-form-item :label="$t('AI 置信度阈值')">
           <el-input-number v-model="form.confidence_threshold" :min="0" :max="1" :step="0.05" :precision="2" />
         </el-form-item>
+        <el-form-item :label="$t('目标语言')" prop="target_language">
+          <el-select v-model="form.target_language" :placeholder="$t('请选择目标语言')" clearable style="width: 100%">
+            <el-option
+              v-for="lang in targetLanguageOptions"
+              :key="lang.value"
+              :label="lang.label"
+              :value="lang.value"
+            />
+          </el-select>
+          <div class="form-tip">渠道对外输出语言，覆盖智能体配置。空表示跟随智能体配置。</div>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="onSubmit">{{ $t('保存') }}</el-button>
           <el-button @click="goBack">{{ $t('取消') }}</el-button>
@@ -70,6 +81,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getChannel, updateChannel } from '@/api/chatChannel'
+import { TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,6 +89,7 @@ const formRef = ref()
 const loading = ref(false)
 const saving = ref(false)
 const originsText = ref('')
+const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
 const form = ref({
   channel_id: '',
@@ -88,7 +101,8 @@ const form = ref({
   widget_position: 'bottom-right',
   widget_title: '在线客服',
   auto_assign: true,
-  confidence_threshold: 0.70
+  confidence_threshold: 0.70,
+  target_language: ''
 })
 
 const rules = {
@@ -100,6 +114,8 @@ const loadDetail = async () => {
   try {
     const res = await getChannel(route.params.id)
     Object.assign(form.value, res)
+    // 目标语言允许空串（跟随智能体配置），归一化 null/undefined 为 ''
+    form.value.target_language = res?.target_language || ''
     originsText.value = (res.allowed_origins || '').split(',').filter(Boolean).join('\n')
   } catch (err) {
     ElMessage.error('加载失败：' + (err?.message || err))
@@ -121,7 +137,8 @@ const onSubmit = async () => {
       widget_position: form.value.widget_position,
       widget_title: form.value.widget_title,
       auto_assign: form.value.auto_assign,
-      confidence_threshold: form.value.confidence_threshold
+      confidence_threshold: form.value.confidence_threshold,
+      target_language: form.value.target_language || ''
     }
     await updateChannel(form.value.channel_id, payload)
     ElMessage.success(i18n.global.t('已保存'))

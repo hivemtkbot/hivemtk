@@ -213,10 +213,13 @@ func (h *HumanEscalationManager) ReleaseHumanLock(ctx context.Context, sessionID
 }
 
 // GetStats 获取统计
-func (h *HumanEscalationManager) GetStats(ctx context.Context) EscalationStats {
+//
+// 返回指针避免 sync.Map 被值拷贝（go vet: copies lock value）
+// 调用方在 RLock 期间读取快照，读取完成后应尽快释放（不要再持有指针跨锁）
+func (h *HumanEscalationManager) GetStats(ctx context.Context) *EscalationStats {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return h.stats
+	return &h.stats
 }
 
 // ============================================================================

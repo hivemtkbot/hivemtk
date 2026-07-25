@@ -35,15 +35,22 @@ type FeedbackLoopCron struct {
 	components *FeedbackLoopComponents
 	stopCh     chan struct{}
 	wg         sync.WaitGroup
-	db         *gorm.DB
+	sopRepo    *repository.SopAgentRepository
+	abTestRepo *repository.FeedbackLoopRepository
 }
 
 // NewFeedbackLoopCron 创建定时任务
+//
+// db 参数保留以维持调用方签名兼容；当 db 非空时构造对应 repository，
+// 为空时 repos 保持 nil（cron 各任务会跳过 nil repo 对应的 DB 操作）。
 func NewFeedbackLoopCron(db *gorm.DB, components *FeedbackLoopComponents) *FeedbackLoopCron {
 	c := &FeedbackLoopCron{
 		components: components,
 		stopCh:     make(chan struct{}),
-		db:         db,
+	}
+	if db != nil {
+		c.sopRepo = repository.NewSopAgentRepository(db)
+		c.abTestRepo = repository.NewFeedbackLoopRepositoryWithDB(db)
 	}
 	c.wg.Add(4)
 	go c.runChampionBaselineMonthly(context.Background(), db)
@@ -89,7 +96,6 @@ func (c *FeedbackLoopCron) runChampionBaselineMonthly(ctx context.Context, _ *go
 
 		// Step 2: 基于最近 30 天 humanize_scores 聚合 5 维基线指标，写入 champion_baselines 表
 		// 注：使用"通用 persona/industry/intent"占位三元组，version 自动递增
-		// db 通过 FeedbackLoopCron 构造时注入（c.db）
 		periodEnd := time.Now()
 		periodStart := periodEnd.AddDate(0, -1, 0)
 		rowsAffected := c.refreshChampionBaselineRows(ctx, "default", "default", "all", periodStart, periodEnd)
@@ -113,7 +119,8 @@ func (c *FeedbackLoopCron) refreshChampionBaselineRows(
 	persona, industry, intent string,
 	periodStart, periodEnd time.Time,
 ) int64 {
-	if c.db == nil {
+	// sopRepo 在构造函数中仅当 db != nil 时创建，此处复用作为"DB 是否就绪"的判定
+	if c.sopRepo == nil {
 		return 0
 	}
 	// 1) 聚合查询：5 维均值 + 标准差 + 计数（通过 Repository 层）
@@ -214,14 +221,12 @@ func (c *FeedbackLoopCron) runPromptIteratorDaily(ctx context.Context) {
 			continue
 		}
 		// 1) 查找有 use_bandit=true 的 SOP
-		var sops []model.SOPAgent
-		if c.db == nil {
+		if c.sopRepo == nil {
 			cancel()
 			continue
 		}
-		if err := c.db.WithContext(ctx).
-			Where("use_bandit = ?", true).
-			Find(&sops).Error; err != nil {
+		sops, err := c.sopRepo.ListByUseBandit(ctx, true)
+		if err != nil {
 			logger.Ctx(ctx).Error().Err(err).Msg("[cron] prompt iterator: load sops failed")
 			cancel()
 			continue
@@ -340,10 +345,10 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 			continue
 		}
 		var experiments []model.PromptABTest
-		if c.db != nil {
-			if err := c.db.WithContext(ctx).
-				Where("status = ?", model.PromptABTestStatusRunning).
-				Find(&experiments).Error; err != nil {
+		if c.abTestRepo != nil {
+			var err error
+			experiments, err = c.abTestRepo.ListRunningABTests(ctx)
+			if err != nil {
 				logger.Ctx(ctx).Error().Err(err).Msg("[cron] bandit convergence: load experiments failed")
 				cancel()
 				continue
@@ -365,15 +370,12 @@ func (c *FeedbackLoopCron) runBanditConvergence(ctx context.Context) {
 			}
 			promoted++
 			// 标记实验为 completed
-			if c.db != nil {
-				_ = c.db.WithContext(ctx).
-					Model(&model.PromptABTest{}).
-					Where("experiment_id = ?", exp.ExperimentID).
-					Updates(map[string]any{
-						"status":       model.PromptABTestStatusCompleted,
-						"winner_arm":   winnerKey,
-						"completed_at": time.Now(),
-					}).Error
+			if c.abTestRepo != nil {
+				_ = c.abTestRepo.UpdateABTestByExperimentID(ctx, exp.ExperimentID, map[string]any{
+					"status":       model.PromptABTestStatusCompleted,
+					"winner_arm":   winnerKey,
+					"completed_at": time.Now(),
+				})
 			}
 		}
 		logger.Ctx(ctx).Info().Int("total", len(experiments)).Int("converged", converged).Int("promoted", promoted).Msg("[cron] bandit convergence check done")

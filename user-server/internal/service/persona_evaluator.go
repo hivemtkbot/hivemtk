@@ -14,6 +14,7 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // ============================================================================
@@ -624,18 +625,26 @@ func (c *LogLowQualitySampleCollector) Collect(ctx context.Context, input *Perso
 }
 
 // DBLowQualitySampleCollector 数据库收集器
+//
+// 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DBLowQualitySampleCollector struct {
-	db *gorm.DB
+	repo repository.PersonaLowQualitySampleRepository
 }
 
 // NewDBLowQualitySampleCollector 构造 DB 收集器
+// db 参数保留以兼容调用方签名（含测试），内部转换为 PersonaLowQualitySampleRepository。
+// db 为 nil 时 repo 也为 nil，Collect 内通过 c.repo == nil 防御。
 func NewDBLowQualitySampleCollector(db *gorm.DB) *DBLowQualitySampleCollector {
-	return &DBLowQualitySampleCollector{db: db}
+	var repo repository.PersonaLowQualitySampleRepository
+	if db != nil {
+		repo = repository.NewPersonaLowQualitySampleRepositoryWithDB(db)
+	}
+	return &DBLowQualitySampleCollector{repo: repo}
 }
 
 // Collect 收集低质样本到数据库
 func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *PersonaEvaluationInput, result *PersonaEvaluationResult) error {
-	if c.db == nil {
+	if c.repo == nil {
 		return nil
 	}
 	if input == nil || result == nil {
@@ -672,10 +681,7 @@ func (c *DBLowQualitySampleCollector) Collect(ctx context.Context, input *Person
 		AttemptCount:     result.AttemptCount,
 		CandidateReplies: string(repliesJSON),
 	}
-	if err := c.db.WithContext(ctx).Create(sample).Error; err != nil {
-		return fmt.Errorf("save low quality sample: %w", err)
-	}
-	return nil
+	return c.repo.Create(ctx, sample)
 }
 
 // =================== 评估服务（含重生成循环） ===================

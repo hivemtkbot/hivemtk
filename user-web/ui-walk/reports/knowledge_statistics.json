@@ -1,0 +1,103 @@
+{
+  "route": "/knowledge/statistics",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:35:10.407Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "DIV",
+      "text": "Select a product (optional)",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "近 30 天",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/knowledge/stats/openapi?product_id=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total_sources\":0,\"enabled_sources\":0,\"failed_sources\":0,\"total_synced\":0,\"source_list\":[]}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/knowledge/stats/imports?product_id=&days=30",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total_imports\":0,\"success_imports\":0,\"failed_imports\":0,\"success_rate\":0,\"avg_duration_ms\":0,\"daily_trend\":[{\"day\":\"2026-06-26\",\"count\":0,\"failed\":0},{\"day\":\"2026-06-27\",\"count\":0,\"failed\":0},{\"day\":\"2026-06-28\",\"count\":0,\"failed\":0},{\"day\":\"2026-06-29\",\"count\":0,\"failed\":0},{\"day\":\"2026-06-30\",\"count\":0,\"failed\":0},{\"day\":\"2026-07-01\",\"c"
+        },
+        {
+          "method": "GET",
+          "url": "/api/rag-config/products",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":200,\"data\":{\"items\":[{\"id\":\"hivemtk-platform-cs\",\"name\":\"HiveMTK 平台客服知识库\",\"description\":\"用于官网网页客服自动回答商户关于 HiveMTK 项目的开源信息、部署、运维、架构、资产市场、AI 智能体等咨询。涵盖 8 大主题文档与可检索知识分段。\",\"category\":\"platform_cs\",\"vector_table\":\"rag_platform_cs\",\"embedding_model\":\"bge-m3\",\"embedding_dim\":1024,\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"llm_provider_config\":{\"api_key\":\"\",\"base_url\":\"\",\"api_type\":\"\",\"model\":\"\",\"max_ret"
+        },
+        {
+          "method": "GET",
+          "url": "/api/knowledge/stats/overview?product_id=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"total_documents\":8,\"total_chunks\":47,\"total_tokens\":0,\"total_searches\":21,\"today_imports\":0,\"today_searches\":21,\"hit_rate\":0,\"avg_search_latency_ms\":0,\"embed_status_breakdown\":{\"failed\":0,\"indexed\":8,\"pending\":0,\"processing\":0},\"source_type_breakdown\":{\"openapi\":0,\"text\":8,\"upload\":0,\"url\":0},\"index_health\":{\"indexed_docs\":8,\"processing_d"
+        },
+        {
+          "method": "GET",
+          "url": "/api/knowledge/stats/documents?product_id=&days=30",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"overview\":{\"total_documents\":8,\"total_chunks\":47,\"total_tokens\":0,\"total_searches\":21,\"today_imports\":0,\"today_searches\":21,\"hit_rate\":0,\"avg_search_latency_ms\":0,\"embed_status_breakdown\":{\"failed\":0,\"indexed\":8,\"pending\":0,\"processing\":0},\"source_type_breakdown\":{\"openapi\":0,\"text\":8,\"upload\":0,\"url\":0},\"index_health\":{\"indexed_docs\":8,\""
+        },
+        {
+          "method": "GET",
+          "url": "/api/knowledge/stats/searches?product_id=&days=30",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"overview\":{\"total_documents\":8,\"total_chunks\":47,\"total_tokens\":0,\"total_searches\":21,\"today_imports\":0,\"today_searches\":21,\"hit_rate\":0,\"avg_search_latency_ms\":0,\"embed_status_breakdown\":{\"failed\":0,\"indexed\":8,\"pending\":0,\"processing\":0},\"source_type_breakdown\":{\"openapi\":0,\"text\":8,\"upload\":0,\"url\":0},\"index_health\":{\"indexed_docs\":8,\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:35:21.816Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 48
+}

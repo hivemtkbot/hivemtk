@@ -47,18 +47,30 @@ type IntentConfig struct {
 
 // IntentRecognizer 销售意图识别器
 type IntentRecognizer struct {
-	db         *gorm.DB
-	dispatcher *llm.Dispatcher
-	cache      *redis.Client
-	sopService *SOPService
+	recordRepo        *repository.IntentRecordRepository
+	logRepo           *repository.IntentLogRepository
+	sopExecutionRepo  *repository.SopExecutionRepository
+	dispatcher        *llm.Dispatcher
+	cache             *redis.Client
+	sopService        *SOPService
 }
 
 // NewIntentRecognizer 创建意图识别器
 func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.Client) *IntentRecognizer {
+	var recordRepo *repository.IntentRecordRepository
+	var logRepo *repository.IntentLogRepository
+	if db != nil {
+		recordRepo = repository.NewIntentRecordRepository()
+		recordRepo.SetDB(context.Background(), db)
+		logRepo = repository.NewIntentLogRepository()
+		logRepo.SetDB(context.Background(), db)
+	}
 	return &IntentRecognizer{
-		db:         db,
-		dispatcher: dispatcher,
-		cache:      cache,
+		recordRepo:       recordRepo,
+		logRepo:          logRepo,
+		sopExecutionRepo: repository.NewSopExecutionRepository(db),
+		dispatcher:       dispatcher,
+		cache:            cache,
 	}
 }
 
@@ -265,11 +277,9 @@ func (s *IntentRecognizer) triggerSOPByIntent(ctx context.Context, customerID, s
 			continue
 		}
 		// 去重：检查是否已有 running 的执行
-		var count int64
-		if s.db != nil {
-			if err := s.db.WithContext(ctx).Model(&model.SOPExecution{}).
-				Where("sop_id = ? AND customer_id = ? AND status = ?", agent.ID, customerID, SOPStatusRunning).
-				Count(&count).Error; err != nil {
+		if s.sopExecutionRepo != nil {
+			count, err := s.sopExecutionRepo.CountBySOPIDAndCustomerIDAndStatus(ctx, agent.ID, customerID, SOPStatusRunning)
+			if err != nil {
 				continue
 			}
 			if count > 0 {
@@ -443,7 +453,7 @@ func inferSentiment(intentType string) string {
 
 // saveRecord 保存识别记录
 func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID, text string, result *dto.RecognizeResult, llmModel string, costTokens, latencyMs int) {
-	if s.db == nil {
+	if s.recordRepo == nil {
 		return
 	}
 	entitiesJSON, _ := json.Marshal(result.Entities)
@@ -469,7 +479,7 @@ func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID
 				logger.Errorf("intent_recognition: async persist recovered from panic: %v", r)
 			}
 		}()
-		if err := s.db.Create(rec).Error; err != nil {
+		if err := s.recordRepo.Create(context.Background(), rec); err != nil {
 			logger.Errorf("intent_recognition: async persist intent record failed: %v", err)
 		}
 	}()
@@ -499,13 +509,11 @@ func extractJSONFromStr(s string) string {
 
 // GetIntentStats 获取意图统计
 func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int) (map[string]int, error) {
-	if s.db == nil {
+	if s.recordRepo == nil {
 		return map[string]int{}, nil
 	}
 	since := time.Now().AddDate(0, 0, -days)
-	var records []model.IntentRecord
-	err := s.db.Where("created_at > ?", since).
-		Find(&records).Error
+	records, err := s.recordRepo.ListSince(ctx, since)
 	if err != nil {
 		return nil, err
 	}
@@ -525,19 +533,12 @@ func (s *IntentRecognizer) GetIntentStats(ctx context.Context, days int) (map[st
 func (s *IntentRecognizer) GetMethodLevelStats(ctx context.Context, days int) (map[string]int, map[string]int) {
 	byMethod := map[string]int{}
 	byLevel := map[string]int{}
-	if s.db == nil {
+	if s.recordRepo == nil {
 		return byMethod, byLevel
 	}
 	since := time.Now().AddDate(0, 0, -days)
-	type row struct {
-		Method          string
-		ConfidenceLevel string
-	}
-	var rows []row
-	if err := s.db.Model(&model.IntentRecord{}).
-		Select("method, confidence_level").
-		Where("created_at > ?", since).
-		Scan(&rows).Error; err != nil {
+	rows, err := s.recordRepo.GetMethodLevelStatsSince(ctx, since)
+	if err != nil {
 		return byMethod, byLevel
 	}
 	for _, r := range rows {
@@ -549,13 +550,10 @@ func (s *IntentRecognizer) GetMethodLevelStats(ctx context.Context, days int) (m
 
 // GetRecentIntents 客户近期意图历史
 func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID string, limit int) ([]model.IntentRecord, error) {
-	if s.db == nil {
+	if s.recordRepo == nil {
 		return nil, nil
 	}
-	var records []model.IntentRecord
-	err := s.db.Where("customer_id = ?", customerID).
-		Order("created_at DESC").Limit(limit).Find(&records).Error
-	return records, err
+	return s.recordRepo.ListByCustomerID(ctx, customerID, limit)
 }
 
 // GetRecentIntentsPaged 分页查询最近意图历史,支持意图类型筛选
@@ -567,7 +565,7 @@ func (s *IntentRecognizer) GetRecentIntents(ctx context.Context, customerID stri
 //
 // 返回 (records, total, error)
 func (s *IntentRecognizer) GetRecentIntentsPaged(ctx context.Context, customerID, intentType string, page, pageSize int) ([]model.IntentRecord, int64, error) {
-	if s.db == nil {
+	if s.recordRepo == nil {
 		return nil, 0, nil
 	}
 	if page < 1 {
@@ -579,28 +577,7 @@ func (s *IntentRecognizer) GetRecentIntentsPaged(ctx context.Context, customerID
 	if pageSize > 200 {
 		pageSize = 200
 	}
-
-	q := s.db.WithContext(ctx).Model(&model.IntentRecord{})
-	if customerID != "" {
-		q = q.Where("customer_id = ?", customerID)
-	}
-	if intentType != "" {
-		q = q.Where("intent_type = ?", intentType)
-	}
-
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var records []model.IntentRecord
-	if err := q.Order("created_at DESC").
-		Offset((page - 1) * pageSize).
-		Limit(pageSize).
-		Find(&records).Error; err != nil {
-		return nil, 0, err
-	}
-	return records, total, nil
+	return s.recordRepo.ListPaged(ctx, customerID, intentType, page, pageSize)
 }
 
 // 全局实例管理

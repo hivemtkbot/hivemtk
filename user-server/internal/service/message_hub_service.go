@@ -16,6 +16,7 @@ import (
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -104,7 +105,7 @@ type PushMessageRequest struct {
 
 // MessageHubService 消息中台服务
 type MessageHubService struct {
-	db          *gorm.DB
+	repo        *repository.MessageHubRepository
 	cache       cache.Cache
 	mu          sync.RWMutex
 	streams     map[string]*hubStream // platform:account -> stream
@@ -136,14 +137,22 @@ func NewMessageHubService() *MessageHubService {
 }
 
 // NewMessageHubServiceWithDB 创建带 DB 的消息中台服务(显式注入 db,兼容旧调用)
+//
+// 五层架构 §三.5：构造函数保留 db *gorm.DB 参数（调用方不变），
+// 内部创建 repository 实例，service 不再持有 db。
+// db 为 nil 时（如部分纯内存场景）repo 字段为 nil，方法调用做无操作短路。
 func NewMessageHubServiceWithDB(db *gorm.DB, c cache.Cache) *MessageHubService {
 	if c == nil {
 		// 默认使用全局缓存单例：REDIS_HOST 配置时跨实例共享（会话幂等 exactly-once），
 		// 未配置时回退进程内内存缓存（向后兼容单实例）。
 		c = cache.GetGlobalCache()
 	}
+	var repo *repository.MessageHubRepository
+	if db != nil {
+		repo = repository.NewMessageHubRepositoryWithDB(db)
+	}
 	s := &MessageHubService{
-		db:         db,
+		repo:       repo,
 		cache:      c,
 		streams:    make(map[string]*hubStream),
 		streamSize: MessageHubDefaultQueueSize,
@@ -251,16 +260,14 @@ func (s *MessageHubService) IdempotencyKey(ctx context.Context, platform, accoun
 
 // CheckIdempotent 检查是否幂等（已存在返回 true, 已存在记录 id）
 func (s *MessageHubService) CheckIdempotent(ctx context.Context, platform, accountID, msgID string) (bool, uint, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return false, 0, nil
 	}
-	var existing model.MessageHub
-	err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
-		First(&existing).Error
-	if err == nil {
+	existing, err := s.repo.GetByPlatformAccountMsgID(ctx, platform, accountID, msgID)
+	if err == nil && existing != nil {
 		return true, existing.ID, nil
 	}
-	if err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, 0, err
 	}
 	// Redis SETNX 加速检查（可选）
@@ -285,9 +292,9 @@ func (s *MessageHubService) Push(ctx context.Context, req *PushMessageRequest) (
 	if exist {
 		return nil, ErrMessageHubIdempotent
 	}
-	// 持久化
-	if s.db != nil {
-		if err := s.db.WithContext(ctx).Create(msg).Error; err != nil {
+	// 持久化（DB 操作下沉至 repository.Create）
+	if s.repo != nil {
+		if err := s.repo.Create(ctx, msg); err != nil {
 			// 唯一索引冲突也视为幂等
 			if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "UNIQUE") {
 				return nil, ErrMessageHubIdempotent
@@ -336,100 +343,51 @@ type ListQuery struct {
 
 // List 列表查询
 func (s *MessageHubService) List(ctx context.Context, q ListQuery) ([]*model.MessageHub, int64, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, 0, nil
 	}
 	if false {
 		return nil, 0, ErrMessageHubEmptyMerchant
 	}
-	if q.Page <= 0 {
-		q.Page = 1
-	}
-	if q.PageSize <= 0 || q.PageSize > 200 {
-		q.PageSize = 20
-	}
-
-	tx := s.db.WithContext(ctx).Model(&model.MessageHub{})
-	if q.Platform != "" {
-		tx = tx.Where("platform = ?", q.Platform)
-	}
-	if q.AccountID != "" {
-		tx = tx.Where("account_id = ?", q.AccountID)
-	}
-	if q.ConversationID != "" {
-		tx = tx.Where("conversation_id = ?", q.ConversationID)
-	}
-	if q.SenderID != "" {
-		tx = tx.Where("sender_id = ?", q.SenderID)
-	}
-	if q.Direction != "" {
-		tx = tx.Where("direction = ?", q.Direction)
-	}
-	if q.MsgType != "" {
-		tx = tx.Where("msg_type = ?", q.MsgType)
-	}
-	if q.Keyword != "" {
-		// 用 LIKE 关键字搜索（PG 下统一使用 LIKE，PG 原生 ILIKE 在多字节字符场景下需配合 lower()）
-		tx = tx.Where("content LIKE ?", "%"+q.Keyword+"%")
-	}
-	if q.IsRead != nil {
-		tx = tx.Where("is_read = ?", *q.IsRead)
-	}
-	if q.IsGroup != nil {
-		tx = tx.Where("is_group = ?", *q.IsGroup)
-	}
-	if q.StartTime != nil {
-		tx = tx.Where("sent_at >= ?", *q.StartTime)
-	}
-	if q.EndTime != nil {
-		tx = tx.Where("sent_at <= ?", *q.EndTime)
-	}
-	var total int64
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	orderBy := "sent_at DESC"
-	if q.OrderBy != "" {
-		// 简单白名单
-		switch q.OrderBy {
-		case "sent_at ASC", "sent_at DESC", "created_at ASC", "created_at DESC":
-			orderBy = q.OrderBy
-		}
-	}
-	var rows []*model.MessageHub
-	if err := tx.Order(orderBy).Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&rows).Error; err != nil {
-		return nil, 0, err
-	}
-	return rows, total, nil
+	return s.repo.ListByHubQuery(ctx, repository.HubListQuery{
+		Platform:       q.Platform,
+		AccountID:      q.AccountID,
+		ConversationID: q.ConversationID,
+		SenderID:       q.SenderID,
+		Direction:      q.Direction,
+		MsgType:        q.MsgType,
+		Keyword:        q.Keyword,
+		IsRead:         q.IsRead,
+		IsGroup:        q.IsGroup,
+		StartTime:      q.StartTime,
+		EndTime:        q.EndTime,
+		Page:           q.Page,
+		PageSize:       q.PageSize,
+		OrderBy:        q.OrderBy,
+	})
 }
 
 // GetByID 详情
 func (s *MessageHubService) GetByID(ctx context.Context, id uint) (*model.MessageHub, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, nil
 	}
-	var msg model.MessageHub
-	if err := s.db.WithContext(ctx).First(&msg, id).Error; err != nil {
+	msg, err := s.repo.GetByID(ctx, id)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &msg, nil
+	return msg, nil
 }
 
 // MarkRead 标记已读
 func (s *MessageHubService) MarkRead(ctx context.Context, ids []uint) error {
-	if s.db == nil || len(ids) == 0 {
+	if s.repo == nil || len(ids) == 0 {
 		return nil
 	}
-	now := time.Now()
-	// 使用 GORM Updates（map 形式）避免 bool 字段零值问题，无需 Raw SQL
-	return s.db.WithContext(ctx).Model(&model.MessageHub{}).Where("id IN ?", ids).
-		Updates(map[string]any{
-			"is_read": true,
-			"read_at": now,
-		}).Error
+	return s.repo.MarkReadByIDs(ctx, ids)
 }
 
 // Stats 统计
@@ -447,100 +405,27 @@ type HubStats struct {
 
 // GetStats 统计
 func (s *MessageHubService) GetStats(ctx context.Context, start, end *time.Time) (*HubStats, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return &HubStats{ByPlatform: map[string]int64{}, ByDirection: map[string]int64{}, ByMsgType: map[string]int64{}, ByAccount: map[string]int64{}}, nil
 	}
-	_ = ctx
-	// 每次查询都基于 s.db 重新构造 base（避免 GORM Count/Find 修改 base 的 statement）
-	var total, inbound, outbound, unread int64
-
-	countQuery := s.db.WithContext(ctx).Model(&model.MessageHub{}).Where("1 = 1")
-	if start != nil {
-		countQuery = countQuery.Where("sent_at >= ?", *start)
-	}
-	if end != nil {
-		countQuery = countQuery.Where("sent_at <= ?", *end)
-	}
-	if err := countQuery.Count(&total).Error; err != nil {
+	res, err := s.repo.GetHubStats(ctx, start, end)
+	if err != nil {
 		return nil, err
 	}
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("direction = ?", "inbound").
-		Count(&inbound)
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("direction = ?", "outbound").
-		Count(&outbound)
-	// unread: is_read = false 或 NULL（兼容 GORM bool 默认值）
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("(is_read = ? OR is_read IS NULL)", false).
-		Count(&unread)
-	stats := &HubStats{
-		Total: total, Inbound: inbound, Outbound: outbound, Unread: unread,
-		ByPlatform: map[string]int64{}, ByDirection: map[string]int64{},
-		ByMsgType: map[string]int64{}, ByAccount: map[string]int64{},
+	if res == nil {
+		return &HubStats{ByPlatform: map[string]int64{}, ByDirection: map[string]int64{}, ByMsgType: map[string]int64{}, ByAccount: map[string]int64{}}, nil
 	}
-	// 平台分布
-	type pcount struct {
-		Platform string
-		C        int64
-	}
-	var pCounts []pcount
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("platform AS platform, COUNT(*) AS c").
-		Group("platform").Scan(&pCounts)
-	for _, p := range pCounts {
-		stats.ByPlatform[p.Platform] = p.C
-		stats.ByDirection["inbound_or_outbound"] += p.C
-	}
-	// 方向分布
-	type dcount struct {
-		Direction string
-		C         int64
-	}
-	var dCounts []dcount
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("direction AS direction, COUNT(*) AS c").
-		Group("direction").Scan(&dCounts)
-	for _, d := range dCounts {
-		stats.ByDirection[d.Direction] = d.C
-	}
-	// 消息类型分布
-	type tcount struct {
-		MsgType string
-		C       int64
-	}
-	var tCounts []tcount
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("msg_type AS msg_type, COUNT(*) AS c").
-		Group("msg_type").Scan(&tCounts)
-	for _, t := range tCounts {
-		stats.ByMsgType[t.MsgType] = t.C
-	}
-	// 账号分布 Top 50
-	type acount struct {
-		AccountID string
-		C         int64
-	}
-	var aCounts []acount
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("1 = 1").
-		Select("account_id AS account_id, COUNT(*) AS c").
-		Group("account_id").Order("c DESC").Limit(50).Scan(&aCounts)
-	for _, a := range aCounts {
-		stats.ByAccount[a.AccountID] = a.C
-	}
-	// 24h
-	threshold24h := time.Now().Add(-24 * time.Hour)
-	var recent24h int64
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("sent_at >= ?", threshold24h).
-		Count(&recent24h)
-	stats.Recent24h = recent24h
-
-	return stats, nil
+	return &HubStats{
+		Total:       res.Total,
+		Inbound:     res.Inbound,
+		Outbound:    res.Outbound,
+		Unread:      res.Unread,
+		ByPlatform:  res.ByPlatform,
+		ByDirection: res.ByDirection,
+		ByMsgType:   res.ByMsgType,
+		ByAccount:   res.ByAccount,
+		Recent24h:   res.Recent24h,
+	}, nil
 }
 
 // partitionKey 分区键
@@ -588,14 +473,12 @@ func (s *MessageHubService) Consume(ctx context.Context, platform, accountID str
 		}
 		if wait <= 0 || time.Now().After(deadline) {
 			// 没有 stream，尝试从 DB 取最后一条
-			if s.db != nil {
-				var msg model.MessageHub
-				err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ?", platform, accountID).
-					Order("sent_at DESC").First(&msg).Error
-				if err == nil {
-					return &msg, nil
+			if s.repo != nil {
+				msg, err := s.repo.GetLastByPlatformAccount(ctx, platform, accountID)
+				if err == nil && msg != nil {
+					return msg, nil
 				}
-				if err != gorm.ErrRecordNotFound {
+				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 					return nil, err
 				}
 			}

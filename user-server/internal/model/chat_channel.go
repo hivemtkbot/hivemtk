@@ -34,6 +34,7 @@ type ChatChannel struct {
 	SessionCount        int64             `gorm:"default:0" json:"session_count"`                                 // 累计会话数
 	AutoAssign          bool              `gorm:"default:true" json:"auto_assign"`                                // 是否自动分配坐席
 	ConfidenceThreshold float64           `gorm:"type:decimal(4,2);default:0.70" json:"confidence_threshold"`     // AI 自动回复阈值
+	TargetLanguage      string            `gorm:"type:varchar(8);default:''" json:"target_language"`               // 渠道目标输出语言（空则退化到智能体配置）
 	CreatedBy           uint              `json:"created_by"`                                                     // 创建人 user_id
 	CreatedAt           time.Time         `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt           time.Time         `gorm:"autoUpdateTime" json:"updated_at"`

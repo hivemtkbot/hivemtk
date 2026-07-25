@@ -1,0 +1,17 @@
+{
+  "route": "/email/guide",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "Go to Operation",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

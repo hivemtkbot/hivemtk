@@ -1,0 +1,201 @@
+{
+  "route": "/clue/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:45:49.321Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/clues/list?page=1&limit=10",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取线索列表成功\",\"data\":{\"total\":1,\"list\":[{\"id\":\"fdf3e602-f49a-48e8-85dc-a319612d4310\",\"source_id\":\"777006\",\"account\":\"@demouser6\",\"is_verify\":0,\"type\":4,\"name\":\"Demo6\",\"city\":\"\",\"address\":\"\"}]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Import Leads",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "全部类型",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "搜索",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/clues/list?page=1&limit=10",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取线索列表成功\",\"data\":{\"total\":1,\"list\":[{\"id\":\"fdf3e602-f49a-48e8-85dc-a319612d4310\",\"source_id\":\"777006\",\"account\":\"@demouser6\",\"is_verify\":0,\"type\":4,\"name\":\"Demo6\",\"city\":\"\",\"address\":\"\"}]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "重置",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/clues/list?page=1&limit=10",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取线索列表成功\",\"data\":{\"total\":1,\"list\":[{\"id\":\"fdf3e602-f49a-48e8-85dc-a319612d4310\",\"source_id\":\"777006\",\"account\":\"@demouser6\",\"is_verify\":0,\"type\":4,\"name\":\"Demo6\",\"city\":\"\",\"address\":\"\"}]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "查看",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "编辑",
+      "cls": "el-button el-button--warning el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "删除",
+      "cls": "el-button el-button--danger el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 10,
+      "tag": "DIV",
+      "text": "10/page",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 11,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 12,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:46:25.227Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 52
+}

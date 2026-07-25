@@ -11,6 +11,7 @@ import (
 
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -64,7 +65,10 @@ const InboxDefaultStaffLoadLimit = 30
 
 // InboxService 统一收件箱服务
 type InboxService struct {
-	db             *gorm.DB
+	inboxRepo      *repository.InboxConversationRepository
+	assignmentRepo *repository.InboxAssignmentRepository
+	hubRepo        *repository.MessageHubRepository
+	sessionMsgRepo *repository.SessionMessageRepository
 	mu             sync.RWMutex
 	staffLoadCache map[string]int // staffUserID -> 当前承接数（缓存）
 }
@@ -75,9 +79,26 @@ func NewInboxService() *InboxService {
 }
 
 // NewInboxServiceWithDB 创建带 DB 的统一收件箱服务(显式注入 db,兼容旧调用)
+//
+// 五层架构 §三.5：构造函数保留 db *gorm.DB 参数（调用方不变），
+// 内部创建 repository 实例，service 不再持有 db。
+// db 为 nil 时（如单元测试）repo 字段保持 nil，方法调用做无操作短路。
 func NewInboxServiceWithDB(db *gorm.DB) *InboxService {
+	var inboxRepo *repository.InboxConversationRepository
+	var assignmentRepo *repository.InboxAssignmentRepository
+	var hubRepo *repository.MessageHubRepository
+	var sessionMsgRepo *repository.SessionMessageRepository
+	if db != nil {
+		inboxRepo = repository.NewInboxConversationRepositoryWithDB(db)
+		assignmentRepo = repository.NewInboxAssignmentRepositoryWithDB(db)
+		hubRepo = repository.NewMessageHubRepositoryWithDB(db)
+		sessionMsgRepo = repository.NewSessionMessageRepositoryWithDB(db)
+	}
 	return &InboxService{
-		db:             db,
+		inboxRepo:      inboxRepo,
+		assignmentRepo: assignmentRepo,
+		hubRepo:        hubRepo,
+		sessionMsgRepo: sessionMsgRepo,
 		staffLoadCache: make(map[string]int),
 	}
 }
@@ -145,7 +166,7 @@ func (s *InboxService) UpsertFromMessage(ctx context.Context, msg *model.Message
 
 // UpsertFromHubMessage 通用 upsert
 func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.MessageHub) (*model.InboxConversation, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil, nil
 	}
 	if msg == nil {
@@ -159,16 +180,16 @@ func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.Mess
 	if msg.Direction == "outbound" && msg.ReceiverID != "" {
 		cid = msg.ReceiverID
 	}
-	var conv model.InboxConversation
-	if err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND customer_id = ?", msg.Platform, msg.AccountID, cid).First(&conv).Error; err != nil {
+	conv, err := s.inboxRepo.FindByPlatformAccountCustomer(ctx, msg.Platform, msg.AccountID, cid)
+	if err != nil {
 		return nil, err
 	}
-	return &conv, nil
+	return conv, nil
 }
 
-// upsertInternal 内部 upsert
+// upsertInternal 内部 upsert（事务封装在 repository.UpsertFromMessage 中）
 func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub) error {
-	if s.db == nil || msg == nil {
+	if s.inboxRepo == nil || msg == nil {
 		return nil
 	}
 	if msg.Platform == "" || msg.AccountID == "" || msg.SenderID == "" {
@@ -185,214 +206,105 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 		return ErrInboxInvalidCustomer
 	}
 
-	// 事务里查找并更新
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		var conv model.InboxConversation
-		err := tx.Where("platform = ? AND account_id = ? AND customer_id = ?",
-			msg.Platform, msg.AccountID, customerID).
-			First(&conv).Error
+	now := time.Now()
+	preview := msg.Content
+	if len(preview) > 200 {
+		preview = preview[:200]
+	}
+	from := InboxFromCustomer
+	if msg.Direction == "outbound" {
+		if msg.IsAIReply {
+			from = InboxFromAI
+		} else {
+			from = InboxFromStaff
+		}
+	}
 
-		now := time.Now()
-		preview := msg.Content
-		if len(preview) > 200 {
-			preview = preview[:200]
-		}
-		from := InboxFromCustomer
-		if msg.Direction == "outbound" {
-			if msg.IsAIReply {
-				from = InboxFromAI
-			} else {
-				from = InboxFromStaff
-			}
-		}
-
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 新建
-			conv = model.InboxConversation{
-
-				Platform:           msg.Platform,
-				AccountID:          msg.AccountID,
-				CustomerID:         customerID,
-				CustomerName:       msg.SenderName,
-				ConversationID:     msg.ConversationID,
-				Status:             InboxStatusUnread,
-				UnreadCount:        0,
-				TotalCount:         1,
-				LastMessageID:      msg.ID,
-				LastMessagePreview: preview,
-				LastMessageAt:      &now,
-				LastMessageFrom:    from,
-			}
-			// 客户首条消息视为未读
-			if from == InboxFromCustomer {
-				conv.UnreadCount = 1
-			}
-			return tx.Create(&conv).Error
-		}
-		if err != nil {
-			return err
-		}
-
-		updates := map[string]any{
-			"last_message_id":      msg.ID,
-			"last_message_preview": preview,
-			"last_message_at":      now,
-			"last_message_from":    from,
-			"total_count":          conv.TotalCount + 1,
-			"customer_name":        firstNonEmpty(msg.SenderName, conv.CustomerName),
-			"conversation_id":      firstNonEmpty(msg.ConversationID, conv.ConversationID),
-		}
-		// 客户消息累加未读
-		if from == InboxFromCustomer {
-			updates["unread_count"] = conv.UnreadCount + 1
-			// 如果会话处于 closed 状态，重新打开为 unread
-			if conv.Status == InboxStatusClosed {
-				updates["status"] = InboxStatusUnread
-				updates["closed_at"] = nil
-			} else if conv.Status == InboxStatusAssigned && conv.AssignedTo == "" {
-				updates["status"] = InboxStatusUnread
-			}
-		}
-		return tx.Model(&model.InboxConversation{}).
-			Where("id = ?", conv.ID).
-			Updates(updates).Error
+	return s.inboxRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
+		Platform:           msg.Platform,
+		AccountID:          msg.AccountID,
+		CustomerID:         customerID,
+		CustomerName:       msg.SenderName,
+		ConversationID:     msg.ConversationID,
+		LastMessageID:      msg.ID,
+		LastMessagePreview: preview,
+		LastMessageAt:      now,
+		LastMessageFrom:    from,
 	})
 }
 
 // List 会话列表
 func (s *InboxService) List(ctx context.Context, q InboxQuery) ([]*model.InboxConversation, int64, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return []*model.InboxConversation{}, 0, nil
 	}
-	if q.Page <= 0 {
-		q.Page = 1
-	}
-	if q.PageSize <= 0 || q.PageSize > 200 {
-		q.PageSize = 20
-	}
-
-	tx := s.db.WithContext(ctx).Model(&model.InboxConversation{})
-
-	if q.Platform != "" {
-		tx = tx.Where("platform = ?", q.Platform)
-	}
-	if q.AccountID != "" {
-		tx = tx.Where("account_id = ?", q.AccountID)
-	}
-	if q.CustomerID != "" {
-		tx = tx.Where("customer_id = ?", q.CustomerID)
-	}
-	if q.Status != "" {
-		tx = tx.Where("status = ?", q.Status)
-	}
-	if q.AssignedTo != "" {
-		tx = tx.Where("assigned_to = ?", q.AssignedTo)
-	}
-	if q.AssignedSOP > 0 {
-		tx = tx.Where("assigned_to_sop = ?", q.AssignedSOP)
-	}
-	if q.Pinned != nil {
-		tx = tx.Where("pinned = ?", *q.Pinned)
-	}
-	if q.Starred != nil {
-		tx = tx.Where("starred = ?", *q.Starred)
-	}
-	if q.Muted != nil {
-		tx = tx.Where("muted = ?", *q.Muted)
-	}
-	if q.Keyword != "" {
-		// 模糊搜索最近消息预览
-		tx = tx.Where("last_message_preview LIKE ?", "%"+q.Keyword+"%")
-	}
-
-	var total int64
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	// 排序：pinned 置顶优先 + 未读数 + 最近消息时间
-	orderBy := "pinned DESC, unread_count DESC, last_message_at DESC"
-	switch q.OrderBy {
-	case "latest_desc":
-		orderBy = "last_message_at DESC"
-	case "oldest_asc":
-		orderBy = "last_message_at ASC"
-	case "unread_desc":
-		orderBy = "unread_count DESC, last_message_at DESC"
-	case "pinned_first":
-		orderBy = "pinned DESC, last_message_at DESC"
-	}
-	tx = tx.Order(orderBy)
-
-	offset := (q.Page - 1) * q.PageSize
-	var list []*model.InboxConversation
-	if err := tx.Offset(offset).Limit(q.PageSize).Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-	return list, total, nil
+	return s.inboxRepo.ListByQuery(ctx, repository.InboxConversationQuery{
+		Platform:    q.Platform,
+		AccountID:   q.AccountID,
+		CustomerID:  q.CustomerID,
+		Keyword:     q.Keyword,
+		Status:      q.Status,
+		AssignedTo:  q.AssignedTo,
+		AssignedSOP: q.AssignedSOP,
+		Pinned:      q.Pinned,
+		Starred:     q.Starred,
+		Muted:       q.Muted,
+		Page:        q.Page,
+		PageSize:    q.PageSize,
+		OrderBy:     q.OrderBy,
+	})
 }
 
 // GetByID 通过 ID 获取会话
 func (s *InboxService) GetByID(ctx context.Context, id uint) (*model.InboxConversation, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil, nil
 	}
-	var conv model.InboxConversation
-	if err := s.db.WithContext(ctx).First(&conv, id).Error; err != nil {
+	conv, err := s.inboxRepo.GetByID(ctx, id)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInboxConversationMissing
 		}
 		return nil, err
 	}
-	return &conv, nil
+	return conv, nil
 }
 
 // MarkRead 标记会话已读（重置未读计数）
 func (s *InboxService) MarkRead(ctx context.Context, conversationID uint) error {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil
 	}
-	return s.db.WithContext(ctx).Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Updates(map[string]any{
-			"unread_count": 0,
-			"status":       InboxStatusOpen,
-		}).Error
+	return s.inboxRepo.MarkRead(ctx, conversationID)
 }
 
 // Pin / Unpin
 func (s *InboxService) Pin(ctx context.Context, conversationID uint, pinned bool) error {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil
 	}
-	return s.db.Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Update("pinned", pinned).Error
+	return s.inboxRepo.UpdateField(ctx, conversationID, "pinned", pinned)
 }
 
 // Star / Unstar
 func (s *InboxService) Star(ctx context.Context, conversationID uint, starred bool) error {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil
 	}
-	return s.db.WithContext(ctx).Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Update("starred", starred).Error
+	return s.inboxRepo.UpdateField(ctx, conversationID, "starred", starred)
 }
 
 // Mute / Unmute
 func (s *InboxService) Mute(ctx context.Context, conversationID uint, muted bool) error {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil
 	}
-	return s.db.WithContext(ctx).Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Update("muted", muted).Error
+	return s.inboxRepo.UpdateField(ctx, conversationID, "muted", muted)
 }
 
 // AddTag / RemoveTag
 func (s *InboxService) AddTag(ctx context.Context, conversationID uint, tag string) error {
-	if s.db == nil || tag == "" {
+	if s.inboxRepo == nil || tag == "" {
 		return nil
 	}
 	conv, err := s.GetByID(ctx, conversationID)
@@ -408,13 +320,11 @@ func (s *InboxService) AddTag(ctx context.Context, conversationID uint, tag stri
 		}
 	}
 	conv.Tags = append(conv.Tags, tag)
-	return s.db.WithContext(ctx).Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Update("tags", conv.Tags).Error
+	return s.inboxRepo.UpdateField(ctx, conversationID, "tags", conv.Tags)
 }
 
 func (s *InboxService) RemoveTag(ctx context.Context, conversationID uint, tag string) error {
-	if s.db == nil || tag == "" {
+	if s.inboxRepo == nil || tag == "" {
 		return nil
 	}
 	conv, err := s.GetByID(ctx, conversationID)
@@ -430,14 +340,16 @@ func (s *InboxService) RemoveTag(ctx context.Context, conversationID uint, tag s
 			newTags = append(newTags, t)
 		}
 	}
-	return s.db.WithContext(ctx).Model(&model.InboxConversation{}).
-		Where("id = ?", conversationID).
-		Update("tags", newTags).Error
+	return s.inboxRepo.UpdateField(ctx, conversationID, "tags", newTags)
 }
 
 // Assign 分配会话（assign/reassign/release/close/reopen）
+//
+// 五层架构 §三.5：DB 事务（更新会话 + 写入历史）封装在 repository.AssignTx，
+// 负载缓存属于内存数据，不属于 DB 操作，故保留在 service 层。
+// 缓存更新在事务提交后执行，避免事务回滚后缓存与 DB 不一致（修复原实现缺陷）。
 func (s *InboxService) Assign(ctx context.Context, req InboxAssignRequest) (*model.InboxAssignment, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return nil, nil
 	}
 	if req.ConversationID == 0 {
@@ -463,87 +375,33 @@ func (s *InboxService) Assign(ctx context.Context, req InboxAssignRequest) (*mod
 		}
 	}
 
-	var history *model.InboxAssignment
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		var conv model.InboxConversation
-		if err := tx.First(&conv, req.ConversationID).Error; err != nil {
-			return ErrInboxConversationMissing
-		}
-
-		// 释放旧负载缓存
-		if conv.AssignedTo != "" {
-			s.releaseLoad(ctx, conv.AssignedTo)
-		}
-
-		updates := map[string]any{}
-		now := time.Now()
-		switch req.Action {
-		case InboxActionAssign:
-			updates["status"] = InboxStatusAssigned
-			updates["assigned_at"] = &now
-		case InboxActionReassign:
-			updates["status"] = InboxStatusAssigned
-			updates["assigned_at"] = &now
-		case InboxActionRelease:
-			updates["status"] = InboxStatusOpen
-			updates["assigned_to"] = ""
-			updates["assigned_to_sop"] = 0
-			updates["assigned_at"] = nil
-		case InboxActionClose:
-			updates["status"] = InboxStatusClosed
-			updates["closed_at"] = &now
-		case InboxActionReopen:
-			updates["status"] = InboxStatusUnread
-			updates["closed_at"] = nil
-			updates["assigned_to"] = ""
-			updates["assigned_to_sop"] = 0
-		}
-
-		if req.Action == InboxActionAssign || req.Action == InboxActionReassign {
-			updates["assigned_to"] = ""
-			updates["assigned_to_sop"] = 0
-			switch req.ToType {
-			case InboxAssignToHuman:
-				updates["assigned_to"] = req.ToUserID
-				s.addLoad(ctx, req.ToUserID)
-			case InboxAssignToSOP:
-				updates["assigned_to_sop"] = req.ToSOPID
-			case InboxAssignToAI:
-				// 暂不绑定具体 ID
-			}
-		}
-
-		if err := tx.Model(&model.InboxConversation{}).
-			Where("id = ?", req.ConversationID).
-			Updates(updates).Error; err != nil {
-			return err
-		}
-
-		hist := &model.InboxAssignment{
-
-			ConversationID: conv.ID,
-			Platform:       conv.Platform,
-			AccountID:      conv.AccountID,
-			CustomerID:     conv.CustomerID,
-			Action:         req.Action,
-			FromType:       inferFromType(conv.AssignedTo, conv.AssignedToSOP),
-			FromUserID:     conv.AssignedTo,
-			ToType:         req.ToType,
-			ToUserID:       req.ToUserID,
-			ToSOPID:        req.ToSOPID,
-			OperatorID:     req.OperatorID,
-			Remark:         req.Remark,
-		}
-		if err := tx.Create(hist).Error; err != nil {
-			return err
-		}
-		history = hist
-		return nil
+	out, err := s.inboxRepo.AssignTx(ctx, repository.AssignTxInput{
+		ConversationID: req.ConversationID,
+		Action:         req.Action,
+		ToType:         req.ToType,
+		ToUserID:       req.ToUserID,
+		ToSOPID:        req.ToSOPID,
+		OperatorID:     req.OperatorID,
+		Remark:         req.Remark,
 	})
 	if err != nil {
+		if err.Error() == "conversation not found" {
+			return nil, ErrInboxConversationMissing
+		}
 		return nil, err
 	}
-	return history, nil
+	if out == nil {
+		return nil, nil
+	}
+
+	// 缓存同步：释放旧负载 + 增加新负载（事务已提交，DB 与缓存一致）
+	if out.OldAssignedTo != "" {
+		s.releaseLoad(ctx, out.OldAssignedTo)
+	}
+	if out.NewAssignedTo != "" {
+		s.addLoad(ctx, out.NewAssignedTo)
+	}
+	return out.History, nil
 }
 
 // AutoAssign 自动分配（负载最小优先）
@@ -586,13 +444,11 @@ func (s *InboxService) RoundRobinAssign(ctx context.Context, conversationID uint
 
 // StaffLoad 客服当前负载
 func (s *InboxService) StaffLoad(ctx context.Context, staffUserID string) (int, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return 0, nil
 	}
-	var n int64
-	if err := s.db.Model(&model.InboxConversation{}).
-		Where("assigned_to = ? AND status IN ?", staffUserID, []string{InboxStatusAssigned, InboxStatusOpen}).
-		Count(&n).Error; err != nil {
+	n, err := s.inboxRepo.CountByAssignedToStatus(ctx, staffUserID, []string{InboxStatusAssigned, InboxStatusOpen})
+	if err != nil {
 		return 0, err
 	}
 	return int(n), nil
@@ -612,104 +468,38 @@ func (s *InboxService) BatchAssign(ctx context.Context, reqs []InboxAssignReques
 
 // ListAssignments 历史分配
 func (s *InboxService) ListAssignments(ctx context.Context, conversationID uint, page, pageSize int) ([]*model.InboxAssignment, int64, error) {
-	if s.db == nil {
+	if s.assignmentRepo == nil {
 		return []*model.InboxAssignment{}, 0, nil
 	}
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	tx := s.db.Model(&model.InboxAssignment{})
-	if conversationID > 0 {
-		tx = tx.Where("conversation_id = ?", conversationID)
-	}
-	var total int64
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []*model.InboxAssignment
-	if err := tx.Order("created_at DESC").
-		Offset((page - 1) * pageSize).Limit(pageSize).
-		Find(&list).Error; err != nil {
-		return nil, 0, err
-	}
-	return list, total, nil
+	return s.assignmentRepo.ListByConversationID(ctx, conversationID, page, pageSize)
 }
 
 // GetStats 收件箱统计
 func (s *InboxService) GetStats(ctx context.Context) (*InboxStats, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return &InboxStats{ByPlatform: map[string]int64{}, ByAssignedTo: map[string]int64{}}, nil
 	}
-	stats := &InboxStats{
-		ByPlatform:   map[string]int64{},
-		ByAssignedTo: map[string]int64{},
-	}
-	// 状态分布：P1-16 修复，原 4 次循环 SQL 合并为单次 Group By 查询
-	type sc struct {
-		Status string
-		C      int64
-	}
-	var scs []sc
-	if err := s.db.Model(&model.InboxConversation{}).
-		Select("status, COUNT(*) AS c").
-		Where("status IN ?", []string{InboxStatusUnread, InboxStatusOpen, InboxStatusAssigned, InboxStatusClosed}).
-		Group("status").Scan(&scs).Error; err != nil {
+	validStatuses := []string{InboxStatusUnread, InboxStatusOpen, InboxStatusAssigned, InboxStatusClosed}
+	activeStatuses := []string{InboxStatusAssigned, InboxStatusOpen}
+	threshold := time.Now().Add(-30 * time.Minute)
+
+	res, err := s.inboxRepo.GetStats(ctx, validStatuses, activeStatuses, InboxFromCustomer, threshold)
+	if err != nil {
 		return nil, err
 	}
-	for _, s := range scs {
-		switch s.Status {
-		case InboxStatusUnread:
-			stats.Unread = s.C
-		case InboxStatusOpen:
-			stats.Open = s.C
-		case InboxStatusAssigned:
-			stats.Assigned = s.C
-		case InboxStatusClosed:
-			stats.Closed = s.C
-		}
-		stats.Total += s.C
+	if res == nil {
+		return &InboxStats{ByPlatform: map[string]int64{}, ByAssignedTo: map[string]int64{}}, nil
 	}
-
-	// 平台分布
-	type pc struct {
-		Platform string
-		C        int64
-	}
-	var pcs []pc
-	s.db.Model(&model.InboxConversation{}).
-		Select("platform AS platform, COUNT(*) AS c").
-		Group("platform").Scan(&pcs)
-	for _, p := range pcs {
-		stats.ByPlatform[p.Platform] = p.C
-	}
-
-	// 客服分布
-	type ac struct {
-		AssignedTo string
-		C          int64
-	}
-	var acs []ac
-	s.db.Model(&model.InboxConversation{}).
-		Select("assigned_to, COUNT(*) AS c").
-		Where("assigned_to <> '' AND status IN ?", []string{InboxStatusAssigned, InboxStatusOpen}).
-		Group("assigned_to").Scan(&acs)
-	for _, a := range acs {
-		stats.ByAssignedTo[a.AssignedTo] = a.C
-	}
-
-	// 超时未响应（最近 30 分钟内客户消息无客服回复）
-	threshold := time.Now().Add(-30 * time.Minute)
-	var overdue int64
-	s.db.Model(&model.InboxConversation{}).
-		Where("status IN ? AND last_message_from = ? AND last_message_at <= ?", []string{InboxStatusUnread, InboxStatusOpen, InboxStatusAssigned}, InboxFromCustomer, threshold).
-		Count(&overdue)
-	stats.OverdueCount = overdue
-
-	return stats, nil
+	return &InboxStats{
+		Total:        res.Total,
+		Unread:       res.Unread,
+		Open:         res.Open,
+		Assigned:     res.Assigned,
+		Closed:       res.Closed,
+		ByPlatform:   res.ByPlatform,
+		ByAssignedTo: res.ByAssignedTo,
+		OverdueCount: res.OverdueCount,
+	}, nil
 }
 
 // GetMessagesByConversation 拉取会话下的消息。
@@ -721,7 +511,7 @@ func (s *InboxService) GetStats(ctx context.Context) (*InboxStats, error) {
 //
 // 历史实现只读 message_hub，导致网页端发的消息在统一收件箱点开后空白。
 func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversationID uint, page, pageSize int) ([]map[string]any, int64, error) {
-	if s.db == nil {
+	if s.inboxRepo == nil {
 		return []map[string]any{}, 0, nil
 	}
 	conv, err := s.GetByID(ctx, conversationID)
@@ -737,17 +527,14 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 
 	// 1) 消息中台（渠道接入）
 	var hubs []*model.MessageHub
-	s.db.WithContext(ctx).Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND (sender_id = ? OR receiver_id = ?)",
-			conv.Platform, conv.AccountID, conv.CustomerID, conv.CustomerID).
-		Find(&hubs)
+	if s.hubRepo != nil {
+		hubs, _ = s.hubRepo.ListByConversationContext(ctx, conv.Platform, conv.AccountID, conv.CustomerID)
+	}
 
 	// 2) 客服会话实时消息流（网页 widget / 坐席回复）
 	var sms []*model.SessionMessage
-	if s.db.Migrator().HasTable(&model.SessionMessage{}) {
-		s.db.WithContext(ctx).Model(&model.SessionMessage{}).
-			Where("session_id = ?", conv.ConversationID).
-			Find(&sms)
+	if s.sessionMsgRepo != nil && s.sessionMsgRepo.HasTable(ctx) {
+		sms, _ = s.sessionMsgRepo.ListAllBySessionID(ctx, conv.ConversationID)
 	}
 
 	type mergedMsg struct {
@@ -759,21 +546,21 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		merged = append(merged, mergedMsg{
 			ts: h.SentAt,
 			data: map[string]any{
-				"id":             h.ID,
-				"msg_id":         h.MsgID,
+				"id":              h.ID,
+				"msg_id":          h.MsgID,
 				"conversation_id": h.ConversationID,
-				"platform":       h.Platform,
-				"account_id":     h.AccountID,
-				"sender_id":      h.SenderID,
-				"sender_name":    h.SenderName,
-				"receiver_id":    h.ReceiverID,
-				"content":        h.Content,
-				"content_type":   h.MsgType,
-				"media_url":      h.MediaURL,
-				"is_ai_reply":    h.IsAIReply,
-				"is_read":        h.IsRead,
-				"sent_at":        h.SentAt,
-				"created_at":     h.CreatedAt,
+				"platform":        h.Platform,
+				"account_id":      h.AccountID,
+				"sender_id":       h.SenderID,
+				"sender_name":     h.SenderName,
+				"receiver_id":     h.ReceiverID,
+				"content":         h.Content,
+				"content_type":    h.MsgType,
+				"media_url":       h.MediaURL,
+				"is_ai_reply":     h.IsAIReply,
+				"is_read":         h.IsRead,
+				"sent_at":         h.SentAt,
+				"created_at":      h.CreatedAt,
 			},
 		})
 	}
@@ -781,18 +568,18 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		merged = append(merged, mergedMsg{
 			ts: sm.CreatedAt,
 			data: map[string]any{
-				"id":             sm.ID,
+				"id":              sm.ID,
 				"conversation_id": sm.SessionID,
-				"sender_id":      sm.SenderID,
-				"sender_name":    sm.SenderName,
-				"sender_type":    sm.SenderType,
-				"content":        sm.Content,
-				"content_type":   sm.ContentType,
-				"media_url":      sm.MediaURL,
-				"is_ai_reply":    sm.SenderType == "ai",
-				"is_read":        sm.IsRead,
-				"sent_at":        sm.CreatedAt,
-				"created_at":     sm.CreatedAt,
+				"sender_id":       sm.SenderID,
+				"sender_name":     sm.SenderName,
+				"sender_type":     sm.SenderType,
+				"content":         sm.Content,
+				"content_type":    sm.ContentType,
+				"media_url":       sm.MediaURL,
+				"is_ai_reply":     sm.SenderType == "ai",
+				"is_read":         sm.IsRead,
+				"sent_at":         sm.CreatedAt,
+				"created_at":      sm.CreatedAt,
 			},
 		})
 	}
@@ -863,20 +650,14 @@ func (s *InboxService) pickRoundRobin(ctx context.Context, candidates []string) 
 	if len(candidates) == 0 {
 		return "", ErrInboxInvalidAssignTo
 	}
-	type c struct {
-		AssignedTo string
-		N          int64
-	}
-	var counts []c
-	s.db.Model(&model.InboxAssignment{}).
-		Select("to_user_id AS assigned_to, COUNT(*) AS n").
-		Where("to_user_id IN ? AND action = ?", candidates, InboxActionAssign).
-		Group("to_user_id").Scan(&counts)
-
 	got := make(map[string]int64, len(candidates))
-	for _, c := range counts {
-		got[c.AssignedTo] = c.N
+	if s.assignmentRepo != nil {
+		counts, _ := s.assignmentRepo.GroupCountByToUserID(ctx, candidates, InboxActionAssign)
+		for _, c := range counts {
+			got[c.AssignedTo] = c.N
+		}
 	}
+
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return got[candidates[i]] < got[candidates[j]]
 	})

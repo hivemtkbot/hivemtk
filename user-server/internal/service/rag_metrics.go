@@ -28,6 +28,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // ----------------------------------------------------------------------------
@@ -52,6 +53,7 @@ const (
 // RagMetricsService RAG 召回率监控服务
 type RagMetricsService struct {
 	db *gorm.DB
+	repo repository.RagMetricsRepository
 
 	// 异步批量写入队列
 	mu      sync.Mutex
@@ -69,6 +71,7 @@ type RagMetricsService struct {
 func NewRagMetricsService(db *gorm.DB) *RagMetricsService {
 	s := &RagMetricsService{
 		db:      db,
+		repo:    repository.NewRagMetricsRepository(db),
 		queue:   make([]*model.RagQueryLog, 0, RagMetricsBatchSize),
 		flushCh: make(chan struct{}, 1),
 		stopCh:  make(chan struct{}),
@@ -181,7 +184,7 @@ func (s *RagMetricsService) RecordQuerySync(ctx context.Context, req *RecordQuer
 		return fmt.Errorf("service or db is nil")
 	}
 	log := s.buildQueryLog(ctx, req)
-	return s.db.WithContext(ctx).Create(log).Error
+	return s.repo.CreateQueryLog(ctx, log)
 }
 
 // buildQueryLog 计算并构造 RagQueryLog
@@ -249,7 +252,7 @@ func (s *RagMetricsService) flush(ctx context.Context) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := s.db.WithContext(ctx).CreateInBatches(batch, 50).Error; err != nil {
+	if err := s.repo.CreateQueryLogsInBatches(ctx, batch, 50); err != nil {
 		logger.Errorf("[RagMetrics] flush batch failed (%d logs): %v", len(batch), err)
 		return err
 	}
@@ -288,26 +291,8 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	metrics.WindowEnd = end
 
 	// 1) 基础聚合：count / avg recall / avg precision / avg latency
-	row := struct {
-		Total        int64
-		AvgRecall    float64
-		AvgPrecision float64
-		AvgLatency   float64
-		ZeroHit      int64
-		LowRecall    int64
-	}{}
-	if err := s.db.WithContext(ctx).
-		Model(&model.RagQueryLog{}).
-		Where("created_at >= ? AND created_at < ?", start, end).
-		Select(`
-			COUNT(*) AS total,
-			COALESCE(AVG(recall), 0) AS avg_recall,
-			COALESCE(AVG(precision), 0) AS avg_precision,
-			COALESCE(AVG(latency_ms), 0) AS avg_latency,
-			COUNT(*) FILTER (WHERE retrieved_count = 0) AS zero_hit,
-			COUNT(*) FILTER (WHERE recall < ?) AS low_recall
-		`, RagMetricsLowRecallDefault).
-		Scan(&row).Error; err != nil {
+	row, err := s.repo.AggregateQueryLogs(ctx, start, end, RagMetricsLowRecallDefault)
+	if err != nil {
 		return nil, fmt.Errorf("query recall metrics: %w", err)
 	}
 	metrics.TotalQueries = row.Total
@@ -329,14 +314,8 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 		if p99Offset < 0 {
 			p99Offset = 0
 		}
-		var p99Latency int64
-		if err := s.db.WithContext(ctx).
-			Model(&model.RagQueryLog{}).
-			Where("created_at >= ? AND created_at < ?", start, end).
-			Order("latency_ms ASC").
-			Offset(p99Offset).
-			Limit(1).
-			Pluck("latency_ms", &p99Latency).Error; err != nil {
+		p99Latency, err := s.repo.PluckP99Latency(ctx, start, end, p99Offset)
+		if err != nil {
 			logger.Errorf("[RagMetrics] query p99 latency failed: %v", err)
 		} else {
 			metrics.P99LatencyMs = p99Latency
@@ -379,16 +358,25 @@ func (s *RagMetricsService) GetLowRecallQueries(ctx context.Context, threshold f
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	var rows []LowRecallQuery
-	err := s.db.WithContext(ctx).
-		Model(&model.RagQueryLog{}).
-		Where("recall < ? AND relevant_count > 0", threshold).
-		Order("created_at DESC").
-		Limit(limit).
-		Select("id, query, session_id, recall, precision, latency_ms, retrieved_count, relevant_count, hit_count, created_at").
-		Scan(&rows).Error
+	logs, err := s.repo.FindLowRecallQueryLogs(ctx, threshold, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query low recall: %w", err)
+	}
+	rows := make([]LowRecallQuery, 0, len(logs))
+	for i := range logs {
+		l := &logs[i]
+		rows = append(rows, LowRecallQuery{
+			ID:             l.ID,
+			Query:          l.Query,
+			SessionID:      l.SessionID,
+			Recall:         l.Recall,
+			Precision:      l.Precision,
+			LatencyMs:      l.LatencyMs,
+			RetrievedCount: l.RetrievedCount,
+			RelevantCount:  l.RelevantCount,
+			HitCount:       l.HitCount,
+			CreatedAt:      l.CreatedAt,
+		})
 	}
 	return rows, nil
 }
@@ -422,23 +410,20 @@ func (s *RagMetricsService) AggregateWindow(ctx context.Context, windowStart, wi
 		CreatedAt:      time.Now(),
 	}
 	// 幂等：先查再决定 Create/Update
-	var existing model.RagMetricsDaily
-	err = s.db.WithContext(ctx).
-		Where("window_start = ? AND window_end = ?", windowStart, windowEnd).
-		First(&existing).Error
+	existing, err := s.repo.FindDailyByWindow(ctx, windowStart, windowEnd)
 	if err == nil {
 		// 更新
 		daily.ID = existing.ID
-		if err := s.db.WithContext(ctx).Save(daily).Error; err != nil {
+		if err := s.repo.SaveDaily(ctx, daily); err != nil {
 			return nil, fmt.Errorf("update rag_metrics_daily: %w", err)
 		}
 		return daily, nil
 	}
-	if err != gorm.ErrRecordNotFound {
+	if !repository.IsRecordNotFound(err) {
 		return nil, fmt.Errorf("query existing rag_metrics_daily: %w", err)
 	}
 	// 新建
-	if err := s.db.WithContext(ctx).Create(daily).Error; err != nil {
+	if err := s.repo.CreateDaily(ctx, daily); err != nil {
 		return nil, fmt.Errorf("create rag_metrics_daily: %w", err)
 	}
 	return daily, nil
@@ -465,11 +450,7 @@ func (s *RagMetricsService) GetLatestMetrics(ctx context.Context, limit int) ([]
 	if limit <= 0 || limit > 1000 {
 		limit = 20
 	}
-	var rows []model.RagMetricsDaily
-	err := s.db.WithContext(ctx).
-		Order("window_start DESC").
-		Limit(limit).
-		Find(&rows).Error
+	rows, err := s.repo.FindLatestDailies(ctx, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query latest metrics: %w", err)
 	}

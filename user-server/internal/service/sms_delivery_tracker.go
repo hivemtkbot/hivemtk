@@ -31,6 +31,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 )
@@ -38,16 +39,6 @@ import (
 // ----------------------------------------------------------------------------
 // 常量
 // ----------------------------------------------------------------------------
-
-// SmsCarrier 运营商
-type SmsCarrier string
-
-const (
-	SmsCarrierMobile  SmsCarrier = "mobile"  // 中国移动
-	SmsCarrierUnicom  SmsCarrier = "unicom"  // 中国联通
-	SmsCarrierTelecom SmsCarrier = "telecom" // 中国电信
-	SmsCarrierUnknown SmsCarrier = "unknown" // 未知 / 携号转网过渡
-)
 
 // SmsBlockType 黑名单类型
 type SmsBlockType string
@@ -59,40 +50,26 @@ const (
 	SmsBlockContent    SmsBlockType = "content"    // 内容违规
 )
 
-// SmsNumberPortabilityRecord 携号转网记录
-type SmsNumberPortabilityRecord struct {
-	ID              int64      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Phone           string     `gorm:"column:phone;size:20;not null;index" json:"phone"`
-	OriginalCarrier SmsCarrier `gorm:"column:original_carrier;size:32" json:"original_carrier"`
-	CurrentCarrier  SmsCarrier `gorm:"column:current_carrier;size:32" json:"current_carrier"`
-	DetectedAt      time.Time  `gorm:"column:detected_at;not null;index:idx_sms_np_detected_at,sort:desc" json:"detected_at"`
-	Source          string     `gorm:"column:source;size:32;not null;default:'webhook'" json:"source"`
-	RawPayload      string     `gorm:"column:raw_payload;type:text" json:"raw_payload"`
-	CreatedAt       time.Time  `gorm:"column:created_at;not null;default:now()" json:"created_at"`
-}
-
-// TableName 表名
-func (SmsNumberPortabilityRecord) TableName(ctx context.Context) string {
-	return "sms_number_portability_logs"
-}
-
 // ----------------------------------------------------------------------------
 // 服务结构
 // ----------------------------------------------------------------------------
 
 // SmsDeliveryTrackerService 短信到达率追踪服务
 type SmsDeliveryTrackerService struct {
-	tracking *SmsTrackingService
-	repo     repository.SmsTrackingRepository
-	db       *gorm.DB
+	tracking     *SmsTrackingService
+	repo         repository.SmsTrackingRepository
+	deliveryRepo repository.SmsDeliveryRepository
 
 	// 携号转网内存缓存：phone → 最新运营商（避免每次 webhook 走 DB）
 	carrierMu     sync.RWMutex
-	carrierCache  map[string]SmsCarrier
+	carrierCache  map[string]model.SmsCarrier
 	carrierLoaded bool
 }
 
 // NewSmsDeliveryTrackerService 创建短信到达率追踪服务
+//
+// 注：保留 db *gorm.DB 入参以维持向后兼容（router / 调用方不改动），
+// 内部在构造函数中实例化 repository，service struct 不直接持有 *gorm.DB。
 func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, repo repository.SmsTrackingRepository) *SmsDeliveryTrackerService {
 	if tracking == nil {
 		tracking = NewSmsTrackingService(repo)
@@ -101,10 +78,10 @@ func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, rep
 		repo = repository.NewSmsTrackingRepository(db)
 	}
 	return &SmsDeliveryTrackerService{
-		db:            db,
 		tracking:      tracking,
 		repo:          repo,
-		carrierCache:  make(map[string]SmsCarrier),
+		deliveryRepo:  repository.NewSmsDeliveryRepository(db),
+		carrierCache:  make(map[string]model.SmsCarrier),
 		carrierLoaded: false,
 	}
 }
@@ -117,21 +94,21 @@ func NewSmsDeliveryTrackerService(db *gorm.DB, tracking *SmsTrackingService, rep
 //
 // 真实生产应使用第三方号段库（如 https://github.com/ls0f/phone）
 // 此处为不引入新依赖的简化版本，覆盖主流号段。
-func DetectCarrierFromPhone(phone string) SmsCarrier {
+func DetectCarrierFromPhone(phone string) model.SmsCarrier {
 	phone = NormalizePhone(phone)
 	if len(phone) < 7 {
-		return SmsCarrierUnknown
+		return model.SmsCarrierUnknown
 	}
 	prefix := phone[:7]
 	switch {
 	case hasPrefix(prefix, []string{"134", "135", "136", "137", "138", "139", "150", "151", "152", "157", "158", "159", "182", "183", "184", "187", "188", "198"}):
-		return SmsCarrierMobile
+		return model.SmsCarrierMobile
 	case hasPrefix(prefix, []string{"130", "131", "132", "155", "156", "166", "175", "176", "185", "186"}):
-		return SmsCarrierUnicom
+		return model.SmsCarrierUnicom
 	case hasPrefix(prefix, []string{"133", "149", "153", "173", "174", "177", "180", "181", "189", "199"}):
-		return SmsCarrierTelecom
+		return model.SmsCarrierTelecom
 	}
-	return SmsCarrierUnknown
+	return model.SmsCarrierUnknown
 }
 
 // hasPrefix 判断 prefix 是否匹配任一前缀列表
@@ -157,19 +134,19 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 	}
 
 	// 1) 优先使用 webhook 推送的 carrier
-	var newCarrier SmsCarrier
+	var newCarrier model.SmsCarrier
 	switch strings.ToLower(strings.TrimSpace(webhookCarrier)) {
 	case "mobile", "中国移动", "cmcc", "yidong":
-		newCarrier = SmsCarrierMobile
+		newCarrier = model.SmsCarrierMobile
 	case "unicom", "中国联通", "cu", "liantong":
-		newCarrier = SmsCarrierUnicom
+		newCarrier = model.SmsCarrierUnicom
 	case "telecom", "中国电信", "ct", "dianxin":
-		newCarrier = SmsCarrierTelecom
+		newCarrier = model.SmsCarrierTelecom
 	default:
 		// webhook 未给 → 用号段兜底
 		newCarrier = DetectCarrierFromPhone(phone)
 	}
-	if newCarrier == SmsCarrierUnknown {
+	if newCarrier == model.SmsCarrierUnknown {
 		return nil // 无法识别就不记录
 	}
 
@@ -193,7 +170,7 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 	}
 
 	// 3) 写入转网记录
-	rec := &SmsNumberPortabilityRecord{
+	rec := &model.SmsNumberPortabilityRecord{
 		Phone:           phone,
 		OriginalCarrier: original,
 		CurrentCarrier:  newCarrier,
@@ -202,19 +179,19 @@ func (s *SmsDeliveryTrackerService) DetectAndRecordPortability(ctx context.Conte
 		RawPayload:      fmt.Sprintf(`{"phone":%q,"carrier":%q}`, phone, webhookCarrier),
 		CreatedAt:       time.Now(),
 	}
-	if s.db == nil {
+	if s.deliveryRepo == nil {
 		return nil
 	}
-	return s.db.WithContext(ctx).Create(rec).Error
+	return s.deliveryRepo.CreatePortability(ctx, rec)
 }
 
 // loadCarrierCache 加载最近一次运营商快照
 func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
-	if s.carrierLoaded || s.db == nil {
+	if s.carrierLoaded || s.deliveryRepo == nil {
 		return
 	}
-	rows := []SmsNumberPortabilityRecord{}
-	if err := s.db.Order("detected_at DESC").Limit(10000).Find(&rows).Error; err != nil {
+	rows, err := s.deliveryRepo.LoadLatestPortability(ctx, 10000)
+	if err != nil {
 		logger.Errorf("[SmsDeliveryTracker] load carrier cache: %v", err)
 		s.carrierLoaded = true
 		return
@@ -230,7 +207,7 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 }
 
 // GetCurrentCarrier 查询号码当前归属运营商
-func (s *SmsDeliveryTrackerService) GetCurrentCarrier(ctx context.Context, phone string) SmsCarrier {
+func (s *SmsDeliveryTrackerService) GetCurrentCarrier(ctx context.Context, phone string) model.SmsCarrier {
 	phone = NormalizePhone(phone)
 	s.carrierMu.RLock()
 	if c, ok := s.carrierCache[phone]; ok {
@@ -247,9 +224,9 @@ func (s *SmsDeliveryTrackerService) GetCurrentCarrier(ctx context.Context, phone
 //
 // 设计：直接查询 sms_number_portability_logs，不走内存缓存。
 // 限流：limit 上限 200，避免一次拉全表。
-func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, phone string, page, limit int) ([]SmsNumberPortabilityRecord, int64, error) {
-	if s == nil || s.db == nil {
-		return nil, 0, errors.New("service or db is nil")
+func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, phone string, page, limit int) ([]model.SmsNumberPortabilityRecord, int64, error) {
+	if s == nil || s.deliveryRepo == nil {
+		return nil, 0, errors.New("service or delivery repo is nil")
 	}
 	if page < 1 {
 		page = 1
@@ -258,21 +235,9 @@ func (s *SmsDeliveryTrackerService) ListPortabilityRecords(ctx context.Context, 
 		limit = 20
 	}
 
-	q := s.db.WithContext(ctx).Model(&SmsNumberPortabilityRecord{})
-	if phone != "" {
-		q = q.Where("phone = ?", NormalizePhone(phone))
-	}
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("count portability: %w", err)
-	}
-
-	var rows []SmsNumberPortabilityRecord
-	if err := q.Order("detected_at DESC").
-		Offset((page - 1) * limit).
-		Limit(limit).
-		Find(&rows).Error; err != nil {
-		return nil, 0, fmt.Errorf("list portability: %w", err)
+	rows, total, err := s.deliveryRepo.ListPortability(ctx, NormalizePhone(phone), page, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 	return rows, total, nil
 }
@@ -359,8 +324,8 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	if end.Before(start) {
 		return nil, errors.New("end 必须大于 start")
 	}
-	if s.db == nil {
-		return nil, errors.New("db is nil")
+	if s.deliveryRepo == nil {
+		return nil, errors.New("delivery repo is nil")
 	}
 
 	m := &DeliveryRateMetrics{
@@ -370,24 +335,9 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	}
 
 	// 1) 基础聚合
-	type aggRow struct {
-		Total     int64
-		Delivered int64
-		Failed    int64
-		Retryable int64
-	}
-	var row aggRow
-	if err := s.db.WithContext(ctx).
-		Table("sms_delivery_statuses").
-		Where("received_at >= ? AND received_at < ?", start, end).
-		Select(`
-			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status = 'delivered') AS delivered,
-			COUNT(*) FILTER (WHERE status = 'failed') AS failed,
-			COUNT(*) FILTER (WHERE status = 'retryable') AS retryable
-		`).
-		Scan(&row).Error; err != nil {
-		return nil, fmt.Errorf("query delivery aggregate: %w", err)
+	row, err := s.deliveryRepo.GetDeliveryAggregate(ctx, start, end)
+	if err != nil {
+		return nil, err
 	}
 	m.TotalSent = row.Total
 	m.Delivered = row.Delivered
@@ -399,40 +349,16 @@ func (s *SmsDeliveryTrackerService) GetDeliveryRateMetrics(ctx context.Context, 
 	}
 
 	// 2) 黑名单 / 携号转网触达失败
-	var blacklisted int64
-	_ = s.db.WithContext(ctx).
-		Table("sms_delivery_statuses").
-		Where("received_at >= ? AND received_at < ? AND error_code LIKE ?", start, end, "ERR_4002%").
-		Count(&blacklisted).Error
+	blacklisted, _ := s.deliveryRepo.CountBlacklisted(ctx, start, end)
 	m.Blacklisted = blacklisted
 
 	// 携号转网触达失败（号码已不存在/换运营商）
-	var port int64
-	_ = s.db.WithContext(ctx).
-		Table("sms_delivery_statuses").
-		Where("received_at >= ? AND received_at < ? AND (error_code = 'ERR_4005' OR error_msg LIKE '%携号转网%')", start, end).
-		Count(&port).Error
+	port, _ := s.deliveryRepo.CountPortabilityFailure(ctx, start, end)
 	m.Portability = port
 
 	// 3) 按运营商维度统计
-	type carrierRow struct {
-		Provider  string
-		Total     int64
-		Delivered int64
-		Failed    int64
-	}
-	var crows []carrierRow
-	if err := s.db.WithContext(ctx).
-		Table("sms_delivery_statuses").
-		Where("received_at >= ? AND received_at < ?", start, end).
-		Select(`
-			COALESCE(provider, 'unknown') AS provider,
-			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status = 'delivered') AS delivered,
-			COUNT(*) FILTER (WHERE status = 'failed') AS failed
-		`).
-		Group("provider").
-		Scan(&crows).Error; err == nil {
+	crows, err := s.deliveryRepo.GetCarrierStats(ctx, start, end)
+	if err == nil {
 		for _, cr := range crows {
 			cs := CarrierStat{
 				Total:     cr.Total,

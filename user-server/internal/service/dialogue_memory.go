@@ -13,11 +13,14 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // DialogueMemoryService 对话记忆服务（短期+长期）
+//
+// 五层架构修复：service 层不再持有 *gorm.DB，由 repository 层封装所有 DB 操作。
 type DialogueMemoryService struct {
-	db         *gorm.DB
+	repo       repository.DialogueMemoryRepository
 	dispatcher *llm.Dispatcher
 }
 
@@ -27,8 +30,14 @@ const (
 )
 
 // NewDialogueMemoryService 创建对话记忆服务
+// db 参数保留以兼容调用方签名（router/sales_engine_factory），内部转换为 DialogueMemoryRepository。
+// db 为 nil 时 repo 也为 nil，方法内通过 s.repo == nil 防御。
 func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *DialogueMemoryService {
-	return &DialogueMemoryService{db: db, dispatcher: dispatcher}
+	var repo repository.DialogueMemoryRepository
+	if db != nil {
+		repo = repository.NewDialogueMemoryRepositoryWithDB(db)
+	}
+	return &DialogueMemoryService{repo: repo, dispatcher: dispatcher}
 }
 
 // Message / ShortTermMemory 已迁至 dto 包（P2-6 DTO 层补全）
@@ -36,19 +45,18 @@ func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *Dialogue
 
 // GetOrCreateMemory 获取或创建记忆
 func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID, customerID string) (*model.DialogueMemory, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
-	var mem model.DialogueMemory
-	err := s.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&mem).Error
+	mem, err := s.repo.GetDialogueMemoryBySession(ctx, sessionID)
 	if err == nil {
-		return &mem, nil
+		return mem, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 	// 创建
-	mem = model.DialogueMemory{
+	mem = &model.DialogueMemory{
 		SessionID:    sessionID,
 		CustomerID:   customerID,
 		KeyFacts:     model.JSONMap{},
@@ -58,10 +66,10 @@ func (s *DialogueMemoryService) GetOrCreateMemory(ctx context.Context, sessionID
 		LastActiveAt: time.Now(),
 		MessageCount: 0,
 	}
-	if err := s.db.WithContext(ctx).Create(&mem).Error; err != nil {
+	if err := s.repo.CreateDialogueMemory(ctx, mem); err != nil {
 		return nil, err
 	}
-	return &mem, nil
+	return mem, nil
 }
 
 // AppendMessage 追加消息并更新记忆
@@ -88,17 +96,15 @@ func (s *DialogueMemoryService) AppendMessage(ctx context.Context, sessionID, cu
 		s.updateLongTermSummary(ctx, mem, msg)
 	}
 
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // GetShortTermMemory 获取短期记忆（从 message_hub 取最近 N 条）
 func (s *DialogueMemoryService) GetShortTermMemory(ctx context.Context, sessionID string) ([]dto.Message, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, nil
 	}
-	var records []model.MessageHub
-	err := s.db.WithContext(ctx).Where("conversation_id = ?", sessionID).
-		Order("sent_at DESC").Limit(shortTermWindow).Find(&records).Error
+	records, err := s.repo.ListMessageHubByConversation(ctx, sessionID, shortTermWindow)
 	if err != nil {
 		return nil, err
 	}
@@ -128,23 +134,13 @@ func (s *DialogueMemoryService) GetLongTermMemory(ctx context.Context, sessionID
 
 // ListByCustomerID 根据 customerID 获取对话记忆列表
 func (s *DialogueMemoryService) ListByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.DialogueMemory, int64, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, 0, nil
 	}
 	if limit <= 0 {
 		limit = 10
 	}
-	var mems []*model.DialogueMemory
-	var total int64
-
-	query := s.db.WithContext(ctx).Model(&model.DialogueMemory{}).Where("customer_id = ?", customerID)
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	if err := query.Order("updated_at DESC").Limit(limit).Find(&mems).Error; err != nil {
-		return nil, 0, err
-	}
-	return mems, total, nil
+	return s.repo.ListDialogueMemoriesByCustomer(ctx, customerID, limit)
 }
 
 func (s *DialogueMemoryService) UpdateKeyFacts(ctx context.Context, sessionID string, facts map[string]string) error {
@@ -181,7 +177,7 @@ func (s *DialogueMemoryService) UpdateKeyFacts(ctx context.Context, sessionID st
 		mem.Demand = demand
 	}
 	_ = data
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // RecordObjection 记录异议
@@ -200,7 +196,7 @@ func (s *DialogueMemoryService) RecordObjection(ctx context.Context, sessionID, 
 		"time":    time.Now(),
 	})
 	mem.Objections = model.JSONArray(toIfaceSlice(objs))
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // UpdatePurchaseIntent 更新购买意向
@@ -213,7 +209,7 @@ func (s *DialogueMemoryService) UpdatePurchaseIntent(ctx context.Context, sessio
 		return err
 	}
 	mem.PurchaseIntent = level
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // RecordIntent 记录意图轨迹
@@ -231,7 +227,7 @@ func (s *DialogueMemoryService) RecordIntent(ctx context.Context, sessionID, int
 		trail = trail[len(trail)-30:]
 	}
 	mem.IntentTrail = model.JSONArray(toIfaceSliceFromStrings(trail))
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // RecordSOP 记录 SOP 经历
@@ -246,7 +242,7 @@ func (s *DialogueMemoryService) RecordSOP(ctx context.Context, sessionID, sopNam
 	}
 	hist = append(hist, sopName)
 	mem.SOPHistory = model.JSONArray(toIfaceSliceFromStrings(hist))
-	return s.db.WithContext(ctx).Save(mem).Error
+	return s.repo.SaveDialogueMemory(ctx, mem)
 }
 
 // BuildContext 构建对话上下文（短期+长期+事实）

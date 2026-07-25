@@ -5,19 +5,18 @@ import (
 	"strings"
 
 	"context"
-	"gorm.io/gorm"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 )
 
 // ObjectionHandlerService 异议处理服务
 type ObjectionHandlerService struct {
-	db *gorm.DB
+	scriptRepo *repository.ScriptLibraryRepository
 }
 
 // NewObjectionHandlerService 创建服务
 func NewObjectionHandlerService() *ObjectionHandlerService {
-	return &ObjectionHandlerService{db: repository.GetDB()}
+	return &ObjectionHandlerService{scriptRepo: repository.NewScriptLibraryRepository(repository.GetDB())}
 }
 
 // ObjectionCategory 异议类别
@@ -104,9 +103,9 @@ func (s *ObjectionHandlerService) Handle(ctx context.Context, req HandleRequest)
 	}
 
 	var scripts []model.ScriptLibrary
-	s.db.WithContext(ctx).Where("category = ? OR subcategory = ?", "objection", req.Category).
-		Order("usage_count DESC").Limit(5).
-		Find(&scripts)
+	if s.scriptRepo != nil {
+		scripts, _ = s.scriptRepo.ListObjectionTemplates(ctx, req.Category, 5)
+	}
 
 	for _, sc := range scripts {
 		ot := ObjectionTemplate{
@@ -181,14 +180,8 @@ func (s *ObjectionHandlerService) ListCategories(ctx context.Context) []map[stri
 
 // RecordUsage 记录使用（学习闭环）
 func (s *ObjectionHandlerService) RecordUsage(ctx context.Context, templateID uint, success bool) error {
-	updates := map[string]any{
-		"usage_count": gorm.Expr("usage_count + 1"),
+	if s.scriptRepo == nil {
+		return nil
 	}
-	if success {
-		updates["success_count"] = gorm.Expr("success_count + 1")
-		updates["conversion_rate"] = gorm.Expr("success_count::float / GREATEST(usage_count, 1)")
-	}
-	return s.db.WithContext(ctx).Model(&model.ScriptLibrary{}).
-		Where("id = ?", templateID).
-		Updates(updates).Error
+	return s.scriptRepo.IncrementUsageStats(ctx, templateID, success)
 }

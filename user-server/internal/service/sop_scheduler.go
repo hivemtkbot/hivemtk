@@ -23,7 +23,6 @@ import (
 //  3. 处理超时/卡死的执行
 type SOPScheduler struct {
 	svc       *SOPService
-	db        *gorm.DB // 保留以维持构造签名兼容
 	agentRepo *repository.SopAgentRepository
 	execRepo  *repository.SopExecutionRepository
 	interval  time.Duration
@@ -70,24 +69,10 @@ func NewSOPScheduler(svc *SOPService, db *gorm.DB, interval time.Duration) *SOPS
 	}
 	return &SOPScheduler{
 		svc:       svc,
-		db:        db,
 		agentRepo: agentRepo,
 		execRepo:  execRepo,
 		interval:  interval,
 		stopCh:    make(chan struct{}),
-	}
-}
-
-// ensureReposFromDB 在 struct 直接构造或 db 后注入时，按需派生新仓库实例
-func (s *SOPScheduler) ensureReposFromDB(ctx context.Context) {
-	if s.db == nil {
-		return
-	}
-	if s.agentRepo == nil {
-		s.agentRepo = repository.NewSopAgentRepository(s.db)
-	}
-	if s.execRepo == nil {
-		s.execRepo = repository.NewSopExecutionRepository(s.db)
 	}
 }
 
@@ -136,7 +121,7 @@ func (s *SOPScheduler) loop(ctx context.Context) {
 
 // tick 单次调度
 func (s *SOPScheduler) tick(ctx context.Context) {
-	if s.db == nil {
+	if s.agentRepo == nil || s.execRepo == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -154,10 +139,9 @@ func (s *SOPScheduler) tick(ctx context.Context) {
 
 // cleanupStuckExecutions 清理卡死的执行
 func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
-	if s.db == nil {
+	if s.execRepo == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background())
 	threshold := time.Now().Add(-24 * time.Hour)
 	rowsAffected, err := s.execRepo.CleanupStuck(ctx, threshold, SOPStatusRunning, SOPStatusFailed)
 	if err != nil {
@@ -169,10 +153,9 @@ func (s *SOPScheduler) cleanupStuckExecutions(ctx context.Context) {
 
 // dispatchAutoSOPs 自动触发型 SOP
 func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
-	if s.db == nil {
+	if s.agentRepo == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background())
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerAuto)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 auto SOP 失败: %v", err)
@@ -185,10 +168,9 @@ func (s *SOPScheduler) dispatchAutoSOPs(ctx context.Context) {
 
 // dispatchScheduledSOPs 定时型 SOP
 func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
-	if s.db == nil {
+	if s.agentRepo == nil {
 		return
 	}
-	s.ensureReposFromDB(context.Background())
 	list, err := s.agentRepo.ListActiveByTriggerType(ctx, SOPTriggerSchedule)
 	if err != nil {
 		logger.Errorf("[SOPScheduler] 查询 schedule SOP 失败: %v", err)
@@ -221,7 +203,9 @@ func (s *SOPScheduler) dispatchScheduledSOPs(ctx context.Context) {
 
 // tryExecute 尝试为该 SOP 启动一次执行
 func (s *SOPScheduler) tryExecute(ctx context.Context, agent model.SOPAgent) {
-	s.ensureReposFromDB(context.Background())
+	if s.execRepo == nil {
+		return
+	}
 	// 去重：检查是否已有 running 的执行
 	count, err := s.execRepo.CountBySOPIDAndStatus(ctx, agent.ID, SOPStatusRunning)
 	if err != nil {

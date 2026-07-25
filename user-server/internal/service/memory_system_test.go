@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
@@ -22,7 +23,7 @@ func setupMemoryTestDB(t *testing.T) *gorm.DB {
 func TestMemorySystem_L1Append(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	for i := 0; i < 5; i++ {
 		if err := m.L1Append(ctx, "s-1", "c-1", "user", "msg-"); err != nil {
@@ -41,7 +42,7 @@ func TestMemorySystem_L1Append(t *testing.T) {
 func TestMemorySystem_L1Trim(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	// 写 15 条，应自动裁剪到 10
 	for i := 0; i < 15; i++ {
@@ -59,7 +60,7 @@ func TestMemorySystem_L1Trim(t *testing.T) {
 func TestMemorySystem_L1Clear(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	m.L1Append(ctx, "s-1", "c-1", "user", "msg-1")
 	if err := m.L1Clear(ctx, "s-1"); err != nil {
 		t.Fatalf("clear: %v", err)
@@ -73,7 +74,7 @@ func TestMemorySystem_L1Clear(t *testing.T) {
 func TestMemorySystem_L1ListLimit(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	for i := 0; i < 5; i++ {
 		m.L1Append(ctx, "s-1", "c-1", "user", "msg-")
 	}
@@ -86,7 +87,7 @@ func TestMemorySystem_L1ListLimit(t *testing.T) {
 func TestMemorySystem_L2SaveAndListFact(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L2SaveFact(ctx, "c-1", "name", "张三", 7)
 	m.L2SaveFact(ctx, "c-1", "phone", "13800000000", 5)
@@ -104,7 +105,7 @@ func TestMemorySystem_L2SaveAndListFact(t *testing.T) {
 func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L2SaveSummary(ctx, "c-1", "客户对价格敏感")
 	m.L2SaveSummary(ctx, "c-1", "客户已购买") // 更新
@@ -117,7 +118,7 @@ func TestMemorySystem_L2SaveAndGetSummary(t *testing.T) {
 
 func TestMemorySystem_L2ImportanceDefault(t *testing.T) {
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	m.L2SaveFact(context.Background(), "c-1", "k", "v", 0) // 0 应被设置为 default
 	facts, _ := m.L2ListFacts(context.Background(), "c-1", 10)
 	if facts[0].Importance != defaultImp {
@@ -135,7 +136,7 @@ func TestMemorySystem_L2ImportanceDefault(t *testing.T) {
 func TestMemorySystem_L3SaveAndGetSOPState(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	state := &model.SOPStateMemory{
 		SessionID:   "s-1",
@@ -164,7 +165,7 @@ func TestMemorySystem_L3SaveAndGetSOPState(t *testing.T) {
 func TestMemorySystem_L3ListByCustomer(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L3SaveSOPState(ctx, &model.SOPStateMemory{SessionID: "s-1", CustomerID: "c-1", SOPID: 1})
 	m.L3SaveSOPState(ctx, &model.SOPStateMemory{SessionID: "s-2", CustomerID: "c-1", SOPID: 2})
@@ -178,7 +179,7 @@ func TestMemorySystem_L3ListByCustomer(t *testing.T) {
 
 func TestMemorySystem_L3NotFound(t *testing.T) {
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	got, _ := m.L3GetSOPState(context.Background(), "not-exists")
 	if got != nil {
 		t.Errorf("expected nil for not found, got %+v", got)
@@ -188,7 +189,7 @@ func TestMemorySystem_L3NotFound(t *testing.T) {
 func TestMemorySystem_L4Record(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L4Record(ctx, "c-1", "order", "订单#1001 100元", "1001", 7, map[string]any{"amount": 100})
 	m.L4Record(ctx, "c-1", "complaint", "投诉物流慢", "", 5, nil)
@@ -202,7 +203,7 @@ func TestMemorySystem_L4Record(t *testing.T) {
 func TestMemorySystem_L4ListByType(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L4Record(ctx, "c-1", "order", "order1", "", 5, nil)
 	m.L4Record(ctx, "c-1", "order", "order2", "", 5, nil)
@@ -217,7 +218,7 @@ func TestMemorySystem_L4ListByType(t *testing.T) {
 func TestMemorySystem_L4MaxPerCustTrim(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	// 写 L4MaxPerCust + 5 条
 	for i := 0; i < L4MaxPerCust+5; i++ {
@@ -232,7 +233,7 @@ func TestMemorySystem_L4MaxPerCustTrim(t *testing.T) {
 
 func TestMemorySystem_BuildFullContext_AllEmpty(t *testing.T) {
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 	out, err := m.BuildFullContext(context.Background(), "no-such-session", "no-such-customer")
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -245,7 +246,7 @@ func TestMemorySystem_BuildFullContext_AllEmpty(t *testing.T) {
 func TestMemorySystem_BuildFullContext_WithData(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	m.L1Append(ctx, "s-1", "c-1", "user", "你好")
 	m.L1Append(ctx, "s-1", "c-1", "ai", "您好，有什么可以帮您？")
@@ -271,7 +272,7 @@ func TestMemorySystem_BuildFullContext_WithData(t *testing.T) {
 func TestMemorySystem_SyncFromDialogueMemory(t *testing.T) {
 	ctx := context.Background()
 	db := setupMemoryTestDB(t)
-	m := &MemorySystem{db: db}
+	m := &MemorySystem{memoryRepo: repository.NewMemoryRepositoryWithDB(db)}
 
 	mem := &model.DialogueMemory{
 		SessionID:      "s-1",
@@ -301,12 +302,12 @@ func TestMemorySystem_SyncFromDialogueMemory(t *testing.T) {
 }
 
 func TestMemorySystem_SyncFromDialogueMemory_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	m.SyncFromDialogueMemory(context.Background(), &model.DialogueMemory{CustomerID: "c-1"}) // 不应 panic
 }
 
 func TestMemorySystem_BuildFullContext_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	out, _ := m.BuildFullContext(context.Background(), "s-1", "c-1")
 	if out != "" {
 		t.Errorf("expected empty for nil db, got %s", out)
@@ -323,7 +324,7 @@ func memContains(s, sub string) bool {
 }
 
 func TestMemorySystem_L1Append_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	err := m.L1Append(context.Background(), "s-1", "c-1", "user", "msg")
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)
@@ -331,7 +332,7 @@ func TestMemorySystem_L1Append_NilDB(t *testing.T) {
 }
 
 func TestMemorySystem_L1List_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	items, err := m.L1List(context.Background(), "s-1", 10)
 	if err != nil || items != nil {
 		t.Errorf("expected nil nil, got %v %v", items, err)
@@ -339,7 +340,7 @@ func TestMemorySystem_L1List_NilDB(t *testing.T) {
 }
 
 func TestMemorySystem_L2SaveFact_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	err := m.L2SaveFact(context.Background(), "c-1", "k", "v", 5)
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)
@@ -347,7 +348,7 @@ func TestMemorySystem_L2SaveFact_NilDB(t *testing.T) {
 }
 
 func TestMemorySystem_L3SaveSOPState_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	err := m.L3SaveSOPState(context.Background(), &model.SOPStateMemory{SessionID: "s"})
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)
@@ -355,7 +356,7 @@ func TestMemorySystem_L3SaveSOPState_NilDB(t *testing.T) {
 }
 
 func TestMemorySystem_L4Record_NilDB(t *testing.T) {
-	m := &MemorySystem{db: nil}
+	m := &MemorySystem{}
 	err := m.L4Record(context.Background(), "c-1", "order", "content", "1", 5, nil)
 	if err != nil {
 		t.Errorf("expected nil err, got %v", err)

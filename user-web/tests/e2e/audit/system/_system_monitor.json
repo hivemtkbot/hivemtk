@@ -1,0 +1,17 @@
+{
+  "route": "/system/monitor",
+  "module": "系统设置",
+  "errors": [],
+  "items": [
+    {
+      "text": "Refresh",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

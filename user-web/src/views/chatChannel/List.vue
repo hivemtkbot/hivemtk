@@ -79,6 +79,12 @@
         </el-table-column>
         <el-table-column prop="visitor_count" label="访客" width="80" align="center" />
         <el-table-column prop="session_count" label="会话" width="80" align="center" />
+        <el-table-column label="目标语言" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.target_language" size="small">{{ getLanguageLabel(row.target_language) }}</el-tag>
+            <span v-else class="lang-follow">跟随智能体</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -120,6 +126,7 @@ import { listChannels, updateChannel, rotateAppKey, resetAppSecret } from '@/api
 import DOMPurify from 'dompurify'
 // 统一枚举：启用/禁用
 import { getEnabledLabel, getEnabledTagType } from '@/constants/enabled'
+import { getLanguageLabel } from '@/constants/languages'
 
 const getStatusLabel = (s) => getEnabledLabel(s)
 const getStatusTagType = (s) => getEnabledTagType(s)
@@ -300,6 +307,10 @@ onMounted(loadList)
   vertical-align: middle;
 }
 .widget-pos {
+  font-size: 12px;
+  color: #909399;
+}
+.lang-follow {
   font-size: 12px;
   color: #909399;
 }

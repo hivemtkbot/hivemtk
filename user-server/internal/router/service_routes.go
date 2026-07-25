@@ -4,6 +4,7 @@ import (
 	"marketing/internal/controller"
 	opsctrl "marketing/internal/ops/controller"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 	"marketing/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,8 @@ import (
 //
 // 2026-07-23 五层架构治理（二轮）：传入 aiAgentSvc 以满足 agent_status controller
 // 装配（控制器零 db 引用）。
-func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService) {
+// 2026-07-25 v1.2 出海方案：传入 langResolver 注入到坐席 WebSocket handler。
+func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService, langResolver *i18nservice.LangConfigResolver) {
 	// 客服会话管理
 	customerSessionCtrl := controller.NewCustomerSessionController()
 	auth.GET("/customer-sessions", customerSessionCtrl.GetSessions)
@@ -76,6 +78,7 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 
 	// WebSocket 连接
 	wsHandler := websocket.NewWSHandler()
+	wsHandler.SetLangResolver(langResolver)
 	auth.GET("/ws/agent", wsHandler.HandleWebSocket)
 
 	// 客户 360 视图

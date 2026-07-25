@@ -11,16 +11,25 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 type XianyuAutoReplyService struct {
-	db *gorm.DB
+	db          *gorm.DB // 保留以维持 GetDB() 兼容
+	accountRepo *repository.AutoReplyAccountRepository
+	ruleRepo    *repository.AutoReplyRuleRepository
+	logRepo     *repository.AutoReplyLogRepository
 }
 
 func NewXianyuAutoReplyService(db *gorm.DB) *XianyuAutoReplyService {
-	return &XianyuAutoReplyService{db: db}
+	return &XianyuAutoReplyService{
+		db:          db,
+		accountRepo: repository.NewAutoReplyAccountRepository(db),
+		ruleRepo:    repository.NewAutoReplyRuleRepositoryWithDB(db),
+		logRepo:     repository.NewAutoReplyLogRepository(db),
+	}
 }
 
 func (s *XianyuAutoReplyService) GetDB(ctx context.Context) *gorm.DB {
@@ -28,8 +37,7 @@ func (s *XianyuAutoReplyService) GetDB(ctx context.Context) *gorm.DB {
 }
 
 func (s *XianyuAutoReplyService) TestMatching(ctx context.Context, platform, message string, userID uint) (*model.AutoReplyRule, error) {
-	var rules []model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND is_active = ?", platform, userID, true).Find(&rules).Error
+	rules, err := s.ruleRepo.ListByPlatformAndUserActive(ctx, platform, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -46,15 +54,12 @@ func (s *XianyuAutoReplyService) TestMatching(ctx context.Context, platform, mes
 }
 
 func (s *XianyuAutoReplyService) ListAccounts(ctx context.Context, userID uint) ([]model.AutoReplyAccount, error) {
-	var items []model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", userID).Find(&items).Error
-	return items, err
+	return s.accountRepo.ListByPlatformAndUser(ctx, "xianyu", userID)
 }
 
 func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReplyAccount) error {
-	var existing model.AutoReplyAccount
-	err := s.db.WithContext(ctx).Where("user_id = ? AND platform = ? AND username = ?", a.UserID, "xianyu", a.Username).First(&existing).Error
-	if err == nil {
+	existing, err := s.accountRepo.FindByUserAndPlatformAndUsername(ctx, a.UserID, "xianyu", a.Username)
+	if err == nil && existing != nil {
 		// 加密存储Cookie(避免在 model 中保留业务方法)
 		encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
 		if encErr != nil {
@@ -63,7 +68,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 		existing.Cookie = encrypted
 		existing.IsActive = a.IsActive
 		existing.LoginAt = a.LoginAt
-		return s.db.Save(&existing).Error
+		return s.accountRepo.Save(ctx, existing)
 	}
 	// 加密存储Cookie(避免在 model 中保留业务方法)
 	encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
@@ -71,7 +76,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 		return encErr
 	}
 	a.Cookie = encrypted
-	return s.db.Create(a).Error
+	return s.accountRepo.Create(ctx, a)
 }
 
 // SaveCookies 保存闲鱼账号 Cookie
@@ -79,8 +84,8 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 // R8 修复：新增 userID 参数并校验账号所有权，防止 IDOR。
 func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	// 获取现有的账号记录
-	var account model.AutoReplyAccount
-	if err := s.db.WithContext(ctx).First(&account, id).Error; err != nil {
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
 		return err
 	}
 
@@ -97,64 +102,41 @@ func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cooki
 	account.Cookie = encrypted
 
 	// 更新数据库中的加密Cookie
-	return s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", id).Update("cookie", account.Cookie).Error
+	return s.accountRepo.UpdateCookieByID(ctx, id, account.Cookie)
 }
 
 func (s *XianyuAutoReplyService) GetRule(ctx context.Context, userID uint) (*model.AutoReplyRule, error) {
-	var rule model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", userID).Order("id DESC").First(&rule).Error
-	if err != nil {
-		return nil, err
-	}
-	return &rule, nil
+	return s.ruleRepo.FindByPlatformAndUser(ctx, "xianyu", userID)
 }
 
 func (s *XianyuAutoReplyService) SaveRule(ctx context.Context, rule *model.AutoReplyRule) error {
-	var existing model.AutoReplyRule
-	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ?", "xianyu", rule.UserID).First(&existing).Error
-	if err == nil {
+	existing, err := s.ruleRepo.FindExistingByPlatformAndUser(ctx, "xianyu", rule.UserID)
+	if err == nil && existing != nil {
 		existing.Keywords = rule.Keywords
 		existing.ReplyContent = rule.ReplyContent
 		existing.Frequency = rule.Frequency
 		existing.DailyLimit = rule.DailyLimit
 		existing.IsActive = rule.IsActive
-		return s.db.Save(&existing).Error
+		return s.ruleRepo.Save(ctx, existing)
 	}
-	return s.db.Create(rule).Error
+	return s.ruleRepo.Create(ctx, rule)
 }
 
 func (s *XianyuAutoReplyService) ListRecentLogs(ctx context.Context, userID uint, page, pageSize int) ([]model.AutoReplyLog, int64, error) {
-	var logs []model.AutoReplyLog
 	cutoff := time.Now().Add(-72 * time.Hour)
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
-	var total int64
-	if err := s.db.Model(&model.AutoReplyLog{}).
-		Where("platform = ? AND user_id = ? AND created_at >= ?", "xianyu", userID, cutoff).
-		Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	err := s.db.WithContext(ctx).Where("platform = ? AND user_id = ? AND created_at >= ?", "xianyu", userID, cutoff).
-		Order("created_at DESC").
-		Offset((page - 1) * pageSize).
-		Limit(pageSize).
-		Find(&logs).Error
-	return logs, total, err
+	return s.logRepo.ListRecentByPlatformAndUser(ctx, "xianyu", userID, page, pageSize, cutoff)
 }
 
 func (s *XianyuAutoReplyService) AppendLog(userID, accountID, ruleID uint, platform, target, reply, status, errMsg string) error {
 	item := &model.AutoReplyLog{UserID: userID, AccountID: accountID, RuleID: ruleID, Platform: platform, TargetContent: target, ReplyContent: reply, Status: status, ErrorMsg: errMsg, CreatedAt: time.Now()}
-	return s.db.Create(item).Error
+	return s.logRepo.Create(context.Background(), item)
 }
 
 // StartLoginBrowser 启动本地浏览器打开咸鱼页面并在登录后提取 Cookie 保存
 // 注意：需要服务器具备可用的 Chromium/Chrome 环境
 func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID uint, username string, accountID uint, headless bool) {
 	go func() {
+		ctx := context.Background()
 		logger.Infof("启动登录浏览器 - 平台: xianyu, 用户: %s, 无头模式: %v", username, headless)
 
 		a, err := browser.NewAssistant(browser.Options{Headless: headless})
@@ -173,12 +155,12 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 		cookie, ok := a.WaitAuthCookieHeader(browser.Xianyu, 5*time.Minute)
 		if ok {
 			// 加密存储Cookie
-			var account model.AutoReplyAccount
-			if err := s.db.WithContext(ctx).First(&account, accountID).Error; err == nil {
+			account, err := s.accountRepo.GetByID(ctx, accountID)
+			if err == nil {
 				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
 				if encErr == nil {
 					account.Cookie = encrypted
-					if err := s.db.Model(&model.AutoReplyAccount{}).Where("id = ?", accountID).Update("cookie", account.Cookie).Error; err != nil {
+					if err := s.accountRepo.UpdateCookieByID(ctx, accountID, account.Cookie); err != nil {
 						logger.Errorf("保存Cookie失败: %v", err)
 					} else {
 						logger.Infof("设置Cookie成功")
@@ -194,14 +176,12 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 }
 
 func (s *XianyuAutoReplyService) DeleteAccount(ctx context.Context, id uint, userID uint) error {
-	return s.db.WithContext(ctx).Where("id = ? AND user_id = ? AND platform = ?", id, userID, "xianyu").Delete(&model.AutoReplyAccount{}).Error
+	return s.accountRepo.DeleteByIDUserAndPlatform(ctx, id, userID, "xianyu")
 }
 
 // MarkWSConnected 记录账号最近一次 WebSocket 连接成功时间
 func (s *XianyuAutoReplyService) MarkWSConnected(ctx context.Context, accountID uint) error {
-	return s.db.Model(&model.AutoReplyAccount{}).
-		Where("id = ?", accountID).
-		Update("last_ws_connected_at", time.Now()).Error
+	return s.accountRepo.UpdateWSLastConnectedAt(ctx, accountID, time.Now())
 }
 
 // StartWSBot 启动基于 WebSocket 的闲鱼自动回复机器人

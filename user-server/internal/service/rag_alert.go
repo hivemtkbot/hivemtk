@@ -28,7 +28,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -36,9 +35,9 @@ import (
 
 	"gorm.io/gorm"
 
-	kbmodel "marketing/internal/aiagent/knowledge/model"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // ----------------------------------------------------------------------------
@@ -73,7 +72,7 @@ const (
 
 // RagAlertService RAG 风控预警服务
 type RagAlertService struct {
-	db     *gorm.DB
+	repo   repository.RagAlertRepository
 	metric *RagMetricsService
 
 	// 用于 cron 控制
@@ -89,8 +88,12 @@ func NewRagAlertService(db *gorm.DB, metric *RagMetricsService) *RagAlertService
 	if metric == nil {
 		metric = NewRagMetricsService(db)
 	}
+	var repo repository.RagAlertRepository
+	if db != nil {
+		repo = repository.NewRagAlertRepository(db)
+	}
 	return &RagAlertService{
-		db:     db,
+		repo:   repo,
 		metric: metric,
 		stopCh: make(chan struct{}),
 	}
@@ -131,8 +134,8 @@ type AlertCheckItem struct {
 //  4. 触发时检查是否已有同窗口同类型活跃预警（幂等）
 //  5. 根据持续窗口数确定严重度
 func (s *RagAlertService) CheckAndAlert(ctx context.Context, windowStart, windowEnd time.Time) (*AlertCheckResult, error) {
-	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("service or db is nil")
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("service or repo is nil")
 	}
 	if windowEnd.Before(windowStart) {
 		return nil, fmt.Errorf("window_end before window_start")
@@ -225,7 +228,7 @@ func (s *RagAlertService) CheckAndAlert(ctx context.Context, windowStart, window
 			Resolved:    false,
 			CreatedAt:   time.Now(),
 		}
-		if err := s.db.WithContext(ctx).Create(alert).Error; err != nil {
+		if err := s.repo.Create(ctx, alert); err != nil {
 			logger.Errorf("[RagAlert] create alert failed (%s): %v", check.Type, err)
 			continue
 		}
@@ -250,21 +253,14 @@ func (s *RagAlertService) CheckLastWindow(ctx context.Context) (*AlertCheckResul
 //
 // alertType 为空时查询所有类型；按 created_at DESC 排序
 func (s *RagAlertService) GetActiveAlerts(ctx context.Context, alertType string, limit int) ([]model.RagAlert, error) {
-	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("service or db is nil")
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("service or repo is nil")
 	}
 	if limit <= 0 || limit > 1000 {
 		limit = RagAlertDefaultLimit
 	}
-	q := s.db.WithContext(ctx).
-		Where("resolved = false").
-		Order("created_at DESC").
-		Limit(limit)
-	if alertType != "" {
-		q = q.Where("alert_type = ?", alertType)
-	}
-	var alerts []model.RagAlert
-	if err := q.Find(&alerts).Error; err != nil {
+	alerts, err := s.repo.ListActive(ctx, alertType, limit)
+	if err != nil {
 		return nil, fmt.Errorf("query active alerts: %w", err)
 	}
 	return alerts, nil
@@ -272,20 +268,14 @@ func (s *RagAlertService) GetActiveAlerts(ctx context.Context, alertType string,
 
 // GetAlertHistory 查询预警历史（含已解决）
 func (s *RagAlertService) GetAlertHistory(ctx context.Context, alertType string, limit int) ([]model.RagAlert, error) {
-	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("service or db is nil")
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("service or repo is nil")
 	}
 	if limit <= 0 || limit > 1000 {
 		limit = RagAlertDefaultLimit
 	}
-	q := s.db.WithContext(ctx).
-		Order("created_at DESC").
-		Limit(limit)
-	if alertType != "" {
-		q = q.Where("alert_type = ?", alertType)
-	}
-	var alerts []model.RagAlert
-	if err := q.Find(&alerts).Error; err != nil {
+	alerts, err := s.repo.ListHistory(ctx, alertType, limit)
+	if err != nil {
 		return nil, fmt.Errorf("query alert history: %w", err)
 	}
 	return alerts, nil
@@ -299,55 +289,50 @@ func (s *RagAlertService) GetAlertHistory(ctx context.Context, alertType string,
 //
 // 同一类型同窗口的活跃预警会被批量解决（避免遗漏）
 func (s *RagAlertService) ResolveAlert(ctx context.Context, id int64, resolvedBy, note string) (*model.RagAlert, error) {
-	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("service or db is nil")
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("service or repo is nil")
 	}
 	if id <= 0 {
 		return nil, fmt.Errorf("invalid alert id")
 	}
-	var alert model.RagAlert
-	if err := s.db.WithContext(ctx).First(&alert, id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	alert, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		if repository.IsRecordNotFound(err) {
 			return nil, fmt.Errorf("alert not found: %d", id)
 		}
 		return nil, fmt.Errorf("query alert: %w", err)
 	}
 	if alert.Resolved {
-		return &alert, nil // 已解决，幂等返回
+		return alert, nil // 已解决，幂等返回
 	}
 	now := time.Now()
 	alert.Resolved = true
 	alert.ResolvedAt = &now
 	alert.ResolvedBy = resolvedBy
 	alert.ResolveNote = note
-	if err := s.db.WithContext(ctx).Save(&alert).Error; err != nil {
+	if err := s.repo.Save(ctx, alert); err != nil {
 		return nil, fmt.Errorf("update alert: %w", err)
 	}
-	return &alert, nil
+	return alert, nil
 }
 
 // ResolveAllActive 解决指定类型的所有活跃预警
 func (s *RagAlertService) ResolveAllActive(ctx context.Context, alertType, resolvedBy, note string) (int64, error) {
-	if s == nil || s.db == nil {
-		return 0, fmt.Errorf("service or db is nil")
+	if s == nil || s.repo == nil {
+		return 0, fmt.Errorf("service or repo is nil")
 	}
 	now := time.Now()
-	q := s.db.WithContext(ctx).
-		Model(&model.RagAlert{}).
-		Where("resolved = false")
-	if alertType != "" {
-		q = q.Where("alert_type = ?", alertType)
-	}
-	res := q.Updates(map[string]any{
+	fields := map[string]any{
 		"resolved":     true,
 		"resolved_at":  now,
 		"resolved_by":  resolvedBy,
 		"resolve_note": note,
-	})
-	if err := res.Error; err != nil {
+	}
+	affected, err := s.repo.ResolveActive(ctx, alertType, fields)
+	if err != nil {
 		return 0, fmt.Errorf("resolve alerts: %w", err)
 	}
-	return res.RowsAffected, nil
+	return affected, nil
 }
 
 // ----------------------------------------------------------------------------
@@ -356,12 +341,7 @@ func (s *RagAlertService) ResolveAllActive(ctx context.Context, alertType, resol
 
 // hasActiveAlert 检查同窗口同类型是否已有活跃预警
 func (s *RagAlertService) hasActiveAlert(ctx context.Context, alertType string, windowStart, windowEnd time.Time) (bool, error) {
-	var count int64
-	err := s.db.WithContext(ctx).
-		Model(&model.RagAlert{}).
-		Where("alert_type = ? AND window_start = ? AND window_end = ? AND resolved = false",
-			alertType, windowStart, windowEnd).
-		Count(&count).Error
+	count, err := s.repo.CountActiveByWindow(ctx, alertType, windowStart, windowEnd)
 	if err != nil {
 		return false, err
 	}
@@ -379,12 +359,8 @@ func (s *RagAlertService) hasActiveAlert(ctx context.Context, alertType string, 
 func (s *RagAlertService) determineSeverity(ctx context.Context, alertType string, currentWindowStart time.Time) model.RagAlertSeverity {
 	// 查询过去 6 个窗口（30 分钟）内的同类型预警数（含已解决的，作为"曾经触发"的依据）
 	since := currentWindowStart.Add(-time.Duration(RagAlertCriticalPersistWindows) * RagAlertCheckInterval)
-	var count int64
-	if err := s.db.WithContext(ctx).
-		Model(&model.RagAlert{}).
-		Where("alert_type = ? AND window_start >= ? AND window_start < ?",
-			alertType, since, currentWindowStart).
-		Count(&count).Error; err != nil {
+	count, err := s.repo.CountByTypeSince(ctx, alertType, since, currentWindowStart)
+	if err != nil {
 		logger.Errorf("[RagAlert] query history count failed (%s): %v", alertType, err)
 		return model.RagAlertSeverityMessage
 	}
@@ -402,23 +378,14 @@ func (s *RagAlertService) determineSeverity(ctx context.Context, alertType strin
 // 查询条件：knowledge_documents 全量
 // 失败率 = embed_status='failed' 的数量 / 总数
 func (s *RagAlertService) getEmbeddingFailureRate(ctx context.Context) (rate float64, total int64, err error) {
-	var stats struct {
-		Total  int64
-		Failed int64
-	}
-	if err = s.db.WithContext(ctx).
-		Model(&kbmodel.KnowledgeDocument{}).
-		Select(`
-			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE embed_status = 'failed') AS failed
-		`).
-		Scan(&stats).Error; err != nil {
+	total, failed, err := s.repo.AggregateEmbeddingStatus(ctx)
+	if err != nil {
 		return 0, 0, err
 	}
-	if stats.Total == 0 {
+	if total == 0 {
 		return 0, 0, nil
 	}
-	return float64(stats.Failed) / float64(stats.Total), stats.Total, nil
+	return float64(failed) / float64(total), total, nil
 }
 
 // ----------------------------------------------------------------------------

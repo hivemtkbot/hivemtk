@@ -11,11 +11,12 @@ import (
 	"gorm.io/gorm"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // WeComIntegrationService 企微与消息中台/统一收件箱集成
 type WeComIntegrationService struct {
-	db        *gorm.DB
+	repo      *repository.WeComAccountRepository
 	hub       *MessageHubService
 	inbox     *InboxService
 	healthSvc *WeComAccountHealthService
@@ -24,8 +25,12 @@ type WeComIntegrationService struct {
 
 // NewWeComIntegrationService 创建集成服务
 func NewWeComIntegrationService(db *gorm.DB) *WeComIntegrationService {
+	repo := repository.NewWeComAccountRepository()
+	if db != nil {
+		repo.SetDB(context.Background(), db)
+	}
 	return &WeComIntegrationService{
-		db:        db,
+		repo:      repo,
 		hub:       NewMessageHubServiceWithDB(db, nil),
 		inbox:     NewInboxServiceWithDB(db),
 		healthSvc: NewWeComAccountHealthService(db),
@@ -50,7 +55,7 @@ type IngestRequest struct {
 
 // IngestMessage 将企微消息接入消息中台与统一收件箱
 func (s *WeComIntegrationService) IngestMessage(ctx context.Context, req *IngestRequest) (*model.MessageHub, *model.InboxConversation, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, nil, fmt.Errorf("db is nil")
 	}
 	if false /* req removed in private deployment */ || req.AccountID == 0 || req.ExternalUserID == "" {
@@ -119,7 +124,7 @@ type WeComSendRequest struct {
 
 // SendMessage 通过消息中台发送并写入收件箱
 func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSendRequest) (*model.MessageHub, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, fmt.Errorf("db is nil")
 	}
 	if false /* req removed in private deployment */ || req.AccountID == 0 || req.ExternalUserID == "" {
@@ -181,9 +186,8 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 	disableOutbound := os.Getenv("WECOM_DISABLE_OUTBOUND") == "1" ||
 		(os.Getenv("IS_TEST_MODE") == "1" && os.Getenv("WECOM_ALLOW_OUTBOUND") != "1")
 	if !disableOutbound {
-		var wa model.WeComAccount
-		if err := s.db.WithContext(ctx).First(&wa, req.AccountID).Error; err == nil && wa.CorpID != "" && wa.CorpSecret != "" {
-			if _, serr := s.wecom.SendMessage(ctx, &wa, &WeComSendMessageRequest{
+		if wa, err := s.repo.GetByID(ctx, req.AccountID); err == nil && wa != nil && wa.CorpID != "" && wa.CorpSecret != "" {
+			if _, serr := s.wecom.SendMessage(ctx, wa, &WeComSendMessageRequest{
 				ToUser:  req.ExternalUserID,
 				MsgType: req.MsgType,
 				Content: req.Content,
@@ -202,7 +206,7 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 
 // UpdateAccountStatus 更新账号状态（如：登录/掉线/封禁）
 func (s *WeComIntegrationService) UpdateAccountStatus(ctx context.Context, accountID uint, loginState, risk string) error {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil
 	}
 	updates := map[string]any{
@@ -219,9 +223,7 @@ func (s *WeComIntegrationService) UpdateAccountStatus(ctx context.Context, accou
 	} else if loginState == WeComLoginOffline {
 		updates["weight"] = 50
 	}
-	return s.db.Model(&model.WeComAccount{}).
-		Where("id = ?", accountID).
-		Updates(updates).Error
+	return s.repo.UpdateFields(ctx, accountID, updates)
 }
 
 // AccountWithHealth 账号+健康度组合返回
@@ -232,11 +234,11 @@ type AccountWithHealth struct {
 
 // ListAccountsWithHealth 列出账号并附带最新健康度
 func (s *WeComIntegrationService) ListAccountsWithHealth(ctx context.Context) ([]AccountWithHealth, error) {
-	if s.db == nil {
+	if s.repo == nil {
 		return nil, nil
 	}
-	var accounts []model.WeComAccount
-	if err := s.db.Order("id DESC").Find(&accounts).Error; err != nil {
+	accounts, err := s.repo.ListAllOrderByIDDesc(ctx)
+	if err != nil {
 		return nil, err
 	}
 	out := make([]AccountWithHealth, 0, len(accounts))

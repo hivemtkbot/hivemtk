@@ -1,0 +1,16 @@
+{
+  "route": "/clue/list",
+  "module": "客户中心",
+  "errors": [],
+  "items": [
+    {
+      "text": "(表单) 填充输入+点击搜索/筛选",
+      "type": "form",
+      "action": "fill+submit",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

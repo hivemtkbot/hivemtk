@@ -1,21 +1,20 @@
 package service
 
 import (
+	"context"
 	"time"
 
-	"gorm.io/gorm"
-	sysmodel "marketing/internal/model"
-	sysrepo "marketing/internal/repository"
+	opsrepo "marketing/internal/ops/repository"
 )
 
 // ConversionFunnelService 转化漏斗服务
 type ConversionFunnelService struct {
-	db *gorm.DB
+	repo *opsrepo.ConversionFunnelRepository
 }
 
 // NewConversionFunnelService 创建转化漏斗服务
 func NewConversionFunnelService() *ConversionFunnelService {
-	return &ConversionFunnelService{db: sysrepo.GetDB()}
+	return &ConversionFunnelService{repo: opsrepo.NewConversionFunnelRepository()}
 }
 
 // FunnelStage 漏斗阶段
@@ -46,6 +45,7 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 		endTime = time.Now()
 	}
 
+	ctx := context.Background()
 	report := &FunnelReport{
 		StartTime:   startTime,
 		EndTime:     endTime,
@@ -54,32 +54,19 @@ func (s *ConversionFunnelService) BuildFunnel(startTime, endTime time.Time) (*Fu
 	}
 
 	// 阶段1：访问
-	var visitCount int64
-	s.db.Model(&sysmodel.CustomerEvent{}).
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Count(&visitCount)
+	visitCount, _ := s.repo.CountCustomerEventsByTimeRange(ctx, startTime, endTime)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "visit", Name: "访问", Count: visitCount})
 
 	// 阶段2：线索
-	var clueCount int64
-	s.db.Model(&sysmodel.Clue{}).
-		Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
-		Count(&clueCount)
+	clueCount, _ := s.repo.CountCluesByUnixTimeRange(ctx, startTime, endTime)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "clue", Name: "线索", Count: clueCount})
 
 	// 阶段3：意向（来自 intent_records）
-	var intentCount int64
-	s.db.Table("intent_records").
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Where("intent_type IN ?", []string{"buy", "purchase", "order", "interested"}).
-		Count(&intentCount)
+	intentCount, _ := s.repo.CountIntentRecords(ctx, startTime, endTime, []string{"buy", "purchase", "order", "interested"})
 	report.Stages = append(report.Stages, FunnelStage{Stage: "intent", Name: "意向", Count: intentCount})
 
 	// 阶段4：会话
-	var sessionCount int64
-	s.db.Model(&sysmodel.CustomerSession{}).
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Count(&sessionCount)
+	sessionCount, _ := s.repo.CountCustomerSessionsByTimeRange(ctx, startTime, endTime)
 	report.Stages = append(report.Stages, FunnelStage{Stage: "session", Name: "会话", Count: sessionCount})
 
 	// 计算阶段转化率
@@ -128,43 +115,25 @@ func (s *ConversionFunnelService) GetStageDetails(stage string, startTime, endTi
 		endTime = time.Now()
 	}
 
+	ctx := context.Background()
 	det := &StageConversion{Stage: stage}
 	switch stage {
 	case "clue":
 		det.Name = "线索"
-		var count int64
-		s.db.Model(&sysmodel.Clue{}).
-			Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
-			Count(&count)
+		count, _ := s.repo.CountCluesByUnixTimeRange(ctx, startTime, endTime)
 		det.Count = count
 		// 来源分布
-		type row struct {
-			Account string
-			Count   int64
-		}
-		var rows []row
-		s.db.Model(&sysmodel.Clue{}).
-			Select("account, COUNT(*) as count").
-			Where("create_time >= ? AND create_time <= ?", startTime.Unix(), endTime.Unix()).
-			Group("account").
-			Order("count DESC").Limit(10).
-			Scan(&rows)
+		rows, _ := s.repo.GetClueSourceStats(ctx, startTime, endTime)
 		for _, r := range rows {
-			det.TopSources = append(det.TopSources, SourceStat{Source: r.Account, Count: r.Count})
+			det.TopSources = append(det.TopSources, SourceStat{Source: r.Source, Count: r.Count})
 		}
 	case "intent":
 		det.Name = "意向"
-		var count int64
-		s.db.Table("intent_records").
-			Where("created_at BETWEEN ? AND ?", startTime, endTime).
-			Count(&count)
+		count, _ := s.repo.CountIntentRecords(ctx, startTime, endTime, nil)
 		det.Count = count
 	case "session":
 		det.Name = "会话"
-		var count int64
-		s.db.Model(&sysmodel.CustomerSession{}).
-			Where("created_at BETWEEN ? AND ?", startTime, endTime).
-			Count(&count)
+		count, _ := s.repo.CountCustomerSessionsByTimeRange(ctx, startTime, endTime)
 		det.Count = count
 
 	}

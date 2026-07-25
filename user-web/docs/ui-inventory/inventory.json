@@ -1,0 +1,6641 @@
+{
+  "workspace": {
+    "module": "工作台",
+    "routes": {
+      "/unifiedInbox/list": {
+        "count": 115,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh Stats",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部平台",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部状态",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "客服 user id",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "账号 ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "客户 ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "消息内容关键字",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "默认排序",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "已读",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分配",
+            "disabled": false
+          },
+          {
+            "type": "dropdown",
+            "tag": "div",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "更多",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/customerSession/list": {
+        "count": 6,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "offline",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "黑名单管理",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Session",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Select",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          }
+        ]
+      },
+      "/unifiedMessage/list": {
+        "count": 33,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "全部 0",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "企业微信",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "微信公众号",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "个人微信",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "WhatsApp",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Telegram",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "飞书",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "钉钉",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "抖音",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "快手",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "小红书",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "闲鱼",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "TikTok",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "短信",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "邮件",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "卡片",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Web Widget",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "网页",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "标题/内容/发送者",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Please select type.",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Please choose status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/messageHub/list": {
+        "count": 27,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Push messages",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh Stats",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部平台",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "账号 ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "会话 ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "发送者 ID",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部类型",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "内容关键字",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "标记已读",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/wecomAccount/list": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add account",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  },
+  "customer": {
+    "module": "客户中心",
+    "routes": {
+      "/customer360/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索客户(姓名/手机/邮箱)",
+            "disabled": false
+          }
+        ]
+      },
+      "/customerEvent/list": {
+        "count": 8,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Create Event",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Event Type",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/clue/list": {
+        "count": 16,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Import Leads",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "名称 / 账号 / 城市 / 地址",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部类型",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/clue/statistics": {
+        "count": 5,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Select",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "line",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "bar",
+            "disabled": false
+          }
+        ]
+      },
+      "/tagSegmentation/list": {
+        "count": 9,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a Label",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Tag Name",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "LABEL TYPE",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "List of tags",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "自动标签规则",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "分层策略",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "标签统计",
+            "disabled": false
+          }
+        ]
+      },
+      "/userSegment/list": {
+        "count": 3,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Create Cluster",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索分群名称",
+            "disabled": false
+          }
+        ]
+      },
+      "/chatChannel/list": {
+        "count": 17,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add new channel",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Channel Name/AppKey",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "All",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "轮换 Key",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置 Secret",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  },
+  "aiAgent": {
+    "module": "智能体",
+    "routes": {
+      "/aiAgent/list": {
+        "count": 59,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Agent",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "All Types",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "All Statuses",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Name/Encoding",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定关系",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          }
+        ]
+      },
+      "/dialogueMemory/list": {
+        "count": 8,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Customer ID Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Query",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查看记忆",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "构建上下文",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/intentRecognition/list": {
+        "count": 24,
+        "items": [
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Fill in the example",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "可选，用于客户画像归档",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "可选，消息来源平台",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "可选，前序对话上下文，帮助提升识别准确率",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "输入客户的对话文本，如：这个多少钱？能便宜点吗？",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "开始识别",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "批量识别(按行)",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "意图类型筛选",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Fill in the example",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "输入客户消息，如：你们这个产品跟别家有什么区别？",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "可选",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "精细识别",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "大类筛选",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索意图/关键词",
+            "disabled": false
+          }
+        ]
+      },
+      "/objection/list": {
+        "count": 10,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Intelligent handling",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh Categories",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "输入客户的异议内容，例如：太贵了、再考虑一下、其他家更便宜...",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "自动识别（可手动调整）",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "智能匹配",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "仅分类",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "清空",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "清空",
+            "disabled": false
+          }
+        ]
+      },
+      "/persona/list": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Name/ID",
+            "disabled": false
+          }
+        ]
+      },
+      "/sopAgent/list": {
+        "count": 9,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search SOP Name",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Query",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "创建 SOP",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "SOP Management",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "执行监控",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "意图匹配测试",
+            "disabled": false
+          }
+        ]
+      },
+      "/scriptTemplate/list": {
+        "count": 4,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Calling Technique",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "My scene",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Spells",
+            "disabled": false
+          }
+        ]
+      },
+      "/llmRouting/list": {
+        "count": 32,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "新增模型",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "禁用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "测试",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "模型列表",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "场景路由配置",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Fallback 策略",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "成本统计",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "路由审计",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "分类统计与出域审计",
+            "disabled": false
+          }
+        ]
+      },
+      "/confidence/panel": {
+        "count": 9,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search session_id",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Confidence signal",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "置信度校准",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "转人工阈值策略",
+            "disabled": false
+          }
+        ]
+      },
+      "/humanize/panel": {
+        "count": 8,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "<g id=\"Bold\">Assessment Results</g>",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "销冠基线",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "低质样本",
+            "disabled": false
+          }
+        ]
+      },
+      "/feedbackLoop/panel": {
+        "count": 13,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "事件类型",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "信号 key",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Feedback Events",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "销冠对话",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Prompt 迭代",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Bandit A/B",
+            "disabled": false
+          }
+        ]
+      },
+      "/asset-market": {
+        "count": 16,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "我的资产",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "免费试用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/asset-market/my-assets": {
+        "count": 16,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "去市场浏览",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "自建资产",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "同步日志",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索名称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "同步",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查看",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "上报使用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      }
+    }
+  },
+  "reach": {
+    "module": "触达运营",
+    "routes": {
+      "/marketingFlow/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Process",
+            "disabled": false
+          }
+        ]
+      },
+      "/reachPipeline/list": {
+        "count": 16,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Name",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Channel",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset throttling",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "新建 Pipeline",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "PipelineManagement",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "任务监控",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "统计分析",
+            "disabled": false
+          }
+        ]
+      },
+      "/sms/list": {
+        "count": 13,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "send text",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入手机号",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择状态",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始日期",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束日期",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/sms/drafts": {
+        "count": 6,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Draft",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/sms/jobs": {
+        "count": 6,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Create Task",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/sms/config": {
+        "count": 23,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Save",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "阿里云短信",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "decrease number",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "increase number",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "decrease number",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "increase number",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "10000",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "decrease number",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "increase number",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "3",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入AccessKey ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入AccessKey Secret",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入短信签名",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入SecretId",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入SecretKey",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入短信应用ID",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入短信签名",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入APP Key",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入APP Secret",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入通道号",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入短信签名",
+            "disabled": false
+          }
+        ]
+      },
+      "/email": {
+        "count": 4,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Send Email",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/email/drafts": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Draft",
+            "disabled": false
+          }
+        ]
+      },
+      "/email/jobs": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/email/smtp": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add Mail Agent",
+            "disabled": false
+          }
+        ]
+      },
+      "/email/info": {
+        "count": 22,
+        "items": [
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.163.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.126.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.yeah.net",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.qq.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.sina.com.cn",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.10086.cn",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.google.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://outlook.live.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.yahoo.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://mail.aol.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "https://www.gmx.com",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往注册",
+            "disabled": false
+          }
+        ]
+      },
+      "/email/guide": {
+        "count": 4,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to Operation",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to Operation",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to Operation",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to Operation",
+            "disabled": false
+          }
+        ]
+      },
+      "/tiktok": {
+        "count": 12,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Statistical analysis",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a card",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "标题、描述或标签",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/tiktok/stats": {
+        "count": 5,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-17",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-24",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "day of",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      },
+      "/tiktok/auto-reply": {
+        "count": 13,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入账号昵称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定账号",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "60",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "停用 启用",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启动自动回复",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停止",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/douyinCard": {
+        "count": 16,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Statistical analysis",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a card",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "标题、描述或标签",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "统计",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "复制链接",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/douyin/stats": {
+        "count": 6,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-17",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-24",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "day of",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "统计",
+            "disabled": false
+          }
+        ]
+      },
+      "/douyin/auto-reply": {
+        "count": 13,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入账号昵称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定账号",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "60",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "停用 启用",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启动自动回复",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停止",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/kuaishouCard": {
+        "count": 12,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Statistical analysis",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a card",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "标题、描述或标签",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/kuaishou/stats": {
+        "count": 5,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-17",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-24",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "day of",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      },
+      "/kuaishou/auto-reply": {
+        "count": 13,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入账号昵称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定账号",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "60",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "停用 启用",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启动自动回复",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停止",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/xiaohongshuCard": {
+        "count": 12,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Statistical analysis",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a card",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入关键词",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择状态",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/xiaohongshu/stats": {
+        "count": 5,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-17",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-24",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "day of",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh Data",
+            "disabled": false
+          }
+        ]
+      },
+      "/xiaohongshu/auto-reply": {
+        "count": 13,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入账号昵称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定账号",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "60",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "停用 启用",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启动自动回复",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停止",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/xianyuCard": {
+        "count": 12,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Statistical analysis",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add a card",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "标题、描述或标签",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/xianyu/stats": {
+        "count": 5,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-06-24",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "2026-07-24",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "day of",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      },
+      "/xianyu/auto-reply": {
+        "count": 13,
+        "items": [
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入账号昵称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "绑定账号",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "60",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "100",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "停用 启用",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "启动自动回复",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停止",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          }
+        ]
+      },
+      "/batchOperation/list": {
+        "count": 0,
+        "items": []
+      },
+      "/livecode": {
+        "count": 11,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add Voucher",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入活码名称",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "请选择状态",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/shortLink": {
+        "count": 16,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add Short Chain",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please enter shortcode string",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please enter the original URL",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Please choose status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "统计",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分享",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/shortLink/stats": {
+        "count": 12,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Data Total",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please enter shortcode string",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please enter the original URL",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "统计",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "分享",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  },
+  "knowledge": {
+    "module": "知识中心",
+    "routes": {
+      "/knowledge/management": {
+        "count": 47,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Select Products",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Status oEmbed",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Source Type",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Title",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Import Files",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 项目概述与定位",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 开源信息与协议",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 部署指南",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 运维手册",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 架构说明",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 功能模块",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 资产市场与 AI 智能体",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "link",
+            "tag": "a",
+            "text": "HiveMTK 常见问题 FAQ",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "详情",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重建索引",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/tokens": {
+        "count": 10,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "按产品筛选",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "如:CRM 推送",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "只读",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "可写",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "不填则永不过期",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "创建",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/playground": {
+        "count": 9,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "输入用户问题,例如:如何申请退款?",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "可选,如:售后/产品",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择或输入标签",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "开始检索",
+            "disabled": true
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "启用三级缓存",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "启用重排序",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/chunks": {
+        "count": 8,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "0",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh Segments",
+            "disabled": true
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/external": {
+        "count": 14,
+        "items": [
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "custom",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "feishu",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "notion",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "dingtalk",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "JSON 数组,例如: [{\"title\": \"FAQ1\", \"content\": \"...\", \"category\": \"售后\", \"tags\": [\"退款\"",
+            "disabled": false
+          },
+          {
+            "type": "checkbox",
+            "tag": "label",
+            "text": "同步返回(否则异步)",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "载入模板",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "提交导入",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请先到「API Token 管理」创建",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "按产品筛选",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/openapi": {
+        "count": 4,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品(可选)",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "新建数据源",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/statistics": {
+        "count": 9,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Select a product (optional)",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "近 30 天",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "trend",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "source",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "category",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "top",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/feedbacks": {
+        "count": 12,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "评价",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索查询文本",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/knowledge/batch-import": {
+        "count": 10,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "auto",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "csv",
+            "disabled": false
+          },
+          {
+            "type": "radio",
+            "tag": "input",
+            "text": "json",
+            "disabled": false
+          },
+          {
+            "type": "upload",
+            "tag": "div",
+            "text": "将文件拖到此处,或点击上传",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "预览解析结果",
+            "disabled": true
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "文件上传",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "JSON 粘贴",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "确认导入 (0)",
+            "disabled": true
+          }
+        ]
+      },
+      "/templateMarket/list": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Return to previous",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Back to Home",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/rag-overview": {
+        "count": 0,
+        "items": []
+      },
+      "/system/rag-product-config": {
+        "count": 11,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Link New Product",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Rag Product Management",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Account Configuration",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/rag-product": {
+        "count": 9,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Link New Product",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "编辑",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "停用",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "删除",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/rag-account": {
+        "count": 13,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择平台",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "输入平台账号ID",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "选择RAG产品",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "decrease number",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "increase number",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "1000",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "自动回复",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "RAG智能体",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "添加规则",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "保存配置",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          }
+        ]
+      },
+      "/aiContent/list": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Return to previous",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Back to Home",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  },
+  "dataAnalysis": {
+    "module": "数据分析",
+    "routes": {
+      "/aiProductivity/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          }
+        ]
+      },
+      "/conversionFunnel/list": {
+        "count": 4,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "线索",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "查询",
+            "disabled": false
+          }
+        ]
+      },
+      "/customerJourney/dashboard": {
+        "count": 2,
+        "items": [
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "手动 自动刷新",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      },
+      "/dashboardScreen/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "全屏",
+            "disabled": false
+          }
+        ]
+      },
+      "/customReport/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Report Table",
+            "disabled": false
+          }
+        ]
+      },
+      "/abExperiment/list": {
+        "count": 7,
+        "items": [
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "All",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please enter experiment name",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Experiment",
+            "disabled": false
+          }
+        ]
+      },
+      "/churnPrediction/list": {
+        "count": 6,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "运行预测",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "刷新",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "搜索用户ID",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "预测列表",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "预警列表",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "模型配置",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  },
+  "system": {
+    "module": "系统设置",
+    "routes": {
+      "/platformAccount/list": {
+        "count": 14,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Supported platforms",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add account",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "please_chose_game_channel",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Please input your account",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Please choose status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Search",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Reset",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "10/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/teamUser/list": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Return to previous",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Back to Home",
+            "disabled": false
+          }
+        ]
+      },
+      "/teamUser/role": {
+        "count": 2,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Return to previous",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Back to Home",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/config": {
+        "count": 18,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Save",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入站点名称",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入网站URL",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入Logo URL",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "多个关键词用英文逗号分隔",
+            "disabled": false
+          },
+          {
+            "type": "textarea",
+            "tag": "textarea",
+            "text": "请输入SEO描述",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入客服电话",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入客服邮箱",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "如 京ICP备12345678号",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "如 京公网安备 11010102000000号",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "switch",
+            "tag": "div",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "decrease number",
+            "disabled": false
+          },
+          {
+            "type": "other",
+            "tag": "span",
+            "text": "increase number",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "50",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/material-library": {
+        "count": 14,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Upload Download",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add Category",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部分类",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "全部类型",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "请输入素材名称",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "搜索",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "重置",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "12/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/monitor": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/obs-config": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "New Configuration",
+            "disabled": false
+          }
+        ]
+      },
+      "/integration/list": {
+        "count": 1,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Add Integration...",
+            "disabled": false
+          }
+        ]
+      },
+      "/operationLog/list": {
+        "count": 14,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Export",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search action content",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Module",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Operation Type",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Who",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/securityAudit/list": {
+        "count": 13,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Audit now",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search Audit Name",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Risk level",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "开始日期",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "结束日期",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Query",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          }
+        ]
+      },
+      "/backup/list": {
+        "count": 14,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Refresh",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Backup Now",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Search backup name",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Backup Type",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "Status",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "select-ui",
+            "tag": "div",
+            "text": "20/page",
+            "disabled": false
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to previous page",
+            "disabled": true
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "Go to next page",
+            "disabled": true
+          },
+          {
+            "type": "input",
+            "tag": "input",
+            "text": "Page",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "Backup Record",
+            "disabled": false
+          },
+          {
+            "type": "tab",
+            "tag": "div",
+            "text": "恢复记录",
+            "disabled": false
+          }
+        ]
+      },
+      "/system/guide": {
+        "count": 5,
+        "items": [
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往操作",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往操作",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往操作",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往操作",
+            "disabled": false
+          },
+          {
+            "type": "button",
+            "tag": "button",
+            "text": "前往操作",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  }
+}

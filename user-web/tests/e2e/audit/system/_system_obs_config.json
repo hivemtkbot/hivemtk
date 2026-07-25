@@ -1,0 +1,17 @@
+{
+  "route": "/system/obs-config",
+  "module": "系统设置",
+  "errors": [],
+  "items": [
+    {
+      "text": "New Configuration",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

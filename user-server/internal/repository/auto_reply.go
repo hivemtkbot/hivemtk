@@ -100,6 +100,20 @@ func (r *AutoReplyAccountRepository) DeleteByIDAndUser(ctx context.Context, id, 
 	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&model.AutoReplyAccount{}).Error
 }
 
+// DeleteByIDUserAndPlatform 按 ID、用户与平台删除账号
+func (r *AutoReplyAccountRepository) DeleteByIDUserAndPlatform(ctx context.Context, id, userID uint, platform string) error {
+	return r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ? AND platform = ?", id, userID, platform).
+		Delete(&model.AutoReplyAccount{}).Error
+}
+
+// UpdateWSLastConnectedAt 更新账号最近一次 WS 连接时间
+func (r *AutoReplyAccountRepository) UpdateWSLastConnectedAt(ctx context.Context, id uint, t time.Time) error {
+	return r.db.WithContext(ctx).Model(&model.AutoReplyAccount{}).
+		Where("id = ?", id).
+		Update("last_ws_connected_at", t).Error
+}
+
 // FirstByPlatformAndUser 取平台与用户下的首条账号
 func (r *AutoReplyAccountRepository) FirstByPlatformAndUser(ctx context.Context, platform string, userID uint) (*model.AutoReplyAccount, error) {
 	var account model.AutoReplyAccount

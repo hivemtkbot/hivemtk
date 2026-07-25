@@ -5,7 +5,7 @@ package service
 // ----------------------------------------------------------------------------
 // 设计依据：docs/核心链路优化.md 第十三章 §13.2.4 / §13.2.5
 // 私域独立部署：无 merchant_id 字段
-// 五层架构：本文件位于 L3 业务层（Service）
+// 五层架构：本文件位于 L3 业务层（Service），所有 DB 操作通过 repository 层完成。
 //
 // 设计要点：
 //   - OutboxDispatcher：独立 goroutine 轮询 sop_timers 表（5s 周期），
@@ -22,10 +22,9 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
-	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // SOPDispatchSender 调度任务派发接口
@@ -45,7 +44,7 @@ type SOPDispatchSender interface {
 // 独立 goroutine 轮询 sop_timers 表，扫描到期的 timer 后派发任务给 SOPExecutionDispatcher。
 // 与 SOPScheduler 解耦：SOPScheduler 触发新执行，OutboxDispatcher 处理执行内事件。
 type SOPOutboxDispatcher struct {
-	db             *gorm.DB
+	timerRepo      *repository.SOPTimerRepository
 	execDispatcher SOPDispatchSender
 	tickInterval   time.Duration // 轮询周期（默认 5s）
 	batchSize      int           // 单次扫描批量（默认 100）
@@ -56,9 +55,11 @@ type SOPOutboxDispatcher struct {
 }
 
 // NewSOPOutboxDispatcher 创建 Outbox 调度器
+//
+// 构造函数签名保持 db *gorm.DB 不变以兼容调用方，内部用 db 创建 repository。
 func NewSOPOutboxDispatcher(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPOutboxDispatcher {
 	return &SOPOutboxDispatcher{
-		db:             db,
+		timerRepo:      repository.NewSOPTimerRepository(db),
 		execDispatcher: execDispatcher,
 		tickInterval:   5 * time.Second,
 		batchSize:      100,
@@ -126,7 +127,7 @@ func (o *SOPOutboxDispatcher) loop(ctx context.Context) {
 // 幂等性保障：通过 WHERE status='pending' 原子更新为 'fired'，
 // 多实例并发时只有第一个实例能成功更新，其他实例 RowsAffected=0 直接跳过。
 func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
-	if o.db == nil || o.execDispatcher == nil {
+	if o.timerRepo == nil || o.execDispatcher == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -134,15 +135,10 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	ctx = logger.WithModule(ctx, "sop_outbox")
 
 	now := time.Now()
-	var timers []model.SOPTimer
 	// P1-21：使用 FOR UPDATE SKIP LOCKED 让多实例并行安全抢占
 	// 第一个拿到行的实例进入事务处理，其他实例立即跳过该行
-	if err := o.db.WithContext(ctx).
-		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-		Where("status = ? AND wait_until <= ?", "pending", now).
-		Order("wait_until ASC").
-		Limit(o.batchSize).
-		Find(&timers).Error; err != nil {
+	timers, err := o.timerRepo.FindDueForUpdate(ctx, now, o.batchSize)
+	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[outbox] query due timers failed")
 		return
 	}
@@ -154,19 +150,14 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	firedCount := 0
 	for _, t := range timers {
 		// 原子标记 fired（防多实例重复处理）
-		res := o.db.Model(&model.SOPTimer{}).
-			Where("id = ? AND status = ?", t.ID, "pending").
-			Updates(map[string]any{
-				"status":   "fired",
-				"fired_at": &now,
-			})
-		if res.Error != nil {
-			logger.Ctx(ctx).Error().Err(res.Error).
+		rowsAffected, err := o.timerRepo.MarkFired(ctx, t.ID, now)
+		if err != nil {
+			logger.Ctx(ctx).Error().Err(err).
 				Uint("timer_id", t.ID).
 				Msg("[outbox] mark timer fired failed")
 			continue
 		}
-		if res.RowsAffected == 0 {
+		if rowsAffected == 0 {
 			// 已被其他实例处理，跳过
 			continue
 		}
@@ -212,7 +203,9 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 //   - 找到当前节点重新派发任务（attempt=0）
 //   - 若仍失败，标记 Execution 为 failed
 type SOPStuckDetector struct {
-	db             *gorm.DB
+	execRepo       *repository.SopExecutionRepository
+	timerRepo      *repository.SOPTimerRepository
+	eventRepo      *repository.SOPExecEventRepository
 	execDispatcher SOPDispatchSender
 	maxIdleTime    time.Duration // 节点级卡死阈值（默认 30min）
 	maxExecTime    time.Duration // Execution 级超时阈值（默认 24h）
@@ -224,9 +217,13 @@ type SOPStuckDetector struct {
 }
 
 // NewSOPStuckDetector 创建卡死检测器
+//
+// 构造函数签名保持 db *gorm.DB 不变以兼容调用方，内部用 db 创建 repository。
 func NewSOPStuckDetector(db *gorm.DB, execDispatcher SOPDispatchSender) *SOPStuckDetector {
 	return &SOPStuckDetector{
-		db:             db,
+		execRepo:       repository.NewSopExecutionRepository(db),
+		timerRepo:      repository.NewSOPTimerRepository(db),
+		eventRepo:      repository.NewSOPExecEventRepository(db),
 		execDispatcher: execDispatcher,
 		maxIdleTime:    30 * time.Minute,
 		maxExecTime:    24 * time.Hour,
@@ -304,7 +301,7 @@ func (d *SOPStuckDetector) loop(ctx context.Context) {
 //
 // 恢复策略：重新派发当前节点任务（attempt=0）
 func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
-	if d.db == nil {
+	if d.execRepo == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -316,11 +313,7 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	execThreshold := now.Add(-d.maxExecTime)
 
 	// 扫描卡死执行（无 pending timer 的 running 执行，且最近无事件）
-	var execs []model.SOPExecution
-	err := d.db.Where(
-		"status = ? AND started_at < ? AND (last_event_at IS NULL OR last_event_at < ?)",
-		SOPStatusRunning, execThreshold, idleThreshold,
-	).Limit(50).Find(&execs).Error
+	execs, err := d.execRepo.FindStuck(ctx, SOPStatusRunning, execThreshold, idleThreshold, 50)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[stuck] query stuck executions failed")
 		return
@@ -333,20 +326,26 @@ func (d *SOPStuckDetector) scanStuckExecutions(ctx context.Context) {
 	recoveredCount := 0
 	for _, exec := range execs {
 		// 检查是否有 pending timer（wait 节点不算卡死）
-		var pendingTimerCount int64
-		d.db.Model(&model.SOPTimer{}).
-			Where("execution_id = ? AND status = ?", exec.ID, "pending").
-			Count(&pendingTimerCount)
+		pendingTimerCount, err := d.timerRepo.CountPendingByExecutionID(ctx, exec.ID)
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).
+				Uint("execution_id", exec.ID).
+				Msg("[stuck] count pending timers failed, skip")
+			continue
+		}
 		if pendingTimerCount > 0 {
 			// 有 pending timer，不算卡死
 			continue
 		}
 
 		// 检查最近是否有 sop_exec_events
-		var recentEventCount int64
-		d.db.Model(&model.SOPExecEvent{}).
-			Where("execution_id = ? AND created_at > ?", exec.ID, idleThreshold).
-			Count(&recentEventCount)
+		recentEventCount, err := d.eventRepo.CountRecentByExecutionID(ctx, exec.ID, idleThreshold)
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).
+				Uint("execution_id", exec.ID).
+				Msg("[stuck] count recent events failed, skip")
+			continue
+		}
 		if recentEventCount > 0 {
 			// 最近有事件，不算卡死
 			continue

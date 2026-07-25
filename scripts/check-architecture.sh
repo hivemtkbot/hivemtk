@@ -107,7 +107,19 @@ fi
 
 # 2.2 service 不应直接调 db
 # 排除 _test.go 文件和注释行，避免误报
-SERVICE_DB_HITS=$(grep -rn --include="*.go" --exclude="*_test.go" "db\.GetDB()\|_db\.GetDB()" "$TARGET/internal/service/" 2>/dev/null | grep -v '//' || true)
+# 检测两种违规模式：
+#   (a) db.GetDB() / _db.GetDB()：通过全局单例拿 DB 句柄
+#   (b) \w+\.db\.(WithContext|Raw|Exec|Create|Save|Update|Delete|Find|First|Where|Model|Transaction|Begin|Count|Clauses|Scan|Order|Dialector)：service struct 持有 *gorm.DB 字段并直接调用 GORM 方法
+#       注：允许在 struct 定义行（type xxx struct { db *gorm.DB }）和注释行出现 .db.，不视为违规
+SERVICE_DB_HITS=$(grep -rnE --include="*.go" --exclude="*_test.go" \
+  "db\.GetDB()|_db\.GetDB()|[a-zA-Z_]+\.db\.(WithContext|Raw|Exec|Create|Save|Update|Delete|Find|First|Where|Model|Transaction|Begin|Count|Clauses|Scan|Order|Dialector)" \
+  "$TARGET/internal/service/" 2>/dev/null \
+  | grep -vE ':\s*//' \
+  | grep -vE ':\s*\*' \
+  | grep -vE ':\s*/\*' \
+  | grep -vE ':\s*//\s|:\s*//[^ ]' \
+  | grep -vE ':\s*db\s+\*gorm\.DB' \
+  || true)
 if [ -n "$SERVICE_DB_HITS" ]; then
   log_fail "[L4] service 直接调 db,违反分层(应通过 repository)"
   echo "$SERVICE_DB_HITS" | sed 's/^/    /'
@@ -267,14 +279,22 @@ echo ""
 echo "[9/9] 上下文透传检查(抽查)..."
 
 CTX_VIOLATIONS=0
-# Repository 方法必须第一个参数是 ctx
+# Repository 方法必须第一个参数是 ctx context.Context
+# 例外：纯内存访问器（Available/IsNil/GetDB/SetDB）不涉及 DB 操作，无需 ctx
 for f in $(find "$TARGET/internal/repository" -name "*.go" 2>/dev/null); do
   # 提取所有导出的方法签名,检查是否含 ctx
   while IFS= read -r line; do
     # 排除注释和包声明
     if [[ "$line" =~ ^func\ \([a-zA-Z_]+\ \*[a-zA-Z_]+\)\ ([A-Z][a-zA-Z]+)\(.*\)\  ]]; then
+      method_name="${BASH_REMATCH[1]}"
+      # 跳过纯内存访问器（不涉及 DB 操作）
+      case "$method_name" in
+        Available|IsNil|GetDB|SetDB|DialectName)
+          continue
+          ;;
+      esac
       method_sig="${BASH_REMATCH[0]}"
-      if ! echo "$method_sig" | grep -q "ctx context.Context"; then
+      if ! echo "$method_sig" | grep -qE "\b[a-zA-Z_]+\s+context\.Context"; then
         log_fail "[Repository] $f 方法缺 ctx context.Context:"
         echo "    $method_sig"
         CTX_VIOLATIONS=$((CTX_VIOLATIONS+1))

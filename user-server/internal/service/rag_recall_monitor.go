@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"marketing/internal/repository"
 )
 
 // RagRecallMonitorConstants
@@ -67,7 +69,8 @@ type RagRecallMetricsSummary struct {
 
 // RagRecallMonitorService RAG 召回率监控服务
 type RagRecallMonitorService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	repo repository.RagRecallMonitorRepository
 
 	// 异步控制
 	mu       sync.Mutex
@@ -94,6 +97,7 @@ func NewRagRecallMonitorService(db *gorm.DB, interval, window time.Duration) *Ra
 	}
 	return &RagRecallMonitorService{
 		db:       db,
+		repo:     repository.NewRagRecallMonitorRepository(db),
 		stopCh:   make(chan struct{}),
 		interval: interval,
 		window:   window,
@@ -163,31 +167,8 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 	}
 
 	// 1) 基础聚合：count / avg recall / avg precision / avg latency / avg similarity
-	type aggRow struct {
-		Total         int64
-		AvgRecall     float64
-		AvgPrecision  float64
-		AvgLatency    float64
-		AvgSimilarity float64
-		ZeroHit       int64
-		LowRecall     int64
-		Top1Hit       int64
-	}
-	var row aggRow
-	if err := s.db.WithContext(ctx).
-		Table("rag_query_logs").
-		Where("created_at >= ? AND created_at < ?", start, end).
-		Select(`
-			COUNT(*) AS total,
-			COALESCE(AVG(recall), 0) AS avg_recall,
-			COALESCE(AVG(precision), 0) AS avg_precision,
-			COALESCE(AVG(latency_ms), 0) AS avg_latency,
-			COALESCE(AVG(top_similarity), 0) AS avg_similarity,
-			COUNT(*) FILTER (WHERE retrieved_count = 0) AS zero_hit,
-			COUNT(*) FILTER (WHERE recall < 0.3) AS low_recall,
-			COUNT(*) FILTER (WHERE hit_in_top1 = true) AS top1_hit
-		`).
-		Scan(&row).Error; err != nil {
+	row, err := s.repo.AggregateRecallLogs(ctx, start, end)
+	if err != nil {
 		return nil, fmt.Errorf("query recall aggregate: %w", err)
 	}
 
@@ -213,14 +194,7 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 		if p95Offset < 0 {
 			p95Offset = 0
 		}
-		var p95 int64
-		if err := s.db.WithContext(ctx).
-			Table("rag_query_logs").
-			Where("created_at >= ? AND created_at < ?", start, end).
-			Order("latency_ms ASC").
-			Offset(p95Offset).
-			Limit(1).
-			Pluck("latency_ms", &p95).Error; err == nil {
+		if p95, err := s.repo.PluckP95Latency(ctx, start, end, p95Offset); err == nil {
 			summary.P95LatencyMs = p95
 		}
 	}
@@ -260,7 +234,7 @@ func (s *RagRecallMonitorService) CollectAndStore(ctx context.Context, start, en
 			"payload":          string(payload),
 			"created_at":       time.Now(),
 		}
-		if err := s.db.WithContext(ctx).Table(RagRecallMonitorTableName).Create(row).Error; err != nil {
+		if err := s.repo.CreateSnapshot(ctx, row); err != nil {
 			// 写库失败不视为致命错误（日志由调用方处理）
 			return summary, fmt.Errorf("store snapshot: %w", err)
 		}
@@ -284,12 +258,8 @@ func (s *RagRecallMonitorService) ListSnapshots(ctx context.Context, limit int) 
 	if limit <= 0 || limit > 1000 {
 		limit = 50
 	}
-	var rows []map[string]any
-	if err := s.db.WithContext(ctx).
-		Table(RagRecallMonitorTableName).
-		Order("window_start DESC").
-		Limit(limit).
-		Find(&rows).Error; err != nil {
+	rows, err := s.repo.ListSnapshots(ctx, limit)
+	if err != nil {
 		return nil, err
 	}
 	// 升序返回（图表 X 轴顺序）
@@ -309,25 +279,5 @@ func (s *RagRecallMonitorService) EnsureSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return errors.New("service or db is nil")
 	}
-	stmt := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s (
-			id BIGSERIAL PRIMARY KEY,
-			window_start TIMESTAMPTZ NOT NULL,
-			window_end TIMESTAMPTZ NOT NULL,
-			total_queries BIGINT NOT NULL DEFAULT 0,
-			top_k_hit_rate NUMERIC(10,6) NOT NULL DEFAULT 0,
-			top_1_hit_rate NUMERIC(10,6) NOT NULL DEFAULT 0,
-			avg_recall NUMERIC(10,6) NOT NULL DEFAULT 0,
-			avg_precision NUMERIC(10,6) NOT NULL DEFAULT 0,
-			avg_similarity NUMERIC(10,6) NOT NULL DEFAULT 0,
-			avg_latency_ms NUMERIC(12,2) NOT NULL DEFAULT 0,
-			p95_latency_ms BIGINT NOT NULL DEFAULT 0,
-			zero_hit_count BIGINT NOT NULL DEFAULT 0,
-			low_recall_count BIGINT NOT NULL DEFAULT 0,
-			payload TEXT NOT NULL DEFAULT '',
-			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-		);
-		CREATE INDEX IF NOT EXISTS idx_rag_recall_monitor_window ON %s (window_start DESC);
-	`, RagRecallMonitorTableName, RagRecallMonitorTableName)
-	return s.db.WithContext(ctx).Exec(stmt).Error
+	return s.repo.EnsureSchema(ctx)
 }

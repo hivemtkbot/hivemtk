@@ -70,6 +70,8 @@ type SOPExecutionDispatcher struct {
 	registry    *NodeExecutorRegistry
 	db          *gorm.DB
 	execRepo    *repository.SopExecutionRepository
+	agentRepo   *repository.SopAgentRepository
+	eventRepo   *repository.SOPExecEventRepository
 	msgRepo     *repository.SessionMessageRepository
 	sessionRepo *repository.CustomerSessionRepository
 	sopService  *SOPService // 用于加载 SOP 图与节点查找
@@ -150,8 +152,9 @@ func NewSOPExecutionDispatcher(db *gorm.DB, sopSvc *SOPService, registry *NodeEx
 
 	d := &SOPExecutionDispatcher{
 		registry:      registry,
-		db:            db,
 		execRepo:      repository.NewSopExecutionRepository(db),
+		agentRepo:     repository.NewSopAgentRepository(db),
+		eventRepo:     repository.NewSOPExecEventRepository(db),
 		msgRepo:       repository.NewSessionMessageRepository(),
 		sessionRepo:   repository.NewCustomerSessionRepository(),
 		sopService:    sopSvc,
@@ -387,11 +390,7 @@ func (d *SOPExecutionDispatcher) processTask(ctx context.Context, workerID int, 
 
 // loadExecution 加载 Execution 记录
 func (d *SOPExecutionDispatcher) loadExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
-	var exec model.SOPExecution
-	if err := d.db.First(&exec, execID).Error; err != nil {
-		return nil, err
-	}
-	return &exec, nil
+	return d.execRepo.GetByID(ctx, execID)
 }
 
 // loadGraph 加载 SOP 图
@@ -467,7 +466,7 @@ func (d *SOPExecutionDispatcher) handleNodeSuccess(ctx context.Context, exec *mo
 			break
 		}
 	}
-	if err := d.db.Save(exec).Error; err != nil {
+	if err := d.execRepo.Save(ctx, exec); err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[worker] save execution failed")
 		return
 	}
@@ -496,7 +495,7 @@ func (d *SOPExecutionDispatcher) handleNodeWaiting(ctx context.Context, exec *mo
 	exec.LastEventAt = &now
 	exec.WaitEvent = result.WaitEvent
 	exec.AttemptCount = 0
-	if err := d.db.Save(exec).Error; err != nil {
+	if err := d.execRepo.Save(ctx, exec); err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[worker] save execution (waiting) failed")
 		return
 	}
@@ -535,7 +534,13 @@ func (d *SOPExecutionDispatcher) handleNodeFailure(ctx context.Context, exec *mo
 
 		// 更新 attempt_count
 		exec.AttemptCount = task.Attempt + 1
-		_ = d.db.Model(&model.SOPExecution{}).Where("id = ?", exec.ID).Update("attempt_count", exec.AttemptCount).Error
+		if err := d.execRepo.UpdateAttemptCount(ctx, exec.ID, exec.AttemptCount); err != nil {
+			logger.Ctx(ctx).Warn().
+				Uint("exec_id", exec.ID).
+				Int("attempt_count", exec.AttemptCount).
+				Err(err).
+				Msg("[worker] update attempt_count failed")
+		}
 
 		// 写 retried 事件
 		d.writeExecEvent(ctx, exec, node, NodeEventRetried, task.Attempt+1, nil, nil, errMsg)
@@ -573,13 +578,12 @@ func (d *SOPExecutionDispatcher) completeExecution(ctx context.Context, exec *mo
 	exec.CompletedAt = &now
 	exec.LastEventAt = &now
 	exec.WaitEvent = ""
-	if err := d.db.Save(exec).Error; err != nil {
+	if err := d.execRepo.Save(ctx, exec); err != nil {
 		logger.Ctx(ctx).Error().Err(err).Msg("[worker] mark execution success failed")
 		return
 	}
 	// 累加 success_count
-	_ = d.db.Model(&model.SOPAgent{}).Where("id = ?", exec.SOPID).
-		Update("success_count", gorm.Expr("success_count + 1")).Error
+	_ = d.agentRepo.IncrementSuccessCount(ctx, exec.SOPID)
 
 	logger.Ctx(ctx).Info().
 		Uint("execution_id", exec.ID).
@@ -594,7 +598,7 @@ func (d *SOPExecutionDispatcher) failExecution(ctx context.Context, exec *model.
 	exec.LastEventAt = &now
 	exec.ErrorMessage = errMsg
 	exec.WaitEvent = ""
-	_ = d.db.Save(exec).Error
+	_ = d.execRepo.Save(ctx, exec)
 	logger.Ctx(ctx).Error().
 		Uint("execution_id", exec.ID).
 		Str("error", errMsg).
@@ -606,7 +610,7 @@ func (d *SOPExecutionDispatcher) failExecution(ctx context.Context, exec *model.
 // 事件日志的幂等性由唯一约束 (execution_id, node_id, attempt) 保证，
 // 同一 attempt 重复写入会被数据库拒绝（忽略错误，仅记录日志）。
 func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model.SOPExecution, node *dto.SOPNode, eventType string, attempt int, output model.JSONMap, sideEffects []string, errMsg string) {
-	if d.db == nil {
+	if d.eventRepo == nil {
 		return
 	}
 	event := &model.SOPExecEvent{
@@ -623,7 +627,7 @@ func (d *SOPExecutionDispatcher) writeExecEvent(ctx context.Context, exec *model
 		ErrorMessage: errMsg,
 		TraceID:      logger.TraceIDFromContext(ctx),
 	}
-	if err := d.db.Create(event).Error; err != nil {
+	if err := d.eventRepo.Create(ctx, event); err != nil {
 		// 唯一约束冲突（重复事件）忽略
 		logger.Ctx(ctx).Debug().Err(err).
 			Str("node_id", node.ID).

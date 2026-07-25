@@ -25,6 +25,7 @@
  * - accountType.js 账号状态（1/2/3，active/online/offline/banned + 风险等级）
  * - orderStatus.js 订单/作业状态（pending/running/paused/completed/failed/cancelled/...）
  * - cardPlatform.js 卡片/线索平台（douyin/kuaishou/xiaohongshu/xianyu/tiktok + 1-4 数字线索类型）
+ * - languages.js   多语言配置（智能体内部语言/目标语言，与后端 i18n.SupportedLanguages 对齐）
  */
 
 export * as channel from './channel'
@@ -47,6 +48,7 @@ export * as customerTag from './customerTag'
 export * as accountType from './accountType'
 export * as orderStatus from './orderStatus'
 export * as cardPlatform from './cardPlatform'
+export * as languages from './languages'
 
 export { default as channelDefault } from './channel'
 export { default as sourceDefault } from './source'
@@ -68,3 +70,4 @@ export { default as customerTagDefault } from './customerTag'
 export { default as accountTypeDefault } from './accountType'
 export { default as orderStatusDefault } from './orderStatus'
 export { default as cardPlatformDefault } from './cardPlatform'
+export { default as languagesDefault } from './languages'

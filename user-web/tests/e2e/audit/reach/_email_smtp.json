@@ -1,0 +1,17 @@
+{
+  "route": "/email/smtp",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "Add Mail Agent",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

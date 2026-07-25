@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"marketing/internal/domain/asset"
 	bizerr "marketing/internal/domain/errors"
@@ -35,7 +34,6 @@ type LocalAssetService struct {
 	dataRepo       repository.LocalAssetDataRepository
 	syncLogRepo    repository.LocalAssetSyncLogRepository
 	platformClient repository.PlatformAPIClient
-	db             *gorm.DB
 }
 
 func NewLocalAssetService(
@@ -45,7 +43,10 @@ func NewLocalAssetService(
 	pc repository.PlatformAPIClient,
 	db *gorm.DB,
 ) *LocalAssetService {
-	return &LocalAssetService{assetRepo: ar, dataRepo: dr, syncLogRepo: sr, platformClient: pc, db: db}
+	// 五层架构治理：事务已下沉到 repository 层，service 不再持有 *gorm.DB。
+	// 保留 db 参数仅为调用方签名兼容（router/main.go 等不改），此处显式忽略。
+	_ = db
+	return &LocalAssetService{assetRepo: ar, dataRepo: dr, syncLogRepo: sr, platformClient: pc}
 }
 
 // CreateAssetInput 自建输入
@@ -115,50 +116,25 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 		return bizerr.Wrap(bizerr.CodeAssetInvalid, "平台数据校验失败", err)
 	}
 
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		now := time.Now()
-		la := &model.LocalAsset{
-			AssetID:     payload.AssetID,
-			AssetType:   payload.AssetType,
-			Industry:    payload.Industry,
-			Name:        payload.Name,
-			Version:     payload.Version,
-			Source:      model.AssetSourcePurchased,
-			IsActive:    true,
-			PurchaseID:  &payload.PurchaseID,
-			PurchasedAt: &now,
-			SyncedAt:    now,
-		}
-		// 使用 upsert：已存在的资产（含被软删除的）重新购买时更新并恢复（清空 deleted_at），
-		// 同时避免并发购买触发 UNIQUE(asset_id) 重复键导致 500。
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"asset_type", "industry", "name", "version", "source",
-				"is_active", "purchase_id", "purchased_at", "synced_at", "deleted_at", "updated_at",
-			}),
-		}).Create(la).Error; err != nil {
-			return bizerr.Wrap(bizerr.CodeInternal, "保存资产主表失败", err)
-		}
-		// upsert 命中冲突时 GORM 不会回填主键，需按 asset_id 取回，确保子表关联正确。
-		if la.ID == 0 {
-			var got model.LocalAsset
-			if ferr := tx.Where("asset_id = ?", la.AssetID).First(&got).Error; ferr == nil {
-				la.ID = got.ID
-			}
-		}
-		// local_asset_data.local_asset_id 唯一：重新购买（或恢复软删除）时更新而非重复插入。
-		lad := &model.LocalAssetData{LocalAssetID: la.ID, Data: payload.Data, UpdatedAt: now}
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "local_asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"data", "updated_at"}),
-		}).Create(lad).Error; err != nil {
-			return bizerr.Wrap(bizerr.CodeInternal, "保存资产数据失败", err)
-		}
-		return tx.Create(&model.LocalAssetSyncLog{
-			AssetID: la.AssetID, Action: "purchase_sync", Status: "success",
-		}).Error
-	})
+	now := time.Now()
+	la := &model.LocalAsset{
+		AssetID:     payload.AssetID,
+		AssetType:   payload.AssetType,
+		Industry:    payload.Industry,
+		Name:        payload.Name,
+		Version:     payload.Version,
+		Source:      model.AssetSourcePurchased,
+		IsActive:    true,
+		PurchaseID:  &payload.PurchaseID,
+		PurchasedAt: &now,
+		SyncedAt:    now,
+	}
+	syncLog := &model.LocalAssetSyncLog{
+		AssetID: la.AssetID, Action: "purchase_sync", Status: "success",
+	}
+	// 事务已下沉到 repository.PurchaseAndSyncTx：upsert 主表 + upsert 数据 + 写日志。
+	// 错误处理（含 bizerr 包装、OnConflict upsert、主键回填）与原内联事务完全一致。
+	return s.assetRepo.PurchaseAndSyncTx(ctx, la, payload.Data, syncLog)
 }
 
 // SyncFromPlatform 同步最新版本
@@ -181,24 +157,17 @@ func (s *LocalAssetService) SyncFromPlatform(ctx context.Context, assetID string
 	// 与购买同步保持一致：顶层 name 合并进 data。
 	payload.Data = platformNameIntoData(payload.Data, payload.Name)
 
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		la.Version = payload.Version
-		la.SyncedAt = time.Now()
-		if err := tx.Save(la).Error; err != nil {
-			return err
-		}
-		return tx.Exec(`
-			INSERT INTO local_asset_data (local_asset_id, data, updated_at)
-			VALUES (?, ?, NOW())
-			ON CONFLICT (local_asset_id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
-		`, la.ID, payload.Data).Error
-	})
-	if err != nil {
+	la.Version = payload.Version
+	la.SyncedAt = time.Now()
+	syncLog := &model.LocalAssetSyncLog{
+		AssetID: assetID, Action: "sync", Status: "success",
+	}
+	// 事务已下沉到 repository.SyncDataTx：保存主表 + upsert 数据 + 写成功日志。
+	// 与原实现差异：成功日志纳入事务（原子性更强）；可观测行为等价（原实现事务失败也不写成功日志）。
+	if err := s.assetRepo.SyncDataTx(ctx, la, payload.Data, syncLog); err != nil {
 		return err
 	}
-	return s.syncLogRepo.Create(ctx, &model.LocalAssetSyncLog{
-		AssetID: assetID, Action: "sync", Status: "success",
-	})
+	return nil
 }
 
 // CreateManual 自建资产
@@ -251,20 +220,12 @@ func (s *LocalAssetService) Update(ctx context.Context, id int64, in *UpdateAsse
 	if err := asset.ValidateAssetData(asset.AssetType(in.AssetType), in.Data); err != nil {
 		return bizerr.Wrap(bizerr.CodeAssetInvalid, "资产 JSON 校验失败", err)
 	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		la.Name = in.Name
-		la.AssetType = in.AssetType
-		la.Industry = in.Industry
-		la.UpdatedAt = time.Now()
-		if err := tx.Save(la).Error; err != nil {
-			return err
-		}
-		return tx.Exec(`
-			INSERT INTO local_asset_data (local_asset_id, data, updated_at)
-			VALUES (?, ?, NOW())
-			ON CONFLICT (local_asset_id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
-		`, la.ID, in.Data).Error
-	})
+	la.Name = in.Name
+	la.AssetType = in.AssetType
+	la.Industry = in.Industry
+	la.UpdatedAt = time.Now()
+	// 事务已下沉到 repository.UpdateWithDataTx：保存主表 + upsert 数据，行为与原内联事务一致。
+	return s.assetRepo.UpdateWithDataTx(ctx, la, in.Data)
 }
 
 // List 列表

@@ -75,6 +75,7 @@ type KnowledgeChunk struct {
 	SimilarityScore float64   `gorm:"default:0" json:"similarity_score"`
 	HitCount        int       `gorm:"default:0" json:"hit_count"`
 	Metadata        string    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
+	SourceLanguage  string    `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
 	CreatedAt       time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 

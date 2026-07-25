@@ -31,19 +31,22 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
 
 // ChampionDialogueAnalyzer 销冠对话分析器
 type ChampionDialogueAnalyzer struct {
-	db         *gorm.DB
+	repo       *repository.FeedbackLoopRepository
 	embedder   Embedder
 	dispatcher LLMDispatcher
 	config     ChampionAnalyzerConfig
 }
 
 // NewChampionDialogueAnalyzer 构造分析器
+//
+// 参数 db 仅为构造签名兼容保留，内部用 db 构造 repository，不存到 struct
 func NewChampionDialogueAnalyzer(
 	db *gorm.DB,
 	embedder Embedder,
@@ -66,7 +69,7 @@ func NewChampionDialogueAnalyzer(
 		cfg.MaxDialoguesPerRun = 500
 	}
 	return &ChampionDialogueAnalyzer{
-		db:         db,
+		repo:       repository.NewFeedbackLoopRepositoryWithDB(db),
 		embedder:   embedder,
 		dispatcher: dispatcher,
 		config:     cfg,
@@ -138,38 +141,14 @@ func (a *ChampionDialogueAnalyzer) AnalyzePipeline(ctx context.Context, since ti
 // 阶段 1：候选筛选
 // ----------------------------------------------------------------------------
 
-// championDialogueRow feedback_signals + 最近一条 feedback_events 的快照
-type championDialogueRow struct {
-	SessionID   string
-	CustomerID  string
-	CustomerMsg string
-	AIReply     string
-	Reward      float64
-	IsChampion  bool
-	Scenario    string
-	CreatedAt   time.Time
-}
-
 // fetchCandidates 从 feedback_signals 拉取高价值候选对话
 //
 // SQL：聚合 reward + 关联最近一条 feedback_events 取 customer_msg / ai_reply 快照
-func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since time.Time) ([]championDialogueRow, error) {
-	if a.db == nil {
-		return nil, fmt.Errorf("db is nil")
+func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since time.Time) ([]repository.ChampionDialogueRow, error) {
+	if a.repo == nil {
+		return nil, fmt.Errorf("repo is nil")
 	}
-	var rows []championDialogueRow
-	err := a.db.WithContext(ctx).Raw(`
-		SELECT fs.session_id, fs.customer_id,
-		       (SELECT customer_msg FROM feedback_events WHERE session_id = fs.session_id ORDER BY created_at DESC LIMIT 1) AS customer_msg,
-		       (SELECT ai_reply FROM feedback_events WHERE session_id = fs.session_id ORDER BY created_at DESC LIMIT 1) AS ai_reply,
-		       fs.aggregated_reward AS reward, fs.is_champion,
-		       COALESCE(fs.signal_breakdown->>'scenario', ?) AS scenario,
-		       fs.created_at
-		FROM feedback_signals fs
-		WHERE fs.aggregated_reward >= ? AND fs.created_at >= ?
-		ORDER BY fs.aggregated_reward DESC
-		LIMIT ?`,
-		model.ChampionScenarioGeneral, a.config.MinReward, since, a.config.MaxDialoguesPerRun).Scan(&rows).Error
+	rows, err := a.repo.FetchChampionDialogueCandidates(ctx, model.ChampionScenarioGeneral, a.config.MinReward, since, a.config.MaxDialoguesPerRun)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +161,7 @@ func (a *ChampionDialogueAnalyzer) fetchCandidates(ctx context.Context, since ti
 
 // championDialogueWithEmb 候选对话 + 向量
 type championDialogueWithEmb struct {
-	championDialogueRow
+	repository.ChampionDialogueRow
 	Embedding []float32
 }
 
@@ -192,7 +171,7 @@ type championDialogueWithEmb struct {
 //  1. 向量化每条对话（customer_msg + " || " + ai_reply）
 //  2. BFS 扩展：任取未访问样本，找到所有余弦相似度 ≥ ClusterSimThreshold 的样本形成一簇
 //  3. 簇大小 < MinClusterSize 视为噪声丢弃
-func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []championDialogueRow) (map[uint][]championDialogueWithEmb, error) {
+func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []repository.ChampionDialogueRow) (map[uint][]championDialogueWithEmb, error) {
 	if a.embedder == nil {
 		return nil, ErrEmbedderNotConfig
 	}
@@ -201,7 +180,7 @@ func (a *ChampionDialogueAnalyzer) clusterDialogues(ctx context.Context, rows []
 	for i, r := range rows {
 		text := r.CustomerMsg + " || " + r.AIReply
 		candidates[i] = championDialogueWithEmb{
-			championDialogueRow: r,
+			ChampionDialogueRow: r,
 			Embedding:           a.embedder.Embed(text),
 		}
 	}
@@ -357,27 +336,25 @@ func extractJSON(s string) string {
 // 注意：Embedding 字段用 pgvector 字符串字面量 '[v1,v2,...]' 通过原生 SQL 写入
 // GORM 不直接支持 vector 类型，Create 会失败
 func (a *ChampionDialogueAnalyzer) persistDialogue(ctx context.Context, d championDialogueWithEmb, clusterID uint) error {
-	if a.db == nil {
-		return fmt.Errorf("db is nil")
+	if a.repo == nil {
+		return fmt.Errorf("repo is nil")
 	}
 	fingerprint := d.SessionID + "_" + d.Scenario
 	embStr := formatEmbeddingForPgVector(d.Embedding)
 	conversionAchieved := d.Reward >= 2.0 // reward ≥ 2.0 视为转化成功
 
-	// 用原生 SQL 写入（embedding vector 类型 GORM 不支持）
-	sql := `
-		INSERT INTO champion_dialogues
-			(dialogue_fingerprint, session_id, customer_id, staff_id, staff_name,
-			 scenario, journey_stage, customer_msg, champion_reply, context_msgs,
-			 embedding, cluster_id, reward, conversion_achieved, extracted_scripts, created_at)
-		VALUES (?, ?, ?, 0, '', ?, '', ?, ?, '{}', ?::vector, ?, ?, ?, '[]', NOW())
-		ON CONFLICT (dialogue_fingerprint) DO UPDATE SET
-			reward = EXCLUDED.reward,
-			conversion_achieved = EXCLUDED.conversion_achieved`
-	return a.db.WithContext(ctx).Exec(sql,
-		fingerprint, d.SessionID, d.CustomerID,
-		d.Scenario, d.CustomerMsg, d.AIReply,
-		embStr, clusterID, d.Reward, conversionAchieved).Error
+	return a.repo.PersistChampionDialogue(ctx, repository.ChampionDialoguePersist{
+		Fingerprint:        fingerprint,
+		SessionID:          d.SessionID,
+		CustomerID:         d.CustomerID,
+		Scenario:           d.Scenario,
+		CustomerMsg:        d.CustomerMsg,
+		ChampionReply:      d.AIReply,
+		EmbeddingLiteral:   embStr,
+		ClusterID:          clusterID,
+		Reward:             d.Reward,
+		ConversionAchieved: conversionAchieved,
+	})
 }
 
 // formatEmbeddingForPgVector 格式化为 pgvector 字符串字面量 '[v1,v2,...]'
@@ -407,16 +384,11 @@ func formatEmbeddingForPgVector(v []float32) string {
 //   - TriggerKeywords = 逗号分隔的关键词
 //   - JourneyStage = 旅程阶段
 func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, scripts []dto.ExtractedScriptDTO, clusterID uint) {
-	if a.db == nil || len(scripts) == 0 {
+	if a.repo == nil || len(scripts) == 0 {
 		return
 	}
 	// 反查 cluster_id 对应的最新 champion_dialogue.id
-	var dialogueID uint
-	_ = a.db.WithContext(ctx).Model(&model.ChampionDialogue{}).
-		Where("cluster_id = ?", clusterID).
-		Order("id DESC").
-		Limit(1).
-		Pluck("id", &dialogueID).Error
+	dialogueID, _ := a.repo.GetChampionDialogueIDByCluster(ctx, clusterID)
 
 	for _, s := range scripts {
 		tags := strings.Join(s.TriggerKeywords, ",")
@@ -426,18 +398,7 @@ func (a *ChampionDialogueAnalyzer) saveScriptsToTemplate(ctx context.Context, sc
 		} else if effectiveScore < 0 {
 			effectiveScore = 0
 		}
-		// 用原生 SQL 写入（script_templates 在 content/model 包，本包不直接依赖该包，避免循环依赖）
-		sql := `
-			INSERT INTO script_templates
-				(category, title, content, tags, rating, is_system, variables,
-				 source, effectiveness_score, trigger_keywords, journey_stage, champion_dialogue_id,
-				 created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, TRUE, '[]',
-			        'champion_extract', ?, ?, ?, ?,
-			        NOW(), NOW())`
-		if err := a.db.WithContext(ctx).Exec(sql,
-			s.Scenario, s.Title, s.Content, tags, effectiveScore,
-			effectiveScore, tags, s.JourneyStage, dialogueID).Error; err != nil {
+		if err := a.repo.InsertScriptTemplate(ctx, s.Scenario, s.Title, s.Content, tags, effectiveScore, s.JourneyStage, dialogueID); err != nil {
 			// 单条失败不阻断
 			continue
 		}

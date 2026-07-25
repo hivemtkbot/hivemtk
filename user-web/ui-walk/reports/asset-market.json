@@ -1,0 +1,206 @@
+{
+  "route": "/asset-market",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:37:29.974Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "查询",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/v1/asset-market/list?asset_type=&industry=&page=1&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"asset_id\":\"hivemtk-asset-adult\",\"asset_type\":\"agent_persona\",\"contributor_id\":4,\"contributor_share\":0.7,\"cover_url\":\"\",\"created_at\":\"2026-07-24T17:08:45.059553+08:00\",\"description\":\"覆盖成人用品行业产品咨询、材质安全、使用指导、隐私配送、售后退换等场景的客服知识库\",\"download_count\":2,\"id\":4,\"industry\":\"成人用品\",\"latest_version\":\"1.0.0\",\"name\":\"成人用品行业客服知识包\",\"platform_share\":0.3,\"price\":0,\"purchase_count\":2"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "我的资产",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/v1/local-assets?asset_type=&source=&keyword=&page=1&size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":6,\"asset_id\":\"hivemtk-asset-freight\",\"asset_type\":\"agent_persona\",\"industry\":\"货代\",\"name\":\"国际货代行业客服知识包\",\"version\":\"1.0.0\",\"source\":\"purchased\",\"is_active\":false,\"purchase_id\":7,\"purchased_at\":\"2026-07-24T19:08:19.739747+08:00\",\"synced_at\":\"2026-07-24T19:16:44.367145+08:00\",\"use_count\":0,\"reported_use_count\":0,\"updated_at\":\"2026-07-24T20:47:46.663979+08:00\",\"c"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 10,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 11,
+      "tag": "BUTTON",
+      "text": "免费试用",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 12,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:38:08.264Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 54
+}

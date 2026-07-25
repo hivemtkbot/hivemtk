@@ -7,6 +7,7 @@ import (
 	"marketing/internal/middleware"
 	dbutil "marketing/internal/pkg/utils/db"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 	"marketing/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -18,19 +19,21 @@ import (
 // 路由前缀：/api/chat/public
 // 鉴权：AppKeyResolve（软解析：缺失时放行，使用默认 channel "default"）
 // 限流：双维度（IP + channel）
+// 多语言：LangResolverMiddleware（v1.2 出海方案，按 channel_id 解析双语言）
 //
 // 复用：VisitorChatService 内部调用 SmartCSOrchestrator 走 RAG + AI 决策
 //
 // 私域部署模式（2026-07-17 优化）：用户自己部署本系统后，作为通道嵌入到自有网站，
 // AppKey 不再作为强制凭证，仅作为渠道的软标识（用于日志追踪 + 未来多渠道管理）。
-func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *service.SmartCSOrchestrator) {
+func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *service.SmartCSOrchestrator, langResolver *i18nservice.LangConfigResolver) {
 	channelSvc := service.MustNewChatChannelService(db)
 	agentBindingSvc := service.NewChannelAgentBindingService()
 	visitorSvc := service.NewVisitorChatService(context.Background(), db, channelSvc, orchestrator, agentBindingSvc)
 
-	// 公开路由组：AppKey 软解析 + 访客限流
+	// 公开路由组：AppKey 软解析 + 访客限流 + 多语言解析
 	chatPublic := public.Group("/chat/public")
 	chatPublic.Use(middleware.AppKeyResolve(channelSvc))
+	chatPublic.Use(middleware.LangResolverMiddleware(langResolver))
 	chatPublic.Use(middleware.VisitorRateLimitMiddleware())
 
 	ctrl := controller.NewChatPublicController(visitorSvc, channelSvc)
@@ -58,8 +61,9 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 
 // setupChatPublicWebSocket 注册访客 WebSocket 端点
 // GET /api/ws/visitor?session_id=xxx&visitor_id=xxx&channel_id=xxx
-func setupChatPublicWebSocket(r *gin.Engine) {
+func setupChatPublicWebSocket(r *gin.Engine, langResolver *i18nservice.LangConfigResolver) {
 	visitorWS := websocket.NewVisitorWSHandler(dbutil.GetDB())
+	visitorWS.SetLangResolver(langResolver)
 	r.GET("/api/ws/visitor", visitorWS.HandleVisitorWebSocket)
 }
 

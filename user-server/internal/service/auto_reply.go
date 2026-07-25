@@ -21,37 +21,36 @@ import (
 )
 
 type AutoReplyService struct {
-	db          *gorm.DB // 保留以维持 GetDB() 兼容（controller 仍依赖）
-	accountRepo *repository.AutoReplyAccountRepository
-	ruleRepo    *repository.AutoReplyRuleRepository
-	logRepo     *repository.AutoReplyLogRepository
+	merchantRepo repository.AccountRepository
+	accountRepo  *repository.AutoReplyAccountRepository
+	ruleRepo     *repository.AutoReplyRuleRepository
+	logRepo      *repository.AutoReplyLogRepository
 }
 
 func NewAutoReplyService(db *gorm.DB) *AutoReplyService {
 	return &AutoReplyService{
-		db:          db,
-		accountRepo: repository.NewAutoReplyAccountRepository(db),
-		ruleRepo:    repository.NewAutoReplyRuleRepositoryWithDB(db),
-		logRepo:     repository.NewAutoReplyLogRepository(db),
+		merchantRepo: repository.NewAccountRepositoryWithDB(db),
+		accountRepo:  repository.NewAutoReplyAccountRepository(db),
+		ruleRepo:     repository.NewAutoReplyRuleRepositoryWithDB(db),
+		logRepo:      repository.NewAutoReplyLogRepository(db),
 	}
 }
 
 // NewAutoReplyServiceAuto 创建自动回复服务（五层架构合规：仓储层统一封装 DB 获取入口）
 //
-// 用于 service 构造函数内不允许直接调 db.GetDB() 的场景
-// （例如 tiktok_auto_reply.go），仓储层内部已用 _db.GetDB() 初始化。
+// 用于 service 构造函数内不允许直接获取数据库句柄的场景
+// （例如 tiktok_auto_reply.go），仓储层内部已用全局 DB 初始化。
 func NewAutoReplyServiceAuto() *AutoReplyService {
 	return &AutoReplyService{
-		accountRepo: repository.NewAutoReplyAccountRepositoryAuto(),
-		ruleRepo:    repository.NewAutoReplyRuleRepository(),
-		logRepo:     repository.NewAutoReplyLogRepositoryAuto(),
+		merchantRepo: repository.NewAccountRepository(),
+		accountRepo:  repository.NewAutoReplyAccountRepositoryAuto(),
+		ruleRepo:     repository.NewAutoReplyRuleRepository(),
+		logRepo:      repository.NewAutoReplyLogRepositoryAuto(),
 	}
 }
 
-// GetDB 返回底层 *gorm.DB，供 controller 过渡使用（已计划在后续 controller 重构中移除）
-func (s *AutoReplyService) GetDB(ctx context.Context) *gorm.DB {
-	return s.db
-}
+// GetDB 已删除（五层架构治理：service 不再暴露 *gorm.DB 给 controller）
+// 历史调用方请改用 repository 层方法。
 
 func (s *AutoReplyService) ListAccounts(ctx context.Context, platform string, userID uint) ([]model.AutoReplyAccount, error) {
 	return s.accountRepo.ListByPlatformAndUser(ctx, platform, userID)

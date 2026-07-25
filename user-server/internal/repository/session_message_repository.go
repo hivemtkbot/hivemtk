@@ -138,5 +138,65 @@ func (r *SessionMessageRepository) GetUnreadCount(ctx context.Context, sessionID
 	return count
 }
 
+// HasTable 检查 session_messages 表是否存在（用于统一收件箱合并消息流时的兼容判定）
+func (r *SessionMessageRepository) HasTable(ctx context.Context) bool {
+	if r == nil || r.db == nil {
+		return false
+	}
+	return r.db.WithContext(ctx).Migrator().HasTable(&model.SessionMessage{})
+}
+
+// ListAllBySessionID 按 session_id 拉取全部消息（不分页，用于统一收件箱会话视图合并展示）
+func (r *SessionMessageRepository) ListAllBySessionID(ctx context.Context, sessionID string) ([]*model.SessionMessage, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var rows []*model.SessionMessage
+	if err := r.db.WithContext(ctx).Model(&model.SessionMessage{}).
+		Where("session_id = ?", sessionID).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// ListOfflineBySessionID 拉取访客离线期间未投递的坐席/AI 回复消息
+//
+// 离线消息定义（与 service.GetOfflineMessages 一致）：
+//   - sender_type IN ('ai', 'agent')
+//   - delivered_at IS NULL
+//   - 按 created_at ASC 排序（投递顺序与产生顺序一致）
+func (r *SessionMessageRepository) ListOfflineBySessionID(ctx context.Context, sessionID string) ([]*model.SessionMessage, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var messages []*model.SessionMessage
+	err := r.db.WithContext(ctx).
+		Where("session_id = ?", sessionID).
+		Where("sender_type IN ?", []string{"ai", "agent"}).
+		Where("delivered_at IS NULL").
+		Order("created_at ASC").
+		Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
+// MarkDelivered 批量标记消息已投递
+//
+// 行为与原 service.MarkMessagesDelivered 一致：
+//   - 仅更新 session_id + id IN 范围内的消息
+//   - delivered_at = now（由调用方传入，便于测试与统一时间基准）
+//   - messageIDs 为空时无操作
+func (r *SessionMessageRepository) MarkDelivered(ctx context.Context, sessionID string, messageIDs []uint, deliveredAt time.Time) error {
+	if r == nil || r.db == nil || len(messageIDs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.SessionMessage{}).
+		Where("session_id = ? AND id IN ?", sessionID, messageIDs).
+		Update("delivered_at", &deliveredAt).Error
+}
+
 // ensure errors package is used to avoid import removal during splits
 var _ = errors.New

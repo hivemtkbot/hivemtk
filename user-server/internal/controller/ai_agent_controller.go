@@ -145,6 +145,9 @@ type aiAgentCreateReq struct {
 	ConfidenceThreshold  float64                 `json:"confidence_threshold"`
 	MaxAIConsecutive     int                     `json:"max_ai_consecutive"`
 	Status               int                     `json:"status"`
+	// v1.2 出海多语言方案
+	InternalLanguage string `json:"internal_language"` // 商户内部语言（知识库语言），默认 zh
+	TargetLanguage   string `json:"target_language"`   // 对外目标语言（空则退化=InternalLanguage）
 }
 
 // Create 创建
@@ -183,6 +186,8 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 		ConfidenceThreshold:  req.ConfidenceThreshold,
 		MaxAIConsecutive:     req.MaxAIConsecutive,
 		Status:               req.Status,
+		InternalLanguage:     req.InternalLanguage,
+		TargetLanguage:       req.TargetLanguage,
 	}
 	// 应用默认值
 	if agent.AgentType == "" {
@@ -338,6 +343,13 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	}
 	if hasKey("status") && req.Status != 0 {
 		existing.Status = req.Status
+	}
+	// v1.2 出海多语言方案：内部语言 / 目标语言
+	if hasKey("internal_language") {
+		existing.InternalLanguage = req.InternalLanguage
+	}
+	if hasKey("target_language") {
+		existing.TargetLanguage = req.TargetLanguage
 	}
 
 	if err := ctrl.svc.Update(c.Request.Context(), existing); err != nil {

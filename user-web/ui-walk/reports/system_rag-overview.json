@@ -1,0 +1,20 @@
+{
+  "route": "/system/rag-overview",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:59:17.635Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [],
+  "summary": {
+    "total": 0,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:59:20.953Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 15
+}

@@ -89,7 +89,7 @@ func getDiskUsage() float64 {
 
 // SystemMonitorService 系统监控服务
 //
-// 通过依赖注入 statsRepo 避免在 service 层直接调用 db.GetDB()
+// 通过依赖注入 statsRepo 避免在 service 层直接访问数据库
 type SystemMonitorService struct {
 	statsRepo repository.SystemStatsRepository
 }

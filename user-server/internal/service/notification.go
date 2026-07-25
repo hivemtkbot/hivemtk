@@ -9,16 +9,20 @@ import (
 
 	"context"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // NotificationService 通知中心服务
 type NotificationService struct {
-	db *gorm.DB
+	repo *repository.NotificationRepository
 }
 
 // NewNotificationService 构造服务
+//
+// 五层架构 §三.5：构造函数保留 db *gorm.DB 参数（调用方不变），
+// 内部创建 repository 实例，service 不再持有 db。
 func NewNotificationService(db *gorm.DB) *NotificationService {
-	return &NotificationService{db: db}
+	return &NotificationService{repo: repository.NewNotificationRepositoryWithDB(db)}
 }
 
 // ListRequest 列表请求
@@ -48,37 +52,21 @@ func (s *NotificationService) List(ctx context.Context, req NotificationListRequ
 		req.Size = 20
 	}
 
-	tx := s.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("user_id = 0 OR user_id = ?", req.UserID)
-
-	if req.Type != "" {
-		tx = tx.Where("type = ?", req.Type)
-	}
-	if req.IsRead != nil {
-		tx = tx.Where("is_read = ?", *req.IsRead)
-	}
-	if req.Keyword != "" {
-		// GORM 配合 LIKE 简单搜索；生产可改 pg trgm
-		like := "%" + req.Keyword + "%"
-		tx = tx.Where("title ILIKE ? OR content ILIKE ?", like, like)
-	}
-
-	var total int64
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, err
-	}
-
-	var list []model.Notification
-	if err := tx.Order("created_at DESC").
-		Offset((req.Page - 1) * req.Size).
-		Limit(req.Size).
-		Find(&list).Error; err != nil {
+	res, err := s.repo.List(ctx, repository.NotificationListQuery{
+		UserID:  req.UserID,
+		Page:    req.Page,
+		Size:    req.Size,
+		Type:    req.Type,
+		IsRead:  req.IsRead,
+		Keyword: req.Keyword,
+	})
+	if err != nil {
 		return nil, err
 	}
 
 	return &NotificationListResponse{
-		List:  list,
-		Total: total,
+		List:  res.List,
+		Total: res.Total,
 		Page:  req.Page,
 		Size:  req.Size,
 	}, nil
@@ -89,17 +77,11 @@ func (s *NotificationService) MarkRead(ctx context.Context, userID uint, id uint
 	if id == 0 {
 		return errors.New("id 不能为空")
 	}
-	now := time.Now()
-	res := s.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("id = ? AND (user_id = 0 OR user_id = ?)", id, userID).
-		Updates(map[string]any{
-			"is_read": true,
-			"read_at": &now,
-		})
-	if res.Error != nil {
-		return res.Error
+	affected, err := s.repo.MarkReadByID(ctx, userID, id)
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if affected == 0 {
 		return errors.New("通知不存在或无权限")
 	}
 	return nil
@@ -107,26 +89,12 @@ func (s *NotificationService) MarkRead(ctx context.Context, userID uint, id uint
 
 // MarkAllRead 全部标记已读
 func (s *NotificationService) MarkAllRead(ctx context.Context, userID uint) (int64, error) {
-	now := time.Now()
-	res := s.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("is_read = ? AND (user_id = 0 OR user_id = ?)", false, userID).
-		Updates(map[string]any{
-			"is_read": true,
-			"read_at": &now,
-		})
-	if res.Error != nil {
-		return 0, res.Error
-	}
-	return res.RowsAffected, nil
+	return s.repo.MarkAllRead(ctx, userID)
 }
 
 // CountUnread 统计未读数
 func (s *NotificationService) CountUnread(ctx context.Context, userID uint) (int64, error) {
-	var count int64
-	err := s.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("is_read = ? AND (user_id = 0 OR user_id = ?)", false, userID).
-		Count(&count).Error
-	return count, err
+	return s.repo.CountUnread(ctx, userID)
 }
 
 // Create 写入一条通知（供业务调用 / 自动迁移后种子数据）
@@ -137,13 +105,13 @@ func (s *NotificationService) Create(ctx context.Context, n *model.Notification)
 	if n.CreatedAt.IsZero() {
 		n.CreatedAt = time.Now()
 	}
-	return s.db.WithContext(ctx).Create(n).Error
+	return s.repo.Create(ctx, n)
 }
 
 // SeedIfEmpty 若表为空，注入演示通知（便于首次访问通知中心有数据可看）
 func (s *NotificationService) SeedIfEmpty(ctx context.Context) error {
-	var count int64
-	if err := s.db.WithContext(ctx).Model(&model.Notification{}).Count(&count).Error; err != nil {
+	count, err := s.repo.CountAll(ctx)
+	if err != nil {
 		return err
 	}
 	if count > 0 {

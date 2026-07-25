@@ -1,0 +1,183 @@
+{
+  "route": "/shortLink",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:55:02.768Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Add Short Chain",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "Please choose status",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "Search",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/shortlink/list?page=1&page_size=10&short_code=&original_url=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":2,\"short_code\":\"QSTarY\",\"original_url\":\"/douyin/card/1\",\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"domain_id\":1,\"password\":\"\",\"expire_time\":null,\"click_count\":0,\"status\":1,\"status_str\":\"正常\",\"created_at\":\"2026-07-24T18:22:42.515739+08:00\",\"updated_at\":\"2026-"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "BUTTON",
+      "text": "Reset",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/shortlink/list?page=1&page_size=10&short_code=&original_url=",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"list\":[{\"id\":2,\"short_code\":\"QSTarY\",\"original_url\":\"/douyin/card/1\",\"title\":\"别再给 SaaS交高额 Token 税了\",\"description\":\"别再给 SaaS交高额 Token 税了!私有化部署AI客服 hivemtk 正式开源，单机跑Qwen/Llama，数据绝不出网\",\"domain_id\":1,\"password\":\"\",\"expire_time\":null,\"click_count\":0,\"status\":1,\"status_str\":\"正常\",\"created_at\":\"2026-07-24T18:22:42.515739+08:00\",\"updated_at\":\"2026-"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "编辑",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "统计",
+      "cls": "el-button el-button--info el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/shortlink/2/stats?start_date=2026-07-19&end_date=2026-07-25",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取短链统计成功\",\"data\":{\"short_link_id\":2,\"short_code\":\"QSTarY\",\"original_url\":\"/douyin/card/1\",\"title\":\"别再给 SaaS交高额 Token 税了\",\"total_access\":0,\"today_access\":0,\"device_type_stats\":null,\"daily_stats\":null}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "分享",
+      "cls": "el-button el-button--success el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/shortlink/2/share",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"获取短链分享信息成功\",\"data\":{\"short_url\":\"http://localhost:8204/s/QSTarY\",\"qr_code\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAABnUlEQVR42uyZMXKEMAxFv4eCkiNwFI5mjuajcARKCsY/82U7Gzakzaw1qHAG8rawZEnfAo899tjH2kTZMXENpx7W71e+gA3AcEwp8gRmMrdXzoCFeZAfKD8khKO+8ghgYYb5gZ6BKYHnSKboFWhHuIYb98e+d6DWqBTDOe5ziuG4L2J9A82W1VI4If/RefoGpg1R204xl"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "删除",
+      "cls": "el-button el-button--danger el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 8,
+      "tag": "DIV",
+      "text": "10/page",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:55:33.205Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 1,
+  "apiCallsTotal": 46
+}

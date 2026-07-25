@@ -13,27 +13,25 @@ import (
 	"time"
 
 	"marketing/internal/content/model"
+	contentrepo "marketing/internal/content/repository"
 	cdpmodel "marketing/internal/model"
-	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	cdprepo "marketing/internal/repository"
-
-	"gorm.io/gorm"
 )
 
 // BatchOperationService 批量操作服务
 type BatchOperationService struct {
-	db       *gorm.DB
-	clueRepo cdprepo.ClueRepository
-	userRepo cdprepo.UserRepository
+	batchOpRepo *contentrepo.BatchOperationRepository
+	clueRepo    cdprepo.ClueRepository
+	userRepo    cdprepo.UserRepository
 }
 
 // NewBatchOperationService 创建批量操作服务
 func NewBatchOperationService() *BatchOperationService {
 	return &BatchOperationService{
-		db:       db.GetDB(),
-		clueRepo: cdprepo.NewClueRepository(),
-		userRepo: cdprepo.NewUserRepository(),
+		batchOpRepo: contentrepo.NewBatchOperationRepository(),
+		clueRepo:    cdprepo.NewClueRepository(),
+		userRepo:    cdprepo.NewUserRepository(),
 	}
 }
 
@@ -518,23 +516,15 @@ func (s *BatchOperationService) BatchUpdateClues(req *BatchUpdateRequest) (int, 
 		return 0, errors.New("无可更新字段")
 	}
 
-	tx := s.db.Begin()
-	count := 0
+	// Trim IDs（保持与原实现一致：跳过空白 ID）
+	trimmedIDs := make([]string, 0, len(req.IDs))
 	for _, id := range req.IDs {
 		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
+		if id != "" {
+			trimmedIDs = append(trimmedIDs, id)
 		}
-		if err := tx.Model(&cdpmodel.Clue{}).Where("id = ?", id).Updates(updates).Error; err != nil {
-			logger.Error(err, "更新线索失败: "+id)
-			continue
-		}
-		count++
 	}
-	if err := tx.Commit().Error; err != nil {
-		return 0, err
-	}
-	return count, nil
+	return s.clueRepo.BatchUpdateInTx(context.Background(), trimmedIDs, updates)
 }
 
 // ReadAllFromReader 工具函数：从 io.Reader 读取所有内容
@@ -544,42 +534,15 @@ func ReadAllFromReader(r io.Reader) ([]byte, error) {
 
 // GetHistories 获取批量操作历史列表
 func (s *BatchOperationService) GetHistories(page, pageSize int) ([]*model.BatchOperationHistory, int64, error) {
-	var list []*model.BatchOperationHistory
-	var total int64
-
-	query := s.db.Model(&model.BatchOperationHistory{}).Where("1 = 1")
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-	err := query.Order("created_at DESC").
-		Offset(offset).Limit(pageSize).
-		Find(&list).Error
-	return list, total, err
+	return s.batchOpRepo.ListHistories(context.Background(), page, pageSize)
 }
 
 // GetHistoryByID 根据 ID 获取批量操作历史
 func (s *BatchOperationService) GetHistoryByID(id uint) (*model.BatchOperationHistory, error) {
-	var history model.BatchOperationHistory
-	err := s.db.First(&history, id).Error
-	return &history, err
+	return s.batchOpRepo.GetHistoryByID(context.Background(), id)
 }
 
 // CancelHistory 取消批量操作（标记为已取消）
 func (s *BatchOperationService) CancelHistory(id uint) error {
-	now := time.Now()
-	result := s.db.Model(&model.BatchOperationHistory{}).Where("id = ? AND status IN ?", id, []string{"pending", "running"}).
-		Updates(map[string]any{
-			"status":      "cancelled",
-			"finished_at": now,
-			"updated_at":  now,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("操作记录不存在或状态不可取消")
-	}
-	return nil
+	return s.batchOpRepo.CancelHistory(context.Background(), id)
 }

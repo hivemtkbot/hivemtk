@@ -27,8 +27,7 @@ type MerchantHeadlessSettings struct {
 
 // GetMerchantHeadlessSettings 读取商户账户的无头模式设置（不存在则返回默认 true）
 func (s *AutoReplyService) GetMerchantHeadlessSettings(ctx context.Context) (*MerchantHeadlessSettings, error) {
-	var merchantAccount model.Account
-	err := s.db.WithContext(ctx).First(&merchantAccount).Error
+	merchantAccount, err := s.merchantRepo.First(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &MerchantHeadlessSettings{Douyin: true, Kuaishou: true, Xiaohongshu: true, Xianyu: true}, nil
 	}
@@ -45,13 +44,16 @@ func (s *AutoReplyService) GetMerchantHeadlessSettings(ctx context.Context) (*Me
 
 // SetMerchantHeadless 设置商户账户指定平台的无头模式
 func (s *AutoReplyService) SetMerchantHeadless(ctx context.Context, platform string, headless bool) error {
+	existing, err := s.merchantRepo.First(ctx)
+	isNew := false
 	var account model.Account
-	if err := s.db.WithContext(ctx).First(&account).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			account = defaultMerchantAccount()
-		} else {
-			return err
-		}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		account = defaultMerchantAccount()
+		isNew = true
+	} else if err != nil {
+		return err
+	} else if existing != nil {
+		account = *existing
 	}
 	switch platform {
 	case "douyin":
@@ -65,16 +67,10 @@ func (s *AutoReplyService) SetMerchantHeadless(ctx context.Context, platform str
 	default:
 		return errors.New("不支持的平台")
 	}
-	if account.ID == "" {
-		if err := s.db.Create(&account).Error; err != nil {
-			return err
-		}
-	} else {
-		if err := s.db.Save(&account).Error; err != nil {
-			return err
-		}
+	if isNew {
+		return s.merchantRepo.Create(ctx, &account)
 	}
-	return nil
+	return s.merchantRepo.Update(ctx, &account)
 }
 
 // defaultMerchantAccount 创建默认商户账户
@@ -157,40 +153,19 @@ func (s *AutoReplyService) UpsertAutoReplyAccount(ctx context.Context, req AutoR
 
 // GetAutoReplyStatistics 综合统计（原先 controller 直接使用 GetDB().Model(&model.AutoReplyRule{}) 统计）
 func (s *AutoReplyService) GetAutoReplyStatistics(ctx context.Context, platform string, userID uint) (gin.H, error) {
-	var ruleCount int64
-	ruleQuery := s.db.Model(&model.AutoReplyRule{})
-	if platform != "" {
-		ruleQuery = ruleQuery.Where("platform = ?", platform)
-	}
-	if userID > 0 {
-		ruleQuery = ruleQuery.Where("user_id = ?", userID)
-	}
-	if err := ruleQuery.Count(&ruleCount).Error; err != nil {
+	ruleCount, err := s.ruleRepo.CountByFilters(ctx, platform, userID)
+	if err != nil {
 		return nil, err
 	}
 
-	var logCount int64
-	logQuery := s.db.Model(&model.AutoReplyLog{})
-	if platform != "" {
-		logQuery = logQuery.Where("platform = ?", platform)
-	}
-	if userID > 0 {
-		logQuery = logQuery.Where("user_id = ?", userID)
-	}
-	if err := logQuery.Count(&logCount).Error; err != nil {
+	logCount, err := s.logRepo.CountByFilters(ctx, platform, userID)
+	if err != nil {
 		return nil, err
 	}
 
 	today := time.Now().Format("2006-01-02")
-	todayLogQuery := s.db.Model(&model.AutoReplyLog{}).Where("DATE(created_at) = ?", today)
-	if platform != "" {
-		todayLogQuery = todayLogQuery.Where("platform = ?", platform)
-	}
-	if userID > 0 {
-		todayLogQuery = todayLogQuery.Where("user_id = ?", userID)
-	}
-	var todayLogCount int64
-	if err := todayLogQuery.Count(&todayLogCount).Error; err != nil {
+	todayLogCount, err := s.logRepo.CountByFiltersAndDate(ctx, platform, userID, today)
+	if err != nil {
 		return nil, err
 	}
 

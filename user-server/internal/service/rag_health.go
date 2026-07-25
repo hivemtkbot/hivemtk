@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	kbmodel "marketing/internal/aiagent/knowledge/model"
+	"marketing/internal/repository"
 )
 
 // ----------------------------------------------------------------------------
@@ -65,11 +65,12 @@ const (
 
 // RagHealthService RAG 健康度服务
 type RagHealthService struct {
-	db       *gorm.DB
-	metric   *RagMetricsService
-	alert    *RagAlertService
-	mu       sync.Mutex
-	cached   *RagHealthReport
+	db     *gorm.DB
+	repo   repository.RagHealthRepository
+	metric *RagMetricsService
+	alert  *RagAlertService
+	mu     sync.Mutex
+	cached *RagHealthReport
 	cachedAt time.Time
 }
 
@@ -85,6 +86,7 @@ func NewRagHealthService(db *gorm.DB, metric *RagMetricsService, alert *RagAlert
 	}
 	return &RagHealthService{
 		db:     db,
+		repo:   repository.NewRagHealthRepository(db),
 		metric: metric,
 		alert:  alert,
 	}
@@ -449,13 +451,7 @@ func buildHealthSummary(r *RagHealthReport) string {
 
 // getChunkCount 查询知识库 chunk 总数
 func (s *RagHealthService) getChunkCount(ctx context.Context) (int64, error) {
-	var count int64
-	if err := s.db.WithContext(ctx).
-		Model(&kbmodel.KnowledgeChunk{}).
-		Count(&count).Error; err != nil {
-		return 0, err
-	}
-	return count, nil
+	return s.repo.CountKnowledgeChunks(ctx)
 }
 
 // ClearCache 清除缓存（测试用）

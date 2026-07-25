@@ -1,22 +1,17 @@
 package dto
 
-import (
-	"fmt"
-	"hash/fnv"
-	"sort"
-)
-
 // sop.go 销冠域 - SOP 智能体 DTO
 //
 // 本文件包含两类内容：
 //  1. SOP 请求 DTO（ExecuteRequest / StepRequest）：controller → service 调用入参
 //  2. SOP 图模型类型（SOPGraph / SOPNode / SOPEdge / SOPPosition / SOPConditionBranch /
-//     SOPABTestConfig / SOPABTestVariant）：纯数据结构 + 纯逻辑方法（仅依赖 stdlib）
+//     SOPABTestConfig / SOPABTestVariant）：纯数据结构，不含业务方法
 //
 // 历史背景：SOP 图模型原定义在 service/sop_service.go 与 service/sop_abtest.go 内，
 // 因 CreateRequest 引用这些类型导致无法迁移到 dto（service → dto → service 循环依赖）。
 // 现将图模型类型迁入 dto，service 包通过类型别名（type alias）保持向后兼容。
-// Validate / SelectVariant 方法同步迁入，因 service 包无法为非本地类型（alias）定义方法。
+// 业务方法（Validate / SelectVariant）已迁移至 service/sop_abtest.go 的包级函数，
+// 符合五层架构规范：DTO 层仅保留数据结构与入参校验。
 //
 // 注：CreateRequest 待后续迁移到 dto（深度 DTO 迁移-2）。
 // 注：ParseSOPABTestConfig 因引用 model.JSONMap，仍保留在 service 包内。
@@ -121,86 +116,4 @@ type CreateRequest struct {
 	Priority      int             `json:"priority"`
 	ABTestConfig  SOPABTestConfig `json:"ab_test_config,omitempty"`
 	CreatedBy     uint            `json:"created_by"`
-}
-
-// Validate 校验 A/B 测试配置
-// 规则：
-//   - enabled=false 时直接通过
-//   - variants 至少 2 个
-//   - 每个 variant 必须有 name 和 weight>0
-//   - 所有 variant 权重之和必须为 100
-//   - variant name 不能重复
-func (c SOPABTestConfig) Validate() error {
-	if !c.Enabled {
-		return nil
-	}
-	if len(c.Variants) < 2 {
-		return fmt.Errorf("A/B 测试至少需要 2 个 variant，当前 %d 个", len(c.Variants))
-	}
-	names := map[string]bool{}
-	totalWeight := 0
-	for _, v := range c.Variants {
-		if v.Name == "" {
-			return fmt.Errorf("variant 名称不能为空")
-		}
-		if names[v.Name] {
-			return fmt.Errorf("variant 名称重复：%s", v.Name)
-		}
-		names[v.Name] = true
-		if v.Weight <= 0 {
-			return fmt.Errorf("variant [%s] 权重必须 > 0", v.Name)
-		}
-		totalWeight += v.Weight
-	}
-	if totalWeight != 100 {
-		return fmt.Errorf("variant 权重之和必须为 100，当前 %d", totalWeight)
-	}
-	return nil
-}
-
-// SelectVariant 根据分流键选择 variant
-// 算法：FNV-1a 哈希 + 取模，确保同一 customer_id 始终命中同一 variant
-// 分流键为空时使用 "customer_id" 作为默认
-// 未启用 A/B 测试或配置非法时返回空 variant（表示使用主图）
-func (c SOPABTestConfig) SelectVariant(customerID string) SOPABTestVariant {
-	if !c.Enabled || len(c.Variants) == 0 {
-		return SOPABTestVariant{}
-	}
-
-	salt := c.Salt
-	if salt == "" {
-		salt = "customer_id"
-	}
-
-	// 一致性哈希
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(salt + ":" + customerID))
-	hashVal := h.Sum64()
-
-	// 按权重累积选择
-	// 先按 Name 排序确保稳定性
-	variants := make([]SOPABTestVariant, len(c.Variants))
-	copy(variants, c.Variants)
-	sort.Slice(variants, func(i, j int) bool {
-		return variants[i].Name < variants[j].Name
-	})
-
-	totalWeight := 0
-	for _, v := range variants {
-		totalWeight += v.Weight
-	}
-	if totalWeight <= 0 {
-		return SOPABTestVariant{}
-	}
-
-	target := int(hashVal % uint64(totalWeight))
-	cumulative := 0
-	for _, v := range variants {
-		cumulative += v.Weight
-		if target < cumulative {
-			return v
-		}
-	}
-	// 兜底：返回最后一个
-	return variants[len(variants)-1]
 }

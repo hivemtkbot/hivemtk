@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"marketing/internal/pkg/utils/logger"
+	i18nservice "marketing/internal/service/i18n"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -23,7 +24,8 @@ var upgrader = websocket.Upgrader{
 
 // WSHandler WebSocket 处理器
 type WSHandler struct {
-	hub *Hub
+	hub          *Hub
+	langResolver *i18nservice.LangConfigResolver
 }
 
 // NewWSHandler 创建 WebSocket 处理器
@@ -31,6 +33,12 @@ func NewWSHandler() *WSHandler {
 	return &WSHandler{
 		hub: GetHub(),
 	}
+}
+
+// SetLangResolver 注入多语言解析器（v1.2 出海方案）。
+// 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
+func (h *WSHandler) SetLangResolver(r *i18nservice.LangConfigResolver) {
+	h.langResolver = r
 }
 
 // HandleWebSocket 处理 WebSocket 连接
@@ -60,6 +68,12 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 	// 分配/透传追踪 ID，绑定 module=websocket，使该连接生命周期内的所有日志共享同一追踪标识
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")
+
+	// v1.2 出海方案：注入双语言到 ctx（多层兜底，永不中断）。
+	// 坐席 WebSocket 连接层无 ChatChannel.ChannelID 与 AIAgent.ID（query.agent_id 为坐席用户 ID，
+	// 非 AIAgent 主键），故传空/0 走 resolver 默认 zh 兜底；下游若需细化语言，
+	// 可在 service 层基于 session 重新解析并覆盖 ctx。
+	ctx = injectLangToCtx(ctx, h.langResolver, "", 0)
 
 	// 升级 WebSocket 连接
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)

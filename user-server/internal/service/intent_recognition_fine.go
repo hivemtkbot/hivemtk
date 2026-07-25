@@ -464,7 +464,7 @@ func getDefaultMinor(major string) string {
 
 // saveIntentLog 持久化 IntentLog
 func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessionID, message string, result *IntentResult) {
-	if s.db == nil || result == nil {
+	if s.logRepo == nil || result == nil {
 		return
 	}
 	log := &model.IntentLog{
@@ -486,7 +486,7 @@ func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessio
 				logger.Errorf("intent_recognition_fine: async persist recovered from panic: %v", r)
 			}
 		}()
-		if err := s.db.Create(log).Error; err != nil {
+		if err := s.logRepo.Create(context.Background(), log); err != nil {
 			logger.Errorf("intent_recognition_fine: async persist intent log failed: %v", err)
 		}
 	}()
@@ -499,22 +499,13 @@ func (s *IntentRecognizer) saveIntentLog(ctx context.Context, customerID, sessio
 //   - major: 大类过滤（可选，空表示不限）
 //   - limit: 返回条数上限
 func (s *IntentRecognizer) GetIntentLogs(ctx context.Context, customerID, major string, limit int) ([]model.IntentLog, error) {
-	if s.db == nil {
+	if s.logRepo == nil {
 		return nil, nil
 	}
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	q := s.db.Model(&model.IntentLog{})
-	if customerID != "" {
-		q = q.Where("customer_id = ?", customerID)
-	}
-	if major != "" {
-		q = q.Where("intent_major = ?", major)
-	}
-	var logs []model.IntentLog
-	err := q.Order("timestamp DESC").Limit(limit).Find(&logs).Error
-	return logs, err
+	return s.logRepo.List(ctx, customerID, major, limit)
 }
 
 // GetIntentLogStats 意图识别统计（按 major + minor 聚合）
@@ -522,7 +513,7 @@ func (s *IntentRecognizer) GetIntentLogs(ctx context.Context, customerID, major 
 // 参数：
 //   - days: 统计最近 N 天的数据
 func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int) (map[string]any, error) {
-	if s.db == nil {
+	if s.logRepo == nil {
 		return nil, nil
 	}
 	if days <= 0 {
@@ -531,46 +522,20 @@ func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int) (map
 	since := time.Now().AddDate(0, 0, -days)
 
 	// 按 major 聚合
-	type majorStat struct {
-		IntentMajor string  `json:"intent_major"`
-		Count       int64   `json:"count"`
-		AvgConf     float64 `json:"avg_confidence"`
-	}
-	var majorStats []majorStat
-	if err := s.db.Model(&model.IntentLog{}).
-		Select("intent_major, COUNT(*) as count, AVG(confidence) as avg_conf").
-		Where("timestamp > ?", since).
-		Group("intent_major").
-		Scan(&majorStats).Error; err != nil {
+	majorStats, err := s.logRepo.GetMajorStatsSince(ctx, since)
+	if err != nil {
 		return nil, err
 	}
 
 	// 按 minor 聚合
-	type minorStat struct {
-		IntentMinor string `json:"intent_minor"`
-		IntentMajor string `json:"intent_major"`
-		Count       int64  `json:"count"`
-	}
-	var minorStats []minorStat
-	if err := s.db.Model(&model.IntentLog{}).
-		Select("intent_major, intent_minor, COUNT(*) as count").
-		Where("timestamp > ?", since).
-		Group("intent_major, intent_minor").
-		Scan(&minorStats).Error; err != nil {
+	minorStats, err := s.logRepo.GetMinorStatsSince(ctx, since)
+	if err != nil {
 		return nil, err
 	}
 
 	// 按 method 聚合
-	type methodStat struct {
-		Method string `json:"method"`
-		Count  int64  `json:"count"`
-	}
-	var methodStats []methodStat
-	if err := s.db.Model(&model.IntentLog{}).
-		Select("method, COUNT(*) as count").
-		Where("timestamp > ?", since).
-		Group("method").
-		Scan(&methodStats).Error; err != nil {
+	methodStats, err := s.logRepo.GetMethodStatsSince(ctx, since)
+	if err != nil {
 		return nil, err
 	}
 
@@ -586,10 +551,8 @@ func (s *IntentRecognizer) GetIntentLogStats(ctx context.Context, days int) (map
 // QueryIntentLogsByTraceID 通过 trace_id 查询该 trace 关联的所有 IntentLog
 // 供 trace API 使用，由 controller 调用
 func (s *IntentRecognizer) QueryIntentLogsByTraceID(ctx context.Context, traceID string) ([]model.IntentLog, error) {
-	if s.db == nil || traceID == "" {
+	if s.logRepo == nil || traceID == "" {
 		return nil, nil
 	}
-	var logs []model.IntentLog
-	err := s.db.Where("trace_id = ?", traceID).Order("timestamp ASC").Find(&logs).Error
-	return logs, err
+	return s.logRepo.ListByTraceID(ctx, traceID)
 }

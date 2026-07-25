@@ -9,19 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gorm.io/gorm"
 	"marketing/internal/ops/model"
-	sysrepo "marketing/internal/repository"
+	opsrepo "marketing/internal/ops/repository"
 )
 
 // PerformanceTestService 性能压测服务
 type PerformanceTestService struct {
-	db *gorm.DB
+	repo *opsrepo.PerformanceTestRepository
 }
 
 // NewPerformanceTestService 创建压测服务
 func NewPerformanceTestService() *PerformanceTestService {
-	return &PerformanceTestService{db: sysrepo.GetDB()}
+	return &PerformanceTestService{repo: opsrepo.NewPerformanceTestRepository()}
 }
 
 // TestRequest 压测请求
@@ -55,7 +54,7 @@ func (s *PerformanceTestService) RunTest(ctx context.Context, req TestRequest) (
 		Status:      "running",
 		StartedAt:   ptrTime(time.Now()),
 	}
-	if err := s.db.Create(record).Error; err != nil {
+	if err := s.repo.Create(ctx, record); err != nil {
 		return nil, err
 	}
 
@@ -135,18 +134,12 @@ func (s *PerformanceTestService) executeTest(recordID uint, req TestRequest) {
 		"error_rate":     errRate,
 		"completed_at":   time.Now(),
 	}
-	s.db.Model(&model.PerformanceTestResult{}).
-		Where("id = ?", recordID).
-		Updates(updates)
+	_ = s.repo.UpdateFields(context.Background(), recordID, updates)
 }
 
 // GetResult 获取压测结果
 func (s *PerformanceTestService) GetResult(id uint) (*model.PerformanceTestResult, error) {
-	var r model.PerformanceTestResult
-	if err := s.db.First(&r, id).Error; err != nil {
-		return nil, err
-	}
-	return &r, nil
+	return s.repo.GetByID(context.Background(), id)
 }
 
 // ListResults 列出压测历史
@@ -157,13 +150,7 @@ func (s *PerformanceTestService) ListResults(page, pageSize int) ([]*model.Perfo
 	if page <= 0 {
 		page = 1
 	}
-	var list []*model.PerformanceTestResult
-	var total int64
-	s.db.Model(&model.PerformanceTestResult{}).Count(&total)
-	s.db.Order("created_at DESC").
-		Offset((page - 1) * pageSize).Limit(pageSize).
-		Find(&list)
-	return list, total, nil
+	return s.repo.List(context.Background(), page, pageSize)
 }
 
 func percentile(data []float64, p int) float64 {

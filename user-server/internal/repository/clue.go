@@ -26,6 +26,9 @@ type ClueRepository interface {
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
 	// ListByAccounts 批量按 account / Name 查询线索（CC-P2 N+1 优化）
 	ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error)
+	// BatchUpdateInTx 事务内批量按 ID 更新线索字段
+	// 单条失败不中断事务（仅跳过该条），返回成功更新的条数与事务提交错误。
+	BatchUpdateInTx(ctx context.Context, ids []string, updates map[string]any) (int, error)
 }
 
 type clueRepo struct {
@@ -204,4 +207,23 @@ func (r *clueRepo) ListByAccounts(ctx context.Context, accounts []string) ([]*mo
 		return nil, err
 	}
 	return clues, nil
+}
+
+// BatchUpdateInTx 事务内批量按 ID 更新线索字段
+// 单条失败不中断事务（仅跳过该条），返回成功更新的条数与事务提交错误。
+func (r *clueRepo) BatchUpdateInTx(ctx context.Context, ids []string, updates map[string]any) (int, error) {
+	count := 0
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, id := range ids {
+			if id == "" {
+				continue
+			}
+			if err := tx.Model(&model.Clue{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+				continue
+			}
+			count++
+		}
+		return nil
+	})
+	return count, err
 }

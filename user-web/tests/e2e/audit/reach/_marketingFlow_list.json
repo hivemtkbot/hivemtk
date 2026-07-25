@@ -1,0 +1,17 @@
+{
+  "route": "/marketingFlow/list",
+  "module": "触达运营",
+  "errors": [],
+  "items": [
+    {
+      "text": "New Process",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

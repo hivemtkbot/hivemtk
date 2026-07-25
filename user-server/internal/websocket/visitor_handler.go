@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"marketing/internal/pkg/utils/logger"
+	i18nservice "marketing/internal/service/i18n"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -44,13 +45,20 @@ import (
 //   - delivered   标记消息已投递（防止重连重复拉取）
 //   - close       关闭
 type VisitorWSHandler struct {
-	hub *Hub
-	db  *gorm.DB
+	hub          *Hub
+	db           *gorm.DB
+	langResolver *i18nservice.LangConfigResolver
 }
 
 // NewVisitorWSHandler 创建访客 WebSocket 处理器
 func NewVisitorWSHandler(db *gorm.DB) *VisitorWSHandler {
 	return &VisitorWSHandler{hub: GetHub(), db: db}
+}
+
+// SetLangResolver 注入多语言解析器（v1.2 出海方案）。
+// 未注入时仍可正常工作，ctx 中语言走默认 zh 兜底。
+func (h *VisitorWSHandler) SetLangResolver(r *i18nservice.LangConfigResolver) {
+	h.langResolver = r
 }
 
 // upgraderVisitor 访客连接升级器（允许跨域，私域部署 + 自有网站）
@@ -95,6 +103,11 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 	// 分配/透传追踪 ID：每个访客连接一条链路，便于追踪单个访客的会话生命周期
 	ctx := logger.WithTraceID(c.Request.Context(), c.GetHeader("X-Trace-Id"))
 	ctx = logger.WithModule(ctx, "websocket")
+
+	// v1.2 出海方案：按 channel_id 解析双语言并注入 ctx（多层兜底，永不中断）。
+	// 访客 WS 连接层无 AIAgent.ID（session 维度的 agent_id 在 service 层解析），
+	// 传 0 时 resolver 走 channel.target_language → 默认 zh 的多层兜底路径。
+	ctx = injectLangToCtx(ctx, h.langResolver, channelID, 0)
 
 	// 升级 WebSocket 连接
 	conn, err := upgraderVisitor.Upgrade(c.Writer, c.Request, nil)

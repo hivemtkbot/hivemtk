@@ -30,31 +30,34 @@ import (
 //   - 薄包装：构造 IncomingContext，复用已有的 9 步编排
 //   - 差异：Platform=WebEmbed / AccountID=channel_id / SenderID=visitor_id
 type VisitorChatService struct {
-	db              *gorm.DB
 	channelSvc      *ChatChannelService
 	orchestrator    *SmartCSOrchestrator
 	sessionSvc      *CustomerSessionService
 	sessionRepo     *repository.CustomerSessionRepository
 	messageRepo     *repository.SessionMessageRepository
 	customerRepo    repository.CustomerRepository
+	agentStatusRepo *repository.AgentStatusRepository
 	agentBindingSvc *ChannelAgentBindingService
 	inboxConvRepo   *repository.InboxConversationRepository
 }
 
 // NewVisitorChatService 构造访客会话服务
 // agentBindingSvc 可为 nil（测试/降级场景）：nil 时网页客服回退默认编排（与历史行为一致）
+//
+// 五层架构 §三.5：service 层禁止直接持有 *gorm.DB，db 仅在构造期用于绑定各 repository；
+// 测试场景下调用方应先 db.SetTestDB(database)，再传入 db=database 以保证 repository 走测试库。
 func NewVisitorChatService(ctx context.Context, db *gorm.DB, channelSvc *ChatChannelService, orchestrator *SmartCSOrchestrator, agentBindingSvc *ChannelAgentBindingService) *VisitorChatService {
 	if db == nil {
 		db = repository.NewCustomerSessionRepository().GetDB(ctx)
 	}
 	return &VisitorChatService{
-		db:              db,
 		channelSvc:      channelSvc,
 		orchestrator:    orchestrator,
 		sessionSvc:      NewCustomerSessionService(),
-		sessionRepo:     repository.NewCustomerSessionRepository(),
-		messageRepo:     repository.NewSessionMessageRepository(),
+		sessionRepo:     repository.NewCustomerSessionRepositoryWithDB(db),
+		messageRepo:     repository.NewSessionMessageRepositoryWithDB(db),
 		customerRepo:    repository.NewCustomerRepository(),
+		agentStatusRepo: repository.NewAgentStatusRepositoryWithDB(db),
 		agentBindingSvc: agentBindingSvc,
 		inboxConvRepo:   newInboxConversationRepo(db),
 	}
@@ -184,27 +187,22 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 
 	// 2. 续接最近会话
 	if req.Resume {
-		var existing model.CustomerSession
-		err := s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
-			model.PlatformWebEmbed, channel.ChannelID, req.VisitorID).
-			Where("status NOT IN ?", []model.SessionStatus{
-				model.SessionStatusResolved,
-				model.SessionStatusClosed,
-			}).
-			Order("last_message_at DESC NULLS LAST, created_at DESC").
-			First(&existing).Error
-		if err == nil {
+		existing, err := s.sessionRepo.GetLatestActiveByPlatformAccountUser(ctx,
+			model.PlatformWebEmbed, channel.ChannelID, req.VisitorID,
+			[]model.SessionStatus{model.SessionStatusResolved, model.SessionStatusClosed},
+		)
+		if err == nil && existing != nil {
 			// 找到未结束会话，复用
 			online, _ := s.countOnlineAgents(ctx)
 			return &VisitorOpenSessionResult{
-				Session:        &existing,
+				Session:        existing,
 				IsNewSession:   false,
 				OnlineAgentNum: online,
 				WelcomeMessage: channel.WelcomeMessage,
 			}, nil
 		}
 		// gorm.ErrRecordNotFound 时继续创建
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("查询历史会话失败: %w", err)
 		}
 	}
@@ -277,16 +275,15 @@ func (s *VisitorChatService) GetSessionByVisitorSessionID(ctx context.Context, c
 	if err != nil {
 		return nil, errors.New("会话不存在或无权访问")
 	}
-	var session model.CustomerSession
-	err = s.db.WithContext(ctx).Where("session_id = ? AND platform = ? AND account_id = ? AND user_id = ?",
-		sessionID, model.PlatformWebEmbed, channel.ChannelID, visitorID).First(&session).Error
+	session, err := s.sessionRepo.GetBySessionIDPlatformAccountUser(ctx,
+		sessionID, model.PlatformWebEmbed, channel.ChannelID, visitorID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("会话不存在或无权访问")
 		}
 		return nil, err
 	}
-	return &session, nil
+	return session, nil
 }
 
 // ============================================================================
@@ -417,9 +414,7 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 			_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
 			// 2026-07-17: 分配失败时也要更新 handler_type 为 human
 			//   之前只改 status，session.handler_type 仍是 "ai"，导致前端列表展示错误
-			_ = s.db.WithContext(ctx).Model(&model.CustomerSession{}).
-				Where("id = ?", session.ID).
-				Update("handler_type", model.HandlerTypeHuman).Error
+			_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
 		}
 		// 2) 推送新会话 / 转人工通知给坐席
 		_ = websocket.BroadcastToAll(websocket.TypeNewSession, map[string]any{
@@ -549,9 +544,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 //   - 不存在则新建一条 unread 会话
 func (s *VisitorChatService) syncToInbox(ctx context.Context, session *model.CustomerSession, content string) {
 	if s.inboxConvRepo == nil {
-		s.inboxConvRepo = newInboxConversationRepo(s.db)
-	}
-	if s.inboxConvRepo == nil {
 		return
 	}
 	now := time.Now()
@@ -598,22 +590,17 @@ func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channel
 	if err != nil {
 		return nil, nil // 渠道不存在视为无活跃会话
 	}
-	var session model.CustomerSession
-	err = s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
-		model.PlatformWebEmbed, channel.ChannelID, visitorID).
-		Where("status NOT IN ?", []model.SessionStatus{
-			model.SessionStatusResolved,
-			model.SessionStatusClosed,
-		}).
-		Order("last_message_at DESC NULLS LAST, created_at DESC").
-		First(&session).Error
+	session, err := s.sessionRepo.GetLatestActiveByPlatformAccountUser(ctx,
+		model.PlatformWebEmbed, channel.ChannelID, visitorID,
+		[]model.SessionStatus{model.SessionStatusResolved, model.SessionStatusClosed},
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil // 无活跃会话不视为错误
 		}
 		return nil, err
 	}
-	return &session, nil
+	return session, nil
 }
 
 // GetRecentClosedSessions 获取访客最近 7 天已结束会话（离线消息列表）
@@ -627,19 +614,12 @@ func (s *VisitorChatService) GetRecentClosedSessions(ctx context.Context, channe
 	if err != nil {
 		return []*model.CustomerSession{}, nil // 渠道不存在视为无历史
 	}
-	var sessions []*model.CustomerSession
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
-	err = s.db.WithContext(ctx).Where("platform = ? AND account_id = ? AND user_id = ?",
-		model.PlatformWebEmbed, channel.ChannelID, visitorID).
-		Where("status IN ?", []model.SessionStatus{
-			model.SessionStatusResolved,
-			model.SessionStatusClosed,
-		}).
-		Where("created_at > ?", sevenDaysAgo).
-		Order("created_at DESC").
-		Limit(limit).
-		Find(&sessions).Error
-	return sessions, err
+	return s.sessionRepo.ListRecentClosedByPlatformAccountUser(ctx,
+		model.PlatformWebEmbed, channel.ChannelID, visitorID,
+		[]model.SessionStatus{model.SessionStatusResolved, model.SessionStatusClosed},
+		sevenDaysAgo, limit,
+	)
 }
 
 // GetOfflineMessages 拉取访客离线期间未投递的坐席/AI 回复消息
@@ -652,17 +632,7 @@ func (s *VisitorChatService) GetOfflineMessages(ctx context.Context, channelID, 
 	if _, err := s.GetSessionByVisitorSessionID(ctx, channelID, visitorID, sessionID); err != nil {
 		return nil, err
 	}
-
-	var messages []*model.SessionMessage
-	err := s.db.WithContext(ctx).Where("session_id = ?", sessionID).
-		Where("sender_type IN ?", []string{"ai", "agent"}).
-		Where("delivered_at IS NULL").
-		Order("created_at ASC").
-		Find(&messages).Error
-	if err != nil {
-		return nil, err
-	}
-	return messages, nil
+	return s.messageRepo.ListOfflineBySessionID(ctx, sessionID)
 }
 
 // MarkMessagesDelivered 批量标记消息已投递（WebSocket 拉到离线消息后调用）
@@ -671,9 +641,7 @@ func (s *VisitorChatService) MarkMessagesDelivered(ctx context.Context, sessionI
 		return nil
 	}
 	now := time.Now()
-	return s.db.WithContext(ctx).Model(&model.SessionMessage{}).
-		Where("session_id = ? AND id IN ?", sessionID, messageIDs).
-		Update("delivered_at", &now).Error
+	return s.messageRepo.MarkDelivered(ctx, sessionID, messageIDs, now)
 }
 
 // ============================================================================
@@ -746,11 +714,7 @@ func (s *VisitorChatService) RateSession(ctx context.Context, channelID, visitor
 
 // countOnlineAgents 统计在线坐席数
 func (s *VisitorChatService) countOnlineAgents(ctx context.Context) (int, error) {
-	var count int64
-	err := s.db.WithContext(ctx).Model(&model.AgentStatus{}).
-		Where("status IN ?", []string{"online", "busy"}).
-		Count(&count).Error
-	return int(count), err
+	return s.agentStatusRepo.CountOnlineAgents(ctx)
 }
 
 // CountAvailableAgents 公开方法：可用坐席数

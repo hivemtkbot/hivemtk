@@ -511,7 +511,7 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 	dedup := browser.NewInMemoryDedup(5 * time.Minute)
 	bot.SetDedup(dedup)
 
-	replyService := service.NewAutoReplyService(c.svc.GetDB(context.Background()))
+	replyService := service.NewAutoReplyServiceAuto()
 
 	bot.SetReplyHandler(browser.NewIntegrationReplyHandler(
 		c.ragStack.Integration,

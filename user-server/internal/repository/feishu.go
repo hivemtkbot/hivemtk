@@ -262,3 +262,96 @@ func (r *WhatsAppCloudAccountRepository) Update(ctx context.Context, acc *model.
 func (r *WhatsAppCloudAccountRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WhatsAppCloudAccount{}, id).Error
 }
+
+// ============================================================================
+// 扩展方法：GetFirstEnabled / GetFirst
+// 服务于 feishu_service.go 的兜底取号逻辑（多渠道 webhook 验签配置反查）
+// ============================================================================
+
+// GetFirstEnabled 取第一个启用的飞书账号（webhook_enabled=true 且 status=1）
+// 找不到返回 gorm.ErrRecordNotFound
+func (r *FeishuAccountRepository) GetFirstEnabled(ctx context.Context) (*model.FeishuAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.FeishuAccount
+	err := r.db.WithContext(ctx).
+		Where("webhook_enabled = ? AND status = ?", true, 1).
+		Order("id ASC").
+		First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}
+
+// GetFirst 取第一条飞书账号（兜底，不区分启用状态）
+func (r *FeishuAccountRepository) GetFirst(ctx context.Context) (*model.FeishuAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.FeishuAccount
+	err := r.db.WithContext(ctx).Order("id ASC").First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}
+
+// GetFirstEnabled 取第一个启用的 Telegram 账号（status=1）
+func (r *TelegramAccountRepository) GetFirstEnabled(ctx context.Context) (*model.TelegramAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.TelegramAccount
+	err := r.db.WithContext(ctx).
+		Where("status = ?", 1).
+		Order("id ASC").
+		First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}
+
+// GetFirst 取第一条 Telegram 账号（兜底，不区分启用状态）
+func (r *TelegramAccountRepository) GetFirst(ctx context.Context) (*model.TelegramAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.TelegramAccount
+	err := r.db.WithContext(ctx).Order("id ASC").First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}
+
+// GetFirstEnabled 取第一个启用的 WhatsApp Cloud 账号（status=1）
+func (r *WhatsAppCloudAccountRepository) GetFirstEnabled(ctx context.Context) (*model.WhatsAppCloudAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.WhatsAppCloudAccount
+	err := r.db.WithContext(ctx).
+		Where("status = ?", 1).
+		Order("id ASC").
+		First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}
+
+// GetFirst 取第一条 WhatsApp Cloud 账号（兜底，不区分启用状态）
+func (r *WhatsAppCloudAccountRepository) GetFirst(ctx context.Context) (*model.WhatsAppCloudAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var acc model.WhatsAppCloudAccount
+	err := r.db.WithContext(ctx).Order("id ASC").First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &acc, nil
+}

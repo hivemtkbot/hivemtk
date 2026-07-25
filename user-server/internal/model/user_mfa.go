@@ -43,11 +43,6 @@ const (
 	MFATypeHOTP = "hotp"
 )
 
-// IsValidMFAType 校验 MFA 类型
-func IsValidMFAType(t string) bool {
-	return t == MFATypeTOTP || t == MFATypeHOTP
-}
-
 // BeforeCreate GORM 钩子
 func (m *UserMFA) BeforeCreate(tx *gorm.DB) error {
 	if m.MFAType == "" {

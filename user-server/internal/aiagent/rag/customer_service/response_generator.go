@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"marketing/internal/aiagent/llm"
+	"marketing/internal/pkg/i18n"
 	"strings"
 )
 
@@ -54,7 +55,28 @@ func NewResponseGeneratorImpl(llmService LLMServiceInterface, config *ResponseGe
 }
 
 // GenerateResponse 生成回复
+//
+// 多语言方案：
+//   - CrossLingual=false（同语种）：走原逻辑，零开销，保持向后兼容
+//   - CrossLingual=true（跨语言）：使用多语言 system prompt 模板，强制以 target_language 输出
 func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request ResponseGenerationRequest) (string, error) {
+	internalLang := i18n.GetInternalLang(ctx)
+	targetLang := i18n.GetTargetLang(ctx)
+	crossLingual := i18n.GetCrossLingual(ctx)
+
+	// 同语种快捷路径（兼容旧链路，零开销）
+	if !crossLingual {
+		return g.generateSameLangResponse(ctx, request, internalLang)
+	}
+
+	// 跨语言路径
+	return g.generateCrossLingualResponse(ctx, request, internalLang, targetLang)
+}
+
+// generateSameLangResponse 同语种生成（原逻辑，保留中文 prompt）
+//
+// 向后兼容：CrossLingual=false 时走本路径，行为与原 GenerateResponse 完全一致。
+func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, request ResponseGenerationRequest, lang string) (string, error) {
 	// 构建上下文字符串
 	contextStr := g.buildContextString(request.SearchResults, request.Context)
 
@@ -77,6 +99,39 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 	}
 
 	return response, nil
+}
+
+// generateCrossLingualResponse 跨语言生成（新逻辑，使用多语言模板）
+//
+// 知识库语种为 internalLang，对外输出语种为 targetLang。
+// 通过 renderMultilingualSystemPrompt 渲染跨语言 system prompt，强制 LLM
+// 仅以 targetLang 输出，并将知识库上下文自然翻译为目标语言。
+// glossaryBlock / fewShotBlock 暂留空，后续由 service/i18n 层接入。
+func (g *ResponseGeneratorImpl) generateCrossLingualResponse(ctx context.Context, request ResponseGenerationRequest, internalLang, targetLang string) (string, error) {
+	contextStr := g.buildContextString(request.SearchResults, request.Context)
+
+	// 渲染多语言 system prompt
+	systemPrompt := renderMultilingualSystemPrompt(internalLang, targetLang, "", "")
+
+	// 拼接 context + user query
+	prompt := fmt.Sprintf(`%s
+
+Knowledge base context:
+%s
+
+Customer question: %s
+
+Customer service reply:`, systemPrompt, contextStr, request.Query)
+
+	// 准备LLM配置
+	llmConfig := prepareLLMConfig(g.config, request.Config)
+
+	// 验证LLM配置
+	if err := g.llmService.ValidateConfig(llmConfig); err != nil {
+		return "", fmt.Errorf("invalid LLM config: %w", err)
+	}
+
+	return g.llmService.Generate(ctx, llmConfig, prompt)
 }
 
 // GenerateStructuredResponse 生成结构化回复

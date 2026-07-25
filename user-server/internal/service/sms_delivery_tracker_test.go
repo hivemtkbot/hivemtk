@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"marketing/internal/model"
 )
 
 func newDeliveryTracker() *SmsDeliveryTrackerService {
@@ -33,7 +35,7 @@ func TestSmsDeliveryTracker_NewService(t *testing.T) {
 	if s.tracking == nil {
 		t.Error("Expected tracking fallback")
 	}
-	if s.repo == nil {
+	if s.deliveryRepo == nil {
 		t.Error("Expected repo fallback")
 	}
 	if s.carrierCache == nil {
@@ -45,17 +47,17 @@ func TestSmsDeliveryTracker_NewService(t *testing.T) {
 func TestSmsDeliveryTracker_DetectCarrier(t *testing.T) {
 	cases := []struct {
 		phone string
-		want  SmsCarrier
+		want  model.SmsCarrier
 	}{
-		{"13800138000", SmsCarrierMobile},
-		{"13900139000", SmsCarrierMobile},
-		{"13000130000", SmsCarrierUnicom},
-		{"18600186000", SmsCarrierUnicom},
-		{"13300133000", SmsCarrierTelecom},
-		{"18900189000", SmsCarrierTelecom},
-		{"20000000000", SmsCarrierUnknown},
-		{"123", SmsCarrierUnknown},
-		{"138-0013-8000", SmsCarrierMobile}, // 规范化后识别
+		{"13800138000", model.SmsCarrierMobile},
+		{"13900139000", model.SmsCarrierMobile},
+		{"13000130000", model.SmsCarrierUnicom},
+		{"18600186000", model.SmsCarrierUnicom},
+		{"13300133000", model.SmsCarrierTelecom},
+		{"18900189000", model.SmsCarrierTelecom},
+		{"20000000000", model.SmsCarrierUnknown},
+		{"123", model.SmsCarrierUnknown},
+		{"138-0013-8000", model.SmsCarrierMobile}, // 规范化后识别
 	}
 	for _, c := range cases {
 		got := DetectCarrierFromPhone(c.phone)
@@ -116,8 +118,8 @@ func TestSmsDeliveryTracker_DetectAndRecordPortability_UnknownCarrier(t *testing
 // 5) GetCurrentCarrier
 func TestSmsDeliveryTracker_GetCurrentCarrier_FromCache(t *testing.T) {
 	s := newDeliveryTracker()
-	s.carrierCache["13800138000"] = SmsCarrierMobile
-	if got := s.GetCurrentCarrier(context.Background(), "13800138000"); got != SmsCarrierMobile {
+	s.carrierCache["13800138000"] = model.SmsCarrierMobile
+	if got := s.GetCurrentCarrier(context.Background(), "13800138000"); got != model.SmsCarrierMobile {
 		t.Errorf("Expected mobile, got %s", got)
 	}
 }
@@ -126,7 +128,7 @@ func TestSmsDeliveryTracker_GetCurrentCarrier_Fallback(t *testing.T) {
 	s := newDeliveryTracker()
 	// 缓存未命中 → 用号段识别
 	got := s.GetCurrentCarrier(context.Background(), "18600186000")
-	if got != SmsCarrierUnicom {
+	if got != model.SmsCarrierUnicom {
 		t.Errorf("Expected unicom, got %s", got)
 	}
 }

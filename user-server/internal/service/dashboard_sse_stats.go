@@ -9,6 +9,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // DashboardSnapshot 实时驾驶舱数据快照
@@ -88,56 +89,53 @@ type DashboardStatsService interface {
 
 // dashboardStatsService 默认实现
 type dashboardStatsService struct {
-	db *gorm.DB
+	repo repository.DashboardStatsRepository
 }
 
 // NewDashboardStatsService 创建实时驾驶舱统计服务
+//
+// 注：保留 db *gorm.DB 入参以维持向后兼容（router / 调用方不改动），
+// 内部在构造函数中实例化 repository，service struct 不直接持有 *gorm.DB。
 func NewDashboardStatsService(db *gorm.DB) DashboardStatsService {
-	return &dashboardStatsService{db: db}
+	return &dashboardStatsService{repo: repository.NewDashboardStatsRepository(db)}
 }
 
 // Available 表示底层 db 是否可用
 func (s *dashboardStatsService) Available(ctx context.Context) bool {
-	return s.db != nil
+	return s.repo != nil && s.repo.Available(ctx)
 }
 
 // CollectSessionStats 采集会话统计
 func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *DashboardSnapshot) {
+	if s.repo == nil {
+		return
+	}
 	// 5 分钟内有消息视为"在线"
 	onlineThreshold := time.Now().Add(-5 * time.Minute)
 
 	// 在线会话：status IN active set 且 last_message_at > threshold
-	var onlineCount int64
-	s.db.WithContext(ctx).Model(&model.CustomerSession{}).
-		Where("status IN ?", []model.SessionStatus{
-			model.SessionStatusAIHandling,
-			model.SessionStatusHumanHandling,
-			model.SessionStatusWaiting,
-		}).
-		Where("last_message_at > ? OR last_message_at IS NULL", onlineThreshold).
-		Count(&onlineCount)
-	snap.OnlineSessions = int(onlineCount)
+	if onlineCount, err := s.repo.CountSessionsByStatus(ctx, []model.SessionStatus{
+		model.SessionStatusAIHandling,
+		model.SessionStatusHumanHandling,
+		model.SessionStatusWaiting,
+	}, onlineThreshold); err == nil {
+		snap.OnlineSessions = int(onlineCount)
+	}
 
 	// AI 处理中
-	var aiCount int64
-	s.db.WithContext(ctx).Model(&model.CustomerSession{}).
-		Where("status = ?", model.SessionStatusAIHandling).
-		Count(&aiCount)
-	snap.AISessions = int(aiCount)
+	if aiCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusAIHandling); err == nil {
+		snap.AISessions = int(aiCount)
+	}
 
 	// 人工处理中
-	var humanCount int64
-	s.db.WithContext(ctx).Model(&model.CustomerSession{}).
-		Where("status = ?", model.SessionStatusHumanHandling).
-		Count(&humanCount)
-	snap.HumanSessions = int(humanCount)
+	if humanCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusHumanHandling); err == nil {
+		snap.HumanSessions = int(humanCount)
+	}
 
 	// 等待用户回复
-	var waitingCount int64
-	s.db.WithContext(ctx).Model(&model.CustomerSession{}).
-		Where("status = ?", model.SessionStatusWaiting).
-		Count(&waitingCount)
-	snap.WaitingSessions = int(waitingCount)
+	if waitingCount, err := s.repo.CountSessionsBySingleStatus(ctx, model.SessionStatusWaiting); err == nil {
+		snap.WaitingSessions = int(waitingCount)
+	}
 
 	// 正在生成的回复 = AI 处理中
 	snap.InFlightReplies = snap.AISessions
@@ -146,33 +144,17 @@ func (s *dashboardStatsService) CollectSessionStats(ctx context.Context, snap *D
 // CollectHumanizeDistribution 采集拟人度分布（最近 1h）
 func (s *dashboardStatsService) CollectHumanizeDistribution(ctx context.Context) HumanizeDistribution {
 	dist := HumanizeDistribution{WindowHours: 1}
-	if s.db == nil {
+	if s.repo == nil {
 		return dist
 	}
 	since := time.Now().Add(-1 * time.Hour)
 	// 假设表名：humanize_scores，含 score 字段
 	// 不依赖具体 schema：尝试查询，失败时返回空分布
-	type scoreRow struct {
-		Total int64
-		Low   int64
-		Mid   int64
-		High  int64
-		Avg   float64
-	}
-	var row scoreRow
-	// 用 raw SQL 兼容不同表结构
-	raw := `
-		SELECT
-			COUNT(*) as total,
-			COUNT(*) FILTER (WHERE score < 0.7) as low,
-			COUNT(*) FILTER (WHERE score >= 0.7 AND score < 0.85) as mid,
-			COUNT(*) FILTER (WHERE score >= 0.85) as high,
-			COALESCE(AVG(score), 0) as avg
-		FROM humanize_scores
-		WHERE created_at > ?`
-	tx := s.db.WithContext(ctx).Raw(raw, since).Scan(&row)
-	if tx.Error != nil {
-		logger.Ctx(ctx).Warn().Err(tx.Error).Msg("dashboard_sse: humanize query failed")
+	row, err := s.repo.QueryHumanizeDistribution(ctx, since)
+	if err != nil || row == nil {
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Msg("dashboard_sse: humanize query failed")
+		}
 		return dist
 	}
 	dist.TotalScored = int(row.Total)
@@ -194,23 +176,13 @@ func (s *dashboardStatsService) CollectFunnel(ctx context.Context) *FunnelProgre
 	funnel := &FunnelProgress{
 		Stages: []FunnelStage{},
 	}
-	if s.db == nil {
+	if s.repo == nil {
 		return funnel
 	}
 
 	// 尝试查询 customer_journey 表（如果存在）
-	type stageRow struct {
-		Stage string
-		Count int64
-	}
-	var rows []stageRow
-	tx := s.db.WithContext(ctx).Raw(`
-		SELECT stage, COUNT(*) as count
-		FROM customer_journey
-		WHERE created_at > ?
-		GROUP BY stage`, time.Now().AddDate(0, 0, -30)).Scan(&rows)
-
-	if tx.Error != nil || len(rows) == 0 {
+	rows, err := s.repo.QueryJourneyFunnel(ctx, time.Now().AddDate(0, 0, -30))
+	if err != nil || len(rows) == 0 {
 		// 兜底：使用 customer_sessions 状态作为简化的 5 阶段漏斗
 		return s.collectFunnelFromSessions(ctx)
 	}
@@ -270,19 +242,10 @@ func (s *dashboardStatsService) collectFunnelFromSessions(ctx context.Context) *
 	funnel := &FunnelProgress{
 		Stages: []FunnelStage{},
 	}
-	if s.db == nil {
+	if s.repo == nil {
 		return funnel
 	}
-	type statusCount struct {
-		Status string
-		Count  int64
-	}
-	var rows []statusCount
-	s.db.WithContext(ctx).Raw(`
-		SELECT status, COUNT(DISTINCT user_id) as count
-		FROM customer_sessions
-		WHERE created_at > ?
-		GROUP BY status`, time.Now().AddDate(0, 0, -30)).Scan(&rows)
+	rows, _ := s.repo.QuerySessionFunnel(ctx, time.Now().AddDate(0, 0, -30))
 	statusMap := make(map[string]int64)
 	for _, r := range rows {
 		statusMap[r.Status] = r.Count

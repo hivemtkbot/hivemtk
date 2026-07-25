@@ -25,6 +25,7 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // ============================================================================
@@ -88,10 +89,10 @@ func TestCosineSimilarity_ZeroVector(t *testing.T) {
 func TestTakeTopK(t *testing.T) {
 	a := &ChampionDialogueAnalyzer{}
 	dialogues := []championDialogueWithEmb{
-		{championDialogueRow: championDialogueRow{SessionID: "s1", Reward: 1.5}},
-		{championDialogueRow: championDialogueRow{SessionID: "s2", Reward: 3.0}},
-		{championDialogueRow: championDialogueRow{SessionID: "s3", Reward: 2.0}},
-		{championDialogueRow: championDialogueRow{SessionID: "s4", Reward: 0.5}},
+		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s1", Reward: 1.5}},
+		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s2", Reward: 3.0}},
+		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s3", Reward: 2.0}},
+		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s4", Reward: 0.5}},
 	}
 	// 取 Top-2
 	top2 := a.takeTopK(dialogues, 2)
@@ -110,7 +111,7 @@ func TestTakeTopK(t *testing.T) {
 func TestTakeTopK_KExceedsLength(t *testing.T) {
 	a := &ChampionDialogueAnalyzer{}
 	dialogues := []championDialogueWithEmb{
-		{championDialogueRow: championDialogueRow{SessionID: "s1", Reward: 1.0}},
+		{ChampionDialogueRow: repository.ChampionDialogueRow{SessionID: "s1", Reward: 1.0}},
 	}
 	top := a.takeTopK(dialogues, 5)
 	if len(top) != 1 {
@@ -393,7 +394,7 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	a := &ChampionDialogueAnalyzer{
-		db:       db,
+		repo:     repository.NewFeedbackLoopRepositoryWithDB(db),
 		embedder: newStubEmbedder(1024),
 	}
 
@@ -404,7 +405,7 @@ func TestChampionAnalyzer_PersistDialogue_OnConflictUpdate(t *testing.T) {
 	}
 	ctx := context.Background()
 	d := championDialogueWithEmb{
-		championDialogueRow: championDialogueRow{
+		ChampionDialogueRow: repository.ChampionDialogueRow{
 			SessionID: "sess-dup", CustomerID: "cust-1",
 			CustomerMsg: "msg", AIReply: "reply",
 			Reward: 1.5, Scenario: "objection",

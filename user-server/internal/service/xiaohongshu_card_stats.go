@@ -7,6 +7,7 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 
 	"gorm.io/gorm"
 )
@@ -20,97 +21,42 @@ type XiaohongshuCardStatsService interface {
 
 // xiaohongshuCardStatsService 小红书卡片统计服务实现
 type xiaohongshuCardStatsService struct {
-	db *gorm.DB
+	repo repository.XiaohongshuCardStatsRepository
 }
 
 // NewXiaohongshuCardStatsService 创建小红书卡片统计服务实例
 func NewXiaohongshuCardStatsService(db *gorm.DB) XiaohongshuCardStatsService {
 	return &xiaohongshuCardStatsService{
-		db: db,
+		repo: repository.NewXiaohongshuCardStatsRepository(db),
 	}
 }
 
 // GetCardStats 获取单个卡片的统计数据
 func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto.XiaohongshuCardStatsRequest) (*dto.XiaohongshuCardStatsResponse, error) {
 	// 查询卡片信息
-	var card model.XiaohongshuCard
-	if err := s.db.First(&card, req.CardID).Error; err != nil {
+	card, err := s.repo.GetCardByID(ctx, req.CardID)
+	if err != nil {
 		return nil, fmt.Errorf("卡片不存在: %v", err)
 	}
 
-	// 构建基础查询条件
-	baseQuery := s.db.Model(&model.XiaohongshuCardActivity{}).Where("card_id = ?", req.CardID)
-
-	// 如果指定了日期范围，添加日期过滤
-	if req.StartDate != "" && req.EndDate != "" {
-		baseQuery = baseQuery.Where("created_at >= ? AND created_at <= ?", req.StartDate, req.EndDate)
-	}
-
 	// 统计浏览量
-	var views int64
-	s.db.Model(&model.XiaohongshuCardActivity{}).Where("card_id = ? AND activity_type = ?", req.CardID, "view").Count(&views)
+	views, err := s.repo.CountCardViews(ctx, req.CardID)
+	if err != nil {
+		return nil, err
+	}
 
 	// 按日期分组统计 - 仅支持浏览动作
-	var dailyStats []dto.DailyStat
-	query := baseQuery
-
-	// 临时结构体用于查询结果
-	type TempStat struct {
-		Date   string `json:"date"`
-		Action string `json:"action"`
-		Count  int    `json:"count"`
+	tempStats, err := s.repo.GetCardDailyStats(ctx, req.CardID, req.StartDate, req.EndDate, req.GroupBy)
+	if err != nil {
+		return nil, err
 	}
-
-	var tempStats []TempStat
-
-	if req.GroupBy == "day" {
-		// 按天分组
-		query.Select("DATE(created_at) as date, activity_type as action, COUNT(*) as count").
-			Group("DATE(created_at), activity_type").
-			Order("date, action").
-			Scan(&tempStats)
-	} else if req.GroupBy == "week" {
-		// 按周分组
-		query.Select("YEARWEEK(created_at) as date, activity_type as action, COUNT(*) as count").
-			Group("YEARWEEK(created_at), activity_type").
-			Order("date, action").
-			Scan(&tempStats)
-	} else if req.GroupBy == "month" {
-		// 按月分组
-		query.Select("DATE_FORMAT(created_at, '%Y-%m') as date, activity_type as action, COUNT(*) as count").
-			Group("DATE_FORMAT(created_at, '%Y-%m'), activity_type").
-			Order("date, action").
-			Scan(&tempStats)
-	}
-
-	// 将临时统计结果转换为DailyStat
-	// 先按日期分组
-	dateMap := make(map[string]*dto.DailyStat)
-	for _, stat := range tempStats {
-		if _, exists := dateMap[stat.Date]; !exists {
-			dateMap[stat.Date] = &dto.DailyStat{
-				Date: stat.Date,
-				View: 0,
-			}
-		}
-
-		// 只处理浏览数据
-		if stat.Action == "view" {
-			dateMap[stat.Date].View = stat.Count
-		}
-	}
-
-	// 转换为切片
-	for _, stat := range dateMap {
-		dailyStats = append(dailyStats, *stat)
-	}
+	dailyStats := convertXiaohongshuTempStats(tempStats)
 
 	// 获取最近活动记录 - 仅浏览活动
-	var recentActivities []model.XiaohongshuCardActivity
-	s.db.Where("card_id = ? AND activity_type = ?", req.CardID, "view").
-		Order("created_at DESC").
-		Limit(10).
-		Find(&recentActivities)
+	recentActivities, err := s.repo.GetRecentActivitiesByCard(ctx, req.CardID, 10)
+	if err != nil {
+		return nil, err
+	}
 
 	// 转换活动数据
 	var activities []dto.Activity
@@ -137,77 +83,8 @@ func (s *xiaohongshuCardStatsService) GetCardStats(ctx context.Context, req *dto
 	return response, nil
 }
 
-// GetOverallStats 获取所有卡片的总体统计数据
-func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
-	// 获取卡片总数和激活数
-	var totalCards, activeCards int64
-	s.db.Model(&model.XiaohongshuCard{}).Count(&totalCards)
-	s.db.Model(&model.XiaohongshuCard{}).Where("is_active = ?", true).Count(&activeCards)
-
-	// 获取总浏览量
-	var totalViews int64
-	s.db.Model(&model.XiaohongshuCardActivity{}).Where("activity_type = ?", "view").Count(&totalViews)
-
-	// 获取热门卡片 - 仅按浏览量排序
-	var topCards []model.XiaohongshuCard
-	s.db.Order("view_count DESC").Limit(10).Find(&topCards)
-
-	// 转换热门卡片数据
-	var cards []dto.PopularCard
-	for _, card := range topCards {
-		cards = append(cards, dto.PopularCard{
-			ID:        card.ID,
-			Title:     card.Title,
-			ViewCount: card.ViewCount,
-			CreatedAt: card.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	// 获取按日期分组的统计数据
-	var dailyStats []dto.DailyStat
-	query := s.db.Model(&model.XiaohongshuCardActivity{})
-
-	if req.StartDate != "" {
-		query = query.Where("created_at >= ?", req.StartDate)
-	}
-
-	if req.EndDate != "" {
-		query = query.Where("created_at <= ?", req.EndDate)
-	}
-
-	// 临时结构体用于查询结果
-	type TempStat struct {
-		Date   string `json:"date"`
-		Action string `json:"action"`
-		Count  int    `json:"count"`
-	}
-
-	var tempStats []TempStat
-
-	switch req.GroupBy {
-	case "day":
-		query = query.Select("DATE(created_at) as date, activity_type as action, COUNT(*) as count").
-			Group("DATE(created_at), activity_type").
-			Order("date, action")
-	case "week":
-		query = query.Select("YEARWEEK(created_at) as date, activity_type as action, COUNT(*) as count").
-			Group("YEARWEEK(created_at), activity_type").
-			Order("date, action")
-	case "month":
-		query = query.Select("DATE_FORMAT(created_at, '%Y-%m') as date, activity_type as action, COUNT(*) as count").
-			Group("DATE_FORMAT(created_at, '%Y-%m'), activity_type").
-			Order("date, action")
-	default:
-		query = query.Select("DATE(created_at) as date, activity_type as action, COUNT(*) as count").
-			Group("DATE(created_at), activity_type").
-			Order("date, action")
-	}
-
-	if err := query.Find(&tempStats).Error; err != nil {
-		return nil, err
-	}
-
-	// 将临时统计结果转换为DailyStat
+// convertXiaohongshuTempStats 将仓库返回的临时统计结果转换为 DailyStat
+func convertXiaohongshuTempStats(tempStats []repository.XiaohongshuCardStatsTempStat) []dto.DailyStat {
 	// 先按日期分组
 	dateMap := make(map[string]*dto.DailyStat)
 	for _, stat := range tempStats {
@@ -225,13 +102,60 @@ func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *
 	}
 
 	// 转换为切片
+	var dailyStats []dto.DailyStat
 	for _, stat := range dateMap {
 		dailyStats = append(dailyStats, *stat)
 	}
+	return dailyStats
+}
+
+// GetOverallStats 获取所有卡片的总体统计数据
+func (s *xiaohongshuCardStatsService) GetOverallStats(ctx context.Context, req *dto.XiaohongshuCardOverallStatsRequest) (*dto.XiaohongshuCardOverallStatsResponse, error) {
+	// 获取卡片总数和激活数
+	totalCards, err := s.repo.CountTotalCards(ctx)
+	if err != nil {
+		return nil, err
+	}
+	activeCards, err := s.repo.CountActiveCards(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取总浏览量
+	totalViews, err := s.repo.CountTotalViews(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取热门卡片 - 仅按浏览量排序
+	topCards, err := s.repo.GetTopCards(ctx, 10)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换热门卡片数据
+	var cards []dto.PopularCard
+	for _, card := range topCards {
+		cards = append(cards, dto.PopularCard{
+			ID:        card.ID,
+			Title:     card.Title,
+			ViewCount: card.ViewCount,
+			CreatedAt: card.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	// 获取按日期分组的统计数据
+	tempStats, err := s.repo.GetOverallDailyStats(ctx, req.StartDate, req.EndDate, req.GroupBy)
+	if err != nil {
+		return nil, err
+	}
+	dailyStats := convertXiaohongshuTempStats(tempStats)
 
 	// 获取最近的活动 - 仅浏览活动
-	var recentActivities []model.XiaohongshuCardActivity
-	s.db.Where("activity_type = ?", "view").Order("created_at DESC").Limit(10).Find(&recentActivities)
+	recentActivities, err := s.repo.GetRecentActivities(ctx, 10)
+	if err != nil {
+		return nil, err
+	}
 
 	// 转换活动数据
 	var activities []dto.Activity
@@ -273,12 +197,10 @@ func (s *xiaohongshuCardStatsService) RecordActivity(ctx context.Context, cardID
 		CreatedAt:    time.Now(),
 	}
 
-	if err := s.db.Create(activity).Error; err != nil {
-		return fmt.Errorf("记录活动失败: %v", err)
+	if err := s.repo.CreateActivity(ctx, activity); err != nil {
+		return err
 	}
 
 	// 更新卡片的浏览量统计
-	s.db.Model(&model.XiaohongshuCard{}).Where("id = ?", cardID).Update("view_count", gorm.Expr("view_count + 1"))
-
-	return nil
+	return s.repo.IncrementCardViewCount(ctx, cardID)
 }

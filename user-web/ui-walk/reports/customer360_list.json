@@ -1,0 +1,20 @@
+{
+  "route": "/customer360/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:48:30.272Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [],
+  "summary": {
+    "total": 0,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:48:33.500Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 14
+}

@@ -1,0 +1,1028 @@
+{
+  "route": "/unifiedInbox/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T19:10:25.182Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "Refresh Stats",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":19,\"open\":38,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "全部平台",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "DIV",
+      "text": "全部状态",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "DIV",
+      "text": "全部",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "DIV",
+      "text": "默认排序",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "搜索",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":58,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-224b55ae252a\",\"customer_name\":\"自动测试-ae252a\",\"conversation_id\":\"sess_1784912314124520000_b40be990\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"餐饮的菜品怎么开通？\",\"last_message_at\":\"2026-07"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 7,
+      "tag": "BUTTON",
+      "text": "重置",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":58,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-224b55ae252a\",\"customer_name\":\"自动测试-ae252a\",\"conversation_id\":\"sess_1784912314124520000_b40be990\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"餐饮的菜品怎么开通？\",\"last_message_at\":\"2026-07"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/58",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":58,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-224b55ae252a\",\"customer_name\":\"自动测试-ae252a\",\"conversation_id\":\"sess_1784912314124520000_b40be990\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"餐饮的菜品怎么开通？\",\"l"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/58/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"餐饮的菜品怎么开通？\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784912314124520000_b40be990\",\"created_at\":\"2026-07-25T00:58:34.149878+08:00\",\"id\":302,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"autotest-224b55ae252a\",\"sender_name\":\"自动测试-ae252a\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-25T00:58:34.149878+08:00\"},{\"content\":\"您好！请问您想了解哪种菜品的开"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 9,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/58/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":58}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":18,\"open\":39,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 10,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 11,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 12,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 13,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/56",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":56,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-9ad1c881c5cf\",\"customer_name\":\"自动测试-81c5cf\",\"conversation_id\":\"sess_1784911877610644000_c3a69c80\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"餐饮的菜品怎么开通？\",\"l"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/56/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"餐饮的菜品怎么开通？\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784911877610644000_c3a69c80\",\"created_at\":\"2026-07-25T00:51:17.646601+08:00\",\"id\":296,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"autotest-9ad1c881c5cf\",\"sender_name\":\"自动测试-81c5cf\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-25T00:51:17.646601+08:00\"},{\"content\":\"您好，想要了解餐饮菜品的开通方"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 14,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/56/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":56}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":17,\"open\":40,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 15,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 16,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 17,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 18,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/51",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":51,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-a39b76df2e84\",\"customer_name\":\"自动测试-df2e84\",\"conversation_id\":\"sess_1784910246960172000_d3d16c3c\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"金融的开户怎么开通？\",\"l"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/51/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"金融的开户怎么开通？\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784910246960172000_d3d16c3c\",\"created_at\":\"2026-07-25T00:24:06.992707+08:00\",\"id\":281,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"autotest-a39b76df2e84\",\"sender_name\":\"自动测试-df2e84\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-25T00:24:06.992707+08:00\"},{\"content\":\"您好！金融产品的开户开通流程通"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 19,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/51/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":51}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":16,\"open\":41,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 20,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 21,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 22,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 23,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/39",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":39,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-78c41cbd54a9\",\"customer_name\":\"自动测试-bd54a9\",\"conversation_id\":\"sess_1784908477356675000_9f360af1\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"餐饮的菜品如何收费？\",\"l"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/39/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"餐饮的菜品如何收费？\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784908477356675000_9f360af1\",\"created_at\":\"2026-07-24T23:54:37.37179+08:00\",\"id\":245,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"autotest-78c41cbd54a9\",\"sender_name\":\"自动测试-bd54a9\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T23:54:37.37179+08:00\"},{\"content\":\"您好！餐饮菜品的收费通常会根据菜品"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 24,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/39/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":39}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":15,\"open\":42,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 25,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 26,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 27,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 28,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/29",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":29,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"diag-4a56453ce8\",\"customer_name\":\"diag\",\"conversation_id\":\"sess_1784906299715248000_e27f6da7\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"你好，请问你是餐饮客服吗？\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/29/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"你好，请问你是餐饮客服吗？\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784906299715248000_e27f6da7\",\"created_at\":\"2026-07-24T23:18:20.738427+08:00\",\"id\":180,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"diag-4a56453ce8\",\"sender_name\":\"diag\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T23:18:20.738427+08:00\"},{\"content\":\"【系统】访客请求人工客服，正在为您接入...\",\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 29,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/29/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":29}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":14,\"open\":43,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 30,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 31,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 32,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 33,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/22",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":22,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-20d89b404ead\",\"customer_name\":\"自动测试-404ead\",\"conversation_id\":\"sess_1784894838268816000_639454fa\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"你是教育行业的客服吗？请用一"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/22/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"你是教育行业的客服吗？请用一句话证明你是专做教育的。\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784894838268816000_639454fa\",\"created_at\":\"2026-07-24T20:07:18.371014+08:00\",\"id\":87,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"autotest-20d89b404ead\",\"sender_name\":\"自动测试-404ead\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T20:07:18.371014+08:00\"},{\"content\":\""
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 34,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/22/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":22}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":13,\"open\":44,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 35,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 36,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 37,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 38,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/18",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":18,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"v_final_check\",\"customer_name\":\"访客\",\"conversation_id\":\"sess_1784893132965532000_ed489c99\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"final check\",\"last_message_at\":"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/18/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"final check\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784893132965532000_ed489c99\",\"created_at\":\"2026-07-24T19:38:54.321094+08:00\",\"id\":64,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"v_final_check\",\"sender_name\":\"访客\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T19:38:54.321094+08:00\"},{\"content\":\"您的最终检查已完成，是否需要帮助确认订单或进一步处理？\",\"co"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 39,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/18/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":18}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":12,\"open\":45,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 40,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 41,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 42,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 43,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/11",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":11,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"e2e-test-1784872803\",\"customer_name\":\"e2e-tester\",\"conversation_id\":\"sess_1784872803642429000_763d6e6c\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"你好\",\"last_message"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/11/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"你好\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784872803642429000_763d6e6c\",\"created_at\":\"2026-07-24T14:00:11.904497+08:00\",\"id\":20,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"e2e-test-1784872803\",\"sender_name\":\"e2e-tester\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T14:00:11.904497+08:00\"},{\"content\":\"抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 44,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/11/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":11}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":11,\"open\":46,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 45,
+      "tag": "BUTTON",
+      "text": "分配",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 46,
+      "tag": "DIV",
+      "text": "更多",
+      "cls": "el-dropdown",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 47,
+      "tag": "BUTTON",
+      "text": "更多",
+      "cls": "el-button el-button--small is-link el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 48,
+      "tag": "BUTTON",
+      "text": "详情",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/inbox/6",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Fetched successfully\",\"data\":{\"id\":6,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"test-visitor-1784870347\",\"customer_name\":\"测试访客\",\"conversation_id\":\"sess_1784870347143167000_779586e0\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"你好，请介绍一下你们的产品\",\"last"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/6/messages?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"content\":\"你好，请介绍一下你们的产品\",\"content_type\":\"text\",\"conversation_id\":\"sess_1784870347143167000_779586e0\",\"created_at\":\"2026-07-24T13:19:07.288027+08:00\",\"id\":6,\"is_ai_reply\":false,\"is_read\":false,\"media_url\":\"\",\"sender_id\":\"test-visitor-1784870347\",\"sender_name\":\"测试访客\",\"sender_type\":\"user\",\"sent_at\":\"2026-07-24T13:19:07.288027+08:00\"}],\"page\":1,\"page_size\":20,\"total"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": true
+    },
+    {
+      "index": 49,
+      "tag": "BUTTON",
+      "text": "已读",
+      "cls": "el-button el-button--success el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/api/inbox/6/read",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"标记已读成功\",\"data\":{\"id\":6}}"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"data\":{\"list\":[{\"id\":57,\"platform\":\"web_embed\",\"account_id\":\"default\",\"customer_id\":\"autotest-aef094a92cbf\",\"customer_name\":\"自动测试-a92cbf\",\"conversation_id\":\"sess_1784912191011609000_83cd12eb\",\"status\":\"unread\",\"assigned_to\":\"\",\"assigned_to_sop\":0,\"assigned_at\":null,\"unread_count\":1,\"total_count\":1,\"last_message_id\":0,\"last_message_preview\":\"请用一句话说明你们在餐饮领域能帮我解决哪些问题。\",\"last_messag"
+        },
+        {
+          "method": "GET",
+          "url": "/api/inbox/stats",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"统计成功\",\"data\":{\"total\":57,\"unread\":10,\"open\":47,\"assigned\":0,\"closed\":0,\"by_platform\":{\"telegram\":1,\"web_embed\":56},\"by_assigned_to\":{},\"overdue_count\":0}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 112,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T19:12:38.655Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 62
+}

@@ -171,5 +171,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	// 2026-07-23:LLM 路由可观测性 — llm_routing_logs / llm_routing_audit 两张表
 	registry.Register(NewLLMRoutingLogsMigration(db))
 	registry.Register(NewLLMRoutingLogsExtendMigration(db))
+	// 2026-07-25:v1.2 出海多语言方案 - glossaries 表 + ai_agents/chat_channels/llm_routing_logs/knowledge_chunks/asset_bundles 多语言字段
+	registry.Register(NewMultilingualI18nMigration(db))
 	// 继续添加新的迁移...
 }

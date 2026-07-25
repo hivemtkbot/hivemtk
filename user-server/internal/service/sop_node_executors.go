@@ -649,8 +649,13 @@ func buildLLMDecisionPrompt(ec *ExecutionContext, candidates []string) string {
 // 根据 node.Config.wait_seconds / wait_until / wait_event 写入 sop_timers 表，
 // 返回 Status=waiting，调度器据此将 Execution.WaitEvent 字段置位。
 // 事件等待默认 24h 超时防卡死。
+//
+// 五层架构：DB 操作通过 timerRepo 完成。
+// 注意：保留 db 字段仅为兼容既有测试（&WaitExecutor{db: nil}），
+// 实际 DB 操作由 timerRepo 完成；timerRepo == nil 时跳过 DB 写入。
 type WaitExecutor struct {
-	db *gorm.DB
+	db        *gorm.DB // 保留字段以兼容既有测试（&WaitExecutor{db: nil}）
+	timerRepo *repository.SOPTimerRepository
 }
 
 // NodeType 返回节点类型
@@ -690,7 +695,7 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 	}
 
 	// 写入 sop_timers 表（OutboxDispatcher 周期扫描）
-	if e.db != nil {
+	if e.timerRepo != nil {
 		timer := &model.SOPTimer{
 			ExecutionID: ec.Execution.ID,
 			NodeID:      ec.Node.ID,
@@ -704,7 +709,7 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 				"attempt":     ec.Attempt,
 			},
 		}
-		if err := e.db.Create(timer).Error; err != nil {
+		if err := e.timerRepo.Create(ctx, timer); err != nil {
 			logger.Ctx(ctx).Error().Err(err).
 				Str("node_id", ec.Node.ID).
 				Msg("create sop_timer failed")
@@ -731,8 +736,14 @@ func (e *WaitExecutor) Execute(ctx context.Context, ec *ExecutionContext) (*Node
 }
 
 // NewWaitExecutor 创建等待节点执行器
+//
+// 当 deps.DB 非 nil 时构造 timerRepo，否则 timerRepo 为 nil（Execute 会跳过 DB 写入）。
 func NewWaitExecutor(deps *SOPNodeExecutorDeps) *WaitExecutor {
-	return &WaitExecutor{db: deps.DB}
+	e := &WaitExecutor{db: deps.DB}
+	if deps.DB != nil {
+		e.timerRepo = repository.NewSOPTimerRepository(deps.DB)
+	}
+	return e
 }
 
 // ============================================================================

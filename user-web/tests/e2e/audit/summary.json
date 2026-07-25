@@ -1,0 +1,219 @@
+[
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/marketingFlow/list",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/reachPipeline/list",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/sms/list",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/sms/drafts",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/sms/jobs",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/sms/config",
+    "interactions": 8,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email",
+    "interactions": 2,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email/drafts",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email/jobs",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email/smtp",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email/info",
+    "interactions": 12,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/email/guide",
+    "interactions": 1,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/tiktok",
+    "interactions": 7,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/tiktok/stats",
+    "interactions": 2,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/tiktok/auto-reply",
+    "interactions": 6,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/douyinCard",
+    "interactions": 11,
+    "errorCount": 2
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/douyin/stats",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/douyin/auto-reply",
+    "interactions": 5,
+    "errorCount": 2
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/kuaishouCard",
+    "interactions": 7,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/kuaishou/stats",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/kuaishou/auto-reply",
+    "interactions": 5,
+    "errorCount": 2
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xiaohongshuCard",
+    "interactions": 6,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xiaohongshu/stats",
+    "interactions": 2,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xiaohongshu/auto-reply",
+    "interactions": 5,
+    "errorCount": 2
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xianyuCard",
+    "interactions": 7,
+    "errorCount": 1
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xianyu/stats",
+    "interactions": 2,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/xianyu/auto-reply",
+    "interactions": 6,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/batchOperation/list",
+    "interactions": 0,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/livecode",
+    "interactions": 6,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/shortLink",
+    "interactions": 9,
+    "errorCount": 0
+  },
+  {
+    "module": "触达运营",
+    "key": "reach",
+    "route": "/shortLink/stats",
+    "interactions": 6,
+    "errorCount": 0
+  }
+]

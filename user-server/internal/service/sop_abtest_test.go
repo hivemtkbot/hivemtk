@@ -8,7 +8,7 @@ import (
 
 // sop_abtest_test.go SOP A/B 测试流量分配与统计测试（PRD §5.2 P0-2 G2）
 // 覆盖：
-//  1. SOPABTestConfig.Validate 校验逻辑
+//  1. ValidateSOPABTestConfig 校验逻辑
 //  2. SelectVariant 一致性哈希 + 权重分配
 //  3. ParseSOPABTestConfig 解析（含空配置/损坏配置）
 //  4. 分布均匀性（统计 1000 个客户的 variant 分布）
@@ -116,7 +116,7 @@ func TestSOPABTestConfig_Validate(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate()
+			err := ValidateSOPABTestConfig(tt.cfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("[%s] err=%v wantErr=%v", tt.name, err, tt.wantErr)
 			}
@@ -135,9 +135,9 @@ func TestSelectVariant_Consistency(t *testing.T) {
 
 	// 同一 customer_id 多次调用必须返回相同 variant
 	customerID := "customer_12345"
-	first := cfg.SelectVariant(customerID)
+	first := SelectSOPABTestVariant(cfg, customerID)
 	for i := 0; i < 100; i++ {
-		v := cfg.SelectVariant(customerID)
+		v := SelectSOPABTestVariant(cfg, customerID)
 		if v.Name != first.Name {
 			t.Fatalf("一致性失败：第 %d 次返回 %s，期望 %s", i+1, v.Name, first.Name)
 		}
@@ -146,7 +146,7 @@ func TestSelectVariant_Consistency(t *testing.T) {
 
 func TestSelectVariant_Disabled(t *testing.T) {
 	cfg := SOPABTestConfig{Enabled: false}
-	v := cfg.SelectVariant("any_customer")
+	v := SelectSOPABTestVariant(cfg, "any_customer")
 	if v.Name != "" {
 		t.Errorf("disabled config should return empty variant, got %s", v.Name)
 	}
@@ -165,7 +165,7 @@ func TestSelectVariant_Distribution(t *testing.T) {
 	counts := map[string]int{"A": 0, "B": 0}
 	for i := 0; i < 1000; i++ {
 		customerID := "customer_" + string(rune('a'+(i%26))) + string(rune('a'+(i%7)))
-		v := cfg.SelectVariant(customerID)
+		v := SelectSOPABTestVariant(cfg, customerID)
 		if v.Name != "A" && v.Name != "B" {
 			t.Fatalf("unexpected variant: %s", v.Name)
 		}
@@ -196,7 +196,7 @@ func TestSelectVariant_ThreeWayDistribution(t *testing.T) {
 	counts := map[string]int{"A": 0, "B": 0, "C": 0}
 	for i := 0; i < 1000; i++ {
 		customerID := "customer_" + string(rune('a'+(i%26))) + string(rune('a'+(i%7)))
-		v := cfg.SelectVariant(customerID)
+		v := SelectSOPABTestVariant(cfg, customerID)
 		counts[v.Name]++
 	}
 
@@ -235,8 +235,8 @@ func TestSelectVariant_DifferentSalts(t *testing.T) {
 	differentCount := 0
 	for i := 0; i < 100; i++ {
 		customerID := "customer_" + string(rune('a'+(i%26)))
-		v1 := cfg1.SelectVariant(customerID)
-		v2 := cfg2.SelectVariant(customerID)
+		v1 := SelectSOPABTestVariant(cfg1, customerID)
+		v2 := SelectSOPABTestVariant(cfg2, customerID)
 		if v1.Name != v2.Name {
 			differentCount++
 		}
@@ -288,7 +288,7 @@ func TestParseSOPABTestConfig_Valid(t *testing.T) {
 	}
 
 	// 校验通过
-	if err := cfg.Validate(); err != nil {
+	if err := ValidateSOPABTestConfig(cfg); err != nil {
 		t.Errorf("validation failed: %v", err)
 	}
 }

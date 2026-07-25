@@ -1,0 +1,17 @@
+{
+  "route": "/integration/list",
+  "module": "系统设置",
+  "errors": [],
+  "items": [
+    {
+      "text": "Add Integration...",
+      "type": "button",
+      "action": "click",
+      "clicked": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "apiErrors": []
+    }
+  ],
+  "errorCount": 0
+}

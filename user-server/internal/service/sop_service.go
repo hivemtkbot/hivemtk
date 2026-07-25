@@ -15,11 +15,13 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // SOPService SOP 智能体服务
 type SOPService struct {
-	db         *gorm.DB
+	agentRepo  *repository.SopAgentRepository
+	execRepo   *repository.SopExecutionRepository
 	dispatcher *llm.Dispatcher
 }
 
@@ -104,7 +106,11 @@ type SOPEdge = dto.SOPEdge
 
 // NewSOPService 创建 SOP 服务
 func NewSOPService(db *gorm.DB, dispatcher *llm.Dispatcher) *SOPService {
-	return &SOPService{db: db, dispatcher: dispatcher}
+	return &SOPService{
+		agentRepo:  repository.NewSopAgentRepository(db),
+		execRepo:   repository.NewSopExecutionRepository(db),
+		dispatcher: dispatcher,
+	}
 }
 
 // CreateRequest 创建 SOP 请求
@@ -138,14 +144,14 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if !req.ABTestConfig.Enabled && len(req.ABTestConfig.Variants) == 0 {
 		if r := GetAssetResolver(); r != nil {
 			if plan, ok := r.GetActiveABPlan(ctx); ok && plan != nil {
-				if cfg := plan.ToSOPABTestConfig(context.Background()); cfg.Validate() == nil {
+				if cfg := plan.ToSOPABTestConfig(context.Background()); ValidateSOPABTestConfig(cfg) == nil {
 					req.ABTestConfig = cfg
 				}
 			}
 		}
 	}
 	// 校验 A/B 测试配置（如启用）
-	if err := req.ABTestConfig.Validate(); err != nil {
+	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
 	graphData, _ := json.Marshal(req.SOPGraph)
@@ -174,7 +180,7 @@ func (s *SOPService) Create(ctx context.Context, req *CreateRequest) (*model.SOP
 	if agent.TriggerConfig == nil {
 		agent.TriggerConfig = model.JSONMap{}
 	}
-	if err := s.db.Create(agent).Error; err != nil {
+	if err := s.agentRepo.Create(ctx, agent); err != nil {
 		return nil, err
 	}
 	return agent, nil
@@ -186,12 +192,15 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 		return nil, err
 	}
 	// 校验 A/B 测试配置（如启用）
-	if err := req.ABTestConfig.Validate(); err != nil {
+	if err := ValidateSOPABTestConfig(req.ABTestConfig); err != nil {
 		return nil, fmt.Errorf("A/B 测试配置非法：%w", err)
 	}
-	var agent model.SOPAgent
-	if err := s.db.WithContext(ctx).First(&agent, id).Error; err != nil {
-		return nil, ErrSOPNotFound
+	agent, err := s.agentRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSOPNotFound
+		}
+		return nil, err
 	}
 	graphData, _ := json.Marshal(req.SOPGraph)
 	abMap := model.JSONMap{}
@@ -208,52 +217,36 @@ func (s *SOPService) Update(ctx context.Context, id uint, req *CreateRequest) (*
 	agent.Priority = req.Priority
 	agent.ABTestConfig = abMap
 	agent.Version++
-	if err := s.db.Save(&agent).Error; err != nil {
+	if err := s.agentRepo.Save(ctx, agent); err != nil {
 		return nil, err
 	}
-	return &agent, nil
+	return agent, nil
 }
 
 // Get 获取 SOP
 func (s *SOPService) Get(ctx context.Context, id uint) (*model.SOPAgent, error) {
-	var agent model.SOPAgent
-	if err := s.db.WithContext(ctx).First(&agent, id).Error; err != nil {
-		return nil, ErrSOPNotFound
+	agent, err := s.agentRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSOPNotFound
+		}
+		return nil, err
 	}
-	return &agent, nil
+	return agent, nil
 }
 
 // List 列出 SOP
 func (s *SOPService) List(ctx context.Context, scenario string, page, pageSize int) ([]model.SOPAgent, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-	var total int64
-	q := s.db.Model(&model.SOPAgent{})
-
-	if scenario != "" {
-		q = q.Where("scenario = ?", scenario)
-	}
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.SOPAgent
-	err := q.Order("priority DESC, id DESC").
-		Offset((page - 1) * pageSize).Limit(pageSize).
-		Find(&list).Error
-	return list, total, err
+	return s.agentRepo.List(ctx, scenario, page, pageSize)
 }
 
 // Delete 删除 SOP
 func (s *SOPService) Delete(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPAgent{})
-	if res.Error != nil {
-		return res.Error
+	rowsAffected, err := s.agentRepo.DeleteByID(ctx, id)
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrSOPNotFound
 	}
 	return nil
@@ -261,13 +254,11 @@ func (s *SOPService) Delete(ctx context.Context, id uint) error {
 
 // Activate 启用 SOP 智能体
 func (s *SOPService) Activate(ctx context.Context, id uint) error {
-	res := s.db.Model(&model.SOPAgent{}).
-		Where("id = ?", id).
-		Update("is_active", true)
-	if res.Error != nil {
-		return res.Error
+	rowsAffected, err := s.agentRepo.UpdateActive(ctx, id, true)
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrSOPNotFound
 	}
 	return nil
@@ -275,13 +266,11 @@ func (s *SOPService) Activate(ctx context.Context, id uint) error {
 
 // Deactivate 停用 SOP 智能体
 func (s *SOPService) Deactivate(ctx context.Context, id uint) error {
-	res := s.db.Model(&model.SOPAgent{}).
-		Where("id = ?", id).
-		Update("is_active", false)
-	if res.Error != nil {
-		return res.Error
+	rowsAffected, err := s.agentRepo.UpdateActive(ctx, id, false)
+	if err != nil {
+		return err
 	}
-	if res.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrSOPNotFound
 	}
 	return nil
@@ -330,7 +319,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if exec.ExecutionData == nil {
 		exec.ExecutionData = model.JSONMap{}
 	}
-	if err := s.db.Create(exec).Error; err != nil {
+	if err := s.execRepo.Create(ctx, exec); err != nil {
 		return nil, err
 	}
 	// 根据 variant 加载对应 SOP 图
@@ -342,16 +331,15 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	if startNode == nil {
 		exec.Status = SOPStatusFailed
 		exec.ErrorMessage = ErrSOPNoStart.Error()
-		s.db.Save(exec)
+		_ = s.execRepo.Save(ctx, exec)
 		return exec, ErrSOPNoStart
 	}
 	exec.CurrentNode = startNode.ID
-	if err := s.db.Save(exec).Error; err != nil {
+	if err := s.execRepo.Save(ctx, exec); err != nil {
 		return nil, err
 	}
 	// 累加 execution_count
-	s.db.Model(&model.SOPAgent{}).Where("id = ?", agent.ID).
-		Update("execution_count", gorm.Expr("execution_count + 1"))
+	_ = s.agentRepo.IncrementExecutionCount(ctx, agent.ID)
 
 	// P0-1：派发 start 节点到 SOPExecutionDispatcher
 	// 若调度器未初始化（如测试场景），仅返回 Execution，节点流转由调用方 Step 推进（向后兼容）
@@ -373,9 +361,12 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 //     由 Worker Pool 执行节点动作并推进下一节点（客户消息唤醒 wait 节点场景）
 //   - 调度器不存在时（如测试场景）：保持原有同步推进逻辑（向后兼容）
 func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOPExecution, error) {
-	var exec model.SOPExecution
-	if err := s.db.WithContext(ctx).First(&exec, req.ExecutionID).Error; err != nil {
-		return nil, ErrSOPExecNotFound
+	exec, err := s.execRepo.GetByID(ctx, req.ExecutionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSOPExecNotFound
+		}
+		return nil, err
 	}
 	if exec.Status != SOPStatusRunning {
 		return nil, ErrSOPExecNotRunning
@@ -395,7 +386,7 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 	}
 
 	// 持久化合并后的 ExecutionData
-	if err := s.db.Save(&exec).Error; err != nil {
+	if err := s.execRepo.Save(ctx, exec); err != nil {
 		return nil, err
 	}
 
@@ -412,7 +403,7 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 			Attempt:     0,
 			TraceID:     traceID,
 		})
-		return &exec, nil
+		return exec, nil
 	}
 
 	// 调度器未初始化：保持原有同步推进逻辑（向后兼容）
@@ -445,8 +436,8 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 	if current == nil {
 		exec.Status = SOPStatusFailed
 		exec.ErrorMessage = "current node not found"
-		s.db.Save(&exec)
-		return &exec, nil
+		_ = s.execRepo.Save(ctx, exec)
+		return exec, nil
 	}
 	// 决定下一个节点
 	next := nextNode(&graph, current, exec.ExecutionData)
@@ -454,12 +445,11 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		exec.Status = SOPStatusSuccess
 		now := time.Now()
 		exec.CompletedAt = &now
-		if err := s.db.Save(&exec).Error; err != nil {
+		if err := s.execRepo.Save(ctx, exec); err != nil {
 			return nil, err
 		}
-		s.db.Model(&model.SOPAgent{}).Where("id = ?", exec.SOPID).
-			Update("success_count", gorm.Expr("success_count + 1"))
-		return &exec, nil
+		_ = s.agentRepo.IncrementSuccessCount(ctx, exec.SOPID)
+		return exec, nil
 	}
 	exec.CurrentNode = next.ID
 	for i, n := range graph.Nodes {
@@ -468,76 +458,52 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 			break
 		}
 	}
-	if err := s.db.Save(&exec).Error; err != nil {
+	if err := s.execRepo.Save(ctx, exec); err != nil {
 		return nil, err
 	}
-	return &exec, nil
+	return exec, nil
 }
 
 // Pause 暂停
 func (s *SOPService) Pause(ctx context.Context, execID uint) error {
-	return s.db.Model(&model.SOPExecution{}).Where("id = ?", execID).
-		Update("status", SOPStatusPaused).Error
+	return s.execRepo.UpdateStatus(ctx, execID, SOPStatusPaused)
 }
 
 // Resume 恢复
 func (s *SOPService) Resume(ctx context.Context, execID uint) error {
-	return s.db.Model(&model.SOPExecution{}).Where("id = ?", execID).
-		Update("status", SOPStatusRunning).Error
+	return s.execRepo.UpdateStatus(ctx, execID, SOPStatusRunning)
 }
 
 // Cancel 取消
 func (s *SOPService) Cancel(ctx context.Context, execID uint) error {
 	now := time.Now()
-	return s.db.Model(&model.SOPExecution{}).Where("id = ?", execID).
-		Updates(map[string]any{
-			"status":       SOPStatusCanceled,
-			"completed_at": now,
-		}).Error
+	return s.execRepo.UpdateFields(ctx, execID, map[string]any{
+		"status":       SOPStatusCanceled,
+		"completed_at": now,
+	})
 }
 
 // GetExecution 获取执行
 func (s *SOPService) GetExecution(ctx context.Context, execID uint) (*model.SOPExecution, error) {
-	var exec model.SOPExecution
-	if err := s.db.WithContext(ctx).First(&exec, execID).Error; err != nil {
-		return nil, ErrSOPExecNotFound
+	exec, err := s.execRepo.GetByID(ctx, execID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSOPExecNotFound
+		}
+		return nil, err
 	}
-	return &exec, nil
+	return exec, nil
 }
 
 // ListExecutions 列出执行
 func (s *SOPService) ListExecutions(ctx context.Context, customerID string, status string, page, pageSize int) ([]model.SOPExecution, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-	var total int64
-	q := s.db.Model(&model.SOPExecution{})
-
-	if customerID != "" {
-		q = q.Where("customer_id = ?", customerID)
-	}
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var list []model.SOPExecution
-	err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).
-		Find(&list).Error
-	return list, total, err
+	return s.execRepo.List(ctx, customerID, status, page, pageSize)
 }
 
 // MatchByIntent 根据意图匹配 SOP
 func (s *SOPService) MatchByIntent(ctx context.Context, intentType string) ([]model.SOPAgent, error) {
-	if s.db == nil {
-		return nil, nil
-	}
-	var list []model.SOPAgent
-	if err := s.db.Order("priority DESC, id DESC").Find(&list).Error; err != nil {
+	list, err := s.agentRepo.ListAll(ctx)
+	if err != nil {
 		return nil, err
 	}
 	// 简单的匹配规则：trigger_config 中包含 intent 字段
@@ -567,25 +533,26 @@ func (s *SOPService) Stats(ctx context.Context) (map[string]int64, error) {
 		"success": 0,
 		"failed":  0,
 	}
-	if s.db == nil {
-		return stats, nil
-	}
-	var totalAgents, activeAgents, runningExecs, successExecs, failedExecs int64
 	// 统计 SOP 智能体总数与活跃数
-	if err := s.db.Model(&model.SOPAgent{}).Count(&totalAgents).Error; err != nil {
+	totalAgents, err := s.agentRepo.CountAll(ctx)
+	if err != nil {
 		return stats, err
 	}
-	if err := s.db.Model(&model.SOPAgent{}).Where("is_active = ?", true).Count(&activeAgents).Error; err != nil {
+	activeAgents, err := s.agentRepo.CountActive(ctx)
+	if err != nil {
 		return stats, err
 	}
 	// 统计执行记录：运行中、已完成、失败
-	if err := s.db.Model(&model.SOPExecution{}).Where("status = ?", SOPStatusRunning).Count(&runningExecs).Error; err != nil {
+	runningExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusRunning)
+	if err != nil {
 		return stats, err
 	}
-	if err := s.db.Model(&model.SOPExecution{}).Where("status = ?", SOPStatusSuccess).Count(&successExecs).Error; err != nil {
+	successExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusSuccess)
+	if err != nil {
 		return stats, err
 	}
-	if err := s.db.Model(&model.SOPExecution{}).Where("status = ?", SOPStatusFailed).Count(&failedExecs).Error; err != nil {
+	failedExecs, err := s.execRepo.CountByStatus(ctx, SOPStatusFailed)
+	if err != nil {
 		return stats, err
 	}
 

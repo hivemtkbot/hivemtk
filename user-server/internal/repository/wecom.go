@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -327,4 +328,157 @@ func (r *WeComTagRepository) Update(ctx context.Context, tag *model.WeComTag) er
 // Delete 删除标签
 func (r *WeComTagRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Delete(&model.WeComTag{}, id).Error
+}
+
+// ============================================================================
+// WeComAccountRepository 扩展方法（服务于 WeComAccountHealthService）
+// ============================================================================
+
+// FindByRiskLevels 按风险等级列表筛选账号（私域独立部署：无 merchant_id）
+func (r *WeComAccountRepository) FindByRiskLevels(ctx context.Context, riskLevels []string) ([]model.WeComAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	if len(riskLevels) == 0 {
+		return nil, nil
+	}
+	var accounts []model.WeComAccount
+	err := r.db.WithContext(ctx).Where("risk_level IN ?", riskLevels).Find(&accounts).Error
+	return accounts, err
+}
+
+// FindHealthyAccounts 查询非排除登录状态且风险等级在指定范围内的账号
+// excludeLoginStates: 需要排除的登录状态（如 banned/offline）
+func (r *WeComAccountRepository) FindHealthyAccounts(ctx context.Context, riskLevels []string, excludeLoginStates []string) ([]model.WeComAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	if len(riskLevels) == 0 {
+		return nil, nil
+	}
+	q := r.db.WithContext(ctx).Model(&model.WeComAccount{}).Where("risk_level IN ?", riskLevels)
+	if len(excludeLoginStates) > 0 {
+		q = q.Where("login_state NOT IN ?", excludeLoginStates)
+	}
+	var accounts []model.WeComAccount
+	err := q.Find(&accounts).Error
+	return accounts, err
+}
+
+// ============================================================================
+// WeComAccountHealthRepository 企业微信账号健康度仓库
+// 五层架构归属: L3 仓库层
+// ============================================================================
+
+// WeComAccountHealthRepository 企业微信账号健康度仓库
+type WeComAccountHealthRepository struct {
+	db *gorm.DB
+}
+
+// NewWeComAccountHealthRepository 创建企业微信账号健康度仓库实例
+func NewWeComAccountHealthRepository() *WeComAccountHealthRepository {
+	return &WeComAccountHealthRepository{
+		db: _db.GetDB(),
+	}
+}
+
+// SetDB 注入 db（用于测试）
+//
+// 五层架构 §三.5 + §七：仓库方法必须首参为 ctx context.Context。
+func (r *WeComAccountHealthRepository) SetDB(ctx context.Context, db *gorm.DB) {
+	if db != nil {
+		r.db = db
+	}
+}
+
+// Create 创建健康度记录
+func (r *WeComAccountHealthRepository) Create(ctx context.Context, rec *model.WeComAccountHealth) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("health repo is nil")
+	}
+	return r.db.WithContext(ctx).Create(rec).Error
+}
+
+// GetLatestByAccountID 获取账号最新健康度记录
+func (r *WeComAccountHealthRepository) GetLatestByAccountID(ctx context.Context, accountID uint) (*model.WeComAccountHealth, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var rec model.WeComAccountHealth
+	err := r.db.WithContext(ctx).
+		Where("account_id = ?", accountID).
+		Order("reported_at DESC, id DESC").
+		First(&rec).Error
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
+}
+
+// ListByAccountIDPaged 分页列出账号健康度历史（按 reported_at DESC）
+func (r *WeComAccountHealthRepository) ListByAccountIDPaged(ctx context.Context, accountID uint, page, pageSize int) ([]model.WeComAccountHealth, int64, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, nil
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
+	var total int64
+	q := r.db.WithContext(ctx).Model(&model.WeComAccountHealth{}).Where("account_id = ?", accountID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var items []model.WeComAccountHealth
+	err := q.Order("reported_at DESC, id DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&items).Error
+	return items, total, err
+}
+
+// UpdateFields 按 ID 更新指定字段（map 形式，支持 gorm.Expr）
+// 服务于 WeComAccountHealthService.IncrementSentCount / syncAccountState 等场景
+func (r *WeComAccountRepository) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
+	if r == nil || r.db == nil {
+		return fmt.Errorf("wecom account repo is nil")
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.WeComAccount{}).
+		Where("id = ?", id).
+		Updates(fields).Error
+}
+
+// UpdateAllFields 批量更新所有账号的指定字段（无 WHERE 条件）
+// 服务于 WeComAccountHealthService.ResetDailyQuota（每日凌晨重置所有账号配额）
+// 返回受影响行数
+func (r *WeComAccountRepository) UpdateAllFields(ctx context.Context, fields map[string]any) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, fmt.Errorf("wecom account repo is nil")
+	}
+	if len(fields) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Model(&model.WeComAccount{}).
+		Where("1 = 1").
+		Updates(fields)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// ListAllOrderByIDDesc 列出所有账号（按 ID DESC 排序）
+// 服务于 WeComAccountHealthService.GetHealthSummary / WeComIntegrationService.ListAccountsWithHealth
+func (r *WeComAccountRepository) ListAllOrderByIDDesc(ctx context.Context) ([]model.WeComAccount, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var accounts []model.WeComAccount
+	err := r.db.WithContext(ctx).Order("id DESC").Find(&accounts).Error
+	return accounts, err
 }

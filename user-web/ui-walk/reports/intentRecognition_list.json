@@ -1,0 +1,370 @@
+{
+  "route": "/intentRecognition/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T18:30:19.196Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "DIV",
+      "text": "启用",
+      "cls": "el-switch is-checked el-tooltip__trigger",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "PUT",
+          "url": "/api/intent/config",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Updated successfully\",\"data\":{\"enabled\":false,\"updated_at\":\"2026-07-25T02:30:24+08:00\",\"updated_by\":\"admin\"}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "BUTTON",
+      "text": "Refresh",
+      "cls": "el-button",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/dict",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":[{\"type\":\"price_inquiry\",\"name\":\"价格咨询\",\"keywords\":[\"多少钱\",\"价格\",\"怎么卖\",\"怎么收费\",\"报价\",\"便宜\",\"优惠\",\"折扣\",\"多少钱一套\",\"什么价位\"],\"examples\":[\"这个多少钱？\",\"你们价格怎么样？\",\"能不能便宜点？\",\"有优惠活动吗？\"],\"description\":\"客户询问价格或优惠\"},{\"type\":\"objection_price\",\"name\":\"价格异议\",\"keywords\":[\"太贵了\",\"价格高\",\"价格有点高\",\"有点高\",\"太贵\",\"不值\",\"不值这个价\",\"不划算\",\"太贵啦\",\"贵了\"],\"examples\":[\"这个东西太贵了\",\"价格有点高啊\",\"比别家贵好多\",\""
+        },
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":84,\"session_id\":\"sess_1784912314124520000_b40be990\",\"customer_id\":\"autotest-224b55ae252a\",\"message_id\":0,\"raw_text\":\"餐饮的菜品怎么开通？\",\"intent_type\":\"ask_product\",\"intent_subtype\":\"菜品\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"product\":\"餐饮的菜品\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"cost_tokens\":404,\"lat"
+        },
+        {
+          "method": "GET",
+          "url": "/api/intent/stats?page=1&page_size=100",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"by_intent\":{\"ask_product\":36,\"complaint\":1,\"objection_competitor\":6,\"price_inquiry\":20,\"purchase\":5,\"social\":16},\"by_level\":{},\"by_method\":{},\"distribution\":[{\"count\":36,\"type\":\"ask_product\"},{\"count\":20,\"type\":\"price_inquiry\"},{\"count\":16,\"type\":\"social\"},{\"count\":6,\"type\":\"objection_competitor\"},{\"count\":5,\"type\":\"purchase\"},{\"count\":1,\"typ"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "Fill in the example",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 3,
+      "tag": "DIV",
+      "text": "可选，消息来源平台",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 4,
+      "tag": "BUTTON",
+      "text": "开始识别",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 5,
+      "tag": "BUTTON",
+      "text": "批量识别(按行)",
+      "cls": "el-button el-button--success",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 6,
+      "tag": "BUTTON",
+      "text": "刷新",
+      "cls": "el-button el-button--primary el-button--small is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/stats?page=1&page_size=100",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"by_intent\":{\"ask_product\":36,\"complaint\":1,\"objection_competitor\":6,\"price_inquiry\":20,\"purchase\":5,\"social\":16},\"by_level\":{},\"by_method\":{},\"distribution\":[{\"count\":36,\"type\":\"ask_product\"},{\"count\":20,\"type\":\"price_inquiry\"},{\"count\":16,\"type\":\"social\"},{\"count\":6,\"type\":\"objection_competitor\"},{\"count\":5,\"type\":\"purchase\"},{\"count\":1,\"typ"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 7,
+      "tag": "DIV",
+      "text": "意图类型筛选",
+      "cls": "el-select el-select--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 8,
+      "tag": "BUTTON",
+      "text": "查询",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=1&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":84,\"session_id\":\"sess_1784912314124520000_b40be990\",\"customer_id\":\"autotest-224b55ae252a\",\"message_id\":0,\"raw_text\":\"餐饮的菜品怎么开通？\",\"intent_type\":\"ask_product\",\"intent_subtype\":\"菜品\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"product\":\"餐饮的菜品\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"cost_tokens\":404,\"lat"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 9,
+      "tag": "LI",
+      "text": "1",
+      "cls": "is-active number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/platform/message/latest",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"\"}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 10,
+      "tag": "LI",
+      "text": "2",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=2&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":64,\"session_id\":\"sess_1784908850568892000_0b024f0f\",\"customer_id\":\"autotest-f57cb6cdef2e\",\"message_id\":0,\"raw_text\":\"金融的开户如何收费？\",\"intent_type\":\"price_inquiry\",\"intent_subtype\":\"\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"price\":\"开户\",\"product\":\"金融\",\"quantity\":\"\",\"time\":\"\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 11,
+      "tag": "LI",
+      "text": "3",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=3&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":44,\"session_id\":\"sess_1784904814220639000_0cd6779c\",\"customer_id\":\"autotest-c8d960ec611c\",\"message_id\":0,\"raw_text\":\"餐饮的菜品怎么开通？\",\"intent_type\":\"ask_product\",\"intent_subtype\":\"菜品\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"product\":\"餐饮菜品\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"cost_tokens\":403,\"late"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 12,
+      "tag": "LI",
+      "text": "4",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=4&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":24,\"session_id\":\"\",\"customer_id\":\"\",\"message_id\":0,\"raw_text\":\"试用版\",\"intent_type\":\"purchase\",\"intent_subtype\":\"purchase\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"price\":\"免费\",\"product\":\"试用版\",\"quantity\":\"不限\",\"time\":\"不限\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"cost_tokens\":420,\"latency_ms\":8473,\"crea"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 13,
+      "tag": "LI",
+      "text": "5",
+      "cls": "number",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=5&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":4,\"session_id\":\"sess_1784690709564868041_85a89f77\",\"customer_id\":\"e2e-visitor-001\",\"message_id\":0,\"raw_text\":\"一句话介绍下 AI 私域销冠系统\",\"intent_type\":\"ask_product\",\"intent_subtype\":\"product\",\"confidence\":0.95,\"confidence_level\":\"high\",\"entities\":{\"product\":\"AI 私域销冠系统\"},\"sentiment\":\"positive\",\"llm_model\":\"Qwen2.5-1.5B-Instruct\",\"cost_toke"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 14,
+      "tag": "BUTTON",
+      "text": "Go to next page",
+      "cls": "btn-next is-last",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/recent?page=2&page_size=20",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"list\":[{\"id\":64,\"session_id\":\"sess_1784908850568892000_0b024f0f\",\"customer_id\":\"autotest-f57cb6cdef2e\",\"message_id\":0,\"raw_text\":\"金融的开户如何收费？\",\"intent_type\":\"price_inquiry\",\"intent_subtype\":\"\",\"confidence\":1,\"confidence_level\":\"high\",\"entities\":{\"price\":\"开户\",\"product\":\"金融\",\"quantity\":\"\",\"time\":\"\"},\"sentiment\":\"neutral\",\"llm_model\":\"Qwen2.5-1.5"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 15,
+      "tag": "BUTTON",
+      "text": "Fill in the example",
+      "cls": "el-button el-button--primary is-link",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 16,
+      "tag": "BUTTON",
+      "text": "精细识别",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 17,
+      "tag": "DIV",
+      "text": "大类筛选",
+      "cls": "el-select el-select--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 18,
+      "tag": "BUTTON",
+      "text": "查询",
+      "cls": "el-button el-button--primary el-button--small",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/intent/logs?limit=50",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":[{\"id\":1,\"customer_id\":\"c-001\",\"session_id\":\"\",\"message\":\"你们这个产品跟别家有什么区别？\",\"intent_major\":\"consult\",\"intent_minor\":\"product_specific\",\"confidence\":0.92,\"method\":\"rule\",\"latency_ms\":0,\"timestamp\":\"2026-07-24T17:05:17.473331+08:00\",\"created_at\":\"2026-07-24T17:05:17.47449+08:00\"}]}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 19,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T18:31:14.763Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 162
+}

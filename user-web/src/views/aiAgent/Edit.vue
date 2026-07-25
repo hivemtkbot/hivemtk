@@ -55,6 +55,32 @@
               <el-input v-model="form.avatar" placeholder="头像图片URL" />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="内部语言" prop="internal_language">
+              <el-select v-model="form.internal_language" placeholder="请选择内部语言" style="width: 100%">
+                <el-option
+                  v-for="lang in internalLanguageOptions"
+                  :key="lang.value"
+                  :label="lang.label"
+                  :value="lang.value"
+                />
+              </el-select>
+              <div class="form-tip">商户维护知识库使用的语言，影响内部工具处理精度。默认中文。</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="目标语言" prop="target_language">
+              <el-select v-model="form.target_language" placeholder="请选择目标语言" clearable style="width: 100%">
+                <el-option
+                  v-for="lang in targetLanguageOptions"
+                  :key="lang.value"
+                  :label="lang.label"
+                  :value="lang.value"
+                />
+              </el-select>
+              <div class="form-tip">智能体对外输出语言。空表示跟随内部语言（同语种零开销）。</div>
+            </el-form-item>
+          </el-col>
           <el-col :span="24">
             <el-form-item label="描述">
               <el-input v-model="form.description" type="textarea" :rows="2" placeholder="智能体用途说明" />
@@ -360,6 +386,10 @@ import { createAgent, updateAgent, getAgent, testAgent } from '@/api/aiAgent.js'
 import { ragProductConfigAPI } from '@/api/rag-product-config.js'
 import { sopApi } from '@/api/sopAgent.js'
 import { getScriptTemplateList } from '@/api/scriptTemplate.js'
+import { INTERNAL_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
+
+const internalLanguageOptions = INTERNAL_LANGUAGE_OPTIONS
+const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
 const route = useRoute()
 const router = useRouter()
@@ -386,6 +416,8 @@ const getDefaultForm = () => ({
   persona: '',
   system_prompt: '',
   greeting: '',
+  internal_language: 'zh',
+  target_language: '',
   rag_product_ids: [],
   sop_ids: [],
   script_library_ids: [],
@@ -479,6 +511,9 @@ const loadAgentDetail = async () => {
       form.rag_product_ids = (res.rag_product_ids || []).map(String)
       form.sop_ids = (res.sop_ids || []).map(String)
       form.script_library_ids = (res.script_library_ids || []).map(String)
+      // 内部语言兜底 zh；目标语言允许空串（跟随内部语言）
+      form.internal_language = res.internal_language || 'zh'
+      form.target_language = res.target_language || ''
     }
   } catch (e) {
     ElMessage.error('加载智能体详情失败：' + (e.message || '未知错误'))
@@ -507,6 +542,8 @@ const onSave = async () => {
         persona: form.persona,
         system_prompt: form.system_prompt,
         greeting: form.greeting,
+        internal_language: form.internal_language || 'zh',
+        target_language: form.target_language || '',
         rag_product_ids: form.rag_product_ids || [],
         sop_ids: form.sop_ids || [],
         script_library_ids: form.script_library_ids || [],
@@ -620,6 +657,13 @@ onMounted(async () => {
     font-size: 15px;
     color: #303133;
   }
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+  margin-top: 4px;
 }
 
 .footer-actions {

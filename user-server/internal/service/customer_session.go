@@ -55,7 +55,7 @@ func NewCustomerSessionService() *CustomerSessionService {
 // NewCustomerSessionServiceWithDB 创建指定数据库连接的客服会话服务实例
 //
 // 用于：① 测试注入独立真实测试库（testutil.NewTestDB）② 多库/独立事务场景。
-// 避免依赖全局 db.GetDB()，保证 reach.web.send 等触达链路使用调用方真实 DB。
+// 避免依赖全局数据库句柄，保证 reach.web.send 等触达链路使用调用方真实 DB。
 func NewCustomerSessionServiceWithDB(db *gorm.DB) *CustomerSessionService {
 	return &CustomerSessionService{
 		sessionRepo:    repository.NewCustomerSessionRepositoryWithDB(db),

@@ -1,0 +1,59 @@
+package repository
+
+// persona_repository.go 拟人度评估低质样本仓储
+//
+// 五层架构归属: L4 数据访问层
+// 设计依据: service/persona_evaluator.go DBLowQualitySampleCollector 历史直连 DB 操作下沉
+//
+// 与 low_quality_sample_repository.go / humanize_low_quality_collector.go 的关系：
+//   - low_quality_sample_repository.go：管理面列表查询（List）
+//   - humanize_low_quality_collector.go：P0-4 拟人化链路写入（HumanizeLowQualitySampleCollector）
+//   - 本文件：P1-2 拟人度评估链路写入（DBLowQualitySampleCollector）
+//   - 三者共享 low_quality_samples 表，通过 sample_type 区分来源
+
+import (
+	"context"
+	"fmt"
+
+	"gorm.io/gorm"
+
+	"marketing/internal/model"
+	_db "marketing/internal/pkg/utils/db"
+)
+
+// PersonaLowQualitySampleRepository 拟人度低质样本仓储接口
+//
+// 仅负责持久化，业务逻辑（序列化 DimensionScores / CandidateReplies、判定 sampleType）
+// 由 service 层的 DBLowQualitySampleCollector 完成。
+type PersonaLowQualitySampleRepository interface {
+	Create(ctx context.Context, sample *model.LowQualitySample) error
+}
+
+// personaLowQualitySampleRepository 实现 PersonaLowQualitySampleRepository
+type personaLowQualitySampleRepository struct {
+	db *gorm.DB
+}
+
+// NewPersonaLowQualitySampleRepository 构造（无参，内部取库句柄）
+func NewPersonaLowQualitySampleRepository() PersonaLowQualitySampleRepository {
+	return &personaLowQualitySampleRepository{db: _db.GetDB()}
+}
+
+// NewPersonaLowQualitySampleRepositoryWithDB 创建指定数据库连接的 PersonaLowQualitySampleRepository 实例（用于测试）
+func NewPersonaLowQualitySampleRepositoryWithDB(db *gorm.DB) PersonaLowQualitySampleRepository {
+	return &personaLowQualitySampleRepository{db: db}
+}
+
+// Create 持久化低质样本到 low_quality_samples 表
+// 与原 service.DBLowQualitySampleCollector.Collect 行为一致：
+//   - sample 为 nil 时直接返回 nil（noop）
+//   - 错误信息包裹 "save low quality sample: %w"
+func (r *personaLowQualitySampleRepository) Create(ctx context.Context, sample *model.LowQualitySample) error {
+	if sample == nil {
+		return nil
+	}
+	if err := r.db.WithContext(ctx).Create(sample).Error; err != nil {
+		return fmt.Errorf("save low quality sample: %w", err)
+	}
+	return nil
+}

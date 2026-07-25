@@ -15,63 +15,48 @@ import (
 
 	"gorm.io/gorm"
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // DingTalkAppService 钉钉企业内部应用账号服务（CRUD + 回调验签 + 入站收消息）
 type DingTalkAppService struct {
-	db         *gorm.DB
+	repo       repository.DingTalkAppRepository
 	webhookSvc *WebhookService
 }
 
 // NewDingTalkAppService 创建钉钉应用账号服务。
 // webhookSvc 复用 WebhookService（其 ingressSvc 已在 NewWebhookService 中注入），
 // 以便入站消息经 HandleIngressMessage 进入统一 AI 派发管线。
+//
+// 注：保留 db *gorm.DB 入参以维持向后兼容（router 装配不改动），
+// 内部在构造函数中实例化 repository，service struct 不直接持有 *gorm.DB。
 func NewDingTalkAppService(db *gorm.DB, webhookSvc *WebhookService) *DingTalkAppService {
-	return &DingTalkAppService{db: db, webhookSvc: webhookSvc}
+	return &DingTalkAppService{repo: repository.NewDingTalkAppRepository(db), webhookSvc: webhookSvc}
 }
 
 // CreateAccount 创建账号
 func (s *DingTalkAppService) CreateAccount(ctx context.Context, acc *model.DingTalkAppAccount) error {
-	return s.db.WithContext(ctx).Create(acc).Error
+	return s.repo.Create(ctx, acc)
 }
 
 // GetAccount 查询账号
 func (s *DingTalkAppService) GetAccount(ctx context.Context, id uint) (*model.DingTalkAppAccount, error) {
-	var acc model.DingTalkAppAccount
-	if err := s.db.WithContext(ctx).First(&acc, id).Error; err != nil {
-		return nil, err
-	}
-	return &acc, nil
+	return s.repo.FindByID(ctx, id)
 }
 
 // UpdateAccount 更新账号
 func (s *DingTalkAppService) UpdateAccount(ctx context.Context, acc *model.DingTalkAppAccount) error {
-	return s.db.WithContext(ctx).Model(&model.DingTalkAppAccount{}).Where("id = ?", acc.ID).
-		Updates(map[string]interface{}{
-			"account_name":    acc.AccountName,
-			"app_key":         acc.AppKey,
-			"app_secret":      acc.AppSecret,
-			"agent_id":        acc.AgentID,
-			"token":           acc.Token,
-			"aes_key":         acc.AESKey,
-			"inbound_enabled": acc.InboundEnabled,
-			"ai_agent_id":     acc.AIAgentID,
-			"status":          acc.Status,
-		}).Error
+	return s.repo.Update(ctx, acc)
 }
 
 // ListAccounts 列出账号
 func (s *DingTalkAppService) ListAccounts(ctx context.Context) ([]model.DingTalkAppAccount, error) {
-	var list []model.DingTalkAppAccount
-	if err := s.db.WithContext(ctx).Order("id desc").Find(&list).Error; err != nil {
-		return nil, err
-	}
-	return list, nil
+	return s.repo.ListAll(ctx)
 }
 
 // DeleteAccount 删除账号
 func (s *DingTalkAppService) DeleteAccount(ctx context.Context, id uint) error {
-	return s.db.WithContext(ctx).Delete(&model.DingTalkAppAccount{}, id).Error
+	return s.repo.DeleteByID(ctx, id)
 }
 
 // VerifyCallback 钉钉回调 URL 验证（GET）。

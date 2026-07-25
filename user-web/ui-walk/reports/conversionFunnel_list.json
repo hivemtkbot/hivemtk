@@ -1,0 +1,83 @@
+{
+  "route": "/conversionFunnel/list",
+  "base": "http://127.0.0.1:8211",
+  "needsAuth": true,
+  "startedAt": "2026-07-24T17:48:11.878Z",
+  "loginOk": true,
+  "loaded": true,
+  "loadError": null,
+  "interactions": [
+    {
+      "index": 0,
+      "tag": "BUTTON",
+      "text": "刷新",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/conversion-funnels",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"漏斗生成成功\",\"data\":{\"start_time\":\"2026-06-25T01:48:16.854326+08:00\",\"end_time\":\"2026-07-25T01:48:16.854328+08:00\",\"stages\":[{\"stage\":\"visit\",\"name\":\"访问\",\"count\":0,\"rate\":100,\"drop_rate\":0},{\"stage\":\"clue\",\"name\":\"线索\",\"count\":1,\"rate\":0,\"drop_rate\":0},{\"stage\":\"intent\",\"name\":\"意向\",\"count\":5,\"rate\":500,\"drop_rate\":-400},{\"stage\":\"session\",\"name\":\"会话\",\"count\":71,\"rate\":1420,\""
+        },
+        {
+          "method": "GET",
+          "url": "/api/conversion-funnels/stage?stage=clue",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"stage\":\"clue\",\"name\":\"线索\",\"count\":1,\"rate\":0,\"avg_duration_seconds\":0,\"top_sources\":[{\"source\":\"@demouser6\",\"count\":1}]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 1,
+      "tag": "DIV",
+      "text": "线索",
+      "cls": "el-select",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    },
+    {
+      "index": 2,
+      "tag": "BUTTON",
+      "text": "查询",
+      "cls": "el-button el-button--primary",
+      "clicked": true,
+      "clickError": null,
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/api/conversion-funnels/stage?stage=clue",
+          "status": 200,
+          "ok": true,
+          "sample": "{\"code\":\"SUCCESS\",\"message\":\"Query successful\",\"data\":{\"stage\":\"clue\",\"name\":\"线索\",\"count\":1,\"rate\":0,\"avg_duration_seconds\":0,\"top_sources\":[{\"source\":\"@demouser6\",\"count\":1}]}}"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "uiError": null,
+      "dialogOpened": false
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "withIssue": 0,
+    "issues": [],
+    "cappedAt": 50
+  },
+  "finishedAt": "2026-07-24T17:48:23.246Z",
+  "consoleErrorsTotal": 1,
+  "pageErrorsTotal": 0,
+  "apiCallsTotal": 28
+}
