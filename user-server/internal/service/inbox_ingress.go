@@ -11,6 +11,7 @@ import (
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -52,7 +53,7 @@ type InboxIngressResult struct {
 //  3. 未命中时通过 Redis SetNX 串行化 AI 处理（防抖 + 防止并发重复推理）
 //  4. AI 推理期间用户继续发的消息进入 pending 队列，等待下一轮合并处理
 type InboxIngressService struct {
-	db        *gorm.DB
+	hubRepo   *repository.MessageHubRepository
 	cache     cache.Cache
 	mu        sync.Mutex
 	triggerCh chan string // 触发 AgentRuntime 处理通知（可选）
@@ -64,12 +65,19 @@ func NewInboxIngressService() *InboxIngressService {
 }
 
 // NewInboxIngressServiceWithDB 构造带 DB 的入站服务(显式注入 db,兼容旧调用)
+//
+// 五层架构修复（v1.1）：service 层不再持有 *gorm.DB，
+// 内部用 db 构造 MessageHubRepository；db 为 nil 时 repo 也为 nil（Create 等方法做无操作短路）
 func NewInboxIngressServiceWithDB(db *gorm.DB, c cache.Cache) *InboxIngressService {
 	if c == nil {
 		c = cache.GetGlobalCache()
 	}
+	var hubRepo *repository.MessageHubRepository
+	if db != nil {
+		hubRepo = repository.NewMessageHubRepositoryWithDB(db)
+	}
 	return &InboxIngressService{
-		db:        db,
+		hubRepo:   hubRepo,
 		cache:     c,
 		triggerCh: make(chan string, 1024),
 	}
@@ -264,7 +272,7 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 
 // persistMessage 持久化消息到 message_hub 表
 func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.MessageEvent) error {
-	if s.db == nil {
+	if s.hubRepo == nil {
 		return nil
 	}
 	accountID := "default"
@@ -300,5 +308,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		}
 		hub.Extra = extra
 	}
-	return s.db.WithContext(ctx).Create(hub).Error
+	// 五层架构修复：原 s.db.WithContext(ctx).Create(hub).Error 违反
+	// "service 不可直接访问 DB" 约束，已下沉到 MessageHubRepository.Create
+	return s.hubRepo.Create(ctx, hub)
 }

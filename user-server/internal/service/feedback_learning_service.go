@@ -10,6 +10,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/repository"
 )
 
 // ============================================================================
@@ -30,12 +31,23 @@ import (
 
 // FeedbackLearningService 反馈学习闭环服务
 type FeedbackLearningService struct {
-	db *gorm.DB
+	feedbackRepo *repository.FeedbackLearningRepository
+	sopAgentRepo *repository.SopAgentRepository
+	sopExecRepo  *repository.SopExecutionRepository
 }
 
 // NewFeedbackLearningService 创建反馈学习服务
+//
+// db 参数保留以维持调用方签名兼容；当 db 非空时构造对应 repository，
+// 为空时 repos 保持 nil（service 各方法会返回 "db not configured" 错误）。
 func NewFeedbackLearningService(db *gorm.DB) *FeedbackLearningService {
-	return &FeedbackLearningService{db: db}
+	s := &FeedbackLearningService{}
+	if db != nil {
+		s.feedbackRepo = repository.NewFeedbackLearningRepository(db)
+		s.sopAgentRepo = repository.NewSopAgentRepository(db)
+		s.sopExecRepo = repository.NewSopExecutionRepository(db)
+	}
+	return s
 }
 
 // ============================================================================
@@ -86,7 +98,7 @@ func DimensionName(d model.SalesChampionDimension) string {
 // staffID=0 表示系统级 智能体
 // scenario 标识场景，如 "ai_champion" 或 "staff_123"
 func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID uint, staffName, scenario string, periodStart, periodEnd time.Time) (*ChampionProfileReport, error) {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
 	if periodEnd.IsZero() {
@@ -97,12 +109,8 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 	}
 
 	// 拉取周期内的 AI 回复消息（SenderType=ai）
-	var messages []model.SessionMessage
-	q := s.db.WithContext(ctx).Model(&model.SessionMessage{}).
-		Where("sender_type = ? AND created_at BETWEEN ? AND ?", "ai", periodStart, periodEnd).
-		Order("created_at ASC").
-		Limit(5000)
-	if err := q.Find(&messages).Error; err != nil {
+	messages, err := s.feedbackRepo.ListAIMessagesByPeriod(ctx, periodStart, periodEnd, 5000)
+	if err != nil {
 		return nil, fmt.Errorf("query ai messages: %w", err)
 	}
 
@@ -412,24 +420,19 @@ type NodeConversionDetail struct {
 
 // AnalyzeNodeConversion 分析 SOP 节点转化率
 func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sopID uint, variant string) (*SOPNodeConversionStats, error) {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
 
 	// 查询 SOP 信息
-	var agent model.SOPAgent
-	if err := s.db.WithContext(ctx).First(&agent, sopID).Error; err != nil {
+	agent, err := s.sopAgentRepo.GetByID(ctx, sopID)
+	if err != nil {
 		return nil, fmt.Errorf("query sop: %w", err)
 	}
 
 	// 查询节点流转记录
-	q := s.db.WithContext(ctx).Model(&model.SOPNodeTransition{}).
-		Where("sop_id = ?", sopID)
-	if variant != "" {
-		q = q.Where("variant = ?", variant)
-	}
-	var transitions []model.SOPNodeTransition
-	if err := q.Order("created_at ASC").Find(&transitions).Error; err != nil {
+	transitions, err := s.feedbackRepo.ListNodeTransitionsBySOPAndVariant(ctx, sopID, variant)
+	if err != nil {
 		return nil, fmt.Errorf("query transitions: %w", err)
 	}
 
@@ -478,16 +481,12 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		stats.Nodes = append(stats.Nodes, *node)
 	}
 
-	// 总执行数
-	s.db.WithContext(ctx).Model(&model.SOPExecution{}).
-		Where("sop_id = ?", sopID).Count(&stats.TotalExecutions)
+	// 总执行数（原实现忽略 error，保持等价）
+	stats.TotalExecutions, _ = s.sopExecRepo.CountBySOPID(ctx, sopID)
 
 	// 端到端转化率
 	if stats.TotalExecutions > 0 {
-		var successCount int64
-		s.db.WithContext(ctx).Model(&model.SOPExecution{}).
-			Where("sop_id = ? AND status = ?", sopID, SOPStatusSuccess).
-			Count(&successCount)
+		successCount, _ := s.sopExecRepo.CountBySOPIDAndStatus(ctx, sopID, SOPStatusSuccess)
 		stats.OverallConversion = float64(successCount) / float64(stats.TotalExecutions) * 100
 		stats.OverallConversion = roundTo2(stats.OverallConversion)
 	}
@@ -510,7 +509,7 @@ type OptimizationSuggestionInput struct {
 
 // GenerateOptimizationSuggestions 为低转化节点生成优化建议
 func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Context, input OptimizationSuggestionInput) ([]model.OptimizationSuggestion, error) {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
 	if input.NodeConversion == nil {
@@ -537,7 +536,7 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 
 	// 持久化：P1-17 修复，原循环单条 Create 改为 CreateInBatches 批写
 	if len(suggestions) > 0 {
-		if err := s.db.WithContext(ctx).CreateInBatches(suggestions, 100).Error; err != nil {
+		if err := s.feedbackRepo.CreateSuggestionsInBatches(ctx, suggestions, 100); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Int("count", len(suggestions)).
 				Msg("[feedback] batch insert suggestions failed")
 		}
@@ -624,29 +623,19 @@ func buildOptimizationSuggestion(sopID uint, sopName string, node NodeConversion
 // RecordNodeTransition 记录节点流转
 // 供 SalesEngine / SOPService 在执行 SOP 时调用
 func (s *FeedbackLearningService) RecordNodeTransition(ctx context.Context, t *model.SOPNodeTransition) error {
-	if s.db == nil || t == nil {
+	if s.feedbackRepo == nil {
 		return nil
 	}
-	return s.db.WithContext(ctx).Create(t).Error
+	return s.feedbackRepo.CreateNodeTransition(ctx, t)
 }
 
 // ListPendingSuggestions 列出待审核建议
 func (s *FeedbackLearningService) ListPendingSuggestions(ctx context.Context, sopID uint, limit int) ([]model.OptimizationSuggestion, error) {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
-	if limit <= 0 {
-		limit = 50
-	}
-	q := s.db.WithContext(ctx).Model(&model.OptimizationSuggestion{}).
-		Where("status = ?", model.SuggestionStatusPending).
-		Order("priority DESC, generated_at DESC").
-		Limit(limit)
-	if sopID > 0 {
-		q = q.Where("sop_id = ?", sopID)
-	}
-	var list []model.OptimizationSuggestion
-	if err := q.Find(&list).Error; err != nil {
+	list, err := s.feedbackRepo.ListPendingSuggestions(ctx, sopID, limit)
+	if err != nil {
 		return nil, fmt.Errorf("list suggestions: %w", err)
 	}
 	return list, nil
@@ -654,7 +643,7 @@ func (s *FeedbackLearningService) ListPendingSuggestions(ctx context.Context, so
 
 // ReviewSuggestion 审核建议
 func (s *FeedbackLearningService) ReviewSuggestion(ctx context.Context, suggestionID uint, reviewerID uint, action string) error {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return fmt.Errorf("db not configured")
 	}
 	now := time.Now()
@@ -673,27 +662,16 @@ func (s *FeedbackLearningService) ReviewSuggestion(ctx context.Context, suggesti
 	default:
 		return fmt.Errorf("invalid action: %s (expected approve/reject/apply)", action)
 	}
-	return s.db.WithContext(ctx).Model(&model.OptimizationSuggestion{}).
-		Where("id = ?", suggestionID).
-		Updates(updates).Error
+	return s.feedbackRepo.UpdateSuggestionFields(ctx, suggestionID, updates)
 }
 
 // GetLatestProfile 获取最新画像快照
 func (s *FeedbackLearningService) GetLatestProfile(ctx context.Context, staffID uint, scenario string) ([]model.SalesChampionProfileSnapshot, error) {
-	if s.db == nil {
+	if s.feedbackRepo == nil {
 		return nil, fmt.Errorf("db not configured")
 	}
-	q := s.db.WithContext(ctx).Model(&model.SalesChampionProfileSnapshot{}).
-		Order("generated_at DESC").
-		Limit(5) // 每维度最新 1 条，共 5 条
-	if staffID > 0 {
-		q = q.Where("staff_id = ?", staffID)
-	}
-	if scenario != "" {
-		q = q.Where("scenario = ?", scenario)
-	}
-	var list []model.SalesChampionProfileSnapshot
-	if err := q.Find(&list).Error; err != nil {
+	list, err := s.feedbackRepo.ListLatestProfileSnapshots(ctx, staffID, scenario, 5) // 每维度最新 1 条，共 5 条
+	if err != nil {
 		return nil, fmt.Errorf("query profile: %w", err)
 	}
 	return list, nil
@@ -719,7 +697,7 @@ func (s *FeedbackLearningService) persistProfileSnapshot(ctx context.Context, re
 			PeriodStart:   report.PeriodStart,
 			PeriodEnd:     report.PeriodEnd,
 		}
-		if err := s.db.WithContext(ctx).Create(&snapshot).Error; err != nil {
+		if err := s.feedbackRepo.CreateProfileSnapshot(ctx, &snapshot); err != nil {
 			return fmt.Errorf("persist snapshot: %w", err)
 		}
 	}
@@ -731,12 +709,7 @@ func (s *FeedbackLearningService) queryCustomerMessages(ctx context.Context, ses
 	if len(sessionIDs) == 0 {
 		return map[string][]model.SessionMessage{}, nil
 	}
-	var msgs []model.SessionMessage
-	err := s.db.WithContext(ctx).Model(&model.SessionMessage{}).
-		Where("session_id IN ? AND sender_type = ? AND created_at BETWEEN ? AND ?",
-			sessionIDs, "user", start, end).
-		Order("created_at ASC").
-		Find(&msgs).Error
+	msgs, err := s.feedbackRepo.ListCustomerMessagesBySessions(ctx, sessionIDs, start, end)
 	if err != nil {
 		return nil, err
 	}
