@@ -602,6 +602,23 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	// 命中缓存直接返回（提升相同 prompt 的吞吐、降低成本）
 	if req.CacheKey != "" && req.CacheTTL > 0 {
 		if c, hit := d.getCache(req.CacheKey); hit {
+			// v3.7.0: 缓存命中也落库（满足硬约束"缓存命中的模型调用需标记 from_cache 字段"
+			// 及"每次 Dispatch 决策（无论成功/失败/降级）必须落库至 llm_routing_logs 表"）
+			// 注意：cache 命中无 LLM API 调用，不计入 missing 占比统计（updateMissingCounter 跳过 source=cache）
+			if !d.testMode.Load() {
+				cacheEntry := &LogEntry{
+					TraceID:          logger.TraceIDFromContext(ctx),
+					Scenario:         req.Scenario,
+					Provider:         "cache",
+					Model:            "cache",
+					Success:          true,
+					FromCache:        true,
+					Source:           SourceCache,
+					TokenSource:      TokenSourceActual, // 缓存命中无新 token 消耗，actual=0
+					ScenarioProvider: string(req.Scenario) + "|cache",
+				}
+				LogRoutingDecision(ctx, cacheEntry)
+			}
 			return &DispatchResult{Provider: "cache", Model: "cache", Content: c, FromCache: true}, nil
 		}
 	}

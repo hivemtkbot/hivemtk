@@ -321,8 +321,14 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 //
 // 每 100 次调用检查一次 missing 占比，超过阈值时打印告警日志。
 // 计数器为进程级，重启后归零。
+//
+// 注意：source=cache 的缓存命中不计入统计——缓存命中无 LLM API 调用，
+// 不影响 missing 占比（missing 占比仅监控真实 LLM API 响应完整性）。
 func updateMissingCounter(entry *LogEntry) {
 	if entry == nil {
+		return
+	}
+	if entry.Source == SourceCache {
 		return
 	}
 	total := atomic.AddInt64(&totalCounter, 1)
