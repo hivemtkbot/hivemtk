@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"gorm.io/gorm"
 
@@ -178,9 +177,11 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 	}
 
 	// 补充按小红书 ID 搜索（FindByIdentity 不支持 xhs）
-	if xhs != "" && t.deps.DB != nil {
-		var xhsCustomer model.Customer
-		if err := t.deps.DB.Where("xiaohongshu_id = ?", xhs).First(&xhsCustomer).Error; err == nil && xhsCustomer.ID != "" {
+	// 五层架构修复：原 t.deps.DB.Where("xiaohongshu_id = ?").First() 直接访问 DB,
+	// 已下沉到 repository.CustomerRepository.GetByXiaohongshuID
+	if xhs != "" && t.deps.CustomerRepo != nil {
+		xhsCustomer, err := t.deps.CustomerRepo.GetByXiaohongshuID(ctx, xhs)
+		if err == nil && xhsCustomer != nil && xhsCustomer.ID != "" {
 			// 去重
 			dupe := false
 			for _, c := range results {
@@ -190,7 +191,7 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 				}
 			}
 			if !dupe {
-				results = append(results, &xhsCustomer)
+				results = append(results, xhsCustomer)
 			}
 		}
 	}
@@ -651,9 +652,13 @@ func NewCustomerSegmentTool(deps CustomerToolDeps) *CustomerSegmentTool {
 }
 
 // Execute 执行分群查询
+//
+// 五层架构修复（v1.1）：原直接调用 t.deps.DB.Model().Where() 链违反
+// "tooluse 不可直接访问 DB" 约束，已下沉到 repository.CustomerRepository.SearchByFilter。
+// t.deps.DB 字段保留仅为向后兼容（不再使用），新代码应使用 CustomerRepo。
 func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	if t.deps.DB == nil {
-		return ErrorResult(t.Name(), errors.New("segment 工具需要 DB 依赖")), errors.New("segment 工具需要 DB 依赖")
+	if t.deps.CustomerRepo == nil {
+		return ErrorResult(t.Name(), errors.New("segment 工具需要 CustomerRepo 依赖")), errors.New("segment 工具需要 CustomerRepo 依赖")
 	}
 
 	page, _ := GetIntArg(args, "page")
@@ -668,51 +673,37 @@ func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) 
 		pageSize = 100
 	}
 
-	q := t.deps.DB.Model(&model.Customer{})
-
-	// tag 筛选（tags 字段是 JSON array，用 LIKE 简单匹配）
-	if tag := getArgString(args, "tag"); tag != "" {
-		// PostgreSQL JSON 数组匹配：tags @> '["tag"]'
-		q = q.Where("tags::jsonb @> ?", fmt.Sprintf(`["%s"]`, escapeJSONString(tag)))
+	// 构造 repository 层过滤条件
+	filter := repository.CustomerSearchFilter{
+		Page:     page,
+		PageSize: pageSize,
 	}
-
-	// RFM 分数范围
+	if tag := getArgString(args, "tag"); tag != "" {
+		filter.Tag = tag
+	}
 	if rfmMin, ok := GetIntArgSafe(args, "rfm_min"); ok {
-		q = q.Where("rfm_score >= ?", rfmMin)
+		filter.RFMMin = rfmMin
+		filter.HasRFMMin = true
 	}
 	if rfmMax, ok := GetIntArgSafe(args, "rfm_max"); ok {
-		q = q.Where("rfm_score <= ?", rfmMax)
+		filter.RFMMax = rfmMax
+		filter.HasRFMMax = true
 	}
-
-	// 流失风险
 	if risk := getArgString(args, "churn_risk"); risk != "" {
 		if risk != "low" && risk != "medium" && risk != "high" {
 			return ErrorResult(t.Name(), errors.New("churn_risk 必须是 low/medium/high")), errors.New("churn_risk 必须是 low/medium/high")
 		}
-		q = q.Where("churn_risk = ?", risk)
+		filter.ChurnRisk = risk
 	}
-
-	// 创建时间范围
 	if createdAfter := getArgString(args, "created_after"); createdAfter != "" {
-		q = q.Where("created_at >= ?", createdAfter)
+		filter.CreatedAfter = createdAfter
 	}
 	if createdBefore := getArgString(args, "created_before"); createdBefore != "" {
-		q = q.Where("created_at <= ?", createdBefore)
+		filter.CreatedBefore = createdBefore
 	}
 
-	// 总数
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return ErrorResult(t.Name(), err), err
-	}
-
-	// 分页查询
-	var customers []*model.Customer
-	offset := (page - 1) * pageSize
-	if err := q.Order("created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&customers).Error; err != nil {
+	customers, total, err := t.deps.CustomerRepo.SearchByFilter(ctx, filter)
+	if err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 
@@ -784,12 +775,5 @@ func GetIntArgSafe(args map[string]any, key string) (int, bool) {
 	return 0, false
 }
 
-// escapeJSONString 转义 JSON 字符串中的特殊字符（用于安全拼接 SQL JSON 查询）
-func escapeJSONString(s string) string {
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, `"`, `\"`)
-	s = strings.ReplaceAll(s, "\n", "\\n")
-	s = strings.ReplaceAll(s, "\r", "\\r")
-	s = strings.ReplaceAll(s, "\t", "\\t")
-	return s
-}
+// escapeJSONString 已下沉到 repository 包（customer_repository.go），
+// 由 CustomerRepository.SearchByFilter 内部使用，本包不再需要。

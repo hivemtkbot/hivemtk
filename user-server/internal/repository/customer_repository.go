@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 )
@@ -23,6 +24,33 @@ type CustomerRepository interface {
 	CountMultiIdentity(ctx context.Context) (int64, error)
 	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
 	ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error)
+	// GetByXiaohongshuID 按小红书 ID 查询客户
+	// 五层架构修复：tooluse 包不可直接访问 DB，由 repository 提供 query 接口
+	GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error)
+	// SearchByFilter 按过滤条件分页查询客户（用于 customer.segment 工具）
+	// 五层架构修复：将原 tooluse 层的 t.deps.DB.Model().Where() 链下沉到 repository
+	SearchByFilter(ctx context.Context, filter CustomerSearchFilter) (items []*model.Customer, total int64, err error)
+}
+
+// CustomerSearchFilter 客户搜索过滤条件（CustomerRepository.SearchByFilter 入参）
+//
+// 字段语义对应 customer.segment 工具的 args：
+//   - Tag: tags::jsonb @> '["tag"]' 匹配（PostgreSQL JSON 数组包含）
+//   - RFMMin/RFMMax: rfm_score 范围（含两端）
+//   - ChurnRisk: churn_risk 等值匹配（low/medium/high）
+//   - CreatedAfter/CreatedBefore: created_at 范围（RFC3339 字符串）
+//   - Page/PageSize: 分页参数（1-based，PageSize 上限 100）
+type CustomerSearchFilter struct {
+	Tag           string
+	RFMMin        int
+	RFMMax        int
+	HasRFMMin     bool // 区分零值与未设置
+	HasRFMMax     bool
+	ChurnRisk     string
+	CreatedAfter  string
+	CreatedBefore string
+	Page          int
+	PageSize      int
 }
 
 // customerRepository implements CustomerRepository
@@ -237,4 +265,105 @@ func (r *customerRepository) ListByIDs(ctx context.Context, ids []string) (map[s
 		result[c.ID] = c
 	}
 	return result, nil
+}
+
+// GetByXiaohongshuID 按小红书 ID 查询客户
+//
+// 五层架构修复：tooluse 包 customer.search 工具原直接调用 t.deps.DB.Where("xiaohongshu_id = ?"),
+// 违反"service/tooluse 不可直接访问 DB"约束。本方法将查询下沉到 repository 层。
+//
+// 返回：
+//   - 找到: 返回客户指针
+//   - 未找到: 返回 (nil, nil)（与 GetByPhone 等同身份查询接口保持一致）
+func (r *customerRepository) GetByXiaohongshuID(ctx context.Context, xhsID string) (*model.Customer, error) {
+	if xhsID == "" {
+		return nil, nil
+	}
+	var customer model.Customer
+	if err := _db.GetDB().WithContext(ctx).Where("xiaohongshu_id = ?", xhsID).First(&customer).Error; err != nil {
+		return nil, nil
+	}
+	return &customer, nil
+}
+
+// SearchByFilter 按过滤条件分页查询客户
+//
+// 五层架构修复：tooluse 包 customer.segment 工具原直接构造 t.deps.DB.Model().Where() 链,
+// 违反"service/tooluse 不可直接访问 DB"约束。本方法将整条查询链下沉到 repository 层。
+//
+// 支持的过滤条件（与 customer.segment 工具 args 一一对应）：
+//   - filter.Tag: tags::jsonb @> '["tag"]'
+//   - filter.RFMMin/RFMMax（需配合 HasRFMMin/HasRFMMax 才生效）: rfm_score 范围
+//   - filter.ChurnRisk: churn_risk 等值
+//   - filter.CreatedAfter/CreatedBefore: created_at 范围
+//   - filter.Page/filter.PageSize: 分页（1-based，PageSize 上限 100）
+//
+// 返回：切片 + 总数 + 错误
+func (r *customerRepository) SearchByFilter(ctx context.Context, filter CustomerSearchFilter) ([]*model.Customer, int64, error) {
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	q := _db.GetDB().WithContext(ctx).Model(&model.Customer{})
+
+	if filter.Tag != "" {
+		q = q.Where("tags::jsonb @> ?", fmt.Sprintf(`["%s"]`, escapeJSONString(filter.Tag)))
+	}
+	if filter.HasRFMMin {
+		q = q.Where("rfm_score >= ?", filter.RFMMin)
+	}
+	if filter.HasRFMMax {
+		q = q.Where("rfm_score <= ?", filter.RFMMax)
+	}
+	if filter.ChurnRisk != "" {
+		q = q.Where("churn_risk = ?", filter.ChurnRisk)
+	}
+	if filter.CreatedAfter != "" {
+		q = q.Where("created_at >= ?", filter.CreatedAfter)
+	}
+	if filter.CreatedBefore != "" {
+		q = q.Where("created_at <= ?", filter.CreatedBefore)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	var customers []*model.Customer
+	if err := q.Order("created_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&customers).Error; err != nil {
+		return nil, 0, err
+	}
+	return customers, total, nil
+}
+
+// escapeJSONString 转义 JSON 字符串（防止 tag 注入）
+// 内部使用：仅供 SearchByFilter 拼 JSON 数组字面量时转义 tag 值
+func escapeJSONString(s string) string {
+	// 简单转义：双引号和反斜杠
+	out := make([]byte, 0, len(s)+2)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch c {
+		case '"':
+			out = append(out, '\\', '"')
+		case '\\':
+			out = append(out, '\\', '\\')
+		default:
+			out = append(out, c)
+		}
+	}
+	return string(out)
 }

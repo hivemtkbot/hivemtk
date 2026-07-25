@@ -289,6 +289,8 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 //   - ErrPermissionDenied: 权限不足，重试也不会通过
 //   - ErrRateLimited: 已被限流，重试只会加剧拥塞
 //   - ErrCircuitOpen: 熔断开启，重试无意义
+//   - ErrLoopDetected: 工具调用循环被检测到，重试只会再次触发循环
+//     （依据 loop_guard.go L34 注释承诺：ErrLoopDetected 是不可重试错误）
 //   - context.Canceled: 客户端主动取消
 //   - context.DeadlineExceeded: 总超时（不是单次超时），重试无意义
 //   - 参数校验错误（业务错误，重试不会改变结果）
@@ -299,6 +301,7 @@ func isNonRetryableError(err error) bool {
 	if errors.Is(err, ErrPermissionDenied) ||
 		errors.Is(err, ErrRateLimited) ||
 		errors.Is(err, ErrCircuitOpen) ||
+		errors.Is(err, ErrLoopDetected) ||
 		errors.Is(err, context.Canceled) ||
 		errors.Is(err, context.DeadlineExceeded) {
 		return true
