@@ -161,6 +161,18 @@ func (r *KnowledgeChunkRepository) UpdateScore(ctx context.Context, id uint64, s
 		}).Error
 }
 
+// IncrementHitCount 批量累加命中分段 hit_count（tooluse 调用，替代直接 DB 访问）
+//
+// 五层架构合规：L4 能力层（tooluse）通过 L3 仓储层间接操作 DB
+func (r *KnowledgeChunkRepository) IncrementHitCount(ctx context.Context, ids []uint64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.KnowledgeChunk{}).
+		Where("id IN ?", ids).
+		UpdateColumn("hit_count", gorm.Expr("hit_count + 1")).Error
+}
+
 // GetByID 根据 ID 获取分段
 func (r *KnowledgeChunkRepository) GetByID(ctx context.Context, id uint64) (*model.KnowledgeChunk, error) {
 	var chunk model.KnowledgeChunk

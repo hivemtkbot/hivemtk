@@ -34,7 +34,9 @@ type KnowledgeToolDeps struct {
 	RagRepo          *knowledgerepo.RagConfigRepository
 	DocRepo          *knowledgerepo.KnowledgeDocumentRepository
 	SearchLogRepo    *knowledgerepo.KnowledgeSearchLogRepository
-	DB               *gorm.DB // 用于 knowledge.feedback 直接写入 knowledge_feedbacks 表
+	FeedbackRepo     *knowledgerepo.KnowledgeFeedbackRepository
+	ChunkRepo        *knowledgerepo.KnowledgeChunkRepository
+	DB               *gorm.DB // 仅用于 hit_count 批量更新（待重构为 ChunkRepo.IncrementHitCount）
 }
 
 // NewKnowledgeToolDeps 创建知识工具依赖（使用全局 DB）
@@ -47,6 +49,8 @@ func NewKnowledgeToolDeps() KnowledgeToolDeps {
 		RagRepo:          knowledgerepo.NewRagConfigRepository(gdb),
 		DocRepo:          knowledgerepo.NewKnowledgeDocumentRepository(gdb),
 		SearchLogRepo:    knowledgerepo.NewKnowledgeSearchLogRepository(gdb),
+		FeedbackRepo:     knowledgerepo.NewKnowledgeFeedbackRepository(gdb),
+		ChunkRepo:        knowledgerepo.NewKnowledgeChunkRepository(gdb),
 		DB:               gdb,
 	}
 }
@@ -60,6 +64,8 @@ func NewKnowledgeToolDepsWithDB(gdb *gorm.DB) KnowledgeToolDeps {
 		RagRepo:          knowledgerepo.NewRagConfigRepository(gdb),
 		DocRepo:          knowledgerepo.NewKnowledgeDocumentRepository(gdb),
 		SearchLogRepo:    knowledgerepo.NewKnowledgeSearchLogRepository(gdb),
+		FeedbackRepo:     knowledgerepo.NewKnowledgeFeedbackRepository(gdb),
+		ChunkRepo:        knowledgerepo.NewKnowledgeChunkRepository(gdb),
 		DB:               gdb,
 	}
 }
@@ -188,7 +194,8 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 	}
 
 	// 4. 命中分段 hit_count +1（异步，失败不影响主流程）
-	if t.deps.DB != nil {
+	// 五层架构合规：通过 ChunkRepo.IncrementHitCount 替代直接 DB 访问
+	if t.deps.ChunkRepo != nil {
 		go func(chunks []knowledgesvc.MerchantRAGChunk) {
 			bgCtx := context.Background()
 			ids := make([]uint64, 0, len(chunks))
@@ -196,10 +203,7 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 				ids = append(ids, c.ID)
 			}
 			if len(ids) > 0 {
-				_ = t.deps.DB.WithContext(bgCtx).
-					Model(&model.KnowledgeChunk{}).
-					Where("id IN ?", ids).
-					UpdateColumn("hit_count", gorm.Expr("hit_count + 1")).Error
+				_ = t.deps.ChunkRepo.IncrementHitCount(bgCtx, ids)
 			}
 		}(filtered)
 	}
@@ -296,6 +300,10 @@ func NewKnowledgeFeedbackTool(deps KnowledgeToolDeps) *KnowledgeFeedbackTool {
 	}
 }
 
+// RiskLevel 覆盖为 RiskLevelWrite（P3-D）
+// 知识反馈会写入 knowledge_feedbacks 表，影响召回质量优化；可回滚（删除反馈即可）
+func (t *KnowledgeFeedbackTool) RiskLevel() ToolRiskLevel { return RiskLevelWrite }
+
 // Execute 执行反馈
 func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"product_id", "query", "rating"}); err != nil {
@@ -340,7 +348,7 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		chunkID = &u
 	}
 
-	// 写入 knowledge_feedbacks 表
+	// 写入 knowledge_feedbacks 表（通过 FeedbackRepo，符合五层架构 L4→L3 调用规范）
 	fb := &model.KnowledgeFeedback{
 		ProductID:  productID,
 		Query:      query,
@@ -352,7 +360,10 @@ func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any
 		Operator:   operator,
 		SessionID:  sessionID,
 	}
-	if err := t.deps.DB.WithContext(ctx).Create(fb).Error; err != nil {
+	if t.deps.FeedbackRepo == nil {
+		return ErrorResult(t.Name(), fmt.Errorf("feedback repo is nil")), fmt.Errorf("feedback repo is nil")
+	}
+	if err := t.deps.FeedbackRepo.Create(ctx, fb); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 
@@ -397,6 +408,10 @@ func NewKnowledgeAddDocTool(deps KnowledgeToolDeps) *KnowledgeAddDocTool {
 		deps: deps,
 	}
 }
+
+// RiskLevel 覆盖为 RiskLevelWrite（P3-D）
+// 添加知识文档会写入 DB + 触发异步索引流水线，可回滚（删除文档 + 清理索引即可）
+func (t *KnowledgeAddDocTool) RiskLevel() ToolRiskLevel { return RiskLevelWrite }
 
 // Execute 执行添加文档
 func (t *KnowledgeAddDocTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
