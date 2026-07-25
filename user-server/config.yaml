@@ -107,3 +107,29 @@ chat:
     - "找人"
   # 命中关键词后 30 秒内无人工接入则提示"客服正在接入中"
   fallback_seconds: 30
+
+# 自我学习机制配置（运维参考文档）
+# 设计依据：docs/企业级架构优化/对话驱动自我学习机制.md (v1.1) §7.4
+#           docs/企业级架构优化/资产包与知识库职责边界论证.md §3.5 / §7.2
+#
+# 重要说明：
+#   - 实际开关状态由 DB 表 self_learning_switches（单例 id=1）管理，运行时通过
+#     SwitchService.UpdateSwitch API 动态调整，本配置块不参与运行时决策
+#   - 本块仅作为「可调参数清单」文档，便于运维理解系统行为
+#   - 首次部署时 DB 表通过 GetOrCreate 自动初始化为下方默认值
+#
+# 三级自治等级：manual（人工审批）/ supervised（半自动）/ autonomous（全自动）
+# 三个分域开关：enable_rag / enable_asset / enable_llm（互不依赖，可单侧启用）
+# 详见 switch_service.go 与 dto.SwitchConfigRequest
+self_learning:
+  autonomy_level: "manual"             # 默认手动模式，确保上线初期人工兜底
+  enable_rag: false                    # RAG 自我学习（语料降权/销冠补录）默认关闭
+  enable_asset: false                  # 资产包自我学习（候选生成/A/B/降级）默认关闭
+  enable_llm: false                    # LLM 自我矫正默认关闭
+  max_daily_corrections: 100           # 每日矫正动作数上限（护栏1）
+  max_daily_promotions: 10             # 每日资产包晋升数上限（护栏2）
+  low_quality_threshold: 0.3           # 低质语料阈值（护栏3）
+  champion_reward_threshold: 1.5       # 销冠补录阈值（护栏4）
+  ab_test_min_samples: 30              # A/B 最小样本数（护栏5）
+  circuit_breaker_threshold: 0.3       # 熔断失败率阈值（护栏6）
+  circuit_breaker_window_min: 30       # 熔断器滑动窗口（分钟）
