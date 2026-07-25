@@ -42,13 +42,13 @@ func RegisterMerchant(req RegisterMerchantReq) error {
 	if req.DeviceInfo == "" {
 		req.DeviceInfo = runtime.GOOS + " " + runtime.GOARCH
 	}
-	cli := NewClient(merchantKey)
+	cli := NewPlatformClient(merchantKey)
 	return cli.RegisterMerchant(req)
 }
 
 // GetLicenseStatus 获取授权状态
 func GetLicenseStatus() (*LicenseStatusResp, error) {
-	cli := NewClient(merchantKey)
+	cli := NewPlatformClient(merchantKey)
 	return cli.GetLicenseStatus()
 }
 

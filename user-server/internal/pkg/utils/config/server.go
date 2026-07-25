@@ -189,6 +189,63 @@ type AppConfig struct {
 	Inference      InferenceConfig      `yaml:"inference"`
 	Storage        StorageConfig        `yaml:"storage"`
 	Logging        logger.LoggingConfig `yaml:"logging"`
+	I18n           I18nConfig           `yaml:"i18n"`
+}
+
+// I18nConfig 多语言方案配置（v1.2 出海多语言）
+//
+// 包含三个子段：
+//   - embedding：bge-m3 多语言 embedding provider 配置（独立于 inference.embedding，
+//     可为多语言路径指定不同的 base_url/model/api_key）
+//   - cache：跨语言回复翻译缓存配置（Redis 后端）
+//   - fallback：低资源语言降级桥配置（P1-2：DeepL 翻译降级）
+type I18nConfig struct {
+	Embedding I18nEmbeddingConfig  `yaml:"embedding" json:"embedding"`
+	Cache     I18nCacheConfig      `yaml:"cache" json:"cache"`
+	Fallback  I18nFallbackConfig   `yaml:"fallback" json:"fallback"`
+}
+
+// I18nFallbackConfig 低资源语言降级桥配置（P1-2）。
+//
+// 启用条件：enabled=true 且 deepl.api_key 非空。
+// 未配置 api_key 时 FallbackBridge 自动禁用，不影响主流程。
+type I18nFallbackConfig struct {
+	Enabled          bool        `yaml:"enabled" json:"enabled"`                     // 总开关，默认 false
+	LowResourceLangs []string    `yaml:"low_resource_langs" json:"low_resource_langs"` // 低资源语言列表，空则用默认 [ar,th,vi,hi,tr]
+	Translator       string      `yaml:"translator" json:"translator"`                // 翻译引擎：deepl（默认）/ google / nllb（未来）
+	DeepL            DeepLConfig `yaml:"deepl" json:"deepl"`                          // DeepL 翻译引擎配置
+}
+
+// DeepLConfig DeepL 翻译服务配置。
+type DeepLConfig struct {
+	APIKey  string `yaml:"api_key" json:"api_key"`     // DeepL API key（空则禁用；通过 ${DEEPL_API_KEY} 注入）
+	BaseURL string `yaml:"base_url" json:"base_url"`   // API 地址，空则用 https://api.deepl.com/v2
+}
+
+// I18nEmbeddingConfig 多语言 embedding provider 配置
+//
+// provider 类型：
+//   - "openai"（默认）：复用 inference.embedding 配置（基于 llm.EmbeddingService）
+//   - "bge-m3"：显式 bge-m3 provider，走 OpenAI 兼容 /v1/embeddings，
+//     支持 normalize / batch_size 等 bge-m3 专属参数
+//
+// 向后兼容：provider 为空时回退 "openai"。
+type I18nEmbeddingConfig struct {
+	Provider   string `yaml:"provider" json:"provider"`       // openai / bge-m3
+	Model      string `yaml:"model" json:"model"`             // BAAI/bge-m3
+	BaseURL    string `yaml:"base_url" json:"base_url"`       // OpenAI 兼容 /v1 根路径
+	APIKey     string `yaml:"api_key" json:"api_key"`         // 鉴权密钥（本地可空）
+	Dimension  int    `yaml:"dimension" json:"dimension"`     // 向量维度，默认 1024
+	Normalize  bool   `yaml:"normalize" json:"normalize"`     // L2 归一化（bge-m3 推荐 true）
+	BatchSize  int    `yaml:"batch_size" json:"batch_size"`   // 单批最大文本数，默认 32
+}
+
+// I18nCacheConfig 跨语言翻译缓存配置
+type I18nCacheConfig struct {
+	Enabled    bool   `yaml:"enabled" json:"enabled"`          // 是否启用（默认 false，显式开启）
+	TTL        int    `yaml:"ttl" json:"ttl"`                  // TTL（秒），默认 3600（1h）
+	KeyPrefix  string `yaml:"key_prefix" json:"key_prefix"`    // Redis key 前缀，默认 "i18n:trans:"
+	MaxEntries int    `yaml:"max_entries" json:"max_entries"`  // 最大条目数上限（参考）
 }
 
 // GetLoggingConfig 返回统一日志配置；缺省段时回落到日志包默认配置。
@@ -227,7 +284,8 @@ func GetAppConfig() AppConfig {
 		config.Database.Postgres.Host = "postgres-user"
 		config.Database.Postgres.Port = 8202
 		config.Database.Postgres.User = "admin"
-		config.Database.Postgres.Password = "password123"
+		// 私域合规基线 §7.2：密码不落配置文件，缺配置时由运行时环境变量 POSTGRES_PASSWORD 注入
+		config.Database.Postgres.Password = os.Getenv("POSTGRES_PASSWORD")
 		config.Database.Postgres.DBName = "user_db"
 		config.Database.Postgres.SSLMode = "disable"
 		config.VectorDatabase.Type = VectorDBTypePGVector

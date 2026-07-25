@@ -85,7 +85,22 @@ func ParseBackupType(s string) model.BackupType {
 }
 
 // executeBackup 执行备份
+//
+// 并发安全：本方法以 goroutine 异步执行（CreateBackup 中 `go s.executeBackup(...)`）。
+// 为防止异步 goroutine panic 导致整个进程崩溃（如测试场景下 backupDataRepo 未注入），
+// 此处 defer recover 兜底，将 panic 转为错误状态落库。
 func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup) {
+	// 异步 goroutine panic 兜底：防止 nil pointer 或其他 panic 崩溃进程
+	defer func() {
+		if r := recover(); r != nil {
+			backup.Status = model.BackupStatusFailed
+			backup.ErrorMessage = fmt.Sprintf("backup panic: %v", r)
+			if s.backupRepo != nil {
+				s.backupRepo.Update(ctx, backup)
+			}
+		}
+	}()
+
 	// 更新状态为进行中
 	backup.Status = model.BackupStatusRunning
 	s.backupRepo.Update(ctx, backup)
@@ -144,6 +159,11 @@ func (s *BackupService) backupDatabase(ctx context.Context, dir string) error {
 }
 
 func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
+	// nil 兜底：测试场景下可能未注入 backupDataRepo，避免 nil pointer panic
+	if s.backupDataRepo == nil {
+		return nil, fmt.Errorf("backupDataRepo is nil")
+	}
+
 	now := time.Now()
 	cutoff := now.Add(-24 * time.Hour).Unix()
 

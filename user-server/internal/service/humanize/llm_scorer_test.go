@@ -34,7 +34,7 @@ func TestLLMScorer_Evaluate_Basic(t *testing.T) {
 		`{"scores":[{"dimension":"naturalness","score":0.85,"reason":"good"},{"dimension":"conciseness","score":0.9,"reason":"good"},{"dimension":"empathy","score":0.8,"reason":"good"},{"dimension":"professionalism","score":0.85,"reason":"good"},{"dimension":"persuasiveness","score":0.8,"reason":"good"}],"total_score":0.84,"distance_to_champion":0.1}`,
 		`{"scores":[{"dimension":"naturalness","score":0.85,"reason":"good"},{"dimension":"conciseness","score":0.9,"reason":"good"},{"dimension":"empathy","score":0.8,"reason":"good"},{"dimension":"professionalism","score":0.85,"reason":"good"},{"dimension":"persuasiveness","score":0.8,"reason":"good"}],"total_score":0.84,"distance_to_champion":0.1}`,
 	}
-	dispatcher := newStubLLMDispatcher(responses)
+	dispatcher := newHumanizeStubLLMDispatcher(responses)
 	scorer := NewLLMScorer(dispatcher)
 
 	input := &dto.HumanizeEvalInput{
@@ -76,7 +76,7 @@ func TestLLMScorer_Evaluate_SelfConsistencyMedian(t *testing.T) {
 		`{"scores":[{"dimension":"naturalness","score":0.85},{"dimension":"conciseness","score":0.85},{"dimension":"empathy","score":0.85},{"dimension":"professionalism","score":0.85},{"dimension":"persuasiveness","score":0.85}],"total_score":0.85}`,
 		`{"scores":[{"dimension":"naturalness","score":0.95},{"dimension":"conciseness","score":0.95},{"dimension":"empathy","score":0.95},{"dimension":"professionalism","score":0.95},{"dimension":"persuasiveness","score":0.95}],"total_score":0.95}`,
 	}
-	dispatcher := newStubLLMDispatcher(responses)
+	dispatcher := newHumanizeStubLLMDispatcher(responses)
 	scorer := NewLLMScorer(dispatcher)
 	input := &dto.HumanizeEvalInput{AIReply: "测试回复"}
 	result, err := scorer.Evaluate(context.Background(), input)
@@ -90,7 +90,7 @@ func TestLLMScorer_Evaluate_SelfConsistencyMedian(t *testing.T) {
 
 // TestLLMScorer_Evaluate_NilInput 空输入报错
 func TestLLMScorer_Evaluate_NilInput(t *testing.T) {
-	scorer := NewLLMScorer(newStubLLMDispatcher(nil))
+	scorer := NewLLMScorer(newHumanizeStubLLMDispatcher(nil))
 	_, err := scorer.Evaluate(context.Background(), nil)
 	if err == nil {
 		t.Error("nil input 应报错")
@@ -109,7 +109,7 @@ func TestLLMScorer_Evaluate_NilDispatcher(t *testing.T) {
 
 // TestLLMScorer_Evaluate_AllFail 所有 self-consistency 失败应报错
 func TestLLMScorer_Evaluate_AllFail(t *testing.T) {
-	dispatcher := newStubLLMDispatcher(nil)
+	dispatcher := newHumanizeStubLLMDispatcher(nil)
 	dispatcher.err = errors.New("LLM service unavailable")
 	dispatcher.failOn = 1 // 第 1 次失败，由于 responses 为空，所有调用都失败
 	scorer := NewLLMScorer(dispatcher)
@@ -128,7 +128,7 @@ func TestLLMScorer_Evaluate_PartialFail(t *testing.T) {
 		`{"scores":[{"dimension":"naturalness","score":0.8},{"dimension":"conciseness","score":0.8},{"dimension":"empathy","score":0.8},{"dimension":"professionalism","score":0.8},{"dimension":"persuasiveness","score":0.8}],"total_score":0.8}`,
 		`{"scores":[{"dimension":"naturalness","score":0.9},{"dimension":"conciseness","score":0.9},{"dimension":"empathy","score":0.9},{"dimension":"professionalism","score":0.9},{"dimension":"persuasiveness","score":0.9}],"total_score":0.9}`,
 	}
-	dispatcher := newStubLLMDispatcher(responses)
+	dispatcher := newHumanizeStubLLMDispatcher(responses)
 	dispatcher.failOn = 1
 	dispatcher.err = errors.New("first call failed")
 	scorer := NewLLMScorer(dispatcher)

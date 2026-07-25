@@ -26,7 +26,7 @@ type Client struct {
 }
 
 // NewClient 创建 Telegram 客户端
-func NewClient(token string, opts ...core.ClientOption) *Client {
+func NewTelegramClient(token string, opts ...core.ClientOption) *Client {
 	c := &Client{token: token, apiBase: defaultAPIBase}
 	c.BaseClient = core.NewBaseClient(opts...)
 	return c

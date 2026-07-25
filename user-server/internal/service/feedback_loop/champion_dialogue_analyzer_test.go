@@ -206,7 +206,7 @@ func TestFormatEmbeddingForPgVector(t *testing.T) {
 func TestChampionAnalyzer_AnalyzePipeline_EmptyCandidates(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
 	emb := newStubEmbedder(1024)
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	a := NewChampionDialogueAnalyzer(db, emb, llm, DefaultChampionAnalyzerConfig())
 
 	// 无任何 feedback_signals，候选为 0
@@ -296,7 +296,7 @@ func TestChampionAnalyzer_AnalyzePipeline_FullPipeline(t *testing.T) {
 		JourneyStage: "decide", EffectivenessScore: 0.85,
 	}}
 	scriptJSON, _ := json.Marshal(scripts)
-	llm := newStubLLMDispatcher([]string{string(scriptJSON)})
+	llm := newFeedbackLoopStubLLMDispatcher([]string{string(scriptJSON)})
 
 	// 使用 1024 维 stub embedder（与 champion_dialogues.embedding vector(1024) 一致）
 	emb := newStubEmbedder(1024)
@@ -361,7 +361,7 @@ func TestChampionAnalyzer_AnalyzePipeline_LLMFailure(t *testing.T) {
 	}
 
 	// LLM stub 配置失败
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	llm.failOn = 1
 	llm.err = fmt.Errorf("LLM service unavailable")
 

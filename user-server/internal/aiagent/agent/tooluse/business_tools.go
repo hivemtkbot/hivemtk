@@ -206,15 +206,22 @@ func snakeCaseFieldName(name string) string {
 	return b.String()
 }
 
-// RegisterBusinessTools 注册业务工具到 registry
-func RegisterBusinessTools(registry *ToolRegistry, deps BusinessToolDeps) error {
-	tools := []Tool{
+// BuildBusinessTools 构造全部 5 个业务工具（不注册到 Registry）
+//
+// 调用方：BusinessToolProvider.Provide()
+func BuildBusinessTools(deps BusinessToolDeps) []Tool {
+	return []Tool{
 		NewFollowTaskCreateTool(deps),
 		NewFollowTaskUpdateTool(deps),
 		NewOrderLookupTool(deps),
 		NewAfterSaleCreateTool(deps),
 		NewAfterSaleQueryTool(deps),
 	}
+}
+
+// RegisterBusinessTools 注册业务工具到 registry
+func RegisterBusinessTools(registry *ToolRegistry, deps BusinessToolDeps) error {
+	tools := BuildBusinessTools(deps)
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
 			return fmt.Errorf("注册业务工具 %s 失败：%w", t.Name(), err)

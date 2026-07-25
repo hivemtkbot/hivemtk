@@ -1,8 +1,46 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"time"
 )
+
+// JSONMap 通用 JSON 字段类型（用于 knowledge_chunks.translated_versions 等 JSONB 字段）
+//
+// 注：本类型在 knowledge/model 包内本地定义，避免反向依赖 marketing/internal/model
+// 造成循环引用。语义与 model.JSONMap 完全一致。
+type JSONMap map[string]any
+
+// Value 实现 driver.Valuer 接口，写库时序列化为 JSON 字符串。
+func (j JSONMap) Value() (driver.Value, error) {
+	if j == nil {
+		return "{}", nil
+	}
+	return json.Marshal(j)
+}
+
+// Scan 实现 sql.Scanner 接口，读库时反序列化 JSONB 为 map。
+func (j *JSONMap) Scan(value any) error {
+	if value == nil {
+		*j = JSONMap{}
+		return nil
+	}
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		data = []byte("{}")
+	}
+	if len(data) == 0 {
+		*j = JSONMap{}
+		return nil
+	}
+	return json.Unmarshal(data, j)
+}
 
 // EmbedStatus 文档嵌入状态
 type EmbedStatus string
@@ -76,7 +114,12 @@ type KnowledgeChunk struct {
 	HitCount        int       `gorm:"default:0" json:"hit_count"`
 	Metadata        string    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	SourceLanguage  string    `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
-	CreatedAt       time.Time `gorm:"autoCreateTime" json:"created_at"`
+	// TranslatedVersions 预翻译版本（P1-3 知识库预翻译支持）
+	// 格式：{"en": "translated content", "ja": "..."}
+	// 命中目标语言时返回翻译版本，未命中返回原文 Content。
+	// 默认关闭预翻译，仅高频条目按需翻译后回填此字段。
+	TranslatedVersions JSONMap    `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
+	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // TableName 表名

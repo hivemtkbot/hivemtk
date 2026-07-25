@@ -24,11 +24,20 @@ type XianyuAutoReplyService struct {
 }
 
 func NewXianyuAutoReplyService(db *gorm.DB) *XianyuAutoReplyService {
+	// 测试场景下 db 为 nil 时使用全局 DB（由 SetTestDB 设置）
+	if db != nil {
+		return &XianyuAutoReplyService{
+			db:          db,
+			accountRepo: repository.NewAutoReplyAccountRepository(db),
+			ruleRepo:    repository.NewAutoReplyRuleRepositoryWithDB(db),
+			logRepo:     repository.NewAutoReplyLogRepository(db),
+		}
+	}
 	return &XianyuAutoReplyService{
-		db:          db,
-		accountRepo: repository.NewAutoReplyAccountRepository(db),
-		ruleRepo:    repository.NewAutoReplyRuleRepositoryWithDB(db),
-		logRepo:     repository.NewAutoReplyLogRepository(db),
+		db:          nil,
+		accountRepo: repository.NewAutoReplyAccountRepositoryAuto(),
+		ruleRepo:    repository.NewAutoReplyRuleRepository(),
+		logRepo:     repository.NewAutoReplyLogRepositoryAuto(),
 	}
 }
 

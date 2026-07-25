@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"marketing/internal/model"
@@ -40,6 +41,9 @@ type smsTrackingRepo struct {
 }
 
 // NewSmsTrackingRepository 创建短信追踪仓库
+//
+// db 为 nil 时尝试从全局获取（_db.GetDB()）；若全局也未初始化（如测试场景未 SetTestDB），
+// 则返回 db=nil 的 repo，所有方法走 nil 兜底分支返回错误或空结果，避免 panic。
 func NewSmsTrackingRepository(db *gorm.DB) SmsTrackingRepository {
 	if db == nil {
 		db = _db.GetDB()
@@ -47,20 +51,34 @@ func NewSmsTrackingRepository(db *gorm.DB) SmsTrackingRepository {
 	return &smsTrackingRepo{db: db}
 }
 
+// errNilDB db 未注入时返回的 sentinel error
+var errNilDB = fmt.Errorf("sms tracking repo: db is nil")
+
 // CreateStatus 创建送达状态记录
 func (r *smsTrackingRepo) CreateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
-	return r.db.Create(status).Error
+	if r == nil || r.db == nil {
+		return errNilDB
+	}
+	return r.db.WithContext(ctx).Create(status).Error
 }
 
 // UpdateStatus 更新送达状态记录
 func (r *smsTrackingRepo) UpdateStatus(ctx context.Context, status *model.SmsDeliveryStatus) error {
-	return r.db.Save(status).Error
+	if r == nil || r.db == nil {
+		return errNilDB
+	}
+	return r.db.WithContext(ctx).Save(status).Error
 }
 
 // GetByMessageID 根据消息 ID 查询状态
+//
+// nil 兜底：db 未注入时返回 (nil, nil)（与 record not found 行为一致），避免 panic。
 func (r *smsTrackingRepo) GetByMessageID(ctx context.Context, messageID string) (*model.SmsDeliveryStatus, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var status model.SmsDeliveryStatus
-	err := r.db.Where("message_id = ?", messageID).First(&status).Error
+	err := r.db.WithContext(ctx).Where("message_id = ?", messageID).First(&status).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -72,8 +90,11 @@ func (r *smsTrackingRepo) GetByMessageID(ctx context.Context, messageID string) 
 
 // MessageIDExists 判断 message_id 是否已存在（webhook 重放幂等）
 func (r *smsTrackingRepo) MessageIDExists(ctx context.Context, messageID string) (bool, error) {
+	if r == nil || r.db == nil {
+		return false, errNilDB
+	}
 	var count int64
-	err := r.db.Model(&model.SmsDeliveryStatus{}).Where("message_id = ?", messageID).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&model.SmsDeliveryStatus{}).Where("message_id = ?", messageID).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -82,10 +103,13 @@ func (r *smsTrackingRepo) MessageIDExists(ctx context.Context, messageID string)
 
 // ListStatusesByJob 分页查询任务的送达状态
 func (r *smsTrackingRepo) ListStatusesByJob(ctx context.Context, jobID string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, nil
+	}
 	var statuses []*model.SmsDeliveryStatus
 	var total int64
 
-	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("job_id = ?", jobID)
+	query := r.db.WithContext(ctx).Model(&model.SmsDeliveryStatus{}).Where("job_id = ?", jobID)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -99,10 +123,13 @@ func (r *smsTrackingRepo) ListStatusesByJob(ctx context.Context, jobID string, p
 
 // ListStatusesByPhone 分页查询手机号的送达状态
 func (r *smsTrackingRepo) ListStatusesByPhone(ctx context.Context, phone string, page, limit int) ([]*model.SmsDeliveryStatus, int64, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, nil
+	}
 	var statuses []*model.SmsDeliveryStatus
 	var total int64
 
-	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("phone = ?", phone)
+	query := r.db.WithContext(ctx).Model(&model.SmsDeliveryStatus{}).Where("phone = ?", phone)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -118,8 +145,11 @@ func (r *smsTrackingRepo) ListStatusesByPhone(ctx context.Context, phone string,
 // 同时返回已达最大重试次数但状态仍为 retryable 的记录，
 // 由 service 层判断是否需要将其标记为 failed 并停止重试
 func (r *smsTrackingRepo) ListRetryableStatuses(ctx context.Context, limit int) ([]*model.SmsDeliveryStatus, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var statuses []*model.SmsDeliveryStatus
-	err := r.db.Where("is_retryable = ? AND status = ?",
+	err := r.db.WithContext(ctx).Where("is_retryable = ? AND status = ?",
 		true, model.SmsStatusRetryable).
 		Order("received_at ASC").
 		Limit(limit).
@@ -129,15 +159,21 @@ func (r *smsTrackingRepo) ListRetryableStatuses(ctx context.Context, limit int) 
 
 // ListStatusesByRange 查询时间区间内的状态记录
 func (r *smsTrackingRepo) ListStatusesByRange(ctx context.Context, start, end time.Time) ([]*model.SmsDeliveryStatus, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var statuses []*model.SmsDeliveryStatus
-	err := r.db.Where("received_at BETWEEN ? AND ?", start, end).Find(&statuses).Error
+	err := r.db.WithContext(ctx).Where("received_at BETWEEN ? AND ?", start, end).Find(&statuses).Error
 	return statuses, err
 }
 
 // CountByJob 统计任务某状态的总数
 func (r *smsTrackingRepo) CountByJob(ctx context.Context, jobID, status string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
 	var count int64
-	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("job_id = ?", jobID)
+	query := r.db.WithContext(ctx).Model(&model.SmsDeliveryStatus{}).Where("job_id = ?", jobID)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -147,8 +183,11 @@ func (r *smsTrackingRepo) CountByJob(ctx context.Context, jobID, status string) 
 
 // CountByRange 统计时间区间内某状态的总数
 func (r *smsTrackingRepo) CountByRange(ctx context.Context, start, end time.Time, status string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
 	var count int64
-	query := r.db.Model(&model.SmsDeliveryStatus{}).Where("received_at BETWEEN ? AND ?", start, end)
+	query := r.db.WithContext(ctx).Model(&model.SmsDeliveryStatus{}).Where("received_at BETWEEN ? AND ?", start, end)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -158,8 +197,11 @@ func (r *smsTrackingRepo) CountByRange(ctx context.Context, start, end time.Time
 
 // GetJobMetric 获取任务指标
 func (r *smsTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*model.SmsJobMetric, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var metric model.SmsJobMetric
-	err := r.db.Where("job_id = ?", jobID).First(&metric).Error
+	err := r.db.WithContext(ctx).Where("job_id = ?", jobID).First(&metric).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -171,20 +213,26 @@ func (r *smsTrackingRepo) GetJobMetric(ctx context.Context, jobID string) (*mode
 
 // UpsertJobMetric 创建或更新任务指标
 func (r *smsTrackingRepo) UpsertJobMetric(ctx context.Context, metric *model.SmsJobMetric) error {
+	if r == nil || r.db == nil {
+		return errNilDB
+	}
 	existing, err := r.GetJobMetric(ctx, metric.JobID)
 	if err != nil {
 		return err
 	}
 	if existing != nil {
 		metric.ID = existing.ID
-		return r.db.Save(metric).Error
+		return r.db.WithContext(ctx).Save(metric).Error
 	}
-	return r.db.Create(metric).Error
+	return r.db.WithContext(ctx).Create(metric).Error
 }
 
 // ListJobMetricsByRange 查询时间区间内的任务指标
 func (r *smsTrackingRepo) ListJobMetricsByRange(ctx context.Context, start, end time.Time) ([]*model.SmsJobMetric, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var metrics []*model.SmsJobMetric
-	err := r.db.Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
+	err := r.db.WithContext(ctx).Where("updated_at BETWEEN ? AND ?", start, end).Find(&metrics).Error
 	return metrics, err
 }

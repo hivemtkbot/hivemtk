@@ -11,6 +11,7 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
 )
@@ -368,9 +369,13 @@ func TestAccountController_GetAccounts_MultipleAccounts(t *testing.T) {
 	router.GET("/accounts", ctrl.GetAccounts)
 
 	// 创建多个测试账户
-	accounts := []model.Account{}
-	for _, account := range accounts {
-		database.Create(&account)
+	accounts := []model.Account{
+		{ID: uuid.NewString(), TgName: "account1", Status: 1},
+		{ID: uuid.NewString(), TgName: "account2", Status: 1},
+		{ID: uuid.NewString(), TgName: "account3", Status: 1},
+	}
+	for i := range accounts {
+		database.Create(&accounts[i])
 	}
 
 	req, _ := http.NewRequest("GET", "/accounts", nil)

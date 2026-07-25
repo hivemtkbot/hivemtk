@@ -83,7 +83,7 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// 创建客户端
-	client := NewClient(h.hub, agentIDStr, agentName)
+	client := NewWSClient(h.hub, agentIDStr, agentName)
 	client.hub = h.hub
 
 	// 注册客户端

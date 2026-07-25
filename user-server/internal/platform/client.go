@@ -27,7 +27,7 @@ type Client struct {
 	jwtMu       sync.Mutex
 }
 
-func NewClient(merchantKey string) *Client {
+func NewPlatformClient(merchantKey string) *Client {
 	return &Client{
 		merchantKey: merchantKey,
 		httpClient:  &http.Client{Timeout: 5 * time.Second},
@@ -362,7 +362,7 @@ func (c *Client) ReportInstall(req *ReportInstallReq) error {
 // ReportInstallDefault 使用全局配置创建客户端并上报安装信息
 // 安装信息上报为公开统计接口，不要求商户签名，故使用空 merchantKey。
 func ReportInstallDefault(req *ReportInstallReq) error {
-	return NewClient("").ReportInstall(req)
+	return NewPlatformClient("").ReportInstall(req)
 }
 
 // ReportHeartbeatReq 心跳上报请求（开源版：每 3 分钟上报一次，仅统计用）
@@ -404,5 +404,5 @@ func (c *Client) ReportHeartbeat(req *ReportHeartbeatReq) error {
 // ReportHeartbeatDefault 使用全局配置创建客户端并上报心跳
 // 心跳上报为公开统计接口，不要求商户签名，故使用空 merchantKey。
 func ReportHeartbeatDefault(req *ReportHeartbeatReq) error {
-	return NewClient("").ReportHeartbeat(req)
+	return NewPlatformClient("").ReportHeartbeat(req)
 }

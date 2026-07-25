@@ -290,9 +290,12 @@ func sendViaPipeline(ctx context.Context, deps ReachToolDeps, req *service.Reach
 	}, err
 }
 
-// RegisterReachTools 注册所有 20 个触达工具
-func RegisterReachTools(registry *ToolRegistry, deps ReachToolDeps) error {
-	tools := []Tool{
+// BuildReachTools 构造全部 20 个触达工具（不注册到 Registry）
+//
+// 用于 ToolProvider.Provide() 返回工具列表，由 ProviderRegistry 统一注册。
+// 调用方：ReachToolProvider.Provide()
+func BuildReachTools(deps ReachToolDeps) []Tool {
+	return []Tool{
 		NewReachSMSSendTool(deps),
 		NewReachEmailSendTool(deps),
 		NewReachWeComSendTool(deps),
@@ -314,6 +317,11 @@ func RegisterReachTools(registry *ToolRegistry, deps ReachToolDeps) error {
 		NewReachTemplateApplyTool(deps),
 		NewReachAccountListTool(deps),
 	}
+}
+
+// RegisterReachTools 注册所有 20 个触达工具
+func RegisterReachTools(registry *ToolRegistry, deps ReachToolDeps) error {
+	tools := BuildReachTools(deps)
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
 			return fmt.Errorf("注册触达工具 %s 失败：%w", t.Name(), err)

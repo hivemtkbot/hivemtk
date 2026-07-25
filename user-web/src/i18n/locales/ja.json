@@ -257,7 +257,10 @@
     "assetBundleMerchant": "商户スクリプトパック",
     "assetMarket": "アセットマーケット",
     "myAssets": "マイアセット",
-    "syncLog": "同期ログ"
+    "syncLog": "同期ログ",
+    "i18nManage": "多言語管理",
+    "glossary": "用語集管理",
+    "i18nDashboard": "多言語モニタリング"
   },
   "保存": "保存",
   "提交": "送信",

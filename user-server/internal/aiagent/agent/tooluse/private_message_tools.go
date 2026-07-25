@@ -63,10 +63,11 @@ func (d PrivateMessageToolDeps) sessionOrFallback() portcontract.SessionPort {
 	return service.NewSessionPortAdapter(d.SessionSvc)
 }
 
-// RegisterPrivateMessageTools 注册私信工具（CategoryPrivateMessage）
+// BuildPrivateMessageTools 构造全部 3 个私信工具（不注册到 Registry）
 //
-// 2026-07-22 方向D：Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
-func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageToolDeps) error {
+// 内部完成 SessionPort 的兜底解析（deps.SessionPort 优先，否则从 SessionSvc 创建）。
+// 调用方：PrivateMessageToolProvider.Provide()
+func BuildPrivateMessageTools(deps PrivateMessageToolDeps) []Tool {
 	port := deps.sessionOrFallback()
 	if port == nil {
 		// 仍保持旧版兜底：deps.SessionSvc 自动创建
@@ -75,11 +76,18 @@ func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageTool
 		}
 		port = service.NewSessionPortAdapter(deps.SessionSvc)
 	}
-	tools := []Tool{
+	return []Tool{
 		&openPrivateSessionTool{sessionPort: port},
 		&readPrivateSessionTool{sessionPort: port},
 		&sendPrivateMessageTool{sessionPort: port},
 	}
+}
+
+// RegisterPrivateMessageTools 注册私信工具（CategoryPrivateMessage）
+//
+// 2026-07-22 方向D：Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
+func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageToolDeps) error {
+	tools := BuildPrivateMessageTools(deps)
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
 			return err

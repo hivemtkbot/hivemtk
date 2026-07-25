@@ -70,14 +70,21 @@ func NewKnowledgeToolDepsWithDB(gdb *gorm.DB) KnowledgeToolDeps {
 	}
 }
 
-// RegisterKnowledgeTools 注册所有 4 个知识工具到 registry
-func RegisterKnowledgeTools(registry *ToolRegistry, deps KnowledgeToolDeps) error {
-	tools := []Tool{
+// BuildKnowledgeTools 构造全部 4 个知识工具（不注册到 Registry）
+//
+// 调用方：KnowledgeToolProvider.Provide()
+func BuildKnowledgeTools(deps KnowledgeToolDeps) []Tool {
+	return []Tool{
 		NewRagSearchTool(deps),
 		NewKnowledgeFeedbackTool(deps),
 		NewKnowledgeAddDocTool(deps),
 		NewKnowledgeListKBTool(deps),
 	}
+}
+
+// RegisterKnowledgeTools 注册所有 4 个知识工具到 registry
+func RegisterKnowledgeTools(registry *ToolRegistry, deps KnowledgeToolDeps) error {
+	tools := BuildKnowledgeTools(deps)
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
 			return fmt.Errorf("注册知识工具 %s 失败：%w", t.Name(), err)

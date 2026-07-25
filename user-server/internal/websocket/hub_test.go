@@ -25,10 +25,10 @@ func TestNewHub(t *testing.T) {
 	}
 }
 
-func TestNewClient(t *testing.T) {
+func TestNewWSClient(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	if client == nil {
 		t.Fatal("NewClient returned nil")
@@ -44,7 +44,7 @@ func TestNewClient(t *testing.T) {
 func TestHub_Register(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	// Start the hub in a goroutine
 	go hub.Run()
@@ -68,7 +68,7 @@ func TestHub_Register(t *testing.T) {
 func TestHub_Unregister(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = client
 
 	go hub.Run()
@@ -89,7 +89,7 @@ func TestHub_Unregister(t *testing.T) {
 func TestHub_Broadcast(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = client
 
 	go hub.Run()
@@ -109,7 +109,7 @@ func TestHub_Broadcast(t *testing.T) {
 func TestHub_SendToAgent(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	go hub.Run()
 	defer hub.Unregister(client)
@@ -127,11 +127,11 @@ func TestHub_SendToAgent(t *testing.T) {
 func TestHub_BroadcastToMerchant(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client1 := NewClient(hub, "agent1", "Agent One")
+	client1 := NewWSClient(hub, "agent1", "Agent One")
 	// 私域部署：NewClient 不再传 merchantID
-	client2 := NewClient(hub, "agent2", "Agent Two")
+	client2 := NewWSClient(hub, "agent2", "Agent Two")
 	// 私域部署：NewClient 不再传 merchantID
-	client3 := NewClient(hub, "agent3", "Agent Three")
+	client3 := NewWSClient(hub, "agent3", "Agent Three")
 
 	go hub.Run()
 	defer func() {
@@ -164,8 +164,8 @@ func TestHub_IsAgentOnline(t *testing.T) {
 func TestHub_GetOnlineAgents(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client1 := NewClient(hub, "agent1", "Agent One")
-	client2 := NewClient(hub, "agent2", "Agent Two")
+	client1 := NewWSClient(hub, "agent1", "Agent One")
+	client2 := NewWSClient(hub, "agent2", "Agent Two")
 
 	go hub.Run()
 	defer func() {
@@ -285,7 +285,7 @@ func TestMessageJSON(t *testing.T) {
 func TestClient_SendChannel(t *testing.T) {
 	hub := NewHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 	_ = hub
 	_ = client
 
@@ -304,7 +304,7 @@ func TestHub_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			// 私域部署：NewClient 不再传 merchantID
-			client := NewClient(hub, "agent"+string(rune(id)), "Agent")
+			client := NewWSClient(hub, "agent"+string(rune(id)), "Agent")
 			hub.Register(client)
 			time.Sleep(50 * time.Millisecond)
 			hub.Unregister(client)

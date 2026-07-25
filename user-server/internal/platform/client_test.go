@@ -26,7 +26,7 @@ func TestClient_Do_401SelfHeal(t *testing.T) {
 	defer srv.Close()
 
 	config.PlatformCfg = &config.PlatformConfig{APIURL: srv.URL}
-	c := NewClient("test-key")
+	c := NewPlatformClient("test-key")
 
 	var resp BaseResp
 	if err := c.Do("GET", "/test", nil, &resp); err != nil {
@@ -47,7 +47,7 @@ func TestClient_Do_StructuredError(t *testing.T) {
 	defer srv.Close()
 
 	config.PlatformCfg = &config.PlatformConfig{APIURL: srv.URL}
-	c := NewClient("test-key")
+	c := NewPlatformClient("test-key")
 
 	var resp BaseResp
 	err := c.Do("GET", "/missing", nil, &resp)

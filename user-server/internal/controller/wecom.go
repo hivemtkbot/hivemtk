@@ -18,7 +18,13 @@ type WeComController struct {
 }
 
 // NewWeComController 创建企业微信控制器实例
+//
+// 测试场景下传入 nil 时自动构造默认服务（依赖 dbUtil.GetDB()，
+// 由 testutil.NewTestDB + db.SetTestDB 设置全局 DB）。
 func NewWeComController(wecomService *service.WeComService) *WeComController {
+	if wecomService == nil {
+		wecomService = service.NewWeComService()
+	}
 	return &WeComController{
 		wecomService: wecomService,
 	}

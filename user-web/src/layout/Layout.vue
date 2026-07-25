@@ -491,6 +491,16 @@ const topMenus = ref([
     ]
   },
   {
+    key: 'i18nManage',
+    title: '多语言管理',
+    icon: 'Coin',
+    roles: ['admin', 'manager'],
+    children: [
+      { key: 'glossary', title: '术语表管理', icon: 'Collection', path: '/glossary', roles: ['admin', 'manager'] },
+      { key: 'i18nDashboard', title: '多语言监控', icon: 'DataLine', path: '/i18n/dashboard', roles: ['admin', 'manager'] }
+    ]
+  },
+  {
     key: 'system',
     title: '系统设置',
     icon: 'Setting',

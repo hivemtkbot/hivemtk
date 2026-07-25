@@ -34,7 +34,7 @@ func NewAssetMarketClient() *AssetMarketClient {
 	if key == "" {
 		key = "local-dev-merchant"
 	}
-	return &AssetMarketClient{client: NewClient(key)}
+	return &AssetMarketClient{client: NewPlatformClient(key)}
 }
 
 type assetEnvelope struct {

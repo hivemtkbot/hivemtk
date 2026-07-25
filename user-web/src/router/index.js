@@ -104,7 +104,9 @@ const moduleNames = [
   // 阶段 5：角色管理（v3.1 §3.2）
   'role',
   // 阶段 6：授权管理（v3.1 §3.4）
-  'permission'
+  'permission',
+  // P1-4 多语言方案：术语表管理 + 多语言监控看板
+  'glossary', 'i18nStats'
 ]
 
 // 同步注册的路由 (始终加载 - 用于 SSR / 初始 SEO)
@@ -190,7 +192,9 @@ const pathToModule = {
   // WhatsApp Cloud（Meta 商业 API）路由首段 kebab-case → camelCase 模块名
   'whatsapp-cloud': 'whatsappCloud',
   // 钉钉应用（企业内部应用，支持回调收消息）
-  'dingtalk-app': 'dingtalkApp'
+  'dingtalk-app': 'dingtalkApp',
+  // P1-4 多语言：/i18n/* 路径首段与模块名 i18nStats 不一致，需显式映射
+  'i18n': 'i18nStats'
 }
 
 async function ensureRouteLoaded(path) {

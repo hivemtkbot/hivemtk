@@ -36,6 +36,20 @@ func NewGroupMessagingController(
 	messageQueue *service.MessageQueueService,
 	templateService *service.WhatsAppTemplateService,
 ) *GroupMessagingController {
+	// 测试场景下 nil service 自动构造默认实例（依赖 dbUtil.GetDB()，
+	// 由 testutil.NewTestDB + db.SetTestDB 设置全局 DB）
+	if whatsappSvc == nil {
+		whatsappSvc = service.NewWhatsappService()
+	}
+	if clueSvc == nil {
+		clueSvc = service.NewClueService()
+	}
+	if templateService == nil {
+		templateService = service.NewWhatsAppTemplateService(nil)
+	}
+	if messageQueue == nil {
+		messageQueue = service.NewMessageQueueService(nil)
+	}
 	return &GroupMessagingController{
 		whatsappService: whatsappSvc,
 		clueSvc:         clueSvc,

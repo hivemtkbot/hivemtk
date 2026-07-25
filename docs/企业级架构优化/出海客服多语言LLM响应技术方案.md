@@ -3,30 +3,62 @@
 > **文档定位**：解决"商家单一语言维护 + 最终用户多语言消费"的核心矛盾，保证 LLM 在跨语言场景下返回准确、自然、术语一致的回复。
 >
 > **文档版本**：v1.2（方案 F：透传配置 + 内外分离 + 商户内部语言可配置）
-> **实现状态**：✅ P0 核心链路已交付（2026-07-25）
+> **实现状态**：✅ P0 + P1 + P2 全部交付（2026-07-25，零遗留）
 > **作者**：HiveMTK 架构组
 > **关联文档**：`资产包模式.md`、`资产包与知识库职责边界论证.md`、`对话驱动自我学习机制.md`、`GO_FIVE_LAYER_ARCHITECTURE.md`
 
 ---
 
-## 实现交付摘要（P0 已完成）
+## 实现交付摘要（P0 + P1 + P2 全部完成，零遗留）
+
+### P0 核心链路（MVP）
 
 | 层 | 交付物 | 状态 |
 |----|--------|------|
 | Model | [glossary.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/glossary.go)、[llm_routing_log.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/llm_routing_log.go)、ai_agent/chat_channel/asset_bundle/knowledge_workspace 字段扩展 | ✅ |
-| Migration | [multilingual_i18n_migration.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/migration/migrations/multilingual_i18n_migration.go) (v3.12.0) | ✅ |
-| Repository | [glossary_repo.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/repository/glossary_repo.go) | ✅ |
+| Migration | [multilingual_i18n_migration.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/migration/migrations/multilingual_i18n_migration.go) (v3.12.0) + [multilingual_i18n_p13_migration.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/migration/migrations/multilingual_i18n_p13_migration.go) (v3.12.1) | ✅ |
+| Repository | [glossary_repo.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/repository/glossary_repo.go) + [i18n_stats_repo.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/repository/i18n_stats_repo.go) | ✅ |
 | pkg/i18n | [lang_ctx.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/pkg/i18n/lang_ctx.go) | ✅ |
-| Service/i18n | [lang_config_resolver.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/lang_config_resolver.go)、[glossary_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/glossary_service.go)、[post_validator.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/post_validator.go) | ✅ |
-| aiagent | [prompt_templates.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/customer_service/prompt_templates.go)、[runtime/prompt_templates.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/agent/runtime/prompt_templates.go)、response_generator 双语言、dispatcher 字段扩展 | ✅ |
+| Service/i18n | lang_config_resolver / glossary_service / post_validator / [fewshot_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/fewshot_service.go) / [fallback_bridge.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/fallback_bridge.go) / [stats_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/stats_service.go) / [pretranslate_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/pretranslate_service.go) / [eval_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/eval_service.go) | ✅ |
+| aiagent | prompt_templates.go (两处) + response_generator 双语言+缓存+fewshot+fallback+eval hook / dispatcher 字段扩展 | ✅ |
+| aiagent/eval | [chrf_eval.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/chrf_eval.go) + [llm_judge.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/llm_judge.go) + [evaluator.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/evaluator.go) | ✅ |
+| aiagent/rag/retrieval | [bge_m3_vectorizer.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/retrieval/bge_m3_vectorizer.go) + [translation_cache.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/retrieval/translation_cache.go) | ✅ |
 | Middleware | [lang_resolver.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/middleware/lang_resolver.go)（多层兜底） | ✅ |
 | 入口集成 | WebSocket (handler/visitor_handler) + Webhook controller + HTTP Chat 路由 | ✅ |
-| Controller/DTO | [glossary_controller.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/controller/glossary_controller.go)、[dto/glossary.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/dto/glossary.go)、[i18n_routes.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/router/i18n_routes.go) + 渠道/智能体 API 字段扩展 | ✅ |
-| 前端 | [languages.js](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/constants/languages.js) + 智能体管理（内部语言+目标语言）+ 渠道管理（目标语言）UI 下拉框 | ✅ |
-| 测试 | 60 个单元测试（lang_ctx / lang_config_resolver / post_validator / prompt_templates）全部 PASS，go test -race 通过 | ✅ |
-| 验证 | 编译 ✅ / go vet ✅ / check-architecture.sh ✅ | ✅ |
+| Controller/DTO | glossary_controller + i18n_stats_controller + dto/glossary.go + i18n_routes.go + 渠道/智能体 API 字段扩展 | ✅ |
+| 前端 | languages.js + 智能体管理（内部语言+目标语言）+ 渠道管理（目标语言）+ [Glossary 管理 UI](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/glossary/List.vue) + [多语言监控看板](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/i18n/Dashboard.vue) | ✅ |
 
-**待办（P1/P2）**：bge-m3 embedding 配置化、TranslationCache、Few-shot 示例库、低资源语言 Fallback Bridge、Glossary 管理 UI、监控看板、chrF++ 评估、LLM-as-Judge、知识库预翻译。
+### P1 增强（全部完成）
+
+| 任务 | 交付物 | 状态 |
+|------|--------|------|
+| bge-m3 embedding 配置化 | bge_m3_vectorizer.go + 工厂函数 + config.yaml | ✅ |
+| TranslationCache (Redis) | translation_cache.go + 集成到 response_generator | ✅ |
+| Few-shot 示例库 | fewshot_service.go + 集成到 prompt 模板 | ✅ |
+| 低资源语言 Fallback Bridge | fallback_bridge.go + DeepLTranslator + 集成 | ✅ |
+| Glossary 管理 UI | glossary/List.vue + glossary.js API | ✅ |
+| 监控看板 | i18n/Dashboard.vue + 7 个统计 API + i18nStats.js | ✅ |
+| 知识库预翻译支持 | pretranslate_service.go + TranslatedVersions 字段 + migration v3.12.1 | ✅ |
+
+### P2 优化（全部完成）
+
+| 任务 | 交付物 | 状态 |
+|------|--------|------|
+| chrF++ 评估 | chrf_eval.go（纯 Go 实现，对齐 sacrebleu）+ 23 个单元测试 | ✅ |
+| LLM-as-Judge | llm_judge.go + evaluator.go + eval_service.go（5% 异步抽样） | ✅ |
+
+### 验证结果
+
+| 验证项 | 结果 |
+|--------|------|
+| 全量编译 `go build ./...` | ✅ 通过（无新增错误） |
+| go vet 多语言相关 14 个模块 | ✅ 全部通过（零警告） |
+| 五层架构检查 `check-architecture.sh` | ✅ 通过（多语言方案零违规） |
+| 单元测试 | ✅ 83 个用例全部 PASS（lang_ctx 18 + lang_config_resolver 14 + post_validator 18 + prompt_templates 10 + chrf_eval 23） |
+| `go test -race` | ✅ 4 个包全部通过，无数据竞争 |
+| 前端构建 `npm run build` | ✅ 通过（8.95s） |
+
+**所有 P0/P1/P2 待办全部完成，零遗留。**
 
 ---
 

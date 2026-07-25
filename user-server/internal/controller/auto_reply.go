@@ -84,6 +84,10 @@ func (s *AutoReplyManagerSingleton) init() {
 }
 
 func NewAutoReplyController(svc *service.AutoReplyService, ragStack *knowledgesvc.RAGStack) *AutoReplyController {
+	// svc 为 nil 时自动构造默认服务（测试场景：setupAutoReplyTestDB 已 SetTestDB）
+	if svc == nil {
+		svc = service.NewAutoReplyServiceAuto()
+	}
 	return &AutoReplyController{
 		svc:      svc,
 		manager:  GetAutoReplyManager(), // 使用单例管理器

@@ -74,7 +74,7 @@ func TestHandleMarkRead(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
 	// 私域部署：NewClient 不再传 merchantID
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"session_id": "session123",
@@ -86,7 +86,7 @@ func TestHandleMarkRead(t *testing.T) {
 func TestHandleMarkRead_InvalidSessionID(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"session_id": 123,
@@ -98,7 +98,7 @@ func TestHandleMarkRead_InvalidSessionID(t *testing.T) {
 func TestHandleMarkRead_MissingSessionID(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{}
 
@@ -108,7 +108,7 @@ func TestHandleMarkRead_MissingSessionID(t *testing.T) {
 func TestHandleSessionAction_InvalidAction(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"action": 123,
@@ -120,7 +120,7 @@ func TestHandleSessionAction_InvalidAction(t *testing.T) {
 func TestHandleSessionAction_MissingAction(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{}
 
@@ -130,7 +130,7 @@ func TestHandleSessionAction_MissingAction(t *testing.T) {
 func TestHandleSessionAction_TakeOver(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"action":     "take_over",
@@ -143,7 +143,7 @@ func TestHandleSessionAction_TakeOver(t *testing.T) {
 func TestHandleSessionAction_Transfer(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"action":          "transfer",
@@ -157,7 +157,7 @@ func TestHandleSessionAction_Transfer(t *testing.T) {
 func TestHandleSessionAction_Close(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	msg := map[string]any{
 		"action":     "close",
@@ -170,7 +170,7 @@ func TestHandleSessionAction_Close(t *testing.T) {
 func TestHandleTakeOver(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	handler.handleTakeOver(client, "session123")
 }
@@ -178,7 +178,7 @@ func TestHandleTakeOver(t *testing.T) {
 func TestHandleTransfer(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	handler.handleTransfer(client, "session123", 2)
 }
@@ -186,7 +186,7 @@ func TestHandleTransfer(t *testing.T) {
 func TestHandleClose(t *testing.T) {
 	handler := NewWSHandler()
 	hub := GetHub()
-	client := NewClient(hub, "agent1", "Agent One")
+	client := NewWSClient(hub, "agent1", "Agent One")
 
 	handler.handleClose(client, "session123")
 }

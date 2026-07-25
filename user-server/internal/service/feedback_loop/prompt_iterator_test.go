@@ -93,7 +93,7 @@ func seedActivePrompt(t *testing.T, db any, /* gorm.DB methods */
 // TestPromptIterator_IterateForNode_NoActivePrompt 无 active prompt 报错
 func TestPromptIterator_IterateForNode_NoActivePrompt(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 
 	_, err := p.IterateForNode(context.Background(), 1, "node_1")
@@ -105,7 +105,7 @@ func TestPromptIterator_IterateForNode_NoActivePrompt(t *testing.T) {
 // TestPromptIterator_IterateForNode_InvalidInput 参数校验
 func TestPromptIterator_IterateForNode_InvalidInput(t *testing.T) {
 	db := setupFeedbackLoopTestDB(t)
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 
 	// sopID = 0
@@ -156,7 +156,7 @@ func TestPromptIterator_IterateForNode_InsufficientSamples(t *testing.T) {
 		}
 	}
 
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 	_, err := p.IterateForNode(ctx, 1, "node_1")
 	if !errors.Is(err, ErrInsufficientSamples) {
@@ -215,7 +215,7 @@ func TestPromptIterator_IterateForNode_FullFlowWithAutoApprove(t *testing.T) {
 		{"v1.2 优化", "改进 sys 2", "改进 user 2", "改进点 2"},
 	}
 	respJSON, _ := json.Marshal(candidates)
-	llm := newStubLLMDispatcher([]string{string(respJSON)})
+	llm := newFeedbackLoopStubLLMDispatcher([]string{string(respJSON)})
 
 	cfg := DefaultPromptIteratorConfig()
 	cfg.AutoApprove = true
@@ -303,7 +303,7 @@ func TestPromptIterator_IterateForNode_NoAutoApprove(t *testing.T) {
 
 	// LLM 返回 1 个候选
 	respJSON := `[{"title":"v1.1","system_prompt":"sys1","user_prompt_template":"user1","improvement_notes":"note1"}]`
-	llm := newStubLLMDispatcher([]string{respJSON})
+	llm := newFeedbackLoopStubLLMDispatcher([]string{respJSON})
 
 	cfg := DefaultPromptIteratorConfig()
 	cfg.AutoApprove = false // 不自动审核
@@ -366,7 +366,7 @@ func TestPromptIterator_IterateForNode_LLMFailure(t *testing.T) {
 	}
 
 	// LLM stub 配置失败
-	llm := newStubLLMDispatcher(nil)
+	llm := newFeedbackLoopStubLLMDispatcher(nil)
 	llm.failOn = 1
 	llm.err = fmt.Errorf("LLM service error")
 
@@ -410,7 +410,7 @@ func TestPromptIterator_IterateForNode_LLMInvalidJSON(t *testing.T) {
 	}
 
 	// LLM 返回非 JSON
-	llm := newStubLLMDispatcher([]string{"这不是 JSON 内容"})
+	llm := newFeedbackLoopStubLLMDispatcher([]string{"这不是 JSON 内容"})
 	p := NewPromptIterator(db, llm, DefaultPromptIteratorConfig())
 	_, err := p.IterateForNode(ctx, 1, "node_1")
 	if err == nil {

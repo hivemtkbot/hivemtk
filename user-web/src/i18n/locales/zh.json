@@ -272,7 +272,10 @@
     "assetBundleMerchant": "商户话术包",
     "assetMarket": "资产市场",
     "myAssets": "我的资产",
-    "syncLog": "同步日志"
+    "syncLog": "同步日志",
+    "i18nManage": "多语言管理",
+    "glossary": "术语表管理",
+    "i18nDashboard": "多语言监控"
   },
   "保存": "保存",
   "提交": "提交",

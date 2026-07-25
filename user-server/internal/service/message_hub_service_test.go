@@ -22,7 +22,7 @@ func setupMessageHubTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
-func newTestService(t *testing.T) (*MessageHubService, *gorm.DB) {
+func newMessageHubTestService(t *testing.T) (*MessageHubService, *gorm.DB) {
 	db := setupMessageHubTestDB(t)
 	svc := NewMessageHubServiceWithDB(db, cache.NewMemoryCache())
 	return svc, db
@@ -122,7 +122,7 @@ func TestListMsgTypes(t *testing.T) {
 // (原 TestNormalize_EmptyMerchant 已移除)
 
 func TestNormalize_InvalidPlatform(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Platform = "unknown_platform"
 	_, err := svc.Normalize(context.Background(), &req)
@@ -135,7 +135,7 @@ func TestNormalize_InvalidPlatform(t *testing.T) {
 }
 
 func TestNormalize_EmptyAccountID(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.AccountID = ""
 	_, err := svc.Normalize(context.Background(), &req)
@@ -145,7 +145,7 @@ func TestNormalize_EmptyAccountID(t *testing.T) {
 }
 
 func TestNormalize_EmptyMsgID(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgID = ""
 	_, err := svc.Normalize(context.Background(), &req)
@@ -155,7 +155,7 @@ func TestNormalize_EmptyMsgID(t *testing.T) {
 }
 
 func TestNormalize_InvalidDirection(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Direction = "sideways"
 	_, err := svc.Normalize(context.Background(), &req)
@@ -165,7 +165,7 @@ func TestNormalize_InvalidDirection(t *testing.T) {
 }
 
 func TestNormalize_InvalidMsgType(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgType = "sticker"
 	_, err := svc.Normalize(context.Background(), &req)
@@ -175,7 +175,7 @@ func TestNormalize_InvalidMsgType(t *testing.T) {
 }
 
 func TestNormalize_EmptyTextContent(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Content = "   "
 	_, err := svc.Normalize(context.Background(), &req)
@@ -185,7 +185,7 @@ func TestNormalize_EmptyTextContent(t *testing.T) {
 }
 
 func TestNormalize_EmptyImageContent(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgType = "image"
 	req.Content = ""
@@ -196,7 +196,7 @@ func TestNormalize_EmptyImageContent(t *testing.T) {
 }
 
 func TestNormalize_ContentTooLarge(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	svc.WithMaxContent(context.Background(), 100)
 	req := newReq()
 	req.Content = strings.Repeat("x", 200)
@@ -207,7 +207,7 @@ func TestNormalize_ContentTooLarge(t *testing.T) {
 }
 
 func TestNormalize_CustomSentAt(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	custom := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	req.SentAt = &custom
@@ -221,7 +221,7 @@ func TestNormalize_CustomSentAt(t *testing.T) {
 }
 
 func TestNormalize_TrimWhitespace(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.SenderID = "  user-001  "
 	req.SenderName = "  张三  "
@@ -238,7 +238,7 @@ func TestNormalize_TrimWhitespace(t *testing.T) {
 }
 
 func TestNormalize_NilExtra(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Extra = nil
 	msg, err := svc.Normalize(context.Background(), &req)
@@ -251,7 +251,7 @@ func TestNormalize_NilExtra(t *testing.T) {
 }
 
 func TestNormalize_AllPlatforms(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for _, p := range ListPlatforms() {
 		req := newReq()
 		req.Platform = p
@@ -268,7 +268,7 @@ func TestNormalize_AllPlatforms(t *testing.T) {
 // ===========================================
 
 func TestIdempotencyKey_Stable(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	k1 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
 	k2 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
 	if k1 != k2 {
@@ -277,7 +277,7 @@ func TestIdempotencyKey_Stable(t *testing.T) {
 }
 
 func TestIdempotencyKey_Different(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	k1 := svc.IdempotencyKey(context.Background(), "wecom", "acc-1", "msg-1")
 	k2 := svc.IdempotencyKey(context.Background(), "wecom", "acc-2", "msg-1")
 	if k1 == k2 {
@@ -290,7 +290,7 @@ func TestIdempotencyKey_Different(t *testing.T) {
 }
 
 func TestCheckIdempotent_NewMessage(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	exist, _, err := svc.CheckIdempotent(context.Background(), "wecom", "acc-1", "msg-new")
 	if err != nil {
 		t.Fatalf("check: %v", err)
@@ -301,7 +301,7 @@ func TestCheckIdempotent_NewMessage(t *testing.T) {
 }
 
 func TestCheckIdempotent_DuplicateMessage(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgID = "msg-dup-1"
 	_, err := svc.Push(context.Background(), &req)
@@ -321,7 +321,7 @@ func TestCheckIdempotent_DuplicateMessage(t *testing.T) {
 }
 
 func TestCheckIdempotent_DifferentAccount(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgID = "msg-cross"
 	_, _ = svc.Push(context.Background(), &req)
@@ -336,7 +336,7 @@ func TestCheckIdempotent_DifferentAccount(t *testing.T) {
 // ===========================================
 
 func TestPush_Success(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	msg, err := svc.Push(context.Background(), &req)
 	if err != nil {
@@ -349,7 +349,7 @@ func TestPush_Success(t *testing.T) {
 }
 
 func TestPush_DuplicateError(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgID = "msg-push-dup"
 	_, err := svc.Push(context.Background(), &req)
@@ -373,7 +373,7 @@ func TestPush_NilDB(t *testing.T) {
 }
 
 func TestPush_QueueAfterDB(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.MsgID = "msg-q-1"
 	_, err := svc.Push(context.Background(), &req)
@@ -387,7 +387,7 @@ func TestPush_QueueAfterDB(t *testing.T) {
 }
 
 func TestPush_QueueFull(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	svc.WithQueueSize(context.Background(), 2)
 	for i := 0; i < 3; i++ {
 		req := newReq()
@@ -399,7 +399,7 @@ func TestPush_QueueFull(t *testing.T) {
 }
 
 func TestPushBatch_AllSuccess(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	reqs := []PushMessageRequest{
 		newReq(), newReq(), newReq(),
 	}
@@ -415,7 +415,7 @@ func TestPushBatch_AllSuccess(t *testing.T) {
 }
 
 func TestPushBatch_PartialError(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgID = "batch-dup"
 	_, _ = svc.Push(context.Background(), &r1)
@@ -442,7 +442,7 @@ func TestPushBatch_PartialError(t *testing.T) {
 // (原 TestList_EmptyMerchant 已移除)
 
 func TestList_DefaultPage(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	// 推送 25 条
 	for i := 0; i < 25; i++ {
 		r := newReq()
@@ -462,7 +462,7 @@ func TestList_DefaultPage(t *testing.T) {
 }
 
 func TestList_FilterPlatform(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.Platform = "wecom"
 	r1.MsgID = "w1"
@@ -481,7 +481,7 @@ func TestList_FilterPlatform(t *testing.T) {
 }
 
 func TestList_FilterDirection(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.Direction = "inbound"
 	r1.MsgID = "i1"
@@ -497,7 +497,7 @@ func TestList_FilterDirection(t *testing.T) {
 }
 
 func TestList_FilterMsgType(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgType = "text"
 	r1.MsgID = "t1"
@@ -513,7 +513,7 @@ func TestList_FilterMsgType(t *testing.T) {
 }
 
 func TestList_FilterKeyword(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.Content = "hello world"
 	r1.MsgID = "kw1"
@@ -530,7 +530,7 @@ func TestList_FilterKeyword(t *testing.T) {
 }
 
 func TestList_FilterIsRead(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgID = "rd1"
 	m1, _ := svc.Push(context.Background(), &r1)
@@ -546,7 +546,7 @@ func TestList_FilterIsRead(t *testing.T) {
 }
 
 func TestList_FilterIsGroup(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.IsGroup = true
 	r1.MsgID = "g1"
@@ -563,7 +563,7 @@ func TestList_FilterIsGroup(t *testing.T) {
 }
 
 func TestList_FilterTimeRange(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgID = "tr1"
 	past := time.Now().Add(-2 * time.Hour)
@@ -582,7 +582,7 @@ func TestList_FilterTimeRange(t *testing.T) {
 }
 
 func TestList_PageSize(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for i := 0; i < 50; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("page-%d", i)
@@ -596,7 +596,7 @@ func TestList_PageSize(t *testing.T) {
 }
 
 func TestList_OrderBy(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for i := 0; i < 5; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("ord-%d", i)
@@ -615,7 +615,7 @@ func TestList_OrderBy(t *testing.T) {
 }
 
 func TestList_FilterConversationID(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.ConversationID = "conv-A"
 	r1.MsgID = "ca1"
@@ -631,7 +631,7 @@ func TestList_FilterConversationID(t *testing.T) {
 }
 
 func TestList_FilterSenderID(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.SenderID = "sender-A"
 	r1.MsgID = "sa1"
@@ -651,7 +651,7 @@ func TestList_FilterSenderID(t *testing.T) {
 // ===========================================
 
 func TestGetByID_NotFound(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	msg, err := svc.GetByID(context.Background(), 999)
 	if err != nil {
 		t.Fatalf("expected no error for not found, got %v", err)
@@ -665,7 +665,7 @@ func TestGetByID_NotFound(t *testing.T) {
 // (原 TestGetByID_DifferentMerchant 已移除)
 
 func TestGetByID_Success(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	msg, _ := svc.Push(context.Background(), &req)
 	got, err := svc.GetByID(context.Background(), msg.ID)
@@ -682,7 +682,7 @@ func TestGetByID_Success(t *testing.T) {
 // ===========================================
 
 func TestMarkRead_SingleID(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	msg, _ := svc.Push(context.Background(), &req)
 	if err := svc.MarkRead(context.Background(), []uint{msg.ID}); err != nil {
@@ -698,7 +698,7 @@ func TestMarkRead_SingleID(t *testing.T) {
 }
 
 func TestMarkRead_MultipleIDs(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	var ids []uint
 	for i := 0; i < 5; i++ {
 		r := newReq()
@@ -718,7 +718,7 @@ func TestMarkRead_MultipleIDs(t *testing.T) {
 }
 
 func TestMarkRead_EmptyIDs(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	if err := svc.MarkRead(context.Background(), []uint{}); err != nil {
 		t.Errorf("expected no error for empty ids, got %v", err)
 	}
@@ -732,7 +732,7 @@ func TestMarkRead_EmptyIDs(t *testing.T) {
 // ===========================================
 
 func TestStats_Empty(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	stats, err := svc.GetStats(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("stats: %v", err)
@@ -743,7 +743,7 @@ func TestStats_Empty(t *testing.T) {
 }
 
 func TestStats_TotalInboundOutbound(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for i := 0; i < 3; i++ {
 		r := newReq()
 		r.Direction = "inbound"
@@ -769,7 +769,7 @@ func TestStats_TotalInboundOutbound(t *testing.T) {
 }
 
 func TestStats_Unread(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for i := 0; i < 4; i++ {
 		r := newReq()
 		r.MsgID = fmt.Sprintf("unread-%d", i)
@@ -785,7 +785,7 @@ func TestStats_Unread(t *testing.T) {
 }
 
 func TestStats_ByPlatform(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for _, p := range []string{"wecom", "wecom", "douyin", "douyin", "douyin"} {
 		r := newReq()
 		r.Platform = p
@@ -802,7 +802,7 @@ func TestStats_ByPlatform(t *testing.T) {
 }
 
 func TestStats_ByMsgType(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for _, mt := range []string{"text", "text", "image", "file"} {
 		r := newReq()
 		r.MsgType = mt
@@ -816,7 +816,7 @@ func TestStats_ByMsgType(t *testing.T) {
 }
 
 func TestStats_Recent24h(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgID = "r24-1"
 	r1.SentAt = ptrTime(time.Now().Add(-25 * time.Hour))
@@ -831,7 +831,7 @@ func TestStats_Recent24h(t *testing.T) {
 }
 
 func TestStats_TimeRange(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.MsgID = "range-1"
 	r1.SentAt = ptrTime(time.Now().Add(-2 * time.Hour))
@@ -854,7 +854,7 @@ func TestStats_TimeRange(t *testing.T) {
 // ===========================================
 
 func TestConsume_EmptyPartition(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	msg, err := svc.Consume(context.Background(), "wecom", "unknown-acc", 0)
 	if err != nil {
 		t.Fatalf("consume: %v", err)
@@ -865,7 +865,7 @@ func TestConsume_EmptyPartition(t *testing.T) {
 }
 
 func TestConsume_OrderBySentAt(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	// 倒序插入
 	for i := 3; i >= 0; i-- {
 		r := newReq()
@@ -880,7 +880,7 @@ func TestConsume_OrderBySentAt(t *testing.T) {
 }
 
 func TestConsume_PartitionIsolation(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r1 := newReq()
 	r1.AccountID = "acc-A"
 	r1.MsgID = "p-a"
@@ -897,7 +897,7 @@ func TestConsume_PartitionIsolation(t *testing.T) {
 }
 
 func TestPeek_Empty(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	msg, err := svc.Peek(context.Background(), "wecom", "nope")
 	if err != nil {
 		t.Fatalf("peek: %v", err)
@@ -908,7 +908,7 @@ func TestPeek_Empty(t *testing.T) {
 }
 
 func TestPeek_NonDestructive(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r := newReq()
 	r.MsgID = "peek-1"
 	_, _ = svc.Push(context.Background(), &r)
@@ -920,7 +920,7 @@ func TestPeek_NonDestructive(t *testing.T) {
 }
 
 func TestSize_Empty(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	if size := svc.Size(context.Background(), "wecom", "none"); size != 0 {
 		t.Errorf("expected 0, got %d", size)
 	}
@@ -931,7 +931,7 @@ func TestSize_Empty(t *testing.T) {
 // ===========================================
 
 func TestConvertFromChannel_Basic(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	raw := &RawChannelMessage{
 		Platform:       "wecom",
 		AccountID:      "acc-c1",
@@ -955,7 +955,7 @@ func TestConvertFromChannel_Basic(t *testing.T) {
 }
 
 func TestConvertFromChannel_DefaultMsgType(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	raw := &RawChannelMessage{Platform: "wecom", AccountID: "a", MsgID: "m", Content: "c"}
 	req := svc.ConvertFromChannel(context.Background(), raw)
 	if req.MsgType != "text" {
@@ -964,7 +964,7 @@ func TestConvertFromChannel_DefaultMsgType(t *testing.T) {
 }
 
 func TestConvertFromChannel_PreservesExtra(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	raw := &RawChannelMessage{
 		Platform: "wecom", AccountID: "a", MsgID: "m", Content: "c",
 		Extra: map[string]any{"k1": "v1", "n": 42},
@@ -979,7 +979,7 @@ func TestConvertFromChannel_PreservesExtra(t *testing.T) {
 }
 
 func TestConvertFromChannel_AllPlatforms(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for _, p := range ListPlatforms() {
 		raw := &RawChannelMessage{Platform: p, AccountID: "a", MsgID: "m-" + p, Content: "c"}
 		req := svc.ConvertFromChannel(context.Background(), raw)
@@ -994,7 +994,7 @@ func TestConvertFromChannel_AllPlatforms(t *testing.T) {
 // ===========================================
 
 func TestMarshalUnmarshal(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	orig := &model.MessageHub{
 
 		MsgID: "m1", Direction: "inbound", MsgType: "text", Content: "hi",
@@ -1017,7 +1017,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 }
 
 func TestUnmarshal_InvalidJSON(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	_, err := svc.UnmarshalFromJSON(context.Background(), "{invalid")
 	if err == nil {
 		t.Error("expected error for invalid json")
@@ -1055,7 +1055,7 @@ func (s *testSub) Count() int {
 }
 
 func TestSubscriber_ReceivesAll(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	sub := &testSub{}
 	svc.Subscribe(context.Background(), sub)
 	for i := 0; i < 3; i++ {
@@ -1071,7 +1071,7 @@ func TestSubscriber_ReceivesAll(t *testing.T) {
 }
 
 func TestSubscriber_Filtered(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	sub := &testSub{filter: func(m *model.MessageHub) bool { return m.Platform == "wecom" }}
 	svc.Subscribe(context.Background(), sub)
 	r1 := newReq()
@@ -1147,7 +1147,7 @@ func TestWithQueueSize(t *testing.T) {
 // ===========================================
 
 func TestPush_Concurrent(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	// 串行 push 模拟并发提交（测试稳定性考虑，避免锁竞争）
 	for i := 0; i < 20; i++ {
 		r := newReq()
@@ -1173,7 +1173,7 @@ func TestPush_Concurrent(t *testing.T) {
 }
 
 func TestConsume_ConcurrentSafe(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	for i := 0; i < 10; i++ {
 		r := newReq()
 		r.AccountID = "cons-acc"
@@ -1196,7 +1196,7 @@ func TestConsume_ConcurrentSafe(t *testing.T) {
 // ===========================================
 
 func TestEndToEnd_PushListReadStats(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	// 1. 推送 10 条
 	var ids []uint
 	for i := 0; i < 10; i++ {
@@ -1226,7 +1226,7 @@ func TestEndToEnd_PushListReadStats(t *testing.T) {
 }
 
 func TestEndToEnd_IdempotentPush(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	r := newReq()
 	r.MsgID = "idem-e2e"
 	// 5 次重复推送
@@ -1250,7 +1250,7 @@ func TestEndToEnd_IdempotentPush(t *testing.T) {
 }
 
 func TestEndToEnd_FromChannel(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	raw := &RawChannelMessage{
 		Platform: "wecom", AccountID: "agent-1", MsgID: "ch-msg-1",
 		From: "customer-1", FromName: "Customer", Content: "我想要咨询",
@@ -1274,7 +1274,7 @@ func TestEndToEnd_FromChannel(t *testing.T) {
 // ===========================================
 
 func TestPush_AllRequiredFieldsEmpty(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := PushMessageRequest{}
 	_, err := svc.Push(context.Background(), &req)
 	if err == nil {
@@ -1283,7 +1283,7 @@ func TestPush_AllRequiredFieldsEmpty(t *testing.T) {
 }
 
 func TestNormalize_ChinesePlatformName(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Platform = "微信"
 	_, err := svc.Normalize(context.Background(), &req)
@@ -1293,7 +1293,7 @@ func TestNormalize_ChinesePlatformName(t *testing.T) {
 }
 
 func TestNormalize_UppercasePlatform(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Platform = "WECOM"
 	_, err := svc.Normalize(context.Background(), &req)
@@ -1303,7 +1303,7 @@ func TestNormalize_UppercasePlatform(t *testing.T) {
 }
 
 func TestNormalize_DefaultSentAt(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	before := time.Now()
 	req := newReq()
 	msg, _ := svc.Normalize(context.Background(), &req)
@@ -1314,7 +1314,7 @@ func TestNormalize_DefaultSentAt(t *testing.T) {
 }
 
 func TestNormalize_GroupMessage(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.IsGroup = true
 	req.GroupID = "group-001"
@@ -1328,7 +1328,7 @@ func TestNormalize_GroupMessage(t *testing.T) {
 }
 
 func TestNormalize_AIReply(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	req := newReq()
 	req.Direction = "outbound"
 	req.IsAIReply = true
@@ -1343,7 +1343,7 @@ func TestNormalize_AIReply(t *testing.T) {
 }
 
 func TestConsume_WithDBFallback(t *testing.T) {
-	svc, db := newTestService(t)
+	svc, db := newMessageHubTestService(t)
 	// 直接插库，跳过队列
 	db.Create(&model.MessageHub{
 		MsgID:     "db-1",
@@ -1364,7 +1364,7 @@ func TestConsume_WithDBFallback(t *testing.T) {
 }
 
 func TestConsume_ContextCancel(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc, _ := newMessageHubTestService(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err := svc.Consume(ctx, "wecom", "cancel-acc", 1*time.Second)

@@ -617,7 +617,10 @@ func TestBackupService_ExecuteBackup_DirCreationError(t *testing.T) {
 	database := setupBackupServiceTestDB(t)
 	ctx := context.Background()
 	repo := newTestBackupRepository(database)
-	service := &BackupService{backupRepo: repo}
+	service := &BackupService{
+		backupRepo:     repo,
+		backupDataRepo: repository.NewBackupDataRepositoryWithDB(database),
+	}
 
 	// 创建备份记录
 	backup := &model.Backup{

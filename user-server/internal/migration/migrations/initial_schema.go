@@ -173,5 +173,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewLLMRoutingLogsExtendMigration(db))
 	// 2026-07-25:v1.2 出海多语言方案 - glossaries 表 + ai_agents/chat_channels/llm_routing_logs/knowledge_chunks/asset_bundles 多语言字段
 	registry.Register(NewMultilingualI18nMigration(db))
+	// 2026-07-25:v1.2 出海多语言方案 P1-3 - knowledge_chunks.translated_versions 字段（预翻译支持）
+	registry.Register(NewMultilingualI18nP13Migration(db))
 	// 继续添加新的迁移...
 }

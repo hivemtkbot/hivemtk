@@ -53,14 +53,24 @@ func NewSmsDeliveryRepository(db *gorm.DB) SmsDeliveryRepository {
 }
 
 // CreatePortability 创建携号转网记录
+//
+// nil 兜底：db 未注入时静默返回 nil（测试场景），避免 nil pointer panic。
+// 生产环境 db 必须非空（由 NewSmsDeliveryRepository 构造时保证）。
 func (r *smsDeliveryRepo) CreatePortability(ctx context.Context, rec *model.SmsNumberPortabilityRecord) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(rec).Error
 }
 
 // LoadLatestPortability 加载最近 N 条携号转网记录（按 detected_at 倒序）
 //
 // 与原实现一致：不显式 WithContext（原 service 调用 s.db.Order(...).Find(...) 也未带 ctx）。
+// nil 兜底：db 未注入时返回空切片与 nil error，避免 nil pointer panic（测试场景）。
 func (r *smsDeliveryRepo) LoadLatestPortability(ctx context.Context, limit int) ([]model.SmsNumberPortabilityRecord, error) {
+	if r == nil || r.db == nil {
+		return []model.SmsNumberPortabilityRecord{}, nil
+	}
 	rows := []model.SmsNumberPortabilityRecord{}
 	if err := r.db.Order("detected_at DESC").Limit(limit).Find(&rows).Error; err != nil {
 		return nil, err
@@ -69,7 +79,12 @@ func (r *smsDeliveryRepo) LoadLatestPortability(ctx context.Context, limit int) 
 }
 
 // ListPortability 分页查询携号转网记录（按 detected_at 倒序），可选 phone 过滤
+//
+// nil 兜底：db 未注入时返回空结果（测试场景）。
 func (r *smsDeliveryRepo) ListPortability(ctx context.Context, phone string, page, limit int) ([]model.SmsNumberPortabilityRecord, int64, error) {
+	if r == nil || r.db == nil {
+		return []model.SmsNumberPortabilityRecord{}, 0, nil
+	}
 	q := r.db.WithContext(ctx).Model(&model.SmsNumberPortabilityRecord{})
 	if phone != "" {
 		q = q.Where("phone = ?", phone)
@@ -92,7 +107,11 @@ func (r *smsDeliveryRepo) ListPortability(ctx context.Context, phone string, pag
 // GetDeliveryAggregate 聚合时间窗口内的到达率基础指标
 //
 // Raw SQL 与原 service 实现完全一致（含 PostgreSQL FILTER 子句）。
+// nil 兜底：db 未注入时返回错误（service 层 GetDeliveryRateMetrics 期望 error）。
 func (r *smsDeliveryRepo) GetDeliveryAggregate(ctx context.Context, start, end time.Time) (*SmsDeliveryAggregateRow, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("sms delivery repo: db is nil")
+	}
 	var row SmsDeliveryAggregateRow
 	if err := r.db.WithContext(ctx).
 		Table("sms_delivery_statuses").
@@ -111,6 +130,9 @@ func (r *smsDeliveryRepo) GetDeliveryAggregate(ctx context.Context, start, end t
 
 // CountBlacklisted 统计黑名单触达失败数（error_code LIKE 'ERR_4002%'）
 func (r *smsDeliveryRepo) CountBlacklisted(ctx context.Context, start, end time.Time) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
 	var n int64
 	err := r.db.WithContext(ctx).
 		Table("sms_delivery_statuses").
@@ -123,6 +145,9 @@ func (r *smsDeliveryRepo) CountBlacklisted(ctx context.Context, start, end time.
 //
 // 与原实现一致：error_code = 'ERR_4005' OR error_msg LIKE '%携号转网%'
 func (r *smsDeliveryRepo) CountPortabilityFailure(ctx context.Context, start, end time.Time) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
 	var n int64
 	err := r.db.WithContext(ctx).
 		Table("sms_delivery_statuses").
@@ -135,6 +160,9 @@ func (r *smsDeliveryRepo) CountPortabilityFailure(ctx context.Context, start, en
 //
 // Raw SQL 与原 service 实现完全一致（含 PostgreSQL FILTER 子句 + COALESCE）。
 func (r *smsDeliveryRepo) GetCarrierStats(ctx context.Context, start, end time.Time) ([]SmsDeliveryCarrierStatRow, error) {
+	if r == nil || r.db == nil {
+		return []SmsDeliveryCarrierStatRow{}, nil
+	}
 	var rows []SmsDeliveryCarrierStatRow
 	if err := r.db.WithContext(ctx).
 		Table("sms_delivery_statuses").

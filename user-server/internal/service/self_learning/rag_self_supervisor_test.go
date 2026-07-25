@@ -258,7 +258,7 @@ func newSupervisorWithMocks(
 
 // newSwitchSvcWithCache 构造一个 SwitchService 并预填缓存
 func newSwitchSvcWithCache(snap *SwitchSnapshot) (*SwitchService, *mockSwitchRepo) {
-	svc, sr, _ := newTestService(5 * time.Second)
+	svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 	setCache(svc, snap, 0, 0)
 	return svc, sr
 }
@@ -845,7 +845,7 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 
 	// Switch GetStatus 错误传播
 	t.Run("get_status_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1092,7 +1092,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 
 	// Switch GetStatus 错误传播
 	t.Run("get_status_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1539,7 +1539,7 @@ func TestRAGSelfSupervisor_metricDisplayName(t *testing.T) {
 
 func TestRAGSelfSupervisor_ErrorPropagation(t *testing.T) {
 	t.Run("CollectMetrics_GetStatus_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1552,7 +1552,7 @@ func TestRAGSelfSupervisor_ErrorPropagation(t *testing.T) {
 	})
 
 	t.Run("ScanAlerts_GetStatus_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()

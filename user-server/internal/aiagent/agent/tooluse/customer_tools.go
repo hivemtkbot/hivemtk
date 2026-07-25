@@ -86,9 +86,11 @@ func NewCustomerToolDepsWithPort(customer portcontract.CustomerPort, db *gorm.DB
 	return d
 }
 
-// RegisterCustomerTools 注册所有 8 个客户工具到 registry
-func RegisterCustomerTools(registry *ToolRegistry, deps CustomerToolDeps) error {
-	tools := []Tool{
+// BuildCustomerTools 构造全部 8 个客户工具（不注册到 Registry）
+//
+// 调用方：CustomerToolProvider.Provide()
+func BuildCustomerTools(deps CustomerToolDeps) []Tool {
+	return []Tool{
 		NewCustomerSearchTool(deps),
 		NewCustomerGetTool(deps),
 		NewCustomerCreateTool(deps),
@@ -98,6 +100,11 @@ func RegisterCustomerTools(registry *ToolRegistry, deps CustomerToolDeps) error 
 		NewCustomerRemoveTagTool(deps),
 		NewCustomerSegmentTool(deps),
 	}
+}
+
+// RegisterCustomerTools 注册所有 8 个客户工具到 registry
+func RegisterCustomerTools(registry *ToolRegistry, deps CustomerToolDeps) error {
+	tools := BuildCustomerTools(deps)
 	for _, t := range tools {
 		if err := registry.Register(t); err != nil {
 			return fmt.Errorf("注册客户工具 %s 失败：%w", t.Name(), err)

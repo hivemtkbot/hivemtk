@@ -103,8 +103,11 @@ func Setup(r *gin.Engine) {
 	//                                      （reach×20 + pm×3 + customer×8 + knowledge×4 + business×6）
 	//   3) buildSalesEngine(db)        —— 此时 GetGlobalExecutor() 返回非 nil，
 	//                                      SalesEngine 注入 ToolExecutorAdapter 后 Agent Loop (ReAct) 激活
+	//   4) initInferenceOrchestrator()  —— 装配推理闭环编排器（P0 优化：原本死代码，本次激活）
 	initGlobalToolExecutor()
+	initGlobalToolRouter() // P0-1：装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
 	registerAllAgentTools(db.GetDB())
+	initInferenceOrchestrator() // P0 优化：激活推理闭环编排器（P1-6 历史死代码）
 
 	engine := buildSalesEngine(db.GetDB())
 	orchestrator := buildSmartOrchestrator(engine)
@@ -356,6 +359,21 @@ func Setup(r *gin.Engine) {
 		// 文件上传
 		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
 		auth.POST("/upload", controller.UploadFile)
+
+		// 工具链调试与可观测 API（P0 优化）
+		// 文档：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0-2
+		// 端点：/api/agent/tools/{list,get,execute,stats,audit,cost,circuit/reset}
+		setupToolDebugRoutes(auth)
+
+		// 工具权限白名单管理 API（P2-8，原本已实现但未装配，P0 优化激活）
+		// 端点：/api/agent/tools/permission/{default,global,agents}
+		setupToolPermissionRoutes(auth)
+
+		// 推理闭环 API（P1-6，原本已实现但未装配，P0 优化激活）
+		// 端点：/api/agent/inference/{run,stats}
+		// 注意：initInferenceOrchestrator 必须在 router.Setup 早期调用；
+		// 若未初始化，handleInferenceRun 会返回 503。
+		setupInferenceRoutes(auth)
 
 		// 多 AI 智能体架构（MULTI_AI_AGENT_DESIGN）
 		// 使用提前构建的共享 service 实例，确保 AIAgentService 缓存在所有使用方之间一致

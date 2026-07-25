@@ -34,6 +34,10 @@ type TelegramAccountController struct {
 
 // NewTelegramAccountController 创建控制器
 func NewTelegramAccountController(svc *service.TelegramService) *TelegramAccountController {
+	// svc 为 nil 时自动构造默认服务（测试场景：SetTestDB 已设置全局 DB）
+	if svc == nil {
+		svc = service.NewTelegramService(nil)
+	}
 	return &TelegramAccountController{
 		svc: svc,
 	}

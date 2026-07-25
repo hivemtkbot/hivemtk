@@ -21,7 +21,7 @@ func NewPlatformController() *PlatformController {
 	var client *platform.Client
 	merchantKey := platform.GetMerchantKey()
 	if merchantKey != "" {
-		client = platform.NewClient(merchantKey)
+		client = platform.NewPlatformClient(merchantKey)
 	}
 	return &PlatformController{
 		platformClient: client,

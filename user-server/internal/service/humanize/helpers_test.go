@@ -51,7 +51,7 @@ type stubLLMDispatcher struct {
 	capturedPrompts []string
 }
 
-func newStubLLMDispatcher(responses []string) *stubLLMDispatcher {
+func newHumanizeStubLLMDispatcher(responses []string) *stubLLMDispatcher {
 	return &stubLLMDispatcher{
 		responses: responses,
 		model:     "stub-llm-v1",

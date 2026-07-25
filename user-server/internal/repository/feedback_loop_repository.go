@@ -3,13 +3,14 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // FeedbackLoopRepository 反馈闭环域仓储（P0-3 反馈学习相关管理面读模型）
@@ -167,36 +168,28 @@ func (r *FeedbackLoopRepository) PersistFeedback(ctx context.Context, event *mod
 }
 
 // upsertFeedbackSignal 按 session_id 聚合：存在则累加 reward/count，不存在则插入
+//
+// 并发安全修复（TestFeedbackCollector_ConcurrentCollectSync 暴露的 race）：
+// 原实现采用 check-then-act 模式（先 First，再 Create/Save），并发场景下
+// 多个 goroutine 同时进入 First 都返回 ErrRecordNotFound，随后都尝试 Create，
+// 仅一个成功，其余因 unique(session_id) 约束失败，导致 event 回滚、signal_count
+// 偏小、且可能出现 2 条 signal 记录。
+//
+// 修复方案（PostgreSQL 原子 upsert + 行级锁）：
+//  1. INSERT ... ON CONFLICT (session_id) DO NOTHING 先尝试插入；若已存在则 no-op
+//  2. SELECT ... FOR UPDATE 锁定该行（已存在的或刚插入的），串行化后续 UPDATE
+//  3. 在 Go 中合并 breakdown JSON，UPDATE 写回
+//
+// ON CONFLICT 路径下 PostgreSQL 会自动获取行级锁，保证同一 session_id 的并发
+// upsert 串行执行，从而确保 SignalCount 和 AggregatedReward 的最终一致性。
 func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
-	var existing model.FeedbackSignal
-	err := tx.Where("session_id = ?", sig.SessionID).First(&existing).Error
-	if err == nil {
-		existing.AggregatedReward += sig.Reward
-		existing.SignalCount += 1
-		var newBreakdown model.JSONMap
-		if err := json.Unmarshal([]byte(sig.BreakdownJSON), &newBreakdown); err == nil {
-			if existing.SignalBreakdown == nil {
-				existing.SignalBreakdown = model.JSONMap{}
-			}
-			for k, v := range newBreakdown {
-				if cur, ok := existing.SignalBreakdown[k].(float64); ok {
-					if nv, ok := v.(float64); ok {
-						existing.SignalBreakdown[k] = cur + nv
-						continue
-					}
-				}
-				existing.SignalBreakdown[k] = v
-			}
-		}
-		return tx.Save(&existing).Error
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
+	// Step 1: 解析 breakdown JSON
 	var breakdown model.JSONMap
 	if err := json.Unmarshal([]byte(sig.BreakdownJSON), &breakdown); err != nil {
 		breakdown = model.JSONMap{}
 	}
+
+	// Step 2: 尝试 INSERT，若 session_id 已存在则 no-op（DO NOTHING）
 	newSig := model.FeedbackSignal{
 		SessionID:         sig.SessionID,
 		CustomerID:        sig.CustomerID,
@@ -208,7 +201,44 @@ func upsertFeedbackSignal(tx *gorm.DB, sig FeedbackSignalUpsert) error {
 		SignalBreakdown:   breakdown,
 		Outcome:           model.FeedbackSignalOutcomePending,
 	}
-	return tx.Create(&newSig).Error
+	if err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "session_id"}},
+		DoNothing: true,
+	}).Create(&newSig).Error; err != nil {
+		return fmt.Errorf("upsert signal insert: %w", err)
+	}
+
+	// Step 3: SELECT FOR UPDATE 锁定行（无论 Step 2 是插入还是 no-op，此时行必存在）
+	var existing model.FeedbackSignal
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("session_id = ?", sig.SessionID).
+		First(&existing).Error; err != nil {
+		// 理论上不应发生（Step 2 已确保行存在）；若发生则返回错误让事务回滚
+		return fmt.Errorf("upsert signal select for update: %w", err)
+	}
+
+	// Step 4: 若 Step 2 是 no-op（已存在），则累加；若 Step 2 是新插入，则跳过（已写入初值）
+	// 通过 newSig.ID 是否为 0 判断：GORM OnConflict DoNothing 时，若冲突则新插入的 ID 保持 0
+	if newSig.ID == 0 {
+		// 冲突路径：已存在记录，累加 reward/count 并合并 breakdown
+		existing.AggregatedReward += sig.Reward
+		existing.SignalCount += 1
+		if existing.SignalBreakdown == nil {
+			existing.SignalBreakdown = model.JSONMap{}
+		}
+		for k, v := range breakdown {
+			if cur, ok := existing.SignalBreakdown[k].(float64); ok {
+				if nv, ok := v.(float64); ok {
+					existing.SignalBreakdown[k] = cur + nv
+					continue
+				}
+			}
+			existing.SignalBreakdown[k] = v
+		}
+		return tx.Save(&existing).Error
+	}
+	// 新插入路径：Step 2 已写入初值，无需再更新
+	return nil
 }
 
 // ListPendingSuggestions 查询待审核建议（priority >= 给定阈值）

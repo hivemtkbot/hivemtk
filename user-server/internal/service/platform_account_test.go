@@ -251,7 +251,7 @@ func (r *platformAccountRepoForTest) Update(ctx context.Context, account *model.
 }
 
 func (r *platformAccountRepoForTest) Delete(ctx context.Context, id uint)  error {
-	return r.db.Delete(context.Background(), &model.PlatformAccount{}, id).Error
+	return r.db.WithContext(ctx).Delete(&model.PlatformAccount{}, id).Error
 }
 
 func (r *platformAccountRepoForTest) UpdateStatus(ctx context.Context, id uint, status int)  error {

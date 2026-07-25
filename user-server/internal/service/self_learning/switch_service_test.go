@@ -276,7 +276,7 @@ func defaultSwitch() *model.SelfLearningSwitch {
 	}
 }
 
-func newTestService(cacheExp time.Duration) (*SwitchService, *mockSwitchRepo, *mockLogRepo) {
+func newSelfLearningTestService(cacheExp time.Duration) (*SwitchService, *mockSwitchRepo, *mockLogRepo) {
 	sr := &mockSwitchRepo{sw: defaultSwitch()}
 	lr := &mockLogRepo{}
 	svc := NewSwitchService(sr, lr, cacheExp)
@@ -388,7 +388,7 @@ func TestSwitchService_GetStatus(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, sr, _ := newTestService(5 * time.Second)
+			svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 			// 准备 DB 状态
 			sr.sw.AutonomyLevel = c.autonomy
 			sr.sw.EnableRAG = c.enableRAG
@@ -569,7 +569,7 @@ func TestSwitchService_UpdateSwitch(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, sr, _ := newTestService(5 * time.Second)
+			svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 			snap, err := svc.UpdateSwitch(context.Background(), c.req, 42)
 
 			if c.wantErr != nil {
@@ -645,7 +645,7 @@ func TestSwitchService_UpdateSwitch(t *testing.T) {
 
 	// 单独验证 GetOrCreate / Update 错误传播
 	t.Run("get_or_create_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		sr.getOrCreateErr = errors.New("db down")
 		_, err := svc.UpdateSwitch(context.Background(), &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual}, 1)
 		if err == nil || err.Error() != "db down" {
@@ -653,7 +653,7 @@ func TestSwitchService_UpdateSwitch(t *testing.T) {
 		}
 	})
 	t.Run("update_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		sr.updateErr = errors.New("update failed")
 		_, err := svc.UpdateSwitch(context.Background(), &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual}, 1)
 		if err == nil || err.Error() != "update failed" {
@@ -713,7 +713,7 @@ func TestSwitchService_CheckGuardrail(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, _, _ := newTestService(5 * time.Second)
+			svc, _, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{
 				AutonomyLevel:           c.autonomy,
 				EnableRAG:               c.enable,
@@ -770,7 +770,7 @@ func TestSwitchService_CheckGuardrail(t *testing.T) {
 
 	// GetStatus 错误传播
 	t.Run("get_status_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -879,7 +879,7 @@ func TestSwitchService_RecordCorrectionAction(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, sr, _ := newTestService(5 * time.Second)
+			svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 			sr.incrementCorrectionsErr = c.incrCorrErr
 			sr.incrementPromotionsErr = c.incrPromoErr
 			sr.markTriggeredErr = c.markTriggeredErr
@@ -1038,7 +1038,7 @@ func TestSwitchService_EvaluateCircuit(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, sr, _ := newTestService(5 * time.Second)
+			svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 			// 预填缓存，避免 GetStatus 走 DB
 			snap := &SwitchSnapshot{
 				AutonomyLevel:           model.AutonomyLevelAutonomous,
@@ -1086,7 +1086,7 @@ func TestSwitchService_EvaluateCircuit(t *testing.T) {
 
 	// GetStatus 错误传播（缓存为空，走 DB 失败）
 	t.Run("get_status_error", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1104,7 +1104,7 @@ func TestSwitchService_EvaluateCircuit(t *testing.T) {
 
 func TestSwitchService_ResetDailyCounters(t *testing.T) {
 	t.Run("success_resets_all_counters_and_breaker", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		// 预设计数器非零
 		svc.quotaTodayCorrections.Store(50)
 		svc.quotaTodayPromotions.Store(3)
@@ -1144,7 +1144,7 @@ func TestSwitchService_ResetDailyCounters(t *testing.T) {
 	})
 
 	t.Run("repo_error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		sr.resetDailyErr = errors.New("reset db error")
 		svc.quotaTodayCorrections.Store(50)
 
@@ -1235,7 +1235,7 @@ func TestSwitchService_ShouldExecuteAction(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, _, _ := newTestService(5 * time.Second)
+			svc, _, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{
 				AutonomyLevel:       c.autonomy,
 				EnableRAG:           c.enableRAG,
@@ -1270,7 +1270,7 @@ func TestSwitchService_ShouldExecuteAction(t *testing.T) {
 	}
 
 	t.Run("get_status_error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1290,7 +1290,7 @@ func TestSwitchService_IsAutonomous(t *testing.T) {
 	for _, a := range []model.AutonomyLevel{model.AutonomyLevelManual, model.AutonomyLevelSupervised, model.AutonomyLevelAutonomous} {
 		a := a
 		t.Run(string(a), func(t *testing.T) {
-			svc, _, _ := newTestService(5 * time.Second)
+			svc, _, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{AutonomyLevel: a}
 			setCache(svc, snap, 0, 0)
 			got, err := svc.IsAutonomous(context.Background())
@@ -1304,7 +1304,7 @@ func TestSwitchService_IsAutonomous(t *testing.T) {
 		})
 	}
 	t.Run("error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1323,7 +1323,7 @@ func TestSwitchService_IsSupervised(t *testing.T) {
 	for _, a := range []model.AutonomyLevel{model.AutonomyLevelManual, model.AutonomyLevelSupervised, model.AutonomyLevelAutonomous} {
 		a := a
 		t.Run(string(a), func(t *testing.T) {
-			svc, _, _ := newTestService(5 * time.Second)
+			svc, _, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{AutonomyLevel: a}
 			setCache(svc, snap, 0, 0)
 			got, err := svc.IsSupervised(context.Background())
@@ -1337,7 +1337,7 @@ func TestSwitchService_IsSupervised(t *testing.T) {
 		})
 	}
 	t.Run("error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1353,7 +1353,7 @@ func TestSwitchService_IsManual(t *testing.T) {
 	for _, a := range []model.AutonomyLevel{model.AutonomyLevelManual, model.AutonomyLevelSupervised, model.AutonomyLevelAutonomous} {
 		a := a
 		t.Run(string(a), func(t *testing.T) {
-			svc, _, _ := newTestService(5 * time.Second)
+			svc, _, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{AutonomyLevel: a}
 			setCache(svc, snap, 0, 0)
 			got, err := svc.IsManual(context.Background())
@@ -1367,7 +1367,7 @@ func TestSwitchService_IsManual(t *testing.T) {
 		})
 	}
 	t.Run("error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		svc.cacheMu.Lock()
 		svc.cached = nil
 		svc.cacheMu.Unlock()
@@ -1385,7 +1385,7 @@ func TestSwitchService_IsManual(t *testing.T) {
 
 func TestSwitchService_CleanStaleLogs(t *testing.T) {
 	t.Run("delegates_to_repo_with_cutoff", func(t *testing.T) {
-		svc, _, lr := newTestService(5 * time.Second)
+		svc, _, lr := newSelfLearningTestService(5 * time.Second)
 		lr.markStaleResult = 42
 		cutoff := time.Now().Add(-7 * 24 * time.Hour)
 		got, err := svc.CleanStaleLogs(context.Background(), cutoff)
@@ -1401,7 +1401,7 @@ func TestSwitchService_CleanStaleLogs(t *testing.T) {
 	})
 
 	t.Run("propagates_repo_error", func(t *testing.T) {
-		svc, _, lr := newTestService(5 * time.Second)
+		svc, _, lr := newSelfLearningTestService(5 * time.Second)
 		lr.markStaleErr = errors.New("db connection lost")
 		cutoff := time.Now().Add(-7 * 24 * time.Hour)
 		_, err := svc.CleanStaleLogs(context.Background(), cutoff)
@@ -1414,7 +1414,7 @@ func TestSwitchService_CleanStaleLogs(t *testing.T) {
 	})
 
 	t.Run("zero_rows_no_error", func(t *testing.T) {
-		svc, _, lr := newTestService(5 * time.Second)
+		svc, _, lr := newSelfLearningTestService(5 * time.Second)
 		lr.markStaleResult = 0
 		cutoff := time.Now().Add(-7 * 24 * time.Hour)
 		got, err := svc.CleanStaleLogs(context.Background(), cutoff)

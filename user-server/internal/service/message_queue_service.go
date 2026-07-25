@@ -25,9 +25,17 @@ type MessageQueueService struct {
 //
 // 五层架构 §三.5：构造函数保留 db *gorm.DB 参数（调用方不变），
 // 内部创建 repository 实例，service 不再持有 db。
+//
+// 测试场景下 db 为 nil 时使用全局 DB（由 SetTestDB 设置）。
 func NewMessageQueueService(db *gorm.DB) *MessageQueueService {
+	var repo *repository.MessageQueueRepository
+	if db != nil {
+		repo = repository.NewMessageQueueRepositoryWithDB(db)
+	} else {
+		repo = repository.NewMessageQueueRepository()
+	}
 	return &MessageQueueService{
-		repo:   repository.NewMessageQueueRepositoryWithDB(db),
+		repo:   repo,
 		queues: make(map[string][]model.QueuedMessage),
 		status: make(map[string]model.QueueStatus),
 	}

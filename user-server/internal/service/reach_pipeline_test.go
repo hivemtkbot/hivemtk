@@ -951,8 +951,8 @@ func TestExecuteJob_PipelineNotFound(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	// 删除 pipeline
-	db.Delete(context.Background(), pipe)
+	// 删除 pipeline（GORM Delete 第一参数须为模型，context 应通过 WithContext 注入）
+	db.WithContext(context.Background()).Delete(pipe)
 	_, err := svc.ExecuteJob(context.Background(), job.ID)
 	if err == nil {
 		t.Error("expected error when pipeline deleted")
@@ -1677,7 +1677,7 @@ func TestExecuteJob_AfterPipelineDeleted(t *testing.T) {
 	svc, db := newReachTestService(t)
 	pipe, _ := svc.CreatePipeline(context.Background(), newReachPipelineReq("m-001"))
 	job, _ := svc.EnqueueJob(context.Background(), newReachJobReq(pipe.ID))
-	db.Delete(context.Background(), pipe)
+	db.WithContext(context.Background()).Delete(pipe)
 	_, err := svc.ExecuteJob(context.Background(), job.ID)
 	if err != ErrReachPipelineNotFound {
 		t.Errorf("expected ErrReachPipelineNotFound, got %v", err)

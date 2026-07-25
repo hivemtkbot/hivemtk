@@ -13,7 +13,6 @@ type Phrase struct {
 
 var BackendPhrases = map[string]Phrase{
 	"ID 错误":                {ZH: "ID 错误", EN: "ID error", JA: "IDエラー", AR: "خطأ في المعرّف"},
-	"OTA 检查失败:":            {ZH: "OTA 检查失败:", EN: "OTA check failed: ", JA: "OTA チェック失敗: ", AR: "فشل فحص OTA: "},
 	"SalesEngine 未注入":      {ZH: "SalesEngine 未注入", EN: "SalesEngine not injected", JA: "SalesEngine が注入されていません", AR: "لم يتم حقن SalesEngine"},
 	"X-Chat-Visitor-Id 必填": {ZH: "X-Chat-Visitor-Id 必填", EN: "X-Chat-Visitor-Id is required", JA: "X-Chat-Visitor-Id は必須です", AR: "X-Chat-Visitor-Id مطلوب"},
 	"app_key 不能为空":         {ZH: "app_key 不能为空", EN: "app_key cannot be empty", JA: "app_key は必須です", AR: "app_key لا يمكن أن يكون فارغًا"},
@@ -81,7 +80,6 @@ var BackendPhrases = map[string]Phrase{
 	"更新成功":            {ZH: "更新成功", EN: "Updated successfully", JA: "更新しました", AR: "تم التحديث بنجاح"},
 	"更新模板成功":          {ZH: "更新模板成功", EN: "Template updated successfully", JA: "テンプレートを更新しました", AR: "تم تحديث القالب بنجاح"},
 	"未找到授权信息，请先绑定授权码": {ZH: "未找到授权信息，请先绑定授权码", EN: "Authorization info not found, please bind the authorization code first", JA: "認可情報が見つかりません。最初に認可コードを紐付けてください", AR: "لم يتم العثور على معلومات التفويض، يرجى ربط رمز التفويض أولاً"},
-	"未绑定授权码，无法检查 OTA": {ZH: "未绑定授权码，无法检查 OTA", EN: "Authorization code not bound, cannot check OTA", JA: "認可コードが紐付いていないため OTA を確認できません", AR: "رمز التفويض غير مرتبط، لا يمكن فحص OTA"},
 	"查询失败":            {ZH: "查询失败", EN: "Query failed", JA: "照会失敗", AR: "فشل الاستعلام"},
 	"查询成功":            {ZH: "查询成功", EN: "Query successful", JA: "照会しました", AR: "تم الاستعلام بنجاح"},
 	"标记成功":            {ZH: "标记成功", EN: "Marked successfully", JA: "マークしました", AR: "تم التحديد بنجاح"},

@@ -193,7 +193,7 @@ func maskToken(t string) string {
 // secret 由 Telegram 在 X-Telegram-Bot-Api-Secret-Token 头中回传，用于验签。
 // 统一走 channelbot/telegram.Client（与出站发消息同一套 Bot API 实现）。
 func SetWebhook(botToken, webhookURL, secret string) error {
-	if err := telegram.NewClient(botToken).SetWebhook(context.Background(), webhookURL, secret); err != nil {
+	if err := telegram.NewTelegramClient(botToken).SetWebhook(context.Background(), webhookURL, secret); err != nil {
 		logger.Errorf("TG SetWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
 		return err
 	}
@@ -204,7 +204,7 @@ func SetWebhook(botToken, webhookURL, secret string) error {
 // DeleteWebhook 删除 Telegram Webhook（账号禁用 / 删除时清理陈旧回调）。
 // 统一走 channelbot/telegram.Client。
 func DeleteWebhook(botToken string) error {
-	if err := telegram.NewClient(botToken).DeleteWebhook(context.Background()); err != nil {
+	if err := telegram.NewTelegramClient(botToken).DeleteWebhook(context.Background()); err != nil {
 		logger.Errorf("TG DeleteWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
 		return err
 	}
@@ -216,7 +216,7 @@ func DeleteWebhook(botToken string) error {
 // 统一走 channelbot/telegram.Client，该客户端内部会把 AI 生成的 Markdown
 // 转换为 Telegram HTML（parse_mode=HTML），与出站 AI 回复保持一致的渲染效果。
 func SendMessage(botToken string, chatID int64, text string) error {
-	if _, err := telegram.NewClient(botToken).SendMessage(context.Background(), chatID, text); err != nil {
+	if _, err := telegram.NewTelegramClient(botToken).SendMessage(context.Background(), chatID, text); err != nil {
 		logger.Errorf("TG SendMessage 失败 bot=%s chat=%d err=%v", maskToken(botToken), chatID, err)
 		return err
 	}

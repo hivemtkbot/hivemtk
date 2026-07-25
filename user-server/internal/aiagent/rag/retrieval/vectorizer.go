@@ -10,6 +10,9 @@ import (
 	"marketing/internal/aiagent/llm"
 )
 
+// EmbeddingProviderOpenAI 默认 provider：基于 llm.EmbeddingService（OpenAI 兼容）
+const EmbeddingProviderOpenAI = "openai"
+
 // EmbeddingClient 真实向量化客户端(由 LLM 包的 EmbeddingService 提供)
 type EmbeddingClient = llm.EmbeddingServiceInterface
 
@@ -40,6 +43,31 @@ func NewVectorizer(dimension int, embedder EmbeddingClient) *Vectorizer {
 	// 将向量化器维度同步到 embedding 配置,确保离线降级实现与期望维度一致
 	v.config.Dimension = dimension
 	return v
+}
+
+// NewVectorizerFromConfig 根据 provider 配置选择向量化器实现
+//
+// 配置驱动：根据 provider 字段切换实现，不硬编码
+//   - "openai"（默认）：返回 *Vectorizer（基于 llm.EmbeddingService，OpenAI 兼容）
+//   - "bge-m3"：返回 *BGEM3Vectorizer（直接走 OpenAI 兼容 /v1/embeddings，支持 normalize/batch_size）
+//   - 其他值：回退到 "openai" 并记录警告
+//
+// 向后兼容：provider 为空时使用默认 "openai"，行为与 NewVectorizer 一致。
+func NewVectorizerFromConfig(provider string, bgeM3Cfg BGEM3Config) VectorizerInterface {
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	if provider == "" {
+		provider = EmbeddingProviderOpenAI
+	}
+	switch provider {
+	case BGEM3ProviderName:
+		return NewBGEM3Vectorizer(bgeM3Cfg)
+	case EmbeddingProviderOpenAI:
+		fallthrough
+	default:
+		// 默认走 *Vectorizer（基于 llm.EmbeddingService）
+		// 维度跟随 bgeM3Cfg.Dimension（保持与配置一致），<=0 时由 NewVectorizer 兜底 1024
+		return NewVectorizer(bgeM3Cfg.Dimension, nil)
+	}
 }
 
 // EmbedText 将文本转换为向量(真实 API 调用)

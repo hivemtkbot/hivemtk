@@ -337,11 +337,12 @@ type TelegramService struct {
 }
 
 func NewTelegramService(db *gorm.DB) *TelegramService {
-	if db == nil {
-		return &TelegramService{}
-	}
+	// 即使 db 为 nil 也初始化 repository（依赖全局 DB，由 SetTestDB 设置）
+	// 避免测试场景下 svc.accRepo 为 nil 导致 panic
 	r := repository.NewTelegramAccountRepository()
-	r.SetDB(context.Background(), db)
+	if db != nil {
+		r.SetDB(context.Background(), db)
+	}
 	return &TelegramService{accRepo: r}
 }
 
@@ -474,7 +475,7 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 	}
 	// 主动发消息委托独立包 channelbot/telegram（纯协议层）
 	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 R4 出站 client 收敛一致，并使测试可拦截
-	cli := telegram.NewClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
+	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
 	if _, err := cli.SendMessage(ctx, chatID, content); err != nil {
 		now := time.Now()
 		acc.LastErrorAt = &now

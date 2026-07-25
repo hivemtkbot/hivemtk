@@ -8,11 +8,17 @@ on:
     branches: [master, main]
     paths:
       - 'user-server/**'
+      - 'user-web/**'
+      - 'embed-sdk/**'
+      - 'scripts/api-inventory.sh'
       - '.github/workflows/user-server-ci.yml'
   pull_request:
     branches: [master, main]
     paths:
       - 'user-server/**'
+      - 'user-web/**'
+      - 'embed-sdk/**'
+      - 'scripts/api-inventory.sh'
       - '.github/workflows/user-server-ci.yml'
 
 jobs:
@@ -123,3 +129,18 @@ jobs:
       - name: Test
         working-directory: embed-sdk
         run: npm test
+
+  api-inventory:
+    name: API Inventory Compare (M9)
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Generate API inventory
+        run: bash scripts/api-inventory.sh
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-inventory
+          path: api-inventory.md

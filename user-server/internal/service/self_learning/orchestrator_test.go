@@ -245,7 +245,7 @@ func defaultOrchSnap() *SwitchSnapshot {
 
 // newOrchSwitchSvc 构造带缓存 SwitchService + mockSwitchRepo
 func newOrchSwitchSvc(snap *SwitchSnapshot) (*SwitchService, *mockSwitchRepo) {
-	svc, sr, _ := newTestService(5 * time.Second)
+	svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 	setCache(svc, snap, 0, 0)
 	return svc, sr
 }
@@ -893,7 +893,7 @@ func TestOrchestrator_HandleDialogueStarted(t *testing.T) {
 
 	// GetStatus 错误传播（组件内 GetStatus 失败 → Warmup 返回 error → statsFailed）
 	t.Run("get_status_error_propagates_to_failed", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		// 清空缓存，使 GetStatus 走 DB 失败
 		svc.cacheMu.Lock()
 		svc.cached = nil

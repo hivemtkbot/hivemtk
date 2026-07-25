@@ -158,9 +158,10 @@ func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
 	}
 
 	event := &model.MessageEvent{
-		Channel:  model.ChannelTelegram,
-		SenderID: "tg-user-1",
-		Content:  "我被锁住了",
+		SessionID: sessionID,
+		Channel:   model.ChannelTelegram,
+		SenderID:  "tg-user-1",
+		Content:   "我被锁住了",
 	}
 	result, err := svc.HandleIngressMessage(ctx, event)
 	if err != nil {

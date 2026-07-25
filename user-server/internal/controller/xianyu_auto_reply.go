@@ -39,6 +39,10 @@ type XianyuAutoReplyController struct {
 }
 
 func NewXianyuAutoReplyController(svc *service.XianyuAutoReplyService, ragStack *knowledgesvc.RAGStack) *XianyuAutoReplyController {
+	// 测试场景下 svc 为 nil 时自动构造默认服务（依赖全局 DB，由 SetTestDB 设置）
+	if svc == nil {
+		svc = service.NewXianyuAutoReplyService(nil)
+	}
 	return &XianyuAutoReplyController{
 		svc:      svc,
 		manager:  GetAutoReplyManager(),

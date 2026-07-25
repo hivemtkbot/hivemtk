@@ -1,6 +1,7 @@
 package router
 
 import (
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -45,17 +46,108 @@ import (
 //   - Timeout:            30s（单次工具执行上限）
 //   - AuditLogger:        内存版（保留最近 10000 条审计）
 //   - CostTracker:        内存版（运营面板可读取统计）
+//
+// P0 优化：本地持有 memAuditLogger / memCostTracker 引用，
+// 通过 GetGlobalMemoryAuditLogger / GetGlobalMemoryCostTracker 暴露给调试 API（/agent/tools/audit /cost）。
+// 未来切换为 DB 持久化版本时，仅需替换此处构造与暴露函数的实现。
 func initGlobalToolExecutor() {
+	memAuditLogger = tooluse.NewMemoryAuditLogger(10000)
+	memCostTracker = tooluse.NewMemoryCostTracker()
 	config := tooluse.ToolExecutorConfig{
 		DefaultTimeout:    30 * time.Second,
 		PermissionChecker: tooluse.NoOpPermissionChecker{}, // 智能体调用，权限在 SalesEngine 把控
 		RateLimiter:       tooluse.NewTokenBucketLimiter(20, 50),
 		RetryPolicy:       tooluse.NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second),
-		AuditLogger:       tooluse.NewMemoryAuditLogger(10000),
-		CostTracker:       tooluse.NewMemoryCostTracker(),
+		AuditLogger:       memAuditLogger,
+		CostTracker:       memCostTracker,
 	}
-	tooluse.InitGlobalExecutor(tooluse.GetGlobalRegistry(), config)
+	// 注意：tooluse.InitGlobalExecutor 使用 sync.Once 内部创建 ToolExecutor。
+	// 此处改为显式创建并 SetGlobalExecutor，便于本文件持有 logger/tracker 引用。
+	exec := tooluse.NewToolExecutor(tooluse.GetGlobalRegistry(), config)
+	tooluse.SetGlobalExecutor(exec)
 	logger.Info("[agent] ✅ 全局 ToolExecutor 已初始化（装饰器链：权限/限流/重试/超时/审计/计费 全部启用）")
+}
+
+// memAuditLogger / memCostTracker 本文件级引用
+//
+// 在 initGlobalToolExecutor 中创建并注入 ToolExecutor，
+// 同时通过 GetGlobalMemoryAuditLogger / GetGlobalMemoryCostTracker 暴露给调试 API。
+// 替换为 DB 持久化版本时，将这两个变量改为 nil 即可（调试 API 会自动降级返回空数据）。
+var (
+	memAuditLogger *tooluse.MemoryAuditLogger
+	memCostTracker *tooluse.MemoryCostTracker
+)
+
+// GetGlobalMemoryAuditLogger 返回全局内存审计日志器
+//
+// 调用方：tool_debug_routes.go handleToolAudit
+// 未初始化时返回 nil（调用方需 nil-check）
+func GetGlobalMemoryAuditLogger() *tooluse.MemoryAuditLogger {
+	return memAuditLogger
+}
+
+// GetGlobalMemoryCostTracker 返回全局内存计费跟踪器
+//
+// 调用方：tool_debug_routes.go handleToolCost
+// 未初始化时返回 nil（调用方需 nil-check）
+func GetGlobalMemoryCostTracker() *tooluse.MemoryCostTracker {
+	return memCostTracker
+}
+
+// ============================================================================
+// 全局 ToolRouter 装配（P0 优化：激活已实现但未接入的 ToolRouter）
+// ----------------------------------------------------------------------------
+// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0-1
+//
+// ToolRouter（tooluse/tool_router.go）已实现"熔断 + 限流 + 成本统计 + 全局统计"
+// 但历史上从未在 router.Setup 中装配，属于死代码。
+// 本次优化将其接入全局，并暴露 stats / audit / cost API，让运维侧可观测。
+//
+// 设计要点：
+//   - ToolRouter 不替换 ToolExecutor，而是复用其执行能力（Router 持有 executor 引用）
+//   - ToolRouter 提供独立的失败计数熔断（连续失败 5 次冷却 30s）
+//   - ToolRouter 自带统计（TotalCalls / SuccessCalls / FailedCalls / CircuitOpenCalls / TotalCost）
+//   - 不影响 Agent Loop 主路径：Agent Loop 仍走 ToolExecutorAdapter，仅在调试/统计场景使用 Router
+// ============================================================================
+
+var (
+	globalToolRouter     *tooluse.ToolRouter
+	globalToolRouterOnce sync.Once
+)
+
+// initGlobalToolRouter 初始化全局 ToolRouter
+//
+// 调用方：router.Setup() 中，在 initGlobalToolExecutor + registerAllAgentTools 之后调用
+//
+// 装配内容：
+//   - 复用全局 ToolExecutor（不重复创建）
+//   - 复用全局 RateLimiter（与 Executor 同一个 TokenBucket 实例）
+//   - 配置：FailThreshold=5 / CooldownDuration=30s / DefaultToolCost=0.001
+func initGlobalToolRouter() {
+	globalToolRouterOnce.Do(func() {
+		exec := tooluse.GetGlobalExecutor()
+		if exec == nil {
+			logger.Warn("[agent] ⚠️ ToolRouter 跳过初始化：全局 ToolExecutor 未就绪（请检查 initGlobalToolExecutor 调用顺序）")
+			return
+		}
+		globalToolRouter = tooluse.NewToolRouter(
+			exec,
+			tooluse.NewTokenBucketLimiter(20, 50),
+			tooluse.RouterConfig{
+				FailThreshold:    5,
+				CooldownDuration: 30 * time.Second,
+				DefaultToolCost:  0.001,
+			},
+		)
+		logger.Info("[agent] ✅ 全局 ToolRouter 已初始化（熔断阈值 5 / 冷却 30s / 默认成本 0.001）")
+	})
+}
+
+// GetGlobalToolRouter 返回全局 ToolRouter
+//
+// 未初始化时返回 nil（调用方需 nil-check）
+func GetGlobalToolRouter() *tooluse.ToolRouter {
+	return globalToolRouter
 }
 
 // registerAgentCustomerTools 生产接线：把 8 个客户工具接入全局注册中心
@@ -132,12 +224,12 @@ func registerAgentBusinessTools(gormDB *gorm.DB) {
 //
 // 调用方：router.Setup()（在 initGlobalToolExecutor 之后、buildSalesEngine 之前）
 //
-// 注册顺序：reach → pm → customer → knowledge → business
-// 总计：20 + 3 + 8 + 4 + 6 = 41 个工具
+// P0+ 优化：改用 Provider 模式装配（见 tool_provider_wiring.go），
+// 支持第三方包通过 tooluse.RegisterToolProvider 自注册扩展。
+// 原有 5 个 registerAgent*Tools 函数保留作为内部实现细节，由 Provider 包装调用。
+//
+// 注册顺序：reach → pm → customer → knowledge → business → 第三方
+// 内置总计：20 + 3 + 8 + 4 + 5 = 40 个工具（business 实为 5 个，原注释 6 误记）
 func registerAllAgentTools(gormDB *gorm.DB) {
-	registerAgentReachTools(gormDB)
-	registerAgentPrivateMessageTools(gormDB)
-	registerAgentCustomerTools(gormDB)
-	registerAgentKnowledgeTools(gormDB)
-	registerAgentBusinessTools(gormDB)
+	registerAllAgentToolsViaProviders(gormDB)
 }

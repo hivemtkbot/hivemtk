@@ -54,7 +54,7 @@ type stubLLMDispatcher struct {
 	capturedScenarios []string
 }
 
-func newStubLLMDispatcher(responses []string) *stubLLMDispatcher {
+func newFeedbackLoopStubLLMDispatcher(responses []string) *stubLLMDispatcher {
 	return &stubLLMDispatcher{
 		responses: responses,
 		model:     "stub-llm-v1",

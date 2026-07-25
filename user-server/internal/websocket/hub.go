@@ -224,7 +224,7 @@ func (h *Hub) GetOnlineCount() int {
 
 // NewClient 创建客服坐席客户端（保持向后兼容）
 // 推荐使用 NewAgentClient 显式指定类型
-func NewClient(hub *Hub, agentID, agentName string) *Client {
+func NewWSClient(hub *Hub, agentID, agentName string) *Client {
 	return NewAgentClient(hub, agentID, agentName)
 }
 

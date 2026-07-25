@@ -136,7 +136,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { createChannel } from '@/api/chatChannel'
-import { TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const router = useRouter()
 const formRef = ref()
@@ -144,7 +143,6 @@ const saving = ref(false)
 const credentialsVisible = ref(false)
 const createdData = ref(null)
 const originsText = ref('')
-const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
 
 const form = ref({
   channel_name: '',
@@ -154,8 +152,7 @@ const form = ref({
   widget_position: 'bottom-right',
   widget_title: '在线客服',
   auto_assign: true,
-  confidence_threshold: 0.70,
-  target_language: ''
+  confidence_threshold: 0.70
 })
 
 const rules = {

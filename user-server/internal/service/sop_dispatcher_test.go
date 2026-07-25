@@ -381,6 +381,7 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 		SOPID: 1, CustomerID: "c1", Status: SOPStatusRunning,
 		CurrentNode: "stuck_node", StartedAt: now.Add(-48 * time.Hour),
 		LastEventAt: &oldEvent,
+		UpdatedAt:   oldEvent,
 	}
 	db.Create(exec)
 	// 无 pending timer、无近期 sop_exec_events

@@ -18,11 +18,12 @@ type WhatsAppTemplateService struct {
 }
 
 func NewWhatsAppTemplateService(db *gorm.DB) *WhatsAppTemplateService {
-	var repo *repository.WhatsappTemplateRepository
+	// 即使 db 为 nil 也初始化 repo（依赖全局 DB，由 SetTestDB 设置）
+	// 避免测试场景下 ts.repo 为 nil 导致 panic
 	if db != nil {
-		repo = repository.NewWhatsappTemplateRepositoryWithDB(db)
+		return &WhatsAppTemplateService{db: db, repo: repository.NewWhatsappTemplateRepositoryWithDB(db)}
 	}
-	return &WhatsAppTemplateService{db: db, repo: repo}
+	return &WhatsAppTemplateService{db: nil, repo: repository.NewWhatsappTemplateRepository()}
 }
 
 func (ts *WhatsAppTemplateService) CreateTemplate(ctx context.Context, template *model.WhatsappMessageTemplate) (*model.WhatsappMessageTemplate, error) {

@@ -272,7 +272,10 @@
     "assetBundleMerchant": "Merchant Script Pack",
     "assetMarket": "Asset Market",
     "myAssets": "My Assets",
-    "syncLog": "Sync Log"
+    "syncLog": "Sync Log",
+    "i18nManage": "Localization",
+    "glossary": "Glossary",
+    "i18nDashboard": "i18n Monitoring"
   },
   "保存": "Save",
   "提交": "Submit",

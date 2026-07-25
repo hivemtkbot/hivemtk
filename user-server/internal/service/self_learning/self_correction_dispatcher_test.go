@@ -130,7 +130,7 @@ var _ repository.SelfCorrectionActionRepository = (*capActionRepo)(nil)
 // 所有依赖均为 mock；rag/asset/llm corrector 为 nil（可在测试中按需替换）。
 // 缓存预填，避免走 DB；mockSwitchRepo 状态同步，保证 IncrementTodayCorrections 等方法可用。
 func newDispatcherSetup(autonomy model.AutonomyLevel, enableRAG, enableAsset, enableLLM bool) (*SelfCorrectionDispatcher, *SwitchService, *capActionRepo, *mockSwitchRepo) {
-	svc, sr, _ := newTestService(5 * time.Second)
+	svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 	snap := &SwitchSnapshot{
 		AutonomyLevel:           autonomy,
 		EnableRAG:               enableRAG,
@@ -161,7 +161,7 @@ func newDispatcherSetup(autonomy model.AutonomyLevel, enableRAG, enableAsset, en
 // llm 参数为 nil 时，LLMSelfCorrector.llmDispatcher 为 nil（untyped nil interface），
 // CorrectFromSignal 会返回 "llm dispatcher is nil" 错误。
 func newDispatcherWithLLM(autonomy model.AutonomyLevel, llm LLMDispatcher) (*SelfCorrectionDispatcher, *SwitchService, *capActionRepo, *mockSwitchRepo, *LLMSelfCorrector) {
-	svc, sr, _ := newTestService(5 * time.Second)
+	svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 	snap := &SwitchSnapshot{
 		AutonomyLevel:           autonomy,
 		EnableRAG:               true,
@@ -656,7 +656,7 @@ func TestSelfCorrectionDispatcher_DispatchFromSignal_GuardrailBlocked(t *testing
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			svc, sr, _ := newTestService(5 * time.Second)
+			svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 			snap := &SwitchSnapshot{
 				AutonomyLevel:           c.autonomy,
 				EnableRAG:               c.enableRAG,
@@ -710,7 +710,7 @@ func TestSelfCorrectionDispatcher_DispatchFromSignal_GuardrailBlocked(t *testing
 
 func TestSelfCorrectionDispatcher_DispatchFromSignal_ErrorPropagation(t *testing.T) {
 	t.Run("should_execute_action_error_propagates", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		// 清空缓存，强制走 DB
 		svc.cacheMu.Lock()
 		svc.cached = nil
@@ -1272,7 +1272,7 @@ func TestSelfCorrectionDispatcher_ExecuteAction_LLMCorrection(t *testing.T) {
 			// nil_llm_dispatcher 优先处理：构造 LLMSelfCorrector with nil llmDispatcher
 			// 必须在 detail != nil 判断之前，否则会被分支吞掉
 			if c.name == "nil_llm_dispatcher" {
-				svc, sr, _ := newTestService(5 * time.Second)
+				svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 				snap := &SwitchSnapshot{
 					AutonomyLevel:           model.AutonomyLevelAutonomous,
 					EnableRAG:               true,
@@ -1499,7 +1499,7 @@ func TestSelfCorrectionDispatcher_CreatePendingAction(t *testing.T) {
 
 	// 测试 createPendingAction 中 GetStatus 错误时默认 manual
 	t.Run("get_status_error_defaults_to_manual", func(t *testing.T) {
-		svc, sr, _ := newTestService(5 * time.Second)
+		svc, sr, _ := newSelfLearningTestService(5 * time.Second)
 		// 设置缓存使 ShouldExecuteAction 成功，但 createPendingAction 的 GetStatus 失败
 		// 由于缓存命中，GetStatus 不会失败；要测试此路径需清空缓存
 		// 但清空缓存后 ShouldExecuteAction 也会失败

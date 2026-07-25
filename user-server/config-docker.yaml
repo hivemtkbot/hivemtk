@@ -19,11 +19,9 @@ database:
     host: mtk-postgres
     port: 8202
     user: admin
-    # 私域合规基线 §7.2：docker 部署时通过 POSTGRES_PASSWORD 环境变量注入
-    # 禁止明文提交真实密码到 git（docker-compose-example.yml 已配置 POSTGRES_PASSWORD）
-    # 注意：Go 的 os.ExpandEnv 不支持 bash 的 ${VAR:-default} 语法，
-    #       必须确保 POSTGRES_PASSWORD 在容器环境变量中已存在（env_file 已注入）。
-    password: "${POSTGRES_PASSWORD}"
+    # 私域合规基线 §7.2：密码不落配置文件。docker 部署时由 docker-compose 的
+    # env_file / 密钥管理注入 POSTGRES_PASSWORD，app 启动直接读取，
+    # 配置文件不保留 password 字段。
     dbname: user_db
     sslmode: disable
 
@@ -77,3 +75,19 @@ storage:
     secret_key: ""
     bucket: ""
     domain: ""
+
+# 多语言方案配置（v1.2 出海多语言 P1-2）
+# 低资源语言（ar/th/vi/hi/tr）LLM 输出质量不稳定，启用后走 DeepL 翻译降级路径：
+#   中文 RAG 生成 → DeepL 翻译 → Glossary 后处理校准
+# 默认关闭：enabled=false 时不影响主流程，走标准跨语言 LLM 生成路径。
+# 启用条件：enabled=true 且 DEEPL_API_KEY 环境变量已配置。
+i18n:
+  fallback:
+    enabled: false                          # 总开关，默认关闭
+    low_resource_langs: ["ar", "th", "vi", "hi", "tr"]  # 低资源语言列表
+    translator: deepl                       # 翻译引擎（当前仅支持 deepl）
+    deepl:
+      # DeepL API key 通过环境变量注入（合规基线 §7.2 敏感数据脱敏）
+      # 未设置时 FallbackBridge 自动禁用；Free 版需同步改 base_url 为 https://api-free.deepl.com/v2
+      api_key: "${DEEPL_API_KEY}"
+      base_url: "https://api.deepl.com/v2"

@@ -20,11 +20,22 @@ func InitDB() {
 
 	appConfig := config.GetAppConfig()
 
-	// 本系统仅使用 PostgreSQL，统一从 config.yaml / config-docker.yaml 读取
+	// 私域合规基线 §7.2：密码不落配置文件。配置文件不保留 password 字段，
+	// 连接密码仅由运行时从环境变量 POSTGRES_PASSWORD 注入（.env / 密钥管理）。
+	pgPassword := appConfig.Database.Postgres.Password
+	if pgPassword == "" {
+		pgPassword = os.Getenv("POSTGRES_PASSWORD")
+	}
+	if pgPassword == "" {
+		panic("数据库连接密码缺失：配置文件未保留 password 字段，必须由运行时环境变量 POSTGRES_PASSWORD 注入")
+	}
+
+	// 本系统仅使用 PostgreSQL，host/port/user/dbname 统一从配置文件读取，
+	// 密码由上述运行时注入获取
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Shanghai",
 		appConfig.Database.Postgres.Host,
 		appConfig.Database.Postgres.User,
-		appConfig.Database.Postgres.Password,
+		pgPassword,
 		appConfig.Database.Postgres.DBName,
 		appConfig.Database.Postgres.Port,
 		appConfig.Database.Postgres.SSLMode,

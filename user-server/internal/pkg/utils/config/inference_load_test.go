@@ -38,8 +38,8 @@ func TestInferenceConfigLoads(t *testing.T) {
 	if !c.Inference.Rerank.Enabled {
 		t.Fatal("rerank 应启用")
 	}
-	if c.Inference.LLM.Model != "Qwen2.5-3B-Instruct" {
-		t.Fatalf("llm model 应为 Qwen2.5-3B-Instruct，实际 %s", c.Inference.LLM.Model)
+	if c.Inference.LLM.Model != "Qwen2.5-1.5B-Instruct" {
+		t.Fatalf("llm model 应为 Qwen2.5-1.5B-Instruct（dev 档 2026-07-24 优化：3B→1.5B），实际 %s", c.Inference.LLM.Model)
 	}
 	if c.Inference.LLM.BaseURL != "http://127.0.0.1:8207/v1" {
 		t.Fatalf("llm base_url 应为本地 8207，实际 %s", c.Inference.LLM.BaseURL)
