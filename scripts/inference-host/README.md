@@ -1,5 +1,9 @@
 # HiveMtk 宿主机推理栈 —— 使用说明
 
+> ⭐ **推荐方案**(2026-07-24 起):本目录是当前推荐的推理栈部署方式,基于宿主机 llama.cpp,非容器化,节省 CPU/内存。
+>
+> 📦 **与 `scripts/inference/` 的关系**:`scripts/inference/` 是旧版 Docker 容器化推理栈(已弃用,保留兼容)。新部署请使用本目录;旧部署可参考 `scripts/inference/README.md` 了解历史方案。
+>
 > 完整方案：[../../../docs/architecture/HOST_INFERENCE_PLAN.md](../../../docs/architecture/HOST_INFERENCE_PLAN.md)
 
 ## 一、文件清单
@@ -225,3 +229,7 @@ curl http://127.0.0.1:8207/metrics | grep llama
 - macOS 13+ / Ubuntu 22.04+ / Debian 12+
 - 内存：dev 档 ≥ 8G，prod 档 ≥ 16G
 - 磁盘：dev 档 ≥ 6G，prod 档 ≥ 18G（仅模型）
+
+## License
+
+本项目以 AGPL-3.0 发布，详见 [../LICENSE](../LICENSE) 与 [../NOTICE](../NOTICE)。

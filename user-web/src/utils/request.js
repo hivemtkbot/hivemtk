@@ -16,7 +16,7 @@
  *   3. 架构评审 P1-3 约定：`default` 导出仅作向后兼容，新增文件应使用 `{ http }`。
  *      ESLint `no-restricted-imports` 规则可约束新增文件不引入 default 导出。
  *
- * 历史背景：早期 api 文件混用两种风格（43 个文件用 default，39 个用 { http }），
+ * 历史背景：早期 api 文件混用两种风格（43 个文件用 default，33 个用 { http }，另 3 个未导入），
  * 全量回归改造风险高、收益低；故仅以注释 + lint 规则约束新增，存量保持现状。
  */
 import axios from 'axios'

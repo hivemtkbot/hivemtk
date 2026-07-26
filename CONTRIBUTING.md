@@ -29,7 +29,9 @@ cp .env-example .env
 #   POSTGRES_PASSWORD、REDIS_PASSWORD、JWT_SECRET
 
 # 2. 启动本地推理栈
-make inference-up           # 拉起 mtk-llm / mtk-embedding / mtk-rerank（模型档位在 .env 中配置，默认 prod）
+make inference-host-install   # 首次安装 llama.cpp（宿主机推理栈）
+make inference-host-models    # 下载 dev 档模型（Qwen2.5-3B + bge-m3 + bge-reranker-v2-m3）
+make inference-host-up        # 拉起 mtk-llm :8207 / mtk-embedding :8208 / mtk-rerank :8209
 
 # 3. 构建前端
 make web-build              # user-web
@@ -44,27 +46,27 @@ curl http://localhost:8204/health
 
 ### 2.3 代码规范
 
-- 后端 Go 代码：遵循 [docs/standards/BACKEND_CODING_STANDARDS.md](docs/standards/BACKEND_CODING_STANDARDS.md)（如已迁移）
-- 前端 Vue 代码：遵循 [docs/standards/FRONTEND_CODING_STANDARDS.md](docs/standards/FRONTEND_CODING_STANDARDS.md)（如已迁移）
-- 五层架构：Controller → Service → Repository → Model → DTO，**禁止跨层调用**
+- 后端 Go 代码：遵循 [docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md](docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) 五层架构规范
+- 前端 Vue 代码：使用 JavaScript（禁止 TypeScript），遵循 Element Plus 风格
+- 五层架构：Controller → Service → Repository → Model → DTO，**禁止跨层调用**（CI 静态检查：scripts/check-architecture.sh）
 
 ### 2.4 测试
 
 - 后端 API：`go test ./...` + Postman/curl 集成测试
 - 前端 UI：使用 Playwright，详见 `tests/ui/user/`
-- 推理栈连通性：`bash scripts/inference/smoke_test.sh`
+- 推理栈连通性：`make inference-host-test`（宿主机推理栈端到端 smoke test）
 
 ### 2.5 提交流程
 
 1. 从 `main` 创建特性分支：`git checkout -b feature/<name>`
 2. 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)
-3. 推送前自测：`make test` + `make smoke`
+3. 推送前自测：`make inference-host-test`（推理栈端到端 smoke test）
 4. 推送并创建 Merge Request
 
 ## 3. 反馈与支持
 
 - 技术问题：通过 Gitee / GitHub Issue 反馈
-- 安全漏洞：请私下联系 security@hivemtk.com
+- 安全漏洞：请私下联系 jideilvluoqun@gmail.com（详见 [SECURITY.md](SECURITY.md)）
 
 ## 4. 行为准则
 

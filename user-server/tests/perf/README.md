@@ -9,11 +9,11 @@
 ## 快速开始
 
 ```bash
-# 编译运行
-cd user/user-server
+# 编译运行(从仓库根目录)
+cd user-server
 go run ./cmd/perf                          # 跑全部场景
 go run ./cmd/perf -scene=login             # 跑指定场景
-go run ./cmd/perf -base=http://localhost:8080
+go run ./cmd/perf -base=http://localhost:8204
 
 # 指定场景
 go run ./cmd/perf -scene=login
@@ -31,10 +31,10 @@ go build -o perf-test ./cmd/perf/
 
 | 场景名 | 路径 | 方法 | 并发 | 总请求 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| login | `/api/auth/login` | POST | 20 | 500 | 鉴权性能 |
-| customer-list | `/api/customers` | GET | 50 | 1000 | 客户列表查询 |
-| message-list | `/api/messages` | GET | 50 | 1000 | 消息列表查询 |
-| knowledge-query | `/api/knowledge/search` | GET | 30 | 500 | RAG 检索 |
+| login | `/api/v1/auth/login` | POST | 20 | 500 | 鉴权性能 |
+| customer-list | `/api/v1/customer/list` | GET | 50 | 1000 | 客户列表查询 |
+| message-list | `/api/v1/message/list` | GET | 50 | 1000 | 消息列表查询 |
+| knowledge-query | `/api/v1/knowledge/search` | GET | 30 | 500 | RAG 检索 |
 | cdp-event | `/api/v1/events/pageview` | POST | 100 | 2000 | 事件追踪 |
 
 ## 指标说明

@@ -2,8 +2,7 @@
 # User Server Dockerfile (生产优化)
 # - 多阶段构建
 # - PostgreSQL 客户端
-# - 内置 Chromium 用于浏览器自动化
-# - 同时构建 embedding-server 二进制（同一镜像可启动 user-server 或 embedding）
+# - 内置 Chromium 用于浏览器自动化（默认注释，按需开启）
 # ============================================================
 
 # 阶段 1: 构建二进制文件
@@ -23,11 +22,12 @@ RUN go mod download
 
 COPY . .
 
-# 同时构建两个二进制:
-#   - user-server: 主业务服务
-#   - embedding-server: 私域本地 Embedding HTTP 服务（纯 Go，替代 TEI）
-RUN go build -trimpath -buildvcs=false -ldflags="-s -w" -o user-server ./cmd/api/main.go && \
-    go build -trimpath -buildvcs=false -ldflags="-s -w" -o embedding-server ./cmd/embedding-server/main.go
+# 构建 user-server 主业务服务二进制
+# 注：user-server Docker 镜像仅打包 user-server 主二进制；
+# Embedding 能力在 Docker 部署场景由宿主机 llama.cpp / TEI 提供（详见 docs/architecture/HOST_INFERENCE_PLAN.md）。
+# cmd/embedding-server/ 源码仍保留（纯 Go char n-gram TF-IDF 实现），供无 host 推理栈的环境单独构建运行，
+# 但不打入本镜像。
+RUN go build -trimpath -buildvcs=false -ldflags="-s -w" -o user-server ./cmd/api/main.go
 
 # 阶段 2: 运行镜像
 FROM alpine:3.19
@@ -65,9 +65,8 @@ ENV SERVER_PORT=8204
 
 WORKDIR /app
 
-# 同时拷贝 user-server 和 embedding-server
+# 拷贝 user-server 二进制
 COPY --from=builder /app/user-server /app/user-server
-COPY --from=builder /app/embedding-server /app/embedding-server
 COPY --from=builder /app/config-docker.yaml /app/config.yaml
 # 平台配置：main.go 用相对路径 config/platform.yaml 加载（api_url/secret/admin）。
 # 不携带则重建镜像后丢失平台连接，资产市场/我的资产等功能失效。
@@ -79,7 +78,7 @@ COPY --from=builder /app/internal/template /app/internal/template
 # install.lock 由运行时初始化流程写入，并通过 docker-compose 的 INSTALL_LOCK_PATH +
 # 命名卷（/app/data）持久化，保证 recreate 不丢授权。
 
-RUN chmod +x /app/user-server /app/embedding-server 2>/dev/null || true
+RUN chmod +x /app/user-server 2>/dev/null || true
 RUN mkdir -p /app/logs /app/uploads /app/data
 # /data/chromium 仅 chromium 用户数据目录使用，chromium 已注释故不再创建
 # RUN mkdir -p /data/chromium
@@ -93,5 +92,5 @@ USER app
 EXPOSE 8204 80
 # 8206 为 chromium 远程调试端口（CDP），chromium 已注释，暂不暴露
 
-# 默认启动 user-server；embedding 服务通过 docker-compose 覆盖 command
+# 默认启动 user-server
 CMD ["/bin/sh", "-c", "/app/user-server"]

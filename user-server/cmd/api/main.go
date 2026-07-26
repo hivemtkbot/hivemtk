@@ -258,10 +258,12 @@ func main() {
 	// 初始化 4 层记忆系统（P0-13 修复）
 	service.InitMemorySystem(db.GetDB())
 
-	// 注册 Event Bus 订阅者（ADR-008 §2.2 实施点）
-	//   1) AgentRuntime 监听 customer.message.received
+	// 注册 Event Bus 订阅者
+	//   1) AgentRuntime 监听 customer.message.received（仅 AGENT_RUNTIME_BUS_ENABLED=true 时启用）
 	//   2) IncrementalIndexer 监听 knowledge.document.changed
 	// 当前 loader / bridge 均为 nil,使用降级实现(后续任务 2/3 替换)
+	// 注：原注释引用 ADR-008，但 ADR-008 当前不存在（仅有 ADR-001/002/003/004），
+	// Event Bus 订阅者规范对应的 ADR 待补；详见 ARCHITECTURE.md §六。
 	registerEventSubscribers()
 
 	router.Setup(r)
@@ -277,10 +279,10 @@ func main() {
 	}
 }
 
-// registerEventSubscribers 注册 Event Bus 订阅者（ADR-008 §2.2 实施点）
+// registerEventSubscribers 注册 Event Bus 订阅者
 //
 // 启动阶段调用,两个订阅者开始监听:
-//   - agent_runtime.EventSubscriber   → customer.message.received
+//   - agent_runtime.EventSubscriber   → customer.message.received（仅 AGENT_RUNTIME_BUS_ENABLED=true 时启用）
 //   - rag.IncrementalIndexer.Handle    → knowledge.document.changed
 //
 // 当前 loader / bridge 均为 nil,使用降级实现(后续任务 2/3 替换)

@@ -22,7 +22,7 @@
 
 **请勿在公开 Issue 中提交安全漏洞**。请通过以下私密渠道之一报告：
 
-- **邮箱**：security@hivemtk.cn
+- **邮箱**：jideilvluoqun@gmail.com
 - **Gitee 私信**：[@xhpmayun](https://gitee.com/xhpmayun)
 - **GitHub Security Advisory**：使用 GitHub 私密漏洞报告功能
   - GitHub 仓库：[xiaofang142/hivemtk](https://github.com/xiaofang142/hivemtk)
@@ -132,7 +132,7 @@
 - 监控异常登录告警（详见 [docs/marketing-features/anomaly-login-detector.md](docs/marketing-features/anomaly-login-detector.md)）
 - 监控操作日志（详见 [docs/marketing-features/operation-log.md](docs/marketing-features/operation-log.md)）
 - 监控安全审计（详见 [docs/marketing-features/security-audit.md](docs/marketing-features/security-audit.md)）
-- 升级前阅读 `docs/marketing-features/upgrade.md`
+- 升级前阅读升级指南（`docs/marketing-features/upgrade.md`，编写中）
 
 ### 5.3 开发侧
 
@@ -163,6 +163,12 @@
 
 | 渠道 | 入口 | 说明 |
 |------|------|------|
-| 🐛 安全漏洞 | security@hivemtk.cn | 私密报告 |
+| 🐛 安全漏洞 | jideilvluoqun@gmail.com | 私密报告 |
 | 💬 一般问题 | [Gitee Issues](https://gitee.com/xhpmayun/hivemtk/issues) | 公开讨论 |
-| 📧 商务合作 | business@hivemtk.cn | 企业级支持 |
+| 📧 商务合作 | jideilvluoqun@gmail.com | 企业级支持 |
+
+---
+
+## License
+
+本项目以 AGPL-3.0 发布，详见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。

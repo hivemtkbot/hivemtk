@@ -1,4 +1,8 @@
-# 推理栈脚本目录
+# 推理栈脚本目录(Docker 容器化版,已弃用)
+
+> ⚠️ **已弃用**(2026-07-24 起):本目录是旧版 Docker 容器化推理栈脚本,保留用于兼容旧部署。**新部署请使用 [../inference-host/](../inference-host/)** 宿主机推理栈(基于 llama.cpp,非容器化,节省 CPU/内存)。
+>
+> 迁移指南见 [../../../docs/architecture/HOST_INFERENCE_PLAN.md](../../../docs/architecture/HOST_INFERENCE_PLAN.md)。
 
 本目录包含 docker-compose.yml 启动推理栈时所需的全部辅助脚本。
 
@@ -48,3 +52,7 @@ docker exec -it mtk-user-server bash scripts/inference/smoke_test.sh
 1. 在有网络的机器上预先下载模型到 `./models/`
 2. 将整个 `./models/` 目录打包，scp 到生产服务器
 3. `entrypoint.sh` 检测到模型存在时跳过自动下载
+
+## License
+
+本项目以 AGPL-3.0 发布，详见 [../LICENSE](../LICENSE) 与 [../NOTICE](../NOTICE)。

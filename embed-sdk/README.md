@@ -130,17 +130,24 @@ npm run preview
 | `position` / `data-position` | ❌ | `bottom-right` | `bottom-right` \| `bottom-left` |
 | `color` / `data-color` | ❌ | `#1989fa` | 浮标主色（hex） |
 | `title` / `data-title` | ❌ | `在线客服` | 聊天窗标题 |
+| `welcome` / `data-welcome` | ❌ | `您好,请问有什么可以帮您?` | 欢迎语（透传到 iframe） |
+| `lang` / `data-lang` | ❌ | `zh-CN` | `zh-CN` \| `en-US` |
+| `visitorIdKey` / `data-visitor-id-key` | ❌ | `mtk_visitor_id` | localStorage 中访客 UUID 的 key |
 | `zIndex` / `data-z-index` | ❌ | `9999` | 浮标层级 |
 | `offsetX` / `data-offset-x` | ❌ | `24` | 水平边距（px） |
 | `offsetY` / `data-offset-y` | ❌ | `24` | 垂直边距（px） |
+| `width` / `data-width` | ❌ | `380` | 聊天窗宽度（px），移动端自动全屏 |
+| `height` / `data-height` | ❌ | `560` | 聊天窗高度（px），移动端自动全屏 |
+| `allowedOrigins` | ❌ | 自动推导 | postMessage origin 白名单；留空则自动 = [apiBaseURL, window.location.origin] |
+| `events` | ❌ | `{}` | 事件回调集合（onReady/onOpen/onClose/onUnread/onMessage） |
 
 ### 解析优先级
 
-`data-*` 属性 > `window.MarketingChatWidgetConfig` 全局变量 > 内置默认值
+`window.MarketingChatWidgetConfig` 全局变量 > query 参数 > `data-*` 属性 > 内置默认值
 
 ## 🎨 浮标视觉
 
-- 极简白底圆形按钮（48×48 px）
+- 极简白底圆形按钮（56×56 px）
 - 客服气泡 SVG 图标
 - 悬浮轻微阴影变化
 - 完全可定制颜色 / 位置
@@ -150,10 +157,10 @@ npm run preview
 聊天窗以 iframe 形式加载 user-web 的路由：
 
 ```
-{apiBaseURL}/#/chat/embed/{channel_ref}
+${apiBaseURL}/chat/embed/{channel_ref}#/chat/embed/{channel_ref}
 ```
 
-- `channel_ref` 优先用 `appKey`，其次 `channelId`，最后 `default`
+- `channel_ref` 优先用 `channelId`，其次 `appKey`，最后 `default`
 - iframe 模式保证浮标与宿主页面样式完全隔离
 - 跨域情况下通过 `postMessage` 传递消息（保留扩展点）
 
@@ -161,10 +168,10 @@ npm run preview
 
 | 接口 | 用途 |
 |---|---|
-| `POST /api/v1/chat-public/session` | 创建会话（AppKey 鉴权） |
-| `POST /api/v1/chat-public/message` | 发送消息 |
-| `GET /api/v1/chat-public/history` | 拉取历史消息 |
-| `WS /ws/chat-public` | 实时消息推送（私域部署无鉴权） |
+| `POST /api/chat/public/sessions` | 创建会话（AppKey 鉴权） |
+| `POST /api/chat/public/sessions/{id}/messages` | 发送消息 |
+| `GET /api/chat/public/sessions/{id}/messages` | 拉取历史消息 |
+| `WS /api/ws/visitor` | 实时消息推送（私域部署无鉴权） |
 
 ## 🛠 常用命令
 
@@ -193,4 +200,4 @@ make sdk-build     # 等价于 cd embed-sdk && npm install && npm run build
 
 ## 📄 许可证
 
-开源软件（MIT），详见 [../LICENSE](../LICENSE)。
+本项目采用 [GNU Affero General Public License v3.0（AGPL-3.0）](../LICENSE) 发布,与用户端主仓库同协议。详见 [../LICENSE](../LICENSE) 与 [../NOTICE](../NOTICE)。

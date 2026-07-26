@@ -86,7 +86,7 @@ fi
 
 # 1.x 业务端点(开放/非鉴权)
 for path in \
-  "/api/chat/public/visitor/session?channel_id=default" \
+  "/api/chat/public/sessions?channel_id=default" \
   "/api/chat/public/channels" \
   "/api/health" \
   "/api/chat/public/visitor/welcome?channel_id=default" \
@@ -116,7 +116,7 @@ fi
 # ==================== 3. CORS 跨域配置 ====================
 section "3. CORS 跨域配置"
 
-cors_origin=$(curl -sS -D - -o /dev/null "$API/api/chat/public/visitor/session?channel_id=default" \
+cors_origin=$(curl -sS -D - -o /dev/null "$API/api/chat/public/sessions?channel_id=default" \
   -H "Origin: https://www.example.com" --max-time 5 2>/dev/null | grep -i "Access-Control-Allow-Origin" | head -1 | tr -d '\r')
 if [[ -n "$cors_origin" ]]; then
   ok "CORS 已启用: $cors_origin"

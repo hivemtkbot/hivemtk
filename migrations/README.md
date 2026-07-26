@@ -75,3 +75,7 @@
 | `column "xxx" already exists` | 迁移被部分执行后中断 | 使用 `IF NOT EXISTS` 重新执行（已支持幂等） |
 | `extension "vector" is not available` | pgvector 镜像未启用 | 确认使用 `pgvector/pgvector:pg15` 镜像 |
 | `permission denied for extension vector` | 数据库非 superuser | 切换 `admin` / `postgres` 角色建库后，普通用户使用 |
+
+## 开源协议
+
+本目录文件以 **AGPL-3.0** 发布，详见 [../LICENSE](../LICENSE) 与 [../NOTICE](../NOTICE)。

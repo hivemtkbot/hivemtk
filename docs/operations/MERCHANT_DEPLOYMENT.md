@@ -260,7 +260,7 @@ docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
 
 - 官网：https://hivemtk.com
 - 文档：本目录 `docs/INDEX.md`
-- 邮箱：support@hivemtk.com
+- 邮箱：jideilvluoqun@gmail.com
 - 开源仓库：
   - GitHub：https://github.com/xiaofang142/hivemtk
   - Gitee：https://gitee.com/xhpmayun/hivemtk

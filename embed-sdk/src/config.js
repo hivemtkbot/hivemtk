@@ -25,7 +25,7 @@
  * </script>
  * <script src="https://chat.example.com/embed/marketing-chat-widget.iife.js"></script>
  *
- * 解析优先级:data-* 属性 > window.MarketingChatWidgetConfig > query 参数 > 内置默认值
+ * 解析优先级:window.MarketingChatWidgetConfig > query 参数 > data-* 属性 > 内置默认值
  */
 
 /**
