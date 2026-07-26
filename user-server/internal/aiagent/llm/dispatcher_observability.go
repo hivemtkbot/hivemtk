@@ -31,12 +31,12 @@ const (
 	ModelTypeLocal = "local"
 	ModelTypeCloud = "cloud"
 
-	SourceDispatch  = "dispatch"
-	SourceCache     = "cache"
-	SourceFallback  = "fallback"
-	SourceEmpty     = "null"
+	SourceDispatch = "dispatch"
+	SourceCache    = "cache"
+	SourceFallback = "fallback"
+	SourceEmpty    = "null"
 
-	EstimatorCharWeight  = "char_weight"
+	EstimatorCharWeight    = "char_weight"
 	EstimatorEmptyFallback = "empty_fallback"
 )
 
@@ -170,16 +170,16 @@ type LogEntry struct {
 	ErrorMsg         string           `json:"error_msg"`
 	FromCache        bool             `json:"from_cache"`
 	// v3.7.0 扩展字段（本地/云端 token 计量三档、厂商归集、出域审计、降级率统计）
-	ModelType        string  `json:"model_type"`         // local / cloud
-	Vendor           string  `json:"vendor"`             // deepseek/qwen/openai/zhipu/moonshot/local/other
-	BaseURL          string  `json:"base_url"`           // 出域审计
-	IsFallback       bool    `json:"is_fallback"`        // 是否为降级调用（attempted > 1）
-	PromptCost       float64 `json:"prompt_cost"`        // prompt 单价计费
-	CompletionCost   float64 `json:"completion_cost"`    // completion 单价计费
-	TokenSource      string  `json:"token_source"`       // actual / estimated / missing
-	Estimator        string  `json:"estimator"`          // char_weight / empty_fallback
-	Source           string  `json:"source"`             // dispatch / cache / fallback / null
-	ScenarioProvider string  `json:"scenario_provider"`  // 聚合键 (scenario|provider)
+	ModelType        string  `json:"model_type"`        // local / cloud
+	Vendor           string  `json:"vendor"`            // deepseek/qwen/openai/zhipu/moonshot/local/other
+	BaseURL          string  `json:"base_url"`          // 出域审计
+	IsFallback       bool    `json:"is_fallback"`       // 是否为降级调用（attempted > 1）
+	PromptCost       float64 `json:"prompt_cost"`       // prompt 单价计费
+	CompletionCost   float64 `json:"completion_cost"`   // completion 单价计费
+	TokenSource      string  `json:"token_source"`      // actual / estimated / missing
+	Estimator        string  `json:"estimator"`         // char_weight / empty_fallback
+	Source           string  `json:"source"`            // dispatch / cache / fallback / null
+	ScenarioProvider string  `json:"scenario_provider"` // 聚合键 (scenario|provider)
 	// 多语言方案：跨语言生成元数据（由 DispatchRequest 透传，落库审计）
 	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
 	TargetLang      string `json:"target_lang,omitempty"`      // 对外输出语言
@@ -312,12 +312,12 @@ func LogRoutingDecision(ctx context.Context, entry *LogEntry) {
 		"estimator":         entry.Estimator,
 		"source":            entry.Source,
 		"scenario_provider": entry.ScenarioProvider,
-			// 多语言方案字段
-			"internal_lang":    entry.InternalLang,
-			"target_lang":      entry.TargetLang,
-			"cross_lingual":    entry.CrossLingual,
-			"glossary_version": entry.GlossaryVersion,
-			"cache_hit":        entry.CacheHit,
+		// 多语言方案字段
+		"internal_lang":    entry.InternalLang,
+		"target_lang":      entry.TargetLang,
+		"cross_lingual":    entry.CrossLingual,
+		"glossary_version": entry.GlossaryVersion,
+		"cache_hit":        entry.CacheHit,
 	}
 	if err := d.WithContext(context.Background()).Table("llm_routing_logs").Create(row).Error; err != nil {
 		// 写日志失败不阻塞主流程，但记录警告便于排查（如建表失败、字段缺失等）

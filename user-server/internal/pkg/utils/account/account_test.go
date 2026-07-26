@@ -114,12 +114,12 @@ func TestSetAccount_Concurrent(t *testing.T) {
 
 func TestFormateAccountDictData_InvalidPrice(t *testing.T) {
 	account := &model.Account{
-		TgBotToken:   "test_token",
-		Price:        "invalid_price", // 无效的价格
-		ID:           "acc_123",
-		GroupID:      12345678,
-		TgName:       "TestBot",
-		URL:          "http://example.com",
+		TgBotToken: "test_token",
+		Price:      "invalid_price", // 无效的价格
+		ID:         "acc_123",
+		GroupID:    12345678,
+		TgName:     "TestBot",
+		URL:        "http://example.com",
 	}
 
 	// 直接测试价格解析逻辑，不依赖 bot
@@ -179,5 +179,3 @@ func TestAccountDataStruct(t *testing.T) {
 		t.Error("accountData.BotToken not set correctly")
 	}
 }
-
-

@@ -248,7 +248,6 @@ go run ./cmd/routeinspect -format=md > ROUTES.md
 - 架构图 [../docs/architecture/ARCHITECTURE_DIAGRAM.md](../docs/architecture/ARCHITECTURE_DIAGRAM.md)
 - API 契约 [../docs/standards/API_CONTRACT.md](../docs/standards/API_CONTRACT.md)
 - 后端编码规范 [../docs/standards/BACKEND_CODING_STANDARDS.md](../docs/standards/BACKEND_CODING_STANDARDS.md)
-- CHANGELOG [../CHANGELOG.md](../CHANGELOG.md)
 
 ## 📄 许可证
 

@@ -90,11 +90,11 @@ type EscalationHandler interface {
 
 // EscalationResult 转人工结果
 type EscalationResult struct {
-	Locked        bool   `json:"locked"`         // 是否成功加锁
-	Notified      bool   `json:"notified"`       // 是否通知坐席
-	NotifiedStaff []string `json:"notified_staff,omitempty"` // 通知到的坐席
-	FallbackReply string `json:"fallback_reply"` // 转人工后的降级回复（"已为您转接人工客服"）
-	Reason        string `json:"reason"`         // 转人工原因
+	Locked        bool      `json:"locked"`                   // 是否成功加锁
+	Notified      bool      `json:"notified"`                 // 是否通知坐席
+	NotifiedStaff []string  `json:"notified_staff,omitempty"` // 通知到的坐席
+	FallbackReply string    `json:"fallback_reply"`           // 转人工后的降级回复（"已为您转接人工客服"）
+	Reason        string    `json:"reason"`                   // 转人工原因
 	StartedAt     time.Time `json:"started_at"`
 }
 
@@ -125,12 +125,12 @@ type ActionExecutor interface {
 
 // ActionResult 动作执行结果
 type ActionResult struct {
-	Reply         string         `json:"reply"`
-	ReplyType     string         `json:"reply_type"` // text/card/handoff
-	ToolsCalled   []string       `json:"tools_called"`
-	LLMModel      string         `json:"llm_model"`
-	TokensUsed    int            `json:"tokens_used"`
-	Confidence    float64        `json:"confidence"`
-	Duration      time.Duration  `json:"duration_ns"`
-	Extra         map[string]any `json:"extra,omitempty"`
+	Reply       string         `json:"reply"`
+	ReplyType   string         `json:"reply_type"` // text/card/handoff
+	ToolsCalled []string       `json:"tools_called"`
+	LLMModel    string         `json:"llm_model"`
+	TokensUsed  int            `json:"tokens_used"`
+	Confidence  float64        `json:"confidence"`
+	Duration    time.Duration  `json:"duration_ns"`
+	Extra       map[string]any `json:"extra,omitempty"`
 }

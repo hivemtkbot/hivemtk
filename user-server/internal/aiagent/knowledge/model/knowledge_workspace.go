@@ -101,24 +101,24 @@ func (KnowledgeDocument) TableName() string {
 
 // KnowledgeChunk 知识库分段详情
 type KnowledgeChunk struct {
-	ID              uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	DocumentID      uint64    `gorm:"index;not null" json:"document_id"`
-	ProductID       int64     `gorm:"index;not null;default:0" json:"product_id"`
-	ChunkIndex      int       `gorm:"not null" json:"chunk_index"`
-	Content         string    `gorm:"type:text;not null" json:"content"`
-	ContentHash     string    `gorm:"size:64;index" json:"content_hash"`
-	TokenCount      int       `gorm:"default:0" json:"token_count"`
-	CharCount       int       `gorm:"default:0" json:"char_count"`
-	EmbeddingID     string    `gorm:"size:64" json:"embedding_id"`
-	SimilarityScore float64   `gorm:"default:0" json:"similarity_score"`
-	HitCount        int       `gorm:"default:0" json:"hit_count"`
-	Metadata        string    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-	SourceLanguage  string    `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
+	ID              uint64  `gorm:"primaryKey;autoIncrement" json:"id"`
+	DocumentID      uint64  `gorm:"index;not null" json:"document_id"`
+	ProductID       int64   `gorm:"index;not null;default:0" json:"product_id"`
+	ChunkIndex      int     `gorm:"not null" json:"chunk_index"`
+	Content         string  `gorm:"type:text;not null" json:"content"`
+	ContentHash     string  `gorm:"size:64;index" json:"content_hash"`
+	TokenCount      int     `gorm:"default:0" json:"token_count"`
+	CharCount       int     `gorm:"default:0" json:"char_count"`
+	EmbeddingID     string  `gorm:"size:64" json:"embedding_id"`
+	SimilarityScore float64 `gorm:"default:0" json:"similarity_score"`
+	HitCount        int     `gorm:"default:0" json:"hit_count"`
+	Metadata        string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
+	SourceLanguage  string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
 	// TranslatedVersions 预翻译版本（知识库预翻译支持）
 	// 格式：{"en": "translated content", "ja": "..."}
 	// 命中目标语言时返回翻译版本，未命中返回原文 Content。
 	// 默认关闭预翻译，仅高频条目按需翻译后回填此字段。
-	TranslatedVersions JSONMap    `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
+	TranslatedVersions JSONMap   `gorm:"type:jsonb;column:translated_versions" json:"translated_versions,omitempty"`
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 

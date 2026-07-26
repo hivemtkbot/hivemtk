@@ -157,9 +157,9 @@ func (d *DefaultCrisisDetector) Detect(ctx context.Context, ic *InferenceContext
 	}
 
 	return CrisisSignal{
-		Level:     level,
-		Triggers:  triggers,
-		Reason:    reason,
+		Level:      level,
+		Triggers:   triggers,
+		Reason:     reason,
 		DetectedAt: time.Now(),
 	}
 }

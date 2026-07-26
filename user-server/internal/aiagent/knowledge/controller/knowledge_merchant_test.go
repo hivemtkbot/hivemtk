@@ -541,7 +541,7 @@ func TestKM_Playground_WithData(t *testing.T) {
 		SourceType: model.SourceTypeBatch,
 		Status:     1,
 	}
-	ctrl.svc.GetDB().Create( doc)
+	ctrl.svc.GetDB().Create(doc)
 	chunks := []model.KnowledgeChunk{
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "退货政策: 请在订单页面申请退货,7天内处理", ContentHash: "h1", CharCount: 30, TokenCount: 10},
 		{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 1, Content: "运费说明: 满99包邮,否则10元运费", ContentHash: "h2", CharCount: 30, TokenCount: 10},
@@ -549,7 +549,7 @@ func TestKM_Playground_WithData(t *testing.T) {
 	// 生成真实向量并写入 embedding 列（与线上检索一致），否则纯向量检索无命中
 	v := ragretrieval.NewVectorizer(0, nil)
 	for i := range chunks {
-		if err := ctrl.svc.GetDB().Create( &chunks[i]).Error; err != nil {
+		if err := ctrl.svc.GetDB().Create(&chunks[i]).Error; err != nil {
 			t.Fatalf("create chunk: %v", err)
 		}
 		vec, err := v.EmbedText(chunks[i].Content)
@@ -599,8 +599,8 @@ func TestKM_Playground_ThresholdFilter(t *testing.T) {
 	r := setupKMRouter(t, ctrl)
 	pid := knowledgesvc.HashStringToInt64("kb-1")
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Test Doc", SourceType: model.SourceTypeBatch, Status: 1}
-	ctrl.svc.GetDB().Create( doc)
-	ctrl.svc.GetDB().Create( &model.KnowledgeChunk{
+	ctrl.svc.GetDB().Create(doc)
+	ctrl.svc.GetDB().Create(&model.KnowledgeChunk{
 		DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0,
 		Content: "hello world", ContentHash: "h1", CharCount: 11, TokenCount: 2,
 	})
@@ -637,7 +637,7 @@ func TestKM_UpdateChunk_OK(t *testing.T) {
 	r := setupKMRouter(t, ctrl)
 	pid := knowledgesvc.HashStringToInt64("kb-1")
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
-	ctrl.svc.GetDB().Create( doc)
+	ctrl.svc.GetDB().Create(doc)
 	chunk := &model.KnowledgeChunk{
 		DocumentID:  doc.ID,
 		ProductID:   pid,
@@ -648,7 +648,7 @@ func TestKM_UpdateChunk_OK(t *testing.T) {
 		TokenCount:  2,
 		EmbeddingID: "vec_123",
 	}
-	ctrl.svc.GetDB().Create( chunk)
+	ctrl.svc.GetDB().Create(chunk)
 	body := mustJSON(t, map[string]any{"content": "更新后的新内容"})
 	req, _ := http.NewRequest("PUT", fmt.Sprintf("/api/knowledge-merchant/chunks/%d", chunk.ID), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -674,9 +674,9 @@ func TestKM_DeleteChunk_OK(t *testing.T) {
 	r := setupKMRouter(t, ctrl)
 	pid := knowledgesvc.HashStringToInt64("kb-1")
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
-	ctrl.svc.GetDB().Create( doc)
+	ctrl.svc.GetDB().Create(doc)
 	chunk := &model.KnowledgeChunk{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "x", ContentHash: "h1", CharCount: 1, TokenCount: 1}
-	ctrl.svc.GetDB().Create( chunk)
+	ctrl.svc.GetDB().Create(chunk)
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf("/api/knowledge-merchant/chunks/%d", chunk.ID), nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -696,9 +696,9 @@ func TestKM_SplitChunk_OK(t *testing.T) {
 	r := setupKMRouter(t, ctrl)
 	pid := knowledgesvc.HashStringToInt64("kb-1")
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
-	ctrl.svc.GetDB().Create( doc)
+	ctrl.svc.GetDB().Create(doc)
 	original := &model.KnowledgeChunk{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "长内容A长内容B", ContentHash: "h1", CharCount: 10, TokenCount: 3}
-	ctrl.svc.GetDB().Create( original)
+	ctrl.svc.GetDB().Create(original)
 	body := mustJSON(t, map[string]any{"parts": []string{"段A内容", "段B内容"}})
 	req, _ := http.NewRequest("POST", fmt.Sprintf("/api/knowledge-merchant/chunks/%d/split", original.ID), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -721,9 +721,9 @@ func TestKM_ListDocumentChunks_OK(t *testing.T) {
 	r := setupKMRouter(t, ctrl)
 	pid := knowledgesvc.HashStringToInt64("kb-1")
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
-	ctrl.svc.GetDB().Create( doc)
+	ctrl.svc.GetDB().Create(doc)
 	for i := 0; i < 3; i++ {
-		ctrl.svc.GetDB().Create( &model.KnowledgeChunk{
+		ctrl.svc.GetDB().Create(&model.KnowledgeChunk{
 			DocumentID: doc.ID, ProductID: pid, ChunkIndex: i,
 			Content: fmt.Sprintf("chunk %d", i), ContentHash: fmt.Sprintf("h%d", i), CharCount: 8, TokenCount: 2,
 		})

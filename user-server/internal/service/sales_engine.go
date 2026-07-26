@@ -243,7 +243,7 @@ func NewSalesEngine(
 // 后续客户下一条消息或人工接管时更新 CustomerAccept，形成 AI 自我进化闭环
 //
 // P0-1 重构：参数改为 FeedbackRecorderInterface，可注入测试替身实现进行单元测试
-func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorderInterface)  {
+func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorderInterface) {
 	e.feedbackLearner = fl
 }
 
@@ -258,7 +258,7 @@ func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorde
 //   - 任一一票否决规则触发     → 强制转人工
 //
 // 未注入时维持原有静态规则行为（向后兼容）
-func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confidencesvc.ConfidenceAggregator)  {
+func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confidencesvc.ConfidenceAggregator) {
 	e.confidenceAggregator = agg
 }
 
@@ -270,7 +270,7 @@ func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confiden
 //   - 3 次仍不达标 → 转人工 + 收集低质样本
 //
 // 未注入时跳过 Step 7.5（向后兼容）
-func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.HumanizeEvalService)  {
+func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.HumanizeEvalService) {
 	e.humanizeEvaluator = ev
 }
 
@@ -288,7 +288,7 @@ func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.
 //   - 真正的智能体不做流程编排：LLM 自主决定调用哪些工具、何时停止
 //   - 工具调用是 LLM 的可选能力，不是硬编码的步骤序列
 //   - 接口隔离：通过 AgentToolExecutor 接口注入，避免 service ↔ tooluse 循环依赖
-func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecutor)  {
+func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecutor) {
 	e.toolExecutor = exec
 }
 
@@ -565,24 +565,24 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 			resp.HumanizeScore = evalResult.TotalScore
 			resp.HumanizePassed = evalResult.Passed
 			resp.HumanizeAttempt = evalResult.AttemptCount
-		if !evalResult.Passed {
-			// 拟人度未达标：保留 AI 回复并正常下发，不再因“不够拟人”而丢弃回复、转人工。
-			// 设计意图（humanize_init.go 背景说明）：私域/本地 LLM 部署下 LLM 推理成功即应
-			// 自动回复，由真实人工按需接管；若直接转人工且无在线客服，访客将收不到任何回复，
-			// 这与“客服对话必须有返回”的预期相悖。因此此处仅记录评分、保留最优回复并继续
-			// 走发送前审核与下发流程，绝不吞掉已生成的有效回复。
-			resp.HumanizeScore = evalResult.TotalScore
-			resp.HumanizePassed = false
-			resp.HumanizeAttempt = evalResult.AttemptCount
-			if evalResult.FinalReply != "" {
-				finalReply = evalResult.FinalReply
+			if !evalResult.Passed {
+				// 拟人度未达标：保留 AI 回复并正常下发，不再因“不够拟人”而丢弃回复、转人工。
+				// 设计意图（humanize_init.go 背景说明）：私域/本地 LLM 部署下 LLM 推理成功即应
+				// 自动回复，由真实人工按需接管；若直接转人工且无在线客服，访客将收不到任何回复，
+				// 这与“客服对话必须有返回”的预期相悖。因此此处仅记录评分、保留最优回复并继续
+				// 走发送前审核与下发流程，绝不吞掉已生成的有效回复。
+				resp.HumanizeScore = evalResult.TotalScore
+				resp.HumanizePassed = false
+				resp.HumanizeAttempt = evalResult.AttemptCount
+				if evalResult.FinalReply != "" {
+					finalReply = evalResult.FinalReply
+				}
+				resp.Steps = append(resp.Steps, dto.SalesStepLog{
+					Step: "7.5_humanize_eval", Status: "fail_soft", LatencyMs: ms(stepStart),
+					Detail: fmt.Sprintf("拟人度未达标（%.2f < 0.85），保留 AI 回复下发（不转人工）", evalResult.TotalScore),
+				})
+				// 注意：不设置 TransferredToHuman，继续走审核/下发流程
 			}
-			resp.Steps = append(resp.Steps, dto.SalesStepLog{
-				Step: "7.5_humanize_eval", Status: "fail_soft", LatencyMs: ms(stepStart),
-				Detail: fmt.Sprintf("拟人度未达标（%.2f < 0.85），保留 AI 回复下发（不转人工）", evalResult.TotalScore),
-			})
-			// 注意：不设置 TransferredToHuman，继续走审核/下发流程
-		}
 			// 通过评估但可能替换了 finalReply（重生成后达标）
 			if evalResult.FinalReply != "" && evalResult.FinalReply != finalReply {
 				finalReply = evalResult.FinalReply
@@ -752,7 +752,7 @@ func renderSalesScriptSteps(scripts []map[string]interface{}) string {
 
 // SetPlaybook 注入销冠话术库（可选）
 // P0-1 重构：参数改为 PlaybookRecommenderInterface，可注入测试替身实现进行单元测试
-func (e *SalesEngine) SetPlaybook(ctx context.Context, p PlaybookRecommenderInterface)  {
+func (e *SalesEngine) SetPlaybook(ctx context.Context, p PlaybookRecommenderInterface) {
 	e.playbook = p
 }
 
@@ -764,7 +764,7 @@ func (e *SalesEngine) SetPlaybook(ctx context.Context, p PlaybookRecommenderInte
 //   - intent: 当前意图（用于推断异议类型）
 //
 // 返回 3-5 条按成功率排序的话术建议
-func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string)  []*PlaybookEntry {
+func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
 	if e.playbook == nil {
 		return nil
 	}
@@ -772,7 +772,7 @@ func (e *SalesEngine) RecommendPlaybook(ctx context.Context, industry Industry, 
 }
 
 // fetchPlaybookSuggestions 在 Handle 流程中根据客户阶段+意图自动拉取话术建议
-func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string)  []*PlaybookEntry {
+func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Industry, productID string, stage JourneyStage, intent string) []*PlaybookEntry {
 	if e.playbook == nil {
 		return nil
 	}
@@ -1288,7 +1288,7 @@ func extractLastTurnsFromMem(mem *model.DialogueMemory) []string {
 }
 
 // transferReason 转人工原因（兼容旧调用方）
-func (e *SalesEngine) transferReason(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory)  string {
+func (e *SalesEngine) transferReason(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory) string {
 	if intent != nil {
 		switch intent.IntentType {
 		case IntentChurn:
@@ -1399,7 +1399,7 @@ func (e *SalesEngine) ProcessIncomingMessage(ctx context.Context, msg *ChannelMe
 }
 
 // normalizeChannelMessage 渠道特定清洗 → 通用字段
-func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelMessage)  (content, sessionID, customerID string) {
+func (e *SalesEngine) normalizeChannelMessage(ctx context.Context, msg *ChannelMessage) (content, sessionID, customerID string) {
 	// 内容
 	if msg.MediaURL != "" {
 		switch msg.MsgType {

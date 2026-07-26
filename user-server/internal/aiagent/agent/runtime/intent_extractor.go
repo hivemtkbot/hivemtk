@@ -123,8 +123,8 @@ func extractFromBareJSON(reply string) *BusinessIntentResult {
 //   - 非预期字段值类型不强校验（模型可能输出 number 而非 string）
 func parseIntentJSON(raw string) *BusinessIntentResult {
 	var dec struct {
-		Intent       string            `json:"intent"`
-		CapturedData map[string]any    `json:"captured_data"`
+		Intent       string         `json:"intent"`
+		CapturedData map[string]any `json:"captured_data"`
 	}
 	if err := json.Unmarshal([]byte(raw), &dec); err != nil {
 		return nil

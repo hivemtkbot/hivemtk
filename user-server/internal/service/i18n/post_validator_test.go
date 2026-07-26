@@ -275,10 +275,10 @@ func TestApplyGlossary_EmptyMappingValue_Skipped(t *testing.T) {
 	glossary := &GlossaryView{
 		Lang: "en",
 		Mappings: map[string]string{
-			"":        "ignored",  // 空 key 跳过
-			"apple":   "",          // 空 value 跳过
-			"same":    "same",      // key==value 跳过
-			"missing": "iPhone",    // 文本中不存在
+			"":        "ignored", // 空 key 跳过
+			"apple":   "",        // 空 value 跳过
+			"same":    "same",    // key==value 跳过
+			"missing": "iPhone",  // 文本中不存在
 		},
 	}
 	text := "Hello world"

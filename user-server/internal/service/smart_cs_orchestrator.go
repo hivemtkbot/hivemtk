@@ -306,7 +306,7 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 // findOrCreateSession 查找或创建会话
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
 	// 查找活跃会话：直接按 user_id + 活跃状态点查（命中 user_id 索引）。
-	// 性能审计 P1-3：原实现 GetByMerchant("",1,20) 会对全量会话做 COUNT + 取最近 20 条再线性匹配，
+	// GetByMerchant("",1,20) 会对全量会话做 COUNT + 取最近 20 条再线性匹配，
 	// 在 1000 万/日被动回复下每条消息都触发一次全表 COUNT，且只扫 20 条会漏掉用户真实会话。
 	if existing, err := o.sessionRepo.GetActiveByUserID(ctx, in.SenderID); err == nil && existing != nil {
 		return existing, nil

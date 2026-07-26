@@ -75,7 +75,7 @@ func (s *XiaohongshuAutoReplyService) UpsertAccount(ctx context.Context, a *mode
 
 // SaveCookies 保存小红书账号 Cookie
 //
-// R8 修复：新增 userID 参数并校验账号所有权，防止 IDOR。
+// 新增 userID 参数并校验账号所有权，防止 IDOR。
 func (s *XiaohongshuAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {

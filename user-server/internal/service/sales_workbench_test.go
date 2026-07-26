@@ -76,7 +76,7 @@ func TestWorkbench_Todos_Drafts(t *testing.T) {
 		CustomerID: "c2", OwnerID: salesID, ProductName: "水光针", Quantity: 1, UnitPrice: 500,
 	})
 
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if len(overview.Todos) < 2 {
 		t.Errorf("待办应包含 2 个草稿，实际: %d", len(overview.Todos))
 	}
@@ -107,7 +107,7 @@ func TestWorkbench_Todos_Followups(t *testing.T) {
 		Title: "首次跟进", Priority: PriorityNormal,
 	})
 
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	followupCount := 0
 	for _, td := range overview.Todos {
 		if td.Type == "followup" {
@@ -136,7 +136,7 @@ func TestWorkbench_Todos_PrioritySort(t *testing.T) {
 		CustomerID: custID, OwnerID: salesID, ProductName: "P", Quantity: 1, UnitPrice: 1000,
 	})
 
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if len(overview.Todos) < 2 {
 		t.Fatalf("应有至少 2 个待办，实际: %d", len(overview.Todos))
 	}
@@ -163,7 +163,7 @@ func TestWorkbench_Todos_Overdue(t *testing.T) {
 	followup.reminders[r.ID].DueAt = time.Now().Add(-1 * time.Hour)
 	followup.mu.Unlock()
 
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	found := false
 	for _, td := range overview.Todos {
 		if td.Type == "followup" && td.Title == "【逾期】跟进：已逾期" {
@@ -210,7 +210,7 @@ func TestWorkbench_Today(t *testing.T) {
 		CustomerID: "c3", OwnerID: salesID, Result: "no_reply", OccurredAt: time.Now(),
 	})
 
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if overview.Today.NewOrders != 2 {
 		t.Errorf("今日订单应为 2，实际: %d", overview.Today.NewOrders)
 	}
@@ -246,7 +246,7 @@ func TestWorkbench_Month(t *testing.T) {
 		OrderID: "o_last", CustomerID: "c_last", OwnerID: salesID,
 		Amount: 9999, ProductName: "P", OrderedAt: time.Now().AddDate(0, -1, 0),
 	})
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if overview.Month.TotalOrders != 5 {
 		t.Errorf("本月订单应为 5，实际: %d", overview.Month.TotalOrders)
 	}
@@ -279,7 +279,7 @@ func TestWorkbench_AIProduct(t *testing.T) {
 		OrderID: "o_ai", CustomerID: "c1", OwnerID: salesID,
 		Amount: 1000, IsAIHandled: true, OrderedAt: time.Now(),
 	})
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if overview.AIProduct == nil {
 		t.Fatal("AI 产能不应为 nil")
 	}
@@ -315,7 +315,7 @@ func TestWorkbench_Leaderboard(t *testing.T) {
 		})
 	}
 
-	overview := workbench.GetOverview(context.Background(),"sales_mid")
+	overview := workbench.GetOverview(context.Background(), "sales_mid")
 	if len(overview.Leaderboard) != 3 {
 		t.Errorf("排行榜应有 3 人，实际: %d", len(overview.Leaderboard))
 	}
@@ -345,7 +345,7 @@ func TestWorkbench_Funnel(t *testing.T) {
 		_, _ = journey.Transition(context.Background(), "c_funnel_"+intToStr(i),
 			StageWon, "test", "s", "test", nil)
 	}
-	overview := workbench.GetOverview(context.Background(),"s")
+	overview := workbench.GetOverview(context.Background(), "s")
 	if overview.Funnel == nil {
 		t.Fatal("漏斗不应为 nil")
 	}
@@ -382,7 +382,7 @@ func TestWorkbench_Metrics(t *testing.T) {
 	dashboard.RecordFollowUp(context.Background(), FollowUpEvent{
 		CustomerID: "c_new", OwnerID: salesID, IsAI: false, Result: "no_reply", OccurredAt: time.Now(),
 	})
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if overview.Metrics == nil {
 		t.Fatal("关键指标不应为 nil")
 	}
@@ -432,7 +432,7 @@ func TestWorkbench_QuickActions(t *testing.T) {
 // TestWorkbench_NilDependencies 无依赖场景
 func TestWorkbench_NilDependencies(t *testing.T) {
 	workbench := NewSalesWorkbenchService()
-	overview := workbench.GetOverview(context.Background(),"s1")
+	overview := workbench.GetOverview(context.Background(), "s1")
 	if overview == nil {
 		t.Fatal("应返回概览（即使无依赖）")
 	}
@@ -485,7 +485,7 @@ func TestWorkbench_FullLoop(t *testing.T) {
 	})
 
 	// 3. 销售工作台首页
-	overview := workbench.GetOverview(context.Background(),salesID)
+	overview := workbench.GetOverview(context.Background(), salesID)
 	if len(overview.Todos) < 1 {
 		t.Errorf("应有至少 1 个待办，实际: %d", len(overview.Todos))
 	}
@@ -512,7 +512,7 @@ func TestWorkbench_FullLoop(t *testing.T) {
 	}
 
 	// 7. 业绩更新
-	overview2 := workbench.GetOverview(context.Background(),salesID)
+	overview2 := workbench.GetOverview(context.Background(), salesID)
 	if overview2.Today.NewOrders < 1 {
 		t.Errorf("今日订单应≥1，实际: %d", overview2.Today.NewOrders)
 	}
@@ -531,7 +531,7 @@ func TestWorkbench_ConcurrentGetOverview(t *testing.T) {
 	done := make(chan bool, n)
 	for i := 0; i < n; i++ {
 		go func() {
-			_ = workbench.GetOverview(context.Background(),salesID)
+			_ = workbench.GetOverview(context.Background(), salesID)
 			done <- true
 		}()
 	}

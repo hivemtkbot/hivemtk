@@ -18,7 +18,7 @@ func main() {
 	db.InitDB()
 	// 读取smlist 所有列表并循环
 	smlistServer := service.NewSmlistService()
-	smsList, total, err := smlistServer.GetSmlistAllList(context.Background(), )
+	smsList, total, err := smlistServer.GetSmlistAllList(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return

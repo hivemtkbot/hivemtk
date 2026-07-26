@@ -421,8 +421,7 @@ func (s *WeComAccountHealthService) syncAccountState(ctx context.Context, accoun
 	if lastErr != "" {
 		updates["last_error_at"] = time.Now()
 		updates["last_error_msg"] = lastErr
-		// 原实现误用 Raw(...) 把 *gorm.DB 当作 error_count 的值塞进 updates map，
-		// 既不执行 SQL 也产生类型污染。已删除 dead code，直接使用 gorm.Expr 自增。（R5 修复）
+		// 直接使用 gorm.Expr 自增。
 		updates["error_count"] = gorm.Expr("error_count + 1")
 	}
 	if quotaRate > WeComQuotaDegradeThreshold && risk == WeComRiskNormal {

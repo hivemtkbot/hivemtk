@@ -80,8 +80,7 @@ func (c *CounterVec) Range(f func(labels string, value uint64)) {
 
 // HistogramVec 直方图向量
 //
-// 实现说明：原实现使用 buckets map 累积所有观测值，但 Range 仅消费 sums/counts，
-// 导致 buckets 无界增长（内存泄漏）。已移除 buckets 字段，保留 sum/count 聚合，
+// 使用 sum/count 聚合，Range 消费 sums/counts，
 // 与 Prometheus Summary 的 _sum/_count 输出语义一致。
 type HistogramVec struct {
 	mu     sync.RWMutex

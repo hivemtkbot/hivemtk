@@ -41,6 +41,7 @@ import (
 //   - 同一份 dispatcher / db / cache
 //   - 同一份 SOP service 联动
 //   - 同一份 IntentEnabled 开关
+//
 // 避免双实例导致 SOP 联动只在直连路由生效、销售引擎调用不生效的分裂问题。
 func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	dispatcher := llm.GetGlobalDispatcher()

@@ -58,10 +58,10 @@ type SwitchService struct {
 
 	// 内存缓存（atomic 读，避免高频 DB 查询）
 	// 写时通过 mutex 串行化
-	cacheMu   sync.RWMutex
-	cached    *SwitchSnapshot
-	cachedAt  time.Time // 缓存填充时间，用于 TTL 判断（独立于 snap.UpdatedAt）
-	cacheExp  time.Duration
+	cacheMu  sync.RWMutex
+	cached   *SwitchSnapshot
+	cachedAt time.Time // 缓存填充时间，用于 TTL 判断（独立于 snap.UpdatedAt）
+	cacheExp time.Duration
 
 	// 熔断器滑动窗口（最近 N 分钟的失败计数）
 	breakerMu      sync.Mutex
@@ -191,10 +191,10 @@ func (s *SwitchService) UpdateSwitch(ctx context.Context, req *dto.SwitchConfigR
 // CheckGuardrail 护栏检查（其他组件执行矫正动作前必须调用）
 //
 // 检查项：
-//   1. 开关是否启用对应子系统（enable_rag/enable_asset/enable_llm）
-//   2. 熔断器是否开启
-//   3. 今日配额是否耗尽
-//   4. autonomy_level 是否允许自动执行
+//  1. 开关是否启用对应子系统（enable_rag/enable_asset/enable_llm）
+//  2. 熔断器是否开启
+//  3. 今日配额是否耗尽
+//  4. autonomy_level 是否允许自动执行
 //
 // 调用方根据返回的 GuardrailCheckResult.Passed 决定是否继续执行
 func (s *SwitchService) CheckGuardrail(ctx context.Context, actionType model.CorrectionActionType) (*GuardrailCheckResult, error) {

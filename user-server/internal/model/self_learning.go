@@ -54,11 +54,11 @@ const (
 type SelfLearningStatus string
 
 const (
-	SelfLearningStatusPending  SelfLearningStatus = "pending"
-	SelfLearningStatusRunning  SelfLearningStatus = "running"
-	SelfLearningStatusSuccess  SelfLearningStatus = "success"
-	SelfLearningStatusFailed   SelfLearningStatus = "failed"
-	SelfLearningStatusSkipped  SelfLearningStatus = "skipped"
+	SelfLearningStatusPending SelfLearningStatus = "pending"
+	SelfLearningStatusRunning SelfLearningStatus = "running"
+	SelfLearningStatusSuccess SelfLearningStatus = "success"
+	SelfLearningStatusFailed  SelfLearningStatus = "failed"
+	SelfLearningStatusSkipped SelfLearningStatus = "skipped"
 )
 
 // SelfLearningTriggerEvent 触发事件类型
@@ -83,20 +83,20 @@ const (
 //   - input_summary/output_summary 用 JSONB 灵活存储场景特定数据
 //   - trace_id 串联全链路（与 LLM 调用日志 trace_id 对齐）
 type SelfLearningLog struct {
-	ID            uint64                  `gorm:"primaryKey;autoIncrement" json:"id"`
-	LogID         string                  `gorm:"type:varchar(64);uniqueIndex;not null" json:"log_id"`
-	SessionID     string                  `gorm:"type:varchar(64);index;not null" json:"session_id"`
-	TraceID       string                  `gorm:"type:varchar(64);index" json:"trace_id"`
-	Scenario      SelfLearningScenario    `gorm:"type:varchar(32);index;not null" json:"scenario"`
+	ID            uint64                   `gorm:"primaryKey;autoIncrement" json:"id"`
+	LogID         string                   `gorm:"type:varchar(64);uniqueIndex;not null" json:"log_id"`
+	SessionID     string                   `gorm:"type:varchar(64);index;not null" json:"session_id"`
+	TraceID       string                   `gorm:"type:varchar(64);index" json:"trace_id"`
+	Scenario      SelfLearningScenario     `gorm:"type:varchar(32);index;not null" json:"scenario"`
 	TriggerEvent  SelfLearningTriggerEvent `gorm:"type:varchar(32);not null" json:"trigger_event"`
-	Status        SelfLearningStatus      `gorm:"type:varchar(16);index;not null;default:'pending'" json:"status"`
-	InputSummary  JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"input_summary"`
-	OutputSummary JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"output_summary"`
-	ErrorMsg      string                  `gorm:"type:text" json:"error_msg"`
-	DurationMs    int64                   `gorm:"default:0" json:"duration_ms"`
-	StartedAt     time.Time               `gorm:"not null" json:"started_at"`
-	FinishedAt    *time.Time              `json:"finished_at"`
-	CreatedAt     time.Time               `gorm:"autoCreateTime" json:"created_at"`
+	Status        SelfLearningStatus       `gorm:"type:varchar(16);index;not null;default:'pending'" json:"status"`
+	InputSummary  JSONMap                  `gorm:"type:jsonb;default:'{}'" json:"input_summary"`
+	OutputSummary JSONMap                  `gorm:"type:jsonb;default:'{}'" json:"output_summary"`
+	ErrorMsg      string                   `gorm:"type:text" json:"error_msg"`
+	DurationMs    int64                    `gorm:"default:0" json:"duration_ms"`
+	StartedAt     time.Time                `gorm:"not null" json:"started_at"`
+	FinishedAt    *time.Time               `json:"finished_at"`
+	CreatedAt     time.Time                `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // TableName 表名
@@ -123,29 +123,30 @@ const (
 // AssetBundleCandidate 资产包候选实体
 //
 // 来源链路：
-//   dialogue.ended (reward ≥ 2.0 & outcome=converted)
-//        → ChampionDialogueAnalyzer.AnalyzePipeline 提取话术
-//        → scriptsToMessages 打包为 OpenAI ChatML messages
-//        → 写入本表（status=candidate）
-//        → 定时聚类（pgvector similarity ≥ 0.85）
-//        → 簇大小 ≥ 3 → 升级为 A/B 实验
-//        → BanditAllocator 收敛 → promoted_asset_id 写入 asset_bundles
+//
+//	dialogue.ended (reward ≥ 2.0 & outcome=converted)
+//	     → ChampionDialogueAnalyzer.AnalyzePipeline 提取话术
+//	     → scriptsToMessages 打包为 OpenAI ChatML messages
+//	     → 写入本表（status=candidate）
+//	     → 定时聚类（pgvector similarity ≥ 0.85）
+//	     → 簇大小 ≥ 3 → 升级为 A/B 实验
+//	     → BanditAllocator 收敛 → promoted_asset_id 写入 asset_bundles
 type AssetBundleCandidate struct {
-	ID               uint64                      `gorm:"primaryKey;autoIncrement" json:"id"`
-	CandidateID      string                      `gorm:"type:varchar(64);uniqueIndex;not null" json:"candidate_id"`
-	SourceSessionIDs pq.StringArray              `gorm:"type:text[];not null;default:'{}'" json:"source_session_ids"`
-	ExtractedScripts JSONMap                     `gorm:"type:jsonb;not null;default:'[]'" json:"extracted_scripts"`
-	ProposedMessages AssetBundleMessages         `gorm:"type:jsonb;not null;default:'[]'" json:"proposed_messages"`
-	Industry         string                      `gorm:"type:varchar(32);index" json:"industry"`
-	Language         string                      `gorm:"type:varchar(8);not null;default:'zh'" json:"language"`
-	Scenario         string                      `gorm:"type:varchar(32);index" json:"scenario"`
-	ClusterCount     int                         `gorm:"not null;default:0" json:"cluster_count"`
-	RewardSum        float64                     `gorm:"type:decimal(10,3);not null;default:0" json:"reward_sum"`
-	Status           AssetBundleCandidateStatus  `gorm:"type:varchar(16);index;not null;default:'candidate'" json:"status"`
-	ABTestID         string                      `gorm:"type:varchar(64);index" json:"ab_test_id"`
-	PromotedAssetID  string                      `gorm:"type:varchar(64)" json:"promoted_asset_id"`
-	CreatedAt        time.Time                   `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt        time.Time                   `gorm:"autoUpdateTime" json:"updated_at"`
+	ID               uint64                     `gorm:"primaryKey;autoIncrement" json:"id"`
+	CandidateID      string                     `gorm:"type:varchar(64);uniqueIndex;not null" json:"candidate_id"`
+	SourceSessionIDs pq.StringArray             `gorm:"type:text[];not null;default:'{}'" json:"source_session_ids"`
+	ExtractedScripts JSONMap                    `gorm:"type:jsonb;not null;default:'[]'" json:"extracted_scripts"`
+	ProposedMessages AssetBundleMessages        `gorm:"type:jsonb;not null;default:'[]'" json:"proposed_messages"`
+	Industry         string                     `gorm:"type:varchar(32);index" json:"industry"`
+	Language         string                     `gorm:"type:varchar(8);not null;default:'zh'" json:"language"`
+	Scenario         string                     `gorm:"type:varchar(32);index" json:"scenario"`
+	ClusterCount     int                        `gorm:"not null;default:0" json:"cluster_count"`
+	RewardSum        float64                    `gorm:"type:decimal(10,3);not null;default:0" json:"reward_sum"`
+	Status           AssetBundleCandidateStatus `gorm:"type:varchar(16);index;not null;default:'candidate'" json:"status"`
+	ABTestID         string                     `gorm:"type:varchar(64);index" json:"ab_test_id"`
+	PromotedAssetID  string                     `gorm:"type:varchar(64)" json:"promoted_asset_id"`
+	CreatedAt        time.Time                  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time                  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名
@@ -216,23 +217,23 @@ func (t *TrafficSplit) Scan(src any) error {
 //   - candidate_id 关联 asset_bundle_candidates.candidate_id
 //   - BanditAllocator 每 6 小时收敛检查，winner_arm 写入后 completed
 type AssetBundleABTest struct {
-	ID               uint64                   `gorm:"primaryKey;autoIncrement" json:"id"`
-	ExperimentID     string                   `gorm:"type:varchar(64);uniqueIndex;not null" json:"experiment_id"`
-	BaselineAssetID  string                   `gorm:"type:varchar(64);index;not null" json:"baseline_asset_id"`
-	CandidateID      string                   `gorm:"type:varchar(64);index;not null" json:"candidate_id"`
-	Scenario         string                   `gorm:"type:varchar(32);index;not null;default:''" json:"scenario"`
-	TrafficSplit     TrafficSplit             `gorm:"type:jsonb;not null" json:"traffic_split"`
-	Status           AssetBundleABTestStatus  `gorm:"type:varchar(16);index;not null;default:'running'" json:"status"`
-	WinnerArm        ABTestWinnerArm          `gorm:"type:varchar(16)" json:"winner_arm"`
-	BaselineSamples  int                      `gorm:"not null;default:0" json:"baseline_samples"`
-	CandidateSamples int                      `gorm:"not null;default:0" json:"candidate_samples"`
-	BaselineReward   float64                  `gorm:"type:decimal(12,3);not null;default:0" json:"baseline_reward"`
-	CandidateReward  float64                  `gorm:"type:decimal(12,3);not null;default:0" json:"candidate_reward"`
-	StartedAt        time.Time                `gorm:"not null" json:"started_at"`
-	ConvergedAt      *time.Time               `json:"converged_at"`
-	CompletedAt      *time.Time               `json:"completed_at"`
-	CreatedAt        time.Time                `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt        time.Time                `gorm:"autoUpdateTime" json:"updated_at"`
+	ID               uint64                  `gorm:"primaryKey;autoIncrement" json:"id"`
+	ExperimentID     string                  `gorm:"type:varchar(64);uniqueIndex;not null" json:"experiment_id"`
+	BaselineAssetID  string                  `gorm:"type:varchar(64);index;not null" json:"baseline_asset_id"`
+	CandidateID      string                  `gorm:"type:varchar(64);index;not null" json:"candidate_id"`
+	Scenario         string                  `gorm:"type:varchar(32);index;not null;default:''" json:"scenario"`
+	TrafficSplit     TrafficSplit            `gorm:"type:jsonb;not null" json:"traffic_split"`
+	Status           AssetBundleABTestStatus `gorm:"type:varchar(16);index;not null;default:'running'" json:"status"`
+	WinnerArm        ABTestWinnerArm         `gorm:"type:varchar(16)" json:"winner_arm"`
+	BaselineSamples  int                     `gorm:"not null;default:0" json:"baseline_samples"`
+	CandidateSamples int                     `gorm:"not null;default:0" json:"candidate_samples"`
+	BaselineReward   float64                 `gorm:"type:decimal(12,3);not null;default:0" json:"baseline_reward"`
+	CandidateReward  float64                 `gorm:"type:decimal(12,3);not null;default:0" json:"candidate_reward"`
+	StartedAt        time.Time               `gorm:"not null" json:"started_at"`
+	ConvergedAt      *time.Time              `json:"converged_at"`
+	CompletedAt      *time.Time              `json:"completed_at"`
+	CreatedAt        time.Time               `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time               `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名
@@ -271,12 +272,12 @@ const (
 //   - SourceSessionIDs  来源会话 ID 列表（销冠补录时记录来源）
 //   - LastRewardAt      最后一次奖励更新时间
 type KnowledgeChunkExt struct {
-	QualityScore      float64                     `gorm:"column:quality_score;not null;default:0"`
-	QualityLabel      KnowledgeChunkQualityLabel  `gorm:"column:quality_label;type:varchar(16);not null;default:'normal'"`
-	LowQualityHits    int                         `gorm:"column:low_quality_hits;not null;default:0"`
-	ChampionHits      int                         `gorm:"column:champion_hits;not null;default:0"`
-	SourceSessionIDs  pq.StringArray              `gorm:"column:source_session_ids;type:text[];not null;default:'{}'"`
-	LastRewardAt      *time.Time                  `gorm:"column:last_reward_at"`
+	QualityScore     float64                    `gorm:"column:quality_score;not null;default:0"`
+	QualityLabel     KnowledgeChunkQualityLabel `gorm:"column:quality_label;type:varchar(16);not null;default:'normal'"`
+	LowQualityHits   int                        `gorm:"column:low_quality_hits;not null;default:0"`
+	ChampionHits     int                        `gorm:"column:champion_hits;not null;default:0"`
+	SourceSessionIDs pq.StringArray             `gorm:"column:source_session_ids;type:text[];not null;default:'{}'"`
+	LastRewardAt     *time.Time                 `gorm:"column:last_reward_at"`
 }
 
 // TableName 同 KnowledgeChunk（仅用于 GORM 字段映射）
@@ -311,27 +312,27 @@ const (
 
 // SelfLearningSwitch 自我学习统一开关（单例）
 type SelfLearningSwitch struct {
-	ID                     uint64         `gorm:"primaryKey" json:"id"` // 固定为 1
-	AutonomyLevel          AutonomyLevel  `gorm:"type:varchar(16);not null;default:'manual'" json:"autonomy_level"`
-	EnableRAG              bool           `gorm:"not null;default:false" json:"enable_rag"`
-	EnableAsset            bool           `gorm:"not null;default:false" json:"enable_asset"`
-	EnableLLM              bool           `gorm:"not null;default:false" json:"enable_llm"`
-	MaxDailyCorrections    int            `gorm:"not null;default:100" json:"max_daily_corrections"`
-	MaxDailyPromotions     int            `gorm:"not null;default:5" json:"max_daily_promotions"`
-	LowQualityThreshold    float64        `gorm:"type:decimal(8,3);not null;default:3.0" json:"low_quality_threshold"`
+	ID                      uint64        `gorm:"primaryKey" json:"id"` // 固定为 1
+	AutonomyLevel           AutonomyLevel `gorm:"type:varchar(16);not null;default:'manual'" json:"autonomy_level"`
+	EnableRAG               bool          `gorm:"not null;default:false" json:"enable_rag"`
+	EnableAsset             bool          `gorm:"not null;default:false" json:"enable_asset"`
+	EnableLLM               bool          `gorm:"not null;default:false" json:"enable_llm"`
+	MaxDailyCorrections     int           `gorm:"not null;default:100" json:"max_daily_corrections"`
+	MaxDailyPromotions      int           `gorm:"not null;default:5" json:"max_daily_promotions"`
+	LowQualityThreshold     float64       `gorm:"type:decimal(8,3);not null;default:3.0" json:"low_quality_threshold"`
 	ChampionRewardThreshold float64       `gorm:"type:decimal(8,3);not null;default:1.5" json:"champion_reward_threshold"`
-	ABTestMinSamples       int            `gorm:"not null;default:100" json:"ab_test_min_samples"`
+	ABTestMinSamples        int           `gorm:"not null;default:100" json:"ab_test_min_samples"`
 	CircuitBreakerThreshold float64       `gorm:"type:decimal(5,3);not null;default:0.300" json:"circuit_breaker_threshold"`
 	CircuitBreakerWindowMin int           `gorm:"not null;default:30" json:"circuit_breaker_window_min"`
 	// 运行时状态（不持久化计算字段，由 service 实时更新）
-	CircuitOpen         bool       `gorm:"not null;default:false" json:"circuit_open"`
-	TodayCorrections    int        `gorm:"not null;default:0" json:"today_corrections"`
-	TodayPromotions     int        `gorm:"not null;default:0" json:"today_promotions"`
-	TodayResetAt        *time.Time `json:"today_reset_at"`
-	LastTriggeredAt     *time.Time `json:"last_triggered_at"`
-	UpdatedBy           uint       `json:"updated_by"`
-	CreatedAt           time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt           time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	CircuitOpen      bool       `gorm:"not null;default:false" json:"circuit_open"`
+	TodayCorrections int        `gorm:"not null;default:0" json:"today_corrections"`
+	TodayPromotions  int        `gorm:"not null;default:0" json:"today_promotions"`
+	TodayResetAt     *time.Time `json:"today_reset_at"`
+	LastTriggeredAt  *time.Time `json:"last_triggered_at"`
+	UpdatedBy        uint       `json:"updated_by"`
+	CreatedAt        time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名
@@ -349,38 +350,39 @@ func (SelfLearningSwitch) TableName() string { return "self_learning_switch" }
 type SupervisionTargetType string
 
 const (
-	SupervisionTargetRAG       SupervisionTargetType = "rag"        // RAG 监督
-	SupervisionTargetAsset     SupervisionTargetType = "asset"      // 资产包监督
-	SupervisionTargetLLM       SupervisionTargetType = "llm"        // LLM 监督
-	SupervisionTargetHybrid    SupervisionTargetType = "hybrid"     // 混合监督
+	SupervisionTargetRAG    SupervisionTargetType = "rag"    // RAG 监督
+	SupervisionTargetAsset  SupervisionTargetType = "asset"  // 资产包监督
+	SupervisionTargetLLM    SupervisionTargetType = "llm"    // LLM 监督
+	SupervisionTargetHybrid SupervisionTargetType = "hybrid" // 混合监督
 )
 
 // SupervisionMetricName 监督指标名常量
 //
 // 指标维度划分（v1.1 §7.2 三位一体监督）：
-//   RAG 4 维：
-//     1. recall_precision     召回精度（基于反馈信号）
-//     2. recall_coverage      召回覆盖（关键词覆盖率）
-//     3. generation_fidelity  生成忠实度（LLM-as-Judge 采样）
-//     4. answer_relevance     答案相关性（LLM-as-Judge 采样）
-//   AssetBundle 5 维（资产包专属监督）：
-//     5. asset_effectiveness  资产包效能（综合反馈奖励）
-//     6. asset_adoption       资产包采纳率（销冠采用比例）
-//     7. asset_conversion     资产包转化率（转化成功比例）
-//     8. asset_complaint      资产包投诉率（负反馈比例，越低越好）
-//     9. asset_freshness      资产包新鲜度（最近使用时间衰减）
-//    10. asset_ab_converge    A/B 实验收敛度（实验健康度）
+//
+//	RAG 4 维：
+//	  1. recall_precision     召回精度（基于反馈信号）
+//	  2. recall_coverage      召回覆盖（关键词覆盖率）
+//	  3. generation_fidelity  生成忠实度（LLM-as-Judge 采样）
+//	  4. answer_relevance     答案相关性（LLM-as-Judge 采样）
+//	AssetBundle 5 维（资产包专属监督）：
+//	  5. asset_effectiveness  资产包效能（综合反馈奖励）
+//	  6. asset_adoption       资产包采纳率（销冠采用比例）
+//	  7. asset_conversion     资产包转化率（转化成功比例）
+//	  8. asset_complaint      资产包投诉率（负反馈比例，越低越好）
+//	  9. asset_freshness      资产包新鲜度（最近使用时间衰减）
+//	 10. asset_ab_converge    A/B 实验收敛度（实验健康度）
 const (
-	SupervisionMetricRecallPrecision    = "recall_precision"     // RAG 召回精度
-	SupervisionMetricRecallCoverage     = "recall_coverage"      // RAG 召回覆盖
-	SupervisionMetricGenerationFidelity = "generation_fidelity"  // RAG 生成忠实度
-	SupervisionMetricAnswerRelevance    = "answer_relevance"     // RAG 答案相关性
-	SupervisionMetricAssetEffectiveness = "asset_effectiveness"  // 资产包效能（综合反馈）
-	SupervisionMetricAssetAdoption      = "asset_adoption"       // 资产包采纳率
-	SupervisionMetricAssetConversion    = "asset_conversion"     // 资产包转化率
-	SupervisionMetricAssetComplaint     = "asset_complaint"      // 资产包投诉率（越低越好）
-	SupervisionMetricAssetFreshness     = "asset_freshness"      // 资产包新鲜度
-	SupervisionMetricAssetABConverge    = "asset_ab_converge"    // A/B 实验收敛度
+	SupervisionMetricRecallPrecision    = "recall_precision"    // RAG 召回精度
+	SupervisionMetricRecallCoverage     = "recall_coverage"     // RAG 召回覆盖
+	SupervisionMetricGenerationFidelity = "generation_fidelity" // RAG 生成忠实度
+	SupervisionMetricAnswerRelevance    = "answer_relevance"    // RAG 答案相关性
+	SupervisionMetricAssetEffectiveness = "asset_effectiveness" // 资产包效能（综合反馈）
+	SupervisionMetricAssetAdoption      = "asset_adoption"      // 资产包采纳率
+	SupervisionMetricAssetConversion    = "asset_conversion"    // 资产包转化率
+	SupervisionMetricAssetComplaint     = "asset_complaint"     // 资产包投诉率（越低越好）
+	SupervisionMetricAssetFreshness     = "asset_freshness"     // 资产包新鲜度
+	SupervisionMetricAssetABConverge    = "asset_ab_converge"   // A/B 实验收敛度
 )
 
 // SupervisionSignalStatus 监督信号状态
@@ -397,21 +399,21 @@ const (
 // 按 (target_type, metric_name, bucket_hour) 聚合
 // bucket_hour: 按小时分桶，便于时序看板与告警
 type SelfSupervisionSignal struct {
-	ID            uint64                  `gorm:"primaryKey;autoIncrement" json:"id"`
-	SignalID      string                  `gorm:"type:varchar(64);uniqueIndex;not null" json:"signal_id"`
-	TargetType    SupervisionTargetType   `gorm:"type:varchar(16);index;not null" json:"target_type"`
-	TargetID      string                  `gorm:"type:varchar(64);index;default:''" json:"target_id"` // asset_id / scenario / 空（全局）
-	MetricName    string                  `gorm:"type:varchar(32);index;not null" json:"metric_name"`
-	BucketHour    time.Time               `gorm:"type:timestamptz;index;not null" json:"bucket_hour"` // 按小时分桶
-	Value         float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"value"`
-	Baseline      float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"baseline"`
-	Threshold     float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"threshold"`
-	SampleCount   int64                   `gorm:"not null;default:0" json:"sample_count"`
-	Status        SupervisionSignalStatus `gorm:"type:varchar(16);index;not null;default:'normal'" json:"status"`
-	TraceIDs      pq.StringArray          `gorm:"type:text[];not null;default:'{}'" json:"trace_ids"` // 触发 trace 列表（前 10）
-	Detail        JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"detail"`              // 详细分位数/P50/P95 等
-	CreatedAt     time.Time               `gorm:"autoCreateTime;index" json:"created_at"`
-	UpdatedAt     time.Time               `gorm:"autoUpdateTime" json:"updated_at"`
+	ID          uint64                  `gorm:"primaryKey;autoIncrement" json:"id"`
+	SignalID    string                  `gorm:"type:varchar(64);uniqueIndex;not null" json:"signal_id"`
+	TargetType  SupervisionTargetType   `gorm:"type:varchar(16);index;not null" json:"target_type"`
+	TargetID    string                  `gorm:"type:varchar(64);index;default:''" json:"target_id"` // asset_id / scenario / 空（全局）
+	MetricName  string                  `gorm:"type:varchar(32);index;not null" json:"metric_name"`
+	BucketHour  time.Time               `gorm:"type:timestamptz;index;not null" json:"bucket_hour"` // 按小时分桶
+	Value       float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"value"`
+	Baseline    float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"baseline"`
+	Threshold   float64                 `gorm:"type:decimal(10,4);not null;default:0" json:"threshold"`
+	SampleCount int64                   `gorm:"not null;default:0" json:"sample_count"`
+	Status      SupervisionSignalStatus `gorm:"type:varchar(16);index;not null;default:'normal'" json:"status"`
+	TraceIDs    pq.StringArray          `gorm:"type:text[];not null;default:'{}'" json:"trace_ids"` // 触发 trace 列表（前 10）
+	Detail      JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"detail"`              // 详细分位数/P50/P95 等
+	CreatedAt   time.Time               `gorm:"autoCreateTime;index" json:"created_at"`
+	UpdatedAt   time.Time               `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名
@@ -429,47 +431,47 @@ func (SelfSupervisionSignal) TableName() string { return "self_supervision_signa
 type CorrectionActionType string
 
 const (
-	CorrectionRetrieveRetry    CorrectionActionType = "retrieve_retry"         // 检索重试
-	CorrectionQueryRewrite     CorrectionActionType = "query_rewrite"          // 查询改写
-	CorrectionChunkArchive     CorrectionActionType = "chunk_archive"          // 语料归档
-	CorrectionChampionUpsert   CorrectionActionType = "chunk_champion_upsert"  // 销冠补录
-	CorrectionAssetPromote     CorrectionActionType = "asset_promote"          // 资产包晋升
-	CorrectionAssetRollback    CorrectionActionType = "asset_rollback"         // 资产包回滚
-	CorrectionLLMCorrection    CorrectionActionType = "llm_correction"         // LLM 自我矫正
+	CorrectionRetrieveRetry  CorrectionActionType = "retrieve_retry"        // 检索重试
+	CorrectionQueryRewrite   CorrectionActionType = "query_rewrite"         // 查询改写
+	CorrectionChunkArchive   CorrectionActionType = "chunk_archive"         // 语料归档
+	CorrectionChampionUpsert CorrectionActionType = "chunk_champion_upsert" // 销冠补录
+	CorrectionAssetPromote   CorrectionActionType = "asset_promote"         // 资产包晋升
+	CorrectionAssetRollback  CorrectionActionType = "asset_rollback"        // 资产包回滚
+	CorrectionLLMCorrection  CorrectionActionType = "llm_correction"        // LLM 自我矫正
 )
 
 // CorrectionActionStatus 矫正动作状态
 type CorrectionActionStatus string
 
 const (
-	CorrectionStatusPending    CorrectionActionStatus = "pending"      // 待执行（supervised 模式待人工确认）
-	CorrectionStatusApplied    CorrectionActionStatus = "applied"      // 已执行
-	CorrectionStatusRolledBack CorrectionActionStatus = "rolled_back"  // 已回滚
-	CorrectionStatusFailed     CorrectionActionStatus = "failed"       // 执行失败
-	CorrectionStatusSkipped    CorrectionActionStatus = "skipped"      // 跳过（护栏拦截）
+	CorrectionStatusPending    CorrectionActionStatus = "pending"     // 待执行（supervised 模式待人工确认）
+	CorrectionStatusApplied    CorrectionActionStatus = "applied"     // 已执行
+	CorrectionStatusRolledBack CorrectionActionStatus = "rolled_back" // 已回滚
+	CorrectionStatusFailed     CorrectionActionStatus = "failed"      // 执行失败
+	CorrectionStatusSkipped    CorrectionActionStatus = "skipped"     // 跳过（护栏拦截）
 )
 
 // SelfCorrectionAction 自我矫正动作实体
 type SelfCorrectionAction struct {
-	ID            uint64                `gorm:"primaryKey;autoIncrement" json:"id"`
-	ActionID      string                `gorm:"type:varchar(64);uniqueIndex;not null" json:"action_id"`
-	TriggerLogID  string                `gorm:"type:varchar(64);index" json:"trigger_log_id"` // self_learning_logs.log_id
-	ActionType    CorrectionActionType  `gorm:"type:varchar(32);index;not null" json:"action_type"`
-	Scenario      string                `gorm:"type:varchar(32);index" json:"scenario"`
-	TargetType    string                `gorm:"type:varchar(16);index" json:"target_type"` // rag_chunk/asset_bundle/llm_reply
-	TargetID      string                `gorm:"type:varchar(64);index" json:"target_id"`
-	Before        JSONMap               `gorm:"type:jsonb;default:'{}'" json:"before"`
-	After         JSONMap               `gorm:"type:jsonb;default:'{}'" json:"after"`
-	AutonomyLevel AutonomyLevel         `gorm:"type:varchar(16)" json:"autonomy_level"`
-	Operator      string                `gorm:"type:varchar(64);not null;default:'auto'" json:"operator"` // auto / 用户名
-	OperatorID    uint                  `json:"operator_id"`
-	Reason        string                `gorm:"type:text" json:"reason"`
+	ID            uint64                 `gorm:"primaryKey;autoIncrement" json:"id"`
+	ActionID      string                 `gorm:"type:varchar(64);uniqueIndex;not null" json:"action_id"`
+	TriggerLogID  string                 `gorm:"type:varchar(64);index" json:"trigger_log_id"` // self_learning_logs.log_id
+	ActionType    CorrectionActionType   `gorm:"type:varchar(32);index;not null" json:"action_type"`
+	Scenario      string                 `gorm:"type:varchar(32);index" json:"scenario"`
+	TargetType    string                 `gorm:"type:varchar(16);index" json:"target_type"` // rag_chunk/asset_bundle/llm_reply
+	TargetID      string                 `gorm:"type:varchar(64);index" json:"target_id"`
+	Before        JSONMap                `gorm:"type:jsonb;default:'{}'" json:"before"`
+	After         JSONMap                `gorm:"type:jsonb;default:'{}'" json:"after"`
+	AutonomyLevel AutonomyLevel          `gorm:"type:varchar(16)" json:"autonomy_level"`
+	Operator      string                 `gorm:"type:varchar(64);not null;default:'auto'" json:"operator"` // auto / 用户名
+	OperatorID    uint                   `json:"operator_id"`
+	Reason        string                 `gorm:"type:text" json:"reason"`
 	Status        CorrectionActionStatus `gorm:"type:varchar(16);index;not null;default:'pending'" json:"status"`
-	AppliedAt     *time.Time            `json:"applied_at"`
-	RolledBackAt  *time.Time            `json:"rolled_back_at"`
-	ErrorMsg      string                `gorm:"type:text" json:"error_msg"`
-	CreatedAt     time.Time             `gorm:"autoCreateTime;index" json:"created_at"`
-	UpdatedAt     time.Time             `gorm:"autoUpdateTime" json:"updated_at"`
+	AppliedAt     *time.Time             `json:"applied_at"`
+	RolledBackAt  *time.Time             `json:"rolled_back_at"`
+	ErrorMsg      string                 `gorm:"type:text" json:"error_msg"`
+	CreatedAt     time.Time              `gorm:"autoCreateTime;index" json:"created_at"`
+	UpdatedAt     time.Time              `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName 表名

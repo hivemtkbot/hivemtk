@@ -34,12 +34,12 @@ var ErrAssetBundleNotFound = errors.New("asset bundle not found")
 // 字段含义参考 service.WeaveInput，但去掉了 Asset *model.AssetBundle 字段
 // （由 service 层根据 AssetID 自行加载，避免 agent_runtime 触发 DB 查询）
 type WeaveRequestPort struct {
-	AssetID      string                          // 资产包业务键
-	UserQuery    string                          // 当前用户最新消息
-	RAGDocs      []RAGDocumentPort               // 商户本地 RAG 检索结果
-	ChatHistory  []model.AssetBundleMessage      // 活跃会话历史
-	MerchantVars map[string]string               // 商户参数（shop_name / campaign_name / discount_pct / support_contact）
-	Options      WeaveOptionsPort                // 织布策略
+	AssetID      string                     // 资产包业务键
+	UserQuery    string                     // 当前用户最新消息
+	RAGDocs      []RAGDocumentPort          // 商户本地 RAG 检索结果
+	ChatHistory  []model.AssetBundleMessage // 活跃会话历史
+	MerchantVars map[string]string          // 商户参数（shop_name / campaign_name / discount_pct / support_contact）
+	Options      WeaveOptionsPort           // 织布策略
 }
 
 // RAGDocumentPort RAG 检索结果投影

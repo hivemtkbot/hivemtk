@@ -21,7 +21,7 @@ import (
 //  1. 给 knowledge_chunks 增加 embedding vector(1024) 列(与 TEI bge-m3 维度一致)
 //  2. 给该列加 HNSW 索引(vector_cosine_ops),支持高效 ANN 检索
 //  3. 幂等:列/索引已存在时不报错,可重入
-//  4. 不删除 rag_products.vector_table 字段(架构文档约束),但实际召回改用 knowledge_chunks.embedding
+//  4. 不删除 rag_products.vector_table 字段(架构文档约束),实际召回使用 knowledge_chunks.embedding
 type KnowledgeVectorMigration struct {
 	db *gorm.DB
 }

@@ -43,27 +43,27 @@ type DoubleInterceptOrchestrator struct {
 
 // OrchestratorStats 编排器统计
 type OrchestratorStats struct {
-	FirstPassChunks     int
-	InterceptedChunks   int
-	ToolExecutions      int
-	SecondPassChunks    int
-	FinalReplyLength    int
-	TotalDuration       time.Duration
+	FirstPassChunks   int
+	InterceptedChunks int
+	ToolExecutions    int
+	SecondPassChunks  int
+	FinalReplyLength  int
+	TotalDuration     time.Duration
 }
 
 // ClientMessage 客户端消息（推送或缓存）
 type ClientMessage struct {
 	Content   string
-	Forwarded bool    // true=已推送 / false=被拦截
+	Forwarded bool // true=已推送 / false=被拦截
 	Timestamp time.Time
 }
 
 // ToolExecutionRecord 工具执行记录
 type ToolExecutionRecord struct {
-	ToolName  string
-	Args      map[string]any
-	Result    ToolResult
-	Err       error
+	ToolName   string
+	Args       map[string]any
+	Result     ToolResult
+	Err        error
 	ExecutedAt time.Time
 }
 
@@ -91,10 +91,10 @@ type SecondPassLLM interface {
 
 // OrchestratorConfig 编排器配置
 type OrchestratorConfig struct {
-	Trigger     string
-	Router      *ToolRouter
+	Trigger      string
+	Router       *ToolRouter
 	StateMachine *StreamStateMachine // 可选；nil 则创建默认
-	SecondPass  SecondPassLLM
+	SecondPass   SecondPassLLM
 }
 
 // NewDoubleInterceptOrchestrator 创建双拦截编排器
@@ -193,8 +193,8 @@ func (o *DoubleInterceptOrchestrator) executeToolCall(ctx context.Context, origi
 	toolArgs := o.stateMachine.ToolArgs()
 
 	record := ToolExecutionRecord{
-		ToolName:  toolName,
-		Args:      toolArgs,
+		ToolName:   toolName,
+		Args:       toolArgs,
 		ExecutedAt: time.Now(),
 	}
 

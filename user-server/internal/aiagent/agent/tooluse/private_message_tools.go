@@ -278,7 +278,7 @@ func (t *sendPrivateMessageTool) Execute(ctx context.Context, args map[string]an
 	if err != nil {
 		return ErrorResult(t.Name(), err), nil
 	}
-	_ = mediaURL  // SendMessageInput 暂未透传 media_url，service 侧在 SendMessageRequest 中支持
+	_ = mediaURL // SendMessageInput 暂未透传 media_url，service 侧在 SendMessageRequest 中支持
 	_ = senderName
 	return SuccessResult(t.Name(), map[string]any{
 		"message_id":  msg.ID,

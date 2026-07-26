@@ -239,7 +239,7 @@ func TestMatchKeyIntentByRule_NoMatch(t *testing.T) {
 func TestMatchKeyIntentByRule_HighestScore(t *testing.T) {
 	// "骗子" 命中 trust_objection (1*2=2) + "太贵" 命中 price_objection (1*2=2)
 	// 同样长度 → first wins（map 迭代顺序），验证规则匹配不崩溃
-	// 改用更明显的测试：trust 应比 price 优先（"不放心" 长度 3 > "贵了" 长度 2）
+	// 更明显的测试：trust 应比 price 优先（"不放心" 长度 3 > "贵了" 长度 2）
 	res := matchKeyIntentByRule("我不放心，这家店骗人")
 	if res == nil {
 		t.Fatal("expected match")

@@ -24,29 +24,29 @@ import (
 
 // ExternalImportRequest 外部导入请求
 type ExternalImportRequest struct {
-	Source		string			`json:"source"`	// feishu/notion/dingtalk/custom
-	ProductID	string			`json:"product_id"`
-	Token		string			`json:"-"`	// API Token 鉴权
-	Items		[]BatchImportItem	`json:"items"`	// 通用 JSON
+	Source    string            `json:"source"` // feishu/notion/dingtalk/custom
+	ProductID string            `json:"product_id"`
+	Token     string            `json:"-"`     // API Token 鉴权
+	Items     []BatchImportItem `json:"items"` // 通用 JSON
 	// 飞书专用
-	FeishuDocID	string	`json:"feishu_doc_id,omitempty"`
+	FeishuDocID string `json:"feishu_doc_id,omitempty"`
 	// Notion 专用
-	NotionPageID	string	`json:"notion_page_id,omitempty"`
-	Operator	string	`json:"operator"`
-	Sync		bool	`json:"sync"`	// 同步返回结果（默认 false，异步任务）
+	NotionPageID string `json:"notion_page_id,omitempty"`
+	Operator     string `json:"operator"`
+	Sync         bool   `json:"sync"` // 同步返回结果（默认 false，异步任务）
 }
 
 // ExternalImportResponse 外部导入响应
 type ExternalImportResponse struct {
-	JobNo		string		`json:"job_no"`
-	Status		string		`json:"status"`
-	Total		int		`json:"total"`
-	Accepted	int		`json:"accepted"`
-	Rejected	int		`json:"rejected"`
-	FailedItems	int		`json:"failed_items"`
-	DocumentIDs	[]uint64	`json:"document_ids,omitempty"`
-	Errors		[]string	`json:"errors,omitempty"`
-	Async		bool		`json:"async"`
+	JobNo       string   `json:"job_no"`
+	Status      string   `json:"status"`
+	Total       int      `json:"total"`
+	Accepted    int      `json:"accepted"`
+	Rejected    int      `json:"rejected"`
+	FailedItems int      `json:"failed_items"`
+	DocumentIDs []uint64 `json:"document_ids,omitempty"`
+	Errors      []string `json:"errors,omitempty"`
+	Async       bool     `json:"async"`
 }
 
 // ExternalImport 外部系统导入（统一入口）
@@ -105,12 +105,12 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		s.ensureReposFromDB()
 		// 落库为 pending 任务
 		job := &model.ExternalImportJob{
-			JobNo:		jobNo,
-			ProductID:	req.ProductID,	// 直接存储字符串 ProductID
-			Source:		req.Source,
-			TotalItems:	len(items),
-			Status:		"pending",
-			Operator:	req.Operator,
+			JobNo:      jobNo,
+			ProductID:  req.ProductID, // 直接存储字符串 ProductID
+			Source:     req.Source,
+			TotalItems: len(items),
+			Status:     "pending",
+			Operator:   req.Operator,
 		}
 		payload, _ := json.Marshal(req)
 		job.Payload = string(payload)
@@ -123,16 +123,16 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 			started := time.Now()
 			now := time.Now()
 			_ = s.externalRepo.UpdateStatusByJobNo(bg, jobNo, map[string]any{
-				"status":	"running",
-				"started_at":	&now,
+				"status":     "running",
+				"started_at": &now,
 			})
 			resp, _ := s.runExternalImport(bg, productID, items, op, jobNo)
 			finished := time.Now()
 			updates := map[string]any{
-				"status":	"completed",
-				"finished_at":	&finished,
-				"done_items":	resp.Accepted,
-				"failed_items":	resp.FailedItems,
+				"status":       "completed",
+				"finished_at":  &finished,
+				"done_items":   resp.Accepted,
+				"failed_items": resp.FailedItems,
 			}
 			if len(resp.Errors) > 0 {
 				ed, _ := json.Marshal(resp.Errors)
@@ -142,10 +142,10 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 			_ = started
 		}(req.ProductID, items, req.Operator)
 		return &ExternalImportResponse{
-			JobNo:	jobNo,
-			Status:	"pending",
-			Total:	len(items),
-			Async:	true,
+			JobNo:  jobNo,
+			Status: "pending",
+			Total:  len(items),
+			Async:  true,
 		}, nil
 	}
 
@@ -155,11 +155,11 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 
 func (s *KnowledgeMerchantService) runExternalImport(ctx context.Context, productID string, items []BatchImportItem, operator, jobNo string) (*ExternalImportResponse, error) {
 	resp := &ExternalImportResponse{
-		JobNo:		jobNo,
-		Status:		"running",
-		Total:		len(items),
-		DocumentIDs:	make([]uint64, 0),
-		Errors:		make([]string, 0),
+		JobNo:       jobNo,
+		Status:      "running",
+		Total:       len(items),
+		DocumentIDs: make([]uint64, 0),
+		Errors:      make([]string, 0),
 	}
 	for idx, it := range items {
 		if strings.TrimSpace(it.Content) == "" {
@@ -173,14 +173,14 @@ func (s *KnowledgeMerchantService) runExternalImport(ctx context.Context, produc
 			title = fmt.Sprintf("外部导入_%s_%d", jobNo, idx+1)
 		}
 		imp, err := s.kbService.Import(ctx, &ImportRequest{
-			ProductID:	productID,
-			SourceType:	model.SourceTypeBatch,
-			Title:		title,
-			Content:	it.Content,
-			Category:	it.Category,
-			Tags:		it.Tags,
-			Operator:	operator,
-			BatchNo:	jobNo,
+			ProductID:  productID,
+			SourceType: model.SourceTypeBatch,
+			Title:      title,
+			Content:    it.Content,
+			Category:   it.Category,
+			Tags:       it.Tags,
+			Operator:   operator,
+			BatchNo:    jobNo,
 		})
 		if err != nil {
 			resp.Rejected++
@@ -199,9 +199,9 @@ func (s *KnowledgeMerchantService) runExternalImport(ctx context.Context, produc
 func (s *KnowledgeMerchantService) ListExternalJobs(ctx context.Context, productID string, page, pageSize int) ([]model.ExternalImportJob, int64, error) {
 	s.ensureReposFromDB()
 	return s.externalRepo.List(ctx, repository.ExternalJobListFilter{
-		ProductID:	productID,
-		Page:		page,
-		PageSize:	pageSize,
+		ProductID: productID,
+		Page:      page,
+		PageSize:  pageSize,
 	})
 }
 
@@ -253,10 +253,10 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 	}
 	defer tokenResp.Body.Close()
 	var tokenBody struct {
-		Code			int	`json:"code"`
-		Msg			string	`json:"msg"`
-		TenantAccessToken	string	`json:"tenant_access_token"`
-		Expire			int	`json:"expire"`
+		Code              int    `json:"code"`
+		Msg               string `json:"msg"`
+		TenantAccessToken string `json:"tenant_access_token"`
+		Expire            int    `json:"expire"`
 	}
 	if err := json.NewDecoder(tokenResp.Body).Decode(&tokenBody); err != nil {
 		return nil, fmt.Errorf("解析飞书 token 响应失败: %w", err)
@@ -282,11 +282,11 @@ func (s *KnowledgeMerchantService) fetchFeishu(ctx context.Context, docID string
 		return nil, fmt.Errorf("飞书文档拉取失败: status=%d body=%s", docResp.StatusCode, string(body))
 	}
 	var docBody struct {
-		Code	int	`json:"code"`
-		Msg	string	`json:"msg"`
-		Data	struct {
-			Content string `json:"content"`	// markdown
-		}	`json:"data"`
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+		Data struct {
+			Content string `json:"content"` // markdown
+		} `json:"data"`
 	}
 	if err := json.NewDecoder(docResp.Body).Decode(&docBody); err != nil {
 		return nil, fmt.Errorf("解析飞书文档响应失败: %w", err)
@@ -323,7 +323,7 @@ func (s *KnowledgeMerchantService) fetchNotion(ctx context.Context, pageID strin
 	if pageID == "" {
 		return nil, errors.New("Notion pageID 不能为空")
 	}
-	_ = tok	// 当前 model 未携带 metadata，预留未来扩展
+	_ = tok // 当前 model 未携带 metadata，预留未来扩展
 
 	apiKey := os.Getenv("NOTION_API_KEY")
 	if apiKey == "" {
@@ -363,38 +363,38 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 		return nil, fmt.Errorf("Notion 拉取失败: status=%d body=%s", resp.StatusCode, string(body))
 	}
 	var nb struct {
-		Results	[]struct {
-			ID		string	`json:"id"`
-			Type		string	`json:"type"`
-			HasChildren	bool	`json:"has_children"`
-			Heading1	*struct {
+		Results []struct {
+			ID          string `json:"id"`
+			Type        string `json:"type"`
+			HasChildren bool   `json:"has_children"`
+			Heading1    *struct {
 				RichText []struct {
 					PlainText string `json:"plain_text"`
 				} `json:"rich_text"`
-			}	`json:"heading_1"`
-			Heading2	*struct {
+			} `json:"heading_1"`
+			Heading2 *struct {
 				RichText []struct {
 					PlainText string `json:"plain_text"`
 				} `json:"rich_text"`
-			}	`json:"heading_2"`
-			Heading3	*struct {
+			} `json:"heading_2"`
+			Heading3 *struct {
 				RichText []struct {
 					PlainText string `json:"plain_text"`
 				} `json:"rich_text"`
-			}	`json:"heading_3"`
-			Paragraph	*struct {
+			} `json:"heading_3"`
+			Paragraph *struct {
 				RichText []struct {
 					PlainText string `json:"plain_text"`
 				} `json:"rich_text"`
-			}	`json:"paragraph"`
-			BulletedListItem	*struct {
+			} `json:"paragraph"`
+			BulletedListItem *struct {
 				RichText []struct {
 					PlainText string `json:"plain_text"`
 				} `json:"rich_text"`
-			}	`json:"bulleted_list_item"`
-		}	`json:"results"`
-		HasMore		bool	`json:"has_more"`
-		NextCursor	string	`json:"next_cursor"`
+			} `json:"bulleted_list_item"`
+		} `json:"results"`
+		HasMore    bool   `json:"has_more"`
+		NextCursor string `json:"next_cursor"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&nb); err != nil {
 		return nil, fmt.Errorf("解析 Notion 响应失败: %w", err)
@@ -409,9 +409,9 @@ func (s *KnowledgeMerchantService) fetchNotionBlocksRecursive(ctx context.Contex
 		body := strings.TrimSpace(currentBuf.String())
 		if body != "" {
 			items = append(items, BatchImportItem{
-				Title:		currentTitle,
-				Content:	body,
-				Source:		"notion:" + blockID,
+				Title:   currentTitle,
+				Content: body,
+				Source:  "notion:" + blockID,
 			})
 		}
 		currentBuf.Reset()
@@ -512,16 +512,16 @@ func splitMarkdownToItems(markdown, sourceID, source string) []BatchImportItem {
 			chunks := softSplitParagraphs(body, maxLen)
 			for i, c := range chunks {
 				items = append(items, BatchImportItem{
-					Title:		fmt.Sprintf("%s (part %d)", currentTitle, i+1),
-					Content:	c,
-					Source:		fmt.Sprintf("%s:%s", source, sourceID),
+					Title:   fmt.Sprintf("%s (part %d)", currentTitle, i+1),
+					Content: c,
+					Source:  fmt.Sprintf("%s:%s", source, sourceID),
 				})
 			}
 		} else {
 			items = append(items, BatchImportItem{
-				Title:		currentTitle,
-				Content:	body,
-				Source:		fmt.Sprintf("%s:%s", source, sourceID),
+				Title:   currentTitle,
+				Content: body,
+				Source:  fmt.Sprintf("%s:%s", source, sourceID),
 			})
 		}
 		currentBuf.Reset()

@@ -6,8 +6,8 @@ import (
 	"marketing/internal/repository"
 	"strings"
 
-	"github.com/google/uuid"
 	"context"
+	"github.com/google/uuid"
 )
 
 // EmailDraftService 草稿服务
@@ -53,9 +53,9 @@ func (s *EmailDraftService) DeleteEmailDraft(ctx context.Context, id uuid.UUID) 
 // CreateEmailDraftDTO 通过请求 DTO 创建草稿
 func (s *EmailDraftService) CreateEmailDraftDTO(ctx context.Context, req dto.CreateEmailDraftRequest) (*dto.EmailDraftResponse, error) {
 	created, err := s.CreateEmailDraft(ctx, model.EmailDraft{
-		Subject:	req.Subject,
-		Content:	req.Content,
-		Attachments:	strings.Join(req.Attachments, ","),
+		Subject:     req.Subject,
+		Content:     req.Content,
+		Attachments: strings.Join(req.Attachments, ","),
 	})
 	if err != nil {
 		return nil, err
@@ -92,10 +92,10 @@ func (s *EmailDraftService) UpdateEmailDraftDTO(ctx context.Context, req dto.Upd
 		return err
 	}
 	return s.UpdateEmailDraft(ctx, model.EmailDraft{
-		ID:		id,
-		Subject:	req.Subject,
-		Content:	req.Content,
-		Attachments:	strings.Join(req.Attachments, ","),
+		ID:          id,
+		Subject:     req.Subject,
+		Content:     req.Content,
+		Attachments: strings.Join(req.Attachments, ","),
 	})
 }
 
@@ -104,12 +104,12 @@ func toEmailDraftResponse(d *model.EmailDraft) *dto.EmailDraftResponse {
 		return nil
 	}
 	return &dto.EmailDraftResponse{
-		ID:		d.ID.String(),
-		Subject:	d.Subject,
-		Content:	d.Content,
-		Attachments:	splitCSV(d.Attachments),
-		CreatedAt:	d.CreatedAt,
-		UpdatedAt:	d.UpdatedAt,
+		ID:          d.ID.String(),
+		Subject:     d.Subject,
+		Content:     d.Content,
+		Attachments: splitCSV(d.Attachments),
+		CreatedAt:   d.CreatedAt,
+		UpdatedAt:   d.UpdatedAt,
 	}
 }
 

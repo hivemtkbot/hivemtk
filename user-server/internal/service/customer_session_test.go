@@ -603,7 +603,7 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 	service.agentRepo.Create(context.Background(), agent2)
 
 	// 获取在线客服
-	agents, err := agentService.GetOnlineAgents(context.Background(), )
+	agents, err := agentService.GetOnlineAgents(context.Background())
 	if err != nil {
 		t.Fatalf("GetOnlineAgents failed: %v", err)
 	}
@@ -951,7 +951,7 @@ func TestQuickReplyService_GetCategories_Success(t *testing.T) {
 	replyService.CreateReply(context.Background(), 123, req2)
 
 	// 获取分类
-	categories, err := replyService.GetCategories(context.Background(), )
+	categories, err := replyService.GetCategories(context.Background())
 	if err != nil {
 		t.Fatalf("GetCategories failed: %v", err)
 	}
@@ -1083,7 +1083,7 @@ func TestSessionTagService_GetTags_Success(t *testing.T) {
 	}
 
 	// 获取列表
-	tags, err := tagService.GetTags(context.Background(), )
+	tags, err := tagService.GetTags(context.Background())
 	if err != nil {
 		t.Fatalf("GetTags failed: %v", err)
 	}

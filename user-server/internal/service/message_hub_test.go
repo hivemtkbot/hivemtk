@@ -1120,7 +1120,7 @@ func TestGenerateMsgID_Format(t *testing.T) {
 
 func TestWithIdemTTL(t *testing.T) {
 	svc := NewMessageHubServiceWithDB(nil, cache.NewMemoryCache())
-	svc.WithIdemTTL(context.Background(), 1 * time.Hour)
+	svc.WithIdemTTL(context.Background(), 1*time.Hour)
 	if svc.idemTTL != 1*time.Hour {
 		t.Errorf("expected 1h, got %v", svc.idemTTL)
 	}

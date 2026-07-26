@@ -85,7 +85,7 @@ func saveAuditBatch(logs []*model.OperationLog) {
 			if err := repo.Create(context.Background(), log); err == nil {
 				successCount++
 			} else {
-				// 关键修复：将失败的日志收集到 failedLogs，确保下次重试
+				// 将失败的日志收集到 failedLogs，确保下次重试
 				failedLogs = append(failedLogs, log)
 			}
 		}

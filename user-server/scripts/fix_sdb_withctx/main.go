@@ -1,18 +1,19 @@
 // 工具:fix_sdb_withctx
-// 修复 Service 中假 ctx 迁移:
+// 修复 Service 中假 ctx:
 //   - 函数签名已带 ctx context.Context
 //   - 函数体中的 s.db / s.dbOrDefault / s.gormDB / s.gormDBOrDefault / s.client
 //     未使用 ctx 链式 WithContext(ctx)
 //
 // 思路:
-//   1. 用 Go AST 解析,识别有 ctx context.Context 参数的方法
-//   2. 在方法体内,把所有 s.db. / s.dbOrDefault. / s.gormDB. / s.gormDBOrDefault. / s.client.
-//      改为 s.db.WithContext(ctx). / ...
-//   3. 跳过赋值语句的右侧出现的情况(如 q := s.db.Model(...)),一并处理
-//   4. 同时处理 s.db.Where("id = ?", id).Delete 这种链式
+//  1. 用 Go AST 解析,识别有 ctx context.Context 参数的方法
+//  2. 在方法体内,对 s.db. / s.dbOrDefault. / s.gormDB. / s.gormDBOrDefault. / s.client.
+//     的链式调用注入 WithContext(ctx)
+//  3. 跳过赋值语句的右侧出现的情况(如 q := s.db.Model(...)),一并处理
+//  4. 同时处理 s.db.Where("id = ?", id).Delete 这种链式
 //
 // 用法:
-//   go run scripts/fix_sdb_withctx/main.go -dir=internal/service
+//
+//	go run scripts/fix_sdb_withctx/main.go -dir=internal/service
 package main
 
 import (
@@ -140,7 +141,6 @@ func fixFile(path string) (int, error) {
 				// 允许,但是注意 Raw 不需要 WithContext
 			}
 
-			// 修改:把 s.db 替换为 s.db.WithContext(ctx)
 			// 也就是在 sel.X 上套一层 call
 			// 原: sel.X.Sel.Method(...)
 			// 新: sel.X.Sel.WithContext(ctx).Method(...)

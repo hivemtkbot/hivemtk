@@ -934,7 +934,7 @@ func TestCommunityService_GetStatistics_Empty(t *testing.T) {
 
 	service := NewCommunityService()
 
-	stats, err := service.GetStatistics(context.Background(), )
+	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -982,7 +982,7 @@ func TestCommunityService_GetStatistics_WithData(t *testing.T) {
 	database.Create(msg1)
 	database.Create(msg2)
 
-	stats, err := service.GetStatistics(context.Background(), )
+	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1017,7 +1017,7 @@ func TestCommunityService_GetStatistics_ActiveGroups(t *testing.T) {
 	msg1 := &model.CommunityMessage{ID: "msg1", GroupID: "g1", UserID: "u1", UserName: "用户 1", Content: "消息 1", MessageType: "text", Timestamp: time.Now(), CreatedAt: time.Now()}
 	database.Create(msg1)
 
-	stats, err := service.GetStatistics(context.Background(), )
+	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1047,7 +1047,7 @@ func TestCommunityService_GetStatistics_NewMembersToday(t *testing.T) {
 	database.Create(member1)
 	database.Create(member2)
 
-	stats, err := service.GetStatistics(context.Background(), )
+	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}
@@ -1138,7 +1138,7 @@ func TestCommunityService_Integration_FullWorkflow(t *testing.T) {
 	}
 
 	// 8. 获取统计
-	stats, err := service.GetStatistics(context.Background(), )
+	stats, err := service.GetStatistics(context.Background())
 	if err != nil {
 		t.Fatalf("GetStatistics failed: %v", err)
 	}

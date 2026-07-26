@@ -6,7 +6,7 @@ package service
 //
 // 设计依据（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.4）：
 //   - 授权管理 = 启停（SetEnabled）+ 改密（ResetPassword）+ 审计（ListAuditLogs）
-//   - 不做权限点分配（v2.0 方案已废弃）
+//   - 不做权限点分配
 //   - 业务校验失败返回 fmt.Errorf("...: %w", ErrInvalidInput)
 //   - 不调 db，只调 repository
 //   - 审计日志由 OperationLogService 写入 operation_logs 表
@@ -160,8 +160,8 @@ type ListAuditLogsRequest struct {
 
 // ListAuditLogsResponse 审计日志查询响应
 type ListAuditLogsResponse struct {
-	Total int64                `json:"total"`
-	List  []*OperationLogView  `json:"list"`
+	Total int64               `json:"total"`
+	List  []*OperationLogView `json:"list"`
 }
 
 // ListAuditLogs 操作审计日志列表

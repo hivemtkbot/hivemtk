@@ -10,23 +10,23 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/repository"
 
-	"github.com/google/uuid"
 	"context"
+	"github.com/google/uuid"
 )
 
 // EmailListService 列表服务
 type EmailListService struct {
-	repo			repository.EmailListRepository
-	clueRepo		repository.ClueRepository
-	systemConfigRepo	repository.SystemConfigRepository
+	repo             repository.EmailListRepository
+	clueRepo         repository.ClueRepository
+	systemConfigRepo repository.SystemConfigRepository
 }
 
 // NewEmailListService 创建列表服务实例
 func NewEmailListService() *EmailListService {
 	return &EmailListService{
-		repo:			repository.NewEmailListRepository(),
-		clueRepo:		repository.NewClueRepository(),
-		systemConfigRepo:	repository.NewSystemConfigRepository(),
+		repo:             repository.NewEmailListRepository(),
+		clueRepo:         repository.NewClueRepository(),
+		systemConfigRepo: repository.NewSystemConfigRepository(),
 	}
 }
 
@@ -46,12 +46,12 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 	// 新建任务
 	jobsService := NewEmailJobsService()
 	jobs := model.EmailJobs{
-		Subject:	subject,
-		EmailTotal:	clueTotal,
-		SendTotal:	0,
-		SuccessTotal:	0,
-		FailTotal:	0,
-		ReadTotal:	0,
+		Subject:      subject,
+		EmailTotal:   clueTotal,
+		SendTotal:    0,
+		SuccessTotal: 0,
+		FailTotal:    0,
+		ReadTotal:    0,
 	}
 	job, err := jobsService.CreateEmailJobs(ctx, jobs)
 	if err != nil {
@@ -80,10 +80,10 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 		}
 
 		parsemap := mail.TemplateParseMap{
-			Name:		clue.Name,
-			City:		clue.City,
-			Address:	clue.Address,
-			Account:	clue.Account,
+			Name:    clue.Name,
+			City:    clue.City,
+			Address: clue.Address,
+			Account: clue.Account,
 		}
 
 		// 替换 subject content 上的自定义变量
@@ -99,17 +99,17 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 		contentCopy = mail.BuildTrace(contentCopy, traceID, systemConfig.WebsiteURL)
 
 		emailInfo := model.EmailList{
-			Subject:	subjectCopy,
-			Content:	contentCopy,
-			Attachments:	attachments,
-			IsSend:		0,
-			SendTime:	time.Time{},
-			IsRead:		0,
-			ReadTime:	time.Time{},
-			To:		toAccount,
-			JobsID:		job.ID,
-			TraceID:	traceID,
-			CreatedAt:	time.Now(),
+			Subject:     subjectCopy,
+			Content:     contentCopy,
+			Attachments: attachments,
+			IsSend:      0,
+			SendTime:    time.Time{},
+			IsRead:      0,
+			ReadTime:    time.Time{},
+			To:          toAccount,
+			JobsID:      job.ID,
+			TraceID:     traceID,
+			CreatedAt:   time.Now(),
 		}
 
 		emailList = append(emailList, &emailInfo)
@@ -211,10 +211,10 @@ func (s *EmailListService) UpdateEmailListDTO(ctx context.Context, req dto.Updat
 		return err
 	}
 	return s.UpdateEmailList(ctx, model.EmailList{
-		ID:		id,
-		Subject:	req.Subject,
-		Content:	req.Content,
-		Attachments:	strings.Join(req.Attachments, ","),
+		ID:          id,
+		Subject:     req.Subject,
+		Content:     req.Content,
+		Attachments: strings.Join(req.Attachments, ","),
 	})
 }
 
@@ -223,19 +223,19 @@ func toEmailListResponse(l *model.EmailList) *dto.EmailListResponse {
 		return nil
 	}
 	return &dto.EmailListResponse{
-		ID:		l.ID.String(),
-		Subject:	l.Subject,
-		Content:	l.Content,
-		Attachments:	splitCSV(l.Attachments),
-		CreatedAt:	l.CreatedAt,
-		UpdatedAt:	l.UpdatedAt,
-		From:		l.From,
-		To:		l.To,
-		IsSend:		int64(l.IsSend),
-		SendTime:	l.SendTime,
-		IsRead:		int64(l.IsRead),
-		ReadTime:	l.ReadTime,
-		JobsID:		l.JobsID.String(),
-		IsSuccess:	int64(l.IsSuccess),
+		ID:          l.ID.String(),
+		Subject:     l.Subject,
+		Content:     l.Content,
+		Attachments: splitCSV(l.Attachments),
+		CreatedAt:   l.CreatedAt,
+		UpdatedAt:   l.UpdatedAt,
+		From:        l.From,
+		To:          l.To,
+		IsSend:      int64(l.IsSend),
+		SendTime:    l.SendTime,
+		IsRead:      int64(l.IsRead),
+		ReadTime:    l.ReadTime,
+		JobsID:      l.JobsID.String(),
+		IsSuccess:   int64(l.IsSuccess),
 	}
 }

@@ -347,7 +347,7 @@ func (s *InboxService) RemoveTag(ctx context.Context, conversationID uint, tag s
 //
 // 五层架构 §三.5：DB 事务（更新会话 + 写入历史）封装在 repository.AssignTx，
 // 负载缓存属于内存数据，不属于 DB 操作，故保留在 service 层。
-// 缓存更新在事务提交后执行，避免事务回滚后缓存与 DB 不一致（修复原实现缺陷）。
+// 缓存更新在事务提交后执行，避免事务回滚后缓存与 DB 不一致。
 func (s *InboxService) Assign(ctx context.Context, req InboxAssignRequest) (*model.InboxAssignment, error) {
 	if s.inboxRepo == nil {
 		return nil, nil

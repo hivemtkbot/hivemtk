@@ -101,7 +101,7 @@ func (ctrl *I18nStatsController) GetCacheHitRate(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{
-		"days":         days,
+		"days":           days,
 		"cache_hit_rate": hitRate,
 	}, "获取成功")
 }

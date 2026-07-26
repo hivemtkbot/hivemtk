@@ -38,7 +38,6 @@ func TestNewAutoReplyService(t *testing.T) {
 }
 
 // TestAutoReplyService_GetDB 已删除（五层架构治理：service 不再暴露 *gorm.DB）
-// 历史测试已废弃，GetDB 方法已移除
 
 // ============== 账号管理测试 ==============
 

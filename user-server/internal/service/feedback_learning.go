@@ -145,7 +145,7 @@ func (s *FeedbackLearningService) ExtractProfile(ctx context.Context, staffID ui
 
 	// 持久化快照
 	if err := s.persistProfileSnapshot(ctx, report); err != nil {
-		// 持久化失败不阻断主流程，但必须记录错误（R5 修复：原实现 _ = err 静默吞噬）
+		// 持久化失败不阻断主流程，但必须记录错误（避免 _ = err 静默吞噬）
 		logger.Errorf("feedback_learning: persistProfileSnapshot failed: %v", err)
 	}
 
@@ -481,7 +481,7 @@ func (s *FeedbackLearningService) AnalyzeNodeConversion(ctx context.Context, sop
 		stats.Nodes = append(stats.Nodes, *node)
 	}
 
-	// 总执行数（原实现忽略 error，保持等价）
+	// 总执行数（忽略 error，保持等价）
 	stats.TotalExecutions, _ = s.sopExecRepo.CountBySOPID(ctx, sopID)
 
 	// 端到端转化率

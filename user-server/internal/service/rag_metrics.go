@@ -52,7 +52,7 @@ const (
 
 // RagMetricsService RAG 召回率监控服务
 type RagMetricsService struct {
-	db *gorm.DB
+	db   *gorm.DB
 	repo repository.RagMetricsRepository
 
 	// 异步批量写入队列

@@ -12,8 +12,6 @@ import (
 // ============================================================================
 // 内置 ToolProvider 实现（P0+ 优化：统一扩展入口）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P1
-//
 // 本文件定义 5 个内置 Provider，对应原有的 5 个 registerAgent*Tools 函数。
 // 每个 Provider 包装对应的 BuildXxxTools 工厂函数，返回 []Tool。
 //
@@ -45,7 +43,7 @@ import (
 // ReachToolProvider 提供 20 个多渠道触达工具
 type ReachToolProvider struct{}
 
-func (p *ReachToolProvider) Name() string                  { return "reach" }
+func (p *ReachToolProvider) Name() string                   { return "reach" }
 func (p *ReachToolProvider) Category() tooluse.ToolCategory { return tooluse.CategoryReach }
 func (p *ReachToolProvider) Description() string {
 	return "多渠道触达工具（短信/邮件/微信/抖音/小红书/Telegram/WhatsApp/飞书等 20 个）"
@@ -68,8 +66,10 @@ func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool
 // PrivateMessageToolProvider 提供 3 个私信工具
 type PrivateMessageToolProvider struct{}
 
-func (p *PrivateMessageToolProvider) Name() string                  { return "pm" }
-func (p *PrivateMessageToolProvider) Category() tooluse.ToolCategory { return tooluse.CategoryPrivateMessage }
+func (p *PrivateMessageToolProvider) Name() string { return "pm" }
+func (p *PrivateMessageToolProvider) Category() tooluse.ToolCategory {
+	return tooluse.CategoryPrivateMessage
+}
 func (p *PrivateMessageToolProvider) Description() string {
 	return "私信工具（pm.session.open/read/message.send）"
 }
@@ -88,7 +88,7 @@ func (p *PrivateMessageToolProvider) Provide(ctx tooluse.ProviderContext) ([]too
 // CustomerToolProvider 提供 8 个客户工具
 type CustomerToolProvider struct{}
 
-func (p *CustomerToolProvider) Name() string                  { return "customer" }
+func (p *CustomerToolProvider) Name() string                   { return "customer" }
 func (p *CustomerToolProvider) Category() tooluse.ToolCategory { return tooluse.CategoryCustomer }
 func (p *CustomerToolProvider) Description() string {
 	return "客户工具（search/get/create/update/merge/add_tag/remove_tag/segment）"
@@ -108,7 +108,7 @@ func (p *CustomerToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.T
 // KnowledgeToolProvider 提供 4 个知识工具
 type KnowledgeToolProvider struct{}
 
-func (p *KnowledgeToolProvider) Name() string                  { return "knowledge" }
+func (p *KnowledgeToolProvider) Name() string                   { return "knowledge" }
 func (p *KnowledgeToolProvider) Category() tooluse.ToolCategory { return tooluse.CategoryKnowledge }
 func (p *KnowledgeToolProvider) Description() string {
 	return "知识工具（rag.search/knowledge.feedback/add_doc/list_kb）"
@@ -127,7 +127,7 @@ func (p *KnowledgeToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.
 // BusinessToolProvider 提供 5 个业务工具
 type BusinessToolProvider struct{}
 
-func (p *BusinessToolProvider) Name() string                  { return "business" }
+func (p *BusinessToolProvider) Name() string                   { return "business" }
 func (p *BusinessToolProvider) Category() tooluse.ToolCategory { return tooluse.CategoryBusiness }
 func (p *BusinessToolProvider) Description() string {
 	return "业务工具（follow_task.create/update、order.lookup、aftersale.create/query）"

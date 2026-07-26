@@ -42,13 +42,13 @@ import (
 
 // SelfCorrectionDispatcher 自我矫正派发器
 type SelfCorrectionDispatcher struct {
-	switchSvc     *SwitchService
-	actionRepo    repository.SelfCorrectionActionRepository
-	logRepo       repository.SelfLearningLogRepository
-	signalRepo    repository.SelfSupervisionSignalRepository
-	ragCorrector  *RAGSelfCorrector
-	assetLearner  *AssetBundleLearner
-	llmCorrector  *LLMSelfCorrector
+	switchSvc    *SwitchService
+	actionRepo   repository.SelfCorrectionActionRepository
+	logRepo      repository.SelfLearningLogRepository
+	signalRepo   repository.SelfSupervisionSignalRepository
+	ragCorrector *RAGSelfCorrector
+	assetLearner *AssetBundleLearner
+	llmCorrector *LLMSelfCorrector
 }
 
 // NewSelfCorrectionDispatcher 创建派发器
@@ -62,13 +62,13 @@ func NewSelfCorrectionDispatcher(
 	llmCorrector *LLMSelfCorrector,
 ) *SelfCorrectionDispatcher {
 	return &SelfCorrectionDispatcher{
-		switchSvc:     switchSvc,
-		actionRepo:    actionRepo,
-		logRepo:       logRepo,
-		signalRepo:    signalRepo,
-		ragCorrector:  ragCorrector,
-		assetLearner:  assetLearner,
-		llmCorrector:  llmCorrector,
+		switchSvc:    switchSvc,
+		actionRepo:   actionRepo,
+		logRepo:      logRepo,
+		signalRepo:   signalRepo,
+		ragCorrector: ragCorrector,
+		assetLearner: assetLearner,
+		llmCorrector: llmCorrector,
 	}
 }
 
@@ -80,9 +80,9 @@ func NewSelfCorrectionDispatcher(
 //
 // 输入：SelfSupervisionSignal（status=alert）
 // 行为：
-//   1. 根据 metric_name 查询失败矩阵，派发对应动作
-//   2. autonomous → 执行
-//   3. supervised/manual → 写入 pending 动作待审
+//  1. 根据 metric_name 查询失败矩阵，派发对应动作
+//  2. autonomous → 执行
+//  3. supervised/manual → 写入 pending 动作待审
 func (d *SelfCorrectionDispatcher) DispatchFromSignal(ctx context.Context, signal *model.SelfSupervisionSignal) error {
 	if signal == nil {
 		return fmt.Errorf("signal is nil")
@@ -118,24 +118,24 @@ func (d *SelfCorrectionDispatcher) DispatchFromSignal(ctx context.Context, signa
 //
 // 失败矩阵（v1.1 §7.3 + 资产包 5 维监督扩展）：
 //
-//   ┌─────────────────────────────────────────────────────────────┐
-//   │ 监督告警              │ 派发动作              │ 子系统       │
-//   ├─────────────────────────────────────────────────────────────┤
-//   │ recall_precision↓     │ retrieve_retry        │ RAG          │
-//   │ recall_coverage↓      │ query_rewrite         │ RAG          │
-//   │ generation_fidelity↓  │ llm_correction        │ LLM          │
-//   │ answer_relevance↓     │ llm_correction        │ LLM          │
-//   │ asset_effectiveness↓  │ asset_rollback        │ AssetBundle  │
-//   │ asset_adoption↓       │ asset_rollback        │ AssetBundle  │
-//   │ asset_conversion↓     │ asset_rollback        │ AssetBundle  │
-//   │ asset_complaint↑      │ asset_rollback        │ AssetBundle  │
-//   │ asset_freshness↓      │ asset_rollback        │ AssetBundle  │
-//   │ asset_ab_converge↓    │ (无派发，等待收敛)    │ AssetBundle  │
-//   │ 低质语料累计 ≥3       │ chunk_archive         │ RAG          │
-//   │ 销冠 reward ≥1.5      │ chunk_champion_upsert │ RAG          │
-//   │ A/B 收敛 candidate胜  │ asset_promote         │ AssetBundle  │
-//   │ A/B 收敛 baseline胜   │ asset_rollback        │ AssetBundle  │
-//   └─────────────────────────────────────────────────────────────┘
+//	┌─────────────────────────────────────────────────────────────┐
+//	│ 监督告警              │ 派发动作              │ 子系统       │
+//	├─────────────────────────────────────────────────────────────┤
+//	│ recall_precision↓     │ retrieve_retry        │ RAG          │
+//	│ recall_coverage↓      │ query_rewrite         │ RAG          │
+//	│ generation_fidelity↓  │ llm_correction        │ LLM          │
+//	│ answer_relevance↓     │ llm_correction        │ LLM          │
+//	│ asset_effectiveness↓  │ asset_rollback        │ AssetBundle  │
+//	│ asset_adoption↓       │ asset_rollback        │ AssetBundle  │
+//	│ asset_conversion↓     │ asset_rollback        │ AssetBundle  │
+//	│ asset_complaint↑      │ asset_rollback        │ AssetBundle  │
+//	│ asset_freshness↓      │ asset_rollback        │ AssetBundle  │
+//	│ asset_ab_converge↓    │ (无派发，等待收敛)    │ AssetBundle  │
+//	│ 低质语料累计 ≥3       │ chunk_archive         │ RAG          │
+//	│ 销冠 reward ≥1.5      │ chunk_champion_upsert │ RAG          │
+//	│ A/B 收敛 candidate胜  │ asset_promote         │ AssetBundle  │
+//	│ A/B 收敛 baseline胜   │ asset_rollback        │ AssetBundle  │
+//	└─────────────────────────────────────────────────────────────┘
 //
 // 资产包类指标统一派发 asset_rollback，由 AssetBundleLearner.executeRollback 处理
 // （包含降级为 inactive、记录审计、发布降级事件等动作）
@@ -212,21 +212,21 @@ func (d *SelfCorrectionDispatcher) executeAction(ctx context.Context, actionType
 func (d *SelfCorrectionDispatcher) executeRetrieveRetry(ctx context.Context, signal *model.SelfSupervisionSignal) error {
 	actionID := GenActionID(signal.SignalID, model.CorrectionRetrieveRetry, signal.TargetID)
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionRetrieveRetry,
-		Scenario:      "rag",
-		TargetType:    "rag_query",
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionRetrieveRetry,
+		Scenario:     "rag",
+		TargetType:   "rag_query",
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
-			"metric":     signal.MetricName,
-			"value":      signal.Value,
-			"threshold":  signal.Threshold,
+			"metric":      signal.MetricName,
+			"value":       signal.Value,
+			"threshold":   signal.Threshold,
 			"bucket_hour": signal.BucketHour,
 		},
-		Operator: "auto",
-		Reason:   fmt.Sprintf("recall_precision below threshold: %.3f < %.3f", signal.Value, signal.Threshold),
-		Status:   model.CorrectionStatusApplied,
+		Operator:  "auto",
+		Reason:    fmt.Sprintf("recall_precision below threshold: %.3f < %.3f", signal.Value, signal.Threshold),
+		Status:    model.CorrectionStatusApplied,
 		AppliedAt: nowPtr(),
 	}
 	if err := d.actionRepo.Create(ctx, action); err != nil {
@@ -247,20 +247,20 @@ func (d *SelfCorrectionDispatcher) executeRetrieveRetry(ctx context.Context, sig
 func (d *SelfCorrectionDispatcher) executeQueryRewrite(ctx context.Context, signal *model.SelfSupervisionSignal) error {
 	actionID := GenActionID(signal.SignalID, model.CorrectionQueryRewrite, signal.TargetID)
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionQueryRewrite,
-		Scenario:      "rag",
-		TargetType:    "rag_query",
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionQueryRewrite,
+		Scenario:     "rag",
+		TargetType:   "rag_query",
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
-			"metric":     signal.MetricName,
-			"value":      signal.Value,
-			"threshold":  signal.Threshold,
+			"metric":    signal.MetricName,
+			"value":     signal.Value,
+			"threshold": signal.Threshold,
 		},
-		Operator: "auto",
-		Reason:   fmt.Sprintf("recall_coverage below threshold: %.3f < %.3f", signal.Value, signal.Threshold),
-		Status:   model.CorrectionStatusApplied,
+		Operator:  "auto",
+		Reason:    fmt.Sprintf("recall_coverage below threshold: %.3f < %.3f", signal.Value, signal.Threshold),
+		Status:    model.CorrectionStatusApplied,
 		AppliedAt: nowPtr(),
 	}
 	if err := d.actionRepo.Create(ctx, action); err != nil {
@@ -292,21 +292,21 @@ func (d *SelfCorrectionDispatcher) executeChunkArchive(ctx context.Context, sign
 	// 简化：直接记录动作，实际归档由 RAGSelfCorrector 处理
 	actionID := GenActionID(signal.SignalID, model.CorrectionChunkArchive, signal.TargetID)
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionChunkArchive,
-		Scenario:      "rag",
-		TargetType:    "rag_chunk",
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionChunkArchive,
+		Scenario:     "rag",
+		TargetType:   "rag_chunk",
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
 			"metric":    signal.MetricName,
 			"value":     signal.Value,
 			"threshold": signal.Threshold,
 			"chunk_id":  chunkID,
 		},
-		Operator: "auto",
-		Reason:   fmt.Sprintf("forced archive from supervision alert: metric=%s value=%.3f", signal.MetricName, signal.Value),
-		Status:   model.CorrectionStatusApplied,
+		Operator:  "auto",
+		Reason:    fmt.Sprintf("forced archive from supervision alert: metric=%s value=%.3f", signal.MetricName, signal.Value),
+		Status:    model.CorrectionStatusApplied,
 		AppliedAt: nowPtr(),
 	}
 	if err := d.actionRepo.Create(ctx, action); err != nil {
@@ -335,12 +335,12 @@ func (d *SelfCorrectionDispatcher) createPendingAction(ctx context.Context, sign
 		autonomyLevel = snap.AutonomyLevel
 	}
 	return d.actionRepo.Create(ctx, &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    actionType,
-		Scenario:      "rag",
-		TargetType:    string(signal.TargetType),
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   actionType,
+		Scenario:     "rag",
+		TargetType:   string(signal.TargetType),
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
 			"metric":    signal.MetricName,
 			"value":     signal.Value,
@@ -360,8 +360,8 @@ func (d *SelfCorrectionDispatcher) createPendingAction(ctx context.Context, sign
 // ApproveAction 人工批准待审动作（supervised 模式）
 //
 // 行为：
-//   1. 将 status=pending → applied
-//   2. 调用对应 corrector 执行实际动作
+//  1. 将 status=pending → applied
+//  2. 调用对应 corrector 执行实际动作
 func (d *SelfCorrectionDispatcher) ApproveAction(ctx context.Context, actionID string, operatorID uint, note string) error {
 	action, err := d.actionRepo.GetByID(ctx, actionID)
 	if err != nil {

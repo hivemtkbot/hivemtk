@@ -177,21 +177,21 @@ func (m *mockSwitchRepo) SetCircuitOpen(ctx context.Context, open bool) error {
 type mockLogRepo struct {
 	mu sync.Mutex
 
-	createErr          error
-	existsErr          error
-	updateStatusErr    error
-	getByLogIDErr      error
-	listByScenarioErr  error
-	listByStatusErr    error
-	countTodayErr      error
-	markStaleErr       error
+	createErr         error
+	existsErr         error
+	updateStatusErr   error
+	getByLogIDErr     error
+	listByScenarioErr error
+	listByStatusErr   error
+	countTodayErr     error
+	markStaleErr      error
 
-	createCalls       int
-	existsCalls       int
-	existsResult      bool
-	getByLogIDLog     *model.SelfLearningLog
-	markStaleCalls    int
-	markStaleResult   int64
+	createCalls     int
+	existsCalls     int
+	existsResult    bool
+	getByLogIDLog   *model.SelfLearningLog
+	markStaleCalls  int
+	markStaleResult int64
 }
 
 func (m *mockLogRepo) Create(ctx context.Context, log *model.SelfLearningLog) error {
@@ -250,9 +250,9 @@ func (m *mockLogRepo) MarkStaleLogsAsSkipped(ctx context.Context, before time.Ti
 
 // 编译期接口断言
 var (
-	_ = func() interface{ Get(context.Context) (*model.SelfLearningSwitch, error) } {
-		return &mockSwitchRepo{}
-	}
+	_ = func() interface {
+		Get(context.Context) (*model.SelfLearningSwitch, error)
+	} { return &mockSwitchRepo{} }
 )
 
 // ============================================================================
@@ -346,16 +346,16 @@ func expectedGuardrailReasons(action model.CorrectionActionType, snap *SwitchSna
 
 func TestSwitchService_GetStatus(t *testing.T) {
 	type tc struct {
-		name      string
-		cacheHit  bool
-		autonomy  model.AutonomyLevel
-		enableRAG bool
-		enableAst bool
-		enableLLM bool
-		open      bool
-		maxCorr   int
-		maxPromo  int
-		todayCorr int
+		name       string
+		cacheHit   bool
+		autonomy   model.AutonomyLevel
+		enableRAG  bool
+		enableAst  bool
+		enableLLM  bool
+		open       bool
+		maxCorr    int
+		maxPromo   int
+		todayCorr  int
 		todayPromo int
 	}
 	var cases []tc
@@ -856,22 +856,22 @@ func TestSwitchService_RecordCorrectionAction(t *testing.T) {
 		{
 			name: "incr_corr_error", action: model.CorrectionRetrieveRetry,
 			success: true, isPromotion: false, incrCorrErr: errors.New("corr db error"),
-			wantErr:           errors.New("corr db error"),
-			wantCorrDelta:     1, wantMarkTriggered: 0,
+			wantErr:       errors.New("corr db error"),
+			wantCorrDelta: 1, wantMarkTriggered: 0,
 			wantQuotaCorrIncr: 0, wantBreakerEntries: 0,
 		},
 		{
 			name: "incr_promo_error", action: model.CorrectionAssetPromote,
 			success: true, isPromotion: true, incrPromoErr: errors.New("promo db error"),
-			wantErr:            errors.New("promo db error"),
-			wantCorrDelta:      1, wantPromoDelta: 1, wantMarkTriggered: 0,
-			wantQuotaCorrIncr:  1, wantQuotaPromoIncr: 0, wantBreakerEntries: 0,
+			wantErr:       errors.New("promo db error"),
+			wantCorrDelta: 1, wantPromoDelta: 1, wantMarkTriggered: 0,
+			wantQuotaCorrIncr: 1, wantQuotaPromoIncr: 0, wantBreakerEntries: 0,
 		},
 		{
 			name: "mark_triggered_error", action: model.CorrectionRetrieveRetry,
 			success: true, isPromotion: false, markTriggeredErr: errors.New("mark error"),
-			wantErr:           errors.New("mark error"),
-			wantCorrDelta:     1, wantMarkTriggered: 1,
+			wantErr:       errors.New("mark error"),
+			wantCorrDelta: 1, wantMarkTriggered: 1,
 			wantQuotaCorrIncr: 1, wantBreakerEntries: 0,
 		},
 	}
@@ -952,86 +952,86 @@ func TestSwitchService_EvaluateCircuit(t *testing.T) {
 	}
 
 	type tc struct {
-		name             string
-		successCount     int
-		failCount        int
-		initialOpen      bool // 初始缓存中的 circuit_open
-		threshold        float64
+		name              string
+		successCount      int
+		failCount         int
+		initialOpen       bool // 初始缓存中的 circuit_open
+		threshold         float64
 		setCircuitOpenErr error
-		getOrCreateErr   error
-		wantErr          error
-		wantSetCalls     int   // 期望 SetCircuitOpen 调用次数
-		wantSetOpen      *bool // 期望最终设置的 open 值（nil 表示不关心/未调用）
-		wantCachedOpen   bool  // 调用后缓存中的 circuit_open
+		getOrCreateErr    error
+		wantErr           error
+		wantSetCalls      int   // 期望 SetCircuitOpen 调用次数
+		wantSetOpen       *bool // 期望最终设置的 open 值（nil 表示不关心/未调用）
+		wantCachedOpen    bool  // 调用后缓存中的 circuit_open
 	}
 
 	cases := []tc{
 		{
-			name: "empty_window_closed_stays_closed",
+			name:         "empty_window_closed_stays_closed",
 			successCount: 0, failCount: 0, initialOpen: false, threshold: 0.3,
 			wantSetCalls: 0, wantCachedOpen: false,
 		},
 		{
-			name: "empty_window_open_stays_open_no_recovery",
+			name:         "empty_window_open_stays_open_no_recovery",
 			successCount: 0, failCount: 0, initialOpen: true, threshold: 0.3,
 			wantSetCalls: 0, wantCachedOpen: true, // total=0 不满足 total>0，不恢复
 		},
 		{
-			name: "few_success_entries_open_recovers",
+			name:         "few_success_entries_open_recovers",
 			successCount: 5, failCount: 0, initialOpen: true, threshold: 0.3,
 			wantSetCalls: 1, wantSetOpen: boolPtr(false), wantCachedOpen: false,
 		},
 		{
-			name: "10_failures_closed_triggers_open",
+			name:         "10_failures_closed_triggers_open",
 			successCount: 0, failCount: 10, initialOpen: false, threshold: 0.3,
 			wantSetCalls: 1, wantSetOpen: boolPtr(true), wantCachedOpen: true,
 		},
 		{
-			name: "10_success_closed_stays_closed",
+			name:         "10_success_closed_stays_closed",
 			successCount: 10, failCount: 0, initialOpen: false, threshold: 0.3,
 			wantSetCalls: 0, wantCachedOpen: false,
 		},
 		{
-			name: "10_success_open_recovers",
+			name:         "10_success_open_recovers",
 			successCount: 10, failCount: 0, initialOpen: true, threshold: 0.3,
 			wantSetCalls: 1, wantSetOpen: boolPtr(false), wantCachedOpen: false,
 		},
 		{
-			name: "10_3fail_rate0.3_triggers_open",
+			name:         "10_3fail_rate0.3_triggers_open",
 			successCount: 7, failCount: 3, initialOpen: false, threshold: 0.3,
 			wantSetCalls: 1, wantSetOpen: boolPtr(true), wantCachedOpen: true,
 		},
 		{
-			name: "10_2fail_rate0.2_stays_closed",
+			name:         "10_2fail_rate0.2_stays_closed",
 			successCount: 8, failCount: 2, initialOpen: false, threshold: 0.3,
 			wantSetCalls: 0, wantCachedOpen: false,
 		},
 		{
-			name: "10_5fail_open_stays_open_no_recovery",
+			name:         "10_5fail_open_stays_open_no_recovery",
 			successCount: 5, failCount: 5, initialOpen: true, threshold: 0.3,
 			wantSetCalls: 0, wantCachedOpen: true, // open=true 但 snap.CircuitOpen=true，不触发 SetCircuitOpen
 		},
 		{
-			name: "threshold0.5_4fail_no_open",
+			name:         "threshold0.5_4fail_no_open",
 			successCount: 6, failCount: 4, initialOpen: false, threshold: 0.5,
 			wantSetCalls: 0, wantCachedOpen: false,
 		},
 		{
-			name: "threshold0.5_5fail_triggers_open",
+			name:         "threshold0.5_5fail_triggers_open",
 			successCount: 5, failCount: 5, initialOpen: false, threshold: 0.5,
 			wantSetCalls: 1, wantSetOpen: boolPtr(true), wantCachedOpen: true,
 		},
 		{
-			name: "set_circuit_open_error_on_open",
+			name:         "set_circuit_open_error_on_open",
 			successCount: 0, failCount: 10, initialOpen: false, threshold: 0.3,
 			setCircuitOpenErr: errors.New("set open failed"),
-			wantErr: errors.New("set open failed"), wantSetCalls: 1, wantCachedOpen: false,
+			wantErr:           errors.New("set open failed"), wantSetCalls: 1, wantCachedOpen: false,
 		},
 		{
-			name: "set_circuit_open_error_on_recover",
+			name:         "set_circuit_open_error_on_recover",
 			successCount: 5, failCount: 0, initialOpen: true, threshold: 0.3,
 			setCircuitOpenErr: errors.New("set recover failed"),
-			wantErr: errors.New("set recover failed"), wantSetCalls: 1, wantCachedOpen: true,
+			wantErr:           errors.New("set recover failed"), wantSetCalls: 1, wantCachedOpen: true,
 		},
 	}
 
@@ -1217,7 +1217,7 @@ func TestSwitchService_ShouldExecuteAction(t *testing.T) {
 		{
 			name: "multiple_reasons_combined", action: model.CorrectionAssetPromote,
 			autonomy: model.AutonomyLevelManual, enableAst: false, open: true, maxCorr: 100, quotaCorr: 100,
-			wantAllow: false,
+			wantAllow:  false,
 			wantReason: "asset self-learning disabled; circuit breaker open; daily correction quota exceeded; manual mode forbids auto action",
 		},
 		{

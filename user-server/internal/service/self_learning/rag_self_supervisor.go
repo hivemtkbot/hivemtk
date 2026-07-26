@@ -101,16 +101,14 @@ func (s *RAGSelfSupervisor) GetLLMJudgeSampleRate() float64 {
 // 输出：4 个 RAG 信号（target_type=rag）+ N 个资产包信号（target_type=asset，N=len(used_asset_ids)）
 //
 // 采集策略（5 个指标维度，分属 RAG 与 Asset 两类 target_type）：
-//   RAG 类（target_type=rag，受 EnableRAG 开关控制）：
-//     1. recall_precision    基于反馈信号计算（reward >= 0 视为相关）
-//     2. recall_coverage     基于客户最后消息的关键词在召回中的覆盖率
-//     3. generation_fidelity LLM-as-Judge（采样判定）
-//     4. answer_relevance    LLM-as-Judge（采样判定）
-//   Asset 类（target_type=asset，受 EnableAsset 开关控制）：
-//     5. asset_effectiveness 基于资产包使用与转化的相关性（每 asset_id 一个信号，属共享指标）
 //
-// 边界说明：asset_effectiveness 虽由 RAGSelfSupervisor 采集，但 target_type=asset，
-//          是论证文档 §3.5 明确豁免的共享指标，不构成跨域违规。
+//	RAG 类（target_type=rag，受 EnableRAG 开关控制）：
+//	  1. recall_precision    基于反馈信号计算（reward >= 0 视为相关）
+//	  2. recall_coverage     基于客户最后消息的关键词在召回中的覆盖率
+//	  3. generation_fidelity LLM-as-Judge（采样判定）
+//	  4. answer_relevance    LLM-as-Judge（采样判定）
+//	Asset 类（target_type=asset，受 EnableAsset 开关控制）：
+//	  5. asset_effectiveness 基于资产包使用与转化的相关性（每 asset_id 一个信号，属共享指标）
 func (s *RAGSelfSupervisor) CollectMetrics(ctx context.Context, payload *event.DialogueEndedPayload) error {
 	if payload == nil {
 		return fmt.Errorf("payload is nil")
@@ -196,9 +194,9 @@ func (s *RAGSelfSupervisor) CollectMetrics(ctx context.Context, payload *event.D
 // ScanAlerts 扫描告警（每小时）
 //
 // 行为：
-//   1. 查询最近 1h 的 warning/alert 信号
-//   2. 对 alert 状态的信号，触发 SelfCorrectionDispatcher 派发修复策略
-//   3. 写入 self_learning_logs（scenario=rag_supervision）
+//  1. 查询最近 1h 的 warning/alert 信号
+//  2. 对 alert 状态的信号，触发 SelfCorrectionDispatcher 派发修复策略
+//  3. 写入 self_learning_logs（scenario=rag_supervision）
 func (s *RAGSelfSupervisor) ScanAlerts(ctx context.Context) (int, error) {
 	snap, err := s.switchSvc.GetStatus(ctx)
 	if err != nil {

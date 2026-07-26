@@ -133,14 +133,14 @@ type FeedbackSignalRepository interface {
 
 // CorrectionResult 矫正结果
 type CorrectionResult struct {
-	ActionID    string                       `json:"action_id"`
-	ActionType  model.CorrectionActionType   `json:"action_type"`
-	TargetID    string                       `json:"target_id"`
-	Status      model.CorrectionActionStatus `json:"status"` // applied / skipped / failed
-	Reason      string                       `json:"reason"`
-	Before      map[string]any               `json:"before"`
-	After       map[string]any               `json:"after"`
-	AppliedAt   time.Time                    `json:"applied_at"`
+	ActionID   string                       `json:"action_id"`
+	ActionType model.CorrectionActionType   `json:"action_type"`
+	TargetID   string                       `json:"target_id"`
+	Status     model.CorrectionActionStatus `json:"status"` // applied / skipped / failed
+	Reason     string                       `json:"reason"`
+	Before     map[string]any               `json:"before"`
+	After      map[string]any               `json:"after"`
+	AppliedAt  time.Time                    `json:"applied_at"`
 }
 
 // CandidateGenerationResult 候选生成结果
@@ -156,22 +156,22 @@ type CandidateGenerationResult struct {
 
 // ConvergenceCheckResult 收敛检查结果
 type ConvergenceCheckResult struct {
-	ExperimentID string  `json:"experiment_id"`
-	Converged    bool    `json:"converged"`
-	WinnerArm    string  `json:"winner_arm"`
+	ExperimentID  string  `json:"experiment_id"`
+	Converged     bool    `json:"converged"`
+	WinnerArm     string  `json:"winner_arm"`
 	PosteriorProb float64 `json:"posterior_prob"`
-	TotalSamples int64   `json:"total_samples"`
-	ShouldPromote bool   `json:"should_promote"` // autonomous 模式下是否自动晋升
+	TotalSamples  int64   `json:"total_samples"`
+	ShouldPromote bool    `json:"should_promote"` // autonomous 模式下是否自动晋升
 }
 
 // GuardrailCheckResult 护栏检查结果（v1.1 §7.4.5）
 type GuardrailCheckResult struct {
-	Passed            bool     `json:"passed"`
-	BlockedReasons    []string `json:"blocked_reasons"`
-	DailyQuotaUsed    int      `json:"daily_quota_used"`
-	DailyQuotaLimit   int      `json:"daily_quota_limit"`
-	CircuitOpen       bool     `json:"circuit_open"`
-	AutonomyLevel     model.AutonomyLevel `json:"autonomy_level"`
+	Passed          bool                `json:"passed"`
+	BlockedReasons  []string            `json:"blocked_reasons"`
+	DailyQuotaUsed  int                 `json:"daily_quota_used"`
+	DailyQuotaLimit int                 `json:"daily_quota_limit"`
+	CircuitOpen     bool                `json:"circuit_open"`
+	AutonomyLevel   model.AutonomyLevel `json:"autonomy_level"`
 }
 
 // ============================================================================
@@ -186,22 +186,22 @@ type GuardrailCheckResult struct {
 //   - 是否熔断中（circuit_open）
 //   - 今日配额（today_corrections/today_promotions vs max_*）
 type SwitchSnapshot struct {
-	AutonomyLevel          model.AutonomyLevel
-	EnableRAG              bool
-	EnableAsset            bool
-	EnableLLM              bool
-	CircuitOpen            bool
-	MaxDailyCorrections    int
-	MaxDailyPromotions     int
-	TodayCorrections       int
-	TodayPromotions        int
-	LowQualityThreshold    float64
+	AutonomyLevel           model.AutonomyLevel
+	EnableRAG               bool
+	EnableAsset             bool
+	EnableLLM               bool
+	CircuitOpen             bool
+	MaxDailyCorrections     int
+	MaxDailyPromotions      int
+	TodayCorrections        int
+	TodayPromotions         int
+	LowQualityThreshold     float64
 	ChampionRewardThreshold float64
-	ABTestMinSamples       int
+	ABTestMinSamples        int
 	CircuitBreakerThreshold float64
 	CircuitBreakerWindowMin int
-	LastTriggeredAt        *time.Time
-	UpdatedAt              time.Time
+	LastTriggeredAt         *time.Time
+	UpdatedAt               time.Time
 }
 
 // ToDTO 转换为 DTO 响应

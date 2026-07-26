@@ -58,7 +58,7 @@ func (c *Client) sign(method, path string, body []byte) (string, string, error) 
 }
 
 // Do 公开的 HTTP 请求方法，供 controller 层代理调用平台 API 使用。
-// 失败时返回 *PlatformError，调用方可按状态码/业务 code 结构化分支处理（R2 修复）。
+// 失败时返回 *PlatformError，调用方可按状态码/业务 code 结构化分支处理。
 func (c *Client) Do(method, path string, reqData, respData any) error {
 	return c.doRetry(method, path, reqData, respData, false)
 }
@@ -224,7 +224,7 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		}
 		logger.Error(fmt.Errorf("平台接口返回 %d", resp.StatusCode),
 			fmt.Sprintf("商户上报请求失败: %s %s, 状态码: %d, 耗时: %v, 响应: %s", method, url, resp.StatusCode, duration, bodyStr))
-		// R2 修复：透传状态码与响应体，交由调用方按结构化 code 分支处理，
+		// 透传状态码与响应体，交由调用方按结构化 code 分支处理，
 		// 不再吞掉 body，也不再依赖 strings.Contains(err, "404") 这种脆弱匹配。
 		return &PlatformError{StatusCode: resp.StatusCode, RawBody: bodyStr, Resp: &baseResp}
 	}
@@ -283,7 +283,7 @@ type BaseResp struct {
 }
 
 // PlatformError 结构化错误，携带 HTTP 状态码与平台响应体，便于调用方按 code/状态码
-// 而非脆弱的字符串匹配(如 strings.Contains(err, "404"))进行分支处理（R2 修复）。
+// 而非脆弱的字符串匹配(如 strings.Contains(err, "404"))进行分支处理。
 type PlatformError struct {
 	StatusCode int
 	RawBody    string
@@ -369,8 +369,8 @@ func ReportInstallDefault(req *ReportInstallReq) error {
 type ReportHeartbeatReq struct {
 	InstallID         string          `json:"install_id"`
 	Version           string          `json:"version"`
-	HostInfo          json.RawMessage `json:"host_info"`           // 主机信息（JSON）
-	Metrics           json.RawMessage `json:"metrics"`             // 运行指标（JSON）
+	HostInfo          json.RawMessage `json:"host_info"`          // 主机信息（JSON）
+	Metrics           json.RawMessage `json:"metrics"`            // 运行指标（JSON）
 	DeviceFingerprint string          `json:"device_fingerprint"` // 设备指纹（用户端生成，稳定标识部署实例）
 	ClientIP          string          `json:"client_ip"`          // 兜底 IP，平台侧以服务端采集为准
 	Timestamp         time.Time       `json:"timestamp"`

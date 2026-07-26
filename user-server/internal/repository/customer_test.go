@@ -31,7 +31,6 @@ func TestCustomerRepository_Create(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name     string
 		customer *model.Customer
@@ -92,7 +91,6 @@ func TestCustomerRepository_GetByID(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	// Create test data
 	customer := &model.Customer{
 		ID:           "test-customer-id",
@@ -148,7 +146,6 @@ func TestCustomerRepository_GetByPhone(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	// Create test data
 	customer := &model.Customer{
 		Phone: "13900139000",
@@ -199,7 +196,6 @@ func TestCustomerRepository_GetByEmail(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	customer := &model.Customer{
 		Email: "unique_email@example.com",
 		Phone: "13700137000",
@@ -224,7 +220,6 @@ func TestCustomerRepository_GetByEmail(t *testing.T) {
 func TestCustomerRepository_GetByWechatOpenID(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	customer := &model.Customer{
 		WechatOpenID: "unique_wechat_openid",
@@ -251,7 +246,6 @@ func TestCustomerRepository_GetByDouyinOpenID(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	customer := &model.Customer{
 		DouyinOpenID: "unique_douyin_openid",
 		Phone:        "13500135000",
@@ -276,7 +270,6 @@ func TestCustomerRepository_GetByDouyinOpenID(t *testing.T) {
 func TestCustomerRepository_Update(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	// Create test data
 	customer := &model.Customer{
@@ -319,7 +312,6 @@ func TestCustomerRepository_Delete(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	// Create test data
 	customer := &model.Customer{
 		ID:    "delete-test-id",
@@ -348,7 +340,6 @@ func TestCustomerRepository_Delete(t *testing.T) {
 func TestCustomerRepository_List(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	// Create test data
 
@@ -403,7 +394,6 @@ func TestCustomerRepository_List(t *testing.T) {
 func TestCustomerRepository_FindByIdentity(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	// Create test data
 	customer := &model.Customer{
@@ -478,7 +468,6 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	customer := &model.Customer{
 		Phone: "13800138000",
 	}
@@ -503,7 +492,6 @@ func TestCustomerRepository_GetByUnifiedID(t *testing.T) {
 func TestCustomerRepository_Tags(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	customer := &model.Customer{
 		Phone: "13800138000",
@@ -550,7 +538,6 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
 
-
 	customer := &model.Customer{
 		Phone:     "13800138000",
 		RFMScore:  8,
@@ -596,7 +583,6 @@ func TestCustomerRepository_ChurnRiskAndRFM(t *testing.T) {
 func TestCustomerRepository_Timestamps(t *testing.T) {
 	repo := setupCustomerRepository(t)
 	ctx := context.Background()
-
 
 	beforeCreate := time.Now()
 	customer := &model.Customer{

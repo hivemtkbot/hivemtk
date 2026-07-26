@@ -461,11 +461,11 @@ func NewOrderLookupTool(deps BusinessToolDeps) *OrderLookupTool {
 			ParamsVal: ToolParameters{
 				Type: "object",
 				Properties: map[string]ToolParam{
-					"platform":   {Type: "string", Description: "电商平台标识（如 taobao/jd），按订单号查时建议提供以缩小范围"},
-					"order_id":   {Type: "string", Description: "订单号（与 phone/name 二选一；提供则优先按单号精确查）"},
-					"phone":      {Type: "string", Description: "客户手机号（不提供 order_id 时按手机查近期订单）"},
-					"name":       {Type: "string", Description: "客户姓名（phone 为空时按姓名查）"},
-					"limit":      {Type: "integer", Description: "返回订单条数上限（默认 10）", Default: 10},
+					"platform": {Type: "string", Description: "电商平台标识（如 taobao/jd），按订单号查时建议提供以缩小范围"},
+					"order_id": {Type: "string", Description: "订单号（与 phone/name 二选一；提供则优先按单号精确查）"},
+					"phone":    {Type: "string", Description: "客户手机号（不提供 order_id 时按手机查近期订单）"},
+					"name":     {Type: "string", Description: "客户姓名（phone 为空时按姓名查）"},
+					"limit":    {Type: "integer", Description: "返回订单条数上限（默认 10）", Default: 10},
 				},
 				Required: []string{},
 			},
@@ -641,4 +641,3 @@ func (t *AfterSaleQueryTool) Execute(ctx context.Context, args map[string]any) (
 		"after_sales": views,
 	}), nil
 }
-

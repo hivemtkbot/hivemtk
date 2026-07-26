@@ -119,18 +119,18 @@ func (r *selfLearningSwitchRepo) Update(ctx context.Context, m *model.SelfLearni
 	return r.db.WithContext(ctx).Model(&model.SelfLearningSwitch{}).
 		Where("id = ?", 1).
 		Updates(map[string]any{
-			"autonomy_level":            m.AutonomyLevel,
-			"enable_rag":                m.EnableRAG,
-			"enable_asset":              m.EnableAsset,
-			"enable_llm":                m.EnableLLM,
-			"max_daily_corrections":     m.MaxDailyCorrections,
-			"max_daily_promotions":      m.MaxDailyPromotions,
-			"low_quality_threshold":     m.LowQualityThreshold,
-			"champion_reward_threshold": m.ChampionRewardThreshold,
-			"ab_test_min_samples":       m.ABTestMinSamples,
-			"circuit_breaker_threshold": m.CircuitBreakerThreshold,
+			"autonomy_level":             m.AutonomyLevel,
+			"enable_rag":                 m.EnableRAG,
+			"enable_asset":               m.EnableAsset,
+			"enable_llm":                 m.EnableLLM,
+			"max_daily_corrections":      m.MaxDailyCorrections,
+			"max_daily_promotions":       m.MaxDailyPromotions,
+			"low_quality_threshold":      m.LowQualityThreshold,
+			"champion_reward_threshold":  m.ChampionRewardThreshold,
+			"ab_test_min_samples":        m.ABTestMinSamples,
+			"circuit_breaker_threshold":  m.CircuitBreakerThreshold,
 			"circuit_breaker_window_min": m.CircuitBreakerWindowMin,
-			"updated_by":                m.UpdatedBy,
+			"updated_by":                 m.UpdatedBy,
 		}).Error
 }
 
@@ -372,15 +372,15 @@ type SelfCorrectionActionRepository interface {
 
 // CorrectionActionFilter 矫正动作过滤条件
 type CorrectionActionFilter struct {
-	ActionType  model.CorrectionActionType
-	TargetType  string
-	TargetID    string
-	Status      model.CorrectionActionStatus
+	ActionType   model.CorrectionActionType
+	TargetType   string
+	TargetID     string
+	Status       model.CorrectionActionStatus
 	TriggerLogID string
-	Since       time.Time
-	Until       time.Time
-	Page        int
-	Size        int
+	Since        time.Time
+	Until        time.Time
+	Page         int
+	Size         int
 }
 
 type selfCorrectionActionRepo struct {
@@ -394,9 +394,7 @@ func NewSelfCorrectionActionRepository(db *gorm.DB) SelfCorrectionActionReposito
 
 // GenActionID 已迁移至 service 层 (service/self_learning/id_generator.go)
 //
-// 历史问题：原实现包含 time.Now().UnixNano()，导致每次调用生成不同 ID，
-// 破坏了幂等性——同一触发重复调用会创建多条相同语义的 action。
-// 现已移除时间戳，确保幂等。如需为同一触发创建多个同类型 action，
+// 不包含 time.Now().UnixNano()，确保幂等。如需为同一触发创建多个同类型 action，
 // 调用方应传入不同的 targetID 区分。
 
 // ErrDuplicateAction 矫正动作重复（action_id UNIQUE 冲突）

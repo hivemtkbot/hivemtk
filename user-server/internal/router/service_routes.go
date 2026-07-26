@@ -343,7 +343,7 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	dispatcher := getGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)
 	llmCtrl := controller.NewLLMRoutingController(routingService)
-	// v3.7.0 P1 补：注入熔断器，Health 端点可展示 circuit_open / error_count / last_error
+	// 注入熔断器，Health 端点可展示 circuit_open / error_count / last_error
 	if f := getGlobalProviderFailover(); f != nil {
 		llmCtrl.SetFailover(f)
 	}

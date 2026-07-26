@@ -261,7 +261,6 @@ npm run test:e2e:ui
 - 嵌入 SDK [../embed-sdk](../embed-sdk/)
 - 后端服务 [../user-server](../user-server/)
 - 前端编码规范 [../docs/standards/FRONTEND_CODING_STANDARDS.md](../docs/standards/FRONTEND_CODING_STANDARDS.md)
-- CHANGELOG [../CHANGELOG.md](../CHANGELOG.md)
 
 ## 📄 许可证
 

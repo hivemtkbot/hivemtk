@@ -31,10 +31,10 @@ func TestIntegration_AccountManagement(t *testing.T) {
 
 	// 1. 创建账号
 	account := model.Account{
-		TgName:       "integration_test",
-		TgBotToken:   "token123",
-		GroupID:      98765,
-		Price:        "99.00",
+		TgName:     "integration_test",
+		TgBotToken: "token123",
+		GroupID:    98765,
+		Price:      "99.00",
 	}
 
 	err := db.GetDB().Create(&account).Error

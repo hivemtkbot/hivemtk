@@ -93,7 +93,7 @@ func TestWeComService_GetAccountList(t *testing.T) {
 	}
 
 	// 获取账号列表
-	results, err := service.GetAccountList(context.Background(), )
+	results, err := service.GetAccountList(context.Background())
 	if err != nil {
 		t.Fatalf("GetAccountList failed: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestWeComService_GetTagList(t *testing.T) {
 	}
 
 	// 获取标签列表
-	tags, err := service.GetTagList(context.Background(), )
+	tags, err := service.GetTagList(context.Background())
 	if err != nil {
 		t.Fatalf("GetTagList failed: %v", err)
 	}

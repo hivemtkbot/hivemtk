@@ -197,7 +197,7 @@ func (e *ContextualRetrievalEnhancer) EnhanceDocument(ctx context.Context, docum
 					WHERE id = ?
 				`, u.ctx, vecLiteral, fmt.Sprintf("ctx-%d", u.id), u.id).Error; err != nil {
 					// best-effort：不阻断主流程，但必须记录错误
-				logger.Errorf("contextual_retrieval: update knowledge_chunks (with embedding) failed, chunk_id=%d: %v", u.id, err)
+					logger.Errorf("contextual_retrieval: update knowledge_chunks (with embedding) failed, chunk_id=%d: %v", u.id, err)
 				}
 			} else {
 				if err := e.db.Exec(`

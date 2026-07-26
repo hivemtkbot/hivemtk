@@ -15,8 +15,8 @@ import (
 // ============================================================================
 
 var (
-	globalMu              sync.RWMutex
-	globalDispatcher      *llm.Dispatcher
+	globalMu               sync.RWMutex
+	globalDispatcher       *llm.Dispatcher
 	globalProviderFailover *llm.ProviderFailover
 )
 

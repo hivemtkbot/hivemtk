@@ -16,7 +16,6 @@ import { resolve } from 'path'
 // 与 main.js 中删除的全量 `app.component(key, component)` 注册循环等价,
 // 但仅注入实际被模板引用的图标,显著减小首屏 bundle 体积。
 //
-// 详见: docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-1
 const epIconNames = new Set(Object.keys(ElementPlusIconsVue))
 function ElementPlusIconResolver(name) {
   // 仅当 name 是 @element-plus/icons-vue 导出的图标名时才解析

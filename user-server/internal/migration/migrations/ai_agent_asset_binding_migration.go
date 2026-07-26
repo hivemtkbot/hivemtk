@@ -24,7 +24,9 @@ func NewAgentAssetBindingMigration(db *gorm.DB) *AgentAssetBindingMigration {
 func (m *AgentAssetBindingMigration) Version() string { return "v3.9.0" }
 
 // Name 返回迁移名称
-func (m *AgentAssetBindingMigration) Name() string { return "智能体绑定资产包（ai_agents.asset_bundle_id）" }
+func (m *AgentAssetBindingMigration) Name() string {
+	return "智能体绑定资产包（ai_agents.asset_bundle_id）"
+}
 
 // Description 返回迁移描述
 func (m *AgentAssetBindingMigration) Description() string {

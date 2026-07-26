@@ -8,11 +8,10 @@ import (
 // auto_reply_account_service.go
 //
 // 从 model.AutoReplyAccount 迁移而来的 Cookie 加解密函数（T04 架构清理）。
-// 原始方法 (*AutoReplyAccount).GetCookie / (*AutoReplyAccount).SetCookie 违反
-// 五层架构（model 不应包含业务方法），故下沉为 service 包级函数。
+// model 不应包含业务方法（五层架构约束），Cookie 的 Get/Set 由 service 包级函数承载。
 //
 // MarshalJSON / UnmarshalJSON / getDecryptedCookieForSerialization 等自定义
-// JSON 序列化方法已删除：Cookie 字段已有 `json:"-"`，默认序列化不会暴露；
+// Cookie 字段已有 `json:"-"`，默认序列化不会暴露；
 // 反序列化时若需要从 JSON 写入加密 Cookie，由调用方在 service 层先
 // Unmarshal 再调用 SetAutoReplyAccountCookie 完成加密。
 

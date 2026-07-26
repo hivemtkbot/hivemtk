@@ -1,13 +1,14 @@
 // 工具:fix_internal_call_ctx
 // 智能修复 service 内部方法调用 (s.X / r.X / c.X)：
-//   1) 如果目标方法定义有 ctx 但调用处没传，则补 ctx
-//   2) 如果目标方法定义无 ctx 但调用处传了 ctx，则移除 ctx
+//  1. 如果目标方法定义有 ctx 但调用处没传，则补 ctx
+//  2. 如果目标方法定义无 ctx 但调用处传了 ctx，则移除 ctx
 //
 // 仅修改本文件内定义的 method（基于 receiver 类型 / 同名 method / 同包），
 // 跨文件的 method 暂不处理（由 controller → service 调用触发）。
 //
 // 用法:
-//   go run scripts/fix_internal_call_ctx/main.go internal/service
+//
+//	go run scripts/fix_internal_call_ctx/main.go internal/service
 package main
 
 import (

@@ -59,9 +59,9 @@ type LangDistRow struct {
 
 // GlossaryCovRow 术语覆盖率聚合行
 type GlossaryCovRow struct {
-	TargetLang   string `gorm:"column:target_lang" json:"target_lang"`
-	TermCount    int64  `gorm:"column:term_count" json:"term_count"`
-	ActiveCount  int64  `gorm:"column:active_count" json:"active_count"`
+	TargetLang  string `gorm:"column:target_lang" json:"target_lang"`
+	TermCount   int64  `gorm:"column:term_count" json:"term_count"`
+	ActiveCount int64  `gorm:"column:active_count" json:"active_count"`
 }
 
 // QualityTrendRow 质量趋势聚合行（按天）

@@ -6,8 +6,7 @@ package repository
 // 表：password_history
 // 私域独立部署：无 merchant_id 字段
 //
-// 阶段 2 重构：SystemUserRepository 已迁出至 system_user.go
-// 本文件仅承载密码历史仓储，避免混杂。
+// 本文件仅承载密码历史仓储。
 
 import (
 	"context"

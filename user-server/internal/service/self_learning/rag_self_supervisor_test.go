@@ -369,19 +369,19 @@ func TestRAGSelfSupervisor_UpsertSignal_StatusClassification(t *testing.T) {
 		wantStatus  model.SupervisionSignalStatus
 		desc        string
 	}{
-		{0.0, 0.8, 1, model.SupervisionStatusNormal, "value_zero"},             // value=0
-		{0.5, 0.8, 1, model.SupervisionStatusNormal, "below_0.8x"},             // 0.5 < 0.64
-		{0.6399, 0.8, 1, model.SupervisionStatusNormal, "just_below_0.8x"},     // 0.6399 < 0.64
-		{0.64, 0.8, 1, model.SupervisionStatusNormal, "literal_0.64_below_0.8x0.8"}, // 字面量 0.64 < 0.8*0.8
+		{0.0, 0.8, 1, model.SupervisionStatusNormal, "value_zero"},                    // value=0
+		{0.5, 0.8, 1, model.SupervisionStatusNormal, "below_0.8x"},                    // 0.5 < 0.64
+		{0.6399, 0.8, 1, model.SupervisionStatusNormal, "just_below_0.8x"},            // 0.6399 < 0.64
+		{0.64, 0.8, 1, model.SupervisionStatusNormal, "literal_0.64_below_0.8x0.8"},   // 字面量 0.64 < 0.8*0.8
 		{warningBoundary, 0.8, 1, model.SupervisionStatusWarning, "at_0.8x_boundary"}, // value == threshold*0.8 (运行时计算)
-		{0.7, 0.8, 1, model.SupervisionStatusWarning, "warning_mid"},          // 0.7 in [0.64, 0.8)
+		{0.7, 0.8, 1, model.SupervisionStatusWarning, "warning_mid"},                  // 0.7 in [0.64, 0.8)
 		{0.7999, 0.8, 1, model.SupervisionStatusWarning, "just_below_threshold"},
-		{0.8, 0.8, 1, model.SupervisionStatusAlert, "at_threshold_boundary"},   // 0.8 == 0.8
+		{0.8, 0.8, 1, model.SupervisionStatusAlert, "at_threshold_boundary"}, // 0.8 == 0.8
 		{0.9, 0.8, 1, model.SupervisionStatusAlert, "above_threshold"},
 		{1.0, 0.8, 1, model.SupervisionStatusAlert, "value_one"},
-		{0.5, 0.8, 0, model.SupervisionStatusNormal, "sample_zero"},           // sample=0
-		{0.9, 0.0, 1, model.SupervisionStatusNormal, "threshold_zero"},        // threshold=0
-		{0.9, -0.1, 1, model.SupervisionStatusNormal, "threshold_negative"},   // threshold<0
+		{0.5, 0.8, 0, model.SupervisionStatusNormal, "sample_zero"},         // sample=0
+		{0.9, 0.0, 1, model.SupervisionStatusNormal, "threshold_zero"},      // threshold=0
+		{0.9, -0.1, 1, model.SupervisionStatusNormal, "threshold_negative"}, // threshold<0
 	}
 
 	var cases []tc
@@ -553,20 +553,20 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 
 	cases := []tc{
 		{
-			name: "nil_payload",
-			payload: nil,
+			name:      "nil_payload",
+			payload:   nil,
 			enableRAG: true, enableAsset: true,
 			wantErr: true,
 		},
 		{
-			name: "rag_off_asset_off_no_calls",
-			payload: makeFullPayload(),
+			name:      "rag_off_asset_off_no_calls",
+			payload:   makeFullPayload(),
 			enableRAG: false, enableAsset: false,
 			wantUpsertMin: 0, wantUpsertMax: 0,
 		},
 		{
-			name: "rag_off_asset_on_with_assets",
-			payload: makeFullPayload(),
+			name:      "rag_off_asset_on_with_assets",
+			payload:   makeFullPayload(),
 			enableRAG: false, enableAsset: true,
 			wantUpsertMin: 1, wantUpsertMax: 1,
 			wantAssetEff: 0.85, // outcome=converted
@@ -611,7 +611,7 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 				AggregatedReward: 0,
 			},
 			enableRAG: true, enableAsset: false,
-			llmRate: 0.0,
+			llmRate:       0.0,
 			wantUpsertMin: 2, wantUpsertMax: 2,
 			wantRPrecision: 0.5,
 			wantCoverage:   1.0, // "product" "info" 都在 AI 回复中
@@ -718,8 +718,8 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 			wantUpsertMin: 0, wantUpsertMax: 0,
 		},
 		{
-			name: "rag_on_asset_on_full_payload_with_llm",
-			payload: makeFullPayload(),
+			name:      "rag_on_asset_on_full_payload_with_llm",
+			payload:   makeFullPayload(),
 			enableRAG: true, enableAsset: true,
 			llmRate:       1.0,
 			llmDispatcher: &mockLLMDispatcher{content: "0.9"},
@@ -737,7 +737,7 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 				AggregatedReward: 1.0,
 			},
 			enableRAG: true, enableAsset: false,
-			llmRate: 0.0,
+			llmRate:       0.0,
 			wantUpsertMin: 1, wantUpsertMax: 1, // 仅 recall_precision
 			wantRPrecision: 0.85,
 		},
@@ -751,7 +751,7 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 				AggregatedReward: 0,
 			},
 			enableRAG: true, enableAsset: false,
-			llmRate: 0.0,
+			llmRate:       0.0,
 			wantUpsertMin: 2, wantUpsertMax: 2,
 			wantCoverage: 0,
 		},
@@ -865,15 +865,15 @@ func TestRAGSelfSupervisor_CollectMetrics(t *testing.T) {
 
 func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 	type tc struct {
-		name              string
-		enableRAG         bool
-		alerts            []*model.SelfSupervisionSignal
-		listAlertsErr     error
-		dispatcher        *SelfCorrectionDispatcher
-		actionRepo        *mockActionRepo
-		wantErr           bool
-		wantDispatched    int
-		wantListAlertsN   int
+		name            string
+		enableRAG       bool
+		alerts          []*model.SelfSupervisionSignal
+		listAlertsErr   error
+		dispatcher      *SelfCorrectionDispatcher
+		actionRepo      *mockActionRepo
+		wantErr         bool
+		wantDispatched  int
+		wantListAlertsN int
 	}
 
 	// 构造 alert 信号辅助函数
@@ -899,15 +899,15 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 
 	cases := []tc{
 		{
-			name:        "rag_disabled_returns_zero",
-			enableRAG:   false,
-			alerts:      nil,
+			name:           "rag_disabled_returns_zero",
+			enableRAG:      false,
+			alerts:         nil,
 			wantDispatched: 0,
 		},
 		{
-			name:          "empty_alerts",
-			enableRAG:     true,
-			alerts:        nil,
+			name:           "empty_alerts",
+			enableRAG:      true,
+			alerts:         nil,
 			wantDispatched: 0,
 		},
 		{
@@ -917,16 +917,16 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantErr:       true,
 		},
 		{
-			name: "dispatcher_nil_no_dispatch",
+			name:      "dispatcher_nil_no_dispatch",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusAlert, "s1"),
 			},
-			dispatcher: nil,
+			dispatcher:     nil,
 			wantDispatched: 0,
 		},
 		{
-			name: "rag_alert_dispatched",
+			name:      "rag_alert_dispatched",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusAlert, "s1"),
@@ -936,7 +936,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 1,
 		},
 		{
-			name: "asset_alert_dispatched",
+			name:      "asset_alert_dispatched",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetAsset, model.SupervisionMetricAssetEffectiveness, model.SupervisionStatusAlert, "s2"),
@@ -945,7 +945,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 1,
 		},
 		{
-			name: "llm_alert_skipped",
+			name:      "llm_alert_skipped",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetLLM, model.SupervisionMetricGenerationFidelity, model.SupervisionStatusAlert, "s3"),
@@ -954,7 +954,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0,
 		},
 		{
-			name: "hybrid_alert_skipped",
+			name:      "hybrid_alert_skipped",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetHybrid, model.SupervisionMetricAnswerRelevance, model.SupervisionStatusAlert, "s4"),
@@ -963,7 +963,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0,
 		},
 		{
-			name: "warning_status_skipped",
+			name:      "warning_status_skipped",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusWarning, "s5"),
@@ -972,7 +972,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0,
 		},
 		{
-			name: "normal_status_skipped",
+			name:      "normal_status_skipped",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusNormal, "s6"),
@@ -981,7 +981,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0,
 		},
 		{
-			name: "mixed_statuses_only_alert_dispatched",
+			name:      "mixed_statuses_only_alert_dispatched",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusNormal, "n1"),
@@ -993,7 +993,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 2,
 		},
 		{
-			name: "mixed_target_types_only_rag_asset_dispatched",
+			name:      "mixed_target_types_only_rag_asset_dispatched",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusAlert, "r1"),
@@ -1005,7 +1005,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 2,
 		},
 		{
-			name: "dispatcher_error_continues_silently",
+			name:      "dispatcher_error_continues_silently",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusAlert, "s1"),
@@ -1015,7 +1015,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0,
 		},
 		{
-			name: "asset_ab_converge_no_action_type_dispatch_error",
+			name:      "asset_ab_converge_no_action_type_dispatch_error",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetAsset, model.SupervisionMetricAssetABConverge, model.SupervisionStatusAlert, "s1"),
@@ -1024,7 +1024,7 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 			wantDispatched: 0, // lookupActionType 返回 ""，DispatchFromSignal 返回 error，跳过
 		},
 		{
-			name: "multiple_alerts_partial_success",
+			name:      "multiple_alerts_partial_success",
 			enableRAG: true,
 			alerts: []*model.SelfSupervisionSignal{
 				mkAlert(model.SupervisionTargetRAG, model.SupervisionMetricRecallPrecision, model.SupervisionStatusAlert, "ok1"),
@@ -1115,11 +1115,11 @@ func TestRAGSelfSupervisor_ScanAlerts(t *testing.T) {
 
 func TestRAGSelfSupervisor_LLMJudge_GenerationFidelity(t *testing.T) {
 	type tc struct {
-		name        string
-		dispatcher  *mockLLMDispatcher
-		wantScore   float64
-		wantErr     bool
-		wantErrSub  string
+		name       string
+		dispatcher *mockLLMDispatcher
+		wantScore  float64
+		wantErr    bool
+		wantErrSub string
 	}
 
 	cases := []tc{
@@ -1240,53 +1240,53 @@ func TestRAGSelfSupervisor_LLMJudge_AnswerRelevance(t *testing.T) {
 
 func TestRAGSelfSupervisor_GetDashboard(t *testing.T) {
 	type tc struct {
-		name          string
-		rangeStr      string
-		aggAvg        float64
-		aggCount      int64
-		aggErr        error
-		alerts        []*model.SelfSupervisionSignal
-		listAlertsErr error
-		wantRange     string
-		wantRAGCount  int // 期望 RAG 指标数（4 个）
+		name           string
+		rangeStr       string
+		aggAvg         float64
+		aggCount       int64
+		aggErr         error
+		alerts         []*model.SelfSupervisionSignal
+		listAlertsErr  error
+		wantRange      string
+		wantRAGCount   int // 期望 RAG 指标数（4 个）
 		wantAssetCount int
 		wantAlertCount int
 	}
 
 	cases := []tc{
 		{
-			name: "range_24h",
+			name:     "range_24h",
 			rangeStr: "24h", aggAvg: 0.85, aggCount: 100,
 			wantRange: "24h", wantRAGCount: 4, wantAssetCount: 1,
 		},
 		{
-			name: "range_7d",
+			name:     "range_7d",
 			rangeStr: "7d", aggAvg: 0.7, aggCount: 500,
 			wantRange: "7d", wantRAGCount: 4, wantAssetCount: 1,
 		},
 		{
-			name: "range_30d",
+			name:     "range_30d",
 			rangeStr: "30d", aggAvg: 0.6, aggCount: 2000,
 			wantRange: "30d", wantRAGCount: 4, wantAssetCount: 1,
 		},
 		{
-			name: "range_empty_defaults_24h",
+			name:     "range_empty_defaults_24h",
 			rangeStr: "", aggAvg: 0.5, aggCount: 10,
 			wantRange: "24h", wantRAGCount: 4, wantAssetCount: 1,
 		},
 		{
-			name: "range_invalid_defaults_24h",
+			name:     "range_invalid_defaults_24h",
 			rangeStr: "invalid", aggAvg: 0.5, aggCount: 10,
 			wantRange: "24h", wantRAGCount: 4, wantAssetCount: 1,
 		},
 		{
-			name: "aggregate_error_metrics_skipped",
+			name:     "aggregate_error_metrics_skipped",
 			rangeStr: "24h", aggErr: errors.New("aggregate failed"),
 			// RAG metrics 用 continue 跳过 → 0 个；Asset metrics 用 _ 忽略错误，仍 append → 1 个
 			wantRange: "24h", wantRAGCount: 0, wantAssetCount: 1,
 		},
 		{
-			name: "with_alerts_warning_and_critical",
+			name:     "with_alerts_warning_and_critical",
 			rangeStr: "24h", aggAvg: 0.7, aggCount: 10,
 			alerts: []*model.SelfSupervisionSignal{
 				{SignalID: "sig-1", MetricName: model.SupervisionMetricRecallPrecision, Status: model.SupervisionStatusWarning, Value: 0.7, Threshold: 0.8, TargetID: "rag-1", BucketHour: time.Now()},
@@ -1295,10 +1295,10 @@ func TestRAGSelfSupervisor_GetDashboard(t *testing.T) {
 			wantRange: "24h", wantRAGCount: 4, wantAssetCount: 1, wantAlertCount: 2,
 		},
 		{
-			name: "list_alerts_error_returns_empty_alerts",
+			name:     "list_alerts_error_returns_empty_alerts",
 			rangeStr: "24h", aggAvg: 0.7, aggCount: 10,
 			listAlertsErr: errors.New("list alerts failed"),
-			wantRange: "24h", wantRAGCount: 4, wantAssetCount: 1, wantAlertCount: 0,
+			wantRange:     "24h", wantRAGCount: 4, wantAssetCount: 1, wantAlertCount: 0,
 		},
 	}
 
@@ -1358,9 +1358,9 @@ func TestRAGSelfSupervisor_GetDashboard(t *testing.T) {
 
 func TestRAGSelfSupervisor_SetLLMJudgeSampleRate(t *testing.T) {
 	type tc struct {
-		name    string
-		rate    float64
-		want    float64
+		name string
+		rate float64
+		want float64
 	}
 	cases := []tc{
 		{name: "zero", rate: 0.0, want: 0.0},
@@ -1376,10 +1376,10 @@ func TestRAGSelfSupervisor_SetLLMJudgeSampleRate(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			sup := newSupervisorWithMocks(nil, &mockSignalRepo{}, nil, nil)
-		sup.SetLLMJudgeSampleRate(c.rate)
-		if sup.GetLLMJudgeSampleRate() != c.want {
-			t.Errorf("llmJudgeSampleRate = %v, want %v", sup.GetLLMJudgeSampleRate(), c.want)
-		}
+			sup.SetLLMJudgeSampleRate(c.rate)
+			if sup.GetLLMJudgeSampleRate() != c.want {
+				t.Errorf("llmJudgeSampleRate = %v, want %v", sup.GetLLMJudgeSampleRate(), c.want)
+			}
 		})
 	}
 }
@@ -1438,10 +1438,10 @@ func TestRAGSelfSupervisor_parseScore(t *testing.T) {
 
 func TestRAGSelfSupervisor_computeCoverage(t *testing.T) {
 	type tc struct {
-		name       string
-		customer   string
-		aiReply    string
-		want       float64
+		name     string
+		customer string
+		aiReply  string
+		want     float64
 	}
 	cases := []tc{
 		{name: "empty_customer", customer: "", aiReply: "hello", want: 0},

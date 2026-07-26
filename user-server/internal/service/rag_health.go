@@ -65,12 +65,12 @@ const (
 
 // RagHealthService RAG 健康度服务
 type RagHealthService struct {
-	db     *gorm.DB
-	repo   repository.RagHealthRepository
-	metric *RagMetricsService
-	alert  *RagAlertService
-	mu     sync.Mutex
-	cached *RagHealthReport
+	db       *gorm.DB
+	repo     repository.RagHealthRepository
+	metric   *RagMetricsService
+	alert    *RagAlertService
+	mu       sync.Mutex
+	cached   *RagHealthReport
 	cachedAt time.Time
 }
 

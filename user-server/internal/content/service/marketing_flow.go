@@ -48,12 +48,12 @@ func SetWorkflowAssetResolver(fn func(ctx context.Context) (json.RawMessage, boo
 // MarketingWorkflow 资产结构（与 user-server 的 service.MarketingWorkflow 字段兼容的子集，
 // 此处独立声明以避免反向依赖 internal/service）。
 type MarketingWorkflow struct {
-	ID		string				`json:"id"`
-	Name		string				`json:"name"`
-	Industry	string				`json:"industry"`
-	Trigger		map[string]interface{}		`json:"trigger"`
-	Steps		[]map[string]interface{}	`json:"steps"`
-	KPI		map[string]interface{}		`json:"kpi"`
+	ID       string                   `json:"id"`
+	Name     string                   `json:"name"`
+	Industry string                   `json:"industry"`
+	Trigger  map[string]interface{}   `json:"trigger"`
+	Steps    []map[string]interface{} `json:"steps"`
+	KPI      map[string]interface{}   `json:"kpi"`
 }
 
 // ResolveActiveWorkflow 返回「生效中」的已购 marketing_workflow 资产（若存在）。
@@ -74,51 +74,51 @@ func ResolveActiveWorkflow(ctx context.Context) (*MarketingWorkflow, bool) {
 
 // MarketingFlowService 营销流程服务
 type MarketingFlowService struct {
-	flowRepo		*repository.MarketingFlowRepository
-	executionRepo		*repository.FlowExecutionRepository
-	userTagRepo		cdprepo.UserTagRepository
-	orderRepo		cdprepo.OrderRepository
-	clueRepo		cdprepo.ClueRepository
-	sessionRepo		*cdprepo.CustomerSessionRepository
-	agentRepo		*cdprepo.AgentStatusRepository
-	operationLogRepo	cdprepo.OperationLogRepository
+	flowRepo         *repository.MarketingFlowRepository
+	executionRepo    *repository.FlowExecutionRepository
+	userTagRepo      cdprepo.UserTagRepository
+	orderRepo        cdprepo.OrderRepository
+	clueRepo         cdprepo.ClueRepository
+	sessionRepo      *cdprepo.CustomerSessionRepository
+	agentRepo        *cdprepo.AgentStatusRepository
+	operationLogRepo cdprepo.OperationLogRepository
 }
 
 // NewMarketingFlowService 创建营销流程服务实例
 func NewMarketingFlowService() *MarketingFlowService {
 	return &MarketingFlowService{
-		flowRepo:		repository.NewMarketingFlowRepository(),
-		executionRepo:		repository.NewFlowExecutionRepository(),
-		userTagRepo:		cdprepo.NewUserTagRepository(),
-		orderRepo:		cdprepo.NewOrderRepository(),
-		clueRepo:		cdprepo.NewClueRepository(),
-		sessionRepo:		cdprepo.NewCustomerSessionRepository(),
-		agentRepo:		cdprepo.NewAgentStatusRepository(),
-		operationLogRepo:	cdprepo.NewOperationLogRepository(),
+		flowRepo:         repository.NewMarketingFlowRepository(),
+		executionRepo:    repository.NewFlowExecutionRepository(),
+		userTagRepo:      cdprepo.NewUserTagRepository(),
+		orderRepo:        cdprepo.NewOrderRepository(),
+		clueRepo:         cdprepo.NewClueRepository(),
+		sessionRepo:      cdprepo.NewCustomerSessionRepository(),
+		agentRepo:        cdprepo.NewAgentStatusRepository(),
+		operationLogRepo: cdprepo.NewOperationLogRepository(),
 	}
 }
 
 // NewMarketingFlowServiceWithDB 创建营销流程服务实例（带数据库连接，用于测试）
 func NewMarketingFlowServiceWithDB(db *gorm.DB) *MarketingFlowService {
 	return &MarketingFlowService{
-		flowRepo:		repository.NewMarketingFlowRepositoryWithDB(db),
-		executionRepo:		repository.NewFlowExecutionRepositoryWithDB(db),
-		userTagRepo:		cdprepo.NewUserTagRepositoryWithDB(db),
-		orderRepo:		cdprepo.NewOrderRepositoryWithDB(db),
-		clueRepo:		cdprepo.NewClueRepositoryWithDB(db),
-		sessionRepo:		cdprepo.NewCustomerSessionRepositoryWithDB(db),
-		agentRepo:		cdprepo.NewAgentStatusRepositoryWithDB(db),
-		operationLogRepo:	cdprepo.NewOperationLogRepositoryWithDB(db),
+		flowRepo:         repository.NewMarketingFlowRepositoryWithDB(db),
+		executionRepo:    repository.NewFlowExecutionRepositoryWithDB(db),
+		userTagRepo:      cdprepo.NewUserTagRepositoryWithDB(db),
+		orderRepo:        cdprepo.NewOrderRepositoryWithDB(db),
+		clueRepo:         cdprepo.NewClueRepositoryWithDB(db),
+		sessionRepo:      cdprepo.NewCustomerSessionRepositoryWithDB(db),
+		agentRepo:        cdprepo.NewAgentStatusRepositoryWithDB(db),
+		operationLogRepo: cdprepo.NewOperationLogRepositoryWithDB(db),
 	}
 }
 
 // CreateFlowRequest 创建流程请求
 type CreateFlowRequest struct {
-	Name		string			`json:"name" binding:"required"`
-	Description	string			`json:"description"`
-	TriggerType	model.TriggerType	`json:"trigger_type" binding:"required"`
-	TriggerConfig	map[string]any		`json:"trigger_config"`
-	FlowData	*model.FlowDefinition	`json:"flow_data"`
+	Name          string                `json:"name" binding:"required"`
+	Description   string                `json:"description"`
+	TriggerType   model.TriggerType     `json:"trigger_type" binding:"required"`
+	TriggerConfig map[string]any        `json:"trigger_config"`
+	FlowData      *model.FlowDefinition `json:"flow_data"`
 }
 
 // CreateFlow 创建流程
@@ -136,14 +136,14 @@ func (s *MarketingFlowService) CreateFlow(createdBy uint, req *CreateFlowRequest
 	triggerConfig, _ := json.Marshal(req.TriggerConfig)
 
 	flow := &model.MarketingFlow{
-		Name:		req.Name,
-		Description:	req.Description,
-		Status:		model.FlowStatusDraft,
-		TriggerType:	req.TriggerType,
-		TriggerConfig:	string(triggerConfig),
-		FlowData:	string(flowData),
-		Version:	1,
-		CreatedBy:	createdBy,
+		Name:          req.Name,
+		Description:   req.Description,
+		Status:        model.FlowStatusDraft,
+		TriggerType:   req.TriggerType,
+		TriggerConfig: string(triggerConfig),
+		FlowData:      string(flowData),
+		Version:       1,
+		CreatedBy:     createdBy,
 	}
 
 	if err := s.flowRepo.Create(flow); err != nil {
@@ -169,11 +169,11 @@ func (s *MarketingFlowService) GetFlowByID(id uint) (*model.MarketingFlow, error
 
 // UpdateFlowRequest 更新流程请求
 type UpdateFlowRequest struct {
-	Name		string			`json:"name"`
-	Description	string			`json:"description"`
-	TriggerType	model.TriggerType	`json:"trigger_type"`
-	TriggerConfig	map[string]any		`json:"trigger_config"`
-	FlowData	*model.FlowDefinition	`json:"flow_data"`
+	Name          string                `json:"name"`
+	Description   string                `json:"description"`
+	TriggerType   model.TriggerType     `json:"trigger_type"`
+	TriggerConfig map[string]any        `json:"trigger_config"`
+	FlowData      *model.FlowDefinition `json:"flow_data"`
 }
 
 // UpdateFlow 更新流程
@@ -306,12 +306,12 @@ func (s *MarketingFlowService) TriggerFlow(ctx context.Context, flow *model.Mark
 
 	// 创建执行记录
 	execution := &model.FlowExecution{
-		FlowID:		flow.ID,
-		TriggerID:	triggerID,
-		UserID:		userID,
-		Status:		"running",
-		ExecutionData:	"",
-		StartedAt:	time.Now(),
+		FlowID:        flow.ID,
+		TriggerID:     triggerID,
+		UserID:        userID,
+		Status:        "running",
+		ExecutionData: "",
+		StartedAt:     time.Now(),
 	}
 
 	if err := s.executionRepo.Create(execution); err != nil {
@@ -472,9 +472,9 @@ func (s *MarketingFlowService) sendActionSendMessage(ctx context.Context, config
 	}
 
 	return map[string]any{
-		"success":	true,
-		"message_id":	reply.MessageID,
-		"platform":	platformName,
+		"success":    true,
+		"message_id": reply.MessageID,
+		"platform":   platformName,
 	}, nil
 }
 
@@ -510,9 +510,9 @@ func (s *MarketingFlowService) sendActionAddTag(ctx context.Context, config map[
 	}
 
 	return map[string]any{
-		"success":	true,
-		"added_tags":	tagNames,
-		"user_id":	userID,
+		"success":    true,
+		"added_tags": tagNames,
+		"user_id":    userID,
 	}, nil
 }
 
@@ -560,9 +560,9 @@ func (s *MarketingFlowService) sendActionRemoveTag(ctx context.Context, config m
 	}
 
 	return map[string]any{
-		"success":	true,
-		"removed_tags":	tagNames,
-		"user_id":	userID,
+		"success":      true,
+		"removed_tags": tagNames,
+		"user_id":      userID,
 	}, nil
 }
 
@@ -675,11 +675,11 @@ func (s *MarketingFlowService) sendActionAssignAgent(ctx context.Context, config
 	_ = s.agentRepo.IncrementActiveSessions(ctx, agentID)
 
 	return map[string]any{
-		"success":	true,
-		"session_id":	sessionID,
-		"agent_id":	agentID,
-		"agent_name":	agentName,
-		"user_id":	firstNonEmpty(sessionUserID, userID),
+		"success":    true,
+		"session_id": sessionID,
+		"agent_id":   agentID,
+		"agent_name": agentName,
+		"user_id":    firstNonEmpty(sessionUserID, userID),
 	}, nil
 }
 
@@ -736,10 +736,10 @@ func (s *MarketingFlowService) sendActionCreateTask(ctx context.Context, config 
 
 	// 构建任务详情（JSON）
 	detailMap := map[string]any{
-		"title":	title,
-		"description":	description,
-		"user_id":	userID,
-		"source":	"marketing_flow",
+		"title":       title,
+		"description": description,
+		"user_id":     userID,
+		"source":      "marketing_flow",
 	}
 	for k, v := range data {
 		// 排除内部字段，避免污染
@@ -754,13 +754,13 @@ func (s *MarketingFlowService) sendActionCreateTask(ctx context.Context, config 
 
 	// 通过 OperationLog 持久化任务记录
 	logEntry := &reachmodel.OperationLog{
-		UserID:		assigneeID,
-		Action:		"create",
-		Module:		module,
-		Resource:	"task",
-		ResourceID:	resourceID,
-		Detail:		string(detailJSON),
-		NewValue:	title,
+		UserID:     assigneeID,
+		Action:     "create",
+		Module:     module,
+		Resource:   "task",
+		ResourceID: resourceID,
+		Detail:     string(detailJSON),
+		NewValue:   title,
 	}
 
 	if err := s.operationLogRepo.Create(ctx, logEntry); err != nil {
@@ -768,11 +768,11 @@ func (s *MarketingFlowService) sendActionCreateTask(ctx context.Context, config 
 	}
 
 	return map[string]any{
-		"success":	true,
-		"task_id":	logEntry.ID,
-		"title":	title,
-		"assignee_id":	assigneeID,
-		"resource_id":	resourceID,
+		"success":     true,
+		"task_id":     logEntry.ID,
+		"title":       title,
+		"assignee_id": assigneeID,
+		"resource_id": resourceID,
 	}, nil
 }
 
@@ -813,10 +813,10 @@ func (s *MarketingFlowService) sendActionSendSms(ctx context.Context, config map
 	}
 
 	return map[string]any{
-		"success":	true,
-		"phone":	phone,
-		"content":	content,
-		"user_id":	userID,
+		"success": true,
+		"phone":   phone,
+		"content": content,
+		"user_id": userID,
 	}, nil
 }
 
@@ -852,14 +852,14 @@ func (s *MarketingFlowService) sendActionUpdateLead(ctx context.Context, config 
 
 	// 白名单过滤，仅允许更新 Clue 模型中存在的字段
 	allowedFields := map[string]bool{
-		"name":		true,
-		"city":		true,
-		"address":	true,
-		"desc":		true,
-		"is_verify":	true,
-		"type":		true,
-		"source_id":	true,
-		"account":	true,
+		"name":      true,
+		"city":      true,
+		"address":   true,
+		"desc":      true,
+		"is_verify": true,
+		"type":      true,
+		"source_id": true,
+		"account":   true,
 	}
 	updates := make(map[string]any)
 	for k, v := range fieldsRaw {
@@ -897,10 +897,10 @@ func (s *MarketingFlowService) sendActionUpdateLead(ctx context.Context, config 
 	}
 
 	return map[string]any{
-		"success":	true,
-		"clue_id":	clueID,
-		"updates":	updates,
-		"user_id":	userID,
+		"success": true,
+		"clue_id": clueID,
+		"updates": updates,
+		"user_id": userID,
 	}, nil
 }
 
@@ -981,10 +981,10 @@ func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config
 
 	// 构建订单（ID 在 BeforeCreate 钩子中自动生成）
 	order := &reachmodel.Order{
-		Price:		price,
-		TgID:		tgID,
-		AccountID:	accountID,
-		Status:		_type.OrderStatusType(statusInt),
+		Price:     price,
+		TgID:      tgID,
+		AccountID: accountID,
+		Status:    _type.OrderStatusType(statusInt),
 	}
 
 	if err := s.orderRepo.Create(ctx, order); err != nil {
@@ -992,13 +992,13 @@ func (s *MarketingFlowService) sendActionCreateOrder(ctx context.Context, config
 	}
 
 	return map[string]any{
-		"success":	true,
-		"order_id":	order.ID,
-		"price":	price,
-		"tg_id":	tgID,
-		"account_id":	accountID,
-		"status":	int(order.Status),
-		"user_id":	userID,
+		"success":    true,
+		"order_id":   order.ID,
+		"price":      price,
+		"tg_id":      tgID,
+		"account_id": accountID,
+		"status":     int(order.Status),
+		"user_id":    userID,
 	}, nil
 }
 
@@ -1084,8 +1084,8 @@ func (s *MarketingFlowService) sendActionWebhook(ctx context.Context, config map
 		if err := json.Unmarshal(respBody, &result); err != nil {
 			// 非 JSON 响应，返回原始内容
 			return map[string]any{
-				"status_code":	resp.StatusCode,
-				"body":		string(respBody),
+				"status_code": resp.StatusCode,
+				"body":        string(respBody),
 			}, nil
 		}
 		result["status_code"] = resp.StatusCode
@@ -1164,8 +1164,8 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 	}
 
 	return map[string]any{
-		"sent":	true,
-		"to":	to,
+		"sent": true,
+		"to":   to,
 	}, nil
 }
 

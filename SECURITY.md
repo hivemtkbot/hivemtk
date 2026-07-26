@@ -61,13 +61,12 @@
 2. 维护团队评估并开发修复
 3. 修复版本发布后，**同步告知报告者**
 4. 在修复发布后 90 天，或在征得报告者明确同意后，**公开披露漏洞细节与修复方案**
-5. 公开披露渠道：CHANGELOG.md + GitHub Security Advisory + Gitee Issue（脱敏）
+5. 公开披露渠道：GitHub Security Advisory + Gitee Issue（脱敏）
 
 ### 3.2 报告者致谢
 
 经报告者同意后，我们会在以下位置致谢：
 
-- CHANGELOG.md 修复条目
 - GitHub Security Advisory 致谢栏
 - README.md 致谢章节（重大漏洞）
 

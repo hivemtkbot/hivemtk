@@ -286,7 +286,6 @@ hivemtk/                              # 用户端仓库
 ├── docker-compose-example.yml        # 容器编排示例(业务栈 + 推理栈合一)
 ├── Makefile                          # 一键安装/启动/停止
 ├── .env-example                      # 环境变量模板
-├── CHANGELOG.md                      # 变更日志
 ├── CONTRIBUTING.md                   # 贡献指南
 └── LICENSE                           # 开源协议(AGPL-3.0)
 ```
@@ -324,7 +323,6 @@ hivemtk/                              # 用户端仓库
 | 本地推理优化 | [docs/architecture/HOST_INFERENCE_PLAN.md](docs/architecture/HOST_INFERENCE_PLAN.md) |
 | FRP 私域穿透 | [docs/architecture/FRP私域部署指南.md](docs/architecture/FRP私域部署指南.md) |
 | Chat Widget 嵌入 | [embed-sdk/README.md](embed-sdk/README.md) · [docs/operations/CHAT_WIDGET_EMBED.md](docs/operations/CHAT_WIDGET_EMBED.md) |
-| 变更日志 | [CHANGELOG.md](CHANGELOG.md) |
 | 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ---

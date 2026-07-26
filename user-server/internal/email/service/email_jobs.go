@@ -7,8 +7,8 @@ import (
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
-	"github.com/google/uuid"
 	"context"
+	"github.com/google/uuid"
 )
 
 // EmailJobsService 任务服务
@@ -115,12 +115,12 @@ func (s *EmailJobsService) IncreaseReadTotal(ctx context.Context, jobs_id uuid.U
 // CreateEmailJobsDTO 通过请求 DTO 创建任务
 func (s *EmailJobsService) CreateEmailJobsDTO(ctx context.Context, req dto.CreateEmailJobsRequest) (*dto.EmailJobsResponse, error) {
 	created, err := s.CreateEmailJobs(ctx, model.EmailJobs{
-		Subject:	req.Subject,
-		EmailTotal:	req.EmailTotal,
-		SendTotal:	req.SendTotal,
-		ReadTotal:	req.ReadTotal,
-		SuccessTotal:	req.SuccessTotal,
-		FailTotal:	req.FailTotal,
+		Subject:      req.Subject,
+		EmailTotal:   req.EmailTotal,
+		SendTotal:    req.SendTotal,
+		ReadTotal:    req.ReadTotal,
+		SuccessTotal: req.SuccessTotal,
+		FailTotal:    req.FailTotal,
 	})
 	if err != nil {
 		return nil, err
@@ -157,13 +157,13 @@ func (s *EmailJobsService) UpdateEmailJobsDTO(ctx context.Context, req dto.Updat
 		return err
 	}
 	return s.UpdateEmailJobs(ctx, model.EmailJobs{
-		ID:		id,
-		Subject:	req.Subject,
-		EmailTotal:	req.EmailTotal,
-		ReadTotal:	req.ReadTotal,
-		SendTotal:	req.SendTotal,
-		SuccessTotal:	req.SuccessTotal,
-		FailTotal:	req.FailTotal,
+		ID:           id,
+		Subject:      req.Subject,
+		EmailTotal:   req.EmailTotal,
+		ReadTotal:    req.ReadTotal,
+		SendTotal:    req.SendTotal,
+		SuccessTotal: req.SuccessTotal,
+		FailTotal:    req.FailTotal,
 	})
 }
 
@@ -172,14 +172,14 @@ func toEmailJobsResponse(j *model.EmailJobs) *dto.EmailJobsResponse {
 		return nil
 	}
 	return &dto.EmailJobsResponse{
-		ID:		j.ID.String(),
-		Subject:	j.Subject,
-		EmailTotal:	j.EmailTotal,
-		SendTotal:	j.SendTotal,
-		ReadTotal:	j.ReadTotal,
-		SuccessTotal:	j.SuccessTotal,
-		FailTotal:	j.FailTotal,
-		CreatedAt:	j.CreatedAt,
-		UpdatedAt:	j.UpdatedAt,
+		ID:           j.ID.String(),
+		Subject:      j.Subject,
+		EmailTotal:   j.EmailTotal,
+		SendTotal:    j.SendTotal,
+		ReadTotal:    j.ReadTotal,
+		SuccessTotal: j.SuccessTotal,
+		FailTotal:    j.FailTotal,
+		CreatedAt:    j.CreatedAt,
+		UpdatedAt:    j.UpdatedAt,
 	}
 }

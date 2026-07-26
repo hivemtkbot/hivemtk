@@ -33,16 +33,16 @@ import (
 
 // KnowledgeService 知识库服务(V2.0 统一入口)
 type KnowledgeService struct {
-	processor	*etl.DocumentProcessor
-	vectorizer	*ragretrieval.Vectorizer
-	indexer		ragretrieval.IndexManagerInterface
-	ragRepo		*repository.RagConfigRepository
-	docRepo		*repository.KnowledgeDocumentRepository
-	chunkRepo	*repository.KnowledgeChunkRepository
-	importLogRepo	*repository.KnowledgeImportLogRepository
-	searchLogRepo	*repository.KnowledgeSearchLogRepository
-	embeddingSvc	*llm.EmbeddingService
-	llmSvc		*llm.LLMService
+	processor     *etl.DocumentProcessor
+	vectorizer    *ragretrieval.Vectorizer
+	indexer       ragretrieval.IndexManagerInterface
+	ragRepo       *repository.RagConfigRepository
+	docRepo       *repository.KnowledgeDocumentRepository
+	chunkRepo     *repository.KnowledgeChunkRepository
+	importLogRepo *repository.KnowledgeImportLogRepository
+	searchLogRepo *repository.KnowledgeSearchLogRepository
+	embeddingSvc  *llm.EmbeddingService
+	llmSvc        *llm.LLMService
 }
 
 // NewKnowledgeService 创建知识库服务
@@ -57,16 +57,16 @@ func NewKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 
 func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 	return &KnowledgeService{
-		processor:	etl.NewDocumentProcessor(nil),
-		vectorizer:	ragretrieval.NewVectorizer(EmbeddingDim, nil),
-		indexer:	nil,
-		ragRepo:	repository.NewRagConfigRepository(gdb),
-		docRepo:	repository.NewKnowledgeDocumentRepository(gdb),
-		chunkRepo:	repository.NewKnowledgeChunkRepository(gdb),
-		importLogRepo:	repository.NewKnowledgeImportLogRepository(gdb),
-		searchLogRepo:	repository.NewKnowledgeSearchLogRepository(gdb),
-		embeddingSvc:	llm.NewEmbeddingService(),
-		llmSvc:		llm.NewLLMService(),
+		processor:     etl.NewDocumentProcessor(nil),
+		vectorizer:    ragretrieval.NewVectorizer(EmbeddingDim, nil),
+		indexer:       nil,
+		ragRepo:       repository.NewRagConfigRepository(gdb),
+		docRepo:       repository.NewKnowledgeDocumentRepository(gdb),
+		chunkRepo:     repository.NewKnowledgeChunkRepository(gdb),
+		importLogRepo: repository.NewKnowledgeImportLogRepository(gdb),
+		searchLogRepo: repository.NewKnowledgeSearchLogRepository(gdb),
+		embeddingSvc:  llm.NewEmbeddingService(),
+		llmSvc:        llm.NewLLMService(),
 	}
 }
 
@@ -76,32 +76,32 @@ func newKnowledgeServiceWithDB(gdb *gorm.DB) *KnowledgeService {
 
 // ImportRequest 统一导入请求
 type ImportRequest struct {
-	ProductID	string
-	SourceType	model.SourceType
-	Title		string
-	Content		string
-	SourceRef	string
-	Category	string
-	Tags		[]string
-	File		multipart.File
-	FileHeader	*multipart.FileHeader
-	Operator	string
-	IP		string
-	UserAgent	string
-	BatchNo		string
+	ProductID  string
+	SourceType model.SourceType
+	Title      string
+	Content    string
+	SourceRef  string
+	Category   string
+	Tags       []string
+	File       multipart.File
+	FileHeader *multipart.FileHeader
+	Operator   string
+	IP         string
+	UserAgent  string
+	BatchNo    string
 	// Metadata 附加字段：承载业务上下文（订单信息、客户ID、渠道等）。
 	// 入库时写入 KnowledgeDocument.Metadata，并逐片复制到 KnowledgeChunk.Metadata，
 	// 检索时随分片返回，供智能体使用。
-	Metadata	map[string]any	`json:"metadata"`
+	Metadata map[string]any `json:"metadata"`
 }
 
 // ImportResult 统一导入结果(知识库专用)
 type KnowledgeImportResult struct {
-	DocumentID	uint64		`json:"document_id"`
-	Title		string		`json:"title"`
-	Status		string		`json:"status"`
-	SourceType	string		`json:"source_type"`
-	CreatedAt	time.Time	`json:"created_at"`
+	DocumentID uint64    `json:"document_id"`
+	Title      string    `json:"title"`
+	Status     string    `json:"status"`
+	SourceType string    `json:"source_type"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // Import 统一导入入口
@@ -119,7 +119,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	if product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := HashStringToInt64(product.ID)	// UUID 哈希到 int64,匹配知识库 INTEGER 字段
+	productNumericID := HashStringToInt64(product.ID) // UUID 哈希到 int64,匹配知识库 INTEGER 字段
 
 	start := time.Now()
 	var doc *model.KnowledgeDocument
@@ -159,11 +159,11 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	})
 
 	return &KnowledgeImportResult{
-		DocumentID:	doc.ID,
-		Title:		doc.Title,
-		Status:		string(doc.EmbedStatus),
-		SourceType:	string(doc.SourceType),
-		CreatedAt:	doc.CreatedAt,
+		DocumentID: doc.ID,
+		Title:      doc.Title,
+		Status:     string(doc.EmbedStatus),
+		SourceType: string(doc.SourceType),
+		CreatedAt:  doc.CreatedAt,
 	}, nil
 }
 
@@ -190,14 +190,14 @@ func (s *KnowledgeService) GetProgress(ctx context.Context, documentID uint64) (
 		return nil, err
 	}
 	return map[string]any{
-		"id":			doc.ID,
-		"title":		doc.Title,
-		"embed_status":		doc.EmbedStatus,
-		"embed_progress":	doc.EmbedProgress,
-		"chunk_count":		doc.ChunkCount,
-		"total_tokens":		doc.TotalTokens,
-		"error_msg":		doc.ErrorMsg,
-		"last_index_at":	doc.LastIndexAt,
+		"id":             doc.ID,
+		"title":          doc.Title,
+		"embed_status":   doc.EmbedStatus,
+		"embed_progress": doc.EmbedProgress,
+		"chunk_count":    doc.ChunkCount,
+		"total_tokens":   doc.TotalTokens,
+		"error_msg":      doc.ErrorMsg,
+		"last_index_at":  doc.LastIndexAt,
 	}, nil
 }
 
@@ -282,14 +282,14 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 			dim = EmbeddingDim
 		}
 		cfg := &llm.EmbeddingConfig{
-			APIType:	prod.EmbeddingProviderConfig.APIType,
-			BaseURL:	prod.EmbeddingProviderConfig.BaseURL,
-			Model:		prod.EmbeddingProviderConfig.Model,
-			APIKey:		prod.EmbeddingProviderConfig.APIKey,
-			Dimension:	dim,
-			AllowFallback:	false,
-			RequestTimeout:	DefaultRequestTimeoutSeconds,
-			MaxRetries:	2,
+			APIType:        prod.EmbeddingProviderConfig.APIType,
+			BaseURL:        prod.EmbeddingProviderConfig.BaseURL,
+			Model:          prod.EmbeddingProviderConfig.Model,
+			APIKey:         prod.EmbeddingProviderConfig.APIKey,
+			Dimension:      dim,
+			AllowFallback:  false,
+			RequestTimeout: DefaultRequestTimeoutSeconds,
+			MaxRetries:     2,
 		}
 		return llm.NewEmbeddingServiceWithConfig(cfg), cfg
 	}

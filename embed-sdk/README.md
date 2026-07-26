@@ -190,7 +190,6 @@ make sdk-build     # 等价于 cd embed-sdk && npm install && npm run build
 - 用户端后端 [../user-server](../user-server/)
 - 部署详细文档 [../docs/operations/CHAT_WIDGET_EMBED.md](../docs/operations/CHAT_WIDGET_EMBED.md)
 - 部署方案 [../docs/architecture/部署方案_用户端.md](../docs/architecture/部署方案_用户端.md)
-- CHANGELOG [../CHANGELOG.md](../CHANGELOG.md)
 
 ## 📄 许可证
 

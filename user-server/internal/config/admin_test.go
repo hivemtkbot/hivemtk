@@ -35,7 +35,7 @@ func TestGetAdminConfig_AutoLogin(t *testing.T) {
 		t.Fatal("GetAdminConfig returned nil")
 	}
 
-	// 重构后：自动登录默认关闭（不再诱导用户使用默认账号）
+	// 自动登录默认关闭（不诱导用户使用默认账号）
 	if cfg.AutoLogin.Enabled {
 		t.Error("Expected AutoLogin.Enabled to be false by default (security hardening)")
 	}

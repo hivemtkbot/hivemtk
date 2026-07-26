@@ -61,7 +61,7 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 		&model.KnowledgeSearchLog{},
 		&model.RagProduct{},
 	)
-	// 关键修复：让全局 repository 使用测试 DB（进程级测试库已隔离，不影响其他测试进程）
+	// 让全局 repository 使用测试 DB（进程级测试库已隔离，不影响其他测试进程）
 	_db.SetTestDB(database)
 	return database
 }
@@ -80,7 +80,7 @@ func setupAgentLoopTestDB(t *testing.T) *gorm.DB {
 //     让检索走 legacy vectorSearch + BM25-lite 兜底，与生产降级路径一致
 func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 	t.Helper()
-	// 关键修复：测试环境启用 embedding 哈希降级（生产代码路径，仅日志告警）
+	// 测试环境启用 embedding 哈希降级（生产代码路径，仅日志告警）
 	// 避免 rag.search 工具因 TEI 服务不可达触发 3 次重试 * 5s 超时 = 15s 卡死
 	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "true")
 
@@ -96,7 +96,7 @@ func setupAgentLoopExecutor(t *testing.T, db *gorm.DB) *tooluse.ToolExecutor {
 		t.Fatalf("注册触达工具失败：%v", err)
 	}
 	knowledgeDeps := tooluse.NewKnowledgeToolDepsWithDB(db)
-	// 关键修复：禁用 hybridSearcher，避免依赖外部 embedding 服务（http://mtk-embedding:8208）
+	// 禁用 hybridSearcher，避免依赖外部 embedding 服务（http://mtk-embedding:8208）
 	// 测试场景走 BM25-lite 兜底路径（纯文本检索，无需向量化）
 	// 这与生产路径功能等价：embedding 服务不可用时生产代码也会自动 fallback 到 BM25-lite
 	knowledgeDeps.RagSearcher.SetHybridSearcher(nil)
@@ -272,7 +272,7 @@ func TestT5_KnowledgeListKB_RealDB(t *testing.T) {
 	executor := setupAgentLoopExecutor(t, db)
 
 	// 预置 2 个 RagProduct
-	// 关键修复：VectorTable 有 uniqueIndex 约束，默认空值会导致 2 条记录冲突
+	// VectorTable 有 uniqueIndex 约束，默认空值会导致 2 条记录冲突
 	// 必须显式设置唯一 VectorTable 值
 	for i := 1; i <= 2; i++ {
 		p := &model.RagProduct{

@@ -97,8 +97,6 @@ func GetGlobalMemoryCostTracker() *tooluse.MemoryCostTracker {
 // ============================================================================
 // 全局 ToolRouter 装配（P0 优化：激活已实现但未接入的 ToolRouter）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0-1
-//
 // ToolRouter（tooluse/tool_router.go）已实现"熔断 + 限流 + 成本统计 + 全局统计"
 // 但历史上从未在 router.Setup 中装配，属于死代码。
 // 本次优化将其接入全局，并暴露 stats / audit / cost API，让运维侧可观测。
@@ -224,12 +222,11 @@ func registerAgentBusinessTools(gormDB *gorm.DB) {
 //
 // 调用方：router.Setup()（在 initGlobalToolExecutor 之后、buildSalesEngine 之前）
 //
-// P0+ 优化：改用 Provider 模式装配（见 tool_provider_wiring.go），
+// 使用 Provider 模式装配（见 tool_provider_wiring.go），
 // 支持第三方包通过 tooluse.RegisterToolProvider 自注册扩展。
-// 原有 5 个 registerAgent*Tools 函数保留作为内部实现细节，由 Provider 包装调用。
 //
 // 注册顺序：reach → pm → customer → knowledge → business → 第三方
-// 内置总计：20 + 3 + 8 + 4 + 5 = 40 个工具（business 实为 5 个，原注释 6 误记）
+// 内置总计：20 + 3 + 8 + 4 + 5 = 40 个工具
 func registerAllAgentTools(gormDB *gorm.DB) {
 	registerAllAgentToolsViaProviders(gormDB)
 }

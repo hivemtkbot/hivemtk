@@ -460,7 +460,7 @@ func (r *InboxConversationRepository) ListByAccount(ctx context.Context, platfor
 }
 
 // ============== InboxConversationRepository 扩展方法 ==============
-// 以下方法服务于 InboxService 的五层架构重构：
+// 以下方法服务于 InboxService 的五层架构：
 //   - UpsertFromMessage / AssignTx：将原 service 层 db.Transaction 收敛到 repo
 //   - ListByQuery / MarkRead / UpdateField / CountByAssignedToStatus / GetStats：替代 service 层零散 db 调用
 

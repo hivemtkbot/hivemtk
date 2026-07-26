@@ -45,7 +45,7 @@ type mockEventBus struct {
 
 	// 行为控制
 	failOnTopic  string // 若非空，Subscribe 该 topic 时返回错误
-	subscribeErr error // 通用订阅错误（failOnTopic 为空时生效）
+	subscribeErr error  // 通用订阅错误（failOnTopic 为空时生效）
 	publishErr   error
 
 	// 调用计数
@@ -739,57 +739,57 @@ func TestOrchestrator_HandleDialogueStarted(t *testing.T) {
 			payload: nil, wantStarted: 0, wantSuccessMin: 0, wantFailedMax: 0,
 		},
 		{
-			name: "rag_enabled_warmup_success",
+			name:      "rag_enabled_warmup_success",
 			enableRAG: true, payload: makeStartedPayload("s1", "hello world"),
 			ragEngine: &mockRAGEngine{}, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 1, wantWarmupMax: 1,
 		},
 		{
-			name: "rag_enabled_warmup_error_counts_failed",
+			name:      "rag_enabled_warmup_error_counts_failed",
 			enableRAG: true, payload: makeStartedPayload("s2", "hello"),
-			ragEngine: &mockRAGEngine{warmupErr: errors.New("rag down")},
+			ragEngine:   &mockRAGEngine{warmupErr: errors.New("rag down")},
 			wantStarted: 1, wantSuccessMin: 0, wantFailedMax: 1,
 			wantWarmupMin: 1, wantWarmupMax: 1,
 		},
 		{
-			name: "rag_disabled_warmup_skipped_success",
+			name:      "rag_disabled_warmup_skipped_success",
 			enableRAG: false, payload: makeStartedPayload("s3", "hello"),
 			ragEngine: &mockRAGEngine{}, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 0, wantWarmupMax: 0,
 		},
 		{
-			name: "rag_enabled_nil_engine_skipped_success",
+			name:      "rag_enabled_nil_engine_skipped_success",
 			enableRAG: true, payload: makeStartedPayload("s4", "hello"),
 			ragEngine: nil, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 0, wantWarmupMax: 0,
 		},
 		{
-			name: "rag_enabled_empty_first_message_skipped",
+			name:      "rag_enabled_empty_first_message_skipped",
 			enableRAG: true, payload: makeStartedPayload("s5", ""),
 			ragEngine: nil, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 0, wantWarmupMax: 0,
 		},
 		{
-			name: "idempotent_exists_skips_warmup",
+			name:      "idempotent_exists_skips_warmup",
 			enableRAG: true, payload: makeStartedPayload("s6", "hello"),
 			ragEngine: &mockRAGEngine{}, logExists: true,
 			wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 0, wantWarmupMax: 0,
 		},
 		{
-			name: "empty_session_id_still_processed",
+			name:      "empty_session_id_still_processed",
 			enableRAG: true, payload: makeStartedPayload("", "hello"),
 			ragEngine: &mockRAGEngine{}, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 1, wantWarmupMax: 1,
 		},
 		{
-			name: "long_first_message",
+			name:      "long_first_message",
 			enableRAG: true, payload: makeStartedPayload("s7", string(make([]byte, 500))),
 			ragEngine: &mockRAGEngine{}, wantStarted: 1, wantSuccessMin: 1, wantFailedMax: 0,
 			wantWarmupMin: 1, wantWarmupMax: 1,
 		},
 		{
-			name: "various_scenario_intent",
+			name:      "various_scenario_intent",
 			enableRAG: true, payload: &event.DialogueStartedPayload{
 				SessionID: "s8", FirstMessage: "hi", Scenario: "intent", TraceID: "t8",
 			},
@@ -797,7 +797,7 @@ func TestOrchestrator_HandleDialogueStarted(t *testing.T) {
 			wantWarmupMin: 1, wantWarmupMax: 1,
 		},
 		{
-			name: "various_scenario_objection",
+			name:      "various_scenario_objection",
 			enableRAG: true, payload: &event.DialogueStartedPayload{
 				SessionID: "s9", FirstMessage: "hi", Scenario: "objection", TraceID: "t9",
 			},
@@ -818,8 +818,8 @@ func TestOrchestrator_HandleDialogueStarted(t *testing.T) {
 			}
 			ragC := newTestRAGCorrector(svc, logRepo, ragEngine)
 			o := newTestOrchestrator(orchestratorCfg{
-				switchSvc:    svc,
-				ragCorrector: ragC,
+				switchSvc:     svc,
+				ragCorrector:  ragC,
 				maxConcurrent: 10,
 			})
 			startOrch(o)
@@ -971,65 +971,65 @@ func TestOrchestrator_HandleDialogueEnded(t *testing.T) {
 			payload: nil, wantStartedMin: 0, wantSuccessMin: 0, wantFailedMax: 0,
 		},
 		{
-			name: "rag_on_asset_on_no_supervisors",
+			name:      "rag_on_asset_on_no_supervisors",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e1", 0.5),
+			payload:        makeEndedPayload("e1", 0.5),
 			wantStartedMin: 2, wantSuccessMin: 2, wantFailedMax: 0,
 		},
 		{
-			name: "rag_off_asset_on",
+			name:      "rag_off_asset_on",
 			enableRAG: false, enableAsset: true,
-			payload: makeEndedPayload("e2", 0.5),
+			payload:        makeEndedPayload("e2", 0.5),
 			wantStartedMin: 2, wantSuccessMin: 1, wantFailedMax: 1, // ragCorrector.Reflect 返回 nil（RAG off），但 assetLearner 仍 spawn
 		},
 		{
-			name: "rag_on_asset_off",
+			name:      "rag_on_asset_off",
 			enableRAG: true, enableAsset: false,
-			payload: makeEndedPayload("e3", 0.5),
+			payload:        makeEndedPayload("e3", 0.5),
 			wantStartedMin: 2, wantSuccessMin: 2, wantFailedMax: 0,
 		},
 		{
-			name: "rag_on_asset_on_reward_below_threshold",
+			name:      "rag_on_asset_on_reward_below_threshold",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e4", 0.5),
+			payload:        makeEndedPayload("e4", 0.5),
 			wantStartedMin: 2, wantSuccessMin: 2, wantFailedMax: 0,
 		},
 		{
-			name: "rag_on_asset_on_reward_negative_neutral",
+			name:      "rag_on_asset_on_reward_negative_neutral",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e5", -0.5),
+			payload:        makeEndedPayload("e5", -0.5),
 			wantStartedMin: 2, wantSuccessMin: 1, wantFailedMax: 1,
 		},
 		{
-			name: "with_rag_supervisor",
+			name:      "with_rag_supervisor",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e6", 0.5),
-			ragSupervisor: newSupervisorWithMocks(nil, &mockSignalRepo{}, nil, nil),
+			payload:        makeEndedPayload("e6", 0.5),
+			ragSupervisor:  newSupervisorWithMocks(nil, &mockSignalRepo{}, nil, nil),
 			wantStartedMin: 3, wantSuccessMin: 2, wantFailedMax: 1,
 		},
 		{
-			name: "with_asset_supervisor",
+			name:      "with_asset_supervisor",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e7", 0.5),
+			payload:         makeEndedPayload("e7", 0.5),
 			assetSupervisor: newTestAssetSupervisor(nil),
-			wantStartedMin: 3, wantSuccessMin: 2, wantFailedMax: 1,
+			wantStartedMin:  3, wantSuccessMin: 2, wantFailedMax: 1,
 		},
 		{
-			name: "with_both_supervisors",
+			name:      "with_both_supervisors",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("e8", 0.5),
+			payload:         makeEndedPayload("e8", 0.5),
 			ragSupervisor:   newSupervisorWithMocks(nil, &mockSignalRepo{}, nil, nil),
 			assetSupervisor: newTestAssetSupervisor(nil),
-			wantStartedMin: 4, wantSuccessMin: 2, wantFailedMax: 2,
+			wantStartedMin:  4, wantSuccessMin: 2, wantFailedMax: 2,
 		},
 		{
-			name: "empty_session_id",
+			name:      "empty_session_id",
 			enableRAG: true, enableAsset: true,
-			payload: makeEndedPayload("", 0.5),
+			payload:        makeEndedPayload("", 0.5),
 			wantStartedMin: 2, wantSuccessMin: 2, wantFailedMax: 0,
 		},
 		{
-			name: "outcome_abandoned",
+			name:      "outcome_abandoned",
 			enableRAG: true, enableAsset: true,
 			payload: &event.DialogueEndedPayload{
 				SessionID: "e9", AggregatedReward: -1.5, Outcome: "abandoned",

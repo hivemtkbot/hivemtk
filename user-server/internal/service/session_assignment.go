@@ -399,9 +399,7 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 //
 // Bug 修复 2026-07-22：
 //
-//	原实现的 if session != nil { return ErrPermissionDenied } 永远为 true，
-//	导致 TransferToHuman 永远返回 "permission denied"，且未做真正的分配与通知。
-//	现改为：nil 检查 + 幂等分配 + 通知新客服 + 解锁 Redis 接管锁。
+//	nil 检查 + 幂等分配 + 通知新客服 + 解锁 Redis 接管锁。
 func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionID uint, agentID uint, reason string) error {
 	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {

@@ -72,11 +72,11 @@ const (
 	ErrInvalidCredentials = "用户名或密码错误"
 )
 
-	// 系统配置相关错误消息
-	const (
-		ErrConfigNotFound   = "配置不存在"
-		ErrConfigSaveFailed = "保存配置失败"
+// 系统配置相关错误消息
+const (
+	ErrConfigNotFound   = "配置不存在"
+	ErrConfigSaveFailed = "保存配置失败"
 
-		// 初始化相关
-		ErrSystemAlreadyInitialized = "系统已初始化，禁止重复创建超管"
-	)
+	// 初始化相关
+	ErrSystemAlreadyInitialized = "系统已初始化，禁止重复创建超管"
+)

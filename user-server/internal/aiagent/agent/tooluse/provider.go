@@ -11,8 +11,6 @@ import (
 // ============================================================================
 // ToolProvider 统一扩展入口（P0+ 优化）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P1 "统一扩展入口"
-//
 // 设计目标：为工具链提供"插件式"扩展入口。每个 Provider 对应一类工具集
 // （如 reach/customer/knowledge/business/pm 或第三方自定义工具集），
 // 通过实现 ToolProvider 接口即可接入系统，无需修改核心装配代码
@@ -98,16 +96,16 @@ type ProviderConfig struct {
 //
 // 由 ProviderRegistry.RegisterAll 返回，用于日志、监控和 /api/agent/tools/providers 接口
 type ProviderRegistrationResult struct {
-	ProviderName    string        `json:"provider_name"`     // Provider 名称
-	Category        ToolCategory  `json:"category"`          // 工具分类
-	Description     string        `json:"description"`       // Provider 描述
-	RegisteredTools []string      `json:"registered_tools"`  // 成功注册的工具名列表
-	SkippedTools    []string      `json:"skipped_tools"`     // 跳过的工具名（DisabledTools 命中）
-	ToolCount       int           `json:"tool_count"`        // 成功注册工具数
-	Skipped         bool          `json:"skipped"`           // 整体是否被跳过（Enabled=false）
-	SkippedReason   string        `json:"skipped_reason"`    // 跳过原因
-	Err             string        `json:"err,omitempty"`     // 错误信息（若有）
-	Duration        time.Duration `json:"duration_ms"`       // 注册耗时（毫秒）
+	ProviderName    string        `json:"provider_name"`    // Provider 名称
+	Category        ToolCategory  `json:"category"`         // 工具分类
+	Description     string        `json:"description"`      // Provider 描述
+	RegisteredTools []string      `json:"registered_tools"` // 成功注册的工具名列表
+	SkippedTools    []string      `json:"skipped_tools"`    // 跳过的工具名（DisabledTools 命中）
+	ToolCount       int           `json:"tool_count"`       // 成功注册工具数
+	Skipped         bool          `json:"skipped"`          // 整体是否被跳过（Enabled=false）
+	SkippedReason   string        `json:"skipped_reason"`   // 跳过原因
+	Err             string        `json:"err,omitempty"`    // 错误信息（若有）
+	Duration        time.Duration `json:"duration_ms"`      // 注册耗时（毫秒）
 }
 
 // ErrProviderAlreadyExists 重复注册 Provider 错误

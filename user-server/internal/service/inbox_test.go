@@ -143,7 +143,6 @@ func TestUpsertFromMessage_IncrementUnread(t *testing.T) {
 }
 
 // 5. 空 merchant (单租户：删除 - merchant_id 已不再使用)
-// (原 TestUpsertFromMessage_EmptyMerchant 已移除)
 
 // 6. 空 customer
 func TestUpsertFromMessage_EmptyCustomer(t *testing.T) {
@@ -418,7 +417,6 @@ func TestInboxGetByID_Success(t *testing.T) {
 }
 
 // 21. CrossMerchant (单租户：删除 - merchant_id 已不再使用)
-// (原 TestGetByID_CrossMerchant 已移除)
 
 // 22. MarkRead
 func TestMarkRead(t *testing.T) {
@@ -1145,7 +1143,6 @@ func TestUpsertFromMessage_AssignedNoUser(t *testing.T) {
 }
 
 // 58. EmptyMerchant (单租户：删除 - merchant_id 已不再使用)
-// (原 TestInboxList_EmptyMerchant 已移除)
 
 // 60. List 默认分页
 func TestInboxList_DefaultPage(t *testing.T) {

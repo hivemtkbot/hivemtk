@@ -47,12 +47,12 @@ type CoreDataFlowOrchestrator struct {
 
 // DataFlowStats 数据流统计
 type DataFlowStats struct {
-	TotalTasks        int64
-	FastHandoffCount  int64
-	ToolCallCount     int64
-	DirectReplyCount  int64
-	ErrorCount        int64
-	AvgTotalDuration  time.Duration
+	TotalTasks       int64
+	FastHandoffCount int64
+	ToolCallCount    int64
+	DirectReplyCount int64
+	ErrorCount       int64
+	AvgTotalDuration time.Duration
 }
 
 // EscalationTrigger 转人工触发器（解耦方向7 的 HumanEscalationManager）
@@ -140,15 +140,15 @@ func (o *CoreDataFlowOrchestrator) SetPublisher(p ResponsePublisher) {
 
 // OrchestratorResult 编排结果
 type OrchestratorResult struct {
-	SessionID       string
-	FinalReply      string
-	HandoffToHuman  bool
-	HandoffReason   string
-	ToolCallCount   int
-	Stages          []StageDecision
-	TotalDuration   time.Duration
-	CrisisLevel     CrisisLevel
-	AssetContext    *AssetContext
+	SessionID      string
+	FinalReply     string
+	HandoffToHuman bool
+	HandoffReason  string
+	ToolCallCount  int
+	Stages         []StageDecision
+	TotalDuration  time.Duration
+	CrisisLevel    CrisisLevel
+	AssetContext   *AssetContext
 }
 
 // Process 处理一次端到端数据流
@@ -158,11 +158,12 @@ type OrchestratorResult struct {
 //   - agentCtx: 智能体上下文
 //
 // 流程：
-//  A1-A2: 入站已由 InboxIngress 处理（调用方保证 sessionID 存在）
-//  A5:    加载资产上下文（L1/L2/Prompt）
-//  A6-A9: 运行推理闭环（感知→对齐→门禁→规划）
-//  B4:    若转人工，触发 HumanEscalation
-//  A11:   裁剪 + 发布最终回复
+//
+//	A1-A2: 入站已由 InboxIngress 处理（调用方保证 sessionID 存在）
+//	A5:    加载资产上下文（L1/L2/Prompt）
+//	A6-A9: 运行推理闭环（感知→对齐→门禁→规划）
+//	B4:    若转人工，触发 HumanEscalation
+//	A11:   裁剪 + 发布最终回复
 func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload CustomerMessagePayload, agentCtx *AgentContext) (*OrchestratorResult, error) {
 	if agentCtx == nil {
 		agentCtx = &AgentContext{

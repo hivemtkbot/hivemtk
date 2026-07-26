@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/aiagent/agent/tooluse"
 	agent_runtime "marketing/internal/aiagent/agent/runtime"
+	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 
@@ -289,9 +289,9 @@ func handleGetGlobalWhitelist(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"success":  true,
-		"tools":    pc.ListGlobalWhitelist(),
-		"count":    len(pc.ListGlobalWhitelist()),
+		"success": true,
+		"tools":   pc.ListGlobalWhitelist(),
+		"count":   len(pc.ListGlobalWhitelist()),
 	})
 }
 

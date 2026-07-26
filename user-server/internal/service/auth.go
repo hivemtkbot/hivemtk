@@ -36,17 +36,17 @@ type LoginResponse struct {
 
 // SystemUserResponse 系统用户响应
 type SystemUserResponse struct {
-	ID                 uint       `json:"id"`
-	Username           string     `json:"username"`
-	Email              string     `json:"email"`
-	Phone              string     `json:"phone"`
-	RealName           string     `json:"real_name"`
-	Role               string     `json:"role"`
-	Status             int        `json:"status"`
-	LastLogin          *time.Time `json:"last_login"`
-	LastLoginAt        *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	ID          uint       `json:"id"`
+	Username    string     `json:"username"`
+	Email       string     `json:"email"`
+	Phone       string     `json:"phone"`
+	RealName    string     `json:"real_name"`
+	Role        string     `json:"role"`
+	Status      int        `json:"status"`
+	LastLogin   *time.Time `json:"last_login"`
+	LastLoginAt *time.Time `json:"last_login_at"` // 兼容前端驼峰命名
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // ChangePasswordRequest 修改密码请求
@@ -74,7 +74,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 	return s.jwtUtils
 }
 
-// Login 用户登录（2026-07 阶段 1 重构：单表 system_users）
+// Login 用户登录
 //
 // 严格规则（修复 P0-3）：
 //  1. 不再"系统无用户 → 自动注册为超管"——该机制绕过 InitGuard/LicenseGuard，
@@ -384,7 +384,7 @@ func HashPassword(password string) (string, error) {
 
 // InitAdmin 初始化系统首个超管（公开，无 JWT）
 //
-// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+// 系统用户统一 plan v3.1 §3.2：
 //   - 调用方必须在请求体中传入 username/password/email（不再读 config 默认值）
 //   - 密码强度：至少 8 位，含大小写字母 + 数字
 //   - username 唯一性、email 唯一性（防重复初始化由路由层 install.lock 闸负责，见 admin_routes.go）

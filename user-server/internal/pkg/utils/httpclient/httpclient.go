@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Client 是全局共享的 HTTP 客户端，所有出站 HTTP 调用应复用它（R4 修复）。
+// Client 是全局共享的 HTTP 客户端，所有出站 HTTP 调用应复用它。
 var Client = New()
 
 // New 返回一个配置了超时与连接池的 *http.Client 副本，

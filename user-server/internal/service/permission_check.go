@@ -1,10 +1,10 @@
 package service
 
-// permission_check.go SystemUser 权限检查工具（2026-07 阶段 1 重构：单表化 system_users）
+// permission_check.go SystemUser 权限检查工具
 //
 // 五层架构归属: L3 业务服务层
 // 设计依据：
-//   - 原 service/permission_check.go 依赖 model.SystemRoles（已废弃）
+//   - 依赖 model.SystemRoleList
 //   - 原 service/team_user.go 内的 PermissionService 已迁移至本文件
 //   - 角色定义：system_users.role 仅有 3 档 admin/customer_service/staff
 //
@@ -26,7 +26,7 @@ const (
 	SystemUserRoleStaff           = "staff"
 )
 
-// 兼容旧 TeamUser 角色名（阶段 1 过渡期仍可使用，避免破坏性变更）
+// 兼容旧 TeamUser 角色名（过渡期使用）
 const (
 	LegacyTeamUserRoleAdmin   = "admin"
 	LegacyTeamUserRoleManager = "manager"
@@ -68,7 +68,7 @@ func RequireAdmin(operatorRole string) error {
 
 // RequireManagerOrAdmin 要求操作者是 manager/admin/customer_service 之一
 //
-// 阶段 1：因 system_users.role 仅有 3 档，customer_service 视为可执行"经理级"操作。
+// system_users.role 仅有 3 档，customer_service 视为可执行"经理级"操作。
 // 兼容：旧 manager 角色 token 仍能通过（按历史契约）。
 func RequireManagerOrAdmin(operatorRole string) error {
 	if operatorRole == "" {
@@ -181,7 +181,7 @@ func (s *PermissionService) CheckPermission(ctx context.Context, roleCode, permi
 	return matchPermission(rolePerms, permission)
 }
 
-// defaultRolePermissions 返回内置角色权限列表（阶段 1 简化）
+// defaultRolePermissions 返回内置角色权限列表
 // 取自原 model.SystemRoles 中 3 个内置角色的 Permissions JSON。
 func defaultRolePermissions(roleCode string) []string {
 	switch roleCode {

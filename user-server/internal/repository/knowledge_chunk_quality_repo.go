@@ -75,13 +75,13 @@ func (r *knowledgeChunkExtRepo) BatchGetExt(ctx context.Context, chunkIDs []uint
 		return map[uint64]*model.KnowledgeChunkExt{}, nil
 	}
 	type row struct {
-		ID              uint64
-		QualityScore    float64
-		QualityLabel    string
-		LowQualityHits  int
-		ChampionHits    int
+		ID               uint64
+		QualityScore     float64
+		QualityLabel     string
+		LowQualityHits   int
+		ChampionHits     int
 		SourceSessionIDs pq.StringArray
-		LastRewardAt    *time.Time
+		LastRewardAt     *time.Time
 	}
 	var rows []row
 	err := r.db.WithContext(ctx).

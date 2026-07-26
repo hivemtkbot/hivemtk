@@ -34,10 +34,10 @@ type SelfLearningService struct {
 	components *SelfLearningComponents
 
 	// 列表查询所需仓储（由 InitSelfLearningService 注入）
-	logRepo        repository.SelfLearningLogRepository
-	candidateRepo  repository.AssetBundleCandidateRepository
-	abTestRepo     repository.AssetBundleABTestRepository
-	actionRepo     repository.SelfCorrectionActionRepository
+	logRepo       repository.SelfLearningLogRepository
+	candidateRepo repository.AssetBundleCandidateRepository
+	abTestRepo    repository.AssetBundleABTestRepository
+	actionRepo    repository.SelfCorrectionActionRepository
 }
 
 // NewSelfLearningService 创建 L3 门面服务
@@ -101,8 +101,8 @@ func (s *SelfLearningService) GetDashboard(ctx context.Context) (*dto.SelfLearni
 		return nil, fmt.Errorf("self_learning: components not initialized")
 	}
 	resp := &dto.SelfLearningDashboardResponse{
-		TodayCount:        make(map[model.SelfLearningStatus]int64),
-		UpdatedAt:         time.Now(),
+		TodayCount: make(map[model.SelfLearningStatus]int64),
+		UpdatedAt:  time.Now(),
 	}
 
 	// 1. 开关状态

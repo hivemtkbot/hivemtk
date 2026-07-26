@@ -218,11 +218,11 @@ func newPlatformAccountRepoForTest(database *gorm.DB) repository.PlatformAccount
 	return &platformAccountRepoForTest{db: database}
 }
 
-func (r *platformAccountRepoForTest) Create(ctx context.Context, account *model.PlatformAccount)  error {
+func (r *platformAccountRepoForTest) Create(ctx context.Context, account *model.PlatformAccount) error {
 	return r.db.Create(account).Error
 }
 
-func (r *platformAccountRepoForTest) GetByID(ctx context.Context, id uint)  (*model.PlatformAccount, error) {
+func (r *platformAccountRepoForTest) GetByID(ctx context.Context, id uint) (*model.PlatformAccount, error) {
 	var account model.PlatformAccount
 	if err := r.db.First(&account, id).Error; err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func (r *platformAccountRepoForTest) GetByID(ctx context.Context, id uint)  (*mo
 	return &account, nil
 }
 
-func (r *platformAccountRepoForTest) GetAll(ctx context.Context)  ([]*model.PlatformAccount, error) {
+func (r *platformAccountRepoForTest) GetAll(ctx context.Context) ([]*model.PlatformAccount, error) {
 	var accounts []*model.PlatformAccount
 	if err := r.db.Order("created_at DESC").Find(&accounts).Error; err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (r *platformAccountRepoForTest) GetAll(ctx context.Context)  ([]*model.Plat
 	return accounts, nil
 }
 
-func (r *platformAccountRepoForTest) GetByPlatform(ctx context.Context, platform model.Platform)  ([]*model.PlatformAccount, error) {
+func (r *platformAccountRepoForTest) GetByPlatform(ctx context.Context, platform model.Platform) ([]*model.PlatformAccount, error) {
 	var accounts []*model.PlatformAccount
 	if err := r.db.Where("platform = ?", platform).Find(&accounts).Error; err != nil {
 		return nil, err
@@ -246,18 +246,18 @@ func (r *platformAccountRepoForTest) GetByPlatform(ctx context.Context, platform
 	return accounts, nil
 }
 
-func (r *platformAccountRepoForTest) Update(ctx context.Context, account *model.PlatformAccount)  error {
+func (r *platformAccountRepoForTest) Update(ctx context.Context, account *model.PlatformAccount) error {
 	return r.db.Save(account).Error
 }
 
-func (r *platformAccountRepoForTest) Delete(ctx context.Context, id uint)  error {
+func (r *platformAccountRepoForTest) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.PlatformAccount{}, id).Error
 }
 
-func (r *platformAccountRepoForTest) UpdateStatus(ctx context.Context, id uint, status int)  error {
+func (r *platformAccountRepoForTest) UpdateStatus(ctx context.Context, id uint, status int) error {
 	return r.db.Model(&model.PlatformAccount{}).Where("id = ?", id).Update("status", status).Error
 }
 
-func (r *platformAccountRepoForTest) UpdateLastSync(ctx context.Context, id uint)  error {
+func (r *platformAccountRepoForTest) UpdateLastSync(ctx context.Context, id uint) error {
 	return r.db.Model(&model.PlatformAccount{}).Where("id = ?", id).Update("last_sync_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 }

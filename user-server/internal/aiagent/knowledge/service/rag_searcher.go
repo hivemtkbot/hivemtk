@@ -17,13 +17,19 @@ import (
 // 走 pgvector 余弦相似度 + TEI bge-m3（1024 维）
 //
 //   - 优先路径：TEI 把 query 编码成 1024 维向量，SQL 用 embedding <=> $1 走 HNSW 索引
+//
 //   - 兜底路径：当 TEI 不可用或 query 为空时，回退到 BM25-lite 文本匹配
+//
 //   - 降级日志：ERROR 级别（与私域基线一致：禁止静默降级到伪向量）
 //
 //   - hybridSearcher 字段（委托模式），非 nil 时优先走 HybridSearcher
+//
 //   - HybridSearcher 提供：pgvector HNSW + tsvector BM25 + RRF 融合 + bge-reranker-v2-m3 重排
+//
 //   - HyDE/Multi-Query 改写 + Contextual Retrieval + CachedEmbeddingClient
+//
 //   - 旧 vectorSearch / bm25SearchAll 路径保留为 legacy fallback（hybridSearcher 为 nil 时启用）
+//
 //   - 私域独立部署：无 merchant_id 字段
 type RagSearcher struct {
 	db               *gorm.DB

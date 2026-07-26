@@ -446,7 +446,7 @@ func TestTriggerTelegramJoinSales_ShouldNotTriggerWhenAIDisabled(t *testing.T) {
 func TestWebhookService_Receive_TelegramJoinEvent(t *testing.T) {
 	db := setupTelegramTestDB(t)
 	svc := NewWebhookService(db)
-	defer svc.Stop(context.Background(), )
+	defer svc.Stop(context.Background())
 
 	payload := []byte(`{
 		"update_id": 2001,
@@ -518,7 +518,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	}
 
 	// GetAll
-	all, err := repo.GetAll(context.Background(), )
+	all, err := repo.GetAll(context.Background())
 	if err != nil {
 		t.Fatalf("all: %v", err)
 	}
@@ -544,7 +544,7 @@ func TestTelegramAccountRepository_CRUD(t *testing.T) {
 	if err := repo.Delete(context.Background(), acc.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	all2, _ := repo.GetAll(context.Background(), )
+	all2, _ := repo.GetAll(context.Background())
 	if len(all2) != 0 {
 		t.Errorf("expected 0 after delete, got %d", len(all2))
 	}

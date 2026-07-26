@@ -36,7 +36,6 @@ func TestUpgradeTaskRepository_Create(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name    string
 		task    *model.UpgradeTask
@@ -90,7 +89,6 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion:     "1.0.0",
@@ -138,7 +136,6 @@ func TestUpgradeTaskRepository_GetByID(t *testing.T) {
 func TestUpgradeTaskRepository_GetAll(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
@@ -210,7 +207,6 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	repo.Create(ctx, &model.UpgradeTask{
 		FromVersion: "1.0.0",
@@ -239,7 +235,6 @@ func TestUpgradeTaskRepository_GetLatestTask(t *testing.T) {
 func TestUpgradeTaskRepository_Update(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	task := &model.UpgradeTask{
@@ -277,7 +272,6 @@ func TestUpgradeTaskRepository_UpdateStatus(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion: "1.0.0",
@@ -313,7 +307,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 	repo, _, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	task := &model.UpgradeTask{
 		FromVersion: "1.0.0",
@@ -347,7 +340,6 @@ func TestUpgradeTaskRepository_UpdateStatus_WithCompletion(t *testing.T) {
 func TestMigrationRecordRepository_Create(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
-
 
 	tests := []struct {
 		name    string
@@ -397,7 +389,6 @@ func TestMigrationRecordRepository_GetByVersion(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	record := &model.MigrationRecord{
 		Version: "1.5.0",
@@ -446,7 +437,6 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	repo.Create(ctx, &model.MigrationRecord{
 		Version: "1.0.0",
@@ -484,7 +474,6 @@ func TestMigrationRecordRepository_GetExecutedVersions(t *testing.T) {
 func TestMigrationRecordRepository_Update(t *testing.T) {
 	_, repo, _ := setupUpgradeRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	record := &model.MigrationRecord{

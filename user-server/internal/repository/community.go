@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	_db "marketing/internal/pkg/utils/db"
 	"marketing/internal/model"
+	_db "marketing/internal/pkg/utils/db"
 
 	"gorm.io/gorm"
 )

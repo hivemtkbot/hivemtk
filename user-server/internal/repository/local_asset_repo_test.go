@@ -212,5 +212,5 @@ func TestIncrementUseCount_Concurrent(t *testing.T) {
 }
 
 // 辅助函数，提升测试可读性
-func useCount(v int64) int64       { return v }
-func reportedCount(v int64) int64  { return v }
+func useCount(v int64) int64      { return v }
+func reportedCount(v int64) int64 { return v }

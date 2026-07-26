@@ -86,7 +86,7 @@ func (r *MessageQueueRepository) UpdateMessageStatus(ctx context.Context, queueI
 
 // UpdateQueueStatusAtomic 原子更新队列聚合状态（消除 read-modify-write 竞态）
 //
-// 性能审计 P3-2：单条 UPDATE 在 DB 侧自增 sent/failed 并判定完成态，
+// 单条 UPDATE 在 DB 侧自增 sent/failed 并判定完成态，
 // 避免并发场景下两请求同读 sent=5 同写 6 的竞态。
 func (r *MessageQueueRepository) UpdateQueueStatusAtomic(ctx context.Context, queueID string, success bool) error {
 	if r == nil || r.db == nil {

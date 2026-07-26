@@ -91,12 +91,14 @@ func (a *selfLearningEmbedderAdapter) Dimension() int {
 // eventBusAdapter 把 *event.EventBus 适配为 selflearning.EventBus 接口
 //
 // event.EventBus 签名：
-//   Publish(evt Event)
-//   Subscribe(topic string, handler Handler)
+//
+//	Publish(evt Event)
+//	Subscribe(topic string, handler Handler)
 //
 // selflearning.EventBus 接口签名：
-//   Publish(topic string, payload any) error
-//   Subscribe(topic string, handler any) error
+//
+//	Publish(topic string, payload any) error
+//	Subscribe(topic string, handler any) error
 //
 // 由于事件总线是 best-effort 投递，Publish 失败仅记录日志不返回错误
 // 由于 handler 类型不同（event.Handler vs any），Subscribe 需要类型断言转换
@@ -166,17 +168,17 @@ func (a *eventBusAdapter) Subscribe(topic string, handler any) error {
 
 // SelfLearningComponents 自我学习三位一体机制组件集合
 type SelfLearningComponents struct {
-	SwitchSvc          *selflearning.SwitchService
-	Publisher          *selflearning.DialogueEventPublisher
-	RAGCorrector       *selflearning.RAGSelfCorrector
-	AssetLearner       *selflearning.AssetBundleLearner
-	LLMCorrector       *selflearning.LLMSelfCorrector
-	Dispatcher         *selflearning.SelfCorrectionDispatcher
-	RAGSupervisor      *selflearning.RAGSelfSupervisor
-	AssetSupervisor    *selflearning.AssetBundleSelfSupervisor
-	Orchestrator       *selflearning.Orchestrator
-	LLMAdapter         *selfLearningLLMAdapter
-	EmbedAdapter       *selfLearningEmbedderAdapter
+	SwitchSvc       *selflearning.SwitchService
+	Publisher       *selflearning.DialogueEventPublisher
+	RAGCorrector    *selflearning.RAGSelfCorrector
+	AssetLearner    *selflearning.AssetBundleLearner
+	LLMCorrector    *selflearning.LLMSelfCorrector
+	Dispatcher      *selflearning.SelfCorrectionDispatcher
+	RAGSupervisor   *selflearning.RAGSelfSupervisor
+	AssetSupervisor *selflearning.AssetBundleSelfSupervisor
+	Orchestrator    *selflearning.Orchestrator
+	LLMAdapter      *selfLearningLLMAdapter
+	EmbedAdapter    *selfLearningEmbedderAdapter
 }
 
 // InitSelfLearningComponents 装配自我学习三位一体机制所有组件
@@ -299,9 +301,13 @@ func GetSelfLearningComponents() *SelfLearningComponents {
 // championAnalyzerShim 把 feedbackloop.ChampionDialogueAnalyzer 适配为 selflearning.ChampionAnalyzer
 //
 // feedbackloop.ChampionDialogueAnalyzer.AnalyzePipeline 签名：
-//   (ctx, since time.Time) (*dto.ChampionAnalysisReport, error)
+//
+//	(ctx, since time.Time) (*dto.ChampionAnalysisReport, error)
+//
 // selflearning.ChampionAnalyzer.AnalyzePipeline 签名：
-//   (ctx, since time.Time) ([]ExtractedScript, error)
+//
+//	(ctx, since time.Time) ([]ExtractedScript, error)
+//
 // 此 shim 负责调用真实方法并转换 ExtractedScriptDTO → ExtractedScript
 type championAnalyzerShim struct {
 	analyzer *feedbackloop.ChampionDialogueAnalyzer

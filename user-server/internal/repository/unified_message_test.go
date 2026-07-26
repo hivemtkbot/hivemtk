@@ -32,7 +32,6 @@ func TestUnifiedMessageRepository_Create(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name    string
 		msg     *model.UnifiedMessage
@@ -88,7 +87,6 @@ func TestUnifiedMessageRepository_GetByID(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	msg := &model.UnifiedMessage{
 		MessageID: "msg-getbyid",
@@ -140,7 +138,6 @@ func TestUnifiedMessageRepository_GetByMessageID(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	msg := &model.UnifiedMessage{
 		MessageID: "unique-msg-id",
@@ -169,7 +166,6 @@ func TestUnifiedMessageRepository_GetByMessageID(t *testing.T) {
 func TestUnifiedMessageRepository_GetByChat(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据 - 同一个会话的多条消息
 	for i := 1; i <= 4; i++ {
@@ -251,7 +247,6 @@ func TestUnifiedMessageRepository_UpdateStatus(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	msg := &model.UnifiedMessage{
 		MessageID: "msg-status",
@@ -305,7 +300,6 @@ func TestUnifiedMessageRepository_Delete(t *testing.T) {
 	msgRepo, _, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	msg := &model.UnifiedMessage{
 		MessageID: "msg-delete",
@@ -329,7 +323,6 @@ func TestUnifiedMessageRepository_Delete(t *testing.T) {
 func TestUnifiedReplyRepository_Create(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	tests := []struct {
 		name    string
@@ -386,7 +379,6 @@ func TestUnifiedReplyRepository_GetByID(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	reply := &model.UnifiedReply{
 		ReplyID:   "reply-getbyid",
@@ -438,7 +430,6 @@ func TestUnifiedReplyRepository_GetByMessageID(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据 - 同一条消息的多条回复
 	replyRepo.Create(ctx, &model.UnifiedReply{
 		ReplyID:   "reply-1",
@@ -470,7 +461,6 @@ func TestUnifiedReplyRepository_GetByMessageID(t *testing.T) {
 func TestUnifiedReplyRepository_UpdateStatus(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	reply := &model.UnifiedReply{
@@ -525,7 +515,6 @@ func TestUnifiedReplyRepository_Delete(t *testing.T) {
 	_, replyRepo, _ := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	reply := &model.UnifiedReply{
 		ReplyID:   "reply-delete",
@@ -549,7 +538,6 @@ func TestUnifiedReplyRepository_Delete(t *testing.T) {
 func TestPlatformAccountRepository_Create(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	tests := []struct {
 		name    string
@@ -599,7 +587,6 @@ func TestPlatformAccountRepository_Create(t *testing.T) {
 func TestPlatformAccountRepository_GetByID(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	account := &model.PlatformAccount{
@@ -651,7 +638,6 @@ func TestPlatformAccountRepository_GetAll(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	accountRepo.Create(ctx, &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
@@ -678,7 +664,6 @@ func TestPlatformAccountRepository_GetAll(t *testing.T) {
 func TestPlatformAccountRepository_GetByPlatform(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	accountRepo.Create(ctx, &model.PlatformAccount{
@@ -739,7 +724,6 @@ func TestPlatformAccountRepository_Update(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	account := &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
@@ -771,7 +755,6 @@ func TestPlatformAccountRepository_Delete(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	account := &model.PlatformAccount{
 		Platform:    model.PlatformDouyin,
@@ -795,7 +778,6 @@ func TestPlatformAccountRepository_Delete(t *testing.T) {
 func TestPlatformAccountRepository_UpdateStatus(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	account := &model.PlatformAccount{
@@ -844,7 +826,6 @@ func TestPlatformAccountRepository_UpdateStatus(t *testing.T) {
 func TestPlatformAccountRepository_UpdateLastSync(t *testing.T) {
 	_, _, accountRepo := setupUnifiedMessageRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	account := &model.PlatformAccount{

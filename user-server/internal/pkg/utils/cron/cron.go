@@ -43,7 +43,6 @@ func (tm *TaskManager) RemoveTask(id cron.EntryID) {
 	tm.cron.Remove(id)
 }
 
-
 func InitCron() {
 	mgr := GetTaskManager()
 	// 每分钟执行一次

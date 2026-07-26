@@ -10,13 +10,7 @@ import (
 	"marketing/internal/pkg/utils/logger"
 )
 
-// ============================================================================
-// LLMProviderController（2026-07-23 重构）
-// ----------------------------------------------------------------------------
-// 修复缺陷 1：6 个端点全部从 501 占位升级为真实实现，调用 ProviderFailover。
-// ============================================================================
-
-// LLMProviderController LLM Provider 降级管理控制器
+// LLMProviderController LLM Provider 降级管理控制器（6 个端点真实实现，调用 ProviderFailover）
 type LLMProviderController struct {
 	failover *llm.ProviderFailover
 }

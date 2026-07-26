@@ -33,7 +33,6 @@ func TestMessageRepository_Create(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
 
-
 	repo := NewMessageRepository()
 
 	message := &model.Message{
@@ -58,7 +57,6 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
 
-
 	repo := NewMessageRepository()
 
 	message := &model.Message{
@@ -82,7 +80,6 @@ func TestMessageRepository_Create_EmptyText(t *testing.T) {
 func TestMessageRepository_GetMessageList(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
-
 
 	repo := NewMessageRepository()
 
@@ -134,7 +131,6 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
 
-
 	repo := NewMessageRepository()
 
 	for i := 0; i < 10; i++ {
@@ -161,7 +157,6 @@ func TestMessageRepository_GetMessageList_SecondPage(t *testing.T) {
 func TestMessageRepository_Create_MultipleMessages(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
-
 
 	repo := NewMessageRepository()
 
@@ -195,7 +190,6 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
 
-
 	repo := NewMessageRepository()
 
 	// Create messages for different users
@@ -228,7 +222,6 @@ func TestMessageRepository_Create_DifferentUsers(t *testing.T) {
 func TestMessageRepository_GetMessageList_WithStatus(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
-
 
 	repo := NewMessageRepository()
 
@@ -269,7 +262,6 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
 
-
 	repo := NewMessageRepository()
 
 	// Create 100 messages
@@ -301,7 +293,6 @@ func TestMessageRepository_Create_LargeBatch(t *testing.T) {
 func TestMessageRepository_Create_VariousTextLengths(t *testing.T) {
 	setupMessageTestDB(t)
 	ctx := context.Background()
-
 
 	repo := NewMessageRepository()
 

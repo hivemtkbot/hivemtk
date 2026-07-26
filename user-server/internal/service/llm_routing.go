@@ -15,13 +15,13 @@ import (
 // ============================================================================
 // LLM 路由服务（重构于 2026-07-23）
 // ----------------------------------------------------------------------------
-// 变更要点：
-//  1. 增加 scenario 维度：LLMModelStat 拆为「按 provider」+「按 (provider, scenario)」
+// 核心能力：
+//  1. scenario 维度：LLMModelStat 拆为「按 provider」+「按 (provider, scenario)」
 //  2. 路由变更走 SetRouteWithAudit（自动落 llm_routing_audit 表）
 //  3. TestModel 走独立路径：直接调 dispatcher.callProvider，不动 routes map
-//  4. Usage 改读 llm_routing_logs 聚合（按 scenario+provider），同时返回 in-memory 实时数据
+//  4. Usage 读 llm_routing_logs 聚合（按 scenario+provider），同时返回 in-memory 实时数据
 //  5. CostStats 暴露按场景维度的详细统计
-//  6. Stats 改读 llm_routing_logs 跨进程历史
+//  6. Stats 读 llm_routing_logs 跨进程历史
 // ============================================================================
 
 // LLMModelStat 内存中"按 provider"实时累计（用于 /stats 实时面板）

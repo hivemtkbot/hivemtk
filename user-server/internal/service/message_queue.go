@@ -15,7 +15,7 @@ import (
 )
 
 type MessageQueueService struct {
-	repo  *repository.MessageQueueRepository
+	repo   *repository.MessageQueueRepository
 	queues map[string][]model.QueuedMessage
 	status map[string]model.QueueStatus
 	mu     sync.RWMutex

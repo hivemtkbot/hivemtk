@@ -57,7 +57,6 @@ func allModels() []any {
 		&model.LiveCodeQR{},
 		&model.LiveCodeQRStat{},
 		// 平台端模型
-		// 开源版：已移除 &model.License{}（License 模型删除，授权流程下线）
 		&model.ObsConfig{},
 		// 素材库模型
 		&contentmodel.Material{},
@@ -87,7 +86,7 @@ func allModels() []any {
 		// 备份恢复
 		&model.Backup{},
 		&model.RestoreRecord{},
-	// RAG会话持久化
+		// RAG会话持久化
 		&knowledgemodel.RagSession{},
 		&knowledgemodel.RagMessage{},
 		// 客服会话相关模型
@@ -236,7 +235,6 @@ func allModels() []any {
 		&model.ConversionFunnel{},
 		&model.SalesPersona{},
 		// P2/P3 扩展模型
-		// 开源版：已移除 &model.OTAVersion{}（OTA 流程下线）
 		&opsmodel.PerformanceTestResult{},
 		&model.SecurityAuditResult{},
 		// RAG V2.0 增强模型
@@ -257,15 +255,15 @@ func allModels() []any {
 		&model.ChatChannel{},
 		// P2-X: 商户端通知中心（站内通知 / 顶部铃铛 badge）
 		&model.Notification{},
-	// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
-	&model.AssetBundle{},
-	&model.AssetBundleVersionLog{},
-	// 资产市场本地资产（local-assets）：列表/详情/同步日志三表，此前遗漏未加入
-	// 自动迁移，导致 /api/v1/local-assets 报 relation "local_assets" does not exist。
-	&model.LocalAsset{},
-	&model.LocalAssetData{},
-	&model.LocalAssetSyncLog{},
-}
+		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
+		&model.AssetBundle{},
+		&model.AssetBundleVersionLog{},
+		// 资产市场本地资产（local-assets）：列表/详情/同步日志三表，此前遗漏未加入
+		// 自动迁移，导致 /api/v1/local-assets 报 relation "local_assets" does not exist。
+		&model.LocalAsset{},
+		&model.LocalAssetData{},
+		&model.LocalAssetSyncLog{},
+	}
 }
 
 // ensureExtensions 在 AutoMigrate 前确保依赖的 PG 扩展已就绪（幂等）。
@@ -303,8 +301,8 @@ func AutoMigrate() *gorm.DB {
 	ensureExtensions()
 
 	// 逐个模型执行 AutoMigrate：单个模型失败不影响后续模型。
-	// 这是关键修复：原来一次性传入所有模型，PG 在某个历史约束命名漂移时
-	// 抛错后 GORM 会中断整个调用，导致后续 100+ 表未创建（system_users、
+	// 一次性传入所有模型时，PG 在约束命名漂移时
+	// 抛错会令 GORM 中断整个调用，导致后续 100+ 表未创建（system_users、
 	// sop_agents、customer_sessions、chat_channels 等核心表都缺失）。
 	tolerated := 0
 	for _, m := range allModels() {
@@ -339,7 +337,7 @@ func AutoMigrate() *gorm.DB {
 	}
 
 	if tolerated > 0 {
-		// V4/R5/R6 修复：将「静默忽略」升级为显式漂移告警，使运维可感知长期漂移。
+		// 将「静默忽略」升级为显式漂移告警，使运维可感知长期漂移。
 		logger.Warn("AutoMigrate 完成，但存在可容忍的迁移漂移（历史约束命名不一致），建议排查并清理遗留历史表，避免长期静默漂移掩盖真实故障")
 	} else {
 		logger.Info("AutoMigrate 完成，无迁移漂移")
@@ -349,7 +347,7 @@ func AutoMigrate() *gorm.DB {
 
 // isTolerableMigrateError 判断迁移错误是否可容忍（仅限「历史约束命名漂移」类 NOTICE）。
 //
-// V4/R5/R6 修复：收窄为明确白名单——只容忍 PG 在老 schema 上尝试 DROP 一个非 GORM 命名
+// 收窄为明确白名单——只容忍 PG 在老 schema 上尝试 DROP 一个非 GORM 命名
 // 的约束（constraint ... does not exist, SQLSTATE 42704）。其余错误（含 relation does
 // not exist、真实建表失败等）一律不吞，直接 panic 上报，避免静默漂移掩盖真实故障。
 //

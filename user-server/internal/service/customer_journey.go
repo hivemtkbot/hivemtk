@@ -411,7 +411,7 @@ func (s *CustomerJourneyService) ListByStage(ctx context.Context, stage JourneyS
 
 // AutoDetectSleeping 自动检测沉睡客户
 // 商业逻辑：成交后 30 天未互动 → 复购期；复购期 60 天未互动 → 沉睡
-// 修复：原实现跳过 DefaultFollowup=0 的阶段（如 won），导致成交客户永远沉不了
+// DefaultFollowup=0 的阶段（如 won）也需处理，否则成交客户无法沉淀
 // 商业产品级要求：所有"持续型"阶段（contact → repurchase）必须可检测沉睡
 func (s *CustomerJourneyService) AutoDetectSleeping(ctx context.Context) []string {
 	s.mu.Lock()

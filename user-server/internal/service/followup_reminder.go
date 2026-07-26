@@ -281,7 +281,7 @@ func (s *FollowUpService) ListOverdue(ctx context.Context, ownerID string) []*Re
 
 // GetDailyCalendar 获取每日日历
 // 商业逻辑：返回指定日期范围内（默认当天 0 点到 24 点）的所有待办
-// 修复：原实现排除了 DueAt 恰好等于 dayEnd 的边界情况，且对 ownerID 过滤过于严格
+// 需处理 DueAt 恰好等于 dayEnd 的边界情况，且对 ownerID 过滤过于严格
 func (s *FollowUpService) GetDailyCalendar(ctx context.Context, ownerID string, date time.Time) []*Reminder {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

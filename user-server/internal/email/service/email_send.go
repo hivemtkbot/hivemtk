@@ -8,27 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"github.com/google/uuid"
 	"gopkg.in/gomail.v2"
-	"context"
 )
 
 // 邮件状态常量
 const (
-	EmailStatusPending	= 0	// 待发送
-	EmailStatusSent		= 1	// 已发送
-	EmailStatusFailed	= 2	// 发送失败
+	EmailStatusPending = 0 // 待发送
+	EmailStatusSent    = 1 // 已发送
+	EmailStatusFailed  = 2 // 发送失败
 )
 
 type EmailSendService struct {
-	repo		repository.EmailSendRepository
-	smtpRepo	repository.EmailSmtpRepository
+	repo     repository.EmailSendRepository
+	smtpRepo repository.EmailSmtpRepository
 }
 
 func NewEmailSendService() *EmailSendService {
 	return &EmailSendService{
-		repo:		repository.NewEmailSendRepository(),
-		smtpRepo:	repository.NewEmailSmtpRepository(),
+		repo:     repository.NewEmailSendRepository(),
+		smtpRepo: repository.NewEmailSmtpRepository(),
 	}
 }
 
@@ -37,13 +37,13 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 
 	// 创建邮件记录
 	emailSend := &model.EmailSend{
-		ID:		uuid.New().String(),
-		To:		req.To,
-		Subject:	req.Subject,
-		Content:	req.Content,
-		Attachments:	strings.Join(req.Attachments, ","),
-		SmtpID:		req.SmtpId,
-		Status:		EmailStatusPending,
+		ID:          uuid.New().String(),
+		To:          req.To,
+		Subject:     req.Subject,
+		Content:     req.Content,
+		Attachments: strings.Join(req.Attachments, ","),
+		SmtpID:      req.SmtpId,
+		Status:      EmailStatusPending,
 	}
 
 	// 设置发送时间：立即发送或计划发送

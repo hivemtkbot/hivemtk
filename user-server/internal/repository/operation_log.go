@@ -3,7 +3,7 @@ package repository
 // operation_log.go 操作日志仓库
 //
 // 设计依据：
-//   - 从原 repository/team_user.go 拆分（2026-07 阶段 1：单表化 system_users）
+//   - 从 repository/team_user.go 拆分
 //   - OperationLogRepository 已被 middleware/audit.go 和 service/auth.go 引用
 
 import (

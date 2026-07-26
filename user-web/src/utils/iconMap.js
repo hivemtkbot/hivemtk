@@ -4,8 +4,6 @@
 // 仅显式导入路由配置 (router/modules/*.js) 与 Layout/Breadcrumb 中通过字符串引用的图标,
 // 使打包工具能进行 tree-shaking,显著减小 elementPlus chunk 体积。
 //
-// 详见: docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-1
-//
 // 维护说明：新增路由模块若使用新的图标字符串,需同步在此处补 import + map 条目。
 //
 // 注意：以下路由配置中引用但 @element-plus/icons-vue 不导出的图标名,不在此处 import,

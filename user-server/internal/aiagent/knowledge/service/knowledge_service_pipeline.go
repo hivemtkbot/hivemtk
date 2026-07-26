@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"marketing/internal/aiagent/knowledge/model"
-	ragretrieval "marketing/internal/aiagent/rag/retrieval"
 	rag_core "marketing/internal/aiagent/rag/core"
+	ragretrieval "marketing/internal/aiagent/rag/retrieval"
 	"marketing/internal/etl"
 	"marketing/internal/pkg/utils/logger"
 )
@@ -69,15 +69,15 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 
 	// 3. 分片
 	ragDoc := rag_core.Document{
-		ID:		fmt.Sprintf("kb_doc_%d", documentID),
-		Content:	content,
+		ID:      fmt.Sprintf("kb_doc_%d", documentID),
+		Content: content,
 		Metadata: map[string]any{
-			"document_id":	documentID,
-			"product_id":	productID,
-			"title":	title,
-			"source":	string(source),
+			"document_id": documentID,
+			"product_id":  productID,
+			"title":       title,
+			"source":      string(source),
 		},
-		CreatedAt:	time.Now(),
+		CreatedAt: time.Now(),
 	}
 	chunks, err := s.processor.ProcessDocument(bgCtx, ragDoc)
 	if err != nil {
@@ -94,10 +94,10 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 
 	// 4. 写入分段表（分片携带文档级基础信息 + 业务附加字段）
 	baseMeta := map[string]any{
-		"document_id":	float64(documentID),
-		"product_id":	float64(productID),
-		"title":	title,
-		"source":	string(source),
+		"document_id": float64(documentID),
+		"product_id":  float64(productID),
+		"title":       title,
+		"source":      string(source),
 	}
 	for k, v := range docMeta {
 		baseMeta[k] = v
@@ -113,14 +113,14 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		}
 		metaBytes, _ := json.Marshal(chunkMeta)
 		chunkModels = append(chunkModels, model.KnowledgeChunk{
-			DocumentID:	documentID,
-			ProductID:	productID,
-			ChunkIndex:	idx,
-			Content:	c.Content,
-			ContentHash:	hashStr,
-			TokenCount:	c.TokenCount,
-			CharCount:	len(c.Content),
-			Metadata:	string(metaBytes),
+			DocumentID:  documentID,
+			ProductID:   productID,
+			ChunkIndex:  idx,
+			Content:     c.Content,
+			ContentHash: hashStr,
+			TokenCount:  c.TokenCount,
+			CharCount:   len(c.Content),
+			Metadata:    string(metaBytes),
 		})
 		totalTokens += c.TokenCount
 	}
@@ -160,14 +160,14 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 		idxChunks := make([]ragretrieval.Chunk, len(chunks))
 		for i, c := range chunks {
 			idxChunks[i] = ragretrieval.Chunk{
-				ID:		c.ID,
-				DocumentID:	c.DocumentID,
-				Content:	c.Content,
-				Metadata:	c.Metadata,
-				Embedding:	embeddings[i],
-				Score:		c.Score,
-				TokenCount:	c.TokenCount,
-				ChunkIndex:	i,
+				ID:         c.ID,
+				DocumentID: c.DocumentID,
+				Content:    c.Content,
+				Metadata:   c.Metadata,
+				Embedding:  embeddings[i],
+				Score:      c.Score,
+				TokenCount: c.TokenCount,
+				ChunkIndex: i,
 			}
 		}
 		_ = s.indexer.BuildIndex(bgCtx, fmt.Sprintf("product_%d", productID), idxChunks)

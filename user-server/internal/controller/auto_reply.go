@@ -294,8 +294,8 @@ func (c *AutoReplyController) SaveCookies(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	// R8 修复：原实现忽略 parse 错误，且 SaveCookies 不校验账号所有权（IDOR）。
-	// 现校验 :id 必须为正整数，并从 JWT 取 userID 传给 service 做所有权校验。
+	// 需校验 parse 错误，且 SaveCookies 校验账号所有权（防 IDOR）。
+	// 校验 :id 必须为正整数，并从 JWT 取 userID 传给 service 做所有权校验。
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil || id64 == 0 {
 		response.Error(ctx, 400, "id 参数非法")
@@ -314,7 +314,7 @@ func (c *AutoReplyController) SaveCookies(ctx *gin.Context) {
 
 func (c *AutoReplyController) DeleteAccount(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	// R8 修复：校验 :id 必须为正整数
+	// 校验 :id 必须为正整数
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil || id64 == 0 {
 		response.Error(ctx, 400, "id 参数非法")
@@ -600,8 +600,8 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 		return
 	}
 
-	// 敏感数据保护（R4 修复）：原实现直接打印原始请求体，可能包含凭证/Token。
-	// 改为仅记录结构化字段，并对 headless 值做日志输出。
+	// 敏感数据保护：不直接打印原始请求体（可能包含凭证/Token）。
+	// 仅记录结构化字段，并对 headless 值做日志输出。
 	// 同时复用 body 给后续 Unmarshal，避免重复读取 ctx.Request.Body。
 
 	// 解析JSON
@@ -653,9 +653,9 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 
 // TestBrowser 测试浏览器功能
 //
-// SSRF 防护（R3 修复）：原实现直接将用户提交的 URL 传给浏览器导航，
-// 可被用于探测内部服务/云元数据（如 169.254.169.254）。
-// 现使用 urlguard.ValidateURL 在导航前校验目标 URL。
+// SSRF 防护：不直接将用户提交的 URL 传给浏览器导航，
+// 否则可被用于探测内部服务/云元数据（如 169.254.169.254）。
+// 使用 urlguard.ValidateURL 在导航前校验目标 URL。
 func (c *AutoReplyController) TestBrowser(ctx *gin.Context) {
 	var req struct {
 		URL      string `json:"url" binding:"required"`

@@ -97,20 +97,20 @@ func (m *AssetBundleMessages) Scan(src any) error {
 //  5. Scope 区分私有/共享/官方
 //  6. Tags 数组便于多维筛选（行业/语言/品类）
 type AssetBundle struct {
-	ID          int64               `gorm:"primaryKey;autoIncrement" json:"id"`
-	AssetID     string              `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
-	Title       string              `gorm:"size:256;not null" json:"title"`
-	Description string              `gorm:"type:text" json:"description"`
-	Author      string              `gorm:"size:64;index" json:"author"`
-	Version     string              `gorm:"size:16;default:'1.0.0'" json:"version"`
-	Scope       AssetBundleScope    `gorm:"size:16;index;default:'private'" json:"scope"`
-	Status      AssetBundleStatus   `gorm:"size:16;index;default:'draft'" json:"status"`
-	Industry    string              `gorm:"size:32;index" json:"industry"` // 行业：跨境电商/美妆/3C...
-	Language    string              `gorm:"size:8;index;default:'zh'" json:"language"`
-	Tags        pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
+	ID                 int64               `gorm:"primaryKey;autoIncrement" json:"id"`
+	AssetID            string              `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
+	Title              string              `gorm:"size:256;not null" json:"title"`
+	Description        string              `gorm:"type:text" json:"description"`
+	Author             string              `gorm:"size:64;index" json:"author"`
+	Version            string              `gorm:"size:16;default:'1.0.0'" json:"version"`
+	Scope              AssetBundleScope    `gorm:"size:16;index;default:'private'" json:"scope"`
+	Status             AssetBundleStatus   `gorm:"size:16;index;default:'draft'" json:"status"`
+	Industry           string              `gorm:"size:32;index" json:"industry"` // 行业：跨境电商/美妆/3C...
+	Language           string              `gorm:"size:8;index;default:'zh'" json:"language"`
+	Tags               pq.StringArray      `gorm:"type:text[];default:'{}'" json:"tags"`
 	Messages           AssetBundleMessages `gorm:"type:jsonb;not null;default:'[]'" json:"messages"`
-	Examples           JSONArray            `gorm:"type:jsonb;column:examples;default:'[]'" json:"examples"`                // 多语言 few-shot 示例
-	SupportedLanguages pq.StringArray       `gorm:"type:text[];column:supported_languages;default:'{}'" json:"supported_languages"` // 声明支持的目标语言
+	Examples           JSONArray           `gorm:"type:jsonb;column:examples;default:'[]'" json:"examples"`                        // 多语言 few-shot 示例
+	SupportedLanguages pq.StringArray      `gorm:"type:text[];column:supported_languages;default:'{}'" json:"supported_languages"` // 声明支持的目标语言
 	// 统计字段
 	UseCount    int64   `gorm:"default:0" json:"use_count"`
 	Rating      float64 `gorm:"default:0" json:"rating"`

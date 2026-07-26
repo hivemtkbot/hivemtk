@@ -216,9 +216,8 @@ func (NoOpSendRateLimiter) Allow(ctx context.Context, key string, limit RateLimi
 
 // MemorySendRateLimiter 内存级令牌桶限流（按 key 维度）
 //
-// 性能审计 P3-1：原实现每条消息（主动触达 1000 万/日）都对单一全局 mu 加锁，
-// 高并发下全局锁串行化成为触达延迟主因。改为分片令牌桶（按 key 哈希分桶），
-// 不同 key 落不同分片，互不阻塞。
+// 分片令牌桶（按 key 哈希分桶），不同 key 落不同分片，互不阻塞，
+// 避免高并发下全局锁串行化成为触达延迟主因。
 type MemorySendRateLimiter struct {
 	shards [rateLimiterShards]*rateLimiterShard
 }
@@ -294,9 +293,7 @@ func (l *MemorySendRateLimiter) Reset(ctx context.Context, key string) {
 
 // DefaultContentAuditor 默认内容审核器（敏感词 + 广告法）
 //
-// 性能审计 P3-4：原实现每条消息对词表逐个 strings.Contains 线性扫描（O(词数 × 文本长)），
-// 主动触达 1000 万/日 × 词表规模，且词表增长时线性退化。改为 Aho-Corasick 多模自动机，
-// 单次 O(文本长) 扫描即可命中全部词，复杂度与词表规模无关。
+// 使用 Aho-Corasick 多模自动机，单次 O(文本长) 扫描即可命中全部词，复杂度与词表规模无关。
 type DefaultContentAuditor struct {
 	SensitiveWords []string // 敏感词列表
 	AdLawKeywords  []string // 广告法禁用词（最/极/首/第一 等极限词）
@@ -324,7 +321,7 @@ func NewDefaultContentAuditor() *DefaultContentAuditor {
 	return a
 }
 
-// ensureCompiled 在词表变更后惰性重建自动机（性能审计 P3-4）
+// ensureCompiled 在词表变更后惰性重建自动机
 func (a *DefaultContentAuditor) ensureCompiled(ctx context.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -381,7 +378,7 @@ func (a *DefaultContentAuditor) AddAdLawKeyword(ctx context.Context, words ...st
 	a.mu.Unlock()
 }
 
-// ===== Aho-Corasick 多模子串匹配（性能审计 P3-4）=====
+// ===== Aho-Corasick 多模子串匹配 =====
 
 type acNode struct {
 	children map[rune]int

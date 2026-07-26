@@ -132,7 +132,7 @@ func TestKeywordIntentRecognizer_OrderStatus(t *testing.T) {
 func TestAlignmentStage_Empathy(t *testing.T) {
 	stage := NewDefaultAlignmentScorer()
 	ic := &InferenceContext{
-		Payload: CustomerMessagePayload{Content: "你骗我"},
+		Payload:   CustomerMessagePayload{Content: "你骗我"},
 		Sentiment: SentimentScore{Label: SentimentAngry, Score: 0.9},
 		Intent:    IntentResult{Primary: IntentComplaint},
 	}
@@ -347,8 +347,8 @@ func TestPlanner_FAQSkip(t *testing.T) {
 func TestPlanner_NoRAG(t *testing.T) {
 	p := NewDefaultTaskPlanner()
 	ic := &InferenceContext{
-		Payload:   CustomerMessagePayload{Content: "产品多少钱？"},
-		Intent:    IntentResult{Primary: IntentInquiry},
+		Payload: CustomerMessagePayload{Content: "产品多少钱？"},
+		Intent:  IntentResult{Primary: IntentInquiry},
 		AgentCtx: &AgentContext{
 			EnableRAG: false, // 关闭 RAG
 		},

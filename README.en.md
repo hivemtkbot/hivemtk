@@ -207,7 +207,6 @@ hivemtk/                              # User-side repo
 ├── docker-compose-example.yml        # Compose example (business + inference)
 ├── Makefile                          # install / up / down
 ├── .env-example                      # Env template
-├── CHANGELOG.md                      # Changelog
 ├── CONTRIBUTING.md                   # Contributing guide
 └── LICENSE                           # AGPL-3.0 License
 ```
@@ -244,7 +243,6 @@ Platform repo: [gitee.com/xhpmayun/hivemtk-platform](https://gitee.com/xhpmayun/
 | Local inference tuning | [docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md](docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md) |
 | FRP private tunneling | [docs/architecture/FRP私域部署指南.md](docs/architecture/FRP私域部署指南.md) |
 | Chat Widget embed | [embed-sdk/README.md](embed-sdk/README.md) · [docs/operations/CHAT_WIDGET_EMBED.md](docs/operations/CHAT_WIDGET_EMBED.md) |
-| Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ---

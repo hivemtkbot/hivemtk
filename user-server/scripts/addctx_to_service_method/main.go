@@ -3,12 +3,13 @@
 // 同时,内部 s.xxxxRepo.X(...) 调用自动加 ctx。
 //
 // 思路:
-//   1. 识别 Service struct(以 Service 结尾的 receiver 类型)
-//   2. 给所有方法加 ctx context.Context 参数
-//   3. 给方法体内的 s.xxxxRepo.X(...) / s.repo.X(...) 等调用加 ctx
+//  1. 识别 Service struct(以 Service 结尾的 receiver 类型)
+//  2. 给所有方法加 ctx context.Context 参数
+//  3. 给方法体内的 s.xxxxRepo.X(...) / s.repo.X(...) 等调用加 ctx
 //
 // 用法:
-//   go run scripts/addctx_to_service_method/main.go -dir=internal/email/service
+//
+//	go run scripts/addctx_to_service_method/main.go -dir=internal/email/service
 package main
 
 import (
@@ -128,7 +129,6 @@ func fixFile(path string) (int, error) {
 		modified = true
 		fixes++
 
-		// 修复内部调用
 		subFixes := fixCallsInBody(fn, fieldMap)
 		fixes += subFixes
 	}

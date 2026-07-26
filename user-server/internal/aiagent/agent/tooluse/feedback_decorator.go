@@ -192,12 +192,12 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 // 线程安全；由于 FeedbackCollectorDecorator 异步 goroutine 调用 RecordToolCall，
 // 必须加锁保护内部状态。
 type MemoryFeedbackSink struct {
-	mu     sync.Mutex
-	buf    []ToolCallEvent // 固定容量环形缓冲区
-	head   int             // 下一个写入位置
-	size   int             // 当前条目数（<= cap）
-	max    int             // 缓冲区容量（= cap(buf)）
-	dropped int64          // 因容量满被覆盖的旧条目数（监控用）
+	mu      sync.Mutex
+	buf     []ToolCallEvent // 固定容量环形缓冲区
+	head    int             // 下一个写入位置
+	size    int             // 当前条目数（<= cap）
+	max     int             // 缓冲区容量（= cap(buf)）
+	dropped int64           // 因容量满被覆盖的旧条目数（监控用）
 }
 
 // NewMemoryFeedbackSink 创建内存反馈接收器
@@ -207,7 +207,7 @@ func NewMemoryFeedbackSink(max int) *MemoryFeedbackSink {
 		max = 1000
 	}
 	return &MemoryFeedbackSink{
-		buf: make([]ToolCallEvent, max),
+		buf:  make([]ToolCallEvent, max),
 		head: 0,
 		size: 0,
 		max:  max,

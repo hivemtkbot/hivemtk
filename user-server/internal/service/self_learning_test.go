@@ -155,14 +155,14 @@ type mockSLLogRepo struct {
 	countTodayRes     map[model.SelfLearningStatus]int64
 	countTodayErr     error
 
-	createErr                     error
-	existsRes                     bool
-	existsErr                     error
-	updateStatusErr               error
-	getByLogIDRes                 *model.SelfLearningLog
-	getByLogIDErr                 error
-	markStaleRes                  int64
-	markStaleErr                  error
+	createErr       error
+	existsRes       bool
+	existsErr       error
+	updateStatusErr error
+	getByLogIDRes   *model.SelfLearningLog
+	getByLogIDErr   error
+	markStaleRes    int64
+	markStaleErr    error
 
 	listByScenarioCalls int
 	listByStatusCalls   int
@@ -243,7 +243,7 @@ type mockSLSignalRepo struct {
 	alertsList    []*model.SelfSupervisionSignal
 	listAlertsErr error
 
-	aggCalls       int
+	aggCalls        int
 	listAlertsCalls int
 }
 
@@ -292,8 +292,8 @@ type mockSLActionRepo struct {
 	updateErr   error
 	updateCalls int
 
-	listPendingRes []*model.SelfCorrectionAction
-	listPendingErr error
+	listPendingRes   []*model.SelfCorrectionAction
+	listPendingErr   error
 	listPendingCalls int
 
 	listByFilterRes   []*model.SelfCorrectionAction
@@ -364,8 +364,8 @@ func (m *mockSLActionRepo) CountToday(ctx context.Context) (map[model.Correction
 type mockSLCandidateRepo struct {
 	mu sync.Mutex
 
-	listByStatusRes []*model.AssetBundleCandidate
-	listByStatusErr error
+	listByStatusRes   []*model.AssetBundleCandidate
+	listByStatusErr   error
 	listByStatusCalls int
 
 	createErr   error
@@ -411,12 +411,12 @@ func (m *mockSLCandidateRepo) CountByStatus(ctx context.Context) (map[model.Asse
 type mockSLABTestRepo struct {
 	mu sync.Mutex
 
-	listByStatusRes []*model.AssetBundleABTest
-	listByStatusErr error
+	listByStatusRes   []*model.AssetBundleABTest
+	listByStatusErr   error
 	listByStatusCalls int
 
-	countByStatusRes map[model.AssetBundleABTestStatus]int64
-	countByStatusErr error
+	countByStatusRes   map[model.AssetBundleABTestStatus]int64
+	countByStatusErr   error
 	countByStatusCalls int
 
 	createErr   error
@@ -515,13 +515,13 @@ func newTestSelfLearningService(comps *SelfLearningComponents) *SelfLearningServ
 // makeLog 构造 SelfLearningLog
 func makeLog(logID string, status model.SelfLearningStatus) *model.SelfLearningLog {
 	return &model.SelfLearningLog{
-		LogID:      logID,
-		SessionID:  "sess-" + logID,
-		TraceID:    "trace-" + logID,
-		Scenario:   model.ScenarioRagWarmup,
-		Status:     status,
-		StartedAt:  time.Now().Add(-1 * time.Hour),
-		CreatedAt:  time.Now(),
+		LogID:     logID,
+		SessionID: "sess-" + logID,
+		TraceID:   "trace-" + logID,
+		Scenario:  model.ScenarioRagWarmup,
+		Status:    status,
+		StartedAt: time.Now().Add(-1 * time.Hour),
+		CreatedAt: time.Now(),
 	}
 }
 
@@ -729,57 +729,73 @@ func TestSelfLearningService_UpdateSwitch(t *testing.T) {
 		},
 		{
 			name: "validate_fail_invalid_autonomy",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: "invalid"},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req:     &dto.SwitchConfigRequest{AutonomyLevel: "invalid"},
 			wantErr: true,
 		},
 		{
 			name: "validate_fail_negative_max_corrections",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, MaxDailyCorrections: -1},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req:     &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, MaxDailyCorrections: -1},
 			wantErr: true,
 		},
 		{
 			name: "validate_fail_negative_max_promotions",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, MaxDailyPromotions: -1},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req:     &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, MaxDailyPromotions: -1},
 			wantErr: true,
 		},
 		{
 			name: "validate_fail_cb_threshold_over_1",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, CircuitBreakerThreshold: 1.5},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req:     &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, CircuitBreakerThreshold: 1.5},
 			wantErr: true,
 		},
 		{
 			name: "validate_fail_negative_low_quality_threshold",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, LowQualityThreshold: -0.1},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req:     &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, LowQualityThreshold: -0.1},
 			wantErr: true,
 		},
 		{
 			name: "switch_svc_update_error",
 			svc: func() *SelfLearningService {
 				sr := &mockSLSwitchRepo{sw: defaultSLSwitch(), updateErr: errors.New("update failed")}
-				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(sr, &mockSLLogRepo{}, 5 * time.Second)})
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(sr, &mockSLLogRepo{}, 5*time.Second)})
 			},
 			req:     &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelSupervised, EnableRAG: true},
 			wantErr: true,
 		},
 		{
 			name: "success_autonomous",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelAutonomous, EnableRAG: true, EnableAsset: true, EnableLLM: true},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req: &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelAutonomous, EnableRAG: true, EnableAsset: true, EnableLLM: true},
 		},
 		{
 			name: "success_supervised",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelSupervised, EnableRAG: true},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req: &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelSupervised, EnableRAG: true},
 		},
 		{
 			name: "success_manual_with_cb_window_zero_defaults_30",
-			svc:  func() *SelfLearningService { return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5 * time.Second)}) },
-			req:  &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, CircuitBreakerWindowMin: 0},
+			svc: func() *SelfLearningService {
+				return newTestSelfLearningService(&SelfLearningComponents{SwitchSvc: selflearning.NewSwitchService(newTestSwitchRepo(), &mockSLLogRepo{}, 5*time.Second)})
+			},
+			req: &dto.SwitchConfigRequest{AutonomyLevel: model.AutonomyLevelManual, CircuitBreakerWindowMin: 0},
 		},
 	}
 

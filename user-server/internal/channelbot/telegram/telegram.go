@@ -172,24 +172,24 @@ type TGCallbackMessage struct {
 
 // TGMessage 消息
 type TGMessage struct {
-	MessageID      int64       `json:"message_id"`
-	From           *TGUser     `json:"from"`
-	Chat           *TGChat     `json:"chat"`
-	Text           string      `json:"text"`
-	Caption        string      `json:"caption"`
-	Date           int64       `json:"date"`
-	Entities       []TGEntity  `json:"entities,omitempty"`
-	ReplyToMessage *TGMessage  `json:"reply_to_message,omitempty"`
-	NewChatMembers []TGUser    `json:"new_chat_members,omitempty"`
-	LeftChatMember *TGUser     `json:"left_chat_member,omitempty"`
-	NewChatTitle   string      `json:"new_chat_title,omitempty"`
+	MessageID      int64      `json:"message_id"`
+	From           *TGUser    `json:"from"`
+	Chat           *TGChat    `json:"chat"`
+	Text           string     `json:"text"`
+	Caption        string     `json:"caption"`
+	Date           int64      `json:"date"`
+	Entities       []TGEntity `json:"entities,omitempty"`
+	ReplyToMessage *TGMessage `json:"reply_to_message,omitempty"`
+	NewChatMembers []TGUser   `json:"new_chat_members,omitempty"`
+	LeftChatMember *TGUser    `json:"left_chat_member,omitempty"`
+	NewChatTitle   string     `json:"new_chat_title,omitempty"`
 }
 
 // TGEntity 消息内格式化实体（mention / text_mention / bot_command 等），用于精确识别 @提及
 type TGEntity struct {
-	Type   string `json:"type"`
-	Offset int    `json:"offset"`
-	Length int    `json:"length"`
+	Type   string  `json:"type"`
+	Offset int     `json:"offset"`
+	Length int     `json:"length"`
 	User   *TGUser `json:"user,omitempty"`
 }
 

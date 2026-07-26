@@ -25,10 +25,10 @@ import (
 
 // ImportDocumentResult 单文档导入结果
 type ImportDocumentResult struct {
-	DocumentID	uint	`json:"document_id"`
-	Title		string	`json:"title"`
-	FilePath	string	`json:"file_path"`
-	Status		string	`json:"status"`
+	DocumentID uint   `json:"document_id"`
+	Title      string `json:"title"`
+	FilePath   string `json:"file_path"`
+	Status     string `json:"status"`
 }
 
 // ImportDocument 导入文档:保存文件 + 创建记录(status=pending) + 异步处理
@@ -71,11 +71,11 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 	}
 
 	doc := &model.KBDocument{
-		Title:		title,
-		FilePath:	filePath,
-		FileSize:	size,
-		FileType:	ext,
-		Status:		model.KBDocumentStatusPending,
+		Title:    title,
+		FilePath: filePath,
+		FileSize: size,
+		FileType: ext,
+		Status:   model.KBDocumentStatusPending,
 	}
 	if err := s.db.WithContext(ctx).Create(doc).Error; err != nil {
 		_ = os.Remove(filePath)
@@ -90,10 +90,10 @@ func (s *KnowledgeBaseService) ImportDocument(ctx context.Context, title string,
 	})
 
 	return &ImportDocumentResult{
-		DocumentID:	doc.ID,
-		Title:		doc.Title,
-		FilePath:	filePath,
-		Status:		string(doc.Status),
+		DocumentID: doc.ID,
+		Title:      doc.Title,
+		FilePath:   filePath,
+		Status:     string(doc.Status),
 	}, nil
 }
 
@@ -121,14 +121,14 @@ func (s *KnowledgeBaseService) processDocumentAsync(ctx context.Context, documen
 	content := string(contentBytes)
 
 	ragDoc := rag_core.Document{
-		ID:		fmt.Sprintf("kbdoc_%d", documentID),
-		Content:	content,
+		ID:      fmt.Sprintf("kbdoc_%d", documentID),
+		Content: content,
 		Metadata: map[string]any{
-			"document_id":	documentID,
-			"file_path":	filePath,
-			"title":	filepath.Base(filePath),
+			"document_id": documentID,
+			"file_path":   filePath,
+			"title":       filepath.Base(filePath),
 		},
-		CreatedAt:	time.Now(),
+		CreatedAt: time.Now(),
 	}
 
 	chunks, err := s.processor.ProcessDocument(bgCtx, ragDoc)
@@ -157,13 +157,13 @@ func (s *KnowledgeBaseService) processDocumentAsync(ctx context.Context, documen
 	idxChunks := make([]ragretrieval.Chunk, len(chunks))
 	for i, c := range chunks {
 		idxChunks[i] = ragretrieval.Chunk{
-			ID:		c.ID,
-			DocumentID:	c.DocumentID,
-			Content:	c.Content,
-			Metadata:	c.Metadata,
-			Embedding:	embeddings[i],
-			Score:		c.Score,
-			TokenCount:	c.TokenCount,
+			ID:         c.ID,
+			DocumentID: c.DocumentID,
+			Content:    c.Content,
+			Metadata:   c.Metadata,
+			Embedding:  embeddings[i],
+			Score:      c.Score,
+			TokenCount: c.TokenCount,
 		}
 	}
 
@@ -176,16 +176,16 @@ func (s *KnowledgeBaseService) processDocumentAsync(ctx context.Context, documen
 
 	// 更新状态
 	_ = s.db.WithContext(bgCtx).Model(&model.KBDocument{}).Where("id = ?", documentID).Updates(map[string]any{
-		"status":	model.KBDocumentStatusIndexed,
-		"chunk_count":	len(chunks),
-		"content":	content,
-		"error_msg":	"",
+		"status":      model.KBDocumentStatusIndexed,
+		"chunk_count": len(chunks),
+		"content":     content,
+		"error_msg":   "",
 	}).Error
 }
 
 func (s *KnowledgeBaseService) markDocumentFailed(ctx context.Context, documentID uint, errMsg string) {
 	_ = s.db.WithContext(ctx).Model(&model.KBDocument{}).Where("id = ?", documentID).Updates(map[string]any{
-		"status":	model.KBDocumentStatusFailed,
-		"error_msg":	errMsg,
+		"status":    model.KBDocumentStatusFailed,
+		"error_msg": errMsg,
 	}).Error
 }

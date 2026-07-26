@@ -6,13 +6,12 @@ package repository
 // 表：system_users
 // 私域独立部署：无 merchant_id 字段
 //
-// 阶段 4（人员管理）扩展：
-//   - 新增 ListByRole / CountByRole / CountAdmins
-//   - 新增 DeleteSafe（拒绝删除最后一个 admin）
-//   - 新增 SetEnabled（启用/禁用账号）
+// 扩展方法：
+//   - ListByRole / CountByRole / CountAdmins
+//   - DeleteSafe（拒绝删除最后一个 admin）
+//   - SetEnabled（启用/禁用账号）
 //
-// 阶段 2 重构：原 systemUserRepo 寄生在 password_history_repository.go，
-// 本文件独立承载 SystemUserRepository 接口与实现，避免混杂。
+// 本文件独立承载 SystemUserRepository 接口与实现。
 
 import (
 	"context"

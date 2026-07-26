@@ -13,7 +13,7 @@ import (
 //
 // P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
 // 移除原先方法内 new repository.XianyuCardStatsRepository 的越层调用，
-// 改为通过 service.XianyuCardStatsService 的 GetCardStatsRaw /
+// 通过 service.XianyuCardStatsService 的 GetCardStatsRaw /
 // GetOverallStatsRaw 方法访问原始统计数据（保留 views/clicks/shares 完整字段）。
 type XianyuCardStatsController struct {
 	service service.XianyuCardStatsService

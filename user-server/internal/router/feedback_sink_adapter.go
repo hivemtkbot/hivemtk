@@ -8,8 +8,8 @@ import (
 
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/dto"
-	feedbackloop "marketing/internal/service/feedback_loop"
 	"marketing/internal/pkg/utils/logger"
+	feedbackloop "marketing/internal/service/feedback_loop"
 )
 
 // feedback_sink_adapter.go P3-A: FeedbackCollector → FeedbackSink 适配器

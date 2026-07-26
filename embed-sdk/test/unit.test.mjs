@@ -290,14 +290,7 @@ for (const ph of ['{apiBaseUrl}', '{channelId}', '{primaryColor}', 'replacements
   assert(demoSrc.includes(ph), `demo.html 含占位符/特性: ${ph}`)
 }
 
-console.log('\n== 10. CHANGELOG / docs 索引完整性 ==')
-const cl = pathResolve(ROOT, '../CHANGELOG.md')
-if (existsSync(cl)) {
-  const cs = readFileSync(cl, 'utf8')
-  assert(cs.includes('CHAT_WIDGET') || cs.includes('chat-widget') || cs.includes('Chat Widget'), 'CHANGELOG.md 提到 chat widget')
-  assert(cs.includes('FRP') || cs.includes('frp'), 'CHANGELOG.md 提到 FRP')
-}
-
+console.log('\n== 10. docs 索引完整性 ==')
 const idx = pathResolve(ROOT, '../docs/INDEX.md')
 if (existsSync(idx)) {
   const ix = readFileSync(idx, 'utf8')

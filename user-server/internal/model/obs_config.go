@@ -56,7 +56,7 @@ type ObsConfig struct {
 	// 是否默认配置
 	IsDefault bool `gorm:"default:false" json:"is_default"`
 
-	// 开源版：已移除 License 关联字段（License 模型已删除）
+	// 开源版无 License 关联字段
 	// LicenseID string   `gorm:"type:varchar(36)" json:"license_id"`
 	// License   *License `gorm:"foreignKey:LicenseID" json:"license,omitempty"`
 

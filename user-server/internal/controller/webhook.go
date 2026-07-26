@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"marketing/internal/middleware"
-	i18nservice "marketing/internal/service/i18n"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 )
 
 // WebhookController 多渠道 Webhook 控制器

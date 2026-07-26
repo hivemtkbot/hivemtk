@@ -211,7 +211,7 @@ func TestClueService_DeleteClue(t *testing.T) {
 	// Delete the clue (repository expects string ID)
 	err := service.DeleteClue(context.Background(), registered.ID)
 	if err != nil {
-		// Note: repository 层对 string ID 的 Delete 行为有历史问题
+		// Note: repository 层对 string ID 的 Delete 行为需注意
 		// This is a known issue in the repository layer
 		t.Logf("DeleteClue returned error (known repository bug): %v", err)
 	}

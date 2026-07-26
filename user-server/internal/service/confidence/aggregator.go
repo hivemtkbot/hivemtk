@@ -167,7 +167,7 @@ func (a *ConfidenceAggregator) saveSignalAsync(
 		record.Temperature = a.calibrator.CurrentTemperature()
 	}
 	// 异步写入（best-effort）
-	// R6 修复：原 goroutine 无 recover、错误被静默吞噬。添加 recover + 错误日志。
+	// goroutine 需 recover + 错误日志（避免 panic 杀进程、错误被静默吞噬）。
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

@@ -19,22 +19,22 @@ const (
 
 // LocalAsset 本地资产主表
 type LocalAsset struct {
-	ID          int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	AssetID     string         `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
-	AssetType   string         `gorm:"size:32;index;not null" json:"asset_type"`
-	Industry    string         `gorm:"size:32;index;not null" json:"industry"`
-	Name        string         `gorm:"size:128;not null" json:"name"`
-	Version     string         `gorm:"size:16;not null" json:"version"`
-	Source      AssetSource    `gorm:"size:16;index;default:purchased" json:"source"`
-	IsActive    bool           `gorm:"index;default:true" json:"is_active"`
-	PurchaseID  *int64         `json:"purchase_id,omitempty"`
-	PurchasedAt *time.Time     `json:"purchased_at,omitempty"`
+	ID               int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	AssetID          string         `gorm:"size:64;uniqueIndex;not null" json:"asset_id"`
+	AssetType        string         `gorm:"size:32;index;not null" json:"asset_type"`
+	Industry         string         `gorm:"size:32;index;not null" json:"industry"`
+	Name             string         `gorm:"size:128;not null" json:"name"`
+	Version          string         `gorm:"size:16;not null" json:"version"`
+	Source           AssetSource    `gorm:"size:16;index;default:purchased" json:"source"`
+	IsActive         bool           `gorm:"index;default:true" json:"is_active"`
+	PurchaseID       *int64         `json:"purchase_id,omitempty"`
+	PurchasedAt      *time.Time     `json:"purchased_at,omitempty"`
 	SyncedAt         time.Time      `json:"synced_at"`
 	UseCount         int64          `gorm:"default:0" json:"use_count"`
 	ReportedUseCount int64          `gorm:"default:0" json:"reported_use_count"`
 	UpdatedAt        time.Time      `json:"updated_at"`
-	CreatedAt   time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt        time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (LocalAsset) TableName() string { return "local_assets" }

@@ -3,7 +3,7 @@ package middleware
 // metrics_output_test.go 验证 /metrics 端点输出的 Prometheus 文本格式正确
 //
 // 回归测试覆盖：
-//  1. float64 值序列化正确（原实现 float64ToString 将小数位逆序输出，导致
+//  1. float64 值序列化正确（float64ToString 小数位逆序输出会导致
 //     `1.5` 被错误序列化为 `1.000005`，破坏所有 latency/size 指标）
 //  2. Prometheus 标签值转义正确（`"` `\` `\n` 必须转义，否则 scrape 失败）
 //  3. /metrics 端点返回 200 + 正确 Content-Type

@@ -312,7 +312,7 @@ func TestSOPStuckDetector_ScanSkipsRunningExecution(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.SetMaxIdleTime(context.Background(), 30*time.Minute)
 	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 0 {
@@ -358,7 +358,7 @@ func TestSOPStuckDetector_ScanSkipsWaitNodeWithPendingTimer(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.SetMaxIdleTime(context.Background(), 30*time.Minute)
 	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 0 {
@@ -399,7 +399,7 @@ func TestSOPStuckDetector_ScanRecoversTrulyStuckExecution(t *testing.T) {
 
 	detector := NewSOPStuckDetector(db, nil)
 	detector.execDispatcher = mockDispatcher
-	detector.SetMaxIdleTime(context.Background(), 30 * time.Minute)
+	detector.SetMaxIdleTime(context.Background(), 30*time.Minute)
 	detector.scanStuckExecutions(context.Background())
 
 	if atomic.LoadInt32(&dispatchedCount) != 1 {

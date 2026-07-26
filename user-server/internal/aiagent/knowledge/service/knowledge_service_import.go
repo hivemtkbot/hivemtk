@@ -78,20 +78,20 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 	tagsJSON, _ := json.Marshal(req.Tags)
 	doc := &model.KnowledgeDocument{
 
-		ProductID:	productNumericID,
-		SourceType:	req.SourceType,
-		SourceRef:	req.SourceRef,
-		Title:		title,
-		FileName:	req.FileHeader.Filename,
-		FilePath:	filePath,
-		FileType:	ext,
-		FileSize:	size,
-		MimeType:	getMimeType(ext),
-		EmbedStatus:	model.EmbedStatusPending,
-		Category:	req.Category,
-		Tags:		string(tagsJSON),
-		Metadata:	metaToJSON(req.Metadata),
-		Status:		1,
+		ProductID:   productNumericID,
+		SourceType:  req.SourceType,
+		SourceRef:   req.SourceRef,
+		Title:       title,
+		FileName:    req.FileHeader.Filename,
+		FilePath:    filePath,
+		FileType:    ext,
+		FileSize:    size,
+		MimeType:    getMimeType(ext),
+		EmbedStatus: model.EmbedStatusPending,
+		Category:    req.Category,
+		Tags:        string(tagsJSON),
+		Metadata:    metaToJSON(req.Metadata),
+		Status:      1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(filePath)
@@ -120,20 +120,20 @@ func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, p
 	}
 	doc := &model.KnowledgeDocument{
 
-		ProductID:	productNumericID,
-		SourceType:	req.SourceType,
-		SourceRef:	req.SourceRef,
-		Title:		req.Title,
-		FileName:	req.Title + ".txt",
-		FilePath:	textFile,
-		FileType:	".txt",
-		FileSize:	int64(len(req.Content)),
-		MimeType:	"text/plain",
-		EmbedStatus:	model.EmbedStatusPending,
-		Category:	req.Category,
-		Tags:		string(tagsJSON),
-		Metadata:	metaToJSON(req.Metadata),
-		Status:		1,
+		ProductID:   productNumericID,
+		SourceType:  req.SourceType,
+		SourceRef:   req.SourceRef,
+		Title:       req.Title,
+		FileName:    req.Title + ".txt",
+		FilePath:    textFile,
+		FileType:    ".txt",
+		FileSize:    int64(len(req.Content)),
+		MimeType:    "text/plain",
+		EmbedStatus: model.EmbedStatusPending,
+		Category:    req.Category,
+		Tags:        string(tagsJSON),
+		Metadata:    metaToJSON(req.Metadata),
+		Status:      1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(textFile)
@@ -188,20 +188,20 @@ func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest
 	}
 	doc := &model.KnowledgeDocument{
 
-		ProductID:	productNumericID,
-		SourceType:	model.SourceTypeURL,
-		SourceRef:	req.SourceRef,
-		Title:		title,
-		FileName:	title + ".html",
-		FilePath:	textFile,
-		FileType:	".html",
-		FileSize:	int64(len(content)),
-		MimeType:	"text/html",
-		EmbedStatus:	model.EmbedStatusPending,
-		Category:	req.Category,
-		Tags:		string(tagsJSON),
-		Metadata:	metaToJSON(req.Metadata),
-		Status:		1,
+		ProductID:   productNumericID,
+		SourceType:  model.SourceTypeURL,
+		SourceRef:   req.SourceRef,
+		Title:       title,
+		FileName:    title + ".html",
+		FilePath:    textFile,
+		FileType:    ".html",
+		FileSize:    int64(len(content)),
+		MimeType:    "text/html",
+		EmbedStatus: model.EmbedStatusPending,
+		Category:    req.Category,
+		Tags:        string(tagsJSON),
+		Metadata:    metaToJSON(req.Metadata),
+		Status:      1,
 	}
 	if err := s.docRepo.Create(ctx, doc); err != nil {
 		_ = os.Remove(textFile)

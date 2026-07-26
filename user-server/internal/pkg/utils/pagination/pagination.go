@@ -4,7 +4,7 @@
 //   - 历史 controller 普遍使用 `page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))`
 //     忽略解析错误，且未校验边界，导致 page=0 / page=-1 / page_size=100000 等
 //     异常输入直接进入 GORM Offset/Limit，引发负数 Offset SQL 错误或大结果集 OOM。
-//   - R9 修复：集中校验 page>=1、pageSize 在 [1, MaxPageSize]，并兼容
+//   - 集中校验 page>=1、pageSize 在 [1, MaxPageSize]，并兼容
 //     page_size / pageSize / limit 三种命名约定。
 //
 // 用法：

@@ -1,8 +1,9 @@
 // 营销工具套件 - 智能体→资产包 绑定端到端集成测试
 //
 // 真实链路：创建资产包 → 智能体绑定 asset_bundle_id → 加载上下文携带该 ID
-//   → 智能体测试端点经 SalesEngine.HandleWithAgent 用资产包 system prompt 覆盖人设
-//   → 本地 LLM 回复应包含资产包话术标记（证明 智能体→资产包 织布已打通）。
+//
+//	→ 智能体测试端点经 SalesEngine.HandleWithAgent 用资产包 system prompt 覆盖人设
+//	→ 本地 LLM 回复应包含资产包话术标记（证明 智能体→资产包 织布已打通）。
 //
 // 依赖运行中的 user-server（:8204）与本地 LLM（:8207）：不可达时自动 Skip。
 package service
@@ -62,13 +63,13 @@ func TestAIAgent_AssetBundleBinding(t *testing.T) {
 	var agentID float64
 	t.Run("CreateAgentWithBundle", func(t *testing.T) {
 		body := map[string]any{
-			"agent_code":     agentCode,
-			"name":           "E2E资产包智能体",
-			"agent_type":     "sales",
-			"persona":        "原始人设（应被资产包覆盖）",
-			"system_prompt":  "原始系统提示",
-			"asset_bundle_id": assetID,
-			"enable_rag":     false,
+			"agent_code":          agentCode,
+			"name":                "E2E资产包智能体",
+			"agent_type":          "sales",
+			"persona":             "原始人设（应被资产包覆盖）",
+			"system_prompt":       "原始系统提示",
+			"asset_bundle_id":     assetID,
+			"enable_rag":          false,
 			"enable_script_match": false,
 		}
 		r, code := mustPost(t, "/api/ai-agents", body, token)

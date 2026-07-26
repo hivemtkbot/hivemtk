@@ -252,12 +252,12 @@ func FileUploadError(c *gin.Context, errorCode utils.ErrorCode, message string) 
 
 // BindJSON 安全地绑定 JSON 请求体到 obj。
 //
-// 设计动机（R10 修复）：
+// 设计动机：
 //   - 历史 controller 普遍 `if err := c.ShouldBindJSON(&req); err != nil {
 //     response.Error(c, 400, "参数错误: "+err.Error())`，将
 //     GORM/validator 内部错误细节（字段名、JSON tag、类型约束）泄露给客户端，
 //     攻击者可借此推断数据模型结构，便于构造后续攻击。
-//   - 集中改为：内部错误用 logger.Errorf 记录，客户端只看到通用 "无效的请求参数"。
+//   - 内部错误用 logger.Errorf 记录，客户端只看到通用 "无效的请求参数"。
 //
 // 用法：
 //

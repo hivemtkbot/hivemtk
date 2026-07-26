@@ -626,7 +626,7 @@ func TestDispatchToUnified_Integration(t *testing.T) {
 // TestWebhookStats 统计
 func TestWebhookStats(t *testing.T) {
 	svc := NewWebhookService(nil)
-	if svc.QueueLen(context.Background(), ) < 0 {
+	if svc.QueueLen(context.Background()) < 0 {
 		t.Error("queue len error")
 	}
 }

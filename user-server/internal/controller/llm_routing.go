@@ -12,19 +12,10 @@ import (
 	"marketing/internal/service"
 )
 
-// ============================================================================
-// LLMRoutingController（2026-07-23 重构）
-// ----------------------------------------------------------------------------
-// 修复缺陷：
-//  1. 9 处 context.Background() 全部改用 ctx.Request.Context()（五层架构 ctx 透传）
-//  2. URL 路径 :id 与 provider name 混淆 → 改用 :name 路径参数
-//  3. TestModel 不再走 Dispatch 临时改写全局路由（已移至 Service.CallProviderForTest）
-// ============================================================================
-
 // LLMRoutingController LLM 路由控制器
 type LLMRoutingController struct {
 	routingService *service.LLMRoutingService
-	failover       *llm.ProviderFailover // v3.7.0 P1 补：注入熔断器供 Health/Stats 使用
+	failover       *llm.ProviderFailover // 注入熔断器供 Health/Stats 使用
 }
 
 // NewLLMRoutingController 创建 LLM 路由控制器

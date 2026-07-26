@@ -49,12 +49,12 @@ const (
 
 // RAGSelfCorrector RAG 自我矫正器
 type RAGSelfCorrector struct {
-	switchSvc     *SwitchService
-	chunkExtRepo  repository.KnowledgeChunkExtRepository
-	logRepo       repository.SelfLearningLogRepository
-	actionRepo    repository.SelfCorrectionActionRepository
-	ragEngine     RAGEngine
-	publisher     *DialogueEventPublisher
+	switchSvc    *SwitchService
+	chunkExtRepo repository.KnowledgeChunkExtRepository
+	logRepo      repository.SelfLearningLogRepository
+	actionRepo   repository.SelfCorrectionActionRepository
+	ragEngine    RAGEngine
+	publisher    *DialogueEventPublisher
 	// 预热 TTL（默认 5min）
 	warmupTTL time.Duration
 }
@@ -184,9 +184,10 @@ func (r *RAGSelfCorrector) Warmup(ctx context.Context, payload *event.DialogueSt
 //
 // 触发：dialogue.ended 事件
 // 决策矩阵（v1.1 §3.3）：
-//   reward >= 1.5 & outcome=converted → ChampionUpsert（销冠补录）
-//   reward <= -1.0 OR outcome=abandoned → 低质标记（IncrementLowQualityHits）
-//   -1.0 < reward < 1.5 → 不调整
+//
+//	reward >= 1.5 & outcome=converted → ChampionUpsert（销冠补录）
+//	reward <= -1.0 OR outcome=abandoned → 低质标记（IncrementLowQualityHits）
+//	-1.0 < reward < 1.5 → 不调整
 //
 // 关键输入：payload.UsedCorpusIDs（本次会话用到的 RAG 语料 ID 列表）
 func (r *RAGSelfCorrector) Reflect(ctx context.Context, payload *event.DialogueEndedPayload) error {
@@ -220,13 +221,13 @@ func (r *RAGSelfCorrector) Reflect(ctx context.Context, payload *event.DialogueE
 		TriggerEvent: model.TriggerEventDialogueEnded,
 		Status:       model.SelfLearningStatusRunning,
 		InputSummary: map[string]any{
-			"session_id":      payload.SessionID,
+			"session_id":        payload.SessionID,
 			"aggregated_reward": payload.AggregatedReward,
-			"outcome":         payload.Outcome,
-			"used_corpus_ids": payload.UsedCorpusIDs,
-			"used_asset_ids":  payload.UsedAssetIDs,
-			"duration_sec":    payload.DurationSec,
-			"trace_id":        payload.TraceID,
+			"outcome":           payload.Outcome,
+			"used_corpus_ids":   payload.UsedCorpusIDs,
+			"used_asset_ids":    payload.UsedAssetIDs,
+			"duration_sec":      payload.DurationSec,
+			"trace_id":          payload.TraceID,
 		},
 		StartedAt: startedAt,
 	}

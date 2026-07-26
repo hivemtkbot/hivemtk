@@ -77,11 +77,11 @@ func sendHeartbeat() {
 	}
 
 	hostInfo, _ := json.Marshal(map[string]any{
-		"os":           runtime.GOOS,
-		"arch":         runtime.GOARCH,
-		"hostname":     hostName(),
-		"go_version":   runtime.Version(),
-		"num_cpu":      runtime.NumCPU(),
+		"os":            runtime.GOOS,
+		"arch":          runtime.GOARCH,
+		"hostname":      hostName(),
+		"go_version":    runtime.Version(),
+		"num_cpu":       runtime.NumCPU(),
 		"num_goroutine": runtime.NumGoroutine(),
 	})
 	metrics, _ := json.Marshal(collectMetrics())

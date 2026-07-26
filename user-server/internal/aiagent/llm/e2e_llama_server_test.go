@@ -56,11 +56,11 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	// 3. 直接调用 LLMService.GenerateWithTools（绕过 Dispatcher 路由，避免云端 provider 超时）
 	svc := NewLLMService()
 	config := &LLMConfig{
-		BaseURL:   "http://127.0.0.1:8207/v1",
-		Model:     "Qwen2.5-3B-Instruct",
-		MaxTokens: 50,
-		Temperature: 0.7,
-		MaxRetries: 1,
+		BaseURL:        "http://127.0.0.1:8207/v1",
+		Model:          "Qwen2.5-3B-Instruct",
+		MaxTokens:      50,
+		Temperature:    0.7,
+		MaxRetries:     1,
 		RequestTimeout: 30,
 	}
 

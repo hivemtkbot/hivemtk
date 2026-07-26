@@ -144,8 +144,8 @@ func TestTuningMetricFunctions(t *testing.T) {
 
 // TestHistogramVecNoMemoryLeak 验证 HistogramVec 不再保留 buckets 切片
 //
-// 回归测试：原实现将所有观测值 append 到 buckets[labels] 切片中且从不释放，
-// 在持续高流量下会导致 OOM。修复后 HistogramVec 仅保留 sum/count 聚合。
+// 测试：所有观测值 append 到 buckets[labels] 切片中且从不释放，
+// 在持续高流量下会导致 OOM。HistogramVec 仅保留 sum/count 聚合。
 func TestHistogramVecNoMemoryLeak(t *testing.T) {
 	h := &HistogramVec{}
 	// 模拟大量观测

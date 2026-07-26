@@ -133,7 +133,7 @@ func (m *UnmultitenantSchemaMigration) Up(ctx context.Context) error {
 	m.db.Exec("DROP TABLE IF EXISTS platform_licenses")
 	m.db.Exec("DROP TABLE IF EXISTS platform_installs")
 
-	// 阶段 1：team_users / team_roles / team_user_permissions 已在 025 单表化迁移中 DROP
+	// team_users / team_roles / team_user_permissions 已在 025 迁移中 DROP
 
 	return nil
 }

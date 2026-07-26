@@ -292,15 +292,15 @@ func TestSelfCorrectionDispatcher_LookupActionType(t *testing.T) {
 	// 在 autonomous 模式下测试 lookupActionType 的派发逻辑
 	// 通过 DispatchFromSignal 间接测试（lookupActionType 是私有方法）
 	type tc struct {
-		name              string
-		metric            string
-		targetType        model.SupervisionTargetType
-		targetID          string
-		wantErr           bool
-		errSubstr         string
-		wantCreateCalls   int    // 期望 actionRepo.Create 调用次数
-		wantActionType    model.CorrectionActionType // 期望捕获的动作类型（createCalls>0 时）
-		wantActionStatus  model.CorrectionActionStatus
+		name             string
+		metric           string
+		targetType       model.SupervisionTargetType
+		targetID         string
+		wantErr          bool
+		errSubstr        string
+		wantCreateCalls  int                        // 期望 actionRepo.Create 调用次数
+		wantActionType   model.CorrectionActionType // 期望捕获的动作类型（createCalls>0 时）
+		wantActionStatus model.CorrectionActionStatus
 	}
 
 	cases := []tc{
@@ -839,12 +839,12 @@ func TestSelfCorrectionDispatcher_ExecuteRetrieveRetry(t *testing.T) {
 		{
 			name: "create_error", signalID: "sig-3", targetID: "q3",
 			createErr: errors.New("db write failed"),
-			wantErr: true, errSubstr: "db write failed",
+			wantErr:   true, errSubstr: "db write failed",
 			wantCreateCalls: 1, wantActionType: model.CorrectionRetrieveRetry,
 		},
 		{
 			name: "record_correction_error_ignored", signalID: "sig-4", targetID: "q4",
-			incrCorrErr: errors.New("incr failed"), // RecordCorrectionAction 错误被忽略
+			incrCorrErr:     errors.New("incr failed"), // RecordCorrectionAction 错误被忽略
 			wantCreateCalls: 1, wantActionType: model.CorrectionRetrieveRetry,
 		},
 		{
@@ -941,7 +941,7 @@ func TestSelfCorrectionDispatcher_ExecuteQueryRewrite(t *testing.T) {
 		{
 			name: "create_error", signalID: "sig-3", targetID: "q3",
 			createErr: errors.New("write failed"),
-			wantErr: true, errSubstr: "write failed",
+			wantErr:   true, errSubstr: "write failed",
 			wantCreateCalls: 1,
 		},
 		{
@@ -1035,7 +1035,7 @@ func TestSelfCorrectionDispatcher_ExecuteChunkArchive(t *testing.T) {
 		{
 			name: "create_error", targetID: "456",
 			createErr: errors.New("db error"),
-			wantErr: true, errSubstr: "db error",
+			wantErr:   true, errSubstr: "db error",
 			wantCreateCalls: 1,
 		},
 	}
@@ -1194,71 +1194,71 @@ func TestSelfCorrectionDispatcher_ExecuteAction_LLMCorrection(t *testing.T) {
 	cases := []tc{
 		// nil llmCorrector → error
 		{
-			name: "nil_corrector_generation_fidelity",
-			metric: model.SupervisionMetricGenerationFidelity,
+			name:    "nil_corrector_generation_fidelity",
+			metric:  model.SupervisionMetricGenerationFidelity,
 			wantErr: true, errSubstr: "llm corrector is nil",
 			wantCreateCalls: 0,
 		},
 		{
-			name: "nil_corrector_answer_relevance",
-			metric: model.SupervisionMetricAnswerRelevance,
+			name:    "nil_corrector_answer_relevance",
+			metric:  model.SupervisionMetricAnswerRelevance,
 			wantErr: true, errSubstr: "llm corrector is nil",
 			wantCreateCalls: 0,
 		},
 		// real LLMSelfCorrector with nil llmDispatcher → "llm dispatcher is nil"
 		{
-			name: "nil_llm_dispatcher",
-			metric: model.SupervisionMetricGenerationFidelity,
-			detail: map[string]any{"ai_reply": "some reply"},
+			name:    "nil_llm_dispatcher",
+			metric:  model.SupervisionMetricGenerationFidelity,
+			detail:  map[string]any{"ai_reply": "some reply"},
 			wantErr: true, errSubstr: "llm dispatcher is nil",
 			wantCreateCalls: 0,
 		},
 		// real LLMSelfCorrector + empty ai_reply → recordSkippedAction → Create(skipped)
 		{
-			name: "empty_ai_reply_skipped",
-			metric: model.SupervisionMetricGenerationFidelity,
-			detail: map[string]any{"ai_reply": ""},
-			llmContent: "ok",
+			name:            "empty_ai_reply_skipped",
+			metric:          model.SupervisionMetricGenerationFidelity,
+			detail:          map[string]any{"ai_reply": ""},
+			llmContent:      "ok",
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusSkipped,
 		},
 		// real LLMSelfCorrector + non-empty ai_reply → criticHallucination → no hallucination → Create(applied)
 		{
-			name: "hallucination_check_no_hallucination",
-			metric: model.SupervisionMetricGenerationFidelity,
-			detail: map[string]any{"ai_reply": "original reply", "customer_msg": "customer question"},
-			llmContent: `{"has_hallucination": false, "evidence": "none", "severity": "low"}`,
+			name:            "hallucination_check_no_hallucination",
+			metric:          model.SupervisionMetricGenerationFidelity,
+			detail:          map[string]any{"ai_reply": "original reply", "customer_msg": "customer question"},
+			llmContent:      `{"has_hallucination": false, "evidence": "none", "severity": "low"}`,
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusApplied,
 		},
 		// real LLMSelfCorrector + non-empty ai_reply + hallucination found → regenerate → Create(applied)
 		{
-			name: "hallucination_found_and_regenerated",
-			metric: model.SupervisionMetricGenerationFidelity,
-			detail: map[string]any{"ai_reply": "reply with hallucination", "customer_msg": "question"},
-			llmContent: `{"has_hallucination": true, "evidence": "fake data", "severity": "high"}`,
+			name:            "hallucination_found_and_regenerated",
+			metric:          model.SupervisionMetricGenerationFidelity,
+			detail:          map[string]any{"ai_reply": "reply with hallucination", "customer_msg": "question"},
+			llmContent:      `{"has_hallucination": true, "evidence": "fake data", "severity": "high"}`,
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusApplied,
 		},
 		// answer_relevance + empty ai_reply → skipped
 		{
-			name: "answer_relevance_empty_reply_skipped",
-			metric: model.SupervisionMetricAnswerRelevance,
-			detail: map[string]any{"ai_reply": ""},
-			llmContent: "ok",
+			name:            "answer_relevance_empty_reply_skipped",
+			metric:          model.SupervisionMetricAnswerRelevance,
+			detail:          map[string]any{"ai_reply": ""},
+			llmContent:      "ok",
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusSkipped,
 		},
 		// answer_relevance + non-empty ai_reply + empty customer_msg → skipped
 		{
-			name: "answer_relevance_empty_customer_msg_skipped",
-			metric: model.SupervisionMetricAnswerRelevance,
-			detail: map[string]any{"ai_reply": "reply", "customer_msg": ""},
-			llmContent: "ok",
+			name:            "answer_relevance_empty_customer_msg_skipped",
+			metric:          model.SupervisionMetricAnswerRelevance,
+			detail:          map[string]any{"ai_reply": "reply", "customer_msg": ""},
+			llmContent:      "ok",
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusSkipped,
 		},
 		// answer_relevance + both non-empty → criticOffTopic → not off topic → Create(applied)
 		{
-			name: "off_topic_check_not_off_topic",
-			metric: model.SupervisionMetricAnswerRelevance,
-			detail: map[string]any{"ai_reply": "reply", "customer_msg": "question"},
-			llmContent: `{"is_off_topic": false, "evidence": "relevant", "severity": "low"}`,
+			name:            "off_topic_check_not_off_topic",
+			metric:          model.SupervisionMetricAnswerRelevance,
+			detail:          map[string]any{"ai_reply": "reply", "customer_msg": "question"},
+			llmContent:      `{"is_off_topic": false, "evidence": "relevant", "severity": "low"}`,
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusApplied,
 		},
 	}
@@ -1386,7 +1386,7 @@ func TestSelfCorrectionDispatcher_CreatePendingAction(t *testing.T) {
 			name: "supervised_retrieve_retry", autonomy: model.AutonomyLevelSupervised,
 			metric: model.SupervisionMetricRecallPrecision, targetType: model.SupervisionTargetRAG, targetID: "q1",
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusPending,
-			wantAutonomyLvl: model.AutonomyLevelSupervised,
+			wantAutonomyLvl:  model.AutonomyLevelSupervised,
 			wantReasonSubstr: "supervised/manual: pending review",
 		},
 		{
@@ -1412,7 +1412,7 @@ func TestSelfCorrectionDispatcher_CreatePendingAction(t *testing.T) {
 			name: "manual_retrieve_retry", autonomy: model.AutonomyLevelManual,
 			metric: model.SupervisionMetricRecallPrecision, targetType: model.SupervisionTargetRAG, targetID: "q1",
 			wantCreateCalls: 1, wantActionStatus: model.CorrectionStatusPending,
-			wantAutonomyLvl: model.AutonomyLevelManual,
+			wantAutonomyLvl:  model.AutonomyLevelManual,
 			wantReasonSubstr: "manual mode forbids auto action",
 		},
 		{
@@ -1438,14 +1438,14 @@ func TestSelfCorrectionDispatcher_CreatePendingAction(t *testing.T) {
 			name: "create_error_supervised", autonomy: model.AutonomyLevelSupervised,
 			metric: model.SupervisionMetricRecallPrecision, targetType: model.SupervisionTargetRAG, targetID: "q1",
 			createErr: errors.New("pending create db error"),
-			wantErr: true, errSubstr: "pending create db error",
+			wantErr:   true, errSubstr: "pending create db error",
 			wantCreateCalls: 1,
 		},
 		{
 			name: "create_error_manual", autonomy: model.AutonomyLevelManual,
 			metric: model.SupervisionMetricRecallPrecision, targetType: model.SupervisionTargetRAG, targetID: "q1",
 			createErr: errors.New("manual create error"),
-			wantErr: true, errSubstr: "manual create error",
+			wantErr:   true, errSubstr: "manual create error",
 			wantCreateCalls: 1,
 		},
 	}
@@ -1545,16 +1545,16 @@ func TestSelfCorrectionDispatcher_CreatePendingAction(t *testing.T) {
 
 func TestSelfCorrectionDispatcher_ApproveAction(t *testing.T) {
 	type tc struct {
-		name             string
-		action           *model.SelfCorrectionAction
-		getByIDErr       error
-		updateErr        error
-		createErr        error
-		wantErr          bool
-		errSubstr        string
-		wantUpdateCalls  int
-		wantFinalStatus  model.CorrectionActionStatus
-		wantCreateCalls  int
+		name            string
+		action          *model.SelfCorrectionAction
+		getByIDErr      error
+		updateErr       error
+		createErr       error
+		wantErr         bool
+		errSubstr       string
+		wantUpdateCalls int
+		wantFinalStatus model.CorrectionActionStatus
+		wantCreateCalls int
 	}
 
 	cases := []tc{
@@ -1562,7 +1562,7 @@ func TestSelfCorrectionDispatcher_ApproveAction(t *testing.T) {
 		{
 			name: "get_by_id_error", action: mkPendingAction("aid-1", model.CorrectionRetrieveRetry, "q1"),
 			getByIDErr: errors.New("db down"),
-			wantErr: true, errSubstr: "get action failed",
+			wantErr:    true, errSubstr: "get action failed",
 			wantUpdateCalls: 0,
 		},
 		// 状态非 pending
@@ -1621,16 +1621,16 @@ func TestSelfCorrectionDispatcher_ApproveAction(t *testing.T) {
 		},
 		// chunk_archive 失败（空 target_id）→ UpdateStatus(failed)
 		{
-			name: "chunk_archive_empty_target_fails",
-			action: mkPendingAction("aid-8", model.CorrectionChunkArchive, ""),
+			name:    "chunk_archive_empty_target_fails",
+			action:  mkPendingAction("aid-8", model.CorrectionChunkArchive, ""),
 			wantErr: true, errSubstr: "target_id is empty",
 			wantUpdateCalls: 1, wantFinalStatus: model.CorrectionStatusFailed,
 			wantCreateCalls: 0,
 		},
 		// chunk_archive 失败（非数字 target_id）→ UpdateStatus(failed)
 		{
-			name: "chunk_archive_non_numeric_fails",
-			action: mkPendingAction("aid-9", model.CorrectionChunkArchive, "abc"),
+			name:    "chunk_archive_non_numeric_fails",
+			action:  mkPendingAction("aid-9", model.CorrectionChunkArchive, "abc"),
 			wantErr: true, errSubstr: "parse chunk_id failed",
 			wantUpdateCalls: 1, wantFinalStatus: model.CorrectionStatusFailed,
 			wantCreateCalls: 0,
@@ -1665,23 +1665,23 @@ func TestSelfCorrectionDispatcher_ApproveAction(t *testing.T) {
 		{
 			name: "update_status_error_on_success", action: mkPendingAction("aid-14", model.CorrectionRetrieveRetry, "q1"),
 			updateErr: errors.New("update db error"),
-			wantErr: true, errSubstr: "update db error",
+			wantErr:   true, errSubstr: "update db error",
 			wantUpdateCalls: 1, wantCreateCalls: 1,
 		},
 		// UpdateStatus 错误（失败路径）→ 返回原始 executeAction 错误
 		{
-			name: "update_status_error_on_failure",
-			action: mkPendingAction("aid-15", model.CorrectionChampionUpsert, "chunk-1"),
+			name:      "update_status_error_on_failure",
+			action:    mkPendingAction("aid-15", model.CorrectionChampionUpsert, "chunk-1"),
 			updateErr: errors.New("update also failed"),
-			wantErr: true, errSubstr: "champion_upsert should be triggered",
+			wantErr:   true, errSubstr: "champion_upsert should be triggered",
 			wantUpdateCalls: 1, wantCreateCalls: 0,
 		},
 		// executeRetrieveRetry 中 Create 错误 → executeAction 失败 → UpdateStatus(failed)
 		{
-			name: "create_error_in_execute_via_approve",
-			action: mkPendingAction("aid-16", model.CorrectionRetrieveRetry, "q1"),
+			name:      "create_error_in_execute_via_approve",
+			action:    mkPendingAction("aid-16", model.CorrectionRetrieveRetry, "q1"),
 			createErr: errors.New("create during approve failed"),
-			wantErr: true, errSubstr: "create during approve failed",
+			wantErr:   true, errSubstr: "create during approve failed",
 			wantUpdateCalls: 1, wantFinalStatus: model.CorrectionStatusFailed,
 			wantCreateCalls: 1,
 		},

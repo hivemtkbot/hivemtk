@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"marketing/internal/aiagent/llm"
-	"marketing/internal/model"
 	ragretrieval "marketing/internal/aiagent/rag/retrieval"
+	"marketing/internal/model"
 	"marketing/internal/pkg/i18n"
 	"marketing/internal/pkg/utils/logger"
 	"strings"
@@ -232,10 +232,10 @@ func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, re
 // glossaryBlock / fewShotBlock 暂留空，后续由 service/i18n 层接入。
 //
 // TranslationCache 集成
-//   1. 查缓存：命中直接返回（避免 LLM 调用，跨语言路径延迟从秒级降到毫秒级）
-//   2. 未命中：走 LLM 生成
-//   3. 写缓存：生成成功后异步写入（best-effort，失败不影响主流程）
-//   4. 缓存 key 包含 kbVersion（=Session.KBID），知识库更新后旧缓存自然失效
+//  1. 查缓存：命中直接返回（避免 LLM 调用，跨语言路径延迟从秒级降到毫秒级）
+//  2. 未命中：走 LLM 生成
+//  3. 写缓存：生成成功后异步写入（best-effort，失败不影响主流程）
+//  4. 缓存 key 包含 kbVersion（=Session.KBID），知识库更新后旧缓存自然失效
 //
 // 缓存可选：g.transCache 为 nil 时跳过缓存逻辑，主流程不受影响。
 func (g *ResponseGeneratorImpl) generateCrossLingualResponse(ctx context.Context, request ResponseGenerationRequest, internalLang, targetLang string) (string, error) {

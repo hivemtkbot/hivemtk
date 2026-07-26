@@ -189,7 +189,7 @@ func scoreMonetary(amount float64) int {
 // 商业逻辑：
 //   - 有过购买但 R=1（>90 天未购）→ Hibernating（沉睡，仍可激活）
 //   - 完全无购买记录（amount=0）→ Lost（流失，重新激活成本高）
-//   - 关键修复：原实现把 100 天前 1 次购买的客户误判为 Lost，应为 Hibernating
+//   - 100 天前 1 次购买的客户应为 Hibernating（非 Lost）
 func (e *RepurchaseEngine) classifyRFM(ctx context.Context, r, f, m int) RFMType {
 	switch {
 	case r >= 4 && f >= 4 && m >= 4:

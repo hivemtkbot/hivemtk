@@ -25,7 +25,7 @@ func EmailListCron() {
 	// 循环发送
 	for _, emailList := range emailListList {
 		// 发送消息
-		emailSmtp, err := emailSmtpService.GetRandEmailSmtp(context.Background(), )
+		emailSmtp, err := emailSmtpService.GetRandEmailSmtp(context.Background())
 		if err != nil {
 			logger.Info(fmt.Sprintf("获取随机smtp失败 %s", err.Error()))
 			continue

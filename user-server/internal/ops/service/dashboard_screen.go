@@ -197,12 +197,12 @@ func (s *DashboardScreenService) GetScreenWidgets(screenID uint) ([]*model.Dashb
 
 // DashboardAggregate 大屏聚合数据（与前端 dashboardScreen/List.vue 契约对齐）
 type DashboardAggregate struct {
-	Kpis      []DashboardKpiItem  `json:"kpis"`
-	Trend     DashboardTrend      `json:"trend"`
-	Channels  []NameValue         `json:"channels"`
-	Sources   []NameValue         `json:"sources"`
-	Funnel    []NameValue         `json:"funnel"`
-	Regions   []NameValue         `json:"regions"`
+	Kpis       []DashboardKpiItem  `json:"kpis"`
+	Trend      DashboardTrend      `json:"trend"`
+	Channels   []NameValue         `json:"channels"`
+	Sources    []NameValue         `json:"sources"`
+	Funnel     []NameValue         `json:"funnel"`
+	Regions    []NameValue         `json:"regions"`
 	Conversion DashboardConversion `json:"conversion"`
 }
 

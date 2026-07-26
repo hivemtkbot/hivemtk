@@ -18,8 +18,6 @@ import (
 // ============================================================================
 // 工具链调试 API 综合测试（P0 优化验证）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0
-//
 // 测试覆盖：
 //   1. 装配验证：initGlobalToolExecutor + initGlobalToolRouter 真正生效
 //   2. 死代码激活验证：setupToolDebugRoutes / setupToolPermissionRoutes / setupInferenceRoutes 已注册
@@ -48,10 +46,10 @@ type mockTool struct {
 	execFn      func(ctx context.Context, args map[string]any) (tooluse.ToolResult, error)
 }
 
-func (m *mockTool) Name() string                                { return m.name }
-func (m *mockTool) Category() tooluse.ToolCategory              { return m.category }
-func (m *mockTool) Description() string                         { return m.description }
-func (m *mockTool) Parameters() tooluse.ToolParameters          { return m.params }
+func (m *mockTool) Name() string                       { return m.name }
+func (m *mockTool) Category() tooluse.ToolCategory     { return m.category }
+func (m *mockTool) Description() string                { return m.description }
+func (m *mockTool) Parameters() tooluse.ToolParameters { return m.params }
 func (m *mockTool) Execute(ctx context.Context, args map[string]any) (tooluse.ToolResult, error) {
 	if m.execFn != nil {
 		return m.execFn(ctx, args)

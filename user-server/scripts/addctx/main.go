@@ -3,7 +3,8 @@
 // 函数体内 r.db 引用由 perl 脚本改为链式 r.db.WithContext(ctx)。
 //
 // 用法:
-//   go run scripts/addctx/main.go -dir=internal/repository
+//
+//	go run scripts/addctx/main.go -dir=internal/repository
 package main
 
 import (

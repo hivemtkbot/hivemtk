@@ -6,8 +6,8 @@ import (
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // ============== AutoReplyAccountRepository ==============

@@ -15,8 +15,6 @@ import (
 // ============================================================================
 // 工具链调试与可观测 API（P0 优化）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0-2
-//
 // 本文件提供 5 个 HTTP 端点，覆盖工具链的"列表 / 执行 / 统计 / 审计 / 计费"5 个面：
 //
 //	GET    /api/agent/tools/list            列出所有已注册工具（含 schema）
@@ -221,8 +219,8 @@ func handleToolStats(c *gin.Context) {
 	router := GetGlobalToolRouter()
 
 	resp := gin.H{
-		"success":           true,
-		"registry_total":    0,
+		"success":            true,
+		"registry_total":     0,
 		"executor_available": 0,
 	}
 	if registry != nil {
@@ -306,10 +304,10 @@ func handleToolCost(c *gin.Context) {
 	memTracker := GetGlobalMemoryCostTracker()
 	if memTracker == nil {
 		c.JSON(http.StatusOK, gin.H{
-			"success":  true,
-			"stats":    []any{},
-			"warning":  "memory cost tracker not accessible",
-			"total":    0,
+			"success": true,
+			"stats":   []any{},
+			"warning": "memory cost tracker not accessible",
+			"total":   0,
 		})
 		return
 	}

@@ -215,7 +215,7 @@ func (c *XianyuAutoReplyController) SaveCookies(ctx *gin.Context) {
 		response.Error(ctx, 400, "参数错误")
 		return
 	}
-	// R8 修复：校验 :id 为正整数 + 透传 userID 做 IDOR 防护
+	// 校验 :id 为正整数 + 透传 userID 做 IDOR 防护
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil || id64 == 0 {
 		response.Error(ctx, 400, "id 参数非法")
@@ -235,7 +235,7 @@ func (c *XianyuAutoReplyController) SaveCookies(ctx *gin.Context) {
 
 func (c *XianyuAutoReplyController) DeleteAccount(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	// R8 修复：校验 :id 为正整数
+	// 校验 :id 为正整数
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil || id64 == 0 {
 		response.Error(ctx, 400, "id 参数非法")

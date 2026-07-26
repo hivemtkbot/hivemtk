@@ -20,9 +20,9 @@ import (
 // DefaultPerceptionStage 默认感知阶段（基于规则 + 关键词）
 //
 // 设计原则：
-//  - 纯规则 fallback，不依赖外部 LLM
-//  - 真实生产可注入 SentimentAnalyzer / IntentRecognizer
-//  - 即使没有 AI 服务，本阶段也能产出合理结果
+//   - 纯规则 fallback，不依赖外部 LLM
+//   - 真实生产可注入 SentimentAnalyzer / IntentRecognizer
+//   - 即使没有 AI 服务，本阶段也能产出合理结果
 type DefaultPerceptionStage struct {
 	Sentiment SentimentAnalyzer
 	Intent    IntentRecognizer
@@ -113,7 +113,7 @@ func NewKeywordSentimentAnalyzer() *KeywordSentimentAnalyzer {
 		},
 		ConfusedWords: map[string]float64{
 			"不懂": 0.7, "不明白": 0.7, "啥": 0.4, "什么意思": 0.6, "怎么用": 0.5,
-			"为什么": 0.4,
+			"为什么":      0.4,
 			"confused": 0.7, "what": 0.4, "how": 0.4, "why": 0.4,
 		},
 		CalmWords: map[string]float64{

@@ -7,7 +7,8 @@
 // 由于 ast.Walk 不允许父节点修改,这里用了一组包装结构手动遍历。
 //
 // 用法:
-//   go run scripts/replace_recv_db/main.go -dir=internal/repository
+//
+//	go run scripts/replace_recv_db/main.go -dir=internal/repository
 package main
 
 import (

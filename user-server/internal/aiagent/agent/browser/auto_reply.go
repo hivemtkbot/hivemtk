@@ -23,35 +23,35 @@ type PlatformMessenger interface {
 
 // Message 消息结构
 type Message struct {
-	ID		string		`json:"id"`
-	SenderID	string		`json:"sender_id"`
-	SenderName	string		`json:"sender_name"`
-	Content		string		`json:"content"`
-	Timestamp	time.Time	`json:"timestamp"`
-	IsRead		bool		`json:"is_read"`
-	Platform	string		`json:"platform"`
-	ChatID		string		`json:"chat_id"`
+	ID         string    `json:"id"`
+	SenderID   string    `json:"sender_id"`
+	SenderName string    `json:"sender_name"`
+	Content    string    `json:"content"`
+	Timestamp  time.Time `json:"timestamp"`
+	IsRead     bool      `json:"is_read"`
+	Platform   string    `json:"platform"`
+	ChatID     string    `json:"chat_id"`
 }
 
 // AutoReplyBot 自动回复机器人
 type AutoReplyBot struct {
-	assistant	*Assistant
-	platform	Platform
-	account		string
-	accountID	uint
-	cookies		string
-	ctx		context.Context
-	cancel		context.CancelFunc
-	isRunning	bool
-	headless	bool
-	replyHandler	ReplyHandler	// 可选：Integration回复处理器
-	dedup		MessageDedup	// 消息去重
+	assistant    *Assistant
+	platform     Platform
+	account      string
+	accountID    uint
+	cookies      string
+	ctx          context.Context
+	cancel       context.CancelFunc
+	isRunning    bool
+	headless     bool
+	replyHandler ReplyHandler // 可选：Integration回复处理器
+	dedup        MessageDedup // 消息去重
 }
 
 // NewAutoReplyBot 创建自动回复机器人
 func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies string, headless bool) (*AutoReplyBot, error) {
 	opts := Options{
-		Headless: headless,	// 根据参数设置无头模式
+		Headless: headless, // 根据参数设置无头模式
 	}
 
 	assistant, err := NewAssistant(opts)
@@ -62,15 +62,15 @@ func NewAutoReplyBot(platform Platform, account string, accountID uint, cookies 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bot := &AutoReplyBot{
-		assistant:	assistant,
-		platform:	platform,
-		account:	account,
-		accountID:	accountID,
-		cookies:	cookies,
-		ctx:		ctx,
-		cancel:		cancel,
-		isRunning:	false,
-		headless:	headless,	// 保存无头模式设置
+		assistant: assistant,
+		platform:  platform,
+		account:   account,
+		accountID: accountID,
+		cookies:   cookies,
+		ctx:       ctx,
+		cancel:    cancel,
+		isRunning: false,
+		headless:  headless, // 保存无头模式设置
 	}
 
 	return bot, nil
@@ -197,7 +197,7 @@ func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 
 	// 错误计数器，用于检测连续错误
 	errorCount := 0
-	maxErrors := 5	// 最大错误次数
+	maxErrors := 5 // 最大错误次数
 
 	for {
 		select {
@@ -215,10 +215,10 @@ func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 						// 这里可以触发重新登录逻辑或通知用户
 						// 暂时记录日志，实际应用中可以调用重新登录API
 					}
-					errorCount = 0	// 重置错误计数
+					errorCount = 0 // 重置错误计数
 				}
 			} else {
-				errorCount = 0	// 成功时重置错误计数
+				errorCount = 0 // 成功时重置错误计数
 			}
 		}
 	}
@@ -320,12 +320,12 @@ func (bot *AutoReplyBot) processMessage(msg Message, matcher RuleMatcher, userID
 func genericMessageScript(platformTag string) string {
 	// 各平台的选择器优先级(可同时支持多版本,取首个命中的)
 	var (
-		itemSelectors	string
-		senderSel	string
-		contentSel	string
-		timeSel		string
-		senderIDAttr	string	// 从哪个属性读 sender_id(可选)
-		chatIDSelector	string	// 从哪个元素读 chat_id(会话级)
+		itemSelectors  string
+		senderSel      string
+		contentSel     string
+		timeSel        string
+		senderIDAttr   string // 从哪个属性读 sender_id(可选)
+		chatIDSelector string // 从哪个元素读 chat_id(会话级)
 	)
 	switch platformTag {
 	case "douyin":
@@ -682,10 +682,10 @@ func (bot *AutoReplyBot) runGenericSendScript(platformTag, messageID, content st
 		}
 		// 解析返回的 JSON
 		var resp struct {
-			OK	bool	`json:"ok"`
-			Reason	string	`json:"reason"`
-			Way	string	`json:"way"`
-			Err	string	`json:"err"`
+			OK     bool   `json:"ok"`
+			Reason string `json:"reason"`
+			Way    string `json:"way"`
+			Err    string `json:"err"`
 		}
 		if err := json.Unmarshal([]byte(result), &resp); err != nil {
 			// 兜底:旧版脚本可能直接返回 "true"/"false"
@@ -884,7 +884,7 @@ func getPlatformDomain(p Platform) string {
 	case Xiaohongshu:
 		return ".xiaohongshu.com"
 	case Xianyu:
-		return ".goofish.com"	// 闲鱼实际主域是 goofish.com,xianyu.com 也会跳转
+		return ".goofish.com" // 闲鱼实际主域是 goofish.com,xianyu.com 也会跳转
 	case Tiktok:
 		return ".tiktok.com"
 	default:

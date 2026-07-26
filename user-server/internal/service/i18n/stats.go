@@ -40,24 +40,24 @@ type I18nStatsRepo interface {
 // 汇总最近 N 天（默认 7 天）的核心指标，前端一次性拉取渲染首屏。
 type I18nStatsOverview struct {
 	// 时间窗口
-	Days int       `json:"days"`
+	Days  int       `json:"days"`
 	Since time.Time `json:"since"`
 	Until time.Time `json:"until"`
 
 	// 调用量与语言分布
-	TotalCalls      int64 `json:"total_calls"`        // 多语言扩展字段启用后的总调用数
+	TotalCalls        int64 `json:"total_calls"`         // 多语言扩展字段启用后的总调用数
 	CrossLingualCalls int64 `json:"cross_lingual_calls"` // 跨语言生成调用数
-	LangCount       int   `json:"lang_count"`          // 覆盖的目标语言数
+	LangCount         int   `json:"lang_count"`          // 覆盖的目标语言数
 
 	// 缓存命中率
-	CacheHit   int64   `json:"cache_hit"`
-	CacheMiss  int64   `json:"cache_miss"`
+	CacheHit     int64   `json:"cache_hit"`
+	CacheMiss    int64   `json:"cache_miss"`
 	CacheHitRate float64 `json:"cache_hit_rate"` // 0~1
 
 	// 降级率
-	FallbackTotal    int64   `json:"fallback_total"`
-	FallbackCount    int64   `json:"fallback_count"`
-	FallbackRate     float64 `json:"fallback_rate"` // 0~1
+	FallbackTotal int64   `json:"fallback_total"`
+	FallbackCount int64   `json:"fallback_count"`
+	FallbackRate  float64 `json:"fallback_rate"` // 0~1
 
 	// 术语覆盖
 	GlossaryLangCount int `json:"glossary_lang_count"` // 术语覆盖的目标语言数

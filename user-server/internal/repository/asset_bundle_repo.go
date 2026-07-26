@@ -22,15 +22,15 @@ import (
 
 // AssetBundleFilter 列表过滤
 type AssetBundleFilter struct {
-	Keyword  string                       // 模糊查询 Title / Description
-	Author   string                       // 精确作者
-	Industry string                       // 行业
-	Language string                       // 语言
-	Scope    model.AssetBundleScope       // 作用域
-	Status   model.AssetBundleStatus      // 状态
-	Tags     []string                     // 至少命中一个 tag
-	Page     int                          // 1-based
-	Size     int                          // default 20
+	Keyword  string                  // 模糊查询 Title / Description
+	Author   string                  // 精确作者
+	Industry string                  // 行业
+	Language string                  // 语言
+	Scope    model.AssetBundleScope  // 作用域
+	Status   model.AssetBundleStatus // 状态
+	Tags     []string                // 至少命中一个 tag
+	Page     int                     // 1-based
+	Size     int                     // default 20
 }
 
 // AssetBundleRepository 资产包仓储接口

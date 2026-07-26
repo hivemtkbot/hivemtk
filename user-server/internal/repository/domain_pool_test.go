@@ -28,7 +28,6 @@ func TestDomainPoolRepository_Create(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name    string
 		domain  *model.DomainPool
@@ -75,7 +74,6 @@ func TestDomainPoolRepository_Create(t *testing.T) {
 func TestDomainPoolRepository_GetByID(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	domain := &model.DomainPool{
@@ -129,7 +127,6 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "unique-domain.com",
@@ -178,7 +175,6 @@ func TestDomainPoolRepository_GetByDomain(t *testing.T) {
 func TestDomainPoolRepository_List(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
@@ -253,7 +249,6 @@ func TestDomainPoolRepository_List_WithDomainFilter(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	repo.Create(ctx, &model.DomainPool{
 		Domain:    "test-example.com",
@@ -293,7 +288,6 @@ func TestDomainPoolRepository_Update(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "update-test.com",
@@ -326,7 +320,6 @@ func TestDomainPoolRepository_Delete(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "delete-test.com",
@@ -352,7 +345,6 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	domain := &model.DomainPool{
 		Domain:    "status-test.com",
@@ -377,7 +369,6 @@ func TestDomainPoolRepository_UpdateStatus(t *testing.T) {
 func TestDomainPoolRepository_UpdateLastCheck(t *testing.T) {
 	repo := setupDomainPoolRepository(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	domain := &model.DomainPool{

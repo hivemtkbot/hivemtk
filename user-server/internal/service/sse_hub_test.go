@@ -39,10 +39,10 @@ func TestSSEClient_New(t *testing.T) {
 // 2. IsSubscribed
 func TestSSEClient_IsSubscribed(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
-	if !c.IsSubscribed(context.Background(),SSETopicLLMCalls) {
+	if !c.IsSubscribed(context.Background(), SSETopicLLMCalls) {
 		t.Error("expected subscribed to llm_calls")
 	}
-	if c.IsSubscribed(context.Background(),SSETopicIntentRecogn) {
+	if c.IsSubscribed(context.Background(), SSETopicIntentRecogn) {
 		t.Error("expected NOT subscribed to intent_recognition")
 	}
 }
@@ -51,7 +51,7 @@ func TestSSEClient_IsSubscribed(t *testing.T) {
 func TestSSEClient_SendSuccess(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	event := SSEEvent{Topic: SSETopicLLMCalls, EventType: "test", Data: "hello"}
-	if !c.Send(context.Background(),event) {
+	if !c.Send(context.Background(), event) {
 		t.Error("expected send success")
 	}
 	select {
@@ -69,12 +69,12 @@ func TestSSEClient_SendBufferFull(t *testing.T) {
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	// 填满缓冲区
 	for i := 0; i < SSEClientBufferSize; i++ {
-		if !c.Send(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"}) {
+		if !c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"}) {
 			t.Fatalf("expected send success on iteration %d", i)
 		}
 	}
 	// 第 101 次应失败
-	if c.Send(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "overflow"}) {
+	if c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "overflow"}) {
 		t.Error("expected send fail on buffer full")
 	}
 }
@@ -86,7 +86,7 @@ func TestSSEClient_Close(t *testing.T) {
 	if !c.Closed(context.Background()) {
 		t.Error("expected closed")
 	}
-	if c.Send(context.Background(),SSEEvent{Topic: SSETopicLLMCalls}) {
+	if c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls}) {
 		t.Error("expected send fail after close")
 	}
 }
@@ -121,7 +121,7 @@ func TestSSEHub_RegisterUnregister(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
-	if err := hub.Register(context.Background(),c); err != nil {
+	if err := hub.Register(context.Background(), c); err != nil {
 		t.Fatal(err)
 	}
 	if hub.GetClientCount(context.Background()) != 1 {
@@ -137,7 +137,7 @@ func TestSSEHub_RegisterUnregister(t *testing.T) {
 func TestSSEHub_RegisterNil(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	if err := hub.Register(context.Background(),nil); err == nil {
+	if err := hub.Register(context.Background(), nil); err == nil {
 		t.Error("expected error for nil client")
 	}
 }
@@ -148,10 +148,10 @@ func TestSSEHub_RegisterDuplicateID(t *testing.T) {
 	defer hub.Stop(context.Background())
 	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	c2 := NewSSEClient("c-1", "127.0.0.2", []string{SSETopicLLMCalls})
-	if err := hub.Register(context.Background(),c1); err != nil {
+	if err := hub.Register(context.Background(), c1); err != nil {
 		t.Fatal(err)
 	}
-	if err := hub.Register(context.Background(),c2); err == nil {
+	if err := hub.Register(context.Background(), c2); err == nil {
 		t.Error("expected error for duplicate id")
 	}
 }
@@ -162,13 +162,13 @@ func TestSSEHub_MaxConnPerIP(t *testing.T) {
 	defer hub.Stop(context.Background())
 	for i := 0; i < SSEMaxConnPerIP; i++ {
 		c := NewSSEClient("c-"+string(rune(i)), "127.0.0.1", []string{SSETopicLLMCalls})
-		if err := hub.Register(context.Background(),c); err != nil {
+		if err := hub.Register(context.Background(), c); err != nil {
 			t.Fatalf("register %d failed: %v", i, err)
 		}
 	}
 	// 第 6 个应失败
 	c := NewSSEClient("c-6", "127.0.0.1", []string{SSETopicLLMCalls})
-	if err := hub.Register(context.Background(),c); err == nil {
+	if err := hub.Register(context.Background(), c); err == nil {
 		t.Error("expected error for exceeded max conn per IP")
 	}
 }
@@ -180,7 +180,7 @@ func TestSSEHub_DifferentIPsNotLimited(t *testing.T) {
 	for i := 0; i < SSEMaxConnPerIP+2; i++ {
 		ip := "127.0.0." + string(rune('1'+i))
 		c := NewSSEClient("c-"+string(rune(i)), ip, []string{SSETopicLLMCalls})
-		if err := hub.Register(context.Background(),c); err != nil {
+		if err := hub.Register(context.Background(), c); err != nil {
 			t.Fatalf("register %d failed: %v", i, err)
 		}
 	}
@@ -193,11 +193,11 @@ func TestSSEHub_Publish(t *testing.T) {
 	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	c2 := NewSSEClient("c-2", "127.0.0.2", []string{SSETopicLLMCalls})
 	c3 := NewSSEClient("c-3", "127.0.0.3", []string{SSETopicIntentRecogn})
-	_ = hub.Register(context.Background(),c1)
-	_ = hub.Register(context.Background(),c2)
-	_ = hub.Register(context.Background(),c3)
+	_ = hub.Register(context.Background(), c1)
+	_ = hub.Register(context.Background(), c2)
+	_ = hub.Register(context.Background(), c3)
 
-	hub.Publish(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
 
 	// c1 和 c2 应收到，c3 不应收到
 	select {
@@ -225,10 +225,10 @@ func TestSSEHub_PublishSetsTimestamp(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
-	_ = hub.Register(context.Background(),c)
+	_ = hub.Register(context.Background(), c)
 
 	before := time.Now()
-	hub.Publish(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "test"})
 	select {
 	case got := <-c.Events(context.Background()):
 		if got.Timestamp.Before(before) {
@@ -251,8 +251,8 @@ func TestSSEHub_StopAllClients(t *testing.T) {
 	hub := NewSSEHub()
 	c1 := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
 	c2 := NewSSEClient("c-2", "127.0.0.2", []string{SSETopicLLMCalls})
-	_ = hub.Register(context.Background(),c1)
-	_ = hub.Register(context.Background(),c2)
+	_ = hub.Register(context.Background(), c1)
+	_ = hub.Register(context.Background(), c2)
 	hub.Stop(context.Background())
 	if !c1.Closed(context.Background()) {
 		t.Error("c1 should be closed")
@@ -269,7 +269,7 @@ func TestSSEHub_StopAllClients(t *testing.T) {
 func TestSSEHub_PublishAfterStop(t *testing.T) {
 	hub := NewSSEHub()
 	hub.Stop(context.Background())
-	hub.Publish(context.Background(),SSEEvent{Topic: SSETopicLLMCalls}) // 不应 panic
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls}) // 不应 panic
 }
 
 // 18. Stop 幂等
@@ -284,17 +284,17 @@ func TestSSEHub_StopIdempotent(t *testing.T) {
 func TestSSEHub_GetIPCount(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	_ = hub.Register(context.Background(),NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
-	_ = hub.Register(context.Background(),NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
-	_ = hub.Register(context.Background(),NewSSEClient("c-3", "127.0.0.2", []string{SSETopicLLMCalls}))
-	if hub.GetIPCount(context.Background(),"127.0.0.1") != 2 {
-		t.Errorf("expected 2 for 127.0.0.1, got %d", hub.GetIPCount(context.Background(),"127.0.0.1"))
+	_ = hub.Register(context.Background(), NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(context.Background(), NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(context.Background(), NewSSEClient("c-3", "127.0.0.2", []string{SSETopicLLMCalls}))
+	if hub.GetIPCount(context.Background(), "127.0.0.1") != 2 {
+		t.Errorf("expected 2 for 127.0.0.1, got %d", hub.GetIPCount(context.Background(), "127.0.0.1"))
 	}
-	if hub.GetIPCount(context.Background(),"127.0.0.2") != 1 {
-		t.Errorf("expected 1 for 127.0.0.2, got %d", hub.GetIPCount(context.Background(),"127.0.0.2"))
+	if hub.GetIPCount(context.Background(), "127.0.0.2") != 1 {
+		t.Errorf("expected 1 for 127.0.0.2, got %d", hub.GetIPCount(context.Background(), "127.0.0.2"))
 	}
-	if hub.GetIPCount(context.Background(),"127.0.0.3") != 0 {
-		t.Errorf("expected 0 for 127.0.0.3, got %d", hub.GetIPCount(context.Background(),"127.0.0.3"))
+	if hub.GetIPCount(context.Background(), "127.0.0.3") != 0 {
+		t.Errorf("expected 0 for 127.0.0.3, got %d", hub.GetIPCount(context.Background(), "127.0.0.3"))
 	}
 }
 
@@ -303,11 +303,11 @@ func TestSSEHub_GetClient(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
 	c := NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls})
-	_ = hub.Register(context.Background(),c)
-	if hub.GetClient(context.Background(),"c-1") == nil {
+	_ = hub.Register(context.Background(), c)
+	if hub.GetClient(context.Background(), "c-1") == nil {
 		t.Error("expected non-nil client")
 	}
-	if hub.GetClient(context.Background(),"nonexistent") != nil {
+	if hub.GetClient(context.Background(), "nonexistent") != nil {
 		t.Error("expected nil for nonexistent")
 	}
 }
@@ -316,8 +316,8 @@ func TestSSEHub_GetClient(t *testing.T) {
 func TestSSEHub_ListClients(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	_ = hub.Register(context.Background(),NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
-	_ = hub.Register(context.Background(),NewSSEClient("c-2", "127.0.0.2", []string{SSETopicIntentRecogn}))
+	_ = hub.Register(context.Background(), NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(context.Background(), NewSSEClient("c-2", "127.0.0.2", []string{SSETopicIntentRecogn}))
 	clients := hub.ListClients(context.Background())
 	if len(clients) != 2 {
 		t.Fatalf("expected 2 clients, got %d", len(clients))
@@ -413,7 +413,7 @@ func TestSSEHub_Concurrent(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			c := NewSSEClient("c-"+string(rune(idx)), "127.0.0.1", []string{SSETopicLLMCalls})
-			_ = hub.Register(context.Background(),c)
+			_ = hub.Register(context.Background(), c)
 		}(i)
 	}
 	// 并发 Publish
@@ -421,7 +421,7 @@ func TestSSEHub_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			hub.Publish(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
+			hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
 		}()
 	}
 	wg.Wait()
@@ -439,7 +439,7 @@ func TestSSEClient_ConcurrentSend(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c.Send(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
+			c.Send(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "concurrent"})
 		}()
 	}
 	wg.Wait()
@@ -462,7 +462,7 @@ func TestSSEClient_EmptyTopics(t *testing.T) {
 	if len(c.Topics(context.Background())) != 0 {
 		t.Errorf("expected 0 topics, got %d", len(c.Topics(context.Background())))
 	}
-	if c.IsSubscribed(context.Background(),SSETopicLLMCalls) {
+	if c.IsSubscribed(context.Background(), SSETopicLLMCalls) {
 		t.Error("expected NOT subscribed to any topic")
 	}
 }
@@ -472,25 +472,25 @@ func TestSSEHub_PublishNoSubscribers(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
 	// 不应 panic
-	hub.Publish(context.Background(),SSEEvent{Topic: SSETopicLLMCalls, EventType: "no-listeners"})
+	hub.Publish(context.Background(), SSEEvent{Topic: SSETopicLLMCalls, EventType: "no-listeners"})
 }
 
 // 34. Unregister 后 IP 计数减少
 func TestSSEHub_UnregisterDecrementsIPCount(t *testing.T) {
 	hub := NewSSEHub()
 	defer hub.Stop(context.Background())
-	_ = hub.Register(context.Background(),NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
-	_ = hub.Register(context.Background(),NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
-	if hub.GetIPCount(context.Background(),"127.0.0.1") != 2 {
-		t.Fatalf("expected 2, got %d", hub.GetIPCount(context.Background(),"127.0.0.1"))
+	_ = hub.Register(context.Background(), NewSSEClient("c-1", "127.0.0.1", []string{SSETopicLLMCalls}))
+	_ = hub.Register(context.Background(), NewSSEClient("c-2", "127.0.0.1", []string{SSETopicLLMCalls}))
+	if hub.GetIPCount(context.Background(), "127.0.0.1") != 2 {
+		t.Fatalf("expected 2, got %d", hub.GetIPCount(context.Background(), "127.0.0.1"))
 	}
 	hub.Unregister(context.Background(), "c-1")
-	if hub.GetIPCount(context.Background(),"127.0.0.1") != 1 {
-		t.Errorf("expected 1 after unregister, got %d", hub.GetIPCount(context.Background(),"127.0.0.1"))
+	if hub.GetIPCount(context.Background(), "127.0.0.1") != 1 {
+		t.Errorf("expected 1 after unregister, got %d", hub.GetIPCount(context.Background(), "127.0.0.1"))
 	}
 	hub.Unregister(context.Background(), "c-2")
-	if hub.GetIPCount(context.Background(),"127.0.0.1") != 0 {
-		t.Errorf("expected 0 after all unregistered, got %d", hub.GetIPCount(context.Background(),"127.0.0.1"))
+	if hub.GetIPCount(context.Background(), "127.0.0.1") != 0 {
+		t.Errorf("expected 0 after all unregistered, got %d", hub.GetIPCount(context.Background(), "127.0.0.1"))
 	}
 }
 

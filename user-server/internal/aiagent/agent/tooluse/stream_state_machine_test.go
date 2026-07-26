@@ -192,9 +192,9 @@ func TestMatchJSONEnd(t *testing.T) {
 		endIdx   int
 	}{
 		{`{"a":1}`, 0, true, 6},
-		{`{"a":{"b":2}}`, 0, true, 12},  // 末尾 '}' 在 index 12
-		{`{"a":[1,2,3]}`, 0, true, 12},  // 末尾 '}' 在 index 12
-		{`{"a":"x{y}z"}`, 0, true, 12},  // 字符串内的 { } 不影响
+		{`{"a":{"b":2}}`, 0, true, 12}, // 末尾 '}' 在 index 12
+		{`{"a":[1,2,3]}`, 0, true, 12}, // 末尾 '}' 在 index 12
+		{`{"a":"x{y}z"}`, 0, true, 12}, // 字符串内的 { } 不影响
 		{`{"a":1`, 0, false, -1},
 		{`{`, 0, false, -1},
 	}
@@ -281,7 +281,7 @@ func TestToolRouter_CircuitBreaker(t *testing.T) {
 	}
 
 	router := NewToolRouter(executor, nil, RouterConfig{
-		FailThreshold:   3,
+		FailThreshold:    3,
 		CooldownDuration: 5 * time.Second,
 	})
 

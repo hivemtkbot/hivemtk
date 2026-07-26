@@ -184,7 +184,7 @@ func TestMessageService_DeleteMessage(t *testing.T) {
 	// Delete the message (repository expects string ID)
 	err := service.DeleteMessage(context.Background(), registered.ID)
 	if err != nil {
-		// Note: repository 层对 string ID 的 Delete 行为有历史问题
+		// Note: repository 层对 string ID 的 Delete 行为存在已知问题
 		t.Logf("DeleteMessage returned error (known repository bug): %v", err)
 	}
 

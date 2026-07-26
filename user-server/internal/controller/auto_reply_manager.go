@@ -372,12 +372,10 @@ func (c *AutoReplyManagerController) GetConcurrentStats(ctx *gin.Context) {
 
 // GetStatistics 获取综合统计
 //
-// 五层架构合规修复：原实现直接调用 c.service.GetDB().Model().Count() 多次，
-// 违反"controller 不得直接访问数据库"的硬约束。已下沉到 service.GetStatistics。
+// 直接调用 c.service.GetDB().Model().Count() 多次会违反"controller 不得直接访问数据库"的硬约束，已下沉到 service.GetStatistics。
 //
-// 安全修复：原实现 `userID, _ := strconv.ParseUint(...)` 忽略解析错误，
-// 非数值 user_id 会变成 0，导致 if userID > 0 过滤失效，泄露跨用户聚合数据。
-// 现在对非法 user_id 显式返回 400。
+// `userID, _ := strconv.ParseUint(...)` 会忽略解析错误，非数值 user_id 会变成 0，
+// 导致 if userID > 0 过滤失效，泄露跨用户聚合数据。对非法 user_id 显式返回 400。
 func (c *AutoReplyManagerController) GetStatistics(ctx *gin.Context) {
 	platform := ctx.Query("platform")
 

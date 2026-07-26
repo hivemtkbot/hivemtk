@@ -1450,7 +1450,7 @@ func TestJobStateMachine_RateLimitedToPending(t *testing.T) {
 	if got.State != JobStateRateLimited {
 		t.Errorf("expected rate_limited, got %s", got.State)
 	}
-	// 改为 pending 并可执行
+	// pending 并可执行
 	db.Model(&model.ReachJob{}).Where("id = ?", job.ID).Update("state", JobStatePending)
 	svc.ResetRateLimit(context.Background(), "wecom")
 	got2, _ := svc.GetJob(context.Background(), job.ID)

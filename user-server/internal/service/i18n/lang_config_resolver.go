@@ -13,8 +13,8 @@ package i18n
 import (
 	"context"
 
-	i18npkg "marketing/internal/pkg/i18n"
 	"marketing/internal/model"
+	i18npkg "marketing/internal/pkg/i18n"
 )
 
 // ============================================================================

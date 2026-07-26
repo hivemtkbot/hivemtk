@@ -71,7 +71,7 @@ var defaultAdminConfig = AdminConfig{
 func GetAdminConfig() *AdminConfig {
 	config := defaultAdminConfig
 
-	// 可选：读取 .env/admin.json 覆盖 UI 行为配置（不覆盖密码相关字段，因为密码字段已删除）
+	// 可选：读取 .env/admin.json 覆盖 UI 行为配置（不覆盖密码相关字段）
 	cfgPath := os.Getenv("ADMIN_CONFIG_FILE")
 	if cfgPath == "" {
 		cfgPath = filepath.Join(".env", "admin.json")

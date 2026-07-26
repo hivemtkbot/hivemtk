@@ -21,10 +21,10 @@ import (
 
 // 排除的方法（如 GetDB / WithTx 等不需要 ctx 的基础方法）
 var excludedMethods = map[string]bool{
-	"GetDB": true,
+	"GetDB":  true,
 	"WithTx": true,
-	"SetDB": true,
-	"DB":    true,
+	"SetDB":  true,
+	"DB":     true,
 }
 
 func main() {

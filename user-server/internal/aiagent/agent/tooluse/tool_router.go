@@ -34,7 +34,7 @@ type ToolRouter struct {
 	keyBuilder func(toolName string, tc *ToolContext) string
 
 	// 配置
-	failThreshold   int
+	failThreshold    int
 	cooldownDuration time.Duration
 
 	// 成本表（tool → 每次成本）
@@ -93,14 +93,14 @@ func NewToolRouter(executor *ToolExecutor, rateLimiter RateLimiter, cfg RouterCo
 		cfg.DefaultToolCost = 0.001
 	}
 	return &ToolRouter{
-		executor:        executor,
-		rateLimiter:     rateLimiter,
-		keyBuilder:      defaultKeyBuilder,
-		failThreshold:   cfg.FailThreshold,
+		executor:         executor,
+		rateLimiter:      rateLimiter,
+		keyBuilder:       defaultKeyBuilder,
+		failThreshold:    cfg.FailThreshold,
 		cooldownDuration: cfg.CooldownDuration,
-		toolCosts:       make(map[string]float64),
-		circuit:         make(map[string]*circuitState),
-		stats:           RouterStats{DefaultToolCost: cfg.DefaultToolCost},
+		toolCosts:        make(map[string]float64),
+		circuit:          make(map[string]*circuitState),
+		stats:            RouterStats{DefaultToolCost: cfg.DefaultToolCost},
 	}
 }
 
@@ -113,11 +113,11 @@ func (r *ToolRouter) SetToolCost(toolName string, cost float64) {
 
 // RouteResult 路由结果
 type RouteResult struct {
-	Result     ToolResult
-	Err        error
-	RateLimit  bool
+	Result      ToolResult
+	Err         error
+	RateLimit   bool
 	CircuitOpen bool
-	Cost       float64
+	Cost        float64
 }
 
 // Route 路由并执行

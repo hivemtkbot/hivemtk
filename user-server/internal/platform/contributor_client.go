@@ -68,7 +68,7 @@ func contributorIdentity() (username, password, email, displayName string) {
 func ensureContributorToken(cc *ContributorClient) (string, error) {
 	contribMu.Lock()
 	defer contribMu.Unlock()
-	if contribToken != "" && time.Now().Before(contribExpireAt.Add(-60 * time.Second)) {
+	if contribToken != "" && time.Now().Before(contribExpireAt.Add(-60*time.Second)) {
 		return contribToken, nil
 	}
 	username, password, email, displayName := contributorIdentity()

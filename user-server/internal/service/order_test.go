@@ -175,7 +175,7 @@ func TestOrderService_DeleteOrder(t *testing.T) {
 	// Delete the order (repository expects string ID)
 	err := service.DeleteOrder(context.Background(), registered.ID)
 	if err != nil {
-		// Note: repository 层对 string ID 的 Delete 行为有历史问题
+		// Note: repository 层对 string ID 的 Delete 行为存在已知问题
 		t.Logf("DeleteOrder returned error (known repository bug): %v", err)
 	}
 

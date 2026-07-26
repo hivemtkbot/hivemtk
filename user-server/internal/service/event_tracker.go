@@ -74,7 +74,7 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 
 	// 异步触发自动标签处理 + 业务编排层联动（旅程 / 标签）
 	if !s.disableAsync {
-		// R6 修复：原 goroutine 无 recover，panic 会杀进程。添加 recover 保护。
+		// goroutine 需 recover 保护（避免 panic 杀进程）。
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {

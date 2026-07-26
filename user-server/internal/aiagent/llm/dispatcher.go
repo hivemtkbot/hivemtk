@@ -619,11 +619,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 					Source:           SourceCache,
 					TokenSource:      TokenSourceActual, // 缓存命中无新 token 消耗，actual=0
 					ScenarioProvider: string(req.Scenario) + "|cache",
-					InternalLang:    req.InternalLang,
-					TargetLang:      req.TargetLang,
-					CrossLingual:    req.CrossLingual,
-					GlossaryVersion: req.GlossaryVersion,
-					CacheHit:        req.CacheKey != "",
+					InternalLang:     req.InternalLang,
+					TargetLang:       req.TargetLang,
+					CrossLingual:     req.CrossLingual,
+					GlossaryVersion:  req.GlossaryVersion,
+					CacheHit:         req.CacheKey != "",
 				}
 				LogRoutingDecision(ctx, cacheEntry)
 			}

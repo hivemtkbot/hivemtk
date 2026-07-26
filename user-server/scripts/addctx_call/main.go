@@ -3,7 +3,8 @@
 // 如果 MethodName 是当前包内已加 ctx 的方法,自动在第一个实参前插入 ctx。
 //
 // 用法:
-//   go run scripts/addctx_call/main.go -dir=internal/repository
+//
+//	go run scripts/addctx_call/main.go -dir=internal/repository
 package main
 
 import (

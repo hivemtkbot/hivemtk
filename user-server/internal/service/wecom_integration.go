@@ -176,7 +176,7 @@ func (s *WeComIntegrationService) SendMessage(ctx context.Context, req *WeComSen
 		return hubMsg, fmt.Errorf("inbox upsert: %w", err)
 	}
 
-	// 3. 真实调企微 API 投递给客户（R1 修复：此前仅入中台，客户收不到）
+	// 3. 真实调企微 API 投递给客户（仅入中台客户收不到）
 	//    仅当账号配置了真实企微凭证时才出站；无凭证（测试/未配置）时安全跳过。
 	//    测试/单元测试场景下支持通过环境变量禁用真实出站，避免对 WeChat 开放平台
 	//    造成无意义的请求或被识别为异常调用：

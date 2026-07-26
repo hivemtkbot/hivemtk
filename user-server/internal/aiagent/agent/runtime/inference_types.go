@@ -38,15 +38,15 @@ const (
 	SentimentCalm     Sentiment = "calm"     // 平静
 	SentimentAnxious  Sentiment = "anxious"  // 焦虑
 	SentimentAngry    Sentiment = "angry"    // 愤怒
-	SentimentAppreci Sentiment = "appreci" // 赞赏
+	SentimentAppreci  Sentiment = "appreci"  // 赞赏
 	SentimentConfused Sentiment = "confused" // 困惑
 	SentimentUnknown  Sentiment = "unknown"
 )
 
 // SentimentScore 情绪打分（0-1）
 type SentimentScore struct {
-	Label  Sentiment `json:"label"`
-	Score  float64   `json:"score"`  // 主情绪强度
+	Label  Sentiment             `json:"label"`
+	Score  float64               `json:"score"`            // 主情绪强度
 	Detail map[Sentiment]float64 `json:"detail,omitempty"` // 多情绪细分
 }
 
@@ -58,26 +58,26 @@ type SentimentScore struct {
 type Intent string
 
 const (
-	IntentChitchat       Intent = "chitchat"        // 闲聊
-	IntentInquiry        Intent = "inquiry"         // 询价
-	IntentOrderStatus    Intent = "order_status"    // 查单
-	IntentComplaint      Intent = "complaint"       // 投诉
-	IntentRefund         Intent = "refund"          // 退款
-	IntentAfterSales     Intent = "after_sales"     // 售后
-	IntentSalesLead      Intent = "sales_lead"      // 销售线索
-	IntentGreeting       Intent = "greeting"        // 寒暄
-	IntentFarewell       Intent = "farewell"        // 告别
-	IntentHandoffToHuman Intent = "handoff_human"   // 强转人工（方向6 文档示例4）
-	IntentFAQ            Intent = "faq"             // FAQ 问答（方向6 文档示例1）
+	IntentChitchat       Intent = "chitchat"      // 闲聊
+	IntentInquiry        Intent = "inquiry"       // 询价
+	IntentOrderStatus    Intent = "order_status"  // 查单
+	IntentComplaint      Intent = "complaint"     // 投诉
+	IntentRefund         Intent = "refund"        // 退款
+	IntentAfterSales     Intent = "after_sales"   // 售后
+	IntentSalesLead      Intent = "sales_lead"    // 销售线索
+	IntentGreeting       Intent = "greeting"      // 寒暄
+	IntentFarewell       Intent = "farewell"      // 告别
+	IntentHandoffToHuman Intent = "handoff_human" // 强转人工（方向6 文档示例4）
+	IntentFAQ            Intent = "faq"           // FAQ 问答（方向6 文档示例1）
 	IntentUnknown        Intent = "unknown"
 )
 
 // IntentResult 意图识别结果
 type IntentResult struct {
-	Primary   Intent             `json:"primary"`
-	Secondary []Intent           `json:"secondary,omitempty"`
-	Score     float64            `json:"score"`     // 主意图置信度
-	Tags      map[string]string  `json:"tags,omitempty"` // 实体槽位（如"产品=手机"）
+	Primary   Intent            `json:"primary"`
+	Secondary []Intent          `json:"secondary,omitempty"`
+	Score     float64           `json:"score"`          // 主意图置信度
+	Tags      map[string]string `json:"tags,omitempty"` // 实体槽位（如"产品=手机"）
 }
 
 // ============================================================================
@@ -88,11 +88,11 @@ type IntentResult struct {
 type AlignmentDimension string
 
 const (
-	DimEmpathy   AlignmentDimension = "empathy"   // 同理心
+	DimEmpathy    AlignmentDimension = "empathy"    // 同理心
 	DimEnthusiasm AlignmentDimension = "enthusiasm" // 热情度
-	DimExpertise AlignmentDimension = "expertise" // 专业度
-	DimPatience  AlignmentDimension = "patience"  // 耐心
-	DimClarity   AlignmentDimension = "clarity"   // 清晰度
+	DimExpertise  AlignmentDimension = "expertise"  // 专业度
+	DimPatience   AlignmentDimension = "patience"   // 耐心
+	DimClarity    AlignmentDimension = "clarity"    // 清晰度
 	DimPoliteness AlignmentDimension = "politeness" // 礼貌度
 )
 
@@ -158,10 +158,10 @@ const (
 
 // CrisisSignal 危机信号
 type CrisisSignal struct {
-	Level     CrisisLevel `json:"level"`
-	Triggers  []string    `json:"triggers"`  // 触发词列表（"退款/骗子/起诉/曝光"）
-	Reason    string      `json:"reason"`
-	DetectedAt time.Time  `json:"detected_at"`
+	Level      CrisisLevel `json:"level"`
+	Triggers   []string    `json:"triggers"` // 触发词列表（"退款/骗子/起诉/曝光"）
+	Reason     string      `json:"reason"`
+	DetectedAt time.Time   `json:"detected_at"`
 }
 
 // NeedsEscalation 是否需要转人工
@@ -202,12 +202,12 @@ type PlannedToolCall struct {
 
 // StageDecision 阶段决策记录（用于可观测与可调试）
 type StageDecision struct {
-	Stage     string        `json:"stage"`
-	Action    string        `json:"action"`
-	Reason    string        `json:"reason,omitempty"`
-	Duration  time.Duration `json:"duration_ns"`
-	Success   bool          `json:"success"`
-	Error     string        `json:"error,omitempty"`
+	Stage    string        `json:"stage"`
+	Action   string        `json:"action"`
+	Reason   string        `json:"reason,omitempty"`
+	Duration time.Duration `json:"duration_ns"`
+	Success  bool          `json:"success"`
+	Error    string        `json:"error,omitempty"`
 }
 
 // ============================================================================
@@ -220,8 +220,8 @@ type StageDecision struct {
 // 严格不可变（写时复制），便于并发快照与可观测回放。
 type InferenceContext struct {
 	// 入参
-	Payload   CustomerMessagePayload `json:"payload"`
-	AgentCtx  *AgentContext          `json:"agent_ctx"`
+	Payload  CustomerMessagePayload `json:"payload"`
+	AgentCtx *AgentContext          `json:"agent_ctx"`
 
 	// Stage 1 输出
 	Sentiment SentimentScore `json:"sentiment,omitempty"`
@@ -243,8 +243,8 @@ type InferenceContext struct {
 	EpisodicMemory string `json:"episodic_memory,omitempty"`
 
 	// 控制
-	StartTime time.Time         `json:"start_time"`
-	Stages    []StageDecision   `json:"stages"`
+	StartTime time.Time       `json:"start_time"`
+	Stages    []StageDecision `json:"stages"`
 
 	// 决策（最终）
 	Decision InferenceDecision `json:"decision"`

@@ -17,8 +17,6 @@ import (
 // ============================================================================
 // ToolProvider 统一扩展入口测试（P0+ 优化验证）
 // ----------------------------------------------------------------------------
-// 文档依据：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P1
-//
 // 测试覆盖：
 //   1. ToolProvider 接口契约（Name/Category/Description/Provide）
 //   2. ProviderRegistry 注册/注销/查询
@@ -41,7 +39,7 @@ type mockProvider struct {
 	provideErr  error
 }
 
-func (p *mockProvider) Name() string                  { return p.name }
+func (p *mockProvider) Name() string                   { return p.name }
 func (p *mockProvider) Category() tooluse.ToolCategory { return p.category }
 func (p *mockProvider) Description() string            { return p.description }
 func (p *mockProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool, error) {
@@ -383,11 +381,11 @@ func TestBuiltinProviders_ProvideToolCount(t *testing.T) {
 	// 通过 mock ProviderContext 验证 Provide() 返回的工具数量
 
 	cases := []struct {
-		name         string
-		provider     tooluse.ToolProvider
-		expectDBErr  bool // 是否期望返回 DB 必需错误
-		expectCount  int  // 不期望错误时，应返回的工具数
-		requireDB    bool
+		name        string
+		provider    tooluse.ToolProvider
+		expectDBErr bool // 是否期望返回 DB 必需错误
+		expectCount int  // 不期望错误时，应返回的工具数
+		requireDB   bool
 	}{
 		{
 			name:        "ReachToolProvider",
@@ -442,10 +440,10 @@ func TestBuiltinProviders_ProvideToolCount(t *testing.T) {
 
 func TestBuiltinProviders_MetaData(t *testing.T) {
 	cases := []struct {
-		name             string
-		provider         tooluse.ToolProvider
-		expectName       string
-		expectCategory   tooluse.ToolCategory
+		name               string
+		provider           tooluse.ToolProvider
+		expectName         string
+		expectCategory     tooluse.ToolCategory
 		expectDescNonEmpty bool
 	}{
 		{"ReachToolProvider", &ReachToolProvider{}, "reach", tooluse.CategoryReach, true},

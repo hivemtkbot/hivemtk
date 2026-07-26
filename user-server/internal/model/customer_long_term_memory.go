@@ -42,10 +42,10 @@ type CustomerLongTermMemory struct {
 	// Embedding 使用 string + gorm:"type:vector(1024)"：
 	//   - PostgreSQL：pgvector 自动识别 vector(1024) 类型
 	//   - GORM []byte 会被映射为 bytea，导致 pgvector 解析失败（SQLSTATE 22P02）。
-	//     改用 string 走 text 通道，pgvector 接受 '[v1,v2,...]' 格式。
+	//     使用 string 走 text 通道，pgvector 接受 '[v1,v2,...]' 格式。
 	//   - 写入时使用 embeddingToString(vec) 序列化；读取时用 []byte(it.Embedding) 还原。
-	//   - 维度 1024 与本地 TEI bge-m3 真实输出一致（2026-07-18 私域基线）。
-	//     严禁改回 768（BAAI/bge-base-zh-v1.5），否则 pgvector 写入会报维度不匹配。
+	//   - 维度 1024 与本地 TEI bge-m3 真实输出一致。
+	//     严禁使用 768（BAAI/bge-base-zh-v1.5），否则 pgvector 写入会报维度不匹配。
 	Embedding string     `gorm:"type:vector(1024)" json:"embedding,omitempty"`
 	Metadata  JSONMap    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	CreatedAt time.Time  `gorm:"autoCreateTime;index:idx_cltm_importance,priority:2" json:"created_at"`

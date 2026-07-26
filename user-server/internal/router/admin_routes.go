@@ -16,7 +16,7 @@ import (
 
 // setupPlatformRoutes 平台端管理路由（需要平台权限）
 //
-// 开源版：已移除 OTA 版本管理（version/*）与 License 授权管理（license/*）相关路由。
+// OTA 版本管理与 License 授权管理路由未启用。
 // 仅保留统计/安装/心跳信息相关的只读能力。
 func setupPlatformRoutes(platform *gin.RouterGroup, platformCtrl *controller.PlatformController) {
 	// 驾驶舱
@@ -62,22 +62,22 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
-	// 开源版：已移除"首次强制改密"(init-change-password) 与"通过授权找回密码"
-	// (forgot-admin-password / reset-admin-password) 流程。找回密码统一在账号个人中心进行。
+	// "首次强制改密"(init-change-password) 与"通过授权找回密码"
+	// (forgot-admin-password / reset-admin-password) 路由未启用，找回密码统一在账号个人中心进行。
 
 	// P1-1 MFA 登录第二步验证：使用 temp_token（不依赖 JWT）
 	// 登录密码验证通过后，若用户启用了 MFA，会返回 need_mfa=true + temp_token，
 	// 前端再调用此接口提交 temp_token + 6 位 TOTP 码完成登录
 	public.POST("/auth/mfa/verify", controller.NewAuthController().VerifyMFALogin)
 
-	// ============== 阶段 3 改造：InitAdmin 路由整合到 AuthController ==============
+	// ============== InitAdmin 路由（AuthController） ==============
 	// 旧路由 /system/create-default-admin（由 SystemUserController.CreateDefaultAdmin 暴露）
 	//   - 行为：读取 config.GetAdminConfig().DefaultAdmin（硬编码 Admin@123456）
 	//   - 风险：默认值暴露在任何被误部署的环境中，造成供应链 / 误用即被入侵
-	//   - 阶段 3：删除该路由。新逻辑统一走 /system/init-admin（AuthController），
+	//   - 统一走 /system/init-admin（AuthController），
 	//     强制调用方在请求体中传 password。
 	// 旧路由 /system/init-admin（由 SystemInitController.InitAdmin 暴露）
-	//   - 阶段 3：删除该路由。新实现由 AuthController.InitAdmin 提供，路径不变。
+	//   - 由 AuthController.InitAdmin 提供，路径不变。
 	//   - 行为差异：新实现不再做"半初始化自愈 + 平台上报"，仅做最小职责（创建超管 + install.lock），
 	//     其它初始化相关步骤（install 上报 / init-complete 等）由后续 sub-agent 接管。
 	systemInitCtrl := controller.NewSystemInitController()
@@ -94,7 +94,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	})
 	public.POST("/system/init-complete", systemInitCtrl.InitComplete)
 
-	// 开源版：已移除授权码管理相关路由（/license/*、/license/status）。
+	// 授权码管理路由（/license/*、/license/status）未启用。
 	// 为兼容前端 Layout.vue 对 /api/license/status 的探测（开源版无授权概念），
 	// 提供只读占位接口：返回 200 + 固定状态（开源版默认全功能可用），不触发前端报错与 404 网络日志。
 	public.GET("/license/status", func(c *gin.Context) {
@@ -154,7 +154,6 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
 	// P0-6 修复：/api/system/reset 不再是公开路由——见 setupSystemAdminRoutes
-	// 原 public.POST("/system/reset", systemOpsCtrl.ResetSystem) 已移除
 
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台
 	// 公开 webhook 入口：所有渠道（TG/WA/小程序/邮件上行/短信上行/...）推送到此
@@ -194,6 +193,6 @@ func wirePublicDependencies(db *gorm.DB) publicDeps {
 // 中间件链：InitGuard → JWTAuthMiddleware → AdminAuthMiddleware → LicenseGuard
 // 注意：此分组不能放进 auth 组（会强制走 LicenseGuard 先），所以独立建组
 func setupSystemAdminRoutes(r *gin.Engine) {
-	// 开源版：已移除"一键重置"(/api/system/reset) 等高危授权相关路由。
+	// "一键重置"(/api/system/reset) 等高危授权路由未启用。
 	// 系统重置不在产品流程内，如需重置请在账号个人中心或运维手段处理。
 }

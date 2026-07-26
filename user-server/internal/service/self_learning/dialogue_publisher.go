@@ -32,9 +32,9 @@ import (
 
 // DialogueEventPublisher 对话事件发布器
 type DialogueEventPublisher struct {
-	bus               EventBus
+	bus                EventBus
 	feedbackSignalRepo FeedbackSignalRepository
-	sessionReader     SessionReader // 用于 PublishEnded 时反查会话信息
+	sessionReader      SessionReader // 用于 PublishEnded 时反查会话信息
 }
 
 // SessionReader 会话读取接口（抽象 customer_session.CustomerSessionService）
@@ -45,21 +45,21 @@ type SessionReader interface {
 
 // SessionInfo 会话基础信息
 type SessionInfo struct {
-	SessionID      string
-	TraceID        string
-	VisitorID      string
-	CustomerID     string
-	ChannelType    string
-	AccountID      string
-	Scenario       string
-	StartedAt      time.Time
-	EndedAt        *time.Time
-	Status         string
-	DurationSec    int64
+	SessionID       string
+	TraceID         string
+	VisitorID       string
+	CustomerID      string
+	ChannelType     string
+	AccountID       string
+	Scenario        string
+	StartedAt       time.Time
+	EndedAt         *time.Time
+	Status          string
+	DurationSec     int64
 	LastCustomerMsg string
-	LastAIReply    string
-	UsedCorpusIDs  []string
-	UsedAssetIDs   []string
+	LastAIReply     string
+	UsedCorpusIDs   []string
+	UsedAssetIDs    []string
 }
 
 // NewDialogueEventPublisher 创建对话事件发布器
@@ -124,9 +124,9 @@ func (p *DialogueEventPublisher) PublishStarted(ctx context.Context, payload *ev
 //   - → AssetBundleLearner.GenerateCandidate（基于销冠对话生成资产包候选）
 //
 // 实现要点：
-//   1. 通过 SessionReader 反查会话信息（避免调用方手工填充）
-//   2. 通过 FeedbackSignalRepository 反查 aggregated_reward（用于 reward-driven 决策）
-//   3. reward=0 或 signal 不存在仍触发反思（轻量级处理）
+//  1. 通过 SessionReader 反查会话信息（避免调用方手工填充）
+//  2. 通过 FeedbackSignalRepository 反查 aggregated_reward（用于 reward-driven 决策）
+//  3. reward=0 或 signal 不存在仍触发反思（轻量级处理）
 func (p *DialogueEventPublisher) PublishEnded(ctx context.Context, sessionID string, traceID string) error {
 	if p == nil || p.bus == nil {
 		return nil

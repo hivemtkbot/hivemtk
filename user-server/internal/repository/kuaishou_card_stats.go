@@ -19,14 +19,14 @@ type KuaishouCardStatsDailyResult struct {
 
 // KuaishouRecentActivity 快手最近活动记录（JOIN 查询结果）
 type KuaishouRecentActivity struct {
-	ID           uint
-	CardID       uint
-	CardTitle    string
-	Action       string
-	UserIP       string
-	UserAgent    string
-	ExtraData    string
-	CreatedAt    time.Time
+	ID        uint
+	CardID    uint
+	CardTitle string
+	Action    string
+	UserIP    string
+	UserAgent string
+	ExtraData string
+	CreatedAt time.Time
 }
 
 // KuaishouCardStatsRepository 快手卡片统计仓库接口

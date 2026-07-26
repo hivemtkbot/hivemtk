@@ -91,7 +91,7 @@ func (r *statsRepository) GetAPIErrorCount(ctx context.Context, licenseID string
 
 // GetAverageResponseTime 获取平均响应时间
 // 注：PostgreSQL AVG() 返回 numeric，扫描到 int64 会因精度溢出失败。
-// 改用 float64 中间类型避免 SQLSTATE 22003/类型转换错误。
+// 使用 float64 中间类型避免 SQLSTATE 22003/类型转换错误。
 func (r *statsRepository) GetAverageResponseTime(ctx context.Context, licenseID string, startTime, endTime time.Time) (int64, error) {
 	var avgTime float64
 	err := r.db.WithContext(ctx).

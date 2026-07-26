@@ -40,19 +40,19 @@ const IntentConfigKey = "intent_recognition_config"
 
 // IntentConfig 意图识别配置（DB 持久化结构）
 type IntentConfig struct {
-	Enabled   bool   `json:"enabled"`             // 是否启用意图识别
+	Enabled   bool   `json:"enabled"`              // 是否启用意图识别
 	UpdatedAt string `json:"updated_at,omitempty"` // 更新时间（RFC3339）
 	UpdatedBy string `json:"updated_by,omitempty"` // 更新人
 }
 
 // IntentRecognizer 销售意图识别器
 type IntentRecognizer struct {
-	recordRepo        *repository.IntentRecordRepository
-	logRepo           *repository.IntentLogRepository
-	sopExecutionRepo  *repository.SopExecutionRepository
-	dispatcher        *llm.Dispatcher
-	cache             *redis.Client
-	sopService        *SOPService
+	recordRepo       *repository.IntentRecordRepository
+	logRepo          *repository.IntentLogRepository
+	sopExecutionRepo *repository.SopExecutionRepository
+	dispatcher       *llm.Dispatcher
+	cache            *redis.Client
+	sopService       *SOPService
 }
 
 // NewIntentRecognizer 创建意图识别器
@@ -471,8 +471,8 @@ func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID
 		CostTokens:      costTokens,
 		LatencyMs:       latencyMs,
 	}
-	// R6 修复：原 fire-and-forget goroutine 无 recover、无 ctx，panic 会杀进程，shutdown 无法取消。
-	// 改为：使用 context.Background()（异步落库不依赖请求生命周期）+ recover 防 panic + 错误日志。
+	// fire-and-forget goroutine 需 recover + ctx（避免 panic 杀进程，shutdown 可取消）。
+	// 使用 context.Background()（异步落库不依赖请求生命周期）+ recover 防 panic + 错误日志。
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

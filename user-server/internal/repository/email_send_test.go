@@ -32,7 +32,6 @@ func TestEmailSendRepository_Create(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name    string
 		email   *model.EmailSend
@@ -102,7 +101,6 @@ func TestEmailSendRepository_GetByID(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	email := &model.EmailSend{
 		To:      "getbyid@example.com",
@@ -156,7 +154,6 @@ func TestEmailSendRepository_List(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	for i := 1; i <= 5; i++ {
 		repo.Create(ctx, &model.EmailSend{
@@ -183,7 +180,6 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	email := &model.EmailSend{
 		To:      "delete@example.com",
@@ -209,7 +205,6 @@ func TestEmailSendRepository_Delete(t *testing.T) {
 func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	email := &model.EmailSend{
@@ -249,7 +244,6 @@ func TestEmailSendRepository_UpdateStatus(t *testing.T) {
 func TestEmailSendRepository_GetPendingEmails(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
-
 
 	// 创建待发送的邮件（发送时间在过去）
 	pastTime := time.Now().Add(-time.Hour)
@@ -317,7 +311,6 @@ func TestEmailSendRepository_GetPendingEmails_EmptyResult(t *testing.T) {
 func TestEmailSendRepository_GetByID_NotFound(t *testing.T) {
 	repo := setupEmailSendRepository(t)
 	ctx := context.Background()
-
 
 	_, err := repo.GetByID(ctx, uuid.New())
 	if err == nil {

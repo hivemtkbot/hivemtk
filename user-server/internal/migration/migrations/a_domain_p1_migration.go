@@ -1,15 +1,8 @@
 package migrations
 
-// a_domain_p1_migration.go A 域 P1 缺口修复占位（2026-07 阶段 1：单表化 system_users）
+// a_domain_p1_migration.go A 域 P1 缺口修复占位（v2.11.0 版本号占位，Up/Down 为 no-op）
 //
-// 原始职责：
-//   - team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段
-//
-// 阶段 1 重构：
-//   - team_users 表已 DROP（见 migrations/025_unify_system_users.sql）
-//   - data_scope 字段已在 system_users 表保留
-//   - 本文件保留 v2.11.0 版本号占位，避免破坏迁移历史记录
-//   - Up/Down 改为 no-op（不再对 team_users 做 DDL）
+// data_scope 字段保留在 system_users 表。
 
 import (
 	"context"
@@ -19,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ADomainP1Migration A 域 P1 缺口修复迁移（阶段 1：已并入 system_users，no-op）
+// ADomainP1Migration A 域 P1 缺口修复迁移（no-op）
 type ADomainP1Migration struct {
 	db *gorm.DB
 }

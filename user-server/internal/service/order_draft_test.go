@@ -129,7 +129,7 @@ func TestDraft_CreateFromIntent(t *testing.T) {
 // 商业产品级业务流：客户连续说"光子嫩肤 3 次 2280"、"我要光子嫩肤"
 //
 //	旧实现：每条消息创建一个草稿 → 销售看到 5 个相同草稿，困惑
-//	修复：去重到同一草稿，累加数量 / 提升置信度
+//	去重到同一草稿，累加数量 / 提升置信度
 func TestDraft_Deduplication(t *testing.T) {
 	_, _, _, extractor, _, draftSvc, _ := setupDraftEnv(t)
 	// 第一次意向

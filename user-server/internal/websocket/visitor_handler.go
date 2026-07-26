@@ -143,8 +143,8 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 // 鲁棒性加固（2026-07-22 方向B）：
 //   - 接受 sinceSeq 参数（query `since_seq` 或上行 `resume` 消息）
 //   - 拉取逻辑：
-//     - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
-//     - 否则：走原有 delivered_at IS NULL 兜底路径
+//   - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
+//   - 否则：走原有 delivered_at IS NULL 兜底路径
 //   - 双轨制：seq 路径精确但有窗口期（seq 重启后归零）；delivered_at 兜底
 func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx context.Context) {
 	if h.db == nil {

@@ -5,8 +5,8 @@ import (
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 
-	"gorm.io/gorm"
 	"context"
+	"gorm.io/gorm"
 )
 
 // CardListFilter 卡片列表查询过滤条件（repository 层本地定义，不依赖 dto）
@@ -61,14 +61,14 @@ func (r *douyinCardRepository) Update(ctx context.Context, card *model.DouyinCar
 
 	// 更新其他字段
 	if err := r.db.Model(&model.DouyinCard{}).Where("id = ?", card.ID).Updates(map[string]any{
-		"title":		card.Title,
-		"description":		card.Description,
-		"image_url":		card.ImageURL,
-		"redirect_url":		card.RedirectURL,
-		"domain_pool_id":	card.DomainPoolID,
-		"tags":			card.Tags,
-		"view_count":		card.ViewCount,
-		"is_active":		card.IsActive,
+		"title":          card.Title,
+		"description":    card.Description,
+		"image_url":      card.ImageURL,
+		"redirect_url":   card.RedirectURL,
+		"domain_pool_id": card.DomainPoolID,
+		"tags":           card.Tags,
+		"view_count":     card.ViewCount,
+		"is_active":      card.IsActive,
 	}).Error; err != nil {
 		return nil, fmt.Errorf("更新其他字段失败: %v", err)
 	}

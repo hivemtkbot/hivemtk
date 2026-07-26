@@ -361,7 +361,6 @@ func Setup(r *gin.Engine) {
 		auth.POST("/upload", controller.UploadFile)
 
 		// 工具链调试与可观测 API（P0 优化）
-		// 文档：docs/企业级架构优化/工具链注册调用机制调研论证.md §五 P0-2
 		// 端点：/api/agent/tools/{list,get,execute,stats,audit,cost,circuit/reset}
 		setupToolDebugRoutes(auth)
 

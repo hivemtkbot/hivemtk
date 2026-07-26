@@ -44,10 +44,10 @@ const (
 
 // LLMSelfCorrector LLM 自我矫正器
 type LLMSelfCorrector struct {
-	switchSvc      *SwitchService
-	actionRepo     repository.SelfCorrectionActionRepository
-	logRepo        repository.SelfLearningLogRepository
-	llmDispatcher  LLMDispatcher
+	switchSvc     *SwitchService
+	actionRepo    repository.SelfCorrectionActionRepository
+	logRepo       repository.SelfLearningLogRepository
+	llmDispatcher LLMDispatcher
 	// 最大反思迭代次数（默认 2，避免无限循环）
 	maxReflectionIterations int
 }
@@ -60,10 +60,10 @@ func NewLLMSelfCorrector(
 	llmDispatcher LLMDispatcher,
 ) *LLMSelfCorrector {
 	return &LLMSelfCorrector{
-		switchSvc:              switchSvc,
-		actionRepo:             actionRepo,
-		logRepo:                logRepo,
-		llmDispatcher:          llmDispatcher,
+		switchSvc:               switchSvc,
+		actionRepo:              actionRepo,
+		logRepo:                 logRepo,
+		llmDispatcher:           llmDispatcher,
 		maxReflectionIterations: defaultMaxReflectionIterations,
 	}
 }
@@ -100,11 +100,11 @@ func (l *LLMSelfCorrector) CorrectFromSignal(ctx context.Context, signal *model.
 // correctHallucination 幻觉矫正
 //
 // 流程（LangGraph Reflection 模式）：
-//   1. 提取原始 LLM 回复（从 signal.Detail 或重新生成）
-//   2. Critic 角色判定：是否包含幻觉？
-//   3. 若有幻觉，Generator 角色重新生成
-//   4. 最多迭代 maxReflectionIterations 次
-//   5. 写入 SelfCorrectionAction 审计
+//  1. 提取原始 LLM 回复（从 signal.Detail 或重新生成）
+//  2. Critic 角色判定：是否包含幻觉？
+//  3. 若有幻觉，Generator 角色重新生成
+//  4. 最多迭代 maxReflectionIterations 次
+//  5. 写入 SelfCorrectionAction 审计
 func (l *LLMSelfCorrector) correctHallucination(ctx context.Context, signal *model.SelfSupervisionSignal) error {
 	// 提取原始回复
 	originalReply := getStringFromMap(signal.Detail, "ai_reply")
@@ -161,23 +161,23 @@ func (l *LLMSelfCorrector) correctHallucination(ctx context.Context, signal *mod
 		autonomyLevel = snap.AutonomyLevel
 	}
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionLLMCorrection,
-		Scenario:      "llm",
-		TargetType:    "llm_reply",
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionLLMCorrection,
+		Scenario:     "llm",
+		TargetType:   "llm_reply",
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
-			"original_reply":  originalReply,
-			"customer_msg":    customerMsg,
-			"metric":          signal.MetricName,
-			"value":           signal.Value,
-			"threshold":       signal.Threshold,
+			"original_reply": originalReply,
+			"customer_msg":   customerMsg,
+			"metric":         signal.MetricName,
+			"value":          signal.Value,
+			"threshold":      signal.Threshold,
 		},
 		After: map[string]any{
-			"corrected_reply":  correctedReply,
-			"iterations":       iterationsUsed,
-			"final_critique":   lastCritique,
+			"corrected_reply": correctedReply,
+			"iterations":      iterationsUsed,
+			"final_critique":  lastCritique,
 		},
 		AutonomyLevel: autonomyLevel,
 		Operator:      "auto",
@@ -202,9 +202,9 @@ func (l *LLMSelfCorrector) correctHallucination(ctx context.Context, signal *mod
 // correctOffTopic 跑题矫正
 //
 // 流程：
-//   1. Critic 判定：AI 回复是否回应客户问题？
-//   2. 若跑题，重新生成聚焦客户问题的回复
-//   3. 迭代直至 critic 通过或达到最大迭代次数
+//  1. Critic 判定：AI 回复是否回应客户问题？
+//  2. 若跑题，重新生成聚焦客户问题的回复
+//  3. 迭代直至 critic 通过或达到最大迭代次数
 func (l *LLMSelfCorrector) correctOffTopic(ctx context.Context, signal *model.SelfSupervisionSignal) error {
 	originalReply := getStringFromMap(signal.Detail, "ai_reply")
 	customerMsg := getStringFromMap(signal.Detail, "customer_msg")
@@ -242,12 +242,12 @@ func (l *LLMSelfCorrector) correctOffTopic(ctx context.Context, signal *model.Se
 		autonomyLevel = snap.AutonomyLevel
 	}
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionLLMCorrection,
-		Scenario:      "llm",
-		TargetType:    "llm_reply",
-		TargetID:      signal.TargetID,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionLLMCorrection,
+		Scenario:     "llm",
+		TargetType:   "llm_reply",
+		TargetID:     signal.TargetID,
 		Before: map[string]any{
 			"original_reply": originalReply,
 			"customer_msg":   customerMsg,
@@ -373,14 +373,14 @@ func (l *LLMSelfCorrector) isOffTopic(critique string) bool {
 func (l *LLMSelfCorrector) recordSkippedAction(ctx context.Context, signal *model.SelfSupervisionSignal, reason string) error {
 	actionID := GenActionID(signal.SignalID, model.CorrectionLLMCorrection, signal.TargetID)
 	return l.actionRepo.Create(ctx, &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  signal.SignalID,
-		ActionType:    model.CorrectionLLMCorrection,
-		Scenario:      "llm",
-		TargetType:    "llm_reply",
-		TargetID:      signal.TargetID,
-		Operator:      "auto",
-		Reason:        reason,
-		Status:        model.CorrectionStatusSkipped,
+		ActionID:     actionID,
+		TriggerLogID: signal.SignalID,
+		ActionType:   model.CorrectionLLMCorrection,
+		Scenario:     "llm",
+		TargetType:   "llm_reply",
+		TargetID:     signal.TargetID,
+		Operator:     "auto",
+		Reason:       reason,
+		Status:       model.CorrectionStatusSkipped,
 	})
 }

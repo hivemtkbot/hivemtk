@@ -2,7 +2,9 @@
 //
 // 之所以独立成包（而非放在 testutil 内），是因为 testutil 被 migration/repository/db
 // 等包的测试文件反向 import，若 testutil 直接 import migration 会形成编译环：
-//   migrations(repo) test -> testutil -> migration -> repository -> db
+//
+//	migrations(repo) test -> testutil -> migration -> repository -> db
+//
 // 把迁移执行逻辑放到本独立包，由真正需要补齐列（embedding/emb_dimension/...）的
 // 知识库相关测试显式调用，即可在不引入循环依赖的前提下复用生产迁移。
 package testmigrate

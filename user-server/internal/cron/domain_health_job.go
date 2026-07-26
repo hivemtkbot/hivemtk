@@ -45,7 +45,7 @@ func (j *DomainHealthCheckJob) Start() {
 
 // runOnce 单次执行探测
 func (j *DomainHealthCheckJob) runOnce() {
-	results, err := j.healthSvc.CheckAll(context.Background(), )
+	results, err := j.healthSvc.CheckAll(context.Background())
 	if err != nil {
 		logger.Errorf("[domain-health] 探测失败: %v", err)
 		return

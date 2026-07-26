@@ -520,7 +520,6 @@ func TestSystemUserController_ResetPassword_Success(t *testing.T) {
 }
 
 // TestSystemUserController_CreateDefaultAdmin 测试创建默认管理员
-// 阶段 3 改造：原函数读取 config 默认密码（Admin@123456），已废弃。
 // 现行为：与 AuthController.InitAdmin 一致，强制调用方在请求体传 username/password/email。
 func TestSystemUserController_CreateDefaultAdmin(t *testing.T) {
 	setupTestControllerDB(t)
@@ -528,7 +527,7 @@ func TestSystemUserController_CreateDefaultAdmin(t *testing.T) {
 	router := setupGinEngine()
 	router.POST("/admin/init", ctrl.CreateDefaultAdmin)
 
-	// 阶段 3：新行为要求请求体携带 InitAdminRequest
+	// 请求体需携带 InitAdminRequest
 	createReq := map[string]string{
 		"username": "admin",
 		"password": "Admin@123456",

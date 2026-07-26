@@ -658,10 +658,10 @@ func (c *AuthController) InitAdmin(ctx *gin.Context) {
 
 // CreateDefaultAdmin 创建默认管理员账户（不需要认证，保留兼容旧前端）
 //
-// 阶段 3 改造（系统用户统一 plan v3.1 §3.2）：
+// 系统用户统一 plan v3.1 §3.2：
 //   - 函数名保留（避免破坏旧路由 / 测试 / 文档引用）
 //   - 函数体重写：不再读取 config.GetAdminConfig().DefaultAdmin 的硬编码密码，
-//     改为强制从请求体 InitAdminRequest 读取 username/password/email
+//     从请求体 InitAdminRequest 读取 username/password/email
 //   - 委派给 service.AuthService.InitAdmin（统一的强密码 / 唯一性 / install.lock 流程）
 //   - 路由 /api/system/create-default-admin 已从 public 中移除（见 admin_routes.go），
 //     但函数保留以便 init_guard 白名单 / 历史测试 / 第三方集成仍可调用

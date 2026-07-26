@@ -14,8 +14,7 @@
  *      axios 实例（如改用 fetch/ofetch），调用方零改动；而 `request` 直接暴露
  *      axios 实例，与 axios API 强耦合。
  *   3. 架构评审 P1-3 约定：`default` 导出仅作向后兼容，新增文件应使用 `{ http }`。
- *      ESLint `no-restricted-imports` 规则可约束新增文件不引入 default 导出
- *      （见 docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-3）。
+ *      ESLint `no-restricted-imports` 规则可约束新增文件不引入 default 导出。
  *
  * 历史背景：早期 api 文件混用两种风格（43 个文件用 default，39 个用 { http }），
  * 全量回归改造风险高、收益低；故仅以注释 + lint 规则约束新增，存量保持现状。

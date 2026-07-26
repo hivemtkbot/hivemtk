@@ -1,13 +1,14 @@
 // 工具:fix_ctx_errors
 // 严格修复 ctx 透传过程中的"误加 ctx"编译错误:
-//   1) sync.RWMutex / sync.Mutex 的方法(Lock/Unlock/RLock/RUnlock)
-//   2) WebSocketBroadcaster.PushReviewItem(无 ctx)
-//   3) EmbedderInterface 的方法(EmbedText/EmbedQuery/GetDimension,无 ctx)
+//  1. sync.RWMutex / sync.Mutex 的方法(Lock/Unlock/RLock/RUnlock)
+//  2. WebSocketBroadcaster.PushReviewItem(无 ctx)
+//  3. EmbedderInterface 的方法(EmbedText/EmbedQuery/GetDimension,无 ctx)
 //
 // 不处理 gorm.DB 字段(由 fix_sdb_withctx 工具保证 WithContext 链式)。
 //
 // 用法:
-//   go run scripts/fix_ctx_errors/main.go
+//
+//	go run scripts/fix_ctx_errors/main.go
 package main
 
 import (
@@ -219,9 +220,9 @@ func isMutexField(name string, types map[string]string) bool {
 }
 
 // extractFieldName 从表达式中提取最右侧的字段名
-//  - *ast.Ident → 名字
-//  - *ast.SelectorExpr → 右侧字段名
-//  - 其他 → ""
+//   - *ast.Ident → 名字
+//   - *ast.SelectorExpr → 右侧字段名
+//   - 其他 → ""
 func extractFieldName(e ast.Expr) string {
 	switch v := e.(type) {
 	case *ast.Ident:

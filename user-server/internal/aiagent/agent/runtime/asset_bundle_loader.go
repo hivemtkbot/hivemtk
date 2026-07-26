@@ -32,20 +32,20 @@ import (
 // 实现 AssetLoader 接口（dataflow_orchestrator.go）
 type AssetBundleLoader struct {
 	weave    portcontract.AssetBundleWeavePort // 调用 service.WeaveForRequest
-	history  portcontract.ChatHistoryPort     // 拉取活跃会话历史
-	search   portcontract.KnowledgeSearchPort // 商户本地 RAG 检索
-	defaults LoaderDefaults                   // 默认配置
+	history  portcontract.ChatHistoryPort      // 拉取活跃会话历史
+	search   portcontract.KnowledgeSearchPort  // 商户本地 RAG 检索
+	defaults LoaderDefaults                    // 默认配置
 }
 
 // LoaderDefaults 加载器默认配置
 type LoaderDefaults struct {
-	AssetID           string            // 默认资产包（agentCtx 缺失时使用）
-	HistoryLimit      int               // 历史消息最大条数（默认 10）
-	RAGTopK           int               // RAG 检索 topK（默认 5）
-	MerchantVars      map[string]string // 默认商户参数（agentCtx 缺失时使用）
-	StripFewShotJSON  bool              // 是否剥离 Few-Shot JSON 尾巴
-	IncludeMerchantVars bool            // 是否注入商户参数
-	RAGPosition       string            // after_system / after_fewshots
+	AssetID             string            // 默认资产包（agentCtx 缺失时使用）
+	HistoryLimit        int               // 历史消息最大条数（默认 10）
+	RAGTopK             int               // RAG 检索 topK（默认 5）
+	MerchantVars        map[string]string // 默认商户参数（agentCtx 缺失时使用）
+	StripFewShotJSON    bool              // 是否剥离 Few-Shot JSON 尾巴
+	IncludeMerchantVars bool              // 是否注入商户参数
+	RAGPosition         string            // after_system / after_fewshots
 }
 
 // NewAssetBundleLoader 创建资产包加载器
@@ -122,10 +122,10 @@ func (l *AssetBundleLoader) LoadContext(ctx context.Context, payload CustomerMes
 
 	// 5. 调用 WeaveForRequest
 	weaveReq := portcontract.WeaveRequestPort{
-		AssetID:     assetID,
-		UserQuery:   payload.Content,
-		RAGDocs:     ragDocs,
-		ChatHistory: history,
+		AssetID:      assetID,
+		UserQuery:    payload.Content,
+		RAGDocs:      ragDocs,
+		ChatHistory:  history,
 		MerchantVars: merchantVars,
 		Options: portcontract.WeaveOptionsPort{
 			RAGPosition:         l.defaults.RAGPosition,

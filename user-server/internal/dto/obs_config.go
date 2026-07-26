@@ -3,8 +3,6 @@ package dto
 import "time"
 
 // ObsConfigRequest OBS配置请求
-//
-// 开源版：已移除 LicenseID 字段（License 模型已删除，授权流程下线）。
 type CreateObsConfigRequest struct {
 	Name       string `json:"name" binding:"required"`
 	Provider   string `json:"provider" binding:"required,oneof=aliyun qiniu tencent aws local"`
@@ -36,8 +34,6 @@ type UpdateObsConfigRequest struct {
 }
 
 // ObsConfigResponse OBS配置响应
-//
-// 开源版：已移除 LicenseID 字段。
 type ObsConfigResponse struct {
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`

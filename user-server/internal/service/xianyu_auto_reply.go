@@ -90,7 +90,7 @@ func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.Aut
 
 // SaveCookies 保存闲鱼账号 Cookie
 //
-// R8 修复：新增 userID 参数并校验账号所有权，防止 IDOR。
+// 新增 userID 参数并校验账号所有权，防止 IDOR。
 func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	// 获取现有的账号记录
 	account, err := s.accountRepo.GetByID(ctx, id)

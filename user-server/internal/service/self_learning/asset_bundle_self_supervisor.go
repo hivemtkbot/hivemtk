@@ -64,12 +64,12 @@ const (
 	assetABTestConvergedWeight = 1.0
 
 	// 状态判定参数
-	complaintWarningRatio = 0.7  // 投诉率告警阈值比例（value > threshold*0.7 → warning）
-	metricAlertRatio      = 0.5  // 普通指标告警阈值比例（value < threshold*0.5 → alert）
-	signalBaseline        = 0.5  // 信号基线值
+	complaintWarningRatio = 0.7 // 投诉率告警阈值比例（value > threshold*0.7 → warning）
+	metricAlertRatio      = 0.5 // 普通指标告警阈值比例（value < threshold*0.5 → alert）
+	signalBaseline        = 0.5 // 信号基线值
 
 	// 采集值默认参数
-	adoptionDefault         = 0.5
+	adoptionDefault          = 0.5
 	adoptionChampionAndAdopt = 0.95
 	adoptionChampionOnly     = 0.85
 	adoptionAdoptOnly        = 0.75
@@ -88,13 +88,13 @@ const (
 
 // AssetBundleSelfSupervisor 资产包自我监督器
 type AssetBundleSelfSupervisor struct {
-	switchSvc     *SwitchService
-	signalRepo    repository.SelfSupervisionSignalRepository
-	logRepo       repository.SelfLearningLogRepository
-	actionRepo    repository.SelfCorrectionActionRepository
-	abTestRepo    repository.AssetBundleABTestRepository
-	assetRepo     AssetBundleRepository
-	dispatcher    *SelfCorrectionDispatcher
+	switchSvc  *SwitchService
+	signalRepo repository.SelfSupervisionSignalRepository
+	logRepo    repository.SelfLearningLogRepository
+	actionRepo repository.SelfCorrectionActionRepository
+	abTestRepo repository.AssetBundleABTestRepository
+	assetRepo  AssetBundleRepository
+	dispatcher *SelfCorrectionDispatcher
 
 	// 资产包指标阈值（从开关读取，初始化时取默认值）
 	// 注意：asset_complaint 越低越好，threshold 为上限
@@ -115,13 +115,13 @@ func NewAssetBundleSelfSupervisor(
 	dispatcher *SelfCorrectionDispatcher,
 ) *AssetBundleSelfSupervisor {
 	return &AssetBundleSelfSupervisor{
-		switchSvc:             switchSvc,
-		signalRepo:            signalRepo,
-		logRepo:               logRepo,
-		actionRepo:            actionRepo,
-		abTestRepo:            abTestRepo,
-		assetRepo:             assetRepo,
-		dispatcher:            dispatcher,
+		switchSvc:  switchSvc,
+		signalRepo: signalRepo,
+		logRepo:    logRepo,
+		actionRepo: actionRepo,
+		abTestRepo: abTestRepo,
+		assetRepo:  assetRepo,
+		dispatcher: dispatcher,
 		defaultThresholds: map[string]float64{
 			model.SupervisionMetricAssetAdoption:   defaultThresholdAssetAdoption,
 			model.SupervisionMetricAssetConversion: defaultThresholdAssetConversion,
@@ -144,11 +144,11 @@ func NewAssetBundleSelfSupervisor(
 // 输出：每个 asset_id 写入 5 个 SupervisionSignal
 //
 // 采集策略：
-//   1. asset_adoption      基于 signal_breakdown.champion_mark / script_adopt 信号
-//   2. asset_conversion    基于 outcome=converted
-//   3. asset_complaint     基于 signal_breakdown.complaint / dislike 信号
-//   4. asset_freshness     基于资产包 updated_at 与当前时间差（指数衰减）
-//   5. asset_ab_converge   基于 asset_id 关联的 A/B 实验状态（converged 比例）
+//  1. asset_adoption      基于 signal_breakdown.champion_mark / script_adopt 信号
+//  2. asset_conversion    基于 outcome=converted
+//  3. asset_complaint     基于 signal_breakdown.complaint / dislike 信号
+//  4. asset_freshness     基于资产包 updated_at 与当前时间差（指数衰减）
+//  5. asset_ab_converge   基于 asset_id 关联的 A/B 实验状态（converged 比例）
 func (s *AssetBundleSelfSupervisor) CollectMetrics(ctx context.Context, payload *event.DialogueEndedPayload) error {
 	if payload == nil {
 		return fmt.Errorf("payload is nil")
@@ -241,9 +241,9 @@ func (s *AssetBundleSelfSupervisor) CollectMetrics(ctx context.Context, payload 
 // ScanAlerts 扫描资产包告警（每小时）
 //
 // 行为：
-//   1. 查询最近 1h 的 warning/alert 资产包信号
-//   2. 对 alert 状态的信号，触发 SelfCorrectionDispatcher 派发修复
-//   3. 写入 self_learning_logs（scenario=asset_supervision）
+//  1. 查询最近 1h 的 warning/alert 资产包信号
+//  2. 对 alert 状态的信号，触发 SelfCorrectionDispatcher 派发修复
+//  3. 写入 self_learning_logs（scenario=asset_supervision）
 func (s *AssetBundleSelfSupervisor) ScanAlerts(ctx context.Context) (int, error) {
 	snap, err := s.switchSvc.GetStatus(ctx)
 	if err != nil {

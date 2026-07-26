@@ -55,11 +55,11 @@ func NewSelfLearningCron(orchestrator *selflearning.Orchestrator) *SelfLearningC
 // Stop 停止所有 cron
 //
 // 优雅退出设计：
-//   1. close(stopCh) 通知所有 goroutine 退出
-//   2. 启动后台 goroutine 等待所有 wg 完成
-//   3. 主流程 select 在 {wg 完成} 和 {ctx 超时/取消} 上二选一：
-//        - wg 先完成：正常优雅退出，所有协程已清理
-//        - ctx 先到期：强制返回，避免调用方长时间阻塞（可能有协程泄漏）
+//  1. close(stopCh) 通知所有 goroutine 退出
+//  2. 启动后台 goroutine 等待所有 wg 完成
+//  3. 主流程 select 在 {wg 完成} 和 {ctx 超时/取消} 上二选一：
+//     - wg 先完成：正常优雅退出，所有协程已清理
+//     - ctx 先到期：强制返回，避免调用方长时间阻塞（可能有协程泄漏）
 //
 // 注意：ctx 到期时仍有 goroutine 在运行，调用方应保证 ctx 的 timeout 足够长
 // （建议 ≥ 30s，覆盖单个 cron 任务的最坏执行时间）。
@@ -97,9 +97,9 @@ func (c *SelfLearningCron) Stop(ctx context.Context) {
 // runHourly 每小时触发一次
 //
 // 触发 Orchestrator.OnCronHourly：
-//   1. SwitchService.EvaluateCircuit - 熔断器评估
-//   2. RAGSelfSupervisor.ScanAlerts - RAG 监督告警扫描 + 派发修复
-//   3. AssetBundleSelfSupervisor.ScanAlerts - 资产包监督告警扫描 + 派发修复
+//  1. SwitchService.EvaluateCircuit - 熔断器评估
+//  2. RAGSelfSupervisor.ScanAlerts - RAG 监督告警扫描 + 派发修复
+//  3. AssetBundleSelfSupervisor.ScanAlerts - 资产包监督告警扫描 + 派发修复
 func (c *SelfLearningCron) runHourly(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(1 * time.Hour)
@@ -132,9 +132,9 @@ func (c *SelfLearningCron) triggerHourly(ctx context.Context) {
 // runSixHourly 每 6 小时触发一次
 //
 // 触发 Orchestrator.OnCronSixHours：
-//   1. AssetBundleLearner.ClusterCandidates - 候选聚类升级
-//   2. AssetBundleLearner.CheckConvergence - A/B 收敛检查
-//   3. SwitchService.EvaluateCircuit - 熔断器评估
+//  1. AssetBundleLearner.ClusterCandidates - 候选聚类升级
+//  2. AssetBundleLearner.CheckConvergence - A/B 收敛检查
+//  3. SwitchService.EvaluateCircuit - 熔断器评估
 func (c *SelfLearningCron) runSixHourly(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(6 * time.Hour)
@@ -165,8 +165,8 @@ func (c *SelfLearningCron) triggerSixHourly(ctx context.Context) {
 // runDaily 每日 0 点触发
 //
 // 触发 Orchestrator.OnCronDaily：
-//   1. SwitchService.ResetDailyCounters - 重置每日计数器
-//   2. AssetBundleLearner.DegradeInactiveAssets - 降级不活跃资产包
+//  1. SwitchService.ResetDailyCounters - 重置每日计数器
+//  2. AssetBundleLearner.DegradeInactiveAssets - 降级不活跃资产包
 func (c *SelfLearningCron) runDaily(ctx context.Context) {
 	defer c.wg.Done()
 	for {

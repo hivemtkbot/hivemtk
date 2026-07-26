@@ -252,18 +252,50 @@ fi
 # 禁止 _controller.go / _service.go / _repository.go / _dto.go 等冗余后缀
 # (这些后缀与包名重复, Go 社区惯例 + 本项目架构文档均要求裸 <domain>.go)
 LAYER_SUFFIX_VIOLATIONS=0
-for layer in controller service repository dto; do
-  if [ ! -d "$TARGET/internal/$layer" ]; then
-    continue
-  fi
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    log_fail "[命名] $layer 文件含冗余后缀(_${layer}.go): $f"
-    LAYER_SUFFIX_VIOLATIONS=$((LAYER_SUFFIX_VIOLATIONS+1))
-  done < <(find "$TARGET/internal/$layer" \( -name "*_${layer}.go" -o -name "*_${layer}_test.go" \) 2>/dev/null)
-done
+# 扫描 internal/ 下所有 _controller.go / _service.go / _repository.go / _dto.go 文件,
+# 不限制所在目录名(因 aiagent/llm/、rag/customer_service/ 等非标准层目录也可能含违规)。
+# 架构文档 §2.2: 文件统一命名为 <domain>.go, 后缀与包名重复属冗余。
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # 推断层级(从文件名后缀)
+  layer=$(echo "$f" | sed -E 's/.*\/([^/]+)_(controller|service|repository|dto)(_test)?\.go$/\2/')
+  log_fail "[命名] $layer 文件含冗余后缀(_${layer}.go): $f"
+  LAYER_SUFFIX_VIOLATIONS=$((LAYER_SUFFIX_VIOLATIONS+1))
+done < <(find "$TARGET/internal" \( \
+  -name "*_controller.go" -o -name "*_controller_test.go" \
+  -o -name "*_service.go" -o -name "*_service_test.go" \
+  -o -name "*_repository.go" -o -name "*_repository_test.go" \
+  -o -name "*_dto.go" -o -name "*_dto_test.go" \
+  \) 2>/dev/null)
 if [ $LAYER_SUFFIX_VIOLATIONS -eq 0 ]; then
   log_pass "[命名] controller/service/repository/dto 无冗余后缀"
+fi
+
+# 检测源文件被误命名为 *_test.go(Go 工具链会将其视为测试文件,导致生产代码无法编译)
+# 判定标准(同时满足才报告,避免误报测试辅助文件):
+#   1. 文件含源代码注释标记(如 "// 五层架构归属" 或 "// <name>.go 业务" 风格)
+#   2. 文件含导出函数 (func [A-Z]...)
+#   3. 文件不含任何 Test/Benchmark/Example 函数
+TEST_NAMING_VIOLATIONS=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # 含 Test/Benchmark/Example 函数 -> 合法测试文件
+  if grep -Eq "^func (Test|Benchmark|Example)[A-Z_]" "$f" 2>/dev/null; then
+    continue
+  fi
+  # 不含源码注释标记 -> 可能是测试辅助文件,跳过
+  if ! grep -Eq "五层架构归属|^// [a-z_]+\.go" "$f" 2>/dev/null; then
+    continue
+  fi
+  # 不含导出函数 -> 可能是测试辅助,跳过
+  if ! grep -Eq "^func [A-Z]" "$f" 2>/dev/null; then
+    continue
+  fi
+  log_fail "[命名] 源文件被误命名为 _test.go(Go 工具链视为测试文件): $f"
+  TEST_NAMING_VIOLATIONS=$((TEST_NAMING_VIOLATIONS+1))
+done < <(find "$TARGET/internal" -name "*_test.go" 2>/dev/null)
+if [ $TEST_NAMING_VIOLATIONS -eq 0 ]; then
+  log_pass "[命名] 无源文件误命名为 _test.go"
 fi
 
 # -----------------------------------------------------------------------------

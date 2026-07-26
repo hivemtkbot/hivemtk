@@ -21,7 +21,7 @@ type Hub struct {
 // envelopeFrame hub 内部帧（agentID + 已序列化的 Envelope 字节）
 //
 // 设计动机：原 broadcast chan 承载 *Message，要求 hub 重新组装 Envelope。
-// 改为承载 *envelopeFrame 后，hub 只做"按 agentID 路由"职责，
+// hub 承载 *envelopeFrame，只做"按 agentID 路由"职责，
 // seq / 序列化 / ACK 跟踪全部由调用方（notify.go / hub.Broadcast）完成。
 type envelopeFrame struct {
 	agentID string

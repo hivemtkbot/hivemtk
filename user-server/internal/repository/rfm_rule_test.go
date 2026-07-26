@@ -36,7 +36,6 @@ func TestRFMRuleRepository_Create(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	tests := []struct {
 		name    string
 		rule    *model.RFMRule
@@ -102,7 +101,6 @@ func TestRFMRuleRepository_GetByID(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	rule := &model.RFMRule{
 		Name:     "GetByID Rule",
@@ -148,7 +146,6 @@ func TestRFMRuleRepository_GetActiveRule(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	ruleRepo.Create(ctx, &model.RFMRule{
 		Name:     "Active Rule",
@@ -176,7 +173,6 @@ func TestRFMRuleRepository_GetActiveRule(t *testing.T) {
 func TestRFMRuleRepository_Update(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	rule := &model.RFMRule{
@@ -207,7 +203,6 @@ func TestRFMRuleRepository_Delete(t *testing.T) {
 	_, ruleRepo, _ := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	rule := &model.RFMRule{
 		Name:     "Delete Rule",
@@ -230,7 +225,6 @@ func TestRFMRuleRepository_Delete(t *testing.T) {
 func TestUserRFMRepository_Create(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	tests := []struct {
 		name    string
@@ -281,7 +275,6 @@ func TestUserRFMRepository_GetByUserID(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	rfm := &model.UserRFM{
 		UserID:     100,
@@ -331,7 +324,6 @@ func TestUserRFMRepository_GetByUserID(t *testing.T) {
 func TestUserRFMRepository_GetByLayer(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建测试数据
 	layers := []string{"important_value", "important_value", "general_value", "general_keep", "important_value"}
@@ -408,7 +400,6 @@ func TestUserRFMRepository_GetLayerCount(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	layers := map[string]int{
 		"important_value": 3,
@@ -452,7 +443,6 @@ func TestUserRFMRepository_DeleteByUserID(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
 
-
 	// 创建测试数据
 	rfm := &model.UserRFM{
 		UserID:     100,
@@ -479,7 +469,6 @@ func TestUserRFMRepository_DeleteByUserID(t *testing.T) {
 func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	// 先创建一条记录
 	existingRFM := &model.UserRFM{
@@ -537,7 +526,6 @@ func TestUserRFMRepository_BatchUpsert(t *testing.T) {
 func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 	database, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建一个需要更新的用户（100 天前的更新时间）
 	oldRFM := &model.UserRFM{
@@ -615,7 +603,6 @@ func TestUserRFMRepository_GetNeedUpdateUsers(t *testing.T) {
 func TestUserRFMRepository_GetNeedUpdateUsers_EmptyResult(t *testing.T) {
 	_, _, userRepo := setupRFMRuleRepositories(t)
 	ctx := context.Background()
-
 
 	// 创建所有用户都是最近更新的
 	for i := 1; i <= 3; i++ {

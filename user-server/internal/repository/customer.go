@@ -197,11 +197,11 @@ func (r *customerRepository) CountNotEmpty(ctx context.Context, fieldName string
 	var n int64
 	// 列名直接拼接：仅允许白名单字段（防 SQL 注入）
 	allowed := map[string]bool{
-		"phone":           true,
-		"email":           true,
-		"wechat_open_id":  true,
-		"douyin_open_id":  true,
-		"xiaohongshu_id":  true,
+		"phone":          true,
+		"email":          true,
+		"wechat_open_id": true,
+		"douyin_open_id": true,
+		"xiaohongshu_id": true,
 	}
 	if !allowed[fieldName] {
 		return 0, nil
@@ -224,7 +224,7 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 		"(CASE WHEN xiaohongshu_id IS NOT NULL AND xiaohongshu_id <> '' THEN 1 ELSE 0 END)"
 	var n int64
 	if err := _db.GetDB().WithContext(ctx).Raw(
-		"SELECT COUNT(*) FROM customers WHERE "+expr+" >= 2",
+		"SELECT COUNT(*) FROM customers WHERE " + expr + " >= 2",
 	).Scan(&n).Error; err != nil {
 		return 0, err
 	}

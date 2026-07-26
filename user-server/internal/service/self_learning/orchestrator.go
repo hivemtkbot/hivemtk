@@ -56,8 +56,8 @@ type Orchestrator struct {
 	wg            sync.WaitGroup
 
 	// 运行状态
-	running atomic.Bool
-	stopCh  chan struct{}
+	running  atomic.Bool
+	stopCh   chan struct{}
 	stopOnce sync.Once
 
 	// 统计（仅供看板展示）
@@ -205,10 +205,10 @@ func (o *Orchestrator) onDialogueStarted(payload *event.DialogueStartedPayload) 
 //
 // 触发：对话结束（status=closed/resolved）
 // 动作：
-//   1. RAGSelfCorrector.Reflect - RAG 反思（销冠补录 / 低质标记）
-//   2. AssetBundleLearner.GenerateCandidate - 资产包候选生成（若 reward ≥ 阈值）
-//   3. RAGSelfSupervisor.CollectMetrics - RAG 5 维监督指标采集
-//   4. AssetBundleSelfSupervisor.CollectMetrics - 资产包 5 维专属监督指标采集
+//  1. RAGSelfCorrector.Reflect - RAG 反思（销冠补录 / 低质标记）
+//  2. AssetBundleLearner.GenerateCandidate - 资产包候选生成（若 reward ≥ 阈值）
+//  3. RAGSelfSupervisor.CollectMetrics - RAG 5 维监督指标采集
+//  4. AssetBundleSelfSupervisor.CollectMetrics - 资产包 5 维专属监督指标采集
 //
 // 四个动作可并发执行，但都受信号量限流
 func (o *Orchestrator) onDialogueEnded(payload *event.DialogueEndedPayload) {
@@ -299,9 +299,9 @@ func (o *Orchestrator) onAssetDegraded(payload *event.AssetDegradedPayload) {
 // OnCronSixHours 每 6 小时定时任务
 //
 // 由 cron 调度器调用，触发：
-//   1. AssetBundleLearner.ClusterCandidates - 候选聚类升级
-//   2. AssetBundleLearner.CheckConvergence - A/B 收敛检查
-//   3. SwitchService.EvaluateCircuit - 熔断器评估
+//  1. AssetBundleLearner.ClusterCandidates - 候选聚类升级
+//  2. AssetBundleLearner.CheckConvergence - A/B 收敛检查
+//  3. SwitchService.EvaluateCircuit - 熔断器评估
 func (o *Orchestrator) OnCronSixHours(ctx context.Context) {
 	if !o.running.Load() {
 		return
@@ -333,9 +333,9 @@ func (o *Orchestrator) OnCronSixHours(ctx context.Context) {
 // OnCronDaily 每日定时任务（0 点）
 //
 // 触发：
-//   1. SwitchService.ResetDailyCounters - 重置每日计数器
-//   2. AssetBundleLearner.DegradeInactiveAssets - 降级不活跃资产包
-//   3. CleanStaleLogs - 清理 7 天前的 failed/running 日志（孤儿数据治理）
+//  1. SwitchService.ResetDailyCounters - 重置每日计数器
+//  2. AssetBundleLearner.DegradeInactiveAssets - 降级不活跃资产包
+//  3. CleanStaleLogs - 清理 7 天前的 failed/running 日志（孤儿数据治理）
 func (o *Orchestrator) OnCronDaily(ctx context.Context) {
 	if !o.running.Load() {
 		return
@@ -369,9 +369,9 @@ func (o *Orchestrator) OnCronDaily(ctx context.Context) {
 // OnCronHourly 每小时定时任务
 //
 // 触发：
-//   1. SwitchService.EvaluateCircuit - 熔断器评估（更频繁）
-//   2. RAGSelfSupervisor.ScanAlerts - RAG 监督告警扫描 + 派发修复
-//   3. AssetBundleSelfSupervisor.ScanAlerts - 资产包监督告警扫描 + 派发修复
+//  1. SwitchService.EvaluateCircuit - 熔断器评估（更频繁）
+//  2. RAGSelfSupervisor.ScanAlerts - RAG 监督告警扫描 + 派发修复
+//  3. AssetBundleSelfSupervisor.ScanAlerts - 资产包监督告警扫描 + 派发修复
 func (o *Orchestrator) OnCronHourly(ctx context.Context) {
 	if !o.running.Load() {
 		return
@@ -459,13 +459,13 @@ func debugStack() string {
 
 // OrchestratorStats 调度器统计
 type OrchestratorStats struct {
-	Running       bool   `json:"running"`
-	MaxConcurrent int    `json:"max_concurrent"`
-	Started       int64  `json:"started"`
-	Success       int64  `json:"success"`
-	Failed        int64  `json:"failed"`
-	Skipped       int64  `json:"skipped"`
-	InFlight      int64  `json:"in_flight"`
+	Running       bool  `json:"running"`
+	MaxConcurrent int   `json:"max_concurrent"`
+	Started       int64 `json:"started"`
+	Success       int64 `json:"success"`
+	Failed        int64 `json:"failed"`
+	Skipped       int64 `json:"skipped"`
+	InFlight      int64 `json:"in_flight"`
 }
 
 // GetStats 获取统计

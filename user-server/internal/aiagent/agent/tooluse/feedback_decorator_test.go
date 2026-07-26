@@ -188,14 +188,14 @@ func (s *slowFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEve
 
 func TestSanitizeArgsForFeedback_SensitiveFields(t *testing.T) {
 	args := map[string]any{
-		"username": "alice",
-		"password": "secret123",
-		"token":    "abc-xyz",
-		"api_key":  "key-001",
-		"phone":    "13800138000",
-		"id_card":  "110101199001011234",
+		"username":  "alice",
+		"password":  "secret123",
+		"token":     "abc-xyz",
+		"api_key":   "key-001",
+		"phone":     "13800138000",
+		"id_card":   "110101199001011234",
 		"bank_card": "6225880123456789",
-		"data":     "normal_value",
+		"data":      "normal_value",
 	}
 
 	sanitized := sanitizeArgsForFeedback(args)

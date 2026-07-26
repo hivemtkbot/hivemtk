@@ -154,7 +154,7 @@ func (r *localAssetRepo) AdvanceReportedUseCount(ctx context.Context, id int64, 
 		UpdateColumn("reported_use_count", gorm.Expr("reported_use_count + ?", delta)).Error
 }
 
-// SetReportedUseCountIfMatch 旧 CAS 接口（已废弃）
+// SetReportedUseCountIfMatch 旧 CAS 接口
 //
 // 警告：当 use_count 被并发 IncrementUseCount 推进后，
 // CAS WHERE 条件不命中，reported_use_count 不前进，上报闭环破裂。

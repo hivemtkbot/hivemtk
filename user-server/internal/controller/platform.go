@@ -50,7 +50,7 @@ func (pc *PlatformController) platformCall(c *gin.Context, method, path string, 
 	}
 
 	if err := pc.platformClient.Do(method, path, req, resp); err != nil {
-		// R2 修复：按结构化 *platform.PlatformError 的状态码分支，废弃脆弱的
+		// 按结构化 *platform.PlatformError 的状态码分支，废弃脆弱的
 		// strings.Contains(err, "404"/"400") 字符串匹配。
 		if perr, ok := err.(*platform.PlatformError); ok {
 			switch perr.StatusCode {

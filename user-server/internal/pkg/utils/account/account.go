@@ -35,7 +35,7 @@ var (
 func InitAllAccount() error {
 	accountSer := service.NewAccountService()
 
-	accountList, err := accountSer.GetAccountList(context.Background(), )
+	accountList, err := accountSer.GetAccountList(context.Background())
 	if err != nil {
 		return err
 	}
@@ -151,14 +151,14 @@ func handleUpdate(account accountData, update tgbotapi.Update) {
 
 	if update.Message != nil && update.Message.Chat.IsPrivate() { // 只处理私聊信息
 		if update.Message.IsCommand() {
-		switch update.Message.Command() {
-		case "start": //start
-			msgText := BuildAccountStartNoticeMsg(account.AccountName)
-			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-		default:
-			msgText := BuildAccountStartNoticeMsg(account.AccountName)
-			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
-		}
+			switch update.Message.Command() {
+			case "start": //start
+				msgText := BuildAccountStartNoticeMsg(account.AccountName)
+				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
+			default:
+				msgText := BuildAccountStartNoticeMsg(account.AccountName)
+				tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)
+			}
 		} else {
 			msgText := BuildAccountStartNoticeMsg(account.AccountName)
 			tgbot.SendTgMsg(account.Bot, msgText, update.Message.Chat.ID)

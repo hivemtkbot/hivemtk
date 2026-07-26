@@ -65,15 +65,15 @@ const (
 
 // AssetBundleLearner 资产包自我学习器
 type AssetBundleLearner struct {
-	switchSvc         *SwitchService
-	candidateRepo     repository.AssetBundleCandidateRepository
-	abTestRepo        repository.AssetBundleABTestRepository
-	logRepo           repository.SelfLearningLogRepository
-	actionRepo        repository.SelfCorrectionActionRepository
-	assetBundleRepo   AssetBundleRepository
-	championAnalyzer  ChampionAnalyzer
-	banditAllocator   BanditAllocator
-	publisher         *DialogueEventPublisher
+	switchSvc        *SwitchService
+	candidateRepo    repository.AssetBundleCandidateRepository
+	abTestRepo       repository.AssetBundleABTestRepository
+	logRepo          repository.SelfLearningLogRepository
+	actionRepo       repository.SelfCorrectionActionRepository
+	assetBundleRepo  AssetBundleRepository
+	championAnalyzer ChampionAnalyzer
+	banditAllocator  BanditAllocator
+	publisher        *DialogueEventPublisher
 
 	// 聚类阈值：相似度 ≥ 此值视为同一簇
 	clusterSimilarityThreshold float64
@@ -119,10 +119,10 @@ func NewAssetBundleLearner(
 //
 // 触发：dialogue.ended 事件，reward ≥ champion_reward_threshold
 // 行为：
-//   1. 通过 ChampionAnalyzer 提取话术（若已分析过则从 cache 返回）
-//   2. 将话术打包为 OpenAI ChatML messages
-//   3. 写入 asset_bundle_candidates(status=candidate)
-//   4. 累加 source_session_ids 与 reward_sum
+//  1. 通过 ChampionAnalyzer 提取话术（若已分析过则从 cache 返回）
+//  2. 将话术打包为 OpenAI ChatML messages
+//  3. 写入 asset_bundle_candidates(status=candidate)
+//  4. 累加 source_session_ids 与 reward_sum
 func (l *AssetBundleLearner) GenerateCandidate(ctx context.Context, payload *event.DialogueEndedPayload) (*CandidateGenerationResult, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("payload is nil")
@@ -254,12 +254,12 @@ func (l *AssetBundleLearner) GenerateCandidate(ctx context.Context, payload *eve
 	}
 
 	return &CandidateGenerationResult{
-		CandidateID: candidateID,
-		SourceCount: 1,
-		RewardSum:   payload.AggregatedReward,
+		CandidateID:  candidateID,
+		SourceCount:  1,
+		RewardSum:    payload.AggregatedReward,
 		ClusterCount: 0,
-		Status:      "candidate",
-		GeneratedAt: time.Now(),
+		Status:       "candidate",
+		GeneratedAt:  time.Now(),
 	}, nil
 }
 
@@ -271,11 +271,11 @@ func (l *AssetBundleLearner) GenerateCandidate(ctx context.Context, payload *eve
 //
 // 触发：cron.6h 事件
 // 行为：
-//   1. 查询近 7 天 status=candidate 的候选
-//   2. 按 scenario 分组
-//   3. 在每个 scenario 内，使用 pgvector 相似度聚类（简化为基于话术关键词重合度）
-//   4. 簇大小 ≥ clusterMinSize → 创建 AssetBundleABTest
-//   5. 候选状态升级为 ab_testing
+//  1. 查询近 7 天 status=candidate 的候选
+//  2. 按 scenario 分组
+//  3. 在每个 scenario 内，使用 pgvector 相似度聚类（简化为基于话术关键词重合度）
+//  4. 簇大小 ≥ clusterMinSize → 创建 AssetBundleABTest
+//  5. 候选状态升级为 ab_testing
 //
 // 简化实现：使用文本相似度（Jaccard）替代 pgvector，避免依赖 ChampionDialogue 的 embedding
 // 后续可扩展为基于 ChampionDialogue.Embedding 字段做 pgvector 余弦相似度
@@ -409,13 +409,13 @@ func (l *AssetBundleLearner) ClusterCandidates(ctx context.Context) (int, error)
 //
 // 触发：cron.6h 事件
 // 行为：
-//   1. 查询所有 status=running 的实验
-//   2. 通过 BanditAllocator.CheckConvergence 判定
-//   3. 已收敛 → 写入 winner_arm，状态置为 converged
-//   4. converged 状态的实验 → 根据 autonomy_level：
-//        autonomous → 自动 promote/rollback + 写审计
-//        supervised → 写 SelfCorrectionAction(status=pending) 待人工确认
-//        manual     → 不处理（仅记录日志）
+//  1. 查询所有 status=running 的实验
+//  2. 通过 BanditAllocator.CheckConvergence 判定
+//  3. 已收敛 → 写入 winner_arm，状态置为 converged
+//  4. converged 状态的实验 → 根据 autonomy_level：
+//     autonomous → 自动 promote/rollback + 写审计
+//     supervised → 写 SelfCorrectionAction(status=pending) 待人工确认
+//     manual     → 不处理（仅记录日志）
 func (l *AssetBundleLearner) CheckConvergence(ctx context.Context) (int, error) {
 	snap, err := l.switchSvc.GetStatus(ctx)
 	if err != nil {
@@ -554,12 +554,12 @@ func (l *AssetBundleLearner) processConvergedTest(ctx context.Context, test *mod
 	actionID := GenActionID(test.ExperimentID, actionType, targetID)
 	isPromotion := actionType == model.CorrectionAssetPromote
 	action := &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  test.ExperimentID,
-		ActionType:    actionType,
-		Scenario:      "asset",
-		TargetType:    "asset_bundle",
-		TargetID:      targetID,
+		ActionID:     actionID,
+		TriggerLogID: test.ExperimentID,
+		ActionType:   actionType,
+		Scenario:     "asset",
+		TargetType:   "asset_bundle",
+		TargetID:     targetID,
 		Before: map[string]any{
 			"baseline_asset_id": test.BaselineAssetID,
 			"candidate_id":      test.CandidateID,
@@ -589,12 +589,12 @@ func (l *AssetBundleLearner) processConvergedTest(ctx context.Context, test *mod
 func (l *AssetBundleLearner) createPendingAction(ctx context.Context, test *model.AssetBundleABTest, actionType model.CorrectionActionType, targetID, reason string, snap *SwitchSnapshot) error {
 	actionID := GenActionID(test.ExperimentID, actionType, targetID)
 	return l.actionRepo.Create(ctx, &model.SelfCorrectionAction{
-		ActionID:      actionID,
-		TriggerLogID:  test.ExperimentID,
-		ActionType:    actionType,
-		Scenario:      "asset",
-		TargetType:    "asset_bundle",
-		TargetID:      targetID,
+		ActionID:     actionID,
+		TriggerLogID: test.ExperimentID,
+		ActionType:   actionType,
+		Scenario:     "asset",
+		TargetType:   "asset_bundle",
+		TargetID:     targetID,
 		Before: map[string]any{
 			"baseline_asset_id": test.BaselineAssetID,
 			"candidate_id":      test.CandidateID,
@@ -652,10 +652,10 @@ func (l *AssetBundleLearner) executeRollback(ctx context.Context, test *model.As
 //
 // 触发：cron.daily 事件
 // 行为：
-//   1. 查询所有 active 资产包
-//   2. 检查 use_count：连续 30 天为 0 → 降级为 inactive
-//   3. autonomous 等级下，降级前 24h 发布预警事件
-//   4. 写入 SelfCorrectionAction 审计
+//  1. 查询所有 active 资产包
+//  2. 检查 use_count：连续 30 天为 0 → 降级为 inactive
+//  3. autonomous 等级下，降级前 24h 发布预警事件
+//  4. 写入 SelfCorrectionAction 审计
 func (l *AssetBundleLearner) DegradeInactiveAssets(ctx context.Context) (int, error) {
 	snap, err := l.switchSvc.GetStatus(ctx)
 	if err != nil {
@@ -701,11 +701,11 @@ func (l *AssetBundleLearner) DegradeInactiveAssets(ctx context.Context) (int, er
 		// 记录审计
 		actionID := GenActionID(asset.AssetID, model.CorrectionAssetRollback, asset.AssetID)
 		if cerr := l.actionRepo.Create(ctx, &model.SelfCorrectionAction{
-			ActionID:      actionID,
-			ActionType:    model.CorrectionAssetRollback,
-			Scenario:      "asset",
-			TargetType:    "asset_bundle",
-			TargetID:      asset.AssetID,
+			ActionID:   actionID,
+			ActionType: model.CorrectionAssetRollback,
+			Scenario:   "asset",
+			TargetType: "asset_bundle",
+			TargetID:   asset.AssetID,
 			Before: map[string]any{
 				"status":     string(model.AssetBundleStatusActive),
 				"use_count":  asset.UseCount,

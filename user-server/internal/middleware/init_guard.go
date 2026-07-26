@@ -13,7 +13,7 @@ import (
 //   - 系统 INITIALIZED：放行
 //   - 白名单路由（init-*/login/health 等）直接放行
 //
-// 开源版已移除：授权过期/暂停/吊销拦截、首次强制改密拦截
+// 授权过期/暂停/吊销拦截、首次强制改密拦截未启用
 // （hivemtk 已全面开源，无授权流程，且不再强制新账号改密）。
 func InitGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -71,13 +71,13 @@ func isInitWhitelist(path string) bool {
 		"/api/system/init-status": true,
 		"/api/system/info":        true,
 		// 初始化流程
-		"/api/system/init-admin":     true,
+		"/api/system/init-admin":    true,
 		"/api/system/init-complete": true,
 		// 鉴权流程（个人中心改密 / 登录）
-		"/api/auth/login":            true,
+		"/api/auth/login":           true,
 		"/api/auth/refresh-token":   true,
 		"/api/auth/change-password": true, // 个人中心重置密码（开源版唯一改密入口）
-		"/api/auth/current-user":     true,
+		"/api/auth/current-user":    true,
 		// 商户自部署兼容
 		"/api/merchant/init": true,
 		// 系统用户默认超管（保留旧接口兼容）

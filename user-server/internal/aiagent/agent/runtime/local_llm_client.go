@@ -32,9 +32,9 @@ import (
 //
 // 实现 portcontract.LLMChatPort 接口
 type LocalLLMClient struct {
-	baseURL string   // 例如 http://localhost:11434/v1
-	apiKey  string   // 可空（私域部署不鉴权）
-	model   string   // 默认模型，例如 qwen2.5:7b
+	baseURL string // 例如 http://localhost:11434/v1
+	apiKey  string // 可空（私域部署不鉴权）
+	model   string // 默认模型，例如 qwen2.5:7b
 	httpCli *http.Client
 }
 
@@ -49,9 +49,9 @@ type LocalLLMConfig struct {
 // NewLocalLLMClient 创建本地 LLM 客户端
 //
 // baseURL 处理逻辑：
-//  - 末尾 / 自动 trim
-//  - 末尾 /v1 自动 trim（避免 /v1/v1/chat/completions 双斜杠）
-//  - 客户端在 Chat 时自动追加 /v1/chat/completions
+//   - 末尾 / 自动 trim
+//   - 末尾 /v1 自动 trim（避免 /v1/v1/chat/completions 双斜杠）
+//   - 客户端在 Chat 时自动追加 /v1/chat/completions
 func NewLocalLLMClient(cfg LocalLLMConfig) *LocalLLMClient {
 	timeout := cfg.RequestTimeout
 	if timeout <= 0 {
@@ -159,16 +159,16 @@ type openaiChatMessage struct {
 }
 
 type openaiChatRequest struct {
-	Model       string             `json:"model"`
+	Model       string              `json:"model"`
 	Messages    []openaiChatMessage `json:"messages"`
-	Temperature float64            `json:"temperature"`
-	Stream      bool               `json:"stream"`
+	Temperature float64             `json:"temperature"`
+	Stream      bool                `json:"stream"`
 }
 
 type openaiChatResponse struct {
-	ID      string           `json:"id"`
-	Choices []openaiChoice   `json:"choices"`
-	Usage   openaiUsage      `json:"usage"`
+	ID      string         `json:"id"`
+	Choices []openaiChoice `json:"choices"`
+	Usage   openaiUsage    `json:"usage"`
 }
 
 type openaiChoice struct {

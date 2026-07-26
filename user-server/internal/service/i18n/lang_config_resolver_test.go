@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	i18npkg "marketing/internal/pkg/i18n"
 	"marketing/internal/model"
+	i18npkg "marketing/internal/pkg/i18n"
 )
 
 // ============================================================================
@@ -270,7 +270,7 @@ func TestResolve_NormalizesLangCodes(t *testing.T) {
 func TestInjectToCtx(t *testing.T) {
 	r := NewLangConfigResolver(nil, nil)
 	result := &LangResolveResult{
-		InternalLang:  "zh",
+		InternalLang: "zh",
 		TargetLang:   "en",
 		CrossLingual: true,
 	}

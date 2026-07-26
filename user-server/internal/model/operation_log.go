@@ -3,7 +3,7 @@ package model
 // operation_log.go 操作日志模型
 //
 // 设计依据：
-//   - 从原 model/team_user.go 拆分（2026-07 阶段 1：单表化 system_users）
+//   - 从 model/team_user.go 拆分
 //   - OperationLog 与 TeamUser 表已无直接耦合，作为独立审计模型存在
 //   - 与 middleware/audit.go 配合：audit.go 写入，operation_log 仓储读取
 

@@ -123,7 +123,7 @@ func (ctrl *TikTokAutoReplyController) SaveCookies(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
-	// R8 修复：透传 userID 做账号所有权校验（IDOR 防护）
+	// 透传 userID 做账号所有权校验（IDOR 防护）
 	userID := ctrl.currentUserID(c)
 	if userID == 0 {
 		response.Error(c, http.StatusUnauthorized, "用户未认证")

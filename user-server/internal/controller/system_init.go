@@ -82,7 +82,7 @@ func (c *SystemInitController) InitComplete(ctx *gin.Context) {
 		return
 	}
 
-	// 关键修复：原实现仅返回 JSON 不写 install.lock，导致 state 停留在 HAS_ADMIN，
+	// 需写 install.lock，否则 state 停留在 HAS_ADMIN，
 	// InitGuard 持续拦截所有非白名单 API（返回 INIT_REQUIRED 引导 /setup）。
 	// 必须调用 SetAdminInit 写 initialized=true，使 GetStatus() 返回 state=INITIALIZED。
 	adminUsername := checker.GetAdminUsername()

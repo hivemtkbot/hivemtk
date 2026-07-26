@@ -303,7 +303,7 @@ func TestBlacklistUser_TTLExpiry(t *testing.T) {
 
 // TestCreateSession_RejectedByBlacklist 已被拉黑访客无法创建新会话
 //
-// 修复二次审核发现的 CreateSession 未串联黑名单校验的遗漏：
+// CreateSession 需串联黑名单校验：
 // 拉黑应同时影响后续会话创建入口，否则访客通过新会话绕过黑名单。
 func TestCreateSession_RejectedByBlacklist(t *testing.T) {
 	setupBlacklistServiceTestDB(t)

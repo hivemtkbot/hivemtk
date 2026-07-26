@@ -8,10 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// ObsConfigRepository OBS 配置仓储接口（开源版）
+// ObsConfigRepository OBS 配置仓储接口
 //
-// 开源版：已移除 GetListByLicense / GetDefaultByLicense / ClearDefaultByLicense /
-// CountByLicense 四个与 License 关联的接口，全局统一走 is_default 列。
+// 全局统一走 is_default 列（无 License 关联接口）。
 type ObsConfigRepository interface {
 	Create(ctx context.Context, config *model.ObsConfig) error
 	GetByID(ctx context.Context, id string) (*model.ObsConfig, error)

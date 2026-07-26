@@ -30,11 +30,11 @@ import (
 type GlossaryCategory string
 
 const (
-	GlossaryCategoryBrand     GlossaryCategory = "brand"     // 品牌名
-	GlossaryCategorySKU       GlossaryCategory = "sku"       // SKU/商品编号
-	GlossaryCategoryLogistic  GlossaryCategory = "logistic"  // 物流术语
-	GlossaryCategoryPolicy    GlossaryCategory = "policy"    // 政策/合规
-	GlossaryCategoryOther     GlossaryCategory = "other"     // 其他
+	GlossaryCategoryBrand    GlossaryCategory = "brand"    // 品牌名
+	GlossaryCategorySKU      GlossaryCategory = "sku"      // SKU/商品编号
+	GlossaryCategoryLogistic GlossaryCategory = "logistic" // 物流术语
+	GlossaryCategoryPolicy   GlossaryCategory = "policy"   // 政策/合规
+	GlossaryCategoryOther    GlossaryCategory = "other"    // 其他
 )
 
 // GlossaryStatus 术语状态
@@ -51,12 +51,12 @@ const (
 // 五层架构：仅定义数据结构，业务逻辑在 Service 层
 type Glossary struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	TermID       string         `gorm:"type:varchar(64);uniqueIndex:idx_term_id;not null" json:"term_id"`           // 业务唯一键
-	Category     string         `gorm:"type:varchar(32);index" json:"category"`                                    // brand/sku/logistic/policy/other
-	Preserve     bool           `gorm:"default:false" json:"preserve"`                                             // true=全语种不翻译
-	Translations JSONMap        `gorm:"type:jsonb;column:translations;default:'{}'" json:"translations"`           // {lang: text}
-	Pattern      string         `gorm:"type:varchar(256)" json:"pattern"`                                          // 正则保护模式
-	Status       string         `gorm:"type:varchar(16);default:'active'" json:"status"`                           // active/inactive
+	TermID       string         `gorm:"type:varchar(64);uniqueIndex:idx_term_id;not null" json:"term_id"` // 业务唯一键
+	Category     string         `gorm:"type:varchar(32);index" json:"category"`                           // brand/sku/logistic/policy/other
+	Preserve     bool           `gorm:"default:false" json:"preserve"`                                    // true=全语种不翻译
+	Translations JSONMap        `gorm:"type:jsonb;column:translations;default:'{}'" json:"translations"`  // {lang: text}
+	Pattern      string         `gorm:"type:varchar(256)" json:"pattern"`                                 // 正则保护模式
+	Status       string         `gorm:"type:varchar(16);default:'active'" json:"status"`                  // active/inactive
 	CreatedAt    time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`

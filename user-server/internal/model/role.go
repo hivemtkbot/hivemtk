@@ -6,7 +6,7 @@ package model
 //
 // 设计依据（详见 docs/architecture/MENU_PERMISSION_PLAN.md v3.1 §3.2）：
 //   - user-web 是单租户、单角色商户端，3 档系统角色为只读常量
-//   - 角色不持久化为独立表（v2.0 方案已废弃），由 model 层硬编码
+//   - 角色不持久化为独立表，由 model 层硬编码
 //   - 业务模块（service / controller）通过 SystemRoles 切片做展示与校验
 //   - 任何"自定义角色"功能属于 v3.1 之后的独立规划
 //
@@ -39,8 +39,7 @@ type SystemRole struct {
 //  2. customer_service —— 客服，负责客户沟通、订单处理、智能体协同
 //  3. staff —— 员工，负责内容编辑、数据分析、运营等日常工作
 //
-// 注意：与 model/team_user.go 中已废弃的 var SystemRoles ([]TeamRole) 命名冲突，
-// 本文件改用 SystemRoleList 命名以避免同包内重复声明。
+// 注意：本文件使用 SystemRoleList 命名以避免与 model/team_user.go 同包内重复声明。
 var SystemRoleList = []SystemRole{
 	{
 		Code:        SystemRoleCodeAdmin,

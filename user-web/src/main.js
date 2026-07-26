@@ -13,7 +13,6 @@ import { applyDirection } from './i18n/locale'
 //   - 由 vite.config.js 中的 unplugin-vue-components + ElementPlusResolver 在编译期
 //     扫描模板里使用的 <Edit />、<Search /> 等图标组件,自动注入 import 语句。
 //   - 不再在运行期循环注册全量图标,减少首屏 bundle 体积。
-//   - 详见 audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-1。
 
 applyDirection(i18n.global.locale.value)
 

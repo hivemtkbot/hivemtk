@@ -1,11 +1,11 @@
 package email
 
 import (
+	"context"
 	"errors"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/repository"
-	"context"
 )
 
 type EmailSmtpService struct {
@@ -66,12 +66,12 @@ func (s *EmailSmtpService) GetRandEmailSmtp(ctx context.Context) (*model.EmailSm
 // CreateEmailSmtpDTO 通过请求 DTO 创建 SMTP 配置
 func (s *EmailSmtpService) CreateEmailSmtpDTO(ctx context.Context, req dto.CreateEmailSmtpRequest) (*dto.EmailSmtpResponse, error) {
 	created, err := s.CreateEmailSmtp(ctx, model.EmailSmtp{
-		Name:		req.Name,
-		Server:		req.Server,
-		Port:		req.Port,
-		Username:	req.Username,
-		Password:	req.Password,
-		Limit:		req.Limit,
+		Name:     req.Name,
+		Server:   req.Server,
+		Port:     req.Port,
+		Username: req.Username,
+		Password: req.Password,
+		Limit:    req.Limit,
 	})
 	if err != nil {
 		return nil, err
@@ -104,13 +104,13 @@ func (s *EmailSmtpService) GetEmailSmtpDTO(ctx context.Context, id string) (*dto
 // UpdateEmailSmtpDTO 通过请求 DTO 更新 SMTP 配置
 func (s *EmailSmtpService) UpdateEmailSmtpDTO(ctx context.Context, req dto.UpdateEmailSmtpRequest) error {
 	return s.UpdateEmailSmtp(ctx, model.EmailSmtp{
-		ID:		req.ID,
-		Name:		req.Name,
-		Server:		req.Server,
-		Port:		req.Port,
-		Username:	req.Username,
-		Password:	req.Password,
-		Limit:		req.Limit,
+		ID:       req.ID,
+		Name:     req.Name,
+		Server:   req.Server,
+		Port:     req.Port,
+		Username: req.Username,
+		Password: req.Password,
+		Limit:    req.Limit,
 	})
 }
 
@@ -119,12 +119,12 @@ func toEmailSmtpResponse(s *model.EmailSmtp) *dto.EmailSmtpResponse {
 		return nil
 	}
 	return &dto.EmailSmtpResponse{
-		ID:		s.ID,
-		Name:		s.Name,
-		Server:		s.Server,
-		Port:		s.Port,
-		Username:	s.Username,
-		Password:	s.Password,
-		Limit:		s.Limit,
+		ID:       s.ID,
+		Name:     s.Name,
+		Server:   s.Server,
+		Port:     s.Port,
+		Username: s.Username,
+		Password: s.Password,
+		Limit:    s.Limit,
 	}
 }

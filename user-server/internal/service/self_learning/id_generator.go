@@ -47,8 +47,7 @@ func GenSignalID(targetType model.SupervisionTargetType, targetID, metricName st
 //   - 同一触发多次调用只会创建一条 action（其他被 UNIQUE 拦截）
 //   - 调用方应通过 errors.Is(err, ErrDuplicateAction) 识别幂等冲突
 //
-// 历史问题：原实现包含 time.Now().UnixNano()，导致每次调用生成不同 ID，
-// 破坏了幂等性。现已移除时间戳，确保幂等。如需为同一触发创建多个同类型 action，
+// 不包含 time.Now().UnixNano()，确保幂等。如需为同一触发创建多个同类型 action，
 // 调用方应传入不同的 targetID 区分。
 func GenActionID(triggerLogID string, actionType model.CorrectionActionType, targetID string) string {
 	h := sha256.New()

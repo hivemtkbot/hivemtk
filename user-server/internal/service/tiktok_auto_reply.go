@@ -139,7 +139,7 @@ func (s *TikTokAutoReplyService) SaveRule(ctx context.Context, userID uint, req 
 
 // SaveCookies 保存 TikTok 账号 Cookie
 //
-// R8 修复：透传 userID 给底层 AutoReplyService.SaveCookies 做所有权校验。
+// 透传 userID 给底层 AutoReplyService.SaveCookies 做所有权校验。
 func (s *TikTokAutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {
 	if id == 0 {
 		return errors.New("账号ID不能为空")

@@ -46,8 +46,8 @@ type EvalService struct {
 	enabled    bool
 
 	// 观测统计（原子读写，无需加锁）
-	sampledCount    int64 // 抽样命中次数
-	evaluatedCount  int64 // 评估完成次数
+	sampledCount   int64 // 抽样命中次数
+	evaluatedCount int64 // 评估完成次数
 }
 
 // NewEvalService 创建评估服务。

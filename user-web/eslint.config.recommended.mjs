@@ -14,8 +14,6 @@
  *   - 存量 43 个 `import request from '@/utils/request'` 文件通过 overrides 临时放行
  *     （等存量逐步迁移完成后删除 overrides 块）
  *   - 不破坏现有 Vue 3 + Vite 构建
- *
- * 详见：docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-3
  */
 import pluginVue from 'eslint-plugin-vue'
 import js from '@eslint/js'

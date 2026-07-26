@@ -86,9 +86,9 @@ type StreamStateMachine struct {
 	mu sync.Mutex
 
 	// 配置
-	trigger    string // 触发词，如 "调用工具："
-	maxBuffer  int    // buffer 最大字节（防止异常累积）
-	timeout    time.Duration
+	trigger   string // 触发词，如 "调用工具："
+	maxBuffer int    // buffer 最大字节（防止异常累积）
+	timeout   time.Duration
 
 	// 状态
 	state     StreamState
@@ -107,7 +107,7 @@ type StreamStateMachine struct {
 
 	// 完成回调
 	onToolCall func(toolName string, args map[string]any) // 检测到工具调用时回调
-	onComplete func(reply string)                          // 状态机完成时回调
+	onComplete func(reply string)                         // 状态机完成时回调
 }
 
 // StateTransition 状态转换记录

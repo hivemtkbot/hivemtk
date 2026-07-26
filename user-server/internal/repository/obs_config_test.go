@@ -244,7 +244,6 @@ func TestObsConfigRepository_GetList(t *testing.T) {
 
 // TestObsConfigRepository_GetListByLicense 已删除（开源版移除 License）
 
-
 // TestObsConfigRepository_Update 测试更新配置
 func TestObsConfigRepository_Update(t *testing.T) {
 	ctx := context.Background()
