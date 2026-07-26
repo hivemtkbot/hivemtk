@@ -1,6 +1,6 @@
-# HiveMtk · User-Side
+# HiveMtk · Self-Hosted AI Marketing OS
 
-> **Self-Hosted AI Marketing OS — All Channels · True AI Autonomy · Zero Data Egress**
+> **Open-Source SCRM · ReAct Agent · All-Channel Reach · Zero Data Egress**
 
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Vue](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white)](https://vuejs.org)
@@ -11,6 +11,8 @@
 [![GitHub](https://img.shields.io/badge/GitHub-xiaofang142%2Fhivemtk-181717?logo=github)](https://github.com/xiaofang142/hivemtk)
 
 > 📖 **中文文档**: [README.md](README.md)
+
+> **SEO Keywords**: open-source SCRM · private-domain marketing OS · AI agent customer service · ReAct agent · self-hosted · all-channel reach (Douyin / Kuaishou / Xiaohongshu / Xianyu / TikTok / WeChat / Email) · local LLM · zero data egress · marketing automation · sales-copilot SOP · CDP · RAG knowledge base · AGPL-3.0
 
 ---
 
@@ -27,9 +29,9 @@
 
 ## One-Line Pitch
 
-> The self-hosted AI marketing OS that nails three things at once: **all-channel reach**, **true AI autonomy**, **zero data egress**.
+> **Open-source self-hosted AI marketing OS** that nails three things at once: **all-channel reach**, **true AI autonomy**, **zero data egress**.
 
-We don't wrap an LLM. We don't hardcode an automation script. HiveMtk ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding **41 built-in tools** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own.
+We don't wrap an LLM. We don't hardcode an automation script. HiveMtk ships with a **ReAct autonomous AI agent** (max 5 rounds) wielding **41 built-in tools** that perceives → plans → calls tools → reflects — figuring things out from inbound message to outbound reply, on its own. Covers the full **acquisition → outreach → conversion → repurchase** funnel with 94 business modules out of the box.
 
 **🌐 All Channels** · **🤖 ReAct Agent (41 Tools)** · **🔒 100% On-Prem** · **📦 94 Modules** · **⚡ 5-Minute Setup**
 
@@ -67,6 +69,17 @@ HiveMtk nails **self-hosted + true AI agent + 7-channel coverage** at once:
 - 🎯 **Growing teams**: 5-50 person teams wanting self-controlled, multi-channel, AI-assisted operations
 - 🏛️ **Compliance-sensitive industries**: Finance / healthcare / government requiring data residency
 - 🔧 **Self-host advocates**: Teams wanting deep customization, no vendor lock-in
+
+### Typical Use Cases
+
+| Scenario | Key Capabilities | Industries |
+|----------|-----------------|------------|
+| **Private-domain acquisition → AI auto-selling** | 7-channel lead intake + ReAct agent handles inbound + objection handling + closing | Franchise / Medical aesthetics / EdTech / B2B |
+| **WeCom SCRM multi-account aggregation** | Unified inbox + customer asset sink + departure inheritance | Chain stores / Brands |
+| **AI customer service / RAG knowledge base** | 3-tier RAG retrieval + smart CS + 7×24 auto-reply | E-commerce / SaaS / After-sales |
+| **Marketing automation SOP** | Visual SOP editor + RFM segmentation + churn prediction + reactivation | Membership retail / Maternity / Beauty |
+| **Cross-border multi-channel outreach** | TikTok + WhatsApp + Email + Telegram unified | Cross-border e-commerce / Going-global brands |
+| **Compliant on-premise deployment** | Local inference stack + zero egress + row-level security + audit archive | Finance / Healthcare / Government |
 
 ---
 
@@ -431,6 +444,53 @@ Full roadmap at [../.github/ROADMAP.md](../.github/ROADMAP.md), key directions:
 
 ---
 
+## ❓ FAQ
+
+> Covers high-frequency developer search queries for easy extraction by AI assistants and search engines.
+
+### What is this project? How does it differ from Dify / FastGPT?
+
+HiveMtk is a **self-hosted AI marketing OS** focused on "all-channel reach + sales-copilot SOP + CDP + zero egress". Dify / FastGPT are **general LLM app platforms** oriented around Workflow orchestration. HiveMtk targets marketing acquisition, conversion, and repurchase scenarios with 94 business modules out of the box.
+
+### Is it really open-source? Can I use it commercially?
+
+✅ Fully open-source under AGPL-3.0. Free to fork, self-host, extend, and use commercially. **Only constraint**: if you modify the code and offer it as a network service (SaaS / cloud API), you must release your modifications under AGPL-3.0. Internal-only self-hosting does not trigger this.
+
+### Does data really stay on-premise? How is that guaranteed?
+
+✅ 100% zero egress. All conversations, knowledge base, embeddings, and RAG stay inside your network. The local inference stack (llama.cpp + TEI) runs on-prem. FRP private tunneling ensures the cloud never stores a single message. Even with cloud LLM, only prompt text is sent; customer PII is locally desensitized before any call.
+
+### Which LLMs are supported? Can I use GPT-4 / DeepSeek?
+
+✅ DeepSeek / Qwen / GPT-4o / GLM / Qwen2.5 (local) are all integrated. The LLM routing gateway routes dynamically by scenario: strong models for complex objections, light models for routine replies. Embedding/Rerank are strictly local (bge-m3 + bge-reranker-v2-m3).
+
+### What are the 7 channels? Can it be used overseas?
+
+Douyin, Kuaishou, Xiaohongshu, Xianyu, TikTok, WeCom, Email — 7 social/contact channels unified. Overseas deployments can use TikTok + WhatsApp + Telegram + Email for cross-border scenarios.
+
+### What hardware do I need? Do I need a GPU?
+
+- Minimum: 4 CPU cores / 8GB RAM / 50GB disk (dev tier, Qwen2.5-3B + bge-m3 Q4)
+- Recommended: 8 CPU cores / 16GB RAM / 100GB disk (prod tier, Qwen2.5-14B + bge-m3 F16)
+- GPU optional: NVIDIA 8GB+ (dev) / 16GB+ (prod); CPU-only inference also works
+
+### I don't want to self-host. Is there a SaaS version?
+
+❌ **No SaaS version offered.** We insist on private deployment and data sovereignty. For enterprise support or custom integration, contact `jideilvluoqun@gmail.com`.
+
+### How does it compare to commercial SCRM (Weiban / Chenfeng / Yuanque)?
+
+| Dimension | HiveMtk | Commercial SCRM |
+|-----------|---------|-----------------|
+| Data ownership | 100% customer-owned | Vendor cloud DB |
+| AI agent | ReAct + 41 tools, truly autonomous | Keyword matching / simple RAG |
+| Channel coverage | 7 channels + SMS + Email | 1-3 channels (mostly WeCom) |
+| Customization | AGPL-3.0 full-stack open source | Black box, vendor roadmap |
+| Setup cost | Docker one-click, 5 minutes | Sign-up and go |
+| Best for | Teams with IT, want self-control | Teams without IT, want zero friction |
+
+---
+
 ## Disclaimer
 
 > **HiveMtk is a fully open-source, locally self-hosted customer-service foundation tool.** When using this system to locally deploy any large language model, build a knowledge base, or conduct conversations, users **must comply on their own with the laws and regulations of their country, region, and relevant social platforms (such as Telegram, WhatsApp)**. The authors do not participate in any user's actual deployment or operation, and assume no legal liability for any statements, content compliance, or any consequences arising from users' local models.
@@ -469,6 +529,20 @@ This project is licensed under the [GNU Affero General Public License v3.0 (AGPL
 You are free to use, self-host, and modify it; if you expose a modified version as a network service, please comply with the above copyleft obligation. See [LICENSE](LICENSE) for the full terms and [NOTICE](NOTICE) for copyright and contact information.
 
 For business cooperation or technical support, reach out via Gitee Issue or jideilvluoqun@gmail.com.
+
+---
+
+## 🏷️ Recommended Topics (for repo admins)
+
+> GitHub / Gitee Topics tags directly affect search ranking and category discovery. Add the following 15 tags in repo Settings → Topics (GitHub limit: 20):
+
+```
+scrm · private-domain-marketing · ai-agent · react-agent · llm · rag
+· customer-service · marketing-automation · sales-copilot · cdp
+· self-hosted · on-premise · go · vue · agpl-3.0
+```
+
+Optional additions (as needed): `qwen` · `llama-cpp` · `bge-m3` · `pgvector` · `docker`
 
 ---
 
