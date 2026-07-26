@@ -1,0 +1,50 @@
+# GitHub Topics for hivemtk repos
+# 通过 GitHub CLI 一键应用：
+#   gh repo edit --add-topic marketing-automation --add-topic agpl-3-0 --add-topic go ...
+# 或在仓库 Settings → Topics 粘贴下面列表
+# 目标仓库：
+#   - gitee.com/xhpmayun/hivemtk (用户端)
+#   - gitee.com/xhpmayun/hivemtk-platform (平台端)
+
+# 必选（核心定位）
+- marketing-automation
+- crm
+- customer-data-platform
+- sop-orchestration
+- ai-agent
+- rag
+- knowledge-base
+- multi-channel-messaging
+- wechat-work
+- whatsapp-business
+
+# 技术栈
+- golang
+- vue3
+- typescript
+- postgresql
+- redis
+- gorm
+- gin
+- element-plus
+- vite
+
+# 协议与定位
+- agpl-3-0
+- open-source
+- self-hosted
+- private-deployment
+- sso
+- oss
+
+# 业务场景
+- ecommerce
+- customer-service
+- whatsapp
+- wechat
+- douyin
+- xiaohongshu
+- kuaishou
+- xianyu
+- sms-marketing
+- email-marketing
