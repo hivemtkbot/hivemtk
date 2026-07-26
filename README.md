@@ -496,8 +496,7 @@ HiveMtk 的**主动触达模块**(短信、邮件、微信公众号 / 企业微�
 | 渠道 | 入口 | 说明 |
 |------|------|------|
 | 🐛 **Bug / Feature Request** | [Gitee Issues](https://gitee.com/xhpmayun/hivemtk/issues) | 12 小时内首响 |
-| 💬 **微信交流群** | 扫描下方二维码(管理员 wxid: `hivemtk_2026`) | 7×24 答疑,产品/技术/运营 |
-| 🎥 **B 站 / 视频号** | 搜索"HiveMtk" | 5 分钟部署视频、案例分享 |
+| 💬 **微信交流群** | 扫描下方二维码(管理员 wxid: `xiao142000`) | 7×24 答疑,产品/技术/运营 |
 | 📧 **商务合作 / 技术支持** | jideilvluoqun@gmail.com | 企业级技术支持、定制集成 |
 | 🔒 **安全漏洞** | jideilvluoqun@gmail.com | 私密报告,详见 [SECURITY.md](SECURITY.md) |
 | 🤝 **贡献者公约** | [CONTRIBUTING.md](CONTRIBUTING.md) | 提交 PR、参与开发 |

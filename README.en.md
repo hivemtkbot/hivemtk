@@ -444,8 +444,7 @@ Full disclaimer: [DISCLAIMER.md](DISCLAIMER.md) · [DISCLAIMER.en.md](DISCLAIMER
 | Channel | Entry | Notes |
 |---------|-------|-------|
 | 🐛 **Bug / Feature Request** | [Gitee Issues](https://gitee.com/xhpmayun/hivemtk/issues) | 12h first response |
-| 💬 **WeChat Group** | Scan QR code (admin wxid: `hivemtk_2026`) | 7×24 Q&A |
-| 🎥 **Bilibili / Video** | Search "HiveMtk" | 5-min deploy video, case studies |
+| 💬 **WeChat Group** | Scan QR code (admin wxid: `xiao142000`) | 7×24 Q&A |
 | 📧 **Business / Support** | jideilvluoqun@gmail.com | Enterprise support, custom integration |
 | 🔒 **Security Reports** | jideilvluoqun@gmail.com | Private reports, see [SECURITY.md](SECURITY.md) |
 | 🤝 **Contributing** | [CONTRIBUTING.md](CONTRIBUTING.md) | Submit PRs, join development |

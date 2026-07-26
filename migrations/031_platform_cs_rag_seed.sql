@@ -89,7 +89,7 @@ BEGIN
     (doc_id_bigint, pid, 0, 'HiveMTK 采用 GNU Affero General Public License v3.0（AGPL-3.0）开源协议。核心诉求（AGPL-3.0 第 13 条·远程网络交互）：任何公司或个人只要修改了本项目代码，并将其通过网络（SaaS/云端/API/托管实例等）对外提供服务，就必须按 AGPL-3.0 向使用该服务的所有用户免费提供其修改后的完整对应源代码，且同样以 AGPL-3.0 开源。仅自己内部私有部署、不对外提供网络服务时无需公开修改。', 196, '{"doc":"license","section":"AGPL核心"}', NOW()),
     (doc_id_bigint, pid, 1, 'HiveMTK 主动触达模块（短信、邮件、微信公众号/企业微信、抖音/快手/小红书/闲鱼私信、Telegram、WhatsApp、网页客服等主动推送能力）属于核心敏感功能。使用者必须自行遵守各渠道平台规范，仅可向已授权联系人发送内容，禁止发送垃圾营销/欺诈/骚扰/钓鱼/色情/赌博/侵权内容。因违规使用导致的一切后果由使用者自行承担，与项目及作者无关。每次主动触达发送时服务端日志会打印 [COMPLIANCE] 合规提示，不可关闭。', 210, '{"doc":"license","section":"合规免责"}', NOW()),
     (doc_id_bigint, pid, 2, 'HiveMTK 是完全开源的本地私有化客服底座工具。用户利用本系统本地部署大语言模型、构建知识库及对话时，必须自行遵守所在国家、地区以及相关社交平台的法律法规。作者不参与任何用户的实际部署与运营，不对用户因本地模型产生的任何言论、内容合规性及后果承担法律责任。本项目按「原样（AS IS）」提供，不保证触达能力在任何平台长期可用。', 176, '{"doc":"license","section":"法律免责"}', NOW()),
-    (doc_id_bigint, pid, 3, 'HiveMTK 联系与社区：Bug/Feature Request 走 Gitee Issues（12 小时内首响）；微信交流群管理员 wxid 为 hivemtk_2026（7x24 答疑，产品/技术/运营）；商务合作邮箱 business@hivemtk.cn（企业级技术支持、定制集成）；贡献者公约见 CONTRIBUTING.md。群规：禁止广告/禁止政治/禁止人肉，违者秒踢。', 168, '{"doc":"license","section":"社区联系"}', NOW());
+    (doc_id_bigint, pid, 3, 'HiveMTK 联系与社区：Bug/Feature Request 走 Gitee Issues（12 小时内首响）；微信交流群管理员 wxid 为 xiao142000（7x24 答疑，产品/技术/运营）；商务合作邮箱 jideilvluoqun@gmail.com（企业级技术支持、定制集成）；贡献者公约见 CONTRIBUTING.md。群规：禁止广告/禁止政治/禁止人肉，违者秒踢。', 168, '{"doc":"license","section":"社区联系"}', NOW());
 
     -- =========================================================
     -- 文档 3：部署指南
@@ -211,13 +211,13 @@ BEGIN
 
     INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
     (doc_id_bigint, pid, 0, 'Q: HiveMTK 是开源的吗？A: 是，采用 AGPL-3.0 协议完全开源。Gitee 主仓库 https://gitee.com/xhpmayun/hivemtk ，GitHub 镜像 https://github.com/xiaofang142/hivemtk 。修改后若通过网络对外提供服务须按 AGPL-3.0 开源修改后的完整源代码；仅内部私有部署不对外提供服务时无需公开。', 184, '{"doc":"faq","q":"开源协议"}', NOW()),
-    (doc_id_bigint, pid, 1, 'Q: HiveMTK 收费吗？A: 本项目本身完全开源免费，可自由使用与私有部署。商务合作/企业级技术支持/定制集成可通过 business@hivemtk.cn 联系。微信交流群管理员 wxid: hivemtk_2026 提供 7x24 答疑。', 158, '{"doc":"faq","q":"收费"}', NOW()),
+    (doc_id_bigint, pid, 1, 'Q: HiveMTK 收费吗？A: 本项目本身完全开源免费，可自由使用与私有部署。商务合作/企业级技术支持/定制集成可通过 jideilvluoqun@gmail.com 联系。微信交流群管理员 wxid: xiao142000 提供 7x24 答疑。', 158, '{"doc":"faq","q":"收费"}', NOW()),
     (doc_id_bigint, pid, 2, 'Q: 部署需要什么硬件？A: 最低 2 核 CPU/4GB 内存/50GB 磁盘；推荐生产 8 核+/16GB+/200GB+（含 LLM）。dev 轻量档（Qwen2.5-1.5B-Instruct + Qwen3-Embedding-0.6B）8GB 内存即可；prod 重量档（Qwen2.5-14B-Instruct + bge-m3）需 16GB+。GPU 加速可选（NVIDIA 8GB+ dev / 16GB+ prod）。前置要求 Docker 24+ & Docker Compose v2。', 206, '{"doc":"faq","q":"硬件要求"}', NOW()),
     (doc_id_bigint, pid, 3, 'Q: 数据安全吗？A: 100% 私域零出域。所有对话、知识库、向量化、检索增强全程在客户内网完成。本地 AI 推理栈（llama.cpp + TEI）跑在客户内网。FRP 私域穿透时访客从公网进、数据经隧道回本地，云端不落一条对话。满足等保、数据出境管控、私有化部署基线。可选云端 LLM（改 LLM_BASE_URL），但 Embedding/Rerank 仍强制本地。', 193, '{"doc":"faq","q":"数据安全"}', NOW()),
     (doc_id_bigint, pid, 4, 'Q: 支持哪些渠道？A: 七端打通——抖音/快手/小红书/闲鱼/TikTok/微信企业微信/短信/邮件。每个渠道支持触达、智能卡片（前 5 端）、自动回复、RAG 客服。统一 CDP 客户视图一份资料全渠道触达，统一消息中心会话/工单/留言一处看完。', 158, '{"doc":"faq","q":"渠道支持"}', NOW()),
     (doc_id_bigint, pid, 5, 'Q: 怎么启动？A: 三步——1) git clone https://gitee.com/xhpmayun/hivemtk.git && cd hivemtk；2) make install；3) vim .env 改 4 个密钥（POSTGRES_PASSWORD/REDIS_PASSWORD/JWT_SECRET/PLATFORM_ADMIN_PASSWORD，openssl rand -hex 24 生成），make up 启动。访问 http://localhost:8204，账号 admin + 你设置的密码。健康检查 curl http://localhost:8204/health。', 211, '{"doc":"faq","q":"启动"}', NOW()),
     (doc_id_bigint, pid, 6, 'Q: user-server 构建报错怎么办？A: user-server 构建缓存易损坏，若遇随机 undefined/EOF 报错，先 go clean -cache 再编译。命令：cd hivemtk/user-server && go clean -cache && go build ./...。若仍失败检查 Go 版本需 1.25+。', 167, '{"doc":"faq","q":"构建报错"}', NOW()),
-    (doc_id_bigint, pid, 7, 'Q: 怎么联系作者？A: Bug/Feature Request 走 Gitee Issues（12 小时内首响）https://gitee.com/xhpmayun/hivemtk/issues ；微信交流群管理员 wxid: hivemtk_2026（7x24 答疑）；商务合作 business@hivemtk.cn；B 站/视频号搜索「HiveMtk」看部署视频与案例分享。贡献者公约见 CONTRIBUTING.md。', 187, '{"doc":"faq","q":"联系作者"}', NOW());
+    (doc_id_bigint, pid, 7, 'Q: 怎么联系作者？A: Bug/Feature Request 走 Gitee Issues（12 小时内首响）https://gitee.com/xhpmayun/hivemtk/issues ；微信交流群管理员 wxid: xiao142000（7x24 答疑）；商务合作 jideilvluoqun@gmail.com。贡献者公约见 CONTRIBUTING.md。', 187, '{"doc":"faq","q":"联系作者"}', NOW());
 
     -- 更新 RAG 产品统计
     UPDATE rag_products
