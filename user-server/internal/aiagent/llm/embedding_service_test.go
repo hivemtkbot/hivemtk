@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线（2026-07-24 修订）：
+// TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线：
 // Embedding 默认指向本地推理服务（真实 bge-m3），禁止走 LLM 厂商 API。
 func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	// 清理所有可能影响默认值的环境变量

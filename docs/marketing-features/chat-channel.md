@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | customer-service |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 多 Web Widget 渠道创建（每个渠道独立 channel_ref/app_key）
@@ -43,12 +41,6 @@
 
 ### 2.1 业务背景
 商户拥有多个网站，每个网站需要独立的客服 Widget（不同样式、不同欢迎语、不同路由智能体）。通过多 Widget 渠道管理，实现一商户多站点独立客服部署。
-
-### 2.2 解决思路
-- 每个渠道生成唯一 channel_ref 与 app_key
-- widget_config 封装样式、欢迎语、位置等配置
-- agent_id 指定该渠道路由到哪个智能体
-- allowed_origins 校验嵌入域名，防止盗用
 
 ### 2.3 关键算法或模型
 - 渠道身份认证（app_key 签名校验）
@@ -156,18 +148,3 @@
 - 创建渠道→嵌入代码→Widget 认证全链路
 - 域名白名单拦截验证
 - 智能体路由分发验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

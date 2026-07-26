@@ -16,7 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | community |
 | 优先级 | P1 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -34,13 +33,6 @@
 ### 2.1 业务背景
 
 除 WhatsApp/Telegram/企微外，提供通用社群管理能力，作为业务底层抽象。
-
-### 2.2 解决思路
-
-- 群组：抽象的群组模型（id/name/owner/members）
-- 成员：抽象成员（user_id/group_id/role/joined_at）
-- 消息：群发/单发（文本/图片）
-- 统计：成员数/消息数/活跃度
 
 ### 2.3 输入输出定义
 
@@ -206,11 +198,3 @@
 - [community-whatsapp.md](community-whatsapp.md)
 - [community-wecom.md](community-wecom.md)
 - [agent-telegram-automation.md](agent-telegram-automation.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-14 | 独立功能文档初始版本 | AI Assistant |

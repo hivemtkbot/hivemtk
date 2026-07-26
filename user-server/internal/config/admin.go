@@ -48,8 +48,7 @@ type LoginConfig struct {
 
 // defaultAdminConfig 默认配置（仅 UI 行为；密码字段不存在）
 //
-// 2026-07-24：移除硬编码 Admin@123456；DefaultAdmin 改名为 Username/Email/RealName 三段。
-// ShowDefaultCredentials 强制 false：登录页不再展示默认账号提示，避免引导用户使用弱口令。
+// ShowDefaultCredentials 强制 false：登录页不展示默认账号提示，避免引导用户使用弱口令。
 var defaultAdminConfig = AdminConfig{
 	DefaultAdmin: DefaultAdminConfig{
 		Username: "admin",

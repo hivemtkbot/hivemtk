@@ -1,7 +1,6 @@
 -- 人机协作客服系统数据库迁移脚本
--- 版本: 1.1.0  (2026-07-17 改为 PostgreSQL 15+ 语法)
+-- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
--- 创建时间: 2026-03-12 (原始) / 2026-07-17 (PG 化重写)
 
 -- 客服会话表
 CREATE TABLE IF NOT EXISTS customer_sessions (

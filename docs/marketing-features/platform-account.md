@@ -16,10 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | unified-message |
 | 优先级 | P0 |
-| 负责人 | |
-| 计划完成时间 | |
-| 实际完成时间 | 2026-07-14 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -49,10 +45,6 @@
 ### 2.1 业务背景
 
 商户需要运营多个平台账号(微信/企微/抖音/小红书/WhatsApp),系统需统一管理这些账号的登录状态、凭证、权限,支持消息收发、自动回复。
-
-### 2.2 解决思路
-
-抽象统一账号模型 `{platform, account_id, nickname, avatar, credentials, status}`,各平台 Adapter 实现登录、心跳、消息收发。
 
 ### 2.3 关键算法或模型
 
@@ -284,11 +276,3 @@ CREATE TABLE platform_accounts (
 - PROJECT_FUNCTIONAL_ARCHITECTURE.md 第 3.1.13 节
 - BROWSER_ASSISTANT.md
 - [MASTER_RULES.md](../standards/MASTER_RULES.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-14 | 独立功能文档生成 | |

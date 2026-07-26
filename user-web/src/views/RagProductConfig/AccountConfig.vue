@@ -179,7 +179,7 @@ import i18n from '@/i18n'
 
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 // 卡片/线索平台：取自统一 cardPlatform 常量
 import { CARD_PLATFORM_OPTIONS } from '@/constants/cardPlatform'
 

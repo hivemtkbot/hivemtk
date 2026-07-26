@@ -1,7 +1,6 @@
 -- ============================================================
 -- Migration 025: 统一 system_users 表 + 启用/禁用管控
 -- 关联文档：docs/architecture/MENU_PERMISSION_PLAN.md
--- 关联 commit：f51f9b9
 -- ============================================================
 
 -- 1) team_users 与 system_users 的 username 冲突预检测

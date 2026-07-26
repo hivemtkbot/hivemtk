@@ -26,7 +26,7 @@ const (
 )
 
 // RAGThreeTierService 三级 RAG 检索服务
-// 对应 P0-15：RAG 三级架构贯通
+// RAG 三级架构贯通
 // 调度策略：L1 → L2 → L3 → L4，按层级下沉，命中即返回
 // 适用于客服/销售/营销场景的知识检索
 type RAGThreeTierService struct {

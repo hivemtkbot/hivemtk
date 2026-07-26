@@ -45,7 +45,7 @@ func TestReplyGuard_TTLSweep(t *testing.T) {
 	}
 }
 
-// TestReplyGuard_Release 出站失败后释放认领，允许平台重投重新认领（R3 二次论证：防漏回）。
+// TestReplyGuard_Release 出站失败后释放认领，允许平台重投重新认领。
 func TestReplyGuard_Release(t *testing.T) {
 	if !ClaimReply("rel-1") {
 		t.Fatal("first claim should succeed")

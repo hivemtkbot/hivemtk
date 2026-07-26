@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// loop_guard.go P3-B: 工具级循环检测装饰器
+// loop_guard.go 工具级循环检测装饰器
 //
 // 设计目标：
 //   检测 LLM Agent Loop 中工具调用陷入死循环的场景，

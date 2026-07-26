@@ -9,7 +9,7 @@ import (
 
 // AgentAssetBindingMigration 为 ai_agents 表新增 asset_bundle_id 列
 //
-// 2026-07-24 新增：智能体绑定资产包(AssetBundle.AssetID)。
+// 智能体绑定资产包(AssetBundle.AssetID)。
 // 智能体执行时按此 AssetID 由 AssetBundleService.ResolveSystemPrompt 织入资产包人设/话术。
 type AgentAssetBindingMigration struct {
 	db *gorm.DB

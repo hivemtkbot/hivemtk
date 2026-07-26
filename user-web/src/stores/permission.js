@@ -1,10 +1,5 @@
 // F-P1-75: 权限 Store
 //
-// 拆分动机：原本 useUserStore 同时承载身份信息（id/username/email）+ 权限信息
-// （role/isAdmin），职责过载且角色相关派生逻辑分散在 Layout / router / 各页面，
-// 维护成本高。这里把权限相关 derived state 统一收敛到 usePermissionStore，
-// useUserStore 仅保留身份与 token。
-//
 // 使用方式：
 //   import { usePermissionStore } from '@/stores/permission'
 //   const perm = usePermissionStore()

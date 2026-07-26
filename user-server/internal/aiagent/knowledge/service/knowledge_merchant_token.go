@@ -103,7 +103,7 @@ func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain stri
 		return nil, errors.New("token 已过期")
 	}
 	// 异步更新使用统计
-	// R6 修复：原 goroutine 无 recover、错误被静默吞噬。添加 recover + 错误日志。
+	// goroutine 内含 recover + 错误日志，避免错误被静默吞噬。
 	tokID := tok.ID
 	go func(id uint64) {
 		defer func() {

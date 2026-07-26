@@ -197,7 +197,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 // 统一枚举：HTTP 方法/认证类型/同步状态
 import { getAuthTypeLabel } from '@/constants/authType'
 import { PASS_FAIL_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'

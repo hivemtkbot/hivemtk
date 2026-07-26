@@ -108,7 +108,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 // 统一枚举：评分/反馈
 import { getRatingLabel, getRatingTagType } from '@/constants/rating'
 

@@ -13,8 +13,8 @@ import (
 
 // reach_new_channels_test.go 触达工具（Telegram/WhatsApp/Feishu）单元测试
 //
-// 2026-07-17 新增：覆盖 reach.telegram.send / reach.whatsapp.send / reach.feishu.send
-// 三个 2026-07-17 扩展的境外/协作平台触达工具。
+// 覆盖 reach.telegram.send / reach.whatsapp.send / reach.feishu.send
+// 三个境外/协作平台触达工具。
 //
 // 测试策略：
 //   - mockReachAdapter 捕获所有调用，无需真实 IntegrationService

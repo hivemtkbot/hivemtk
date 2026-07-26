@@ -121,7 +121,7 @@ start_role() {
   # Embed 加 --embeddings --pooling mean --alias
   # Rerank 加 --reranking --alias（不加 --pooling，cross-encoder 直接输出相关性分数）
   #
-  # 性能优化（2026-07-24 审查）：
+  # 性能优化：
   #   --flash-attn on  : Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+
   #   --mlock           : 锁定模型在 RAM，防止换页导致延迟飙升
   #   --timeout         : HTTP 读写超时（默认 300s，防止慢请求占用资源）

@@ -14,10 +14,6 @@ import (
 )
 
 // KnowledgeStatisticsService 知识库统计服务
-//
-// 2026-07-23 五层架构治理（二轮）：
-// 删除 `db *gorm.DB` 字段。原实现中 service 直接 `s.db.WithContext(ctx)` 调 SQL
-// 违反 §3.4"service 不应持有 db"。所有 SQL 已下沉到对应 Repository。
 type KnowledgeStatisticsService struct {
 	docRepo       *repository.KnowledgeDocumentRepository
 	chunkRepo     *repository.KnowledgeChunkRepository
@@ -27,9 +23,6 @@ type KnowledgeStatisticsService struct {
 }
 
 // NewKnowledgeStatisticsService 创建统计服务
-//
-// 2026-07-23 五层架构治理（二轮）：构造函数内允许调 db.GetDB()（service 工厂层
-// 合规），但不再把 db 存到结构体字段。所有 SQL 都走 repository。
 func NewKnowledgeStatisticsService() *KnowledgeStatisticsService {
 	return newKnowledgeStatisticsServiceWithDB(db.GetDB())
 }
@@ -79,7 +72,7 @@ type IndexHealth struct {
 
 // GetOverview 获取知识库总览
 //
-// 2026-07-18 修复：KnowledgeDocument.ProductID 是 int64（迁移 schema 为 INTEGER），
+// KnowledgeDocument.ProductID 是 int64，
 // 但前端传入的 RagProduct.ID 是 string UUID。调用方需将 string UUID 经
 // HashStringToInt64 映射回 int64。productID=0 表示不按 product 过滤。
 func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID int64) (*OverviewData, error) {
@@ -102,8 +95,6 @@ func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID 
 	overview.TotalChunks = totalChunks
 
 	// Tokens 累计
-	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Model(...).Select("SUM(total_tokens)")`
-	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.SumTotalTokens`。
 	totalTokens, err := s.docRepo.SumTotalTokens(ctx, productID)
 	if err != nil {
 		return nil, errors.New("累计 token 数失败: " + err.Error())
@@ -222,16 +213,12 @@ func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, produ
 	}
 
 	// 分类
-	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Group("category")`
-	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.CategoryStats`。
 	catResults, _ := s.docRepo.CategoryStats(ctx, productID, 20)
 	for _, c := range catResults {
 		data.CategoryPie = append(data.CategoryPie, CategoryStat{Category: c.Category, Count: c.Count})
 	}
 
 	// 热门文档(按检索+命中)
-	// 2026-07-23 五层架构治理（二轮）：原实现直接 `s.db.WithContext(...).Order("search_count DESC")`
-	// 违反 §3.4"service 不应持有 db"，已下沉到 `docRepo.TopHitDocuments`。
 	docHits, _ := s.docRepo.TopHitDocuments(ctx, productID, 10)
 	for _, d := range docHits {
 		rate := float64(0)
@@ -368,9 +355,6 @@ func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, product
 	}
 
 	// 平均耗时
-	// 2026-07-23 五层架构治理（二轮）：原实现直接
-	// `s.db.WithContext(...).Model(KnowledgeImportLog{}).Select("AVG(duration_ms)")`
-	// 违反 §3.4"service 不应持有 db"，已下沉到 `importLogRepo.AvgImportDurationMs`。
 	avgDur, _ := s.importLogRepo.AvgImportDurationMs(ctx, productID)
 	data.AvgDurationMs = avgDur
 

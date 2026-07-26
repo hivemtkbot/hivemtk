@@ -16,7 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | user |
 | 优先级 | P0 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -34,13 +33,6 @@
 ### 2.1 业务背景
 
 提供用户 CRUD 能力，支持创建、查询、修改、删除、状态切换。区分主账号（users）和子账号（system_users），每个子账号归属一个主账号 + 一个商户。
-
-### 2.2 解决思路
-
-- users 表记录主账号（手机号唯一）
-- system_users 表记录子账号（用户名+商户ID联合唯一）
-- 删除采用软删除（deleted_at），保留审计痕迹
-- 状态切换立即生效，下一次请求即被中间件拒绝
 
 ### 2.3 输入输出定义
 
@@ -205,11 +197,3 @@
 - [auth-login-jwt.md](auth-login-jwt.md)
 - 五层架构：[GO_FIVE_LAYER_ARCHITECTURE.md](../architecture/GO_FIVE_LAYER_ARCHITECTURE.md)
 - 菜单与权限规划：[MENU_PERMISSION_PLAN.md](../architecture/MENU_PERMISSION_PLAN.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-14 | 独立功能文档初始版本 | AI Assistant |

@@ -20,15 +20,15 @@ import (
 //   - reach.* = 一对多外发（短信/邮件/卡片/各渠道广播），偏营销召回
 //   - pm.*    = 一对一私信会话（读/写/开），偏实时对话链接，是智能体真正的"对话域"
 //
-// 2026-07-22 方向D 工具层完整走 Port：
-//   - 所有方法统一走 portcontract.SessionPort，不再直接持有 *service.CustomerSessionService。
-//   - SessionSvc 字段保留为兼容旧装配入口的回退路径。
+// 工具层完整走 Port：
+//   - 所有方法统一走 portcontract.SessionPort。
+//   - SessionSvc 字段作为旧装配入口的回退路径。
 //   - 装配期通过 NewPrivateMessageToolDepsWithPort 注入；为 nil 时工具返回 "port not injected"。
 
 // PrivateMessageToolDeps 私信工具依赖
 //
-// 2026-07-22 方向D：所有方法统一走 portcontract.SessionPort。
-// SessionSvc 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
+// 所有方法统一走 portcontract.SessionPort。
+// SessionSvc 仅作为旧装配入口的回退路径，不推荐新代码使用。
 type PrivateMessageToolDeps struct {
 	// Session 会话域 Port（推荐路径）。
 	// 由 service.SessionPortAdapter 注入；nil 时工具返回 "port not injected"。
@@ -85,7 +85,7 @@ func BuildPrivateMessageTools(deps PrivateMessageToolDeps) []Tool {
 
 // RegisterPrivateMessageTools 注册私信工具（CategoryPrivateMessage）
 //
-// 2026-07-22 方向D：Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
+// Session port 优先；为 nil 时回退到 SessionSvc（旧装配兼容）。
 func RegisterPrivateMessageTools(registry *ToolRegistry, deps PrivateMessageToolDeps) error {
 	tools := BuildPrivateMessageTools(deps)
 	for _, t := range tools {

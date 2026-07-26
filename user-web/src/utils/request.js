@@ -1,3 +1,25 @@
+/**
+ * 统一 HTTP 请求工具
+ *
+ * 导出两种风格，**新代码必须使用命名导入 `http`**：
+ *   ✅ import { http } from '@/utils/request'
+ *      http.get(url, params) / http.post(url, data) / http.put / http.delete / http.upload
+ *   ⚠️  import request from '@/utils/request'   // default 导出，仅为兼容旧代码保留
+ *      request.get(url, { params }) / request.post(url, data, config)
+ *
+ * 选择 `http` 的原因：
+ *   1. `http.get(url, params)` 直接传扁平参数，无需嵌套 `{ params }`，避免误写成
+ *      `http.get(url, { params })` 导致参数二次包裹（见 http.get 兜底注释）。
+ *   2. `http` 是稳定的语义 API（get/post/put/delete/upload），未来若替换底层
+ *      axios 实例（如改用 fetch/ofetch），调用方零改动；而 `request` 直接暴露
+ *      axios 实例，与 axios API 强耦合。
+ *   3. 架构评审 P1-3 约定：`default` 导出仅作向后兼容，新增文件应使用 `{ http }`。
+ *      ESLint `no-restricted-imports` 规则可约束新增文件不引入 default 导出
+ *      （见 docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-3）。
+ *
+ * 历史背景：早期 api 文件混用两种风格（43 个文件用 default，39 个用 { http }），
+ * 全量回归改造风险高、收益低；故仅以注释 + lint 规则约束新增，存量保持现状。
+ */
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getApiConfig } from './configManager'
@@ -6,7 +28,7 @@ import { getStoredLocale } from '@/i18n/locale'
 
 const t = (key) => i18n.global.t(key)
 
-// 创建axios实例（不再使用X-API-KEY）
+// 创建axios实例（不使用 X-API-KEY）
 const createRequestInstance = () => {
   // 优先使用环境变量（Vite 注入），然后是本地存储，最后是默认值
   let apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || ''

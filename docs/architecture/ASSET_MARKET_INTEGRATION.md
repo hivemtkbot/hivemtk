@@ -2148,23 +2148,7 @@ export const toggleLocalAsset    = (id, a)  => request.put(`/api/v1/local-assets
 
 ---
 
-## 十九、与上一版报告的关键差异(锁定)
-
-| 维度 | 第二版(无同源) | **本版(同源同构)** |
-|---|---|---|
-| 资产表 | 1 张(`local_assets`)| **同 1 张**(已正确) |
-| 自建 vs 购买 | 设计上未明确 | **明确同源同构,仅 `source` 标识** |
-| 商户自建能力 | 未设计 | **完整 CRUD,与购买共用** |
-| 编辑能力 | 购买资产不能编辑 | **购买资产也能编辑,保存为本地副本** |
-| UI 复用 | 未强调 | **AssetFormDialog 一个组件,create/edit 通用** |
-| 五层架构 | 未明确 | **强制 Handler/Service/Domain/Repository/Model** |
-| 编码规范 | 未明确 | **命名/错误/日志/注释/测试/Lint 全套** |
-| 依赖注入 | 未设计 | **手 wire,Container 模式** |
-| 分层检查 | 无 | **CI 强制 `check-deps.sh` 拒绝合并** |
-
----
-
-## 二十、最终一句话总结(终版)
+## 二十、最终一句话总结
 
 > **HiveMtk 资产市场 = 同源同构 + 五层架构 + 编码规范三位一体**:
 > **平台购买与商户自建走同一张表 `local_assets`、同一组 CRUD、同一套 UI,仅 `source` 字段区分**;

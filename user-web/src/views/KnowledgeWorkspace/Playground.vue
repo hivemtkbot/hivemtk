@@ -175,7 +175,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, CircleCheck, CircleClose, RemoveFilled } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const router = useRouter()
 

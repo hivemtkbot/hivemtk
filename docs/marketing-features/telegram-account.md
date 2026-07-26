@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | community-management |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] Telegram Bot 账号管理（bot_token 加密存储）
@@ -42,9 +40,6 @@
 
 ### 2.1 业务背景
 Telegram 是海外私域销售的重要触达渠道，支持 Bot 自动化承接客户咨询、推送营销内容。系统需集中管理多个 Telegram Bot 凭证，配置 Webhook 接收消息，并通过白名单控制承接范围。
-
-### 2.2 解决思路
-注册 Telegram Bot（bot_token 加密存储），配置 Webhook 将消息推送至系统；系统解析消息后路由到对应智能体承接；allowed_chats 白名单控制只承接授权会话，防止滥用。
 
 ### 2.3 关键算法或模型
 - 凭证加密：AES-256-GCM 加密 bot_token
@@ -151,18 +146,3 @@ Telegram 是海外私域销售的重要触达渠道，支持 Bot 自动化承接
 - Webhook 回调端到端测试
 - 消息路由到智能体测试
 - Telegram API 调用稳定性测试
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

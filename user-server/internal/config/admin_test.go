@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// 2026-07-24 重构后：DefaultAdmin 已无 Password 字段；ShowDefaultCredentials 默认 false；
-// 任何「默认密码」相关用例均已删除（admin 密码只能从 InitAdmin 写入 DB）。
-
 func TestGetAdminConfig_Default(t *testing.T) {
 	clearEnv()
 	defer clearEnv()
@@ -56,7 +53,7 @@ func TestGetAdminConfig_Login(t *testing.T) {
 		t.Fatal("GetAdminConfig returned nil")
 	}
 
-	// 重构后：登录页不再展示默认凭据提示
+	// 登录页不展示默认凭据提示
 	if cfg.Login.ShowDefaultCredentials {
 		t.Error("Expected ShowDefaultCredentials to be false by default (no default password to show)")
 	}

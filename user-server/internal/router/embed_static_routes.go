@@ -64,7 +64,7 @@ func setupEmbedStaticRoutes(r *gin.Engine) {
 			r.StaticFile("/logo.png", filepath.Join(userWebDist, "logo.png"))
 
 			// SPA 路由：所有 /chat/embed/* 都返回 index.html（Vue Router hash 模式）
-			// 2026-07-17: user-web 路由使用 createWebHashHistory()，
+			// user-web 路由使用 createWebHashHistory()，
 			//   浏览器访问 /chat/embed/default 不会触发 hash 路由，
 			//   必须用 /#/chat/embed/default 才能命中目标路由。
 			//   自动加上 #/ 前缀让 URL 更友好。
@@ -82,8 +82,7 @@ func setupEmbedStaticRoutes(r *gin.Engine) {
 			})
 
 			// 根路径：直接返回 SPA（让 Vue Router 根据 hash 路由）
-			// 2026-07-17: 之前会重定向到 /unifiedInbox/list，导致 chat/embed 路径丢失
-			//   改为统一返回 index.html，由 Vue Router 处理路由：
+			// 统一返回 index.html，由 Vue Router 处理路由：
 			//   - /#                  → Layout → 跳 /unifiedInbox/list
 			//   - /#/chat/embed/xxx   → ChatEmbed（公开）
 			r.GET("/", func(c *gin.Context) {
@@ -91,7 +90,7 @@ func setupEmbedStaticRoutes(r *gin.Engine) {
 			})
 
 			// SPA 路由：所有非 API 路径都返回 index.html
-			// 2026-07-17: 兜底 /unifiedInbox/list 等主应用路由，避免 404
+			// 兜底 /unifiedInbox/list 等主应用路由，避免 404
 			r.NoRoute(func(c *gin.Context) {
 				path := c.Request.URL.Path
 				// API 路径不处理（返回 404）

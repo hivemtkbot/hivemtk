@@ -1,8 +1,6 @@
 // Package service 知识库子域 —— 核心服务入口
 //
-// 2026-07-23 五层架构治理（二轮）：从原 919 行 knowledge_service.go 拆分
-// 出 6 个子域文件（import/pipeline/reindex/log/security/helpers），本文件
-// 仅保留：
+// 本文件仅保留：
 //   - 类型定义（ImportRequest, ImportResult）
 //   - 构造函数（NewKnowledgeService / NewKnowledgeServiceWithDB）
 //   - Import 统一入口
@@ -34,11 +32,6 @@ import (
 )
 
 // KnowledgeService 知识库服务(V2.0 统一入口)
-//
-// 2026-07-23 五层架构治理（二轮）：
-// 删除 `db *gorm.DB` 字段。原字段仅在 `persistChunkEmbeddings` 间接使用（已下沉到
-// `repository.KnowledgeChunkRepository.UpdateEmbeddingsBatch`），其它路径都不需要
-// 直接持有 db。service 不再持有 *gorm.DB。
 type KnowledgeService struct {
 	processor	*etl.DocumentProcessor
 	vectorizer	*ragretrieval.Vectorizer
@@ -185,8 +178,7 @@ func (s *KnowledgeService) List(ctx context.Context, filter repository.ListFilte
 
 // Get 获取文档
 //
-// 2026-07-18 修复：KnowledgeDocument.ProductID 是 int64（迁移 schema 为 INTEGER），
-// 调用方需将前端传入的 string UUID 经 HashStringToInt64 映射回 int64。
+// KnowledgeDocument.ProductID 是 int64，调用方需将前端传入的 string UUID 经 HashStringToInt64 映射回 int64。
 func (s *KnowledgeService) Get(ctx context.Context, productID, id int64) (*model.KnowledgeDocument, error) {
 	return s.docRepo.GetByProductAndID(ctx, productID, id)
 }
@@ -234,7 +226,7 @@ func (s *KnowledgeService) Delete(ctx context.Context, productID, id int64) erro
 		return err
 	}
 
-	// 2026-07-17:发布删除事件(ADR-008 §2.5 子项 2)
+	// 发布删除事件(ADR-008 §2.5 子项 2)
 	// 触发 rag.IncrementalIndexer 清理内存索引
 	agent_runtime.PublishKnowledgeDocumentDelete(uint(productID), uint(id), 0)
 
@@ -250,7 +242,7 @@ func (s *KnowledgeService) Update(ctx context.Context, doc *model.KnowledgeDocum
 		return err
 	}
 
-	// 2026-07-17:发布更新事件(ADR-008 §2.5 子项 2)
+	// 发布更新事件(ADR-008 §2.5 子项 2)
 	// KnowledgeDocument 无 Content 字段(分段在 KnowledgeChunk),事件不传 content
 	agent_runtime.PublishKnowledgeDocumentUpdate(uint(doc.ProductID), uint(doc.ID), "", 0)
 
@@ -305,10 +297,6 @@ func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericPr
 }
 
 // persistChunkEmbeddings 委托给 chunkRepo 持久化 embedding
-//
-// 2026-07-23 五层架构治理（二轮）：原实现直接在 service 中 tx.Exec 写 SQL，
-// 违反 §3.5"service 不应写 SQL"。已下沉到
-// `repository.KnowledgeChunkRepository.UpdateEmbeddingsBatch`。
 func (s *KnowledgeService) persistChunkEmbeddings(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {
 	return s.chunkRepo.UpdateEmbeddingsBatch(ctx, chunks, embeddings)
 }

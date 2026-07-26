@@ -167,7 +167,7 @@ func (c *CustomerSessionController) SendMessage(ctx *gin.Context) {
 		req.SenderName = ""
 	} else if uid := getUserIDFromContext(ctx); uid != 0 {
 		// 坐席/管理员：身份绑定到 JWT 主体，禁止冒充他人
-		// 2026-07-21 修复：必须显式设置 SenderType = "agent"，否则 service 拿到空值会在
+		// 必须显式设置 SenderType = "agent"，否则 service 拿到空值会在
 		// 会话统计更新处被当作 "user" 处理，导致 ai_reply_count 错乱 / session.handler_type
 		// 不会切回 ai / human。
 		req.SenderType = "agent"

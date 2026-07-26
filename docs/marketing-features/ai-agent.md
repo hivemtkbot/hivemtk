@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | multi-ai-agent |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 智能体 CRUD（销售型/客服型/混合型）
@@ -44,12 +42,6 @@
 
 ### 2.1 业务背景
 多 AI 智能体架构允许商户配置多个独立智能体（销售型/客服型/混合型），每个智能体可绑定不同的 LLM、SOP、知识库，以适配不同业务场景（售前转化、售后支持、混合服务等）。
-
-### 2.2 解决思路
-- 智能体作为独立配置实体，封装 system_prompt、llm_config、sop_id、rag_config
-- 通过 `agent_type` 区分智能体职责，路由层根据场景选择智能体
-- 智能体可挂载到 SalesEngine，参与销冠流程编排
-- 支持在线测试调用，加载上下文验证智能体表现
 
 ### 2.3 关键算法或模型
 - 智能体配置加载与上下文组装（system_prompt + rag 检索 + sop 节点）
@@ -164,18 +156,3 @@
 - 创建→测试调用→挂载全链路
 - 删除智能体后挂载关系级联清理
 - 跨模块联动（SOP / RAG / LLM Routing）
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

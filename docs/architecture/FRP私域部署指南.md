@@ -1,7 +1,6 @@
 # HiveMtk 用户端 - FRP 私域部署指南
 
 > 适用对象：需要把部署在内网/NAT/家庭宽带环境的 HiveMtk 用户端，通过公网域名对外提供客服服务的运维/集成商
-> 适用版本：2026-07-21
 > 关联文档：[部署方案_用户端.md](部署方案_用户端.md) / [CHAT_WIDGET_EMBED.md](../operations/CHAT_WIDGET_EMBED.md) / [ADR-011-chat-widget-embed.md](adr/ADR-011-chat-widget-embed.md)
 
 ---

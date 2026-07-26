@@ -13,9 +13,8 @@ import (
 
 // setupCustomerServiceRoutes 客服会话管理路由
 //
-// 2026-07-23 五层架构治理（二轮）：传入 aiAgentSvc 以满足 agent_status controller
-// 装配（控制器零 db 引用）。
-// 2026-07-25 v1.2 出海方案：传入 langResolver 注入到坐席 WebSocket handler。
+// 传入 aiAgentSvc 以满足 agent_status controller 装配（控制器零 db 引用）。
+// 传入 langResolver 注入到坐席 WebSocket handler。
 func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAgentService, langResolver *i18nservice.LangConfigResolver) {
 	// 客服会话管理
 	customerSessionCtrl := controller.NewCustomerSessionController()
@@ -340,11 +339,6 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 }
 
 // setupLLMRoutingRoutes LLM 多模型路由
-//
-// 修复 2026-07-23：
-//  1. URL 路径 :id 改 :name（语义清晰）
-//  2. 注入 service 依赖（不再使用 no-args 构造）
-//  3. 新增 /llm/audit 审计历史 + /llm/cost-stats cost-stats 端点
 func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	dispatcher := getGlobalDispatcher()
 	routingService := service.NewLLMRoutingService(dispatcher)

@@ -41,7 +41,7 @@ import {
   OfficeBuilding
 } from '@element-plus/icons-vue'
 
-// 2026-07-17 新增：触达渠道选择器（覆盖 11 个渠道：sms/email/wecom/weixin/douyin/kuaishou/xiaohongshu/dingtalk + telegram/whatsapp/feishu）
+// 触达渠道选择器（覆盖 11 个渠道：sms/email/wecom/weixin/douyin/kuaishou/xiaohongshu/dingtalk + telegram/whatsapp/feishu）
 //
 // 后端 ReachChannels 白名单：
 //   sms, email, wecom, weixin, douyin, kuaishou, xiaohongshu, dingtalk, card,
@@ -70,7 +70,6 @@ const allChannels = [
   { value: 'kuaishou', label: '快手', icon: Share, description: '快手私信' },
   { value: 'xiaohongshu', label: '小红书', icon: Postcard, description: '小红书私信' },
   { value: 'dingtalk', label: '钉钉', icon: Connection, description: '钉钉机器人' },
-  // 2026-07-17 新增
   { value: 'telegram', label: 'Telegram', icon: Promotion, description: 'Telegram Bot API（境外 IM）', newBadge: true },
   { value: 'whatsapp', label: 'WhatsApp', icon: ChatLineRound, description: 'WhatsApp Cloud API（Meta 商业）', newBadge: true },
   { value: 'feishu', label: '飞书', icon: ChatLineSquare, description: '飞书 Open API（协作）', newBadge: true }

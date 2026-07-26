@@ -148,9 +148,7 @@ func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID 
 
 // ComputeAll 计算所有客户 RFM（limit 限制）
 //
-// CC-P2 N+1 优化：原实现为「for c → ComputeForCustomer → customerRepo.GetByID」，
-// N 个客户产生 N 次额外 SELECT（外层 List 已拿到 customers 仍重复查）。
-// 现改为：复用 List 返回的 customers 切片，直接在循环里算，跳过重复 GetByID。
+// 复用 List 返回的 customers 切片，直接在循环里算，跳过重复 GetByID。
 // orders 仍然每客户一次 GetByCustomerID（进一步优化可预拉，参见 ListByAccountIDs）。
 func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, error) {
 	if limit < 1 || limit > 1000 {
@@ -171,7 +169,7 @@ func (s *CustomerRFMService) ComputeAll(ctx context.Context, limit int) (int, er
 	return success, nil
 }
 
-// computeForCustomerLoaded 复用已加载的 customer 对象进行 RFM 计算（CC-P2 内部辅助）
+// computeForCustomerLoaded 复用已加载的 customer 对象进行 RFM 计算
 //
 // 与 ComputeForCustomer 行为一致，差异在于不再调 customerRepo.GetByID（外层已加载）。
 // 公共 ComputeForCustomer 入口保留以便 controller 单独按 ID 调用。

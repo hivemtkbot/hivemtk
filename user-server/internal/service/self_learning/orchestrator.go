@@ -111,7 +111,6 @@ func NewOrchestrator(
 // 调用后立即返回，事件处理在后台 goroutine 中执行
 func (o *Orchestrator) Start(ctx context.Context) error {
 	// CAS 原子抢占：只有一个调用方能成功将 running 从 false 翻转为 true
-	// 修复 check-then-act 竞态（原 Load+Store 两步在并发下可同时通过检查）
 	if !o.running.CompareAndSwap(false, true) {
 		return ErrOrchestratorNotRunning
 	}

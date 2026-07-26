@@ -17,7 +17,7 @@ import (
 	"marketing/internal/pkg/utils/db"
 )
 
-// knowledge_tools.go 知识工具实现（PRD §5.2 P0-3 G3）
+// knowledge_tools.go 知识工具实现（PRD §5.2）
 //
 // 4 个知识工具：
 //   1. rag.search           - RAG 检索（向量 + BM25-lite + 阈值过滤 + 检索日志）
@@ -307,7 +307,7 @@ func NewKnowledgeFeedbackTool(deps KnowledgeToolDeps) *KnowledgeFeedbackTool {
 	}
 }
 
-// RiskLevel 覆盖为 RiskLevelWrite（P3-D）
+// RiskLevel 覆盖为 RiskLevelWrite
 // 知识反馈会写入 knowledge_feedbacks 表，影响召回质量优化；可回滚（删除反馈即可）
 func (t *KnowledgeFeedbackTool) RiskLevel() ToolRiskLevel { return RiskLevelWrite }
 
@@ -416,7 +416,7 @@ func NewKnowledgeAddDocTool(deps KnowledgeToolDeps) *KnowledgeAddDocTool {
 	}
 }
 
-// RiskLevel 覆盖为 RiskLevelWrite（P3-D）
+// RiskLevel 覆盖为 RiskLevelWrite
 // 添加知识文档会写入 DB + 触发异步索引流水线，可回滚（删除文档 + 清理索引即可）
 func (t *KnowledgeAddDocTool) RiskLevel() ToolRiskLevel { return RiskLevelWrite }
 

@@ -1,6 +1,5 @@
 // Package service 知识库子域 —— 导入实现
 //
-// 2026-07-23 五层架构治理（二轮）：从 knowledge_service.go 拆出
 // 多种来源（上传文件/纯文本/URL）的导入实现 + meta 序列化辅助。
 // 单一职责：把外部来源（Upload/Text/URL/OpenAPI/Batch）转成 KnowledgeDocument 行。
 package service

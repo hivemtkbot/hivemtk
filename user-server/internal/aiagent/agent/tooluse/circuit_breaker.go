@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// circuit_breaker.go P2-B: 工具调用熔断器
+// circuit_breaker.go 工具调用熔断器
 //
 // 设计目标：
 //   防止下游工具持续失败时引发雪崩效应（错误连锁、资源耗尽、响应堆积）。

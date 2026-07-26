@@ -189,8 +189,7 @@ type UserProfile struct {
 func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) (*Customer360DTO, error) {
 	dto := &Customer360DTO{}
 
-	// 1. 获取该用户的会话（CC-P2 N+1 优化：原 GetByMerchant("", 1, 1000) + 内存过滤，
-	//    改为 GetByUserID 直接走 user_id 索引，单 SQL 拉全该用户会话）
+	// 1. 获取该用户的会话（GetByUserID 直接走 user_id 索引，单 SQL 拉全该用户会话）
 	userSessions, err := s.sessionRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -209,13 +208,13 @@ func (s *Customer360Service) GetCustomer360(ctx context.Context, userID string) 
 	// 4. 填充会话历史
 	dto.SessionHistory = s.buildSessionHistory(ctx, userSessions)
 
-	// 5. 填充消息历史（CC-P2 N+1 优化：批量拉所有 session 消息，按 session_id 分桶）
+	// 5. 填充消息历史（批量拉所有 session 消息，按 session_id 分桶）
 	dto.MessageHistory, _ = s.buildMessageHistory(ctx, userSessions)
 
-	// 6. 填充线索信息（CC-P2 N+1 优化：单次 SQL 取代 6 次 GetClueAllList + 内存过滤）
+	// 6. 填充线索信息（单次 SQL 拉取）
 	dto.ClueInfo, _ = s.buildClueInfo(ctx, userID, userSessions)
 
-	// 7. 填充订单信息（CC-P2 N+1 优化：单次 SQL 取代 GetOrderList(1,10000) + 内存过滤）
+	// 7. 填充订单信息（单次 SQL 拉取）
 	dto.OrderInfo, _ = s.buildOrderInfo(ctx, userID, userSessions)
 
 	// 8. 填充互动统计
@@ -333,8 +332,7 @@ func (s *Customer360Service) buildSessionHistory(ctx context.Context, sessions [
 
 // buildMessageHistory 构建消息历史
 //
-// CC-P2 N+1 优化：原实现「for session → messageRepo.GetBySessionID」是典型 N+1，
-// 现在改为 ListBySessionIDsBatch 单次 SQL 拉所有 session 的消息，按 session_id 分桶后拼接。
+// 使用 ListBySessionIDsBatch 单次 SQL 拉所有 session 的消息，按 session_id 分桶后拼接。
 func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions []*model.CustomerSession) ([]*MessageHistoryItem, error) {
 	history := make([]*MessageHistoryItem, 0)
 	if len(sessions) == 0 {
@@ -385,11 +383,10 @@ func (s *Customer360Service) buildMessageHistory(ctx context.Context, sessions [
 
 // buildClueInfo 构建线索信息
 //
-// CC-P2 N+1 优化：
-//   - 取消「GetByMerchant("", 1, 1000) + 内存过滤」重复 IO，直接复用上层传入的 userSessions
-//   - 取消「遍历 6 种 type → GetClueAllList + 内存过滤」N+1，改为 clueRepo.ListByAccounts 单次 SQL
+// 直接复用上层传入的 userSessions 提取联系方式，
+// 使用 clueRepo.ListByAccounts 单次 SQL 拉取所有线索。
 func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*ClueInfo, error) {
-	// 从已加载的 userSessions 提取 phone / email / accountID（CC-P2 优化：避免再次 GetByMerchant 拉全表）
+	// 从已加载的 userSessions 提取 phone / email / accountID
 	var userPhone, userEmail, accountID string
 	for _, session := range userSessions {
 		if session.UserID == userID {
@@ -404,7 +401,7 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 		return nil, nil
 	}
 
-	// 单次 SQL 取代「for type=0..5 → GetClueAllList + 内存去重」（CC-P2 N+1 优化）
+	// 单次 SQL 拉取所有线索（按 type 内存去重）
 	clues, err := s.clueRepo.ListByAccounts(ctx, []string{accountID, userPhone, userEmail})
 	if err != nil {
 		return nil, err
@@ -436,11 +433,10 @@ func (s *Customer360Service) buildClueInfo(ctx context.Context, userID string, u
 
 // buildOrderInfo 构建订单信息
 //
-// CC-P2 N+1 优化：
-//   - 取消「GetByMerchant("", 1, 1000) + 内存过滤」重复 IO，直接复用上层传入的 userSessions
-//   - 取消「GetOrderList(1, 10000) + 内存过滤」N+1，改为 orderRepo.ListByAccountIDs 单次 SQL
+// 直接复用上层传入的 userSessions 提取 accountID，
+// 使用 orderRepo.ListByAccountIDs 单次 SQL 拉取所有订单。
 func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, userSessions []*model.CustomerSession) (*OrderInfo, error) {
-	// 从已加载的 userSessions 提取 accountID（CC-P2 优化：避免再次 GetByMerchant 拉全表）
+	// 从已加载的 userSessions 提取 accountID
 	var accountID string
 	for _, session := range userSessions {
 		if session.UserID == userID {
@@ -455,7 +451,7 @@ func (s *Customer360Service) buildOrderInfo(ctx context.Context, userID string, 
 		}, nil
 	}
 
-	// 单次 SQL 取代「GetOrderList(1, 10000) + 内存遍历过滤」（CC-P2 N+1 优化）
+	// 单次 SQL 拉取所有订单
 	userOrders, err := s.orderRepo.ListByAccountIDs(ctx, []string{accountID})
 	if err != nil {
 		return &OrderInfo{
@@ -604,9 +600,7 @@ func (s *Customer360Service) buildUserProfile(ctx context.Context, sessions []*m
 
 // GetCustomerList 获取客户列表（带分页和筛选）
 //
-// CC-P2 N+1 优化：原实现为「GetByMerchant 拿分页 sessions → for userID → GetCustomer360
-// （内部又走 5+ 次 DB）」，N 个用户产生 5N+1 次 IO。
-// 新实现先 batch 拉取全量用户会话 + 一次性拉所有 session 的消息 / 线索 / 订单，
+// batch 拉取全量用户会话 + 一次性拉所有 session 的消息 / 线索 / 订单，
 // 再纯内存按 userID 分桶组装 DTO，把 IO 收敛到常数级别。
 func (s *Customer360Service) GetCustomerList(ctx context.Context, page, pageSize int, filters map[string]string) (map[string]*Customer360DTO, int64, error) {
 	sessions, total, err := s.sessionRepo.GetByMerchant(ctx, "", page, pageSize)
@@ -697,7 +691,7 @@ func (s *Customer360Service) indexCluesByAccount(ctx context.Context, accounts [
 	return out
 }
 
-// assembleCustomer360DTO 由 GetCustomerList 在内存中组装单个用户 DTO（CC-P2 内部辅助）
+// assembleCustomer360DTO 由 GetCustomerList 在内存中组装单个用户 DTO
 func (s *Customer360Service) assembleCustomer360DTO(
 	userSessions []*model.CustomerSession,
 	messageMap map[string][]*model.SessionMessage,

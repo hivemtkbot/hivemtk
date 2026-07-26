@@ -32,12 +32,12 @@ func TestNewIndexManagerWithDB_UnsupportedType(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported vector database type")
 }
 
-// TestNewIndexManagerWithDB_PGVector pgvector 类型回退到内存实现（P2-5/6 后 PGVector 死代码已删）
+// TestNewIndexManagerWithDB_PGVector pgvector 类型回退到内存实现
 func TestNewIndexManagerWithDB_PGVector(t *testing.T) {
 	mgr, err := NewIndexManagerWithDB(nil, config.VectorDatabaseConfig{Type: config.VectorDBTypePGVector})
 	assert.NoError(t, err)
 	assert.NotNil(t, mgr)
-	// P2-5/6 修复：PGVectorIndexManager 已删除，工厂统一返回 InMemoryIndexManager
+	// 工厂统一返回 InMemoryIndexManager
 	im, ok := mgr.(*InMemoryIndexManager)
 	assert.True(t, ok, "expected *InMemoryIndexManager after PGVector dead-code removal")
 	assert.Equal(t, 512, im.dimension)

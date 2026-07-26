@@ -129,7 +129,7 @@ import {
   startTikTokAutoReply,
   stopTikTokAutoReply
 } from '@/api/tiktokAutoReply'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const platform = 'tiktok'
 const accounts = ref([])

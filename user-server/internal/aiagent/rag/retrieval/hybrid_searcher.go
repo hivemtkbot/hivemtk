@@ -49,7 +49,7 @@ type HybridSearcher struct {
 	enableMultiQuery bool
 	enableRerank     bool
 
-	// 检索日志表存在性缓存：避免每条消息都查 information_schema（性能审计 P1-4）。
+	// 检索日志表存在性缓存：避免每条消息都查 information_schema。
 	logMu        sync.Mutex
 	logReady     bool
 	logCheckedAt time.Time
@@ -69,7 +69,7 @@ type HybridSearcherConfig struct {
 
 // DefaultHybridSearcherConfig 默认配置
 //
-// 性能审计 P1-5：HyDE / MultiQuery 会为每条消息额外发起 1~N 次 LLM 调用，
+// HyDE / MultiQuery 会为每条消息额外发起 1~N 次 LLM 调用，
 // 在 1000 万/日被动回复下把 LLM 负载放大 2-3 倍。默认关闭，仅在建库调试或低吞吐场景
 // 通过环境变量 RAG_ENABLE_HYDE / RAG_ENABLE_MULTIQUERY 开启。
 func DefaultHybridSearcherConfig() *HybridSearcherConfig {
@@ -288,7 +288,7 @@ func (s *HybridSearcher) logSearch(productID int64, query string, topK, vecN, bm
 		return
 	}
 	ctx := context.Background()
-	// 性能审计 P1-4：表存在性仅探测一次（5 分钟 TTL 复探），避免 1000 万/日每条消息都查 information_schema。
+	// 表存在性仅探测一次（5 分钟 TTL 复探），避免 1000 万/日每条消息都查 information_schema。
 	if !s.searchLogReady(ctx) {
 		return
 	}
@@ -304,12 +304,12 @@ func (s *HybridSearcher) logSearch(productID int64, query string, topK, vecN, bm
 		rewriteStrategy, cacheHit,
 	).Error
 	if err != nil {
-		// best-effort：不阻断主流程，但记录错误（R5 修复：原 _ = err 静默吞噬）
+		// best-effort：不阻断主流程，但记录错误
 		logger.Errorf("hybrid_searcher: persist search log failed: %v", err)
 	}
 }
 
-// searchLogReady 探测 knowledge_search_logs 表是否存在，结果缓存 5 分钟（性能审计 P1-4）。
+// searchLogReady 探测 knowledge_search_logs 表是否存在，结果缓存 5 分钟。
 func (s *HybridSearcher) searchLogReady(ctx context.Context) bool {
 	s.logMu.Lock()
 	defer s.logMu.Unlock()

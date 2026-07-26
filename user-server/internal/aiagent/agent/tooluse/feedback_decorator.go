@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// feedback_decorator.go P3-A: 工具调用反馈回流装饰器
+// feedback_decorator.go 工具调用反馈回流装饰器
 //
 // 设计目标：
 //   将工具调用结果作为隐式反馈信号回流到 FeedbackCollector，

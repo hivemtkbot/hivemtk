@@ -1,6 +1,5 @@
 // Package service 知识库子域 —— 异步处理流水线
 //
-// 2026-07-23 五层架构治理（二轮）：从 knowledge_service.go 拆出
 // 文档异步处理全流程（status update → 文本提取 → 分片 → 写库 → 向量化 → 入索引）。
 // 单一职责：异步 goroutine 内执行的所有步骤集中在此文件，便于追踪"知识库入库
 // 失败"的所有失败点。
@@ -47,7 +46,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	}
 
 	// 2. 读取并提取文本
-	//    关键修复：上传的 PDF/DOCX 是二进制，不能直接 string(bytes) 切片（会产出乱码）。
+	//    上传的 PDF/DOCX 是二进制，不能直接 string(bytes) 切片（会产出乱码）。
 	//    先按文件名扩展名提取纯文本，再交给分片器。
 	if content == "" && filePath != "" {
 		bytes, err := os.ReadFile(filePath)
@@ -149,8 +148,8 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	}
 
 	// 5.5 持久化向量到 knowledge_chunks.embedding（pgvector）
-	// 关键修复：此前 embeddings 仅用于内存索引（生产 s.indexer==nil 被跳过），
-	// 导致 knowledge_chunks.embedding 始终为空，检索侧 vectorSearch 读不到任何向量 → RAG 召回失效。
+	// embeddings 用于内存索引与持久化；生产 s.indexer==nil 时通过持久化路径承接，
+	// 否则 knowledge_chunks.embedding 为空会导致检索侧 vectorSearch 读不到任何向量 → RAG 召回失效。
 	if err := s.persistChunkEmbeddings(bgCtx, chunkModels, embeddings); err != nil {
 		s.markFailed(bgCtx, documentID, fmt.Sprintf("持久化向量失败: %v", err))
 		return

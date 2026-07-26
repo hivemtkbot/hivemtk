@@ -76,7 +76,7 @@ type RagProduct struct {
 	LastImportAt *time.Time `json:"last_import_at"`
 	LastSearchAt *time.Time `json:"last_search_at"`
 	SearchCount  int64      `json:"search_count" gorm:"default:0"`
-	// M 域 P1 修复：精细意图识别配置（2026-07-21）
+	// 精细意图识别配置
 	// 8 大意图类（consult/price_inquiry/objection/...）+ 7 关键子类（价格异议/质量异议/购买意向/...）
 	// 用于：
 	//   - LLM 调用时按意图路由不同的 system_prompt 模板

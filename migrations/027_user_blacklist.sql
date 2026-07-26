@@ -1,9 +1,6 @@
 -- 027_user_blacklist.sql
 -- 方向10：坐席实时聊天看板 - 用户黑名单表（user_id 维度 + TTL + 软删除）
 --
--- 修复 bug：GET /api/customer-sessions/blacklist 返回 500
---   ERROR: relation "user_blacklist" does not exist (SQLSTATE 42P01)
---
 -- 设计要点：
 --   1. 以 user_id 维度拉黑（非单次会话），避免该访客后续再次接入
 --   2. 软删除：active=false 保留历史，便于审计与解除

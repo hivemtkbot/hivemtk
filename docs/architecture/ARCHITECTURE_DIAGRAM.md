@@ -688,12 +688,5 @@ docker-compose up -d
 
 ---
 
-**文档版本**: v1.4  
-**生效日期**: 2026-07-22  
 **配套文档**: **[Go 五层架构编码规范](./GO_FIVE_LAYER_ARCHITECTURE.md) ⭐⭐⭐(AI 必读)** │ [平台端规范](../../hivemtk-platform/docs/architecture/GO_FIVE_LAYER_ARCHITECTURE.md) │ [资产市场同源同构](./ASSET_MARKET_INTEGRATION.md) │ [宿主机推理方案](./HOST_INFERENCE_PLAN.md)
 **命名铁律（强制）**: 平台层统一称「**智能体**」(AIAgent),**禁止**在文档/UI/代码注释中混用「AI 客服 / AI 销售」。`AIAgent.AgentType`(sales/customer_service/hybrid) 仅作智能体内部子类型,对外一律称智能体。
-**变更说明**:
-- v1.1（2026-07-16）：在 L4 能力层 RAG 知识中心明确"Embedding 走本地",在数据层增加本地 embedding 容器说明,对齐私域部署下"LLM 走外部 API,Embedding 走本地 docker 容器"基线。
-- v1.2（2026-07-16）：原计划 TEI 容器因国内网络拉取失败(ghcr.io 镜像 1.7GB,启动 120s),改用自研纯 Go embedding-server(约 20MB,启动 ~1s);架构图相应更新为"自研纯 Go embedding-server"。
-- v1.3（2026-07-17）：**aiAgent 模块合并**。架构「智能决策引擎」层 +「AI算力服务」层统一命名为 `aiagent` 单模块(`internal/aiagent/`,含 `agent` 决策/`rag`/`llm`/`embedding`/`vector` 算力/`knowledge` 资产)。L4 能力层改为以 aiAgent 模块为统一承载;§3.1 模块依赖图新增 `internal/aiagent/` 节点并写入依赖方向表;补充「命名铁律」(智能体统一称呼)。详见新增 [AIAgent_MODULE.md](../architecture/AIAgent_MODULE.md)。
-- v1.4（2026-07-22）：**新增 §4.5 多 AI 智能体架构**。补强多智能体编排层拓扑(Sales/CS/Hybrid 三类 Agent + AgentRegistry + channelAgentBinding + csAgentMount + 共享算力层),对齐实际代码 `aiAgent`/`channelAgentBinding`/`csAgentMount` 路由。源自代码 vs 文档交叉对比报告 P1 #8。

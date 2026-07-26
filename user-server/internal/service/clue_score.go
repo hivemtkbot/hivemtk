@@ -126,9 +126,7 @@ func (s *ClueScoreService) ScoreClue(ctx context.Context, clue *model.Clue) (*mo
 
 // ScoreAll 对所有线索进行评分（受 limit 限制）
 //
-// CC-P2 N+1 优化：原实现「for clue → ScoreClue → engageRepo.CountByClueID」对每条
-// 线索单独跑 1 次互动事件计数 SQL，limit=200 时产生 200+1 次 IO。
-// 现改为：单次 SQL 用 CountByClueIDsBatch 拉所有线索的互动计数，缓存为 map，
+// 单次 SQL 用 CountByClueIDsBatch 拉所有线索的互动计数，缓存为 map，
 // 评分时从 map 取，IO 收敛到 2 次。
 func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error) {
 	if limit < 1 || limit > 1000 {
@@ -142,7 +140,7 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 		return 0, nil
 	}
 
-	// 1) 一次性 batch 拉所有线索的近 7 天互动计数（CC-P2 N+1 优化）
+	// 1) 一次性 batch 拉所有线索的近 7 天互动计数
 	since := time.Now().Add(-7 * 24 * time.Hour)
 	clueIDs := make([]string, 0, len(clues))
 	for _, c := range clues {
@@ -164,7 +162,7 @@ func (s *ClueScoreService) ScoreAll(ctx context.Context, limit int) (int, error)
 	return success, nil
 }
 
-// scoreClueWithEngagement 使用已 batch 拉取的 engagement count 评分单条线索（CC-P2 内部辅助）
+// scoreClueWithEngagement 使用已 batch 拉取的 engagement count 评分单条线索
 func (s *ClueScoreService) scoreClueWithEngagement(ctx context.Context, clue *model.Clue, engagementCount int64) (*model.ClueScore, error) {
 	if clue == nil {
 		return nil, errors.New("线索不能为空")

@@ -32,7 +32,7 @@ type FallbackBridge interface {
 
 // EvalHook 评估钩子接口（由 service/i18n.EvalService 实现）。
 //
-// 多语言方案 P2-1：在 LLM 生成回复后异步抽样评估质量（chrF++ + LLM-as-Judge）。
+// 在 LLM 生成回复后异步抽样评估质量（chrF++ + LLM-as-Judge）。
 // 通过依赖倒置避免 aiagent 层直接依赖 service 层（五层架构方向：
 // service → aiagent，不可反向），由调用方在装配期注入。
 //
@@ -45,12 +45,12 @@ type EvalHook interface {
 
 // ResponseGeneratorImpl 回复生成器实现
 //
-// 多语言方案 P1-1：
+// 翻译缓存（TranslationCache）：
 //   - transCache 为可选注入的翻译缓存（Redis 后端），nil 时禁用缓存
 //   - 仅跨语言路径（generateCrossLingualResponse）查/写缓存
 //   - 同语种路径（generateSameLangResponse）零开销，不查缓存
 //
-// 多语言方案 P1-2：
+// few-shot 与降级桥：
 //   - fewShot 为可选注入的 few-shot 示例渲染器，跨语言路径注入 FewShotBlock
 //   - fallbackBridge 为可选注入的低资源语言降级桥，命中低资源语言时走翻译路径
 type ResponseGeneratorImpl struct {
@@ -89,7 +89,7 @@ func (g *ResponseGeneratorImpl) WithFallbackBridge(b FallbackBridge) *ResponseGe
 	return g
 }
 
-// WithEvalHook 注入质量评估钩子（可选，P2-1）。
+// WithEvalHook 注入质量评估钩子（可选）。
 //
 // 在 LLM 生成回复成功后异步触发 chrF++ + LLM-as-Judge 评估。
 // 传入 nil 表示禁用评估（向后兼容，不影响主流程）。
@@ -147,7 +147,7 @@ func NewResponseGeneratorImpl(llmService LLMServiceInterface, config *ResponseGe
 //     （中文生成 + DeepL 翻译 + Glossary 后处理）
 //   - 否则 → 走标准跨语言 LLM 生成路径（多语言 system prompt + few-shot）
 //
-// 多语言方案 P2-1：生成成功后触发 EvalHook 异步抽样评估（reference 为空时
+// 生成成功后触发 EvalHook 异步抽样评估（reference 为空时
 // EvalService 自动跳过，因此正常生成链路无额外开销）。
 func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request ResponseGenerationRequest) (string, error) {
 	internalLang := i18n.GetInternalLang(ctx)
@@ -231,7 +231,7 @@ func (g *ResponseGeneratorImpl) generateSameLangResponse(ctx context.Context, re
 // 仅以 targetLang 输出，并将知识库上下文自然翻译为目标语言。
 // glossaryBlock / fewShotBlock 暂留空，后续由 service/i18n 层接入。
 //
-// 多语言方案 P1-1：TranslationCache 集成
+// TranslationCache 集成
 //   1. 查缓存：命中直接返回（避免 LLM 调用，跨语言路径延迟从秒级降到毫秒级）
 //   2. 未命中：走 LLM 生成
 //   3. 写缓存：生成成功后异步写入（best-effort，失败不影响主流程）
@@ -269,13 +269,13 @@ func (g *ResponseGeneratorImpl) generateCrossLingualResponse(ctx context.Context
 //   - generateCrossLingualResponse 专注于缓存编排
 //   - 后续单测可独立验证 LLM 调用逻辑
 //
-// 多语言方案 P1-2：few-shot 注入
+// few-shot 注入
 //   - g.fewShot 非 nil 时调用 Render 填充 FewShotBlock
 //   - Render 失败或返回空串时不阻断主流程（glossaryBlock / fewShotBlock 留空）
 func (g *ResponseGeneratorImpl) doCrossLingualLLM(ctx context.Context, request ResponseGenerationRequest, internalLang, targetLang string) (string, error) {
 	contextStr := g.buildContextString(request.SearchResults, request.Context)
 
-	// 渲染 few-shot 块（P1-2：可选注入，失败不阻断）
+	// 渲染 few-shot 块（可选注入，失败不阻断）
 	fewShotBlock := ""
 	if g.fewShot != nil {
 		if block, err := g.fewShot.Render(ctx, targetLang); err == nil {

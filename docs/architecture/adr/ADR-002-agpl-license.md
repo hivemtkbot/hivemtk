@@ -1,7 +1,5 @@
 # ADR-002: 开源协议统一为 AGPL-3.0-or-later
 
-- **状态**：已采纳
-- **日期**：2026-07
 - **范围**：hivemtk + hivemtk-platform 全仓库
 
 ## 背景

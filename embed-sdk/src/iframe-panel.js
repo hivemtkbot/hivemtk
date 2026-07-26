@@ -2,13 +2,12 @@
  * @file Iframe 聊天窗
  * @description 通过 iframe 加载嵌入页面,与浮标 SDK 通过 postMessage 通信
  *
- * 私域部署(2026-07-17 优化):
+ * 私域部署:
  *   - appKey 缺失时跳转到 /chat/embed/default
  *   - 极简白底,无装饰
  *
- * 跨域(2026-07-21 修复):
+ * 跨域:
  *   - 父端用 allowedOrigins 列表(自动包含 apiBaseURL + window.location.origin)
- *     替代严格的 `=== apiBaseURL.origin`,避免跨域部署下父子通信被拒
  *   - iframe 端用具体 origin 发送,不用 '*'
  *   - chat-widget-close 关闭消息走同一白名单校验,与 onMessage 等保持一致
  */
@@ -162,7 +161,7 @@ export class IframePanel {
     document.body.appendChild(iframe)
     this.iframe = iframe
 
-    // 监听 iframe 消息(2026-07-21:统一使用 allowedOrigins 白名单)
+    // 监听 iframe 消息(统一使用 allowedOrigins 白名单)
     // 关闭消息 / 业务消息 / 任何 postMessage 都走同一校验,避免不一致漏洞
     this.messageHandler = (event) => {
       // 跨域安全:allowedOrigins 是父端预先配置的白名单

@@ -383,7 +383,7 @@ import {
   Cpu, Open, Setting, Check, VideoPlay
 } from '@element-plus/icons-vue'
 import { createAgent, updateAgent, getAgent, testAgent } from '@/api/aiAgent.js'
-import { ragProductConfigAPI } from '@/api/rag-product-config.js'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 import { sopApi } from '@/api/sopAgent.js'
 import { getScriptTemplateList } from '@/api/scriptTemplate.js'
 import { INTERNAL_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'

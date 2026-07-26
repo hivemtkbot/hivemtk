@@ -3,7 +3,7 @@ package llm
 // trace_context.go LLM 调用全链路 TraceId 传递
 //
 // 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §M-3 P1 缺口修复
+// 设计依据: PRD §M-3
 // 私域独立部署: 无 merchant_id 字段
 //
 // 功能：
@@ -158,7 +158,7 @@ func (tc *TraceContext) InjectContext(ctx context.Context) context.Context {
 }
 
 // generateTraceID 生成 trace_id（UUIDv7 风格，按时间排序）
-// 使用 google/uuid 已有依赖（uuid.NewString 生成 UUIDv4，这里改为按 RFC 9562 v7 风格）
+// 使用 google/uuid 已有依赖（uuid.NewString 生成 UUIDv4，按 RFC 9562 v7 风格生成）
 // 实际使用 uuid.NewString() 保证唯一性；按时间排序由 timestamp 字段承担
 func generateTraceID() string {
 	return uuid.NewString()

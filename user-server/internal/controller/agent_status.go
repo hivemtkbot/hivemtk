@@ -18,9 +18,7 @@ type AgentStatusController struct {
 
 // NewAgentStatusController 创建客服状态控制器实例
 //
-// 2026-07-23 五层架构治理（二轮）：原实现 dbutil.GetDB() 直调违反 §3.3.1
-// （controller 不应直接调 db）。改为由 router 层注入 *service.AIAgentService，
-// 控制器仅持有 service 依赖，零 db 引用。
+// 由 router 层注入 *service.AIAgentService，控制器仅持有 service 依赖，零 db 引用。
 func NewAgentStatusController(aiAgentSvc *service.AIAgentService) *AgentStatusController {
 	return &AgentStatusController{
 		agentService:    service.NewAgentStatusService(),

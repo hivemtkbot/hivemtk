@@ -20,16 +20,16 @@ import (
 //   1. follow_task.create - 创建跟进任务（联动 FollowUp Port + 客户旅程）
 //   2. follow_task.update - 更新跟进任务（完成/取消/重新安排，联动客户旅程推进）
 //
-// 2026-07-22 方向D 工具层完整走 Port：
-//   - 跟进方法统一走 portcontract.FollowUpPort，不再直接持有 *service.FollowUpService。
-//   - FollowUpService 字段保留为兼容旧装配入口的回退路径。
+// 工具层完整走 Port：
+//   - 跟进方法统一走 portcontract.FollowUpPort。
+//   - FollowUpService 字段作为旧装配入口的回退路径。
 
 // ===== 业务工具依赖 =====
 
 // BusinessToolDeps 业务工具依赖
 //
-// 2026-07-22 方向D：方法统一走 portcontract.FollowUpPort。
-// FollowUpService 仅作为旧装配入口的回退路径保留，不推荐新代码使用。
+// 方法统一走 portcontract.FollowUpPort。
+// FollowUpService 仅作为旧装配入口的回退路径，不推荐新代码使用。
 type BusinessToolDeps struct {
 	// FollowUp 跟进域 Port（推荐路径）。
 	// 由 service.FollowUpPortAdapter 注入；nil 时 follow_task.* 返回 "port not injected"。
@@ -104,7 +104,7 @@ func (d BusinessToolDeps) afterSaleOrFallback() portcontract.AfterSalePort {
 // service.Reminder 类型强依赖。portcontract.FollowUpPort.Schedule 故意返回 any，
 // 原因：工具层不应 import service.Reminder；具体类型在 service 侧，由反射统一抽取。
 //
-// 2026-07-22 方向D：兼容旧测试与 LLM Function Calling 输出，对 `ID` 字段额外提供
+// 对 `ID` 字段额外提供
 // `reminder_id` 别名（snake_case 转换后是 `id`），保证 `follow_task.create` 工具输出
 // 与既有调用方期望一致；type 字段名不变（snake_case 后仍是 `type`）。
 func reminderAnyToMap(v any) map[string]any {
@@ -275,7 +275,7 @@ func NewFollowTaskCreateTool(deps BusinessToolDeps) *FollowTaskCreateTool {
 
 // Execute 执行创建跟进任务
 //
-// 2026-07-22 方向D：优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
+// 优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
 func (t *FollowTaskCreateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -379,7 +379,7 @@ func NewFollowTaskUpdateTool(deps BusinessToolDeps) *FollowTaskUpdateTool {
 
 // Execute 执行更新跟进任务
 //
-// 2026-07-22 方向D：优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
+// 优先走 portcontract.FollowUpPort，FollowUpService 仅作回退。
 func (t *FollowTaskUpdateTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"reminder_id", "action"}); err != nil {
 		return ErrorResult(t.Name(), err), err

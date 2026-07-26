@@ -252,7 +252,7 @@ func (c *CachedEmbeddingClient) persistDBCache(ctx context.Context, model, text 
 		hash, text, model, len(vec), vecLiteral, expiresAt,
 	).Error
 	if err != nil {
-		// best-effort：不阻断主流程，但记录错误（R5 修复：原 _ = err 静默吞噬）
+		// best-effort：不阻断主流程，但记录错误
 		logger.Errorf("cached_embedding: persistDBCache failed, hash=%s: %v", hash, err)
 	}
 }

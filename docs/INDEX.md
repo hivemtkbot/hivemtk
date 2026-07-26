@@ -1,7 +1,6 @@
 # HiveMtk 用户端 - 文档索引
 
 > 用户端独立部署仓库（私域模式）—— 文档归位
-> 最后更新：2026-07-24
 
 > **本目录文档定位**：本仓库为用户端独立部署单元，只收录与用户端部署、运行、运维直接相关的文档。平台端、官网、营销侧等其它文档请访问 `hivemtk-platform` 仓库。
 
@@ -43,7 +42,7 @@
 |------|------|
 | [architecture/GO_FIVE_LAYER_ARCHITECTURE.md](architecture/GO_FIVE_LAYER_ARCHITECTURE.md) | ⭐⭐⭐ Go 五层架构编码规范（AI 编写 Go 代码前必读自检清单）|
 | [architecture/USER_SYSTEM.md](architecture/USER_SYSTEM.md) | 统一用户系统（system_users 单表）|
-| [architecture/MENU_PERMISSION_PLAN.md](architecture/MENU_PERMISSION_PLAN.md) | v3.1 用户系统实施计划（3 档角色 admin/customer_service/staff）|
+| [architecture/MENU_PERMISSION_PLAN.md](architecture/MENU_PERMISSION_PLAN.md) | 用户系统实施计划（3 档角色 admin/customer_service/staff）|
 | [architecture/ASSET_MARKET_INTEGRATION.md](architecture/ASSET_MARKET_INTEGRATION.md) | 资产市场同源同构设计（双端共建）|
 | [architecture/agent-tools-inventory.md](architecture/agent-tools-inventory.md) | AI Agent ReAct 循环 41 工具注册表清单 |
 

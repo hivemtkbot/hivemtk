@@ -490,7 +490,7 @@ func TestTraceEventQueryByTraceID(t *testing.T) {
 // 29. TraceContextFromGin 从 gin.Context 取出 TraceContext
 func TestTraceContextFromGin(t *testing.T) {
 	// 此测试在 llm 包内，无法直接调用 middleware 包（会循环引用）
-	// 改为测试 NewTraceContext 注入与取出
+	// 测试 NewTraceContext 注入与取出
 	tc := NewTraceContext("trace-gin-1", "")
 	if tc.TraceID() != "trace-gin-1" {
 		t.Errorf("expected trace-gin-1, got %s", tc.TraceID())

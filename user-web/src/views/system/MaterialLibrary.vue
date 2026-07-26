@@ -210,8 +210,7 @@ const uploadFormRef = ref(null)
 
 const emit = defineEmits(['select'])
 
-// 安全说明：原 autoLogin（硬编码 admin/admin123 自动登录）已移除——属于严重安全漏洞。
-// 401 由 request.js 拦截器统一处理（清 token + 跳转登录页），组件层不再二次介入。
+// 401 由 request.js 拦截器统一处理（清 token + 跳转登录页）
 
 const searchForm = reactive({
   categoryId: '',

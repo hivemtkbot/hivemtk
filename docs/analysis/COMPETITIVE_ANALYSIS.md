@@ -1,20 +1,6 @@
 # HiveMTK 全网竞品调研与论证报告
 
-> **报告级别**：⭐⭐⭐ 项目级硬约束文档（对外宣传/选型/竞标参考）
-> **调研时间**：2026-07-22
-> **调研范围**：七大竞品梯队 / 全球 30+ 主流产品
 > **报告目的**：客观呈现 HiveMTK 在市场中的位置，论证本项目的差异化壁垒
-
----
-
-## 一、调研方法论
-
-| 维度 | 内容 |
-|------|------|
-| **七梯队分类** | SCRM SaaS / AI 客服 / 海外 Conversational AI / MA 营销自动化 / 开源 AI Agent / 本地 LLM 私域 AI / 多平台聚合开源 |
-| **数据源** | 厂商官网、G2/Capterra 评分、GitHub Star、技术博客、IDC 报告、信通院白皮书 |
-| **对比维度** | 渠道覆盖、AI 能力、部署模式、数据安全、价格、私有化、开源协议 |
-| **论证目标** | 证明 HiveMTK 是当前市场中**唯一同时满足七端聚合 + 自主 AI Agent + 100% 私域零出域**三个维度的开源产品 |
 
 ---
 
@@ -379,63 +365,6 @@
 | AI 工具数 | 41 | ADR-013 多智能体设计 |
 | 最低运行配置 | 8 核 16G（含 LLM） | README.md |
 | 数据出域风险 | 0 | 100% 私域 |
-
----
-
-## 九、调研信息源
-
-### 第一梯队 SCRM
-- [微伴助手深度评测 - 搜狐](https://m.sohu.com/a/1040584184_122883298/)
-- [微伴助手定价](https://weibanzhushou.com/pricing)
-- [2025 企微 SCRM 工具盘点 - CSDN](https://blog.csdn.net/WSYUNYAO/article/details/155986038)
-- [微盛企微管家 2026 选型攻略](https://college.wshoto.com/a/310701.html)
-- [微盛 AI 企微管家实践 - 掘金](https://juejin.cn/post/7579555970596208681)
-- [尘锋 SCRM 产品分析 - 人人都是产品经理](https://www.woshipm.com/pd/5878422.html)
-- [尘锋 SCRM 36 大点评](https://m.36dianping.com/vs/magb.html)
-- [2026 企微 SCRM 选型指南 - CSDN](https://blog.csdn.net/u011492752/article/details/162544511)
-
-### 第二梯队 AI 客服
-- [Udesk vs 智齿 vs 容联七陌 2025 深度横评](https://www.udesk.cn/ucm/faq/67567)
-- [Udesk vs 智齿 AI 能力/渠道/价格 PK](https://www.udesk.cn/ucm/faq/68121)
-- [智齿科技全渠道客服](https://www.zhichi.com/news/6994.html)
-- [容联七陌 AI 客服](https://www.7moor.com/tag/%E5%9C%A8%E7%BA%BF%E5%AE%A2%E6%9C%8D%E7%B3%BB%E7%BB%9F/page/6)
-- [2024 中国智能客服领域盘点 - CSDN](https://blog.csdn.net/YMPzUELX3AIAp7Q/article/details/136978501)
-
-### 第三梯队 海外 Conversational AI
-- [10 Best No-Code Chatbot Builders 2026 - Conferbot](https://www.conferbot.com/blog/best-no-code-chatbot-builders-compared)
-- [Best AI Chatbots for Website - respond.io](https://respond.io/fr/blog/best-ai-chatbots-for-website)
-- [Drift vs Intercom - Tidio](https://www.tidiochat.com/blog/drift-vs-intercom/)
-- [11 Meilleures Alternatives à Intercom - Tidio](https://www.tidio.com/fr/blog/alternatives-intercom/)
-- [17 best customer service management software 2026 - Zendesk](https://www.zendesk.com/service/ticketing-system/customer-service-management-software/)
-
-### 第四梯队 MA 营销自动化
-- [HubSpot vs Marketo 关键差异 - ZoomInfo](https://pipeline.zoominfo.com/sales/hubspot-vs-marketo)
-- [HubSpot Marketing Hub 定价](https://www.hubspot.com/products/marketing)
-- [HubSpot Fall 2025 Spotlight 200+ 产品](https://www.hubspot.com/company-news/fall-2025-spotlight?lang=en)
-- [HubSpot AI Breeze 矩阵](https://www.hubspot.com/products/artificial-intelligence)
-
-### 第五梯队 开源 AI Agent
-- [Open-Source Agentic AI Frameworks Comparative Analysis - Poniak](https://www.poniaktimes.com/compare-open-source-agentic-ai-frameworks/)
-- [Qwen-Agent vs LangChain vs AutoGPT - CSDN](https://blog.csdn.net/u012686652/article/details/156146894)
-- [Qwen-Agent PyPI](https://pypi.org/project/qwen-agent/0.0.30/)
-- [AutoGen 2.8 vs LangChain 0.9 - markaicode](https://markaicode.com/autogen-2-8-vs-langchain-0-9-2025/)
-- [The 15 Best AI Agent Tools in 2025 - bix-tech](https://bix-tech.com/the-15-best-ai-agent-tools-in-2025-practical-picks-clear-criteria-and-real-world-use-cases/)
-
-### 第六梯队 本地 LLM + 私域 AI
-- [Dify vs FastGPT vs RAGFlow vs AnythingLLM 选型 - CSDN](https://devpress.csdn.net/v1/article/detail/152077736)
-- [Dify 5 分钟部署 - 掘金](https://juejin.cn/post/7536900394649157683)
-- [Ollama + DeepSeek + Dify 私有化部署 - 火山引擎](https://developer.volcengine.com/articles/7530123234742632484)
-- [Dify + DeepSeek 本地知识库 - 博客园](https://www.cnblogs.com/rainbond/p/18851349)
-
-### 第七梯队 多平台聚合开源
-- [ChatGPT-On-CS - GitHub](https://github.com/cs-lazy-tools/ChatGPT-On-CS)
-- [chatgpt-on-wechat - GitHub](https://github.com/zhayujie/chatgpt-on-wechat)
-- [chatgpt-on-wechat 介绍](https://vampireachao.github.io/2025/09/01/chatgpt-on-wechat/)
-- [OpenClaw 25 万 Star 介绍 - 腾讯云](https://developer.cloud.tencent.com/article/2648255)
-- [OpenClaw 是什么 - 腾讯云](https://www-sg.tencentcloud.com/techpedia/141496)
-- [Gewechat iPad 协议框架 - CSDN](https://blog.csdn.net/zhangyunchou2015/article/details/147113189)
-- [Gewechat vs 其他框架对比 - CSDN](https://blog.csdn.net/gitblog_00718/article/details/155897477)
-- [WTAPI 微信自动化 - 掘金](https://juejin.cn/post/7579127397498683443)
 
 ---
 

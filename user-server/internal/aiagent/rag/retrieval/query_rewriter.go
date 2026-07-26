@@ -284,7 +284,7 @@ func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw 
 		hash, query, rw.Rewritten, string(multiJSON), "local", string(rw.UsedStrategy),
 	).Error
 	if err != nil {
-		// best-effort：不阻断主流程，但记录错误（R5 修复：原 _ = err 静默吞噬）
+		// best-effort：不阻断主流程，但记录错误
 		logger.Errorf("query_rewriter: persist rewrite cache failed, hash=%s: %v", hash, err)
 	}
 }

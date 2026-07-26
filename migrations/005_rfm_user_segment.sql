@@ -1,7 +1,6 @@
 -- 用户分层 RFM 数据库迁移脚本
--- 版本: 1.1.0  (2026-07-17 改为 PostgreSQL 15+ 语法)
+-- 版本: 1.1.0
 -- 适用于: PostgreSQL 15+ (项目唯一数据库)
--- 创建时间: 2026-03-12 (原始) / 2026-07-17 (PG 化重写)
 
 -- RFM 规则表
 CREATE TABLE IF NOT EXISTS rfm_rules (

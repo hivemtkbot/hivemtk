@@ -9,10 +9,9 @@ import (
 
 // AdminConfigController 管理员配置控制器
 //
-// 2026-07-24 安全清理：移除 GetDefaultCredentials 端点（曾返回 config 中的默认密码）。
-// 现在的管理员配置只承载 UI 行为（登录页是否展示默认账号提示、自动登录开关等），
-// 真正的超管密码唯一来源是 system_users.password（bcrypt 哈希），
-// 由 InitAdmin 流程写入，不暴露给任何 API。
+// 管理员配置只承载 UI 行为（登录页是否展示默认账号提示、自动登录开关等），
+// 超管密码唯一来源是 system_users.password（bcrypt 哈希），由 InitAdmin 流程写入，
+// 不暴露给任何 API。
 type AdminConfigController struct{}
 
 // NewAdminConfigController 创建管理员配置控制器

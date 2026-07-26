@@ -235,7 +235,7 @@ func AutoMigrateAuditTable(db *gorm.DB) error {
 	return db.AutoMigrate(&ToolCallAuditRecord{})
 }
 
-// ===== P2-H: 告警机制 =====
+// ===== 告警机制 =====
 
 // AlertLevel 告警级别
 type AlertLevel string

@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | system-management |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 基于 trace_id 的全链路追踪（请求→中间件→service→reach→DB）
@@ -42,9 +40,6 @@
 
 ### 2.1 业务背景
 系统采用五层架构，一次请求会经过中间件、controller、service、reach、DB 等多层调用。当出现慢请求或错误时，排查需要跨层关联日志。基于 trace_id 的全链路追踪可将各层 span 串联，可视化调用瀑布图，快速定位瓶颈。
-
-### 2.2 解决思路
-请求入口生成唯一 trace_id，通过 context 在各层传递；每层调用记录 span（span_id、parent_id、service、duration、status）；追踪数据异步上报至驾驶舱；前端按 trace_id 查询并渲染瀑布图，支持慢请求排行与错误下钻。
 
 ### 2.3 关键算法或模型
 - trace_id 生成：雪花算法 + 随机数，全局唯一
@@ -154,18 +149,3 @@
 - 端到端链路追踪测试（请求→各层 span 上报）
 - 按 trace_id 查询准确性测试
 - 高并发下追踪数据上报稳定性测试
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

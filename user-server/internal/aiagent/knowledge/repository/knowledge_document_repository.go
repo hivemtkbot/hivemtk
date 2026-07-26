@@ -53,7 +53,7 @@ func (r *KnowledgeDocumentRepository) GetByID(ctx context.Context, id uint64) (*
 
 // GetByProductAndID 根据产品 ID + 文档 ID 获取(独立部署)
 //
-// 2026-07-18 修复：KnowledgeDocument.ProductID 是 int64（迁移 schema 为 INTEGER），
+// KnowledgeDocument.ProductID 是 int64，
 // 但前端传入的 RagProduct.ID 是 string UUID。需要通过 HashStringToInt64 把 UUID
 // 映射回 int64 才能命中记录。productID=0 表示不按 product 过滤。
 func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, productID, id int64) (*model.KnowledgeDocument, error) {
@@ -73,7 +73,7 @@ func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, pro
 
 // ListFilter 文档列表筛选
 //
-// 2026-07-18 修复：KnowledgeDocument.ProductID 是 int64（迁移 schema 为 INTEGER），
+// KnowledgeDocument.ProductID 是 int64，
 // 但前端传入的 RagProduct.ID 是 string UUID。调用方用 HashStringToInt64 把 UUID
 // 映射回 int64 后再传入。
 type ListFilter struct {
@@ -198,7 +198,7 @@ func (r *KnowledgeDocumentRepository) CountTodayImports(ctx context.Context) (in
 }
 
 // ============================================================================
-// 2026-07-23 五层架构治理（二轮）：以下方法为 service 下沉的统计 SQL
+// 统计 SQL
 // ============================================================================
 
 // CategoryStat 分类统计（repository 层结构体，供 docRepo.CategoryStats 返回）
@@ -217,9 +217,6 @@ type DocHit struct {
 
 // SumTotalTokens 累计 token 总和
 //
-// 2026-07-23 五层架构治理（二轮）：原 service 直接
-// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Select("SUM(total_tokens)")`，
-// 违反 §3.4"service 不应持有 db"，下沉到此方法。
 // 使用 COALESCE 避免无记录时返回 NULL，productID=0 表示不按 product 过滤。
 func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, productID int64) (int64, error) {
 	var total int64
@@ -236,9 +233,6 @@ func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, produc
 
 // CategoryStats 按 category 统计文档数量，返回前 N
 //
-// 2026-07-23 五层架构治理（二轮）：原 service 直接
-// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Group("category")`，
-// 违反 §3.4"service 不应持有 db"，下沉到此方法。
 // 过滤掉空 category（避免未分类聚合干扰 TopN），productID=0 表示不按 product 过滤。
 func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, productID int64, limit int) ([]CategoryStat, error) {
 	if limit <= 0 {
@@ -262,9 +256,6 @@ func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, product
 
 // TopHitDocuments 命中次数最多的文档（Top N）
 //
-// 2026-07-23 五层架构治理（二轮）：原 service 直接
-// `s.db.WithContext(ctx).Model(KnowledgeDocument{}).Order("hit_count DESC")`，
-// 违反 §3.4"service 不应持有 db"，下沉到此方法。
 // productID=0 表示不按 product 过滤。
 func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, productID int64, limit int) ([]DocHit, error) {
 	if limit <= 0 {

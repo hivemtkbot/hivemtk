@@ -22,8 +22,6 @@ func setupLongTermMemoryTestDB(t *testing.T) *gorm.DB {
 }
 
 // newLongTermMemorySystem 构造带 HashEmbeddingService 的 MemorySystem
-//
-// 2026-07-18 私域基线 V7 修复：维度由 768 改为 1024，与本地 TEI bge-m3 输出一致。
 // 数据库 customer_long_term_memory.embedding 字段已为 vector(1024)。
 func newLongTermMemorySystem(db *gorm.DB) *MemorySystem {
 	return &MemorySystem{
@@ -736,8 +734,6 @@ func TestBytesToFloat32Slice_Empty(t *testing.T) {
 // （churn_prediction_logic_test.go: contains / customer_360_test.go: abs）
 
 // hashVecForTest 用 HashEmbeddingService 生成测试向量
-//
-// 2026-07-18 V7 修复：维度 768 → 1024，与本地 TEI bge-m3 一致
 func hashVecForTest(text string) []float32 {
 	svc := llm.NewHashEmbeddingService(1024)
 	vec, _ := svc.EmbedOne(context.Background(), svc.DefaultConfig(), text)

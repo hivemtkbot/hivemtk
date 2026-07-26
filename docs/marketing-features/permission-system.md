@@ -20,8 +20,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | system |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07（阶段 5 / 6 收口） |
-| 最后更新 | 2026-07-24 |
 
 ### 1.1 已完成内容
 
@@ -59,14 +57,6 @@
 ### 2.1 业务背景
 
 私域独立部署场景下，权限模型需在「简洁可控」与「业务可用」之间取平衡。HiveMtk v3.1 收口为 3 档系统角色 + 行级数据范围 + 细粒度操作权限的"三件套"模型，避免 v2.0 自定义角色方案的复杂度。
-
-### 2.2 解决思路
-
-- **角色字典**：`model.SystemRoleList` 硬编码 3 档角色（admin / customer_service / staff），不持久化为独立表
-- **账号角色字段**：`system_users.role` 直接存储 role code
-- **菜单权限**：3 档角色 → 菜单可见性映射（前端路由守卫 + 后端 RequireAdmin 双重校验）
-- **行级权限**：`system_users.data_scope` 字段控制数据可见范围
-- **细粒度操作权限**：`middleware.PermissionService.CheckPermission` 检查具体操作
 
 ### 2.3 关键算法或模型
 
@@ -328,11 +318,3 @@
 - [user-management.md](user-management.md)
 - [auth-login-jwt.md](auth-login-jwt.md)
 - [security-audit.md](security-audit.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-24 | 独立功能文档生成（F-P1-109 补建） | |

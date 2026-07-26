@@ -58,7 +58,7 @@ func (ctrl *GlossaryController) Create(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
 		return
 	}
-	g := req.ToModel()
+	g := dto.ToGlossaryModel(&req)
 	if err := ctrl.svc.Create(c.Request.Context(), g); err != nil {
 		response.Error(c, http.StatusBadRequest, "创建失败", err.Error())
 		return
@@ -144,7 +144,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 		return
 	}
 	// 以路径 term_id 为准（忽略 body 中的 term_id，避免误改唯一键）
-	updated := req.ToModel()
+	updated := dto.ToGlossaryModel(&req)
 	updated.ID = existing.ID
 	updated.TermID = termID
 	if updated.Status == "" {

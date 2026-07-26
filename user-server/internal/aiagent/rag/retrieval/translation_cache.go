@@ -3,7 +3,7 @@ package ragretrieval
 // translation_cache.go 翻译缓存（Redis 后端）
 //
 // 五层架构归属: L4 能力层
-// 设计依据: 多语言方案 P1-1（TranslationCache）
+// 设计依据: TranslationCache
 //
 // 用途：
 //   - 缓存跨语言路径（generateCrossLingualResponse）的 LLM 生成回复

@@ -32,7 +32,7 @@ export function goOffline(id) {
 export function getAgentSessions(id) {
   return request({ url: `/api/agents/${id}/sessions`, method: 'get' })
 }
-// 当前登录用户对应的坐席身份（基于 JWT，不再猜测"在线列表首位"）
+// 当前登录用户对应的坐席身份（基于 JWT）
 export function getMyAgent() {
   return request({ url: '/api/agents/me', method: 'get' })
 }

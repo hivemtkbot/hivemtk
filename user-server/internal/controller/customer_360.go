@@ -12,9 +12,7 @@ import (
 
 // Customer360Controller 客户 360° 视图控制器
 //
-// P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
-// 移除原先对 repository.UserTagRepository / UserRepository / CustomerTagRepository
-// 的直接依赖，改为通过以下三个 service 访问数据：
+// 通过以下三个 service 访问数据：
 //   - UserTagService       用户标签（user_tags 表）
 //   - UserProfileService   客户档案（users 表）
 //   - TagRuleService       自动标签规则（customer_tags 表）

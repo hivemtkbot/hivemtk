@@ -41,7 +41,7 @@ func (c *RecoveryQueueController) Enqueue(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "入队失败: "+err.Error())
 		return
 	}
-	response.Success(ctx, (&dto.RecoveryQueueResponse{}).FromModel(item), "ok")
+	response.Success(ctx, dto.FromRecoveryQueueModel(item), "ok")
 }
 
 // MarkAttempt 记录触达尝试
@@ -142,7 +142,7 @@ func (c *RecoveryQueueController) ListByStage(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, item := range list {
-		resp.List = append(resp.List, (&dto.RecoveryQueueResponse{}).FromModel(item))
+		resp.List = append(resp.List, dto.FromRecoveryQueueModel(item))
 	}
 	response.Success(ctx, resp, "ok")
 }
@@ -180,7 +180,7 @@ func (c *RecoveryQueueController) ListReadyForAttempt(ctx *gin.Context) {
 	}
 	resp := make([]*dto.RecoveryQueueResponse, 0, len(list))
 	for _, item := range list {
-		resp = append(resp, (&dto.RecoveryQueueResponse{}).FromModel(item))
+		resp = append(resp, dto.FromRecoveryQueueModel(item))
 	}
 	response.Success(ctx, resp, "ok")
 }

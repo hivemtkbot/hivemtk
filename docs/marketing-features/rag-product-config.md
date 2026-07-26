@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | rag |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 多 RAG 产品配置（售前咨询/售后客服/产品百科等）
@@ -42,12 +40,6 @@
 
 ### 2.1 业务背景
 一个商户需要多个 RAG 产品应对不同场景：售前咨询、售后客服、产品百科等。每个产品需要独立的知识库、检索参数（Top-K、相似度阈值）、重排序策略，并绑定到不同账号使用。
-
-### 2.2 解决思路
-- RAG 产品作为独立配置实体，封装 knowledge_base_ids、retrieval_config、rerank_config
-- 通过 account_bindings 将产品绑定到具体账号
-- 检索时按产品配置执行参数化检索与重排序
-- 区别于 `rag-knowledge-base.md`（配置层 LLM/Embedding/pgvector）
 
 ### 2.3 关键算法或模型
 - 参数化向量检索（Top-K + 相似度阈值）
@@ -155,18 +147,3 @@
 - 创建产品→绑定知识库→检索测试全链路
 - 账号绑定后检索路由验证
 - 重排序降级验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

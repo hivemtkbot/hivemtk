@@ -310,7 +310,7 @@ import i18n from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Document, Files, Coin, Search, Refresh } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 // 系统级来源 label：取自统一 source 常量
 import { getSourceLabel } from '@/constants/source'
 // 通用成功/失败 label/type：取自统一 status 集

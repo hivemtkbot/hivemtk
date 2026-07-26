@@ -10,12 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 2026-07-24 安全清理：移除 GetDefaultCredentials 端点后，
-// 相关测试用例一并删除。该端点原本会返回 config 中的默认密码，
-// 任何持有 JWT 的账号都能拿到，构成严重入侵面。
-// 重构后：管理员配置只承载 UI 行为（登录页提示/自动登录开关），
-// 真正的超管密码只能从 DB 查（InitAdmin 写入）。
-
 func TestAdminConfigController_GetAdminConfig_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctrl := NewAdminConfigController()

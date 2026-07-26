@@ -1,7 +1,33 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { resolve } from 'path'
+
+// Element Plus 图标按需自动导入 resolver
+//
+// 背景：ElementPlusResolver 默认仅匹配 `El*` 前缀组件与 `ElIcon*` 前缀图标,
+// 不处理模板里裸用的 `<Edit />`、`<CircleCloseFilled />` 等图标组件名。
+// 此处构造一个自定义 resolver,在编译期把模板里裸用的图标名解析为
+// `import { IconName } from '@element-plus/icons-vue'`,实现"按需导入"。
+//
+// 与 main.js 中删除的全量 `app.component(key, component)` 注册循环等价,
+// 但仅注入实际被模板引用的图标,显著减小首屏 bundle 体积。
+//
+// 详见: docs/audit/USER_PROJECT_INSPECTION_BRAINSTORM.md P1-1
+const epIconNames = new Set(Object.keys(ElementPlusIconsVue))
+function ElementPlusIconResolver(name) {
+  // 仅当 name 是 @element-plus/icons-vue 导出的图标名时才解析
+  // 跳过 El 前缀(由 ElementPlusResolver 处理)、跳过小写开头(自定义组件)
+  if (!/^[A-Z][a-zA-Z0-9]+$/.test(name)) return
+  if (!epIconNames.has(name)) return
+  return {
+    name,
+    from: '@element-plus/icons-vue',
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -25,7 +51,23 @@ export default defineConfig({
           MODE: 3
         }
       }
-    })
+    }),
+    // Element Plus 按需自动导入：
+    //   - 图标(裸用 <Edit /> 等): 由 ElementPlusIconResolver 解析,从 @element-plus/icons-vue 注入 import
+    //   - 组件(<ElXxx />): 由 ElementPlusResolver 解析(此处仍保留 app.use(ElementPlus) 全量注册,
+    //     两者并存不冲突,组件自动导入仅作降级路径)
+    //   - importStyle:false: 不自动注入组件 CSS(仍走 main.js 中的 'element-plus/dist/index.css' 全量样式,
+    //     待 P1 后续阶段再切换为按需 CSS)
+    // 参考: https://element-plus.org/en-US/guide/quickstart.html#on-demand-import
+    Components({
+      resolvers: [
+        ElementPlusIconResolver,
+        ElementPlusResolver({
+          importStyle: false,
+        }),
+      ],
+      dts: 'src/types/components.d.ts',
+    }),
   ],
   resolve: {
     alias: {

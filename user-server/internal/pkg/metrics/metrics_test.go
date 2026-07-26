@@ -173,10 +173,6 @@ func TestHistogramVecNoMemoryLeak(t *testing.T) {
 }
 
 // TestRangeDoesNotBlockWrites 验证 Range 不会长时间阻塞 Inc/Observe
-//
-// 回归测试：原实现 Range 在持有 RLock 期间执行用户回调，
-// 如果回调耗时（如 /metrics 端点字符串拼接），会阻塞所有写操作。
-// 修复后 Range 先复制快照再执行回调，回调期间可安全写入。
 func TestRangeDoesNotBlockWrites(t *testing.T) {
 	cv := &CounterVec{}
 	for i := 0; i < 100; i++ {

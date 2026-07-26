@@ -127,7 +127,7 @@ func (c *TuningController) UpsertThresholdPolicy(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "invalid body: "+err.Error())
 		return
 	}
-	policy := body.ToModel()
+	policy := dto.ToThresholdPolicyModel(&body)
 	if err := c.svc.UpsertThresholdPolicy(ctx.Request.Context(), policy); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "save failed: "+err.Error())
 		return

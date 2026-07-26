@@ -167,7 +167,7 @@ func NewRAGEngine(config *RAGConfig) *RAGEngine {
 			ChunkOverlap:        50,
 			MaxChunksToRetrieve: 5,
 			SimilarityThreshold: 0.5,
-			// 2026-07-18 私域基线：与本地 TEI bge-m3 真实输出一致
+			// 与本地 TEI bge-m3 真实输出一致
 			// 严禁在此硬编码 768（BAAI/bge-base-zh-v1.5），否则会导致
 			// pgvector 入库维度不匹配运行时崩溃（参见 V7 维度不一致）。
 			VectorDimension: 1024,

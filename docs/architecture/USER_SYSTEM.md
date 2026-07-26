@@ -1,9 +1,7 @@
-# USER_SYSTEM.md · 用户体系规范（v3.1）
+# USER_SYSTEM.md · 用户体系规范
 
-> **版本**：v3.1 · 2026-07-23
-> **状态**：已落地
 > **关联文档**：
-> - [MENU_PERMISSION_PLAN.md](./MENU_PERMISSION_PLAN.md) v3.1（设计源）
+> - [MENU_PERMISSION_PLAN.md](./MENU_PERMISSION_PLAN.md)（设计源）
 > - [GO_FIVE_LAYER_ARCHITECTURE.md](./GO_FIVE_LAYER_ARCHITECTURE.md)（五层架构）
 > - [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md)（架构图）
 

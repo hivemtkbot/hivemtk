@@ -1,6 +1,5 @@
 // Package service 知识库子域 —— 导入日志
 //
-// 2026-07-23 五层架构治理（二轮）：从 knowledge_service.go 拆出
 // 导入行为审计日志写入函数 logImport。
 // 单一职责：把"谁、什么时间、导入什么、结果如何"集中记录到 knowledge_import_logs。
 package service

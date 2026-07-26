@@ -2,7 +2,7 @@
   <div class="breadcrumb-bar">
     <el-breadcrumb separator="/">
       <el-breadcrumb-item v-for="(item, idx) in items" :key="idx" :to="item.to">
-        <el-icon v-if="item.icon" class="bc-icon"><component :is="item.icon" /></el-icon>
+        <el-icon v-if="item.icon" class="bc-icon"><component :is="resolveIcon(item.icon)" /></el-icon>
         {{ item.title }}
       </el-breadcrumb-item>
     </el-breadcrumb>
@@ -14,10 +14,14 @@ import i18n from '@/i18n'
 
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import { resolveRouteIcon } from '@/utils/iconMap'
 
 const route = useRoute()
 const router = useRouter()
+
+// P1-1: 复用 utils/iconMap.js 中的 resolveRouteIcon 解析图标字符串,
+// 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入。
+const resolveIcon = resolveRouteIcon
 
 // 从 Layout topMenus 反查路径对应的菜单链
 // 一级菜单配置（与 Layout.vue 保持一致）

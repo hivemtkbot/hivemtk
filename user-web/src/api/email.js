@@ -22,7 +22,7 @@ export const emailApi = {
     return http.delete(`/api/email/smtp/${id}`)
   },
   
-  // 新增：草稿箱相关API
+  // 草稿箱相关API
   // 获取草稿列表
   getDrafts() {
     return http.get('/api/email/drafts')

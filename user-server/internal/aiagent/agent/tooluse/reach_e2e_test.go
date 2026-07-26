@@ -13,7 +13,7 @@ import (
 
 // reach_e2e_test.go 触达工具 E2E 集成测试
 //
-// 2026-07-17 新增：覆盖 Telegram/WhatsApp/Feishu 三个新触达工具的端到端集成测试
+// 覆盖 Telegram/WhatsApp/Feishu 三个触达工具的端到端集成测试
 // 验证路径：tool.Execute → sendViaPipeline → bridge → adapter → mock sender
 // 验证内容：
 //   1. 三个工具通过 SendPipeline 完整执行（不直接调用 Adapter）

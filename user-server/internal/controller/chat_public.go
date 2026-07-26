@@ -94,8 +94,8 @@ func (ctrl *ChatPublicController) OpenSession(c *gin.Context) {
 	if req.ChannelID == "" {
 		req.ChannelID = resolveChannelID(c, &req)
 	}
-	// 2026-07-18 私域部署修复：visitor_id 也走软解析，从 X-Chat-Visitor-Id header / query 兜底
-	// 这样访客 SDK 只需发 header，不必在 body 里传 visitor_id。
+	// visitor_id 也走软解析，从 X-Chat-Visitor-Id header / query 兜底，
+	// 访客 SDK 只需发 header，不必在 body 里传 visitor_id。
 	if req.VisitorID == "" {
 		req.VisitorID = c.GetHeader("X-Chat-Visitor-Id")
 		if req.VisitorID == "" {
@@ -167,7 +167,7 @@ func (ctrl *ChatPublicController) SendMessage(c *gin.Context) {
 	var body struct {
 		Content     string `json:"content" binding:"required"`
 		ContentType string `json:"content_type"`
-		// 2026-07-17: 附件支持（访客直传七牛后带 CDN URL 发消息）
+		// 附件支持（访客直传七牛后带 CDN URL 发消息）
 		MediaURL  string `json:"media_url"`
 		MediaType string `json:"media_type"`
 		MediaName string `json:"media_name"`
@@ -438,7 +438,7 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		"returnBody": `{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"fname":"$(fname)"}`,
 	}
 	policyBytes, _ := json.Marshal(policy)
-	// 2026-07-17: 七牛 token 格式严格要求 AK:Signature:Policy（签名在前，策略在后）
+	// 七牛 token 格式严格要求 AK:Signature:Policy（签名在前，策略在后）
 	//   - 反例：AK:Policy:Signature → 七牛返回 BadToken
 	//   - 参考：qiniu/go-sdk Mac.UploadToken 拼接顺序
 	policyEncoded := base64.URLEncoding.EncodeToString(policyBytes)
@@ -456,7 +456,7 @@ func (ctrl *ChatPublicController) GetUploadToken(c *gin.Context) {
 		uploadDomain = "up-z2.qiniup.com"
 	}
 	uploadURL := fmt.Sprintf("https://%s", uploadDomain)
-	// 2026-07-17: 返回完整 URL（含 https://），方便前端直接使用，避免遗漏协议
+	// 返回完整 URL（含 https://），方便前端直接使用，避免遗漏协议
 	publicURL := "https://" + strings.TrimSuffix(cfg.Storage.Qiniu.Domain, "/") + "/" + key
 
 	response.Success(c, gin.H{

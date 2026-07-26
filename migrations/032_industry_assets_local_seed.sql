@@ -1,7 +1,6 @@
 -- ============================================================
 -- 032_industry_assets_local_seed.sql
 -- 用户端本地资产：7 个行业资产包种子数据（user-server 本地运行）
--- 日期: 2026-07-24
 -- 内容: 7 个行业资产包本地副本，供 AssetResolver 运行时加载
 --       每个资产包含 500+ 组行业 Q&A，is_active=true
 -- 设计文档: docs/architecture/ASSET_MARKET_INTEGRATION.md

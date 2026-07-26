@@ -116,9 +116,6 @@ func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, pro
 
 // AvgImportDurationMs 平均导入耗时(毫秒)
 //
-// 2026-07-23 五层架构治理（二轮）：原 service 直接
-// `s.db.WithContext(ctx).Model(KnowledgeImportLog{}).Select("AVG(duration_ms)")`，
-// 违反 §3.4"service 不应持有 db"，下沉到此方法。
 // 使用 COALESCE 避免无记录时返回 NULL，productID=0 表示不按 product 过滤。
 func (r *KnowledgeImportLogRepository) AvgImportDurationMs(ctx context.Context, productID int64) (float64, error) {
 	var avg float64

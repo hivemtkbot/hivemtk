@@ -167,11 +167,3 @@
 | 🐛 安全漏洞 | security@hivemtk.cn | 私密报告 |
 | 💬 一般问题 | [Gitee Issues](https://gitee.com/xhpmayun/hivemtk/issues) | 公开讨论 |
 | 📧 商务合作 | business@hivemtk.cn | 企业级支持 |
-
----
-
-## 8. 变更历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|------|------|---------|------|
-| v1.0 | 2026-07-24 | 首版 SECURITY.md（F-P1-114 补建） | |

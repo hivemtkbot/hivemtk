@@ -53,7 +53,7 @@ func (s *RagConfigService) AddKnowledgeBaseDocument(ctx context.Context, product
 
 // QueryKnowledgeBase 查询知识库
 //
-// 2026-07-18 重构：直接走 pgvector + TEI bge-m3 向量检索，而不是内存 RAGEngine。
+// 直接走 pgvector + TEI bge-m3 向量检索。
 // 这样 RAG 召回与 RAG 产品实际写入的 knowledge_chunks 数据保持一致。
 func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, query string, topK int) (*rag_service.QueryResponse, error) {
 	// 验证产品是否存在

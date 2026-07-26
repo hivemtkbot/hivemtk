@@ -48,8 +48,8 @@ type RecoveryQueueResponse struct {
 	UpdatedAt     string  `json:"updated_at"`
 }
 
-// FromModel RecoveryQueue → Response
-func (r *RecoveryQueueResponse) FromModel(item *model.RecoveryQueue) *RecoveryQueueResponse {
+// FromRecoveryQueueModel RecoveryQueue → Response(包级函数,架构文档 §三 L4 要求)
+func FromRecoveryQueueModel(item *model.RecoveryQueue) *RecoveryQueueResponse {
 	if item == nil {
 		return nil
 	}

@@ -288,9 +288,3 @@ if err := s.tgIntegration.SendMessage(ctx, uint(accID), chatIDInt, resp.Reply); 
 - [community-wecom.md](community-wecom.md)
 - [community-management.md](community-management.md)
 - [Telegram Bot API Webhook 文档](https://core.telegram.org/bots/api#setwebhook)
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-16 | 废弃付费入群模式，重构为 智能体自动化 | AI Assistant |

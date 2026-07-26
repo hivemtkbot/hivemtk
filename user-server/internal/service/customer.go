@@ -315,8 +315,7 @@ func (s *CustomerService) MergeCustomersWithEventData(ctx context.Context, prima
 	eventRepo := repository.NewCustomerEventRepository()
 	secondaryEvents, err := eventRepo.GetByCustomerID(ctx, secondaryID, 0)
 	if err == nil && len(secondaryEvents) > 0 {
-		// CC-P2 N+1 优化：原实现「for event → eventRepo.Record」每个事件一次 INSERT，
-		// 现改为在内存中更新 event 字段后单次 eventRepo.RecordBatch 批量插入。
+		// 在内存中更新 event 字段后单次 eventRepo.RecordBatch 批量插入。
 		migrated := make([]*model.CustomerEvent, 0, len(secondaryEvents))
 		for _, event := range secondaryEvents {
 			event.CustomerID = primaryID
@@ -354,7 +353,7 @@ func SerializeTags(tags []string) (string, error) {
 	return string(data), nil
 }
 
-// ============== 包级辅助函数（五层架构：业务方法集中在 service 层） ==============
+// ============== 包级辅助函数（业务方法集中在 service 层） ==============
 
 // GetCustomerTags 获取客户标签数组
 func GetCustomerTags(c *model.Customer) []string {

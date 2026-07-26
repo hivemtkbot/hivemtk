@@ -40,7 +40,7 @@ func (c *CustomerRFMController) ComputeForCustomer(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "计算失败: "+err.Error())
 		return
 	}
-	response.Success(ctx, (&dto.CustomerRFMResponse{}).FromRFM(rfm), "ok")
+	response.Success(ctx, dto.FromCustomerRFMModel(rfm), "ok")
 }
 
 // ComputeAll 批量计算所有客户 RFM
@@ -74,7 +74,7 @@ func (c *CustomerRFMController) GetByCustomerID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, "未找到")
 		return
 	}
-	response.Success(ctx, (&dto.CustomerRFMResponse{}).FromRFM(rfm), "ok")
+	response.Success(ctx, dto.FromCustomerRFMModel(rfm), "ok")
 }
 
 // ListBySegment 按分层分页查询
@@ -101,7 +101,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, r := range list {
-		resp.List = append(resp.List, (&dto.CustomerRFMResponse{}).FromRFM(r))
+		resp.List = append(resp.List, dto.FromCustomerRFMModel(r))
 	}
 	response.Success(ctx, resp, "ok")
 }

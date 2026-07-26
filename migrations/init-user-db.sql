@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 
 -- 知识库向量表
--- 2026-07-18 私域基线：默认 1024 维（本地 Xinference + bge-m3）
+-- 私域基线：默认 1024 维（本地 Xinference + bge-m3）
 CREATE TABLE IF NOT EXISTS knowledge_embeddings (
     id SERIAL PRIMARY KEY,
     product_id VARCHAR(64) NOT NULL,
@@ -28,10 +28,8 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_product_id ON knowledge_embe
 CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_chunk_id ON knowledge_embeddings(chunk_id);
 
 -- RAG 产品配置表
--- 2026-07-24 修复：与 Go 模型 RagProduct 对齐（id 为 VARCHAR(64) UUID，
+-- 与 Go 模型 RagProduct 对齐（id 为 VARCHAR(64) UUID，
 -- 含 is_active / 嵌入式 llm_/emb_/rerank_ 配置列）。
--- 历史版本用 SERIAL INTEGER 主键且缺 is_active 列，导致 AutoMigrate 无法
--- 修正列类型，GET /api/rag-config/products 因 is_active 不存在而 500。
 CREATE TABLE IF NOT EXISTS rag_products (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -90,9 +88,8 @@ CREATE TABLE IF NOT EXISTS rag_products (
 CREATE INDEX IF NOT EXISTS idx_rag_products_vector_table ON rag_products(vector_table);
 
 -- 知识库文档表
--- 2026-07-24：移除 product_id 对 rag_products(id) 的 FK 约束 ——
--- rag_products.id 已改为 VARCHAR(64) UUID，而 workspace 模型 KnowledgeDocument.ProductID
--- 为 int64（BIGINT），类型不兼容。GORM 模型未声明 foreignKey，故此处不再建 FK。
+-- rag_products.id 为 VARCHAR(64) UUID，而 workspace 模型 KnowledgeDocument.ProductID
+-- 为 int64（BIGINT），类型不兼容；GORM 模型未声明 foreignKey，故此处不建 FK。
 CREATE TABLE IF NOT EXISTS knowledge_documents (
     id SERIAL PRIMARY KEY,
     product_id BIGINT,
@@ -170,8 +167,8 @@ CREATE TABLE IF NOT EXISTS customer_tags (
 );
 
 -- RAG 会话表
--- 2026-07-24：与 Go 模型 RagSession 对齐（id 为 VARCHAR(64) UUID，
--- 字段 user_id/platform/kb_id/status/config，不再有 product_id FK）。
+-- 与 Go 模型 RagSession 对齐（id 为 VARCHAR(64) UUID，
+-- 字段 user_id/platform/kb_id/status/config）。
 CREATE TABLE IF NOT EXISTS rag_sessions (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64),
@@ -187,7 +184,7 @@ CREATE INDEX IF NOT EXISTS idx_rag_sessions_platform ON rag_sessions(platform);
 CREATE INDEX IF NOT EXISTS idx_rag_sessions_status ON rag_sessions(status);
 
 -- RAG 消息表
--- 2026-07-24：与 Go 模型 RagMessage 对齐（message_id / timestamp 字段）。
+-- 与 Go 模型 RagMessage 对齐（message_id / timestamp 字段）。
 CREATE TABLE IF NOT EXISTS rag_messages (
     id SERIAL PRIMARY KEY,
     session_id VARCHAR(64) NOT NULL,

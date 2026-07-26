@@ -103,10 +103,8 @@ func (r *RagConfigRepository) ListRagProducts(ctx context.Context) ([]*model.Rag
 
 // UpdateRagProduct 精准更新 RAG 产品（白名单字段，绝不触碰 vector_table / id / created_at）
 //
-// 2026-07-18 修复：
-//   - 之前用 GORM Save 会用全字段 UPDATE，包括空值字段，容易触发 uniqueIndex 冲突。
-//   - 现在改用 map + Updates，仅更新 service 层明确赋值的字段，避开 VectorTable。
-//   - 若 service 层没有提供任何可更新字段，直接返回 nil（幂等 no-op）。
+// 使用 map + Updates，仅更新 service 层明确赋值的字段，避开 VectorTable。
+// 若 service 层没有提供任何可更新字段，直接返回 nil（幂等 no-op）。
 func (r *RagConfigRepository) UpdateRagProduct(ctx context.Context, product *model.RagProduct) error {
 	updates := map[string]any{}
 	// 注意：绝不要把 vector_table / id / created_at 写入 updates

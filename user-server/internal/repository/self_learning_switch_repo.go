@@ -111,11 +111,6 @@ func (r *selfLearningSwitchRepo) GetOrCreate(ctx context.Context) (*model.SelfLe
 // today_reset_at, last_triggered_at, circuit_open），避免 Read-Modify-Write
 // 期间的 lost-update：
 //
-// 场景：UpdateSwitch 读 sw（today_corrections=5）→ 期间另一协程
-// IncrementTodayCorrections 原子加 1（DB 中=6）→ Update 用 Save(sw)
-// 覆盖全部列，today_corrections 被回写为 5，IncrementTodayCorrections 丢失。
-//
-// 修复：改用 Updates(map) 只写配置字段，运行时字段由各自的原子方法维护。
 // Save() 会写入所有列（包括零值），Updates(map) 只写指定列。
 func (r *selfLearningSwitchRepo) Update(ctx context.Context, m *model.SelfLearningSwitch) error {
 	if m == nil {

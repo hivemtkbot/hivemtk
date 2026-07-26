@@ -19,7 +19,7 @@ import (
 // OperationLogRepository 操作日志仓库接口
 // 独立部署版本：移除 merchantID 作用域
 //
-// 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context。
+// 所有方法第一参数为 ctx context.Context。
 type OperationLogRepository interface {
 	Create(ctx context.Context, log *model.OperationLog) error
 	GetByID(ctx context.Context, id uint) (*model.OperationLog, error)

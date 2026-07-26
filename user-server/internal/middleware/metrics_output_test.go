@@ -24,9 +24,6 @@ func init() {
 }
 
 // TestFloatValuesSerializedCorrectly 验证 float64 指标值的小数位顺序正确
-//
-// 复现 bug：原 float64ToString(0.5) 输出 "0.000005"（小数位逆序）。
-// 修复后应输出 "0.500000"。
 func TestFloatValuesSerializedCorrectly(t *testing.T) {
 	// 准备一个带 float 值的 HistogramVec
 	hv := &metrics.HistogramVec{}
@@ -54,7 +51,6 @@ func TestFloatValuesSerializedCorrectly(t *testing.T) {
 	body := w.Body.String()
 
 	// sum = 0.5 + 1.25 + 0.85 = 2.6
-	// 修复前会输出 "2.000006"（小数位逆序）；修复后输出 "2.600000"
 	if !strings.Contains(body, "http_request_duration_seconds_sum{method=\"GET\",path=\"/test\",status=\"200\"} 2.600000") {
 		t.Errorf("float sum not serialized correctly.\nbody snippet:\n%s", body)
 	}

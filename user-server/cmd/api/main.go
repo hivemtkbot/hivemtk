@@ -91,16 +91,16 @@ func main() {
 	}
 	defer cache.CloseGlobalCache(context.Background())
 
-	// 2026-07-23 修复：必须先 db.InitDB() 再 llm.InitGlobalDispatcherWithDB，
-	// 否则 auditDB 被注入 nil，LogModelLifecycle / SetRouteWithAudit / LogRoutingDecision
-	// 全部静默失败（db 为 nil 时直接 return），导致审计表永远空，路由决策不落库。
+	// 必须先 db.InitDB() 再 llm.InitGlobalDispatcherWithDB，否则 auditDB 被注入 nil，
+	// LogModelLifecycle / SetRouteWithAudit / LogRoutingDecision 全部静默失败
+	// （db 为 nil 时直接 return），导致审计表永远空，路由决策不落库。
 	db.InitDB()
 	db.AutoMigrate()
 
 	// 推理栈本地优先初始化（优化三）：用配置构建 dispatcher，默认走本地 mtk-llm，
 	// 云端厂商仅在配置 api_key 时作为可选 fallback，避免空密钥误用/数据出域。
-	// 2026-07-23 修复：InitGlobalDispatcherWithDB 注入 gorm DB，让 SetRouteWithAudit / LogModelLifecycle / LogRoutingDecision 可用
-	// 2026-07-24：超时全链路对齐——NewDispatcherFromConfig 内部已从 inference.llm.timeout_seconds
+	// InitGlobalDispatcherWithDB 注入 gorm DB，让 SetRouteWithAudit / LogModelLifecycle / LogRoutingDecision 可用。
+	// 超时全链路对齐：NewDispatcherFromConfig 内部已从 inference.llm.timeout_seconds
 	// 派生 dispatcher.MaxLatency 与 llm_service.httpClient.Timeout；此处再注入 sales_engine.agentLoopTotalTimeout，
 	// 确保父级 ctx（sales_engine）→ 子级 ctx（dispatcher）→ HTTP client 三层超时共享同一配置源，
 	// 不再出现"父级 ctx 提前 cancel 子级 LLM 调用"的降级问题。
@@ -108,19 +108,18 @@ func main() {
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
 	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
-	// 2026-07-24：初始化全局意图识别器（供 /api/intent/* 直连路由 + 销冠 sales_engine 复用）
+	// 初始化全局意图识别器（供 /api/intent/* 直连路由 + 销冠 sales_engine 复用）
 	//   - 注入全局 dispatcher：直连路由也可走 LLM 二次识别（仅云端 SaaS）
 	//   - 注入 db：识别结果异步落库
 	//   - 注入 nil cache：进程内规则匹配 + LLM 兜底
 	service.InitIntentRecognizer(db.GetDB(), llm.GetGlobalDispatcher(), nil)
 	logger.Info("[IntentRecognition] global instance initialized, dispatcher wired")
 
-	// 2026-07-23 P1 补：注入默认告警（LoggingAlertHook + InMemoryAlertSink 组合）
+	// 注入默认告警（LoggingAlertHook + InMemoryAlertSink 组合），
 	// 替代 NoopAlertHook 默认实现，确保降级事件有日志+可查询 buffer
 	llm.InitDefaultAlertHook(llm.NewInMemoryAlertSink(200))
 
-	// 2026-07-23 P1 补：启动 cache janitor 后台 ticker 清理过期 cache 项
-	// 间隔 60s
+	// 启动 cache janitor 后台 ticker 清理过期 cache 项，间隔 60s
 	cacheJanitorCtx, cacheJanitorCancel := context.WithCancel(context.Background())
 	defer cacheJanitorCancel()
 	llm.GetGlobalDispatcher().StartCacheJanitor(cacheJanitorCtx, 60*time.Second)
@@ -179,12 +178,10 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate() // 上面 125-126 行已执行，保留兼容旧调用（幂等 no-op）
 
-	// 2026-07-21 修复：启动流原先从未运行迁移服务，导致 M 域 P1 缺口修复
-	// 所需的 4 张表（system_kv_config / provider_health / intent_logs / trace_events）
-	// 未被创建，user-server 健康检查降级。此处显式触发迁移（同步、幂等，
-	// CREATE TABLE IF NOT EXISTS），补齐缺失表。
-	// 2026-07-23 修复：同步等待迁移完成，避免后续 LogModelLifecycle / SetRouteWithAudit
-	// 写 llm_routing_logs / llm_routing_audit 表时表不存在导致静默失败。
+	// 显式触发迁移（同步、幂等，CREATE TABLE IF NOT EXISTS），补齐 system_kv_config /
+	// provider_health / intent_logs / trace_events 表，避免 user-server 健康检查降级。
+	// 同步等待迁移完成，避免后续 LogModelLifecycle / SetRouteWithAudit 写
+	// llm_routing_logs / llm_routing_audit 表时表不存在导致静默失败。
 	migrationRegistry := migration.NewMigrationRegistry()
 	migrationSvc := migration.NewMigrationServiceDefault(migrationRegistry, migrations.RegisterMigrations)
 	if task, err := migrationSvc.ExecuteUpgrade(context.Background(), "v1.0.0", "v1.0.0"); err != nil {
@@ -198,12 +195,12 @@ func main() {
 		}
 	}
 
-	// M 域 P1 缺口修复启动装配（2026-07-21）
+	// M 域 P1 启动装配
 	// 1) LLM Provider 降级管理器（健康检查 + 熔断器 + 模板回复兜底）
 	failover := llm.InitGlobalFailover(llm.GetGlobalDispatcher(), db.GetDB())
 	failover.Start(context.Background())
 	defer failover.Stop()
-	// 2026-07-23 修复：注入全局 failover 到 router 供 setupLLMProviderRoutes 读取
+	// 注入全局 failover 到 router 供 setupLLMProviderRoutes 读取
 	router.SetGlobalProviderFailover(failover)
 	router.SetGlobalDispatcher(llm.GetGlobalDispatcher())
 	logger.Info("[M-1] LLM Provider failover manager started (health check + circuit breaker)")
@@ -261,7 +258,7 @@ func main() {
 	// 初始化 4 层记忆系统（P0-13 修复）
 	service.InitMemorySystem(db.GetDB())
 
-	// 2026-07-17:注册 Event Bus 订阅者（ADR-008 §2.2 实施点）
+	// 注册 Event Bus 订阅者（ADR-008 §2.2 实施点）
 	//   1) AgentRuntime 监听 customer.message.received
 	//   2) IncrementalIndexer 监听 knowledge.document.changed
 	// 当前 loader / bridge 均为 nil,使用降级实现(后续任务 2/3 替换)

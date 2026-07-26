@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | system-management |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] Server-Sent Events 实时推送（无需 WebSocket 升级）
@@ -43,9 +41,6 @@
 
 ### 2.1 业务背景
 运营驾驶舱需要实时展示活跃会话数、消息量、智能体状态等动态指标。相比 WebSocket 需要协议升级、有兼容性问题，Server-Sent Events（SSE）基于 HTTP 长连接，更轻量、对基础设施友好，适合服务端单向推送场景。
-
-### 2.2 解决思路
-后端建立 SSE 长连接，按 client_id 管理客户端；订阅事件总线获取实时指标变更，按 event_type 推送至已订阅的客户端；客户端通过 EventSource API 接收并更新驾驶舱视图；心跳保活防止连接断开。
 
 ### 2.3 关键算法或模型
 - 事件总线订阅：按 event_type 订阅（sessions/messages/agents）
@@ -147,18 +142,3 @@
 - SSE 端到端推送测试（事件总线→SSE→客户端）
 - 高并发连接下稳定性测试
 - 连接断开与重连测试
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

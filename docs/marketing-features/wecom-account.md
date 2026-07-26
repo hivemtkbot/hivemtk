@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | community-management |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 多企微账号管理（corpid/secret/agent_id）
@@ -42,12 +40,6 @@
 
 ### 2.1 业务背景
 商户拥有多个企业微信账号（不同主体/不同业务线），需要集中管理 corpid/secret/agent_id，并监控每个账号的健康度（Token 是否有效、API 是否限流、联系人是否同步成功）。
-
-### 2.2 解决思路
-- 账号配置集中存储，secret 加密
-- 健康度监控定时任务：检查 Token 有效性、API 限流状态、联系人同步状态
-- health_score 综合评分反映账号健康度
-- 异常状态实时告警
 
 ### 2.3 关键算法或模型
 - Token 有效性检测（定时调用企微 API）
@@ -153,18 +145,3 @@
 - 添加账号→健康检查→状态更新全链路
 - Token 失效自动刷新验证
 - 联系人同步触发与重试验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

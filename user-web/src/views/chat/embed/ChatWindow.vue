@@ -54,10 +54,6 @@
       </div>
     </div>
 
-    <!-- 转人工确认：2026-07-17 改版，前端不再暴露此弹窗
-         转人工完全由后端基于意图识别 / NLP 关键词自动触发。
-         删除 modal 模板以避免未定义变量警告。 -->
-
     <!-- 评分弹窗 -->
     <div v-if="showRating" class="modal-mask" @click.self="showRating = false">
       <div class="modal">
@@ -103,7 +99,7 @@ const props = defineProps({
   channelId: { type: String, default: 'default' },
   channelTitle: { type: String, default: '在线客服' },
   widgetColor: { type: String, default: '#1989fa' },
-  // 2026-07-21 卡片客服来源追踪：source（douyin/kuaishou/xiaohongshu/xianyu）+ card_id
+  // 卡片客服来源追踪：source（douyin/kuaishou/xiaohongshu/xianyu）+ card_id
   source: { type: String, default: '' },
   cardId: { type: String, default: '' },
   fullscreen: { type: Boolean, default: false }
@@ -161,8 +157,7 @@ watch(offlineBannerCount, (c) => {
   } catch (e) { /* ignore */ }
 })
 
-// 转人工（2026-07-17 改版）：
-//   前端不再暴露"转人工"按钮。对用户永远显示"在线客服"。
+// 转人工：
 //   转人工完全由后端基于意图识别 / NLP 关键词 / 置信度自动触发。
 //   本变量仅用于展示"客服正在为您接入..."的过渡提示（由 WebSocket 推 agent_joined 触发）。
 const humanHint = ref(false)
@@ -322,7 +317,7 @@ const connectWebSocket = () => {
 
 const onSend = async (payload) => {
   if (!sessionId.value) return
-  // 2026-07-17: ChatInput 传入 { text, attachment }
+  // ChatInput 传入 { text, attachment }
   const text = typeof payload === 'string' ? payload : (payload?.text || '')
   const attachment = typeof payload === 'object' ? payload?.attachment : null
   const userMsg = {
@@ -376,7 +371,6 @@ const onSend = async (payload) => {
 }
 
 const onTransfer = () => {
-  // 2026-07-17：前端不再暴露"转人工"按钮
   // 转人工由后端基于意图识别 / NLP 关键词 / 置信度自动触发
   // 此函数保留为空以兼容旧 ChatInput 调用
 }

@@ -1,93 +1,6 @@
 # 出海电商客服系统多语言 LLM 响应技术方案
 
 > **文档定位**：解决"商家单一语言维护 + 最终用户多语言消费"的核心矛盾，保证 LLM 在跨语言场景下返回准确、自然、术语一致的回复。
->
-> **文档版本**：v1.2（方案 F：透传配置 + 内外分离 + 商户内部语言可配置）
-> **实现状态**：✅ P0 + P1 + P2 全部交付（2026-07-25，零遗留）
-> **作者**：HiveMTK 架构组
-> **关联文档**：`资产包模式.md`、`资产包与知识库职责边界论证.md`、`对话驱动自我学习机制.md`、`GO_FIVE_LAYER_ARCHITECTURE.md`
-
----
-
-## 实现交付摘要（P0 + P1 + P2 全部完成，零遗留）
-
-### P0 核心链路（MVP）
-
-| 层 | 交付物 | 状态 |
-|----|--------|------|
-| Model | [glossary.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/glossary.go)、[llm_routing_log.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/llm_routing_log.go)、ai_agent/chat_channel/asset_bundle/knowledge_workspace 字段扩展 | ✅ |
-| Migration | [multilingual_i18n_migration.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/migration/migrations/multilingual_i18n_migration.go) (v3.12.0) + [multilingual_i18n_p13_migration.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/migration/migrations/multilingual_i18n_p13_migration.go) (v3.12.1) | ✅ |
-| Repository | [glossary_repo.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/repository/glossary_repo.go) + [i18n_stats_repo.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/repository/i18n_stats_repo.go) | ✅ |
-| pkg/i18n | [lang_ctx.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/pkg/i18n/lang_ctx.go) | ✅ |
-| Service/i18n | lang_config_resolver / glossary_service / post_validator / [fewshot_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/fewshot_service.go) / [fallback_bridge.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/fallback_bridge.go) / [stats_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/stats_service.go) / [pretranslate_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/pretranslate_service.go) / [eval_service.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/service/i18n/eval_service.go) | ✅ |
-| aiagent | prompt_templates.go (两处) + response_generator 双语言+缓存+fewshot+fallback+eval hook / dispatcher 字段扩展 | ✅ |
-| aiagent/eval | [chrf_eval.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/chrf_eval.go) + [llm_judge.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/llm_judge.go) + [evaluator.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/eval/evaluator.go) | ✅ |
-| aiagent/rag/retrieval | [bge_m3_vectorizer.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/retrieval/bge_m3_vectorizer.go) + [translation_cache.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/retrieval/translation_cache.go) | ✅ |
-| Middleware | [lang_resolver.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/middleware/lang_resolver.go)（多层兜底） | ✅ |
-| 入口集成 | WebSocket (handler/visitor_handler) + Webhook controller + HTTP Chat 路由 | ✅ |
-| Controller/DTO | glossary_controller + i18n_stats_controller + dto/glossary.go + i18n_routes.go + 渠道/智能体 API 字段扩展 | ✅ |
-| 前端 | languages.js + 智能体管理（内部语言+目标语言）+ 渠道管理（目标语言）+ [Glossary 管理 UI](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/glossary/List.vue) + [多语言监控看板](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-web/src/views/i18n/Dashboard.vue) | ✅ |
-
-### P1 增强（全部完成）
-
-| 任务 | 交付物 | 状态 |
-|------|--------|------|
-| bge-m3 embedding 配置化 | bge_m3_vectorizer.go + 工厂函数 + config.yaml | ✅ |
-| TranslationCache (Redis) | translation_cache.go + 集成到 response_generator | ✅ |
-| Few-shot 示例库 | fewshot_service.go + 集成到 prompt 模板 | ✅ |
-| 低资源语言 Fallback Bridge | fallback_bridge.go + DeepLTranslator + 集成 | ✅ |
-| Glossary 管理 UI | glossary/List.vue + glossary.js API | ✅ |
-| 监控看板 | i18n/Dashboard.vue + 7 个统计 API + i18nStats.js | ✅ |
-| 知识库预翻译支持 | pretranslate_service.go + TranslatedVersions 字段 + migration v3.12.1 | ✅ |
-
-### P2 优化（全部完成）
-
-| 任务 | 交付物 | 状态 |
-|------|--------|------|
-| chrF++ 评估 | chrf_eval.go（纯 Go 实现，对齐 sacrebleu）+ 23 个单元测试 | ✅ |
-| LLM-as-Judge | llm_judge.go + evaluator.go + eval_service.go（5% 异步抽样） | ✅ |
-
-### 验证结果
-
-| 验证项 | 结果 |
-|--------|------|
-| 全量编译 `go build ./...` | ✅ 通过（无新增错误） |
-| go vet 多语言相关 14 个模块 | ✅ 全部通过（零警告） |
-| 五层架构检查 `check-architecture.sh` | ✅ 通过（多语言方案零违规） |
-| 单元测试 | ✅ 83 个用例全部 PASS（lang_ctx 18 + lang_config_resolver 14 + post_validator 18 + prompt_templates 10 + chrf_eval 23） |
-| `go test -race` | ✅ 4 个包全部通过，无数据竞争 |
-| 前端构建 `npm run build` | ✅ 通过（8.95s） |
-
-**所有 P0/P1/P2 待办全部完成，零遗留。**
-
----
-
-## 修订说明
-
-| 版本 | 关键变更 | 理由 |
-|------|---------|------|
-| v1.0（方案 E） | lingua-go 实时检测 + 多语 KB 单语源 | 早期方案，假设商户中文 |
-| v1.1（方案 F） | 渠道/智能体配置透传 + 内部中文 + 外部多语言 | 私有部署场景简化 |
-| **v1.2（方案 F 终版）** | **去掉"内部中文"假设，商户内部语言可配置** | **出海场景商户本身可能是英语/日语/德语商家** |
-
-### v1.2 核心升级（相对 v1.1）
-
-| v1.1（旧） | v1.2（新） | 说明 |
-|-----------|-----------|------|
-| 内部工具硬编码中文 prompt | **内部工具用商户配置的 `internal_language`** | 商户可能是英语商家 |
-| 知识库默认中文撰写 | **知识库用 `internal_language` 撰写** | 美国商户用英文撰写 |
-| LangConfigResolver 只解析 target_lang | **解析 `internal_language` + `target_language` 双语言** | 内外分离 |
-| PromptComposer 模板：KB in Chinese | **KB in {source_lang_name}** | 不假设源语言 |
-| 默认值 zh（中文专用） | **默认 zh（兼容）但可配置为 en/ja/de/...** | 通用化 |
-
-**v1.2 设计哲学**：**对内一个语言（商户语言，任意）+ 对外多语言（用户语言，按渠道）**。
-
-**典型场景**：
-- 美国商户 `internal_language=en`：知识库英文 → 中文渠道用户访问 → 跨语言生成中文回复
-- 中国商户 `internal_language=zh`（默认）：知识库中文 → 英文渠道用户访问 → 跨语言生成英文回复
-- 日本商户 `internal_language=ja`：知识库日文 → 英文渠道用户访问 → 跨语言生成英文回复
-
-**为何 v1.2 优于 v1.1**：HiveMTK 是出海产品，商户本身可能是英语/日语/德语母语者，强制中文撰写知识库不可接受。v1.2 把"内部语言"也抽象为配置项，实现真正的全球化。
 
 ---
 
@@ -111,23 +24,6 @@
 - **对外生成用用户语言（target_language）**：仅 response_generator 环节注入 target_lang + source_lang
 - **双语言透传**：商户级 `internal_language`（全局）+ 渠道/智能体级 `target_language`（按场景），整个调用链通过 ctx 透传
 
-### 1.2 现状审计（基于真实代码）
-
-| 模块 | 现状 | 就绪度 |
-|------|------|--------|
-| [middleware/locale.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/middleware/locale.go) | 仅解析 `X-Locale`/`Accept-Language` 注入 gin ctx，**明确注释"不处理 LLM 调用"** | 1/5 |
-| [model/ai_agent.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/ai_agent.go) | AIAgent 已有 Persona/SystemPrompt/LLMModel，**缺 `target_language` 字段** | 3/5 |
-| [model/chat_channel.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/chat_channel.go) | ChatChannel 已有 WelcomeMessage/WidgetTitle，**缺 `target_language` 字段** | 3/5 |
-| [model/asset_bundle.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/model/asset_bundle.go) | `AssetBundle.Language` 字段已存在（默认 'zh'），但 service 层未消费 | 2/5 |
-| [runtime/intent_extractor.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/agent/runtime/intent_extractor.go) | **纯函数式 JSON 解析，语言无关** —— 完美契合方案 F | 5/5 |
-| [rag/customer_service/response_generator.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/rag/customer_service/response_generator.go) | `defaultSystemPrompt` 中文写死，**无目标语言注入** | 0/5 |
-| LLM Dispatcher | 已有 `scenario` 字段，**无 `target_lang` 字段** | 2/5 |
-| RAG 检索 | pgvector + BM25 混合检索已就绪，**未配置多语言 embedding** | 2/5 |
-| Glossary 术语表 | **完全缺失** | 0/5 |
-| ChannelAgentBinding | 渠道↔智能体绑定关系已存在 | 5/5 |
-
-**总体就绪度：2.5/5**，缺口集中在「配置字段缺失」+「LLM 调用层语言感知」+「术语保护」。
-
 ### 1.3 设计目标
 
 | 编号 | 目标 | 验收指标 |
@@ -140,51 +36,6 @@
 | G6 | 兼容现有五层架构 | `check-architecture.sh` 100% 通过 |
 | G7 | 可观测：每条 LLM 调用记录 target_lang | `llm_routing_logs` 新增字段 |
 | G8 | **零外部依赖**（不引入 lingua/fasttext） | go.mod 无新增检测库 |
-
----
-
-## 二、业界方案对比与选型论证
-
-### 2.1 六种方案对比矩阵
-
-| 维度 | A. Translate-Bridge | B. 多语 KB 直存 | C. LLM 原生 | D. 分语言 KB | E. 混合（检测） | **F. 透传配置（推荐）** |
-|------|------|------|------|------|------|------|
-| 知识库维护成本 | 1× | N× | 1× | N× | 1× | **1×** |
-| 语言来源 | 检测+翻译 | 检测 | 检测 | 路由 | 检测 | **配置透传** |
-| 内部工具语言 | 中 | 多语 | 多语 | 多语 | 多语 | **中文（最优）** |
-| 生成质量 | 中（漂移） | 中-高 | 高 | 高 | 高 | **高** |
-| 端到端延迟 | 2.5-4s | 中 | 0.8-1.5s | 中 | 1-1.8s | **1-1.5s** |
-| 术语一致性 | 差 | 中 | 中 | 好 | 好 | **好** |
-| 外部依赖 | 翻译API | - | - | - | lingua/fasttext | **无** |
-| mid-对话切换 | 支持 | 支持 | 支持 | 不支持 | 支持 | **不支持（场景不需要）** |
-| 适用场景 | C端开放 | 大企业 | C端 | 大企业 | C端开放 | **B端私有部署** |
-| 业界代表 | 早期Zendesk | Weaviate | OpenAI | Shein | Shopify Magic | **Salesforce/Intercom** |
-
-### 2.2 选型论证：采用方案 F
-
-**结论**：采用方案 F（透传配置 + 内外分离）。
-
-**论证依据**：
-
-1. **场景匹配**：HiveMTK 是 B 端私有化部署，渠道/智能体由商家显式配置（如"英文官网客服"渠道、德语智能体），不存在"用户语言未知需检测"的开放场景。
-
-2. **零外部依赖**：不引入 lingua-go / fasttext 检测库，符合 G8 目标，降低部署复杂度。
-
-3. **零误判**：商家显式配置，不会因短消息/混合语导致检测抖动。
-
-4. **内部工具最优**：意图识别、SOP、objection 等中间环节使用中文 prompt，与中文知识库对齐，理解最准确。[intent_extractor.go](file:///Users/xiaofang/Documents/www/go/hivemtk/hivemtk/user-server/internal/aiagent/agent/runtime/intent_extractor.go) 已是纯函数式 JSON 解析（语言无关），无需改动。
-
-5. **极简改动**：仅需新增 2 个配置字段（ai_agents.target_language + chat_channels.target_language）+ 替换 response_generator 的 system prompt 模板 + 新增 Glossary。
-
-6. **保留方案 E 的工程实践**：Glossary 术语保护、PostValidator 后处理、bge-m3 多语言 embedding（用户英文 query 检索中文 KB）、TranslationCache 等成熟手段全部保留。
-
-### 2.3 反方案论证
-
-- **不选 A（Translate-Bridge）**：两次翻译叠加导致漂移放大，OpenAI/Anthropic 已明确不推荐。
-- **不选 B（多语 KB 直存）**：破坏商家单语维护承诺，成本随语言数线性增长。
-- **不选 D（分语言 KB）**：仅 Shein/Temu 等有专职本地化团队的超大规模平台适用。
-- **不选 E（混合+检测）**：lingua-go 检测对短消息（"Hi"/"OK"）易误判；hysteresis 防抖增加状态机复杂度；私有部署场景商家本来就要配置渠道，检测是多余环节。
-- **方案 F 的局限**：不支持 mid-conversation 用户主动切换语言。**但此场景在 B 端客服中极少出现**（用户访问英文站就是英文咨询，不会中途切中文）。若确有需求，可后续在方案 F 基础上叠加 lingua-go 检测作为优先级 0（高于渠道配置）。
 
 ---
 
@@ -1005,60 +856,6 @@ i18n:
 
 ---
 
-## 九、落地路线图
-
-### P0（必须，MVP）
-
-**目标**：完成核心双语言透传链路，覆盖 TOP 5 语种（中/英/日/德/法）。
-
-| 任务 | 文件 | 依赖 |
-|------|------|------|
-| 1. `merchants` 表新增 `internal_language` 字段 + migration（v1.2 核心） | model + migration | - |
-| 2. `ai_agents` + `chat_channels` 表新增 `target_language` 字段 + migration | model + migration | - |
-| 3. `llm_routing_logs` 表扩展多语言字段（含 internal_lang/cross_lingual）+ migration | model + migration | - |
-| 4. `knowledge_chunks` 表新增 `source_language` 字段 + migration | model + migration | 1 |
-| 5. 新增 `model/glossary.go` + migration | model 层 | - |
-| 6. 新增 `repository/glossary_repo.go` | repository 层 | 5 |
-| 7. 新增 `service/i18n/lang_config_resolver.go`（双语言配置读取器） | service 层 | 1, 2 |
-| 8. 新增 `service/i18n/glossary_service.go`（加载 + Redis 缓存） | service 层 | 6 |
-| 9. 新增 `service/i18n/post_validator.go`（正则 + Glossary 校验） | service 层 | 8 |
-| 10. 替换 `response_generator.go` 的 system prompt 为双语言模板 + ctx 读取 internal_lang/target_lang + CrossLingual 快捷路径 | aiagent 层 | 7, 8 |
-| 11. 内部工具 prompt 模板化（SOP/objection/planner 支持 internal_language 多语言版本，至少 zh+en） | aiagent 层 | 7 |
-| 12. 扩展 `llm/dispatcher.go` 的 `DispatchRequest` 字段 + 落库 | aiagent 层 | - |
-| 13. WebhookService / Widget 入口集成 LangConfigResolver，注入 ctx（internal_lang + target_lang） | aiagent 层 | 7 |
-| 14. 集成 bge-m3 embedding provider（vectorizer 配置化） | aiagent 层 | - |
-| 15. 新增 `controller/glossary.go` + 路由 | controller 层 | 6 |
-| 16. 新增商户配置 API（`/api/merchant/settings` 含 `internal_language`） | controller 层 | 1 |
-| 17. 商户后台增加"内部语言"下拉框 + 渠道/智能体管理 UI 增加"目标语言"下拉框（Vue 3） | 前端 | 1, 2 |
-| 18. 单元测试：每个新模块覆盖率 ≥ 80% | 测试 | 1-17 |
-
-**与方案 F v1.1 的差异**：P0 任务从 14 项增加到 18 项（多了商户 internal_language 字段、内部工具 prompt 模板化、商户配置 API/UI），但去掉了"中文硬编码"假设，真正实现出海全球化。
-
-### P1（推荐，增强体验）
-
-| 任务 | 说明 |
-|------|------|
-| 15. TranslationCache 实现（复用 Redis） | 命中率监控 |
-| 16. Few-shot 示例库（asset_bundle 扩展 `examples`） | 提升生成质量 |
-| 17. 低资源语言 Fallback Bridge（DeepL 集成） | 覆盖阿拉伯/泰/越南等 |
-| 18. 商家端 Glossary 管理 UI（Vue 3） | CRUD + 批量导入 |
-| 19. 管理端多语言质量监控看板 | stats / cache_hit / coverage |
-| 20. 集成测试：5 语种 × 3 场景（咨询/售后/投诉）端到端 | - |
-
-### P2（可选，长期优化）
-
-| 任务 | 说明 |
-|------|------|
-| 21. chrF++ 自动化质量评估流水线 | sacrebleu 集成 |
-| 22. LLM-as-Judge 异步评分（5% 抽样） | GPT-4 评分 |
-| 23. 知识库预翻译（高频条目 translated_versions） | 低资源语言加速 |
-| 24. self_learning 模块扩展语言维度自监督 | 自动发现术语漂移 |
-| 25. A/B 测试框架（多语言 prompt 版本对比） | 持续优化 |
-| 26. 多语言 RAG 重排（cross-lingual reranker） | 提升检索精度 |
-| 27. **可选：叠加 lingua-go 检测作为优先级 0**（高于渠道配置） | 支持 mid-conversation 切换 |
-
----
-
 ## 十、风险与对策
 
 | 风险 | 概率 | 影响 | 对策 |
@@ -1188,37 +985,6 @@ i18n:
 | TranslationCache 命中节省 | 30-50% |
 | DeepL Fallback（仅低资源，P1） | ¥0-5 |
 | **综合** | **¥15-35 / 千次** |
-
----
-
-## 十四、决策记录
-
-### 14.1 关键决策
-
-| ID | 决策 | 备选 | 理由 |
-|----|------|------|------|
-| D1 | 采用方案 F v1.2（透传配置 + 内外分离 + 商户内部语言可配置） | A/B/C/D/E/v1.1 | 场景匹配（B 端私有部署 + 出海全球化）+ 零依赖 + 商户语言任意 |
-| D2 | embedding 选 bge-m3 | OpenAI / e5 | 开源可私有化 + MTEB 顶榜 + 多语言跨语言对齐优秀 |
-| D3 | target_language 来源：渠道 > 智能体 > 退化=internal_language | 检测优先 | 商家显式配置，零误判 |
-| D4 | 内部工具用 `internal_language` prompt（不再硬编码中文） | 全链路多语言 / 仅中文 | 商户可能是英语/日语商家，知识库语言需对齐 |
-| D5 | 仅 response_generator 消费 `target_lang` + `internal_lang` | 装饰器注入 | 最小侵入，符合"内外分离"原则 |
-| D6 | 翻译降级选 DeepL（P1） | Google / NLLB | 欧洲语言质量最高 + Glossary API |
-| D7 | 知识库保持商户单语（`internal_language`） | 多语 KB | 商家维护成本 1× |
-| D8 | 不新增 tooluse 装饰器 | 新增 LanguageAwareDecorator | 方案 F 在入口处一次性解析，无需装饰器 |
-| D9 | 默认 `internal_language=zh` | en | 兼容现有中文商户部署，未配置时退化兼容 |
-| D10 | Glossary + PostValidator 保留 | 去掉 | 防止 LLM 偶发翻译 SKU/价格，工程必备 |
-| **D11** | **`internal_language` 商户级配置（v1.2 核心升级）** | **硬编码中文** | **出海产品商户本身可能是英语/日语/德语商家，强制中文不可接受** |
-| **D12** | **`CrossLingual` 标志优化（同语种零开销）** | **全场景走多语言模板** | **同语种（zh→zh, en→en）走原链路，避免无意义跨语言 prompt** |
-| **D13** | **`asset_bundles.language` 语义升级为"源语言"** | **保持原语义** | **与商户 `internal_language` 对齐，知识库 chunks `source_language` 同步** |
-
-### 14.2 待决议事项
-
-| ID | 议题 | 决策时机 |
-|----|------|---------|
-| Q1 | 是否启用 LLM-as-Judge 异步评分（成本 vs 质量） | P2 评估 |
-| Q2 | 知识库预翻译覆盖范围（高频 TOP N） | P1 数据驱动 |
-| Q3 | self_learning 是否扩展语言维度自监督 | P2 评估 |
-| Q4 | 是否在 P2 叠加 lingua-go 检测（支持 mid-conversation 切换） | 用户反馈驱动 |
 
 ---
 
@@ -1414,7 +1180,3 @@ patterns:
 ---
 
 **文档结束**
-
-> **下一步**：待用户审议本方案 F 后，按 P0 路线图启动一次性开发。
-> 优先实现 ① ai_agents/chat_channels 新增 target_language 字段 + ⑤ LangConfigResolver + ⑧ 多语言 Prompt 模板 三件套，可在一个迭代周期内验证端到端多语言 LLM 响应链路。
-> 内部工具（intent/SOP/objection）零改动，符合"内外分离"原则。

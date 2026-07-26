@@ -195,6 +195,22 @@ else
   log_pass "[DTO] dto 未直接调 db"
 fi
 
+# 5.3 dto 不应包含业务方法(架构文档 §三 L4: "不写方法体")
+# 例外:仅允许 sql.Scanner/Valuer 实现方法(Value/Scan)
+DTO_METHOD_VIOLATIONS=0
+for f in $(find "$TARGET/internal/dto" -name "*.go" 2>/dev/null); do
+  funcs=$(grep -E "^func \([^)]*\*?[A-Z][a-zA-Z]+\)" "$f" 2>/dev/null | \
+    grep -vE "Value\(|Scan\(" || true)
+  if [ -n "$funcs" ]; then
+    log_fail "[DTO] $f 包含业务方法(架构文档禁止 DTO 写方法体,应用包级函数):"
+    echo "$funcs" | sed 's/^/    /'
+    DTO_METHOD_VIOLATIONS=$((DTO_METHOD_VIOLATIONS+1))
+  fi
+done
+if [ $DTO_METHOD_VIOLATIONS -eq 0 ]; then
+  log_pass "[DTO] 无业务方法(仅 Value/Scan)"
+fi
+
 # -----------------------------------------------------------------------------
 # 6. 文件命名规范检查
 # -----------------------------------------------------------------------------
@@ -229,6 +245,25 @@ if [ -n "$GENERIC_FILES" ]; then
   echo "$GENERIC_FILES" | sed 's/^/    /'
 else
   log_pass "[命名] 无通用名文件"
+fi
+
+# 检测 controller/service/repository/dto 文件违规后缀
+# 架构文档 §2.2: Controller/Service/Repository/DTO 文件统一命名为 <domain>.go,
+# 禁止 _controller.go / _service.go / _repository.go / _dto.go 等冗余后缀
+# (这些后缀与包名重复, Go 社区惯例 + 本项目架构文档均要求裸 <domain>.go)
+LAYER_SUFFIX_VIOLATIONS=0
+for layer in controller service repository dto; do
+  if [ ! -d "$TARGET/internal/$layer" ]; then
+    continue
+  fi
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    log_fail "[命名] $layer 文件含冗余后缀(_${layer}.go): $f"
+    LAYER_SUFFIX_VIOLATIONS=$((LAYER_SUFFIX_VIOLATIONS+1))
+  done < <(find "$TARGET/internal/$layer" \( -name "*_${layer}.go" -o -name "*_${layer}_test.go" \) 2>/dev/null)
+done
+if [ $LAYER_SUFFIX_VIOLATIONS -eq 0 ]; then
+  log_pass "[命名] controller/service/repository/dto 无冗余后缀"
 fi
 
 # -----------------------------------------------------------------------------

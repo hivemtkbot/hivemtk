@@ -30,7 +30,6 @@
     ></textarea>
 
     <div class="actions">
-      <!-- 2026-07-17: 移除"转人工"按钮（对用户永远是在线客服，转人工由后端 NLP 自动触发） -->
       <input
         ref="fileInputRef"
         type="file"

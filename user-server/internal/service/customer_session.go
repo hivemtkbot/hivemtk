@@ -79,7 +79,7 @@ type CreateSessionRequest struct {
 
 // CreateSession 创建会话
 //
-// 2026-07-22 拉黑串联：进入时先校验 IsUserBlacklisted(userID, platform)，
+// 进入时先校验 IsUserBlacklisted(userID, platform)，
 // 命中即拒绝创建（避免已被拉黑的访客通过新会话绕过黑名单）。
 //
 // 具体校验逻辑见 customer_session_blacklist.go 中的 preCreateBlacklistGuard。
@@ -170,9 +170,8 @@ type SendMessageRequest struct {
 	Content     string            `json:"content" binding:"required"`
 	ContentType model.MessageType `json:"content_type"`
 	MediaURL    string            `json:"media_url"`
-	// 2026-07-21 修复：SenderType 不再 binding:"required"，发送者身份由 controller 从鉴权上下文派生。
-	// 旧 binding:"required" 会导致坐席/管理员调用 API 时必须伪造 sender_type 字段（即使 controller 会覆盖），
-	// 否则直接 400。这是安全加固的反向副作用——把"必填校验"留在 controller 中更合适。
+	// SenderType 不再 binding:"required"，发送者身份由 controller 从鉴权上下文派生。
+	// 必填校验留在 controller 中处理。
 	SenderType   string  `json:"sender_type"`
 	SenderID     string  `json:"sender_id"`
 	SenderName   string  `json:"sender_name"`

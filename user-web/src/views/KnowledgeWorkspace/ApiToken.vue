@@ -174,7 +174,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, CopyDocument } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const loading = ref(false)
 const creating = ref(false)

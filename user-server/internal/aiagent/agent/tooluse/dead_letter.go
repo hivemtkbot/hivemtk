@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// dead_letter.go P2-C: 工具调用死信队列
+// dead_letter.go 工具调用死信队列
 //
 // 设计目标：
 //   当工具调用最终失败（重试耗尽、超时、panic 等）时，将失败请求持久化到死信队列，

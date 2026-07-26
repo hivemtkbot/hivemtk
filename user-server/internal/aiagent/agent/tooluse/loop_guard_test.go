@@ -422,7 +422,7 @@ func TestLoopGuard_FeedbackRecordsLoopEvent(t *testing.T) {
 	}
 
 	// 异步 goroutine 写入顺序不确定，不能依赖 events[2] 是循环命中事件
-	// 改为扫描所有事件，查找循环命中的失败事件
+	// 扫描所有事件，查找循环命中的失败事件
 	var loopEvent *ToolCallEvent
 	successCount := 0
 	for i := range events {

@@ -61,7 +61,7 @@ type WebhookService struct {
 	// TG 账号仓库（用于查询 Bot Token + AIAgentEnabled）
 	telegramRepo	*repository.TelegramAccountRepository
 
-	// 渠道账号仓库缓存（性能审计 P3-3：避免在每条消息的 shouldTriggerAI 中重复构造）
+	// 渠道账号仓库缓存：避免在每条消息的 shouldTriggerAI 中重复构造
 	feishuRepo	*repository.FeishuAccountRepository
 	waRepo		*repository.WhatsAppCloudAccountRepository
 
@@ -90,7 +90,7 @@ type WebhookService struct {
 	agentBindingSvc	*ChannelAgentBindingService
 
 	mu		sync.Mutex	// 仅用于 Stop 的 stopped 标志保护
-	dedup		sync.Map	// eventID -> expireTime(time.Time)，O(1) 幂等（性能审计 P1-2）
+	dedup		sync.Map	// eventID -> expireTime(time.Time)，O(1) 幂等
 	rlMu		sync.Mutex	// 限流桶专用锁，与 dedup 分离避免相互阻塞
 	rlBuckets	map[string]*tokenBucket
 
@@ -100,7 +100,7 @@ type WebhookService struct {
 	stopCh		chan struct{}
 	stopped		bool
 
-	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈（性能审计 P1-1）。
+	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈。
 	replySem	chan struct{}
 
 	// TG 群「发现线索主动触达」冷却：避免同一会话被同一发言者的商机反复触发出站（防刷屏）
@@ -160,7 +160,7 @@ const (
 	WebhookMaxRetries	= 3
 	// WebhookReplyConcurrency 同时进行的 AI 生成（本地 LLM 推理）上限。
 	// 与接入 worker 解耦：接入 worker 只做轻量入队，AI 生成交给本有界池，
-	// 推理饱和时 AI 任务排队而非丢弃（性能审计 P1-1）。可用 WEBHOOK_REPLY_CONCURRENCY 覆盖。
+	// 推理饱和时 AI 任务排队而非丢弃。可用 WEBHOOK_REPLY_CONCURRENCY 覆盖。
 	WebhookReplyConcurrency	= 32
 )
 
@@ -819,7 +819,7 @@ func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
 
 	// 3) 触发 智能体（如已注入 + 启用了 智能体开关）
 	// TG 群聊的触达策略（避免无脑刷屏）：
-	//   · 私聊 / 非 TG：沿用原逻辑，AI 直接回复；
+	//   · 私聊 / 非 TG：AI 直接回复；
 	//   · TG 群聊「@机器人」：响应模式，直接回复（需求：群里 @bot 时才回复）；
 	//   · TG 群聊「发现新晋商机线索」：主动触达（需求：群聊发现符合线索可以机器人发消息），
 	//     并受冷却限制（每个发言者限频），避免同一客户反复触达；
@@ -1599,7 +1599,7 @@ func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookCha
 		}
 		return acc.AIAgentEnabled
 	case ChannelFeishu:
-		// 性能审计 P3-3：复用构造期缓存的仓库，不再每条消息重复 New
+		// 复用构造期缓存的仓库，不再每条消息重复 New
 		if s.feishuRepo == nil {
 			return false
 		}
@@ -1640,13 +1640,9 @@ func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookCha
 //   - 若 agentBindingSvc 已注入，先按 (channel_type, account_id) 查询绑定的智能体上下文
 //   - 智能体上下文非 nil 时调用 HandleWithAgent 按智能体配置执行
 //   - 智能体上下文为 nil 时回退到 DefaultSalesEngineConfig 默认行为
-//
-// 2026-07-17 扩展（ADR-008 §2.2）：
-//   - 在主流程之前 publish customer.message.received 事件
-//   - AgentRuntime.EventSubscriber 异步消费
-//   - 双写期：旧路径（直接调 SalesEngine）保留 1 个月,确保平滑迁移
+//   - 在主流程之前 publish customer.message.received 事件，由 AgentRuntime.EventSubscriber 异步消费
 func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub) {
-	// 0. ADR-008:发布事件到 Event Bus（异步,失败不影响主流程）
+	// 0. 发布事件到 Event Bus（异步,失败不影响主流程）
 	//    AgentRuntime 订阅此事件,实现 L1 入口层与 L4 AI 引擎层解耦
 	//    即使 AgentRuntime 未启动,事件会被 event.Publish 静默丢弃
 	{
@@ -1761,13 +1757,13 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 		}
 	}
 
-	// 性能审计 P1-1：将重 LLM 生成从接入 worker 解耦。
+	// 将重 LLM 生成从接入 worker 解耦。
 	// 接入 worker 完成轻量准备后立即返回，AI 生成由独立有界池（replySem）执行，
 	// 推理饱和时 AI 任务排队等待而非丢弃，避免 4 worker 同步跑 LLM 成为被动回复吞吐天花板。
 	go s.runAIGeneration(ctx, channel, accountID, p, hubMsg, in, agentCtx)
 }
 
-// runAIGeneration 在独立有界池中执行 AI 生成与出站（性能审计 P1-1）。
+// runAIGeneration 在独立有界池中执行 AI 生成与出站。
 func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub, in *IncomingContext, agentCtx *AgentContext) {
 	// 有界信号量：限制并发本地推理数，保护单节点推理栈不被压垮
 	s.replySem <- struct{}{}
@@ -1835,7 +1831,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		return
 	}
 	// 出站结果追踪：仅当真正成功出站时才保留认领（防重复）；
-	// 若全线出站失败则释放认领，允许平台重投在本实例内重试（R3 二次论证修复漏回边角）。
+	// 若全线出站失败则释放认领，允许平台重投在本实例内重试。
 	sent := false
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer func() {
@@ -1931,8 +1927,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 
 // =================== 工具 ===================
 
-// isDuplicate 基于 eventID 的 TTL 幂等（性能审计 P1-2）。
-// 改用 sync.Map + 惰性过期，O(1) 且无全局扫描；过期条目由 startDedupJanitor 后台清理。
+// isDuplicate 基于 eventID 的 TTL 幂等。
+// 使用 sync.Map + 惰性过期，O(1) 且无全局扫描；过期条目由 startDedupJanitor 后台清理。
 func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	if eventID == "" {
 		return false
@@ -1968,7 +1964,7 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	return b.allow(context.Background(), )
 }
 
-// startDedupJanitor 后台周期性清理过期的 dedup 条目，避免 sync.Map 无限增长（性能审计 P1-2）。
+// startDedupJanitor 后台周期性清理过期的 dedup 条目，避免 sync.Map 无限增长。
 func (s *WebhookService) startDedupJanitor(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)

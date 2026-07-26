@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"marketing/internal/dto"
 	"marketing/internal/model"
 )
 
@@ -45,7 +46,7 @@ func (e *SalesEngine) HandleWithAgent(ctx context.Context, req *SalesRequest, ag
 	}
 
 	// 1. 用 agentCtx 覆盖 req.Config
-	req.Config = agentCtx.ToSalesEngineConfig()
+	req.Config = dto.AgentContextToSalesEngineConfig(agentCtx)
 
 	// 2. 注入 agentCtx 到 SalesRequest（供 recallRAG / matchSOP 使用）
 	req.AgentContext = agentCtx

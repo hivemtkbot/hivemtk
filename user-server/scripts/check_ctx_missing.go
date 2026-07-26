@@ -1,6 +1,5 @@
 // check_ctx_missing.go - 静态扫描 repository 包中缺 context.Context 的方法
 //
-// 2026-07-22 方向E-预调研：
 //   - 扫描 internal/repository/*.go（排除 _test.go）
 //   - 识别所有以 (r *xxx) 开头的方法签名
 //   - 统计缺失 ctx 参数的方法数

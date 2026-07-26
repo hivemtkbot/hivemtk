@@ -13,7 +13,7 @@ import (
 	"marketing/internal/repository"
 )
 
-// customer_tools.go 客户工具实现（PRD §5.2 P0-3 G3）
+// customer_tools.go 客户工具实现（PRD §5.2）
 //
 // 8 个客户工具：
 //   1. customer.search   - 按身份标识搜索客户
@@ -25,10 +25,9 @@ import (
 //   7. customer.remove_tag - 移除客户标签
 //   8. customer.segment  - 按 tag/RFM/churn_risk 等条件分群
 //
-// 2026-07-23 方向D收口：所有方法统一走 portcontract.CustomerPort，
-// 不再保留 *service.CustomerService 字段。装配期通过 CustomerToolDeps.Customer
+// 所有方法统一走 portcontract.CustomerPort。
+// 装配期通过 CustomerToolDeps.Customer
 // 强制注入 Port Adapter；nil 时工具返回 "port not injected" 错误。
-// （project_memory 硬约束："工具层需完整走 Port 模式，移除对 CustomerService 字段的依赖"）
 
 // errInvalidCustomer 客户身份参数缺失错误
 var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phone/email/wechat_open_id/douyin_open_id/xiaohongshu_id）")
@@ -37,9 +36,8 @@ var errInvalidCustomer = errors.New("至少需要提供一种身份标识（phon
 
 // CustomerToolDeps 客户工具依赖
 //
-// 2026-07-23 收口：仅依赖 portcontract.CustomerPort + repository + *gorm.DB。
-// 历史 *service.CustomerService 字段已完全移除，工具层不再 import service 包，
-// 避免反向依赖；错误码改用 portcontract.ErrCustomerNotFound sentinel。
+// 仅依赖 portcontract.CustomerPort + repository + *gorm.DB。
+// 工具层不 import service 包以避免反向依赖；错误码用 portcontract.ErrCustomerNotFound sentinel。
 type CustomerToolDeps struct {
 	// Customer 客户域 Port（必需，由装配层注入）。
 	// 由 service.CustomerPortAdapter 注入；nil 时所有依赖客户的工具
@@ -184,8 +182,7 @@ func (t *CustomerSearchTool) Execute(ctx context.Context, args map[string]any) (
 	}
 
 	// 补充按小红书 ID 搜索（FindByIdentity 不支持 xhs）
-	// 五层架构修复：原 t.deps.DB.Where("xiaohongshu_id = ?").First() 直接访问 DB,
-	// 已下沉到 repository.CustomerRepository.GetByXiaohongshuID
+	// 通过 repository.CustomerRepository.GetByXiaohongshuID 访问
 	if xhs != "" && t.deps.CustomerRepo != nil {
 		xhsCustomer, err := t.deps.CustomerRepo.GetByXiaohongshuID(ctx, xhs)
 		if err == nil && xhsCustomer != nil && xhsCustomer.ID != "" {
@@ -244,7 +241,7 @@ func NewCustomerGetTool(deps CustomerToolDeps) *CustomerGetTool {
 
 // Execute 执行获取
 //
-// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
+// 仅走 portcontract.CustomerPort。
 func (t *CustomerGetTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -441,7 +438,7 @@ func NewCustomerMergeTool(deps CustomerToolDeps) *CustomerMergeTool {
 
 // Execute 执行合并
 //
-// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
+// 仅走 portcontract.CustomerPort。
 func (t *CustomerMergeTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"primary_id", "secondary_id"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -499,7 +496,7 @@ func NewCustomerAddTagTool(deps CustomerToolDeps) *CustomerAddTagTool {
 
 // Execute 执行添加标签
 //
-// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
+// 仅走 portcontract.CustomerPort。
 func (t *CustomerAddTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -567,7 +564,7 @@ func NewCustomerRemoveTagTool(deps CustomerToolDeps) *CustomerRemoveTagTool {
 
 // Execute 执行移除标签
 //
-// 2026-07-23 收口：仅走 portcontract.CustomerPort，不再回退到 CustomerService。
+// 仅走 portcontract.CustomerPort。
 func (t *CustomerRemoveTagTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if err := ValidateRequired(args, []string{"customer_id", "tags"}); err != nil {
 		return ErrorResult(t.Name(), err), err
@@ -660,8 +657,7 @@ func NewCustomerSegmentTool(deps CustomerToolDeps) *CustomerSegmentTool {
 
 // Execute 执行分群查询
 //
-// 五层架构修复（v1.1）：原直接调用 t.deps.DB.Model().Where() 链违反
-// "tooluse 不可直接访问 DB" 约束，已下沉到 repository.CustomerRepository.SearchByFilter。
+// 通过 repository.CustomerRepository.SearchByFilter 实现分群查询。
 // t.deps.DB 字段保留仅为向后兼容（不再使用），新代码应使用 CustomerRepo。
 func (t *CustomerSegmentTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
 	if t.deps.CustomerRepo == nil {
@@ -782,5 +778,5 @@ func GetIntArgSafe(args map[string]any, key string) (int, bool) {
 	return 0, false
 }
 
-// escapeJSONString 已下沉到 repository 包（customer_repository.go），
-// 由 CustomerRepository.SearchByFilter 内部使用，本包不再需要。
+// escapeJSONString 由 repository 包（customer_repository.go）实现，
+// CustomerRepository.SearchByFilter 内部使用，本包不再需要。

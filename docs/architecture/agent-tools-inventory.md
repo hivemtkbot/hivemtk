@@ -18,8 +18,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | AI 销冠核心 |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07（P0-4 + P0-5 装配） |
-| 最后更新 | 2026-07-24 |
 
 ### 1.1 已完成内容
 
@@ -48,14 +46,6 @@
 ### 2.1 业务背景
 
 LLM 本身不能查询数据库、修改订单或发送外部消息。HiveMtk 采用 "思维-行动（Thought-Action）" 反向拦截范式，通过 Go 后端赋予大模型"手脚"。智能体在 ReAct 循环中可调用预注册的工具集完成业务动作。
-
-### 2.2 解决思路
-
-- **工具接口**: `tooluse.Tool` 接口统一所有工具的 Name / Category / Description / Parameters / Execute
-- **全局注册中心**: `tooluse.ToolRegistry` 单例，按工具名索引
-- **生产装配**: `router.registerAllAgentTools(gormDB)` 在 `router.Setup()` 中一次性注册全部 41 个工具
-- **装饰器链**: `tooluse.ToolExecutorConfig` 包装权限 / 限流 / 重试 / 超时 / 审计 / 计费 6 道防线
-- **Agent Loop**: `service.SalesEngine.runAgentLoop` 实现 ReAct 循环（感知 → 规划 → 调工具 → 反思）
 
 ### 2.3 关键算法或模型
 
@@ -358,11 +348,3 @@ type Tool interface {
 - [customer-360.md](customer-360.md)
 - [rag-knowledge-base.md](rag-knowledge-base.md)
 - [knowledge-management.md](knowledge-management.md)
-
----
-
-## 十三、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-24 | 独立功能文档生成（F-P1-115 补建） | |

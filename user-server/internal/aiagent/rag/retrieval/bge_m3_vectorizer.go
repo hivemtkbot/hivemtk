@@ -3,7 +3,7 @@ package ragretrieval
 // bge_m3_vectorizer.go bge-m3 多语言 embedding provider
 //
 // 五层架构归属: L4 能力层
-// 设计依据: 多语言方案 P1-1（bge-m3 配置化）
+// 设计依据: bge-m3 配置化
 //
 // 与 vectorizer.go 中 Vectorizer（基于 llm.EmbeddingService）的差异：
 //   - Vectorizer：默认 provider（openai 兼容），通过 llm.EmbeddingService 间接调用

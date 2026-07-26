@@ -41,11 +41,7 @@ const initRoutes = [
     component: () => import('@/views/chat/embed/Index.vue'),
     meta: { title: '在线客服', requiresAuth: false, public: true, hideLayout: true }
   },
-  // 2026-07-17: 兜底路由，修复 /chat/embed 或 /chat/embed/ 直接访问 404 / 跳登录的问题
-  //   之前只有 /chat/embed/default 和 /chat/embed/:channel_ref，
-  //   访问 /chat/embed（无 default）会被 NotFound 拦截，
-  //   访问 /chat/embed/ 会被 catch-all 路由拦截到登录页。
-  //   统一重定向到 default 即可保证任意形式的 URL 都能进入聊天窗。
+  // 兜底路由：访问 /chat/embed 或 /chat/embed/ 时统一重定向到 default
   {
     path: '/chat/embed',
     redirect: '/chat/embed/default'

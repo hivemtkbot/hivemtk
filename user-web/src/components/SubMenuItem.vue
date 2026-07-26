@@ -2,42 +2,34 @@
   <!-- 有子菜单的菜单项 -->
   <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.key || menu.path">
     <template #title>
-      <el-icon><component :is="getIconComponent(menu.icon)" /></el-icon>
+      <el-icon><component :is="resolveRouteIcon(menu.icon)" /></el-icon>
       <span>{{ t('menu.' + menu.key) }}</span>
     </template>
-    
+
     <!-- 递归渲染子菜单 -->
     <template v-for="item in menu.children" :key="item.path || item.key">
       <sub-menu-item :menu="item" :icon-components="iconComponents" />
     </template>
   </el-sub-menu>
-  
+
   <!-- 没有子菜单的菜单项 -->
   <el-menu-item v-else :index="menu.path" @click="handleMenuClick(menu)">
-    <el-icon><component :is="getIconComponent(menu.icon || 'Document')" /></el-icon>
+    <el-icon><component :is="resolveRouteIcon(menu.icon || 'Document')" /></el-icon>
     <span>{{ t('menu.' + menu.key) }}</span>
   </el-menu-item>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import { resolveRouteIcon, routeIconMap } from '@/utils/iconMap'
 
 import i18n from '@/i18n'
 const t = i18n.global.t
 
 const router = useRouter()
 
-// 创建图标组件映射
-const iconComponents = {}
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  iconComponents[key] = component
-}
-
-// 获取图标组件
-const getIconComponent = (iconName) => {
-  return iconComponents[iconName] || iconComponents['Document']
-}
+// 保留 iconComponents 作为 props 兼容入口,内部统一使用 routeIconMap(P1-1: 已下沉到 utils/iconMap.js)
+const iconComponents = routeIconMap
 
 const handleMenuClick = (menu) => {
   if (menu.path) {

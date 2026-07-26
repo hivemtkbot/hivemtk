@@ -215,9 +215,9 @@ type AgentContext struct {
 	Version int `json:"version"`
 }
 
-// ToSalesEngineConfig 将 AgentContext 转换为 SalesEngineConfig
-// 方法放在 dto 包中（type alias 不允许定义新方法）
-func (a *AgentContext) ToSalesEngineConfig() *SalesEngineConfig {
+// AgentContextToSalesEngineConfig 将 AgentContext 转换为 SalesEngineConfig
+// 包级函数,架构文档 §三 L4 要求(type alias 不允许定义方法,故用包级函数)
+func AgentContextToSalesEngineConfig(a *AgentContext) *SalesEngineConfig {
 	if a == nil {
 		return DefaultSalesEngineConfig()
 	}
@@ -282,33 +282,33 @@ type SalesResponse struct {
 	HumanizeAttempt int     `json:"humanize_attempt,omitempty"`
 }
 
-// HasAgentContext 判断 SalesRequest 是否携带智能体上下文
-// 供 recallRAG / matchSOP 等内部方法判断是否按智能体过滤
-func (r *SalesRequest) HasAgentContext() bool {
+// SalesRequestHasAgentContext 判断 SalesRequest 是否携带智能体上下文
+// 供 recallRAG / matchSOP 等内部方法判断是否按智能体过滤(包级函数,架构文档 §三 L4 要求)
+func SalesRequestHasAgentContext(r *SalesRequest) bool {
 	return r != nil && r.AgentContext != nil
 }
 
-// RagProductIDsForRequest 获取当前请求应检索的知识库产品 ID 列表
+// SalesRequestRagProductIDs 获取当前请求应检索的知识库产品 ID 列表
 // 优先使用 agentCtx.RagProductIDs，回退空（由 RAG 服务默认处理）
-func (r *SalesRequest) RagProductIDsForRequest() []string {
-	if r.HasAgentContext() && len(r.AgentContext.RagProductIDs) > 0 {
+func SalesRequestRagProductIDs(r *SalesRequest) []string {
+	if SalesRequestHasAgentContext(r) && len(r.AgentContext.RagProductIDs) > 0 {
 		return r.AgentContext.RagProductIDs
 	}
 	return nil
 }
 
-// SOPIDsForRequest 获取当前请求应匹配的 SOP ID 列表
-func (r *SalesRequest) SOPIDsForRequest() []string {
-	if r.HasAgentContext() && len(r.AgentContext.SOPIDs) > 0 {
+// SalesRequestSOPIDs 获取当前请求应匹配的 SOP ID 列表
+func SalesRequestSOPIDs(r *SalesRequest) []string {
+	if SalesRequestHasAgentContext(r) && len(r.AgentContext.SOPIDs) > 0 {
 		return r.AgentContext.SOPIDs
 	}
 	return nil
 }
 
-// AgentPersonaForRequest 获取当前请求的智能体人设
+// SalesRequestAgentPersona 获取当前请求的智能体人设
 // 供 LLM 生成步骤注入系统提示
-func (r *SalesRequest) AgentPersonaForRequest() string {
-	if r.HasAgentContext() {
+func SalesRequestAgentPersona(r *SalesRequest) string {
+	if SalesRequestHasAgentContext(r) {
 		if r.AgentContext.SystemPrompt != "" {
 			return r.AgentContext.SystemPrompt
 		}
@@ -322,10 +322,10 @@ func (r *SalesRequest) AgentPersonaForRequest() string {
 	return ""
 }
 
-// AgentLLMModelForRequest 获取当前请求应使用的 LLM 模型
+// SalesRequestAgentLLMModel 获取当前请求应使用的 LLM 模型
 // 留待 LLM 调度层使用（当前 dispatcher 默认模型）
-func (r *SalesRequest) AgentLLMModelForRequest() string {
-	if r.HasAgentContext() && r.AgentContext.LLMModel != "" {
+func SalesRequestAgentLLMModel(r *SalesRequest) string {
+	if SalesRequestHasAgentContext(r) && r.AgentContext.LLMModel != "" {
 		return r.AgentContext.LLMModel
 	}
 	return ""

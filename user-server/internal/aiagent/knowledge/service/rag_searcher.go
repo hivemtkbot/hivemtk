@@ -14,14 +14,13 @@ import (
 )
 
 // RagSearcher 知识库检索器
-// 2026-07-18 重构：真正走 pgvector 余弦相似度 + TEI bge-m3（1024 维）
+// 走 pgvector 余弦相似度 + TEI bge-m3（1024 维）
 //
 //   - 优先路径：TEI 把 query 编码成 1024 维向量，SQL 用 embedding <=> $1 走 HNSW 索引
 //   - 兜底路径：当 TEI 不可用或 query 为空时，回退到 BM25-lite 文本匹配
 //   - 降级日志：ERROR 级别（与私域基线一致：禁止静默降级到伪向量）
 //
-// 2026-07-19 升级（P0-2 RAG 精确召回）：
-//   - 新增 hybridSearcher 字段（委托模式），非 nil 时优先走 HybridSearcher
+//   - hybridSearcher 字段（委托模式），非 nil 时优先走 HybridSearcher
 //   - HybridSearcher 提供：pgvector HNSW + tsvector BM25 + RRF 融合 + bge-reranker-v2-m3 重排
 //   - HyDE/Multi-Query 改写 + Contextual Retrieval + CachedEmbeddingClient
 //   - 旧 vectorSearch / bm25SearchAll 路径保留为 legacy fallback（hybridSearcher 为 nil 时启用）
@@ -34,20 +33,17 @@ type RagSearcher struct {
 
 // NewRagSearcher 创建全局 RAG 检索器（自动初始化 TEI 客户端 + HybridSearcher）
 //
-// 修复 P0-2 章节检查报告 #1：自动启用 HybridSearcher，无需外部手动调用 EnableHybridSearcher。
+// 自动启用 HybridSearcher，无需外部手动调用 EnableHybridSearcher。
 // 注意：reranker / llmChatClient / redisClient 在此便捷路径中均为 nil，
 // 检索将以 RRF 融合 + 上下文相关 BM25 + 向量召回三路并行（无重排、无 HyDE、无 L1 缓存）。
 // 需要完整能力的生产环境请用 EnableHybridSearcher 显式注入依赖。
-//
-// 2026-07-23 五层架构治理（二轮）：构造函数内允许调 `db.GetDB()`（service 工厂
-// 合规），但不再走 `dbGetDB()` 本地别名（已删除）。
 func NewRagSearcher() *RagSearcher {
 	return newRagSearcherWithDB(db.GetDB())
 }
 
 // NewRagSearcherWithDB 创建带 DB 的 RAG 检索器（供测试注入 DB）
 //
-// 修复 P0-2 章节检查报告 #1：测试场景同样启用 HybridSearcher。
+// 测试场景同样启用 HybridSearcher。
 func NewRagSearcherWithDB(gdb *gorm.DB) *RagSearcher {
 	return newRagSearcherWithDB(gdb)
 }

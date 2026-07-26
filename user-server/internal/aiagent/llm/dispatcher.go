@@ -40,7 +40,7 @@ type ProviderConfig struct {
 	MaxRPM       int     `json:"max_rpm"` // 每分钟请求数
 	MaxTPM       int     `json:"max_tpm"` // 每分钟 token 数
 	Enabled      bool    `json:"enabled"`
-	// P2-A: NoFC 标记该 provider 不支持 OpenAI Function Calling
+	// NoFC 标记该 provider 不支持 OpenAI Function Calling
 	// 为 true 时，Dispatcher 会启用 ReAct 适配器，通过文本协议完成工具调用
 	// 适用场景：本地 LLM（llama.cpp / mtk-llm / 部分 ChatGLM 版本）不支持 FC
 	NoFC bool `json:"no_fc,omitempty"`
@@ -82,7 +82,7 @@ type Dispatcher struct {
 	rpmCounter map[string]*rpmBucket
 	cache      map[string]*dispatchCacheEntry
 	cacheMu    sync.RWMutex
-	// P2-A: ReAct 适配器（让无 FC 能力的 LLM 通过文本协议接入 Agent Loop）
+	// ReAct 适配器（让无 FC 能力的 LLM 通过文本协议接入 Agent Loop）
 	// 懒初始化，首次需要时创建（避免无工具调用场景的开销）
 	reactAdapter   *ReActAdapter
 	reactAdapterMu sync.Once
@@ -114,7 +114,7 @@ func newDispatcherBase(llmService *LLMService) *Dispatcher {
 }
 
 // getReActAdapter 懒初始化 ReAct 适配器（线程安全）
-// P2-A：仅在首次需要时创建，避免无工具调用场景的初始化开销
+// 仅在首次需要时创建，避免无工具调用场景的初始化开销
 func (d *Dispatcher) getReActAdapter() *ReActAdapter {
 	d.reactAdapterMu.Do(func() {
 		d.reactAdapter = NewReActAdapter()
@@ -179,7 +179,7 @@ func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
 		QualityScore: 0.99,
 		MaxRPM:       0, // 0 = 不限流
 		Enabled:      true,
-		// P2-A: 本地 Qwen2.5-3B-Instruct 不支持 OpenAI Function Calling
+		// 本地 Qwen2.5-3B-Instruct 不支持 OpenAI Function Calling
 		// 启用 ReAct 适配器，通过 Thought/Action/Action Input 文本协议完成工具调用
 		// 用户可通过 inference.llm.no_fc=false 显式关闭（如果模型已升级支持 FC）
 		NoFC: resolveNoFC(llmCfg),
@@ -244,7 +244,7 @@ func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLM
 // 会在本地推理完成前掐断请求（context deadline exceeded），
 // 进而退回已禁用的云端兜底导致 AI 直答失败、错误转人工。
 //
-// 2026-07-24：MaxLatency 改为参数注入（maxLatencyMs），由 NewDispatcherFromConfig
+// MaxLatency 由参数注入（maxLatencyMs），由 NewDispatcherFromConfig
 // 从 inference.llm.timeout_seconds 派生（默认 180000ms，开发模式可在 config.yaml 设大值如 720000）。
 // 与 sales_engine.agentLoopTotalTimeout、llm_service.httpClient.Timeout 共享同一配置源。
 func (d *Dispatcher) registerLocalFirstRoutes(maxLatencyMs int) {
@@ -432,8 +432,6 @@ func (d *Dispatcher) SetRouteWithAudit(ctx context.Context, r ScenarioRoute, act
 //
 // 区别于 SetRouteWithAudit：模型生命周期事件与场景路由无关，
 // 单独写 audit 行（action=create_model/delete_model），不动 routes。
-// 2026-07-23 修复：原本 CreateModel/DeleteModel 误用 SetRouteWithAudit，
-// 会把 low_cost 场景路由覆盖为新增/待删除的 provider name，导致路由污染。
 func (d *Dispatcher) LogModelLifecycle(ctx context.Context, action, provider, operator, traceID string) {
 	db := getAuditDB()
 	if db == nil {
@@ -500,9 +498,9 @@ type DispatchRequest struct {
 	JSONMode       bool             `json:"json_mode"`
 	CacheKey       string           `json:"cache_key"`       // 缓存 key
 	CacheTTL       int              `json:"cache_ttl"`       // 缓存秒数
-	ReturnLogprobs bool             `json:"return_logprobs"` // P0-3 修复：请求 LLM 返回 token logprobs
+	ReturnLogprobs bool             `json:"return_logprobs"` // 请求 LLM 返回 token logprobs
 	TopLogprobs    int              `json:"top_logprobs"`    // 返回 top-N 候选 token logprobs（默认 20）
-	// P0-2 修复：智能体 tool_call 支持
+	// 智能体 tool_call 支持
 	// Tools: 工具定义列表，非空时 Dispatcher 走 GenerateWithTools 路径
 	// ToolChoice: "auto"/"none"/"required" 或 JSON 对象字符串
 	Tools      []ToolDefinition `json:"tools,omitempty"`
@@ -511,7 +509,7 @@ type DispatchRequest struct {
 	// 非空时 Prompt 字段被忽略，使用 Messages 进行多轮对话
 	Messages []ChatMessage `json:"messages,omitempty"`
 	// CanaryKey: 灰度发布判定 key（如 user_id），空时按权重随机抽样
-	// 2026-07-23 P1 补：让 Dispatch 走灰度路由
+	// 让 Dispatch 走灰度路由
 	CanaryKey string `json:"canary_key,omitempty"`
 	// 多语言方案：跨语言生成元数据（由 service/i18n 层注入）
 	InternalLang    string `json:"internal_lang,omitempty"`    // 商户内部语言（知识库语言）
@@ -529,16 +527,16 @@ type DispatchResult struct {
 	Cost        float64 `json:"cost"`
 	LatencyMs   int     `json:"latency_ms"`
 	FromCache   bool    `json:"from_cache"`
-	// P0-3 修复：用于置信度计算的 token 级信号
+	// 用于置信度计算的 token 级信号
 	// 当前 LLMService 尚未真正透传 logprobs，字段保留供上游 SignalCollector
 	// 在 LLMService 升级（添加 chatResponse.logprobs 解析）后自动填充。
 	// 当前为安全降级：Logprobs/TopTokenEntropy 留空，FinishReason 透传 "stop"/"length" 等。
 	Logprobs        []float64 `json:"logprobs,omitempty"`
 	TopTokenEntropy float64   `json:"top_token_entropy,omitempty"`
 	FinishReason    string    `json:"finish_reason,omitempty"`
-	// P0-2 修复：智能体 tool_call 返回结果
+	// 智能体 tool_call 返回结果
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-	// P1-D：详细 token 使用量（用于计费/成本分析）
+	// 详细 token 使用量（用于计费/成本分析）
 	// 由 provider 响应中的 usage 字段填充
 	// TokenUsage 类型在下方定义
 	Usage TokenUsage `json:"usage,omitempty"`
@@ -562,7 +560,7 @@ type TokenUsage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-// TokenUsageDetailed 详细 token 使用量（含成本/时延）—— P1-D 计费用
+// TokenUsageDetailed 详细 token 使用量（含成本/时延）—— 计费用
 //
 // 与 llm_service.go 的 TokenUsage 区分：本结构带 Cost/Latency 字段，
 // 用于 DispatchResult 暴露给上层做成本分析；底层 LLM 真实使用量通过 Usage 字段。
@@ -793,10 +791,8 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		config.ResponseFormat = "json_object"
 	}
 
-	// P0-3 修复：ReturnLogprobs 透传到 LLMConfig
-	// 当前 LLMConfig 已加 Logprobs 字段，但 LLMService.Generate 尚未实现透传。
-	// 真正读取 logprobs 需要 LLMService 升级（chatResponse.choices[0].logprobs 解析），
-	// 属于后续 P0-3 任务的子步骤，本提交先完成数据契约对齐。
+	// ReturnLogprobs 透传到 LLMConfig
+	// 真正读取 logprobs 需要 LLMService 实现 chatResponse.choices[0].logprobs 解析。
 	if req.ReturnLogprobs {
 		config.Logprobs = true
 		if req.TopLogprobs > 0 {
@@ -806,12 +802,12 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		}
 	}
 
-	// P0-2 修复：智能体 tool_call 字段透传
+	// 智能体 tool_call 字段透传
 	config.Tools = req.Tools
 	config.ToolChoice = req.ToolChoice
 	config.Messages = req.Messages
 
-	// P2-A: ReAct 适配（NoFC provider + 智能体场景）
+	// ReAct 适配（NoFC provider + 智能体场景）
 	// 当 provider 标记为 NoFC 且请求携带 Tools 时，启用 ReAct 文本协议
 	// - 将 Tools 转为 ReAct 系统提示词追加到 SystemPrompt
 	// - 不向 LLM 发送 OpenAI tools 参数（无 FC 能力 LLM 会报错）
@@ -828,9 +824,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	}
 
 	start := time.Now()
-	// v3.7.0 统一走 GenerateWithTools 路径，确保所有调用都能拿到真实 Usage
-	// （Generate 内部本身就是调用 GenerateWithTools，只是丢弃了 Usage，导致简单调用场景
-	//   无法获取真实 token 用量。此处直接调用 GenerateWithTools 修复该缺陷。）
+	// 统一走 GenerateWithTools 路径，确保所有调用都能拿到真实 Usage
 	result, err := d.llmService.GenerateWithTools(ctx, config, req.Prompt)
 	latency := int(time.Since(start).Milliseconds())
 	if err != nil {
@@ -852,7 +846,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	estimator := ClassifyEstimator(tokenSource)
 	promptCost, completionCost := splitCost(cost, promptTokens, completionTokens, totalTokens)
 
-	// P1-D：填充 Usage（来自 LLM 真实响应；零值时省略）
+	// 填充 Usage（来自 LLM 真实响应；零值时省略）
 	var usage TokenUsage
 	if result.Usage.TotalTokens > 0 {
 		usage = TokenUsage{
@@ -877,7 +871,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		PromptCost:     promptCost,
 		CompletionCost: completionCost,
 	}
-	// P2-A: ReAct 适配 - 解析 LLM 文本输出为 ToolCall
+	// ReAct 适配 - 解析 LLM 文本输出为 ToolCall
 	if reactMode {
 		dispatchResult = d.getReActAdapter().AdaptResult(dispatchResult)
 	}
@@ -1102,7 +1096,6 @@ func (NoopAlertHook) OnAllProvidersFailed(string, error, string) {}
 //
 // 把所有 provider 失败 / 全部失败事件以 WARN/ERROR 级别写日志，
 // 满足"必须能感知到降级"的运维诉求，无需对接外部系统。
-// 2026-07-23 P1 补：替换 NoopAlertHook 作为默认。
 type LoggingAlertHook struct {
 	OnFailure   func(scenario, provider, traceID string, err error)
 	OnSuccess   func(scenario, provider, traceID string)

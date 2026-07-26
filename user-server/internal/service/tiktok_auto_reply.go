@@ -24,9 +24,6 @@ type TikTokAutoReplyService struct {
 const TikTokPlatform = "tiktok"
 
 // NewTikTokAutoReplyService 创建 TikTok 自动回复服务
-//
-// 五层架构合规：service 构造函数内不再直接调全局 DB 入口，
-// 改为通过 repository / NewAutoReplyServiceAuto 间接获取 DB。
 func NewTikTokAutoReplyService() *TikTokAutoReplyService {
 	accountRepo := repository.NewAutoReplyAccountRepositoryAuto()
 	replySvc := NewAutoReplyServiceAuto()

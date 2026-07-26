@@ -1,4 +1,4 @@
-// Package eval 提供多语言生成质量评估能力（v1.2 出海多语言方案 P2-1）。
+// Package eval 提供多语言生成质量评估能力。
 //
 // 本包实现两类评估指标：
 //   - ChrFEvaluator：chrF++ 字符/词 n-gram F-beta 评估（纯 Go，无外部依赖）

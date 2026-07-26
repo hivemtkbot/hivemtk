@@ -230,7 +230,7 @@ func (s *IntentRecognizer) RecognizeIntent(ctx context.Context, message, custome
 		}, nil
 	}
 
-	// 2026-07-25 统一开关：总开关关闭直接返回咨询兜底，不进入规则/LLM 流程
+	// 统一开关：总开关关闭直接返回咨询兜底，不进入规则/LLM 流程
 	// 与 Recognize() 行为一致：开关关闭 → 业务链路直接走兜底
 	if !IntentEnabled {
 		return &IntentResult{

@@ -173,7 +173,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, View, CircleCheck, UploadFilled } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const activeTab = ref('upload')
 const uploading = ref(false)

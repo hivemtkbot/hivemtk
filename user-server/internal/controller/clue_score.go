@@ -45,7 +45,7 @@ func (c *ClueScoreController) ScoreClue(ctx *gin.Context) {
 		response.Error(ctx, http.StatusInternalServerError, "评分失败: "+err.Error())
 		return
 	}
-	resp := (&dto.ClueScoreResponse{}).FromModel(score)
+	resp := dto.FromClueScoreModel(score)
 	response.Success(ctx, resp, "评分完成")
 }
 
@@ -83,7 +83,7 @@ func (c *ClueScoreController) GetByClueID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, "未找到评分")
 		return
 	}
-	response.Success(ctx, (&dto.ClueScoreResponse{}).FromModel(score), "ok")
+	response.Success(ctx, dto.FromClueScoreModel(score), "ok")
 }
 
 // ListByGrade 按等级分页
@@ -110,7 +110,7 @@ func (c *ClueScoreController) ListByGrade(ctx *gin.Context) {
 		PageSize: pageSize,
 	}
 	for _, s := range list {
-		resp.List = append(resp.List, (&dto.ClueScoreResponse{}).FromModel(s))
+		resp.List = append(resp.List, dto.FromClueScoreModel(s))
 	}
 	response.Success(ctx, resp, "ok")
 }

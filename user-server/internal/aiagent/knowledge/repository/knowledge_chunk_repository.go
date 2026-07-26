@@ -78,11 +78,8 @@ func (r *KnowledgeChunkRepository) PageByDocumentID(ctx context.Context, documen
 
 // Update 更新分段
 //
-// P2-11 期间发现的 bug 修复：
-//   - 原代码仅在 chunk.EmbeddingID != "" 时才更新 embedding_id 字段，
-//     导致 service.UpdateChunk 显式设置 chunk.EmbeddingID = "" 来触发重新向量化时
-//     无法清空旧向量（保留旧的 vec_123）。
-//   - 现在 embedding_id 总是参与更新；service 层决定是否清空，repository 层如实落盘。
+// embedding_id 总是参与更新；service 层决定是否清空，repository 层如实落盘。
+// 这样 service.UpdateChunk 显式设置 chunk.EmbeddingID = "" 触发重新向量化时能正常清空旧向量。
 //   - 唯一调用方为 KnowledgeMerchantService.UpdateChunk，行为一致，无副作用。
 func (r *KnowledgeChunkRepository) Update(ctx context.Context, chunk *model.KnowledgeChunk) error {
 	if chunk.ID == 0 {
@@ -193,11 +190,6 @@ func (r *KnowledgeChunkRepository) BatchUpdateLastIndexed(ctx context.Context, d
 }
 
 // UpdateEmbeddingsBatch 事务式批量更新分段 embedding
-//
-// 2026-07-23 五层架构治理（二轮）：
-// 原 `service.KnowledgeService.persistChunkEmbeddings` 中直接 tx.Exec 写
-// `UPDATE knowledge_chunks SET embedding = $1::vector, embed_status = 'indexed'`
-// 违反 §3.5"service 不应写 SQL"。下沉到本方法后，service 仅负责调用。
 //
 // 要求 chunks 与 embeddings 长度一致；使用参数化 SQL 防止注入；事务保证原子性。
 func (r *KnowledgeChunkRepository) UpdateEmbeddingsBatch(ctx context.Context, chunks []model.KnowledgeChunk, embeddings [][]float32) error {

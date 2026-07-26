@@ -22,7 +22,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | rag |
 | 优先级 | P0 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -42,12 +41,6 @@
 ### 2.1 业务背景
 
 RAG 系统需要针对每个产品/账号配置独立知识库和 LLM 参数。本模块提供产品维度的 RAG 配置能力。
-
-### 2.2 解决思路
-
-- **产品维度**：每个产品一个 pgvector 集合 + 独立 LLM 配置
-- **账号绑定**：平台账号 → 产品 → 自动使用产品知识库
-- **配置继承**：账号级可覆盖产品级配置
 
 ### 2.3 输入输出定义
 
@@ -228,12 +221,3 @@ RAG 系统需要针对每个产品/账号配置独立知识库和 LLM 参数。�
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **V2.0 统一架构**
 - [agent-rag-qa.md](agent-rag-qa.md)
 - [knowledge-management.md](knowledge-management.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.1 | 2026-07-14 | 对齐 RAG V2.0:API 前缀改为 `/api/rag/`,补 `embedding_model`/`top_k`,pgvector | AI Assistant |
-| v1.0 | 2026-07-14 | 独立功能文档初始版本 | AI Assistant |

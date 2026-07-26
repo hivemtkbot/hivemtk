@@ -24,8 +24,8 @@ type ClueScoreResponse struct {
 	FactorsJSON     string `json:"factors_json"`
 }
 
-// FromModel ClueScore → ClueScoreResponse
-func (r *ClueScoreResponse) FromModel(s *model.ClueScore) *ClueScoreResponse {
+// FromClueScoreModel ClueScore → ClueScoreResponse(包级函数,架构文档 §三 L4 要求)
+func FromClueScoreModel(s *model.ClueScore) *ClueScoreResponse {
 	if s == nil {
 		return nil
 	}

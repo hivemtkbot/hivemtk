@@ -68,8 +68,9 @@ type GlossaryValidateResponse struct {
 	Issues        []GlossaryValidateIssue `json:"issues"`
 }
 
-// ToModel DTO → Model 转换（GlossaryRequest → model.Glossary）
-func (r *GlossaryRequest) ToModel() *model.Glossary {
+// ToGlossaryModel DTO → Model 转换(GlossaryRequest → model.Glossary)
+// 包级函数,架构文档 §三 L4 要求(与 FromGlossaryModel 风格一致)
+func ToGlossaryModel(r *GlossaryRequest) *model.Glossary {
 	if r == nil {
 		return nil
 	}

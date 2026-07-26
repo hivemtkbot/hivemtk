@@ -21,7 +21,7 @@ type RAGStack struct {
 
 func NewRAGStack(db *gorm.DB) *RAGStack {
 	embeddingSvc := llm.NewEmbeddingService()
-	// 私域基线（2026-07-18）：Embedding 走本地 TEI（真实 bge-m3，EmbeddingDim 维）
+	// Embedding 走本地 TEI（真实 bge-m3，EmbeddingDim 维）
 	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim)
 	_ = embeddingSvc
 	_ = embedder

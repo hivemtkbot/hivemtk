@@ -91,7 +91,7 @@ type AuditLogger interface {
 
 // AuditEntry 审计日志条目
 //
-// P1-B：新增 TraceID 字段，贯穿整个 Agent Loop 的多次工具调用
+// 新增 TraceID 字段，贯穿整个 Agent Loop 的多次工具调用
 // 同一个 Agent Loop 内所有 AuditEntry 共享同一 TraceID，便于关联分析
 type AuditEntry struct {
 	TraceID       string        `json:"trace_id,omitempty"` // P1-B：贯穿 Agent Loop 的 trace_id
@@ -216,7 +216,7 @@ func RateLimitDecorator(limiter RateLimiter) ToolDecorator {
 // 失败时按 RetryPolicy 重试；成功或重试次数耗尽后返回
 // panic 也算失败，会触发重试
 //
-// P2-F: 错误类型分类
+// 错误类型分类
 //   - 可重试错误：网络抖动、超时、5xx 服务端错误、panic（瞬时故障）
 //   - 不可重试错误：权限拒绝、限流、熔断开启、context 取消、参数校验失败（确定性故障）
 //   - 不可重试错误立即返回，不浪费重试次数
@@ -261,7 +261,7 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 				if err == nil && !result.Success {
 					lastErr = fmt.Errorf("tool returned failure: %s", result.Error)
 				}
-				// P2-F: 不可重试错误立即返回（不浪费重试次数）
+				// 不可重试错误立即返回（不浪费重试次数）
 				if isNonRetryableError(err) || isNonRetryableResult(result) {
 					if result.Success == false && result.ToolName == "" {
 						toolName := GetToolName(ctx)
@@ -455,7 +455,7 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 				_ = costTracker.Record(ctx, toolName, err == nil && result.Success, duration)
 			}
 
-			// P1-A：记录 Prometheus 指标（ToolCallTotal + ToolCallDuration + ToolCallErrors）
+			// 记录 Prometheus 指标（ToolCallTotal + ToolCallDuration + ToolCallErrors）
 			// 放在审计装饰器中，确保所有工具调用都被统计
 			recordToolCallMetrics(toolName, err, result, duration)
 
@@ -465,7 +465,6 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 }
 
 // recordToolCallMetrics 记录工具调用 Prometheus 指标
-// P1-A：深度审查第二轮新增
 //
 // 指标维度：
 //   - ToolCallTotal: tool_name|result(success|failed|panic)
@@ -605,8 +604,8 @@ func BuildDefaultChain(
 // BuildChainWithCircuitBreaker 按顺序构造 7 装饰器链（含熔断器 + 参数校验）
 // 顺序：权限 → 限流 → 熔断 → 参数校验 → 重试 → 超时 → 审计计费 → handler
 //
-// P2-B：新增熔断器装饰器，用于生产环境的工具执行链
-// P2-E：新增参数校验装饰器，提前拒绝非法参数（避免无效重试）
+// 新增熔断器装饰器，用于生产环境的工具执行链
+// 新增参数校验装饰器，提前拒绝非法参数（避免无效重试）
 // 当 circuitBreaker 为 nil 时退化为 BuildDefaultChain
 func BuildChainWithCircuitBreaker(
 	handler ToolHandler,
@@ -634,7 +633,7 @@ func BuildChainWithCircuitBreaker(
 // BuildChainWithCircuitBreakerAndValidator 按顺序构造 7 装饰器链（含熔断器 + 参数校验）
 // 顺序：权限 → 限流 → 熔断 → 参数校验 → 重试 → 超时 → 审计计费 → handler
 //
-// P2-E：新增参数校验装饰器（位于熔断之后、重试之前）
+// 新增参数校验装饰器（位于熔断之后、重试之前）
 //   - 参数校验在重试之前：避免无效参数被重试
 //   - 参数校验在熔断之后：避免对已熔断工具做无效校验
 func BuildChainWithCircuitBreakerAndValidator(

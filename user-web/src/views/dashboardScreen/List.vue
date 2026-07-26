@@ -214,7 +214,7 @@ const initCharts = (data) => {
     })
   }
 
-  // 地区分布（echarts 6 不再内置 china 地图 geoJSON，改用柱状图展示，避免 "Map china not exists" 报错）
+  // 地区分布（echarts 6 不内置 china 地图 geoJSON，使用柱状图展示，避免 "Map china not exists" 报错）
   if (mapChartRef.value) {
     mapChart = echarts.init(mapChartRef.value)
     const regions = Array.isArray(data.regions) ? data.regions : []

@@ -59,7 +59,7 @@ const (
 
 // 渠道白名单
 // 私域独立部署：每商户独立部署一套系统，所有触达渠道共享同一份白名单
-// 2026-07-17 新增：telegram / whatsapp（Cloud API）/ feishu 三个境外/协作平台
+// 包含 telegram / whatsapp（Cloud API）/ feishu 三个境外/协作平台
 var ReachChannels = map[string]bool{
 	"wecom":       true,
 	"sms":         true,
@@ -238,8 +238,6 @@ type CreatePipelineRequest struct {
 }
 
 // CreatePipeline 创建 Pipeline
-//
-// 2026-07-17 二次审核修复：删除 if false 死代码（私有部署模式已移除 merchant_id）
 func (s *ReachPipelineService) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*model.ReachPipeline, error) {
 	if s.repo == nil || !s.repo.Available() {
 		return nil, fmt.Errorf("db is nil")

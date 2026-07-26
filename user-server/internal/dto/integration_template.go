@@ -23,8 +23,8 @@ type IntegrationTemplateResponse struct {
 	UpdatedAt  string `json:"updated_at"`
 }
 
-// FromModel 模板 → 响应
-func (r *IntegrationTemplateResponse) FromModel(t *model.IntegrationTemplate) *IntegrationTemplateResponse {
+// FromIntegrationTemplateModel 模板 → 响应(包级函数,架构文档 §三 L4 要求)
+func FromIntegrationTemplateModel(t *model.IntegrationTemplate) *IntegrationTemplateResponse {
 	if t == nil {
 		return nil
 	}

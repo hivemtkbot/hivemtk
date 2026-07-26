@@ -21,7 +21,7 @@ type InMemoryIndexManager struct {
 // NewInMemoryIndexManager 创建新的内存索引管理器
 func NewInMemoryIndexManager(dimension int) *InMemoryIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 // 2026-07-18 私域基线：本地 TEI + bge-m3（1024 维）
+		dimension = 1024 // 本地 TEI + bge-m3（1024 维）
 	}
 
 	return &InMemoryIndexManager{
@@ -244,7 +244,7 @@ type FAISSIndexManager struct {
 // NewFAISSIndexManager 创建FAISS索引管理器
 func NewFAISSIndexManager(dimension int) *FAISSIndexManager {
 	if dimension <= 0 {
-		dimension = 1024 // 2026-07-18 私域基线
+		dimension = 1024 // 本地 TEI + bge-m3（1024 维）
 	}
 	return &FAISSIndexManager{
 		backend: NewInMemoryIndexManager(dimension),

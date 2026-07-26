@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// result_cache.go P2-D: 工具执行结果缓存
+// result_cache.go 工具执行结果缓存
 //
 // 设计目标：
 //   对于幂等性工具（如查询类：customer.search/order.query/knowledge.list_kb），

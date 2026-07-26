@@ -403,7 +403,7 @@ func (ctrl *KnowledgeWorkspaceController) ReindexDocument(c *gin.Context) {
 
 // RebuildProductIndex 重建产品级索引
 //
-// 2026-07-18 修复：RAG Product ID 是 string（UUID）但 KnowledgeDocument.ProductID
+// RAG Product ID 是 string（UUID）但 KnowledgeDocument.ProductID
 // 是 int64。这里先把 string UUID 经 knowledgesvc.HashStringToInt64 映射回 int64。
 func (ctrl *KnowledgeWorkspaceController) RebuildProductIndex(c *gin.Context) {
 	productIDStr := strings.TrimSpace(c.Param("product_id"))
@@ -421,8 +421,8 @@ func (ctrl *KnowledgeWorkspaceController) RebuildProductIndex(c *gin.Context) {
 
 // GetProductOverview 获取产品级总览
 //
-// 2026-07-18 修复：RAG Product ID 是 string（UUID）但内部 KnowledgeDocument.ProductID
-// 是 int64（迁移 schema 为 INTEGER）。此处先把 string UUID 经 HashStringToInt64
+// RAG Product ID 是 string（UUID）但内部 KnowledgeDocument.ProductID
+// 是 int64。此处先把 string UUID 经 HashStringToInt64
 // 映射回 int64，避免在 statsService 处做隐式 0 过滤。兼容旧前端：纯数字字符串也允许。
 func (ctrl *KnowledgeWorkspaceController) GetProductOverview(c *gin.Context) {
 	productIDStr := strings.TrimSpace(c.Param("product_id"))

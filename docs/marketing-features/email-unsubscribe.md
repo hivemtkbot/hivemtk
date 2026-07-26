@@ -17,8 +17,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | email |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07 |
-| 最后更新 | 2026-07-24 |
 
 ### 1.1 已完成内容
 
@@ -48,14 +46,6 @@
 ### 2.1 业务背景
 
 依据《互联网电子邮件服务管理办法》与 CAN-SPAM Act 等合规要求，每封营销邮件必须含可点击的退订链接。用户点击后落地页必须可确认退订；退订后不得再次发送营销邮件；用户可主动申请重新订阅。
-
-### 2.2 解决思路
-
-- 发送邮件时为每个收件人生成带签名的退订 token
-- 用户点击 `/api/email/unsubscribe?token=xxx` 打开退订确认页（HTML）
-- 用户在确认页填写退订原因并提交 → `POST /api/email/unsubscribe/confirm`
-- 后台管理可分页查询 / 导出退订名单
-- 允许通过 `POST /api/email/unsubscribe/resubscribe` 重新订阅（合规要求）
 
 ### 2.3 关键算法或模型
 
@@ -264,11 +254,3 @@
 - CAN-SPAM Act
 - [email-jobs-management.md](email-jobs-management.md)
 - [email-send-execution.md](email-send-execution.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-24 | 独立功能文档生成（F-P1-108 补建） | |

@@ -13,8 +13,7 @@ import (
 // 封装 repository.OperationLogRepository，供 controller 调用，避免 controller
 // 直接依赖 repository / model。
 //
-// 2026-07-22 方向E：所有方法第一参数为 ctx context.Context，
-// 透传至底层 repository（与 R-架构一致）。
+// 所有方法第一参数为 ctx context.Context，透传至底层 repository（与 R-架构一致）。
 // ============================================================================
 
 // OperationLogService 操作日志门面服务

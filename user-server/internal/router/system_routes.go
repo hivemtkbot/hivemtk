@@ -44,9 +44,7 @@ func setupSystemRoutes(auth *gin.RouterGroup) {
 	// auth.POST("/system/create-default-admin", systemUserCtrl.CreateDefaultAdmin)
 
 	// 管理员配置（仅 UI 行为；不暴露密码）
-	// 2026-07-24 安全清理：移除 GET /admin/default-credentials（原 GetDefaultCredentials
-	// 曾返回 config 中的默认密码，任何持有有效 JWT 的账号都能拿到，构成供应链级入侵面）。
-	// 真正的超管密码唯一来源是 DB（InitAdmin 写入），不允许任何 API 吐回明文。
+	// 超管密码唯一来源是 DB（InitAdmin 写入），API 不返回明文。
 	adminConfigCtrl := controller.NewAdminConfigController()
 	auth.GET("/admin/config", adminConfigCtrl.GetAdminConfig)
 

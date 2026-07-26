@@ -1,5 +1,5 @@
 // 飞书路由模块
-// 2026-07-17 新增：配合 reach.feishu.send 工具，实现飞书账号管理
+// 配合 reach.feishu.send 工具，实现飞书账号管理
 export default [
   {
     path: 'feishu',

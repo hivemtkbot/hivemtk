@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | ai-agent-core |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 接入 6 厂商（DeepSeek/Qwen/GLM/GPT-4o/Claude/通义）
@@ -44,12 +42,6 @@
 
 ### 2.1 业务背景
 不同 LLM 厂商各有优势：复杂异议处理需要强模型（GPT-4o/Claude），常规回复可用轻模型（DeepSeek/Qwen/GLM/通义）降低成本。按场景动态路由实现质量与成本平衡。
-
-### 2.2 解决思路
-- 场景路由表：按场景（complex_objection / routine_reply / summary / classify 等）配置主模型
-- 限流备用：primary_provider 限流时切换到 fallback_providers
-- Provider 降级：厂商不可用时按权重自动降级
-- 权重配置：支持同场景多模型加权选择
 
 ### 2.3 关键算法或模型
 - 场景路由表查找
@@ -156,18 +148,3 @@
 - primary 可用→直接调用全链路
 - primary 限流→fallback 切换全链路
 - 全部厂商不可用→返回 503 验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

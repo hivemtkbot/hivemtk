@@ -1040,7 +1040,7 @@ func (t *ReachBatchTool) Execute(ctx context.Context, args map[string]any) (Tool
 		}
 		customerID := getArgString(itemMap, "customer_id")
 		accountID := getArgString(itemMap, "account_id")
-		// 2026-07-17 二次审核修复：Payload 保留原始类型（数字/布尔/对象），避免被 fmt.Sprintf 强转
+		// Payload 保留原始类型（数字/布尔/对象），避免被 fmt.Sprintf 强转
 		payload := getArgMap(itemMap, "payload")
 		if customerID == "" {
 			failed = append(failed, "missing customer_id")
@@ -1458,7 +1458,7 @@ func (t *ReachAccountListTool) Execute(ctx context.Context, args map[string]any)
 // 支持 map[string]interface{}（JSON 反序列化结果）
 // getArgStringMap 从 args 取 map[string]string（向旧路径兼容：非 string 值会被 fmt.Sprintf 转字符串）
 //
-// 2026-07-17 二次审核修复：保留此函数供 SMS 等需要 map[string]string 的场景
+// 保留此函数供 SMS 等需要 map[string]string 的场景
 // 新代码请优先使用 getArgMap（保留原始类型）
 func getArgStringMap(args map[string]any, key string) map[string]string {
 	v, ok := args[key]
@@ -1497,7 +1497,7 @@ func getArgInterfaceSlice(args map[string]any, key string) []any {
 
 // getArgMap 安全获取 map[string]interface{} 参数（保留原始类型，不像 getArgStringMap 那样把数字/布尔强转字符串）
 //
-// 2026-07-17 二次审核修复：用于 BatchSendItem.Payload / EnqueueJobRequest.Payload 等需要保留类型的场景
+// 用于 BatchSendItem.Payload / EnqueueJobRequest.Payload 等需要保留类型的场景
 func getArgMap(args map[string]any, key string) map[string]any {
 	v, ok := args[key]
 	if !ok || v == nil {
@@ -1523,7 +1523,7 @@ func parseUint(s string) uint {
 }
 
 // ===== 工具 9：reach.telegram.send =====
-// 2026-07-17 新增：境外 IM 渠道，智能体可通过本工具向 Telegram 用户/群组发送消息
+// 境外 IM 渠道，智能体可通过本工具向 Telegram 用户/群组发送消息
 // 入站已有 webhook 入口（webhook_service.go）→ 触发 智能体 → 本工具回包形成闭环
 // 群组主动入群欢迎、bot 私聊、付费 broadcast 详见 docs/research/messaging/01-03
 
@@ -1548,7 +1548,7 @@ func NewReachTelegramSendTool(deps ReachToolDeps) *ReachTelegramSendTool {
 						Description: "目标 chat_id：私聊为正（如 123456789），群组为负（如 -1001234567890）",
 					},
 					"content": {Type: "string", Description: "消息文本（最长 4096 字符，超过会被 Telegram API 拒绝）"},
-					// 2026-07-17 二次审核修复：补全 LLM Function Calling 参数（用于客户轨迹/限流维度/审计）
+					// LLM Function Calling 参数（用于客户轨迹/限流维度/审计）
 					"customer_id": {Type: "string", Description: "客户 ID（用于客户轨迹和限流维度）"},
 					"operator_id": {Type: "string", Description: "操作员 ID（用于权限校验）"},
 				},
@@ -1600,7 +1600,7 @@ func (t *ReachTelegramSendTool) Execute(ctx context.Context, args map[string]any
 }
 
 // ===== 工具 10：reach.whatsapp.send =====
-// 2026-07-17 新增：Meta 商业渠道，智能体可通过本工具发送 WhatsApp 消息
+// Meta 商业渠道，智能体可通过本工具发送 WhatsApp 消息
 // 必须使用 Meta 审批通过的 marketing/utility 模板（首次主动触达）
 // 24h 客服窗口内可发送自由文本，详见 docs/research/messaging/04
 
@@ -1631,7 +1631,7 @@ func NewReachWhatsAppSendTool(deps ReachToolDeps) *ReachWhatsAppSendTool {
 						Description: "模板参数（key-value，对应模板 {{1}} {{2}} 等占位符）",
 						Properties:  map[string]ToolParam{},
 					},
-					// 2026-07-17 二次审核修复：补全 LLM Function Calling 参数
+					// LLM Function Calling 参数
 					"customer_id": {Type: "string", Description: "客户 ID（用于客户轨迹和限流维度）"},
 					"operator_id": {Type: "string", Description: "操作员 ID（用于权限校验）"},
 				},
@@ -1688,7 +1688,7 @@ func (t *ReachWhatsAppSendTool) Execute(ctx context.Context, args map[string]any
 }
 
 // ===== 工具 11：reach.feishu.send =====
-// 2026-07-17 新增：协作平台，智能体可通过本工具向飞书用户/群发送消息
+// 协作平台，智能体可通过本工具向飞书用户/群发送消息
 // 飞书不能 cold DM，需用户先发起对话；详见 docs/research/messaging/06
 
 // ReachFeishuSendTool 飞书 Open API 发送
@@ -1718,7 +1718,7 @@ func NewReachFeishuSendTool(deps ReachToolDeps) *ReachFeishuSendTool {
 						Enum:        []string{"text", "post", "image", "interactive"},
 						Default:     "text",
 					},
-					// 2026-07-17 二次审核修复：补全 LLM Function Calling 参数
+					// LLM Function Calling 参数
 					"customer_id": {Type: "string", Description: "客户 ID（用于客户轨迹和限流维度）"},
 					"operator_id": {Type: "string", Description: "操作员 ID（用于权限校验）"},
 				},

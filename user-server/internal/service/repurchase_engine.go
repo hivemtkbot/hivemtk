@@ -265,7 +265,6 @@ func (e *RepurchaseEngine) Predict(ctx context.Context, customerID string) *Repu
 
 // ListReactivationCandidates 列出需要激活的客户
 // 商业逻辑：3-12 个月未购 + 金额 > 0 的客户均纳入候选
-// 修复：原实现仅基于已 ComputeRFM 的缓存，导致首次 RecordPurchase 后查不到
 func (e *RepurchaseEngine) ListReactivationCandidates(ctx context.Context, limit int) []string {
 	e.mu.Lock()
 	defer e.mu.Unlock()

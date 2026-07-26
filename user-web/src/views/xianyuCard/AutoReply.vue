@@ -121,7 +121,7 @@ import i18n from '@/i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { xianyuAutoReplyApi } from '@/api/xianyuAutoReply'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const platform = 'xianyu'
 const accounts = ref([])

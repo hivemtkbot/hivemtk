@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | reach-center |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 9 步流水线编排（Trigger → Audience → Channel → Compliance → Content → Render → Send → Audit → Track）
@@ -43,12 +41,6 @@
 
 ### 2.1 业务背景
 营销触达场景多样（短信/邮件/企微/IM），每类触达都涉及触发、受众、渠道、合规、内容、渲染、发送、审计、追踪等环节。统一 Pipeline 框架将触达流程标准化，支持每步可降级、重试、兜底。
-
-### 2.2 解决思路
-- 9 步流水线标准化：Trigger → Audience → Channel → Compliance → Content → Render → Send → Audit → Track
-- DAG 流水线调度，步骤间可并行/串行
-- 装饰器链：限流、重试、审计、计费横切关注点
-- 每步可配置降级策略与兜底动作
 
 ### 2.3 关键算法或模型
 - DAG 流水线调度算法
@@ -161,18 +153,3 @@
 - 创建→触发→执行→追踪全链路
 - 渠道限流降级到备用渠道验证
 - 合规校验失败终止发送验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

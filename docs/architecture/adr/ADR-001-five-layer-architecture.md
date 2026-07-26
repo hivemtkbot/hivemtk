@@ -1,7 +1,5 @@
 # ADR-001: 五层架构（Controller → Service → Repository → Model → DTO）
 
-- **状态**：已采纳
-- **日期**：2026-07
 - **范围**：所有 Go 后端服务（user-server / platform-server / embedding-server）
 
 ## 背景

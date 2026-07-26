@@ -175,7 +175,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Document, Promotion } from '@element-plus/icons-vue'
 import { knowledgeMerchantAPI } from '@/api/knowledgeMerchant'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const importing = ref(false)
 const jobsLoading = ref(false)

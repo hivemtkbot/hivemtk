@@ -32,9 +32,7 @@ func NewEmailListService() *EmailListService {
 
 // CreateEmailList 创建列表
 //
-// 2026-07-22 修复 import cycle：原实现通过 service.NewClueService() / service.NewSystemConfigService()
-// 间接依赖 service 包，而 service→tooluse→email/service 形成循环，导致 go build 失败。
-// 改为直接注入 clue / systemConfig repository，行为等价（service 层方法本身就是透传）。
+// 直接注入 clue / systemConfig repository（避免 service→tooluse→email/service 循环依赖）。
 func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, content string, attachments string) (total int64, err error) {
 	// 从线索库读取所有线索
 	cluesList, clueTotal, err := s.clueRepo.GetClueAllList(ctx, 1)

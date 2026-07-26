@@ -20,9 +20,7 @@ import (
 
 // GroupMessagingController WhatsApp 群发消息控制器
 //
-// P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
-// 移除原先对 repository.ClueRepository 的直接依赖，改为通过
-// service.ClueService 访问线索数据。
+// 通过 service.ClueService 访问线索数据，遵循五层架构。
 type GroupMessagingController struct {
 	whatsappService *service.WhatsappService
 	clueSvc         *service.ClueService

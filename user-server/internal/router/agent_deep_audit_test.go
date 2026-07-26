@@ -33,9 +33,6 @@ import (
 // 注：D1 通过代码审查 + 间接行为验证（不真实等待 30s，避免测试耗时过长）
 // 真实超时行为在集成测试中验证
 //
-// 修复位置：sales_engine.go 常量 agentLoopTotalTimeout = 30 * time.Second
-// 修复内容：在 runAgentLoop 中使用 context.WithTimeout(ctx, agentLoopTotalTimeout)
-//
 //	循环开头检查 agentLoopCtx.Err()，超时时 break 并降级返回
 func TestD1_AgentLoopTimeoutConstant(t *testing.T) {
 	// 验证：sales_engine.go 中已定义 agentLoopTotalTimeout 常量

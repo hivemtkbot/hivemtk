@@ -27,8 +27,8 @@ import ChatWindow from './ChatWindow.vue'
 const route = useRoute()
 const router = useRouter()
 
-// 私域部署（2026-07-17 优化）：URL 参数统一用 channelId，缺失时使用 default
-// 2026-07-21 卡片客服：从卡片短链跳转时携带 source/card_id 用于来源追踪
+// 私域部署：URL 参数统一用 channelId，缺失时使用 default
+// 卡片客服：从卡片短链跳转时携带 source/card_id 用于来源追踪
 const channelId = ref('default')
 const channelTitle = ref('在线客服')
 const widgetColor = ref('#1989fa')

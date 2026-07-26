@@ -26,8 +26,8 @@ type CustomerRFMResponse struct {
 	ComputedAt     string `json:"computed_at"`
 }
 
-// FromRFM RFM 实体 → 响应
-func (r *CustomerRFMResponse) FromRFM(rfm *model.CustomerRFM) *CustomerRFMResponse {
+// FromCustomerRFMModel RFM 实体 → 响应(包级函数,架构文档 §三 L4 要求)
+func FromCustomerRFMModel(rfm *model.CustomerRFM) *CustomerRFMResponse {
 	if rfm == nil {
 		return nil
 	}

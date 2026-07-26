@@ -1,4 +1,4 @@
-// 配置文件管理模块（不再使用API密钥）
+// 配置文件管理模块（不使用 API 密钥）
 import axios from 'axios'
 
 // API配置文件路径

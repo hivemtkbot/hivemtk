@@ -196,7 +196,7 @@ import i18n from '@/i18n'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 import { knowledgeBaseAPI } from '@/api/knowledgeBase'
 
 const router = useRouter()

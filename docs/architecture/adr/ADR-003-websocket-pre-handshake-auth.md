@@ -1,7 +1,5 @@
 # ADR-003: WebSocket 握手前强制鉴权
 
-- **状态**：已采纳（2026-07-24 起本地/私域部署撤销 agent WS 握手前鉴权 —— 见末尾"撤销说明"）
-- **日期**：2026-07
 - **范围**：所有 WebSocket 端点（user-server + platform-server）
 
 ## 背景

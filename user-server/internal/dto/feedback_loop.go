@@ -70,26 +70,6 @@ type CollectRequest struct {
 	CreatedBy         uint              `json:"created_by"`          // 提交者（0 表示系统）
 }
 
-// Validate 校验采集请求合法性
-func (r *CollectRequest) Validate() error {
-	if r == nil {
-		return ErrFeedbackRequestNil
-	}
-	if r.SessionID == "" {
-		return ErrFeedbackSessionEmpty
-	}
-	if r.CustomerID == "" {
-		return ErrFeedbackCustomerEmpty
-	}
-	if r.EventType == "" {
-		return ErrFeedbackEventTypeEmpty
-	}
-	if r.SignalKey == "" {
-		return ErrFeedbackSignalKeyEmpty
-	}
-	return nil
-}
-
 // ----------------------------------------------------------------------------
 // ChampionAnalysisReport 销冠对话分析报告
 // ----------------------------------------------------------------------------

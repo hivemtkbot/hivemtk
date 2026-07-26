@@ -83,8 +83,6 @@ make up        # 启动所有服务 → http://localhost:8204(默认账号 admin
 | AI 智能体自动回复 | `docs/assets/screenshots/agent.png` (待补) | ReAct 循环可视化:感知→规划→调工具→反思 |
 | 工作台数据看板 | `docs/assets/screenshots/dashboard.png` (待补) | RFM 分层 / 转化漏斗 / 实时会话 / ROI 报表 |
 
-> 截图补全计划见 [冷启动作战日历](docs/analysis/COLD_START_FEASIBILITY_REPORT.md#5-12-周作战日历立即可执行) W1-W4。
-
 ---
 
 ## 一句话定位

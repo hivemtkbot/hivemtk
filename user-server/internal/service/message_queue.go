@@ -128,9 +128,7 @@ func (mq *MessageQueueService) UpdateStatus(ctx context.Context, queueID, messag
 		logger.Errorf("更新队列消息状态失败 queueID=%s messageID=%s: %v", queueID, messageID, err)
 	}
 
-	// 性能审计 P3-2：原实现 First + Save 是 read-modify-write，存在并发竞态（两并发同读 sent=5 同写 6），
-	// 且每条消息多 2 次查询（1000 万/日主动触达 = 2000 万额外查询）。
-	// 改为单条原子 UPDATE，DB 侧自增 sent/failed 并判定完成态，消除竞态与额外查询。
+	// 单条原子 UPDATE，DB 侧自增 sent/failed 并判定完成态，消除竞态与额外查询。
 	if err := mq.repo.UpdateQueueStatusAtomic(ctx, queueID, success); err != nil {
 		logger.Errorf("更新队列聚合状态失败 queueID=%s: %v", queueID, err)
 	}

@@ -178,7 +178,7 @@ func ClaimReply(eventID string) bool {
 }
 
 // ReleaseReply 释放某 EventID 的认领（出站失败后调用，允许平台重投重试）。
-// 详见 webhook.sendOutbound 的 claim-before-confirm 漏回修复。
+// 配合 webhook.sendOutbound 的 claim-before-confirm 机制使用。
 func ReleaseReply(eventID string) {
 	guardMu.RLock()
 	b := activeBackend

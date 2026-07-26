@@ -157,7 +157,7 @@ func AssertCanOperateSystemUser(operatorID uint, operatorRole, action string, ta
 
 // PermissionService 权限服务
 //
-// 2026-07-22 方向E：所有方法第一参数改为 ctx context.Context。
+// 所有方法第一参数为 ctx context.Context。
 type PermissionService struct{}
 
 // NewPermissionService 创建权限服务实例

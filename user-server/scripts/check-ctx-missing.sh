@@ -1,7 +1,6 @@
 #!/bin/bash
 # check-ctx-missing.sh - 统计 repository 包中未接收 context 的方法
 #
-# 2026-07-22 方向E-预调研：
 #   - 扫描 internal/repository/*.go（排除 _test.go）
 #   - 提取所有以 (r *xxx) 开头的方法签名
 #   - 检查参数列表是否包含 ctx context.Context

@@ -20,7 +20,7 @@ import (
 
 // IntentEnabled 意图识别总开关（内存态）
 //
-// 2026-07-25 重构：业务链路统一使用一个总开关管控意图识别流程
+// 业务链路统一使用一个总开关管控意图识别流程。
 //
 // 行为：
 //   - true:  进入意图识别流程（规则匹配 → LLM 识别 → 兜底）
@@ -232,7 +232,7 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		result = r
 	} else if s.dispatcher != nil {
 		// 2. LLM 识别（本地/云端 API 统一走 LLM 兜底）
-		// 2026-07-25 重构：移除 isLocalLLMBaseURL 限制，规则未命中时统一调 LLM
+		// 规则未命中时统一调 LLM
 		if r, err := s.recognizeByLLM(ctx, text); err == nil && r != nil {
 			s.saveRecord(ctx, sessionID, customerID, text, r, r.LLMModel, r.CostTokens, r.LatencyMs)
 			result = r

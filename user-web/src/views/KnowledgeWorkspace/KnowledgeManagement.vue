@@ -249,7 +249,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Refresh, UploadFilled } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 // 统一枚举：知识库嵌入状态、来源类型
 import { EMBED_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
 import { getSourceLabel, getSourceTagType } from '@/constants/source'

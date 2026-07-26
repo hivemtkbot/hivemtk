@@ -1,7 +1,5 @@
 // Package service 知识库子域 —— 核心 CRUD
 //
-// 2026-07-23 五层架构治理（三轮）：从原 276 行 knowledge_base.go 拆出
-// 文档异步处理 (knowledge_base_import.go) + 辅助函数 (knowledge_base_helpers.go)。
 // 本文件仅保留：服务结构、构造函数、基础 CRUD (List/Get/Delete)。
 package service
 

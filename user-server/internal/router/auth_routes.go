@@ -64,14 +64,6 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 }
 
 // setupUserRoutes 用户管理路由
-//
-// 修复历史：
-//   - 之前使用 controller.NewUserController()，该 Controller 操作 model.User 表
-//     （独立的 TG 团队用户表，UUID 主键）。但 Profile.vue 实际更新的 admin 用户
-//     位于 system_users 表（uint 主键），所以 PUT /api/users/:id 返回 "record not found"。
-//   - 现改用 controller.NewSystemUserController()，该 Controller 直接操作 system_users 表。
-//   - SystemUserController 已有 CreateUser/UpdateUser/DeleteUser/ResetPassword 方法，
-//     缺少 GetUserList 别名（方法名叫 GetUsers），路由层用 func 包装。
 func setupUserRoutes(auth *gin.RouterGroup) {
 	userCtrl := controller.NewSystemUserController()
 	// GetUserList 路由：SystemUserController 的方法叫 GetUsers，这里包装为 GetUserList

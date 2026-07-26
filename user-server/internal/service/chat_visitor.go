@@ -157,7 +157,7 @@ func (s *VisitorChatService) resolveChannel(ctx context.Context, channelRef stri
 	if ref == "default" {
 		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
-	// 2026-07-21: 抖音/快手/小红书/咸鱼 4 平台卡片渠道自动创建
+	// 抖音/快手/小红书/咸鱼 4 平台卡片渠道自动创建
 	// channel_ref 形如 "douyin_card" / "kuaishou_card" / "xiaohongshu_card" / "xianyu_card"
 	if platform, ok := IsCardChannelRef(ref); ok {
 		return s.channelSvc.GetOrCreateCardChannel(ctx, platform)
@@ -208,7 +208,7 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	}
 
 	// 3. 创建新会话
-	//    2026-07-21 卡片客服：解析 visitor_meta 中的 source/card_id，
+	//    卡片客服：解析 visitor_meta 中的 source/card_id，
 	//    作为来源标签追加到 session.Tags（JSON 数组），便于客服工作台按来源筛选
 	sessionTags := []string{"web_visitor"}
 	if meta := strings.TrimSpace(req.VisitorMeta); meta != "" {
@@ -268,7 +268,7 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 
 // GetSessionByVisitorSessionID 访客通过 session_id 获取会话（仅校验归属）
 //
-// 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key
+// channelID 入参既可能是 channel_id 也可能是 app_key
 // （前端 embed 路由把 app_key 作为 path 透传）。这里把入参归一化为 channel_id 后再查。
 func (s *VisitorChatService) GetSessionByVisitorSessionID(ctx context.Context, channelID, visitorID, sessionID string) (*model.CustomerSession, error) {
 	channel, err := s.resolveChannel(ctx, channelID)
@@ -297,7 +297,7 @@ type VisitorSendMessageRequest struct {
 	SessionID   string `json:"session_id" binding:"required"`
 	Content     string `json:"content" binding:"required"`
 	ContentType string `json:"content_type"`
-	// 2026-07-17: 附件支持（走七牛直传）
+	// 附件支持（走七牛直传）
 	//   - MediaURL: 访客上传到七牛后获得的 CDN URL
 	//   - MediaType: image / file / audio / video
 	//   - MediaName: 原始文件名
@@ -346,7 +346,7 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	if req.ContentType != "" {
 		contentType = model.MessageType(req.ContentType)
 	}
-	// 2026-07-17: 附件消息（image/file/audio/video）
+	// 附件消息（image/file/audio/video）
 	if req.MediaURL != "" {
 		switch req.MediaType {
 		case "image":
@@ -412,8 +412,8 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		// 1) 自动分配（如果失败则标记为 waiting）
 		if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
 			_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
-			// 2026-07-17: 分配失败时也要更新 handler_type 为 human
-			//   之前只改 status，session.handler_type 仍是 "ai"，导致前端列表展示错误
+			// 分配失败时也要更新 handler_type 为 human
+			//   只改 status 时 session.handler_type 仍是 "ai"，会导致前端列表展示错误
 			_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
 		}
 		// 2) 推送新会话 / 转人工通知给坐席
@@ -583,7 +583,7 @@ func (s *VisitorChatService) GetMessages(ctx context.Context, channelID, visitor
 
 // GetLatestActiveSession 获取访客最近一次未结束会话（用于离线消息续接）
 //
-// 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key，
+// channelID 入参既可能是 channel_id 也可能是 app_key，
 // 这里统一通过 resolveChannel 归一化为 channel_id 后再查询。
 func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channelID, visitorID string) (*model.CustomerSession, error) {
 	channel, err := s.resolveChannel(ctx, channelID)
@@ -605,7 +605,7 @@ func (s *VisitorChatService) GetLatestActiveSession(ctx context.Context, channel
 
 // GetRecentClosedSessions 获取访客最近 7 天已结束会话（离线消息列表）
 //
-// 2026-07-21 修复：channelID 入参既可能是 channel_id 也可能是 app_key。
+// channelID 入参既可能是 channel_id 也可能是 app_key。
 func (s *VisitorChatService) GetRecentClosedSessions(ctx context.Context, channelID, visitorID string, limit int) ([]*model.CustomerSession, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10

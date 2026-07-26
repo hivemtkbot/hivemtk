@@ -1,6 +1,5 @@
 -- ============================================================================
 -- C/D/E 域 P1 缺口修复迁移 (C/D/E Domain P1 Gap Fixes Migration)
--- 创建时间: 2026-07-21
 -- 目的:
 --   1. rag_query_logs 新增 top_similarity / hit_in_top1 字段（召回率监控）
 --   2. 新建 rag_recall_monitor_snapshots 表（监控指标快照）

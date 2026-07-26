@@ -235,7 +235,7 @@ func (r *selfLearningLogRepo) ListByStatus(ctx context.Context, status model.Sel
 // 时区说明：项目部署在 Asia/Shanghai（DB DSN TimeZone=Asia/Shanghai），
 // 不能用 time.Now().Truncate(24h) —— 那是按 UTC 截断，
 // 在 UTC+8 时区下会把"今日 0 点"误算成 UTC 16:00（前一天）。
-// 改为按 Asia/Shanghai 时区构造今日 0 点。
+// 按 Asia/Shanghai 时区构造今日 0 点。
 func (r *selfLearningLogRepo) CountToday(ctx context.Context) (map[model.SelfLearningStatus]int64, error) {
 	type result struct {
 		Status model.SelfLearningStatus

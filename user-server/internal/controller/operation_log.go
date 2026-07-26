@@ -16,8 +16,7 @@ import (
 
 // OperationLogController 操作日志控制器
 //
-// P2-2 修复：原控制器越层直接依赖 repository.OperationLogRepository，
-// 现统一通过 service.OperationLogService 访问数据，遵循五层架构。
+// 通过 service.OperationLogService 访问数据，遵循五层架构。
 type OperationLogController struct {
 	logSvc *service.OperationLogService
 }

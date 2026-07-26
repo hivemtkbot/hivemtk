@@ -25,8 +25,7 @@ import (
 //
 // 设计说明：
 //   - 私域独立部署模式下，所有数据归属当前部署实例，不携带 merchant_id
-//   - P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
-//     原控制器直接依赖 repository 已改为通过 service.TelegramService 访问数据。
+//   - 通过 service.TelegramService 访问数据，遵循五层架构。
 //   - Bot Token 是敏感信息，更新时不回显（响应中返回掩码）
 type TelegramAccountController struct {
 	svc *service.TelegramService

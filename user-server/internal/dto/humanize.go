@@ -82,8 +82,11 @@ type HumanizeEvalResult struct {
 	CalculatedAt       time.Time                `json:"calculated_at"`
 }
 
-// ScoreByDimension 按维度查询得分
-func (r *HumanizeEvalResult) ScoreByDimension(dim HumanizeDimension) (float64, bool) {
+// ScoreHumanizeEvalByDimension 按维度查询得分(包级函数,架构文档 §三 L4 要求)
+func ScoreHumanizeEvalByDimension(r *HumanizeEvalResult, dim HumanizeDimension) (float64, bool) {
+	if r == nil {
+		return 0, false
+	}
 	for _, s := range r.Scores {
 		if s.Dimension == dim {
 			return s.Score, true

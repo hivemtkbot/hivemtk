@@ -63,7 +63,7 @@ type LocalReranker struct {
 }
 
 // sharedRerankTransport 进程级共享 Transport，避免每次请求 new http.Client 导致连接不复用、
-// 连接数随并发线性膨胀（评审 V5 修复）。
+// 连接数随并发线性膨胀。
 var sharedRerankTransport = &http.Transport{
 	MaxIdleConns:        100,
 	MaxIdleConnsPerHost: 20,

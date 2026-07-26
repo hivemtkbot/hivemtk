@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | reach-center |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 多渠道消息聚合（企微/WhatsApp/Telegram/飞书/网站客服）
@@ -43,12 +41,6 @@
 
 ### 2.1 业务背景
 商户在多渠道（企微/WhatsApp/Telegram/飞书/网站客服）部署账号后，客服需要在多个平台切换回复消息，效率低下。统一收件箱将所有渠道消息聚合到一个工作台，客服集中处理。
-
-### 2.2 解决思路
-- 消息中台 MQ（自研）统一接入各渠道消息
-- 消息标准化（message_id + channel_type + from_user + to_account + content + timestamp）
-- 按 agent_id 分发到对应智能体或座席
-- 多账号聚合时延 < 3 秒
 
 ### 2.3 关键算法或模型
 - 消息中台 MQ（自研）订阅/发布模型
@@ -154,18 +146,3 @@
 - 多渠道消息→聚合→工作台展示全链路
 - 座席回复→路由到原渠道全链路
 - 渠道断连重连验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | community-management |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 飞书机器人账号管理（app_id / app_secret 加密存储）
@@ -42,9 +40,6 @@
 
 ### 2.1 业务背景
 飞书是重要的企业协同平台，私域销售需要通过飞书机器人向客户或内部团队推送消息、卡片、任务提醒。系统需集中管理飞书应用凭证，自动维护 token 生命周期，供 reach 工具调用。
-
-### 2.2 解决思路
-在系统中注册飞书应用（app_id + app_secret），secret 加密存储；定时调用飞书开放接口获取并缓存 tenant_access_token；reach.feishu.send 工具调用时携带 token 发送消息；token 临期自动刷新，失败告警。
 
 ### 2.3 关键算法或模型
 - 凭证加密：AES-256-GCM 加密 app_secret
@@ -148,18 +143,3 @@
 - token 获取与缓存测试
 - reach.feishu.send 工具端到端测试
 - token 失效后自动恢复测试
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

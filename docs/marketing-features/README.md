@@ -3,7 +3,6 @@
 > **目录定位**: 本目录存放用户端（商户端）私域部署下**所有营销工具既有功能**的独立详细文档。
 > **适用范围**: 用户端 **94 个核心业务模块**（认证/卡片/自动回复/RAG/邮件/短信/社群/短链/线索/营销自动化/内容/系统/集成/AI 销冠/多 AI 智能体等）。平台端 10 个模块见 [`hivemtk-platform/docs/platform-features/`](../../hivemtk-platform/docs/platform-features/README.md)（独立仓库）。
 > **文档规范**: 每份文档独立成文,严格按统一功能文档模板（背景/数据模型/API/业务流/测试/版本历史）编写。
-> **最后更新**: 2026-07-24（清理 OTA 升级文档、合并重复文档、归入 9 个孤儿文档）
 
 ---
 
@@ -258,5 +257,3 @@
 - 平台端 10 个模块：[`hivemtk-platform/docs/platform-features/`](../../hivemtk-platform/docs/platform-features/README.md)
 
 ---
-
-*最后更新: 2026-07-24（清理 OTA upgrade 文档、合并 email-open-tracker/channel-ingress、移动 agent-tools-inventory 到 architecture/、归入 9 个孤儿文档、模块数修正为 94）*

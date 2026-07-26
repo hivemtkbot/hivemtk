@@ -87,7 +87,7 @@ func (c *FeedbackCollector) Collect(ctx context.Context, req *dto.CollectRequest
 	if req == nil {
 		return nil
 	}
-	if err := req.Validate(); err != nil {
+	if err := ValidateCollectRequest(req); err != nil {
 		return err
 	}
 	select {
@@ -105,7 +105,7 @@ func (c *FeedbackCollector) CollectSync(ctx context.Context, req *dto.CollectReq
 	if req == nil {
 		return nil
 	}
-	if err := req.Validate(); err != nil {
+	if err := ValidateCollectRequest(req); err != nil {
 		return err
 	}
 	return c.persist(ctx, req)

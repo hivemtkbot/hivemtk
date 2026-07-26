@@ -114,7 +114,7 @@ type KnowledgeChunk struct {
 	HitCount        int       `gorm:"default:0" json:"hit_count"`
 	Metadata        string    `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	SourceLanguage  string    `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
-	// TranslatedVersions 预翻译版本（P1-3 知识库预翻译支持）
+	// TranslatedVersions 预翻译版本（知识库预翻译支持）
 	// 格式：{"en": "translated content", "ja": "..."}
 	// 命中目标语言时返回翻译版本，未命中返回原文 Content。
 	// 默认关闭预翻译，仅高频条目按需翻译后回填此字段。

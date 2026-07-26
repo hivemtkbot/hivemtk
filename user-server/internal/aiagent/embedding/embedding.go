@@ -1,6 +1,6 @@
 // Package local 提供纯 Go 实现的本地 Embedding 算法
 //
-// 设计目标（2026-07-16 私域基线）：
+// 设计目标：
 //  1. 零外部依赖：不需要下载 BGE / Sentence-Transformers 模型，不需要 TEI / TorchServe 等容器
 //  2. 中文友好：基于字符 n-gram + 词级特征，覆盖中文营销话术场景
 //  3. 维度稳定：固定 1024 维输出，与 bge-m3 维度一致（OPENAI_VECTOR_SIZE=1536 等场景下可配置）

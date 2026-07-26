@@ -257,7 +257,7 @@ import i18n from '@/i18n'
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const products = ref([])
 const loading = ref(false)

@@ -9,7 +9,7 @@
  * - 订单/作业  -> @/constants/orderStatus    (getOrderStatusLabel, getOrderStatusTagType)
  * - 渠道       -> @/constants/channel       (getChannelLabel, getChannelTagType)
  *
- * 本文件所有 API 已改为"委托转发"到 constants，行为完全等价，
+ * 本文件所有 API 委托转发到 constants，行为完全等价，
  * 但已弃用，请勿在新代码中继续 import '@/utils/map'。
  */
 

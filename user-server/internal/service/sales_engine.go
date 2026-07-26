@@ -472,11 +472,10 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "fail", Error: err.Error(),
 		})
-		// 2026-07-18 私域部署增强：LLM 失败时按优先级兜底：
+		// LLM 失败时按优先级兜底：
 		//   1) 话术模板（script）
 		//   2) RAG 检索顶部 chunk（ragChunks[0]）
 		//   3) 终极兜底：默认问候语
-		// 这样在没有外部 LLM API key 的私网测试环境下，仍能基于知识库内容给出有意义的回复。
 		switch {
 		case script != nil && script.Content != "":
 			candidate = script.Content
@@ -487,7 +486,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 			candidate = "您好，请问有什么可以帮您？"
 		}
 	} else {
-		// v3.7.0 修复：generateCandidate 可能返回 (candidate, nil, nil)（如走 script/rag 兜底）
+		// generateCandidate 可能返回 (candidate, nil, nil)（如走 script/rag 兜底）
 		// 此时 llmResult 为 nil，不能直接访问其字段，否则 panic
 		if llmResult != nil {
 			resp.Steps = append(resp.Steps, dto.SalesStepLog{
@@ -815,8 +814,6 @@ func (e *SalesEngine) generateCandidate(
 		}
 	}
 
-	// 原始路径：一次性 LLM 调用（向后兼容）
-	// 2026-07-24 性能优化：启用 Dispatch 缓存（相同 scenario+prompt 1h 内秒回，省 30-180s LLM 推理）
 	result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 		Scenario:     scenario,
 		Prompt:       prompt,
@@ -834,9 +831,6 @@ func (e *SalesEngine) generateCandidate(
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数
 // 防止 LLM 无限调用工具或陷入循环。
-//
-// 2026-07-24 性能优化：5→2。每次迭代 = 1 次 LLM 调用（本地 CPU 推理 30-180s），
-// 5 次迭代最坏 900s。2 次迭代足够覆盖"1 次工具调用 + 1 次最终生成回复"的核心场景；
 // 复杂多工具场景可由 SetAgentLoopMaxIterations 或 env MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖。
 var agentLoopMaxIterations = 2
 
@@ -919,7 +913,6 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	if len(toolDefs) == 0 {
 		// 所有工具序列化失败，降级到无工具调用
-		// 2026-07-24 性能优化：启用 Dispatch 缓存
 		result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt,

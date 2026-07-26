@@ -66,18 +66,18 @@ fi
 : "${UBATCH_SIZE:=512}"        # 物理批处理大小（默认与 batch 一致；GPU 可调到 1024）
 : "${LLAMACPP_EXTRA_ARGS:=}"   # 透传额外参数
 
-# ---- 性能优化开关（2026-07-24 性能审查新增）----
+# ---- 性能优化开关 ----
 # Flash Attention 2：显著加速推理（2-4x），减少 KV cache 内存（50%+）
 # Qwen2.5 / bge-m3 / bge-reranker 均已支持；如遇兼容性问题设为 off
 : "${FLASH_ATTN:=on}"
 # mlock：锁定模型在 RAM，防止换页导致延迟飙升（需足够的物理内存）
-# 2026-07-24 性能优化：8 核 16G 内存下 3 模型 mlock 占满 RAM 导致 swap 风暴，
-# 改为 false 让 OS 管理内存；LLM 推理时活跃页会被保留在 RAM。
+# 8 核 16G 内存下 3 模型 mlock 占满 RAM 导致 swap 风暴，
+# false 让 OS 管理内存；LLM 推理时活跃页会被保留在 RAM。
 # 32G+ 内存服务器可改回 true。
 : "${USE_MLOCK:=false}"
 # KV cache 量化（仅 LLM 有 KV cache；embedding/rerank 无 KV cache）
 # f16=无损默认 | q8_0=减 50% 内存几乎无损（推荐）| q4_0=减 75% 内存轻微精度损失
-# 本地 16G 改为 q8_0：KV 内存减半，对话质量无感知差异；若内存极端紧张可改 q4_0。
+# 本地 16G 用 q8_0：KV 内存减半，对话质量无感知差异；若内存极端紧张可改 q4_0。
 : "${CACHE_TYPE_K:=q8_0}"
 : "${CACHE_TYPE_V:=q8_0}"
 
@@ -105,7 +105,7 @@ fi
 : "${SPEC_NGRAM_SIMPLE_M:=4}"    # 单次起草长度（默认 4）
 : "${SPEC_NGRAM_MIN_HITS:=1}"    # 最小命中次数（越小越激进，默认 1）
 # LLM 并行槽位数（--parallel）：允许同时处理多个请求
-# 2026-07-24 性能优化：2→1。8 核 16G 内存下 2 slots 的 KV cache 翻倍导致 swap；
+# 8 核 16G 内存下 2 slots 的 KV cache 翻倍导致 swap；
 # 客服场景串行即可，Go 端 Dispatch 有并发闸门保护。
 # embedding/rerank 默认 1（CPU bound，并发无收益反而内存带宽竞争）
 # 如需提高 embedding 并发，同步设置 EMBEDDING_CONCURRENCY 环境变量（Go 端闸门）

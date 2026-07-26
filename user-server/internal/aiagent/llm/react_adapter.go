@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// react_adapter.go P2-A: ReAct prompting 适配器
+// react_adapter.go ReAct prompting 适配器
 //
 // 设计目标：
 //   让无 Function Calling（FC）能力的 LLM（如 mtk-llm 本地 Qwen2.5-3B-Instruct、

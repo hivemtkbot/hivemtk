@@ -26,9 +26,7 @@ type FollowUpScheduleOptions struct {
 // ResultInfo 的 result 取值须与 service.FollowUpResult 枚举对齐，
 // 工具层不应硬编码 stage 名，而是通过 ResultInfo 反查目标 SOP 阶段。
 //
-// 2026-07-22 方向D修正：reminderID 改用 string 类型，与 service.Reminder.ID 一致；
-// 此前误用 uint 导致 FollowUpPortAdapter 内部 fmt.Sprint(0) 永远查不到提醒，
-// follow_task.update / cancel 工具测试出现"提醒 0 不存在"错误。
+// reminderID 为 string 类型，与 service.Reminder.ID 一致。
 type FollowUpPort interface {
 	// Schedule 创建跟进提醒任务，返回 reminder 实体
 	Schedule(ctx context.Context, customerID, ownerID, reminderType string, dueIn time.Duration, opts *FollowUpScheduleOptions) (any, error)

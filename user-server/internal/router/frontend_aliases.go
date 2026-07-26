@@ -33,8 +33,7 @@ import (
 // 此函数必须在其他 setup* 函数之后调用，避免被更具体的路由抢先匹配。
 // 通过 recover 机制捕获 Gin 在重复注册时的 panic，保证已存在路由不影响其他别名。
 func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
-	// 2026-07-23 五层架构治理（二轮）：构造本地 aiAgentSvc 供 agent_status controller
-	// 使用，避免 controller 直接调 dbutil.GetDB()。
+	// 构造本地 aiAgentSvc 供 agent_status controller 使用，避免 controller 直接调 dbutil.GetDB()。
 	aiAgentSvc := service.NewAIAgentServiceWithDB(db.GetDB())
 	// 通用 helper：注册时捕获重复注册的 panic
 	doReg := func(method, path string, handlers ...gin.HandlerFunc) {

@@ -16,7 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | sms |
 | 优先级 | P0 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -34,13 +33,6 @@
 ### 2.1 业务背景
 
 短信批量任务 = 草稿 + 列表 + 服务商 + 调度。提供完整生命周期管理。
-
-### 2.2 解决思路
-
-- 任务依赖：草稿、列表、SMS Config
-- 调度：立即 / 定时
-- 状态机：pending → running → paused/completed/failed/cancelled
-- 暂停：记录游标，恢复时从游标继续
 
 ### 2.3 输入输出定义
 
@@ -197,11 +189,3 @@
 - [sms-draft-management.md](sms-draft-management.md)
 - [sms-list-management.md](sms-list-management.md)
 - sms-config.md
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-14 | 独立功能文档初始版本 | AI Assistant |

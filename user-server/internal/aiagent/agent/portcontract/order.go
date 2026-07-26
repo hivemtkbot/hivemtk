@@ -23,7 +23,7 @@ type OrderView struct {
 //
 // 设计依据：客服系统不是电商。订单数据由外部电商/OMS 通过集成（拉取+Webhook）
 // 同步进 user_db.orders（model.ExternalOrder），客服只查询、不写商业订单。
-// 这是 agent 工具层访问订单的唯一合法通道（替代已删除的 order.create/order.query 业务工具）。
+// 这是 agent 工具层访问订单的唯一合法通道。
 type OrderPort interface {
 	// LookupByOrderID 按 平台+订单号 查询单笔订单（用户问"我的单到哪了"时用）
 	LookupByOrderID(ctx context.Context, platform, orderID string) (*OrderView, error)

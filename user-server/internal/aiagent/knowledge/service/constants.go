@@ -1,6 +1,4 @@
 // Package service 知识库子域常量
-//
-// 2026-07-23 五层架构治理（二轮）：将散落在各文件中的 magic number 集中定义
 package service
 
 import "time"

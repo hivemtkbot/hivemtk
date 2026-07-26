@@ -17,8 +17,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | system |
 | 优先级 | P1（P1-4 行级权限） |
-| 实际完成时间 | 2026-07（auth_security_migration v2.10.0） |
-| 最后更新 | 2026-07-24 |
 
 ### 1.1 已完成内容
 
@@ -48,13 +46,6 @@
 ### 2.1 业务背景
 
 私域部署下虽是单租户，但商户内部仍有多角色协作需求：客服只能看自己的客户，部门主管可看本部门数据，超管可看全部。行级权限通过 `data_scope` 字段在 SQL 查询层强制过滤，避免每个 service / controller 重复写 if-else。
-
-### 2.2 解决思路
-
-- **数据模型层**：`system_users.data_scope` 字段 + `department_id` + `team_id`
-- **中间件层**：`DataScopeMiddleware` 在 JWT 鉴权后执行，把 data_scope / department_id / team_id 写入 gin.Context
-- **查询层**：`ApplyDataScope(database, ctx, ownerField, departmentField, teamField)` 在 GORM 查询上追加 WHERE 条件
-- **降级策略**：缺失或异常时降级为 self（最保守）
 
 ### 2.3 关键算法或模型
 
@@ -343,11 +334,3 @@ JWTAuthMiddleware → DataScopeMiddleware → [RequireAdminMiddleware（仅 admi
 - [auth-login-jwt.md](auth-login-jwt.md)
 - [user-management.md](user-management.md)
 - [security-audit.md](security-audit.md)
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-24 | 独立功能文档生成（PD-P0-05 补建） | |

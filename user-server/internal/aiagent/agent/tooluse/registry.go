@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// registry.go 工具注册中心（PRD §5.2 P0-3 G3）
+// registry.go 工具注册中心（PRD §5.2）
 //
 // 设计目标：
 //  1. 全局唯一 ToolRegistry 单例

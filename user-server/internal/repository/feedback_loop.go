@@ -169,13 +169,7 @@ func (r *FeedbackLoopRepository) PersistFeedback(ctx context.Context, event *mod
 
 // upsertFeedbackSignal 按 session_id 聚合：存在则累加 reward/count，不存在则插入
 //
-// 并发安全修复（TestFeedbackCollector_ConcurrentCollectSync 暴露的 race）：
-// 原实现采用 check-then-act 模式（先 First，再 Create/Save），并发场景下
-// 多个 goroutine 同时进入 First 都返回 ErrRecordNotFound，随后都尝试 Create，
-// 仅一个成功，其余因 unique(session_id) 约束失败，导致 event 回滚、signal_count
-// 偏小、且可能出现 2 条 signal 记录。
-//
-// 修复方案（PostgreSQL 原子 upsert + 行级锁）：
+// 实现（PostgreSQL 原子 upsert + 行级锁）：
 //  1. INSERT ... ON CONFLICT (session_id) DO NOTHING 先尝试插入；若已存在则 no-op
 //  2. SELECT ... FOR UPDATE 锁定该行（已存在的或刚插入的），串行化后续 UPDATE
 //  3. 在 Go 中合并 breakdown JSON，UPDATE 写回

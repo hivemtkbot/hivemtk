@@ -135,18 +135,17 @@ import { ElMessage } from 'element-plus'
 import SubMenuItem from '@/components/SubMenuItem.vue'
 import MessageNotification from '@/components/MessageNotification.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import i18n from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { getLicenseStatus } from '@/api/license'
 import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand } from '@element-plus/icons-vue'
+import { routeIconMap } from '@/utils/iconMap'
 void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void Fold; void Expand
 
-// 创建图标组件映射
-const iconComponents = {}
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  iconComponents[key] = component
-}
+// P1-1: 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入构建 iconComponents,
+// 改用 utils/iconMap.js 中显式导入的 routeIconMap(仅含路由配置实际使用的 52 个图标),
+// 使打包工具能 tree-shake 未引用的图标,显著减小 elementPlus chunk 体积。
+const iconComponents = routeIconMap
 
 const route = useRoute()
 const router = useRouter()

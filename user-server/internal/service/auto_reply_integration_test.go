@@ -236,7 +236,6 @@ func TestAutoReply_FullChain(t *testing.T) {
 
 	// ---- 7. 知识库管理 ----
 	t.Run("KnowledgeBase", func(t *testing.T) {
-		// 2026-07-18：路由统一收敛到 /api/rag/*（MASTER §4.3 禁止 /api/knowledge-base/* 历史前缀）
 		r, code := mustGet(t, "/api/rag/documents?page=1&page_size=20", token)
 		if code != 200 || r.Code != "SUCCESS" {
 			t.Errorf("ListDocuments 失败: code=%d resp=%+v", code, r)

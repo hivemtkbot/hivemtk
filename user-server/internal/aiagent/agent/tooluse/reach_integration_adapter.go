@@ -23,9 +23,6 @@ import (
 // 三个新方法路由到 service 包中已有的 IntegrationService（TelegramIntegrationService /
 // WhatsAppCloudIntegrationService / FeishuIntegrationService）。
 //
-// 2026-07-17 新增：之前这三个方法只有 NoOpReachAdapter 默认实现，调用即报"adapter not configured"。
-// 现在通过本文件实现具体的发送能力，智能体的工具调用 reach.telegram.send 等才能真正发送。
-//
 // 设计原则：
 //   - 仅转发参数，不做业务逻辑（业务逻辑在 IntegrationService 中）
 //   - 渠道特定错误透传（限流、token 过期等）
@@ -70,10 +67,6 @@ func NewIntegrationReachAdapter(tg *service.TelegramIntegrationService, wa *serv
 //
 // 真正实例化 3 个 IntegrationService，让 智能体的 reach.telegram.send / reach.whatsapp.send /
 // reach.feishu.send 工具在生产中可以真正发送消息。
-//
-// 2026-07-17 二次审核修复：原实现忽略 db 参数只返回空壳，导致 3 个新工具在生产不可用。
-// 现改为真正调用 NewTelegramIntegrationService / NewWhatsAppCloudIntegrationService /
-// NewFeishuIntegrationService（这些构造函数均接收 *gorm.DB）。
 func NewIntegrationReachAdapterFromDB(db *gorm.DB) *IntegrationReachAdapter {
 	if db == nil {
 		return &IntegrationReachAdapter{}
@@ -354,8 +347,6 @@ func (a *IntegrationReachAdapter) ListAccounts(ctx context.Context, channel stri
 // ===== 辅助函数 =====
 
 // parseAccountID 解析账号 ID 字符串为 uint
-//
-// 2026-07-17 二次审核修复：原实现自写字符循环，改为标准库 strconv.ParseUint 提升性能与可读性
 func parseAccountID(s string) (uint, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty: %w", ErrInvalidAccountID)
@@ -371,8 +362,6 @@ func parseAccountID(s string) (uint, error) {
 }
 
 // parseInt64 解析 int64 字符串（支持负数）
-//
-// 2026-07-17 二次审核修复：原实现自写字符循环，改为标准库 strconv.ParseInt
 func parseInt64(s string) (int64, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty: %w", ErrInvalidInt64)

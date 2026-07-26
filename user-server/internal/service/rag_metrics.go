@@ -149,7 +149,7 @@ type RecordQueryRequest struct {
 	TopK            int
 	Source          string
 
-	// 2026-07-21 新增：Top-1 命中与最高相似度，供 RagRecallMonitor 计算 Top-K / Top-1 命中率与平均相似度
+	// Top-1 命中与最高相似度，供 RagRecallMonitor 计算 Top-K / Top-1 命中率与平均相似度
 	Top1DocID     string
 	HitInTop1     bool
 	TopSimilarity float64

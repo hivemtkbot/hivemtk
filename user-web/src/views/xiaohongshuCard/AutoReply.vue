@@ -146,7 +146,7 @@ import i18n from '@/i18n'
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { autoReplyApi } from '@/api/autoReply'
-import { ragProductConfigAPI } from '@/api/rag-product-config'
+import { ragProductConfigAPI } from '@/api/ragProductConfig'
 
 const platform = 'xiaohongshu'
 const accounts = ref([])

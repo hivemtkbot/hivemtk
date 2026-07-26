@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | ai-agent-core |
 | 优先级 | P0 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 销冠 SOP 可视化编排（Greet → Probe → Value → Objection → Closing）
@@ -44,12 +42,6 @@
 
 ### 2.1 业务背景
 销冠流程标准化为 SOP（Greet → Probe → Value → Objection → Closing），AI 根据客户反馈自动流转节点，实现可复制的销冠话术。当客户在同一节点循环超过 3 次时，自动转人工避免僵局。
-
-### 2.2 解决思路
-- SOP 以 DAG 状态机建模，节点间通过 edges 定义流转条件
-- 每节点绑定：SOP 节点配置（话术/动作）+ 触发条件 + 升级规则
-- 客户消息进入后，意图识别 + 节点配置决定流转方向
-- 循环检测：同一节点连续触发 ≥ 3 次，自动转人工
 
 ### 2.3 关键算法或模型
 - 状态机 DAG 流转算法
@@ -160,18 +152,3 @@
 - 创建 SOP → 模拟客户消息 → 流转全链路
 - 循环 3 次自动转人工验证
 - 流转至 Closing 标记成交验证
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

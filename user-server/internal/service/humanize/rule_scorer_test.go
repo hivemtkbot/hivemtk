@@ -96,7 +96,7 @@ func TestRuleScorer_Naturalness_AITrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	natScore, ok := result.ScoreByDimension(dto.HumanizeDimNaturalness)
+	natScore, ok := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimNaturalness)
 	if !ok {
 		t.Fatal("缺 naturalness 维度")
 	}
@@ -117,7 +117,7 @@ func TestRuleScorer_Naturalness_Humanlike(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
-	natScore, _ := result.ScoreByDimension(dto.HumanizeDimNaturalness)
+	natScore, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimNaturalness)
 	if natScore < 0.7 {
 		t.Errorf("真人风格 Naturalness 应较高 ≥ 0.7, got %v", natScore)
 	}
@@ -144,8 +144,8 @@ func TestRuleScorer_Naturalness_Burstiness(t *testing.T) {
 		t.Logf("等长句 burstiness=%v, 变长句 burstiness=%v（等长应低于变长）", b1, b2)
 	}
 	// 变长句应得到更高的 Naturalness
-	n1, _ := r1.ScoreByDimension(dto.HumanizeDimNaturalness)
-	n2, _ := r2.ScoreByDimension(dto.HumanizeDimNaturalness)
+	n1, _ := dto.ScoreHumanizeEvalByDimension(r1,dto.HumanizeDimNaturalness)
+	n2, _ := dto.ScoreHumanizeEvalByDimension(r2,dto.HumanizeDimNaturalness)
 	if n2 < n1-0.1 {
 		t.Logf("变长句 Naturalness=%v, 等长句=%v（变长应不低于等长）", n2, n1)
 	}
@@ -165,7 +165,7 @@ func TestRuleScorer_Conciseness_InRange(t *testing.T) {
 		Intent:          "greeting",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimConciseness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimConciseness)
 	if score < 0.8 {
 		t.Errorf("字数在期望范围内的 Conciseness 应 ≥ 0.8, got %v", score)
 	}
@@ -181,7 +181,7 @@ func TestRuleScorer_Conciseness_TooShort(t *testing.T) {
 		Intent:          "complaint",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimConciseness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimConciseness)
 	if score > 0.5 {
 		t.Errorf("过短回复 Conciseness 应 ≤ 0.5, got %v", score)
 	}
@@ -201,7 +201,7 @@ func TestRuleScorer_Conciseness_TooLong(t *testing.T) {
 		Intent:          "greeting",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimConciseness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimConciseness)
 	if score > 0.5 {
 		t.Errorf("过长回复 Conciseness 应 ≤ 0.5, got %v", score)
 	}
@@ -216,7 +216,7 @@ func TestRuleScorer_Conciseness_UnknownIntent(t *testing.T) {
 		Intent:          "unknown_intent_xyz",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimConciseness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimConciseness)
 	if score < 0 || score > 1 {
 		t.Errorf("未知意图 Conciseness 应在 [0,1], got %v", score)
 	}
@@ -235,7 +235,7 @@ func TestRuleScorer_Empathy_ComplaintNoEmpathy(t *testing.T) {
 		Intent:          "complaint",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimEmpathy)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimEmpathy)
 	if score > 0.4 {
 		t.Errorf("投诉无共情 Empathy 应 ≤ 0.4, got %v", score)
 	}
@@ -250,7 +250,7 @@ func TestRuleScorer_Empathy_ComplaintWithEmpathy(t *testing.T) {
 		Intent:          "complaint",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimEmpathy)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimEmpathy)
 	if score < 0.5 {
 		t.Errorf("投诉有共情 Empathy 应 ≥ 0.5, got %v", score)
 	}
@@ -265,7 +265,7 @@ func TestRuleScorer_Empathy_NonComplaint(t *testing.T) {
 		Intent:          "ask_product",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimEmpathy)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimEmpathy)
 	if score < 0.5 {
 		t.Errorf("非投诉有共情词 Empathy 应 ≥ 0.5, got %v", score)
 	}
@@ -283,7 +283,7 @@ func TestRuleScorer_Professionalism_WithProWords(t *testing.T) {
 		CustomerMessage: "产品怎么样？",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimProfessionalism)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimProfessionalism)
 	if score < 0.7 {
 		t.Errorf("含专业词 Professionalism 应 ≥ 0.7, got %v", score)
 	}
@@ -297,7 +297,7 @@ func TestRuleScorer_Professionalism_NoProWords(t *testing.T) {
 		CustomerMessage: "怎么样？",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimProfessionalism)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimProfessionalism)
 	if score > 0.7 {
 		t.Errorf("无专业词 Professionalism 应 ≤ 0.7, got %v", score)
 	}
@@ -315,7 +315,7 @@ func TestRuleScorer_Persuasiveness_WithActionAndBenefit(t *testing.T) {
 		CustomerMessage: "多少钱？",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimPersuasiveness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimPersuasiveness)
 	if score < 0.7 {
 		t.Errorf("含行动召唤+利益词 Persuasiveness 应 ≥ 0.7, got %v", score)
 	}
@@ -329,7 +329,7 @@ func TestRuleScorer_Persuasiveness_NoCallToAction(t *testing.T) {
 		CustomerMessage: "多少钱？",
 	}
 	result, _ := scorer.Evaluate(context.Background(), input)
-	score, _ := result.ScoreByDimension(dto.HumanizeDimPersuasiveness)
+	score, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimPersuasiveness)
 	if score > 0.5 {
 		t.Errorf("无行动召唤 Persuasiveness 应 ≤ 0.5, got %v", score)
 	}
@@ -520,7 +520,7 @@ func TestRuleScorer_Evaluate_ComplaintScenario(t *testing.T) {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
 	// 投诉场景 empathy 应较高
-	emp, _ := result.ScoreByDimension(dto.HumanizeDimEmpathy)
+	emp, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimEmpathy)
 	if emp < 0.5 {
 		t.Errorf("投诉场景 Empathy 应 ≥ 0.5, got %v", emp)
 	}
@@ -545,7 +545,7 @@ func TestRuleScorer_Evaluate_SalesScenario(t *testing.T) {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
 	// 销售场景 persuasiveness 应较高
-	per, _ := result.ScoreByDimension(dto.HumanizeDimPersuasiveness)
+	per, _ := dto.ScoreHumanizeEvalByDimension(result,dto.HumanizeDimPersuasiveness)
 	if per < 0.6 {
 		t.Errorf("销售场景 Persuasiveness 应 ≥ 0.6, got %v", per)
 	}

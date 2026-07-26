@@ -111,8 +111,12 @@ type ThresholdPolicyRequest struct {
 	Version                 int     `json:"version" binding:"min=1"`
 }
 
-// ToModel 转 Model(供 Service/Repository 使用)
-func (r *ThresholdPolicyRequest) ToModel() *model.ThresholdPolicy {
+// ToThresholdPolicyModel DTO → Model 转换(供 Service/Repository 使用)
+// 架构文档 §三 L4: DTO 禁止写方法体,转换用包级函数(参考 glossary.go FromGlossaryModel 先例)
+func ToThresholdPolicyModel(r *ThresholdPolicyRequest) *model.ThresholdPolicy {
+	if r == nil {
+		return nil
+	}
 	now := time.Now()
 	return &model.ThresholdPolicy{
 		PolicyID:                r.PolicyID,

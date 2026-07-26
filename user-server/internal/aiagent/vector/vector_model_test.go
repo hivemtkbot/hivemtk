@@ -457,7 +457,7 @@ func TestVectorProcessor_BatchSearch_ErrorInBatch(t *testing.T) {
 
 // TestVectorProcessor_ProcessAndStore_EmbedBatchError tests ProcessAndStore when EmbedBatch fails
 // 注: RemoteVectorizer.EmbedBatch 当前不显式校验空字符串 (内部 EmbeddingService 兜底).
-// 这里改为: 直接注入不匹配的 metadatas 数量, 验证 ProcessAndStore 返回错误.
+// 直接注入不匹配的 metadatas 数量, 验证 ProcessAndStore 返回错误.
 func TestVectorProcessor_ProcessAndStore_EmbedBatchError(t *testing.T) {
 	v := NewHashVectorizer(128)
 	store := NewInMemoryVectorStore(128)

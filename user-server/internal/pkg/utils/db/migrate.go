@@ -14,9 +14,7 @@ import (
 )
 
 // allModels 列出所有需要 AutoMigrate 的模型。集中在此便于维护。
-// 修复历史问题：原来单次 DB.AutoMigrate(...) 调用，任一模型失败（如历史约束
-// 命名漂移 DROP CONSTRAINT 不存在）会中断整个迁移，导致后续模型未创建。
-// 现按"单模型 + 错误容忍 + 跳过"逐个执行。
+// 按"单模型 + 错误容忍 + 跳过"逐个执行。
 func allModels() []any {
 	return []any{
 		&model.Order{},
@@ -189,9 +187,6 @@ func allModels() []any {
 		&model.SOPAgent{},
 		&model.SOPExecution{},
 		// SOP 执行器持久化：事件溯源 / 定时器 / Outbox
-		// 修复历史缺陷：这三张表原仅由 registry 迁移系统(SOPExecutorMigration)创建，
-		// 但该 registry 在启动流中从未运行，导致 sop_outbox_dispatcher 每 5s 查询
-		// sop_timers 报 "relation does not exist"。改由 AutoMigrate 统一创建。
 		&model.SOPExecEvent{},
 		&model.SOPTimer{},
 		&model.SOPOutbox{},
@@ -209,12 +204,6 @@ func allModels() []any {
 		&model.SalesChampionProfileSnapshot{},
 		&model.SOPNodeTransition{},
 		&model.OptimizationSuggestion{},
-		// 修复历史缺陷：以下 19 张表原仅由 registry 迁移系统创建
-		// （confidence/humanize_evaluator/feedback_loop migration），
-		// 但 registry 在启动流中从未运行（NewMigrationService 无非测试调用），
-		// 导致后台任务（ConfidenceAggregator / HumanizeEvalService /
-		// FeedbackCollector / FeedbackLoopCron）查询这些表时报
-		// "relation does not exist"。改由 AutoMigrate 统一创建，与项目现有 schema 机制一致。
 		// P0-3 置信度驱动转人工（8 表）
 		&model.ConfidenceSignal{},
 		&model.ConfidenceCalibration{},

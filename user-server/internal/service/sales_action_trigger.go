@@ -18,11 +18,6 @@ import (
 //     3. AI 提取到"产品+价格" → 自动生成订单意向
 //     4. 销售完成跟进 → 推进到下一阶段
 //     5. 订单创建 → 推进到"成交"+ 触发售后 SOP
-//
-// 闭门造车 vs 实际场景的差距：
-//   原实现：每个组件独立，无联动。销售需要手动操作 5 个不同页面才能完成"客户
-//   从陌生到成交"的流程。必然遗漏。
-//   修复：动作触发器统一编排 5 个组件，按真实业务流自动联动。
 // ============================================================================
 
 // SalesActionTrigger 销售动作触发器
@@ -421,8 +416,7 @@ func (t *SalesActionTrigger) TriggerAfterFollowUp(ctx context.Context, reminderI
 	}
 
 	// 5. 成交 → 在仪表盘记录订单（销售跟进→成单）
-	// 关键：原实现只推进旅程+记录跟进，仪表盘的销售业绩(订单数/金额)为 0
-	// 修复：跟进结果=converted 时，自动补一条订单事件（金额/产品从上下文推断）
+	// 跟进结果=converted 时，自动补一条订单事件（金额/产品从上下文推断）
 	if result == "converted" && t.dashboard != nil {
 		amount, productName := t.inferOrderFromJourney(ctx, customerID)
 		t.dashboard.RecordOrder(ctx, OrderEvent{
@@ -571,7 +565,6 @@ func (t *SalesActionTrigger) GetHistory(ctx context.Context, customerID string, 
 
 // inferOrderFromJourney 从客户旅程上下文推断订单金额与产品
 // 关键：销售跟进时只知道"客户说想买"，但没说金额/产品。
-// 修复：从旅程的最近事件或自动标签中推断，作为仪表盘订单事件的兜底数据。
 func (t *SalesActionTrigger) inferOrderFromJourney(ctx context.Context, customerID string) (float64, string) {
 	if t.journey == nil {
 		return 0, ""

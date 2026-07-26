@@ -6,8 +6,6 @@ import (
 )
 
 // TestParseAccountID 覆盖 parseAccountID 边界用例
-//
-// 2026-07-17 二次审核修复：原实现自写字符循环，改用 strconv 后必须保留相同行为
 func TestParseAccountID(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -84,9 +82,6 @@ func TestParseInt64(t *testing.T) {
 }
 
 // TestIntegrationReachAdapter_SentinelErrors 验证 IntegrationReachAdapter 返回 sentinel error
-//
-// 2026-07-17 二次审核修复：原实现用 fmt.Errorf("...not implemented") 字符串错误
-// 改为 wrap ErrChannelNotImplemented / ErrIntegrationServiceNotConfigured 让 errors.Is 生效
 func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
 	// 无 IntegrationService 注入时，三个新方法应返回 ErrIntegrationServiceNotConfigured
 	a := &IntegrationReachAdapter{} // 全部为 nil
@@ -127,9 +122,7 @@ func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
 }
 
 // TestNewIntegrationReachAdapterFromDB_NilDB 验证 nil db 时不 panic 且返回空壳
-//
-// 2026-07-17 二次审核修复：原实现忽略 db 参数只返回空壳；现保留"nil db 返回空壳"行为，但要让
-// 真实 db 路径真正实例化 IntegrationService（见 TestNewIntegrationReachAdapterFromDB_RealDB）
+// 真实 db 路径实例化 IntegrationService，见 TestNewIntegrationReachAdapterFromDB_RealDB。
 func TestNewIntegrationReachAdapterFromDB_NilDB(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -146,8 +139,6 @@ func TestNewIntegrationReachAdapterFromDB_NilDB(t *testing.T) {
 }
 
 // TestGetArgMap_PreservesTypes 验证 getArgMap 保留原始类型（数字/布尔/字符串/对象）
-//
-// 2026-07-17 二次审核修复：替代 getArgStringMap 解决 BatchSendItem.Payload 类型丢失问题
 func TestGetArgMap_PreservesTypes(t *testing.T) {
 	args := map[string]any{
 		"payload": map[string]any{

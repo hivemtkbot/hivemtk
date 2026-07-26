@@ -15,17 +15,6 @@ import (
 	"marketing/internal/repository"
 )
 
-// ============================================================================
-// 五层架构治理（二轮）：type alias 解决 controller 反向依赖 repository
-// ============================================================================
-//
-// 原架构问题：`LocalAssetService.List` 接受 `repository.LocalAssetFilter`，
-// 导致 controller 需 `import repository` 来构造 filter，违反五层架构
-// （controller → service → repository，禁止反向引用）。
-//
-// 修复：定义别名 `LocalAssetFilter = repository.LocalAssetFilter`，
-// controller 改为 `service.LocalAssetFilter{...}` 即可，不再 import repository。
-// 类型完全等价，无运行时差异。
 type LocalAssetFilter = repository.LocalAssetFilter
 
 // LocalAssetService 本地资产业务（同源同构）
@@ -43,8 +32,7 @@ func NewLocalAssetService(
 	pc repository.PlatformAPIClient,
 	db *gorm.DB,
 ) *LocalAssetService {
-	// 五层架构治理：事务已下沉到 repository 层，service 不再持有 *gorm.DB。
-	// 保留 db 参数仅为调用方签名兼容（router/main.go 等不改），此处显式忽略。
+	// 事务由 repository 层管理，service 不持有 *gorm.DB；db 参数仅用于签名兼容。
 	_ = db
 	return &LocalAssetService{assetRepo: ar, dataRepo: dr, syncLogRepo: sr, platformClient: pc}
 }
@@ -132,8 +120,6 @@ func (s *LocalAssetService) PurchaseAndSync(ctx context.Context, platformAssetID
 	syncLog := &model.LocalAssetSyncLog{
 		AssetID: la.AssetID, Action: "purchase_sync", Status: "success",
 	}
-	// 事务已下沉到 repository.PurchaseAndSyncTx：upsert 主表 + upsert 数据 + 写日志。
-	// 错误处理（含 bizerr 包装、OnConflict upsert、主键回填）与原内联事务完全一致。
 	return s.assetRepo.PurchaseAndSyncTx(ctx, la, payload.Data, syncLog)
 }
 
@@ -162,8 +148,6 @@ func (s *LocalAssetService) SyncFromPlatform(ctx context.Context, assetID string
 	syncLog := &model.LocalAssetSyncLog{
 		AssetID: assetID, Action: "sync", Status: "success",
 	}
-	// 事务已下沉到 repository.SyncDataTx：保存主表 + upsert 数据 + 写成功日志。
-	// 与原实现差异：成功日志纳入事务（原子性更强）；可观测行为等价（原实现事务失败也不写成功日志）。
 	if err := s.assetRepo.SyncDataTx(ctx, la, payload.Data, syncLog); err != nil {
 		return err
 	}
@@ -224,15 +208,10 @@ func (s *LocalAssetService) Update(ctx context.Context, id int64, in *UpdateAsse
 	la.AssetType = in.AssetType
 	la.Industry = in.Industry
 	la.UpdatedAt = time.Now()
-	// 事务已下沉到 repository.UpdateWithDataTx：保存主表 + upsert 数据，行为与原内联事务一致。
 	return s.assetRepo.UpdateWithDataTx(ctx, la, in.Data)
 }
 
 // List 列表
-//
-// 五层架构治理（二轮）：原签名 `f repository.LocalAssetFilter` 强制 controller
-// 反向依赖 repository，违反五层架构。改为 service 自有别名（与 repository 类型
-// 完全等价），controller 不再 import repository 即可调用。
 func (s *LocalAssetService) List(ctx context.Context, f LocalAssetFilter) ([]*model.LocalAsset, int64, error) {
 	return s.assetRepo.List(ctx, f)
 }

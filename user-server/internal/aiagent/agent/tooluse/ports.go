@@ -3,15 +3,10 @@ package tooluse
 // ============================================================================
 // 业务 Port 接口（L4 依赖反转）
 // ----------------------------------------------------------------------------
-// 历史说明：ports.go 中的 Port 接口原位于本包，导致 service.tool_ports_adapter.go
-// 必须 import tooluse，反向形成 import cycle。
+// 本文件以 type alias 形式从 `internal/aiagent/agent/portcontract` 重新导出
+// Port 接口 + DTO。
 //
-// 修复方案（2026-07-22）：把 Port 接口 + DTO 全部下沉到独立包
-// `internal/aiagent/agent/portcontract`，本文件仅以 type alias 形式重新导出，
-// 保证所有现存代码（customer_tools.go / business_tools.go / private_message_tools.go /
-// reach_tools.go / reach_integration_adapter.go / reach_*.go 等）零改动继续工作。
-//
-// 依赖拓扑修复后：
+// 依赖拓扑：
 //   service ──→ portcontract ←── tooluse
 //
 // 文档：docs/企业级架构优化/坐席实时聊天看板.md §七

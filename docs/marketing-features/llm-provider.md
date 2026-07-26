@@ -16,8 +16,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | ai-agent-core |
 | 优先级 | P1 |
-| 实际完成时间 | 2026-07-15 |
-| 最后更新 | 2026-07-22 |
 
 ### 1.1 已完成内容
 - [x] 多 LLM Provider 注册与配置（OpenAI/通义/智谱/...）
@@ -42,9 +40,6 @@
 
 ### 2.1 业务背景
 AI 销售智能体依赖 LLM 生成回复，但单一 Provider 可能出现限流、超时、服务不可用等情况，导致智能体无法响应。系统需要监控各 Provider 健康度，在主用 Provider 异常时自动切换到备用 Provider，保障服务可用性。
-
-### 2.2 解决思路
-注册多个 LLM Provider 并配置优先级与 fallback 链；实时采集每个 Provider 的错误率与 P99 延迟；当主用 Provider 错误率超阈值或 P99 超时，自动切换到 fallback_to 指定的备用 Provider；恢复后自动切回或保持备用。
 
 ### 2.3 关键算法或模型
 - 健康度评分：`health_score = 1 - error_rate - latency_penalty`
@@ -155,18 +150,3 @@ AI 销售智能体依赖 LLM 生成回复，但单一 Provider 可能出现限�
 - 端到端降级切换测试（模拟 Provider 异常）
 - 多级 fallback 链切换测试
 - 恢复后切回测试
-
----
-
-## 九、版本历史
-| 版本 | 日期 | 变更说明 |
-|---|---|---|
-| v1.0 | 2026-07-15 | 初始实现 |
-| v1.1 | 2026-07-22 | 补充功能文档 |
-
----
-
-## 十、相关文档
-- [../INDEX.md](../INDEX.md)
-- [../architecture/ARCHITECTURE_DIAGRAM.md](../architecture/ARCHITECTURE_DIAGRAM.md)
-- [../CROSS_COMPARISON_REPORT.md](../CROSS_COMPARISON_REPORT.md)

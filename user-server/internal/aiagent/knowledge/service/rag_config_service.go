@@ -21,7 +21,7 @@ type RagConfigService struct {
 	ragService        *rag_service.RAGService
 	documentProcessor *etl.DocumentProcessor
 	vectorProcessor   *vector.VectorProcessor
-	// 2026-07-18：直接挂 RagSearcher，让 QueryKnowledgeBase 走真实 pgvector 而非内存 RAGEngine
+	// ragSearcher 让 QueryKnowledgeBase 走真实 pgvector
 	ragSearcher *RagSearcher
 }
 
@@ -37,7 +37,7 @@ func NewRagConfigService(
 		ragService:        ragService,
 		documentProcessor: documentProcessor,
 		vectorProcessor:   vectorProcessor,
-		// 2026-07-18：自动初始化向量检索器（pgvector + TEI bge-m3）
+		// 自动初始化向量检索器（pgvector + TEI bge-m3）
 		ragSearcher: NewRagSearcher(),
 	}
 }
@@ -108,7 +108,7 @@ func (s *RagConfigService) CreateRagProduct(ctx context.Context, req *model.RagP
 	}
 	req.RerankProviderConfig.Enabled = true
 
-	// 修复：vector_table 有 uniqueIndex，未提供时 PG 会因空串重复导致 duplicate key 错误
+	// vector_table 有 uniqueIndex，未提供时 PG 会因空串重复导致 duplicate key 错误
 	// 兜底用 Name 生成 deterministic 的 table 名（kebab-case + 随机后缀）
 	if req.VectorTable == "" {
 		req.VectorTable = sanitizeVectorTableName(req.Name) + "_" + randomHex(4)
@@ -166,7 +166,6 @@ func (s *RagConfigService) ListRagProducts(ctx context.Context) ([]*model.RagPro
 
 // UpdateRagProduct 更新RAG产品
 //
-// 2026-07-18 修复：
 //   - 数值字段（Temperature/MaxTokens/TopP/FrequencyPenalty/PresencePenalty）允许为 0，
 //     表示用户没传，沿用原值。这避免 PATCH 语义下"少传一个字段就被验证拒绝"的问题。
 //   - VectorTable 字段必须保留原值（不能被空串覆盖，否则 uniqueIndex 会冲突）。

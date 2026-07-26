@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// param_validator.go P2-E: 工具参数校验装饰器
+// param_validator.go 工具参数校验装饰器
 //
 // 设计目标：
 //   在工具执行前根据 JSON Schema 校验参数，提前拒绝非法参数

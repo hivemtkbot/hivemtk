@@ -116,9 +116,8 @@ func (bot *AutoReplyBot) ExtractXianyuWSToken() (*XianyuWSConfig, error) {
 	// 3. 查找有效的 token
 	token := findValidToken(tokenResult.Tokens)
 	if token == "" {
-		// 敏感数据保护（R4 修复）：原实现直接打印 xianyu_sid 会话 cookie 值，
-		// 会话 ID 等同于凭证，泄露到日志后可被用于会话劫持。
-		// 现仅记录是否存在该 cookie，不输出其值。
+		// 敏感数据保护：xianyu_sid 会话 cookie 值等同于凭证，
+		// 泄露到日志后可被用于会话劫持。仅记录是否存在该 cookie，不输出其值。
 		sidPresent := false
 		if v, ok := tokenResult.Cookies["xianyu_sid"]; ok && v != "" {
 			sidPresent = true

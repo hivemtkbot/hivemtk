@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// react_adapter_test.go D8: P2-A ReAct Prompting 适配器测试
+// react_adapter_test.go ReAct Prompting 适配器测试
 //
 // 覆盖：
 //   D8.1 ParseReActResponse: 解析 Action + Action Input

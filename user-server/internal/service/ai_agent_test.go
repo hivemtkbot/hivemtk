@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
 
@@ -669,7 +670,7 @@ func TestNormalizeChannelType(t *testing.T) {
 func TestAgentContext_ToSalesEngineConfig(t *testing.T) {
 	// nil 应返回默认配置
 	ctx := (*AgentContext)(nil)
-	cfg := ctx.ToSalesEngineConfig()
+	cfg := dto.AgentContextToSalesEngineConfig(ctx)
 	if cfg == nil {
 		t.Fatal("nil AgentContext 应返回默认配置, 非 nil")
 	}
@@ -685,7 +686,7 @@ func TestAgentContext_ToSalesEngineConfig(t *testing.T) {
 		MaxTokens:            1000,
 		Persona:              "测试人设",
 	}
-	cfg = ctx.ToSalesEngineConfig()
+	cfg = dto.AgentContextToSalesEngineConfig(ctx)
 	if !cfg.EnableRAG {
 		t.Error("EnableRAG 应为 true")
 	}

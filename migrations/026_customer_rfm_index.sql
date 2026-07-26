@@ -1,6 +1,5 @@
 -- ============================================================================
 -- Migration 026: 客户中心 RFM 数据源索引修复 (F-P0-08)
--- 创建时间: 2026-07-24
 -- 目的:
 --   1. order 表新增 account_id 索引：加速 OrderRepository.GetByCustomerID
 --      （通过 customers.phone 子查询匹配 order.account_id）

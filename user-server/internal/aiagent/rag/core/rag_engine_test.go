@@ -41,8 +41,7 @@ func TestRAGEngine_newTestRAGEngine(t *testing.T) {
 	if engine.config.ChunkSize != 512 {
 		t.Errorf("Expected ChunkSize 512, got %d", engine.config.ChunkSize)
 	}
-	// 2026-07-18 私域基线更新：默认维度从 768（BAAI/bge-base-zh-v1.5）改为
-	// 1024（TEI + BAAI/bge-m3），与运行时真实 embedding 输出一致。
+	// 默认维度 1024（TEI + BAAI/bge-m3），与运行时真实 embedding 输出一致。
 	if engine.config.VectorDimension != 1024 {
 		t.Errorf("Expected VectorDimension 1024, got %d", engine.config.VectorDimension)
 	}

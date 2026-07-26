@@ -22,7 +22,6 @@
 | 完成百分比 | 100% |
 | 所属模块 | rag |
 | 优先级 | P0 |
-| 最后更新 | 2026-07-14 |
 
 ### 1.1 已完成内容
 
@@ -43,14 +42,6 @@
 ### 2.1 业务背景
 
 传统关键词匹配无法回答复杂产品咨询。RAG（Retrieval-Augmented Generation）通过检索私有知识库 + LLM 生成，提供精准、可溯源的智能问答。
-
-### 2.2 解决思路
-
-1. **产品配置**：每个商户可配置 N 个产品，每个产品对应一个向量集合
-2. **账号配置**：每个平台账号关联 1 个产品（如抖音客服用产品A知识库）
-3. **消息处理**：客户提问 → Embedding → pgvector 检索 Top-K → 构建 Prompt → LLM 生成
-4. **多轮对话**：保留 3-5 轮上下文，避免重复问相同问题
-5. **降级策略**：检索分数低时切换到通用 LLM
 
 ### 2.3 关键算法或模型
 
@@ -296,13 +287,3 @@
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **RAG 权威基线 V2.0**
 - [RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md](../architecture/RAG_AUTO_REPLY_UNIFIED_ARCHITECTURE.md) ⭐ **V2.0 统一架构**
 - rag-customer-service-guide.md ⭐ **V3.0 用户指南**
-
----
-
-## 十、版本历史
-
-| 版本 | 日期 | 变更内容 | 作者 |
-|---|---|---|---|
-| v1.0 | 2026-07-14 | 独立功能文档初始版本 | AI Assistant |
-| **v1.1** | **2026-07-16** | **私域基线整改:LLM 走外部 API / Embedding 走本地 docker 容器**<br/>- § 2.3 增加 LLM/Embedding 部署分离矩阵<br/>- § 4.4 数据流更新本地 embedding-server 调用<br/>- § 8.1 配置项增加 EMBEDDING_* 环境变量<br/>- § 8.2 依赖服务增加本地 embedding 服务<br/>- 向量维度统一为 768(BAAI/bge-base-zh-v1.5) | AI Assistant |
-| **v1.2** | **2026-07-16** | **TEI 切换为自研纯 Go embedding-server(国内网络基线)**:原计划 TEI(`ghcr.io/huggingface/text-embeddings-inference:1.5-cpu`,镜像 1.7GB,启动 120s)因国内网络拉取失败切换为自研纯 Go embedding-server(~20MB,启动 ~1s,协议 100% 兼容 OpenAI `/v1/embeddings`);全文 TEI 引用全部更新 | AI Assistant |

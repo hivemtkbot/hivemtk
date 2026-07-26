@@ -17,13 +17,13 @@
  *   - data-visitor-id-key localStorage 中访客 UUID 的 key
  *   - data-z-index        层级,默认 9999
  *
- * 设计原则(2026-07-17 私域部署模式):
+ * 设计原则(私域部署模式):
  *   1. AppKey / Channel 都不是必填;用户自己部署本系统后,浮标直接可用
  *   2. 浮标 + 聊天窗所有颜色 / 装饰保持极简白底
  *   3. WebSocket 无鉴权,自己网站直连
  *   4. 自动重连 + 离线消息补发(连接时拉取)
  *
- * 设计原则(2026-07-21 跨域修复):
+ * 设计原则(跨域):
  *   1. 父端维护 allowedOrigins 白名单(自动 = [apiBaseURL, window.location.origin])
  *   2. iframe 端用具体 origin 发送 postMessage,不用 '*'
  *   3. 所有事件回调(events.onMessage 等)对外暴露,方便高级用户做埋点

@@ -1,7 +1,5 @@
 # HiveMtk 宿主机推理栈 —— 使用说明
 
-> 适用版本：2026-07-24+
-> 替代旧版：Docker 容器化推理栈（mtk-llm / mtk-embedding / mtk-rerank）
 > 完整方案：[../../../docs/architecture/HOST_INFERENCE_PLAN.md](../../../docs/architecture/HOST_INFERENCE_PLAN.md)
 
 ## 一、文件清单
@@ -147,7 +145,7 @@ bash scripts/inference-host/start-llm.sh
 | `--mlock` 启动失败 | 物理内存不足；设 `USE_MLOCK=false` 关闭 |
 | `--flash-attn` 不兼容 | 部分老模型不支持；设 `FLASH_ATTN=off` 关闭 |
 
-## 九、性能调优（2026-07-24 审查）
+## 九、性能调优
 
 ### 9.1 默认已启用的优化
 

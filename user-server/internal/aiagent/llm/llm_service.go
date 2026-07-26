@@ -30,14 +30,13 @@ type LLMConfig struct {
 	PresencePenalty  float64
 	ResponseFormat   string // json_object, text
 	SystemPrompt     string
-	// P0-3 修复：用于置信度计算（P0-3 §15.5.4 LLMEntropy 信号）
+	// 用于置信度计算（P0-3 §15.5.4 LLMEntropy 信号）
 	// - Logprobs: 请求 LLM 返回每个 token 的 log 概率
 	// - TopLogprobs: 返回 top-N 候选 token 的 log 概率（用于计算 TopTokenEntropy）
-	// 当前 LLMService.Generate 尚未真正透传这两个字段到 OpenAI chatRequest，
-	// 属于后续 P0-3 子任务（实现 chatResponse.choices[0].logprobs 解析）。
+	// 实现 chatResponse.choices[0].logprobs 解析。
 	Logprobs    bool
 	TopLogprobs int
-	// ===== 智能体 tool_call 支持（P0-1 修复 2026-07-21）=====
+	// ===== 智能体 tool_call 支持 =====
 	// Tools: OpenAI Function Calling 工具定义；非空时 chatRequest 会携带 tools 字段
 	//        并设置 tool_choice=auto（除非 ToolChoice 显式指定）
 	// ToolChoice: "auto"/"none"/"required" 或 "{\"type\":\"function\",\"function\":{\"name\":\"xxx\"}}"
@@ -100,7 +99,7 @@ type LLMService struct {
 }
 
 // defaultHTTPTimeout 默认 HTTP 客户端超时
-// 2026-07-24：改为可配置，由 NewDispatcherFromConfig 启动时通过 setDefaultHTTPTimeout 注入
+// 可配置，由 NewDispatcherFromConfig 启动时通过 setDefaultHTTPTimeout 注入
 // 默认 180s（覆盖大多数 CPU 推理场景）；开发模式可在 config.yaml 设 720s 等大值。
 // 与 dispatcher.MaxLatency、sales_engine.agentLoopTotalTimeout 共享同一配置源。
 var defaultHTTPTimeout = 180 * time.Second
@@ -135,13 +134,13 @@ type chatRequest struct {
 	PresencePenalty  float64        `json:"presence_penalty,omitempty"`
 	ResponseFormat   map[string]any `json:"response_format,omitempty"`
 	Stream           bool           `json:"stream"`
-	// P0-1 修复：智能体 tool_call 字段
+	// 智能体 tool_call 字段
 	Tools      []map[string]any `json:"tools,omitempty"`       // OpenAI tools 数组
 	ToolChoice any              `json:"tool_choice,omitempty"` // "auto"/"none"/"required" 或 {type:function,function:{name:xxx}}
 }
 
 // chatMessage OpenAI 兼容的聊天消息
-// P0-1 修复：增加 ToolCalls / ToolCallID 字段以支持 tool_call 往返
+// 增加 ToolCalls / ToolCallID 字段以支持 tool_call 往返
 type chatMessage struct {
 	Role       string         `json:"role"`
 	Content    string         `json:"content,omitempty"`
@@ -213,7 +212,7 @@ func applyEnvDefaults(cfg *LLMConfig) {
 	}
 }
 
-// GenerateResult LLM 调用结果（P0-1 智能体支持）
+// GenerateResult LLM 调用结果（智能体支持）
 //
 // 字段含义：
 //   - Content：文本内容（finish_reason=stop/length 时为最终回复；
@@ -297,7 +296,7 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		reqBody.ResponseFormat = map[string]any{"type": "json_object"}
 	}
 
-	// P0-1: 序列化 Tools / ToolChoice 到请求体
+	// 序列化 Tools / ToolChoice 到请求体
 	if len(config.Tools) > 0 {
 		reqBody.Tools = make([]map[string]any, 0, len(config.Tools))
 		for _, t := range config.Tools {
@@ -357,7 +356,7 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 			TotalTokens:      resp.Usage.TotalTokens,
 		},
 	}
-	// P0-1: 解析 tool_calls（finish_reason=tool_calls 时 LLM 要求调用工具）
+	// 解析 tool_calls（finish_reason=tool_calls 时 LLM 要求调用工具）
 	if len(choice.Message.ToolCalls) > 0 {
 		result.ToolCalls = make([]ToolCall, 0, len(choice.Message.ToolCalls))
 		for _, tc := range choice.Message.ToolCalls {
