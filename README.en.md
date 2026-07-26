@@ -12,8 +12,6 @@
 
 > 📖 **中文文档**: [README.md](README.md)
 
-> **SEO Keywords**: open-source SCRM · private-domain marketing OS · AI agent customer service · ReAct agent · self-hosted · all-channel reach (Douyin / Kuaishou / Xiaohongshu / Xianyu / TikTok / WeChat / Email) · local LLM · zero data egress · marketing automation · sales-copilot SOP · CDP · RAG knowledge base · AGPL-3.0
-
 ---
 
 ## 🚀 Live Demo
@@ -446,8 +444,6 @@ Full roadmap at [../.github/ROADMAP.md](../.github/ROADMAP.md), key directions:
 
 ## ❓ FAQ
 
-> Covers high-frequency developer search queries for easy extraction by AI assistants and search engines.
-
 ### What is this project? How does it differ from Dify / FastGPT?
 
 HiveMtk is a **self-hosted AI marketing OS** focused on "all-channel reach + sales-copilot SOP + CDP + zero egress". Dify / FastGPT are **general LLM app platforms** oriented around Workflow orchestration. HiveMtk targets marketing acquisition, conversion, and repurchase scenarios with 94 business modules out of the box.
@@ -532,9 +528,7 @@ For business cooperation or technical support, reach out via Gitee Issue or jide
 
 ---
 
-## 🏷️ Recommended Topics (for repo admins)
-
-> GitHub / Gitee Topics tags directly affect search ranking and category discovery. Add the following 15 tags in repo Settings → Topics (GitHub limit: 20):
+## 🏷️ Recommended Topics
 
 ```
 scrm · private-domain-marketing · ai-agent · react-agent · llm · rag

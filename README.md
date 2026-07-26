@@ -14,8 +14,6 @@
 
 </div>
 
-> **SEO 关键词**:开源 SCRM · 私域营销操作系统 · AI 智能体客服 · ReAct Agent · 私有化部署 · 七端打通(抖音/快手/小红书/闲鱼/TikTok/企微/邮件) · 本地大模型 · 零出域数据安全 · 营销自动化 · 销冠 SOP · CDP 客户中台 · RAG 知识库 · AGPL-3.0 开源
-
 ---
 
 ## 🚀 在线体验
@@ -486,8 +484,6 @@ make down                 # 停止旧版全栈
 
 ## ❓ 常见问题(FAQ)
 
-> 覆盖开发者搜索高频疑问,便于 AI 助手与搜索引擎直接提取。
-
 ### 这是什么项目?和 Dify / FastGPT 有什么区别?
 
 HiveMtk 是**私域营销 AI 操作系统**,聚焦"七端社媒触达 + 销冠 SOP + CDP 客户中台 + 零出域";Dify / FastGPT 是**通用 LLM 应用开发平台**,更偏Workflow 编排。HiveMtk 直接面向营销获客、转化、复购业务场景,内置 94 个业务模块,开箱即用。
@@ -586,9 +582,7 @@ HiveMtk 的**主动触达模块**(短信、邮件、微信公众号 / 企业微�
 
 ---
 
-## 🏷️ 推荐 Topics(供仓库管理员参考添加)
-
-> GitHub / Gitee 仓库顶部的 Topics 标签直接影响搜索排名与分类曝光。建议在仓库 Settings → Topics 中添加以下 15 个标签(GitHub 上限 20 个):
+## 🏷️ 推荐 Topics 标签
 
 ```
 scrm · private-domain-marketing · ai-agent · react-agent · llm · rag
