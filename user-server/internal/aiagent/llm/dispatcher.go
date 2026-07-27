@@ -155,22 +155,23 @@ func NewDispatcherFromConfig(cfg config.AppConfig) *Dispatcher {
 }
 
 // registerLocalProvider 注册本地默认 provider（指向 mtk-llm / 宿主 127.0.0.1:8207）
+//
+// 契约：llmCfg.Model 与 llmCfg.BaseURL 必须由 config 层提供非空值
+// （config.yaml 或 DefaultInferenceConfig 兜底）。dispatcher 不再做模型名/URL
+// 硬编码兜底，避免与 config 契约分裂。
 func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
-	baseURL := llmCfg.BaseURL
-	model := llmCfg.Model
-	apiKey := llmCfg.APIKey
-	if baseURL == "" {
-		baseURL = "http://127.0.0.1:8207/v1"
+	if llmCfg.Model == "" {
+		panic("inference.llm.model 必须由 config 层提供（config.yaml 或 DefaultInferenceConfig），dispatcher 不再兜底")
 	}
-	if model == "" {
-		model = "Qwen2.5-3B-Instruct"
+	if llmCfg.BaseURL == "" {
+		panic("inference.llm.base_url 必须由 config 层提供（config.yaml 或 DefaultInferenceConfig），dispatcher 不再兜底")
 	}
 	d.providers["default"] = &ProviderConfig{
 		Name:         "default",
-		APIKey:       apiKey,
-		BaseURL:      baseURL,
+		APIKey:       llmCfg.APIKey,
+		BaseURL:      llmCfg.BaseURL,
 		APIType:      "openai",
-		Model:        model,
+		Model:        llmCfg.Model,
 		CostPer1k:    0,
 		AvgLatencyMs: 800,
 		// 本地即唯一启用 provider，质量分须高于所有场景的 MinQuality 门槛
@@ -179,7 +180,7 @@ func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
 		QualityScore: 0.99,
 		MaxRPM:       0, // 0 = 不限流
 		Enabled:      true,
-		// 本地 Qwen2.5-3B-Instruct 不支持 OpenAI Function Calling
+		// 本地 Qwen2.5-1.5B-Instruct 不支持 OpenAI Function Calling
 		// 启用 ReAct 适配器，通过 Thought/Action/Action Input 文本协议完成工具调用
 		// 用户可通过 inference.llm.no_fc=false 显式关闭（如果模型已升级支持 FC）
 		NoFC: resolveNoFC(llmCfg),

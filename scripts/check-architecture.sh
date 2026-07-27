@@ -46,7 +46,7 @@ echo ""
 # -----------------------------------------------------------------------------
 # 1. Controller 反向依赖检查
 # -----------------------------------------------------------------------------
-echo "[1/9] Controller 反向依赖检查..."
+echo "[1/10] Controller 反向依赖检查..."
 
 # 1.1 controller 不应直接 import repository
 # 允许例外: *_test.go 文件可以 import repository 用于测试构造(Go 标准模式)
@@ -96,7 +96,7 @@ fi
 # 2. Service 反向依赖检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[2/9] Service 反向依赖检查..."
+echo "[2/10] Service 反向依赖检查..."
 
 # 2.1 service 不应调 controller / router
 if grep -rn "marketing/internal/controller\|marketing/internal/router" "$TARGET/internal/service/" 2>/dev/null; then
@@ -138,7 +138,7 @@ fi
 # 3. Repository 反向依赖检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[3/9] Repository 反向依赖检查..."
+echo "[3/10] Repository 反向依赖检查..."
 
 # 3.1 repository 不应调 service
 if grep -rn "marketing/internal/service" "$TARGET/internal/repository/" 2>/dev/null; then
@@ -158,7 +158,7 @@ fi
 # 4. Model 业务方法检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[4/9] Model 业务方法检查..."
+echo "[4/10] Model 业务方法检查..."
 
 MODEL_VIOLATIONS=0
 for f in $(find "$TARGET/internal/model" -name "*.go" 2>/dev/null); do
@@ -179,7 +179,7 @@ fi
 # 5. DTO 反向依赖检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[5/9] DTO 反向依赖检查..."
+echo "[5/10] DTO 反向依赖检查..."
 
 # 5.1 dto 不应引用 service / repository
 if grep -rn "marketing/internal/service\|marketing/internal/repository\|marketing/internal/repo" "$TARGET/internal/dto/" 2>/dev/null; then
@@ -215,7 +215,7 @@ fi
 # 6. 文件命名规范检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[6/9] 文件命名规范检查..."
+echo "[6/10] 文件命名规范检查..."
 
 NAMING_VIOLATIONS=0
 for f in $(find "$TARGET/internal" \
@@ -302,7 +302,7 @@ fi
 # 7. Service interface 规范检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[7/9] Service interface 规范检查..."
+echo "[7/10] Service interface 规范检查..."
 
 # 提醒:interface 命名规范(大写 I 前缀或 Service 后缀,本项目用 Service 后缀)
 SERVICE_NO_INTERFACE=0
@@ -324,7 +324,7 @@ fi
 # 8. Repository interface 规范检查
 # -----------------------------------------------------------------------------
 echo ""
-echo "[8/9] Repository interface 规范检查..."
+echo "[8/10] Repository interface 规范检查..."
 
 REPO_NO_INTERFACE=0
 for f in $(find "$TARGET/internal/repository" -name "*.go" 2>/dev/null); do
@@ -343,7 +343,7 @@ fi
 # 9. 上下文透传检查(抽查)
 # -----------------------------------------------------------------------------
 echo ""
-echo "[9/9] 上下文透传检查(抽查)..."
+echo "[9/10] 上下文透传检查(抽查)..."
 
 CTX_VIOLATIONS=0
 # Repository 方法必须第一个参数是 ctx context.Context
@@ -371,6 +371,34 @@ for f in $(find "$TARGET/internal/repository" -name "*.go" 2>/dev/null); do
 done
 if [ $CTX_VIOLATIONS -eq 0 ]; then
   log_pass "[Repository] 所有导出方法都含 ctx context.Context"
+fi
+
+# -----------------------------------------------------------------------------
+# 10. Config 包位置检查
+# -----------------------------------------------------------------------------
+echo ""
+echo "[10/10] Config 包位置检查..."
+
+# 架构文档 §2.1: config 包应位于 internal/config/，禁止放在 internal/pkg/utils/config/
+# 原因：AppConfig/InferenceConfig 等是业务配置，不是"无业务含义的通用工具"
+# 历史遗留：当前 user-server 的 AppConfig 仍在 internal/pkg/utils/config/，需迁移
+CONFIG_MISPLACED=$(find "$TARGET/internal/pkg/utils" -type d -name "config" 2>/dev/null || true)
+if [ -n "$CONFIG_MISPLACED" ]; then
+  log_warn "[Config] config 包位于 internal/pkg/utils/config/（应迁移至 internal/config/）:"
+  echo "$CONFIG_MISPLACED" | sed 's/^/    /'
+  echo "    规范:GO_FIVE_LAYER_ARCHITECTURE.md §2.1 + ADR-012"
+else
+  log_pass "[Config] config 包位置合规（不在 internal/pkg/utils/ 下）"
+fi
+
+# 检查 config 包分裂（多个目录都叫 config）
+CONFIG_DIRS=$(find "$TARGET/internal" -type d -name "config" 2>/dev/null || true)
+CONFIG_DIR_COUNT=$(echo "$CONFIG_DIRS" | grep -c . 2>/dev/null || echo 0)
+if [ "$CONFIG_DIR_COUNT" -gt 1 ]; then
+  log_warn "[Config] 存在多个 config 包目录（应合并至 internal/config/）:"
+  echo "$CONFIG_DIRS" | sed 's/^/    /'
+else
+  log_pass "[Config] config 包未分裂"
 fi
 
 # -----------------------------------------------------------------------------

@@ -21,7 +21,7 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 			},
 			LLM: config.InferenceLLMConfig{
 				Mode: config.InferenceModeLocal, BaseURL: "http://127.0.0.1:8207/v1",
-				Model: "Qwen2.5-3B-Instruct",
+				Model: "Qwen2.5-1.5B-Instruct",
 			},
 		},
 	}
@@ -68,7 +68,7 @@ func TestNewDispatcherFromConfig_CloudOptIn(t *testing.T) {
 		Inference: config.InferenceConfig{
 			LLM: config.InferenceLLMConfig{
 				BaseURL: "http://127.0.0.1:8207/v1",
-				Model:   "Qwen2.5-3B-Instruct",
+			Model:   "Qwen2.5-1.5B-Instruct",
 				CloudProviders: []config.InferenceCloudProviderConfig{
 					{Name: "deepseek", BaseURL: "https://api.deepseek.com", APIType: "openai",
 						Model: "deepseek-chat", Enabled: true, APIKey: "sk-test"},

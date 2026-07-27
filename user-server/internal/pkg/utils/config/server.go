@@ -56,6 +56,59 @@ var DefaultPoolConfig = PoolConfig{
 	ConnMaxLifetime: 3600, // 60 分钟
 }
 
+// 默认推理栈配置常量（私域部署基线）
+//
+// 设计目的：当 config.yaml 缺失时（如 Docker 首次启动），由 config 包提供
+// 与 dev 档一致的本地推理栈默认值，避免消费方（dispatcher/embedding/rerank）
+// 各自做兜底硬编码导致契约分裂。
+//
+// 原则：
+//   - 默认值必须指向本地（127.0.0.1），绝不静默走公网
+//   - 维度必须与 pgvector vector(1024) 对齐
+//   - 模型名必须与实际部署的模型一致（Qwen2.5-1.5B-Instruct / bge-m3 / bge-reranker-v2-m3）
+const (
+	defaultLLMModel        = "Qwen2.5-1.5B-Instruct"
+	defaultLLMBaseURL      = "http://127.0.0.1:8207/v1"
+	defaultEmbeddingModel  = "bge-m3"
+	defaultEmbeddingBaseURL = "http://127.0.0.1:8208/v1"
+	defaultRerankModel     = "bge-reranker-v2-m3"
+	defaultRerankBaseURL   = "http://127.0.0.1:8209/v1"
+	defaultEmbeddingDim    = 1024
+)
+
+// DefaultInferenceConfig 返回本地推理栈默认配置（私域部署基线）
+//
+// 用于 config.yaml 缺失时的回落，确保消费方拿到的 InferenceConfig 永远非零值。
+// 消费方（dispatcher 等）不再需要任何模型名/URL 兜底硬编码。
+func DefaultInferenceConfig() InferenceConfig {
+	return InferenceConfig{
+		Profile: "dev",
+		Embedding: InferenceEmbeddingConfig{
+			Mode:      InferenceModeLocal,
+			BaseURL:   defaultEmbeddingBaseURL,
+			Model:     defaultEmbeddingModel,
+			Dimension: defaultEmbeddingDim,
+			// AllowFallback 默认 false：禁止静默降级哈希伪向量（私域基线）
+		},
+		Rerank: InferenceRerankConfig{
+			Mode:    InferenceModeLocal,
+			BaseURL: defaultRerankBaseURL,
+			Model:   defaultRerankModel,
+			Enabled: true,
+		},
+		LLM: InferenceLLMConfig{
+			Mode:           InferenceModeLocal,
+			BaseURL:        defaultLLMBaseURL,
+			Model:          defaultLLMModel,
+			Temperature:    0.7,
+			MaxTokens:      1024,
+			TimeoutSeconds: 720,
+			MaxRetries:     1,
+			// NoFC 默认 false：由 dispatcher 基于 URL 启发式判定（本地 true / 云端 false）
+		},
+	}
+}
+
 // PostgresConfig PostgreSQL 配置
 type PostgresConfig struct {
 	Host     string `yaml:"host"`
@@ -85,7 +138,7 @@ const (
 
 // InferenceConfig 本地推理栈（embedding / rerank / llm）统一配置
 //
-// 设计要点（详见 docs/architecture/LOCAL_INFERENCE_OPTIMIZATION.md）：
+// 设计要点（详见 docs/architecture/HOST_INFERENCE_PLAN.md）：
 //   - 三个能力统一暴露为 OpenAI 兼容 HTTP（/v1/embeddings、/v1/rerank、/v1/chat/completions）。
 //   - 默认走本地（mode: local）；用户只需在 base_url+api_key 填线上地址即切到线上（mode 自动 remote）。
 //   - profile=dev 选最轻量模型；profile=prod 选效果/硬件平衡；但 embedding 维度必须 1024。
@@ -291,8 +344,9 @@ func GetAppConfig() AppConfig {
 		config.VectorDatabase.Type = VectorDBTypePGVector
 		config.VectorDatabase.PGVector.Table = "knowledge_embeddings"
 		config.VectorDatabase.PGVector.Dimension = 1024 // 2026-07-18 私域基线：本地 TEI + bge-m3（1024 维）
-		// 注：本地推理栈（embedding/rerank/llm）缺省值由各 DefaultConfig 函数内置回落提供
-		// （本地 mtk-* / 127.0.0.1，维度 1024，绝不静默走公网）；配置文件优先于环境变量。
+		// 本地推理栈缺省值由 DefaultInferenceConfig 统一提供（本地 127.0.0.1，维度 1024，
+		// 绝不静默走公网）；消费方不再做兜底硬编码，配置文件优先于默认值。
+		config.Inference = DefaultInferenceConfig()
 		return config
 	}
 
