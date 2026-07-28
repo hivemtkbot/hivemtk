@@ -34,18 +34,47 @@ func RegisterOwnershipChecker(fn OwnershipChecker) {
 	GlobalOwnershipChecker = fn
 }
 
+// =============================================================
+// 桥接默认参数（所有值必须能从文档溯源，禁"软启动"）
+//
+// 文档源：
+//   - user-web/bridge/src/core/constants.js  (前端对应常量)
+//   - docs/bridge/DEFAULTS.md                (用户公开清单)
+//   - user-server/docs/dev/DEVELOPMENT.md    (端口对照表)
+//
+// 调整任意值需同步更新：
+//   1) 此处常量
+//   2) 前端 constants.js
+//   3) DEFAULTS.md
+//   4) 相关测试
+// =============================================================
 const (
-	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingPeriod     = 50 * time.Second
+	// writeWait 单次 WS 写操作超时（避免慢客户端长时间占用 conn）
+	// 文档源：基于 gorilla/websocket 官方推荐 + 历史线上事故复盘
+	writeWait = 10 * time.Second
+	// pongWait 读空闲超时（连续 pongWait 无任何帧 → 主动断开）
+	// 客户端心跳 25s（constants.WS_CLIENT_DEFAULTS.serverIdleTimeoutMs） < 此值，留 35s 缓冲
+	pongWait = 60 * time.Second
+	// pingPeriod 服务端主动 ping 周期（小于 pongWait）
+	// 留 10s 缓冲给网络延迟 + 客户端响应
+	pingPeriod = (60 * time.Second) - (10 * time.Second)
+	// maxMessageSize 单帧最大字节数（1MB），超过则断开连接
 	maxMessageSize = 1 << 20
 	// maxReplyContentBytes 单条 AI 回复最大字节数（防止 XSS payload 巨大 + 平台限制）
+	// 与前端 constants.SECURITY.maxReplyContentBytes 严格对齐
 	maxReplyContentBytes = 4 * 1024
+	// readBufferSize / writeBufferSize WS 缓冲区大小
+	// 文档源：gorilla/websocket 默认值，适配普通 JSON 帧
+	readBufferSize  = 1024
+	writeBufferSize = 1024
+	// sendBufferSize 客户端 send 通道容量（满后 Deliver 返回 ErrBridgeBufferFull）
+	// 文档源：基于经验值；过小容易误判离线，过大浪费内存
+	sendBufferSize = 256
 )
 
 var upgraderBridge = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  readBufferSize,
+	WriteBufferSize: writeBufferSize,
 	CheckOrigin:     bridgeCheckOrigin,
 }
 
@@ -377,7 +406,7 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		channel: channel,
 		account: accountID,
 		conn:    conn,
-		send:    make(chan []byte, 256),
+		send:    make(chan []byte, sendBufferSize),
 	}
 	if old := h.hub.Register(client); old != nil && old != client {
 		old.Kick()

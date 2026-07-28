@@ -187,7 +187,7 @@ func TestBridgeHub_Janitor_CleansIdle(t *testing.T) {
 	hub.rateMu.Unlock()
 
 	// 启动 janitor，缩短间隔和空闲阈值，便于快速验证
-	hub.StartJanitor(20*time.Millisecond, 100*time.Millisecond)
+	hub.StartJanitorWith(20*time.Millisecond, 100*time.Millisecond)
 	// 等待 janitor 跑一轮
 	time.Sleep(120 * time.Millisecond)
 	hub.Shutdown() // 触发 janitor 退出

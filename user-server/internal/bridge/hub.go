@@ -22,6 +22,21 @@ var (
 	ErrBridgeBufferFull = errors.New("bridge: send buffer full")
 )
 
+// =============================================================
+// 桥接默认参数（与前端 constants.js / DEFAULTS.md 严格对齐）
+// 文档源：docs/bridge/DEFAULTS.md，user-web/bridge/src/core/constants.js
+// =============================================================
+const (
+	// DeliverRateLimitPerMin 单账号每分钟下行限速（兜底）
+	// 扩展端 12/min（更严格）；服务端 60/min 仅防止失控洪泛
+	// 调整需同步前端 RATE_LIMIT_DEFAULTS.accountCapacity
+	DeliverRateLimitPerMin = 60
+	// JanitorInterval rate bucket 清理周期
+	JanitorInterval = 60 * time.Second
+	// JanitorIdleTTL rate bucket 空闲超时（无活动后被回收）
+	JanitorIdleTTL = 10 * time.Minute
+)
+
 // rateBucket 极简令牌桶
 type rateBucket struct {
 	mu      sync.Mutex
@@ -104,9 +119,14 @@ func GetBridgeHub() *BridgeHub {
 
 // StartJanitor 启动后台 janitor 协程：定期清理空闲 rateBucket + 关闭信号
 //
-// 间隔：60s；空闲阈值：10min（10 分钟内无取令牌动作的桶视为空闲）。
+// 间隔与空闲阈值：见 JanitorInterval / JanitorIdleTTL 常量（单源来自 DEFAULTS.md）
 // 安全：与 IsOnline/Deliver 的锁独立，不会阻塞业务路径。
-func (h *BridgeHub) StartJanitor(interval, idleTTL time.Duration) {
+func (h *BridgeHub) StartJanitor() {
+	go h.runJanitor(JanitorInterval, JanitorIdleTTL)
+}
+
+// StartJanitorWith 自定义间隔（仅供测试用，生产代码用 StartJanitor）
+func (h *BridgeHub) StartJanitorWith(interval, idleTTL time.Duration) {
 	go h.runJanitor(interval, idleTTL)
 }
 
@@ -220,7 +240,7 @@ func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) erro
 	h.rateMu.Lock()
 	b, ok := h.rateBuckets[account]
 	if !ok {
-		b = newRateBucket(60, 60)
+		b = newRateBucket(DeliverRateLimitPerMin, DeliverRateLimitPerMin)
 		h.rateBuckets[account] = b
 	}
 	allowed := b.take()

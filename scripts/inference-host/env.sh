@@ -46,6 +46,13 @@ export LLAMACPP_BIN
 LLAMACPP_BIN="$(detect_llamacpp_bin)"
 
 # ---- 端口分配（与旧架构一致，业务侧零改动）----
+# 单一文档源：user-server/docs/dev/DEVELOPMENT.md §2.4 端口对照表
+# 单一代码源：user-server/internal/pkg/utils/config/ports.go
+#   - LLM_PORT (8207)         ↔ config.DefaultLLMPort / DefaultLLMBaseURLDev
+#   - EMBEDDING_PORT (8208)   ↔ config.DefaultEmbeddingPort / DefaultEmbeddingBaseURLDev
+#   - RERANK_PORT (8209)      ↔ config.DefaultRerankPort / DefaultRerankBaseURLDev
+# 任何调整必须同步：env.sh + ports.go + DEVELOPMENT.md §2.4 + config.yaml inference.*
+# 严禁在 Go 业务代码里硬编码 :8207/:8208/:8209 等字面量（必须 import config 包派生）
 : "${LLM_PORT:=8207}"
 : "${EMBEDDING_PORT:=8208}"
 : "${RERANK_PORT:=8209}"

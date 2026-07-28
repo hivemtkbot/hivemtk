@@ -40,6 +40,24 @@ npm install
 | `npm run test:all` | 串联执行 `unit` + `boundary` |
 | `npm run test:e2e` | 运行 `bash test/e2e.sh`，端到端验证（user-server + SDK + CORS + WS） |
 
+### 2.1 端口对照表
+
+> **核心约束**：`src/config.js` 的 `DEFAULTS.apiBaseURL` = **`script 同源` 或 `window.location.origin`**（不写死端口）
+> 但默认行为上**通过 user-server 提供 demo**（见 `vite.config.js` 的 `server.port=5174`），dev 模式下 demo.html 的 `{apiBaseUrl}` 会被自动替换为 `http://localhost:8204`（user-server 端口）
+
+| 端口 | 服务 / 应用 | 启动入口 | 单一源 | 文档源 |
+| --- | --- | --- | --- | --- |
+| **5174** | **embed-sdk Vite dev**（demo.html 托管） | `npm run dev` | `vite.config.js server.port=5174` | `vite.config.js:27` |
+| **8204** | **user-server**（demo.html 实际请求目标） | `cd ../user-server && go run ./cmd/api` | user-server `config.DefaultListenPort` | user-server/docs/dev/DEVELOPMENT.md §2.4 |
+| 8207 | LLM（user-server 本地推理） | user-server `make inference-host-up` | user-server `config.DefaultLLMPort` | user-server docs §2.4 |
+| 8208 | Embedding | user-server `make inference-host-up` | user-server `config.DefaultEmbeddingPort` | user-server docs §2.4 |
+
+**前端启动约束**（禁软启动 / 禁多处硬编码）：
+
+1. SDK 集成后**不绑定端口**——`apiBaseURL` 走 `data-api-base-url` 属性 / `window.MarketingChatWidgetConfig.apiBaseURL` / script 同源
+2. demo.html 端口 5174 是 Vite dev 端口（仅 demo），不影响 SDK 产物
+3. WS 端点由 user-server 端注册：`/api/ws/visitor`（`service_routes.go`）—— SDK 端**禁止写绝对 WS URL**
+
 ### `node demo.html` 调试方式
 
 `demo.html` 不能直接 `node demo.html` 运行（它是 HTML 文件）。正确的本地调试方式：

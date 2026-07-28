@@ -159,12 +159,27 @@ node scripts/build.mjs
 # popup 端口默认 http://localhost:8204（user-server）
 ```
 
+**各 cmd 入口的启动描述**（除主进程外，按需启动）：
+
+| 入口 | 启动命令 | 端口 | 用途 | 单一源 |
+| --- | --- | --- | --- | --- |
+| `cmd/api` | `go run ./cmd/api` | 8204 | 主 HTTP 服务 | `config.DefaultListenPort` |
+| `cmd/embedding-server` | `go run ./cmd/embedding-server -port=8208` | 8208 | 纯 Go Embedding HTTP（无 host 推理栈时备用） | `config.DefaultEmbeddingPort` |
+| `cmd/seed` | `go run ./cmd/seed` 或 `go run ./cmd/seed --module=customers` | - | 演示种子数据写入（10 个模块） | - |
+| `cmd/perf` | `go run ./cmd/perf -username=xxx -password=xxx` | - | 压测（必须显式传账号密码） | `config.DefaultUserServerBaseURL` |
+| `cmd/reset-admin` | `go run ./cmd/reset-admin --username=admin` | - | 重置超管账号 | - |
+| `cmd/routeinspect` | `go run ./cmd/routeinspect` | - | 路由自检（仅打印路由） | - |
+
 **单一源约束（禁软启动 / 禁多处硬编码）**：
 
-1. **所有端口字面量集中在 `user-server/internal/pkg/utils/config/ports.go`**（`DefaultListenPort`/`DefaultDBPortDev`/`DefaultDBPortDocker`/`DefaultRedisPort`/`DefaultPlatformPort`/`DefaultChromiumCDPPort`/`DefaultLLMPort`/`DefaultEmbeddingPort`/`DefaultRerankPort`）
+1. **所有端口字面量集中在 `user-server/internal/pkg/utils/config/ports.go`**（`DefaultListenPort`/`DefaultDBPortDev`/`DefaultDBPortDocker`/`DefaultRedisPort`/`DefaultPlatformPort`/`DefaultChromiumCDPPort`/`DefaultLLMPort`/`DefaultEmbeddingPort`/`DefaultRerankPort` 等 + 对应 `_PortStr` 字符串版本 + `DefaultXxxBaseURLDev`/`DefaultXxxBaseURLDocker` 派生 URL + `DefaultPlatformAPI` 平台 API 网关 + `DefaultBGEBaseURLDev/Docker` BGE-m3 兜底）
 2. **bridge 端单源**：`user-web/bridge/src/core/constants.js` 的 `DEFAULT_USER_SERVER.port = 8204`
-3. **禁止"软启动"**——`config.yaml` 缺字段时必须明确报错（`log.Fatalf`），不允许 `if cfg == nil { cfg = defaultConfig }` 静默兜底
+3. **禁止"软启动"**——`config.yaml` 缺字段时必须明确报错（`log.Fatalf`），不允许 `if cfg == nil { cfg = defaultConfig }` 静默兜底；即使是最后兜底的本地默认值，也必须从 `config.DefaultXxxBaseURLDev` / `config.DefaultXxxBaseURLDocker` 引用，禁止字面量
 4. **禁止"重复硬编码"**——任何模块（含 `cmd/perf/main.go`、`internal/service/short_link.go` 等）禁止在写 `http://localhost:8204` / `:8207` 等字面量，必须 `import "marketing/internal/pkg/utils/config"` 后用 `config.DefaultXxx` 派生
+5. **fallback 必须可溯源**——embedding/rerank/llm 服务的 last-resort fallback（如 `embedding.go:163`、`rerank.go:137`、`llm.go:574`）必须引用 `config.DefaultXxxBaseURLDocker` 或 `config.DefaultXxxBaseURLDev`，禁止直接写 `http://mtk-xxx:8208/v1` 等字面量
+6. **禁止账号/密码硬编码**——`cmd/perf/main.go` 等压测工具禁止 `admin123` 等弱口令默认值；必须通过命令行 `-username`/`-password` 或 `PERF_USERNAME`/`PERF_PASSWORD` 环境变量显式传入
+7. **禁止模型名硬编码**——LLM/Embedding/Rerank 默认模型名集中通过 `config.DefaultLLMModel()` / `config.DefaultEmbeddingModel()` / `config.DefaultRerankModel()` getter 引用，禁止 `embedding.go:169` 类的 `model = "bge-m3"` 字面量（dev 档契约：`Qwen2.5-1.5B-Instruct` / `bge-m3` / `bge-reranker-v2-m3`）
+8. **禁止外部 URL 硬编码**——平台 API 域名集中通过 `config.DefaultPlatformAPI` 引用，禁止 `cmd/api/main.go:175` 类字面量；Ollama 端口由环境变量 `PLAYGROUND_LLM_BASE_URL` 显式覆盖
 
 **PostgreSQL 端口差异说明**：本地源码启动时 `config.yaml` 中端口为 **8232**；Docker 部署时 `docker-compose-host.yml` 把 mtk-postgres 容器的 5432 映射到宿主机 **8202**。两者不冲突——切换部署模式时需同步修改 `config.yaml` 或 `config-docker.yaml` 的 `database.postgres.port`，或通过 `POSTGRES_PORT` 环境变量覆盖。
 
