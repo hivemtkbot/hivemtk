@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"marketing/internal/channelbot/telegram"
@@ -186,6 +187,53 @@ func maskToken(t string) string {
 		return "***"
 	}
 	return t[:4] + "****" + t[len(t)-4:]
+}
+
+// Telegram Bot Token 格式约束（依据 Telegram Bot API 官方文档）：
+//   - 形如 `<bot_id>:<token>`，例如 `123456789:AAEhBOweik6ad9JhbY4M9M3PqkfK1M3Pqkf`
+//   - bot_id：6~10 位数字
+//   - ":" 分隔符（1 个）
+//   - token：35 位字符，范围 [A-Za-z0-9_-]
+//   - 总长：43~46（不含 "bot" 前缀，纯 token 字段）
+//
+// ValidateBotToken 校验 Bot Token 格式（仅做语法校验，不调用 Telegram API）。
+// 用于 Create/Update controller 入口预校验，避免用户填错格式后 getMe 报错信息不友好。
+// 返回的 error 携带人类可读的原因，可直接 4xx 回包。
+func ValidateBotToken(token string) error {
+	if token == "" {
+		return fmt.Errorf("bot_token 不能为空")
+	}
+	colonIdx := strings.IndexByte(token, ':')
+	if colonIdx <= 0 {
+		return fmt.Errorf("bot_token 格式错误：缺少 ':' 分隔符（应形如 <bot_id>:<token>）")
+	}
+	if strings.Count(token, ":") != 1 {
+		return fmt.Errorf("bot_token 格式错误：':' 出现多次")
+	}
+	botID := token[:colonIdx]
+	tok := token[colonIdx+1:]
+
+	// bot_id: 全部为数字
+	for i := 0; i < len(botID); i++ {
+		if botID[i] < '0' || botID[i] > '9' {
+			return fmt.Errorf("bot_token 格式错误：bot_id 部分含非数字字符")
+		}
+	}
+	if len(botID) < 6 || len(botID) > 10 {
+		return fmt.Errorf("bot_token 格式错误：bot_id 长度 %d 不在 6~10 范围内", len(botID))
+	}
+
+	// token: 35 字符，范围 [A-Za-z0-9_-]
+	if len(tok) != 35 {
+		return fmt.Errorf("bot_token 格式错误：token 长度 %d 不等于 35", len(tok))
+	}
+	for i := 0; i < len(tok); i++ {
+		c := tok[i]
+		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return fmt.Errorf("bot_token 格式错误：第 %d 位字符 %q 不在 [A-Za-z0-9_-] 范围内", i+1, c)
+		}
+	}
+	return nil
 }
 
 // SetWebhook 注册 Telegram Webhook

@@ -7,6 +7,8 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/testutil"
+	"marketing/internal/pkg/utils/db"
 )
 
 // ============================================================================
@@ -249,5 +251,116 @@ func TestSmartCSOrchestrator_HandleResult(t *testing.T) {
 	}
 	if r.Confidence != 0.85 {
 		t.Errorf("Confidence 应为 0.85，实际 %.2f", r.Confidence)
+	}
+}
+
+// setupOrchestratorFindOrCreateTestDB 为 findOrCreateSession 测试准备 DB
+func setupOrchestratorFindOrCreateTestDB(t *testing.T) {
+	database := testutil.NewTestDB(t,
+		&model.CustomerSession{},
+		&model.SessionMessage{},
+	)
+	db.SetTestDB(database)
+}
+
+// TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender
+// P2-2 兜底：OneID 为空时，会话 OneID 字段应自动拼接 Platform:SenderID。
+// 适用场景：未通过用户实名/手机号识别出的访客（如匿名 Web 访客首次进入），
+// 后续同一 Platform+SenderID 的消息可命中 OneID 命中活跃会话。
+func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(t *testing.T) {
+	setupOrchestratorFindOrCreateTestDB(t)
+
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	ctx := context.Background()
+
+	in := &IncomingContext{
+		Platform:  model.Platform("web"),
+		AccountID: "acct-1",
+		SenderID:  "visitor-007",
+		Content:   "你好",
+		MessageID: "msg-1",
+		// OneID 故意留空，验证 P2-2 兜底
+	}
+	sess, err := o.findOrCreateSession(ctx, in)
+	if err != nil {
+		t.Fatalf("findOrCreateSession 失败: %v", err)
+	}
+	if sess == nil {
+		t.Fatal("应返回会话")
+	}
+	wantDerived := "web:visitor-007"
+	if sess.OneID != wantDerived {
+		t.Fatalf("OneID 应为派生值 %q，实际 %q", wantDerived, sess.OneID)
+	}
+	if sess.UserID != "visitor-007" {
+		t.Fatalf("UserID 不匹配: got=%q", sess.UserID)
+	}
+	if sess.Platform != model.Platform("web") {
+		t.Fatalf("Platform 不匹配: got=%q", sess.Platform)
+	}
+}
+
+// TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID
+// 验证显式 OneID 优先于派生 OneID（P2-2 兜底不应覆盖显式值）。
+func TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID(t *testing.T) {
+	setupOrchestratorFindOrCreateTestDB(t)
+
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	ctx := context.Background()
+
+	in := &IncomingContext{
+		Platform:  model.Platform("telegram"),
+		AccountID: "tg-acct-1",
+		SenderID:  "tg-user-9",
+		Content:   "hi",
+		MessageID: "msg-2",
+		OneID:     "phone:13800138000",
+	}
+	sess, err := o.findOrCreateSession(ctx, in)
+	if err != nil {
+		t.Fatalf("findOrCreateSession 失败: %v", err)
+	}
+	if sess.OneID != "phone:13800138000" {
+		t.Fatalf("OneID 应保留显式值，实际 %q", sess.OneID)
+	}
+}
+
+// TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser
+// 验证派生 OneID 在 TTL 内能合并同 Platform+SenderID 的后续会话。
+// 流程：第一次建会话，第二次同 SenderID（不同 MessageID）应命中活跃会话。
+func TestSmartCSOrchestrator_FindOrCreateSession_DerivedOneIDMergesSameUser(t *testing.T) {
+	setupOrchestratorFindOrCreateTestDB(t)
+
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	ctx := context.Background()
+
+	// 第一次：建会话（OneID 自动派生为 web:visitor-008）
+	first, err := o.findOrCreateSession(ctx, &IncomingContext{
+		Platform:  model.Platform("web"),
+		AccountID: "acct-1",
+		SenderID:  "visitor-008",
+		Content:   "first",
+		MessageID: "msg-A",
+	})
+	if err != nil {
+		t.Fatalf("first findOrCreateSession 失败: %v", err)
+	}
+	if first.OneID != "web:visitor-008" {
+		t.Fatalf("派生 OneID 错误: got=%q", first.OneID)
+	}
+
+	// 第二次：同 SenderID 再次进入，应命中活跃会话（不新建）
+	second, err := o.findOrCreateSession(ctx, &IncomingContext{
+		Platform:  model.Platform("web"),
+		AccountID: "acct-1",
+		SenderID:  "visitor-008",
+		Content:   "second",
+		MessageID: "msg-B",
+	})
+	if err != nil {
+		t.Fatalf("second findOrCreateSession 失败: %v", err)
+	}
+	if second.SessionID != first.SessionID {
+		t.Fatalf("应命中同一会话；first=%s second=%s", first.SessionID, second.SessionID)
 	}
 }

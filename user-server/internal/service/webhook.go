@@ -28,6 +28,7 @@ import (
 	"marketing/internal/channelbot/whatsapp"
 	"marketing/internal/model"
 	"marketing/internal/pkg/metrics"
+	"marketing/internal/pkg/trace"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 )
@@ -1666,10 +1667,14 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 	if s.salesEngine == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 继承上游 trace_id（如有），保证全链路日志可串联；
+	// 上游未注入时，WithTraceID 自动生成新 ID（不丢可观测性）。
+	parentCtx := context.Background()
+	if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 30*time.Second)
 	defer cancel()
-	// 分配追踪 ID，使回退链路日志可串联
-	ctx = logger.WithTraceID(ctx, "")
 	ctx = logger.WithModule(ctx, "webhook")
 
 	// 多 AI 智能体路由：加载渠道账号绑定的智能体上下文
@@ -1726,8 +1731,11 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 		return
 	}
 	// 轻量同步准备：加载智能体路由上下文 + 构造 IncomingContext（快速，不阻塞接入 worker）
+	// 继承上游 trace_id（路由上下文在加载智能体时产生的日志可与主链路串联）
 	routeCtx := context.Background()
-	routeCtx = logger.WithTraceID(routeCtx, "")
+	if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+		routeCtx = trace.NewContextWithTraceID(routeCtx, parentTraceID)
+	}
 	routeCtx = logger.WithModule(routeCtx, "webhook")
 	agentCtx, _ := s.loadAgentForChannel(routeCtx, channel, accountID)
 
@@ -1794,9 +1802,14 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	s.replySem <- struct{}{}
 	defer func() { <-s.replySem }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 继承上游 trace_id（如有），保证全链路日志可串联；
+	// 上游未注入时，WithTraceID 自动生成新 ID（不丢可观测性）。
+	parentCtx := context.Background()
+	if parentTraceID := trace.TraceIDFromContext(ctx); parentTraceID != "" {
+		parentCtx = trace.NewContextWithTraceID(parentCtx, parentTraceID)
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 30*time.Second)
 	defer cancel()
-	ctx = logger.WithTraceID(ctx, "")
 	ctx = logger.WithModule(ctx, "webhook")
 
 	// 本地推理偶发超时，最多重试 WebhookMaxRetries 次

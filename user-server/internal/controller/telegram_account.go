@@ -152,6 +152,11 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
 	}
+	// P2-3：Bot Token 格式预校验（在落库前拦截，避免 getMe 报错信息对用户不友好）
+	if vErr := tgbot.ValidateBotToken(req.BotToken); vErr != nil {
+		response.Error(c, http.StatusBadRequest, "Bot Token 格式错误", vErr.Error())
+		return
+	}
 	if req.Status == 0 {
 		req.Status = 1
 	}
@@ -188,6 +193,13 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "参数错误", err.Error())
 		return
+	}
+	// P2-3：Bot Token 格式预校验（更新时非空才校验；空表示保持原值）
+	if req.BotToken != "" {
+		if vErr := tgbot.ValidateBotToken(req.BotToken); vErr != nil {
+			response.Error(c, http.StatusBadRequest, "Bot Token 格式错误", vErr.Error())
+			return
+		}
 	}
 	acc.AccountName = req.AccountName
 	if req.BotToken != "" {

@@ -305,9 +305,9 @@ T+30h  user-server 重启
 - ✅ **S3-7（新增）** service 直访 db 架构违规修复（telegram_polling.go 5 处 db.GetDB() → repository）
 
 ### 待办（不影响主链路）
-- P2-1：trace_id 在 ctx 中绑定（orchestrator 入口需补强）
-- P2-2：会话创建时无 OneID 时的兜底（用 Platform:SenderID 拼接临时 OneID）
-- P2-3：Bot Token 格式预校验（Create/Update 入口）
+- ~~P2-1：trace_id 在 ctx 中绑定（orchestrator 入口需补强）~~ **已完成**（2026-07-28：router 已有 `middleware.TraceMiddleware()`，入站时自动注入 trace_id；service 层在 `runAIGeneration` / `triggerSmartOrchestrator` 通过 `trace.TraceIDFromContext` 继承上游 trace_id）
+- ~~P2-2：会话创建时无 OneID 时的兜底（用 Platform:SenderID 拼接临时 OneID）~~ **已完成**（`smart_cs_orchestrator.go:338-341`）
+- ~~P2-3：Bot Token 格式预校验（Create/Update 入口）~~ **已完成**（`tgbot.ValidateBotToken` + controller Create/Update 入口拦截）
 - P2-4：config 包位置迁移（internal/pkg/utils/config → internal/config，check-architecture 当前仅 warning）
 
 ---
@@ -341,9 +341,22 @@ T+30h  user-server 重启
 - 新增 10 个测试用例（含 PG 集成测试 5 个）
 - 所有测试通过
 
+**P2 优化全部完成（仅 P2-4 延后）**：
+- ✅ P2-1 trace_id 传递（依赖已有 `middleware.TraceMiddleware`，service 层继承上游 trace_id）
+- ✅ P2-2 OneID 兜底（Platform:SenderID 拼接临时 OneID）
+- ✅ P2-3 Bot Token 格式校验（`tgbot.ValidateBotToken` + Create/Update 入口拦截）
+- ⏸️ P2-4 config 包迁移（warning 级，不影响主链路，单独 PR 处理）
+
 **业务链与代码架构对齐**：
 - 五层架构：✅ **0 错误 0 警告（check-architecture.sh 全绿）**
 - 硬约束对齐：✅ trace_id、token 落库、polling 互斥、TTL 自动关闭、service 不直访 db
 - 跨渠道合并：✅ OneID 优先级匹配
+
+**单测结果**（2026-07-28 第三轮增量）：
+- `go test ./internal/service/` → ok 222.578s
+- `go test ./internal/repository/...` → ok 39.044s
+- `go test ./internal/channelbot/...` → ok 4.737s
+- `go test ./internal/pkg/utils/tgbot/...` → ok 4.150s
+- `bash scripts/check-architecture.sh` → 0 errors / 2 warnings (config 包位置)
 
 **剩余 P2 任务为体验优化**，不影响主链路正确性与稳定性。

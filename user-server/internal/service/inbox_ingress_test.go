@@ -178,15 +178,28 @@ func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
 	}
 }
 
-func TestInboxIngress_HandleIngressMessage_AcquiresAILock(t *testing.T) {
+// TestInboxIngress_HandleIngressMessage_TriggersAITrigger 验证入站消息触发 AI 客服
+//
+// 业务契约（与 HandleIngressMessage 当前设计一致）：
+//  1. 接受事件并标记为 QueuedForAI=true
+//  2. 调用注入的 AITrigger（由 WebhookService 桥接编排器）
+//  3. 立即释放 AI 串行化锁（避免后续多轮消息卡在 pending 永不消费）
+//     - AI 并发由 runAIGeneration 的 replySem 控制
+//     - 会话上下文由编排器维护
+func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
 	svc := NewInboxIngressServiceWithDB(nil, c)
+
+	trigger := &fakeAITrigger{}
+	svc.SetAITrigger(trigger)
 
 	event := &model.MessageEvent{
 		Channel:  model.ChannelWhatsApp,
 		SenderID: "wa-1",
 		Content:  "hi",
+		EventID:  "evt-test-1",
+		Extra:    map[string]interface{}{"account_id": "wa-acct-1"},
 	}
 	result, err := svc.HandleIngressMessage(ctx, event)
 	if err != nil {
@@ -198,10 +211,26 @@ func TestInboxIngress_HandleIngressMessage_AcquiresAILock(t *testing.T) {
 	if result.HumanLocked {
 		t.Fatal("should not be human_locked")
 	}
-	// 锁应仍被持有
+	// 关键：aiTrigger 必须被调用一次
+	if trigger.called != 1 {
+		t.Fatalf("aiTrigger should be invoked once, got %d", trigger.called)
+	}
+	if trigger.lastChannel != model.ChannelWhatsApp {
+		t.Fatalf("channel mismatch: got %q", trigger.lastChannel)
+	}
+	if trigger.lastAccount != "wa-acct-1" {
+		t.Fatalf("account mismatch: got %q", trigger.lastAccount)
+	}
+	if trigger.lastContent != "hi" {
+		t.Fatalf("content mismatch: got %q", trigger.lastContent)
+	}
+	if trigger.lastEventID != "evt-test-1" {
+		t.Fatalf("eventID mismatch: got %q", trigger.lastEventID)
+	}
+	// 关键：AI 锁应立即释放（设计意图：避免 pending 死锁）
 	locked, _ := svc.IsSessionAIBusy(ctx, result.SessionID)
-	if !locked {
-		t.Fatal("AI lock should be held after handle")
+	if locked {
+		t.Fatal("AI lock should be released immediately after handle (设计意图：避免 pending 死锁)")
 	}
 }
 
