@@ -29,6 +29,15 @@ type CustomerSession struct {
 	Platform        Platform      `gorm:"type:varchar(20)" json:"platform"`
 	AccountID       string        `gorm:"type:varchar(50)" json:"account_id"`
 	UserID          string        `gorm:"type:varchar(50);index" json:"user_id"`
+	// OneID 客户统一 ID（跨渠道合并会话的辅助键；S3-1）
+	//
+	// 场景：用户先在网页客服创建会话，拿到 OneID=phone:138xxx；
+	//      随后从 Telegram 进入，user_id 与 web 不同；
+	//      业务希望两个会话合并（同一客户的连续对话）。
+	//
+	// 匹配优先级：OneID > user_id（同 OneID 视为同一人，跨平台 user_id 不同但 OneID 相同 → 合并）。
+	// 索引：与 user_id 联合索引 + TTL 过滤，加速 findOrCreateSession。
+	OneID           string        `gorm:"type:varchar(100);index:idx_sessions_one_id_status" json:"one_id"`
 	UserName        string        `gorm:"type:varchar(100)" json:"user_name"`
 	UserAvatar      string        `gorm:"type:varchar(500)" json:"user_avatar"`
 	UserPhone       string        `gorm:"type:varchar(20)" json:"user_phone"`

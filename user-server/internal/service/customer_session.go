@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"marketing/internal/websocket"
 
@@ -41,6 +42,39 @@ type CustomerSessionService struct {
 	blacklistRepo  *repository.UserBlacklistRepository
 }
 
+// CustomerSessionActiveTTL 客服会话活跃 TTL（与 repository.DefaultSessionActiveTTL 保持一致）
+//
+// 24h 内有消息互动的会话视为「活跃」；超过 24h 自动关闭（由 AutoCloseStaleSessions
+// 定时任务驱动）。这是 GetActiveByUserID 的隐含语义边界。
+//
+// 单一源：repository.DefaultSessionActiveTTL；调整需同步更新两边。
+const CustomerSessionActiveTTL = repository.DefaultSessionActiveTTL
+
+// autoCloseStaleBatchSize 自动关闭单批处理上限（避免大表锁竞争）
+const autoCloseStaleBatchSize = 500
+
+// AutoCloseStaleSessions 自动关闭超过 TTL 的活跃会话
+//
+// 设计：
+//   - 定时任务每小时跑一次（启动期由 system_init.go 注册）
+//   - 单批最多 500 条；分批 UPDATE 避免长时间锁表
+//   - 不返回 error（仅日志）；任务失败不阻塞下一次调度
+//
+// 行为：
+//   - last_message_at 为空 → 用 created_at 作为活跃度判断依据（COALESCE）
+//   - 只关闭「活跃」状态（pending/ai_handling/waiting/human_handling）
+//   - 已 resolved/closed 的会话不会被重复关闭
+func (s *CustomerSessionService) AutoCloseStaleSessions(ctx context.Context) (int64, error) {
+	total, err := s.sessionRepo.AutoCloseStaleSessions(ctx, CustomerSessionActiveTTL, autoCloseStaleBatchSize)
+	if err != nil {
+		return 0, err
+	}
+	if total > 0 {
+		logger.Infof("auto-close stale sessions: closed %d (TTL=%s)", total, CustomerSessionActiveTTL)
+	}
+	return total, nil
+}
+
 // NewCustomerSessionService 创建客服会话服务实例
 func NewCustomerSessionService() *CustomerSessionService {
 	return &CustomerSessionService{
@@ -71,6 +105,11 @@ type CreateSessionRequest struct {
 	Platform   model.Platform `json:"platform" binding:"required"`
 	AccountID  string         `json:"account_id" binding:"required"`
 	UserID     string         `json:"user_id" binding:"required"`
+	// OneID 客户 OneID（S3-1 跨渠道合并辅助键）
+	//
+	// 用途：网页 / 移动端 / 第三方渠道（TG/WhatsApp）间共享同一客户身份，
+	// 避免跨渠道 user_id 不同导致每次冷启动。
+	OneID      string         `json:"one_id"`
 	UserName   string         `json:"user_name"`
 	UserAvatar string         `json:"user_avatar"`
 	UserPhone  string         `json:"user_phone"`
@@ -95,6 +134,7 @@ func (s *CustomerSessionService) CreateSession(ctx context.Context, req *CreateS
 		Platform:   req.Platform,
 		AccountID:  req.AccountID,
 		UserID:     req.UserID,
+		OneID:      req.OneID,
 		UserName:   req.UserName,
 		UserAvatar: req.UserAvatar,
 		UserPhone:  req.UserPhone,

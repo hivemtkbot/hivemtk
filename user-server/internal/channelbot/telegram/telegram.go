@@ -12,11 +12,27 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"marketing/internal/channelbot/core"
 )
 
-const defaultAPIBase = "https://api.telegram.org"
+const (
+	defaultAPIBase = "https://api.telegram.org"
+	// TGMessageMaxLength Telegram 单条消息最大字符数（官方 API 硬限制）
+	// 超过会被 TG 拒绝 400 "message is too long"。
+	// 拆分时按"按行/段"边界优先，避免在单词/字符中间截断。
+	TGMessageMaxLength = 4096
+	// TG_INLINE_ROWS_MAX / TG_INLINE_BUTTONS_PER_ROW TG inline_keyboard 上限
+	// 官方限制：最多 100 个按钮；每行最多 8 个。
+	// 超出时本实现自动截断。
+	TGInlineRowsMax          = 100
+	TGInlineButtonsPerRowMax = 8
+	// 默认出站重试参数（429/5xx）
+	tgSendMaxRetries  = 3
+	tgSendInitialWait = 200 * time.Millisecond
+	tgSendMaxWait     = 5 * time.Second
+)
 
 // Client Telegram Bot API 客户端
 type Client struct {
@@ -36,37 +52,287 @@ func (c *Client) jsonHeaders() map[string]string {
 	return map[string]string{"Content-Type": "application/json; charset=utf-8"}
 }
 
-// SendMessage 主动发文本消息，返回 Telegram 消息 ID。
-// AI 生成的回复通常是 Markdown，直接发送会把 **粗体** 等标记当纯文本泄漏。
-// 这里统一把常见 Markdown 转换为 Telegram 支持的 HTML（parse_mode=HTML），
-// 并在 Telegram 仍报「无法解析实体」时退化为纯文本重发，保证消息一定可达。
-func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) (int64, error) {
-	htmlText := markdownToTelegramHTML(text)
-	url := fmt.Sprintf("%s/bot%s/sendMessage", c.apiBase, c.token)
-	payload := map[string]any{"chat_id": chatID, "text": htmlText, "parse_mode": "HTML"}
-	b, _ := json.Marshal(payload)
-	respB, status, err := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b), c.jsonHeaders())
-	if err != nil {
-		return 0, fmt.Errorf("tg send: %w", err)
-	}
-	if status == 200 {
-		return parseSendMessageID(respB), nil
-	}
-	// AI 生成的 markdown 经转换后仍可能非法（如未闭合标签、嵌套错误）→ 退化为纯文本重发
-	if status == 400 && strings.Contains(strings.ToLower(string(respB)), "parse entities") {
-		payload2 := map[string]any{"chat_id": chatID, "text": text}
-		b2, _ := json.Marshal(payload2)
-		respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
-		if err2 != nil {
-			return 0, fmt.Errorf("tg send fallback: %w", err2)
-		}
-		if status2 == 200 {
-			return parseSendMessageID(respB2), nil
-		}
-		return 0, fmt.Errorf("tg send status %d: %s", status2, string(respB2))
-	}
-	return 0, fmt.Errorf("tg send status %d: %s", status, string(respB))
+// SendMessageOptions 主动发消息的可选参数（opts 可变参；零值表示不设置）
+type SendMessageOptions struct {
+	ReplyToMessageID         int64
+	InlineKeyboard           [][]InlineButton
+	DisableWebPreview        bool
+	ParseMode                string
+	DisableMarkdownConversion bool
 }
+
+// InlineButton 内联按钮（URL 与 CallbackData 互斥；同时存在时优先 CallbackData）
+type InlineButton struct {
+	Text         string
+	CallbackData string
+	URL          string
+}
+
+// SendMessage 主动发文本消息，返回 Telegram 消息 ID。
+//
+// 健壮性（与本任务全链路审计 Top-5 对齐）：
+//  1. AI 生成的回复通常是 Markdown，统一转换为 Telegram HTML（parse_mode=HTML），
+//     并在解析失败时回退纯文本重发
+//  2. 单条消息 > 4096 字符：按行/段优先切分，循环发送多条
+//  3. 429 限流：读 parameters.retry_after 退避后重试，最多 3 次
+//  4. 5xx / 网络错误：指数退避重试，最多 3 次
+//  5. 支持 reply_to_message_id、inline_keyboard、disable_web_page_preview
+func (c *Client) SendMessage(ctx context.Context, chatID int64, text string, opts ...SendMessageOptions) (int64, error) {
+	opt := SendMessageOptions{}
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	chunks := splitMessage(text, TGMessageMaxLength)
+	if len(chunks) == 0 {
+		return 0, fmt.Errorf("empty text")
+	}
+	var firstID int64
+	for i, chunk := range chunks {
+		perOpt := opt
+		if i > 0 {
+			perOpt.ReplyToMessageID = 0
+			perOpt.InlineKeyboard = nil
+			perOpt.DisableMarkdownConversion = true
+		}
+		msgID, err := c.sendSingle(ctx, chatID, chunk, perOpt)
+		if err != nil {
+			return firstID, fmt.Errorf("tg send chunk %d/%d failed: %w", i+1, len(chunks), err)
+		}
+		if i == 0 {
+			firstID = msgID
+		}
+	}
+	return firstID, nil
+}
+
+// sendSingle 实际调用 sendMessage（带重试 + Markdown→HTML）
+func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt SendMessageOptions) (int64, error) {
+	body := text
+	parseMode := opt.ParseMode
+	if parseMode == "" {
+		parseMode = "HTML"
+	}
+	if !opt.DisableMarkdownConversion {
+		body = markdownToTelegramHTML(text)
+	}
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"text":       body,
+		"parse_mode": parseMode,
+	}
+	if opt.ReplyToMessageID > 0 {
+		payload["reply_to_message_id"] = opt.ReplyToMessageID
+	}
+	if opt.DisableWebPreview {
+		payload["disable_web_page_preview"] = true
+	}
+	if kb := buildInlineKeyboard(opt.InlineKeyboard); kb != nil {
+		payload["reply_markup"] = kb
+	}
+	b, _ := json.Marshal(payload)
+	url := fmt.Sprintf("%s/bot%s/sendMessage", c.apiBase, c.token)
+
+	var lastErr error
+	wait := tgSendInitialWait
+	for attempt := 0; attempt < tgSendMaxRetries; attempt++ {
+		if attempt > 0 {
+			if err := sleepCtx(ctx, wait); err != nil {
+				return 0, err
+			}
+			wait *= 2
+			if wait > tgSendMaxWait {
+				wait = tgSendMaxWait
+			}
+		}
+		respB, status, err := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b), c.jsonHeaders())
+		if err != nil {
+			lastErr = fmt.Errorf("tg send: %w", err)
+			continue
+		}
+		if status == 200 {
+			return parseSendMessageID(respB), nil
+		}
+		if status == 400 && !opt.DisableMarkdownConversion && strings.Contains(strings.ToLower(string(respB)), "parse entities") {
+			payload2 := map[string]any{"chat_id": chatID, "text": text}
+			b2, _ := json.Marshal(payload2)
+			respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
+			if err2 != nil {
+				lastErr = fmt.Errorf("tg send fallback: %w", err2)
+				continue
+			}
+			if status2 == 200 {
+				return parseSendMessageID(respB2), nil
+			}
+			lastErr = fmt.Errorf("tg send fallback status %d: %s", status2, string(respB2))
+			continue
+		}
+		if status == 429 {
+			ra := parseRetryAfter(respB)
+			if ra > 0 {
+				wait = time.Duration(ra)*time.Second + 200*time.Millisecond
+			}
+			lastErr = fmt.Errorf("tg send 429 (rate limited, retry_after=%ds): %s", ra, string(respB))
+			continue
+		}
+		if status >= 500 && status < 600 {
+			lastErr = fmt.Errorf("tg send status %d: %s", status, string(respB))
+			continue
+		}
+		return 0, fmt.Errorf("tg send status %d: %s", status, string(respB))
+	}
+	return 0, fmt.Errorf("tg send exhausted %d retries: %w", tgSendMaxRetries, lastErr)
+}
+
+// splitMessage 按字符上限切分文本，优先在"段落 / 行 / 句子 / 单词"边界切
+//
+// 全部基于 rune 计算（CJK 一个字符多字节，不能用 byte 偏移）；
+// 硬切分兜底只在 limit 个 rune 范围内找最近边界，避免越界。
+func splitMessage(text string, limit int) []string {
+	if limit <= 0 {
+		limit = TGMessageMaxLength
+	}
+	text = strings.TrimRight(text, "\n")
+	if text == "" {
+		return []string{}
+	}
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return []string{text}
+	}
+	var out []string
+	for len(runes) > limit {
+		split := -1
+		// 1) 段落边界 "\n\n"（在前 limit 个 rune 范围内找最近）
+		for i := limit; i > 0; i-- {
+			if i+1 < len(runes) && runes[i] == '\n' && runes[i+1] == '\n' {
+				split = i + 2
+				break
+			}
+		}
+		// 2) 行边界 "\n"
+		if split == -1 {
+			for i := limit; i > 0; i-- {
+				if runes[i] == '\n' {
+					split = i + 1
+					break
+				}
+			}
+		}
+		// 3) 句子边界
+		if split == -1 {
+			for i := limit; i > 0; i-- {
+				if isSentenceSep(runes[i]) {
+					split = i + 1
+					break
+				}
+			}
+		}
+		// 4) 空格边界
+		if split == -1 {
+			for i := limit; i > 0; i-- {
+				if runes[i] == ' ' {
+					split = i + 1
+					break
+				}
+			}
+		}
+		// 5) 硬切兜底
+		if split <= 0 {
+			split = limit
+		}
+		head := strings.TrimRight(string(runes[:split]), " \n")
+		if head == "" {
+			head = string(runes[:split])
+		}
+		out = append(out, head)
+		runes = runes[split:]
+	}
+	if len(runes) > 0 {
+		out = append(out, strings.TrimRight(string(runes), " \n"))
+	}
+	return out
+}
+
+// isSentenceSep 中英文常见句子分隔符
+func isSentenceSep(r rune) bool {
+	switch r {
+	case '。', '！', '？', '\n', '.', '!', '?':
+		return true
+	}
+	return false
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// buildInlineKeyboard 把业务侧按钮序列化为 Telegram reply_markup.inline_keyboard
+func buildInlineKeyboard(rows [][]InlineButton) map[string]any {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([][]map[string]string, 0, len(rows))
+	for i, row := range rows {
+		if i >= TGInlineRowsMax {
+			break
+		}
+		btnRow := make([]map[string]string, 0, len(row))
+		for j, btn := range row {
+			if j >= TGInlineButtonsPerRowMax {
+				break
+			}
+			if btn.Text == "" {
+				continue
+			}
+			entry := map[string]string{"text": btn.Text}
+			if btn.CallbackData != "" {
+				entry["callback_data"] = btn.CallbackData
+			} else if btn.URL != "" {
+				entry["url"] = btn.URL
+			} else {
+				continue
+			}
+			btnRow = append(btnRow, entry)
+		}
+		if len(btnRow) > 0 {
+			out = append(out, btnRow)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return map[string]any{"inline_keyboard": out}
+}
+
+// parseRetryAfter 从 429 响应体解析 retry_after（秒）
+func parseRetryAfter(body []byte) int {
+	var r struct {
+		Parameters struct {
+			RetryAfter int `json:"retry_after"`
+		} `json:"parameters"`
+	}
+	_ = json.Unmarshal(body, &r)
+	return r.Parameters.RetryAfter
+}
+
+// sleepCtx 带 ctx 取消的 sleep
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
+
 
 // tgMdXxx 把 LLM 常见 Markdown 片段转换为 Telegram HTML 标签。
 var (
@@ -103,12 +369,25 @@ func parseSendMessageID(body []byte) int64 {
 }
 
 // SetWebhook 注册被动收消息回调；secret 用于 X-Telegram-Bot-Api-Secret-Token 验签
+//
+// allowed_updates 与 GetUpdates 保持一致：覆盖全部 Update 类型（含 channel_post /
+// edited_channel_post / inline_query），避免被用作战道管理员或 inline 模式时静默丢消息。
 func (c *Client) SetWebhook(ctx context.Context, url, secret string) error {
 	api := fmt.Sprintf("%s/bot%s/setWebhook", c.apiBase, c.token)
 	payload := map[string]any{
 		"url": url,
-		// 显式声明要接收的更新类型，避免遗漏 callback / 入退群等事件
-		"allowed_updates": []string{"message", "edited_message", "callback_query", "chat_member", "my_chat_member"},
+		"allowed_updates": []string{
+			"message",
+			"edited_message",
+			"channel_post",
+			"edited_channel_post",
+			"callback_query",
+			"inline_query",
+			"chosen_inline_result",
+			"chat_member",
+			"my_chat_member",
+			"chat_join_request",
+		},
 	}
 	if secret != "" {
 		payload["secret_token"] = secret

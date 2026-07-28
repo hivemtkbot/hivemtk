@@ -1,3 +1,4 @@
+// Package repository 数据库仓库层
 package repository
 
 import (
@@ -9,6 +10,16 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// DefaultSessionActiveTTL 客服会话的默认活跃 TTL
+//
+// 设计：
+//   - 24h 内有消息互动的会话视为「活跃」，AI / 坐席可继续复用
+//   - 超过 24h 未互动的会话自动 close（由 service.CustomerSessionService.AutoCloseStaleSessions 定时任务驱动）
+//   - 该常量与 service.CustomerSessionActiveTTL 必须保持单一源（service 层会覆盖本地为同值）
+//
+// 修改本值需同步：service/customer_session.go CustomerSessionActiveTTL + DEVELOPMENT.md。
+const DefaultSessionActiveTTL = 24 * time.Hour
 
 // CustomerSessionRepository 客服会话仓库
 type CustomerSessionRepository struct {
@@ -167,21 +178,163 @@ func (r *CustomerSessionRepository) GetAgentSessions(ctx context.Context, agentI
 // GetActiveByUserID 根据用户 ID 获取其当前活跃会话（用于营销流程 assign_agent 动作）。
 // 活跃状态：pending / ai_handling / waiting / human_handling。
 // 若存在多条，返回最近一条有消息记录的会话。
+//
+// 24h TTL（与 service.CustomerSessionActiveTTL 对齐）：只返回 last_message_at 在
+// SessionActiveTTL 之内的会话。超过 24h 未互动的会话视为历史会话，避免被复用导致
+// AI 上下文被无关历史污染。
 func (r *CustomerSessionRepository) GetActiveByUserID(ctx context.Context, userID string) (*model.CustomerSession, error) {
 	if userID == "" {
 		return nil, errors.New("user_id 不能为空")
 	}
+	cutoff := time.Now().Add(-DefaultSessionActiveTTL)
 	var session model.CustomerSession
 	err := r.db.Where("user_id = ? AND status IN ?", userID, []model.SessionStatus{
 		model.SessionStatusPending,
 		model.SessionStatusAIHandling,
 		model.SessionStatusWaiting,
 		model.SessionStatusHumanHandling,
-	}).Order("last_message_at DESC, id DESC").First(&session).Error
+	}).Where("COALESCE(last_message_at, created_at) > ?", cutoff).
+		Order("last_message_at DESC, id DESC").First(&session).Error
 	if err != nil {
 		return nil, err
 	}
 	return &session, nil
+}
+
+// GetActiveByUserIDWithin 根据用户 ID 在指定时间窗口内获取活跃会话
+//
+// 用于：① 业务自定义 TTL（不像 24h 那么严苛）② 测试注入自定义窗口。
+// 命中条件：status IN 活跃状态 且 (last_message_at OR created_at) > cutoff。
+func (r *CustomerSessionRepository) GetActiveByUserIDWithin(ctx context.Context, userID string, within time.Duration) (*model.CustomerSession, error) {
+	if userID == "" {
+		return nil, errors.New("user_id 不能为空")
+	}
+	cutoff := time.Now().Add(-within)
+	var session model.CustomerSession
+	err := r.db.Where("user_id = ? AND status IN ?", userID, []model.SessionStatus{
+		model.SessionStatusPending,
+		model.SessionStatusAIHandling,
+		model.SessionStatusWaiting,
+		model.SessionStatusHumanHandling,
+	}).Where("COALESCE(last_message_at, created_at) > ?", cutoff).
+		Order("last_message_at DESC, id DESC").First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetActiveByOneID 根据 OneID 获取活跃会话（跨渠道合并辅助键；S3-1）
+//
+// 业务场景：用户从 web 客服进 → OneID 已记录；后从 Telegram 进 → 新的 user_id。
+// 优先按 OneID 匹配，复用前一会话（同一客户连续对话）。
+//
+// 命中条件：one_id = ? AND status IN 活跃状态 AND 在 TTL 内。
+// one_id 为空时直接返回 nil（让调用方降级走 user_id 路径）。
+func (r *CustomerSessionRepository) GetActiveByOneID(ctx context.Context, oneID string) (*model.CustomerSession, error) {
+	if oneID == "" {
+		return nil, nil
+	}
+	cutoff := time.Now().Add(-DefaultSessionActiveTTL)
+	var session model.CustomerSession
+	err := r.db.Where("one_id = ? AND status IN ?", oneID, []model.SessionStatus{
+		model.SessionStatusPending,
+		model.SessionStatusAIHandling,
+		model.SessionStatusWaiting,
+		model.SessionStatusHumanHandling,
+	}).Where("COALESCE(last_message_at, created_at) > ?", cutoff).
+		Order("last_message_at DESC, id DESC").First(&session).Error
+	if err != nil {
+		// gorm.ErrRecordNotFound 视为"未找到"，返回 nil 而非 error（与 OneID 为空时的语义对齐）
+		return nil, nil
+	}
+	return &session, nil
+}
+
+// ListStaleActiveSessions 列出超过指定时间窗口仍处于「活跃」状态的会话
+//
+// 用于会话 24h TTL 自动关闭任务的扫描：批量拉取活跃但超时的会话，
+// 避免一次性 UPDATE 全表锁竞争。
+func (r *CustomerSessionRepository) ListStaleActiveSessions(ctx context.Context, within time.Duration, limit int) ([]*model.CustomerSession, error) {
+	cutoff := time.Now().Add(-within)
+	var sessions []*model.CustomerSession
+	err := r.db.Where("status IN ?", []model.SessionStatus{
+		model.SessionStatusPending,
+		model.SessionStatusAIHandling,
+		model.SessionStatusWaiting,
+		model.SessionStatusHumanHandling,
+	}).Where("COALESCE(last_message_at, created_at) <= ?", cutoff).
+		Order("COALESCE(last_message_at, created_at) ASC").
+		Limit(limit).
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+// AutoCloseStaleSessions 批量关闭超过 TTL 的活跃会话
+//
+// 返回：实际关闭数（rows affected）。
+// 关闭：status=closed, closed_at=now()。
+// 仅作用于「活跃」状态（pending/ai_handling/waiting/human_handling），
+// 已 resolved/closed 的会话不会被重复关闭。
+//
+// batchSize > 0 时通过 LIMIT 控制单次 UPDATE 影响的行数（避免大表锁竞争）。
+// batchSize == 0 时一次性处理所有匹配行。
+//
+// 重要：PostgreSQL 不允许在 UPDATE … SET 中直接使用 LIMIT，标准 SQL 也不支持。
+// 实现方式：先在子查询中按 last_message_at 升序取 batchSize 个 id，再按 id 集合 UPDATE。
+// 这样既限定批次又不破坏 GORM 跨方言抽象。
+func (r *CustomerSessionRepository) AutoCloseStaleSessions(ctx context.Context, within time.Duration, batchSize int) (int64, error) {
+	cutoff := time.Now().Add(-within)
+	now := time.Now()
+	updates := map[string]any{
+		"status":    model.SessionStatusClosed,
+		"closed_at": &now,
+	}
+	if batchSize <= 0 {
+		// 不分批：一次性 UPDATE
+		res := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+			Where("status IN ?", []model.SessionStatus{
+				model.SessionStatusPending,
+				model.SessionStatusAIHandling,
+				model.SessionStatusWaiting,
+				model.SessionStatusHumanHandling,
+			}).
+			Where("COALESCE(last_message_at, created_at) <= ?", cutoff).
+			Updates(updates)
+		if res.Error != nil {
+			return 0, res.Error
+		}
+		return res.RowsAffected, nil
+	}
+	// 分批：先查 id，再按 id 集合 UPDATE
+	var ids []uint
+	err := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+		Where("status IN ?", []model.SessionStatus{
+			model.SessionStatusPending,
+			model.SessionStatusAIHandling,
+			model.SessionStatusWaiting,
+			model.SessionStatusHumanHandling,
+		}).
+		Where("COALESCE(last_message_at, created_at) <= ?", cutoff).
+		Order("COALESCE(last_message_at, created_at) ASC").
+		Limit(batchSize).
+		Pluck("id", &ids).Error
+	if err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Model(&model.CustomerSession{}).
+		Where("id IN ?", ids).
+		Updates(updates)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
 }
 
 // UpdateStatus 更新会话状态

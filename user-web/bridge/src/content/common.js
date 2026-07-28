@@ -39,13 +39,34 @@ function handleSelfcheck(adapter, sendResponse) {
 // 深度自检：即便 match() 返回 false 也能扫描 DOM，给出真实页面快照
 // 用于「打开私信页但平台改版导致 match() 失败」的诊断场景
 // 不读 adapter 状态，纯 DOM 扫描，IO 轻量
+//
+// 关键修复：早期版本用 `return false` 同步模式，但 scanDomSnapshot 在抖音/小红书/
+// TikTok 等复杂 SPA 上做 4 次重量级 querySelectorAll，同步执行可能超过 Chrome
+// 端口有效响应窗口（约 5s），导致 "The message port closed before a response
+// was received" 错误，popup 永远收不到响应。
+// 改为异步模式：return true 保持 port 打开，把 scan 放进 microtask 让出事件循环，
+// sendResponse 包 try/catch 防止 port 已关闭时二次抛错。
 function handleDeepSelfcheck(sendResponse) {
-  try {
-    const snapshot = scanDomSnapshot();
-    sendResponse({ ok: true, ...snapshot });
-  } catch (e) {
-    sendResponse({ ok: false, error: String(e) });
-  }
+  // 走微任务而不是直接同步执行；这样 chrome.tabs.sendMessage 收到消息后
+  // 立刻 return true 拿到的 port 在下一次事件循环 turn 之前不会被关闭。
+  Promise.resolve()
+    .then(() => scanDomSnapshot())
+    .then((snapshot) => {
+      try {
+        sendResponse({ ok: true, ...snapshot });
+      } catch (e) {
+        // port 可能在扫描过程中被关闭（页面刷新 / 标签关闭 / 长时间无响应）
+        // 此处无法把错误传回 popup，仅记录
+        log.warn('deepSelfcheck sendResponse 失败（port 已关闭？）', e);
+      }
+    })
+    .catch((e) => {
+      try {
+        sendResponse({ ok: false, error: String(e && e.message || e) });
+      } catch (sendErr) {
+        log.warn('deepSelfcheck 错误回传失败（port 已关闭）', sendErr);
+      }
+    });
 }
 
 // 通用 DOM 快照：扫描页面上所有可能的「消息输入/输出/会话」元素
@@ -241,9 +262,13 @@ export function startBridge(channel, buildAdapter) {
     }
     // 深度自检：无论 match() 成功与否都可触发，给出真实 DOM 快照
     // 用于诊断"match() 失败但页面看着像私信页"（平台改版 / 选择器过期）
+    //
+    // 必须 return true：handleDeepSelfcheck 内部走 Promise 微任务，扫描是异步的。
+    // 若 return false，Chrome 会在当前 tick 结束就关闭 port，popup 收到
+    // "The message port closed before a response was received" 错误。
     if (msg.type === 'deepSelfcheck') {
       handleDeepSelfcheck(sendResponse);
-      return false;
+      return true;
     }
     return false;
   });

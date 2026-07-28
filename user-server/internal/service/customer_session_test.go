@@ -4,7 +4,9 @@ import (
 	"context"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/repository"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 	"marketing/internal/pkg/testutil"
@@ -19,6 +21,7 @@ func setupCustomerSessionServiceTestDB(t *testing.T) *gorm.DB {
 		&model.AISuggestion{},
 		&model.QuickReply{},
 		&model.SessionTag{},
+		&model.UserBlacklist{}, // S3-7 配套：preCreateBlacklistGuard 需要此表
 	)
 	db.SetTestDB(database)
 	return database
@@ -1106,5 +1109,203 @@ func TestGenerateSessionID(t *testing.T) {
 	}
 	if id1 == id2 {
 		t.Error("Expected unique session IDs")
+	}
+}
+
+// ----------------------------------------------------------------------------
+// TTL 自动关闭测试（S2-3）
+// ----------------------------------------------------------------------------
+
+// TestAutoCloseStaleSessions_OnlyStaleActiveClosed 验证只有「活跃但超过 TTL」的会话被关闭
+//
+// 场景：
+//   - sessionA: 25h 前有 last_message_at，状态 ai_handling → 应被关闭
+//   - sessionB: 1h 前有 last_message_at，状态 ai_handling → 应保留
+//   - sessionC: 25h 前 created_at，last_message_at 为空，状态 pending → 应被关闭
+//   - sessionD: 25h 前 last_message_at，状态 closed → 不应被重复处理
+func TestAutoCloseStaleSessions_OnlyStaleActiveClosed(t *testing.T) {
+	db := setupCustomerSessionServiceTestDB(t)
+	repo := repository.NewCustomerSessionRepositoryWithDB(db)
+	// 显式构造 service（不通过 init 启动 cron）
+	svc := NewCustomerSessionServiceWithDB(db)
+
+	now := time.Now()
+	veryOld := now.Add(-25 * time.Hour)
+	recent := now.Add(-1 * time.Hour)
+
+	mk := func(id string, status model.SessionStatus, lastAt *time.Time) *model.CustomerSession {
+		s := &model.CustomerSession{
+			SessionID:     "sess_" + id,
+			Platform:      model.PlatformDouyin,
+			AccountID:     "acc1",
+			UserID:        id,
+			Status:        status,
+			HandlerType:   model.HandlerTypeAI,
+			LastMessage:   "hello",
+			LastMessageBy: "user",
+			CreatedAt:     veryOld,
+		}
+		if lastAt != nil {
+			s.LastMessageAt = lastAt
+		}
+		return s
+	}
+
+	// 4 个测试样本
+	sA := mk("A", model.SessionStatusAIHandling, &veryOld)     // 25h 前活跃 → 应关
+	sB := mk("B", model.SessionStatusAIHandling, &recent)      // 1h 前活跃 → 保留
+	sC := mk("C", model.SessionStatusPending, nil)             // 25h 前创建 + 无消息 → 应关（用 COALESCE(created_at)）
+	sD := mk("D", model.SessionStatusClosed, &veryOld)         // 已关 → 不动
+
+	for _, s := range []*model.CustomerSession{sA, sB, sC, sD} {
+		if err := repo.Create(context.Background(), s); err != nil {
+			t.Fatalf("seed %s failed: %v", s.UserID, err)
+		}
+	}
+
+	// 执行自动关闭
+	closed, err := svc.AutoCloseStaleSessions(context.Background())
+	if err != nil {
+		t.Fatalf("AutoCloseStaleSessions failed: %v", err)
+	}
+	// 应关 A + C = 2 条
+	if closed != 2 {
+		t.Errorf("expected 2 closed, got %d", closed)
+	}
+
+	// 重新拉取验证
+	verify := func(userID string, wantStatus model.SessionStatus) {
+		got, err := repo.GetByUserID(context.Background(), userID)
+		if err != nil || len(got) == 0 {
+			t.Fatalf("verify %s: not found err=%v", userID, err)
+		}
+		if got[0].Status != wantStatus {
+			t.Errorf("user %s: status=%s, want %s", userID, got[0].Status, wantStatus)
+		}
+	}
+	verify("A", model.SessionStatusClosed)
+	verify("B", model.SessionStatusAIHandling)
+	verify("C", model.SessionStatusClosed)
+	verify("D", model.SessionStatusClosed) // 原本就是 closed
+}
+
+// TestGetActiveByUserID_RespectsTTL 验证 GetActiveByUserID 受 24h TTL 约束
+//
+// 场景：用户 user_X 有一个 25h 前的活跃会话 + 1h 前的活跃会话，
+// GetActiveByUserID 应只返回 1h 内的（避免复用陈旧上下文）。
+func TestGetActiveByUserID_RespectsTTL(t *testing.T) {
+	db := setupCustomerSessionServiceTestDB(t)
+	repo := repository.NewCustomerSessionRepositoryWithDB(db)
+
+	now := time.Now()
+	veryOld := now.Add(-25 * time.Hour)
+	recent := now.Add(-1 * time.Hour)
+
+	// 25h 前的会话（按 last_message_at COALESCE 已超 TTL）
+	old := &model.CustomerSession{
+		SessionID:      "sess_old",
+		Platform:       model.PlatformDouyin,
+		AccountID:      "tg_acc",
+		UserID:         "user_X",
+		Status:         model.SessionStatusAIHandling,
+		LastMessageAt:  &veryOld,
+		CreatedAt:      veryOld,
+		LastMessage:    "old",
+		LastMessageBy:  "user",
+	}
+	// 1h 前的会话（在 TTL 内）
+	newer := &model.CustomerSession{
+		SessionID:      "sess_new",
+		Platform:       model.PlatformDouyin,
+		AccountID:      "tg_acc",
+		UserID:         "user_X",
+		Status:         model.SessionStatusAIHandling,
+		LastMessageAt:  &recent,
+		CreatedAt:      recent,
+		LastMessage:    "new",
+		LastMessageBy:  "user",
+	}
+	for _, s := range []*model.CustomerSession{old, newer} {
+		if err := repo.Create(context.Background(), s); err != nil {
+			t.Fatalf("seed failed: %v", err)
+		}
+	}
+
+	got, err := repo.GetActiveByUserID(context.Background(), "user_X")
+	if err != nil {
+		t.Fatalf("GetActiveByUserID failed: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected at least one active session within TTL, got nil")
+	}
+	if got.SessionID != "sess_new" {
+		t.Errorf("expected sess_new (within TTL), got %s", got.SessionID)
+	}
+}
+
+// TestGetActiveByOneID_CrossPlatformMerge 验证 OneID 跨渠道合并（S3-1）
+//
+// 场景：用户在网页端创建了一个 OneID=phone:138xxx 的活跃会话，
+// 后续从 Telegram 进入时 SenderID 不同（tg_user_99），但 OneID 相同。
+// 业务希望复用前一会话。
+func TestGetActiveByOneID_CrossPlatformMerge(t *testing.T) {
+	db := setupCustomerSessionServiceTestDB(t)
+	repo := repository.NewCustomerSessionRepositoryWithDB(db)
+
+	now := time.Now()
+	// 已有会话：web 端用户（OneID=phone:138xxx）
+	web := &model.CustomerSession{
+		SessionID:      "sess_web",
+		Platform:       model.PlatformWebEmbed,
+		AccountID:      "web_acc",
+		UserID:         "web_user_42",
+		OneID:          "phone:13800001234",
+		Status:         model.SessionStatusAIHandling,
+		LastMessageAt:  &now,
+		CreatedAt:      now,
+		LastMessage:    "网页端上一条消息",
+		LastMessageBy:  "user",
+	}
+	if err := repo.Create(context.Background(), web); err != nil {
+		t.Fatalf("seed web session failed: %v", err)
+	}
+
+	// 通过 OneID 应能命中
+	got, err := repo.GetActiveByOneID(context.Background(), "phone:13800001234")
+	if err != nil {
+		t.Fatalf("GetActiveByOneID failed: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected hit on OneID, got nil")
+	}
+	if got.SessionID != "sess_web" {
+		t.Errorf("expected sess_web, got %s", got.SessionID)
+	}
+
+	// 通过 OneID 为空时返回 nil（不让 user_id 路径被打扰）
+	if got, _ := repo.GetActiveByOneID(context.Background(), ""); got != nil {
+		t.Errorf("empty OneID should return nil, got %+v", got)
+	}
+	// 通过不存在的 OneID 返回 nil
+	if got, _ := repo.GetActiveByOneID(context.Background(), "phone:99999999"); got != nil {
+		t.Errorf("unknown OneID should return nil, got %+v", got)
+	}
+}
+
+// TestCreateSession_StoresOneID 验证 CreateSession 持久化 OneID
+func TestCreateSession_StoresOneID(t *testing.T) {
+	svc := setupCustomerSessionService(t)
+	req := &CreateSessionRequest{
+		Platform:  model.PlatformDouyin,
+		AccountID: "acc_1",
+		UserID:    "user_1",
+		OneID:     "phone:13800001234",
+	}
+	sess, err := svc.CreateSession(context.Background(), req)
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+	if sess.OneID != "phone:13800001234" {
+		t.Errorf("expected OneID stored, got %q", sess.OneID)
 	}
 }

@@ -4,7 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"net/url"
+	"strings"
+	"time"
 
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/tgbot"
 )
@@ -16,6 +22,108 @@ func GenTGWebhookSecret() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// TelegramWebhookURLPathPrefix 是本系统接收 Telegram 推送的标准路径前缀。
+// 所有合法的 TG webhook URL 必须形如：https://host/api/webhook/telegram/{id}
+// → 前缀校验可拦截误填（如填了 /webhook/tg、/tg-hook 等），避免无效 setWebhook。
+const TelegramWebhookURLPathPrefix = "/api/webhook/telegram/"
+
+// ValidateTelegramWebhookURL 校验 webhook URL 是否符合 Telegram + 本系统要求
+//
+// 校验规则（修复 S3-5）：
+//  1. URL 必须可被 net/url 解析
+//  2. scheme 必须为 https（Telegram 强制要求）
+//  3. host 必须非空（含端口时端口 > 0）
+//  4. path 必须以 /api/webhook/telegram/ 开头（确保 Telegram 推送能被本系统路由到对应 controller）
+//
+// 校验失败返回非空错误，错误信息对运维友好；返回 nil 表示通过。
+//
+// 注意：仅做本地静态校验，不发起网络请求。运行期仍依赖 verifyWebhookInfo 拉 getWebhookInfo 自检。
+func ValidateTelegramWebhookURL(raw string) error {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return fmt.Errorf("webhook URL 为空")
+	}
+	u, err := url.Parse(v)
+	if err != nil {
+		return fmt.Errorf("webhook URL 解析失败: %w", err)
+	}
+	if !strings.EqualFold(u.Scheme, "https") {
+		return fmt.Errorf("webhook URL scheme 必须是 https，当前=%q（Telegram 强制 https）", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("webhook URL 缺少 host（如 https://chat.example.com）")
+	}
+	if !strings.HasPrefix(u.Path, TelegramWebhookURLPathPrefix) {
+		return fmt.Errorf("webhook URL path 必须以 %q 开头，当前=%q", TelegramWebhookURLPathPrefix, u.Path)
+	}
+	return nil
+}
+
+// ResolveTelegramWebhookURL 解析单个 Telegram 账号的 webhook 回调 URL
+//
+// 解析顺序（自高到低）：
+//  1. 账号表 telegram_accounts.webhook_url（用户在 UI 显式填写的，覆盖默认）
+//  2. 配置文件 external.public_base_url 或环境变量 PUBLIC_BASE_URL（公网域名/frp 暴露的域名）
+//     → 私域部署基线：user-server 跑在 frp 后，请求 Host 总是 localhost:8204，
+//       必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
+//
+// 返回值：(url, hasPublicBase)
+//   - url: 最终 webhook URL；账号未启用 / 未配置 时返回空串
+//   - hasPublicBase: 解析过程中是否命中了 public_base_url（用于决定是否走 polling fallback）
+func ResolveTelegramWebhookURL(acc *model.TelegramAccount) (string, bool) {
+	if acc == nil {
+		return "", false
+	}
+	explicit := strings.TrimSpace(acc.WebhookURL)
+	if explicit != "" {
+		return explicit, true
+	}
+	publicBase := config.GetPublicBaseURL()
+	if publicBase == "" {
+		return "", false
+	}
+	return strings.TrimRight(publicBase, "/") + fmt.Sprintf("/api/webhook/telegram/%d", acc.ID), true
+}
+
+// verifyWebhookInfo 自检：调用 getWebhookInfo，发现异常立即告警
+//
+// 必要性（修复 S2-1）：
+//   - setWebhook 成功 ≠ Telegram 已就绪：可能因 URL 路径错误、SSL 证书无效、
+//     DNS 未生效等导致 TG 侧 pending_update 堆积或 last_error 已写入
+//   - 这种情况下用户发消息会被 TG 静默丢弃（返回 400 给发送者），
+//     「TG → AI销售 → 出站回复」全链路静默断链
+//   - 本函数为 best-effort：失败仅记录日志，不影响启动流程
+//
+// 检查项：
+//   - url 与我们刚注册的一致（防止 race / 同 token 另一进程覆盖）
+//   - pending_update_count > 阈值（堆积告警）
+//   - last_error_message 非空（最近一次推送失败的诊断信息）
+func verifyWebhookInfo(acc *model.TelegramAccount) {
+	if acc == nil || acc.BotToken == "" {
+		return
+	}
+	info, err := tgbot.GetWebhookInfo(acc.BotToken)
+	if err != nil {
+		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) getWebhookInfo 失败(可忽略): %v", acc.ID, acc.AccountName, err)
+		return
+	}
+	if info == nil {
+		return
+	}
+	// url 不一致 → 另一进程可能在我们 setWebhook 之后又注册了
+	if gotURL, _ := info["url"].(string); gotURL != "" && gotURL != acc.WebhookURL {
+		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) webhook URL 已被覆盖: 期望=%s 实际=%s (另一进程可能正在 polling/注册)", acc.ID, acc.AccountName, acc.WebhookURL, gotURL)
+	}
+	// pending_update_count > 0 → TG 推送堆积（可能上次重启遗留 / 持续失败）
+	if pending, ok := info["pending_update_count"].(float64); ok && pending > 0 {
+		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 存在 %v 条 pending update (建议检查 webhook 端点健康度 / 上次重启前是否有未处理消息)", acc.ID, acc.AccountName, pending)
+	}
+	// last_error_message → 最近一次推送失败的诊断（SSL/路径/5xx 等）
+	if lastErr, _ := info["last_error_message"].(string); lastErr != "" {
+		logger.Warnf("[TG-Bootstrap] 账号 %d(%s) 最近 webhook 推送失败: %s", acc.ID, acc.AccountName, lastErr)
+	}
 }
 
 // ReconcileTelegramWebhooks 启动期对账：为所有「已启用（Status==1）且开启 webhook（WebhookEnabled）
@@ -37,10 +145,28 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 		logger.Warnf("[TG-Bootstrap] 列举 Telegram 账号失败: %v", err)
 		return
 	}
+	// 启动期：先停掉所有 polling（如果有），避免和 webhook 重复消费
+	StopAllTelegramPolling()
 	for _, acc := range accs {
 		enabled := acc.Status == 1 && acc.WebhookEnabled
-		ready := acc.BotToken != "" && acc.WebhookURL != ""
+		resolved, hasPublic := ResolveTelegramWebhookURL(acc)
+		ready := acc.BotToken != "" && resolved != ""
 		if enabled && ready {
+			// S3-5：本地校验 URL 格式（scheme=https + path 前缀），
+			// 拦截误填的 http://localhost、/api/hook 等无效 URL，
+			// 避免把明显错误的 URL 推到 Telegram 侧，浪费 setWebhook 配额。
+			if vErr := ValidateTelegramWebhookURL(resolved); vErr != nil {
+				now := time.Now()
+				acc.LastErrorAt = &now
+				acc.LastErrorMsg = "webhook URL 校验失败: " + vErr.Error()
+				_ = svc.UpdateAccount(context.Background(), acc)
+				logger.Warnf("[TG-Bootstrap] 账号 %d(%s) webhook URL 校验失败: %v (url=%s)", acc.ID, acc.AccountName, vErr, resolved)
+				continue
+			}
+			// 把推导出的 URL 落库（仅在原值为空时）—— 重启后启动期对账能直接命中
+			if acc.WebhookURL == "" && hasPublic {
+				acc.WebhookURL = resolved
+			}
 			// secret 缺失时自动生成并落库，确保生产环境（GIN_MODE=release）入站验签可通过
 			if acc.WebhookSecret == "" {
 				acc.WebhookSecret = GenTGWebhookSecret()
@@ -53,6 +179,8 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 				continue
 			}
 			logger.Infof("[TG-Bootstrap] 账号 %d(%s) webhook 已重新注册: %s", acc.ID, acc.AccountName, acc.WebhookURL)
+			// S2-1 自检：立即 getWebhookInfo 验证 TG 侧确实接收到了正确配置
+			verifyWebhookInfo(acc)
 			// 注册成功即经 getMe 回填机器人 @username（供群内「@机器人 才回复」识别），best-effort 不阻断主流程
 			if acc.BotUsername == "" {
 				if uname, gerr := tgbot.GetBotUsername(acc.BotToken); gerr == nil && uname != "" {
@@ -74,4 +202,7 @@ func ReconcileTelegramWebhooks(svc *TelegramService) {
 			}
 		}
 	}
+	// 启动期最后一步：若部署未配置公网域名（无 frp 暴露），自动启动 polling 协程
+	// 已有公网域名 → 上面的 webhook 注册已生效，无需 polling
+	EnsureTelegramMode(svc)
 }

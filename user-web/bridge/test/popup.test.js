@@ -436,13 +436,13 @@ describe('popup selfCheck 流程', () => {
     expect(types).toEqual(['ping', 'selfcheck', 'deepSelfcheck']);
   });
 
-  it('B. selfcheck matched=false 但 deepSelfcheck 失败 → 仍展示 selfcheck 原文 + deep 错误', async () => {
+  it('B. selfcheck matched=false 但 deepSelfcheck 失败（port closed 场景）→ 展示 selfcheck 原文 + 重负载引导', async () => {
     const tab = { id: 1, url: 'https://www.douyin.com/' };
     const chrome = makeChrome({
       tab,
       pingResp: { pong: true, channel: 'douyin_web', matched: false },
       selfcheckResp: { channel: 'douyin_web', matched: false, hint: '请打开私信页' },
-      deepError: { message: 'message port closed' },
+      deepError: { message: 'The message port closed before a response was received.' },
     });
     const { exported, elements } = await loadPopup({ chrome });
     exported.selfCheck();
@@ -450,6 +450,30 @@ describe('popup selfCheck 流程', () => {
     const out = elements['selfOut'].textContent;
     expect(out).toContain('adapter.match() 返回 false');
     expect(out).toContain('deepSelfcheck 失败');
+    // port closed 场景应给"重负载/标签后台/SPA 切换"明确引导
+    expect(out).toContain('DOM 极重');
+    expect(out).toContain('标签页处于后台');
+    expect(out).toContain('Ctrl+Shift+R');
+  });
+
+  it('B. selfcheck matched=false 但 deepSelfcheck 失败（content script 未注入场景）→ 给 manifest/扩展禁用引导', async () => {
+    const tab = { id: 1, url: 'https://www.douyin.com/' };
+    const chrome = makeChrome({
+      tab,
+      pingResp: { pong: true, channel: 'douyin_web', matched: false },
+      selfcheckResp: { channel: 'douyin_web', matched: false, hint: '请打开私信页' },
+      // 非 port-closed 错误：模拟接收端不存在
+      deepError: { message: 'Could not establish connection. Receiving end does not exist.' },
+    });
+    const { exported, elements } = await loadPopup({ chrome });
+    exported.selfCheck();
+    await flush();
+    const out = elements['selfOut'].textContent;
+    expect(out).toContain('adapter.match() 返回 false');
+    expect(out).toContain('deepSelfcheck 失败');
+    // 非 port-closed 错误：应提示"未注入"而非"重负载"
+    expect(out).toContain('content script 未注入');
+    expect(out).not.toContain('DOM 极重');
   });
 
   it('C. ping 成功 + selfcheck matched=true → 显示完整桥接数据（accountId/conversationId 不再为空）', async () => {

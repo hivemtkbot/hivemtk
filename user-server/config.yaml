@@ -6,6 +6,23 @@ platform_api:
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 DEVELOPMENT.md §2.4
   base_url: "${PLATFORM_API_URL:http://localhost:8205}"
 
+# 外部可达基座 URL（用于自动推导 Telegram / 飞书 / 钉钉等被动渠道的 Webhook 回调地址）
+# 背景：user-server 部署在反代/frp/云函数之后，渠道回调所需的公网 URL
+#       无法从「请求 Host 头」直接推断（默认会得到 localhost:8080，
+#       Telegram 无法向其投递消息）。显式声明后，注册 webhook 时优先使用该地址。
+# 覆盖优先级（自高到低）：
+#   1. 环境变量 PUBLIC_BASE_URL（部署期单点覆盖，无需改文件）
+#   2. 本字段 external.public_base_url
+#   3. X-Forwarded-Proto / X-Forwarded-Host 反代透传
+#   4. 请求自身 Host（仅适合公网直连调试）
+# 格式要求：
+#   - scheme + host（不含 path），如 https://shop.example.com 或 https://example.com:8443
+#   - 必须是 https（Telegram / 飞书强制 https；本系统会自动把 http+端口 升级为 https）
+#   - 不带尾部斜杠
+# 留空 → 回退到 X-Forwarded-* 头 / 请求 Host（不推荐用于生产）
+external:
+  public_base_url: "${PUBLIC_BASE_URL:}"
+
 # 统一日志系统配置（zerolog 驱动）
 # level:    debug | info | warn | error
 # format:   json（生产，便于采集）| console（本地，带颜色）

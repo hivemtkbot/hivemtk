@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/pkg/utils/tgbot"
 	"marketing/internal/service"
@@ -225,7 +226,7 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 
 // RegisterWebhook 调用 Telegram setWebhook 接口注册 webhook
 // POST /api/telegram/accounts/:id/register-webhook
-// body: {"webhook_url": "https://your-domain/api/webhook/telegram/{id}"}（可省略，省略时按请求 host 自动推导）
+// body: {"webhook_url": "https://your-domain/api/webhook/telegram/{id}"}（可省略，省略时优先按 public_base_url / 请求 host 推导）
 func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -237,6 +238,10 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "账号不存在", err.Error())
 		return
 	}
+	if acc.BotToken == "" {
+		response.Error(c, http.StatusBadRequest, "BotToken 未配置", "")
+		return
+	}
 	var req struct {
 		WebhookURL string `json:"webhook_url"`
 	}
@@ -244,9 +249,22 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 	if req.WebhookURL != "" {
 		acc.WebhookURL = req.WebhookURL
 	}
-	// 未显式提供 webhook_url 时，基于当前请求 host 自动推导
+	// 未显式提供 webhook_url 时，自动推导：先公网域名，再请求 host
 	if acc.WebhookURL == "" {
 		acc.WebhookURL = deriveTelegramWebhookURL(c, uint(id))
+	}
+	if acc.WebhookURL == "" {
+		response.Error(c, http.StatusBadRequest, "WebhookURL 无法推导（请配置 external.public_base_url 或在请求 body 中显式传 webhook_url）", "")
+		return
+	}
+	// S3-5：本地静态校验（scheme=https + path 前缀），避免把明显错误的 URL 推到 Telegram 侧。
+	if vErr := service.ValidateTelegramWebhookURL(acc.WebhookURL); vErr != nil {
+		now := time.Now()
+		acc.LastErrorAt = &now
+		acc.LastErrorMsg = "webhook URL 校验失败: " + vErr.Error()
+		_ = ctrl.svc.UpdateAccount(context.Background(), acc)
+		response.Error(c, http.StatusBadRequest, "WebhookURL 格式不合法", vErr.Error())
+		return
 	}
 	// WebhookSecret 为空时自动生成，确保生产环境（GIN_MODE=release）入站验签可通过
 	if acc.WebhookSecret == "" {
@@ -278,21 +296,45 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "保存状态失败", err.Error())
 		return
 	}
+	// Webhook 注册成功 → 停掉对应账号的 polling（避免 webhook + polling 双消费）
+	service.StopTelegramPolling(acc.ID)
 	response.Success(c, toTelegramAccountVO(acc), "Webhook 注册成功")
 }
 
-// deriveTelegramWebhookURL 基于当前请求推导 webhook 公网地址：{scheme}://{host}/api/webhook/telegram/{id}
-// 优先使用反向代理透传的 X-Forwarded-Proto / X-Forwarded-Host，否则回退到请求自身 host。
+// deriveTelegramWebhookURL 基于配置 + 请求头推导 webhook 公网地址：{scheme}://{host}/api/webhook/telegram/{id}
+//
+// 解析顺序（自高到低）：
+//  1. 配置文件 external.public_base_url 或环境变量 PUBLIC_BASE_URL（公网域名/frp 暴露的域名）
+//     → 私域部署基线：user-server 跑在 frp 后，请求 Host 总是 localhost:8204，
+//       必须显式声明公网域名，否则 Telegram 永远无法回调本系统。
+//  2. 反代透传的 X-Forwarded-Proto / X-Forwarded-Host（适用于云函数 / nginx 自终止 TLS）
+//  3. 请求自身 Host（仅适合公网直连调试 / 本地开发）
+//
+// 注意：返回值已确保是 https 协议（http + 端口会由 NormalizePublicBaseURL 自动升级）。
 func deriveTelegramWebhookURL(c *gin.Context, accountID uint) string {
+	return deriveTelegramWebhookURLWithBase(c, accountID, config.GetPublicBaseURL())
+}
+
+// deriveTelegramWebhookURLWithBase 与 deriveTelegramWebhookURL 行为一致，但允许显式传入
+// publicBase 覆盖（用于：测试 / 启动期对账时无 gin.Context 的场景）。
+//
+// 当 publicBase 非空时优先使用；否则回退到 X-Forwarded-* 头 / 请求 Host。
+func deriveTelegramWebhookURLWithBase(c *gin.Context, accountID uint, publicBase string) string {
+	if publicBase != "" {
+		return strings.TrimRight(publicBase, "/") + fmt.Sprintf("/api/webhook/telegram/%d", accountID)
+	}
 	scheme := "https"
 	if h := c.GetHeader("X-Forwarded-Proto"); h != "" {
 		scheme = h
-	} else if c.Request.TLS == nil {
+	} else if c != nil && c.Request != nil && c.Request.TLS == nil {
 		scheme = "http"
 	}
-	host := c.GetHeader("X-Forwarded-Host")
-	if host == "" {
-		host = c.Request.Host
+	host := ""
+	if c != nil {
+		host = c.GetHeader("X-Forwarded-Host")
+		if host == "" && c.Request != nil {
+			host = c.Request.Host
+		}
 	}
 	return fmt.Sprintf("%s://%s/api/webhook/telegram/%d", scheme, host, accountID)
 }

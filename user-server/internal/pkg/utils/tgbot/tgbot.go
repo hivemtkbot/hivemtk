@@ -258,3 +258,66 @@ func GetBotUsername(botToken string) (string, error) {
 func GetWebhookInfo(botToken string) (map[string]any, error) {
 	return callBotAPI(botToken, "getWebhookInfo", url.Values{})
 }
+
+// GetUpdates 通过 long polling 拉取更新（用于无公网 webhook 时的 fallback 方案）
+//
+// 参数：
+//   - offset: 下次期望接收的 update_id（= 已处理的最大 update_id + 1）；0 表示从最早未确认的 update 开始
+//   - limit: 单次返回最大 update 数（1-100）
+//   - timeout: 长轮询等待秒数（建议 25s 以避开通用代理 30s 超时）
+//
+// 返回：每条 update 的原始 JSON 数组（保留原貌，便于直接转交给 webhook 入口处理）
+func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeout int) ([]json.RawMessage, error) {
+	if botToken == "" {
+		return nil, fmt.Errorf("bot token is empty")
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	if timeout < 0 {
+		timeout = 0
+	}
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates", botToken)
+	form := url.Values{}
+	if offset > 0 {
+		form.Set("offset", fmt.Sprintf("%d", offset))
+	}
+	form.Set("limit", fmt.Sprintf("%d", limit))
+	form.Set("timeout", fmt.Sprintf("%d", timeout))
+	form.Set("allowed_updates", `["message","edited_message","channel_post","edited_channel_post","callback_query","my_chat_member","chat_member","inline_query"]`)
+
+	// 长轮询：超时时间要略大于 timeout，避免客户端先断
+	client := &http.Client{Timeout: time.Duration(timeout+10) * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构造 getUpdates 请求失败: %w", err)
+	}
+	req.Body = nil
+	req.URL.RawQuery = form.Encode()
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("getUpdates 失败: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusConflict {
+		return nil, fmt.Errorf("getUpdates 返回 409 Conflict（同 token 另一实例正在 polling）")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("getUpdates 返回 %d: %s", resp.StatusCode, string(body))
+	}
+	var result struct {
+		OK          bool             `json:"ok"`
+		Result      []json.RawMessage `json:"result"`
+		Description string           `json:"description"`
+		ErrorCode   int              `json:"error_code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("解析 getUpdates 响应失败: %w", err)
+	}
+	if !result.OK {
+		return nil, fmt.Errorf("getUpdates 失败(%d): %s", result.ErrorCode, result.Description)
+	}
+	return result.Result, nil
+}

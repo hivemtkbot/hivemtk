@@ -175,5 +175,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewMultilingualI18nMigration(db))
 	// v1.2 出海多语言方案 P1-3 - knowledge_chunks.translated_versions 字段（预翻译支持）
 	registry.Register(NewMultilingualI18nP13Migration(db))
+	// S3-6 Telegram polling 分布式锁（polling_owner + polling_heartbeat_at）
+	registry.Register(NewTelegramPollingLockMigration(db))
 	// 继续添加新的迁移...
 }

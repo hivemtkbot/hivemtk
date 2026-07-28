@@ -304,15 +304,30 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 // ----------------------------------------------------------------------------
 
 // findOrCreateSession 查找或创建会话
+//
+// 匹配优先级（S3-1 OneID 跨渠道合并）：
+//  1. OneID（跨渠道合并辅助键）—— 同 OneID 视为同一人，跨平台 user_id 不同但 OneID
+//     相同则合并会话，避免冷启动
+//  2. user_id（单渠道内）—— 命中 user_id 索引，单点查
+//
+// 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
-	// 查找活跃会话：直接按 user_id + 活跃状态点查（命中 user_id 索引）。
+	// 1) 优先 OneID 匹配（跨渠道合并）
+	if in.OneID != "" {
+		if existing, err := o.sessionRepo.GetActiveByOneID(ctx, in.OneID); err == nil && existing != nil {
+			return existing, nil
+		}
+	}
+
+	// 2) 降级 user_id 匹配（单渠道内活跃会话）
+	// 直接按 user_id + 活跃状态点查（命中 user_id 索引）。
 	// GetByMerchant("",1,20) 会对全量会话做 COUNT + 取最近 20 条再线性匹配，
 	// 在 1000 万/日被动回复下每条消息都触发一次全表 COUNT，且只扫 20 条会漏掉用户真实会话。
 	if existing, err := o.sessionRepo.GetActiveByUserID(ctx, in.SenderID); err == nil && existing != nil {
 		return existing, nil
 	}
 
-	// 创建新会话
+	// 3) 创建新会话
 	sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 	now := time.Now()
 	session := &model.CustomerSession{
@@ -320,6 +335,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 		Platform:      in.Platform,
 		AccountID:     in.AccountID,
 		UserID:        in.SenderID,
+		OneID:         in.OneID,
 		UserName:      in.SenderName,
 		Status:        model.SessionStatusPending,
 		Priority:      0,

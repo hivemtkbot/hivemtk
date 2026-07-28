@@ -343,13 +343,24 @@ function runSelfcheck(tab) {
 // 触发条件：自检返回 matched=false / msgItemCount=0
 // 输出：可见的输入框 / 发送按钮 / 列表容器 / 账号链接 / 推荐选择器
 // header: 可选，selfcheck 上下文（matched=false 时给出），失败时与 deep 错误合并展示
+//
+// 重要：content/common.js 的 deepSelfcheck 监听器已改为异步（return true +
+// Promise 微任务）以避免 "port closed before response"。但极端情况下
+// （页面长时间无响应 / 标签页被冻结 / 浏览器内存压力）port 仍可能在
+// 异步 sendResponse 之前关闭。错误处理中针对此场景给出明确引导。
 function runDeepSelfcheck(tab, header) {
   try {
     chrome.tabs.sendMessage(tab.id, { type: 'deepSelfcheck' }, (resp) => {
       const err = lastError();
       if (err) {
         const prefix = header ? header + '\n\n---\n\n' : '';
-        $('selfOut').textContent = prefix + 'deepSelfcheck 失败：' + err;
+        // 区分"port 在异步 sendResponse 前被关闭"vs"接收端根本不存在"
+        // 后者通常意味着 content script 未注入（已在前序 ping 阶段拦截）
+        const isPortClosed = /port closed|disconnected/i.test(err);
+        const guide = isPortClosed
+          ? '\n\n可能原因：\n  1. 当前页 DOM 极重（消息列表很长 / 大量虚拟滚动节点），扫描耗时超长\n  2. 标签页处于后台，Chrome 限流 / 冻结了 content script\n  3. 页面在扫描过程中发生了 SPA 路由切换\n\n建议：\n  · 关闭其他抖音/小红书/TikTok 标签，仅保留当前私信页\n  · 滚动到顶部让虚拟列表回收\n  · 按 Ctrl+Shift+R 强制刷新一次后再试'
+          : '\n\n可能原因：\n  · content script 未注入（请先点「自检当前私信页」执行 ping 探活）\n  · 扩展被禁用 / URL 不在 manifest matches 范围';
+        $('selfOut').textContent = prefix + 'deepSelfcheck 失败：' + err + guide;
         return;
       }
       if (!resp || !resp.ok) {

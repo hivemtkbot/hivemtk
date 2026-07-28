@@ -2,10 +2,43 @@ package config
 
 import (
 	"os"
+	"regexp"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 	"marketing/internal/pkg/utils/logger"
 )
+
+// envVarWithDefaultRe 匹配 ${VAR} 或 ${VAR:default} 两种形式
+// 说明：yaml 配置文件大量使用 ${LLM_BASE_URL:http://127.0.0.1:8207/v1} 这种带默认值的语法，
+// 但 Go 标准库 os.ExpandEnv 只支持 ${VAR} 形式，会把 `:default` 当成变量名的一部分，
+// 导致 env var 未设置时所有配置字段被吞为空字符串 → 启动失败 / 业务 fallback 异常。
+var envVarWithDefaultRe = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}`)
+
+// expandEnvWithDefault 把字符串里所有 ${VAR} 和 ${VAR:default} 展开为对应 env var 值或 default
+//
+// 行为对齐 bash：
+//   - ${VAR}         → os.Getenv(VAR)；未设置 → 空字符串
+//   - ${VAR:default} → os.Getenv(VAR)；未设置 → default 字符串
+//
+// 注意：default 不再做二次展开，避免无限递归 / 配置炸弹。
+func expandEnvWithDefault(s string) string {
+	return envVarWithDefaultRe.ReplaceAllStringFunc(s, func(m string) string {
+		sub := envVarWithDefaultRe.FindStringSubmatch(m)
+		if len(sub) < 2 {
+			return m
+		}
+		name := sub[1]
+		def := ""
+		if len(sub) >= 3 {
+			def = sub[2]
+		}
+		if v, ok := os.LookupEnv(name); ok {
+			return v
+		}
+		return def
+	})
+}
 
 // DBType 数据库类型（本系统统一使用 PostgreSQL）
 type DBType string
@@ -278,6 +311,75 @@ type AppConfig struct {
 	Storage        StorageConfig        `yaml:"storage"`
 	Logging        logger.LoggingConfig `yaml:"logging"`
 	I18n           I18nConfig           `yaml:"i18n"`
+	External       ExternalConfig       `yaml:"external"`
+}
+
+// ExternalConfig 外部可达地址配置
+//
+// 用途：用户端 user-server 通常部署在内网/反代后面（frp / nginx / 云函数），
+// 业务侧无法通过「请求 Host 头」直接推断 Telegram / 飞书 / 钉钉等回调所需的公网 URL。
+// 显式声明 public_base_url 后，系统在注册被动渠道 webhook 时优先使用该地址，
+// 避免因「localhost:8080」导致 Telegram 无法向本系统投递更新。
+//
+// 覆盖优先级（自高到低）：
+//  1. 环境变量 PUBLIC_BASE_URL（部署期直接覆盖）
+//  2. config.yaml external.public_base_url 字段
+//  3. X-Forwarded-Proto / X-Forwarded-Host 头（反代透传）
+//  4. 请求自身 Host（仅适合公网直连调试）
+type ExternalConfig struct {
+	// PublicBaseURL 公网可达的基座 URL（scheme + host，不含 path）
+	// 例：https://hivepaltformapi.xapptool.cn
+	//   - 不带尾部斜杠
+	//   - 必须是 https（Telegram / 飞书等均要求）
+	//   - 不带端口时使用 scheme 默认端口（443）
+	//   - 带端口时直接拼接，如 https://shop.example.com:8443
+	PublicBaseURL string `yaml:"public_base_url" json:"public_base_url"`
+}
+
+// GetPublicBaseURL 解析公网基座 URL（用于自动推导渠道 webhook 回调地址）
+//
+// 解析顺序：
+//  1. 环境变量 PUBLIC_BASE_URL（部署期单点覆盖）
+//  2. config.yaml external.public_base_url
+//  3. 返回空字符串 → 调用方回退到 X-Forwarded-* 头 / 请求 Host
+//
+// 返回值已去除尾部斜杠，scheme 强制 https（若用户误填 http+端口 自动升级，避免 Telegram 拒收）。
+func GetPublicBaseURL() string {
+	// 1) 环境变量优先级最高
+	if v := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")); v != "" {
+		return NormalizePublicBaseURL(v)
+	}
+	// 2) 配置文件
+	if cfg := GetAppConfig().External.PublicBaseURL; cfg != "" {
+		return NormalizePublicBaseURL(cfg)
+	}
+	return ""
+}
+
+// NormalizePublicBaseURL 规范化公网基座 URL：
+//   - 去除尾部斜杠
+//   - 若 scheme 缺失，无端口默认补 https（公网基线）
+//   - 若显式 http 但提供端口，自动升级为 https（Telegram / 飞书等强制 https）
+//
+// 暴露为公开函数，便于 controller / bootstrap 单测直接覆盖。
+func NormalizePublicBaseURL(raw string) string {
+	v := strings.TrimSpace(raw)
+	v = strings.TrimRight(v, "/")
+	if v == "" {
+		return ""
+	}
+	idx := strings.Index(v, "://")
+	if idx == -1 {
+		// 无 scheme：默认补 https
+		return "https://" + v
+	}
+	scheme := strings.ToLower(v[:idx])
+	rest := v[idx+3:]
+	// http + 带端口 → 升级为 https（Telegram / 飞书等强制 https）
+	if scheme == "http" && strings.Contains(rest, ":") {
+		return "https://" + rest
+	}
+	return v[:idx+3] + rest
 }
 
 // I18nConfig 多语言方案配置（v1.2 出海多语言）
@@ -361,7 +463,34 @@ func GetServerBaseURL() string {
 // GetAppConfig 获取应用配置
 // 本系统仅使用 PostgreSQL，缺少 config.yaml 时使用 Docker 网络默认配置，
 // 由 merchant_init 流程在部署阶段确保 config.yaml 已生成。
+//
+// 实现说明：
+//   - 启动期 LoadAppConfig() 会把 yaml 解析结果缓存到 package-level 变量
+//   - 测试场景可通过 SetAppConfig 注入自定义配置
+//   - 未 Load 也未 Set 时按需懒加载（不修改全局状态）
 func GetAppConfig() AppConfig {
+	if appConfig != nil {
+		return *appConfig
+	}
+	return loadAppConfigOnce()
+}
+
+// SetAppConfig 注入应用配置（测试场景专用）
+//
+// 生产代码请勿调用——会被启动期 LoadAppConfig() 的真实加载结果覆盖。
+// 仅用于单测替换配置，验证 GetPublicBaseURL 等函数对配置的读取行为。
+func SetAppConfig(cfg *AppConfig) {
+	if cfg == nil {
+		appConfig = nil
+		return
+	}
+	appConfig = cfg
+}
+
+var appConfig *AppConfig
+
+// loadAppConfigOnce 懒加载：把 yaml 读一遍，结果不写入 appConfig
+func loadAppConfigOnce() AppConfig {
 	var config AppConfig
 
 	// 尝试从配置文件读取
@@ -387,7 +516,8 @@ func GetAppConfig() AppConfig {
 	}
 
 	// 支持配置值引用环境变量（如 ${QINIU_ACCESS_KEY}），满足合规基线 §7.2 敏感数据脱敏
-	err = yaml.Unmarshal([]byte(os.ExpandEnv(string(data))), &config)
+	// 同时支持 bash 风格的默认值语法 ${VAR:default}（os.ExpandEnv 不支持，需要自己实现）
+	err = yaml.Unmarshal([]byte(expandEnvWithDefault(string(data))), &config)
 	if err != nil {
 		panic(err)
 	}
