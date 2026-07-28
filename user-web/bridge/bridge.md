@@ -260,7 +260,10 @@ user-web/bridge/
       types.ts                   // UnifiedMessage / UnifiedReply / 帧类型
       channel-adapter.ts         // ChannelAdapter 抽象接口
       bridge-client.ts           // WS 客户端（重连/心跳/帧编解码），复用 user-web/utils 的鉴权逻辑
-      logger.ts
+      logger.ts                  // 频道着色 + 敏感字段脱敏
+      sanitize.ts                // XSS 防护（escapeHTML / safeSetContent / sanitizeForDisplay）
+      fallback.ts                // account_id fallback 派生 + 自他消息判定兜底
+      rate-limiter.ts            // 拟人节奏 + 令牌桶 + 会话冷却 + 去重
     channels/
       douyin/index.ts            // DouyinAdapter（复用 DY-auto 选择器与收发）
       douyin/selectors.ts        // 私信列表/输入框/发送按钮 DOM 选择器（来自 DY-auto）
@@ -272,9 +275,26 @@ user-web/bridge/
       index.ts                   // service worker：WS 连接 + port 路由 + 注册
       registry.ts                // (channel,account) 连接状态
     popup/
-      index.html / index.ts / app.tsx  // 连接状态 / 账号 / 开关
-  content-loaders.ts             // 各渠道 content script 入口（按 match 注入）
+      index.html                 // 状态横幅 + 错误提示 + 测试连接按钮
+      index.js                   // save / testConnection / refreshStatus / selfCheck
+    content-loaders.ts           // 各渠道 content script 入口（按 match 注入）
 ```
+
+### 5.2.1 Popup 状态横幅（v1.1）
+
+修复用户反馈"插件不生效 链接都没生效"的根因：
+
+| 问题 | 修复 |
+| --- | --- |
+| dist 是旧版本（placeholder 端口是 8080） | 重跑 `scripts/build.mjs`，dist 现在端口是 8204 |
+| 端口写错（用户输 8021 而非 8204） | 默认 placeholder 改为 `http://localhost:8204` + hint 提示 |
+| 保存反馈太弱（按钮文字闪 1.5s） | 改成持久状态横幅（success / warn / error / info 四种） |
+| `chrome.runtime.lastError` 被吞 | 所有 `sendMessage` / `tabs.sendMessage` 都 try/catch 并展示 |
+| 无法验证 URL 是不是对的 | 新增"测试连接"按钮，依次请求 `/health` / `/healthz` / `/readyz` / `/api/health` |
+| 自检报错不友好 | 自检失败展示可能原因清单（未登录 / 扩展禁用 / URL 不匹配 manifest） |
+| 不知道哪个页面是私信页 | 新增"抖音私信 / 小红书私信 / TikTok"三个快捷按钮 |
+
+`test/popup.test.js` 覆盖 15 用例（normalizeServerUrl / testConnection / showBanner）。
 
 ### 5.3 扩展 ↔ 服务器 协议帧（JSON over WS）
 

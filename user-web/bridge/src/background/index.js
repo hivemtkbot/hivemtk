@@ -20,7 +20,7 @@ function keyOf(channel, account) {
 function getConfig() {
   return new Promise((resolve) => {
     chrome.storage.local.get('bridgeConfig', (res) => {
-      resolve(res.bridgeConfig || { serverUrl: 'http://localhost:8080', token: '', autoConnect: true });
+      resolve(res.bridgeConfig || { serverUrl: 'http://localhost:8204', token: '', autoConnect: true });
     });
   });
 }

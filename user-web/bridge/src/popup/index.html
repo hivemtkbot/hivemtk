@@ -5,18 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HiveBridge 蜂桥 — 私信桥接</title>
     <style>
-      body { width: 340px; font-family: -apple-system, "PingFang SC", sans-serif; padding: 12px; font-size: 13px; }
-      .brand { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+      :root {
+        --primary: #4f8cff;
+        --primary-hover: #3d75e6;
+        --secondary: #f3f4f6;
+        --secondary-hover: #e5e7eb;
+        --success: #16a34a;
+        --success-bg: #dcfce7;
+        --danger: #dc2626;
+        --danger-bg: #fee2e2;
+        --warning: #d97706;
+        --warning-bg: #fef3c7;
+        --text: #1f2937;
+        --text-muted: #6b7280;
+        --border: #e5e7eb;
+      }
+      body { width: 360px; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; padding: 12px 14px; font-size: 13px; margin: 0; color: var(--text); }
+      .brand { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
       .brand svg { flex: none; }
       .brand h3 { margin: 0; font-size: 15px; line-height: 1.2; }
-      .brand .sub { font-size: 11px; color: #888; }
-      label { display: block; margin: 8px 0 2px; color: #555; }
-      input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
-      button { margin-top: 10px; padding: 7px 10px; border: none; border-radius: 6px; background: #4f8cff; color: #fff; cursor: pointer; }
-      button.secondary { background: #eee; color: #333; }
-      pre { background: #f6f6f6; padding: 8px; border-radius: 6px; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
-      .status-on { color: #16a34a; } .status-off { color: #dc2626; }
-      hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+      .brand .sub { font-size: 11px; color: var(--text-muted); }
+
+      label { display: block; margin: 8px 0 4px; color: #555; font-size: 12px; }
+      input { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+      input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.15); }
+      .hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+      .row { display: flex; gap: 6px; margin-top: 10px; }
+      .row > button { flex: 1; }
+      button { padding: 7px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary { background: var(--primary); color: #fff; }
+      button.primary:hover:not(:disabled) { background: var(--primary-hover); }
+      button.secondary { background: var(--secondary); color: #333; }
+      button.secondary:hover:not(:disabled) { background: var(--secondary-hover); }
+      button.link { background: none; color: var(--primary); padding: 4px 0; font-size: 12px; text-decoration: underline; }
+
+      /* 状态横幅（持久可见） */
+      .banner {
+        display: none;
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        word-break: break-all;
+        animation: slideIn 0.2s ease-out;
+      }
+      .banner.show { display: block; }
+      .banner.success { background: var(--success-bg); color: #14532d; border: 1px solid #86efac; }
+      .banner.error { background: var(--danger-bg); color: #7f1d1d; border: 1px solid #fca5a5; }
+      .banner.warn { background: var(--warning-bg); color: #78350f; border: 1px solid #fcd34d; }
+      .banner.info { background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; }
+      .banner .title { font-weight: 600; margin-bottom: 2px; }
+      @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+      pre { background: #f6f6f6; padding: 8px; border-radius: 6px; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 12px; margin: 6px 0 0; }
+      .status-on { color: var(--success); } .status-off { color: var(--danger); }
+
+      hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+      .small { font-size: 11px; color: var(--text-muted); }
+      .docs-link { margin-top: 6px; }
     </style>
   </head>
   <body>
@@ -43,19 +92,42 @@
         <div class="sub">抖音 / 小红书 / TikTok 私信桥接</div>
       </div>
     </div>
-    <label>服务端地址 (http/https)</label>
-    <input id="serverUrl" placeholder="http://localhost:8080" />
-    <label>鉴权 Token（可选）</label>
-    <input id="token" placeholder="留空走私有部署 agent_id 模式" />
-    <button id="save">保存并连接</button>
+
+    <label for="serverUrl">服务端地址 (http/https)</label>
+    <input id="serverUrl" placeholder="http://localhost:8204" autocomplete="off" />
+    <div class="hint">user-server 默认端口 8204；若自定义请在 cmd/api/main.go 或 PORT 环境变量查看</div>
+
+    <label for="token">鉴权 Token（可选）</label>
+    <input id="token" placeholder="留空走私有部署 agent_id 模式" autocomplete="off" />
+
+    <div class="row">
+      <button id="save" class="primary">保存并连接</button>
+      <button id="test" class="secondary">测试连接</button>
+    </div>
+
+    <div id="banner" class="banner"></div>
 
     <hr />
-    <button id="status" class="secondary">刷新连接状态</button>
+
+    <button id="status" class="secondary" style="width: 100%;">刷新连接状态</button>
     <pre id="statusOut">点击刷新…</pre>
 
     <hr />
-    <button id="selfcheck" class="secondary">自检当前私信页（校准用）</button>
+
+    <button id="selfcheck" class="secondary" style="width: 100%;">自检当前私信页（校准用）</button>
     <pre id="selfOut">打开抖音/小红书/TikTok 私信页后点击</pre>
+
+    <hr />
+
+    <div class="row">
+      <button id="openDouyin" class="secondary">抖音私信</button>
+      <button id="openXhs" class="secondary">小红书私信</button>
+      <button id="openTiktok" class="secondary">TikTok</button>
+    </div>
+
+    <p class="small docs-link">
+      <a href="https://github.com/hivemtk/hivemtk/blob/master/hivemtk/user-web/bridge/bridge.md" target="_blank" class="link">查看安装文档（GitHub）</a>
+    </p>
 
     <script src="./popup.js"></script>
   </body>

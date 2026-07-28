@@ -37,7 +37,7 @@ describe('BridgeClient 协议', () => {
   it('连接后发送 register 帧，URL 带 channel/account_id/token', () => {
     const c = new BridgeClient({
       WebSocket: MockWS,
-      serverUrl: 'http://localhost:8080',
+      serverUrl: 'http://localhost:8204',
       channel: 'douyin_web',
       accountId: '123',
       token: 'sek',

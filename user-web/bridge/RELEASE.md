@@ -60,7 +60,7 @@ npm run release
 
 1. 打开 `chrome://extensions`，开启「开发者模式」；
 2. 「加载已解压的扩展程序」→ 选择 `dist/`（或解压后的 `release/hivebridge-<version>.zip`）；
-3. 点击工具栏图标 → 填 `user-server` 地址（如 `http://localhost:8080`）→ 保存；
+3. 点击工具栏图标 → 填 `user-server` 地址（如 `http://localhost:8204`）→ 保存；
 4. 打开任一平台**私信页** → 点 popup 内「自检当前私信页」按 §17.2 校准选择器。
 
 ## 6. 真机校准清单（上线前必做）
