@@ -8,6 +8,7 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/repository"
 
 	"gorm.io/gorm"
@@ -1393,7 +1394,7 @@ func TestShortLinkService_ShareShortLink(t *testing.T) {
 		t.Fatalf("ShareShortLink failed: %v", err)
 	}
 
-	expectedURL := "http://localhost:8204/s/share"
+	expectedURL := config.DefaultUserServerBaseURL + "/s/share"
 	if resp.ShortURL != expectedURL {
 		t.Errorf("Expected ShortURL '%s', got %s", expectedURL, resp.ShortURL)
 	}

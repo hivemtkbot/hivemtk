@@ -570,8 +570,10 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		baseURL = os.Getenv("LLM_BASE_URL")
 	}
 	if baseURL == "" {
-		// 内置本地默认（宿主 127.0.0.1:8207；docker 由 config-docker.yaml 显式设置 mtk-llm:8207）
-		baseURL = "http://127.0.0.1:8207/v1"
+		// 内置本地默认（host 部署走 127.0.0.1; docker 部署由 config-docker.yaml 显式设置 mtk-llm:8207）
+		// 单一源：config.DefaultLLMBaseURLDev（user-server/internal/pkg/utils/config/ports.go）
+		// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8207 | LLM（llama.cpp）
+		baseURL = config.DefaultLLMBaseURLDev
 	}
 	if model == "" {
 		if v := os.Getenv("LLM_MODEL"); v != "" {
@@ -579,7 +581,10 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		}
 	}
 	if model == "" {
-		model = "Qwen2.5-3B-Instruct"
+		// 单一源：config.defaultLLMModel（user-server/internal/pkg/utils/config/server.go）
+		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.llm.model
+		// 行为：dev 档默认为 Qwen2.5-1.5B-Instruct（CPU 推理优化档），与 config.yaml 严格对齐
+		model = config.DefaultLLMModel()
 	}
 	if apiKey == "" {
 		apiKey = os.Getenv("LLM_API_KEY")

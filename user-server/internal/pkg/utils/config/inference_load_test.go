@@ -158,8 +158,9 @@ func TestInferenceConfigLoads(t *testing.T) {
 		if c.Inference.Embedding.Dimension != 1024 {
 			t.Errorf("embedding 维度必须 1024（pgvector 对齐），实际 %d", c.Inference.Embedding.Dimension)
 		}
-		if c.Inference.Embedding.BaseURL != "http://127.0.0.1:8208/v1" {
-			t.Errorf("embedding base_url 应为 http://127.0.0.1:8208/v1，实际 %s", c.Inference.Embedding.BaseURL)
+		// 单一源：DefaultEmbeddingBaseURLDev（ports.go）—— 禁止裸字面量
+		if c.Inference.Embedding.BaseURL != DefaultEmbeddingBaseURLDev {
+			t.Errorf("embedding base_url 应为 %s，实际 %s", DefaultEmbeddingBaseURLDev, c.Inference.Embedding.BaseURL)
 		}
 		if c.Inference.Embedding.Mode != InferenceModeLocal {
 			t.Errorf("embedding mode 应为 local，实际 %s", c.Inference.Embedding.Mode)
@@ -170,8 +171,9 @@ func TestInferenceConfigLoads(t *testing.T) {
 		if c.Inference.Rerank.Model != "bge-reranker-v2-m3" {
 			t.Errorf("rerank model 应为 bge-reranker-v2-m3（dev 档），实际 %s", c.Inference.Rerank.Model)
 		}
-		if c.Inference.Rerank.BaseURL != "http://127.0.0.1:8209/v1" {
-			t.Errorf("rerank base_url 应为 http://127.0.0.1:8209/v1，实际 %s", c.Inference.Rerank.BaseURL)
+		// 单一源：DefaultRerankBaseURLDev（ports.go）
+		if c.Inference.Rerank.BaseURL != DefaultRerankBaseURLDev {
+			t.Errorf("rerank base_url 应为 %s，实际 %s", DefaultRerankBaseURLDev, c.Inference.Rerank.BaseURL)
 		}
 		if c.Inference.Rerank.Mode != InferenceModeLocal {
 			t.Errorf("rerank mode 应为 local，实际 %s", c.Inference.Rerank.Mode)
@@ -185,8 +187,9 @@ func TestInferenceConfigLoads(t *testing.T) {
 		if c.Inference.LLM.Model != "Qwen2.5-1.5B-Instruct" {
 			t.Errorf("llm model 应为 Qwen2.5-1.5B-Instruct（dev 档），实际 %s", c.Inference.LLM.Model)
 		}
-		if c.Inference.LLM.BaseURL != "http://127.0.0.1:8207/v1" {
-			t.Errorf("llm base_url 应为 http://127.0.0.1:8207/v1，实际 %s", c.Inference.LLM.BaseURL)
+		// 单一源：DefaultLLMBaseURLDev（ports.go）
+		if c.Inference.LLM.BaseURL != DefaultLLMBaseURLDev {
+			t.Errorf("llm base_url 应为 %s，实际 %s", DefaultLLMBaseURLDev, c.Inference.LLM.BaseURL)
 		}
 		if c.Inference.LLM.Mode != InferenceModeLocal {
 			t.Errorf("llm mode 应为 local，实际 %s", c.Inference.LLM.Mode)

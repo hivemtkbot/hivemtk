@@ -91,19 +91,58 @@ func TestPortsConstants(t *testing.T) {
 			}
 		}
 	})
+	t.Run("DockerBaseURLsContainPort", func(t *testing.T) {
+		// Docker 网络 base_url 必须包含对应端口
+		cases := []struct {
+			name string
+			url  string
+			port string
+		}{
+			{"DefaultLLMBaseURLDocker", DefaultLLMBaseURLDocker, "8207"},
+			{"DefaultEmbeddingBaseURLDocker", DefaultEmbeddingBaseURLDocker, "8208"},
+			{"DefaultRerankBaseURLDocker", DefaultRerankBaseURLDocker, "8209"},
+		}
+		for _, c := range cases {
+			if !strings.Contains(c.url, ":"+c.port+"/") {
+				t.Errorf("%s 应包含端口 :%s/，实际 %s", c.name, c.port, c.url)
+			}
+		}
+	})
+	t.Run("BGEBaseURLsDerivedFromEmbeddingPort", func(t *testing.T) {
+		// BGE base_url 必须与 embedding 同源（同端口 8208）
+		cases := []struct {
+			name string
+			url  string
+		}{
+			{"DefaultBGEBaseURLDev", DefaultBGEBaseURLDev},
+			{"DefaultBGEBaseURLDocker", DefaultBGEBaseURLDocker},
+		}
+		for _, c := range cases {
+			if !strings.Contains(c.url, ":8208/v1") {
+				t.Errorf("%s 应包含 :8208/v1（与 embedding 端口对齐），实际 %s", c.name, c.url)
+			}
+		}
+	})
 	t.Run("NonEmpty", func(t *testing.T) {
 		// 禁止任何字段为空（禁软启动）
 		all := map[string]string{
-			"DefaultListenPort":          DefaultListenPort,
-			"DefaultRedisPort":           DefaultRedisPort,
-			"DefaultPlatformPort":        DefaultPlatformPort,
-			"DefaultChromiumCDPPort":     DefaultChromiumCDPPort,
-			"DefaultUserServerBaseURL":   DefaultUserServerBaseURL,
-			"DefaultPlatformBaseURL":     DefaultPlatformBaseURL,
-			"DefaultRemoteDebugURL":      DefaultRemoteDebugURL,
-			"DefaultLLMBaseURLDev":       DefaultLLMBaseURLDev,
-			"DefaultEmbeddingBaseURLDev": DefaultEmbeddingBaseURLDev,
-			"DefaultRerankBaseURLDev":    DefaultRerankBaseURLDev,
+			"DefaultListenPort":              DefaultListenPort,
+			"DefaultRedisPort":               DefaultRedisPort,
+			"DefaultPlatformPort":            DefaultPlatformPort,
+			"DefaultChromiumCDPPort":         DefaultChromiumCDPPort,
+			"DefaultUserServerBaseURL":       DefaultUserServerBaseURL,
+			"DefaultPlatformBaseURL":         DefaultPlatformBaseURL,
+			"DefaultPlatformAPI":             DefaultPlatformAPI,
+			"DefaultRemoteDebugURL":          DefaultRemoteDebugURL,
+			"DefaultLLMBaseURLDev":           DefaultLLMBaseURLDev,
+			"DefaultEmbeddingBaseURLDev":     DefaultEmbeddingBaseURLDev,
+			"DefaultRerankBaseURLDev":        DefaultRerankBaseURLDev,
+			"DefaultLLMBaseURLDocker":        DefaultLLMBaseURLDocker,
+			"DefaultEmbeddingBaseURLDocker":  DefaultEmbeddingBaseURLDocker,
+			"DefaultRerankBaseURLDocker":     DefaultRerankBaseURLDocker,
+			"DefaultBGEBaseURLDev":           DefaultBGEBaseURLDev,
+			"DefaultBGEBaseURLDocker":        DefaultBGEBaseURLDocker,
+			"DefaultOllamaBaseURL":           DefaultOllamaBaseURL,
 		}
 		for name, v := range all {
 			if v == "" {

@@ -11,16 +11,21 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"marketing/internal/pkg/utils/config"
 )
 
 // ============================================================================
 // 测试配置
+// 禁止账号/密码硬编码（DEVELOPMENT.md §2.4 单一源约束 §6）：
+//   - baseURL 派生自 config.DefaultUserServerBaseURL（ports.go 单一源）
+//   - user/pass 通过环境变量 TEST_ADMIN_USERNAME / TEST_ADMIN_PASSWORD 显式注入
 // ============================================================================
 
-const (
-	baseURL = "http://localhost:8204"
-	user    = "admin"
-	pass    = "admin123"
+var (
+	baseURL = config.DefaultUserServerBaseURL
+	user    = os.Getenv("TEST_ADMIN_USERNAME")
+	pass    = os.Getenv("TEST_ADMIN_PASSWORD")
 )
 
 type apiResp struct {

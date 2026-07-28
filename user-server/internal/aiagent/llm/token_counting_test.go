@@ -3,9 +3,13 @@ package llm
 import (
 	"context"
 	"testing"
+
+	"marketing/internal/pkg/utils/config"
 )
 
 // TestInferVendor 验证厂商推断覆盖所有已知 BaseURL
+//
+// 端口字面量通过 config.DefaultLLMBaseURLDev（8207）派生，确保与 ports.go 单一源对齐
 func TestInferVendor(t *testing.T) {
 	cases := []struct {
 		baseURL string
@@ -16,9 +20,9 @@ func TestInferVendor(t *testing.T) {
 		{"https://api.openai.com", "openai"},
 		{"https://open.bigmodel.cn/api/paas/v4", "zhipu"},
 		{"https://api.moonshot.cn", "moonshot"},
-		{"http://127.0.0.1:8207/v1", "local"},
+		{config.DefaultLLMBaseURLDev, "local"},     // 127.0.0.1:8207（ports.go 单一源）
 		{"http://localhost:8080", "local"},
-		{"http://mtk-llm:8207/v1", "local"},
+		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", "local"},
 		{"", "other"},
 		{"https://unknown.example.com", "other"},
 	}
@@ -31,15 +35,17 @@ func TestInferVendor(t *testing.T) {
 }
 
 // TestInferModelType 验证模型类型判定（local/cloud）
+//
+// 端口字面量通过 config.DefaultLLMBaseURLDev（8207）派生
 func TestInferModelType(t *testing.T) {
 	cases := []struct {
 		baseURL string
 		want    string
 	}{
 		{"", ModelTypeLocal}, // 空 BaseURL 视为本地
-		{"http://127.0.0.1:8207/v1", ModelTypeLocal},
+		{config.DefaultLLMBaseURLDev, ModelTypeLocal},
 		{"http://localhost:8080", ModelTypeLocal},
-		{"http://mtk-llm:8207/v1", ModelTypeLocal},
+		{"http://mtk-llm:" + config.DefaultLLMPortStr + "/v1", ModelTypeLocal},
 		{"https://api.openai.com", ModelTypeCloud},
 		{"https://api.deepseek.com", ModelTypeCloud},
 	}
@@ -130,11 +136,11 @@ func abs(x float64) float64 {
 func TestNewLogEntry_Actual(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   "http://127.0.0.1:8207/v1",
-		Model:     "Qwen2.5-3B-Instruct",
+		BaseURL:   config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:     "Qwen2.5-1.5B-Instruct",     // dev 档契约
 		CostPer1k: 0,
 	}
-	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-3B-Instruct",
+	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
 		30, 9, 39, 0, 150, true, "", false, false, "trace-123", "你好", SourceDispatch)
 
 	if entry.TokenSource != TokenSourceActual {
@@ -146,8 +152,8 @@ func TestNewLogEntry_Actual(t *testing.T) {
 	if entry.Vendor != "local" {
 		t.Errorf("Vendor = %q, want %q", entry.Vendor, "local")
 	}
-	if entry.BaseURL != "http://127.0.0.1:8207/v1" {
-		t.Errorf("BaseURL = %q, want %q", entry.BaseURL, "http://127.0.0.1:8207/v1")
+	if entry.BaseURL != config.DefaultLLMBaseURLDev {
+		t.Errorf("BaseURL = %q, want %q", entry.BaseURL, config.DefaultLLMBaseURLDev)
 	}
 	if entry.IsFallback != false {
 		t.Errorf("IsFallback = %v, want false", entry.IsFallback)
@@ -167,12 +173,12 @@ func TestNewLogEntry_Actual(t *testing.T) {
 func TestNewLogEntry_Estimated(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:      "default",
-		BaseURL:   "http://127.0.0.1:8207/v1",
-		Model:     "Qwen2.5-3B-Instruct",
+		BaseURL:   config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:     "Qwen2.5-1.5B-Instruct",     // dev 档契约
 		CostPer1k: 0,
 	}
 	// totalTokens=0 但 content 非空 → estimated
-	entry := NewLogEntry(ScenarioIntentRecognize, provider, "Qwen2.5-3B-Instruct",
+	entry := NewLogEntry(ScenarioIntentRecognize, provider, "Qwen2.5-1.5B-Instruct",
 		0, 0, 0, 0, 200, true, "", false, false, "trace-456", "some content", SourceDispatch)
 
 	if entry.TokenSource != TokenSourceEstimated {
@@ -222,10 +228,10 @@ func TestNewLogEntry_Missing(t *testing.T) {
 func TestNewLogEntry_CacheSource(t *testing.T) {
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: "http://127.0.0.1:8207/v1",
-		Model:   "Qwen2.5-3B-Instruct",
+		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
 	}
-	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-3B-Instruct",
+	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-1.5B-Instruct",
 		10, 5, 15, 0, 0, true, "", true, false, "trace-cache", "hi", SourceDispatch)
 
 	if entry.Source != SourceCache {
@@ -293,9 +299,9 @@ func TestLogRoutingDecision_NilDB(t *testing.T) {
 	// 不注入 auditDB，直接调用
 	entry := NewLogEntry(ScenarioSOPReply, &ProviderConfig{
 		Name:    "default",
-		BaseURL: "http://127.0.0.1:8207/v1",
-		Model:   "Qwen2.5-3B-Instruct",
-	}, "Qwen2.5-3B-Instruct", 30, 9, 39, 0, 100, true, "", false, false, "t1", "ok", SourceDispatch)
+		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
+	}, "Qwen2.5-1.5B-Instruct", 30, 9, 39, 0, 100, true, "", false, false, "t1", "ok", SourceDispatch)
 
 	// 不应 panic
 	LogRoutingDecision(context.Background(), entry)

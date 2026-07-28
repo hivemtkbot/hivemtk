@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"marketing/internal/pkg/utils/config"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -15,9 +17,9 @@ import (
 // TestIntegration_TokenSourceActual 集成测试：验证实际 LLM 调用后 llm_routing_logs 表
 // 的 token_source 字段为 actual，且 prompt_tokens/completion_tokens/total_tokens 均非零。
 //
-// 运行条件：
-//   - 本地 llama-server 运行在 http://127.0.0.1:8207/v1
-//   - PostgreSQL 运行在 127.0.0.1:8232，库 user_db，用户 admin
+// 运行条件（单一源：ports.go + DEVELOPMENT.md §2.4）：
+//   - 本地 llama-server 运行在 config.DefaultLLMBaseURLDev（8207）
+//   - PostgreSQL 运行在 config.DefaultDBPortDev（8232），库 user_db，用户 admin
 //   - 环境变量 PG_PASSWORD 提供 admin 密码
 //
 // 跳过条件：未设置 PG_PASSWORD 或 llama-server 不可达时跳过
@@ -30,8 +32,9 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 		t.Skip("PG_PASSWORD not set, skipping integration test")
 	}
 
-	// 1. 连接 PostgreSQL 并注入 auditDB
-	dsn := fmt.Sprintf("host=127.0.0.1 port=8232 user=admin password=%s dbname=user_db sslmode=disable", pgPassword)
+	// 1. 连接 PostgreSQL 并注入 auditDB（端口 8232 单一源：config.DefaultDBPortDev）
+	dsn := fmt.Sprintf("host=127.0.0.1 port=%d user=admin password=%s dbname=user_db sslmode=disable",
+		config.DefaultDBPortDev, pgPassword)
 	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("connect postgres failed: %v", err)
@@ -44,11 +47,11 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 	// 2. 构造一个 actual 路径的 LogEntry（模拟 LLM 返回真实 usage）
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: "http://127.0.0.1:8207/v1",
-		Model:   "Qwen2.5-3B-Instruct",
+		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
 	}
 	traceID := fmt.Sprintf("integration-test-%d", time.Now().UnixNano())
-	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-3B-Instruct",
+	entry := NewLogEntry(ScenarioSOPReply, provider, "Qwen2.5-1.5B-Instruct",
 		30, 9, 39, 0.0, 150, true, "", false, false, traceID, "你好", SourceDispatch)
 
 	// 3. 落库
@@ -97,8 +100,8 @@ func TestIntegration_TokenSourceActual(t *testing.T) {
 	if gotVendor != "local" {
 		t.Errorf("vendor = %q, want %q", gotVendor, "local")
 	}
-	if gotBaseURL != "http://127.0.0.1:8207/v1" {
-		t.Errorf("base_url = %q, want %q", gotBaseURL, "http://127.0.0.1:8207/v1")
+	if gotBaseURL != config.DefaultLLMBaseURLDev {
+		t.Errorf("base_url = %q, want %q", gotBaseURL, config.DefaultLLMBaseURLDev)
 	}
 	if gotPromptTokens != 30 || gotCompletionTokens != 9 || gotTotalTokens != 39 {
 		t.Errorf("tokens = (prompt=%d, completion=%d, total=%d), want (30, 9, 39)",

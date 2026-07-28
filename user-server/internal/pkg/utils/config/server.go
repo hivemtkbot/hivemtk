@@ -68,15 +68,33 @@ var DefaultPoolConfig = PoolConfig{
 //   - 模型名必须与实际部署的模型一致（Qwen2.5-1.5B-Instruct / bge-m3 / bge-reranker-v2-m3）
 //
 // 端口字面量全部派生自 ports.go（DEVELOPMENT.md §2.4 端口对照表单一源）
+// 默认模型名（dev 档；供外部包通过 DefaultLLMModel/DefaultEmbeddingModel/DefaultRerankModel 引用）
+//
+// 单一源：本 const 块；调整后必须同步：
+//   - config.yaml inference.llm.model / embedding.model / rerank.model
+//   - DEVELOPMENT.md §2.4 端口对照表 + 各应用启动描述
+//   - ports.go 端口字面量
 const (
-	defaultLLMModel = "Qwen2.5-1.5B-Instruct"
 	// defaultLLMBaseURL 派生自 config.DefaultLLMBaseURLDev
 	defaultLLMBaseURL      = DefaultLLMBaseURLDev
-	defaultEmbeddingModel  = "bge-m3"
 	defaultEmbeddingBaseURL = DefaultEmbeddingBaseURLDev
-	defaultRerankModel     = "bge-reranker-v2-m3"
 	defaultRerankBaseURL   = DefaultRerankBaseURLDev
 	defaultEmbeddingDim    = 1024
+
+	// defaultLLMModelLocal dev 档 LLM 模型名（单一源）
+	// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.llm.model
+	defaultLLMModelLocal = "Qwen2.5-1.5B-Instruct"
+	// defaultEmbeddingModelLocal dev 档 Embedding 模型名（单一源）
+	defaultEmbeddingModelLocal = "bge-m3"
+	// defaultRerankModelLocal dev 档 Rerank 模型名（单一源）
+	defaultRerankModelLocal = "bge-reranker-v2-m3"
+)
+
+// 内部别名（保留历史命名，供 DefaultInferenceConfig 等内部使用）
+const (
+	defaultLLMModel      = defaultLLMModelLocal
+	defaultEmbeddingModel = defaultEmbeddingModelLocal
+	defaultRerankModel    = defaultRerankModelLocal
 )
 
 // DefaultInferenceConfig 返回本地推理栈默认配置（私域部署基线）
@@ -111,6 +129,20 @@ func DefaultInferenceConfig() InferenceConfig {
 		},
 	}
 }
+
+// 默认模型名 getter（供外部包引用，禁止就地写死字面量）
+//
+// 单一源：defaultLLMModelLocal/DefaultEmbeddingModelLocal/DefaultRerankModelLocal
+// 调整后必须同步 config.yaml + DEVELOPMENT.md §2.4 + ports.go
+
+// DefaultLLMModel dev 档默认 LLM 模型名（外部包引用入口）
+func DefaultLLMModel() string { return defaultLLMModelLocal }
+
+// DefaultEmbeddingModel dev 档默认 Embedding 模型名（外部包引用入口）
+func DefaultEmbeddingModel() string { return defaultEmbeddingModelLocal }
+
+// DefaultRerankModel dev 档默认 Rerank 模型名（外部包引用入口）
+func DefaultRerankModel() string { return defaultRerankModelLocal }
 
 // PostgresConfig PostgreSQL 配置
 type PostgresConfig struct {

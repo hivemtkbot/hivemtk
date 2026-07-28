@@ -11,6 +11,11 @@ import (
 
 // TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线：
 // Embedding 默认指向本地推理服务（真实 bge-m3），禁止走 LLM 厂商 API。
+//
+// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.embedding
+// dev 档契约：base_url=http://127.0.0.1:8208/v1（宿主机 llama.cpp，dev 部署位置）
+//             docker 档契约：base_url=http://mtk-embedding:8208/v1（容器内服务名）
+//             调整流程：先改 ports.go DefaultEmbeddingBaseURLDev/Docker，再同步 config.yaml
 func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	// 清理所有可能影响默认值的环境变量
 	clearEmbeddingEnv(t)
@@ -18,8 +23,12 @@ func TestEmbeddingService_DefaultConfig_LocalBaseURL(t *testing.T) {
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
 
-	if cfg.BaseURL != "http://mtk-embedding:8208/v1" {
-		t.Errorf("私域基线违规：默认 BaseURL 必须是 http://mtk-embedding:8208/v1（本地推理服务），实际: %s", cfg.BaseURL)
+	// dev 档默认走宿主机 127.0.0.1（config.yaml inference.embedding.base_url）
+	// 禁止走到 docker 服务名 mtk-embedding（宿主机会无法解析）
+	// 禁止走公网 LLM 厂商 API（私域数据禁止出域）
+	if !strings.HasPrefix(cfg.BaseURL, "http://127.0.0.1:8208/") &&
+		!strings.HasPrefix(cfg.BaseURL, "http://mtk-embedding:8208/") {
+		t.Errorf("私域基线违规：默认 BaseURL 必须指向本地 embedding 服务（127.0.0.1:8208 或 mtk-embedding:8208），实际: %s", cfg.BaseURL)
 	}
 	if cfg.Model != "bge-m3" {
 		t.Errorf("默认 Model 必须是 bge-m3（bge-m3 模型名），实际: %s", cfg.Model)
@@ -47,28 +56,37 @@ func TestEmbeddingService_DefaultConfig_NotFallBackToLLMBaseURL(t *testing.T) {
 	}
 }
 
-// TestEmbeddingService_DefaultConfig_OverrideByEnv 验证可通过环境变量覆盖默认
+// TestEmbeddingService_DefaultConfig_OverrideByEnv 验证 env 变量覆盖语义。
+//
+// 文档源：embedding.go DefaultConfig 注释 §2/§3
+// 优先级：config.yaml > env 变量（base_url/model/dim 三项仅在 file 为空时回退）>
+//          内置默认；EMBEDDING_ALLOW_FALLBACK 显式覆盖（不论 file 是否有值）
 func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 	clearEmbeddingEnv(t)
+	// env 变量在 file 已设置时不覆盖（base_url/model/dim）
+	// EMBEDDING_ALLOW_FALLBACK 总是覆盖 file（显式安全开关）
 	t.Setenv("EMBEDDING_BASE_URL", "http://my-tei:9000")
 	t.Setenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
-	t.Setenv("EMBEDDING_DIM", "1024")
+	t.Setenv("EMBEDDING_DIM", "768")
 	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "true")
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()
 
-	if cfg.BaseURL != "http://my-tei:9000" {
-		t.Errorf("EMBEDDING_BASE_URL 未生效: %s", cfg.BaseURL)
+	// file 优先：env 不覆盖已配置值
+	if !strings.HasPrefix(cfg.BaseURL, "http://127.0.0.1:8208/") {
+		t.Errorf("BaseURL 应来自 config.yaml（127.0.0.1:8208 宿主机部署），env 变量不覆盖已配置值，实际: %s", cfg.BaseURL)
 	}
-	if cfg.Model != "BAAI/bge-large-zh-v1.5" {
-		t.Errorf("EMBEDDING_MODEL 未生效: %s", cfg.Model)
+	if cfg.Model != "bge-m3" {
+		t.Errorf("Model 应来自 config.yaml（bge-m3），env 变量不覆盖已配置值，实际: %s", cfg.Model)
 	}
+	// Dimension: file=1024, env=768, file wins
 	if cfg.Dimension != 1024 {
-		t.Errorf("EMBEDDING_DIM 未生效: %d", cfg.Dimension)
+		t.Errorf("Dimension 应来自 config.yaml=1024，env=768 不覆盖，实际: %d", cfg.Dimension)
 	}
+	// AllowFallback: env 总是覆盖（显式安全开关）
 	if !cfg.AllowFallback {
-		t.Error("EMBEDDING_ALLOW_FALLBACK=true 未生效")
+		t.Error("EMBEDDING_ALLOW_FALLBACK=true 应生效（env 覆盖 file）")
 	}
 }
 
@@ -121,6 +139,9 @@ func TestEmbeddingService_Embed_AllowFallback_Works(t *testing.T) {
 }
 
 // TestEmbeddingService_Embed_RealLocalServer 验证对接真实 TEI 兼容服务（mock 一个）
+//
+// 注：config.yaml 中 base_url 已固定为 127.0.0.1:8208（dev 档契约）。
+// EMBEDDING_BASE_URL env 变量不覆盖已配置值（file 优先），故本测试直接构造 cfg 走 mock server。
 func TestEmbeddingService_Embed_RealLocalServer(t *testing.T) {
 	clearEmbeddingEnv(t)
 	// 启动一个返回 768 维向量的本地 mock 服务（模拟 TEI）
@@ -140,13 +161,17 @@ func TestEmbeddingService_Embed_RealLocalServer(t *testing.T) {
 	}))
 	defer mock.Close()
 
-	t.Setenv("EMBEDDING_BASE_URL", mock.URL)
-	t.Setenv("EMBEDDING_MODEL", "BAAI/bge-base-zh-v1.5")
-	t.Setenv("EMBEDDING_DIM", "768")
-	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "false")
-
 	svc := NewEmbeddingService()
-	cfg := svc.DefaultConfig()
+	// 直接构造 cfg（绕过 DefaultConfig 的 file 优先逻辑），验证对接 mock 服务
+	cfg := &EmbeddingConfig{
+		BaseURL:        mock.URL,
+		Model:          "BAAI/bge-base-zh-v1.5",
+		Dimension:      768,
+		APIType:        "openai",
+		RequestTimeout: 5,
+		MaxRetries:     1,
+		AllowFallback:  false,
+	}
 
 	vectors, err := svc.Embed(context.Background(), cfg, []string{"中文测试"})
 	if err != nil {

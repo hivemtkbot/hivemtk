@@ -133,11 +133,16 @@ func DefaultRerankConfig() *RerankConfig {
 
 	// 3) 内置默认（docker 网络内本地 rerank 服务名，端口 8209）
 	if baseURL == "" {
-		// fallback 必须指向 rerank 服务（mtk-rerank:8209），不能 fallback 到 embedding（8208）
-		baseURL = "http://mtk-rerank:8209/v1"
+		// 单一源：config.DefaultRerankBaseURLDocker（user-server/internal/pkg/utils/config/ports.go）
+		// 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-rerank 服务
+		// 行为：fallback 必须指向 rerank 服务（mtk-rerank:8209），不能 fallback 到 embedding（8208）
+		baseURL = config.DefaultRerankBaseURLDocker
 	}
 	if model == "" {
-		model = RerankModelBgeV2M3
+		// 单一源：config.DefaultRerankModel()（user-server/internal/pkg/utils/config/server.go）
+		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.rerank.model
+		// 行为：dev 档默认为 bge-reranker-v2-m3（多语言跨编码器）
+		model = config.DefaultRerankModel()
 	}
 	timeout := 30
 	if v := os.Getenv("RERANK_TIMEOUT"); v != "" {

@@ -160,10 +160,16 @@ func (s *EmbeddingService) DefaultConfig() *EmbeddingConfig {
 
 	// 3) 内置默认（docker 网络内本地 embedding 服务名，端口 8208；仅当配置与环境都缺失时生效）
 	if baseURL == "" {
-		baseURL = "http://mtk-embedding:8208/v1"
+		// 单一源：config.DefaultEmbeddingBaseURLDocker（user-server/internal/pkg/utils/config/ports.go）
+		// 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-embedding 服务
+		// 行为：仅在容器内可解析 mtk-embedding；host 部署会失败并回退到 hash 实现（需 EMBEDDING_ALLOW_FALLBACK=true）
+		baseURL = config.DefaultEmbeddingBaseURLDocker
 	}
 	if model == "" {
-		model = "bge-m3"
+		// 单一源：config.DefaultEmbeddingModel()（user-server/internal/pkg/utils/config/server.go）
+		// 文档源：DEVELOPMENT.md §2.4 + config.yaml inference.embedding.model
+		// 行为：dev 档默认为 bge-m3（1024 维，与 pgvector vector(1024) 对齐）
+		model = config.DefaultEmbeddingModel()
 	}
 	// 按模型名推断默认维度（仅当维度未显式指定时生效）
 	if dim <= 0 {

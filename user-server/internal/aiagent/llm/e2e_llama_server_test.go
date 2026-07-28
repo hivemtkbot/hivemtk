@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"marketing/internal/pkg/utils/config"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -20,9 +22,11 @@ import (
 // 然后手动构造 LogEntry 落库，验证完整链路。
 //
 // 运行条件：
-//   - 本地 llama-server 运行在 http://127.0.0.1:8207/v1（Qwen2.5-3B-Instruct）
-//   - PostgreSQL 运行在 127.0.0.1:8232，库 user_db，用户 admin
+//   - 本地 llama-server 运行在 config.DefaultLLMBaseURLDev（DEVELOPMENT.md §2.4 8207）
+//   - PostgreSQL 运行在 config.DefaultDBPortDev（DEVELOPMENT.md §2.4 8232），库 user_db，用户 admin
 //   - 环境变量 PG_PASSWORD 提供 admin 密码
+//
+// 注：端口字面量通过 config.DefaultLLMBaseURLDev / config.DefaultDBPortDev 派生，确保与 ports.go 单一源对齐
 func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e test in short mode")
@@ -32,9 +36,9 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Skip("PG_PASSWORD not set, skipping e2e test")
 	}
 
-	// 1. 检查 llama-server 可达性
+	// 1. 检查 llama-server 可达性（端口 8207 单一源：config.DefaultLLMBaseURLDev）
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get("http://127.0.0.1:8207/v1/models")
+	resp, err := client.Get(config.DefaultLLMBaseURLDev + "/models")
 	if err != nil {
 		t.Skipf("llama-server 不可达: %v", err)
 	}
@@ -43,8 +47,9 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Skipf("llama-server /v1/models 返回非 200: %d", resp.StatusCode)
 	}
 
-	// 2. 连接 PostgreSQL 并注入 auditDB
-	dsn := fmt.Sprintf("host=127.0.0.1 port=8232 user=admin password=%s dbname=user_db sslmode=disable", pgPassword)
+	// 2. 连接 PostgreSQL 并注入 auditDB（端口 8232 单一源：config.DefaultDBPortDev）
+	dsn := fmt.Sprintf("host=127.0.0.1 port=%d user=admin password=%s dbname=user_db sslmode=disable",
+		config.DefaultDBPortDev, pgPassword)
 	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("connect postgres failed: %v", err)
@@ -55,9 +60,9 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 
 	// 3. 直接调用 LLMService.GenerateWithTools（绕过 Dispatcher 路由，避免云端 provider 超时）
 	svc := NewLLMService()
-	config := &LLMConfig{
-		BaseURL:        "http://127.0.0.1:8207/v1",
-		Model:          "Qwen2.5-3B-Instruct",
+	llmCfg := &LLMConfig{
+		BaseURL:        config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:          "Qwen2.5-1.5B-Instruct",     // dev 档契约
 		MaxTokens:      50,
 		Temperature:    0.7,
 		MaxRetries:     1,
@@ -67,7 +72,7 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	result, err := svc.GenerateWithTools(ctx, config, "你好，请用一句话介绍你自己")
+	result, err := svc.GenerateWithTools(ctx, llmCfg, "你好，请用一句话介绍你自己")
 	if err != nil {
 		t.Fatalf("GenerateWithTools 失败: %v", err)
 	}
@@ -92,8 +97,8 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	// 5. 模拟 Dispatcher.callProvider 的逻辑：构造 LogEntry 并落库
 	provider := &ProviderConfig{
 		Name:    "default",
-		BaseURL: "http://127.0.0.1:8207/v1",
-		Model:   "Qwen2.5-3B-Instruct",
+		BaseURL: config.DefaultLLMBaseURLDev, // 单一源：ports.go 8207
+		Model:   "Qwen2.5-1.5B-Instruct",     // dev 档契约
 	}
 	traceID := fmt.Sprintf("e2e-llama-%d", time.Now().UnixNano())
 	tokenSource := InferTokenSource(result.Usage.TotalTokens, result.Content)
@@ -105,7 +110,7 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 		t.Errorf("TokenSource = %q, want %q", tokenSource, TokenSourceActual)
 	}
 
-	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-3B-Instruct",
+	entry := NewLogEntry(ScenarioFriendlyChat, provider, "Qwen2.5-1.5B-Instruct",
 		result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
 		0, 0, true, "", false, false, traceID, result.Content, SourceDispatch)
 	LogRoutingDecision(context.Background(), entry)
@@ -159,8 +164,8 @@ func TestE2E_LlamaServer_RealUsage(t *testing.T) {
 	if gotVendor != "local" {
 		t.Errorf("DB vendor = %q, want %q", gotVendor, "local")
 	}
-	if gotBaseURL != "http://127.0.0.1:8207/v1" {
-		t.Errorf("DB base_url = %q, want %q", gotBaseURL, "http://127.0.0.1:8207/v1")
+	if gotBaseURL != config.DefaultLLMBaseURLDev {
+		t.Errorf("DB base_url = %q, want %q", gotBaseURL, config.DefaultLLMBaseURLDev)
 	}
 	if gotPromptTokens != result.Usage.PromptTokens {
 		t.Errorf("DB prompt_tokens=%d != LLM prompt_tokens=%d", gotPromptTokens, result.Usage.PromptTokens)
