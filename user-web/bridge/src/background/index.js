@@ -12,6 +12,7 @@ import { registry } from './registry.js';
 import { FRAME } from '../core/types.js';
 import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
+import { autoInjectOnCommit, injectContentScript, scriptingAvailable } from './injector.js';
 
 const log = createLogger('bg', 'bg');
 
@@ -168,7 +169,40 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     setConfig(msg.config).then((r) => sendResponse(r));
     return true; // 保持 channel 开启，等待异步 sendResponse
   }
+  // ---- 自愈协议：popup 在 ping 失败时请求后台执行 programmatic 注入 ----
+  // 解决"标签页在扩展加载/更新前已打开"场景（接收端不存在）
+  if (msg && msg.type === 'injectContentScript') {
+    const { tabId, url, allFrames } = msg;
+    if (typeof tabId !== 'number') {
+      sendResponse({ ok: false, reason: 'invalid_tabId' });
+      return false;
+    }
+    injectContentScript(tabId, url, { allFrames: !!allFrames }, (r) => {
+      sendResponse(r);
+    });
+    return true; // 异步 sendResponse
+  }
   return false;
 });
+
+// ---- webNavigation.onCommitted：自动注入兜底 ----
+// 当用户在抖音/小红书/TikTok 站内做 SPA 路由切换、或者新开标签时，
+// 由 content_scripts 自动注入（manifest 静态配置）。
+// 但若用户**先开标签页后启用扩展**（或扩展刚刚更新），
+// 该标签页的 content script 不会自动加载——这是 "Receiving end does not exist"
+// 的最常见根因。这里通过 webNavigation.onDOMContentLoaded 主动注入兜底。
+//
+// 注意：onCommitted 会比 onDOMContentLoaded 更早，对 SPA 路由切换也更敏感。
+// 配合 injector.js 的 1.5s 去重，短时间重复路由不会触发重复注入。
+if (chrome.webNavigation && chrome.webNavigation.onCommitted) {
+  chrome.webNavigation.onCommitted.addListener(autoInjectOnCommit);
+  log.info('webNavigation.onCommitted 已接入：自动注入兜底');
+} else {
+  log.warn('webNavigation API 不可用，依赖 manifest content_scripts 静态注入');
+}
+
+if (scriptingAvailable()) {
+  log.info('chrome.scripting 可用：popup 侧可触发自愈注入');
+}
 
 log.info('background 已就绪');

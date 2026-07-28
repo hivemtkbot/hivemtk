@@ -201,6 +201,10 @@ function refreshStatus() {
 //   A. ping 都失败 → content script 根本未注入（扩展禁用 / URL 不匹配 / 旧标签页）
 //   B. ping 成功 + selfcheck 返回 matched=false → 内容脚本在，但当前不是私信/消息页
 //   C. ping 成功 + selfcheck 返回完整数据 → 桥接健康
+//
+// 全自动修复：ping 失败时自动请求 background 执行 programmatic 注入，
+// 解决"标签页在扩展加载/更新前已打开"场景（接收端不存在）。
+// 用户无需手动刷新页面。
 function selfCheck() {
   try {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -222,7 +226,29 @@ function selfCheck() {
       // 第二道闸：ping 探活
       pingContentScript(tab, (pingErr) => {
         if (pingErr) {
-          $('selfOut').textContent = `该页面未注入桥接：${pingErr.msg}\n\n可能原因：\n${pingErr.hints}`;
+          // ---- 自愈：尝试 programmatic 注入 ----
+          // 标签页在扩展加载/更新前已打开，content script 不会自动加载。
+          // 这里主动请求 background 注入，注入成功后再重试一次 ping。
+          $('selfOut').textContent = `未检测到桥接，正在自动注入…`;
+          tryAutoInject(tab, (injectResult) => {
+            if (!injectResult.ok) {
+              // 注入失败：仍展示原错误 + 原因
+              $('selfOut').textContent = `该页面未注入桥接：${pingErr.msg}\n\n自动注入失败：${injectResult.reason}${injectResult.error ? '（' + injectResult.error + '）' : ''}\n\n可能原因：\n${pingErr.hints}`;
+              return;
+            }
+            // 注入成功：等 200ms 让 content script 注册监听器，然后重试 ping
+            setTimeout(() => {
+              pingContentScript(tab, (retryErr) => {
+                if (retryErr) {
+                  $('selfOut').textContent = `自动注入 ${injectResult.file} 成功但 ping 仍失败：${retryErr.msg}\n\n请手动按 Ctrl+Shift+R 刷新一次。\n（注入后 content script 需页面重新加载才能完全生效）`;
+                  return;
+                }
+                // 自愈成功
+                $('selfOut').textContent = `✅ 已自动注入 ${injectResult.file}，桥接已恢复。\n正在拉取详细数据…`;
+                runSelfcheck(tab);
+              });
+            }, 200);
+          });
           return;
         }
         // 第三道闸：selfcheck 详细数据
@@ -231,6 +257,29 @@ function selfCheck() {
     });
   } catch (e) {
     $('selfOut').textContent = '查询标签页失败：' + e;
+  }
+}
+
+// 请求 background 执行 programmatic 注入
+function tryAutoInject(tab, cb) {
+  try {
+    chrome.runtime.sendMessage(
+      { type: 'injectContentScript', tabId: tab.id, url: tab.url, allFrames: false },
+      (resp) => {
+        const e = lastError();
+        if (e) {
+          cb({ ok: false, reason: 'background_no_response', error: e });
+          return;
+        }
+        if (!resp) {
+          cb({ ok: false, reason: 'empty_response' });
+          return;
+        }
+        cb(resp);
+      }
+    );
+  } catch (e) {
+    cb({ ok: false, reason: 'send_threw', error: String(e) });
   }
 }
 
@@ -373,5 +422,6 @@ if (typeof window !== 'undefined') {
     selfCheck,
     pingContentScript,
     runSelfcheck,
+    tryAutoInject,
   };
 }
