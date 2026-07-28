@@ -1763,6 +1763,31 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 	go s.runAIGeneration(ctx, channel, accountID, p, hubMsg, in, agentCtx)
 }
 
+// TriggerInboundAI 实现 service.AITrigger 接口：供网页桥接入站消息触发 AI 客服。
+//
+// 复用与 web 私信同源的同步主链路 triggerSmartOrchestrator，确保抖音/小红书/TikTok
+// 网页桥接的新消息能像 web 私信一样被 AI 及时处理，并原路经 WebSocket 回写扩展。
+// 若智能体编排器（smartOrchestrator）未注入，则安全空转（仅落库，不回复）。
+func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string) {
+	p := &ParsedPayload{
+		EventID: eventID,
+		Sender:  customerID,
+		Content: content,
+	}
+	hubMsg := &model.MessageHub{
+		MsgID:          eventID,
+		Platform:       channel,
+		AccountID:      accountID,
+		ConversationID: conversationID,
+		SenderID:       customerID,
+		Content:        content,
+		Direction:      "inbound",
+		IsRead:         true,
+		SentAt:         time.Now(),
+	}
+	s.triggerSmartOrchestrator(ctx, WebhookChannel(channel), accountID, p, hubMsg)
+}
+
 // runAIGeneration 在独立有界池中执行 AI 生成与出站。
 func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub, in *IncomingContext, agentCtx *AgentContext) {
 	// 有界信号量：限制并发本地推理数，保护单节点推理栈不被压垮
@@ -1914,6 +1939,17 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// 收件人是手机号 (E.164)
 		if err := s.waIntegration.SendMessage(ctx, uint(accID), p.Sender, content); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "whatsapp").Str("account_id", accountID).Msg("outbound failed")
+			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
+		} else {
+			sent = true
+			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
+		}
+	case "douyin_web", "xhs_web", "tiktok_web":
+		// 网页桥接渠道：AI 回复经 WebSocket 投递到 Chrome 扩展（由 bridge 包注册的回调完成），
+		// 不走官方 API（避免把私信误发到平台开放接口）。
+		// p.EventID 传给 bridge 用于 ClaimReply 幂等守卫。
+		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
+			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
 			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true

@@ -235,6 +235,14 @@ type MetricsCollector struct {
 	ToolCallTotal    *CounterVec
 	ToolCallDuration *HistogramVec // labels: tool_name
 	ToolCallErrors   *CounterVec   // labels: tool_name|error_type(permission|ratelimit|timeout|panic|internal)
+	// P1-S2-11 桥接指标（深度审查第二轮 P1-S2-11）
+	// labels:
+	//   - BridgeConnTotal{event,channel}   连接建立/断开计数
+	//   - BridgeFrameTotal{type,dir}        帧收发计数（type: register/inbound/history/pong/ack/outbound_reply；dir: up/down）
+	//   - BridgeDeliverTotal{channel,result} 出站投递结果（result: success/offline/rate_limited/buffer_full/failed）
+	BridgeConnTotal   *CounterVec
+	BridgeFrameTotal  *CounterVec
+	BridgeDeliverTotal *CounterVec
 }
 
 // GlobalMetrics 全局指标收集器
@@ -263,4 +271,8 @@ var GlobalMetrics = &MetricsCollector{
 	ToolCallTotal:    &CounterVec{values: make(map[string]uint64)},
 	ToolCallDuration: &HistogramVec{sums: make(map[string]float64), counts: make(map[string]uint64)},
 	ToolCallErrors:   &CounterVec{values: make(map[string]uint64)},
+	// P1-S2-11 桥接指标初始化
+	BridgeConnTotal:    &CounterVec{values: make(map[string]uint64)},
+	BridgeFrameTotal:   &CounterVec{values: make(map[string]uint64)},
+	BridgeDeliverTotal: &CounterVec{values: make(map[string]uint64)},
 }

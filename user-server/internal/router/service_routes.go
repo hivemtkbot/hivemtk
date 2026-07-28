@@ -1,6 +1,7 @@
 package router
 
 import (
+	"marketing/internal/bridge"
 	"marketing/internal/controller"
 	opsctrl "marketing/internal/ops/controller"
 	"marketing/internal/service"
@@ -10,6 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// bridgeIngressSvc 网页桥接消息入站服务（包级变量，供 Setup 在 webhookSvc 构造后注入 AITrigger）
+var bridgeIngressSvc *service.InboxIngressService
 
 // setupCustomerServiceRoutes 客服会话管理路由
 //
@@ -79,6 +83,11 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	wsHandler := websocket.NewWSHandler()
 	wsHandler.SetLangResolver(langResolver)
 	auth.GET("/ws/agent", wsHandler.HandleWebSocket)
+
+	// 网页桥接（抖音/小红书/TikTok 网页私信）WebSocket：扩展经此上行私信、下行 AI 回复
+	bridgeIngressSvc = service.NewInboxIngressService()
+	bridgeHandler := bridge.NewBridgeWSHandler(bridge.GetBridgeHub(), bridgeIngressSvc)
+	auth.GET("/ws/bridge", bridgeHandler.HandleWebSocket)
 
 	// 客户 360 视图
 	customer360Ctrl := controller.NewCustomer360Controller()

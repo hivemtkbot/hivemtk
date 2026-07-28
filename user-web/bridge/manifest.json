@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "HiveBridge 蜂桥 — 抖音/小红书/TikTok 私信桥接",
+  "version": "1.0.0",
+  "description": "将抖音/小红书/TikTok 网页私信实时桥接到 HiveMTK AI 智能体（user-server），支持多账号、消息历史回填与拟人限速风控。",
+  "permissions": ["storage", "tabs", "activeTab"],
+  "host_permissions": [
+    "http://localhost/*",
+    "https://localhost/*",
+    "wss://*/*",
+    "ws://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "HiveBridge 蜂桥 — 私信桥接"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.douyin.com/*"],
+      "js": ["content-douyin.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://*.xiaohongshu.com/*"],
+      "js": ["content-xhs.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://*.tiktok.com/*"],
+      "js": ["content-tiktok.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

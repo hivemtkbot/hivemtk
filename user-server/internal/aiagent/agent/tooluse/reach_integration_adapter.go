@@ -296,6 +296,11 @@ func (a *IntegrationReachAdapter) SendXHS(ctx context.Context, accountID, openID
 	return "", fmt.Errorf("xhs: %w", ErrChannelNotImplemented)
 }
 
+// SendTikTok 未实现（TikTok 无官方私信 API，仅通过 bridge 网页桥接出站）
+func (a *IntegrationReachAdapter) SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
+	return "", fmt.Errorf("tiktok: %w", ErrChannelNotImplemented)
+}
+
 // SendDingTalk 通过钉钉群机器人 webhook 出站（补齐 todo.md P0 #2 唯一未实现渠道）
 //
 // chatID 为 `reach.dingtalk.send` 工具传入的 recipient_id，语义：

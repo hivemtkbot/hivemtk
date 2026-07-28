@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	"marketing/internal/aiagent/agent/tooluse"
+	"marketing/internal/bridge"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"marketing/internal/service"
@@ -56,7 +57,7 @@ func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool
 	if ctx.DB == nil {
 		return nil, errProviderDBRequired
 	}
-	adapter := tooluse.NewIntegrationReachAdapterFromDB(ctx.DB)
+	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(ctx.DB), bridge.GetBridgeHub())
 	deps := tooluse.NewReachToolDepsWithAdapter(ctx.DB, adapter)
 	return tooluse.BuildReachTools(deps), nil
 }

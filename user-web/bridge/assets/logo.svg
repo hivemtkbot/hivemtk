@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hive" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB020"/>
+      <stop offset="1" stop-color="#FE7A00"/>
+    </linearGradient>
+    <linearGradient id="bridge" x1="0" y1="120" x2="120" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F8CFF"/>
+      <stop offset="1" stop-color="#7C5CFF"/>
+    </linearGradient>
+  </defs>
+  <!-- 蜂巢六边形 -->
+  <g stroke="url(#hive)" stroke-width="4" fill="rgba(255,176,32,0.12)">
+    <path d="M60 12 L98 34 L98 78 L60 100 L22 78 L22 34 Z"/>
+    <path d="M60 30 L82 43 L82 69 L60 82 L38 69 L38 43 Z"/>
+  </g>
+  <!-- 桥接弧线（连接两端） -->
+  <path d="M14 92 Q60 50 106 92" stroke="url(#bridge)" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <circle cx="14" cy="92" r="6" fill="#4F8CFF"/>
+  <circle cx="106" cy="92" r="6" fill="#7C5CFF"/>
+  <text x="60" y="115" font-family="-apple-system, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#FE7A00" text-anchor="middle">HiveBridge</text>
+</svg>

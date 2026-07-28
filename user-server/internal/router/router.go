@@ -9,6 +9,7 @@ import (
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"marketing/internal/service"
 	i18nservice "marketing/internal/service/i18n"
@@ -237,6 +238,7 @@ func Setup(r *gin.Engine) {
 		// 钉钉企业内部应用（支持回调收消息）
 		webhookSvc = service.NewWebhookService(db.GetDB())
 		dingtalkAppSvc = service.NewDingTalkAppService(db.GetDB(), webhookSvc)
+
 		setupDingTalkAppRoutes(auth, dingtalkAppSvc)
 
 		// Telegram
@@ -253,6 +255,13 @@ func Setup(r *gin.Engine) {
 
 		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
+
+		// 把 AI 触发实现注入桥接入站服务：抖音/小红书/TikTok 新消息经此触发 AI 客服并原路回写扩展
+		// （必须在 setupCustomerServiceRoutes 之后，因为 bridgeIngressSvc 是在其中被创建的）
+		if bridgeIngressSvc != nil && webhookSvc != nil {
+			bridgeIngressSvc.SetAITrigger(webhookSvc)
+			logger.Infof("[Bridge] bridge AITrigger 已注入（抖音/小红书/TikTok 网页私信 AI 链路已连通）")
+		}
 
 		// P0-10 ADR-010: 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
 		setupChatChannelAdminRoutes(auth, db.GetDB())

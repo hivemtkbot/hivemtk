@@ -36,6 +36,15 @@ const (
 	InboxPendingTTL = 5 * time.Minute
 )
 
+// AITrigger 入站消息触发 AI 客服的抽象。
+//
+// 解耦 InboxIngressService 与具体 AI 编排实现，避免 service -> bridge 的导入环。
+// 网页桥接场景由 WebhookService 实现（复用与 web 私信同源的同步主链路）；
+// 单元测试可注入 fake 以验证“新消息触发 AI / 历史消息不触发 AI”的语义。
+type AITrigger interface {
+	TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string)
+}
+
 // InboxIngressResult 消息入站处理结果
 type InboxIngressResult struct {
 	Accepted    bool   `json:"accepted"`      // 是否接受处理
@@ -56,7 +65,8 @@ type InboxIngressService struct {
 	hubRepo   *repository.MessageHubRepository
 	cache     cache.Cache
 	mu        sync.Mutex
-	triggerCh chan string // 触发 AgentRuntime 处理通知（可选）
+	triggerCh chan string // 触发 AgentRuntime 处理通知（可选，保留兼容）
+	aiTrigger AITrigger   // 入站消息触发 AI 客服的实现（桥接场景为 WebhookService）
 }
 
 // NewInboxIngressService 构造入站服务(无参,内部用 dbUtil.GetDB())
@@ -86,6 +96,11 @@ func NewInboxIngressServiceWithDB(db *gorm.DB, c cache.Cache) *InboxIngressServi
 // TriggerChannel 返回 AgentRuntime 监听通道（非阻塞消费）
 func (s *InboxIngressService) TriggerChannel(ctx context.Context) <-chan string {
 	return s.triggerCh
+}
+
+// SetAITrigger 注入 AI 触发实现（生产环境由 WebhookService 提供，测试可注入 fake）
+func (s *InboxIngressService) SetAITrigger(t AITrigger) {
+	s.aiTrigger = t
 }
 
 // IsSessionHumanLocked 检查会话是否被人工接管
@@ -235,37 +250,37 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		return result, nil
 	}
 
-	// 卡位 2：AI 处理串行化锁
+	// 卡位 2：AI 处理串行化锁（轻量守卫，避免同一消息并发重复触发）
 	acquired, _ := s.tryAcquireAILock(ctx, event.SessionID)
-	if !acquired {
-		// AI 正在推理，把消息推入 pending 队列
-		if err := s.AppendPendingMessage(ctx, event.SessionID, event.Content); err != nil {
-			logger.Warnf("[Inbox] 追加待处理消息失败 session=%s: %v", event.SessionID, err)
-		}
-		result.Accepted = true
-		result.QueuedForAI = true
-		result.Reason = "AI is processing; message appended to pending queue"
-		if err := s.persistMessage(ctx, event); err != nil {
-			return result, fmt.Errorf("持久化消息失败: %w", err)
-		}
-		return result, nil
-	}
-
-	// 成功获取 AI 处理锁
 	result.Accepted = true
 	result.QueuedForAI = true
-	result.Reason = "AI lock acquired; trigger AgentRuntime"
+	result.Reason = "AI lock acquired; trigger AI customer service"
+
+	// 持久化到 message_hub（无论是否走 AI，实时消息都必须落库）
 	if err := s.persistMessage(ctx, event); err != nil {
-		// 失败时释放锁，避免死锁
-		s.ReleaseAILock(ctx, event.SessionID)
+		if acquired {
+			s.ReleaseAILock(ctx, event.SessionID)
+		}
 		return result, fmt.Errorf("持久化消息失败: %w", err)
 	}
 
-	// 通知 AgentRuntime（异步非阻塞）
-	select {
-	case s.triggerCh <- event.SessionID:
-	default:
-		// channel 已满时不阻塞
+	// 触发 AI 客服（异步推理，不阻塞 WS 回包）
+	accountID := "default"
+	if event.Extra != nil {
+		if v, ok := event.Extra["account_id"].(string); ok && v != "" {
+			accountID = v
+		}
+	}
+	if s.aiTrigger != nil {
+		s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID)
+	} else {
+		logger.Warnf("[Inbox] aiTrigger 未配置，入站消息未触发 AI session=%s", event.SessionID)
+	}
+
+	// 立即释放串行锁：AI 生成由 runAIGeneration 的 replySem 并发控制，
+	// 会话上下文由编排器维护；此处释放可避免后续多轮消息卡在 pending 永不消费（旧死锁问题）。
+	if acquired {
+		s.ReleaseAILock(ctx, event.SessionID)
 	}
 	return result, nil
 }
@@ -310,5 +325,63 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 	}
 	// 五层架构修复：原 s.db.WithContext(ctx).Create(hub).Error 违反
 	// "service 不可直接访问 DB" 约束，已下沉到 MessageHubRepository.Create
+	return s.hubRepo.Create(ctx, hub)
+}
+
+// PersistBridgeHistory 仅持久化历史/回填消息，不触发 AI 路由。
+//
+// 用途（需求⑤ 多用户历史 / 需求③ outbound 落库）：
+//   - 页面加载时回填的存量私信（客户侧 inbound / 自己侧 outbound）
+//   - 本扩展回写到网页的 AI 回复（outbound，标记为 AI 回复）
+// 与 HandleIngressMessage 的关键区别：不获取 AI 锁、不投递 pending、不通知 AgentRuntime，
+// 从而避免「回填空历史误触发 AI」与「自己回复被再次推理造成自回环」。
+func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *model.MessageEvent, direction string) error {
+	if err := s.NormalizeEvent(ctx, event); err != nil {
+		return err
+	}
+	if direction == "" {
+		direction = "inbound"
+	}
+	return s.persistHistoryMessage(ctx, event, direction)
+}
+
+// persistHistoryMessage 持久化消息，Direction 由调用方显式传入（区别于 persistMessage 硬编码 inbound）。
+func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *model.MessageEvent, direction string) error {
+	if s.hubRepo == nil {
+		return nil
+	}
+	accountID := "default"
+	if event.Extra != nil {
+		if v, ok := event.Extra["account_id"].(string); ok && v != "" {
+			accountID = v
+		}
+	}
+	hub := &model.MessageHub{
+		MsgID:          event.EventID,
+		Platform:       event.Channel,
+		AccountID:      accountID,
+		Direction:      direction,
+		MsgType:        event.MsgType,
+		SenderID:       event.SenderID,
+		SenderName:     event.SenderName,
+		ReceiverID:     event.ReceiverID,
+		Content:        event.Content,
+		MediaURL:       event.MediaURL,
+		ConversationID: event.ConversationID,
+		IsGroup:        event.IsGroup,
+		GroupID:        event.GroupID,
+		// outbound 方向视为 AI/坐席发出的回复
+		IsAIReply: direction == "outbound",
+		AIAgent:   event.AIAgent,
+		IsRead:    direction == "outbound",
+		SentAt:    event.Timestamp,
+	}
+	if event.Extra != nil {
+		extra := model.JSONMap{}
+		for k, v := range event.Extra {
+			extra[k] = v
+		}
+		hub.Extra = extra
+	}
 	return s.hubRepo.Create(ctx, hub)
 }

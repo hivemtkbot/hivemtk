@@ -101,6 +101,9 @@ func (m *e2eMockReachAdapter) SendKuaishou(_ context.Context, _, _, _, _ string)
 func (m *e2eMockReachAdapter) SendXHS(_ context.Context, _, _, _, _ string) (string, error) {
 	return "", nil
 }
+func (m *e2eMockReachAdapter) SendTikTok(_ context.Context, _, _, _, _ string) (string, error) {
+	return "", nil
+}
 func (m *e2eMockReachAdapter) SendDingTalk(_ context.Context, _, _, _ string) (string, error) {
 	return "", nil
 }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HiveBridge 蜂桥 — 私信桥接</title>
+    <style>
+      body { width: 340px; font-family: -apple-system, "PingFang SC", sans-serif; padding: 12px; font-size: 13px; }
+      .brand { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+      .brand svg { flex: none; }
+      .brand h3 { margin: 0; font-size: 15px; line-height: 1.2; }
+      .brand .sub { font-size: 11px; color: #888; }
+      label { display: block; margin: 8px 0 2px; color: #555; }
+      input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
+      button { margin-top: 10px; padding: 7px 10px; border: none; border-radius: 6px; background: #4f8cff; color: #fff; cursor: pointer; }
+      button.secondary { background: #eee; color: #333; }
+      pre { background: #f6f6f6; padding: 8px; border-radius: 6px; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+      .status-on { color: #16a34a; } .status-off { color: #dc2626; }
+      hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hive" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFB020"/><stop offset="1" stop-color="#FE7A00"/>
+          </linearGradient>
+          <linearGradient id="bridge" x1="0" y1="120" x2="120" y2="40" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#4F8CFF"/><stop offset="1" stop-color="#7C5CFF"/>
+          </linearGradient>
+        </defs>
+        <g stroke="url(#hive)" stroke-width="6" fill="rgba(255,176,32,0.12)">
+          <path d="M60 12 L98 34 L98 78 L60 100 L22 78 L22 34 Z"/>
+          <path d="M60 30 L82 43 L82 69 L60 82 L38 69 L38 43 Z"/>
+        </g>
+        <path d="M14 92 Q60 50 106 92" stroke="url(#bridge)" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <circle cx="14" cy="92" r="7" fill="#4F8CFF"/>
+        <circle cx="106" cy="92" r="7" fill="#7C5CFF"/>
+      </svg>
+      <div>
+        <h3>HiveBridge 蜂桥</h3>
+        <div class="sub">抖音 / 小红书 / TikTok 私信桥接</div>
+      </div>
+    </div>
+    <label>服务端地址 (http/https)</label>
+    <input id="serverUrl" placeholder="http://localhost:8080" />
+    <label>鉴权 Token（可选）</label>
+    <input id="token" placeholder="留空走私有部署 agent_id 模式" />
+    <button id="save">保存并连接</button>
+
+    <hr />
+    <button id="status" class="secondary">刷新连接状态</button>
+    <pre id="statusOut">点击刷新…</pre>
+
+    <hr />
+    <button id="selfcheck" class="secondary">自检当前私信页（校准用）</button>
+    <pre id="selfOut">打开抖音/小红书/TikTok 私信页后点击</pre>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>
