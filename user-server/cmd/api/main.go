@@ -29,6 +29,21 @@ import (
 	"marketing/internal/websocket"
 )
 
+// 端口兜底常量（单源：config 包的 ports.go / DEVELOPMENT.md §2.4 端口对照表）
+// 这里仅做别名 re-export，便于直接通过 main.DefaultListenPort 引用而不必 import config
+// 但任何调整必须改 config.DefaultListenPort / config.DefaultRedisPort。
+const (
+	// DefaultListenPort 兜底监听端口（无 PORT 环境变量时使用）
+	// 单一源：config.DefaultListenPort（user-server/internal/pkg/utils/config/ports.go）
+	// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8204 | user-server | Gin HTTP
+	DefaultListenPort = config.DefaultListenPort
+
+	// DefaultRedisPort 兜底 Redis 端口（无 REDIS_PORT 环境变量时使用）
+	// 单一源：config.DefaultRedisPort（user-server/internal/pkg/utils/config/ports.go）
+	// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8203 | Redis
+	DefaultRedisPort = config.DefaultRedisPort
+)
+
 // buildRedisClient 依据环境变量构建 Redis 客户端。
 // 仅当 REDIS_HOST 显式配置时返回非 nil；否则返回 nil，
 // 此时保持进程内幂等守卫、健康检查 redis 显示 not_configured（与单实例默认行为一致）。
@@ -41,7 +56,7 @@ func buildRedisClient() *redis.Client {
 	}
 	port := os.Getenv("REDIS_PORT")
 	if port == "" {
-		port = "8203"
+		port = DefaultRedisPort
 	}
 	dbNum := 0
 	if v := os.Getenv("REDIS_DB"); v != "" {
@@ -156,8 +171,10 @@ func main() {
 		platformURL = os.Getenv("PLATFORM_URL")
 	}
 	if platformURL == "" {
-		// 兜底：与 DefaultPlatformAPI（license_checker.go）保持一致
-		platformURL = "https://hivepaltformapi.xapptool.cn"
+		// 兜底：单一源 config.DefaultPlatformAPI（user-server/internal/pkg/utils/config/ports.go）
+		// 文档源：DEVELOPMENT.md §2.4 + user-server/config/platform.yaml api_url 字段
+		// 行为：仅在 PlatformCfg 与所有环境变量都缺失时生效；任何调整必须先改 ports.go 常量
+		platformURL = config.DefaultPlatformAPI
 	}
 	middleware.InitLicenseChecker(platformURL, "")
 	logger.Infof("[启动] 初始化上报检查器（install.lock + 3 分钟心跳 + 9 分钟容错）")
@@ -268,9 +285,17 @@ func main() {
 
 	router.Setup(r)
 
+	// 端口来源（单一文档源）：
+	//   1) 运行时环境变量 PORT（最高优先级，覆盖一切）
+	//   2) DefaultListenPort 兜底（与 docs/dev/DEVELOPMENT.md 端口对照表 / Dockerfile ENV SERVER_PORT=8204 / bridge constants.DEFAULT_USER_SERVER.port 严格对齐）
+	// 调整兜底端口请同步：
+	//   - docs/dev/DEVELOPMENT.md §2.4 端口约定
+	//   - user-server/Dockerfile ENV SERVER_PORT
+	//   - user-web/bridge/src/core/constants.js DEFAULT_USER_SERVER.port
+	//   - user-web/bridge/docs/DEFAULTS.md §2.1
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8204"
+		port = DefaultListenPort
 	}
 	addr := "0.0.0.0:" + port
 	logger.Infof("营销后端服务启动于 %s", addr)

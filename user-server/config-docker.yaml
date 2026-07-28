@@ -1,8 +1,10 @@
 platform_api:
-  # 用户端/平台端网络物理隔离，跨容器不能用 platform-server 直连；
-  # 与 docker-compose.yml 的 PLATFORM_API_URL 默认值保持一致（走宿主机网关，
-  # 平台端容器已把 8205 映射到宿主机）。生产由 PLATFORM_API_URL 注入真实域名。
-  base_url: "http://host.docker.internal:8205"
+  # 平台端 API 网关（user-server 跑在容器内，跨网络物理隔离）
+  # 单一源：internal/pkg/utils/config/ports.go → DefaultPlatformPort=8205
+  # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 platform-server 端口映射
+  # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 docker-compose.yml
+  # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
+  base_url: "${PLATFORM_API_URL:http://host.docker.internal:8205}"
 
 # 统一日志系统配置（生产建议 json + both，便于日志采集与本地排障）
 logging:
@@ -45,18 +47,28 @@ inference:
   profile: dev
   embedding:
     mode: local
-    base_url: "http://mtk-embedding:8208/v1"   # 宿主机 llama.cpp（OpenAI 兼容 /v1/embeddings）
+    # 单一源：internal/pkg/utils/config/ports.go → DefaultEmbeddingPort=8208 / DefaultEmbeddingBaseURLDocker
+    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-embedding 服务
+    # 容器内走 mtk-embedding 服务名（mtk-inference-net 网络内可解析）
+    # 覆盖优先级：环境变量 EMBEDDING_BASE_URL > config > 默认
+    base_url: "${EMBEDDING_BASE_URL:http://mtk-embedding:8208/v1}"
     model: "bge-m3"                            # dev 轻量档（1024 维，Xorbits/bge-m3-gguf Q4_K_M）
     dimension: 1024
     allow_fallback: false                       # 禁止静默降级 hash 伪向量（仅单测显式开启）
   rerank:
     mode: local
-    base_url: "http://mtk-rerank:8209/v1"
+    # 单一源：internal/pkg/utils/config/ports.go → DefaultRerankPort=8209 / DefaultRerankBaseURLDocker
+    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-rerank 服务
+    # 覆盖优先级：环境变量 RERANK_BASE_URL > config > 默认
+    base_url: "${RERANK_BASE_URL:http://mtk-rerank:8209/v1}"
     model: "bge-reranker-v2-m3"                # dev 轻量档（gaoshengwinner/bge-reranker-v2-m3-Q4_K_M-GGUF）
     enabled: true
   llm:
     mode: local
-    base_url: "http://mtk-llm:8207/v1"          # 宿主机 llama.cpp（OpenAI 兼容 /v1/chat/completions）
+    # 单一源：internal/pkg/utils/config/ports.go → DefaultLLMPort=8207 / DefaultLLMBaseURLDocker
+    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-llm 服务
+    # 覆盖优先级：环境变量 LLM_BASE_URL > config > 默认
+    base_url: "${LLM_BASE_URL:http://mtk-llm:8207/v1}"
     model: "Qwen2.5-1.5B-Instruct"               # dev 轻量档（Q4_K_M，与 .env LLM_MODEL_FILE 对齐）
     api_key: ""                                 # 本地模型无需密钥
     temperature: 0.7

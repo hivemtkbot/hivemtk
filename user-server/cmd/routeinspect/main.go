@@ -24,8 +24,10 @@ func main() {
 	// 初始化 DB
 	db.InitDB()
 
-	// 初始化授权检查器
-	middleware.InitLicenseChecker("http://localhost:8205", "")
+	// 初始化授权检查器：兜底 base URL 派生自 config.DefaultPlatformBaseURL
+	// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
+	// 注意：routeinspect 仅打印路由，不需要真实连接，URL 字段可填任意可达占位
+	middleware.InitLicenseChecker(config.DefaultPlatformBaseURL, "")
 
 	gin.SetMode(gin.DebugMode)
 	r := gin.New()

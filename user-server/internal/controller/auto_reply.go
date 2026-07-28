@@ -14,6 +14,7 @@ import (
 
 	"marketing/internal/aiagent/agent/browser"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -715,7 +716,9 @@ func (c *AutoReplyController) GetDebugStatus(ctx *gin.Context) {
 	// 从环境变量读取配置，避免硬编码
 	remoteDebugging := os.Getenv("REMOTE_DEBUGGING_URL")
 	if remoteDebugging == "" {
-		remoteDebugging = "http://localhost:8206"
+		// 兜底 URL 派生自 config.DefaultRemoteDebugURL
+		// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8206 | chromium CDP
+		remoteDebugging = config.DefaultRemoteDebugURL
 	}
 	browserPath := os.Getenv("BROWSER_PATH")
 	if browserPath == "" {

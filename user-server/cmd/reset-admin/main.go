@@ -141,17 +141,17 @@ func initDB() *gorm.DB {
 	cfg := config.GetAppConfig()
 	pg := cfg.Database.Postgres
 	if pg.Host == "" {
-		// 兜底：开发环境默认值
-		pg.Host = "localhost"
-		pg.Port = 8202
-		pg.User = "admin"
-		pg.Password = "password123"
-		pg.DBName = "user_db"
-		pg.SSLMode = "disable"
+		// 配置文件缺失：明确报错，禁止"软启动"静默兜底弱默认值
+		// 文档源：DEVELOPMENT.md §2.4 端口对照表 + user-server/config.yaml dev 默认
+		log.Fatalf("[FATAL] 缺少 config.yaml 或 database.postgres.host 为空；请先 cp config.yaml.example config.yaml 并按 DEVELOPMENT.md §2.4 配置端口（dev 本机 PG=8232，docker=8202）")
 	}
-	// 优先用 .env 中的真实密码覆盖
+	// 私域合规基线 §7.2：密码不落配置文件，缺配置时由运行时环境变量 POSTGRES_PASSWORD 注入
 	if v := os.Getenv("POSTGRES_PASSWORD"); v != "" {
 		pg.Password = v
+	}
+	if pg.Password == "" {
+		// 缺密码不允许静默兜底（避免弱密码 password123 风险）
+		log.Fatalf("[FATAL] 缺少 POSTGRES_PASSWORD 环境变量（合规基线 §7.2，密码不落配置文件）")
 	}
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Shanghai",
 		pg.Host, pg.User, pg.Password, pg.DBName, pg.Port, pg.SSLMode)

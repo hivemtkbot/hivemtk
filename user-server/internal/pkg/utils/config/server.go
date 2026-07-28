@@ -66,13 +66,16 @@ var DefaultPoolConfig = PoolConfig{
 //   - 默认值必须指向本地（127.0.0.1），绝不静默走公网
 //   - 维度必须与 pgvector vector(1024) 对齐
 //   - 模型名必须与实际部署的模型一致（Qwen2.5-1.5B-Instruct / bge-m3 / bge-reranker-v2-m3）
+//
+// 端口字面量全部派生自 ports.go（DEVELOPMENT.md §2.4 端口对照表单一源）
 const (
-	defaultLLMModel        = "Qwen2.5-1.5B-Instruct"
-	defaultLLMBaseURL      = "http://127.0.0.1:8207/v1"
+	defaultLLMModel = "Qwen2.5-1.5B-Instruct"
+	// defaultLLMBaseURL 派生自 config.DefaultLLMBaseURLDev
+	defaultLLMBaseURL      = DefaultLLMBaseURLDev
 	defaultEmbeddingModel  = "bge-m3"
-	defaultEmbeddingBaseURL = "http://127.0.0.1:8208/v1"
+	defaultEmbeddingBaseURL = DefaultEmbeddingBaseURLDev
 	defaultRerankModel     = "bge-reranker-v2-m3"
-	defaultRerankBaseURL   = "http://127.0.0.1:8209/v1"
+	defaultRerankBaseURL   = DefaultRerankBaseURLDev
 	defaultEmbeddingDim    = 1024
 )
 
@@ -319,8 +322,8 @@ func GetServerBaseURL() string {
 	if v := os.Getenv("SERVER_API_BASE"); v != "" {
 		return v
 	}
-	// 默认地址
-	return "http://127.0.0.1:8205"
+	// 默认地址（端口派生自 config.DefaultPlatformPort，DEVELOPMENT.md §2.4 端口对照表）
+	return DefaultPlatformBaseURL
 }
 
 // GetAppConfig 获取应用配置
@@ -335,7 +338,8 @@ func GetAppConfig() AppConfig {
 		// 配置文件不存在时使用 Docker 网络默认值（私域部署基线）
 		config.Database.Type = DBTypePostgres
 		config.Database.Postgres.Host = "postgres-user"
-		config.Database.Postgres.Port = 8202
+		// 端口派生自 config.DefaultDBPortDocker（DEVELOPMENT.md §2.4 端口对照表）
+		config.Database.Postgres.Port = DefaultDBPortDocker
 		config.Database.Postgres.User = "admin"
 		// 私域合规基线 §7.2：密码不落配置文件，缺配置时由运行时环境变量 POSTGRES_PASSWORD 注入
 		config.Database.Postgres.Password = os.Getenv("POSTGRES_PASSWORD")

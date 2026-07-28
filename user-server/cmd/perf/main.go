@@ -1,11 +1,16 @@
 // Package main 性能压测入口
-// 独立部署版本：单租户，user-server 默认监听 :8080
+// 独立部署版本：user-server 兜底监听 :8204（单一源：config.DefaultUserServerBaseURL）
 //
 // 使用方法：
 //
-//	go run ./cmd/perf                          # 跑全部场景
+//	go run ./cmd/perf                          # 跑全部场景（默认 base 派生自 config.DefaultUserServerBaseURL）
+//	go run ./cmd/perf -base=http://example.com # 覆盖 base URL
 //	go run ./cmd/perf -scene=login             # 跑指定场景
-//	go run ./cmd/perf -base=http://localhost:8080
+//
+// 安全护栏：
+//   - 登录账号/密码必须通过命令行显式传入（PERF_USERNAME / PERF_PASSWORD）
+//     禁止硬编码默认值（防 admin123 等弱口令风险）
+//   - 未提供时要求显式传参并明确报错，不静默兜底
 package main
 
 import (
@@ -15,12 +20,21 @@ import (
 	"os"
 	"time"
 
+	"marketing/internal/pkg/utils/config"
 	"marketing/tests/perf/perflib"
 )
 
 var (
-	baseURL = flag.String("base", "http://localhost:8080", "user-server base URL")
+	// baseURL 默认 user-server base URL：派生自 config.DefaultUserServerBaseURL
+	// 文档源：user-server/internal/pkg/utils/config/ports.go + DEVELOPMENT.md §2.4 端口对照表
+	// 覆盖：命令行 -base=http://...
+	baseURL = flag.String("base", config.DefaultUserServerBaseURL, "user-server base URL")
 	scene   = flag.String("scene", "all", "测试场景: all|login|customer|message|knowledge|cdp")
+
+	// 登录场景账号/密码（强约束：必须显式传入，禁止硬编码默认值）
+	// 避免：admin123 等弱口令在源码中残留；CI / 本地压测必须用独立测试账号
+	perfUsername = flag.String("username", os.Getenv("PERF_USERNAME"), "登录用户名（必须显式传入）")
+	perfPassword = flag.String("password", os.Getenv("PERF_PASSWORD"), "登录密码（必须显式传入，禁止默认值）")
 )
 
 func main() {
@@ -54,7 +68,13 @@ func main() {
 }
 
 // loginScene 登录接口压测
+// 强约束：账号/密码必须显式传入；未提供时直接 fatal，不静默兜底到 admin123
 func loginScene() perflib.Config {
+	if *perfUsername == "" || *perfPassword == "" {
+		fmt.Fprintln(os.Stderr, "[FATAL] 登录压测场景必须显式传入 -username 与 -password（或 PERF_USERNAME / PERF_PASSWORD 环境变量）")
+		fmt.Fprintln(os.Stderr, "[FATAL] 禁止硬编码默认值（如 admin123）—— 压测账号请使用专用测试账号，与生产超管隔离")
+		os.Exit(1)
+	}
 	return perflib.Config{
 		Name:        "login",
 		URL:         *baseURL + "/api/auth/login",
@@ -62,8 +82,8 @@ func loginScene() perflib.Config {
 		Concurrency: 20,
 		Total:       500,
 		Body: map[string]string{
-			"username": "admin",
-			"password": "admin123",
+			"username": *perfUsername,
+			"password": *perfPassword,
 		},
 	}
 }

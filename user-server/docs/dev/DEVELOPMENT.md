@@ -100,19 +100,73 @@ curl http://localhost:8204/api/v1/public/init
 
 ### 2.4 端口约定
 
-| 端口 | 服务 | 说明 |
-| --- | --- | --- |
-| 8232 | PostgreSQL | 宿主机直连（`config.yaml` 中 `database.postgres.port: 8232`，本地 dev 默认） |
-| 8202 | PostgreSQL | Docker 部署映射端口（`docker-compose-host.yml` 中 mtk-postgres 容器映射到宿主 8202） |
-| 8203 | Redis | 单实例默认 |
-| 8204 | user-server | Gin HTTP |
-| 8205 | platform-server | 心跳上报目标 |
-| 8206 | chromium CDP | 仅浏览器自动化启用时 |
-| 8207 | LLM（llama.cpp） | Qwen2.5-1.5B/3B-Instruct |
-| 8208 | Embedding | bge-m3 |
-| 8209 | Rerank | bge-reranker-v2-m3 |
+**全栈端口对照表**（所有调整必须先改本表 + `internal/pkg/utils/config/ports.go` + bridge `constants.js`）：
 
-> ℹ️ **PostgreSQL 端口差异说明**：本地源码启动时 `config.yaml` 中端口为 **8232**；Docker 部署时 `docker-compose-host.yml` 把 mtk-postgres 容器的 5432 映射到宿主机 **8202**。两者不冲突——切换部署模式时需同步修改 `config.yaml` 或 `config-docker.yaml` 的 `database.postgres.port`，或通过 `POSTGRES_PORT` 环境变量覆盖。
+| 端口 | 服务 / 应用 | 启动入口 | 单一源常量 | 文档源 |
+| --- | --- | --- | --- | --- |
+| 8202 | PostgreSQL（Docker 部署映射端口） | `docker compose -f docker-compose-host.yml up -d` | `config.DefaultDBPortDocker` | `docker-compose-host.yml` 中 mtk-postgres 容器映射宿主 8202 |
+| 8203 | Redis | `docker compose -f docker-compose-host.yml up -d` | `config.DefaultRedisPort` | `docker-compose-host.yml` 中 mtk-redis 容器 |
+| **8204** | **user-server**（Gin HTTP） | `go run ./cmd/api` 或 `air -c .air.toml` | `config.DefaultListenPort` / `main.DefaultListenPort` | `Dockerfile:57 ENV SERVER_PORT=8204` |
+| 8205 | platform-server | `cd hivemtk-platform/platform-server && go run ./cmd/api` | `config.DefaultPlatformPort` | platform-server/config.yaml `server.port` |
+| 8206 | Chromium CDP（远程调试） | `chromedp.Flag("remote-debugging-port", "8206")` | `config.DefaultChromiumCDPPort` | `internal/aiagent/agent/browser/assistant.go:43` |
+| 8207 | LLM（llama.cpp） | `bash scripts/inference-host/start-llm.sh` | `config.DefaultLLMPort` | `inference.llm.base_url: http://127.0.0.1:8207/v1` |
+| 8208 | Embedding（bge-m3） | `bash scripts/inference-host/start-embedding.sh` 或 `go run ./cmd/embedding-server` | `config.DefaultEmbeddingPort` | `inference.embedding.base_url: http://127.0.0.1:8208/v1` |
+| 8209 | Rerank（bge-reranker-v2-m3） | `bash scripts/inference-host/start-rerank.sh` | `config.DefaultRerankPort` | `inference.rerank.base_url: http://127.0.0.1:8209/v1` |
+| 8232 | PostgreSQL（dev 本机直连） | `pg_ctl -D /usr/local/var/postgres start` | `config.DefaultDBPortDev` | `config.yaml` 中 `database.postgres.port: 8232` |
+
+**各应用启动描述**（按"开箱即用"顺序）：
+
+```bash
+# === 1. 启动数据层（PostgreSQL + Redis）===
+# 端口 8202（PG）+ 8203（Redis）
+cd hivemtk && make db-up
+# 验证：
+docker compose -f docker-compose-host.yml ps   # 两个容器都 healthy
+
+# === 2. 启动本地推理栈（LLM + Embedding + Rerank）===
+# 端口 8207 + 8208 + 8209（宿主机 llama.cpp）
+cd hivemtk && make inference-host-up
+# 首次需要：make inference-host-install  # 安装 llama.cpp
+# 首次需要：make inference-host-models    # 下载 dev 档模型
+# 验证：make inference-host-status
+
+# === 3. 启动 user-server 主进程 ===
+# 端口 8204
+cd hivemtk/user-server
+cp config.yaml.example config.yaml  # 首次；按 .env 调整 POSTGRES_PASSWORD
+go run ./cmd/api
+# 或热更新：
+cd hivemtk && make dev    # air 监听 ./user-server
+# 验证：curl http://localhost:8204/health
+
+# === 4. 启动 platform-server（仅当需要资产市场/超管后台）===
+# 端口 8205
+cd hivemtk/hivemtk-platform/platform-server
+go run ./cmd/api
+# 验证：curl http://localhost:8205/healthz
+
+# === 5. 启动 user-web 前端 ===
+# 默认 vite 5173
+cd hivemtk/user-web
+npm run dev
+# 验证：浏览器打开 http://localhost:5173
+
+# === 6. 启动 bridge 浏览器扩展（可选）===
+# 端口 8204（连接 user-server）
+cd hivemtk/user-web/bridge
+node scripts/build.mjs
+# Chrome → chrome://extensions → 加载已解压扩展 → 选择 dist/
+# popup 端口默认 http://localhost:8204（user-server）
+```
+
+**单一源约束（禁软启动 / 禁多处硬编码）**：
+
+1. **所有端口字面量集中在 `user-server/internal/pkg/utils/config/ports.go`**（`DefaultListenPort`/`DefaultDBPortDev`/`DefaultDBPortDocker`/`DefaultRedisPort`/`DefaultPlatformPort`/`DefaultChromiumCDPPort`/`DefaultLLMPort`/`DefaultEmbeddingPort`/`DefaultRerankPort`）
+2. **bridge 端单源**：`user-web/bridge/src/core/constants.js` 的 `DEFAULT_USER_SERVER.port = 8204`
+3. **禁止"软启动"**——`config.yaml` 缺字段时必须明确报错（`log.Fatalf`），不允许 `if cfg == nil { cfg = defaultConfig }` 静默兜底
+4. **禁止"重复硬编码"**——任何模块（含 `cmd/perf/main.go`、`internal/service/short_link.go` 等）禁止在写 `http://localhost:8204` / `:8207` 等字面量，必须 `import "marketing/internal/pkg/utils/config"` 后用 `config.DefaultXxx` 派生
+
+**PostgreSQL 端口差异说明**：本地源码启动时 `config.yaml` 中端口为 **8232**；Docker 部署时 `docker-compose-host.yml` 把 mtk-postgres 容器的 5432 映射到宿主机 **8202**。两者不冲突——切换部署模式时需同步修改 `config.yaml` 或 `config-docker.yaml` 的 `database.postgres.port`，或通过 `POSTGRES_PORT` 环境变量覆盖。
 
 ---
 

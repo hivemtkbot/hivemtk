@@ -128,10 +128,14 @@ func ensureProcTestDB(t *testing.T) {
 // getTestDSN 读取测试数据库连接串
 // 优先级：POSTGRES_TEST_DSN > 组合 POSTGRES_* 默认值（docker-compose-example.yml 默认值）
 // 默认端口 8202 对应 docker-compose-example.yml 中 postgres-user 服务的 port=8202 配置
+// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8202 | PostgreSQL | Docker 部署映射端口
 func getTestDSN() string {
 	if v := os.Getenv("POSTGRES_TEST_DSN"); v != "" {
 		return v
 	}
+	// 测试用默认值：与 docker-compose-example.yml 中 postgres-user 服务的 8202 对齐
+	// 文档源：DEVELOPMENT.md §2.4 + user-server/.github/workflows/user-server-ci.yml
+	// 严禁把 password123 当作生产默认值；CI 环境统一由 env 注入
 	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
 	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
 	user := getEnvOr("POSTGRES_TEST_USER", "admin")

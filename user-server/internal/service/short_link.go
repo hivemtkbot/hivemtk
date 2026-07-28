@@ -8,6 +8,7 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"math/big"
@@ -546,8 +547,9 @@ func (s *shortLinkService) ShareShortLink(ctx context.Context, req *dto.ShareSho
 		return nil, errors.New("短链不存在")
 	}
 
-	// 构建短链URL
-	shortURL := fmt.Sprintf("http://localhost:8204/s/%s", shortLink.ShortCode)
+	// 构建短链URL（端口派生自 config.DefaultUserServerBaseURL）
+	// 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8204 | user-server
+	shortURL := fmt.Sprintf("%s/s/%s", config.DefaultUserServerBaseURL, shortLink.ShortCode)
 
 	// 生成二维码
 	qrCode := utils.GenerateQRCode(shortURL)
