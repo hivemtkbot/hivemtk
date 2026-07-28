@@ -363,6 +363,53 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.match()).toBe(false);
     expect(a.matchMode()).toBeNull();
   });
+
+  // =============================================================
+  // 真实回归：抖音精选 jingxuan 页面的误判
+  // 现象：jingxuan 页面 DOM 含 messageEditorinputArea（评论框） +
+  //       conversationConversationListwrapper（侧栏推荐列表）
+  //       → 早期版本 looksLikeMessagePage 误判 true
+  // 期望：match() 返回 false，matchMode=null（fallback 不该误启动）
+  // =============================================================
+  it('抖音 jingxuan 页面（评论/推荐）→ match=false, matchMode=null', () => {
+    mockLocationPath('https://www.douyin.com/jingxuan');
+    // 模拟 jingxuan DOM：editor-kit-container > messageEditorinputArea（评论框）
+    const wrap = document.createElement('div');
+    wrap.className = 'editor-kit-container';
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.className = 'messageEditorinputArea';
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    wrap.appendChild(ce);
+    document.body.appendChild(wrap);
+    // 侧栏推荐列表
+    const listWrap = document.createElement('div');
+    listWrap.className = 'conversationConversationListwrapper';
+    document.body.appendChild(listWrap);
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(false);
+    expect(a.matchMode()).toBeNull();
+  });
+
+  it('抖音 /im/chat/ + 严格选择器命中 → match=true, matchMode=strict', () => {
+    mockLocationPath('https://www.douyin.com/im/chat/abc/');
+    addInput({ tag: 'div', attrs: { contenteditable: 'true', role: 'textbox' } });
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('strict');
+  });
+
+  it('抖音 /im/chat/ + 严格选择器失效 + messageList + chatWindow → match=true, matchMode=fallback', () => {
+    mockLocationPath('https://www.douyin.com/im/chat/abc/');
+    addInput({ tag: 'div', attrs: { contenteditable: 'true' } });
+    // fallback 多特征 DOM 启发式：消息列表 + 聊天容器同时存在
+    document.body.appendChild(addInput({ tag: 'div', attrs: { class: 'messageList' }, rect: { width: 200, height: 30, top: 100, left: 0, right: 200, bottom: 130 } }));
+    document.body.appendChild(addInput({ tag: 'div', attrs: { class: 'chatWindow' }, rect: { width: 200, height: 30, top: 200, left: 0, right: 200, bottom: 230 } }));
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('fallback');
+  });
 });
 
 describe('BaseAdapter matchMode 透传', () => {

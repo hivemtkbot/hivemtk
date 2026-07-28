@@ -212,6 +212,11 @@ export function isLikelyVisible(el) {
  *   4) [data-e2e*="message-input" / "input" / "editor" / "chat-input"]
  *   5) [data-testid*="message" / "input" / "editor"]
  *   6) [aria-label*="消息" / "留言" / "回复" / "Send a message" / "Type a message"]
+ * 排除条件（任何一条命中即跳过）：
+ *   - className 含 comment / Comment / commentEditor （评论框）
+ *   - className 含 editor-kit / editorContainer （视频评论编辑器）
+ *   - className 含 search / Search （搜索框）
+ *   - 父链上有 className 含 comment / editor-kit / video-comment （继承排除）
  * 启发式排序：
  *   - 优先 contenteditable / role=textbox
  *   - 在视口下半部分（top > 40% 视口高度）的元素更像是聊天输入框
@@ -226,8 +231,26 @@ export function findAnyMessageInput() {
   const candidates = [];
   const vh = window.innerHeight || 800;
 
+  // 反例关键词（评论框 / 视频评论 / 搜索框）
+  // jingxuan 页面就是误中：messageEditorinputArea 在 editor-kit-container 内
+  const EXCLUDE_KEYWORDS = /comment|Comment|editor-kit|editorContainer|searchInput|searchBar|searchBox|SearchInput/i;
+
+  /** 元素或其父链是否含反例 class（继承排除：editor-kit-container 套着 messageEditorinputArea） */
+  const hasExcludedAncestor = (el) => {
+    let cur = el;
+    let depth = 0;
+    while (cur && depth < 6) {
+      const cls = (cur.className && typeof cur.className === 'string') ? cur.className : '';
+      if (EXCLUDE_KEYWORDS.test(cls)) return true;
+      cur = cur.parentElement;
+      depth += 1;
+    }
+    return false;
+  };
+
   const score = (el) => {
     if (!isLikelyVisible(el)) return -1;
+    if (hasExcludedAncestor(el)) return -1; // 评论/搜索框继承排除
     const r = el.getBoundingClientRect();
     if (r.width < 20 || r.height < 10) return -1;
     // 排除 textarea 多行但特别小（评论框、用户名框通常宽 < 100）
@@ -297,33 +320,68 @@ export function findAnyMessageInput() {
 
 /**
  * 页面上下文是否看起来像「私信/消息/聊天」页。
- * 命中条件（任一即可）：
- *   - URL 路径含 /message / chat / msg / direct / im / inbox / conversation / private / dm
- *   - URL 查询含 conversation_id / message_id / session_id / chat_id / user_id
- *   - DOM 里有：含 chat- / message- / im-chat- / inbox / conversation 类的元素 > 0
- *   - DOM 里有：data-e2e 含 chat / message 的元素 > 0
- * 用途：findAnyMessageInput 可能误中评论框 / 搜索框（同样 contenteditable），
- *       需要这一步过滤，避免在抖音首页 / 帖子详情页误启动桥接。
+ *
+ * 判定策略（按可靠性排序）：
+ *   1) URL 必须包含私信/IM 关键词：message / chat / im / inbox / direct / dm / private / msg
+ *   2) URL 不能包含反例关键词：jingxuan / discover / explore / search / hot / follow / feed / recommend
+ *   3) DOM 启发式只作为辅助，需「消息列表」+「会话容器」类名同时存在（多特征投票）
+ *      单个 class 命中不算（避免 jingxuan 页面有 conversationConversation* 元素就误判）
+ *
+ * 设计原则：宁可漏判让 match() 返回 false 由用户报告，也不要误判让桥接在评论区乱跑。
+ *
  * @returns {boolean}
  */
 export function looksLikeMessagePage() {
   try {
     const url = (location.href || '').toLowerCase();
-    if (/\/(message|chat|msg|direct|im|inbox|conversation|private|dm)(\/|\?|$|#)/.test(url)) return true;
-    if (/[?&](conversation_id|message_id|session_id|chat_id|user_id)=/.test(url)) return true;
-    // TikTok 私信页 URL 形如 /messages/@xxx
-    if (/\/messages\/@?[\w.]+/.test(url)) return true;
-    // 小红书 IM 页面通常在 /im/ 路径
-    if (/\/im\b/.test(url)) return true;
-    // 抖音 IM 路径
-    if (/\/im\/chat\b/.test(url)) return true;
 
-    // DOM 线索
-    if (document.querySelector(
-      '[class*="chat-"], [class*="message-"], [class*="msg-"], [class*="conversation"], ' +
-      '[class*="im-chat"], [class*="inbox"], [class*="direct-message"]'
-    )) return true;
-    if (document.querySelector('[data-e2e*="chat"], [data-e2e*="message"]')) return true;
+    // ---- 1. URL 反例黑名单（首页/feed/精选/搜索/个人主页/帖子详情 等） ----
+    // 即便 URL 包含聊天关键词，若同时包含反例词，仍按反例处理
+    const EXCLUDE_URL_PATTERNS = [
+      /\/jingxuan\b/i,           // 抖音精选 https://www.douyin.com/jingxuan
+      /\/discover\b/i,           // 抖音/小红书 发现页
+      /\/explore\b/i,            // 小红书 explore
+      /\/search\b/i,             // 搜索结果页
+      /\/hot\b/i,                // 热门榜
+      /\/follow\b/i,             // 关注列表（小红书 follow 不是 IM）
+      /\/recommend\b/i,          // 推荐流
+      /\/feed\b/i,               // 信息流
+      /\/trending\b/i,           // 趋势
+      /\/user\/[^/]+\/?$/,       // 个人主页 https://www.douyin.com/user/xxx
+      /\/video\/\d+/,            // 单个视频详情页 /video/7123456789
+      /\/note\//,                // 小红书笔记详情 /note/xxx
+      /\/explore\?/,             // 显式搜索 explore query
+    ];
+    for (const re of EXCLUDE_URL_PATTERNS) {
+      if (re.test(url)) return false;
+    }
+
+    // ---- 2. URL 正向匹配（最权威） ----
+    if (/\/(messages?|chats?|msg|direct|im|inbox|conversation|private|dm)(\/|\?|$|#)/.test(url)) return true;
+    if (/[?&](conversation_id|message_id|session_id|chat_id|user_id)=/.test(url)) return true;
+    if (/\/messages\/@?[\w.]+/.test(url)) return true;            // TikTok /messages/@user
+    if (/\/im\b/.test(url)) return true;                          // 小红书 /im
+    if (/\/im\/chat\b/.test(url)) return true;                    // 抖音 /im/chat
+
+    // ---- 3. DOM 启发式（URL 不匹配时的兜底，必须多特征同时命中） ----
+    // 要求「消息列表根」+「会话容器」类名同时存在
+    // 单凭 message- / conversation 这种宽泛匹配会误中 jingxuan 推荐列表
+    const hasMessageList = !!document.querySelector(
+      '[class*="MessageList"], [class*="message-list"], [class*="messageList"], ' +
+      '[class*="MessageContainer"], [class*="message-container"]'
+    );
+    const hasChatContainer = !!document.querySelector(
+      '[class*="ChatWindow"], [class*="chat-window"], [class*="chatWindow"], ' +
+      '[class*="ImChat"], [class*="im-chat"], [class*="IMChat"]'
+    );
+    // 至少 2 个特征才算（防单点误判）
+    if (hasMessageList && hasChatContainer) return true;
+
+    // 强特征：data-e2e 含 chat-item / message-item 列表项（不算 comment）
+    const hasChatItems = document.querySelectorAll(
+      '[data-e2e*="chat-item"], [data-e2e*="message-item"]'
+    ).length >= 2;
+    if (hasChatItems) return true;
 
     return false;
   } catch (_) {

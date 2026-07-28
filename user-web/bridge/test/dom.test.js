@@ -204,7 +204,8 @@ describe('dom looksLikeMessagePage', () => {
   });
 
   it('命中 URL 查询 user_id', () => {
-    setUrl('https://www.xiaohongshu.com/explore?user_id=abc');
+    // 注意：/explore 在 URL 黑名单中，user_id 命中要选非反例 URL
+    setUrl('https://www.douyin.com/?user_id=abc');
     expect(looksLikeMessagePage()).toBe(true);
   });
 
@@ -213,17 +214,18 @@ describe('dom looksLikeMessagePage', () => {
     expect(looksLikeMessagePage()).toBe(true);
   });
 
-  it('命中 DOM 含 chat- 类的元素', () => {
+  it('命中 DOM：双特征（chat-window + message-list）同时存在', () => {
+    // 新逻辑要求多特征同时存在，避免单点误判
     setUrl('https://www.douyin.com/');
-    const el = makeEl({ tag: 'div', attrs: { class: 'chat-container' } });
-    document.body.appendChild(el);
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'chat-window' } }));
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'message-list' } }));
     expect(looksLikeMessagePage()).toBe(true);
   });
 
-  it('命中 DOM 含 data-e2e=chat-xxx', () => {
+  it('命中 DOM：≥2 个 data-e2e="chat-item"', () => {
     setUrl('https://www.tiktok.com/');
-    const el = makeEl({ tag: 'div', attrs: { 'data-e2e': 'chat-list' } });
-    document.body.appendChild(el);
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { 'data-e2e': 'chat-item' } }));
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { 'data-e2e': 'chat-item' } }));
     expect(looksLikeMessagePage()).toBe(true);
   });
 
@@ -231,5 +233,193 @@ describe('dom looksLikeMessagePage', () => {
     setUrl('https://www.douyin.com/');
     document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'video-card' } }));
     expect(looksLikeMessagePage()).toBe(false);
+  });
+});
+
+// =============================================================
+// 误判回归测试：jingxuan / 视频评论 / 个人主页 等非私信页
+// =============================================================
+describe('looksLikeMessagePage 误判回归（jingxuan / 视频详情 / 个人主页）', () => {
+  function setUrl(href) {
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, href },
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  // 模拟抖音精选页 DOM：含 messageEditorinputArea（评论框）+ conversationConversation*（推荐列表）
+  function mockJingxuanDOM() {
+    // 评论输入框外层：editor-kit-container（继承排除命中）
+    const wrap = makeEl({ tag: 'div', attrs: { class: 'editor-kit-container' } });
+    const input = makeEl({ tag: 'div', attrs: { class: 'messageEditorinputArea', contenteditable: 'true' } });
+    const send = makeEl({ tag: 'svg', attrs: { class: 'messageMsgInputpublishBtn' } });
+    wrap.appendChild(input);
+    wrap.appendChild(send);
+    document.body.appendChild(wrap);
+    // 推荐列表（jingxuan 侧边栏）
+    const listWrap = makeEl({ tag: 'div', attrs: { class: 'conversationConversationListwrapper' } });
+    const item = makeEl({ tag: 'div', attrs: { class: 'conversationConversationItemwrapper', 'data-e2e': 'conversation-item' } });
+    listWrap.appendChild(item);
+    document.body.appendChild(listWrap);
+  }
+
+  it('jingxuan 页面：URL 黑名单优先于 DOM 启发式 → 返回 false', () => {
+    setUrl('https://www.douyin.com/jingxuan');
+    mockJingxuanDOM();
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('discover / explore 页面：URL 黑名单 → false', () => {
+    setUrl('https://www.douyin.com/discover');
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'messageContainer' } }));
+    expect(looksLikeMessagePage()).toBe(false);
+
+    setUrl('https://www.xiaohongshu.com/explore');
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('search 页面：URL 黑名单 → false', () => {
+    setUrl('https://www.douyin.com/search/something');
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('个人主页：URL 黑名单 → false', () => {
+    setUrl('https://www.douyin.com/user/MS4wLjABAAAAxx');
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('视频详情页：URL 黑名单 → false', () => {
+    setUrl('https://www.douyin.com/video/7123456789');
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('小红书笔记详情：URL 黑名单 → false', () => {
+    setUrl('https://www.xiaohongshu.com/explore/note/abc123');
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('抖音 /im/chat/ 正向 URL 仍命中', () => {
+    setUrl('https://www.douyin.com/im/chat/123/');
+    expect(looksLikeMessagePage()).toBe(true);
+  });
+
+  it('小红书 /im 正向 URL 仍命中', () => {
+    setUrl('https://www.xiaohongshu.com/im/');
+    expect(looksLikeMessagePage()).toBe(true);
+  });
+
+  it('TikTok /messages/@user 正向 URL 仍命中', () => {
+    setUrl('https://www.tiktok.com/messages/@someuser');
+    expect(looksLikeMessagePage()).toBe(true);
+  });
+
+  it('URL 不对 + 仅有单个 conversationList class → 仍不命中（要求多特征）', () => {
+    setUrl('https://www.douyin.com/');
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'conversationList' } }));
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('URL 不对 + 仅有单个 chatWindow class → 仍不命中', () => {
+    setUrl('https://www.douyin.com/');
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'chatWindow' } }));
+    expect(looksLikeMessagePage()).toBe(false);
+  });
+
+  it('URL 不对 + messageList + chatWindow 同时存在 → 命中（多特征投票通过）', () => {
+    setUrl('https://www.douyin.com/');
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'messageList' } }));
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { class: 'chatWindow' } }));
+    expect(looksLikeMessagePage()).toBe(true);
+  });
+
+  it('URL 不对 + ≥2 个 data-e2e="chat-item" → 命中（强特征）', () => {
+    setUrl('https://www.douyin.com/');
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { 'data-e2e': 'chat-item' } }));
+    document.body.appendChild(makeEl({ tag: 'div', attrs: { 'data-e2e': 'chat-item' } }));
+    expect(looksLikeMessagePage()).toBe(true);
+  });
+});
+
+describe('findAnyMessageInput 误判回归（评论框 / 搜索框）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function setUrl(href) {
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, href },
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  it('抖音精选：editor-kit-container > messageEditorinputArea → 父链排除命中', () => {
+    setUrl('https://www.douyin.com/jingxuan');
+    const wrap = document.createElement('div');
+    wrap.className = 'editor-kit-container';
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.className = 'messageEditorinputArea';
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    wrap.appendChild(ce);
+    document.body.appendChild(wrap);
+    // 同时放一个干净的 contenteditable 在 chatWindow 上下文
+    const chatWrap = document.createElement('div');
+    chatWrap.className = 'chatWindow';
+    const good = document.createElement('div');
+    good.setAttribute('contenteditable', 'true');
+    good.className = 'messageInput';
+    good.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(good, 'offsetParent', { configurable: true, get: () => ({}) });
+    chatWrap.appendChild(good);
+    document.body.appendChild(chatWrap);
+    // 应该命中 chatWindow 里的，不命中 editor-kit 里的
+    expect(findAnyMessageInput()).toBe(good);
+  });
+
+  it('commentEditor className → 排除', () => {
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.className = 'commentEditor';
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    document.body.appendChild(ce);
+    expect(findAnyMessageInput()).toBeNull();
+  });
+
+  it('父链有 commentContainer → 排除', () => {
+    const wrap = document.createElement('div');
+    wrap.className = 'commentContainer';
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    wrap.appendChild(ce);
+    document.body.appendChild(wrap);
+    expect(findAnyMessageInput()).toBeNull();
+  });
+
+  it('父链 searchInput → 排除', () => {
+    const wrap = document.createElement('div');
+    wrap.className = 'headerSearchInput';
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    wrap.appendChild(ce);
+    document.body.appendChild(wrap);
+    expect(findAnyMessageInput()).toBeNull();
+  });
+
+  it('无 comment/editor-kit 父链的干净 contenteditable → 命中', () => {
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.className = 'messageInput';
+    ce.getBoundingClientRect = () => ({ x: 0, y: 100, width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 });
+    Object.defineProperty(ce, 'offsetParent', { configurable: true, get: () => ({}) });
+    document.body.appendChild(ce);
+    expect(findAnyMessageInput()).toBe(ce);
   });
 });
