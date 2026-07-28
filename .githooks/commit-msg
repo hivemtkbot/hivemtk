@@ -1,0 +1,42 @@
+#!/bin/sh
+# 提交信息校验：强制 Conventional Commits 规范
+# 启用：git config core.hooksPath .githooks
+# 跳过：merge / squash / revert 等 git 自动生成的提交
+set -e
+
+commit_msg_file="$1"
+
+# 读取提交信息首行（去掉注释行与空行、尾部空白）
+msg=$(grep -v '^#' "$commit_msg_file" | sed '/^$/d' | head -n1 | sed 's/[[:space:]]*$//')
+
+# merge / squash / revert 由 git 自动生成，跳过校验
+if [ -n "$(git rev-parse -q --verify MERGE_HEAD 2>/dev/null)" ] \
+   || grep -q '^Squashed commit' "$commit_msg_file" 2>/dev/null \
+   || grep -q '^Revert ' "$commit_msg_file" 2>/dev/null; then
+  exit 0
+fi
+
+if [ -z "$msg" ]; then
+  echo "❌ 提交信息不能为空" >&2
+  exit 1
+fi
+
+# <type>(<scope>): <subject>  （scope 可选，支持 ! 表示破坏性变更）
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .+'
+
+if ! echo "$msg" | grep -Eq "$pattern"; then
+  echo "❌ 提交信息不符合 Conventional Commits 规范：" >&2
+  echo "   正确格式：<type>(<scope>): <subject>" >&2
+  echo "   类型：feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert" >&2
+  echo "   示例：feat(user-server): 新增私信桥接渠道" >&2
+  echo "   你的提交信息：$msg" >&2
+  exit 1
+fi
+
+# 软警告：主题行超过 100 字符（不阻断提交）
+subject_len=$(printf '%s' "$msg" | wc -m | tr -d ' ')
+if [ "$subject_len" -gt 100 ]; then
+  echo "⚠️  提示：提交主题 ${subject_len} 字符，建议 ≤100" >&2
+fi
+
+exit 0

@@ -1,0 +1,39 @@
+# ============================================================
+# 统一换行符与二进制处理（跨平台：mac / linux / windows）
+# 避免不同系统 checkout 时产生无意义 diff 与 CRLF 问题
+# ============================================================
+* text=auto eol=lf
+
+# 源码与文本统一 LF
+*.go text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.vue text eol=lf
+
+# 二进制文件禁止换行转换，避免损坏
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.so binary
+*.dylib binary
