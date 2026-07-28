@@ -6,6 +6,17 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { resolve } from 'path'
 
+// =============================================================
+// 单一源约束（user-web / user-server 端口对齐）
+// 单一代码源：user-server/internal/pkg/utils/config/ports.go
+// 单一文档源：user-server/docs/dev/DEVELOPMENT.md §2.4 端口对照表
+// 跨包对齐：
+//   - user-server DefaultListenPort="8204"（本文件 proxy target）
+//   - user-web 自身 dev port=8211（本文件 server.port）
+//   - bridge 端 src/core/constants.js DEFAULT_USER_SERVER.port=8204
+// 严禁"软启动"——所有端口字面量必须与 ports.go / DEVELOPMENT.md §2.4 严格一致。
+// =============================================================
+
 // Element Plus 图标按需自动导入 resolver
 //
 // 背景：ElementPlusResolver 默认仅匹配 `El*` 前缀组件与 `ElIcon*` 前缀图标,

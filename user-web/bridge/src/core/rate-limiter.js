@@ -7,8 +7,9 @@
 //   3) 防回环/去重：同会话冷却期内不重复回复；相同文案去重窗口内不重复发送。
 //
 // 所有上限均为“软失败”：超限时本次下行被丢弃并记录原因，等待下次调度，绝不堆积重试。
+// 所有默认参数从 ./constants.js 单源导入（见 docs/bridge/DEFAULTS.md），禁止就地写死。
 
-import { RATE_LIMIT_DEFAULTS as RATE_LIMIT_DEFAULTS_FALLBACK } from './types.js';
+import { RATE_LIMIT_DEFAULTS } from './constants.js';
 
 class TokenBucket {
   constructor(capacity, refillPerMin) {
@@ -42,7 +43,7 @@ function hashStr(s) {
 
 export class RateLimiter {
   constructor(cfg = {}) {
-    this.cfg = { ...RATE_LIMIT_DEFAULTS_FALLBACK, ...cfg };
+    this.cfg = { ...RATE_LIMIT_DEFAULTS, ...cfg };
     this.accountBuckets = new Map();   // channel:account -> TokenBucket
     this.convBuckets = new Map();      // channel:account:conv -> {bucket, hourly:[ts...], lastSentAt, lastHash}
     this.lastGlobalSendAt = 0;

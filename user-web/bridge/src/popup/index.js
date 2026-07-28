@@ -6,21 +6,58 @@
 //   - "测试连接"：fetch /api/health 验证 URL 真实可达
 //   - "打开私信页"：直接开新标签，免去用户手动导航
 //   - 输入框支持回车提交
+//   - 所有默认值/端口/URL 统一从 ../core/constants.js 单源导入（DEVELOPMENT.md 端口对照表）
+import {
+  DEFAULT_USER_SERVER,
+  PLATFORM_ENTRY_URLS,
+  UI_DEFAULTS,
+} from '../core/constants.js';
+
 const $ = (id) => document.getElementById(id);
 
-// 默认端口来源：user-server/docs/dev/DEVELOPMENT.md 端口对照表
-//   - 8204 = user-server (Gin HTTP)
-//   - 8232 = PostgreSQL（数据库端口）
-// 若 doc 与实际部署冲突以 .env / PORT 环境变量为准
-const DEFAULT_PORT_HINT = 8204;
-const DEFAULT_PLACEHOLDER = `http://localhost:${DEFAULT_PORT_HINT}`;
-// user-server 健康检查端点（router.go 实际注册 /health /healthz /readyz）
-// 优先 /health（含依赖检查，2xx=健康，503=可连但降级），其次存活探针。
-const HEALTH_PATHS = ['/health', '/healthz', '/readyz', '/api/health'];
+// ---- 默认值（全部来自 constants.js，禁止就地写死） ----
+// 文档源：user-server/docs/dev/DEVELOPMENT.md 端口对照表 + user-server/Dockerfile ENV SERVER_PORT=8204
+//         + user-server/cmd/api/main.go listenAddr 兜底 :8204
+// 调整流程：见 docs/bridge/DEFAULTS.md §3
+const DEFAULT_PORT_HINT = DEFAULT_USER_SERVER.port;
+const DEFAULT_PLACEHOLDER = DEFAULT_USER_SERVER.baseUrl;
+const HEALTH_PATHS = DEFAULT_USER_SERVER.healthPaths;
+// popup「测试连接」单次 fetch 超时（与 constants.UI_DEFAULTS.healthCheckTimeoutMs 同源）
+const POPUP_HEALTH_CHECK_TIMEOUT_MS = UI_DEFAULTS.healthCheckTimeoutMs;
 
 // ---- 工具：chrome API 错误兜底 ----
+// 返回 lastError.message 字符串（已解包）；调用方直接用即可，不要再 .message。
+// 修复历史：早期版本返回整个 lastError 对象，调用方又取 .message，导致 undefined 显示。
 function lastError() {
-  try { return chrome.runtime.lastError ? chrome.runtime.lastError.message : null; } catch (_) { return null; }
+  try {
+    if (!chrome.runtime.lastError) return null;
+    return chrome.runtime.lastError.message || '(无错误详情)';
+  } catch (_) { return null; }
+}
+
+// 按错误内容推断可能原因（用于自检失败时的引导文案）
+// lastError.message 典型值：
+//   - "Could not establish connection. Receiving end does not exist." → content script 未注入
+//   - "The message port closed before a response was received."        → receiver 异步丢失
+//   - "Message manager disconnected"                                   → MV3 通道关闭
+function diagnoseUninjected(errMsg, tabUrl) {
+  const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tabUrl || '');
+  const lines = [];
+  if (errMsg && /Could not establish connection|Receiving end does not exist|port closed|disconnected/i.test(errMsg)) {
+    if (!onSupportedHost) {
+      lines.push('  1. 当前 URL 不在 manifest matches 范围内（仅抖音/小红书/TikTok 网页版生效）');
+    } else {
+      lines.push('  1. 扩展未加载 / 被禁用（chrome://extensions 检查开关）');
+      lines.push('  2. content script 尚未执行（请等待页面加载完成，或按 Ctrl+Shift+R 强制刷新一次）');
+      lines.push('  3. 此标签页在扩展加载前已打开，需要重新加载页面');
+      lines.push('  4. 页面在 iframe 中（content script 默认不注入 iframe）');
+    }
+  } else {
+    lines.push('  1. 扩展未加载 / 被禁用');
+    lines.push('  2. content script 尚未执行（请等待页面加载完成）');
+    lines.push('  3. 页面已登录但 URL 不在 manifest matches 范围内');
+  }
+  return lines.join('\n');
 }
 
 function showBanner(kind, title, body) {
@@ -113,7 +150,7 @@ async function testConnection(serverUrl) {
   for (const p of HEALTH_PATHS) {
     const url = base + p;
     const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 3500);
+    const t = setTimeout(() => ctl.abort(), POPUP_HEALTH_CHECK_TIMEOUT_MS);
     try {
       const res = await fetch(url, { method: 'GET', signal: ctl.signal, cache: 'no-store' });
       clearTimeout(t);
@@ -156,7 +193,14 @@ function refreshStatus() {
   }
 }
 
-// ---- 自检：向当前标签页的 content script 发 selfcheck ----
+// ---- 自检：向当前标签页的 content script 发 ping → selfcheck 两步走 ----
+// 协议设计（与 content/common.js 对齐）：
+//   1) 先 ping：内容脚本在不匹配页面也会应答，用于"是否注入"探活
+//   2) ping 成功后再 selfcheck：未匹配页返回 matched=false + 提示，不报错
+// 这样能区分三种情况：
+//   A. ping 都失败 → content script 根本未注入（扩展禁用 / URL 不匹配 / 旧标签页）
+//   B. ping 成功 + selfcheck 返回 matched=false → 内容脚本在，但当前不是私信/消息页
+//   C. ping 成功 + selfcheck 返回完整数据 → 桥接健康
 function selfCheck() {
   try {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -169,31 +213,69 @@ function selfCheck() {
         $('selfOut').textContent = '当前标签页 URL 不可读（请打开非 chrome:// 页面）';
         return;
       }
-      if (!/douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tab.url)) {
-        $('selfOut').textContent = `当前标签页不是私信页：\n${tab.url}\n\n请打开 抖音 / 小红书 / TikTok 私信页（已登录状态）后点击。`;
+      // 第一道闸：域名白名单
+      const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tab.url);
+      if (!onSupportedHost) {
+        $('selfOut').textContent = `当前标签页不是抖音/小红书/TikTok：\n${tab.url}\n\n请在对应平台网页（已登录）上点击。`;
         return;
       }
-      try {
-        chrome.tabs.sendMessage(tab.id, { type: 'selfcheck' }, (resp) => {
-          const err = lastError();
-          if (err) {
-            $('selfOut').textContent = '该页面未注入桥接：' + err.message + '\n\n可能原因：\n  1. 扩展未加载 / 被禁用\n  2. content script 尚未执行（请等待页面加载完成）\n  3. 页面已登录但 URL 不在 manifest matches 范围内';
-            return;
-          }
-          if (!resp) {
-            $('selfOut').textContent = '该页面未注入桥接（content script 未响应）';
-            return;
-          }
-          const sel = resp.selectors ? '\n选择器:\n' + JSON.stringify(resp.selectors, null, 2) : '';
-          const sample = (resp.sample || []).map((s) => `  [${s.sender}] ${s.text}`).join('\n');
-          $('selfOut').textContent = `频道: ${resp.channel}\n匹配: ${resp.matched}\n账号: ${resp.accountId || '(空)'}\n会话: ${resp.conversationId || '(空)'}\n消息条目: ${resp.msgItemCount}\n样本:\n${sample}${sel}`;
-        });
-      } catch (e) {
-        $('selfOut').textContent = '发送自检消息失败：' + e;
-      }
+      // 第二道闸：ping 探活
+      pingContentScript(tab, (pingErr) => {
+        if (pingErr) {
+          $('selfOut').textContent = `该页面未注入桥接：${pingErr.msg}\n\n可能原因：\n${pingErr.hints}`;
+          return;
+        }
+        // 第三道闸：selfcheck 详细数据
+        runSelfcheck(tab);
+      });
     });
   } catch (e) {
     $('selfOut').textContent = '查询标签页失败：' + e;
+  }
+}
+
+function pingContentScript(tab, cb) {
+  try {
+    chrome.tabs.sendMessage(tab.id, { type: 'ping' }, (resp) => {
+      const err = lastError();
+      if (err) {
+        // lastError 已经是字符串；err.message 必然 undefined
+        cb({ msg: err, hints: diagnoseUninjected(err, tab.url) });
+        return;
+      }
+      if (!resp || !resp.pong) {
+        cb({ msg: 'content script 未响应 ping', hints: diagnoseUninjected(null, tab.url) });
+        return;
+      }
+      cb(null);
+    });
+  } catch (e) {
+    cb({ msg: '发送 ping 失败：' + e, hints: diagnoseUninjected(null, tab.url) });
+  }
+}
+
+function runSelfcheck(tab) {
+  try {
+    chrome.tabs.sendMessage(tab.id, { type: 'selfcheck' }, (resp) => {
+      const err = lastError();
+      if (err) {
+        $('selfOut').textContent = 'ping 已通过但 selfcheck 失败：' + err + '\n（content script 已注入但响应中断，请刷新页面重试）';
+        return;
+      }
+      if (!resp) {
+        $('selfOut').textContent = 'selfcheck 未返回数据';
+        return;
+      }
+      if (resp.matched === false) {
+        $('selfOut').textContent = `内容脚本已注入，但当前不是私信/消息页。\n\nURL: ${tab.url}\n频道: ${resp.channel}\n提示: ${resp.hint || '请打开目标会话的【私信/聊天】界面（不是首页/feed）后再次校准'}`;
+        return;
+      }
+      const sel = resp.selectors ? '\n选择器:\n' + JSON.stringify(resp.selectors, null, 2) : '';
+      const sample = (resp.sample || []).map((s) => `  [${s.sender}] ${s.text}`).join('\n');
+      $('selfOut').textContent = `频道: ${resp.channel}\n匹配: ${resp.matched}\n账号: ${resp.accountId || '(空)'}\n会话: ${resp.conversationId || '(空)'}\n消息条目: ${resp.msgItemCount}\n样本:\n${sample}${sel}`;
+    });
+  } catch (e) {
+    $('selfOut').textContent = '发送 selfcheck 失败：' + e;
   }
 }
 
@@ -268,10 +350,10 @@ document.addEventListener('DOMContentLoaded', () => {
   $('status').addEventListener('click', refreshStatus);
   $('selfcheck').addEventListener('click', selfCheck);
 
-  // 打开私信页快捷入口
-  $('openDouyin').addEventListener('click', () => openUrl('https://www.douyin.com/'));
-  $('openXhs').addEventListener('click', () => openUrl('https://www.xiaohongshu.com/'));
-  $('openTiktok').addEventListener('click', () => openUrl('https://www.tiktok.com/'));
+  // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
+  $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin_web));
+  $('openXhs').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xhs_web));
+  $('openTiktok').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.tiktok_web));
 
   // 首次打开时拉一次状态
   refreshStatus();
@@ -279,5 +361,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 暴露到全局便于单测
 if (typeof window !== 'undefined') {
-  window.__popup = { normalizeServerUrl, testConnection, saveConfig, loadConfig, showBanner, clearBanner };
+  window.__popup = {
+    normalizeServerUrl,
+    testConnection,
+    saveConfig,
+    loadConfig,
+    showBanner,
+    clearBanner,
+    lastError,
+    diagnoseUninjected,
+    selfCheck,
+    pingContentScript,
+    runSelfcheck,
+  };
 }

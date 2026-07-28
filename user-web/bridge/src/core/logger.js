@@ -1,4 +1,9 @@
 // 轻量日志（按频道着色，便于真机校准时排查）
+//
+// 默认参数：MAX_LOG_CHARS = SECURITY.logMaskMaxChars（见 constants.js / DEFAULTS.md）
+//   - 调整后仅改 constants.js 即可
+import { SECURITY } from './constants.js';
+
 const COLORS = {
   douyin: '#FE2C55',
   xhs: '#ff2442',
@@ -9,9 +14,9 @@ const COLORS = {
 
 // P3-质量: 日志脱敏
 // 日志中禁止打印完整 content / message（可能含 PII / 隐私）。
-// 策略：自动把"过长字符串"或典型 content 字段截断到 24 字符 + "..."，
+// 策略：自动把"过长字符串"或典型 content 字段截断到 MAX_LOG_CHARS + "..."，
 //       避免误打全量对话内容到控制台（控制台可被同浏览器其他扩展读取）。
-const MAX_LOG_CHARS = 24;
+const MAX_LOG_CHARS = SECURITY.logMaskMaxChars;
 const SENSITIVE_KEYS = new Set(['content', 'message', 'text', 'reply_text', 'msg_content']);
 
 function maskString(s) {

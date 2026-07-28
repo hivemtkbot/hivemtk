@@ -13,6 +13,7 @@
 - 第 9 节：**多角度头脑风暴 / 论证 / 查漏补缺**（设计评审，重点）。
 - 第 10~11 节：实施里程碑、测试策略。
 - 第 12 节：待确认问题。
+- `docs/DEFAULTS.md`：所有默认值的单一文档源（端口/限速/超时/协议等）。
 
 ---
 
@@ -295,6 +296,22 @@ user-web/bridge/
 | 不知道哪个页面是私信页 | 新增"抖音私信 / 小红书私信 / TikTok"三个快捷按钮 |
 
 `test/popup.test.js` 覆盖 15 用例（normalizeServerUrl / testConnection / showBanner）。
+
+### 5.2.2 默认值单一源（v1.2）
+
+**项目硬约束**：禁止"软启动"（默认值兜底为空）、禁止多处硬编码。
+
+所有默认值集中在 `src/core/constants.js`（前端）+ `handler.go` / `hub.go`（后端），
+文档源在 [`docs/DEFAULTS.md`](./docs/DEFAULTS.md)。每个常量都标注：
+  - 字段名 + 默认值
+  - 文档源（DEVELOPMENT.md / Dockerfile / config.yaml / 经验值）
+  - 客户端/服务端对齐约束
+
+测试覆盖：
+  - `test/constants.test.js`（24 用例：值、范围、冻结、对齐、文档源完整性）
+  - `internal/bridge/defaults_test.go`（5 子测试：WS 常量、Hub 常量、Client/Server 对齐、非软启动、WS 端点路径）
+
+调整流程见 `docs/DEFAULTS.md` §3。
 
 ### 5.3 扩展 ↔ 服务器 协议帧（JSON over WS）
 

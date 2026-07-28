@@ -1,6 +1,7 @@
 // 服务端 WebSocket 客户端（background 使用）：自动重连 + 心跳 + 帧分发。
 // 协议与服务端 user-server/internal/bridge 完全一致（见 frames.go）。
 import { FRAME } from './types.js';
+import { DEFAULT_USER_SERVER, WS_CLIENT_DEFAULTS } from './constants.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('ws', 'bridge');
@@ -29,7 +30,8 @@ export class BridgeClient {
   }
 
   _buildUrl() {
-    const u = new URL(`${toWsUrl(this.serverUrl)}/api/ws/bridge`);
+    // WS 端点路径来自 DEFAULT_USER_SERVER.wsPath（与 user-server/internal/router/service_routes.go:90 一致）
+    const u = new URL(`${toWsUrl(this.serverUrl)}${DEFAULT_USER_SERVER.wsPath}`);
     u.searchParams.set('channel', this.channel);
     u.searchParams.set('account_id', this.accountId || '');
     if (this.conversationId) u.searchParams.set('conversation_id', this.conversationId);
@@ -97,18 +99,19 @@ export class BridgeClient {
   // 浏览器 WebSocket 无法主动发协议级 ping；改为发送 JSON {type:"pong"} 帧，
   // 服务端 handleFrame 在 FramePong 分支会调用 SetReadDeadline 重置 deadline（见 handler.go）。
   // 同时配合 onclose 重置 alive 标志；服务端 60s 内必收到任一帧（ping 帧或 inbound 帧）。
+  // 周期由 WS_CLIENT_DEFAULTS.serverIdleTimeoutMs 单源管理（见 constants.js / DEFAULTS.md）
   _startPing() {
     this._stopPing();
     this._pingTimer = setInterval(() => {
       if (this.alive) {
         // alive 标志由任何下行帧（pong/error/outbound）重置；若长期无下行，发送 JSON pong 维持
         this.send({ type: FRAME.PONG });
-        this.alive = false; // 等待服务端下次下行才重新置真；若 60s 内无任何帧，触发 onclose
+        this.alive = false; // 等待服务端下次下行才重新置真；若 serverIdleTimeoutMs 内无任何帧，触发 onclose
       } else {
-        log.warn('服务端 60s 无任何帧响应，主动断开重连');
+        log.warn('服务端 serverIdleTimeoutMs 无任何帧响应，主动断开重连');
         try { this.ws.close(); } catch (_) { /* noop */ }
       }
-    }, 25000);
+    }, WS_CLIENT_DEFAULTS.serverIdleTimeoutMs);
   }
 
   _stopPing() {
@@ -117,11 +120,13 @@ export class BridgeClient {
   }
 
   // I3 修复：指数退避重连（1s -> 2s -> 4s -> 8s -> 16s，封顶 30s）
+  // 参数来源：WS_CLIENT_DEFAULTS（见 constants.js 文档源）
   _scheduleReconnect() {
     if (this._reconnectTimer) return;
     this._reconnectAttempts = (this._reconnectAttempts || 0) + 1;
-    const base = Math.min(30000, 1000 * Math.pow(2, this._reconnectAttempts - 1));
-    const delay = Math.min(30000, base + Math.floor(Math.random() * 500)); // 抖动
+    const { reconnectBaseMs, reconnectMaxMs, reconnectJitterMs } = WS_CLIENT_DEFAULTS;
+    const base = Math.min(reconnectMaxMs, reconnectBaseMs * Math.pow(2, this._reconnectAttempts - 1));
+    const delay = Math.min(reconnectMaxMs, base + Math.floor(Math.random() * reconnectJitterMs));
     log.info(`将在 ${delay}ms 后重连（第 ${this._reconnectAttempts} 次）`);
     this._reconnectTimer = setTimeout(() => {
       this._reconnectTimer = null;

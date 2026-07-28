@@ -2,30 +2,66 @@
 // - 每个 (channel, account) 一条 WS（经 registry）
 // - content 上行私信 → registry 的 WS → 服务端（触发 AI）
 // - 服务端下行 AI 回复 → 路由到对应 content → 回写网页
+// - popup 配置 / 状态查询 ↔ storage 双向同步
+//
+// 设计要点：
+//   - 所有默认值从 ../core/constants.js 单源导入，禁止就地写死
+//   - chrome.runtime.onMessage / onConnect 全部 lastError 兜底
+//   - 配置 storage key 集中常量（KEY）管理，禁止字面量散布
 import { registry } from './registry.js';
-import { CHANNELS, FRAME } from '../core/types.js';
+import { FRAME } from '../core/types.js';
+import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 
 const log = createLogger('bg', 'bg');
+
+// 存储 key：popup 与 background 共享，禁止字面量散布
+const KEY = 'bridgeConfig';
 
 // key -> Set<port>
 const routes = new Map();
 // key -> 最近上报的元信息（供状态查询）
 const metaStore = new Map();
 
-function keyOf(channel, account) {
-  return `${channel}:${account || 'unknown'}`;
+// ---- chrome API 兜底 ----
+function lastError() {
+  try {
+    if (!chrome.runtime.lastError) return null;
+    return chrome.runtime.lastError.message || '(无错误详情)';
+  } catch (_) { return null; }
 }
 
+// ---- 配置存储 ----
 function getConfig() {
   return new Promise((resolve) => {
-    chrome.storage.local.get('bridgeConfig', (res) => {
-      resolve(res.bridgeConfig || { serverUrl: 'http://localhost:8204', token: '', autoConnect: true });
+    chrome.storage.local.get(KEY, (res) => {
+      // 缺失时返回基于 constants.js 的默认配置（注意：不是 fallback，
+      // 是首次安装的合理初始值；用户可随时在 popup 修改）
+      resolve(
+        res[KEY] || {
+          serverUrl: DEFAULT_USER_SERVER.baseUrl,
+          token: '',
+          autoConnect: true,
+        }
+      );
     });
   });
 }
 
-// 服务端下行 → 路由到对应 content 端口
+function setConfig(cfg) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [KEY]: cfg }, () => {
+      const err = lastError();
+      if (err) {
+        resolve({ ok: false, error: err });
+        return;
+      }
+      resolve({ ok: true });
+    });
+  });
+}
+
+// ---- 服务端下行 → 路由到对应 content 端口 ----
 // B3 修复：无精确会话匹配时**不**fallback 到任意端口（避免多会话串台）。
 // 若该账号没有任何端口在线，则丢弃并告警；若有端口但会话不匹配，也告警（content 端应主动 register 当前会话）。
 function routeOutbound(reply) {
@@ -48,6 +84,10 @@ function routeOutbound(reply) {
       log.error('下发失败', e);
     }
   }
+}
+
+function keyOf(channel, account) {
+  return `${channel}:${account || 'unknown'}`;
 }
 
 function ensureConnection(meta) {
@@ -115,8 +155,8 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-// popup 查询状态 / 配置
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+// ---- popup 双向通信：状态查询 / 配置写入 ----
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg && msg.type === 'getStatus') {
     const statuses = {};
     for (const [k, m] of metaStore.entries()) statuses[k] = m;
@@ -124,8 +164,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg && msg.type === 'setConfig') {
-    chrome.storage.local.set({ bridgeConfig: msg.config }, () => sendResponse({ ok: true }));
-    return true;
+    // 走 setConfig helper 统一错误兜底，避免 storage 写入失败时静默
+    setConfig(msg.config).then((r) => sendResponse(r));
+    return true; // 保持 channel 开启，等待异步 sendResponse
   }
   return false;
 });

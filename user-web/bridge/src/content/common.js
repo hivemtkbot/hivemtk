@@ -1,6 +1,7 @@
 // content script 公共引导：连接 background 端口，桥接适配器 ↔ 服务端。
 // 协议常量/字段与服务端 frames.go 严格对齐（详见 bridge.md §17）。
 import { FRAME, parseUnifiedReply } from '../core/types.js';
+import { UI_DEFAULTS } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 import { sanitizeForDisplay } from '../core/sanitize.js';
 
@@ -32,21 +33,45 @@ function handleSelfcheck(adapter, sendResponse) {
 
 export function startBridge(channel, buildAdapter) {
   const adapter = buildAdapter();
+
+  // P0-S2-X 修复：ping/selfcheck 监听器必须在 match() 检查之前注册。
+  // 早期版本在 adapter.match() 失败时直接 return，导致用户在抖音首页
+  // （不是私信/消息页）时 popup 永远拿不到任何响应，显示 "undefined"。
+  // 现在统一处理：未匹配页只回 ping/selfcheck 诊断，不启动 background 端口/observer。
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg || !msg.type) return false;
+    if (msg.type === 'ping') {
+      // ping 始终应答（探活用），让 popup 能区分"未注入" vs "未匹配页"
+      sendResponse({ pong: true, channel, matched: adapter.match() });
+      return false;
+    }
+    if (msg.type === 'selfcheck') {
+      if (!adapter.match()) {
+        // 已注入但不是私信/消息页：返回 matched=false + 引导，不报错
+        sendResponse({
+          channel,
+          matched: false,
+          accountId: '',
+          conversationId: null,
+          msgItemCount: 0,
+          selectors: adapter.SEL || null,
+          sample: [],
+          hint: '当前页面不是私信/消息页；请打开目标会话的【私信/聊天】界面（不是首页/feed）后再次校准',
+        });
+        return false;
+      }
+      handleSelfcheck(adapter, sendResponse);
+      return false;
+    }
+    return false;
+  });
+
   if (!adapter.match()) {
-    log.info('当前页面不匹配', channel, '，不启动监听');
+    log.info('当前页面不匹配', channel, '，不启动监听（已注册 ping/selfcheck 用于诊断）');
     return;
   }
 
   const port = chrome.runtime.connect({ name: 'bridge' });
-
-  // B6 修复：同步响应 selfcheck；不返回 true（异步）。
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg && msg.type === 'selfcheck') {
-      handleSelfcheck(adapter, sendResponse);
-    }
-    // 未命中 selfcheck 时不要返回 true（否则 chrome 等待异步响应泄漏 port）
-    return false;
-  });
 
   // 下行：服务端 AI 回复经 background 路由到此处
   port.onMessage.addListener(async (msg) => {
@@ -93,7 +118,8 @@ export function startBridge(channel, buildAdapter) {
   report(true);
 
   // R4 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
-  const reportTimer = setInterval(report, 5000);
+  // 周期由 UI_DEFAULTS.metaReportIntervalMs 单源管理（见 constants.js / DEFAULTS.md）
+  const reportTimer = setInterval(report, UI_DEFAULTS.metaReportIntervalMs);
 
   // 页面卸载 / SPA 路由切换时清理
   const cleanup = () => {

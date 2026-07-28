@@ -7,6 +7,10 @@
 //   - 永远不要把 AI 回复直接 innerHTML 注入页面
 //   - 永远不要把 inbound 客户文本直接 innerHTML 注入页面
 //   - 仅在 placeholder 或受信任文本（如 selector 拼接）场景才用 escapeHTML
+//
+// 默认参数：MAX_BODY_BYTES = SECURITY.maxReplyContentBytes（与 user-server/internal/bridge/handler.go:65 严格对齐）
+
+import { SECURITY } from './constants.js';
 
 const HTML_ESCAPE_MAP = {
   '&': '&amp;',
@@ -25,8 +29,10 @@ export function escapeHTML(s) {
 }
 
 // 净化用户控制文本：去掉可能的 script/iframe 注入、控制字符、超长截断
-// 用于限制单条 AI 回复最大字节数（防止恶意 prompt 注入）
-const MAX_BODY_BYTES = 4 * 1024;
+// 用于限制单条 AI 回复最大字节数（防止恶意 prompt 注入 + 平台显示限制）
+// 文档源：handler.go: maxReplyContentBytes = 4 * 1024；前端 constants.SECURITY.maxReplyContentBytes
+//        测试：test/constants.test.js "maxReplyContentBytes 必须与服务端 handler.go ... 严格对齐"
+export const MAX_BODY_BYTES = SECURITY.maxReplyContentBytes;
 
 export function sanitizeForDisplay(text, maxBytes = MAX_BODY_BYTES) {
   if (text == null) return '';

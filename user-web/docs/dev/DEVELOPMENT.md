@@ -68,6 +68,31 @@ npm run dev
 # 浏览器访问 http://localhost:8211
 ```
 
+### 2.1 端口对照表
+
+> **单一源**：`vite.config.js` 的 `server.port=8211` + `server.proxy['/api'].target='http://localhost:8204'`
+> user-server 端对应字段：`user-server/internal/pkg/utils/config/ports.go` `DefaultListenPort="8204"`
+
+| 端口 | 服务 / 应用 | 启动入口 | 单一源 | 文档源 |
+| --- | --- | --- | --- | --- |
+| **8211** | **user-web**（Vite dev） | `npm run dev` | `vite.config.js server.port=8211` | `vite.config.js:102` |
+| **8204** | **user-server**（被前端联调） | `cd ../user-server && go run ./cmd/api` | user-server `config.DefaultListenPort` | user-server/docs/dev/DEVELOPMENT.md §2.4 |
+| 8202 | user-server PG（docker 宿主机映射） | `docker compose -f docker-compose-host.yml up -d` | user-server `config.DefaultDBPortDocker` | user-server docs §2.4 |
+| 8203 | user-server Redis | `docker compose -f docker-compose-host.yml up -d` | user-server `config.DefaultRedisPort` | user-server docs §2.4 |
+| 8205 | platform-server（被前端联调，可选） | `cd ../hivemtk-platform/platform-server && go run cmd/api/main.go` | user-server `config.DefaultPlatformPort` | user-server docs §2.4 |
+| 8207 | LLM（本地推理） | user-server `make inference-host-up` | user-server `config.DefaultLLMPort` | user-server docs §2.4 |
+| 8208 | Embedding（本地推理） | user-server `make inference-host-up` | user-server `config.DefaultEmbeddingPort` | user-server docs §2.4 |
+| 8209 | Rerank（本地推理） | user-server `make inference-host-up` | user-server `config.DefaultRerankPort` | user-server docs §2.4 |
+| 8232 | user-server PG（dev 本机直连） | `pg_ctl -D /usr/local/var/postgres start` | user-server `config.DefaultDBPortDev` | user-server `config.yaml` |
+| 5173 | Playwright E2E 目标 URL | `npm run test:e2e` | `playwright.config.js baseURL` | `playwright.config.js` |
+| 8204 | bridge 扩展 popup server URL 默认 | `http://localhost:8204` | `user-web/bridge/src/core/constants.js DEFAULT_USER_SERVER.port` | user-web/bridge/docs/dev/DEVELOPMENT.md §3 |
+
+**前端启动约束**（禁软启动 / 禁多处硬编码）：
+
+1. Vite 端口与代理目标均集中在 `vite.config.js`，**禁止在 `.env.*` 中覆盖**（`.env.development` 仅可覆盖 `VITE_API_BASE_URL` 用于生产跨域）
+2. WS URL 由 `src/utils/configManager.js` 的 `getApiConfig()` 动态推导（`baseUrl + /api/ws/agent` 与 `/api/ws/visitor`），禁止前端代码直接写绝对 URL
+3. E2E `baseURL` 5173 是 Playwright 配置独立项，**与 dev server 8211 解耦**；可通过 `E2E_BASE_URL` 环境变量覆盖
+
 ## 3. 目录导航
 
 | 目录 | 作用 | 关键文件 |
