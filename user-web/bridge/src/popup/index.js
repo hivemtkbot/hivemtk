@@ -8,6 +8,10 @@
 //   - 输入框支持回车提交
 const $ = (id) => document.getElementById(id);
 
+// 默认端口来源：user-server/docs/dev/DEVELOPMENT.md 端口对照表
+//   - 8204 = user-server (Gin HTTP)
+//   - 8232 = PostgreSQL（数据库端口）
+// 若 doc 与实际部署冲突以 .env / PORT 环境变量为准
 const DEFAULT_PORT_HINT = 8204;
 const DEFAULT_PLACEHOLDER = `http://localhost:${DEFAULT_PORT_HINT}`;
 // user-server 健康检查端点（router.go 实际注册 /health /healthz /readyz）

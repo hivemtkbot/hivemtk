@@ -95,7 +95,7 @@
 
     <label for="serverUrl">服务端地址 (http/https)</label>
     <input id="serverUrl" placeholder="http://localhost:8204" autocomplete="off" />
-    <div class="hint">user-server 默认端口 8204；若自定义请在 cmd/api/main.go 或 PORT 环境变量查看</div>
+    <div class="hint">user-server 默认端口 <code>8204</code>（见 docs/dev/DEVELOPMENT.md 端口对照表 / Dockerfile <code>ENV SERVER_PORT=8204</code>）；自定义请用 PORT 环境变量覆盖</div>
 
     <label for="token">鉴权 Token（可选）</label>
     <input id="token" placeholder="留空走私有部署 agent_id 模式" autocomplete="off" />
