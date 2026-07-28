@@ -310,7 +310,7 @@ describe('popup diagnoseUninjected', () => {
 
 describe('popup selfCheck 流程', () => {
   // 工具：构造一个 fake chrome API
-  function makeChrome({ tab, pingResp, selfcheckResp, pingError, selfcheckError }) {
+  function makeChrome({ tab, pingResp, selfcheckResp, pingError, selfcheckError, deepResp, deepError }) {
     const calls = [];
     const fake = {
       calls,
@@ -339,6 +339,16 @@ describe('popup selfCheck 流程', () => {
             } else {
               cb(selfcheckResp);
             }
+          } else if (msg.type === 'deepSelfcheck') {
+            if (deepError) {
+              setTimeout(() => {
+                Object.defineProperty(fake.runtime, 'lastError', { value: deepError, configurable: true });
+                cb(undefined);
+                Object.defineProperty(fake.runtime, 'lastError', { value: null, configurable: true });
+              }, 0);
+            } else {
+              cb(deepResp);
+            }
           } else {
             cb(undefined);
           }
@@ -350,7 +360,7 @@ describe('popup selfCheck 流程', () => {
   }
 
   // 工具：等 setTimeout 0 触发完成
-  const flush = () => new Promise((r) => setTimeout(r, 5));
+  const flush = () => new Promise((r) => setTimeout(r, 10));
 
   it('A. 域名不在白名单：直接提示非支持域名，不发任何消息', async () => {
     const tab = { id: 1, url: 'https://example.com/' };
@@ -390,22 +400,59 @@ describe('popup selfCheck 流程', () => {
     expect(elements['selfOut'].textContent).toContain('(无错误详情)');
   });
 
-  it('B. ping 成功 + selfcheck matched=false → 提示打开私信/消息页', async () => {
+  it('B. ping 成功 + selfcheck matched=false → 自动降级到 deepSelfcheck 展示 DOM 快照', async () => {
     const tab = { id: 1, url: 'https://www.douyin.com/' };
     const chrome = makeChrome({
       tab,
       pingResp: { pong: true, channel: 'douyin_web', matched: false },
       selfcheckResp: { channel: 'douyin_web', matched: false, hint: '请打开私信页' },
+      deepResp: {
+        ok: true,
+        url: 'https://www.douyin.com/',
+        hostname: 'www.douyin.com',
+        title: '抖音',
+        inputCount: 2,
+        inputSample: [
+          { tag: 'div', selectorHint: 'div[contenteditable="true"]', placeholder: '', text: '请输入消息' },
+        ],
+        sendBtnCount: 1,
+        sendBtnSample: [{ tag: 'button', selectorHint: 'button[aria-label*="发送"]' }],
+        listRootCount: 0,
+        listRootSample: [],
+        accountHints: [{ text: '我的主页', href: 'https://www.douyin.com/user/MS4wLjABAAAAxx' }],
+        recommendedSelector: 'div[contenteditable="true"]',
+      },
     });
     const { exported, elements } = await loadPopup({ chrome });
     exported.selfCheck();
     await flush();
-    expect(elements['selfOut'].textContent).toContain('已注入');
-    expect(elements['selfOut'].textContent).toContain('不是私信/消息页');
-    expect(elements['selfOut'].textContent).toContain('请打开私信页');
+    const out = elements['selfOut'].textContent;
+    expect(out).toContain('adapter.match() 返回 false');
+    expect(out).toContain('深度自检');
+    expect(out).toContain('div[contenteditable="true"]');
+    expect(out).toContain('推荐选择器');
+    // 验证消息顺序：ping → selfcheck → deepSelfcheck
+    const types = chrome.calls.map((c) => c.msg.type);
+    expect(types).toEqual(['ping', 'selfcheck', 'deepSelfcheck']);
   });
 
-  it('C. ping 成功 + selfcheck matched=true → 显示完整桥接数据', async () => {
+  it('B. selfcheck matched=false 但 deepSelfcheck 失败 → 仍展示 selfcheck 原文 + deep 错误', async () => {
+    const tab = { id: 1, url: 'https://www.douyin.com/' };
+    const chrome = makeChrome({
+      tab,
+      pingResp: { pong: true, channel: 'douyin_web', matched: false },
+      selfcheckResp: { channel: 'douyin_web', matched: false, hint: '请打开私信页' },
+      deepError: { message: 'message port closed' },
+    });
+    const { exported, elements } = await loadPopup({ chrome });
+    exported.selfCheck();
+    await flush();
+    const out = elements['selfOut'].textContent;
+    expect(out).toContain('adapter.match() 返回 false');
+    expect(out).toContain('deepSelfcheck 失败');
+  });
+
+  it('C. ping 成功 + selfcheck matched=true → 显示完整桥接数据（accountId/conversationId 不再为空）', async () => {
     const tab = { id: 1, url: 'https://www.douyin.com/follow' };
     const chrome = makeChrome({
       tab,
@@ -431,6 +478,55 @@ describe('popup selfCheck 流程', () => {
     expect(elements['selfOut'].textContent).toContain('island_b69f5');
   });
 
+  it('C. selfcheck matched=true + matchMode=fallback → 提示用户「严格选择器已失效」', async () => {
+    const tab = { id: 1, url: 'https://www.douyin.com/im/chat/' };
+    const chrome = makeChrome({
+      tab,
+      pingResp: { pong: true, channel: 'douyin_web', matched: true, matchMode: 'fallback' },
+      selfcheckResp: {
+        channel: 'douyin_web',
+        matched: true,
+        matchMode: 'fallback',
+        accountId: 'A1',
+        conversationId: 'C1',
+        msgItemCount: 0,
+        selectors: { EDITOR: 'div[contenteditable="true"][role="textbox"]' },
+        sample: [],
+      },
+    });
+    const { exported, elements } = await loadPopup({ chrome });
+    exported.selfCheck();
+    await flush();
+    const out = elements['selfOut'].textContent;
+    expect(out).toContain('匹配模式: ⚠ fallback');
+    expect(out).toContain('严格选择器已失效');
+    expect(out).toContain('把【深度自检】输出发到 issue');
+  });
+
+  it('C. selfcheck matched=true + matchMode=strict → 显示「严格选择器命中」', async () => {
+    const tab = { id: 1, url: 'https://www.douyin.com/im/chat/' };
+    const chrome = makeChrome({
+      tab,
+      pingResp: { pong: true, channel: 'douyin_web', matched: true, matchMode: 'strict' },
+      selfcheckResp: {
+        channel: 'douyin_web',
+        matched: true,
+        matchMode: 'strict',
+        accountId: 'A1',
+        conversationId: 'C1',
+        msgItemCount: 0,
+        selectors: {},
+        sample: [],
+      },
+    });
+    const { exported, elements } = await loadPopup({ chrome });
+    exported.selfCheck();
+    await flush();
+    const out = elements['selfOut'].textContent;
+    expect(out).toContain('匹配模式: ✓ strict');
+    expect(out).toContain('严格选择器命中');
+  });
+
   it('无活动标签页：直接提示', async () => {
     const chrome = { tabs: { query: (_q, cb) => cb([]) }, runtime: { lastError: null } };
     const { exported, elements } = await loadPopup({ chrome });
@@ -444,5 +540,105 @@ describe('popup selfCheck 流程', () => {
     const { exported, elements } = await loadPopup({ chrome });
     exported.selfCheck();
     expect(elements['selfOut'].textContent).toContain('chrome://');
+  });
+});
+
+// =============================================================
+// formatDeepSnapshot 单元测试：把 DOM 快照渲染成易读文本
+// =============================================================
+describe('popup formatDeepSnapshot', () => {
+  it('完整快照：所有字段都渲染', async () => {
+    const { exported } = await loadPopup({});
+    const out = exported.formatDeepSnapshot({
+      url: 'https://www.douyin.com/follow',
+      hostname: 'www.douyin.com',
+      title: '抖音 - 我的关注',
+      inputCount: 2,
+      inputSample: [
+        { tag: 'div', selectorHint: 'div[contenteditable="true"]', placeholder: '', text: '' },
+        { tag: 'textarea', selectorHint: 'textarea[placeholder*="留言"]', placeholder: '留言', text: '' },
+      ],
+      sendBtnCount: 1,
+      sendBtnSample: [{ tag: 'button', selectorHint: 'button[aria-label*="发送"]' }],
+      listRootCount: 1,
+      listRootSample: [{ tag: 'div', selectorHint: '[class*="message-list"]' }],
+      accountHints: [{ text: '我的', href: 'https://www.douyin.com/user/MS4wLjABAAAAxx' }],
+      recommendedSelector: 'div[contenteditable="true"]',
+    });
+    expect(out).toContain('=== 深度自检');
+    expect(out).toContain('URL: https://www.douyin.com/follow');
+    expect(out).toContain('域名: www.douyin.com');
+    expect(out).toContain('【输入框】共 2 个');
+    expect(out).toContain('div[contenteditable="true"]');
+    expect(out).toContain('textarea[placeholder*="留言"]');
+    expect(out).toContain('placeholder="留言"');
+    expect(out).toContain('【发送按钮】共 1 个');
+    expect(out).toContain('button[aria-label*="发送"]');
+    expect(out).toContain('【消息列表根】共 1 个');
+    expect(out).toContain('[class*="message-list"]');
+    expect(out).toContain('【账号线索】');
+    expect(out).toContain('MS4wLjABAAAAxx');
+    expect(out).toContain('【推荐选择器】div[contenteditable="true"]');
+  });
+
+  it('空快照：所有 count=0，渲染兜底', async () => {
+    const { exported } = await loadPopup({});
+    const out = exported.formatDeepSnapshot({
+      url: 'https://www.douyin.com/',
+      hostname: 'www.douyin.com',
+      title: '抖音',
+      inputCount: 0,
+      inputSample: [],
+      sendBtnCount: 0,
+      sendBtnSample: [],
+      listRootCount: 0,
+      listRootSample: [],
+      accountHints: [],
+      recommendedSelector: null,
+    });
+    expect(out).toContain('【输入框】共 0 个');
+    expect(out).toContain('【发送按钮】共 0 个');
+    expect(out).toContain('【消息列表根】共 0 个');
+    expect(out).toContain('【推荐选择器】未找到');
+    expect(out).toContain('可能不是私信/消息页');
+  });
+
+  it('inputSample 中 placeholder 截断到 50 字符', async () => {
+    const { exported } = await loadPopup({});
+    const longPH = 'x'.repeat(80);
+    const out = exported.formatDeepSnapshot({
+      url: 'https://x.com/',
+      hostname: 'x.com',
+      title: 'X',
+      inputCount: 1,
+      inputSample: [{ tag: 'textarea', selectorHint: 'textarea', placeholder: longPH, text: '' }],
+      sendBtnCount: 0,
+      sendBtnSample: [],
+      listRootCount: 0,
+      listRootSample: [],
+      accountHints: [],
+      recommendedSelector: 'textarea',
+    });
+    expect(out).toContain('placeholder="' + 'x'.repeat(50));
+    expect(out).not.toContain('x'.repeat(51));
+  });
+
+  it('accountHints 文本空时显示 "(无文本)"', async () => {
+    const { exported } = await loadPopup({});
+    const out = exported.formatDeepSnapshot({
+      url: 'https://x.com/',
+      hostname: 'x.com',
+      title: 'X',
+      inputCount: 0,
+      inputSample: [],
+      sendBtnCount: 0,
+      sendBtnSample: [],
+      listRootCount: 0,
+      listRootSample: [],
+      accountHints: [{ text: '', href: 'https://x.com/user/abc' }],
+      recommendedSelector: null,
+    });
+    expect(out).toContain('(无文本)');
+    expect(out).toContain('https://x.com/user/abc');
   });
 });

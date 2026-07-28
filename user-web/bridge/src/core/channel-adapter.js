@@ -39,6 +39,15 @@ export class BaseAdapter {
 
   // ---- hooks 透传（保持三渠道现有签名不变）----
   match() { return this.hooks.match ? this.hooks.match() : false; }
+  // matchMode: 区分严格匹配 vs fallback 降级匹配。
+  //   - 'strict'  严格选择器命中（最理想）
+  //   - 'fallback' 平台严格选择器失效、走通用 DOM 扫描（提示维护者更新 SEL）
+  //   - null       match() 返回 false（页面不匹配）
+  matchMode() {
+    if (!this.match()) return null;
+    if (this.hooks.matchMode) return this.hooks.matchMode();
+    return 'strict';
+  }
   snapshotMeta() { return this.hooks.snapshotMeta ? this.hooks.snapshotMeta() : {}; }
   getAccountId() { return this.hooks.getAccountId ? this.hooks.getAccountId() : (this.account || ''); }
   getConversationId() { return this.hooks.getConversationId ? this.hooks.getConversationId() : (this.snapshotMeta().conversationId || null); }

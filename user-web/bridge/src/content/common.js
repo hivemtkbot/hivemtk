@@ -12,16 +12,21 @@ const log = createLogger('content', 'bridge');
 // "message port closed" 且 popup 永远收不到响应。
 // 若需异步，必须在监听器内 return true 且最终在 .then 内调用 sendResponse；
 // 此处同步处理即可。
+//
+// 关键修复：原版用 adapter.snapshotMeta() 取 accountId/conversationId，
+// 但三渠道 adapter 都没实现 snapshotMeta hook（仅实现 getAccountId/getConversationId），
+// 导致自检结果账号/会话永远空，无法定位"哪条会话/哪个账号"在跑。
+// 改为走 getter 拿到真实值。
 function handleSelfcheck(adapter, sendResponse) {
   try {
-    const meta = adapter.snapshotMeta();
     const items = adapter.getMessageItems();
     const parsed = items.slice(-5).map((it) => adapter.parseMessageItem(it)).filter(Boolean);
     sendResponse({
       channel: adapter.channel,
       matched: adapter.match(),
-      accountId: meta.accountId,
-      conversationId: meta.conversationId,
+      matchMode: adapter.matchMode(), // 'strict' | 'fallback' | null
+      accountId: adapter.getAccountId() || '',
+      conversationId: adapter.getConversationId() || null,
       msgItemCount: items.length,
       selectors: adapter.SEL || null,
       sample: parsed.map((p) => ({ sender: p.sender_type, text: (p.text || '').slice(0, 60) })),
@@ -29,6 +34,176 @@ function handleSelfcheck(adapter, sendResponse) {
   } catch (e) {
     sendResponse({ error: String(e) });
   }
+}
+
+// 深度自检：即便 match() 返回 false 也能扫描 DOM，给出真实页面快照
+// 用于「打开私信页但平台改版导致 match() 失败」的诊断场景
+// 不读 adapter 状态，纯 DOM 扫描，IO 轻量
+function handleDeepSelfcheck(sendResponse) {
+  try {
+    const snapshot = scanDomSnapshot();
+    sendResponse({ ok: true, ...snapshot });
+  } catch (e) {
+    sendResponse({ ok: false, error: String(e) });
+  }
+}
+
+// 通用 DOM 快照：扫描页面上所有可能的「消息输入/输出/会话」元素
+// 不依赖任何平台特定选择器，给出真实可观测数据
+function scanDomSnapshot() {
+  // 1) 可能的输入框：contenteditable / textarea / role=textbox
+  const inputs = collectElements((root) => {
+    const sels = [
+      'div[contenteditable="true"]',
+      'textarea',
+      '[role="textbox"]',
+      '[contenteditable=""]',
+    ];
+    return uniqueQueryAll(root, sels);
+  });
+  const visibleInputs = inputs.filter((el) => isVisible(el));
+
+  // 2) 可能的发送按钮：button / [role=button] / aria-label 含"发" / 含 Send
+  const sendBtns = collectElements((root) => {
+    const sels = [
+      'button[type="button"]',
+      'button[type="submit"]',
+      '[role="button"]',
+    ];
+    return uniqueQueryAll(root, sels);
+  });
+  const visibleSendBtns = sendBtns
+    .filter((el) => isVisible(el))
+    .filter((el) => isLikelySendButton(el))
+    .slice(0, 10);
+
+  // 3) 可能的会话列表：含 list / chat / message / scroll 类的容器
+  const listRoots = collectElements((root) => {
+    const sels = [
+      '[class*="chat-"]',
+      '[class*="message-"]',
+      '[class*="msg-"]',
+      '[class*="conversation"]',
+      '[class*="contact"]',
+      '[class*="list"]',
+      '[class*="recycle"]',
+      '[data-e2e*="message"]',
+      '[data-e2e*="chat"]',
+    ];
+    return uniqueQueryAll(root, sels);
+  });
+  const visibleListRoots = listRoots.filter((el) => isVisible(el)).slice(0, 8);
+
+  // 4) 截图 href（个人主页链接 → 推断账号 id）
+  const accountLinks = uniqueQueryAll(document, ['a[href*="/user/"]', 'a[href*="/@"]', 'a[href*="profile"]'])
+    .filter((el) => isVisible(el))
+    .slice(0, 5);
+  const accountHints = accountLinks.map((a) => ({
+    text: (a.textContent || '').trim().slice(0, 30),
+    href: a.getAttribute('href') || '',
+  }));
+
+  return {
+    url: location.href,
+    hostname: location.hostname,
+    title: document.title,
+    inputCount: visibleInputs.length,
+    inputSample: visibleInputs.slice(0, 5).map((el) => elementSummary(el)),
+    sendBtnCount: visibleSendBtns.length,
+    sendBtnSample: visibleSendBtns.map((el) => elementSummary(el)),
+    listRootCount: visibleListRoots.length,
+    listRootSample: visibleListRoots.map((el) => elementSummary(el)),
+    accountHints,
+    // 推荐操作：让用户能根据真实 DOM 修正 SEL
+    recommendedSelector: pickRecommendedSelector(visibleInputs),
+  };
+}
+
+function uniqueQueryAll(root, sels) {
+  const out = new Set();
+  for (const sel of sels) {
+    try {
+      const list = root.querySelectorAll(sel);
+      for (const n of list) out.add(n);
+    } catch (_) {
+      // 忽略非法选择器
+    }
+  }
+  return Array.from(out);
+}
+
+function collectElements(producer) {
+  return producer(document.body || document);
+}
+
+function isVisible(el) {
+  if (!el) return false;
+  // offsetParent === null 时表示 display:none（但 fixed 元素例外）
+  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return false;
+  return true;
+}
+
+function isLikelySendButton(el) {
+  const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+  const text = (el.textContent || '').trim().toLowerCase();
+  if (/发送|send|发 送|发 送|發送/.test(aria) || /发送|send|发 送/.test(text)) return true;
+  if (el.querySelector('svg[fill*="FE2C55"], svg[fill*="fe2c55"]')) return true;
+  return false;
+}
+
+function elementSummary(el) {
+  const tag = el.tagName.toLowerCase();
+  const id = el.id ? `#${el.id}` : '';
+  const cls = (el.getAttribute('class') || '').trim().slice(0, 80);
+  const clsPart = cls ? `.${cls.split(/\s+/).slice(0, 3).join('.')}` : '';
+  const dataE2E = el.getAttribute('data-e2e');
+  const dataE2EPart = dataE2E ? `[data-e2e="${dataE2E}"]` : '';
+  const role = el.getAttribute('role');
+  const rolePart = role ? `[role="${role}"]` : '';
+  const placeholder = el.getAttribute('placeholder') || '';
+  const ce = el.getAttribute('contenteditable');
+  const cePart = ce !== null ? `[contenteditable="${ce || 'true'}"]` : '';
+  const text = (el.textContent || '').trim().slice(0, 40);
+  return {
+    tag,
+    selectorHint: `${tag}${id}${clsPart}${dataE2EPart}${rolePart}${cePart}`.slice(0, 200),
+    placeholder: placeholder.slice(0, 50),
+    text: text,
+  };
+}
+
+function pickRecommendedSelector(visibleInputs) {
+  if (!visibleInputs.length) return null;
+  // 优先级：textarea > 带 placeholder > role=textbox > contenteditable
+  for (const el of visibleInputs) {
+    if (el.tagName.toLowerCase() === 'textarea') {
+      const ph = el.getAttribute('placeholder');
+      if (ph) return `textarea[placeholder*="${ph.slice(0, 12)}"]`;
+    }
+  }
+  for (const el of visibleInputs) {
+    const ce = el.getAttribute('contenteditable');
+    if (ce === 'true') {
+      const dataE2E = el.getAttribute('data-e2e');
+      if (dataE2E) return `[data-e2e="${dataE2E}"]`;
+    }
+  }
+  for (const el of visibleInputs) {
+    const role = el.getAttribute('role');
+    if (role === 'textbox') {
+      const cls = (el.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 2).join('.');
+      if (cls) return `.${cls}`;
+    }
+  }
+  // 兜底：第一个 contenteditable
+  for (const el of visibleInputs) {
+    if (el.getAttribute('contenteditable') === 'true') {
+      return 'div[contenteditable="true"]';
+    }
+  }
+  return null;
 }
 
 export function startBridge(channel, buildAdapter) {
@@ -42,7 +217,7 @@ export function startBridge(channel, buildAdapter) {
     if (!msg || !msg.type) return false;
     if (msg.type === 'ping') {
       // ping 始终应答（探活用），让 popup 能区分"未注入" vs "未匹配页"
-      sendResponse({ pong: true, channel, matched: adapter.match() });
+      sendResponse({ pong: true, channel, matched: adapter.match(), matchMode: adapter.matchMode() });
       return false;
     }
     if (msg.type === 'selfcheck') {
@@ -51,6 +226,7 @@ export function startBridge(channel, buildAdapter) {
         sendResponse({
           channel,
           matched: false,
+          matchMode: null,
           accountId: '',
           conversationId: null,
           msgItemCount: 0,
@@ -61,6 +237,12 @@ export function startBridge(channel, buildAdapter) {
         return false;
       }
       handleSelfcheck(adapter, sendResponse);
+      return false;
+    }
+    // 深度自检：无论 match() 成功与否都可触发，给出真实 DOM 快照
+    // 用于诊断"match() 失败但页面看着像私信页"（平台改版 / 选择器过期）
+    if (msg.type === 'deepSelfcheck') {
+      handleDeepSelfcheck(sendResponse);
       return false;
     }
     return false;

@@ -6,7 +6,7 @@
 //   - MutationObserver 监听 .vue-recycle-scroller（消息列表）
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { qs, qsa, cleanText, setValue, enhancedClick, createLogger } from '../core/dom.js';
+import { qs, qsa, cleanText, setValue, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('xhs', CHANNELS.XHS);
@@ -45,9 +45,27 @@ function getConversationId() {
   return id || null;
 }
 
+// 小红书输入框（容错版）：先 strict #jarvis-reply-textarea，再 findAnyMessageInput 通用扫描
+// 用途：sendText 在小红书改版后仍能找到输入框
+function findInputEl() {
+  return qs(SEL.INPUT) || findAnyMessageInput();
+}
+
 const hooks = {
   match() {
-    return location.hostname.includes('xiaohongshu.com') && !!qs(SEL.INPUT);
+    if (!location.hostname.includes('xiaohongshu.com')) return false;
+    // 严格匹配：XHS-YYDS 原款选择器
+    if (qs(SEL.INPUT)) return true;
+    // 容错匹配：通用 DOM 扫描 + 页面像私信页
+    if (findAnyMessageInput() && looksLikeMessagePage()) {
+      log.warn('match() 走 fallback 模式：小红书 IM 严格选择器已失效，使用通用 DOM 扫描');
+      return true;
+    }
+    return false;
+  },
+  matchMode() {
+    if (!location.hostname.includes('xiaohongshu.com')) return null;
+    return qs(SEL.INPUT) ? 'strict' : 'fallback';
   },
   selectors: SEL,
   getMessageListRoot() {
@@ -73,9 +91,9 @@ const hooks = {
   getAccountId,
   getConversationId,
   async sendText(text) {
-    const input = qs(SEL.INPUT);
+    const input = findInputEl();
     if (!input) {
-      log.error('未找到小红书输入框 #jarvis-reply-textarea');
+      log.error('未找到小红书输入框（strict + fallback 均失败）');
       throw new Error('xhs input not found');
     }
     // XHS domUtils.setValue 同款：设值 + 派发 input

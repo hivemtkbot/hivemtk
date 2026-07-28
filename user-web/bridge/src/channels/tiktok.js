@@ -6,7 +6,7 @@
 //   - 该插件仅做「自动回复」，不解析消息内容，故消息读取为首版默认值，需真机校准。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { qs, qsa, cleanText, simulateTyping, simulateEnterKey, enhancedClick, createLogger } from '../core/dom.js';
+import { qs, qsa, cleanText, simulateTyping, simulateEnterKey, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('tiktok', CHANNELS.TIKTOK);
@@ -31,12 +31,34 @@ export const SEL = {
   SEND_BTN: 'button[aria-label*="发送"], button[aria-label*="Send"], [data-e2e="message-button"]',
 };
 
+// TikTok 输入框（strict）：仅匹配带平台特定属性的选择器
+// 用途：matchMode() 区分 strict / fallback 时使用
+const STRICT_INPUT_SELECTORS = [
+  '#main-content-messages div[contenteditable="true"]',
+  '[data-e2e="message-input"]',
+  'div[contenteditable="true"][role="textbox"]',
+];
+
+function strictGetInputEl() {
+  for (const sel of STRICT_INPUT_SELECTORS) {
+    const el = qs(sel);
+    if (el && el.offsetParent !== null) return el;
+  }
+  return null;
+}
+
 function getInputEl() {
   for (const sel of INPUT_FALLBACKS) {
     const el = qs(sel);
     if (el && el.offsetParent !== null) return el;
   }
   return null;
+}
+
+// TikTok 输入框（容错版）：先 strict 多兜底，再 findAnyMessageInput 通用扫描
+// 用途：match() 和 sendText 在 TikTok 改版后仍能工作
+function findInputEl() {
+  return getInputEl() || findAnyMessageInput();
 }
 
 function findSendButton() {
@@ -65,7 +87,19 @@ function getConversationId() {
 
 const hooks = {
   match() {
-    return location.hostname.includes('tiktok.com') && !!getInputEl();
+    if (!location.hostname.includes('tiktok.com')) return false;
+    // 严格匹配：tiktok-auto-plugin 原款多兜底（仅平台特定选择器）
+    if (strictGetInputEl()) return true;
+    // 容错匹配：通用 DOM 扫描 + 页面像私信页
+    if (findAnyMessageInput() && looksLikeMessagePage()) {
+      log.warn('match() 走 fallback 模式：TikTok IM 严格选择器已失效，使用通用 DOM 扫描');
+      return true;
+    }
+    return false;
+  },
+  matchMode() {
+    if (!location.hostname.includes('tiktok.com')) return null;
+    return strictGetInputEl() ? 'strict' : 'fallback';
   },
   selectors: SEL,
   getMessageListRoot() {
@@ -91,9 +125,9 @@ const hooks = {
   getAccountId,
   getConversationId,
   async sendText(text) {
-    const input = getInputEl();
+    const input = findInputEl();
     if (!input) {
-      log.error('未找到 TikTok 输入框');
+      log.error('未找到 TikTok 输入框（strict + fallback 均失败）');
       throw new Error('tiktok input not found');
     }
     // tiktok-auto-plugin simulateTyping 同款：逐字符输入 + input 事件

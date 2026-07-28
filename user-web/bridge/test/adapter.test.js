@@ -264,3 +264,138 @@ describe('BaseAdapter 会话切换重挂载', () => {
     expect(attachSpy).toHaveBeenCalled();
   });
 });
+
+// =============================================================
+// 校准私信页：3 个渠道 adapter 在严格选择器失效时的 fallback 匹配
+// 场景：平台改版导致 SEL.EDITOR / SEL.INPUT 选择器失效，但 findAnyMessageInput + looksLikeMessagePage 仍能命中
+// 期望：match() 返回 true，matchMode() 返回 'fallback'
+// =============================================================
+describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效）', () => {
+  beforeEach(() => {
+    // 每个测试前清空 body，避免前一个用例的 input 残留干扰
+    document.body.innerHTML = '';
+  });
+
+  function mockLocationPath(href) {
+    Object.defineProperty(window, 'location', {
+      value: { hostname: new URL(href).hostname, href, search: new URL(href).search, pathname: new URL(href).pathname },
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  function addInput({ tag = 'div', attrs = {}, rect = { width: 200, height: 40, top: 100, left: 0, right: 200, bottom: 140 } } = {}) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    el.getBoundingClientRect = () => ({ ...rect, x: rect.left, y: rect.top });
+    Object.defineProperty(el, 'offsetParent', { configurable: true, get: () => ({}) });
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function addContextHint() {
+    // 模拟"页面像私信页"的 DOM 线索
+    const hint = document.createElement('div');
+    hint.className = 'chat-message-list';
+    document.body.appendChild(hint);
+  }
+
+  it('抖音：strict 选择器存在 → match=true, matchMode=strict', () => {
+    mockLocationPath('https://www.douyin.com/im/chat/');
+    addInput({ tag: 'div', attrs: { contenteditable: 'true', role: 'textbox' } });
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('strict');
+  });
+
+  it('抖音：strict 选择器失效 + fallback 命中 → match=true, matchMode=fallback', () => {
+    mockLocationPath('https://www.douyin.com/im/chat/');
+    // 不放 role=textbox 的 contenteditable，只放一个普通 contenteditable（fallback 命中）
+    addInput({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
+    addContextHint();
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('fallback');
+  });
+
+  it('抖音：strict 失效 + 页面不像私信页 → match=false', () => {
+    mockLocationPath('https://www.douyin.com/');
+    // 只放输入框，不放 chat-* 类的 DOM 线索
+    addInput({ tag: 'div', attrs: { contenteditable: 'true' } });
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(false);
+    expect(a.matchMode()).toBeNull();
+  });
+
+  it('小红书：strict 选择器失效 + fallback 命中 → match=true, matchMode=fallback', () => {
+    mockLocationPath('https://www.xiaohongshu.com/im/');
+    // #jarvis-reply-textarea 不存在；放一个 textarea + 关键词 placeholder
+    addInput({ tag: 'textarea', attrs: { placeholder: '请输入消息' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
+    addContextHint();
+    const a = buildXhsAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('fallback');
+  });
+
+  it('小红书：strict 命中 → matchMode=strict', () => {
+    mockLocationPath('https://www.xiaohongshu.com/im/');
+    const strict = document.createElement('textarea');
+    strict.id = 'jarvis-reply-textarea';
+    document.body.appendChild(strict);
+    const a = buildXhsAdapter();
+    expect(a.matchMode()).toBe('strict');
+  });
+
+  it('TikTok：strict INPUT_FALLBACKS 都失效 + 通用 DOM 命中 → matchMode=fallback', () => {
+    mockLocationPath('https://www.tiktok.com/messages/@someone');
+    // 不放任何严格选择器对应的元素，放一个普通 contenteditable
+    addInput({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
+    addContextHint();
+    const a = buildTiktokAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('fallback');
+  });
+
+  it('非支持域名：抖音页面跳到 google.com → match=false, matchMode=null', () => {
+    mockLocationPath('https://google.com/');
+    addInput({ tag: 'div', attrs: { contenteditable: 'true' } });
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(false);
+    expect(a.matchMode()).toBeNull();
+  });
+});
+
+describe('BaseAdapter matchMode 透传', () => {
+  it('hooks.matchMode 返回 "fallback" → adapter.matchMode() 透传', () => {
+    const a = new BaseAdapter({
+      name: 'test',
+      channel: 'douyin_web',
+      SEL: {},
+      hooks: {
+        match: () => true,
+        matchMode: () => 'fallback',
+      },
+    });
+    expect(a.matchMode()).toBe('fallback');
+  });
+
+  it('hooks.matchMode 未实现 + match=true → 默认 "strict"', () => {
+    const a = new BaseAdapter({
+      name: 'test',
+      channel: 'douyin_web',
+      SEL: {},
+      hooks: { match: () => true },
+    });
+    expect(a.matchMode()).toBe('strict');
+  });
+
+  it('match=false → matchMode=null（无论 hooks 有无实现）', () => {
+    const a1 = new BaseAdapter({
+      name: 'test',
+      channel: 'douyin_web',
+      SEL: {},
+      hooks: { match: () => false, matchMode: () => 'fallback' },
+    });
+    expect(a1.matchMode()).toBeNull();
+  });
+});

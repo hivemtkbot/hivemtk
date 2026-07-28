@@ -316,15 +316,156 @@ function runSelfcheck(tab) {
         return;
       }
       if (resp.matched === false) {
-        $('selfOut').textContent = `内容脚本已注入，但当前不是私信/消息页。\n\nURL: ${tab.url}\n频道: ${resp.channel}\n提示: ${resp.hint || '请打开目标会话的【私信/聊天】界面（不是首页/feed）后再次校准'}`;
+        // matched=false 通常说明 match() 选择器过期 / 用户在首页/feed
+        // 自动降级到 deepSelfcheck 拿真实 DOM 快照，便于用户定位问题
+        const header = `内容脚本已注入，但 adapter.match() 返回 false。\n\nURL: ${tab.url}\n频道: ${resp.channel}\n提示: ${resp.hint || '请打开目标会话的【私信/聊天】界面'}\n\n正在拉取真实 DOM 快照…`;
+        $('selfOut').textContent = header;
+        // 缓存 header，deepSelfcheck 失败时仍要保留 selfcheck 上下文
+        runDeepSelfcheck(tab, header);
         return;
       }
+      // 匹配成功：区分 strict / fallback 模式
+      // fallback 模式说明平台严格选择器已失效、走通用 DOM 扫描
+      // 提示用户桥接功能正常但请把 DOM 快照反馈到 issue 让维护者更新 SEL
+      const modeLine = resp.matchMode === 'fallback'
+        ? '\n匹配模式: ⚠ fallback（严格选择器已失效，走通用 DOM 扫描）\n请把【深度自检】输出发到 issue，维护者会更新 src/channels/<platform>.js 的 SEL'
+        : '\n匹配模式: ✓ strict（严格选择器命中）';
       const sel = resp.selectors ? '\n选择器:\n' + JSON.stringify(resp.selectors, null, 2) : '';
       const sample = (resp.sample || []).map((s) => `  [${s.sender}] ${s.text}`).join('\n');
-      $('selfOut').textContent = `频道: ${resp.channel}\n匹配: ${resp.matched}\n账号: ${resp.accountId || '(空)'}\n会话: ${resp.conversationId || '(空)'}\n消息条目: ${resp.msgItemCount}\n样本:\n${sample}${sel}`;
+      $('selfOut').textContent = `频道: ${resp.channel}\n匹配: ${resp.matched}${modeLine}\n账号: ${resp.accountId || '(空)'}\n会话: ${resp.conversationId || '(空)'}\n消息条目: ${resp.msgItemCount}\n样本:\n${sample}${sel}`;
     });
   } catch (e) {
     $('selfOut').textContent = '发送 selfcheck 失败：' + e;
+  }
+}
+
+// 深度自检：直接向 content script 请求 DOM 快照
+// 触发条件：自检返回 matched=false / msgItemCount=0
+// 输出：可见的输入框 / 发送按钮 / 列表容器 / 账号链接 / 推荐选择器
+// header: 可选，selfcheck 上下文（matched=false 时给出），失败时与 deep 错误合并展示
+function runDeepSelfcheck(tab, header) {
+  try {
+    chrome.tabs.sendMessage(tab.id, { type: 'deepSelfcheck' }, (resp) => {
+      const err = lastError();
+      if (err) {
+        const prefix = header ? header + '\n\n---\n\n' : '';
+        $('selfOut').textContent = prefix + 'deepSelfcheck 失败：' + err;
+        return;
+      }
+      if (!resp || !resp.ok) {
+        const prefix = header ? header + '\n\n---\n\n' : '';
+        $('selfOut').textContent = prefix + 'deepSelfcheck 未返回数据：' + (resp && resp.error || '(空)');
+        return;
+      }
+      $('selfOut').textContent = formatDeepSnapshot(resp);
+    });
+  } catch (e) {
+    const prefix = header ? header + '\n\n---\n\n' : '';
+    $('selfOut').textContent = prefix + '发送 deepSelfcheck 失败：' + e;
+  }
+}
+
+// 把 DOM 快照渲染成易读文本
+function formatDeepSnapshot(s) {
+  const lines = [];
+  lines.push('=== 深度自检（DOM 快照）===');
+  lines.push(`URL: ${s.url}`);
+  lines.push(`域名: ${s.hostname}`);
+  lines.push(`标题: ${s.title}`);
+  lines.push('');
+  lines.push(`【输入框】共 ${s.inputCount} 个可见：`);
+  for (const it of s.inputSample || []) {
+    lines.push(`  - <${it.tag}>  ${it.selectorHint}`);
+    // 截断 placeholder 到 50 字符防止输出过大
+    if (it.placeholder) lines.push(`      placeholder="${String(it.placeholder).slice(0, 50)}"`);
+    if (it.text) lines.push(`      text="${String(it.text).slice(0, 50)}"`);
+  }
+  lines.push('');
+  lines.push(`【发送按钮】共 ${s.sendBtnCount} 个疑似：`);
+  for (const it of s.sendBtnSample || []) {
+    lines.push(`  - <${it.tag}>  ${it.selectorHint}`);
+  }
+  lines.push('');
+  lines.push(`【消息列表根】共 ${s.listRootCount} 个疑似：`);
+  for (const it of s.listRootSample || []) {
+    lines.push(`  - <${it.tag}>  ${it.selectorHint}`);
+  }
+  lines.push('');
+  lines.push(`【账号线索】共 ${(s.accountHints || []).length} 个链接：`);
+  for (const a of s.accountHints || []) {
+    lines.push(`  - ${a.text || '(无文本)'}  →  ${a.href}`);
+  }
+  lines.push('');
+  if (s.recommendedSelector) {
+    lines.push(`【推荐选择器】${s.recommendedSelector}`);
+    lines.push('（若上述内容看着像私信页但 adapter.match() 返回 false，');
+    lines.push('  说明平台已改版/选择器过期。请把【推荐选择器】发到 issue，');
+    lines.push('  维护者会更新 src/channels/<platform>.js 的 SEL.INPUT/EDITOR。');
+    lines.push('  临时方案：在 DevTools Console 跑 `window.__bridgeAdapter.SEL.INPUT=...` 覆盖。）');
+  } else {
+    lines.push('【推荐选择器】未找到 — 当前页可能不是私信/消息页，');
+    lines.push('  请打开目标会话的【私信/聊天】界面后再次点击「自检」。');
+  }
+  return lines.join('\n');
+}
+
+// ---- 深度自检入口（用户主动触发） ----
+// 跳过 ping/自检/域白名单，直接尝试拉 DOM 快照
+// ping 失败时尝试自动注入，注入成功后再拉快照
+function deepSelfCheck() {
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab) {
+        $('selfOut').textContent = '无活动标签页';
+        return;
+      }
+      if (!tab.url) {
+        $('selfOut').textContent = '当前标签页 URL 不可读（请打开非 chrome:// 页面）';
+        return;
+      }
+      pingContentScript(tab, (pingErr) => {
+        if (pingErr) {
+          $('selfOut').textContent = '未检测到桥接，正在自动注入…';
+          tryAutoInject(tab, (injectResult) => {
+            if (!injectResult.ok) {
+              $('selfOut').textContent = `该页面未注入桥接：${pingErr.msg}\n自动注入失败：${injectResult.reason}${injectResult.error ? '（' + injectResult.error + '）' : ''}\n\n可能原因：\n${pingErr.hints}`;
+              return;
+            }
+            setTimeout(() => {
+              pingContentScript(tab, (retryErr) => {
+                if (retryErr) {
+                  $('selfOut').textContent = `已注入 ${injectResult.file} 但 ping 仍失败：${retryErr.msg}\n请手动 Ctrl+Shift+R 后再试。`;
+                  return;
+                }
+                runDeepSelfcheck(tab);
+              });
+            }, 200);
+          });
+          return;
+        }
+        runDeepSelfcheck(tab);
+      });
+    });
+  } catch (e) {
+    $('selfOut').textContent = '深度自检失败：' + e;
+  }
+}
+
+// 复制 selfOut 文本到剪贴板
+function copySelfOut() {
+  const txt = $('selfOut').textContent || '';
+  if (!txt) {
+    showBanner('info', '无内容', 'selfOut 区域为空');
+    return;
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(txt).then(
+      () => showBanner('success', '已复制', '已复制到剪贴板，可粘贴到 issue / 文档'),
+      () => showBanner('error', '复制失败', '请检查剪贴板权限')
+    );
+  } else {
+    showBanner('error', '复制失败', '当前环境不支持 navigator.clipboard');
   }
 }
 
@@ -398,6 +539,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // 状态/自检
   $('status').addEventListener('click', refreshStatus);
   $('selfcheck').addEventListener('click', selfCheck);
+  const deepBtn = $('deepSelfcheck');
+  if (deepBtn) deepBtn.addEventListener('click', deepSelfCheck);
+  const copyBtn = $('copySelfOut');
+  if (copyBtn) copyBtn.addEventListener('click', copySelfOut);
 
   // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
   $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin_web));
@@ -420,8 +565,12 @@ if (typeof window !== 'undefined') {
     lastError,
     diagnoseUninjected,
     selfCheck,
+    deepSelfCheck,
+    copySelfOut,
     pingContentScript,
     runSelfcheck,
+    runDeepSelfcheck,
+    formatDeepSnapshot,
     tryAutoInject,
   };
 }

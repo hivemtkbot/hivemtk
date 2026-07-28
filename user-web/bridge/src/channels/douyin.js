@@ -7,7 +7,7 @@
 // （见 popup 自检 / bridge.md §校准清单）。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, humanType, createLogger } from '../core/dom.js';
+import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, humanType, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
@@ -25,14 +25,26 @@ export const SEL = {
   EDITOR: 'div[contenteditable="true"][role="textbox"]',
 };
 
+// 抖音输入框（strict）：仅匹配 SEL.EDITOR = div[contenteditable="true"][role="textbox"]
+// 用途：matchMode() 用它区分 strict / fallback，不能用 editorBox()（后者已有容错会假阳）
+function strictEditorBox() {
+  return qs(SEL.EDITOR);
+}
+
 // 抖音输入框：优先 role=textbox 的 contenteditable（DY-auto editorBox 原样）
 function editorBox() {
-  let box = qs(SEL.EDITOR);
+  let box = strictEditorBox();
   if (!box) {
     const boxes = qsa('div[contenteditable="true"]').filter((b) => b.offsetParent !== null);
     box = boxes[boxes.length - 1] || null;
   }
   return box;
+}
+
+// 抖音输入框（容错版）：先 strict editorBox，再 findAnyMessageInput 通用扫描
+// 用途：sendText 在 strict 选择器失效时仍能找到输入框，避免「桥接已启动但发送失败」
+function findInputEl() {
+  return editorBox() || findAnyMessageInput();
 }
 
 // 抖音发送按钮：DY-auto getRealSendButton 原样（红色 #FE2C55 填充的 SVG）
@@ -69,7 +81,19 @@ function getConversationId() {
 
 const hooks = {
   match() {
-    return location.hostname.includes('douyin.com') && !!editorBox();
+    if (!location.hostname.includes('douyin.com')) return false;
+    // 严格匹配：DY-auto editorBox 同款选择器
+    if (strictEditorBox()) return true;
+    // 容错匹配：通用 DOM 扫描 + 页面像私信页（避免在首页/feed 误启动）
+    if (findAnyMessageInput() && looksLikeMessagePage()) {
+      log.warn('match() 走 fallback 模式：抖音 IM 严格选择器已失效，使用通用 DOM 扫描');
+      return true;
+    }
+    return false;
+  },
+  matchMode() {
+    if (!location.hostname.includes('douyin.com')) return null;
+    return strictEditorBox() ? 'strict' : 'fallback';
   },
   selectors: SEL,
   getMessageListRoot() {
@@ -96,9 +120,9 @@ const hooks = {
   getAccountId,
   getConversationId,
   async sendText(text) {
-    const editor = editorBox();
+    const editor = findInputEl();
     if (!editor) {
-      log.error('未找到抖音输入框');
+      log.error('未找到抖音输入框（strict + fallback 均失败）');
       throw new Error('douyin editor not found');
     }
     // 首版用 fillContentEditable（粘贴+innerText 双写），拟人模式可切 humanType

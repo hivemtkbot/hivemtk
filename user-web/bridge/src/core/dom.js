@@ -183,3 +183,150 @@ export function observe(root, cb, options = { childList: true, subtree: true }) 
   obs.observe(root, options);
   return obs;
 }
+
+// =============================================================
+// 平台改版 / 严格选择器失效时的通用容错（findAnyMessageInput / looksLikeMessagePage）
+// 场景：抖音/小红书/TikTok 偶尔会改 className / data-e2e / role，导致
+//       channels/*.js 里硬编码的 SEL.EDITOR / SEL.INPUT 失效，桥接整体瘫掉。
+// 解决：match() 失败时先扫描 DOM 看是否有「看起来像消息输入框」的元素，
+//       配合「页面像是私信/消息页」的启发式判断，给出降级匹配。
+//       这样能避免「打开私信页但 adapter.match() 永远返回 false」的全量错误。
+// =============================================================
+
+/** 元素是否在视觉上可见（offsetParent + 尺寸 + 非 display:none） */
+export function isLikelyVisible(el) {
+  if (!el) return false;
+  // offsetParent === null 时表示 display:none（但 fixed 元素例外）
+  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return false;
+  return true;
+}
+
+/**
+ * 通用回退：扫描页面上所有「可能是消息输入框」的元素并按可信度打分。
+ * 命中条件（任一即可）：
+ *   1) contenteditable="true" / ""  且 尺寸 ≥ 20×10（聊天输入框通常不小于此）
+ *   2) [role="textbox"]  且 尺寸 ≥ 20×10
+ *   3) textarea 且 placeholder / aria-label 含「消息|留言|回复|reply|message|input|comment|chat」
+ *   4) [data-e2e*="message-input" / "input" / "editor" / "chat-input"]
+ *   5) [data-testid*="message" / "input" / "editor"]
+ *   6) [aria-label*="消息" / "留言" / "回复" / "Send a message" / "Type a message"]
+ * 启发式排序：
+ *   - 优先 contenteditable / role=textbox
+ *   - 在视口下半部分（top > 40% 视口高度）的元素更像是聊天输入框
+ *   - 尺寸过小（评论框、搜索框）不计入
+ * @returns {Element|null} 最佳候选元素；无候选时返回 null
+ */
+export function findAnyMessageInput() {
+  const all = (sel) => {
+    try { return Array.from(document.querySelectorAll(sel)); }
+    catch (_) { return []; }
+  };
+  const candidates = [];
+  const vh = window.innerHeight || 800;
+
+  const score = (el) => {
+    if (!isLikelyVisible(el)) return -1;
+    const r = el.getBoundingClientRect();
+    if (r.width < 20 || r.height < 10) return -1;
+    // 排除 textarea 多行但特别小（评论框、用户名框通常宽 < 100）
+    if (el.tagName === 'TEXTAREA' && r.width < 60) return -1;
+    // 在视口下半部分加分
+    const lowerHalfBonus = r.top > vh * 0.4 ? 2 : 0;
+    return lowerHalfBonus;
+  };
+
+  const push = (el, base) => {
+    const s = score(el);
+    if (s < 0) return;
+    candidates.push({ el, score: base + s });
+  };
+
+  // 1) contenteditable=true / ''  （最高优先级）
+  for (const el of all('div[contenteditable="true"], div[contenteditable=""], [contenteditable="true"], [contenteditable=""]')) {
+    push(el, 10);
+  }
+  // 2) role=textbox
+  for (const el of all('[role="textbox"]')) {
+    push(el, 8);
+  }
+  // 3) textarea + placeholder/aria-label 命中关键词
+  for (const el of all('textarea')) {
+    const ph = (el.getAttribute('placeholder') || '').toLowerCase();
+    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+    if (/消息|留言|回复|reply|message|input|comment|chat|say|send|content/.test(ph + ' ' + aria)) {
+      push(el, 7);
+    }
+  }
+  // 4) data-e2e
+  for (const sel of [
+    '[data-e2e*="message-input"]',
+    '[data-e2e*="chat-input"]',
+    '[data-e2e*="input"]',
+    '[data-e2e*="editor"]',
+  ]) {
+    for (const el of all(sel)) push(el, 6);
+  }
+  // 5) data-testid
+  for (const sel of [
+    '[data-testid*="message"]',
+    '[data-testid*="input"]',
+    '[data-testid*="editor"]',
+  ]) {
+    for (const el of all(sel)) push(el, 5);
+  }
+  // 6) aria-label 中文/英文
+  for (const el of all('[aria-label]')) {
+    const aria = (el.getAttribute('aria-label') || '');
+    if (/消息|留言|回复|send a message|type a message|new message/.test(aria.toLowerCase() + ' ' + aria)) {
+      push(el, 4);
+    }
+  }
+
+  if (!candidates.length) return null;
+  // 按分数降序，相同分数时尺寸大的优先
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const ar = a.el.getBoundingClientRect();
+    const br = b.el.getBoundingClientRect();
+    return (br.width * br.height) - (ar.width * ar.height);
+  });
+  return candidates[0].el;
+}
+
+/**
+ * 页面上下文是否看起来像「私信/消息/聊天」页。
+ * 命中条件（任一即可）：
+ *   - URL 路径含 /message / chat / msg / direct / im / inbox / conversation / private / dm
+ *   - URL 查询含 conversation_id / message_id / session_id / chat_id / user_id
+ *   - DOM 里有：含 chat- / message- / im-chat- / inbox / conversation 类的元素 > 0
+ *   - DOM 里有：data-e2e 含 chat / message 的元素 > 0
+ * 用途：findAnyMessageInput 可能误中评论框 / 搜索框（同样 contenteditable），
+ *       需要这一步过滤，避免在抖音首页 / 帖子详情页误启动桥接。
+ * @returns {boolean}
+ */
+export function looksLikeMessagePage() {
+  try {
+    const url = (location.href || '').toLowerCase();
+    if (/\/(message|chat|msg|direct|im|inbox|conversation|private|dm)(\/|\?|$|#)/.test(url)) return true;
+    if (/[?&](conversation_id|message_id|session_id|chat_id|user_id)=/.test(url)) return true;
+    // TikTok 私信页 URL 形如 /messages/@xxx
+    if (/\/messages\/@?[\w.]+/.test(url)) return true;
+    // 小红书 IM 页面通常在 /im/ 路径
+    if (/\/im\b/.test(url)) return true;
+    // 抖音 IM 路径
+    if (/\/im\/chat\b/.test(url)) return true;
+
+    // DOM 线索
+    if (document.querySelector(
+      '[class*="chat-"], [class*="message-"], [class*="msg-"], [class*="conversation"], ' +
+      '[class*="im-chat"], [class*="inbox"], [class*="direct-message"]'
+    )) return true;
+    if (document.querySelector('[data-e2e*="chat"], [data-e2e*="message"]')) return true;
+
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
