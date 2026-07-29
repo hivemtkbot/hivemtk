@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -176,30 +175,17 @@ func (a *ReActAdapter) WrapSystemPrompt(originalSystemPrompt string, tools []Too
 		sb.WriteString("\n\n")
 	}
 
-	sb.WriteString("你是一个可以使用工具的智能体。请严格按照以下 ReAct 协议输出：\n\n")
-	sb.WriteString("【可用工具】\n")
+	sb.WriteString("你可以使用以下工具来帮助用户。需要时请调用工具获取真实数据。\n\n")
+	sb.WriteString("可用工具：\n")
 	for _, t := range tools {
 		sb.WriteString(fmt.Sprintf("- %s: %s\n", t.Function.Name, t.Function.Description))
-		if t.Function.Parameters != nil {
-			if b, err := json.Marshal(t.Function.Parameters); err == nil {
-				sb.WriteString(fmt.Sprintf("  参数: %s\n", string(b)))
-			}
-		}
 	}
 
-	sb.WriteString("\n【输出格式】\n")
-	sb.WriteString("需要调用工具时：\n")
-	sb.WriteString("Thought: <你的思考过程>\n")
-	sb.WriteString("Action: <工具名>\n")
-	sb.WriteString("Action Input: <JSON 参数>\n\n")
-	sb.WriteString("获得工具结果后，最终回复时：\n")
-	sb.WriteString("Thought: <你的思考过程>\n")
-	sb.WriteString("Final Answer: <最终回复给用户的内容>\n\n")
-	sb.WriteString("注意：\n")
-	sb.WriteString("1. Action 必须是【可用工具】列表中的工具名\n")
-	sb.WriteString("2. Action Input 必须是合法 JSON\n")
-	sb.WriteString("3. 收到 Observation 后才能输出 Final Answer\n")
-	sb.WriteString("4. 不要编造工具未返回的数据\n")
+	sb.WriteString("\n调用工具时，严格按以下格式输出（每个字段独占一行）：\n")
+	sb.WriteString("Thought: 我需要查询xxx\n")
+	sb.WriteString("Action: 工具名\n")
+	sb.WriteString("Action Input: {\"参数名\": \"参数值\"}\n\n")
+	sb.WriteString("不需要工具时，直接回复用户。\n")
 
 	return sb.String()
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -290,6 +291,20 @@ func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.
 //   - 接口隔离：通过 AgentToolExecutor 接口注入，避免 service ↔ tooluse 循环依赖
 func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecutor) {
 	e.toolExecutor = exec
+}
+
+// isLocalModel 检查当前 LLM 是否为本地模型（不支持 Function Calling）
+func (e *SalesEngine) isLocalModel() bool {
+	if e.dispatcher == nil {
+		return true
+	}
+	providers := e.dispatcher.GetProviderList()
+	for _, p := range providers {
+		if p.Name == "default" {
+			return p.NoFC
+		}
+	}
+	return true
 }
 
 // SalesRequest 销售请求
@@ -807,7 +822,8 @@ func (e *SalesEngine) generateCandidate(
 	}
 
 	// P0-3: 智能体 Agent Loop 路径（真正的智能体，不做流程编排）
-	if e.toolExecutor != nil {
+	// 本地模型（NoFC）无法可靠执行 ReAct 协议，跳过 Agent Loop 走普通 RAG 管线
+	if e.toolExecutor != nil && !e.isLocalModel() {
 		availableTools := e.toolExecutor.ListTools()
 		if len(availableTools) > 0 {
 			return e.runAgentLoop(ctx, scenario, prompt, req, intent, mem, customer, availableTools)
@@ -896,8 +912,10 @@ func (e *SalesEngine) runAgentLoop(
 	availableTools []AgentToolDef,
 ) (string, *llm.DispatchResult, error) {
 	// 1. 构造工具定义列表（AgentToolDef → llm.ToolDefinition）
-	toolDefs := make([]llm.ToolDefinition, 0, len(availableTools))
-	for _, fn := range availableTools {
+	// 本地小模型（7B）无法处理 40+ 工具，只注入销售场景最相关的工具
+	filteredTools := filterToolsForAgent(availableTools, 8)
+	toolDefs := make([]llm.ToolDefinition, 0, len(filteredTools))
+	for _, fn := range filteredTools {
 		params := fn.Parameters
 		if params == nil {
 			params = map[string]any{"type": "object"}
@@ -1054,22 +1072,59 @@ func (e *SalesEngine) runAgentLoop(
 	return "", nil, fmt.Errorf("agent loop exhausted with no final content")
 }
 
+// filterToolsForAgent 过滤工具列表，只保留销售场景最相关的工具
+// 本地小模型（7B）无法处理 40+ 工具的 ReAct prompt，限制到 maxTools 个
+func filterToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
+	if len(tools) <= maxTools {
+		return tools
+	}
+	// 销售场景优先级：知识库 > 客户 > 订单 > 私信 > 其他
+	priority := map[string]int{
+		"rag.search":          1,
+		"customer.search":     2,
+		"customer.get":        3,
+		"order.lookup":        4,
+		"pm.session.open":     5,
+		"pm.message.send":     6,
+		"knowledge.feedback":  7,
+		"reach.web.send":      8,
+	}
+	type scored struct {
+		tool  AgentToolDef
+		score int
+	}
+	scoredTools := make([]scored, 0, len(tools))
+	for _, t := range tools {
+		s, ok := priority[t.Name]
+		if !ok {
+			s = 100 // 低优先级
+		}
+		scoredTools = append(scoredTools, scored{tool: t, score: s})
+	}
+	sort.Slice(scoredTools, func(i, j int) bool {
+		return scoredTools[i].score < scoredTools[j].score
+	})
+	result := make([]AgentToolDef, 0, maxTools)
+	for i := 0; i < maxTools && i < len(scoredTools); i++ {
+		result = append(result, scoredTools[i].tool)
+	}
+	return result
+}
+
 // buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
 // 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
 func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer) string {
 	var sb strings.Builder
 	sb.WriteString(persona)
-	sb.WriteString("\n\n你是一个真正的智能体，可以使用工具来获取客户信息、查询订单、检索知识库等。")
-	sb.WriteString("根据用户问题，自主决定是否需要调用工具；调用工具后基于工具返回的真实数据回复用户。")
-	sb.WriteString("不要编造工具未返回的数据；如工具调用失败，向用户诚实说明并询问更多信息。")
+	sb.WriteString("\n\n你可以使用工具查询知识库、客户信息、订单等。需要真实数据时调用工具，不需要时直接回复。")
 
-	if intent != nil {
-		sb.WriteString(fmt.Sprintf("\n\n[当前意图] %s", intent.IntentType))
+	if intent != nil && intent.IntentType != "" && intent.IntentType != "unknown" {
+		sb.WriteString(fmt.Sprintf("\n[意图] %s", intent.IntentType))
 	}
 	if customer != nil {
 		name := customerNameOf(customer)
 		if name != "" {
-			sb.WriteString(fmt.Sprintf("\n[客户] %s (ID=%s)", name, customer.ID))
+			sb.WriteString(fmt.Sprintf("\n[客户] %s", name))
 		}
 	}
 	return sb.String()
@@ -1336,11 +1391,6 @@ func customerNameOf(c *model.Customer) string {
 	if c == nil {
 		return ""
 	}
-	// 优先使用客户姓名（如果有的话）
-	if c.Name != "" {
-		return c.Name
-	}
-	// 回退到手机号
 	return c.Phone
 }
 
