@@ -383,7 +383,7 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 		return err
 	}
 
-	// 通知客服
+	// 通知客服（坐席端收到新会话通知）
 	websocket.NotifyNewSession(strconv.FormatUint(uint64(selectedAgent.AgentID), 10), map[string]any{
 		"session_id":      session.SessionID,
 		"user_name":       session.UserName,
@@ -391,6 +391,14 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 		"transfer_reason": reason,
 		"priority":        session.Priority,
 	})
+
+	// 通知访客（访客端收到"客服已接入"通知）
+	_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
+		"session_id": session.SessionID,
+		"handler":    "human",
+		"agent_name": selectedAgent.AgentName,
+		"reason":     "正在为您接入人工客服，请稍候...",
+	}, session.SessionID)
 
 	return nil
 }

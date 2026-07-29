@@ -442,10 +442,21 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 	if err := o.sessionRepo.Update(ctx, session); err != nil {
 		return err
 	}
-	// 2. 联动 SessionAssignmentService 真正分配在线座席（避免会话只标 waiting 却无人接）
+
+	// 2. 保存转人工系统消息
+	sysMsg := &model.SessionMessage{
+		SessionID:   session.SessionID,
+		Content:     "【系统】" + reason,
+		ContentType: model.MessageTypeText,
+		SenderType:  "system",
+		SenderID:    "system",
+		SenderName:  "系统",
+	}
+	_ = o.messageRepo.Create(ctx, sysMsg)
+
+	// 3. 联动 SessionAssignmentService 真正分配在线座席
+	//    失败时（无在线客服）保持 waiting 状态等待后续分配，不阻断主流程
 	if o.assignmentSvc != nil {
-		// autoAssignToAgent 内部：选活跃会话最少的在线客服 → AssignAgent → 通知
-		// 失败时（无在线客服）保持 waiting 状态等待后续分配，不阻断主流程
 		_ = o.assignmentSvc.autoAssignToAgent(ctx, session, reason)
 	}
 	return nil
