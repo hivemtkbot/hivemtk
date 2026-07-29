@@ -205,3 +205,12 @@ self_learning:
   ab_test_min_samples: 30              # A/B 最小样本数（护栏5）
   circuit_breaker_threshold: 0.3       # 熔断失败率阈值（护栏6）
   circuit_breaker_window_min: 30       # 熔断器滑动窗口（分钟）
+
+# HTTP 代理配置（用于中国等需要代理访问外部 API 的环境）
+# 未配置时（enabled=false 或地址为空），HTTP 请求直连不走代理
+# 也可通过环境变量 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 配置（Go 标准库自动识别）
+proxy:
+  enabled: false                    # 是否启用代理
+  http_proxy: ""                    # HTTP 代理地址，如 http://127.0.0.1:7890
+  https_proxy: ""                   # HTTPS 代理地址，如 http://127.0.0.1:7890
+  no_proxy: "localhost,127.0.0.1"   # 不走代理的地址

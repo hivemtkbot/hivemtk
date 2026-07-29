@@ -17,7 +17,9 @@ import (
 	"strings"
 	"time"
 
+	"marketing/internal/channelbot/core"
 	"marketing/internal/channelbot/telegram"
+	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/httpclient"
 	"marketing/internal/pkg/utils/logger"
 
@@ -155,10 +157,8 @@ func UnbanUser(Bot *tgbotapi.BotAPI, chatID int64, userID int64) error {
 // defaultHTTPClient 支持 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 环境变量
 // 在中国访问 api.telegram.org 需要代理，Go 标准库通过 ProxyFromEnvironment 自动读取
 var defaultHTTPClient = &http.Client{
-	Timeout: 15 * time.Second,
-	Transport: &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-	},
+	Timeout:   15 * time.Second,
+	Transport: config.GetProxyTransport(),
 }
 
 // callBotAPI 通用 Bot API 调用（无状态，基于 bot_token）
@@ -248,7 +248,7 @@ func ValidateBotToken(token string) error {
 // secret 由 Telegram 在 X-Telegram-Bot-Api-Secret-Token 头中回传，用于验签。
 // 统一走 channelbot/telegram.Client（与出站发消息同一套 Bot API 实现）。
 func SetWebhook(botToken, webhookURL, secret string) error {
-	if err := telegram.NewTelegramClient(botToken).SetWebhook(context.Background(), webhookURL, secret); err != nil {
+	if err := telegram.NewTelegramClient(botToken, core.WithProxyTransport(config.GetProxyTransport())).SetWebhook(context.Background(), webhookURL, secret); err != nil {
 		logger.Errorf("TG SetWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
 		return err
 	}
@@ -259,7 +259,7 @@ func SetWebhook(botToken, webhookURL, secret string) error {
 // DeleteWebhook 删除 Telegram Webhook（账号禁用 / 删除时清理陈旧回调）。
 // 统一走 channelbot/telegram.Client。
 func DeleteWebhook(botToken string) error {
-	if err := telegram.NewTelegramClient(botToken).DeleteWebhook(context.Background()); err != nil {
+	if err := telegram.NewTelegramClient(botToken, core.WithProxyTransport(config.GetProxyTransport())).DeleteWebhook(context.Background()); err != nil {
 		logger.Errorf("TG DeleteWebhook 失败 bot=%s err=%v", maskToken(botToken), err)
 		return err
 	}
@@ -271,7 +271,7 @@ func DeleteWebhook(botToken string) error {
 // 统一走 channelbot/telegram.Client，该客户端内部会把 AI 生成的 Markdown
 // 转换为 Telegram HTML（parse_mode=HTML），与出站 AI 回复保持一致的渲染效果。
 func SendMessage(botToken string, chatID int64, text string) error {
-	if _, err := telegram.NewTelegramClient(botToken).SendMessage(context.Background(), chatID, text); err != nil {
+	if _, err := telegram.NewTelegramClient(botToken, core.WithProxyTransport(config.GetProxyTransport())).SendMessage(context.Background(), chatID, text); err != nil {
 		logger.Errorf("TG SendMessage 失败 bot=%s chat=%d err=%v", maskToken(botToken), chatID, err)
 		return err
 	}
@@ -342,12 +342,9 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	form.Set("allowed_updates", `["message","edited_message","channel_post","edited_channel_post","callback_query","my_chat_member","chat_member","inline_query"]`)
 
 	// 长轮询：超时时间要略大于 timeout，避免客户端先断
-	// 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
 	client := &http.Client{
-		Timeout: time.Duration(timeout+10) * time.Second,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-		},
+		Timeout:   time.Duration(timeout+10) * time.Second,
+		Transport: config.GetProxyTransport(),
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, nil)
 	if err != nil {

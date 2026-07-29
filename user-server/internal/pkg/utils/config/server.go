@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -312,6 +314,71 @@ type AppConfig struct {
 	Logging        logger.LoggingConfig `yaml:"logging"`
 	I18n           I18nConfig           `yaml:"i18n"`
 	External       ExternalConfig       `yaml:"external"`
+	Proxy          ProxyConfig          `yaml:"proxy"`
+}
+
+// ProxyConfig HTTP 代理配置
+//
+// 用途：在中国等需要代理才能访问外部 API（如 Telegram API）的环境中使用。
+// 未配置时（enabled=false 或地址为空），HTTP 请求直连不走代理。
+//
+// 配置方式：
+//  1. config.yaml proxy 段
+//  2. 环境变量 HTTP_PROXY / HTTPS_PROXY / NO_PROXY（Go 标准库自动识别）
+//
+// 示例 (config.yaml)：
+//
+//	proxy:
+//	  enabled: true
+//	  http_proxy: "http://127.0.0.1:7890"
+//	  https_proxy: "http://127.0.0.1:7890"
+//	  no_proxy: "localhost,127.0.0.1,10.0.0.0/8"
+type ProxyConfig struct {
+	// Enabled 是否启用代理（false 时所有代理设置无效，直连）
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// HTTPProxy HTTP 代理地址，如 http://127.0.0.1:7890
+	HTTPProxy string `yaml:"http_proxy" json:"http_proxy"`
+	// HTTPSProxy HTTPS 代理地址，如 http://127.0.0.1:7890
+	HTTPSProxy string `yaml:"https_proxy" json:"https_proxy"`
+	// NoProxy 不走代理的地址列表（逗号分隔），如 localhost,127.0.0.1
+	NoProxy string `yaml:"no_proxy" json:"no_proxy"`
+}
+
+// GetProxyTransport 返回配置了代理的 http.Transport
+//
+// 代理优先级（自高到低）：
+//  1. config.yaml proxy 段（enabled=true + 地址非空）
+//  2. 环境变量 HTTP_PROXY / HTTPS_PROXY / NO_PROXY（Go 标准库 ProxyFromEnvironment）
+//  3. 直连（无代理）
+//
+// 返回值可直接赋给 http.Client.Transport。
+func GetProxyTransport() *http.Transport {
+	cfg := GetAppConfig().Proxy
+
+	// 1) 配置文件代理
+	if cfg.Enabled && (cfg.HTTPProxy != "" || cfg.HTTPSProxy != "") {
+		return &http.Transport{
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				if req.URL.Scheme == "https" && cfg.HTTPSProxy != "" {
+					return url.Parse(cfg.HTTPSProxy)
+				}
+				if cfg.HTTPProxy != "" {
+					return url.Parse(cfg.HTTPProxy)
+				}
+				return nil, nil
+			},
+		}
+	}
+
+	// 2) 环境变量代理（Go 标准库自动识别 HTTP_PROXY / HTTPS_PROXY）
+	if v := os.Getenv("HTTP_PROXY"); v != "" || os.Getenv("HTTPS_PROXY") != "" || os.Getenv("http_proxy") != "" || os.Getenv("https_proxy") != "" {
+		return &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		}
+	}
+
+	// 3) 直连
+	return &http.Transport{}
 }
 
 // ExternalConfig 外部可达地址配置

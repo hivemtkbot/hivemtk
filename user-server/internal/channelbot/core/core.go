@@ -45,6 +45,18 @@ func WithBaseURL(u string) ClientOption {
 	return func(c *BaseClient) { c.BaseURL = u }
 }
 
+// WithProxyTransport 注入自定义代理 Transport
+//
+// 用于在需要代理的环境中（如中国访问 Telegram API）注入配置好的 Transport。
+// 传入 nil 等价于直连。
+func WithProxyTransport(t *http.Transport) ClientOption {
+	return func(c *BaseClient) {
+		if t != nil {
+			c.HTTPClient.Transport = t
+		}
+	}
+}
+
 // BaseClient 跨渠道共享的 HTTP 客户端封装
 //
 // 复用项目既有 httpclient 模式（如 internal/pkg/utils/httpclient 不可见时独立维护）：
