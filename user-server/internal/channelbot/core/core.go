@@ -70,10 +70,14 @@ func NewBaseClient(opts ...ClientOption) BaseClient {
 		HTTPClient: &http.Client{
 			Timeout: DefaultHTTPTimeout,
 			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-				DisableCompression:  false,
+				Proxy:                 http.ProxyFromEnvironment, // 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   10,
+				IdleConnTimeout:       90 * time.Second,
+				DisableCompression:    false,
+				DisableKeepAlives:     false,
+				TLSHandshakeTimeout:  10 * time.Second,
+				ResponseHeaderTimeout: 30 * time.Second,
 				DialContext: (&net.Dialer{
 					Timeout:   10 * time.Second,
 					KeepAlive: 30 * time.Second,

@@ -152,7 +152,14 @@ func UnbanUser(Bot *tgbotapi.BotAPI, chatID int64, userID int64) error {
 // 以下为 TG 智能体流程新增工具函数（无状态，基于 bot_token 直接调用 Bot API）
 // ============================================================================
 
-var defaultHTTPClient = &http.Client{Timeout: 15 * time.Second}
+// defaultHTTPClient 支持 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 环境变量
+// 在中国访问 api.telegram.org 需要代理，Go 标准库通过 ProxyFromEnvironment 自动读取
+var defaultHTTPClient = &http.Client{
+	Timeout: 15 * time.Second,
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+	},
+}
 
 // callBotAPI 通用 Bot API 调用（无状态，基于 bot_token）
 func callBotAPI(botToken, method string, params url.Values) (map[string]any, error) {
@@ -335,7 +342,13 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	form.Set("allowed_updates", `["message","edited_message","channel_post","edited_channel_post","callback_query","my_chat_member","chat_member","inline_query"]`)
 
 	// 长轮询：超时时间要略大于 timeout，避免客户端先断
-	client := &http.Client{Timeout: time.Duration(timeout+10) * time.Second}
+	// 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
+	client := &http.Client{
+		Timeout: time.Duration(timeout+10) * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构造 getUpdates 请求失败: %w", err)

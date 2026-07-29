@@ -178,7 +178,7 @@ func StartTelegramPolling(acc *model.TelegramAccount) {
 	botToken := acc.BotToken
 	accountName := acc.AccountName
 
-	go runTelegramPollingWorker(ctx, accountID, botToken, accountName, state.done, state)
+	go runTelegramPollingWorker(ctx, accountID, botToken, accountName, acc.WebhookSecret, state.done, state)
 	logger.Infof("[TG-Polling] 账号 %d(%s) polling 协程已启动", accountID, accountName)
 }
 
@@ -316,7 +316,7 @@ func EnsureTelegramMode(svc *TelegramService) {
 //
 // S3-6 心跳：worker 启动时同时启动 30s 心跳协程。心跳失败（锁被抢占）→ 主动 cancel worker，
 // 避免本进程继续 polling 与新持有者产生双消费。
-func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, accountName string, done chan struct{}, state *telegramPollingState) {
+func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, accountName, webhookSecret string, done chan struct{}, state *telegramPollingState) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("[TG-Polling] 账号 %d(%s) 协程 panic: %v", accountID, accountName, r)
@@ -340,7 +340,13 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 	offset := int64(0)
 	backoff := tgPollingBackoffMin
 	// 同进程内多账号共用一个 HTTP 客户端（连接复用）
-	client := &http.Client{Timeout: tgPollingTimeoutSeconds*time.Second + 5*time.Second}
+	// 支持 HTTP_PROXY / HTTPS_PROXY 环境变量
+	client := &http.Client{
+		Timeout: tgPollingTimeoutSeconds*time.Second + 5*time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+	}
 
 	for {
 		select {
@@ -375,7 +381,7 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 			if uid > 0 {
 				offset = uid + 1
 			}
-			if err := deliverTelegramUpdate(ctx, client, accountID, raw); err != nil {
+			if err := deliverTelegramUpdate(ctx, client, accountID, webhookSecret, raw); err != nil {
 				logger.Warnf("[TG-Polling] 账号 %d(%s) 投递 update 失败: %v", accountID, accountName, err)
 			}
 		}
@@ -439,7 +445,7 @@ func isPollingLockDBNotReadyError(err error) bool {
 // 避免在 polling worker 里重写一遍。
 //
 // 失败重试：网络错误重试 2 次（200ms 间隔），最终失败仅记录日志。
-func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID uint, raw json.RawMessage) error {
+func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID uint, webhookSecret string, raw json.RawMessage) error {
 	url := fmt.Sprintf("%s/api/webhook/telegram/%d", config.DefaultUserServerBaseURL, accountID)
 	var lastErr error
 	for i := 0; i < 3; i++ {
@@ -449,6 +455,12 @@ func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID u
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Telegram-Polling-Source", "1") // 标记来源（便于监控 / 调试）
+		// SOP-041 修复：polling 兜底投递到本地 webhook 入口时，必须携带与 setWebhook
+		// 一致的 X-Telegram-Bot-Api-Secret-Token，否则本地验签 401（消息丢失）。
+		// webhook_secret 为空时（未配置验签）不附加，handler 会跳过验签，向后兼容。
+		if webhookSecret != "" {
+			req.Header.Set("X-Telegram-Bot-Api-Secret-Token", webhookSecret)
+		}
 		req.ContentLength = int64(len(raw))
 		resp, err := client.Do(req)
 		if err != nil {

@@ -418,7 +418,6 @@ func Setup(r *gin.Engine) {
 	// v1.2 出海方案：注入多语言解析器，供 webhook 入口注入双语言 ctx
 	webhookCtrl.SetLangResolver(langResolver)
 	webhookCtrl.RegisterRoutes(r)
-	defer webhookCtrl.Stop()
 
 	// 多 AI 智能体路由：注入到 WebhookService（渠道绑定智能体）
 	webhookCtrl.SetAgentBindingService(channelBindingSvcGlobal)

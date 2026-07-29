@@ -1060,6 +1060,17 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 	if err != nil {
 		return nil, nil, fmt.Errorf("telegram parse: %w", err)
 	}
+	// 从 Telegram 消息中提取文本内容，设置到 ParsedPayload.Content
+	// 这样 triggerSmartOrchestrator 可以正确获取消息内容
+	if tgPayload.Message != nil {
+		text := tgPayload.Message.Text
+		if text == "" {
+			text = tgPayload.Message.Caption
+		}
+		if text != "" {
+			p.Content = text
+		}
+	}
 	// 群内「@机器人 才回复」所需的 @username（注册 webhook 时经 getMe 自动回填；为空则降级为仅回复被@机器人消息）
 	botUsername := s.getTelegramBotUsername(ctx, accountID)
 
@@ -1600,7 +1611,6 @@ func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookCha
 		}
 		return acc.AIAgentEnabled
 	case ChannelFeishu:
-		// 复用构造期缓存的仓库，不再每条消息重复 New
 		if s.feishuRepo == nil {
 			return false
 		}
@@ -1610,7 +1620,6 @@ func (s *WebhookService) shouldTriggerAI(ctx context.Context, channel WebhookCha
 		}
 		return acc.AIAgentEnabled
 	case ChannelTelegram:
-		// TG 机器人收到消息后，如果账号开启了 智能体开关，则自动触发 智能体流程
 		if s.telegramRepo == nil {
 			return false
 		}

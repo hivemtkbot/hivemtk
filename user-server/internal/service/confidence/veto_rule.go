@@ -75,7 +75,7 @@ func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool,
 
 // VetoLowRAG RAG 覆盖过低
 type VetoLowRAG struct {
-	Threshold float64 // 默认 0.1
+	Threshold float64 // 默认 0（禁用，让 AI 先能回复）
 }
 
 // Check 实现 VetoRule
@@ -84,7 +84,7 @@ type VetoLowRAG struct {
 func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, string) {
 	threshold := r.Threshold
 	if threshold <= 0 {
-		threshold = 0.1
+		return false, "" // threshold=0 表示禁用此否决规则
 	}
 	if signals.RAGQual < threshold {
 		return true, "veto_low_rag"
@@ -180,7 +180,7 @@ func NewVetoChain() *VetoChain {
 			&VetoComplaint{},
 			&VetoLoop{},
 			&VetoLowEntity{Threshold: 0.2},
-			&VetoLowRAG{Threshold: 0.1},
+			&VetoLowRAG{Threshold: 0}, // 禁用 RAG 否决
 			&VetoHighEntropy{Threshold: 0.2},
 		},
 	}
