@@ -1336,6 +1336,11 @@ func customerNameOf(c *model.Customer) string {
 	if c == nil {
 		return ""
 	}
+	// 优先使用客户姓名（如果有的话）
+	if c.Name != "" {
+		return c.Name
+	}
+	// 回退到手机号
 	return c.Phone
 }
 

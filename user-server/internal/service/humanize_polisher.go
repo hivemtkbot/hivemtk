@@ -50,7 +50,7 @@ func NewHumanizePolisher() *HumanizePolisher {
 	return &HumanizePolisher{
 		enableParticles:  true,
 		enableTruncation: true,
-		maxLength:        80,
+		maxLength:        200,
 		platformStyle: PlatformStyle{
 			AllowEmoji:     true,
 			AllowFormality: false,
@@ -207,14 +207,7 @@ func (p *HumanizePolisher) personalize(ctx context.Context, text, name, platform
 		return text
 	}
 	// 在开头加称呼（轻量化）
-	// 注意：商业产品对称呼很敏感，我们只对"未识别"类回复加称呼
-	noPersonalizeIntents := map[string]bool{
-		IntentPriceInquiry: true,
-		IntentAskProduct:   true,
-	}
-	// 实际可以根据意图决定，这里保守起见不强制添加
-	_ = noPersonalizeIntents
-	return text
+	return name + "，" + text
 }
 
 // shouldAddParticle 是否应添加语气词
