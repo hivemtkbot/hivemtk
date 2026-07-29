@@ -490,19 +490,7 @@ func (o *SmartCSOrchestrator) isAgentOnline(ctx context.Context, agentID uint) (
 
 // isUrgentOrComplaint 是否紧急/投诉
 func (o *SmartCSOrchestrator) isUrgentOrComplaint(ctx context.Context, content string) bool {
-	urgentKeywords := []string{
-		"投诉", "举报", "曝光", "315", "消协", "工商局",
-		"紧急", "着急", "马上", "立刻", "赶紧", "快点",
-		"骗子", "假货", "垃圾", "再也不买",
-		"退钱", "退款", "赔钱", "赔偿",
-	}
-	lower := strings.ToLower(content)
-	for _, kw := range urgentKeywords {
-		if strings.Contains(lower, kw) {
-			return true
-		}
-	}
-	return false
+	return MatchUrgentKeywords(content)
 }
 
 // extractConfidence 从 SalesResponse 提取置信度

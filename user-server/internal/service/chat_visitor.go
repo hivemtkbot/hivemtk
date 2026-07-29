@@ -726,14 +726,6 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 // NLP 关键词自动转人工（2026-07-17）
 // ============================================================================
 
-// transferKeywords 触发自动转人工的关键词（私域部署基线）
-// 1) 与 config.yaml `chat.transfer_keywords` 同步
-// 2) 兜底：当 config 不可用时使用以下默认值
-// 3) 中文/英文双语覆盖
-var transferKeywords = []string{
-	"人工", "真人", "转人工", "找人", "客服", "operator", "human", "agent",
-}
-
 // shouldForceTransferByKeywords 判断用户消息是否命中"转人工"关键词
 //
 // 设计：
@@ -741,17 +733,5 @@ var transferKeywords = []string{
 //   - 子串匹配（无需分词；词组内包含关键词即命中）
 //   - 多语言支持：中文 2-4 字关键词 / 英文单词
 func shouldForceTransferByKeywords(content string) bool {
-	if content == "" {
-		return false
-	}
-	lc := strings.ToLower(content)
-	for _, kw := range transferKeywords {
-		if kw == "" {
-			continue
-		}
-		if strings.Contains(lc, strings.ToLower(kw)) {
-			return true
-		}
-	}
-	return false
+	return MatchTransferKeywords(content)
 }
