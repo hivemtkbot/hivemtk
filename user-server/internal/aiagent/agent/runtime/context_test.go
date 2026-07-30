@@ -1,0 +1,228 @@
+package agent_runtime
+
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+// ============================================================================
+// ContextCompressor 单元测试
+// ============================================================================
+
+// mockLLMClient 模拟LLM客户端
+type mockLLMClient struct {
+	response string
+	err      error
+}
+
+func (c *mockLLMClient) Generate(ctx context.Context, prompt string) (string, error) {
+	return c.response, c.err
+}
+
+func TestSimpleTokenEstimator_Estimate(t *testing.T) {
+	estimator := &SimpleTokenEstimator{}
+
+	tests := []struct {
+		name     string
+		text     string
+		expected int
+	}{
+		{"空文本", "", 0},
+		{"中文", "你好世界", 8},
+		{"英文", "hello world", 2},  // 1个单词约1.3个token，向下取整
+		{"混合", "你好world", 5},  // 2个中文字符(4) + 1个单词(1.3≈1)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := estimator.Estimate(tt.text)
+			if result != tt.expected {
+				t.Errorf("Estimate(%s) = %d, want %d", tt.text, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSummarizationCompressor_ShouldCompress(t *testing.T) {
+	llmClient := &mockLLMClient{response: "摘要"}
+	compressor := NewSummarizationCompressor(llmClient, 0.8)
+
+	messages := []Message{
+		{Role: "user", Content: "这是一个测试消息"},
+		{Role: "assistant", Content: "这是回复"},
+	}
+
+	// 小消息不应该压缩
+	if compressor.ShouldCompress(messages, 1000) {
+		t.Error("小消息不应该压缩")
+	}
+
+	// 大消息应该压缩
+	largeMessages := make([]Message, 100)
+	for i := range largeMessages {
+		largeMessages[i] = Message{
+			Role:    "user",
+			Content: "这是一个很长的消息用于测试压缩功能",
+		}
+	}
+
+	if !compressor.ShouldCompress(largeMessages, 100) {
+		t.Error("大消息应该压缩")
+	}
+}
+
+func TestSummarizationCompressor_Compress(t *testing.T) {
+	llmClient := &mockLLMClient{response: "这是对话摘要"}
+	compressor := NewSummarizationCompressor(llmClient, 0.8)
+
+	messages := make([]Message, 20)
+	for i := range messages {
+		messages[i] = Message{
+			Role:    "user",
+			Content: "这是第" + string(rune('0'+i%10)) + "条消息",
+		}
+	}
+
+	compressed, err := compressor.Compress(messages, 50)
+	if err != nil {
+		t.Fatalf("Compress failed: %v", err)
+	}
+
+	// 压缩后的消息应该少于原始消息
+	if len(compressed) >= len(messages) {
+		t.Errorf("压缩失败，期望消息数减少，原始 %d，压缩后 %d", len(messages), len(compressed))
+	}
+
+	// 第一条消息应该是摘要
+	if compressed[0].Role != "system" {
+		t.Errorf("第一条消息应该是摘要，实际 %s", compressed[0].Role)
+	}
+}
+
+func TestToolCallHistory_AddAndGet(t *testing.T) {
+	history := NewToolCallHistory()
+
+	// 添加调用记录
+	record := ToolCallRecord{
+		CallID:   "call-1",
+		ToolName: "test.tool",
+		Args:     map[string]any{"key": "value"},
+		Result: &ToolResult{
+			Success: true,
+			Data:    "result",
+		},
+		ExecutedAt: time.Now(),
+		Duration:   time.Second,
+	}
+
+	history.AddCall(record)
+
+	// 验证数量
+	if history.Count() != 1 {
+		t.Errorf("Count() = %d, want 1", history.Count())
+	}
+
+	// 获取调用记录
+	got, exists := history.GetCall("call-1")
+	if !exists {
+		t.Fatal("GetCall() not found")
+	}
+
+	if got.ToolName != "test.tool" {
+		t.Errorf("ToolName = %s, want test.tool", got.ToolName)
+	}
+
+	// 获取结果
+	result, exists := history.GetResult("call-1")
+	if !exists {
+		t.Fatal("GetResult() not found")
+	}
+
+	if !result.Success {
+		t.Error("Result.Success should be true")
+	}
+}
+
+func TestToolCallHistory_GetCallsByTool(t *testing.T) {
+	history := NewToolCallHistory()
+
+	// 添加多条记录
+	history.AddCall(ToolCallRecord{CallID: "call-1", ToolName: "tool.a"})
+	history.AddCall(ToolCallRecord{CallID: "call-2", ToolName: "tool.b"})
+	history.AddCall(ToolCallRecord{CallID: "call-3", ToolName: "tool.a"})
+
+	// 按工具名查询
+	calls := history.GetCallsByTool("tool.a")
+	if len(calls) != 2 {
+		t.Errorf("GetCallsByTool(tool.a) = %d, want 2", len(calls))
+	}
+
+	calls = history.GetCallsByTool("tool.b")
+	if len(calls) != 1 {
+		t.Errorf("GetCallsByTool(tool.b) = %d, want 1", len(calls))
+	}
+}
+
+func TestToolCallHistory_ToMessages(t *testing.T) {
+	history := NewToolCallHistory()
+
+	history.AddCall(ToolCallRecord{
+		CallID:     "call-1",
+		ToolName:   "test.tool",
+		Args:       map[string]any{"key": "value"},
+		Result:     &ToolResult{Success: true, Data: "result"},
+		ExecutedAt: time.Now(),
+		Duration:   time.Second,
+	})
+
+	messages := history.ToMessages()
+
+	// 应该有两条消息：工具调用和工具结果
+	if len(messages) != 2 {
+		t.Errorf("ToMessages() returned %d messages, want 2", len(messages))
+	}
+
+	// 第一条是工具调用
+	if messages[0].Role != "assistant" {
+		t.Errorf("First message role = %s, want assistant", messages[0].Role)
+	}
+
+	// 第二条是工具结果
+	if messages[1].Role != "tool" {
+		t.Errorf("Second message role = %s, want tool", messages[1].Role)
+	}
+}
+
+func TestToolCallHistory_Clear(t *testing.T) {
+	history := NewToolCallHistory()
+
+	history.AddCall(ToolCallRecord{CallID: "call-1"})
+	history.AddCall(ToolCallRecord{CallID: "call-2"})
+
+	history.Clear()
+
+	if history.Count() != 0 {
+		t.Errorf("Count() after Clear() = %d, want 0", history.Count())
+	}
+}
+
+func TestChannelStreamHandler(t *testing.T) {
+	handler := NewChannelStreamHandler(10)
+
+	// 发送事件
+	handler.OnEvent(StreamEvent{Type: StreamEventToolCall, ToolName: "test.tool"})
+	handler.OnEvent(StreamEvent{Type: StreamEventToolResult, Content: "result"})
+	handler.OnComplete()
+
+	// 读取事件
+	events := handler.Events()
+	count := 0
+	for range events {
+		count++
+	}
+
+	if count != 3 {
+		t.Errorf("Received %d events, want 3", count)
+	}
+}

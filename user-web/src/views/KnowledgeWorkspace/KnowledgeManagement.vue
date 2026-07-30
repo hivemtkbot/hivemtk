@@ -40,11 +40,38 @@
       </el-col>
     </el-row>
 
+    <!-- 关联AI工具 -->
+    <el-card class="tools-card" shadow="never">
+      <template #header>
+        <div class="card-header">
+          <span>{{ $t('关联 AI 工具') }}</span>
+          <el-button link type="primary" @click="goToToolManagement">{{ $t('管理工具') }} →</el-button>
+        </div>
+      </template>
+      <el-row :gutter="16">
+        <el-col :span="6" v-for="tool in knowledgeTools" :key="tool.tool_name">
+          <el-card shadow="hover" class="tool-item" @click="goToToolDetail(tool)">
+            <div class="tool-icon">
+              <el-icon :size="24"><component :is="getToolIcon(tool.tool_name)" /></el-icon>
+            </div>
+            <div class="tool-info">
+              <div class="tool-name">{{ tool.config?.description_zh || tool.tool_name }}</div>
+              <div class="tool-status">
+                <el-tag :type="tool.is_enabled ? 'success' : 'info'" size="small">
+                  {{ tool.is_enabled ? '已启用' : '已禁用' }}
+                </el-tag>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </el-card>
+
     <!-- 工具栏 -->
     <el-card class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-select v-model="filter.product_id" :placeholder="$t('选择产品')" clearable style="width: 200px" @change="handleSearch">
+          <el-select v-model="filter.product_id" :placeholder="$t('选择知识库')" clearable style="width: 200px" @change="handleSearch">
             <el-option v-for="p in productList" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
           <el-select v-model="filter.embed_status" :placeholder="$t('嵌入状态')" clearable style="width: 130px" @change="handleSearch">
@@ -232,11 +259,6 @@
         <el-table-column prop="token_count" label="Tokens" width="100" />
         <el-table-column prop="char_count" label="字符数" width="100" />
       </el-table>
-      <div style="margin-top: 12px; text-align: right">
-        <el-button type="primary" @click="goToChunkEditor(currentDoc.id)">
-          打开分段编辑器(共 {{ currentDoc.chunk_count }} 段) →
-        </el-button>
-      </div>
     </el-dialog>
   </div>
 </template>
@@ -247,17 +269,15 @@ import i18n from '@/i18n'
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, Refresh, UploadFilled } from '@element-plus/icons-vue'
+import { Upload, Refresh, UploadFilled, Search, Document, ChatDotRound, Plus, List } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api/knowledge'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
+import { listTools } from '@/api/aiTool'
 // 统一枚举：知识库嵌入状态、来源类型
 import { EMBED_STATUS, getStatusLabel, getStatusTagType } from '@/constants/status'
 import { getSourceLabel, getSourceTagType } from '@/constants/source'
 
 const router = useRouter()
-const goToChunkEditor = (docId) => {
-  router.push({ name: 'KnowledgeChunks', query: { docId } })
-}
 
 const loading = ref(false)
 const importing = ref(false)
@@ -268,6 +288,7 @@ const importTab = ref('upload')
 const overview = ref({})
 const documents = ref([])
 const productList = ref([])
+const knowledgeTools = ref([])
 const chunks = ref([])
 const currentDoc = ref(null)
 
@@ -292,7 +313,7 @@ const importForm = reactive({
 let pollTimer = null
 
 const loadAll = async () => {
-  await Promise.all([loadOverview(), loadProducts(), loadDocuments()])
+  await Promise.all([loadOverview(), loadProducts(), loadDocuments(), loadKnowledgeTools()])
 }
 
 const loadOverview = async () => {
@@ -315,6 +336,33 @@ const loadProducts = async () => {
   } catch (e) {
     console.error('加载产品列表失败:', e)
   }
+}
+
+const loadKnowledgeTools = async () => {
+  try {
+    const res = await listTools({ category: 'knowledge' })
+    knowledgeTools.value = res?.list || []
+  } catch (e) {
+    console.error('加载知识库工具失败:', e)
+  }
+}
+
+const getToolIcon = (toolName) => {
+  const iconMap = {
+    'rag.search': 'Search',
+    'knowledge.feedback': 'ChatDotRound',
+    'knowledge.add_doc': 'Plus',
+    'knowledge.list_kb': 'List'
+  }
+  return iconMap[toolName] || 'Document'
+}
+
+const goToToolManagement = () => {
+  router.push('/aiAgent/tools')
+}
+
+const goToToolDetail = (tool) => {
+  router.push('/aiAgent/tools')
 }
 
 const loadDocuments = async () => {
@@ -523,6 +571,48 @@ const truncateText = (s, n) => s ? (s.length > n ? s.substring(0, n) + '...' : s
 
 .toolbar-card {
   margin-bottom: 16px;
+}
+
+.tools-card {
+  margin-bottom: 16px;
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .tool-item {
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 16px;
+    
+    &:hover {
+      transform: translateY(-2px);
+    }
+    
+    .tool-icon {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+      color: #409EFF;
+    }
+    
+    .tool-info {
+      text-align: center;
+      
+      .tool-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #303133;
+        margin-bottom: 8px;
+      }
+      
+      .tool-status {
+        font-size: 12px;
+      }
+    }
+  }
 }
 
 .toolbar {

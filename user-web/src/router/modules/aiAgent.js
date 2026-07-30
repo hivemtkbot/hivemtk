@@ -22,5 +22,11 @@ export default [
     name: 'AIAgentEdit',
     component: () => import('@/views/aiAgent/Edit.vue'),
     meta: { title: '编辑智能体', group: 'aiAgent', icon: 'Edit' }
+  },
+  {
+    path: 'aiAgent/tools',
+    name: 'AIToolManagement',
+    component: () => import('@/views/aiAgent/ToolManagement/ToolList.vue'),
+    meta: { title: 'AI 工具管理', group: 'aiAgent', icon: 'Tools' }
   }
 ]

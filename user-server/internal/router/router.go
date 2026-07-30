@@ -377,6 +377,10 @@ func Setup(r *gin.Engine) {
 		// 端点：/api/agent/tools/permission/{default,global,agents}
 		setupToolPermissionRoutes(auth)
 
+		// AI 工具配置管理 API
+		// 端点：/api/ai-tools/{list,get,status,accounts}
+		setupAIToolConfigRoutes(auth, db.GetDB())
+
 		// 推理闭环 API（P1-6，原本已实现但未装配，P0 优化激活）
 		// 端点：/api/agent/inference/{run,stats}
 		// 注意：initInferenceOrchestrator 必须在 router.Setup 早期调用；

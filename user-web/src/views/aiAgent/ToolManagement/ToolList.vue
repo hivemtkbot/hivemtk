@@ -1,0 +1,417 @@
+<template>
+  <div class="tool-management-page">
+    <!-- 页面头部 -->
+    <el-card class="header-card" shadow="never">
+      <div class="header-content">
+        <div>
+          <h2>AI 工具管理</h2>
+          <p class="subtitle">管理 40 个 AI 工具的启用状态和账号绑定</p>
+        </div>
+        <div class="header-actions">
+          <el-button @click="loadTools" :loading="loading">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 统计卡片 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card">
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">工具总数</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card stat-success">
+          <div class="stat-value">{{ stats.enabled }}</div>
+          <div class="stat-label">已启用</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card stat-warning">
+          <div class="stat-value">{{ stats.disabled }}</div>
+          <div class="stat-label">已禁用</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" class="stat-card stat-info">
+          <div class="stat-value">{{ stats.categories }}</div>
+          <div class="stat-label">工具分类</div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 筛选栏 -->
+    <el-card shadow="never" class="filter-card">
+      <el-form :inline="true" :model="filter">
+        <el-form-item label="分类">
+          <el-select v-model="filter.category" placeholder="全部分类" clearable @change="loadTools">
+            <el-option label="触达工具" value="reach" />
+            <el-option label="客户工具" value="customer" />
+            <el-option label="知识工具" value="knowledge" />
+            <el-option label="业务工具" value="business" />
+            <el-option label="私信工具" value="private_message" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filter.enabled" placeholder="全部状态" clearable @change="loadTools">
+            <el-option label="已启用" :value="true" />
+            <el-option label="已禁用" :value="false" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="loadTools">搜索</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 工具列表 -->
+    <el-card shadow="never">
+      <el-table :data="tools" v-loading="loading" stripe border>
+        <el-table-column label="工具" min-width="280">
+          <template #default="{ row }">
+            <div class="tool-info">
+              <div class="tool-name">{{ row.tool_name }}</div>
+              <div class="tool-desc">{{ row.config?.description_zh || getCategoryLabel(row.category) }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="分类" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getCategoryTagType(row.category)" size="small">
+              {{ getCategoryLabel(row.category) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-switch
+              v-model="row.is_enabled"
+              @change="onToggleTool(row)"
+              :loading="row._toggling"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="绑定账号" min-width="200">
+          <template #default="{ row }">
+            <div v-if="row.bound_accounts?.length">
+              <el-tag
+                v-for="(account, index) in row.bound_accounts"
+                :key="index"
+                type="success"
+                size="small"
+                class="account-tag"
+              >
+                {{ account.account_id }}
+                <el-icon v-if="account.is_primary" class="primary-icon"><Star /></el-icon>
+              </el-tag>
+            </div>
+            <div v-else-if="needsAccount(row.category)">
+              <el-button link type="primary" size="small" @click="openBindDialog(row)">
+                绑定账号
+              </el-button>
+            </div>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openDetail(row)">
+              详情
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- 详情弹窗 -->
+    <el-dialog v-model="detailVisible" title="工具详情" width="600px">
+      <el-descriptions :column="2" border v-if="currentTool">
+        <el-descriptions-item label="工具名称">{{ currentTool.tool_name }}</el-descriptions-item>
+        <el-descriptions-item label="分类">
+          <el-tag :type="getCategoryTagType(currentTool.category)" size="small">
+            {{ getCategoryLabel(currentTool.category) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="currentTool.is_enabled ? 'success' : 'info'" size="small">
+            {{ currentTool.is_enabled ? '已启用' : '已禁用' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="显示顺序">{{ currentTool.display_order }}</el-descriptions-item>
+        <el-descriptions-item label="配置" :span="2">
+          <pre class="config-json">{{ JSON.stringify(currentTool.config || {}, null, 2) }}</pre>
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
+
+    <!-- 绑定账号弹窗 -->
+    <el-dialog v-model="bindDialogVisible" :title="`绑定账号 - ${currentTool?.tool_name}`" width="600px">
+      <el-form :model="bindForm" label-width="100px">
+        <el-form-item label="账号类型">
+          <el-select v-model="bindForm.account_type" placeholder="选择账号类型">
+            <el-option label="短信" value="sms" />
+            <el-option label="邮件" value="email" />
+            <el-option label="Telegram" value="telegram" />
+            <el-option label="企业微信" value="wecom" />
+            <el-option label="飞书" value="feishu" />
+            <el-option label="WhatsApp" value="whatsapp" />
+            <el-option label="抖音" value="douyin" />
+            <el-option label="快手" value="kuaishou" />
+            <el-option label="小红书" value="xhs" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="账号ID">
+          <el-input v-model="bindForm.account_id" placeholder="输入账号ID" />
+        </el-form-item>
+        <el-form-item label="设为主账号">
+          <el-switch v-model="bindForm.is_primary" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="bindDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="onBind">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Refresh, Star } from '@element-plus/icons-vue'
+import { listTools, updateToolStatus, bindToolAccount } from '@/api/aiTool.js'
+
+// 状态
+const loading = ref(false)
+const tools = ref([])
+const filter = reactive({
+  category: '',
+  enabled: null
+})
+const stats = reactive({
+  total: 0,
+  enabled: 0,
+  disabled: 0,
+  categories: 5
+})
+
+// 详情弹窗
+const detailVisible = ref(false)
+const currentTool = ref(null)
+
+// 绑定弹窗
+const bindDialogVisible = ref(false)
+const bindForm = reactive({
+  account_type: '',
+  account_id: '',
+  is_primary: false
+})
+
+// 分类映射
+const categoryMap = {
+  reach: '触达工具',
+  customer: '客户工具',
+  knowledge: '知识工具',
+  business: '业务工具',
+  private_message: '私信工具'
+}
+
+const getCategoryLabel = (category) => categoryMap[category] || category
+
+const getCategoryTagType = (category) => {
+  const map = {
+    reach: 'primary',
+    customer: 'success',
+    knowledge: 'warning',
+    business: 'info',
+    private_message: 'danger'
+  }
+  return map[category] || 'info'
+}
+
+// 判断是否需要账号
+const needsAccount = (category) => {
+  return category === 'reach' || category === 'private_message'
+}
+
+// 加载工具列表
+const loadTools = async () => {
+  loading.value = true
+  try {
+    const params = {}
+    if (filter.category) params.category = filter.category
+    if (filter.enabled !== null) params.enabled = filter.enabled
+
+    const res = await listTools(params)
+    tools.value = res?.list || []
+
+    // 计算统计
+    stats.total = tools.value.length
+    stats.enabled = tools.value.filter(t => t.is_enabled).length
+    stats.disabled = tools.value.filter(t => !t.is_enabled).length
+  } catch (e) {
+    ElMessage.error('加载工具列表失败：' + e.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 切换工具状态
+const onToggleTool = async (tool) => {
+  tool._toggling = true
+  try {
+    await updateToolStatus(tool.tool_name, tool.is_enabled)
+    ElMessage.success(`${tool.is_enabled ? '启用' : '禁用'}成功`)
+  } catch (e) {
+    tool.is_enabled = !tool.is_enabled
+    ElMessage.error('操作失败：' + e.message)
+  } finally {
+    tool._toggling = false
+  }
+}
+
+// 重置筛选
+const resetFilter = () => {
+  filter.category = ''
+  filter.enabled = null
+  loadTools()
+}
+
+// 打开详情
+const openDetail = (tool) => {
+  currentTool.value = tool
+  detailVisible.value = true
+}
+
+// 打开绑定弹窗
+const openBindDialog = (tool) => {
+  currentTool.value = tool
+  bindForm.account_type = ''
+  bindForm.account_id = ''
+  bindForm.is_primary = false
+  bindDialogVisible.value = true
+}
+
+// 绑定账号
+const onBind = async () => {
+  if (!bindForm.account_type || !bindForm.account_id) {
+    ElMessage.warning('请选择账号类型并输入账号ID')
+    return
+  }
+
+  try {
+    await bindToolAccount(
+      currentTool.value.tool_name,
+      bindForm.account_type,
+      bindForm.account_id,
+      bindForm.is_primary
+    )
+    ElMessage.success('绑定成功')
+    bindDialogVisible.value = false
+    loadTools()
+  } catch (e) {
+    ElMessage.error('绑定失败：' + e.message)
+  }
+}
+
+// 初始化
+onMounted(() => {
+  loadTools()
+})
+</script>
+
+<style scoped lang="scss">
+.tool-management-page {
+  padding: 20px;
+}
+
+.header-card {
+  margin-bottom: 16px;
+  
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    h2 {
+      margin: 0 0 6px 0;
+      font-size: 20px;
+    }
+    
+    .subtitle {
+      color: #909399;
+      margin: 0;
+      font-size: 13px;
+    }
+  }
+}
+
+.stats-row {
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  text-align: center;
+  
+  .stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #303133;
+  }
+  
+  .stat-label {
+    font-size: 13px;
+    color: #909399;
+    margin-top: 4px;
+  }
+  
+  &.stat-success .stat-value { color: #67C23A; }
+  &.stat-warning .stat-value { color: #E6A23C; }
+  &.stat-info .stat-value { color: #409EFF; }
+}
+
+.filter-card {
+  margin-bottom: 16px;
+}
+
+.tool-info {
+  .tool-name {
+    font-weight: 500;
+    color: #303133;
+  }
+  
+  .tool-desc {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
+  }
+}
+
+.account-tag {
+  margin-right: 4px;
+  margin-bottom: 4px;
+  
+  .primary-icon {
+    margin-left: 2px;
+    color: #F7BA2A;
+  }
+}
+
+.text-muted {
+  color: #C0C4CC;
+}
+
+.config-json {
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+</style>

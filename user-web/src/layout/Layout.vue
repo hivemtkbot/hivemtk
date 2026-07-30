@@ -281,7 +281,8 @@ const topMenus = ref([
         icon: 'Connection',
         children: [
           { key: 'sopAgent', title: 'SOP 智能体', icon: 'Connection', path: '/sopAgent/list' },
-          { key: 'scriptTemplate', title: '销冠话术库', icon: 'ChatLineSquare', path: '/scriptTemplate/list' }
+          { key: 'scriptTemplate', title: '销冠话术库', icon: 'ChatLineSquare', path: '/scriptTemplate/list' },
+          { key: 'aiToolManagement', title: 'AI 工具管理', icon: 'Tools', path: '/aiAgent/tools' }
         ]
       },
       {

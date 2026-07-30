@@ -43,9 +43,10 @@ type Tool interface {
 
 // ToolParameters 工具参数 JSON Schema
 type ToolParameters struct {
-	Type       string               `json:"type"`                 // 固定 "object"
-	Properties map[string]ToolParam `json:"properties"`           // 参数属性
-	Required   []string             `json:"required,omitempty"`   // 必填参数列表
+	Type        string               `json:"type"`                  // 固定 "object"
+	Properties  map[string]ToolParam `json:"properties"`            // 参数属性
+	Required    []string             `json:"required,omitempty"`    // 必填参数列表
+	Definitions map[string]ToolParam `json:"definitions,omitempty"` // 复用的类型定义（支持$ref）
 }
 
 // ToolParam 单个参数定义
@@ -56,6 +57,7 @@ type ToolParam struct {
 	Default     any                  `json:"default,omitempty"`    // 默认值（可选）
 	Items       *ToolParam           `json:"items,omitempty"`      // 数组元素类型（type=array 时）
 	Properties  map[string]ToolParam `json:"properties,omitempty"` // 对象属性（type=object 时）
+	Ref         string               `json:"$ref,omitempty"`       // 引用definitions中的类型定义
 }
 
 // ToolResult 工具执行结果

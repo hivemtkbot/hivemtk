@@ -18,12 +18,6 @@ export default [
     meta: { title: '检索 Playground', group: 'knowledge', icon: 'Aim', requiresAuth: true }
   },
   {
-    path: 'knowledge/chunks',
-    name: 'KnowledgeChunks',
-    component: () => import('@/views/KnowledgeWorkspace/ChunkManagement.vue'),
-    meta: { title: '分段编辑', group: 'knowledge', icon: 'Files', requiresAuth: true }
-  },
-  {
     path: 'knowledge/feedbacks',
     name: 'KnowledgeFeedbacks',
     component: () => import('@/views/KnowledgeWorkspace/FeedbackList.vue'),
