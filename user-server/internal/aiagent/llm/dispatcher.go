@@ -196,10 +196,11 @@ func (d *Dispatcher) registerLocalProvider(llmCfg config.InferenceLLMConfig) {
 //
 // 启发式规则：BaseURL 含 127.0.0.1 / localhost / mtk-llm 视为本地 → true
 func resolveNoFC(llmCfg config.InferenceLLMConfig) bool {
-	if llmCfg.NoFC {
-		return true
+	// 用户显式设置 no_fc 时，直接使用该值（跳过 URL 启发式）
+	if llmCfg.NoFC != nil {
+		return *llmCfg.NoFC
 	}
-	// URL 启发式兜底
+	// URL 启发式兜底（用户未设置时）
 	base := strings.ToLower(llmCfg.BaseURL)
 	return base == "" || strings.Contains(base, "127.0.0.1") || strings.Contains(base, "localhost") || strings.Contains(base, "mtk-llm")
 }
@@ -814,6 +815,8 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 	// - 不向 LLM 发送 OpenAI tools 参数（无 FC 能力 LLM 会报错）
 	// - 调用后解析 Thought/Action/Action Input 并构造 ToolCall
 	reactMode := IsReActMode(&req, provider.NoFC)
+	logger.Infof("[Dispatcher] provider=%s NoFC=%v reactMode=%v tools=%d",
+		provider.Name, provider.NoFC, reactMode, len(req.Tools))
 	if reactMode {
 		// 追加 ReAct 系统提示词
 		originalSystem := config.SystemPrompt

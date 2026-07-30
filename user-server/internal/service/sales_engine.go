@@ -293,20 +293,6 @@ func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecuto
 	e.toolExecutor = exec
 }
 
-// isLocalModel 检查当前 LLM 是否为本地模型（不支持 Function Calling）
-func (e *SalesEngine) isLocalModel() bool {
-	if e.dispatcher == nil {
-		return true
-	}
-	providers := e.dispatcher.GetProviderList()
-	for _, p := range providers {
-		if p.Name == "default" {
-			return p.NoFC
-		}
-	}
-	return true
-}
-
 // SalesRequest 销售请求
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SalesRequest = dto.SalesRequest
@@ -813,6 +799,8 @@ func (e *SalesEngine) generateCandidate(
 		return "", nil, fmt.Errorf("dispatcher is nil")
 	}
 
+	// Agent Loop 场景：只传用户原始消息，不传 RAG 结果（让模型自己决定是否调用工具）
+	agentPrompt := req.UserMessage
 	prompt := e.buildPrompt(req, intent, mem, sop, stage, ragChunks, script, customer)
 	scenario := llm.ScenarioSOPReply
 	if intent != nil && intent.IntentType == IntentObjectionPrice {
@@ -822,11 +810,10 @@ func (e *SalesEngine) generateCandidate(
 	}
 
 	// P0-3: 智能体 Agent Loop 路径（真正的智能体，不做流程编排）
-	// 本地模型（NoFC）无法可靠执行 ReAct 协议，跳过 Agent Loop 走普通 RAG 管线
-	if e.toolExecutor != nil && !e.isLocalModel() {
+	if e.toolExecutor != nil {
 		availableTools := e.toolExecutor.ListTools()
 		if len(availableTools) > 0 {
-			return e.runAgentLoop(ctx, scenario, prompt, req, intent, mem, customer, availableTools)
+			return e.runAgentLoop(ctx, scenario, agentPrompt, req, intent, mem, customer, availableTools)
 		}
 	}
 
@@ -912,8 +899,8 @@ func (e *SalesEngine) runAgentLoop(
 	availableTools []AgentToolDef,
 ) (string, *llm.DispatchResult, error) {
 	// 1. 构造工具定义列表（AgentToolDef → llm.ToolDefinition）
-	// 本地小模型（7B）无法处理 40+ 工具，只注入销售场景最相关的工具
-	filteredTools := filterToolsForAgent(availableTools, 8)
+	// 限制工具数量，避免 prompt 过长超出上下文窗口
+	filteredTools := limitToolsForAgent(availableTools, 10)
 	toolDefs := make([]llm.ToolDefinition, 0, len(filteredTools))
 	for _, fn := range filteredTools {
 		params := fn.Parameters
@@ -974,6 +961,8 @@ func (e *SalesEngine) runAgentLoop(
 		}
 
 		// 3.1 调用 LLM（携带 tools + 完整对话历史）
+		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d", iter, len(messages), len(toolDefs), len(prompt))
+		logger.Infof("[AgentLoop] prompt_preview=%s", truncate(prompt, 300))
 		result, err := e.dispatcher.Dispatch(agentLoopCtx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt, // 仅在 Messages 为空时使用，这里 Messages 非空
@@ -1072,22 +1061,33 @@ func (e *SalesEngine) runAgentLoop(
 	return "", nil, fmt.Errorf("agent loop exhausted with no final content")
 }
 
-// filterToolsForAgent 过滤工具列表，只保留销售场景最相关的工具
-// 本地小模型（7B）无法处理 40+ 工具的 ReAct prompt，限制到 maxTools 个
-func filterToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
+// buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
+// 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
+func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer) string {
+	var sb strings.Builder
+	sb.WriteString(persona)
+
+	if customer != nil {
+		name := customerNameOf(customer)
+		if name != "" {
+			sb.WriteString(fmt.Sprintf("\n[客户] %s", name))
+		}
+	}
+	return sb.String()
+}
+
+// limitToolsForAgent 限制注入到 LLM 的工具数量
+// 40 个工具全注入会超出上下文窗口，只保留最相关的 maxTools 个
+func limitToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
 	if len(tools) <= maxTools {
 		return tools
 	}
 	// 销售场景优先级：知识库 > 客户 > 订单 > 私信 > 其他
 	priority := map[string]int{
-		"rag.search":          1,
-		"customer.search":     2,
-		"customer.get":        3,
-		"order.lookup":        4,
-		"pm.session.open":     5,
-		"pm.message.send":     6,
-		"knowledge.feedback":  7,
-		"reach.web.send":      8,
+		"rag.search": 1, "customer.search": 2, "customer.get": 3,
+		"order.lookup": 4, "pm.session.open": 5, "pm.message.send": 6,
+		"knowledge.feedback": 7, "reach.web.send": 8,
+		"follow_task.create": 9, "follow_task.update": 10,
 	}
 	type scored struct {
 		tool  AgentToolDef
@@ -1097,7 +1097,7 @@ func filterToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
 	for _, t := range tools {
 		s, ok := priority[t.Name]
 		if !ok {
-			s = 100 // 低优先级
+			s = 100
 		}
 		scoredTools = append(scoredTools, scored{tool: t, score: s})
 	}
@@ -1109,25 +1109,6 @@ func filterToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
 		result = append(result, scoredTools[i].tool)
 	}
 	return result
-}
-
-// buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
-// 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
-func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer) string {
-	var sb strings.Builder
-	sb.WriteString(persona)
-	sb.WriteString("\n\n你可以使用工具查询知识库、客户信息、订单等。需要真实数据时调用工具，不需要时直接回复。")
-
-	if intent != nil && intent.IntentType != "" && intent.IntentType != "unknown" {
-		sb.WriteString(fmt.Sprintf("\n[意图] %s", intent.IntentType))
-	}
-	if customer != nil {
-		name := customerNameOf(customer)
-		if name != "" {
-			sb.WriteString(fmt.Sprintf("\n[客户] %s", name))
-		}
-	}
-	return sb.String()
 }
 
 // structToMap 将结构体（或任意值）转为 map[string]any

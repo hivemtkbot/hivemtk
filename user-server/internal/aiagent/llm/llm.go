@@ -304,6 +304,8 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 			if fnType == "" {
 				fnType = "function"
 			}
+			logger.Infof("[LLM] tool: name=%s desc_len=%d params=%v",
+				t.Function.Name, len(t.Function.Description), t.Function.Parameters != nil)
 			reqBody.Tools = append(reqBody.Tools, map[string]any{
 				"type": fnType,
 				"function": map[string]any{
@@ -335,6 +337,14 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	// 调试日志：记录 tools 数量
+	logger.Infof("[LLM] request: model=%s tools=%d tool_choice=%v messages=%d body_len=%d config_tools=%d config_toolchoice=%q",
+		config.Model, len(reqBody.Tools), reqBody.ToolChoice, len(messages), len(bodyBytes), len(config.Tools), config.ToolChoice)
+	// DEBUG: 写入带 tools 的请求
+	if len(reqBody.Tools) > 0 {
+		os.WriteFile("/tmp/llm_with_tools.json", bodyBytes, 0644)
 	}
 
 	resp, err := s.callProvider(ctx, config, bodyBytes)

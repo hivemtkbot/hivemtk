@@ -267,7 +267,7 @@ type InferenceLLMConfig struct {
 	MaxTokens      int                            `yaml:"max_tokens" json:"max_tokens"`
 	TimeoutSeconds int                            `yaml:"timeout_seconds" json:"timeout_seconds"`
 	MaxRetries     int                            `yaml:"max_retries" json:"max_retries"`
-	NoFC           bool                           `yaml:"no_fc" json:"no_fc"`
+	NoFC           *bool                          `yaml:"no_fc" json:"no_fc"`
 	CloudProviders []InferenceCloudProviderConfig `yaml:"cloud_providers" json:"cloud_providers"`
 }
 
