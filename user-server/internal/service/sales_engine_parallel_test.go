@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"marketing/internal/dto"
+	"marketing/internal/pkg/featureflag"
 )
 
 // TestSalesEngine_HandleParallel_NilRequest 测试 nil req 应返回 error
@@ -100,8 +101,11 @@ func TestSalesEngine_HandleParallel_DefaultConfig(t *testing.T) {
 // TestSalesEngine_ShouldUseParallel 测试 FeatureFlag 控制
 func TestSalesEngine_ShouldUseParallel(t *testing.T) {
 	// 通过临时环境变量控制
+	// 兼容 B-012 FeatureFlag 热加载: t.Setenv 只改 env 不刷缓存,
+	// 需要 ReloadAll() 才能让新的 env 值生效。
 	t.Run("FF_PARALLEL=1", func(t *testing.T) {
 		t.Setenv("FF_PARALLEL", "1")
+		featureflag.DefaultManager().ReloadAll()
 		e := &SalesEngine{}
 		if !e.shouldUseParallel() {
 			t.Error("expected shouldUseParallel=true when FF_PARALLEL=1")
@@ -110,6 +114,7 @@ func TestSalesEngine_ShouldUseParallel(t *testing.T) {
 
 	t.Run("FF_PARALLEL=0", func(t *testing.T) {
 		t.Setenv("FF_PARALLEL", "0")
+		featureflag.DefaultManager().ReloadAll()
 		e := &SalesEngine{}
 		if e.shouldUseParallel() {
 			t.Error("expected shouldUseParallel=false when FF_PARALLEL=0")
@@ -119,6 +124,7 @@ func TestSalesEngine_ShouldUseParallel(t *testing.T) {
 	t.Run("FF_PARALLEL empty", func(t *testing.T) {
 		// 不设置
 		t.Setenv("FF_PARALLEL", "")
+		featureflag.DefaultManager().ReloadAll()
 		e := &SalesEngine{}
 		if e.shouldUseParallel() {
 			t.Error("expected shouldUseParallel=false when FF_PARALLEL unset")
