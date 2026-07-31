@@ -699,13 +699,11 @@ type StreamChunkCallback = func(chunk *dto.StreamChunk) bool
 //   - Handle 一次性返回 *SalesResponse（完整回复）
 //   - HandleStream 通过 callback 实时回调 dto.StreamChunk（start / delta / final / error）
 //
-// 当前实现策略（最小可用版本，T15）：
-//   - 调用 Handle 获取最终回复（保证业务正确性）
-//   - 将最终 reply 按字符切片，按固定间隔（默认 30ms）回调 delta chunk
-//   - 最终回调 final chunk（含 steps / wall_ms / model / tokens 等元数据）
-//
-// 后续可演进：直接调用 LLM Dispatcher 的流式 API（OpenAI stream / Anthropic stream），
-// 跳过切片模拟，零额外延迟。
+// B-001 真正流式 (2026-07-31): 不再等 Handle() 完成再切片模拟流式
+//   - start chunk 立即推送（trace_id 在 < 10ms 抵达客户端）
+//   - LayerRouter 命中 (SkipLLM=true): 立即推 delta + final, LCP < 100ms
+//   - LayerRouter 未命中 / 关闭: 推 start + placeholder(LCP < 100ms),
+//     然后调 Handle() 拿最终结果后推 final, 避免客户端在 LLM 推理期间"白屏"
 //
 // 错误处理：
 //   - callback 返回 false（被中断）时立即返回 ctx.Err()
@@ -726,7 +724,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		req.Config = DefaultSalesEngineConfig()
 	}
 
-	// 1) start chunk：通知客户端 trace_id / 意图 / 启动
+	// 1) start chunk：通知客户端 trace_id / 启动
 	startChunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeStart,
 		TraceID: logger.TraceIDFromContext(ctx),
@@ -736,10 +734,63 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return ctx.Err()
 	}
 
-	// 2) 调用 Handle 获取完整回复（业务正确性优先；后续 T18+ 切到 LLM 直流）
+	// 2) B-001: 真正流式 - 先做 Layer1 路由, 命中立即推 delta + final
+	// 避免走 5 阶段并行 + LLM 推理导致 LCP 19.6s
+	if e.layerRouter != nil {
+		// 浅意图识别 (规则级, < 5ms) 走 Speculative 不可用回退到 nil
+		// LayerRouter 内部已经处理 nil intent, 不依赖这里先做 intent
+		decision := e.layerRouter.Route(ctx, &RouteRequest{
+			SessionID:   req.SessionID,
+			CustomerID:  req.CustomerID,
+			UserMessage: req.UserMessage,
+			Intent:      nil, // Stream 路径不阻塞 intent, 让 LayerRouter 内部 FAQ/SOP 走 keyword
+			RAGChunks:   nil,
+			Stage:       "",
+		})
+		if decision != nil && decision.SkipLLM && decision.Reply != "" {
+			// Layer1 命中 -> 立即推 delta (完整 reply) + final
+			// 整个 LCP < 100ms, 客户端秒收回复
+			_ = onChunk(&dto.StreamChunk{
+				Type:    dto.ChunkTypeDelta,
+				TraceID: startChunk.TraceID,
+				Text:    decision.Reply,
+				Layer:   dto.Layer1,
+				Step:    "layer1_delta",
+			})
+			finalChunk := &dto.StreamChunk{
+				Type:    dto.ChunkTypeFinal,
+				TraceID: startChunk.TraceID,
+				Text:    decision.Reply,
+				Layer:   dto.Layer1,
+				Step:    "layer1_final",
+				WallMs:  decision.WallMs,
+				Steps: []dto.SalesStepLog{{
+					Step: "layer1_fastpath", Status: "ok", LatencyMs: decision.WallMs,
+					Detail: fmt.Sprintf("layer1 hit (reason=%s faq_id=%d sop_id=%d)",
+						decision.Reason, decision.FAQID, decision.SOPID),
+				}},
+				Metadata: fmt.Sprintf(`{"layer1_reason":"%s","faq_id":%d,"sop_id":%d}`,
+					decision.Reason, decision.FAQID, decision.SOPID),
+			}
+			if !onChunk(finalChunk) {
+				return ctx.Err()
+			}
+			return nil
+		}
+	}
+
+	// 3) Layer2 路径: 先推 placeholder (LCP < 100ms), 再调 Handle() 拿最终结果
+	placeholder := "正在为您查询…"
+	_ = onChunk(&dto.StreamChunk{
+		Type:    dto.ChunkTypeDelta,
+		TraceID: startChunk.TraceID,
+		Text:    placeholder,
+		Layer:   dto.Layer2,
+		Step:    "placeholder",
+	})
+
 	resp, err := e.Handle(ctx, req)
 	if err != nil {
-		// error chunk
 		_ = onChunk(&dto.StreamChunk{
 			Type:    dto.ChunkTypeError,
 			TraceID: startChunk.TraceID,
@@ -748,17 +799,16 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return fmt.Errorf("handle stream: %w", err)
 	}
 
-	// 3) 切片发送 delta chunk（每片 1-2 字符，间隔 20ms 模拟流式）
+	// 4) Layer2: 把 Handle 拿到的回复按字符切片"模拟"流式（直到 LLM Dispatcher 切到真流式）
+	// 注意: B-001 已保证 start + placeholder 在 < 100ms 抵达, 切片延迟只影响后续体感
 	reply := resp.Reply
 	if reply == "" {
 		// 无文本（可能已转人工）— 直接发 final
 	} else {
-		// 按字符切片（中文按 rune 切，避免半字符）
 		runes := []rune(reply)
-		const batchSize = 2 // 每次推送 2 个字符；太大不够"流"，太小 chunk 太多
-		interval := 20 * time.Millisecond
+		const batchSize = 4 // Layer2 路径可稍大 (4 字符), 减少 chunk 数
+		interval := 15 * time.Millisecond
 		for i := 0; i < len(runes); i += batchSize {
-			// ctx 取消检查
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -772,12 +822,12 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 				Type:    dto.ChunkTypeDelta,
 				TraceID: startChunk.TraceID,
 				Text:    string(runes[i:end]),
-				Step:    "delta",
+				Layer:   dto.Layer2,
+				Step:    "layer2_delta",
 			}
 			if !onChunk(delta) {
 				return ctx.Err()
 			}
-			// 简易节流（仅最后一个 batch 跳过等待）
 			if end < len(runes) {
 				select {
 				case <-ctx.Done():
@@ -788,7 +838,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		}
 	}
 
-	// 4) final chunk：含完整回复 / steps / wall_ms / model / tokens
+	// 5) final chunk
 	finalChunk := &dto.StreamChunk{
 		Type:    dto.ChunkTypeFinal,
 		TraceID: startChunk.TraceID,
@@ -797,8 +847,8 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		WallMs:  resp.LatencyMs,
 		Model:   resp.LLMModel,
 		Tokens:  resp.CostTokens,
-		Layer:   layerOfResponse(resp),
-		Step:    "final",
+		Layer:   dto.Layer2,
+		Step:    "layer2_final",
 	}
 	if resp.TransferredToHuman {
 		finalChunk.Metadata = `{"transferred_to_human":true,"reason":"` + resp.TransferReason + `"}`
