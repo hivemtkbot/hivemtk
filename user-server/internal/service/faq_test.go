@@ -151,8 +151,8 @@ func TestFAQService_Stats_NilRepo(t *testing.T) {
 // TestFAQService_InvalidateCache_NilSafe 测试 nil cache 也能安全失效
 func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 	svc := &FAQService{repo: nil, db: nil}
-	// 不应 panic
-	svc.InvalidateCache()
+	// 不应 panic (agentID=0 表示失效共享池)
+	svc.InvalidateCache(0)
 }
 
 // ----------------------------------------------------------------------------
@@ -160,6 +160,8 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 // ----------------------------------------------------------------------------
 
 // mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock (B-021)
+//
+// Task 15 扩展: 同样支持 MatchByAgent / ListByAgent 的 mock 数据
 type mockFAQRepoForDecay struct {
 	candidates       []model.FAQEntry
 	cutoffSeen       time.Time
@@ -169,6 +171,12 @@ type mockFAQRepoForDecay struct {
 	}
 	listErr          error
 	decayErr         error
+	// Task 15: MatchByAgent / ListByAgent 的 mock 状态
+	agentIDSeen      uint
+	msgSeen          string
+	matchByAgentErr  error
+	listByAgentErr   error
+	entriesByAgent   map[uint][]model.FAQEntry
 }
 
 func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {
@@ -177,6 +185,39 @@ func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, to
 
 func (m *mockFAQRepoForDecay) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
 	return nil, nil
+}
+
+// MatchByAgent Task 15 mock: 默认按 agentID 过滤并返回预置 candidates
+func (m *mockFAQRepoForDecay) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
+	m.agentIDSeen = agentID
+	m.msgSeen = msg
+	if m.matchByAgentErr != nil {
+		return nil, m.matchByAgentErr
+	}
+	// 仅返回绑定到指定 agent 的 entries
+	out := make([]model.FAQEntry, 0, len(m.entriesByAgent[agentID]))
+	for _, e := range m.entriesByAgent[agentID] {
+		if e.Enabled != nil && !*e.Enabled {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+// ListByAgent Task 15 mock: 返回某 agent 的全部 entries
+func (m *mockFAQRepoForDecay) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	if m.listByAgentErr != nil {
+		return nil, m.listByAgentErr
+	}
+	out := make([]model.FAQEntry, 0, len(m.entriesByAgent[agentID]))
+	for _, e := range m.entriesByAgent[agentID] {
+		if e.Enabled != nil && !*e.Enabled {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, nil
 }
 
 func (m *mockFAQRepoForDecay) IncrementHitCount(ctx context.Context, id uint) error {
@@ -303,3 +344,309 @@ func TestFAQService_WeekDecay_ListErr(t *testing.T) {
 
 // ptrTimeUniq 构造 *time.Time (helper, 避开 service.ptrTime 重定义)
 func ptrTimeUniq(t time.Time) *time.Time { return &t }
+
+// ptrUint 构造 *uint (helper, 给 AgentID 字段用)
+func ptrUint(v uint) *uint { return &v }
+
+// ----------------------------------------------------------------------------
+// Task 15: 强 1对1 改造 - MatchByAgent 新签名测试
+// ----------------------------------------------------------------------------
+
+// TestFAQService_MatchByAgent_AgentIDZero 验证 agentID=0 直接返回 nil (移除"空数组=全局"分支)
+func TestFAQService_MatchByAgent_AgentIDZero(t *testing.T) {
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 1, Question: "q", Answer: "a", Enabled: ptrBoolUniq(true)},
+				{ID: 2, Question: "q2", Answer: "a2", Enabled: ptrBoolUniq(true)}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+
+	// agentID=0 必须返回 nil 且不查 repo (移除"空数组=全局"分支)
+	matches, err := svc.MatchByAgent(context.Background(), 0, "test", 3)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for agentID=0, got %v", matches)
+	}
+	if repo.agentIDSeen != 0 {
+		t.Errorf("repo should not be called for agentID=0, but agentIDSeen=%d", repo.agentIDSeen)
+	}
+}
+
+// TestFAQService_MatchByAgent_Bound 验证 agentID>0 走 MatchByAgent
+func TestFAQService_MatchByAgent_Bound(t *testing.T) {
+	a1 := uint(1)
+	a2 := uint(2)
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {
+				{ID: 10, Question: "韵达发货吗", Answer: "韵达不发的哦", Intent: "logistics", Confidence: 0.9, Enabled: &enabled, AgentID: &a1},
+			},
+			2: {
+				{ID: 20, Question: "可以优惠价吗", Answer: "200 把起优惠", Intent: "pricing", Confidence: 0.85, Enabled: &enabled, AgentID: &a2},
+			},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 1, "韵达发货吗", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match for agent=1, got %d", len(matches))
+	}
+	if matches[0].Entry == nil || matches[0].Entry.ID != 10 {
+		t.Errorf("expected match ID=10, got %v", matches[0].Entry)
+	}
+	if matches[0].MatchType != "agent_bound" {
+		t.Errorf("expected match_type=agent_bound, got %q", matches[0].MatchType)
+	}
+	if repo.agentIDSeen != 1 {
+		t.Errorf("expected agentIDSeen=1, got %d", repo.agentIDSeen)
+	}
+}
+
+// TestFAQService_MatchByAgent_AgentIDMismatch 验证 agentID 不匹配时返回空
+func TestFAQService_MatchByAgent_AgentIDMismatch(t *testing.T) {
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 10, Question: "q", Answer: "a", Enabled: &enabled}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 99, "test", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Errorf("expected 0 matches for agent=99, got %d", len(matches))
+	}
+}
+
+// TestFAQService_MatchByAgent_NilRepo 验证 nil repo 安全
+func TestFAQService_MatchByAgent_NilRepo(t *testing.T) {
+	svc := &FAQService{repo: nil, db: nil}
+	matches, err := svc.MatchByAgent(context.Background(), 1, "test", 3)
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for nil repo, got %v", matches)
+	}
+}
+
+// TestFAQService_MatchByAgent_RepoError 验证 repo 报错时透传
+func TestFAQService_MatchByAgent_RepoError(t *testing.T) {
+	repo := &mockFAQRepoForDecay{matchByAgentErr: fmt.Errorf("db down")}
+	svc := NewFAQServiceWithRepo(repo)
+
+	_, err := svc.MatchByAgent(context.Background(), 1, "test", 3)
+	if err == nil {
+		t.Error("expected error when MatchByAgent fails")
+	}
+}
+
+// TestFAQService_MatchByAgent_DisabledEntries 验证 enabled=false 被过滤
+func TestFAQService_MatchByAgent_DisabledEntries(t *testing.T) {
+	enabled := true
+	disabled := false
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {
+				{ID: 1, Question: "q1", Answer: "a1", Enabled: &enabled},
+				{ID: 2, Question: "q2", Answer: "a2", Enabled: &disabled},
+			},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 1, "q", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("expected 1 enabled match, got %d", len(matches))
+	}
+	if matches[0].Entry != nil && matches[0].Entry.ID != 1 {
+		t.Errorf("expected ID=1, got %d", matches[0].Entry.ID)
+	}
+}
+
+// TestFAQService_Create_RequireAgentID Task 15: Create 必填 AgentID
+func TestFAQService_Create_RequireAgentID(t *testing.T) {
+	repo := &mockFAQRepoForDecay{}
+	svc := NewFAQServiceWithRepo(repo)
+
+	// agentID nil -> 拒绝
+	err := svc.Create(context.Background(), &model.FAQEntry{
+		Question: "q",
+		Answer:   "a",
+	})
+	if err == nil {
+		t.Error("expected error when AgentID is nil")
+	}
+
+	// agentID=0 -> 拒绝
+	zero := uint(0)
+	err = svc.Create(context.Background(), &model.FAQEntry{
+		Question: "q",
+		Answer:   "a",
+		AgentID:  &zero,
+	})
+	if err == nil {
+		t.Error("expected error when AgentID=0")
+	}
+
+	// agentID>0 -> 成功
+	one := uint(1)
+	err = svc.Create(context.Background(), &model.FAQEntry{
+		Question: "q",
+		Answer:   "a",
+		AgentID:  &one,
+	})
+	if err != nil {
+		t.Errorf("unexpected error for valid AgentID, got %v", err)
+	}
+}
+
+// TestFAQService_Create_NilEntry 验证 nil entry 拒绝
+func TestFAQService_Create_NilEntry(t *testing.T) {
+	repo := &mockFAQRepoForDecay{}
+	svc := NewFAQServiceWithRepo(repo)
+	err := svc.Create(context.Background(), nil)
+	if err == nil {
+		t.Error("expected error for nil entry")
+	}
+}
+
+// TestFAQService_WarmupCache_PerAgent Task 15: 按 agentID 分片预热
+func TestFAQService_WarmupCache_PerAgent(t *testing.T) {
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 1, Question: "q1", Answer: "a1", Enabled: &enabled}},
+			2: {{ID: 2, Question: "q2", Answer: "a2", Enabled: &enabled}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+
+	// 预热 agent=1
+	if err := svc.WarmupCache(context.Background(), 1); err != nil {
+		t.Fatalf("warmup agent=1: %v", err)
+	}
+	// 预热 agent=2
+	if err := svc.WarmupCache(context.Background(), 2); err != nil {
+		t.Fatalf("warmup agent=2: %v", err)
+	}
+	// 预热共享池 (agentID=0)
+	if err := svc.WarmupCache(context.Background(), 0); err != nil {
+		t.Fatalf("warmup shared: %v", err)
+	}
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if _, ok := svc.cache[1]; !ok {
+		t.Error("expected cache entry for agent=1")
+	}
+	if _, ok := svc.cache[2]; !ok {
+		t.Error("expected cache entry for agent=2")
+	}
+	if _, ok := svc.cache[0]; !ok {
+		t.Error("expected cache entry for shared pool (agentID=0)")
+	}
+	if len(svc.cache) != 3 {
+		t.Errorf("expected 3 cache buckets, got %d", len(svc.cache))
+	}
+}
+
+// TestFAQService_InvalidateCache_PerAgent Task 15: 精确失效单 agent 桶
+func TestFAQService_InvalidateCache_PerAgent(t *testing.T) {
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 1, Enabled: &enabled}},
+			2: {{ID: 2, Enabled: &enabled}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+	_ = svc.WarmupCache(context.Background(), 1)
+	_ = svc.WarmupCache(context.Background(), 2)
+
+	// 仅失效 agent=1
+	svc.InvalidateCache(1)
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if _, ok := svc.cache[1]; ok {
+		t.Error("expected agent=1 cache to be invalidated")
+	}
+	if _, ok := svc.cache[2]; !ok {
+		t.Error("expected agent=2 cache to be intact")
+	}
+}
+
+// TestFAQService_InvalidateAllCache 验证全量失效
+func TestFAQService_InvalidateAllCache(t *testing.T) {
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 1, Enabled: &enabled}},
+			2: {{ID: 2, Enabled: &enabled}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+	_ = svc.WarmupCache(context.Background(), 1)
+	_ = svc.WarmupCache(context.Background(), 2)
+
+	svc.InvalidateAllCache()
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if len(svc.cache) != 0 {
+		t.Errorf("expected 0 cache buckets, got %d", len(svc.cache))
+	}
+}
+
+// TestFAQService_MatchByAgent_EmptyMsg 验证空消息直接返回 nil
+func TestFAQService_MatchByAgent_EmptyMsg(t *testing.T) {
+	repo := &mockFAQRepoForDecay{}
+	svc := NewFAQServiceWithRepo(repo)
+	matches, err := svc.MatchByAgent(context.Background(), 1, "", 3)
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for empty msg, got %v", matches)
+	}
+	if repo.agentIDSeen != 0 {
+		t.Errorf("repo should not be called for empty msg, but agentIDSeen=%d", repo.agentIDSeen)
+	}
+}
+
+// TestFAQService_MatchByAgent_DefaultTopK 验证 topK<=0 走默认
+func TestFAQService_MatchByAgent_DefaultTopK(t *testing.T) {
+	enabled := true
+	repo := &mockFAQRepoForDecay{
+		entriesByAgent: map[uint][]model.FAQEntry{
+			1: {{ID: 1, Question: "q1", Answer: "a1", Enabled: &enabled}},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+	matches, err := svc.MatchByAgent(context.Background(), 1, "q", 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 至少不报错
+	if matches == nil {
+		t.Error("expected non-nil matches for valid input")
+	}
+}
+
+// ptrBoolUniq 构造 *bool (helper, 避免与其他文件冲突)
+func ptrBoolUniq(b bool) *bool { return &b }

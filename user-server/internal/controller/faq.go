@@ -20,7 +20,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/pagination"
 	"marketing/internal/pkg/utils/response"
@@ -105,6 +104,8 @@ type faqCreateReq struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	Enabled    *bool    `json:"enabled"`
+	// Task 15 强 1对1: AgentID 必填
+	AgentID uint `json:"agent_id" binding:"required"`
 }
 
 // Create 新增
@@ -114,6 +115,7 @@ func (c *FAQController) Create(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
+	agentID := req.AgentID
 	entry := &model.FAQEntry{
 		Question:   req.Question,
 		Answer:     req.Answer,
@@ -122,6 +124,7 @@ func (c *FAQController) Create(ctx *gin.Context) {
 		Intent:     req.Intent,
 		Confidence: req.Confidence,
 		Enabled:    req.Enabled,
+		AgentID:    &agentID,
 	}
 	if err := c.svc.Create(ctx.Request.Context(), entry); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
@@ -142,6 +145,7 @@ func (c *FAQController) Update(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
+	agentID := req.AgentID
 	entry := &model.FAQEntry{
 		Question:   req.Question,
 		Answer:     req.Answer,
@@ -150,6 +154,7 @@ func (c *FAQController) Update(ctx *gin.Context) {
 		Intent:     req.Intent,
 		Confidence: req.Confidence,
 		Enabled:    req.Enabled,
+		AgentID:    &agentID,
 	}
 	if err := c.svc.Update(ctx.Request.Context(), uint(id), entry); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
@@ -173,10 +178,12 @@ func (c *FAQController) Delete(ctx *gin.Context) {
 }
 
 // faqMatchReq 关键词匹配请求
+//
+// Task 15 强 1对1: agent_id 必填 (uint); 不再支持"空 agent = 全局"分支
 type faqMatchReq struct {
-	Msg   string `json:"msg" binding:"required"`
-	TopK  int    `json:"top_k"`
-	Agent string `json:"agent"` // 可选: agent_code, 绑定了 FAQ 范围时启用
+	Msg     string `json:"msg" binding:"required"`
+	TopK    int    `json:"top_k"`
+	AgentID uint   `json:"agent_id" binding:"required"` // Task 15 强 1对1: 必填
 }
 
 // Match 关键词匹配 (调试接口 + 未来 RAG 引擎调用)
@@ -186,15 +193,12 @@ func (c *FAQController) Match(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	var matches []dto.FAQMatchResult
-	var err error
-	if req.Agent != "" {
-		// 按 agent 绑定的 FAQ 范围匹配 (2026-07-31 P1-A: 知识库绑定)
-		// 当前先走全局匹配, 等 agent 绑定 API 接入后切换到 MatchByAgent
-		matches, err = c.svc.Match(ctx.Request.Context(), req.Msg, req.TopK)
-	} else {
-		matches, err = c.svc.Match(ctx.Request.Context(), req.Msg, req.TopK)
+	// Task 15 强 1对1: agent_id 必填且 > 0
+	if req.AgentID == 0 {
+		response.Error(ctx, http.StatusBadRequest, "agent_id 必填且 > 0 (Task 15 强 1对1)")
+		return
 	}
+	matches, err := c.svc.MatchByAgent(ctx.Request.Context(), req.AgentID, req.Msg, req.TopK)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return

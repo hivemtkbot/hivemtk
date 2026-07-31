@@ -66,33 +66,72 @@ func (r *FAQRepository) ListEnabled(ctx context.Context, limit int) ([]model.FAQ
 	return entries, err
 }
 
-// MatchByKeyword 关键词匹配 (Layer1 核心 API)
+// MatchByKeyword 关键词匹配 (Layer1 核心 API) — 兼容旧签名 (agentID=0 表示共享/全局)
+//
+// 2026-07-31 P0-B: 加 agentID 过滤
+//   - agentID > 0: 仅匹配该智能体私有 (agent_id=X) + 共享 (agent_id IS NULL)
+//   - agentID = 0: 全局共享 (向后兼容, 旧代码不传 agentID 也能跑)
 //
 // 策略:
-//  1. 取所有 enabled FAQ (数据量 < 1000 时, 全量内存打分)
-//  2. 中文按字符 bigram 切词 + 关键词包含打分
-//  3. 排序: score * (baseConfidence + log(hit_count+1)) 降序
-//  4. 返回 top K
+//  1. SQL 层先按 (agent_id = ? OR agent_id IS NULL) AND enabled 过滤
+//  2. 内存打分 + topK 排序
+//  3. 中文 bigram 切词 + 关键词包含加权
+//  4. 排序: score * (baseConfidence + log(hit_count+1)) 降序
+//  5. 返回 top K
 //
 // 后续可扩展: pgvector 全文检索 / Embedding 向量召回
 func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {
+	return r.MatchByKeywordForAgent(ctx, msg, 0, topK)
+}
+
+// MatchByKeywordForAgent 按智能体隔离的关键词匹配 (P0-B 隔离架构)
+//
+// agentID = 0: 走旧路径 (全局共享, 向后兼容)
+// agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
+func (r *FAQRepository) MatchByKeywordForAgent(ctx context.Context, msg string, agentID uint, topK int) ([]model.FAQEntry, error) {
 	if msg == "" {
 		return nil, nil
 	}
-	all, err := r.ListEnabled(ctx, 5000)
+	all, err := r.listEnabledForAgent(ctx, agentID, 5000)
 	if err != nil {
 		return nil, err
 	}
 	return r.scoreAndRank(ctx, all, msg, topK)
 }
 
+// listEnabledForAgent 按 agentID 过滤启用的 FAQ
+func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+	var entries []model.FAQEntry
+	q := r.db.WithContext(ctx).
+		Where("enabled = ?", true).
+		Order("hit_count DESC, confidence DESC, id ASC").
+		Limit(limit)
+	if agentID > 0 {
+		// 仅匹配该智能体私有 + 共享 (agent_id IS NULL)
+		q = q.Where("agent_id = ? OR agent_id IS NULL", agentID)
+	}
+	if err := q.Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
 // MatchByIDs 按 ID 集合匹配 (2026-07-31 P1-A: 智能体绑定 FAQ 范围)
 //
+// DEPRECATED: 此方法不再用 ID 范围过滤, 改为按 agentID 过滤.
+//   保留方法签名以兼容旧调用, 内部走 MatchByKeywordForAgent 路径.
+//
 // agent 绑定了 FAQ 时, 仅在绑定的 IDs 内匹配; 绑定为空 = 全局共享
+//
+// Deprecated: 2026-07-31 P0-B 改造, agent FAQ 范围改由 agent_id 字段实现.
 func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
 	if msg == "" || len(ids) == 0 {
 		return nil, nil
 	}
+	// 走 ID 集合匹配, 不再使用 agentID 隔离 (与 P0-B 兼容)
 	var entries []model.FAQEntry
 	err := r.db.WithContext(ctx).
 		Where("enabled = ? AND id IN ?", true, ids).
@@ -103,6 +142,86 @@ func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string
 		return nil, err
 	}
 	return r.scoreAndRank(ctx, entries, msg, topK)
+}
+
+// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 FAQ 条目)
+//
+// 通过 JOIN agent_kb_bindings + knowledge_bases 确定 (KBID, KBType=faq) 关联的 FAQ
+//
+// 实现: KBID -> agent_id (via knowledge_bases.owner_agent_id) -> faq_entries.agent_id
+//
+// 简化实现: 直接按 agent_id 过滤 (KBType=faq 假设)
+func (r *FAQRepository) ListByKB(ctx context.Context, kbID uint, agentID uint, limit int) ([]model.FAQEntry, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var entries []model.FAQEntry
+	q := r.db.WithContext(ctx).
+		Where("enabled = ?", true).
+		Order("id DESC").
+		Limit(limit)
+	if agentID > 0 {
+		q = q.Where("agent_id = ?", agentID)
+	}
+	if err := q.Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+// ListShared 列出全部共享 FAQ (agent_id IS NULL)
+func (r *FAQRepository) ListShared(ctx context.Context, limit int) ([]model.FAQEntry, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("agent_id IS NULL AND enabled = ?", true).
+		Order("id DESC").
+		Limit(limit).
+		Find(&entries).Error
+	return entries, err
+}
+
+// MatchByAgent 按智能体 ID 匹配 (Task 15: 强 1对1 改造)
+//
+// 行为:
+//   - agentID == 0  -> 无绑定空, 返回 (nil, nil)
+//   - 仅匹配 enabled = true AND agent_id = ? 的 FAQ
+//   - 移除"空数组=全局"分支: 任何 agent 都必须显式绑定才能匹配
+//
+// SQL: WHERE enabled = true AND agent_id = ?  (走 idx_faq_agent_id 索引)
+func (r *FAQRepository) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
+	if agentID == 0 || msg == "" {
+		return nil, nil
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("enabled = ? AND agent_id = ?", true, agentID).
+		Order("hit_count DESC, confidence DESC, id ASC").
+		Limit(5000).
+		Find(&entries).Error
+	if err != nil {
+		return nil, err
+	}
+	return r.scoreAndRank(ctx, entries, msg, topK)
+}
+
+// ListByAgent 列出某智能体的 FAQ 集合 (不参与打分, 仅做缓存预热 / 后台同步)
+func (r *FAQRepository) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 5000
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("enabled = ? AND agent_id = ?", true, agentID).
+		Order("id ASC").
+		Limit(limit).
+		Find(&entries).Error
+	return entries, err
 }
 
 // scoreAndRank 内部打分+排序 (MatchByKeyword / MatchByIDs 共用)

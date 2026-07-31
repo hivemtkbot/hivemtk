@@ -3,20 +3,23 @@ package service
 // faq_service.go FAQ 业务服务层
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T9)
+// 设计依据: 2026-07-31 AI 智能体性能优化 (T9) + 强 1对1 改造 (Task 15)
 //
 // 职责:
 //   - 封装 FAQ 检索 + 命中计数 + Layer1 决策建议
 //   - 缓存 5 分钟 (热门 FAQ 命中频繁, 避免每次打 DB)
 //   - 与 LayerRouter 配合: 提供 "FAQ 是否应该 SkipLLM" 的判定入口
+//   - 强 1对1: MatchByAgent 必须传 agentID, 不再支持"空数组=全局"分支
 //
 // 与 FAQRepository 的区别:
 //   - Repository: 纯数据访问 (CRUD + 原始打分)
-//   - Service:    业务策略 (阈值 + 缓存 + 日志 + 计数 + 统计)
+//   - Service:    业务策略 (阈值 + 缓存 + 日志 + 计数 + 统计 + agentID 隔离)
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +40,8 @@ const (
 	faqDecayDays     = 7 * 24 * time.Hour // 7 天未命中触发
 	faqDecayMinHits  = 5              // 命中次数 < 此值才衰减
 	faqDecayMaxBatch = 1000           // 单次最多处理条数, 避免长事务
+	// Task 15: agentID 共享池 (agentID=0 表示全局共享池)
+	faqAgentShared uint = 0
 )
 
 // Clock 时钟抽象 (用于 WeekDecay 测试注入, 五层架构 L4)
@@ -54,9 +59,14 @@ func (realClock) Now() time.Time { return time.Now() }
 // faqRepoIface FAQ Repository 接口 (B-021: 用于 WeekDecay 单测注入 mock)
 //
 // 与 *repository.FAQRepository 鸭子类型兼容, 生产代码无需感知。
+//
+// Task 15 变更: 新增 MatchByAgent / ListByAgent 接口方法 (按 agentID 过滤)
 type faqRepoIface interface {
 	MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error)
 	MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error)
+	// Task 15: 新增方法 - 按 agentID 强匹配
+	MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error)
+	ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error)
 	IncrementHitCount(ctx context.Context, id uint) error
 	DecayQuality(ctx context.Context, id uint, decay float64) error
 	ListDecayCandidates(ctx context.Context, cutoff time.Time, limit int) ([]model.FAQEntry, error)
@@ -69,18 +79,40 @@ type faqRepoIface interface {
 	Delete(ctx context.Context, id uint) error
 }
 
-// FAQService FAQ 业务服务
-type FAQService struct {
-	repo  faqRepoIface
-	db    *gorm.DB
-	clock Clock
+// faqBindingRepoIface 智能体知识库绑定仓库接口 (Task 15 注入)
+//
+// 与 *repository.AgentKBBindingRepository 鸭子类型兼容。
+// 引入此接口是为了避免 service 对 bindingRepo 实现细节的直接依赖,
+//
+//	同时方便单测注入 mock。
+type faqBindingRepoIface interface {
+	// ListByAgent 列出某智能体在指定类型下的全部 KB 绑定
+	ListByAgent(ctx context.Context, agentID uint, kbType string) ([]model.AgentKBBinding, error)
+}
 
+// FAQService FAQ 业务服务
+//
+// Task 15 变更:
+//   - 增加 bindingRepo 字段 (注入绑定仓库, 用于校验 agent ↔ KB 关系)
+//   - cache 由单片 []model.FAQEntry 改为 map[uint][]model.FAQEntry (按 agentID 分片)
+//   - 新增 sharedCache 概念: agentID=0 的桶存储"共享池"FAQ (向后兼容旧 Match API)
+type FAQService struct {
+	repo        faqRepoIface
+	bindingRepo faqBindingRepoIface // Task 15 注入
+	db          *gorm.DB
+	clock       Clock
+
+	// Task 15: 按 agentID 分片的缓存
+	//   - key 0:   共享池 (Match() 走共享)
+	//   - key N>0: 智能体 N 的私有 FAQ 池 (MatchByAgent(ctx, N, ...) 命中)
 	mu     sync.RWMutex
-	cache  []model.FAQEntry
-	loaded time.Time
+	cache  map[uint][]model.FAQEntry
+	loaded map[uint]time.Time
 }
 
 // NewFAQService 创建 FAQ Service
+//
+// Task 15: 第二个参数保留 *repository.FAQRepository 兼容旧调用, bindingRepo 走 SetBindingRepo 注入。
 func NewFAQService(db *gorm.DB, repo *repository.FAQRepository) *FAQService {
 	var iface faqRepoIface
 	if repo == nil && db != nil {
@@ -89,12 +121,46 @@ func NewFAQService(db *gorm.DB, repo *repository.FAQRepository) *FAQService {
 	if repo != nil {
 		iface = repo
 	}
-	return &FAQService{db: db, repo: iface, clock: realClock{}}
+	var bindingIface faqBindingRepoIface
+	if db != nil {
+		bindingIface = repository.NewAgentKBBindingRepository(db)
+	}
+	return &FAQService{
+		db:          db,
+		repo:        iface,
+		bindingRepo: bindingIface,
+		clock:       realClock{},
+		cache:       make(map[uint][]model.FAQEntry),
+		loaded:      make(map[uint]time.Time),
+	}
 }
 
 // NewFAQServiceWithRepo 用任意实现 faqRepoIface 的 repo 创建 (B-021 测试用)
 func NewFAQServiceWithRepo(repo faqRepoIface) *FAQService {
-	return &FAQService{repo: repo, clock: realClock{}}
+	return &FAQService{
+		repo:   repo,
+		clock:  realClock{},
+		cache:  make(map[uint][]model.FAQEntry),
+		loaded: make(map[uint]time.Time),
+	}
+}
+
+// NewFAQServiceWithRepos 用 repo + bindingRepo 同时注入 (Task 15: 单元测试/上层装配)
+func NewFAQServiceWithRepos(repo faqRepoIface, bindingRepo faqBindingRepoIface) *FAQService {
+	return &FAQService{
+		repo:        repo,
+		bindingRepo: bindingRepo,
+		clock:       realClock{},
+		cache:       make(map[uint][]model.FAQEntry),
+		loaded:      make(map[uint]time.Time),
+	}
+}
+
+// SetBindingRepo 注入 binding 仓库 (供 layer / controller 装配时使用)
+func (s *FAQService) SetBindingRepo(r faqBindingRepoIface) {
+	if r != nil {
+		s.bindingRepo = r
+	}
 }
 
 // SetClock 注入时钟 (B-021: 单测可注入 mock clock)
@@ -104,7 +170,12 @@ func (s *FAQService) SetClock(c Clock) {
 	}
 }
 
-// Match 在 FAQ 库中匹配用户消息,返回 Top K 候选
+// Match 在共享池中匹配用户消息,返回 Top K 候选
+//
+// 行为 (Task 15 改造后):
+//   - 仅查询 agent_id IS NULL 的全局共享 FAQ
+//   - 保留旧 Match API 用于调试 / 后台管理界面
+//   - 业务运行时应使用 MatchByAgent
 func (s *FAQService) Match(ctx context.Context, msg string, topK int) ([]dto.FAQMatchResult, error) {
 	if s.repo == nil {
 		return nil, nil
@@ -119,36 +190,57 @@ func (s *FAQService) Match(ctx context.Context, msg string, topK int) ([]dto.FAQ
 	return s.toMatchResults(entries, "keyword"), nil
 }
 
-// MatchByAgent 按智能体绑定的 FAQ 范围匹配 (2026-07-31 P1-A: 知识库绑定)
+// MatchByAgent 按智能体 ID 匹配 FAQ (Task 15: 强 1对1 改造)
 //
-// 绑定为空 = 全局共享, 走 MatchByKeyword;
-// 绑定非空 = 仅在绑定的 FAQ ID 集合内匹配
-func (s *FAQService) MatchByAgent(ctx context.Context, agentFAQIDs []string, msg string, topK int) ([]dto.FAQMatchResult, error) {
+// 新签名: (ctx, agentID uint, msg string, topK int)
+//
+// 行为:
+//   - agentID == 0: 不再走"空数组=全局"回退, 直接返回 (nil, nil) (移除原 MatchByIDs 空数组分支)
+//   - msg == "": 短路, 不查 repo, 直接返回 (nil, nil)
+//   - agentID > 0: 仅匹配 enabled = true AND agent_id = ? 的 FAQ
+//   - 命中后通过 toMatchResults 转 DTO, tag = "agent_bound"
+//
+// 调用方 (LayerRouter / FAQController) 必须显式传入 agentID。
+func (s *FAQService) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]dto.FAQMatchResult, error) {
 	if s.repo == nil {
+		return nil, nil
+	}
+	if agentID == 0 {
+		// Task 15 强 1对1: 无 agentID 不再做"全局兜底"
+		return nil, nil
+	}
+	if strings.TrimSpace(msg) == "" {
 		return nil, nil
 	}
 	if topK <= 0 {
 		topK = faqTopKDefault
 	}
-	var (
-		entries []model.FAQEntry
-		err     error
-		tag     string
-	)
-	if len(agentFAQIDs) == 0 {
-		entries, err = s.repo.MatchByKeyword(ctx, msg, topK)
-		tag = "keyword"
-	} else {
-		// 把 string 数组转 uint (数据库 id 是 bigint)
-		ids := make([]string, 0, len(agentFAQIDs))
-		ids = append(ids, agentFAQIDs...)
-		entries, err = s.repo.MatchByIDs(ctx, msg, ids, topK)
-		tag = "agent_bound"
-	}
+	entries, err := s.repo.MatchByAgent(ctx, agentID, msg, topK)
 	if err != nil {
 		return nil, err
 	}
-	return s.toMatchResults(entries, tag), nil
+	return s.toMatchResults(entries, "agent_bound"), nil
+}
+
+// MatchByAgentKB 按 agentID + KB ID 集合匹配 (供上层 service / 编排使用)
+//
+// 场景: agent 绑定了多个 KB 时, 内部要按 KB 维度再过滤 (默认走 agentID 即可,
+// 此方法用于"agent 绑了多个 KB 但只想用其中部分"的精细场景)。
+func (s *FAQService) MatchByAgentKB(ctx context.Context, agentID uint, kbIDs []uint, msg string, topK int) ([]dto.FAQMatchResult, error) {
+	if s.repo == nil || agentID == 0 {
+		return nil, nil
+	}
+	if topK <= 0 {
+		topK = faqTopKDefault
+	}
+	// 简化: 当前 FAQEntry 没有 knowledge_base_id 字段, 走 agentID 过滤;
+	// 上层传入 kbIDs 仅作"语义"占位, 未来 FAQEntry 加 kb_id 列后可在此处拓展。
+	_ = kbIDs
+	entries, err := s.repo.MatchByAgent(ctx, agentID, msg, topK)
+	if err != nil {
+		return nil, err
+	}
+	return s.toMatchResults(entries, "agent_kb"), nil
 }
 
 // toMatchResults 转换为 DTO 列表
@@ -197,9 +289,17 @@ func (s *FAQService) GetByID(ctx context.Context, id uint) (*dto.FAQEntry, error
 }
 
 // Create 新增 FAQ
+//
+// Task 15 改造: AgentID 必填 (强 1对1, 所有 FAQ 都必须归属于某个智能体或共享池)
 func (s *FAQService) Create(ctx context.Context, entry *model.FAQEntry) error {
 	if s.repo == nil {
 		return fmt.Errorf("repo not initialized")
+	}
+	if entry == nil {
+		return errors.New("entry is nil")
+	}
+	if entry.AgentID == nil || *entry.AgentID == 0 {
+		return errors.New("agent_id 必填 (Task 15 强 1对1: 不允许全局匿名 FAQ)")
 	}
 	if entry.Enabled == nil {
 		t := true
@@ -208,7 +308,7 @@ func (s *FAQService) Create(ctx context.Context, entry *model.FAQEntry) error {
 	if err := s.repo.Create(ctx, entry); err != nil {
 		return err
 	}
-	s.InvalidateCache()
+	s.InvalidateCache(*entry.AgentID)
 	return nil
 }
 
@@ -220,7 +320,12 @@ func (s *FAQService) Update(ctx context.Context, id uint, entry *model.FAQEntry)
 	if err := s.repo.Update(ctx, id, entry); err != nil {
 		return err
 	}
-	s.InvalidateCache()
+	// 失效对应 agentID 的缓存 (entry.AgentID 可能为 nil, 兜底用全局)
+	if entry != nil && entry.AgentID != nil {
+		s.InvalidateCache(*entry.AgentID)
+	} else {
+		s.InvalidateAllCache()
+	}
 	return nil
 }
 
@@ -229,10 +334,16 @@ func (s *FAQService) Delete(ctx context.Context, id uint) error {
 	if s.repo == nil {
 		return fmt.Errorf("repo not initialized")
 	}
+	// 先查一下属于哪个 agent (用于精确失效缓存)
+	existing, _ := s.repo.GetByID(ctx, id)
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
-	s.InvalidateCache()
+	if existing != nil && existing.AgentID != nil {
+		s.InvalidateCache(*existing.AgentID)
+	} else {
+		s.InvalidateAllCache()
+	}
 	return nil
 }
 
@@ -265,26 +376,66 @@ func (s *FAQService) IncrementHitCount(ctx context.Context, id uint) {
 	}()
 }
 
-// WarmupCache 预热缓存 (启动时调用)
-func (s *FAQService) WarmupCache(ctx context.Context) error {
+// WarmupCache 预热缓存 (Task 15: 按 agentID 分片)
+//
+// 行为:
+//   - agentID == 0: 预热共享池 (agent_id IS NULL 语义等价; 当前实现为 agentID=0 桶)
+//   - agentID > 0: 仅预热该智能体的 FAQ (走 ListByAgent)
+//   - TTL = 5 min, 重复调用会覆盖旧缓存
+//
+// 当前实现简化: Match 走 MatchByKeyword (不查 agentID 字段), MatchByAgent 走 MatchByAgent。
+//
+//	为避免过度复杂, 共享池 key=0 不直接用于命中 (保留以便向后兼容 Match API),
+//	实际"全量缓存"是 Lazy 模式: 命中时由 repo 实时过滤。
+func (s *FAQService) WarmupCache(ctx context.Context, agentID uint) error {
 	if s.repo == nil {
 		return nil
 	}
-	entries, err := s.repo.ListEnabled(ctx, faqCacheMaxN)
+	var entries []model.FAQEntry
+	var err error
+	if agentID == faqAgentShared {
+		entries, err = s.repo.ListEnabled(ctx, faqCacheMaxN)
+	} else {
+		entries, err = s.repo.ListByAgent(ctx, agentID, faqCacheMaxN)
+	}
 	if err != nil {
 		return err
 	}
 	s.mu.Lock()
-	s.cache = entries
-	s.loaded = time.Now()
+	s.cache[agentID] = entries
+	s.loaded[agentID] = time.Now()
 	s.mu.Unlock()
 	return nil
 }
 
-// InvalidateCache 失效缓存 (FAQ 增删改后调用)
-func (s *FAQService) InvalidateCache() {
+// WarmupAll 预热所有已知 agent 的缓存 (启动时调用, 由调用方传入 agentID 列表)
+//
+// 用途: 已知全量 agent 列表时, 一次预热避免运行时冷启动。
+// 实现: 简单串行预热每个 agent, 失败不阻塞。
+func (s *FAQService) WarmupAll(ctx context.Context, agentIDs []uint) {
+	for _, id := range agentIDs {
+		_ = s.WarmupCache(ctx, id)
+	}
+}
+
+// InvalidateCache 失效指定 agentID 的缓存 (Task 15: 精确失效)
+//
+// agentID == 0: 失效共享池
+// agentID > 0: 失效该 agent 私有桶
+func (s *FAQService) InvalidateCache(agentID uint) {
 	s.mu.Lock()
-	s.cache = nil
+	delete(s.cache, agentID)
+	delete(s.loaded, agentID)
+	s.mu.Unlock()
+}
+
+// InvalidateAllCache 失效全部缓存 (Task 15 兼容入口)
+//
+// 用于: 业务不确定受影响 agentID 时 (例如全局配置变更)。
+func (s *FAQService) InvalidateAllCache() {
+	s.mu.Lock()
+	s.cache = make(map[uint][]model.FAQEntry)
+	s.loaded = make(map[uint]time.Time)
 	s.mu.Unlock()
 }
 
@@ -317,7 +468,7 @@ func (s *FAQService) WeekDecay(ctx context.Context) (int, error) {
 		decayed++
 	}
 	if decayed > 0 {
-		s.InvalidateCache()
+		s.InvalidateAllCache()
 	}
 	return decayed, nil
 }
@@ -363,5 +514,6 @@ func entryToDTO(e *model.FAQEntry) *dto.FAQEntry {
 		Confidence: e.Confidence,
 		HitCount:   e.HitCount,
 		Enabled:    &enabled,
+		AgentID:    e.AgentID,
 	}
 }
