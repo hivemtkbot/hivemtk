@@ -96,3 +96,77 @@ func (r *SOPTemplateRepository) IncrementHitCount(ctx context.Context, id uint) 
 		UpdateColumn("hit_count", gorm.Expr("hit_count + 1")).
 		Error
 }
+
+// MatchByIDs 按 ID 集合 + 意图 + 阶段匹配 (2026-07-31 P1-A: 智能体绑定 SOP 范围)
+//
+// 当 agent 绑定了 SOP template IDs 时, 仅在绑定 ID 集合内匹配;
+//
+// 绑定为空 = 走原 MatchByIntentStage 全局匹配
+func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
+	if intent == "" || len(ids) == 0 {
+		return nil, nil
+	}
+	var tpls []model.SOPTemplate
+	q := r.db.WithContext(ctx).
+		Where("intent = ? AND id IN ? AND enabled = ?", intent, ids, true)
+	if stage != "" {
+		q = q.Where("stage = ?", stage)
+	}
+	err := q.Order("priority DESC, confidence DESC, id ASC").
+		Limit(10).
+		Find(&tpls).Error
+	return tpls, err
+}
+
+// ListWithFilter 分页+过滤 (前端 SOP 模板管理页面使用)
+func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.SOPTemplate{})
+	if filter.Keyword != "" {
+		kw := "%" + filter.Keyword + "%"
+		q = q.Where("name LIKE ? OR template LIKE ?", kw, kw)
+	}
+	if filter.Intent != "" {
+		q = q.Where("intent = ?", filter.Intent)
+	}
+	if filter.Stage != "" {
+		q = q.Where("stage = ?", filter.Stage)
+	}
+	if filter.Enabled != nil {
+		q = q.Where("enabled = ?", *filter.Enabled)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var tpls []model.SOPTemplate
+	offset := (filter.Page - 1) * filter.PageSize
+	if offset < 0 {
+		offset = 0
+	}
+	err := q.Order("priority DESC, confidence DESC, id ASC").
+		Offset(offset).Limit(filter.PageSize).
+		Find(&tpls).Error
+	return tpls, total, err
+}
+
+// Update 更新 SOP 模板
+func (r *SOPTemplateRepository) Update(ctx context.Context, id uint, tpl *model.SOPTemplate) error {
+	return r.db.WithContext(ctx).Model(&model.SOPTemplate{}).
+		Where("id = ?", id).
+		Select("*").Updates(tpl).Error
+}
+
+// Delete 删除 SOP 模板
+func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SOPTemplate{}).Error
+}
+
+// SOPTemplateFilter SOP 模板查询过滤器 (前端管理页面)
+type SOPTemplateFilter struct {
+	Keyword  string
+	Intent   string
+	Stage    string
+	Enabled  *bool
+	Page     int
+	PageSize int
+}

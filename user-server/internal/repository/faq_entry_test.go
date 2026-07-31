@@ -118,7 +118,7 @@ func TestFAQRepository_MatchByKeyword_Simple(t *testing.T) {
 	// 测 2: 禁用的"退换货"不应被返回
 	matches2, _ := repo.MatchByKeyword(ctx, "退换货", 3)
 	for _, m := range matches2 {
-		if !m.IsEnabled() {
+		if m.Enabled == nil || !*m.Enabled {
 			t.Errorf("disabled FAQ should not match: %+v", m)
 		}
 	}
@@ -144,7 +144,7 @@ func TestFAQRepository_DisabledNotMatched(t *testing.T) {
 	}
 	matches, _ := repo.MatchByKeyword(ctx, "韵达", 3)
 	for _, m := range matches {
-		if !m.IsEnabled() {
+		if m.Enabled == nil || !*m.Enabled {
 			t.Errorf("disabled FAQ leaked into results: %s", m.Question)
 		}
 	}

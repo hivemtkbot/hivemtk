@@ -51,13 +51,5 @@ type FAQEntry struct {
 	UpdatedAt  time.Time   `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-// IsEnabled 便捷访问 (处理 nil 指针: 视为 true)
-func (e *FAQEntry) IsEnabled() bool {
-	if e.Enabled == nil {
-		return true
-	}
-	return *e.Enabled
-}
-
 // TableName GORM 表名
 func (FAQEntry) TableName() string { return "faq_entries" }

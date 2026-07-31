@@ -35,7 +35,7 @@ func TestFAQEntry_BasicFields(t *testing.T) {
 	if entry.Confidence != 0.85 {
 		t.Errorf("Confidence = %f, want 0.85", entry.Confidence)
 	}
-	if !entry.IsEnabled() {
+	if entry.Enabled == nil || !*entry.Enabled {
 		t.Error("Enabled should be true")
 	}
 }
@@ -99,7 +99,7 @@ func TestLayerDecisionLog_BasicFields(t *testing.T) {
 	if log.Layer != "layer1" {
 		t.Errorf("Layer = %q, want %q", log.Layer, "layer1")
 	}
-	if !log.IsLLMSkipped() {
+	if log.LLMSkipped == nil || !*log.LLMSkipped {
 		t.Error("LLMSkipped should be true (Layer1 FAQ hit)")
 	}
 	if log.WallMs != 15 {

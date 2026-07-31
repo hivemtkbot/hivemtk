@@ -41,13 +41,5 @@ type LayerDecisionLog struct {
 	CreatedAt  time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
-// IsLLMSkipped 便捷访问
-func (l *LayerDecisionLog) IsLLMSkipped() bool {
-	if l.LLMSkipped == nil {
-		return false
-	}
-	return *l.LLMSkipped
-}
-
 // TableName GORM 表名
 func (LayerDecisionLog) TableName() string { return "layer_decision_logs" }

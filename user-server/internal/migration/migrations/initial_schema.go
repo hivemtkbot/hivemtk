@@ -177,5 +177,9 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewMultilingualI18nP13Migration(db))
 	// S3-6 Telegram polling 分布式锁（polling_owner + polling_heartbeat_at）
 	registry.Register(NewTelegramPollingLockMigration(db))
+	// 2026-07-31 AI 智能体性能优化 - FAQ / SOP 知识库 + Layer 决策日志（双层架构 Layer1 命中 SkipLLM）
+	registry.Register(NewAIPerfFAQSOPLayerMigration(db))
+	// 2026-07-31 AI 智能体知识库绑定 - faq_entry_ids / sop_template_ids 字段（与 rag_product_ids 一致）
+	registry.Register(NewAIAgentKBBindingMigration(db))
 	// 继续添加新的迁移...
 }

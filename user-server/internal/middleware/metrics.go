@@ -255,6 +255,67 @@ func MetricsHandler(c *gin.Context) {
 		sb.WriteByte('\n')
 	})
 
+	// ===== 2026-07-31 AI 智能体性能优化 (T21) - 5 个核心指标 =====
+	sb.WriteString("\n# HELP ai_agent_wall_time_seconds AI 智能体端到端 wall time (P50/P90 关键指标)\n")
+	sb.WriteString("# TYPE ai_agent_wall_time_seconds summary\n")
+	metrics.GlobalMetrics.AIAgentWallTime.Range(func(labels string, sum float64, count uint64) {
+		sb.WriteString("ai_agent_wall_time_seconds_sum{")
+		sb.WriteString(formatAIAgentLayerIntentLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatFloat(sum, 'f', 6, 64))
+		sb.WriteByte('\n')
+		sb.WriteString("ai_agent_wall_time_seconds_count{")
+		sb.WriteString(formatAIAgentLayerIntentLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatUint(count, 10))
+		sb.WriteByte('\n')
+	})
+
+	sb.WriteString("\n# HELP ai_agent_lcp_time_seconds AI 智能体流式首字时间 LCP\n")
+	sb.WriteString("# TYPE ai_agent_lcp_time_seconds summary\n")
+	metrics.GlobalMetrics.AIAgentLCPTime.Range(func(labels string, sum float64, count uint64) {
+		sb.WriteString("ai_agent_lcp_time_seconds_sum{")
+		sb.WriteString(formatAIAgentLayerIntentLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatFloat(sum, 'f', 6, 64))
+		sb.WriteByte('\n')
+		sb.WriteString("ai_agent_lcp_time_seconds_count{")
+		sb.WriteString(formatAIAgentLayerIntentLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatUint(count, 10))
+		sb.WriteByte('\n')
+	})
+
+	sb.WriteString("\n# HELP ai_agent_layer_decision_total AI 智能体双层架构决策 (layer1 vs layer2)\n")
+	sb.WriteString("# TYPE ai_agent_layer_decision_total counter\n")
+	metrics.GlobalMetrics.AIAgentLayerDecision.Range(func(labels string, count uint64) {
+		sb.WriteString("ai_agent_layer_decision_total{")
+		sb.WriteString(formatAIAgentLayerIntentLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatUint(count, 10))
+		sb.WriteByte('\n')
+	})
+
+	sb.WriteString("\n# HELP ai_agent_llm_call_total AI 智能体 LLM 调用次数\n")
+	sb.WriteString("# TYPE ai_agent_llm_call_total counter\n")
+	metrics.GlobalMetrics.AIAgentLLMCall.Range(func(labels string, count uint64) {
+		sb.WriteString("ai_agent_llm_call_total{")
+		sb.WriteString(formatAIAgentScenarioModelLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatUint(count, 10))
+		sb.WriteByte('\n')
+	})
+
+	sb.WriteString("\n# HELP ai_agent_fallback_total AI 智能体降级链触发次数 (7B→3B→Cache→Template)\n")
+	sb.WriteString("# TYPE ai_agent_fallback_total counter\n")
+	metrics.GlobalMetrics.AIAgentFallback.Range(func(labels string, count uint64) {
+		sb.WriteString("ai_agent_fallback_total{")
+		sb.WriteString(formatAIAgentFallbackLabels(labels))
+		sb.WriteString("} ")
+		sb.WriteString(strconv.FormatUint(count, 10))
+		sb.WriteByte('\n')
+	})
+
 	c.String(200, sb.String())
 }
 
@@ -435,4 +496,95 @@ func formatFeedbackLabels(labels string) string {
 func splitLabels(s string) []string {
 	// 复用标准库 strings.Split 的高效实现，避免手写 rune 循环导致的多次字符串分配
 	return strings.Split(s, "|")
+}
+
+// formatAIAgentLayerIntentLabels AI 智能体 wall time / lcp / layer_decision 指标 label 格式化
+//
+// 输入格式："agent_type|layer|intent" 或 "agent_type|stream_mode"
+func formatAIAgentLayerIntentLabels(labels string) string {
+	parts := splitLabels(labels)
+	var b strings.Builder
+	b.Grow(len(parts) * 24)
+	for i, p := range parts {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		switch i {
+		case 0:
+			b.WriteString(`agent_type="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 1:
+			b.WriteString(`layer="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 2:
+			b.WriteString(`intent="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 3:
+			b.WriteString(`stream_mode="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		}
+	}
+	return b.String()
+}
+
+// formatAIAgentScenarioModelLabels AI 智能体 LLM 调用指标 label 格式化
+//
+// 输入格式："scenario|model|result"
+func formatAIAgentScenarioModelLabels(labels string) string {
+	parts := splitLabels(labels)
+	var b strings.Builder
+	b.Grow(len(parts) * 24)
+	for i, p := range parts {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		switch i {
+		case 0:
+			b.WriteString(`scenario="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 1:
+			b.WriteString(`model="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 2:
+			b.WriteString(`result="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		}
+	}
+	return b.String()
+}
+
+// formatAIAgentFallbackLabels AI 智能体降级链指标 label 格式化
+//
+// 输入格式："from_layer|to_layer|reason"
+func formatAIAgentFallbackLabels(labels string) string {
+	parts := splitLabels(labels)
+	var b strings.Builder
+	b.Grow(len(parts) * 24)
+	for i, p := range parts {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		switch i {
+		case 0:
+			b.WriteString(`from_layer="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 1:
+			b.WriteString(`to_layer="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		case 2:
+			b.WriteString(`reason="`)
+			b.WriteString(escapeLabelValue(p))
+			b.WriteByte('"')
+		}
+	}
+	return b.String()
 }

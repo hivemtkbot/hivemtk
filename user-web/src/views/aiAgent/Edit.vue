@@ -137,6 +137,60 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="FAQ 知识库">
+          <el-select
+            v-model="form.faq_entry_ids"
+            multiple
+            filterable
+            clearable
+            placeholder="选择要挂载的 FAQ 条目（留空 = 全局共享）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in faqOptions"
+              :key="item.id"
+              :label="`#${item.id} ${item.question}`"
+              :value="String(item.id)"
+            >
+              <div style="display: flex; flex-direction: column;">
+                <span>#{{ item.id }} {{ item.question }}</span>
+                <span style="font-size: 11px; color: var(--el-text-color-secondary);">
+                  {{ item.category || '未分类' }} · {{ item.intent || '未关联意图' }}
+                </span>
+              </div>
+            </el-option>
+          </el-select>
+          <div class="form-tip">
+            绑定 FAQ 后，对话中将仅匹配绑定的 FAQ 范围（提高命中率 / 隔离业务线）
+          </div>
+        </el-form-item>
+        <el-form-item label="SOP 模板">
+          <el-select
+            v-model="form.sop_template_ids"
+            multiple
+            filterable
+            clearable
+            placeholder="选择要挂载的 SOP 模板（留空 = 全局共享）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in sopTemplateOptions"
+              :key="item.id"
+              :label="`#${item.id} ${item.name} (${item.intent}/${item.stage})`"
+              :value="String(item.id)"
+            >
+              <div style="display: flex; flex-direction: column;">
+                <span>#{{ item.id }} {{ item.name }}</span>
+                <span style="font-size: 11px; color: var(--el-text-color-secondary);">
+                  意图: {{ item.intent }} · 阶段: {{ item.stage }} · 优先级 {{ item.priority }}
+                </span>
+              </div>
+            </el-option>
+          </el-select>
+          <div class="form-tip">
+            绑定 SOP 模板后，对话中将仅在绑定的 (intent, stage) 模板中匹配回复
+          </div>
+        </el-form-item>
       </el-card>
 
       <!-- SOP 挂载 -->
@@ -386,6 +440,8 @@ import { createAgent, updateAgent, getAgent, testAgent } from '@/api/aiAgent.js'
 import { ragProductConfigAPI } from '@/api/ragProductConfig'
 import { sopApi } from '@/api/sopAgent.js'
 import { getScriptTemplateList } from '@/api/scriptTemplate.js'
+import { faqApi } from '@/api/faq'
+import { sopTemplateApi } from '@/api/sopTemplate'
 import { INTERNAL_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const internalLanguageOptions = INTERNAL_LANGUAGE_OPTIONS
@@ -405,6 +461,8 @@ const isEdit = computed(() => !!agentId.value)
 const ragProductOptions = ref([])
 const sopOptions = ref([])
 const scriptOptions = ref([])
+const faqOptions = ref([])
+const sopTemplateOptions = ref([])
 
 // 表单数据（默认值与后端 model.AIAgent 对齐）
 const getDefaultForm = () => ({
@@ -419,6 +477,8 @@ const getDefaultForm = () => ({
   internal_language: 'zh',
   target_language: '',
   rag_product_ids: [],
+  faq_entry_ids: [],
+  sop_template_ids: [],
   sop_ids: [],
   script_library_ids: [],
   llm_model: 'gpt-4o-mini',
@@ -499,6 +559,24 @@ const loadScriptOptions = async () => {
   }
 }
 
+const loadFaqOptions = async () => {
+  try {
+    const res = await faqApi.list({ page: 1, page_size: 200 })
+    faqOptions.value = res?.list || []
+  } catch (e) {
+    console.warn('加载 FAQ 列表失败：', e?.message)
+  }
+}
+
+const loadSopTemplateOptions = async () => {
+  try {
+    const res = await sopTemplateApi.list({ page: 1, page_size: 200 })
+    sopTemplateOptions.value = res?.list || []
+  } catch (e) {
+    console.warn('加载 SOP 模板列表失败：', e?.message)
+  }
+}
+
 // ===== 加载智能体详情（编辑模式） =====
 const loadAgentDetail = async () => {
   if (!isEdit.value) return
@@ -509,6 +587,8 @@ const loadAgentDetail = async () => {
       Object.assign(form, getDefaultForm(), res)
       // 确保 ID 数组为字符串形式（与后端 pq.StringArray 对齐）
       form.rag_product_ids = (res.rag_product_ids || []).map(String)
+      form.faq_entry_ids = (res.faq_entry_ids || []).map(String)
+      form.sop_template_ids = (res.sop_template_ids || []).map(String)
       form.sop_ids = (res.sop_ids || []).map(String)
       form.script_library_ids = (res.script_library_ids || []).map(String)
       // 内部语言兜底 zh；目标语言允许空串（跟随内部语言）
@@ -545,6 +625,8 @@ const onSave = async () => {
         internal_language: form.internal_language || 'zh',
         target_language: form.target_language || '',
         rag_product_ids: form.rag_product_ids || [],
+        faq_entry_ids: form.faq_entry_ids || [],
+        sop_template_ids: form.sop_template_ids || [],
         sop_ids: form.sop_ids || [],
         script_library_ids: form.script_library_ids || [],
         llm_model: form.llm_model,

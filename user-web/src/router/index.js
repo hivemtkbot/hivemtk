@@ -77,6 +77,8 @@ const moduleNames = [
   'knowledge',
   // 多 AI 智能体架构（智能体管理 / 渠道绑定 / 客服挂载）
   'aiAgent',
+  // 2026-07-31 P1-A: FAQ 知识库 / SOP 模板管理（知识库管理）
+  'faq', 'sopTemplateKb',
   // 资产市场
   'assetMarket',
   // 资产包（低代码 Playground / 商户编辑器）

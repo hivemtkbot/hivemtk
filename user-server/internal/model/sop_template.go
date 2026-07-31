@@ -37,13 +37,5 @@ type SOPTemplate struct {
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-// IsEnabled 便捷访问(nil 视为 true)
-func (s *SOPTemplate) IsEnabled() bool {
-	if s.Enabled == nil {
-		return true
-	}
-	return *s.Enabled
-}
-
 // TableName GORM 表名
 func (SOPTemplate) TableName() string { return "sop_templates" }

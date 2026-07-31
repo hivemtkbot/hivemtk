@@ -243,6 +243,18 @@ type MetricsCollector struct {
 	BridgeConnTotal   *CounterVec
 	BridgeFrameTotal  *CounterVec
 	BridgeDeliverTotal *CounterVec
+	// 2026-07-31 AI 智能体性能优化 (T21) - 5 个核心指标
+	// labels:
+	//   - AIAgentWallTime{agent_type,layer,intent} 端到端 wall time (秒)
+	//   - AIAgentLCPTime{agent_type,stream_mode}  流式首字时间 LCP (秒)
+	//   - AIAgentLayerDecision{layer,reason}      双层架构决策计数
+	//   - AIAgentLLMCall{scenario,model,result}   LLM 调用计数
+	//   - AIAgentFallback{from_layer,to_layer,reason} 降级链触发计数
+	AIAgentWallTime     *HistogramVec
+	AIAgentLCPTime      *HistogramVec
+	AIAgentLayerDecision *CounterVec
+	AIAgentLLMCall      *CounterVec
+	AIAgentFallback     *CounterVec
 }
 
 // GlobalMetrics 全局指标收集器
@@ -275,4 +287,10 @@ var GlobalMetrics = &MetricsCollector{
 	BridgeConnTotal:    &CounterVec{values: make(map[string]uint64)},
 	BridgeFrameTotal:   &CounterVec{values: make(map[string]uint64)},
 	BridgeDeliverTotal: &CounterVec{values: make(map[string]uint64)},
+	// 2026-07-31 AI 智能体性能优化 (T21) - 5 个核心指标初始化
+	AIAgentWallTime:      &HistogramVec{sums: make(map[string]float64), counts: make(map[string]uint64)},
+	AIAgentLCPTime:       &HistogramVec{sums: make(map[string]float64), counts: make(map[string]uint64)},
+	AIAgentLayerDecision: &CounterVec{values: make(map[string]uint64)},
+	AIAgentLLMCall:       &CounterVec{values: make(map[string]uint64)},
+	AIAgentFallback:      &CounterVec{values: make(map[string]uint64)},
 }

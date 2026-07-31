@@ -33,7 +33,7 @@ func NewAIPerfFAQSOPLayerMigration(db *gorm.DB) *AIPerfFAQSOPLayerMigration {
 }
 
 // Version 返回版本号
-func (m *AIPerfFAQSOPLayerMigration) Version() string { return "v3.7.0" }
+func (m *AIPerfFAQSOPLayerMigration) Version() string { return "v3.13.0" }
 
 // Name 返回迁移名称
 func (m *AIPerfFAQSOPLayerMigration) Name() string {

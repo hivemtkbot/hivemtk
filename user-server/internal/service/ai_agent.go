@@ -206,6 +206,9 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 		SystemPrompt:         agent.SystemPrompt,
 		Greeting:             agent.Greeting,
 		RagProductIDs:        []string(agent.RagProductIDs),
+		// 2026-07-31 P1-A: 知识库绑定 (FAQ / SOP 模板)
+		FAQEntryIDs:    []string(agent.FAQEntryIDs),
+		SOPTemplateIDs: []string(agent.SOPTemplateIDs),
 		SOPIDs:               []string(agent.SOPIDs),
 		ScriptLibraryIDs:     []string(agent.ScriptLibraryIDs),
 		LLMModel:             agent.LLMModel,

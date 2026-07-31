@@ -82,6 +82,30 @@ func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int
 	if err != nil {
 		return nil, err
 	}
+	return r.scoreAndRank(ctx, all, msg, topK)
+}
+
+// MatchByIDs 按 ID 集合匹配 (2026-07-31 P1-A: 智能体绑定 FAQ 范围)
+//
+// agent 绑定了 FAQ 时, 仅在绑定的 IDs 内匹配; 绑定为空 = 全局共享
+func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
+	if msg == "" || len(ids) == 0 {
+		return nil, nil
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("enabled = ? AND id IN ?", true, ids).
+		Order("hit_count DESC, confidence DESC, id ASC").
+		Limit(5000).
+		Find(&entries).Error
+	if err != nil {
+		return nil, err
+	}
+	return r.scoreAndRank(ctx, entries, msg, topK)
+}
+
+// scoreAndRank 内部打分+排序 (MatchByKeyword / MatchByIDs 共用)
+func (r *FAQRepository) scoreAndRank(ctx context.Context, all []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
 	msgTokens := tokenize(msg)
 	if len(msgTokens) == 0 {
 		return nil, nil
@@ -93,7 +117,7 @@ func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int
 	var results []scored
 	for i := range all {
 		e := all[i]
-		if !e.IsEnabled() {
+		if e.Enabled == nil || !*e.Enabled {
 			continue
 		}
 		faqTokens := tokenize(e.Question + " " + e.Answer)
@@ -123,6 +147,59 @@ func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int
 		out = append(out, results[i].entry)
 	}
 	return out, nil
+}
+
+// ListWithFilter 分页+过滤 (前端 FAQ 管理页面使用)
+func (r *FAQRepository) ListWithFilter(ctx context.Context, filter FAQFilter) ([]model.FAQEntry, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.FAQEntry{})
+	if filter.Keyword != "" {
+		kw := "%" + filter.Keyword + "%"
+		q = q.Where("question LIKE ? OR answer LIKE ?", kw, kw)
+	}
+	if filter.Category != "" {
+		q = q.Where("category = ?", filter.Category)
+	}
+	if filter.Intent != "" {
+		q = q.Where("intent = ?", filter.Intent)
+	}
+	if filter.Enabled != nil {
+		q = q.Where("enabled = ?", *filter.Enabled)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var entries []model.FAQEntry
+	offset := (filter.Page - 1) * filter.PageSize
+	if offset < 0 {
+		offset = 0
+	}
+	err := q.Order("hit_count DESC, confidence DESC, id ASC").
+		Offset(offset).Limit(filter.PageSize).
+		Find(&entries).Error
+	return entries, total, err
+}
+
+// Update 更新 FAQ
+func (r *FAQRepository) Update(ctx context.Context, id uint, entry *model.FAQEntry) error {
+	return r.db.WithContext(ctx).Model(&model.FAQEntry{}).
+		Where("id = ?", id).
+		Select("*").Updates(entry).Error
+}
+
+// Delete 删除 FAQ
+func (r *FAQRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.FAQEntry{}).Error
+}
+
+// FAQFilter FAQ 查询过滤器 (前端管理页面)
+type FAQFilter struct {
+	Keyword  string
+	Category string
+	Intent   string
+	Enabled  *bool
+	Page     int
+	PageSize int
 }
 
 // IncrementHitCount 命中次数 +1

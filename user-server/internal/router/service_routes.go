@@ -324,6 +324,14 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.PUT("/sop/:id/abtest/config", sopCtrl.UpdateABTestConfig)
 	auth.POST("/sop/execute", sopCtrl.Execute)
 	auth.POST("/sop/step", sopCtrl.Step)
+
+	// 2026-07-31 P1-A: FAQ 知识库 CRUD + Layer1 匹配
+	faqCtrl := controller.NewFAQController(db)
+	faqCtrl.RegisterRoutes(auth)
+
+	// 2026-07-31 P1-A: SOP 模板 CRUD + Layer1 匹配
+	sopTplCtrl := controller.NewSOPTemplateController(db)
+	sopTplCtrl.RegisterRoutes(auth)
 }
 
 // setupReachPipelineRoutes 触达 Pipeline 路由

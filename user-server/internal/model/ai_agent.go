@@ -88,7 +88,15 @@ type AIAgent struct {
 	// 知识库挂载（多对一：一个智能体可挂载多个 RAG 产品）
 	RagProductIDs pq.StringArray `gorm:"type:text[];column:rag_product_ids" json:"rag_product_ids"`
 
-	// SOP 挂载
+	// FAQ 知识库挂载（2026-07-31 P1-A: 每个智能体可绑专属 FAQ）
+	// 空数组 = 全局共享（向后兼容）；非空 = 仅匹配绑定的 FAQ ID
+	FAQEntryIDs pq.StringArray `gorm:"type:text[];column:faq_entry_ids" json:"faq_entry_ids"`
+
+	// SOP 模板挂载（2026-07-31 P1-A: 每个智能体可绑专属 SOP 模板）
+	// 空数组 = 全局共享；非空 = 仅匹配绑定的 SOP template ID
+	SOPTemplateIDs pq.StringArray `gorm:"type:text[];column:sop_template_ids" json:"sop_template_ids"`
+
+	// SOP 流程图挂载（已有：智能体可挂载多个 sop_agents 流程图）
 	SOPIDs pq.StringArray `gorm:"type:text[];column:sop_ids" json:"sop_ids"`
 
 	// 话术库挂载

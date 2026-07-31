@@ -182,6 +182,10 @@ type AgentContext struct {
 	SystemPrompt         string                  `json:"system_prompt"`
 	Greeting             string                  `json:"greeting"`
 	RagProductIDs        []string                `json:"rag_product_ids"`    // 知识库挂载
+	// 2026-07-31 P1-A: 知识库挂载 (FAQ / SOP 模板)
+	// 空切片 = 全局共享（向后兼容）；非空 = 仅匹配绑定的 ID 集合
+	FAQEntryIDs    []string `json:"faq_entry_ids"`
+	SOPTemplateIDs []string `json:"sop_template_ids"`
 	SOPIDs               []string                `json:"sop_ids"`            // SOP 挂载
 	ScriptLibraryIDs     []string                `json:"script_library_ids"` // 话术库挂载
 	LLMModel             string                  `json:"llm_model"`
