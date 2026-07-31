@@ -11,8 +11,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"marketing/internal/pkg/metrics"
 )
 
 // decorator.go 工具执行装饰器链（PRD §5.2 P0-3 G3）
@@ -471,48 +469,12 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 //   - ToolCallDuration: tool_name（sums + counts）
 //   - ToolCallErrors: tool_name|error_type(permission|ratelimit|timeout|panic|internal)
 //
-// 设计说明：直接引用 metrics.GlobalMetrics，避免引入复杂抽象
-// metrics 包仅依赖基础类型，无 import cycle 风险
+// 设计说明：私域部署, 无 Prometheus 端点, 调用审计已落库 (operation_logs / tool_call_logs)
 func recordToolCallMetrics(toolName string, err error, result ToolResult, duration time.Duration) {
-	m := metrics.GlobalMetrics
-	if m == nil || m.ToolCallTotal == nil {
-		return
-	}
-
-	// 1. 总调用数（按 result 分类）
-	resultLabel := "success"
-	if err != nil || !result.Success {
-		resultLabel = "failed"
-	}
-	if err != nil && errors.Is(err, ErrToolPanic) {
-		resultLabel = "panic"
-	}
-	m.ToolCallTotal.Inc(fmt.Sprintf("%s|%s", toolName, resultLabel))
-
-	// 2. 耗时直方图（按 tool_name 分组）
-	if m.ToolCallDuration != nil {
-		m.ToolCallDuration.Observe(toolName, duration.Seconds())
-	}
-
-	// 3. 错误分类计数（仅失败时记录）
-	if err != nil || !result.Success {
-		errType := "internal"
-		if err != nil {
-			switch {
-			case errors.Is(err, ErrPermissionDenied):
-				errType = "permission"
-			case errors.Is(err, ErrRateLimited):
-				errType = "ratelimit"
-			case errors.Is(err, ErrToolTimeout):
-				errType = "timeout"
-			case errors.Is(err, ErrToolPanic):
-				errType = "panic"
-			}
-		}
-		if m.ToolCallErrors != nil {
-			m.ToolCallErrors.Inc(fmt.Sprintf("%s|%s", toolName, errType))
-		}
-	}
+	_ = toolName
+	_ = err
+	_ = result
+	_ = duration
 }
 
 // summarizeArgs 参数脱敏摘要（截断 + 移除敏感字段）

@@ -39,7 +39,6 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/featureflag"
-	"marketing/internal/pkg/metrics"
 )
 
 // 5 阶段阶段名常量 (用于 Steps 日志)
@@ -90,13 +89,8 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	defer func() {
 		resp.LatencyMs = int(time.Since(start).Milliseconds())
 		e.recordFeedback(ctx, req, resp)
-		// T21: Prometheus 埋点 wall time
-		layer := "layer2"
-		intentName := "unknown"
-		if phase0Ptr != nil && phase0Ptr.intent != nil {
-			intentName = phase0Ptr.intent.IntentType
-		}
-		metrics.RecordAIAgentWallTime("ai_sales", layer, intentName, float64(resp.LatencyMs)/1000.0)
+		// 私域: 无 Prometheus 端点, 指标已落库 (layer_decision_logs)
+		_ = phase0Ptr
 	}()
 
 	// ========== Phase 0: 并行执行 resolveCustomer + recallMemory + intent + RAG ==========

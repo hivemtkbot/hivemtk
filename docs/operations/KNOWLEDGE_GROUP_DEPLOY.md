@@ -306,16 +306,14 @@ curl -X POST http://user-server:8080/api/v1/knowledge-bases \
 
 ### 6.2 关键监控指标
 
-参见 `docs/operations/KNOWLEDGE_GROUP_MONITORING.md`:
-
-- `kb_create_total`: KB 创建计数
-- `kb_list_duration_seconds`: ListByAgent 延迟
-- `binding_cascade_delete_total`: 级联删除计数
-- `isolation_violation_total`: 越权访问计数 (应为 0)
+> 私域部署: 不引入 Prometheus / Grafana / 告警通道。
+> 关键指标 (KB 创建数 / ListByAgent 延迟 / 级联删除计数 / 越权访问计数) 通过 `audit_logs` 表落库,
+> 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
 
 ### 6.3 关键指标审计 (无外部告警)
 
-> 私域部署版本: 不引入 Prometheus / Grafana / 告警通道。关键指标 (越权访问、级联删除延迟) 通过应用层日志 + 数据库表行数变化人工巡检, 巡检脚本见 `scripts/post_deploy_check.sh`。
+> 私域部署版本: 关键指标 (越权访问、级联删除延迟) 通过应用层日志 + `audit_logs` 表行数变化人工巡检,
+> 巡检脚本见 `scripts/post_deploy_check.sh`。
 
 ---
 

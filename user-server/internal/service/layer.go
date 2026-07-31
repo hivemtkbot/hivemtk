@@ -24,7 +24,6 @@ import (
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/featureflag"
-	appmetrics "marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 )
@@ -117,8 +116,9 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 	defer func() {
 		decision.WallMs = int(time.Since(start).Milliseconds())
 		r.record(ctx, req, decision)
-		// T21: Prometheus 埋点
-		appmetrics.RecordAIAgentLayerDecision(decision.Layer, decision.Reason)
+		// 私域: 无 Prometheus 端点, 决策记录已落库 (layer_decision_logs 表)
+		_ = decision.Layer
+		_ = decision.Reason
 	}()
 
 	// 1. FeatureFlag: 关闭时直接 Layer2

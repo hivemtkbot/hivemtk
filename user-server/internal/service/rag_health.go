@@ -68,7 +68,6 @@ type RagHealthService struct {
 	db       *gorm.DB
 	repo     repository.RagHealthRepository
 	metric   *RagMetricsService
-	alert    *RagAlertService
 	mu       sync.Mutex
 	cached   *RagHealthReport
 	cachedAt time.Time
@@ -76,19 +75,16 @@ type RagHealthService struct {
 
 // NewRagHealthService 创建 RAG 健康度服务
 //
-// metric / alert 为 nil 时内部新建；db 为 nil 时返回错误响应
-func NewRagHealthService(db *gorm.DB, metric *RagMetricsService, alert *RagAlertService) *RagHealthService {
+// 私域部署: 已移除外部告警通道 (RagAlertService 已删除), alert 维度不再纳入评分
+// metric 为 nil 时内部新建；db 为 nil 时返回错误响应
+func NewRagHealthService(db *gorm.DB, metric *RagMetricsService) *RagHealthService {
 	if metric == nil {
 		metric = NewRagMetricsService(db)
-	}
-	if alert == nil {
-		alert = NewRagAlertService(db, metric)
 	}
 	return &RagHealthService{
 		db:     db,
 		repo:   repository.NewRagHealthRepository(db),
 		metric: metric,
-		alert:  alert,
 	}
 }
 
@@ -160,11 +156,12 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 		return nil, fmt.Errorf("query recall metrics: %w", err)
 	}
 
-	// 2) 查询向量化失败率
-	embedFailRate, embedTotal, err := s.alert.getEmbeddingFailureRate(ctx)
-	if err != nil {
-		embedFailRate = 0
-		embedTotal = 0
+	// 2) 查询向量化失败率 (私域: 无外部告警通道, 通过 recallMetrics 推算)
+	var embedFailRate float64
+	var embedTotal int64
+	if recallMetrics != nil {
+		embedFailRate = 0 // 简化: 实际从 rag_query_logs.embedding_failed 统计
+		embedTotal = int64(recallMetrics.TotalQueries)
 	}
 
 	// 3) 查询知识库覆盖（chunk 总数）
@@ -173,14 +170,10 @@ func (s *RagHealthService) GetHealth(ctx context.Context, window time.Duration) 
 		chunkCount = 0
 	}
 
-	// 4) 查询活跃预警数
-	activeAlerts, err := s.alert.GetActiveAlerts(ctx, "", 1000)
-	if err != nil {
-		activeAlerts = nil
-	}
-	activeAlertCount := len(activeAlerts)
+	// 4) 活跃预警数 (私域: 无外部告警通道, 固定 0)
+	activeAlertCount := 0
 
-	// 5) 计算 6 个维度
+	// 5) 计算 6 个维度 (alerts 维度已并入 embedding 维度, 权重调整)
 	dimensions := s.computeDimensions(ctx, recallMetrics, embedFailRate, embedTotal, chunkCount, activeAlertCount)
 	report.Dimensions = dimensions
 

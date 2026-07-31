@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var _ = middleware.MetricsHandler
 var _ = config.GetAppConfig
 var _ = platform.InitSync
 

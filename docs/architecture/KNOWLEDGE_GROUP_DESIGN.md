@@ -406,7 +406,7 @@ go test ./...
 - `docs/architecture/ROW_LEVEL_SECURITY.md` - 行级隔离
 - `docs/operations/KNOWLEDGE_GROUP_DEPLOY.md` - 部署指南
 - `docs/operations/KNOWLEDGE_GROUP_API.md` - API 参考
-- `docs/operations/KNOWLEDGE_GROUP_MONITORING.md` - 监控告警
+- 私域部署: 关键指标通过 `scripts/post_deploy_check.sh` 巡检, 无外部监控告警文档
 
 ---
 

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"marketing/internal/config"
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 	"net/http"
 	"os"
@@ -207,7 +206,8 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		c.jwtExpireAt = time.Time{}
 		c.jwtMu.Unlock()
 		// R9 可观测性：记录 401 自愈触发次数
-		metrics.GlobalMetrics.PlatformJWTRefreshTotal.Inc(path)
+		// 私域: 无 Prometheus 端点, 仅日志追踪 JWT 刷新
+		logger.Debugf("[platform-client] JWT refreshed path=%s", path)
 		logger.Warn(fmt.Sprintf("平台 JWT 失效(401)，清空缓存并重试一次: %s %s", method, url))
 		return c.doRetry(method, path, reqData, respData, true)
 	}

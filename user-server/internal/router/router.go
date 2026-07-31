@@ -64,12 +64,9 @@ func Setup(r *gin.Engine) {
 	r.GET("/healthz", LivenessCheck())
 	r.GET("/readyz", ReadinessCheck(HealthRedis))
 
-	// P0-19: Prometheus 指标暴露端点
-	// P1-1 修复：仅允许 loopback / 私有网段访问；外部需配置 METRICS_TOKEN 走 Bearer 鉴权
-	r.GET("/metrics", middleware.MetricsAuthMiddleware(), middleware.MetricsHandler)
-
-	// P0-19: Prometheus 指标采集中间件
-	r.Use(middleware.PrometheusMetricsMiddleware())
+	// 私域部署: 已移除 Prometheus 指标采集 (/metrics 端点 + PrometheusMetricsMiddleware)
+	// 关键指标 (wall_ms / LCP / Layer1 命中率) 通过应用层日志 + layer_decision_logs 表审计。
+	// 巡检方式: SQL 查询 + scripts/post_deploy_check.sh
 
 	// 安全中间件
 	// 限流中间件 - 防止 DDoS 和暴力请求

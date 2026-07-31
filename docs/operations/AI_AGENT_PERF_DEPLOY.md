@@ -46,10 +46,9 @@ graph TB
         REDIS[(Redis 6+<br/>session cache<br/>FAQ cache)]
     end
 
-    subgraph Obs["可观测性"]
-        PROM[Prometheus]
-        GRA[Grafana<br/>ai-agent-perf]
-        ALERT[Alertmanager<br/>钉钉/短信]
+    subgraph Obs["可观测性 (私域: 无外部监控)"]
+        LOG[应用层日志]
+        AUDIT[(layer_decision_logs<br/>rag_query_logs<br/>audit_logs)]
     end
 
     W & TG & WC & FS & XY --> NGX
@@ -67,9 +66,8 @@ graph TB
     SE --> REDIS
     DISP --> L7B
     DISP --> L3B
-    SE -.metrics.-> PROM
-    PROM --> GRA
-    PROM --> ALERT
+    SE -.日志.-> LOG
+    SE -.落库.-> AUDIT
 ```
 
 ### 1.2 环境要求
@@ -213,25 +211,19 @@ curl http://prod:8080/healthz | jq
 # 期望: {"status":"ok","feature_flags":{"parallel":false,...}}
 ```
 
-### 2.4 Prometheus 接入
+### 2.4 指标审计 (私域: 无外部监控)
 
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: 'hivemtk-user-server'
-    static_configs:
-      - targets: ['prod:8080']
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-```
+> 私域部署版本: 不接入 Prometheus / Grafana / 告警通道。
+> 关键指标 (wall_ms / LCP / Layer1 命中率) 通过 `layer_decision_logs` / `rag_query_logs` /
+> `audit_logs` 表落库审计, 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
 
-### 2.5 Grafana 面板导入
-
-```bash
-# 导入面板 JSON
-curl -X POST http://grafana:3000/api/dashboards/import \
-  -H "Content-Type: application/json" \
-  -d @docs/operations/grafana/ai-agent-perf.json
+```sql
+-- 关键指标巡检 (示例)
+SELECT
+  AVG(wall_ms) AS wall_avg,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY wall_ms) AS wall_p50
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 ```
 
 ---
@@ -246,7 +238,7 @@ curl -X POST http://grafana:3000/api/dashboards/import \
 | **Phase 1** | 5% | 4h | wall P50 < 5s, 错误率 < 1% | wall P50 > 8s 持续 30min |
 | **Phase 2** | 25% | 12h | wall P50 < 3s, 错误率 < 0.5% | wall P50 > 5s 持续 1h |
 | **Phase 3** | 50% | 24h | wall P50 < 3s, LCP P50 < 1s | LCP P50 > 2s 持续 1h |
-| **Phase 4** | 100% | 持续 | wall P50 < 1.5s, LCP P50 < 0.5s | 任意告警触发 |
+| **Phase 4** | 100% | 持续 | wall P50 < 1.5s, LCP P50 < 0.5s | wall P50 异常 |
 
 ### 3.2 灰度命令
 
@@ -266,24 +258,24 @@ export FF_STREAM=1
 systemctl reload user-server
 ```
 
-### 3.3 监控指标 (灰度期)
+### 3.3 灰度期指标巡检 (SQL 查询)
 
-| 指标 | 命令 | 通过值 |
-|------|------|--------|
-| wall P50 | `prometheus_query('histogram_quantile(0.5, ai_agent_wall_time_seconds_bucket)')` | < 3s |
-| wall P90 | `histogram_quantile(0.9, ...)` | < 5s |
-| LCP P50 | `histogram_quantile(0.5, ai_agent_lcp_time_seconds_bucket)` | < 1s |
-| Layer1 命中率 | `rate(ai_agent_layer_decision_total{layer="layer1"}[5m]) / rate(ai_agent_layer_decision_total[5m])` | > 50% |
-| LLM 错误率 | `rate(ai_agent_llm_call_total{result="error"}[5m]) / rate(ai_agent_llm_call_total[5m])` | < 1% |
+| 指标 | SQL 查询 | 通过值 |
+|------|----------|--------|
+| wall P50 | `SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY wall_ms) FROM layer_decision_logs WHERE created_at > NOW() - INTERVAL '1 hour'` | < 3s |
+| wall P90 | 同上, percentile_cont(0.9) | < 5s |
+| LCP P50 | `SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY lcp_ms) FROM layer_decision_logs WHERE created_at > NOW() - INTERVAL '1 hour'` | < 1s |
+| Layer1 命中率 | `SELECT COUNT(*) FILTER (WHERE layer='layer1') * 1.0 / COUNT(*) FROM layer_decision_logs` | > 50% |
+| LLM 错误率 | `SELECT COUNT(*) FILTER (WHERE status='error') * 1.0 / COUNT(*) FROM layer_decision_logs` | < 1% |
 
 ---
 
 ## 四、紧急回滚
 
-### 4.1 5 步回滚（5 分钟内）
+### 4.1 FeatureFlag 一键关闭 (5 秒内)
 
 ```bash
-# Step 1: 立即关停新功能 (5 秒)
+# Step 1: 立即关停所有新功能 (5 秒)
 export FF_PARALLEL=0
 export FF_STREAM=0
 export FF_LAYER1=0
@@ -296,16 +288,13 @@ systemctl reload user-server  # 通过 SIGHUP 触发 viper.WatchConfig
 curl -s http://prod:8080/healthz | jq '.feature_flags'
 # 期望: { "parallel": false, "stream": false, "layer1": false }
 
-# Step 4: 检查指标回归 (1 分钟)
-# Prometheus: ai_agent_wall_time_seconds_p90 应该回到 19.6s (基线)
-
-# Step 5: 必要时 git revert (5 分钟)
+# Step 4: 必要时 git revert (5 分钟)
 git revert HEAD~N..HEAD
 git push
 kubectl rollout undo deployment/user-server
 ```
 
-### 4.2 紧急回滚判断标准
+### 4.2 回滚判断标准
 
 **立即回滚 (P1)**:
 - wall P50 > 10s 持续 5min
@@ -501,59 +490,58 @@ ssh user-server "uptime"
 
 ---
 
-## 六、监控告警清单
+## 六、关键指标巡检 (私域: 无外部告警)
 
-### 6.1 告警规则 (推荐)
+> 私域部署版本: 不接入 Prometheus Alertmanager / 钉钉 / 短信告警通道。
+> 关键指标 (wall_ms / LCP / Layer1 命中率 / Fallback 触发率 / LLM 错误率)
+> 通过应用层日志 + 数据库审计表 (`layer_decision_logs`) 落库,
+> 巡检通过 `scripts/post_deploy_check.sh` 脚本实现。
 
-```yaml
-# alerts.yml
-groups:
-  - name: ai_agent_perf
-    rules:
-      - alert: AIWallTimeP90High
-        expr: histogram_quantile(0.9, ai_agent_wall_time_seconds_bucket) > 10
-        for: 5m
-        labels: { severity: P2 }
-        annotations:
-          summary: "AI agent wall time P90 超过 10s"
+### 6.1 巡检 SQL (建议每小时执行一次)
 
-      - alert: AIWallTimeP50High
-        expr: histogram_quantile(0.5, ai_agent_wall_time_seconds_bucket) > 5
-        for: 10m
-        labels: { severity: P2 }
+```sql
+-- Wall time P50 / P90 / P99
+SELECT
+  PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY wall_ms) AS wall_p50,
+  PERCENTILE_CONT(0.9)  WITHIN GROUP (ORDER BY wall_ms) AS wall_p90,
+  PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY wall_ms) AS wall_p99
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 
-      - alert: AILCPTimeP99High
-        expr: histogram_quantile(0.99, ai_agent_lcp_time_seconds_bucket) > 2
-        for: 5m
-        labels: { severity: P1 }
+-- LCP P99
+SELECT PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY lcp_ms) AS lcp_p99
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 
-      - alert: AILayer1HitRateLow
-        expr: |
-          rate(ai_agent_layer_decision_total{layer="layer1"}[30m]) /
-          rate(ai_agent_layer_decision_total[30m]) < 0.5
-        for: 30m
-        labels: { severity: P3 }
+-- Layer1 命中率
+SELECT
+  COUNT(*) FILTER (WHERE layer='layer1') * 1.0 / NULLIF(COUNT(*), 0) AS layer1_hit_rate
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 
-      - alert: AIFallbackRateHigh
-        expr: rate(ai_agent_fallback_total[10m]) > 0.2
-        for: 10m
-        labels: { severity: P2 }
+-- Fallback 触发率
+SELECT
+  COUNT(*) FILTER (WHERE fallback_chain IS NOT NULL) * 1.0 / NULLIF(COUNT(*), 0) AS fallback_rate
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 
-      - alert: AILLMErrorRateHigh
-        expr: |
-          rate(ai_agent_llm_call_total{result="error"}[5m]) /
-          rate(ai_agent_llm_call_total[5m]) > 0.05
-        for: 5m
-        labels: { severity: P1 }
+-- LLM 错误率
+SELECT
+  COUNT(*) FILTER (WHERE status='error') * 1.0 / NULLIF(COUNT(*), 0) AS llm_error_rate
+FROM layer_decision_logs
+WHERE created_at > NOW() - INTERVAL '1 hour';
 ```
 
-### 6.2 通知渠道
+### 6.2 巡检响应标准
 
-| 告警级别 | 渠道 | 响应时间 |
-|---------|------|----------|
-| P1 | 钉钉@值班 + 短信 | 5 分钟 |
-| P2 | 钉钉群 | 30 分钟 |
-| P3 | 邮件 + 钉钉群 | 4 小时 |
+| 指标 | 阈值 | 响应动作 |
+|------|------|----------|
+| wall P50 | > 5s 持续 30min | 检查 LLM 服务 + DB 连接池, 必要时降级 FeatureFlag |
+| wall P99 | > 10s 持续 5min | 立即检查, 必要时回滚 |
+| LCP P99 | > 2s 持续 5min | 检查 LLM 推理延迟 + 前置 L1 命中率 |
+| Layer1 命中率 | < 30% | 补充 FAQ 种子, 调整意图识别阈值 |
+| Fallback 触发率 | > 20% | 检查 LLM 健康度, 启动 4 级降级链 |
+| LLM 错误率 | > 5% 持续 5min | 立即检查 LLM 服务可达性 |
 
 ---
 
@@ -611,15 +599,14 @@ psql -c "SELECT to_layer, count(*) FROM layer_decision_logs WHERE created_at > N
 - [ ] 5 层架构 check 通过
 - [ ] 单元测试覆盖率 > 80%
 - [ ] FAQ 种子数据导入
-- [ ] Prometheus 配置更新
-- [ ] Grafana 面板导入
-- [ ] 告警规则配置
+- [ ] 关键指标巡检 SQL 已就绪 (`scripts/post_deploy_check.sh`)
+- [ ] FeatureFlag 默认值审计
 - [ ] 灰度比例设定
-- [ ] 回滚命令就绪
+- [ ] FeatureFlag 一键关闭命令就绪
 - [ ] 团队通知发送
 
 ---
 
-**版本:** v1.0  
-**最后更新:** 2026-07-31  
+**版本:** v1.1  
+**最后更新:** 2026-08-01 (移除 Prometheus / Grafana / 告警通道)  
 **审查:** HiveMTK 架构组

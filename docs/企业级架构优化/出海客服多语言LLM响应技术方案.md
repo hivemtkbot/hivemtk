@@ -922,17 +922,20 @@ i18n:
 
 ## 十二、可观测性
 
-### 12.1 监控指标
+> 私域部署: 不接入 Prometheus 外部通道, 关键指标通过 `i18n_*` 命名的 `audit_logs` 表 + 应用层日志落库。
+> 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
 
-| 指标 | 类型 | 告警阈值 |
-|------|------|---------|
-| `i18n_lang_config_total{source="channel/agent/default"}` | Counter | - |
-| `i18n_glossary_violation_total` | Counter | > 0.5% |
-| `i18n_cache_hit_rate` | Gauge | < 30%（冷启动除外） |
-| `i18n_fallback_invocation_total{lang}` | Counter | 单语种 > 10% 触发评估 |
-| `i18n_e2e_latency_p95{lang}` | Histogram | > 1.5s |
-| `i18n_quality_score_avg{lang}` | Gauge | < 0.7 |
-| `i18n_default_zh_fallback_total` | Counter | 高于预期说明配置缺失 |
+### 12.1 关键指标 (audit_logs 表统计)
+
+| 指标 | 来源 | 巡检阈值 |
+|------|------|----------|
+| i18n 语言配置来源分布 | `audit_logs.action='lang_config_resolve'` GROUP BY source | 异常 channel 缺失触发补漏 |
+| 术语表违规率 | `audit_logs.action='glossary_violation'` / 总请求 | > 0.5% 巡检关注 |
+| i18n 缓存命中率 | `audit_logs.action='i18n_cache_hit/miss'` | < 30%（冷启动除外） |
+| i18n fallback 触发率 | `audit_logs.action='i18n_fallback'` GROUP BY lang | 单语种 > 10% 触发评估 |
+| i18n 端到端延迟 P95 | `audit_logs.latency_ms` GROUP BY lang | > 1.5s |
+| i18n 质量评分均值 | `audit_logs.payload->>'quality_score'` | < 0.7 |
+| 默认中文 fallback 次数 | `audit_logs.action='default_zh_fallback'` | 高于预期说明配置缺失 |
 
 ### 12.2 日志字段（llm_routing_logs 扩展）
 

@@ -13,7 +13,6 @@ import (
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/dto"
 	"marketing/internal/model"
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 	confidencesvc "marketing/internal/service/confidence"
 	humanizesvc "marketing/internal/service/humanize"
@@ -365,13 +364,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		// 不论本次是否转人工、是否 audit 拦截，都记录决策快照，
 		// 后续客户下一条消息/人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
 		e.recordFeedback(ctx, req, resp)
-		// T21: Prometheus 埋点 wall time
-		layer := dto.Layer2
-		intentName := "unknown"
-		if resp.Intent != nil {
-			intentName = resp.Intent.IntentType
-		}
-		metrics.RecordAIAgentWallTime("ai_sales", layer, intentName, float64(resp.LatencyMs)/1000.0)
+		// 私域: 无 Prometheus 端点, 指标已落库 (layer_decision_logs)
 	}()
 
 	// 步骤 1：消息解析 + OneID 识别
@@ -1499,10 +1492,6 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 		return false, ""
 	}
 
-	// P3 监控埋点：每次 confidence scoring +1
-	scenario := string(intent.IntentType)
-	metrics.RecordConfidenceScored(scenario)
-
 	// 构造信号采集输入
 	in := &dto.SignalCollectionInput{
 		SessionID:     req.SessionID,
@@ -1540,7 +1529,7 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 	default:
 		decisionLabel = "auto_reply"
 	}
-	metrics.RecordConfidenceDecision(scenario, decisionLabel)
+	_ = decisionLabel // 私域: 无 Prometheus, 记录已落库
 
 	// 一票否决
 	if dec.VetoTriggered != "" {

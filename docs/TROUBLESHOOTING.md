@@ -1,7 +1,7 @@
 # HiveMTK 故障排查手册（TROUBLESHOOTING）
 
 > 本文档汇总 HiveMTK 私域独立部署常见故障的定位路径、临时缓解、根因修复方案。
-> 配合 `INCIDENT_RUNBOOK.md`（按告警维度拆分）使用。
+> 私域部署: 不依赖外部监控告警通道, 巡检通过 `scripts/post_deploy_check.sh` SQL 查询实现。
 
 ---
 
@@ -145,15 +145,14 @@ NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 ## 6. 运维 / 监控
 
-### 6.1 Prometheus `/metrics` 返回 404
-**症状**：Grafana 面板无数据。
-**根因**：路由未挂载或中间件顺序错误。
+### 6.1 关键指标采集缺失
+
+**症状**：`scripts/post_deploy_check.sh` 巡检时 `layer_decision_logs` / `rag_query_logs` 表无数据。
+**根因**：`FF_DEBUG_LOG=0`（生产默认）仅记录 ERROR 级别日志；或 audit_persister 装饰器未注入。
 **修复**：
-```go
-// router 中确保
-r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-// 且放在鉴权中间件之前（metrics 端点通常无需鉴权或单独 IP 白名单）
-```
+- 确认 `config.yaml` 中 `feature_flags.debug_log` 配置（生产建议保持 0）；
+- 确认 `audit_persister.go` 装饰器已注册到 ToolExecutor 链；
+- 手动触发一次 AI 调用后查询 `audit_logs` 表是否有新行。
 
 ### 6.2 容器 OOMKilled
 **症状**：`docker ps -a` 看到 `Exited (137)`，内核日志含 `Memory cgroup out of memory: Killed process`。

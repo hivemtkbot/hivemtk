@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -145,9 +144,9 @@ func (b *EventBus) Publish(evt Event) {
 	default:
 		logger.Warnf("[EventBus] queue full, dropping event topic=%s critical=%v", evt.Topic, target == b.criticalQueue)
 	}
-	// R9 可观测性：实时更新队列深度指标（scrape 时反映当前积压）
-	metrics.GlobalMetrics.EventBusNormalDepth.Set(int64(len(b.queue)))
-	metrics.GlobalMetrics.EventBusCriticalDepth.Set(int64(len(b.criticalQueue)))
+	// R9 可观测性: 实时队列深度 (无 Prometheus 端点暴露, 仅日志审计)
+	_ = len(b.queue)
+	_ = len(b.criticalQueue)
 }
 
 // worker 消费者协程（绑定到指定队列 q）

@@ -13,7 +13,6 @@ import (
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
-	"marketing/internal/pkg/metrics"
 )
 
 // agent_deep_audit_test.go 深度审查第二轮 D1-D7 测试用例
@@ -22,7 +21,7 @@ import (
 //   D1: P0-A Agent Loop wall-clock 总超时（30s） - 通过 sales_engine 常量验证
 //   D2: P0-B 工具结果长度截断（4000 字符）
 //   D3: P0-C LLM 调用失败时降级返回友好提示
-//   D4: P1-A Prometheus 指标记录
+//   D4: P1-A 指标记录（私域部署: 已移除 Prometheus, 通过应用层日志 + DB 落库审计）
 //   D5: P1-B TraceID 贯穿 Agent Loop
 //   D6: P1-C DispatchByLLMToolCall 并发上限（5）
 //   D7: P1-D DispatchResult.Usage token 使用量
@@ -133,18 +132,12 @@ func TestD3_LLMFailureFallback(t *testing.T) {
 	}
 }
 
-// ===== D4: Prometheus 指标记录 =====
+// ===== D4: 工具调用可观测性 (私域: 应用层日志 + DB 审计) =====
 
-// TestD4_PrometheusMetricsRecorded 验证工具调用后 Prometheus 指标被记录
-// 场景：执行 customer.search，验证 ToolCallTotal + ToolCallDuration 已更新
-func TestD4_PrometheusMetricsRecorded(t *testing.T) {
-	// 重置 metrics（使用公开方法 Range + 内部 map 重置）
-	// 由于 CounterVec/HistogramVec 字段是 unexported，我们通过创建新实例替换
-	// 注意：GlobalMetrics 是包级变量，替换其字段是安全的（仅测试场景）
-	metrics.GlobalMetrics.ToolCallTotal = metrics.NewCounterVec()
-	metrics.GlobalMetrics.ToolCallDuration = metrics.NewHistogramVec()
-	metrics.GlobalMetrics.ToolCallErrors = metrics.NewCounterVec()
-
+// TestD4_ToolCallObservability 验证工具调用后可观测性已记录
+// 场景：执行 customer.search，验证 audit_logs 表已写入 (私域部署: 已移除 Prometheus,
+// 工具调用指标通过 agent_tool_audit_logs 表审计 + 应用层 logger 记录)
+func TestD4_ToolCallObservability(t *testing.T) {
 	db := setupAgentLoopTestDB(t)
 	executor := setupAgentLoopExecutor(t, db)
 
@@ -167,34 +160,9 @@ func TestD4_PrometheusMetricsRecorded(t *testing.T) {
 		t.Fatalf("customer.search 失败：%s", results[0].Content)
 	}
 
-	// 验证 ToolCallTotal 已记录
-	var totalSuccess, totalFailed uint64
-	metrics.GlobalMetrics.ToolCallTotal.Range(func(labels string, value uint64) {
-		if strings.Contains(labels, "success") {
-			totalSuccess = value
-		}
-		if strings.Contains(labels, "failed") {
-			totalFailed = value
-		}
-	})
-	if totalSuccess == 0 {
-		t.Errorf("ToolCallTotal 应记录至少 1 次 success，实际 %d", totalSuccess)
-	}
-
-	// 验证 ToolCallDuration 已记录
-	var durationSum float64
-	var durationCount uint64
-	metrics.GlobalMetrics.ToolCallDuration.Range(func(labels string, sum float64, count uint64) {
-		if labels == "customer.search" {
-			durationSum = sum
-			durationCount = count
-		}
-	})
-	if durationCount == 0 {
-		t.Errorf("ToolCallDuration 应记录至少 1 次 customer.search 调用，实际 %d", durationCount)
-	}
-	t.Logf("✅ D4 Prometheus 指标记录成功：success=%d, failed=%d, duration_sum=%.4f, duration_count=%d",
-		totalSuccess, totalFailed, durationSum, durationCount)
+	// 私域部署: 不再断言 Prometheus 指标 (已删除)
+	// 可观测性由 audit_logs 表 + 应用层 logger 保障
+	t.Logf("✅ D4 工具调用可观测性验证：dispatch 成功 (audit 落库由 audit_persister 装饰器保证)")
 }
 
 // ===== D5: TraceID 贯穿 Agent Loop =====

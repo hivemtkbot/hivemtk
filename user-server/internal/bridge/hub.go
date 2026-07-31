@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -246,7 +245,7 @@ func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) erro
 	allowed := b.take()
 	h.rateMu.Unlock()
 	if !allowed {
-		metrics.GlobalMetrics.BridgeDeliverTotal.Inc(channel + "|rate_limited")
+		// 私域: 无 Prometheus, 审计日志已落库
 		logger.Ctx(nil).Warn().
 			Str("module", "bridge").
 			Str("channel", channel).
@@ -259,7 +258,6 @@ func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) erro
 	c, ok := h.clients[h.key(channel, account)]
 	if !ok || c.IsClosed() {
 		h.mu.Unlock()
-		metrics.GlobalMetrics.BridgeDeliverTotal.Inc(channel + "|offline")
 		return ErrBridgeOffline
 	}
 	data, err := json.Marshal(&Frame{
@@ -269,18 +267,15 @@ func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) erro
 	})
 	if err != nil {
 		h.mu.Unlock()
-		metrics.GlobalMetrics.BridgeDeliverTotal.Inc(channel + "|failed")
 		logger.Ctx(nil).Error().Err(err).Str("module", "bridge").Msg("bridge deliver marshal failed")
 		return err
 	}
 	select {
 	case c.send <- data:
 		h.mu.Unlock()
-		metrics.GlobalMetrics.BridgeDeliverTotal.Inc(channel + "|success")
 		return nil
 	default:
 		h.mu.Unlock()
-		metrics.GlobalMetrics.BridgeDeliverTotal.Inc(channel + "|buffer_full")
 		logger.Ctx(nil).Warn().
 			Str("module", "bridge").
 			Str("channel", channel).

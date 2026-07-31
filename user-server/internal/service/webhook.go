@@ -27,7 +27,6 @@ import (
 	"marketing/internal/channelbot/telegram"
 	"marketing/internal/channelbot/whatsapp"
 	"marketing/internal/model"
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/trace"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
@@ -1873,8 +1872,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 	// （同 EventID 二次到达）导致的重复出站。
 	if !agent_runtime.ClaimReply(p.EventID) {
 		logger.Ctx(ctx).Info().Str("event_id", p.EventID).Msg("skip duplicate outbound (event already replied)")
-		// R9 可观测性：记录被幂等守卫拦截的重复出站
-		metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|duplicate")
+		// R9 可观测性：记录被幂等守卫拦截的重复出站 (私域: 无 Prometheus, 仅日志)
 		return
 	}
 	// 出站结果追踪：仅当真正成功出站时才保留认领（防重复）；
@@ -1906,10 +1904,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			AIAgent:        "sales_engine",
 		}); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "wecom").Str("account_id", accountID).Msg("outbound failed")
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
 		}
 	case ChannelFeishu:
 		if s.feishuIntegration == nil {
@@ -1922,10 +1918,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// Feishu 用 open_id 作为发送目标（p.Sender 已是 open_id）
 		if err := s.feishuIntegration.SendMessage(ctx, uint(accID), p.Sender, content); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "feishu").Str("account_id", accountID).Msg("outbound failed")
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
 		}
 	case ChannelTelegram:
 		if s.tgIntegration == nil {
@@ -1945,10 +1939,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		}
 		if err := s.tgIntegration.SendMessage(ctx, uint(accID), chatID, content); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "telegram").Str("account_id", accountID).Int64("chat_id", chatID).Msg("outbound failed")
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
 		}
 	case ChannelWhatsapp:
 		if s.waIntegration == nil {
@@ -1961,10 +1953,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// 收件人是手机号 (E.164)
 		if err := s.waIntegration.SendMessage(ctx, uint(accID), p.Sender, content); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "whatsapp").Str("account_id", accountID).Msg("outbound failed")
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
 		}
 	case "douyin_web", "xhs_web", "tiktok_web":
 		// 网页桥接渠道：AI 回复经 WebSocket 投递到 Chrome 扩展（由 bridge 包注册的回调完成），
@@ -1972,10 +1962,8 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// p.EventID 传给 bridge 用于 ClaimReply 幂等守卫。
 		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|failed")
 		} else {
 			sent = true
-			metrics.GlobalMetrics.OutboundTotal.Inc(string(channel) + "|success")
 		}
 	default:
 		// 该渠道暂未实现主动出站：记录日志并跳过，避免静默吞掉消息难以排查
@@ -1994,15 +1982,14 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	now := time.Now()
 	if v, ok := s.dedup.Load(eventID); ok {
 		if exp, ok := v.(time.Time); ok && now.Before(exp) {
-			// R9 可观测性：命中去重的重复投递
-			metrics.GlobalMetrics.WebhookDedupTotal.Inc("duplicate")
+			// R9 可观测性：命中去重的重复投递 (私域: 无 Prometheus, 仅日志)
+			logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[webhook] dedup hit")
 			return true
 		}
 		s.dedup.Delete(eventID)
 	}
 	s.dedup.Store(eventID, now.Add(WebhookDedupTTL))
-	// R9 可观测性：新事件接受（进入幂等窗口）
-	metrics.GlobalMetrics.WebhookDedupTotal.Inc("accepted")
+	// R9 可观测性：新事件接受 (私域: 无 Prometheus, 仅日志)
 	return false
 }
 

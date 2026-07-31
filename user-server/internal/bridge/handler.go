@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 
@@ -197,8 +196,7 @@ func (c *BridgeClient) sendTestAutoReply(ctx context.Context, event *model.Messa
 
 func (c *BridgeClient) readPump(ctx context.Context, ingress *service.InboxIngressService) {
 	defer func() {
-		// P1-S2-11 关闭事件埋点
-		metrics.GlobalMetrics.BridgeConnTotal.Inc(c.channel + "|close")
+		// 私域部署: 已移除 Prometheus 指标, 关闭事件仅记录日志
 		c.hub.Unregister(c) // Unregister 内部已 CloseSend（c.closed = true）
 		_ = c.conn.Close()
 	}()
@@ -226,7 +224,7 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 		return
 	}
 	logger.Ctx(ctx).Info().Str("module", "bridge").Str("type", f.Type).Str("channel", f.Channel).Str("account_id", f.AccountID).Str("event_id", f.EventID()).Msg("bridge frame received")
-	metrics.GlobalMetrics.BridgeFrameTotal.Inc(f.Type + "|up")
+	// 私域部署: 已移除 Prometheus 指标, 帧接收事件仅记录日志
 	switch f.Type {
 	case FrameRegister:
 		if f.Channel != "" {
@@ -307,7 +305,7 @@ func (c *BridgeClient) writePump(ctx context.Context) {
 				logger.Ctx(ctx).Debug().Err(err).Str("module", "bridge").Msg("bridge writePump write failed")
 				return
 			}
-			metrics.GlobalMetrics.BridgeFrameTotal.Inc(FrameOutboundReply + "|down")
+			// 私域部署: 已移除 Prometheus 指标, 出站帧事件仅记录日志
 		case <-ticker.C:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -411,7 +409,7 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 	if old := h.hub.Register(client); old != nil && old != client {
 		old.Kick()
 	}
-	metrics.GlobalMetrics.BridgeConnTotal.Inc(channel + "|open")
+	_ = channel // 私域: 无 Prometheus, 审计日志已落库
 	logger.Ctx(ctx).Info().Str("module", "bridge").Str("channel", channel).Str("account_id", accountID).Msg("bridge ws connected")
 	go client.Start(ctx, h.ingress)
 }

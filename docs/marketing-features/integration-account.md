@@ -232,12 +232,9 @@ CREATE TABLE integration_accounts (
 | 加密密钥 | INTEGRATION_AES_KEY | - | |
 | 同步默认间隔 | INTEGRATION_SYNC_INTERVAL | 60min | |
 
-### 8.2 监控告警
+### 8.x 可观测性 (私域: 应用层日志 + DB 审计)
 
-| 监控项 | 阈值 | 告警方式 |
-|---|---|---|
-| 同步失败 | 立即 | 钉钉 |
-| token 即将过期 | 7 天 | 邮件 |
+> 私域部署: 不接入外部告警通道 (钉钉/飞书/邮件等)。关键指标通过  /  表落库, 巡检通过  SQL 查询实现。
 
 ---
 

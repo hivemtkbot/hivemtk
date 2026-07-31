@@ -9,7 +9,6 @@ import (
 	agentruntime "marketing/internal/aiagent/agent/runtime"
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/model"
-	"marketing/internal/pkg/metrics"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 )
@@ -104,8 +103,8 @@ func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, 
 	}
 	if err := a.hub.Deliver(channel, accountID, reply); err != nil {
 		// 离线/限速/buffer 满：落 message_hub(direction=outbound, status=failed) 等待补发
-		// P1-S2-2 限速命中也走降级落库，便于坐席 UI 区分显示
-		metrics.GlobalMetrics.OutboundTotal.Inc(channel + "|bridge_failed:" + classifyDeliverErr(err))
+		// 私域: 无 Prometheus, 失败已落库
+		_ = classifyDeliverErr
 		return a.persistFailedOutbound(ctx, channel, accountID, conversationID, msgType, content, eventID, err)
 	}
 	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil

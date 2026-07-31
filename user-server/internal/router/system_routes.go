@@ -78,9 +78,9 @@ func setupRagRoutes(auth *gin.RouterGroup) {
 
 	// C 域 P1 缺口修复 - 召回率监控 / 内容风控 / 健康度评估
 	// （统一在此注册，避免在 auth_routes.go 引入对 rag 子包的耦合）
+	// 私域部署: RagAlertService 已删除, 健康度评分不再纳入 alert 维度
 	ragMetricsSvc := service.NewRagMetricsService(db.GetDB())
-	ragAlertSvc := service.NewRagAlertService(db.GetDB(), ragMetricsSvc)
-	ragHealthSvc := service.NewRagHealthService(db.GetDB(), ragMetricsSvc, ragAlertSvc)
+	ragHealthSvc := service.NewRagHealthService(db.GetDB(), ragMetricsSvc)
 	ragHealthCtrl := controller.NewRagHealthController(ragHealthSvc)
 	ragHealthCtrl.RegisterRoutes(auth)
 

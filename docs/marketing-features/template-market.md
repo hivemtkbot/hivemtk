@@ -240,11 +240,9 @@ CREATE TABLE template_downloads (
 | 下载频率 | TEMPLATE_DOWNLOAD_RATE | 60/min | |
 | 热门权重 | TEMPLATE_HOT_WEIGHT | 0.5 | |
 
-### 8.2 监控告警
+### 8.x 可观测性 (私域: 应用层日志 + DB 审计)
 
-| 监控项 | 阈值 | 告警方式 |
-|---|---|---|
-| 搜索慢 | P95 > 1s | 钉钉 |
+> 私域部署: 不接入外部告警通道 (钉钉/飞书/邮件等)。关键指标通过  /  表落库, 巡检通过  SQL 查询实现。
 
 ---
 

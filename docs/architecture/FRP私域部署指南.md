@@ -419,7 +419,7 @@ services:
 
 ---
 
-## 八、健康检查与告警
+## 八、健康检查
 
 ### 8.1 frpc 进程守护
 
@@ -442,7 +442,7 @@ chmod +x /usr/local/bin/frpc-watchdog.sh
 ### 8.2 端到端探活
 
 ```bash
-# 每分钟 curl 一次,失败 3 次告警
+# 每分钟 curl 一次,失败 3 次记录到日志
 cat > /usr/local/bin/mtk-healthcheck.sh <<'SH'
 #!/bin/bash
 for i in 1 2 3; do
@@ -451,10 +451,8 @@ for i in 1 2 3; do
   fi
   sleep 5
 done
-# 全部失败:发邮件/钉钉/企业微信
-curl -X POST "https://oapi.dingtalk.com/robot/send?access_token=XXX" \
-  -H "Content-Type: application/json" \
-  -d '{"msgtype":"text","text":{"content":"⚠️ HiveMtk user-server 健康检查失败"}}'
+# 全部失败: 私域部署无外部告警通道, 仅写入应用层日志
+echo "[$(date)] ERROR: HiveMtk user-server 健康检查连续 3 次失败" >> /var/log/hivemtk-healthcheck.log
 exit 1
 SH
 chmod +x /usr/local/bin/mtk-healthcheck.sh

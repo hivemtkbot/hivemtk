@@ -314,13 +314,9 @@ JWTAuthMiddleware → DataScopeMiddleware → [RequireAdminMiddleware（仅 admi
 
 无独立环境变量，全部由数据库字段承载。
 
-### 8.2 监控告警
+### 8.x 可观测性 (私域: 应用层日志 + DB 审计)
 
-| 监控项 | 阈值 | 告警方式 |
-|---|---|---|
-| data_scope=self 但访问大量数据 | > 1000 行 / 5 分钟 | 钉钉（疑似越权） |
-| DataScopeMiddleware 降级率 | > 1% | 钉钉（DB 异常） |
-| ApplyDataScope 性能 | > 10ms | 钉钉（索引缺失） |
+> 私域部署: 不接入外部告警通道 (钉钉/飞书/邮件等)。关键指标通过  /  表落库, 巡检通过  SQL 查询实现。
 
 ---
 
