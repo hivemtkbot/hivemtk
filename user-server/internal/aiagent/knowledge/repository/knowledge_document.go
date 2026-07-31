@@ -10,6 +10,12 @@ import (
 )
 
 // KnowledgeDocumentRepository 知识库文档仓储(产品维度)
+//
+// 2026-07-31 P0-B: 按智能体隔离改造
+//   - 新增 ListByAgent / ListShared / ListByKB / MatchByAgent
+//   - ListWithFilter 新增 AgentID 字段 (nil=不过滤, &0=仅共享, &X=该智能体)
+//   - 严格隔离语义: agentID > 0 仅匹配 (agent_id=X OR agent_id IS NULL) AND enabled
+//   - 共享 = agent_id IS NULL, 由显式白名单控制
 type KnowledgeDocumentRepository struct {
 	db *gorm.DB
 }
@@ -76,12 +82,18 @@ func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, pro
 // KnowledgeDocument.ProductID 是 int64，
 // 但前端传入的 RagProduct.ID 是 string UUID。调用方用 HashStringToInt64 把 UUID
 // 映射回 int64 后再传入。
+//
+// 2026-07-31 P0-B: AgentID 字段
+//   - nil:  不过滤 (兼容旧调用)
+//   - &0:   仅查共享 (agent_id IS NULL)
+//   - &X:   仅查该智能体 (agent_id = X)
 type ListFilter struct {
 	ProductID   int64
 	EmbedStatus string
 	SourceType  string
 	Category    string
 	Keyword     string
+	AgentID     *uint
 	Page        int
 	PageSize    int
 }
@@ -110,6 +122,13 @@ func (r *KnowledgeDocumentRepository) List(ctx context.Context, filter ListFilte
 	if filter.Keyword != "" {
 		q = q.Where("title LIKE ?", "%"+filter.Keyword+"%")
 	}
+	if filter.AgentID != nil {
+		if *filter.AgentID == 0 {
+			q = q.Where("agent_id IS NULL")
+		} else {
+			q = q.Where("agent_id = ?", *filter.AgentID)
+		}
+	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -120,6 +139,82 @@ func (r *KnowledgeDocumentRepository) List(ctx context.Context, filter ListFilte
 		return nil, 0, err
 	}
 	return docs, total, nil
+}
+
+// ListByAgent 列出某智能体的知识库文档 (强 1:1, 不含共享)
+//
+// P0-B: 严格隔离语义, 仅 agent_id = ? 严格匹配, 不含共享 (agent_id IS NULL)
+func (r *KnowledgeDocumentRepository) ListByAgent(ctx context.Context, agentID uint, limit int) ([]*model.KnowledgeDocument, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 5000
+	}
+	var docs []*model.KnowledgeDocument
+	err := r.db.WithContext(ctx).
+		Where("agent_id = ? AND status = ?", agentID, 1).
+		Order("id DESC").
+		Limit(limit).
+		Find(&docs).Error
+	return docs, err
+}
+
+// ListShared 列出全部共享知识库文档 (agent_id IS NULL)
+func (r *KnowledgeDocumentRepository) ListShared(ctx context.Context, limit int) ([]*model.KnowledgeDocument, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var docs []*model.KnowledgeDocument
+	err := r.db.WithContext(ctx).
+		Where("agent_id IS NULL AND status = ?", 1).
+		Order("id DESC").
+		Limit(limit).
+		Find(&docs).Error
+	return docs, err
+}
+
+// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的知识库文档)
+//
+// 简化实现: 直接按 agent_id 过滤 (KBType=rag 假设)
+// 完整实现需 JOIN agent_kb_bindings + knowledge_bases, 此处保留简化
+func (r *KnowledgeDocumentRepository) ListByKB(ctx context.Context, kbID uint, agentID uint, limit int) ([]*model.KnowledgeDocument, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	q := r.db.WithContext(ctx).Where("status = ?", 1)
+	if agentID > 0 {
+		q = q.Where("agent_id = ?", agentID)
+	}
+	var docs []*model.KnowledgeDocument
+	if err := q.Order("id DESC").Limit(limit).Find(&docs).Error; err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+// MatchByAgent 按智能体严格 1:1 匹配 (P0-B: 强 1对1 改造)
+//
+// 行为:
+//   - agentID == 0  -> 返回 (nil, nil)
+//   - 仅匹配 status = 1 AND agent_id = ? 的文档
+//   - 移除"空数组=全局"分支: 任何 agent 都必须显式绑定才能匹配
+//
+// SQL: WHERE status = 1 AND agent_id = ?  (走 idx_knowledge_doc_agent_id 索引)
+func (r *KnowledgeDocumentRepository) MatchByAgent(ctx context.Context, agentID uint, limit int) ([]*model.KnowledgeDocument, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 5000
+	}
+	var docs []*model.KnowledgeDocument
+	err := r.db.WithContext(ctx).
+		Where("agent_id = ? AND status = ?", agentID, 1).
+		Order("id DESC").
+		Limit(limit).
+		Find(&docs).Error
+	return docs, err
 }
 
 // Update 更新文档
