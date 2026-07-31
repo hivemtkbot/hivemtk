@@ -81,8 +81,8 @@ const (
 type SafetyCheckRequest struct {
 	// UserID 当前请求用户
 	UserID string
-	// TenantID 租户（私域部署下唯一隔离维度）
-	TenantID string
+	// AgentID 智能体 ID（私域部署下唯一隔离维度，原 TenantID）
+	AgentID string
 	// Content 待检测内容（RAG 回答 / 用户输入 / 检索片段）
 	Content string
 	// Sources 检索来源（用于画像越权判断：每个 source 含 productID/ownerID）
@@ -94,7 +94,7 @@ type SafetyCheckRequest struct {
 // SafetySource 检索片段来源
 type SafetySource struct {
 	DocID     string
-	OwnerID   string // 拥有者 tenantID
+	OwnerID   string // 拥有者 agentID (原 tenantID)
 	ProductID int64
 	Content   string
 }
@@ -401,12 +401,12 @@ func (s *RagSafetyGuardService) checkCompetitor(ctx context.Context, content str
 // checkPersonaAuthz 画像越权检测
 //
 // 行为：
-//  1. 若 req.TenantID 为空，跳过（开发态兜底）
-//  2. 遍历 req.Sources，凡 OwnerID 与 TenantID 不一致即视为越权 →
+//  1. 若 req.AgentID 为空，跳过（开发态兜底）
+//  2. 遍历 req.Sources，凡 OwnerID 与 AgentID 不一致即视为越权 →
 //     将该片段标记为 Persona 越权问题（warn 级别，建议在调用方做二次过滤）
 //  3. 不修改 req，由调用方根据 Issues 自行剔除越权片段
 func (s *RagSafetyGuardService) checkPersonaAuthz(ctx context.Context, req *SafetyCheckRequest) []SafetyIssue {
-	if req.TenantID == "" {
+	if req.AgentID == "" {
 		return nil
 	}
 	var issues []SafetyIssue
@@ -414,13 +414,13 @@ func (s *RagSafetyGuardService) checkPersonaAuthz(ctx context.Context, req *Safe
 		if src.OwnerID == "" {
 			continue
 		}
-		if !strings.EqualFold(src.OwnerID, req.TenantID) {
+		if !strings.EqualFold(src.OwnerID, req.AgentID) {
 			issues = append(issues, SafetyIssue{
 				Type:        SafetyIssuePersonaAuthz,
 				Severity:    SafetySeverityWarn,
 				Action:      SafetyActionAudit,
 				MatchWord:   src.DocID,
-				Description: fmt.Sprintf("检索片段 owner=%s 与当前租户 %s 不一致，存在越权", src.OwnerID, req.TenantID),
+				Description: fmt.Sprintf("检索片段 owner=%s 与当前智能体 %s 不一致，存在越权", src.OwnerID, req.AgentID),
 				Location:    src.DocID,
 			})
 		}
@@ -428,17 +428,17 @@ func (s *RagSafetyGuardService) checkPersonaAuthz(ctx context.Context, req *Safe
 	return issues
 }
 
-// FilterSourcesByTenant 按租户过滤检索片段（消费方工具方法）
+// FilterSourcesByAgent 按智能体过滤检索片段（消费方工具方法）
 //
-// 返回：仅含 OwnerID == tenantID 的片段，越权片段数
-func (s *RagSafetyGuardService) FilterSourcesByTenant(ctx context.Context, sources []SafetySource, tenantID string) ([]SafetySource, int) {
-	if tenantID == "" {
+// 返回：仅含 OwnerID == agentID 的片段，越权片段数
+func (s *RagSafetyGuardService) FilterSourcesByAgent(ctx context.Context, sources []SafetySource, agentID string) ([]SafetySource, int) {
+	if agentID == "" {
 		return sources, 0
 	}
 	filtered := make([]SafetySource, 0, len(sources))
 	dropped := 0
 	for _, src := range sources {
-		if src.OwnerID == "" || strings.EqualFold(src.OwnerID, tenantID) {
+		if src.OwnerID == "" || strings.EqualFold(src.OwnerID, agentID) {
 			filtered = append(filtered, src)
 		} else {
 			dropped++

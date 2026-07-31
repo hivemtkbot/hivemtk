@@ -10,7 +10,7 @@ package service
 //  5) 画像越权 warn
 //  6) 同时命中多个规则
 //  7) 词库动态新增 / 去重
-//  8) FilterSourcesByTenant
+//  8) FilterSourcesByAgent
 //  9) safeReplacement
 // 10) 边界：nil req / 空 content / 防御性
 
@@ -130,10 +130,10 @@ func TestRagSafetyGuard_Competitor_Block(t *testing.T) {
 func TestRagSafetyGuard_PersonaAuthz(t *testing.T) {
 	s := newSafetyGuard()
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
-		TenantID: "tenant-A",
+		AgentID: "agent-A",
 		Sources: []SafetySource{
-			{DocID: "d1", OwnerID: "tenant-A", Content: "A 知识"},
-			{DocID: "d2", OwnerID: "tenant-B", Content: "B 知识"},
+			{DocID: "d1", OwnerID: "agent-A", Content: "A 知识"},
+			{DocID: "d2", OwnerID: "agent-B", Content: "B 知识"},
 		},
 	})
 	if err != nil {
@@ -199,8 +199,8 @@ func TestRagSafetyGuard_Lexicon_Dedup(t *testing.T) {
 	}
 }
 
-// 8) FilterSourcesByTenant
-func TestRagSafetyGuard_FilterSourcesByTenant(t *testing.T) {
+// 8) FilterSourcesByAgent
+func TestRagSafetyGuard_FilterSourcesByAgent(t *testing.T) {
 	s := newSafetyGuard()
 	srcs := []SafetySource{
 		{DocID: "1", OwnerID: "T1"},
@@ -208,7 +208,7 @@ func TestRagSafetyGuard_FilterSourcesByTenant(t *testing.T) {
 		{DocID: "3", OwnerID: "T1"},
 		{DocID: "4", OwnerID: ""},
 	}
-	kept, dropped := s.FilterSourcesByTenant(context.Background(), srcs, "T1")
+	kept, dropped := s.FilterSourcesByAgent(context.Background(), srcs, "T1")
 	if dropped != 1 {
 		t.Errorf("Expected dropped=1, got %d", dropped)
 	}

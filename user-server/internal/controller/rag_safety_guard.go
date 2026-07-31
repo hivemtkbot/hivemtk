@@ -32,11 +32,11 @@ func NewRagSafetyGuardController(svc *service.RagSafetyGuardService) *RagSafetyG
 
 // SafetyCheckRequest 检测请求
 type SafetyCheckRequest struct {
-	UserID   string                 `json:"userId" binding:"required"`
-	TenantID string                 `json:"tenantId"`
-	Content  string                 `json:"content"`
-	Stage    string                 `json:"stage"`
-	Sources  []service.SafetySource `json:"sources"`
+	UserID  string                 `json:"userId" binding:"required"`
+	AgentID string                 `json:"agentId"` // 智能体 ID (原 tenantId, 私域唯一隔离维度)
+	Content string                 `json:"content"`
+	Stage   string                 `json:"stage"`
+	Sources []service.SafetySource `json:"sources"`
 }
 
 // SafetyCheck godoc
@@ -56,7 +56,7 @@ func (c *RagSafetyGuardController) SafetyCheck(ctx *gin.Context) {
 	}
 	res, err := c.svc.Check(ctx.Request.Context(), &service.SafetyCheckRequest{
 		UserID:   req.UserID,
-		TenantID: req.TenantID,
+		AgentID:  req.AgentID,
 		Content:  req.Content,
 		Stage:    req.Stage,
 		Sources:  req.Sources,
