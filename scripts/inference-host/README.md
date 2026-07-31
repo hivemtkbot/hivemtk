@@ -160,7 +160,7 @@ bash scripts/inference-host/start-llm.sh
 | `--flash-attn on` | `FLASH_ATTN` | `on` | Flash Attention 2，加速推理 2-4x，减 KV cache 内存 50%+ |
 | `--mlock` | `USE_MLOCK` | `true` | 锁定模型在 RAM，防止换页导致延迟飙升 |
 | `--timeout 300` | `SERVER_TIMEOUT` | `300` | HTTP 读写超时 300s，防止慢请求占用资源 |
-| `--metrics` | `ENABLE_METRICS` | `true` | Prometheus 指标端点（`/metrics`），便于监控 |
+| `--metrics` | `ENABLE_METRICS` | `false` | llama.cpp 内置 /metrics 端点 (私域: 默认关闭, 无外部 Prometheus 抓取) |
 | `--alias` | `USE_ALIAS` | `true` | 模型别名，确保 API 的 `model` 字段与 config.yaml 一致 |
 | `--ubatch` | `UBATCH_SIZE` | `512` | 物理批处理大小（GPU 可调到 1024） |
 | LLM `--cont-batching` | `LLM_CONT_BATCHING` | `true` | 连续批处理，新请求插入正在处理的批次 |
@@ -209,19 +209,15 @@ export UBATCH_SIZE=1024  # GPU 可处理更大 ubatch
 
 预热后业务首请求可享受亚秒级响应（避免 KV-cache 首次编译延迟）。
 
-### 9.5 Prometheus 监控
+### 9.5 内置 /metrics 端点 (默认关闭)
 
-三服务均启用 `--metrics`，可通过 `http://127.0.0.1:{port}/metrics` 采集：
-```bash
-curl http://127.0.0.1:8207/metrics | grep llama
-```
+> 私域部署: `ENABLE_METRICS` 默认 `false`, **不启用** llama.cpp `/metrics` 端点。
+> 三服务 (LLM / Embedding / Rerank) 的容量指标通过:
+> - `slots_in_use` / `n_slots` 探针: `curl http://127.0.0.1:8207/health` 返回 JSON
+> - 应用层日志: `user-server` 每次 LLM 调用落库 `llm_routing_logs`, 巡检通过 SQL
+> - 健康检查: `/health` `/healthz` `/readyz` 端点
 
-关键指标：
-- `llamacpp:tokens_predicted_count`：生成 token 总数
-- `llamacpp:prompt_tokens_count`：输入 token 总数
-- `llamacpp:kv_cache_usage_ratio`：KV cache 使用率
-- `llamacpp:requests_processing`：正在处理的请求数
-- `llamacpp:requests_deferred`：排队中的请求数
+如需开启, 需显式设置 `ENABLE_METRICS=true` 并自行对接外部抓取, 私域基线**不依赖**此通道。
 
 ## 十、依赖
 

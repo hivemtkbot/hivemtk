@@ -59,7 +59,7 @@ EXTENDED_ENTRIES_BATCH2 = {
         "HiveMtk API 支持限流：令牌桶算法，防止恶意请求。",
         "HiveMtk API 支持缓存：Redis 缓存，提高接口响应速度。",
         "HiveMtk API 支持日志：结构化日志，支持链路追踪。",
-        "HiveMtk API 支持监控：Prometheus 指标，支持 Grafana 可视化。",
+        "HiveMtk API 支持监控：私域: 应用层日志 + audit_logs 落库, 无外部 Prometheus / Grafana 通道。",
         "HiveMtk API 支持版本管理：/api/v1/{domain}/{resource}，支持多版本并行。",
         "HiveMtk API 支持认证：JWT Token，支持刷新、过期管理。",
         "HiveMtk API 支持权限：RBAC 角色权限，支持细粒度控制。",

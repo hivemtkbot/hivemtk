@@ -278,7 +278,7 @@ EXTENDED_ENTRIES = {
         "Q: HiveMtk 如何进行持续集成？\nA: 自动化构建、自动化测试、代码质量检查、安全扫描。",
         "Q: HiveMtk 的部署策略有哪些？\nA: 蓝绿部署、金丝雀部署、滚动更新、A/B 测试。",
         "Q: HiveMtk 如何进行发布管理？\nA: 版本号管理、发布计划、灰度发布、回滚策略。",
-        "Q: HiveMtk 的监控告警如何集成？\nA: Prometheus + Grafana、AlertManager、自定义告警。",
+        "Q: HiveMtk 的监控告警如何集成？\nA: 私域部署: 应用层日志 + layer_decision_logs / audit_logs 表落库, 巡检通过 SQL + scripts/post_deploy_check.sh。不接入外部 Prometheus / 钉钉 / 短信告警通道。",
         "Q: HiveMtk 如何进行日志分析？\nA: ELK Stack、Loki、ClickHouse、实时分析、离线分析。",
         "Q: HiveMtk 的数据仓库如何设计？\nA: 维度建模、事实表、维度表、数据分层、数据治理。",
         "Q: HiveMtk 如何进行数据质量管理？\nA: 数据校验、数据清洗、数据监控、数据治理。",

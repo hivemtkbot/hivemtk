@@ -10,7 +10,7 @@ package migrations
 // 3. 本次迁移新增 3 张表支撑该方案：
 //    - faq_entries          Layer1 FAQ 知识库
 //    - sop_templates        Layer1 SOP 模板（Go text/template 变量替换）
-//    - layer_decision_logs  Layer 决策可观测性日志（用于 Grafana 面板）
+//    - layer_decision_logs  Layer 决策可观测性日志（私域: 落库审计 + SQL 巡检）
 // 4. 3 张表均带 GIN 索引或常规索引，PG AutoMigrate 友好，幂等可重入。
 
 import (

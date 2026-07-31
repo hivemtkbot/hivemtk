@@ -34,7 +34,7 @@
 ### 文档
 - [ ] Swagger 注解补全（controller 层）
 - [ ] 5 分钟部署视频 + 截图
-- [ ] 监控告警手册（Prometheus 指标字典 + 告警规则）
+- [ ] 巡检 SQL 手册（私域：`layer_decision_logs` / `audit_logs` 关键指标查询）
 
 ## 不做的事
 

@@ -603,7 +603,6 @@ bash ../../scripts/api-inventory.sh
 | `GET /health` | 全量健康检查（PG / Redis / LLM / Embedding / Rerank） |
 | `GET /healthz` | 存活探针（K8s liveness） |
 | `GET /readyz` | 就绪探针（K8s readiness） |
-| `GET /metrics` | Prometheus 指标（需 `METRICS_TOKEN` Bearer 鉴权） |
 
 > ℹ️ **Swagger 当前未注册**：`router.Setup()` 未挂载 `gin-swagger` 路由，故无 `/swagger/*` 端点。如需开启请自行在 `router.go` 添加。
 

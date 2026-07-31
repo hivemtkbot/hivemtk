@@ -94,7 +94,9 @@ fi
 : "${RERANK_PARALLEL:=1}"
 : "${LLM_CONT_BATCHING:=true}"
 : "${SERVER_TIMEOUT:=300}"
-: "${ENABLE_METRICS:=true}"
+# 私域部署: 默认禁用 llama.cpp /metrics 端点 (无外部 Prometheus 抓取)
+# 如需开启, 显式设置 ENABLE_METRICS=true
+: "${ENABLE_METRICS:=false}"
 : "${USE_ALIAS:=true}"
 
 # ---- 下载源 ----

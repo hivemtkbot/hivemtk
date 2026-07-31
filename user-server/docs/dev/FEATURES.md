@@ -323,11 +323,10 @@
 | `GET /health` | 全量健康检查（PG / Redis / LLM / Embedding / Rerank） | ✅ | `router/health.go` |
 | `GET /healthz` | 存活探针（K8s liveness） | ✅ | `router/health.go` |
 | `GET /readyz` | 就绪探针（K8s readiness） | ✅ | `router/health.go` |
-| `GET /metrics` | Prometheus 指标（需 `METRICS_TOKEN` Bearer 鉴权） | ✅ | `middleware/metrics.go` |
 
 > ℹ️ **Swagger 当前未注册**：`router.Setup()` 未挂载任何 `gin-swagger` 路由，故无 `/swagger/*` 端点。如需开启，请在 `router.go` 中自行添加 `gin-swagger` 中间件并生成 swagger doc。
 
-监控指标由 `middleware/prometheus_metrics.go` 自动采集，覆盖 HTTP 请求量 / 延时 / 错误率 / LLM 调用 / RAG 检索等维度。
+> 私域部署: 无 `/metrics` Prometheus 端点。关键指标 (LLM 调用 / RAG 检索 / Fallback 触发) 落库 `layer_decision_logs` / `audit_logs`，通过 SQL + `scripts/post_deploy_check.sh` 巡检。
 
 ---
 

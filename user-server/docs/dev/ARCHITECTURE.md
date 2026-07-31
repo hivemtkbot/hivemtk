@@ -183,7 +183,7 @@ sequenceDiagram
     participant LLM as aiagent/llm.Dispatcher
 
     Client->>MW: HTTP 请求<br/>(Header: Authorization, X-Lang)
-    MW->>MW: Recovery → Locale → Context → (initEventBus)<br/>→ /health,/healthz,/readyz 端点<br/>→ /metrics(MetricsAuth) → PrometheusMetrics<br/>→ RateLimit → Trace → SensitiveLog → Audit
+    MW->>MW: Recovery → Locale → Context → (initEventBus)<br/>→ /health,/healthz,/readyz 端点<br/>→ RateLimit → Trace → SensitiveLog → Audit
     MW->>MW: InitGuard → JWTAuthMiddleware<br/>(解析 user_id 注入 ctx)
     MW->>Router: 命中路由
     Router->>Ctrl: 调用 Controller 方法

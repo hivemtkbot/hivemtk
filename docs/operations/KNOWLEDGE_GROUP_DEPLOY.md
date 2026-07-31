@@ -141,8 +141,8 @@ curl -X PATCH http://config-center/api/v1/features/knowledge_group_isolation \
 | 索引创建成功 | `\di+ knowledge_bases` | ✅ 6 个索引 |
 | Service 可调用 | 单元测试 | ✅ 全部通过 |
 | E2E 业务通过 | e2e 测试 | ✅ 7/7 通过 |
-| 错误率 | Prometheus | < 0.1% |
-| 响应时间 | Prometheus P99 | < 200ms |
+| 错误率 | SQL: `audit_logs` (越权 / 异常) | < 0.1% |
+| 响应时间 | SQL: `layer_decision_logs.wall_ms` P99 | < 200ms |
 
 ---
 
@@ -260,25 +260,14 @@ spec:
             cpu: "2000m"
 ```
 
-### 5.2 灰度 (Argo Rollouts)
+### 5.2 滚动更新 (docker compose up -d)
 
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
-metadata:
-  name: user-server
-spec:
-  strategy:
-    canary:
-      steps:
-      - setWeight: 5
-      - pause: {duration: 1h}
-      - setWeight: 25
-      - pause: {duration: 2h}
-      - setWeight: 50
-      - pause: {duration: 2h}
-      - setWeight: 100
-```
+> 私域部署: 无 Argo Rollouts 灰度控制台, 通过 docker compose 滚动重启 + SQL 巡检完成版本切换。
+> 步骤:
+> 1. `docker compose pull` 拉取新镜像
+> 2. `docker compose up -d` 触发滚动重启 (1 个实例先停, 1 个起来, 验证健康)
+> 3. `bash scripts/post_deploy_check.sh` SQL 巡检 P99 延迟 / 错误率
+> 4. 异常回滚: `git checkout HEAD~1 && docker compose up -d` 立即回退到上一镜像
 
 ---
 

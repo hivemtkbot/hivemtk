@@ -856,7 +856,7 @@ user-web/bridge/
 - **P1-S2-3**：服务端全局 seq 序号机制（`Frame.Seq` + `NextSeq`）
 - **P1-S2-4**：`ClaimReply` 幂等守卫
 - **P1-S2-6**：`writePump` defer Unregister 兜底
-- **P1-S2-11**：基础 Prometheus 桥接指标（连接数 / 帧率 / 投递结果分类）
+- **P1-S2-11**：桥接审计日志（连接数 / 帧率 / 投递结果分类）落库 `audit_logs`
 - **P2-S2-5**：`SenderType` 透传 `toMessageEvent`（extra.sender_type）
 - **P2-S2-8**：account_id 多层 fallback 派生（`src/core/fallback.js`）
 - **P2-S2-9**：自他消息判定兜底（头像位置）

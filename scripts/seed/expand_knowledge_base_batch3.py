@@ -128,7 +128,7 @@ EXTENDED_ENTRIES_BATCH3 = {
         "v2.5.0 - 新增配置中心：热更新、远程配置、配置加密、版本管理。",
         "v2.6.0 - 新增容器化：Docker 镜像、Kubernetes 部署、Helm Chart。",
         "v2.7.0 - 新增 CI/CD：GitHub Actions、自动化测试、代码质量检查。",
-        "v2.8.0 - 新增监控告警：Prometheus、Grafana、AlertManager、告警规则。",
+        "v2.8.0 - 新增可观测性: 私域部署: layer_decision_logs / audit_logs 落库 + SQL 巡检 (无外部 Prometheus / 告警通道)。",
         "v2.9.0 - 新增安全加固：SAST、DAST、依赖扫描、秘密检测。"
     ],
     "路线图": [

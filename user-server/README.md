@@ -20,7 +20,7 @@
 ### 平台与安全能力
 
 - **认证与权限**：JWT + MFA（双因素）、细粒度 RBAC、操作审计、敏感数据脱敏日志
-- **可观测性**：Prometheus 指标 + TraceID 全链路追踪 + 健康检查（`/health` `/healthz` `/readyz`）
+- **可观测性**：TraceID 全链路追踪 + 健康检查（`/health` `/healthz` `/readyz`）；私域无 Prometheus 端点，关键指标落库 `layer_decision_logs` / `audit_logs`，巡检通过 SQL + `scripts/post_deploy_check.sh`
 - **限流与防滥用**：IP 限流、API Key 限流、登录暴力破解防御
 - **运营能力**：数据库备份 / 恢复、域名池健康巡检、活码轮询、活码统计
 
@@ -45,7 +45,7 @@
 | LLM（dev 档） | Qwen2.5-3B-Instruct（Q4_K_M，`llama.cpp` 启动） |
 | LLM（prod 档） | Qwen2.5-14B-Instruct（Q4_K_M，`llama.cpp` 启动） |
 | 日志 | zerolog |
-| 监控 | Prometheus 客户端 + 自定义 TraceID 中间件 |
+| 监控 | TraceID 中间件 + 应用层日志（私域无 Prometheus 端点） |
 | API 文档 | swaggo/gin-swagger |
 | 浏览器自动化 | chromedp（卡片自动回复） |
 
@@ -264,7 +264,6 @@ make inference-host-status
 | `POST /api/v1/short-link/create` | 创建短链 |
 | `GET /api/v1/dashboard/sse` | 看板实时数据（SSE） |
 | `GET /health` `/healthz` `/readyz` | 健康检查 |
-| `GET /metrics` | Prometheus 指标（需 Token） |
 | `GET /swagger/index.html` | Swagger 文档 |
 
 完整路由通过 `routeinspect` 工具导出：

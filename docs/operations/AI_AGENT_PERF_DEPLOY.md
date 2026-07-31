@@ -474,8 +474,13 @@ inference:
 # 1. 压测 100 QPS, 持续 5min
 wrk -t 4 -c 50 -d 5m --latency http://user-server:8080/api/v1/ai/chat
 
-# 2. 检查 P99 延迟
-curl -s http://prometheus:9090/api/v1/query?query=histogram_quantile(0.99,ai_agent_wall_time_seconds_bucket)
+# 2. 检查 P99 延迟 (私域: SQL 巡检 layer_decision_logs, 无 Prometheus 端点)
+psql -h postgres -U hivemtk -d hivemtk -c "
+  SELECT
+    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY wall_ms) AS wall_p99_ms
+  FROM layer_decision_logs
+  WHERE created_at > NOW() - INTERVAL '5 minutes';
+"
 
 # 3. 检查 LLM 队列
 curl -s http://llama-server:8207/metrics | grep slots_in_use
@@ -608,5 +613,5 @@ psql -c "SELECT to_layer, count(*) FROM layer_decision_logs WHERE created_at > N
 ---
 
 **版本:** v1.1  
-**最后更新:** 2026-08-01 (移除 Prometheus / Grafana / 告警通道)  
+**最后更新:** 2026-08-01 (二次清理: ops 文档移除 Prometheus curl / 巡检 SQL 化)  
 **审查:** HiveMTK 架构组
