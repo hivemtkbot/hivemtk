@@ -251,6 +251,10 @@ func allModels() []any {
 		&model.AIAgent{},
 		&model.ChannelAgentBinding{},
 		&model.CustomerServiceAgent{},
+		// 2026-07-31 AI 性能优化: FAQ / SOP 模板 + Layer 决策日志 (双层架构)
+		&model.FAQEntry{},
+		&model.SOPTemplate{},
+		&model.LayerDecisionLog{},
 		// P0-10 ADR-010: 客服 Web Widget 嵌入渠道
 		&model.ChatChannel{},
 		// P2-X: 商户端通知中心（站内通知 / 顶部铃铛 badge）
