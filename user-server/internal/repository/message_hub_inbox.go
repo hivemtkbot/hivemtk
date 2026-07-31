@@ -417,11 +417,17 @@ func (r *InboxConversationRepository) Create(ctx context.Context, conv *model.In
 
 // UpdateLastMessage 更新最后消息字段（含 unread_count 自增）
 func (r *InboxConversationRepository) UpdateLastMessage(ctx context.Context, id uint, lastMessage string, lastMessageAt time.Time, unreadInc int) error {
+	// inbox_conversations 表的真实列名是 last_message_preview（varchar(500)）。
+	// 早期代码错用 last_message，每次都报 SQLSTATE 42703。这里同时截断到 500 字符以匹配列宽。
+	const previewMaxLen = 500
+	if len(lastMessage) > previewMaxLen {
+		lastMessage = lastMessage[:previewMaxLen]
+	}
 	return r.db.Model(&model.InboxConversation{}).Where("id = ?", id).
 		Updates(map[string]any{
-			"last_message":    lastMessage,
-			"last_message_at": lastMessageAt,
-			"unread_count":    gorm.Expr("unread_count + ?", unreadInc),
+			"last_message_preview": lastMessage,
+			"last_message_at":      lastMessageAt,
+			"unread_count":         gorm.Expr("unread_count + ?", unreadInc),
 		}).Error
 }
 
@@ -607,16 +613,16 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	orderBy := "pinned DESC, unread_count DESC, last_message_at DESC"
+	orderBy := "last_message_at DESC" // 默认按最新消息倒序
 	switch q.OrderBy {
-	case "latest_desc":
-		orderBy = "last_message_at DESC"
-	case "oldest_asc":
-		orderBy = "last_message_at ASC"
-	case "unread_desc":
-		orderBy = "unread_count DESC, last_message_at DESC"
 	case "pinned_first":
 		orderBy = "pinned DESC, last_message_at DESC"
+	case "unread_desc":
+		orderBy = "unread_count DESC, last_message_at DESC"
+	case "oldest_asc":
+		orderBy = "last_message_at ASC"
+	case "latest_desc":
+		orderBy = "last_message_at DESC"
 	}
 
 	var list []*model.InboxConversation

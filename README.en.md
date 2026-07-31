@@ -135,10 +135,10 @@ Unified CDP (Customer Data Platform), unified inbox — one profile reaches ever
    │       ├── PostgreSQL user_db :8202  (pgvector 1024-dim)│
    │       ├── Redis 7           :8203  (Token / Cache)      │
    │                                                         │
-   │   Host Inference Stack (llama.cpp + TEI, non-container) │
-   │       ├── mtk-llm           :8207  (Qwen2.5)            │
-   │       ├── mtk-embedding     :8208  (bge-m3, 1024-dim)   │
-   │       └── mtk-rerank        :8209  (bge-reranker-v2-m3) │
+    │   Host Inference Stack (llama.cpp, non-containerized)    │
+    │       ├── LLM (llama-server)    :8207  (Qwen2.5)         │
+    │       ├── Embedding             :8208  (bge-m3, 1024-dim) │
+    │       └── Rerank                :8209  (bge-reranker-v2-m3)│
    │                                                         │
    │   user-web (Vue 3 SPA) ──static─▶ user-server           │
    │   embed-sdk (Web Widget) ──static─▶ user-server         │

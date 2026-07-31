@@ -63,7 +63,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 	return &OrchestratorConfig{
 		ConfidenceThreshold: 0.7,
 		EnableAutoReply:     true,
-		MaxAIConsecutive:    5,
+		MaxAIConsecutive:    0, // 0=不限制连续回复次数，完全由置信度阈值控制转人工
 	}
 }
 
@@ -194,8 +194,8 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		// 座席离线，继续走 AI 流程
 	}
 
-	// 4. 检查是否超过 AI 连续回复上限
-	if session.AIReplyCount >= o.maxAIConsecutive {
+	// 4. 检查是否超过 AI 连续回复上限（0=不限制）
+	if o.maxAIConsecutive > 0 && session.AIReplyCount >= o.maxAIConsecutive {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
 		result.TransferReason = fmt.Sprintf("AI 连续回复已达上限 (%d 次)，转人工跟进", o.maxAIConsecutive)

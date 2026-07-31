@@ -71,7 +71,7 @@ type DialogueMemory struct {
 	PurchaseIntent       string    `gorm:"type:varchar(20);index" json:"purchase_intent"`
 	IntentTrail          JSONArray `gorm:"type:text" json:"intent_trail"`
 	SOPHistory           JSONArray `gorm:"type:text" json:"sop_history"`
-	LastAction           string    `gorm:"type:varchar(100)" json:"last_action"`
+	LastAction           string    `gorm:"type:varchar(2000)" json:"last_action"`
 	NextActionSuggestion string    `gorm:"type:varchar(200)" json:"next_action_suggestion"`
 	LastActiveAt         time.Time `gorm:"index" json:"last_active_at"`
 	MessageCount         int       `gorm:"default:0" json:"message_count"`

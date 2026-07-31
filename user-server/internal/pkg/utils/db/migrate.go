@@ -263,6 +263,10 @@ func allModels() []any {
 		&model.LocalAsset{},
 		&model.LocalAssetData{},
 		&model.LocalAssetSyncLog{},
+		// 钉钉企业内部应用（支持回调收消息）
+		&model.DingTalkAppAccount{},
+		// WhatsApp Cloud API 商业账号
+		&model.WhatsAppCloudAccount{},
 	}
 }
 

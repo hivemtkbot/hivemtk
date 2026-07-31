@@ -19,9 +19,6 @@ export function deleteIntegrationAccount(id) {
 export function syncCustomers(id) {
   return request({ url: `/api/integrations/${id}/sync-customers`, method: 'post' })
 }
-export function syncOrders(id) {
-  return request({ url: `/api/integrations/${id}/sync-orders`, method: 'post' })
-}
 export function syncProducts(id) {
   return request({ url: `/api/integrations/${id}/sync-products`, method: 'post' })
 }

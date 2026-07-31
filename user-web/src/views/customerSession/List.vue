@@ -725,7 +725,7 @@ const sendMessage = async () => {
       content,
       sender_type: 'agent',
       sender_name: '客服',
-      sender_id: myAgentId.value || ''
+      sender_id: String(myAgentId.value || '')
     })
     messages.value.push({
       id: Date.now(),

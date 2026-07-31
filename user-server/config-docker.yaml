@@ -53,49 +53,50 @@ vector_database:
 
 # 本地推理栈（embedding / rerank / llm）统一配置
 # 设计详见 docs/architecture/HOST_INFERENCE_PLAN.md
-# 三个能力默认走本地（mtk-embedding/mtk-rerank/mtk-llm，服务名在 mtk-inference-net 网络解析），
-# 仅在 base_url+api_key 填线上地址时切到线上（OpenAI 兼容）。
-# profile=dev：本机轻量档（Qwen2.5-3B-Instruct + bge-m3 + bge-reranker-v2-m3）；embedding 维度硬性 1024。
-#
-# ⚠️ 2026-07-24：本文件为【Docker 全栈部署】专用配置，user-server 容器内使用。
-# 新部署请用 config.yaml（宿主机部署），仅当需要把 user-server 跑在容器内时才用本文件。
-# 本文件保留目的是：旧部署升级时仍可继续运行（容器名 mtk-* 服务名解析在 mtk-inference-net 网络内仍有效）。
+# 三个能力走宿主机 llama.cpp（host.docker.internal），容器不再承载推理。
+# 覆盖优先级：环境变量 > config > 默认
 inference:
   profile: dev
   embedding:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultEmbeddingPort=8208 / DefaultEmbeddingBaseURLDocker
-    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-embedding 服务
-    # 容器内走 mtk-embedding 服务名（mtk-inference-net 网络内可解析）
-    # 覆盖优先级：环境变量 EMBEDDING_BASE_URL > config > 默认
-    base_url: "${EMBEDDING_BASE_URL:http://mtk-embedding:8208/v1}"
-    model: "bge-m3"                            # dev 轻量档（1024 维，Xorbits/bge-m3-gguf Q4_K_M）
+    base_url: "${EMBEDDING_BASE_URL:http://host.docker.internal:8208/v1}"
+    model: "bge-m3"
     dimension: 1024
-    allow_fallback: false                       # 禁止静默降级 hash 伪向量（仅单测显式开启）
+    allow_fallback: false
   rerank:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultRerankPort=8209 / DefaultRerankBaseURLDocker
-    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-rerank 服务
-    # 覆盖优先级：环境变量 RERANK_BASE_URL > config > 默认
-    base_url: "${RERANK_BASE_URL:http://mtk-rerank:8209/v1}"
-    model: "bge-reranker-v2-m3"                # dev 轻量档（gaoshengwinner/bge-reranker-v2-m3-Q4_K_M-GGUF）
+    base_url: "${RERANK_BASE_URL:http://host.docker.internal:8209/v1}"
+    model: "bge-reranker-v2-m3"
     enabled: true
   llm:
     mode: local
-    # 单一源：internal/pkg/utils/config/ports.go → DefaultLLMPort=8207 / DefaultLLMBaseURLDocker
-    # 文档源：DEVELOPMENT.md §2.4 + docker-compose-host.yml mtk-llm 服务
-    # 覆盖优先级：环境变量 LLM_BASE_URL > config > 默认
-    base_url: "${LLM_BASE_URL:http://mtk-llm:8207/v1}"
-    model: "Qwen2.5-1.5B-Instruct"               # dev 轻量档（Q4_K_M，与 .env LLM_MODEL_FILE 对齐）
-    api_key: ""                                 # 本地模型无需密钥
+    base_url: "${LLM_BASE_URL:http://host.docker.internal:8207/v1}"
+    # 与 .env 中 LLM_SERVED_NAME=qwen2.5-7b-instruct 保持一致
+    # 双模式切换（2026-07-31 用户决策）：
+    #   - dev  (16GB 本机)：Qwen2.5-7B-Instruct Q4_K_M (4.4GB)，30-60s/题
+    #   - prod (生产部署)：LLM_BASE_URL=https://api.deepseek.com/v1 + LLM_API_KEY=sk-xxx
+    #                     单条 2-5s，100 题 8-15min
+    # Qwen2.5-7B（替代 9B Ornith / 3B Qwen）：
+    #   - 7B 4-bit 4.4GB，16GB 设备内存余量更宽松
+    #   - 中文 7B SOTA（C-Eval 86.5 / MMLU 82.3 / CMMLU 84.1）
+    #   - 原厂 Function Calling + JSON Schema 强制输出（智能体工具调用稳定）
+    #   - 128K 上下文（默认 8192 够 RAG 场景，省内存）
+    #   - dev 目标 = 业务跑通 + 功能完成（用户原话），质量让位给速度
+    model: "qwen2.5-7b-instruct"
+    api_key: ""
     temperature: 0.7
-    # 2026-07-24 性能优化：2048→1024。客服回复通常 <200 字（~300 token），
-    # CPU 推理时间与生成 token 数近似线性，降 2 倍可省 ~50% 单次推理时间。
-    max_tokens: 1024
-    timeout_seconds: 90
-    # 2026-07-24 性能优化：3→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义。
+    # 调优（2026-07-31 03:10）：1024 在 RAG 长答案上 finish_reason=length 截断，
+    #   → orchestrator 判定低质量转人工（ai_replied=false）→ 客户端收到空回复。
+    #   提到 2048 让 9B 完整输出一段含 RAG 引用的业务答案（实测首条 content_len=910，
+    #   SOP + 知识库组合后普遍 1300-1700 token）。7B 同样适用。
+    max_tokens: 2048
+    # 调优记录（2026-07-30 → 2026-07-31 02:45）：
+    #   - 300s 实测不够：9B + 完整 RAG 链路（intent + sop + 拟人润色）经常 250-300s，
+    #     context canceled 后被判定为 LLM 失败，触发转人工（conf=0）
+    #   - 提到 600s 适配 9B 长链路（单条最多 2-3 个 LLM 调用 × 60-150s）
+    timeout_seconds: 600
     max_retries: 1
-    cloud_providers: []                         # 本地优先；线上可选 fallback 见文档
+    cloud_providers: []
 
 storage:
   type: qiniu

@@ -92,7 +92,7 @@ inference:
     # 单一源：internal/pkg/utils/config/ports.go → DefaultLLMPort=8207
     # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8207 | LLM（llama.cpp）
     # 覆盖优先级：环境变量 LLM_BASE_URL > config > 默认（127.0.0.1:8207）
-    # Docker 部署请使用 config-docker.yaml（mtk-llm:8207 容器服务名）
+    # Docker 部署请使用 config-docker.yaml（host.docker.internal:8207）
     base_url: "${LLM_BASE_URL:http://127.0.0.1:8207/v1}"
     model: "Qwen2.5-7B-Instruct"
     no_fc: false                     # Qwen2.5-7B 支持原生 Function Calling，禁用 ReAct 文本协议

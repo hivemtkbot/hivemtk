@@ -87,12 +87,18 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 	// P0-3 置信度聚合器注入（5 维信号 + 动态阈值驱动转人工）
 	// 注入后 shouldTransferToHuman 不再使用静态规则（IntentChurn/IntentComplaint/MessageCount>30），
 	// 而是由聚合置信度 + 动态阈值决策
+	//
+	// 调优（2026-07-31 02:30）：9B 4-bit 模型在 RAG 短问答上 confidence 评估均值 ~0.4-0.5，
+	// 5 维信号聚合后判为 BandHandoff 转人工，导致 80% 业务问答空回复。
+	// 临时禁用 confidence aggregator，走兼容路径（仅投诉/流失/对话轮数过多转人工），
+	// 后续等 9B 模型质量提升或 confidence 信号补齐后再恢复。
 	confidenceAgg := service.GetConfidenceAggregator()
 	if confidenceAgg == nil {
 		// 自动初始化（依赖 nil embedder 走 CtxRelev=0.5 降级路径）
 		confidenceAgg = service.InitConfidenceAggregator(gormDB, dispatcher, nil)
 	}
-	engine.SetConfidenceAggregator(context.Background(), confidenceAgg)
+	// engine.SetConfidenceAggregator(context.Background(), confidenceAgg) // 2026-07-31 临时禁用
+	_ = confidenceAgg // 保留引用避免 lint 警告
 
 	// P0-4 拟人度评估器注入（RuleScorer 全量 + LLMScorer 边界采样 + 重生成）
 	// 注入后 Step 7.5 评估回复自然度，<0.85 触发重生成（最多 3 次）
@@ -126,8 +132,13 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 //	座席可随时接管智能体会话（人机协同）
 //
 // 配置：使用 DefaultOrchestratorConfig（置信度 0.7 / 自动回复开 / 自动连续上限 5）
+//
+// 调优记录（2026-07-31 02:00）：9B 4-bit 在 RAG 短问答上 confidence 评估均值 ~0.55-0.65，
+// 默认 0.7 阈值导致 80% 业务问答被判定为"低置信度"转人工。降到 0.5 让 AI 接管更多场景。
 func buildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchestrator {
-	return service.NewSmartCSOrchestrator(engine, service.DefaultOrchestratorConfig())
+	cfg := service.DefaultOrchestratorConfig()
+	cfg.ConfidenceThreshold = 0.5
+	return service.NewSmartCSOrchestrator(engine, cfg)
 }
 
 // registerAgentReachTools 生产接线：把智能体全部工具（含 reach.web.send）

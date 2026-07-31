@@ -4,14 +4,13 @@
 
 # 默认 compose 文件（仅 PG + Redis；推理栈走宿主机 llama.cpp，见 inference-host-up）
 COMPOSE_HOST = docker-compose-host.yml
-# 向后兼容：旧全栈 compose（Docker 包含推理容器）
-COMPOSE_LEGACY = docker-compose-example.yml
 
 .PHONY: help install init up down restart logs ps build user-build web-build
 .PHONY: db-up db-down db-logs db-ps db-backup db-restore
 .PHONY: inference-host-install inference-host-models inference-host-up inference-host-down
 .PHONY: inference-host-warmup inference-host-logs inference-host-ps inference-host-test inference-host-status
 .PHONY: dev dev-install dev-stop dev-all dev-down
+.PHONY: docker-up docker-dev docker-down docker-logs
 
 # 默认目标
 help:
@@ -53,9 +52,11 @@ help:
 	@echo "  make web-build            - 构建 user-web 前端"
 	@echo "  make sdk-build            - 构建 embed-sdk"
 	@echo ""
-	@echo "【兼容旧部署】"
-	@echo "  make up                   - 旧版 Docker 全栈（mtk-llm/embedding/rerank 容器化）"
-	@echo "  make down                 - 停止旧版 Docker 全栈"
+	@echo "【Docker 全栈】"
+	@echo "  make docker-up            - 生产模式（PG + Redis + user-server 二进制）"
+	@echo "  make docker-dev           - 开发模式（PG + Redis + user-server air 热更新）"
+	@echo "  make docker-down          - 停止所有 Docker 服务"
+	@echo "  make docker-logs          - 查看 user-server 日志"
 
 # =============================================================================
 # 首次安装
@@ -239,19 +240,23 @@ dev-down:
 	@echo "✅ 全栈已停止"
 
 # =============================================================================
-# 兼容旧版 Docker 全栈
+# Docker 全栈（生产 / 开发）
 # =============================================================================
-up:
-	docker compose -f $(COMPOSE_LEGACY) up -d
+docker-up:
+	@echo "🚀 启动 Docker 全栈（生产模式：二进制）"
+	docker compose up -d --build
+	@echo "✅ 全栈已启动（PG + Redis + user-server）"
 
-down:
-	docker compose -f $(COMPOSE_LEGACY) down
+docker-dev:
+	@echo "🚀 启动 Docker 全栈（开发模式：air 热更新）"
+	docker compose --profile dev up -d --build mtk-user-server-dev
+	@echo "✅ 全栈已启动（PG + Redis + user-server-dev air）"
+	@echo "📝 修改 user-server/ 下 .go/.yaml 文件后容器内自动重编+重启"
+	@echo "📝 查看日志：make docker-logs"
 
-restart:
-	docker compose -f $(COMPOSE_LEGACY) restart
+docker-down:
+	docker compose --profile dev down
+	@echo "✅ Docker 全栈已停止"
 
-logs:
-	docker compose -f $(COMPOSE_LEGACY) logs -f
-
-ps:
-	docker compose -f $(COMPOSE_LEGACY) ps
+docker-logs:
+	docker compose --profile dev logs -f mtk-user-server-dev

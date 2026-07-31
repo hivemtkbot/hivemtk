@@ -207,22 +207,11 @@ func resolveNoFC(llmCfg config.InferenceLLMConfig) bool {
 
 // registerCloudProvidersFromConfig 注册云端可选 fallback
 //
-// 本地优先原则：云端厂商默认禁用，仅当用户在 inference.llm.cloud_providers 显式配置
-// api_key 且 enabled=true 时才启用；未配置时回落到内置云端厂商（同样默认禁用）。
+// 本地优先原则：云端厂商需用户显式配置 api_key 且 enabled=true 时才启用
 func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLMConfig) {
-	builtins := []config.InferenceCloudProviderConfig{
-		{Name: "deepseek", BaseURL: "https://api.deepseek.com", APIType: "openai", Model: "deepseek-chat", Enabled: false},
-		{Name: "qwen", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode", APIType: "openai", Model: "qwen-max", Enabled: false},
-		{Name: "gpt-4o", BaseURL: "https://api.openai.com", APIType: "openai", Model: "gpt-4o", Enabled: false},
-		{Name: "glm-4", BaseURL: "https://open.bigmodel.cn/api/paas/v4", APIType: "openai", Model: "glm-4-plus", Enabled: false},
-		{Name: "kimi", BaseURL: "https://api.moonshot.cn", APIType: "openai", Model: "moonshot-v1-8k", Enabled: false},
-	}
 	src := llmCfg.CloudProviders
-	if len(src) == 0 {
-		src = builtins
-	}
 	for _, p := range src {
-		// 云端仅在「显式启用且配置 api_key」时才启用（优化三：本地优先，线上 opt-in）
+		// 云端仅在「显式启用且配置 api_key」时才启用
 		enabled := p.Enabled && p.APIKey != ""
 		d.providers[p.Name] = &ProviderConfig{
 			Name:         p.Name,
@@ -254,13 +243,13 @@ func (d *Dispatcher) registerLocalFirstRoutes(maxLatencyMs int) {
 		maxLatencyMs = 180000
 	}
 	routes := []*ScenarioRoute{
-		{Scenario: ScenarioIntentRecognize, Provider: "default", Fallbacks: []string{"deepseek", "qwen"}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.8},
-		{Scenario: ScenarioSOPReply, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 2, MaxLatency: maxLatencyMs, MinQuality: 0.9},
-		{Scenario: ScenarioObjection, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.92},
-		{Scenario: ScenarioFriendlyChat, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 4, MaxLatency: maxLatencyMs, MinQuality: 0.8},
-		{Scenario: ScenarioLongSummary, Provider: "default", Fallbacks: []string{"kimi", "qwen"}, CostWeight: 3, MaxLatency: maxLatencyMs, MinQuality: 0.85},
-		{Scenario: ScenarioHighQuality, Provider: "default", Fallbacks: []string{"gpt-4o", "glm-4"}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.95},
-		{Scenario: ScenarioLowCost, Provider: "default", Fallbacks: []string{"deepseek"}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.7},
+		{Scenario: ScenarioIntentRecognize, Provider: "default", Fallbacks: []string{}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioSOPReply, Provider: "default", Fallbacks: []string{}, CostWeight: 2, MaxLatency: maxLatencyMs, MinQuality: 0.9},
+		{Scenario: ScenarioObjection, Provider: "default", Fallbacks: []string{}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.92},
+		{Scenario: ScenarioFriendlyChat, Provider: "default", Fallbacks: []string{}, CostWeight: 10, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioLongSummary, Provider: "default", Fallbacks: []string{}, CostWeight: 3, MaxLatency: maxLatencyMs, MinQuality: 0.85},
+		{Scenario: ScenarioHighQuality, Provider: "default", Fallbacks: []string{}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.95},
+		{Scenario: ScenarioLowCost, Provider: "default", Fallbacks: []string{}, CostWeight: 15, MaxLatency: maxLatencyMs, MinQuality: 0.7},
 	}
 	for _, r := range routes {
 		d.routes[r.Scenario] = r

@@ -17,7 +17,7 @@ export function sendMessage(data) {
       content: data.content,
       sender_type: data.sender_type || 'agent',
       sender_name: data.sender_name || '客服',
-      sender_id: data.sender_id || ''
+      sender_id: String(data.sender_id || '')
     }
   })
 }

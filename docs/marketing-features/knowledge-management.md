@@ -128,13 +128,13 @@ RAG 系统的知识来源是文档。提供文档导入、解析、分段、向�
    → [knowledge_service.Import]
    → 格式检测 → 解析器
    → 智能分段（500-1000 字）
-   → Embedding（批量）→ 本地 TEI 容器（http://mtk-embedding:9997/v1/embeddings，BAAI/bge-m3，dim=1024，数据不出域）
+   → Embedding（批量）→ 宿主机 llama-server（http://127.0.0.1:8208/v1/embeddings，dim=1024，数据不出域）
    → 写入 pgvector（关联 collection，vector(1024)）
    → 写 knowledge_documents + chunks
    → 返回 doc_id
 ```
 
-> **强约束（2026-07-16）**：Embedding 走本地 docker 网络内 TEI 官方容器，**禁止**静默回退到 LLM 厂商 embedding API，也**禁止**静默降级到 hash 伪向量。LLM（对话生成）才走外部 API。
+> **强约束（2026-07-16）**：Embedding 走宿主机 llama-server 进程，**禁止**静默回退到 LLM 厂商 embedding API，也**禁止**静默降级到 hash 伪向量。LLM（对话生成）才走外部 API。
 
 ---
 
@@ -234,7 +234,7 @@ RAG 系统的知识来源是文档。提供文档导入、解析、分段、向�
 - pgvector（随双库部署）
 - OBS 对象存储
 - 异步任务队列
-- **本地 Embedding 服务（本地 TEI + BAAI/bge-m3）**：`mtk-embedding` 容器（`http://mtk-embedding:9997`），真实推理 BAAI/bge-m3（dim=1024，与 pgvector 一致），数据不出域。私域部署强制本地。
+- **本地 Embedding 服务（宿主机 llama-server）**：`llama-server :8208`（`http://127.0.0.1:8208`），向量化推理（dim=1024，与 pgvector 一致），数据不出域。私域部署强制本地。
 - LLM 服务（对话生成走外部 API，与 Embedding 物理隔离）
 
 ### 8.3 监控告警

@@ -393,7 +393,7 @@ hub.Broadcast(payload)
 
 ### 8.2 本地优先原则
 
-- 默认 provider: `default` → 本地 mtk-llm（`http://127.0.0.1:8207/v1`）
+- 默认 provider: `default` → 宿主机 llama-server（`http://127.0.0.1:8207/v1`）
 - 本地 provider `QualityScore=0.99`，高于所有场景的 `MinQuality` 门槛
 - 云端厂商（deepseek / qwen / gpt-4o / glm-4 / kimi）**默认禁用**，仅在配置 `api_key` 且 `enabled=true` 时启用
 - **禁止**云端作为默认路由（避免空密钥 401 风暴、数据出域）

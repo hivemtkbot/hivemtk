@@ -59,7 +59,7 @@ export const emailApi = {
   
   // 发送邮件
   sendEmail(data) {
-    return http.post('/api/email/list', data)
+    return http.post('/api/email/send', data)
   },
   getEmailList: (page,limit) => {
     return http.get(`/api/email/list?page=${page}&limit=${limit}`)
@@ -80,13 +80,14 @@ export const emailApi = {
   getJobDetail(id) {
     return http.get(`/api/email/jobs/${id}`)
   },
-  // 删除任务详情
-  // deleteJobDetail(id) {
-  //   return http.delete(`/api/email/jobs/detail?id=${id}`)
-  // },
 
-  
+  // 获取邮件追踪
+  getEmailTrace(id) {
+    return http.post(`/api/email/list/${id}/trace`)
+  },
 
- 
-
+  // 删除邮件列表
+  deleteEmailList(id) {
+    return http.delete(`/api/email/list/${id}`)
+  },
 }

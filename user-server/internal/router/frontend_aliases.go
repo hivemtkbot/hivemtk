@@ -709,7 +709,9 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("GET", "/churn-prediction/list", churnCtrl.GetChurnPredictions)
 	doReg("GET", "/churn-prediction/users", churnCtrl.GetHighRiskUsers)
 	doReg("GET", "/churn-prediction/warnings", churnCtrl.GetChurnWarnings)
-	doReg("GET", "/churn-prediction/statistics", churnCtrl.GetChurnWarnings)
+	doReg("GET", "/churn-prediction/unhandled-warnings", churnCtrl.GetUnhandledWarnings)
+	doReg("GET", "/churn-prediction/statistics", churnCtrl.GetChurnStatistics)
+	doReg("GET", "/churn-prediction/risk-distribution", churnCtrl.GetRiskDistribution)
 	doReg("GET", "/churn-prediction/model-config", churnCtrl.GetModelConfig)
 	doReg("POST", "/churn-prediction/model-config", churnCtrl.SaveModelConfig)
 	// 兼容前端 /api/churn/* 路径
@@ -720,8 +722,8 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("GET", "/churn/unhandled-warnings", churnCtrl.GetUnhandledWarnings)
 	doReg("GET", "/churn/model-config", churnCtrl.GetModelConfig)
 	doReg("POST", "/churn/model-config", churnCtrl.SaveModelConfig)
-	doReg("GET", "/churn/statistics", churnCtrl.GetChurnWarnings)
-	doReg("GET", "/churn/risk-distribution", churnCtrl.GetChurnWarnings)
+	doReg("GET", "/churn/statistics", churnCtrl.GetChurnStatistics)
+	doReg("GET", "/churn/risk-distribution", churnCtrl.GetRiskDistribution)
 	doReg("POST", "/backups", backupCtrl.CreateBackup)
 	doReg("DELETE", "/backups/:id", backupCtrl.DeleteBackup)
 }

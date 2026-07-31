@@ -71,24 +71,3 @@ export function unbindToolAccount(toolName, accountType, accountId) {
     method: 'delete'
   })
 }
-
-// ============================================================================
-// 渠道账号 API（复用已有）
-// ============================================================================
-
-// 获取渠道账号列表
-export function getChannelAccounts(type) {
-  return request({
-    url: '/api/channel-accounts',
-    method: 'get',
-    params: { type }
-  })
-}
-
-// 测试账号连接
-export function testChannelAccount(type, id) {
-  return request({
-    url: `/api/channel-accounts/${type}/${id}/test`,
-    method: 'post'
-  })
-}

@@ -53,11 +53,6 @@ export const TagSegmentationApi = {
     return http.get('/api/user-segment/layers')
   },
 
-  // 保存分层策略
-  saveLayerStrategy: (data) => {
-    return http.put('/api/user-segment/layers', data)
-  },
-
   // 标签统计
   getTagStats: (params) => {
     return http.get('/api/customer-360/tag-stats', params)

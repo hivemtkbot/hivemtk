@@ -252,7 +252,7 @@
 
 | 配置项 | 环境变量 | 默认值 | 强制 |
 |---|---|---|---|
-| **Embedding 服务地址** | `EMBEDDING_BASE_URL` | `http://mtk-embedding:9997`(本地 TEI + BAAI/bge-m3) | ✅ 本地 |
+| **Embedding 服务地址** | `EMBEDDING_BASE_URL` | `http://127.0.0.1:8208`(宿主机 llama-server Embedding) | ✅ 本地 |
 | **Embedding 模型** | `EMBEDDING_MODEL` | `BAAI/bge-m3`(dim=1024) | ✅ |
 | **Embedding 维度** | `EMBEDDING_DIM` | **768** | ✅ |
 | **Embedding 降级** | `EMBEDDING_ALLOW_FALLBACK` | `false`(私域禁止) | ✅ 强制 |
@@ -267,7 +267,7 @@
 
 - PostgreSQL 15+
 - **pgvector**(原 2.3.1 → **V2.0 统一为 2.4+**,对齐 `MASTER_RULES.md`)
-- **Embedding 服务(本地 docker,TEI + BAAI/bge-m3)**: `mtk-embedding:9997`
+- **Embedding 服务(宿主机 llama-server)**: `127.0.0.1:8208`
 - **Embedding 模型**: BAAI/bge-m3(dim=1024,OpenAI 兼容 `/v1/embeddings`)
 - LLM API(走外部): Qwen / Claude / GPT / DeepSeek / 通义 / 智谱(多模型路由)
 - Redis 7.0+

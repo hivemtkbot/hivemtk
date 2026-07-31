@@ -14,7 +14,7 @@ export function getChurnWarnings(params) {
   return request({ url: '/api/churn-prediction/warnings', method: 'get', params })
 }
 export function getUnhandledWarnings(params) {
-  return request({ url: '/api/churn-prediction/unhandled-warnings', method: 'get', params })
+  return request({ url: '/api/churn/unhandled-warnings', method: 'get', params })
 }
 export function markWarningHandled(id, data) {
   return request({ url: `/api/churn/warnings/${id}/handle`, method: 'post', data })
@@ -29,7 +29,7 @@ export function getChurnStatistics(params) {
   return request({ url: '/api/churn-prediction/statistics', method: 'get', params })
 }
 export function getRiskDistribution() {
-  return request({ url: '/api/churn-prediction/risk-distribution', method: 'get' })
+  return request({ url: '/api/churn/risk-distribution', method: 'get' })
 }
 
 // 兼容旧接口

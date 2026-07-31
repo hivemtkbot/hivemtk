@@ -113,9 +113,9 @@ $HIVEMTK_RUNTIME_DIR/
 
 | 服务 | 端口 | 协议 | user-server 配置项 |
 |------|------|------|-------------------|
-| mtk-llm (llama-server) | **8207** | OpenAI `/v1/chat/completions` | `inference.llm.base_url=http://127.0.0.1:8207/v1` |
-| mtk-embedding | **8208** | OpenAI `/v1/embeddings` | `inference.embedding.base_url=http://127.0.0.1:8208/v1` |
-| mtk-rerank | **8209** | OpenAI `/v1/rerank` | `inference.rerank.base_url=http://127.0.0.1:8209` |
+| LLM (llama-server) | **8207** | OpenAI `/v1/chat/completions` | `inference.llm.base_url=http://127.0.0.1:8207/v1` |
+| Embedding (llama-server) | **8208** | OpenAI `/v1/embeddings` | `inference.embedding.base_url=http://127.0.0.1:8208/v1` |
+| Rerank (llama-server) | **8209** | OpenAI `/v1/rerank` | `inference.rerank.base_url=http://127.0.0.1:8209` |
 | mtk-postgres | **8202** (host) → 5432 (container) | TCP | `database.postgres.host=127.0.0.1,port=8202` |
 | mtk-redis | **8203** (host) → 6379 (container) | TCP | `REDIS_HOST=127.0.0.1,REDIS_PORT=8203` |
 | user-server | 8204 | HTTP | `SERVER_PORT=8204` |

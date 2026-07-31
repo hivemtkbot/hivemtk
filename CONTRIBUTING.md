@@ -31,7 +31,7 @@ cp .env-example .env
 # 2. 启动本地推理栈
 make inference-host-install   # 首次安装 llama.cpp（宿主机推理栈）
 make inference-host-models    # 下载 dev 档模型（Qwen2.5-3B + bge-m3 + bge-reranker-v2-m3）
-make inference-host-up        # 拉起 mtk-llm :8207 / mtk-embedding :8208 / mtk-rerank :8209
+make inference-host-up        # 拉起宿主机 llama-server :8207 (LLM) / :8208 (Embedding) / :8209 (Rerank)
 
 # 3. 构建前端
 make web-build              # user-web

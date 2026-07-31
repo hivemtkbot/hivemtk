@@ -220,6 +220,29 @@ type SendMessageRequest struct {
 	AISource     string  `json:"ai_source"`
 }
 
+// UnmarshalJSON 自定义反序列化，兼容 sender_id 为数字或字符串
+func (r *SendMessageRequest) UnmarshalJSON(data []byte) error {
+	// 使用别名避免无限递归
+	type Alias SendMessageRequest
+	aux := &struct {
+		SenderID interface{} `json:"sender_id"`
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	// 将 sender_id 统一转为字符串
+	switch v := aux.SenderID.(type) {
+	case float64:
+		r.SenderID = fmt.Sprintf("%d", int64(v))
+	case string:
+		r.SenderID = v
+	}
+	return nil
+}
+
 // SendMessage 发送消息
 func (s *CustomerSessionService) SendMessage(ctx context.Context, req *SendMessageRequest) (*model.SessionMessage, error) {
 	// 获取会话

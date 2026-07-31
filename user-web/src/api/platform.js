@@ -19,20 +19,12 @@ export const platformAPI = {
     })
   },
 
-  // 获取授权状态
+  // 获取授权状态（开源版无授权概念，返回默认值）
   getLicenseStatus() {
     return request({
-      url: '/api/platform/license/status',
-      method: 'get'
-    })
-  },
-
-  // 上报API日志
-  reportAPILog(data) {
-    return request({
-      url: '/api/platform/report-api-log',
-      method: 'post',
-      data
+      url: '/api/license/status',
+      method: 'get',
+      _silent: true
     })
   },
 

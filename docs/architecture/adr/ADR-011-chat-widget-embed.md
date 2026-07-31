@@ -175,7 +175,7 @@
 访客输入文本
   → SPA POST /api/chat/public/sessions/:id/messages
   → 后端入库 + 触发 RAG 检索
-  → AI 推理（mtk-llm + mtk-embedding + mtk-rerank）
+  → AI 推理（宿主机 llama-server :8207/:8208/:8209）
   → 通过 WS 推回前端
   → SPA 渲染消息
   → 若命中转人工关键词:跳过 AI,走坐席分配

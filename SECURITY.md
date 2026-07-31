@@ -124,7 +124,7 @@
 - 限制 Webhook 入站 IP 白名单（Postmark / SendCloud / 各渠道）
 - 数据库端口不暴露公网（容器内端口 8202，宿主机映射 8232，建议改为内网或 127.0.0.1）
 - Redis 端口不暴露公网（容器内端口 8203）
-- 本地推理栈端口（mtk-llm 8207 / mtk-embedding 8208 / mtk-rerank 8209）不暴露公网
+- 本地推理栈端口（llama-server :8207 LLM / :8208 Embedding / :8209 Rerank）不暴露公网
 
 ### 5.2 运维侧
 

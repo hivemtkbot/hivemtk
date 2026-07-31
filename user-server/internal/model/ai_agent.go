@@ -125,7 +125,7 @@ type AIAgent struct {
 
 	// 转人工策略
 	ConfidenceThreshold float64 `gorm:"default:0.7" json:"confidence_threshold"`
-	MaxAIConsecutive    int     `gorm:"default:5" json:"max_ai_consecutive"`
+	MaxAIConsecutive    int     `gorm:"default:0" json:"max_ai_consecutive"` // 0=不限制，完全由置信度控制
 
 	// 状态
 	Status  int `gorm:"default:1;index" json:"status"` // 1=启用 0=禁用
@@ -154,6 +154,8 @@ const (
 	ChannelTypeKuaishou    ChannelType = "kuaishou"
 	ChannelTypeXianyu      ChannelType = "xianyu"
 	ChannelTypeTikTok      ChannelType = "tiktok"
+	// ChannelTypeWeb 网页客服（web 站点 / H5 嵌入式聊天窗 / 移动端 webview）
+	ChannelTypeWeb ChannelType = "web"
 )
 
 // ChannelAgentBinding 渠道账号 ↔ 智能体绑定

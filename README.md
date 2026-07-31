@@ -164,10 +164,10 @@ HiveMtk 把**私域部署 + 真 AI 智能体 + 七端打通**三件事同时做�
    │       ├── PostgreSQL user_db :8202  (pgvector 1024 维)  │
    │       ├── Redis 7           :8203  (Token / 缓存)        │
    │                                                         │
-   │   宿主机推理栈(llama.cpp + TEI,非容器化)                │
-   │       ├── mtk-llm           :8207  (Qwen2.5)            │
-   │       ├── mtk-embedding     :8208  (bge-m3, 1024 维)    │
-   │       └── mtk-rerank        :8209  (bge-reranker-v2-m3) │
+    │   宿主机推理栈(llama.cpp,非容器化)                       │
+    │       ├── LLM (llama-server)    :8207  (Qwen2.5)         │
+    │       ├── Embedding             :8208  (bge-m3, 1024 维)  │
+    │       └── Rerank                :8209  (bge-reranker-v2-m3)│
    │                                                         │
    │   user-web (Vue 3 SPA) ─静态托管──▶ user-server         │
    │   embed-sdk (Web Widget) ─静态托管──▶ user-server       │

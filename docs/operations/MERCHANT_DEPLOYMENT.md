@@ -113,9 +113,9 @@ docker compose up -d
 | 8204 | user-server API | RESTful + WebSocket |
 | 8202 | PostgreSQL (user_db) | 容器内端口 |
 | 8203 | Redis | 容器内端口 |
-| 8207 | mtk-llm | llama.cpp 推理 |
-| 8208 | mtk-embedding | bge-m3 (1024 维) |
-| 8209 | mtk-rerank | bge-reranker-v2-m3 |
+| 8207 | llama-server (LLM) | 宿主机 llama.cpp 推理 |
+| 8208 | llama-server (Embedding) | 宿主机 llama.cpp 向量化 (1024 维) |
+| 8209 | llama-server (Rerank) | 宿主机 llama.cpp 重排 |
 
 ---
 
@@ -226,7 +226,7 @@ docker exec mtk-user-postgres psql -U admin -d user_db \
 # 检查推理服务状态
 curl http://localhost:8207/health
 # 检查 GPU 是否被使用
-docker exec mtk-llm nvidia-smi
+nvidia-smi
 ```
 
 ### 9.3 平台端心跳上报失败

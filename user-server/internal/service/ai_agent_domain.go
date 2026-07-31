@@ -118,9 +118,7 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 	if agent.ConfidenceThreshold == 0 {
 		agent.ConfidenceThreshold = 0.7
 	}
-	if agent.MaxAIConsecutive == 0 {
-		agent.MaxAIConsecutive = 5
-	}
+	// MaxAIConsecutive: 0=不限制，由置信度阈值控制转人工
 	if !agent.EnableRAG && !req.EnableRAG {
 		agent.EnableRAG = true
 	}

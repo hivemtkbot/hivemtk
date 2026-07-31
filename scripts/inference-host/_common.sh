@@ -185,6 +185,11 @@ start_role() {
   if [[ "$USE_MLOCK" == "true" ]]; then
     extra+=(--mlock)
   fi
+  # prompt cache 复用：相同 prefix >= N token 走 cache 命中，节省 prompt eval
+  # 2026-07-30 加：RAG 多轮对话 system prompt 相同，命中后首 token 延迟 -30%
+  if [[ -n "${CACHE_REUSE:-}" && "$CACHE_REUSE" -gt 0 ]]; then
+    extra+=(--cache-reuse "$CACHE_REUSE")
+  fi
   extra+=(--timeout "$SERVER_TIMEOUT")
   if [[ "$ENABLE_METRICS" == "true" ]]; then
     extra+=(--metrics)
