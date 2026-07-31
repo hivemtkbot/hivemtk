@@ -79,6 +79,8 @@ const moduleNames = [
   'aiAgent',
   // 2026-07-31 P1-A: FAQ 知识库 / SOP 模板管理（知识库管理）
   'faq', 'sopTemplateKb',
+  // 2026-07-31 P1-B: 知识库统一管理（RAG/FAQ/SOP 树形多选 + 反向追溯）
+  'knowledgeBase',
   // 资产市场
   'assetMarket',
   // 资产包（低代码 Playground / 商户编辑器）
@@ -192,7 +194,9 @@ const pathToModule = {
   // 钉钉应用（企业内部应用，支持回调收消息）
   'dingtalk-app': 'dingtalkApp',
   // P1-4 多语言：/i18n/* 路径首段与模块名 i18nStats 不一致，需显式映射
-  'i18n': 'i18nStats'
+  'i18n': 'i18nStats',
+  // 2026-07-31 P1-A: 知识库管理模块 URL 路径首段与模块名不一致映射
+  'sop-template': 'sopTemplateKb'
 }
 
 async function ensureRouteLoaded(path) {
