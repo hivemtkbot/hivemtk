@@ -61,6 +61,20 @@ func InitDB() {
 		poolConfig = config.DefaultPoolConfig
 	}
 
+	// B-009 防御性安全网: 当配置中部分字段为 0 (YAML 配错 / 漏配) 时,
+	// 强制套用安全 baseline, 防止 gorm Open 后无任何 pool 限制导致生产雪崩。
+	// SetMaxOpenConns(20): 与 Phase 0 errgroup SetLimit(4) × 多请求并发相匹配,
+	//   留出余量给其他 RPC / 后台任务, 同时防止 DB pool 耗尽 (B-009 高危场景)。
+	// SetMaxIdleConns(10): 冷启动后能快速响应 10 个并发请求, 避免反复建连。
+	// SetConnMaxLifetime(30*time.Minute): 30 分钟回收长生命周期连接, 避免陈旧连接
+	//   + Postgres 服务端主动断开造成的"半开连接"错误。
+	if poolConfig.MaxOpenConns == 0 {
+		poolConfig.MaxOpenConns = 20
+	}
+	if poolConfig.ConnMaxLifetime == 0 {
+		poolConfig.ConnMaxLifetime = int((30 * time.Minute).Seconds())
+	}
+
 	// 配置连接池
 	sqlDB, err := db.DB()
 	if err != nil {
