@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"marketing/internal/model"
@@ -236,5 +237,347 @@ func TestKnowledgeBaseRepository_CountByAgent(t *testing.T) {
 	c2, _ := repo.CountByAgent(ctx, a2)
 	if c2 != 1 {
 		t.Errorf("expected count=1 for agent=2, got %d", c2)
+	}
+}
+
+// =====================================================================
+// 补充测试: 边界条件 / 错误处理 / 过滤组合 (Task 38)
+// =====================================================================
+
+// TestKnowledgeBaseRepository_GetByID_NotFound 验证 GetByID 不存在返回 nil
+func TestKnowledgeBaseRepository_GetByID_NotFound(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	got, err := repo.GetByID(ctx, 99999)
+	if err != nil {
+		t.Fatalf("expected nil error for not-found, got %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil for non-existent ID, got %+v", got)
+	}
+}
+
+// TestKnowledgeBaseRepository_GetByCode_NotFound 验证 GetByCode 不存在返回 nil
+func TestKnowledgeBaseRepository_GetByCode_NotFound(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	got, err := repo.GetByCode(ctx, "KB-NON-EXISTENT")
+	if err != nil {
+		t.Fatalf("expected nil error for not-found, got %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil for non-existent code, got %+v", got)
+	}
+}
+
+// TestKnowledgeBaseRepository_DuplicateCode 验证 kb_code 唯一约束
+func TestKnowledgeBaseRepository_DuplicateCode(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agent := uint(1)
+	kb1 := newTestKB("KB-DUP-001", "faq", "private", &agent)
+	if err := repo.Create(ctx, kb1); err != nil {
+		t.Fatal(err)
+	}
+
+	// 尝试用相同 kb_code 再次创建
+	kb2 := newTestKB("KB-DUP-001", "rag", "shared", nil)
+	err := repo.Create(ctx, kb2)
+	if err == nil {
+		t.Fatal("expected duplicate kb_code error")
+	}
+}
+
+// TestKnowledgeBaseRepository_List_FilterByType 验证 List 按 type 过滤
+func TestKnowledgeBaseRepository_List_FilterByType(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for _, code := range []string{"F1", "F2", "R1", "S1"} {
+		kbType := "faq"
+		switch code {
+		case "R1":
+			kbType = "rag"
+		case "S1":
+			kbType = "sop"
+		}
+		if err := repo.Create(ctx, newTestKB(code, kbType, "shared", nil)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	kbs, total, err := repo.List(ctx, KBListFilter{Type: "faq"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("expected total=2 for type=faq, got %d", total)
+	}
+	if len(kbs) != 2 {
+		t.Errorf("expected 2 items, got %d", len(kbs))
+	}
+}
+
+// TestKnowledgeBaseRepository_List_FilterByOwnerType 验证 List 按 owner_type 过滤
+func TestKnowledgeBaseRepository_List_FilterByOwnerType(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	a1 := uint(1)
+	_ = repo.Create(ctx, newTestKB("P1", "faq", "private", &a1))
+	_ = repo.Create(ctx, newTestKB("P2", "faq", "private", &a1))
+	_ = repo.Create(ctx, newTestKB("S1", "faq", "shared", nil))
+	_ = repo.Create(ctx, newTestKB("S2", "faq", "shared", nil))
+
+	kbs, total, err := repo.List(ctx, KBListFilter{OwnerType: "shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("expected total=2 for owner_type=shared, got %d", total)
+	}
+	if len(kbs) != 2 {
+		t.Errorf("expected 2 items, got %d", len(kbs))
+	}
+}
+
+// TestKnowledgeBaseRepository_List_FilterByEnabled 验证 List 按 enabled 过滤
+func TestKnowledgeBaseRepository_List_FilterByEnabled(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	enabled := false
+	_ = repo.Create(ctx, newTestKB("E1", "faq", "shared", nil))
+	kb2 := newTestKB("D1", "faq", "shared", nil)
+	kb2.Enabled = &enabled
+	_ = repo.Create(ctx, kb2)
+
+	// 过滤 enabled=true
+	kbs, total, err := repo.List(ctx, KBListFilter{Enabled: &[]bool{true}[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 for enabled=true, got %d", total)
+	}
+	if len(kbs) != 1 || kbs[0].KBCode != "E1" {
+		t.Errorf("expected only E1, got %v", kbs)
+	}
+}
+
+// TestKnowledgeBaseRepository_List_FilterByAgent 验证 List 按 OwnerAgentID 过滤
+func TestKnowledgeBaseRepository_List_FilterByAgent(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	a1, a2 := uint(100), uint(200)
+	_ = repo.Create(ctx, newTestKB("A1K1", "faq", "private", &a1))
+	_ = repo.Create(ctx, newTestKB("A1K2", "faq", "private", &a1))
+	_ = repo.Create(ctx, newTestKB("A2K1", "faq", "private", &a2))
+
+	kbs, total, err := repo.List(ctx, KBListFilter{OwnerAgentID: &a1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("expected total=2 for agent=100, got %d", total)
+	}
+	if len(kbs) != 2 {
+		t.Errorf("expected 2 items, got %d", len(kbs))
+	}
+}
+
+// TestKnowledgeBaseRepository_List_LimitDefault 验证 List 默认 limit
+func TestKnowledgeBaseRepository_List_LimitDefault(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	// 插入 5 条, limit 0 -> 默认 200
+	for i := 0; i < 5; i++ {
+		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("L%d", i), "faq", "shared", nil))
+	}
+	_, total, err := repo.List(ctx, KBListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 5 {
+		t.Errorf("expected total=5, got %d", total)
+	}
+}
+
+// TestKnowledgeBaseRepository_List_Pagination 验证 List 分页
+func TestKnowledgeBaseRepository_List_Pagination(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("P%d", i), "faq", "shared", nil))
+	}
+	// limit=2 offset=1
+	kbs, total, err := repo.List(ctx, KBListFilter{Limit: 2, Offset: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 5 {
+		t.Errorf("expected total=5, got %d", total)
+	}
+	if len(kbs) != 2 {
+		t.Errorf("expected 2 items per page, got %d", len(kbs))
+	}
+}
+
+// TestKnowledgeBaseRepository_ListByAgent_ZeroAgentID 验证 ListByAgent 传入 0
+func TestKnowledgeBaseRepository_ListByAgent_ZeroAgentID(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	got, err := repo.ListByAgent(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Errorf("expected nil for agentID=0, got %v", got)
+	}
+}
+
+// TestKnowledgeBaseRepository_ListByAgent_IncludesSharedBinding 验证 agent 通过 binding 看到 shared KB
+func TestKnowledgeBaseRepository_ListByAgent_IncludesSharedBinding(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	a1 := uint(11)
+	_ = repo.Create(ctx, newTestKB("P1", "faq", "private", &a1))
+
+	// shared KB
+	shared := newTestKB("S1", "rag", "shared", nil)
+	_ = repo.Create(ctx, shared)
+
+	// a1 没有 binding, 看不到 S1
+	got, _ := repo.ListByAgent(ctx, a1)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 (only P1), got %d", len(got))
+	}
+
+	// 通过 binding repo 插入绑定
+	bindingRepo := NewAgentKBBindingRepository(repo.db)
+	binding := &model.AgentKBBinding{
+		AgentID: a1,
+		KBID:    shared.ID,
+		KBType:  "rag",
+		Role:    "primary",
+		Enabled: boolPtr(true),
+	}
+	if err := bindingRepo.Create(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+
+	// a1 现在能看到 S1
+	got, _ = repo.ListByAgent(ctx, a1)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 (P1 + S1), got %d", len(got))
+	}
+	found := false
+	for _, kb := range got {
+		if kb.KBCode == "S1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected S1 visible after binding")
+	}
+}
+
+// TestKnowledgeBaseRepository_ListByType_Limit 验证 ListByType 限制
+func TestKnowledgeBaseRepository_ListByType_Limit(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		_ = repo.Create(ctx, newTestKB(fmt.Sprintf("T%d", i), "faq", "shared", nil))
+	}
+	// limit=2
+	got, err := repo.ListByType(ctx, "faq", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Errorf("expected 2 items with limit=2, got %d", len(got))
+	}
+}
+
+// TestKnowledgeBaseRepository_ListShared_FilterByType 验证 ListShared 按类型过滤
+func TestKnowledgeBaseRepository_ListShared_FilterByType(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	_ = repo.Create(ctx, newTestKB("F1", "faq", "shared", nil))
+	_ = repo.Create(ctx, newTestKB("R1", "rag", "shared", nil))
+	_ = repo.Create(ctx, newTestKB("F2", "faq", "shared", nil))
+
+	got, err := repo.ListShared(ctx, "faq")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Errorf("expected 2 faq-shared, got %d", len(got))
+	}
+	for _, kb := range got {
+		if kb.Type != "faq" {
+			t.Errorf("expected type=faq, got %q", kb.Type)
+		}
+	}
+}
+
+// TestKnowledgeBaseRepository_Update_NonExistent 验证 Update 不存在 ID
+func TestKnowledgeBaseRepository_Update_NonExistent(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	kb := newTestKB("X", "faq", "shared", nil)
+	kb.Name = "updated"
+	// GORM Updates 在没有匹配行时不会报错, 但 RowsAffected = 0
+	// 这里验证不 panic 即可
+	_ = repo.Update(ctx, 99999, kb)
+}
+
+// TestKnowledgeBaseRepository_Delete_NonExistent 验证 Delete 不存在 ID 不报错
+func TestKnowledgeBaseRepository_Delete_NonExistent(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	if err := repo.Delete(ctx, 99999); err != nil {
+		t.Errorf("expected nil error for non-existent delete, got %v", err)
+	}
+}
+
+// TestKnowledgeBaseRepository_CountByAgent_NoKB 验证 CountByAgent 0 KB
+func TestKnowledgeBaseRepository_CountByAgent_NoKB(t *testing.T) {
+	repo, _, done := setupKBRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	c, err := repo.CountByAgent(ctx, 99999)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != 0 {
+		t.Errorf("expected count=0 for agent with no KB, got %d", c)
 	}
 }

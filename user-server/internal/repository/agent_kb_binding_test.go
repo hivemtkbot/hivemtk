@@ -9,7 +9,6 @@ import (
 
 	"gorm.io/gorm"
 )
-
 func setupAgentKBBindingTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testutil.NewTestDB(t, &model.AgentKBBinding{}, &model.KnowledgeBase{})
@@ -191,5 +190,191 @@ func TestAgentKBBindingRepository_GetByAgentKB_NotFound(t *testing.T) {
 	}
 	if got != nil {
 		t.Error("expected nil for not-found")
+	}
+}
+
+// =====================================================================
+// 补充测试: 边界条件 / 级联删除 / 业务级联 (Task 38)
+// =====================================================================
+
+// TestAgentKBBindingRepository_DeleteByID 验证按 ID 删除
+func TestAgentKBBindingRepository_DeleteByID(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	b := newTestBinding(1, 100, "faq", "primary")
+	if err := repo.Create(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Delete(ctx, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	exists, _ := repo.CheckExists(ctx, 1, 100)
+	if exists {
+		t.Error("expected deleted")
+	}
+}
+
+// TestAgentKBBindingRepository_DeleteByAgent 验证级联删除某智能体所有绑定
+func TestAgentKBBindingRepository_DeleteByAgent(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for i := 0; i < 3; i++ {
+		if err := repo.Create(ctx, newTestBinding(1, uint(100+i), "faq", "primary")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = repo.Create(ctx, newTestBinding(2, 200, "faq", "primary"))
+
+	if err := repo.DeleteByAgent(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := repo.ListByAgentAll(ctx, 1)
+	if len(got) != 0 {
+		t.Errorf("expected 0 for agent=1, got %d", len(got))
+	}
+	// agent=2 不受影响
+	got2, _ := repo.ListByAgentAll(ctx, 2)
+	if len(got2) != 1 {
+		t.Errorf("expected 1 for agent=2, got %d", len(got2))
+	}
+}
+
+// TestAgentKBBindingRepository_DeleteByAgent_ZeroAgentID 验证 0 agentID 安全
+func TestAgentKBBindingRepository_DeleteByAgent_ZeroAgentID(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	// 0 不应执行 (业务保护)
+	if err := repo.DeleteByAgent(ctx, 0); err != nil {
+		t.Errorf("expected nil error for agentID=0, got %v", err)
+	}
+}
+
+// TestAgentKBBindingRepository_DeleteByKB 验证级联删除某知识库所有绑定
+func TestAgentKBBindingRepository_DeleteByKB(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for i := 0; i < 3; i++ {
+		if err := repo.Create(ctx, newTestBinding(uint(i+1), 100, "faq", "primary")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = repo.Create(ctx, newTestBinding(1, 200, "faq", "primary"))
+
+	if err := repo.DeleteByKB(ctx, 100); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := repo.ListByKB(ctx, 100)
+	if len(got) != 0 {
+		t.Errorf("expected 0 bindings for KB=100, got %d", len(got))
+	}
+	// KB=200 不受影响
+	got2, _ := repo.ListByKB(ctx, 200)
+	if len(got2) != 1 {
+		t.Errorf("expected 1 binding for KB=200, got %d", len(got2))
+	}
+}
+
+// TestAgentKBBindingRepository_DeleteByKB_ZeroKBID 验证 0 kbID 安全
+func TestAgentKBBindingRepository_DeleteByKB_ZeroKBID(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	if err := repo.DeleteByKB(ctx, 0); err != nil {
+		t.Errorf("expected nil error for kbID=0, got %v", err)
+	}
+}
+
+// TestAgentKBBindingRepository_ListByAgentAll 验证 ListByAgentAll 不过滤 enabled
+func TestAgentKBBindingRepository_ListByAgentAll(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	disabled := false
+	b1 := newTestBinding(1, 100, "faq", "primary")
+	b1.Enabled = &disabled
+	_ = repo.Create(ctx, b1)
+	_ = repo.Create(ctx, newTestBinding(1, 101, "faq", "primary"))
+
+	got, err := repo.ListByAgentAll(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 应包含 disabled 的 binding
+	if len(got) != 2 {
+		t.Errorf("expected 2 (including disabled), got %d", len(got))
+	}
+}
+
+// TestAgentKBBindingRepository_CheckExists_False 验证不存在的组合
+func TestAgentKBBindingRepository_CheckExists_False(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	_ = repo.Create(ctx, newTestBinding(1, 100, "faq", "primary"))
+	exists, err := repo.CheckExists(ctx, 1, 999)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Error("expected exists=false for non-existing KB")
+	}
+	exists, _ = repo.CheckExists(ctx, 999, 100)
+	if exists {
+		t.Error("expected exists=false for non-existing agent")
+	}
+}
+
+// TestAgentKBBindingRepository_Update_Priority 验证 priority 更新
+func TestAgentKBBindingRepository_Update_Priority(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	b := newTestBinding(1, 100, "faq", "primary")
+	if err := repo.Create(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	b.Priority = 99
+	if err := repo.Update(ctx, b.ID, b); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := repo.GetByAgentKB(ctx, 1, 100)
+	if got.Priority != 99 {
+		t.Errorf("expected priority=99, got %d", got.Priority)
+	}
+}
+
+// TestAgentKBBindingRepository_ListByAgent_PriorityOrdering 验证按 priority DESC 排序
+func TestAgentKBBindingRepository_ListByAgent_PriorityOrdering(t *testing.T) {
+	repo, _, done := setupAgentKBBindingRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	for i, p := range []int{5, 10, 1, 7} {
+		b := newTestBinding(1, uint(100+i), "faq", "primary")
+		b.Priority = p
+		_ = repo.Create(ctx, b)
+	}
+	got, _ := repo.ListByAgent(ctx, 1, "")
+	if len(got) != 4 {
+		t.Fatalf("expected 4, got %d", len(got))
+	}
+	// 期望 priority DESC: 10, 7, 5, 1
+	expected := []int{10, 7, 5, 1}
+	for i, b := range got {
+		if b.Priority != expected[i] {
+			t.Errorf("position %d: expected priority=%d, got %d", i, expected[i], b.Priority)
+		}
 	}
 }
