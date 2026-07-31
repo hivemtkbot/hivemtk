@@ -63,7 +63,7 @@ func withPollingLockRepo(t *testing.T, repo *repository.TelegramPollingLockRepos
 	prev := pollingLockRepo
 	prevOnce := pollingLockRepoOnce
 	pollingLockRepo = repo
-	pollingLockRepoOnce = sync.Once{}
+	*pollingLockRepoOnce = sync.Once{}
 	pollingLockRepoOnce.Do(func() { pollingLockRepo = repo })
 	t.Cleanup(func() {
 		pollingLockRepo = prev
@@ -281,7 +281,7 @@ func TestPollingLock_NilDB(t *testing.T) {
 		pollingLockRepoOnce = prevOnce
 	}()
 	pollingLockRepo = repository.NewTelegramPollingLockRepositoryWithDB(nil)
-	pollingLockRepoOnce = sync.Once{}
+	*pollingLockRepoOnce = sync.Once{}
 	pollingLockRepoOnce.Do(func() { pollingLockRepo = repository.NewTelegramPollingLockRepositoryWithDB(nil) })
 
 	acquired, _, _, err := TryAcquirePollingLock(context.Background(), nil, 999)

@@ -34,7 +34,7 @@ import (
 // setupE2EDB 准备端到端测试 DB
 func setupE2EDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db := testutil.NewTestDB(t,
+	db := testutil.NewTestDBOrSkip(t,
 		&model.KnowledgeBase{},
 		&model.AgentKBBinding{},
 	)
@@ -66,13 +66,17 @@ func newE2ESetup(t *testing.T, db *gorm.DB) (
 func boolPtrE2E(b bool) *bool { return &b }
 
 // =====================================================================
-// 业务故事 1: 电商客服多租户隔离
+// 业务故事 1: 多智能体严格隔离（每智能体独立 FAQ + 共享 SOP 库）
 // =====================================================================
 
-// TestE2E_EcommerceMultiTenant_KnowledgeIsolation 验证多租户场景下, 知识库严格隔离
+// TestE2E_MultiAgent_KnowledgeIsolation 验证多智能体场景下, 知识库严格隔离
 //
-// 场景: 3 个独立电商品牌 (agent1/agent2/agent3), 各自有私有知识库 + 一个跨租户共享的"平台规则库"
-func TestE2E_EcommerceMultiTenant_KnowledgeIsolation(t *testing.T) {
+// 场景: 3 个独立电商品牌的客服智能体 (agent1/agent2/agent3),
+// 各自有私有 FAQ 库 + 一个跨智能体共享的"平台规则 SOP 库"。
+//
+// 注意: 本测试不引入"多租户"概念, 业务模型仅存在"多智能体"维度,
+// 知识库隔离粒度是 agent_id, 共享库通过显式 binding 白名单分发。
+func TestE2E_MultiAgent_KnowledgeIsolation(t *testing.T) {
 	db := setupE2EDB(t)
 	ctx := context.Background()
 	kbSvc, bindSvc, _, _ := newE2ESetup(t, db)
@@ -117,20 +121,20 @@ func TestE2E_EcommerceMultiTenant_KnowledgeIsolation(t *testing.T) {
 		}
 	}
 
-	// 4. 验证: 品牌 A 可见 2 个 KB (自己私有的 + 平台共享)
+	// 4. 验证: agent 1001 可见 2 个 KB (自己私有的 + 平台共享)
 	gotA, err := kbSvc.ListByAgent(ctx, 1001)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(gotA) != 2 {
-		t.Errorf("expected brand-A sees 2 KB (private + platform), got %d", len(gotA))
+		t.Errorf("expected agent 1001 sees 2 KB (private + platform), got %d", len(gotA))
 	}
 
-	// 5. 验证: 品牌 A 看不到 B/C 的私有 KB
+	// 5. 验证: agent 1001 看不到 agent 1002/1003 的私有 KB
 	for _, kb := range gotA {
 		if strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-100") || strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-1002") || strings.HasPrefix(kb.KBCode, "KB-FAQ-BRAND-1003") {
 			if kb.OwnerAgentID != nil && *kb.OwnerAgentID != 1001 {
-				t.Errorf("brand-A 越权看到了 brand-%d 的私有 KB", *kb.OwnerAgentID)
+				t.Errorf("agent 1001 越权看到了 agent %d 的私有 KB", *kb.OwnerAgentID)
 			}
 		}
 	}

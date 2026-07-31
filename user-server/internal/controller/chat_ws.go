@@ -41,6 +41,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"marketing/internal/config"
+	"marketing/internal/contract"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/logger"
 )
@@ -64,24 +65,18 @@ const (
 )
 
 // ============================================================================
-// StreamEngineInterface
+// StreamEngineInterface (B-005)
 // ============================================================================
+//
+// B-005 重构: 接口已迁移至 internal/contract 包, 避免 controller ↔ service
+// 循环依赖风险。此处仅保留类型别名以维持调用方最小改动, 后续调用应直接引用
+// contract.StreamEngineInterface。
 
-// StreamEngineInterface 流式销售引擎接口（依赖倒置：避免 controller ↔ service 循环依赖）
+// StreamEngineInterface 流式销售引擎接口（向后兼容别名）
 //
-// 实现方: *service.SalesEngine（通过 Go 鸭子类型自动满足）
-//
-// 设计动机：
-//   - Controller 不直接持有 *service.SalesEngine 具体类型（编译期解耦）
-//   - 单测可注入 mock 实现（无需启动完整 service 栈）
-//   - router 层注入 *service.SalesEngine 时只需传 interface，类型签名更稳定
-type StreamEngineInterface interface {
-	// HandleStream 流式处理销售请求，逐 chunk 回调
-	//
-	// 返回 false 表示调用方（controller）希望中断流；返回 nil 错误表示正常完成。
-	// 任何内部错误会被包装为 dto.StreamChunk{Type: error} 推给客户端。
-	HandleStream(ctx context.Context, req *dto.SalesRequest, onChunk func(chunk *dto.StreamChunk) bool) error
-}
+// Deprecated: 请直接引用 contract.StreamEngineInterface。
+// 保留别名仅为兼容历史调用方, 后续 controller/ 内部将统一改用 contract。
+type StreamEngineInterface = contract.StreamEngineInterface
 
 // ============================================================================
 // ChatWSController
@@ -95,7 +90,7 @@ type StreamEngineInterface interface {
 //   - upgrader: gorilla/websocket 升级器（生产环境应配置精确的 CheckOrigin）
 type ChatWSController struct {
 	hub      *ChatWSHub
-	engine   StreamEngineInterface
+	engine   contract.StreamEngineInterface
 	upgrader websocket.Upgrader
 }
 
@@ -107,7 +102,7 @@ type ChatWSController struct {
 //   - 默认 ["http://localhost:3000", "http://localhost:8080"] (本地开发)
 //   - 生产应通过 env ALLOWED_WS_ORIGINS 或 config.yaml platform.allowed_ws_origins 覆盖
 //   - 白名单包含 "*" 时放行所有 origin (仅调试)
-func NewChatWSController(hub *ChatWSHub, engine StreamEngineInterface) *ChatWSController {
+func NewChatWSController(hub *ChatWSHub, engine contract.StreamEngineInterface) *ChatWSController {
 	return &ChatWSController{
 		hub:    hub,
 		engine: engine,

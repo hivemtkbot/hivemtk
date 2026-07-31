@@ -63,7 +63,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 	return &OrchestratorConfig{
 		ConfidenceThreshold: 0.7,
 		EnableAutoReply:     true,
-		MaxAIConsecutive:    0, // 0=不限制连续回复次数，完全由置信度阈值控制转人工
+		MaxAIConsecutive:    5, // 单会话 AI 连续回复上限 5（防 AI 死循环）
 	}
 }
 

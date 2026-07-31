@@ -231,6 +231,7 @@ func TestScriptTemplateController_GetPublicTemplates_Success(t *testing.T) {
 }
 
 func TestScriptTemplateController_RecommendScript_NoAuth(t *testing.T) {
+	setupScriptTestDB(t)
 	ctrl := NewScriptTemplateController()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

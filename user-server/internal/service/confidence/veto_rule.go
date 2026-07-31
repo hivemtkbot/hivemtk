@@ -74,17 +74,27 @@ func (r *VetoLowEntity) Check(signals *dto.FiveSignals, ctx *VetoContext) (bool,
 }
 
 // VetoLowRAG RAG 覆盖过低
+//
+// 默认阈值 0.1：RAGQual < 0.1 视为知识库无覆盖，必须转人工/兜底。
+// 业务规则：当 Threshold=0 时自动用默认值 0.1（而非禁用）。
+//   禁用本规则请用负数（如 Threshold=-1）显式声明。
 type VetoLowRAG struct {
-	Threshold float64 // 默认 0（禁用，让 AI 先能回复）
+	Threshold float64 // 默认 0.1
 }
+
+// defaultVetoLowRAGThreshold VetoLowRAG 兜底阈值
+const defaultVetoLowRAGThreshold = 0.1
 
 // Check 实现 VetoRule
 //
 // 仅当 intent 标记为需要 RAG 时才检查（这里简化为：所有 intent 都检查）
 func (r *VetoLowRAG) Check(signals *dto.FiveSignals, _ *VetoContext) (bool, string) {
 	threshold := r.Threshold
-	if threshold <= 0 {
-		return false, "" // threshold=0 表示禁用此否决规则
+	if threshold == 0 {
+		threshold = defaultVetoLowRAGThreshold // 0 → 默认 0.1
+	}
+	if threshold < 0 {
+		return false, "" // 负数 = 显式禁用
 	}
 	if signals.RAGQual < threshold {
 		return true, "veto_low_rag"

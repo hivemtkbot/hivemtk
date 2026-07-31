@@ -162,8 +162,8 @@
 
       <div class="pagination-wrap" v-if="total > 0">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"

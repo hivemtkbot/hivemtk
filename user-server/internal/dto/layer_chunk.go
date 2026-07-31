@@ -62,8 +62,12 @@ type FAQEntry struct {
 	Confidence float64  `json:"confidence"`
 	HitCount   int64    `json:"hit_count"`
 	Enabled    *bool    `json:"enabled,omitempty"` // 2026-07-31 P1-A: 前端管理页面需要
-	CreatedAt  string   `json:"created_at,omitempty"`
-	UpdatedAt  string   `json:"updated_at,omitempty"`
+	// Task 15: 强 1对1 改造 - FAQ 归属智能体
+	//   nil  = 共享池 (Match API 兜底)
+	//   &N>0 = 智能体 N 私有
+	AgentID   *uint  `json:"agent_id,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 // SOPTemplate SOP 模板 DTO (2026-07-31 P1-A: 前端 SOP 模板管理页面)

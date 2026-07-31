@@ -141,7 +141,9 @@ func TestInferenceConfigLoads(t *testing.T) {
 		t.Fatalf("必须读取 %s：配置文件是测试前置条件（项目规则不允许跳过）：%v", p, err)
 	}
 	var c AppConfig
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	// 与主流程一致：先用 expandEnvWithDefault 展开 ${VAR:default} 语法，
+	// 避免 BaseURL 等字段保留原始占位字符串（如 ${EMBEDDING_BASE_URL:...}）。
+	if err := yaml.Unmarshal([]byte(expandEnvWithDefault(string(data))), &c); err != nil {
 		t.Fatal(err)
 	}
 

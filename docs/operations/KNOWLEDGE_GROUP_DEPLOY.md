@@ -313,93 +313,15 @@ curl -X POST http://user-server:8080/api/v1/knowledge-bases \
 - `binding_cascade_delete_total`: 级联删除计数
 - `isolation_violation_total`: 越权访问计数 (应为 0)
 
-### 6.3 告警规则
+### 6.3 关键指标审计 (无外部告警)
 
-```yaml
-# Prometheus alert rules
-groups:
-- name: knowledge_group
-  rules:
-  - alert: KnowledgeGroupIsolationViolation
-    expr: rate(isolation_violation_total[5m]) > 0
-    for: 1m
-    labels:
-      severity: critical
-    annotations:
-      summary: "智能体知识库越权访问"
-      
-  - alert: KBCascadeDeleteSlow
-    expr: histogram_quantile(0.99, kb_cascade_delete_duration_seconds) > 1
-    for: 5m
-    labels:
-      severity: warning
-```
+> 私域部署版本: 不引入 Prometheus / Grafana / 告警通道。关键指标 (越权访问、级联删除延迟) 通过应用层日志 + 数据库表行数变化人工巡检, 巡检脚本见 `scripts/post_deploy_check.sh`。
 
 ---
 
-## 7. 回滚方案
+## 7. 部署后验收 (Post-Deploy Acceptance)
 
-### 7.1 触发条件
-
-| 触发条件 | 严重度 | 响应时间 |
-|----------|--------|----------|
-| 越权访问告警 | P0 | 立即 |
-| 创建错误率 > 1% | P1 | 30min |
-| 性能下降 > 50% | P1 | 30min |
-| 单元测试失败 | P2 | 2h |
-
-### 7.2 数据库回滚
-
-```bash
-# 1. 停止 user-server
-docker-compose stop user-server
-# 或 K8s
-kubectl scale deployment user-server --replicas=0
-
-# 2. 备份当前数据
-pg_dump -h <host> -U admin -d user_db -t knowledge_bases -t agent_kb_bindings \
-  -f /backup/kb_rollback_$(date +%Y%m%d_%H%M%S).sql
-
-# 3. 执行回滚 SQL
-psql -h <host> -U admin -d user_db \
-  -f migrations/20260731_001_create_knowledge_bases.down.sql \
-  -f migrations/20260731_002_create_agent_kb_bindings.down.sql
-
-# 4. 验证
-psql -h <host> -U admin -d user_db -c "\dt knowledge_bases"
-# 期望: 错误 (关系不存在)
-```
-
-### 7.3 代码回滚
-
-```bash
-# 1. K8s 回滚
-kubectl rollout undo deployment/user-server
-
-# 2. Docker 回滚
-docker pull hivemtk/user-server:v0.9.0
-docker-compose up -d --force-recreate user-server
-
-# 3. 验证
-curl http://user-server:8080/api/v1/health
-```
-
-### 7.4 灰度回退
-
-```bash
-# 立即将灰度降到 0
-export FEATURE_KNOWLEDGE_GROUP_ROLLOUT_PERCENT=0
-
-# 或通过配置中心
-curl -X PATCH http://config-center/api/v1/features/knowledge_group_isolation \
-  -d '{"rollout_percent": 0, "enabled": false}'
-```
-
----
-
-## 8. 部署后验收 (Post-Deploy Acceptance)
-
-### 8.1 自动化验收脚本
+### 7.1 自动化验收脚本
 
 ```bash
 #!/bin/bash
@@ -483,7 +405,7 @@ isolation_violation_total > 0
 **排查**:
 1. 检查 `KnowledgeBaseRepository.ListByAgent` 子查询
 2. 检查 `enabled` 字段是否在 WHERE 中
-3. 跑 `TestE2E_EcommerceMultiTenant_KnowledgeIsolation` 复现
+3. 跑 `TestE2E_MultiAgent_KnowledgeIsolation` 复现
 
 ### 9.4 性能慢
 

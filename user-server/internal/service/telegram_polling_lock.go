@@ -56,7 +56,7 @@ func GetPollingWorkerID() string {
 // 由首次调用时通过 sync.Once 构造，使用全局默认 DB。
 var (
 	pollingLockRepo     *repository.TelegramPollingLockRepository
-	pollingLockRepoOnce sync.Once
+	pollingLockRepoOnce = &sync.Once{}
 )
 
 func getPollingLockRepo() *repository.TelegramPollingLockRepository {

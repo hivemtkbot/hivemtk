@@ -613,7 +613,7 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	orderBy := "last_message_at DESC" // 默认按最新消息倒序
+	orderBy := "pinned DESC, last_message_at DESC" // 默认：pinned 优先 + 最新消息倒序
 	switch q.OrderBy {
 	case "pinned_first":
 		orderBy = "pinned DESC, last_message_at DESC"

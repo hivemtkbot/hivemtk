@@ -19,14 +19,15 @@ package repository
 //   - Update           更新
 //   - Delete           删除
 //   - CountByAgent     统计某智能体拥有多少私有 KB
-//   - IsValidType      校验类型字段是否合法 (供 service 层调用)
 //
-// 同时含 AgentKBBindingRepository: 智能体 ↔ 知识库 多对多绑定仓储
+// AgentKBBindingRepository 单独位于 internal/repository/agent_kb_binding.go
+//
+// IsValidType 工具方法: 不放在 Repository 中 (避免架构检查误判"缺 ctx"),
+//                       实际放在 service/knowledge_base.go 的 IsValidKBType 供调用.
 
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"marketing/internal/model"
 
@@ -126,14 +127,36 @@ func (r *KnowledgeBaseRepository) ListByType(ctx context.Context, kbType string,
 	return kbs, err
 }
 
-// ListByAgent 列出某智能体的私有知识库
+// ListByAgent 列出某智能体可用的知识库 (shared + agent 私有)
+//
+// 业务规则: 一个智能体可用的知识库 = 该智能体私有的 + 已 binding 的 shared
+//   - 私有: owner_agent_id = X AND enabled = true
+//   - 共享: owner_type = 'shared' AND enabled = true AND 存在 agent_kb_bindings (agent_id=X, kb_id=knowledge_bases.id, enabled=true)
+//
+// 返回: 去重后的 []*model.KnowledgeBase, 按 id DESC 排序
 func (r *KnowledgeBaseRepository) ListByAgent(ctx context.Context, agentID uint) ([]model.KnowledgeBase, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	// 用子查询: shared KB 必须在 agent_kb_bindings 中存在 (agent_id = ? AND enabled = true)
+	// SQL 语义:
+	//   owner_agent_id = ?                                    -- 私有
+	//   OR (owner_type = 'shared' AND id IN (SELECT kb_id FROM agent_kb_bindings WHERE agent_id = ? AND enabled = true))
 	var kbs []model.KnowledgeBase
+	subQuery := r.db.WithContext(ctx).
+		Model(&model.AgentKBBinding{}).
+		Select("kb_id").
+		Where("agent_id = ? AND enabled = ?", agentID, true)
 	err := r.db.WithContext(ctx).
-		Where("owner_agent_id = ? AND enabled = ?", agentID, true).
+		Where("enabled = ?", true).
+		Where("owner_agent_id = ? OR (owner_type = ? AND id IN (?))",
+			agentID, model.KnowledgeBaseOwnerShared, subQuery).
 		Order("id DESC").
 		Find(&kbs).Error
-	return kbs, err
+	if err != nil {
+		return nil, err
+	}
+	return kbs, nil
 }
 
 // ListShared 列出全部共享知识库 (owner_type=shared)
@@ -149,9 +172,20 @@ func (r *KnowledgeBaseRepository) ListShared(ctx context.Context, kbType string)
 
 // Update 更新知识库
 func (r *KnowledgeBaseRepository) Update(ctx context.Context, id uint, kb *model.KnowledgeBase) error {
+	// 不用 Select("*") 避免 GORM 把 nil pointer / 零值字段当 NULL 写回, 引发 NOT NULL 约束失败
+	// 显式列出可更新字段, 零值会被忽略 (业务字段用指针避开零值问题)
 	return r.db.WithContext(ctx).Model(&model.KnowledgeBase{}).
 		Where("id = ?", id).
-		Select("*").Updates(kb).Error
+		Updates(map[string]any{
+			"name":           kb.Name,
+			"description":    kb.Description,
+			"type":           kb.Type,
+			"owner_type":     kb.OwnerType,
+			"owner_agent_id": kb.OwnerAgentID,
+			"enabled":        kb.Enabled,
+			"member_count":   kb.MemberCount,
+			"doc_count":      kb.DocCount,
+		}).Error
 }
 
 // Delete 删除知识库

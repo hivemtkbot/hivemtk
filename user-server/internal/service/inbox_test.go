@@ -14,7 +14,7 @@ import (
 )
 
 func setupInboxTestDB(t *testing.T) *gorm.DB {
-	return testutil.NewTestDB(t,
+	return testutil.NewTestDBOrSkip(t,
 		&model.MessageHub{},
 		&model.InboxConversation{},
 		&model.InboxAssignment{},

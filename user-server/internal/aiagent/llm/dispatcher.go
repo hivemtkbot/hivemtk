@@ -205,13 +205,92 @@ func resolveNoFC(llmCfg config.InferenceLLMConfig) bool {
 	return base == "" || strings.Contains(base, "127.0.0.1") || strings.Contains(base, "localhost") || strings.Contains(base, "mtk-llm")
 }
 
+// defaultCloudProviderFactories 云端厂商默认工厂（仅用于未配置场景的占位注册）
+//
+// 设计意图：NewDispatcherFromConfig 必须先把这些云端厂商注册到 d.providers（即使 enabled=false），
+// 这样：
+//  1. 运营后台 / API 层可以枚举 d.providers 看到全部可用厂商
+//  2. SetRoute / SetRouteWithAudit 可以把云端作为 fallback 而无需先手动 AddProvider
+//  3. 测试用例（如 TestNewDispatcherFromConfig_LocalFirst）能验证"无 api_key 时注册但禁用"的契约
+//
+// 显式提供 api_key 时由 registerCloudProvidersFromConfig 覆盖此处的 disabled 状态。
+func defaultCloudProviderFactories() []ProviderConfig {
+	return []ProviderConfig{
+		{
+			Name:         "deepseek",
+			BaseURL:      "https://api.deepseek.com",
+			APIType:      "openai",
+			Model:        "deepseek-chat",
+			CostPer1k:    0.001,
+			AvgLatencyMs: 1500,
+			QualityScore: 0.85,
+			MaxRPM:       60,
+			Enabled:      false, // 无 api_key → 默认禁用（数据出域防护）
+		},
+		{
+			Name:         "qwen",
+			BaseURL:      "https://dashscope.aliyuncs.com/compatible-mode",
+			APIType:      "openai",
+			Model:        "qwen-max",
+			CostPer1k:    0.020,
+			AvgLatencyMs: 2500,
+			QualityScore: 0.92,
+			MaxRPM:       60,
+			Enabled:      false,
+		},
+		{
+			Name:         "gpt-4o",
+			BaseURL:      "https://api.openai.com",
+			APIType:      "openai",
+			Model:        "gpt-4o",
+			CostPer1k:    0.030,
+			AvgLatencyMs: 3000,
+			QualityScore: 0.95,
+			MaxRPM:       60,
+			Enabled:      false,
+		},
+		{
+			Name:         "glm-4",
+			BaseURL:      "https://open.bigmodel.cn/api/paas/v4",
+			APIType:      "openai",
+			Model:        "glm-4-plus",
+			CostPer1k:    0.050,
+			AvgLatencyMs: 2800,
+			QualityScore: 0.91,
+			MaxRPM:       60,
+			Enabled:      false,
+		},
+		{
+			Name:         "kimi",
+			BaseURL:      "https://api.moonshot.cn",
+			APIType:      "openai",
+			Model:        "moonshot-v1-8k",
+			CostPer1k:    0.012,
+			AvgLatencyMs: 2200,
+			QualityScore: 0.88,
+			MaxRPM:       60,
+			Enabled:      false,
+		},
+	}
+}
+
 // registerCloudProvidersFromConfig 注册云端可选 fallback
 //
-// 本地优先原则：云端厂商需用户显式配置 api_key 且 enabled=true 时才启用
+// 本地优先原则：
+//  1. 先把全部云端厂商（deepseek/qwen/gpt-4o/glm-4/kimi）以 disabled 占位注册到 d.providers，
+//     确保"枚举可见、路由可引用、测试可断言"三条契约。
+//  2. 用户在 config.yaml / env 显式配置 api_key 且 enabled=true 的云端，覆盖占位 disabled 状态。
+//
+// 即使没有任何云端配置，providers map 中也必须存在这 5 个 key（disabled），
+// 这是 NewDispatcherFromConfig 强契约（参见 TestNewDispatcherFromConfig_LocalFirst）。
 func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLMConfig) {
+	// 1) 占位注册：5 个云端厂商默认全 disabled
+	for _, p := range defaultCloudProviderFactories() {
+		d.providers[p.Name] = &p
+	}
+	// 2) 用户显式配置覆盖：api_key 非空 + enabled=true 才真正启用
 	src := llmCfg.CloudProviders
 	for _, p := range src {
-		// 云端仅在「显式启用且配置 api_key」时才启用
 		enabled := p.Enabled && p.APIKey != ""
 		d.providers[p.Name] = &ProviderConfig{
 			Name:         p.Name,

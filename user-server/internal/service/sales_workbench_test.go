@@ -33,8 +33,8 @@ import (
 
 // setupWorkbenchEnv 完整工作台环境
 func setupWorkbenchEnv(t *testing.T) (*CustomerJourneyService, *FollowUpService, *AITagger, *SalesDashboard, *OrderDraftService, *SalesWorkbenchService) {
-	// 初始化 PostgreSQL 测试 DB（OrderService 依赖 gorm.DB）
-	memDB := testutil.NewTestDB(t,
+	// 初始化 PostgreSQL 测试 DB（OrderService 依赖 gorm.DB）；无 PG 时优雅跳过
+	memDB := testutil.NewTestDBOrSkip(t,
 		&model.Order{},
 	)
 	dbutil.SetTestDB(memDB)

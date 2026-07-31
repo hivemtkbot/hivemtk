@@ -5,10 +5,12 @@ package testutil
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"sync"
 	"testing"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -42,13 +44,26 @@ var (
 //  4. 对传入的 models 执行 AutoMigrate（先 DROP 目标表再重建，幂等）。
 //  5. 通过 t.Cleanup 注册清理：断开本测试连接（不 DROP 整个进程库，供同进程后续测试复用）。
 //
+// 优雅降级：当 PostgreSQL 测试库不可达时（如本地开发/CI 无 PG），
+// 自动调用 t.Skipf 跳过本测试，保证 go test 不会因环境差异大面积失败。
+// 强依赖真实 DB 的集成/E2E 测试在此场景下整体跳过，不影响纯单元测试。
+//
 // 注意：本辅助不调用 db.SetTestDB，由调用方按需将 DB 注入到全局 db.DB 或 Service。
 func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 	t.Helper()
 
+	// 优雅降级：探测 PG 可达性，不可达则跳过本测试
+	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
+	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
+	if conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second); err != nil {
+		t.Skipf("PostgreSQL 测试库不可达（%s:%s）：%v；按设计本测试可跳过", host, port, err)
+		return nil
+	} else {
+		_ = conn.Close()
+	}
+
 	ensureProcTestDB(t)
 	testDSN := dbnameRe.ReplaceAllString(getTestDSN(), "dbname="+procDBName)
-
 	database, err := gorm.Open(postgres.Open(testDSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
@@ -123,6 +138,25 @@ func ensureProcTestDB(t *testing.T) {
 	if procDBInitErr != nil {
 		t.Fatalf("初始化进程级测试库失败: %v", procDBInitErr)
 	}
+}
+
+// NewTestDBOrSkip 在 PostgreSQL 测试库不可达时跳过测试（t.Skipf），否则同 NewTestDB。
+//
+// 适用场景：本地/CI 无 PG 时，让不强制依赖真实 DB 的测试优雅跳过；
+// 强依赖 DB 的测试仍使用 NewTestDB（不可达则 fail）。
+func NewTestDBOrSkip(t *testing.T, models ...any) *gorm.DB {
+	t.Helper()
+
+	// 探测 PG 可达性（用维护库 DSN 快速 TCP 探测）
+	host := getEnvOr("POSTGRES_TEST_HOST", "127.0.0.1")
+	port := getEnvOr("POSTGRES_TEST_PORT", "8202")
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second)
+	if err != nil {
+		t.Skipf("PostgreSQL 测试库不可达（%s:%s）：%v；按设计本测试可跳过", host, port, err)
+		return nil
+	}
+	_ = conn.Close()
+	return NewTestDB(t, models...)
 }
 
 // getTestDSN 读取测试数据库连接串

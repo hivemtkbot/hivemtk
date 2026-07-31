@@ -251,8 +251,8 @@ docker exec mtk-user-server wget -qO- $PLATFORM_API_URL/health
 1. **HTTPS 终结**：使用外部反代（CDN / 云负载均衡），自行配置 TLS 证书
 2. **公网 IP / FRP 穿透**：无公网 IP 时使用 FRP 把 8204 端口穿透出去
 3. **备份策略**：每日全量备份 PostgreSQL，每周异地备份
-4. **监控告警**：接入 Prometheus / Grafana，关注 user-server 健康指标
-5. **日志收集**：使用 ELK / Loki 等集中收集日志
+4. **健康监控**: 通过 `user-server` 的 `/healthz` 端点检查服务健康, 关键指标 (wall_ms / LCP / Layer1 命中率) 通过 `layer_decision_logs` 表 SQL 查询审计
+5. **日志收集**: 使用 ELK / Loki 等集中收集日志
 
 ---
 

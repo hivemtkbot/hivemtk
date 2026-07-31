@@ -16,9 +16,15 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"marketing/internal/pkg/featureflag"
 )
 
 // withFallbackChainFlag 临时设置 FF_FALLBACK_CHAIN, 测试结束恢复
+//
+// featureflag.Flag.Bool() 返回的是 cachedValue (后台 poller 每 5s 刷新一次),
+// 单纯 Setenv 不会立即生效, 所以这里在设值后立即调用 ReloadAll 强制同步,
+// 保证本测试用例中 featureflag.Get("fallback_chain").Bool() 立刻反映新 env。
 func withFallbackChainFlag(t *testing.T, val string) {
 	t.Helper()
 	prev, hadPrev := os.LookupEnv("FF_FALLBACK_CHAIN")
@@ -27,12 +33,15 @@ func withFallbackChainFlag(t *testing.T, val string) {
 	} else {
 		_ = os.Setenv("FF_FALLBACK_CHAIN", val)
 	}
+	// 立即强制刷新所有 flag 的 cachedValue (避免 5s 轮询窗口导致测试假阳性)
+	featureflag.DefaultManager().ReloadAll()
 	t.Cleanup(func() {
 		if hadPrev {
 			_ = os.Setenv("FF_FALLBACK_CHAIN", prev)
 		} else {
 			_ = os.Unsetenv("FF_FALLBACK_CHAIN")
 		}
+		featureflag.DefaultManager().ReloadAll()
 	})
 }
 

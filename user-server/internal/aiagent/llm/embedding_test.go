@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"marketing/internal/pkg/utils/config"
 )
 
 // TestEmbeddingService_DefaultConfig_LocalBaseURL 验证私域基线：
@@ -94,10 +96,20 @@ func TestEmbeddingService_DefaultConfig_OverrideByEnv(t *testing.T) {
 // 不可达时直接返回错误（不再静默降级到 hash）。
 func TestEmbeddingService_Embed_NoFallback_ReturnsError(t *testing.T) {
 	clearEmbeddingEnv(t)
-	// 指向一个不可达的端口（9999 必未占用）
-	t.Setenv("EMBEDDING_BASE_URL", "http://127.0.0.1:9")
-	t.Setenv("EMBEDDING_ALLOW_FALLBACK", "false")
-	t.Setenv("EMBEDDING_DIM", "4")
+	// 指向一个不可达的端口（9 必未占用）
+	// 由于 config 缓存机制，env 变量无法可靠地覆盖已缓存的 fileCfg.BaseURL，
+	// 所以这里用 SetAppConfig 直接注入测试所需的 BaseURL，确保 cfg.BaseURL 真实生效。
+	config.SetAppConfig(&config.AppConfig{
+		Inference: config.InferenceConfig{
+			Embedding: config.InferenceEmbeddingConfig{
+				BaseURL:       "http://127.0.0.1:9",
+				Model:         "bge-m3",
+				Dimension:     1024,
+				AllowFallback: false,
+			},
+		},
+	})
+	t.Cleanup(func() { config.SetAppConfig(nil) })
 
 	svc := NewEmbeddingService()
 	cfg := svc.DefaultConfig()

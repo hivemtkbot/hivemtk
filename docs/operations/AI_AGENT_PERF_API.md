@@ -192,8 +192,7 @@ curl -X POST http://localhost:8080/api/v1/ai/chat \
     "text": "韵达发货吗",
     "stream_mode": false,
     "metadata": {
-      "channel": "web",
-      "tenant_id": "tenant-001"
+      "channel": "web"
     }
   }'
 ```
@@ -327,7 +326,7 @@ AI Agent 通道对**前端 ChatWidget**、**内部微服务**、**第三方渠�
 ### 7.2 Token 格式
 
 ```
-tk_live_<tenant>_<session>_<signature>
+tk_live_<user>_<session>_<signature>
 tk_svc_<service>_<env>_<signature>
 tk_ops_<user>_<role>_<signature>
 ```
@@ -343,7 +342,7 @@ Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
 Sec-WebSocket-Version: 13
-X-Auth-Token: tk_live_tenant001_s9988_eyJhbGciOiJIUzI1NiJ9...
+X-Auth-Token: tk_live_user001_s9988_eyJhbGciOiJIUzI1NiJ9...
 X-Request-Id: req-20260731-0001
 Sec-WebSocket-Protocol: ai-agent-v1
 ```
@@ -353,14 +352,14 @@ Sec-WebSocket-Protocol: ai-agent-v1
 | HTTP Code | 含义 | 处理 |
 |-----------|------|------|
 | `401` | Token 缺失/过期/签名错误 | 客户端重新获取 token |
-| `403` | Token 有效但无权访问该 session | 升级为 P2 告警 |
+| `403` | Token 有效但无权访问该 session | 客户端清理本地状态 |
 | `429` | 触发限流 (见下文) | 客户端退避重试 |
 
-### 7.4 租户隔离
+### 7.4 智能体知识库隔离
 
-- 每个 `tk_live_xxx` token 内嵌 `tenant_id` claim
-- 所有 FAQ / SOP / LayerDecisionLog 查询强制 `WHERE tenant_id = ?`
-- 跨租户访问立即返回 `403 tenant_mismatch`，**写入审计日志 + P1 告警**
+- 每个 `tk_live_xxx` token 内嵌 `agent_id` claim
+- 所有 FAQ / SOP / LayerDecisionLog 查询强制 `WHERE owner_agent_id IN (...)`
+- 越权访问立即返回 `403 agent_mismatch`，**写入审计日志**
 
 ---
 
@@ -474,7 +473,7 @@ systemctl reload user-server
 
 ## 十一、性能指标
 
-### 11.1 Prometheus 5 指标
+### 11.1 核心指标
 
 | 指标名 | 类型 | 标签 |
 |--------|------|------|
@@ -484,29 +483,7 @@ systemctl reload user-server
 | `ai_agent_llm_call_total` | Counter | scenario, model, result |
 | `ai_agent_fallback_total` | Counter | from_layer, to_layer, reason |
 
-### 11.2 Grafana 面板
-
-- **面板 1 (Performance)**: wall time P50/P90 + LCP P50
-- **面板 2 (Routing)**: Layer 决策分布 + Fallback 链触发 + FAQ 命中率
-
-### 11.3 告警规则
-
-```yaml
-- alert: AIWallTimeP90High
-  expr: histogram_quantile(0.9, ai_agent_wall_time_seconds_bucket) > 10
-  for: 5m
-  labels: { severity: P2 }
-
-- alert: AILCPTimeP99High
-  expr: histogram_quantile(0.99, ai_agent_lcp_time_seconds_bucket) > 2
-  for: 5m
-  labels: { severity: P1 }
-
-- alert: AILayer1HitRateLow
-  expr: rate(ai_agent_layer_decision_total{layer="layer1"}[30m]) < 0.5
-  for: 30m
-  labels: { severity: P3 }
-```
+> 指标采集由 `layer_decision_logs` 表落库审计; 不依赖外部监控面板/告警通道, 故障排查通过 SQL 查询即可。
 
 ---
 
@@ -576,7 +553,7 @@ go run cmd/importfaq/main.go -input ../scripts/faq_seed.json
 | `AI_LLM_TIMEOUT` | LLM 60s 超时 | 走降级链 |
 | `AI_ALL_FALLBACK_FAIL` | 4 级全失败 | 返回默认错误模板 |
 | `AI_RATE_LIMITED` | 触发限流 | 客户端按 `Retry-After` 退避 |
-| `AI_TENANT_MISMATCH` | 跨租户访问 | 拒绝 + 审计日志 |
+| `AI_AGENT_MISMATCH` | 越权访问其他智能体数据 | 拒绝 + 审计日志 |
 | `AI_WS_AUTH_FAIL` | WS 鉴权失败 | 关闭连接 (1008) |
 
 ---

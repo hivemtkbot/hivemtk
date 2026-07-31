@@ -10,10 +10,10 @@
 ## 1. 概述
 
 智能体知识库隔离架构 (Knowledge Group Isolation, KGI) 是 HiveMTK 智能体平台
-**多租户数据隔离** 的核心方案。它解决以下业务问题:
+**多智能体数据隔离** 的核心方案。它解决以下业务问题:
 
-- 一个电商品牌 (租户) 拥有多个客服智能体, 不同品牌的知识库严格隔离
-- 同时支持"集团内"跨租户共享的"公共知识库"
+- 一个电商品牌拥有多个客服智能体, 不同智能体的知识库严格隔离
+- 同时支持"集团内"跨智能体共享的"公共知识库"
 - 智能体可灵活挂载/卸载知识库, 支持主/参考角色
 
 ### 1.1 业务目标
@@ -265,7 +265,7 @@ r.db.WithContext(ctx).
 
 ## 6. 使用场景
 
-### 6.1 场景 A: 多租户电商品牌
+### 6.1 场景 A: 多智能体电商品牌
 
 ```
 电商 SaaS 平台
@@ -360,7 +360,7 @@ r.db.WithContext(ctx).
 
 ### 8.2 关键场景测试
 
-- ✅ 私有 KB 严格隔离 (TestE2E_EcommerceMultiTenant_KnowledgeIsolation)
+- ✅ 私有 KB 严格隔离 (TestE2E_MultiAgent_KnowledgeIsolation)
 - ✅ 共享 KB 白名单分发 (TestE2E_SharedKB_WhitelistDistribution)
 - ✅ 删除级联清理 (TestE2E_KBDelete_CascadeBindingCleanup)
 - ✅ 批量绑定事务 (TestE2E_AdminBatchConfig)
