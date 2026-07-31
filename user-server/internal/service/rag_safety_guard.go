@@ -79,29 +79,13 @@ const (
 
 // SafetyCheckRequest 内容风控检测请求
 //
-// 字段类型一致性: AgentID / OwnerID / ProductID 统一为 uint / int64
-// 对齐所有 DB model (agent_kb_binding / ai_agent / knowledge_base 等
-// 均使用 uint AgentID)。原 string 类型导致越权检测仅做字符串比对,
-// 无法回查 DB 验证, 现统一为数值类型。
+// 字段范围: 词检维度 (UserID + Content), 与 controller 暴露完全解耦。
+// 越权检测相关字段 (AgentID / Sources) 已随 HTTP 控制器一并移除。
 type SafetyCheckRequest struct {
-	// UserID 当前请求用户
+	// UserID 当前请求用户 (仅用于审计日志关联)
 	UserID string
-	// AgentID 智能体 ID（私域部署下唯一隔离维度, uint 与 DB model 对齐）
-	AgentID uint
-	// Content 待检测内容（RAG 回答 / 用户输入 / 检索片段）
+	// Content 待检测内容 (RAG 回答 / 用户输入 / 检索片段)
 	Content string
-	// Sources 检索来源（用于画像越权判断：每个 source 含 productID/ownerID）
-	Sources []SafetySource
-	// Stage 检测阶段：input（用户输入）/ output（LLM 回答）/ retrieval（检索片段）
-	Stage string
-}
-
-// SafetySource 检索片段来源
-type SafetySource struct {
-	DocID     string
-	OwnerID   uint   // 拥有者 agentID (原 string tenantID, 与 DB uint 对齐)
-	ProductID int64
-	Content   string
 }
 
 // SafetyIssue 单个风控问题
@@ -253,16 +237,18 @@ func (s *RagSafetyGuardService) LastUpdate(ctx context.Context) time.Time {
 
 // Check 对内容做风控检测
 //
-// 检测顺序：
+// 检测顺序 (3 维度词检, 内存执行, 不依赖 DB):
 //  1. 敏感词（block 动作）
 //  2. 广告法绝对化用语（warn 动作，标记但不阻断）
 //  3. 竞品词（block 动作，保护租户商业利益）
-//  4. 画像越权（移除跨租户检索片段）
+//
+// 历史: 画像越权 (checkPersonaAuthz) 已随 HTTP 控制器一并移除, 因
+//   SafetySource / OwnerID 在全项目无内部消费者, 仅为半成品占位。
 func (s *RagSafetyGuardService) Check(ctx context.Context, req *SafetyCheckRequest) (*SafetyCheckResult, error) {
 	if req == nil {
 		return nil, errors.New("req is nil")
 	}
-	if req.Content == "" && len(req.Sources) == 0 {
+	if req.Content == "" {
 		return &SafetyCheckResult{
 			Passed:    true,
 			CheckedAt: time.Now(),
@@ -288,13 +274,6 @@ func (s *RagSafetyGuardService) Check(ctx context.Context, req *SafetyCheckReque
 	// 3) 竞品拦截
 	if issues := s.checkCompetitor(ctx, req.Content); len(issues) > 0 {
 		result.Issues = append(result.Issues, issues...)
-	}
-
-	// 4) 画像越权：过滤跨租户片段
-	if len(req.Sources) > 0 {
-		if issues := s.checkPersonaAuthz(ctx, req); len(issues) > 0 {
-			result.Issues = append(result.Issues, issues...)
-		}
 	}
 
 	// 汇总动作
@@ -401,55 +380,6 @@ func (s *RagSafetyGuardService) checkCompetitor(ctx context.Context, content str
 		}
 	}
 	return issues
-}
-
-// checkPersonaAuthz 画像越权检测
-//
-// 行为：
-//  1. 若 req.AgentID 为 0，跳过（开发态兜底）
-//  2. 遍历 req.Sources，凡 OwnerID 与 AgentID 不一致即视为越权 →
-//     将该片段标记为 Persona 越权问题（warn 级别，建议在调用方做二次过滤）
-//  3. 不修改 req，由调用方根据 Issues 自行剔除越权片段
-func (s *RagSafetyGuardService) checkPersonaAuthz(ctx context.Context, req *SafetyCheckRequest) []SafetyIssue {
-	if req.AgentID == 0 {
-		return nil
-	}
-	var issues []SafetyIssue
-	for _, src := range req.Sources {
-		if src.OwnerID == 0 {
-			continue
-		}
-		if src.OwnerID != req.AgentID {
-			issues = append(issues, SafetyIssue{
-				Type:        SafetyIssuePersonaAuthz,
-				Severity:    SafetySeverityWarn,
-				Action:      SafetyActionAudit,
-				MatchWord:   src.DocID,
-				Description: fmt.Sprintf("检索片段 owner=%d 与当前智能体 %d 不一致，存在越权", src.OwnerID, req.AgentID),
-				Location:    src.DocID,
-			})
-		}
-	}
-	return issues
-}
-
-// FilterSourcesByAgent 按智能体过滤检索片段（消费方工具方法）
-//
-// 返回：仅含 OwnerID == agentID 的片段，越权片段数
-func (s *RagSafetyGuardService) FilterSourcesByAgent(ctx context.Context, sources []SafetySource, agentID uint) ([]SafetySource, int) {
-	if agentID == 0 {
-		return sources, 0
-	}
-	filtered := make([]SafetySource, 0, len(sources))
-	dropped := 0
-	for _, src := range sources {
-		if src.OwnerID == 0 || src.OwnerID == agentID {
-			filtered = append(filtered, src)
-		} else {
-			dropped++
-		}
-	}
-	return filtered, dropped
 }
 
 // ----------------------------------------------------------------------------

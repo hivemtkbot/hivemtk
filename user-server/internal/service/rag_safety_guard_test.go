@@ -2,17 +2,18 @@ package service
 
 // rag_safety_guard_test.go RAG 内容风控卫士单元测试
 //
-// 测试覆盖：
+// 测试覆盖 (commit 2 简化后, 仅 3 个词检维度):
 //  1) 构造与默认词库
 //  2) 敏感词命中 block
 //  3) 广告法绝对化用语 warn
 //  4) 竞品词 block
-//  5) 画像越权 warn
-//  6) 同时命中多个规则
-//  7) 词库动态新增 / 去重
-//  8) FilterSourcesByAgent
-//  9) safeReplacement
-// 10) 边界：nil req / 空 content / 防御性
+//  5) 同时命中多个规则
+//  6) 词库动态新增 / 去重
+//  7) safeReplacement
+//  8) 边界: nil req / 空 content / 防御性
+//
+// 历史: 画像越权 (PersonaAuthz) + FilterSourcesByAgent 测试已删除,
+//   随 HTTP 控制器和 SafetySource 一起移除。
 
 import (
 	"context"
@@ -48,7 +49,6 @@ func TestRagSafetyGuard_SensitiveWord_Block(t *testing.T) {
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
 		UserID:  "u1",
 		Content: "这是一段包含违禁词TEST的内容",
-		Stage:   "output",
 	})
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
@@ -126,34 +126,7 @@ func TestRagSafetyGuard_Competitor_Block(t *testing.T) {
 	}
 }
 
-// 5) 画像越权
-func TestRagSafetyGuard_PersonaAuthz(t *testing.T) {
-	s := newSafetyGuard()
-	res, err := s.Check(context.Background(), &SafetyCheckRequest{
-		AgentID: 1, // agent-A
-		Sources: []SafetySource{
-			{DocID: "d1", OwnerID: 1, Content: "A 知识"},
-			{DocID: "d2", OwnerID: 2, Content: "B 知识"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Check failed: %v", err)
-	}
-	if res.Blocked {
-		t.Error("Persona authz should warn, not block")
-	}
-	count := 0
-	for _, iss := range res.Issues {
-		if iss.Type == SafetyIssuePersonaAuthz {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Errorf("Expected 1 persona issue, got %d", count)
-	}
-}
-
-// 6) 同时命中多个规则
+// 5) 同时命中多个规则
 func TestRagSafetyGuard_MultipleRules(t *testing.T) {
 	s := newSafetyGuard()
 	_ = s.AddSensitiveWord(context.Background(), "BOMB")
@@ -199,25 +172,7 @@ func TestRagSafetyGuard_Lexicon_Dedup(t *testing.T) {
 	}
 }
 
-// 8) FilterSourcesByAgent
-func TestRagSafetyGuard_FilterSourcesByAgent(t *testing.T) {
-	s := newSafetyGuard()
-	srcs := []SafetySource{
-		{DocID: "1", OwnerID: 10}, // T1
-		{DocID: "2", OwnerID: 20}, // T2
-		{DocID: "3", OwnerID: 10}, // T1
-		{DocID: "4", OwnerID: 0},  // 未设置 (跳过, 视为本 agent)
-	}
-	kept, dropped := s.FilterSourcesByAgent(context.Background(), srcs, 10)
-	if dropped != 1 {
-		t.Errorf("Expected dropped=1, got %d", dropped)
-	}
-	if len(kept) != 3 {
-		t.Errorf("Expected kept=3, got %d", len(kept))
-	}
-}
-
-// 9) safeReplacement
+// 8) safeReplacement
 func TestRagSafetyGuard_SafeReplacement(t *testing.T) {
 	s := newSafetyGuard()
 	r := s.safeReplacement(context.Background())
@@ -287,15 +242,14 @@ func TestRagSafetyGuard_SetLexicon(t *testing.T) {
 }
 
 func TestRagSafetyGuard_StageIgnored(t *testing.T) {
+	// 历史: Stage 字段 (input/output/retrieval) 已从 SafetyCheckRequest 移除。
+	// 本测试保留仅作回归覆盖: 词检与 stage 无关, 任意 content 命中即 block。
 	s := newSafetyGuard()
 	_ = s.AddSensitiveWord(context.Background(), "BANG")
-	for _, stage := range []string{"input", "output", "retrieval"} {
-		res, _ := s.Check(context.Background(), &SafetyCheckRequest{
-			Stage:   stage,
-			Content: "BANG",
-		})
-		if !res.Blocked {
-			t.Errorf("Stage=%s should still block", stage)
-		}
+	res, _ := s.Check(context.Background(), &SafetyCheckRequest{
+		Content: "BANG",
+	})
+	if !res.Blocked {
+		t.Error("Sensitive word should block regardless of stage")
 	}
 }

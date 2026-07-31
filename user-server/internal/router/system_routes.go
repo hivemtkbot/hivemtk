@@ -84,8 +84,10 @@ func setupRagRoutes(auth *gin.RouterGroup) {
 	ragHealthCtrl := controller.NewRagHealthController(ragHealthSvc)
 	ragHealthCtrl.RegisterRoutes(auth)
 
-	ragSafetyCtrl := controller.NewRagSafetyGuardController(service.NewRagSafetyGuardService(db.GetDB()))
-	ragSafetyCtrl.RegisterRoutes(auth)
+	// 私域部署: 移除 RagSafetyGuardController HTTP 暴露 (commit 2)
+	// RagSafetyGuardService 仅作为内部 service 供词检调用, 不再走 HTTP API
+	// 历史背景: 原 HTTP 暴露 /api/rag/safety/{check,lexicon,sensitive,competitor}
+	//   框架完整但无任何内部消费者, 仅为半成品占位。
 
 	ragRecallCtrl := controller.NewRagRecallMonitorController(service.NewRagRecallMonitorService(db.GetDB(), 0, 0))
 	ragRecallCtrl.RegisterRoutes(auth)
