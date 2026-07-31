@@ -31,9 +31,13 @@ func NewRagSafetyGuardController(svc *service.RagSafetyGuardService) *RagSafetyG
 }
 
 // SafetyCheckRequest 检测请求
+//
+// 字段类型: AgentID 由 string 改为 uint, 与 service.SafetyCheckRequest
+// 和所有 DB model (agent_kb_binding / ai_agent / knowledge_base) 保持一致。
+// JSON 序列化: agentId 接受数字, 不再接受字符串。
 type SafetyCheckRequest struct {
 	UserID  string                 `json:"userId" binding:"required"`
-	AgentID string                 `json:"agentId"` // 智能体 ID (原 tenantId, 私域唯一隔离维度)
+	AgentID uint                   `json:"agentId"` // 智能体 ID (与 DB model 一致, uint)
 	Content string                 `json:"content"`
 	Stage   string                 `json:"stage"`
 	Sources []service.SafetySource `json:"sources"`

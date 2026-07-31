@@ -130,10 +130,10 @@ func TestRagSafetyGuard_Competitor_Block(t *testing.T) {
 func TestRagSafetyGuard_PersonaAuthz(t *testing.T) {
 	s := newSafetyGuard()
 	res, err := s.Check(context.Background(), &SafetyCheckRequest{
-		AgentID: "agent-A",
+		AgentID: 1, // agent-A
 		Sources: []SafetySource{
-			{DocID: "d1", OwnerID: "agent-A", Content: "A 知识"},
-			{DocID: "d2", OwnerID: "agent-B", Content: "B 知识"},
+			{DocID: "d1", OwnerID: 1, Content: "A 知识"},
+			{DocID: "d2", OwnerID: 2, Content: "B 知识"},
 		},
 	})
 	if err != nil {
@@ -203,12 +203,12 @@ func TestRagSafetyGuard_Lexicon_Dedup(t *testing.T) {
 func TestRagSafetyGuard_FilterSourcesByAgent(t *testing.T) {
 	s := newSafetyGuard()
 	srcs := []SafetySource{
-		{DocID: "1", OwnerID: "T1"},
-		{DocID: "2", OwnerID: "T2"},
-		{DocID: "3", OwnerID: "T1"},
-		{DocID: "4", OwnerID: ""},
+		{DocID: "1", OwnerID: 10}, // T1
+		{DocID: "2", OwnerID: 20}, // T2
+		{DocID: "3", OwnerID: 10}, // T1
+		{DocID: "4", OwnerID: 0},  // 未设置 (跳过, 视为本 agent)
 	}
-	kept, dropped := s.FilterSourcesByAgent(context.Background(), srcs, "T1")
+	kept, dropped := s.FilterSourcesByAgent(context.Background(), srcs, 10)
 	if dropped != 1 {
 		t.Errorf("Expected dropped=1, got %d", dropped)
 	}
