@@ -1,0 +1,230 @@
+package repository
+
+// faq_entry.go FAQ 知识库 Repository
+//
+// 五层架构归属: L5 数据访问层
+// 设计依据: 2026-07-31 AI 智能体性能优化 (T2)
+//   - Layer1 路由依赖 FAQ 快速匹配 (零 LLM, <100ms)
+//   - MatchByKeyword: 基于中文分词 + 关键词包含打分
+//   - 未来可扩展: pgvector 全文检索 + Embedding 向量召回
+//
+// 方法:
+//   - Create           新增 FAQ
+//   - GetByID          按 ID 查询
+//   - ListEnabled      查询所有启用的 FAQ (用于内存缓存 warmup)
+//   - MatchByKeyword   关键词匹配 (Layer1 核心 API)
+//   - IncrementHitCount 命中次数 +1 (用于优化排序 + 报表)
+
+import (
+	"context"
+	"sort"
+	"strings"
+	"unicode/utf8"
+
+	"marketing/internal/model"
+
+	"gorm.io/gorm"
+)
+
+type FAQRepository struct {
+	db *gorm.DB
+}
+
+func NewFAQRepository(db *gorm.DB) *FAQRepository {
+	return &FAQRepository{db: db}
+}
+
+// Create 新增 FAQ
+//
+// 注意: GORM v2 对 bool 零值 (false) 不会写入,会使用 column default。
+// 此处用 Select("*") 强制全字段 INSERT,确保 false 也能正确落库。
+func (r *FAQRepository) Create(ctx context.Context, entry *model.FAQEntry) error {
+	return r.db.WithContext(ctx).Select("*").Create(entry).Error
+}
+
+// GetByID 按 ID 查询
+func (r *FAQRepository) GetByID(ctx context.Context, id uint) (*model.FAQEntry, error) {
+	var entry model.FAQEntry
+	if err := r.db.WithContext(ctx).First(&entry, id).Error; err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
+// ListEnabled 查询所有启用的 FAQ
+func (r *FAQRepository) ListEnabled(ctx context.Context, limit int) ([]model.FAQEntry, error) {
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("enabled = ?", true).
+		Order("hit_count DESC, confidence DESC, id ASC").
+		Limit(limit).
+		Find(&entries).Error
+	return entries, err
+}
+
+// MatchByKeyword 关键词匹配 (Layer1 核心 API)
+//
+// 策略:
+//  1. 取所有 enabled FAQ (数据量 < 1000 时, 全量内存打分)
+//  2. 中文按字符 bigram 切词 + 关键词包含打分
+//  3. 排序: score * (baseConfidence + log(hit_count+1)) 降序
+//  4. 返回 top K
+//
+// 后续可扩展: pgvector 全文检索 / Embedding 向量召回
+func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {
+	if msg == "" {
+		return nil, nil
+	}
+	all, err := r.ListEnabled(ctx, 5000)
+	if err != nil {
+		return nil, err
+	}
+	msgTokens := tokenize(msg)
+	if len(msgTokens) == 0 {
+		return nil, nil
+	}
+	type scored struct {
+		entry model.FAQEntry
+		score float64
+	}
+	var results []scored
+	for i := range all {
+		e := all[i]
+		if !e.IsEnabled() {
+			continue
+		}
+		faqTokens := tokenize(e.Question + " " + e.Answer)
+		score := jaccardSimilarity(msgTokens, faqTokens)
+		// 关键词精确包含加权
+		for _, kw := range e.Keywords {
+			if kw != "" && strings.Contains(msg, kw) {
+				score += 0.3
+			}
+		}
+		// 基础置信度 + 命中次数加权
+		score = score * (e.Confidence + 0.1*logPlus(e.HitCount))
+		if score < 0.2 {
+			continue
+		}
+		results = append(results, scored{entry: e, score: score})
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].score > results[j].score
+	})
+	if topK <= 0 || topK > len(results) {
+		topK = len(results)
+	}
+	out := make([]model.FAQEntry, 0, topK)
+	for i := 0; i < topK; i++ {
+		results[i].entry.Confidence = results[i].score
+		out = append(out, results[i].entry)
+	}
+	return out, nil
+}
+
+// IncrementHitCount 命中次数 +1
+func (r *FAQRepository) IncrementHitCount(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).
+		Model(&model.FAQEntry{}).
+		Where("id = ?", id).
+		UpdateColumn("hit_count", gorm.Expr("hit_count + 1")).
+		Error
+}
+
+// tokenize 中文 bigram 切词 (简化版, 无 jieba 依赖)
+//
+// 输入: "韵达发货吗" -> ["韵达", "达发", "发货", "货吗"]
+// 输入: "abc def" -> ["abc", "def"]
+func tokenize(s string) []string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return nil
+	}
+	runes := []rune(s)
+	tokens := make([]string, 0, len(runes))
+	// 英文按空格切
+	if !hasChinese(s) {
+		for _, w := range strings.Fields(s) {
+			if utf8.RuneCountInString(w) >= 2 {
+				tokens = append(tokens, w)
+			}
+		}
+		return tokens
+	}
+	// 中文 bigram
+	for i := 0; i < len(runes)-1; i++ {
+		if isCJK(runes[i]) && isCJK(runes[i+1]) {
+			tokens = append(tokens, string(runes[i:i+2]))
+		}
+	}
+	// 单字也算
+	for _, r := range runes {
+		if isCJK(r) {
+			tokens = append(tokens, string(r))
+		}
+	}
+	return tokens
+}
+
+func hasChinese(s string) bool {
+	for _, r := range s {
+		if isCJK(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func isCJK(r rune) bool {
+	return r >= 0x4E00 && r <= 0x9FFF
+}
+
+// jaccardSimilarity Jaccard 相似度
+func jaccardSimilarity(a, b []string) float64 {
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	setA := make(map[string]struct{}, len(a))
+	for _, s := range a {
+		setA[s] = struct{}{}
+	}
+	setB := make(map[string]struct{}, len(b))
+	for _, s := range b {
+		setB[s] = struct{}{}
+	}
+	inter := 0
+	for k := range setA {
+		if _, ok := setB[k]; ok {
+			inter++
+		}
+	}
+	union := len(setA) + len(setB) - inter
+	if union == 0 {
+		return 0
+	}
+	return float64(inter) / float64(union)
+}
+
+// logPlus 自然对数平滑 (避免负值, 让 hit_count=0 时返回 0)
+func logPlus(n int64) float64 {
+	if n <= 0 {
+		return 0
+	}
+	x := float64(n)
+	// 简化: 使用近似 ln(x+1)/ln(10)
+	// 避免引入 math 包的大开销
+	// ln(1) = 0, ln(10) ≈ 2.3, ln(100) ≈ 4.6
+	if x < 1 {
+		return 0
+	}
+	if x < 10 {
+		return 0.5
+	}
+	if x < 100 {
+		return 1.0
+	}
+	return 1.5
+}

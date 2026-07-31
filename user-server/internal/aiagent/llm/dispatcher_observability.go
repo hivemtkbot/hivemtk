@@ -390,7 +390,8 @@ type ScenarioStat struct {
 // 参数：
 //   - window: 时间窗口（"today" / "week" / "month" / "all"），默认 "all"
 //   - limit:  最多返回多少条聚合（默认 200）
-func QueryScenarioStats(ctx context.Context, window string, limit int) ([]ScenarioStat, error) {
+//   - enabledProviders: 只统计这些 provider（为空则不过滤）
+func QueryScenarioStats(ctx context.Context, window string, limit int, enabledProviders []string) ([]ScenarioStat, error) {
 	d := getAuditDB()
 	if d == nil {
 		return nil, nil
@@ -424,6 +425,9 @@ func QueryScenarioStats(ctx context.Context, window string, limit int) ([]Scenar
 		Limit(limit)
 	if !since.IsZero() {
 		q = q.Where("created_at >= ?", since)
+	}
+	if len(enabledProviders) > 0 {
+		q = q.Where("provider IN ?", enabledProviders)
 	}
 	var rows []ScenarioStat
 	if err := q.Scan(&rows).Error; err != nil {

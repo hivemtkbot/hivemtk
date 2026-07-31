@@ -44,9 +44,19 @@ type FAQEntry struct {
 	Intent     string      `gorm:"type:varchar(64);default:''" json:"intent"`
 	Confidence float64     `gorm:"type:decimal(5,4);default:0" json:"confidence"`
 	HitCount   int64       `gorm:"type:bigint;default:0" json:"hit_count"`
-	Enabled    bool        `gorm:"type:boolean;default:true" json:"enabled"`
+	// Enabled 用 *bool 避免 GORM v2 零值问题(布尔 false 被 column default 覆盖)
+	// 应用层约定: nil=未设置, &true=启用, &false=禁用
+	Enabled    *bool       `gorm:"type:boolean;default:true;not null" json:"enabled"`
 	CreatedAt  time.Time   `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt  time.Time   `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// IsEnabled 便捷访问 (处理 nil 指针: 视为 true)
+func (e *FAQEntry) IsEnabled() bool {
+	if e.Enabled == nil {
+		return true
+	}
+	return *e.Enabled
 }
 
 // TableName GORM 表名

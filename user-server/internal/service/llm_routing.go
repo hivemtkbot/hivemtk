@@ -363,7 +363,8 @@ func (s *LLMRoutingService) Usage(ctx context.Context, window string) (*UsageSum
 	if window == "" {
 		window = "all"
 	}
-	stats, err := llm.QueryScenarioStats(ctx, window, 200)
+	enabledProviders := llm.GetGlobalDispatcher().GetEnabledProviderNames()
+	stats, err := llm.QueryScenarioStats(ctx, window, 200, enabledProviders)
 	if err != nil {
 		return nil, err
 	}

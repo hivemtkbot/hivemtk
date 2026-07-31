@@ -100,6 +100,19 @@ func (d *Dispatcher) GetCandidateChain(scenario DispatchScenario) []string {
 	return out
 }
 
+// GetEnabledProviderNames 返回当前启用的 provider 名称列表
+func (d *Dispatcher) GetEnabledProviderNames() []string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	names := make([]string, 0, len(d.providers))
+	for _, p := range d.providers {
+		if p.Enabled {
+			names = append(names, p.Name)
+		}
+	}
+	return names
+}
+
 // CountProvidersByStatus 统计 provider 状态（up / down / disabled）
 func (d *Dispatcher) CountProvidersByStatus() (up, down, disabled int) {
 	d.mu.RLock()

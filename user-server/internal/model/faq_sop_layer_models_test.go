@@ -16,6 +16,7 @@ func TestFAQEntry_TableName(t *testing.T) {
 
 func TestFAQEntry_BasicFields(t *testing.T) {
 	now := time.Now()
+	trueVal := true
 	entry := &FAQEntry{
 		ID:         1,
 		Question:   "韵达发货吗",
@@ -24,7 +25,7 @@ func TestFAQEntry_BasicFields(t *testing.T) {
 		Intent:     "logistics",
 		Confidence: 0.85,
 		HitCount:   10,
-		Enabled:    true,
+		Enabled:    &trueVal,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
@@ -34,7 +35,7 @@ func TestFAQEntry_BasicFields(t *testing.T) {
 	if entry.Confidence != 0.85 {
 		t.Errorf("Confidence = %f, want 0.85", entry.Confidence)
 	}
-	if !entry.Enabled {
+	if !entry.IsEnabled() {
 		t.Error("Enabled should be true")
 	}
 }
