@@ -54,6 +54,29 @@
         <el-form-item :label="$t('AI 置信度阈值')">
           <el-input-number v-model="form.confidence_threshold" :min="0" :max="1" :step="0.05" :precision="2" />
         </el-form-item>
+        <el-form-item :label="$t('默认智能体')">
+          <el-select
+            v-model="form.default_agent_id"
+            placeholder="选择渠道默认智能体（无则留空）"
+            clearable
+            filterable
+            style="width: 100%"
+            :loading="loadingAgents"
+          >
+            <el-option
+              v-for="a in enabledAgents"
+              :key="a.id"
+              :label="`[${a.agent_code || '#' + a.id}] ${a.name}`"
+              :value="a.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <span>{{ a.name }}</span>
+                <el-tag size="small" type="info">{{ getAgentTypeLabel(a.agent_type) }}</el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div class="form-tip">修改默认智能体将自动重建绑定关系（is_default=true）</div>
+        </el-form-item>
         <el-form-item :label="$t('目标语言')" prop="target_language">
           <el-select v-model="form.target_language" :placeholder="$t('请选择目标语言')" clearable style="width: 100%">
             <el-option
@@ -81,6 +104,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getChannel, updateChannel } from '@/api/chatChannel'
+import { listEnabledAgents } from '@/api/aiAgent'
+import { listBindings, createBinding, updateBinding, deleteBinding } from '@/api/channelAgentBinding'
 import { TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const route = useRoute()
@@ -90,6 +115,16 @@ const loading = ref(false)
 const saving = ref(false)
 const originsText = ref('')
 const targetLanguageOptions = TARGET_LANGUAGE_OPTIONS
+
+// 默认智能体下拉
+const enabledAgents = ref([])
+const loadingAgents = ref(false)
+const initialDefaultAgentId = ref(null) // 编辑前的默认智能体（用于对比是否变更）
+
+const getAgentTypeLabel = (type) => {
+  const map = { sales: '销售', customer_service: '客服', hybrid: '混合' }
+  return map[type] || type || '-'
+}
 
 const form = ref({
   channel_id: '',
@@ -102,7 +137,8 @@ const form = ref({
   widget_title: '在线客服',
   auto_assign: true,
   confidence_threshold: 0.70,
-  target_language: ''
+  target_language: '',
+  default_agent_id: null
 })
 
 const rules = {
@@ -117,10 +153,73 @@ const loadDetail = async () => {
     // 目标语言允许空串（跟随智能体配置），归一化 null/undefined 为 ''
     form.value.target_language = res?.target_language || ''
     originsText.value = (res.allowed_origins || '').split(',').filter(Boolean).join('\n')
+    // 加载启用的智能体列表 + 当前渠道已绑定的默认智能体
+    await Promise.all([loadEnabledAgents(), loadCurrentDefaultAgent()])
   } catch (err) {
     ElMessage.error('加载失败：' + (err?.message || err))
   } finally {
     loading.value = false
+  }
+}
+
+const loadEnabledAgents = async () => {
+  loadingAgents.value = true
+  try {
+    const res = await listEnabledAgents()
+    const list = Array.isArray(res) ? res : res?.list || res?.items || []
+    enabledAgents.value = list
+  } catch {
+    enabledAgents.value = []
+  } finally {
+    loadingAgents.value = false
+  }
+}
+
+const loadCurrentDefaultAgent = async () => {
+  try {
+    const res = await listBindings({ channel_id: form.value.channel_id, is_default: true })
+    const list = Array.isArray(res) ? res : res?.list || res?.items || []
+    const def = list.find((b) => b.is_default) || list[0]
+    if (def) {
+      const aid = def.agent_id || def.AgentId
+      form.value.default_agent_id = aid
+      initialDefaultAgentId.value = aid
+    }
+  } catch {
+    // 静默
+  }
+}
+
+const syncDefaultAgentBinding = async () => {
+  const cur = form.value.default_agent_id ? Number(form.value.default_agent_id) : null
+  const orig = initialDefaultAgentId.value ? Number(initialDefaultAgentId.value) : null
+  if (cur === orig) return
+  // 解除原默认绑定
+  if (orig) {
+    try {
+      const res = await listBindings({ channel_id: form.value.channel_id, agent_id: orig })
+      const list = Array.isArray(res) ? res : res?.list || res?.items || []
+      for (const b of list) {
+        if (b.is_default) {
+          await deleteBinding(b.id || b.ID).catch(() => null)
+        }
+      }
+    } catch {
+      // 静默
+    }
+  }
+  // 创建新默认绑定
+  if (cur) {
+    await createBinding({
+      channel_id: form.value.channel_id,
+      agent_id: cur,
+      is_default: true,
+      priority: 100,
+      enabled: true
+    })
+    initialDefaultAgentId.value = cur
+  } else {
+    initialDefaultAgentId.value = null
   }
 }
 
@@ -141,6 +240,12 @@ const onSubmit = async () => {
       target_language: form.value.target_language || ''
     }
     await updateChannel(form.value.channel_id, payload)
+    // 同步默认智能体绑定（变更时）
+    try {
+      await syncDefaultAgentBinding()
+    } catch (bindErr) {
+      ElMessage.warning('渠道已更新，但默认智能体绑定同步失败：' + (bindErr?.message || '未知错误'))
+    }
     ElMessage.success(i18n.global.t('已保存'))
     router.push({ name: 'ChatChannelList' })
   } catch (err) {

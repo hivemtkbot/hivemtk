@@ -66,6 +66,30 @@
           <span class="form-tip">低于此值转人工（0-1，推荐 0.70）</span>
         </el-form-item>
 
+        <el-form-item :label="$t('默认智能体')">
+          <el-select
+            v-model="form.default_agent_id"
+            placeholder="选择渠道默认智能体（无则留空，后续在【渠道智能体绑定】中配置）"
+            clearable
+            filterable
+            style="width: 100%"
+            :loading="loadingAgents"
+          >
+            <el-option
+              v-for="a in enabledAgents"
+              :key="a.id"
+              :label="`[${a.agent_code || '#' + a.id}] ${a.name}`"
+              :value="a.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <span>{{ a.name }}</span>
+                <el-tag size="small" type="info">{{ getAgentTypeLabel(a.agent_type) }}</el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div class="form-tip">直接选择默认智能体，可省去创建后再到【渠道智能体绑定】配置的步骤</div>
+        </el-form-item>
+
         <el-form-item :label="$t('目标语言')" prop="target_language">
           <el-select v-model="form.target_language" :placeholder="$t('请选择目标语言')" clearable style="width: 100%">
             <el-option
@@ -136,6 +160,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { createChannel } from '@/api/chatChannel'
+import { listEnabledAgents } from '@/api/aiAgent'
+import { createBinding } from '@/api/channelAgentBinding'
 
 const router = useRouter()
 const formRef = ref()
@@ -143,6 +169,15 @@ const saving = ref(false)
 const credentialsVisible = ref(false)
 const createdData = ref(null)
 const originsText = ref('')
+
+// 默认智能体下拉
+const enabledAgents = ref([])
+const loadingAgents = ref(false)
+
+const getAgentTypeLabel = (type) => {
+  const map = { sales: '销售', customer_service: '客服', hybrid: '混合' }
+  return map[type] || type || '-'
+}
 
 const form = ref({
   channel_name: '',
@@ -152,7 +187,8 @@ const form = ref({
   widget_position: 'bottom-right',
   widget_title: '在线客服',
   auto_assign: true,
-  confidence_threshold: 0.70
+  confidence_threshold: 0.70,
+  default_agent_id: null
 })
 
 const rules = {
@@ -198,8 +234,28 @@ const onSubmit = async () => {
     if (form.value.allowed_origins.includes('*')) {
       ElMessage.warning(i18n.global.t('检测到通配符 *，将允许所有域名接入，存在安全风险，建议仅用于测试'))
     }
-    const res = await createChannel(form.value)
+    const payload = { ...form.value }
+    // 渠道创建时不需要传 default_agent_id（由后端忽略，绑定关系走单独接口）
+    delete payload.default_agent_id
+    const res = await createChannel(payload)
     createdData.value = res
+    // 如果选择了默认智能体，立即创建绑定关系
+    const channelId = res?.channel_id || res?.Channel?.channel_id
+    if (channelId && form.value.default_agent_id) {
+      try {
+        await createBinding({
+          channel_id: channelId,
+          agent_id: form.value.default_agent_id,
+          is_default: true,
+          priority: 100,
+          enabled: true
+        })
+        ElMessage.success(i18n.global.t('已自动绑定默认智能体'))
+      } catch (bindErr) {
+        // 绑定失败不阻塞主流程，提示用户去绑定页面手动配置
+        ElMessage.warning('渠道已创建，但默认智能体绑定失败：' + (bindErr?.message || '未知错误'))
+      }
+    }
     credentialsVisible.value = true
   } catch (err) {
     ElMessage.error('创建失败：' + (err?.message || err))
@@ -242,7 +298,21 @@ const copy = async (text) => {
   }
 }
 
-onMounted(() => {})
+onMounted(() => {
+  // 加载启用的智能体列表（用于默认智能体下拉）
+  loadingAgents.value = true
+  listEnabledAgents()
+    .then((res) => {
+      const list = Array.isArray(res) ? res : res?.list || res?.items || []
+      enabledAgents.value = list
+    })
+    .catch(() => {
+      enabledAgents.value = []
+    })
+    .finally(() => {
+      loadingAgents.value = false
+    })
+})
 </script>
 
 <style scoped>
