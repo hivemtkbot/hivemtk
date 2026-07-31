@@ -23,18 +23,31 @@ import (
 	"time"
 )
 
+// PollInterval 热加载轮询周期 (B-012 生产化加固)
+// 每 5s 重新读取 env, 实现 "改 env 不重启" 的热加载。
+// 5s 平衡了响应延迟和 CPU 开销 (每秒 0.2 次 env 读取, 对 5 个 flag 几乎无负担)。
+const PollInterval = 5 * time.Second
+
 // Flag 表示一个 FeatureFlag 实例 (线程安全)
 type Flag struct {
-	name    string
+	name        string
 	defaultValue bool
-	mu      sync.RWMutex
-	lastReload time.Time
+	mu          sync.RWMutex
+	lastReload  time.Time
+
+	// B-012: 缓存上一次解析结果, 配合后台轮询实现热加载
+	// resolve() 直接返回缓存, 由 background poller 定期刷新。
+	// 这样业务热路径 (每次 Handle 调用 f.Bool() 数十次) 不会触发重复的 os.Getenv 系统调用。
+	cachedValue bool
 }
 
 // FlagManager 全局 Flag 管理器
 type FlagManager struct {
-	flags map[string]*Flag
-	mu    sync.RWMutex
+	flags    map[string]*Flag
+	mu       sync.RWMutex
+	pollOnce sync.Once
+	stopCh   chan struct{}
+	stopped  bool
 }
 
 var (
@@ -52,6 +65,8 @@ func DefaultManager() *FlagManager {
 		defaultManager.register("layer1", false)
 		defaultManager.register("fallback_chain", false)
 		defaultManager.register("debug_log", false)
+		// B-012: 启动后台轮询 goroutine 实现热加载
+		defaultManager.startPoller()
 	})
 	return defaultManager
 }
@@ -62,10 +77,52 @@ func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 	defer m.mu.Unlock()
 	f, ok := m.flags[name]
 	if !ok {
-		f = &Flag{name: name, defaultValue: defaultValue}
+		f = &Flag{
+			name:         name,
+			defaultValue: defaultValue,
+			cachedValue:  defaultValue, // 初始值 = default
+		}
+		f.lastReload = time.Now()
+		// 首次加载: 立即读一次 env
+		f.cachedValue = f.readEnv()
 		m.flags[name] = f
 	}
 	return f
+}
+
+// startPoller 启动后台轮询 goroutine (B-012 热加载)
+//
+// 每 PollInterval 重新读取 env 写入所有 flag 的 cachedValue。
+// 调用 StopPoller 停止 (用于单测 / 优雅关闭)。
+func (m *FlagManager) startPoller() {
+	m.pollOnce.Do(func() {
+		m.stopCh = make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(PollInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-m.stopCh:
+					return
+				case <-ticker.C:
+					m.ReloadAll()
+				}
+			}
+		}()
+	})
+}
+
+// StopPoller 停止后台轮询 (主要用于单测 / 优雅关闭)
+func (m *FlagManager) StopPoller() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.stopped {
+		return
+	}
+	m.stopped = true
+	if m.stopCh != nil {
+		close(m.stopCh)
+	}
 }
 
 // Flag 获取或创建指定名称的 Flag
@@ -82,18 +139,23 @@ func MustGet(name string) *Flag {
 	return f
 }
 
-// Bool 返回 Flag 的布尔值 (从 env FF_<NAME> 读取)
+// Bool 返回 Flag 的布尔值 (从缓存读取, 后台轮询刷新)
 //
 // 规则:
 //   - env FF_<NAME>=1 / true / yes -> true
 //   - env FF_<NAME>=0 / false / no / "" -> false
 //   - env 未设置 -> 使用 defaultValue
+//
+// B-012: 不再每次都读 env, 而是返回 cachedValue, 由后台 goroutine 每 5s 刷新。
+// 业务代码调用 f.Bool() 数十次/请求, 缓存避免重复系统调用。
 func (f *Flag) Bool() bool {
-	return f.resolve()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.cachedValue
 }
 
-// resolve 从 env 解析 (每次都重新读取, 支持热加载)
-func (f *Flag) resolve() bool {
+// readEnv 实际从 env 解析 (内部方法, 调用方负责加锁)
+func (f *Flag) readEnv() bool {
 	envName := "FF_" + strings.ToUpper(f.name)
 	v := os.Getenv(envName)
 	if v == "" {
@@ -113,18 +175,47 @@ func (f *Flag) resolve() bool {
 	return b
 }
 
+// resolve 兼容旧 API: 立即读 env (主要用于 admin API 等需要实时生效的场景)
+//
+// 与 Bool() 的区别:
+//   - Bool() 返回缓存 (5s 内可能不是最新)
+//   - resolve() 立即读 env (实时, 但每次都触发系统调用)
+func (f *Flag) resolve() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	val := f.readEnv()
+	f.cachedValue = val
+	return val
+}
+
 // String 返回 flag 名称 (调试用)
 func (f *Flag) String() string {
 	return f.name
 }
 
-// ReloadAll 重新加载所有 flag (可用于 SIGHUP 触发)
+// LastReload 返回最后一次 reload 时间
+func (f *Flag) LastReload() time.Time {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.lastReload
+}
+
+// ReloadAll 重新加载所有 flag (可由 SIGHUP handler / admin API / 后台 poller 触发)
+//
+// B-012: 立即读一次 env 刷新所有 flag 的 cachedValue, 同时更新 lastReload。
+// 后台 poller 每 5s 自动调用一次; SIGHUP handler / admin API 触发即时刷新。
 func (m *FlagManager) ReloadAll() {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-	now := time.Now()
+	flags := make([]*Flag, 0, len(m.flags))
 	for _, f := range m.flags {
+		flags = append(flags, f)
+	}
+	m.mu.RUnlock()
+
+	now := time.Now()
+	for _, f := range flags {
 		f.mu.Lock()
+		f.cachedValue = f.readEnv()
 		f.lastReload = now
 		f.mu.Unlock()
 	}
@@ -136,7 +227,9 @@ func (m *FlagManager) Snapshot() map[string]bool {
 	defer m.mu.RUnlock()
 	out := make(map[string]bool, len(m.flags))
 	for name, f := range m.flags {
-		out[name] = f.resolve()
+		f.mu.RLock()
+		out[name] = f.cachedValue
+		f.mu.RUnlock()
 	}
 	return out
 }
