@@ -30,9 +30,19 @@ type SOPTemplate struct {
 	Vars       string    `gorm:"type:text" json:"vars"` // JSON: {"varName":{"desc":"...","example":"..."}}
 	Priority   int       `gorm:"type:int;default:0" json:"priority"`
 	Confidence float64   `gorm:"type:decimal(5,4);default:0.8" json:"confidence"`
-	Enabled    bool      `gorm:"type:boolean;default:true" json:"enabled"`
+	// Enabled 用 *bool 避免 GORM v2 零值 false 被 column default 覆盖
+	Enabled    *bool     `gorm:"type:boolean;default:true;not null" json:"enabled"`
+	HitCount   int64     `gorm:"type:bigint;default:0" json:"hit_count"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// IsEnabled 便捷访问(nil 视为 true)
+func (s *SOPTemplate) IsEnabled() bool {
+	if s.Enabled == nil {
+		return true
+	}
+	return *s.Enabled
 }
 
 // TableName GORM 表名

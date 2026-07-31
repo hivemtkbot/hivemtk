@@ -49,6 +49,7 @@ func TestSOPTemplate_TableName(t *testing.T) {
 
 func TestSOPTemplate_BasicFields(t *testing.T) {
 	now := time.Now()
+	trueVal := true
 	tpl := &SOPTemplate{
 		ID:         1,
 		Name:       "韵达不发标准回复",
@@ -58,7 +59,7 @@ func TestSOPTemplate_BasicFields(t *testing.T) {
 		Vars:       `{"ProductName":{"desc":"商品名称","example":"核桃"},"ExpressCompany":{"desc":"快递公司","example":"邮政"},"Note":{"desc":"备注","example":"包邮"}}`,
 		Priority:   10,
 		Confidence: 0.9,
-		Enabled:    true,
+		Enabled:    &trueVal,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
@@ -79,6 +80,7 @@ func TestLayerDecisionLog_TableName(t *testing.T) {
 
 func TestLayerDecisionLog_BasicFields(t *testing.T) {
 	now := time.Now()
+	trueVal := true
 	log := &LayerDecisionLog{
 		ID:         1,
 		TraceID:    "trace_2026_07_31_abc123",
@@ -90,14 +92,14 @@ func TestLayerDecisionLog_BasicFields(t *testing.T) {
 		ConfIn:     0.6,
 		ConfOut:    0.9,
 		WallMs:     15,
-		LLMSkipped: true,
+		LLMSkipped: &trueVal,
 		Extra:      `{"faq_id":42,"matched_keyword":"韵达"}`,
 		CreatedAt:  now,
 	}
 	if log.Layer != "layer1" {
 		t.Errorf("Layer = %q, want %q", log.Layer, "layer1")
 	}
-	if !log.LLMSkipped {
+	if !log.IsLLMSkipped() {
 		t.Error("LLMSkipped should be true (Layer1 FAQ hit)")
 	}
 	if log.WallMs != 15 {

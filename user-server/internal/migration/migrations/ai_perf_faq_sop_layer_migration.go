@@ -83,9 +83,11 @@ func (m *AIPerfFAQSOPLayerMigration) Up(ctx context.Context) error {
 			priority    INT             NOT NULL DEFAULT 0,
 			confidence  NUMERIC(5,4)    NOT NULL DEFAULT 0.8,
 			enabled     BOOLEAN         NOT NULL DEFAULT TRUE,
+			hit_count   BIGINT          NOT NULL DEFAULT 0,
 			created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 			updated_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 		)`,
+		`ALTER TABLE sop_templates ADD COLUMN IF NOT EXISTS hit_count BIGINT NOT NULL DEFAULT 0`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_templates_intent_stage ON sop_templates (intent, stage) WHERE enabled = TRUE`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_templates_enabled ON sop_templates (enabled)`,
 		`CREATE INDEX IF NOT EXISTS idx_sop_templates_priority ON sop_templates (priority DESC) WHERE enabled = TRUE`,

@@ -1,0 +1,184 @@
+package repository
+
+import (
+	"context"
+	"testing"
+
+	"marketing/internal/model"
+	"marketing/internal/pkg/testutil"
+
+	"gorm.io/gorm"
+)
+
+// 2026-07-31 AI 智能体性能优化 - SOP Template Repository 测试
+
+func setupSOPTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db := testutil.NewTestDB(t, &model.SOPTemplate{})
+	if err := db.Exec("TRUNCATE TABLE sop_templates RESTART IDENTITY").Error; err != nil {
+		t.Fatalf("truncate sop_templates: %v", err)
+	}
+	return db
+}
+
+func setupSOPRepoWithTX(t *testing.T) (repo *SOPTemplateRepository, tx *gorm.DB, cleanup func()) {
+	t.Helper()
+	db := setupSOPTestDB(t)
+	tx = db.Begin()
+	if tx.Error != nil {
+		t.Fatal(tx.Error)
+	}
+	repo = NewSOPTemplateRepository(tx)
+	cleanup = func() { tx.Rollback() }
+	return
+}
+
+func TestSOPTemplateRepository_Create(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	tpl := &model.SOPTemplate{
+		Name:       "韵达不发标准回复",
+		Intent:     "logistics",
+		Stage:      "initial",
+		Template:   "亲，{{.ProductName}} 发 {{.ExpressCompany}} 哦",
+		Confidence: 0.9,
+		Enabled:    boolPtr(true),
+	}
+	if err := repo.Create(ctx, tpl); err != nil {
+		t.Fatal(err)
+	}
+	if tpl.ID == 0 {
+		t.Error("expected auto-increment ID")
+	}
+}
+
+func TestSOPTemplateRepository_ListEnabled(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	tpls := []*model.SOPTemplate{
+		{Name: "sop1", Intent: "logistics", Stage: "initial", Template: "t1", Enabled: boolPtr(true), Priority: 10},
+		{Name: "sop2", Intent: "logistics", Stage: "middle", Template: "t2", Enabled: boolPtr(true), Priority: 20},
+		{Name: "sop3", Intent: "pricing", Stage: "initial", Template: "t3", Enabled: boolPtr(false), Priority: 5},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := repo.ListEnabled(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Errorf("expected 2 enabled, got %d", len(got))
+	}
+	// 优先级 DESC: sop2 (20) > sop1 (10)
+	if got[0].Priority < got[1].Priority {
+		t.Errorf("expected priority DESC, got %d then %d", got[0].Priority, got[1].Priority)
+	}
+}
+
+func TestSOPTemplateRepository_MatchByIntent(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	tpls := []*model.SOPTemplate{
+		{Name: "l1", Intent: "logistics", Stage: "initial", Template: "t1", Enabled: boolPtr(true), Priority: 10},
+		{Name: "l2", Intent: "logistics", Stage: "middle", Template: "t2", Enabled: boolPtr(true), Priority: 20},
+		{Name: "p1", Intent: "pricing", Stage: "initial", Template: "t3", Enabled: boolPtr(true), Priority: 5},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	matches, err := repo.MatchByIntent(ctx, "logistics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("expected 2 logistics templates, got %d", len(matches))
+	}
+}
+
+func TestSOPTemplateRepository_MatchByIntentStage(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	tpls := []*model.SOPTemplate{
+		{Name: "li1", Intent: "logistics", Stage: "initial", Template: "t1", Enabled: boolPtr(true), Priority: 10},
+		{Name: "li2", Intent: "logistics", Stage: "initial", Template: "t2", Enabled: boolPtr(true), Priority: 20},
+		{Name: "lm1", Intent: "logistics", Stage: "middle", Template: "t3", Enabled: boolPtr(true), Priority: 5},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	matches, err := repo.MatchByIntentStage(ctx, "logistics", "initial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("expected 2 logistics+initial templates, got %d", len(matches))
+	}
+	// 优先级 DESC: li2 (20) > li1 (10)
+	if matches[0].Priority < matches[1].Priority {
+		t.Errorf("expected priority DESC, got %d then %d", matches[0].Priority, matches[1].Priority)
+	}
+}
+
+func TestSOPTemplateRepository_DisabledNotMatched(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	if err := repo.Create(ctx, &model.SOPTemplate{
+		Name:     "禁用模板",
+		Intent:   "logistics",
+		Stage:    "initial",
+		Template: "tt",
+		Enabled:  boolPtr(false),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	matches, _ := repo.MatchByIntent(ctx, "logistics")
+	if len(matches) != 0 {
+		t.Errorf("disabled SOP should not match, got %d", len(matches))
+	}
+}
+
+func TestSOPTemplateRepository_IncrementHitCount(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	tpl := &model.SOPTemplate{
+		Name: "incr", Intent: "logistics", Stage: "initial", Template: "t", Enabled: boolPtr(true),
+	}
+	if err := repo.Create(ctx, tpl); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.IncrementHitCount(ctx, tpl.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.IncrementHitCount(ctx, tpl.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.GetByID(ctx, tpl.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HitCount != 2 {
+		t.Errorf("expected hit_count=2, got %d", got.HitCount)
+	}
+}

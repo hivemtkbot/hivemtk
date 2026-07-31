@@ -36,9 +36,17 @@ type LayerDecisionLog struct {
 	ConfIn     float64   `gorm:"type:decimal(5,4);default:0" json:"conf_in"`
 	ConfOut    float64   `gorm:"type:decimal(5,4);default:0" json:"conf_out"`
 	WallMs     int       `gorm:"type:int;default:0" json:"wall_ms"`
-	LLMSkipped bool      `gorm:"type:boolean;default:false" json:"llm_skipped"`
+	LLMSkipped *bool     `gorm:"type:boolean;default:false;not null" json:"llm_skipped"`
 	Extra      string    `gorm:"type:text" json:"extra,omitempty"` // JSON: 额外上下文
 	CreatedAt  time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+}
+
+// IsLLMSkipped 便捷访问
+func (l *LayerDecisionLog) IsLLMSkipped() bool {
+	if l.LLMSkipped == nil {
+		return false
+	}
+	return *l.LLMSkipped
 }
 
 // TableName GORM 表名
