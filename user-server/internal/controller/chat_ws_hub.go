@@ -115,6 +115,7 @@ func (c *Client) Close() {
 //   - broadcast: 全局广播通道
 //   - mu: 保护 clients map（避免与 Run 中的 select 竞争）
 //   - done: 关闭信号（用于优雅停止 Run goroutine）
+//   - wg: 跟踪 Run goroutine 生命周期 (B-020: Stop() 等待 Run 真正退出)
 type ChatWSHub struct {
 	clients     map[string]*Client
 	register    chan *Client
@@ -124,6 +125,9 @@ type ChatWSHub struct {
 	done        chan struct{}
 	closeOnce   sync.Once
 	startedOnce sync.Once
+	// wg B-020: 用于 Stop() 阻塞等待 Run goroutine 退出
+	// 防止 Hub 关闭后仍有 goroutine 残留（goleak 检测）
+	wg sync.WaitGroup
 }
 
 // NewChatWSHub 创建 Hub 实例
@@ -146,8 +150,13 @@ func NewChatWSHub() *ChatWSHub {
 //   - 处理 register 事件（加入 clients map）
 //   - 处理 unregister 事件（从 clients map 移除 + 关闭 Client send chan）
 //   - 处理 broadcast 事件（向所有 client 写入）
+//
+// B-020: 通过 wg.Add(1) / defer wg.Done() 跟踪 goroutine 生命周期，
+// 让 Stop() 阻塞等待 Run 真正退出（防止 Hub 关闭后 Run goroutine 残留）。
 func (h *ChatWSHub) Run() {
 	h.startedOnce.Do(func() {
+		h.wg.Add(1)
+		defer h.wg.Done()
 		for {
 			select {
 			case client := <-h.register:
@@ -168,10 +177,18 @@ func (h *ChatWSHub) Run() {
 //
 // 关闭后所有 register/unregister/broadcast 写入将被忽略；
 // 已注册的 Client 仍可通过直接关闭 conn 退出。
+//
+// B-020: 阻塞等待 Run goroutine 真正退出，防止 goroutine 残留
+// (goleak 检测可识别)。Stop 必须在调用方期望的等待时间窗内返回,
+// 否则调用方需自行设置超时。
 func (h *ChatWSHub) Stop() {
 	h.closeOnce.Do(func() {
 		close(h.done)
 	})
+	// B-020: 等待 Run goroutine 真正退出
+	// 注意: 若 Run 从未启动 (startedOnce 未触发), wg.Add(1) 不会执行,
+	// 此时 wg.Wait() 立即返回, 行为安全。
+	h.wg.Wait()
 }
 
 // Register 注册一个 Client（异步）
