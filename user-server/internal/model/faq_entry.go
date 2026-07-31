@@ -1,7 +1,7 @@
 /*
- * @Author: xiaofang 
+ * @Author: xiaofang
  * @Date: 2026-07-31 13:35:39
- * @LastEditors: xiaofang 
+ * @LastEditors: xiaofang
  * @LastEditTime: 2026-07-31 13:36:06
  * @FilePath: /hivemtk/hivemtk/user-server/internal/model/faq_entry.go
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -39,22 +39,27 @@ import (
 //   - LastHitAt:    最近一次命中时间 (B-021: 用于 7 天未命中判定)
 //   - NegativeHitCount: 用户负反馈次数 (B-021: 用于快速降权)
 type FAQEntry struct {
-	ID               uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	Question         string      `gorm:"type:text;not null" json:"question"`
-	Answer           string      `gorm:"type:text;not null" json:"answer"`
+	ID               uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	Question         string         `gorm:"type:text;not null" json:"question"`
+	Answer           string         `gorm:"type:text;not null" json:"answer"`
 	Keywords         pq.StringArray `gorm:"type:text[];default:'{}'" json:"keywords"`
-	Category         string      `gorm:"type:varchar(64);default:''" json:"category"`
-	Intent           string      `gorm:"type:varchar(64);default:''" json:"intent"`
-	Confidence       float64     `gorm:"type:decimal(5,4);default:0" json:"confidence"`
-	HitCount         int64       `gorm:"type:bigint;default:0" json:"hit_count"`
-	QualityScore     float64     `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
-	LastHitAt        *time.Time  `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
-	NegativeHitCount int         `gorm:"type:integer;default:0" json:"negative_hit_count"`
+	Category         string         `gorm:"type:varchar(64);default:''" json:"category"`
+	Intent           string         `gorm:"type:varchar(64);default:''" json:"intent"`
+	Confidence       float64        `gorm:"type:decimal(5,4);default:0" json:"confidence"`
+	HitCount         int64          `gorm:"type:bigint;default:0" json:"hit_count"`
+	QualityScore     float64        `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
+	LastHitAt        *time.Time     `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
+	NegativeHitCount int            `gorm:"type:integer;default:0" json:"negative_hit_count"`
+	// 2026-07-31 P0-B: 按智能体隔离字段
+	//   nil  = 共享 (默认, 向后兼容旧数据)
+	//   &X   = 仅 X 智能体可见
+	// 索引: idx_faq_agent_id (按智能体过滤, ListByAgent / MatchByAgent 加速)
+	AgentID *uint `gorm:"index" json:"agent_id,omitempty"`
 	// Enabled 用 *bool 避免 GORM v2 零值问题(布尔 false 被 column default 覆盖)
 	// 应用层约定: nil=未设置, &true=启用, &false=禁用
-	Enabled    *bool       `gorm:"type:boolean;default:true;not null" json:"enabled"`
-	CreatedAt  time.Time   `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt  time.Time   `gorm:"autoUpdateTime" json:"updated_at"`
+	Enabled   *bool     `gorm:"type:boolean;default:true;not null" json:"enabled"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // TableName GORM 表名
