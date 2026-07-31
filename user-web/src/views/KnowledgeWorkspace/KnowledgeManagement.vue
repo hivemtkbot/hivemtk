@@ -105,6 +105,19 @@
             <el-link type="primary" :underline="false" @click="showDocumentDetail(row)">{{ row.title }}</el-link>
           </template>
         </el-table-column>
+        <el-table-column label="所属知识库" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-tag
+              v-if="getKBName(row.product_id)"
+              size="small"
+              type="primary"
+              effect="plain"
+            >
+              {{ getKBName(row.product_id) }}
+            </el-tag>
+            <span v-else class="text-muted">未挂载</span>
+          </template>
+        </el-table-column>
         <el-table-column label="来源" width="100">
           <template #default="{ row }">
             <el-tag :type="sourceTypeTag(row.source_type)">{{ sourceTypeLabel(row.source_type) }}</el-tag>
@@ -336,6 +349,14 @@ const loadProducts = async () => {
   } catch (e) {
     console.error('加载产品列表失败:', e)
   }
+}
+
+// 所属知识库名称（product_id → 名称）
+const getKBName = (productId) => {
+  if (productId == null || productId === '' || productId === 0) return ''
+  const p = productList.value.find((x) => String(x.id) === String(productId))
+  if (!p) return ''
+  return p.kb_code ? `[${p.kb_code}] ${p.name}` : p.name
 }
 
 const loadKnowledgeTools = async () => {
@@ -571,6 +592,11 @@ const truncateText = (s, n) => s ? (s.length > n ? s.substring(0, n) + '...' : s
 
 .toolbar-card {
   margin-bottom: 16px;
+}
+
+.text-muted {
+  color: #c0c4cc;
+  font-size: 12px;
 }
 
 .tools-card {
