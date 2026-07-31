@@ -37,6 +37,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
 	"marketing/internal/pkg/featureflag"
 	"marketing/internal/pkg/metrics"
 )
@@ -49,9 +50,13 @@ const (
 )
 
 // phase0Result Phase 0 并行执行结果聚合
+//
+// 5 层架构合规 (B-004): service 直接引用 *model 类型, 不使用 interface{} 占位。
+// 注释中所谓"避免循环依赖"的借口不成立 — service → model 是允许的方向,
+// model → service 才是循环依赖, 两者方向不同。
 type phase0Result struct {
-	customer  interface{} // *model.Customer
-	memCtx    interface{} // *model.DialogueMemory
+	customer  *model.Customer       // 客户实体
+	memCtx    *model.DialogueMemory // 对话长期记忆
 	intent    *dto.RecognizeResult
 	intentCh  <-chan *dto.RecognizeResult
 	ragChunks []RAGChunk
@@ -105,19 +110,35 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 		Detail:   fmt.Sprintf("phase0 (customer+memory+intent+rag parallel) wall=%dms", ms(phase0Start)),
 	})
 	resp.Intent = phase0.intent
-	resp.Memory = nil // 类型断言 (Phase 0 内部用 interface{} 避免循环依赖)
-	if memCtx, ok := phase0.memCtx.(interface{ KeyFacts() []string }); ok {
-		_ = memCtx
-	}
+	resp.Memory = phase0.memCtx
 	resp.RAGChunks = phase0.ragChunks
 
-	// Phase 0 类型还原: customer / memCtx 是 *model.Customer / *model.DialogueMemory
-	// 这里通过 e 的内部方法访问, 不需要断言
-	var memCtxResult interface{}
-	if phase0.memCtx != nil {
-		memCtxResult = phase0.memCtx
+	// ========== Phase 0.5: Layer1 双层路由 fastPath (B-002) ==========
+	// 命中 Layer1 (SkipLLM=true) -> 立即构造最终回复, 不再走 9 步剩余流程
+	// 目的: FAQ / SOP 高分命中场景 LCP < 100ms 返回, 节省 1.5B q4 LLM 推理 5-15s
+	if e.layerRouter != nil {
+		phase05Start := time.Now()
+		decision := e.layerRouter.Route(ctx, &RouteRequest{
+			SessionID:   req.SessionID,
+			CustomerID:  req.CustomerID,
+			UserMessage: req.UserMessage,
+			Intent:      phase0.intent,
+			RAGChunks:   phase0.ragChunks,
+			Stage:       "",
+		})
+		if decision != nil && decision.SkipLLM && decision.Reply != "" {
+			resp.Reply = decision.Reply
+			resp.Steps = append(resp.Steps, dto.SalesStepLog{
+				Step:     "0.5_layer1_fastpath",
+				Status:   "ok",
+				LatencyMs: ms(phase05Start),
+				Detail:   fmt.Sprintf("layer1 hit (reason=%s faq_id=%d sop_id=%d) wall=%dms",
+					decision.Reason, decision.FAQID, decision.SOPID, decision.WallMs),
+			})
+			// 立即返回, 跳过 Phase 1/2
+			return resp, nil
+		}
 	}
-	_ = memCtxResult
 
 	// ========== Phase 1: 串行决策 (3.5 transfer + 4 SOP + 5.5 script + 5.6 playbook + 6 generateCandidate) ==========
 	phase1Start := time.Now()
@@ -170,6 +191,11 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 }
 
 // runPhase0Parallel Phase 0 并行执行 4 个独立任务
+//
+// B-009: errgroup.SetLimit(4) 限制并发 goroutine 数, 防止高并发下 DB 连接池耗尽。
+// errgroup.WithContext 默认不限制并发, 4 个任务会瞬时拉起 4 个 goroutine;
+// SetLimit(4) 与任务数一致, 即"4 任务全并发"无节流损失, 但当上游调用并发
+// 增长时 (如 batch / batch 限流后的二次爆发) 可避免 DB pool 被瞬间打满。
 func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) *phase0Result {
 	out := &phase0Result{}
 
@@ -180,6 +206,8 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 
 	var mu sync.Mutex
 	g, gctx := errgroup.WithContext(ctx)
+	// B-009: 并发上限 4, 与当前 Phase 0 任务数一致, 防止 DB pool 耗尽
+	g.SetLimit(4)
 
 	// 1) resolveCustomer
 	g.Go(func() error {
