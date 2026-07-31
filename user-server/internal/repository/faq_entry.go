@@ -19,6 +19,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"marketing/internal/model"
@@ -207,7 +208,62 @@ func (r *FAQRepository) IncrementHitCount(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).
 		Model(&model.FAQEntry{}).
 		Where("id = ?", id).
-		UpdateColumn("hit_count", gorm.Expr("hit_count + 1")).
+		UpdateColumns(map[string]any{
+			"hit_count":   gorm.Expr("hit_count + 1"),
+			"last_hit_at": gorm.Expr("NOW()"),
+		}).
+		Error
+}
+
+// DecayQuality 衰减指定 FAQ 的 QualityScore (B-021: 质量衰减)
+//
+// 入参:
+//   - id:    要衰减的 FAQ ID
+//   - decay: 衰减量, 范围 [0, 1], 调用方负责边界 (repo 不做下限保护以保持纯函数语义)
+//
+// 行为:
+//   - 用 GREATEST(quality_score - decay, 0) 保证不会衰减到负数
+//   - 同一事务可多次调用叠加衰减
+func (r *FAQRepository) DecayQuality(ctx context.Context, id uint, decay float64) error {
+	if id == 0 || decay <= 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.FAQEntry{}).
+		Where("id = ?", id).
+		UpdateColumn("quality_score", gorm.Expr("GREATEST(quality_score - ?, 0)", decay)).
+		Error
+}
+
+// ListDecayCandidates 查询符合衰减条件的 FAQ (B-021)
+//
+// 条件:
+//   - hit_count < 5 (低命中)
+//   - last_hit_at 非空 且 早于 cutoff (超过 7 天未被命中)
+//
+// cutoff 建议为 now-7d, 调用方注入
+func (r *FAQRepository) ListDecayCandidates(ctx context.Context, cutoff time.Time, limit int) ([]model.FAQEntry, error) {
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+	var entries []model.FAQEntry
+	err := r.db.WithContext(ctx).
+		Where("hit_count < ? AND last_hit_at IS NOT NULL AND last_hit_at < ?", 5, cutoff).
+		Order("last_hit_at ASC").
+		Limit(limit).
+		Find(&entries).Error
+	return entries, err
+}
+
+// IncrementNegativeHit 用户负反馈 +1 (B-021: 负反馈快速降权)
+func (r *FAQRepository) IncrementNegativeHit(ctx context.Context, id uint) error {
+	if id == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.FAQEntry{}).
+		Where("id = ?", id).
+		UpdateColumn("negative_hit_count", gorm.Expr("negative_hit_count + 1")).
 		Error
 }
 

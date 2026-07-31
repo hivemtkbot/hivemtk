@@ -32,12 +32,48 @@ const (
 	faqCacheMaxN   = 5000
 	faqHitThresh   = 0.6 // 命中分数阈值, 低于此值不进 Layer1
 	faqTopKDefault = 3
+	// B-021 质量衰减
+	faqDecayPerWeek  = 0.1            // 每次衰减量
+	faqDecayDays     = 7 * 24 * time.Hour // 7 天未命中触发
+	faqDecayMinHits  = 5              // 命中次数 < 此值才衰减
+	faqDecayMaxBatch = 1000           // 单次最多处理条数, 避免长事务
 )
+
+// Clock 时钟抽象 (用于 WeekDecay 测试注入, 五层架构 L4)
+//
+// 默认实现 time.RealClock (返回 time.Now), 测试可注入 mock clock。
+type Clock interface {
+	Now() time.Time
+}
+
+// realClock 真实时钟实现
+type realClock struct{}
+
+func (realClock) Now() time.Time { return time.Now() }
+
+// faqRepoIface FAQ Repository 接口 (B-021: 用于 WeekDecay 单测注入 mock)
+//
+// 与 *repository.FAQRepository 鸭子类型兼容, 生产代码无需感知。
+type faqRepoIface interface {
+	MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error)
+	MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error)
+	IncrementHitCount(ctx context.Context, id uint) error
+	DecayQuality(ctx context.Context, id uint, decay float64) error
+	ListDecayCandidates(ctx context.Context, cutoff time.Time, limit int) ([]model.FAQEntry, error)
+	IncrementNegativeHit(ctx context.Context, id uint) error
+	ListWithFilter(ctx context.Context, filter repository.FAQFilter) ([]model.FAQEntry, int64, error)
+	GetByID(ctx context.Context, id uint) (*model.FAQEntry, error)
+	ListEnabled(ctx context.Context, limit int) ([]model.FAQEntry, error)
+	Create(ctx context.Context, entry *model.FAQEntry) error
+	Update(ctx context.Context, id uint, entry *model.FAQEntry) error
+	Delete(ctx context.Context, id uint) error
+}
 
 // FAQService FAQ 业务服务
 type FAQService struct {
-	repo *repository.FAQRepository
-	db   *gorm.DB
+	repo  faqRepoIface
+	db    *gorm.DB
+	clock Clock
 
 	mu     sync.RWMutex
 	cache  []model.FAQEntry
@@ -46,10 +82,26 @@ type FAQService struct {
 
 // NewFAQService 创建 FAQ Service
 func NewFAQService(db *gorm.DB, repo *repository.FAQRepository) *FAQService {
+	var iface faqRepoIface
 	if repo == nil && db != nil {
 		repo = repository.NewFAQRepository(db)
 	}
-	return &FAQService{db: db, repo: repo}
+	if repo != nil {
+		iface = repo
+	}
+	return &FAQService{db: db, repo: iface, clock: realClock{}}
+}
+
+// NewFAQServiceWithRepo 用任意实现 faqRepoIface 的 repo 创建 (B-021 测试用)
+func NewFAQServiceWithRepo(repo faqRepoIface) *FAQService {
+	return &FAQService{repo: repo, clock: realClock{}}
+}
+
+// SetClock 注入时钟 (B-021: 单测可注入 mock clock)
+func (s *FAQService) SetClock(c Clock) {
+	if c != nil {
+		s.clock = c
+	}
 }
 
 // Match 在 FAQ 库中匹配用户消息,返回 Top K 候选
@@ -234,6 +286,48 @@ func (s *FAQService) InvalidateCache() {
 	s.mu.Lock()
 	s.cache = nil
 	s.mu.Unlock()
+}
+
+// WeekDecay 周度质量衰减 (B-021: 修复 FAQ 无质量衰减)
+//
+// 每周定时任务调用一次。衰减规则:
+//   - 命中次数 < faqDecayMinHits (5)
+//   - LastHitAt 距今超过 faqDecayDays (7 天)
+//   - QualityScore -= faqDecayPerWeek (0.1), 下限 0
+//
+// 时钟通过 s.clock 注入, 单测可覆盖。
+// 候选列表由 ListDecayCandidates 查询, 最多 faqDecayMaxBatch 条。
+// 返回实际衰减条数, 用于定时任务埋点。
+func (s *FAQService) WeekDecay(ctx context.Context) (int, error) {
+	if s.repo == nil {
+		return 0, nil
+	}
+	now := s.now()
+	cutoff := now.Add(-faqDecayDays)
+	candidates, err := s.repo.ListDecayCandidates(ctx, cutoff, faqDecayMaxBatch)
+	if err != nil {
+		return 0, err
+	}
+	decayed := 0
+	for _, e := range candidates {
+		if err := s.repo.DecayQuality(ctx, e.ID, faqDecayPerWeek); err != nil {
+			// 单条失败不影响整体, 记录后继续
+			continue
+		}
+		decayed++
+	}
+	if decayed > 0 {
+		s.InvalidateCache()
+	}
+	return decayed, nil
+}
+
+// now 内部取时间 (便于 mock)
+func (s *FAQService) now() time.Time {
+	if s.clock == nil {
+		return time.Now()
+	}
+	return s.clock.Now()
 }
 
 // Stats 命中统计

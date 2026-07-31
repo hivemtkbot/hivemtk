@@ -13,9 +13,14 @@ package service
 //       可用此特性测试空仓库场景.
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // fakeFAQEntry 用于测试的 FAQ 匹配项
@@ -149,3 +154,152 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 	// 不应 panic
 	svc.InvalidateCache()
 }
+
+// ----------------------------------------------------------------------------
+// B-021 WeekDecay 测试
+// ----------------------------------------------------------------------------
+
+// mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock (B-021)
+type mockFAQRepoForDecay struct {
+	candidates       []model.FAQEntry
+	cutoffSeen       time.Time
+	decayCalls       []struct {
+		ID    uint
+		Decay float64
+	}
+	listErr          error
+	decayErr         error
+}
+
+func (m *mockFAQRepoForDecay) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {
+	return nil, nil
+}
+
+func (m *mockFAQRepoForDecay) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
+	return nil, nil
+}
+
+func (m *mockFAQRepoForDecay) IncrementHitCount(ctx context.Context, id uint) error {
+	return nil
+}
+
+func (m *mockFAQRepoForDecay) DecayQuality(ctx context.Context, id uint, decay float64) error {
+	m.decayCalls = append(m.decayCalls, struct {
+		ID    uint
+		Decay float64
+	}{id, decay})
+	if m.decayErr != nil {
+		return m.decayErr
+	}
+	return nil
+}
+
+func (m *mockFAQRepoForDecay) ListDecayCandidates(ctx context.Context, cutoff time.Time, limit int) ([]model.FAQEntry, error) {
+	m.cutoffSeen = cutoff
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	return m.candidates, nil
+}
+
+func (m *mockFAQRepoForDecay) IncrementNegativeHit(ctx context.Context, id uint) error {
+	return nil
+}
+
+func (m *mockFAQRepoForDecay) ListWithFilter(ctx context.Context, filter repository.FAQFilter) ([]model.FAQEntry, int64, error) {
+	return nil, 0, nil
+}
+
+func (m *mockFAQRepoForDecay) GetByID(ctx context.Context, id uint) (*model.FAQEntry, error) {
+	return nil, nil
+}
+
+func (m *mockFAQRepoForDecay) ListEnabled(ctx context.Context, limit int) ([]model.FAQEntry, error) {
+	return nil, nil
+}
+
+func (m *mockFAQRepoForDecay) Create(ctx context.Context, entry *model.FAQEntry) error {
+	return nil
+}
+
+func (m *mockFAQRepoForDecay) Update(ctx context.Context, id uint, entry *model.FAQEntry) error {
+	return nil
+}
+
+func (m *mockFAQRepoForDecay) Delete(ctx context.Context, id uint) error {
+	return nil
+}
+
+// fixedClock 固定时钟 (用于 WeekDecay 单测)
+type fixedClock struct{ T time.Time }
+
+func (f fixedClock) Now() time.Time { return f.T }
+
+// TestFAQService_WeekDecay 测试周度质量衰减 (B-021)
+//
+// 验证:
+//  1. cutoff = now - 7d
+//  2. 候选列表由 ListDecayCandidates 返回, 逐条调用 DecayQuality(0.1)
+//  3. 返回值为实际衰减条数
+//  4. 时钟通过 mock 注入
+func TestFAQService_WeekDecay(t *testing.T) {
+	now := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	clock := fixedClock{T: now}
+	repo := &mockFAQRepoForDecay{
+		candidates: []model.FAQEntry{
+			{ID: 1, HitCount: 2, LastHitAt: ptrTimeUniq(now.Add(-8 * 24 * time.Hour))},
+			{ID: 2, HitCount: 0, LastHitAt: ptrTimeUniq(now.Add(-30 * 24 * time.Hour))},
+			{ID: 3, HitCount: 4, LastHitAt: ptrTimeUniq(now.Add(-10 * 24 * time.Hour))},
+		},
+	}
+	svc := NewFAQServiceWithRepo(repo)
+	svc.SetClock(clock)
+
+	decayed, err := svc.WeekDecay(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if decayed != 3 {
+		t.Errorf("expected decayed=3, got %d", decayed)
+	}
+	if len(repo.decayCalls) != 3 {
+		t.Fatalf("expected 3 DecayQuality calls, got %d", len(repo.decayCalls))
+	}
+	for i, c := range repo.decayCalls {
+		if c.ID != uint(i+1) {
+			t.Errorf("call[%d].ID = %d, want %d", i, c.ID, i+1)
+		}
+		if c.Decay != faqDecayPerWeek {
+			t.Errorf("call[%d].Decay = %f, want %f", i, c.Decay, faqDecayPerWeek)
+		}
+	}
+	wantCutoff := now.Add(-faqDecayDays)
+	if !repo.cutoffSeen.Equal(wantCutoff) {
+		t.Errorf("cutoff mismatch: got %v, want %v", repo.cutoffSeen, wantCutoff)
+	}
+}
+
+// TestFAQService_WeekDecay_NilRepo nil repo 安全
+func TestFAQService_WeekDecay_NilRepo(t *testing.T) {
+	svc := &FAQService{repo: nil, db: nil, clock: fixedClock{T: time.Now()}}
+	decayed, err := svc.WeekDecay(context.Background())
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if decayed != 0 {
+		t.Errorf("expected decayed=0, got %d", decayed)
+	}
+}
+
+// TestFAQService_WeekDecay_ListErr list 报错时返回错误
+func TestFAQService_WeekDecay_ListErr(t *testing.T) {
+	repo := &mockFAQRepoForDecay{listErr: fmt.Errorf("db down")}
+	svc := NewFAQServiceWithRepo(repo)
+	_, err := svc.WeekDecay(context.Background())
+	if err == nil {
+		t.Error("expected error when ListDecayCandidates fails")
+	}
+}
+
+// ptrTimeUniq 构造 *time.Time (helper, 避开 service.ptrTime 重定义)
+func ptrTimeUniq(t time.Time) *time.Time { return &t }

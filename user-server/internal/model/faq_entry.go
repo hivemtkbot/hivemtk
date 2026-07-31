@@ -35,15 +35,21 @@ import (
 //   - Intent:   关联意图 (与 IntentLog.IntentMajor 对齐)
 //   - Confidence: 人工标注的基准置信度 (0-1, 用于动态阈值)
 //   - HitCount: 命中次数 (用于优化排序 + 报表)
+//   - QualityScore: 动态质量分 0-1, 默认 0.5 (B-021: 用于周期衰减/正负反馈)
+//   - LastHitAt:    最近一次命中时间 (B-021: 用于 7 天未命中判定)
+//   - NegativeHitCount: 用户负反馈次数 (B-021: 用于快速降权)
 type FAQEntry struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	Question   string      `gorm:"type:text;not null" json:"question"`
-	Answer     string      `gorm:"type:text;not null" json:"answer"`
-	Keywords   pq.StringArray `gorm:"type:text[];default:'{}'" json:"keywords"`
-	Category   string      `gorm:"type:varchar(64);default:''" json:"category"`
-	Intent     string      `gorm:"type:varchar(64);default:''" json:"intent"`
-	Confidence float64     `gorm:"type:decimal(5,4);default:0" json:"confidence"`
-	HitCount   int64       `gorm:"type:bigint;default:0" json:"hit_count"`
+	ID               uint        `gorm:"primaryKey;autoIncrement" json:"id"`
+	Question         string      `gorm:"type:text;not null" json:"question"`
+	Answer           string      `gorm:"type:text;not null" json:"answer"`
+	Keywords         pq.StringArray `gorm:"type:text[];default:'{}'" json:"keywords"`
+	Category         string      `gorm:"type:varchar(64);default:''" json:"category"`
+	Intent           string      `gorm:"type:varchar(64);default:''" json:"intent"`
+	Confidence       float64     `gorm:"type:decimal(5,4);default:0" json:"confidence"`
+	HitCount         int64       `gorm:"type:bigint;default:0" json:"hit_count"`
+	QualityScore     float64     `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
+	LastHitAt        *time.Time  `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
+	NegativeHitCount int         `gorm:"type:integer;default:0" json:"negative_hit_count"`
 	// Enabled 用 *bool 避免 GORM v2 零值问题(布尔 false 被 column default 覆盖)
 	// 应用层约定: nil=未设置, &true=启用, &false=禁用
 	Enabled    *bool       `gorm:"type:boolean;default:true;not null" json:"enabled"`
