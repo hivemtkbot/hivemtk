@@ -96,6 +96,10 @@ func (l *pgAgentContextLoader) Invalidate(ctx context.Context, agentID uint) err
 // ============================================================================
 
 // convertAIAgentToContext model.AIAgent → AgentContext
+//
+// 2026-07-31 P0-B: 加 FAQEntryIDs / SOPTemplateIDs 字段映射
+//   - 这些字段在 layer.go 中被废弃 (P0-B 强 1:1), 但 loader 仍需填充以保证向后兼容
+//   - Service 层若要走"agent 绑定 ID 集合"路径, 仍可使用这两个字段
 func convertAIAgentToContext(agent *model.AIAgent, channel, accountID string) *AgentContext {
 	return &AgentContext{
 		// 基础信息
@@ -111,6 +115,10 @@ func convertAIAgentToContext(agent *model.AIAgent, channel, accountID string) *A
 
 		// 知识库挂载
 		RagProductIDs: stringSlice(agent.RagProductIDs),
+
+		// 2026-07-31 P0-B: FAQ / SOP 模板 ID 集合映射 (P1-A 字段, P0-B 仍保留用于向后兼容)
+		FAQEntryIDs:    stringSlice(agent.FAQEntryIDs),
+		SOPTemplateIDs: stringSlice(agent.SOPTemplateIDs),
 
 		// SOP / 话术库 / 决策策略 / A/B 实验挂载
 		SOPIDs:              stringSlice(agent.SOPIDs),

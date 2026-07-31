@@ -132,6 +132,12 @@ func TestConvertAIAgentToContext_NilArrays(t *testing.T) {
 	if ctx.RagProductIDs == nil {
 		t.Error("RagProductIDs should be empty slice, not nil")
 	}
+	if ctx.FAQEntryIDs == nil {
+		t.Error("FAQEntryIDs should be empty slice, not nil")
+	}
+	if ctx.SOPTemplateIDs == nil {
+		t.Error("SOPTemplateIDs should be empty slice, not nil")
+	}
 	if ctx.SOPIDs == nil {
 		t.Error("SOPIDs should be empty slice, not nil")
 	}
