@@ -115,82 +115,100 @@
         </el-form-item>
       </el-card>
 
-      <!-- 知识库挂载 -->
+      <!-- 知识库挂载（树形多选：按 KB 类型分组） -->
       <el-card shadow="never" class="section-card">
         <template #header>
-          <div class="card-title"><el-icon><Collection /></el-icon> 知识库挂载（RAG 产品）</div>
+          <div class="card-title">
+            <el-icon><Collection /></el-icon> 知识库挂载（树形多选）
+            <el-button link type="primary" size="small" style="margin-left: auto" @click="loadKnowledgeBases" :loading="loadingKB">
+              <el-icon><Refresh /></el-icon> 加载知识库
+            </el-button>
+          </div>
         </template>
-        <el-form-item label="RAG产品">
-          <el-select
-            v-model="form.rag_product_ids"
+        <el-form-item label="挂载知识库">
+          <el-tree-select
+            v-model="form.kb_ids"
+            :data="kbTree"
+            :props="kbTreeProps"
+            node-key="id"
             multiple
-            filterable
+            show-checkbox
+            check-strictly
+            check-on-click-node
+            collapse-tags
+            collapse-tags-tooltip
             clearable
-            placeholder="选择要挂载的 RAG 产品"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in ragProductOptions"
-              :key="item.id"
-              :label="item.name"
-              :value="String(item.id)"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="FAQ 知识库">
-          <el-select
-            v-model="form.faq_entry_ids"
-            multiple
             filterable
-            clearable
-            placeholder="选择要挂载的 FAQ 条目（留空 = 全局共享）"
+            :default-expand-all="false"
+            placeholder="选择要挂载的知识库（按类型分组）"
             style="width: 100%"
-          >
-            <el-option
-              v-for="item in faqOptions"
-              :key="item.id"
-              :label="`#${item.id} ${item.question}`"
-              :value="String(item.id)"
-            >
-              <div style="display: flex; flex-direction: column;">
-                <span>#{{ item.id }} {{ item.question }}</span>
-                <span style="font-size: 11px; color: var(--el-text-color-secondary);">
-                  {{ item.category || '未分类' }} · {{ item.intent || '未关联意图' }}
-                </span>
-              </div>
-            </el-option>
-          </el-select>
+            :render-after-expand="false"
+            :empty-text="loadingKB ? '加载中...' : '暂无可挂载的知识库，点击右上角【加载知识库】'"
+          />
           <div class="form-tip">
-            绑定 FAQ 后，对话中将仅匹配绑定的 FAQ 范围（提高命中率 / 隔离业务线）
+            树形结构按 RAG / FAQ / SOP 三个顶层分组。挂载知识库后，对话中自动应用该 KB 下所有文档 / FAQ / SOP 模板。
+            旧的 faq_entry_ids / sop_template_ids / rag_product_ids 字段已废弃但仍保留兼容。
           </div>
         </el-form-item>
-        <el-form-item label="SOP 模板">
-          <el-select
-            v-model="form.sop_template_ids"
-            multiple
-            filterable
-            clearable
-            placeholder="选择要挂载的 SOP 模板（留空 = 全局共享）"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in sopTemplateOptions"
-              :key="item.id"
-              :label="`#${item.id} ${item.name} (${item.intent}/${item.stage})`"
-              :value="String(item.id)"
-            >
-              <div style="display: flex; flex-direction: column;">
-                <span>#{{ item.id }} {{ item.name }}</span>
-                <span style="font-size: 11px; color: var(--el-text-color-secondary);">
-                  意图: {{ item.intent }} · 阶段: {{ item.stage }} · 优先级 {{ item.priority }}
-                </span>
-              </div>
-            </el-option>
-          </el-select>
-          <div class="form-tip">
-            绑定 SOP 模板后，对话中将仅在绑定的 (intent, stage) 模板中匹配回复
-          </div>
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="RAG产品 (旧)">
+              <el-select
+                v-model="form.rag_product_ids"
+                multiple
+                filterable
+                clearable
+                placeholder="兼容旧字段"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in ragProductOptions"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="String(item.id)"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="FAQ (旧)">
+              <el-select
+                v-model="form.faq_entry_ids"
+                multiple
+                filterable
+                clearable
+                placeholder="兼容旧字段"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in faqOptions"
+                  :key="item.id"
+                  :label="`#${item.id} ${item.question}`"
+                  :value="String(item.id)"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="SOP (旧)">
+              <el-select
+                v-model="form.sop_template_ids"
+                multiple
+                filterable
+                clearable
+                placeholder="兼容旧字段"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in sopTemplateOptions"
+                  :key="item.id"
+                  :label="`#${item.id} ${item.name}`"
+                  :value="String(item.id)"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-card>
 
       <!-- SOP 挂载 -->
@@ -442,6 +460,8 @@ import { sopApi } from '@/api/sopAgent.js'
 import { getScriptTemplateList } from '@/api/scriptTemplate.js'
 import { faqApi } from '@/api/faq'
 import { sopTemplateApi } from '@/api/sopTemplate'
+import { listByType as listKBByType } from '@/api/knowledgeBase'
+import { listByAgent as listAgentKBs, replaceAgentKBs } from '@/api/agentKBBinding'
 import { INTERNAL_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '@/constants/languages'
 
 const internalLanguageOptions = INTERNAL_LANGUAGE_OPTIONS
@@ -464,6 +484,11 @@ const scriptOptions = ref([])
 const faqOptions = ref([])
 const sopTemplateOptions = ref([])
 
+// 知识库树（按类型 RAG/FAQ/SOP 分组）
+const kbTree = ref([])
+const loadingKB = ref(false)
+const kbTreeProps = { value: 'id', label: 'label', children: 'children', isLeaf: 'isLeaf' }
+
 // 表单数据（默认值与后端 model.AIAgent 对齐）
 const getDefaultForm = () => ({
   agent_code: '',
@@ -476,6 +501,9 @@ const getDefaultForm = () => ({
   greeting: '',
   internal_language: 'zh',
   target_language: '',
+  // 知识库挂载（树形多选，新字段）
+  kb_ids: [],
+  // 兼容旧字段（已废弃，仍保留写回后端，避免破坏旧数据）
   rag_product_ids: [],
   faq_entry_ids: [],
   sop_template_ids: [],
@@ -577,6 +605,74 @@ const loadSopTemplateOptions = async () => {
   }
 }
 
+// 加载知识库（按 RAG/FAQ/SOP 三种类型组装树形结构）
+const buildKBTree = async () => {
+  loadingKB.value = true
+  try {
+    const [ragRes, faqRes, sopRes] = await Promise.all([
+      listKBByType('rag', { page: 1, page_size: 200 }).catch(() => null),
+      listKBByType('faq', { page: 1, page_size: 200 }).catch(() => null),
+      listKBByType('sop', { page: 1, page_size: 200 }).catch(() => null)
+    ])
+    const extractList = (r) => (r?.list || r?.items || (Array.isArray(r) ? r : []))
+    const ragList = extractList(ragRes)
+    const faqList = extractList(faqRes)
+    const sopList = extractList(sopRes)
+    const buildChildren = (list) => list.map((it) => ({
+      id: it.id,
+      label: `[${it.kb_code || '#' + it.id}] ${it.name}`,
+      isLeaf: true,
+      kb_type: it.kb_type,
+      raw: it
+    }))
+    const ragChildren = buildChildren(ragList)
+    const faqChildren = buildChildren(faqList)
+    const sopChildren = buildChildren(sopList)
+    const tree = []
+    if (ragChildren.length) {
+      tree.push({ id: 'kb-type-rag', label: `RAG 文档库 (${ragChildren.length})`, children: ragChildren, isLeaf: false, disabled: true, kb_type: 'rag' })
+    }
+    if (faqChildren.length) {
+      tree.push({ id: 'kb-type-faq', label: `FAQ 知识库 (${faqChildren.length})`, children: faqChildren, isLeaf: false, disabled: true, kb_type: 'faq' })
+    }
+    if (sopChildren.length) {
+      tree.push({ id: 'kb-type-sop', label: `SOP 模板库 (${sopChildren.length})`, children: sopChildren, isLeaf: false, disabled: true, kb_type: 'sop' })
+    }
+    if (tree.length === 0) {
+      // 后端无数据时给空提示结构，避免空树报错
+      tree.push({ id: 'kb-empty', label: '暂未配置任何知识库', isLeaf: true, disabled: true })
+    }
+    kbTree.value = tree
+    return tree
+  } catch (e) {
+    console.warn('加载知识库列表失败：', e?.message)
+    kbTree.value = [{ id: 'kb-error', label: '加载失败：' + (e?.message || '未知错误'), isLeaf: true, disabled: true }]
+    return []
+  } finally {
+    loadingKB.value = false
+  }
+}
+
+const loadKnowledgeBases = async () => {
+  await buildKBTree()
+  // 编辑模式下，加载 KB 树完成后异步回填已挂载的 KB
+  if (isEdit.value && agentId.value) {
+    await loadAgentKBBindings()
+  }
+}
+
+// 加载智能体已挂载的 KB 列表（编辑模式）
+const loadAgentKBBindings = async () => {
+  try {
+    const res = await listAgentKBs(agentId.value)
+    const list = res?.list || res?.items || (Array.isArray(res) ? res : [])
+    form.kb_ids = list.map((it) => it.kb_id ?? it.id)
+  } catch (e) {
+    console.warn('加载智能体知识库绑定失败：', e?.message)
+    form.kb_ids = []
+  }
+}
+
 // ===== 加载智能体详情（编辑模式） =====
 const loadAgentDetail = async () => {
   if (!isEdit.value) return
@@ -591,6 +687,7 @@ const loadAgentDetail = async () => {
       form.sop_template_ids = (res.sop_template_ids || []).map(String)
       form.sop_ids = (res.sop_ids || []).map(String)
       form.script_library_ids = (res.script_library_ids || []).map(String)
+      form.kb_ids = (res.kb_ids || []).map(String)
       // 内部语言兜底 zh；目标语言允许空串（跟随内部语言）
       form.internal_language = res.internal_language || 'zh'
       form.target_language = res.target_language || ''
@@ -624,6 +721,9 @@ const onSave = async () => {
         greeting: form.greeting,
         internal_language: form.internal_language || 'zh',
         target_language: form.target_language || '',
+        // 新：知识库挂载（树形多选）
+        kb_ids: form.kb_ids || [],
+        // 旧：兼容字段
         rag_product_ids: form.rag_product_ids || [],
         faq_entry_ids: form.faq_entry_ids || [],
         sop_template_ids: form.sop_template_ids || [],
@@ -647,9 +747,24 @@ const onSave = async () => {
       }
       if (isEdit.value) {
         await updateAgent(agentId.value, data)
+        // 同步 KB 挂载（多对多关系，replace 模式）
+        try {
+          await replaceAgentKBs(agentId.value, form.kb_ids.map(String))
+        } catch (kbErr) {
+          console.warn('同步智能体知识库挂载失败：', kbErr?.message)
+        }
         ElMessage.success(i18n.global.t('智能体更新成功'))
       } else {
-        await createAgent(data)
+        const created = await createAgent(data)
+        // 创建后挂载 KB
+        const newId = created?.id || created?.ID
+        if (newId && form.kb_ids?.length) {
+          try {
+            await replaceAgentKBs(newId, form.kb_ids.map(String))
+          } catch (kbErr) {
+            console.warn('挂载智能体知识库失败：', kbErr?.message)
+          }
+        }
         ElMessage.success(i18n.global.t('智能体创建成功'))
       }
       goBack()
@@ -710,6 +825,10 @@ onMounted(async () => {
   if (isEdit.value) {
     await loadAgentDetail()
   }
+  // 异步加载 KB 树（不在首屏阻塞，挂在【加载知识库】按钮也支持）
+  buildKBTree().then(() => {
+    if (isEdit.value) loadAgentKBBindings()
+  })
 })
 </script>
 

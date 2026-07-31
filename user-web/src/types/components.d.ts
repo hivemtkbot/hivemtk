@@ -91,6 +91,7 @@ declare module 'vue' {
     ElTimelineItem: typeof import('element-plus/es')['ElTimelineItem']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTransfer: typeof import('element-plus/es')['ElTransfer']
+    ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     KuaishouCardPreview: typeof import('./../components/KuaishouCardPreview.vue')['default']
     LanguageSwitcher: typeof import('./../components/LanguageSwitcher.vue')['default']
