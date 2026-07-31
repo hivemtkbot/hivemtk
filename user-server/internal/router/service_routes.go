@@ -332,6 +332,14 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	// 2026-07-31 P1-A: SOP 模板 CRUD + Layer1 匹配
 	sopTplCtrl := controller.NewSOPTemplateController(db)
 	sopTplCtrl.RegisterRoutes(auth)
+
+	// 2026-07-31 强 1对1: 知识库主表 CRUD + 业务级联
+	kbCtrl := controller.NewKnowledgeBaseController(db)
+	kbCtrl.RegisterRoutes(auth)
+
+	// 2026-07-31 强 1对1: 智能体 × 知识库 绑定 CRUD
+	bindCtrl := controller.NewAgentKBBindingController(db)
+	bindCtrl.RegisterRoutes(auth)
 }
 
 // setupReachPipelineRoutes 触达 Pipeline 路由
