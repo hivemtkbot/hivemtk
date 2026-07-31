@@ -9,7 +9,9 @@ package migrations
 // 本迁移补充 C 域 P1 缺口 #2/#3/#4 所需的数据库基础设施：
 //  1. rag_query_logs 表（每次检索的明细日志，用于召回率/P99/低召回样本分析）
 //  2. rag_metrics_daily 表（5 分钟窗口聚合的指标快照，用于趋势图和预警）
-//  3. rag_alerts 表（风控预警记录，按类型/严重度/状态管理）
+//
+// 私域部署: 外部告警通道 (RagAlertService) 已删除, rag_alerts 表由 v3.17
+//   单独 DROP, 异常指标走应用层日志 + rag_query_logs 落库审计。
 //
 // 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
 // 依赖: v1.1.0（InitialSchemaMigration）
@@ -44,7 +46,7 @@ func (m *RagMonitoringMigration) Name() string {
 
 // Description 返回迁移描述
 func (m *RagMonitoringMigration) Description() string {
-	return "新建 rag_query_logs / rag_metrics_daily / rag_alerts 表，支撑召回率监控、5 分钟聚合、风控预警与健康度评分"
+	return "新建 rag_query_logs / rag_metrics_daily 表, 支撑召回率监控、5 分钟聚合、健康度评分 (rag_alerts 表由 v3.17 单独清理)"
 }
 
 // Up 执行升级
@@ -59,9 +61,7 @@ func (m *RagMonitoringMigration) Up(ctx context.Context) error {
 	if err := m.createRagMetricsDaily(ctx); err != nil {
 		return fmt.Errorf("create rag_metrics_daily 失败: %w", err)
 	}
-	if err := m.createRagAlerts(ctx); err != nil {
-		return fmt.Errorf("create rag_alerts 失败: %w", err)
-	}
+	// 私域部署: 不再创建 rag_alerts 表 (RagAlertService 已删), 由 v3.17 处理旧环境清理
 	return nil
 }
 
@@ -129,42 +129,12 @@ func (m *RagMonitoringMigration) createRagMetricsDaily(ctx context.Context) erro
 	return m.db.WithContext(ctx).Exec(stmt).Error
 }
 
-// createRagAlerts 创建 rag_alerts 表
-//
-// 用途：风控预警记录（按类型/严重度/状态管理）
-// 写入时机：RagAlertService.CheckAndAlert 检测到指标超阈值时创建
-// 4 种预警类型：low_recall / embedding_failure / high_latency / zero_hit
-// 3 种严重度：message / warning / critical
-func (m *RagMonitoringMigration) createRagAlerts(ctx context.Context) error {
-	stmt := `
-		CREATE TABLE IF NOT EXISTS rag_alerts (
-			id            BIGSERIAL    PRIMARY KEY,
-			alert_type    VARCHAR(32)  NOT NULL,
-			severity      VARCHAR(16)  NOT NULL DEFAULT 'message',
-			metric_value  DECIMAL(10,4) NOT NULL,
-			threshold     DECIMAL(10,4) NOT NULL,
-			message       TEXT         NOT NULL,
-			window_start  TIMESTAMP    NOT NULL,
-			window_end    TIMESTAMP    NOT NULL,
-			resolved      BOOLEAN      NOT NULL DEFAULT FALSE,
-			resolved_at   TIMESTAMP,
-			resolved_by   VARCHAR(64),
-			resolve_note  TEXT,
-			created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
-		);
-		CREATE INDEX IF NOT EXISTS idx_rag_alerts_type ON rag_alerts(alert_type, created_at);
-		CREATE INDEX IF NOT EXISTS idx_rag_alerts_severity ON rag_alerts(severity);
-		CREATE INDEX IF NOT EXISTS idx_rag_alerts_resolved ON rag_alerts(resolved);
-		CREATE INDEX IF NOT EXISTS idx_rag_alerts_created ON rag_alerts(created_at);
-	`
-	return m.db.WithContext(ctx).Exec(stmt).Error
-}
-
 // Down 执行降级
 //
 // 注意：删除监控表会丢失历史数据，但业务核心数据（knowledge_documents 等）不受影响
+// 私域部署: rag_alerts 由 v3.17 单独 DROP, 本 Down 不再处理
 func (m *RagMonitoringMigration) Down(ctx context.Context) error {
-	tables := []string{"rag_alerts", "rag_metrics_daily", "rag_query_logs"}
+	tables := []string{"rag_metrics_daily", "rag_query_logs"}
 	for _, tbl := range tables {
 		if err := m.db.WithContext(ctx).Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", tbl)).Error; err != nil {
 			logger.Infof("[RagMonitoringMigration] drop %s 提示: %v", tbl, err)
