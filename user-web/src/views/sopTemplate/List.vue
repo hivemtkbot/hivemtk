@@ -83,6 +83,19 @@
             <el-tag size="small" type="info">{{ row.stage || '-' }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="所属知识库" width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-tag
+              v-if="getKBName(row.kb_id)"
+              size="small"
+              type="warning"
+              effect="plain"
+            >
+              {{ getKBName(row.kb_id) }}
+            </el-tag>
+            <span v-else class="text-muted">未挂载</span>
+          </template>
+        </el-table-column>
         <el-table-column label="模板内容" min-width="240" show-overflow-tooltip>
           <template #default="{ row }">
             <code class="tpl-code">{{ truncate(row.template, 90) }}</code>
@@ -155,6 +168,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, Search } from '@element-plus/icons-vue'
 import { sopTemplateApi } from '@/api/sopTemplate'
+import { listKBs } from '@/api/knowledgeBase'
 
 const router = useRouter()
 
@@ -175,6 +189,28 @@ const filter = ref({
 
 // SOP 阶段
 const stageOptions = ['initial', 'middle', 'late', 'objection', 'closing']
+
+// 所属知识库映射
+const kbMap = ref({})
+const loadKBMap = async () => {
+  try {
+    const res = await listKBs({ kb_type: 'sop', page: 1, page_size: 200 }).catch(() => null)
+    const items = Array.isArray(res) ? res : res?.list || res?.items || []
+    const map = {}
+    items.forEach((it) => {
+      map[it.id] = { name: it.name, kb_code: it.kb_code }
+    })
+    kbMap.value = map
+  } catch {
+    kbMap.value = {}
+  }
+}
+const getKBName = (kbId) => {
+  if (kbId == null || kbId === '' || kbId === 0) return ''
+  const info = kbMap.value[kbId]
+  if (!info) return ''
+  return info.kb_code ? `[${info.kb_code}] ${info.name}` : info.name
+}
 
 // ===== 工具 =====
 const truncate = (text, len) => {
@@ -288,6 +324,7 @@ const onDelete = (row) => {
 }
 
 onMounted(() => {
+  loadKBMap()
   loadList()
 })
 </script>
@@ -332,16 +369,17 @@ onMounted(() => {
 
 .tpl-name {
   font-weight: 500;
-}
-
-.tpl-code {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12px;
   color: var(--el-text-color-regular);
+}
+.tpl-code {
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #606266;
   background: var(--el-fill-color-light);
   padding: 2px 6px;
   border-radius: 3px;
 }
+.text-muted { color: #c0c4cc; font-size: 12px; }
 
 .pagination-wrap {
   margin-top: 16px;
