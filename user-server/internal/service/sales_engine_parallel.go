@@ -125,6 +125,8 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 			Intent:      phase0.intent,
 			RAGChunks:   phase0.ragChunks,
 			Stage:       "",
+			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			resp.Reply = decision.Reply

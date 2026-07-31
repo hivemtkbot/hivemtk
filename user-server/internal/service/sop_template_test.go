@@ -11,10 +11,13 @@ package service
 //   - 不依赖真实 DB (使用 nil repo 测试纯逻辑)
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"marketing/internal/model"
+	"marketing/internal/repository"
 )
 
 // TestSOPTemplate_Render_BasicVars 测试基本变量替换
@@ -141,10 +144,13 @@ func TestSOPTemplate_IncrementHitCount_NilRepo(t *testing.T) {
 }
 
 // TestSOPTemplate_InvalidateCache_NilSafe 测试 nil cache 安全
+//
+// Task 16: InvalidateCache 现在要求传 agentID 参数, agentID=0 表示失效共享池。
 func TestSOPTemplate_InvalidateCache_NilSafe(t *testing.T) {
 	svc := &SOPTemplateService{}
 	// 不应 panic
-	svc.InvalidateCache()
+	svc.InvalidateCache(0) // 共享池
+	svc.InvalidateCache(1) // 智能体 1
 }
 
 // TestSOPTemplate_MatchByIntent_NilRepo 测试空仓库
@@ -257,5 +263,565 @@ func TestSOPTemplate_filterWhitelistVars_DoesNotMutate(t *testing.T) {
 	_ = filterWhitelistVars(vars)
 	if v, ok := vars["user_message"]; !ok || v != "leak" {
 		t.Errorf("filterWhitelistVars mutated input map, user_message=%v", v)
+	}
+}
+
+// ----------------------------------------------------------------------------
+// Task 16: 强 1对1 改造 - 新 MatchByAgent 签名 + AgentID 校验 + 分片缓存
+// ----------------------------------------------------------------------------
+
+// mockSOPRepoForTask16 专用于 Task 16 的 mock 实现
+//
+// 实现 sopRepoIface 接口, 用于 MatchByAgent / Create / WarmupCache 等测试。
+type mockSOPRepoForTask16 struct {
+	// 按 agentID 维度的存储
+	byAgent map[uint][]model.SOPTemplate
+	// mock 错误注入
+	listByAgentErr error
+	matchByAgentErr error
+	// 记录调用, 便于断言
+	matchCalls []struct {
+		AgentID uint
+		Intent  string
+		Stage   string
+	}
+	// 接收参数
+	createCalls []*model.SOPTemplate
+}
+
+func (m *mockSOPRepoForTask16) Create(ctx context.Context, tpl *model.SOPTemplate) error {
+	m.createCalls = append(m.createCalls, tpl)
+	return nil
+}
+
+func (m *mockSOPRepoForTask16) GetByID(ctx context.Context, id uint) (*model.SOPTemplate, error) {
+	for _, tpls := range m.byAgent {
+		for i := range tpls {
+			if tpls[i].ID == id {
+				return &tpls[i], nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockSOPRepoForTask16) ListEnabled(ctx context.Context, limit int) ([]model.SOPTemplate, error) {
+	out := make([]model.SOPTemplate, 0)
+	for _, tpls := range m.byAgent {
+		out = append(out, tpls...)
+	}
+	return out, nil
+}
+
+func (m *mockSOPRepoForTask16) MatchByIntent(ctx context.Context, intent string) ([]model.SOPTemplate, error) {
+	return nil, nil
+}
+
+func (m *mockSOPRepoForTask16) MatchByIntentStage(ctx context.Context, intent, stage string) ([]model.SOPTemplate, error) {
+	return nil, nil
+}
+
+// MatchByAgent 严格 1:1: 仅返回 agent_id == agentID 的 tpls
+func (m *mockSOPRepoForTask16) MatchByAgent(ctx context.Context, agentID uint, intent, stage string) ([]model.SOPTemplate, error) {
+	m.matchCalls = append(m.matchCalls, struct {
+		AgentID uint
+		Intent  string
+		Stage   string
+	}{agentID, intent, stage})
+	if m.matchByAgentErr != nil {
+		return nil, m.matchByAgentErr
+	}
+	if agentID == 0 {
+		return nil, nil
+	}
+	src := m.byAgent[agentID]
+	out := make([]model.SOPTemplate, 0, len(src))
+	for _, t := range src {
+		if t.Enabled != nil && !*t.Enabled {
+			continue
+		}
+		if intent != "" && t.Intent != intent {
+			continue
+		}
+		if stage != "" && t.Stage != stage {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+func (m *mockSOPRepoForTask16) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
+	return nil, nil
+}
+
+func (m *mockSOPRepoForTask16) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error) {
+	if m.listByAgentErr != nil {
+		return nil, m.listByAgentErr
+	}
+	if agentID == 0 {
+		return nil, nil
+	}
+	src := m.byAgent[agentID]
+	if limit > 0 && len(src) > limit {
+		src = src[:limit]
+	}
+	return src, nil
+}
+
+func (m *mockSOPRepoForTask16) IncrementHitCount(ctx context.Context, id uint) error {
+	return nil
+}
+
+func (m *mockSOPRepoForTask16) ListWithFilter(ctx context.Context, filter repository.SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
+	return nil, 0, nil
+}
+
+func (m *mockSOPRepoForTask16) Update(ctx context.Context, id uint, tpl *model.SOPTemplate) error {
+	return nil
+}
+
+func (m *mockSOPRepoForTask16) Delete(ctx context.Context, id uint) error {
+	return nil
+}
+
+// mockSOPBindingRepoForTask16 专用于 Task 16 的 binding mock
+type mockSOPBindingRepoForTask16 struct{}
+
+func (m *mockSOPBindingRepoForTask16) ListByAgent(ctx context.Context, agentID uint, kbType string) ([]model.AgentKBBinding, error) {
+	return nil, nil
+}
+
+// ptrBoolSOP helper: 构造 *bool
+func ptrBoolSOP(b bool) *bool { return &b }
+
+// ptrUintSOP helper: 构造 *uint
+func ptrUintSOP(v uint) *uint { return &v }
+
+// TestSOPTemplate_MatchByAgent_AgentIDZero Task 16: agentID=0 直接返回 nil
+func TestSOPTemplate_MatchByAgent_AgentIDZero(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Name: "t1", Intent: "logistics", Stage: "initial", Template: "x", Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	// agentID=0 必须返回 nil 且不查 repo
+	matches, err := svc.MatchByAgent(context.Background(), 0, "logistics", "initial", 3)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for agentID=0, got %v", matches)
+	}
+	if len(repo.matchCalls) != 0 {
+		t.Errorf("repo should not be called for agentID=0, but got %d calls", len(repo.matchCalls))
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_Bound Task 16: agentID>0 走 MatchByAgent
+func TestSOPTemplate_MatchByAgent_Bound(t *testing.T) {
+	enabled := true
+	a1 := uint(1)
+	a2 := uint(2)
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {
+				{ID: 10, Name: "t1", Intent: "logistics", Stage: "initial", Template: "x", Confidence: 0.85, Enabled: &enabled, AgentID: &a1},
+				{ID: 11, Name: "t2", Intent: "logistics", Stage: "initial", Template: "y", Confidence: 0.75, Enabled: &enabled, AgentID: &a1},
+			},
+			2: {
+				{ID: 20, Name: "t3", Intent: "pricing", Stage: "initial", Template: "z", Confidence: 0.9, Enabled: &enabled, AgentID: &a2},
+			},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 1, "logistics", "initial", 5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches for agent=1, got %d", len(matches))
+	}
+	if len(repo.matchCalls) != 1 {
+		t.Fatalf("expected 1 match call, got %d", len(repo.matchCalls))
+	}
+	if repo.matchCalls[0].AgentID != 1 {
+		t.Errorf("expected matchAgentID=1, got %d", repo.matchCalls[0].AgentID)
+	}
+	if repo.matchCalls[0].Intent != "logistics" {
+		t.Errorf("expected intent=logistics, got %q", repo.matchCalls[0].Intent)
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_TopKLimit 验证 topK 截断
+func TestSOPTemplate_MatchByAgent_TopKLimit(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {
+				{ID: 1, Name: "t1", Intent: "x", Template: "a", Enabled: &enabled},
+				{ID: 2, Name: "t2", Intent: "x", Template: "b", Enabled: &enabled},
+				{ID: 3, Name: "t3", Intent: "x", Template: "c", Enabled: &enabled},
+				{ID: 4, Name: "t4", Intent: "x", Template: "d", Enabled: &enabled},
+			},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 1, "x", "", 2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("expected 2 matches after topK=2, got %d", len(matches))
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_DefaultTopK topK<=0 走 sopTopK=5
+func TestSOPTemplate_MatchByAgent_DefaultTopK(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Name: "t1", Intent: "x", Template: "a", Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	// topK=0 走默认 (sopTopK=5)
+	matches, err := svc.MatchByAgent(context.Background(), 1, "x", "", 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("expected 1 match, got %d", len(matches))
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_RepoError 验证 repo 错误透传
+func TestSOPTemplate_MatchByAgent_RepoError(t *testing.T) {
+	repo := &mockSOPRepoForTask16{matchByAgentErr: fmt.Errorf("db down")}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	_, err := svc.MatchByAgent(context.Background(), 1, "x", "", 3)
+	if err == nil {
+		t.Error("expected error when MatchByAgent fails")
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_NilRepo nil repo 安全
+func TestSOPTemplate_MatchByAgent_NilRepo(t *testing.T) {
+	svc := &SOPTemplateService{repo: nil, db: nil}
+	matches, err := svc.MatchByAgent(context.Background(), 1, "x", "", 3)
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for nil repo, got %v", matches)
+	}
+}
+
+// TestSOPTemplate_MatchByAgent_EmptyIntent 验证 intent="" 不过滤 (返回该 agent 全部)
+func TestSOPTemplate_MatchByAgent_EmptyIntent(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {
+				{ID: 1, Name: "t1", Intent: "logistics", Stage: "initial", Template: "a", Enabled: &enabled},
+				{ID: 2, Name: "t2", Intent: "pricing", Stage: "initial", Template: "b", Enabled: &enabled},
+			},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	matches, err := svc.MatchByAgent(context.Background(), 1, "", "", 5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("expected 2 matches (no intent filter), got %d", len(matches))
+	}
+}
+
+// TestSOPTemplate_MatchByAgentLegacy_Empty Task 16: 旧签名 agentSOPIDs 为空直接返回 nil
+func TestSOPTemplate_MatchByAgentLegacy_Empty(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Name: "t1", Intent: "x", Template: "a", Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	// 旧签名 agentSOPIDs=nil 强 1对1: 直接返回 nil
+	matches, err := svc.MatchByAgentLegacy(context.Background(), nil, "x", "y")
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if matches != nil {
+		t.Errorf("expected nil matches for empty agentSOPIDs, got %v", matches)
+	}
+}
+
+// TestSOPTemplate_Create_RequireAgentID Task 16: Create 必填 AgentID
+func TestSOPTemplate_Create_RequireAgentID(t *testing.T) {
+	repo := &mockSOPRepoForTask16{}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	// agentID nil -> 拒绝
+	err := svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Intent:   "x",
+		Stage:    "y",
+		Template: "t",
+	})
+	if err == nil {
+		t.Error("expected error when AgentID is nil")
+	}
+
+	// agentID=0 -> 拒绝
+	zero := uint(0)
+	err = svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Intent:   "x",
+		Stage:    "y",
+		Template: "t",
+		AgentID:  &zero,
+	})
+	if err == nil {
+		t.Error("expected error when AgentID=0")
+	}
+
+	// intent 空 -> 拒绝
+	one := uint(1)
+	err = svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Stage:    "y",
+		Template: "t",
+		AgentID:  &one,
+	})
+	if err == nil {
+		t.Error("expected error when intent is empty")
+	}
+
+	// stage 空 -> 拒绝
+	err = svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Intent:   "x",
+		Template: "t",
+		AgentID:  &one,
+	})
+	if err == nil {
+		t.Error("expected error when stage is empty")
+	}
+
+	// 全部齐 -> 成功
+	err = svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Intent:   "x",
+		Stage:    "y",
+		Template: "t",
+		AgentID:  &one,
+	})
+	if err != nil {
+		t.Errorf("expected success, got %v", err)
+	}
+}
+
+// TestSOPTemplate_Create_NilTpl 验证 nil tpl 拒绝
+func TestSOPTemplate_Create_NilTpl(t *testing.T) {
+	repo := &mockSOPRepoForTask16{}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+	err := svc.Create(context.Background(), nil)
+	if err == nil {
+		t.Error("expected error for nil tpl")
+	}
+}
+
+// TestSOPTemplate_Create_Success 验证成功路径
+func TestSOPTemplate_Create_Success(t *testing.T) {
+	repo := &mockSOPRepoForTask16{}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	one := uint(1)
+	err := svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "n",
+		Intent:   "x",
+		Stage:    "y",
+		Template: "t",
+		AgentID:  &one,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(repo.createCalls) != 1 {
+		t.Errorf("expected 1 create call, got %d", len(repo.createCalls))
+	}
+	// Enabled 默认为 true
+	if repo.createCalls[0].Enabled == nil || !*repo.createCalls[0].Enabled {
+		t.Error("expected Enabled=true to be auto-set")
+	}
+}
+
+// TestSOPTemplate_WarmupCache_PerAgent Task 16: 按 agentID 分片预热
+func TestSOPTemplate_WarmupCache_PerAgent(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Name: "t1", Intent: "x", Template: "a", Enabled: &enabled}},
+			2: {{ID: 2, Name: "t2", Intent: "x", Template: "b", Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+
+	if err := svc.WarmupCache(context.Background(), 1); err != nil {
+		t.Fatalf("warmup agent=1: %v", err)
+	}
+	if err := svc.WarmupCache(context.Background(), 2); err != nil {
+		t.Fatalf("warmup agent=2: %v", err)
+	}
+	if err := svc.WarmupCache(context.Background(), 0); err != nil {
+		t.Fatalf("warmup shared: %v", err)
+	}
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if _, ok := svc.cache[1]; !ok {
+		t.Error("expected cache entry for agent=1")
+	}
+	if _, ok := svc.cache[2]; !ok {
+		t.Error("expected cache entry for agent=2")
+	}
+	if _, ok := svc.cache[0]; !ok {
+		t.Error("expected cache entry for shared pool (agentID=0)")
+	}
+	if len(svc.cache) != 3 {
+		t.Errorf("expected 3 cache buckets, got %d", len(svc.cache))
+	}
+}
+
+// TestSOPTemplate_InvalidateCache_PerAgent Task 16: 精确失效单 agent 桶
+func TestSOPTemplate_InvalidateCache_PerAgent(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Enabled: &enabled}},
+			2: {{ID: 2, Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+	_ = svc.WarmupCache(context.Background(), 1)
+	_ = svc.WarmupCache(context.Background(), 2)
+
+	// 仅失效 agent=1
+	svc.InvalidateCache(1)
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if _, ok := svc.cache[1]; ok {
+		t.Error("expected agent=1 cache to be invalidated")
+	}
+	if _, ok := svc.cache[2]; !ok {
+		t.Error("expected agent=2 cache to be intact")
+	}
+}
+
+// TestSOPTemplate_InvalidateAllCache 验证全量失效
+func TestSOPTemplate_InvalidateAllCache(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Enabled: &enabled}},
+			2: {{ID: 2, Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+	_ = svc.WarmupCache(context.Background(), 1)
+	_ = svc.WarmupCache(context.Background(), 2)
+
+	svc.InvalidateAllCache()
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if len(svc.cache) != 0 {
+		t.Errorf("expected 0 cache buckets, got %d", len(svc.cache))
+	}
+}
+
+// TestSOPTemplate_SetBindingRepo 验证 binding 注入
+func TestSOPTemplate_SetBindingRepo(t *testing.T) {
+	svc := &SOPTemplateService{}
+	binding := &mockSOPBindingRepoForTask16{}
+	svc.SetBindingRepo(binding)
+	if svc.bindingRepo == nil {
+		t.Error("expected bindingRepo to be set")
+	}
+
+	// nil binding 不覆盖
+	original := svc.bindingRepo
+	svc.SetBindingRepo(nil)
+	if svc.bindingRepo != original {
+		t.Error("SetBindingRepo(nil) should not overwrite existing binding")
+	}
+}
+
+// TestSOPTemplate_NewSOPTemplateServiceWithRepos 验证双 repo 注入
+func TestSOPTemplate_NewSOPTemplateServiceWithRepos(t *testing.T) {
+	repo := &mockSOPRepoForTask16{}
+	binding := &mockSOPBindingRepoForTask16{}
+	svc := NewSOPTemplateServiceWithRepos(repo, binding)
+	if svc.repo == nil {
+		t.Error("expected repo to be set")
+	}
+	if svc.bindingRepo == nil {
+		t.Error("expected bindingRepo to be set")
+	}
+	if svc.cache == nil {
+		t.Error("expected cache map to be initialized")
+	}
+	if svc.loaded == nil {
+		t.Error("expected loaded map to be initialized")
+	}
+}
+
+// TestSOPTemplate_Create_InvalidatesAgentCache Task 16: Create 必填 agentID 后, 精确失效对应桶
+func TestSOPTemplate_Create_InvalidatesAgentCache(t *testing.T) {
+	enabled := true
+	repo := &mockSOPRepoForTask16{
+		byAgent: map[uint][]model.SOPTemplate{
+			1: {{ID: 1, Name: "existing", Intent: "x", Stage: "y", Template: "a", Enabled: &enabled}},
+		},
+	}
+	svc := NewSOPTemplateServiceWithRepo(repo)
+	_ = svc.WarmupCache(context.Background(), 1)
+
+	// 预热后, cache[1] 存在
+	svc.mu.RLock()
+	_, hasBefore := svc.cache[1]
+	svc.mu.RUnlock()
+	if !hasBefore {
+		t.Fatal("expected cache[1] to be present after warmup")
+	}
+
+	// Create 新模板 (agentID=1) -> 应精确失效 cache[1]
+	one := uint(1)
+	if err := svc.Create(context.Background(), &model.SOPTemplate{
+		Name:     "new",
+		Intent:   "x",
+		Stage:    "y",
+		Template: "t",
+		AgentID:  &one,
+	}); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	svc.mu.RLock()
+	_, hasAfter := svc.cache[1]
+	svc.mu.RUnlock()
+	if hasAfter {
+		t.Error("expected cache[1] to be invalidated after Create")
 	}
 }

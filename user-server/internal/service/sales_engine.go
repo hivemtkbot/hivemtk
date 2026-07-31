@@ -314,6 +314,18 @@ func (e *SalesEngine) SetLayerRouter(ctx context.Context, lr *LayerRouter) {
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SalesRequest = dto.SalesRequest
 
+// agentIDFromCtx 从 SalesRequest 中提取 agentID
+//
+// 2026-07-31 P0-B: 知识库隔离需要把 agentID 传给 RouteRequest
+//   - 优先从 req.AgentContext.AgentID 取
+//   - nil 时返回 0 (走 Layer2 fallback, 兼容旧调用)
+func agentIDFromCtx(req *SalesRequest) uint {
+	if req == nil || req.AgentContext == nil {
+		return 0
+	}
+	return req.AgentContext.AgentID
+}
+
 // SalesResponse 销售回复
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SalesResponse = dto.SalesResponse
@@ -746,6 +758,8 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 			Intent:      nil, // Stream 路径不阻塞 intent, 让 LayerRouter 内部 FAQ/SOP 走 keyword
 			RAGChunks:   nil,
 			Stage:       "",
+			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			// Layer1 命中 -> 立即推 delta (完整 reply) + final
@@ -1035,6 +1049,8 @@ func (e *SalesEngine) generateCandidate(
 			Intent:      intent,
 			RAGChunks:   ragChunks,
 			Stage:       stage,
+			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			// Layer1 命中: 直接返回模板回复, dispatchResult=nil 表示未调 LLM
