@@ -24,6 +24,9 @@ import (
 )
 
 // withLayer1Flag 临时设置 FF_LAYER1 的值, 测试结束恢复
+//
+// 注意: featureflag.Bool() 返回的是缓存值(由后台 poller 5s 刷新),
+// 单测需要立刻生效, 这里显式调用 ReloadAll() 强制重读 env。
 func withLayer1Flag(t *testing.T, val string) {
 	t.Helper()
 	prev, hadPrev := os.LookupEnv("FF_LAYER1")
@@ -32,12 +35,14 @@ func withLayer1Flag(t *testing.T, val string) {
 	} else {
 		_ = os.Setenv("FF_LAYER1", val)
 	}
+	featureflag.DefaultManager().ReloadAll()
 	t.Cleanup(func() {
 		if hadPrev {
 			_ = os.Setenv("FF_LAYER1", prev)
 		} else {
 			_ = os.Unsetenv("FF_LAYER1")
 		}
+		featureflag.DefaultManager().ReloadAll()
 	})
 }
 
@@ -50,6 +55,17 @@ type mockFAQRepo struct {
 }
 
 func (m *mockFAQRepo) MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if topK <= 0 || topK > len(m.entries) {
+		topK = len(m.entries)
+	}
+	return m.entries[:topK], nil
+}
+
+// MatchByAgent 简单按 msg 包含 question 关键字匹配 (满足 FAQMatcher 接口)
+func (m *mockFAQRepo) MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -163,10 +179,12 @@ func TestLayerRouter_Route_FAQHit(t *testing.T) {
 		sopRepo: nil,
 		logRepo: nil,
 	}
+	// Task 15/16 强 1对1: AgentID > 0 才能命中 FAQ
 	dec := router.Route(context.Background(), &RouteRequest{
-		SessionID:  "s1",
-		CustomerID: "c1",
+		SessionID:   "s1",
+		CustomerID:  "c1",
 		UserMessage: "韵达发货",
+		AgentID:     1,
 	})
 	if dec == nil {
 		t.Fatal("expected non-nil decision")

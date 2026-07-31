@@ -35,9 +35,11 @@ const (
 )
 
 // FAQMatcher FAQ 匹配接口 (2026-07-31 DIP 重构, 便于 mock 单测)
-// 满足接口的最小方法集: MatchByKeyword + IncrementHitCount
+//
+// 满足接口的最小方法集: MatchByKeyword + MatchByAgent (Task 15 强 1对1) + IncrementHitCount
 type FAQMatcher interface {
 	MatchByKeyword(ctx context.Context, msg string, topK int) ([]model.FAQEntry, error)
+	MatchByAgent(ctx context.Context, agentID uint, msg string, topK int) ([]model.FAQEntry, error)
 	IncrementHitCount(ctx context.Context, id uint) error
 }
 
@@ -82,16 +84,23 @@ func NewLayerRouter(
 }
 
 // RouteRequest 路由请求参数
+//
+// Task 15 变更:
+//   - AgentFAQIDs (旧字段) 被弃用, 改用 AgentID 强 1对1
+//   - AgentSOPTemplateIDs (旧字段) 同样, 后续 Task 16 改造 SOP
 type RouteRequest struct {
-	SessionID    string
-	CustomerID   string
-	UserMessage  string
-	Intent       *dto.RecognizeResult
-	RAGChunks    []RAGChunk
-	Stage        string
+	SessionID   string
+	CustomerID  string
+	UserMessage string
+	Intent      *dto.RecognizeResult
+	RAGChunks   []RAGChunk
+	Stage       string
+	// Task 15 强 1对1: 智能体 ID (uint); 0 = 无 agent (走 Layer2)
+	AgentID uint
+	// 旧字段保留 (向后兼容), 后续移除
 	// 2026-07-31 P1-A: 智能体绑定的 FAQ / SOP 模板 ID 集合
 	// 空切片 = 全局共享, 非空 = 仅在绑定的 ID 集合内匹配
-	AgentFAQIDs        []string
+	AgentFAQIDs         []string
 	AgentSOPTemplateIDs []string
 }
 
@@ -124,14 +133,16 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 		// 也允许 FAQ 命中跳过 (FAQ 不依赖 intent)
 	}
 
-	// 3. FAQ 匹配 (2026-07-31 P1-A: 按智能体绑定 FAQ 范围)
-	// 绑定为空 = 全局共享, 走 MatchByKeyword
-	// 绑定非空 = 仅匹配绑定的 FAQ ID 集合
+	// 3. FAQ 匹配 (Task 15 强 1对1: 按 agentID 匹配)
+	// agentID == 0: 跳过 FAQ, 走 Layer2 (移除"空数组=全局"分支)
+	// agentID > 0: 走 MatchByAgent 强匹配
 	//
 	// 优先用 faqSvc (L4 Service 封装, 含缓存/业务策略);
 	// 单测可直接注入 faqRepo (FAQMatcher) 走快速路径, 不依赖 DB/Service
-	if r.faqSvc != nil && strings.TrimSpace(req.UserMessage) != "" {
-		matches, err := r.faqSvc.MatchByAgent(ctx, req.AgentFAQIDs, req.UserMessage, 3)
+	if req.AgentID == 0 {
+		// Task 15: 无 agentID 不再触发 FAQ 匹配, 直接跳到 SOP / Layer2
+	} else if r.faqSvc != nil && strings.TrimSpace(req.UserMessage) != "" {
+		matches, err := r.faqSvc.MatchByAgent(ctx, req.AgentID, req.UserMessage, 3)
 		if err == nil && len(matches) > 0 {
 			top := matches[0]
 			if top.Score >= faqHitThresh {
@@ -162,35 +173,42 @@ func (r *LayerRouter) Route(ctx context.Context, req *RouteRequest) *dto.LayerDe
 		}
 	} else if r.faqRepo != nil && strings.TrimSpace(req.UserMessage) != "" {
 		// 单测回退路径: 直接用 FAQMatcher (跳过 faqSvc 业务封装)
-		// agent binding 不支持 (使用 MatchByKeyword 兜底)
-		entries, err := r.faqRepo.MatchByKeyword(ctx, req.UserMessage, 3)
-		if err == nil && len(entries) > 0 {
-			top := entries[0]
-			if top.Confidence >= faqHitThresh {
-				decision.Layer = dto.Layer1
-				decision.SkipLLM = true
-				decision.Reply = top.Answer
-				decision.FAQID = top.ID
-				decision.Reason = dto.ReasonFAQHit
-				decision.Confidence = top.Confidence
-				decision.Intent = top.Intent
-				if intentType(req.Intent) == "" {
+		// Task 15: agentID > 0 时走 MatchByAgent; agentID == 0 时不再兜底
+		if req.AgentID > 0 {
+			entries, err := r.faqRepo.MatchByAgent(ctx, req.AgentID, req.UserMessage, 3)
+			if err == nil && len(entries) > 0 {
+				top := entries[0]
+				if top.Confidence >= faqHitThresh {
+					decision.Layer = dto.Layer1
+					decision.SkipLLM = true
+					decision.Reply = top.Answer
+					decision.FAQID = top.ID
+					decision.Reason = dto.ReasonFAQHit
+					decision.Confidence = top.Confidence
 					decision.Intent = top.Intent
+					if intentType(req.Intent) == "" {
+						decision.Intent = top.Intent
+					}
+					// 命中计数 (异步, 不阻塞)
+					go func(id uint) {
+						_ = r.faqRepo.IncrementHitCount(context.Background(), id)
+					}(top.ID)
+					return decision
 				}
-				// 命中计数 (异步, 不阻塞)
-				go func(id uint) {
-					_ = r.faqRepo.IncrementHitCount(context.Background(), id)
-				}(top.ID)
-				return decision
+				// 命中但置信度低, 仍记录以供分析
+				decision.Reason = dto.ReasonLowConfidenceSkip
 			}
-			// 命中但置信度低, 仍记录以供分析
-			decision.Reason = dto.ReasonLowConfidenceSkip
 		}
 	}
 
-	// 4. SOP 模板匹配 (按 intent + stage, 2026-07-31 P1-A: 支持 agent 绑定范围)
-	if r.sopSvc != nil && req.Intent != nil && req.Intent.IntentType != "" && req.Intent.IntentType != IntentUnknown {
-		tpls, err := r.sopSvc.MatchByAgent(ctx, req.AgentSOPTemplateIDs, req.Intent.IntentType, req.Stage)
+	// 4. SOP 模板匹配 (Task 16 强 1对1: 按 (agentID, intent, stage) 严格匹配)
+	//
+	// 行为:
+	//   - agentID == 0: 跳过 SOP 匹配, 走 Layer2 (强 1对1: 移除"空数组=全局"分支)
+	//   - agentID > 0: 走 MatchByAgent(ctx, agentID, intent, stage, topK) 强匹配
+	//   - 命中且 confidence >= sopHitThresh: 模板渲染后返回 Layer1
+	if r.sopSvc != nil && req.AgentID > 0 && req.Intent != nil && req.Intent.IntentType != "" && req.Intent.IntentType != IntentUnknown {
+		tpls, err := r.sopSvc.MatchByAgent(ctx, req.AgentID, req.Intent.IntentType, req.Stage, sopTopK)
 		if err == nil && len(tpls) > 0 {
 			top := tpls[0]
 			if top.Confidence >= sopHitThresh {

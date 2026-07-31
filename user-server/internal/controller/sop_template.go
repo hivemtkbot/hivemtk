@@ -96,6 +96,8 @@ func (c *SOPTemplateController) Get(ctx *gin.Context) {
 }
 
 // sopTemplateCreateReq 创建/更新请求体
+//
+// Task 16 强 1对1: agent_id 必填 (所有 SOP 模板都必须归属于某个智能体或共享池)
 type sopTemplateCreateReq struct {
 	Name       string  `json:"name" binding:"required"`
 	Intent     string  `json:"intent" binding:"required"`
@@ -105,6 +107,8 @@ type sopTemplateCreateReq struct {
 	Priority   int     `json:"priority"`
 	Confidence float64 `json:"confidence"`
 	Enabled    *bool   `json:"enabled"`
+	// Task 16 强 1对1: AgentID 必填
+	AgentID uint `json:"agent_id" binding:"required"`
 }
 
 // Create 新增
@@ -114,6 +118,7 @@ func (c *SOPTemplateController) Create(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
+	agentID := req.AgentID
 	tpl := &model.SOPTemplate{
 		Name:       req.Name,
 		Intent:     req.Intent,
@@ -123,6 +128,7 @@ func (c *SOPTemplateController) Create(ctx *gin.Context) {
 		Priority:   req.Priority,
 		Confidence: req.Confidence,
 		Enabled:    req.Enabled,
+		AgentID:    &agentID,
 	}
 	if err := c.svc.Create(ctx.Request.Context(), tpl); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
@@ -143,6 +149,7 @@ func (c *SOPTemplateController) Update(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
+	agentID := req.AgentID
 	tpl := &model.SOPTemplate{
 		Name:       req.Name,
 		Intent:     req.Intent,
@@ -152,6 +159,7 @@ func (c *SOPTemplateController) Update(ctx *gin.Context) {
 		Priority:   req.Priority,
 		Confidence: req.Confidence,
 		Enabled:    req.Enabled,
+		AgentID:    &agentID,
 	}
 	if err := c.svc.Update(ctx.Request.Context(), uint(id), tpl); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
@@ -175,26 +183,31 @@ func (c *SOPTemplateController) Delete(ctx *gin.Context) {
 }
 
 // sopTemplateMatchReq 匹配请求
+//
+// Task 16 强 1对1: agent_id 必填 (uint); 不再支持"空 agent = 全局"分支
 type sopTemplateMatchReq struct {
-	Intent string `json:"intent" binding:"required"`
-	Stage  string `json:"stage"`
-	TopK   int    `json:"top_k"`
+	Intent  string `json:"intent" binding:"required"`
+	Stage   string `json:"stage"`
+	TopK    int    `json:"top_k"`
+	AgentID uint   `json:"agent_id" binding:"required"` // Task 16 强 1对1: 必填
 }
 
-// Match 按 (intent, stage) 匹配 (Layer1 调试接口)
+// Match 按 (agent_id, intent, stage) 匹配 (Task 16 强 1对1 改造后)
 func (c *SOPTemplateController) Match(ctx *gin.Context) {
 	var req sopTemplateMatchReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	matches, err := c.svc.MatchByIntentStage(ctx.Request.Context(), req.Intent, req.Stage)
+	// Task 16 强 1对1: agent_id 必填且 > 0
+	if req.AgentID == 0 {
+		response.Error(ctx, http.StatusBadRequest, "agent_id 必填且 > 0 (Task 16 强 1对1)")
+		return
+	}
+	matches, err := c.svc.MatchByAgent(ctx.Request.Context(), req.AgentID, req.Intent, req.Stage, req.TopK)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
-	}
-	if req.TopK > 0 && len(matches) > req.TopK {
-		matches = matches[:req.TopK]
 	}
 	response.Success(ctx, matches, "匹配成功")
 }
