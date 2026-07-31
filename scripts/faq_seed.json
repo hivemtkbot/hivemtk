@@ -1,0 +1,787 @@
+[
+  {
+    "question": "我去不早说发韵达能到我家那儿我就能拿到",
+    "answer": "韵达不发的哦",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "我去",
+      "去不",
+      "不早",
+      "早说",
+      "说发"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "那要怎样这也不行那也不行",
+    "answer": "发邮政的哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "那要",
+      "要怎",
+      "怎样",
+      "样这",
+      "这也"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "可以优惠价么",
+    "answer": "我们因为200把起给优惠价格您可以给您105元一把哦",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "可以",
+      "以优",
+      "优惠",
+      "惠价",
+      "价么"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "200个什么价拿200也可以",
+    "answer": "10元一把哦",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "个什",
+      "什么",
+      "么价",
+      "价拿",
+      "也可"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "538872953711是纸皮核桃吗",
+    "answer": "是的哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "是纸",
+      "纸皮",
+      "皮核",
+      "核桃",
+      "桃吗"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "发的是特级吗",
+    "answer": "什么意思",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "发的",
+      "的是",
+      "是特",
+      "特级",
+      "级吗"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "核桃不是有大小吗我要送人去买10斤人在吗",
+    "answer": "一般直径在3-5cm",
+    "hit_count": 1,
+    "intent": "order",
+    "category": "order",
+    "keywords": [
+      "核桃",
+      "桃不",
+      "不是",
+      "是有",
+      "有大"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "真是要命了这个快递从昨天一直等到现在门都不敢出",
+    "answer": "真是不好意思",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "真是",
+      "是要",
+      "要命",
+      "命了",
+      "了这"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "每次不差评快递也是顾虑商家怕对你们有影响所以就算是几经周折收到货后依然好评就把快递惯出毛病了",
+    "answer": "客官这边会和快递说的",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "每次",
+      "次不",
+      "不差",
+      "差评",
+      "评快"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "第一次在你家买榴莲干就是EMS送过来了的后来我反复跟你们沟通到本地后的第三天才把东西送过来第二次你们给我发的天天还好五天收货这次就忘记备注了又发的这个来到本地又和上次一样的",
+    "answer": "看了一下是同意一个投递员",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "第一",
+      "一次",
+      "次在",
+      "在你",
+      "你家"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "东西是小事信誉是大事夹子",
+    "answer": "客官我们纸皮核桃没有配备夹子哦都是有送开果器的呢这样吧实在抱歉没能让您满意这边您好评截图给我这边小二让财务给您返现4元哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "东西",
+      "西是",
+      "是小",
+      "小事",
+      "事信"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "我们讲好的我买了三大包",
+    "answer": "因为纸皮核桃手捏即破都不配备的呢这样吧实在抱歉没能让您满意这边您好评截图给我这边小二让财务给您返现4元哦",
+    "hit_count": 1,
+    "intent": "order",
+    "category": "order",
+    "keywords": [
+      "我们",
+      "们讲",
+      "讲好",
+      "好的",
+      "的我"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "我前几天加入购物车了今天看失效了",
+    "answer": "亲可以从新加一下哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "我前",
+      "前几",
+      "几天",
+      "天加",
+      "加入"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "我要纯棉的干湿两用的婴儿柔巾",
+    "answer": "好的亲",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "我要",
+      "要纯",
+      "纯棉",
+      "棉的",
+      "的干"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "这个纸张的尺寸是1520啊",
+    "answer": "对的亲这款1020的",
+    "hit_count": 1,
+    "intent": "product",
+    "category": "product",
+    "keywords": [
+      "这个",
+      "个纸",
+      "纸张",
+      "张的",
+      "的尺"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "2020纯棉的有几款",
+    "answer": "还有一款加厚的一组3包",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "纯棉",
+      "棉的",
+      "的有",
+      "有几",
+      "几款"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "预售的和520当天买的哪个更划算",
+    "answer": "就是520预售的亲可以先付定金20号来付款",
+    "hit_count": 1,
+    "intent": "order",
+    "category": "order",
+    "keywords": [
+      "预售",
+      "售的",
+      "的和",
+      "当天",
+      "天买"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "有什么优惠没",
+    "answer": "亲可以领取优惠券使用没有其他优惠了",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "有什",
+      "什么",
+      "么优",
+      "优惠",
+      "惠没"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "这款是纯棉的还是无妨的",
+    "answer": "无纺布的亲",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "这款",
+      "款是",
+      "是纯",
+      "纯棉",
+      "棉的"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "2020的那款是才上市的哦就是不加厚的",
+    "answer": "对的亲新款的",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "的那",
+      "那款",
+      "款是",
+      "是才",
+      "才上"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "不加厚会不会又比较薄之前卖价是好多",
+    "answer": "不加厚的就是普通厚度的不算薄的",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "不加",
+      "加厚",
+      "厚会",
+      "会不",
+      "不会"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "525873142019",
+    "answer": "恩恩",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "这个价格不对呀",
+    "answer": "亲拍下多少金额呢",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "这个",
+      "个价",
+      "价格",
+      "格不",
+      "不对"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "你们家的张张连抽",
+    "answer": "您好",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "你们",
+      "们家",
+      "家的",
+      "的张",
+      "张张"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "这个是纯棉的吧",
+    "answer": "无纺布的哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "这个",
+      "个是",
+      "是纯",
+      "纯棉",
+      "棉的"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "哪个是纯棉的",
+    "answer": "528690173109",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "哪个",
+      "个是",
+      "是纯",
+      "纯棉",
+      "棉的"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "无纺布和纯棉什么区别",
+    "answer": "无纺布和纯棉差不多软就吸水慢一点性价比要比纯棉的要高很多适合大量使用无纺布的优点易展开",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "无纺",
+      "纺布",
+      "布和",
+      "和纯",
+      "纯棉"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "今天拍发货么",
+    "answer": "客官今天16点前付款是当天发货的哦16点后付款是次日发货的呢早拍早发货哦",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "今天",
+      "天拍",
+      "拍发",
+      "发货",
+      "货么"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "有送什么吗",
+    "answer": "客官小二送您一些小零食或者坚果试吃呢礼品虽薄但心意满满呢",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "有送",
+      "送什",
+      "什么",
+      "么吗"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "我拍了",
+    "answer": "好的呢您拍下哦给您备注",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "我拍",
+      "拍了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "拍完了",
+    "answer": "好的客官谢谢您的支持哦我们会尽快给您发出的哦希望能给您带来不一样的产品真诚期待您的品尝祝您开心每一秒快乐每一天幸福每一年么么哒",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "拍完",
+      "完了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "看见订单了么",
+    "answer": "看到了哦亲请核对一下收货地址哦",
+    "hit_count": 1,
+    "intent": "order",
+    "category": "order",
+    "keywords": [
+      "看见",
+      "见订",
+      "订单",
+      "单了",
+      "了么"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "怎么还要运费",
+    "answer": "亲下单我改价哦",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "怎么",
+      "么还",
+      "还要",
+      "要运",
+      "运费"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "已经付款啦又要退了么",
+    "answer": "改完再付退了重拍",
+    "hit_count": 1,
+    "intent": "aftersales",
+    "category": "aftersales",
+    "keywords": [
+      "已经",
+      "经付",
+      "付款",
+      "款啦",
+      "啦又"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "还送不送的不送货我退了",
+    "answer": "亲我们这边帮您更换其他快递了",
+    "hit_count": 1,
+    "intent": "aftersales",
+    "category": "aftersales",
+    "keywords": [
+      "还送",
+      "送不",
+      "不送",
+      "送的",
+      "的不"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "31号到今天3天了",
+    "answer": "亲真是不好意思呢我这边再帮您催一下快递",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "号到",
+      "到今",
+      "今天",
+      "天了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "今天不到退了什么鬼快递",
+    "answer": "真是对不起了亲",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "今天",
+      "天不",
+      "不到",
+      "到退",
+      "退了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "31号中午就到这边了就是不送",
+    "answer": "好的亲我这边帮您向邮政那边反应了",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "号中",
+      "中午",
+      "午就",
+      "就到",
+      "到这"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "那我退货算了事不过三你说对吧",
+    "answer": "亲最近是元旦呢可能物流量大我明天帮您和EMS联系帮您确认一下具体情况您看可以吗",
+    "hit_count": 1,
+    "intent": "aftersales",
+    "category": "aftersales",
+    "keywords": [
+      "那我",
+      "我退",
+      "退货",
+      "货算",
+      "算了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "今天已经3天了",
+    "answer": "亲您都等了三天了呢我明天帮您和快递联系一下知道具体情况后您再决定可以吗不然您这3天都白等了呢",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "今天",
+      "天已",
+      "已经",
+      "天了"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "有什么办法快递都送给我了我还是去实体店买吧心累",
+    "answer": "实在是对不起您了那如果后续快递再给您送来的话麻烦您拒收一下就可以退回了亲",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "有什",
+      "什么",
+      "么办",
+      "办法",
+      "法快"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "你点下退款吧",
+    "answer": "您稍等相应的工作人员会帮您处理的",
+    "hit_count": 1,
+    "intent": "aftersales",
+    "category": "aftersales",
+    "keywords": [
+      "你点",
+      "点下",
+      "下退",
+      "退款",
+      "款吧"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "快递不送有什么办法",
+    "answer": "好的亲",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "快递",
+      "递不",
+      "不送",
+      "送有",
+      "有什"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "已经是马上到手的东西叫你等3天你自己想想电话都没一个来安慰一下我",
+    "answer": "真对不起了亲您的情况我会帮您记录的您下次再来我们店我们给您送点额外的小礼品",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "已经",
+      "经是",
+      "是马",
+      "马上",
+      "上到"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "你自己说对不对",
+    "answer": "是的亲",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "你自",
+      "自己",
+      "己说",
+      "说对",
+      "对不"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "我这次第二次在你这里买了感觉好才买谁知道快递不给力",
+    "answer": "下次麻烦您提醒一下我们给您换其他的快递",
+    "hit_count": 1,
+    "intent": "logistics",
+    "category": "logistics",
+    "keywords": [
+      "我这",
+      "这次",
+      "次第",
+      "第二",
+      "二次"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "哦你退款了我重新下单",
+    "answer": "好的亲退款是相应的工作人员受理的麻烦您等待一下就可以了",
+    "hit_count": 1,
+    "intent": "aftersales",
+    "category": "aftersales",
+    "keywords": [
+      "哦你",
+      "你退",
+      "退款",
+      "款了",
+      "了我"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "这个纸是2袋是嘛",
+    "answer": "一组2包的",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "这个",
+      "个纸",
+      "纸是",
+      "袋是",
+      "是嘛"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "因为是江西但是我要寄到江苏的江西的运费要贵点呢",
+    "answer": "江苏运费收您4元",
+    "hit_count": 1,
+    "intent": "pricing",
+    "category": "pricing",
+    "keywords": [
+      "因为",
+      "为是",
+      "是江",
+      "江西",
+      "西但"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  },
+  {
+    "question": "亲你是在逗我吗明明是3元为什么要多加1元",
+    "answer": "好的因为我们快递报价单上写的是4元那这边您拍下给您改价3元",
+    "hit_count": 1,
+    "intent": "general",
+    "category": "general",
+    "keywords": [
+      "亲你",
+      "你是",
+      "是在",
+      "在逗",
+      "逗我"
+    ],
+    "confidence": 0.85,
+    "enabled": true
+  }
+]
