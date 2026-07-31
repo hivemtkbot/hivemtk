@@ -32,6 +32,22 @@ const (
 	sopTopK      = 5
 )
 
+// sopTemplateWhitelist SOP 模板渲染白名单 (B-022: 防 SSTI)
+//
+// 仅允许以下字段被传入 text/template.Execute, 其他字段 (特别是 user_message) 一律过滤。
+// 新增白名单字段需同时:
+//   1. 评估 SSTI 风险 (用户内容是否可控)
+//   2. 在此常量 + 单测中体现
+//   3. 文档化取值来源
+var sopTemplateWhitelist = map[string]struct{}{
+	"customer_id":   {},
+	"intent":        {},
+	"stage":         {},
+	"agent_name":    {},
+	"product_name":  {},
+	"intent_name":   {},
+}
+
 // SOPTemplateService SOP 模板业务服务
 type SOPTemplateService struct {
 	repo *repository.SOPTemplateRepository
@@ -175,21 +191,44 @@ func sopToDTO(t *model.SOPTemplate) *dto.SOPTemplate {
 
 // Render 渲染模板 (Go text/template)
 //
-//   - template: 含 {{.var_name}} 占位符的字符串
-//   - vars:     map[string]any 变量
+//   - rawTpl: 含 {{.var_name}} 占位符的字符串
+//   - vars:   map[string]any 变量 (B-022: 仅白名单字段透传到模板, 防止 SSTI)
+//
+// 安全:
+//   - 白名单外的字段 (特别是 user_message) 会被过滤, 不会到达模板
+//   - 即使模板作者写了 {{.user_message}}, 渲染时该 key 也不存在 (missingkey=zero)
+//   - 白名单 sopTemplateWhitelist 是 const map, 不可运行时篡改
 func (s *SOPTemplateService) Render(rawTpl string, vars map[string]any) (string, error) {
 	if rawTpl == "" {
 		return "", nil
 	}
+	safe := filterWhitelistVars(vars)
 	tpl, err := template.New("sop").Option("missingkey=zero").Parse(rawTpl)
 	if err != nil {
 		return "", fmt.Errorf("sop template parse: %w", err)
 	}
 	var buf bytes.Buffer
-	if err := tpl.Execute(&buf, vars); err != nil {
+	if err := tpl.Execute(&buf, safe); err != nil {
 		return "", fmt.Errorf("sop template execute: %w", err)
 	}
 	return buf.String(), nil
+}
+
+// filterWhitelistVars 过滤 vars, 只保留白名单字段 (B-022: 防 SSTI)
+//
+// 返回新 map, 不修改入参。
+// nil 入参返回空 map (nil-safe)。
+func filterWhitelistVars(vars map[string]any) map[string]any {
+	if vars == nil {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(sopTemplateWhitelist))
+	for k := range sopTemplateWhitelist {
+		if v, ok := vars[k]; ok {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // IncrementHitCount 命中计数 (异步)
