@@ -114,6 +114,19 @@
         <el-table-column label="答案预览" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">{{ truncate(row.answer, 80) }}</template>
         </el-table-column>
+        <el-table-column label="所属知识库" width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-tag
+              v-if="getKBName(row.kb_id)"
+              size="small"
+              type="success"
+              effect="plain"
+            >
+              {{ getKBName(row.kb_id) }}
+            </el-tag>
+            <span v-else class="text-muted">未挂载</span>
+          </template>
+        </el-table-column>
         <el-table-column label="分类" width="120" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.category" size="small" type="info">{{ row.category }}</el-tag>
@@ -229,6 +242,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, Search, Aim } from '@element-plus/icons-vue'
 import { faqApi } from '@/api/faq'
+import { listKBs } from '@/api/knowledgeBase'
 
 const router = useRouter()
 
@@ -245,6 +259,32 @@ const filter = ref({
   intent: '',
   enabled: ''
 })
+
+// 所属知识库映射 (kb_id -> { name, kb_code })
+const kbMap = ref({})
+
+// 加载所有 FAQ 类型知识库，构建 ID -> Name 映射
+const loadKBMap = async () => {
+  try {
+    const res = await listKBs({ kb_type: 'faq', page: 1, page_size: 200 }).catch(() => null)
+    const items = Array.isArray(res) ? res : res?.list || res?.items || []
+    const map = {}
+    items.forEach((it) => {
+      map[it.id] = { name: it.name, kb_code: it.kb_code }
+    })
+    kbMap.value = map
+  } catch (e) {
+    // 静默失败：未挂载时显示"未挂载"
+    kbMap.value = {}
+  }
+}
+
+const getKBName = (kbId) => {
+  if (kbId == null || kbId === '' || kbId === 0) return ''
+  const info = kbMap.value[kbId]
+  if (!info) return ''
+  return info.kb_code ? `[${info.kb_code}] ${info.name}` : info.name
+}
 
 // ===== 派生 =====
 const categoryOptions = computed(() => {
@@ -433,6 +473,7 @@ const runTest = async () => {
 }
 
 onMounted(() => {
+  loadKBMap()
   loadList()
   loadStats()
 })
@@ -492,6 +533,7 @@ onMounted(() => {
 .text-success { color: var(--el-color-success); }
 .text-primary { color: var(--el-color-primary); }
 .text-info { color: var(--el-color-info); }
+.text-muted { color: #c0c4cc; font-size: 12px; }
 
 .filter-card :deep(.el-card__body) {
   padding: 16px 20px 0 20px;
