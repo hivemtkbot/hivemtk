@@ -40,6 +40,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
+	"marketing/internal/config"
 	"marketing/internal/dto"
 	"marketing/internal/pkg/utils/logger"
 )
@@ -101,6 +102,11 @@ type ChatWSController struct {
 // NewChatWSController 创建控制器
 //
 // 参数 engine 可为 nil（nil 时 HandleChatWS 返回 503）；hub 必须非 nil。
+//
+// B-018: CheckOrigin 改为从 config 读取白名单
+//   - 默认 ["http://localhost:3000", "http://localhost:8080"] (本地开发)
+//   - 生产应通过 env ALLOWED_WS_ORIGINS 或 config.yaml platform.allowed_ws_origins 覆盖
+//   - 白名单包含 "*" 时放行所有 origin (仅调试)
 func NewChatWSController(hub *ChatWSHub, engine StreamEngineInterface) *ChatWSController {
 	return &ChatWSController{
 		hub:    hub,
@@ -108,11 +114,39 @@ func NewChatWSController(hub *ChatWSHub, engine StreamEngineInterface) *ChatWSCo
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
-			CheckOrigin: func(r *http.Request) bool {
-				// TODO: 生产环境应按渠道白名单校验 Origin
-				return true
-			},
+			CheckOrigin: buildCheckOrigin(config.GetAllowedWSOrigins()),
 		},
+	}
+}
+
+// buildCheckOrigin 构造 gorilla/websocket.Upgrader.CheckOrigin 回调
+//
+// 规则:
+//   - 白名单包含 "*" -> 放行所有 origin (调试用, 生产禁用)
+//   - 否则严格匹配 (==); 大小写敏感, 不支持通配符
+//
+// 返回的 func 闭包持有 allowedOrigins 切片, 单次 controller 启动时锁定。
+// 如需运行时重载, 调用 config.ReloadAllowedWSOrigins() 后重建 controller。
+func buildCheckOrigin(allowedOrigins []string) func(r *http.Request) bool {
+	// 复制一份避免外部修改
+	allowed := make([]string, len(allowedOrigins))
+	copy(allowed, allowedOrigins)
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		// 无 Origin 头的请求 (例如非浏览器客户端) 默认放行
+		// 这是 WebSocket 的常见场景: 移动端 / 服务端 / curl 测试不带 Origin 头
+		if origin == "" {
+			return true
+		}
+		for _, o := range allowed {
+			if o == "*" {
+				return true
+			}
+			if o == origin {
+				return true
+			}
+		}
+		return false
 	}
 }
 
