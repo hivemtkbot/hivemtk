@@ -8,12 +8,24 @@ package repository
 //   - 当 FAQ 未命中 + SOP 高置信 -> 模板拼接回复 (<50ms, 零 LLM)
 //   - 支持按 (intent, stage) 查询 + 按 priority/confidence 排序
 //
+// 2026-07-31 P0-B: 按智能体隔离改造
+//   - 旧方法 MatchByIntent / MatchByIntentStage 保持兼容 (agentID=0)
+//   - 新增 MatchByAgent / MatchByIntentStageForAgent / ListByKB / ListShared / ListByAgent
+//   - 严格隔离语义: agentID > 0 仅匹配 (agent_id=X OR agent_id IS NULL) AND enabled
+//   - 共享 = agent_id IS NULL, 由显式白名单控制
+//
 // 方法:
 //   - Create           新增 SOP 模板
 //   - GetByID          按 ID 查询
 //   - ListEnabled      查询所有启用的模板
-//   - MatchByIntent    按意图匹配 (返回最高优先级)
-//   - MatchByIntentStage 按 (intent, stage) 匹配
+//   - MatchByIntent    按意图匹配 (兼容旧签名, agentID=0 表示共享/全局)
+//   - MatchByIntentStage 按 (intent, stage) 匹配 (兼容旧签名)
+//   - MatchByAgent     按智能体严格 1:1 匹配 (P0-B)
+//   - MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配 (P0-B)
+//   - ListByKB         按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 SOP 模板)
+//   - ListShared       列出全部共享 SOP 模板 (agent_id IS NULL)
+//   - ListByAgent      列出某智能体的 SOP 模板 (不参与打分)
+//   - MatchByIDs       按 ID 集合匹配 (DEPRECATED, 走 ID 集合过滤)
 //   - IncrementHitCount 命中次数 +1
 
 import (
@@ -60,30 +72,137 @@ func (r *SOPTemplateRepository) ListEnabled(ctx context.Context, limit int) ([]m
 	return tpls, err
 }
 
-// MatchByIntent 按意图匹配 SOP 模板 (取最高优先级且启用)
+// MatchByIntent 按意图匹配 SOP 模板 (取最高优先级且启用) — 兼容旧签名 (agentID=0 表示共享/全局)
+//
+// 2026-07-31 P0-B: 加 agentID 过滤
+//   - agentID > 0: 仅匹配该智能体私有 (agent_id=X) + 共享 (agent_id IS NULL)
+//   - agentID = 0: 全局共享 (向后兼容, 旧代码不传 agentID 也能跑)
 func (r *SOPTemplateRepository) MatchByIntent(ctx context.Context, intent string) ([]model.SOPTemplate, error) {
+	return r.MatchByIntentForAgent(ctx, intent, 0)
+}
+
+// MatchByIntentForAgent 按智能体隔离的意图匹配 (P0-B)
+//
+// agentID = 0: 走旧路径 (全局共享, 向后兼容)
+// agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
+func (r *SOPTemplateRepository) MatchByIntentForAgent(ctx context.Context, intent string, agentID uint) ([]model.SOPTemplate, error) {
 	if intent == "" {
 		return nil, nil
 	}
 	var tpls []model.SOPTemplate
-	err := r.db.WithContext(ctx).
-		Where("intent = ? AND enabled = ?", intent, true).
-		Order("priority DESC, confidence DESC, id ASC").
+	q := r.db.WithContext(ctx).
+		Where("intent = ? AND enabled = ?", intent, true)
+	if agentID > 0 {
+		// 仅匹配该智能体私有 + 共享 (agent_id IS NULL)
+		q = q.Where("agent_id = ? OR agent_id IS NULL", agentID)
+	}
+	err := q.Order("priority DESC, confidence DESC, id ASC").
 		Limit(10).
 		Find(&tpls).Error
 	return tpls, err
 }
 
-// MatchByIntentStage 按 (intent, stage) 精确匹配 SOP 模板
+// MatchByIntentStage 按 (intent, stage) 精确匹配 SOP 模板 — 兼容旧签名
 func (r *SOPTemplateRepository) MatchByIntentStage(ctx context.Context, intent, stage string) ([]model.SOPTemplate, error) {
+	return r.MatchByIntentStageForAgent(ctx, intent, stage, 0)
+}
+
+// MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配 (P0-B 隔离架构)
+//
+// agentID = 0: 走旧路径 (全局共享, 向后兼容)
+// agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
+func (r *SOPTemplateRepository) MatchByIntentStageForAgent(ctx context.Context, intent, stage string, agentID uint) ([]model.SOPTemplate, error) {
 	if intent == "" || stage == "" {
 		return nil, nil
 	}
 	var tpls []model.SOPTemplate
-	err := r.db.WithContext(ctx).
-		Where("intent = ? AND stage = ? AND enabled = ?", intent, stage, true).
-		Order("priority DESC, confidence DESC, id ASC").
+	q := r.db.WithContext(ctx).
+		Where("intent = ? AND stage = ? AND enabled = ?", intent, stage, true)
+	if agentID > 0 {
+		q = q.Where("agent_id = ? OR agent_id IS NULL", agentID)
+	}
+	err := q.Order("priority DESC, confidence DESC, id ASC").
 		Limit(10).
+		Find(&tpls).Error
+	return tpls, err
+}
+
+// MatchByAgent 按智能体严格 1:1 匹配 (P0-B: 强 1对1 改造)
+//
+// 行为:
+//   - agentID == 0  -> 返回 (nil, nil)
+//   - 仅匹配 enabled = true AND agent_id = ? 的 SOP
+//   - 移除"空数组=全局"分支: 任何 agent 都必须显式绑定才能匹配
+//
+// SQL: WHERE enabled = true AND agent_id = ?  (走 idx_sop_agent_id 索引)
+func (r *SOPTemplateRepository) MatchByAgent(ctx context.Context, agentID uint, intent, stage string) ([]model.SOPTemplate, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	q := r.db.WithContext(ctx).
+		Where("enabled = ? AND agent_id = ?", true, agentID)
+	if intent != "" {
+		q = q.Where("intent = ?", intent)
+	}
+	if stage != "" {
+		q = q.Where("stage = ?", stage)
+	}
+	var tpls []model.SOPTemplate
+	err := q.Order("priority DESC, confidence DESC, id ASC").
+		Limit(10).
+		Find(&tpls).Error
+	return tpls, err
+}
+
+// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 SOP 模板)
+//
+// 简化实现: 直接按 agent_id 过滤 (KBType=sop 假设)
+// 完整实现需 JOIN agent_kb_bindings + knowledge_bases, 此处保留简化
+func (r *SOPTemplateRepository) ListByKB(ctx context.Context, kbID uint, agentID uint, limit int) ([]model.SOPTemplate, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var tpls []model.SOPTemplate
+	q := r.db.WithContext(ctx).
+		Where("enabled = ?", true).
+		Order("id DESC").
+		Limit(limit)
+	if agentID > 0 {
+		q = q.Where("agent_id = ?", agentID)
+	}
+	if err := q.Find(&tpls).Error; err != nil {
+		return nil, err
+	}
+	return tpls, nil
+}
+
+// ListShared 列出全部共享 SOP 模板 (agent_id IS NULL)
+func (r *SOPTemplateRepository) ListShared(ctx context.Context, limit int) ([]model.SOPTemplate, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	var tpls []model.SOPTemplate
+	err := r.db.WithContext(ctx).
+		Where("agent_id IS NULL AND enabled = ?", true).
+		Order("id DESC").
+		Limit(limit).
+		Find(&tpls).Error
+	return tpls, err
+}
+
+// ListByAgent 列出某智能体的 SOP 模板集合 (不参与打分, 仅做缓存预热 / 后台同步)
+func (r *SOPTemplateRepository) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.SOPTemplate, error) {
+	if agentID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 5000
+	}
+	var tpls []model.SOPTemplate
+	err := r.db.WithContext(ctx).
+		Where("enabled = ? AND agent_id = ?", true, agentID).
+		Order("id ASC").
+		Limit(limit).
 		Find(&tpls).Error
 	return tpls, err
 }
@@ -102,6 +221,8 @@ func (r *SOPTemplateRepository) IncrementHitCount(ctx context.Context, id uint) 
 // 当 agent 绑定了 SOP template IDs 时, 仅在绑定 ID 集合内匹配;
 //
 // 绑定为空 = 走原 MatchByIntentStage 全局匹配
+//
+// Deprecated: 2026-07-31 P0-B 改造, agent SOP 范围改由 agent_id 字段实现.
 func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
 	if intent == "" || len(ids) == 0 {
 		return nil, nil
@@ -119,6 +240,8 @@ func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage st
 }
 
 // ListWithFilter 分页+过滤 (前端 SOP 模板管理页面使用)
+//
+// 2026-07-31 P0-B: 新增 AgentID 过滤 (nil=不过滤, &0=仅共享, &X=仅该智能体)
 func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.SOPTemplate{})
 	if filter.Keyword != "" {
@@ -133,6 +256,14 @@ func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTe
 	}
 	if filter.Enabled != nil {
 		q = q.Where("enabled = ?", *filter.Enabled)
+	}
+	if filter.AgentID != nil {
+		if *filter.AgentID == 0 {
+			// AgentID=0 表示查共享
+			q = q.Where("agent_id IS NULL")
+		} else {
+			q = q.Where("agent_id = ?", *filter.AgentID)
+		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -162,11 +293,17 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 }
 
 // SOPTemplateFilter SOP 模板查询过滤器 (前端管理页面)
+//
+// 2026-07-31 P0-B: AgentID 字段
+//   - nil:  不过滤 (兼容旧调用)
+//   - &0:   仅查共享 (agent_id IS NULL)
+//   - &X:   仅查该智能体 (agent_id = X)
 type SOPTemplateFilter struct {
 	Keyword  string
 	Intent   string
 	Stage    string
 	Enabled  *bool
+	AgentID  *uint
 	Page     int
 	PageSize int
 }

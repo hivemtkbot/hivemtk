@@ -157,6 +157,228 @@ func TestSOPTemplateRepository_DisabledNotMatched(t *testing.T) {
 	}
 }
 
+// 2026-07-31 P0-B: 智能体隔离测试 - 验证共享+私有隔离
+func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agentA := uint(10)
+	agentB := uint(20)
+	tpls := []*model.SOPTemplate{
+		{Name: "shared_logistics", Intent: "logistics", Stage: "initial", Template: "shared", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "agentA_logistics", Intent: "logistics", Stage: "initial", Template: "agentA", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentB_logistics", Intent: "logistics", Stage: "initial", Template: "agentB", Enabled: boolPtr(true), AgentID: &agentB},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// agentA 视角: 应匹配 shared + agentA (2 条)
+	matches, err := repo.MatchByIntentForAgent(ctx, "logistics", agentA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("agentA expected 2 (shared+agentA), got %d", len(matches))
+	}
+
+	// agentB 视角: 应匹配 shared + agentB (2 条)
+	matches, err = repo.MatchByIntentForAgent(ctx, "logistics", agentB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("agentB expected 2 (shared+agentB), got %d", len(matches))
+	}
+
+	// 兼容旧签名: agentID=0 应匹配全部 3 条
+	matches, err = repo.MatchByIntent(ctx, "logistics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 3 {
+		t.Errorf("legacy agentID=0 expected 3 (all), got %d", len(matches))
+	}
+}
+
+// 2026-07-31 P0-B: MatchByIntentStageForAgent 测试
+func TestSOPTemplateRepository_AgentIsolation_MatchByIntentStageForAgent(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agentA := uint(10)
+	tpls := []*model.SOPTemplate{
+		{Name: "shared_li", Intent: "logistics", Stage: "initial", Template: "shared", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "agentA_li", Intent: "logistics", Stage: "initial", Template: "agentA", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentA_lm", Intent: "logistics", Stage: "middle", Template: "agentA_middle", Enabled: boolPtr(true), AgentID: &agentA},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// agentA 视角 logistics+initial: 应匹配 shared + agentA (2 条)
+	matches, err := repo.MatchByIntentStageForAgent(ctx, "logistics", "initial", agentA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Errorf("agentA logistics+initial expected 2, got %d", len(matches))
+	}
+
+	// agentA 视角 logistics+middle: 仅 agentA_lm (1 条, 共享无 middle)
+	matches, err = repo.MatchByIntentStageForAgent(ctx, "logistics", "middle", agentA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("agentA logistics+middle expected 1, got %d", len(matches))
+	}
+}
+
+// 2026-07-31 P0-B: MatchByAgent 强 1:1 测试
+func TestSOPTemplateRepository_MatchByAgent_StrictOneToOne(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agentA := uint(10)
+	agentB := uint(20)
+	tpls := []*model.SOPTemplate{
+		{Name: "shared", Intent: "logistics", Stage: "initial", Template: "shared", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "agentA1", Intent: "logistics", Stage: "initial", Template: "agentA1", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentA2", Intent: "logistics", Stage: "middle", Template: "agentA2", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentB", Intent: "logistics", Stage: "initial", Template: "agentB", Enabled: boolPtr(true), AgentID: &agentB},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// MatchByAgent 不应包含 shared
+	matches, err := repo.MatchByAgent(ctx, agentA, "logistics", "initial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("agentA logistics+initial strict 1:1 expected 1, got %d", len(matches))
+	}
+	if matches[0].AgentID == nil || *matches[0].AgentID != agentA {
+		t.Errorf("expected agentA's own template, got %v", matches[0].AgentID)
+	}
+
+	// agentID=0 应返回 nil
+	matches, err = repo.MatchByAgent(ctx, 0, "logistics", "initial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches != nil {
+		t.Errorf("agentID=0 expected nil, got %d", len(matches))
+	}
+}
+
+// 2026-07-31 P0-B: ListByKB / ListShared / ListByAgent 测试
+func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agentA := uint(10)
+	agentB := uint(20)
+	tpls := []*model.SOPTemplate{
+		{Name: "shared1", Intent: "logistics", Stage: "initial", Template: "s1", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "shared2", Intent: "pricing", Stage: "initial", Template: "s2", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "agentA1", Intent: "logistics", Stage: "initial", Template: "a1", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentA2", Intent: "logistics", Stage: "middle", Template: "a2", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentB1", Intent: "logistics", Stage: "initial", Template: "b1", Enabled: boolPtr(true), AgentID: &agentB},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// ListShared 应返回 2 条 (shared1, shared2)
+	shared, err := repo.ListShared(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(shared) != 2 {
+		t.Errorf("ListShared expected 2, got %d", len(shared))
+	}
+
+	// ListByAgent(agentA) 应返回 2 条 (agentA1, agentA2)
+	aList, err := repo.ListByAgent(ctx, agentA, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(aList) != 2 {
+		t.Errorf("ListByAgent(agentA) expected 2, got %d", len(aList))
+	}
+
+	// ListByKB(kbID=X, agentID=agentA) 应仅 agentA 的
+	kbList, err := repo.ListByKB(ctx, 999, agentA, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kbList) != 2 {
+		t.Errorf("ListByKB(agentA) expected 2, got %d", len(kbList))
+	}
+}
+
+// 2026-07-31 P0-B: ListWithFilter AgentID 字段测试
+func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
+	repo, _, done := setupSOPRepoWithTX(t)
+	defer done()
+	ctx := context.Background()
+
+	agentA := uint(10)
+	tpls := []*model.SOPTemplate{
+		{Name: "shared", Intent: "logistics", Stage: "initial", Template: "s", Enabled: boolPtr(true), AgentID: nil},
+		{Name: "agentA1", Intent: "logistics", Stage: "initial", Template: "a1", Enabled: boolPtr(true), AgentID: &agentA},
+		{Name: "agentA2", Intent: "logistics", Stage: "middle", Template: "a2", Enabled: boolPtr(true), AgentID: &agentA},
+	}
+	for _, x := range tpls {
+		if err := repo.Create(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// 过滤 AgentID=&0 -> 仅共享 (1 条)
+	agentZero := uint(0)
+	got, _, err := repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentZero, Page: 1, PageSize: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Errorf("ListWithFilter AgentID=&0 expected 1 (shared), got %d", len(got))
+	}
+
+	// 过滤 AgentID=&10 -> 仅 agentA (2 条)
+	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{AgentID: &agentA, Page: 1, PageSize: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Errorf("ListWithFilter AgentID=&10 expected 2, got %d", len(got))
+	}
+
+	// 不传 AgentID -> 全部 (3 条)
+	got, _, err = repo.ListWithFilter(ctx, SOPTemplateFilter{Page: 1, PageSize: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Errorf("ListWithFilter no AgentID expected 3, got %d", len(got))
+	}
+}
+
 func TestSOPTemplateRepository_IncrementHitCount(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()
