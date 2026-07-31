@@ -121,6 +121,14 @@ type SalesEngine struct {
 	// 未注入时维持原 9 步流水线行为（向后兼容）。
 	// 通过接口注入以避免 service ↔ tooluse 循环依赖（依赖倒置原则）
 	toolExecutor AgentToolExecutor
+
+	// 2026-07-31: 双层架构 LayerRouter（可选注入, T11/T12）
+	// 注入后 Step 6 (generateCandidate) 顶部先做 Layer1 FAQ/SOP 路由:
+	//   - 命中且 conf >= 0.6 -> SkipLLM, 用 FAQ 答案或 SOP 模板回复
+	//   - 命中但 conf <  0.6 -> 走 Layer2 LLM
+	//   - FAQ/SOP 均未命中   -> 走 Layer2 LLM
+	// 未注入时维持原 LLM 单一路径 (向后兼容)
+	layerRouter *LayerRouter
 }
 
 // RAGSearcher RAG 召回接口（由 RAG 服务实现，避免循环依赖）
@@ -293,6 +301,15 @@ func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecuto
 	e.toolExecutor = exec
 }
 
+// SetLayerRouter 注入双层架构 LayerRouter（2026-07-31 T11/T12）
+//
+// 注入后 generateCandidate 顶部调用 LayerRouter.Route()，命中 Layer1 时
+// 直接返回 FAQ/SOP 模板回复（SkipLLM，零 LLM 调用）。
+// 通过 FeatureFlag FF_LAYER1=1 启用，关闭时 LayerRouter.Route 内部直接返回 Layer2。
+func (e *SalesEngine) SetLayerRouter(ctx context.Context, lr *LayerRouter) {
+	e.layerRouter = lr
+}
+
 // SalesRequest 销售请求
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SalesRequest = dto.SalesRequest
@@ -305,6 +322,10 @@ type SalesResponse = dto.SalesResponse
 // 使用 dto.SalesStepLog 替代本地类型
 
 // Handle 处理一条入站消息
+//
+// 2026-07-31: 集成并行化版本 HandleParallel
+//   - 通过 FF_PARALLEL=1 启用 (env)
+//   - 关闭时回退到原 9 步串行 (向后兼容)
 func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")
@@ -315,6 +336,13 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	if req.Config == nil {
 		req.Config = DefaultSalesEngineConfig()
 	}
+
+	// 2026-07-31: 并行化开关 (FeatureFlag 灰度)
+	// 启用时走 5 阶段并行版本; 关闭时走原 9 步串行 (向后兼容)
+	if e.shouldUseParallel() {
+		return e.HandleParallel(ctx, req)
+	}
+
 	start := time.Now()
 	resp := &SalesResponse{
 		Steps: make([]dto.SalesStepLog, 0, 9),
@@ -325,6 +353,13 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		// 不论本次是否转人工、是否 audit 拦截，都记录决策快照，
 		// 后续客户下一条消息/人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
 		e.recordFeedback(ctx, req, resp)
+		// T21: Prometheus 埋点 wall time
+		layer := dto.Layer2
+		intentName := "unknown"
+		if resp.Intent != nil {
+			intentName = resp.Intent.IntentType
+		}
+		metrics.RecordAIAgentWallTime("ai_sales", layer, intentName, float64(resp.LatencyMs)/1000.0)
 	}()
 
 	// 步骤 1：消息解析 + OneID 识别
@@ -646,6 +681,148 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	return resp, nil
 }
 
+// StreamChunkCallback 流式回调（HandleStream 内部逐 chunk 回调）
+//
+// 参数 chunk 为已填充的 dto.StreamChunk；返回 false 表示调用方希望中断流（ctx 取消或 buffer 满）。
+//
+// 设计依据：2026-07-31 AI 智能体性能优化 (T15) - WebSocket 流式输出
+//
+// 注：定义为类型别名（type alias）而非新类型，使其与外部接口（如 controller.StreamEngineInterface）
+// 的函数类型签名完全一致，避免 Go 类型不匹配。
+type StreamChunkCallback = func(chunk *dto.StreamChunk) bool
+
+// HandleStream 流式处理销售请求（WebSocket 入口）
+//
+// 设计依据：2026-07-31 AI 智能体性能优化 (T15) - WebSocket 流式输出
+//
+// 与 Handle 的区别：
+//   - Handle 一次性返回 *SalesResponse（完整回复）
+//   - HandleStream 通过 callback 实时回调 dto.StreamChunk（start / delta / final / error）
+//
+// 当前实现策略（最小可用版本，T15）：
+//   - 调用 Handle 获取最终回复（保证业务正确性）
+//   - 将最终 reply 按字符切片，按固定间隔（默认 30ms）回调 delta chunk
+//   - 最终回调 final chunk（含 steps / wall_ms / model / tokens 等元数据）
+//
+// 后续可演进：直接调用 LLM Dispatcher 的流式 API（OpenAI stream / Anthropic stream），
+// 跳过切片模拟，零额外延迟。
+//
+// 错误处理：
+//   - callback 返回 false（被中断）时立即返回 ctx.Err()
+//   - Handle 返回错误时回调 error chunk 后再返回
+//
+// 5 层架构：L4 Service 层；Controller 通过 StreamEngineInterface 注入调用。
+func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChunk StreamChunkCallback) error {
+	if req == nil {
+		return fmt.Errorf("request is nil")
+	}
+	if req.UserMessage == "" {
+		return fmt.Errorf("user_message is empty")
+	}
+	if onChunk == nil {
+		return fmt.Errorf("onChunk callback is nil")
+	}
+	if req.Config == nil {
+		req.Config = DefaultSalesEngineConfig()
+	}
+
+	// 1) start chunk：通知客户端 trace_id / 意图 / 启动
+	startChunk := &dto.StreamChunk{
+		Type:    dto.ChunkTypeStart,
+		TraceID: logger.TraceIDFromContext(ctx),
+		Step:    "start",
+	}
+	if !onChunk(startChunk) {
+		return ctx.Err()
+	}
+
+	// 2) 调用 Handle 获取完整回复（业务正确性优先；后续 T18+ 切到 LLM 直流）
+	resp, err := e.Handle(ctx, req)
+	if err != nil {
+		// error chunk
+		_ = onChunk(&dto.StreamChunk{
+			Type:    dto.ChunkTypeError,
+			TraceID: startChunk.TraceID,
+			Error:   err.Error(),
+		})
+		return fmt.Errorf("handle stream: %w", err)
+	}
+
+	// 3) 切片发送 delta chunk（每片 1-2 字符，间隔 20ms 模拟流式）
+	reply := resp.Reply
+	if reply == "" {
+		// 无文本（可能已转人工）— 直接发 final
+	} else {
+		// 按字符切片（中文按 rune 切，避免半字符）
+		runes := []rune(reply)
+		const batchSize = 2 // 每次推送 2 个字符；太大不够"流"，太小 chunk 太多
+		interval := 20 * time.Millisecond
+		for i := 0; i < len(runes); i += batchSize {
+			// ctx 取消检查
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			end := i + batchSize
+			if end > len(runes) {
+				end = len(runes)
+			}
+			delta := &dto.StreamChunk{
+				Type:    dto.ChunkTypeDelta,
+				TraceID: startChunk.TraceID,
+				Text:    string(runes[i:end]),
+				Step:    "delta",
+			}
+			if !onChunk(delta) {
+				return ctx.Err()
+			}
+			// 简易节流（仅最后一个 batch 跳过等待）
+			if end < len(runes) {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(interval):
+				}
+			}
+		}
+	}
+
+	// 4) final chunk：含完整回复 / steps / wall_ms / model / tokens
+	finalChunk := &dto.StreamChunk{
+		Type:    dto.ChunkTypeFinal,
+		TraceID: startChunk.TraceID,
+		Text:    resp.Reply,
+		Steps:   resp.Steps,
+		WallMs:  resp.LatencyMs,
+		Model:   resp.LLMModel,
+		Tokens:  resp.CostTokens,
+		Layer:   layerOfResponse(resp),
+		Step:    "final",
+	}
+	if resp.TransferredToHuman {
+		finalChunk.Metadata = `{"transferred_to_human":true,"reason":"` + resp.TransferReason + `"}`
+	}
+	if !onChunk(finalChunk) {
+		return ctx.Err()
+	}
+	return nil
+}
+
+// layerOfResponse 从 SalesResponse 推断 layer（layer1 / layer2）
+// 优先用 Confidence.DecisionBand（若注入 confidence），否则用 layer2 兜底。
+// 2026-07-31: ConfidenceDecision 没有 Layer 字段, 改用 DecisionBand 派生层名
+func layerOfResponse(resp *SalesResponse) string {
+	if resp == nil {
+		return dto.Layer2
+	}
+	if resp.Confidence != nil && resp.Confidence.DecisionBand != "" {
+		// handoff/llm_fallback/review/auto 都映射到 layer2 (单 LLM 路径)
+		return dto.Layer2
+	}
+	return dto.Layer2
+}
+
 // resolveCustomer 解析客户（OneID → 客户实体）
 func (e *SalesEngine) resolveCustomer(ctx context.Context, req *SalesRequest) (*model.Customer, error) {
 	if e.customerLookup == nil {
@@ -784,6 +961,10 @@ func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Ind
 //
 // P0-3 智能体升级：当注入了 toolExecutor 且存在可用工具时，调用 runAgentLoop
 // 走真正的 Agent Loop（LLM ↔ 工具 循环）；否则走原始一次性 LLM 调用（向后兼容）。
+//
+// 2026-07-31: 集成双层架构 (T12) - 顶部先调 LayerRouter.Route
+//   - Layer1 命中 (SkipLLM) -> 直接返回 FAQ/SOP 模板回复, 不调 LLM
+//   - Layer1 未命中/置信度低 -> 走原 LLM 路径
 func (e *SalesEngine) generateCandidate(
 	ctx context.Context,
 	req *SalesRequest,
@@ -795,6 +976,22 @@ func (e *SalesEngine) generateCandidate(
 	script *ScriptTemplate,
 	customer *model.Customer,
 ) (string, *llm.DispatchResult, error) {
+	// 2026-07-31: Layer1 双层路由 (T12) - 命中即跳过 LLM
+	if e.layerRouter != nil {
+		decision := e.layerRouter.Route(ctx, &RouteRequest{
+			SessionID:   req.SessionID,
+			CustomerID:  req.CustomerID,
+			UserMessage: req.UserMessage,
+			Intent:      intent,
+			RAGChunks:   ragChunks,
+			Stage:       stage,
+		})
+		if decision != nil && decision.SkipLLM && decision.Reply != "" {
+			// Layer1 命中: 直接返回模板回复, dispatchResult=nil 表示未调 LLM
+			return decision.Reply, nil, nil
+		}
+	}
+
 	if e.dispatcher == nil {
 		return "", nil, fmt.Errorf("dispatcher is nil")
 	}
@@ -835,7 +1032,8 @@ func (e *SalesEngine) generateCandidate(
 // agentLoopMaxIterations Agent Loop 最大迭代次数
 // 防止 LLM 无限调用工具或陷入循环。
 // 复杂多工具场景可由 SetAgentLoopMaxIterations 或 env MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖。
-var agentLoopMaxIterations = 2
+// 2026-07-31: 从 2 减为 1, 节省 50% LLM 调用 + 降低 P50 wall time
+var agentLoopMaxIterations = 1
 
 // SetAgentLoopMaxIterations 注入 Agent Loop 最大迭代次数
 // 由 main.go 启动时调用；≤0 时保持默认 2
