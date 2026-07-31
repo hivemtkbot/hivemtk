@@ -168,13 +168,23 @@ const (
 
 // ChannelAgentBinding 渠道账号 ↔ 智能体绑定
 //
-// 同一渠道账号可绑定多个智能体，但只有一个 is_primary=true
-// WebhookService 收到消息时按 (channel_type, account_id) 查询主绑定智能体
+// 强 1对1 改造 (Task 21):
+//   - 同一 (channel_type, account_id) 只能有 1 条 is_primary=true 记录
+//   - 数据库层通过部分 UNIQUE INDEX 保证: uq_channel_account_primary
+//     (channel_type, account_id) WHERE is_primary = true
+//   - 历史 is_primary=false 的辅助记录不再被业务使用, 保留为审计/回滚用途
+//   - 业务层在 Replace / Bind 时, 必须先 ClearPrimaryByChannelAccount 再 Create
+//
+// 表: channel_agent_bindings
+// 索引:
+//   - INDEX(channel_type, account_id)       按渠道账号查询
+//   - INDEX(agent_id)                       反查智能体被哪些渠道使用
+//   - uq_channel_account_primary (迁移 035) 强 1对1 部分唯一索引
 type ChannelAgentBinding struct {
 	ID          uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	ChannelType string `gorm:"type:varchar(32);not null;index:idx_channel_binding,unique" json:"channel_type"`
-	AccountID   string `gorm:"type:varchar(64);not null;index:idx_channel_binding,unique" json:"account_id"`
-	AgentID     uint   `gorm:"not null;index;index:idx_channel_binding,unique" json:"agent_id"`
+	ChannelType string `gorm:"type:varchar(32);not null;index" json:"channel_type"`
+	AccountID   string `gorm:"type:varchar(64);not null;index" json:"account_id"`
+	AgentID     uint   `gorm:"not null;index" json:"agent_id"`
 	IsPrimary   bool   `gorm:"default:true" json:"is_primary"`
 	Enabled     bool   `gorm:"default:true" json:"enabled"`
 

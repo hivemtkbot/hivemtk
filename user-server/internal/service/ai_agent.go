@@ -371,6 +371,70 @@ func (s *ChannelAgentBindingService) Delete(ctx context.Context, id uint) error 
 	return s.repo.Delete(ctx, id)
 }
 
+// ReplaceBinding 强 1对1 替换主绑定 (Task 21)
+//
+// 业务语义: "把渠道账号 (channel_type, account_id) 当前的主绑定智能体换成 agentID"
+//
+// 行为:
+//   - 同一事务内: 清除该 (channel_type, account_id) 下所有 is_primary=true 记录
+//   - 创建新主绑定 (is_primary=true, enabled=true, agent_id=agentID)
+//   - 任一步骤失败: 整体回滚, 数据库状态保持不变
+//
+// 适用场景:
+//   - 渠道账号第一次绑定智能体
+//   - 渠道账号切换绑定的智能体
+//   - 与 channel_agent_bindings 表的 uq_channel_account_primary 部分唯一索引
+//     配合, 即使并发也只有一条主绑定能落地
+func (s *ChannelAgentBindingService) ReplaceBinding(ctx context.Context, channelType, accountID string, agentID uint) (*model.ChannelAgentBinding, error) {
+	if channelType == "" {
+		return nil, errors.New("channel_type 不能为空")
+	}
+	if accountID == "" {
+		return nil, errors.New("account_id 不能为空")
+	}
+	if agentID == 0 {
+		return nil, errors.New("agent_id 不能为空")
+	}
+	// 校验智能体存在且启用
+	agent, err := s.agentRepo.GetByID(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("智能体不存在: %w", err)
+	}
+	if agent.Status != 1 {
+		return nil, errors.New("智能体已禁用, 无法绑定")
+	}
+	// 走事务: 清除旧主绑定 + 创建新主绑定, 原子性保证
+	if s.db == nil {
+		return nil, errors.New("db 未初始化, 事务不可用")
+	}
+	var created *model.ChannelAgentBinding
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		tmpRepo := repository.NewChannelAgentBindingRepository()
+		tmpRepo.SetDB(ctx, tx)
+		// 1) 清除该 (channel_type, account_id) 下所有 is_primary=true 记录
+		if err := tmpRepo.ClearPrimaryByChannelAccount(ctx, channelType, accountID); err != nil {
+			return fmt.Errorf("清除旧主绑定失败: %w", err)
+		}
+		// 2) 创建新主绑定
+		b := &model.ChannelAgentBinding{
+			ChannelType: channelType,
+			AccountID:   accountID,
+			AgentID:     agentID,
+			IsPrimary:   true,
+			Enabled:     true,
+		}
+		if err := tmpRepo.Create(ctx, b); err != nil {
+			return fmt.Errorf("创建主绑定失败: %w", err)
+		}
+		created = b
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
 // LoadAgentForChannel 加载渠道账号绑定的主智能体上下文
 // WebhookService.triggerSalesEngine 调用此方法
 // 返回 nil, nil 表示未绑定（调用方回退默认配置）
