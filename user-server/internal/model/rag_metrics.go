@@ -26,7 +26,7 @@ type RagQueryLog struct {
 	Query           string    `gorm:"column:query;type:text;not null" json:"query"`
 	QueryHash       string    `gorm:"column:query_hash;size:64;index" json:"query_hash"`
 	SessionID       string    `gorm:"column:session_id;size:128;index" json:"session_id"`
-	ProductID       int64     `gorm:"column:product_id;index;default:0" json:"product_id"`
+	ProductID string     `gorm:"column:product_id;index;default:0" json:"product_id"`
 	RetrievedDocIDs string    `gorm:"column:retrieved_doc_ids;type:text" json:"retrieved_doc_ids"` // JSON 数组字符串
 	RelevantDocIDs  string    `gorm:"column:relevant_doc_ids;type:text" json:"relevant_doc_ids"`   // JSON 数组字符串（标注/反馈来源）
 	RetrievedCount  int       `gorm:"column:retrieved_count;default:0" json:"retrieved_count"`

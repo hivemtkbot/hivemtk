@@ -9,7 +9,7 @@ import (
 )
 
 // Reindex 重建指定文档的向量索引。复用已落库的分片内容重新向量化，不重新分块。
-func (s *KnowledgeService) Reindex(ctx context.Context, productID int64, docID uint64) error {
+func (s *KnowledgeService) Reindex(ctx context.Context, productID string, docID uint64) error {
 	doc, err := s.docRepo.GetByProductAndID(ctx, productID, int64(docID))
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (s *KnowledgeService) Reindex(ctx context.Context, productID int64, docID u
 }
 
 // RebuildIndex 重建某产品下全部文档的向量索引。
-func (s *KnowledgeService) RebuildIndex(ctx context.Context, productID int64) error {
+func (s *KnowledgeService) RebuildIndex(ctx context.Context, productID string) error {
 	docs, _, err := s.docRepo.List(ctx, repository.ListFilter{ProductID: productID, PageSize: 1000})
 	if err != nil {
 		return err

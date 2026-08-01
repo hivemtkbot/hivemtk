@@ -127,7 +127,7 @@ func (i *IncrementalIndexer) handlePayload(ctx context.Context, payload event.Kn
 	start := time.Now()
 
 	docIDStr := strconv.FormatUint(uint64(payload.DocumentID), 10)
-	logger.Infof("[rag] incremental indexer received workspace=%d doc=%d change=%s hash=%s",
+	logger.Infof("[rag] incremental indexer received workspace=%v doc=%d change=%s hash=%s",
 		payload.WorkspaceID, payload.DocumentID, payload.ChangeType, payload.ContentHash)
 
 	var err error

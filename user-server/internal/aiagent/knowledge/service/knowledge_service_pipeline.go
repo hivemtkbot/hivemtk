@@ -30,7 +30,7 @@ import (
 //
 // 任何步骤失败通过 markFailed 写入 document.error_msg 并终止，
 // panic 通过 defer recover 兜底确保文档不会永久 pending。
-func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentID uint64, productID int64, filePath, fileName, content, mimeType, title string, source model.SourceType, docMeta map[string]any) {
+func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentID uint64, productID string, filePath, fileName, content, mimeType, title string, source model.SourceType, docMeta map[string]any) {
 	// panic 兜底：异步 goroutine 内异常会导致文档永久 pending 且无法重试，必须 recover 并标记失败
 	defer func() {
 		if r := recover(); r != nil {
@@ -95,7 +95,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	// 4. 写入分段表（分片携带文档级基础信息 + 业务附加字段）
 	baseMeta := map[string]any{
 		"document_id": float64(documentID),
-		"product_id":  float64(productID),
+		"product_id":  productID,
 		"title":       title,
 		"source":      string(source),
 	}
@@ -170,7 +170,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 				ChunkIndex: i,
 			}
 		}
-		_ = s.indexer.BuildIndex(bgCtx, fmt.Sprintf("product_%d", productID), idxChunks)
+		_ = s.indexer.BuildIndex(bgCtx, fmt.Sprintf("product_%s", productID), idxChunks)
 	}
 
 	// 7. 更新文档状态
@@ -188,7 +188,7 @@ func (s *KnowledgeService) processDocumentAsync(bgCtx context.Context, documentI
 	// 反查 UUID
 	var productUUID string
 	if s.ragRepo != nil {
-		if prod, _ := s.ragRepo.FindRagProductByIDOnly(bgCtx, intToString(productID)); prod != nil {
+		if prod, _ := s.ragRepo.FindRagProductByIDOnly(bgCtx, productID); prod != nil {
 			productUUID = prod.ID
 		}
 	}
@@ -205,7 +205,3 @@ func (s *KnowledgeService) markFailed(ctx context.Context, documentID uint64, er
 	}
 }
 
-// intToString int64 转 string
-func intToString(n int64) string {
-	return fmt.Sprintf("%d", n)
-}

@@ -58,10 +58,10 @@ func (r *KnowledgeOpenAPIRepository) GetByID(ctx context.Context, id uint64) (*m
 }
 
 // GetByProductAndID 根据产品和 ID 获取
-func (r *KnowledgeOpenAPIRepository) GetByProductAndID(ctx context.Context, productID, id int64) (*model.KnowledgeOpenAPISource, error) {
+func (r *KnowledgeOpenAPIRepository) GetByProductAndID(ctx context.Context, productID string, id int64) (*model.KnowledgeOpenAPISource, error) {
 	var src model.KnowledgeOpenAPISource
 	q := r.db.WithContext(ctx).Where("id = ?", id)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.First(&src).Error; err != nil {
@@ -74,10 +74,10 @@ func (r *KnowledgeOpenAPIRepository) GetByProductAndID(ctx context.Context, prod
 }
 
 // List 列出数据源
-func (r *KnowledgeOpenAPIRepository) List(ctx context.Context, productID int64) ([]model.KnowledgeOpenAPISource, error) {
+func (r *KnowledgeOpenAPIRepository) List(ctx context.Context, productID string) ([]model.KnowledgeOpenAPISource, error) {
 	var sources []model.KnowledgeOpenAPISource
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeOpenAPISource{})
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Order("created_at DESC").Find(&sources).Error; err != nil {

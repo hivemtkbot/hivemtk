@@ -15,7 +15,7 @@ import (
 //     转成余弦相似度(0~1)，与历史接口 Score 字段语义一致
 //   - ORDER BY embedding <=> $1::vector  → HNSW 索引命中
 //   - LIMIT $2  → 取 topK
-func (s *RagSearcher) vectorSearch(ctx context.Context, productID int64, query string, topK int) ([]scored, error) {
+func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query string, topK int) ([]scored, error) {
 	if s.embeddingService == nil {
 		return nil, fmt.Errorf("embedding service 未初始化")
 	}
@@ -33,7 +33,7 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID int64, query s
 	var rows []chunkRow
 	// 注意：HNSW 索引建在 embedding 列上
 	// 余弦距离 <=> 范围 [0,2]，转换为相似度 = 1 - distance
-	if productID > 0 {
+	if productID != "" {
 		sql := `
 			SELECT id, document_id, content,
 			       (1 - (embedding <=> $1::vector))::float8 AS score

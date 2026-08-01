@@ -36,13 +36,13 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 
 	// 预置向量化知识分片（使用与检索查询相同的 embedding service/config，确保同一向量空间）
 	seed := []struct {
-		productID int64
+		productID string
 		content   string
 	}{
-		{1, "7天无理由退货政策：收到商品后7天内可申请退货，运费由买家承担"},
-		{1, "质量问题退货：商品存在质量问题时可免费退货并补偿运费"},
-		{2, "发货时间：现货商品在付款后48小时内发货，预售商品以页面标注为准"},
-		{2, "快递配送：默认发顺丰，偏远地区发EMS，一般2-3天送达"},
+		{"1", "7天无理由退货政策：收到商品后7天内可申请退货，运费由买家承担"},
+		{"1", "质量问题退货：商品存在质量问题时可免费退货并补偿运费"},
+		{"2", "发货时间：现货商品在付款后48小时内发货，预售商品以页面标注为准"},
+		{"2", "快递配送：默认发顺丰，偏远地区发EMS，一般2-3天送达"},
 	}
 	ctx := context.Background()
 	seedVecs := map[string][]float32{}
@@ -89,7 +89,7 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 		}
 		best, bestSim := inGoBest(qVec)
 
-		rows, err := s.vectorSearch(ctx, 0, query, 3)
+		rows, err := s.vectorSearch(ctx, "", query, 3)
 		if err != nil {
 			t.Fatalf("vectorSearch 失败: %v", err)
 		}
@@ -149,7 +149,7 @@ func TestRagSearcher_RealVectorSearch(t *testing.T) {
 	})
 
 	t.Run("SearchIndex 单产品过滤", func(t *testing.T) {
-		chunks, err := s.SearchIndex(ctx, 1, "退货", 3, nil)
+		chunks, err := s.SearchIndex(ctx, "1", "退货", 3, nil)
 		if err != nil {
 			t.Fatalf("SearchIndex 失败: %v", err)
 		}

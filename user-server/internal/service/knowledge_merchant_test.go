@@ -196,20 +196,6 @@ func TestSubmitFeedback_ValidatesRating(t *testing.T) {
 	}
 }
 
-func TestHashStringToInt64_Deterministic(t *testing.T) {
-	a := knowledgesvc.HashStringToInt64("test-product-id")
-	b := knowledgesvc.HashStringToInt64("test-product-id")
-	if a != b {
-		t.Error("hash should be deterministic")
-	}
-	if knowledgesvc.HashStringToInt64("test-product-id") == knowledgesvc.HashStringToInt64("other-id") {
-		t.Error("different inputs should produce different hashes")
-	}
-	if a < 0 {
-		t.Error("hash should be non-negative")
-	}
-}
-
 func TestContextCheck(t *testing.T) {
 	// 确保在 nil db 上能正常返回（不依赖全局 DB 状态，避免与其他测试串扰）
 	// 显式注入 nil DB 构造服务实例，使 s.db == nil 分支被触发，SubmitFeedback 应直接返回 nil。
@@ -459,19 +445,6 @@ func TestExternalImportRequest_SourceValidation(t *testing.T) {
 		if req.Source == "" {
 			t.Errorf("source %s should not be empty", s)
 		}
-	}
-}
-
-func TestHashStringToInt64_StableAcrossStrings(t *testing.T) {
-	// 不同字符串产生不同 hash 的概率极高
-	ids := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
-	seen := make(map[int64]string)
-	for _, id := range ids {
-		h := knowledgesvc.HashStringToInt64(id)
-		if existing, ok := seen[h]; ok {
-			t.Errorf("hash collision: %s and %s -> %d", id, existing, h)
-		}
-		seen[h] = id
 	}
 }
 

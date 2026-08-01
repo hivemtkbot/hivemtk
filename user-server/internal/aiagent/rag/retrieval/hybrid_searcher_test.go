@@ -107,7 +107,7 @@ func setupHybridTestDB(t *testing.T) *gorm.DB {
 }
 
 // insertChunk 插入测试 chunk（自动维护 content_tsv）
-func insertChunk(t *testing.T, db *gorm.DB, docID, productID int64, content string, embedding []float32) {
+func insertChunk(t *testing.T, db *gorm.DB, docID uint, productID string, content string, embedding []float32) {
 	t.Helper()
 	vecLiteral := vecToPGString(embedding)
 	sql := `
@@ -146,9 +146,9 @@ func TestHybridSearcher_VectorRetrieve_EndToEnd(t *testing.T) {
 	})
 
 	// 插入 chunk
-	insertChunk(t, db, 100, 1, "如何申请退货退款流程", makeFixedVector(1024, 1.0)) // 与 query 完全相同
-	insertChunk(t, db, 101, 1, "商品保修政策说明", makeFixedVector(1024, 0.5))
-	insertChunk(t, db, 102, 1, "联系方式与客服电话", makeFixedVector(1024, 0.2))
+	insertChunk(t, db, 100, "1", "如何申请退货退款流程", makeFixedVector(1024, 1.0)) // 与 query 完全相同
+	insertChunk(t, db, 101, "1", "商品保修政策说明", makeFixedVector(1024, 0.5))
+	insertChunk(t, db, 102, "1", "联系方式与客服电话", makeFixedVector(1024, 0.2))
 
 	out, err := searcher.Search(context.Background(), "如何退货", 5)
 	if err != nil {
@@ -187,8 +187,8 @@ func TestHybridSearcher_BM25Retrieve_Fallback(t *testing.T) {
 	})
 
 	// 插入 chunk（无 embedding，但有 content_tsv）
-	insertChunkNoEmbed(t, db, 100, 1, "如何申请退货退款流程")
-	insertChunkNoEmbed(t, db, 101, 1, "商品保修政策说明")
+	insertChunkNoEmbed(t, db, 100, "1", "如何申请退货退款流程")
+	insertChunkNoEmbed(t, db, 101, "1", "商品保修政策说明")
 
 	out, err := searcher.Search(context.Background(), "退货", 5)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestHybridSearcher_BM25Retrieve_Fallback(t *testing.T) {
 }
 
 // insertChunkNoEmbed 插入无 embedding 的 chunk（仅 BM25 可用）
-func insertChunkNoEmbed(t *testing.T, db *gorm.DB, docID, productID int64, content string) {
+func insertChunkNoEmbed(t *testing.T, db *gorm.DB, docID uint, productID string, content string) {
 	t.Helper()
 	sql := `
 		INSERT INTO knowledge_chunks (document_id, product_id, content, embed_status, content_tsv)
@@ -231,7 +231,7 @@ func TestHybridSearcher_BothFail_ReturnsError(t *testing.T) {
 	})
 
 	// 插入空 chunk（让 BM25 也无法命中）
-	insertChunkNoEmbed(t, db, 100, 1, "")
+	insertChunkNoEmbed(t, db, 100, "1", "")
 
 	// 空 query：BM25 直接返回 (nil, nil)，向量路因 mockEmbed err 失败
 	// 但 searchWithProductID 的逻辑是「两路都失败才报错」，BM25 返回 nil 不算失败
@@ -262,11 +262,11 @@ func TestHybridSearcher_SearchIndex_WithProductFilter(t *testing.T) {
 	})
 
 	// 插入不同产品的 chunk
-	insertChunk(t, db, 100, 1, "产品A的退货流程", makeFixedVector(1024, 1.0))
-	insertChunk(t, db, 200, 2, "产品B的退货流程", makeFixedVector(1024, 1.0)) // 相同向量但不同 product_id
+	insertChunk(t, db, 100, "1", "产品A的退货流程", makeFixedVector(1024, 1.0))
+	insertChunk(t, db, 200, "2", "产品B的退货流程", makeFixedVector(1024, 1.0)) // 相同向量但不同 product_id
 
 	// 只查 product_id=1
-	out, err := searcher.SearchIndex(context.Background(), 1, "退货", 5)
+	out, err := searcher.SearchIndex(context.Background(), "1", "退货", 5)
 	if err != nil {
 		t.Fatalf("SearchIndex failed: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestHybridSearcher_TopKTruncation(t *testing.T) {
 
 	// 插入 10 个 chunk
 	for i := 0; i < 10; i++ {
-		insertChunk(t, db, int64(100+i), 1, fmt.Sprintf("chunk-%d", i), makeFixedVector(1024, 1.0))
+		insertChunk(t, db, uint(100+i), "1", fmt.Sprintf("chunk-%d", i), makeFixedVector(1024, 1.0))
 	}
 
 	out, err := searcher.Search(context.Background(), "test", 3)
@@ -326,7 +326,7 @@ func TestHybridSearcher_LogSearch_WritesToDB(t *testing.T) {
 		EnableRerank:     false,
 	})
 
-	insertChunk(t, db, 100, 1, "测试内容", makeFixedVector(1024, 1.0))
+	insertChunk(t, db, 100, "1", "测试内容", makeFixedVector(1024, 1.0))
 
 	_, err := searcher.Search(context.Background(), "测试", 5)
 	if err != nil {
@@ -364,8 +364,8 @@ func TestHybridSearcher_RerankerFailed_FallbackToFused(t *testing.T) {
 		EnableRerank:     true, // 启用重排，但 reranker 会失败
 	})
 
-	insertChunk(t, db, 100, 1, "测试内容1", makeFixedVector(1024, 1.0))
-	insertChunk(t, db, 101, 1, "测试内容2", makeFixedVector(1024, 0.9))
+	insertChunk(t, db, 100, "1", "测试内容1", makeFixedVector(1024, 1.0))
+	insertChunk(t, db, 101, "1", "测试内容2", makeFixedVector(1024, 0.9))
 
 	out, err := searcher.Search(context.Background(), "测试", 5)
 	if err != nil {

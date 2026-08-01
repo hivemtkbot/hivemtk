@@ -25,7 +25,7 @@ func (r *KnowledgeImportLogRepository) Create(ctx context.Context, log *model.Kn
 
 // ListFilter 导入日志筛选
 type ImportLogListFilter struct {
-	ProductID int64
+	ProductID string
 	BatchNo   string
 	Page      int
 	PageSize  int
@@ -40,7 +40,7 @@ func (r *KnowledgeImportLogRepository) List(ctx context.Context, filter ImportLo
 		filter.PageSize = 20
 	}
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeImportLog{})
-	if filter.ProductID > 0 {
+	if filter.ProductID != "" {
 		q = q.Where("product_id = ?", filter.ProductID)
 	}
 	if filter.BatchNo != "" {
@@ -66,7 +66,7 @@ type DailyTrendItem struct {
 }
 
 // DailyImportTrend 获取每日导入趋势
-func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, productID int64, days int) ([]DailyTrendItem, error) {
+func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, productID string, days int) ([]DailyTrendItem, error) {
 	if days <= 0 {
 		days = 30
 	}
@@ -84,7 +84,7 @@ func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, pro
 		Where("created_at >= ?", start).
 		Group("DATE(created_at)")
 
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 
@@ -117,11 +117,11 @@ func (r *KnowledgeImportLogRepository) DailyImportTrend(ctx context.Context, pro
 // AvgImportDurationMs 平均导入耗时(毫秒)
 //
 // 使用 COALESCE 避免无记录时返回 NULL，productID=0 表示不按 product 过滤。
-func (r *KnowledgeImportLogRepository) AvgImportDurationMs(ctx context.Context, productID int64) (float64, error) {
+func (r *KnowledgeImportLogRepository) AvgImportDurationMs(ctx context.Context, productID string) (float64, error) {
 	var avg float64
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeImportLog{}).
 		Select("COALESCE(AVG(duration_ms), 0)")
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&avg).Error; err != nil {

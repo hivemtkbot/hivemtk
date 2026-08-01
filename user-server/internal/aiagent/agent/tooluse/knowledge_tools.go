@@ -168,8 +168,8 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 	// 附加字段过滤：把检索收敛到特定业务上下文（如某客户的订单知识）
 	metadataFilters := parseMetadataFilters(args["metadata_filters"])
 
-	// 1. 将 product UUID 转换为 numeric ID（用于 knowledge_chunks.product_id 字段）
-	productNumericID := knowledgesvc.HashStringToInt64(productID)
+	// 1. 直接使用 string UUID 作为产品ID（knowledge_chunks.product_id 现已为 string）
+	productNumericID := productID
 
 	// 2. 调用 RagSearcher.SearchIndex 检索（BM25-lite 排序）
 	start := time.Now()

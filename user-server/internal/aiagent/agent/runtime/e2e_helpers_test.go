@@ -43,7 +43,7 @@ func setupE2EKnowledgeTestEnv(t *testing.T, content string) (*rag.IncrementalInd
 
 	doc := &model.KnowledgeDocument{
 		Title:       "E2E Test Doc",
-		ProductID:   1,
+		ProductID:  "1",
 		SourceType:  model.SourceTypeText,
 		FilePath:    filePath,
 		EmbedStatus: model.EmbedStatusPending,
@@ -71,7 +71,7 @@ func setupE2EKnowledgeTestEnvMulti(t *testing.T, n int) (*rag.IncrementalIndexer
 	for i := 0; i < n; i++ {
 		doc := &model.KnowledgeDocument{
 			Title:       "E2E Multi Doc",
-			ProductID:   1,
+			ProductID:  "1",
 			SourceType:  model.SourceTypeText,
 			FilePath:    filePath,
 			EmbedStatus: model.EmbedStatusPending,

@@ -29,7 +29,7 @@ func (s *RagSearcher) bm25SearchAll(ctx context.Context, query string, topK int)
 }
 
 // bm25SearchIndex 兜底:单产品 BM25-lite 检索
-func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID int64, query string, topK int) ([]MerchantRAGChunk, error) {
+func (s *RagSearcher) bm25SearchIndex(ctx context.Context, productID string, query string, topK int) ([]MerchantRAGChunk, error) {
 	if s.db == nil {
 		return nil, nil
 	}

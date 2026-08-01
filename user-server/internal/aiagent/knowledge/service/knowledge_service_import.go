@@ -41,7 +41,7 @@ func metaToJSON(m map[string]any) string {
 // ============================================================================
 
 // importUploadedFile 处理 multipart 文件上传(PDF/DOCX/TXT/MD/HTML/JSON/CSV)
-func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID int64) (*model.KnowledgeDocument, error) {
+func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if req.File == nil || req.FileHeader == nil {
 		return nil, errors.New("文件不能为空")
 	}
@@ -101,7 +101,7 @@ func (s *KnowledgeService) importUploadedFile(ctx context.Context, req *ImportRe
 }
 
 // importText 处理纯文本导入（OpenAPI/Batch 走同一路径）
-func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID int64) (*model.KnowledgeDocument, error) {
+func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if strings.TrimSpace(req.Content) == "" {
 		return nil, errors.New("内容不能为空")
 	}
@@ -143,7 +143,7 @@ func (s *KnowledgeService) importText(ctx context.Context, req *ImportRequest, p
 }
 
 // importFromURL 抓取 URL 内容（含 SSRF 防护 + HTML 标签剥离）
-func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID int64) (*model.KnowledgeDocument, error) {
+func (s *KnowledgeService) importFromURL(ctx context.Context, req *ImportRequest, product *model.RagProduct, productNumericID string) (*model.KnowledgeDocument, error) {
 	if req.SourceRef == "" {
 		return nil, errors.New("URL 不能为空")
 	}

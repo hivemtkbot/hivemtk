@@ -23,7 +23,7 @@ func (s *KnowledgeService) logImport(ctx context.Context, req *ImportRequest, do
 	if docID > 0 {
 		docIDPtr = &docID
 	}
-	productNumericID := HashStringToInt64(req.ProductID)
+	productNumericID := req.ProductID
 	log := &model.KnowledgeImportLog{
 		ProductID:   productNumericID,
 		DocumentID:  docIDPtr,

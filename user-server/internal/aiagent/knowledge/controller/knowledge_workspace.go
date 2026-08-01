@@ -338,7 +338,7 @@ func (ctrl *KnowledgeWorkspaceController) UpdateDocument(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
-	doc, err := ctrl.kbService.Get(c.Request.Context(), 0, int64(id))
+	doc, err := ctrl.kbService.Get(c.Request.Context(), "", int64(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, err.Error())
 		return
@@ -403,15 +403,14 @@ func (ctrl *KnowledgeWorkspaceController) ReindexDocument(c *gin.Context) {
 
 // RebuildProductIndex 重建产品级索引
 //
-// RAG Product ID 是 string（UUID）但 KnowledgeDocument.ProductID
-// 是 int64。这里先把 string UUID 经 knowledgesvc.HashStringToInt64 映射回 int64。
+// 知识库 product_id 现已统一为 RagProduct.ID(string UUID)，直接使用，无需哈希映射。
 func (ctrl *KnowledgeWorkspaceController) RebuildProductIndex(c *gin.Context) {
 	productIDStr := strings.TrimSpace(c.Param("product_id"))
 	if productIDStr == "" {
 		response.Error(c, http.StatusBadRequest, "产品ID不能为空")
 		return
 	}
-	productID := knowledgesvc.HashStringToInt64(productIDStr)
+	productID := productIDStr
 	if err := ctrl.kbService.RebuildIndex(c.Request.Context(), productID); err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -421,16 +420,14 @@ func (ctrl *KnowledgeWorkspaceController) RebuildProductIndex(c *gin.Context) {
 
 // GetProductOverview 获取产品级总览
 //
-// RAG Product ID 是 string（UUID）但内部 KnowledgeDocument.ProductID
-// 是 int64。此处先把 string UUID 经 HashStringToInt64
-// 映射回 int64，避免在 statsService 处做隐式 0 过滤。兼容旧前端：纯数字字符串也允许。
+// 知识库 product_id 现已统一为 string(UUID)，直接透传即可（不再做哈希映射）。
 func (ctrl *KnowledgeWorkspaceController) GetProductOverview(c *gin.Context) {
 	productIDStr := strings.TrimSpace(c.Param("product_id"))
 	if productIDStr == "" {
 		response.Error(c, http.StatusBadRequest, "产品ID不能为空")
 		return
 	}
-	productID := knowledgesvc.HashStringToInt64(productIDStr)
+	productID := productIDStr
 	overview, err := ctrl.statsService.GetOverview(c.Request.Context(), productID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -471,7 +468,7 @@ func (ctrl *KnowledgeWorkspaceController) Search(c *gin.Context) {
 	if body.Threshold <= 0 {
 		body.Threshold = 0.6
 	}
-	productID, _ := strconv.ParseInt(body.ProductID, 10, 64)
+	productID := body.ProductID
 	start := time.Now()
 	chunks, err := ctrl.kbService.Search(c.Request.Context(), productID, body.Query, body.TopK, body.Threshold)
 	latencyMs := int(time.Since(start).Milliseconds())
@@ -552,12 +549,10 @@ func (ctrl *KnowledgeWorkspaceController) CreateOpenAPISource(c *gin.Context) {
 		return
 	}
 
-	// productID 转换(如果传 string 数字)
-	if src.ProductID == 0 {
+	// 兼容从表单提交 product_id 的场景(直接作为字符串 productID)
+	if src.ProductID == "" {
 		if pID := c.PostForm("product_id"); pID != "" {
-			if pid, err := strconv.ParseInt(pID, 10, 64); err == nil {
-				src.ProductID = pid
-			}
+			src.ProductID = pID
 		}
 	}
 	if err := ctrl.openapiService.CreateSource(c.Request.Context(), &src); err != nil {
@@ -759,15 +754,8 @@ func (ctrl *KnowledgeWorkspaceController) getOperator(c *gin.Context) string {
 	return "anonymous"
 }
 
-// resolveProductID 将前端传入的 product_id 统一解析为 int64。
-// 前端知识库下拉框返回的是 UUID 字符串，而后端文档/统计/OpenAPI 等接口按 int64 哈希值过滤；
-// 为兼容两种形态：纯数字（含显式 int64 哈希或 "0"）→ 直接解析，否则按 UUID 经 HashStringToInt64 映射。
-func (ctrl *KnowledgeWorkspaceController) resolveProductID(raw string) int64 {
-	if raw == "" {
-		return 0
-	}
-	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
-		return n
-	}
-	return knowledgesvc.HashStringToInt64(raw)
+// resolveProductID 将前端传入的 product_id 统一解析为字符串。
+// 知识库 product_id 现已统一为 RagProduct.ID(string UUID)，直接透传即可。
+func (ctrl *KnowledgeWorkspaceController) resolveProductID(raw string) string {
+	return raw
 }

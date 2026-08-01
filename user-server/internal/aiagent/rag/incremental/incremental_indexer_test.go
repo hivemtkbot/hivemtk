@@ -64,7 +64,7 @@ func setupIndexerTestEnv(t *testing.T) (*IncrementalIndexer, string, uint64) {
 		Title:      "营销自动化系统介绍",
 		SourceType: "upload",
 		FilePath:   filePath,
-		ProductID:  1,
+		ProductID:  "1",
 	}
 	if err := database.WithContext(context.Background()).Create(doc).Error; err != nil {
 		t.Fatalf("create knowledge_document: %v", err)
@@ -79,7 +79,7 @@ func TestIncrementalIndexer_Create(t *testing.T) {
 	indexer, _, docID := setupIndexerTestEnv(t)
 
 	payload := event.KnowledgeDocumentChangePayload{
-		WorkspaceID: 1,
+		WorkspaceID: "1",
 		DocumentID:  uint(docID),
 		ChangeType:  "create",
 		ContentHash: "hash_create_001",
@@ -309,7 +309,7 @@ func TestIncrementalIndexer_MultipleDocuments(t *testing.T) {
 			Title:      "文档" + intToStr(i),
 			SourceType: "upload",
 			FilePath:   filePath,
-			ProductID:  1,
+			ProductID:  "1",
 		}
 		if err := database.WithContext(context.Background()).Create(doc).Error; err != nil {
 			t.Fatalf("create document %d: %v", i, err)
@@ -367,7 +367,7 @@ func TestIncrementalIndexer_ChunksPersisted(t *testing.T) {
 		Title:      "持久化测试",
 		SourceType: "upload",
 		FilePath:   filePath,
-		ProductID:  1,
+		ProductID:  "1",
 	}
 	if err := database.WithContext(context.Background()).Create(doc).Error; err != nil {
 		t.Fatalf("create doc: %v", err)

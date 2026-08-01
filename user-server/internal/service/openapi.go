@@ -74,19 +74,19 @@ func (s *OpenAPIService) CreateSource(ctx context.Context, src *model.KnowledgeO
 		return errors.New("数据源端点必须以 http:// 或 https:// 开头")
 	}
 	// 商户隔离:productID 不能为空(必须为已存在的 numeric product_id)
-	if src.ProductID == 0 {
+	if src.ProductID == "" {
 		return errors.New("product_id 不能为空")
 	}
 	return s.srcRepo.Create(ctx, src)
 }
 
 // ListSources 列出数据源
-func (s *OpenAPIService) ListSources(ctx context.Context, productID int64) ([]model.KnowledgeOpenAPISource, error) {
+func (s *OpenAPIService) ListSources(ctx context.Context, productID string) ([]model.KnowledgeOpenAPISource, error) {
 	return s.srcRepo.List(ctx, productID)
 }
 
 // GetSource 获取数据源
-func (s *OpenAPIService) GetSource(ctx context.Context, productID, id int64) (*model.KnowledgeOpenAPISource, error) {
+func (s *OpenAPIService) GetSource(ctx context.Context, productID string, id int64) (*model.KnowledgeOpenAPISource, error) {
 	return s.srcRepo.GetByProductAndID(ctx, productID, id)
 }
 
@@ -103,12 +103,12 @@ func (s *OpenAPIService) UpdateSource(ctx context.Context, src *model.KnowledgeO
 }
 
 // DeleteSource 删除数据源
-func (s *OpenAPIService) DeleteSource(ctx context.Context, productID, id int64) error {
+func (s *OpenAPIService) DeleteSource(ctx context.Context, productID string, id int64) error {
 	return s.srcRepo.Delete(ctx, uint64(id))
 }
 
 // ToggleEnabled 启用/禁用
-func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID, id int64, enabled bool) error {
+func (s *OpenAPIService) ToggleEnabled(ctx context.Context, productID string, id int64, enabled bool) error {
 	src, err := s.srcRepo.GetByProductAndID(ctx, productID, id)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ type SyncResult struct {
 }
 
 // SyncSource 同步指定数据源(全量或增量)
-func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int64) (*SyncResult, error) {
+func (s *OpenAPIService) SyncSource(ctx context.Context, productID string, sourceID int64) (*SyncResult, error) {
 	start := time.Now()
 	src, err := s.srcRepo.GetByProductAndID(ctx, productID, sourceID)
 	if err != nil {
@@ -207,7 +207,7 @@ func (s *OpenAPIService) SyncSource(ctx context.Context, productID, sourceID int
 		}
 		importReq := &knowledgesvc.ImportRequest{
 
-			ProductID:  fmt.Sprintf("%d", productID),
+			ProductID:  productID,
 			SourceType: model.SourceTypeOpenAPI,
 			Title:      title,
 			Content:    content,
@@ -237,7 +237,7 @@ func (s *OpenAPIService) SyncAllEnabled(ctx context.Context) ([]SyncResult, erro
 	}
 	results := make([]SyncResult, 0, len(sources))
 	for _, src := range sources {
-		_, err := s.SyncSource(ctx, 0, int64(src.ID))
+		_, err := s.SyncSource(ctx, src.ProductID, int64(src.ID))
 		result := SyncResult{SourceID: src.ID}
 		if err != nil {
 			result.Status = "failed"

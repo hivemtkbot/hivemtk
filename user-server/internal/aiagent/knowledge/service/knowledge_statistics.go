@@ -72,10 +72,9 @@ type IndexHealth struct {
 
 // GetOverview 获取知识库总览
 //
-// KnowledgeDocument.ProductID 是 int64，
-// 但前端传入的 RagProduct.ID 是 string UUID。调用方需将 string UUID 经
-// HashStringToInt64 映射回 int64。productID=0 表示不按 product 过滤。
-func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID int64) (*OverviewData, error) {
+// KnowledgeDocument.ProductID 是 string（与 RagProduct.ID 同为 UUID），前端直接传入。
+// productID="" 表示不按 product 过滤。
+func (s *KnowledgeStatisticsService) GetOverview(ctx context.Context, productID string) (*OverviewData, error) {
 	overview := &OverviewData{
 		EmbedStatusBreakdown: make(map[string]int64),
 		SourceTypeBreakdown:  make(map[string]int64),
@@ -193,7 +192,7 @@ type DocumentHit struct {
 }
 
 // GetDocumentStats 文档维度统计
-func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, productID int64, days int) (*DocumentStatsData, error) {
+func (s *KnowledgeStatisticsService) GetDocumentStats(ctx context.Context, productID string, days int) (*DocumentStatsData, error) {
 	overview, err := s.GetOverview(ctx, productID)
 	if err != nil {
 		return nil, err
@@ -251,7 +250,7 @@ type SearchStatsData struct {
 }
 
 // GetSearchStats 检索维度统计
-func (s *KnowledgeStatisticsService) GetSearchStats(ctx context.Context, productID int64, days int) (*SearchStatsData, error) {
+func (s *KnowledgeStatisticsService) GetSearchStats(ctx context.Context, productID string, days int) (*SearchStatsData, error) {
 	overview, err := s.GetOverview(ctx, productID)
 	if err != nil {
 		return nil, err
@@ -301,7 +300,7 @@ type OpenAPIStatsData struct {
 }
 
 // GetOpenAPIStats OpenAPI 同步统计
-func (s *KnowledgeStatisticsService) GetOpenAPIStats(ctx context.Context, productID int64) (*OpenAPIStatsData, error) {
+func (s *KnowledgeStatisticsService) GetOpenAPIStats(ctx context.Context, productID string) (*OpenAPIStatsData, error) {
 	data := &OpenAPIStatsData{}
 	sources, err := s.openapiRepo.List(ctx, productID)
 	if err != nil {
@@ -337,7 +336,7 @@ type ImportStatsData struct {
 }
 
 // GetImportStats 导入维度统计
-func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, productID int64, days int) (*ImportStatsData, error) {
+func (s *KnowledgeStatisticsService) GetImportStats(ctx context.Context, productID string, days int) (*ImportStatsData, error) {
 	data := &ImportStatsData{}
 
 	// 趋势

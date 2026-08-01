@@ -25,7 +25,7 @@ func (r *KnowledgeSearchLogRepository) Create(ctx context.Context, log *model.Kn
 
 // ListFilter 检索日志筛选
 type SearchLogListFilter struct {
-	ProductID int64
+	ProductID string
 	StartTime *time.Time
 	EndTime   *time.Time
 	Hit       *int
@@ -42,7 +42,7 @@ func (r *KnowledgeSearchLogRepository) List(ctx context.Context, filter SearchLo
 		filter.PageSize = 20
 	}
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeSearchLog{})
-	if filter.ProductID > 0 {
+	if filter.ProductID != "" {
 		q = q.Where("product_id = ?", filter.ProductID)
 	}
 	if filter.StartTime != nil {
@@ -79,7 +79,7 @@ type QualityStats struct {
 }
 
 // GetQualityStats 获取检索质量统计
-func (r *KnowledgeSearchLogRepository) GetQualityStats(ctx context.Context, productID int64, start, end time.Time) (*QualityStats, error) {
+func (r *KnowledgeSearchLogRepository) GetQualityStats(ctx context.Context, productID string, start, end time.Time) (*QualityStats, error) {
 	type Result struct {
 		Total      int
 		Hit        int
@@ -92,7 +92,7 @@ func (r *KnowledgeSearchLogRepository) GetQualityStats(ctx context.Context, prod
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeSearchLog{}).
 		Select("COUNT(*) as total, SUM(CASE WHEN hit = 1 THEN 1 ELSE 0 END) as hit, AVG(avg_score) as avg_score, MAX(max_score) as max_score, MIN(min_score) as min_score, AVG(latency_ms) as avg_latency").
 		Where("created_at BETWEEN ? AND ?", start, end)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&result).Error; err != nil {
@@ -122,7 +122,7 @@ type HotQuery struct {
 }
 
 // GetHotQueries 获取热点查询
-func (r *KnowledgeSearchLogRepository) GetHotQueries(ctx context.Context, productID int64, days, limit int) ([]HotQuery, error) {
+func (r *KnowledgeSearchLogRepository) GetHotQueries(ctx context.Context, productID string, days, limit int) ([]HotQuery, error) {
 	if days <= 0 {
 		days = 7
 	}
@@ -144,7 +144,7 @@ func (r *KnowledgeSearchLogRepository) GetHotQueries(ctx context.Context, produc
 		Group("query_hash").
 		Order("count DESC").
 		Limit(limit)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&results).Error; err != nil {
@@ -172,7 +172,7 @@ type ScoreBucket struct {
 }
 
 // GetScoreHistogram 获取分数分布直方图
-func (r *KnowledgeSearchLogRepository) GetScoreHistogram(ctx context.Context, productID int64, days int) ([]ScoreBucket, error) {
+func (r *KnowledgeSearchLogRepository) GetScoreHistogram(ctx context.Context, productID string, days int) ([]ScoreBucket, error) {
 	if days <= 0 {
 		days = 7
 	}
@@ -193,7 +193,7 @@ func (r *KnowledgeSearchLogRepository) GetScoreHistogram(ctx context.Context, pr
 		var count int64
 		q := r.db.WithContext(ctx).Model(&model.KnowledgeSearchLog{}).
 			Where("created_at >= ? AND max_score >= ? AND max_score < ?", start, b.Min, b.Max)
-		if productID > 0 {
+		if productID != "" {
 			q = q.Where("product_id = ?", productID)
 		}
 		if err := q.Count(&count).Error; err != nil {
@@ -216,7 +216,7 @@ func (r *KnowledgeSearchLogRepository) TodayCount(ctx context.Context) (int64, e
 }
 
 // SearchTrend 检索趋势
-func (r *KnowledgeSearchLogRepository) SearchTrend(ctx context.Context, productID int64, days int) ([]DailyTrendItem, error) {
+func (r *KnowledgeSearchLogRepository) SearchTrend(ctx context.Context, productID string, days int) ([]DailyTrendItem, error) {
 	if days <= 0 {
 		days = 30
 	}
@@ -231,7 +231,7 @@ func (r *KnowledgeSearchLogRepository) SearchTrend(ctx context.Context, productI
 		Select("DATE(created_at) as day, COUNT(*) as count").
 		Where("created_at >= ?", start).
 		Group("DATE(created_at)")
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&results).Error; err != nil {

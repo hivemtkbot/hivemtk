@@ -77,7 +77,7 @@ func (s *KnowledgeMerchantService) Playground(ctx context.Context, req *Playgrou
 	if req.SimilarityThreshold > 1 {
 		req.SimilarityThreshold = 1
 	}
-	productNumericID := HashStringToInt64(req.ProductID)
+	productNumericID := req.ProductID
 	start := time.Now()
 	chunks, err := s.ragSearch.SearchIndex(ctx, productNumericID, req.Query, req.TopK, req.MetadataFilters)
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *KnowledgeMerchantService) Playground(ctx context.Context, req *Playgrou
 	}, nil
 }
 
-func (s *KnowledgeMerchantService) recordSearchLog(ctx context.Context, productID int64, query string, topK int, threshold float64, count int, max, min, avg float64, latencyMs int64) error {
+func (s *KnowledgeMerchantService) recordSearchLog(ctx context.Context, productID string, query string, topK int, threshold float64, count int, max, min, avg float64, latencyMs int64) error {
 	if s.db == nil {
 		return nil
 	}

@@ -61,14 +61,14 @@ type chunkScanRow struct {
 // Retrieve 向量召回
 //
 // 参数:
-//   - productID > 0 时按产品过滤；= 0 时全产品检索
+//   - productID != "" 时按产品过滤；= 0 时全产品检索
 //   - query 原始查询文本（将被 embeddingClient 编码为向量）
 //   - topK 返回结果数（<= 0 时使用默认值 50）
 //
 // 返回:
 //   - []Chunk 已按相似度降序排序
 //   - 维度非法 / embedding 失败 / DB 错误均返回 error
-func (r *VectorRetriever) Retrieve(ctx context.Context, productID int64, query string, topK int) ([]Chunk, error) {
+func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("vector retriever 未初始化")
 	}
@@ -109,7 +109,7 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID int64, query s
 			WHERE embedding IS NOT NULL
 		`
 		args := []any{vecLiteral}
-		if productID > 0 {
+		if productID != "" {
 			sql += " AND product_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3"
 			args = append(args, productID, topK)
 		} else {

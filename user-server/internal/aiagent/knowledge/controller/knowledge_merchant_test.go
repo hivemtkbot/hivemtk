@@ -533,7 +533,7 @@ var _ = context.Background
 func TestKM_Playground_WithData(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	// 预置文档和分段
 	doc := &model.KnowledgeDocument{
 		ProductID:  pid,
@@ -597,7 +597,7 @@ func TestKM_Playground_WithData(t *testing.T) {
 func TestKM_Playground_ThresholdFilter(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Test Doc", SourceType: model.SourceTypeBatch, Status: 1}
 	ctrl.svc.GetDB().Create(doc)
 	ctrl.svc.GetDB().Create(&model.KnowledgeChunk{
@@ -635,7 +635,7 @@ func TestKM_Playground_ThresholdFilter(t *testing.T) {
 func TestKM_UpdateChunk_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
 	ctrl.svc.GetDB().Create(doc)
 	chunk := &model.KnowledgeChunk{
@@ -672,7 +672,7 @@ func TestKM_UpdateChunk_OK(t *testing.T) {
 func TestKM_DeleteChunk_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
 	ctrl.svc.GetDB().Create(doc)
 	chunk := &model.KnowledgeChunk{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "x", ContentHash: "h1", CharCount: 1, TokenCount: 1}
@@ -694,7 +694,7 @@ func TestKM_DeleteChunk_OK(t *testing.T) {
 func TestKM_SplitChunk_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
 	ctrl.svc.GetDB().Create(doc)
 	original := &model.KnowledgeChunk{DocumentID: doc.ID, ProductID: pid, ChunkIndex: 0, Content: "长内容A长内容B", ContentHash: "h1", CharCount: 10, TokenCount: 3}
@@ -719,7 +719,7 @@ func TestKM_SplitChunk_OK(t *testing.T) {
 func TestKM_ListDocumentChunks_OK(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	pid := knowledgesvc.HashStringToInt64("kb-1")
+	pid := "kb-1"
 	doc := &model.KnowledgeDocument{ProductID: pid, Title: "Doc", SourceType: model.SourceTypeBatch, Status: 1}
 	ctrl.svc.GetDB().Create(doc)
 	for i := 0; i < 3; i++ {
@@ -839,9 +839,9 @@ func TestKM_FullFlow_TokenValidate_ExternalImport(t *testing.T) {
 	if impResp.Data.Accepted != 2 {
 		t.Errorf("expected 2 accepted, got %d", impResp.Data.Accepted)
 	}
-	// 3) 验证文档已创建（通过 hash 后的 int64 查询）
+	// 3) 验证文档已创建（按 product_id 字符串查询）
 	var docCount int64
-	pidNumeric := knowledgesvc.HashStringToInt64("kb-e2e")
+	pidNumeric := "kb-e2e"
 	ctrl.svc.GetDB().Model(&model.KnowledgeDocument{}).Where("product_id = ?", pidNumeric).Count(&docCount)
 	if docCount < 2 {
 		t.Errorf("expected at least 2 docs, got %d", docCount)

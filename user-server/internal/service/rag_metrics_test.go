@@ -105,7 +105,7 @@ func TestRagMetrics_RecordQuerySync_Basic(t *testing.T) {
 	req := &RecordQueryRequest{
 		Query:           "如何申请退款",
 		SessionID:       "sess-001",
-		ProductID:       100,
+		ProductID: "100",
 		RetrievedDocIDs: []string{"d1", "d2", "d3"},
 		RelevantDocIDs:  []string{"d1", "d2"},
 		Latency:         150 * time.Millisecond,

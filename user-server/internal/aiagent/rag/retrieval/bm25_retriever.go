@@ -37,7 +37,7 @@ func NewBM25Retriever(db *gorm.DB) *BM25Retriever {
 // Retrieve BM25 召回
 //
 // 参数:
-//   - productID > 0 时按产品过滤；= 0 时全产品检索
+//   - productID != "" 时按产品过滤；= 0 时全产品检索
 //   - query 原始查询文本（zhparser 自动分词，无需手动 tokenize）
 //   - topK 返回结果数（<= 0 时使用默认值 50）
 //
@@ -45,7 +45,7 @@ func NewBM25Retriever(db *gorm.DB) *BM25Retriever {
 //  1. 优先 contextual_tsv @@ plainto_tsquery('zh_rag', $1)
 //  2. 失败（列/配置不存在）→ fallback content_tsv @@ plainto_tsquery('simple', $1)
 //  3. 仍失败 → fallback content ILIKE '%query%'（保证召回不阻断主流程）
-func (r *BM25Retriever) Retrieve(ctx context.Context, productID int64, query string, topK int) ([]Chunk, error) {
+func (r *BM25Retriever) Retrieve(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("bm25 retriever 未初始化")
 	}
@@ -71,7 +71,7 @@ func (r *BM25Retriever) Retrieve(ctx context.Context, productID int64, query str
 }
 
 // tryTSQuery 尝试指定 tsvector 列 + 文本搜索配置
-func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID int64, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
+func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
 	sql := fmt.Sprintf(`
 		SELECT id, document_id, content,
 		       ts_rank(%s, plainto_tsquery('%s', $1))::float8 AS score
@@ -79,7 +79,7 @@ func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID int64, query s
 		WHERE %s @@ plainto_tsquery('%s', $1)
 	`, tsvCol, tsConfig, tsvCol, tsConfig)
 	args := []any{query}
-	if productID > 0 {
+	if productID != "" {
 		sql += " AND product_id = $2 ORDER BY score DESC LIMIT $3"
 		args = append(args, productID, topK)
 	} else {
@@ -96,7 +96,7 @@ func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID int64, query s
 // ilikeFallback ILIKE 兜底（tsvector 列/配置不存在时）
 //
 // 简单按 query 子串匹配 content，score = 1.0（无 BM25 排序能力，仅保证有召回）
-func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID int64, query string, topK int) ([]Chunk, error) {
+func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	// 对 query 做最小转义（避免 % _ 通配符干扰）
 	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
 	pattern := "%" + escaped + "%"
@@ -106,7 +106,7 @@ func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID int64, quer
 		WHERE content ILIKE $1
 	`
 	args := []any{pattern}
-	if productID > 0 {
+	if productID != "" {
 		sql += " AND product_id = $2 ORDER BY id DESC LIMIT $3"
 		args = append(args, productID, topK)
 	} else {

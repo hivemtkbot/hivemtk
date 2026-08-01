@@ -147,7 +147,7 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 	bus.Subscribe(event.TopicKnowledgeDocumentChanged, indexer.Handle)
 
 	// 模拟 create
-	PublishKnowledgeDocumentCreate(1, uint(docID), "测试内容", 1)
+	PublishKnowledgeDocumentCreate("1", uint(docID), "测试内容", 1)
 	time.Sleep(100 * time.Millisecond)
 
 	if indexer.ChunkCount(uintToStr(uint(docID))) == 0 {
@@ -155,7 +155,7 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 	}
 
 	// 模拟 update
-	PublishKnowledgeDocumentUpdate(1, uint(docID), "更新内容", 1)
+	PublishKnowledgeDocumentUpdate("1", uint(docID), "更新内容", 1)
 	time.Sleep(100 * time.Millisecond)
 
 	if indexer.ChunkCount(uintToStr(uint(docID))) == 0 {
@@ -163,7 +163,7 @@ func TestE2E_KnowledgeIndexFlow(t *testing.T) {
 	}
 
 	// 模拟 delete
-	PublishKnowledgeDocumentDelete(1, uint(docID), 1)
+	PublishKnowledgeDocumentDelete("1", uint(docID), 1)
 	time.Sleep(100 * time.Millisecond)
 
 	if indexer.ChunkCount(uintToStr(uint(docID))) != 0 {
@@ -191,7 +191,7 @@ func TestE2E_CustomerAndKnowledgeInParallel(t *testing.T) {
 		PublishCustomerMessage("telegram", "tg_001", "cust_001", "", "msg", "")
 	}
 	for i, docID := range docIDs {
-		PublishKnowledgeDocumentCreate(1, uint(docID), "content", uint(i+1))
+		PublishKnowledgeDocumentCreate("1", uint(docID), "content", uint(i+1))
 	}
 
 	// 等待

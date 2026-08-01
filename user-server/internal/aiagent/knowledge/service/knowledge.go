@@ -119,7 +119,7 @@ func (s *KnowledgeService) Import(ctx context.Context, req *ImportRequest) (*Kno
 	if product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := HashStringToInt64(product.ID) // UUID 哈希到 int64,匹配知识库 INTEGER 字段
+	productNumericID := product.ID // UUID 哈希到 int64,匹配知识库 INTEGER 字段
 
 	start := time.Now()
 	var doc *model.KnowledgeDocument
@@ -178,8 +178,8 @@ func (s *KnowledgeService) List(ctx context.Context, filter repository.ListFilte
 
 // Get 获取文档
 //
-// KnowledgeDocument.ProductID 是 int64，调用方需将前端传入的 string UUID 经 HashStringToInt64 映射回 int64。
-func (s *KnowledgeService) Get(ctx context.Context, productID, id int64) (*model.KnowledgeDocument, error) {
+// KnowledgeDocument.ProductID 是 string（与 RAG 产品 RagProduct.ID 同为 UUID），前端直接传入，无需 HashStringToInt64 转换。
+func (s *KnowledgeService) Get(ctx context.Context, productID string, id int64) (*model.KnowledgeDocument, error) {
 	return s.docRepo.GetByProductAndID(ctx, productID, id)
 }
 
@@ -207,7 +207,7 @@ func (s *KnowledgeService) GetChunks(ctx context.Context, documentID uint64) ([]
 }
 
 // Delete 删除文档(级联清理 chunks + pgvector)
-func (s *KnowledgeService) Delete(ctx context.Context, productID, id int64) error {
+func (s *KnowledgeService) Delete(ctx context.Context, productID string, id int64) error {
 	doc, err := s.docRepo.GetByProductAndID(ctx, productID, id)
 	if err != nil {
 		return err
@@ -228,7 +228,7 @@ func (s *KnowledgeService) Delete(ctx context.Context, productID, id int64) erro
 
 	// 发布删除事件(ADR-008 §2.5 子项 2)
 	// 触发 rag.IncrementalIndexer 清理内存索引
-	agent_runtime.PublishKnowledgeDocumentDelete(uint(productID), uint(id), 0)
+	agent_runtime.PublishKnowledgeDocumentDelete(productID, uint(id), 0)
 
 	return nil
 }
@@ -244,7 +244,7 @@ func (s *KnowledgeService) Update(ctx context.Context, doc *model.KnowledgeDocum
 
 	// 发布更新事件(ADR-008 §2.5 子项 2)
 	// KnowledgeDocument 无 Content 字段(分段在 KnowledgeChunk),事件不传 content
-	agent_runtime.PublishKnowledgeDocumentUpdate(uint(doc.ProductID), uint(doc.ID), "", 0)
+	agent_runtime.PublishKnowledgeDocumentUpdate(doc.ProductID, uint(doc.ID), "", 0)
 
 	return nil
 }
@@ -254,10 +254,10 @@ func (s *KnowledgeService) ListImportLogs(ctx context.Context, filter repository
 	return s.importLogRepo.List(ctx, filter)
 }
 
-// resolveProductByNumericID 通过 numeric 哈希反查知识库。
-// 知识库主键为 UUID 字符串，而 knowledge_chunks.product_id = HashStringToInt64(UUID)。
+// resolveProductByID 通过 RAG 产品 UUID(string) 反查知识库。
+// 知识库 product_id 现已统一为 RagProduct.ID(string UUID)，与 RAG 产品直接对应。
 // 用于 ingestion / 分段编辑阶段读取 per-product embedding 配置，避免与检索侧向量空间不一致。
-func (s *KnowledgeService) resolveProductByNumericID(ctx context.Context, numericID int64) *model.RagProduct {
+func (s *KnowledgeService) resolveProductByID(ctx context.Context, productID string) *model.RagProduct {
 	if s.ragRepo == nil {
 		return nil
 	}
@@ -266,7 +266,7 @@ func (s *KnowledgeService) resolveProductByNumericID(ctx context.Context, numeri
 		return nil
 	}
 	for _, p := range products {
-		if HashStringToInt64(p.ID) == numericID {
+		if p.ID == productID {
 			return p
 		}
 	}
@@ -275,8 +275,8 @@ func (s *KnowledgeService) resolveProductByNumericID(ctx context.Context, numeri
 
 // resolveEmbeddingConfig 返回用于指定知识库向量化的 embedding 服务与配置。
 // per-product EmbeddingProviderConfig 优先；否则回退全局默认配置（与检索侧 QueryKnowledgeBase 一致）。
-func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericProductID int64) (*llm.EmbeddingService, *llm.EmbeddingConfig) {
-	if prod := s.resolveProductByNumericID(ctx, numericProductID); prod != nil && prod.EmbeddingProviderConfig.BaseURL != "" {
+func (s *KnowledgeService) resolveEmbeddingConfig(ctx context.Context, numericProductID string) (*llm.EmbeddingService, *llm.EmbeddingConfig) {
+	if prod := s.resolveProductByID(ctx, numericProductID); prod != nil && prod.EmbeddingProviderConfig.BaseURL != "" {
 		dim := prod.EmbeddingProviderConfig.Dimension
 		if dim == 0 {
 			dim = EmbeddingDim
@@ -303,7 +303,7 @@ func (s *KnowledgeService) persistChunkEmbeddings(ctx context.Context, chunks []
 
 // EmbedAndPersistChunks 向量化指定分片并写入 knowledge_chunks.embedding（per-product 配置优先）。
 // 供分段编辑（更新/重切）后重新向量化使用，确保向量与内容一致。
-func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericProductID int64, chunks []model.KnowledgeChunk) error {
+func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericProductID string, chunks []model.KnowledgeChunk) error {
 	embService, embCfg := s.resolveEmbeddingConfig(ctx, numericProductID)
 	texts := make([]string, len(chunks))
 	for i, c := range chunks {
@@ -321,7 +321,7 @@ func (s *KnowledgeService) EmbedAndPersistChunks(ctx context.Context, numericPro
 // ============================================================================
 
 // Search 检索知识库
-func (s *KnowledgeService) Search(ctx context.Context, productID int64, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
+func (s *KnowledgeService) Search(ctx context.Context, productID string, query string, topK int, threshold float64) ([]model.KnowledgeChunk, error) {
 	// 1. 向量化 query
 	queryVec, err := s.vectorizer.EmbedText(query)
 	if err != nil {

@@ -69,7 +69,7 @@ func (s *RagConfigService) QueryKnowledgeBase(ctx context.Context, productID, qu
 	}
 
 	// 1) 走 pgvector + TEI 真实向量检索
-	productNumericID := HashStringToInt64(productID)
+	productNumericID := productID
 
 	// per 知识库覆盖：若配置了 text-embedding 或 rerank，构造临时 HybridSearcher（不碰共享单例，避免竞态）
 	var merchantChunks []MerchantRAGChunk

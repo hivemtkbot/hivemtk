@@ -59,13 +59,12 @@ func (r *KnowledgeDocumentRepository) GetByID(ctx context.Context, id uint64) (*
 
 // GetByProductAndID 根据产品 ID + 文档 ID 获取(独立部署)
 //
-// KnowledgeDocument.ProductID 是 int64，
-// 但前端传入的 RagProduct.ID 是 string UUID。需要通过 HashStringToInt64 把 UUID
-// 映射回 int64 才能命中记录。productID=0 表示不按 product 过滤。
-func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, productID, id int64) (*model.KnowledgeDocument, error) {
+// KnowledgeDocument.ProductID 是 string（与 RagProduct.ID 同为 UUID），前端直接传入，无需 HashStringToInt64 转换。
+// productID="" 表示不按 product 过滤。
+func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, productID string, id int64) (*model.KnowledgeDocument, error) {
 	var doc model.KnowledgeDocument
 	q := r.db.WithContext(ctx).Where("id = ?", id)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.First(&doc).Error; err != nil {
@@ -79,16 +78,14 @@ func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, pro
 
 // ListFilter 文档列表筛选
 //
-// KnowledgeDocument.ProductID 是 int64，
-// 但前端传入的 RagProduct.ID 是 string UUID。调用方用 HashStringToInt64 把 UUID
-// 映射回 int64 后再传入。
+// KnowledgeDocument.ProductID 是 string（与 RagProduct.ID 同为 UUID），前端直接传入，无需 HashStringToInt64 转换。
 //
 // 2026-07-31 P0-B: AgentID 字段
 //   - nil:  不过滤 (兼容旧调用)
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
 type ListFilter struct {
-	ProductID   int64
+	ProductID string
 	EmbedStatus string
 	SourceType  string
 	Category    string
@@ -107,7 +104,7 @@ func (r *KnowledgeDocumentRepository) List(ctx context.Context, filter ListFilte
 		filter.PageSize = 20
 	}
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{})
-	if filter.ProductID > 0 {
+	if filter.ProductID != "" {
 		q = q.Where("product_id = ?", filter.ProductID)
 	}
 	if filter.EmbedStatus != "" {
@@ -257,13 +254,13 @@ func (r *KnowledgeDocumentRepository) Delete(ctx context.Context, id uint64) err
 }
 
 // DeleteByProduct 根据产品删除所有文档
-func (r *KnowledgeDocumentRepository) DeleteByProduct(ctx context.Context, productID int64) error {
+func (r *KnowledgeDocumentRepository) DeleteByProduct(ctx context.Context, productID string) error {
 	return r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).Where("product_id = ?", productID).
 		Delete(&model.KnowledgeDocument{}).Error
 }
 
 // CountByProduct 统计产品文档数
-func (r *KnowledgeDocumentRepository) CountByProduct(ctx context.Context, productID int64) (int64, error) {
+func (r *KnowledgeDocumentRepository) CountByProduct(ctx context.Context, productID string) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).Where("product_id = ?", productID).
 		Count(&count).Error; err != nil {
@@ -313,11 +310,11 @@ type DocHit struct {
 // SumTotalTokens 累计 token 总和
 //
 // 使用 COALESCE 避免无记录时返回 NULL，productID=0 表示不按 product 过滤。
-func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, productID int64) (int64, error) {
+func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, productID string) (int64, error) {
 	var total int64
 	q := r.db.WithContext(ctx).Model(&model.KnowledgeDocument{}).
 		Select("COALESCE(SUM(total_tokens), 0)")
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&total).Error; err != nil {
@@ -329,7 +326,7 @@ func (r *KnowledgeDocumentRepository) SumTotalTokens(ctx context.Context, produc
 // CategoryStats 按 category 统计文档数量，返回前 N
 //
 // 过滤掉空 category（避免未分类聚合干扰 TopN），productID=0 表示不按 product 过滤。
-func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, productID int64, limit int) ([]CategoryStat, error) {
+func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, productID string, limit int) ([]CategoryStat, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -340,7 +337,7 @@ func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, product
 		Group("category").
 		Order("count DESC").
 		Limit(limit)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&results).Error; err != nil {
@@ -352,7 +349,7 @@ func (r *KnowledgeDocumentRepository) CategoryStats(ctx context.Context, product
 // TopHitDocuments 命中次数最多的文档（Top N）
 //
 // productID=0 表示不按 product 过滤。
-func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, productID int64, limit int) ([]DocHit, error) {
+func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, productID string, limit int) ([]DocHit, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -361,7 +358,7 @@ func (r *KnowledgeDocumentRepository) TopHitDocuments(ctx context.Context, produ
 		Select("id, title, search_count, hit_count").
 		Order("hit_count DESC, id DESC").
 		Limit(limit)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.Scan(&results).Error; err != nil {

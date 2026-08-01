@@ -356,7 +356,7 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 	// 预置 1 个 KnowledgeChunk
 	chunk := &model.KnowledgeChunk{
 		DocumentID: 1,
-		ProductID:  12345, // 对应 hash("kb-t7-001")
+		ProductID: "12345", // 对应 hash("kb-t7-001")
 		ChunkIndex: 0,
 		Content:    "T7 测试：退款流程为联系客服并提供客户ID",
 	}

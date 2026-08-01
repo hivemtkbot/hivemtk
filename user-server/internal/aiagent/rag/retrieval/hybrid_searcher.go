@@ -181,16 +181,16 @@ func (s *HybridSearcher) ContextualEnhancer() *ContextualRetrievalEnhancer {
 //   - 两路均失败：返回 error
 //   - Reranker 失败：回退到 RRF 融合顺序
 func (s *HybridSearcher) Search(ctx context.Context, query string, topK int) ([]Chunk, error) {
-	return s.searchWithProductID(ctx, 0, query, topK)
+	return s.searchWithProductID(ctx, "", query, topK)
 }
 
 // SearchIndex 指定 product_id 检索（与现有 RagSearcher.SearchIndex 对齐）
-func (s *HybridSearcher) SearchIndex(ctx context.Context, productID int64, query string, topK int) ([]Chunk, error) {
+func (s *HybridSearcher) SearchIndex(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	return s.searchWithProductID(ctx, productID, query, topK)
 }
 
 // searchWithProductID 内部统一检索实现
-func (s *HybridSearcher) searchWithProductID(ctx context.Context, productID int64, query string, topK int) ([]Chunk, error) {
+func (s *HybridSearcher) searchWithProductID(ctx context.Context, productID string, query string, topK int) ([]Chunk, error) {
 	if s == nil {
 		return nil, fmt.Errorf("hybrid searcher 未初始化")
 	}
@@ -235,11 +235,11 @@ func (s *HybridSearcher) searchWithProductID(ctx context.Context, productID int6
 		return nil, fmt.Errorf("vector and bm25 both failed: vec=%v bm25=%v", vecErr, bm25Err)
 	}
 	if vecErr != nil {
-		logger.Ctx(ctx).Error().Err(vecErr).Int64("product_id", productID).
+		logger.Ctx(ctx).Error().Err(vecErr).Str("product_id", productID).
 			Msg("[HybridSearcher] vector retriever failed, use bm25 only")
 	}
 	if bm25Err != nil {
-		logger.Ctx(ctx).Error().Err(bm25Err).Int64("product_id", productID).
+		logger.Ctx(ctx).Error().Err(bm25Err).Str("product_id", productID).
 			Msg("[HybridSearcher] bm25 retriever failed, use vector only")
 	}
 
@@ -281,7 +281,7 @@ func (s *HybridSearcher) searchWithProductID(ctx context.Context, productID int6
 //
 // 写入 knowledge_search_logs 表（若表存在）；
 // best-effort: 失败仅记录日志，不影响主流程
-func (s *HybridSearcher) logSearch(productID int64, query string, topK, vecN, bm25N, fusedN, finalN int,
+func (s *HybridSearcher) logSearch(productID string, query string, topK, vecN, bm25N, fusedN, finalN int,
 	vecLatency, bm25Latency, rewriteLatency, rerankLatency int64,
 	rewriteStrategy string, cacheHit bool) {
 	if s.db == nil {

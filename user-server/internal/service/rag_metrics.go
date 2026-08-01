@@ -142,7 +142,7 @@ func (s *RagMetricsService) flushLoop(ctx context.Context) {
 type RecordQueryRequest struct {
 	Query           string
 	SessionID       string
-	ProductID       int64
+	ProductID string
 	RetrievedDocIDs []string
 	RelevantDocIDs  []string
 	Latency         time.Duration

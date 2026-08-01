@@ -133,7 +133,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 	}
 
 	// 2) legacy 向量检索
-	rows, vecErr := s.vectorSearch(ctx, 0, query, topK)
+	rows, vecErr := s.vectorSearch(ctx, "", query, topK)
 	if vecErr == nil && len(rows) > 0 {
 		return s.toRAGChunks(rows), nil
 	}
@@ -151,7 +151,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 // 流程与 Search 相同，但带 product_id 过滤。
 // metadata 为可选附加字段过滤条件（如 {"customer_id":"123","order_id":"A01"}），
 // 用于把检索范围收敛到特定业务上下文（如某客户的订单知识）。
-func (s *RagSearcher) SearchIndex(ctx context.Context, productID int64, query string, topK int, metadata map[string]string) ([]MerchantRAGChunk, error) {
+func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query string, topK int, metadata map[string]string) ([]MerchantRAGChunk, error) {
 	if s.db == nil {
 		return nil, nil
 	}
@@ -168,7 +168,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID int64, query st
 		if err == nil {
 			return filterMerchantChunksByMetadata(chunksToMerchantChunks(chunks), metadata), nil
 		}
-		logger.Errorf("[RagSearcher] hybrid search (product=%d) failed, fallback to legacy: %v", productID, err)
+		logger.Errorf("[RagSearcher] hybrid search (product=%s) failed, fallback to legacy: %v", productID, err)
 	}
 
 	// 2) legacy 向量检索
@@ -177,7 +177,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID int64, query st
 		return filterMerchantChunksByMetadata(s.toMerchantChunks(rows), metadata), nil
 	}
 	if vecErr != nil {
-		logger.Errorf("[RagSearcher] vector search failed (product=%d), fallback to BM25-lite: %v", productID, vecErr)
+		logger.Errorf("[RagSearcher] vector search failed (product=%s), fallback to BM25-lite: %v", productID, vecErr)
 	}
 
 	// 3) 兜底 BM25-lite
@@ -190,7 +190,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID int64, query st
 //
 // 实现：每次请求用传入的 embedding client + reranker 构造临时 HybridSearcher，
 // 不修改共享的 s.hybridSearcher 单例（避免并发竞态）。结果经 chunksToMerchantChunks 转换。
-func (s *RagSearcher) SearchIndexWithConfig(ctx context.Context, productID int64, query string, topK int, embClient llm.EmbeddingServiceInterface, reranker ragretrieval.RerankerInterface) ([]MerchantRAGChunk, error) {
+func (s *RagSearcher) SearchIndexWithConfig(ctx context.Context, productID string, query string, topK int, embClient llm.EmbeddingServiceInterface, reranker ragretrieval.RerankerInterface) ([]MerchantRAGChunk, error) {
 	if s.db == nil {
 		return nil, fmt.Errorf("db 未初始化")
 	}

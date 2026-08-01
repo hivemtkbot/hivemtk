@@ -108,13 +108,13 @@ func (r *KnowledgeChunkRepository) DeleteByDocumentID(ctx context.Context, docum
 }
 
 // DeleteByProductID 删除产品的所有分段
-func (r *KnowledgeChunkRepository) DeleteByProductID(ctx context.Context, productID int64) error {
+func (r *KnowledgeChunkRepository) DeleteByProductID(ctx context.Context, productID string) error {
 	return r.db.WithContext(ctx).Where("product_id = ?", productID).
 		Delete(&model.KnowledgeChunk{}).Error
 }
 
 // CountByProductID 统计产品分段数
-func (r *KnowledgeChunkRepository) CountByProductID(ctx context.Context, productID int64) (int64, error) {
+func (r *KnowledgeChunkRepository) CountByProductID(ctx context.Context, productID string) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.KnowledgeChunk{}).
 		Where("product_id = ?", productID).Count(&count).Error; err != nil {
@@ -133,10 +133,10 @@ func (r *KnowledgeChunkRepository) CountByMerchant(ctx context.Context) (int64, 
 }
 
 // FindByContentHash 根据内容哈希查重
-func (r *KnowledgeChunkRepository) FindByContentHash(ctx context.Context, productID int64, hash string) (*model.KnowledgeChunk, error) {
+func (r *KnowledgeChunkRepository) FindByContentHash(ctx context.Context, productID string, hash string) (*model.KnowledgeChunk, error) {
 	var chunk model.KnowledgeChunk
 	q := r.db.WithContext(ctx).Where("content_hash = ?", hash)
-	if productID > 0 {
+	if productID != "" {
 		q = q.Where("product_id = ?", productID)
 	}
 	if err := q.First(&chunk).Error; err != nil {

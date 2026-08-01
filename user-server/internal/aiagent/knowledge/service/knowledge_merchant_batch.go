@@ -60,7 +60,7 @@ func (s *KnowledgeMerchantService) BatchImport(ctx context.Context, req *BatchIm
 	if err != nil || product == nil {
 		return nil, errors.New("产品不存在")
 	}
-	productNumericID := HashStringToInt64(req.ProductID)
+	productNumericID := req.ProductID
 
 	// 收集 items
 	items := req.Items

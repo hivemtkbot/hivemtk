@@ -28,7 +28,7 @@ import (
 //   - traceID:     追踪 ID
 //
 // 返回:生成的 TraceID
-func PublishKnowledgeDocumentChange(workspaceID, documentID uint, changeType, content string, operatorID uint, traceID string) string {
+func PublishKnowledgeDocumentChange(workspaceID string, documentID uint, changeType, content string, operatorID uint, traceID string) string {
 	if traceID == "" {
 		traceID = "rag_" + time.Now().Format("20060102150405.000000")
 	}
@@ -52,16 +52,16 @@ func PublishKnowledgeDocumentChange(workspaceID, documentID uint, changeType, co
 }
 
 // PublishKnowledgeDocumentCreate 快捷方法:create
-func PublishKnowledgeDocumentCreate(workspaceID, documentID uint, content string, operatorID uint) string {
+func PublishKnowledgeDocumentCreate(workspaceID string, documentID uint, content string, operatorID uint) string {
 	return PublishKnowledgeDocumentChange(workspaceID, documentID, "create", content, operatorID, "")
 }
 
 // PublishKnowledgeDocumentUpdate 快捷方法:update
-func PublishKnowledgeDocumentUpdate(workspaceID, documentID uint, content string, operatorID uint) string {
+func PublishKnowledgeDocumentUpdate(workspaceID string, documentID uint, content string, operatorID uint) string {
 	return PublishKnowledgeDocumentChange(workspaceID, documentID, "update", content, operatorID, "")
 }
 
 // PublishKnowledgeDocumentDelete 快捷方法:delete
-func PublishKnowledgeDocumentDelete(workspaceID, documentID uint, operatorID uint) string {
+func PublishKnowledgeDocumentDelete(workspaceID string, documentID uint, operatorID uint) string {
 	return PublishKnowledgeDocumentChange(workspaceID, documentID, "delete", "", operatorID, "")
 }
