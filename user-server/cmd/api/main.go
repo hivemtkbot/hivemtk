@@ -26,6 +26,7 @@ import (
 	"marketing/internal/platform"
 	"marketing/internal/router"
 	"marketing/internal/service"
+	"marketing/internal/system/install"
 	"marketing/internal/websocket"
 )
 
@@ -186,6 +187,11 @@ func main() {
 	}
 	middleware.InitLicenseChecker(platformURL, "")
 	logger.Infof("[启动] 初始化上报检查器（install.lock + 3 分钟心跳 + 9 分钟容错）")
+
+	// 注入数据库超管探测：将"是否已初始化"的真相源兜底到数据库。
+	// 这样即使 install.lock 因卷异常/误删丢失，只要库中有超管，重启后仍判定为已初始化，
+	// 根治"每次重启都要重新初始化"的问题。
+	install.SetAdminProbe(service.NewSystemUserService().GetFirstAdminUsername)
 	// 开源版：启动 3 分钟心跳上报（采集设备指纹 / 主机信息 / 运行指标，IP 由平台侧采集）
 	platform.StartHeartbeat(context.Background())
 

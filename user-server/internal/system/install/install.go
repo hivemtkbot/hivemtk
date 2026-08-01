@@ -12,6 +12,7 @@
 package install
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -51,9 +52,24 @@ var (
 	mu      sync.RWMutex
 	memoLR  *Lock
 	memoExp time.Time
+
+	// adminProbe 由 main 启动后注入：探测数据库是否已存在超管账号。
+	// inject 目的是将"是否已初始化"的真相源从易丢失的本地 install.lock 文件
+	// 兜底到数据库——只要库中有超管，重启/重建/卷异常导致 install.lock 丢失时
+	// 仍判定为已初始化，避免"每次重启都要重新初始化"。
+	adminProbeMu sync.RWMutex
+	adminProbe   func(ctx context.Context) (string, error)
 )
 
 const memoTTL = 2 * time.Second
+
+// SetAdminProbe 注入数据库超管探测函数（main 启动时调用）。
+// fn 返回首个超管用户名；若库中无超管返回 ("", nil) 或 gorm.ErrRecordNotFound。
+func SetAdminProbe(fn func(ctx context.Context) (string, error)) {
+	adminProbeMu.Lock()
+	defer adminProbeMu.Unlock()
+	adminProbe = fn
+}
 
 // Load 读取 install.lock（带 2 秒内存缓存，文件 IO 在 InitGuard 高频路径上避免抖动）
 func Load() (*Lock, error) {
@@ -188,13 +204,26 @@ type Status struct {
 }
 
 // GetStatus 返回当前初始化状态
+//
+// 判定真相源优先级（根治"重启后要求重新初始化"）：
+//  1. install.lock 文件：initialized==true 且 admin_username 非空 → INITIALIZED（最快路径）。
+//  2. 数据库兜底：文件缺失/未初始化时，若 DB 中已存在超管账号，
+//     仍判定为 INITIALIZED，并回填 install.lock，使后续请求直接走文件缓存。
+//     这样即便 install.lock 因卷异常/误删丢失，只要库中有超管就不会要求重新初始化。
 func GetStatus() *Status {
 	lr, err := Load()
 	if err != nil || lr == nil {
-		return &Status{
-			State:       "NOT_INSTALLED",
-			Initialized: false,
-			HasAdmin:    false,
+		// 文件缺失：用数据库兜底
+		if name := probeDBAdmin(); name != "" {
+			// 补写 install.lock，避免每次都查库
+			_ = MarkAdminInitialized(name)
+			lr = &Lock{AdminUsername: name, Initialized: true}
+		} else {
+			return &Status{
+				State:       "NOT_INSTALLED",
+				Initialized: false,
+				HasAdmin:    false,
+			}
 		}
 	}
 	st := &Status{
@@ -206,11 +235,40 @@ func GetStatus() *Status {
 		st.State = "INITIALIZED"
 		st.Initialized = true
 	} else if lr.AdminUsername != "" {
-		st.State = "HAS_ADMIN"
+		// 文件记了超管但 initialized 仍为 false：以 DB 兜底再确认一次
+		if name := probeDBAdmin(); name != "" {
+			_ = MarkAdminInitialized(name)
+			st.State = "INITIALIZED"
+			st.Initialized = true
+		} else {
+			st.State = "HAS_ADMIN"
+		}
 	} else {
-		st.State = "NOT_INSTALLED"
+		// 文件无超管：若 DB 有超管则兜底
+		if name := probeDBAdmin(); name != "" {
+			_ = MarkAdminInitialized(name)
+			st.State = "INITIALIZED"
+			st.Initialized = true
+		} else {
+			st.State = "NOT_INSTALLED"
+		}
 	}
 	return st
+}
+
+// probeDBAdmin 调用注入的 DB 探测；未注入或探测失败返回 ""（视为无超管）。
+func probeDBAdmin() string {
+	adminProbeMu.RLock()
+	fn := adminProbe
+	adminProbeMu.RUnlock()
+	if fn == nil {
+		return ""
+	}
+	name, err := fn(context.Background())
+	if err != nil || name == "" {
+		return ""
+	}
+	return strings.TrimSpace(name)
 }
 
 // GetAdminUsername 返回 install.lock 中记录的超管账号
