@@ -79,13 +79,13 @@ RUN mkdir -p /app/logs /app/uploads /app/data
 
 RUN addgroup -S app && adduser -S app -G app && \
     chown -R app:app /app /app/logs /app/uploads /app/data
-USER app
-
+# 注意：此处不切换 USER，保留 root 以便入口脚本修正挂载卷属主，
+# 再由入口脚本降级到 app 用户运行（见 docker-entrypoint.sh）
 EXPOSE 8204
 
-# prod → 二进制；dev → air（/usr/local/bin 不被 volume 覆盖）
-CMD if [ "$RUN_MODE" = "dev" ]; then \
-      /usr/local/bin/air; \
-    else \
-      /app/user-server; \
-    fi
+# 入口脚本：root 修正卷属主后降级 app 运行（避免日志目录 permission denied）
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["/app/user-server"]
