@@ -195,7 +195,6 @@ grep -rn '"8204"\|"8203"\|"8205"\|"8206"\|"8207"\|"8208"\|"8209"\|"8232"\|8202' 
 
 | 反模式位置（修复前） | 修复后 |
 | --- | --- |
-| `cmd/reset-admin/main.go:143-148` 兜底 `pg.Host=localhost/pg.Port=8202/pg.Password=password123` | `log.Fatalf` 明确报错，强制 `POSTGRES_PASSWORD` 注入 |
 | `cmd/seed/main.go:191-198` 同样兜底 | 同上 |
 | `cmd/perf/main.go:22` `baseURL = "http://localhost:8080"` | 改为 `config.DefaultUserServerBaseURL`（= `http://localhost:8204`） |
 | `cmd/embedding-server/main.go:92` `port := flag.Int("port", 80, ...)` | 改为 `config.DefaultEmbeddingPort`（= `8208`） |

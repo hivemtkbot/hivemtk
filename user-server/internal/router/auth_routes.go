@@ -11,8 +11,6 @@ import (
 )
 
 // setupAuthRoutes 认证相关路由
-// 注意：初始化/忘记密码相关路由（init-change-password、forgot-admin-password、reset-admin-password）
-// 已迁移到 setupPublicRoutes（公开路由），因为这些路由在初始化或无 JWT 场景下必须可访问
 func setupAuthRoutes(auth *gin.RouterGroup) {
 	authCtrl := controller.NewAuthController()
 	auth.POST("/auth/refresh-token", authCtrl.RefreshToken)

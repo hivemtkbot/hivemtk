@@ -24,7 +24,6 @@ graph TB
         EmbeddingServer[cmd/embedding-server<br/>可选 Embedding HTTP 服务]
         Perf[cmd/perf<br/>压测工具]
         RouteInspect[cmd/routeinspect<br/>路由自检]
-        ResetAdmin[cmd/reset-admin<br/>运维工具]
         Seed[cmd/seed<br/>种子数据工具]
     end
 
@@ -126,7 +125,7 @@ ASCII 简表（便于离线阅读）：
 
 ```
 user-server/
-├── cmd/{api,embedding-server,perf,routeinspect,reset-admin,seed}/   L1 进程装配（embedding-server 可选，Docker 不打包）
+├── cmd/{api,embedding-server,perf,routeinspect,seed}/   L1 进程装配（embedding-server 可选，Docker 不打包）
 ├── internal/
 │   ├── router/                                 L2 路由声明（router.go + *_routes.go）
 │   ├── controller/                             L3 表现层（薄 handler）

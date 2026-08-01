@@ -167,7 +167,6 @@ node scripts/build.mjs
 | `cmd/embedding-server` | `go run ./cmd/embedding-server -port=8208` | 8208 | 纯 Go Embedding HTTP（无 host 推理栈时备用） | `config.DefaultEmbeddingPort` |
 | `cmd/seed` | `go run ./cmd/seed` 或 `go run ./cmd/seed --module=customers` | - | 演示种子数据写入（10 个模块） | - |
 | `cmd/perf` | `go run ./cmd/perf -username=xxx -password=xxx` | - | 压测（必须显式传账号密码） | `config.DefaultUserServerBaseURL` |
-| `cmd/reset-admin` | `go run ./cmd/reset-admin --username=admin` | - | 重置超管账号 | - |
 | `cmd/routeinspect` | `go run ./cmd/routeinspect` | - | 路由自检（仅打印路由） | - |
 
 **单一源约束（禁软启动 / 禁多处硬编码）**：
@@ -194,7 +193,6 @@ user-server/
 │   ├── embedding-server/                 可选 Embedding HTTP 服务（纯 Go char n-gram TF-IDF；Docker 不打包，host 推理栈不可用时单独构建）
 │   ├── perf/                             压测工具
 │   ├── routeinspect/                     路由自检工具（仅打印 chat-channels 路由到 stderr）
-│   ├── reset-admin/                      运维工具
 │   └── seed/                             种子数据工具（用户/客户/线索/AI Agent/资产等）
 ├── config/                               平台对接配置（platform.yaml）
 ├── docs/                                 dev 文档（Swagger 注释当前未启用）

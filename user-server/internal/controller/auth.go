@@ -146,64 +146,6 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	response.Success(ctx, nil, "修改密码成功")
 }
 
-// ============== P0-4 平台超管忘记密码流程 ==============
-
-// ForgotAdminPasswordRequest 申请重置超管密码请求
-// 开源版：移除 company_name 安全问答，改为仅校验 admin_username
-// （原 LicenseKey 绑定的 Company 字段已不再使用）
-type ForgotAdminPasswordRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=20"`
-}
-
-// ForgotAdminPasswordRequest 申请重置超管密码
-// 返回一次性 reset_token（5 分钟有效）
-// 该 token 通过响应返回（私域部署：管理员可人工操作；公网部署：应改为邮件发送）
-func (c *AuthController) ForgotAdminPassword(ctx *gin.Context) {
-	var req ForgotAdminPasswordRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
-		return
-	}
-
-	token, err := c.authService.CreateForgotPasswordToken(context.Background(), req.Username)
-	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	response.Success(ctx, gin.H{
-		"reset_token": token,
-		"expires_in":  300, // 5 分钟
-		"message":     "验证通过，请使用 reset_token 调用重置接口（5 分钟内有效）",
-	}, "验证通过")
-}
-
-// ResetAdminPasswordRequest 重置超管密码请求
-type ResetAdminPasswordRequest struct {
-	Username    string `json:"username" binding:"required,min=3,max=20"`
-	ResetToken  string `json:"reset_token" binding:"required,len=64"`
-	NewPassword string `json:"new_password" binding:"required,min=8"`
-}
-
-// ResetAdminPassword 使用 reset_token 重置超管密码
-func (c *AuthController) ResetAdminPassword(ctx *gin.Context) {
-	var req ResetAdminPasswordRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
-		return
-	}
-
-	if err := c.authService.ResetAdminPasswordWithToken(context.Background(), req.Username, req.ResetToken, req.NewPassword); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	response.Success(ctx, gin.H{
-		"username": req.Username,
-		"message":  "超管密码已重置，请使用新密码登录",
-	}, "密码重置成功")
-}
-
 // ============== P1-1 MFA 多因素认证 ==============
 
 // SetupMFA 设置 MFA：生成 TOTP 密钥并返回 otpauth URL

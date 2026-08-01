@@ -74,7 +74,7 @@ user-web/
 │   │   ├── chat/embed/              #   公开嵌入聊天窗（ChatWindow + 子组件）
 │   │   ├── setup/InitSetup.vue      #   系统初始化向导
 │   │   ├── aiAgent/、customer360/、knowledge/、sms/、email/ ... 60+ 业务目录
-│   │   ├── Login.vue / Profile.vue / Notifications.vue / NotFound.vue / ForgotPassword.vue
+│   │   ├── Login.vue / Profile.vue / Notifications.vue / NotFound.vue
 │   │   └── ...
 │   ├── App.vue                     # 根组件
 │   └── main.js                     # 入口（createApp + router + pinia + ElementPlus + i18n）

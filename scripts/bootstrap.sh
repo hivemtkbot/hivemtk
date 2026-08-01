@@ -85,19 +85,7 @@ done
 
 # 3) 创建默认 admin 账号（仅在不存在时）
 log "检查 admin 账号..."
-ADMIN_EXISTS=$(psql -tA -c "SELECT count(*) FROM system_users WHERE username='$ADMIN_USERNAME';")
-if [ "$ADMIN_EXISTS" = "0" ]; then
-    log "创建 admin 账号（$ADMIN_USERNAME/$ADMIN_PASSWORD）..."
-    cd "$USER_SERVER_DIR"
-    POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-    JWT_SECRET="${JWT_SECRET:-e12a780c716a6aebfb4254960d90fce4e89568bc42a15343ac71da3fbd13f6d8}" \
-    MERCHANT_API_SECRET="${MERCHANT_API_SECRET:-c8d036c275d3acc71a10a07f24385aa1b9bbe74d211caf8d7ef2a0a2b4dbe610}" \
-    PLATFORM_LICENSE_SECRET="${PLATFORM_LICENSE_SECRET:-7d8bf609d350893f097386c1b9220d2c3b6c5a9b78491ca2db0f83d070743cba}" \
-    go run ./cmd/reset-admin --username "$ADMIN_USERNAME" --password "$ADMIN_PASSWORD" --email "$ADMIN_EMAIL" 2>&1 | tail -5
-    log "  admin 账号已创建"
-else
-    log "  admin 账号已存在，跳过"
-fi
+
 
 # 4) 跑 Go seed 全模块
 log "执行 Go 种子（10 模块）..."

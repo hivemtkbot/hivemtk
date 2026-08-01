@@ -84,7 +84,6 @@ user-server/
 ├── cmd/
 │   ├── api/                    # 主二进制 user-server 入口
 │   ├── perf/                   # 性能压测工具
-│   ├── reset-admin/            # 管理员重置工具
 │   └── routeinspect/           # 路由自检工具（导出 ROUTES.md）
 ├── config/                     # 平台对接配置
 ├── docs/                       # Swagger 注释

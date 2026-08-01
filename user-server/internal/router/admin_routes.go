@@ -62,9 +62,6 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
-	// "首次强制改密"(init-change-password) 与"通过授权找回密码"
-	// (forgot-admin-password / reset-admin-password) 路由未启用，找回密码统一在账号个人中心进行。
-
 	// P1-1 MFA 登录第二步验证：使用 temp_token（不依赖 JWT）
 	// 登录密码验证通过后，若用户启用了 MFA，会返回 need_mfa=true + temp_token，
 	// 前端再调用此接口提交 temp_token + 6 位 TOTP 码完成登录

@@ -2,11 +2,8 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	"marketing/internal/model"
@@ -237,134 +234,6 @@ func (s *AuthService) toUserResponse(ctx context.Context, user *model.SystemUser
 		LastLoginAt: user.LastLogin,
 		CreatedAt:   user.CreatedAt,
 		UpdatedAt:   user.UpdatedAt,
-	}
-}
-
-// ============== P0-4 平台超管忘记密码流程 ==============
-
-// forgotTokenStore 全局：保存 reset_token → {username, expire_at}
-// 单实例部署够用；多实例需改用 Redis（架构升级时再迁移）
-var (
-	forgotTokenStore      = make(map[string]forgotTokenEntry)
-	forgotTokenStoreMutex sync.RWMutex
-)
-
-type forgotTokenEntry struct {
-	Username  string
-	ExpiresAt time.Time
-}
-
-// CreateForgotPasswordToken 创建"忘记密码"一次性 token
-// 开源版：仅校验 username == install.lock.AdminUsername，移除公司名校验
-// 私域部署：响应中直接返回 token（管理员自己操作）
-// 公网部署：应改为通过 contact_email 发送，不直接返回
-func (s *AuthService) CreateForgotPasswordToken(ctx context.Context, username string) (string, error) {
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return "", errors.New("用户名不能为空")
-	}
-
-	// 1. 加载 install.lock
-	lock, err := install.LoadInstallLockPublic()
-	if err != nil {
-		return "", errors.New("系统未安装或安装文件损坏")
-	}
-	if lock == nil {
-		return "", errors.New("系统尚未初始化")
-	}
-
-	// 2. 校验 username == AdminUsername
-	if lock.AdminUsername == "" {
-		return "", errors.New("系统未创建超管，无法重置密码")
-	}
-	if !strings.EqualFold(lock.AdminUsername, username) {
-		// 不暴露具体错误
-		return "", errors.New("用户名不匹配")
-	}
-
-	// 3. 生成 64 字符 token
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", errors.New("生成 token 失败")
-	}
-	token := hex.EncodeToString(tokenBytes) // 64 字符
-
-	// 5. 存入 store（5 分钟过期）
-	entry := forgotTokenEntry{
-		Username:  username,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
-	}
-	forgotTokenStoreMutex.Lock()
-	forgotTokenStore[token] = entry
-	forgotTokenStoreMutex.Unlock()
-
-	// 清理过期 token
-	go s.cleanupExpiredForgotTokens(ctx)
-
-	logger.Info("CreateForgotPasswordToken: 为 " + username + " 创建 reset_token")
-	return token, nil
-}
-
-// ResetAdminPasswordWithToken 使用 reset_token 重置超管密码
-func (s *AuthService) ResetAdminPasswordWithToken(ctx context.Context, username, token, newPassword string) error {
-	username = strings.TrimSpace(username)
-	if username == "" || token == "" {
-		return errors.New("参数错误")
-	}
-	if len(token) != 64 {
-		return errors.New("token 格式不正确")
-	}
-
-	// 1. 校验密码强度
-	if err := validatePassword(newPassword); err != nil {
-		return err
-	}
-
-	// 2. 查找并消费 token
-	forgotTokenStoreMutex.Lock()
-	entry, ok := forgotTokenStore[token]
-	if ok {
-		delete(forgotTokenStore, token) // 一次性
-	}
-	forgotTokenStoreMutex.Unlock()
-
-	if !ok {
-		return errors.New("token 无效或已使用")
-	}
-	if time.Now().After(entry.ExpiresAt) {
-		return errors.New("token 已过期")
-	}
-	if !strings.EqualFold(entry.Username, username) {
-		return errors.New("token 与用户名不匹配")
-	}
-
-	// 3. 找到用户并重置密码
-	user, err := s.systemUserRepo.GetByUsername(ctx, username)
-	if err != nil {
-		return errors.New("用户不存在")
-	}
-	hashed, err := HashPassword(newPassword)
-	if err != nil {
-		return errors.New("用户不存在")
-	}
-	user.Password = hashed
-	if err := s.systemUserRepo.Update(ctx, user); err != nil {
-		return errors.New("保存失败，请稍后重试")
-	}
-
-	logger.Info("ResetAdminPasswordWithToken: 超管密码重置成功 username=" + username)
-	return nil
-}
-
-// CleanupExpiredForgotTokens 清理过期的 forgot token（公开给 cron 或测试调用）
-func (s *AuthService) cleanupExpiredForgotTokens(ctx context.Context) {
-	forgotTokenStoreMutex.Lock()
-	defer forgotTokenStoreMutex.Unlock()
-	now := time.Now()
-	for k, v := range forgotTokenStore {
-		if now.After(v.ExpiresAt) {
-			delete(forgotTokenStore, k)
-		}
 	}
 }
 

@@ -220,7 +220,6 @@
 | 功能 | 路由路径 | API 文件 | 主要视图 | 说明 |
 | --- | --- | --- | --- | --- |
 | 登录 | `/login` | `users.js` | `views/Login.vue` | 用户端登录入口 |
-| 忘记密码 | `/forgot-password` | `users.js` | `views/ForgotPassword.vue` | 找回密码 |
 | 系统初始化 | `/setup` | `system.js` | `views/setup/InitSetup.vue` | 首次部署时初始化系统；3 步向导 |
 | 个人资料 | `/profile` | `users.js` | `views/Profile.vue` | 当前登录账号信息 |
 | 通知中心 | `/notifications` | —（独立模块） | `views/Notifications.vue` | 平台系统通知、版本公告 |
