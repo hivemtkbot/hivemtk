@@ -438,7 +438,4 @@ func Setup(r *gin.Engine) {
 	{
 		setupPlatformRoutes(platform, platformCtrl)
 	}
-
-	// P0-6 修复：系统级管理路由（高危操作，需 admin 角色）
-	setupSystemAdminRoutes(r)
 }

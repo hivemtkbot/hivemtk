@@ -610,7 +610,6 @@ func setupFrontendAliases(auth *gin.RouterGroup, engine *gin.Engine) {
 	doReg("GET", "/system/configs/list", sysCfgCtrl.GetConfig)
 	doReg("GET", "/system/configs/:key", sysCfgCtrl.GetConfig)
 	doReg("PUT", "/system/configs/:key", sysCfgCtrl.SaveConfig)
-	// /api/system/reset 已在 setupSystemAdminRoutes 注册，doReg 会自动跳过
 
 	// ============================================================
 	// 44. 存储配置 - 别名

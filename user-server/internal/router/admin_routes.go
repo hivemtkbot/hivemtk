@@ -153,8 +153,6 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	// D 域 P1 缺口修复 - 邮件追踪像素 + Postmark/SendCloud webhook（公开）
 	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
-	// P0-6 修复：/api/system/reset 不再是公开路由——见 setupSystemAdminRoutes
-
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台
 	// 公开 webhook 入口：所有渠道（TG/WA/小程序/邮件上行/短信上行/...）推送到此
 	// 内部再加分布式锁做防抖 + 人工接管锁拦截
@@ -188,11 +186,4 @@ func wirePublicDependencies(db *gorm.DB) publicDeps {
 	}
 }
 
-// setupSystemAdminRoutes 系统级管理路由（需要 admin 角色 + JWT 鉴权）
-// 用途：高危操作（系统重置、热重启等）
-// 中间件链：InitGuard → JWTAuthMiddleware → AdminAuthMiddleware → LicenseGuard
-// 注意：此分组不能放进 auth 组（会强制走 LicenseGuard 先），所以独立建组
-func setupSystemAdminRoutes(r *gin.Engine) {
-	// "一键重置"(/api/system/reset) 等高危授权路由未启用。
-	// 系统重置不在产品流程内，如需重置请在账号个人中心或运维手段处理。
-}
+
