@@ -49,6 +49,11 @@ func InitDB() {
 	}
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: gormLogger.Default.LogMode(logLevel),
+		// 迁移时禁用外键约束自动创建：生产外键由 init-user-db.sql 预建，
+		// 且部分模型外键列类型与引用列存在历史不一致（如 platform_account_configs.rag_product_id
+		// 为 varchar 而 rag_products.id 为 integer），AutoMigrate 会因 42804 直接 panic。
+		// 禁用后由应用层保证引用一致性，避免建表被外键类型不匹配阻断。
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 
 	if err != nil {
