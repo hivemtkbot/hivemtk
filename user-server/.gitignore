@@ -115,3 +115,5 @@ internal/aiagent/knowledge/controller/uploads/
 # ---------- 一次性调试/构建产物 ----------
 /seed
 seed
+/importfaq
+importfaq

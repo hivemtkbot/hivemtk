@@ -155,5 +155,14 @@ install.lock
 # ---------- 开发工具配置 ----------
 .air.toml
 
+# ---------- 生成产物（机器生成，不应纳入版本追踪）----------
+# 自动生成的代码/接口清单文档（由脚本重新生成）
+user-server/NEW_FUNCTIONS_INVENTORY.md
+# 前端测试 / UI 扫描生成的产物与缓存（由脚本重新生成）
+user-web/tests/API_TEST_RESULTS.json
+user-web/tests/API_INVENTORY.json
+user-web/tests/.api_id_cache.json
+user-web/docs/ui-inventory/inventory.json
+
 # CodeBuddy IDE 数据（不纳入版本追踪）
 .codebuddy/
