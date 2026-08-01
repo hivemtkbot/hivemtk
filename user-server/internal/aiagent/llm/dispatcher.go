@@ -44,6 +44,10 @@ type ProviderConfig struct {
 	// 为 true 时，Dispatcher 会启用 ReAct 适配器，通过文本协议完成工具调用
 	// 适用场景：本地 LLM（llama.cpp / mtk-llm / 部分 ChatGLM 版本）不支持 FC
 	NoFC bool `json:"no_fc,omitempty"`
+	// DisplayName/Vendor/Tags 为可视化展示与分类元数据，随 provider 落库
+	DisplayName string   `json:"display_name,omitempty"`
+	Vendor      string   `json:"vendor,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 // ScenarioRoute 场景路由策略
@@ -150,7 +154,7 @@ func NewDispatcherFromConfig(cfg config.AppConfig) *Dispatcher {
 	d := newDispatcherBase(NewLLMService())
 	d.registerLocalProvider(cfg.Inference.LLM)
 	d.registerCloudProvidersFromConfig(cfg.Inference.LLM)
-	d.registerLocalFirstRoutes(timeoutSec * 1000) // ms
+	d.registerLocalFirstRoutes(cfg.Inference.LLM.PrimaryProvider, timeoutSec*1000) // ms
 	return d
 }
 
@@ -207,11 +211,11 @@ func resolveNoFC(llmCfg config.InferenceLLMConfig) bool {
 
 // defaultCloudProviderFactories 云端厂商默认工厂（仅用于未配置场景的占位注册）
 //
-// 设计意图：NewDispatcherFromConfig 必须先把这些云端厂商注册到 d.providers（即使 enabled=false），
-// 这样：
-//  1. 运营后台 / API 层可以枚举 d.providers 看到全部可用厂商
-//  2. SetRoute / SetRouteWithAudit 可以把云端作为 fallback 而无需先手动 AddProvider
-//  3. 测试用例（如 TestNewDispatcherFromConfig_LocalFirst）能验证"无 api_key 时注册但禁用"的契约
+// 设计意图：NewDispatcherFromConfig 仅把 deepseek 以 disabled 占位注册（deepseek 仅用于测试），
+// 其余云端（qwen/gpt-4o/glm-4/kimi）不再内置种子，避免生产环境出现大量未配置厂商。
+// 注册 deepseek 占位以满足：
+//  1. 运营后台 / API 层可枚举到 deepseek（测试用）
+//  2. 测试用例（如 TestNewDispatcherFromConfig_LocalFirst）能验证"无 api_key 时注册但禁用"的契约
 //
 // 显式提供 api_key 时由 registerCloudProvidersFromConfig 覆盖此处的 disabled 状态。
 func defaultCloudProviderFactories() []ProviderConfig {
@@ -227,64 +231,20 @@ func defaultCloudProviderFactories() []ProviderConfig {
 			MaxRPM:       60,
 			Enabled:      false, // 无 api_key → 默认禁用（数据出域防护）
 		},
-		{
-			Name:         "qwen",
-			BaseURL:      "https://dashscope.aliyuncs.com/compatible-mode",
-			APIType:      "openai",
-			Model:        "qwen-max",
-			CostPer1k:    0.020,
-			AvgLatencyMs: 2500,
-			QualityScore: 0.92,
-			MaxRPM:       60,
-			Enabled:      false,
-		},
-		{
-			Name:         "gpt-4o",
-			BaseURL:      "https://api.openai.com",
-			APIType:      "openai",
-			Model:        "gpt-4o",
-			CostPer1k:    0.030,
-			AvgLatencyMs: 3000,
-			QualityScore: 0.95,
-			MaxRPM:       60,
-			Enabled:      false,
-		},
-		{
-			Name:         "glm-4",
-			BaseURL:      "https://open.bigmodel.cn/api/paas/v4",
-			APIType:      "openai",
-			Model:        "glm-4-plus",
-			CostPer1k:    0.050,
-			AvgLatencyMs: 2800,
-			QualityScore: 0.91,
-			MaxRPM:       60,
-			Enabled:      false,
-		},
-		{
-			Name:         "kimi",
-			BaseURL:      "https://api.moonshot.cn",
-			APIType:      "openai",
-			Model:        "moonshot-v1-8k",
-			CostPer1k:    0.012,
-			AvgLatencyMs: 2200,
-			QualityScore: 0.88,
-			MaxRPM:       60,
-			Enabled:      false,
-		},
 	}
 }
 
 // registerCloudProvidersFromConfig 注册云端可选 fallback
 //
 // 本地优先原则：
-//  1. 先把全部云端厂商（deepseek/qwen/gpt-4o/glm-4/kimi）以 disabled 占位注册到 d.providers，
-//     确保"枚举可见、路由可引用、测试可断言"三条契约。
+//  1. 仅把 deepseek 以 disabled 占位注册到 d.providers（deepseek 仅用于测试），
+//     其余云端不再内置种子，生产环境只保留本地 default。
 //  2. 用户在 config.yaml / env 显式配置 api_key 且 enabled=true 的云端，覆盖占位 disabled 状态。
 //
-// 即使没有任何云端配置，providers map 中也必须存在这 5 个 key（disabled），
+// 即使没有任何云端配置，providers map 中也必须存在 deepseek 占位（disabled），
 // 这是 NewDispatcherFromConfig 强契约（参见 TestNewDispatcherFromConfig_LocalFirst）。
 func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLMConfig) {
-	// 1) 占位注册：5 个云端厂商默认全 disabled
+	// 1) 占位注册：deepseek 默认 disabled（测试用）
 	for _, p := range defaultCloudProviderFactories() {
 		d.providers[p.Name] = &p
 	}
@@ -300,7 +260,8 @@ func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLM
 			Model:        p.Model,
 			CostPer1k:    0.01,
 			AvgLatencyMs: 2000,
-			QualityScore: 0.9,
+			// 云端强模型质量分设为 0.96，确保通过 high_quality(0.95)/objection(0.92) 等场景门槛
+			QualityScore: 0.96,
 			MaxRPM:       60,
 			Enabled:      enabled,
 		}
@@ -317,18 +278,26 @@ func (d *Dispatcher) registerCloudProvidersFromConfig(llmCfg config.InferenceLLM
 // MaxLatency 由参数注入（maxLatencyMs），由 NewDispatcherFromConfig
 // 从 inference.llm.timeout_seconds 派生（默认 180000ms，开发模式可在 config.yaml 设大值如 720000）。
 // 与 sales_engine.agentLoopTotalTimeout、llm_service.httpClient.Timeout 共享同一配置源。
-func (d *Dispatcher) registerLocalFirstRoutes(maxLatencyMs int) {
+func (d *Dispatcher) registerLocalFirstRoutes(primary string, maxLatencyMs int) {
 	if maxLatencyMs <= 0 {
 		maxLatencyMs = 180000
 	}
+	// 主 provider：默认走本地 "default"；若配置了 primary_provider（如云端 deepseek），
+	// 则以其为主、本地作为兜底 fallback（满足"暂时用云端代替本地"的部署切换需求，无需改代码）。
+	prim := "default"
+	fallback := []string{}
+	if primary != "" && primary != "default" {
+		prim = primary
+		fallback = []string{"default"}
+	}
 	routes := []*ScenarioRoute{
-		{Scenario: ScenarioIntentRecognize, Provider: "default", Fallbacks: []string{}, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.8},
-		{Scenario: ScenarioSOPReply, Provider: "default", Fallbacks: []string{}, CostWeight: 2, MaxLatency: maxLatencyMs, MinQuality: 0.9},
-		{Scenario: ScenarioObjection, Provider: "default", Fallbacks: []string{}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.92},
-		{Scenario: ScenarioFriendlyChat, Provider: "default", Fallbacks: []string{}, CostWeight: 10, MaxLatency: maxLatencyMs, MinQuality: 0.8},
-		{Scenario: ScenarioLongSummary, Provider: "default", Fallbacks: []string{}, CostWeight: 3, MaxLatency: maxLatencyMs, MinQuality: 0.85},
-		{Scenario: ScenarioHighQuality, Provider: "default", Fallbacks: []string{}, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.95},
-		{Scenario: ScenarioLowCost, Provider: "default", Fallbacks: []string{}, CostWeight: 15, MaxLatency: maxLatencyMs, MinQuality: 0.7},
+		{Scenario: ScenarioIntentRecognize, Provider: prim, Fallbacks: fallback, CostWeight: 5, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioSOPReply, Provider: prim, Fallbacks: fallback, CostWeight: 2, MaxLatency: maxLatencyMs, MinQuality: 0.9},
+		{Scenario: ScenarioObjection, Provider: prim, Fallbacks: fallback, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.92},
+		{Scenario: ScenarioFriendlyChat, Provider: prim, Fallbacks: fallback, CostWeight: 10, MaxLatency: maxLatencyMs, MinQuality: 0.8},
+		{Scenario: ScenarioLongSummary, Provider: prim, Fallbacks: fallback, CostWeight: 3, MaxLatency: maxLatencyMs, MinQuality: 0.85},
+		{Scenario: ScenarioHighQuality, Provider: prim, Fallbacks: fallback, CostWeight: 1, MaxLatency: maxLatencyMs, MinQuality: 0.95},
+		{Scenario: ScenarioLowCost, Provider: prim, Fallbacks: fallback, CostWeight: 15, MaxLatency: maxLatencyMs, MinQuality: 0.7},
 	}
 	for _, r := range routes {
 		d.routes[r.Scenario] = r

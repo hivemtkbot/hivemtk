@@ -104,13 +104,13 @@ func DefaultFailoverPolicy() FailoverPolicy {
 	return FailoverPolicy{
 		Config: DefaultFailoverConfig(),
 		Scenarios: map[string][]string{
-			"intent_recognize": {"default", "deepseek", "qwen"},
-			"sop_reply":        {"default", "gpt-4o", "glm-4"},
-			"objection":        {"default", "gpt-4o", "glm-4"},
-			"friendly_chat":    {"default", "deepseek"},
-			"long_summary":     {"default", "kimi", "qwen"},
-			"high_quality":     {"default", "gpt-4o", "glm-4"},
-			"low_cost":         {"default", "deepseek"},
+			"intent_recognize": {"default"},
+			"sop_reply":        {"default"},
+			"objection":        {"default"},
+			"friendly_chat":    {"default"},
+			"long_summary":     {"default"},
+			"high_quality":     {"default"},
+			"low_cost":         {"default"},
 		},
 	}
 }

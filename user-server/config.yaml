@@ -112,7 +112,15 @@ inference:
     # 失败时由 dispatcher 层候选 provider failover 兜底。
     max_retries: 1
     # 云端可选 fallback（本地优先）：仅当 enabled=true 且配置 api_key 时启用，否则禁用
-    cloud_providers: []
+    # 2026-08-01：接入云端 DeepSeek（来自 .env DS_API_*），用于网页客服渠道性能/质量测试，
+    # 替代本地 8207（当前未运行）。失败策略见 DB system_kv_config(llm_provider_failover)，相关场景已切到 deepseek。
+    cloud_providers:
+      - name: deepseek
+        api_key: "${DS_API_KEY}"
+        base_url: "${DS_API_HOST}"
+        api_type: openai
+        model: "${DS_API_MODEL}"
+        enabled: true
 
 storage:
   type: qiniu

@@ -255,6 +255,24 @@ func (s *LLMService) Generate(ctx context.Context, config *LLMConfig, prompt str
 // 工具构造规则：
 //   - config.Tools 非空时，序列化为 OpenAI tools 数组并设置 tool_choice。
 //   - tool_choice 默认 "auto"；支持 "auto"/"none"/"required" 或 {"type":"function","function":{"name":"xxx"}}。
+// sanitizeToolName 将工具函数名转为 OpenAI/DeepSeek 兼容格式（仅允许 [a-zA-Z0-9_-]）。
+// 本地 llama-server 对函数名较宽松，但云端 DeepSeek 严格校验正则 ^[a-zA-Z0-9_-]+$，
+// 本项目工具名含点号（如 knowledge.search）会被 400 拒绝。此处统一合规化，并在响应时还原。
+// 注意：若两个不同原始名合规化后发生冲突，本函数不保证可逆，但实践中工具名冲突极低。
+func sanitizeToolName(name string) string {
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
+}
+
 func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, prompt string) (*GenerateResult, error) {
 	applyEnvDefaults(config)
 	if err := s.ValidateConfig(config); err != nil {
@@ -266,11 +284,15 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	if len(config.Messages) > 0 {
 		messages = make([]chatMessage, 0, len(config.Messages))
 		for _, m := range config.Messages {
+			nm := m.Name
+			if nm != "" {
+				nm = sanitizeToolName(nm)
+			}
 			messages = append(messages, chatMessage{
 				Role:       m.Role,
 				Content:    m.Content,
 				ToolCallID: m.ToolCallID,
-				Name:       m.Name,
+				Name:       nm,
 				ToolCalls:  toChatToolCalls(m.ToolCalls),
 			})
 		}
@@ -297,6 +319,8 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	}
 
 	// 序列化 Tools / ToolChoice 到请求体
+	// toolNameMap 记录 合规化名->原始名，用于响应时还原（云端 API 仅接受合规名）
+	toolNameMap := make(map[string]string)
 	if len(config.Tools) > 0 {
 		reqBody.Tools = make([]map[string]any, 0, len(config.Tools))
 		for _, t := range config.Tools {
@@ -304,12 +328,14 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 			if fnType == "" {
 				fnType = "function"
 			}
+			safe := sanitizeToolName(t.Function.Name)
+			toolNameMap[safe] = t.Function.Name
 			logger.Infof("[LLM] tool: name=%s desc_len=%d params=%v",
 				t.Function.Name, len(t.Function.Description), t.Function.Parameters != nil)
 			reqBody.Tools = append(reqBody.Tools, map[string]any{
 				"type": fnType,
 				"function": map[string]any{
-					"name":        t.Function.Name,
+					"name":        safe,
 					"description": t.Function.Description,
 					"parameters":  t.Function.Parameters,
 				},
@@ -325,6 +351,11 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 		} else if strings.HasPrefix(choice, "{") {
 			var obj map[string]any
 			if err := json.Unmarshal([]byte(choice), &obj); err == nil {
+				if fn, ok := obj["function"].(map[string]any); ok {
+					if nm, ok := fn["name"].(string); ok && nm != "" {
+						fn["name"] = sanitizeToolName(nm)
+					}
+				}
 				reqBody.ToolChoice = obj
 			} else {
 				reqBody.ToolChoice = "auto"
@@ -370,11 +401,16 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	if len(choice.Message.ToolCalls) > 0 {
 		result.ToolCalls = make([]ToolCall, 0, len(choice.Message.ToolCalls))
 		for _, tc := range choice.Message.ToolCalls {
+			// 还原合规化前的原始工具名，保证 Agent 工具分发正确
+			name := tc.Function.Name
+			if orig, ok := toolNameMap[name]; ok {
+				name = orig
+			}
 			result.ToolCalls = append(result.ToolCalls, ToolCall{
 				ID:   tc.ID,
 				Type: tc.Type,
 				Function: ToolCallFunction{
-					Name:      tc.Function.Name,
+					Name:      name,
 					Arguments: tc.Function.Arguments,
 				},
 			})
@@ -395,7 +431,7 @@ func toChatToolCalls(tcs []ToolCall) []chatToolCall {
 			ID:   tc.ID,
 			Type: tc.Type,
 			Function: chatToolCallFunc{
-				Name:      tc.Function.Name,
+				Name:      sanitizeToolName(tc.Function.Name),
 				Arguments: tc.Function.Arguments,
 			},
 		})

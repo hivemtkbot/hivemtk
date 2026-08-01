@@ -123,6 +123,14 @@ func main() {
 	service.SetAgentLoopTimeout(appCfg.Inference.LLM.TimeoutSeconds)
 	llm.InitGlobalDispatcherWithDB(llm.NewDispatcherFromConfig(appCfg), db.GetDB())
 
+	// 从 llm_providers 表加载持久化的 provider 定义（库覆盖同名 config 占位，如 deepseek 启用真实密钥）
+	// 实现「后台/脚本添加 → 落库 → 容器重启不丢」的闭环
+	if err := llm.GetGlobalDispatcher().LoadProvidersFromDB(); err != nil {
+		logger.Errorf("[LLM] 从数据库加载 provider 失败：%v", err)
+	} else {
+		logger.Info("[LLM] 已从数据库加载持久化 provider 定义")
+	}
+
 	// 初始化全局意图识别器（供 /api/intent/* 直连路由 + 销冠 sales_engine 复用）
 	//   - 注入全局 dispatcher：直连路由也可走 LLM 二次识别（仅云端 SaaS）
 	//   - 注入 db：识别结果异步落库

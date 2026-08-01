@@ -268,6 +268,10 @@ type InferenceLLMConfig struct {
 	TimeoutSeconds int                            `yaml:"timeout_seconds" json:"timeout_seconds"`
 	MaxRetries     int                            `yaml:"max_retries" json:"max_retries"`
 	NoFC           *bool                          `yaml:"no_fc" json:"no_fc"`
+	// PrimaryProvider 主推理 provider 名称（覆盖硬编码的本地 default）。
+	// 留空或不写为默认本地；设为云端厂商名（如 deepseek）即以其为主、本地作兜底。
+	// 用于"暂时用云端代替本地"的部署切换，无需改代码。
+	PrimaryProvider string                         `yaml:"primary_provider" json:"primary_provider"`
 	CloudProviders []InferenceCloudProviderConfig `yaml:"cloud_providers" json:"cloud_providers"`
 }
 

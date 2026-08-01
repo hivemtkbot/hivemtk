@@ -96,7 +96,11 @@ inference:
     #   - 提到 600s 适配 9B 长链路（单条最多 2-3 个 LLM 调用 × 60-150s）
     timeout_seconds: 600
     max_retries: 1
-    cloud_providers: []
+    # 主推理 provider：默认本地 default；设为 deepseek 即以云端为主、本地兜底。
+    # 注意：provider 的 API 定义（api_key/base_url/model 等）现已持久化到数据库表 llm_providers，
+    # 由后台「LLM路由」页面 / 脚本经 POST /api/llm/models 写入，容器启动经 LoadProvidersFromDB 加载，
+    # 不再硬编码在配置中（合规基线：密钥不落配置文件）。本环境经脚本/页面注册了 deepseek。
+    primary_provider: default
 
 storage:
   type: qiniu

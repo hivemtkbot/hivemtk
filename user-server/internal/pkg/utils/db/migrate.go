@@ -248,9 +248,11 @@ func allModels() []any {
 		&knowledgemodel.KnowledgeFeedback{},
 		&knowledgemodel.ExternalImportJob{},
 		// 多 AI 智能体架构：智能体主表 + 渠道绑定 + 客服挂载
-		&model.AIAgent{},
-		&model.ChannelAgentBinding{},
-		&model.CustomerServiceAgent{},
+	&model.AIAgent{},
+	&model.ChannelAgentBinding{},
+	&model.CustomerServiceAgent{},
+	// LLM provider 定义持久化（替代纯内存态 AddProvider，重启不丢）
+	&model.LLMProvider{},
 		// 2026-07-31 AI 性能优化: FAQ / SOP 模板 + Layer 决策日志 (双层架构)
 		&model.FAQEntry{},
 		&model.SOPTemplate{},

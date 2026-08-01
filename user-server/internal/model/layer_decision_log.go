@@ -7,12 +7,12 @@ import "time"
 // 五层架构归属: L5 数据层 (横向)
 // 设计依据: 2026-07-31 AI 智能体性能优化
 //   - 可观测性核心: 每次对话的 Layer1/Layer2 决策 + Fallback 链路
-//   - 私域巡检指标: Layer 决策分布 / Fallback 触发率 / Layer1 命中率 (SQL + scripts/post_deploy_check.sh)
+//   - 用于 Grafana 面板: Layer 决策分布 / Fallback 触发率 / Layer1 命中率
 //
 // 表: layer_decision_logs
 // 索引:
 //   - idx_layer_trace_id   (trace 维度, 端到端串联)
-//   - idx_layer_created_at (时间维度, 私域 SQL 时序查询)
+//   - idx_layer_created_at (时间维度, Grafana 时序查询)
 //   - idx_layer_layer      (layer 维度, 快速聚合)
 //
 // 字段说明:

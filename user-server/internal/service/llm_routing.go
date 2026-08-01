@@ -147,6 +147,7 @@ func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
 	for _, p := range providers {
 		out = append(out, LLMProviderInfo{
 			Name:         p.Name,
+			DisplayName:  p.DisplayName,
 			BaseURL:      p.BaseURL,
 			Model:        p.Model,
 			APIKeySet:    p.APIKey != "",
@@ -156,7 +157,8 @@ func (s *LLMRoutingService) ListModels(ctx context.Context) []LLMProviderInfo {
 			CostPer1k:    p.CostPer1k,
 			AvgLatencyMs: p.AvgLatencyMs,
 			NoFC:         p.NoFC,
-			Vendor:       vendorFromBaseURL(p.BaseURL),
+			Vendor:       vendorOf(p),
+			Tags:         p.Tags,
 		})
 	}
 	return out
@@ -182,7 +184,7 @@ func (s *LLMRoutingService) ResolveProviderName(name string) string {
 	return ""
 }
 
-// CreateModel 注册新 provider
+// CreateModel 注册新 provider（内存 + 落库 llm_providers，重启不丢）
 func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInfo) error {
 	if s.dispatcher == nil {
 		return errors.New("dispatcher not initialized")
@@ -202,17 +204,26 @@ func (s *LLMRoutingService) CreateModel(ctx context.Context, info LLMProviderInf
 	if info.MaxRPM <= 0 {
 		info.MaxRPM = 60
 	}
-	s.dispatcher.AddProvider(llm.ProviderConfig{
+	pc := llm.ProviderConfig{
 		Name:         info.Name,
+		DisplayName:  info.DisplayName,
 		BaseURL:      info.BaseURL,
 		Model:        info.Model,
 		APIKey:       info.APIKey,
+		APIType:      "openai",
 		Enabled:      info.Enabled,
 		QualityScore: info.QualityScore,
 		MaxRPM:       info.MaxRPM,
 		CostPer1k:    info.CostPer1k,
 		NoFC:         info.NoFC,
-	})
+		Vendor:       info.Vendor,
+		Tags:         info.Tags,
+	}
+	s.dispatcher.AddProvider(pc) // 内存立即生效
+	// 落库：容器重启后经 LoadProvidersFromDB 重新加载，避免丢失
+	if err := s.dispatcher.UpsertProviderToDB(pc); err != nil {
+		return fmt.Errorf("provider 落库失败: %w", err)
+	}
 	// 审计：注册新模型（不污染 routes map，直接写 audit）
 	s.dispatcher.LogModelLifecycle(ctx,
 		"create_model", info.Name, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
@@ -254,16 +265,24 @@ func (s *LLMRoutingService) UpdateModel(ctx context.Context, identifier string, 
 	}
 	updated := llm.ProviderConfig{
 		Name:         identifier, // 不允许重命名（避免 routes 引用断裂）
+		DisplayName:  orDefault(info.DisplayName, old.DisplayName),
 		BaseURL:      orDefault(info.BaseURL, old.BaseURL),
 		Model:        orDefault(info.Model, old.Model),
 		APIKey:       apiKey,
+		APIType:      old.APIType, // LLMProviderInfo 无此字段，沿用原值
 		Enabled:      info.Enabled,
 		QualityScore: nonZero(info.QualityScore, old.QualityScore),
 		MaxRPM:       nonZeroInt(info.MaxRPM, old.MaxRPM),
 		CostPer1k:    info.CostPer1k,
 		NoFC:         info.NoFC,
+		Vendor:       orDefault(info.Vendor, old.Vendor),
+		Tags:         info.Tags,
 	}
-	s.dispatcher.AddProvider(updated)
+	s.dispatcher.AddProvider(updated) // 内存立即生效
+	// 落库：镜像内存态（含 APIKey：空=保留旧值由上面 apiKey 解析决定，清空标记=清空）
+	if err := s.dispatcher.UpsertProviderToDB(updated); err != nil {
+		return fmt.Errorf("provider 落库失败: %w", err)
+	}
 	return nil
 }
 
@@ -277,19 +296,29 @@ func (s *LLMRoutingService) DeleteModel(ctx context.Context, identifier string) 
 	if s.dispatcher == nil {
 		return errors.New("dispatcher not initialized")
 	}
+	if identifier == "" {
+		return errors.New("name is required")
+	}
+	if identifier == "default" {
+		return errors.New("本地默认模型 default 不可删除")
+	}
 	if s.dispatcher.GetProvider(identifier) == nil {
 		return fmt.Errorf("provider %q not found", identifier)
 	}
-	// 先记录审计（删除前要拿到 prev，直接写 audit，不污染 routes map）
-	s.dispatcher.LogModelLifecycle(ctx,
-		"delete_model", identifier, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
 	if !s.dispatcher.RemoveProvider(identifier) {
 		return fmt.Errorf("provider %q remove failed", identifier)
+	}
+	// 落库删除（default 之外均从 llm_providers 移除，重启不再加载）
+	if err := s.dispatcher.DeleteProviderFromDB(identifier); err != nil {
+		return fmt.Errorf("provider 落库删除失败: %w", err)
 	}
 	// 清理内存 stats
 	s.mu.Lock()
 	delete(s.stats, identifier)
 	s.mu.Unlock()
+	// 审计
+	s.dispatcher.LogModelLifecycle(ctx,
+		"delete_model", identifier, operatorFromContext(ctx), logger.TraceIDFromContext(ctx))
 	return nil
 }
 
@@ -512,6 +541,14 @@ func nonZeroInt(v, def int) int {
 		return def
 	}
 	return v
+}
+
+// vendorOf 返回 provider 厂商名：优先落库值，否则从 base_url 推断
+func vendorOf(p llm.ProviderConfig) string {
+	if p.Vendor != "" {
+		return p.Vendor
+	}
+	return vendorFromBaseURL(p.BaseURL)
 }
 
 func vendorFromBaseURL(base string) string {

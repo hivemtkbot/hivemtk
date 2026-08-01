@@ -46,7 +46,7 @@ func TestNewDispatcherFromConfig_LocalFirst(t *testing.T) {
 	}
 
 	// 2) 云端厂商默认禁用（无 api_key）
-	for _, name := range []string{"deepseek", "qwen", "gpt-4o", "glm-4", "kimi"} {
+	for _, name := range []string{"deepseek"} {
 		p, ok := d.providers[name]
 		if !ok {
 			t.Fatalf("云端 provider %s 未注册", name)
