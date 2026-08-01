@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"marketing/internal/cache"
 	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/logger"
 )
@@ -84,8 +85,6 @@ type Dispatcher struct {
 	routes     map[DispatchScenario]*ScenarioRoute
 	llmService *LLMService
 	rpmCounter map[string]*rpmBucket
-	cache      map[string]*dispatchCacheEntry
-	cacheMu    sync.RWMutex
 	// ReAct 适配器（让无 FC 能力的 LLM 通过文本协议接入 Agent Loop）
 	// 懒初始化，首次需要时创建（避免无工具调用场景的开销）
 	reactAdapter   *ReActAdapter
@@ -101,11 +100,6 @@ type rpmBucket struct {
 	resetAt time.Time
 }
 
-type dispatchCacheEntry struct {
-	content  string
-	expireAt time.Time
-}
-
 // newDispatcherBase 仅初始化内部容器（不注册任何 provider/route）
 func newDispatcherBase(llmService *LLMService) *Dispatcher {
 	return &Dispatcher{
@@ -113,7 +107,6 @@ func newDispatcherBase(llmService *LLMService) *Dispatcher {
 		routes:     make(map[DispatchScenario]*ScenarioRoute),
 		llmService: llmService,
 		rpmCounter: make(map[string]*rpmBucket),
-		cache:      make(map[string]*dispatchCacheEntry),
 	}
 }
 
@@ -304,21 +297,18 @@ func (d *Dispatcher) registerLocalFirstRoutes(primary string, maxLatencyMs int) 
 	}
 }
 
-// getCache 读取带 TTL 的响应缓存
+// getCache 读取带 TTL 的响应缓存（全局缓存：REDIS_HOST 配置时跨实例共享，提升命中率、省成本）。
+// 业务需要：相同 LLM 请求跨实例共享结果可显著降低延迟与上游调用成本；
+// 未配置 Redis 时回落进程内内存单例（单实例安全）。缓存为性能优化，缺失不影响正确性。
 func (d *Dispatcher) getCache(key string) (string, bool) {
-	d.cacheMu.RLock()
-	e, ok := d.cache[key]
-	d.cacheMu.RUnlock()
-	if !ok {
+	if key == "" {
 		return "", false
 	}
-	if time.Now().After(e.expireAt) {
-		d.cacheMu.Lock()
-		delete(d.cache, key)
-		d.cacheMu.Unlock()
+	raw, err := cache.GetGlobalCache().Get(context.Background(), key)
+	if err != nil || raw == "" {
 		return "", false
 	}
-	return e.content, true
+	return raw, true
 }
 
 // setCache 写入带 TTL 的响应缓存
@@ -326,9 +316,7 @@ func (d *Dispatcher) setCache(key string, ttl int, content string) {
 	if ttl <= 0 || key == "" {
 		return
 	}
-	d.cacheMu.Lock()
-	d.cache[key] = &dispatchCacheEntry{content: content, expireAt: time.Now().Add(time.Duration(ttl) * time.Second)}
-	d.cacheMu.Unlock()
+	_ = cache.GetGlobalCache().Set(context.Background(), key, content, time.Duration(ttl)*time.Second)
 }
 
 // registerDefaultProviders 注册默认厂商
@@ -463,6 +451,10 @@ func (d *Dispatcher) SetRoute(r ScenarioRoute) ScenarioRoute {
 func (d *Dispatcher) SetRouteWithAudit(ctx context.Context, r ScenarioRoute, action, operator, traceID string) ScenarioRoute {
 	prev := d.GetRoute(r.Scenario)
 	applied := d.SetRoute(r)
+	// 路由本体落库：覆盖代码种子，重启不丢、多实例一致（db 未就绪时静默跳过）
+	if err := d.UpsertRouteToDB(applied); err != nil {
+		logger.Errorf("[LLM] SetRouteWithAudit 路由落库失败 scenario=%s: %v", r.Scenario, err)
+	}
 	d.writeAuditLog(ctx, r.Scenario, prev, &applied, action, operator, traceID)
 	return applied
 }
@@ -695,6 +687,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			continue
 		}
 
+		// 集群熔断：该 provider 已被熔断（跨实例共享信号）则直接跳过，快速失败走兜底
+		if fo := GetGlobalFailover(); fo != nil && fo.IsCircuitOpen(providerName) {
+			logger.Debugf("[LLM] provider=%s 集群熔断中，跳过 scenario=%s", providerName, req.Scenario)
+			continue
+		}
+
 		// RPM 限流
 		if !d.allowRequest(providerName, provider.MaxRPM) {
 			continue
@@ -707,6 +705,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 			// test 模式：跳过所有告警/统计/审计副作用
 			if d.testMode.Load() {
 				continue
+			}
+			// 喂给集群熔断器：真实失败累计，可跨实例触发/传播熔断信号
+			if fo := GetGlobalFailover(); fo != nil {
+				fo.RecordFailure(providerName, err)
 			}
 			// 降级日志：本次 provider 失败，准备尝试下一级
 			logger.Warnf("[LLM Fallback] scenario=%s provider=%s trace_id=%s failed (attempt %d/%d): %v",
@@ -736,6 +738,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		}
 		// 成功：触发告警恢复
 		AlertProviderSuccess(string(req.Scenario), providerName, traceID)
+		// 喂给集群熔断器：成功清零连续失败计数，并删除跨实例熔断信号
+		if fo := GetGlobalFailover(); fo != nil {
+			fo.RecordSuccess(providerName, int64(result.LatencyMs))
+		}
 		if req.CacheKey != "" && req.CacheTTL > 0 {
 			d.setCache(req.CacheKey, req.CacheTTL, result.Content)
 		}
@@ -753,7 +759,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		return result, nil
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("no available provider for scenario: %s", req.Scenario)
+		// 所有候选均被跳过（熔断/限流/质量门禁/禁用），未发起任何真实请求：
+		// 优雅降级返回模板话术，避免向调用方抛出硬错误（HA 需要）。
+		logger.Warnf("[LLM] scenario=%s 无可用 provider（全部被熔断/限流跳过），返回降级回复 trace_id=%s", req.Scenario, traceID)
+		return degradedReply(req), nil
 	}
 	// 全部失败 → ERROR 日志 + 严重告警
 	logger.Errorf("[LLM Fallback] all providers failed scenario=%s trace_id=%s attempted=%d: %v",
@@ -762,11 +771,54 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 	return nil, lastErr
 }
 
-// allowRequest RPM 限流
+// degradedReply 返回降级模板回复，避免 provider 全部熔断/限流时向调用方抛出硬错误。
+// 业务需要：HA 场景下 provider 不可用应优雅降级（模板话术）而非整条链路失败。
+func degradedReply(req DispatchRequest) *DispatchResult {
+	tmpl := "抱歉，当前客服系统繁忙，请稍后再试，或联系人工客服获取帮助。"
+	if fo := GetGlobalFailover(); fo != nil {
+		if c := fo.Config().TemplateReply; c != "" {
+			tmpl = c
+		}
+	}
+	promptTokens := estimateTokens(req.Prompt)
+	completionTokens := estimateTokens(tmpl)
+	return &DispatchResult{
+		Provider:     "degraded",
+		Model:        "template",
+		Content:      tmpl,
+		FinishReason: "degraded",
+		Usage: TokenUsage{
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TotalTokens:      promptTokens + completionTokens,
+		},
+	}
+}
+
+// allowRequest RPM 限流（全局，跨实例一致）
+// 业务需要：必须守住上游 provider 每分钟配额/成本。多实例下若各持独立计数，
+// 全局实际允许量被放大为 N×单实例配额，可能击穿上游限流/资费。
+// 实现：REDIS_HOST 配置时走全局缓存固定窗口计数（Redis 共享，各实例累计同一配额）；
+// 未配置 Redis 时回退进程内计数（单实例安全、零额外开销）。后端异常一律放行（可用性优先）。
 func (d *Dispatcher) allowRequest(providerName string, maxRPM int) bool {
 	if maxRPM <= 0 {
 		return true
 	}
+	if !cache.GlobalIsRedis() {
+		return d.allowRequestLocal(providerName, maxRPM)
+	}
+	c := cache.GetGlobalCache()
+	key := fmt.Sprintf("mtk:llm:rpm:%s:%d", providerName, time.Now().Truncate(time.Minute).Unix())
+	cur, err := c.Incr(context.Background(), key, time.Minute)
+	if err != nil {
+		logger.Warnf("[LLM] RPM 计数后端异常，放行 provider=%s: %v", providerName, err)
+		return true
+	}
+	return cur <= int64(maxRPM)
+}
+
+// allowRequestLocal 单实例 RPM 限流（未配置 Redis 时走进程内固定窗口计数）
+func (d *Dispatcher) allowRequestLocal(providerName string, maxRPM int) bool {
 	d.mu.Lock()
 	bucket, ok := d.rpmCounter[providerName]
 	if !ok {
@@ -1025,9 +1077,22 @@ func (d *Dispatcher) DispatchMultiModel(ctx context.Context, req DispatchRequest
 		if !ok || !provider.Enabled || provider.APIKey == "" {
 			continue
 		}
+		// 集群熔断：该 provider 已被熔断（跨实例共享信号）则跳过，避免无效投票
+		if fo := GetGlobalFailover(); fo != nil && fo.IsCircuitOpen(name) {
+			logger.Debugf("[LLM] DispatchMultiModel provider=%s 集群熔断中，跳过", name)
+			continue
+		}
 		result, err := d.callProvider(ctx, provider, req, &ScenarioRoute{MaxLatency: 10000})
 		if err != nil {
+			// 真实失败记录到集群熔断器，可跨实例触发/传播熔断信号
+			if fo := GetGlobalFailover(); fo != nil {
+				fo.RecordFailure(name, err)
+			}
 			continue
+		}
+		// 成功：清零连续失败计数，并删除跨实例熔断信号
+		if fo := GetGlobalFailover(); fo != nil {
+			fo.RecordSuccess(name, int64(result.LatencyMs))
 		}
 		results = append(results, result)
 	}

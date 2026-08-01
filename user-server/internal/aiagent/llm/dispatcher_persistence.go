@@ -72,6 +72,90 @@ func (d *Dispatcher) UpsertProviderToDB(pc ProviderConfig) error {
 	return nil
 }
 
+// LoadRoutesFromDB 启动时从 llm_routing_rules 表加载路由，覆盖内存种子。
+//
+// 与 LoadProvidersFromDB 同理：DB 中的路由定义作为「源真相」覆盖代码 seed，
+// 保证运营在后台配置的路由(主 provider / 兜底 / 灰度 / canary)重启不丢、多实例一致。
+// 若表为空(全新部署)，内存保持代码种子，行为不变。
+func (d *Dispatcher) LoadRoutesFromDB() error {
+	g := providerDB()
+	if g == nil {
+		logger.Warnf("[LLM] LoadRoutesFromDB: db 未就绪，跳过路由加载")
+		return nil
+	}
+	var rows []model.LLMRoutingRule
+	if err := g.Find(&rows).Error; err != nil {
+		logger.Errorf("[LLM] LoadRoutesFromDB 查询失败: %v", err)
+		return err
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i := range rows {
+		var r ScenarioRoute
+		if err := json.Unmarshal([]byte(rows[i].RouteJSON), &r); err != nil {
+			logger.Errorf("[LLM] LoadRoutesFromDB: 解析 scenario=%s 失败: %v", rows[i].Scenario, err)
+			continue
+		}
+		d.routes[r.Scenario] = &r
+	}
+	logger.Infof("[LLM] LoadRoutesFromDB: 从 llm_routing_rules 加载 %d 条路由覆盖种子", len(rows))
+	return nil
+}
+
+// UpsertRouteToDB 将路由规则 upsert 到 llm_routing_rules 表。
+// db 未就绪时静默跳过(内存已生效)，仅记录日志，不阻断主流程。
+func (d *Dispatcher) UpsertRouteToDB(r ScenarioRoute) error {
+	g := providerDB()
+	if g == nil {
+		return nil
+	}
+	buf, err := json.Marshal(r)
+	if err != nil {
+		logger.Errorf("[LLM] UpsertRouteToDB 序列化 scenario=%s 失败: %v", r.Scenario, err)
+		return err
+	}
+	row := model.LLMRoutingRule{
+		Scenario:  string(r.Scenario),
+		RouteJSON: string(buf),
+		Version:   r.Version,
+		UpdatedAt: time.Now(),
+	}
+	var exist model.LLMRoutingRule
+	q := g.Where("scenario = ?", string(r.Scenario)).First(&exist)
+	if q.Error == gorm.ErrRecordNotFound {
+		row.CreatedAt = time.Now()
+		if err := g.Create(&row).Error; err != nil {
+			logger.Errorf("[LLM] UpsertRouteToDB 新建 scenario=%s 失败: %v", r.Scenario, err)
+			return err
+		}
+		return nil
+	}
+	if q.Error != nil {
+		logger.Errorf("[LLM] UpsertRouteToDB 查询 scenario=%s 失败: %v", r.Scenario, q.Error)
+		return q.Error
+	}
+	row.ID = exist.ID
+	row.CreatedAt = exist.CreatedAt
+	if err := g.Save(&row).Error; err != nil {
+		logger.Errorf("[LLM] UpsertRouteToDB 更新 scenario=%s 失败: %v", r.Scenario, err)
+		return err
+	}
+	return nil
+}
+
+// DeleteRouteFromDB 从数据库删除某场景路由定义。
+func (d *Dispatcher) DeleteRouteFromDB(scenario DispatchScenario) error {
+	g := providerDB()
+	if g == nil {
+		return nil
+	}
+	if err := g.Where("scenario = ?", string(scenario)).Delete(&model.LLMRoutingRule{}).Error; err != nil {
+		logger.Errorf("[LLM] DeleteRouteFromDB scenario=%s 失败: %v", scenario, err)
+		return err
+	}
+	return nil
+}
+
 // DeleteProviderFromDB 从 llm_providers 删除指定 provider。
 func (d *Dispatcher) DeleteProviderFromDB(name string) error {
 	g := providerDB()

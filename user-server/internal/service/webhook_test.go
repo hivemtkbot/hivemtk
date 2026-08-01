@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -521,24 +520,22 @@ func TestWebhookService_PendingCount(t *testing.T) {
 }
 
 func TestWebhookService_Dedup_ExpiresAfterTTL(t *testing.T) {
-	s := &WebhookService{
-		dedup: sync.Map{},
+	s := &WebhookService{}
+	// 全局缓存 SetNX 幂等：同一 eventID 首次出现视为非重复，二次视为重复
+	if s.isDuplicate(context.Background(), "dup-evt-A") {
+		t.Error("expected first occurrence not duplicate")
 	}
-	// 手动塞入过期项
-	s.dedup.Store("old", time.Now().Add(-time.Minute))
-	if s.isDuplicate(context.Background(), "old") {
-		// 已过期应被视为非重复
-		t.Error("expected expired to be removed")
+	if !s.isDuplicate(context.Background(), "dup-evt-A") {
+		t.Error("expected second occurrence duplicate")
 	}
-	// 新增
-	s.dedup.Store("new", time.Now().Add(time.Minute))
-	if !s.isDuplicate(context.Background(), "new") {
-		t.Error("expected new to be duplicate")
+	// 不同 eventID 互不干扰
+	if s.isDuplicate(context.Background(), "dup-evt-B") {
+		t.Error("expected distinct eventID not duplicate")
 	}
 }
 
 func TestWebhookService_Dedup_EmptyID(t *testing.T) {
-	s := &WebhookService{dedup: sync.Map{}}
+	s := &WebhookService{}
 	if s.isDuplicate(context.Background(), "") {
 		t.Error("empty id should not be duplicate")
 	}

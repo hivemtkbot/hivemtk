@@ -11,6 +11,12 @@ var (
 	globalMu    sync.RWMutex
 	globalCache Cache
 	globalRedis bool
+	// defaultOnce + defaultCache：未调用 InitGlobalCache 时，
+	// GetGlobalCache 返回惰性创建的「稳定」内存缓存单例（而非每次新建实例）。
+	// 这保证同进程内读写一致（MFA 令牌、Webhook 去重、限流器、熔断信号等都依赖此不变量），
+	// 也避免测试或未初始化场景下的 nil/不一致问题。
+	defaultOnce  sync.Once
+	defaultCache Cache
 )
 
 // InitGlobalCache 初始化全局缓存单例。
@@ -36,15 +42,20 @@ func InitGlobalCache(client *redis.Client) Cache {
 	return c
 }
 
-// GetGlobalCache 获取全局缓存；未初始化时安全回退内存缓存（避免 nil panic）。
+// GetGlobalCache 获取全局缓存。
+// 未初始化时返回惰性创建的「稳定」内存缓存单例（首次调用创建后复用），
+// 保证同进程内读写一致，避免 nil panic 与每次新建实例导致的不一致。
 func GetGlobalCache() Cache {
 	globalMu.RLock()
 	c := globalCache
 	globalMu.RUnlock()
-	if c == nil {
-		return NewMemoryCache()
+	if c != nil {
+		return c
 	}
-	return c
+	defaultOnce.Do(func() {
+		defaultCache = NewMemoryCache()
+	})
+	return defaultCache
 }
 
 // GlobalIsRedis 报告全局缓存是否以 Redis 为后端。

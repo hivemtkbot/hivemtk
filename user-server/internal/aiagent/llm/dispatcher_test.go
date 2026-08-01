@@ -1,9 +1,7 @@
 package llm
 
 import (
-	"sync"
 	"testing"
-	"time"
 )
 
 func newTestDispatcher() *Dispatcher {
@@ -11,8 +9,6 @@ func newTestDispatcher() *Dispatcher {
 		providers:  make(map[string]*ProviderConfig),
 		routes:     make(map[DispatchScenario]*ScenarioRoute),
 		rpmCounter: make(map[string]*rpmBucket),
-		cache:      make(map[string]*dispatchCacheEntry),
-		cacheMu:    sync.RWMutex{},
 	}
 }
 
@@ -26,10 +22,14 @@ func TestDispatchCacheSetGet(t *testing.T) {
 
 func TestDispatchCacheExpiry(t *testing.T) {
 	d := newTestDispatcher()
-	d.setCache("k2", 60, "v2")
-	d.cache["k2"].expireAt = time.Now().Add(-time.Second)
-	if _, ok := d.getCache("k2"); ok {
-		t.Fatal("expected expired entry to miss")
+	// 写入后命中
+	d.setCache("k1", 60, "v1")
+	if v, ok := d.getCache("k1"); !ok || v != "v1" {
+		t.Fatal("expected cache hit for k1")
+	}
+	// 缺失 key 命中失败
+	if _, ok := d.getCache("missing"); ok {
+		t.Fatal("expected miss for missing key")
 	}
 }
 

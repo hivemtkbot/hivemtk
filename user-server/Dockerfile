@@ -16,10 +16,13 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 ENV GOPROXY=https://goproxy.cn,direct
+ENV GOFLAGS=-mod=mod
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 
-RUN apk update && apk add --no-cache git gcc musl-dev
+# 换用国内 alpine 镜像源，避免连接官方源卡死
+RUN sed -i 's|https://dl-cdn.alpinelinux.org/alpine|https://mirrors.aliyun.com/alpine|g' /etc/apk/repositories \
+    && apk update && apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download

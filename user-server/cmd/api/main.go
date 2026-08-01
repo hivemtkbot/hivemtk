@@ -131,6 +131,13 @@ func main() {
 	} else {
 		logger.Info("[LLM] 已从数据库加载持久化 provider 定义")
 	}
+	// 从 llm_routing_rules 表加载持久化的场景路由规则（库覆盖代码种子，
+	// 实现「后台可视化配置 → 落库 → 容器重启不丢、多实例一致」的闭环）
+	if err := llm.GetGlobalDispatcher().LoadRoutesFromDB(); err != nil {
+		logger.Errorf("[LLM] 从数据库加载场景路由规则失败：%v", err)
+	} else {
+		logger.Info("[LLM] 已从数据库加载持久化场景路由规则")
+	}
 
 	// 初始化全局意图识别器（供 /api/intent/* 直连路由 + 销冠 sales_engine 复用）
 	//   - 注入全局 dispatcher：直连路由也可走 LLM 二次识别（仅云端 SaaS）

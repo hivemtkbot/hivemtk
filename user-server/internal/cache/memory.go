@@ -342,6 +342,38 @@ func (m *MemoryCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// Incr 原子自增并返回新值（固定窗口计数）。
+// 首次设置 value=1；expiration>0 时作为 TTL 应用（用于单实例下的 RPM/计数兜底）。
+// 注：调用方应以「按时间窗口轮转的 key」（如带分钟时间戳）驱动窗口重置，TTL 仅用于清理旧 key。
+func (m *MemoryCache) Incr(ctx context.Context, key string, expiration time.Duration) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var exp time.Time
+	if expiration > 0 {
+		exp = time.Now().Add(expiration)
+	}
+	if ele, ok := m.data[key]; ok {
+		item := ele.Value.(*cacheItem)
+		// 未过期且值为 int64 → 累加
+		if (item.expiration.IsZero() || item.expiration.After(time.Now())) {
+			if n, ok := item.value.(int64); ok {
+				n++
+				item.value = n
+				if expiration > 0 {
+					item.expiration = exp
+				}
+				m.touch(ele)
+				return n, nil
+			}
+		}
+	}
+	item := &cacheItem{key: key, value: int64(1), expiration: exp}
+	ele := m.order.PushFront(item)
+	m.data[key] = ele
+	m.evictIfNeeded()
+	return 1, nil
+}
+
 // Exists 检查缓存是否存在
 func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 	item, ok := m.peekItem(key)

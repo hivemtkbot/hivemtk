@@ -24,6 +24,7 @@ import (
 	"gorm.io/gorm"
 
 	agent_runtime "marketing/internal/aiagent/agent/runtime"
+	"marketing/internal/cache"
 	"marketing/internal/channelbot/telegram"
 	"marketing/internal/channelbot/whatsapp"
 	"marketing/internal/model"
@@ -90,8 +91,7 @@ type WebhookService struct {
 	agentBindingSvc *ChannelAgentBindingService
 
 	mu        sync.Mutex // 仅用于 Stop 的 stopped 标志保护
-	dedup     sync.Map   // eventID -> expireTime(time.Time)，O(1) 幂等
-	rlMu      sync.Mutex // 限流桶专用锁，与 dedup 分离避免相互阻塞
+	rlMu      sync.Mutex // 限流桶专用锁
 	rlBuckets map[string]*tokenBucket
 
 	workerCount int
@@ -103,9 +103,9 @@ type WebhookService struct {
 	// 推理并发信号量：限制同时进行的本地 LLM 生成数，保护单节点推理栈。
 	replySem chan struct{}
 
-	// TG 群「发现线索主动触达」冷却：避免同一会话被同一发言者的商机反复触发出站（防刷屏）
-	tgOutreachMu   sync.Mutex
-	tgOutreachLast map[string]time.Time
+	// 注：TG 群「发现线索主动触达」冷却已迁至全局缓存（见 tgLeadOutreachAllowed），
+	// 走 cache.GetGlobalCache()，REDIS_HOST 配置时为 Redis 共享后端（多实例防刷屏一致），
+	// 否则为内存单例（单实例安全），不再需要进程内 map + 锁。
 }
 
 // tgDispatchExtra dispatchTelegram 的附加输出：携带群聊场景下车控/线索相关判定，
@@ -252,7 +252,6 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		replySem:       make(chan struct{}, webhookEnvInt("WEBHOOK_REPLY_CONCURRENCY", WebhookReplyConcurrency)),
 	}
 	s.startWorkers(context.Background())
-	s.startDedupJanitor(context.Background())
 	return s
 }
 
@@ -1360,20 +1359,17 @@ func isTelegramBotMentioned(text, botUsername string) bool {
 }
 
 // tgLeadOutreachAllowed 判断该（账号, 群组, 发言者）是否允许本次「发现线索主动触达」。
-// 用于防止同一发言者反复触发商机时机器人频繁刷屏；冷却期内返回 false 并跳过。
+// 业务需要：绝不能骚扰用户，多实例下若各持进程内冷却 map，可能仍被不同实例短时重复触达刷屏。
+// 实现：基于全局缓存 SetNX + 冷却 TTL——首次设置返回 true(允许)，冷却窗口内已存在返回 false(拦截)，
+// 超时后自动释放。REDIS_HOST 配置时为 Redis 共享后端（跨实例一致），否则为内存单例。
 func (s *WebhookService) tgLeadOutreachAllowed(ctx context.Context, accountID, chatID, senderID string) bool {
-	key := accountID + ":" + chatID + ":" + senderID
-	s.tgOutreachMu.Lock()
-	defer s.tgOutreachMu.Unlock()
-	if s.tgOutreachLast == nil {
-		s.tgOutreachLast = map[string]time.Time{}
+	key := "mtk:tg:outreach:" + accountID + ":" + chatID + ":" + senderID
+	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", tgLeadOutreachCooldown)
+	if err != nil {
+		// 后端异常时放行（可用性优先，仅损失防刷屏），不阻断正常触达
+		return true
 	}
-	now := time.Now()
-	if last, ok := s.tgOutreachLast[key]; ok && now.Sub(last) < tgLeadOutreachCooldown {
-		return false
-	}
-	s.tgOutreachLast[key] = now
-	return true
+	return set
 }
 
 // triggerTelegramJoinSales TG 入群事件触发 智能体流程
@@ -1974,22 +1970,26 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 // =================== 工具 ===================
 
 // isDuplicate 基于 eventID 的 TTL 幂等。
-// 使用 sync.Map + 惰性过期，O(1) 且无全局扫描；过期条目由 startDedupJanitor 后台清理。
+// 业务需要：外部渠道事件必须「恰好一次」处理。多实例下若各持进程内去重表，
+// 重复投递会被不同实例各自放过 → 双处理。故改走全局缓存 SetNX：
+//   - REDIS_HOST 配置时为 Redis 共享后端（跨实例去重）
+//   - 否则为内存单例（单实例安全）
+// TTL 内重复 key 已存在即命中返回 true；SetNX 异常时放行并告警（可用性优先）。
 func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	if eventID == "" {
 		return false
 	}
-	now := time.Now()
-	if v, ok := s.dedup.Load(eventID); ok {
-		if exp, ok := v.(time.Time); ok && now.Before(exp) {
-			// R9 可观测性：命中去重的重复投递 (私域: 无 Prometheus, 仅日志)
-			logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[webhook] dedup hit")
-			return true
-		}
-		s.dedup.Delete(eventID)
+	key := "mtk:webhook:dedup:" + eventID
+	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", WebhookDedupTTL)
+	if err != nil {
+		logger.Ctx(ctx).Warn().Err(err).Str("event_id", eventID).Msg("[webhook] dedup 后端异常，放行")
+		return false
 	}
-	s.dedup.Store(eventID, now.Add(WebhookDedupTTL))
-	// R9 可观测性：新事件接受 (私域: 无 Prometheus, 仅日志)
+	if !set {
+		// R9 可观测性：命中去重的重复投递 (私域: 无 Prometheus, 仅日志)
+		logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[webhook] dedup hit")
+		return true
+	}
 	return false
 }
 
@@ -2007,28 +2007,6 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 	}
 	s.rlMu.Unlock()
 	return b.allow(context.Background())
-}
-
-// startDedupJanitor 后台周期性清理过期的 dedup 条目，避免 sync.Map 无限增长。
-func (s *WebhookService) startDedupJanitor(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-s.stopCh:
-				return
-			case <-ticker.C:
-				now := time.Now()
-				s.dedup.Range(func(k, v any) bool {
-					if exp, ok := v.(time.Time); ok && now.After(exp) {
-						s.dedup.Delete(k)
-					}
-					return true
-				})
-			}
-		}
-	}()
 }
 
 func (s *WebhookService) generateEventID(ctx context.Context, channel WebhookChannel, accountID string, body []byte) string {

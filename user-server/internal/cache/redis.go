@@ -101,6 +101,20 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
 }
 
+// Incr 原子自增并返回新值（首次 value=1，expiration>0 时作为 TTL 应用）
+func (r *RedisCache) Incr(ctx context.Context, key string, expiration time.Duration) (int64, error) {
+	n, err := r.client.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if n == 1 && expiration > 0 {
+		if err := r.client.Expire(ctx, key, expiration).Err(); err != nil {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
 // Exists 检查缓存是否存在
 func (r *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
 	result, err := r.client.Exists(ctx, key).Result()

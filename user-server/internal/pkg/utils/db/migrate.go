@@ -253,6 +253,8 @@ func allModels() []any {
 	&model.CustomerServiceAgent{},
 	// LLM provider 定义持久化（替代纯内存态 AddProvider，重启不丢）
 	&model.LLMProvider{},
+	// 场景路由规则持久化（替代纯内存态 ScenarioRoute 种子，重启不丢、多实例一致）
+	&model.LLMRoutingRule{},
 		// 2026-07-31 AI 性能优化: FAQ / SOP 模板 + Layer 决策日志 (双层架构)
 		&model.FAQEntry{},
 		&model.SOPTemplate{},

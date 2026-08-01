@@ -14,6 +14,8 @@ type Cache interface {
 	// SetNX 原子性：仅在 key 不存在时设置值，返回 true 表示设置成功，false 表示 key 已存在
 	// 用途：分布式锁 / 单飞去重
 	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
+	// Incr 原子自增并返回新值；首次设置 value=1，expiration>0 时作为 TTL 应用（用于全局 RPM/计数）
+	Incr(ctx context.Context, key string, expiration time.Duration) (int64, error)
 	// Delete 删除缓存
 	Delete(ctx context.Context, key string) error
 	// Exists 检查缓存是否存在

@@ -1,8 +1,13 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
+
+	"marketing/internal/cache"
+	"marketing/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -140,15 +145,12 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 			clientKey = c.ClientIP()
 		}
 
-		// 获取限流器
-		limiter := globalRateLimiter.getLimiter(clientKey)
-
-		// 检查是否允许请求
-		if !limiter.Allow() {
+		// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
+		if !globalRateLimiter.Allow(clientKey) {
 			c.JSON(429, gin.H{
 				"code":        429,
 				"msg":         "请求过于频繁，请稍后再试",
-				"retry_after": int(limiter.Reserve().Delay().Seconds()),
+				"retry_after": 60,
 			})
 			c.Abort()
 			return
@@ -156,6 +158,27 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// Allow 判断是否放行某客户端请求。
+// 业务需要：防滥用/公平限流必须跨实例一致。多实例下若各持独立令牌桶，
+// 全局实际允许量被放大为 N×单实例配额，等于架空限流。
+// 实现：REDIS_HOST 配置时走全局缓存固定窗口计数（Redis 共享，各实例累计同一配额）；
+// 未配置 Redis 时回退进程内令牌桶（单实例平滑限流）。后端异常一律放行（可用性优先）。
+func (rl *RateLimiter) Allow(clientKey string) bool {
+	if !cache.GlobalIsRedis() {
+		return rl.getLimiter(clientKey).Allow()
+	}
+	c := cache.GetGlobalCache()
+	// 固定窗口：每分钟一个 key，配额 = RPS×60
+	minute := time.Now().Truncate(time.Minute).Unix()
+	key := fmt.Sprintf("mtk:ratelimit:%s:%d", clientKey, minute)
+	cur, err := c.Incr(context.Background(), key, time.Minute)
+	if err != nil {
+		logger.Warnf("[ratelimit] 计数后端异常，放行 client=%s: %v", clientKey, err)
+		return true
+	}
+	return cur <= int64(rl.config.RPS*60)
 }
 
 // GetRateLimitStatus 获取限流状态（用于监控）
@@ -167,27 +190,39 @@ func GetRateLimitStatus(clientKey string) (remaining int, resetAfter float64) {
 		return -1, 0
 	}
 
-	limiter := globalRateLimiter.getLimiter(clientKey)
-
-	// 当前可用令牌数（浮点，向下取整为剩余请求数）
-	tokens := limiter.Tokens()
-	remaining = int(tokens)
-	if remaining < 0 {
-		remaining = 0
+	// 未配置 Redis 时走进程内令牌桶的精确状态
+	if !cache.GlobalIsRedis() {
+		limiter := globalRateLimiter.getLimiter(clientKey)
+		tokens := limiter.Tokens()
+		remaining = int(tokens)
+		if remaining < 0 {
+			remaining = 0
+		}
+		burst := float64(limiter.Burst())
+		limit := float64(limiter.Limit())
+		if limit <= 0 {
+			return remaining, 0
+		}
+		deficit := burst - tokens
+		if deficit <= 0 {
+			return remaining, 0
+		}
+		resetAfter = deficit / limit
+		return remaining, resetAfter
 	}
 
-	// 桶填满所需时间：(Burst - tokens) / RPS
-	burst := float64(limiter.Burst())
-	limit := float64(limiter.Limit())
-	if limit <= 0 {
-		// 限速为 0 视为永不补充，resetAfter 无意义
-		return remaining, 0
+	// Redis 共享模式：基于固定窗口剩余配额估算
+	minute := time.Now().Truncate(time.Minute).Unix()
+	key := fmt.Sprintf("mtk:ratelimit:%s:%d", clientKey, minute)
+	curStr, err := cache.GetGlobalCache().Get(context.Background(), key)
+	if err != nil || curStr == "" {
+		return int(globalRateLimiter.config.RPS * 60), 0
 	}
-	deficit := burst - tokens
-	if deficit <= 0 {
-		return remaining, 0
+	var cur int64
+	fmt.Sscanf(curStr, "%d", &cur)
+	rem := int64(globalRateLimiter.config.RPS*60) - cur
+	if rem < 0 {
+		rem = 0
 	}
-	resetAfter = deficit / limit
-
-	return remaining, resetAfter
+	return int(rem), 0
 }

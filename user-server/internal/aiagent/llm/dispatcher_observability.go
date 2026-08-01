@@ -530,23 +530,9 @@ func (d *Dispatcher) StartCacheJanitor(ctx context.Context, interval time.Durati
 	}
 }
 
-// sweepExpiredCache 清理过期 cache（O(N) 全扫，对当前 <10k 缓存量可接受）
-func (d *Dispatcher) sweepExpiredCache() {
-	d.cacheMu.Lock()
-	defer d.cacheMu.Unlock()
-	now := time.Now()
-	expired := 0
-	for k, e := range d.cache {
-		if now.After(e.expireAt) {
-			delete(d.cache, k)
-			expired++
-		}
-	}
-	if expired > 0 {
-		// 仅在有清理时打日志，避免噪音
-		_ = expired
-	}
-}
+// sweepExpiredCache 响应缓存已迁至全局缓存（REDIS_HOST 配置时 Redis 共享、否则内存单例），
+// 由全局缓存按 TTL 自动过期，无需手动全扫。保留签名以兼容既有调用点。
+func (d *Dispatcher) sweepExpiredCache() {}
 
 // InitGlobalDispatcherWithDB 初始化全局 Dispatcher 并注入审计 DB
 //

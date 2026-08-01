@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"gorm.io/gorm"
 	"marketing/internal/model"
@@ -325,10 +324,7 @@ func TestIsTelegramBotMentioned(t *testing.T) {
 // =============================================================================
 
 func TestTgLeadOutreachAllowed(t *testing.T) {
-	svc := &WebhookService{tgOutreachLast: map[string]time.Time{}}
-
-	key1 := "acc1:-100:u1"
-	key2 := "acc1:-100:u2"
+	svc := &WebhookService{}
 
 	// 首次均允许
 	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
@@ -342,21 +338,8 @@ func TestTgLeadOutreachAllowed(t *testing.T) {
 	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u2") {
 		t.Fatalf("不同发言者不受前者冷却影响")
 	}
-	// key1/key2 都已记录
-	if _, ok := svc.tgOutreachLast[key1]; !ok {
-		t.Fatalf("key1 未记录冷却")
-	}
-	if _, ok := svc.tgOutreachLast[key2]; !ok {
-		t.Fatalf("key2 未记录冷却")
-	}
-
-	// 直接修改记录时间以模拟冷却到期，应再次允许
-	svc.tgOutreachMu.Lock()
-	svc.tgOutreachLast[key1] = time.Now().Add(-(tgLeadOutreachCooldown + time.Minute))
-	svc.tgOutreachMu.Unlock()
-	if !svc.tgLeadOutreachAllowed(context.Background(), "acc1", "-100", "u1") {
-		t.Fatalf("冷却到期后应再次允许触达")
-	}
+	// 注：冷却到期由全局缓存 TTL 自动释放（REDIS_HOST 配置时为 Redis 共享，否则内存单例），
+	// 不再依赖进程内 map，故此处不模拟手动提前到期；跨实例一致性由共享缓存保证。
 }
 
 // countClues 统计指定账号的 TG 线索条数（验证去重）

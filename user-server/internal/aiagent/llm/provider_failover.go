@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"marketing/internal/cache"
 	"time"
 
 	"gorm.io/gorm"
@@ -389,6 +391,13 @@ func (f *ProviderFailover) IsCircuitOpen(providerName string) bool {
 		return true
 	}
 	// 熔断时间已过，恢复探测
+	// 集群级熔断：若其他实例已开启该 provider 熔断（REDIS_HOST 配置时），
+	// 本实例也应跟随跳过，避免短时内多实例共同锤击故障 provider（雪崩）。
+	if cache.GlobalIsRedis() {
+		if open, e := cache.GetGlobalCache().Exists(context.Background(), "mtk:circuit:open:"+providerName); e == nil && open {
+			return true
+		}
+	}
 	return false
 }
 
@@ -424,6 +433,9 @@ func (f *ProviderFailover) ResetCircuit(providerName string) bool {
 		return false
 	}
 	h.CircuitOpenUntil = time.Time{}
+	if cache.GlobalIsRedis() {
+		_ = cache.GetGlobalCache().Delete(context.Background(), "mtk:circuit:open:"+providerName)
+	}
 	h.ConsecutiveFailures = 0
 	h.Status = ProviderStatusUp
 	h.LastError = ""
@@ -442,6 +454,9 @@ func (f *ProviderFailover) RecordSuccess(providerName string, latencyMs int64) {
 	h.ConsecutiveFailures = 0
 	h.LastError = ""
 	h.CircuitOpenUntil = time.Time{}
+	if cache.GlobalIsRedis() {
+		_ = cache.GetGlobalCache().Delete(context.Background(), "mtk:circuit:open:"+providerName)
+	}
 	h.LatencyP95Ms = latencyMs
 	cfg := f.config
 	if cfg.DegradedLatencyMs > 0 && latencyMs > cfg.DegradedLatencyMs {
@@ -467,7 +482,12 @@ func (f *ProviderFailover) RecordFailure(providerName string, err error) {
 	cfg := f.config
 	if h.ConsecutiveFailures >= cfg.FailureThreshold {
 		h.Status = ProviderStatusDown
-		h.CircuitOpenUntil = time.Now().Add(time.Duration(cfg.CircuitOpenDuration) * time.Second)
+		dur := time.Duration(cfg.CircuitOpenDuration) * time.Second
+		h.CircuitOpenUntil = time.Now().Add(dur)
+		// 跨实例共享熔断开启信号（集群级熔断：避免其他实例短时内继续锤击故障 provider）
+		if cache.GlobalIsRedis() {
+			cache.GetGlobalCache().SetNX(context.Background(), "mtk:circuit:open:"+providerName, "1", dur)
+		}
 	} else {
 		h.Status = ProviderStatusDegraded
 	}

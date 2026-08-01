@@ -7,13 +7,14 @@ import (
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
+	"marketing/internal/cache"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/bcrypt"
 	"marketing/internal/pkg/utils/logger"
@@ -73,12 +74,12 @@ func NewMFAService() *MFAService {
 	}
 }
 
-// tempTokenStore 临时令牌存储（登录后等待 MFA 验证阶段）
-// 设计：单进程内存，5 分钟过期；多实例部署需迁移到 Redis
-var (
-	tempTokenStore      = make(map[string]tempTokenEntry)
-	tempTokenStoreMutex sync.RWMutex
-)
+// tempTokenStore 临时令牌存储（登录后等待 MFA 二次验证阶段）
+// 业务需要：登录请求与 MFA 验证在 HA 多实例下可能落到不同实例，令牌必须跨实例共享，
+// 否则验证请求落到无令牌的实例会永远失败。
+// 实现：走全局缓存（cache.GetGlobalCache）——REDIS_HOST 配置时为 Redis 共享后端，
+// 否则为进程内内存单例；令牌 JSON 化存储并带 5 分钟 TTL，天然跨实例一致且自动过期。
+const tempTokenCachePrefix = "mtk:mfa:temp:"
 
 type tempTokenEntry struct {
 	UserID    uint
@@ -314,33 +315,35 @@ func (s *MFAService) IssueTempToken(ctx context.Context, userID uint, username, 
 	}
 	token := fmt.Sprintf("%x", tokenBytes)
 
-	tempTokenStoreMutex.Lock()
-	defer tempTokenStoreMutex.Unlock()
-
-	tempTokenStore[token] = tempTokenEntry{
+	entry := tempTokenEntry{
 		UserID:    userID,
 		Username:  username,
 		Role:      role,
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
-
-	// 异步清理过期令牌
-	go s.cleanupExpiredTempTokens(ctx)
-
+	buf, err := json.Marshal(entry)
+	if err != nil {
+		return "", errors.New("序列化临时令牌失败")
+	}
+	// 全局缓存：REDIS_HOST 配置时为 Redis 共享（跨实例），否则为内存单例（单实例安全）
+	if err := cache.GetGlobalCache().Set(ctx, tempTokenCachePrefix+token, string(buf), 5*time.Minute); err != nil {
+		return "", errors.New("存储临时令牌失败")
+	}
 	return token, nil
 }
 
 // ValidateTempToken 校验临时令牌并返回用户信息
 func (s *MFAService) ValidateTempToken(ctx context.Context, token string) (uint, string, string, error) {
-	tempTokenStoreMutex.Lock()
-	defer tempTokenStoreMutex.Unlock()
-
-	entry, ok := tempTokenStore[token]
-	if !ok {
+	raw, err := cache.GetGlobalCache().Get(ctx, tempTokenCachePrefix+token)
+	if err != nil || raw == "" {
+		return 0, "", "", errors.New("临时令牌无效")
+	}
+	var entry tempTokenEntry
+	if err := json.Unmarshal([]byte(raw), &entry); err != nil {
 		return 0, "", "", errors.New("临时令牌无效")
 	}
 	if time.Now().After(entry.ExpiresAt) {
-		delete(tempTokenStore, token)
+		_ = cache.GetGlobalCache().Delete(ctx, tempTokenCachePrefix+token)
 		return 0, "", "", errors.New("临时令牌已过期")
 	}
 	return entry.UserID, entry.Username, entry.Role, nil
@@ -348,22 +351,11 @@ func (s *MFAService) ValidateTempToken(ctx context.Context, token string) (uint,
 
 // ConsumeTempToken 消费临时令牌（验证成功后删除）
 func (s *MFAService) ConsumeTempToken(ctx context.Context, token string) {
-	tempTokenStoreMutex.Lock()
-	defer tempTokenStoreMutex.Unlock()
-	delete(tempTokenStore, token)
+	_ = cache.GetGlobalCache().Delete(ctx, tempTokenCachePrefix+token)
 }
 
-// cleanupExpiredTempTokens 清理过期令牌
-func (s *MFAService) cleanupExpiredTempTokens(ctx context.Context) {
-	tempTokenStoreMutex.Lock()
-	defer tempTokenStoreMutex.Unlock()
-	now := time.Now()
-	for k, v := range tempTokenStore {
-		if now.After(v.ExpiresAt) {
-			delete(tempTokenStore, k)
-		}
-	}
-}
+// cleanupExpiredTempTokens 全局缓存已按 TTL 自动过期，无需手动清理（保留签名以兼容既有调用点）。
+func (s *MFAService) cleanupExpiredTempTokens(ctx context.Context) {}
 
 // VerifyMFALogin MFA 登录验证
 // 步骤：校验临时令牌 → 校验 TOTP 码 → 检查重放 → 更新 last_used_at → 返回用户 ID
