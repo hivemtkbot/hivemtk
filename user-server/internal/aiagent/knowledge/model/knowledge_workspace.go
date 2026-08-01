@@ -74,16 +74,16 @@ type KnowledgeDocument struct {
 	FilePath      string      `gorm:"size:512" json:"file_path"`
 	FileURL       string      `gorm:"size:512" json:"file_url"`
 	FileType      string      `gorm:"size:16" json:"file_type"`
-	FileSize      int64       `gorm:"default:''" json:"file_size"`
+	FileSize      int64       `gorm:"default:0" json:"file_size"`
 	MimeType      string      `gorm:"size:64" json:"mime_type"`
-	ChunkCount    int         `gorm:"default:''" json:"chunk_count"`
-	TotalTokens   int         `gorm:"default:''" json:"total_tokens"`
+	ChunkCount    int         `gorm:"default:0" json:"chunk_count"`
+	TotalTokens   int         `gorm:"default:0" json:"total_tokens"`
 	EmbedStatus   EmbedStatus `gorm:"size:16;default:'pending';index" json:"embed_status"`
-	EmbedProgress int         `gorm:"default:''" json:"embed_progress"`
+	EmbedProgress int         `gorm:"default:0" json:"embed_progress"`
 	ErrorMsg      string      `gorm:"type:text" json:"error_msg"`
 	Tags          string      `gorm:"type:jsonb;default:'[]'" json:"tags"` // JSON 字符串
 	Category      string      `gorm:"size:64;index" json:"category"`
-	Priority      int         `gorm:"default:''" json:"priority"`
+	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`
 	// 2026-07-31 P0-B: 按智能体隔离字段
@@ -92,8 +92,8 @@ type KnowledgeDocument struct {
 	// 索引: idx_knowledge_doc_agent_id (按智能体过滤, ListByAgent)
 	AgentID     *uint      `gorm:"index" json:"agent_id,omitempty"`
 	LastIndexAt *time.Time `json:"last_index_at"`
-	SearchCount int64      `gorm:"default:''" json:"search_count"`
-	HitCount    int64      `gorm:"default:''" json:"hit_count"`
+	SearchCount int64      `gorm:"default:0" json:"search_count"`
+	HitCount    int64      `gorm:"default:0" json:"hit_count"`
 	Status      int        `gorm:"default:1" json:"status"`
 	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
@@ -112,11 +112,11 @@ type KnowledgeChunk struct {
 	ChunkIndex      int     `gorm:"not null" json:"chunk_index"`
 	Content         string  `gorm:"type:text;not null" json:"content"`
 	ContentHash     string  `gorm:"size:64;index" json:"content_hash"`
-	TokenCount      int     `gorm:"default:''" json:"token_count"`
-	CharCount       int     `gorm:"default:''" json:"char_count"`
+	TokenCount      int     `gorm:"default:0" json:"token_count"`
+	CharCount       int     `gorm:"default:0" json:"char_count"`
 	EmbeddingID     string  `gorm:"size:64" json:"embedding_id"`
-	SimilarityScore float64 `gorm:"default:''" json:"similarity_score"`
-	HitCount        int     `gorm:"default:''" json:"hit_count"`
+	SimilarityScore float64 `gorm:"default:0" json:"similarity_score"`
+	HitCount        int     `gorm:"default:0" json:"hit_count"`
 	Metadata        string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	SourceLanguage  string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
 	// TranslatedVersions 预翻译版本（知识库预翻译支持）
@@ -166,7 +166,7 @@ type KnowledgeSearchLog struct {
 	MinScore            float64   `json:"min_score"`
 	AvgScore            float64   `json:"avg_score"`
 	LatencyMs           int       `json:"latency_ms"`
-	Hit                 int       `gorm:"default:''" json:"hit"`
+	Hit                 int       `gorm:"default:0" json:"hit"`
 	Source              string    `gorm:"size:32" json:"source"`
 	SessionID           string    `gorm:"size:64" json:"session_id"`
 	CreatedAt           time.Time `gorm:"autoCreateTime;index" json:"created_at"`
@@ -195,7 +195,7 @@ type KnowledgeOpenAPISource struct {
 	LastSyncAt      *time.Time `json:"last_sync_at"`
 	LastStatus      string     `gorm:"size:16;default:'never'" json:"last_status"`
 	LastError       string     `gorm:"type:text" json:"last_error"`
-	TotalSynced     int64      `gorm:"default:''" json:"total_synced"`
+	TotalSynced     int64      `gorm:"default:0" json:"total_synced"`
 	CreatedAt       time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
