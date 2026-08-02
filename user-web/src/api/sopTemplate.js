@@ -1,7 +1,7 @@
 import { http } from '@/utils/request'
 
 // SOP 模板管理 API - 匹配后端 /api/sop-templates/* 路径
-// 2026-07-31 P1-A: 前端 SOP 模板管理页面
+// 前端 SOP 模板管理页面
 
 /**
  * @typedef {Object} SOPTemplateListParams

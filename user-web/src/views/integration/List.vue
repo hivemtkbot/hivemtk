@@ -293,7 +293,7 @@ const viewLogs = async (row) => {
   logs.value = []
   try {
     const res = await getIntegrationLogs(row.id)
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const data = res
     if (Array.isArray(data)) {
       logs.value = data

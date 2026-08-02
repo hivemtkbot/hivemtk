@@ -144,7 +144,7 @@ const loadLogs = async () => {
   loading.value = true
   try {
     const res = await getOperationLogs({ page: pagination.value.page, size: pagination.value.size })
-    // P2-1 修复：request.js 拦截器已解包 data.data，res 即业务数据本身
+    // 修复：request.js 拦截器已解包 data.data，res 即业务数据本身
     logs.value = res?.list || []
     pagination.value.total = res?.total || 0
   } finally {

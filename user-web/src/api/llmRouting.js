@@ -3,7 +3,7 @@ import { http } from '@/utils/request'
 /**
  * LLM 多模型路由 API
  *
- * 端点对齐（2026-07-24 补全）：
+ * 端点对齐：
  *  - GET    /api/llm/models            列出所有 provider
  *  - GET    /api/llm/models/:name      单个 provider
  *  - POST   /api/llm/models            新增 provider

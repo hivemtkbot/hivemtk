@@ -1,4 +1,4 @@
-// F-P1-75: 素材业务数据 Store
+// F-: 素材业务数据 Store
 //
 // 从原 useAppStore 拆分出来的素材 / 话题 / 分类业务数据。
 //   - materials：素材列表（MaterialSelectDialog 使用）

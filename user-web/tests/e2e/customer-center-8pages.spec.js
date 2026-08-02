@@ -1,4 +1,4 @@
-// F-P0-34 客户中心 8 页深度 Playwright 测试
+// F- 客户中心 8 页深度 Playwright 测试
 // 覆盖 8 个客户中心相关页面：客户360、OneID、客户旅程、用户分层 RFM、标签分层、线索列表、线索统计、用户分群
 // 模式: A) 真实渲染(专属选择器)  B) 关键 API 直连 200  C) 至少 1 个交互
 // 运行: E2E_BASE_URL=http://localhost:8216 E2E_API_URL=http://localhost:8204 \

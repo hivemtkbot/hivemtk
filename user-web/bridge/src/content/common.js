@@ -230,7 +230,7 @@ function pickRecommendedSelector(visibleInputs) {
 export function startBridge(channel, buildAdapter) {
   const adapter = buildAdapter();
 
-  // P0-S2-X 修复：ping/selfcheck 监听器必须在 match() 检查之前注册。
+  // X 修复：ping/selfcheck 监听器必须在 match 检查之前注册。
   // 早期版本在 adapter.match() 失败时直接 return，导致用户在抖音首页
   // （不是私信/消息页）时 popup 永远拿不到任何响应，显示 "undefined"。
   // 现在统一处理：未匹配页只回 ping/selfcheck 诊断，不启动 background 端口/observer。
@@ -285,7 +285,7 @@ export function startBridge(channel, buildAdapter) {
     if (msg && msg.type === FRAME.OUTBOUND && msg.reply) {
       const r = parseUnifiedReply(msg.reply);
       if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
-      // P0-S1-7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
+      // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
       const safeContent = sanitizeForDisplay(r.content);
       // 只回写匹配当前会话的回复（多用户场景：避免串台）
       if (r.conversation_id && adapter.getConversationId() && r.conversation_id !== adapter.getConversationId()) {
@@ -324,7 +324,7 @@ export function startBridge(channel, buildAdapter) {
   };
   report(true);
 
-  // R4 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
+  // 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
   // 周期由 UI_DEFAULTS.metaReportIntervalMs 单源管理（见 constants.js / DEFAULTS.md）
   const reportTimer = setInterval(report, UI_DEFAULTS.metaReportIntervalMs);
 

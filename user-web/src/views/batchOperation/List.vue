@@ -264,7 +264,7 @@ const preview = async () => {
 
   try {
     const res = await previewBatch({ tool: currentTool.value.name, ...form.value, dryRun: true })
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const data = res
 
     // 适配后端返回的预览数据格式

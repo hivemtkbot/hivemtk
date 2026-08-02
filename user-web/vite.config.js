@@ -67,7 +67,7 @@ export default defineConfig({
     //   - 组件(<ElXxx />): 由 ElementPlusResolver 解析(此处仍保留 app.use(ElementPlus) 全量注册,
     //     两者并存不冲突,组件自动导入仅作降级路径)
     //   - importStyle:false: 不自动注入组件 CSS(仍走 main.js 中的 'element-plus/dist/index.css' 全量样式,
-    //     待 P1 后续阶段再切换为按需 CSS)
+    // 待 后续阶段再切换为按需 CSS
     // 参考: https://element-plus.org/en-US/guide/quickstart.html#on-demand-import
     Components({
       resolvers: [

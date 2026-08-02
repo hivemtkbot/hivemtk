@@ -11,7 +11,7 @@
  *
  * 商业场景：商户配置飞书机器人后，飞书入站消息和事件自动触发 智能体流程
  *
- * 2026-07-17 新增：配合 reach.feishu.send 工具，实现完整销售流程
+ * 新增：配合 reach.feishu.send 工具，实现完整销售流程
  */
 
 import request from '@/utils/request'

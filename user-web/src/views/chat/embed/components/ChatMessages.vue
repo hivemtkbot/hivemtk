@@ -40,7 +40,7 @@
 import i18n from '@/i18n'
 
 import { ref, watch, nextTick, onMounted } from 'vue'
-// P1-7-补 修复：访客消息经 DOMPurify 净化后再 v-html 渲染，防止 XSS
+// 补 修复：访客消息经 DOMPurify 净化后再 v-html 渲染，防止 XSS
 // 访客可发送 <img onerror>、<script> 等恶意内容；原 formatContent 仅做实体转义，未拦截 on* 事件和 javascript: 协议
 import DOMPurify from 'dompurify'
 
@@ -72,7 +72,7 @@ const displayName = (msg) => {
   return msg.sender_name || '客服'
 }
 
-// 头像背景色（极简白底规范 2026-07-17：用纯色字母头像替代 emoji）
+// 头像背景色（极简白底规范 ：用纯色字母头像替代 emoji）
 const avatarBg = (msg) => {
   if (msg.sender_type === 'user') return '#1989fa'
   if (msg.sender_type === 'agent') return '#10B981'
@@ -120,7 +120,7 @@ const formatContent = (text) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
   const html = escaped.replace(/\n/g, '<br>')
-  // P1-7-补：即使前面转义过，仍走 DOMPurify 兜底，杜绝任何绕过路径
+  // 补：即使前面转义过，仍走 DOMPurify 兜底，杜绝任何绕过路径
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
 }
 

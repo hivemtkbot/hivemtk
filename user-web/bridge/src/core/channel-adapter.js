@@ -27,7 +27,7 @@ export class BaseAdapter {
     this.convPollTimer = null;
     this.fallbackTimer = null;
     this.activeRoot = null;
-    // R3 修复：用 Map 替代数组存储 recentSelf 指纹，便于 O(1) 查询；
+    // 修复：用 Map 替代数组存储 recentSelf 指纹，便于 O(1) 查询；
     // 上限 200 条防止异常场景下无限增长，超过时清理最旧一半。
     this.recentSelf = new Map();
     this.recentSelfMax = 200;
@@ -217,7 +217,7 @@ export class BaseAdapter {
   }
 
   _markRecentSelf(key) {
-    // R3 修复：超过上限时清理最旧一半，防止异常场景下无限增长
+    // 修复：超过上限时清理最旧一半，防止异常场景下无限增长
     if (this.recentSelf.size >= this.recentSelfMax) {
       const entries = Array.from(this.recentSelf.entries()).sort((a, b) => a[1] - b[1]);
       const half = Math.floor(entries.length / 2);

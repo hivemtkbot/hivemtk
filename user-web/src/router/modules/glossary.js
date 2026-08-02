@@ -1,5 +1,5 @@
 // 术语表（Glossary）管理路由
-// P1-4 多语言方案：术语统一与保护管理 UI
+// 多语言方案：术语统一与保护管理 UI
 export default [
   {
     path: 'glossary',

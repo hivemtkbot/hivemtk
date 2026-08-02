@@ -1,7 +1,7 @@
 import { http } from '@/utils/request'
 
 // FAQ 知识库 API - 匹配后端 /api/faqs/* 路径
-// 2026-07-31 P1-A: 前端 FAQ 管理页面
+// 前端 FAQ 管理页面
 
 /**
  * @typedef {Object} FAQListParams

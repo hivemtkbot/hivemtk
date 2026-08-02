@@ -1,5 +1,5 @@
 /**
- * P2-5 安全审计 E2E 测试
+ * 安全审计 E2E 测试
  */
 import { test, expect, request } from '@playwright/test'
 

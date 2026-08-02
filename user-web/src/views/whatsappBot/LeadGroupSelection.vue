@@ -142,7 +142,7 @@ const fetchLeads = async () => {
       pagination.currentPage,
       pagination.pageSize
     )
-    // P2-1 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
+    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
     const clueData = response?.list || response || []
     // 将clue数据转换为适合前端显示的格式
     leads.value = clueData.map(clue => ({

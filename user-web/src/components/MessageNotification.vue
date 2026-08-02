@@ -59,7 +59,7 @@ const isMessageDismissed = (messageId) => {
 // 检查新消息
 const checkNewMessage = async () => {
   try {
-    // P2-1 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（即 message）
+    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（即 message）
     const message = await platformAPI.getLatestMessage()
     if (message && message.id && message.id !== currentMessage.value.id && !isMessageDismissed(message.id)) {
       currentMessage.value = message

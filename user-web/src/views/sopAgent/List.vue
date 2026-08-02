@@ -377,7 +377,7 @@ const saving = ref(false)
 const editingSop = ref({})
 const sopForm = ref({ name: '', description: '', trigger_intent: '', status: 'draft', nodes: [] })
 
-// SOP 节点类型选项（P0-1 修复：前端缺 type 字段导致后端 validateGraph 拒绝）
+// SOP 节点类型选项（修复：前端缺 type 字段导致后端 validateGraph 拒绝）
 // 与 user-server/internal/service/sop_service.go:64 SOPNodeSupportedTypes 保持同步
 const sopNodeTypeOptions = [
   { value: 'start', label: '开始 (start)' },

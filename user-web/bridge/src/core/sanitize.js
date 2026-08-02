@@ -1,6 +1,6 @@
 // XSS 防护工具：内容渲染前的转义与净化
 //
-// P0-S1-7：扩展端 content 用 textContent 注入而非 innerHTML；
+// 7：扩展端 content 用 textContent 注入而非 innerHTML；
 // 若任何位置必须用 innerHTML，先经本模块 escapeHTML 转义。
 //
 // 原则：

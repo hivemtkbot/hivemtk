@@ -142,7 +142,7 @@ import { Timer, Warning, InfoFilled, Bell, Menu, SwitchButton, Fold, Expand } fr
 import { routeIconMap } from '@/utils/iconMap'
 void Bell; void Timer; void Warning; void InfoFilled; void Menu; void SwitchButton; void Fold; void Expand
 
-// P1-1: 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入构建 iconComponents,
+// 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入构建 iconComponents,
 // 改用 utils/iconMap.js 中显式导入的 routeIconMap(仅含路由配置实际使用的 52 个图标),
 // 使打包工具能 tree-shake 未引用的图标,显著减小 elementPlus chunk 体积。
 const iconComponents = routeIconMap

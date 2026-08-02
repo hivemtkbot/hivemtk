@@ -312,7 +312,7 @@ const covColor = (p) => {
 }
 
 // ===== 延迟辅助 =====
-// P95 阈值：>=1000ms 危险，>=500ms 警告，否则正常
+// 阈值：>=1000ms 危险，>=500ms 警告，否则正常
 const latencyClass = (ms) => {
   const v = Number(ms || 0)
   if (v >= 1000) return 'latency-danger'

@@ -265,7 +265,7 @@ const loadList = async () => {
   loading.value = true
   try {
     const res = await listOneID({ page: page.value, page_size: pageSize.value, keyword: keyword.value })
-    // P2-1 修复：request.js 拦截器已解包 data.data，res 即业务数据本身（{list,total}）
+    // 修复：request.js 拦截器已解包 data.data，res 即业务数据本身（{list,total}）
     // 原 `if (res.code === 0)` 是死代码——拦截器只在 code===0/200/SUCCESS 时返回 res，否则 reject
     list.value = res?.list || []
     total.value = res?.total || 0

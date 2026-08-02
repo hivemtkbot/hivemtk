@@ -449,7 +449,7 @@ const recognizeResult = ref(null)
 const batchLoading = ref(false)
 const batchResults = ref([])
 
-// ===== M-2 P1 精细意图识别（8 大类 + 7 子类）=====
+// ===== 精细意图识别（8 大类 + 7 子类）=====
 const fineLoading = ref(false)
 const fineForm = ref({ message: '', customer_id: '' })
 const fineResult = ref(null)
@@ -720,7 +720,7 @@ const runBatchRecognize = async () => {
   }
 }
 
-// ===== M-2 P1 精细意图识别方法 =====
+// ===== 精细意图识别方法 =====
 
 const fillFineExample = () => {
   const examples = [

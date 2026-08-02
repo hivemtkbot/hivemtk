@@ -19,7 +19,7 @@ import { resolveRouteIcon } from '@/utils/iconMap'
 const route = useRoute()
 const router = useRouter()
 
-// P1-1: 复用 utils/iconMap.js 中的 resolveRouteIcon 解析图标字符串,
+// 复用 utils/iconMap.js 中的 resolveRouteIcon 解析图标字符串,
 // 不再使用 `import * as ElementPlusIconsVue` 全量命名空间导入。
 const resolveIcon = resolveRouteIcon
 

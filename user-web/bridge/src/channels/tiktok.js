@@ -109,7 +109,7 @@ const hooks = {
     return qsa(SEL.MSG_ITEM);
   },
   parseMessageItem(item) {
-    // P2-S2-9 自他消息判定兜底：先按 outgoing class，再用头像位置兜底
+    // 9 自他消息判定兜底：先按 outgoing class，再用头像位置兜底
     const isSelf = isSelfMessage(item, '[class*="outgoing"]') || isSelfMessage(item, SEL.SELF_ITEM);
     const sender_type = isSelf ? SENDER.SELF : SENDER.CUSTOMER;
     const textEl = item.querySelector(SEL.TEXT);

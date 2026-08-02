@@ -38,7 +38,7 @@ export const listBundles = (data) =>
 export const publishBundle = (id) =>
   request({ url: `/api/asset-bundle/${id}/publish`, method: 'post' })
 
-// 提交平台审核上架（开发者上架链路 P0）
+// 提交平台审核上架（开发者上架链路）
 export const submitToPlatform = (id) =>
   request({ url: `/api/asset-bundle/${id}/submit-platform`, method: 'post' })
 

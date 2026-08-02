@@ -13,7 +13,7 @@
  *   2. `http` 是稳定的语义 API（get/post/put/delete/upload），未来若替换底层
  *      axios 实例（如改用 fetch/ofetch），调用方零改动；而 `request` 直接暴露
  *      axios 实例，与 axios API 强耦合。
- *   3. 架构评审 P1-3 约定：`default` 导出仅作向后兼容，新增文件应使用 `{ http }`。
+ * 3. 架构评审 约定：`default` 导出仅作向后兼容，新增文件应使用 `{ http }`。
  *      ESLint `no-restricted-imports` 规则可约束新增文件不引入 default 导出。
  *
  * 历史背景：早期 api 文件混用两种风格（43 个文件用 default，33 个用 { http }，另 3 个未导入），

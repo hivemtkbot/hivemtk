@@ -1,4 +1,4 @@
-// 客服 Web Widget 渠道管理（ADR-011）
+// 客服 Web Widget 渠道管理
 // 依赖后端 controller/chat_channel_controller.go
 export default [
   {

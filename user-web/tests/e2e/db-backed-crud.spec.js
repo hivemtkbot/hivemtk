@@ -118,7 +118,7 @@ test('[DB] 团队成员：API 造数→落库→列表回显→清理闭环', as
   expect(errors).toEqual([])
 })
 
-// ---- 4. 已修复 res.data 页面渲染冒烟：打开新增对话框，确认不崩溃/列表渲染 ----
+// 4. res.data 页面渲染冒烟：打开新增对话框，确认不崩溃/列表渲染 ----
 const SMOKE = [
   'whatsapp/account', 'feishu/account', 'oneid/list', 'customer360/list',
   'abExperiment/list', 'templateMarket/list', 'integration/list', 'sms/config',

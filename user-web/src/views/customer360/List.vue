@@ -315,7 +315,7 @@ const submitContact = async () => {
       user_name: current.value.name || '',
       user_phone: current.value.phone || ''
     })
-    // P2-1 修复：res 即业务数据本身，res.id 即新会话 ID
+    // 修复：res 即业务数据本身，res.id 即新会话 ID
     const sessionId = res?.id
     await sendMessage({ sessionId, content: contactForm.value.content, sender_type: 'agent' })
     ElMessage.success(i18n.global.t('会话已创建，消息已发送'))

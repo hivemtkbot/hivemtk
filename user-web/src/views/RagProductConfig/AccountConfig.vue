@@ -238,7 +238,7 @@ const loadCurrentConfig = async () => {
       platform: form.platform
     })
     
-    // P2-1 修复：response 即业务数据本身（即 config 对象）
+    // 修复：response 即业务数据本身（即 config 对象）
     const config = response
     Object.assign(form, {
       ...config,

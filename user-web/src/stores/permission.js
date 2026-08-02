@@ -1,4 +1,4 @@
-// F-P1-75: 权限 Store
+// F-: 权限 Store
 //
 // 使用方式：
 //   import { usePermissionStore } from '@/stores/permission'

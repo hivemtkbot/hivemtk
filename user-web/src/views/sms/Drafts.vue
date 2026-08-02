@@ -167,7 +167,7 @@ const handleCreateDraft = () => {
 const handleEdit = async (row) => {
   try {
     const response = await smsApi.getDraftDetail(row.id)
-    // P2-1 修复：response 即业务数据本身（即草稿详情对象）
+    // 修复：response 即业务数据本身（即草稿详情对象）
     const data = response
     formData.title = data.title
     formData.content = data.content

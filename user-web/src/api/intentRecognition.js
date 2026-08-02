@@ -58,7 +58,7 @@ export const intentApi = {
     return http.get('/api/intent/dict')
   },
 
-  // ===== M-2 P1 精细意图识别（8 大类 + 7 子类）=====
+  // ===== 精细意图识别（8 大类 + 7 子类）=====
 
   // 精细识别：返回 {intent_major, intent_minor, confidence, ...}
   recognizeFine(data) {

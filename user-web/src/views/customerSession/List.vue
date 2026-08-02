@@ -505,21 +505,21 @@ const profileStats = ref({ messageCount: 0, sessionCount: 0, aiReplyCount: 0 })
 const profileTags = ref([])
 const sopStage = ref('')
 
-// ===== P1-4 G8 AgentStatus =====
+// ===== G8 AgentStatus =====
 const myStatus = ref('offline')
 const myAgentId = ref(null)
 
-// ===== P1-4 G8 SessionTag =====
+// ===== G8 SessionTag =====
 const allTags = ref([]) // 系统全部标签
 const sessionTags = ref([]) // 当前会话的标签
 const tagToAdd = ref(null)
 
-// ===== P1-4 G8 QuickReply =====
+// ===== G8 QuickReply =====
 const quickReplies = ref([])
 const allQuickReplies = ref([]) // 用于关键词搜索
 const quickReplySearch = ref('')
 
-// ===== P1-4 G8 AISuggestion =====
+// ===== G8 AISuggestion =====
 const aiSuggestions = ref([])
 
 // ===== C2：黑名单管理 =====
@@ -954,7 +954,7 @@ const handleUnblacklist = async (item) => {
   }
 }
 
-// ===== P1-4 G8 AgentStatus: 我的状态切换 =====
+// ===== G8 AgentStatus: 我的状态切换 =====
 const handleStatusChange = async (newStatus) => {
   try {
     // 尝试取一个已存在的坐席作为"我"（无登录态时降级为列表首位）
@@ -977,11 +977,11 @@ const handleStatusChange = async (newStatus) => {
   }
 }
 
-// ===== P1-4 G8 SessionTag: 加载 + 添加 + 移除 =====
+// ===== G8 SessionTag: 加载 + 添加 + 移除 =====
 const loadAllTags = async () => {
   try {
     const res = await getSessionTags()
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const data = res || []
     allTags.value = Array.isArray(data) ? data : data.list || []
   } catch (e) {
@@ -1037,7 +1037,7 @@ const persistSessionTags = async () => {
   }
 }
 
-// ===== P1-4 G8 QuickReply: 加载 + 搜索 + 插入 =====
+// ===== G8 QuickReply: 加载 + 搜索 + 插入 =====
 const loadQuickReplies = async () => {
   try {
     const [rRes] = await Promise.all([
@@ -1074,7 +1074,7 @@ const insertQuickReply = (reply) => {
   ElMessage.success(`已插入：${reply.title}`)
 }
 
-// ===== P1-4 G8 AISuggestion: 加载 + 采纳 =====
+// ===== G8 AISuggestion: 加载 + 采纳 =====
 const loadAiSuggestions = async () => {
   if (!currentSession.value) {
     aiSuggestions.value = []
@@ -1082,7 +1082,7 @@ const loadAiSuggestions = async () => {
   }
   try {
     const res = await getAISuggestions(currentSession.value.sessionId || currentSession.value.id)
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const data = res || []
     aiSuggestions.value = Array.isArray(data) ? data : data.list || []
   } catch (e) {
@@ -1113,7 +1113,7 @@ onMounted(async () => {
   // 接入登录态：优先用当前登录用户对应的坐席身份，杜绝"在线列表首位猜测"
   try {
     const res = await getMyAgent()
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const me = res
     if (me?.agent_id) {
       myAgentId.value = me.agent_id
@@ -1127,7 +1127,7 @@ onMounted(async () => {
   // 降级：未取到登录态坐席时，才用在线列表首位代表登录客服
   try {
     const res = await getOnlineAgents()
-    // P2-1 修复：res 即业务数据本身
+    // 修复：res 即业务数据本身
     const list = res || []
     const arr = Array.isArray(list) ? list : list.list || []
     if (arr.length > 0) {

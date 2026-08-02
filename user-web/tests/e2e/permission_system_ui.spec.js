@@ -16,8 +16,8 @@ import fs from 'fs'
  *  - 本测试同时支持 zh/en 两种模式（按 i18n locale 检测）
  *
  * 修复历史：
- *  - 2026-07-24: 后端注册 setupSystemUserRoutes + 前端 router 懒加载 systemUser/role/permission 模块
- *  - 2026-07-24: 简化点击逻辑，直接 click by text 强制启用 locale=zh
+ * 后端注册 setupSystemUserRoutes + 前端 router 懒加载 systemUser/role/permission 模块
+ * 简化点击逻辑，直接 click by text 强制启用 locale=zh
  */
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8213'

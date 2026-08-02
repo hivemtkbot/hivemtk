@@ -229,7 +229,7 @@ import i18n from '@/i18n'
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// P1-7 修复：引入 DOMPurify 净化消息预览 HTML，防止 XSS
+// 修复：引入 DOMPurify 净化消息预览 HTML，防止 XSS
 import DOMPurify from 'dompurify'
 import * as bulkMessagingApi from '@/api/bulkMessaging'
 import * as clueApi from '@/api/clue'
@@ -340,7 +340,7 @@ const loadLeads = async () => {
   try {
     // 使用clueApi.list获取线索列表
     const response = await clueApi.clueApi.list(1, 1000) // 获取前1000条线索
-    // P2-1 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
+    // 修复：request.js 拦截器已解包 data.data，response 即业务数据本身（{list,total}）
     const clueData = response?.list || response || []
     allLeads.value = clueData.map(clue => ({
       id: clue.ID,
@@ -377,7 +377,7 @@ const onTemplateChange = (templateId) => {
   const template = templates.value.find(t => t.id === templateId)
   if (template) {
     // 这里可以预渲染模板内容，用示例数据填充变量
-    // P1-7 修复：渲染后经 DOMPurify 净化再赋值给 v-html，防止模板变量注入恶意 HTML
+    // 修复：渲染后经 DOMPurify 净化再赋值给 v-html，防止模板变量注入恶意 HTML
     const rawHtml = template.content
       .replace('{{name}}', '张三')
       .replace('{{phone}}', '13800138000')
@@ -466,7 +466,7 @@ const resetTemplateForm = () => {
 }
 
 const viewRecordDetails = (row) => {
-  // P1-7 修复：dangerouslyUseHTMLString 拼接了用户可控的 row.templateName 等字段，
+  // 修复：dangerouslyUseHTMLString 拼接了用户可控的 row.templateName 等字段，
   // 必须先经 DOMPurify 净化，杜绝模板名注入恶意 HTML/脚本
   ElMessageBox.alert(DOMPurify.sanitize(`
     <div style="text-align: left;">

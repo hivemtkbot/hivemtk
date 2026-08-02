@@ -383,7 +383,7 @@ const handlePublish = async () => {
     await ElMessageBox.confirm('确认发布并上架该资产包？将本地发布并提交平台审核', '确认', { type: 'warning' })
     await publishBundle(bundle.id)
     bundle.status = 'active'
-    // best-effort：本地发布成功后，尝试提交平台审核上架（开发者上架链路 P0）
+    // best-effort：本地发布成功后，尝试提交平台审核上架（开发者上架链路）
     try {
       await submitToPlatform(bundle.id)
       ElMessage.success('本地已发布，并已提交平台审核上架')

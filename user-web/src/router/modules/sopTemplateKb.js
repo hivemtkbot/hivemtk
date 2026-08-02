@@ -1,4 +1,4 @@
-// 2026-07-31 P1-A: SOP 模板管理路由
+// SOP 模板管理路由
 // 路径前缀: /sop-template
 export default [
   {

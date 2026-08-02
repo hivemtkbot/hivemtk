@@ -28,7 +28,7 @@ const t = i18n.global.t
 
 const router = useRouter()
 
-// 保留 iconComponents 作为 props 兼容入口,内部统一使用 routeIconMap(P1-1: 已下沉到 utils/iconMap.js)
+// 保留 iconComponents 作为 props 兼容入口,内部统一使用 routeIconMap(: 已下沉到 utils/iconMap.js)
 const iconComponents = routeIconMap
 
 const handleMenuClick = (menu) => {

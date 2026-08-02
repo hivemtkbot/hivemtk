@@ -27,8 +27,8 @@ const initRoutes = [
     component: () => import('@/views/Login.vue'),
     meta: { title: '登录' }
   },
-  // P0-10 ADR-010: 公开嵌入聊天窗（被第三方网站 iframe 加载）
-  // 私域部署（2026-07-17 优化）：URL 路径用 channel_ref（兼容 app_key），缺失默认 default
+  // 公开嵌入聊天窗（被第三方网站 iframe 加载）
+  // 私域部署：URL 路径用 channel_ref（兼容 app_key），缺失默认 default
   {
     path: '/chat/embed/default',
     name: 'ChatEmbed',
@@ -70,16 +70,16 @@ const moduleNames = [
   'reachPipeline', 'unifiedInbox', 'wecomAccount',
   'whatsappCloud',
   'dingtalkApp',
-  // P1/P2 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
+  // / 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
   'llmRouting', 'tagSegmentation', 'conversionFunnel',
   'aiProductivity',
   // 知识库管理(导入/统计/OpenAPI)
   'knowledge',
   // 多 AI 智能体架构（智能体管理 / 渠道绑定 / 客服挂载）
   'aiAgent',
-  // 2026-07-31 P1-A: FAQ 知识库 / SOP 模板管理（知识库管理）
+  // FAQ 知识库 / SOP 模板管理（知识库管理）
   'faq', 'sopTemplateKb',
-  // 2026-07-31 P1-B: 知识库统一管理（RAG/FAQ/SOP 树形多选 + 反向追溯）
+  // 知识库统一管理（RAG/FAQ/SOP 树形多选 + 反向追溯）
   'knowledgeBase',
   // 资产市场
   'assetMarket',
@@ -87,13 +87,13 @@ const moduleNames = [
   'assetBundle',
   // 客服子功能 (坐席状态 / 快捷回复 / 会话标签 / AI 建议)
   'customerService',
-  // P0-10 ADR-010: 客服 Web Widget 渠道管理
+  // 客服 Web Widget 渠道管理
   'chatChannel',
-  // P2-1 G9: 异议处理 / 销冠画像独立 UI
+  // G9: 异议处理 / 销冠画像独立 UI
   'objection', 'persona',
-  // P2-2 G10: 客户旅程大屏
+  // G10: 客户旅程大屏
   'customerJourney',
-  // P2-5 G13: 备份恢复 / 安全审计
+  // G13: 备份恢复 / 安全审计
   'backup', 'securityAudit',
   // 飞书账号管理（配合 reach.feishu.send 工具）
   'feishu',
@@ -105,7 +105,7 @@ const moduleNames = [
   'role',
   // 阶段 6：授权管理（v3.1 §3.4）
   'permission',
-  // P1-4 多语言方案：术语表管理 + 多语言监控看板
+  // 多语言方案：术语表管理 + 多语言监控看板
   'glossary', 'i18nStats'
 ]
 
@@ -193,9 +193,9 @@ const pathToModule = {
   'whatsapp-cloud': 'whatsappCloud',
   // 钉钉应用（企业内部应用，支持回调收消息）
   'dingtalk-app': 'dingtalkApp',
-  // P1-4 多语言：/i18n/* 路径首段与模块名 i18nStats 不一致，需显式映射
+  // 多语言：/i18n/* 路径首段与模块名 i18nStats 不一致，需显式映射
   'i18n': 'i18nStats',
-  // 2026-07-31 P1-A: 知识库管理模块 URL 路径首段与模块名不一致映射
+  // 知识库管理模块 URL 路径首段与模块名不一致映射
   'sop-template': 'sopTemplateKb'
 }
 
@@ -273,7 +273,7 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // F-P1-74: requiresAdmin 守卫
+  // F-: requiresAdmin 守卫
   // 路由 meta.requiresAdmin = true 时，仅 admin 角色可访问；非 admin 跳转 403 提示
   if (to.meta?.requiresAdmin) {
     const userStore = useUserStore()

@@ -28,7 +28,7 @@ defineEmits(['close'])
 </script>
 
 <style scoped>
-/* 极简白底（2026-07-17）：移除蓝色背景，仅用主题色作为下边框细线和左侧图标 */
+/*极简白底：移除蓝色背景，仅用主题色作为下边框细线和左侧图标*/
 .visitor-header {
   display: flex;
   align-items: center;

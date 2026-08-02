@@ -1,16 +1,16 @@
 // 账号/会话/自他判定兜底工具
 //
-// P2-S2-8: account_id 多层 fallback 派生
+// 8: account_id 多层 fallback 派生
 //   同一平台可能因登录态/页面结构不同，URL 路径、用户链接、侧边栏头像均可能为空。
 //   派生顺序：URL path > 用户链接 > meta 标签 > 持久化缓存(chrome.storage) > 默认值
 //
-// P2-S2-9: 自他消息判定兜底（头像位置）
+// 9: 自他消息判定兜底（头像位置）
 //   抖音/小红书 IM 自他气泡通常有 .right/.left class，但部分版本未必。
 //   兜底：检查消息项内 [class*="avatar"] 的 right 值或 grid-column-start
 
 const ACCOUNT_CACHE_KEY = 'bridgeAccountFallback';
 
-// —— P2-S2-8 account_id 多层 fallback 派生 ——
+// 8 account_id 多层 fallback 派生 ——
 export function deriveAccountId(channel, candidates) {
   for (const c of candidates) {
     if (c && typeof c === 'string' && c.trim()) return c.trim();
@@ -60,7 +60,7 @@ export async function resolveAccountIdWithFallback(channel, primaryCandidates) {
   return primary;
 }
 
-// —— P2-S2-9 自他消息判定兜底 ——
+// 9 自他消息判定兜底 ——
 export function isSelfMessage(item, explicitSelfSelector, explicitOtherSelector) {
   if (!item) return false;
   // 1) 显式 class 选择器
