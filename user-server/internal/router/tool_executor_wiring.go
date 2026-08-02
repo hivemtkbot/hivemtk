@@ -40,7 +40,8 @@ import (
 // 调用方：router.Setup() （必须最先调用，先于所有 register 函数和 buildSalesEngine）
 //
 // 装饰器配置：
-//   - PermissionChecker: NoOp（智能体权限在更上层 SalesEngine 把控，工具层放行）
+//   - PermissionChecker: 全局 WhitelistPermissionChecker（defaultAllow=true，向后兼容；
+//     按 AgentContext.Tools 在 runAgentLoop 中设置执行期白名单，与注入期过滤形成双层防护）
 //   - RateLimiter:        TokenBucket 20 QPS / 突发 50（防 LLM 误用导致工具风暴）
 //   - RetryPolicy:        指数退避 3 次 / 基础 200ms / 上限 5s（含抖动）
 //   - Timeout:            30s（单次工具执行上限）
@@ -55,7 +56,9 @@ func initGlobalToolExecutor() {
 	memCostTracker = tooluse.NewMemoryCostTracker()
 	config := tooluse.ToolExecutorConfig{
 		DefaultTimeout:    30 * time.Second,
-		PermissionChecker: tooluse.NoOpPermissionChecker{}, // 智能体调用，权限在 SalesEngine 把控
+		// 接入全局 WhitelistPermissionChecker（defaultAllow=true，向后兼容）。
+		// 与 runAgentLoop 中按 AgentContext.Tools 设置的执行期白名单配合，形成「注入期 + 执行期」双层防护。
+		PermissionChecker: GetGlobalPermissionChecker(),
 		RateLimiter:       tooluse.NewTokenBucketLimiter(20, 50),
 		RetryPolicy:       tooluse.NewExponentialBackoffPolicy(3, 200*time.Millisecond, 5*time.Second),
 		AuditLogger:       memAuditLogger,
@@ -200,22 +203,26 @@ func registerAgentKnowledgeTools(gormDB *gorm.DB) {
 //  3. order.lookup        - 查询客户订单（只读，替代已删的 order.query）
 //  4. aftersale.create    - 发起售后（退款/退货，回写电商，客服侧唯一允许写订单的入口）
 //  5. aftersale.query     - 查询售后进度
+//  6. logistics.track     - 查快递/物流轨迹（本地订单状态兜底 + 可选实时快递 API）
 //
 // 调用方：router.Setup()
 func registerAgentBusinessTools(gormDB *gorm.DB) {
 	orderPort := service.NewOrderPortAdapter(repository.NewExternalOrderRepository())
 	afterSalePort := service.NewAfterSalePortAdapter(service.NewAfterSaleService())
-	deps := tooluse.NewBusinessToolDepsWithPorts(
+	// 物流端口：本地订单镜像兜底 + 可选实时快递 API（凭证来自数据库 agent.tool_integrations，按请求按需读取）
+	logisticsPort := service.NewLogisticsPortAdapter(orderPort)
+	deps := tooluse.NewBusinessToolDepsWithLogistics(
 		service.NewFollowUpPortAdapter(service.NewFollowUpService(service.NewCustomerJourneyService())),
 		orderPort,
 		afterSalePort,
+		logisticsPort,
 		gormDB,
 	)
 	if err := tooluse.RegisterBusinessTools(tooluse.GetGlobalRegistry(), deps); err != nil {
-		logger.Errorf("[agent] 注册业务工具失败（follow_task.*/order.lookup/aftersale.* 将不可用）：%v", err)
+		logger.Errorf("[agent] 注册业务工具失败（follow_task.*/order.lookup/aftersale.*/logistics.track 将不可用）：%v", err)
 		return
 	}
-	logger.Info("[agent] ✅ 业务工具（follow_task.create/update、order.lookup、aftersale.create/query）已接入全局注册中心")
+	logger.Info("[agent] ✅ 业务工具（follow_task.create/update、order.lookup、aftersale.create/query、logistics.track）已接入全局注册中心")
 }
 
 // registerAllAgentTools 一次性注册全部智能体工具到全局注册中心

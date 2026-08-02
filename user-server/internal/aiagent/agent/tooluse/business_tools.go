@@ -42,6 +42,8 @@ type BusinessToolDeps struct {
 	Order portcontract.OrderPort
 	// AfterSale 售后 Port（客服侧唯一允许写订单的入口：发起退款/退货，回写电商）。
 	AfterSale portcontract.AfterSalePort
+	// Logistics 物流查询 Port（查快递轨迹：本地订单状态兜底 + 可选实时快递 API）。
+	Logistics portcontract.LogisticsPort
 }
 
 // NewBusinessToolDeps 创建业务工具依赖（使用全局 DB，FollowUp port 暂不注入）
@@ -73,6 +75,15 @@ func NewBusinessToolDepsWithPorts(followUp portcontract.FollowUpPort, order port
 	return d
 }
 
+// NewBusinessToolDepsWithLogistics 在 NewBusinessToolDepsWithPorts 基础上注入物流端口。
+//
+// 调用方：router.Setup() 的 registerAgentBusinessTools（带 LogisticsPortAdapter + CourierClient）。
+func NewBusinessToolDepsWithLogistics(followUp portcontract.FollowUpPort, order portcontract.OrderPort, afterSale portcontract.AfterSalePort, logistics portcontract.LogisticsPort, gdb *gorm.DB) BusinessToolDeps {
+	d := NewBusinessToolDepsWithPorts(followUp, order, afterSale, gdb)
+	d.Logistics = logistics
+	return d
+}
+
 // followUpOrFallback 返回 FollowUp Port 或回退到 FollowUpService
 func (d BusinessToolDeps) followUpOrFallback() portcontract.FollowUpPort {
 	if d.FollowUp != nil {
@@ -98,6 +109,14 @@ func (d BusinessToolDeps) afterSaleOrFallback() portcontract.AfterSalePort {
 		return d.AfterSale
 	}
 	return service.NewAfterSalePortAdapter(nil)
+}
+
+// logisticsOrFallback 返回 Logistics Port 或回退到 NoopLogisticsPort（保证工具可用）
+func (d BusinessToolDeps) logisticsOrFallback() portcontract.LogisticsPort {
+	if d.Logistics != nil {
+		return d.Logistics
+	}
+	return portcontract.NewNoopLogisticsPort()
 }
 
 // reminderAnyToMap 通过反射把 any（*model.Reminder）转回 map，避免工具层对
@@ -216,6 +235,7 @@ func BuildBusinessTools(deps BusinessToolDeps) []Tool {
 		NewOrderLookupTool(deps),
 		NewAfterSaleCreateTool(deps),
 		NewAfterSaleQueryTool(deps),
+		NewLogisticsTrackTool(deps),
 	}
 }
 
@@ -640,4 +660,63 @@ func (t *AfterSaleQueryTool) Execute(ctx context.Context, args map[string]any) (
 		"count":       len(views),
 		"after_sales": views,
 	}), nil
+}
+
+// ===== 工具 6：logistics.track（查快递 / 物流轨迹） =====
+//
+// 业务诉求：客服高频问题“我的快递到哪了 / 什么时候发货 / 物流停在哪了”。
+// 设计：本地订单镜像状态兜底 + 可选实时快递 API（凭证来自数据库 agent.tool_integrations）。
+// 详见 portcontract.LogisticsPort / service.LogisticsPortAdapter / service.CourierClient。
+
+// LogisticsTrackTool 物流轨迹查询工具
+type LogisticsTrackTool struct {
+	BaseTool
+	deps BusinessToolDeps
+}
+
+// NewLogisticsTrackTool 创建物流轨迹查询工具
+func NewLogisticsTrackTool(deps BusinessToolDeps) *LogisticsTrackTool {
+	return &LogisticsTrackTool{
+		BaseTool: BaseTool{
+			NameVal:     "logistics.track",
+			CategoryVal: CategoryBusiness,
+			DescriptionVal: "查询快递/物流轨迹：用于回答“我的快递到哪了 / 什么时候发货 / 物流停在哪了”。" +
+				"优先用运单号 tracking_no + 快递公司 carrier 查实时轨迹（凭证需在后台「工具集成配置」填写物流接口 base_url）；" +
+				"无运单号时可用 平台 platform + 订单号 order_id 关联本地订单发货状态兜底。" +
+				"实时接口未配置时返回本地订单的发货状态与提示，不会报错。",
+			ParamsVal: ToolParameters{
+				Type: "object",
+				Properties: map[string]ToolParam{
+					"tracking_no": {Type: "string", Description: "运单号（主查询键，有则优先查实时轨迹）"},
+					"carrier":     {Type: "string", Description: "快递公司编码（可选，如 SF/ZTO/YTO/EMS/JD），配合 tracking_no 使用"},
+					"platform":    {Type: "string", Description: "电商平台标识（可选，配合 order_id 关联本地订单镜像）"},
+					"order_id":    {Type: "string", Description: "订单号（可选，无运单号时按此查本地发货状态）"},
+				},
+				Required: []string{},
+			},
+		},
+		deps: deps,
+	}
+}
+
+// Execute 执行物流轨迹查询
+func (t *LogisticsTrackTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	logisticsPort := t.deps.logisticsOrFallback()
+	if logisticsPort == nil {
+		return ErrorResult(t.Name(), errors.New("logistics.track 工具需要 LogisticsPort 依赖")), errors.New("logistics.track 工具需要 LogisticsPort 依赖")
+	}
+	req := &portcontract.LogisticsTrackRequest{
+		TrackingNo: getArgString(args, "tracking_no"),
+		Carrier:    getArgString(args, "carrier"),
+		Platform:   getArgString(args, "platform"),
+		OrderID:    getArgString(args, "order_id"),
+	}
+	if req.TrackingNo == "" && req.OrderID == "" {
+		return ErrorResult(t.Name(), errors.New("tracking_no 与 order_id 至少提供一个")), errors.New("tracking_no 与 order_id 至少提供一个")
+	}
+	res, err := logisticsPort.Track(ctx, req)
+	if err != nil {
+		return ErrorResult(t.Name(), err), err
+	}
+	return SuccessResult(t.Name(), res), nil
 }

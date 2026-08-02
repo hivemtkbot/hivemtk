@@ -25,6 +25,16 @@ func setupSystemRoutes(auth *gin.RouterGroup) {
 	auth.GET("/system/config", systemConfigCtrl.GetConfig)
 	auth.POST("/system/config", systemConfigCtrl.SaveConfig)
 
+	// 工具集成配置（物流/售后回写，凭证存数据库 agent.tool_integrations，非环境变量）
+	toolIntegrationCtrl := controller.NewToolIntegrationConfigController()
+	auth.GET("/agent/tool-integrations", toolIntegrationCtrl.GetConfig)
+	auth.PUT("/agent/tool-integrations", toolIntegrationCtrl.SaveConfig)
+
+	// Agent Loop 运行期调参（max_tools / max_loop_iterations，存数据库 agent.settings，非环境变量）
+	agentSettingsCtrl := controller.NewAgentSettingsController()
+	auth.GET("/agent/settings", agentSettingsCtrl.GetConfig)
+	auth.PUT("/agent/settings", agentSettingsCtrl.SaveConfig)
+
 	// 系统运维
 	systemOpsCtrl := controller.NewSystemOpsController()
 	auth.POST("/system/restart", systemOpsCtrl.RestartServer)
