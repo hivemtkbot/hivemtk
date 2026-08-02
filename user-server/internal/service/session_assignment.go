@@ -32,7 +32,7 @@ func NewSessionAssignmentService() *SessionAssignmentService {
 		agentRepo:           repository.NewAgentStatusRepository(),
 		ragEngine:           rag_core.NewRAGEngine(nil),
 		llmService:          llm.NewLLMService(),
-		confidenceThreshold: 0.7, // 默认置信度阈值为 0.7
+		confidenceThreshold: 0.5, // 默认置信度阈值为 0.5（与编排器调优一致）
 	}
 }
 

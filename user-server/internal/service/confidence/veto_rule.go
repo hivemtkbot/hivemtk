@@ -148,10 +148,9 @@ type VetoExplicit struct{}
 // explicitKeywords 触发显式转人工的关键词
 // 与 chat_visitor.transferKeywords 保持同步
 var explicitKeywords = []string{
-	"转人工", "人工客服", "找人工", "真人客服", "转接人工",
+	"转人工", "人工客服", "找人工", "真人客服", "转接人工", "找客服", "人工服务",
 	"real agent", "human agent", "transfer to human",
-	"人工", "真人", "找人", "客服",
-	"operator", "human", "agent",
+	"真人", "找人",
 }
 
 // Check 实现 VetoRule

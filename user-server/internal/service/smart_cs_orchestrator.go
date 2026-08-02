@@ -283,7 +283,16 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 		effectiveConf = threshold
 	}
 	result.Confidence = effectiveConf
-	shouldTransfer := salesResp.TransferredToHuman || effectiveConf < threshold
+	// 决策逻辑：
+	//   - 显式转人工(坐席接管) 或 紧急/投诉 -> 转人工
+	//   - 已知意图且非安全意图且置信度低于阈值 -> 转人工
+	//   - 未知意图(意图识别占位符, 不反映回答质量)：让 AI 先答, 不因其低置信度误转人工
+	knownIntent := salesResp.Intent != nil && salesResp.Intent.IntentType != IntentUnknown
+	safeIntent := salesResp.Intent != nil &&
+		(salesResp.Intent.IntentType == IntentGreeting || salesResp.Intent.IntentType == IntentSocial)
+	shouldTransfer := salesResp.TransferredToHuman ||
+		o.isUrgentOrComplaint(ctx, in.Content) ||
+		(knownIntent && !safeIntent && effectiveConf < threshold)
 	if shouldTransfer {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true
