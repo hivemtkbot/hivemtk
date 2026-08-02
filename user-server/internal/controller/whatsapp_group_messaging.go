@@ -68,7 +68,7 @@ func (gmc *GroupMessagingController) GetLeadGroups(c *gin.Context) {
 	// 由于ClueService的限制，我们暂时返回所有线索
 	clues, total, err := gmc.clueSvc.GetClueAllList(context.Background(), 7) // 假设7是WhatsApp线索类型
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取线索失败", err.Error())
+		response.ErrorFromDB(c, err, "获取线索失败", err.Error())
 		return
 	}
 
@@ -369,7 +369,7 @@ func (gmc *GroupMessagingController) GetTemplates(c *gin.Context) {
 
 	templates, err := gmc.templateService.GetTemplates(context.Background(), category, isActive)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取模板失败", err.Error())
+		response.ErrorFromDB(c, err, "获取模板失败", err.Error())
 		return
 	}
 

@@ -275,6 +275,17 @@ func allModels() []any {
 		&model.DingTalkAppAccount{},
 		// WhatsApp Cloud API 商业账号
 		&model.WhatsAppCloudAccount{},
+		// 补全此前遗漏的自动迁移模型：以下表由独立 Go 迁移/合规与监控逻辑创建，
+		// 但未登记进 allModels()，导致 AutoMigrate 不建表，相关后台页 API 报
+		// "relation does not exist"。统一在此登记，重启即自动建表（与项目其他表一致）。
+		&model.AIToolConfig{},
+		&model.AIToolAccountBinding{},
+		&model.EmailUnsubscribe{},
+		&model.SmsUnsubscribe{},
+		&model.SmsDeliveryStatus{},
+		&model.SmsNumberPortabilityRecord{},
+		&model.RagQueryLog{},
+		&model.RagRecallMonitorSnapshot{},
 	}
 }
 

@@ -97,7 +97,7 @@ func defaultLogPath() string {
 func (c *SystemOpsController) GetSystemStats(ctx *gin.Context) {
 	stats, err := c.monitorService.GetSystemStats(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "获取成功")
@@ -110,7 +110,7 @@ func (c *SystemOpsController) GetBackupList(ctx *gin.Context) {
 
 	backups, total, err := c.backupService.GetBackupList(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -132,7 +132,7 @@ func (c *SystemOpsController) CreateBackup(ctx *gin.Context) {
 	createdBy := currentUserID(ctx)
 	backup, err := c.backupService.CreateBackup(context.Background(), createdBy, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, backup, "创建备份任务成功")

@@ -29,7 +29,7 @@ func NewWhatsappController() *WhatsappController {
 func (c *WhatsappController) ListAccounts(ctx *gin.Context) {
 	list, err := c.svc.ListAccounts(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取账号列表失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取账号列表失败", err.Error())
 		return
 	}
 	response.Success(ctx, list, "获取账号列表成功")
@@ -48,7 +48,7 @@ func (c *WhatsappController) CreateAccount(ctx *gin.Context) {
 	}
 	acc, err := c.svc.CreateAccount(context.Background(), req.Name, req.Remark)
 	if err != nil {
-		response.Error(ctx, 500, "创建账号失败", err.Error())
+		response.ErrorFromDB(ctx, err, "创建账号失败", err.Error())
 		return
 	}
 	response.Success(ctx, acc, "创建账号成功")
@@ -64,7 +64,7 @@ func (c *WhatsappController) StartLogin(ctx *gin.Context) {
 	}
 	qr, err := c.svc.StartLogin(context.Background(), accID, 20*time.Second)
 	if err != nil {
-		response.Error(ctx, 500, "启动登录失败", err.Error())
+		response.ErrorFromDB(ctx, err, "启动登录失败", err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"qr": qr}, "登录二维码生成成功")
@@ -79,7 +79,7 @@ func (c *WhatsappController) LoginStatus(ctx *gin.Context) {
 	}
 	loggedIn, err := c.svc.LoginStatus(context.Background(), accID)
 	if err != nil {
-		response.Error(ctx, 500, "获取登录状态失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取登录状态失败", err.Error())
 		return
 	}
 	qr, _ := c.svc.GetLoginQR(context.Background(), accID)
@@ -95,7 +95,7 @@ type createDraftReq struct {
 func (c *WhatsappController) ListDrafts(ctx *gin.Context) {
 	list, err := c.svc.ListDrafts(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取草稿失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取草稿失败", err.Error())
 		return
 	}
 	response.Success(ctx, list, "获取草稿成功")
@@ -109,7 +109,7 @@ func (c *WhatsappController) CreateDraft(ctx *gin.Context) {
 	}
 	d, err := c.svc.CreateDraft(context.Background(), req.Title, req.Content)
 	if err != nil {
-		response.Error(ctx, 500, "创建草稿失败", err.Error())
+		response.ErrorFromDB(ctx, err, "创建草稿失败", err.Error())
 		return
 	}
 	response.Success(ctx, d, "创建草稿成功")
@@ -133,7 +133,7 @@ func (c *WhatsappController) CreateJob(ctx *gin.Context) {
 	}
 	job, err := c.svc.CreateBulkJob(context.Background(), dID)
 	if err != nil {
-		response.Error(ctx, 500, "创建任务失败", err.Error())
+		response.ErrorFromDB(ctx, err, "创建任务失败", err.Error())
 		return
 	}
 	response.Success(ctx, job, "群发任务已创建")
@@ -154,7 +154,7 @@ func (c *WhatsappController) UpdateAccount(ctx *gin.Context) {
 	}
 	acc, err := c.svc.GetAccount(context.Background(), accID)
 	if err != nil {
-		response.Error(ctx, 500, "获取账号失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取账号失败", err.Error())
 		return
 	}
 	if acc == nil {
@@ -164,7 +164,7 @@ func (c *WhatsappController) UpdateAccount(ctx *gin.Context) {
 	acc.Name = req.Name
 	acc.Remark = req.Remark
 	if err := c.svc.UpdateAccount(context.Background(), acc); err != nil {
-		response.Error(ctx, 500, "更新账号失败", err.Error())
+		response.ErrorFromDB(ctx, err, "更新账号失败", err.Error())
 		return
 	}
 	response.Success(ctx, acc, "更新账号成功")
@@ -179,7 +179,7 @@ func (c *WhatsappController) DeleteAccount(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeleteAccount(context.Background(), accID); err != nil {
-		response.Error(ctx, 500, "删除账号失败", err.Error())
+		response.ErrorFromDB(ctx, err, "删除账号失败", err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除账号成功")
@@ -200,7 +200,7 @@ func (c *WhatsappController) UpdateDraft(ctx *gin.Context) {
 	}
 	draft, err := c.svc.GetDraft(context.Background(), draftID)
 	if err != nil {
-		response.Error(ctx, 500, "获取草稿失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取草稿失败", err.Error())
 		return
 	}
 	if draft == nil {
@@ -210,7 +210,7 @@ func (c *WhatsappController) UpdateDraft(ctx *gin.Context) {
 	draft.Title = req.Title
 	draft.Content = req.Content
 	if err := c.svc.UpdateDraft(context.Background(), draft); err != nil {
-		response.Error(ctx, 500, "更新草稿失败", err.Error())
+		response.ErrorFromDB(ctx, err, "更新草稿失败", err.Error())
 		return
 	}
 	response.Success(ctx, draft, "更新草稿成功")
@@ -225,7 +225,7 @@ func (c *WhatsappController) DeleteDraft(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeleteDraft(context.Background(), draftID); err != nil {
-		response.Error(ctx, 500, "删除草稿失败", err.Error())
+		response.ErrorFromDB(ctx, err, "删除草稿失败", err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除草稿成功")
@@ -235,7 +235,7 @@ func (c *WhatsappController) DeleteDraft(ctx *gin.Context) {
 func (c *WhatsappController) ListJobs(ctx *gin.Context) {
 	list, err := c.svc.ListJobs(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取任务列表失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取任务列表失败", err.Error())
 		return
 	}
 	response.Success(ctx, list, "获取任务列表成功")
@@ -251,7 +251,7 @@ func (c *WhatsappController) GetJob(ctx *gin.Context) {
 	}
 	job, err := c.svc.GetJob(context.Background(), jobID)
 	if err != nil {
-		response.Error(ctx, 500, "获取任务失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取任务失败", err.Error())
 		return
 	}
 	if job == nil {
@@ -270,7 +270,7 @@ func (c *WhatsappController) DeleteJob(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeleteJob(context.Background(), jobID); err != nil {
-		response.Error(ctx, 500, "删除任务失败", err.Error())
+		response.ErrorFromDB(ctx, err, "删除任务失败", err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除任务成功")

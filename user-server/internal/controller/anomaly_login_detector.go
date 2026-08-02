@@ -63,7 +63,7 @@ func (c *AnomalyLoginDetectorController) ListLoginEvents(ctx *gin.Context) {
 
 	events, total, err := c.detector.ListLoginEvents(context.Background(), uid, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -103,7 +103,7 @@ func (c *AnomalyLoginDetectorController) ListAlerts(ctx *gin.Context) {
 
 	alerts, total, err := c.detector.ListAlerts(context.Background(), uid, status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

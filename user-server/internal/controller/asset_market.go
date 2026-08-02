@@ -19,13 +19,15 @@ import (
 type AssetMarketController struct {
 	localSvc  *service.LocalAssetService
 	marketSvc *service.AssetMarketService
+	agentSvc  *service.AIAgentService
 }
 
 // NewAssetMarketController 构造（service 由 router 注入）
-func NewAssetMarketController(localSvc *service.LocalAssetService, marketSvc *service.AssetMarketService) *AssetMarketController {
+func NewAssetMarketController(localSvc *service.LocalAssetService, marketSvc *service.AssetMarketService, agentSvc *service.AIAgentService) *AssetMarketController {
 	return &AssetMarketController{
 		localSvc:  localSvc,
 		marketSvc: marketSvc,
+		agentSvc:  agentSvc,
 	}
 }
 
@@ -243,4 +245,28 @@ func (h *AssetMarketController) MyPurchases(c *gin.Context) {
 		return
 	}
 	assetOK(c, list)
+}
+
+// BindToAgent POST /api/v1/asset-market/bind
+// 将平台同步下来的资产（local_assets.AssetID，即平台 AssetCode）绑定到智能体，
+// 使其成为该智能体的资产包（运行期 ResolveSystemPrompt 回退消费），闭合
+// 「平台下发资产包 → 商户同步 → 绑定 → 运行时消费」全链路。
+func (h *AssetMarketController) BindToAgent(c *gin.Context) {
+	var body struct {
+		AssetID string `json:"asset_id"`
+		AgentID uint   `json:"agent_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	if body.AssetID == "" || body.AgentID == 0 {
+		response.Error(c, http.StatusBadRequest, "asset_id 与 agent_id 必填")
+		return
+	}
+	if err := h.agentSvc.BindAssetBundle(c.Request.Context(), body.AgentID, body.AssetID); err != nil {
+		assetFail(c, err)
+		return
+	}
+	assetOK(c, gin.H{"message": "绑定成功"})
 }

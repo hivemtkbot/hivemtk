@@ -42,7 +42,7 @@ func (c *CustomerController) ListCustomers(ctx *gin.Context) {
 
 	customers, total, err := c.customerService.List(context.Background(), page, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -76,7 +76,7 @@ func (c *CustomerController) GetCustomer(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -101,7 +101,7 @@ func (c *CustomerController) CreateCustomer(ctx *gin.Context) {
 
 	customer, err := c.customerService.CreateOrUpdate(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -138,7 +138,7 @@ func (c *CustomerController) AddTags(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -178,7 +178,7 @@ func (c *CustomerController) RemoveTags(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -208,7 +208,7 @@ func (c *CustomerController) MergeCustomers(ctx *gin.Context) {
 	}
 
 	if err := c.customerService.MergeCustomersWithEventData(context.Background(), req.PrimaryID, req.SecondaryID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

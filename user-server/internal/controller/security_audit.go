@@ -3,6 +3,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -10,6 +11,7 @@ import (
 	"marketing/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // SecurityAuditController 安全审计控制器
@@ -31,7 +33,7 @@ func (c *SecurityAuditController) RunAudit(ctx *gin.Context) {
 	}
 	record, err := c.svc.RunAudit(ctx.Request.Context(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "审计失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "审计失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, record, "审计完成")
@@ -46,7 +48,11 @@ func (c *SecurityAuditController) GetResult(ctx *gin.Context) {
 	}
 	r, err := c.svc.GetResult(context.Background(), uint(id))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(ctx, http.StatusNotFound, "审计记录不存在")
+			return
+		}
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, r, "查询成功")
@@ -58,7 +64,7 @@ func (c *SecurityAuditController) ListResults(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	list, total, err := c.svc.ListResults(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)

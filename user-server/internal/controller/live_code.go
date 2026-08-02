@@ -102,7 +102,7 @@ func (c *LiveCodeController) GetList(ctx *gin.Context) {
 
 	liveCodes, total, err := c.liveCodeService.GetList(context.Background(), page, pageSize, name, status)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -309,7 +309,7 @@ func (c *LiveCodeController) RecordClick(ctx *gin.Context) {
 	// 记录点击统计
 	err := c.liveCodeService.RecordClick(context.Background(), idStr, req.UserAgent, req.Referrer)
 	if err != nil {
-		response.Error(ctx, 500, "记录点击统计失败")
+		response.ErrorFromDB(ctx, err, "记录点击统计失败")
 		return
 	}
 
@@ -330,7 +330,7 @@ func (c *LiveCodeController) DeleteLiveCodeQR(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
 		}
-		response.Error(ctx, 500, "删除二维码失败", err.Error())
+		response.ErrorFromDB(ctx, err, "删除二维码失败", err.Error())
 		return
 	}
 

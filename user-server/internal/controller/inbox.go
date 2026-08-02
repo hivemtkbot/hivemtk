@@ -55,7 +55,7 @@ func (c *InboxController) List(ctx *gin.Context) {
 
 	list, total, err := c.svc.List(ctx.Request.Context(), q)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(q.Page), int64(q.PageSize), total)
@@ -84,7 +84,7 @@ func (c *InboxController) MarkRead(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.MarkRead(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "标记已读成功")
@@ -105,7 +105,7 @@ func (c *InboxController) Pin(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Pin(ctx.Request.Context(), uint(id), req.Pinned); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"pinned": req.Pinned}, "操作成功")
@@ -126,7 +126,7 @@ func (c *InboxController) Star(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Star(ctx.Request.Context(), uint(id), req.Starred); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"starred": req.Starred}, "操作成功")
@@ -147,7 +147,7 @@ func (c *InboxController) Mute(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Mute(ctx.Request.Context(), uint(id), req.Muted); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"muted": req.Muted}, "操作成功")
@@ -168,7 +168,7 @@ func (c *InboxController) AddTag(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.AddTag(ctx.Request.Context(), uint(id), req.Tag); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"tag": req.Tag}, "添加成功")
@@ -187,7 +187,7 @@ func (c *InboxController) RemoveTag(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.RemoveTag(ctx.Request.Context(), uint(id), tag); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"tag": tag}, "移除成功")
@@ -260,7 +260,7 @@ func (c *InboxController) AutoAssign(ctx *gin.Context) {
 func (c *InboxController) Stats(ctx *gin.Context) {
 	stats, err := c.svc.GetStats(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "统计成功")
@@ -278,7 +278,7 @@ func (c *InboxController) ListAssignments(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	list, total, err := c.svc.ListAssignments(ctx.Request.Context(), convID, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -295,7 +295,7 @@ func (c *InboxController) GetMessages(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	list, total, err := c.svc.GetMessagesByConversation(ctx.Request.Context(), uint(id), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -306,7 +306,7 @@ func (c *InboxController) StaffLoad(ctx *gin.Context) {
 	staff := ctx.Param("staff")
 	load, err := c.svc.StaffLoad(context.Background(), staff)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"staff": staff, "load": load}, "查询成功")
@@ -352,7 +352,7 @@ func (c *InboxIngressController) LockHuman(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.LockSessionForHuman(ctx.Request.Context(), req.SessionID, req.Reason); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"session_id": req.SessionID, "locked": true}, "人工接管锁定成功")
@@ -366,7 +366,7 @@ func (c *InboxIngressController) UnlockHuman(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.UnlockSessionForHuman(ctx.Request.Context(), sessionID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"session_id": sessionID, "unlocked": true}, "解除人工接管成功")

@@ -27,7 +27,7 @@ func (c *EmailSendController) SendEmail(ctx *gin.Context) {
 
 	email, err := c.svc.SendEmail(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "发送失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "发送失败："+err.Error())
 		return
 	}
 

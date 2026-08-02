@@ -70,7 +70,7 @@ func (c *WeComHealthController) ListHealthHistory(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.ListHealthHistory(ctx.Request.Context(), uint(accID), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -80,7 +80,7 @@ func (c *WeComHealthController) ListHealthHistory(ctx *gin.Context) {
 func (c *WeComHealthController) GetRiskAccounts(ctx *gin.Context) {
 	list, err := c.svc.GetRiskAccounts(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -100,7 +100,7 @@ func (c *WeComHealthController) SelectHealthyAccount(ctx *gin.Context) {
 func (c *WeComHealthController) GetHealthSummary(ctx *gin.Context) {
 	summary, err := c.svc.GetHealthSummary(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, summary, "查询成功")
@@ -131,7 +131,7 @@ func (c *WeComHealthController) ConsumeQuota(ctx *gin.Context) {
 func (c *WeComHealthController) ResetDailyQuota(ctx *gin.Context) {
 	n, err := c.svc.ResetDailyQuota(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"affected": n}, "重置成功")
@@ -173,7 +173,7 @@ func (c *WeComHealthController) SendMessage(ctx *gin.Context) {
 func (c *WeComHealthController) ListAccountsWithHealth(ctx *gin.Context) {
 	list, err := c.integ.ListAccountsWithHealth(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -195,7 +195,7 @@ func (c *WeComHealthController) UpdateAccountStatus(ctx *gin.Context) {
 		return
 	}
 	if err := c.integ.UpdateAccountStatus(ctx.Request.Context(), uint(accID), req.LoginState, req.Risk); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": accID, "login_state": req.LoginState}, "更新成功")

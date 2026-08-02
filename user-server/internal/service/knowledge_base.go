@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 )
 
@@ -77,7 +78,7 @@ func (s *KnowledgeBaseService) CreateKB(ctx context.Context, kb *model.Knowledge
 	}
 	kb.Name = strings.TrimSpace(kb.Name)
 	if kb.Name == "" {
-		return errors.New("name 不能为空")
+		return fmt.Errorf("%w: name 不能为空", utils.ErrInvalidInput)
 	}
 	kb.Type = strings.ToLower(strings.TrimSpace(kb.Type))
 	if !IsValidKBType(kb.Type) {
@@ -193,11 +194,11 @@ func (s *KnowledgeBaseService) UpdateKB(ctx context.Context, id uint, kb *model.
 		return errors.New("id 不能为空")
 	}
 	if kb.Name == "" {
-		return errors.New("name 不能为空")
+		return fmt.Errorf("%w: name 不能为空", utils.ErrInvalidInput)
 	}
 	// type 与 owner_type 校验
 	if kb.Type != "" && !IsValidKBType(kb.Type) {
-		return fmt.Errorf("type 非法: %s", kb.Type)
+		return fmt.Errorf("%w: type 非法: %s", utils.ErrInvalidInput, kb.Type)
 	}
 	if kb.OwnerType != "" {
 		ot := strings.ToLower(strings.TrimSpace(kb.OwnerType))

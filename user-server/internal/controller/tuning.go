@@ -52,7 +52,7 @@ func (c *TuningController) ListConfidenceSignals(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListConfidenceSignals(ctx.Request.Context(), sessionID, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -79,7 +79,7 @@ func (c *TuningController) StatsConfidenceSignals(ctx *gin.Context) {
 
 	rows, err := c.svc.StatsConfidenceSignals(ctx.Request.Context(), since)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "stats failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "stats failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"days": days, "bands": rows}, "")
@@ -100,7 +100,7 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListCalibrations(ctx.Request.Context(), signalType, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -114,7 +114,7 @@ func (c *TuningController) ListCalibrations(ctx *gin.Context) {
 func (c *TuningController) ListThresholdPolicies(ctx *gin.Context) {
 	rows, err := c.svc.ListThresholdPolicies(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"list": rows}, "")
@@ -129,7 +129,7 @@ func (c *TuningController) UpsertThresholdPolicy(ctx *gin.Context) {
 	}
 	policy := dto.ToThresholdPolicyModel(&body)
 	if err := c.svc.UpsertThresholdPolicy(ctx.Request.Context(), policy); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "save failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "save failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, policy, "")
@@ -160,7 +160,7 @@ func (c *TuningController) ListHumanizeScores(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListHumanizeScores(ctx.Request.Context(), sessionID, passedPtr, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -176,7 +176,7 @@ func (c *TuningController) StatsHumanizeScores(ctx *gin.Context) {
 
 	stat, err := c.svc.StatsHumanizeScores(ctx.Request.Context(), since)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "stats failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "stats failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -197,7 +197,7 @@ func (c *TuningController) StatsHumanizeScores(ctx *gin.Context) {
 func (c *TuningController) ListChampionBaselines(ctx *gin.Context) {
 	rows, err := c.svc.ListChampionBaselines(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"list": rows}, "")
@@ -219,7 +219,7 @@ func (c *TuningController) ListFeedbackEvents(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListFeedbackEvents(ctx.Request.Context(), sessionID, signalKey, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -235,7 +235,7 @@ func (c *TuningController) StatsFeedbackEvents(ctx *gin.Context) {
 
 	rows, err := c.svc.StatsFeedbackEvents(ctx.Request.Context(), since)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "stats failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "stats failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"days": days, "signals": rows}, "")
@@ -257,7 +257,7 @@ func (c *TuningController) ListChampionDialogues(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListChampionDialogues(ctx.Request.Context(), intent, industry, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -278,7 +278,7 @@ func (c *TuningController) ListPromptCandidates(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListPromptCandidates(ctx.Request.Context(), status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -293,7 +293,7 @@ func (c *TuningController) UpdatePromptCandidateStatus(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.UpdatePromptCandidateStatus(ctx.Request.Context(), id, status); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "update failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "update failed: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id, "status": status}, "")
@@ -315,7 +315,7 @@ func (c *TuningController) ListBanditArms(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListBanditArms(ctx.Request.Context(), experimentID, sopID, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)
@@ -336,7 +336,7 @@ func (c *TuningController) ListLowQualitySamples(ctx *gin.Context) {
 
 	rows, total, err := c.svc.ListLowQualitySamples(ctx.Request.Context(), sampleType, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "list failed: "+err.Error())
+		response.ErrorFromDB(ctx, err, "list failed: "+err.Error())
 		return
 	}
 	c.jsonList(ctx, rows, total, page, pageSize)

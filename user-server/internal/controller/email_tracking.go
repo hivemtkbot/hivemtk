@@ -109,7 +109,7 @@ func (c *EmailTrackingController) GetJobMetrics(ctx *gin.Context) {
 
 	metric, err := c.svc.GetJobMetrics(context.Background(), jobID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取指标失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "获取指标失败："+err.Error())
 		return
 	}
 
@@ -129,7 +129,7 @@ func (c *EmailTrackingController) ListJobEvents(ctx *gin.Context) {
 
 	events, total, err := c.svc.ListJobEvents(context.Background(), jobID, page, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询事件失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "查询事件失败："+err.Error())
 		return
 	}
 
@@ -165,7 +165,7 @@ func (c *EmailTrackingController) GetRangeMetrics(ctx *gin.Context) {
 
 	metric, err := c.svc.GetEmailMetrics(context.Background(), start, end)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "聚合指标失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "聚合指标失败："+err.Error())
 		return
 	}
 

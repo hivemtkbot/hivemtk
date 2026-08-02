@@ -38,7 +38,7 @@ func (c *RecoveryQueueController) Enqueue(ctx *gin.Context) {
 	}
 	item, err := c.svc.Enqueue(context.Background(), req.CustomerID, req.UnifiedID, req.Account, req.Reason, req.Strategy, req.Priority)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "入队失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "入队失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dto.FromRecoveryQueueModel(item), "ok")
@@ -67,7 +67,7 @@ func (c *RecoveryQueueController) MarkAttempt(ctx *gin.Context) {
 	}
 	delay := time.Duration(req.NextDelay) * time.Second
 	if err := c.svc.MarkAttempt(context.Background(), id, req.Channel, req.Result, req.Stage, delay); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "记录失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "记录失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "ok")
@@ -92,7 +92,7 @@ func (c *RecoveryQueueController) MarkRecovered(ctx *gin.Context) {
 	var req dto.RecoveryMarkRecoveredRequest
 	_ = ctx.ShouldBindJSON(&req)
 	if err := c.svc.MarkRecovered(context.Background(), id, req.RecoveryValue); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "标记失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "标记失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "ok")
@@ -112,7 +112,7 @@ func (c *RecoveryQueueController) Cancel(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Cancel(context.Background(), id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "取消失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "取消失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "ok")
@@ -132,7 +132,7 @@ func (c *RecoveryQueueController) ListByStage(ctx *gin.Context) {
 	pageSize := parsePositiveInt(ctx.Query("page_size"), 20, 200)
 	list, total, err := c.svc.ListByStage(context.Background(), stage, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询失败: "+err.Error())
 		return
 	}
 	resp := &dto.RecoveryQueueListResponse{
@@ -155,7 +155,7 @@ func (c *RecoveryQueueController) ListByStage(ctx *gin.Context) {
 func (c *RecoveryQueueController) Distribution(ctx *gin.Context) {
 	dist, err := c.svc.Distribution(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询失败: "+err.Error())
 		return
 	}
 	total := int64(0)
@@ -175,7 +175,7 @@ func (c *RecoveryQueueController) ListReadyForAttempt(ctx *gin.Context) {
 	limit := parsePositiveInt(ctx.Query("limit"), 50, 500)
 	list, err := c.svc.ListReadyForAttempt(context.Background(), limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询失败: "+err.Error())
 		return
 	}
 	resp := make([]*dto.RecoveryQueueResponse, 0, len(list))

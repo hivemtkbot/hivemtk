@@ -147,5 +147,5 @@ func writePermissionServiceError(c *gin.Context, err error) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	response.Error(c, http.StatusInternalServerError, err.Error())
+	response.ErrorFromDB(c, err, err.Error())
 }

@@ -65,7 +65,7 @@ func (c *AgentStatusController) GetAgentStatus(ctx *gin.Context) {
 func (c *AgentStatusController) GetOnlineAgents(ctx *gin.Context) {
 	agents, err := c.agentService.GetOnlineAgents(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -99,7 +99,7 @@ func (c *AgentStatusController) GetMyAgent(ctx *gin.Context) {
 	}
 	st, err := c.customerService.GetOrCreateAgentStatusByUserID(ctx.Request.Context(), userID, name)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取坐席身份失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取坐席身份失败", err.Error())
 		return
 	}
 	response.Success(ctx, st, "获取成功")
@@ -109,7 +109,7 @@ func (c *AgentStatusController) GetMyAgent(ctx *gin.Context) {
 func (c *AgentStatusController) ListAllAgents(ctx *gin.Context) {
 	agents, err := c.agentService.ListAllAgents(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

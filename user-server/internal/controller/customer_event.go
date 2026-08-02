@@ -60,7 +60,7 @@ func (c *CustomerEventController) TrackEvent(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.Track(ctx.Request.Context(), dto); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -93,7 +93,7 @@ func (c *CustomerEventController) GetEventHistory(ctx *gin.Context) {
 
 	events, err := c.tracker.GetEventHistory(context.Background(), customerID, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -118,7 +118,7 @@ func (c *CustomerEventController) DeleteEvent(ctx *gin.Context) {
 
 	count, err := c.tracker.DeleteByCustomerID(context.Background(), customerID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -149,7 +149,7 @@ func (c *CustomerEventController) GetEventStats(ctx *gin.Context) {
 
 	stats, err := c.tracker.GetStats(context.Background(), start, end)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -177,7 +177,7 @@ func (c *CustomerEventController) TrackPageView(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackPageView(ctx.Request.Context(), req.CustomerID, req.URL, req.Title); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -205,7 +205,7 @@ func (c *CustomerEventController) TrackClick(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackClick(ctx.Request.Context(), req.CustomerID, req.Element, req.Target); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -233,7 +233,7 @@ func (c *CustomerEventController) TrackPurchase(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackPurchase(ctx.Request.Context(), req.CustomerID, req.Amount, req.Items); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -260,7 +260,7 @@ func (c *CustomerEventController) TrackSignup(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackSignup(ctx.Request.Context(), req.CustomerID, req.SignupMethod); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -287,7 +287,7 @@ func (c *CustomerEventController) TrackLogin(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackLogin(ctx.Request.Context(), req.CustomerID, req.LoginMethod); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -317,7 +317,7 @@ func (c *CustomerEventController) TrackAddToCart(ctx *gin.Context) {
 	}
 
 	if err := c.tracker.TrackAddToCart(ctx.Request.Context(), req.CustomerID, req.ProductID, req.ProductName, req.Price, req.Quantity); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

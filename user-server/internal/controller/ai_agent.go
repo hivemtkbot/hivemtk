@@ -83,7 +83,7 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 	}
 	list, err := ctrl.svc.List(c.Request.Context(), agentType, status, keyword)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -94,7 +94,7 @@ func (ctrl *AIAgentController) List(c *gin.Context) {
 func (ctrl *AIAgentController) ListEnabled(c *gin.Context) {
 	list, err := ctrl.svc.ListEnabled(c.Request.Context())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -416,7 +416,7 @@ func (ctrl *AIAgentController) Toggle(c *gin.Context) {
 		}
 	}
 	if err := ctrl.svc.UpdateStatus(c.Request.Context(), uint(id), newStatus); err != nil {
-		response.Error(c, http.StatusInternalServerError, "状态更新失败", err.Error())
+		response.ErrorFromDB(c, err, "状态更新失败", err.Error())
 		return
 	}
 	response.Success(c, gin.H{"id": id, "status": newStatus}, "状态更新成功")
@@ -444,7 +444,7 @@ func (ctrl *AIAgentController) Test(c *gin.Context) {
 	}
 	resp, err := ctrl.svc.TestAgent(c.Request.Context(), uint(id), req.CustomerID, req.Message, ctrl.engine)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "测试失败", err.Error())
+		response.ErrorFromDB(c, err, "测试失败", err.Error())
 		return
 	}
 	response.Success(c, resp, "测试成功")
@@ -460,7 +460,7 @@ func (ctrl *AIAgentController) GetContext(c *gin.Context) {
 	}
 	ctx, err := ctrl.svc.LoadContext(c.Request.Context(), uint(id))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "加载失败", err.Error())
+		response.ErrorFromDB(c, err, "加载失败", err.Error())
 		return
 	}
 	if ctx == nil {
@@ -515,7 +515,7 @@ func (ctrl *ChannelAgentBindingController) List(c *gin.Context) {
 	channelType = service.NormalizeChannelType(channelType)
 	list, err := ctrl.svc.ListByChannelAccount(c.Request.Context(), channelType, accountID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -531,7 +531,7 @@ func (ctrl *ChannelAgentBindingController) ListByAgent(c *gin.Context) {
 	}
 	list, err := ctrl.svc.ListByAgentID(c.Request.Context(), uint(agentID))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -610,7 +610,7 @@ func (ctrl *ChannelAgentBindingController) Delete(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
+		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "删除成功")
@@ -667,7 +667,7 @@ func (ctrl *CustomerServiceAgentController) List(c *gin.Context) {
 	}
 	list, err := ctrl.svc.ListByAgentStatusID(c.Request.Context(), uint(agentStatusID))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -683,7 +683,7 @@ func (ctrl *CustomerServiceAgentController) ListByAIAgent(c *gin.Context) {
 	}
 	list, err := ctrl.svc.ListByAIAgentID(c.Request.Context(), uint(aiAgentID))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))
@@ -759,7 +759,7 @@ func (ctrl *CustomerServiceAgentController) Delete(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.Delete(c.Request.Context(), uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
+		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "删除成功")
@@ -775,7 +775,7 @@ func (ctrl *CustomerServiceAgentController) ListByUser(c *gin.Context) {
 	}
 	list, err := ctrl.svc.ListByUserID(c.Request.Context(), uint(userID))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithList(c, list, int64(len(list)))

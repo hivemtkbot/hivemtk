@@ -22,7 +22,7 @@ func HandleDBError(ctx *gin.Context, err error, operation string) bool {
 		response.NotFound(ctx, "记录不存在")
 		return true
 	}
-	response.Error(ctx, http.StatusInternalServerError, operation+"失败: "+err.Error())
+	response.ErrorFromDB(ctx, err, operation+"失败: "+err.Error())
 	return true
 }
 

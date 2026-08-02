@@ -66,7 +66,7 @@ func (c *AgentKBBindingController) ListByAgent(ctx *gin.Context) {
 	}
 	list, err := c.svc.ListByAgent(ctx.Request.Context(), uint(aid))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -85,7 +85,7 @@ func (c *AgentKBBindingController) ListByKB(ctx *gin.Context) {
 	}
 	list, err := c.svc.ListByKB(ctx.Request.Context(), uint(kid))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -114,7 +114,7 @@ func (c *AgentKBBindingController) Bind(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Bind(ctx.Request.Context(), req.AgentID, req.KnowledgeBaseID, req.Priority); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -137,7 +137,7 @@ func (c *AgentKBBindingController) BatchBind(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.BatchBind(ctx.Request.Context(), req.Items); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -167,7 +167,7 @@ func (c *AgentKBBindingController) Unbind(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Unbind(ctx.Request.Context(), req.AgentID, req.KnowledgeBaseID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{

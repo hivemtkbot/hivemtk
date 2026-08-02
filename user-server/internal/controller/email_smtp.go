@@ -30,7 +30,7 @@ func (c *EmailSmtpController) CreateEmailSmtp(ctx *gin.Context) {
 
 	resp, err := c.svc.CreateEmailSmtpDTO(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "创建成功")
@@ -60,7 +60,7 @@ func (c *EmailSmtpController) GetEmailSmtp(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "SMTP配置不存在")
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "获取成功")
@@ -75,7 +75,7 @@ func (c *EmailSmtpController) UpdateEmailSmtp(ctx *gin.Context) {
 	}
 
 	if err := c.svc.UpdateEmailSmtpDTO(context.Background(), req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -90,7 +90,7 @@ func (c *EmailSmtpController) DeleteEmailSmtp(ctx *gin.Context) {
 	}
 
 	if err := c.svc.DeleteEmailSmtp(context.Background(), req.ID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除成功")

@@ -188,7 +188,7 @@ func (c *CustomerOneIDController) ResolveIdentity(ctx *gin.Context) {
 	}
 	customers, err := c.identitySvc.ResolveIdentity(context.Background(), identifiers)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	// 计算归一化后的标识（不直接创建，让前端决定是否要创建）

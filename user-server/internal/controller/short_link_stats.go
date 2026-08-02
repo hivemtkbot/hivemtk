@@ -69,7 +69,7 @@ func (c *ShortLinkStatsController) GetAllStats(ctx *gin.Context) {
 	// 调用服务
 	stats, err := c.shortLinkService.GetAllStats(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

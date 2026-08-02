@@ -98,7 +98,7 @@ func (c *AppConfigController) GetAppConfig(ctx *gin.Context) {
 	// 获取当前系统配置
 	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取系统配置失败", err.Error())
 		return
 	}
 
@@ -144,7 +144,7 @@ func (c *AppConfigController) UpdateAppConfig(ctx *gin.Context) {
 	// 更新系统配置（由 service 负责组装并持久化，controller 不感知 model）
 	_, err := c.sysConfigSvc.SaveBasicConfig(context.Background(), req.BasicConfig.AppName, req.PlatformSync.PlatformURL)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "保存配置失败", err.Error())
+		response.ErrorFromDB(ctx, err, "保存配置失败", err.Error())
 		return
 	}
 
@@ -168,7 +168,7 @@ func (c *AppConfigController) SyncWithPlatform(ctx *gin.Context) {
 	// 获取当前配置
 	sysConfig, err := c.sysConfigSvc.GetConfig(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取系统配置失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取系统配置失败", err.Error())
 		return
 	}
 

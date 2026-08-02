@@ -87,7 +87,7 @@ func (c *ReachPipelineController) ListPipelines(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	list, total, err := c.svc.ListPipelines(ctx.Request.Context(), channel, status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -115,7 +115,7 @@ func (c *ReachPipelineController) PausePipeline(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.PausePipeline(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "暂停成功")
@@ -129,7 +129,7 @@ func (c *ReachPipelineController) ResumePipeline(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.ResumePipeline(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "恢复成功")
@@ -143,7 +143,7 @@ func (c *ReachPipelineController) ArchivePipeline(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.ArchivePipeline(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "归档成功")
@@ -192,7 +192,7 @@ func (c *ReachPipelineController) ListJobs(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	list, total, err := c.svc.ListJobs(ctx.Request.Context(), channel, state, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -250,7 +250,7 @@ func (c *ReachPipelineController) ExecuteJob(ctx *gin.Context) {
 func (c *ReachPipelineController) Stats(ctx *gin.Context) {
 	stats, err := c.svc.Stats(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "查询成功")

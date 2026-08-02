@@ -74,7 +74,7 @@ func (c *FAQController) List(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.List(ctx.Request.Context(), filter)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -127,7 +127,7 @@ func (c *FAQController) Create(ctx *gin.Context) {
 		AgentID:    &agentID,
 	}
 	if err := c.svc.Create(ctx.Request.Context(), entry); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, entry, "创建成功")
@@ -157,7 +157,7 @@ func (c *FAQController) Update(ctx *gin.Context) {
 		AgentID:    &agentID,
 	}
 	if err := c.svc.Update(ctx.Request.Context(), uint(id), entry); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "更新成功")
@@ -171,7 +171,7 @@ func (c *FAQController) Delete(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Delete(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
@@ -200,7 +200,7 @@ func (c *FAQController) Match(ctx *gin.Context) {
 	}
 	matches, err := c.svc.MatchByAgent(ctx.Request.Context(), req.AgentID, req.Msg, req.TopK)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, matches, "匹配成功")
@@ -210,7 +210,7 @@ func (c *FAQController) Match(ctx *gin.Context) {
 func (c *FAQController) Stats(ctx *gin.Context) {
 	total, enabled, err := c.svc.Stats(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{

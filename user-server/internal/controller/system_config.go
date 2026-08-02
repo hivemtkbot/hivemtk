@@ -24,7 +24,7 @@ func NewSystemConfigController() *SystemConfigController {
 func (c *SystemConfigController) GetConfig(ctx *gin.Context) {
 	config, err := c.svc.GetConfig(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, config, "success")
@@ -39,7 +39,7 @@ func (c *SystemConfigController) SaveConfig(ctx *gin.Context) {
 	}
 	config, err := c.svc.SaveConfig(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, config, "success")

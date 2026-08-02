@@ -75,7 +75,7 @@ func (c *MigrationController) GetUpgradeHistory(ctx *gin.Context) {
 
 	tasks, total, err := c.migrationService.GetUpgradeHistory(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -91,7 +91,7 @@ func (c *MigrationController) GetUpgradeHistory(ctx *gin.Context) {
 func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
 	records, err := c.migrationService.GetMigrationRecords(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -102,7 +102,7 @@ func (c *MigrationController) GetMigrationRecords(ctx *gin.Context) {
 func (c *MigrationController) GetCurrentVersion(ctx *gin.Context) {
 	version, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -122,14 +122,14 @@ func (c *MigrationController) CreateUpgradeTask(ctx *gin.Context) {
 	// 获取当前版本
 	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
 	// 创建迁移任务
 	task, err := c.migrationService.ExecuteUpgrade(context.Background(), currentVersion, req.ToVersion)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -147,7 +147,7 @@ func (c *MigrationController) Rollback(ctx *gin.Context) {
 	}
 
 	if err := c.migrationService.Rollback(context.Background(), req.TargetVersion); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -159,14 +159,14 @@ func (c *MigrationController) GetAvailableUpgrades(ctx *gin.Context) {
 	// 获取当前版本
 	currentVersion, err := c.migrationService.GetCurrentVersion(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
 	// 获取待执行的迁移
 	pendingMigrations, err := c.migrationService.GetPendingMigrations(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

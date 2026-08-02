@@ -80,7 +80,7 @@ func (c *AssetBundleController) SubmitToPlatform(ctx *gin.Context) {
 	platformAssetID, err := c.svc.SubmitToPlatform(ctx.Request.Context(), assetID)
 	if err != nil {
 		logger.Errorf("[asset-bundle] submit to platform failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "提交平台失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "提交平台失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"platform_asset_id": platformAssetID}, "已提交平台审核")
@@ -106,7 +106,7 @@ func (c *AssetBundleController) Create(ctx *gin.Context) {
 	}
 	if err := c.svc.CreateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] create failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, bundle, "ok")
@@ -139,7 +139,7 @@ func (c *AssetBundleController) Update(ctx *gin.Context) {
 	}
 	if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
 		logger.Errorf("[asset-bundle] update failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, bundle, "ok")
@@ -185,7 +185,7 @@ func (c *AssetBundleController) List(ctx *gin.Context) {
 	list, total, err := c.svc.ListBundlesWithParams(ctx.Request.Context(),
 		req.Keyword, req.Author, req.Industry, req.Language, string(req.Scope), assetBundleStatusToInt(req.Status), strings.Join(req.Tags, ","), req.Page, req.Size)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, dto.AssetBundleListResponse{
@@ -201,7 +201,7 @@ func (c *AssetBundleController) Publish(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.PublishBundle(ctx.Request.Context(), id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, "ok", "ok")
@@ -215,7 +215,7 @@ func (c *AssetBundleController) Archive(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.ArchiveBundle(ctx.Request.Context(), id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, "ok", "ok")
@@ -231,7 +231,7 @@ func (c *AssetBundleController) Enable(ctx *gin.Context) {
 	bundle, err := c.svc.EnableBundle(ctx.Request.Context(), id)
 	if err != nil {
 		logger.Errorf("[asset-bundle] enable failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, bundle, "enabled")
@@ -247,7 +247,7 @@ func (c *AssetBundleController) Disable(ctx *gin.Context) {
 	bundle, err := c.svc.DisableBundle(ctx.Request.Context(), id)
 	if err != nil {
 		logger.Errorf("[asset-bundle] disable failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, bundle, "disabled")
@@ -257,7 +257,7 @@ func (c *AssetBundleController) Disable(ctx *gin.Context) {
 func (c *AssetBundleController) GetEnabled(ctx *gin.Context) {
 	list, err := c.svc.GetEnabledBundles(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"list": list, "total": len(list)}, "ok")
@@ -271,7 +271,7 @@ func (c *AssetBundleController) Delete(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeleteBundle(ctx.Request.Context(), id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, "ok", "ok")
@@ -305,7 +305,7 @@ func (c *AssetBundleController) Weave(ctx *gin.Context) {
 	}
 	msgs, err := c.svc.WeaveForRequest(ctx.Request.Context(), req.AssetID, req.UserQuery, &in)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	stats := dto.WeaveStats{
@@ -333,7 +333,7 @@ func (c *AssetBundleController) MerchantSave(ctx *gin.Context) {
 	}
 	bundle, err := service.BuildBundleFromMerchantForm(req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	// 如果已存在则更新，否则创建
@@ -341,12 +341,12 @@ func (c *AssetBundleController) MerchantSave(ctx *gin.Context) {
 	if existing != nil {
 		bundle.ID = existing.ID
 		if err := c.svc.UpdateBundle(ctx.Request.Context(), bundle); err != nil {
-			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			response.ErrorFromDB(ctx, err, err.Error())
 			return
 		}
 	} else {
 		if err := c.svc.CreateBundle(ctx.Request.Context(), bundle); err != nil {
-			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			response.ErrorFromDB(ctx, err, err.Error())
 			return
 		}
 	}

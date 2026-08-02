@@ -94,7 +94,7 @@ func toDingTalkAppVO(a *model.DingTalkAppAccount) *dingTalkAppAccountVO {
 func (ctrl *DingTalkAppAccountController) List(c *gin.Context) {
 	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	out := make([]*dingTalkAppAccountVO, 0, len(accs))
@@ -142,7 +142,7 @@ func (ctrl *DingTalkAppAccountController) Create(c *gin.Context) {
 		acc.Status = 1
 	}
 	if err := ctrl.svc.CreateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "创建失败", err.Error())
+		response.ErrorFromDB(c, err, "创建失败", err.Error())
 		return
 	}
 	response.Success(c, toDingTalkAppVO(acc), "创建成功")
@@ -175,7 +175,7 @@ func (ctrl *DingTalkAppAccountController) Update(c *gin.Context) {
 	acc.AIAgentID = req.AIAgentID
 	acc.Status = req.Status
 	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "更新失败", err.Error())
+		response.ErrorFromDB(c, err, "更新失败", err.Error())
 		return
 	}
 	response.Success(c, toDingTalkAppVO(acc), "更新成功")
@@ -189,7 +189,7 @@ func (ctrl *DingTalkAppAccountController) Delete(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
+		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "删除成功")

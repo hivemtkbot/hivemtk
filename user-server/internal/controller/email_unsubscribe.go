@@ -75,7 +75,7 @@ func (c *EmailUnsubscribeController) UnsubscribeConfirm(ctx *gin.Context) {
 	ip := ctx.ClientIP()
 	ua := ctx.Request.UserAgent()
 	if err := c.svc.UnsubscribeEmail(ctx.Request.Context(), claim.Email, req.Reason, "/api/email/unsubscribe/confirm", claim.JobID, ip, ua); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "退订失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "退订失败："+err.Error())
 		return
 	}
 
@@ -90,7 +90,7 @@ func (c *EmailUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 
 	records, total, err := c.svc.ListUnsubscribes(context.Background(), page, limit, keyword)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询退订名单失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "查询退订名单失败："+err.Error())
 		return
 	}
 
@@ -102,7 +102,7 @@ func (c *EmailUnsubscribeController) ListUnsubscribes(ctx *gin.Context) {
 func (c *EmailUnsubscribeController) ExportUnsubscribes(ctx *gin.Context) {
 	records, err := c.svc.ListAllUnsubscribes(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "导出退订名单失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "导出退订名单失败："+err.Error())
 		return
 	}
 
@@ -135,7 +135,7 @@ func (c *EmailUnsubscribeController) Resubscribe(ctx *gin.Context) {
 	}
 
 	if err := c.svc.ResubscribeEmail(ctx.Request.Context(), req.Email); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "重新订阅失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "重新订阅失败："+err.Error())
 		return
 	}
 

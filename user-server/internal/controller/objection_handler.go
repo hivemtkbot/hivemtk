@@ -30,7 +30,7 @@ func (c *ObjectionHandlerController) Handle(ctx *gin.Context) {
 	}
 	resp, err := c.svc.Handle(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "处理失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "处理失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, resp, "处理成功")
@@ -69,7 +69,7 @@ func (c *ObjectionHandlerController) RecordUsage(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.RecordUsage(context.Background(), req.TemplateID, req.Success); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "记录失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "记录失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "记录成功")

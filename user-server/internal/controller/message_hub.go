@@ -118,7 +118,7 @@ func (c *MessageHubController) List(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.List(ctx.Request.Context(), q)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(q.Page), int64(q.PageSize), total)
@@ -134,7 +134,7 @@ func (c *MessageHubController) GetByID(ctx *gin.Context) {
 	}
 	msg, err := c.svc.GetByID(ctx.Request.Context(), uint(id))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	if msg == nil {
@@ -154,7 +154,7 @@ func (c *MessageHubController) MarkRead(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.MarkRead(ctx.Request.Context(), req.IDs); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"updated": len(req.IDs)}, "标记已读成功")
@@ -175,7 +175,7 @@ func (c *MessageHubController) Stats(ctx *gin.Context) {
 	}
 	stats, err := c.svc.GetStats(ctx.Request.Context(), start, end)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "统计成功")

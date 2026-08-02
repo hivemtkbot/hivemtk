@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 )
 
@@ -74,7 +76,7 @@ func DefaultRFMConfig() RFMConfig {
 // ComputeForCustomer 计算单个客户的 RFM
 func (s *CustomerRFMService) ComputeForCustomer(ctx context.Context, customerID string, cfg RFMConfig) (*model.CustomerRFM, error) {
 	if customerID == "" {
-		return nil, errors.New("customer_id 不能为空")
+		return nil, fmt.Errorf("%w: customer_id 不能为空", utils.ErrInvalidInput)
 	}
 	cust, err := s.customerRepo.GetByID(ctx, customerID)
 	if err != nil {

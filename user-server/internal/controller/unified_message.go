@@ -36,7 +36,7 @@ func (c *UnifiedMessageController) GetMessages(ctx *gin.Context) {
 
 	messages, total, err := c.messageService.GetMessages(context.Background(), platform, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -78,7 +78,7 @@ func (c *UnifiedMessageController) GetReplies(ctx *gin.Context) {
 
 	replies, err := c.messageService.GetReplies(context.Background(), messageID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -102,7 +102,7 @@ func (c *PlatformAccountController) GetAccounts(ctx *gin.Context) {
 
 	accounts, err := c.accountService.GetAccounts(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

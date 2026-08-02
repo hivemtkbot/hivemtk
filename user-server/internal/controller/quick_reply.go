@@ -26,7 +26,7 @@ func (c *QuickReplyController) GetReplies(ctx *gin.Context) {
 	category := ctx.Query("category")
 	replies, err := c.replyService.GetReplies(ctx.Request.Context(), category)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -97,7 +97,7 @@ func (c *QuickReplyController) DeleteReply(ctx *gin.Context) {
 func (c *QuickReplyController) GetReplyCategories(ctx *gin.Context) {
 	categories, err := c.replyService.GetCategories(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

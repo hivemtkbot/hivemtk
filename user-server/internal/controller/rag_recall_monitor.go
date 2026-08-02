@@ -77,7 +77,7 @@ func (c *RagRecallMonitorController) ListSnapshots(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
 	rows, err := c.svc.ListSnapshots(ctx.Request.Context(), limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询监控快照失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "查询监控快照失败："+err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, rows, 1, int64(limit), int64(len(rows)))
@@ -117,7 +117,7 @@ func (c *RagRecallMonitorController) Collect(ctx *gin.Context) {
 
 	summary, err := c.svc.CollectAndStore(bgCtx, start, end)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "采集失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "采集失败："+err.Error())
 		return
 	}
 	response.Success(ctx, summary, "ok")

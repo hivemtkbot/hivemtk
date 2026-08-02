@@ -87,7 +87,7 @@ func (c *SystemInitController) InitComplete(ctx *gin.Context) {
 	// 必须调用 SetAdminInit 写 initialized=true，使 GetStatus() 返回 state=INITIALIZED。
 	adminUsername := checker.GetAdminUsername()
 	if err := checker.SetAdminInit(adminUsername); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "标记初始化状态失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "标记初始化状态失败: "+err.Error())
 		return
 	}
 

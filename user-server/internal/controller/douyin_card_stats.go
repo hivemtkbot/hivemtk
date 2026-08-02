@@ -66,7 +66,7 @@ func (c *DouyinCardStatsController) GetOverallStats(ctx *gin.Context) {
 
 	stats, err := c.service.GetOverallStats(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, 500, "获取总体统计数据失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取总体统计数据失败", err.Error())
 		return
 	}
 

@@ -32,7 +32,7 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 	}
 	rep, err := c.svc.BuildReport(context.Background(), uint(staffID))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "报告生成失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "报告生成失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, rep, "报告生成成功")
@@ -42,7 +42,7 @@ func (c *SalesPersonaController) GetReport(ctx *gin.Context) {
 func (c *SalesPersonaController) ListStaffs(ctx *gin.Context) {
 	staffs, err := c.svc.ListStaffs(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithList(ctx, staffs, int64(len(staffs)))

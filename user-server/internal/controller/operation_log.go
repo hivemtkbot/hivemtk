@@ -62,7 +62,7 @@ func (c *OperationLogController) GetList(ctx *gin.Context) {
 	// 获取日志列表（service 返回 OperationLogView DTO）
 	logs, total, err := c.logSvc.GetAll(ctx, page, pageSize, filters)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -129,7 +129,7 @@ func (c *OperationLogController) GetMyLogs(ctx *gin.Context) {
 	// 获取日志列表
 	logs, total, err := c.logSvc.GetByUserID(ctx, uid, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -146,7 +146,7 @@ func (c *OperationLogController) GetStatistics(ctx *gin.Context) {
 	// service 已经封装好统计逻辑，直接返回 DTO
 	stats, err := c.logSvc.GetStatistics(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -170,7 +170,7 @@ func (c *OperationLogController) ExportLogs(ctx *gin.Context) {
 	// service 返回 OperationLogView 列表，controller 负责渲染 CSV
 	logs, err := c.logSvc.ExportAll(ctx, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询日志失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询日志失败: "+err.Error())
 		return
 	}
 
@@ -219,7 +219,7 @@ func (c *OperationLogController) CleanLogs(ctx *gin.Context) {
 		cutoff = time.Now().AddDate(0, 0, -req.Days)
 	}
 	if err := c.logSvc.DeleteOldLogs(ctx, cutoff); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "清理失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "清理失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -245,7 +245,7 @@ func (c *OperationLogController) DeleteLogs(ctx *gin.Context) {
 
 	count, err := c.logSvc.DeleteByIDs(ctx, req.IDs)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "删除失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "删除失败: "+err.Error())
 		return
 	}
 

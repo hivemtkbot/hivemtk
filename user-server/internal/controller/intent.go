@@ -62,7 +62,7 @@ func (c *IntentController) Recognize(ctx *gin.Context) {
 	}
 	result, err := c.rec.Recognize(ctx.Request.Context(), req.SessionID, req.CustomerID, text)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, result, "识别成功")
@@ -123,7 +123,7 @@ func (c *IntentController) Stats(ctx *gin.Context) {
 	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "7"))
 	stats, err := c.rec.GetIntentStats(context.Background(), days)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	// 包装为前端约定的 {total, distribution, by_intent, period_days, by_method, by_level}
@@ -178,7 +178,7 @@ func (c *IntentController) RecentIntents(ctx *gin.Context) {
 	}
 	list, total, err := c.rec.GetRecentIntentsPaged(context.Background(), customerID, intentType, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	if list == nil {
@@ -217,7 +217,7 @@ func (c *IntentController) RecognizeFine(ctx *gin.Context) {
 	}
 	result, err := c.rec.RecognizeIntent(ctx.Request.Context(), req.Message, req.CustomerID, req.SessionID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, result, "识别成功")
@@ -231,7 +231,7 @@ func (c *IntentController) IntentLogs(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "100"))
 	logs, err := c.rec.GetIntentLogs(context.Background(), customerID, major, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, logs, "查询成功")
@@ -243,7 +243,7 @@ func (c *IntentController) IntentStatsFine(ctx *gin.Context) {
 	days, _ := strconv.Atoi(ctx.DefaultQuery("days", "7"))
 	stats, err := c.rec.GetIntentLogStats(context.Background(), days)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "查询成功")
@@ -261,7 +261,7 @@ func (c *IntentController) IntentStatsFine(ctx *gin.Context) {
 func (c *IntentController) GetConfig(ctx *gin.Context) {
 	cfg, err := service.LoadIntentConfig(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, cfg, "查询成功")
@@ -300,7 +300,7 @@ func (c *IntentController) UpdateConfig(ctx *gin.Context) {
 		UpdatedBy: updatedBy,
 	}
 	if err := service.UpdateIntentConfig(ctx.Request.Context(), cfg); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, cfg, "更新成功")

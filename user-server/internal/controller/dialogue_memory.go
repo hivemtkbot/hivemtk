@@ -44,7 +44,7 @@ func (c *DialogueMemoryController) AppendMessage(ctx *gin.Context) {
 		Timestamp: time.Now(),
 	})
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "追加成功")
@@ -59,7 +59,7 @@ func (c *DialogueMemoryController) ShortTerm(ctx *gin.Context) {
 	}
 	msgs, err := c.svc.GetShortTermMemory(context.Background(), sessionID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, msgs, "查询成功")
@@ -70,7 +70,7 @@ func (c *DialogueMemoryController) LongTerm(ctx *gin.Context) {
 	sessionID := ctx.Query("session_id")
 	mem, err := c.svc.GetLongTermMemory(context.Background(), sessionID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, mem, "查询成功")
@@ -91,7 +91,7 @@ func (c *DialogueMemoryController) UpdateKeyFacts(ctx *gin.Context) {
 	}
 	err := c.svc.UpdateKeyFacts(context.Background(), req.SessionID, req.Facts)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -113,7 +113,7 @@ func (c *DialogueMemoryController) RecordObjection(ctx *gin.Context) {
 	}
 	err := c.svc.RecordObjection(context.Background(), req.SessionID, req.ObjectionType, req.Content)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "记录成功")
@@ -134,7 +134,7 @@ func (c *DialogueMemoryController) UpdatePurchaseIntent(ctx *gin.Context) {
 	}
 	err := c.svc.UpdatePurchaseIntent(context.Background(), req.SessionID, req.Level)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -155,7 +155,7 @@ func (c *DialogueMemoryController) RecordIntent(ctx *gin.Context) {
 	}
 	err := c.svc.RecordIntent(context.Background(), req.SessionID, req.IntentType)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "记录成功")
@@ -176,7 +176,7 @@ func (c *DialogueMemoryController) RecordSOP(ctx *gin.Context) {
 	}
 	err := c.svc.RecordSOP(context.Background(), req.SessionID, req.SOPName)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "记录成功")
@@ -188,7 +188,7 @@ func (c *DialogueMemoryController) BuildContext(ctx *gin.Context) {
 	customerID := ctx.Query("customer_id")
 	s, err := c.svc.BuildContext(context.Background(), sessionID, customerID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"context": s}, "查询成功")
@@ -204,7 +204,7 @@ func (c *DialogueMemoryController) Stats(ctx *gin.Context) {
 	}
 	mems, total, err := c.svc.ListByCustomerID(context.Background(), customerID, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, mems, 1, int64(limit), total)

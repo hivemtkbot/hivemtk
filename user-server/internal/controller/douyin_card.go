@@ -123,7 +123,7 @@ func (c *DouyinCardController) GetList(ctx *gin.Context) {
 
 	list, err := c.service.GetList(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrGetListFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrGetListFailed, err.Error())
 		return
 	}
 

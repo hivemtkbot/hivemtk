@@ -37,7 +37,7 @@ func (c *CustomerRFMController) ComputeForCustomer(ctx *gin.Context) {
 	cfg := service.DefaultRFMConfig()
 	rfm, err := c.svc.ComputeForCustomer(context.Background(), req.CustomerID, cfg)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "计算失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "计算失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dto.FromCustomerRFMModel(rfm), "ok")
@@ -55,7 +55,7 @@ func (c *CustomerRFMController) ComputeAll(ctx *gin.Context) {
 	limit := parsePositiveInt(ctx.Query("limit"), 200, 1000)
 	count, err := c.svc.ComputeAll(context.Background(), limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "批量计算失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "批量计算失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dto.RFMComputeAllResponse{Computed: count, Limit: limit}, "ok")
@@ -91,7 +91,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 	pageSize := parsePositiveInt(ctx.Query("page_size"), 20, 200)
 	list, total, err := c.svc.ListBySegment(context.Background(), segment, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询失败: "+err.Error())
 		return
 	}
 	resp := &dto.CustomerRFMListResponse{
@@ -114,7 +114,7 @@ func (c *CustomerRFMController) ListBySegment(ctx *gin.Context) {
 func (c *CustomerRFMController) Distribution(ctx *gin.Context) {
 	dist, err := c.svc.Distribution(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询失败: "+err.Error())
 		return
 	}
 	total := int64(0)

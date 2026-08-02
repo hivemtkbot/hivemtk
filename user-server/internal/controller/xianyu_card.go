@@ -109,7 +109,7 @@ func (c *XianyuCardController) GetList(ctx *gin.Context) {
 
 	cards, err := c.service.GetList(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrGetListFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrGetListFailed, err.Error())
 		return
 	}
 

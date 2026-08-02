@@ -89,7 +89,7 @@ func (c *SelfLearningController) GetSwitch(ctx *gin.Context) {
 	status, err := c.svc.GetSwitchStatus(ctx.Request.Context())
 	if err != nil {
 		logger.Errorf("[self-learning] get switch failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "获取开关状态失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取开关状态失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, status, "ok")
@@ -122,7 +122,7 @@ func (c *SelfLearningController) UpdateSwitch(ctx *gin.Context) {
 	status, err := c.svc.UpdateSwitch(ctx.Request.Context(), &req, operatorID)
 	if err != nil {
 		logger.Errorf("[self-learning] update switch failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "更新开关失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "更新开关失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, status, "ok")
@@ -141,7 +141,7 @@ func (c *SelfLearningController) GetDashboard(ctx *gin.Context) {
 	dash, err := c.svc.GetDashboard(ctx.Request.Context())
 	if err != nil {
 		logger.Errorf("[self-learning] get dashboard failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "获取看板失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取看板失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dash, "ok")
@@ -159,7 +159,7 @@ func (c *SelfLearningController) GetRAGSupervision(ctx *gin.Context) {
 	dash, err := c.svc.GetRAGSupervisionDashboard(ctx.Request.Context(), rangeStr)
 	if err != nil {
 		logger.Errorf("[self-learning] get rag supervision failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "获取 RAG 监督看板失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取 RAG 监督看板失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dash, "ok")
@@ -177,7 +177,7 @@ func (c *SelfLearningController) GetAssetSupervision(ctx *gin.Context) {
 	dash, err := c.svc.GetAssetSupervisionDashboard(ctx.Request.Context(), rangeStr)
 	if err != nil {
 		logger.Errorf("[self-learning] get asset supervision failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "获取资产包监督看板失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取资产包监督看板失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, dash, "ok")
@@ -210,7 +210,7 @@ func (c *SelfLearningController) ListLogs(ctx *gin.Context) {
 	list, err := c.svc.ListLogs(ctx.Request.Context(), &req)
 	if err != nil {
 		logger.Errorf("[self-learning] list logs failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "查询日志失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询日志失败: "+err.Error())
 		return
 	}
 	response.SuccessWithList(ctx, list.List, list.Total)
@@ -233,7 +233,7 @@ func (c *SelfLearningController) ListCandidates(ctx *gin.Context) {
 	list, err := c.svc.ListCandidates(ctx.Request.Context(), &req)
 	if err != nil {
 		logger.Errorf("[self-learning] list candidates failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "查询候选失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询候选失败: "+err.Error())
 		return
 	}
 	response.SuccessWithList(ctx, list.List, list.Total)
@@ -256,7 +256,7 @@ func (c *SelfLearningController) ListABTests(ctx *gin.Context) {
 	list, err := c.svc.ListABTests(ctx.Request.Context(), &req)
 	if err != nil {
 		logger.Errorf("[self-learning] list ab-tests failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "查询 A/B 实验失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询 A/B 实验失败: "+err.Error())
 		return
 	}
 	response.SuccessWithList(ctx, list.List, list.Total)
@@ -274,7 +274,7 @@ func (c *SelfLearningController) PromoteABTest(ctx *gin.Context) {
 	}
 	if err := c.svc.PromoteABTest(ctx.Request.Context(), &req); err != nil {
 		logger.Errorf("[self-learning] promote ab-test failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "晋升 A/B 实验失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "晋升 A/B 实验失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"experiment_id": req.ExperimentID, "winner_arm": req.WinnerArm}, "ok")
@@ -297,7 +297,7 @@ func (c *SelfLearningController) ListCorrections(ctx *gin.Context) {
 	list, err := c.svc.ListCorrections(ctx.Request.Context(), &req)
 	if err != nil {
 		logger.Errorf("[self-learning] list corrections failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "查询矫正动作失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询矫正动作失败: "+err.Error())
 		return
 	}
 	response.SuccessWithList(ctx, list.List, list.Total)
@@ -322,7 +322,7 @@ func (c *SelfLearningController) ApproveCorrection(ctx *gin.Context) {
 	req.ActionID = actionID
 	if err := c.svc.ApproveCorrection(ctx.Request.Context(), &req); err != nil {
 		logger.Errorf("[self-learning] approve correction failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "批准矫正动作失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "批准矫正动作失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"action_id": actionID, "status": "applied"}, "ok")
@@ -346,7 +346,7 @@ func (c *SelfLearningController) RejectCorrection(ctx *gin.Context) {
 	req.ActionID = actionID
 	if err := c.svc.RejectCorrection(ctx.Request.Context(), &req); err != nil {
 		logger.Errorf("[self-learning] reject correction failed: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "拒绝矫正动作失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "拒绝矫正动作失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"action_id": actionID, "status": "skipped"}, "ok")

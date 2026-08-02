@@ -35,7 +35,7 @@ func (c *EmailListController) CreateEmailList(ctx *gin.Context) {
 
 	total, err := c.svc.CreateEmailList(context.Background(), req.Subject, req.Content, strings.Join(req.Attachments, ","))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, map[string]int64{
@@ -58,7 +58,7 @@ func (c *EmailListController) GetEmailListList(ctx *gin.Context) {
 	}
 	resp, err := c.svc.GetEmailListListDTO(context.Background(), req.Page, req.PageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "success")
@@ -81,7 +81,7 @@ func (c *EmailListController) GetEmailListDetail(ctx *gin.Context) {
 
 	resp, err := c.svc.GetEmailListByIDDTO(context.Background(), listID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "success")
@@ -101,7 +101,7 @@ func (c *EmailListController) UpdateEmailList(ctx *gin.Context) {
 	}
 
 	if err := c.svc.UpdateEmailListDTO(context.Background(), req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "success")
@@ -124,7 +124,7 @@ func (c *EmailListController) DeleteEmailList(ctx *gin.Context) {
 	}
 
 	if err = c.svc.DeleteEmailList(context.Background(), listID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "success")

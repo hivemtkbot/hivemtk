@@ -69,7 +69,7 @@ func (c *EmailOpenTrackerController) PostmarkWebhook(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.RecordPostmarkEvent(ctx.Request.Context(), &evt); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "记录事件失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "记录事件失败："+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"recorded": true, "type": evt.RecordType}, "ok")
@@ -87,7 +87,7 @@ func (c *EmailOpenTrackerController) SendCloudWebhook(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.RecordSendCloudEvent(ctx.Request.Context(), &evt); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "记录事件失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "记录事件失败："+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"recorded": true, "event": evt.Event}, "ok")
@@ -107,7 +107,7 @@ func (c *EmailOpenTrackerController) GetOpenMetrics(ctx *gin.Context) {
 	totalSent, _ := strconv.ParseInt(ctx.DefaultQuery("total_sent", "0"), 10, 64)
 	m, err := c.svc.GetOpenRateMetrics(ctx.Request.Context(), jobID, totalSent)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "查询打开率失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "查询打开率失败："+err.Error())
 		return
 	}
 	response.Success(ctx, m, "ok")

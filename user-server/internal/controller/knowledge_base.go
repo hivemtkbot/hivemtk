@@ -78,7 +78,7 @@ func (c *KnowledgeBaseController) List(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.ListKBs(ctx.Request.Context(), kbType, ownerType, agentID, keyword)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -119,7 +119,7 @@ func (c *KnowledgeBaseController) ListByAgent(ctx *gin.Context) {
 	}
 	list, err := c.svc.ListByAgent(ctx.Request.Context(), uint(aid))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -134,7 +134,7 @@ func (c *KnowledgeBaseController) ListByType(ctx *gin.Context) {
 	}
 	list, err := c.svc.ListByType(ctx.Request.Context(), kbType)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -168,7 +168,7 @@ func (c *KnowledgeBaseController) Create(ctx *gin.Context) {
 		Enabled:      req.Enabled,
 	}
 	if err := c.svc.CreateKB(ctx.Request.Context(), kb); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, kb, "创建成功")
@@ -205,7 +205,7 @@ func (c *KnowledgeBaseController) Update(ctx *gin.Context) {
 		Enabled:      req.Enabled,
 	}
 	if err := c.svc.UpdateKB(ctx.Request.Context(), uint(id), kb); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "更新成功")
@@ -219,7 +219,7 @@ func (c *KnowledgeBaseController) Delete(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeleteKB(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
@@ -247,7 +247,7 @@ func (c *KnowledgeBaseController) BindToAgent(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.BindToAgent(ctx.Request.Context(), uint(kbID), req.AgentID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"kb_id": kbID, "agent_id": req.AgentID}, "绑定成功")
@@ -270,7 +270,7 @@ func (c *KnowledgeBaseController) UnbindFromAgent(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.UnbindFromAgent(ctx.Request.Context(), uint(kbID), req.AgentID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"kb_id": kbID, "agent_id": req.AgentID}, "解绑成功")

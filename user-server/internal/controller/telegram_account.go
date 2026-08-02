@@ -108,7 +108,7 @@ func maskBotToken(token string) string {
 func (ctrl *TelegramAccountController) List(c *gin.Context) {
 	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取列表失败", err.Error())
+		response.ErrorFromDB(c, err, "获取列表失败", err.Error())
 		return
 	}
 	list := make([]telegramAccountVO, 0, len(accs))
@@ -171,7 +171,7 @@ func (ctrl *TelegramAccountController) Create(c *gin.Context) {
 		Status:         req.Status,
 	}
 	if _, err := ctrl.svc.CreateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "创建失败", err.Error())
+		response.ErrorFromDB(c, err, "创建失败", err.Error())
 		return
 	}
 	response.Success(c, toTelegramAccountVO(acc), "创建成功")
@@ -216,7 +216,7 @@ func (ctrl *TelegramAccountController) Update(c *gin.Context) {
 		acc.Status = req.Status
 	}
 	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "更新失败", err.Error())
+		response.ErrorFromDB(c, err, "更新失败", err.Error())
 		return
 	}
 	response.Success(c, toTelegramAccountVO(acc), "更新成功")
@@ -230,7 +230,7 @@ func (ctrl *TelegramAccountController) Delete(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
+		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "删除成功")
@@ -289,7 +289,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		acc.LastErrorAt = &now
 		acc.LastErrorMsg = err.Error()
 		_ = ctrl.svc.UpdateAccount(context.Background(), acc)
-		response.Error(c, http.StatusInternalServerError, "注册 Webhook 失败", err.Error())
+		response.ErrorFromDB(c, err, "注册 Webhook 失败", err.Error())
 		return
 	}
 
@@ -305,7 +305,7 @@ func (ctrl *TelegramAccountController) RegisterWebhook(c *gin.Context) {
 		}
 	}
 	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "保存状态失败", err.Error())
+		response.ErrorFromDB(c, err, "保存状态失败", err.Error())
 		return
 	}
 	// Webhook 注册成功 → 停掉对应账号的 polling（避免 webhook + polling 双消费）
@@ -415,7 +415,7 @@ func (ctrl *TelegramAccountController) TestSend(c *gin.Context) {
 		return
 	}
 	if err := tgbot.SendMessage(acc.BotToken, req.ChatID, req.Text); err != nil {
-		response.Error(c, http.StatusInternalServerError, "发送失败", err.Error())
+		response.ErrorFromDB(c, err, "发送失败", err.Error())
 		return
 	}
 	response.Success(c, gin.H{"ok": true}, "发送成功")

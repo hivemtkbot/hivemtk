@@ -74,7 +74,7 @@ func (c *SOPTemplateController) List(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.List(ctx.Request.Context(), filter)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -131,7 +131,7 @@ func (c *SOPTemplateController) Create(ctx *gin.Context) {
 		AgentID:    &agentID,
 	}
 	if err := c.svc.Create(ctx.Request.Context(), tpl); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, tpl, "创建成功")
@@ -162,7 +162,7 @@ func (c *SOPTemplateController) Update(ctx *gin.Context) {
 		AgentID:    &agentID,
 	}
 	if err := c.svc.Update(ctx.Request.Context(), uint(id), tpl); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "更新成功")
@@ -176,7 +176,7 @@ func (c *SOPTemplateController) Delete(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Delete(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
@@ -206,7 +206,7 @@ func (c *SOPTemplateController) Match(ctx *gin.Context) {
 	}
 	matches, err := c.svc.MatchByAgent(ctx.Request.Context(), req.AgentID, req.Intent, req.Stage, req.TopK)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, matches, "匹配成功")

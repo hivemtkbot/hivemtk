@@ -66,7 +66,7 @@ func (c *SmsController) RegisterRoutes(router *gin.RouterGroup) {
 func (c *SmsController) GetConfig(ctx *gin.Context) {
 	config, err := c.service.GetConfig(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取配置失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取配置失败: "+err.Error())
 		return
 	}
 
@@ -82,7 +82,7 @@ func (c *SmsController) SaveConfig(ctx *gin.Context) {
 	}
 
 	if err := c.service.SaveConfig(context.Background(), &req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "保存配置失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "保存配置失败: "+err.Error())
 		return
 	}
 
@@ -158,7 +158,7 @@ func (c *SmsController) GetSmsList(ctx *gin.Context) {
 
 	list, total, err := c.service.GetSmsList(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取短信列表失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取短信列表失败: "+err.Error())
 		return
 	}
 
@@ -206,7 +206,7 @@ func (c *SmsController) SendSms(ctx *gin.Context) {
 	}
 
 	if err := c.service.SendSms(context.Background(), &req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "发送短信失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "发送短信失败: "+err.Error())
 		return
 	}
 
@@ -249,7 +249,7 @@ func (c *SmsController) GetDraftList(ctx *gin.Context) {
 
 	list, total, err := c.service.GetDraftList(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取草稿列表失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取草稿列表失败: "+err.Error())
 		return
 	}
 
@@ -285,7 +285,7 @@ func (c *SmsController) CreateDraft(ctx *gin.Context) {
 	}
 
 	if err := c.service.CreateDraft(context.Background(), &req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建草稿失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "创建草稿失败: "+err.Error())
 		return
 	}
 
@@ -382,7 +382,7 @@ func (c *SmsController) GetJobList(ctx *gin.Context) {
 
 	list, total, err := c.service.GetJobList(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取任务列表失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取任务列表失败: "+err.Error())
 		return
 	}
 
@@ -418,7 +418,7 @@ func (c *SmsController) CreateJob(ctx *gin.Context) {
 	}
 
 	if err := c.service.CreateJob(context.Background(), &req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建任务失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "创建任务失败: "+err.Error())
 		return
 	}
 

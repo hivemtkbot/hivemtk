@@ -1,13 +1,16 @@
 package response
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"marketing/internal/pkg/i18n"
 	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // LocaleOf 从 gin 上下文解析请求语言（由 LocaleMiddleware 注入，缺省回退中文）。
@@ -112,6 +115,47 @@ func Error(c *gin.Context, code any, message string, data ...any) {
 	}
 
 	c.JSON(httpCode, resp)
+}
+
+// ErrorFromDB 依据错误类型返回恰当的 HTTP 状态码，避免把可预期错误误报为 500：
+//   - gorm.ErrRecordNotFound -> 404（资源不存在）
+//   - utils.ErrInvalidInput  -> 400（输入校验失败）
+//   - 其它                    -> 500（保留原始消息便于排查）
+//
+// 用于替换 controller 中散落的 `response.Error(c, 500, err.Error())`，
+// 让「操作一个已不存在的资源」或「缺必填字段」返回正确的语义状态码。
+func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
+	if err == nil {
+		return
+	}
+	msg := err.Error()
+	// 优先按错误类型判断（链路未被 %s/拼接打断时）。
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		NotFound(c, fallbackMsg)
+		return
+	}
+	if errors.Is(err, utils.ErrInvalidInput) {
+		Error(c, http.StatusBadRequest, fallbackMsg, data...)
+		return
+	}
+	// 兜底：部分 service/controller 用 %s 或字符串拼接包裹错误，导致类型链丢失，
+	// 这里依据常见消息做语义识别，避免「资源不存在/无权限」被误报为 500。
+	if strings.Contains(msg, "record not found") || strings.Contains(msg, "not found") || strings.Contains(msg, "不存在") {
+		NotFound(c, fallbackMsg)
+		return
+	}
+	if strings.Contains(msg, "does not belong to current user") || strings.Contains(msg, "无权限") || strings.Contains(msg, "forbidden") {
+		Error(c, http.StatusForbidden, fallbackMsg, data...)
+		return
+	}
+	if strings.Contains(msg, "invalid input") {
+		Error(c, http.StatusBadRequest, fallbackMsg, data...)
+		return
+	}
+	if fallbackMsg == "" {
+		fallbackMsg = msg
+	}
+	Error(c, http.StatusInternalServerError, fallbackMsg, data...)
 }
 
 // errorCodeFromHTTPCode 根据 HTTP 状态码返回错误码

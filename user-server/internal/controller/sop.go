@@ -83,7 +83,7 @@ func (c *SOPController) List(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.List(ctx.Request.Context(), scenario, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -111,7 +111,7 @@ func (c *SOPController) Activate(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Activate(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "启用成功")
@@ -125,7 +125,7 @@ func (c *SOPController) Deactivate(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Deactivate(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "停用成功")
@@ -170,7 +170,7 @@ func (c *SOPController) Pause(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Pause(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "暂停成功")
@@ -184,7 +184,7 @@ func (c *SOPController) Resume(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Resume(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "恢复成功")
@@ -198,7 +198,7 @@ func (c *SOPController) Cancel(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.Cancel(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "取消成功")
@@ -230,7 +230,7 @@ func (c *SOPController) ListExecutions(ctx *gin.Context) {
 	}
 	list, total, err := c.svc.ListExecutions(ctx.Request.Context(), customerID, status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
@@ -241,7 +241,7 @@ func (c *SOPController) MatchByIntent(ctx *gin.Context) {
 	intent := ctx.Query("intent")
 	list, err := c.svc.MatchByIntent(ctx.Request.Context(), intent)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, list, "查询成功")
@@ -251,7 +251,7 @@ func (c *SOPController) MatchByIntent(ctx *gin.Context) {
 func (c *SOPController) Stats(ctx *gin.Context) {
 	stats, err := c.svc.Stats(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, stats, "查询成功")

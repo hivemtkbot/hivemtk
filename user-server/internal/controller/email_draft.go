@@ -31,7 +31,7 @@ func (c *EmailDraftController) CreateEmailDraft(ctx *gin.Context) {
 
 	resp, err := c.svc.CreateEmailDraftDTO(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "创建失败："+err.Error())
 		return
 	}
 	response.Success(ctx, resp, "创建成功")
@@ -41,7 +41,7 @@ func (c *EmailDraftController) CreateEmailDraft(ctx *gin.Context) {
 func (c *EmailDraftController) GetEmailDraftList(ctx *gin.Context) {
 	resp, err := c.svc.GetEmailDraftListDTO(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取列表失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "获取列表失败："+err.Error())
 		return
 	}
 	response.Success(ctx, resp, "获取成功")
@@ -69,7 +69,7 @@ func (c *EmailDraftController) GetEmailDraftDetail(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "草稿不存在")
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, "获取详情失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "获取详情失败："+err.Error())
 		return
 	}
 	response.Success(ctx, resp, "获取成功")
@@ -89,7 +89,7 @@ func (c *EmailDraftController) UpdateEmailDraft(ctx *gin.Context) {
 	}
 
 	if err := c.svc.UpdateEmailDraftDTO(context.Background(), req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "更新失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "更新失败："+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -112,7 +112,7 @@ func (c *EmailDraftController) DeleteEmailDraft(ctx *gin.Context) {
 	}
 
 	if err = c.svc.DeleteEmailDraft(context.Background(), draftID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "删除失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "删除失败："+err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除成功")

@@ -69,7 +69,7 @@ func (c *CardStatsFactoryController) GetCardStats(ctx *gin.Context) {
 	req := buildPlatformCardStatsRequest(ctx, uint(cardID), svc.Platform())
 	stats, err := svc.GetCardStats(ctx.Request.Context(), req)
 	if err != nil {
-		response.Error(ctx, 500, "获取卡片统计失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取卡片统计失败", err.Error())
 		return
 	}
 	response.Success(ctx, stats, "获取成功")
@@ -86,7 +86,7 @@ func (c *CardStatsFactoryController) GetOverallStats(ctx *gin.Context) {
 	req := buildPlatformCardOverallStatsRequest(ctx, svc.Platform())
 	stats, err := svc.GetOverallStats(ctx.Request.Context(), req)
 	if err != nil {
-		response.Error(ctx, 500, "获取总体统计失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取总体统计失败", err.Error())
 		return
 	}
 	response.Success(ctx, stats, "获取成功")

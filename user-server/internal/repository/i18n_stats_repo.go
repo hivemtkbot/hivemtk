@@ -208,7 +208,7 @@ func (r *i18nStatsRepo) QualityTrend(ctx context.Context, days int) ([]QualityTr
 			COALESCE(AVG(quality_score), 0)   AS avg_score,
 			COUNT(*)                          AS total_count
 		FROM llm_routing_logs
-		WHERE created_at >= NOW() - (? || ' days')::INTERVAL
+		WHERE created_at >= NOW() - make_interval(days => ?)
 		  AND quality_score IS NOT NULL
 		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
 		ORDER BY date ASC`

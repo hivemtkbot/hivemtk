@@ -94,7 +94,7 @@ func toWhatsAppCloudVO(a *model.WhatsAppCloudAccount) *whatsAppCloudAccountVO {
 func (ctrl *WhatsAppCloudAccountController) List(c *gin.Context) {
 	accs, err := ctrl.svc.ListAccounts(context.Background())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	out := make([]*whatsAppCloudAccountVO, 0, len(accs))
@@ -151,7 +151,7 @@ func (ctrl *WhatsAppCloudAccountController) Create(c *gin.Context) {
 	}
 	out, err := ctrl.svc.CreateAccount(context.Background(), acc)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "创建失败", err.Error())
+		response.ErrorFromDB(c, err, "创建失败", err.Error())
 		return
 	}
 	response.Success(c, toWhatsAppCloudVO(out), "创建成功")
@@ -207,7 +207,7 @@ func (ctrl *WhatsAppCloudAccountController) Update(c *gin.Context) {
 		acc.Status = *req.Status
 	}
 	if err := ctrl.svc.UpdateAccount(context.Background(), acc); err != nil {
-		response.Error(c, http.StatusInternalServerError, "更新失败", err.Error())
+		response.ErrorFromDB(c, err, "更新失败", err.Error())
 		return
 	}
 	response.Success(c, toWhatsAppCloudVO(acc), "更新成功")
@@ -221,7 +221,7 @@ func (ctrl *WhatsAppCloudAccountController) Delete(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除失败", err.Error())
+		response.ErrorFromDB(c, err, "删除失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "删除成功")
@@ -249,7 +249,7 @@ func (ctrl *WhatsAppCloudAccountController) TestSend(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := integration.SendMessage(ctx, uint(id), req.ToPhone, req.Content); err != nil {
-		response.Error(c, http.StatusInternalServerError, "发送失败", err.Error())
+		response.ErrorFromDB(c, err, "发送失败", err.Error())
 		return
 	}
 	response.Success(c, nil, "发送成功")

@@ -33,7 +33,7 @@ func (c *XiaohongshuCardController) Create(ctx *gin.Context) {
 
 	card, err := c.service.Create(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrCreateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrCreateFailed, err.Error())
 		return
 	}
 
@@ -50,7 +50,7 @@ func (c *XiaohongshuCardController) Update(ctx *gin.Context) {
 
 	card, err := c.service.Update(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrUpdateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrUpdateFailed, err.Error())
 		return
 	}
 
@@ -100,7 +100,7 @@ func (c *XiaohongshuCardController) GetList(ctx *gin.Context) {
 
 	cards, err := c.service.GetList(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrGetFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrGetFailed, err.Error())
 		return
 	}
 

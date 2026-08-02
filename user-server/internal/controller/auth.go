@@ -108,7 +108,7 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 		if HandleServiceError(ctx, err) {
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -167,7 +167,7 @@ func (c *AuthController) SetupMFA(ctx *gin.Context) {
 
 	resp, err := c.mfaService.SetupMFA(context.Background(), uid, usernameStr)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -289,7 +289,7 @@ func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
 
 	enabled, err := c.mfaService.IsMFAEnabled(context.Background(), uid)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -317,7 +317,7 @@ func (c *AuthController) ListLoginEvents(ctx *gin.Context) {
 
 	events, total, err := c.riskService.ListLoginEvents(context.Background(), uid, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -347,7 +347,7 @@ func (c *AuthController) ListSecurityAlerts(ctx *gin.Context) {
 
 	alerts, total, err := c.riskService.ListSecurityAlerts(context.Background(), uid, status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -448,7 +448,7 @@ func (c *SystemUserController) GetUsers(ctx *gin.Context) {
 	// 获取用户列表
 	users, total, err := c.userService.GetUsers(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

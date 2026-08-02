@@ -59,7 +59,7 @@ func (ctrl *TikTokAutoReplyController) GetAccounts(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
 	accounts, err := ctrl.svc.ListAccounts(context.Background(), userID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取账号列表失败", err.Error())
+		response.ErrorFromDB(c, err, "获取账号列表失败", err.Error())
 		return
 	}
 	response.Success(c, accounts, "获取账号列表成功")
@@ -70,7 +70,7 @@ func (ctrl *TikTokAutoReplyController) GetRule(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
 	rule, err := ctrl.svc.GetRule(context.Background(), userID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取规则失败", err.Error())
+		response.ErrorFromDB(c, err, "获取规则失败", err.Error())
 		return
 	}
 	keywords := []string{}
@@ -102,7 +102,7 @@ func (ctrl *TikTokAutoReplyController) SaveRule(c *gin.Context) {
 	}
 	rule, err := ctrl.svc.SaveRule(context.Background(), userID, &req)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "保存规则失败", err.Error())
+		response.ErrorFromDB(c, err, "保存规则失败", err.Error())
 		return
 	}
 	response.Success(c, rule, "保存规则成功")
@@ -149,7 +149,7 @@ func (ctrl *TikTokAutoReplyController) UpsertAccount(c *gin.Context) {
 	}
 	account, err := ctrl.svc.UpsertAccount(context.Background(), userID, &req)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "保存账号失败", err.Error())
+		response.ErrorFromDB(c, err, "保存账号失败", err.Error())
 		return
 	}
 	response.Success(c, account, "账号保存成功")
@@ -165,7 +165,7 @@ func (ctrl *TikTokAutoReplyController) DeleteAccount(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.DeleteAccount(context.Background(), uint(id), userID); err != nil {
-		response.Error(c, http.StatusInternalServerError, "删除账号失败", err.Error())
+		response.ErrorFromDB(c, err, "删除账号失败", err.Error())
 		return
 	}
 	response.Success(c, gin.H{
@@ -180,7 +180,7 @@ func (ctrl *TikTokAutoReplyController) ListLogs(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	logs, total, err := ctrl.svc.ListLogs(context.Background(), userID, page, pageSize)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "获取日志失败", err.Error())
+		response.ErrorFromDB(c, err, "获取日志失败", err.Error())
 		return
 	}
 	response.Success(c, gin.H{
@@ -195,7 +195,7 @@ func (ctrl *TikTokAutoReplyController) ListLogs(c *gin.Context) {
 func (ctrl *TikTokAutoReplyController) Start(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
 	if err := ctrl.svc.Start(context.Background(), userID); err != nil {
-		response.Error(c, http.StatusInternalServerError, "启动失败", err.Error())
+		response.ErrorFromDB(c, err, "启动失败", err.Error())
 		return
 	}
 	status, _ := ctrl.svc.Status(context.Background(), userID)
@@ -209,7 +209,7 @@ func (ctrl *TikTokAutoReplyController) Start(c *gin.Context) {
 func (ctrl *TikTokAutoReplyController) Stop(c *gin.Context) {
 	userID := ctrl.currentUserID(c)
 	if err := ctrl.svc.Stop(context.Background(), userID); err != nil {
-		response.Error(c, http.StatusInternalServerError, "停止失败", err.Error())
+		response.ErrorFromDB(c, err, "停止失败", err.Error())
 		return
 	}
 	status, _ := ctrl.svc.Status(context.Background(), userID)

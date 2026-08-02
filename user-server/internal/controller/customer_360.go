@@ -83,7 +83,7 @@ func (c *Customer360Controller) GetCustomerList(ctx *gin.Context) {
 
 	result, total, err := c.customer360Service.GetCustomerList(context.Background(), page, pageSize, filters)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -195,7 +195,7 @@ func (c *Customer360Controller) UpdateCustomerTags(ctx *gin.Context) {
 	// 通过 service 覆盖式更新用户标签
 	finalTags, err := c.userTagSvc.ReplaceUserTags(ctx.Request.Context(), userID, req.Tags)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "保存标签失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "保存标签失败："+err.Error())
 		return
 	}
 
@@ -216,7 +216,7 @@ func (c *Customer360Controller) GetCustomerTags(ctx *gin.Context) {
 
 	tags, err := c.userTagSvc.GetUserTags(ctx.Request.Context(), userID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取标签失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "获取标签失败："+err.Error())
 		return
 	}
 
@@ -261,7 +261,7 @@ func (c *Customer360Controller) AddCustomerTag(ctx *gin.Context) {
 
 	tags, err := c.userTagSvc.AddUserTag(ctx.Request.Context(), userID, req.Tag)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "添加标签失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "添加标签失败："+err.Error())
 		return
 	}
 
@@ -287,7 +287,7 @@ func (c *Customer360Controller) RemoveCustomerTag(ctx *gin.Context) {
 
 	tags, err := c.userTagSvc.RemoveUserTag(ctx.Request.Context(), userID, tagName)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "移除标签失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "移除标签失败："+err.Error())
 		return
 	}
 
@@ -351,7 +351,7 @@ func (c *Customer360Controller) UpdateCustomer(ctx *gin.Context) {
 		} else if err.Error() == "没有可更新的字段" {
 			response.Error(ctx, http.StatusBadRequest, err.Error())
 		} else {
-			response.Error(ctx, http.StatusInternalServerError, "更新客户失败："+err.Error())
+			response.ErrorFromDB(ctx, err, "更新客户失败："+err.Error())
 		}
 		return
 	}
@@ -422,7 +422,7 @@ func (c *Customer360Controller) GetCustomerCommunications(ctx *gin.Context) {
 func (c *Customer360Controller) ListTagRules(ctx *gin.Context) {
 	rules, err := c.tagRuleSvc.ListTagRules(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取标签规则失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取标签规则失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -502,7 +502,7 @@ func (c *Customer360Controller) DeleteTagRule(ctx *gin.Context) {
 		return
 	}
 	if err := c.tagRuleSvc.DeleteTagRule(ctx.Request.Context(), id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "删除失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "删除失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
@@ -513,7 +513,7 @@ func (c *Customer360Controller) DeleteTagRule(ctx *gin.Context) {
 func (c *Customer360Controller) GetTagStats(ctx *gin.Context) {
 	stats, err := c.tagRuleSvc.GetTagStats(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取标签失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "获取标签失败: "+err.Error())
 		return
 	}
 	response.Success(ctx, stats, "获取成功")

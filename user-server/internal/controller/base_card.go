@@ -61,7 +61,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 
 	card, err := service.Create(ctx, req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrCreateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrCreateFailed, err.Error())
 		return
 	}
 
@@ -92,7 +92,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 
 	card, err := service.Update(ctx, req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrUpdateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrUpdateFailed, err.Error())
 		return
 	}
 
@@ -119,7 +119,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) D
 	}
 
 	if err := service.Delete(ctx, id); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrDeleteFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrDeleteFailed, err.Error())
 		return
 	}
 
@@ -192,7 +192,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 
 	list, err := service.GetList(ctx, req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrGetListFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrGetListFailed, err.Error())
 		return
 	}
 

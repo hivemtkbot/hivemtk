@@ -502,14 +502,14 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 	// 使用管理器创建机器人实例
 	platform := browser.Platform(req.Platform)
 	if err := c.manager.StartBot(platform, accUsername, accID, accCookie); err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("创建机器人失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("创建机器人失败: %v", err))
 		return
 	}
 
 	// 获取机器人实例并启动
 	bot, err := c.manager.GetBot(platform)
 	if err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("获取机器人实例失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("获取机器人实例失败: %v", err))
 		return
 	}
 
@@ -527,7 +527,7 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 
 	// 启动机器人，传入规则匹配器和用户ID
 	if err := bot.Start(replyService, userID); err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("启动机器人失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("启动机器人失败: %v", err))
 		return
 	}
 
@@ -551,7 +551,7 @@ func (c *AutoReplyController) Stop(ctx *gin.Context) {
 
 	platform := browser.Platform(req.Platform)
 	if err := c.manager.StopBot(platform); err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("停止机器人失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("停止机器人失败: %v", err))
 		return
 	}
 
@@ -681,21 +681,21 @@ func (c *AutoReplyController) TestBrowser(ctx *gin.Context) {
 
 	assistant, err := browser.NewAssistant(opts)
 	if err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("创建浏览器失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("创建浏览器失败: %v", err))
 		return
 	}
 	defer assistant.Close()
 
 	// 测试导航
 	if err := assistant.Navigate(req.URL); err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("导航失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("导航失败: %v", err))
 		return
 	}
 
 	// 获取页面标题
 	title, err := assistant.Evaluate("document.title")
 	if err != nil {
-		response.Error(ctx, 500, fmt.Sprintf("获取标题失败: %v", err))
+		response.ErrorFromDB(ctx, err, fmt.Sprintf("获取标题失败: %v", err))
 		return
 	}
 

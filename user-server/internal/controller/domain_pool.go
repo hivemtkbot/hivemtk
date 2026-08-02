@@ -82,7 +82,7 @@ func (c *DomainPoolController) Delete(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "域名不存在")
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -117,7 +117,7 @@ func (c *DomainPoolController) List(ctx *gin.Context) {
 
 	domainPools, total, err := c.domainPoolService.List(context.Background(), req.Page, req.PageSize, req.Domain, req.Status)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -164,7 +164,7 @@ func (c *DomainPoolController) CheckDomain(ctx *gin.Context) {
 func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
 	results, err := c.domainPoolService.CheckAllDomains(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -189,7 +189,7 @@ func (c *DomainPoolController) HealthCheck(ctx *gin.Context) {
 	}
 	result, err := c.healthService.CheckOne(context.Background(), id)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, result, "探测完成")
@@ -203,7 +203,7 @@ func (c *DomainPoolController) HealthCheck(ctx *gin.Context) {
 func (c *DomainPoolController) HealthCheckAll(ctx *gin.Context) {
 	results, err := c.healthService.CheckAll(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, results, "探测完成")
@@ -229,7 +229,7 @@ func (c *DomainPoolController) SwitchActive(ctx *gin.Context) {
 	}
 	dp, err := c.domainPoolService.GetByID(context.Background(), id)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, toDomainResponse(dp), "切换成功")
@@ -261,7 +261,7 @@ func (c *DomainPoolController) AutoSwitchBest(ctx *gin.Context) {
 func (c *DomainPoolController) GetActiveDomain(ctx *gin.Context) {
 	active, err := c.healthService.GetActiveDomain(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	if active == nil {
@@ -281,7 +281,7 @@ func (c *DomainPoolController) ListAvailableDomains(ctx *gin.Context) {
 	minScore, _ := strconv.Atoi(ctx.DefaultQuery("min_score", "80"))
 	rows, err := c.healthService.ListAvailable(context.Background(), minScore)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	out := make([]dto.DomainPoolResponse, 0, len(rows))
@@ -308,7 +308,7 @@ func (c *DomainPoolController) ListHealthLogs(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
 	logs, err := c.healthService.ListHealthLogs(context.Background(), id, limit)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"list": logs, "total": len(logs)}, "")
@@ -336,7 +336,7 @@ func (c *DomainPoolController) AddBlacklist(ctx *gin.Context) {
 		return
 	}
 	if err := c.domainPoolService.AddBlacklist(context.Background(), req.Domain, req.Platform, req.Reason, req.Source, req.TTLHours); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "已加入黑名单")
@@ -355,7 +355,7 @@ func (c *DomainPoolController) RemoveBlacklist(ctx *gin.Context) {
 		return
 	}
 	if err := c.domainPoolService.RemoveBlacklist(context.Background(), domain); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "已移出黑名单")
@@ -371,7 +371,7 @@ func (c *DomainPoolController) ListBlacklist(ctx *gin.Context) {
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
 	rows, total, err := c.domainPoolService.ListBlacklist(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"list": rows, "total": total, "page": page, "page_size": pageSize}, "")

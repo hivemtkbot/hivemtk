@@ -42,7 +42,7 @@ func (c *ObsConfigController) GetConfigList(ctx *gin.Context) {
 
 	resp, err := c.service.GetConfigList(context.Background(), page, limit, provider, status)
 	if err != nil {
-		response.Error(ctx, 500, "查询OBS配置列表失败: "+err.Error())
+		response.ErrorFromDB(ctx, err, "查询OBS配置列表失败: "+err.Error())
 		return
 	}
 
@@ -63,7 +63,7 @@ func (c *ObsConfigController) GetConfig(ctx *gin.Context) {
 			response.Error(ctx, 404, "NOT_FOUND", err.Error())
 			return
 		}
-		response.Error(ctx, 500, "INTERNAL_ERROR", err.Error())
+		response.ErrorFromDB(ctx, err, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -137,7 +137,7 @@ func (c *ObsConfigController) TestConnection(ctx *gin.Context) {
 			response.Error(ctx, 404, "NOT_FOUND", err.Error())
 			return
 		}
-		response.Error(ctx, 500, "INTERNAL_ERROR", err.Error())
+		response.ErrorFromDB(ctx, err, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -178,7 +178,7 @@ func (c *ObsConfigController) GetDefaultConfig(ctx *gin.Context) {
 			response.Success(ctx, nil, "暂无默认配置")
 			return
 		}
-		response.Error(ctx, 500, "INTERNAL_ERROR", err.Error())
+		response.ErrorFromDB(ctx, err, "INTERNAL_ERROR", err.Error())
 		return
 	}
 

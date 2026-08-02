@@ -212,7 +212,7 @@ func (ctrl *ChatPublicController) GetActiveSession(c *gin.Context) {
 
 	session, err := ctrl.visitorSvc.GetLatestActiveSession(c.Request.Context(), channelID, visitorID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, err.Error())
 		return
 	}
 	if session == nil {
@@ -238,7 +238,7 @@ func (ctrl *ChatPublicController) GetRecentClosedSessions(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	sessions, err := ctrl.visitorSvc.GetRecentClosedSessions(c.Request.Context(), channelID, visitorID, limit)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, err.Error())
 		return
 	}
 	response.SuccessWithList(c, sessions, int64(len(sessions)))
@@ -266,7 +266,7 @@ func (ctrl *ChatPublicController) GetOfflineMessages(c *gin.Context) {
 
 	messages, err := ctrl.visitorSvc.GetOfflineMessages(c.Request.Context(), channelID, visitorID, sessionID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, err.Error())
 		return
 	}
 	response.SuccessWithList(c, messages, int64(len(messages)))
@@ -354,7 +354,7 @@ func (ctrl *ChatPublicController) RateSession(c *gin.Context) {
 func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 	count, err := ctrl.visitorSvc.CountAvailableAgents(c.Request.Context())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, err.Error())
 		return
 	}
 	response.Success(c, gin.H{"available": count}, "ok")

@@ -31,7 +31,7 @@ func (c *EmailJobsController) CreateEmailJobs(ctx *gin.Context) {
 
 	resp, err := c.svc.CreateEmailJobsDTO(context.Background(), req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "创建成功")
@@ -80,7 +80,7 @@ func (c *EmailJobsController) GetEmailJobsDetail(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "任务不存在")
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "获取成功")
@@ -101,13 +101,13 @@ func (c *EmailJobsController) UpdateEmailJobs(ctx *gin.Context) {
 	}
 
 	if err := c.svc.UpdateEmailJobsDTO(context.Background(), req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
 	resp, err := c.svc.GetEmailJobsByIDDTO(context.Background(), jobsID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, resp, "获取成功")
@@ -127,7 +127,7 @@ func (c *EmailJobsController) UpdateSendTotal(ctx *gin.Context) {
 	}
 
 	if err := c.svc.UpdateEmailJobsDTO(context.Background(), req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "更新成功")
@@ -150,7 +150,7 @@ func (c *EmailJobsController) DeleteEmailJobs(ctx *gin.Context) {
 	}
 
 	if err = c.svc.DeleteEmailJobs(context.Background(), jobsID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "删除成功")

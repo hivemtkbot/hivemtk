@@ -25,7 +25,7 @@ func NewSessionTagController() *SessionTagController {
 func (c *SessionTagController) GetTags(ctx *gin.Context) {
 	tags, err := c.tagService.GetTags(ctx.Request.Context())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

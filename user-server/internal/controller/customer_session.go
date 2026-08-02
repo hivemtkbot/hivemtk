@@ -63,7 +63,7 @@ func (c *CustomerSessionController) GetSessions(ctx *gin.Context) {
 
 	sessions, total, err := c.sessionService.GetSessions(ctx.Request.Context(), status, page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -305,7 +305,7 @@ func (c *CustomerSessionController) GetPendingSessions(ctx *gin.Context) {
 
 	sessions, err := c.sessionService.GetPendingSessions(ctx.Request.Context(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取待处理会话失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "获取待处理会话失败："+err.Error())
 		return
 	}
 

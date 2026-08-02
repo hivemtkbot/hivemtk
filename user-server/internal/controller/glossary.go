@@ -85,7 +85,7 @@ func (ctrl *GlossaryController) List(c *gin.Context) {
 	if req.Category != "" && req.Status == "" && req.Keyword == "" {
 		list, err := ctrl.svc.ListByCategory(c.Request.Context(), req.Category)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+			response.ErrorFromDB(c, err, "查询失败", err.Error())
 			return
 		}
 		response.SuccessWithList(c, dto.FromGlossaryModelList(list), int64(len(list)))
@@ -94,7 +94,7 @@ func (ctrl *GlossaryController) List(c *gin.Context) {
 
 	list, total, err := ctrl.svc.List(c.Request.Context(), req.Status, req.Keyword, req.Page, req.PageSize)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.SuccessWithPage(c, dto.FromGlossaryModelList(list), int64(req.Page), int64(req.PageSize), total)
@@ -114,7 +114,7 @@ func (ctrl *GlossaryController) Get(c *gin.Context) {
 			response.NotFoundError(c, "术语")
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	response.Success(c, dto.FromGlossaryModel(g), "获取成功")
@@ -140,7 +140,7 @@ func (ctrl *GlossaryController) Update(c *gin.Context) {
 			response.NotFoundError(c, "术语")
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "查询失败", err.Error())
+		response.ErrorFromDB(c, err, "查询失败", err.Error())
 		return
 	}
 	// 以路径 term_id 为准（忽略 body 中的 term_id，避免误改唯一键）
@@ -183,7 +183,7 @@ func (ctrl *GlossaryController) Validate(c *gin.Context) {
 	lang := i18npkg.NormalizeLang(req.Lang)
 	view, err := ctrl.svc.LoadByLang(c.Request.Context(), lang)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "加载术语表失败", err.Error())
+		response.ErrorFromDB(c, err, "加载术语表失败", err.Error())
 		return
 	}
 	corrected, issues := ctrl.validator.Validate(req.Text, lang, view)

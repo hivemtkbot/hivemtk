@@ -41,7 +41,7 @@ func (c *WeComController) CreateAccount(ctx *gin.Context) {
 
 	account, err := c.wecomService.CreateAccount(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -53,7 +53,7 @@ func (c *WeComController) GetAccountList(ctx *gin.Context) {
 
 	accounts, err := c.wecomService.GetAccountList(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -97,7 +97,7 @@ func (c *WeComController) UpdateAccount(ctx *gin.Context) {
 
 	account, err := c.wecomService.UpdateAccount(context.Background(), uint(id), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -119,7 +119,7 @@ func (c *WeComController) DeleteAccount(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, err.Error())
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -144,7 +144,7 @@ func (c *WeComController) SyncCustomers(ctx *gin.Context) {
 
 	count, err := c.wecomService.SyncCustomers(context.Background(), account)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -162,7 +162,7 @@ func (c *WeComController) GetCustomerList(ctx *gin.Context) {
 
 	customers, total, err := c.wecomService.GetCustomerList(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -192,7 +192,7 @@ func (c *WeComController) SyncGroups(ctx *gin.Context) {
 
 	count, err := c.wecomService.SyncGroups(context.Background(), account)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -210,7 +210,7 @@ func (c *WeComController) GetGroupList(ctx *gin.Context) {
 
 	groups, total, err := c.wecomService.GetGroupList(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -246,7 +246,7 @@ func (c *WeComController) SendMessage(ctx *gin.Context) {
 
 	msgID, err := c.wecomService.SendMessage(context.Background(), account, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -273,7 +273,7 @@ func (c *WeComController) RefreshAccount(ctx *gin.Context) {
 	account.AccessToken = ""
 	account.TokenExpires = time.Time{}
 	if _, err := c.wecomService.GetAccessToken(context.Background(), account); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "刷新失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "刷新失败："+err.Error())
 		return
 	}
 
@@ -292,7 +292,7 @@ func (c *WeComController) GetMessageList(ctx *gin.Context) {
 
 	messages, total, err := c.wecomService.GetMessageList(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -309,7 +309,7 @@ func (c *WeComController) GetTagList(ctx *gin.Context) {
 
 	tags, err := c.wecomService.GetTagList(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -334,7 +334,7 @@ func (c *WeComController) SyncTags(ctx *gin.Context) {
 
 	count, err := c.wecomService.SyncTags(context.Background(), account)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

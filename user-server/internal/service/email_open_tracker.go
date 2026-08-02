@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 )
 
@@ -164,7 +165,7 @@ func (s *EmailOpenTrackerService) RecordPostmarkEvent(ctx context.Context, evt *
 		// 投诉等同于主动退订（合规要求：收件人投诉后必须停止发送）
 		return s.tracking.RecordUnsubscribeEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent)
 	default:
-		return fmt.Errorf("unsupported RecordType: %s", evt.RecordType)
+		return fmt.Errorf("%w: unsupported RecordType: %s", utils.ErrInvalidInput, evt.RecordType)
 	}
 }
 
@@ -247,7 +248,7 @@ func (s *EmailOpenTrackerService) RecordSendCloudEvent(ctx context.Context, evt 
 	case "unsubscribe":
 		return s.tracking.RecordUnsubscribeEvent(ctx, evt.Recipient, evt.MessageID, evt.IP, evt.UserAgent)
 	default:
-		return fmt.Errorf("unsupported event: %s", evt.Event)
+		return fmt.Errorf("%w: unsupported event: %s", utils.ErrInvalidInput, evt.Event)
 	}
 }
 

@@ -42,7 +42,7 @@ func (c *AccountController) CreateAccount(ctx *gin.Context) {
 
 	createdAccount, err := c.svc.CreateAccount(context.Background(), account)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -111,7 +111,7 @@ func (c *AccountController) GetAccount(ctx *gin.Context) {
 			response.Error(ctx, http.StatusNotFound, "账户不存在")
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -173,7 +173,7 @@ func (c *AccountController) UpdateAccount(ctx *gin.Context) {
 	}
 	err := c.svc.UpdateAccount(context.Background(), account)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "success")
@@ -187,7 +187,7 @@ func (c *AccountController) DeleteAccount(ctx *gin.Context) {
 	}
 	err := c.svc.DeleteAccount(context.Background(), req.ID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, nil, "success")

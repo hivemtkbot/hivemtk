@@ -120,7 +120,7 @@ func (c *AutoReplyManagerController) CreateRule(ctx *gin.Context) {
 
 	rule, err := c.service.CreateRule(ctx, ruleReq)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建规则失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "创建规则失败："+err.Error())
 		return
 	}
 

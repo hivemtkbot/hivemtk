@@ -29,7 +29,7 @@ func (c *CommunityController) GetGroups(ctx *gin.Context) {
 
 	groups, total, err := c.svc.GetGroups(context.Background(), req.Page, req.PageSize, req.Search)
 	if err != nil {
-		response.Error(ctx, 500, "获取社群列表失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取社群列表失败", err.Error())
 		return
 	}
 
@@ -67,7 +67,7 @@ func (c *CommunityController) CreateGroup(ctx *gin.Context) {
 
 	group, err := c.svc.CreateGroup(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, 500, "创建社群失败", err.Error())
+		response.ErrorFromDB(ctx, err, "创建社群失败", err.Error())
 		return
 	}
 
@@ -112,7 +112,7 @@ func (c *CommunityController) GetMembers(ctx *gin.Context) {
 
 	members, total, err := c.svc.GetMembers(context.Background(), req.GroupID, req.Page, req.PageSize, req.Search)
 	if err != nil {
-		response.Error(ctx, 500, "获取成员列表失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取成员列表失败", err.Error())
 		return
 	}
 
@@ -150,7 +150,7 @@ func (c *CommunityController) AddMember(ctx *gin.Context) {
 
 	member, err := c.svc.AddMember(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, 500, "添加成员失败", err.Error())
+		response.ErrorFromDB(ctx, err, "添加成员失败", err.Error())
 		return
 	}
 
@@ -195,7 +195,7 @@ func (c *CommunityController) GetMessages(ctx *gin.Context) {
 
 	messages, total, err := c.svc.GetMessages(context.Background(), req.GroupID, req.Page, req.PageSize)
 	if err != nil {
-		response.Error(ctx, 500, "获取消息列表失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取消息列表失败", err.Error())
 		return
 	}
 
@@ -211,7 +211,7 @@ func (c *CommunityController) GetMessages(ctx *gin.Context) {
 func (c *CommunityController) GetStatistics(ctx *gin.Context) {
 	stats, err := c.svc.GetStatistics(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取统计信息失败", err.Error())
+		response.ErrorFromDB(ctx, err, "获取统计信息失败", err.Error())
 		return
 	}
 
@@ -250,7 +250,7 @@ func (c *CommunityController) ImportData(ctx *gin.Context) {
 func (c *CommunityController) ExportData(ctx *gin.Context) {
 	groups, _, err := c.svc.GetGroups(context.Background(), 1, 10000, "")
 	if err != nil {
-		response.Error(ctx, 500, "导出数据失败", err.Error())
+		response.ErrorFromDB(ctx, err, "导出数据失败", err.Error())
 		return
 	}
 

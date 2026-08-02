@@ -48,7 +48,7 @@ func (c *UserSegmentController) ListRFMRules(ctx *gin.Context) {
 	}
 	rules, total, err := c.rfmService.ListRFMRules(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -69,7 +69,7 @@ func (c *UserSegmentController) SaveRFMRule(ctx *gin.Context) {
 
 	rule, err := c.rfmService.SaveRFMRule(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -143,7 +143,7 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 		rfms, total, err = c.rfmService.GetRFMList(context.Background(), page, pageSize)
 	}
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -159,7 +159,7 @@ func (c *UserSegmentController) GetRFMList(ctx *gin.Context) {
 func (c *UserSegmentController) GetRFMStats(ctx *gin.Context) {
 	stats, err := c.rfmService.GetRFMStats(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -170,7 +170,7 @@ func (c *UserSegmentController) GetRFMStats(ctx *gin.Context) {
 func (c *UserSegmentController) CalculateRFM(ctx *gin.Context) {
 	count, err := c.rfmService.CalculateAllUsers(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 

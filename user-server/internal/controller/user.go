@@ -28,7 +28,7 @@ func (c *UserController) GetUserList(ctx *gin.Context) {
 
 	result, err := c.svc.GetUserList(context.Background(), page, pageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -58,7 +58,7 @@ func (c *UserController) CreateUser(ctx *gin.Context) {
 
 	user, err := c.svc.RegisterUser(context.Background(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -77,7 +77,7 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 
 	user, err := c.svc.UpdateUser(context.Background(), idStr, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -89,7 +89,7 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 
 	err := c.svc.DeleteUser(context.Background(), idStr)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
@@ -108,7 +108,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 
 	err := c.svc.UpdatePassword(context.Background(), idStr, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(ctx, err, err.Error())
 		return
 	}
 
