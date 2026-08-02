@@ -154,6 +154,11 @@ type SalesEngineConfig struct {
 
 	// 置信度驱动：客户等级 vip/normal/low（影响动态阈值）
 	CustomerLevel string `json:"customer_level,omitempty"`
+
+	// Tools 智能体工具白名单（可选）。
+	// 非空时：Agent Loop 仅注入这些工具给 LLM，且执行期权限检查器按此名单放行。
+	// 为空时：使用 limitToolsForAgent 的默认优先级集（见 service/sales_engine.go）。
+	Tools []string `json:"tools,omitempty"`
 }
 
 // DefaultSalesEngineConfig 默认配置
@@ -215,6 +220,12 @@ type AgentContext struct {
 	// 覆盖原 Persona（实现「渠道→智能体→资产包」三层接线）
 	AssetBundleID string `json:"asset_bundle_id,omitempty"`
 
+	// Tools 智能体工具白名单（可选，覆盖默认优先级集）。
+	// 由运营在智能体配置中指定该智能体可使用哪些工具（如电商客服智能体配置
+	// ["order.lookup","logistics.track","aftersale.create","aftersale.query","reach.card.send"]）。
+	// 空 = 走默认优先级集；非空 = 仅注入并放行名单内工具。
+	Tools []string `json:"tools,omitempty"`
+
 	// 版本号(用于缓存失效)
 	Version int `json:"version"`
 }
@@ -234,6 +245,7 @@ func AgentContextToSalesEngineConfig(a *AgentContext) *SalesEngineConfig {
 		Temperature:          a.Temperature,
 		MaxTokens:            a.MaxTokens,
 		Persona:              a.Persona,
+		Tools:                a.Tools,
 	}
 }
 
