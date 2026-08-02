@@ -20,7 +20,7 @@ import (
 
 // IntentEnabled 意图识别总开关（内存态）
 //
-// 2026-07-25 重构：业务链路统一使用一个总开关管控意图识别流程
+// 重构：业务链路统一使用一个总开关管控意图识别流程
 //
 // 行为：
 //   - true:  进入意图识别流程（规则匹配 → LLM 识别 → 兜底）
@@ -76,7 +76,7 @@ func NewIntentRecognizer(db *gorm.DB, dispatcher *llm.Dispatcher, cache *redis.C
 	}
 }
 
-// SetSOPService 注入 SOP 服务用于意图→SOP 联动（P0-12）
+// SetSOPService 注入 SOP 服务用于意图→SOP 联动
 func (s *IntentRecognizer) SetSOPService(ctx context.Context, svc *SOPService) {
 	s.sopService = svc
 }
@@ -196,12 +196,12 @@ var DefaultIntents = []IntentDef{
 	},
 }
 
-// RecognizeResult 已迁至 dto 包（P2-6 DTO 层补全）
+// RecognizeResult 已迁至 dto 包（DTO 层补全）
 // 使用 dto.RecognizeResult 替代本地类型
 
 // Recognize 识别意图
 //
-// 流程（2026-07-25 重构）：
+// 流程（重构）：
 //  1. 文本为空 → 直接返回 IntentUnknown
 //  2. 总开关 IntentEnabled 关闭 → 直接返回 IntentUnknown（不进入流程）
 //  3. 总开关开启：
@@ -234,7 +234,7 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		result = r
 	} else if s.dispatcher != nil {
 		// 2. LLM 识别（本地/云端 API 统一走 LLM 兜底）
-		// 2026-07-25 重构：移除 isLocalLLMBaseURL 限制，规则未命中时统一调 LLM
+		// 重构：移除 isLocalLLMBaseURL 限制，规则未命中时统一调 LLM
 		if r, err := s.recognizeByLLM(ctx, text); err == nil && r != nil {
 			s.saveRecord(ctx, sessionID, customerID, text, r, r.LLMModel, r.CostTokens, r.LatencyMs)
 			result = r
@@ -253,7 +253,7 @@ func (s *IntentRecognizer) Recognize(ctx context.Context, sessionID, customerID,
 		}
 	}
 
-	// 3. 意图→SOP 联动（P0-12）
+	// 3. 意图→SOP 联动
 	if customerID != "" {
 		s.triggerSOPByIntent(ctx, customerID, sessionID, result.IntentType, result.Confidence)
 	}
@@ -475,7 +475,7 @@ func (s *IntentRecognizer) saveRecord(ctx context.Context, sessionID, customerID
 		CostTokens:      costTokens,
 		LatencyMs:       latencyMs,
 	}
-	// R6 修复：原 fire-and-forget goroutine 无 recover、无 ctx，panic 会杀进程，shutdown 无法取消。
+	// 修复：原 fire-and-forget goroutine 无 recover、无 ctx，panic 会杀进程，shutdown 无法取消。
 	// 改为：使用 context.Background()（异步落库不依赖请求生命周期）+ recover 防 panic + 错误日志。
 	go func() {
 		defer func() {

@@ -58,11 +58,11 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/system/info", systemInfoCtrl.GetSystemInfo)
 
 	// 授权相关
-	// P0-21 修复：登录路由挂载 BruteForceGuard（5 次/15 分钟失败阈值，超限 429）
+	// 修复：登录路由挂载 BruteForceGuard（5 次/15 分钟失败阈值，超限 429）
 	// endpoint 标识 "auth.login" 与 controller 中 RecordBruteForceFailure / ClearBruteForceFailure 配对
 	public.POST("/auth/login", middleware.BruteForceGuard("auth.login"), controller.NewAuthController().Login)
 
-	// P1-1 MFA 登录第二步验证：使用 temp_token（不依赖 JWT）
+	// MFA 登录第二步验证：使用 temp_token（不依赖 JWT）
 	// 登录密码验证通过后，若用户启用了 MFA，会返回 need_mfa=true + temp_token，
 	// 前端再调用此接口提交 temp_token + 6 位 TOTP 码完成登录
 	public.POST("/auth/mfa/verify", controller.NewAuthController().VerifyMFALogin)
@@ -121,7 +121,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)
 
-	// F-P0-18 补完：活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
+	// F- 补完：活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
 	//   - GET  /api/livecode/:id        渲染活码落地页（HTML）
 	//   - POST /api/livecode/:id/click  记录访客点击（用于统计聚合）
 	public.GET("/livecode/:id", liveCodeController.RenderLiveCodePage)
@@ -130,7 +130,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.POST("/platform/register", platformCtrl.RegisterMerchant)
 	// 开源版：移除 OTA 客户端更新检查接口（/platform/check-update）和 API 日志上报接口（/platform/report-api-log）
 
-	// P0-14 外部系统知识库接入（公开，使用 API Token 鉴权，不需要 JWT）
+	// 外部系统知识库接入（公开，使用 API Token 鉴权，不需要 JWT）
 	// 商户自部署场景：商户自有 CRM/ERP/Helpdesk 通过此入口推送文档
 	// 注册到 public（不走 JWT）以支持 API Token 鉴权
 	// 注意：不要在 setupKnowledgeBaseRoutes 里再注册同一个路由（会冲突）
@@ -138,16 +138,16 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	deps := wirePublicDependencies(db)
 	public.POST("/knowledge-merchant/external/import", deps.knowledgeMerchantCtrl.ExternalImport)
 
-	// D 域 P1 缺口修复 - 邮件退订确认页 + 退订提交（公开，用户从邮件点击）
+	// D 域 缺口修复 - 邮件退订确认页 + 退订提交（公开，用户从邮件点击）
 	deps.emailUnsubscribeCtrl.RegisterRoutes(public, nil)
 
-	// E 域 P1 缺口修复 - 短信上行 webhook（公开，运营商推送）
+	// E 域 缺口修复 - 短信上行 webhook（公开，运营商推送）
 	deps.smsUnsubscribeCtrl.RegisterRoutes(public, nil)
 
-	// E 域 P1 缺口修复 - 短信回执 webhook（公开，运营商推送）
+	// E 域 缺口修复 - 短信回执 webhook（公开，运营商推送）
 	deps.smsDeliveryTrackerCtrl.RegisterRoutes(public, nil)
 
-	// D 域 P1 缺口修复 - 邮件追踪像素 + Postmark/SendCloud webhook（公开）
+	// D 域 缺口修复 - 邮件追踪像素 + Postmark/SendCloud webhook（公开）
 	deps.emailOpenTrackerCtrl.RegisterRoutes(public, nil)
 
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台

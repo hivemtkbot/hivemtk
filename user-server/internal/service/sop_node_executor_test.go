@@ -1,6 +1,6 @@
 package service
 
-// sop_node_executor_test.go SOP 节点执行器接口与注册中心单元测试（P0-1 §13.6 验收）
+// sop_node_executor_test.go SOP 节点执行器接口与注册中心单元测试（§13.6 验收）
 //
 // 覆盖：
 //  1. NodeExecutorRegistry：Register / Get / MustGet / AllRegistered / 重复注册 panic

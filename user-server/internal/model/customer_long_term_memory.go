@@ -5,7 +5,7 @@ import (
 )
 
 // LongTermMemoryType L2 长期记忆分类
-// 对应 PRD §5.2 P1-1 G5：preference/habit/feedback/event/fact
+// 对应 PRD §5.2 G5：preference/habit/feedback/event/fact
 type LongTermMemoryType string
 
 const (
@@ -25,8 +25,8 @@ const (
 	LongTermMemorySourceManual       LongTermMemorySource = "manual"       // 人工录入
 )
 
-// CustomerLongTermMemory P1-1 G5 L2 长期记忆（pgvector 增强版）
-// 对应 PRD §5.2 P1-1 G5：customer_long_term_memory 表
+// CustomerLongTermMemory G5 L2 长期记忆（pgvector 增强版）
+// 对应 PRD §5.2 G5：customer_long_term_memory 表
 // 与 4 层记忆系统中 MemoryItem(L2) 平行存在：
 //   - MemoryItem(L2)：基础事实/摘要，无向量，简单排序
 //   - CustomerLongTermMemory：高级长期记忆，带 embedding 向量，支持语义召回 + 重排序

@@ -1,19 +1,19 @@
 package migrations
 
-// humanize_evaluator_migration.go P0-4 拟人度评估器迁移 v2.9.0
+// humanize_evaluator_migration.go 拟人度评估器迁移 v2.9.0
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移创建 P0-4 拟人度评估器所需的 5 张新表：
+// 本迁移创建 拟人度评估器所需的 5 张新表：
 //  1. humanize_scores      - 拟人度评估主表（每次评估一条记录）
 //  2. humanize_dimensions  - 维度得分明细
 //  3. champion_baselines   - 销冠基线（persona+industry+intent 三元组）
 //  4. champion_phrases     - 销冠短语（TF-IDF 提取）
 //  5. ab_test_stats        - A/B 测试统计结果
 //
-// 第 6 张表 low_quality_samples 已由 P1-2 创建，本迁移不修改其结构，
+// 第 6 张表 low_quality_samples 已由 创建，本迁移不修改其结构，
 // 仅通过 model 层 LowQualitySampleType 枚举扩展新增类型（naturalness_low 等）
 //
 // 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
@@ -28,7 +28,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// HumanizeEvaluatorMigration P0-4 拟人度评估器迁移 v2.9.0
+// HumanizeEvaluatorMigration 拟人度评估器迁移 v2.9.0
 type HumanizeEvaluatorMigration struct {
 	db *gorm.DB
 }
@@ -214,7 +214,7 @@ func (m *HumanizeEvaluatorMigration) createABTestStats(ctx context.Context) erro
 // Down 回滚（删除新表）
 //
 // 注意：
-//   - 不删除 low_quality_samples（与 P1-2 共享）
+// 不删除 low_quality_samples（与 共享）
 //   - 5 张新表可安全删除
 func (m *HumanizeEvaluatorMigration) Down(ctx context.Context) error {
 	stmts := []string{

@@ -226,7 +226,7 @@ func (s *KnowledgeService) Delete(ctx context.Context, productID string, id int6
 		return err
 	}
 
-	// 发布删除事件(ADR-008 §2.5 子项 2)
+	// 发布删除事件(§2.5 子项 2)
 	// 触发 rag.IncrementalIndexer 清理内存索引
 	agent_runtime.PublishKnowledgeDocumentDelete(productID, uint(id), 0)
 
@@ -242,7 +242,7 @@ func (s *KnowledgeService) Update(ctx context.Context, doc *model.KnowledgeDocum
 		return err
 	}
 
-	// 发布更新事件(ADR-008 §2.5 子项 2)
+	// 发布更新事件(§2.5 子项 2)
 	// KnowledgeDocument 无 Content 字段(分段在 KnowledgeChunk),事件不传 content
 	agent_runtime.PublishKnowledgeDocumentUpdate(doc.ProductID, uint(doc.ID), "", 0)
 

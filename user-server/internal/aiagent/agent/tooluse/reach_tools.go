@@ -13,7 +13,7 @@ import (
 	"marketing/internal/service"
 )
 
-// reach_tools.go 触达工具实现（PRD §5.2 P0-3 G3）
+// reach_tools.go 触达工具实现（PRD §5.2 G3）
 //
 // 20 个触达工具：
 //   1.  reach.sms.send        - 短信发送
@@ -169,7 +169,7 @@ type ReachToolDeps struct {
 	Adapter      ReachAdapter
 	Pipeline     *service.ReachPipelineService // 用于 batch / schedule / history
 	DB           *gorm.DB                      // 用于 history 查询（如未提供 Pipeline）
-	SendPipeline service.SendPipeline          // P0-4 G4：9 步消息发送 Pipeline
+	SendPipeline service.SendPipeline          // G4：9 步消息发送 Pipeline
 }
 
 // NewReachToolDeps 创建触达工具依赖（默认 NoOp Adapter）
@@ -186,7 +186,7 @@ func NewReachToolDepsWithDB(db *gorm.DB) ReachToolDeps {
 		Pipeline: service.NewReachPipelineService(db),
 		DB:       db,
 	}
-	// P0-4 G4：自动初始化 9 步 SendPipeline（包装 Adapter）
+	// G4：自动初始化 9 步 SendPipeline（包装 Adapter）
 	deps.SendPipeline = service.NewSendPipeline(service.DefaultSendPipelineConfig(&reachChannelAdapterBridge{adapter: NoOpReachAdapter{}}))
 	return deps
 }
@@ -390,7 +390,7 @@ func (t *ReachSMSSendTool) Execute(ctx context.Context, args map[string]any) (To
 		return ErrorResult(t.Name(), errors.New("content 和 template_id 至少需要一个")), errors.New("content 和 template_id 至少需要一个")
 	}
 
-	// P0-4 G4：通过 9 步 SendPipeline 发送
+	// G4：通过 9 步 SendPipeline 发送
 	req := &service.ReachSendRequest{
 		Channel:     "sms",
 		RecipientID: phone,
@@ -937,7 +937,7 @@ func (t *ReachCardSendTool) Execute(ctx context.Context, args map[string]any) (T
 	externalUserID, _ := GetStringArg(args, "external_user_id")
 	cardID, _ := GetStringArg(args, "card_id")
 
-	// P0-4 G4：通过 9 步 SendPipeline 发送（Channel="card"，子渠道存 Metadata["subchannel"]）
+	// G4：通过 9 步 SendPipeline 发送（Channel="card"，子渠道存 Metadata["subchannel"]）
 	req := &service.ReachSendRequest{
 		Channel:     "card",
 		AccountID:   accountID,

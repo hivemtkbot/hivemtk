@@ -1,6 +1,6 @@
 package humanize
 
-// service.go P0-4 拟人度评估主编排服务
+// service.go 拟人度评估主编排服务
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.10
@@ -24,7 +24,7 @@ import (
 	"marketing/internal/pkg/utils/logger"
 )
 
-// DefaultThreshold 默认达标阈值（PRD §5.2 P1-2 G6：≥ 0.85）
+// DefaultThreshold 默认达标阈值（PRD §5.2 G6：≥ 0.85）
 const DefaultThreshold = 0.85
 
 // DefaultBoundaryLow 边界样本下界（含）
@@ -210,7 +210,7 @@ func (s *HumanizeEvalService) evaluateWithRetry(ctx context.Context, input *dto.
 	result.FinalReply = input.AIReply
 	result.AllReplies = allReplies
 	result.AttemptCount = s.maxRetry
-	// 收集低质样本（复用 P1-2 接口）
+	// 收集低质样本（复用 接口）
 	if s.sampleCollector != nil {
 		sampleType := s.decideLowQualitySampleType(ctx, result)
 		sample := s.buildLowQualitySample(ctx, input, result, sampleType)

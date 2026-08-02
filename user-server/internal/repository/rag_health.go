@@ -1,6 +1,6 @@
 package repository
 
-// rag_health_repository.go RAG 健康度仓储（C 域 P1 缺口 #4）
+// rag_health_repository.go RAG 健康度仓储（C 域 缺口 #4）
 //
 // 五层架构归属: L3 Repository 层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6.4 RAG 健康度

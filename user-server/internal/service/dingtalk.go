@@ -25,7 +25,7 @@ import (
 //   - 若机器人开启「加签」安全设置，chat_id 用 `webhook|secret` 形式携带签名密钥
 //   - 支持 text / markdown / link / action_card 四种消息类型
 //
-// 这是 Reach 模块最后一个未实现渠道（todo.md P0 #2），本文件补齐使其从
+// 这是 Reach 模块最后一个未实现渠道（todo.md #2），本文件补齐使其从
 // ErrChannelNotImplemented 变为真实可达，与 TG/WA/Feishu/Web/WeCom 并列。
 // ============================================================================
 

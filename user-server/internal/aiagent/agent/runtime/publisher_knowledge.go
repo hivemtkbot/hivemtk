@@ -14,7 +14,7 @@ import (
 // 用途:KnowledgeService.Create/Update/Delete 后调用本发布器
 //       触发 rag.IncrementalIndexer 增量索引
 //
-// 设计依据:ADR-008 §2.5 (子项 2 增量索引更新)
+// 设计依据: §2.5 (子项 2 增量索引更新)
 // ============================================================================
 
 // PublishKnowledgeDocumentChange 发布知识库文档变更事件

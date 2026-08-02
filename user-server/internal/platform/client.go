@@ -205,7 +205,7 @@ func (c *Client) doRetry(method, path string, reqData, respData any, retried boo
 		c.jwtToken = ""
 		c.jwtExpireAt = time.Time{}
 		c.jwtMu.Unlock()
-		// R9 可观测性：记录 401 自愈触发次数
+		// 可观测性：记录 401 自愈触发次数
 		// 私域: 无 Prometheus 端点, 仅日志追踪 JWT 刷新
 		logger.Debugf("[platform-client] JWT refreshed path=%s", path)
 		logger.Warn(fmt.Sprintf("平台 JWT 失效(401)，清空缓存并重试一次: %s %s", method, url))

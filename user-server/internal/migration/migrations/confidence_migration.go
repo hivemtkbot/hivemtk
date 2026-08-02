@@ -6,7 +6,7 @@ package migrations
 // 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移创建 P0-3 置信度驱动转人工所需的 7 张新表 + 1 张指标样本表：
+// 本迁移创建 置信度驱动转人工所需的 7 张新表 + 1 张指标样本表：
 //  1. confidence_signals       - 每次 5 维信号快照
 //  2. confidence_calibrations  - 温度缩放校准参数历史
 //  3. handoff_decisions        - 转人工决策记录

@@ -3,7 +3,7 @@ package model
 // intent_log.go 精细意图识别日志模型
 //
 // 五层架构归属: L5 数据层
-// 设计依据: PRD §M-2 P1 缺口修复（8 大类 + 7 子类精细意图识别）
+// 设计依据: PRD § 缺口修复（8 大类 + 7 子类精细意图识别）
 // 私域独立部署: 无 merchant_id 字段
 //
 // 表: intent_logs（与 intent_records 共存，互不依赖）

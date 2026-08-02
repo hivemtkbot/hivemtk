@@ -49,7 +49,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 }
 
 // RefreshToken 刷新令牌
-// P1-4 修复：
+// 修复：
 //   - 校验 Bearer 前缀
 //   - token 为空直接拒绝
 //   - 使用安全的 trim 前缀而非裸切片
@@ -146,7 +146,7 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	response.Success(ctx, nil, "修改密码成功")
 }
 
-// ============== P1-1 MFA 多因素认证 ==============
+// ============== MFA 多因素认证 ==============
 
 // SetupMFA 设置 MFA：生成 TOTP 密钥并返回 otpauth URL
 // 用户使用 Google Authenticator 扫描二维码
@@ -298,7 +298,7 @@ func (c *AuthController) GetMFAStatus(ctx *gin.Context) {
 	}, "查询成功")
 }
 
-// ============== P1-2 异常登录预警 ==============
+// ============== 异常登录预警 ==============
 
 // ListLoginEvents 查询登录事件列表
 // GET /api/auth/login-events?page=1&page_size=20
@@ -385,7 +385,7 @@ func (c *AuthController) ResolveSecurityAlert(ctx *gin.Context) {
 	response.Success(ctx, nil, "告警已处理")
 }
 
-// ============== P1-3 密码策略 ==============
+// ============== 密码策略 ==============
 
 // GetPasswordPolicy 查询当前密码策略
 // GET /api/auth/password-policy

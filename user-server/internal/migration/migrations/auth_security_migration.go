@@ -4,7 +4,7 @@ package migrations
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
-//          P1-1 MFA / P1-2 异常登录预警 / P1-3 密码策略 / P1-4 行级权限
+// MFA / 异常登录预警 / 密码策略 / 行级权限
 //
 // 本迁移创建 4 张表：
 //  1. user_mfa          用户 MFA 配置（TOTP/HOTP）
@@ -52,27 +52,27 @@ func (m *AuthSecurityMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("db is nil")
 	}
 
-	// 1. user_mfa 表（P1-1 MFA 多因素认证）
+	// 1. user_mfa 表（MFA 多因素认证）
 	if err := m.createUserMFATable(ctx); err != nil {
 		return fmt.Errorf("创建 user_mfa 表失败: %w", err)
 	}
 
-	// 2. login_events 表（P1-2 异常登录预警 - 事件审计）
+	// 2. login_events 表（异常登录预警 - 事件审计）
 	if err := m.createLoginEventsTable(ctx); err != nil {
 		return fmt.Errorf("创建 login_events 表失败: %w", err)
 	}
 
-	// 3. security_alerts 表（P1-2 异常登录预警 - 告警）
+	// 3. security_alerts 表（异常登录预警 - 告警）
 	if err := m.createSecurityAlertsTable(ctx); err != nil {
 		return fmt.Errorf("创建 security_alerts 表失败: %w", err)
 	}
 
-	// 4. password_history 表（P1-3 密码策略 - 历史密码复用检查）
+	// 4. password_history 表（密码策略 - 历史密码复用检查）
 	if err := m.createPasswordHistoryTable(ctx); err != nil {
 		return fmt.Errorf("创建 password_history 表失败: %w", err)
 	}
 
-	// 5. system_config_kv 表（P1-3 密码策略 - 存储密码策略配置 JSON）
+	// 5. system_config_kv 表（密码策略 - 存储密码策略配置 JSON）
 	if err := m.createSystemConfigKVTable(ctx); err != nil {
 		return fmt.Errorf("创建 system_config_kv 表失败: %w", err)
 	}

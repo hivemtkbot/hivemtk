@@ -3,7 +3,7 @@ package llm
 // trace_context.go LLM 调用全链路 TraceId 传递
 //
 // 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §M-3
+// 设计依据: PRD §
 // 私域独立部署: 无 merchant_id 字段
 //
 // 功能：

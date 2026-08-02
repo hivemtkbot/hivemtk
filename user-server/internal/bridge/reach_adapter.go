@@ -18,11 +18,11 @@ import (
 // 网页桥接渠道（douyin_web/xhs_web/tiktok_web）的回复：
 //   1) 若对应账号的扩展在线：经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展（回写网页私信）
 //   2) 若扩展离线 / 限速命中 / buffer 满：落 message_hub(direction=outbound, status=failed)，
-//      便于坐席 UI 展示和后续补发（修复 P0-S1-8：离线降级落库）
+// 便于坐席 UI 展示和后续补发（修复 -8：离线降级落库）
 //   3) 非桥接渠道：直接委托 inner（官方 API），对现有渠道零影响
 //
 // 幂等守卫：通过 agent_runtime.ClaimReply(eventID) 保证同一 AI 回复仅一次出站，
-// 防止 bridge 重连重发时 AI 重复回复（修复 P1-S2-4：ClaimReply 守卫）
+// 防止 bridge 重连重发时 AI 重复回复（修复 -4：ClaimReply 守卫）
 type BridgeReachAdapter struct {
 	inner  *tooluse.IntegrationReachAdapter
 	hub    *BridgeHub
@@ -76,18 +76,18 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 // deliverWS 经 WebSocket 下发回复到扩展；扩展离线时降级落 message_hub(status=failed)。
 //
 // 步骤：
-//  1. ClaimReply 幂等：若 eventID 已被认领，直接跳过（修复 P1-S2-4）
-//  2. content 长度截断：防止超大 XSS payload 撑爆 WS 帧（修复 P0-S1-7）
+// 1. ClaimReply 幂等：若 eventID 已被认领，直接跳过（修复 -4）
+// 2. content 长度截断：防止超大 XSS payload 撑爆 WS 帧（修复 -7）
 //  3. hub.Deliver：在线 → 推送；离线/限速/buffer 满 → 降级落 message_hub
 //  4. 出站事件 ID 透传到 ctx（trace_id 关联）
 func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) (string, error) {
-	// P1-S2-4 ClaimReply 幂等守卫：eventID 非空时拒绝重复
+	// 4 ClaimReply 幂等守卫：eventID 非空时拒绝重复
 	if eventID != "" && !agentruntime.ClaimReply(eventID) {
 		logger.Ctx(ctx).Info().Str("module", "bridge").Str("event_id", eventID).Msg("bridge deliver skipped: event already claimed")
 		return "bridge:duplicate:" + eventID, nil
 	}
 
-	// P0-S1-7 防止 XSS 巨大 payload：单条回复限制 4KB
+	// 7 防止 XSS 巨大 payload：单条回复限制 4KB
 	if len(content) > maxReplyContentBytes {
 		logger.Ctx(ctx).Warn().Str("module", "bridge").Int("orig_bytes", len(content)).Msg("bridge reply content truncated (anti-xss)")
 		content = content[:maxReplyContentBytes]
@@ -110,7 +110,7 @@ func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, 
 	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
 }
 
-// persistFailedOutbound 出站失败时降级落库（修复 P0-S1-8：离线降级落库）
+// persistFailedOutbound 出站失败时降级落库（修复 -8：离线降级落库）
 //
 // 将 outbound 消息落 message_hub 并标记 status=failed / 失败原因；坐席 UI 可据此补发。
 func (a *BridgeReachAdapter) persistFailedOutbound(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string, deliverErr error) (string, error) {

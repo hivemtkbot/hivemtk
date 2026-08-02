@@ -1,6 +1,6 @@
 package humanize
 
-// abtest_stats.go P0-4 A/B 测试统计服务（业界三件套）
+// abtest_stats.go A/B 测试统计服务（业界三件套）
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.6 ~ §16.4.9

@@ -17,7 +17,7 @@
 // 阶段之间通过 InferenceContext (不可变快照) 传递数据，
 // 编排器 (InferenceCycle) 负责串联、超时控制、错误隔离、可观测日志。
 //
-// 五层架构归位：本文件属于 aiagent/agent/runtime 子包，遵循 ADR-008
+// 五层架构归位：本文件属于 aiagent/agent/runtime 子包，遵循
 // 的运行时隔离原则，不直接访问 db.GetDB()，通过 Repository / Bridge 访问。
 package agent_runtime
 

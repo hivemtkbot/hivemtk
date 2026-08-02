@@ -16,7 +16,7 @@ import (
 //  1. 基于 IP + 端点 key 计数
 //  2. 滑动窗口（最近 15 分钟内）
 //  3. 超过阈值后锁定一段时间（递增）
-//  4. P1-2 扩展：超过阈值后写入安全告警表（由调用方或 service 触发）
+// 4. 扩展：超过阈值后写入安全告警表（由调用方或 service 触发）
 type bruteForceEntry struct {
 	failures    int
 	firstAt     time.Time
@@ -94,7 +94,7 @@ func BruteForceGuard(endpoint string) gin.HandlerFunc {
 				retryAfter = 1
 			}
 			c.Header("Retry-After", itoa(retryAfter))
-			// P1-2 扩展：触发暴力破解告警回调（如果已注册）
+			// 扩展：触发暴力破解告警回调（如果已注册）
 			if globalBruteForceOnLock != nil {
 				globalBruteForceOnLock(c, endpoint, retryAfter)
 			}

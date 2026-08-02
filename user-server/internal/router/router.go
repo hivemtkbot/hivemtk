@@ -55,7 +55,7 @@ func Setup(r *gin.Engine) {
 	// ContextMiddleware：注入 IP / User-Agent 等公共上下文字段，供后续 handler / service 复用
 	r.Use(middleware.ContextMiddleware())
 
-	// P1-4: 初始化全局事件总线（在 Service 构造之前）
+	// 初始化全局事件总线（在 Service 构造之前）
 	// 试点：OperationLog 异步写入；后续可在 initEventBus 中追加订阅者
 	initEventBus()
 
@@ -101,11 +101,11 @@ func Setup(r *gin.Engine) {
 	//                                      （reach×20 + pm×3 + customer×8 + knowledge×4 + business×6）
 	//   3) buildSalesEngine(db)        —— 此时 GetGlobalExecutor() 返回非 nil，
 	//                                      SalesEngine 注入 ToolExecutorAdapter 后 Agent Loop (ReAct) 激活
-	//   4) initInferenceOrchestrator()  —— 装配推理闭环编排器（P0 优化：原本死代码，本次激活）
+	// 4) initInferenceOrchestrator —— 装配推理闭环编排器（优化：原本死代码，本次激活）
 	initGlobalToolExecutor()
-	initGlobalToolRouter() // P0-1：装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
+	initGlobalToolRouter() // 装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
 	registerAllAgentTools(db.GetDB())
-	initInferenceOrchestrator() // P0 优化：激活推理闭环编排器（P1-6 历史死代码）
+	initInferenceOrchestrator() // 优化：激活推理闭环编排器（历史死代码）
 
 	engine := buildSalesEngine(db.GetDB())
 	orchestrator := buildSmartOrchestrator(engine)
@@ -141,17 +141,17 @@ func Setup(r *gin.Engine) {
 	public := r.Group("/api")
 	{
 		setupPublicRoutes(public, liveCodeController, platformCtrl, db.GetDB())
-		// P0-10 ADR-010: 公开 chat API（AppKey 鉴权）
+		// 公开 chat API（AppKey 鉴权）
 		setupChatPublicRoutes(public, db.GetDB(), orchestrator, langResolver)
 	}
 
-	// P0-10 ADR-010: 访客 WebSocket（公开，无鉴权）
+	// 访客 WebSocket（公开，无鉴权）
 	setupChatPublicWebSocket(r, langResolver)
 
 	// 卡片分享路由（公开，不需要认证）
 	setupCardShareRoutes(r)
 
-	// P0-10 ADR-010: 静态文件服务（chat embed 页面 + embed SDK）
+	// 静态文件服务（chat embed 页面 + embed SDK）
 	// 私域部署：用户把 user-web/dist 部署到 user-server 同源，
 	// 这样嵌入的 iframe 聊天窗可以无跨域问题加载。
 	setupEmbedStaticRoutes(r)
@@ -201,10 +201,10 @@ func Setup(r *gin.Engine) {
 		// 线索管理
 		setupClueRoutes(auth)
 
-		// H 域 P1: 客户 RFM 联动分层
+		// 客户 RFM 联动分层
 		setupCustomerRFMRoutes(auth)
 
-		// H 域 P1: 流失挽回队列
+		// 流失挽回队列
 		setupRecoveryQueueRoutes(auth)
 
 		// 系统管理
@@ -260,7 +260,7 @@ func Setup(r *gin.Engine) {
 			logger.Infof("[Bridge] bridge AITrigger 已注入（抖音/小红书/TikTok 网页私信 AI 链路已连通）")
 		}
 
-		// P0-10 ADR-010: 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
+		// 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
 		setupChatChannelAdminRoutes(auth, db.GetDB())
 
 		// v1.2 出海多语言方案：术语表管理 + 校验预览
@@ -293,8 +293,8 @@ func Setup(r *gin.Engine) {
 		// LLM 多模型路由
 		setupLLMRoutingRoutes(auth)
 
-		// M 域 P1 缺口修复路由（2026-07-21）
-		// M-1 LLM Provider 降级管理 / M-3 全链路追踪 / M-4 SSE 实时驾驶舱
+		// 缺口修复路由
+		// LLM Provider 降级管理 / 全链路追踪 / SSE 实时驾驶舱
 		setupLLMProviderRoutes(auth)
 		setupTraceRoutes(auth)
 		setupSSEDashboardRoutes(auth)
@@ -366,11 +366,11 @@ func Setup(r *gin.Engine) {
 		// controller.UploadFile 是 free function（无 struct 包装），无需工厂方法。
 		auth.POST("/upload", controller.UploadFile)
 
-		// 工具链调试与可观测 API（P0 优化）
+		// 工具链调试与可观测 API
 		// 端点：/api/agent/tools/{list,get,execute,stats,audit,cost,circuit/reset}
 		setupToolDebugRoutes(auth)
 
-		// 工具权限白名单管理 API（P2-8，原本已实现但未装配，P0 优化激活）
+		// 工具权限白名单管理 API（，原本已实现但未装配， 优化激活）
 		// 端点：/api/agent/tools/permission/{default,global,agents}
 		setupToolPermissionRoutes(auth)
 
@@ -378,7 +378,7 @@ func Setup(r *gin.Engine) {
 		// 端点：/api/ai-tools/{list,get,status,accounts}
 		setupAIToolConfigRoutes(auth, db.GetDB())
 
-		// 推理闭环 API（P1-6，原本已实现但未装配，P0 优化激活）
+		// 推理闭环 API（，原本已实现但未装配， 优化激活）
 		// 端点：/api/agent/inference/{run,stats}
 		// 注意：initInferenceOrchestrator 必须在 router.Setup 早期调用；
 		// 若未初始化，handleInferenceRun 会返回 503。
@@ -399,18 +399,18 @@ func Setup(r *gin.Engine) {
 		csAgentMountCtrl := controller.NewCustomerServiceAgentControllerWithService(csAgentSvcGlobal)
 		csAgentMountCtrl.RegisterRoutes(auth)
 
-		// P2-X 前端 API 路径别名（兼容前端调用习惯）
+		// 前端 API 路径别名（兼容前端调用习惯）
 		// 必须放在所有 setup* 之后，避免更具体的路由被覆盖
 		setupFrontendAliases(auth, r)
 	}
 
-	// P0-14 多渠道 Webhook 路由（公开，不需要鉴权）
+	// 多渠道 Webhook 路由（公开，不需要鉴权）
 	webhookCtrl := controller.NewWebhookController(webhookSvc)
 	// WhatsApp Cloud 账号服务注入，用于回调 URL 验证（GET /api/webhook/whatsapp/{id}）
 	webhookCtrl.SetWhatsAppCloudService(whatsappCloudSvc)
 	// 钉钉应用账号服务注入，用于回调验签 + 入站收消息（GET/POST /api/webhook/dingtalk/{id}）
 	webhookCtrl.SetDingTalkAppService(dingtalkAppSvc)
-	// P0-A 修复：智能体引擎 8 步链路真实依赖注入
+	// 修复：智能体引擎 8 步链路真实依赖注入
 	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)
 	// Phase 3：注入智能体统一编排器（LLM + 客服座席结合体）

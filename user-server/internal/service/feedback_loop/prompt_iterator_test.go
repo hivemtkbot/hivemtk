@@ -1,6 +1,6 @@
 package feedbackloop
 
-// prompt_iterator_test.go P0-5 Prompt 迭代器测试
+// prompt_iterator_test.go Prompt 迭代器测试
 //
 // 覆盖：
 //  A. 纯函数单元测试（不需 PG）

@@ -7,7 +7,7 @@ import (
 	"marketing/internal/model"
 )
 
-// sop_condition_test.go SOP 条件表达式引擎测试（PRD §5.2 P0-2 G2）
+// sop_condition_test.go SOP 条件表达式引擎测试（PRD §5.2 G2）
 // 覆盖：
 //  1. SOPParseCondition / SOPEvaluateOperator 单元测试（包装层）
 //  2. SOPEvaluateSingleCondition 字段不存在/空条件/正常条件

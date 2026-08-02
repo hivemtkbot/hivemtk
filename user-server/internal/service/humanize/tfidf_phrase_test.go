@@ -1,6 +1,6 @@
 package humanize
 
-// tfidf_phrase_test.go P0-4 TF-IDF 短语提取器单元测试
+// tfidf_phrase_test.go TF-IDF 短语提取器单元测试
 //
 // 覆盖：
 //  1. 基本提取流程（多文档）

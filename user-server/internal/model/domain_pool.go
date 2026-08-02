@@ -5,7 +5,7 @@ import (
 )
 
 // DomainPool 域名池模型
-// G 域 P1 扩展：健康度评分、自动切换、平台黑名单检测
+// G 域 扩展：健康度评分、自动切换、平台黑名单检测
 //
 // 健康度评分体系（0-100）：
 //   - 100  健康
@@ -21,27 +21,27 @@ type DomainPool struct {
 	Status    int       `json:"status" gorm:"default:1"`                     // 状态 1:正常 2:不可访问 3:风险 4:已停用
 	LastCheck time.Time `json:"last_check"`                                  // 最后检查时间
 
-	// G 域 P1：健康度评分（0-100）
+	// G 域 ：健康度评分（0-100）
 	HealthScore int `json:"health_score" gorm:"default:100"` // 健康度评分
 
-	// G 域 P1：连续失败次数
+	// G 域 ：连续失败次数
 	ConsecutiveFailures int `json:"consecutive_failures" gorm:"default:0"`
 
-	// G 域 P1：DNS 解析状态
+	// G 域 ：DNS 解析状态
 	DNSResolved bool   `json:"dns_resolved" gorm:"default:false"`
 	DNSError    string `json:"dns_error" gorm:"size:500;default:''"`
 
-	// G 域 P1：HTTP HEAD 最近一次状态码
+	// G 域 ：HTTP HEAD 最近一次状态码
 	LastHTTPStatus int `json:"last_http_status" gorm:"default:0"`
-	// G 域 P1：HTTP HEAD 最近一次响应耗时（毫秒）
+	// G 域 ：HTTP HEAD 最近一次响应耗时（毫秒）
 	LastLatencyMs int `json:"last_latency_ms" gorm:"default:0"`
 
-	// G 域 P1：平台黑名单检测
+	// G 域 ：平台黑名单检测
 	OnBlacklist   bool      `json:"on_blacklist" gorm:"default:false;index"`   // 是否在黑名单
 	BlacklistAt   time.Time `json:"blacklist_at"`                              // 标记黑名单时间
 	BlacklistNote string    `json:"blacklist_note" gorm:"size:500;default:''"` // 黑名单备注
 
-	// G 域 P1：自动切换相关
+	// G 域 ：自动切换相关
 	AutoSwitchEnabled bool       `json:"auto_switch_enabled" gorm:"default:true"` // 是否启用自动切换
 	SwitchedAt        *time.Time `json:"switched_at"`                             // 上次自动切换时间
 	SwitchedFromID    int        `json:"switched_from_id" gorm:"default:0"`       // 从哪个域名切换过来
@@ -57,7 +57,7 @@ func (DomainPool) TableName() string {
 }
 
 // DomainHealthLog 域名健康度探测日志
-// G 域 P1：每次探测生成一条日志，便于事后审计与回溯
+// G 域 ：每次探测生成一条日志，便于事后审计与回溯
 type DomainHealthLog struct {
 	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
 	DomainID  int       `json:"domain_id" gorm:"index;not null"`
@@ -91,7 +91,7 @@ func (DomainHealthLog) TableName() string {
 }
 
 // DomainBlacklist 平台域名黑名单（内置 + 外部维护）
-// G 域 P1：用于域名健康度探测时快速判定当前域名是否被微信/抖音/快手等封禁
+// G 域 ：用于域名健康度探测时快速判定当前域名是否被微信/抖音/快手等封禁
 type DomainBlacklist struct {
 	ID        int        `json:"id" gorm:"primaryKey;autoIncrement"`
 	Domain    string     `json:"domain" gorm:"size:255;not null;uniqueIndex"` // 域名

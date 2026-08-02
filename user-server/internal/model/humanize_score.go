@@ -1,16 +1,16 @@
 package model
 
-// humanize_score.go P0-4 拟人度评估器模型层
+// humanize_score.go 拟人度评估器模型层
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计
 //
-// 包含 5 张新表 + 1 张扩展（low_quality_samples 复用 P1-2 已有表）：
+// 包含 5 张新表 + 1 张扩展（low_quality_samples 复用 已有表）：
 //  1. HumanizeScore     - 拟人度评估主表（每次评估一条记录）
 //  2. HumanizeDimensionRecord - 维度得分明细
 //  3. ChampionBaseline  - 销冠基线（persona+industry+intent 三元组）
 //  4. ChampionPhrase    - 销冠短语（TF-IDF 提取）
-//  5. ABTestStat        - A/B 测试统计结果（与 P0-3 ABTest 不同，本表存单次实验汇总）
+// 5. ABTestStat - A/B 测试统计结果（与 ABTest 不同，本表存单次实验汇总）
 //
 // 私域独立部署: 无 merchant_id 字段
 
@@ -134,7 +134,7 @@ func (ChampionPhrase) TableName() string { return "champion_phrases" }
 
 // ABTestStat A/B 测试统计结果（对应 ab_test_stats 表）
 //
-// 与 P0-3 ABTest 表不同：
+// 与 ABTest 表不同：
 //   - ABTest 表：A/B 实验配置（流量分配、目标、状态）
 //   - ABTestStat 表：实验统计结果汇总（每组一条记录，含 U/p/d/CI/winner）
 type ABTestStat struct {
@@ -159,12 +159,12 @@ type ABTestStat struct {
 // TableName 表名
 func (ABTestStat) TableName() string { return "ab_test_stats" }
 
-// LowQualitySampleType 扩展常量（P0-4 新增类型）
+// LowQualitySampleType 扩展常量（新增类型）
 //
 // 复用 low_quality_samples 表的 sample_type 字段，仅追加枚举值，不修改表结构
 const (
-	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"    // P0-4 自然度低
-	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low" // P0-4 说服力低
-	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"  // P0-4 与销冠基线距离过大
-	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"      // P0-4 A/B 实验落败
+	LowQualitySampleNaturalnessLow    LowQualitySampleType = "naturalness_low"    // 自然度低
+	LowQualitySamplePersuasivenessLow LowQualitySampleType = "persuasiveness_low" // 说服力低
+	LowQualitySampleChampionDistance  LowQualitySampleType = "champion_distance"  // 与销冠基线距离过大
+	LowQualitySampleABTestLoser       LowQualitySampleType = "ab_test_loser"      // A/B 实验落败
 )

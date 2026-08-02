@@ -68,7 +68,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
 
-		// P1-4 行级权限：解析 data_scope（若 JWT 中携带）
+		// 行级权限：解析 data_scope（若 JWT 中携带）
 		// admin 角色 → 强制 all
 		if claims.Role == "admin" {
 			c.Set("license_id", "system_admin")

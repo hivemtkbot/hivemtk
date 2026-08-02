@@ -1,6 +1,6 @@
 package dto
 
-// feedback_loop.go P0-5 反馈学习闭环数据传输对象
+// feedback_loop.go 反馈学习闭环数据传输对象
 //
 // 五层架构归属: L2 网关/L3 业务 之间的传输层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.2/§17.4

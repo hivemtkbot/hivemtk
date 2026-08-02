@@ -1,6 +1,6 @@
 package humanize
 
-// rule_scorer_test.go P0-4 RuleScorer 单元测试
+// rule_scorer_test.go RuleScorer 单元测试
 //
 // 覆盖：
 //  1. 5 维评分基本输出

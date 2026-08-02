@@ -160,7 +160,7 @@ func TestSystemOpsController_GetSystemStats_NeedsDB(t *testing.T) {
 }
 
 // ============================================================================
-// R7 路径遍历防护测试
+// 路径遍历防护测试
 // ============================================================================
 
 func TestResolveLogPath_RejectTraversal(t *testing.T) {

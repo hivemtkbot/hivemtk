@@ -474,7 +474,7 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		return fmt.Errorf("get tg account: %w", err)
 	}
 	// 主动发消息委托独立包 channelbot/telegram（纯协议层）
-	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 R4 出站 client 收敛一致，并使测试可拦截
+	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 出站 client 收敛一致，并使测试可拦截
 	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
 	if _, err := cli.SendMessage(ctx, chatID, content); err != nil {
 		now := time.Now()
@@ -672,7 +672,7 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		return fmt.Errorf("get wa account: %w", err)
 	}
 	// 主动发消息委托独立包 channelbot/whatsapp（官方 Cloud API，合规）
-	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 R4 出站 client 收敛一致，并使测试可拦截
+	// 注入统一出站 client（httpclient.Client，带超时+连接池），与 出站 client 收敛一致，并使测试可拦截
 	cli := whatsapp.NewCloudClient(acc.PhoneNumberID, acc.AccessToken, core.WithHTTPClient(httpclient.Client))
 	if _, err := cli.SendText(ctx, toPhone, content); err != nil {
 		now := time.Now()

@@ -103,7 +103,7 @@ type ClueEngagementRepository interface {
 	CountByClueID(ctx context.Context, clueID string, since time.Time) (int64, error)
 	CountByType(ctx context.Context, clueID string) (map[string]int64, error)
 	LastByClueID(ctx context.Context, clueID string, limit int) ([]*model.ClueEngagementEvent, error)
-	// CountByClueIDsBatch 批量统计多个 clue_id 在 since 之后的互动事件数（CC-P2 N+1 优化）
+	// CountByClueIDsBatch 批量统计多个 clue_id 在 since 之后的互动事件数（CC- N+1 优化）
 	// 替代「for clue → CountByClueID」N+1；返回 map[clueID]count，未命中为 0。
 	CountByClueIDsBatch(ctx context.Context, clueIDs []string, since time.Time) (map[string]int64, error)
 }
@@ -134,7 +134,7 @@ func (r *clueEngagementRepo) CountByClueID(ctx context.Context, clueID string, s
 	return count, err
 }
 
-// CountByClueIDsBatch 批量按 clue_id 统计 since 之后的互动事件数（CC-P2 N+1 优化）
+// CountByClueIDsBatch 批量按 clue_id 统计 since 之后的互动事件数（CC- N+1 优化）
 //
 // 单次 SQL：SELECT clue_id, COUNT(*) FROM clue_engagement_events
 // WHERE clue_id IN (...) AND created_at >= ? GROUP BY clue_id

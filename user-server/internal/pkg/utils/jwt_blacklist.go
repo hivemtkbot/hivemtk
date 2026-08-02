@@ -11,7 +11,7 @@ import (
 
 // jwt_blacklist.go JWT 黑名单工具
 //
-// F-P1-71: RefreshToken / JWT 主动失效支持
+// F-: RefreshToken / JWT 主动失效支持
 //
 // 设计：
 //   - 后端为 Redis 时跨实例生效；未配置 Redis 时退化为进程内内存（单实例部署）

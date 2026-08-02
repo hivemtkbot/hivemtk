@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// KnowledgeVectorMigration RAG 向量存储迁移(2026-07-18)
+// KnowledgeVectorMigration RAG 向量存储迁移
 //
 // 背景:
 //   - pgvector 扩展已安装(v0.8.5)

@@ -2,7 +2,7 @@ package migrations
 
 // v3_16_drop_rag_safety_audit_migration.go 清理孤儿表 rag_safety_audit_logs
 //
-// 背景 (深度审查发现 P1 风险):
+// 背景 (深度审查发现 风险):
 //   - rag_safety_audit_logs 表于 018_cde_p1_gap_fixes.sql 创建, 包含
 //     tenant_id VARCHAR(64) 字段
 //   - 全项目 grep `rag_safety_audit` / `RagSafetyAudit` → 0 匹配

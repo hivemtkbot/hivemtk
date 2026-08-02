@@ -3,12 +3,12 @@ package repository
 // sop_template.go SOP 模板 Repository
 //
 // 五层架构归属: L5 数据访问层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T3)
+// 设计依据: AI 智能体性能优化
 //   - Layer1 路由依赖 SOP 模板快速匹配
 //   - 当 FAQ 未命中 + SOP 高置信 -> 模板拼接回复 (<50ms, 零 LLM)
 //   - 支持按 (intent, stage) 查询 + 按 priority/confidence 排序
 //
-// 2026-07-31 P0-B: 按智能体隔离改造
+// 按智能体隔离改造
 //   - 旧方法 MatchByIntent / MatchByIntentStage 保持兼容 (agentID=0)
 //   - 新增 MatchByAgent / MatchByIntentStageForAgent / ListByKB / ListShared / ListByAgent
 //   - 严格隔离语义: agentID > 0 仅匹配 (agent_id=X OR agent_id IS NULL) AND enabled
@@ -20,9 +20,9 @@ package repository
 //   - ListEnabled      查询所有启用的模板
 //   - MatchByIntent    按意图匹配 (兼容旧签名, agentID=0 表示共享/全局)
 //   - MatchByIntentStage 按 (intent, stage) 匹配 (兼容旧签名)
-//   - MatchByAgent     按智能体严格 1:1 匹配 (P0-B)
-//   - MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配 (P0-B)
-//   - ListByKB         按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 SOP 模板)
+// MatchByAgent 按智能体严格 1:1 匹配
+// MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配
+// ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的 SOP 模板)
 //   - ListShared       列出全部共享 SOP 模板 (agent_id IS NULL)
 //   - ListByAgent      列出某智能体的 SOP 模板 (不参与打分)
 //   - MatchByIDs       按 ID 集合匹配 (DEPRECATED, 走 ID 集合过滤)
@@ -74,14 +74,14 @@ func (r *SOPTemplateRepository) ListEnabled(ctx context.Context, limit int) ([]m
 
 // MatchByIntent 按意图匹配 SOP 模板 (取最高优先级且启用) — 兼容旧签名 (agentID=0 表示共享/全局)
 //
-// 2026-07-31 P0-B: 加 agentID 过滤
+// 加 agentID 过滤
 //   - agentID > 0: 仅匹配该智能体私有 (agent_id=X) + 共享 (agent_id IS NULL)
 //   - agentID = 0: 全局共享 (向后兼容, 旧代码不传 agentID 也能跑)
 func (r *SOPTemplateRepository) MatchByIntent(ctx context.Context, intent string) ([]model.SOPTemplate, error) {
 	return r.MatchByIntentForAgent(ctx, intent, 0)
 }
 
-// MatchByIntentForAgent 按智能体隔离的意图匹配 (P0-B)
+// MatchByIntentForAgent 按智能体隔离的意图匹配
 //
 // agentID = 0: 走旧路径 (全局共享, 向后兼容)
 // agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
@@ -107,7 +107,7 @@ func (r *SOPTemplateRepository) MatchByIntentStage(ctx context.Context, intent, 
 	return r.MatchByIntentStageForAgent(ctx, intent, stage, 0)
 }
 
-// MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配 (P0-B 隔离架构)
+// MatchByIntentStageForAgent 按 (intent, stage) + agentID 匹配 (隔离架构)
 //
 // agentID = 0: 走旧路径 (全局共享, 向后兼容)
 // agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
@@ -127,7 +127,7 @@ func (r *SOPTemplateRepository) MatchByIntentStageForAgent(ctx context.Context, 
 	return tpls, err
 }
 
-// MatchByAgent 按智能体严格 1:1 匹配 (P0-B: 强 1对1 改造)
+// MatchByAgent 按智能体严格 1:1 匹配 (: 强 1对1 改造)
 //
 // 行为:
 //   - agentID == 0  -> 返回 (nil, nil)
@@ -154,7 +154,7 @@ func (r *SOPTemplateRepository) MatchByAgent(ctx context.Context, agentID uint, 
 	return tpls, err
 }
 
-// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 SOP 模板)
+// ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的 SOP 模板)
 //
 // 简化实现: 直接按 agent_id 过滤 (KBType=sop 假设)
 // 完整实现需 JOIN agent_kb_bindings + knowledge_bases, 此处保留简化
@@ -216,13 +216,13 @@ func (r *SOPTemplateRepository) IncrementHitCount(ctx context.Context, id uint) 
 		Error
 }
 
-// MatchByIDs 按 ID 集合 + 意图 + 阶段匹配 (2026-07-31 P1-A: 智能体绑定 SOP 范围)
+// MatchByIDs 按 ID 集合 + 意图 + 阶段匹配 (: 智能体绑定 SOP 范围)
 //
 // 当 agent 绑定了 SOP template IDs 时, 仅在绑定 ID 集合内匹配;
 //
 // 绑定为空 = 走原 MatchByIntentStage 全局匹配
 //
-// Deprecated: 2026-07-31 P0-B 改造, agent SOP 范围改由 agent_id 字段实现.
+// Deprecated: 改造, agent SOP 范围改由 agent_id 字段实现.
 func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage string, ids []string) ([]model.SOPTemplate, error) {
 	if intent == "" || len(ids) == 0 {
 		return nil, nil
@@ -241,7 +241,7 @@ func (r *SOPTemplateRepository) MatchByIDs(ctx context.Context, intent, stage st
 
 // ListWithFilter 分页+过滤 (前端 SOP 模板管理页面使用)
 //
-// 2026-07-31 P0-B: 新增 AgentID 过滤 (nil=不过滤, &0=仅共享, &X=仅该智能体)
+// 新增 AgentID 过滤 (nil=不过滤, &0=仅共享, &X=仅该智能体)
 func (r *SOPTemplateRepository) ListWithFilter(ctx context.Context, filter SOPTemplateFilter) ([]model.SOPTemplate, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.SOPTemplate{})
 	if filter.Keyword != "" {
@@ -294,7 +294,7 @@ func (r *SOPTemplateRepository) Delete(ctx context.Context, id uint) error {
 
 // SOPTemplateFilter SOP 模板查询过滤器 (前端管理页面)
 //
-// 2026-07-31 P0-B: AgentID 字段
+// AgentID 字段
 //   - nil:  不过滤 (兼容旧调用)
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)

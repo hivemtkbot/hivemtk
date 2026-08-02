@@ -1,6 +1,6 @@
 package service
 
-// confidence_init.go 置信度聚合器（P0-3）装配入口
+// confidence_init.go 置信度聚合器装配入口
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十五章 §15.4.10

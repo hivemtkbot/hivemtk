@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// tool.go 工具注册表核心接口定义（PRD §5.2 P0-3 G3）
+// tool.go 工具注册表核心接口定义（PRD §5.2 G3）
 //
 // 设计目标：
 //  1. 统一的工具接口，可被 LLM Function Calling 调用

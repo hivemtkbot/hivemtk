@@ -94,7 +94,7 @@ func (r *CustomerSessionRepository) GetByMerchant(ctx context.Context, status mo
 	return sessions, total, err
 }
 
-// GetByUserID 获取某用户的所有会话（CC-P2 N+1 优化）
+// GetByUserID 获取某用户的所有会话（CC- N+1 优化）
 //
 // 替代 service 层「GetByMerchant(空 merchant, 1, 1000) + 内存过滤」模式，
 // 直接按 user_id 走索引，单 SQL 拉全该用户会话。
@@ -113,7 +113,7 @@ func (r *CustomerSessionRepository) GetByUserID(ctx context.Context, userID stri
 	return sessions, nil
 }
 
-// ListByUserIDsBatch 批量按 user_id 拉取会话，返回按 user_id 分组的 map（CC-P2 N+1 优化）
+// ListByUserIDsBatch 批量按 user_id 拉取会话，返回按 user_id 分组的 map（CC- N+1 优化）
 //
 // 用于「客户列表 → 每用户 360 视图」场景：单次 SQL 拉所有用户的会话，
 // 避免 N 个用户各跑一次 GetByUserID 造成的 N+1。

@@ -239,7 +239,7 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.GET("/intent/stats", intentCtrl.Stats)
 	auth.GET("/intent/recent", intentCtrl.RecentIntents)
 	auth.GET("/intent/dict", intentCtrl.Intents)
-	// M-2 P1：精细意图识别（8 大类 + 7 子类）
+	// 精细意图识别（8 大类 + 7 子类）
 	auth.POST("/intent/recognize/fine", intentCtrl.RecognizeFine)
 	auth.GET("/intent/logs", intentCtrl.IntentLogs)
 	auth.GET("/intent/stats/fine", intentCtrl.IntentStatsFine)
@@ -248,7 +248,7 @@ func setupIntentRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.PUT("/intent/config", intentCtrl.UpdateConfig)
 }
 
-// setupLLMProviderRoutes LLM Provider 降级管理路由（M-1 P1）
+// setupLLMProviderRoutes LLM Provider 降级管理路由（）
 //
 // failover 为 nil 时使用占位 controller（所有端点返回 503）。
 // 生产环境 main.go 应通过 NewSetupLLMProviderRoutes 注入真实 failover。
@@ -262,7 +262,7 @@ func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
 	auth.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
 	// 文档承诺的 /api/llm-routings/* 端点（前端 ops/llm-routing 看板使用）
-	// F-P0-10 修复：统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
+	// F- 修复：统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
 	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
 	auth.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)
@@ -271,13 +271,13 @@ func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	auth.POST("/llm-routings/resolve", llmProvCtrl.ResolveRoute)
 }
 
-// setupTraceRoutes 全链路追踪路由（M-3 P1）
+// setupTraceRoutes 全链路追踪路由（）
 func setupTraceRoutes(auth *gin.RouterGroup) {
 	traceCtrl := controller.NewTraceController()
 	auth.GET("/trace/:traceId", traceCtrl.GetTrace)
 }
 
-// setupSSEDashboardRoutes SSE 实时驾驶舱路由（M-4 P1）
+// setupSSEDashboardRoutes SSE 实时驾驶舱路由（）
 func setupSSEDashboardRoutes(auth *gin.RouterGroup) {
 	sseCtrl := controller.NewSSEDashboardController()
 	auth.GET("/dashboard/sse", sseCtrl.Stream)
@@ -319,25 +319,25 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.DELETE("/sop/:id", sopCtrl.Delete)
 	auth.POST("/sop/:id/activate", sopCtrl.Activate)
 	auth.POST("/sop/:id/deactivate", sopCtrl.Deactivate)
-	// A/B 测试（PRD §5.2 P0-2 G2 新增）
+	// A/B 测试（PRD §5.2 G2 新增）
 	auth.GET("/sop/:id/abtest/stats", sopCtrl.GetABTestStats)
 	auth.PUT("/sop/:id/abtest/config", sopCtrl.UpdateABTestConfig)
 	auth.POST("/sop/execute", sopCtrl.Execute)
 	auth.POST("/sop/step", sopCtrl.Step)
 
-	// 2026-07-31 P1-A: FAQ 知识库 CRUD + Layer1 匹配
+	// FAQ 知识库 CRUD + Layer1 匹配
 	faqCtrl := controller.NewFAQController(db)
 	faqCtrl.RegisterRoutes(auth)
 
-	// 2026-07-31 P1-A: SOP 模板 CRUD + Layer1 匹配
+	// SOP 模板 CRUD + Layer1 匹配
 	sopTplCtrl := controller.NewSOPTemplateController(db)
 	sopTplCtrl.RegisterRoutes(auth)
 
-	// 2026-07-31 强 1对1: 知识库主表 CRUD + 业务级联
+	// 强 1对1: 知识库主表 CRUD + 业务级联
 	kbCtrl := controller.NewKnowledgeBaseController(db)
 	kbCtrl.RegisterRoutes(auth)
 
-	// 2026-07-31 强 1对1: 智能体 × 知识库 绑定 CRUD
+	// 强 1对1: 智能体 × 知识库 绑定 CRUD
 	bindCtrl := controller.NewAgentKBBindingController(db)
 	bindCtrl.RegisterRoutes(auth)
 }
@@ -396,7 +396,7 @@ func setupLLMRoutingRoutes(auth *gin.RouterGroup) {
 	auth.POST("/llm/scene-routing", llmCtrl.UpdateSceneRouting)
 	auth.PUT("/llm/fallback", llmCtrl.UpdateSceneRouting)
 	auth.POST("/llm/fallback", llmCtrl.UpdateSceneRouting)
-	// 补全端点（2026-07-24 E2E 完整性补齐）
+	// 补全端点（E2E 完整性补齐）
 	auth.GET("/llm/scenarios", llmCtrl.ListScenarios)
 	auth.GET("/llm/health", llmCtrl.Health)
 	auth.GET("/llm/scenario-stats", llmCtrl.ScenarioStats)

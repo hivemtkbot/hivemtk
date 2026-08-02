@@ -20,7 +20,7 @@ import (
 
 // EmbeddingConfig Embedding 配置
 //
-// 私域部署基线（2026-07-18，2026-07-24 修订）：Embedding 必须在本地推理服务内完成，
+// 私域部署基线（， 修订）：Embedding 必须在本地推理服务内完成，
 // 跑真实 BGE 模型（bge-m3，1024 维），不允许静默走公网 LLM 厂商 API，
 // 也不允许静默降级到哈希伪向量。
 //
@@ -50,7 +50,7 @@ type EmbeddingServiceInterface interface {
 // 默认对接本地推理服务（http://mtk-embedding:8208/v1 docker / http://127.0.0.1:8208/v1 宿主机，私域部署强制）；
 // 调用 /v1/embeddings（OpenAI 兼容协议，底层跑真实 bge-m3 模型）。
 //
-// 强约束（2026-07-18）：
+// 强约束：
 //  1. 不再 fallback 到任何云端 LLM 厂商（OpenAI/Azure/通义/智谱/Moonshot）
 //     私域数据禁止出域；LLM 走 API ≠ Embedding 走 API。
 //  2. 当 EMBEDDING_ALLOW_FALLBACK=false（默认）时，
@@ -76,7 +76,7 @@ var sharedEmbeddingTransport = &http.Transport{
 // embeddingSem 进程级并发闸门：控制同一时刻在飞的 embedding 请求数。
 //
 // 历史：TEI 容器以 --max-concurrent-requests=1 运行，容量硬编码 1。
-// 现在（2026-07-24）：切换到 llama.cpp，其 embedding 模式默认 --parallel 1，
+// 现在：切换到 llama.cpp，其 embedding 模式默认 --parallel 1，
 // 但可通过 EMBEDDING_PARALLEL 环境变量调高（llama-server 端 --parallel + Go 端闸门同步）。
 //
 // 容量来源（init 时读取）：
@@ -117,7 +117,7 @@ func NewEmbeddingServiceWithConfig(cfg *EmbeddingConfig) *EmbeddingService {
 
 // DefaultConfig 读取配置得到默认配置（配置文件为准，其次环境变量，最后内置 docker 默认）
 //
-// 优先级（私域部署基线 2026-07-24 修订）：
+// 优先级（私域部署基线 修订）：
 //  1. config.yaml / config-docker.yaml 的 embedding 段（按环境提供正确的本地服务地址，为准）：
 //     - 宿主机：http://127.0.0.1:8208/v1（宿主机 llama.cpp，端口 8208）
 //     - docker：http://mtk-embedding:8208/v1（容器内服务名，端口 8208）
@@ -218,7 +218,7 @@ func (s *EmbeddingService) Embed(ctx context.Context, cfg *EmbeddingConfig, text
 		cfg = s.DefaultConfig()
 	}
 
-	// 私域部署基线（2026-07-16）：禁止静默降级
+	// 私域部署基线：禁止静默降级
 	// 除非显式开启 EMBEDDING_ALLOW_FALLBACK=true（仅供单元测试）
 	if !cfg.AllowFallback {
 		// 大批量分片：超过 embeddingMaxBatch 时串行分批，避免 OOM/超时

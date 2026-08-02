@@ -6,7 +6,7 @@ package migrations
 // 设计依据: docs/核心链路优化.md 第十四章 §14.3 表结构设计
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移补充 P0-2 RAG 混合检索所需的数据库基础设施：
+// 本迁移补充 RAG 混合检索所需的数据库基础设施：
 //  1. knowledge_chunks 表增强（tsvector 列 + 索引 + 触发器）
 //  2. query_rewrite_cache 表（查询改写缓存，HyDE/Multi-Query 结果持久化）
 //  3. embedding_cache 表（embedding 结果持久化缓存，避免重复 TEI 调用）

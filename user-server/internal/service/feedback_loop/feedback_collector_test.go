@@ -1,6 +1,6 @@
 package feedbackloop
 
-// feedback_collector_test.go P0-5 反馈信号采集器测试
+// feedback_collector_test.go 反馈信号采集器测试
 //
 // 覆盖：
 //  A. 纯函数单元测试（不需 PG）

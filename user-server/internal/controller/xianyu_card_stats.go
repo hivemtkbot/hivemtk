@@ -11,7 +11,7 @@ import (
 
 // XianyuCardStatsController 咸鱼卡片统计控制器
 //
-// P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
+// 修复：严格遵循五层架构 Controller → Service → Repository → Model，
 // 移除原先方法内 new repository.XianyuCardStatsRepository 的越层调用，
 // 通过 service.XianyuCardStatsService 的 GetCardStatsRaw /
 // GetOverallStatsRaw 方法访问原始统计数据（保留 views/clicks/shares 完整字段）。

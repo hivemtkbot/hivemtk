@@ -16,7 +16,7 @@ import (
 )
 
 // SOPScheduler SOP 自动调度器
-// 对应 SYSTEM_AUDIT_REPORT_20260715_V3 P0-11
+// 对应 SYSTEM_AUDIT_REPORT_20260715_V3
 // 负责：
 //  1. 周期扫描 trigger_type=auto/schedule 的 SOP
 //  2. 匹配目标客户并启动执行
@@ -41,7 +41,7 @@ func GetSOPScheduler() *SOPScheduler {
 	return globalSOPScheduler
 }
 
-// SOPService 返回内部 SOP 服务实例，用于跨模块联动（如 P0-12 意图→SOP）
+// SOPService 返回内部 SOP 服务实例，用于跨模块联动（如 意图→SOP）
 func (s *SOPScheduler) SOPService(ctx context.Context) *SOPService {
 	return s.svc
 }

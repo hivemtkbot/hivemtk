@@ -1,6 +1,6 @@
 package service
 
-// row_level_security_test.go A 域 P1-4 数据行级权限服务测试
+// row_level_security_test.go A 域 数据行级权限服务测试
 //
 // 测试目标：
 //  1. TeamDataScope 枚举有效性

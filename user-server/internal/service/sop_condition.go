@@ -9,7 +9,7 @@ import (
 	"marketing/internal/model"
 )
 
-// sop_condition.go SOP 条件表达式引擎（PRD §5.2 P0-2 G2 缺口修复）
+// sop_condition.go SOP 条件表达式引擎（PRD §5.2 G2 缺口修复）
 //
 // 设计目标：
 //  1. 复用 marketing_flow.go 中已通过 100+ 用例验证的 parseCondition / evaluateOperator

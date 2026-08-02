@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// 2026-07-31 AI 智能体性能优化 - SOP Template Repository 测试
+// AI 智能体性能优化 - SOP Template Repository 测试
 
 func setupSOPTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -157,7 +157,7 @@ func TestSOPTemplateRepository_DisabledNotMatched(t *testing.T) {
 	}
 }
 
-// 2026-07-31 P0-B: 智能体隔离测试 - 验证共享+私有隔离
+// 智能体隔离测试 - 验证共享+私有隔离
 func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()
@@ -204,7 +204,7 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentForAgent(t *testing.T
 	}
 }
 
-// 2026-07-31 P0-B: MatchByIntentStageForAgent 测试
+// MatchByIntentStageForAgent 测试
 func TestSOPTemplateRepository_AgentIsolation_MatchByIntentStageForAgent(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()
@@ -241,7 +241,7 @@ func TestSOPTemplateRepository_AgentIsolation_MatchByIntentStageForAgent(t *test
 	}
 }
 
-// 2026-07-31 P0-B: MatchByAgent 强 1:1 测试
+// MatchByAgent 强 1:1 测试
 func TestSOPTemplateRepository_MatchByAgent_StrictOneToOne(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()
@@ -283,7 +283,7 @@ func TestSOPTemplateRepository_MatchByAgent_StrictOneToOne(t *testing.T) {
 	}
 }
 
-// 2026-07-31 P0-B: ListByKB / ListShared / ListByAgent 测试
+// ListByKB / ListShared / ListByAgent 测试
 func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()
@@ -332,7 +332,7 @@ func TestSOPTemplateRepository_AgentIsolation_Lists(t *testing.T) {
 	}
 }
 
-// 2026-07-31 P0-B: ListWithFilter AgentID 字段测试
+// ListWithFilter AgentID 字段测试
 func TestSOPTemplateRepository_ListWithFilter_AgentID(t *testing.T) {
 	repo, _, done := setupSOPRepoWithTX(t)
 	defer done()

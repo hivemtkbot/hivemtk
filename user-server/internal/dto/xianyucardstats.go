@@ -3,8 +3,8 @@ package dto
 // XianyuCardStatsRequest 咸鱼卡片统计请求
 type XianyuCardStatsRequest struct {
 	CardID    uint   `json:"cardId" form:"cardId"`       // 卡片ID
-	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：2023-01-01
-	EndDate   string `json:"endDate" form:"endDate"`     // 结束日期，格式：2023-01-31
+	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：
+	EndDate   string `json:"endDate" form:"endDate"`     // 结束日期，格式：
 	GroupBy   string `json:"groupBy" form:"groupBy"`     // 分组方式：day, week, month
 }
 

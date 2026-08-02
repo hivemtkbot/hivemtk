@@ -144,7 +144,7 @@ type GetRangeMetricsRequest struct {
 
 // GetRangeMetrics GET /api/email/track/metrics?start=...&end=...
 //
-// 时间格式：2006-01-02 15:04:05 或 RFC3339
+// 时间格式： 或 RFC3339
 func (c *EmailTrackingController) GetRangeMetrics(ctx *gin.Context) {
 	var req GetRangeMetricsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
@@ -191,9 +191,9 @@ func (c *EmailTrackingController) RegisterRoutes(public *gin.RouterGroup, authed
 // parseFlexibleTime 解析多种时间格式
 //
 // 支持：
-//   - 2006-01-02 15:04:05
-//   - 2006-01-02T15:04:05Z07:00 (RFC3339)
-//   - 2006-01-02
+
+// Z07:00 (RFC3339)
+
 func parseFlexibleTime(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, errors.New("empty time")

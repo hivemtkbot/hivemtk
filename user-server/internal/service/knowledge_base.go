@@ -3,7 +3,7 @@ package service
 // knowledge_base.go 知识库业务服务层
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 强 1对1 改造
+// 设计依据: 强 1对1 改造
 //
 // 业务规则:
 //   - owner_type=private 时 owner_agent_id 必填, 校验失败拒绝创建

@@ -13,7 +13,7 @@ import (
 	"marketing/internal/model"
 )
 
-// sop_abtest.go SOP A/B 测试流量分配与统计（PRD §5.2 P0-2 G2 缺口修复）
+// sop_abtest.go SOP A/B 测试流量分配与统计（PRD §5.2 G2 缺口修复）
 //
 // 设计目标：
 //  1. 支持基于客户 ID 一致性哈希的稳定分流（同一客户始终命中同一 variant）

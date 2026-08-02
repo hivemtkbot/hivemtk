@@ -112,7 +112,7 @@ func (s *SystemUserService) GetUserByID(ctx context.Context, id uint) (*SystemUs
 	return s.toUserResponse(ctx, user), nil
 }
 
-// CreateUser 创建用户（P1-2 修复：合并双套创建逻辑，统一走 system_user.go）
+// CreateUser 创建用户（修复：合并双套创建逻辑，统一走 system_user.go）
 // 规则：
 //   - 必须校验用户名、密码强度、邮箱格式（避免从 controller 旁路）
 //   - username/email 全局唯一

@@ -59,7 +59,7 @@ type ResponseGeneratorImpl struct {
 	transCache     *ragretrieval.TranslationCache
 	fewShot        FewShotRenderer // 可选：跨语言路径注入 few-shot 示例
 	fallbackBridge FallbackBridge  // 可选：低资源语言降级桥
-	evalHook       EvalHook        // 可选：异步质量评估钩子（P2-1）
+	evalHook       EvalHook        // 可选：异步质量评估钩子
 }
 
 // WithTranslationCache 注入翻译缓存（可选）
@@ -161,7 +161,7 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 	if !crossLingual {
 		reply, err = g.generateSameLangResponse(ctx, request, internalLang)
 	} else {
-		// 低资源语言降级路径（P1-2：FallbackBridge）
+		// 低资源语言降级路径（：FallbackBridge）
 		// bridge 未注入或未启用时走标准跨语言路径，不影响主流程
 		if g.fallbackBridge != nil && g.fallbackBridge.Enabled() && g.fallbackBridge.IsLowResource(targetLang) {
 			r, e := g.fallbackBridge.Generate(ctx, request.Query, targetLang, request.SearchResults)

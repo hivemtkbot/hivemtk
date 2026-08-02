@@ -1,6 +1,6 @@
 // Package lifecycle 定义智能体的「双模式」生命周期。
 //
-// 设计依据：docs/architecture/adr/ADR-013-agent-two-mode.md
+// 设计依据：docs/architecture/adr/-agent-two-mode.md
 //
 // 两种模式共享同一套 Tool 工具链与 AgentContext，差异仅在"谁触发"：
 //

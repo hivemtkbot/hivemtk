@@ -18,9 +18,9 @@ import (
 	"marketing/internal/service"
 )
 
-// agent_loop_e2e_test.go 智能体 Agent Loop 真实业务端到端测试（T1-T10）
+// agent_loop_e2e_test.go 智能体 Agent Loop 真实业务端到端测试（-）
 //
-// 本文件验证 P0-1 ~ P0-5 修复后的完整智能体链路：
+// 本文件验证 ~ 修复后的完整智能体链路：
 //
 //	用户消息 → SalesEngine.Handle → generateCandidate → runAgentLoop（ReAct）
 //	  → LLM 决定调用 tool → AgentToolExecutor.DispatchToolCalls
@@ -32,15 +32,15 @@ import (
 //   - 本测试：真实 ToolExecutor + 真实 ToolRegistry + 真实 DB 写入
 //     LLM 用桩（不依赖外部 API），但工具调用全链路真实执行
 //
-// T1-T10 测试用例覆盖：
-//   T1  - 客户搜索工具调用（customer.search 真实写入 + 查询）
-//   T4  - 跟进任务创建工具调用（follow_task.create 真实落库）
-//   T5  - 知识库列表工具调用（knowledge.list_kb 真实数据）
-//   T6  - 知识反馈工具调用（knowledge.feedback 真实写入）
-//   T7  - RAG 检索工具调用（rag.search 真实检索）
-//   T8  - Agent Loop 多轮迭代（LLM 返回 tool_calls → 执行 → 回灌 → 最终 stop）
-//   T9  - 装饰器链拦截验证（限流/审计/计费真实生效）
-//   T10 - 全局注册中心完整性（工具全部可被 AgentToolExecutor 列出）
+// 测试用例覆盖：
+// 客户搜索工具调用（customer.search 真实写入 + 查询）
+// 跟进任务创建工具调用（follow_task.create 真实落库）
+// 知识库列表工具调用（knowledge.list_kb 真实数据）
+// 知识反馈工具调用（knowledge.feedback 真实写入）
+// RAG 检索工具调用（rag.search 真实检索）
+// Agent Loop 多轮迭代（LLM 返回 tool_calls → 执行 → 回灌 → 最终 stop）
+// 装饰器链拦截验证（限流/审计/计费真实生效）
+// 全局注册中心完整性（工具全部可被 AgentToolExecutor 列出）
 
 // ============================================================================
 // 测试辅助
@@ -140,7 +140,7 @@ func setupAgentLoopSalesEngine(t *testing.T, db *gorm.DB, dispatcher *llm.Dispat
 		nil, // scriptLookup=nil
 		nil, // customerLookup=nil
 	)
-	// P0-3 注入 ToolExecutorAdapter，激活 Agent Loop
+	// 注入 ToolExecutorAdapter，激活 Agent Loop
 	engine.SetToolExecutor(context.Background(), NewToolExecutorAdapter(executor))
 	return engine, executor
 }
@@ -179,7 +179,7 @@ func stubLLMDispatcher(t *testing.T, toolCallsToReturn []llm.ToolCall, finalCont
 }
 
 // ============================================================================
-// T1 - 客户搜索工具调用（customer.search 真实写入 + 查询）
+// 客户搜索工具调用（customer.search 真实写入 + 查询）
 // ============================================================================
 
 // TestT1_CustomerSearchTool_RealDB 验证 customer.search 工具真实执行
@@ -229,7 +229,7 @@ func TestT1_CustomerSearchTool_RealDB(t *testing.T) {
 }
 
 // ============================================================================
-// T4 - 跟进任务创建工具调用（follow_task.create 真实落库）
+// 跟进任务创建工具调用（follow_task.create 真实落库）
 // ============================================================================
 
 // TestT4_FollowTaskCreate_RealDB 验证 follow_task.create 真实落库
@@ -260,7 +260,7 @@ func TestT4_FollowTaskCreate_RealDB(t *testing.T) {
 }
 
 // ============================================================================
-// T5 - 知识库列表工具调用（knowledge.list_kb 真实数据）
+// 知识库列表工具调用（knowledge.list_kb 真实数据）
 // ============================================================================
 
 // TestT5_KnowledgeListKB_RealDB 验证 knowledge.list_kb 真实返回
@@ -309,7 +309,7 @@ func TestT5_KnowledgeListKB_RealDB(t *testing.T) {
 }
 
 // ============================================================================
-// T6 - 知识反馈工具调用（knowledge.feedback 真实写入）
+// 知识反馈工具调用（knowledge.feedback 真实写入）
 // ============================================================================
 
 // TestT6_KnowledgeFeedback_RealDB 验证 knowledge.feedback 真实写入
@@ -342,7 +342,7 @@ func TestT6_KnowledgeFeedback_RealDB(t *testing.T) {
 }
 
 // ============================================================================
-// T7 - RAG 检索工具调用（rag.search 真实检索）
+// RAG 检索工具调用（rag.search 真实检索）
 // ============================================================================
 
 // TestT7_RagSearch_RealDB 验证 rag.search 真实检索
@@ -383,7 +383,7 @@ func TestT7_RagSearch_RealDB(t *testing.T) {
 }
 
 // ============================================================================
-// T8 - Agent Loop 多轮迭代（LLM → tool → LLM → stop）
+// Agent Loop 多轮迭代（LLM → tool → LLM → stop）
 // ============================================================================
 
 // TestT8_AgentLoop_MultiIteration 验证 Agent Loop 真实多轮迭代
@@ -459,7 +459,7 @@ func TestT8_AgentLoop_MultiIteration(t *testing.T) {
 }
 
 // ============================================================================
-// T9 - 装饰器链拦截验证（限流/审计/计费真实生效）
+// 装饰器链拦截验证（限流/审计/计费真实生效）
 // ============================================================================
 
 // TestT9_DecoratorChain_RealEffect 验证装饰器链真实生效
@@ -534,7 +534,7 @@ func TestT9_DecoratorChain_RealEffect(t *testing.T) {
 }
 
 // ============================================================================
-// T10 - 全局注册中心完整性（41 个工具全部可被 AgentToolExecutor 列出）
+// 全局注册中心完整性（41 个工具全部可被 AgentToolExecutor 列出）
 // ============================================================================
 
 // TestT10_GlobalRegistry_Completeness 验证全局注册中心完整性
@@ -646,7 +646,7 @@ func TestAgentLoop_SalesEngineHandle_RealToolExecutor(t *testing.T) {
 	t.Logf("✅ SalesEngine 注入 ToolExecutor 成功，ListTools 返回 %d 个工具", len(tools))
 
 	// 注意：不实际调用 engine.Handle，因为 LLM Dispatcher 会失败（无真实 LLM 服务）
-	// 真实业务测试通过 T1-T9 已覆盖工具调用全链路
+	// 真实业务测试通过 - 已覆盖工具调用全链路
 }
 
 // ============================================================================

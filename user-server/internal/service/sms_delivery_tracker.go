@@ -1,6 +1,6 @@
 package service
 
-// sms_delivery_tracker.go 短信到达率追踪服务（E 域 P1 缺口 #2）
+// sms_delivery_tracker.go 短信到达率追踪服务（E 域 缺口 #2）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/marketing-features/sms-config.md + 核心链路优化 §15.2

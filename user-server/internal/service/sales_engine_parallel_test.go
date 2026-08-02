@@ -1,8 +1,8 @@
 package service
 
-// sales_engine_parallel_test.go SalesEngine.HandleParallel 单元测试 (T26)
+// sales_engine_parallel_test.go SalesEngine.HandleParallel 单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T7)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - TestSalesEngine_HandleParallel_Phase0: 基本 smoke test, 验证 Phase 0 并行执行不 panic
@@ -101,7 +101,7 @@ func TestSalesEngine_HandleParallel_DefaultConfig(t *testing.T) {
 // TestSalesEngine_ShouldUseParallel 测试 FeatureFlag 控制
 func TestSalesEngine_ShouldUseParallel(t *testing.T) {
 	// 通过临时环境变量控制
-	// 兼容 B-012 FeatureFlag 热加载: t.Setenv 只改 env 不刷缓存,
+	// 兼容 FeatureFlag 热加载: t.Setenv 只改 env 不刷缓存,
 	// 需要 ReloadAll() 才能让新的 env 值生效。
 	t.Run("FF_PARALLEL=1", func(t *testing.T) {
 		t.Setenv("FF_PARALLEL", "1")

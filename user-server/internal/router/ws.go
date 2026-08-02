@@ -1,10 +1,10 @@
-// Package router - ws.go WebSocket 路由（T18）
+// Package router - ws.go WebSocket 路由
 // ============================================================================
 // 5 层架构归属: L2 Router 层（路由层）
 //   - 5 层架构: controller → service → repository → model → dto
 //   - 不做业务逻辑；仅绑定路径与方法
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T18 - WebSocket 流式路由)
+// 设计依据: AI 智能体性能优化 WebSocket 流式路由
 //
 // 路由:
 //   - GET /ws/chat?session_id=xxx&customer_id=xxx - WebSocket 流式对话入口

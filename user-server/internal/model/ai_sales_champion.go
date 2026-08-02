@@ -95,7 +95,7 @@ type SOPAgent struct {
 	Priority       int     `gorm:"default:0" json:"priority"`
 	ExecutionCount int     `gorm:"default:0" json:"execution_count"`
 	SuccessCount   int     `gorm:"default:0" json:"success_count"`
-	// ABTestConfig A/B 测试配置（PRD §5.2 P0-2 G2 新增）
+	// ABTestConfig A/B 测试配置（PRD §5.2 G2 新增）
 	// JSON 结构：{
 	//   "enabled": true,
 	//   "variants": [
@@ -105,7 +105,7 @@ type SOPAgent struct {
 	//   "salt":"customer_id"  // 分流键，默认 customer_id
 	// }
 	ABTestConfig JSONMap `gorm:"type:text" json:"ab_test_config"`
-	// UseBandit 是否启用 Bandit 流量分配（v3.0.0 P0-5 新增）
+	// UseBandit 是否启用 Bandit 流量分配（v3.0.0 新增）
 	// true  → 走 BanditAllocator Thompson Sampling 自适应分流
 	// false → 走原 ABTestConfig 一致性哈希固定权重分流（向后兼容）
 	UseBandit bool      `gorm:"default:false" json:"use_bandit"`
@@ -129,11 +129,11 @@ type SOPExecution struct {
 	StartedAt      time.Time  `json:"started_at"`
 	CompletedAt    *time.Time `json:"completed_at"`
 	ErrorMessage   string     `gorm:"type:text" json:"error_message"`
-	// Variant A/B 测试命中的 variant 名称（PRD §5.2 P0-2 G2 新增）
+	// Variant A/B 测试命中的 variant 名称（PRD §5.2 G2 新增）
 	// 空值表示未启用 A/B 测试
 	Variant string `gorm:"type:varchar(50);index" json:"variant"`
 
-	// P0-1 SOP 节点执行器扩展字段（v2.7.0 迁移新增）
+	// SOP 节点执行器扩展字段（v2.7.0 迁移新增）
 	// 依据：docs/核心链路优化.md 第十三章 §13.3
 	LastEventAt  *time.Time `gorm:"index" json:"last_event_at"`             // 最近一次节点事件时间（卡死检测依据）
 	AttemptCount int        `gorm:"default:0" json:"attempt_count"`         // 当前节点累计重试次数

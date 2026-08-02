@@ -20,7 +20,7 @@ import (
 // ============================================================================
 // 客服会话服务（customer_session.go - 核心 CRUD）
 // ----------------------------------------------------------------------------
-// 文件拆分（2026-07-22 方向C）：
+// 文件拆分（方向C）：
 //   - customer_session.go            本文件：核心 CRUD（CreateSession / Get / SendMessage / UpdateStatus / Rate / Tag）
 //   - customer_session_routing.go    路由：AssignSession / AutoAssign / TransferSession
 //   - customer_session_takeover.go   接管：TakeoverByAgent / ReleaseToAI / SwitchHandler

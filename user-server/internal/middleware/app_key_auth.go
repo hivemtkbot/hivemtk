@@ -13,7 +13,7 @@ import (
 
 // AppKeyResolve AppKey 软解析中间件（不再强制鉴权）
 //
-// 设计原则（2026-07-17 私域部署优化）：
+// 设计原则（私域部署优化）：
 //  1. 不再强制要求 X-Chat-App-Key Header
 //  2. 如果请求带 X-Chat-App-Key -> 解析出 channel 注入上下文（保留溯源能力）
 //  3. 如果请求带 X-Chat-Channel-Id Header 或 body.channel_id -> 用 channel_id 反查 channel

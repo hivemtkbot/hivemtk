@@ -173,7 +173,7 @@ func TestAutoReplyService_SaveCookies(t *testing.T) {
 	}
 	database.Create(account)
 
-	// 保存新 Cookie（R8: 现需传入 userID 做所有权校验）
+	// 保存新 Cookie（: 现需传入 userID 做所有权校验）
 	newCookie := "new_test_cookie"
 	err := service.SaveCookies(ctx, account.ID, newCookie, account.UserID)
 	if err != nil {
@@ -203,7 +203,7 @@ func TestAutoReplyService_SaveCookies_NotFound(t *testing.T) {
 	service := newTestAutoReplyService(database)
 	ctx := context.Background()
 
-	// R8: 现需传入 userID
+	// 现需传入 userID
 	err := service.SaveCookies(ctx, 99999, "test_cookie", 1)
 	if err == nil {
 		t.Error("Expected error for non-existent account")
@@ -212,7 +212,7 @@ func TestAutoReplyService_SaveCookies_NotFound(t *testing.T) {
 
 // TestAutoReplyService_SaveCookies_OwnershipCheck 测试 IDOR 所有权校验
 //
-// R8 回归测试：用户 A 不能修改用户 B 的账号 Cookie。
+// 回归测试：用户 A 不能修改用户 B 的账号 Cookie。
 func TestAutoReplyService_SaveCookies_OwnershipCheck(t *testing.T) {
 	database := setupAutoReplyTestDB(t)
 	service := newTestAutoReplyService(database)

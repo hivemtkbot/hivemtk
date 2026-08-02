@@ -1,6 +1,6 @@
 package repository
 
-// humanize_repositories.go P0-4 拟人度评估器仓储实现
+// humanize_repositories.go 拟人度评估器仓储实现
 //
 // 五层架构归属: L4 数据访问层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.3 表结构设计

@@ -36,26 +36,26 @@ func (s *RagSearcher) vectorSearch(ctx context.Context, productID string, query 
 	if productID != "" {
 		sql := `
 			SELECT id, document_id, content,
-			       (1 - (embedding <=> $1::vector))::float8 AS score
+			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
 			WHERE embedding IS NOT NULL
-			  AND product_id = $2
-			ORDER BY embedding <=> $1::vector
-			LIMIT $3
+			  AND product_id = ?
+			ORDER BY embedding <=> ?::vector
+			LIMIT ?
 		`
-		if err := s.db.WithContext(ctx).Raw(sql, vecLiteral, productID, topK).Scan(&rows).Error; err != nil {
+		if err := s.db.WithContext(ctx).Raw(sql, vecLiteral, productID, vecLiteral, topK).Scan(&rows).Error; err != nil {
 			return nil, err
 		}
 	} else {
 		sql := `
 			SELECT id, document_id, content,
-			       (1 - (embedding <=> $1::vector))::float8 AS score
+			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
 			WHERE embedding IS NOT NULL
-			ORDER BY embedding <=> $1::vector
-			LIMIT $2
+			ORDER BY embedding <=> ?::vector
+			LIMIT ?
 		`
-		if err := s.db.WithContext(ctx).Raw(sql, vecLiteral, topK).Scan(&rows).Error; err != nil {
+		if err := s.db.WithContext(ctx).Raw(sql, vecLiteral, vecLiteral, topK).Scan(&rows).Error; err != nil {
 			return nil, err
 		}
 	}

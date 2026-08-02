@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// 2026-07-31 AI 智能体性能优化 - 双层架构 FAQ Model 测试
+// AI 智能体性能优化 - 双层架构 FAQ Model 测试
 
 func TestFAQEntry_TableName(t *testing.T) {
 	entry := &FAQEntry{}

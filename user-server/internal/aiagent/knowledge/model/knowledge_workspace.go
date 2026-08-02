@@ -86,7 +86,7 @@ type KnowledgeDocument struct {
 	Priority      int         `gorm:"default:0" json:"priority"`
 	Metadata      string      `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	ImportedBy    string      `gorm:"size:64" json:"imported_by"`
-	// 2026-07-31 P0-B: 按智能体隔离字段
+	// 按智能体隔离字段
 	//   nil  = 共享 (默认, 向后兼容旧数据)
 	//   &X   = 仅 X 智能体可见
 	// 索引: idx_knowledge_doc_agent_id (按智能体过滤, ListByAgent)

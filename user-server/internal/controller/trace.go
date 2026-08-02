@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TraceController 全链路追踪控制器（M-3 P1 占位）
+// TraceController 全链路追踪控制器（占位）
 //
 // TODO: 完整实现 trace 查询/聚合
 // 当前仅返回 501，让路由可达、build 通过

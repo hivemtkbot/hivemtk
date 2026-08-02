@@ -9,7 +9,7 @@ import (
 )
 
 // DomainHealthCheckJob 域名健康度定时探测任务
-// G 域 P1：每 5 分钟探测一次所有域名，自动切换到评分最高的健康域名
+// G 域 ：每 5 分钟探测一次所有域名，自动切换到评分最高的健康域名
 type DomainHealthCheckJob struct {
 	healthSvc service.DomainHealthService
 	repo      repository.DomainPoolRepository

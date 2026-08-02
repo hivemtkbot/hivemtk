@@ -1,6 +1,6 @@
 package feedbackloop
 
-// bandit_allocator.go P0-5 Multi-Armed Bandit 流量分配器
+// bandit_allocator.go Multi-Armed Bandit 流量分配器
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4.5

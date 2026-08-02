@@ -1,6 +1,6 @@
-// reach_send_pipeline_test.go 触达消息发送 9 步 Pipeline 测试（PRD §5.2 P0-4 G4）
+// reach_send_pipeline_test.go 触达消息发送 9 步 Pipeline 测试（PRD §5.2 G4）
 //
-// 验收标准（PRD §5.2 P0-4 G4）：
+// 验收标准（PRD §5.2 G4）：
 //   - 高并发下消息不丢失（限流 + 重试保障）
 //   - 敏感词消息被拦截并记录
 //   - 主渠道失败自动降级到备用渠道
@@ -489,7 +489,7 @@ func TestSendPipeline_AuditLogRecordsContent(t *testing.T) {
 	}
 }
 
-// TestSendPipeline_AuditLogOnFailure 验证 PRD §5.2 P0-4 G4 "每条触达有完整审计记录"
+// TestSendPipeline_AuditLogOnFailure 验证 PRD §5.2 G4 "每条触达有完整审计记录"
 // 即失败时也必须记录审计日志
 func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
 	// 用敏感词触发失败

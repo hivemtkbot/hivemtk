@@ -264,7 +264,7 @@ func setupOrchestratorFindOrCreateTestDB(t *testing.T) {
 }
 
 // TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender
-// P2-2 兜底：OneID 为空时，会话 OneID 字段应自动拼接 Platform:SenderID。
+// 兜底：OneID 为空时，会话 OneID 字段应自动拼接 Platform:SenderID。
 // 适用场景：未通过用户实名/手机号识别出的访客（如匿名 Web 访客首次进入），
 // 后续同一 Platform+SenderID 的消息可命中 OneID 命中活跃会话。
 func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(t *testing.T) {
@@ -279,7 +279,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(
 		SenderID:  "visitor-007",
 		Content:   "你好",
 		MessageID: "msg-1",
-		// OneID 故意留空，验证 P2-2 兜底
+		// OneID 故意留空，验证 兜底
 	}
 	sess, err := o.findOrCreateSession(ctx, in)
 	if err != nil {
@@ -301,7 +301,7 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(
 }
 
 // TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID
-// 验证显式 OneID 优先于派生 OneID（P2-2 兜底不应覆盖显式值）。
+// 验证显式 OneID 优先于派生 OneID（兜底不应覆盖显式值）。
 func TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID(t *testing.T) {
 	setupOrchestratorFindOrCreateTestDB(t)
 

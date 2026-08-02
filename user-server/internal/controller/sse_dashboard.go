@@ -3,7 +3,7 @@ package controller
 // sse_dashboard.go SSE 实时驾驶舱控制器
 //
 // 五层架构归属: L1 控制器层
-// 设计依据: PRD §M-4 P1 缺口修复
+// 设计依据: PRD § 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
 // 路由：

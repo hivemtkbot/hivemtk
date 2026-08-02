@@ -11,7 +11,7 @@ import (
 
 // KnowledgeDocumentRepository 知识库文档仓储(产品维度)
 //
-// 2026-07-31 P0-B: 按智能体隔离改造
+// 按智能体隔离改造
 //   - 新增 ListByAgent / ListShared / ListByKB / MatchByAgent
 //   - ListWithFilter 新增 AgentID 字段 (nil=不过滤, &0=仅共享, &X=该智能体)
 //   - 严格隔离语义: agentID > 0 仅匹配 (agent_id=X OR agent_id IS NULL) AND enabled
@@ -80,7 +80,7 @@ func (r *KnowledgeDocumentRepository) GetByProductAndID(ctx context.Context, pro
 //
 // KnowledgeDocument.ProductID 是 string（与 RagProduct.ID 同为 UUID），前端直接传入，无需 HashStringToInt64 转换。
 //
-// 2026-07-31 P0-B: AgentID 字段
+// AgentID 字段
 //   - nil:  不过滤 (兼容旧调用)
 //   - &0:   仅查共享 (agent_id IS NULL)
 //   - &X:   仅查该智能体 (agent_id = X)
@@ -140,7 +140,7 @@ func (r *KnowledgeDocumentRepository) List(ctx context.Context, filter ListFilte
 
 // ListByAgent 列出某智能体的知识库文档 (强 1:1, 不含共享)
 //
-// P0-B: 严格隔离语义, 仅 agent_id = ? 严格匹配, 不含共享 (agent_id IS NULL)
+// 严格隔离语义, 仅 agent_id = ? 严格匹配, 不含共享 (agent_id IS NULL)
 func (r *KnowledgeDocumentRepository) ListByAgent(ctx context.Context, agentID uint, limit int) ([]*model.KnowledgeDocument, error) {
 	if agentID == 0 {
 		return nil, nil
@@ -171,7 +171,7 @@ func (r *KnowledgeDocumentRepository) ListShared(ctx context.Context, limit int)
 	return docs, err
 }
 
-// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的知识库文档)
+// ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的知识库文档)
 //
 // 简化实现: 直接按 agent_id 过滤 (KBType=rag 假设)
 // 完整实现需 JOIN agent_kb_bindings + knowledge_bases, 此处保留简化
@@ -190,7 +190,7 @@ func (r *KnowledgeDocumentRepository) ListByKB(ctx context.Context, kbID uint, a
 	return docs, nil
 }
 
-// MatchByAgent 按智能体严格 1:1 匹配 (P0-B: 强 1对1 改造)
+// MatchByAgent 按智能体严格 1:1 匹配 (: 强 1对1 改造)
 //
 // 行为:
 //   - agentID == 0  -> 返回 (nil, nil)

@@ -14,7 +14,7 @@ import (
 // CustomerOneIDController 客户 360 OneID 控制器
 // 负责多渠道身份合并、冲突解决与身份映射查询
 //
-// P2-2 修复：严格遵循五层架构 Controller → Service → Repository → Model，
+// 修复：严格遵循五层架构 Controller → Service → Repository → Model，
 // 移除原先对 repository.CustomerRepository 的直接依赖，改为通过
 // service.CustomerQueryService 访问数据。
 type CustomerOneIDController struct {

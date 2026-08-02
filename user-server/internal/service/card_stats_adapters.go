@@ -13,10 +13,10 @@ import (
 )
 
 // ============================================================================
-// LM-P2：多平台卡片统计统一接口适配层
+// LM-：多平台卡片统计统一接口适配层
 // ----------------------------------------------------------------------------
 // 5 个平台 service（douyin/kuaishou/xiaohongshu/xianyu/tiktok）原本使用不同
-// 命名的 DTO 与方法签名，LM-P2 引入 PlatformCardStatsService 统一接口后，
+// 命名的 DTO 与方法签名，LM- 引入 PlatformCardStatsService 统一接口后，
 // 此处为每个平台提供 adapter 实现，满足统一接口的同时保留各平台
 // 原方法（向后兼容）。
 // ============================================================================
@@ -452,7 +452,7 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 // 工具函数
 // ----------------------------------------------------------------------------
 
-// parseDateRange 把 "2006-01-02" 字符串转 time.Time；空字符串时返回零值
+// parseDateRange 把 "" 字符串转 time.Time；空字符串时返回零值
 func parseDateRange(start, end string) (time.Time, time.Time) {
 	var s, e time.Time
 	if start != "" {

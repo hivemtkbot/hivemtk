@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// decorator.go 工具执行装饰器链（PRD §5.2 P0-3 G3）
+// decorator.go 工具执行装饰器链（PRD §5.2 G3）
 //
 // 设计目标：
 //  1. 5 装饰器链按固定顺序执行：权限 → 限流 → 重试 → 超时 → 审计计费 → 实际工具执行
@@ -92,7 +92,7 @@ type AuditLogger interface {
 // 新增 TraceID 字段，贯穿整个 Agent Loop 的多次工具调用
 // 同一个 Agent Loop 内所有 AuditEntry 共享同一 TraceID，便于关联分析
 type AuditEntry struct {
-	TraceID       string        `json:"trace_id,omitempty"` // P1-B：贯穿 Agent Loop 的 trace_id
+	TraceID       string        `json:"trace_id,omitempty"` // 贯穿 Agent Loop 的 trace_id
 	ToolName      string        `json:"tool_name"`
 	CallerID      string        `json:"caller_id"`
 	AgentID       string        `json:"agent_id,omitempty"`
@@ -104,7 +104,7 @@ type AuditEntry struct {
 	RetryCount    int           `json:"retry_count"`
 	AuditTrace    string        `json:"audit_trace,omitempty"`
 	ArgsSummary   string        `json:"args_summary,omitempty"`   // 参数摘要（脱敏后）
-	ResultSummary string        `json:"result_summary,omitempty"` // P1-B：结果摘要（前 200 字符）
+	ResultSummary string        `json:"result_summary,omitempty"` // 结果摘要（前 200 字符）
 	ExecutedAt    time.Time     `json:"executed_at"`
 }
 
@@ -170,7 +170,7 @@ func GetToolName(ctx context.Context) string {
 type traceIDKey struct{}
 
 // WithTraceID 将 trace_id 注入 context（供装饰器使用）
-// P1-B：由 Agent Loop 调用方注入，贯穿整个 loop 的所有工具调用
+// 由 Agent Loop 调用方注入，贯穿整个 loop 的所有工具调用
 func WithTraceID(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, traceIDKey{}, traceID)
 }
@@ -419,7 +419,7 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 			if logger != nil {
 				entry := AuditEntry{
 					ToolName:   toolName,
-					TraceID:    GetTraceID(ctx), // P1-B：从 context 取 trace_id
+					TraceID:    GetTraceID(ctx), // 从 context 取 trace_id
 					CallerID:   "",
 					AgentID:    "",
 					CustomerID: "",
@@ -442,7 +442,7 @@ func AuditDecorator(logger AuditLogger, costTracker CostTracker) ToolDecorator {
 					entry.AuditTrace = tc.AuditTrace
 				}
 				entry.ArgsSummary = summarizeArgs(args)
-				// P1-B：记录结果摘要（前 200 字符，避免日志膨胀）
+				// 记录结果摘要（前 200 字符，避免日志膨胀）
 				entry.ResultSummary = summarizeResult(result.Data)
 				// 同步写日志（保证顺序，且 logger 实现可以自己异步落盘）
 				logger.Log(ctx, entry)
@@ -541,7 +541,7 @@ func ChainDecorators(handler ToolHandler, decorators ...ToolDecorator) ToolHandl
 // BuildDefaultChain 按默认顺序构造 5 装饰器链
 // 顺序：权限 → 限流 → 熔断 → 重试 → 超时 → 审计计费 → handler
 //
-// P2-B：新增熔断器装饰器（位于限流之后、重试之前）
+// 新增熔断器装饰器（位于限流之后、重试之前）
 //   - 限流在熔断之前：先过滤掉超频请求，再判断熔断状态
 //   - 熔断在重试之前：避免对已熔断的工具进行重试（浪费资源）
 //   - 超时在审计之前：超时由 TimeoutDecorator 兜底，审计记录真实耗时

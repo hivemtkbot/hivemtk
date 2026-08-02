@@ -9,7 +9,7 @@ import (
 	"marketing/internal/repository"
 )
 
-// SegmentService 用户分群服务 (F-P1-92)。
+// SegmentService 用户分群服务 (F。
 //
 // 职责：
 //   - RFM 变更后触发分群重算（RecomputeForCustomer）
@@ -37,7 +37,7 @@ func NewSegmentServiceWithDeps(r repository.CustomerRFMRepository, c cache.Cache
 	return &SegmentService{rfmRepo: r, cache: c}
 }
 
-// RecomputeForCustomer 重算指定客户的分群成员关系 (F-P1-92)。
+// RecomputeForCustomer 重算指定客户的分群成员关系 (F。
 //
 // 实现 CustomerOrchestrator.SegmentRecomputer 接口，由 OnRFMComputed 调用。
 // 逻辑：

@@ -1,6 +1,6 @@
 // Package featureflag 提供企业级 FeatureFlag 支持
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T5)
+// 设计依据: AI 智能体性能优化
 //   - 支持灰度发布 + 一键回滚
 //   - 5 个核心开关: parallel / stream / layer1 / fallback_chain / debug_log
 //   - 通过 env (FF_XXX=1) 注入, 无需重启即可热加载
@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// PollInterval 热加载轮询周期 (B-012 生产化加固)
+// PollInterval 热加载轮询周期 (生产化加固)
 // 每 5s 重新读取 env, 实现 "改 env 不重启" 的热加载。
 // 5s 平衡了响应延迟和 CPU 开销 (每秒 0.2 次 env 读取, 对 5 个 flag 几乎无负担)。
 const PollInterval = 5 * time.Second
@@ -35,7 +35,7 @@ type Flag struct {
 	mu          sync.RWMutex
 	lastReload  time.Time
 
-	// B-012: 缓存上一次解析结果, 配合后台轮询实现热加载
+	// 缓存上一次解析结果, 配合后台轮询实现热加载
 	// resolve() 直接返回缓存, 由 background poller 定期刷新。
 	// 这样业务热路径 (每次 Handle 调用 f.Bool() 数十次) 不会触发重复的 os.Getenv 系统调用。
 	cachedValue bool
@@ -65,7 +65,7 @@ func DefaultManager() *FlagManager {
 		defaultManager.register("layer1", false)
 		defaultManager.register("fallback_chain", false)
 		defaultManager.register("debug_log", false)
-		// B-012: 启动后台轮询 goroutine 实现热加载
+		// 启动后台轮询 goroutine 实现热加载
 		defaultManager.startPoller()
 	})
 	return defaultManager
@@ -90,7 +90,7 @@ func (m *FlagManager) register(name string, defaultValue bool) *Flag {
 	return f
 }
 
-// startPoller 启动后台轮询 goroutine (B-012 热加载)
+// startPoller 启动后台轮询 goroutine (热加载)
 //
 // 每 PollInterval 重新读取 env 写入所有 flag 的 cachedValue。
 // 调用 StopPoller 停止 (用于单测 / 优雅关闭)。
@@ -146,7 +146,7 @@ func MustGet(name string) *Flag {
 //   - env FF_<NAME>=0 / false / no / "" -> false
 //   - env 未设置 -> 使用 defaultValue
 //
-// B-012: 不再每次都读 env, 而是返回 cachedValue, 由后台 goroutine 每 5s 刷新。
+// 不再每次都读 env, 而是返回 cachedValue, 由后台 goroutine 每 5s 刷新。
 // 业务代码调用 f.Bool() 数十次/请求, 缓存避免重复系统调用。
 func (f *Flag) Bool() bool {
 	f.mu.RLock()
@@ -202,7 +202,7 @@ func (f *Flag) LastReload() time.Time {
 
 // ReloadAll 重新加载所有 flag (可由 SIGHUP handler / admin API / 后台 poller 触发)
 //
-// B-012: 立即读一次 env 刷新所有 flag 的 cachedValue, 同时更新 lastReload。
+// 立即读一次 env 刷新所有 flag 的 cachedValue, 同时更新 lastReload。
 // 后台 poller 每 5s 自动调用一次; SIGHUP handler / admin API 触发即时刷新。
 func (m *FlagManager) ReloadAll() {
 	m.mu.RLock()

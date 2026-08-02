@@ -14,7 +14,7 @@ func ptrTime(t time.Time) *time.Time { return &t }
 
 // SecurityAuditService 安全审计服务
 //
-// P2-5 重构：通过 SecurityAuditRepository 接口访问数据，不再直接持有 *gorm.DB
+// 重构：通过 SecurityAuditRepository 接口访问数据，不再直接持有 *gorm.DB
 type SecurityAuditService struct {
 	repo repository.SecurityAuditRepository
 }

@@ -1,8 +1,8 @@
 // Package agent 是「智能体」领域的总入口。
 //
-// 设计依据：docs/architecture/adr/ADR-012-multichannel-cs-sales-requirement-model.md
+// 设计依据：docs/architecture/adr/-multichannel-cs-sales-requirement-model.md
 //
-//	docs/architecture/adr/ADR-013-agent-two-mode.md（被动/主动双模式）
+// docs/architecture/adr/-agent-two-mode.md（被动/主动双模式）
 //
 // 核心理念：
 //

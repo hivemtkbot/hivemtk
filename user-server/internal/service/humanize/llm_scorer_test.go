@@ -1,6 +1,6 @@
 package humanize
 
-// llm_scorer_test.go P0-4 LLMScorer 单元测试
+// llm_scorer_test.go LLMScorer 单元测试
 //
 // 覆盖：
 //  1. 基本评估流程（含 self-consistency N=3）

@@ -11,13 +11,13 @@ package selflearning
 // 用户开启即全自动执行（v1.1 §7.4）
 //
 // 本包包含 7 个组件：
-//   P0 核心服务（v1.1 §2-§6）:
+// 核心服务（v1.1 §2-§6）:
 //     1. SwitchService         - 三位一体统一开关（三级自治 + 6 道护栏 + 熔断）
 //     2. DialogueEventPublisher - 对话事件发布（dialogue.started/ended）
 //     3. RAGSelfCorrector      - RAG 自我矫正（预热 + 反思 + 低质标记 + 销冠补录）
 //     4. AssetBundleLearner    - 资产包自我学习（候选生成 + 聚类升级 + 降级）
 //     5. Orchestrator          - 主调度器（订阅事件 + 协程调度 + 信号量 + 幂等）
-//   P1 三位一体扩展（v1.1 §7）:
+// 三位一体扩展（v1.1 §7）:
 //     6. RAGSelfSupervisor     - RAG 5 维监督指标 + LLM-as-Judge 采样
 //     7. SelfCorrectionDispatcher - 失败矩阵派发 7 类修复策略
 //

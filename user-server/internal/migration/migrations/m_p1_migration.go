@@ -1,19 +1,19 @@
 package migrations
 
-// m_p1_migration.go M 域 P1 缺口修复迁移 v3.1.0
+// m_p1_migration.go 缺口修复迁移 v3.1.0
 //
 // 五层架构归属: L5 数据层
-// 设计依据: PRD §M-1/M-2/M-3/M-4 P1 缺口修复
+// 设计依据: PRD §/// 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移创建 M 域 P1 缺口修复所需的 4 张新表：
-//  1. provider_health     - LLM Provider 健康状态（M-1）
-//  2. system_kv_config    - 系统键值配置（M-1 降级策略存储）
-//  3. intent_logs         - 精细意图识别日志（M-2，8 大类 + 7 子类）
-//  4. trace_events        - 全链路追踪事件（M-3）
+// 本迁移创建 缺口修复所需的 4 张新表：
+// 1. provider_health - LLM Provider 健康状态
+// 2. system_kv_config - 系统键值配置（降级策略存储）
+// 3. intent_logs - 精细意图识别日志（，8 大类 + 7 子类）
+// 4. trace_events - 全链路追踪事件
 //
 // 注意：
-//   - SSE Hub（M-4）使用内存管理 client 连接，无 DB 表
+// SSE Hub使用内存管理 client 连接，无 DB 表
 //   - 所有 DDL 使用 IF NOT EXISTS，可重入
 //   - intent_logs 与现有 intent_records 共存，互不依赖
 //
@@ -29,7 +29,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// MP1Migration M 域 P1 缺口修复迁移 v3.1.0
+// MP1Migration 缺口修复迁移 v3.1.0
 type MP1Migration struct {
 	db *gorm.DB
 }

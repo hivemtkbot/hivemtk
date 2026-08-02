@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// requireLocalEmbedding 私域部署基线（2026-07-16）：
+// requireLocalEmbedding 私域部署基线：
 // 依赖真实本地 embedding 服务的测试，需要在本地启动 TEI 容器。
 // CI / 本地无 embedding 容器时，设置 EMBEDDING_ALLOW_FALLBACK=true 即可让单测用 hash 降级运行。
 func requireLocalEmbedding(t *testing.T) {

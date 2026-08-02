@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// intent_test.go 销冠域 DTO 类型测试（P2-6）
+// intent_test.go 销冠域 DTO 类型测试
 
 func TestRecognizeResult_Fields(t *testing.T) {
 	r := RecognizeResult{

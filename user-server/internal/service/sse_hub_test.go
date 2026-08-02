@@ -3,7 +3,7 @@ package service
 // sse_hub_test.go SSE Hub 测试
 //
 // 五层架构归属: L2 服务层测试
-// 设计依据: PRD §M-4 P1 缺口修复
+// 设计依据: PRD § 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
 // 覆盖范围：

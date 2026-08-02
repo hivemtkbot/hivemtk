@@ -1,11 +1,11 @@
 package service
 
-// rag_metrics_test.go RAG 召回率监控服务测试（C 域 P1 缺口 #2）
+// rag_metrics_test.go RAG 召回率监控服务测试（C 域 缺口 #2）
 //
 // 测试覆盖：
 //   1) NewRagMetricsService 构造
 //   2) RecordQuerySync 同步写入
-//   3) GetRecallMetrics 聚合（含 P99 偏移法）
+// 3) GetRecallMetrics 聚合（含 偏移法）
 //   4) GetLowRecallQueries 阈值过滤
 //   5) AggregateWindow 幂等性
 //   6) AggregateLastWindow 窗口对齐
@@ -212,7 +212,7 @@ func TestRagMetrics_GetRecallMetrics_Empty(t *testing.T) {
 	}
 }
 
-// TestRagMetrics_GetRecallMetrics_Aggregation 测试聚合计算（含 P99）
+// TestRagMetrics_GetRecallMetrics_Aggregation 测试聚合计算（含）
 func TestRagMetrics_GetRecallMetrics_Aggregation(t *testing.T) {
 	db := setupRagMetricsTestDB(t)
 	svc := NewRagMetricsService(db)

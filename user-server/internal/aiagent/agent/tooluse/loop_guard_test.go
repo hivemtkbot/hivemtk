@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// loop_guard_test.go P3-B: 工具级循环检测装饰器测试
+// loop_guard_test.go : 工具级循环检测装饰器测试
 //
 // 覆盖：
 //   1. LoopGuard 基础功能：允许/拦截

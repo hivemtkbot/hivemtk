@@ -411,7 +411,7 @@ type SelfSupervisionSignal struct {
 	SampleCount int64                   `gorm:"not null;default:0" json:"sample_count"`
 	Status      SupervisionSignalStatus `gorm:"type:varchar(16);index;not null;default:'normal'" json:"status"`
 	TraceIDs    pq.StringArray          `gorm:"type:text[];not null;default:'{}'" json:"trace_ids"` // 触发 trace 列表（前 10）
-	Detail      JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"detail"`              // 详细分位数/P50/P95 等
+	Detail      JSONMap                 `gorm:"type:jsonb;default:'{}'" json:"detail"`              // 详细分位数// 等
 	CreatedAt   time.Time               `gorm:"autoCreateTime;index" json:"created_at"`
 	UpdatedAt   time.Time               `gorm:"autoUpdateTime" json:"updated_at"`
 }

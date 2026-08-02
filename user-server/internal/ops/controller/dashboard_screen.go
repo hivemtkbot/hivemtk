@@ -144,7 +144,7 @@ func (c *DashboardScreenController) PublicViewScreen(ctx *gin.Context) {
 // GetDashboardData 获取仪表板大屏实时聚合数据
 // 该接口汇总线索、客户、订单、消息、抖音/小红书卡片等多源真实数据
 // 用于前端大屏可视化展示,绝不返回模拟数据
-// 架构修复（P0-6）：通过 Service 层访问 DB，不再直接调 db.GetDB()
+// 架构修复：通过 Service 层访问 DB，不再直接调 db.GetDB
 func (c *DashboardScreenController) GetDashboardData(ctx *gin.Context) {
 	data, err := c.screenService.AggregateDashboardData()
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *DashboardScreenController) GetDashboardData(ctx *gin.Context) {
 }
 
 // GetRealtimeActivities 获取实时活动
-// 架构修复（P0-6）：通过 Service 层访问 DB
+// 架构修复：通过 Service 层访问 DB
 func (c *DashboardScreenController) GetRealtimeActivities(ctx *gin.Context) {
 	activities, err := c.screenService.FetchRealtimeActivities(20)
 	if err != nil {
@@ -166,7 +166,7 @@ func (c *DashboardScreenController) GetRealtimeActivities(ctx *gin.Context) {
 }
 
 // aggregateDashboardData 聚合大屏数据(基于真实数据库)
-// 架构修复（P0-6）：已迁移到 service.DashboardScreenService.AggregateDashboardData
+// 架构修复：已迁移到 service.DashboardScreenService.AggregateDashboardData
 // 此方法保留为空实现以避免破坏其他调用方；新代码应直接使用 service
 func (c *DashboardScreenController) aggregateDashboardData() gin.H {
 	data, err := c.screenService.AggregateDashboardData()
@@ -177,7 +177,7 @@ func (c *DashboardScreenController) aggregateDashboardData() gin.H {
 }
 
 // weeklyClueCount 获取最近 N 天每天的线索数
-// 架构修复（P0-6）：已迁移到 service
+// 架构修复：已迁移到 service
 func (c *DashboardScreenController) weeklyClueCount(days int) []int {
 	gormDB := sysrepo.GetDB()
 	now := time.Now()
@@ -193,7 +193,7 @@ func (c *DashboardScreenController) weeklyClueCount(days int) []int {
 }
 
 // fetchRealtimeActivities 获取最近活动
-// 架构修复（P0-6）：已迁移到 service.DashboardScreenService.FetchRealtimeActivities
+// 架构修复：已迁移到 service.DashboardScreenService.FetchRealtimeActivities
 func (c *DashboardScreenController) fetchRealtimeActivities() []gin.H {
 	activities, _ := c.screenService.FetchRealtimeActivities(20)
 	result := make([]gin.H, 0, len(activities))

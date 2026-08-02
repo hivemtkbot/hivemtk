@@ -3,7 +3,7 @@ package service
 // layer_router.go 双层架构路由决策器
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T11)
+// 设计依据: AI 智能体性能优化
 //
 // 决策流程:
 //   1. FF_LAYER1 关闭 -> 直接返回 Layer2 (LLM 兜底)
@@ -33,7 +33,7 @@ const (
 	sopHitThresh = 0.65
 )
 
-// FAQMatcher FAQ 匹配接口 (2026-07-31 DIP 重构, 便于 mock 单测)
+// FAQMatcher FAQ 匹配接口 (DIP 重构, 便于 mock 单测)
 //
 // 满足接口的最小方法集: MatchByKeyword + MatchByAgent (Task 15 强 1对1) + IncrementHitCount
 type FAQMatcher interface {
@@ -97,7 +97,7 @@ type RouteRequest struct {
 	// Task 15 强 1对1: 智能体 ID (uint); 0 = 无 agent (走 Layer2)
 	AgentID uint
 	// 旧字段保留 (向后兼容), 后续移除
-	// 2026-07-31 P1-A: 智能体绑定的 FAQ / SOP 模板 ID 集合
+	// 智能体绑定的 FAQ / SOP 模板 ID 集合
 	// 空切片 = 全局共享, 非空 = 仅在绑定的 ID 集合内匹配
 	AgentFAQIDs         []string
 	AgentSOPTemplateIDs []string

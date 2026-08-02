@@ -10,12 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// db_audit_persister.go P2-G: 工具调用审计日志 DB 持久化
-// P2-H: 告警机制（基于阈值触发）
+// db_audit_persister.go : 工具调用审计日志 DB 持久化
+// 告警机制（基于阈值触发）
 //
 // 设计目标：
-//   - P2-G: 将 AuditEntry 持久化到 PostgreSQL，便于长期保留和查询
-//   - P2-H: 当工具失败率/熔断状态超过阈值时触发告警（通过回调通知外部系统）
+// 将 AuditEntry 持久化到 PostgreSQL，便于长期保留和查询
+// 当工具失败率/熔断状态超过阈值时触发告警（通过回调通知外部系统）
 //
 // 设计要点：
 //   - DB 写入异步（避免阻塞主流程）

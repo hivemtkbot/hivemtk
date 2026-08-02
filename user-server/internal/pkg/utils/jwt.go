@@ -70,9 +70,9 @@ type CustomClaims struct {
 	UserID       uint   `json:"user_id,string"`
 	Username     string `json:"username"`
 	Role         string `json:"role"`
-	DataScope    string `json:"data_scope,omitempty"`    // P1-4：数据范围 all/department/team/self
-	DepartmentID uint   `json:"department_id,omitempty"` // P1-4：部门 ID
-	TeamID       uint   `json:"team_id,omitempty"`       // P1-4：团队 ID
+	DataScope    string `json:"data_scope,omitempty"`    // 数据范围 all/department/team/self
+	DepartmentID uint   `json:"department_id,omitempty"` // 部门 ID
+	TeamID       uint   `json:"team_id,omitempty"`       // 团队 ID
 	jwt.RegisteredClaims
 }
 
@@ -91,7 +91,7 @@ func (j *JWTUtils) GenerateToken(userID uint, username, role string) (string, er
 	return j.GenerateTokenWithScope(userID, username, role, "", 0, 0)
 }
 
-// GenerateTokenWithScope 生成带数据范围的 JWT 令牌（P1-4 行级权限）
+// GenerateTokenWithScope 生成带数据范围的 JWT 令牌（行级权限）
 func (j *JWTUtils) GenerateTokenWithScope(userID uint, username, role, dataScope string, departmentID, teamID uint) (string, error) {
 	// 创建声明
 	claims := CustomClaims{

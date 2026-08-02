@@ -24,7 +24,7 @@ type WhatsappService struct {
 }
 
 // NewWhatsappService 创建 WhatsappService。
-// P2-2 修复：原构造函数接收 repo 参数导致 controller 越层 new repository，
+// 修复：原构造函数接收 repo 参数导致 controller 越层 new repository，
 // 现改为内部构造 repo，保持五层架构（Controller → Service → Repository）。
 func NewWhatsappService() *WhatsappService {
 	return &WhatsappService{

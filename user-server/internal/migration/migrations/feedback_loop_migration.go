@@ -1,12 +1,12 @@
 package migrations
 
-// feedback_loop_migration.go P0-5 反馈学习闭环迁移 v3.0.0
+// feedback_loop_migration.go 反馈学习闭环迁移 v3.0.0
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.3 表结构设计
 // 私域独立部署: 无 merchant_id / tenant_id 多租户字段
 //
-// 本迁移创建 P0-5 反馈学习闭环所需的 6 张新表 + 2 张现有表扩展字段：
+// 本迁移创建 反馈学习闭环所需的 6 张新表 + 2 张现有表扩展字段：
 //  新表 1. feedback_events    - 反馈事件流水（append-only）
 //  新表 2. feedback_signals   - 反馈信号聚合（按 session 唯一）
 //  新表 3. champion_dialogues - 销冠对话 + pgvector 向量
@@ -28,7 +28,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// FeedbackLoopMigration P0-5 反馈学习闭环迁移 v3.0.0
+// FeedbackLoopMigration 反馈学习闭环迁移 v3.0.0
 type FeedbackLoopMigration struct {
 	db *gorm.DB
 }

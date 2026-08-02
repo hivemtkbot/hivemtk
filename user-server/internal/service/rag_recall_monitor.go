@@ -1,6 +1,6 @@
 package service
 
-// rag_recall_monitor.go RAG 召回率监控（C 域 P1 缺口 #2 - 监控指标）
+// rag_recall_monitor.go RAG 召回率监控（C 域 缺口 #2 - 监控指标）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
@@ -11,7 +11,7 @@ package service
 //                              * Top-K 命中率  (top_k_hit_rate)
 //                              * Top-1 命中率  (top_1_hit_rate)
 //                              * 平均相似度     (avg_similarity)
-//                              * 检索耗时 P95  (p95_latency_ms)
+// * 检索耗时 (p95_latency_ms)
 //                              * 自动定时写入  rag_recall_monitor_snapshots 表
 //
 // 数据来源：rag_query_logs（每次检索产出一条，由检索服务同步调用 RecordQuery）。
@@ -185,7 +185,7 @@ func (s *RagRecallMonitorService) Collect(ctx context.Context, start, end time.T
 		summary.TopOneHitRate = float64(row.Top1Hit) / float64(row.Total)
 	}
 
-	// 2) P95 延迟
+	// 2) 延迟
 	if row.Total > 0 {
 		p95Offset := int(float64(row.Total) * 0.95)
 		if p95Offset >= int(row.Total) {

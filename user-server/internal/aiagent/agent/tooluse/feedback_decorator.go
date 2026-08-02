@@ -25,7 +25,7 @@ import (
 //      但为了避免双重计时，本装饰器位于 AuditDecorator 之后（外层），
 //      通过独立的 sink.RecordToolCall 异步上报
 //
-// 装饰器链位置（P3-A 后，实际执行顺序，外→内）：
+// 装饰器链位置（后，实际执行顺序，外→内）：
 //   死信 → 反馈回流 → 循环检测 → 权限 → 限流 → 熔断 → 参数校验 → 缓存 → 重试 → 超时 → 审计计费 → handler
 //   （反馈回流位于重试之外：重试是同一逻辑调用的多次尝试，只回流最终结果）
 //   （反馈回流位于审计之外：审计已记录完整信息，反馈回流可复用 result/error）
@@ -33,7 +33,7 @@ import (
 
 // ===== 接口定义（解耦 tooluse ↔ feedback_loop）=====
 
-// ToolRiskLevel 工具风险级别（P3-D）
+// ToolRiskLevel 工具风险级别
 //
 // 用于反馈加权：写工具的反馈信号权重高于读工具（写操作影响持久状态，
 // 失败代价更高；读操作失败可重试，影响有限）。
@@ -79,9 +79,9 @@ type ToolCallEvent struct {
 	Source     string         `json:"source,omitempty"`      // 调用来源（agent/sop/manual/api）
 	Success    bool           `json:"success"`               // 是否成功
 	Error      string         `json:"error,omitempty"`       // 错误信息
-	// 风险级别（P3-D）：用于反馈加权（写工具的反馈信号权重高于读工具）
+	// 风险级别：用于反馈加权（写工具的反馈信号权重高于读工具）
 	RiskLevel ToolRiskLevel `json:"risk_level,omitempty"`
-	// 工具版本（P3-C）：用于版本维度分析
+	// 工具版本：用于版本维度分析
 	Version string `json:"version,omitempty"`
 }
 
@@ -92,7 +92,7 @@ type ToolCallEvent struct {
 // 在工具执行结束后，将调用事件回流到 FeedbackSink。
 // sink 为 nil 时直接放行（零开销）。
 //
-// P1-3：通过 MonitoredFeedbackSink 包装，对 sink.RecordToolCall 错误进行监控
+// 通过 MonitoredFeedbackSink 包装，对 sink.RecordToolCall 错误进行监控
 //   - 错误计数（atomic，无锁）
 //   - 错误日志（log.Printf，便于运维定位）
 //   - 错误率超阈值告警（10s 窗口内错误率 > 50% 时输出告警日志）
@@ -143,7 +143,7 @@ func FeedbackCollectorDecorator(sink FeedbackSink) ToolDecorator {
 				// 限制回流最大耗时 5s，防止 sink 卡死 goroutine
 				sinkCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				// P1-3：监控 sink.RecordToolCall 错误
+				// 监控 sink.RecordToolCall 错误
 				// 错误不影响主链路，但需要被观测以发现反馈回流链路异常
 				if sinkErr := sink.RecordToolCall(sinkCtx, ev); sinkErr != nil {
 					log.Printf("[WARN] FeedbackSink.RecordToolCall failed: tool=%s trace_id=%s err=%v",
@@ -184,7 +184,7 @@ func sanitizeArgsForFeedback(args map[string]any) map[string]any {
 
 // MemoryFeedbackSink 内存反馈接收器（用于测试 / 单机审计）
 //
-// P2-2：采用环形缓冲区（ring buffer）实现 O(1) 写入
+// 采用环形缓冲区（ring buffer）实现 O(1) 写入
 //   - 旧实现使用 slice + events[1:] 满容量时 O(n) 拷贝，高频写入时性能瓶颈
 //   - 新实现使用固定容量 + head/size 指针，写入复杂度 O(1)
 //   - 读出时按 oldest→newest 顺序返回（保持语义一致）
@@ -214,7 +214,7 @@ func NewMemoryFeedbackSink(max int) *MemoryFeedbackSink {
 	}
 }
 
-// RecordToolCall 记录工具调用事件（P2-2：环形缓冲区 O(1) 写入）
+// RecordToolCall 记录工具调用事件（：环形缓冲区 O(1) 写入）
 func (s *MemoryFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -280,7 +280,7 @@ func (NoOpFeedbackSink) RecordToolCall(ctx context.Context, event ToolCallEvent)
 	return nil
 }
 
-// ===== P1-3: FeedbackSink 错误监控 =====
+// ===== : FeedbackSink 错误监控 =====
 
 // FeedbackSinkMetrics 反馈回流错误监控指标
 //
@@ -328,7 +328,7 @@ func (m *FeedbackSinkMetrics) Snapshot() FeedbackSinkMetricsSnapshot {
 	}
 }
 
-// MonitoredFeedbackSink 带 metrics 监控的 FeedbackSink 包装器（P1-3）
+// MonitoredFeedbackSink 带 metrics 监控的 FeedbackSink 包装器
 //
 // 包装任意 FeedbackSink，在 RecordToolCall 调用时统计成功/失败次数
 // 用于运维监控反馈回流链路健康度

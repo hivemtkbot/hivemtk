@@ -1,6 +1,6 @@
 package service
 
-// sop_dispatcher_test.go SOP 调度器与 Outbox/StuckDetector 集成测试（P0-1 §13.6 验收）
+// sop_dispatcher_test.go SOP 调度器与 Outbox/StuckDetector 集成测试（§13.6 验收）
 //
 // 覆盖：
 //  1. SOPRetryPolicy.Backoff 指数退避计算（纯单元测试）

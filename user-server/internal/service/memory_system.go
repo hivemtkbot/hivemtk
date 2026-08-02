@@ -20,13 +20,13 @@ import (
 )
 
 // MemorySystem 4 层记忆系统入口
-// 对应 SYSTEM_AUDIT_REPORT_20260715_V3 P0-13
+// 对应 SYSTEM_AUDIT_REPORT_20260715_V3
 // L1 短期: 当前会话最近 N 条消息（DB 持久化 + 可选 Redis 加速）
 // L2 长期: 客户档案、关键事实、对话摘要（PostgreSQL + 嵌入向量预留）
 // L3 SOP 状态: SOP 流程级执行位置（与 sop_executions 同步）
 // L4 业务: 订单/咨询/异议/意向等业务实体记忆
 //
-// P1-1 G5 增强（2026-07-17）：L2 长期记忆新增 pgvector 增强版（CustomerLongTermMemory）
+// G5 增强：L2 长期记忆新增 pgvector 增强版（CustomerLongTermMemory）
 //   - Remember/Recall 提供向量检索 + 重排序（importance + 时间衰减）
 //   - 与原 L2SaveFact/L2ListFacts 并行，互不干扰
 type MemorySystem struct {
@@ -41,7 +41,7 @@ const (
 	L4MaxPerCust = 500            // L4 每客户最大条数（防爆）
 	defaultImp   = 5
 
-	// P1-1 G5 L2 长期记忆 pgvector 相关常量
+	// G5 L2 长期记忆 pgvector 相关常量
 	longTermMemoryRecallMultiplier = 3                   // 粗召回倍数：limit * 3，避免重排序后错过重要记忆
 	longTermMemoryMaxFetch         = 50                  // 单次召回最大条数
 	longTermMemoryDecayDuration    = 30 * 24 * time.Hour // 30 天衰减为 0
@@ -410,7 +410,7 @@ func (m *MemorySystem) SyncFromDialogueMemory(ctx context.Context, mem *model.Di
 	logger.Infof("[MemorySystem] 同步 DialogueMemory customer=%s 完成", mem.CustomerID)
 }
 
-// =================== P1-1 G5 L2 长期记忆（pgvector 增强） ===================
+// =================== G5 L2 长期记忆（pgvector 增强） ===================
 
 // LongTermMemoryRecallResult Recall 结果
 type LongTermMemoryRecallResult struct {
@@ -420,7 +420,7 @@ type LongTermMemoryRecallResult struct {
 }
 
 // Remember 记录一条长期记忆（自动 Embedding + 存储）
-// 对应 PRD §5.2 P1-1 G5：MemorySystem.Remember(ctx, customerID, memType, content, importance)
+// 对应 PRD §5.2 G5：MemorySystem.Remember(ctx, customerID, memType, content, importance)
 // 验收：第一次对话客户说预算 5000，第二次对话 Recall 能主动返回该记忆
 func (m *MemorySystem) Remember(ctx context.Context, customerID string, memType model.LongTermMemoryType, content string, importance int) (*model.CustomerLongTermMemory, error) {
 	if m.memoryRepo == nil {
@@ -494,7 +494,7 @@ func (m *MemorySystem) RememberWithSource(ctx context.Context, customerID string
 }
 
 // Recall 召回与 query 最相关的长期记忆
-// 对应 PRD §5.2 P1-1 G5：MemorySystem.Recall(ctx, customerID, query, limit)
+// 对应 PRD §5.2 G5：MemorySystem.Recall(ctx, customerID, query, limit)
 // 算法：向量检索（PG pgvector）+ 重排序（importance + 时间衰减）
 //   - PG 环境：使用 pgvector 索引召回
 //   - 无 pgvector（如未初始化 embedding）：降级为扫表 + 内存计算余弦相似度 + 重排序

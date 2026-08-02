@@ -40,7 +40,7 @@ func NewDialogueMemoryService(db *gorm.DB, dispatcher *llm.Dispatcher) *Dialogue
 	return &DialogueMemoryService{repo: repo, dispatcher: dispatcher}
 }
 
-// Message / ShortTermMemory 已迁至 dto 包（P2-6 DTO 层补全）
+// Message / ShortTermMemory 已迁至 dto 包（DTO 层补全）
 // 使用 dto.Message / dto.ShortTermMemory 替代本地类型
 
 // GetOrCreateMemory 获取或创建记忆

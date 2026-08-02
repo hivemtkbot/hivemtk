@@ -23,7 +23,7 @@ import (
 //   - 私域独立部署模式下，所有数据归属当前部署实例
 //   - 凭据（Access Token / App Secret）不回显，返回掩码
 //
-// P2-2 修复：移除 repo 字段，所有数据操作通过 svc (WhatsAppCloudService) 完成，
+// 修复：移除 repo 字段，所有数据操作通过 svc (WhatsAppCloudService) 完成，
 // 严格遵循五层架构 Controller → Service → Repository → Model
 type WhatsAppCloudAccountController struct {
 	svc            *service.WhatsAppCloudService

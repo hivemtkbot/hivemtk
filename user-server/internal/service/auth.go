@@ -73,7 +73,7 @@ func (s *AuthService) JwtUtils(ctx context.Context) *utils.JWTUtils {
 
 // Login 用户登录
 //
-// 严格规则（修复 P0-3）：
+// 严格规则（修复）：
 //  1. 不再"系统无用户 → 自动注册为超管"——该机制绕过 InitGuard/LicenseGuard，
 //     导致未绑 License 即可创建超管，摧毁安全模型。
 //  2. 必须先有用户（由 InitSetup 创建）才能登录。
@@ -106,7 +106,7 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 
 // loginWithUser 使用用户对象完成登录流程
 func (s *AuthService) loginWithUser(ctx context.Context, user *model.SystemUser) (*LoginResponse, error) {
-	// P1-1 修复：MFA 启用检查
+	// 修复：MFA 启用检查
 	// 用户名密码验证 OK 后，若启用了 MFA，则返回 need_mfa + temp_token，等待二次验证
 	mfaSvc := NewMFAService()
 	mfaEnabled, err := mfaSvc.IsMFAEnabled(ctx, user.ID)
@@ -175,7 +175,7 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID uint) (*SystemU
 }
 
 // ChangePassword 修改密码
-// P1-3 修复：强制走密码策略校验 + 记录历史
+// 修复：强制走密码策略校验 + 记录历史
 func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *ChangePasswordRequest) error {
 	// 查找用户
 	user, err := s.systemUserRepo.GetByID(ctx, userID)
@@ -192,7 +192,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 		return errors.New("原密码不正确")
 	}
 
-	// P1-3 修复：强制走密码策略校验
+	// 修复：强制走密码策略校验
 	policySvc := NewPasswordPolicyService()
 	if err := policySvc.ValidatePassword(ctx, req.NewPassword, userID); err != nil {
 		return err
@@ -212,7 +212,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uint, req *Chan
 		return errors.New("修改密码失败")
 	}
 
-	// P1-3 修复：记录密码历史
+	// 修复：记录密码历史
 	if err := policySvc.RecordPasswordHistory(ctx, userID, req.NewPassword, model.PasswordSourceChangePassword); err != nil {
 		logger.Errorf("记录密码历史失败（不影响改密流程）: %v", err)
 	}

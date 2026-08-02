@@ -14,7 +14,7 @@ import (
 )
 
 // WebhookController 多渠道 Webhook 控制器
-// 对应 P0-14 多渠道 Webhook
+// 对应 多渠道 Webhook
 // 提供 9 个渠道的回调入口
 type WebhookController struct {
 	svc          *service.WebhookService

@@ -198,7 +198,7 @@ func (c *IntentController) Intents(ctx *gin.Context) {
 	response.Success(ctx, service.DefaultIntents, "查询成功")
 }
 
-// ===== M-2 P1：精细意图识别（8 大类 + 7 子类）=====
+// ===== ：精细意图识别（8 大类 + 7 子类）=====
 
 // RecognizeFineRequest 精细识别请求
 type RecognizeFineRequest struct {

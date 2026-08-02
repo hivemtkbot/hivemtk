@@ -7,7 +7,7 @@ import (
 )
 
 // ============================================================================
-// 全局依赖持有（2026-07-23）
+// 全局依赖持有
 // ----------------------------------------------------------------------------
 // 启动期由 main.go 通过 SetGlobalDispatcher / SetGlobalProviderFailover 注入，
 // setupLLMRoutingRoutes / setupLLMProviderRoutes 读取后构造 service/controller。

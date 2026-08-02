@@ -3,7 +3,7 @@ package service
 // intent_recognition_fine_test.go 精细意图识别（8 大类 + 7 子类）测试
 //
 // 五层架构归属: L2 服务层测试
-// 设计依据: PRD §M-2 P1 缺口修复
+// 设计依据: PRD § 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
 // 覆盖范围：

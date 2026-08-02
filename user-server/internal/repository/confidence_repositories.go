@@ -1,6 +1,6 @@
 package repository
 
-// confidence_repositories.go P0-3 置信度驱动转人工 7 个 Repository
+// confidence_repositories.go 置信度驱动转人工 7 个 Repository
 //
 // 五层架构归属: L4 数据访问层
 // 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计

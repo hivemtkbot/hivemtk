@@ -1,6 +1,6 @@
 package feedbackloop
 
-// sop_auto_optimizer_test.go P0-5 SOP 自动优化器测试
+// sop_auto_optimizer_test.go SOP 自动优化器测试
 //
 // 覆盖：
 //  B. PG 集成测试

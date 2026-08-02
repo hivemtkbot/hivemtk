@@ -1,10 +1,10 @@
 package migrations
 
-// l_p1_migration.go L 域 P1 缺口修复迁移 v3.3.0
+// l_p1_migration.go L 域 缺口修复迁移 v3.3.0
 //
 // 五层架构归属: L5 数据层
-// 设计依据: L 域 P1 缺口修复 (2026-07-21)
-//   - P1-1 ERP/CRM 预置对接模板（钉钉/企微/飞书/用友/金蝶/管家婆/SAP）
+// 设计依据: L 域 缺口修复
+// ERP/CRM 预置对接模板（钉钉/企微/飞书/用友/金蝶/管家婆/SAP）
 //
 // 私域独立部署: 无 merchant_id 字段
 //
@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// LP1Migration L 域 P1 缺口修复迁移
+// LP1Migration L 域 缺口修复迁移
 type LP1Migration struct {
 	db *gorm.DB
 }

@@ -34,7 +34,7 @@ import (
 )
 
 // WebhookService 多渠道 Webhook 服务
-// 对应 SYSTEM_AUDIT_REPORT_20260715_V3 P0-14
+// 对应 SYSTEM_AUDIT_REPORT_20260715_V3
 // 支持渠道：抖音/快手/小红书/闲鱼/TikTok/微信/企业微信/WhatsApp/Telegram/自建
 // 核心能力：
 //  1. 验签（HMAC-SHA256 + 微信 SHA1 + 企微 SHA1 + 加解密）
@@ -1863,12 +1863,12 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 
 // sendOutbound 出站发送（按 channel）；ctx 用于透传 trace_id（来自 triggerSmartOrchestrator / 回退链路）
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub) {
-	// R3/V3 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
+	// /V3 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
 	// 同一 EventID 仅首条链路出站，杜绝重复消息；同时防御 webhook 平台重复投递
 	// （同 EventID 二次到达）导致的重复出站。
 	if !agent_runtime.ClaimReply(p.EventID) {
 		logger.Ctx(ctx).Info().Str("event_id", p.EventID).Msg("skip duplicate outbound (event already replied)")
-		// R9 可观测性：记录被幂等守卫拦截的重复出站 (私域: 无 Prometheus, 仅日志)
+		// 可观测性：记录被幂等守卫拦截的重复出站 (私域: 无 Prometheus, 仅日志)
 		return
 	}
 	// 出站结果追踪：仅当真正成功出站时才保留认领（防重复）；
@@ -1883,7 +1883,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 	}()
 	switch channel {
 	case ChannelWeCom:
-		// 企微出站底层 = WeComIntegrationService（与 IntegrationReachAdapter.SendWeCom 共享同一底层，R3 已收敛为单一出站入口）
+		// 企微出站底层 = WeComIntegrationService（与 IntegrationReachAdapter.SendWeCom 共享同一底层， 已收敛为单一出站入口）
 		if s.integration == nil {
 			return
 		}
@@ -1986,7 +1986,7 @@ func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 		return false
 	}
 	if !set {
-		// R9 可观测性：命中去重的重复投递 (私域: 无 Prometheus, 仅日志)
+		// 可观测性：命中去重的重复投递 (私域: 无 Prometheus, 仅日志)
 		logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[webhook] dedup hit")
 		return true
 	}

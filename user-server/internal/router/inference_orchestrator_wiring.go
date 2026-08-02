@@ -15,7 +15,7 @@ import (
 )
 
 // ============================================================================
-// 推理闭环编排器装配（P1-6）
+// 推理闭环编排器装配
 // ----------------------------------------------------------------------------
 // 文档依据：docs/企业级架构优化/认知决策大脑层.md / 核心数据流向.md
 //
@@ -69,7 +69,7 @@ var (
 //   - 创建 InferenceCycle（含默认 4 阶段：感知/对齐/门禁/规划）
 //   - 注入 EpisodicMemoryProvider（包装 MemorySystem）
 //   - 创建 CoreDataFlowOrchestrator（暂不注入 AssetLoader/ToolRouter/Publisher，
-//     由后续 P1-6b/P1-6c 逐步激活）
+// 由后续 -6b/-6c 逐步激活
 func initInferenceOrchestrator() {
 	inferenceOrchestratorOnce.Do(func() {
 		cycle := agent_runtime.NewInferenceCycle()
@@ -200,7 +200,7 @@ func handleInferenceStats(c *gin.Context) {
 }
 
 // ============================================================================
-// P2-8: 工具权限白名单管理 API
+// 工具权限白名单管理 API
 // ============================================================================
 
 // 全局权限检查器单例（由 tool_executor_wiring.go 初始化时注入，

@@ -1,6 +1,6 @@
 package controller
 
-// chat_ws_origin_test.go B-018 WebSocket CheckOrigin 白名单测试
+// chat_ws_origin_test.go WebSocket CheckOrigin 白名单测试
 //
 // 验证 buildCheckOrigin 在不同白名单 / Origin 组合下的行为:
 //   - 严格匹配 (allowed list 包含 origin -> 放行)

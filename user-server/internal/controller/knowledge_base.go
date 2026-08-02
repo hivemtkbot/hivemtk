@@ -3,7 +3,7 @@ package controller
 // knowledge_base_controller.go 知识库 L3 Controller
 //
 // 五层架构归属: L3 API 接入层
-// 设计依据: 2026-07-31 强 1对1 改造 (P1-A 知识库管理)
+// 设计依据: 强 1对1 改造 (知识库管理)
 //
 // 接口前缀: /api/knowledge-bases
 //   GET    /api/knowledge-bases                列表查询 (前端知识库管理页面)

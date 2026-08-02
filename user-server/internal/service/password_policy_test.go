@@ -1,6 +1,6 @@
 package service
 
-// password_policy_test.go A 域 P1-3 密码策略服务测试
+// password_policy_test.go A 域 密码策略服务测试
 //
 // 测试目标（5+ 核心场景）：
 //  1. ValidatePassword - 长度、字符集、特殊字符、大小写、数字

@@ -1,6 +1,6 @@
 package service
 
-// rag_metrics.go RAG 召回率监控服务（C 域 P1 缺口 #2）
+// rag_metrics.go RAG 召回率监控服务（C 域 缺口 #2）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
@@ -302,7 +302,7 @@ func (s *RagMetricsService) GetRecallMetrics(ctx context.Context, start, end tim
 	metrics.ZeroHitCount = row.ZeroHit
 	metrics.LowRecallCount = row.LowRecall
 
-	// 2) P99 延迟：取延迟升序排列后第 99 百分位
+	// 2) 延迟：取延迟升序排列后第 99 百分位
 	// PostgreSQL 没有原生 PERCENTILE_CONT 在所有版本支持，这里用偏移法
 	// offset = floor(total * 0.99)，升序排列后跳过 offset 条取下一条
 	// 例：10 条数据，offset=9，升序第 10 条 = 最大值

@@ -14,9 +14,9 @@ import (
 )
 
 // ============================================================================
-// P1-3 G7 反馈学习闭环服务
+// G7 反馈学习闭环服务
 // ----------------------------------------------------------------------------
-// 对应 PRD §5.2 P1-3 G7：系统自我进化
+// 对应 PRD §5.2 G7：系统自我进化
 //
 // 三大能力：
 //  1. 销冠画像 5 维度提取（从对话记录自动提取能力维度）
@@ -534,7 +534,7 @@ func (s *FeedbackLearningService) GenerateOptimizationSuggestions(ctx context.Co
 		suggestions = append(suggestions, sug)
 	}
 
-	// 持久化：P1-17 修复，原循环单条 Create 改为 CreateInBatches 批写
+	// 持久化： 修复，原循环单条 Create 改为 CreateInBatches 批写
 	if len(suggestions) > 0 {
 		if err := s.feedbackRepo.CreateSuggestionsInBatches(ctx, suggestions, 100); err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Int("count", len(suggestions)).

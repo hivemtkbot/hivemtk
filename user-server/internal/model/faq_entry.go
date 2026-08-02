@@ -1,8 +1,8 @@
 /*
  * @Author: xiaofang
- * @Date: 2026-07-31 13:35:39
+ * @Date:
  * @LastEditors: xiaofang
- * @LastEditTime: 2026-07-31 13:36:06
+ * @LastEditTime:
  * @FilePath: /hivemtk/hivemtk/user-server/internal/model/faq_entry.go
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -17,7 +17,7 @@ import (
 // FAQEntry FAQ 知识库条目 (Layer1 快速匹配)
 //
 // 五层架构归属: L5 数据层 (横向)
-// 设计依据: 2026-07-31 AI 智能体性能优化
+// 设计依据: AI 智能体性能优化
 //   - Layer1 路由决策依赖 FAQ 命中 (零 LLM, <100ms)
 //   - 双层架构: Layer1 FAQ 命中 -> SkipLLM; Layer2 LLM 兜底
 //
@@ -35,9 +35,9 @@ import (
 //   - Intent:   关联意图 (与 IntentLog.IntentMajor 对齐)
 //   - Confidence: 人工标注的基准置信度 (0-1, 用于动态阈值)
 //   - HitCount: 命中次数 (用于优化排序 + 报表)
-//   - QualityScore: 动态质量分 0-1, 默认 0.5 (B-021: 用于周期衰减/正负反馈)
-//   - LastHitAt:    最近一次命中时间 (B-021: 用于 7 天未命中判定)
-//   - NegativeHitCount: 用户负反馈次数 (B-021: 用于快速降权)
+// QualityScore: 动态质量分 0-1, 默认 0.5 (: 用于周期衰减/正负反馈)
+// LastHitAt: 最近一次命中时间 (: 用于 7 天未命中判定)
+// NegativeHitCount: 用户负反馈次数 (: 用于快速降权)
 type FAQEntry struct {
 	ID               uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	Question         string         `gorm:"type:text;not null" json:"question"`
@@ -50,7 +50,7 @@ type FAQEntry struct {
 	QualityScore     float64        `gorm:"type:decimal(5,4);default:0.5" json:"quality_score"`
 	LastHitAt        *time.Time     `gorm:"type:timestamptz" json:"last_hit_at,omitempty"`
 	NegativeHitCount int            `gorm:"type:integer;default:0" json:"negative_hit_count"`
-	// 2026-07-31 P0-B: 按智能体隔离字段
+	// 按智能体隔离字段
 	//   nil  = 共享 (默认, 向后兼容旧数据)
 	//   &X   = 仅 X 智能体可见
 	// 索引: idx_faq_agent_id (按智能体过滤, ListByAgent / MatchByAgent 加速)

@@ -2,7 +2,7 @@ package repository
 
 // knowledge_document_test.go 知识库文档 Repository 智能体隔离测试
 //
-// 2026-07-31 P0-B 知识库隔离架构: 验证 ListByAgent / ListShared / ListByKB / MatchByAgent
+// 知识库隔离架构: 验证 ListByAgent / ListShared / ListByKB / MatchByAgent
 // 与 ListFilter.AgentID 过滤的语义正确性。
 //
 // 使用 testutil.NewTestDB 跑 PG 真实库 (项目唯一允许的测试 DB 模式)

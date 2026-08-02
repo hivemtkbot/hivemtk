@@ -1,10 +1,10 @@
-// Package controller - chat_ws.go 聊天 WebSocket 控制器（T15-T17）
+// Package controller - chat_ws.go 聊天 WebSocket 控制器（-）
 // ============================================================================
 // 5 层架构归属: L3 Controller 层（编排层）
 //   - 仅依赖 service 接口（不直接访问 db / repository / model）
 //   - 通过 StreamEngineInterface 抽象 service.SalesEngine（依赖倒置 / 解耦）
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T15-T17 - WebSocket 流式输出)
+// 设计依据: AI 智能体性能优化 - WebSocket 流式输出
 //
 // 职责:
 //   - WebSocket 协议升级（gorilla/websocket）
@@ -65,10 +65,10 @@ const (
 )
 
 // ============================================================================
-// StreamEngineInterface (B-005)
+// StreamEngineInterface
 // ============================================================================
 //
-// B-005 重构: 接口已迁移至 internal/contract 包, 避免 controller ↔ service
+// 重构: 接口已迁移至 internal/contract 包, 避免 controller ↔ service
 // 循环依赖风险。此处仅保留类型别名以维持调用方最小改动, 后续调用应直接引用
 // contract.StreamEngineInterface。
 
@@ -98,7 +98,7 @@ type ChatWSController struct {
 //
 // 参数 engine 可为 nil（nil 时 HandleChatWS 返回 503）；hub 必须非 nil。
 //
-// B-018: CheckOrigin 改为从 config 读取白名单
+// CheckOrigin 改为从 config 读取白名单
 //   - 默认 ["http://localhost:3000", "http://localhost:8080"] (本地开发)
 //   - 生产应通过 env ALLOWED_WS_ORIGINS 或 config.yaml platform.allowed_ws_origins 覆盖
 //   - 白名单包含 "*" 时放行所有 origin (仅调试)

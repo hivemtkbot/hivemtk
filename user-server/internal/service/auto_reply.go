@@ -80,7 +80,7 @@ func (s *AutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReply
 
 // SaveCookies 保存账号 Cookie
 //
-// 安全修复（R8）：原签名 SaveCookies(id, cookie) 缺少 userID 参数，
+// 安全修复：原签名 SaveCookies(id, cookie) 缺少 userID 参数，
 // 任意已认证用户可通过 /api/autoreply/accounts/:id/cookies 覆盖任意账号 Cookie（IDOR）。
 // 现要求传入 userID 并校验 account.UserID == userID，越权访问返回 ErrAccountNotOwned。
 func (s *AutoReplyService) SaveCookies(ctx context.Context, id uint, cookie string, userID uint) error {

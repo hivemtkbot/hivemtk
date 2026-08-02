@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// executor_test.go 工具执行引擎测试（PRD §5.2 P0-3 G3）
+// executor_test.go 工具执行引擎测试（PRD §5.2 G3）
 
 // ===== 辅助：构造一个 mock tool =====
 

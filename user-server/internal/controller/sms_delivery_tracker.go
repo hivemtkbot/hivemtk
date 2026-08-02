@@ -40,7 +40,7 @@ func NewSmsDeliveryTrackerController(svc *service.SmsDeliveryTrackerService) *Sm
 // @Description  按时间窗口统计送达/失败/黑名单/携号转网触达失败 + 按运营商分布
 // @Tags         SMS Delivery
 // @Produce      json
-// @Param        start  query  string  false  "起始时间（RFC3339 或 2006-01-02 15:04:05）"
+// @Param start query string false "起始时间（RFC3339 或）"
 // @Param        end    query  string  false  "结束时间（默认 now）"
 // @Success      200    {object}  service.DeliveryRateMetrics
 // @Router       /api/sms/delivery/metrics [get]

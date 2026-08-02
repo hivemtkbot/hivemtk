@@ -1,9 +1,9 @@
 package repository
 
-// knowledge_base.go 知识库主表 Repository (P0-B 隔离架构)
+// knowledge_base.go 知识库主表 Repository (隔离架构)
 //
 // 五层架构归属: L5 数据访问层
-// 设计依据: 2026-07-31 P0 知识库隔离架构
+// 设计依据: 知识库隔离架构
 //   - 知识库主表 CRUD
 //   - 支持按 Type/Agent/OwnerType/共享 多种维度查询
 //   - 业务逻辑 (缓存/权限/编排) 在 Service 层

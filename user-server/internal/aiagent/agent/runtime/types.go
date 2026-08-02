@@ -1,6 +1,6 @@
 // Package agent_runtime 提供 AI 智能体运行时隔离层。
 //
-// 设计依据：docs/architecture/adr/ADR-008-agent-runtime-isolation.md
+// 设计依据：docs/architecture/adr/-agent-runtime-isolation.md
 //
 // 核心职责：
 //  1. 加载智能体上下文（从 ai_agents 表 + channel_agent_bindings 表）
@@ -49,13 +49,13 @@ type AgentContext struct {
 	// 知识库挂载
 	RagProductIDs []string
 
-	// 2026-07-31 P0-B: FAQ / SOP 模板 ID 集合 (P1-A 字段, P0-B 仍保留)
+	// FAQ / SOP 模板 ID 集合 (字段, 仍保留)
 	// - 空切片 = 全局共享 (向后兼容)
-	// - 非空 = 仅匹配绑定的 ID 集合 (旧路径, 已被 P0-B 强 1:1 替代, 但仍可走)
+	// 非空 = 仅匹配绑定的 ID 集合 (旧路径, 已被 强 1:1 替代, 但仍可走)
 	FAQEntryIDs    []string
 	SOPTemplateIDs []string
 
-	// SOP / 话术库 / 决策策略 / A/B 实验挂载（ADR-008 §2.3）
+	// SOP / 话术库 / 决策策略 / A/B 实验挂载（§2.3）
 	SOPIDs              []string
 	ScriptLibraryIDs    []string
 	DecisionStrategyIDs []string

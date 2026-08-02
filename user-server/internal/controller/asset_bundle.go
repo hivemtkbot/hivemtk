@@ -70,7 +70,7 @@ func (c *AssetBundleController) Register(rg *gin.RouterGroup) {
 	g.POST("/enabled/list", c.GetEnabled)
 }
 
-// SubmitToPlatform 将本地资产包提交平台审核上架（开发者上架链路 P0）
+// SubmitToPlatform 将本地资产包提交平台审核上架（开发者上架链路）
 func (c *AssetBundleController) SubmitToPlatform(ctx *gin.Context) {
 	assetID := ctx.Param("id")
 	if assetID == "" {

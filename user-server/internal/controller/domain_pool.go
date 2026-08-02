@@ -15,7 +15,7 @@ import (
 )
 
 // DomainPoolController 域名池控制器
-// G 域 P1：扩展健康度评分、平台黑名单、自动切换相关端点
+// G 域 ：扩展健康度评分、平台黑名单、自动切换相关端点
 type DomainPoolController struct {
 	domainPoolService service.DomainPoolService
 	healthService     service.DomainHealthService
@@ -171,7 +171,7 @@ func (c *DomainPoolController) CheckAllDomains(ctx *gin.Context) {
 	response.Success(ctx, results, "检查完成")
 }
 
-// ============== G 域 P1 健康度自动切换 ==============
+// ============== G 域 健康度自动切换 ==============
 
 // HealthCheck 单个域名健康度探测（含评分）
 // @Summary 健康度探测

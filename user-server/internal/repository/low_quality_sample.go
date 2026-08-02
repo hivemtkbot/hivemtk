@@ -8,7 +8,7 @@ import (
 	"marketing/internal/pkg/utils/db"
 )
 
-// LowQualitySampleRepository 低质样本仓储（拟人度域 P0-4 管理面读模型）
+// LowQualitySampleRepository 低质样本仓储（拟人度域 管理面读模型）
 //
 // 写入由 HumanizeLowQualitySampleCollector 负责，本仓储仅提供管理面列表查询，
 // 命名按业务域（low_quality_sample），不按管理角色或优先级。

@@ -5,7 +5,7 @@ import "time"
 // LayerDecisionLog 双层架构决策日志
 //
 // 五层架构归属: L5 数据层 (横向)
-// 设计依据: 2026-07-31 AI 智能体性能优化
+// 设计依据: AI 智能体性能优化
 //   - 可观测性核心: 每次对话的 Layer1/Layer2 决策 + Fallback 链路
 //   - 用于 Grafana 面板: Layer 决策分布 / Fallback 触发率 / Layer1 命中率
 //

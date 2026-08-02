@@ -126,7 +126,7 @@ func (a *eventBusAdapter) Publish(topic string, payload any) error {
 //   - func(payload *event.AssetDegradedPayload)
 //   - event.Handler (func(evt Event) error)
 //
-// P1-2：新增 default 分支，未匹配的 handler 类型显式返回错误
+// 新增 default 分支，未匹配的 handler 类型显式返回错误
 // 避免调用方误以为订阅成功但实际无 handler 被注册的"静默失败"问题
 func (a *eventBusAdapter) Subscribe(topic string, handler any) error {
 	if a.bus == nil {
@@ -158,7 +158,7 @@ func (a *eventBusAdapter) Subscribe(topic string, handler any) error {
 	case event.Handler:
 		a.bus.Subscribe(topic, h)
 	default:
-		// P1-2：default 分支显式报错
+		// default 分支显式报错
 		// 避免调用方误以为订阅成功但实际无 handler 被注册的"静默失败"问题
 		// 错误信息包含 handler 的实际类型，便于定位调用方代码
 		return fmt.Errorf("eventBusAdapter.Subscribe: unsupported handler type %T for topic %q (supported: func(*DialogueStartedPayload), func(*DialogueEndedPayload), func(*AssetDegradedPayload), event.Handler)", handler, topic)

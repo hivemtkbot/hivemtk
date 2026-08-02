@@ -1,7 +1,7 @@
 package service
 
 // ============================================================================
-// SOP Outbox 调度器与卡死检测器（P0-1 SOP 节点执行器完善设计）
+// SOP Outbox 调度器与卡死检测器（SOP 节点执行器完善设计）
 // ----------------------------------------------------------------------------
 // 设计依据：docs/核心链路优化.md 第十三章 §13.2.4 / §13.2.5
 // 私域独立部署：无 merchant_id 字段
@@ -135,7 +135,7 @@ func (o *SOPOutboxDispatcher) processDueTimers(ctx context.Context) {
 	ctx = logger.WithModule(ctx, "sop_outbox")
 
 	now := time.Now()
-	// P1-21：使用 FOR UPDATE SKIP LOCKED 让多实例并行安全抢占
+	// 使用 FOR UPDATE SKIP LOCKED 让多实例并行安全抢占
 	// 第一个拿到行的实例进入事务处理，其他实例立即跳过该行
 	timers, err := o.timerRepo.FindDueForUpdate(ctx, now, o.batchSize)
 	if err != nil {

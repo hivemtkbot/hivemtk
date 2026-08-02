@@ -1,10 +1,10 @@
 package service
 
-// row_level_security.go A 域 P1-4 数据行级权限服务
+// row_level_security.go A 域 数据行级权限服务
 //
 // 五层架构归属: L3 业务服务层
 // 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
-//          A 域 P1 缺口修复 (2026-07-21)
+// A 域 缺口修复
 //
 // 数据范围说明（team_user.data_scope）：
 //   1 = DataScopeAll        全部数据（仅 admin/超管）
@@ -34,7 +34,7 @@ import (
 
 // TeamDataScope 团队用户数据范围（与 team_user.data_scope 列对齐）
 //
-// 设计依据：A 域 P1-4 需求文档「team_user.data_scope (1=全部 2=本部门 3=本人 4=自定义)」
+// 设计依据：A 域 需求文档「team_user.data_scope (1=全部 2=本部门 3=本人 4=自定义)」
 type TeamDataScope int
 
 const (

@@ -3,7 +3,7 @@ package service
 // sop_template_service.go SOP 模板业务服务层
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T10) + 强 1对1 改造 (Task 16)
+// 设计依据: AI 智能体性能优化 + 强 1对1 改造 (Task 16)
 //
 // 职责:
 //   - 按 (agent_id, intent, stage) 严格 1对1 匹配 SOP 模板
@@ -43,7 +43,7 @@ const (
 	sopAgentShared uint = 0
 )
 
-// sopTemplateWhitelist SOP 模板渲染白名单 (B-022: 防 SSTI)
+// sopTemplateWhitelist SOP 模板渲染白名单 (: 防 SSTI)
 //
 // 仅允许以下字段被传入 text/template.Execute, 其他字段 (特别是 user_message) 一律过滤。
 // 新增白名单字段需同时:
@@ -216,7 +216,7 @@ func (s *SOPTemplateService) MatchByAgent(ctx context.Context, agentID uint, int
 //   - agentSOPIDs 为空: 不再走 MatchByIntentStage, 直接返回 (nil, nil) (强 1对1: 移除"空数组=全局"分支)
 //   - agentSOPIDs 非空: 走 MatchByIDs (旧 ID 集合过滤)
 //
-// Deprecated: 2026-07-31 Task 16 强 1对1 改造, 新代码应使用 MatchByAgent(ctx, agentID, ...)。
+// Deprecated: Task 16 强 1对1 改造, 新代码应使用 MatchByAgent(ctx, agentID, ...)。
 // 仅供 layer.go 过渡期使用。
 func (s *SOPTemplateService) MatchByAgentLegacy(ctx context.Context, agentSOPIDs []string, intent, stage string) ([]model.SOPTemplate, error) {
 	if s.repo == nil {
@@ -350,7 +350,7 @@ func sopToDTO(t *model.SOPTemplate) *dto.SOPTemplate {
 // Render 渲染模板 (Go text/template)
 //
 //   - rawTpl: 含 {{.var_name}} 占位符的字符串
-//   - vars:   map[string]any 变量 (B-022: 仅白名单字段透传到模板, 防止 SSTI)
+// vars: map[string]any 变量 (: 仅白名单字段透传到模板, 防止 SSTI)
 //
 // 安全:
 //   - 白名单外的字段 (特别是 user_message) 会被过滤, 不会到达模板
@@ -372,7 +372,7 @@ func (s *SOPTemplateService) Render(rawTpl string, vars map[string]any) (string,
 	return buf.String(), nil
 }
 
-// filterWhitelistVars 过滤 vars, 只保留白名单字段 (B-022: 防 SSTI)
+// filterWhitelistVars 过滤 vars, 只保留白名单字段 (: 防 SSTI)
 //
 // 返回新 map, 不修改入参。
 // nil 入参返回空 map (nil-safe)。

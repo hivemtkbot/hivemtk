@@ -191,19 +191,19 @@ func allModels() []any {
 		&model.SOPOutbox{},
 		&model.SalesIntentScore{},
 		&model.AISalesLog{},
-		// P0-13 4 层记忆系统
+		// 4 层记忆系统
 		&model.MemoryItem{},
 		&model.SOPStateMemory{},
 		&model.BusinessMemory{},
-		// P1-1 G5 L2 长期记忆 pgvector 增强
+		// G5 L2 长期记忆 pgvector 增强
 		&model.CustomerLongTermMemory{},
-		// P1-2 G6 拟人度评估器低质样本收集
+		// G6 拟人度评估器低质样本收集
 		&model.LowQualitySample{},
-		// P1-3 G7 反馈学习闭环（销冠画像快照 / SOP 节点流转 / 优化建议）
+		// G7 反馈学习闭环（销冠画像快照 / SOP 节点流转 / 优化建议）
 		&model.SalesChampionProfileSnapshot{},
 		&model.SOPNodeTransition{},
 		&model.OptimizationSuggestion{},
-		// P0-3 置信度驱动转人工（8 表）
+		// 置信度驱动转人工（8 表）
 		&model.ConfidenceSignal{},
 		&model.ConfidenceCalibration{},
 		&model.HandoffDecisionRecord{},
@@ -212,13 +212,13 @@ func allModels() []any {
 		&model.SLAMonitor{},
 		&model.ABTest{},
 		&model.ABTestMetric{},
-		// P0-4 拟人度评估器（5 表）
+		// 拟人度评估器（5 表）
 		&model.HumanizeScore{},
 		&model.HumanizeDimensionRecord{},
 		&model.ChampionBaseline{},
 		&model.ChampionPhrase{},
 		&model.ABTestStat{},
-		// P0-5 反馈学习闭环（6 表，champion_dialogues 含 pgvector 向量列）
+		// 反馈学习闭环（6 表，champion_dialogues 含 pgvector 向量列）
 		&model.FeedbackEvent{},
 		&model.FeedbackSignal{},
 		&model.ChampionDialogue{},
@@ -234,7 +234,7 @@ func allModels() []any {
 		// AI 私域销冠系统 - 数据报表
 		&model.ConversionFunnel{},
 		&model.SalesPersona{},
-		// P2/P3 扩展模型
+		// / 扩展模型
 		&opsmodel.PerformanceTestResult{},
 		&model.SecurityAuditResult{},
 		// RAG V2.0 增强模型
@@ -243,7 +243,7 @@ func allModels() []any {
 		&knowledgemodel.KnowledgeImportLog{},
 		&knowledgemodel.KnowledgeSearchLog{},
 		&knowledgemodel.KnowledgeOpenAPISource{},
-		// P0-14 商户 RAG 增强：API Token、用户反馈、外部导入任务
+		// 商户 RAG 增强：API Token、用户反馈、外部导入任务
 		&knowledgemodel.KnowledgeAPIToken{},
 		&knowledgemodel.KnowledgeFeedback{},
 		&knowledgemodel.ExternalImportJob{},
@@ -255,13 +255,13 @@ func allModels() []any {
 	&model.LLMProvider{},
 	// 场景路由规则持久化（替代纯内存态 ScenarioRoute 种子，重启不丢、多实例一致）
 	&model.LLMRoutingRule{},
-		// 2026-07-31 AI 性能优化: FAQ / SOP 模板 + Layer 决策日志 (双层架构)
+		// AI 性能优化: FAQ / SOP 模板 + Layer 决策日志 (双层架构)
 		&model.FAQEntry{},
 		&model.SOPTemplate{},
 		&model.LayerDecisionLog{},
-		// P0-10 ADR-010: 客服 Web Widget 嵌入渠道
+		// 客服 Web Widget 嵌入渠道
 		&model.ChatChannel{},
-		// P2-X: 商户端通知中心（站内通知 / 顶部铃铛 badge）
+		// 商户端通知中心（站内通知 / 顶部铃铛 badge）
 		&model.Notification{},
 		// 方向9：资产包模式 — OpenAI messages 资产包 CRUD + Weave 织布算法
 		&model.AssetBundle{},
@@ -341,7 +341,7 @@ func AutoMigrate() *gorm.DB {
 	// 终校验（缺陷闭环）：兜底捕获「单模型迁移被可容忍错误静默跳过、
 	// 但表实际未建成」的情况。isTolerableMigrateError 仅按错误文本宽口径放行，
 	// 无法区分「约束命名漂移（表已存在）」与「建表失败（表不存在）」，
-	// 历史上曾导致 platform_account_configs 在 DB 重置后漏建、P10/P11 接口运行时
+	// 历史上曾导致 platform_account_configs 在 DB 重置后漏建、/ 接口运行时
 	// 才报 relation does not exist。此处逐模型核对表是否真实落地，任一缺失即
 	// 启动期 panic，把隐患暴露在部署阶段而非生产 500。
 	if missing := missingTables(DB, allModels()...); len(missing) > 0 {
@@ -375,7 +375,7 @@ func isTolerableMigrateError(err error) bool {
 		return true
 	}
 	// 幂等重跑时 GORM 可能发出 "already exists"（relation/type/constraint/index 已存在），
-	// 属正常 no-op，不应触发 panic（R5/R6 仅针对真实建表/列失败，如 relation does not exist）。
+	// 属正常 no-op，不应触发 panic（/ 仅针对真实建表/列失败，如 relation does not exist）。
 	if strings.Contains(msg, "already exists") {
 		logger.Warn("AutoMigrate 命中幂等重跑提示(可容忍): " + msg)
 		return true

@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// 2026-07-31 AI 智能体性能优化 - Layer Decision Log Repository 测试
+// AI 智能体性能优化 - Layer Decision Log Repository 测试
 
 func setupLayerLogTestDB(t *testing.T) *gorm.DB {
 	t.Helper()

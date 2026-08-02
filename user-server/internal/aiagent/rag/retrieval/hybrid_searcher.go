@@ -297,7 +297,7 @@ func (s *HybridSearcher) logSearch(productID string, query string, topK, vecN, b
 			(query, product_id, top_k, vector_count, bm25_count, fused_count, rerank_count,
 			 vector_latency_ms, bm25_latency_ms, rewrite_latency_ms, rerank_latency_ms,
 			 rewrite_used, cache_hit, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
 	`,
 		query, productID, topK, vecN, bm25N, fusedN, finalN,
 		vecLatency, bm25Latency, rewriteLatency, rerankLatency,

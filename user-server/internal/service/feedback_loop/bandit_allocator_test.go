@@ -1,6 +1,6 @@
 package feedbackloop
 
-// bandit_allocator_test.go P0-5 Multi-Armed Bandit 流量分配器测试
+// bandit_allocator_test.go Multi-Armed Bandit 流量分配器测试
 //
 // 覆盖：
 //  A. 纯算法单元测试（不需 PG）

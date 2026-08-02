@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// requireLocalEmbedding 私域部署基线（2026-07-18）：
+// requireLocalEmbedding 私域部署基线：
 // 依赖真实本地 embedding 服务的测试需要本地启动 TEI 容器（bge-m3）。
 // 单测环境无 embedding 容器时设置 EMBEDDING_ALLOW_FALLBACK=true 即可用 hash 降级跑通。
 func requireLocalEmbedding(t *testing.T) {

@@ -1,8 +1,8 @@
 package service
 
-// sop_template_test.go SOP Template Service 单元测试 (T26)
+// sop_template_test.go SOP Template Service 单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T10)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - Render: 基本变量替换 ({{.var_name}} -> 实际值)
@@ -23,7 +23,7 @@ import (
 // TestSOPTemplate_Render_BasicVars 测试基本变量替换
 func TestSOPTemplate_Render_BasicVars(t *testing.T) {
 	svc := &SOPTemplateService{}
-	// B-022: 仅使用白名单字段 (customer_id/intent/stage/agent_name/product_name)
+	// 仅使用白名单字段 (customer_id/intent/stage/agent_name/product_name)
 	vars := map[string]any{
 		"customer_id":  "张三",
 		"product_name": "纸皮核桃",
@@ -184,10 +184,10 @@ func TestSOPTemplate_MatchByIntentStage_NilRepo(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
-// B-022 SOP 模板 SSTI 白名单测试
+// SOP 模板 SSTI 白名单测试
 // ----------------------------------------------------------------------------
 
-// TestSOPTemplate_Render_UserMessageNotAllowed 验证 user_message 不入模板 (B-022)
+// TestSOPTemplate_Render_UserMessageNotAllowed 验证 user_message 不入模板
 //
 // 攻击场景: 模板里写 {{.user_message}}, 攻击者输入 {{ .Intent }} 之类的模板注入。
 // 修复: Render 走白名单 filterWhitelistVars, user_message 被丢弃。
@@ -212,7 +212,7 @@ func TestSOPTemplate_Render_UserMessageNotAllowed(t *testing.T) {
 	}
 }
 
-// TestSOPTemplate_Render_OnlyWhitelistVars 验证只有白名单字段透传 (B-022)
+// TestSOPTemplate_Render_OnlyWhitelistVars 验证只有白名单字段透传
 func TestSOPTemplate_Render_OnlyWhitelistVars(t *testing.T) {
 	svc := &SOPTemplateService{}
 	tpl := "客户={{.customer_id}} 意图={{.intent}} 阶段={{.stage}} 坐席={{.agent_name}} 商品={{.product_name}} 意图名={{.intent_name}}"
@@ -243,7 +243,7 @@ func TestSOPTemplate_Render_OnlyWhitelistVars(t *testing.T) {
 	}
 }
 
-// TestSOPTemplate_filterWhitelistVars_NilSafe 验证 nil 入参安全 (B-022)
+// TestSOPTemplate_filterWhitelistVars_NilSafe 验证 nil 入参安全
 func TestSOPTemplate_filterWhitelistVars_NilSafe(t *testing.T) {
 	out := filterWhitelistVars(nil)
 	if out == nil {
@@ -254,7 +254,7 @@ func TestSOPTemplate_filterWhitelistVars_NilSafe(t *testing.T) {
 	}
 }
 
-// TestSOPTemplate_filterWhitelistVars_DoesNotMutate 验证不修改入参 (B-022)
+// TestSOPTemplate_filterWhitelistVars_DoesNotMutate 验证不修改入参
 func TestSOPTemplate_filterWhitelistVars_DoesNotMutate(t *testing.T) {
 	vars := map[string]any{
 		"customer_id":  "c1",

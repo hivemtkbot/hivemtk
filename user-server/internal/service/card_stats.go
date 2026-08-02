@@ -8,7 +8,7 @@ import (
 
 // PlatformCardStatsService 平台卡片统计服务统一接口
 //
-// LM-P2：将抖音 / 快手 / 小红书 / 闲鱼 / TikTok 各平台卡片统计服务的差异
+// LM-：将抖音 / 快手 / 小红书 / 闲鱼 / TikTok 各平台卡片统计服务的差异
 // （参数命名、返回结构、调用约定）收敛到统一入口。Controller / Router 通过
 // platform 字段路由到具体实现，避免上层重复编写 4-5 套统计处理逻辑。
 //

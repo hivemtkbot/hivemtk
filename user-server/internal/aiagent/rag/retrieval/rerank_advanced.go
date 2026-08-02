@@ -1,6 +1,6 @@
 package ragretrieval
 
-// rerank_advanced.go Re-rank 重排序器（C 域 P1 缺口 #1）
+// rerank_advanced.go Re-rank 重排序器（C 域 缺口 #1）
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.4.5 重排策略
@@ -58,7 +58,7 @@ type RankedDoc struct {
 	Recomputed bool    // 是否真正经过 LLM 评估（false 表示走缓存/降级）
 }
 
-// Reranker 高级别重排接口（C 域 P1）
+// Reranker 高级别重排接口（C 域）
 //
 // 与 RerankerInterface 区别：
 //   - RerankerInterface（rerank.go）只做单路打分（LocalReranker 调 TEI /rerank）

@@ -1,6 +1,6 @@
 package model
 
-// confidence_signal.go 置信度驱动转人工 P0-3 模型层
+// confidence_signal.go 置信度驱动转人工 模型层
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计

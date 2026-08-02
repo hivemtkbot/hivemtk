@@ -23,7 +23,7 @@ import (
 //
 // 复用：VisitorChatService 内部调用 SmartCSOrchestrator 走 RAG + AI 决策
 //
-// 私域部署模式（2026-07-17 优化）：用户自己部署本系统后，作为通道嵌入到自有网站，
+// 私域部署模式：用户自己部署本系统后，作为通道嵌入到自有网站，
 // AppKey 不再作为强制凭证，仅作为渠道的软标识（用于日志追踪 + 未来多渠道管理）。
 func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *service.SmartCSOrchestrator, langResolver *i18nservice.LangConfigResolver) {
 	channelSvc := service.MustNewChatChannelService(db)
@@ -55,7 +55,7 @@ func setupChatPublicRoutes(public *gin.RouterGroup, db *gorm.DB, orchestrator *s
 	// 资源查询
 	chatPublic.GET("/agents/available", ctrl.CountAvailableAgents)
 
-	// 附件上传（2026-07-17 私域部署：访客直传七牛）
+	// 附件上传（私域部署：访客直传七牛）
 	chatPublic.GET("/upload-token", ctrl.GetUploadToken)
 }
 

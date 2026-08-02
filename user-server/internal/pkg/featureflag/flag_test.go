@@ -97,7 +97,7 @@ func TestFlag_DefaultManager_5Flags(t *testing.T) {
 	}
 }
 
-// TestFlag_HotReload 验证 B-012: env 变更后 5s 内自动热加载 (后台轮询)
+// TestFlag_HotReload 验证 : env 变更后 5s 内自动热加载 (后台轮询)
 //
 // 测试流程:
 //  1. 初始 state: flag=false (env unset)

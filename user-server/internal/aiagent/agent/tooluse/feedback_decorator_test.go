@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// feedback_decorator_test.go P3-A: 反馈回流装饰器测试
+// feedback_decorator_test.go : 反馈回流装饰器测试
 //
 // 覆盖：
 //   1. FeedbackCollectorDecorator 基础功能：成功/失败/panic

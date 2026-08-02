@@ -1,11 +1,11 @@
 package config
 
-// ws_origin.go WebSocket Origin 白名单配置 (B-018 生产化加固)
+// ws_origin.go WebSocket Origin 白名单配置 (生产化加固)
 //
 // 背景:
 //   - 原 chat_ws.go CheckOrigin: func(r *http.Request) bool { return true } 直接放行所有 Origin,
 //     任何网站都能向本服务发起 WebSocket 连接 (CSRF 风险, 可被恶意站点利用)。
-//   - B-018 修复: 改为从 config 读取白名单, 仅允许的 origin 才能升级 WebSocket。
+// 修复: 改为从 config 读取白名单, 仅允许的 origin 才能升级 WebSocket。
 //
 // 配置优先级 (自高到低):
 //  1. 环境变量 ALLOWED_WS_ORIGINS (逗号分隔, 如 "https://a.com,https://b.com")

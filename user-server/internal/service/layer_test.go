@@ -1,8 +1,8 @@
 package service
 
-// layer_test.go LayerRouter 单元测试 (T26)
+// layer_test.go LayerRouter 单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T11)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - TestLayerRouter_Route_Layer1Disabled: FF_LAYER1=0 时直接 Layer2

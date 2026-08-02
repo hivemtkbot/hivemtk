@@ -18,9 +18,9 @@ import (
 )
 
 // ============================================================================
-// P1-2 G6 拟人度 6 维度评估器
+// G6 拟人度 6 维度评估器
 // ----------------------------------------------------------------------------
-// 对应 PRD §5.2 P1-2 G6：严格商用标准 ≥ 0.85
+// 对应 PRD §5.2 G6：严格商用标准 ≥ 0.85
 //
 // 6 维度权重：
 //   自然度 0.25 | 相关性 0.20 | 人设 0.20 | 情绪 0.15 | 简洁性 0.10 | 合规 0.10
@@ -50,7 +50,7 @@ const (
 	PersonaDimensionCompliance  PersonaDimension = "compliance"  // 合规：广告法 + 虚假承诺
 )
 
-// PersonaDimensionWeight 6 维度权重（对应 PRD §5.2 P1-2 G6）
+// PersonaDimensionWeight 6 维度权重（对应 PRD §5.2 G6）
 var PersonaDimensionWeight = map[PersonaDimension]float64{
 	PersonaDimensionNaturalness: 0.25,
 	PersonaDimensionRelevance:   0.20,

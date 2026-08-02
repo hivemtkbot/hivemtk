@@ -1,12 +1,12 @@
 package migrations
 
-// h_p1_migration.go H 域 P1 缺口修复迁移 v3.2.0
+// h_p1_migration.go 缺口修复迁移 v3.2.0
 //
 // 五层架构归属: L5 数据层
-// 设计依据: H 域 P1 缺口修复 (2026-07-21)
-//   - P1-1 线索评分（0-100）：clue_scores + clue_engagement_events
-//   - P1-2 RFM 分层：customer_rfm
-//   - P1-3 流失挽回：recovery_queue
+// 设计依据: 缺口修复
+// 线索评分（0-100）：clue_scores + clue_engagement_events
+// RFM 分层：customer_rfm
+// 流失挽回：recovery_queue
 //
 // 私域独立部署: 无 merchant_id 字段
 //
@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// HP1Migration H 域 P1 缺口修复迁移
+// HP1Migration 缺口修复迁移
 type HP1Migration struct {
 	db *gorm.DB
 }

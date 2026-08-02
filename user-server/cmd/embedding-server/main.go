@@ -1,4 +1,4 @@
-// Command embedding-server 是私域部署的本地 Embedding HTTP 服务（2026-07-16 私域基线）
+// Command embedding-server 是私域部署的本地 Embedding HTTP 服务（私域基线）
 //
 // 用途：
 //   - 替代 TEI（ghcr.io/huggingface/text-embeddings-inference）容器

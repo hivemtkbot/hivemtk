@@ -24,7 +24,7 @@ import (
 //   - visitor_id  必填
 //   - channel_id  可选（缺失时使用 default）
 //
-// 私域部署模式（2026-07-17 优化）：无需鉴权，自己网站直连。
+// 私域部署模式：无需鉴权，自己网站直连。
 // AppKey/Channel 解析由 AppKeyResolve 中间件完成（HTTP API）；WS 端为公开端点。
 //
 // 每个访客连接分配独立的 trace_id（可由前端通过 X-Trace-Id 透传，或自动生成），
@@ -72,7 +72,7 @@ var upgraderVisitor = websocket.Upgrader{
 
 // HandleVisitorWebSocket 处理访客 WebSocket 连接
 //
-// 鲁棒性加固（2026-07-22 方向B）：
+// 鲁棒性加固（方向B）：
 //   - 接受 query `since_seq=N` 增量补发（断点续传）
 //   - readPump 处理 `{"type":"ack","seq":[N,...]}` 清理待 ACK
 //   - readPump 处理 `{"type":"resume","since_seq":N}` 拉取增量消息
@@ -140,7 +140,7 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 // 2. 拉取离线期间未投递的坐席/AI 回复，批量推送
 // 3. 标记已投递
 //
-// 鲁棒性加固（2026-07-22 方向B）：
+// 鲁棒性加固（方向B）：
 //   - 接受 sinceSeq 参数（query `since_seq` 或上行 `resume` 消息）
 //   - 拉取逻辑：
 //   - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
@@ -247,7 +247,7 @@ func sendToClient(client *Client, payload []byte) {
 
 // writePump 写入协程
 //
-// P2-11 修复：
+// 修复：
 //   - 每次写操作前 SetWriteDeadline，防止对端 TCP 窗口关闭时本协程永久阻塞。
 //   - 启动 pingPeriod 周期 ticker，主动发 PingMessage；
 //     对端回 Pong 后会触发 readPump 中已注册的 SetPongHandler，
@@ -285,7 +285,7 @@ func (h *VisitorWSHandler) writePump(client *Client, conn *websocket.Conn) {
 
 // readPump 读取协程
 //
-// 鲁棒性加固（2026-07-22 方向B）：
+// 鲁棒性加固（方向B）：
 //   - `ack` 消息：客户端确认已收到的 seq 列表，清理待 ACK 队列
 //   - `resume` 消息：客户端重连后增量补发请求（since_seq）
 //   - `delivered` 消息：旧协议兼容（仅日志记录）

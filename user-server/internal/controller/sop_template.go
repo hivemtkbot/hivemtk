@@ -3,7 +3,7 @@ package controller
 // sop_template_controller.go SOP 模板 L3 Controller
 //
 // 五层架构归属: L3 API 接入层
-// 设计依据: 2026-07-31 P1-A 知识库管理
+// 设计依据: 知识库管理
 //
 // 接口前缀: /api/sop-templates
 //   GET    /api/sop-templates       列表查询 (前端 SOP 模板管理页面)

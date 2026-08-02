@@ -2,13 +2,13 @@ package dto
 
 // PlatformCardStatsRequest 平台卡片统计请求（统一入口）
 //
-// LM-P2：用于替代各平台自有的 *CardStatsRequest 命名差异（douyin / kuaishou / xiaohongshu
+// LM-：用于替代各平台自有的 *CardStatsRequest 命名差异（douyin / kuaishou / xiaohongshu
 // / xianyu / tiktok），统一通过 Platform 字段路由到具体平台 service。
 type PlatformCardStatsRequest struct {
 	Platform  string `json:"platform" form:"platform"`   // 平台标识：douyin/kuaishou/xiaohongshu/xianyu/tiktok
 	CardID    uint   `json:"cardId" form:"cardId"`       // 卡片ID
-	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：2026-01-01
-	EndDate   string `json:"endDate" form:"endDate"`     // 结束日期，格式：2026-01-31
+	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：
+	EndDate   string `json:"endDate" form:"endDate"`     // 结束日期，格式：
 	GroupBy   string `json:"groupBy" form:"groupBy"`     // 分组方式：day/week/month
 }
 

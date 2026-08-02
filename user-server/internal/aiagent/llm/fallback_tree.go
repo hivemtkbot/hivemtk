@@ -1,8 +1,8 @@
 package llm
 
-// fallback_tree.go 4 级智能降级决策树 (T20)
+// fallback_tree.go 4 级智能降级决策树
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化
+// 设计依据: AI 智能体性能优化
 //
 // 目标: 在 Provider 失败时, 自动选择下一级 fallback, 直至 0 出域
 // 4 级降级链:
@@ -208,7 +208,7 @@ func (t *DecisionTree) Decide(
 	}
 }
 
-// ExecuteWithFallback 4 级降级链执行 (T20 集成入口)
+// ExecuteWithFallback 4 级降级链执行 (集成入口)
 //
 // 流程:
 //  1. 尝试 LevelPrimary (7B)

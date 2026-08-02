@@ -1,6 +1,6 @@
 package humanize
 
-// helpers_test.go P0-4 测试通用辅助函数
+// helpers_test.go 测试通用辅助函数
 //
 // 提供浮点近似比较、stub LLM 调度器、stub 仓储等测试基础设施
 

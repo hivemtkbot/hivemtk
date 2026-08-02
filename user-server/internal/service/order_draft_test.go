@@ -14,7 +14,7 @@ import (
 )
 
 // ============================================================================
-// 商业产品级 订单草稿服务测试套件（P1-CLOSE-11）
+// 商业产品级 订单草稿服务测试套件（-11）
 // ----------------------------------------------------------------------------
 // 商业产品级业务流：AI 谈单时提取到"光子嫩肤 3 次 2280 元" →
 //   1. 自动生成草稿（待确认）
@@ -567,7 +567,7 @@ func TestDraft_TriggerAutoCreate(t *testing.T) {
 }
 
 // TestDraft_TriggerCreateAndConfirm 触发器创建 + 销售一键确认（端到端）
-// 这是 P1-CLOSE-11 的完整端到端测试
+// 这是 -11 的完整端到端测试
 func TestDraft_TriggerCreateAndConfirm(t *testing.T) {
 	journey, followup, _, _, dashboard, draftSvc, trigger := setupDraftEnv(t)
 	custID := "cust_e2e_001"

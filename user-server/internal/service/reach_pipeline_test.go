@@ -50,7 +50,7 @@ func newReachJobReq(pipelineID uint) *EnqueueJobRequest {
 		Channel:    "wecom",
 		CustomerID: fmt.Sprintf("customer-%d", reachTestCounter),
 		AccountID:  fmt.Sprintf("acc-%d", reachTestCounter),
-		// V3 整改（2026-07-18）：StepContentPrepare 现在要求 payload.content 非空，
+		// V3 整改：StepContentPrepare 现在要求 payload.content 非空，
 		// 原有 helper 只设置 text 会导致 ContentPrepare 失败、Job 转 failed，
 		// 进而破坏下游所有依赖 success/rate_limited 计数的测试。
 		// 此处统一加 content 字段以保持现有测试期望。
@@ -1127,7 +1127,7 @@ func TestRunStep_Audience_WithCustomer(t *testing.T) {
 	}
 }
 
-// V3 整改（2026-07-18）：StepContentPrepare 现在要求 payload.content 或 payload.template_id
+// V3 整改：StepContentPrepare 现在要求 payload.content 或 payload.template_id
 // 至少有一个，否则返回明确错误（不允许静默 no-op）。
 func TestRunStep_ContentPrepare(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1163,7 +1163,7 @@ func TestRunStep_AccountSelect_WithAccount(t *testing.T) {
 	}
 }
 
-// V3 整改（2026-07-18）：StepMessageGen 现在基于 ContentPrepare 真实实现，
+// V3 整改：StepMessageGen 现在基于 ContentPrepare 真实实现，
 // 要求 payload.content + customer_id 至少非空。
 func TestRunStep_MessageGen(t *testing.T) {
 	svc := NewReachPipelineService(nil)
@@ -1181,7 +1181,7 @@ func TestRunStep_MessageGen(t *testing.T) {
 	}
 }
 
-// V3 整改（2026-07-18）：StepSend 现在按 channel 路由，必须指定合法 channel + customer_id。
+// V3 整改：StepSend 现在按 channel 路由，必须指定合法 channel + customer_id。
 func TestRunStep_Send(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	job := &model.ReachJob{
@@ -1197,7 +1197,7 @@ func TestRunStep_Send(t *testing.T) {
 	}
 }
 
-// V3 整改（2026-07-18）：StepTrackResult 写入 _tracking 字段。
+// V3 整改：StepTrackResult 写入 _tracking 字段。
 func TestRunStep_TrackResult(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	job := &model.ReachJob{
@@ -1228,7 +1228,7 @@ func TestRunStep_Retry(t *testing.T) {
 	}
 }
 
-// V3 整改（2026-07-18）：StepReport 现在聚合 StepResults，需要非空结果集。
+// V3 整改：StepReport 现在聚合 StepResults，需要非空结果集。
 func TestRunStep_Report(t *testing.T) {
 	svc := NewReachPipelineService(nil)
 	job := &model.ReachJob{
@@ -1779,7 +1779,7 @@ func jsonUnmarshal(data []byte, v any) error {
 }
 
 // ===========================================
-// V3 整改测试：runStep 真实实现（2026-07-18）
+// V3 整改测试：runStep 真实实现
 // 覆盖 prepareContent / generateMessage / dispatchOutbound /
 // trackSendResult / aggregateReport 五个新方法
 // ===========================================

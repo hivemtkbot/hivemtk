@@ -44,7 +44,7 @@ const (
 	SOPNodeTypeAIDecide  = "ai_decide"
 	SOPNodeTypeSendOffer = "send_offer"
 
-	// 商用级 14 节点类型（PRD §5.2 P0-2 标准）
+	// 商用级 14 节点类型（PRD §5.2 标准）
 	SOPNodeTypeGreeting  = "greeting"  // 问候
 	SOPNodeTypeInquire   = "inquire"   // 询问需求
 	SOPNodeTypeIntroduce = "introduce" // 介绍产品
@@ -276,12 +276,12 @@ func (s *SOPService) Deactivate(ctx context.Context, id uint) error {
 	return nil
 }
 
-// ExecuteRequest / StepRequest 已迁至 dto 包（P2-6 DTO 层补全）
+// ExecuteRequest / StepRequest 已迁至 dto 包（DTO 层补全）
 // 使用 dto.ExecuteRequest / dto.StepRequest 替代本地类型
 
 // Execute 启动 SOP 执行
 //
-// P0-1 改造（v2.7.0）：创建 Execution 后派发 start 节点到 SOPExecutionDispatcher，
+// 改造（v2.7.0）：创建 Execution 后派发 start 节点到 SOPExecutionDispatcher，
 // 由 Worker Pool 异步执行节点动作（消息发送/条件路由/LLM 决策/wait 等）。
 // 调用方拿到 Execution 即可，节点流转由调度器自治完成。
 func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*model.SOPExecution, error) {
@@ -341,7 +341,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 	// 累加 execution_count
 	_ = s.agentRepo.IncrementExecutionCount(ctx, agent.ID)
 
-	// P0-1：派发 start 节点到 SOPExecutionDispatcher
+	// 派发 start 节点到 SOPExecutionDispatcher
 	// 若调度器未初始化（如测试场景），仅返回 Execution，节点流转由调用方 Step 推进（向后兼容）
 	if dispatcher := GetSOPExecutionDispatcher(); dispatcher != nil {
 		dispatcher.DispatchOrLog(&dispatchTask{
@@ -356,7 +356,7 @@ func (s *SOPService) Execute(ctx context.Context, req *dto.ExecuteRequest) (*mod
 
 // Step 单步推进
 //
-// P0-1 改造（v2.7.0）：
+// 改造（v2.7.0）：
 //   - 调度器存在时：仅合并 Output 到 ExecutionData，然后派发当前节点任务给调度器，
 //     由 Worker Pool 执行节点动作并推进下一节点（客户消息唤醒 wait 节点场景）
 //   - 调度器不存在时（如测试场景）：保持原有同步推进逻辑（向后兼容）
@@ -390,7 +390,7 @@ func (s *SOPService) Step(ctx context.Context, req *dto.StepRequest) (*model.SOP
 		return nil, err
 	}
 
-	// P0-1：派发当前节点任务给调度器（客户回复唤醒场景）
+	// 派发当前节点任务给调度器（客户回复唤醒场景）
 	// 调度器会重新执行当前 wait 节点，由 WaitExecutor 检测到 timer 已 fired 后推进下一节点
 	if dispatcher := GetSOPExecutionDispatcher(); dispatcher != nil {
 		traceID := exec.TraceID

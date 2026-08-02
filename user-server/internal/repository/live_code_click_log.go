@@ -10,7 +10,7 @@ import (
 )
 
 // LiveCodeClickLogRepository 活码点击日志仓储接口
-// F-P0-19: 提供点击日志写入与按活码/二维码维度的真实聚合能力
+// F-: 提供点击日志写入与按活码/二维码维度的真实聚合能力
 type LiveCodeClickLogRepository interface {
 	// CreateLiveCodeClick 写入一条活码维度的点击日志
 	CreateLiveCodeClick(ctx context.Context, log *model.LiveCodeClickLog) error

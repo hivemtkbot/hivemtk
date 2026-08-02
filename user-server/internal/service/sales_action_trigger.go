@@ -32,7 +32,7 @@ type SalesActionTrigger struct {
 	followup     *FollowUpService
 	extractor    *OrderIntentExtractor
 	dashboard    *SalesDashboard
-	draftService *OrderDraftService // P1-CLOSE-11 订单草稿
+	draftService *OrderDraftService // 11 订单草稿
 
 	// 默认销售（可被业务 owner 覆盖）
 	defaultOwnerID string
@@ -89,7 +89,7 @@ func NewSalesActionTrigger(
 	}
 }
 
-// SetDraftService 注入订单草稿服务（P1-CLOSE-11）
+// SetDraftService 注入订单草稿服务（-11）
 func (t *SalesActionTrigger) SetDraftService(ctx context.Context, svc *OrderDraftService) {
 	t.draftService = svc
 }
@@ -144,7 +144,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 	}
 
 	// === 3. 自动提取订单意向 → 自动生成订单草稿 ===
-	// P1-CLOSE-11 关键升级：不再只是记录"提取到意图"的动作，
+	// 11 关键升级：不再只是记录"提取到意图"的动作，
 	// 而是真正生成"待确认草稿"，销售一键确认即可下单
 	if t.extractor != nil {
 		// 优先从记忆中的客户信息提取，最后兜底用 reply
@@ -166,7 +166,7 @@ func (t *SalesActionTrigger) TriggerAfterSales(ctx context.Context, customerID, 
 				Result:     "ok",
 				Message:    fmt.Sprintf("amount=%.2f qty=%d", in.TotalAmount, in.Quantity),
 			})
-			// 3.1 关键：自动创建草稿（P1-CLOSE-11）
+			// 3.1 关键：自动创建草稿（-11）
 			if t.draftService != nil {
 				draft := t.draftService.CreateFromIntent(ctx, &in, ownerID)
 				if draft != nil {

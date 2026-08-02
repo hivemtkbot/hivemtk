@@ -1,9 +1,9 @@
 package repository
 
-// agent_kb_binding.go 智能体 ↔ 知识库 绑定 Repository (P0-B 隔离架构)
+// agent_kb_binding.go 智能体 ↔ 知识库 绑定 Repository (隔离架构)
 //
 // 五层架构归属: L5 数据访问层
-// 设计依据: 2026-07-31 P0 知识库隔离架构
+// 设计依据: 知识库隔离架构
 //   - 多对多绑定: 一个智能体可挂载多个 KB, 一个 KB 可被多个智能体共享
 //   - 强 1:1 唯一约束: UNIQUE(agent_id, kb_id), 重复绑定报错
 //   - 业务逻辑 (缓存/编排) 在 Service 层

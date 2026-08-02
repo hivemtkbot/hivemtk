@@ -14,7 +14,7 @@ type EventTracker struct {
 	repo         repository.CustomerEventRepository
 	customerRepo repository.CustomerRepository
 	autoTagger   *AutoTagger
-	orchestrator *CustomerOrchestrator // F-P0-09 业务编排层（可选）
+	orchestrator *CustomerOrchestrator // F- 业务编排层（可选）
 	disableAsync bool                  // 用于测试禁用异步处理
 }
 
@@ -27,7 +27,7 @@ func NewEventTracker(customerService *CustomerService) *EventTracker {
 	}
 }
 
-// SetOrchestrator 注入客户业务编排层（F-P0-09）。
+// SetOrchestrator 注入客户业务编排层（F-）。
 // 未注入时 Track 仅完成事件落库与 autoTagger，不联动旅程阶段迁移。
 func (s *EventTracker) SetOrchestrator(o *CustomerOrchestrator) {
 	s.orchestrator = o
@@ -85,7 +85,7 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 				logger.Errorf("AutoTagger.ProcessEvent error: %v", err)
 			}
 		}()
-		// F-P0-09: 联动业务编排层（旅程阶段迁移 / 标签更新）
+		// F-: 联动业务编排层（旅程阶段迁移 / 标签更新）
 		if s.orchestrator != nil {
 			go func() {
 				defer func() {
@@ -207,7 +207,7 @@ func (s *EventTracker) TrackAddToCart(ctx context.Context, customerID, productID
 	})
 }
 
-// RecordReachEvent 将触达结果回流为客户事件 (F-P1-91)。
+// RecordReachEvent 将触达结果回流为客户事件 (F。
 //
 // 实现 ReachEventRecorder 接口，由 reach_send_pipeline.defaultSendPipeline.Send
 // 在触达完成后调用（成功/失败均记录），补全 CDP 数据回流闭环。

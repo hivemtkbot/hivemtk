@@ -3,7 +3,7 @@ package llm
 // provider_failover.go LLM 多 Provider 降级
 //
 // 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §M-1
+// 设计依据: PRD §
 // 私域独立部署: 无 merchant_id 字段
 //
 // 功能：

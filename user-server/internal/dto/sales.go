@@ -9,7 +9,7 @@ import (
 // sales.go 销冠域 - 销售引擎 DTO
 //
 // 本文件包含：
-//  1. SalesStepLog：销售链路步骤日志（P2-6 已迁入）
+// 1. SalesStepLog：销售链路步骤日志（已迁入）
 //  2. RAGChunk：RAG 召回片段（深度 DTO 迁移-3 已迁入）
 //  3. ScriptTemplate：话术模板（深度 DTO 迁移-3 已迁入）
 //  4. Industry/ObjectionType/PlaybookEntry：销冠话术库核心类型（深度 DTO 迁移-3 已迁入）
@@ -152,7 +152,7 @@ type SalesEngineConfig struct {
 	MaxTokens            int     `json:"max_tokens"`             // LLM 最大 token
 	Persona              string  `json:"persona"`                // 销售人设
 
-	// P0-3 置信度驱动：客户等级 vip/normal/low（影响动态阈值）
+	// 置信度驱动：客户等级 vip/normal/low（影响动态阈值）
 	CustomerLevel string `json:"customer_level,omitempty"`
 }
 
@@ -182,7 +182,7 @@ type AgentContext struct {
 	SystemPrompt         string                  `json:"system_prompt"`
 	Greeting             string                  `json:"greeting"`
 	RagProductIDs        []string                `json:"rag_product_ids"`    // 知识库挂载
-	// 2026-07-31 P1-A: 知识库挂载 (FAQ / SOP 模板)
+	// 知识库挂载 (FAQ / SOP 模板)
 	// 空切片 = 全局共享（向后兼容）；非空 = 仅匹配绑定的 ID 集合
 	FAQEntryIDs    []string `json:"faq_entry_ids"`
 	SOPTemplateIDs []string `json:"sop_template_ids"`
@@ -204,10 +204,10 @@ type AgentContext struct {
 	ConfidenceThreshold  float64                 `json:"confidence_threshold"`
 	MaxAIConsecutive     int                     `json:"max_ai_consecutive"`
 
-	// 决策策略挂载 — 2026-07-17 新增(ADR-008 §2.3)
+	// 决策策略挂载 — 新增(§2.3)
 	DecisionStrategyIDs []string `json:"decision_strategy_ids"`
 
-	// A/B 实验挂载 — 2026-07-17 新增(ADR-008 §2.3)
+	// A/B 实验挂载 — 新增(§2.3)
 	ABExperimentIDs []string `json:"ab_experiment_ids"`
 
 	// 资产包绑定 — 智能体可绑定一个资产包（AssetBundle），
@@ -277,10 +277,10 @@ type SalesResponse struct {
 	TransferReason      string                `json:"transfer_reason,omitempty"`
 	Steps               []SalesStepLog        `json:"steps"` // 9 步链路日志
 
-	// P0-3 置信度决策（注入 ConfidenceAggregator 时填充）
+	// 置信度决策（注入 ConfidenceAggregator 时填充）
 	Confidence *ConfidenceDecision `json:"confidence,omitempty"`
 
-	// P0-4 拟人度评估结果（注入 HumanizeEvalService 时填充）
+	// 拟人度评估结果（注入 HumanizeEvalService 时填充）
 	HumanizeScore   float64 `json:"humanize_score,omitempty"`
 	HumanizePassed  bool    `json:"humanize_passed,omitempty"`
 	HumanizeAttempt int     `json:"humanize_attempt,omitempty"`

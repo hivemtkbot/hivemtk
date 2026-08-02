@@ -3,7 +3,7 @@ package controller
 // faq_controller.go FAQ 知识库 L3 Controller
 //
 // 五层架构归属: L3 API 接入层
-// 设计依据: 2026-07-31 P1-A 知识库管理
+// 设计依据: 知识库管理
 //
 // 接口前缀: /api/faqs
 //   GET    /api/faqs                列表查询 (前端 FAQ 管理页面)

@@ -1,8 +1,8 @@
 package llm
 
-// fallback_tree_test.go 4 级降级决策树单元测试 (T28)
+// fallback_tree_test.go 4 级降级决策树单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T20)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - TestDecisionTree_Decide_7BTo3B: 7B 失败 -> 3B

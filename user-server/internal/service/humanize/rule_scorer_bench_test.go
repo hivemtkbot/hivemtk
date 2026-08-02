@@ -1,6 +1,6 @@
 package humanize
 
-// rule_scorer_bench_test.go P3 RuleScorer 性能基准
+// rule_scorer_bench_test.go RuleScorer 性能基准
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.5
@@ -14,7 +14,7 @@ package humanize
 //	go test -bench=BenchmarkRuleScorer -benchmem -benchtime=3s ./internal/service/humanize/
 //
 // 监控指标：
-//   - P3 监控 humanize_score_value_count (counter)
+// 监控 humanize_score_value_count (counter)
 //   - 内部 latency 记录在 zerolog 业务日志
 
 import (

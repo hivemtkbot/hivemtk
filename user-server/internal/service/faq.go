@@ -3,7 +3,7 @@ package service
 // faq_service.go FAQ 业务服务层
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T9) + 强 1对1 改造 (Task 15)
+// 设计依据: AI 智能体性能优化 + 强 1对1 改造 (Task 15)
 //
 // 职责:
 //   - 封装 FAQ 检索 + 命中计数 + Layer1 决策建议
@@ -35,7 +35,7 @@ const (
 	faqCacheMaxN   = 5000
 	faqHitThresh   = 0.6 // 命中分数阈值, 低于此值不进 Layer1
 	faqTopKDefault = 3
-	// B-021 质量衰减
+	// 质量衰减
 	faqDecayPerWeek  = 0.1            // 每次衰减量
 	faqDecayDays     = 7 * 24 * time.Hour // 7 天未命中触发
 	faqDecayMinHits  = 5              // 命中次数 < 此值才衰减
@@ -56,7 +56,7 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-// faqRepoIface FAQ Repository 接口 (B-021: 用于 WeekDecay 单测注入 mock)
+// faqRepoIface FAQ Repository 接口 (: 用于 WeekDecay 单测注入 mock)
 //
 // 与 *repository.FAQRepository 鸭子类型兼容, 生产代码无需感知。
 //
@@ -135,7 +135,7 @@ func NewFAQService(db *gorm.DB, repo *repository.FAQRepository) *FAQService {
 	}
 }
 
-// NewFAQServiceWithRepo 用任意实现 faqRepoIface 的 repo 创建 (B-021 测试用)
+// NewFAQServiceWithRepo 用任意实现 faqRepoIface 的 repo 创建 (测试用)
 func NewFAQServiceWithRepo(repo faqRepoIface) *FAQService {
 	return &FAQService{
 		repo:   repo,
@@ -163,7 +163,7 @@ func (s *FAQService) SetBindingRepo(r faqBindingRepoIface) {
 	}
 }
 
-// SetClock 注入时钟 (B-021: 单测可注入 mock clock)
+// SetClock 注入时钟 (: 单测可注入 mock clock)
 func (s *FAQService) SetClock(c Clock) {
 	if c != nil {
 		s.clock = c
@@ -439,7 +439,7 @@ func (s *FAQService) InvalidateAllCache() {
 	s.mu.Unlock()
 }
 
-// WeekDecay 周度质量衰减 (B-021: 修复 FAQ 无质量衰减)
+// WeekDecay 周度质量衰减 (: 修复 FAQ 无质量衰减)
 //
 // 每周定时任务调用一次。衰减规则:
 //   - 命中次数 < faqDecayMinHits (5)

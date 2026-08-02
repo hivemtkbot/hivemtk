@@ -405,7 +405,7 @@ func (s *SessionAssignmentService) autoAssignToAgent(ctx context.Context, sessio
 
 // TransferToHuman 转人工（当 AI 处理过程中用户要求转人工时）
 //
-// Bug 修复 2026-07-22：
+// Bug 修复 ：
 //
 //	nil 检查 + 幂等分配 + 通知新客服 + 解锁 Redis 接管锁。
 func (s *SessionAssignmentService) TransferToHuman(ctx context.Context, sessionID uint, agentID uint, reason string) error {

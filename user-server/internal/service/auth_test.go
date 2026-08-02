@@ -47,7 +47,7 @@ func TestAuthService_JwtUtils(t *testing.T) {
 }
 
 // TestAuthService_Login_Success 测试已存在用户登录
-// 注意：登录功能在 P0-3 安全修复后不再自动注册超管，需先通过 InitSetup 创建用户
+// 注意：登录功能在 安全修复后不再自动注册超管，需先通过 InitSetup 创建用户
 func TestAuthService_Login_Success(t *testing.T) {
 	service := setupAuthService(t)
 

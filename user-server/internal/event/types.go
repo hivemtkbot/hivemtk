@@ -16,13 +16,13 @@ const (
 	// TopicCustomerMerged 客户合并完成通知主题（预留，待 CustomerMerger 落地）
 	TopicCustomerMerged = "customer.merged"
 
-	// TopicCustomerMessageReceived 客户消息接收主题 — 2026-07-17 新增(ADR-008 §2.2)
+	// TopicCustomerMessageReceived 客户消息接收主题 — 新增(§2.2)
 	// 发布者:Channel Adapter(webhook 处理完成后)
 	// 订阅者:agent_runtime.EventSubscriber
 	// 用途:解耦渠道层与 AI 引擎,新增渠道无需修改 AI 代码
 	TopicCustomerMessageReceived = "customer.message.received"
 
-	// TopicKnowledgeDocumentChanged 知识库文档变更主题 — 2026-07-17 新增(ADR-008 §2.5 子项 2)
+	// TopicKnowledgeDocumentChanged 知识库文档变更主题 — 新增(§2.5 子项 2)
 	// 发布者:KnowledgeDocumentService CRUD 后
 	// 订阅者:rag.IncrementalIndexer
 	// 用途:文档增/删/改时触发增量索引更新
@@ -75,7 +75,7 @@ type OperationLogPayload struct {
 	IP         string `json:"ip"`
 }
 
-// CustomerMessagePayload 客户消息事件载荷 — 2026-07-17 新增(ADR-008 §2.2)
+// CustomerMessagePayload 客户消息事件载荷 — 新增(§2.2)
 //
 // 由 Channel Adapter 在 webhook 处理完成后 publish
 // agent_runtime.EventSubscriber.Handle 消费
@@ -93,7 +93,7 @@ type CustomerMessagePayload struct {
 	Raw         map[string]any `json:"raw,omitempty"`
 }
 
-// KnowledgeDocumentChangePayload 知识库文档变更事件载荷 — 2026-07-17 新增(ADR-008 §2.5 子项 2)
+// KnowledgeDocumentChangePayload 知识库文档变更事件载荷 — 新增(§2.5 子项 2)
 //
 // 关联主题:TopicKnowledgeDocumentChanged
 // 触发时机:KnowledgeDocumentService.Create/Update/Delete 后 publish

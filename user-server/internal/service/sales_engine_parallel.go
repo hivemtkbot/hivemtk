@@ -2,7 +2,7 @@ package service
 
 // sales_engine_parallel.go SalesEngine 并行化重构
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T7)
+// 设计依据: AI 智能体性能优化
 //
 // 目标: 9 步串行 → 5 阶段混合 (Phase 0 并行 + Phase 1 串行 + Phase 2 异步收割)
 //
@@ -24,7 +24,7 @@ package service
 //	Phase 2 (异步收割, 10ms 超时):
 //	  - 收割 IntentSpeculative 的 LLM 结果 (用于 cache upgrade)
 //
-//	Phase 3 (WebSocket 流式, T16 接入):
+// Phase 3 (WebSocket 流式, 接入):
 //	  - chunk 1 (LCP 100ms)
 //	  - chunk 2-N (LLM stream delta)
 
@@ -50,7 +50,7 @@ const (
 
 // phase0Result Phase 0 并行执行结果聚合
 //
-// 5 层架构合规 (B-004): service 直接引用 *model 类型, 不使用 interface{} 占位。
+// 5 层架构合规 : service 直接引用 *model 类型, 不使用 interface{} 占位。
 // 注释中所谓"避免循环依赖"的借口不成立 — service → model 是允许的方向,
 // model → service 才是循环依赖, 两者方向不同。
 type phase0Result struct {
@@ -107,7 +107,7 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 	resp.Memory = phase0.memCtx
 	resp.RAGChunks = phase0.ragChunks
 
-	// ========== Phase 0.5: Layer1 双层路由 fastPath (B-002) ==========
+	// ========== Phase 0.5: Layer1 双层路由 fastPath ==========
 	// 命中 Layer1 (SkipLLM=true) -> 立即构造最终回复, 不再走 9 步剩余流程
 	// 目的: FAQ / SOP 高分命中场景 LCP < 100ms 返回, 节省 1.5B q4 LLM 推理 5-15s
 	if e.layerRouter != nil {
@@ -119,7 +119,7 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 			Intent:      phase0.intent,
 			RAGChunks:   phase0.ragChunks,
 			Stage:       "",
-			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			// 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
 			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
@@ -188,7 +188,7 @@ func (e *SalesEngine) HandleParallel(ctx context.Context, req *SalesRequest) (*S
 
 // runPhase0Parallel Phase 0 并行执行 4 个独立任务
 //
-// B-009: errgroup.SetLimit(4) 限制并发 goroutine 数, 防止高并发下 DB 连接池耗尽。
+// errgroup.SetLimit(4) 限制并发 goroutine 数, 防止高并发下 DB 连接池耗尽。
 // errgroup.WithContext 默认不限制并发, 4 个任务会瞬时拉起 4 个 goroutine;
 // SetLimit(4) 与任务数一致, 即"4 任务全并发"无节流损失, 但当上游调用并发
 // 增长时 (如 batch / batch 限流后的二次爆发) 可避免 DB pool 被瞬间打满。
@@ -202,7 +202,7 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 
 	var mu sync.Mutex
 	g, gctx := errgroup.WithContext(ctx)
-	// B-009: 并发上限 4, 与当前 Phase 0 任务数一致, 防止 DB pool 耗尽
+	// 并发上限 4, 与当前 Phase 0 任务数一致, 防止 DB pool 耗尽
 	g.SetLimit(4)
 
 	// 1) resolveCustomer

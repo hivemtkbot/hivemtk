@@ -25,7 +25,7 @@ const (
 	MsgTypeAgentStatus   = "agent_status"   // 客服状态变更
 	MsgTypeAISuggestion  = "ai_suggestion"  // AI 建议推送
 	MsgTypeHeartbeat     = "heartbeat"      // 心跳
-	MsgTypeSOP           = "sop_message"    // SOP 节点执行事件（P0-1 新增）
+	MsgTypeSOP           = "sop_message"    // SOP 节点执行事件（新增）
 	MsgTypeError         = "error"          // 错误通知
 )
 
@@ -48,7 +48,7 @@ const (
 
 // Envelope 信封：所有 WebSocket 下行消息统一外层结构
 //
-// 设计动机（2026-07-22 方向B 鲁棒性加固）：
+// 设计动机（方向B 鲁棒性加固）：
 //   - seq：全局唯一递增序号，用于客户端断点续传 / 排序 / 丢包检测
 //   - ts：服务端发送时间戳（Unix 毫秒），便于客户端做时序展示
 //   - payload：业务原始负载（type + data），保持向后兼容

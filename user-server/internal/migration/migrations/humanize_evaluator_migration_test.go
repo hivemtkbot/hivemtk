@@ -1,6 +1,6 @@
 package migrations
 
-// humanize_evaluator_migration_test.go P0-4 拟人度评估器迁移 v2.9.0 PG 集成测试
+// humanize_evaluator_migration_test.go 拟人度评估器迁移 v2.9.0 PG 集成测试
 //
 // 覆盖：
 //  1. Version / Name / Description 元信息

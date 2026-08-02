@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// decorator_test.go 5 装饰器链测试（PRD §5.2 P0-3 G3）
+// decorator_test.go 5 装饰器链测试（PRD §5.2 G3）
 //
 // 覆盖：
 //   1. 权限校验装饰器：放行 / 拒绝 / nil checker

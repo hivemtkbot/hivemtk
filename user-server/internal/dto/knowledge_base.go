@@ -3,7 +3,7 @@ package dto
 // knowledge_base.go 知识库 + 智能体知识库绑定 + 渠道智能体绑定 DTO
 //
 // 五层架构归属: L5 横向 DTO 层
-// 设计依据: 2026-07-31 强 1对1 改造 (P1-A 知识库管理)
+// 设计依据: 强 1对1 改造 (知识库管理)
 //
 // DTO 三件套:
 //   - KnowledgeBase     知识库主表 DTO (避免直接暴露 model)

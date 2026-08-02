@@ -21,7 +21,7 @@ type DomainPoolRepository interface {
 	UpdateStatus(ctx context.Context, id, status int) error
 	UpdateLastCheck(ctx context.Context, id int, lastCheck time.Time) error
 
-	// G 域 P1：健康度自动切换
+	// G 域 ：健康度自动切换
 	UpdateHealth(ctx context.Context, id int, score, consecutiveFailures int, dnsOK bool, dnsErr string, httpStatus, latencyMs int, onBlacklist bool, blacklistAt time.Time, blacklistNote string) error
 	UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error
 	ListActive(ctx context.Context) ([]*model.DomainPool, error)
@@ -128,7 +128,7 @@ func (r *domainPoolRepository) UpdateLastCheck(ctx context.Context, id int, last
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Update("last_check", lastCheck).Error
 }
 
-// UpdateHealth G 域 P1：写入健康度评分
+// UpdateHealth G 域 ：写入健康度评分
 func (r *domainPoolRepository) UpdateHealth(
 	ctx context.Context,
 	id int,
@@ -162,7 +162,7 @@ func (r *domainPoolRepository) UpdateHealth(
 	return r.dbOrDefault(ctx).Model(&model.DomainPool{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// UpdateActive G 域 P1：写入活跃状态与切换时间
+// UpdateActive G 域 ：写入活跃状态与切换时间
 func (r *domainPoolRepository) UpdateActive(ctx context.Context, id int, isActive bool, switchedAt *time.Time, switchedFromID int) error {
 	updates := map[string]any{
 		"is_active":        isActive,

@@ -6,7 +6,7 @@
 //   - controller 需要 service 的能力签名（接口）
 //   - service 实现方需不依赖 controller（编译期解耦）
 //
-// 设计动机（B-005）：
+// 设计动机：
 //   1. 接口定义在 contract 包, 双方 (controller 与 service) 都依赖 contract，
 //      不直接互相 import，从源头打破潜在循环依赖
 //   2. 接口可在 controller 单测中独立 mock（不引入 service 真实依赖）
@@ -31,7 +31,7 @@ import (
 // 流式销售引擎接口
 // ============================================================================
 
-// StreamEngineInterface 流式销售引擎接口（B-005：从 controller 包提到此处）
+// StreamEngineInterface 流式销售引擎接口（：从 controller 包提到此处）
 //
 // 实现方: *service.SalesEngine（通过 Go 鸭子类型自动满足）
 //
@@ -41,7 +41,7 @@ import (
 //   - router 层注入 *service.SalesEngine 时只需传 interface，类型签名更稳定
 //
 // 演进：
-//   - 2026-07-31: 从 internal/controller/chat_ws.go 提取至本包
+// 从 internal/controller/chat_ws.go 提取至本包
 //   - 后续如新增方法（如 CancelStream / GetSessionSummary），在此处追加
 //   - 实现方 *service.SalesEngine 需保持向后兼容
 type StreamEngineInterface interface {

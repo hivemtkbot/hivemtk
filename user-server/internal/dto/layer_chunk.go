@@ -1,6 +1,6 @@
 // Package dto 提供数据传输对象 (Layer 决策 / FAQ 匹配 / 流式输出)
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T11 / T12 / T13)
+// 设计依据: AI 智能体性能优化 (/ /)
 //
 // 三个核心 DTO:
 //   - LayerDecision       双层架构路由决策 (Layer1 / Layer2)
@@ -61,7 +61,7 @@ type FAQEntry struct {
 	Intent     string   `json:"intent"`
 	Confidence float64  `json:"confidence"`
 	HitCount   int64    `json:"hit_count"`
-	Enabled    *bool    `json:"enabled,omitempty"` // 2026-07-31 P1-A: 前端管理页面需要
+	Enabled    *bool    `json:"enabled,omitempty"` // 前端管理页面需要
 	// Task 15: 强 1对1 改造 - FAQ 归属智能体
 	//   nil  = 共享池 (Match API 兜底)
 	//   &N>0 = 智能体 N 私有
@@ -70,7 +70,7 @@ type FAQEntry struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// SOPTemplate SOP 模板 DTO (2026-07-31 P1-A: 前端 SOP 模板管理页面)
+// SOPTemplate SOP 模板 DTO (: 前端 SOP 模板管理页面)
 type SOPTemplate struct {
 	ID         uint    `json:"id"`
 	Name       string  `json:"name"`

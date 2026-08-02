@@ -1,6 +1,6 @@
 package humanize
 
-// rule_scorer.go P0-4 规则评估器（RuleScorerImpl）
+// rule_scorer.go 规则评估器（RuleScorerImpl）
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.2

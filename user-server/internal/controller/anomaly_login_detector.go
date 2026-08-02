@@ -1,10 +1,10 @@
 package controller
 
-// anomaly_login_detector_controller.go A 域 P1-2 异常登录预警控制器
+// anomaly_login_detector_controller.go A 域 异常登录预警控制器
 //
 // 五层架构归属: L3 业务编排（薄层 controller）
 // 设计依据: docs/standards/MASTER_RULES.md「Controller 仅参数解析 / 调 service / 统一响应」
-//          A 域 P1 缺口修复 (2026-07-21)
+// A 域 缺口修复
 //
 // 职责：暴露异常登录告警的查询/处理接口，复用 service.AnomalyLoginDetector
 //

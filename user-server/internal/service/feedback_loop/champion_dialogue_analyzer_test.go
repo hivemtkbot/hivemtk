@@ -1,6 +1,6 @@
 package feedbackloop
 
-// champion_dialogue_analyzer_test.go P0-5 销冠对话分析器测试
+// champion_dialogue_analyzer_test.go 销冠对话分析器测试
 //
 // 覆盖：
 //  A. 纯函数单元测试（不需 PG）

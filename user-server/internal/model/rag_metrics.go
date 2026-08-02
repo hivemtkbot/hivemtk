@@ -1,6 +1,6 @@
 package model
 
-// rag_metrics.go RAG 召回率监控模型层（C 域 P1 缺口 #2）
+// rag_metrics.go RAG 召回率监控模型层（C 域 缺口 #2）
 //
 // 五层架构归属: L5 数据层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
@@ -19,14 +19,14 @@ import "time"
 // 用途：
 //   - 计算召回率/精确率均值
 //   - 查询低召回率样本（用于调优）
-//   - P99 延迟计算
-//   - Top-K / Top-1 命中率、平均相似度（新增于 2026-07-21）
+// 延迟计算
+// Top-K / Top-1 命中率、平均相似度（新增于）
 type RagQueryLog struct {
 	ID              int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	Query           string    `gorm:"column:query;type:text;not null" json:"query"`
 	QueryHash       string    `gorm:"column:query_hash;size:64;index" json:"query_hash"`
 	SessionID       string    `gorm:"column:session_id;size:128;index" json:"session_id"`
-	ProductID string     `gorm:"column:product_id;index;default:0" json:"product_id"`
+	ProductID string     `gorm:"column:product_id;index;default:''" json:"product_id"`
 	RetrievedDocIDs string    `gorm:"column:retrieved_doc_ids;type:text" json:"retrieved_doc_ids"` // JSON 数组字符串
 	RelevantDocIDs  string    `gorm:"column:relevant_doc_ids;type:text" json:"relevant_doc_ids"`   // JSON 数组字符串（标注/反馈来源）
 	RetrievedCount  int       `gorm:"column:retrieved_count;default:0" json:"retrieved_count"`

@@ -11,7 +11,7 @@ import (
 
 // setupEmbedStaticRoutes 静态文件路由（chat embed 页面 + embed SDK）
 //
-// P0-10 ADR-010 私域部署优化（2026-07-17）：
+// 私域部署优化：
 //   - /chat/embed/*  → user-web dist（Vue 聊天窗 SPA）
 //   - /embed/*       → embed SDK 静态文件（marketing-chat-widget.iife.js）
 //

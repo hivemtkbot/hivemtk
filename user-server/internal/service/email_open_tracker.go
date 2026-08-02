@@ -1,6 +1,6 @@
 package service
 
-// email_open_tracker.go 邮件打开率追踪服务（D 域 P1 缺口 #2）
+// email_open_tracker.go 邮件打开率追踪服务（D 域 缺口 #2）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/marketing-features/email-smtp-config.md + 核心链路优化 §13.2

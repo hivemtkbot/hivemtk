@@ -1,6 +1,6 @@
 package feedbackloop
 
-// types.go P0-5 反馈学习闭环类型与接口定义
+// types.go 反馈学习闭环类型与接口定义
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4

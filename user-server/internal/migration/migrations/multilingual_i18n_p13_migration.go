@@ -1,10 +1,10 @@
 package migrations
 
-// multilingual_i18n_p13_migration.go v1.2 出海多语言方案 P1-3 - 知识库预翻译字段
+// multilingual_i18n_p13_migration.go v1.2 出海多语言方案 - 知识库预翻译字段
 //
 // 背景：
 //   v3.12.0 多语言 i18n 方案已为 knowledge_chunks 增加 source_language 字段。
-//   P1-3 监控看板 + 知识库预翻译支持需要新增 translated_versions JSONB 字段，
+// 监控看板 + 知识库预翻译支持需要新增 translated_versions JSONB 字段，
 //   用于存储高频条目的预翻译版本（按 lang 索引），加速低资源语言召回。
 //
 // 设计要点：
@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// MultilingualI18nP13Migration 多语言 i18n P1-3 迁移（v3.12.1）
+// MultilingualI18nP13Migration 多语言 i18n 迁移（v3.12.1）
 type MultilingualI18nP13Migration struct {
 	db *gorm.DB
 }

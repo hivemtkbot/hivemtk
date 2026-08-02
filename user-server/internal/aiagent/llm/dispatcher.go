@@ -57,12 +57,12 @@ type ProviderConfig struct {
 // 字段含义：
 //   - Provider:   首选 provider name
 //   - Fallbacks:  备选（按顺序）
-//   - CostWeight: 1-5 成本权重（仅作展示，Dispatch 暂不消费，留待智能路由 P1）
+// CostWeight: 1-5 成本权重（仅作展示，Dispatch 暂不消费，留待智能路由）
 //   - MaxLatency: 单次调用最大时延（ms）
 //   - MinQuality: 最低质量门槛（QualityScore 低于此值的 provider 被跳过）
-//   - Version:    路由版本号（自增），用于审计与回滚（2026-07-23 补）
+// Version: 路由版本号（自增），用于审计与回滚（补）
 //   - Weight:     灰度发布权重 0-100，0=全量回滚、100=全量新路由
-//     当次 Dispatch 按 Weight 决定走新路由还是旧路由（2026-07-23 补）
+// 当次 Dispatch 按 Weight 决定走新路由还是旧路由（补）
 //   - CanaryKey:  灰度判定 key（如 user_id），空时按权重随机抽样
 //   - CanaryRoute: 灰度时的对照路由（仅当 Weight>0 且 <100 时生效）
 type ScenarioRoute struct {
@@ -874,7 +874,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		Model:          provider.Model,
 		Temperature:    temperature,
 		MaxTokens:      maxTokens,
-		MaxRetries:     1, // 2026-07-24 性能优化：2→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义只会空等 backoff（2s+4s）。失败由 dispatcher 候选 provider failover 兜底。
+		MaxRetries:     1, // 性能优化：2→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义只会空等 backoff（2s+4s）。失败由 dispatcher 候选 provider failover 兜底。
 		RequestTimeout: route.MaxLatency / 1000,
 		SystemPrompt:   req.SystemPrompt,
 	}
@@ -957,7 +957,7 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 		LatencyMs:      latency,
 		FinishReason:   result.FinishReason,
 		ToolCalls:      result.ToolCalls,
-		Usage:          usage, // P1-D
+		Usage:          usage,
 		BaseURL:        provider.BaseURL,
 		TokenSource:    tokenSource,
 		Estimator:      estimator,

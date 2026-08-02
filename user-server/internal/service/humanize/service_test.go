@@ -1,6 +1,6 @@
 package humanize
 
-// service_test.go P0-4 HumanizeEvalService 主编排服务单元测试
+// service_test.go HumanizeEvalService 主编排服务单元测试
 //
 // 覆盖：
 //  1. RuleScorer 全量评估直接通过（不触发 LLM）

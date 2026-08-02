@@ -1,7 +1,7 @@
 // Package model 数据层模型 - 第三方对接模板
 //
 // 五层架构归属: L3 数据模型层
-// 设计依据: L 域 P1 缺口修复 - ERP/CRM 预置对接模板
+// 设计依据: L 域 缺口修复 - ERP/CRM 预置对接模板
 // 私域独立部署: 无 merchant_id 字段
 package model
 

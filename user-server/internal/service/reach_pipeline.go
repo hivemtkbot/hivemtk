@@ -622,7 +622,7 @@ func (s *ReachPipelineService) shouldRunStep(ctx context.Context, step string, j
 
 // runStep 执行单步
 //
-// V3 整改（2026-07-18）：消除生产路径静默 no-op：
+// V3 整改：消除生产路径静默 no-op：
 //   - StepContentPrepare：真实渲染模板（支持 {{var}} 占位符 + 客户名/账号名自动注入）
 //   - StepMessageGen：基于 ContentPrepare 的内容做轻量个性化
 //   - StepSend：按 channel 路由到真实的渠道发送器（已实现渠道返回 message_id，未支持渠道返回明确错误）

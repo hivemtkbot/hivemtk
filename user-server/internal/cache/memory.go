@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// DefaultMaxKeys 默认 LRU 上限（P1-18 修复：限制内存使用）
+// DefaultMaxKeys 默认 LRU 上限（修复：限制内存使用）
 const DefaultMaxKeys = 10_000
 
 // MemoryCache 内存缓存实现（带 LRU 上限）
@@ -387,7 +387,7 @@ func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 }
 
 // GetJSON 获取 JSON 缓存并反序列化
-// P1-19 优化：SetJSON 写入时已序列化缓存，命中时直接反序列化，跳过 Marshal
+// 优化：SetJSON 写入时已序列化缓存，命中时直接反序列化，跳过 Marshal
 func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
 	item, ok := m.peekItem(key)
 	if !ok {
@@ -411,7 +411,7 @@ func (m *MemoryCache) GetJSON(ctx context.Context, key string, dest any) error {
 }
 
 // SetJSON 设置 JSON 缓存
-// P1-19 优化：写入时一次性序列化，避免 GetJSON 每次 Marshal 浪费 CPU
+// 优化：写入时一次性序列化，避免 GetJSON 每次 Marshal 浪费 CPU
 func (m *MemoryCache) SetJSON(ctx context.Context, key string, value any, expiration time.Duration) error {
 	// 兼容历史调用：传 struct 时仅做一次性 JSON 序列化并以 []byte 形式存储
 	data, err := json.Marshal(value)

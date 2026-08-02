@@ -3,7 +3,7 @@ package service
 // agent_kb_binding.go 智能体知识库绑定业务服务层
 //
 // 五层架构归属: L4 业务编排层
-// 设计依据: 2026-07-31 强 1对1 改造
+// 设计依据: 强 1对1 改造
 //
 // 业务规则:
 //   - (agent_id, knowledge_base_id) 唯一; 重复 bind 自动覆盖 (先删后建)

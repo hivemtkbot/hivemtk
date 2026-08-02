@@ -1,12 +1,12 @@
 package feedbackloop
 
-// helpers_test.go P0-5 反馈学习闭环测试通用辅助
+// helpers_test.go 反馈学习闭环测试通用辅助
 //
 // 提供：
 //   1. stubLLMDispatcher   - LLM 调度器 stub（实现 LLMDispatcher 接口）
 //   2. stubEmbedder        - Embedder stub（实现 Embedder 接口）
 //   3. stubBanditAllocator  - BanditAllocator stub（实现 BanditAllocatorInterface）
-//   4. PG 测试 DB setup     - 复用 testutil.NewTestDB，自动 AutoMigrate P0-5 全部模型
+// 4. PG 测试 DB setup - 复用 testutil.NewTestDB，自动 AutoMigrate 全部模型
 //   5. 浮点近似比较辅助
 
 import (
@@ -214,11 +214,11 @@ func (s *stubBanditAllocator) PromoteCalls() []promoteCall {
 // PG 测试 DB setup
 // ----------------------------------------------------------------------------
 
-// setupFeedbackLoopTestDB 创建 P0-5 测试 DB
+// setupFeedbackLoopTestDB 创建 测试 DB
 //
 // 行为：
 //   - 调用 testutil.NewTestDB 创建独立 PG 库（项目规则"不允许跳过"，连接失败时 t.Fatal）
-//   - AutoMigrate P0-5 全部 6 张新表 + 关联表（sop_agents / optimization_suggestions）
+// AutoMigrate 全部 6 张新表 + 关联表（sop_agents / optimization_suggestions）
 //   - testutil 已自动启用 pgvector 扩展（champion_dialogues.embedding 字段必需）
 //   - 注：champion_dialogues.embedding 的 GORM tag 为 type:vector(1024)，
 //     AutoMigrate 会创建为 vector(1024) 类型（pgvector 扩展已启用）
@@ -226,7 +226,7 @@ func setupFeedbackLoopTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	// 项目规则"不允许跳过"：PG 集成测试必须运行，testutil.NewTestDB 在连接失败时 t.Fatal
 	return testutil.NewTestDB(t,
-		// P0-5 6 张新表
+		// 6 张新表
 		&model.FeedbackEvent{},
 		&model.FeedbackSignal{},
 		&model.ChampionDialogue{},

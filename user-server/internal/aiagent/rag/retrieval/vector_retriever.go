@@ -104,17 +104,17 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 		}
 		sql := `
 			SELECT id, document_id, content,
-			       (1 - (embedding <=> $1::vector))::float8 AS score
+			       (1 - (embedding <=> ?::vector))::float8 AS score
 			FROM knowledge_chunks
 			WHERE embedding IS NOT NULL
 		`
 		args := []any{vecLiteral}
 		if productID != "" {
-			sql += " AND product_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3"
-			args = append(args, productID, topK)
+			sql += " AND product_id = ? ORDER BY embedding <=> ?::vector LIMIT ?"
+			args = append(args, productID, vecLiteral, topK)
 		} else {
-			sql += " ORDER BY embedding <=> $1::vector LIMIT $2"
-			args = append(args, topK)
+			sql += " ORDER BY embedding <=> ?::vector LIMIT ?"
+			args = append(args, vecLiteral, topK)
 		}
 		return tx.Raw(sql, args...).Scan(&rows).Error
 	})

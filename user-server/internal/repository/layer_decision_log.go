@@ -3,7 +3,7 @@ package repository
 // layer_decision_log.go Layer 决策日志 Repository
 //
 // 五层架构归属: L5 数据访问层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T4)
+// 设计依据: AI 智能体性能优化
 //   - 每次 Layer 决策 + Fallback 触发落一条, 私域巡检通过 SQL 聚合统计
 //   - StatsByLayer / StatsByIntent 用于聚合查询
 //   - 与 llm_routing_logs 互补: llm_routing_logs 关注 LLM 调用, 本表关注 Layer 决策

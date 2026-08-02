@@ -1,11 +1,11 @@
 package service
 
-// anomaly_login_detector.go A 域 P1-2 异常登录预警服务
+// anomaly_login_detector.go A 域 异常登录预警服务
 //
 // 五层架构归属: L3 业务服务层
 // 设计依据: docs/standards/MASTER_RULES.md「私域独立部署，无 merchant_id 字段」
 //          docs/architecture/DUAL_ROLE_MODEL.md
-//          A 域 P1 缺口修复 (2026-07-21)
+// A 域 缺口修复
 //
 // 职责：
 //   1. 入口方法：DetectAndAlert - 接收登录事件 → 评估风险 → 写库 → 通知

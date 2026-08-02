@@ -1,6 +1,6 @@
 package feedbackloop
 
-// prompt_iterator.go P0-5 Prompt 迭代器
+// prompt_iterator.go Prompt 迭代器
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4.3

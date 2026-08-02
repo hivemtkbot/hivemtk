@@ -172,7 +172,7 @@ func mannWhitneyU(a, b []float64) (u, p float64) {
 		i = j + 1
 	}
 
-	// R1 = A 组 rank 之和
+	// = A 组 rank 之和
 	r1 := 0.0
 	for k, pr := range combined {
 		if pr.group == 0 {

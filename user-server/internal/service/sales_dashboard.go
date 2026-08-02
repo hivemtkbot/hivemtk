@@ -45,7 +45,7 @@ type SalesDashboard struct {
 	salesProfiles map[string]*SalesProfile // salesID → profile
 }
 
-// OrderDraftEvent 订单草稿事件（P1-CLOSE-11）
+// OrderDraftEvent 订单草稿事件（-11）
 type OrderDraftEvent struct {
 	DraftID     string    `json:"draft_id"`
 	CustomerID  string    `json:"customer_id"`
@@ -152,7 +152,7 @@ func (d *SalesDashboard) RecordAIDeal(ctx context.Context, ev AIDealEvent) {
 	d.aiDeals = append(d.aiDeals, ev)
 }
 
-// RecordOrderDraft 记录订单草稿事件（P1-CLOSE-11）
+// RecordOrderDraft 记录订单草稿事件（-11）
 // 商业产品级业务流：销售每天接触 50+ 客户，订单草稿的"创建/确认/取消/过期"
 // 4 个动作都是仪表盘需要追踪的关键指标。
 func (d *SalesDashboard) RecordOrderDraft(ctx context.Context, ev OrderDraftEvent) {

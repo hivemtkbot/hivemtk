@@ -74,7 +74,7 @@ func TestReplyGuard_RedisNilStaysLocal(t *testing.T) {
 }
 
 // TestReplyGuard_RedisUnavailableFallsBackToLocal Redis 不可达时降级到进程内守卫，
-// 保证单实例下消息不丢、出站不被阻断（R7 优雅降级核心语义）。
+// 保证单实例下消息不丢、出站不被阻断（优雅降级核心语义）。
 func TestReplyGuard_RedisUnavailableFallsBackToLocal(t *testing.T) {
 	bad := redis.NewClient(&redis.Options{
 		Addr:        "127.0.0.1:1", // 必然拒绝连接

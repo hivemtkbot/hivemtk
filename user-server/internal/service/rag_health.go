@@ -1,6 +1,6 @@
 package service
 
-// rag_health.go RAG 健康度评分服务（C 域 P1 缺口 #4）
+// rag_health.go RAG 健康度评分服务（C 域 缺口 #4）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6.4 RAG 健康度
@@ -53,7 +53,7 @@ const (
 	RagHealthWeightEmbedding = 0.15
 	// RagHealthWeightCoverage 知识库覆盖（chunk 数 ≥ 100 视为合格）
 	RagHealthWeightCoverage = 0.15
-	// RagHealthWeightPerformance 性能（P99 ≤ 1000ms 视为合格）
+	// RagHealthWeightPerformance 性能（≤ 1000ms 视为合格）
 	RagHealthWeightPerformance = 0.15
 	// RagHealthWeightAlerts 告警状态（无活跃预警视为合格）
 	RagHealthWeightAlerts = 0.15
@@ -330,7 +330,7 @@ func (s *RagHealthService) computeDimensions(ctx context.Context,
 	perfDesc := "无延迟数据"
 	perfStatus := "critical"
 	if recall.TotalQueries > 0 {
-		// P99 ≤ 500ms = 100 分；≥ 2000ms = 0 分；线性映射
+		// ≤ 500ms = 100 分；≥ 2000ms = 0 分；线性映射
 		if recall.P99LatencyMs <= 500 {
 			perfScore = 100
 		} else if recall.P99LatencyMs >= 2000 {

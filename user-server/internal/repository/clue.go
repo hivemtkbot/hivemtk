@@ -24,7 +24,7 @@ type ClueRepository interface {
 	GetDistinctTypes(ctx context.Context) ([]int64, error)
 	// UpdateByID 按主键更新指定字段，用于营销流程 update_lead 动作
 	UpdateByID(ctx context.Context, id string, updates map[string]any) error
-	// ListByAccounts 批量按 account / Name 查询线索（CC-P2 N+1 优化）
+	// ListByAccounts 批量按 account / Name 查询线索（CC- N+1 优化）
 	ListByAccounts(ctx context.Context, accounts []string) ([]*model.Clue, error)
 	// BatchUpdateInTx 事务内批量按 ID 更新线索字段
 	// 单条失败不中断事务（仅跳过该条），返回成功更新的条数与事务提交错误。
@@ -170,7 +170,7 @@ func (r *clueRepo) UpdateByID(ctx context.Context, id string, updates map[string
 	return nil
 }
 
-// ListByAccounts 批量按 account / Name（手机号）查询线索（CC-P2 N+1 优化）
+// ListByAccounts 批量按 account / Name（手机号）查询线索（CC- N+1 优化）
 //
 // 单次 SQL 取代「遍历 6 种 type → GetClueAllList → 内存过滤」模式：
 //  1. 主条件：account IN (去重后的手机号 / 邮箱 / accountID 列表)

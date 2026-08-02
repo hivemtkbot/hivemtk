@@ -1,6 +1,6 @@
 package service
 
-// rag_health_test.go RAG 健康度服务测试（C 域 P1 缺口 #4）
+// rag_health_test.go RAG 健康度服务测试（C 域 缺口 #4）
 //
 // 测试覆盖：
 //   1) NewRagHealthService 构造

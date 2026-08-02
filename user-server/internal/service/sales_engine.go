@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,7 +90,7 @@ type AgentToolResult struct {
 
 // SalesEngine 销售引擎
 //
-// 设计原则（P0-1 接口化重构）：
+// 设计原则（接口化重构）：
 //   - 所有协作者均以接口持有，符合依赖倒置原则（DIP）
 //   - 解锁单元测试：可注入测试替身实现，无需构造真实 *gorm.DB / *llm.Dispatcher
 //   - 现有具体类型（*IntentRecognizer 等）通过 Go 鸭子类型自动满足接口
@@ -106,22 +108,22 @@ type SalesEngine struct {
 	playbook        PlaybookRecommenderInterface // 销冠话术库（可选注入）
 	feedbackLearner FeedbackRecorderInterface    // 反馈学习器（可选注入，形成 AI 自我进化闭环）
 
-	// P0-3 置信度聚合器（可选注入）
+	// 置信度聚合器（可选注入）
 	// 注入后 shouldTransferToHuman 改为基于 5 维信号 + 动态阈值决策
 	confidenceAggregator *confidencesvc.ConfidenceAggregator
 
-	// P0-4 拟人度评估器（可选注入）
+	// 拟人度评估器（可选注入）
 	// 注入后在 Step 7.5 评估回复自然度，<0.85 触发重生成（最多 3 次）
 	humanizeEvaluator *humanizesvc.HumanizeEvalService
 
-	// P0-3 智能体 Agent Loop（真正的智能体，不做流程编排）
+	// 智能体 Agent Loop（真正的智能体，不做流程编排）
 	// 注入后 Step 6 改为：LLM ↔ 工具 循环，LLM 决定调用哪些工具 → 执行 → 回灌结果 → 再生成，
 	// 直到 LLM 给出最终回复（finish_reason=stop）或达到最大迭代次数。
 	// 未注入时维持原 9 步流水线行为（向后兼容）。
 	// 通过接口注入以避免 service ↔ tooluse 循环依赖（依赖倒置原则）
 	toolExecutor AgentToolExecutor
 
-	// 2026-07-31: 双层架构 LayerRouter（可选注入, T11/T12）
+	// 双层架构 LayerRouter（可选注入, /）
 	// 注入后 Step 6 (generateCandidate) 顶部先做 Layer1 FAQ/SOP 路由:
 	//   - 命中且 conf >= 0.6 -> SkipLLM, 用 FAQ 答案或 SOP 模板回复
 	//   - 命中但 conf <  0.6 -> 走 Layer2 LLM
@@ -155,7 +157,7 @@ type CustomerLookup interface {
 }
 
 // ============================================================================
-// P0-1 接口化重构：SalesEngine 协作者抽象接口
+// 接口化重构：SalesEngine 协作者抽象接口
 // ----------------------------------------------------------------------------
 // 设计目标：
 //   1. 依赖倒置（DIP）：SalesEngine 依赖抽象而非具体类型，可注入测试替身进行单元测试
@@ -217,7 +219,7 @@ func DefaultSalesEngineConfig() *SalesEngineConfig {
 // NewSalesEngine 创建销售引擎
 // 依赖支持 nil 注入：nil 时跳过对应环节（如无 LLM 时使用话术模板兜底）
 //
-// 参数为接口类型（P0-1 重构）：
+// 参数为接口类型（重构）：
 //   - intent / memory / sop 接受任何实现对应接口的类型，包括 *IntentRecognizer 等现有具体类型
 //   - 调用方无需修改，Go 鸭子类型自动适配
 func NewSalesEngine(
@@ -250,12 +252,12 @@ func NewSalesEngine(
 // 商业产品级：注入后，每次 Handle 结束都会记录本次决策快照（意图/置信度/SOP/回复/是否转人工），
 // 后续客户下一条消息或人工接管时更新 CustomerAccept，形成 AI 自我进化闭环
 //
-// P0-1 重构：参数改为 FeedbackRecorderInterface，可注入测试替身实现进行单元测试
+// 重构：参数改为 FeedbackRecorderInterface，可注入测试替身实现进行单元测试
 func (e *SalesEngine) SetFeedbackLearner(ctx context.Context, fl FeedbackRecorderInterface) {
 	e.feedbackLearner = fl
 }
 
-// SetConfidenceAggregator 注入置信度聚合器（P0-3）
+// SetConfidenceAggregator 注入置信度聚合器
 //
 // 注入后 shouldTransferToHuman 不再使用静态规则（IntentChurn/IntentComplaint/MessageCount>30），
 // 而是由 5 维信号（IntentConf/EntityComp/CtxRelev/RAGQual/LLMEntropy）+ 动态阈值决策：
@@ -270,7 +272,7 @@ func (e *SalesEngine) SetConfidenceAggregator(ctx context.Context, agg *confiden
 	e.confidenceAggregator = agg
 }
 
-// SetHumanizeEvaluator 注入拟人度评估器（P0-4）
+// SetHumanizeEvaluator 注入拟人度评估器
 //
 // 注入后 SalesEngine Step 7（拟人润色）之后插入 Step 7.5（拟人度评估）：
 //   - RuleScorer 全量评估 5 维度（自然度/简洁性/共情/专业/说服）
@@ -282,7 +284,7 @@ func (e *SalesEngine) SetHumanizeEvaluator(ctx context.Context, ev *humanizesvc.
 	e.humanizeEvaluator = ev
 }
 
-// SetToolExecutor 注入工具执行器（P0-3 智能体 Agent Loop）
+// SetToolExecutor 注入工具执行器（智能体 Agent Loop）
 //
 // 注入后 SalesEngine Step 6（LLM 生成候选回复）改为真正的 Agent Loop：
 //  1. 将所有可用工具（AgentToolDef）序列化为 OpenAI tools 数组传给 LLM
@@ -300,7 +302,7 @@ func (e *SalesEngine) SetToolExecutor(ctx context.Context, exec AgentToolExecuto
 	e.toolExecutor = exec
 }
 
-// SetLayerRouter 注入双层架构 LayerRouter（2026-07-31 T11/T12）
+// SetLayerRouter 注入双层架构 LayerRouter（/）
 //
 // 注入后 generateCandidate 顶部调用 LayerRouter.Route()，命中 Layer1 时
 // 直接返回 FAQ/SOP 模板回复（SkipLLM，零 LLM 调用）。
@@ -315,7 +317,7 @@ type SalesRequest = dto.SalesRequest
 
 // agentIDFromCtx 从 SalesRequest 中提取 agentID
 //
-// 2026-07-31 P0-B: 知识库隔离需要把 agentID 传给 RouteRequest
+// 知识库隔离需要把 agentID 传给 RouteRequest
 //   - 优先从 req.AgentContext.AgentID 取
 //   - nil 时返回 0 (走 Layer2 fallback, 兼容旧调用)
 func agentIDFromCtx(req *SalesRequest) uint {
@@ -329,12 +331,12 @@ func agentIDFromCtx(req *SalesRequest) uint {
 // 已迁移至 dto 包，此处保留类型别名以维持向后兼容
 type SalesResponse = dto.SalesResponse
 
-// SalesStepLog 已迁至 dto 包（P2-6 DTO 层补全）
+// SalesStepLog 已迁至 dto 包（DTO 层补全）
 // 使用 dto.SalesStepLog 替代本地类型
 
 // Handle 处理一条入站消息
 //
-// 2026-07-31: 集成并行化版本 HandleParallel
+// 集成并行化版本 HandleParallel
 //   - 通过 FF_PARALLEL=1 启用 (env)
 //   - 关闭时回退到原 9 步串行 (向后兼容)
 func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResponse, error) {
@@ -348,7 +350,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		req.Config = DefaultSalesEngineConfig()
 	}
 
-	// 2026-07-31: 并行化开关 (FeatureFlag 灰度)
+	// 并行化开关 (FeatureFlag 灰度)
 	// 启用时走 5 阶段并行版本; 关闭时走原 9 步串行 (向后兼容)
 	if e.shouldUseParallel() {
 		return e.HandleParallel(ctx, req)
@@ -582,7 +584,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 		})
 	}
 
-	// 步骤 7.5：拟人度评估（P0-4）
+	// 步骤 7.5：拟人度评估
 	// 注入 HumanizeEvalService 时启用，<0.85 触发重生成（最多 3 次）
 	// 私域本地 LLM 部署下由 HumanizeEvaluatorEnabled 开关跳过本步骤（避免 1.5B q4 模型被 0.85 阈值反复打回）
 	if e.humanizeEvaluator != nil && HumanizeEvaluatorEnabled {
@@ -690,7 +692,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 //
 // 参数 chunk 为已填充的 dto.StreamChunk；返回 false 表示调用方希望中断流（ctx 取消或 buffer 满）。
 //
-// 设计依据：2026-07-31 AI 智能体性能优化 (T15) - WebSocket 流式输出
+// 设计依据： AI 智能体性能优化 - WebSocket 流式输出
 //
 // 注：定义为类型别名（type alias）而非新类型，使其与外部接口（如 controller.StreamEngineInterface）
 // 的函数类型签名完全一致，避免 Go 类型不匹配。
@@ -698,13 +700,13 @@ type StreamChunkCallback = func(chunk *dto.StreamChunk) bool
 
 // HandleStream 流式处理销售请求（WebSocket 入口）
 //
-// 设计依据：2026-07-31 AI 智能体性能优化 (T15) - WebSocket 流式输出
+// 设计依据： AI 智能体性能优化 - WebSocket 流式输出
 //
 // 与 Handle 的区别：
 //   - Handle 一次性返回 *SalesResponse（完整回复）
 //   - HandleStream 通过 callback 实时回调 dto.StreamChunk（start / delta / final / error）
 //
-// B-001 真正流式 (2026-07-31): 不再等 Handle() 完成再切片模拟流式
+// 真正流式 : 不再等 Handle 完成再切片模拟流式
 //   - start chunk 立即推送（trace_id 在 < 10ms 抵达客户端）
 //   - LayerRouter 命中 (SkipLLM=true): 立即推 delta + final, LCP < 100ms
 //   - LayerRouter 未命中 / 关闭: 推 start + placeholder(LCP < 100ms),
@@ -739,7 +741,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 		return ctx.Err()
 	}
 
-	// 2) B-001: 真正流式 - 先做 Layer1 路由, 命中立即推 delta + final
+	// 2) : 真正流式 - 先做 Layer1 路由, 命中立即推 delta + final
 	// 避免走 5 阶段并行 + LLM 推理导致 LCP 19.6s
 	if e.layerRouter != nil {
 		// 浅意图识别 (规则级, < 5ms) 走 Speculative 不可用回退到 nil
@@ -751,7 +753,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 			Intent:      nil, // Stream 路径不阻塞 intent, 让 LayerRouter 内部 FAQ/SOP 走 keyword
 			RAGChunks:   nil,
 			Stage:       "",
-			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			// 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
 			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
@@ -807,7 +809,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 	}
 
 	// 4) Layer2: 把 Handle 拿到的回复按字符切片"模拟"流式（直到 LLM Dispatcher 切到真流式）
-	// 注意: B-001 已保证 start + placeholder 在 < 100ms 抵达, 切片延迟只影响后续体感
+	// 注意: 已保证 start + placeholder 在 < 100ms 抵达, 切片延迟只影响后续体感
 	reply := resp.Reply
 	if reply == "" {
 		// 无文本（可能已转人工）— 直接发 final
@@ -868,7 +870,7 @@ func (e *SalesEngine) HandleStream(ctx context.Context, req *SalesRequest, onChu
 
 // layerOfResponse 从 SalesResponse 推断 layer（layer1 / layer2）
 // 优先用 Confidence.DecisionBand（若注入 confidence），否则用 layer2 兜底。
-// 2026-07-31: ConfidenceDecision 没有 Layer 字段, 改用 DecisionBand 派生层名
+// ConfidenceDecision 没有 Layer 字段, 改用 DecisionBand 派生层名
 func layerOfResponse(resp *SalesResponse) string {
 	if resp == nil {
 		return dto.Layer2
@@ -986,7 +988,7 @@ func renderSalesScriptSteps(scripts []map[string]interface{}) string {
 }
 
 // SetPlaybook 注入销冠话术库（可选）
-// P0-1 重构：参数改为 PlaybookRecommenderInterface，可注入测试替身实现进行单元测试
+// 重构：参数改为 PlaybookRecommenderInterface，可注入测试替身实现进行单元测试
 func (e *SalesEngine) SetPlaybook(ctx context.Context, p PlaybookRecommenderInterface) {
 	e.playbook = p
 }
@@ -1016,10 +1018,10 @@ func (e *SalesEngine) fetchPlaybookSuggestions(ctx context.Context, industry Ind
 
 // generateCandidate LLM 生成候选回复
 //
-// P0-3 智能体升级：当注入了 toolExecutor 且存在可用工具时，调用 runAgentLoop
+// 智能体升级：当注入了 toolExecutor 且存在可用工具时，调用 runAgentLoop
 // 走真正的 Agent Loop（LLM ↔ 工具 循环）；否则走原始一次性 LLM 调用（向后兼容）。
 //
-// 2026-07-31: 集成双层架构 (T12) - 顶部先调 LayerRouter.Route
+// 集成双层架构 - 顶部先调 LayerRouter.Route
 //   - Layer1 命中 (SkipLLM) -> 直接返回 FAQ/SOP 模板回复, 不调 LLM
 //   - Layer1 未命中/置信度低 -> 走原 LLM 路径
 func (e *SalesEngine) generateCandidate(
@@ -1033,7 +1035,7 @@ func (e *SalesEngine) generateCandidate(
 	script *ScriptTemplate,
 	customer *model.Customer,
 ) (string, *llm.DispatchResult, error) {
-	// 2026-07-31: Layer1 双层路由 (T12) - 命中即跳过 LLM
+	// Layer1 双层路由 - 命中即跳过 LLM
 	if e.layerRouter != nil {
 		decision := e.layerRouter.Route(ctx, &RouteRequest{
 			SessionID:   req.SessionID,
@@ -1042,7 +1044,7 @@ func (e *SalesEngine) generateCandidate(
 			Intent:      intent,
 			RAGChunks:   ragChunks,
 			Stage:       stage,
-			// 2026-07-31 P0-B: 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
+			// 传 agentID 实现按智能体隔离的 FAQ/SOP 匹配
 			AgentID: agentIDFromCtx(req),
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
@@ -1065,7 +1067,7 @@ func (e *SalesEngine) generateCandidate(
 		scenario = llm.ScenarioFriendlyChat
 	}
 
-	// P0-3: 智能体 Agent Loop 路径（真正的智能体，不做流程编排）
+	// 智能体 Agent Loop 路径（真正的智能体，不做流程编排）
 	if e.toolExecutor != nil {
 		availableTools := e.toolExecutor.ListTools()
 		if len(availableTools) > 0 {
@@ -1091,11 +1093,13 @@ func (e *SalesEngine) generateCandidate(
 // agentLoopMaxIterations Agent Loop 最大迭代次数
 // 防止 LLM 无限调用工具或陷入循环。
 // 复杂多工具场景可由 SetAgentLoopMaxIterations 或 env MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖。
-// 2026-07-31: 从 2 减为 1, 节省 50% LLM 调用 + 降低 P50 wall time
-var agentLoopMaxIterations = 1
+// 注意：必须 >= 2。LLM 在第 1 轮返回 tool_calls 后，需要第 2 轮（携带工具结果）才能生成最终
+// 文本回复；若设为 1，工具调用永远无法产出答案，会被降级为“空回复→转人工”，工具调用形同失效。
+// 默认 5，兼顾多工具串联与 follow-up 问答；受 agentLoopTotalTimeout(默认180s) 约束。
+var agentLoopMaxIterations = 5
 
 // SetAgentLoopMaxIterations 注入 Agent Loop 最大迭代次数
-// 由 main.go 启动时调用；≤0 时保持默认 2
+// 由 main.go 启动时调用；≤0 时保持默认 5
 func SetAgentLoopMaxIterations(n int) {
 	if n <= 0 {
 		return
@@ -1103,11 +1107,20 @@ func SetAgentLoopMaxIterations(n int) {
 	agentLoopMaxIterations = n
 }
 
+// init 读取环境变量 MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖默认迭代次数（仅当为正整数时生效）。
+func init() {
+	if v := os.Getenv("MTK_AGENT_LOOP_MAX_ITERATIONS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			agentLoopMaxIterations = n
+		}
+	}
+}
+
 // agentLoopTotalTimeout Agent Loop wall-clock 总超时
 //
 // 演进：
-//   - 2026-07-22：120s（1.5B Q4 CPU 推理 35-60s）
-//   - 2026-07-24：改为可配置，由 main.go 启动时从 inference.llm.timeout_seconds 注入
+// 120s（1.5B Q4 CPU 推理 35-60s）
+// 改为可配置，由 main.go 启动时从 inference.llm.timeout_seconds 注入
 //
 // 设计：默认 180s（保守值，覆盖大多数 CPU 推理场景）。
 // 开发模式可在 config.yaml 设大值（如 720s）确保 LLM 调用不被 ctx 掐断；
@@ -1126,7 +1139,7 @@ func SetAgentLoopTimeout(seconds int) {
 	agentLoopTotalTimeout = time.Duration(seconds) * time.Second
 }
 
-// runAgentLoop 真正的智能体 Agent Loop（P0-3 核心实现）
+// runAgentLoop 真正的智能体 Agent Loop（核心实现）
 //
 // 流程（ReAct 模式）：
 //  1. 构造初始 messages（system + user）
@@ -1201,7 +1214,7 @@ func (e *SalesEngine) runAgentLoop(
 		Content: prompt,
 	})
 
-	// 3. Agent Loop（P0-A：wall-clock 总超时 30s 兜底，防止最坏 5min 卡死）
+	// 3. Agent Loop（：wall-clock 总超时 30s 兜底，防止最坏 5min 卡死）
 	// 总超时设计：30s 默认。即使 LLM 响应慢 + 工具慢，也保证 30s 内返回给用户
 	agentLoopCtx, agentLoopCancel := context.WithTimeout(ctx, agentLoopTotalTimeout)
 	defer agentLoopCancel()
@@ -1209,6 +1222,12 @@ func (e *SalesEngine) runAgentLoop(
 	var lastResult *llm.DispatchResult
 	totalToolCalls := 0
 	var firstLLMError error // 记录首次 LLM 调用错误（用于最终降级返回）
+	curMaxTokens := req.Config.MaxTokens
+	if curMaxTokens <= 0 {
+		curMaxTokens = 800
+	}
+	curTools := toolDefs
+	lengthRetryDone := false
 	for iter := 1; iter <= agentLoopMaxIterations; iter++ {
 		// 检查总超时
 		if agentLoopCtx.Err() != nil {
@@ -1218,20 +1237,20 @@ func (e *SalesEngine) runAgentLoop(
 		}
 
 		// 3.1 调用 LLM（携带 tools + 完整对话历史）
-		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d", iter, len(messages), len(toolDefs), len(prompt))
+		logger.Infof("[AgentLoop] iter=%d messages=%d tools=%d prompt_len=%d max_tokens=%d", iter, len(messages), len(curTools), len(prompt), curMaxTokens)
 		logger.Infof("[AgentLoop] prompt_preview=%s", truncate(prompt, 300))
 		result, err := e.dispatcher.Dispatch(agentLoopCtx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt, // 仅在 Messages 为空时使用，这里 Messages 非空
 			SystemPrompt: req.Config.Persona,
-			MaxTokens:    req.Config.MaxTokens,
+			MaxTokens:    curMaxTokens,
 			Temperature:  req.Config.Temperature,
-			Tools:        toolDefs,
+			Tools:        curTools,
 			ToolChoice:   "auto",
 			Messages:     messages,
 		})
 		if err != nil {
-			// P0-C：LLM 调用失败时不直接 return，降级到 fallback 内容
+			// LLM 调用失败时不直接 return，降级到 fallback 内容
 			// 首次失败记录错误；后续失败也降级，避免直接抛错给用户
 			if firstLLMError == nil {
 				firstLLMError = err
@@ -1245,6 +1264,16 @@ func (e *SalesEngine) runAgentLoop(
 
 		// 3.2 判断 finish_reason
 		if result.FinishReason != "tool_calls" || len(result.ToolCalls) == 0 {
+			// DeepSeek 等推理模型在 reasoning 阶段可能耗尽 max_tokens，
+			// 导致 finish_reason=length 且 content 为空。此时重试一次：
+			// 放大 max_tokens 并去掉 tools（纯文本作答），让模型完成 reasoning 后输出正文。
+			if result.FinishReason == "length" && strings.TrimSpace(result.Content) == "" && !lengthRetryDone {
+				lengthRetryDone = true
+				curMaxTokens = curMaxTokens * 2
+				curTools = nil
+				logger.Warnf("[AgentLoop] iter=%d 推理模型耗尽 token(content 为空)，重试: max_tokens=%d tools dropped", iter, curMaxTokens)
+				continue
+			}
 			// LLM 给出最终文本回复，结束循环
 			logger.Infof("[AgentLoop] iter=%d finish_reason=%s content_len=%d tools_called=%d",
 				iter, result.FinishReason, len(result.Content), totalToolCalls)
@@ -1312,7 +1341,7 @@ func (e *SalesEngine) runAgentLoop(
 		return content, lastResult, nil
 	}
 	if firstLLMError != nil {
-		// P0-C：LLM 调用失败时返回友好降级提示，而非抛 error 给用户
+		// LLM 调用失败时返回友好降级提示，而非抛 error 给用户
 		return "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。", nil, nil
 	}
 	return "", nil, fmt.Errorf("agent loop exhausted with no final content")
@@ -1452,7 +1481,7 @@ func (e *SalesEngine) buildPrompt(
 
 // shouldTransferToHuman 是否应该转人工
 //
-// P0-3 升级：注入 ConfidenceAggregator 后改为基于 5 维信号 + 动态阈值的决策；
+// 升级：注入 ConfidenceAggregator 后改为基于 5 维信号 + 动态阈值的决策；
 // 未注入时保留原有静态规则（IntentChurn/IntentComplaint/MessageCount>30）作为兜底
 func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.RecognizeResult, mem *model.DialogueMemory, req *SalesRequest) (bool, string) {
 	if intent == nil {
@@ -1467,7 +1496,7 @@ func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.Rec
 		return false, ""
 	}
 
-	// P0-3：注入 ConfidenceAggregator 时改用 5 维信号聚合
+	// 注入 ConfidenceAggregator 时改用 5 维信号聚合
 	if e.confidenceAggregator != nil {
 		return e.shouldTransferByConfidence(ctx, intent, mem, req)
 	}
@@ -1483,7 +1512,7 @@ func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.Rec
 	return false, ""
 }
 
-// shouldTransferByConfidence 基于置信度聚合的转人工决策（P0-3）
+// shouldTransferByConfidence 基于置信度聚合的转人工决策
 //
 // 输入：意图 + 记忆 + 请求
 // 输出：(是否转人工, 原因)
@@ -1517,7 +1546,7 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 		return false, ""
 	}
 
-	// P3 监控埋点：记录决策分布
+	// 监控埋点：记录决策分布
 	decisionLabel := ""
 	switch dec.DecisionBand {
 	case dto.BandHandoff:

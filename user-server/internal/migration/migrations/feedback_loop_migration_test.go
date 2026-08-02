@@ -1,6 +1,6 @@
 package migrations
 
-// feedback_loop_migration_test.go P0-5 反馈学习闭环迁移 v3.0.0 PG 集成测试
+// feedback_loop_migration_test.go 反馈学习闭环迁移 v3.0.0 PG 集成测试
 //
 // 覆盖：
 //  1. Version / Name / Description 元信息

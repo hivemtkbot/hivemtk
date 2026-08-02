@@ -35,7 +35,7 @@ func (r *SessionMessageRepository) Create(ctx context.Context, message *model.Se
 }
 
 // FindRecentDuplicate 查找最近 N 秒内同 (session, content, sender_type, sender_id) 的消息
-// 用于：visitor 端 + orchestrator 双保存的去重（2026-07-17 修复 chat 双发 bug）
+// 用于：visitor 端 + orchestrator 双保存的去重（修复 chat 双发 bug）
 // 返回找到的最近一条消息（如果存在），否则返回 nil
 func (r *SessionMessageRepository) FindRecentDuplicate(ctx context.Context, sessionID, senderType, senderID, content string, window time.Duration) (*model.SessionMessage, error) {
 	var existing model.SessionMessage
@@ -67,7 +67,7 @@ func (r *SessionMessageRepository) GetBySessionID(ctx context.Context, sessionID
 	return messages, total, err
 }
 
-// ListBySessionIDsBatch 批量按多个 session_id 取消息，返回按 session_id 分组的 map（CC-P2 N+1 优化）
+// ListBySessionIDsBatch 批量按多个 session_id 取消息，返回按 session_id 分组的 map（CC- N+1 优化）
 //
 // 单次 SQL 拉取所有 session 的消息，service 层按 session_id 分桶，
 // 避免「for session → GetBySessionID」造成的 N+1 查询。

@@ -127,7 +127,7 @@ type aiAgentCreateReq struct {
 	SystemPrompt         string                  `json:"system_prompt"`
 	Greeting             string                  `json:"greeting"`
 	RagProductIDs        []string                `json:"rag_product_ids"`
-	// 2026-07-31 P1-A: 知识库绑定 - FAQ / SOP 模板
+	// 知识库绑定 - FAQ / SOP 模板
 	FAQEntryIDs    []string `json:"faq_entry_ids"`
 	SOPTemplateIDs []string `json:"sop_template_ids"`
 	SOPIDs         []string `json:"sop_ids"` // SOP 流程图
@@ -293,7 +293,7 @@ func (ctrl *AIAgentController) Update(c *gin.Context) {
 	if hasKey("rag_product_ids") {
 		existing.RagProductIDs = req.RagProductIDs
 	}
-	// 2026-07-31 P1-A: 知识库绑定
+	// 知识库绑定
 	if hasKey("faq_entry_ids") {
 		existing.FAQEntryIDs = req.FAQEntryIDs
 	}

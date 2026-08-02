@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// executor.go 工具执行引擎（PRD §5.2 P0-3 G3）
+// executor.go 工具执行引擎（PRD §5.2 G3）
 //
 // 设计目标：
 //  1. 从 ToolRegistry 取工具 → 包装为 handler → 应用 5 装饰器链 → 执行
@@ -28,7 +28,7 @@ type ToolExecutorConfig struct {
 	RetryPolicy       RetryPolicy
 	AuditLogger       AuditLogger
 	CostTracker       CostTracker
-	// P2-B: 熔断器注册中心（可选，nil 表示不启用熔断）
+	// 熔断器注册中心（可选，nil 表示不启用熔断）
 	// 当配置非 nil 时，工具执行链会插入 CircuitBreakerDecorator
 	CircuitBreaker *CircuitBreakerRegistry
 }
@@ -357,7 +357,7 @@ type LLMToolResult struct {
 // DispatchByLLMToolCall 根据 LLM 返回的 tool_call 调度执行
 // 一次接收多个 tool_call，并发执行，返回每个 tool_call 的结果
 //
-// P1-C：并发上限控制（默认 5）
+// 并发上限控制（默认 5）
 // 设计依据：防止 LLM 一次返回 10+ tool_calls 时打爆下游服务
 // 5 并发是经过权衡的平衡值：足够覆盖常见业务场景（如 customer.search + order.query 并行），
 // 又能保护下游 DB/外部 API 不被突发流量打垮
@@ -367,7 +367,7 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	}
 	results := make([]LLMToolResult, len(toolCalls))
 
-	// P1-C：semaphore 控制并发上限
+	// semaphore 控制并发上限
 	const maxConcurrent = 5
 	sem := make(chan struct{}, maxConcurrent)
 	var wg sync.WaitGroup
@@ -407,7 +407,7 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 	content, _ := json.Marshal(execResult.ToolResult)
 	contentStr := string(content)
 
-	// P0-B：工具结果长度截断
+	// 工具结果长度截断
 	// 设计依据：GPT-3.5 context 限制 4K-16K tokens，单个工具结果不应超过 4000 字符（约 1000 tokens）
 	// 截断后追加省略号 + 原始长度，让 LLM 知道数据被截断
 	const maxContentLen = 4000

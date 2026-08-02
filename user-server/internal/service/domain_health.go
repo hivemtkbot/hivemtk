@@ -15,7 +15,7 @@ import (
 )
 
 // DomainHealthService 域名健康度服务
-// G 域 P1：定时探测（DNS / HTTP HEAD / 平台黑名单）+ 健康度评分 + 自动切换
+// G 域 ：定时探测（DNS / HTTP HEAD / 平台黑名单）+ 健康度评分 + 自动切换
 //
 // 设计要点：
 //   - 探测与评分完全同步执行（不引入后台 goroutine），由调用方触发；

@@ -29,7 +29,7 @@ type EventStats struct {
 // CustomerEventRepository defines the interface for customer event data access
 type CustomerEventRepository interface {
 	Record(ctx context.Context, event *model.CustomerEvent) error
-	// RecordBatch 批量插入事件，单次 SQL 替代「for event → Record」（CC-P2 N+1 优化）
+	// RecordBatch 批量插入事件，单次 SQL 替代「for event → Record」（CC- N+1 优化）
 	RecordBatch(ctx context.Context, events []*model.CustomerEvent) error
 	GetByCustomerID(ctx context.Context, customerID string, limit int) ([]*model.CustomerEvent, error)
 	GetByTimeRange(ctx context.Context, start, end time.Time) ([]*model.CustomerEvent, error)
@@ -50,7 +50,7 @@ func (r *customerEventRepository) Record(ctx context.Context, event *model.Custo
 	return _db.GetDB().WithContext(ctx).Create(event).Error
 }
 
-// RecordBatch 批量插入事件（CC-P2 N+1 优化）
+// RecordBatch 批量插入事件（CC- N+1 优化）
 //
 // 使用 gorm.Create 批量插入，单次 SQL 取代 N 次单条插入。
 //   - events 为空时直接返回 nil（noop）

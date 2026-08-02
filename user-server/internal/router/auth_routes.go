@@ -17,7 +17,7 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.GET("/auth/current-user", authCtrl.GetCurrentUser)
 	auth.POST("/auth/change-password", authCtrl.ChangePassword)
 
-	// P1-1 MFA 多因素认证
+	// MFA 多因素认证
 	// 注意：POST /auth/mfa/verify 为登录第二步（无需 JWT，使用 temp_token）
 	//       已注册到 public 路由组（见 admin_routes.go setupPublicRoutes）
 	//       其余 MFA 接口需要 JWT（已在 auth 路由组的 JWTAuthMiddleware 中保护）
@@ -26,19 +26,19 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 	auth.POST("/auth/mfa/disable", authCtrl.DisableMFA)
 	auth.GET("/auth/mfa/status", authCtrl.GetMFAStatus)
 
-	// P1-2 异常登录预警
+	// 异常登录预警
 	auth.GET("/auth/login-events", authCtrl.ListLoginEvents)
 	auth.GET("/auth/security-alerts", authCtrl.ListSecurityAlerts)
 	auth.POST("/auth/security-alerts/:id/resolve", authCtrl.ResolveSecurityAlert)
 
-	// P1-2 异常登录预警 - 异常登录预警控制器（增强告警通道：审计+邮件+站内信）
+	// 异常登录预警 - 异常登录预警控制器（增强告警通道：审计+邮件+站内信）
 	anomalyCtrl := controller.NewAnomalyLoginDetectorController()
 	auth.GET("/auth/anomaly/login-events", anomalyCtrl.ListLoginEvents)
 	auth.GET("/auth/anomaly/alerts", anomalyCtrl.ListAlerts)
 	auth.POST("/auth/anomaly/alerts/:id/resolve", anomalyCtrl.ResolveAlert)
 	auth.POST("/auth/anomaly/alerts/:id/ignore", anomalyCtrl.IgnoreAlert)
 
-	// P1-3 密码策略
+	// 密码策略
 	auth.GET("/auth/password-policy", authCtrl.GetPasswordPolicy)
 	auth.PUT("/auth/password-policy", authCtrl.SavePasswordPolicy)
 
@@ -189,7 +189,7 @@ func setupEmailRoutes(auth *gin.RouterGroup) {
 	// 邮件发送
 	auth.POST("/email/send", emailSendCtrl.SendEmail)
 
-	// D 域 P1 缺口修复 - 邮件退订管理 + 打开率追踪
+	// D 域 缺口修复 - 邮件退订管理 + 打开率追踪
 	emailUnsubscribeRepo := repository.NewEmailUnsubscribeRepository(db.GetDB())
 	emailUnsubscribeCtrl := controller.NewEmailUnsubscribeController(
 		service.NewEmailUnsubscribeService(emailUnsubscribeRepo),
@@ -208,7 +208,7 @@ func setupSmsRoutes(auth *gin.RouterGroup) {
 	smsCtrl := controller.NewSmsController(service.NewSmsService(smsRepo))
 	smsCtrl.RegisterRoutes(auth)
 
-	// E 域 P1 缺口修复 - 短信退订管理 + 到达率追踪
+	// E 域 缺口修复 - 短信退订管理 + 到达率追踪
 	smsUnsubscribeRepo := repository.NewSmsUnsubscribeRepository(db.GetDB())
 	smsUnsubscribeCtrl := controller.NewSmsUnsubscribeController(
 		service.NewSmsUnsubscribeService(smsUnsubscribeRepo),

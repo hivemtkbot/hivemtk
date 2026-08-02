@@ -1,8 +1,8 @@
 package controller
 
-// chat_ws_hub_test.go WebSocket Hub 单元测试 (T29)
+// chat_ws_hub_test.go WebSocket Hub 单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T14)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - TestHub_NewChatWSHub: 初始状态 (ClientCount=0, IsOnline=false)

@@ -15,7 +15,7 @@ const (
 	PlatformTiktok      Platform = "tiktok"
 	PlatformWeChat      Platform = "wechat"
 	PlatformWeb         Platform = "web"
-	// PlatformWebEmbed Web Widget 嵌入（ADR-010 访客端）
+	// PlatformWebEmbed Web Widget 嵌入（访客端）
 	// 区别于 PlatformWeb（商户 B 端后台），PlatformWebEmbed 用于第三方网站访客
 	PlatformWebEmbed Platform = "web_embed"
 )

@@ -1,6 +1,6 @@
 package service
 
-// feedback_loop_cron.go P0-5 反馈学习闭环定时任务
+// feedback_loop_cron.go 反馈学习闭环定时任务
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4

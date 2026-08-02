@@ -1,9 +1,9 @@
 package controller
 
-// dashboard_sse.go 实时驾驶舱 SSE 流式推送（M-4 P1）
+// dashboard_sse.go 实时驾驶舱 SSE 流式推送（）
 //
 // 五层架构归属: L1 控制器层
-// 设计依据: PRD §M-4 P1 缺口修复
+// 设计依据: PRD § 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
 // EventStream 设计契约：
@@ -27,7 +27,7 @@ package controller
 // 与已有 sse_dashboard.go 的关系：
 //   - sse_dashboard.go：通用 SSE Hub（多 topic 订阅广播）
 //   - dashboard_sse.go：专用实时驾驶舱（聚合数据库指标流式推送）
-//   - 两者并行存在：dashboard_sse 是 M-4 P1 新增的实时驾驶舱专用 SSE
+// 两者并行存在：dashboard_sse 是 新增的实时驾驶舱专用 SSE
 //
 // 五层架构修复：所有 DB 查询已下沉到 service.DashboardStatsService，
 // controller 不再直接访问 db / gorm / model。

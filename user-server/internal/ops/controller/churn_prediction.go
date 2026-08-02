@@ -198,7 +198,7 @@ func (c *ChurnPredictionController) SaveModelConfig(ctx *gin.Context) {
 
 // GetChurnStatistics 获取流失统计
 //
-// P2-2 同类修复：start_date / end_date 为必填参数，缺失时返回 400
+// 同类修复：start_date / end_date 为必填参数，缺失时返回 400
 // （不允许用默认值/mock 数据兜底，符合"不允许使用模拟数据"硬约束）。
 // 前端页面初次加载由前端主动传入最近 30 天日期。
 func (c *ChurnPredictionController) GetChurnStatistics(ctx *gin.Context) {

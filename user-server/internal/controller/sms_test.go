@@ -1431,7 +1431,7 @@ func TestSmsController_GetJobRecords_NotFound(t *testing.T) {
 
 // =============================================================================
 // 下方测试函数来源于历史遗留的 sms_extra_test.go
-// 为遵守命名规范(禁用 _extra 后缀),于 2026-07-15 合并到 sms_controller_test.go
+// 为遵守命名规范(禁用 _extra 后缀),于 合并到 sms_controller_test.go
 // =============================================================================
 
 // setupSMSTestDB_Merged 短信精简测试数据库(合并自 sms_extra_test.go)

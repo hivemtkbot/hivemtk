@@ -1,6 +1,6 @@
 package service
 
-// rag_safety_guard.go RAG 内容风控卫士（C 域 P1 缺口 #3 内容侧）
+// rag_safety_guard.go RAG 内容风控卫士（C 域 缺口 #3 内容侧）
 //
 // 五层架构归属: L3 业务层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6.3 内容风控

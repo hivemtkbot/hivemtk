@@ -1,13 +1,13 @@
 package repository
 
-// rag_metrics_repository.go RAG 召回率监控仓储（C 域 P1 缺口 #2）
+// rag_metrics_repository.go RAG 召回率监控仓储（C 域 缺口 #2）
 //
 // 五层架构归属: L3 Repository 层
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控
 //
 // 职责:
 //   - 写入 rag_query_logs（单条 / 批量）
-//   - 聚合 rag_query_logs（基础指标 + P99 延迟偏移取值）
+// 聚合 rag_query_logs（基础指标 + 延迟偏移取值）
 //   - 查询低召回样本
 //   - upsert rag_metrics_daily（按 window_start + window_end 幂等）
 //   - 查询最近 N 条聚合记录
@@ -50,7 +50,7 @@ type RagMetricsRepository interface {
 	CreateQueryLogsInBatches(ctx context.Context, logs []*model.RagQueryLog, batchSize int) error
 	// AggregateQueryLogs 聚合时间窗口内的查询日志（基础指标）
 	AggregateQueryLogs(ctx context.Context, start, end time.Time, lowRecallThreshold float64) (*RagQueryLogAggRow, error)
-	// PluckP99Latency 取 P99 延迟（按 latency_ms 升序偏移取一条）
+	// PluckP99Latency 取 延迟（按 latency_ms 升序偏移取一条）
 	PluckP99Latency(ctx context.Context, start, end time.Time, offset int) (int64, error)
 	// FindLowRecallQueryLogs 查询召回率低于阈值的样本（按 created_at DESC）
 	FindLowRecallQueryLogs(ctx context.Context, threshold float64, limit int) ([]model.RagQueryLog, error)
@@ -112,7 +112,7 @@ func (r *ragMetricsRepo) AggregateQueryLogs(ctx context.Context, start, end time
 	return row, nil
 }
 
-// PluckP99Latency 取 P99 延迟
+// PluckP99Latency 取 延迟
 //
 // 通过 Order + Offset + Limit(1) + Pluck 实现偏移法取百分位
 func (r *ragMetricsRepo) PluckP99Latency(ctx context.Context, start, end time.Time, offset int) (int64, error) {

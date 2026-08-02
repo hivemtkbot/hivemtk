@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// 2026-07-31 AI 智能体性能优化 - FAQ Repository 测试
+// AI 智能体性能优化 - FAQ Repository 测试
 // 使用 testutil.NewTestDB 跑 PG 真实库 (项目唯一允许的测试 DB 模式)
 // 每个 test 用独立 question 前缀 + tx 隔离,避免进程级共享库的数据污染
 

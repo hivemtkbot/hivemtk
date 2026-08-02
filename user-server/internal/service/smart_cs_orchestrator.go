@@ -99,7 +99,7 @@ func (o *SmartCSOrchestrator) SetCustomerServiceAgentService(ctx context.Context
 // Mode 返回本编排器作为智能体生命周期的工作模式：被动（passive）。
 // SmartCSOrchestrator 即 agent/lifecycle 体系下的「被动模式」实现——
 // 消息/事件进入系统后由它调用智能体完成对话并返回（对话域主路径）。
-// 主动模式（active）由后续主动触达引擎落地（详见 ADR-013）。
+// 主动模式（active）由后续主动触达引擎落地（详见）。
 func (o *SmartCSOrchestrator) Mode(ctx context.Context) string { return string(model.AgentModePassive) }
 
 // ----------------------------------------------------------------------------
@@ -305,12 +305,12 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 
 // findOrCreateSession 查找或创建会话
 //
-// 匹配优先级（S3-1 OneID 跨渠道合并 + P2-2 兜底）：
+// 匹配优先级（S3-1 OneID 跨渠道合并 + 兜底）：
 //  1. OneID（跨渠道合并辅助键）—— 同 OneID 视为同一人，跨平台 user_id 不同但 OneID
 //     相同则合并会话，避免冷启动
 //  2. user_id（单渠道内）—— 命中 user_id 索引，单点查
 //  3. 创建新会话时，若 OneID 为空，自动以 Platform:SenderID 拼接临时 OneID
-//     （P2-2 兜底），保证同 Platform + SenderID 的用户在 TTL 内可被同会话合并
+// （兜底），保证同 Platform + SenderID 的用户在 TTL 内可被同会话合并
 //
 // 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
@@ -330,7 +330,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	}
 
 	// 3) 创建新会话
-	// P2-2 兜底：OneID 为空时，用 Platform:SenderID 拼接临时 OneID。
+	// 兜底：OneID 为空时，用 Platform:SenderID 拼接临时 OneID。
 	// - 拼接规则：fmt.Sprintf("%s:%s", in.Platform, in.SenderID)
 	// - 适用场景：未通过用户实名/手机号识别出的访客（如匿名 Web 访客首次进入）
 	// - 后续同一 Platform + SenderID 的消息可命中此 OneID，避免重复建会话
@@ -363,7 +363,7 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 
 // saveInboundMessage 保存入站消息
 //
-// 去重逻辑（修复 chat 访客端双保存 bug，2026-07-17）：
+// 去重逻辑（修复 chat 访客端双保存 bug）：
 //
 //	chat_visitor_service.SendMessage 也保存了 user 消息，再调 HandleIncomingWithAgent
 //	会导致同一条用户消息被保存两次（数据库中 2 条 row，前端列表重复）。

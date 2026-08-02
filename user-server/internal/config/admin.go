@@ -4,7 +4,7 @@
 //   - 本文件仅保留：UI 文案相关的非敏感默认值（登录页提示、自动登录开关等）。
 //   - 真正的超管密码 → 唯一来源：system_users.password（bcrypt 哈希）。
 //
-// 删除项（2026-07-24）：
+// 删除项：
 //   - os.Getenv("PLATFORM_ADMIN_PASSWORD")  // 平台代理管理员密码改由 config/platform.yaml 的 admin_password 读取
 //   - GetDefaultAdminCredentials()              // 移除暴露密码的辅助函数
 //   - defaultAdminConfig.DefaultAdmin.Password // 永远为空，禁止任何硬编码默认密码

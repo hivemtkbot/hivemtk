@@ -455,7 +455,7 @@ func deliverTelegramUpdate(ctx context.Context, client *http.Client, accountID u
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Telegram-Polling-Source", "1") // 标记来源（便于监控 / 调试）
-		// SOP-041 修复：polling 兜底投递到本地 webhook 入口时，必须携带与 setWebhook
+		// 修复：polling 兜底投递到本地 webhook 入口时，必须携带与 setWebhook
 		// 一致的 X-Telegram-Bot-Api-Secret-Token，否则本地验签 401（消息丢失）。
 		// webhook_secret 为空时（未配置验签）不附加，handler 会跳过验签，向后兼容。
 		if webhookSecret != "" {

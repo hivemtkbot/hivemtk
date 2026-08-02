@@ -1,6 +1,6 @@
 package humanize
 
-// tfidf_phrase.go P0-4 TF-IDF 短语提取器（纯 Go）
+// tfidf_phrase.go TF-IDF 短语提取器（纯 Go）
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.5

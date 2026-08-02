@@ -1,6 +1,6 @@
 package humanize
 
-// types.go P0-4 拟人度评估器类型与接口定义
+// types.go 拟人度评估器类型与接口定义
 //
 // 五层架构归属: L3 业务层 / L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.1
@@ -58,7 +58,7 @@ type ChampionMessage struct {
 
 // LowQualitySampleCollector 低质样本收集器接口
 //
-// 复用 P1-2 已有 DBLowQualitySampleCollector，但 HumanizeEvalService 通过此抽象接口调用
+// 复用 已有 DBLowQualitySampleCollector，但 HumanizeEvalService 通过此抽象接口调用
 type LowQualitySampleCollector interface {
 	Collect(ctx context.Context, sample *model.LowQualitySample) error
 }

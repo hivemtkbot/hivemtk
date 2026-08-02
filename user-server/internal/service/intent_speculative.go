@@ -2,7 +2,7 @@ package service
 
 // intent_speculative.go 投机意图识别 (Phase 0 并行化)
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T6)
+// 设计依据: AI 智能体性能优化
 //
 // 问题: 7B Q5 本地 LLM 单次推理 1-3s, 串行执行会阻塞主流程
 // 解法: 规则匹配 (O(1) < 1ms) 同步返回 + LLM 识别后台异步执行
@@ -20,7 +20,7 @@ import (
 	"marketing/internal/dto"
 )
 
-// RecognizeSpeculative 投机识别 (2026-07-31 并行化优化)
+// RecognizeSpeculative 投机识别 (并行化优化)
 //
 // 返回:
 //   - 同步结果 *dto.RecognizeResult: 规则命中即返回, 未命中返回低置信度 placeholder

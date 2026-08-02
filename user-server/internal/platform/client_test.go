@@ -37,7 +37,7 @@ func TestClient_Do_401SelfHeal(t *testing.T) {
 	}
 }
 
-// TestClient_Do_StructuredError 验证非 2xx 返回结构化 *PlatformError，透传状态码与业务 msg（R2）。
+// TestClient_Do_StructuredError 验证非 2xx 返回结构化 *PlatformError，透传状态码与业务 msg。
 func TestClient_Do_StructuredError(t *testing.T) {
 	t.Setenv("MERCHANT_API_SECRET", "test-secret")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

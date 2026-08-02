@@ -6,8 +6,8 @@ package migrations
 // 设计依据: docs/核心链路优化.md 第十四章 §14.6 召回率监控 / §14.6.3 风控预警 / §14.6.4 健康度
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移补充 C 域 P1 缺口 #2/#3/#4 所需的数据库基础设施：
-//  1. rag_query_logs 表（每次检索的明细日志，用于召回率/P99/低召回样本分析）
+// 本迁移补充 C 域 缺口 #2/#3/#4 所需的数据库基础设施：
+// 1. rag_query_logs 表（每次检索的明细日志，用于召回率//低召回样本分析）
 //  2. rag_metrics_daily 表（5 分钟窗口聚合的指标快照，用于趋势图和预警）
 //
 // 私域部署: 外部告警通道 (RagAlertService) 已删除, rag_alerts 表由 v3.17
@@ -72,7 +72,7 @@ func (m *RagMonitoringMigration) Up(ctx context.Context) error {
 // 查询场景：
 //   - GetRecallMetrics 聚合时间窗口指标
 //   - GetLowRecallQueries 查询低召回样本（调优）
-//   - P99 延迟计算（偏移法）
+// 延迟计算（偏移法）
 func (m *RagMonitoringMigration) createRagQueryLogs(ctx context.Context) error {
 	stmt := `
 		CREATE TABLE IF NOT EXISTS rag_query_logs (

@@ -72,7 +72,7 @@ func setupClueRoutes(auth *gin.RouterGroup) {
 	auth.POST("/clues/import", clueCtrl.ImportClues)
 	auth.GET("/clues/type", clueCtrl.GetClueTypes)
 
-	// H 域 P1: 线索评分 + 互动事件
+	// 线索评分 + 互动事件
 	clueScoreCtrl := controller.NewClueScoreController()
 	auth.POST("/clue/score", clueScoreCtrl.ScoreClue)
 	auth.POST("/clue/score-all", clueScoreCtrl.ScoreAll)

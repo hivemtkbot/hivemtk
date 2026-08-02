@@ -10,20 +10,20 @@ import (
 	"marketing/internal/pkg/utils/logger"
 )
 
-// ClueScoreRFMUpdater 线索评分 RFM 回流端口（F-P1-90 依赖倒置）。
+// ClueScoreRFMUpdater 线索评分 RFM 回流端口（F- 依赖倒置）。
 // 由 *ClueScoreService 实现，在 main.go 装配阶段注入。
 type ClueScoreRFMUpdater interface {
 	UpdateByCustomerRFM(ctx context.Context, customerID string, segment string, compositeScore int) error
 }
 
-// SegmentRecomputer 分群重算端口（F-P1-92 依赖倒置）。
+// SegmentRecomputer 分群重算端口（F- 依赖倒置）。
 // 由 *SegmentService 实现，在 main.go 装配阶段注入。
 type SegmentRecomputer interface {
 	RecomputeForCustomer(ctx context.Context, customerID string) error
 }
 
 // ============================================================================
-// CustomerOrchestrator 客户业务编排层 (F-P0-09)
+// CustomerOrchestrator 客户业务编排层 (F
 // ----------------------------------------------------------------------------
 // 现状问题：客户创建 / 事件追踪 / RFM 计算后未联动旅程、标签、360 缓存，
 // 导致客户旅程阶段停留在"陌生"，标签未自动更新，360 视图读到旧数据。
@@ -48,8 +48,8 @@ type CustomerOrchestrator struct {
 	journey       *CustomerJourneyService
 	tagger        *AutoTagger
 	cache         cache.Cache
-	clueScoreUpd  ClueScoreRFMUpdater // F-P1-90 线索评分 RFM 回流
-	segmentRecomp SegmentRecomputer   // F-P1-92 分群重算
+	clueScoreUpd  ClueScoreRFMUpdater // F- 线索评分 RFM 回流
+	segmentRecomp SegmentRecomputer   // F- 分群重算
 }
 
 // NewCustomerOrchestrator 创建客户业务编排层实例。
@@ -90,12 +90,12 @@ func (o *CustomerOrchestrator) SetCache(c cache.Cache) {
 	o.cache = c
 }
 
-// SetClueScoreUpdater 注入线索评分 RFM 回流端口（F-P1-90）。
+// SetClueScoreUpdater 注入线索评分 RFM 回流端口（F-）。
 func (o *CustomerOrchestrator) SetClueScoreUpdater(u ClueScoreRFMUpdater) {
 	o.clueScoreUpd = u
 }
 
-// SetSegmentRecomputer 注入分群重算端口（F-P1-92）。
+// SetSegmentRecomputer 注入分群重算端口（F-）。
 func (o *CustomerOrchestrator) SetSegmentRecomputer(r SegmentRecomputer) {
 	o.segmentRecomp = r
 }
@@ -191,8 +191,8 @@ func (o *CustomerOrchestrator) OnCustomerEvent(ctx context.Context, customerID s
 // OnRFMComputed RFM 计算完成后联动：
 //  1. 失效 360 缓存（避免读到旧 RFM 数据）
 //  2. 更新 RFM 标签（champion/loyal/at_risk/churn/potential）
-//  3. 回流线索评分（F-P1-90：调 ClueScoreService.UpdateByCustomerRFM）
-//  4. 触发分群重算（F-P1-92：调 SegmentService.RecomputeForCustomer）
+// 3. 回流线索评分（F-：调 ClueScoreService.UpdateByCustomerRFM）
+// 4. 触发分群重算（F-：调 SegmentService.RecomputeForCustomer）
 //
 // 调用方：CustomerRFMService.ComputeForCustomer
 func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID string, segment string) {
@@ -226,7 +226,7 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 			}
 		}()
 	}
-	// 3. F-P1-90: 回流线索评分（RFM → clue_score）
+	// 3. F-: 回流线索评分（RFM → clue_score）
 	if o.clueScoreUpd != nil {
 		func() {
 			defer func() {
@@ -239,7 +239,7 @@ func (o *CustomerOrchestrator) OnRFMComputed(ctx context.Context, customerID str
 			}
 		}()
 	}
-	// 4. F-P1-92: 触发分群重算（RFM → segment）
+	// 4. F-: 触发分群重算（RFM → segment）
 	if o.segmentRecomp != nil {
 		func() {
 			defer func() {
@@ -272,7 +272,7 @@ func stageForEvent(eventType model.EventType) JourneyStage {
 }
 
 // ============================================================================
-// 全局单例（F-P1-89/90/92 装配入口）
+// 全局单例（F-/90/92 装配入口）
 // ----------------------------------------------------------------------------
 // CustomerRFMService / CustomerService / EventTracker 在 controller 中各自
 // 构造，无法通过构造函数统一注入 orchestrator。通过全局单例兜底：

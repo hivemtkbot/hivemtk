@@ -1,6 +1,6 @@
 package controller
 
-// chat_ws_writepump_test.go B-019 WebSocket writePump 超时测试
+// chat_ws_writepump_test.go WebSocket writePump 超时测试
 //
 // 验证 writePump 内部 SetWriteDeadline 被正确设置:
 //   - chatWSWriteWait 常量 = 10s (生产化要求)
@@ -24,7 +24,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TestWritePump_ChatWSWriteWait 测试 B-019: 写超时常量 = 10s
+// TestWritePump_ChatWSWriteWait 测试 : 写超时常量 = 10s
 func TestWritePump_ChatWSWriteWait(t *testing.T) {
 	if chatWSWriteWait != 10*time.Second {
 		t.Errorf("chatWSWriteWait should be 10s for B-019, got %s", chatWSWriteWait)
@@ -33,7 +33,7 @@ func TestWritePump_ChatWSWriteWait(t *testing.T) {
 
 // wsTestSetup 构造一对 WebSocket 连接 (server / client), 返回 clientConn 和 serverConn
 //
-// 服务端 upgrader 关闭 CheckOrigin (本地测试) 以避免和 B-018 白名单互相干扰。
+// 服务端 upgrader 关闭 CheckOrigin (本地测试) 以避免和 白名单互相干扰。
 // 返回的 (clientConn, serverConn, cleanup) 中:
 //   - clientConn 由 writePump 写入
 //   - serverConn 由测试代码读取验证

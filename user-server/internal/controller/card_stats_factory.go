@@ -12,7 +12,7 @@ import (
 
 // CardStatsFactoryController 卡片统计平台路由器
 //
-// LM-P2：以前每平台各自维护一套 controller（douyin/kuaishou/xiaohongshu/xianyu）
+// LM-：以前每平台各自维护一套 controller（douyin/kuaishou/xiaohongshu/xianyu）
 // + stats 接口，参数命名、返回结构不一致。本 controller 通过
 // :platform 路径参数动态选择对应的 service.PlatformCardStatsService，
 // 对外暴露统一的 /api/card-stats/:platform/stats/:id 与

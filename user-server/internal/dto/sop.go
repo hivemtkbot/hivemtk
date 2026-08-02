@@ -44,7 +44,7 @@ type SOPNode struct {
 	// 旧字段：向后兼容（仅 branch 节点使用）
 	Condition string `json:"condition,omitempty"`
 
-	// 商用级增强字段（PRD §5.2 P0-2）
+	// 商用级增强字段（PRD §5.2）
 	Description string               `json:"description,omitempty"` // 节点说明
 	Prompt      string               `json:"prompt,omitempty"`      // LLM 节点的提示词 / 话术模板
 	Tools       []string             `json:"tools,omitempty"`       // 节点可用工具列表
@@ -105,7 +105,7 @@ type SOPABTestConfig struct {
 
 // CreateRequest 创建 SOP 请求
 // 已从 service 包迁入，引用 dto.SOPGraph / dto.SOPABTestConfig 无循环依赖
-// P2-6 清理：移除残留的 MerchantID 多租户字段（独立部署模式无 merchant_id）
+// 清理：移除残留的 MerchantID 多租户字段（独立部署模式无 merchant_id）
 type CreateRequest struct {
 	Name          string          `json:"name" binding:"required"`
 	Scenario      string          `json:"scenario" binding:"required"`

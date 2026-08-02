@@ -2,7 +2,7 @@ package migrations
 
 // v3_17_drop_rag_alerts_migration.go 清理孤儿表 rag_alerts
 //
-// 背景 (二次深度审查 P2 风险):
+// 背景 (二次深度审查 风险):
 //   - rag_alerts 表于 rag_monitoring_migration.go (v2.8.0) 创建, 用于
 //     外部告警通道 (RagAlertService.CheckAndAlert)
 //   - commit 1 私域清理时已删除 RagAlertService / RagAlert 模型 / RagAlertController

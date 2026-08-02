@@ -101,7 +101,7 @@ func (h *WSHandler) HandleWebSocket(c *gin.Context) {
 
 // writePump 向客户端发送消息
 //
-// P2-11 修复：
+// 修复：
 //   - 每次写操作前 SetWriteDeadline，防止对端 TCP 窗口关闭时本协程永久阻塞。
 //   - 启动 pingPeriod 周期 ticker，主动发 PingMessage；
 //     对端回 Pong 后会触发 readPump 中已注册的 SetPongHandler，
@@ -156,7 +156,7 @@ func (h *WSHandler) writePump(client *Client, conn *websocket.Conn, ctx context.
 
 // readPump 从客户端接收消息
 //
-// P2-11 修复：
+// 修复：
 //   - SetReadLimit：限制单条消息 8KB，防止恶意大帧耗尽内存。
 //   - SetReadDeadline + SetPongHandler：60s 内必须收到对端 Pong 或任何帧，
 //     否则判定连接僵死主动关闭；PongHandler 在收到 Pong 时刷新 ReadDeadline。

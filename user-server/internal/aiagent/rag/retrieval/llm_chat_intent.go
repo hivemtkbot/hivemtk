@@ -3,7 +3,7 @@ package ragretrieval
 // llm_chat_intent.go 基于 LLM 的精细意图识别（7 关键子类）
 //
 // 五层架构归属: L4 能力层
-// 设计依据: PRD §M-2（精细意图识别 7 子类）
+// 设计依据: PRD §（精细意图识别 7 子类）
 // 私域独立部署: 无 merchant_id 字段
 //
 // 设计目标：

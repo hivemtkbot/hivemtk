@@ -65,7 +65,7 @@ type FollowUpService struct {
 	mu        sync.RWMutex
 	reminders map[string]*Reminder // id → reminder
 	journey   *CustomerJourneyService
-	// P1-CLOSE-10 联动：跟进完成 → 自动推进旅程 + 仪表盘实时更新
+	// 10 联动：跟进完成 → 自动推进旅程 + 仪表盘实时更新
 	dashboard *SalesDashboard
 }
 

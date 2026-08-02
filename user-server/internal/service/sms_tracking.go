@@ -358,9 +358,9 @@ func normalizeSmsStatus(status string) string {
 // parseSmsTime 解析运营商 webhook 时间字符串
 //
 // 支持格式：
-//   - RFC3339: 2006-01-02T15:04:05Z07:00
-//   - 2006-01-02 15:04:05
-//   - 2006-01-02
+// RFC3339: Z07:00
+
+
 //   - Unix 时间戳（秒）
 func parseSmsTime(s string) (*time.Time, error) {
 	s = strings.TrimSpace(s)

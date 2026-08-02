@@ -1,8 +1,8 @@
 package controller
 
-// chat_ws_hub_stop_test.go B-020 ChatWSHub.Stop goroutine 等待测试
+// chat_ws_hub_stop_test.go ChatWSHub.Stop goroutine 等待测试
 //
-// 验证 B-020 修复: Stop() 必须等待 Run goroutine 真正退出，
+// 验证 修复: Stop 必须等待 Run goroutine 真正退出，
 // 防止 Hub 关闭后 Run goroutine 残留。
 //
 // 不依赖 gorilla/websocket: 通过给 Client.Conn 传 nil, 避开 Conn.Close() 调用
@@ -16,7 +16,7 @@ import (
 	"go.uber.org/goleak"
 )
 
-// TestHub_Stop_WaitForGoroutine B-020 验证 Stop() 阻塞等待 Run 退出
+// TestHub_Stop_WaitForGoroutine 验证 Stop 阻塞等待 Run 退出
 //
 // 场景:
 //  1. 启动 Run goroutine
@@ -57,7 +57,7 @@ func TestHub_Stop_WaitForGoroutine(t *testing.T) {
 	}
 }
 
-// TestHub_Stop_BeforeRun B-020 验证 Run 未启动时 Stop 也安全
+// TestHub_Stop_BeforeRun 验证 Run 未启动时 Stop 也安全
 func TestHub_Stop_BeforeRun(t *testing.T) {
 	hub := NewChatWSHub()
 	// 不启动 Run
@@ -76,7 +76,7 @@ func TestHub_Stop_BeforeRun(t *testing.T) {
 	}
 }
 
-// TestHub_NoGoroutineLeak B-020 验证 Hub 关闭后无 goroutine 残留
+// TestHub_NoGoroutineLeak 验证 Hub 关闭后无 goroutine 残留
 //
 // 使用 goleak.VerifyNone 验证 Stop 后无 ChatWSHub 相关 goroutine 残留。
 // 注意: goleak 默认会忽略 testing 主 goroutine。
@@ -113,7 +113,7 @@ func TestHub_NoGoroutineLeak(t *testing.T) {
 	// goleak.VerifyNone 会在 defer 中执行, 验证无残留
 }
 
-// TestHub_Stop_DoneChannelClosed B-020 验证 Stop 后 done 通道被关闭
+// TestHub_Stop_DoneChannelClosed 验证 Stop 后 done 通道被关闭
 func TestHub_Stop_DoneChannelClosed(t *testing.T) {
 	hub := NewChatWSHub()
 	go hub.Run()
@@ -130,7 +130,7 @@ func TestHub_Stop_DoneChannelClosed(t *testing.T) {
 	}
 }
 
-// TestHub_Stop_ConcurrentCalls B-020 验证并发 Stop 调用的安全性
+// TestHub_Stop_ConcurrentCalls 验证并发 Stop 调用的安全性
 func TestHub_Stop_ConcurrentCalls(t *testing.T) {
 	hub := NewChatWSHub()
 	go hub.Run()

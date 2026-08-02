@@ -1,7 +1,7 @@
 // Package model 数据层模型 - 客户 RFM 分层
 //
 // 五层架构归属: L3 数据模型层
-// 设计依据: H 域 P1 缺口修复 - RFM 联动分层
+// 设计依据: 缺口修复 - RFM 联动分层
 // 私域独立部署: 无 merchant_id 字段
 package model
 

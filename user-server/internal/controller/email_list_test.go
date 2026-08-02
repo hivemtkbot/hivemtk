@@ -325,7 +325,7 @@ func TestEmailListController_NewEmailListController(t *testing.T) {
 
 // =============================================================================
 // 下方测试函数来源于历史遗留的 email_extra_test.go
-// 为遵守命名规范(禁用 _extra 后缀),于 2026-07-15 合并到 email_list_test.go
+// 为遵守命名规范(禁用 _extra 后缀),于 合并到 email_list_test.go
 // 这些测试覆盖 EmailList/EmailSmtp/EmailDraft/EmailJobs 的基础路由可达性
 // =============================================================================
 

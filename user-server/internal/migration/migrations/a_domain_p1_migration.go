@@ -1,6 +1,6 @@
 package migrations
 
-// a_domain_p1_migration.go A 域 P1 缺口修复占位（v2.11.0 版本号占位，Up/Down 为 no-op）
+// a_domain_p1_migration.go A 域 缺口修复占位（v2.11.0 版本号占位，Up/Down 为 no-op）
 //
 // data_scope 字段保留在 system_users 表。
 
@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ADomainP1Migration A 域 P1 缺口修复迁移（no-op）
+// ADomainP1Migration A 域 缺口修复迁移（no-op）
 type ADomainP1Migration struct {
 	db *gorm.DB
 }

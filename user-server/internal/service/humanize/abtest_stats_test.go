@@ -1,6 +1,6 @@
 package humanize
 
-// abtest_stats_test.go P0-4 A/B 测试统计三件套单元测试
+// abtest_stats_test.go A/B 测试统计三件套单元测试
 //
 // 覆盖：
 //  1. Mann-Whitney U 检验（含结修正、与 R wilcox.test 对比）

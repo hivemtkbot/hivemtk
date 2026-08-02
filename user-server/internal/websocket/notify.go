@@ -40,7 +40,7 @@ func SendToAgent(messageType string, payload any, agentID uint) error {
 // 客户端发 `{"type":"ack","seq":N}` 后由 GlobalPendingAck().Ack 清理。
 // 通过 sessionID 路由到对应的访客 WebSocket 连接。
 //
-// 鲁棒性加固（2026-07-22 方向B）：
+// 鲁棒性加固（方向B）：
 //   - 走 MustEnvelope 分配 seq，与 visitor_handler.onConnect / hub.Broadcast 对齐
 //   - 自动 GlobalPendingAck().Track，确保重连后可通过 PendingSince 拉取未确认
 //   - 客户端断开时由 visitor_handler.readPump 的 defer Drop 清理

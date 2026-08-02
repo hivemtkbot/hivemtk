@@ -12,7 +12,7 @@ const (
 
 // ChatChannel 客服 Web Widget 渠道（多通道设计）
 //
-// 设计理念（ADR-010）：
+// 设计理念：
 //   - 单部署实例可服务多个外部网站（多 channel）
 //   - 每个 channel 对应一个 app_key + 一组白名单 origin
 //   - channel 可绑定默认 RAG 产品（智能体）

@@ -30,7 +30,7 @@ type LLMConfig struct {
 	PresencePenalty  float64
 	ResponseFormat   string // json_object, text
 	SystemPrompt     string
-	// 用于置信度计算（P0-3 §15.5.4 LLMEntropy 信号）
+	// 用于置信度计算（§15.5.4 LLMEntropy 信号）
 	// - Logprobs: 请求 LLM 返回每个 token 的 log 概率
 	// - TopLogprobs: 返回 top-N 候选 token 的 log 概率（用于计算 TopTokenEntropy）
 	// 实现 chatResponse.choices[0].logprobs 解析。
@@ -173,7 +173,7 @@ type chatResponse struct {
 		Message struct {
 			Role      string         `json:"role"`
 			Content   string         `json:"content"`
-			ToolCalls []chatToolCall `json:"tool_calls,omitempty"` // P0-1: 解析 LLM 返回的 tool_calls
+			ToolCalls []chatToolCall `json:"tool_calls,omitempty"` // 解析 LLM 返回的 tool_calls
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"` // "stop"/"length"/"tool_calls"/"content_filter"
 	} `json:"choices"`

@@ -14,7 +14,7 @@ import (
 	"marketing/internal/service"
 )
 
-// business_tools.go 业务工具实现（PRD §5.2 P0-3 G3）
+// business_tools.go 业务工具实现（PRD §5.2 G3）
 //
 // 2 个业务工具：
 //   1. follow_task.create - 创建跟进任务（联动 FollowUp Port + 客户旅程）
@@ -133,7 +133,7 @@ func reminderAnyToMap(v any) map[string]any {
 		}
 		key := snakeCaseFieldName(field.Name)
 		val := rv.Field(i).Interface()
-		// 序列化规则（2026-07-22 方向D）：
+		// 序列化规则（方向D）：
 		//  1. time.Time（值类型）→ RFC3339 字符串
 		//  2. *time.Time（指针，可能 nil）→ 非 nil 时 RFC3339 字符串
 		//  3. 任何基于 string 定义的命名类型（如 service.ReminderType /

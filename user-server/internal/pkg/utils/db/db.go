@@ -41,7 +41,7 @@ func InitDB() {
 		appConfig.Database.Postgres.SSLMode,
 	)
 
-	// P1-5 修复：生产环境默认 Warn 级别（不打印每条 SQL），开发环境才用 Info
+	// 修复：生产环境默认 Warn 级别（不打印每条 SQL），开发环境才用 Info
 	// 避免生产日志爆炸 + SQL 细节泄露
 	logLevel := gormLogger.Warn
 	if os.Getenv("APP_ENV") == "development" || os.Getenv("GIN_MODE") == "debug" {
@@ -66,10 +66,10 @@ func InitDB() {
 		poolConfig = config.DefaultPoolConfig
 	}
 
-	// B-009 防御性安全网: 当配置中部分字段为 0 (YAML 配错 / 漏配) 时,
+	// 防御性安全网: 当配置中部分字段为 0 (YAML 配错 / 漏配) 时,
 	// 强制套用安全 baseline, 防止 gorm Open 后无任何 pool 限制导致生产雪崩。
 	// SetMaxOpenConns(20): 与 Phase 0 errgroup SetLimit(4) × 多请求并发相匹配,
-	//   留出余量给其他 RPC / 后台任务, 同时防止 DB pool 耗尽 (B-009 高危场景)。
+	// 留出余量给其他 RPC / 后台任务, 同时防止 DB pool 耗尽 (高危场景)。
 	// SetMaxIdleConns(10): 冷启动后能快速响应 10 个并发请求, 避免反复建连。
 	// SetConnMaxLifetime(30*time.Minute): 30 分钟回收长生命周期连接, 避免陈旧连接
 	//   + Postgres 服务端主动断开造成的"半开连接"错误。

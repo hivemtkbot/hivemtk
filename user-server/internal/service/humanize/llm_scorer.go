@@ -1,6 +1,6 @@
 package humanize
 
-// llm_scorer.go P0-4 LLM 评估器（LLMScorerImpl）
+// llm_scorer.go LLM 评估器（LLMScorerImpl）
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十六章 §16.4.3

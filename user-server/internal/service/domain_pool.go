@@ -208,7 +208,7 @@ func (s *domainPoolService) CheckAllDomains(ctx context.Context) ([]dto.DomainPo
 	return results, nil
 }
 
-// ============== G 域 P1 黑名单管理(下沉到 Service) ==============
+// ============== G 域 黑名单管理(下沉到 Service) ==============
 
 // AddBlacklist 添加域名到黑名单
 // ttlHours=0 表示永久,>0 表示 TTL(小时)

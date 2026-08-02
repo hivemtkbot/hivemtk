@@ -17,7 +17,7 @@ import (
 	"marketing/internal/websocket"
 )
 
-// VisitorChatService 访客端客服会话服务（ADR-010）
+// VisitorChatService 访客端客服会话服务
 //
 // 职责：
 //   - 接收访客（匿名）通过 Web Widget 发送的消息
@@ -106,7 +106,7 @@ func (s *VisitorChatService) SetOrchestrator(ctx context.Context, o *SmartCSOrch
 
 // VisitorOpenSessionRequest 访客打开会话请求
 //
-// 注意（2026-07-18 私域部署修复）：ChannelID/VisitorID 不再用 binding:"required"。
+// 注意（私域部署修复）：ChannelID/VisitorID 不再用 binding:"required"。
 // 原因：私域部署模式下，channel_id 由中间件 AppKeyResolve 从 X-Chat-Channel-Id header
 // 或 X-Chat-App-Key 反查注入 ctx；visitor_id 从 X-Chat-Visitor-Id header 注入。
 // controller 层 OpenSession 会在 binding 之后做软解析兜底，所以 binding 不能 required。
@@ -132,7 +132,7 @@ type VisitorOpenSessionResult struct {
 
 // resolveChannel 解析 channel（支持 channel_id / app_key / "default"）
 //
-// 私域部署（2026-07-21 修复）：前端嵌入路由 /chat/embed/:channel_ref 把 app_key
+// 私域部署（修复）：前端嵌入路由 /chat/embed/:channel_ref 把 app_key
 // 作为 path 参数透传过来，effectiveChannelId 收到的实际值可能是 channel_id 或
 // app_key。这里按"先按 channel_id 查 → 再按 app_key 查 → 最后 default 兜底"
 // 的顺序兼容三种取值，避免前端传 app_key 时报"渠道不存在"。
@@ -175,7 +175,7 @@ func (s *VisitorChatService) OpenSession(ctx context.Context, req *VisitorOpenSe
 	}
 
 	// 1. 查询渠道
-	//    私域部署（2026-07-17）：channel_id == "default" 时，若 DB 不存在则自动创建
+	// 私域部署：channel_id == "default" 时，若 DB 不存在则自动创建
 	//    其他 channel_id 仍按正常流程（必须先在管理后台创建）
 	channel, err := s.resolveChannel(ctx, req.ChannelID)
 	if err != nil {
@@ -400,7 +400,7 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		}, nil
 	}
 
-	// 5.1 NLP 关键词自动转人工（2026-07-17）
+	// 5.1 NLP 关键词自动转人工
 	//   前端不再暴露"转人工"按钮。对用户永远显示"在线客服"。
 	//   后端基于关键词命中（"人工"/"真人"/"转人工" 等）自动触发转人工流程。
 	//   命中后：
@@ -723,7 +723,7 @@ func (s *VisitorChatService) CountAvailableAgents(ctx context.Context) (int, err
 }
 
 // ============================================================================
-// NLP 关键词自动转人工（2026-07-17）
+// NLP 关键词自动转人工
 // ============================================================================
 
 // shouldForceTransferByKeywords 判断用户消息是否命中"转人工"关键词

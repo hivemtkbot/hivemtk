@@ -261,7 +261,7 @@ func (s *userService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 		return nil, errors.New("账户已被禁用")
 	}
 
-	// P1-3 修复：使用真正的 JWT 工具生成 token（不再用假"jwt_token_"字符串）
+	// 修复：使用真正的 JWT 工具生成 token（不再用假"jwt_token_"字符串）
 	jwtUtils := utils.NewJWTUtils(utils.DefaultJWTConfig)
 	// user.ID 是 string（uuid），转换为 uint（JWT 内部用 uint 表示 user_id）
 	var userIDUint uint

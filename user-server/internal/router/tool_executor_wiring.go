@@ -13,7 +13,7 @@ import (
 )
 
 // ============================================================================
-// 全局 ToolExecutor 装配（P0-4 + P0-5）
+// 全局 ToolExecutor 装配（+）
 // ----------------------------------------------------------------------------
 // 本文件负责：
 //   1. 初始化全局 ToolExecutor（装饰器链：权限/限流/重试/超时/审计/计费）
@@ -47,7 +47,7 @@ import (
 //   - AuditLogger:        内存版（保留最近 10000 条审计）
 //   - CostTracker:        内存版（运营面板可读取统计）
 //
-// P0 优化：本地持有 memAuditLogger / memCostTracker 引用，
+// 优化：本地持有 memAuditLogger / memCostTracker 引用，
 // 通过 GetGlobalMemoryAuditLogger / GetGlobalMemoryCostTracker 暴露给调试 API（/agent/tools/audit /cost）。
 // 未来切换为 DB 持久化版本时，仅需替换此处构造与暴露函数的实现。
 func initGlobalToolExecutor() {
@@ -95,7 +95,7 @@ func GetGlobalMemoryCostTracker() *tooluse.MemoryCostTracker {
 }
 
 // ============================================================================
-// 全局 ToolRouter 装配（P0 优化：激活已实现但未接入的 ToolRouter）
+// 全局 ToolRouter 装配（优化：激活已实现但未接入的 ToolRouter）
 // ----------------------------------------------------------------------------
 // ToolRouter（tooluse/tool_router.go）已实现"熔断 + 限流 + 成本统计 + 全局统计"
 // 但历史上从未在 router.Setup 中装配，属于死代码。

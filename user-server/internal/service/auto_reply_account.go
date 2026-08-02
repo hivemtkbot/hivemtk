@@ -7,7 +7,7 @@ import (
 
 // auto_reply_account_service.go
 //
-// 从 model.AutoReplyAccount 迁移而来的 Cookie 加解密函数（T04 架构清理）。
+// 从 model.AutoReplyAccount 迁移而来的 Cookie 加解密函数（架构清理）。
 // model 不应包含业务方法（五层架构约束），Cookie 的 Get/Set 由 service 包级函数承载。
 //
 // MarshalJSON / UnmarshalJSON / getDecryptedCookieForSerialization 等自定义
@@ -26,7 +26,7 @@ func getAutoReplyAccountEncryptionKey() string {
 
 // GetAutoReplyAccountCookie 解密并返回 AutoReplyAccount 的 Cookie
 //
-// 该函数从 model.AutoReplyAccount 迁移而来（T04 架构清理），逻辑等价于原
+// 该函数从 model.AutoReplyAccount 迁移而来（架构清理），逻辑等价于原
 // (*AutoReplyAccount).GetCookie() 方法。空 Cookie 返回 ("", nil)。
 func GetAutoReplyAccountCookie(a *model.AutoReplyAccount) (string, error) {
 	if a == nil || a.Cookie == "" {
@@ -37,7 +37,7 @@ func GetAutoReplyAccountCookie(a *model.AutoReplyAccount) (string, error) {
 
 // SetAutoReplyAccountCookie 加密并写入 Cookie 到 AutoReplyAccount
 //
-// 该函数从 model.AutoReplyAccount 迁移而来（T04 架构清理），逻辑等价于原
+// 该函数从 model.AutoReplyAccount 迁移而来（架构清理），逻辑等价于原
 // (*AutoReplyAccount).SetCookie(cookie) 方法。空 cookie 会清空 Cookie 字段。
 func SetAutoReplyAccountCookie(a *model.AutoReplyAccount, cookie string) error {
 	if a == nil {

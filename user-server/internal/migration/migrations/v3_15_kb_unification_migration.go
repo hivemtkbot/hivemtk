@@ -2,7 +2,7 @@ package migrations
 
 // v3_15_kb_unification_migration.go 知识库统一迁移 v3.15
 //
-// 背景 (P0-B: 智能体 1:N 知识库 隔离架构):
+// 背景 (: 智能体 1:N 知识库 隔离架构):
 //   - 现状 1: faq_entries / sop_templates 是全局共享表, 没有 agent_id 隔离
 //   - 现状 2: 知识库(RAG/FAQ/SOP) 没有显式的"知识库容器"概念, 直接散落在各表
 //   - 目标  : 渠道 1:1 智能体 → 智能体 1:N 知识库 → 知识库 1:N 条目

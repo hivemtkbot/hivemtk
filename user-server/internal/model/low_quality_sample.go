@@ -16,8 +16,8 @@ const (
 	LowQualitySampleRetryExhausted LowQualitySampleType = "retry_exhausted" // 重试耗尽
 )
 
-// LowQualitySample P1-2 G6 低质样本（用于后续训练 / 人工分析）
-// 对应 PRD §5.2 P1-2 G5：3 次仍不达标 → 转人工 + 记录低质样本
+// LowQualitySample G6 低质样本（用于后续训练 / 人工分析）
+// 对应 PRD §5.2 G5：3 次仍不达标 → 转人工 + 记录低质样本
 // 验收：低质样本自动收集用于后续训练
 type LowQualitySample struct {
 	ID              uint64               `gorm:"primaryKey;autoIncrement" json:"id"`

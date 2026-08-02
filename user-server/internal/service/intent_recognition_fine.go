@@ -3,7 +3,7 @@ package service
 // intent_recognition_fine.go 精细意图识别（8 大类 + 7 子类）
 //
 // 五层架构归属: L2 服务层 / L3 编排层
-// 设计依据: PRD §M-2 P1 缺口修复
+// 设计依据: PRD § 缺口修复
 // 私域独立部署: 无 merchant_id 字段
 //
 // 功能：

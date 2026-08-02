@@ -18,13 +18,13 @@ import (
 // agent_deep_audit_test.go 深度审查第二轮 D1-D7 测试用例
 //
 // 覆盖维度：
-//   D1: P0-A Agent Loop wall-clock 总超时（30s） - 通过 sales_engine 常量验证
-//   D2: P0-B 工具结果长度截断（4000 字符）
-//   D3: P0-C LLM 调用失败时降级返回友好提示
-//   D4: P1-A 指标记录（私域部署: 已移除 Prometheus, 通过应用层日志 + DB 落库审计）
-//   D5: P1-B TraceID 贯穿 Agent Loop
-//   D6: P1-C DispatchByLLMToolCall 并发上限（5）
-//   D7: P1-D DispatchResult.Usage token 使用量
+// D1: Agent Loop wall-clock 总超时（30s） - 通过 sales_engine 常量验证
+// D2: 工具结果长度截断（4000 字符）
+// D3: LLM 调用失败时降级返回友好提示
+// D4: 指标记录（私域部署: 已移除 Prometheus, 通过应用层日志 + DB 落库审计）
+// D5: TraceID 贯穿 Agent Loop
+// D6: DispatchByLLMToolCall 并发上限（5）
+// D7: DispatchResult.Usage token 使用量
 
 // ===== D1: Agent Loop wall-clock 总超时常量验证 =====
 
@@ -113,7 +113,7 @@ func TestD3_LLMFailureFallback(t *testing.T) {
 
 	// 调用 generateCandidate（同包可访问）
 	// 由于 generateCandidate 签名复杂，需要完整 SalesRequest，这里简化验证：
-	// 验证 SalesEngine 已注入 ToolExecutor（P0-C 降级逻辑前提）
+	// 验证 SalesEngine 已注入 ToolExecutor（降级逻辑前提）
 	if engine == nil {
 		t.Fatalf("SalesEngine 应非 nil")
 	}
@@ -305,7 +305,7 @@ func TestD6_ConcurrencyLimit(t *testing.T) {
 
 // ===== D7: DispatchResult.Usage token 使用量 =====
 
-// TestD7_TokenUsageRecorded 验证 DispatchResult 含 Usage 字段（P1-D）
+// TestD7_TokenUsageRecorded 验证 DispatchResult 含 Usage 字段
 //
 // 验证策略（不真实调用 LLM，避免 HTTP 请求）：
 //  1. 通过 reflect 验证 DispatchResult 结构体含名为 "Usage" 的字段
@@ -315,7 +315,7 @@ func TestD6_ConcurrencyLimit(t *testing.T) {
 //
 // 注：D7 不发起真实 LLM 调用，原因：
 //   - stubLLMDispatcher 的 BaseURL 指向 127.0.0.1:0，会真实发起 HTTP 导致 "can't assign requested address"
-//   - 字段定义存在性已能验证 P1-D 修复，真实 Usage 填充由集成测试 + 真实 LLM 验证
+// 字段定义存在性已能验证 修复，真实 Usage 填充由集成测试 + 真实 LLM 验证
 func TestD7_TokenUsageRecorded(t *testing.T) {
 	// 1. reflect 验证 DispatchResult 含 Usage 字段
 	resultType := reflect.TypeOf(llm.DispatchResult{})

@@ -32,7 +32,7 @@ import (
 //
 // 路由前缀：/api/chat/public
 //
-// 私域部署模式（2026-07-17 优化）：不再强制要求 X-Chat-App-Key Header。
+// 私域部署模式：不再强制要求 X-Chat-App-Key Header。
 // 渠道 ID 软解析顺序：ctx.chat_channel_id > body.channel_id > X-Chat-Channel-Id > 默认 "default"。
 type ChatPublicController struct {
 	visitorSvc *service.VisitorChatService
@@ -361,7 +361,7 @@ func (ctrl *ChatPublicController) CountAvailableAgents(c *gin.Context) {
 }
 
 // ============================================================================
-// 附件上传（2026-07-17）
+// 附件上传
 // ============================================================================
 //
 // 设计：访客 → 后端拿上传 token → 访客直传七牛 → 拿到 CDN URL → 发消息带 media_url

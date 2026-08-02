@@ -23,7 +23,7 @@ func NewLLMRoutingController(routingService *service.LLMRoutingService) *LLMRout
 	return &LLMRoutingController{routingService: routingService}
 }
 
-// SetFailover 注入熔断器（v3.7.0 P1 补：Health 端点用于展示 circuit_open / last_error）
+// SetFailover 注入熔断器（v3.7.0 补：Health 端点用于展示 circuit_open / last_error）
 func (c *LLMRoutingController) SetFailover(f *llm.ProviderFailover) {
 	c.failover = f
 }
@@ -298,7 +298,7 @@ func (c *LLMRoutingController) FallbackConfig(ctx *gin.Context) {
 }
 
 // ============================================================================
-// 补全端点（2026-07-24 E2E 完整性补齐）
+// 补全端点（E2E 完整性补齐）
 // ----------------------------------------------------------------------------
 //   1. /api/llm/scenarios        场景列表（strategies 别名）
 //   2. /api/llm/health           整体健康度（聚合 provider 维度）
@@ -337,7 +337,7 @@ func (c *LLMRoutingController) ListScenarios(ctx *gin.Context) {
 // GET /api/llm/health
 // 返回：{status, providers: [{name, enabled, healthy, circuit_open, error_count, last_error, ...}]}
 //
-// v3.7.0 P1 补：集成 ProviderFailover 熔断器状态，前端看板可显示：
+// v3.7.0 补：集成 ProviderFailover 熔断器状态，前端看板可显示：
 //   - circuit_open：当前是否处于熔断状态
 //   - error_count：累计失败次数
 //   - last_error：最近一次失败原因

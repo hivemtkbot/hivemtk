@@ -286,7 +286,7 @@ func (s *ChatChannelService) GetByAppKey(ctx context.Context, appKey string) (*m
 
 // GetOrCreateDefaultChannel 获取或自动创建默认渠道（私域部署用）
 //
-// 私域部署模式（2026-07-17）：用户首次嵌入客服 widget 时，如果 DB 没有 default 渠道，
+// 私域部署模式：用户首次嵌入客服 widget 时，如果 DB 没有 default 渠道，
 // 自动创建一个（无需任何配置），保证访客首次接入即可工作。
 // 后续用户可以在管理后台修改 default 渠道的配置。
 func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*model.ChatChannel, error) {
@@ -342,7 +342,7 @@ func IsCardChannelRef(ref string) (string, bool) {
 
 // GetOrCreateCardChannel 获取或自动创建卡片渠道（4 平台统一）
 //
-// 私域部署模式（2026-07-21）：抖音/快手/小红书/咸鱼 4 个平台的卡片分享页
+// 私域部署模式：抖音/快手/小红书/咸鱼 4 个平台的卡片分享页
 // 通过此渠道接入网页客服。首次访问时自动创建，无需管理员手动配置。
 // 后续可在管理后台修改欢迎语、主题色等。
 //

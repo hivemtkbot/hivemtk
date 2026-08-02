@@ -6,7 +6,7 @@ import (
 	"marketing/internal/model"
 )
 
-// sop_abtest_test.go SOP A/B 测试流量分配与统计测试（PRD §5.2 P0-2 G2）
+// sop_abtest_test.go SOP A/B 测试流量分配与统计测试（PRD §5.2 G2）
 // 覆盖：
 //  1. ValidateSOPABTestConfig 校验逻辑
 //  2. SelectVariant 一致性哈希 + 权重分配

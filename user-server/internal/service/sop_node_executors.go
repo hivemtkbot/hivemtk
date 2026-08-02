@@ -1,7 +1,7 @@
 package service
 
 // ============================================================================
-// 14 种 SOP 节点执行器实现（P0-1 SOP 节点执行器完善设计）
+// 14 种 SOP 节点执行器实现（SOP 节点执行器完善设计）
 // ----------------------------------------------------------------------------
 // 设计依据：docs/核心链路优化.md 第十三章 §13.2.2
 // 私域独立部署：无 merchant_id 字段
@@ -237,7 +237,7 @@ func (b *MessageNodeBase) Execute(ctx context.Context, ec *ExecutionContext) (*N
 //
 // 优先级：
 //  1. node.Prompt（话术模板，支持 {{var}} 变量替换）
-//  2. node.Config.script_keyword（ScriptTemplateService 关键词匹配，TODO: P0-2 集成）
+// 2. node.Config.script_keyword（ScriptTemplateService 关键词匹配，TODO: 集成）
 //  3. LLM 即时生成（dispatcher.Dispatch，scenario 由节点类型决定）
 //
 // 返回 (content, source, error)，source ∈ {"prompt", "llm", "fallback"}

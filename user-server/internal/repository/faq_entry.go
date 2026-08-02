@@ -3,7 +3,7 @@ package repository
 // faq_entry.go FAQ 知识库 Repository
 //
 // 五层架构归属: L5 数据访问层
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T2)
+// 设计依据: AI 智能体性能优化
 //   - Layer1 路由依赖 FAQ 快速匹配 (零 LLM, <100ms)
 //   - MatchByKeyword: 基于中文分词 + 关键词包含打分
 //   - 未来可扩展: pgvector 全文检索 + Embedding 向量召回
@@ -68,7 +68,7 @@ func (r *FAQRepository) ListEnabled(ctx context.Context, limit int) ([]model.FAQ
 
 // MatchByKeyword 关键词匹配 (Layer1 核心 API) — 兼容旧签名 (agentID=0 表示共享/全局)
 //
-// 2026-07-31 P0-B: 加 agentID 过滤
+// 加 agentID 过滤
 //   - agentID > 0: 仅匹配该智能体私有 (agent_id=X) + 共享 (agent_id IS NULL)
 //   - agentID = 0: 全局共享 (向后兼容, 旧代码不传 agentID 也能跑)
 //
@@ -84,7 +84,7 @@ func (r *FAQRepository) MatchByKeyword(ctx context.Context, msg string, topK int
 	return r.MatchByKeywordForAgent(ctx, msg, 0, topK)
 }
 
-// MatchByKeywordForAgent 按智能体隔离的关键词匹配 (P0-B 隔离架构)
+// MatchByKeywordForAgent 按智能体隔离的关键词匹配 (隔离架构)
 //
 // agentID = 0: 走旧路径 (全局共享, 向后兼容)
 // agentID > 0: 匹配 (agent_id = agentID OR agent_id IS NULL) AND enabled
@@ -119,19 +119,19 @@ func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, l
 	return entries, nil
 }
 
-// MatchByIDs 按 ID 集合匹配 (2026-07-31 P1-A: 智能体绑定 FAQ 范围)
+// MatchByIDs 按 ID 集合匹配 (: 智能体绑定 FAQ 范围)
 //
 // DEPRECATED: 此方法不再用 ID 范围过滤, 改为按 agentID 过滤.
 //   保留方法签名以兼容旧调用, 内部走 MatchByKeywordForAgent 路径.
 //
 // agent 绑定了 FAQ 时, 仅在绑定的 IDs 内匹配; 绑定为空 = 全局共享
 //
-// Deprecated: 2026-07-31 P0-B 改造, agent FAQ 范围改由 agent_id 字段实现.
+// Deprecated: 改造, agent FAQ 范围改由 agent_id 字段实现.
 func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string, topK int) ([]model.FAQEntry, error) {
 	if msg == "" || len(ids) == 0 {
 		return nil, nil
 	}
-	// 走 ID 集合匹配, 不再使用 agentID 隔离 (与 P0-B 兼容)
+	// 走 ID 集合匹配, 不再使用 agentID 隔离 (与 兼容)
 	var entries []model.FAQEntry
 	err := r.db.WithContext(ctx).
 		Where("enabled = ? AND id IN ?", true, ids).
@@ -144,7 +144,7 @@ func (r *FAQRepository) MatchByIDs(ctx context.Context, msg string, ids []string
 	return r.scoreAndRank(ctx, entries, msg, topK)
 }
 
-// ListByKB 按知识库 ID 列出 (P0-B: 查某 KB 下挂载的 FAQ 条目)
+// ListByKB 按知识库 ID 列出 (: 查某 KB 下挂载的 FAQ 条目)
 //
 // 通过 JOIN agent_kb_bindings + knowledge_bases 确定 (KBID, KBType=faq) 关联的 FAQ
 //
@@ -334,7 +334,7 @@ func (r *FAQRepository) IncrementHitCount(ctx context.Context, id uint) error {
 		Error
 }
 
-// DecayQuality 衰减指定 FAQ 的 QualityScore (B-021: 质量衰减)
+// DecayQuality 衰减指定 FAQ 的 QualityScore (: 质量衰减)
 //
 // 入参:
 //   - id:    要衰减的 FAQ ID
@@ -354,7 +354,7 @@ func (r *FAQRepository) DecayQuality(ctx context.Context, id uint, decay float64
 		Error
 }
 
-// ListDecayCandidates 查询符合衰减条件的 FAQ (B-021)
+// ListDecayCandidates 查询符合衰减条件的 FAQ
 //
 // 条件:
 //   - hit_count < 5 (低命中)
@@ -374,7 +374,7 @@ func (r *FAQRepository) ListDecayCandidates(ctx context.Context, cutoff time.Tim
 	return entries, err
 }
 
-// IncrementNegativeHit 用户负反馈 +1 (B-021: 负反馈快速降权)
+// IncrementNegativeHit 用户负反馈 +1 (: 负反馈快速降权)
 func (r *FAQRepository) IncrementNegativeHit(ctx context.Context, id uint) error {
 	if id == 0 {
 		return nil

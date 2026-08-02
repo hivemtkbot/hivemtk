@@ -22,7 +22,7 @@ type CustomerRepository interface {
 	FindByIdentity(ctx context.Context, phone, email, wechatOpenID, douyinOpenID string) (*model.Customer, error)
 	CountNotEmpty(ctx context.Context, fieldName string) (int64, error)
 	CountMultiIdentity(ctx context.Context) (int64, error)
-	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+	// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
 	ListByIDs(ctx context.Context, ids []string) (map[string]*model.Customer, error)
 	// GetByXiaohongshuID 按小红书 ID 查询客户
 	// 五层架构修复：tooluse 包不可直接访问 DB，由 repository 提供 query 接口
@@ -231,7 +231,7 @@ func (r *customerRepository) CountMultiIdentity(ctx context.Context) (int64, err
 	return n, nil
 }
 
-// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC-P2 N+1 优化）
+// ListByIDs 批量按 ID 拉取客户，返回按 ID 索引的 map（CC- N+1 优化）
 //
 // 单次 SQL：SELECT * FROM customers WHERE id IN (...)。
 // 入参 ids 去重 + 跳过空串；未命中的 ID 不会出现在结果 map 中。

@@ -206,7 +206,7 @@ func (c *CachedEmbeddingClient) queryDBCache(ctx context.Context, model, text st
 	hash := sha256Hex(normalizeQuery(text))
 	var vecStr string
 	err := c.db.WithContext(ctx).Raw(
-		`SELECT embedding::text FROM embedding_cache WHERE text_hash = $1 AND model = $2 AND (expires_at IS NULL OR expires_at > NOW())`,
+		`SELECT embedding::text FROM embedding_cache WHERE text_hash = ? AND model = ? AND (expires_at IS NULL OR expires_at > NOW())`,
 		hash, model,
 	).Scan(&vecStr).Error
 	if err != nil || vecStr == "" {
@@ -219,7 +219,7 @@ func (c *CachedEmbeddingClient) queryDBCache(ctx context.Context, model, text st
 	// 异步更新 hit_count
 	go func() {
 		_ = c.db.WithContext(context.Background()).Exec(
-			`UPDATE embedding_cache SET hit_count = hit_count + 1, last_used_at = NOW() WHERE text_hash = $1 AND model = $2`,
+			`UPDATE embedding_cache SET hit_count = hit_count + 1, last_used_at = NOW() WHERE text_hash = ? AND model = ?`,
 			hash, model,
 		).Error
 	}()
@@ -241,7 +241,7 @@ func (c *CachedEmbeddingClient) persistDBCache(ctx context.Context, model, text 
 	expiresAt := time.Now().Add(c.ttlDB)
 	err := c.db.WithContext(ctx).Exec(`
 		INSERT INTO embedding_cache (text_hash, text_content, model, dimension, embedding, hit_count, last_used_at, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5::vector, 0, NOW(), $6, NOW(), NOW())
+		VALUES (?, ?, ?, ?, ?::vector, 0, NOW(), ?, NOW(), NOW())
 		ON CONFLICT (text_hash, model) DO UPDATE SET
 			embedding = EXCLUDED.embedding,
 			dimension = EXCLUDED.dimension,

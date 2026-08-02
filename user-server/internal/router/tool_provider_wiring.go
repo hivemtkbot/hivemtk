@@ -11,7 +11,7 @@ import (
 )
 
 // ============================================================================
-// 内置 ToolProvider 实现（P0+ 优化：统一扩展入口）
+// 内置 ToolProvider 实现（+ 优化：统一扩展入口）
 // ----------------------------------------------------------------------------
 // 本文件定义 5 个内置 Provider，对应原有的 5 个 registerAgent*Tools 函数。
 // 每个 Provider 包装对应的 BuildXxxTools 工厂函数，返回 []Tool。
@@ -187,7 +187,7 @@ func initBuiltinToolProviders(registry *tooluse.ProviderRegistry) {
 
 // registerAllAgentToolsViaProviders 通过 Provider 模式装配所有工具
 //
-// 这是 registerAllAgentTools 的新实现（P0+ 优化），
+// 这是 registerAllAgentTools 的新实现（+ 优化），
 // 替代原有硬编码 5 个 registerAgent*Tools 调用。
 //
 // 流程：

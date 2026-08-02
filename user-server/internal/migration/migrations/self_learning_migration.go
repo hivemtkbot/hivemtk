@@ -6,7 +6,7 @@ package migrations
 // 设计依据: docs/企业级架构优化/对话驱动自我学习机制.md (v1.1)
 // 私域独立部署: 无 merchant_id / tenant_id 多租户字段
 //
-// 本迁移创建 P0 自我学习三位一体机制所需的 6 张新表 + 1 张现有表扩展字段：
+// 本迁移创建 自我学习三位一体机制所需的 6 张新表 + 1 张现有表扩展字段：
 //  新表 1. self_learning_logs       - 自我学习日志表（幂等保证 + 全链路追踪）
 //  新表 2. asset_bundle_candidates  - 资产包候选表（销冠对话 → 候选 → A/B → 上线）
 //  新表 3. asset_bundle_ab_tests    - 资产包 A/B 实验表（baseline vs candidate）

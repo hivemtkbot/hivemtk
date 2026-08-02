@@ -1,6 +1,6 @@
 package migrations
 
-// ai_agent_kb_binding_migration.go 2026-07-31 AI 智能体知识库绑定
+// ai_agent_kb_binding_migration.go AI 智能体知识库绑定
 //
 // 背景：
 // 1. 现状：faq_entries / sop_templates 是全局共享表，未与 ai_agents 建立绑定关系。

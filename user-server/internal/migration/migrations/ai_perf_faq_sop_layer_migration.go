@@ -1,6 +1,6 @@
 package migrations
 
-// ai_perf_faq_sop_layer_migration.go 2026-07-31 AI 智能体性能优化
+// ai_perf_faq_sop_layer_migration.go AI 智能体性能优化
 //
 // 背景：
 // 1. 当前 user-server 客服对话 wall time 平均 19.6s（7B Q5 本地 LLM 实测），主要由 Step 3

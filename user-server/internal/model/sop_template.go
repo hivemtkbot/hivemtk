@@ -5,7 +5,7 @@ import "time"
 // SOPTemplate SOP 模板 (Layer1 拼接回复)
 //
 // 五层架构归属: L5 数据层 (横向)
-// 设计依据: 2026-07-31 AI 智能体性能优化
+// 设计依据: AI 智能体性能优化
 //   - Layer1 路由: 当 FAQ 未命中 + SOP 模板高置信 -> 模板拼接回复
 //   - 避免 LLM 调用,响应 <50ms
 //
@@ -30,7 +30,7 @@ type SOPTemplate struct {
 	Vars       string    `gorm:"type:text" json:"vars"` // JSON: {"varName":{"desc":"...","example":"..."}}
 	Priority   int       `gorm:"type:int;default:0" json:"priority"`
 	Confidence float64   `gorm:"type:decimal(5,4);default:0.8" json:"confidence"`
-	// 2026-07-31 P0-B: 按智能体隔离字段
+	// 按智能体隔离字段
 	//   nil  = 共享 (默认, 向后兼容旧数据)
 	//   &X   = 仅 X 智能体可见
 	// 索引: idx_sop_agent_id (按智能体过滤)

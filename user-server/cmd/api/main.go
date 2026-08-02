@@ -89,7 +89,7 @@ func main() {
 	logger.Info("User Server Starting")
 	logger.Infof("IS_TEST_MODE env: %s", os.Getenv("IS_TEST_MODE"))
 
-	// R7：把 Redis 接入幂等守卫 + 健康检查
+	// 把 Redis 接入幂等守卫 + 健康检查
 	// 仅当 REDIS_HOST 配置可达时切换分布式守卫并暴露健康检查；否则保持进程内守卫
 	redisClient := buildRedisClient()
 	var healthPinger router.Pinger
@@ -233,7 +233,7 @@ func main() {
 		}
 	}
 
-	// M 域 P1 启动装配
+	// 启动装配
 	// 1) LLM Provider 降级管理器（健康检查 + 熔断器 + 模板回复兜底）
 	failover := llm.InitGlobalFailover(llm.GetGlobalDispatcher(), db.GetDB())
 	failover.Start(context.Background())
@@ -253,11 +253,11 @@ func main() {
 	defer sseHub.Stop(context.Background())
 	logger.Info("[M-4] SSE dashboard hub started (6 topics: llm_calls/intent_recognition/rag_queries/agent_actions/humanize_scores/system_alerts)")
 
-	// 启动 SOP 自动调度器（P0-11 修复）
+	// 启动 SOP 自动调度器（修复）
 	scheduler := service.InitSOPScheduler(db.GetDB(), nil)
 	defer scheduler.Stop(context.Background())
 
-	// P0-1 修复（章节检查报告 #5）：启动 SOP 节点执行调度链
+	// 修复（章节检查报告 #5）：启动 SOP 节点执行调度链
 	// 顺序：ExecutionDispatcher → OutboxDispatcher（timer 扫描）→ StuckDetector
 	// 装配 WebSocket Hub：SOPExecutionDispatcher.SetWSHub 内部遍历消息类执行器注入。
 	execDispatcher := service.InitSOPExecutionDispatcher(db.GetDB(), nil, nil)
@@ -270,15 +270,15 @@ func main() {
 	stuckDetector := service.InitSOPStuckDetector(db.GetDB(), execDispatcher)
 	defer stuckDetector.Stop(context.Background())
 
-	// P1-4: 全局事件总线优雅关闭（router.Setup 中初始化）
+	// 全局事件总线优雅关闭（router.Setup 中初始化）
 	defer event.StopGlobal()
 
-	// 意图→SOP 联动（P0-12 修复）
+	// 意图→SOP 联动（修复）
 	if intentRec := service.GetIntentRecognizer(); intentRec != nil {
 		intentRec.SetSOPService(context.Background(), scheduler.SOPService(context.Background()))
 	}
 
-	// P0-3/4/5 启动装配（启动时初始化全局单例，供 router 注入到 SalesEngine）
+	// /4/5 启动装配（启动时初始化全局单例，供 router 注入到 SalesEngine）
 	// 1) 置信度聚合器
 	service.InitConfidenceAggregator(db.GetDB(), nil, nil)
 	// 2) 拟人度评估器
@@ -293,14 +293,14 @@ func main() {
 	defer feedbackCron.Stop(context.Background())
 	logger.Info("[P0-5] feedback loop cron started (4 tasks: monthly baseline / weekly dialogue / daily prompt / 6h bandit)")
 
-	// 初始化 4 层记忆系统（P0-13 修复）
+	// 初始化 4 层记忆系统（修复）
 	service.InitMemorySystem(db.GetDB())
 
 	// 注册 Event Bus 订阅者
 	//   1) AgentRuntime 监听 customer.message.received（仅 AGENT_RUNTIME_BUS_ENABLED=true 时启用）
 	//   2) IncrementalIndexer 监听 knowledge.document.changed
 	// 当前 loader / bridge 均为 nil,使用降级实现(后续任务 2/3 替换)
-	// 注：原注释引用 ADR-008，但 ADR-008 当前不存在（仅有 ADR-001/002/003/004），
+	// 注：原注释引用 ，但 当前不存在（仅有 /002/003/004），
 	// Event Bus 订阅者规范对应的 ADR 待补；详见 ARCHITECTURE.md §六。
 	registerEventSubscribers()
 
@@ -340,11 +340,11 @@ func registerEventSubscribers() {
 	}
 
 	// 1) AgentRuntime 订阅 customer.message.received
-	// R3/V1 修复：AgentRuntime 依赖(nil)尚未接入，订阅后不会真正处理且会占用
+	// /V1 修复：AgentRuntime 依赖(nil)尚未接入，订阅后不会真正处理且会占用
 	// 一个 bus worker（僵尸订阅者 V1）。默认关闭总线订阅，由同步主链路(webhook)
 	// 作为客户消息唯一活跃处理路径；仅当显式 AGENT_RUNTIME_BUS_ENABLED=true
 	// 且已注入真实依赖时，才开启总线双写（由 EventID 幂等守卫保证 exactly-once）。
-	// 这同时消解了 R1（关键路径不依赖易丢消息的 bus）。
+	// 这同时消解了 （关键路径不依赖易丢消息的 bus）。
 	if os.Getenv("AGENT_RUNTIME_BUS_ENABLED") == "true" {
 		rt := agent_runtime.NewAgentRuntime(nil, nil, nil) // loader/bridge 后续替换
 		agentHandler := agent_runtime.NewEventSubscriber(rt)

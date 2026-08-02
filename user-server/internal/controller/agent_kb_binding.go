@@ -3,7 +3,7 @@ package controller
 // agent_kb_binding_controller.go 智能体知识库绑定 L3 Controller
 //
 // 五层架构归属: L3 API 接入层
-// 设计依据: 2026-07-31 强 1对1 改造 (P1-A 知识库管理)
+// 设计依据: 强 1对1 改造 (知识库管理)
 //
 // 接口前缀: /api/agent-kb-bindings
 //   GET    /api/agent-kb-bindings/agent/:aid      查某智能体的所有绑定

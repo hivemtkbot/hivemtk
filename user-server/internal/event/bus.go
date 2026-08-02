@@ -9,7 +9,7 @@
 //   - 关键业务路径（如 SalesEngine 主链路、订单创建等不可丢失的操作）
 //   - 跨进程通信（请使用消息队列）
 //
-// 落地状态：P1-4 试点 OperationLog 异步化
+// 落地状态： 试点 OperationLog 异步化
 package event
 
 import (
@@ -144,7 +144,7 @@ func (b *EventBus) Publish(evt Event) {
 	default:
 		logger.Warnf("[EventBus] queue full, dropping event topic=%s critical=%v", evt.Topic, target == b.criticalQueue)
 	}
-	// R9 可观测性: 实时队列深度 (无 Prometheus 端点暴露, 仅日志审计)
+	// 可观测性: 实时队列深度 (无 Prometheus 端点暴露, 仅日志审计)
 	_ = len(b.queue)
 	_ = len(b.criticalQueue)
 }

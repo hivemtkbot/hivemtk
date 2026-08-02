@@ -1,6 +1,6 @@
 package feedbackloop
 
-// sop_auto_optimizer.go P0-5 SOP 自动优化器
+// sop_auto_optimizer.go SOP 自动优化器
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4.4

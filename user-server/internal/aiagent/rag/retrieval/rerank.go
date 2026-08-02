@@ -47,7 +47,7 @@ type RerankConfig struct {
 
 // LocalReranker 基于本地推理服务的重排实现（OpenAI 兼容 /v1/rerank）
 //
-// 私域部署基线（2026-07-24 修订）：rerank 与 embedding 同走本地推理服务（llama.cpp），
+// 私域部署基线（修订）：rerank 与 embedding 同走本地推理服务（llama.cpp），
 // 使用 bge-reranker-v2-m3（跨编码器），数据不出域。
 //
 // 端点约定（与 embedding 类似，在 BaseURL 后追加 /rerank）：
@@ -85,7 +85,7 @@ func NewLocalRerankerWithConfig(cfg *RerankConfig) *LocalReranker {
 	}
 }
 
-// 私域部署 rerank 模型支持表（2026-07-21）：
+// 私域部署 rerank 模型支持表：
 //   - bge-reranker-base       轻量基线，CPU 可跑，单文档 <50ms
 //   - bge-reranker-large      高精度，GPU 推荐，单文档 <200ms
 //   - bge-reranker-v2-m3      多语种，默认推荐

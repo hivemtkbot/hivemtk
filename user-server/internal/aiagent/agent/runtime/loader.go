@@ -12,7 +12,7 @@ import (
 // ============================================================================
 // pgAgentContextLoader — 基于 PostgreSQL 的智能体上下文加载器
 // ----------------------------------------------------------------------------
-// 设计依据：ADR-008 §2.1 (运行时隔离)
+// 设计依据： §2.1 (运行时隔离)
 // 用途：替换 nil 降级实现,从 ai_agents + channel_agent_bindings 加载真实配置
 //
 // 流程：
@@ -97,8 +97,8 @@ func (l *pgAgentContextLoader) Invalidate(ctx context.Context, agentID uint) err
 
 // convertAIAgentToContext model.AIAgent → AgentContext
 //
-// 2026-07-31 P0-B: 加 FAQEntryIDs / SOPTemplateIDs 字段映射
-//   - 这些字段在 layer.go 中被废弃 (P0-B 强 1:1), 但 loader 仍需填充以保证向后兼容
+// 加 FAQEntryIDs / SOPTemplateIDs 字段映射
+// 这些字段在 layer.go 中被废弃 (强 1:1), 但 loader 仍需填充以保证向后兼容
 //   - Service 层若要走"agent 绑定 ID 集合"路径, 仍可使用这两个字段
 func convertAIAgentToContext(agent *model.AIAgent, channel, accountID string) *AgentContext {
 	return &AgentContext{
@@ -116,7 +116,7 @@ func convertAIAgentToContext(agent *model.AIAgent, channel, accountID string) *A
 		// 知识库挂载
 		RagProductIDs: stringSlice(agent.RagProductIDs),
 
-		// 2026-07-31 P0-B: FAQ / SOP 模板 ID 集合映射 (P1-A 字段, P0-B 仍保留用于向后兼容)
+		// FAQ / SOP 模板 ID 集合映射 (字段, 仍保留用于向后兼容)
 		FAQEntryIDs:    stringSlice(agent.FAQEntryIDs),
 		SOPTemplateIDs: stringSlice(agent.SOPTemplateIDs),
 

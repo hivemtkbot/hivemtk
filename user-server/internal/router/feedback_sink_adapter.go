@@ -12,7 +12,7 @@ import (
 	feedbackloop "marketing/internal/service/feedback_loop"
 )
 
-// feedback_sink_adapter.go P3-A: FeedbackCollector → FeedbackSink 适配器
+// feedback_sink_adapter.go : FeedbackCollector → FeedbackSink 适配器
 //
 // 五层架构归属: L1 路由层（适配器层）
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4.1

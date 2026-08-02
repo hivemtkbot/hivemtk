@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// FeedbackLoopRepository 反馈闭环域仓储（P0-3 反馈学习相关管理面读模型）
+// FeedbackLoopRepository 反馈闭环域仓储（反馈学习相关管理面读模型）
 //
 // 覆盖：反馈事件(FeedbackEvent)、销冠对话(ChampionDialogue)、
 // Prompt 候选(PromptCandidate)、Bandit 臂(BanditArm) 的查询。
@@ -138,7 +138,7 @@ func (r *FeedbackLoopRepository) ListBanditArms(ctx context.Context, experimentI
 }
 
 // ----------------------------------------------------------------------------
-// P0-5 反馈学习闭环：service 层专用方法（五层架构 - DB 操作下沉到 repository）
+// 反馈学习闭环：service 层专用方法（五层架构 - DB 操作下沉到 repository）
 // ----------------------------------------------------------------------------
 
 // NewFeedbackLoopRepositoryWithDB 使用指定 *gorm.DB 构造（供 service 构造函数与测试使用）

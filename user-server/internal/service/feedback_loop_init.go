@@ -1,6 +1,6 @@
 package service
 
-// feedback_loop_init.go 反馈学习闭环（P0-5）装配入口
+// feedback_loop_init.go 反馈学习闭环装配入口
 //
 // 五层架构归属: L4 能力层
 // 设计依据: docs/核心链路优化.md 第十七章 §17.4

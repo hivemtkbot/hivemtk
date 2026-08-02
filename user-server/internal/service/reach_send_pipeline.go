@@ -1,4 +1,4 @@
-// reach_send_pipeline.go 触达消息发送 9 步 Pipeline（PRD §5.2 P0-4 G4）
+// reach_send_pipeline.go 触达消息发送 9 步 Pipeline（PRD §5.2 G4）
 //
 // 9 步装饰器链（外层 → 内层顺序）：
 //  1. 权限校验（PermissionChecker）
@@ -11,7 +11,7 @@
 //  8. 客户轨迹更新（JourneyTracker，写入 customer_journey）
 //  9. 实际发送（ChannelAdapter，渠道适配器）
 //
-// 验收标准（PRD §5.2 P0-4 G4）：
+// 验收标准（PRD §5.2 G4）：
 //   - 高并发下消息不丢失（限流 + 重试保障）
 //   - 敏感词消息被拦截并记录
 //   - 主渠道失败自动降级到备用渠道
@@ -723,7 +723,7 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 			resp.Error = log.Error
 			resp.DurationMs = time.Since(start).Milliseconds()
 			resp.SentAt = time.Now()
-			// PRD §5.2 P0-4 G4：失败也必须记录审计日志（"每条触达有完整审计记录"）
+			// PRD §5.2 G4：失败也必须记录审计日志（"每条触达有完整审计记录"）
 			if p.config.AuditLogger != nil {
 				p.config.AuditLogger.LogSend(ctx, req, resp)
 			}

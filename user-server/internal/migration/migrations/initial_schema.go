@@ -133,36 +133,36 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewWecomWebhookFieldsMigration(db))
 	// 多 AI 智能体架构:ai_agents / channel_agent_bindings / customer_service_agents
 	registry.Register(NewAIAgentSchemaMigration(db))
-	// ai_agents 扩展 2 字段(决策策略 / A/B 实验),依据 ADR-008 §2.3
+	// ai_agents 扩展 2 字段(决策策略 / A/B 实验),依据 §2.3
 	registry.Register(NewAIAgentExtensionMigration(db))
 	// RAG 向量存储(pgvector embedding + HNSW 索引)
 	registry.Register(NewKnowledgeVectorMigration(db))
-	// P0-1 SOP 节点执行器(sop_exec_events / sop_timers / sop_outbox)
+	// SOP 节点执行器(sop_exec_events / sop_timers / sop_outbox)
 	registry.Register(NewSOPExecutorMigration(db))
-	// P0-2 RAG 混合检索(tsvector + query_rewrite_cache + embedding_cache + 监控字段)
+	// RAG 混合检索(tsvector + query_rewrite_cache + embedding_cache + 监控字段)
 	registry.Register(NewRagHybridMigration(db))
-	// P0-3 置信度驱动转人工(7+1 张表：信号/校准/转人工/审核/策略/SLA/AB测试)
+	// 置信度驱动转人工(7+1 张表：信号/校准/转人工/审核/策略/SLA/AB测试)
 	registry.Register(NewConfidenceMigration(db))
-	// P0-4 拟人度评估器(5 张表：评分/维度明细/销冠基线/销冠短语/AB统计)
+	// 拟人度评估器(5 张表：评分/维度明细/销冠基线/销冠短语/AB统计)
 	registry.Register(NewHumanizeEvaluatorMigration(db))
-	// P0-5 反馈学习闭环(6 张表 + 2 张表扩展：反馈事件/信号/销冠对话/Prompt候选/Bandit臂/AB测试 + sop_agents/script_templates 字段扩展)
+	// 反馈学习闭环(6 张表 + 2 张表扩展：反馈事件/信号/销冠对话/Prompt候选/Bandit臂/AB测试 + sop_agents/script_templates 字段扩展)
 	registry.Register(NewFeedbackLoopMigration(db))
 	// 金额字段使用 BIGINT（分）— decimal 金额字段升级为 bigint
 	registry.Register(NewAmountMoneyMigration(db))
 	// D+E 域合规（邮件+短信退订与追踪 6 张表）
 	// 依据《互联网电子邮件服务管理办法》第十三条 + 《通信短消息服务管理规定》第十八条
 	registry.Register(NewComplianceDEMigration(db))
-	// H 域 - 线索评分 + RFM 联动 + 流失挽回(4 张表)
+	// 线索评分 + RFM 联动 + 流失挽回(4 张表)
 	registry.Register(NewHP1Migration(db))
 	// L 域 - 第三方对接模板(integration_templates)
 	registry.Register(NewLP1Migration(db))
-	// P1-1/P1-2/P1-3/P1-4 认证与安全（user_mfa / login_events / security_alerts / password_history / system_config_kv）
+	// /// 认证与安全（user_mfa / login_events / security_alerts / password_history / system_config_kv）
 	registry.Register(NewAuthSecurityMigration(db))
-	// A 域 — team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段，支持 P1-4 行级权限
+	// A 域 — team_users 表新增 data_scope / department_id / team_id / custom_dept_ids 4 字段，支持 行级权限
 	registry.Register(NewADomainP1Migration(db))
 	// short_links 字段补齐 — title 等列缺失会导致短链创建 500
 	registry.Register(NewShortLinkColumnsMigration(db))
-	// M 域 — provider_health / system_kv_config / intent_logs / trace_events 4 张表
+	// provider_health / system_kv_config / intent_logs / trace_events 4 张表
 	registry.Register(NewMP1Migration(db))
 	// ops AI 生产力统计依赖的 llm_usage_records 表
 	registry.Register(NewLLMUsageRecordsMigration(db))
@@ -173,19 +173,19 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewLLMRoutingLogsExtendMigration(db))
 	// v1.2 出海多语言方案 - glossaries 表 + ai_agents/chat_channels/llm_routing_logs/knowledge_chunks/asset_bundles 多语言字段
 	registry.Register(NewMultilingualI18nMigration(db))
-	// v1.2 出海多语言方案 P1-3 - knowledge_chunks.translated_versions 字段（预翻译支持）
+	// v1.2 出海多语言方案 - knowledge_chunks.translated_versions 字段（预翻译支持）
 	registry.Register(NewMultilingualI18nP13Migration(db))
 	// S3-6 Telegram polling 分布式锁（polling_owner + polling_heartbeat_at）
 	registry.Register(NewTelegramPollingLockMigration(db))
-	// 2026-07-31 AI 智能体性能优化 - FAQ / SOP 知识库 + Layer 决策日志（双层架构 Layer1 命中 SkipLLM）
+	// AI 智能体性能优化 - FAQ / SOP 知识库 + Layer 决策日志（双层架构 Layer1 命中 SkipLLM）
 	registry.Register(NewAIPerfFAQSOPLayerMigration(db))
-	// 2026-07-31 AI 智能体知识库绑定 - faq_entry_ids / sop_template_ids 字段（与 rag_product_ids 一致）
+	// AI 智能体知识库绑定 - faq_entry_ids / sop_template_ids 字段（与 rag_product_ids 一致）
 	registry.Register(NewAIAgentKBBindingMigration(db))
-	// 2026-07-31 P0-B 知识库统一 - knowledge_bases / agent_kb_bindings + 3 表 agent_id
+	// 知识库统一 - knowledge_bases / agent_kb_bindings + 3 表 agent_id
 	registry.Register(NewKBUnificationMigration(db))
-	// 2026-08-01 二次深度审查 - 清理孤儿表 rag_safety_audit_logs (commit 3)
+	// 二次深度审查 - 清理孤儿表 rag_safety_audit_logs (commit 3)
 	registry.Register(NewRagSafetyAuditDropMigration(db))
-	// 2026-08-01 二次深度审查 - 清理孤儿表 rag_alerts (RagAlertService 已删, commit 4)
+	// 二次深度审查 - 清理孤儿表 rag_alerts (RagAlertService 已删, commit 4)
 	registry.Register(NewRagAlertsDropMigration(db))
 	// 继续添加新的迁移...
 }

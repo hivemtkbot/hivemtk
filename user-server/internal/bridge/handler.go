@@ -287,7 +287,7 @@ func truncateForLog(s string) string {
 
 func (c *BridgeClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
-	// P1-S2-6 writePump defer Unregister：写失败时确保从 hub 摘除，避免僵尸连接
+	// 6 writePump defer Unregister：写失败时确保从 hub 摘除，避免僵尸连接
 	defer func() {
 		ticker.Stop()
 		c.hub.Unregister(c)
@@ -338,7 +338,7 @@ func NewBridgeWSHandler(hub *BridgeHub, ingress *service.InboxIngressService) *B
 // 鉴权：
 //   - 路由层 JWTAuthMiddleware 写入 user_id 到 gin context
 //   - 本方法在升级前再校验 (channel, account_id) 是否属于当前 user
-//   - 不通过返回 403（修复 P0-S1-1：水平越权）
+// 不通过返回 403（修复 -1：水平越权）
 //
 // trace_id：
 //   - 优先从请求头 X-Trace-Id 读取（前端/扩展可显式携带）
@@ -356,7 +356,7 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported bridge channel"})
 		return
 	}
-	// P0-S1-1 账号归属校验：通过回调注入（避免 bridge → service 反向依赖）
+	// 1 账号归属校验：通过回调注入（避免 bridge → service 反向依赖）
 	if GlobalOwnershipChecker != nil {
 		uidAny, ok := c.Get("user_id")
 		if !ok {
@@ -379,7 +379,7 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		}
 	}
 
-	// P0-S1-2 trace_id 透传：优先 X-Trace-Id 头 > gin context > 自动生成
+	// 2 trace_id 透传：优先 X-Trace-Id 头 > gin context > 自动生成
 	traceID := c.GetHeader("X-Trace-Id")
 	if traceID == "" {
 		if v, ok := c.Get("trace_id"); ok {

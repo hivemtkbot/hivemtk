@@ -197,7 +197,7 @@ func (c *OperationLogController) ExportLogs(ctx *gin.Context) {
 }
 
 // CleanLogs 清理指定日期之前的操作日志
-// 入参 JSON: { before_date: "2025-01-01" } 或 { days: 90 }
+// 入参 JSON: { before_date: "" } 或 { days: 90 }
 func (c *OperationLogController) CleanLogs(ctx *gin.Context) {
 	var req struct {
 		BeforeDate string `json:"before_date"`

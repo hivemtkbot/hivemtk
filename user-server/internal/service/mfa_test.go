@@ -1,6 +1,6 @@
 package service
 
-// mfa_service_test.go A 域 P1-1 MFA 多因素认证服务测试
+// mfa_service_test.go A 域 MFA 多因素认证服务测试
 //
 // 测试目标（5+ 核心场景）：
 //  1. GenerateMFASecret - 密钥生成（base32，长度）

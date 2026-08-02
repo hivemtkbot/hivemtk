@@ -13,7 +13,7 @@ import (
 )
 
 // ============================================================================
-// 工具链调试与可观测 API（P0 优化）
+// 工具链调试与可观测 API
 // ----------------------------------------------------------------------------
 // 本文件提供 5 个 HTTP 端点，覆盖工具链的"列表 / 执行 / 统计 / 审计 / 计费"5 个面：
 //
@@ -44,7 +44,7 @@ func setupToolDebugRoutes(auth *gin.RouterGroup) {
 	auth.GET("/agent/tools/audit", handleToolAudit)
 	auth.GET("/agent/tools/cost", handleToolCost)
 	auth.POST("/agent/tools/circuit/reset", handleToolCircuitReset)
-	// P0+ 优化：统一扩展入口可视化
+	// + 优化：统一扩展入口可视化
 	auth.GET("/agent/tools/providers", handleToolProviders)
 }
 

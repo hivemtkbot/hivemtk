@@ -459,14 +459,14 @@ func NormalizePublicBaseURL(raw string) string {
 //   - embedding：bge-m3 多语言 embedding provider 配置（独立于 inference.embedding，
 //     可为多语言路径指定不同的 base_url/model/api_key）
 //   - cache：跨语言回复翻译缓存配置（Redis 后端）
-//   - fallback：低资源语言降级桥配置（P1-2：DeepL 翻译降级）
+// fallback：低资源语言降级桥配置（：DeepL 翻译降级）
 type I18nConfig struct {
 	Embedding I18nEmbeddingConfig `yaml:"embedding" json:"embedding"`
 	Cache     I18nCacheConfig     `yaml:"cache" json:"cache"`
 	Fallback  I18nFallbackConfig  `yaml:"fallback" json:"fallback"`
 }
 
-// I18nFallbackConfig 低资源语言降级桥配置（P1-2）。
+// I18nFallbackConfig 低资源语言降级桥配置。
 //
 // 启用条件：enabled=true 且 deepl.api_key 非空。
 // 未配置 api_key 时 FallbackBridge 自动禁用，不影响主流程。
@@ -579,7 +579,7 @@ func loadAppConfigOnce() AppConfig {
 		config.Database.Postgres.SSLMode = "disable"
 		config.VectorDatabase.Type = VectorDBTypePGVector
 		config.VectorDatabase.PGVector.Table = "knowledge_embeddings"
-		config.VectorDatabase.PGVector.Dimension = 1024 // 2026-07-18 私域基线：本地 TEI + bge-m3（1024 维）
+		config.VectorDatabase.PGVector.Dimension = 1024 // 私域基线：本地 TEI + bge-m3（1024 维）
 		// 本地推理栈缺省值由 DefaultInferenceConfig 统一提供（本地 127.0.0.1，维度 1024，
 		// 绝不静默走公网）；消费方不再做兜底硬编码，配置文件优先于默认值。
 		config.Inference = DefaultInferenceConfig()

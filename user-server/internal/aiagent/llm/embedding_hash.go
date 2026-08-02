@@ -57,7 +57,7 @@ func (h *HashEmbeddingService) DefaultConfig() *EmbeddingConfig {
 
 // hashVector 基于文本 + 维度位置哈希生成稳定伪向量
 // 保证相同输入得到相同向量,不同输入得到不同向量,且返回单位向量。
-// 私域部署基线（2026-07-18）：仅在 EMBEDDING_ALLOW_FALLBACK=true 时使用，
+// 私域部署基线：仅在 EMBEDDING_ALLOW_FALLBACK=true 时使用，
 // 默认 dim=1024 跟随 bge-m3 维度。
 func hashVector(text string, dim int) []float32 {
 	text = strings.ToLower(strings.TrimSpace(text))

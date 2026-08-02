@@ -231,7 +231,7 @@ func (q *QueryRewriter) queryDB(ctx context.Context, hash string) (*RewrittenQue
 	}
 	err := q.db.WithContext(ctx).Raw(
 		`SELECT hyde_doc, multi_queries, rewrite_type FROM query_rewrite_cache
-		 WHERE query_hash = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+		 WHERE query_hash = ? AND (expires_at IS NULL OR expires_at > NOW())`,
 		hash,
 	).Scan(&row).Error
 	if err != nil {
@@ -274,7 +274,7 @@ func (q *QueryRewriter) persistToDB(ctx context.Context, hash, query string, rw 
 	// ON CONFLICT (query_hash) DO UPDATE：相同 query_hash 覆盖 hyde_doc/multi_queries
 	err := q.db.WithContext(ctx).Exec(`
 		INSERT INTO query_rewrite_cache (query_hash, original_query, hyde_doc, multi_queries, rewrite_model, rewrite_type, hit_count, last_used_at, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 0, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
+		VALUES (?, ?, ?, ?, ?, ?, 0, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
 		ON CONFLICT (query_hash) DO UPDATE SET
 			hyde_doc = EXCLUDED.hyde_doc,
 			multi_queries = EXCLUDED.multi_queries,
@@ -301,7 +301,7 @@ func (q *QueryRewriter) updateCacheStats(ctx context.Context, hash string) {
 		return
 	}
 	_ = q.db.WithContext(ctx).Exec(
-		`UPDATE query_rewrite_cache SET hit_count = hit_count + 1, last_used_at = NOW() WHERE query_hash = $1`,
+		`UPDATE query_rewrite_cache SET hit_count = hit_count + 1, last_used_at = NOW() WHERE query_hash = ?`,
 		hash,
 	).Error
 }

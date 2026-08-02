@@ -1,6 +1,6 @@
 package service
 
-// sop_node_executors_test.go 14 种节点执行器单元测试（P0-1 §13.6 验收）
+// sop_node_executors_test.go 14 种节点执行器单元测试（§13.6 验收）
 //
 // 覆盖：
 //  1. StartExecutor / EndExecutor：状态机推进

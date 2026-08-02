@@ -1,8 +1,8 @@
 package service
 
-// faq_test.go FAQ Service 单元测试 (T26)
+// faq_test.go FAQ Service 单元测试
 //
-// 设计依据: 2026-07-31 AI 智能体性能优化 (T9)
+// 设计依据: AI 智能体性能优化
 //
 // 测试目标:
 //   - Match: 返回的匹配项数 + 排序 (高分在前)
@@ -156,10 +156,10 @@ func TestFAQService_InvalidateCache_NilSafe(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
-// B-021 WeekDecay 测试
+// WeekDecay 测试
 // ----------------------------------------------------------------------------
 
-// mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock (B-021)
+// mockFAQRepoForDecay 专用于 WeekDecay 测试的 mock
 //
 // Task 15 扩展: 同样支持 MatchByAgent / ListByAgent 的 mock 数据
 type mockFAQRepoForDecay struct {
@@ -276,7 +276,7 @@ type fixedClock struct{ T time.Time }
 
 func (f fixedClock) Now() time.Time { return f.T }
 
-// TestFAQService_WeekDecay 测试周度质量衰减 (B-021)
+// TestFAQService_WeekDecay 测试周度质量衰减
 //
 // 验证:
 //  1. cutoff = now - 7d

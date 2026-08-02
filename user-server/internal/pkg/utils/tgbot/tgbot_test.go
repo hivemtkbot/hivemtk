@@ -31,7 +31,7 @@ func TestInitTGBot_NoProxy(t *testing.T) {
 }
 
 // ============================================================================
-// ValidateBotToken 单元测试（P2-3 Bot Token 格式预校验）
+// ValidateBotToken 单元测试（Bot Token 格式预校验）
 // ----------------------------------------------------------------------------
 // 业务动机：用户在 controller Create/Update 入口填写 Bot Token，格式错误时
 // 调用 getMe 会立即 401，错误信息对用户不友好。

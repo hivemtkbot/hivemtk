@@ -1,6 +1,6 @@
 package service
 
-// anomaly_login_detector_test.go A 域 P1-2 异常登录预警服务测试
+// anomaly_login_detector_test.go A 域 异常登录预警服务测试
 //
 // 测试目标（5+ 核心场景）：
 //  1. NewAnomalyLoginDetector / NewAnomalyLoginDetectorWithConfig - 构造

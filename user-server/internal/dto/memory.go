@@ -4,7 +4,7 @@ import "time"
 
 // memory.go 销冠域 - 对话记忆 DTO
 //
-// 从 service 包迁入（P2-6 DTO 层补全）：
+// 从 service 包迁入（DTO 层补全）：
 //   - Message：对话消息，由 DialogueMemoryService.AppendMessage 接收、GetShortTermMemory 返回
 //   - ShortTermMemory：短期记忆聚合，承载最近 N 轮消息
 

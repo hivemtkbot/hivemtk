@@ -29,22 +29,22 @@ import (
 //   - AccountHealth/ListAccounts 走模型层直接查询（参考已有 account controller 模式）
 //
 // 其他方法（SMS/Email/Weixin/Douyin/Kuaishou/XHS/Card/Recall/AccountHealth/ListAccounts）保持 NoOp，
-// 后续按需逐渠道补齐；DingTalk 已通过 DingTalkService 实现真实群机器人出站（补 P0 #2）；
-// WeCom 已委托 WeComIntegrationService 统一出站（R3 收敛）。
+// 后续按需逐渠道补齐；DingTalk 已通过 DingTalkService 实现真实群机器人出站（补 #2）；
+// WeCom 已委托 WeComIntegrationService 统一出站（收敛）。
 type IntegrationReachAdapter struct {
 	tg       *service.TelegramIntegrationService
 	wa       *service.WhatsAppCloudIntegrationService
 	feishu   *service.FeishuIntegrationService
 	web      *service.CustomerSessionService  // 网页客服渠道（WebSocket 推送访客）
-	wecom    *service.WeComIntegrationService // 企微渠道（R3 收敛：统一企微出站入口，底层仍由 WeComIntegrationService 承载）
-	dingtalk *service.DingTalkService         // 钉钉群机器人出站（补 todo.md P0 #2 唯一未实现渠道）
-	sms      service.SmsService               // 短信渠道（补 reach.sms.send 真实出站，2026-07-18）
-	email    *email.EmailSendService          // 邮件渠道（补 reach.email.send 真实出站，2026-07-18）
+	wecom    *service.WeComIntegrationService // 企微渠道（收敛：统一企微出站入口，底层仍由 WeComIntegrationService 承载）
+	dingtalk *service.DingTalkService         // 钉钉群机器人出站（补 todo.md #2 唯一未实现渠道）
+	sms      service.SmsService               // 短信渠道（补 reach.sms.send 真实出站）
+	email    *email.EmailSendService          // 邮件渠道（补 reach.email.send 真实出站）
 }
 
 // Sentinel errors
 //
-// 使用 sentinel error 替代字符串比较（MASTER_RULES 5.2 R07）：
+// 使用 sentinel error 替代字符串比较（MASTER_RULES 5.2）：
 //   - 渠道未实现：ErrChannelNotImplemented
 //   - 渠道 IntegrationService 未注入：ErrIntegrationServiceNotConfigured
 //   - 参数解析失败：ErrInvalidAccountID / ErrInvalidInt64
@@ -204,7 +204,7 @@ func (a *IntegrationReachAdapter) WithWeb(svc *service.CustomerSessionService) *
 	return a
 }
 
-// WithWeCom 注入企微集成服务（实现 reach.wecom.send 完整业务，R3 收敛统一企微出站入口）
+// WithWeCom 注入企微集成服务（实现 reach.wecom.send 完整业务， 收敛统一企微出站入口）
 func (a *IntegrationReachAdapter) WithWeCom(svc *service.WeComIntegrationService) *IntegrationReachAdapter {
 	a.wecom = svc
 	return a
@@ -233,15 +233,15 @@ func (a *IntegrationReachAdapter) SendEmail(ctx context.Context, to, subject, co
 	return "", fmt.Errorf("email: %w", ErrChannelNotImplemented)
 }
 
-// SendWeCom 通过 WeComIntegrationService 发送企微消息（R3 收敛：统一企微出站入口）
+// SendWeCom 通过 WeComIntegrationService 发送企微消息（收敛：统一企微出站入口）
 //
 // 此前为 NoOp（ErrChannelNotImplemented），企微出站独立在 WeComIntegrationService，
-// 与 ReachAdapter 接口重叠（R3 缺陷）。现委托 WeComIntegrationService.SendMessage，
+// 与 ReachAdapter 接口重叠（缺陷）。现委托 WeComIntegrationService.SendMessage，
 // 使 IntegrationReachAdapter 成为覆盖 TG/WA/Feishu/Web/WeCom 的单一出站入口。
 //
 // 底层语义与 WeComIntegrationService.SendMessage 既有行为一致：
 //   - 账号健康度/配额检查后推消息中台 + 收件箱
-//   - 配置了真实企微凭证（CorpID/CorpSecret）时真实调企微 API（R1 已修复）；无凭证安全跳过
+// 配置了真实企微凭证（CorpID/CorpSecret）时真实调企微 API；无凭证安全跳过
 //   - SelectHealthyAccount 自动选健康账号（忽略传入 AccountID，与既有出站一致）
 func (a *IntegrationReachAdapter) SendWeCom(ctx context.Context, accountID, externalUserID, msgType, content string) (string, error) {
 	ctx = logger.WithModule(ctx, "reach")
@@ -301,7 +301,7 @@ func (a *IntegrationReachAdapter) SendTikTok(ctx context.Context, accountID, ope
 	return "", fmt.Errorf("tiktok: %w", ErrChannelNotImplemented)
 }
 
-// SendDingTalk 通过钉钉群机器人 webhook 出站（补齐 todo.md P0 #2 唯一未实现渠道）
+// SendDingTalk 通过钉钉群机器人 webhook 出站（补齐 todo.md #2 唯一未实现渠道）
 //
 // chatID 为 `reach.dingtalk.send` 工具传入的 recipient_id，语义：
 //   - 完整 webhook URL（含 access_token），或仅 access_token（自动拼接 base）

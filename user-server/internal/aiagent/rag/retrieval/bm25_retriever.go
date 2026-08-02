@@ -74,17 +74,17 @@ func (r *BM25Retriever) Retrieve(ctx context.Context, productID string, query st
 func (r *BM25Retriever) tryTSQuery(ctx context.Context, productID string, query string, topK int, tsvCol, tsConfig string) ([]Chunk, error) {
 	sql := fmt.Sprintf(`
 		SELECT id, document_id, content,
-		       ts_rank(%s, plainto_tsquery('%s', $1))::float8 AS score
+		       ts_rank(%s, plainto_tsquery('%s', ?))::float8 AS score
 		FROM knowledge_chunks
-		WHERE %s @@ plainto_tsquery('%s', $1)
+		WHERE %s @@ plainto_tsquery('%s', ?)
 	`, tsvCol, tsConfig, tsvCol, tsConfig)
 	args := []any{query}
 	if productID != "" {
-		sql += " AND product_id = $2 ORDER BY score DESC LIMIT $3"
-		args = append(args, productID, topK)
+		sql += " AND product_id = ? ORDER BY score DESC LIMIT ?"
+		args = append(args, query, productID, topK)
 	} else {
-		sql += " ORDER BY score DESC LIMIT $2"
-		args = append(args, topK)
+		sql += " ORDER BY score DESC LIMIT ?"
+		args = append(args, query, topK)
 	}
 	var rows []chunkScanRow
 	if err := r.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
@@ -103,14 +103,14 @@ func (r *BM25Retriever) ilikeFallback(ctx context.Context, productID string, que
 	sql := `
 		SELECT id, document_id, content, 1.0::float8 AS score
 		FROM knowledge_chunks
-		WHERE content ILIKE $1
+		WHERE content ILIKE ?
 	`
 	args := []any{pattern}
 	if productID != "" {
-		sql += " AND product_id = $2 ORDER BY id DESC LIMIT $3"
+		sql += " AND product_id = ? ORDER BY id DESC LIMIT ?"
 		args = append(args, productID, topK)
 	} else {
-		sql += " ORDER BY id DESC LIMIT $2"
+		sql += " ORDER BY id DESC LIMIT ?"
 		args = append(args, topK)
 	}
 	var rows []chunkScanRow
