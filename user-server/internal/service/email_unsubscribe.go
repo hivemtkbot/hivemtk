@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"marketing/internal/model"
@@ -25,13 +24,8 @@ import (
 // 邮件退订 token 有效期（30 天），合规要求退订链接在合理时长内可用
 const emailUnsubscribeTokenTTL = 30 * 24 * time.Hour
 
-// 邮件退订 token 签名密钥（部署方通过环境变量覆盖）
-// 私域独立部署：缺省值仅用于本地开发，生产必须通过 EMAIL_UNSUBSCRIBE_SECRET 注入
+// 邮件退订 token 签名密钥（仅来自环境变量 EMAIL_UNSUBSCRIBE_SECRET，源码不含硬编码密钥）
 const emailUnsubscribeSecretEnv = "EMAIL_UNSUBSCRIBE_SECRET"
-const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev-secret"
-
-// emailUnsubscribeSecretWarned 确保"密钥走默认值"的安全告警只打印一次
-var emailUnsubscribeSecretWarned sync.Once
 
 // UnsubscribeClaim 退订 token 中携带的声明
 type UnsubscribeClaim struct {
@@ -207,15 +201,9 @@ func (s *EmailUnsubscribeService) sign(ctx context.Context, data []byte) string 
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// secret 读取退订签名密钥（环境变量优先）
+// secret 读取退订签名密钥（仅来自环境变量，源码不含硬编码默认密钥）
 func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
-	if v := os.Getenv(emailUnsubscribeSecretEnv); v != "" {
-		return v
-	}
-	emailUnsubscribeSecretWarned.Do(func() {
-		logger.Warnf("[SECURITY] EMAIL_UNSUBSCRIBE_SECRET 未配置，退订链接签名将使用内置不安全默认值（仅限本地开发）。生产环境必须通过环境变量注入强随机密钥，否则退订/追踪 token 可被伪造。")
-	})
-	return emailUnsubscribeDefaultSecret
+	return os.Getenv(emailUnsubscribeSecretEnv)
 }
 
 // baseURL 读取对外可访问的基础 URL
