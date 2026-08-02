@@ -4,23 +4,26 @@ import "marketing/internal/model"
 
 // 网页桥接渠道标识（与现有 API 渠道 douyin/xhs/tiktok 区分，避免回归）
 const (
-	ChannelDouyinWeb = "douyin_web"
-	ChannelXHSWeb    = "xhs_web"
-	ChannelTikTokWeb = "tiktok_web"
+	ChannelDouyinWeb   = "douyin_web"
+	ChannelXHSWeb      = "xhs_web"
+	ChannelTikTokWeb   = "tiktok_web"
+	ChannelKuaishouWeb = "kuaishou_web"
 )
 
 // apiToBridge 平台基础渠道 -> 网页桥接渠道
 var apiToBridge = map[string]string{
-	model.ChannelDouyin: ChannelDouyinWeb,
-	model.ChannelXHS:    ChannelXHSWeb,
-	model.ChannelTikTok: ChannelTikTokWeb,
+	model.ChannelDouyin:   ChannelDouyinWeb,
+	model.ChannelXHS:      ChannelXHSWeb,
+	model.ChannelTikTok:   ChannelTikTokWeb,
+	model.ChannelKuaishou: ChannelKuaishouWeb,
 }
 
 // bridgeToAPI 网页桥接渠道 -> 平台基础渠道（用于复用 ReachAdapter 方法名）
 var bridgeToAPI = map[string]string{
-	ChannelDouyinWeb: model.ChannelDouyin,
-	ChannelXHSWeb:    model.ChannelXHS,
-	ChannelTikTokWeb: model.ChannelTikTok,
+	ChannelDouyinWeb:   model.ChannelDouyin,
+	ChannelXHSWeb:      model.ChannelXHS,
+	ChannelTikTokWeb:   model.ChannelTikTok,
+	ChannelKuaishouWeb: model.ChannelKuaishou,
 }
 
 // IsBridgeChannel 判断是否为网页桥接渠道

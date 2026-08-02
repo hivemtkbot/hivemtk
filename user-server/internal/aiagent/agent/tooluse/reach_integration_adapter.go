@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"marketing/internal/dto"
 	"marketing/internal/email/service"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
@@ -223,14 +224,53 @@ func NewWebReachAdapter(svc *service.CustomerSessionService) *WebReachAdapter {
 // ===== 其他渠道：暂未实现（保持 NoOp 等价行为）=====
 // 注：WeCom 已委托 WeComIntegrationService 实现（见上方 SendWeCom），不在此 NoOp 区块。
 
-// SendSMS 未实现（沿用 NoOp 语义）
+// SendSMS 通过 SmsService 发送短信（补 reach.sms.send 真实出站）
+//
+// 备注：SmsSendRequest 仅含 Phone/Content（明文发送），适配器签名中的
+// templateID/params 为模板发送预留，当前透传至 service 时忽略（service 暂不含模板分支）。
 func (a *IntegrationReachAdapter) SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
-	return "", fmt.Errorf("sms: %w", ErrChannelNotImplemented)
+	ctx = logger.WithModule(ctx, "reach")
+	logger.Ctx(ctx).Debug().Str("channel", "sms").Str("phone", phone).Int("content_len", len(content)).Msg("reach send start")
+	if a.sms == nil {
+		return "", fmt.Errorf("sms: %w", ErrIntegrationServiceNotConfigured)
+	}
+	if strings.TrimSpace(phone) == "" {
+		return "", errors.New("sms: phone required")
+	}
+	if strings.TrimSpace(content) == "" {
+		return "", errors.New("sms: content required")
+	}
+	if err := a.sms.SendSms(ctx, &dto.SmsSendRequest{Phone: phone, Content: content}); err != nil {
+		logger.Ctx(ctx).Error().Err(err).Str("channel", "sms").Str("phone", phone).Msg("reach sms send failed")
+		return "", fmt.Errorf("sms send: %w", err)
+	}
+	return fmt.Sprintf("sms-%s", phone), nil
 }
 
-// SendEmail 未实现
+// SendEmail 通过 EmailSendService 发送邮件（补 reach.email.send 真实出站）
+//
+// ImmediateSend=true：落库后立即异步发送（SMTP 配置缺失时仅记录失败状态，不阻塞主流程）。
 func (a *IntegrationReachAdapter) SendEmail(ctx context.Context, to, subject, content string, attachments []string) (string, error) {
-	return "", fmt.Errorf("email: %w", ErrChannelNotImplemented)
+	ctx = logger.WithModule(ctx, "reach")
+	logger.Ctx(ctx).Debug().Str("channel", "email").Str("to", to).Int("content_len", len(content)).Msg("reach send start")
+	if a.email == nil {
+		return "", fmt.Errorf("email: %w", ErrIntegrationServiceNotConfigured)
+	}
+	if strings.TrimSpace(to) == "" {
+		return "", errors.New("email: to required")
+	}
+	log, err := a.email.SendEmail(ctx, dto.SendEmailRequest{
+		To:           to,
+		Subject:      subject,
+		Content:      content,
+		Attachments:  attachments,
+		ImmediateSend: true,
+	})
+	if err != nil {
+		logger.Ctx(ctx).Error().Err(err).Str("channel", "email").Str("to", to).Msg("reach email send failed")
+		return "", fmt.Errorf("email send: %w", err)
+	}
+	return fmt.Sprintf("email-%s", log.ID), nil
 }
 
 // SendWeCom 通过 WeComIntegrationService 发送企微消息（收敛：统一企微出站入口）

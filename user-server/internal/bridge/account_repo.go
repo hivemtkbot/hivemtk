@@ -3,12 +3,17 @@ package bridge
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
 	"marketing/internal/model"
 )
+
+// ErrAccountOwnedByOther 归属冲突：该渠道账号已归属于其他用户，
+// Upsert 仅刷新在线状态、不改动归属字段。供 handler 记录审计日志。
+var ErrAccountOwnedByOther = errors.New("bridge account owned by another user")
 
 // BridgeAccountRepository 桥接账号持久化（实现 BridgeAccountRepo 接口）。
 //
@@ -23,32 +28,78 @@ func NewBridgeAccountRepository(db *gorm.DB) *BridgeAccountRepository {
 }
 
 // Upsert 注册/上线：写入 bridge_accounts（owner + 在线状态），并绑定智能体。
+//
+// 安全约束（防水平越权）：
+//   - 记录已存在且归属(user_id)与当前请求不同 → 不覆盖归属/昵称/智能体，仅刷新在线状态，
+//     并返回 ErrAccountOwnedByOther（handler 记审计日志，但 hub 收发不受影响）。
+//   - 并发首建存在竞争：Create 命中唯一冲突时重试一次（此时记录已存在，走"已存在"分支校验归属）。
 func (r *BridgeAccountRepository) Upsert(ctx context.Context, u BridgeAccountUpsert) error {
-	var acc model.BridgeAccount
-	err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", u.Channel, u.AccountID).First(&acc).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		acc = model.BridgeAccount{Channel: u.Channel, AccountID: u.AccountID}
-	} else if err != nil {
-		return err
-	}
-	acc.UserID = u.UserID
-	if u.AccountName != "" {
-		acc.AccountName = u.AccountName
-	}
-	if u.AgentID != 0 {
-		acc.AgentID = u.AgentID
-	}
-	acc.Status = u.Status
-	now := time.Now()
-	acc.LastSyncAt = &now
-	if err := r.db.WithContext(ctx).Save(&acc).Error; err != nil {
-		return err
-	}
-	// 智能体绑定（AI 路由依赖 channel_agent_bindings）
-	if u.AgentID != 0 {
-		return r.upsertBinding(ctx, u.Channel, u.AccountID, u.AgentID)
+	for attempt := 0; attempt < 2; attempt++ {
+		var acc model.BridgeAccount
+		err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", u.Channel, u.AccountID).First(&acc).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 首建：归属必须是当前请求用户
+			acc = model.BridgeAccount{
+				Channel:   u.Channel,
+				AccountID: u.AccountID,
+				UserID:    u.UserID,
+				Status:    u.Status,
+			}
+			if u.AccountName != "" {
+				acc.AccountName = u.AccountName
+			}
+			if u.AgentID != 0 {
+				acc.AgentID = u.AgentID
+			}
+			now := time.Now()
+			acc.LastSyncAt = &now
+			if cerr := r.db.WithContext(ctx).Create(&acc).Error; cerr != nil {
+				if isUniqueViolation(cerr) {
+					continue // 并发首建冲突：下一轮按"已存在"分支处理
+				}
+				return cerr
+			}
+			if u.AgentID != 0 {
+				return r.upsertBinding(ctx, u.Channel, u.AccountID, u.AgentID)
+			}
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		// 记录已存在：归属冲突校验
+		if acc.UserID != u.UserID {
+			now := time.Now()
+			_ = r.db.WithContext(ctx).Model(&model.BridgeAccount{}).
+				Where("channel = ? AND account_id = ?", u.Channel, u.AccountID).
+				Updates(map[string]any{"status": u.Status, "last_sync_at": now}).Error
+			return ErrAccountOwnedByOther
+		}
+
+		// 归属一致：允许更新昵称/智能体/状态，但绝不改动 user_id
+		acc.Status = u.Status
+		now := time.Now()
+		acc.LastSyncAt = &now
+		if u.AccountName != "" {
+			acc.AccountName = u.AccountName
+		}
+		if u.AgentID != 0 {
+			acc.AgentID = u.AgentID
+		}
+		if err := r.db.WithContext(ctx).Save(&acc).Error; err != nil {
+			return err
+		}
+		if u.AgentID != 0 {
+			return r.upsertBinding(ctx, u.Channel, u.AccountID, u.AgentID)
+		}
+		return nil
 	}
 	return nil
+}
+
+// isUniqueViolation 判断是否为唯一索引冲突（Postgres: duplicate key value）。
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "duplicate key value")
 }
 
 // upsertBinding 维护单一主绑定：先取消同渠道同账号其他主选，再写入/更新本条。

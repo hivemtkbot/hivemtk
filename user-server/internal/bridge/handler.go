@@ -246,7 +246,7 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 		}
 		// G6 + G12：注册即落库（绑定智能体 + 写入 channel_agent_bindings + 置在线）
 		if GlobalBridgeAccountRepo != nil && f.Message != nil {
-			_ = GlobalBridgeAccountRepo.Upsert(context.Background(), BridgeAccountUpsert{
+			upErr := GlobalBridgeAccountRepo.Upsert(context.Background(), BridgeAccountUpsert{
 				UserID:      c.userID,
 				Channel:     c.channel,
 				AccountID:   c.account,
@@ -254,6 +254,19 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 				AccountName: f.Message.AccountName,
 				Status:      "online",
 			})
+			if upErr != nil {
+				if errors.Is(upErr, ErrAccountOwnedByOther) {
+					// 归属冲突：连接已建立（hub 注册在上方完成），仅记审计日志，不阻断收发。
+					logger.Ctx(ctx).Warn().Str("module", "bridge").
+						Uint("user_id", c.userID).Str("channel", c.channel).
+						Str("account_id", c.account).
+						Msg("bridge register: account owned by another user, ownership unchanged")
+				} else {
+					logger.Ctx(ctx).Error().Err(upErr).Str("module", "bridge").
+						Str("channel", c.channel).Str("account_id", c.account).
+						Msg("bridge register upsert failed")
+				}
+			}
 		}
 	case FrameInbound:
 		if f.Message == nil {

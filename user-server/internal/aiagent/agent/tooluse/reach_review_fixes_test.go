@@ -98,15 +98,16 @@ func TestIntegrationReachAdapter_SentinelErrors(t *testing.T) {
 		t.Errorf("SendFeishu 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
 	}
 
-	// 8 个未实现方法应返回 ErrChannelNotImplemented
+	// 已实现方法（服务注入后真实出站）：服务未注入时返回 ErrIntegrationServiceNotConfigured
 	_, err = a.SendSMS(nil, "1", "x", "", nil)
-	if !errors.Is(err, ErrChannelNotImplemented) {
-		t.Errorf("SendSMS 应返回 ErrChannelNotImplemented, got %v", err)
+	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
+		t.Errorf("SendSMS 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
 	}
 	_, err = a.SendEmail(nil, "1", "s", "x", nil)
-	if !errors.Is(err, ErrChannelNotImplemented) {
-		t.Errorf("SendEmail 应返回 ErrChannelNotImplemented, got %v", err)
+	if !errors.Is(err, ErrIntegrationServiceNotConfigured) {
+		t.Errorf("SendEmail 应返回 ErrIntegrationServiceNotConfigured, got %v", err)
 	}
+	// 其余未实现方法应返回 ErrChannelNotImplemented
 	err = a.Recall(nil, "sms", "x")
 	if !errors.Is(err, ErrChannelNotImplemented) {
 		t.Errorf("Recall 应返回 ErrChannelNotImplemented, got %v", err)

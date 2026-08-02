@@ -67,6 +67,9 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 		case ChannelTikTokWeb:
 			_, err := a.SendTikTok(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
 			return err
+		case ChannelKuaishouWeb:
+			_, err := a.SendKuaishou(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
+			return err
 		default:
 			return fmt.Errorf("bridge: 不支持的桥接渠道 %q", channel)
 		}
@@ -184,8 +187,14 @@ func (a *BridgeReachAdapter) SendDouyin(ctx context.Context, accountID, openID, 
 	return a.persistFailedOutbound(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
+// SendKuaishou 网页快手渠道：
+//   - 扩展在线：经 BridgeHub WS 下发
+//   - 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
 func (a *BridgeReachAdapter) SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	return a.inner.SendKuaishou(ctx, accountID, openID, msgType, content)
+	if a.hub.IsOnline(ChannelKuaishouWeb, accountID) {
+		return a.deliverWS(ctx, ChannelKuaishouWeb, accountID, openID, msgType, content, extractEventID(ctx))
+	}
+	return a.persistFailedOutbound(ctx, ChannelKuaishouWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
 // SendXHS 网页小红书渠道：离线降级落库
