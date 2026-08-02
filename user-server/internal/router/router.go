@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	contentservice "marketing/internal/content/service"
+	"marketing/internal/bridge"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
@@ -15,6 +16,7 @@ import (
 	i18nservice "marketing/internal/service/i18n"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // HealthRedis 供健康检查/就绪检查探测的 Redis 客户端；未配置（REDIS_HOST 为空）时为 nil，
@@ -105,6 +107,9 @@ func Setup(r *gin.Engine) {
 	initGlobalToolExecutor()
 	initGlobalToolRouter() // 装配 ToolRouter（熔断 + 限流 + 成本统计 + 全局统计），激活原本死代码
 	registerAllAgentTools(db.GetDB())
+	// 网页私信桥接：构造 BridgeReachAdapter 并把 AI 回复经 WebSocket 回写 Chrome 扩展。
+	// 必须在 registerAllAgentTools 之后、Agent Loop 激活之前调用（其内部会注册桥接出站回调）。
+	registerAgentReachTools(db.GetDB())
 	initInferenceOrchestrator() // 优化：激活推理闭环编排器（历史死代码）
 
 	engine := buildSalesEngine(db.GetDB())
@@ -254,6 +259,23 @@ func Setup(r *gin.Engine) {
 
 		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
+
+		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
+		bridgeRepo := bridge.NewBridgeAccountRepository(db.GetDB())
+		bridge.RegisterBridgeAccountRepo(bridgeRepo)
+		bridge.RegisterOwnershipChecker(func(ctx context.Context, userID uint, channel, accountID string) (bool, error) {
+			acc, err := bridgeRepo.GetByChannelAccount(ctx, channel, accountID)
+			if err == gorm.ErrRecordNotFound || acc == nil {
+				// 尚未注册：允许连接，注册帧会创建并归属到当前用户（G4 防水平越权）
+				return true, nil
+			}
+			if err != nil {
+				return false, err
+			}
+			return acc.UserID == userID, nil
+		})
+		bridgeAccountCtrl := controller.NewBridgeAccountController()
+		bridgeAccountCtrl.RegisterRoutes(auth)
 
 		// 把 AI 触发实现注入桥接入站服务：抖音/小红书/TikTok 新消息经此触发 AI 客服并原路回写扩展
 		// （必须在 setupCustomerServiceRoutes 之后，因为 bridgeIngressSvc 是在其中被创建的）

@@ -149,6 +149,7 @@ type BridgeClient struct {
 	hub     *BridgeHub
 	channel string
 	account string
+	userID  uint
 	conn    *websocket.Conn
 	send    chan []byte
 	closed  atomic.Bool
@@ -198,6 +199,13 @@ func (c *BridgeClient) readPump(ctx context.Context, ingress *service.InboxIngre
 	defer func() {
 		// 私域部署: 已移除 Prometheus 指标, 关闭事件仅记录日志
 		c.hub.Unregister(c) // Unregister 内部已 CloseSend（c.closed = true）
+		// 连接断开：账号置离线 + 记录最后同步时间（G12）
+		if GlobalBridgeAccountRepo != nil {
+			if err := GlobalBridgeAccountRepo.SetOffline(c.channel, c.account); err != nil {
+				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+					Str("channel", c.channel).Str("account_id", c.account).Msg("bridge SetOffline failed")
+			}
+		}
 		_ = c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -235,6 +243,17 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 		}
 		if old := c.hub.Register(c); old != nil && old != c {
 			old.Kick()
+		}
+		// G6 + G12：注册即落库（绑定智能体 + 写入 channel_agent_bindings + 置在线）
+		if GlobalBridgeAccountRepo != nil && f.Message != nil {
+			_ = GlobalBridgeAccountRepo.Upsert(ctx, BridgeAccountUpsert{
+				UserID:      c.userID,
+				Channel:     c.channel,
+				AccountID:   c.account,
+				AgentID:     f.Message.AgentID,
+				AccountName: f.Message.AccountName,
+				Status:      "online",
+			})
 		}
 	case FrameInbound:
 		if f.Message == nil {
@@ -357,15 +376,12 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported bridge channel"})
 		return
 	}
+	// 解析 JWT 中的 user_id（用于账号归属校验 + 落库 ownership）
+	uidAny, _ := c.Get("user_id")
+	uid, _ := uidAny.(uint)
 	// 1 账号归属校验：通过回调注入（避免 bridge → service 反向依赖）
 	if GlobalOwnershipChecker != nil {
-		uidAny, ok := c.Get("user_id")
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "user_id missing from context"})
-			return
-		}
-		uid, ok := uidAny.(uint)
-		if !ok || uid == 0 {
+		if uid == 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user_id"})
 			return
 		}
@@ -404,6 +420,7 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		hub:     h.hub,
 		channel: channel,
 		account: accountID,
+		userID:  uid,
 		conn:    conn,
 		send:    make(chan []byte, sendBufferSize),
 	}

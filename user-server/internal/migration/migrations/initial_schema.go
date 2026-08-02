@@ -187,5 +187,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewRagSafetyAuditDropMigration(db))
 	// 二次深度审查 - 清理孤儿表 rag_alerts (RagAlertService 已删, commit 4)
 	registry.Register(NewRagAlertsDropMigration(db))
+	// 网页私信桥接账号表（抖音/小红书/TikTok）
+	registry.Register(NewBridgeAccountMigration(db))
 	// 继续添加新的迁移...
 }

@@ -20,6 +20,8 @@ type UnifiedMessage struct {
 	EventID        string         `json:"event_id"`
 	Channel        string         `json:"channel"`
 	AccountID      string         `json:"account_id"`
+	AgentID        uint           `json:"agent_id,omitempty"`   // 仅 register 帧携带：绑定到该智能体
+	AccountName    string         `json:"account_name,omitempty"` // 仅 register 帧携带：账号昵称
 	ConversationID string         `json:"conversation_id"`
 	SenderID       string         `json:"sender_id"`
 	SenderName     string         `json:"sender_name,omitempty"`
