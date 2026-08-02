@@ -16,7 +16,7 @@
 #   2. 跑 schema 修复迁移（027 user_blacklist + 028 customer_tags）
 #   3. 创建默认 admin 账号（admin/Seed@123456，若不存在）
 #   4. 跑 Go seed 全模块（10 模块，含 11 智能体 + 10 绑定）
-#   5. 跑 Python 知识库种子（786 chunks，hivemtk 产品 1022916435）
+#   5. 跑 Python 知识库种子（hivemtk 产品 hivemtk-platform-cs）
 #   6. 写 install.lock 标记已初始化
 #
 # 环境变量:
@@ -37,7 +37,7 @@ PG_HOST="${PG_HOST:-127.0.0.1}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-Seed@123456}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@hivemtk.local}"
-HIVEMTK_RAG_PRODUCT_ID="${HIVEMTK_RAG_PRODUCT_ID:-1022916435}"
+HIVEMTK_RAG_PRODUCT_ID="${HIVEMTK_RAG_PRODUCT_ID:-hivemtk-platform-cs}"
 
 # 颜色输出
 GREEN='\033[0;32m'

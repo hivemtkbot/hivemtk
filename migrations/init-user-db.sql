@@ -88,11 +88,12 @@ CREATE TABLE IF NOT EXISTS rag_products (
 CREATE INDEX IF NOT EXISTS idx_rag_products_vector_table ON rag_products(vector_table);
 
 -- 知识库文档表
--- rag_products.id 为 VARCHAR(64) UUID，而 workspace 模型 KnowledgeDocument.ProductID
--- 为 int64（BIGINT），类型不兼容；GORM 模型未声明 foreignKey，故此处不建 FK。
+-- rag_products.id 为 VARCHAR(64) 字符串产品ID；knowledge_documents.product_id
+-- 自 2026-08 起与之一致为 VARCHAR(64)（KnowledgeDocument.ProductID 为 string）。
+-- GORM 模型未声明 foreignKey，故此处不建 FK。
 CREATE TABLE IF NOT EXISTS knowledge_documents (
     id SERIAL PRIMARY KEY,
-    product_id BIGINT,
+    product_id VARCHAR(64),
     filename VARCHAR(256) NOT NULL,
     file_type VARCHAR(32),
     file_size INTEGER,

@@ -17,7 +17,7 @@ DB_CONFIG = {
 }
 
 # 产品ID
-PRODUCT_ID = 1022916435
+PRODUCT_ID = 'hivemtk-platform-cs'
 
 # 扩展知识库条目（第三批次）
 EXTENDED_ENTRIES_BATCH3 = {

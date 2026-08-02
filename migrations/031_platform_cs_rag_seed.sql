@@ -5,16 +5,16 @@
 --   * 官网网页客服（iframe 加载 user-server /#/chat/embed/default）
 --     需基于本项目知识自动回答商户关于 开源/部署/运维/架构/资产市场 等咨询
 --   * 本迁移创建专属 RAG 产品 + 8 篇知识文档 + 多条知识分段
---   * 知识分段 product_id = HashStringToInt64('hivemtk-platform-cs') = 6067786598618744566
---     (SHA256 首 8 字节大端 int64，负值取反，见 strhash.StringToInt64)
+--   * 知识分段 product_id = 'hivemtk-platform-cs'（与 rag_products.id 同为字符串产品 ID，
+--     自 2026-08 产品ID统一为字符串后，不再使用 HashStringToInt64 数值哈希桥接）
 --   * 检索侧：BM25 关键词召回立即可用；向量召回需 embedding 服务就绪后触发重建索引
 -- 设计文档: docs/marketing-features/agent-rag-qa.md
 -- 合规约束: 不含定价/版本下载/注册开户等已下线内容；含 GitHub/Gitee 地址
 -- ============================================================
 
 -- 0) 幂等清理（重复执行不报错）
-DELETE FROM knowledge_chunks WHERE product_id = 6067786598618744566;
-DELETE FROM knowledge_documents WHERE product_id = 6067786598618744566;
+DELETE FROM knowledge_chunks WHERE product_id = 'hivemtk-platform-cs';
+DELETE FROM knowledge_documents WHERE product_id = 'hivemtk-platform-cs';
 DELETE FROM rag_products WHERE id = 'hivemtk-platform-cs';
 
 -- 1) 创建 RAG 产品（平台客服知识库）
@@ -50,7 +50,7 @@ INSERT INTO rag_products (
 DO $$
 DECLARE
     doc_id_bigint BIGINT;
-    pid BIGINT := 6067786598618744566;
+    pid VARCHAR(64) := 'hivemtk-platform-cs';
 BEGIN
     -- =========================================================
     -- 文档 1：项目概述与定位
@@ -230,7 +230,7 @@ END $$;
 
 -- ============================================================
 -- 3) 绑定 default 渠道：补充欢迎语，引导商户咨询
---    default_rag_product_id 暂不在此设置（uint hash 映射，由 AI 智能体绑定覆盖）
+--    default_rag_product_id 暂不在此设置（字符串产品ID绑定，由 AI 智能体绑定覆盖）
 --    AI 智能体绑定见 033_industry_ai_agents_seed.sql
 -- ============================================================
 UPDATE chat_channels

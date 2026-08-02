@@ -20,8 +20,8 @@ DB_CONFIG = {
     "password": "dce21ad1da364a9c1d11d2641b1472353527b45acb601492"
 }
 
-# 产品ID
-PRODUCT_ID = 1022916435
+# 产品ID（字符串产品ID，与 rag_products.id / 031 种子一致）
+PRODUCT_ID = 'hivemtk-platform-cs'
 
 # 扩展知识库条目
 EXTENDED_ENTRIES = {

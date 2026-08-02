@@ -29,12 +29,12 @@ DEFAULT_INPUT = Path("/Users/xiaofang/Documents/www/go/hivemtk/E_commerce_Custom
 DEFAULT_OUTPUT = Path("/Users/xiaofang/Documents/www/go/hivemtk/hivemtk/scripts/faq_seed.json")
 DEFAULT_TOP_N = 50
 
-# B-023: simhash 指纹位数
+# simhash 指纹位数
 # 中文短问句的 token 数通常 < 15, 64-bit 会因"每 token 贡献 bit 翻转数翻倍"导致
 # 微小变体距离过大 (>10), 无法通过 3-bit 阈值。
 # 32-bit 在保留 5-10 token 的文本上, 1-2 字变体的海明距离通常在 1-3 之间, 满足阈值。
 SIMHASH_BITS = 32
-# B-023: 海明距离阈值, 距离 <= 3 视为同义
+# 海明距离阈值, 距离 <= 3 视为同义
 SIMHASH_HAMMING_THRESHOLD = 3
 
 
@@ -60,7 +60,7 @@ def normalize_text(s: str) -> str:
 
 
 # =============================================================================
-# B-023: simhash 实现 (纯 Python, 零依赖)
+# simhash 实现 (纯 Python, 零依赖)
 # =============================================================================
 #
 # 算法:
@@ -261,7 +261,7 @@ def extract_pairs(input_path: Path, top_n: int) -> list[dict]:
             "enabled": True,
         })
 
-    # B-023: simhash 近似去重 (按 hit_count 高的保留)
+    # simhash 近似去重 (按 hit_count 高的保留)
     out = dedup_by_simhash(candidates, SIMHASH_HAMMING_THRESHOLD)
     return out
 
