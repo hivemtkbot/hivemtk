@@ -127,6 +127,8 @@ type HandleResult struct {
 	Confidence     float64           `json:"confidence"`
 	Transferred    bool              `json:"transferred"`
 	TransferReason string            `json:"transfer_reason,omitempty"`
+	// Cards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随回复一并下发
+	Cards          []model.RichCard  `json:"cards,omitempty"`
 	SuggestionID   uint              `json:"suggestion_id,omitempty"`
 	SalesResponse  *SalesResponse    `json:"sales_response,omitempty"`
 }
@@ -259,6 +261,9 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	}
 	result.SalesResponse = salesResp
 	result.Confidence = o.extractConfidence(ctx, salesResp)
+	// 会话内结构化卡片是 Agent Loop 产出的具体产物，与“是否自动回复/转人工”决策解耦：
+	// 即便因置信度不足转人工，AI 已生成的卡片也应随结果下发（落库 + 推向访客），避免被丢弃。
+	result.Cards = salesResp.Cards
 
 	// 7. 保存 AI 建议（无论是否自动回复，都给座席参考）
 	suggestionID := o.saveAISuggestion(ctx, session.SessionID, salesResp)
@@ -270,7 +275,15 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 	if finalAgentCtx != nil && finalAgentCtx.ConfidenceThreshold > 0 {
 		threshold = finalAgentCtx.ConfidenceThreshold
 	}
-	shouldTransfer := salesResp.TransferredToHuman || result.Confidence < threshold
+	// Agent Loop 已产出结构化卡片=明确、可用的回复产物；即便意图置信度偏低，
+	// 也应随 AI 自动回复一并下发（卡片+说明文本），避免被“转人工”丢弃。
+	// 显式 TransferredToHuman（坐席主动接管）仍优先于本兜底。
+	effectiveConf := result.Confidence
+	if len(salesResp.Cards) > 0 && effectiveConf < threshold {
+		effectiveConf = threshold
+	}
+	result.Confidence = effectiveConf
+	shouldTransfer := salesResp.TransferredToHuman || effectiveConf < threshold
 	if shouldTransfer {
 		result.HandlerType = model.HandlerTypeHuman
 		result.Transferred = true

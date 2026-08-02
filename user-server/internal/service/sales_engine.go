@@ -74,9 +74,10 @@ type AgentToolContext struct {
 
 // AgentToolResult 工具执行结果（回传给 LLM 的格式）
 type AgentToolResult struct {
-	ToolCallID string `json:"tool_call_id"`
-	Content    string `json:"content"` // 工具结果 JSON 字符串
-	Success    bool   `json:"success"`
+	ToolCallID string           `json:"tool_call_id"`
+	Content    string           `json:"content"` // 工具结果 JSON 字符串
+	Success    bool             `json:"success"`
+	Card       *model.RichCard  `json:"card,omitempty"` // 工具产出的结构化富卡片
 }
 
 // ============================================================================
@@ -532,7 +533,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 
 	// 步骤 6：LLM 生成候选回复
 	stepStart = time.Now()
-	candidate, llmResult, err := e.generateCandidate(ctx, req, intentResult, memCtx, matchedSOP, sopStage, ragChunks, script, customer)
+	candidate, llmResult, cards, err := e.generateCandidate(ctx, req, intentResult, memCtx, matchedSOP, sopStage, ragChunks, script, customer)
 	if err != nil {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "fail", Error: err.Error(),
@@ -581,6 +582,8 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	// 步骤 7：拟人润色
 	stepStart = time.Now()
 	finalReply := candidate
+	// 会话内结构化卡片随最终回复一并下发（来自 agent 工具产出）
+	resp.Cards = cards
 	if req.Config.EnableHumanizePolish {
 		polished, err := e.polisher.Polish(ctx, candidate, &PolishContext{
 			Persona:      req.Config.Persona,
@@ -1056,7 +1059,7 @@ func (e *SalesEngine) generateCandidate(
 	ragChunks []RAGChunk,
 	script *ScriptTemplate,
 	customer *model.Customer,
-) (string, *llm.DispatchResult, error) {
+) (string, *llm.DispatchResult, []model.RichCard, error) {
 	// Layer1 双层路由 - 命中即跳过 LLM
 	if e.layerRouter != nil {
 		decision := e.layerRouter.Route(ctx, &RouteRequest{
@@ -1071,12 +1074,12 @@ func (e *SalesEngine) generateCandidate(
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			// Layer1 命中: 直接返回模板回复, dispatchResult=nil 表示未调 LLM
-			return decision.Reply, nil, nil
+			return decision.Reply, nil, nil, nil
 		}
 	}
 
 	if e.dispatcher == nil {
-		return "", nil, fmt.Errorf("dispatcher is nil")
+		return "", nil, nil, fmt.Errorf("dispatcher is nil")
 	}
 
 	// Agent Loop 场景：只传用户原始消息，不传 RAG 结果（让模型自己决定是否调用工具）
@@ -1107,9 +1110,9 @@ func (e *SalesEngine) generateCandidate(
 		CacheTTL:     3600,
 	})
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	return strings.TrimSpace(result.Content), result, nil
+	return strings.TrimSpace(result.Content), result, nil, nil
 }
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数
@@ -1212,7 +1215,7 @@ func (e *SalesEngine) runAgentLoop(
 	mem *model.DialogueMemory,
 	customer *model.Customer,
 	availableTools []AgentToolDef,
-) (string, *llm.DispatchResult, error) {
+) (string, *llm.DispatchResult, []model.RichCard, error) {
 	// 计算 agent 标识与工具白名单（来自 AgentContext.Tools）
 	agentIDStr := fmt.Sprintf("%d", agentIDFromCtx(req))
 	allowed := agentContextToolNames(req)
@@ -1253,9 +1256,9 @@ func (e *SalesEngine) runAgentLoop(
 			CacheTTL:     3600,
 		})
 		if err != nil {
-			return "", nil, err
+			return "", nil, nil, err
 		}
-		return strings.TrimSpace(result.Content), result, nil
+		return strings.TrimSpace(result.Content), result, nil, nil
 	}
 
 	// 2. 构造初始 messages（system + user）
@@ -1279,10 +1282,13 @@ func (e *SalesEngine) runAgentLoop(
 	var firstLLMError error // 记录首次 LLM 调用错误（用于最终降级返回）
 	curMaxTokens := req.Config.MaxTokens
 	if curMaxTokens <= 0 {
-		curMaxTokens = 800
+		// 默认 2048：推理模型（如 deepseek-v4-flash）在 reasoning 阶段需占用较多 token，
+		// 过小的上限会导致 reasoning 耗尽 token 后无法产出 content/tool_calls。
+		curMaxTokens = 2048
 	}
 	curTools := toolDefs
 	lengthRetryDone := false
+	var collectedCards []model.RichCard // 收集工具产出的结构化卡片，随最终回复一并下发
 	for iter := 1; iter <= maxIter; iter++ {
 		// 检查总超时
 		if agentLoopCtx.Err() != nil {
@@ -1320,19 +1326,19 @@ func (e *SalesEngine) runAgentLoop(
 		// 3.2 判断 finish_reason
 		if result.FinishReason != "tool_calls" || len(result.ToolCalls) == 0 {
 			// DeepSeek 等推理模型在 reasoning 阶段可能耗尽 max_tokens，
-			// 导致 finish_reason=length 且 content 为空。此时重试一次：
-			// 放大 max_tokens 并去掉 tools（纯文本作答），让模型完成 reasoning 后输出正文。
+			// 导致 finish_reason=length 且 content 为空。此时重试一次：放大 max_tokens，
+			// 但【保留 tools】——Agent Loop 中必须允许模型在重试轮继续调用工具（含 card.show），
+			// 否则卡片等工具能力将彻底失效。
 			if result.FinishReason == "length" && strings.TrimSpace(result.Content) == "" && !lengthRetryDone {
 				lengthRetryDone = true
 				curMaxTokens = curMaxTokens * 2
-				curTools = nil
-				logger.Warnf("[AgentLoop] iter=%d 推理模型耗尽 token(content 为空)，重试: max_tokens=%d tools dropped", iter, curMaxTokens)
+				logger.Warnf("[AgentLoop] iter=%d 推理模型耗尽 token(content 为空)，重试: max_tokens=%d（保留工具）", iter, curMaxTokens)
 				continue
 			}
 			// LLM 给出最终文本回复，结束循环
 			logger.Infof("[AgentLoop] iter=%d finish_reason=%s content_len=%d tools_called=%d",
 				iter, result.FinishReason, len(result.Content), totalToolCalls)
-			return strings.TrimSpace(result.Content), result, nil
+			return strings.TrimSpace(result.Content), result, collectedCards, nil
 		}
 
 		// 3.3 LLM 决定调用工具：将 assistant 消息（含 tool_calls）追加到对话历史
@@ -1360,6 +1366,11 @@ func (e *SalesEngine) runAgentLoop(
 			})
 		}
 		toolResults := e.toolExecutor.DispatchToolCalls(ctx, agentCalls, toolCtx)
+		for _, tr := range toolResults {
+			if tr.Card != nil {
+				collectedCards = append(collectedCards, *tr.Card)
+			}
+		}
 		totalToolCalls += len(toolResults)
 
 		// 3.5 将每个工具结果作为 role=tool 消息回灌
@@ -1393,13 +1404,13 @@ func (e *SalesEngine) runAgentLoop(
 			// LLM 曾成功响应但内容为空，且有错误：返回降级提示
 			content = "抱歉，我暂时无法处理您的请求，请稍后再试。"
 		}
-		return content, lastResult, nil
+		return content, lastResult, collectedCards, nil
 	}
 	if firstLLMError != nil {
 		// LLM 调用失败时返回友好降级提示，而非抛 error 给用户
-		return "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。", nil, nil
+		return "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。", nil, nil, nil
 	}
-	return "", nil, fmt.Errorf("agent loop exhausted with no final content")
+	return "", nil, nil, fmt.Errorf("agent loop exhausted with no final content")
 }
 
 // buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
@@ -1441,24 +1452,21 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 		maxTools = 18
 	}
 	// 默认优先级：知识库 > 客户 > 订单 > 私信 > 触达(卡片/短信) > 售后 > 物流 > 其他
+	// card.show（会话内结构化卡片）为核心通用能力，固定高优先级（2），确保默认始终注入。
 	priority := map[string]int{
-		"rag.search": 1, "customer.search": 2, "customer.get": 3,
-		"customer.create": 4, "order.lookup": 5, "pm.session.open": 6,
-		"pm.message.send": 7, "pm.history": 8, "knowledge.feedback": 9,
-		"reach.web.send": 10, "reach.card.send": 11, "reach.sms.send": 12,
-		"aftersale.create": 13, "aftersale.query": 14,
-		"follow_task.create": 15, "follow_task.update": 16,
-		"logistics.track": 17, "customer.update": 18,
+		"rag.search": 1, "card.show": 2, "customer.search": 3, "customer.get": 4,
+		"customer.create": 5, "order.lookup": 6, "pm.session.open": 7, "pm.message.send": 8,
+		"pm.history": 9, "knowledge.feedback": 10, "reach.web.send": 11, "reach.card.send": 12,
+		"reach.sms.send": 13, "aftersale.create": 14, "aftersale.query": 15,
+		"follow_task.create": 16, "follow_task.update": 17, "logistics.track": 18, "customer.update": 19,
 	}
 
-	// 场景一：agent 显式白名单（按白名单顺序保留已注册工具）
+	// 场景一：agent 显式白名单（按白名单顺序保留已注册工具）。
+	// 会话内卡片工具 card.show 作为通用能力，即便白名单未显式包含也强制注入。
 	if len(allowed) > 0 {
-		set := make(map[string]struct{}, len(allowed))
-		for _, n := range allowed {
-			set[n] = struct{}{}
-		}
-		ordered := make([]AgentToolDef, 0, len(allowed))
-		for _, n := range allowed {
+		allowedWithCard := ensureToolInList(allowed, cardShowToolName)
+		ordered := make([]AgentToolDef, 0, len(allowedWithCard))
+		for _, n := range allowedWithCard {
 			for _, t := range tools {
 				if t.Name == n {
 					ordered = append(ordered, t)
@@ -1474,7 +1482,7 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 
 	// 场景二：默认优先级
 	if len(tools) <= maxTools {
-		return tools
+		return ensureCardShowPresent(tools, tools, maxTools)
 	}
 	type scored struct {
 		tool  AgentToolDef
@@ -1495,7 +1503,47 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 	for i := 0; i < maxTools && i < len(scoredTools); i++ {
 		result = append(result, scoredTools[i].tool)
 	}
-	return result
+	return ensureCardShowPresent(tools, result, maxTools)
+}
+
+// cardShowToolName 是会话内结构化卡片工具的固定名称，作为通用能力始终注入 Agent Loop。
+const cardShowToolName = "card.show"
+
+// ensureToolInList 确保 name 存在于列表；若不存在则追加到末尾。
+func ensureToolInList(list []string, name string) []string {
+	for _, l := range list {
+		if l == name {
+			return list // 已包含
+		}
+	}
+	return append(append([]string{}, list...), name)
+}
+
+// ensureCardShowPresent 保证 card.show 工具（若已注册）出现在最终注入列表中：
+// 未满则追加；已满则替换最低优先级（末尾）工具，确保通用卡片能力不被限额挤掉。
+func ensureCardShowPresent(all, selected []AgentToolDef, maxTools int) []AgentToolDef {
+	var cardTool *AgentToolDef
+	for i := range all {
+		if all[i].Name == cardShowToolName {
+			cardTool = &all[i]
+			break
+		}
+	}
+	if cardTool == nil {
+		return selected // 未注册，跳过
+	}
+	for _, t := range selected {
+		if t.Name == cardShowToolName {
+			return selected // 已在
+		}
+	}
+	if len(selected) < maxTools {
+		return append(selected, *cardTool)
+	}
+	res := make([]AgentToolDef, len(selected))
+	copy(res, selected)
+	res[len(res)-1] = *cardTool // 替换最低优先级工具
+	return res
 }
 
 // structToMap 将结构体（或任意值）转为 map[string]any

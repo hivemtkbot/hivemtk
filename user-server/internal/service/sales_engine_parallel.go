@@ -344,7 +344,7 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 
 	// 步骤 6: 生成候选回复 (LLM)
 	stepStart = time.Now()
-	reply, dispatchResult, err := e.generateCandidate(ctx, req, intent, nil, sopAgent, stage, phase0.ragChunks, nil, nil)
+	reply, dispatchResult, cards, err := e.generateCandidate(ctx, req, intent, nil, sopAgent, stage, phase0.ragChunks, nil, nil)
 	if err != nil {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "fail", Error: err.Error(),
@@ -353,6 +353,7 @@ func (e *SalesEngine) runPhase1Serial(ctx context.Context, req *SalesRequest, re
 		return false
 	}
 	resp.Reply = reply
+	resp.Cards = cards
 	if dispatchResult != nil {
 		resp.Steps = append(resp.Steps, dto.SalesStepLog{
 			Step: "6_generate_candidate", Status: "ok", LatencyMs: ms(stepStart),

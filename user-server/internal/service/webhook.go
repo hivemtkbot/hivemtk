@@ -1711,8 +1711,8 @@ func (s *WebhookService) triggerSalesEngine(ctx context.Context, channel Webhook
 		logger.Infof("[Webhook] transferred to human: %s", resp.TransferReason)
 		return
 	}
-	// 出站：按 channel 调用对应 Service
-	s.sendOutbound(ctx, channel, accountID, p, resp.Reply, hubMsg)
+	// 出站：按 channel 调用对应 Service（文本 + 结构化富卡片）
+	s.sendOutbound(ctx, channel, accountID, p, resp.Reply, hubMsg, resp.Cards)
 }
 
 // loadAgentForChannel 加载渠道账号绑定的智能体上下文
@@ -1849,9 +1849,9 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 			Msg("transferred to human")
 		return
 	}
-	// AI 自动回复：出站发送
-	if result.AIReplied && result.Reply != "" {
-		s.sendOutbound(ctx, channel, accountID, p, result.Reply, hubMsg)
+	// AI 自动回复：出站发送（文本 + 结构化富卡片）
+	if result.AIReplied && (result.Reply != "" || len(result.Cards) > 0) {
+		s.sendOutbound(ctx, channel, accountID, p, result.Reply, hubMsg, result.Cards)
 		return
 	}
 	// 其他情况（座席接管 / 仅生成建议未自动回复）：不出站，等座席手动回复
@@ -1862,7 +1862,7 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 }
 
 // sendOutbound 出站发送（按 channel）；ctx 用于透传 trace_id（来自 triggerSmartOrchestrator / 回退链路）
-func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub) {
+func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
 	// 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
 	// 同一 EventID 仅首条链路出站，杜绝重复消息；同时防御 webhook 平台重复投递
 	// （同 EventID 二次到达）导致的重复出站。
@@ -1937,6 +1937,14 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "telegram").Str("account_id", accountID).Int64("chat_id", chatID).Msg("outbound failed")
 		} else {
 			sent = true
+		}
+		// 结构化富卡片：随文本一并下发（Telegram 以 inline keyboard 按钮呈现）
+		for _, card := range cards {
+			if err := s.tgIntegration.SendCard(ctx, uint(accID), chatID, &card); err != nil {
+				logger.Ctx(ctx).Error().Err(err).Str("channel", "telegram").Int64("chat_id", chatID).Msg("outbound card failed")
+			} else {
+				sent = true
+			}
 		}
 	case ChannelWhatsapp:
 		if s.waIntegration == nil {

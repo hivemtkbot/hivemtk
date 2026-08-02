@@ -317,6 +317,12 @@ func (s *CustomerSessionService) pushToVisitor(ctx context.Context, sessionID st
 		"sender_id":    message.SenderID,
 		"created_at":   message.CreatedAt,
 	}
+	// 结构化富卡片：随消息一并下发给访客端
+	if message.ContentType == model.MessageTypeCard && message.CardData != "" {
+		if card, err := model.UnmarshalRichCard(message.CardData); err == nil {
+			payload["card"] = card
+		}
+	}
 	if websocket.IsVisitorOnline(sessionID) {
 		_ = websocket.SendToVisitor(websocket.TypeMessage, payload, sessionID)
 		now := time.Now()

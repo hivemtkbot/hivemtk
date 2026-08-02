@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"marketing/internal/model"
 )
 
 // executor.go 工具执行引擎（PRD §5.2 G3）
@@ -349,9 +351,10 @@ type LLMToolFunction struct {
 
 // LLMToolResult 工具执行结果（回传给 LLM 的格式）
 type LLMToolResult struct {
-	ToolCallID string `json:"tool_call_id"`
-	Content    string `json:"content"` // 工具结果文本（通常是 ToolResult.Data 的 JSON）
-	Success    bool   `json:"success"`
+	ToolCallID string          `json:"tool_call_id"`
+	Content    string          `json:"content"` // 工具结果文本（通常是 ToolResult.Data 的 JSON）
+	Success    bool            `json:"success"`
+	Card       *model.RichCard `json:"card,omitempty"` // 工具产出的结构化富卡片
 }
 
 // DispatchByLLMToolCall 根据 LLM 返回的 tool_call 调度执行
@@ -419,6 +422,7 @@ func (e *ToolExecutor) executeSingleLLMToolCall(ctx context.Context, call LLMToo
 		ToolCallID: call.ID,
 		Content:    contentStr,
 		Success:    execResult.Err == nil && execResult.Success,
+		Card:       execResult.ToolResult.Card,
 	}
 }
 

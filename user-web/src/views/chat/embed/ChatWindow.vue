@@ -188,6 +188,8 @@ const buildUiMessage = (m) => ({
   sender_type: m.sender_type,
   sender_name: m.sender_name || '客服',
   content: m.content,
+  content_type: m.content_type,
+  card: m.card,
   ai_source: m.ai_source,
   confidence: m.confidence || m.ai_confidence,
   created_at: m.created_at
@@ -349,7 +351,21 @@ const onSend = async (payload) => {
     if (data.ai_response) {
       typing.value = false
       messages.value.push(buildUiMessage(data.ai_response))
-    } else if (data.transferred) {
+    }
+    // 会话内结构化富卡片：随回复一并渲染（商品卡/订单卡/优惠卡等）
+    if (data.ai_cards && data.ai_cards.length) {
+      typing.value = false
+      data.ai_cards.forEach((c) => {
+        messages.value.push({
+          id: 'card_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          sender_type: 'ai',
+          content_type: 'card',
+          card: c,
+          created_at: new Date().toISOString()
+        })
+      })
+    }
+    if (!data.ai_response && !data.ai_cards?.length && data.transferred) {
       typing.value = false
       messages.value.push({
         sender_type: 'system',

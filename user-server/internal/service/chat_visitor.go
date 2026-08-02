@@ -313,6 +313,8 @@ type VisitorSendMessageResult struct {
 	UserMessage    *model.SessionMessage `json:"user_message"`
 	AIReplied      bool                  `json:"ai_replied"`
 	AIResponse     *model.SessionMessage `json:"ai_response,omitempty"`
+	// AICards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随 HTTP 响应一并下发给访客
+	AICards        []model.RichCard     `json:"ai_cards,omitempty"`
 	Transferred    bool                  `json:"transferred"`
 	TransferReason string                `json:"transfer_reason,omitempty"`
 	Confidence     float64               `json:"confidence"`
@@ -511,13 +513,41 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, handleResult.Reply, "ai")
 		_ = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
 		result.AIResponse = aiMsg
-
-		// 不再通过 WebSocket 推送 AI 回复给访客：
-		//   - HTTP 响应已带 ai_response，前端可立即渲染
-		//   - 重复推送会导致访客侧 UI 出现两条相同 AI 消息
-		//   - 如访客已离线，AI 消息已落库且 delivered_at 已置，
-		//     重连时 offline-messages 接口会过滤掉 delivered_at NOT NULL
 	}
+
+	// 6.1 会话内结构化富卡片：落库并随 HTTP 响应一并下发给访客
+	if len(handleResult.Cards) > 0 {
+		result.AICards = handleResult.Cards
+		now := time.Now()
+		for i := range handleResult.Cards {
+			card := handleResult.Cards[i]
+			cardData, err := model.MarshalRichCard(&card)
+			if err != nil {
+				logger.Warnf("[visitor] 卡片序列化失败，跳过: %v", err)
+				continue
+			}
+			cardMsg := &model.SessionMessage{
+				SessionID:    session.SessionID,
+				Content:      card.Title,
+				ContentType:  model.MessageTypeCard,
+				SenderType:   "ai",
+				SenderID:     "ai_assistant",
+				SenderName:   "智能助手",
+				AIConfidence: handleResult.Confidence,
+				AISource:     "rag",
+				CardData:     cardData,
+				CardType:     card.Type,
+				DeliveredAt:  &now,
+			}
+			_ = s.messageRepo.Create(ctx, cardMsg)
+		}
+	}
+
+	// 不再通过 WebSocket 推送 AI 回复给访客：
+	//   - HTTP 响应已带 ai_response，前端可立即渲染
+	//   - 重复推送会导致访客侧 UI 出现两条相同 AI 消息
+	//   - 如访客已离线，AI 消息已落库且 delivered_at 已置，
+	//     重连时 offline-messages 接口会过滤掉 delivered_at NOT NULL
 
 	if handleResult.Transferred {
 		// 转人工通知仍走 WebSocket（HTTP 响应只返回 transfer flag，system 消息由 ws 推）

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"marketing/internal/model"
 )
 
 // tool.go 工具注册表核心接口定义（PRD §5.2 G3）
@@ -69,6 +71,8 @@ type ToolResult struct {
 	ToolName   string     `json:"tool_name"`             // 工具名
 	ExecutedAt time.Time  `json:"executed_at"`           // 执行时间
 	AuditTrace string     `json:"audit_trace,omitempty"` // 审计追踪 ID
+	// Card 工具产出的结构化富卡片（随智能体回复一并下发给会话方）
+	Card *model.RichCard `json:"card,omitempty"`
 }
 
 // ToolTiming 执行耗时统计

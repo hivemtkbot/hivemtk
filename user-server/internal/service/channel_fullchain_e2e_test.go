@@ -743,7 +743,7 @@ func TestE2E_SendOutbound_Feishu_RealPath(t *testing.T) {
 		Content: "原始消息",
 		ChatID:  "oc_chat_1",
 	}
-	svc.sendOutbound(context.Background(), ChannelFeishu, fmt.Sprintf("%d", acc.ID), p, "智能体回复 Feishu", hub)
+	svc.sendOutbound(context.Background(), ChannelFeishu, fmt.Sprintf("%d", acc.ID), p, "智能体回复 Feishu", hub, nil)
 
 	if *counter < 1 {
 		t.Fatalf("expected at least 1 outbound http call, got %d", *counter)
@@ -803,7 +803,7 @@ func TestE2E_SendOutbound_Telegram_RealPath(t *testing.T) {
 	db.Create(hub)
 
 	p := &ParsedPayload{EventID: "tg1", Sender: "67890", Content: "原始", ChatID: "12345"}
-	svc.sendOutbound(context.Background(), ChannelTelegram, fmt.Sprintf("%d", acc.ID), p, "智能体回复 TG", hub)
+	svc.sendOutbound(context.Background(), ChannelTelegram, fmt.Sprintf("%d", acc.ID), p, "智能体回复 TG", hub, nil)
 
 	if *counter < 1 {
 		t.Fatalf("expected at least 1 outbound, got %d", *counter)
@@ -860,7 +860,7 @@ func TestE2E_SendOutbound_WhatsApp_RealPath(t *testing.T) {
 	db.Create(hub)
 
 	p := &ParsedPayload{EventID: "w1", Sender: "+8613800000001", Content: "原始", ChatID: "+8613800000001"}
-	svc.sendOutbound(context.Background(), ChannelWhatsapp, fmt.Sprintf("%d", acc.ID), p, "智能体回复 WA", hub)
+	svc.sendOutbound(context.Background(), ChannelWhatsapp, fmt.Sprintf("%d", acc.ID), p, "智能体回复 WA", hub, nil)
 
 	if *counter < 1 {
 		t.Fatalf("expected at least 1 outbound, got %d", *counter)

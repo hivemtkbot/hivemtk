@@ -224,6 +224,10 @@ func registerAllAgentToolsViaProviders(gormDB *gorm.DB) {
 		logger.Errorf("[agent] ⚠️ Provider 批量装配存在失败: %v", err)
 	}
 
+	// 会话内富卡片工具（card.show，无外部依赖，直接注册到全局注册中心）
+	tooluse.RegisterCardTools(tooluse.GetGlobalRegistry())
+	logger.Info("[agent] ✅ 会话内卡片工具（card.show）已接入全局注册中心")
+
 	// 4. 日志输出
 	totalTools := 0
 	totalProviders := 0

@@ -87,6 +87,7 @@ func (a *ToolExecutorAdapter) DispatchToolCalls(ctx context.Context, calls []ser
 			ToolCallID: r.ToolCallID,
 			Content:    r.Content,
 			Success:    r.Success,
+			Card:       r.Card,
 		})
 	}
 	return out

@@ -8,6 +8,9 @@ type SessionMessage struct {
 	SessionID    string      `gorm:"type:varchar(50);index;not null" json:"session_id"`
 	Content      string      `gorm:"type:text" json:"content"`
 	ContentType  MessageType `gorm:"type:varchar(20)" json:"content_type"`
+	// 结构化富卡片：ContentType=card 时承载（RichCard 的 JSON 序列化）
+	CardData string       `gorm:"type:text" json:"card_data"`
+	CardType RichCardType `gorm:"type:varchar(20)" json:"card_type"`
 	MediaURL     string      `gorm:"type:varchar(500)" json:"media_url"`
 	SenderType   string      `gorm:"type:varchar(20);not null" json:"sender_type"` // user, ai, agent
 	SenderID     string      `gorm:"type:varchar(50)" json:"sender_id"`

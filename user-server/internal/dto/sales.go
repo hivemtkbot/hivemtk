@@ -287,6 +287,8 @@ type SalesResponse struct {
 	AuditIssues         []string              `json:"audit_issues,omitempty"`
 	TransferredToHuman  bool                  `json:"transferred_to_human"` // 是否转人工
 	TransferReason      string                `json:"transfer_reason,omitempty"`
+	// Cards 会话内结构化富卡片（商品卡/订单卡/优惠卡等），随回复一并下发到会话方
+	Cards               []model.RichCard      `json:"cards,omitempty"`
 	Steps               []SalesStepLog        `json:"steps"` // 9 步链路日志
 
 	// 置信度决策（注入 ConfidenceAggregator 时填充）

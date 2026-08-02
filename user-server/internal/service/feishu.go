@@ -505,6 +505,102 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 	return nil
 }
 
+// SendCard 通过 Telegram 发送结构化富卡片（标题/描述/字段文本 + inline keyboard 按钮）。
+// 卡片以 HTML 格式文本呈现，配合 URL 按钮跳转；关闭 markdown 自动转换以避免与卡片 HTML 冲突。
+func (s *TelegramIntegrationService) SendCard(ctx context.Context, accountID uint, chatID int64, card *model.RichCard) error {
+	if s.tg == nil {
+		return errors.New("db nil")
+	}
+	if card == nil {
+		return errors.New("card 为空")
+	}
+	acc, err := s.tg.GetAccount(ctx, accountID)
+	if err != nil {
+		return fmt.Errorf("get tg account: %w", err)
+	}
+	cli := telegram.NewTelegramClient(acc.BotToken, core.WithHTTPClient(httpclient.Client))
+	text := buildTelegramCardText(card)
+	kb := buildTelegramCardKeyboard(card)
+	if _, err := cli.SendMessage(ctx, chatID, text, telegram.SendMessageOptions{
+		ParseMode:                "HTML",
+		DisableMarkdownConversion: true,
+		InlineKeyboard:           kb,
+	}); err != nil {
+		now := time.Now()
+		acc.LastErrorAt = &now
+		acc.LastErrorMsg = err.Error()
+		_ = s.tg.UpdateAccount(ctx, acc)
+		return fmt.Errorf("send tg card: %w", err)
+	}
+	chatIDStr := fmt.Sprintf("%d", chatID)
+	hubMsg, _ := s.hub.Push(ctx, &PushMessageRequest{
+		Platform:       "telegram",
+		AccountID:      fmt.Sprintf("%d", accountID),
+		MsgID:          fmt.Sprintf("tg-card-out-%d", time.Now().UnixNano()),
+		Direction:      "outbound",
+		MsgType:        "card",
+		SenderID:       fmt.Sprintf("%d", accountID),
+		ReceiverID:     chatIDStr,
+		Content:        card.Title,
+		ConversationID: chatIDStr,
+		IsAIReply:      true,
+		AIAgent:        "sales_engine",
+		SentAt:         timePtr(time.Now()),
+	})
+	if hubMsg != nil {
+		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
+	}
+	return nil
+}
+
+// buildTelegramCardText 将卡片渲染为 Telegram HTML 文本
+func buildTelegramCardText(card *model.RichCard) string {
+	var b strings.Builder
+	b.WriteString("<b>")
+	b.WriteString(escapeHTML(card.Title))
+	b.WriteString("</b>")
+	if card.Subtitle != "" {
+		b.WriteString("\n")
+		b.WriteString(escapeHTML(card.Subtitle))
+	}
+	if card.Description != "" {
+		b.WriteString("\n\n")
+		b.WriteString(escapeHTML(card.Description))
+	}
+	if len(card.Fields) > 0 {
+		b.WriteString("\n")
+		for k, v := range card.Fields {
+			b.WriteString("\n• ")
+			b.WriteString(escapeHTML(k))
+			b.WriteString(": ")
+			b.WriteString(escapeHTML(v))
+		}
+	}
+	return b.String()
+}
+
+// buildTelegramCardKeyboard 将卡片按钮转为 Telegram inline keyboard（每行一个按钮）
+func buildTelegramCardKeyboard(card *model.RichCard) [][]telegram.InlineButton {
+	if len(card.Buttons) == 0 {
+		return nil
+	}
+	rows := make([][]telegram.InlineButton, 0, len(card.Buttons))
+	for _, btn := range card.Buttons {
+		if btn.Text == "" {
+			continue
+		}
+		rows = append(rows, []telegram.InlineButton{{Text: btn.Text, URL: btn.URL}})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return rows
+}
+
+func escapeHTML(s string) string {
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(s)
+}
+
 func subtleConstantTimeEqual(a, b string) bool {
 	if len(a) != len(b) {
 		return false

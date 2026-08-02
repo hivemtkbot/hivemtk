@@ -10,16 +10,22 @@
 
     <template v-else>
       <div v-for="(msg, idx) in messages" :key="msg.id || idx" class="message-row" :class="messageClass(msg)">
-        <div class="avatar" v-if="msg.sender_type !== 'system'" :style="avatarStyle(msg)">
-          <span class="avatar-text">{{ avatarText(msg) }}</span>
+        <!-- 结构化富卡片：直接渲染卡片组件，不走文本气泡 -->
+        <div v-if="msg.content_type === 'card' && msg.card" class="bubble-wrap card-wrap">
+          <RichCard :card="msg.card" @action="onCardAction" />
         </div>
-        <div class="bubble-wrap">
-          <div v-if="showName(msg)" class="sender-name">{{ displayName(msg) }}</div>
-          <div class="bubble" :class="bubbleClass(msg)">
-            <div class="bubble-content" v-html="formatContent(msg.content)"></div>
+        <template v-else>
+          <div class="avatar" v-if="msg.sender_type !== 'system'" :style="avatarStyle(msg)">
+            <span class="avatar-text">{{ avatarText(msg) }}</span>
           </div>
-          <div class="time">{{ formatTime(msg.created_at) }}</div>
-        </div>
+          <div class="bubble-wrap">
+            <div v-if="showName(msg)" class="sender-name">{{ displayName(msg) }}</div>
+            <div class="bubble" :class="bubbleClass(msg)">
+              <div class="bubble-content" v-html="formatContent(msg.content)"></div>
+            </div>
+            <div class="time">{{ formatTime(msg.created_at) }}</div>
+          </div>
+        </template>
       </div>
 
       <div v-if="typing" class="message-row left">
@@ -43,6 +49,7 @@ import { ref, watch, nextTick, onMounted } from 'vue'
 // 补 修复：访客消息经 DOMPurify 净化后再 v-html 渲染，防止 XSS
 // 访客可发送 <img onerror>、<script> 等恶意内容；原 formatContent 仅做实体转义，未拦截 on* 事件和 javascript: 协议
 import DOMPurify from 'dompurify'
+import RichCard from './RichCard.vue'
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
@@ -93,6 +100,15 @@ const avatarText = (msg) => {
 }
 
 const avatarStyle = (msg) => ({ background: avatarBg(msg) })
+
+// 卡片按钮自定义动作钩子（URL 跳转由 <a> 直接处理；action 类型由父级扩展）
+const onCardAction = (btn) => {
+  // 占位：当前卡片按钮以 URL 跳转为主，自定义 action 可在此上报埋点或触发业务
+  if (btn && btn.action) {
+    // eslint-disable-next-line no-console
+    console.log('[ChatMessages] card action:', btn.action)
+  }
+}
 
 // 是否显示发送者名（同类型相邻消息只显示一次）
 const showName = (msg) => {
@@ -190,6 +206,9 @@ defineExpose({ scrollToBottom })
   max-width: 70%;
   display: flex;
   flex-direction: column;
+}
+.bubble-wrap.card-wrap {
+  max-width: 82%;
 }
 .message-row.right .bubble-wrap {
   align-items: flex-end;
