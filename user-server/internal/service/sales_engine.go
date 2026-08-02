@@ -1082,7 +1082,8 @@ func (e *SalesEngine) generateCandidate(
 		return "", nil, nil, fmt.Errorf("dispatcher is nil")
 	}
 
-	// Agent Loop 场景：只传用户原始消息，不传 RAG 结果（让模型自己决定是否调用工具）
+	// Agent Loop 场景：用户消息只传原始内容，让模型自己决定是否调用 rag.search；
+	// 但 RAG 预检索结果已通过 ragChunks 注入系统提示词，避免无谓的额外检索往返降低延迟。
 	agentPrompt := req.UserMessage
 	prompt := e.buildPrompt(req, intent, mem, sop, stage, ragChunks, script, customer)
 	scenario := llm.ScenarioSOPReply
@@ -1096,7 +1097,7 @@ func (e *SalesEngine) generateCandidate(
 	if e.toolExecutor != nil {
 		availableTools := e.toolExecutor.ListTools()
 		if len(availableTools) > 0 {
-			return e.runAgentLoop(ctx, scenario, agentPrompt, req, intent, mem, customer, availableTools)
+			return e.runAgentLoop(ctx, scenario, agentPrompt, req, intent, mem, customer, availableTools, ragChunks)
 		}
 	}
 
@@ -1215,6 +1216,7 @@ func (e *SalesEngine) runAgentLoop(
 	mem *model.DialogueMemory,
 	customer *model.Customer,
 	availableTools []AgentToolDef,
+	ragChunks []RAGChunk,
 ) (string, *llm.DispatchResult, []model.RichCard, error) {
 	// 计算 agent 标识与工具白名单（来自 AgentContext.Tools）
 	agentIDStr := fmt.Sprintf("%d", agentIDFromCtx(req))
@@ -1265,7 +1267,7 @@ func (e *SalesEngine) runAgentLoop(
 	messages := make([]llm.ChatMessage, 0, 4+maxIter*2)
 	messages = append(messages, llm.ChatMessage{
 		Role:    "system",
-		Content: buildAgentSystemPrompt(req.Config.Persona, intent, mem, customer),
+		Content: buildAgentSystemPrompt(req.Config.Persona, intent, mem, customer, ragChunks),
 	})
 	messages = append(messages, llm.ChatMessage{
 		Role:    "user",
@@ -1415,7 +1417,7 @@ func (e *SalesEngine) runAgentLoop(
 
 // buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
 // 在原 Persona 基础上追加工具使用指引，让 LLM 知道何时调用哪些工具
-func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer) string {
+func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *model.DialogueMemory, customer *model.Customer, ragChunks []RAGChunk) string {
 	var sb strings.Builder
 	sb.WriteString(persona)
 
@@ -1430,7 +1432,21 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 	// 推理模型容易把“已为您整理在上方卡片里”写进正文却不去调用 card.show，导致前端拿不到 ai_cards。
 	sb.WriteString("\n\n# 工具使用指引\n")
 	sb.WriteString("- 当用户询问商品/产品推荐、清单、对比，或提到“有哪些产品/适合新手/推荐几款/给我看看”时，必须调用 card.show 工具返回结构化卡片，禁止只在文本里描述卡片。\n")
-	sb.WriteString("- 需要检索知识库时调用 rag.search。\n")
+	// 编排器已在步骤5完成 RAG 召回，相关片段已置于下方【知识库参考】。
+	// 优先基于其作答，避免 Agent Loop 内再走一轮「决定调用 rag.search → 等待检索 → 重新生成」的 LLM 往返，
+	// 可显著降低端到端延迟。仅当用户问题明显超出已给范围、确需补充资料时，才调用 rag.search。
+	sb.WriteString("- 系统已为你预检索相关知识库内容（见下方【知识库参考】），优先基于其回答，避免重复调用 rag.search；仅当用户问题明显超出已给范围、需要更多资料时，才调用 rag.search 补充检索。\n")
+
+	// 知识库预检索上下文：编排器已在步骤5完成召回，直接注入供模型作答，
+	// 消除 Agent Loop 内重复检索带来的一整轮 LLM 往返（约 5s + 一次 LLM 调用）。
+	if len(ragChunks) > 0 {
+		sb.WriteString("\n【知识库参考】:\n")
+		// 相较非 Agent 路径截断到 200，此处给到 400：Agent Loop 直接依赖该上下文作答，
+		// 不再走 rag.search 工具二次检索，故留出更完整的片段以提升回答质量。
+		for i, chunk := range ragChunks {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, truncate(chunk.Content, 400)))
+		}
+	}
 	return sb.String()
 }
 
