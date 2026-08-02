@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -157,8 +158,10 @@ func (s *EmailTrackingService) RecordUnsubscribeEvent(ctx context.Context, email
 	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeUnsubscribe, "", ip, ua)
 }
 
-// recordEvent 内部统一记录事件（event_id 幂等）
-func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, eventType, ip, ua string) error {
+// recordEvent 内部统一记录事件（幂等）
+// target 用于区分同类事件的不同对象（例如点击的不同链接 URL）；为空时仅按 (email,job,type) 去重，
+// 避免邮件被重复打开/点击时被重复计数，保证打开率/点击率等指标准确。
+func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, eventType, target, ip, ua string) error {
 	email = normalizeEmail(email)
 	if email == "" {
 		return errors.New("email 不能为空")
@@ -167,14 +170,14 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 		return errors.New("event_type 不能为空")
 	}
 
-	eventID := uuid.NewString()
+	// 同一去重维度只记一次：相同 (email,job,type,target) 复用同一 eventID，第二次直接幂等跳过
+	eventID := deriveTrackingEventID(email, jobID, eventType, target)
 	exists, err := s.repo.EventExists(ctx, eventID)
 	if err != nil {
 		return err
 	}
 	if exists {
-		// 极小概率碰撞，重新生成
-		eventID = uuid.NewString()
+		return nil
 	}
 
 	event := &model.EmailTrackingEvent{
@@ -187,10 +190,21 @@ func (s *EmailTrackingService) recordEvent(ctx context.Context, email, jobID, ev
 		Timestamp: time.Now(),
 	}
 	if err := s.repo.CreateEvent(ctx, event); err != nil {
+		// 并发场景下可能已被其它协程抢先写入，幂等忽略唯一键冲突
+		if exists2, e2 := s.repo.EventExists(ctx, eventID); e2 == nil && exists2 {
+			return nil
+		}
 		logger.Errorf("记录邮件追踪事件失败 email=%s type=%s: %v", email, eventType, err)
 		return err
 	}
 	return nil
+}
+
+// deriveTrackingEventID 由去重维度生成稳定的事件ID，保证同一事件只落一条记录。
+// 取 SHA256 前 32 位十六进制（128 bit），既保证确定性去重，又落在 event_id 列 varchar(36) 长度内。
+func deriveTrackingEventID(email, jobID, eventType, target string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s", email, jobID, eventType, target)))
+	return hex.EncodeToString(sum[:])[:32]
 }
 
 // GetJobMetrics 返回该批次邮件的完整指标（实时聚合，不依赖定时任务）

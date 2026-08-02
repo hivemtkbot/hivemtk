@@ -59,11 +59,6 @@ func (s *kuaishouCardService) Create(ctx context.Context, req *dto.KuaishouCardC
 		redirectURL = "https://www.kuaishou.com"
 	}
 
-	// 如果没有提供跳转链接，设置默认值
-	if redirectURL == "" {
-		redirectURL = "https://www.kuaishou.com"
-	}
-
 	card := &model.KuaishouCard{
 		Title:        req.Title,
 		Description:  req.Description,
@@ -124,8 +119,8 @@ func (s *kuaishouCardService) Update(ctx context.Context, req *dto.KuaishouCardU
 	card.RedirectURL = redirectURL
 	card.DomainPoolID = req.DomainPoolID
 	card.Tags = req.Tags
-	card.LikeCount = req.LikeCount
-	card.ShareCount = req.ShareCount
+	// 注意：LikeCount / ShareCount 由 LikeCard / ShareCard 累积维护，
+	// 此处不能用请求体覆盖，否则会清零累计的点赞/分享数。
 	card.IsActive = req.IsActive
 
 	updatedCard, err := s.repo.Update(ctx, card)

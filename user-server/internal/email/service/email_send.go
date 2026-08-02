@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"gopkg.in/gomail.v2"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
-	"github.com/google/uuid"
-	"gopkg.in/gomail.v2"
 )
 
 // 邮件状态常量

@@ -256,48 +256,35 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 公开页面：setup / login / chat/embed 不需要登录态也不需要初始化检查
+  // 公开页面：setup / login / chat/embed（被第三方网站 iframe 加载）不需要登录态
   const isPublicPath = to.path === '/setup' || to.path === '/login' || to.path.startsWith('/chat/embed')
-  if (isPublicPath) {
-    if (routeLoaded) {
-      next({ path: to.path, replace: true })
-    } else {
-      next()
+  const isPublic = to.meta?.public === true || isPublicPath
+
+  if (!isPublic) {
+    // 未初始化 → 跳转初始化向导
+    if (!isInitialized()) {
+      next('/setup')
+      return
     }
-    return
-  }
-
-  // 其他路径需要检查初始化 + 登录态
-  if (!isInitialized()) {
-    next('/setup')
-    return
-  }
-
-  // requiresAdmin 守卫
-  // 路由 meta.requiresAdmin = true 时，仅 admin 角色可访问；非 admin 跳转 403 提示
-  if (to.meta?.requiresAdmin) {
     const userStore = useUserStore()
-    if (userStore.role !== 'admin') {
+    // 默认拒绝：未显式声明 public 的路由均要求登录态
+    if (!userStore.isLoggedIn) {
+      next('/login')
+      return
+    }
+    // requiresAdmin 守卫：仅 admin 角色可访问
+    if (to.meta?.requiresAdmin && userStore.role !== 'admin') {
       ElMessage.error('无权访问（403）：仅管理员可使用该功能')
-      // 跳到 NotFound 并通过 query 标记 403，由 NotFound 展示对应文案
       next({ name: 'NotFound', query: { status: '403', from: to.fullPath }, replace: true })
       return
     }
   }
 
-  if (to.meta.requiresAuth) {
-    const userStore = useUserStore()
-    if (userStore.isLoggedIn) {
-      next()
-    } else {
-      next('/login')
-    }
+  // 路由已按需加载则重放一次以匹配新注册路由，否则直接放行
+  if (routeLoaded) {
+    next({ path: to.path, replace: true })
   } else {
-    if (routeLoaded) {
-      next({ path: to.path, replace: true })
-    } else {
-      next()
-    }
+    next()
   }
 })
 export default router

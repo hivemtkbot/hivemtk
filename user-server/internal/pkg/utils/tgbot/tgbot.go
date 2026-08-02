@@ -372,10 +372,10 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 		return nil, fmt.Errorf("getUpdates 返回 %d: %s", resp.StatusCode, string(body))
 	}
 	var result struct {
-		OK          bool             `json:"ok"`
+		OK          bool              `json:"ok"`
 		Result      []json.RawMessage `json:"result"`
-		Description string           `json:"description"`
-		ErrorCode   int              `json:"error_code"`
+		Description string            `json:"description"`
+		ErrorCode   int               `json:"error_code"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("解析 getUpdates 响应失败: %w", err)

@@ -534,11 +534,13 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 	if !claimed {
 		return nil, ErrReachJobNotPending
 	}
-	return s.executeJobCore(ctx, job)
+	return s.executeJobCore(ctx, job, false)
 }
 
 // executeJobCore 在任务已被抢占（running）后执行完整 pipeline
-func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.ReachJob) (*model.ReachJob, error) {
+// autoRetry=true 时（后台调度器路径），失败任务按重试策略进入 retrying 由调度器退避后重跑；
+// autoRetry=false 时（手动触发路径），失败直接置 failed，便于立即反馈结果。
+func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.ReachJob, autoRetry bool) (*model.ReachJob, error) {
 	pipe, err := s.GetPipeline(ctx, job.PipelineID)
 	if err != nil {
 		// pipeline 已被删除：标记失败，避免任务卡在 running
@@ -594,8 +596,11 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		if !res.Success {
 			// 限流步骤失败 -> 直接标记为 rate_limited
 			if step == StepRateLimit && res.Error == ErrReachRateLimited.Error() {
+				// 限流失败：退避一段时间再重试，避免被调度器立即重新拾起造成空转
+				backoff := computeNextRunTime(rp, job.RetryCount+1)
 				job.State = JobStateRateLimited
 				job.ErrorMessage = res.Error
+				job.NextRunAt = &backoff
 				job.StepResults = toJSONArray(mustJSON(results))
 				s.repo.SaveJob(ctx, job)
 				s.appendStepResult(ctx, job, res)
@@ -622,11 +627,21 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 		job.ErrorMessage = ""
 		s.repo.IncrementPipelineField(ctx, pipe.ID, "total_success", 1)
 	} else {
-		job.State = JobStateFailed
-		// V3 整改：把失败 step 信息持久化到 ErrorMessage
-		// 格式：[step=content_prepare] content prepare failed: ...
-		job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
-		s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
+		if autoRetry && job.RetryCount < rp.MaxRetries {
+			// 调度器路径：按重试策略进入 retrying，由后台调度器在退避后重新执行
+			job.RetryCount++
+			next := computeNextRunTime(rp, job.RetryCount)
+			job.State = JobStateRetrying
+			job.NextRunAt = &next
+			job.ErrorMessage = fmt.Sprintf("[step=%s] %s（将自动重试 %d/%d）", firstErrStep, firstErrMsg, job.RetryCount, rp.MaxRetries)
+			s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
+		} else {
+			job.State = JobStateFailed
+			// V3 整改：把失败 step 信息持久化到 ErrorMessage
+			// 格式：[step=content_prepare] content prepare failed: ...
+			job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
+			s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
+		}
 	}
 	if err := s.repo.SaveJob(ctx, job); err != nil {
 		return nil, err
@@ -694,7 +709,7 @@ func (s *ReachPipelineService) dispatchDueJobs(ctx context.Context) {
 		if !claimed {
 			continue
 		}
-		if _, err := s.executeJobCore(ctx, &job); err != nil {
+		if _, err := s.executeJobCore(ctx, &job, true); err != nil {
 			logger.Warnf("[reach_dispatcher] 执行任务 %d 失败: %v", job.ID, err)
 		}
 	}

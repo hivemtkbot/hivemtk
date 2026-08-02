@@ -54,10 +54,10 @@ func (c *Client) jsonHeaders() map[string]string {
 
 // SendMessageOptions 主动发消息的可选参数（opts 可变参；零值表示不设置）
 type SendMessageOptions struct {
-	ReplyToMessageID         int64
-	InlineKeyboard           [][]InlineButton
-	DisableWebPreview        bool
-	ParseMode                string
+	ReplyToMessageID          int64
+	InlineKeyboard            [][]InlineButton
+	DisableWebPreview         bool
+	ParseMode                 string
 	DisableMarkdownConversion bool
 }
 
@@ -157,11 +157,11 @@ func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt 
 		}
 		if status == 400 && !opt.DisableMarkdownConversion && strings.Contains(strings.ToLower(string(respB)), "parse entities") {
 			payload2 := map[string]any{"chat_id": chatID, "text": text}
-		b2, err := json.Marshal(payload2)
-		if err != nil {
-			return 0, fmt.Errorf("tg send fallback marshal: %w", err)
-		}
-		respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
+			b2, err := json.Marshal(payload2)
+			if err != nil {
+				return 0, fmt.Errorf("tg send fallback marshal: %w", err)
+			}
+			respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
 			if err2 != nil {
 				lastErr = fmt.Errorf("tg send fallback: %w", err2)
 				continue
@@ -338,7 +338,6 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 		return nil
 	}
 }
-
 
 // tgMdXxx 把 LLM 常见 Markdown 片段转换为 Telegram HTML 标签。
 var (

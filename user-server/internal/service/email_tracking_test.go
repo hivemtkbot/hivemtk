@@ -233,20 +233,20 @@ func TestEmailTracking_GetJobMetrics(t *testing.T) {
 	// 准备：1 个 job，3 个收件人打开，2 个收件人点击
 	jobID := "job-metrics"
 	for _, email := range []string{"a@x.com", "b@x.com", "c@x.com"} {
-		if err := svc.recordEvent(context.Background(), email, jobID, model.EmailEventTypeOpen, "", ""); err != nil {
+		if err := svc.recordEvent(context.Background(), email, jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 			t.Fatalf("recordEvent open failed: %v", err)
 		}
 	}
 	// a@x.com 重复打开（应被去重）
-	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent open repeat failed: %v", err)
 	}
 	for _, email := range []string{"a@x.com", "b@x.com"} {
-		if err := svc.recordEvent(context.Background(), email, jobID, model.EmailEventTypeClick, "", ""); err != nil {
+		if err := svc.recordEvent(context.Background(), email, jobID, model.EmailEventTypeClick, "", "", ""); err != nil {
 			t.Fatalf("recordEvent click failed: %v", err)
 		}
 	}
-	if err := svc.recordEvent(context.Background(), "d@x.com", jobID, model.EmailEventTypeBounce, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "d@x.com", jobID, model.EmailEventTypeBounce, "", "", ""); err != nil {
 		t.Fatalf("recordEvent bounce failed: %v", err)
 	}
 
@@ -315,13 +315,13 @@ func TestEmailTracking_GetEmailMetrics(t *testing.T) {
 	start := now.Add(-1 * time.Hour)
 	end := now.Add(1 * time.Hour)
 
-	if err := svc.recordEvent(context.Background(), "r1@x.com", "job-r1", model.EmailEventTypeOpen, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "r1@x.com", "job-r1", model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
-	if err := svc.recordEvent(context.Background(), "r2@x.com", "job-r2", model.EmailEventTypeClick, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "r2@x.com", "job-r2", model.EmailEventTypeClick, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
-	if err := svc.recordEvent(context.Background(), "r3@x.com", "job-r3", model.EmailEventTypeBounce, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "r3@x.com", "job-r3", model.EmailEventTypeBounce, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
 
@@ -374,10 +374,10 @@ func TestEmailTracking_RefreshJobMetrics(t *testing.T) {
 
 	jobID := "job-refresh"
 	// 记录事件
-	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
-	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeClick, "", ""); err != nil {
+	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeClick, "", "", ""); err != nil {
 		t.Fatalf("recordEvent failed: %v", err)
 	}
 
@@ -408,10 +408,24 @@ func TestEmailTracking_ListJobEvents(t *testing.T) {
 	svc := newEmailTrackingService(database)
 
 	jobID := "job-list"
-	for i := 0; i < 5; i++ {
-		if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", ""); err != nil {
+	// 记录 5 条不同事件，验证分页
+	emails := []string{"a@x.com", "b@x.com", "c@x.com", "d@x.com", "e@x.com"}
+	for _, e := range emails {
+		if err := svc.recordEvent(context.Background(), e, jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
 			t.Fatalf("recordEvent failed: %v", err)
 		}
+	}
+
+	// 幂等去重：同一事件重复记录只落一条
+	if err := svc.recordEvent(context.Background(), "a@x.com", jobID, model.EmailEventTypeOpen, "", "", ""); err != nil {
+		t.Fatalf("recordEvent dup failed: %v", err)
+	}
+	totalAll, err := svc.repo.CountEventsByJob(context.Background(), jobID, model.EmailEventTypeOpen)
+	if err != nil {
+		t.Fatalf("CountEventsByJob failed: %v", err)
+	}
+	if totalAll != 5 {
+		t.Fatalf("重复记录未被去重，期望 5 条，实际 %d", totalAll)
 	}
 
 	// 第 1 页，每页 2 条
