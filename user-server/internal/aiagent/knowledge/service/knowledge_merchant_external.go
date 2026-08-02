@@ -91,7 +91,7 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 			}
 			fetched, ferr := s.fetchNotion(ctx, req.NotionPageID, tok)
 			if ferr != nil {
-				return nil, err
+				return nil, ferr
 			}
 			items = fetched
 		default:

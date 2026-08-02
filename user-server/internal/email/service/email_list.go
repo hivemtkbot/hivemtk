@@ -75,9 +75,11 @@ func (s *EmailListService) CreateEmailList(ctx context.Context, subject string, 
 		}
 
 		// 判断是否qq邮箱 没有拼接@qq.com
-		if !strings.Contains(toAccount, "@qq.com") {
-			toAccount = toAccount + "@qq.com"
-		}
+	// 仅当账号不含 @ 时（即纯 QQ 号线索账号）补充 @qq.com 后缀，
+	// 避免把已带域名的邮箱（如 a@163.com）错误地拼接成 a@163.com@qq.com
+	if !strings.Contains(toAccount, "@") {
+		toAccount = toAccount + "@qq.com"
+	}
 
 		parsemap := mail.TemplateParseMap{
 			Name:    clue.Name,

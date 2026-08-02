@@ -128,7 +128,7 @@ func (s *EmailTrackingService) RecordOpenEvent(ctx context.Context, token, ip, u
 	if err != nil {
 		return err
 	}
-	return s.recordEvent(ctx, claim.Email, claim.JobID, model.EmailEventTypeOpen, ip, ua)
+	return s.recordEvent(ctx, claim.Email, claim.JobID, model.EmailEventTypeOpen, "", ip, ua)
 }
 
 // RecordClickEvent 记录点击事件（链接重定向触发）
@@ -138,7 +138,7 @@ func (s *EmailTrackingService) RecordClickEvent(ctx context.Context, token, ip, 
 	if err != nil {
 		return "", err
 	}
-	if err := s.recordEvent(ctx, claim.Email, claim.JobID, model.EmailEventTypeClick, ip, ua); err != nil {
+	if err := s.recordEvent(ctx, claim.Email, claim.JobID, model.EmailEventTypeClick, claim.Target, ip, ua); err != nil {
 		return "", err
 	}
 	if claim.Target != "" {
@@ -149,12 +149,12 @@ func (s *EmailTrackingService) RecordClickEvent(ctx context.Context, token, ip, 
 
 // RecordBounceEvent 记录退信事件（SMTP/邮件网关回调）
 func (s *EmailTrackingService) RecordBounceEvent(ctx context.Context, email, jobID, ip, ua string) error {
-	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeBounce, ip, ua)
+	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeBounce, "", ip, ua)
 }
 
 // RecordUnsubscribeEvent 记录退订事件（与邮件退订服务联动）
 func (s *EmailTrackingService) RecordUnsubscribeEvent(ctx context.Context, email, jobID, ip, ua string) error {
-	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeUnsubscribe, ip, ua)
+	return s.recordEvent(ctx, email, jobID, model.EmailEventTypeUnsubscribe, "", ip, ua)
 }
 
 // recordEvent 内部统一记录事件（event_id 幂等）

@@ -71,7 +71,9 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 					logger.Errorf("邮件发送异步协程 panic [%s]: %v", emailSend.ID, r)
 				}
 			}()
-			err := s.sendActualEmail(ctx, emailSend)
+			// 脱离请求 ctx：HTTP 请求结束不应取消仍在进行的邮件发送
+			sendCtx := context.WithoutCancel(ctx)
+			err := s.sendActualEmail(sendCtx, emailSend)
 			emailUUID, parseErr := uuid.Parse(emailSend.ID)
 			if parseErr != nil {
 				logger.Errorf("邮件 ID 解析失败：%v", parseErr)
@@ -79,9 +81,9 @@ func (s *EmailSendService) SendEmail(ctx context.Context, req dto.SendEmailReque
 			}
 			if err != nil {
 				logger.Errorf("邮件发送失败 [%s]: %v", emailSend.ID, err)
-				s.repo.UpdateStatus(ctx, emailUUID, EmailStatusFailed)
+				s.repo.UpdateStatus(sendCtx, emailUUID, EmailStatusFailed)
 			} else {
-				s.repo.UpdateStatus(ctx, emailUUID, EmailStatusSent)
+				s.repo.UpdateStatus(sendCtx, emailUUID, EmailStatusSent)
 			}
 		}()
 	}

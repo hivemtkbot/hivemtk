@@ -112,13 +112,19 @@ func CreateInviteLink(Bot *tgbotapi.BotAPI, inviteTgID int64, duration time.Dura
 		MemberLimit:        1,
 		CreatesJoinRequest: false,
 	}
-	response, _ := Bot.Request(inviteLinkConfig)
-	err := json.Unmarshal(response.Result, &resMap)
+	response, err := Bot.Request(inviteLinkConfig)
 	if err != nil {
-		return "", errors.New("创建邀请链接失败")
+		return "", errors.New("创建邀请链接失败: 请求错误")
 	}
-
-	return resMap["invite_link"].(string), nil
+	resMap = map[string]any{}
+	if err := json.Unmarshal(response.Result, &resMap); err != nil {
+		return "", errors.New("创建邀请链接失败: 响应解析错误")
+	}
+	link, ok := resMap["invite_link"].(string)
+	if !ok {
+		return "", errors.New("创建邀请链接失败: 响应缺少 invite_link 字段")
+	}
+	return link, nil
 }
 
 // SendInviteJoinGroup 通过 Bot 实例发送邀请链接给用户

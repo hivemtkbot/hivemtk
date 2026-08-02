@@ -21,6 +21,27 @@ import (
 
 // HealthRedis 供健康检查/就绪检查探测的 Redis 客户端；未配置（REDIS_HOST 为空）时为 nil，
 // 此时健康检查 redis 状态显示 not_configured（与单实例默认行为一致）。
+// corsMiddleware 允许浏览器扩展（Chrome 扩展 popup / content script）跨域调用 API。
+// 私域部署下 API 由 JWT 保护，开启 CORS 不引入额外风险。
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
+		c.Header("Vary", "Origin")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
 var HealthRedis Pinger
 
 // SetHealthRedis 由 main 在启动时注入 Redis 客户端（仅当 REDIS_HOST 配置可达时）。
@@ -49,6 +70,7 @@ func Setup(r *gin.Engine) {
 	})
 
 	// 基础中间件
+	r.Use(corsMiddleware()) // 全局 CORS：允许 Chrome 扩展 popup 跨域调用 API（含 OPTIONS 预检）
 	r.Use(gin.Recovery())
 
 	// 多语言：解析请求语言注入上下文，供业务层返回本地化提示

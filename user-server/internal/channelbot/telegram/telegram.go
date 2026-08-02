@@ -129,7 +129,10 @@ func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt 
 	if kb := buildInlineKeyboard(opt.InlineKeyboard); kb != nil {
 		payload["reply_markup"] = kb
 	}
-	b, _ := json.Marshal(payload)
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return 0, fmt.Errorf("tg send marshal: %w", err)
+	}
 	url := fmt.Sprintf("%s/bot%s/sendMessage", c.apiBase, c.token)
 
 	var lastErr error
@@ -154,8 +157,11 @@ func (c *Client) sendSingle(ctx context.Context, chatID int64, text string, opt 
 		}
 		if status == 400 && !opt.DisableMarkdownConversion && strings.Contains(strings.ToLower(string(respB)), "parse entities") {
 			payload2 := map[string]any{"chat_id": chatID, "text": text}
-			b2, _ := json.Marshal(payload2)
-			respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
+		b2, err := json.Marshal(payload2)
+		if err != nil {
+			return 0, fmt.Errorf("tg send fallback marshal: %w", err)
+		}
+		respB2, status2, err2 := c.DoJSON(ctx, http.MethodPost, url, bytes.NewReader(b2), c.jsonHeaders())
 			if err2 != nil {
 				lastErr = fmt.Errorf("tg send fallback: %w", err2)
 				continue
@@ -392,7 +398,10 @@ func (c *Client) SetWebhook(ctx context.Context, url, secret string) error {
 	if secret != "" {
 		payload["secret_token"] = secret
 	}
-	b, _ := json.Marshal(payload)
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("tg setWebhook marshal: %w", err)
+	}
 	respB, status, err := c.DoJSON(ctx, http.MethodPost, api, bytes.NewReader(b), c.jsonHeaders())
 	if err != nil {
 		return fmt.Errorf("tg setWebhook: %w", err)
