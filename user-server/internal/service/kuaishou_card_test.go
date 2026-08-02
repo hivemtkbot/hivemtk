@@ -151,11 +151,12 @@ func TestKuaishouCardService_Update_Success(t *testing.T) {
 	if updatedCard.Description != updateReq.Description {
 		t.Errorf("Expected description %s, got %s", updateReq.Description, updatedCard.Description)
 	}
-	if updatedCard.LikeCount != updateReq.LikeCount {
-		t.Errorf("Expected like count %d, got %d", updateReq.LikeCount, updatedCard.LikeCount)
+	// Update 不应覆盖累计的点赞/分享数（由 LikeCard/ShareCard 维护）
+	if updatedCard.LikeCount != 0 {
+		t.Errorf("Expected like count unchanged (0), got %d", updatedCard.LikeCount)
 	}
-	if updatedCard.ShareCount != updateReq.ShareCount {
-		t.Errorf("Expected share count %d, got %d", updateReq.ShareCount, updatedCard.ShareCount)
+	if updatedCard.ShareCount != 0 {
+		t.Errorf("Expected share count unchanged (0), got %d", updatedCard.ShareCount)
 	}
 }
 
