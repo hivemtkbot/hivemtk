@@ -17,7 +17,7 @@ type LLMProvider struct {
 	BaseURL      string    `gorm:"column:base_url;size:512" json:"base_url"`
 	Model        string    `gorm:"column:model;size:128" json:"model"`
 	APIKey       string    `gorm:"column:api_key;type:text" json:"-"` // 密钥不序列化出 API
-	APIType      string    `gorm:"column:api_type;size:32;default:openai" json:"api_type"`
+	APIType      string    `gorm:"column:api_type;size:32;default:'openai'" json:"api_type"`
 	Enabled      bool      `gorm:"column:enabled;default:false" json:"enabled"`
 	QualityScore float64   `gorm:"column:quality_score;default:0.8" json:"quality_score"`
 	MaxRPM       int       `gorm:"column:max_rpm;default:60" json:"max_rpm"`

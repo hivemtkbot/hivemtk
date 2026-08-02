@@ -293,6 +293,14 @@ func main() {
 	defer feedbackCron.Stop(context.Background())
 	logger.Info("[P0-5] feedback loop cron started (4 tasks: monthly baseline / weekly dialogue / daily prompt / 6h bandit)")
 
+	// 5) G7 反馈学习闭环定时任务：周期提取销冠画像 + 遍历 SOP 生成优化建议，
+	//    打通此前孤儿 FeedbackLearningService 的自学习闭环（依赖 feedback_records 落库）。
+	feedbackLearningCron := service.NewFeedbackLearningCron(db.GetDB())
+	if feedbackLearningCron != nil {
+		defer feedbackLearningCron.Stop(context.Background())
+		logger.Info("[G7] feedback learning cron started (daily: extract profile + node conversion suggestions)")
+	}
+
 	// 初始化 4 层记忆系统（修复）
 	service.InitMemorySystem(db.GetDB())
 

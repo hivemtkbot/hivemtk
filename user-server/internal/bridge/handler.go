@@ -244,7 +244,8 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 		logger.Ctx(ctx).Info().Str("module", "bridge").Str("event_id", event.EventID).Str("session", event.SessionID).Msg("bridge FrameInbound handle")
 		// 中台已做幂等/锁处理；此处仅记录，不影响连接
 		res, err := ingress.HandleIngressMessage(ctx, event)
-		logger.Ctx(ctx).Info().Str("module", "bridge").Interface("res", res).Err(err).Msg("bridge FrameInbound result")
+		// 降级为 Debug：res 可能含完整编排/AI 上下文大报文，生产用 Info 会刷屏
+		logger.Ctx(ctx).Debug().Str("module", "bridge").Interface("res", res).Err(err).Msg("bridge FrameInbound result")
 
 		// 测试模式：当未配置 LLM 时，编排器会转人工不出站。
 		// 此处用 BRIDGE_TEST_AUTOREPLY=true 注入一条占位 AI 回复到 hub，

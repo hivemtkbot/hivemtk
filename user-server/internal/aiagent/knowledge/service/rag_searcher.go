@@ -4,14 +4,50 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/aiagent/rag/retrieval"
+	"marketing/internal/cache"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 
 	"gorm.io/gorm"
 )
+
+// cacheRedisAdapter 适配 cache.Cache（全局缓存单例）到 ragretrieval.RedisClient 接口。
+//
+// 全局 Redis 客户端仅在 main 启动期构建（buildRedisClient）并经 cache.InitGlobalCache
+// 注入全局单例；service 包不便直接持有 *redis.Client，故复用 cache.GetGlobalCache()。
+// Redis 后端时提供 L1 热查询缓存；内存后端时该适配仍可用（退化为进程内缓存）。
+type cacheRedisAdapter struct {
+	c cache.Cache
+}
+
+func (a *cacheRedisAdapter) Get(ctx context.Context, key string) (string, error) {
+	if a == nil || a.c == nil {
+		return "", fmt.Errorf("redis adapter 未初始化")
+	}
+	return a.c.Get(ctx, key)
+}
+
+func (a *cacheRedisAdapter) Set(ctx context.Context, key, value string, ttl time.Duration) error {
+	if a == nil || a.c == nil {
+		return nil
+	}
+	return a.c.Set(ctx, key, value, ttl)
+}
+
+// getGlobalRedisClient 返回全局缓存单例的 ragretrieval.RedisClient 适配。
+//
+// 仅当全局缓存以 Redis 为后端（cache.GlobalIsRedis()）时才注入 L1 层；
+// 否则返回 nil（CachedEmbeddingClient 仅走 PG embedding_cache 表 L2 层 + 装饰）。
+func getGlobalRedisClient() ragretrieval.RedisClient {
+	if !cache.GlobalIsRedis() {
+		return nil
+	}
+	return &cacheRedisAdapter{c: cache.GetGlobalCache()}
+}
 
 // RagSearcher 知识库检索器
 // 走 pgvector 余弦相似度 + TEI bge-m3（1024 维）
@@ -40,9 +76,12 @@ type RagSearcher struct {
 // NewRagSearcher 创建全局 RAG 检索器（自动初始化 TEI 客户端 + HybridSearcher）
 //
 // 自动启用 HybridSearcher，无需外部手动调用 EnableHybridSearcher。
-// 注意：reranker / llmChatClient / redisClient 在此便捷路径中均为 nil，
-// 检索将以 RRF 融合 + 上下文相关 BM25 + 向量召回三路并行（无重排、无 HyDE、无 L1 缓存）。
-// 需要完整能力的生产环境请用 EnableHybridSearcher 显式注入依赖。
+// 便捷入口同样走 CachedEmbeddingClient 装饰（L1 Redis + L2 PG）与默认 rerank 注入：
+//   - embedding 走 NewCachedEmbeddingClient（全局 Redis 可达时启用 L1，否则仅 L2 PG）
+//   - 依据 DefaultRerankConfig().Enabled 注入 NewLocalReranker（默认启用重排）
+//   - llmChatClient 为 nil：HyDE / Multi-Query 默认关闭；redisClient 仅用于查询改写 L1 缓存
+//
+// 需要完整能力（HyDE / Multi-Query / 显式覆盖）的生产环境可用 EnableHybridSearcher 注入。
 func NewRagSearcher() *RagSearcher {
 	return newRagSearcherWithDB(db.GetDB())
 }
@@ -60,10 +99,23 @@ func newRagSearcherWithDB(gdb *gorm.DB) *RagSearcher {
 		embeddingService: llm.NewEmbeddingService(),
 	}
 	// 构造独立 Dispatcher 实例（无外部注入时使用本地 LLM 服务）。
-	// 此处不强制启用 HyDE/MultiQuery/Rerank（依赖外部 client），仅保证 RRF+Vector+BM25 路径可用。
 	dispatcher := llm.NewDispatcher(llm.NewLLMService())
-	s.EnableHybridSearcher(nil, nil, nil, s.embeddingService, ragretrieval.DefaultHybridSearcherConfig())
 	_ = dispatcher // 留作未来扩展（HyDE/MultiQuery 启用时通过 SetLLMChat 注入）
+
+	// 关键修复：生产装配必须走 CachedEmbeddingClient 装饰（L1 Redis + L2 PG），
+	// 而非裸 llm.EmbeddingService。裸 embedding 会跳过全部缓存，放大 TEI 负载。
+	embClient := ragretrieval.NewCachedEmbeddingClient(s.embeddingService, getGlobalRedisClient(), gdb, nil)
+
+	// reranker 注入：HybridSearcherConfig.EnableRerank 默认 true，但 reranker 为 nil 时
+	// 重排会被静默跳过。这里依据全局 rerank 配置（DefaultRerankConfig）决定是否注入
+	// NewLocalReranker()，确保默认即启用 bge-reranker-v2-m3 重排。
+	var reranker ragretrieval.RerankerInterface
+	if rc := ragretrieval.DefaultRerankConfig(); rc != nil && rc.Enabled {
+		reranker = ragretrieval.NewLocalReranker()
+	}
+
+	// redisClient 用于查询改写缓存（L1）；无 Redis 时传 nil 跳过 L1 层。
+	s.EnableHybridSearcher(reranker, nil, getGlobalRedisClient(), embClient, ragretrieval.DefaultHybridSearcherConfig())
 	return s
 }
 

@@ -147,9 +147,3 @@ func setupMigrationRoutes(auth *gin.RouterGroup) {
 	auth.POST("/migration/rollback", migrationCtrl.Rollback)
 	auth.GET("/migration/available", migrationCtrl.GetAvailableUpgrades)
 }
-
-// setupUpgradeRoutes 旧版路由（保留以避免破坏性变更，内部委托给 migration 路由）
-// Deprecated: 请迁移到 setupMigrationRoutes
-func setupUpgradeRoutes(auth *gin.RouterGroup) {
-	setupMigrationRoutes(auth)
-}

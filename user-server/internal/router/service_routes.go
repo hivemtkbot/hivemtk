@@ -1,6 +1,9 @@
 package router
 
 import (
+	"context"
+	"time"
+
 	"marketing/internal/bridge"
 	"marketing/internal/controller"
 	opsctrl "marketing/internal/ops/controller"
@@ -344,7 +347,11 @@ func setupSOPRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 
 // setupReachPipelineRoutes 触达 Pipeline 路由
 func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
-	reachCtrl := controller.NewReachPipelineController(service.NewReachPipelineService(db))
+	// 启动后台任务调度器：消费 reach.batch / reach.schedule 入队但未被执行的任务。
+	// 进程级仅启动一次（service 内 sync.Once 保护），ctx 取消时优雅退出。
+	reachSvc := service.NewReachPipelineService(db)
+	reachSvc.StartDispatcher(context.Background(), 15*time.Second)
+	reachCtrl := controller.NewReachPipelineController(reachSvc)
 	auth.GET("/reach/pipelines", reachCtrl.ListPipelines)
 	auth.POST("/reach/pipelines", reachCtrl.CreatePipeline)
 	auth.GET("/reach/stats", reachCtrl.Stats)

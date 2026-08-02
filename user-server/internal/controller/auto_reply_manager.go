@@ -33,7 +33,7 @@ func (c *AutoReplyManagerController) ListRules(ctx *gin.Context) {
 
 	rules, total, err := c.service.ListRules(ctx, &req)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取规则列表失败")
+		response.ErrorFromDB(ctx, err, "获取规则列表失败")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (c *AutoReplyManagerController) CreateRule(ctx *gin.Context) {
 	// 使用 BindJSON 而不是 ShouldBindJSON，以便更好地处理错误
 	if err := ctx.BindJSON(&req); err != nil {
 		logger.Errorf("[AutoReply CreateRule] BindJSON error: %v", err)
-		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())
+		response.Error(ctx, http.StatusBadRequest, "参数错误")
 		return
 	}
 
@@ -120,7 +120,7 @@ func (c *AutoReplyManagerController) CreateRule(ctx *gin.Context) {
 
 	rule, err := c.service.CreateRule(ctx, ruleReq)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, "创建规则失败："+err.Error())
+		response.ErrorFromDB(ctx, err, "创建规则失败")
 		return
 	}
 
@@ -153,7 +153,7 @@ func (c *AutoReplyManagerController) UpdateRule(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "参数错误："+err.Error())
+		response.Error(ctx, http.StatusBadRequest, "参数错误")
 		return
 	}
 
@@ -205,7 +205,7 @@ func (c *AutoReplyManagerController) DeleteRule(ctx *gin.Context) {
 	}
 
 	if err := c.service.DeleteRule(ctx, uint(id)); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "删除规则失败")
+		response.ErrorFromDB(ctx, err, "删除规则失败")
 		return
 	}
 
@@ -227,7 +227,7 @@ func (c *AutoReplyManagerController) TestMatching(ctx *gin.Context) {
 
 	result, err := c.service.TestMatching(ctx, req.Platform, req.Message, req.UserID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "测试匹配失败")
+		response.ErrorFromDB(ctx, err, "测试匹配失败")
 		return
 	}
 
@@ -251,7 +251,7 @@ func (c *AutoReplyManagerController) SimulateMessage(ctx *gin.Context) {
 
 	result, err := c.service.SimulateMessage(ctx, req.Platform, req.Message, req.Sender, req.UserID, req.AccountID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "模拟消息失败")
+		response.ErrorFromDB(ctx, err, "模拟消息失败")
 		return
 	}
 
@@ -274,7 +274,7 @@ func (c *AutoReplyManagerController) TestBatchMatching(ctx *gin.Context) {
 
 	results, err := c.service.TestBatchMatching(ctx, req.Platform, req.Messages, req.UserID, req.AccountID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "批量匹配测试失败")
+		response.ErrorFromDB(ctx, err, "批量匹配测试失败")
 		return
 	}
 
@@ -304,7 +304,7 @@ func (c *AutoReplyManagerController) TestRateLimit(ctx *gin.Context) {
 
 	results, err := c.service.TestRateLimit(ctx, req.Platform, req.UserID, req.AccountID, req.TestCount)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "速率限制测试失败")
+		response.ErrorFromDB(ctx, err, "速率限制测试失败")
 		return
 	}
 
@@ -332,7 +332,7 @@ func (c *AutoReplyManagerController) ResetDailyLimit(ctx *gin.Context) {
 	}
 
 	if err := c.service.ResetDailyLimit(ctx, req.Platform, req.UserID, req.AccountID); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "重置每日限制失败")
+		response.ErrorFromDB(ctx, err, "重置每日限制失败")
 		return
 	}
 
@@ -349,7 +349,7 @@ func (c *AutoReplyManagerController) GetRateLimitStats(ctx *gin.Context) {
 
 	stats, err := c.service.GetRateLimitStats(ctx, platform, uint(userID), uint(accountID))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取速率限制统计失败")
+		response.ErrorFromDB(ctx, err, "获取速率限制统计失败")
 		return
 	}
 
@@ -363,7 +363,7 @@ func (c *AutoReplyManagerController) GetConcurrentStats(ctx *gin.Context) {
 
 	stats, err := c.service.GetConcurrentStats(ctx, platform, uint(userID))
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取并发统计失败")
+		response.ErrorFromDB(ctx, err, "获取并发统计失败")
 		return
 	}
 
@@ -392,8 +392,7 @@ func (c *AutoReplyManagerController) GetStatistics(ctx *gin.Context) {
 
 	stats, err := c.service.GetStatistics(ctx.Request.Context(), platform, uint(userID))
 	if err != nil {
-		logger.Errorf("获取综合统计失败: %v", err)
-		response.Error(ctx, http.StatusInternalServerError, "获取综合统计失败")
+		response.ErrorFromDB(ctx, err, "获取综合统计失败")
 		return
 	}
 

@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
 )
 
 // FeedbackLearner 反馈学习器
@@ -63,6 +66,11 @@ func NewFeedbackLearner(db *gorm.DB) *FeedbackLearner {
 }
 
 // RecordFeedback 记录反馈
+//
+// 数据流（G7 闭环起点）：
+//  1. 持久化到 feedback_records 表（db 非空时），供 FeedbackLearningService
+//     周期调用 ExtractProfile 提取销冠画像、AnalyzeNodeConversion 分析转化。
+//  2. 同步更新内存缓存（intentCache / sopCache），供低延迟查询与置信度阈值建议。
 func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRecord) error {
 	if record == nil {
 		return nil
@@ -70,9 +78,30 @@ func (f *FeedbackLearner) RecordFeedback(ctx context.Context, record *FeedbackRe
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = time.Now()
 	}
-	// 落库（如果 db 不为空）
-	_ = f.db
-	// 更新内存缓存
+	// 1. 落库（db 不为空时持久化；db 为空仅内存聚合，兼容测试/无 DB 场景）
+	if f.db != nil {
+		orm := &model.FeedbackRecordORM{
+			SessionID:     record.SessionID,
+			CustomerID:    record.CustomerID,
+			IntentType:    record.IntentType,
+			Confidence:    record.Confidence,
+			SOPName:       record.SOPName,
+			AIReply:       record.AIReply,
+			HumanReply:    record.HumanReply,
+			CustomerAccept: record.CustomerAccept,
+			Transferred:   record.Transferred,
+			TransferReason: record.TransferReason,
+			Tokens:        record.Tokens,
+			LatencyMs:     record.LatencyMs,
+			CreatedAt:     record.CreatedAt,
+		}
+		if err := f.db.WithContext(ctx).Create(orm).Error; err != nil {
+			// 落库失败不阻断内存聚合（降级），但必须告警以便感知数据丢失
+			logger.Ctx(ctx).Warn().Err(err).Str("session_id", record.SessionID).
+				Msg("[feedback_learner] persist feedback record failed, fallback to in-memory only")
+		}
+	}
+	// 2. 更新内存缓存
 	f.updateIntentCache(ctx, record)
 	f.updateSOPCache(ctx, record)
 	return nil

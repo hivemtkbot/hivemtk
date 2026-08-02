@@ -77,8 +77,8 @@ type AIAgent struct {
 	Name        string `gorm:"type:varchar(128);not null" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 	Avatar      string `gorm:"type:varchar(500)" json:"avatar"`
-	AgentType   string `gorm:"type:varchar(32);not null;default:sales;index" json:"agent_type"`
-	AgentMode   string `gorm:"type:varchar(32);not null;default:passive;index" json:"agent_mode"` // passive 被动 / active 主动
+	AgentType   string `gorm:"type:varchar(32);not null;default:'sales';index" json:"agent_type"`
+	AgentMode   string `gorm:"type:varchar(32);not null;default:'passive';index" json:"agent_mode"` // passive 被动 / active 主动
 
 	// 预设背景（核心）
 	Persona      string `gorm:"type:text;not null" json:"persona"`
@@ -113,7 +113,7 @@ type AIAgent struct {
 	AssetBundleID string `gorm:"type:varchar(128);column:asset_bundle_id;default:''" json:"asset_bundle_id"`
 
 	// LLM 配置
-	LLMModel          string            `gorm:"type:varchar(100);default:gpt-4o-mini" json:"llm_model"`
+	LLMModel          string            `gorm:"type:varchar(100);default:'gpt-4o-mini'" json:"llm_model"`
 	LLMProviderConfig LLMProviderConfig `gorm:"embedded;embeddedPrefix:llm_" json:"llm_provider_config"`
 	Temperature       float64           `gorm:"default:0.7" json:"temperature"`
 	MaxTokens         int               `gorm:"default:800" json:"max_tokens"`
@@ -168,6 +168,9 @@ const (
 	ChannelTypeTikTok      ChannelType = "tiktok"
 	// ChannelTypeWeb 网页客服（web 站点 / H5 嵌入式聊天窗 / 移动端 webview）
 	ChannelTypeWeb ChannelType = "web"
+	// ChannelTypeWebEmbed Web Widget 嵌入（访客端，第三方网站访客）
+	// 区别于 ChannelTypeWeb（商户 B 端后台），对应 model.PlatformWebEmbed="web_embed"
+	ChannelTypeWebEmbed ChannelType = "web_embed"
 )
 
 // ChannelAgentBinding 渠道账号 ↔ 智能体绑定

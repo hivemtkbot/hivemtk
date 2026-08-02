@@ -3,6 +3,7 @@ package agent_runtime
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -240,6 +241,18 @@ func (o *CoreDataFlowOrchestrator) Process(ctx context.Context, payload Customer
 	if decision.Plan != nil {
 		result.ToolCallCount = len(decision.Plan.ToolCalls)
 		if result.ToolCallCount > 0 {
+			// 链路要求执行工具调用，但未注入 ToolRouter 执行器：
+			// 禁止静默统计「假装执行」。明确告警并返回错误，提示调用方必须先
+			// 通过 SetToolRouter 注入真实工具执行器（如全局 ToolRouter 适配器）
+			// 或 SetEscalationTrigger 配置转人工，否则决策中的工具计划无法落地。
+			if o.toolRouter == nil {
+				err := errors.New("tool router not configured: decision requests " +
+					toolCallsSummary(decision.Plan.ToolCalls) +
+					" but CoreDataFlowOrchestrator.toolRouter is nil")
+				logger.Warnf("[dataflow] %v (session=%s)", err, result.SessionID)
+				o.recordError()
+				return result, err
+			}
 			o.recordToolCall()
 		} else {
 			o.recordDirectReply()
@@ -405,4 +418,20 @@ func (a EscalationAdapter) Trigger(ctx context.Context, sessionID, reason string
 		return nil
 	}
 	return a.Fn(ctx, sessionID, reason)
+}
+
+// toolCallsSummary 把计划工具调用列表压缩成可读摘要（最多展示前 5 个工具名）。
+func toolCallsSummary(calls []PlannedToolCall) string {
+	if len(calls) == 0 {
+		return "0 tool calls"
+	}
+	const maxShow = 5
+	names := make([]string, 0, len(calls))
+	for _, c := range calls {
+		if len(names) >= maxShow {
+			break
+		}
+		names = append(names, c.ToolName)
+	}
+	return strconv.Itoa(len(calls)) + " tool call(s): " + strings.Join(names, ", ")
 }

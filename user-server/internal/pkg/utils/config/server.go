@@ -60,7 +60,8 @@ const (
 
 type PlatformCfg struct {
 	PlatformAPI struct {
-		BaseURL string `yaml:"base_url"`
+		// BaseURL 平台 API 地址；yaml 字段名统一为 api_url（与 internal/config/platform.go LoadPlatform 一致）
+		BaseURL string `yaml:"api_url"`
 	} `yaml:"platform_api"`
 }
 

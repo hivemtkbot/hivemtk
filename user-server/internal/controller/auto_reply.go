@@ -157,7 +157,7 @@ func (c *AutoReplyController) StartLogin(ctx *gin.Context) {
 		LoginAt:  &now,
 	})
 	if err != nil {
-		response.Error(ctx, 500, "启动失败")
+		response.ErrorFromDB(ctx, err, "启动登录流程失败")
 		return
 	}
 	// 启动浏览器登录流程（后台异步）
@@ -184,7 +184,7 @@ func (c *AutoReplyController) LoginStatus(ctx *gin.Context) {
 	}
 	items, err := c.svc.ListAccounts(context.Background(), platform, userID)
 	if err != nil {
-		response.Error(ctx, 500, "查询失败")
+		response.ErrorFromDB(ctx, err, "查询登录状态失败")
 		return
 	}
 	status := "waiting"
@@ -237,7 +237,7 @@ func (c *AutoReplyController) ListAccounts(ctx *gin.Context) {
 	}
 	items, err := c.svc.ListAccounts(context.Background(), platform, userID)
 	if err != nil {
-		response.Error(ctx, 500, "查询失败")
+		response.ErrorFromDB(ctx, err, "查询账号列表失败")
 		return
 	}
 	response.Success(ctx, gin.H{"list": items}, "ok")
@@ -280,7 +280,7 @@ func (c *AutoReplyController) UpsertAccount(ctx *gin.Context) {
 		LoginAt:  &loginAt,
 	})
 	if err != nil {
-		response.Error(ctx, 500, "保存失败")
+		response.ErrorFromDB(ctx, err, "保存自动回复账号失败")
 		return
 	}
 	response.Success(ctx, gin.H{"id": accountID, "headless": headless}, "ok")
@@ -391,7 +391,7 @@ func (c *AutoReplyController) SaveRule(ctx *gin.Context) {
 		RagProductID: req.RagProductID,
 	})
 	if err != nil {
-		response.Error(ctx, 500, "保存失败")
+		response.ErrorFromDB(ctx, err, "保存自动回复规则失败")
 		return
 	}
 	response.Success(ctx, gin.H{"ok": true}, "ok")
@@ -414,12 +414,12 @@ func (c *AutoReplyController) ListLogs(ctx *gin.Context) {
 	}
 	page, pageSize, err := pagination.Parse(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, http.StatusBadRequest, "参数错误")
 		return
 	}
 	items, total, err := c.svc.ListRecentLogs(context.Background(), platform, userID, page, pageSize)
 	if err != nil {
-		response.Error(ctx, 500, "查询失败")
+		response.ErrorFromDB(ctx, err, "查询自动回复日志失败")
 		return
 	}
 	response.Success(ctx, gin.H{"list": items, "total": total, "page": page, "page_size": pageSize}, "ok")
@@ -451,14 +451,14 @@ func (c *AutoReplyController) Start(ctx *gin.Context) {
 	// 获取商户账户的无头模式设置（下沉到 service，controller 不直连 DB）
 	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取商户账户信息失败")
+		response.ErrorFromDB(ctx, err, "获取商户账户信息失败")
 		return
 	}
 
 	// 获取账号信息
 	accounts, err := c.svc.ListAccounts(context.Background(), req.Platform, userID)
 	if err != nil {
-		response.Error(ctx, 500, "获取账号信息失败")
+		response.ErrorFromDB(ctx, err, "获取账号信息失败")
 		return
 	}
 
@@ -566,7 +566,7 @@ func (c *AutoReplyController) GetHeadlessMode(ctx *gin.Context) {
 	// 获取商户账户的无头模式设置（下沉到 service，不存在则返回默认 true）
 	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取商户账户信息失败")
+		response.ErrorFromDB(ctx, err, "获取商户账户信息失败")
 		return
 	}
 
@@ -597,7 +597,7 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 	body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		logger.Errorf("读取请求体失败: %v", err)
-		response.Error(ctx, 400, fmt.Sprintf("读取请求体失败: %v", err))
+		response.Error(ctx, 400, "读取请求体失败")
 		return
 	}
 
@@ -608,7 +608,7 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 	// 解析JSON
 	if err := json.Unmarshal(body, &req); err != nil {
 		logger.Errorf("JSON解析失败: %v", err)
-		response.Error(ctx, 400, fmt.Sprintf("JSON解析错误: %v", err))
+		response.Error(ctx, 400, "请求参数格式错误")
 		return
 	}
 
@@ -620,14 +620,14 @@ func (c *AutoReplyController) SetHeadlessMode(ctx *gin.Context) {
 			response.Error(ctx, 400, "不支持的平台")
 			return
 		}
-		response.Error(ctx, 500, "保存无头模式设置失败")
+		response.ErrorFromDB(ctx, err, "保存无头模式设置失败")
 		return
 	}
 
 	// 读取最新设置并更新单例管理器
 	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "读取无头模式设置失败")
+		response.ErrorFromDB(ctx, err, "读取无头模式设置失败")
 		return
 	}
 	manager := GetAutoReplyManager()
@@ -732,7 +732,7 @@ func (c *AutoReplyController) GetDebugStatus(ctx *gin.Context) {
 	// 获取商户账户无头模式设置（下沉到 service，不存在则返回默认 true）
 	settings, err := c.svc.GetMerchantHeadlessSettings(context.Background())
 	if err != nil {
-		response.Error(ctx, 500, "获取商户账户信息失败")
+		response.ErrorFromDB(ctx, err, "获取商户账户信息失败")
 		return
 	}
 
@@ -768,7 +768,7 @@ func (c *AutoReplyController) ToggleHeadless(ctx *gin.Context) {
 			response.Error(ctx, 400, "不支持的平台")
 			return
 		}
-		response.Error(ctx, 500, "更新设置失败")
+		response.ErrorFromDB(ctx, err, "更新无头模式设置失败")
 		return
 	}
 

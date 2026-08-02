@@ -353,6 +353,11 @@ func (s *ReachPipelineService) ListPipelines(ctx context.Context, channel, statu
 
 // DeletePipeline 删除 Pipeline
 func (s *ReachPipelineService) DeletePipeline(ctx context.Context, id uint) error {
+	// 级联删除该 Pipeline 下的任务，避免留下指向已删除 Pipeline 的孤儿任务
+	// （本模块模型无软删除，Delete 为物理删除）
+	if _, err := s.repo.DeleteJobsByPipeline(ctx, id); err != nil {
+		logger.Errorf("[reach_pipeline] 级联删除任务失败 pipeline=%d: %v", id, err)
+	}
 	rowsAffected, err := s.repo.DeletePipeline(ctx, id)
 	if err != nil {
 		return err
@@ -515,17 +520,34 @@ func (s *ReachPipelineService) RetryJob(ctx context.Context, id uint) error {
 }
 
 // ExecuteJob 执行单个任务（按 9 步推进）
+// ExecuteJob 执行单个任务（供 controller 手动触发 / 后台调度器调用）
 func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.ReachJob, error) {
 	job, err := s.GetJob(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if job.State != JobStatePending && job.State != JobStateRetrying && job.State != JobStateRateLimited {
-		return nil, ErrReachJobNotPending
-	}
-	pipe, err := s.GetPipeline(ctx, job.PipelineID)
+	// 原子抢占，避免调度器与手动触发并发执行同一任务
+	claimed, err := s.repo.ClaimJob(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if !claimed {
+		return nil, ErrReachJobNotPending
+	}
+	return s.executeJobCore(ctx, job)
+}
+
+// executeJobCore 在任务已被抢占（running）后执行完整 pipeline
+func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.ReachJob) (*model.ReachJob, error) {
+	pipe, err := s.GetPipeline(ctx, job.PipelineID)
+	if err != nil {
+		// pipeline 已被删除：标记失败，避免任务卡在 running
+		now := time.Now()
+		job.State = JobStateFailed
+		job.ErrorMessage = err.Error()
+		job.CompletedAt = &now
+		s.repo.SaveJob(ctx, job)
+		return job, err
 	}
 	// 解析 steps
 	steps := []string{}
@@ -610,6 +632,72 @@ func (s *ReachPipelineService) ExecuteJob(ctx context.Context, id uint) (*model.
 		return nil, err
 	}
 	return job, nil
+}
+
+// ============================================================
+// 后台任务调度器
+// ============================================================
+
+// reachDispatcherOnce 保证调度器在整个进程内仅启动一次，避免多实例重复消费
+var reachDispatcherOnce sync.Once
+
+// StartDispatcher 启动后台任务调度器，周期性消费 reach.batch / reach.schedule
+// 入队但此前未被执行的任务。interval<=0 时使用默认 15s。ctx 取消时优雅退出。
+//
+// 背景：reach.batch / reach.schedule 工具仅负责 EnqueueJob（入队 pending 或未来时刻
+// 的任务），此前没有消费方，任务会永远停留在 pending。调度器补上这一环，复用与
+// controller ExecuteJob 完全相同的执行路径（9 步 pipeline）。
+func (s *ReachPipelineService) StartDispatcher(ctx context.Context, interval time.Duration) {
+	reachDispatcherOnce.Do(func() {
+		if interval <= 0 {
+			interval = 15 * time.Second
+		}
+		logger.Infof("[reach_dispatcher] 启动后台任务调度器，间隔=%s", interval)
+		go s.dispatchLoop(ctx, interval)
+	})
+}
+
+// dispatchLoop 调度器主循环
+func (s *ReachPipelineService) dispatchLoop(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Infof("[reach_dispatcher] 调度器退出")
+			return
+		case <-ticker.C:
+			s.dispatchDueJobs(ctx)
+		}
+	}
+}
+
+// dispatchDueJobs 取出到期任务并逐个执行
+func (s *ReachPipelineService) dispatchDueJobs(ctx context.Context) {
+	// 先恢复卡住的运行中任务（进程崩溃等），避免永久 stuck
+	if _, err := s.repo.ResetStuckJobs(ctx, 10*time.Minute); err != nil {
+		logger.Errorf("[reach_dispatcher] 恢复 stuck 任务失败: %v", err)
+	}
+	jobs, err := s.repo.ListDueJobs(ctx, time.Now())
+	if err != nil {
+		logger.Errorf("[reach_dispatcher] 拉取到期任务失败: %v", err)
+		return
+	}
+	for i := range jobs {
+		job := jobs[i]
+		// 原子抢占，防止与手动触发 / 其他实例重复执行
+		claimed, cerr := s.repo.ClaimJob(ctx, job.ID)
+		if cerr != nil {
+			logger.Errorf("[reach_dispatcher] 抢占任务 %d 失败: %v", job.ID, cerr)
+			continue
+		}
+		if !claimed {
+			continue
+		}
+		if _, err := s.executeJobCore(ctx, &job); err != nil {
+			logger.Warnf("[reach_dispatcher] 执行任务 %d 失败: %v", job.ID, err)
+		}
+	}
 }
 
 // shouldRunStep 是否运行某步

@@ -25,6 +25,7 @@ import (
 	"gorm.io/gorm"
 
 	"marketing/internal/aiagent/llm"
+	"marketing/internal/pkg/utils/logger"
 )
 
 // VectorRetriever pgvector HNSW 向量召回器
@@ -121,7 +122,37 @@ func (r *VectorRetriever) Retrieve(ctx context.Context, productID string, query 
 	if err != nil {
 		return nil, err
 	}
+
+	// 空召回告警：向量路返回 0 行，但库里仍存在未向量化（embed_status='pending' 或
+	// embedding IS NULL）的 chunk 时，说明存在回填缺失，打印 Warn 便于发现，不改变正常返回。
+	if len(rows) == 0 {
+		if n := r.countUnembeddedChunks(ctx, productID); n > 0 {
+			logger.Warnf("[VectorRetriever] 向量召回为空，但存在 %d 个未向量化 chunk (embed_status='pending' 或 embedding IS NULL)，疑似回填缺失；query=%q product_id=%q",
+				n, query, productID)
+		}
+	}
 	return rowsToChunks(rows), nil
+}
+
+// countUnembeddedChunks 统计指定 product 下仍存在未向量化 chunk 的数量。
+//
+// 判定：embed_status='pending' OR embedding IS NULL。仅用于空召回告警，不影响主流程；
+// 任何错误（列不存在/无 product 过滤）返回 0（不打扰主链路）。
+func (r *VectorRetriever) countUnembeddedChunks(ctx context.Context, productID string) int64 {
+	sql := `
+		SELECT COUNT(*) FROM knowledge_chunks
+		WHERE (embed_status = 'pending' OR embedding IS NULL)
+	`
+	args := []any{}
+	if productID != "" {
+		sql += " AND product_id = ?"
+		args = append(args, productID)
+	}
+	var n int64
+	if err := r.db.WithContext(ctx).Raw(sql, args...).Scan(&n).Error; err != nil {
+		return 0
+	}
+	return n
 }
 
 // rowsToChunks chunkScanRow → Chunk

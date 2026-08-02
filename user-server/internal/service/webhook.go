@@ -1546,12 +1546,11 @@ func (s *WebhookService) dispatchToUnified(ctx context.Context, um *model.Unifie
 	if s.unifiedMsgRepo == nil {
 		return errors.New("unified message repo nil")
 	}
-	// 先查是否已存在（幂等）
-	if _, err := s.unifiedMsgRepo.GetByMessageID(ctx, um.MessageID); err == nil {
-		return nil
-	}
+	// 直接 Create + 唯一冲突忽略：避免「先查后插」在并发下产生的竞态窗口
+	// （先查判不存在后、插入前另一协程已插入，导致重复写盘）。
+	// 依赖 UnifiedMessage.MessageID 唯一约束兜底幂等（与同文件其他去重/插入模式一致）。
 	if err := s.unifiedMsgRepo.Create(ctx, um); err != nil {
-		// 唯一冲突也视为成功
+		// 唯一冲突（已存在）视为成功，不做覆盖
 		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "duplicate") {
 			return nil
 		}
@@ -1781,6 +1780,17 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 // 网页桥接的新消息能像 web 私信一样被 AI 及时处理，并原路经 WebSocket 回写扩展。
 // 若智能体编排器（smartOrchestrator）未注入，则安全空转（仅落库，不回复）。
 func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string) {
+	// 复用与 Receive 一致的幂等去重 + 限流守卫，避免网页桥接入站绕过幂等/限流。
+	if eventID != "" && s.isDuplicate(ctx, eventID) {
+		logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[Webhook] TriggerInboundAI duplicate, skip")
+		return
+	}
+	rateKey := string(channel) + ":" + accountID
+	if !s.allowRate(ctx, rateKey) {
+		logger.Ctx(ctx).Warn().Str("channel", channel).Str("account_id", accountID).
+			Msg("[Webhook] TriggerInboundAI rate limited, skip")
+		return
+	}
 	p := &ParsedPayload{
 		EventID: eventID,
 		Sender:  customerID,

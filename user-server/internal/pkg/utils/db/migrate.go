@@ -286,6 +286,8 @@ func allModels() []any {
 		&model.SmsNumberPortabilityRecord{},
 		&model.RagQueryLog{},
 		&model.RagRecallMonitorSnapshot{},
+		// G7 反馈学习闭环：反馈记录落库表（FeedbackLearner.RecordFeedback 持久化载体）
+		&model.FeedbackRecordORM{},
 	}
 }
 

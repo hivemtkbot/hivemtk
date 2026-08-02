@@ -1425,6 +1425,12 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 			sb.WriteString(fmt.Sprintf("\n[客户] %s", name))
 		}
 	}
+
+	// 工具使用指引：确保结构化卡片在商品推荐场景被真正调用，而非仅在文本里“口头描述卡片”。
+	// 推理模型容易把“已为您整理在上方卡片里”写进正文却不去调用 card.show，导致前端拿不到 ai_cards。
+	sb.WriteString("\n\n# 工具使用指引\n")
+	sb.WriteString("- 当用户询问商品/产品推荐、清单、对比，或提到“有哪些产品/适合新手/推荐几款/给我看看”时，必须调用 card.show 工具返回结构化卡片，禁止只在文本里描述卡片。\n")
+	sb.WriteString("- 需要检索知识库时调用 rag.search。\n")
 	return sb.String()
 }
 
@@ -1453,12 +1459,30 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 	}
 	// 默认优先级：知识库 > 客户 > 订单 > 私信 > 触达(卡片/短信) > 售后 > 物流 > 其他
 	// card.show（会话内结构化卡片）为核心通用能力，固定高优先级（2），确保默认始终注入。
+	// 该 map 必须覆盖当前所有已注册工具名（共 41 个），否则未登记工具默认 score=100
+	// 会在截断阈值下被随机丢弃，导致后置工具永远不可达。新增工具时务必在此维护优先级。
+	// 命名分组：关键路径 rag/customer/order/pm/reach.*/aftersale.*/logistics.*/follow_task.*/card.show。
 	priority := map[string]int{
-		"rag.search": 1, "card.show": 2, "customer.search": 3, "customer.get": 4,
-		"customer.create": 5, "order.lookup": 6, "pm.session.open": 7, "pm.message.send": 8,
-		"pm.history": 9, "knowledge.feedback": 10, "reach.web.send": 11, "reach.card.send": 12,
-		"reach.sms.send": 13, "aftersale.create": 14, "aftersale.query": 15,
-		"follow_task.create": 16, "follow_task.update": 17, "logistics.track": 18, "customer.update": 19,
+		// —— 知识库 / 核心检索（1-4）——
+		"rag.search": 1, "card.show": 2, "knowledge.feedback": 3, "knowledge.add_doc": 4, "knowledge.list_kb": 5,
+		// —— 客户（6-13）——
+		"customer.search": 6, "customer.get": 7, "customer.create": 8, "customer.update": 9,
+		"customer.merge": 10, "customer.add_tag": 11, "customer.remove_tag": 12, "customer.segment": 13,
+		// —— 订单 / 售后 / 物流（14-19）——
+		"order.lookup": 14, "aftersale.create": 15, "aftersale.query": 16, "logistics.track": 17,
+		// —— 私信（18-20）——
+		"pm.session.open": 18, "pm.session.read": 19, "pm.message.send": 20,
+		// —— 跟进任务（21-22）——
+		"follow_task.create": 21, "follow_task.update": 22,
+		// —— 触达：核心卡片/短信/网页（23-25）——
+		"reach.card.send": 23, "reach.sms.send": 24, "reach.web.send": 25,
+		// —— 触达：社交/IM 渠道（26-34）——
+		"reach.weixin.send": 26, "reach.wecom.send": 27, "reach.feishu.send": 28, "reach.dingtalk.send": 29,
+		"reach.telegram.send": 30, "reach.whatsapp.send": 31, "reach.douyin.send": 32, "reach.kuaishou.send": 33,
+		"reach.xhs.send": 34,
+		// —— 触达：批量/计划/召回/健康检查/历史/模板/账号（35-41）——
+		"reach.batch": 35, "reach.schedule": 36, "reach.recall": 37, "reach.health": 38,
+		"reach.history": 39, "reach.template.apply": 40, "reach.account.list": 41,
 	}
 
 	// 场景一：agent 显式白名单（按白名单顺序保留已注册工具）。
@@ -1489,10 +1513,12 @@ func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []
 		score int
 	}
 	scoredTools := make([]scored, 0, len(tools))
-	for _, t := range tools {
+	for i, t := range tools {
 		s, ok := priority[t.Name]
 		if !ok {
-			s = 100
+			// 未登记工具：用「100 + 输入切片下标」作确定性兜底 score，
+			// 避免所有未登记工具塌成同一 score=100 导致排序随机、工具被随机丢弃。
+			s = 100 + i
 		}
 		scoredTools = append(scoredTools, scored{tool: t, score: s})
 	}

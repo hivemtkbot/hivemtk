@@ -289,7 +289,7 @@ func (ctrl *KnowledgeMerchantController) RevokeToken(c *gin.Context) {
 		return
 	}
 	if err := ctrl.svc.RevokeToken(c.Request.Context(), id); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, "吊销Token失败")
 		return
 	}
 	response.Success(c, nil, "已吊销")
@@ -302,7 +302,7 @@ func (ctrl *KnowledgeMerchantController) RevokeToken(c *gin.Context) {
 func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 	var req service.ExternalImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
+		response.Error(c, http.StatusBadRequest, "请求参数错误")
 		return
 	}
 	// Token 从 Header 读取：X-Knowledge-Token
@@ -315,7 +315,7 @@ func (ctrl *KnowledgeMerchantController) ExternalImport(c *gin.Context) {
 	}
 	resp, err := ctrl.svc.ExternalImport(c.Request.Context(), &req)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, err.Error())
+		response.ErrorFromDB(c, err, "外部系统导入失败")
 		return
 	}
 	response.Success(c, resp, "")
@@ -327,7 +327,7 @@ func (ctrl *KnowledgeMerchantController) ListExternalJobs(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	list, total, err := ctrl.svc.ListExternalJobs(c.Request.Context(), productID, page, pageSize)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		response.ErrorFromDB(c, err, "获取外部导入任务列表失败")
 		return
 	}
 	response.Success(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize}, "")

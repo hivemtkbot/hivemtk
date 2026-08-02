@@ -31,7 +31,7 @@ type AgentKBBinding struct {
 	AgentID  uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:1;index" json:"agent_id"`
 	KBID     uint   `gorm:"not null;uniqueIndex:idx_agent_kb_unique,priority:2;index" json:"kb_id"`
 	KBType   string `gorm:"type:varchar(16);not null;index" json:"kb_type"` // faq / rag / sop
-	Role     string `gorm:"type:varchar(16);not null;default:primary" json:"role"`
+	Role     string `gorm:"type:varchar(16);not null;default:'primary'" json:"role"`
 	Priority int    `gorm:"type:integer;default:0" json:"priority"`
 	// Enabled 用 *bool 避免 GORM v2 零值 false 被 column default 覆盖
 	Enabled   *bool     `gorm:"type:boolean;default:true;not null;index" json:"enabled"`

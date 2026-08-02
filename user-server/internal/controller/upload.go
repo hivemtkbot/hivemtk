@@ -117,7 +117,7 @@ func UploadFile(ctx *gin.Context) {
 	// 获取上传的文件
 	file, header, err := ctx.Request.FormFile("file")
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, "获取上传文件失败："+err.Error())
+		response.Error(ctx, http.StatusBadRequest, "获取上传文件失败")
 		return
 	}
 	defer file.Close()
@@ -131,7 +131,7 @@ func UploadFile(ctx *gin.Context) {
 	// 2. 读取文件内容用于验证
 	fileBuffer := bytes.NewBuffer(nil)
 	if _, err := io.Copy(fileBuffer, file); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "读取文件失败")
+		response.ErrorFromDB(ctx, err, "读取文件失败")
 		return
 	}
 	fileBytes := fileBuffer.Bytes()
@@ -183,14 +183,14 @@ func UploadFile(ctx *gin.Context) {
 	uploadSubDir := time.Now().Format("20060102")
 	uploadDir := filepath.Join(config.UploadDir, uploadSubDir)
 	if err := os.MkdirAll(uploadDir, 0750); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "创建上传目录失败")
+		response.ErrorFromDB(ctx, err, "创建上传目录失败")
 		return
 	}
 
 	// 10. 保存文件（使用安全的权限 0640）
 	filePath := filepath.Join(uploadDir, newFilename)
 	if err := os.WriteFile(filePath, fileBytes, 0640); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "保存文件失败")
+		response.ErrorFromDB(ctx, err, "保存文件失败")
 		return
 	}
 

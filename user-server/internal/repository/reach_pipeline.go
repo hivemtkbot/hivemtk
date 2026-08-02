@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -110,6 +111,76 @@ func (r *ReachPipelineRepository) DeletePipeline(ctx context.Context, id uint) (
 		return 0, errors.New("reach pipeline repository not initialized")
 	}
 	res := r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ReachPipeline{})
+	return res.RowsAffected, res.Error
+}
+
+// DeleteJobsByPipeline 级联删除指定 Pipeline 下的所有任务，保证引用完整性
+//
+// ReachPipeline / ReachJob 模型未定义 DeletedAt（无软删除），DeletePipeline 为物理删除；
+// 若不级联清理任务，会留下指向已删除 Pipeline 的孤儿任务（ExecuteJob 时触发
+// pipeline not found 错误）。故在 service 层删除 Pipeline 前调用本方法。
+func (r *ReachPipelineRepository) DeleteJobsByPipeline(ctx context.Context, pipelineID uint) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("reach pipeline repository not initialized")
+	}
+	res := r.db.WithContext(ctx).Where("pipeline_id = ?", pipelineID).Delete(&model.ReachJob{})
+	return res.RowsAffected, res.Error
+}
+
+// ListDueJobs 列出到期应执行的任务
+//
+// 条件：state IN (pending, retrying, rate_limited) 且 next_run_at <= now。
+// 按 next_run_at 升序，单次最多取 200 条，供后台调度器消费。
+func (r *ReachPipelineRepository) ListDueJobs(ctx context.Context, now time.Time) ([]model.ReachJob, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("reach pipeline repository not initialized")
+	}
+	var jobs []model.ReachJob
+	err := r.db.WithContext(ctx).
+		Where("state IN ?", []string{"pending", "retrying", "rate_limited"}).
+		Where("next_run_at <= ?", now).
+		Order("next_run_at ASC").
+		Limit(200).
+		Find(&jobs).Error
+	return jobs, err
+}
+
+// ClaimJob 原子抢占任务
+//
+// 仅当任务处于可执行状态（pending/retrying/rate_limited）时才将其置为 running，
+// 返回 true 表示抢占成功。用于调度器与手动触发之间的并发去重，避免同一任务被
+// 重复执行。
+func (r *ReachPipelineRepository) ClaimJob(ctx context.Context, id uint) (bool, error) {
+	if r == nil || r.db == nil {
+		return false, errors.New("reach pipeline repository not initialized")
+	}
+	now := time.Now()
+	res := r.db.WithContext(ctx).
+		Model(&model.ReachJob{}).
+		Where("id = ? AND state IN ?", id, []string{"pending", "retrying", "rate_limited"}).
+		Updates(map[string]any{
+			"state":      "running",
+			"started_at": &now,
+		})
+	return res.RowsAffected > 0, res.Error
+}
+
+// ResetStuckJobs 恢复卡在 running 超过 olderThan 的任务
+//
+// 进程崩溃 / 调度器异常退出可能导致任务永久停留在 running。将 updated_at 早于
+// cutoff 的 running 任务重置为 pending，交由调度器重新消费。
+func (r *ReachPipelineRepository) ResetStuckJobs(ctx context.Context, olderThan time.Duration) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("reach pipeline repository not initialized")
+	}
+	cutoff := time.Now().Add(-olderThan)
+	res := r.db.WithContext(ctx).
+		Model(&model.ReachJob{}).
+		Where("state = ? AND updated_at < ?", "running", cutoff).
+		Updates(map[string]any{
+			"state":        "pending",
+			"next_run_at": time.Now(),
+		})
 	return res.RowsAffected, res.Error
 }
 

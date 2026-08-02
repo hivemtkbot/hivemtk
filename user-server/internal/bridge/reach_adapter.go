@@ -103,8 +103,11 @@ func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, 
 	}
 	if err := a.hub.Deliver(channel, accountID, reply); err != nil {
 		// 离线/限速/buffer 满：落 message_hub(direction=outbound, status=failed) 等待补发
-		// 私域: 无 Prometheus, 失败已落库
-		_ = classifyDeliverErr
+		// 私域: 无 Prometheus, 失败已落库（用 classifyDeliverErr 区分失败类型，便于排查）
+		errClass := classifyDeliverErr(err)
+		logger.Ctx(ctx).Warn().Str("module", "bridge").Str("deliver_err_class", errClass).
+			Str("channel", channel).Str("account_id", accountID).Str("event_id", eventID).
+			Msg("bridge deliver failed, classifying error for fallback persist")
 		return a.persistFailedOutbound(ctx, channel, accountID, conversationID, msgType, content, eventID, err)
 	}
 	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
@@ -177,7 +180,8 @@ func (a *BridgeReachAdapter) SendDouyin(ctx context.Context, accountID, openID, 
 	if a.hub.IsOnline(ChannelDouyinWeb, accountID) {
 		return a.deliverWS(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx))
 	}
-	return a.inner.SendDouyin(ctx, accountID, openID, msgType, content)
+	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
+	return a.persistFailedOutbound(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
 func (a *BridgeReachAdapter) SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
@@ -189,7 +193,8 @@ func (a *BridgeReachAdapter) SendXHS(ctx context.Context, accountID, openID, msg
 	if a.hub.IsOnline(ChannelXHSWeb, accountID) {
 		return a.deliverWS(ctx, ChannelXHSWeb, accountID, openID, msgType, content, extractEventID(ctx))
 	}
-	return a.inner.SendXHS(ctx, accountID, openID, msgType, content)
+	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
+	return a.persistFailedOutbound(ctx, ChannelXHSWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
 func (a *BridgeReachAdapter) SendDingTalk(ctx context.Context, chatID, msgType, content string) (string, error) {
@@ -221,7 +226,8 @@ func (a *BridgeReachAdapter) SendTikTok(ctx context.Context, accountID, openID, 
 	if a.hub.IsOnline(ChannelTikTokWeb, accountID) {
 		return a.deliverWS(ctx, ChannelTikTokWeb, accountID, openID, msgType, content, extractEventID(ctx))
 	}
-	return a.inner.SendTikTok(ctx, accountID, openID, msgType, content)
+	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
+	return a.persistFailedOutbound(ctx, ChannelTikTokWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
 func (a *BridgeReachAdapter) Recall(ctx context.Context, channel, msgID string) error {

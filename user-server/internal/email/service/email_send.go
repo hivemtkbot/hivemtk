@@ -1,14 +1,17 @@
 package email
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
-	"strings"
-	"time"
-
-	"context"
 	"github.com/google/uuid"
 	"gopkg.in/gomail.v2"
 )
@@ -115,10 +118,27 @@ func (s *EmailSendService) ProcessPendingEmails(ctx context.Context) error {
 
 // sendActualEmail 实际发送邮件
 func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.EmailSend) error {
-	// 获取 SMTP 配置（直接使用 string ID）
-	smtpConfig, err := s.smtpRepo.GetByID(ctx, email.SmtpID)
-	if err != nil {
-		return err
+	// 1) 优先使用 DB 中的 SMTP 配置（按 SmtpID）
+	var smtpConfig *model.EmailSmtp
+	if email.SmtpID != "" {
+		cfg, err := s.smtpRepo.GetByID(ctx, email.SmtpID)
+		if err == nil && cfg != nil && cfg.Server != "" && cfg.Username != "" {
+			smtpConfig = cfg
+		} else if err != nil {
+			logger.Warnf("邮件 SMTP 配置读取失败（SmtpID=%s），尝试环境变量兜底: %v", email.SmtpID, err)
+		}
+	}
+
+	// 2) DB 配置缺失时，尝试从环境变量构造发信配置（容器部署常见：EMAIL_163_*/QQ_EMAIL_*/SMTP_*）
+	if smtpConfig == nil {
+		smtpConfig = resolveSmtpFromEnv()
+	}
+
+	// 3) 仍无可用配置：显式返回错误并记录日志，禁止静默返回 nil 伪装成功
+	if smtpConfig == nil {
+		logger.Errorf("邮件发送失败 [%s]: 无任何可用 SMTP 配置（SmtpID=%q 且未配置 EMAIL_163_*/QQ_EMAIL_*/SMTP_* 环境变量）",
+			email.ID, email.SmtpID)
+		return fmt.Errorf("邮件发送失败：未找到可用的 SMTP 配置（请配置 SmtpID 或 EMAIL_163_*/QQ_EMAIL_*/SMTP_* 环境变量）")
 	}
 
 	// 创建 gomail 消息
@@ -145,4 +165,63 @@ func (s *EmailSendService) sendActualEmail(ctx context.Context, email *model.Ema
 	// 注意：在实际生产环境中，这里会真正连接 SMTP 服务器发送邮件
 	// 在测试环境中，由于 SMTP 服务器不可达，会返回连接错误
 	return d.DialAndSend(m)
+}
+
+// resolveSmtpFromEnv 从环境变量构造 SMTP 发信配置（按优先级）：
+//   - EMAIL_163_USER / EMAIL_163_PASSWORD / EMAIL_163_SMTP_HOST（默认 smtp.163.com，端口 465）
+//   - QQ_EMAIL / QQ_EMAIL_PASSWORD / QQ_NUMBER（QQ 邮箱，smtp.qq.com，端口 465）
+//   - SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD（通用兜底）
+//
+// 任一来源字段完整即返回配置；都不完整返回 nil（由调用方显式报错）。
+// 此为基于 SmtpID 的 DB 路径的兼容兜底，不取代原有路径。
+func resolveSmtpFromEnv() *model.EmailSmtp {
+	// 1) 163 邮箱
+	if user := os.Getenv("EMAIL_163_USER"); user != "" {
+		if pwd := os.Getenv("EMAIL_163_PASSWORD"); pwd != "" {
+			host := os.Getenv("EMAIL_163_SMTP_HOST")
+			if host == "" {
+				host = "smtp.163.com"
+			}
+			return &model.EmailSmtp{
+				Name:     "env:163",
+				Server:   host,
+				Port:     465,
+				Username: user,
+				Password: pwd,
+			}
+		}
+	}
+	// 2) QQ 邮箱
+	if qq := os.Getenv("QQ_EMAIL"); qq != "" {
+		if pwd := os.Getenv("QQ_EMAIL_PASSWORD"); pwd != "" {
+			return &model.EmailSmtp{
+				Name:     "env:qq",
+				Server:   "smtp.qq.com",
+				Port:     465,
+				Username: qq,
+				Password: pwd,
+			}
+		}
+	}
+	// 3) 通用 SMTP_* 兜底
+	if host := os.Getenv("SMTP_HOST"); host != "" {
+		if user := os.Getenv("SMTP_USER"); user != "" {
+			if pwd := os.Getenv("SMTP_PASSWORD"); pwd != "" {
+				port := 465
+				if p := os.Getenv("SMTP_PORT"); p != "" {
+					if n, err := strconv.Atoi(p); err == nil && n > 0 {
+						port = n
+					}
+				}
+				return &model.EmailSmtp{
+					Name:     "env:smtp",
+					Server:   host,
+					Port:     port,
+					Username: user,
+					Password: pwd,
+				}
+			}
+		}
+	}
+	return nil
 }

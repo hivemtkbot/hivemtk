@@ -2,7 +2,6 @@ package controller
 
 import (
 	"marketing/internal/pkg/shared/service"
-	"net/http"
 
 	"marketing/internal/pkg/utils/response"
 
@@ -29,7 +28,7 @@ func NewSystemInfoController() *SystemInfoController {
 func (c *SystemInfoController) GetSystemInfo(ctx *gin.Context) {
 	info, err := c.service.GetSystemInfo()
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取系统信息失败")
+		response.ErrorFromDB(ctx, err, "获取系统信息失败")
 		return
 	}
 

@@ -493,6 +493,8 @@ func NormalizeChannelType(ch string) string {
 		return string(model.ChannelTypeXianyu)
 	case "tiktok":
 		return string(model.ChannelTypeTikTok)
+	case "web_embed", "webembed":
+		return string(model.ChannelTypeWebEmbed)
 	default:
 		return ch
 	}

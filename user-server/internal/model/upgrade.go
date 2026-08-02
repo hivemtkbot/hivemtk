@@ -9,7 +9,7 @@ type UpgradeTask struct {
 	ID              uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	FromVersion     string     `gorm:"type:varchar(50);not null" json:"from_version"`
 	ToVersion       string     `gorm:"type:varchar(50);not null" json:"to_version"`
-	Status          string     `gorm:"type:varchar(20);default:pending" json:"status"` // pending, running, completed, failed
+	Status          string     `gorm:"type:varchar(20);default:'pending'" json:"status"` // pending, running, completed, failed
 	Progress        int        `gorm:"default:0" json:"progress"`                      // 0-100
 	TotalSteps      int        `gorm:"default:0" json:"total_steps"`
 	CurrentStep     int        `gorm:"default:0" json:"current_step"`
@@ -32,7 +32,7 @@ type MigrationRecord struct {
 	Version    string    `gorm:"type:varchar(50);unique;not null" json:"version"`
 	Name       string    `gorm:"type:varchar(100)" json:"name"`
 	Type       string    `gorm:"type:varchar(20)" json:"type"` // database, code, config
-	Status     string    `gorm:"type:varchar(20);default:pending" json:"status"`
+	Status     string    `gorm:"type:varchar(20);default:'pending'" json:"status"`
 	ExecutedAt time.Time `json:"executed_at"`
 	ExecutedBy string    `gorm:"type:varchar(50)" json:"executed_by"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`

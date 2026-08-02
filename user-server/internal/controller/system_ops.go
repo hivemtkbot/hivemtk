@@ -67,7 +67,8 @@ func (c *SystemOpsController) GetSystemLogs(ctx *gin.Context) {
 	} else {
 		resolved, err := resolveLogPath(file)
 		if err != nil {
-			response.Error(ctx, http.StatusBadRequest, "非法日志路径："+err.Error())
+			logger.Errorf("resolveLogPath failed: %v", err)
+			response.Error(ctx, http.StatusBadRequest, "非法日志路径")
 			return
 		}
 		logPath = resolved
@@ -97,7 +98,8 @@ func defaultLogPath() string {
 func (c *SystemOpsController) GetSystemStats(ctx *gin.Context) {
 	stats, err := c.monitorService.GetSystemStats(context.Background())
 	if err != nil {
-		response.ErrorFromDB(ctx, err, err.Error())
+		logger.Errorf("GetSystemStats failed: %v", err)
+		response.ErrorFromDB(ctx, err, "获取系统统计失败")
 		return
 	}
 	response.Success(ctx, stats, "获取成功")
@@ -110,7 +112,8 @@ func (c *SystemOpsController) GetBackupList(ctx *gin.Context) {
 
 	backups, total, err := c.backupService.GetBackupList(context.Background(), page, pageSize)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, err.Error())
+		logger.Errorf("GetBackupList failed: %v", err)
+		response.ErrorFromDB(ctx, err, "获取备份列表失败")
 		return
 	}
 	response.Success(ctx, gin.H{
@@ -125,14 +128,16 @@ func (c *SystemOpsController) GetBackupList(ctx *gin.Context) {
 func (c *SystemOpsController) CreateBackup(ctx *gin.Context) {
 	var req service.CreateBackupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
+		logger.Errorf("CreateBackup bind failed: %v", err)
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误")
 		return
 	}
 
 	createdBy := currentUserID(ctx)
 	backup, err := c.backupService.CreateBackup(context.Background(), createdBy, &req)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, err.Error())
+		logger.Errorf("CreateBackup failed: %v", err)
+		response.ErrorFromDB(ctx, err, "创建备份失败")
 		return
 	}
 	response.Success(ctx, backup, "创建备份任务成功")
@@ -142,17 +147,19 @@ func (c *SystemOpsController) CreateBackup(ctx *gin.Context) {
 func (c *SystemOpsController) RestoreBackup(ctx *gin.Context) {
 	var req service.RestoreBackupRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusBadRequest, "请求参数错误："+err.Error())
+		logger.Errorf("RestoreBackup bind failed: %v", err)
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误")
 		return
 	}
 
 	createdBy := currentUserID(ctx)
 	record, err := c.restoreService.RestoreBackup(context.Background(), createdBy, &req)
 	if err != nil {
+		logger.Errorf("RestoreBackup failed: %v", err)
 		if strings.Contains(err.Error(), "不存在") {
-			response.Error(ctx, http.StatusNotFound, err.Error())
+			response.Error(ctx, http.StatusNotFound, "备份记录不存在")
 		} else {
-			response.Error(ctx, http.StatusBadRequest, err.Error())
+			response.ErrorFromDB(ctx, err, "创建恢复任务失败")
 		}
 		return
 	}

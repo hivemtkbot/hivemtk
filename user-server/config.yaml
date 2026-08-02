@@ -4,7 +4,8 @@ platform_api:
   # 文档源：DEVELOPMENT.md §2.4 端口对照表 | 8205 | platform-server
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 DEVELOPMENT.md §2.4
-  base_url: "${PLATFORM_API_URL:http://localhost:8205}"
+  # 字段名统一为 api_url（与 internal/config/platform.go LoadPlatform / server.go PlatformAPI 一致）
+  api_url: "${PLATFORM_API_URL:http://localhost:8205}"
 
 # 外部可达基座 URL（用于自动推导 Telegram / 飞书 / 钉钉等被动渠道的 Webhook 回调地址）
 # 背景：user-server 部署在反代/frp/云函数之后，渠道回调所需的公网 URL
@@ -114,6 +115,9 @@ inference:
     # 云端可选 fallback（本地优先）：仅当 enabled=true 且配置 api_key 时启用，否则禁用
     # 2026-08-01：接入云端 DeepSeek（来自 .env DS_API_*），用于网页客服渠道性能/质量测试，
     # 替代本地 8207（当前未运行）。失败策略见 DB system_kv_config(llm_provider_failover)，相关场景已切到 deepseek。
+    # 废弃说明（2026）：DS_API_* 环境变量已废弃。业务 provider 定义现已持久化到数据库表 llm_providers，
+    # 由后台「LLM路由」页面 / 脚本经 POST /api/llm/models 写入（见 config-docker.yaml inference.llm 注释）。
+    # 此处 DS_API_* 仅作兼容占位读取（避免破坏现有 .env）；新部署应改用 DB llm_providers，无需再配 DS_API_*。
     cloud_providers:
       - name: deepseek
         api_key: "${DS_API_KEY}"
@@ -220,8 +224,11 @@ self_learning:
 # HTTP 代理配置（用于中国等需要代理访问外部 API 的环境）
 # 未配置时（enabled=false 或地址为空），HTTP 请求直连不走代理
 # 也可通过环境变量 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 配置（Go 标准库自动识别）
+# 注意：本机调试可用 http://127.0.0.1:7898，但【容器内勿用本机代理】——
+# 容器内 127.0.0.1 指向容器自身，连不到宿主机的代理进程，会导致所有外网请求失败。
+# 容器部署请依赖环境变量注入（http://host.docker.internal:7898）或保持 disabled。
 proxy:
-  enabled: true                    # 是否启用代理
-  http_proxy: ""                    # HTTP 代理地址，如 http://127.0.0.1:7890
-  https_proxy: "http://127.0.0.1:7898"                   # HTTPS 代理地址，如 http://127.0.0.1:7890
+  enabled: false                   # 默认关闭；本机调试可临时改为 true 并填下方地址
+  http_proxy: ""                    # HTTP 代理地址，如 http://127.0.0.1:7890（仅本机调试）
+  https_proxy: ""                   # HTTPS 代理地址；容器内勿用 127.0.0.1（见上方注释）
   no_proxy: "localhost,127.0.0.1"   # 不走代理的地址

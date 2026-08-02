@@ -207,8 +207,10 @@ func Setup(r *gin.Engine) {
 		// 流失挽回队列
 		setupRecoveryQueueRoutes(auth)
 
-		// 系统管理
-		setupSystemRoutes(auth)
+		// 系统管理（高危操作：重启/日志/备份/恢复/配置写入，需管理员权限）
+		systemAdmin := auth.Group("")
+		systemAdmin.Use(middleware.AdminAuthMiddleware())
+		setupSystemRoutes(systemAdmin)
 
 		// 人员管理（v3.1 §3.1：/api/system/users/*）
 		setupSystemUserRoutes(auth)
@@ -410,6 +412,8 @@ func Setup(r *gin.Engine) {
 	webhookCtrl.SetWhatsAppCloudService(whatsappCloudSvc)
 	// 钉钉应用账号服务注入，用于回调验签 + 入站收消息（GET/POST /api/webhook/dingtalk/{id}）
 	webhookCtrl.SetDingTalkAppService(dingtalkAppSvc)
+	// 飞书账号服务注入，用于回调 URL 验证（GET /api/webhook/feishu/{id} 校验 VerificationToken）
+	webhookCtrl.SetFeishuService(service.NewFeishuService(db.GetDB()))
 	// 修复：智能体引擎 8 步链路真实依赖注入
 	// 不再 nil 注入，让 SalesEngine 真正调用 intent/memory/sop/rag/script/customer
 	webhookCtrl.SetSalesEngine(engine)

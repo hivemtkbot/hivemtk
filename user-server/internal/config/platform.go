@@ -57,13 +57,19 @@ func LoadPlatform(path string) error {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return fmt.Errorf("解析平台配置失败: %w", err)
 	}
-	// 环境变量 PLATFORM_API_HOST 优先级最高：部署时可直接覆盖 yaml 的 api_url，
-	// 作为 user-server 访问平台端（platform-server）的唯一基座地址。
+	// 平台 API 地址解析优先级（单一来源，禁止任何硬编码具体域名作为默认）：
+	//   1. PLATFORM_API_HOST   （容器/宿主必填，如 http://host.docker.internal:8205，
+	//      容器内 user-server 必须经此访问平台，127.0.0.1/localhost 在容器内不可达）
+	//   2. PLATFORM_API_URL    （兼容别名）
+	//   3. config/platform.yaml 的 api_url 占位（由环境变量展开，可为空）
+	// 三者皆空 → 返回错误（不再回退到硬编码域名，避免容器内跑到 127.0.0.1 失败）。
 	if v := os.Getenv("PLATFORM_API_HOST"); v != "" {
+		cfg.APIURL = v
+	} else if v := os.Getenv("PLATFORM_API_URL"); v != "" {
 		cfg.APIURL = v
 	}
 	if cfg.APIURL == "" {
-		return fmt.Errorf("平台配置缺少必填字段 api_url")
+		return fmt.Errorf("平台配置缺少必填字段 api_url（请通过环境变量 PLATFORM_API_HOST/PLATFORM_API_URL 或 config/platform.yaml 的 api_url 指定，容器内禁止留空）")
 	}
 	if cfg.Secret == "" {
 		return fmt.Errorf("平台配置缺少必填字段 secret（HMAC 签名密钥）")

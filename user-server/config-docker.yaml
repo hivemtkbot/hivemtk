@@ -4,7 +4,8 @@ platform_api:
   # 文档源：DEVELOPMENT.md §2.4 + docker-compose.yml 中 platform-server 端口映射
   # 调整流程：先改 ports.go 常量 → 同步本字段 → 同步 docker-compose.yml
   # 覆盖优先级：环境变量 PLATFORM_API_URL > 本默认值
-  base_url: "${PLATFORM_API_URL:http://host.docker.internal:8205}"
+  # 字段名统一为 api_url（与 internal/config/platform.go LoadPlatform / server.go PlatformAPI 一致）
+  api_url: "${PLATFORM_API_URL:http://host.docker.internal:8205}"
 
 # 外部可达基座 URL（用于自动推导 Telegram / 飞书 / 钉钉等被动渠道的 Webhook 回调地址）
 # 背景：user-server 部署在反代/frp/云函数之后，渠道回调所需的公网 URL

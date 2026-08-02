@@ -20,6 +20,7 @@ type WebhookController struct {
 	svc          *service.WebhookService
 	waCloudSvc   *service.WhatsAppCloudService
 	dtAppSvc     *service.DingTalkAppService
+	feishuSvc    *service.FeishuService
 	langResolver *i18nservice.LangConfigResolver
 }
 
@@ -38,6 +39,11 @@ func (c *WebhookController) SetWhatsAppCloudService(svc *service.WhatsAppCloudSe
 // SetDingTalkAppService 注入钉钉应用账号服务（用于回调验签 + 入站收消息）
 func (c *WebhookController) SetDingTalkAppService(svc *service.DingTalkAppService) {
 	c.dtAppSvc = svc
+}
+
+// SetFeishuService 注入飞书账号服务（用于回调 URL 验证：比对 VerifyToken）
+func (c *WebhookController) SetFeishuService(svc *service.FeishuService) {
+	c.feishuSvc = svc
 }
 
 // SetLangResolver 注入多语言解析器（v1.2 出海方案）。
@@ -187,11 +193,38 @@ func (c *WebhookController) WeComVerify(ctx *gin.Context) {
 
 // FeishuVerify 飞书 URL 验证（GET 挑战）
 // 路由: GET /api/webhook/feishu/{account_id}?challenge=...&token=...&type=url_verification
-// 飞书 URL 验证只是 JSON 回显 challenge
+//
+// 飞书 URL 验证：先校验 query 的 token 与账号存储的 VerificationToken 一致，
+// 一致才回显 challenge（与 WhatsAppVerify / DingTalkVerify 同模式，避免任意第三方
+// 伪造挑战完成回调地址绑定）。
 func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
+	accountIDStr := ctx.Param("account_id")
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 64)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "invalid account_id")
+		return
+	}
 	challenge := ctx.Query("challenge")
 	if challenge == "" {
 		ctx.String(http.StatusBadRequest, "missing challenge")
+		return
+	}
+	token := ctx.Query("token")
+	if token == "" {
+		ctx.String(http.StatusBadRequest, "missing token")
+		return
+	}
+	if c.feishuSvc == nil {
+		ctx.String(http.StatusServiceUnavailable, "feishu service not configured")
+		return
+	}
+	acc, err := c.feishuSvc.GetAccount(ctx.Request.Context(), uint(accountID))
+	if err != nil || acc == nil {
+		ctx.String(http.StatusNotFound, "account not found")
+		return
+	}
+	if token != acc.VerificationToken {
+		ctx.String(http.StatusForbidden, "verification failed")
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"challenge": challenge})

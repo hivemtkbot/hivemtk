@@ -46,7 +46,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 ) {
 	req, err := parseReq()
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams)
 		return
 	}
 
@@ -55,13 +55,13 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) C
 		Create(*gin.Context, *CreateReq) (*Response, error)
 	})
 	if !ok {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError, "服务未实现 Create 方法")
+		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError)
 		return
 	}
 
 	card, err := service.Create(ctx, req)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, response.ErrCreateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrCreateFailed)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 ) {
 	req, err := parseReq()
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams)
 		return
 	}
 
@@ -86,13 +86,13 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) U
 		Update(*gin.Context, *UpdateReq) (*Response, error)
 	})
 	if !ok {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError, "服务未实现 Update 方法")
+		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError)
 		return
 	}
 
 	card, err := service.Update(ctx, req)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, response.ErrUpdateFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrUpdateFailed)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) D
 ) {
 	id, err := parseIDParam(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidIDFormat, err.Error())
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidIDFormat)
 		return
 	}
 
@@ -114,12 +114,12 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) D
 		Delete(*gin.Context, uint) error
 	})
 	if !ok {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError, "服务未实现 Delete 方法")
+		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError)
 		return
 	}
 
 	if err := service.Delete(ctx, id); err != nil {
-		response.ErrorFromDB(ctx, err, response.ErrDeleteFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrDeleteFailed)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 ) {
 	id, err := parseIDParam(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidIDFormat, err.Error())
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidIDFormat)
 		return
 	}
 
@@ -141,13 +141,13 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 		GetByID(*gin.Context, uint) (*Response, error)
 	})
 	if !ok {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError, "服务未实现 GetByID 方法")
+		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError)
 		return
 	}
 
 	card, err := service.GetByID(ctx, id)
 	if err != nil {
-		response.Error(ctx, http.StatusNotFound, response.ErrResourceNotFound, err.Error())
+		response.Error(ctx, http.StatusNotFound, response.ErrResourceNotFound)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 ) {
 	req, err := parseReq()
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams, err.Error())
+		response.Error(ctx, http.StatusBadRequest, response.ErrInvalidParams)
 		return
 	}
 
@@ -186,13 +186,13 @@ func (c *BaseCardController[Service, CreateReq, UpdateReq, ListReq, Response]) G
 		GetList(*gin.Context, *ListReq) (any, error)
 	})
 	if !ok {
-		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError, "服务未实现 GetList 方法")
+		response.Error(ctx, http.StatusInternalServerError, response.ErrBusinessError)
 		return
 	}
 
 	list, err := service.GetList(ctx, req)
 	if err != nil {
-		response.ErrorFromDB(ctx, err, response.ErrGetListFailed, err.Error())
+		response.ErrorFromDB(ctx, err, response.ErrGetListFailed)
 		return
 	}
 

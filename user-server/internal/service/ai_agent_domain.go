@@ -110,7 +110,11 @@ func (s *AIAgentService) CreateAIAgent(ctx context.Context, req *AIAgentCreateDT
 		agent.Temperature = 0.7
 	}
 	if agent.MaxTokens == 0 {
-		agent.MaxTokens = 800
+		// 默认 2048：推理模型（如 deepseek-v4-flash）在 reasoning 阶段需占用较多 token，
+		// 过小的上限会导致 reasoning 耗尽 token 后无法产出 content/tool_calls，
+		// 触发 Agent Loop 的 length 重试（翻倍 tokens 重算），单次问答延迟翻倍且偶发空回复转人工。
+		// 与 sales_engine.runAgentLoop 的安全兜底上限保持一致。
+		agent.MaxTokens = 2048
 	}
 	if agent.RAGTopK == 0 {
 		agent.RAGTopK = 3

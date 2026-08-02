@@ -235,12 +235,14 @@ func (h *BridgeHub) NextSeq() int64 {
 // 线程安全：取客户端、判 closed、写 send 全在 mu 锁内完成，
 // 避免在并发 close(c.send) 之后向已关闭 channel 发送导致 panic。
 func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) error {
-	// 每账号下行限速护栏（兜底）：超过 60/min 直接丢弃，防止失控洪泛
+	// 每账号下行限速护栏（兜底）：超过 60/min 直接丢弃，防止失控洪泛。
+	// key 为 channel:accountID（同一账号的不同渠道独立限速，避免跨渠道互相限流）。
+	rateKey := h.key(channel, account)
 	h.rateMu.Lock()
-	b, ok := h.rateBuckets[account]
+	b, ok := h.rateBuckets[rateKey]
 	if !ok {
 		b = newRateBucket(DeliverRateLimitPerMin, DeliverRateLimitPerMin)
-		h.rateBuckets[account] = b
+		h.rateBuckets[rateKey] = b
 	}
 	allowed := b.take()
 	h.rateMu.Unlock()
@@ -270,17 +272,25 @@ func (h *BridgeHub) Deliver(channel, account string, payload *UnifiedReply) erro
 		logger.Ctx(nil).Error().Err(err).Str("module", "bridge").Msg("bridge deliver marshal failed")
 		return err
 	}
+	// 写入 send 通道：不直接 drop（避免静默丢消息）。
+	// 改为带短超时的有界阻塞：给 writePump 腾出缓冲的机会，
+	// 超时仍未腾出再显式返回 ErrBridgeBufferFull，由上层（BridgeReachAdapter.deliverWS）
+	// 降级落盘到 message_hub 等待补发（不在此处静默丢弃）。
 	select {
 	case c.send <- data:
 		h.mu.Unlock()
 		return nil
-	default:
+	case <-time.After(deliverSendTimeout):
 		h.mu.Unlock()
 		logger.Ctx(nil).Warn().
 			Str("module", "bridge").
 			Str("channel", channel).
 			Str("account_id", account).
-			Msg("bridge send buffer full")
+			Msg("bridge send buffer full (timeout), will fallback to persist")
 		return ErrBridgeBufferFull
 	}
 }
+
+// deliverSendTimeout 下行帧写入 send 通道的阻塞超时（避免缓冲满时静默丢消息）。
+// 远小于 writeWait（10s）；writePump 每 pingPeriod(50s) 也会 drain，正常 256 容量足够。
+const deliverSendTimeout = 500 * time.Millisecond

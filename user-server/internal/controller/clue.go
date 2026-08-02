@@ -35,7 +35,7 @@ func (c *ClueController) GetClueList(ctx *gin.Context) {
 	}
 	clues, total, err := c.svc.GetClueList(context.Background(), req.Page, req.PageSize)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取线索列表失败")
+		response.ErrorFromDB(ctx, err, "获取线索列表失败")
 		return
 	}
 	resp := dto.GetClueListResponse{
@@ -67,7 +67,7 @@ func (c *ClueController) DeleteClue(ctx *gin.Context) {
 	}
 	err := c.svc.DeleteClue(context.Background(), req.ID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "删除线索失败")
+		response.ErrorFromDB(ctx, err, "删除线索失败")
 		return
 	}
 	response.Success(ctx, nil, "删除线索成功")
@@ -77,7 +77,7 @@ func (c *ClueController) DeleteClue(ctx *gin.Context) {
 func (c *ClueController) GetClueStatistics(ctx *gin.Context) {
 	statistics, err := c.svc.GetClueStatistics(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取线索统计失败")
+		response.ErrorFromDB(ctx, err, "获取线索统计失败")
 		return
 	}
 	response.Success(ctx, statistics, "获取线索统计成功")
@@ -113,7 +113,7 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 	// 批量保存
 	successCount, skipCount, err := c.svc.BatchImportClues(context.Background(), clues)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "导入线索失败")
+		response.ErrorFromDB(ctx, err, "导入线索失败")
 		return
 	}
 
@@ -127,7 +127,7 @@ func (c *ClueController) ImportClues(ctx *gin.Context) {
 func (c *ClueController) GetClueTypes(ctx *gin.Context) {
 	types, err := c.svc.GetClueTypes(context.Background())
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "获取线索类型失败")
+		response.ErrorFromDB(ctx, err, "获取线索类型失败")
 		return
 	}
 	response.Success(ctx, types, "获取线索类型成功")

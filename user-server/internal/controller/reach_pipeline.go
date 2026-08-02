@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +14,26 @@ import (
 )
 
 // ReachPipelineController 触达 Pipeline 控制器
+
+// reachHTTPStatus 将触达 service 错误映射到合适的 HTTP 状态码
+//
+// 遵循项目约定（response.ErrorFromDB 语义）：not found -> 404，可预期校验错误 -> 400，
+// 其余（数据库 / 未知错误）-> 500。避免把校验错误一律按 400、也不把 not found 误判为 500。
+func reachHTTPStatus(err error) int {
+	switch {
+	case errors.Is(err, service.ErrReachPipelineNotFound),
+		errors.Is(err, service.ErrReachJobNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, service.ErrReachInvalidChannel),
+		errors.Is(err, service.ErrReachInvalidSteps),
+		errors.Is(err, service.ErrReachInvalidPayload),
+		errors.Is(err, service.ErrReachJobNotPending),
+		errors.Is(err, service.ErrReachRateLimited):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
 type ReachPipelineController struct {
 	svc *service.ReachPipelineService
 }
@@ -38,7 +59,7 @@ func (c *ReachPipelineController) CreatePipeline(ctx *gin.Context) {
 	}
 	pipe, err := c.svc.CreatePipeline(ctx.Request.Context(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, pipe, "创建成功")
@@ -58,7 +79,7 @@ func (c *ReachPipelineController) UpdatePipeline(ctx *gin.Context) {
 	}
 	pipe, err := c.svc.UpdatePipeline(ctx.Request.Context(), uint(id), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, pipe, "更新成功")
@@ -101,7 +122,7 @@ func (c *ReachPipelineController) DeletePipeline(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.DeletePipeline(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "删除成功")
@@ -163,7 +184,7 @@ func (c *ReachPipelineController) EnqueueJob(ctx *gin.Context) {
 	}
 	job, err := c.svc.EnqueueJob(ctx.Request.Context(), &req)
 	if err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, job, "入队成功")
@@ -206,7 +227,7 @@ func (c *ReachPipelineController) CancelJob(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.CancelJob(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "取消成功")
@@ -220,7 +241,7 @@ func (c *ReachPipelineController) RetryJob(ctx *gin.Context) {
 		return
 	}
 	if err := c.svc.RetryJob(ctx.Request.Context(), uint(id)); err != nil {
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, gin.H{"id": id}, "重试成功")
@@ -240,7 +261,7 @@ func (c *ReachPipelineController) ExecuteJob(ctx *gin.Context) {
 			response.Success(ctx, job, "任务被限流")
 			return
 		}
-		response.Error(ctx, http.StatusBadRequest, err.Error())
+		response.Error(ctx, reachHTTPStatus(err), err.Error())
 		return
 	}
 	response.Success(ctx, job, "执行成功")

@@ -59,7 +59,13 @@ export const CHANNEL_OPTIONS = Object.freeze([
   { value: 'email',         label: '邮件',      tagType: 'info',    group: CHANNEL_GROUP.NOTIFY, icon: 'Message',         description: '邮件触达（支持附件）' },
   { value: 'card',          label: '卡片',      tagType: 'info',    group: CHANNEL_GROUP.CARD,   icon: 'Postcard',        description: '卡片消息（子渠道）' },
   { value: 'web',           label: 'Web Widget', tagType: 'info',   group: CHANNEL_GROUP.WEB,    icon: 'Monitor',         description: '客服 Web Widget 渠道' },
-  { value: 'web_embed',     label: '网页',      tagType: 'info',   group: CHANNEL_GROUP.WEB,    icon: 'Monitor',         description: 'Web Widget 嵌入访客端（第三方网站访客）' }
+  { value: 'web_embed',     label: '网页',      tagType: 'info',   group: CHANNEL_GROUP.WEB,    icon: 'Monitor',         description: 'Web Widget 嵌入访客端（第三方网站访客）' },
+  // ===== 网页桥接私信渠道（Chrome 扩展桥接，bridge.md G7 要求扩展侧显示的私信渠道）=====
+  // 与 user-server internal/bridge/channel.go 常量严格对齐：
+  //   douyin_web / xhs_web / tiktok_web
+  { value: 'douyin_web',    label: '抖音私信(网页)', tagType: '',      group: CHANNEL_GROUP.SOCIAL, icon: 'Share',       description: '抖音网页私信（Chrome 扩展桥接）', newBadge: true },
+  { value: 'xhs_web',       label: '小红书私信(网页)', tagType: 'danger', group: CHANNEL_GROUP.SOCIAL, icon: 'Postcard',   description: '小红书网页私信（Chrome 扩展桥接）', newBadge: true },
+  { value: 'tiktok_web',    label: 'TikTok私信(网页)', tagType: '',     group: CHANNEL_GROUP.SOCIAL, icon: 'VideoCamera', description: 'TikTok 网页私信（Chrome 扩展桥接）', newBadge: true }
 ])
 
 // 兼容历史 label（如 reachPipeline 旧的"企微"），用于内部展示/迁移判断
