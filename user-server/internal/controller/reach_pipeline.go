@@ -34,6 +34,7 @@ func reachHTTPStatus(err error) int {
 		return http.StatusInternalServerError
 	}
 }
+
 type ReachPipelineController struct {
 	svc *service.ReachPipelineService
 }

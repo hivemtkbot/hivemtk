@@ -178,7 +178,7 @@ func (r *ReachPipelineRepository) ResetStuckJobs(ctx context.Context, olderThan 
 		Model(&model.ReachJob{}).
 		Where("state = ? AND updated_at < ?", "running", cutoff).
 		Updates(map[string]any{
-			"state":        "pending",
+			"state":       "pending",
 			"next_run_at": time.Now(),
 		})
 	return res.RowsAffected, res.Error
