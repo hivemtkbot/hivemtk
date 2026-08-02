@@ -246,7 +246,7 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 		}
 		// G6 + G12：注册即落库（绑定智能体 + 写入 channel_agent_bindings + 置在线）
 		if GlobalBridgeAccountRepo != nil && f.Message != nil {
-			_ = GlobalBridgeAccountRepo.Upsert(ctx, BridgeAccountUpsert{
+			_ = GlobalBridgeAccountRepo.Upsert(context.Background(), BridgeAccountUpsert{
 				UserID:      c.userID,
 				Channel:     c.channel,
 				AccountID:   c.account,
