@@ -70,7 +70,7 @@ const moduleNames = [
   'reachPipeline', 'unifiedInbox', 'wecomAccount',
   'whatsappCloud',
   'dingtalkApp',
-  // / 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
+  // 新增模块:LLM 路由 / 标签分层 / 转化漏斗 / AI 产能
   'llmRouting', 'tagSegmentation', 'conversionFunnel',
   'aiProductivity',
   // 知识库管理(导入/统计/OpenAPI)
@@ -273,7 +273,7 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // F-: requiresAdmin 守卫
+  // requiresAdmin 守卫
   // 路由 meta.requiresAdmin = true 时，仅 admin 角色可访问；非 admin 跳转 403 提示
   if (to.meta?.requiresAdmin) {
     const userStore = useUserStore()

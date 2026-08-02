@@ -99,6 +99,22 @@ func (r *FAQRepository) MatchByKeywordForAgent(ctx context.Context, msg string, 
 	return r.scoreAndRank(ctx, all, msg, topK)
 }
 
+// ListCandidates 返回指定 agent 的 FAQ 候选集（已启用），用于 Service 层命中内存缓存后复用，
+// 避免每次 FAQ 匹配都全量拉取 candidate 再打分。
+//
+// 语义与 listEnabledForAgent 完全一致：
+//   - agentID == 0: 全部已启用 FAQ（共享池）
+//   - agentID > 0: agent_id = agentID OR agent_id IS NULL（该 agent 私有 + 共享）
+func (r *FAQRepository) ListCandidates(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	return r.listEnabledForAgent(ctx, agentID, limit)
+}
+
+// ScoreCandidates 对已加载的 FAQ 候选集做内存打分排序（不触发 DB 查询）。
+// 供 Service 层命中内存缓存后复用候选集、仅按不同 query 重新打分。
+func (r *FAQRepository) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+	return r.scoreAndRank(context.Background(), entries, msg, topK)
+}
+
 // listEnabledForAgent 按 agentID 过滤启用的 FAQ
 func (r *FAQRepository) listEnabledForAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
 	if limit <= 0 || limit > 10000 {

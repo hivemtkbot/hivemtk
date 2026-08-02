@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"marketing/internal/model"
@@ -26,6 +27,9 @@ import (
 // 邮件追踪 token 签名密钥
 const emailTrackingSecretEnv = "EMAIL_TRACKING_SECRET"
 const emailTrackingDefaultSecret = "marketing-tools-kit-email-tracking-dev-secret"
+
+// emailTrackingSecretWarned 确保"密钥走默认值"的安全告警只打印一次
+var emailTrackingSecretWarned sync.Once
 
 // EmailTrackingClaim 追踪 token 携带的声明
 //
@@ -329,6 +333,9 @@ func (s *EmailTrackingService) secret(ctx context.Context) string {
 	if v := os.Getenv(emailTrackingSecretEnv); v != "" {
 		return v
 	}
+	emailTrackingSecretWarned.Do(func() {
+		logger.Warnf("[SECURITY] EMAIL_TRACKING_SECRET 未配置，邮件追踪签名将使用内置不安全默认值（仅限本地开发）。生产环境必须通过环境变量注入强随机密钥，否则追踪 token 可被伪造。")
+	})
 	return emailTrackingDefaultSecret
 }
 

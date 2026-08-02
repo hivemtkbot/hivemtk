@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"marketing/internal/model"
@@ -28,6 +29,9 @@ const emailUnsubscribeTokenTTL = 30 * 24 * time.Hour
 // 私域独立部署：缺省值仅用于本地开发，生产必须通过 EMAIL_UNSUBSCRIBE_SECRET 注入
 const emailUnsubscribeSecretEnv = "EMAIL_UNSUBSCRIBE_SECRET"
 const emailUnsubscribeDefaultSecret = "marketing-tools-kit-email-unsubscribe-dev-secret"
+
+// emailUnsubscribeSecretWarned 确保"密钥走默认值"的安全告警只打印一次
+var emailUnsubscribeSecretWarned sync.Once
 
 // UnsubscribeClaim 退订 token 中携带的声明
 type UnsubscribeClaim struct {
@@ -208,6 +212,9 @@ func (s *EmailUnsubscribeService) secret(ctx context.Context) string {
 	if v := os.Getenv(emailUnsubscribeSecretEnv); v != "" {
 		return v
 	}
+	emailUnsubscribeSecretWarned.Do(func() {
+		logger.Warnf("[SECURITY] EMAIL_UNSUBSCRIBE_SECRET 未配置，退订链接签名将使用内置不安全默认值（仅限本地开发）。生产环境必须通过环境变量注入强随机密钥，否则退订/追踪 token 可被伪造。")
+	})
 	return emailUnsubscribeDefaultSecret
 }
 

@@ -72,7 +72,7 @@ func (s *eventBusEventSubscriber) Handle(evt event.Event) error {
 
 // handleMessage 处理单条客户消息
 func (s *eventBusEventSubscriber) handleMessage(ctx context.Context, payload event.CustomerMessagePayload) error {
-	// /V3 幂等守卫（只读侧）：若同步主链路(webhook.sendOutbound)已认领该
+	// 幂等守卫（只读侧）：若同步主链路(webhook.sendOutbound)已认领该
 	// EventID(TraceID) 出站，总线直接跳过，退化为纯观察，绝不抢发送权导致客户漏回或重复回复。
 	// 注：webhook 调用 PublishCustomerMessage 时把 ParsedPayload.EventID 填入 TraceID，
 	// 故此处以 payload.TraceID 作为与同步主链路一致的幂等键。

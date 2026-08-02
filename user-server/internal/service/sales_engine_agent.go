@@ -45,6 +45,14 @@ func (e *SalesEngine) HandleWithAgent(ctx context.Context, req *SalesRequest, ag
 		return nil, fmt.Errorf("user_message is empty")
 	}
 
+	// 0. 资产包人设织入（智能体→资产包，覆盖原 Persona）
+	// 任何故障都会安全降级（resolveAssetBundlePersona 内部已处理 resolver==nil / 解析失败）
+	if resolver := GetAssetBundleResolver(); resolver != nil {
+		if persona := resolveAssetBundlePersona(ctx, agentCtx, resolver); persona != "" {
+			agentCtx.Persona = persona
+		}
+	}
+
 	// 1. 用 agentCtx 覆盖 req.Config
 	req.Config = dto.AgentContextToSalesEngineConfig(agentCtx)
 

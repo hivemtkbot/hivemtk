@@ -595,6 +595,35 @@ func (s *AssetBundleService) GetBundleByAssetID(ctx context.Context, assetID str
 	return s.repo.FindByAssetID(ctx, assetID)
 }
 
+// ResolveSystemPrompt 实现 service.AssetBundleResolver 接口（SalesEngine 织入资产包人设）。
+//
+// 按 AssetID 加载资产包，提取其中 role=system 的消息内容，拼接为一段 system prompt。
+// 该字符串会在 SalesEngine.HandleWithAgent 中覆盖智能体原 Persona，实现
+// 「渠道→智能体→资产包」三层接线。任何异常（包不存在 / 无 system 消息）均按
+// 调用方约定返回 error 或空串，由 SalesEngine 安全降级沿用原 Persona。
+func (s *AssetBundleService) ResolveSystemPrompt(ctx context.Context, assetBundleID string) (string, error) {
+	if assetBundleID == "" {
+		return "", fmt.Errorf("asset_bundle_id empty")
+	}
+	bundle, err := s.repo.FindByAssetID(ctx, assetBundleID)
+	if err != nil {
+		return "", err
+	}
+	if bundle == nil {
+		return "", fmt.Errorf("asset bundle not found: %s", assetBundleID)
+	}
+	var sb strings.Builder
+	for _, m := range bundle.Messages {
+		if m.Role == "system" && strings.TrimSpace(m.Content) != "" {
+			if sb.Len() > 0 {
+				sb.WriteString("\n\n")
+			}
+			sb.WriteString(m.Content)
+		}
+	}
+	return sb.String(), nil
+}
+
 // ListBundles 分页查询
 func (s *AssetBundleService) ListBundles(ctx context.Context, f repository.AssetBundleFilter) ([]*model.AssetBundle, int64, error) {
 	return s.repo.List(ctx, f)

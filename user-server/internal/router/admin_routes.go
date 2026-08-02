@@ -121,7 +121,7 @@ func setupPublicRoutes(public *gin.RouterGroup, liveCodeController *controller.L
 	public.GET("/s/:code", redirectCtrl.RedirectShortLink)
 	public.GET("/l/:code", liveCodeController.RedirectLiveCode)
 
-	// F- 补完：活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
+	// 活码公开访问落地页 + 点击上报（无需鉴权，访客直接访问）
 	//   - GET  /api/livecode/:id        渲染活码落地页（HTML）
 	//   - POST /api/livecode/:id/click  记录访客点击（用于统计聚合）
 	public.GET("/livecode/:id", liveCodeController.RenderLiveCodePage)

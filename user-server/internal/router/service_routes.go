@@ -262,7 +262,7 @@ func setupLLMProviderRoutes(auth *gin.RouterGroup) {
 	auth.GET("/llm/providers/policy", llmProvCtrl.GetPolicy)
 	auth.PUT("/llm/providers/policy", llmProvCtrl.UpdatePolicy)
 	// 文档承诺的 /api/llm-routings/* 端点（前端 ops/llm-routing 看板使用）
-	// F- 修复：统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
+	// 统一路径参数为 :provider，与 controller GetProviderHealth 读取一致
 	auth.GET("/llm-routings/providers/health", llmProvCtrl.GetHealth)
 	auth.GET("/llm-routings/providers/:provider/health", llmProvCtrl.GetProviderHealth)
 	auth.POST("/llm-routings/providers/circuit/reset", llmProvCtrl.ResetCircuit)

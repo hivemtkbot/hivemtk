@@ -110,7 +110,7 @@ const STATIC_PAGES = new Set(['/email/guide', '/email/info'])
 test('[API契约] 34页 零4xx/5xx + 零重定向 + 数据真实流回', { timeout: 180000 }, async ({ page }) => {
   test.setTimeout(240000)
   await setLocale(page, 'zh')
-  const bad = [] // /api 4xx/5xx
+  const bad = [] // 收集接口 4xx/5xx
   const total = [] // 所有 /api 响应
   const errors = []
   page.on('response', (res) => {

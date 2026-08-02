@@ -1863,7 +1863,7 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 
 // sendOutbound 出站发送（按 channel）；ctx 用于透传 trace_id（来自 triggerSmartOrchestrator / 回退链路）
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub) {
-	// /V3 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
+	// 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
 	// 同一 EventID 仅首条链路出站，杜绝重复消息；同时防御 webhook 平台重复投递
 	// （同 EventID 二次到达）导致的重复出站。
 	if !agent_runtime.ClaimReply(p.EventID) {

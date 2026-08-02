@@ -226,6 +226,7 @@ func (s *AIAgentService) LoadContext(ctx context.Context, agentID uint) (*AgentC
 		RAGTopK:              agent.RAGTopK,
 		ConfidenceThreshold:  agent.ConfidenceThreshold,
 		MaxAIConsecutive:     agent.MaxAIConsecutive,
+		AssetBundleID:        agent.AssetBundleID,
 	}
 
 	// 4. 写缓存

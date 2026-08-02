@@ -14,7 +14,7 @@ type EventTracker struct {
 	repo         repository.CustomerEventRepository
 	customerRepo repository.CustomerRepository
 	autoTagger   *AutoTagger
-	orchestrator *CustomerOrchestrator // F- 业务编排层（可选）
+	orchestrator *CustomerOrchestrator // 业务编排层（可选）
 	disableAsync bool                  // 用于测试禁用异步处理
 }
 
@@ -85,7 +85,7 @@ func (s *EventTracker) Track(ctx context.Context, dto *EventDTO) error {
 				logger.Errorf("AutoTagger.ProcessEvent error: %v", err)
 			}
 		}()
-		// F-: 联动业务编排层（旅程阶段迁移 / 标签更新）
+		// 联动业务编排层（旅程阶段迁移 / 标签更新）
 		if s.orchestrator != nil {
 			go func() {
 				defer func() {

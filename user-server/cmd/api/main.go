@@ -278,7 +278,7 @@ func main() {
 		intentRec.SetSOPService(context.Background(), scheduler.SOPService(context.Background()))
 	}
 
-	// /4/5 启动装配（启动时初始化全局单例，供 router 注入到 SalesEngine）
+	// 启动装配（启动时初始化全局单例，供 router 注入到 SalesEngine）
 	// 1) 置信度聚合器
 	service.InitConfidenceAggregator(db.GetDB(), nil, nil)
 	// 2) 拟人度评估器
@@ -340,7 +340,7 @@ func registerEventSubscribers() {
 	}
 
 	// 1) AgentRuntime 订阅 customer.message.received
-	// /V1 修复：AgentRuntime 依赖(nil)尚未接入，订阅后不会真正处理且会占用
+	// AgentRuntime 依赖(nil)尚未接入，订阅后不会真正处理且会占用
 	// 一个 bus worker（僵尸订阅者 V1）。默认关闭总线订阅，由同步主链路(webhook)
 	// 作为客户消息唯一活跃处理路径；仅当显式 AGENT_RUNTIME_BUS_ENABLED=true
 	// 且已注入真实依赖时，才开启总线双写（由 EventID 幂等守卫保证 exactly-once）。

@@ -205,6 +205,28 @@ func (m *mockFAQRepoForDecay) MatchByAgent(ctx context.Context, agentID uint, ms
 	return out, nil
 }
 
+func (m *mockFAQRepoForDecay) ListCandidates(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	m.agentIDSeen = agentID
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	out := make([]model.FAQEntry, 0, len(m.entriesByAgent[agentID]))
+	for _, e := range m.entriesByAgent[agentID] {
+		if e.Enabled != nil && !*e.Enabled {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func (m *mockFAQRepoForDecay) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+	if m.matchByAgentErr != nil {
+		return nil, m.matchByAgentErr
+	}
+	return entries, nil
+}
+
 // ListByAgent Task 15 mock: 返回某 agent 的全部 entries
 func (m *mockFAQRepoForDecay) ListByAgent(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
 	if m.listByAgentErr != nil {

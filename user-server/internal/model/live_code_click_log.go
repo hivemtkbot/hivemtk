@@ -3,7 +3,7 @@ package model
 import "time"
 
 // LiveCodeClickLog 活码点击日志（活码维度）
-// F-: 记录访客点击活码落地页的原始事件，供 GetStats 聚合真实点击量
+// 记录访客点击活码落地页的原始事件，供 GetStats 聚合真实点击量
 type LiveCodeClickLog struct {
 	ID         int64     `json:"id" gorm:"primaryKey;autoIncrement"`
 	LiveCodeID string    `json:"live_code_id" gorm:"size:36;not null;index"`
@@ -20,7 +20,7 @@ func (LiveCodeClickLog) TableName() string {
 }
 
 // QRCodeClickLog 二维码点击日志（二维码维度）
-// F-: 记录访客点击二维码的原始事件，供 GetQRStats 聚合 ViewCount/ClickCount
+// 记录访客点击二维码的原始事件，供 GetQRStats 聚合 ViewCount/ClickCount
 type QRCodeClickLog struct {
 	ID         int64     `json:"id" gorm:"primaryKey;autoIncrement"`
 	QRCodeID   string    `json:"qr_code_id" gorm:"size:36;not null;index"`

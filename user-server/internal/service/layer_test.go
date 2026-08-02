@@ -75,6 +75,26 @@ func (m *mockFAQRepo) MatchByAgent(ctx context.Context, agentID uint, msg string
 	return m.entries[:topK], nil
 }
 
+func (m *mockFAQRepo) ListCandidates(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if limit <= 0 || limit > len(m.entries) {
+		limit = len(m.entries)
+	}
+	return m.entries[:limit], nil
+}
+
+func (m *mockFAQRepo) ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if topK <= 0 || topK > len(entries) {
+		topK = len(entries)
+	}
+	return entries[:topK], nil
+}
+
 func (m *mockFAQRepo) IncrementHitCount(ctx context.Context, id uint) error {
 	m.hits.Add(1)
 	return nil

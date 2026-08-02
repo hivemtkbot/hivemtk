@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"marketing/internal/dto"
 	"marketing/internal/model"
 	"marketing/internal/repository"
 	"net/http"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -157,56 +159,67 @@ func (s *domainPoolService) CheckDomain(ctx context.Context, id int) (bool, erro
 	return true, nil
 }
 
-// CheckAllDomains 检查所有域名是否可访问
+// CheckAllDomains 并发检查所有域名是否可访问（默认并发 domainCheckConcurrency，避免串行逐个 HTTP 阻塞）
 func (s *domainPoolService) CheckAllDomains(ctx context.Context) ([]dto.DomainPoolCheckResponse, error) {
 	// 获取所有域名
 	domainPools, _, err := s.domainPoolRepo.List(ctx, 1, 1000, "", 0)
 	if err != nil {
 		return nil, err
 	}
-
-	var results []dto.DomainPoolCheckResponse
-
-	// 顺序检查所有域名
-	for _, domainPool := range domainPools {
-		// 构建URL
-		url := fmt.Sprintf("http://%s:%d", domainPool.Domain, domainPool.Port)
-
-		// 发送HTTP请求检查域名是否可访问
-		client := &http.Client{
-			Timeout: 5 * time.Second,
-		}
-
-		status := 2 // 默认不可访问
-		msg := "不可访问"
-
-		resp, err := client.Get(url)
-		if err != nil {
-			msg = fmt.Sprintf("连接错误: %s", err.Error())
-		} else {
-			defer resp.Body.Close()
-			if resp.StatusCode < 400 {
-				status = 1
-				msg = "可访问"
-			} else {
-				msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
-			}
-		}
-
-		// 更新数据库中的状态和最后检查时间
-		s.domainPoolRepo.UpdateStatus(ctx, domainPool.ID, status)
-		s.domainPoolRepo.UpdateLastCheck(ctx, domainPool.ID, time.Now())
-
-		// 添加到结果中
-		results = append(results, dto.DomainPoolCheckResponse{
-			ID:     domainPool.ID,
-			Status: status,
-			Msg:    msg,
-		})
+	if len(domainPools) == 0 {
+		return nil, nil
 	}
 
+	results := make([]dto.DomainPoolCheckResponse, len(domainPools))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, domainCheckConcurrency)
+	for i, dp := range domainPools {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, dp *model.DomainPool) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			// 构建URL
+			url := fmt.Sprintf("http://%s:%d", dp.Domain, dp.Port)
+
+			client := &http.Client{Timeout: 5 * time.Second}
+
+			status := 2 // 默认不可访问
+			msg := "不可访问"
+
+			resp, err := client.Get(url)
+			if err != nil {
+				msg = fmt.Sprintf("连接错误: %s", err.Error())
+			} else {
+				// 及时排空并关闭响应体，避免串行 defer 堆积导致连接泄漏
+				_, _ = io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+				if resp.StatusCode < 400 {
+					status = 1
+					msg = "可访问"
+				} else {
+					msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
+				}
+			}
+
+			// 更新数据库中的状态和最后检查时间（gorm 连接池并发安全）
+			s.domainPoolRepo.UpdateStatus(ctx, dp.ID, status)
+			s.domainPoolRepo.UpdateLastCheck(ctx, dp.ID, time.Now())
+
+			results[i] = dto.DomainPoolCheckResponse{
+				ID:     dp.ID,
+				Status: status,
+				Msg:    msg,
+			}
+		}(i, dp)
+	}
+	wg.Wait()
 	return results, nil
 }
+
+// domainCheckConcurrency CheckAllDomains 并发健康检查的最大并发数
+const domainCheckConcurrency = 16
 
 // ============== G 域 黑名单管理(下沉到 Service) ==============
 

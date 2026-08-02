@@ -348,6 +348,9 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 		},
 	}
 
+	// 并发投递本轮 update 的 worker 上限（本地 webhook 幂等，顺序无关）
+	const tgPollingDeliverConcurrency = 16
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -375,16 +378,29 @@ func runTelegramPollingWorker(ctx context.Context, accountID uint, botToken, acc
 		}
 		backoff = tgPollingBackoffMin // 成功后重置
 
+		// 并发投递本轮所有 update（本地 webhook 幂等，顺序无关）；
+		// 全部投递完成后再推进 offset，避免与下一轮 getUpdates 竞争。
+		maxUID := offset - 1
+		sem := make(chan struct{}, tgPollingDeliverConcurrency)
+		var wg sync.WaitGroup
 		for _, raw := range updates {
-			// 推进 offset：每个 update 单独处理
 			uid := extractUpdateID(raw)
-			if uid > 0 {
-				offset = uid + 1
+			if uid > maxUID {
+				maxUID = uid
 			}
-			if err := deliverTelegramUpdate(ctx, client, accountID, webhookSecret, raw); err != nil {
-				logger.Warnf("[TG-Polling] 账号 %d(%s) 投递 update 失败: %v", accountID, accountName, err)
-			}
+			r := raw
+			wg.Add(1)
+			sem <- struct{}{}
+			go func() {
+				defer wg.Done()
+				defer func() { <-sem }()
+				if err := deliverTelegramUpdate(ctx, client, accountID, webhookSecret, r); err != nil {
+					logger.Warnf("[TG-Polling] 账号 %d(%s) 投递 update 失败: %v", accountID, accountName, err)
+				}
+			}()
 		}
+		wg.Wait()
+		offset = maxUID + 1
 	}
 }
 

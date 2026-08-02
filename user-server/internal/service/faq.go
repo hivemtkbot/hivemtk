@@ -74,6 +74,10 @@ type faqRepoIface interface {
 	ListWithFilter(ctx context.Context, filter repository.FAQFilter) ([]model.FAQEntry, int64, error)
 	GetByID(ctx context.Context, id uint) (*model.FAQEntry, error)
 	ListEnabled(ctx context.Context, limit int) ([]model.FAQEntry, error)
+	// ListCandidates 返回指定 agent 的 FAQ 候选集（已启用），语义与 listEnabledForAgent 对齐
+	ListCandidates(ctx context.Context, agentID uint, limit int) ([]model.FAQEntry, error)
+	// ScoreCandidates 对已加载的 FAQ 候选集做内存打分排序（不触发 DB 查询）
+	ScoreCandidates(entries []model.FAQEntry, msg string, topK int) ([]model.FAQEntry, error)
 	Create(ctx context.Context, entry *model.FAQEntry) error
 	Update(ctx context.Context, id uint, entry *model.FAQEntry) error
 	Delete(ctx context.Context, id uint) error
@@ -176,6 +180,33 @@ func (s *FAQService) SetClock(c Clock) {
 //   - 仅查询 agent_id IS NULL 的全局共享 FAQ
 //   - 保留旧 Match API 用于调试 / 后台管理界面
 //   - 业务运行时应使用 MatchByAgent
+// cachedEntries 返回指定 agent 的 FAQ 候选集（已启用）。优先命中内存缓存（TTL faqCacheTTL），
+// 避免每次 FAQ 匹配都从 DB 全量拉取最多 faqCacheMaxN 条 FAQ 再做内存打分。
+//
+// 语义与 repository.listEnabledForAgent 对齐：
+//   - agentID == 0: 全部已启用 FAQ（共享池）
+//   - agentID > 0: agent_id = agentID OR agent_id IS NULL（该 agent 私有 + 共享）
+func (s *FAQService) cachedEntries(ctx context.Context, agentID uint) ([]model.FAQEntry, error) {
+	s.mu.RLock()
+	if ents, ok := s.cache[agentID]; ok {
+		if t, ok2 := s.loaded[agentID]; ok2 && time.Since(t) < faqCacheTTL {
+			s.mu.RUnlock()
+			return ents, nil
+		}
+	}
+	s.mu.RUnlock()
+
+	ents, err := s.repo.ListCandidates(ctx, agentID, faqCacheMaxN)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.cache[agentID] = ents
+	s.loaded[agentID] = time.Now()
+	s.mu.Unlock()
+	return ents, nil
+}
+
 func (s *FAQService) Match(ctx context.Context, msg string, topK int) ([]dto.FAQMatchResult, error) {
 	if s.repo == nil {
 		return nil, nil
@@ -183,11 +214,15 @@ func (s *FAQService) Match(ctx context.Context, msg string, topK int) ([]dto.FAQ
 	if topK <= 0 {
 		topK = faqTopKDefault
 	}
-	entries, err := s.repo.MatchByKeyword(ctx, msg, topK)
+	entries, err := s.cachedEntries(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
-	return s.toMatchResults(entries, "keyword"), nil
+	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	if err != nil {
+		return nil, err
+	}
+	return s.toMatchResults(scored, "keyword"), nil
 }
 
 // MatchByAgent 按智能体 ID 匹配 FAQ (Task 15: 强 1对1 改造)
@@ -215,11 +250,15 @@ func (s *FAQService) MatchByAgent(ctx context.Context, agentID uint, msg string,
 	if topK <= 0 {
 		topK = faqTopKDefault
 	}
-	entries, err := s.repo.MatchByAgent(ctx, agentID, msg, topK)
+	entries, err := s.cachedEntries(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
-	return s.toMatchResults(entries, "agent_bound"), nil
+	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	if err != nil {
+		return nil, err
+	}
+	return s.toMatchResults(scored, "agent_bound"), nil
 }
 
 // MatchByAgentKB 按 agentID + KB ID 集合匹配 (供上层 service / 编排使用)
@@ -236,11 +275,15 @@ func (s *FAQService) MatchByAgentKB(ctx context.Context, agentID uint, kbIDs []u
 	// 简化: 当前 FAQEntry 没有 knowledge_base_id 字段, 走 agentID 过滤;
 	// 上层传入 kbIDs 仅作"语义"占位, 未来 FAQEntry 加 kb_id 列后可在此处拓展。
 	_ = kbIDs
-	entries, err := s.repo.MatchByAgent(ctx, agentID, msg, topK)
+	entries, err := s.cachedEntries(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
-	return s.toMatchResults(entries, "agent_kb"), nil
+	scored, err := s.repo.ScoreCandidates(entries, msg, topK)
+	if err != nil {
+		return nil, err
+	}
+	return s.toMatchResults(scored, "agent_kb"), nil
 }
 
 // toMatchResults 转换为 DTO 列表

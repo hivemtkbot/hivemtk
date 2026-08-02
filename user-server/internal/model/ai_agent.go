@@ -108,6 +108,10 @@ type AIAgent struct {
 	// A/B 实验挂载 — 新增(§2.3)
 	ABExperimentIDs pq.StringArray `gorm:"type:text[];column:ab_experiment_ids" json:"ab_experiment_ids"`
 
+	// 资产包绑定 — 智能体可绑定一个资产包（AssetBundle.AssetID）
+	// 执行时由 AssetBundleService.ResolveSystemPrompt 织入人设/话术，覆盖原 Persona
+	AssetBundleID string `gorm:"type:varchar(128);column:asset_bundle_id;default:''" json:"asset_bundle_id"`
+
 	// LLM 配置
 	LLMModel          string            `gorm:"type:varchar(100);default:gpt-4o-mini" json:"llm_model"`
 	LLMProviderConfig LLMProviderConfig `gorm:"embedded;embeddedPrefix:llm_" json:"llm_provider_config"`

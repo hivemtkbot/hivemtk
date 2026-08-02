@@ -36,6 +36,9 @@ func setupAssetBundleRoutes(auth *gin.RouterGroup) {
 	assetBundleRepo := repository.NewAssetBundleRepository(db.GetDB())
 	versionLogRepo := repository.NewAssetBundleVersionLogRepository(db.GetDB())
 	assetBundleSvc := service.NewAssetBundleService(assetBundleRepo, versionLogRepo)
+	// 注入全局资产包解析器：让 SalesEngine 在执行智能体时按 asset_bundle_id
+	// 织入资产包人设/话术（渠道→智能体→资产包 三层接线点）
+	service.SetAssetBundleResolver(assetBundleSvc)
 	ctrl := controller.NewAssetBundleController(assetBundleSvc)
 
 	// 兼容 /api/v1 与 /api 两种前缀。

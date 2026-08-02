@@ -48,8 +48,8 @@ type CustomerOrchestrator struct {
 	journey       *CustomerJourneyService
 	tagger        *AutoTagger
 	cache         cache.Cache
-	clueScoreUpd  ClueScoreRFMUpdater // F- 线索评分 RFM 回流
-	segmentRecomp SegmentRecomputer   // F- 分群重算
+	clueScoreUpd  ClueScoreRFMUpdater // 线索评分 RFM 回流
+	segmentRecomp SegmentRecomputer   // 分群重算
 }
 
 // NewCustomerOrchestrator 创建客户业务编排层实例。
