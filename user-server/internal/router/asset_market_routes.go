@@ -20,6 +20,7 @@ func setupAssetMarketRoutes(auth *gin.RouterGroup) {
 	h := controller.NewAssetMarketController(
 		service.NewLocalAssetService(ar, dr, sr, pc, gdb),
 		service.NewAssetMarketService(pc),
+		service.NewAIAgentService(),
 	)
 
 	// 兼容 /api/v1 与 /api
@@ -34,6 +35,7 @@ func setupAssetMarketRoutes(auth *gin.RouterGroup) {
 		market.POST("/sync", h.Sync)
 		market.POST("/report-usage", h.ReportUsage)
 		market.GET("/my-purchases", h.MyPurchases)
+		market.POST("/bind", h.BindToAgent)
 	}
 
 	localGroups := []*gin.RouterGroup{

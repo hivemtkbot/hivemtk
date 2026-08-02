@@ -247,6 +247,24 @@ func (s *AIAgentService) invalidateCache(ctx context.Context, agentID uint) {
 	s.cacheMu.Unlock()
 }
 
+// BindAssetBundle 将资产包（含平台同步的 local_assets.AssetID）绑定到智能体。
+//
+// 闭合「平台下发资产包 → 商户同步落库 → 绑定到智能体 → 运行时消费」全链路：
+// 绑定后运行期 ResolveSystemPrompt(asset_bundle_id) 会回退解析该本地资产，
+// 像 seed/自建资产包一样覆盖智能体 Persona。
+func (s *AIAgentService) BindAssetBundle(ctx context.Context, agentID uint, assetBundleID string) error {
+	agent, err := s.repo.GetByID(ctx, agentID)
+	if err != nil {
+		return err
+	}
+	agent.AssetBundleID = assetBundleID
+	if err := s.repo.Update(ctx, agent); err != nil {
+		return err
+	}
+	s.invalidateCache(ctx, agentID)
+	return nil
+}
+
 // TestAgent 测试智能体执行
 // 输入消息和客户ID，返回 SalesEngine 完整链路日志
 // 此方法在 Controller 层调用，由 Controller 注入 SalesEngine

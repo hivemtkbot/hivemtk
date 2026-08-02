@@ -3,6 +3,7 @@ package router
 import (
 	"marketing/internal/controller"
 	"marketing/internal/pkg/utils/db"
+	"marketing/internal/platform"
 	"marketing/internal/repository"
 	"marketing/internal/service"
 
@@ -36,6 +37,13 @@ func setupAssetBundleRoutes(auth *gin.RouterGroup) {
 	assetBundleRepo := repository.NewAssetBundleRepository(db.GetDB())
 	versionLogRepo := repository.NewAssetBundleVersionLogRepository(db.GetDB())
 	assetBundleSvc := service.NewAssetBundleService(assetBundleRepo, versionLogRepo)
+	// 注入平台同步资产加载器：资产包解析器在 asset_bundles 未命中时回退解析商户从
+	// 平台同步下来的本地资产（local_assets），闭合「平台下发资产包→运行时消费」闭环。
+	localAssetRepo := repository.NewLocalAssetRepository(db.GetDB())
+	localAssetDataRepo := repository.NewLocalAssetDataRepository(db.GetDB())
+	localAssetSyncLogRepo := repository.NewLocalAssetSyncLogRepository(db.GetDB())
+	localAssetSvc := service.NewLocalAssetService(localAssetRepo, localAssetDataRepo, localAssetSyncLogRepo, platform.NewPlatformAPIClient(), db.GetDB())
+	assetBundleSvc.SetLocalLoader(localAssetSvc)
 	// 注入全局资产包解析器：让 SalesEngine 在执行智能体时按 asset_bundle_id
 	// 织入资产包人设/话术（渠道→智能体→资产包 三层接线点）
 	service.SetAssetBundleResolver(assetBundleSvc)

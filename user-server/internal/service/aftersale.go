@@ -15,20 +15,33 @@ import (
 // 由电商执行落地；本服务只负责本地落库 + 状态跟踪。订单本身的创建/支付/履约
 // 由外部电商负责，客服绝不触碰。
 type AfterSaleService struct {
-	repo *repository.AfterSaleRepository
+	repo   *repository.AfterSaleRepository
+	client AfterSaleExternalClient // 可选：回写电商平台的客户端（注入覆盖；缺省时按 DB 配置按需构造）
 }
 
-// NewAfterSaleService 构造
+// NewAfterSaleService 构造（无回写客户端，走 best-effort 本地落库）
 func NewAfterSaleService() *AfterSaleService {
-	return &AfterSaleService{repo: repository.NewAfterSaleRepository()}
+	return NewAfterSaleServiceWithClient(repository.NewAfterSaleRepository(), nil)
 }
 
-// Create 发起售后（本地落库，等待电商回写状态）。
+// NewAfterSaleServiceWithClient 构造（注入回写电商客户端）
+func NewAfterSaleServiceWithClient(repo *repository.AfterSaleRepository, client AfterSaleExternalClient) *AfterSaleService {
+	return &AfterSaleService{repo: repo, client: client}
+}
+
+// SetExternalClient 设置/替换回写电商平台客户端
+func (s *AfterSaleService) SetExternalClient(client AfterSaleExternalClient) {
+	s.client = client
+}
+
+// Create 发起售后：本地落库 + （可选）回写电商。
 //
-// 集成回写说明：真实环境应在此调用对应电商平台售后 API
-// （淘宝 taobao.refund.* / 京东售后接口）把售后请求推给电商执行，
-// 并用返回的电商侧售后单号(external_id) + 状态更新本记录。
-// 当前为 best-effort：本地已记录，状态等待电商 Webhook 回推或定时拉取刷新。
+// 回写说明：优先使用注入的 AfterSaleExternalClient；否则按数据库 system_config_kv
+// [agent.tool_integrations].after_sale 配置（见 tool_integration_config.go）按需构造客户端。
+// 配置启用且基地址非空（client.Configured()=true）时，把售后请求推给电商执行落地，
+// 用返回的电商侧售后单号(external_id) + 状态更新本记录；否则走 best-effort 本地落库，
+// 状态等待电商 Webhook 回推或定时拉取刷新（与旧行为一致）。
+// 后台写入配置后立即对新请求生效，无需重启。
 func (s *AfterSaleService) Create(ctx context.Context, req *portcontract.AfterSaleRequest) (*portcontract.AfterSaleView, error) {
 	if req == nil || req.OrderID == "" {
 		return nil, fmt.Errorf("order_id 不能为空")
@@ -49,8 +62,34 @@ func (s *AfterSaleService) Create(ctx context.Context, req *portcontract.AfterSa
 	if err := s.repo.Create(ctx, as); err != nil {
 		return nil, err
 	}
-	// TODO(集成): 调用电商平台售后 API 回写，成功后用 external_id 更新状态。
+	// 集成回写：注入的客户端优先；缺省时按数据库配置按需构造。
+	if client := s.resolveClient(ctx); client != nil && client.Configured() {
+		if res, err := client.Create(ctx, req); err != nil {
+			// 回写失败不阻断本地落库，仅记录（状态仍等待 Webhook/拉取刷新）。
+			fmt.Printf("[aftersale] 回写电商失败（本地已落库，状态待刷新）：%v\n", err)
+		} else if res != nil && res.ExternalID != "" {
+			as.ExternalID = res.ExternalID
+			if res.Status != "" {
+				as.Status = res.Status
+			}
+			if err := s.repo.Update(ctx, as); err != nil {
+				fmt.Printf("[aftersale] 更新回写结果失败：%v\n", err)
+			}
+		}
+	}
 	return afterSaleToView(as), nil
+}
+
+// resolveClient 解析回写电商客户端：注入的 client 优先，否则按数据库配置按需构造。
+func (s *AfterSaleService) resolveClient(ctx context.Context) AfterSaleExternalClient {
+	if s.client != nil && s.client.Configured() {
+		return s.client
+	}
+	cfg, err := LoadToolIntegrationConfig(ctx)
+	if err != nil || cfg == nil || !cfg.AfterSale.Enabled || cfg.AfterSale.BaseURL == "" {
+		return nil
+	}
+	return NewAfterSaleExternalClientFromConfig(cfg.AfterSale)
 }
 
 // Query 查询售后单（按 平台+订单号 或 客户手机）

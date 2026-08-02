@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +36,18 @@ type AgentToolExecutor interface {
 	// DispatchToolCalls 并发执行 LLM 返回的 tool_call 列表，返回每个调用的结果
 	// toolCtx 包含 session_id / customer_id 等执行上下文
 	DispatchToolCalls(ctx context.Context, calls []AgentToolCall, toolCtx AgentToolContext) []AgentToolResult
+}
+
+// AgentToolPermissionChecker 工具执行期权限检查器（依赖倒置，避免 service↔tooluse 循环依赖）
+//
+// 仅暴露 runAgentLoop 需要的“按 Agent 设置工具白名单”能力；
+// 具体实现 *tooluse.WhitelistPermissionChecker 由 router 层注入同一全局单例。
+// 与 limitToolsForAgent 的“注入期过滤（决定 LLM 能看到哪些工具）”形成双层防护：
+//   - 注入期过滤：LLM 根本看不到白名单外的工具 → 无法发起调用
+//   - 执行期检查：即使越权调用，权限检查器按白名单拒绝
+type AgentToolPermissionChecker interface {
+	// SetAgentWhitelist 覆盖式设置某 Agent 允许使用的工具名单。
+	SetAgentWhitelist(agentID string, tools []string)
 }
 
 // AgentToolDef 工具定义（OpenAI Function Calling 兼容）
@@ -130,6 +140,18 @@ type SalesEngine struct {
 	//   - FAQ/SOP 均未命中   -> 走 Layer2 LLM
 	// 未注入时维持原 LLM 单一路径 (向后兼容)
 	layerRouter *LayerRouter
+
+	// permissionChecker 工具执行期权限检查器（可选注入，依赖倒置避免 service↔tooluse 循环依赖）。
+	// 注入后 runAgentLoop 每轮执行前按 Agent 白名单（AgentContext.Tools）覆盖式设置执行期放行名单，
+	// 与 limitToolsForAgent 的“注入期过滤”形成双层防护。同一全局 *tooluse.WhitelistPermissionChecker
+	// 单例由 router 注入，管理 API（/api/agent/tools/permission/agents/:agent_id）亦可设置。
+	permissionChecker AgentToolPermissionChecker
+}
+
+// SetPermissionChecker 注入工具执行期权限检查器（由 router 层注入全局 *tooluse.WhitelistPermissionChecker 单例）。
+// 注入后，runAgentLoop 会按 AgentContext.Tools 在每轮执行前覆盖式设置执行期工具白名单。
+func (e *SalesEngine) SetPermissionChecker(pc AgentToolPermissionChecker) {
+	e.permissionChecker = pc
 }
 
 // RAGSearcher RAG 召回接口（由 RAG 服务实现，避免循环依赖）
@@ -1092,7 +1114,8 @@ func (e *SalesEngine) generateCandidate(
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数
 // 防止 LLM 无限调用工具或陷入循环。
-// 复杂多工具场景可由 SetAgentLoopMaxIterations 或 env MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖。
+// 默认 5；运行期调参存数据库 system_config_kv[agent.settings].max_loop_iterations，
+// 由 LoadAgentSettingsConfig 读取覆盖；也可由 SetAgentLoopMaxIterations 注入（测试/内嵌）。
 // 注意：必须 >= 2。LLM 在第 1 轮返回 tool_calls 后，需要第 2 轮（携带工具结果）才能生成最终
 // 文本回复；若设为 1，工具调用永远无法产出答案，会被降级为“空回复→转人工”，工具调用形同失效。
 // 默认 5，兼顾多工具串联与 follow-up 问答；受 agentLoopTotalTimeout(默认180s) 约束。
@@ -1107,13 +1130,35 @@ func SetAgentLoopMaxIterations(n int) {
 	agentLoopMaxIterations = n
 }
 
-// init 读取环境变量 MTK_AGENT_LOOP_MAX_ITERATIONS 覆盖默认迭代次数（仅当为正整数时生效）。
-func init() {
-	if v := os.Getenv("MTK_AGENT_LOOP_MAX_ITERATIONS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			agentLoopMaxIterations = n
+// agentLoopMaxTools Agent Loop 向 LLM 注入的工具数量上限（默认优先级模式下）。
+// 当 Agent 未配置 Tools 白名单时，limitToolsForAgent 按默认优先级取前 agentLoopMaxTools 个工具。
+// 默认 18（覆盖原式硬编码的 10，使电商客服关键工具
+// reach.card.send / reach.sms.send / aftersale.* / logistics.track 默认可见）；
+// 运行期调参存数据库 system_config_kv[agent.settings].max_tools，由 LoadAgentSettingsConfig
+// 读取覆盖；也可由 SetAgentLoopMaxTools 注入（测试/内嵌）。
+var agentLoopMaxTools = 18
+
+// SetAgentLoopMaxTools 注入 Agent Loop 工具数量上限
+func SetAgentLoopMaxTools(n int) {
+	if n <= 0 {
+		return
+	}
+	agentLoopMaxTools = n
+}
+
+// resolveAgentSettings 解析 Agent Loop 运行期调参（数据库 system_config_kv[agent.settings]
+// 为唯一真相源；缺配置/读取失败时回退到代码内默认值，尊重 SetAgentLoop* 注入）。
+func resolveAgentSettings(ctx context.Context) (maxTools, maxIter int) {
+	maxTools, maxIter = agentLoopMaxTools, agentLoopMaxIterations
+	if cfg, err := LoadAgentSettingsConfig(ctx); err == nil && cfg != nil {
+		if cfg.MaxTools > 0 {
+			maxTools = cfg.MaxTools
+		}
+		if cfg.MaxLoopIterations > 0 {
+			maxIter = cfg.MaxLoopIterations
 		}
 	}
+	return
 }
 
 // agentLoopTotalTimeout Agent Loop wall-clock 总超时
@@ -1168,9 +1213,19 @@ func (e *SalesEngine) runAgentLoop(
 	customer *model.Customer,
 	availableTools []AgentToolDef,
 ) (string, *llm.DispatchResult, error) {
+	// 计算 agent 标识与工具白名单（来自 AgentContext.Tools）
+	agentIDStr := fmt.Sprintf("%d", agentIDFromCtx(req))
+	allowed := agentContextToolNames(req)
+	// 双层防护第二层（执行期权限检查）：按 Agent 白名单覆盖式设置放行名单。
+	// 仅当本 agent 显式配置 Tools 白名单时生效；否则不覆盖（保留管理 API 设置的名单或默认放行）。
+	if len(allowed) > 0 && e.permissionChecker != nil {
+		e.permissionChecker.SetAgentWhitelist(agentIDStr, allowed)
+	}
+
 	// 1. 构造工具定义列表（AgentToolDef → llm.ToolDefinition）
-	// 限制工具数量，避免 prompt 过长超出上下文窗口
-	filteredTools := limitToolsForAgent(availableTools, 10)
+	// 限制工具数量，避免 prompt 过长超出上下文窗口（双层防护第一层：注入期过滤）
+	maxTools, maxIter := resolveAgentSettings(ctx)
+	filteredTools := limitToolsForAgent(availableTools, maxTools, allowed)
 	toolDefs := make([]llm.ToolDefinition, 0, len(filteredTools))
 	for _, fn := range filteredTools {
 		params := fn.Parameters
@@ -1204,7 +1259,7 @@ func (e *SalesEngine) runAgentLoop(
 	}
 
 	// 2. 构造初始 messages（system + user）
-	messages := make([]llm.ChatMessage, 0, 4+agentLoopMaxIterations*2)
+	messages := make([]llm.ChatMessage, 0, 4+maxIter*2)
 	messages = append(messages, llm.ChatMessage{
 		Role:    "system",
 		Content: buildAgentSystemPrompt(req.Config.Persona, intent, mem, customer),
@@ -1228,7 +1283,7 @@ func (e *SalesEngine) runAgentLoop(
 	}
 	curTools := toolDefs
 	lengthRetryDone := false
-	for iter := 1; iter <= agentLoopMaxIterations; iter++ {
+	for iter := 1; iter <= maxIter; iter++ {
 		// 检查总超时
 		if agentLoopCtx.Err() != nil {
 			logger.Warnf("[AgentLoop] wall-clock timeout at iter=%d total_tool_calls=%d, fallback to last content",
@@ -1290,7 +1345,7 @@ func (e *SalesEngine) runAgentLoop(
 
 		// 3.4 调用 AgentToolExecutor 并发执行所有 tool_call
 		toolCtx := AgentToolContext{
-			AgentID:    "",
+			AgentID:    agentIDStr,
 			SessionID:  req.SessionID,
 			CustomerID: req.CustomerID,
 			Source:     "agent",
@@ -1364,16 +1419,62 @@ func buildAgentSystemPrompt(persona string, intent *dto.RecognizeResult, mem *mo
 
 // limitToolsForAgent 限制注入到 LLM 的工具数量
 // 40 个工具全注入会超出上下文窗口，只保留最相关的 maxTools 个
-func limitToolsForAgent(tools []AgentToolDef, maxTools int) []AgentToolDef {
-	if len(tools) <= maxTools {
-		return tools
+// agentContextToolNames 返回本 agent 配置的工具白名单（来自 AgentContext.Tools）。
+// 非空时 runAgentLoop 仅注入并放行名单内工具；空时走 limitToolsForAgent 默认优先级集。
+func agentContextToolNames(req *SalesRequest) []string {
+	if req == nil || req.AgentContext == nil {
+		return nil
 	}
-	// 销售场景优先级：知识库 > 客户 > 订单 > 私信 > 其他
+	return req.AgentContext.Tools
+}
+
+// limitToolsForAgent 计算注入给 LLM 的工具子集（双层防护之「注入期过滤」）。
+//
+// 行为：
+//   - allowed 非空（来自 AgentContext.Tools 工具白名单）：仅保留名单内工具，按白名单顺序返回，
+//     上限 30（保护 LLM 上下文）。未被 agent 授权的工具 LLM 根本看不到 → 无法发起调用。
+//   - allowed 为空：按默认优先级取前 maxTools 个工具。默认优先级已覆盖电商客服关键路径
+//     （rag/customer/order/pm/reach.card.send/reach.sms.send/aftersale.*/logistics.track 等），
+//     不再像旧版硬编码 top-10 那样把发卡片、售后、物流工具砍掉。
+func limitToolsForAgent(tools []AgentToolDef, maxTools int, allowed []string) []AgentToolDef {
+	if maxTools <= 0 {
+		maxTools = 18
+	}
+	// 默认优先级：知识库 > 客户 > 订单 > 私信 > 触达(卡片/短信) > 售后 > 物流 > 其他
 	priority := map[string]int{
 		"rag.search": 1, "customer.search": 2, "customer.get": 3,
-		"order.lookup": 4, "pm.session.open": 5, "pm.message.send": 6,
-		"knowledge.feedback": 7, "reach.web.send": 8,
-		"follow_task.create": 9, "follow_task.update": 10,
+		"customer.create": 4, "order.lookup": 5, "pm.session.open": 6,
+		"pm.message.send": 7, "pm.history": 8, "knowledge.feedback": 9,
+		"reach.web.send": 10, "reach.card.send": 11, "reach.sms.send": 12,
+		"aftersale.create": 13, "aftersale.query": 14,
+		"follow_task.create": 15, "follow_task.update": 16,
+		"logistics.track": 17, "customer.update": 18,
+	}
+
+	// 场景一：agent 显式白名单（按白名单顺序保留已注册工具）
+	if len(allowed) > 0 {
+		set := make(map[string]struct{}, len(allowed))
+		for _, n := range allowed {
+			set[n] = struct{}{}
+		}
+		ordered := make([]AgentToolDef, 0, len(allowed))
+		for _, n := range allowed {
+			for _, t := range tools {
+				if t.Name == n {
+					ordered = append(ordered, t)
+					break
+				}
+			}
+		}
+		if len(ordered) > 30 {
+			return ordered[:30]
+		}
+		return ordered
+	}
+
+	// 场景二：默认优先级
+	if len(tools) <= maxTools {
+		return tools
 	}
 	type scored struct {
 		tool  AgentToolDef

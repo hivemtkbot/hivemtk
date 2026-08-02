@@ -30,6 +30,20 @@ func generateRandomKey(length int) string {
 func InitSync() error {
 	merchantKey = generateRandomKey(32)
 	logger.Info("[独立部署模式] 平台同步已禁用（InitSync no-op）")
+	// 准入闭环：best-effort 向平台注册本商户身份（后台非阻塞，不阻断启动）。
+	// 注册成功可使「购买/同步」在双侧共享密钥（MERCHANT_API_SECRET）一致时开箱即用；
+	// 失败（平台不可达 / 密钥不一致）仅告警，由平台侧配置修正，不影响主流程。
+	go func() {
+		if err := RegisterMerchant(RegisterMerchantReq{
+			Name:         "HiveMTK 本地商户",
+			ContactEmail: merchantKey + "@local",
+			DeviceInfo:   runtime.GOOS + " " + runtime.GOARCH,
+		}); err != nil {
+			logger.Warn("[独立部署模式] 商户注册到平台失败（可忽略，需平台侧 MERCHANT_API_SECRET 与本端一致）: " + err.Error())
+		} else {
+			logger.Info("[独立部署模式] 已自动向平台注册商户 key=" + merchantKey)
+		}
+	}()
 	return nil
 }
 

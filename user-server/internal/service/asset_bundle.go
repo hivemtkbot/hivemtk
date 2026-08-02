@@ -348,6 +348,9 @@ type AssetBundleService struct {
 	// hotPlug 热插拔缓存：维护运行期已启用的资产包 AssetID 集合。
 	// 启用/禁用立即生效，无需重启服务（纯内存，进程重启后清空）。
 	hotPlug hotPlugCache
+	// localLoader 平台同步资产（local_assets）加载器，用于 ResolveSystemPrompt
+	// 回退解析，实现「平台→商户」下发资产包的运行时闭环（GAP A 修复）。
+	localLoader LocalAssetLoader
 }
 
 // NewAssetBundleService 构造资产包服务
@@ -357,6 +360,30 @@ func NewAssetBundleService(repo repository.AssetBundleRepository, version reposi
 		version = stubVersionLogRepo{}
 	}
 	return &AssetBundleService{repo: repo, version: version, hotPlug: newHotPlugCache()}
+}
+
+// LocalAssetLoader 平台同步资产（local_assets）加载器接口。
+//
+// 由 service.LocalAssetService 实现，注入到 AssetBundleService 后，
+// ResolveSystemPrompt 在 asset_bundles 中找不到对应资产包时，可回退到
+// 商户从平台同步下来的本地资产（local_assets），从而闭合
+// 「平台下发资产包 → 商户同步落库 → 运行时被智能体消费」全链路
+// （参见 docs/ASSET_BUNDLE_CLOSED_LOOP.md §2 步骤⑦）。
+//
+// 决策依据（争议点头脑风暴）：平台资产 data / local_assets.Data /
+// asset_bundles.Messages 三者均为 OpenAI ChatML 消息数组，映射零成本；
+// 选"运行时回退本地资产"而非"同步时转写 asset_bundle"，可避免数据双写、
+// 且保留 LoadOne 的用量上报 telemetry，改动最小、与 seed 资产包消费路径一致。
+type LocalAssetLoader interface {
+	// LoadOne 按 AssetID 加载单个已同步本地资产及其 ChatML 数据；
+	// 同时累加使用次数并 best-effort 异步上报用量到平台（telemetry）。
+	// 资产不存在时返回 (nil, nil, nil)。
+	LoadOne(ctx context.Context, assetID string) (*model.LocalAsset, []byte, error)
+}
+
+// SetLocalLoader 注入平台同步资产加载器（由 router 装配时调用）。
+func (s *AssetBundleService) SetLocalLoader(l LocalAssetLoader) {
+	s.localLoader = l
 }
 
 // hotPlugCache 资产包热插拔内存缓存（方向 D1）
@@ -606,14 +633,27 @@ func (s *AssetBundleService) ResolveSystemPrompt(ctx context.Context, assetBundl
 		return "", fmt.Errorf("asset_bundle_id empty")
 	}
 	bundle, err := s.repo.FindByAssetID(ctx, assetBundleID)
-	if err != nil {
-		return "", err
+	if err == nil && bundle != nil {
+		return systemPromptFromMessages(bundle.Messages), nil
 	}
-	if bundle == nil {
-		return "", fmt.Errorf("asset bundle not found: %s", assetBundleID)
+	// 闭环回退（GAP A 修复）：asset_bundles 未命中时，尝试解析商户从平台同步下来的
+	// 本地资产（local_assets）。这样平台下发的资产包在「绑定到智能体」后，运行时即可
+	// 像 seed/自建资产包一样被消费（覆盖 Persona），打通 平台→商户 下发全链路。
+	if s.localLoader != nil {
+		la, data, lerr := s.localLoader.LoadOne(ctx, assetBundleID)
+		if lerr == nil && la != nil && len(data) > 0 {
+			if p := resolveLocalAssetSystemPrompt(data); p != "" {
+				return p, nil
+			}
+		}
 	}
+	return "", fmt.Errorf("asset bundle not found: %s", assetBundleID)
+}
+
+// systemPromptFromMessages 从 ChatML 消息中提取 role=system 的内容，拼接为人设 prompt。
+func systemPromptFromMessages(msgs []model.AssetBundleMessage) string {
 	var sb strings.Builder
-	for _, m := range bundle.Messages {
+	for _, m := range msgs {
 		if m.Role == "system" && strings.TrimSpace(m.Content) != "" {
 			if sb.Len() > 0 {
 				sb.WriteString("\n\n")
@@ -621,7 +661,63 @@ func (s *AssetBundleService) ResolveSystemPrompt(ctx context.Context, assetBundl
 			sb.WriteString(m.Content)
 		}
 	}
-	return sb.String(), nil
+	return sb.String()
+}
+
+// parseChatML 将本地同步资产（local_assets.Data）解析为 ChatML 消息数组。
+// 贡献者资产 / 自建资产与 asset_bundles.Messages 同构（OpenAI ChatML 协议数组），
+// 但平台市场资产是结构化对象（含 system_prompt / persona 等），并非 ChatML，
+// 故额外由 resolveLocalAssetSystemPrompt 兼容两种格式。
+func parseChatML(data []byte) ([]model.AssetBundleMessage, error) {
+	var msgs []model.AssetBundleMessage
+	if err := json.Unmarshal(data, &msgs); err != nil {
+		return nil, err
+	}
+	return msgs, nil
+}
+
+// resolveLocalAssetSystemPrompt 从本地同步资产（local_assets.Data）解析人设 system prompt。
+// 兼容两种数据格式：
+//  1. OpenAI ChatML 消息数组（贡献者 / 自建资产，与 asset_bundles.Messages 同构）；
+//  2. 平台市场资产的结构化对象（含 system_prompt / persona 字段，非 ChatML）。
+// 任一格式解析出非空人设即返回，否则返回空串（由调用方安全降级沿用原 Persona）。
+func resolveLocalAssetSystemPrompt(data []byte) string {
+	// 1) 先尝试 ChatML 消息数组
+	if msgs, err := parseChatML(data); err == nil {
+		if p := systemPromptFromMessages(msgs); p != "" {
+			return p
+		}
+	}
+	// 2) 再尝试平台市场结构化对象（system_prompt 优先，persona 兜底）
+	var obj struct {
+		SystemPrompt string `json:"system_prompt"`
+		Persona      struct {
+			Tone      string   `json:"tone"`
+			Expertise []string `json:"expertise"`
+			Forbidden []string `json:"forbidden"`
+		} `json:"persona"`
+	}
+	if err := json.Unmarshal(data, &obj); err == nil {
+		if sp := strings.TrimSpace(obj.SystemPrompt); sp != "" {
+			return sp
+		}
+		if obj.Persona.Tone != "" || len(obj.Persona.Expertise) > 0 || len(obj.Persona.Forbidden) > 0 {
+			var b strings.Builder
+			if obj.Persona.Tone != "" {
+				b.WriteString("人设基调：" + obj.Persona.Tone + "。")
+			}
+			if len(obj.Persona.Expertise) > 0 {
+				b.WriteString("擅长领域：" + strings.Join(obj.Persona.Expertise, "、") + "。")
+			}
+			if len(obj.Persona.Forbidden) > 0 {
+				b.WriteString("禁忌：" + strings.Join(obj.Persona.Forbidden, "、") + "。")
+			}
+			if b.Len() > 0 {
+				return b.String()
+			}
+		}
+	}
+	return ""
 }
 
 // ListBundles 分页查询

@@ -265,6 +265,29 @@ func (s *LocalAssetService) LoadByType(ctx context.Context, assetType string) ([
 	return list, datas, nil
 }
 
+// LoadOne 按 AssetID 加载单个已同步本地资产及其 ChatML 数据（闭环：运行时消费）。
+//
+// 实现 asset_bundle.LocalAssetLoader 接口，供 AssetBundleService.ResolveSystemPrompt
+// 在 asset_bundles 未命中时回退使用，闭合「平台下发资产包 → 商户同步 → 运行时被
+// 智能体消费」全链路。同时累加使用次数并 best-effort 异步上报用量到平台（telemetry）。
+// 资产不存在时返回 (nil, nil, nil)。
+func (s *LocalAssetService) LoadOne(ctx context.Context, assetID string) (*model.LocalAsset, []byte, error) {
+	la, err := s.assetRepo.FindByAssetID(ctx, assetID)
+	if err != nil || la == nil {
+		return nil, nil, nil
+	}
+	lad, err := s.dataRepo.FindByLocalAssetID(ctx, la.ID)
+	if err != nil || lad == nil {
+		return la, nil, nil
+	}
+	// telemetry：仅平台来源资产回传用量到平台
+	if la.PurchaseID != nil {
+		_ = s.assetRepo.IncrementUseCount(ctx, la.ID, 1)
+		go s.reportUsageAsync(la.AssetID)
+	}
+	return la, lad.Data, nil
+}
+
 // reportingInFlight 防止并发重复上报同一资产（避免平台重复计数）。
 var reportingInFlight sync.Map
 

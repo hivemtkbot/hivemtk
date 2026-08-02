@@ -121,6 +121,13 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 		logger.Warn("[agent] SalesEngine 未注入 ToolExecutor（globalExecutor 未初始化，走原 9 步流水线）")
 	}
 
+	// 工具执行期权限检查器注入（全局 WhitelistPermissionChecker 单例）。
+	// 与 runAgentLoop 中按 AgentContext.Tools 设置的白名单配合，形成「注入期 + 执行期」双层防护。
+	if pc := GetGlobalPermissionChecker(); pc != nil {
+		engine.SetPermissionChecker(pc)
+		logger.Info("[agent] ✅ SalesEngine 已注入工具权限检查器（按 Agent 白名单执行期放行）")
+	}
+
 	return engine
 }
 

@@ -255,7 +255,8 @@ type AfterSalePortAdapter struct {
 // NewAfterSalePortAdapter 构造
 func NewAfterSalePortAdapter(svc *AfterSaleService) *AfterSalePortAdapter {
 	if svc == nil {
-		svc = NewAfterSaleService()
+		// 默认仓储；回写电商客户端按数据库 agent.tool_integrations 配置按需构造
+		svc = NewAfterSaleServiceWithClient(repository.NewAfterSaleRepository(), nil)
 	}
 	return &AfterSalePortAdapter{svc: svc}
 }

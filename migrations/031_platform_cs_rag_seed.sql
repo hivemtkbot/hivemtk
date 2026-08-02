@@ -4,7 +4,7 @@
 -- 背景:
 --   * 官网网页客服（iframe 加载 user-server /#/chat/embed/default）
 --     需基于本项目知识自动回答商户关于 开源/部署/运维/架构/资产市场 等咨询
---   * 本迁移创建专属 RAG 产品 + 8 篇知识文档 + 多条知识分段
+--   * 本迁移创建专属 RAG 产品 + 13 篇知识文档 + 多条知识分段
 --   * 知识分段 product_id = 'hivemtk-platform-cs'（与 rag_products.id 同为字符串产品 ID，
 --     自 2026-08 产品ID统一为字符串后，不再使用 HashStringToInt64 数值哈希桥接）
 --   * 检索侧：BM25 关键词召回立即可用；向量召回需 embedding 服务就绪后触发重建索引
@@ -29,7 +29,7 @@ INSERT INTO rag_products (
 ) VALUES (
     'hivemtk-platform-cs',
     'HiveMTK 平台客服知识库',
-    '用于官网网页客服自动回答商户关于 HiveMTK 项目的开源信息、部署、运维、架构、资产市场、AI 智能体等咨询。涵盖 8 大主题文档与可检索知识分段。',
+    '用于官网网页客服自动回答商户关于 HiveMTK 项目的开源信息、部署、运维、架构、资产市场、AI 智能体等咨询。涵盖 13 大主题文档与可检索知识分段。',
     'platform_cs',
     'rag_platform_cs',
     'bge-m3', 1024, 'Qwen2.5-1.5B-Instruct',
@@ -219,9 +219,114 @@ BEGIN
     (doc_id_bigint, pid, 6, 'Q: user-server 构建报错怎么办？A: user-server 构建缓存易损坏，若遇随机 undefined/EOF 报错，先 go clean -cache 再编译。命令：cd hivemtk/user-server && go clean -cache && go build ./...。若仍失败检查 Go 版本需 1.25+。', 167, '{"doc":"faq","q":"构建报错"}', NOW()),
     (doc_id_bigint, pid, 7, 'Q: 怎么联系作者？A: Bug/Feature Request 走 Gitee Issues（12 小时内首响）https://gitee.com/xhpmayun/hivemtk/issues ；微信交流群管理员 wxid: xiao142000（7x24 答疑）；商务合作 jideilvluoqun@gmail.com。贡献者公约见 CONTRIBUTING.md。', 187, '{"doc":"faq","q":"联系作者"}', NOW());
 
+    -- =========================================================
+    -- 文档 9：详细安装与初始化
+    -- =========================================================
+    INSERT INTO knowledge_documents (
+        product_id, source_type, title, file_name, filename, file_type,
+        chunk_count, embed_status, tags, category, priority,
+        metadata, imported_by, status, created_at, updated_at
+    ) VALUES (
+        pid, 'text', 'HiveMTK 详细安装与初始化', 'install_guide.md', 'install_guide.md', 'md',
+        6, 'indexed', '["安装","初始化","env","setup"]', 'install', 95,
+        '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
+    ) RETURNING id INTO doc_id_bigint;
+
+    INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
+    (doc_id_bigint, pid, 0, 'HiveMTK 安装三步：1) git clone https://gitee.com/xhpmayun/hivemtk.git && cd hivemtk；2) make install 自动生成 .env + docker-compose.yml 并构建前端；3) vim .env 修改 4 个密钥（POSTGRES_PASSWORD / REDIS_PASSWORD / JWT_SECRET / PLATFORM_ADMIN_PASSWORD，用 openssl rand -hex 24 生成），然后 make up 启动所有服务，访问 http://localhost:8204，默认账号 admin + 你设置的密码。', 218, '{"doc":"install","section":"安装步骤"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK 的 .env 四个必改密钥：POSTGRES_PASSWORD（PostgreSQL 密码）、REDIS_PASSWORD（Redis 密码）、JWT_SECRET（JWT token 签名密钥，务必随机）、PLATFORM_ADMIN_PASSWORD（超管初始密码）。均可用 openssl rand -hex 24 生成高强度值。改完无需手动建库，make install 已生成 docker-compose 与配置。', 205, '{"doc":"install","section":"env密钥"}', NOW()),
+    (doc_id_bigint, pid, 2, 'HiveMTK 初始化：浏览器访问 http://your-server-ip:8204/setup，1) 设置超管账号（首次登录强制改密，system_users.must_change_password 标记）；2) 完成系统初始化。私域部署无 LicenseKey 强制要求，初始化后默认管理员账号为 admin。健康检查 curl http://localhost:8204/health 返回 200 即服务正常。', 198, '{"doc":"install","section":"初始化"}', NOW()),
+    (doc_id_bigint, pid, 3, 'HiveMTK 数据持久化命名卷：mtk_user_pg_data（PostgreSQL 数据）、mtk_user_redis_data（Redis 数据）、mtk_user_logs（应用日志）、mtk_user_uploads（用户上传文件）、mtk_user_data（install.lock 等运行时凭证）。不要用 bind mount 替换这些卷，否则数据可能丢失。', 184, '{"doc":"install","section":"持久化"}', NOW()),
+    (doc_id_bigint, pid, 4, 'HiveMTK 仓库目录：user-server（Go+Gin 后端，含 cmd/seed、migrations）、user-web（Vue3+Vite 前端）、hivemtk-platform（平台端，独立仓库）、scripts（构建/检查脚本）、docs（架构与营销特性文档）、migrations（SQL 迁移与种子）。构建产物由 make web-build / sdk-build 生成。', 198, '{"doc":"install","section":"目录结构"}', NOW()),
+    (doc_id_bigint, pid, 5, 'HiveMTK 常用 make 目标：install（一键安装）、up/down/restart（启停）、logs/ps（日志/状态）、web-build/sdk-build（重建前端与 embed-sdk）、backup/restore（数据库备份恢复）、db-up/down/backup/restore（数据层）、inference-host-install/models/up/warmup/test/status（本地推理栈）、dev（开发热更新）。', 210, '{"doc":"install","section":"make目标"}', NOW());
+
+    -- =========================================================
+    -- 文档 10：推理栈与模型档位
+    -- =========================================================
+    INSERT INTO knowledge_documents (
+        product_id, source_type, title, file_name, filename, file_type,
+        chunk_count, embed_status, tags, category, priority,
+        metadata, imported_by, status, created_at, updated_at
+    ) VALUES (
+        pid, 'text', 'HiveMTK 推理栈与模型档位', 'inference_models.md', 'inference_models.md', 'md',
+        6, 'indexed', '["推理栈","模型","llama","档位"]', 'inference', 95,
+        '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
+    ) RETURNING id INTO doc_id_bigint;
+
+    INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
+    (doc_id_bigint, pid, 0, 'HiveMTK 本地推理栈由三个 OpenAI 兼容服务组成：mtk-llm（:8207，llama.cpp 运行 Qwen2.5-1.5B-Instruct）、mtk-embedding（:8208，运行 bge-m3，1024 维向量）、mtk-rerank（:8209，运行 bge-reranker-v2-m3）。三者均跑在客户内网，由 llama.cpp 提供 HTTP 接口。', 196, '{"doc":"inference","section":"组成"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK 推理栈命令：make inference-host-install 安装 llama.cpp 二进制（首次）；make inference-host-models 下载 dev 档模型（首次）；make inference-host-up 启动 LLM+Embedding+Rerank 三个 llama-server；make inference-host-warmup 预热避免首请求慢；make inference-host-test 端到端 smoke test；make inference-host-status 查看状态。', 216, '{"doc":"inference","section":"命令"}', NOW()),
+    (doc_id_bigint, pid, 2, 'HiveMTK dev 轻量档（默认）：LLM 为 Qwen2.5-1.5B-Instruct (Q4)，Embedding 为 Qwen3-Embedding-0.6B，内存需求约 8GB，适合个人电脑/小内存部署，适合先跑通最小闭环。', 156, '{"doc":"inference","section":"dev档"}', NOW()),
+    (doc_id_bigint, pid, 3, 'HiveMTK prod 重量档：LLM 为 Qwen2.5-14B-Instruct (Q4+)，Embedding 为 BAAI/bge-m3 (1024 维)，内存需求 16GB+，适合生产环境；可选 NVIDIA 16GB+ GPU 加速。', 158, '{"doc":"inference","section":"prod档"}', NOW()),
+    (doc_id_bigint, pid, 4, 'HiveMTK 模型档位切换：编辑 .env 替换 LLM_MODEL/LLM_BASE_URL/EMBEDDING_MODEL/EMBEDDING_BASE_URL 等几行，保存后 make inference-host-up 重建推理栈生效。dev/prod 两套参数已内置，改 BASE_URL 也可指向已有 llama-server。', 178, '{"doc":"inference","section":"切换"}', NOW()),
+    (doc_id_bigint, pid, 5, 'HiveMTK 可选云端 LLM：把 LLM_BASE_URL 改成 DeepSeek/OpenAI 等云端 API 即可走更强模型，但 Embedding/Rerank 仍强制本地（数据不出域）。注意 reasoning 类模型会消耗 max_tokens，必要时调大或摘掉 tools 重试。', 188, '{"doc":"inference","section":"云端兜底"}', NOW());
+
+    -- =========================================================
+    -- 文档 11：运维与排障
+    -- =========================================================
+    INSERT INTO knowledge_documents (
+        product_id, source_type, title, file_name, filename, file_type,
+        chunk_count, embed_status, tags, category, priority,
+        metadata, imported_by, status, created_at, updated_at
+    ) VALUES (
+        pid, 'text', 'HiveMTK 运维与排障', 'troubleshooting.md', 'troubleshooting.md', 'md',
+        6, 'indexed', '["运维","排障","备份","端口"]', 'troubleshooting', 90,
+        '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
+    ) RETURNING id INTO doc_id_bigint;
+
+    INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
+    (doc_id_bigint, pid, 0, 'HiveMTK 运维命令：make up/down/restart/logs/ps 管理服务；make db-up/down/ps/logs 管理数据层；make db-backup/db-restore 备份恢复 PG；make inference-up/down 单独管理推理栈；make web-build/sdk-build 重建前端与客服 SDK。', 186, '{"doc":"troubleshooting","section":"命令"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK 备份恢复：make db-backup 输出 backup_YYYYMMDD_HHMMSS.sql（纯 SQL，可直接 psql 导入）；make db-restore FILE=backup_xxx.sql 恢复。建议生产环境每日自动备份，并与应用日志卷(mtk_user_logs)一起归档。', 192, '{"doc":"troubleshooting","section":"备份"}', NOW()),
+    (doc_id_bigint, pid, 2, 'HiveMTK 构建报随机 undefined/EOF 错误：user-server 构建缓存易损坏，先 go clean -cache 再编译：cd hivemtk/user-server && go clean -cache && go build ./...。仍需失败请确认 Go 版本 >= 1.25。', 178, '{"doc":"troubleshooting","section":"构建缓存"}', NOW()),
+    (doc_id_bigint, pid, 3, 'HiveMTK 端口规划：8204 user-server；PostgreSQL 容器内 8202（宿主机映射 8232）；Redis 8203；8207 LLM；8208 Embedding；8209 Rerank。服务起不来常因 8202-8209 被占用，停占用进程或改 docker-compose 映射即可。', 190, '{"doc":"troubleshooting","section":"端口"}', NOW()),
+    (doc_id_bigint, pid, 4, 'HiveMTK 推理栈健康检查：make inference-host-status 显示数据层容器、llama-server 进程、端点连通性（8207/8208/8209/8204 各 /health 返回 200 即正常）；make inference-host-logs tail 查看三个 llama-server 日志；make inference-host-ps 看进程。', 192, '{"doc":"troubleshooting","section":"推理栈状态"}', NOW()),
+    (doc_id_bigint, pid, 5, 'HiveMTK 常见症状速查：①对话无回复→本地推理栈未起或 LLM_BASE_URL 错误，查 8207 /health；②RAG 召回为空→embedding 服务未跑或知识库为空，查 8208 与 rag_products；③构建随机报错→go clean -cache；④端口冲突→释放 8202-8209。', 206, '{"doc":"troubleshooting","section":"症状速查"}', NOW());
+
+    -- =========================================================
+    -- 文档 12：七端渠道接入与主动触达
+    -- =========================================================
+    INSERT INTO knowledge_documents (
+        product_id, source_type, title, file_name, filename, file_type,
+        chunk_count, embed_status, tags, category, priority,
+        metadata, imported_by, status, created_at, updated_at
+    ) VALUES (
+        pid, 'text', 'HiveMTK 七端渠道接入与主动触达', 'channels_reach.md', 'channels_reach.md', 'md',
+        6, 'indexed', '["渠道","接入","触达","合规"]', 'channels', 90,
+        '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
+    ) RETURNING id INTO doc_id_bigint;
+
+    INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
+    (doc_id_bigint, pid, 0, 'HiveMTK 渠道覆盖（七端打通）：抖音（触达/智能卡片/自动回复/RAG 客服，含直播私信）、快手（同抖音）、小红书（含私信评论）、闲鱼（二手商品场景）、TikTok（海外矩阵）、微信/企业微信（含社群朋友圈）、短信（多通道营销）、邮件（SMTP/163/QQ）。统一 CDP 客户视图，统一消息中心。', 198, '{"doc":"channels","section":"七端概览"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK 各渠道接入：在后台配置对应账号与凭证即可。抖音支持触达、智能卡片、自动回复、RAG 客服（含直播私信）；小红书含私信与评论；微信/企业微信含社群与朋友圈。各渠道主动触达须遵守平台规范，仅向已授权联系人发送。', 176, '{"doc":"channels","section":"接入"}', NOW()),
+    (doc_id_bigint, pid, 2, 'HiveMTK 嵌入式客服 Web Widget（embed-sdk）：原生 JS IIFE + iframe + postMessage 实现，可嵌入任意第三方网站。私域部署通过 frp 暴露的 user-server 前台聊天窗 SPA；进入后自动调用 /api/chat/public/* 与 /api/ws/visitor 完成双向会话。渠道 ID 软解析顺序：ctx.chat_channel_id > body.channel_id > X-Chat-Channel-Id > 默认 default。', 220, '{"doc":"channels","section":"嵌入式客服"}', NOW()),
+    (doc_id_bigint, pid, 3, 'HiveMTK 主动触达与合规：支持短信、邮件、微信公众号/企业微信、抖音/快手/小红书/闲鱼私信、Telegram、WhatsApp、网页客服等主动推送。使用者必须自行遵守各渠道平台规范，仅可向已授权联系人发送，禁止垃圾营销/欺诈/骚扰/钓鱼/色情/赌博/侵权内容。每次主动触达服务端日志打印 [COMPLIANCE] 提示，不可关闭。', 216, '{"doc":"channels","section":"合规"}', NOW()),
+    (doc_id_bigint, pid, 4, 'HiveMTK 客服转人工：chat.transfer_keywords 配置转人工关键词（人工/真人/转人工/human/operator/客服/agent/找人），命中自动转人工；连续 5 次 AI 回复（MaxAIConsecutive=5）后建议转人工；命中关键词 30 秒内无人工接入提示「客服正在接入中」（chat.fallback_seconds=30）。', 210, '{"doc":"channels","section":"转人工"}', NOW()),
+    (doc_id_bigint, pid, 5, 'HiveMTK 多平台卡片：自动生卡模块支持抖音/快手/小红书/闲鱼/TikTok 五端智能卡片（rich card），可下发结构化的商品卡、订单卡等；配合 RAG 客服与自动回复形成完整私域运营闭环。', 158, '{"doc":"channels","section":"智能卡片"}', NOW());
+
+    -- =========================================================
+    -- 文档 13：资产市场使用与贡献指南
+    -- =========================================================
+    INSERT INTO knowledge_documents (
+        product_id, source_type, title, file_name, filename, file_type,
+        chunk_count, embed_status, tags, category, priority,
+        metadata, imported_by, status, created_at, updated_at
+    ) VALUES (
+        pid, 'text', 'HiveMTK 资产市场使用与贡献指南', 'asset_guide.md', 'asset_guide.md', 'md',
+        6, 'indexed', '["资产市场","ISV","贡献","使用"]', 'asset_guide', 85,
+        '{"source":"seed"}', 'system_seed', 1, NOW(), NOW()
+    ) RETURNING id INTO doc_id_bigint;
+
+    INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, content, char_count, metadata, created_at) VALUES
+    (doc_id_bigint, pid, 0, 'HiveMTK 资产市场三端闭环：平台端 platform-server（资产包商城/中台，唯一数据源+分发中心，存储/审核上架/购买分发/贡献者账户/使用统计）；开发者端（ISV/商户内 Playground，生产者）；商户端 user-server+user-web（消费者/运行者）。数据流铁律：user-web→user-server→platform-server，禁止 user-web 直连平台。', 218, '{"doc":"asset_guide","section":"三端闭环"}', NOW()),
+    (doc_id_bigint, pid, 1, 'HiveMTK 资产包 5 大类型：①agent_persona 智能体角色（人设+开场白+语气）②sales_script 销冠话术 ③ab_test_plan AB 测试方案 ④marketing_workflow 自动化工作流 ⑤industry_sop 行业 SOP 模板。数据格式 JSONB，存于 local_asset_data 表。', 196, '{"doc":"asset_guide","section":"资产类型"}', NOW()),
+    (doc_id_bigint, pid, 2, 'HiveMTK 资产获取与使用：商户浏览市场→试用/购买→SyncPull 拉取到本地 local_assets + local_asset_data→客服系统 LoadByType 按类型加载织入自身 RAG（use_count 累加）→使用次数 best-effort 回传平台。整个过程商户端不生产资产，只消费运行。', 198, '{"doc":"asset_guide","section":"获取使用"}', NOW()),
+    (doc_id_bigint, pid, 3, 'HiveMTK 贡献者/ISV 流程：在 Playground 调教 messages→通过 user-server SubmitToPlatform 提交平台审核→运营审核通过→上架市场。请先阅读 CONTRIBUTING.md 与贡献者公约（群规：禁广告/政治/人肉，违者秒踢）。', 178, '{"doc":"asset_guide","section":"贡献流程"}', NOW()),
+    (doc_id_bigint, pid, 4, 'HiveMTK 资产业务链 8 步：①开发者 Playground 调教→发布本地 asset_bundles ②提交平台审核 ③平台存资产+待审核 ④运营审核通过 ⑤商户浏览试用/购买 ⑥SyncPull 拉取本地库存 ⑦客服系统实际使用 LoadByType ⑧使用次数回传平台。', 196, '{"doc":"asset_guide","section":"业务链"}', NOW()),
+    (doc_id_bigint, pid, 5, 'HiveMTK 资产使用须知：开源资产免费；平台市场部分资产可能由 ISV 自行定价，本仓库种子仅做演示（记录成本不实际接入支付）。企业级集成与定制联系平台运营商务邮箱 jideilvluoqun@gmail.com。', 176, '{"doc":"asset_guide","section":"使用须知"}', NOW());
+
     -- 更新 RAG 产品统计
     UPDATE rag_products
-       SET doc_count = 8,
+       SET doc_count = 13,
            chunk_count = (SELECT COUNT(*) FROM knowledge_chunks WHERE product_id = pid),
            last_import_at = NOW(),
            updated_at = NOW()
