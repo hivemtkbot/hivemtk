@@ -7,11 +7,13 @@ import (
 	"marketing/internal/bridge"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/aiagent/llm"
+	"marketing/internal/cache"
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 
 	"gorm.io/gorm"
 )
@@ -127,6 +129,13 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 		engine.SetPermissionChecker(pc)
 		logger.Info("[agent] ✅ SalesEngine 已注入工具权限检查器（按 Agent 白名单执行期放行）")
 	}
+
+	// 回复语言链路注入（术语表渲染 + 输出后置校准）。
+	// 使用进程内内存缓存避免每条回复都回查术语表；术语表读多写少，多副本间短暂不一致可接受。
+	glossarySvc := i18nservice.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(db.GetDB()), cache.NewMemoryCache())
+	engine.SetGlossaryRenderer(glossarySvc)
+	engine.SetOutputCalibrator(glossarySvc)
+	logger.Info("[agent] ✅ SalesEngine 已注入回复语言链路（术语表 + 后置校准）")
 
 	return engine
 }
