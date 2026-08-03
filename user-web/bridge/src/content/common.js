@@ -71,7 +71,7 @@ function handleDeepSelfcheck(sendResponse) {
 
 // 通用 DOM 快照：扫描页面上所有可能的「消息输入/输出/会话」元素
 // 不依赖任何平台特定选择器，给出真实可观测数据
-function scanDomSnapshot() {
+export function scanDomSnapshot() {
   // 1) 可能的输入框：contenteditable / textarea / role=textbox
   const inputs = collectElements((root) => {
     const sels = [
@@ -191,10 +191,16 @@ function collectElements(producer) {
   return producer(document.body || document);
 }
 
-function isVisible(el) {
+export function isVisible(el) {
   if (!el) return false;
-  // offsetParent === null 时表示 display:none（但 fixed 元素例外）
-  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  // SVG 元素的 offsetParent 恒为 null（不在 HTML offset 链里），
+  // 不能据此判隐藏；改为仅用 getBoundingClientRect 判断尺寸。
+  // 早期版本 `el.offsetParent === null && position !== 'fixed'` 会把抖音
+  // svg.messageMsgInputpublishBtn 发送按钮一律判成不可见，导致自检报「发送按钮 0 个」。
+  const isSvg = typeof SVGElement !== 'undefined' && el instanceof SVGElement;
+  if (!isSvg && el.offsetParent === null && style.position !== 'fixed') return false;
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return false;
   return true;
