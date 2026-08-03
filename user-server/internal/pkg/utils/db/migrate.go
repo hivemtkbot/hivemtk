@@ -234,7 +234,6 @@ func allModels() []any {
 		&model.SalesPersona{},
 		// / 扩展模型
 		&opsmodel.PerformanceTestResult{},
-		&model.SecurityAuditResult{},
 		// RAG V2.0 增强模型
 		&knowledgemodel.KnowledgeDocument{},
 		&knowledgemodel.KnowledgeChunk{},

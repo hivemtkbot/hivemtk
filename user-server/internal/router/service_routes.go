@@ -462,9 +462,4 @@ func setupQualityRoutes(auth *gin.RouterGroup) {
 	auth.POST("/perf/run", perfCtrl.RunTest)
 	auth.GET("/perf/list", perfCtrl.ListResults)
 	auth.GET("/perf/:id", perfCtrl.GetResult)
-
-	auditCtrl := controller.NewSecurityAuditController()
-	auth.POST("/security/audit", auditCtrl.RunAudit)
-	auth.GET("/security/audit/list", auditCtrl.ListResults)
-	auth.GET("/security/audit/:id", auditCtrl.GetResult)
 }

@@ -847,7 +847,8 @@ func TestStats_TimeRange(t *testing.T) {
 	}
 }
 
-// ptrTime 定义在 performance_test_service.go 中
+// ptrTime 构造 *time.Time（原定义在 performance_test_service.go，该文件已移除）
+func ptrTime(t time.Time) *time.Time { return &t }
 
 // ===========================================
 // 9. Consume / Peek / Size 队列
