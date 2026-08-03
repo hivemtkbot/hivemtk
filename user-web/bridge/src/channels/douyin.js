@@ -148,6 +148,21 @@ function getConversationId() {
   return m ? m[1] : null;
 }
 
+// 会话列表项（含联系人昵称）不应被当成消息气泡。
+// 命中条件：① 位于会话列表容器内；② 内部含指向 /user/ 的个人主页链接
+// （真实私信气泡一般不含这类链接，而会话列表行 / 联系人卡片都含）。
+// 旧版缺失此过滤，导致私信列表视图下把联系人昵称当成「聊天内容」无限上行
+// （表现：conv:null + 钓点王/小马哥不空军/吴小小 等昵称循环）。
+function isConversationListNode(el) {
+  return !!(el.closest && el.closest(SEL.CHAT_LIST));
+}
+function hasUserProfileLink(el) {
+  return !!(el.querySelector && el.querySelector('a[href*="/user/"]'));
+}
+function isListNoise(item) {
+  return isConversationListNode(item) || hasUserProfileLink(item);
+}
+
 // 抖音 IM 结构特征（来自深度自检 DOM 快照）：
 //   - 输入框 messageEditorinputArea（contenteditable，无 role=textbox）
 //   - 会话列表 conversationConversationListwrapper / data-e2e="conversation-item"
@@ -191,7 +206,7 @@ const hooks = {
     return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') : null;
   },
   getMessageItems() {
-    const items = qsa(SEL.MSG_ITEM);
+    const items = qsa(SEL.MSG_ITEM).filter((it) => !isListNoise(it));
     if (items.length) return items;
     // 兜底：抖音气泡 class 多变时，用「消息线程容器内的文本叶子」推断气泡。
     // 线程容器 = 最近的可滚动区域（输入框/会话列表之上的公共滚动区）。
@@ -218,7 +233,7 @@ const hooks = {
       }
     };
     walk(thread, 0);
-    return leafText;
+    return leafText.filter((el) => !isListNoise(el));
   },
   parseMessageItem(item) {
     // item 已是消息气泡（文本元素）。取文本（自身或其内部 text 元素）

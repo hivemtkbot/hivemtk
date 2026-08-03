@@ -23,6 +23,8 @@ export class BaseAdapter {
     this.account = null;
     this.conversationId = null;
     this.seen = new Set();          // 已处理消息的内容指纹（防 DOM 重复 + 防回环）
+    this.seenNodes = new WeakSet(); // 已处理消息 DOM 节点（按节点身份去重，避免列表项/同名消息被反复扫描重复上行）
+    this.seenMax = 5000;            // seen 上限，超出清理最旧一半，防止异常场景无限增长
     this.observer = null;
     this.convPollTimer = null;
     this.fallbackTimer = null;
@@ -54,7 +56,17 @@ export class BaseAdapter {
     if (this.hooks.matchMode) return this.hooks.matchMode();
     return 'strict';
   }
-  snapshotMeta() { return this.hooks.snapshotMeta ? this.hooks.snapshotMeta() : {}; }
+  // 优先用渠道自定义 snapshotMeta；否则回落到标准 getter（getAccountId/getConversationId）。
+  // 关键修复：抖音等渠道未实现 hooks.snapshotMeta，旧版返回 {} 导致 accountId 永远
+  // undefined → common.js 发的 REGISTER 帧 account_id 为空 → 服务端 WS 401 → 数据全不上行。
+  // 这也是「自检面板显示 account=douyin_web-unknown，但握手 URL 仍 account_id=空」的根因。
+  snapshotMeta() {
+    if (this.hooks.snapshotMeta) return this.hooks.snapshotMeta();
+    return {
+      accountId: this.getAccountId() || '',
+      conversationId: this.getConversationId() || null,
+    };
+  }
   getAccountId() { return this.hooks.getAccountId ? this.hooks.getAccountId() : (this.account || ''); }
   getConversationId() { return this.hooks.getConversationId ? this.hooks.getConversationId() : (this.snapshotMeta().conversationId || null); }
   // 消息线程根：优先 hooks.getMessageRoot；未实现则回退到 getMessageListRoot。
@@ -162,17 +174,31 @@ export class BaseAdapter {
   }
 
   _keyOf(parsed) {
+    // 稳定指纹：会话 + 发送方 + 文本。刻意不含时间戳——
+    // 旧版把 Date.now() 取整秒放进 key，导致同一 DOM 节点每次被 3s 兜底扫描命中都算出
+    // 不同 key → seen 永远去重失败 → 会话列表里的联系人昵称被当成「新消息」无限重复上行
+    // （表现：conv:null、内容是一串昵称循环）。节点级去重见 this.seenNodes（WeakSet）。
     const cid = this.getConversationId() || this.conversationId || '_';
-    const ts = Math.floor((parsed.timestamp || Date.now()) / 1000);
-    return `${cid}:${parsed.sender_type}:${(parsed.text || '').slice(0, 200)}:${ts}`;
+    return `${cid}:${parsed.sender_type}:${(parsed.text || '').slice(0, 200)}`;
   }
 
   _handleIncremental(item) {
+    // 节点级去重：同一 DOM 节点（无论被 MutationObserver 还是 3s 兜底扫描命中）只处理一次，
+    // 从根本上杜绝「反复扫描 → 同名消息无限重复上行」。
+    if (item && this.seenNodes.has(item)) return;
+    // 无活动会话（私信列表视图）时不捕获消息：此时命中的多半是会话列表里的联系人昵称，
+    // 而非真实聊天内容（表现：conv:null + 昵称循环）。
+    if (!this.getConversationId()) return;
     const parsed = this.parseMessageItem(item);
     if (!parsed || !parsed.text) return;
+    if (item) this.seenNodes.add(item);
     const key = this._keyOf(parsed);
     if (this.seen.has(key)) return;
     this.seen.add(key);
+    if (this.seen.size > this.seenMax) {
+      const half = Math.floor(this.seen.size / 2);
+      for (const k of Array.from(this.seen).slice(0, half)) this.seen.delete(k);
+    }
     if (parsed.sender_type === SENDER.CUSTOMER) {
       // 历史宽限期内（首次挂载/会话切换后）：客户消息仅回填历史、不触发 AI，
       // 避免对存量私信逐一自动回复（用户诉求：只同步历史、不发消息）。宽限期后视为实时新消息。
@@ -190,11 +216,18 @@ export class BaseAdapter {
 
   // 回填存量消息（页面加载 / 会话切换）：一律仅落库，不触发 AI
   _backfill(root) {
+    // 无活动会话（私信列表视图）：不回填，避免把会话列表里的联系人昵称当历史消息上行。
+    if (!this.getConversationId()) {
+      this.log.info('回填跳过：当前无活动会话（私信列表视图）');
+      return;
+    }
     const items = this.getMessageItems();
     let n = 0;
     for (const item of items) {
+      if (this.seenNodes.has(item)) continue;
       const parsed = this.parseMessageItem(item);
       if (!parsed || !parsed.text) continue;
+      this.seenNodes.add(item);
       const key = this._keyOf(parsed);
       if (this.seen.has(key)) continue;
       this.seen.add(key);
