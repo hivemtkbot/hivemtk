@@ -147,9 +147,6 @@ func Setup(r *gin.Engine) {
 	// 后续 handler / service / 编排 / 触达全链路复用同一 trace_id，便于线上定位问题。
 	r.Use(middleware.TraceMiddleware())
 
-	// 日志脱敏中间件 - 对敏感信息进行脱敏
-	r.Use(middleware.SensitiveLogMiddleware())
-
 	// 审计中间件（全局）
 	r.Use(middleware.AuditMiddleware())
 
@@ -333,6 +330,9 @@ func Setup(r *gin.Engine) {
 		bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
 		bridgeWS.GET("/ws/bridge", bridgeHandler.HandleWebSocket)
+		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
+		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
+		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)
 
 		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
 		bridgeRepo := bridge.NewBridgeAccountRepository(db.GetDB())
