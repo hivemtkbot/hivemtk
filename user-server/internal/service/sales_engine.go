@@ -147,6 +147,13 @@ type SalesEngine struct {
 	// 与 limitToolsForAgent 的“注入期过滤”形成双层防护。同一全局 *tooluse.WhitelistPermissionChecker
 	// 单例由 router 注入，管理 API（/api/agent/tools/permission/agents/:agent_id）亦可设置。
 	permissionChecker AgentToolPermissionChecker
+
+	// 回复语言链路（可选注入）：术语表渲染器 + 输出后置校准器。
+	// 注入后 generateCandidate / runAgentLoop 的跨语言路径会追加语种指令与术语表块，
+	// 并对 LLM 输出做术语校准与敏感模式保护（依赖倒置，由 service/i18n.GlossaryService 适配）。
+	// 与 ragcustomerservice 同源逻辑，使主力 AI 客服对话也按客户语言回复。
+	glossary   GlossaryRenderer
+	calibrator OutputCalibrator
 }
 
 // SetPermissionChecker 注入工具执行期权限检查器（由 router 层注入全局 *tooluse.WhitelistPermissionChecker 单例）。
@@ -1060,6 +1067,10 @@ func (e *SalesEngine) generateCandidate(
 	script *ScriptTemplate,
 	customer *model.Customer,
 ) (string, *llm.DispatchResult, []model.RichCard, error) {
+	// 回复语言链路：解析目标语种（配置优先 + 客户消息自动检测）。
+	// 后续跨语言路径据此追加语种指令与术语表块，并对 LLM 输出做后置校准。
+	targetLang := e.resolveTargetLang(ctx, req.UserMessage)
+
 	// Layer1 双层路由 - 命中即跳过 LLM
 	if e.layerRouter != nil {
 		decision := e.layerRouter.Route(ctx, &RouteRequest{
@@ -1074,7 +1085,7 @@ func (e *SalesEngine) generateCandidate(
 		})
 		if decision != nil && decision.SkipLLM && decision.Reply != "" {
 			// Layer1 命中: 直接返回模板回复, dispatchResult=nil 表示未调 LLM
-			return decision.Reply, nil, nil, nil
+			return e.calibrate(ctx, decision.Reply, targetLang), nil, nil, nil
 		}
 	}
 
@@ -1104,7 +1115,7 @@ func (e *SalesEngine) generateCandidate(
 	result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 		Scenario:     scenario,
 		Prompt:       prompt,
-		SystemPrompt: req.Config.Persona,
+		SystemPrompt: e.personaWithLang(ctx, req.Config.Persona, targetLang),
 		MaxTokens:    req.Config.MaxTokens,
 		Temperature:  req.Config.Temperature,
 		CacheKey:     llm.CacheKey(scenario, prompt),
@@ -1113,7 +1124,7 @@ func (e *SalesEngine) generateCandidate(
 	if err != nil {
 		return "", nil, nil, err
 	}
-	return strings.TrimSpace(result.Content), result, nil, nil
+	return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, nil, nil
 }
 
 // agentLoopMaxIterations Agent Loop 最大迭代次数
@@ -1218,6 +1229,9 @@ func (e *SalesEngine) runAgentLoop(
 	availableTools []AgentToolDef,
 	ragChunks []RAGChunk,
 ) (string, *llm.DispatchResult, []model.RichCard, error) {
+	// 回复语言链路：解析目标语种，跨语言路径追加语种指令与术语表块。
+	targetLang := e.resolveTargetLang(ctx, req.UserMessage)
+
 	// 计算 agent 标识与工具白名单（来自 AgentContext.Tools）
 	agentIDStr := fmt.Sprintf("%d", agentIDFromCtx(req))
 	allowed := agentContextToolNames(req)
@@ -1251,7 +1265,7 @@ func (e *SalesEngine) runAgentLoop(
 		result, err := e.dispatcher.Dispatch(ctx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt,
-			SystemPrompt: req.Config.Persona,
+			SystemPrompt: e.personaWithLang(ctx, req.Config.Persona, targetLang),
 			MaxTokens:    req.Config.MaxTokens,
 			Temperature:  req.Config.Temperature,
 			CacheKey:     llm.CacheKey(scenario, prompt),
@@ -1260,14 +1274,14 @@ func (e *SalesEngine) runAgentLoop(
 		if err != nil {
 			return "", nil, nil, err
 		}
-		return strings.TrimSpace(result.Content), result, nil, nil
+		return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, nil, nil
 	}
 
 	// 2. 构造初始 messages（system + user）
 	messages := make([]llm.ChatMessage, 0, 4+maxIter*2)
 	messages = append(messages, llm.ChatMessage{
 		Role:    "system",
-		Content: buildAgentSystemPrompt(req.Config.Persona, intent, mem, customer, ragChunks),
+		Content: buildAgentSystemPrompt(e.personaWithLang(ctx, req.Config.Persona, targetLang), intent, mem, customer, ragChunks),
 	})
 	messages = append(messages, llm.ChatMessage{
 		Role:    "user",
@@ -1305,7 +1319,7 @@ func (e *SalesEngine) runAgentLoop(
 		result, err := e.dispatcher.Dispatch(agentLoopCtx, llm.DispatchRequest{
 			Scenario:     scenario,
 			Prompt:       prompt, // 仅在 Messages 为空时使用，这里 Messages 非空
-			SystemPrompt: req.Config.Persona,
+			SystemPrompt: e.personaWithLang(ctx, req.Config.Persona, targetLang),
 			MaxTokens:    curMaxTokens,
 			Temperature:  req.Config.Temperature,
 			Tools:        curTools,
@@ -1340,7 +1354,7 @@ func (e *SalesEngine) runAgentLoop(
 			// LLM 给出最终文本回复，结束循环
 			logger.Infof("[AgentLoop] iter=%d finish_reason=%s content_len=%d tools_called=%d",
 				iter, result.FinishReason, len(result.Content), totalToolCalls)
-			return strings.TrimSpace(result.Content), result, collectedCards, nil
+			return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, collectedCards, nil
 		}
 
 		// 3.3 LLM 决定调用工具：将 assistant 消息（含 tool_calls）追加到对话历史
