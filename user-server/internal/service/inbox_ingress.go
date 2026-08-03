@@ -333,6 +333,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 // 用途（需求⑤ 多用户历史 / 需求③ outbound 落库）：
 //   - 页面加载时回填的存量私信（客户侧 inbound / 自己侧 outbound）
 //   - 本扩展回写到网页的 AI 回复（outbound，标记为 AI 回复）
+//
 // 与 HandleIngressMessage 的关键区别：不获取 AI 锁、不投递 pending、不通知 AgentRuntime，
 // 从而避免「回填空历史误触发 AI」与「自己回复被再次推理造成自回环」。
 func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *model.MessageEvent, direction string) error {
@@ -343,6 +344,34 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 		direction = "inbound"
 	}
 	return s.persistHistoryMessage(ctx, event, direction)
+}
+
+// ListFailedOutbound 查询某账号在某桥接渠道下"出站且失败"的消息（离线降级落库，待补发）。
+// 供桥接扩展重连时自动重投（P1-7 修复：离线消息不再永久 failed）。
+func (s *InboxIngressService) ListFailedOutbound(ctx context.Context, channel, accountID string) ([]*model.MessageHub, error) {
+	if s.hubRepo == nil {
+		return nil, nil
+	}
+	list, _, err := s.hubRepo.ListByHubQuery(ctx, repository.HubListQuery{
+		Platform:  channel,
+		AccountID: accountID,
+		Direction: "outbound",
+		Status:    "failed",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// MarkOutboundDelivered 将离线补发成功的出站消息标记为已送达，
+// 避免重复补发与坐席 UI 长期显示 failed。
+func (s *InboxIngressService) MarkOutboundDelivered(ctx context.Context, hub *model.MessageHub) error {
+	if s.hubRepo == nil || hub == nil {
+		return nil
+	}
+	hub.Status = "delivered"
+	return s.hubRepo.Update(ctx, hub)
 }
 
 // persistHistoryMessage 持久化消息，Direction 由调用方显式传入（区别于 persistMessage 硬编码 inbound）。
@@ -382,6 +411,10 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 			extra[k] = v
 		}
 		hub.Extra = extra
+		// 桥接离线失败消息在 Extra 中携带 status=failed，落到独立可查询列便于重连补发（P1-7）
+		if v, ok := event.Extra["status"].(string); ok && v != "" {
+			hub.Status = v
+		}
 	}
 	return s.hubRepo.Create(ctx, hub)
 }

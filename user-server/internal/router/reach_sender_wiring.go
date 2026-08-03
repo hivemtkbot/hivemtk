@@ -35,7 +35,7 @@ func newPipelineReachSender(db *gorm.DB) *pipelineReachSender {
 	}
 	return &pipelineReachSender{
 		inner:  inner,
-		bridge: bridge.NewBridgeReachAdapter(inner, bridge.GetBridgeHub()),
+		bridge: bridge.NewBridgeReachAdapter(inner, bridge.GetBridgeHub(), bridgeIngressSvc),
 	}
 }
 

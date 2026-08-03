@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/bridge"
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/aiagent/llm"
+	"marketing/internal/bridge"
 	"marketing/internal/cache"
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/pkg/utils/db"
@@ -168,7 +168,7 @@ func buildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchest
 func registerAgentReachTools(gormDB *gorm.DB) {
 	// 真实触达适配器（含 web 网页客服渠道）；用 BridgeReachAdapter 包装，
 	// 使抖音/小红书/TikTok 网页桥接账号的回复经 WebSocket 投递到 Chrome 扩展
-	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB), bridge.GetBridgeHub())
+	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB), bridge.GetBridgeHub(), bridgeIngressSvc)
 	// 注册桥接出站回调：使 WebhookService.sendOutbound 在桥接渠道下把 AI 回复经 WebSocket 回写扩展
 	bridge.SetBridgeReachAdapter(adapter)
 	deps := tooluse.NewReachToolDepsWithAdapter(gormDB, adapter)

@@ -199,6 +199,14 @@ func (h *BridgeHub) Register(c *BridgeClient) *BridgeClient {
 		old = existing
 	}
 	h.clients[k] = c
+	// 扩展（重）上线：异步触发离线失败消息补发（P1-7 修复）。
+	// 异步执行避免阻塞 Register 的锁区间；recover 防止个别账号补发异常影响连接建立。
+	if OnBridgeClientOnline != nil {
+		go func(ch, acc string) {
+			defer func() { _ = recover() }()
+			OnBridgeClientOnline(ch, acc)
+		}(c.channel, c.account)
+	}
 	return old
 }
 

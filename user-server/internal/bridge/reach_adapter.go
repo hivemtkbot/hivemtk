@@ -16,16 +16,17 @@ import (
 // BridgeReachAdapter 包装 IntegrationReachAdapter：
 //
 // 网页桥接渠道（douyin_web/xhs_web/tiktok_web）的回复：
-//   1) 若对应账号的扩展在线：经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展（回写网页私信）
-//   2) 若扩展离线 / 限速命中 / buffer 满：落 message_hub(direction=outbound, status=failed)，
+//  1. 若对应账号的扩展在线：经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展（回写网页私信）
+//  2. 若扩展离线 / 限速命中 / buffer 满：落 message_hub(direction=outbound, status=failed)，
+//
 // 便于坐席 UI 展示和后续补发（修复 -8：离线降级落库）
-//   3) 非桥接渠道：直接委托 inner（官方 API），对现有渠道零影响
+//  3. 非桥接渠道：直接委托 inner（官方 API），对现有渠道零影响
 //
 // 幂等守卫：通过 agent_runtime.ClaimReply(eventID) 保证同一 AI 回复仅一次出站，
 // 防止 bridge 重连重发时 AI 重复回复（修复 -4：ClaimReply 守卫）
 type BridgeReachAdapter struct {
-	inner  *tooluse.IntegrationReachAdapter
-	hub    *BridgeHub
+	inner   *tooluse.IntegrationReachAdapter
+	hub     *BridgeHub
 	ingress *service.InboxIngressService
 }
 
@@ -56,6 +57,10 @@ var globalReach *BridgeReachAdapter
 // 通过回调注入（而非 service 直接 import bridge）避免 service -> bridge 导入环。
 func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 	globalReach = a
+	// 注册重连补发回调（P1-7）：扩展重新上线时自动重投离线失败的出站消息
+	OnBridgeClientOnline = func(channel, accountID string) {
+		a.RetryFailedOutbound(context.Background(), channel, accountID)
+	}
 	service.RegisterBridgeOutbound(func(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) error {
 		switch channel {
 		case ChannelDouyinWeb:
@@ -74,6 +79,35 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 			return fmt.Errorf("bridge: 不支持的桥接渠道 %q", channel)
 		}
 	})
+}
+
+// OnBridgeClientOnline 桥接扩展（重）上线时触发的回调（在 SetBridgeReachAdapter 中注册到单例适配器）。
+// 把此前离线降级落库的失败出站消息重新投递（修复 P1-7：离线消息不再永久 failed）。
+var OnBridgeClientOnline func(channel, accountID string)
+
+// RetryFailedOutbound 重连补发：扩展重新上线后，把此前离线落库的失败出站消息重新投递。
+//
+// 每条用全新 eventID 重投（原失败记录的事件 ID 已被 ClaimReply 占用，复用会触发幂等守卫跳过），
+// 成功后把原记录标记为已送达，避免重复投递与坐席 UI 长期显示 failed。
+func (a *BridgeReachAdapter) RetryFailedOutbound(ctx context.Context, channel, accountID string) {
+	if a == nil || a.ingress == nil || a.hub == nil {
+		return
+	}
+	if !a.hub.IsOnline(channel, accountID) {
+		return
+	}
+	list, err := a.ingress.ListFailedOutbound(ctx, channel, accountID)
+	if err != nil || len(list) == 0 {
+		return
+	}
+	for _, hub := range list {
+		freshEventID := fmt.Sprintf("retry-%d-%s", time.Now().UnixNano(), hub.MsgID)
+		ctx2 := WithEventID(context.Background(), freshEventID)
+		// 复用 deliverWS：内部含 ClaimReply 幂等守卫 + WS 投递；用全新 eventID 避免与原失败记录冲突
+		if _, derr := a.deliverWS(ctx2, channel, accountID, hub.ConversationID, hub.MsgType, hub.Content, freshEventID); derr == nil {
+			_ = a.ingress.MarkOutboundDelivered(context.Background(), hub)
+		}
+	}
 }
 
 // deliverWS 经 WebSocket 下发回复到扩展；扩展离线时降级落 message_hub(status=failed)。

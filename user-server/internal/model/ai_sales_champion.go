@@ -12,8 +12,9 @@ type MessageHub struct {
 	MsgID          string     `gorm:"type:varchar(100);unique" json:"msg_id"`
 	Platform       string     `gorm:"type:varchar(30);not null;index" json:"platform"`
 	AccountID      string     `gorm:"type:varchar(100);not null;index" json:"account_id"`
-	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"` // inbound / outbound
-	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`  // text/image/file/link/card
+	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`             // inbound / outbound
+	Status         string     `gorm:"type:varchar(20);default:'pending';index" json:"status"` // pending / failed / delivered（桥接离线重试）
+	MsgType        string     `gorm:"type:varchar(20);not null" json:"msg_type"`              // text/image/file/link/card
 	SenderID       string     `gorm:"type:varchar(100);index" json:"sender_id"`
 	SenderName     string     `gorm:"type:varchar(200)" json:"sender_name"`
 	ReceiverID     string     `gorm:"type:varchar(100)" json:"receiver_id"`

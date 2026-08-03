@@ -135,6 +135,7 @@ func (r *MessageHubRepository) MarkReadByIDs(ctx context.Context, ids []uint) er
 // HubListQuery 消息中台列表查询条件（与 service.ListQuery 字段对齐）
 type HubListQuery struct {
 	Platform       string
+	Status         string // 可选：按消息状态过滤（如 "failed" 待补发）
 	AccountID      string
 	ConversationID string
 	SenderID       string
@@ -165,6 +166,9 @@ func (r *MessageHubRepository) ListByHubQuery(ctx context.Context, q HubListQuer
 	tx := r.db.WithContext(ctx).Model(&model.MessageHub{})
 	if q.Platform != "" {
 		tx = tx.Where("platform = ?", q.Platform)
+	}
+	if q.Status != "" {
+		tx = tx.Where("status = ?", q.Status)
 	}
 	if q.AccountID != "" {
 		tx = tx.Where("account_id = ?", q.AccountID)
