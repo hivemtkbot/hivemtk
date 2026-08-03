@@ -67,6 +67,11 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		return nil, errors.New("token 缺少 write 权限")
 	}
 
+	// 越权(IDOR)防护：Token 仅能导入其授权产品，禁止跨产品导入
+	if tok.ProductID != "" && tok.ProductID != "*" && tok.ProductID != req.ProductID {
+		return nil, fmt.Errorf("token 无权操作产品 %s（授权范围: %s）", req.ProductID, tok.ProductID)
+	}
+
 	// 2) 校验产品
 	if _, err := s.prodRepo.GetRagProductByID(ctx, req.ProductID); err != nil {
 		return nil, errors.New("产品不存在")

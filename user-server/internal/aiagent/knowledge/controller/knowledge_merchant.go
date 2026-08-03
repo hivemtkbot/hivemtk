@@ -166,7 +166,7 @@ func (ctrl *KnowledgeMerchantController) UpdateChunk(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	if err := ctrl.svc.UpdateChunk(c.Request.Context(), &service.UpdateChunkRequest{ChunkID: id, Content: body.Content}); err != nil {
+	if err := ctrl.svc.UpdateChunk(c.Request.Context(), &service.UpdateChunkRequest{ChunkID: id, Content: body.Content, Token: c.GetHeader("X-Knowledge-Token")}); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -180,7 +180,7 @@ func (ctrl *KnowledgeMerchantController) DeleteChunk(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "无效的分段ID")
 		return
 	}
-	if err := ctrl.svc.DeleteChunk(c.Request.Context(), id); err != nil {
+	if err := ctrl.svc.DeleteChunk(c.Request.Context(), id, c.GetHeader("X-Knowledge-Token")); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -1,11 +1,13 @@
 package browser
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
+	"marketing/internal/cache"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -24,10 +26,12 @@ type RateLimitEntry struct {
 //   - 每日回复上限
 //   - 回复冷却时间（最小间隔）
 //   - 随机延迟抖动
+//
+// 多副本部署：计数状态存放在全局缓存（cache.GetGlobalCache）中。
+// 配置 Redis 时由各副本共享（分布式限流），未配置 Redis 时退化为进程内缓存，行为与原先一致。
 type RateLimiter struct {
-	mu      sync.RWMutex
-	entries map[string]*RateLimitEntry // key: platform_accountID
-	config  RateLimitConfig
+	mu     sync.RWMutex // 进程内串行化；跨进程共享状态由全局缓存（Redis）保证
+	config RateLimitConfig
 }
 
 // RateLimitConfig 限流配置
@@ -53,9 +57,38 @@ var DefaultRateLimitConfig = RateLimitConfig{
 // NewRateLimiter 创建限流器
 func NewRateLimiter(cfg RateLimitConfig) *RateLimiter {
 	return &RateLimiter{
-		entries: make(map[string]*RateLimitEntry),
-		config:  cfg,
+		config: cfg,
 	}
+}
+
+func (rl *RateLimiter) cacheKey(key string) string {
+	return "reach:rl:" + key
+}
+
+// loadEntry 从全局缓存读取限流条目（Redis 共享；未配置 Redis 时退化为进程内缓存）。
+func (rl *RateLimiter) loadEntry(key string) *RateLimitEntry {
+	now := time.Now()
+	entry := &RateLimitEntry{
+		HourResetTime: now.Truncate(time.Hour).Add(time.Hour),
+		DayResetTime:  now.Truncate(24 * time.Hour).Add(24 * time.Hour),
+	}
+	if c := cache.GetGlobalCache(); c != nil {
+		_ = c.GetJSON(context.Background(), rl.cacheKey(key), entry)
+	}
+	return entry
+}
+
+// saveEntry 将限流条目写回全局缓存，TTL 持续到当日计数重置时刻。
+func (rl *RateLimiter) saveEntry(key string, entry *RateLimitEntry) {
+	c := cache.GetGlobalCache()
+	if c == nil {
+		return
+	}
+	ttl := time.Until(entry.DayResetTime)
+	if ttl <= 0 {
+		ttl = 24 * time.Hour
+	}
+	_ = c.SetJSON(context.Background(), rl.cacheKey(key), entry, ttl)
 }
 
 // Allow 检查是否允许发送回复
@@ -68,16 +101,8 @@ func (rl *RateLimiter) Allow(key string) (bool, string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	entry, exists := rl.entries[key]
+	entry := rl.loadEntry(key)
 	now := time.Now()
-
-	if !exists {
-		entry = &RateLimitEntry{
-			HourResetTime: now.Truncate(time.Hour).Add(time.Hour),
-			DayResetTime:  now.Truncate(24 * time.Hour).Add(24 * time.Hour),
-		}
-		rl.entries[key] = entry
-	}
 
 	// 检查是否需要重置计数器
 	if now.After(entry.HourResetTime) {
@@ -120,18 +145,23 @@ func (rl *RateLimiter) Record(key string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	entry, exists := rl.entries[key]
-	if !exists {
-		entry = &RateLimitEntry{
-			HourResetTime: time.Now().Truncate(time.Hour).Add(time.Hour),
-			DayResetTime:  time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour),
-		}
-		rl.entries[key] = entry
+	entry := rl.loadEntry(key)
+	now := time.Now()
+
+	if now.After(entry.HourResetTime) {
+		entry.HourCount = 0
+		entry.HourResetTime = now.Truncate(time.Hour).Add(time.Hour)
+	}
+	if now.After(entry.DayResetTime) {
+		entry.DayCount = 0
+		entry.DayResetTime = now.Truncate(24 * time.Hour).Add(24 * time.Hour)
 	}
 
 	entry.HourCount++
 	entry.DayCount++
-	entry.LastReply = time.Now()
+	entry.LastReply = now
+
+	rl.saveEntry(key, entry)
 }
 
 // Wait 等待直到允许发送（阻塞）
@@ -158,13 +188,7 @@ func (rl *RateLimiter) Stats(key string) map[string]any {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 
-	entry, exists := rl.entries[key]
-	if !exists {
-		return map[string]any{
-			"hour_count": 0,
-			"day_count":  0,
-		}
-	}
+	entry := rl.loadEntry(key)
 
 	return map[string]any{
 		"hour_count":   entry.HourCount,

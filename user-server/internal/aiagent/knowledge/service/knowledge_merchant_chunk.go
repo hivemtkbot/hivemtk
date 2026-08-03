@@ -31,6 +31,7 @@ func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, docume
 type UpdateChunkRequest struct {
 	ChunkID uint64 `json:"chunk_id"`
 	Content string `json:"content"`
+	Token   string `json:"-"` // 可选：外部系统 API Token，用于越权(IDOR)防护
 }
 
 // UpdateChunk 更新分段
@@ -44,6 +45,16 @@ func (s *KnowledgeMerchantService) UpdateChunk(ctx context.Context, req *UpdateC
 	chunk, err := s.chunkRepo.GetByID(ctx, req.ChunkID)
 	if err != nil {
 		return fmt.Errorf("分段不存在: %w", err)
+	}
+	// 越权(IDOR)防护：携带 API Token 时校验分段归属是否与授权产品一致
+	if req.Token != "" {
+		tok, terr := s.ValidateToken(ctx, req.Token)
+		if terr != nil {
+			return terr
+		}
+		if tok.ProductID != "*" && tok.ProductID != "" && tok.ProductID != chunk.ProductID {
+			return fmt.Errorf("分段 %d 不属于 Token 授权产品 %s", chunk.ID, tok.ProductID)
+		}
 	}
 	chunk.Content = req.Content
 	chunk.CharCount = len(req.Content)
@@ -62,9 +73,25 @@ func (s *KnowledgeMerchantService) UpdateChunk(ctx context.Context, req *UpdateC
 }
 
 // DeleteChunk 删除分段
-func (s *KnowledgeMerchantService) DeleteChunk(ctx context.Context, chunkID uint64) error {
+// token 可选：携带外部系统 API Token 时校验分段归属是否与授权产品一致（越权 IDOR 防护）；
+// 留空表示由 JWT 管理员调用（拥有全局权限）。
+func (s *KnowledgeMerchantService) DeleteChunk(ctx context.Context, chunkID uint64, token string) error {
 	if chunkID == 0 {
 		return errors.New("chunk_id 不能为空")
+	}
+	// 越权(IDOR)防护：携带 API Token 时校验分段归属是否与授权产品一致
+	if token != "" {
+		chunk, err := s.chunkRepo.GetByID(ctx, chunkID)
+		if err != nil {
+			return fmt.Errorf("分段不存在: %w", err)
+		}
+		tok, terr := s.ValidateToken(ctx, token)
+		if terr != nil {
+			return terr
+		}
+		if tok.ProductID != "*" && tok.ProductID != "" && tok.ProductID != chunk.ProductID {
+			return fmt.Errorf("分段 %d 不属于 Token 授权产品 %s", chunk.ID, tok.ProductID)
+		}
 	}
 	return s.chunkRepo.Delete(ctx, chunkID)
 }

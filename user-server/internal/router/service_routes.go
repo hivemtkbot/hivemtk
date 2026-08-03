@@ -350,6 +350,11 @@ func setupReachPipelineRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	// 启动后台任务调度器：消费 reach.batch / reach.schedule 入队但未被执行的任务。
 	// 进程级仅启动一次（service 内 sync.Once 保护），ctx 取消时优雅退出。
 	reachSvc := service.NewReachPipelineService(db)
+	// 注入真实触达发送器：连接 IntegrationReachAdapter + BridgeReachAdapter，
+	// 使调度器真正下发到渠道（修复"触达调度器下发占位"缺口）。
+	if sender := newPipelineReachSender(db); sender != nil {
+		reachSvc.SetReachSender(sender)
+	}
 	reachSvc.StartDispatcher(context.Background(), 15*time.Second)
 	reachCtrl := controller.NewReachPipelineController(reachSvc)
 	auth.GET("/reach/pipelines", reachCtrl.ListPipelines)

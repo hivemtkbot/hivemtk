@@ -330,13 +330,14 @@ func (s *douyinCardService) GenerateShortLink(ctx context.Context, card *model.D
 
 	logger.Infof("生成的短码: %s", generateResp.ShortCode)
 
-	// 获取域名池域名
-	var domainID uint = 1 // 默认使用ID为1的域名
+	// 获取域名池域名：通过 DomainPoolService 解析真实域名，避免硬编码 =1
+	var domainID uint
 	if card.DomainPoolID != 0 {
-		// 这里需要根据域名池信息找到对应的域名ID
-		// 假设域名池ID和域名ID相同，实际可能需要查询映射关系
-		domainID = card.DomainPoolID
+		if pool, perr := s.domainPoolService.GetByID(ctx, int(card.DomainPoolID)); perr == nil && pool != nil {
+			domainID = uint(pool.ID)
+		}
 	}
+	// domainID == 0 表示使用默认基座域名（不再硬编码为 1）
 
 	// 创建短链
 	shortLinkReq := &dto.CreateShortLinkRequest{

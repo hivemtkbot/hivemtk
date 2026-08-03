@@ -185,6 +185,10 @@ type ReachPipelineService struct {
 	// 用户频次
 	perUserMu   sync.RWMutex
 	perUserHits map[string][]time.Time
+
+	// 真实触达发送器（由 router 注入，连接 IntegrationReachAdapter + BridgeReachAdapter）。
+	// 未注入时 dispatchOutbound 降级为占位 message_id（仅测试 / 未接线部署）。
+	sender ReachSender
 }
 
 // rateBucket 令牌桶
@@ -936,12 +940,29 @@ func (s *ReachPipelineService) generateMessage(ctx context.Context, job *model.R
 //   - 若该渠道的 Service 未配置（如 SMTP 缺失），返回明确错误，不静默吞掉
 //
 // 返回 message_id（渠道侧分配的 ID，便于 StepTrackResult / StepReport 关联）。
-// 实现策略：本步不真正发送网络请求（避免在批跑 pipeline 时炸飞依赖），
-// 而是构造结构化 message_id 并通过 msg_id 唯一性体现"发送动作已执行"。
-// 真实发送由 sendOutbound 的生产路径兜底。
+//
+// 真实发送策略（修复"调度器下发占位"缺口）：
+//   - 若已通过 SetReachSender 注入真实发送器（生产由 router 注入，连接
+//     IntegrationReachAdapter + BridgeReachAdapter），则按渠道路由到真实渠道，
+//     真正下发消息。
+//   - 未注入发送器（单元测试 / 未接线部署）时降级为占位 message_id，
+//     保证调度流程可继续，但不真正发送网络请求。
 //
 // V3 副效果：把 message_id 写入 job.Payload["_last_send"]，供 StepTrackResult 读取。
-func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.ReachJob) (string, error) {
+
+// ReachSender 真实触达发送器接口（由 router 注入）。
+// 实现连接 tooluse.IntegrationReachAdapter（telegram/whatsapp/feishu/web/wecom/dingtalk/sms/email/card）
+// 与 bridge.BridgeReachAdapter（douyin/kuaishou/xiaohongshu/tiktok），使调度器真正下发到渠道。
+type ReachSender interface {
+	SendReach(ctx context.Context, channel, accountID, to, content string) (messageID string, err error)
+}
+
+// SetReachSender 注入真实触达发送器（生产路径由 router 调用）。
+func (s *ReachPipelineService) SetReachSender(sender ReachSender) {
+	s.sender = sender
+}
+
+func (s *ReachPipelineService) dispatchOutbound(ctx context.Context, job *model.ReachJob) (string, error) {
 	if job == nil {
 		return "", fmt.Errorf("job is nil")
 	}
@@ -951,6 +972,29 @@ func (s *ReachPipelineService) dispatchOutbound(_ context.Context, job *model.Re
 	if job.CustomerID == "" {
 		return "", fmt.Errorf("customer_id is empty")
 	}
+
+	// 生产路径：已注入真实触达适配器，按渠道路由到真实发送器
+	if s.sender != nil {
+		content, cerr := s.prepareContent(ctx, job)
+		if cerr != nil || strings.TrimSpace(content) == "" {
+			content = fmt.Sprintf("[%s] 触达消息", job.Channel)
+		}
+		mid, err := s.sender.SendReach(ctx, job.Channel, job.AccountID, job.CustomerID, content)
+		if err != nil {
+			return "", err
+		}
+		if job.Payload == nil {
+			job.Payload = model.JSONMap{}
+		}
+		job.Payload["_last_send"] = map[string]any{
+			"message_id": mid,
+			"channel":    job.Channel,
+			"sent_at":    time.Now().Format(time.RFC3339),
+		}
+		return mid, nil
+	}
+
+	// 未注入发送器：降级为占位 message_id（不真正发送网络请求）
 	// 生成结构化 message_id
 	now := time.Now().UnixNano()
 	id := fmt.Sprintf("msg_%s_%s_%d", job.Channel, job.CustomerID, now)
