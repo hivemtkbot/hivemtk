@@ -2,10 +2,12 @@ package router
 
 import (
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
+	"marketing/internal/cache"
 	"marketing/internal/controller"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
 	"marketing/internal/service"
+	i18nservice "marketing/internal/service/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -223,7 +225,10 @@ func setupSmsRoutes(auth *gin.RouterGroup) {
 
 // setupAutoReplyRoutes 自动回复路由
 func setupAutoReplyRoutes(auth *gin.RouterGroup) {
-	ragStack := knowledgesvc.NewRAGStack(db.GetDB())
+	// 回复语言链路：注入术语表渲染器与输出后置校准器（满足 aiagent 依赖倒置接口）。
+	// 使用进程内内存缓存避免每条回复都回查术语表；术语表读多写少，多副本间短暂不一致可接受。
+	glossarySvc := i18nservice.NewGlossaryService(repository.NewGlossaryRepositoryWithDB(db.GetDB()), cache.NewMemoryCache())
+	ragStack := knowledgesvc.NewRAGStack(db.GetDB(), glossarySvc, glossarySvc)
 	autoReplyCtrl := controller.NewAutoReplyController(service.NewAutoReplyService(db.GetDB()), ragStack)
 	autoReplyManagerCtrl := controller.NewAutoReplyManagerController(service.NewAutoReplyService(db.GetDB()))
 	xianyuAutoReplyCtrl := controller.NewXianyuAutoReplyController(service.NewXianyuAutoReplyService(db.GetDB()), ragStack)

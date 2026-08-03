@@ -19,7 +19,7 @@ type RAGStack struct {
 	Integration auto_reply_integration.AutoReplyIntegrationService
 }
 
-func NewRAGStack(db *gorm.DB) *RAGStack {
+func NewRAGStack(db *gorm.DB, glossary ragcustomerservice.GlossaryRenderer, calibrator ragcustomerservice.OutputCalibrator) *RAGStack {
 	embeddingSvc := llm.NewEmbeddingService()
 	// Embedding 走本地 TEI（真实 bge-m3，EmbeddingDim 维）
 	embedder := rag_core.NewRemoteEmbedder(EmbeddingDim)
@@ -75,6 +75,12 @@ func NewRAGStack(db *gorm.DB) *RAGStack {
 		DefaultMaxTokens:   DefaultMaxTokens,
 	}
 	responseGenerator := ragcustomerservice.NewResponseGeneratorImpl(llmSvc, respGenCfg)
+	if glossary != nil {
+		responseGenerator = responseGenerator.WithGlossaryRenderer(glossary)
+	}
+	if calibrator != nil {
+		responseGenerator = responseGenerator.WithOutputCalibrator(calibrator)
+	}
 
 	qaCfg := &ragcustomerservice.QualityAssessmentConfig{
 		RelevanceWeight:   0.3,

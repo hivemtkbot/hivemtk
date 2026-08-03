@@ -43,6 +43,23 @@ type EvalHook interface {
 	MaybeEvaluate(ctx context.Context, log *model.LLMRoutingLog, query, candidate, reference string)
 }
 
+// GlossaryRenderer 术语表渲染接口（由 service/i18n.GlossaryService 实现）。
+//
+// 通过依赖倒置避免 aiagent 层直接依赖 service 层。返回的 block 填充
+// MultilingualSystemPromptTemplate 的 {{.GlossaryBlock}}，把品牌术语在目标语言下的
+// 正确写法注入 system prompt，约束 LLM 输出用词。
+type GlossaryRenderer interface {
+	Render(ctx context.Context, lang string) string
+}
+
+// OutputCalibrator 输出后置校准接口（由 service/i18n.GlossaryService 适配实现）。
+//
+// 在 LLM 生成文本返回前做术语校准与敏感模式保护（SKU/金额/URL/邮箱等不被误翻译）。
+// 通过依赖倒置避免 aiagent 层反向依赖 service 层（service → aiagent 合法）。
+type OutputCalibrator interface {
+	Calibrate(ctx context.Context, text string, targetLang string) (string, error)
+}
+
 // ResponseGeneratorImpl 回复生成器实现
 //
 // 翻译缓存（TranslationCache）：
@@ -60,6 +77,8 @@ type ResponseGeneratorImpl struct {
 	fewShot        FewShotRenderer // 可选：跨语言路径注入 few-shot 示例
 	fallbackBridge FallbackBridge  // 可选：低资源语言降级桥
 	evalHook       EvalHook        // 可选：异步质量评估钩子
+	glossary       GlossaryRenderer // 可选：跨语言路径注入术语表 block
+	calibrator     OutputCalibrator  // 可选：输出后置校准（术语 + 模式保护）
 }
 
 // WithTranslationCache 注入翻译缓存（可选）
@@ -96,6 +115,22 @@ func (g *ResponseGeneratorImpl) WithFallbackBridge(b FallbackBridge) *ResponseGe
 // 钩子内部使用 goroutine 异步执行，不阻塞 GenerateResponse 主流程。
 func (g *ResponseGeneratorImpl) WithEvalHook(h EvalHook) *ResponseGeneratorImpl {
 	g.evalHook = h
+	return g
+}
+
+// WithGlossaryRenderer 注入术语表渲染器（可选）。
+//
+// 仅跨语言路径调用 Render 填充 GlossaryBlock。传入 nil 表示禁用（向后兼容）。
+func (g *ResponseGeneratorImpl) WithGlossaryRenderer(r GlossaryRenderer) *ResponseGeneratorImpl {
+	g.glossary = r
+	return g
+}
+
+// WithOutputCalibrator 注入输出后置校准器（可选）。
+//
+// 在 LLM 生成回复后做术语校准与敏感模式保护。传入 nil 表示禁用（向后兼容）。
+func (g *ResponseGeneratorImpl) WithOutputCalibrator(c OutputCalibrator) *ResponseGeneratorImpl {
+	g.calibrator = c
 	return g
 }
 
@@ -151,8 +186,14 @@ func NewResponseGeneratorImpl(llmService LLMServiceInterface, config *ResponseGe
 // EvalService 自动跳过，因此正常生成链路无额外开销）。
 func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request ResponseGenerationRequest) (string, error) {
 	internalLang := i18n.GetInternalLang(ctx)
-	targetLang := i18n.GetTargetLang(ctx)
-	crossLingual := i18n.GetCrossLingual(ctx)
+	configuredTarget := i18n.GetTargetLang(ctx)
+
+	// 语言路由：
+	//  1. 若智能体/渠道显式配置了与内部语种不同的 target_language，则严格按配置跨语言输出；
+	//  2. 否则（未配置或与内部语种相同）自动检测客户消息语种，按客户语言回复
+	//     （出海默认行为：客户用什么语言问，客服就用什么语言答）。
+	targetLang := g.resolveTargetLang(ctx, internalLang, configuredTarget, request.Query)
+	crossLingual := internalLang != targetLang
 
 	var reply string
 	var err error
@@ -161,7 +202,7 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 	if !crossLingual {
 		reply, err = g.generateSameLangResponse(ctx, request, internalLang)
 	} else {
-		// 低资源语言降级路径（：FallbackBridge）
+		// 低资源语言降级路径（FallbackBridge）
 		// bridge 未注入或未启用时走标准跨语言路径，不影响主流程
 		if g.fallbackBridge != nil && g.fallbackBridge.Enabled() && g.fallbackBridge.IsLowResource(targetLang) {
 			r, e := g.fallbackBridge.Generate(ctx, request.Query, targetLang, request.SearchResults)
@@ -182,6 +223,15 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 		return "", err
 	}
 
+	// 输出后置校准（术语表 + 敏感模式保护），仅在注入校准器时生效。
+	if g.calibrator != nil {
+		if calibrated, cErr := g.calibrator.Calibrate(ctx, reply, targetLang); cErr == nil {
+			reply = calibrated
+		} else {
+			logger.Warnf("[ResponseGenerator] output calibration failed, keep original: %v", cErr)
+		}
+	}
+
 	// 异步抽样评估钩子（可选，不阻塞主流程）
 	// 构造最小 log 携带语言元数据；reference 传空，EvalService 会自动跳过
 	// （仅当调用方在评测场景下显式提供 reference 时才会真正触发评估）。
@@ -194,6 +244,21 @@ func (g *ResponseGeneratorImpl) GenerateResponse(ctx context.Context, request Re
 	}
 
 	return reply, nil
+}
+
+// resolveTargetLang 计算最终输出语种。
+//
+// 显式配置了与内部语种不同的 target_language 时严格遵循配置（不自动检测）；
+// 否则依据客户消息自动检测语种，命中可识别语种且与内部语种不同时按客户语种回复。
+// 无法识别时回退到内部语种，保证向后兼容。
+func (g *ResponseGeneratorImpl) resolveTargetLang(ctx context.Context, internalLang, configuredTarget, query string) string {
+	if configuredTarget != "" && configuredTarget != internalLang {
+		return configuredTarget
+	}
+	if detected := i18n.DetectLangCode(query); detected != "" && detected != internalLang {
+		return detected
+	}
+	return internalLang
 }
 
 // generateSameLangResponse 同语种生成（原逻辑，保留中文 prompt）
@@ -285,8 +350,12 @@ func (g *ResponseGeneratorImpl) doCrossLingualLLM(ctx context.Context, request R
 		}
 	}
 
-	// 渲染多语言 system prompt（glossaryBlock 暂留空，由后续任务接入）
-	systemPrompt := renderMultilingualSystemPrompt(internalLang, targetLang, "", fewShotBlock)
+	// 渲染多语言 system prompt；glossaryBlock 由注入的 GlossaryRenderer 提供（未注入则留空）。
+	glossaryBlock := ""
+	if g.glossary != nil {
+		glossaryBlock = g.glossary.Render(ctx, targetLang)
+	}
+	systemPrompt := renderMultilingualSystemPrompt(internalLang, targetLang, glossaryBlock, fewShotBlock)
 
 	// 拼接 context + user query
 	prompt := fmt.Sprintf(`%s
