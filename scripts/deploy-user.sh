@@ -262,9 +262,13 @@ server {
         expires 30d;
     }
 
-    # API / WebSocket 转发至 user-server 容器
+    # API / WebSocket 转发
+    # 部署策略（2026-08-03 用户定）：user-web 发布到线上，user-server 始终在本地运行，
+    # API 经 frps 隧道穿透回本地。故 /api 默认指向 frps vhost(118.25.236.101:8280)，
+    # 由 frps 按 Host=hiveuserapi.xapptool.cn 路由到本地 frpc→本地 user-server:8204。
+    # 不要改回 127.0.0.1:8204（那会把流量打到线上生产容器，与策略相悖）。
     location /api/ {
-        proxy_pass http://127.0.0.1:8204;
+        proxy_pass http://118.25.236.101:8280;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
