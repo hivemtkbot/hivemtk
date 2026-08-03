@@ -4,8 +4,8 @@
 #
 # 部署目标：hiveuserapi.xapptool.cn (118.25.236.101)
 # 部署内容：
-#   - user-web 前端 → /www/wwwroot/hivemtk-userchat/dist/
-#   - embed-sdk → /www/wwwroot/hivemtk-userchat/embed-sdk-dist/
+#   - user-web 前端 → /www/wwwroot/hivemtk/user-web/dist/        (商户演示前端 hiveuser.xapptool.cn 站点根)
+#   - embed-sdk → /www/wwwroot/hivemtk/user-web/embed-sdk-dist/
 #   - user-server Docker 容器（PG + Redis + user-server）
 #
 # 用法:
@@ -32,7 +32,7 @@ DEPLOY_USER="${DEPLOY_USER:-root}"
 DEPLOY_HOST="${DEPLOY_HOST:-118.25.236.101}"
 REMOTE="ssh $DEPLOY_USER@$DEPLOY_HOST"
 
-WEBROOT_USERCHAT="${WEBROOT_USERCHAT:-/www/wwwroot/hivemtk-userchat}"
+WEBROOT_USERWEB="${WEBROOT_USERWEB:-/www/wwwroot/hivemtk/user-web}"
 NGINX_VHOST_DIR="${NGINX_VHOST_DIR:-/www/server/panel/vhost/nginx}"
 USER_SERVER_PORT="${USER_SERVER_PORT:-8204}"
 
@@ -124,22 +124,22 @@ build_web() {
 # ---------- 推 dist 到远端 ----------
 push_web() {
   log "########## 推送前端资源 ##########"
-  run_remote "创建远端目录" "mkdir -p $WEBROOT_USERCHAT/dist $WEBROOT_USERCHAT/embed-sdk-dist"
+  run_remote "创建远端目录" "mkdir -p $WEBROOT_USERWEB/dist $WEBROOT_USERWEB/embed-sdk-dist"
 
-  log "==> 推送 user-web/dist -> $WEBROOT_USERCHAT/dist/"
+  log "==> 推送 user-web/dist -> $WEBROOT_USERWEB/dist/"
   if command -v rsync >/dev/null 2>&1; then
-    run "rsync -az --delete --exclude='.user.ini' user-web/dist/ $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERCHAT/dist/"
+    run "rsync -az --delete --exclude='.user.ini' user-web/dist/ $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERWEB/dist/"
   else
-    run_remote "清空远端 dist" "find $WEBROOT_USERCHAT/dist -mindepth 1 -name '.user.ini' -prune -o -mindepth 1 -delete"
-    run "scp -r user-web/dist/. $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERCHAT/dist/"
+    run_remote "清空远端 dist" "find $WEBROOT_USERWEB/dist -mindepth 1 -name '.user.ini' -prune -o -mindepth 1 -delete"
+    run "scp -r user-web/dist/. $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERWEB/dist/"
   fi
 
-  log "==> 推送 embed-sdk/dist -> $WEBROOT_USERCHAT/embed-sdk-dist/"
+  log "==> 推送 embed-sdk/dist -> $WEBROOT_USERWEB/embed-sdk-dist/"
   if command -v rsync >/dev/null 2>&1; then
-    run "rsync -az --delete embed-sdk/dist/ $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERCHAT/embed-sdk-dist/"
+    run "rsync -az --delete embed-sdk/dist/ $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERWEB/embed-sdk-dist/"
   else
-    run_remote "清空远端 embed-sdk-dist" "find $WEBROOT_USERCHAT/embed-sdk-dist -mindepth 1 -delete"
-    run "scp -r embed-sdk/dist/. $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERCHAT/embed-sdk-dist/"
+    run_remote "清空远端 embed-sdk-dist" "find $WEBROOT_USERWEB/embed-sdk-dist -mindepth 1 -delete"
+    run "scp -r embed-sdk/dist/. $DEPLOY_USER@$DEPLOY_HOST:$WEBROOT_USERWEB/embed-sdk-dist/"
   fi
 
   log "  前端资源推送完成"
@@ -207,10 +207,12 @@ update_nginx() {
 server {
     listen 80;
     listen 443 ssl;
-    http2 on;
+    # 注意：故意不开启 http2。WebSocket 升级无法在 HTTP/2 连接上进行，
+    # nginx 开启 http2 后会用 HTTP/2 处理 wss 握手并返回 400 Bad Request。
+    # 该域名以 API/WebSocket 为主，关闭 http2 可保证 WS Upgrade 走 HTTP/1.1 必然成功。
     server_name hiveuserapi.xapptool.cn;
     index index.html;
-    root /www/wwwroot/hivemtk-userchat/dist;
+    root /www/wwwroot/hivemtk/user-web/dist;
 
     # SSL 配置（宝塔面板管理）
     include /www/server/panel/vhost/nginx/well-known/hiveuserapi.xapptool.cn.conf;
@@ -241,23 +243,23 @@ server {
 
     # 静态资源（SPA + assets）
     location /assets/ {
-        alias /www/wwwroot/hivemtk-userchat/dist/assets/;
+        alias /www/wwwroot/hivemtk/user-web/dist/assets/;
         access_log off;
         expires 12h;
         add_header Cache-Control "public, max-age=43200";
     }
     location = /favicon.svg {
-        alias /www/wwwroot/hivemtk-userchat/dist/favicon.svg;
+        alias /www/wwwroot/hivemtk/user-web/dist/favicon.svg;
         access_log off;
         expires 30d;
     }
     location = /favicon.ico {
-        alias /www/wwwroot/hivemtk-userchat/dist/favicon.svg;
+        alias /www/wwwroot/hivemtk/user-web/dist/favicon.svg;
         access_log off;
         expires 30d;
     }
     location = /logo.png {
-        alias /www/wwwroot/hivemtk-userchat/dist/logo.png;
+        alias /www/wwwroot/hivemtk/user-web/dist/logo.png;
         access_log off;
         expires 30d;
     }

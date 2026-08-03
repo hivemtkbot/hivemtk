@@ -51,8 +51,8 @@ func TestSmartCSOrchestrator_DefaultConfig(t *testing.T) {
 	if !cfg.EnableAutoReply {
 		t.Error("默认应启用自动回复")
 	}
-	if cfg.MaxAIConsecutive != 5 {
-		t.Errorf("默认 AI 连续上限应为 5，实际 %d", cfg.MaxAIConsecutive)
+	if cfg.MaxAIConsecutive != 10 {
+		t.Errorf("默认 AI 连续上限应为 10，实际 %d", cfg.MaxAIConsecutive)
 	}
 }
 

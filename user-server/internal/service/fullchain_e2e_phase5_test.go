@@ -171,7 +171,6 @@ func TestE2E_FullChain_StepSequence(t *testing.T) {
 		"5_recall_rag",
 		"6_generate_candidate",
 		"7_polish",
-		"8_audit",
 		"9_feedback_learn",
 	}
 
@@ -194,7 +193,7 @@ func TestE2E_FullChain_StepSequence(t *testing.T) {
 		}
 	}
 
-	t.Logf("✅ 9 步链路完整: %s", strings.Join(stepNames, " → "))
+	t.Logf("✅ 链路完整: %s", strings.Join(stepNames, " → "))
 }
 
 // TestE2E_FullChain_SmartOrchestratorDelegatesToEngine SmartCSOrchestrator 委托 SalesEngine
@@ -218,8 +217,8 @@ func TestE2E_FullChain_SmartOrchestratorDelegatesToEngine(t *testing.T) {
 	if !orchestrator.enableAutoReply {
 		t.Error("enableAutoReply 应为 true")
 	}
-	if orchestrator.maxAIConsecutive != 5 {
-		t.Errorf("maxAIConsecutive 应为 5，实际 %d", orchestrator.maxAIConsecutive)
+	if orchestrator.maxAIConsecutive != 10 {
+		t.Errorf("maxAIConsecutive 应为 10，实际 %d", orchestrator.maxAIConsecutive)
 	}
 
 	t.Logf("✅ SmartCSOrchestrator 配置: threshold=%.2f, autoReply=%v, maxAI=%d",

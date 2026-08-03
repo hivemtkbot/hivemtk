@@ -90,66 +90,6 @@ func TestHumanizePolisher_EmptyInput(t *testing.T) {
 	}
 }
 
-// ContentAuditor tests
-func TestContentAuditor_BlockedKeywords(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("加我微信详聊", nil)
-	if r.Pass {
-		t.Error("should block '加我微信'")
-	}
-	if len(r.Issues) == 0 {
-		t.Error("should have issues")
-	}
-}
-
-func TestContentAuditor_PhoneLeak(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("请联系 13800138000", nil)
-	if r.Pass {
-		t.Error("should block phone leak")
-	}
-}
-
-func TestContentAuditor_Exclamation(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("太棒了！！！！", nil)
-	if len(r.Warnings) == 0 {
-		t.Error("should warn on multi exclamation")
-	}
-}
-
-func TestContentAuditor_AllCaps(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("THIS IS ALL CAPS REPLY", nil)
-	if len(r.Warnings) == 0 {
-		t.Error("should warn on all caps")
-	}
-}
-
-func TestContentAuditor_Empty(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("", nil)
-	if r.Pass {
-		t.Error("empty should fail")
-	}
-}
-
-func TestContentAuditor_Pass(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("好的，请问有什么可以帮您？", nil)
-	if !r.Pass {
-		t.Errorf("clean reply should pass, got issues: %v", r.Issues)
-	}
-}
-
-func TestContentAuditor_URLLeak(t *testing.T) {
-	a := NewContentAuditor()
-	r := a.Audit("请查看 https://example.com", nil)
-	if len(r.Warnings) == 0 {
-		t.Error("should warn on url leak")
-	}
-}
-
 func TestRAG_ScoreText(t *testing.T) {
 	score := knowledgesvc.ScoreText("产品价格 999 元", []string{"价格", "产品"})
 	if score != 1.0 {

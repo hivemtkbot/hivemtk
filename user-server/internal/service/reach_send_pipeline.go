@@ -3,8 +3,7 @@
 // 9 步装饰器链（外层 → 内层顺序）：
 //  1. 权限校验（PermissionChecker）
 //  2. 限流（RateLimiter，按渠道+账号）
-//  3. 内容审核（ContentAuditor，敏感词 + 广告法）
-//  4. 重试（RetryPolicy，指数退避，最多 3 次）
+//  3. 重试（RetryPolicy，指数退避，最多 3 次）
 //  5. 降级（FallbackPolicy，主渠道失败 → 备用渠道）
 //  6. 审计（AuditLogger，全量留痕到 reach_audit_logs）
 //  7. 计费（CostTracker，按渠道计费 + 余额检查）
@@ -36,8 +35,7 @@ import (
 const (
 	SendStepPermission   = "permission"    // 1. 权限校验
 	SendStepRateLimit    = "rate_limit"    // 2. 限流
-	SendStepContentAudit = "content_audit" // 3. 内容审核
-	SendStepRetry        = "retry"         // 4. 重试（包裹 5-9）
+	SendStepRetry        = "retry"         // 3. 重试（包裹 4-8）
 	SendStepFallback     = "fallback"      // 5. 降级
 	SendStepAudit        = "audit"         // 6. 审计
 	SendStepCost         = "cost"          // 7. 计费
@@ -49,7 +47,6 @@ const (
 var DefaultSendPipelineSteps = []string{
 	SendStepPermission,
 	SendStepRateLimit,
-	SendStepContentAudit,
 	SendStepRetry,
 	SendStepFallback,
 	SendStepAudit,
@@ -63,7 +60,6 @@ var DefaultSendPipelineSteps = []string{
 var (
 	ErrSendPermissionDenied = errors.New("send permission denied")
 	ErrSendRateLimited      = errors.New("send rate limited")
-	ErrSendContentRejected  = errors.New("content rejected by audit")
 	ErrSendAllChannelFailed = errors.New("all channels failed (primary + fallback)")
 	ErrSendInsufficientCost = errors.New("insufficient balance for send")
 	ErrSendChannelNotConfig = errors.New("channel adapter not configured")
@@ -142,20 +138,6 @@ type RateLimitSpec struct {
 	Burst        int
 	DailyQuota   int
 	PerUserLimit int
-}
-
-// SendContentAuditor 内容审核器
-type SendContentAuditor interface {
-	Audit(ctx context.Context, channel, content string) (*ContentAuditResult, error)
-}
-
-// ContentAuditResult 内容审核结果
-type ContentAuditResult struct {
-	Passed    bool
-	Reason    string // 拒绝原因
-	HitWords  []string
-	Category  string // sensitive/ad_law/normal
-	Sanitized string // 脱敏后内容（如适用）
 }
 
 // SendRetryPolicy 重试策略
@@ -289,175 +271,6 @@ func (l *MemorySendRateLimiter) Reset(ctx context.Context, key string) {
 	s.mu.Lock()
 	delete(s.buckets, key)
 	s.mu.Unlock()
-}
-
-// DefaultContentAuditor 默认内容审核器（敏感词 + 广告法）
-//
-// 使用 Aho-Corasick 多模自动机，单次 O(文本长) 扫描即可命中全部词，复杂度与词表规模无关。
-type DefaultContentAuditor struct {
-	SensitiveWords []string // 敏感词列表
-	AdLawKeywords  []string // 广告法禁用词（最/极/首/第一 等极限词）
-
-	mu     sync.Mutex
-	sensAC *acAutomaton
-	adAC   *acAutomaton
-	dirty  bool
-}
-
-// NewDefaultContentAuditor 创建默认审核器
-func NewDefaultContentAuditor() *DefaultContentAuditor {
-	a := &DefaultContentAuditor{
-		SensitiveWords: []string{
-			"赌博", "色情", "毒品", "诈骗", "传销",
-			"枪支", "弹药", "爆炸物",
-		},
-		AdLawKeywords: []string{
-			"国家级", "最高级", "最佳", "最强", "最先", "最新",
-			"第一", "唯一", "首个", "冠军", "顶尖", "极致",
-			"永久", "百分百", "100%", "绝对",
-		},
-	}
-	a.dirty = true
-	return a
-}
-
-// ensureCompiled 在词表变更后惰性重建自动机
-func (a *DefaultContentAuditor) ensureCompiled(ctx context.Context) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if !a.dirty {
-		return
-	}
-	a.sensAC = newACAutomaton(a.SensitiveWords)
-	a.adAC = newACAutomaton(a.AdLawKeywords)
-	a.dirty = false
-}
-
-// Audit 执行审核
-func (a *DefaultContentAuditor) Audit(ctx context.Context, channel, content string) (*ContentAuditResult, error) {
-	if content == "" {
-		return &ContentAuditResult{Passed: true, Category: "normal"}, nil
-	}
-	a.ensureCompiled(ctx)
-
-	result := &ContentAuditResult{Passed: true, Category: "normal"}
-	if hits := a.sensAC.match(ctx, content); len(hits) > 0 {
-		result.Passed = false
-		result.Category = "sensitive"
-		result.HitWords = append(result.HitWords, hits...)
-		result.Reason = fmt.Sprintf("命中敏感词: %s", strings.Join(hits, ","))
-	}
-	if hits := a.adAC.match(ctx, content); len(hits) > 0 {
-		result.Passed = false
-		if result.Category == "normal" {
-			result.Category = "ad_law"
-		}
-		result.HitWords = append(result.HitWords, hits...)
-		if result.Reason == "" {
-			result.Reason = fmt.Sprintf("命中广告法极限词: %s", strings.Join(hits, ","))
-		} else {
-			result.Reason += fmt.Sprintf("; 命中广告法极限词: %s", strings.Join(hits, ","))
-		}
-	}
-	return result, nil
-}
-
-// AddSensitiveWord 动态添加敏感词
-func (a *DefaultContentAuditor) AddSensitiveWord(ctx context.Context, words ...string) {
-	a.mu.Lock()
-	a.SensitiveWords = append(a.SensitiveWords, words...)
-	a.dirty = true
-	a.mu.Unlock()
-}
-
-// AddAdLawKeyword 动态添加广告法词
-func (a *DefaultContentAuditor) AddAdLawKeyword(ctx context.Context, words ...string) {
-	a.mu.Lock()
-	a.AdLawKeywords = append(a.AdLawKeywords, words...)
-	a.dirty = true
-	a.mu.Unlock()
-}
-
-// ===== Aho-Corasick 多模子串匹配 =====
-
-type acNode struct {
-	children map[rune]int
-	fail     int
-	words    []string
-}
-
-// acAutomaton 多模式子串匹配自动机，构建后单次扫描命中全部模式串。
-type acAutomaton struct {
-	nodes []acNode
-}
-
-func newACAutomaton(words []string) *acAutomaton {
-	a := &acAutomaton{nodes: []acNode{{children: map[rune]int{}, fail: 0}}}
-	for _, w := range words {
-		if w == "" {
-			continue
-		}
-		cur := 0
-		for _, r := range w {
-			if nxt, ok := a.nodes[cur].children[r]; ok {
-				cur = nxt
-			} else {
-				a.nodes = append(a.nodes, acNode{children: map[rune]int{}, fail: 0})
-				nxt = len(a.nodes) - 1
-				a.nodes[cur].children[r] = nxt
-				cur = nxt
-			}
-		}
-		a.nodes[cur].words = append(a.nodes[cur].words, w)
-	}
-	queue := make([]int, 0, len(a.nodes))
-	for _, nxt := range a.nodes[0].children {
-		a.nodes[nxt].fail = 0
-		queue = append(queue, nxt)
-	}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-		for r, nxt := range a.nodes[cur].children {
-			queue = append(queue, nxt)
-			f := a.nodes[cur].fail
-			for f != 0 && a.nodes[f].children[r] == 0 {
-				f = a.nodes[f].fail
-			}
-			if nxt2, ok := a.nodes[f].children[r]; ok && nxt2 != nxt {
-				a.nodes[nxt].fail = nxt2
-			} else {
-				a.nodes[nxt].fail = 0
-			}
-		}
-	}
-	return a
-}
-
-// match 返回内容中命中的全部模式串（去重）
-func (a *acAutomaton) match(ctx context.Context, content string) []string {
-	var hits []string
-	seen := make(map[string]bool)
-	cur := 0
-	for _, r := range content {
-		for cur != 0 && a.nodes[cur].children[r] == 0 {
-			cur = a.nodes[cur].fail
-		}
-		if nxt, ok := a.nodes[cur].children[r]; ok {
-			cur = nxt
-		}
-		f := cur
-		for f != 0 {
-			for _, w := range a.nodes[f].words {
-				if !seen[w] {
-					seen[w] = true
-					hits = append(hits, w)
-				}
-			}
-			f = a.nodes[f].fail
-		}
-	}
-	return hits
 }
 
 // MemorySendAuditLogger 内存级审计日志
@@ -622,7 +435,6 @@ type SendPipelineConfig struct {
 	PermissionChecker SendPermissionChecker
 	RateLimiter       SendRateLimiter
 	RateLimitSpec     RateLimitSpec
-	ContentAuditor    SendContentAuditor
 	RetryPolicy       SendRetryPolicy
 	AuditLogger       SendAuditLogger
 	CostTracker       SendCostTracker
@@ -637,7 +449,6 @@ func DefaultSendPipelineConfig(adapter ChannelAdapter) SendPipelineConfig {
 	return SendPipelineConfig{
 		PermissionChecker: AllowAllSendPermission{},
 		RateLimiter:       NoOpSendRateLimiter{},
-		ContentAuditor:    NewDefaultContentAuditor(),
 		RetryPolicy:       DefaultSendRetryPolicy(),
 		AuditLogger:       NewMemorySendAuditLogger(1000),
 		CostTracker:       NoOpSendCostTracker{},
@@ -701,7 +512,6 @@ func (p *defaultSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 	stepFuncs := map[string]func(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog{
 		SendStepPermission:   p.runPermission,
 		SendStepRateLimit:    p.runRateLimit,
-		SendStepContentAudit: p.runContentAudit,
 		SendStepRetry:        p.runRetry,
 		SendStepFallback:     p.runFallback,
 		SendStepAudit:        p.runAudit,
@@ -788,37 +598,7 @@ func (p *defaultSendPipeline) runRateLimit(ctx context.Context, req *ReachSendRe
 	return log
 }
 
-// 3. 内容审核
-func (p *defaultSendPipeline) runContentAudit(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
-	start := time.Now()
-	log := SendStepLog{Step: SendStepContentAudit, StartedAt: start}
-	if p.config.ContentAuditor == nil {
-		log.Skipped = true
-		log.Success = true
-		log.EndedAt = time.Now()
-		log.DurationMs = time.Since(start).Milliseconds()
-		return log
-	}
-	result, err := p.config.ContentAuditor.Audit(ctx, req.Channel, req.Content)
-	if err != nil {
-		log.Success = false
-		log.Error = err.Error()
-	} else if !result.Passed {
-		log.Success = false
-		log.Error = fmt.Sprintf("%s: %s", ErrSendContentRejected.Error(), result.Reason)
-		log.Output = []any{result}
-	} else {
-		log.Success = true
-		if result.Sanitized != "" {
-			req.Content = result.Sanitized
-		}
-	}
-	log.EndedAt = time.Now()
-	log.DurationMs = time.Since(start).Milliseconds()
-	return log
-}
-
-// 4. 重试（包裹后续步骤：5 降级 / 6 审计 / 7 计费 / 8 轨迹 / 9 发送）
+// 3. 重试（包裹后续步骤：4 降级 / 5 审计 / 6 计费 / 7 轨迹 / 8 发送）
 // 实现策略：重试只包裹"实际发送"步骤，其他步骤是幂等的或单次执行
 // 重试逻辑：调用 doSendOnce() 最多 MaxRetries+1 次
 func (p *defaultSendPipeline) runRetry(ctx context.Context, req *ReachSendRequest, resp *SendResponse) SendStepLog {
@@ -1057,7 +837,6 @@ type SendPipelineStats struct {
 	SuccessSends   int64
 	FailedSends    int64
 	RateLimited    int64
-	ContentBlocked int64
 	FallbackUsed   int64
 	TotalRetries   int64
 	TotalCost      float64
@@ -1094,8 +873,6 @@ func (p *countedSendPipeline) Send(ctx context.Context, req *ReachSendRequest) *
 			switch step.Step {
 			case SendStepRateLimit:
 				p.stats.RateLimited++
-			case SendStepContentAudit:
-				p.stats.ContentBlocked++
 			}
 		}
 	}

@@ -32,8 +32,7 @@ import (
 //   ⑤ RAG 召回         → RAGSearcher 适配器（→ RagSearcher）
 //   ⑥ LLM 生成         → llm.Dispatcher
 //   ⑦ 拟人润色         → HumanizePolisher（SalesEngine 内部创建）
-//   ⑧ 发送前审核       → ContentAuditor（SalesEngine 内部创建）
-//   ⑨ 反馈学习         → FeedbackLearner（通过 SetFeedbackLearner 注入，智能体自我进化闭环）
+//   ⑧ 反馈学习         → FeedbackLearner（通过 SetFeedbackLearner 注入，智能体自我进化闭环）
 // ============================================================================
 
 // buildSalesEngine 构建智能体销冠引擎（真实依赖注入）
@@ -147,7 +146,7 @@ func buildSalesEngine(gormDB *gorm.DB) *service.SalesEngine {
 //	"LLM 能力 + 智能体 协作体"：高置信度自动回复，低置信度转人工 + 推送建议
 //	座席可随时接管智能体会话（人机协同）
 //
-// 配置：使用 DefaultOrchestratorConfig（置信度 0.7 / 自动回复开 / 自动连续上限 5）
+// 配置：使用 DefaultOrchestratorConfig（置信度 0.7 / 自动回复开 / 自动连续上限 10）
 //
 // 调优记录：9B 4-bit 在 RAG 短问答上 confidence 评估均值 ~0.55-0.65，
 // 默认 0.7 阈值导致 80% 业务问答被判定为"低置信度"转人工。降到 0.5 让 AI 接管更多场景。

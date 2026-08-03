@@ -67,6 +67,7 @@ type InboxIngressService struct {
 	mu        sync.Mutex
 	triggerCh chan string // 触发 AgentRuntime 处理通知（可选，保留兼容）
 	aiTrigger AITrigger   // 入站消息触发 AI 客服的实现（桥接场景为 WebhookService）
+	inboxSvc  *InboxService // 统一收件箱会话同步（桥接消息落库后同步到 inbox_conversations）
 }
 
 // NewInboxIngressService 构造入站服务(无参,内部用 dbUtil.GetDB())
@@ -101,6 +102,13 @@ func (s *InboxIngressService) TriggerChannel(ctx context.Context) <-chan string 
 // SetAITrigger 注入 AI 触发实现（生产环境由 WebhookService 提供，测试可注入 fake）
 func (s *InboxIngressService) SetAITrigger(t AITrigger) {
 	s.aiTrigger = t
+}
+
+// SetInboxService 注入统一收件箱服务，使桥接消息落库 message_hub 后
+// 同步会话到 inbox_conversations（统一收件箱 list 数据源）。
+// 未注入时跳过同步（降级为仅 message_hub 落库），不影响主链路。
+func (s *InboxIngressService) SetInboxService(svc *InboxService) {
+	s.inboxSvc = svc
 }
 
 // IsSessionHumanLocked 检查会话是否被人工接管
@@ -209,7 +217,34 @@ func (s *InboxIngressService) NormalizeEvent(ctx context.Context, event *model.M
 		return fmt.Errorf("invalid channel (empty)")
 	}
 	if event.SenderID == "" {
-		return fmt.Errorf("invalid sender_id (empty)")
+		// 桥接场景：列表视图未进入具体会话时 conversation_id 为空，
+		// 客户消息 sender_id 回落为 conversation_id 会变空。改用 sender_name 兜底，
+		// 避免整条消息被丢弃（其他渠道恒带 sender_id，不受影响）。
+		if event.SenderName != "" {
+			event.SenderID = event.SenderName
+		} else {
+			event.SenderID = event.Channel + ":unknown"
+		}
+	}
+	// ConversationID 兜底：抖音等桥接渠道在列表页/浮层/实时私信下常取不到
+	// 活动会话 ID（扩展侧 getConversationId() 返回 null，且 parseMessageItem 不携带），
+	// 导致 message_hub.conversation_id 全为 NULL，UI 按会话聚合查不到消息。
+	// 逐级兜底：ConversationID → SessionID → Channel:account_id，保证每条消息可聚合。
+	if event.ConversationID == "" {
+		if event.SessionID != "" {
+			event.ConversationID = event.SessionID
+		} else {
+			accountID := ""
+			if event.Extra != nil {
+				if v, ok := event.Extra["account_id"].(string); ok {
+					accountID = v
+				}
+			}
+			if accountID == "" {
+				accountID = event.Channel + ":unknown"
+			}
+			event.ConversationID = event.Channel + ":" + accountID
+		}
 	}
 	if event.MsgType == "" {
 		event.MsgType = model.MsgTypeText
@@ -325,7 +360,21 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 	}
 	// 五层架构修复：原 s.db.WithContext(ctx).Create(hub).Error 违反
 	// "service 不可直接访问 DB" 约束，已下沉到 MessageHubRepository.Create
-	return s.hubRepo.Create(ctx, hub)
+	if err := s.hubRepo.Create(ctx, hub); err != nil {
+		return err
+	}
+	// 同步会话到统一收件箱（inbox_conversations），否则 unifiedInbox/list 看不到桥接聊天。
+	// 仅同步 inbound 方向（outbound 历史回填由 persistHistoryMessage 处理）。
+	if s.inboxSvc != nil && hub.Direction == "inbound" {
+		// 注意：用 context.Background() 而非 ctx——ctx 随 WS 连接生命周期取消，
+		// 而 AI 推理耗时较长，连接抖动会致 UpsertFromHubMessage 报 context canceled，
+		// 使会话同步失败（消息已落库 message_hub 却未在收件箱出现）。收件箱同步是
+		// 独立副作用，不应受连接取消影响。
+		if _, err := s.inboxSvc.UpsertFromHubMessage(context.Background(), hub); err != nil {
+			logger.Warnf("[Inbox] 桥接消息同步统一收件箱失败(session=%s): %v", event.SessionID, err)
+		}
+	}
+	return nil
 }
 
 // PersistBridgeHistory 仅持久化历史/回填消息，不触发 AI 路由。
@@ -416,5 +465,16 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 			hub.Status = v
 		}
 	}
-	return s.hubRepo.Create(ctx, hub)
+	if err := s.hubRepo.Create(ctx, hub); err != nil {
+		return err
+	}
+	// 同步会话到统一收件箱（inbox_conversations），使 unifiedInbox/list 能看到桥接聊天。
+	// inbound 计入未读；outbound 不计入（与飞书/企微一致）。
+	if s.inboxSvc != nil {
+		// 用 context.Background() 而非 ctx：避免随 WS 连接取消导致同步失败（见 persistMessage 注释）。
+		if _, err := s.inboxSvc.UpsertFromHubMessage(context.Background(), hub); err != nil {
+			logger.Warnf("[Inbox] 桥接历史消息同步统一收件箱失败(conv=%s): %v", event.ConversationID, err)
+		}
+	}
+	return nil
 }

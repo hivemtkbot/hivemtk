@@ -52,12 +52,12 @@
     </el-row>
 
     <!-- 平台分布 -->
-    <el-card v-if="stats.by_platform && Object.keys(stats.by_platform).length" class="platform-card" shadow="never">
+    <el-card v-if="mergedByPlatform && Object.keys(mergedByPlatform).length" class="platform-card" shadow="never">
       <template #header>
         <span>{{ $t('平台会话分布') }}</span>
       </template>
       <div class="platform-bars">
-        <div v-for="(count, platform) in stats.by_platform" :key="platform" class="platform-bar-item">
+        <div v-for="(count, platform) in mergedByPlatform" :key="platform" class="platform-bar-item">
           <span class="platform-name">{{ platformLabel(platform) }}</span>
           <div class="bar-track">
             <div class="bar-fill" :style="{ width: barWidth(count) + '%' }"></div>
@@ -365,7 +365,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshRight, DataAnalysis, Top, StarFilled, ArrowDown } from '@element-plus/icons-vue'
 import { unifiedInboxApi } from '@/api/unifiedInbox.js'
-import { getChannelLabel, getChannelTagType } from '@/constants/channel.js'
+import { getChannelLabel, getChannelTagType, PLATFORM_GROUP_MEMBERS, PLATFORM_GROUP_MEMBERS_REVERSE } from '@/constants/channel.js'
 
 const loading = ref(false)
 const statsLoading = ref(false)
@@ -376,6 +376,7 @@ const conversationList = ref([])
 const stats = ref({})
 const messageList = ref([])
 
+// 平台筛选下拉：官方版与网页桥接版归并为同一平台（抖音/小红书/TikTok 各一项）
 const platformOptions = ref(['wecom', 'personal_wx', 'douyin', 'kuaishou', 'xiaohongshu', 'xianyu', 'tiktok', 'whatsapp', 'sms', 'email', 'web', 'web_embed'])
 
 const searchForm = reactive({
@@ -393,9 +394,19 @@ const searchForm = reactive({
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const msgPagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
+// 平台分布聚合（仅展示层）：把网页桥接版归并到对应官方版（如 douyin_web -> douyin）
+const mergedByPlatform = computed(() => {
+  const src = stats.value.by_platform || {}
+  const out = {}
+  for (const [k, v] of Object.entries(src)) {
+    const g = PLATFORM_GROUP_MEMBERS_REVERSE[k] || k
+    out[g] = (out[g] || 0) + v
+  }
+  return out
+})
+
 const maxPlatformCount = computed(() => {
-  if (!stats.value.by_platform) return 1
-  const vals = Object.values(stats.value.by_platform)
+  const vals = Object.values(mergedByPlatform.value)
   return vals.length ? Math.max(...vals) : 1
 })
 
@@ -404,6 +415,7 @@ const barWidth = (count) => {
   return Math.round((count / maxPlatformCount.value) * 100)
 }
 
+// 平台显示名：按底层 platform 值显示真实名称（douyin -> 抖音，douyin_web -> 抖音私信(网页)），不掩盖底层值
 const platformLabel = (p) => getChannelLabel(p) || '-'
 
 const platformTagType = (p) => getChannelTagType(p)
@@ -464,6 +476,7 @@ const buildParams = () => {
     page: pagination.page,
     page_size: pagination.pageSize
   }
+  // 底层 platform 值原样透传（单值），绝不合并查询条件
   if (searchForm.platform) params.platform = searchForm.platform
   if (searchForm.status) params.status = searchForm.status
   if (searchForm.assigned_to) params.assigned_to = searchForm.assigned_to
@@ -479,9 +492,38 @@ const buildParams = () => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await unifiedInboxApi.listConversations(buildParams())
-    conversationList.value = res.list || []
-    pagination.total = res.total || 0
+    const members = PLATFORM_GROUP_MEMBERS[searchForm.platform]
+    if (!members) {
+      // 单一底层渠道：一次查询
+      const res = await unifiedInboxApi.listConversations(buildParams())
+      conversationList.value = res.list || []
+      pagination.total = res.total || 0
+    } else {
+      // 归并展示项（如"抖音"= 官方版 + 网页版）：分别用各自底层 platform 值查两次，再合并去重
+      const merged = []
+      const ids = new Set()
+      let total = 0
+      // 取当前页所需的两份数据分别拉取后合并（按更新时间倒序，前端再排序裁剪）
+      const baseParams = () => {
+        const p = buildParams()
+        delete p.platform
+        return p
+      }
+      await Promise.all(members.map(async (pf) => {
+        const res = await unifiedInboxApi.listConversations({ ...baseParams(), platform: pf })
+        total += res.total || 0
+        for (const c of (res.list || [])) {
+          if (!ids.has(c.conversation_id)) {
+            ids.add(c.conversation_id)
+            merged.push(c)
+          }
+        }
+      }))
+      merged.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
+      const start = (pagination.page - 1) * pagination.pageSize
+      conversationList.value = merged.slice(start, start + pagination.pageSize)
+      pagination.total = total
+    }
   } catch (e) {
     console.error('加载会话列表失败', e)
   } finally {

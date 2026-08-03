@@ -325,6 +325,15 @@ func Setup(r *gin.Engine) {
 		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
+		// 网页桥接 WebSocket（抖音/小红书/TikTok 网页私信）：扩展经此上行私信、下行 AI 回复。
+		// 不要求前端 JWT——账号以 channel+account_id 自证身份（私有化部署单用户场景）。
+		// 仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware，故无需在 popup 填 token。
+		bridgeIngressSvc = service.NewInboxIngressService()
+		bridgeHandler := bridge.NewBridgeWSHandler(bridge.GetBridgeHub(), bridgeIngressSvc)
+		bridgeWS := r.Group("/api")
+		bridgeWS.Use(middleware.InitGuard())
+		bridgeWS.GET("/ws/bridge", bridgeHandler.HandleWebSocket)
+
 		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
 		bridgeRepo := bridge.NewBridgeAccountRepository(db.GetDB())
 		bridge.RegisterBridgeAccountRepo(bridgeRepo)
@@ -347,6 +356,12 @@ func Setup(r *gin.Engine) {
 		if bridgeIngressSvc != nil && webhookSvc != nil {
 			bridgeIngressSvc.SetAITrigger(webhookSvc)
 			logger.Infof("[Bridge] bridge AITrigger 已注入（抖音/小红书/TikTok 网页私信 AI 链路已连通）")
+		}
+		// 注入统一收件箱服务：桥接消息落库 message_hub 后同步会话到 inbox_conversations，
+		// 否则 unifiedInbox/list 统一收件箱看不到抖音/小红书/TikTok 网页私信聊天内容。
+		if bridgeIngressSvc != nil {
+			bridgeIngressSvc.SetInboxService(service.NewInboxService())
+			logger.Infof("[Bridge] bridge InboxService 已注入（统一收件箱会话同步已连通）")
 		}
 
 		// 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）

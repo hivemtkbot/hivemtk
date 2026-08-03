@@ -112,7 +112,6 @@ type SalesEngine struct {
 	memory          DialogueMemoryInterface
 	sop             SOPMatcherInterface
 	polisher        PolisherInterface
-	auditor         AuditorInterface
 	ragSearcher     RAGSearcher
 	scriptLookup    ScriptLookup
 	customerLookup  CustomerLookup
@@ -195,7 +194,7 @@ type CustomerLookup interface {
 //   3. 开闭原则（OCP）：替换实现（如换 LLM 意图识别器为规则引擎）无需修改 SalesEngine
 //
 // 兼容性：现有具体类型（*IntentRecognizer / *DialogueMemoryService / *SOPService /
-//   *HumanizePolisher / *ContentAuditor / *PlaybookService / *FeedbackLearner）
+//   *HumanizePolisher / *PlaybookService / *FeedbackLearner）
 //   通过 Go 鸭子类型自动满足下列接口，调用方（router/sales_engine_factory.go）
 //   无需修改。
 // ============================================================================
@@ -219,11 +218,6 @@ type SOPMatcherInterface interface {
 // PolisherInterface 拟人润色抽象
 type PolisherInterface interface {
 	Polish(ctx context.Context, raw string, pctx *PolishContext) (string, error)
-}
-
-// AuditorInterface 内容审核抽象
-type AuditorInterface interface {
-	Audit(text string, ctx *AuditContext) *AuditResult
 }
 
 // PlaybookRecommenderInterface 销冠话术推荐抽象
@@ -263,7 +257,6 @@ func NewSalesEngine(
 	customerLookup CustomerLookup,
 ) *SalesEngine {
 	polisher := NewHumanizePolisher()
-	auditor := NewContentAuditor()
 	return &SalesEngine{
 		db:             db,
 		dispatcher:     dispatcher,
@@ -271,7 +264,6 @@ func NewSalesEngine(
 		memory:         memory,
 		sop:            sop,
 		polisher:       polisher,
-		auditor:        auditor,
 		ragSearcher:    ragSearcher,
 		scriptLookup:   scriptLookup,
 		customerLookup: customerLookup,
@@ -671,39 +663,6 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 				},
 			})
 		}
-	}
-
-	// 步骤 8：发送前审核
-	stepStart = time.Now()
-	if req.Config.EnableContentAudit {
-		audit := e.auditor.Audit(finalReply, &AuditContext{
-			Intent:   intentResult.IntentType,
-			Platform: req.Platform,
-		})
-		if !audit.Pass {
-			// 命中拦截词
-			resp.AuditIssues = audit.Issues
-			resp.Steps = append(resp.Steps, dto.SalesStepLog{
-				Step: "8_audit", Status: "fail", LatencyMs: ms(stepStart),
-				Detail: "blocked: " + strings.Join(audit.Issues, "; "),
-			})
-			resp.TransferredToHuman = true
-			resp.TransferReason = "内容审核未通过: " + strings.Join(audit.Issues, "; ")
-			resp.Reply = "[系统提示] 该内容已转人工处理"
-			return resp, nil
-		}
-		if len(audit.Warnings) > 0 {
-			resp.AuditIssues = append(resp.AuditIssues, audit.Warnings...)
-		}
-		resp.Audited = true
-		resp.Steps = append(resp.Steps, dto.SalesStepLog{
-			Step: "8_audit", Status: "ok", LatencyMs: ms(stepStart),
-			Extra: map[string]any{"warnings": len(audit.Warnings)},
-		})
-	} else {
-		resp.Steps = append(resp.Steps, dto.SalesStepLog{
-			Step: "8_audit", Status: "skip", LatencyMs: ms(stepStart),
-		})
 	}
 
 	resp.Reply = finalReply

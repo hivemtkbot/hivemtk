@@ -78,29 +78,26 @@ var upgraderBridge = websocket.Upgrader{
 }
 
 // bridgeCheckOrigin WS 升级 Origin 校验：
-//   - 默认白名单：当前 host + 私有部署（空 Host）
-//   - 通过 BRIDGE_ALLOWED_ORIGINS 环境变量补充允许的 Origin（逗号分隔）
-//   - 全部不匹配时拒绝升级（403）
+//   - 桥接 WS 为公开端点（仅过 InitGuard，无 JWT），身份由 channel+account_id 自证，
+//     不依赖浏览器同源策略。扩展从抖音/小红书/TikTok/快手等第三方站点注入，
+//     Origin 为各平台域名，无法预置白名单；且 Origin 头可被任意伪造，校验无实际安全收益。
+//   - 故默认放行所有 Origin；如需收紧，可设 BRIDGE_ALLOWED_ORIGINS=origin1,origin2 仅放行列表内。
 func bridgeCheckOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		// 同源或非浏览器请求（如原生扩展 background）放行
 		return true
 	}
-	host := r.Host
-	allowed := map[string]bool{}
-	if host != "" {
-		allowed["http://"+host] = true
-		allowed["https://"+host] = true
+	cfg := os.Getenv("BRIDGE_ALLOWED_ORIGINS")
+	if cfg == "" || cfg == "*" {
+		return true
 	}
-	if env := os.Getenv("BRIDGE_ALLOWED_ORIGINS"); env != "" {
-		for _, o := range splitAndTrim(env, ",") {
-			if o != "" {
-				allowed[o] = true
-			}
+	for _, o := range splitAndTrim(cfg, ",") {
+		if o != "" && o == origin {
+			return true
 		}
 	}
-	return allowed[origin]
+	return false
 }
 
 func splitAndTrim(s, sep string) []string {
@@ -245,15 +242,20 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 			old.Kick()
 		}
 		// G6 + G12：注册即落库（绑定智能体 + 写入 channel_agent_bindings + 置在线）
-		if GlobalBridgeAccountRepo != nil && f.Message != nil {
-			upErr := GlobalBridgeAccountRepo.Upsert(context.Background(), BridgeAccountUpsert{
+		if GlobalBridgeAccountRepo != nil {
+			up := BridgeAccountUpsert{
 				UserID:      c.userID,
 				Channel:     c.channel,
 				AccountID:   c.account,
-				AgentID:     f.Message.AgentID,
-				AccountName: f.Message.AccountName,
+				AgentID:     0,
+				AccountName: "",
 				Status:      "online",
-			})
+			}
+			if f.Message != nil {
+				up.AgentID = f.Message.AgentID
+				up.AccountName = f.Message.AccountName
+			}
+			upErr := GlobalBridgeAccountRepo.Upsert(context.Background(), up)
 			if upErr != nil {
 				if errors.Is(upErr, ErrAccountOwnedByOther) {
 					// 归属冲突：连接已建立（hub 注册在上方完成），仅记审计日志，不阻断收发。
@@ -369,9 +371,11 @@ func NewBridgeWSHandler(hub *BridgeHub, ingress *service.InboxIngressService) *B
 // HandleWebSocket GET /api/ws/bridge?channel=douyin_web&account_id=xxx
 //
 // 鉴权：
-//   - 路由层 JWTAuthMiddleware 写入 user_id 到 gin context
-//   - 本方法在升级前再校验 (channel, account_id) 是否属于当前 user
-// 不通过返回 403（修复 -1：水平越权）
+//   - 桥接 WS 不要求前端 JWT：路由层仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware。
+//     账号以 channel+account_id 自证身份（私有化部署单用户场景，扩展运行在用户浏览器中）。
+//   - 若请求携带有效 JWT，则再校验 (channel, account_id) 是否属于该 user（多租户安全路径）；
+//     无 JWT 时归属写入 user_id=0，可正常落库。
+// 归属不通过（且携带了 JWT）返回 403，无 JWT 时跳过校验。
 //
 // trace_id：
 //   - 优先从请求头 X-Trace-Id 读取（前端/扩展可显式携带）
@@ -389,15 +393,13 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported bridge channel"})
 		return
 	}
-	// 解析 JWT 中的 user_id（用于账号归属校验 + 落库 ownership）
+	// 解析 JWT 中的 user_id（可选）：桥接 WS 允许无 JWT 连接——账号以 channel+account_id
+	// 自证身份（私有化部署单用户场景）。仅当携带有效 JWT 时才做账号归属校验；
+	// 无 JWT 时归属写入 user_id=0（"无归属/全体"语义，schema 默认值，可正常落库）。
 	uidAny, _ := c.Get("user_id")
 	uid, _ := uidAny.(uint)
-	// 1 账号归属校验：通过回调注入（避免 bridge → service 反向依赖）
-	if GlobalOwnershipChecker != nil {
-		if uid == 0 {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user_id"})
-			return
-		}
+	// 1 账号归属校验：仅当携带有效 JWT 时执行（回调注入，避免 bridge → service 反向依赖）
+	if GlobalOwnershipChecker != nil && uid != 0 {
 		owns, err := GlobalOwnershipChecker(c.Request.Context(), uid, channel, accountID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "ownership check failed: " + err.Error()})

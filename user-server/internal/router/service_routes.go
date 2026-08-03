@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"marketing/internal/bridge"
 	"marketing/internal/controller"
 	opsctrl "marketing/internal/ops/controller"
 	"marketing/internal/service"
@@ -88,10 +87,8 @@ func setupCustomerServiceRoutes(auth *gin.RouterGroup, aiAgentSvc *service.AIAge
 	wsHandler.SetLangResolver(langResolver)
 	auth.GET("/ws/agent", wsHandler.HandleWebSocket)
 
-	// 网页桥接（抖音/小红书/TikTok 网页私信）WebSocket：扩展经此上行私信、下行 AI 回复
-	bridgeIngressSvc = service.NewInboxIngressService()
-	bridgeHandler := bridge.NewBridgeWSHandler(bridge.GetBridgeHub(), bridgeIngressSvc)
-	auth.GET("/ws/bridge", bridgeHandler.HandleWebSocket)
+	// 注：网页桥接 WebSocket（/api/ws/bridge）不在此处注册——
+	// 它不要求前端 JWT，改由 Setup 挂在仅过 InitGuard 的路由组上（见 router.go）。
 
 	// 客户 360 视图
 	customer360Ctrl := controller.NewCustomer360Controller()

@@ -190,7 +190,9 @@ export class BaseAdapter {
     // 而非真实聊天内容（表现：conv:null + 昵称循环）。
     if (!this.getConversationId()) return;
     const parsed = this.parseMessageItem(item);
-    if (!parsed || !parsed.text) return;
+    // 放行非文字消息（图片/语音/撤回/系统）：它们 text 可能为空，但 msg_type 非 text 仍有价值
+    if (!parsed) return;
+    if (!parsed.text && (!parsed.msg_type || parsed.msg_type === 'text')) return;
     if (item) this.seenNodes.add(item);
     const key = this._keyOf(parsed);
     if (this.seen.has(key)) return;
@@ -226,7 +228,8 @@ export class BaseAdapter {
     for (const item of items) {
       if (this.seenNodes.has(item)) continue;
       const parsed = this.parseMessageItem(item);
-      if (!parsed || !parsed.text) continue;
+      if (!parsed) continue;
+      if (!parsed.text && (!parsed.msg_type || parsed.msg_type === 'text')) continue;
       this.seenNodes.add(item);
       const key = this._keyOf(parsed);
       if (this.seen.has(key)) continue;
@@ -246,11 +249,16 @@ export class BaseAdapter {
       sender_type: parsed.sender_type,
       content: parsed.text,
       media_url: parsed.media_url || '',
+      msg_type: parsed.msg_type || 'text',
       timestamp: parsed.timestamp,
       event_id: parsed.message_id,
+      is_group: !!parsed.is_group,
+      group_id: parsed.group_id || '',
+      group_name: parsed.group_name || '',
+      sender_name: parsed.sender_name || '',
       raw: parsed.raw || null,
     });
-    this.log.info('上行实时私信:', (msg.content || '').slice(0, 40));
+    this.log.info('上行实时私信:', (msg.content || `[${msg.msg_type}]`).slice(0, 40));
     if (this.callbacks.onInbound) this.callbacks.onInbound(msg);
   }
 
@@ -262,9 +270,14 @@ export class BaseAdapter {
       sender_type: parsed.sender_type,
       content: parsed.text,
       media_url: parsed.media_url || '',
+      msg_type: parsed.msg_type || 'text',
       timestamp: parsed.timestamp,
       direction,
       event_id: parsed.message_id,
+      is_group: !!parsed.is_group,
+      group_id: parsed.group_id || '',
+      group_name: parsed.group_name || '',
+      sender_name: parsed.sender_name || '',
       raw: parsed.raw || null,
     });
     this.log.info(`回填空历史(${direction}):`, (msg.content || '').slice(0, 40));

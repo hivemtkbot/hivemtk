@@ -42,11 +42,15 @@ func TestInboxIngress_NormalizeEvent_RejectsEmptyChannel(t *testing.T) {
 	}
 }
 
-func TestInboxIngress_NormalizeEvent_RejectsEmptySender(t *testing.T) {
+func TestInboxIngress_NormalizeEvent_EmptySenderFallsBack(t *testing.T) {
 	svc := NewInboxIngressServiceWithDB(nil, cache.NewMemoryCache())
-	err := svc.NormalizeEvent(context.Background(), &model.MessageEvent{Channel: model.ChannelWeb})
-	if err == nil {
-		t.Fatal("expected error for empty sender_id")
+	// 桥接场景：列表视图未进入会话时 sender_id 可能为空，应按兜底规则回落而非报错
+	ev := &model.MessageEvent{Channel: model.ChannelWeb}
+	if err := svc.NormalizeEvent(context.Background(), ev); err != nil {
+		t.Fatalf("空 sender_id 应走兜底而非报错，实际: %v", err)
+	}
+	if ev.SenderID == "" {
+		t.Fatal("空 sender_id 兜底后不应为空")
 	}
 }
 

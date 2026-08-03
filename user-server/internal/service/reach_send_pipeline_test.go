@@ -10,17 +10,13 @@
 //  1. 9 步全部执行（happy path）
 //  2. 权限拒绝
 //  3. 限流拦截
-//  4. 敏感词拦截
-//  5. 广告法极限词拦截
-//  6. 重试（指数退避，FlakyAdapter 验证）
-//  7. 降级（AlwaysFailAdapter 主渠道 → FuncAdapter 备用渠道）
-//  8. 审计日志记录（成功 + 失败）
-//  9. 计费扣费 + 余额不足
-//  10. 客户轨迹记录
-//  11. ContentAuditor 默认敏感词与广告法极限词覆盖
-//  12. countedSendPipeline 统计包装器
-//  13. ContentAuditor 空内容放行
-//  14. MemorySendRateLimiter 令牌桶行为
+//  4. 重试（指数退避，FlakyAdapter 验证）
+//  5. 降级（AlwaysFailAdapter 主渠道 → FuncAdapter 备用渠道）
+//  6. 审计日志记录（成功 + 失败）
+//  7. 计费扣费 + 余额不足
+//  8. 客户轨迹记录
+//  9. countedSendPipeline 统计包装器
+//  10. MemorySendRateLimiter 令牌桶行为
 package service
 
 import (
@@ -101,9 +97,9 @@ func TestSendPipeline_HappyPath_All9StepsExecuted(t *testing.T) {
 	if resp.PrimaryChannel != "sms" {
 		t.Errorf("期望 primary_channel=sms，实际 %s", resp.PrimaryChannel)
 	}
-	// 验证 9 步全部执行
+	// 验证步骤全部执行
 	expectedSteps := []string{
-		SendStepPermission, SendStepRateLimit, SendStepContentAudit,
+		SendStepPermission, SendStepRateLimit,
 		SendStepRetry, SendStepFallback, SendStepAudit,
 		SendStepCost, SendStepJourney, SendStepSend,
 	}
@@ -199,83 +195,12 @@ func TestSendPipeline_RateLimited(t *testing.T) {
 		t.Errorf("期望错误包含 %q，实际 %q", ErrSendRateLimited.Error(), resp2.Error)
 	}
 	// 限流后不应执行后续步骤
-	if stepExists(resp2, SendStepContentAudit) {
-		t.Error("限流后不应执行 content_audit 步骤")
-	}
 	if stepExists(resp2, SendStepSend) {
 		t.Error("限流后不应执行 send 步骤")
 	}
 }
 
-// ===== 4. 敏感词拦截 =====
-
-func TestSendPipeline_SensitiveWordBlocked(t *testing.T) {
-	adapter := newSuccessAdapter("msg")
-	pipeline := newTestPipeline(adapter)
-
-	req := &ReachSendRequest{
-		Channel:     "sms",
-		RecipientID: "13800138000",
-		Content:     "快来参与赌博游戏",
-	}
-	resp := pipeline.Send(context.Background(), req)
-
-	if resp.Success {
-		t.Fatal("期望失败（敏感词），实际成功")
-	}
-	caStep := findStepResult(resp, SendStepContentAudit)
-	if caStep == nil {
-		t.Fatal("期望有 content_audit 步骤")
-	}
-	if caStep.Success {
-		t.Error("期望 content_audit 步骤失败")
-	}
-	if !strings.Contains(resp.Error, ErrSendContentRejected.Error()) {
-		t.Errorf("期望错误包含 %q，实际 %q", ErrSendContentRejected.Error(), resp.Error)
-	}
-	if !strings.Contains(resp.Error, "赌博") {
-		t.Errorf("期望错误包含命中的敏感词 '赌博'，实际 %q", resp.Error)
-	}
-	// 敏感词后不应执行后续步骤
-	if stepExists(resp, SendStepSend) {
-		t.Error("敏感词后不应执行 send 步骤")
-	}
-	if adapter.Count(context.Background()) > 0 {
-		t.Error("敏感词拦截后 adapter 不应被调用")
-	}
-}
-
-// ===== 5. 广告法极限词拦截 =====
-
-func TestSendPipeline_AdLawKeywordBlocked(t *testing.T) {
-	adapter := newSuccessAdapter("msg")
-	pipeline := newTestPipeline(adapter)
-
-	cases := []string{
-		"我们是行业第一",
-		"全球最佳产品",
-		"100% 有效",
-		"极致体验",
-		"永久免费",
-	}
-	for i, content := range cases {
-		req := &ReachSendRequest{
-			Channel:     "sms",
-			RecipientID: "13800138000",
-			Content:     content,
-		}
-		resp := pipeline.Send(context.Background(), req)
-		if resp.Success {
-			t.Errorf("case %d: 期望失败（广告法极限词），实际成功。内容: %s", i, content)
-			continue
-		}
-		if !strings.Contains(resp.Error, ErrSendContentRejected.Error()) {
-			t.Errorf("case %d: 期望错误包含 %q，实际 %q", i, ErrSendContentRejected.Error(), resp.Error)
-		}
-	}
-}
-
-// ===== 6. 重试（指数退避，FlakyAdapter 验证） =====
+// ===== 4. 重试（指数退避，FlakyAdapter 验证） =====
 
 func TestSendPipeline_RetryWithFlakyAdapter(t *testing.T) {
 	// FlakyAdapter 前 2 次失败，第 3 次成功
@@ -492,23 +417,26 @@ func TestSendPipeline_AuditLogRecordsContent(t *testing.T) {
 // TestSendPipeline_AuditLogOnFailure 验证 PRD §5.2 G4 "每条触达有完整审计记录"
 // 即失败时也必须记录审计日志
 func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
-	// 用敏感词触发失败
+	// 用限流触发失败
 	adapter := newSuccessAdapter("msg")
 	auditLogger := NewMemorySendAuditLogger(100)
 	cfg := DefaultSendPipelineConfig(adapter)
 	cfg.AuditLogger = auditLogger
+	cfg.RateLimiter = NewMemorySendRateLimiter()
+	cfg.RateLimitSpec = RateLimitSpec{QPS: 1, Burst: 0}
 	pipeline := NewSendPipeline(cfg)
 
 	req := &ReachSendRequest{
 		Channel:     "sms",
+		AccountID:   "acc-audit",
 		RecipientID: "13800138000",
 		CustomerID:  "cust-1",
 		OperatorID:  "op-1",
-		Content:     "赌博内容",
+		Content:     "Hello",
 	}
 	resp := pipeline.Send(context.Background(), req)
 	if resp.Success {
-		t.Fatal("期望失败（敏感词）")
+		t.Fatal("期望失败（限流）")
 	}
 	entries := auditLogger.Entries(context.Background())
 	if len(entries) == 0 {
@@ -518,8 +446,8 @@ func TestSendPipeline_AuditLogOnFailure(t *testing.T) {
 	if last.Success {
 		t.Error("期望审计日志标记为失败")
 	}
-	if !strings.Contains(last.Error, ErrSendContentRejected.Error()) {
-		t.Errorf("期望审计日志 error 包含 %q，实际 %q", ErrSendContentRejected.Error(), last.Error)
+	if !strings.Contains(last.Error, ErrSendRateLimited.Error()) {
+		t.Errorf("期望审计日志 error 包含 %q，实际 %q", ErrSendRateLimited.Error(), last.Error)
 	}
 	if last.Channel != "sms" {
 		t.Errorf("期望 channel=sms，实际 %s", last.Channel)
@@ -667,49 +595,7 @@ func TestSendPipeline_JourneyTrackerRecorded(t *testing.T) {
 	}
 }
 
-// ===== 11. ContentAuditor 默认敏感词与广告法极限词覆盖 =====
-
-func TestDefaultContentAuditor_SensitiveWords(t *testing.T) {
-	auditor := NewDefaultContentAuditor()
-	// 默认 8 个敏感词
-	expectedSensitive := []string{"赌博", "色情", "毒品", "诈骗", "传销", "枪支", "弹药", "爆炸物"}
-	for _, w := range expectedSensitive {
-		result, err := auditor.Audit(context.Background(), "sms", "test "+w+" content")
-		if err != nil {
-			t.Errorf("敏感词 %s 审核报错: %v", w, err)
-		}
-		if result.Passed {
-			t.Errorf("敏感词 %s 应该被拦截", w)
-		}
-		if result.Category != "sensitive" {
-			t.Errorf("敏感词 %s 期望 category=sensitive，实际 %s", w, result.Category)
-		}
-	}
-}
-
-func TestDefaultContentAuditor_AdLawKeywords(t *testing.T) {
-	auditor := NewDefaultContentAuditor()
-	// 默认 16 个广告法极限词
-	expectedAdLaw := []string{
-		"国家级", "最高级", "最佳", "最强", "最先", "最新",
-		"第一", "唯一", "首个", "冠军", "顶尖", "极致",
-		"永久", "百分百", "100%", "绝对",
-	}
-	for _, w := range expectedAdLaw {
-		result, err := auditor.Audit(context.Background(), "sms", "我们的产品是"+w)
-		if err != nil {
-			t.Errorf("广告法极限词 %s 审核报错: %v", w, err)
-		}
-		if result.Passed {
-			t.Errorf("广告法极限词 %s 应该被拦截", w)
-		}
-		if result.Category != "ad_law" && result.Category != "sensitive" {
-			t.Errorf("广告法极限词 %s 期望 category=ad_law/sensitive，实际 %s", w, result.Category)
-		}
-	}
-}
-
-// ===== 12. countedSendPipeline 统计包装器 =====
+// ===== 11. countedSendPipeline 统计包装器 =====
 
 func TestCountedSendPipeline_Stats(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
@@ -746,27 +632,32 @@ func TestCountedSendPipeline_Stats(t *testing.T) {
 }
 
 func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
-	// 主渠道失败 + 敏感词触发
+	// 限流失败统计验证
 	adapter := newSuccessAdapter("msg")
 	cfg := DefaultSendPipelineConfig(adapter)
+	cfg.RateLimiter = NewMemorySendRateLimiter()
+	cfg.RateLimitSpec = RateLimitSpec{QPS: 1, Burst: 1}
 	pipeline := NewCountedSendPipeline(NewSendPipeline(cfg))
 	counted := pipeline.(*countedSendPipeline)
 
-	// 1 次敏感词失败
-	resp := pipeline.Send(context.Background(), &ReachSendRequest{
-		Channel:     "sms",
-		RecipientID: "13800138000",
-		Content:     "赌博内容",
-	})
-	if resp.Success {
-		t.Fatal("期望敏感词失败")
+	req := func() *ReachSendRequest {
+		return &ReachSendRequest{
+			Channel:     "sms",
+			AccountID:   "acc-stats",
+			RecipientID: "13800138000",
+			CustomerID:  "cust-stats",
+			Content:     "Hello",
+		}
 	}
-	// 1 次成功
-	pipeline.Send(context.Background(), &ReachSendRequest{
-		Channel:     "sms",
-		RecipientID: "13800138001",
-		Content:     "Hello",
-	})
+	// 第 1 次成功
+	if !pipeline.Send(context.Background(), req()).Success {
+		t.Fatal("第 1 次发送应成功")
+	}
+	// 第 2 次被限流（相同限流 key）
+	resp2 := pipeline.Send(context.Background(), req())
+	if resp2.Success {
+		t.Fatal("第 2 次发送应被限流")
+	}
 
 	stats := counted.Stats(context.Background())
 	if stats.TotalSends != 2 {
@@ -778,28 +669,12 @@ func TestCountedSendPipeline_StatsWithFailures(t *testing.T) {
 	if stats.FailedSends != 1 {
 		t.Errorf("期望 failed_sends=1，实际 %d", stats.FailedSends)
 	}
-	if stats.ContentBlocked != 1 {
-		t.Errorf("期望 content_blocked=1，实际 %d", stats.ContentBlocked)
+	if stats.RateLimited != 1 {
+		t.Errorf("期望 rate_limited=1，实际 %d", stats.RateLimited)
 	}
 }
 
-// ===== 13. ContentAuditor 空内容放行 =====
-
-func TestDefaultContentAuditor_EmptyContent(t *testing.T) {
-	auditor := NewDefaultContentAuditor()
-	result, err := auditor.Audit(context.Background(), "sms", "")
-	if err != nil {
-		t.Errorf("空内容审核报错: %v", err)
-	}
-	if !result.Passed {
-		t.Error("空内容应该放行")
-	}
-	if result.Category != "normal" {
-		t.Errorf("空内容期望 category=normal，实际 %s", result.Category)
-	}
-}
-
-// ===== 14. MemorySendRateLimiter 令牌桶行为 =====
+// ===== 13. MemorySendRateLimiter 令牌桶行为 =====
 
 func TestMemorySendRateLimiter_TokenBucket(t *testing.T) {
 	ctx := context.Background()
@@ -1054,8 +929,8 @@ func TestSendPipeline_NoAdapter_ReturnsError(t *testing.T) {
 func TestSendPipeline_CustomStepsOrder(t *testing.T) {
 	adapter := newSuccessAdapter("msg")
 	cfg := DefaultSendPipelineConfig(adapter)
-	// 只启用 3 步
-	cfg.Steps = []string{SendStepPermission, SendStepContentAudit, SendStepRetry}
+	// 只启用 2 步
+	cfg.Steps = []string{SendStepPermission, SendStepRetry}
 	pipeline := NewSendPipeline(cfg)
 
 	resp := pipeline.Send(context.Background(), &ReachSendRequest{
@@ -1066,8 +941,8 @@ func TestSendPipeline_CustomStepsOrder(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("期望成功，失败: %s", resp.Error)
 	}
-	if len(resp.StepResults) != 3 {
-		t.Errorf("期望 3 步，实际 %d", len(resp.StepResults))
+	if len(resp.StepResults) != 2 {
+		t.Errorf("期望 2 步，实际 %d", len(resp.StepResults))
 	}
 	// 验证未启用的步骤不存在
 	if stepExists(resp, SendStepRateLimit) {
@@ -1182,9 +1057,6 @@ func TestDefaultSendPipelineConfig_AllComponents(t *testing.T) {
 	if cfg.RateLimiter == nil {
 		t.Error("RateLimiter 不应为 nil")
 	}
-	if cfg.ContentAuditor == nil {
-		t.Error("ContentAuditor 不应为 nil")
-	}
 	if cfg.AuditLogger == nil {
 		t.Error("AuditLogger 不应为 nil")
 	}
@@ -1197,8 +1069,8 @@ func TestDefaultSendPipelineConfig_AllComponents(t *testing.T) {
 	if cfg.Adapter == nil {
 		t.Error("Adapter 不应为 nil")
 	}
-	if len(cfg.Steps) != 9 {
-		t.Errorf("期望 9 步，实际 %d", len(cfg.Steps))
+	if len(cfg.Steps) != 8 {
+		t.Errorf("期望 8 步，实际 %d", len(cfg.Steps))
 	}
 	if cfg.RetryPolicy.MaxRetries != 3 {
 		t.Errorf("期望 MaxRetries=3，实际 %d", cfg.RetryPolicy.MaxRetries)

@@ -68,6 +68,24 @@ export const CHANNEL_OPTIONS = Object.freeze([
   { value: 'tiktok_web',    label: 'TikTok私信(网页)', tagType: '',     group: CHANNEL_GROUP.SOCIAL, icon: 'VideoCamera', description: 'TikTok 网页私信（Chrome 扩展桥接）', newBadge: true }
 ])
 
+// ===== 平台归并（仅用于统一收件箱"展示层"）=====
+// 原则：底层 platform 值（douyin / douyin_web …）保持独立、绝不合并查询条件。
+// 仅在统一收件箱"下拉选项"上去掉重复的网页桥接版（用户视角不区分"抖音"与"抖音私信(网页)"）。
+// 选中归并项时，前端分别用各自底层 platform 值发两次独立请求（见 List.vue fetchList），后端 WHERE platform = ? 始终是单值。
+// PLATFORM_GROUP_MEMBERS：归并展示项（下拉 value） -> 其包含的多个底层 platform 值。
+export const PLATFORM_GROUP_MEMBERS = Object.freeze({
+  douyin: ['douyin', 'douyin_web'],
+  xiaohongshu: ['xiaohongshu', 'xhs_web'],
+  tiktok: ['tiktok', 'tiktok_web']
+})
+
+// 反向映射：网页桥接版底层 value -> 归并展示项（仅分布图聚合展示用，不影响查询/标签）
+export const PLATFORM_GROUP_MEMBERS_REVERSE = Object.freeze(
+  Object.fromEntries(
+    Object.entries(PLATFORM_GROUP_MEMBERS).flatMap(([g, list]) => list.map((v) => [v, g]))
+  )
+)
+
 // 兼容历史 label（如 reachPipeline 旧的"企微"），用于内部展示/迁移判断
 // 注意：此 alias 仅用于历史数据/迁移期，业务 UI 一律使用 getChannelLabel 取标准 label
 export const CHANNEL_LABEL_ALIAS = Object.freeze(
@@ -163,5 +181,7 @@ export default {
   getChannelOption,
   filterChannelsByGroup,
   excludeChannels,
-  includeChannels
+  includeChannels,
+  PLATFORM_GROUP_MEMBERS,
+  PLATFORM_GROUP_MEMBERS_REVERSE
 }

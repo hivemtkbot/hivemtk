@@ -8,6 +8,7 @@
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
+import { SelectorEngine } from '../core/selector-engine.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
 
@@ -134,14 +135,92 @@ function getAccountId() {
 // 导出供单测验证浮层兜底（避免 /jingxuan 浮层下返回空串导致 WS 401）
 export { getAccountId };
 
+// —— 非文字消息提取（问题 3）——
+// 抖音气泡可能含图片 / 视频 / 语音 / 表情 / 链接。统一归为 msg_type：
+//   text | image | voice | video | emoji | link | recall | system
+// 文本优先；含 <img>/视频则记为 image/video（content 留可读描述或 media_url）。
+function extractMessageContent(item) {
+  const text = cleanText(item.querySelector(SEL.TEXT) || item);
+  const imgs = item.querySelectorAll('img');
+  const vids = item.querySelectorAll('video, [class*="video"], [class*="Video"]');
+  const audio = item.querySelectorAll('[class*="voice"], [class*="Voice"], [class*="audio"], [class*="Audio"]');
+  const emoji = item.querySelectorAll('[class*="emoji"], [class*="Emoji"], [draggable="false"][alt]');
+  const links = item.querySelectorAll('a[href*="http"]');
+  // 撤回 / 系统消息（如「撤回了一条消息」「你已添加为好友」）
+  const sysTxt = text || '';
+  if (/撤回了?一条消息|撤回了一条|recalled a message/i.test(sysTxt)) {
+    return { msgType: 'recall', mediaUrl: '', text: sysTxt };
+  }
+  if (/^((你|他|她|对方)?(已?)?(添加|关注|拍了拍|邀请).*|系统|system)/i.test(sysTxt) && !vids.length && !imgs.length) {
+    // 宽松系统消息（仅纯文本且无媒体时）
+    return { msgType: 'system', mediaUrl: '', text: sysTxt };
+  }
+  let mediaUrl = '';
+  let msgType = 'text';
+  if (vids.length) {
+    msgType = 'video';
+    mediaUrl = vids[0].getAttribute('src') || vids[0].querySelector('video')?.getAttribute('src') || '';
+  } else if (imgs.length) {
+    msgType = 'image';
+    mediaUrl = imgs[0].getAttribute('src') || '';
+  } else if (audio.length) {
+    msgType = 'voice';
+  } else if (emoji.length && !text) {
+    msgType = 'emoji';
+  } else if (links.length && !text) {
+    msgType = 'link';
+    mediaUrl = links[0].getAttribute('href') || '';
+  }
+  return { msgType, mediaUrl, text };
+}
+
+// —— 群聊识别（问题 2）——
+// 抖音群聊特征：① 会话标题非单一用户（群名常含「群」「家族」「同学」等或含多成员）；
+// ② 单条消息含「@昵称 」前缀或「[群成员]」结构；③ 一屏内出现多个不同昵称气泡。
+// 这里采用「结构 + 文本」双重判定，避免 1v1 误判为群。
+function detectGroup(item) {
+  let isGroup = false;
+  let groupId = '';
+  let groupName = '';
+  let senderName = '';
+  // 1) 标题栏群名（聊天头部含群标识）
+  const header = qs('[class*="chat-header"], [class*="ChatHeader"], [class*="title"], [class*="Title"]');
+  const headerText = header ? cleanText(header) : '';
+  if (headerText && /群|家族|同学|同事|粉丝|俱乐部|team|group/i.test(headerText)) {
+    isGroup = true;
+    groupName = headerText;
+  }
+  // 2) 消息内 @ 前缀 / [群成员昵称] 结构
+  const inner = cleanText(item);
+  const atMatch = inner.match(/^@([^\s,，：:]+)[\s,，：:]/);
+  const bracketMatch = inner.match(/^\[([^\]]+)\]/);
+  if (atMatch || bracketMatch) {
+    isGroup = true;
+    senderName = (atMatch && atMatch[1]) || (bracketMatch && bracketMatch[1]) || '';
+  }
+  // 3) 群 id：URL 含 group/conversation_id 群串
+  const gid = (location.href.match(/[?&](group|conversation)_id=([^&]+)/) || [])[2];
+  if (gid) {
+    groupId = gid;
+    isGroup = true;
+  }
+  return { isGroup, groupId, groupName, senderName };
+}
+
 // 当前会话 id：活动会话（深度自检显示活动项含 curConversation class）
 function getConversationId() {
+  // 群聊 URL 优先取 group/conversation_id
+  const fromUrl = (location.href.match(/[?&](group|conversation)_id=([^&]+)/) || [])[2];
+  if (fromUrl) return fromUrl;
   if (/[?&]conversation_id=/.test(location.href)) {
     return new URLSearchParams(location.search).get('conversation_id');
   }
   const active = qsa(
     `${SEL.CHAT_LIST} [class*="curConversation"], ${SEL.CHAT_LIST} [aria-selected="true"], ${SEL.CHAT_LIST} [class*="active"]`
   ).find((el) => el.offsetParent !== null);
+  // 群聊：活动项可能含群名而非 /user/ 链接；优先取 data-* 上的会话标识
+  const dataConv = active?.getAttribute('data-conversation-id') || active?.getAttribute('data-conv-id') || active?.getAttribute('data-id');
+  if (dataConv) return dataConv;
   const link = active?.querySelector('a[href*="/user/"]') || qs('[class*="chat-header"] a[href*="/user/"]');
   // 兼容 /user/<数字id> 与 /user/MS4w...（token 形式）；命中后切换会话会重新回填历史
   const m = link?.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
@@ -153,12 +232,22 @@ function getConversationId() {
 // （真实私信气泡一般不含这类链接，而会话列表行 / 联系人卡片都含）。
 // 旧版缺失此过滤，导致私信列表视图下把联系人昵称当成「聊天内容」无限上行
 // （表现：conv:null + 钓点王/小马哥不空军/吴小小 等昵称循环）。
+//
+// ⚠️ 重要修正（解「几十个只上行 2 个」次因）：原 isListNoise 把「文本命中会话列表」
+// 的条目一律丢弃，导致大量历史纯文本消息被误杀。新版仅剔除「会话列表节点」与
+// 「含个人主页链接的卡片」，不再因文本命中列表而丢弃真实气泡（气泡内也可能含文本）。
 function isConversationListNode(el) {
-  return !!(el.closest && el.closest(SEL.CHAT_LIST));
+  return !!(el.closest && el.closest(SEL.CHAT_LIST) && (el.matches('[class*="conversation-item"]') || el.matches('[class*="ConversationItem"]') || el.querySelector('[class*="conversation-item"]')));
 }
 function hasUserProfileLink(el) {
-  return !!(el.querySelector && el.querySelector('a[href*="/user/"]'));
+  // 仅当该节点本身是「联系人卡片」（含头像+昵称+链接）而非消息气泡时才剔除。
+  // 消息气泡极少同时含 /user/ 链接且自身就是列表行，故加结构约束避免误删。
+  const link = el.querySelector && el.querySelector('a[href*="/user/"]');
+  if (!link) return false;
+  const isCardLike = !!el.querySelector('[class*="avatar" i]') && !!el.querySelector('[class*="name" i], [class*="Nickname" i], [class*="nickname" i]');
+  return isCardLike;
 }
+// 仅剔除明确的会话列表节点 / 联系人卡片；真实消息气泡一律保留（含非文字消息）。
 function isListNoise(item) {
   return isConversationListNode(item) || hasUserProfileLink(item);
 }
@@ -206,8 +295,16 @@ const hooks = {
     return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') : null;
   },
   getMessageItems() {
-    const items = qsa(SEL.MSG_ITEM).filter((it) => !isListNoise(it));
-    if (items.length) return items;
+    // 主路径：用 SelectorEngine 多候选 + 结构启发式定位消息列表与消息项。
+    // 即使抖音改版导致 SEL.MSG_ITEM 部分失效，引擎仍能用「像气泡」的结构特征兜底命中，
+    // 从架构上解决「单一写死选择器失效 → 只抓到 2 条」。
+    const { items } = SelectorEngine.locateMessages({
+      root: document,
+      itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()),
+      listSelectors: SEL.MSG_LIST.split(',').map((s) => s.trim()).filter(Boolean),
+    });
+    const filtered = items.filter((it) => !isListNoise(it));
+    if (filtered.length) return filtered;
     // 兜底：抖音气泡 class 多变时，用「消息线程容器内的文本叶子」推断气泡。
     // 线程容器 = 最近的可滚动区域（输入框/会话列表之上的公共滚动区）。
     const thread = (() => {
@@ -236,21 +333,34 @@ const hooks = {
     return leafText.filter((el) => !isListNoise(el));
   },
   parseMessageItem(item) {
-    // item 已是消息气泡（文本元素）。取文本（自身或其内部 text 元素）
-    const textEl = item.querySelector(SEL.TEXT) || item;
-    const text = cleanText(textEl);
-    if (!text && !item.querySelector('img')) return null;
+    // item 已是消息气泡（文本/媒体元素）。先判定消息类型（问题 3：非文字消息）。
+    const { msgType, mediaUrl, text } = extractMessageContent(item);
+    if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
     // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底
     let sender_type = classifyByAlignment(item);
     if (sender_type === SENDER.CUSTOMER && item.closest && (item.closest(SEL.SELF_ITEM) || (item.matches && item.matches(SEL.SELF_ITEM)))) {
       sender_type = SENDER.SELF;
     }
+    // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
+    const groupInfo = detectGroup(item);
     const mid =
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.getAttribute('id') ||
-      `${getConversationId()}:${text}:${item.textContent?.length}`;
-    return { message_id: mid, sender_type, text, media_url: '', timestamp: Date.now(), raw: item.outerHTML?.slice(0, 500) };
+      `${getConversationId()}:${text}:${item.textContent?.length}:${Date.now()}`;
+    return {
+      message_id: mid,
+      sender_type,
+      text,
+      media_url: mediaUrl,
+      msg_type: msgType,
+      is_group: groupInfo.isGroup,
+      group_id: groupInfo.groupId,
+      group_name: groupInfo.groupName,
+      sender_name: groupInfo.senderName,
+      timestamp: Date.now(),
+      raw: item.outerHTML?.slice(0, 500),
+    };
   },
   getAccountId,
   getConversationId,

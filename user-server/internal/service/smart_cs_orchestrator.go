@@ -63,7 +63,7 @@ func DefaultOrchestratorConfig() *OrchestratorConfig {
 	return &OrchestratorConfig{
 		ConfidenceThreshold: 0.7,
 		EnableAutoReply:     true,
-		MaxAIConsecutive:    5, // 单会话 AI 连续回复上限 5（防 AI 死循环）
+		MaxAIConsecutive:    10, // 单会话 AI 连续回复上限 10（防 AI 死循环，同时给正常多轮对话充足空间）
 	}
 }
 
@@ -461,6 +461,10 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 	session.LastMessage = reason
 	now := time.Now()
 	session.LastMessageAt = &now
+	// 重置 AI 连续回复计数：转人工后不应永久封死 AI。
+	// 否则被 max_ai_consecutive 触发的会话（尤其网页客服续接的活跃会话）
+	// 会永远走转人工，访客再也无法得到 AI 回复。重置后下次消息可重新进入 AI 流程。
+	session.AIReplyCount = 0
 	if err := o.sessionRepo.Update(ctx, session); err != nil {
 		return err
 	}
