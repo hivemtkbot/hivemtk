@@ -20,7 +20,7 @@ export const SEL = {
   // 消息线程容器（弹性候选，命中其一即可作为 MutationObserver 根）
   MSG_LIST: '[class*="messageList"], [class*="MessageList"], [class*="chatMsg"], [class*="msgList"], [data-e2e*="msg-list"]',
   // 消息气泡：优先 data-e2e="msg-item-content"，覆盖多版 DOM 变体
-  MSG_ITEM: 'div[data-e2e="msg-item-content"], [data-e2e*="msg-item"], [class*="msg-item-content"], [class*="msg-content"], [class*="bubble"], [class*="Bubble"], [class*="messageText"], [class*="MessageText"], [class*="chatMsgItem"]',
+  MSG_ITEM: 'div[data-e2e="msg-item-content"], [data-e2e*="msg-item"], [class*="msg-item-content"], [class*="msg-content"], [class*="bubble"], [class*="Bubble"], [class*="messageText"], [class*="MessageText"], [class*="chatMsgItem"], [class*="MessageItem"], [class*="messageItem"], [class*="msgBubble"], [class*="MsgBubble"], [class*="imMessage"], [class*="ImMessage"], [class*="dialogItem"], [class*="chatItem"], [class*="ChatItem"], [class*="messageBubble"]',
   // 自/他气泡 class 关键词（仅兜底，主判定走对齐检测）
   SELF_ITEM: '[class*="self"], [class*="right"], [class*="outgoing"]',
   OTHER_ITEM: '[class*="other"], [class*="left"], [class*="incoming"]',
@@ -53,7 +53,14 @@ function findInputEl() {
 // 抖音发送按钮：真实为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn
 function getRealSendButton() {
   let btn = qs('[class*="e2e-send-msg-btn"]');
-  if (btn) return btn;
+  if (btn) {
+    // 发送按钮为 svg 时，点击须落到最近的可交互祖先（带 click 监听的
+    // button/div/span），否则直接 dispatch 在 svg 上的 click 未必冒泡触发发送。
+    if (btn.tagName === 'SVG') {
+      return btn.closest('button, [role="button"], div, span') || btn;
+    }
+    return btn;
+  }
   const redPaths = qsa('path').filter((p) => (p.getAttribute('fill') || '').toUpperCase() === '#FE2C55');
   for (const path of redPaths) {
     const clickable = path.closest('button, div, span, svg');
@@ -88,7 +95,8 @@ function classifyByAlignment(bubble) {
 // 当前登录的抖音账号 id（左导航个人主页链接）
 function getAccountId() {
   const self = qs('aside a[href*="/user/"], header a[href*="/user/"]') || qs('a[href*="/user/"]');
-  const m = self && self.getAttribute('href')?.match(/\/user\/(\d+)/);
+  // 兼容 /user/self（当前用户主页）与 /user/MS4w...（token 形式）与纯数字 id
+  const m = self && self.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
   return m ? m[1] : '';
 }
 
@@ -148,7 +156,34 @@ const hooks = {
     return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') : null;
   },
   getMessageItems() {
-    return qsa(SEL.MSG_ITEM);
+    const items = qsa(SEL.MSG_ITEM);
+    if (items.length) return items;
+    // 兜底：抖音气泡 class 多变时，用「消息线程容器内的文本叶子」推断气泡。
+    // 线程容器 = 最近的可滚动区域（输入框/会话列表之上的公共滚动区）。
+    const thread = (() => {
+      const anchor = editorBox() || qs(SEL.CHAT_LIST);
+      if (!anchor) return null;
+      const sc = closestScrollable(anchor);
+      if (sc) return sc;
+      // 否则取 IM 面板主容器
+      return anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') || null;
+    })();
+    if (!thread) return [];
+    // 取线程容器内、含文本且可见的直接子级（或二级）div 作为气泡候选
+    const leafText = [];
+    const walk = (el, depth) => {
+      if (depth > 3) return;
+      for (const child of el.children) {
+        const txt = cleanText(child);
+        if (txt && child.offsetParent !== null && !child.querySelector(SEL.CHAT_LIST) && !child.querySelector(SEL.EDITOR)) {
+          leafText.push(child);
+        } else {
+          walk(child, depth + 1);
+        }
+      }
+    };
+    walk(thread, 0);
+    return leafText;
   },
   parseMessageItem(item) {
     // item 已是消息气泡（文本元素）。取文本（自身或其内部 text 元素）

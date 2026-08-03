@@ -85,11 +85,15 @@ function scanDomSnapshot() {
   const visibleInputs = inputs.filter((el) => isVisible(el));
 
   // 2) 可能的发送按钮：button / [role=button] / aria-label 含"发" / 含 Send
+  //    抖音真实发送按钮为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn，需显式纳入
   const sendBtns = collectElements((root) => {
     const sels = [
       'button[type="button"]',
       'button[type="submit"]',
       '[role="button"]',
+      '[class*="e2e-send-msg-btn"]',
+      '[class*="send-msg"]',
+      'svg[class*="send"]',
     ];
     return uniqueQueryAll(root, sels);
   });
@@ -135,6 +139,16 @@ function scanDomSnapshot() {
     '[class*="messageText"]',
     '[class*="MessageText"]',
     '[class*="chatMsgItem"]',
+    '[class*="MessageItem"]',
+    '[class*="messageItem"]',
+    '[class*="msgBubble"]',
+    '[class*="MsgBubble"]',
+    '[class*="imMessage"]',
+    '[class*="ImMessage"]',
+    '[class*="dialogItem"]',
+    '[class*="chatItem"]',
+    '[class*="ChatItem"]',
+    '[class*="messageBubble"]',
   ];
   const msgItems = uniqueQueryAll(document, msgItemCandidates).filter((el) => isVisible(el));
   const msgItemSample = msgItems.slice(0, 5).map((el) => elementSummary(el));
@@ -187,9 +201,11 @@ function isVisible(el) {
 }
 
 function isLikelySendButton(el) {
+  const cls = (el.getAttribute('class') || '').toLowerCase();
+  if (/e2e-send-msg-btn|send-msg|sendmsg/.test(cls)) return true; // 抖音 svg 发送按钮
   const aria = (el.getAttribute('aria-label') || '').toLowerCase();
   const text = (el.textContent || '').trim().toLowerCase();
-  if (/发送|send|发 送|发 送|發送/.test(aria) || /发送|send|发 送/.test(text)) return true;
+  if (/发送|send|发 送|發送/.test(aria) || /发送|send|发 送/.test(text)) return true;
   if (el.querySelector('svg[fill*="FE2C55"], svg[fill*="fe2c55"]')) return true;
   return false;
 }
@@ -293,70 +309,98 @@ export function startBridge(channel, buildAdapter) {
     return false;
   });
 
-  if (!adapter.match()) {
-    log.info('当前页面不匹配', channel, '，不启动监听（已注册 ping/selfcheck 用于诊断）');
-    return;
-  }
+  // 抖音/小红书/TikTok 多为 SPA：content script 注入时私信面板（常作浮层/overlay）
+  // 未必已打开，match() 此刻为 false；用户后续点开私信，面板才渲染。
+  // 早期版本在 match() 为 false 时直接 return，导致「打开私信页但桥接从未启动」。
+  // 改为：先立即尝试激活；不匹配则轮询，待私信面板出现再激活；面板关闭则自动停用。
+  let active = false;
+  let deactivateBridge = null;
+  let pollTimer = null;
 
-  const port = chrome.runtime.connect({ name: 'bridge' });
+  const activateBridge = () => {
+    const port = chrome.runtime.connect({ name: 'bridge' });
 
-  // 下行：服务端 AI 回复经 background 路由到此处
-  port.onMessage.addListener(async (msg) => {
-    if (msg && msg.type === FRAME.OUTBOUND && msg.reply) {
-      const r = parseUnifiedReply(msg.reply);
-      if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
-      // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
-      const safeContent = sanitizeForDisplay(r.content);
-      // 只回写匹配当前会话的回复（多用户场景：避免串台）
-      if (r.conversation_id && adapter.getConversationId() && r.conversation_id !== adapter.getConversationId()) {
-        log.warn('下行回复会话不匹配，忽略', r.conversation_id, adapter.getConversationId());
+    // 下行：服务端 AI 回复经 background 路由到此处
+    port.onMessage.addListener(async (msg) => {
+      if (msg && msg.type === FRAME.OUTBOUND && msg.reply) {
+        const r = parseUnifiedReply(msg.reply);
+        if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
+        // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
+        const safeContent = sanitizeForDisplay(r.content);
+        // 只回写匹配当前会话的回复（多用户场景：避免串台）
+        if (r.conversation_id && adapter.getConversationId() && r.conversation_id !== adapter.getConversationId()) {
+          log.warn('下行回复会话不匹配，忽略', r.conversation_id, adapter.getConversationId());
+          return;
+        }
+        try {
+          await adapter.sendOutbound(safeContent);
+        } catch (e) {
+          log.error('回写回复失败', e);
+        }
+      }
+    });
+
+    // 上行：实时客户私信 → AI 路径；存量/自己消息 → 仅落库历史
+    adapter.start({
+      onInbound: (message) => port && port.postMessage({ type: FRAME.INBOUND, message }),
+      onHistory: (message) => port && port.postMessage({ type: FRAME.HISTORY, message }),
+      onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
+    });
+
+    // B4 修复：仅当 accountId / conversationId 变化时才发 REGISTER（避免无意义重发）
+    let lastMeta = { accountId: '', conversationId: '' };
+    const report = (force = false) => {
+      const meta = adapter.snapshotMeta();
+      if (!force && meta.accountId === lastMeta.accountId && meta.conversationId === lastMeta.conversationId) {
         return;
       }
+      lastMeta = { accountId: meta.accountId || '', conversationId: meta.conversationId || '' };
       try {
-        await adapter.sendOutbound(safeContent);
+        port.postMessage({ type: FRAME.REGISTER, channel, accountId: meta.accountId, conversationId: meta.conversationId });
       } catch (e) {
-        log.error('回写回复失败', e);
+        // port 可能已断开
+        log.warn('report 失败', e);
       }
-    }
-  });
+    };
+    report(true);
 
-  // 上行：实时客户私信 → AI 路径；存量/自己消息 → 仅落库历史
-  adapter.start({
-    onInbound: (message) => port && port.postMessage({ type: FRAME.INBOUND, message }),
-    onHistory: (message) => port && port.postMessage({ type: FRAME.HISTORY, message }),
-    onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
-  });
+    // 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
+    // 周期由 UI_DEFAULTS.metaReportIntervalMs 单源管理（见 constants.js / DEFAULTS.md）
+    const reportTimer = setInterval(report, UI_DEFAULTS.metaReportIntervalMs);
 
-  // B4 修复：仅当 accountId / conversationId 变化时才发 REGISTER（避免无意义重发）
-  let lastMeta = { accountId: '', conversationId: '' };
-  const report = (force = false) => {
-    const meta = adapter.snapshotMeta();
-    if (!force && meta.accountId === lastMeta.accountId && meta.conversationId === lastMeta.conversationId) {
-      return;
-    }
-    lastMeta = { accountId: meta.accountId || '', conversationId: meta.conversationId || '' };
-    try {
-      port.postMessage({ type: FRAME.REGISTER, channel, accountId: meta.accountId, conversationId: meta.conversationId });
-    } catch (e) {
-      // port 可能已断开
-      log.warn('report 失败', e);
+    // 页面卸载 / SPA 路由切换时清理
+    const cleanup = () => {
+      if (reportTimer) clearInterval(reportTimer);
+      adapter.stop();
+      try { port.disconnect(); } catch (_) { /* noop */ }
+    };
+    window.addEventListener('beforeunload', cleanup, { once: true });
+    window.addEventListener('pagehide', cleanup, { once: true });
+
+    window.__bridgeAdapter = adapter;
+    log.info('桥接已启动', channel);
+    return cleanup;
+  };
+
+  const sync = () => {
+    if (!active && adapter.match()) {
+      log.info('私信面板已匹配', channel, '，启动桥接');
+      deactivateBridge = activateBridge();
+      active = true;
+    } else if (active && !adapter.match()) {
+      log.info('私信面板已关闭', channel, '，停止桥接');
+      if (deactivateBridge) { deactivateBridge(); deactivateBridge = null; }
+      active = false;
     }
   };
-  report(true);
 
-  // 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
-  // 周期由 UI_DEFAULTS.metaReportIntervalMs 单源管理（见 constants.js / DEFAULTS.md）
-  const reportTimer = setInterval(report, UI_DEFAULTS.metaReportIntervalMs);
-
-  // 页面卸载 / SPA 路由切换时清理
-  const cleanup = () => {
-    if (reportTimer) clearInterval(reportTimer);
-    adapter.stop();
-    try { port.disconnect(); } catch (_) { /* noop */ }
-  };
-  window.addEventListener('beforeunload', cleanup, { once: true });
-  window.addEventListener('pagehide', cleanup, { once: true });
-
-  window.__bridgeAdapter = adapter;
-  log.info('桥接已启动', channel);
+  // 立即尝试一次；不匹配则轮询，覆盖「面板稍后打开 / 关闭」两种场景（抖音 SPA 浮层）
+  sync();
+  if (!active) {
+    log.info('当前页面不匹配', channel, '，启动轮询等待私信面板打开…');
+  }
+  pollTimer = setInterval(sync, 1500);
+  const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
+  window.addEventListener('beforeunload', stopPoll, { once: true });
+  window.addEventListener('pagehide', stopPoll, { once: true });
 }

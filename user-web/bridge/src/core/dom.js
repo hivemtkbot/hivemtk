@@ -347,7 +347,7 @@ export function looksLikeMessagePage() {
       /\/recommend\b/i,          // 推荐流
       /\/feed\b/i,               // 信息流
       /\/trending\b/i,           // 趋势
-      /\/user\/[^/]+\/?$/,       // 个人主页 https://www.douyin.com/user/xxx
+      /\/user\/[^/?#]+/,         // 个人主页 https://www.douyin.com/user/xxx（兼容 ?query/#hash）
       /\/video\/\d+/,            // 单个视频详情页 /video/7123456789
       /\/note\//,                // 小红书笔记详情 /note/xxx
       /\/explore\?/,             // 显式搜索 explore query

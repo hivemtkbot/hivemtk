@@ -415,6 +415,42 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.matchMode()).toBe('strict');
   });
 
+  // 真实回归：/user/self 个人主页浮层私信（用户实际场景）
+  // 现象：在「我的」主页打开私信，抖音以浮层打开 IM，URL 仍是 /user/self?from_tab_name=main
+  // 真实 IM DOM：editor(messageEditorinputArea+editor-kit-container) + conversation-item + svg 发送按钮
+  it('抖音 /user/self 个人主页浮层私信（svg 发送按钮）→ match=true, 发送按钮/气泡可定位', () => {
+    mockLocationPath('https://www.douyin.com/user/self?from_tab_name=main');
+    const editor = document.createElement('div');
+    editor.className = 'zone-container editor-kit-container messageEditorinputArea';
+    editor.setAttribute('contenteditable', 'true');
+    editor.getBoundingClientRect = () => ({ x: 0, y: 400, width: 300, height: 50, top: 400, left: 0, right: 300, bottom: 450 });
+    Object.defineProperty(editor, 'offsetParent', { configurable: true, get: () => ({}) });
+    document.body.appendChild(editor);
+    const listWrap = document.createElement('div');
+    listWrap.className = 'conversationConversationListwrapper';
+    const item = document.createElement('div');
+    item.setAttribute('data-e2e', 'conversation-item');
+    listWrap.appendChild(item);
+    document.body.appendChild(listWrap);
+    // 真实发送按钮：svg.messageMsgInputpublishBtn.e2e-send-msg-btn
+    const sendBtn = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    sendBtn.setAttribute('class', 'messageMsgInputpublishBtn e2e-send-msg-btn');
+    document.body.appendChild(sendBtn);
+    // 真实消息气泡
+    const bubble = document.createElement('div');
+    bubble.setAttribute('data-e2e', 'msg-item-content');
+    bubble.textContent = '你好，在吗？';
+    document.body.appendChild(bubble);
+
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('strict');
+    // 真实发送按钮为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn，
+    // 适配器 getRealSendButton 经 [class*="e2e-send-msg-btn"] 选择器定位（点击时落到最近可交互祖先）
+    expect(document.querySelector('[class*="e2e-send-msg-btn"]')).toBeTruthy();
+    expect(a.getMessageItems().length).toBe(1);
+  });
+
   it('抖音 /im/chat/ + 严格选择器命中 → match=true, matchMode=strict', () => {
     mockLocationPath('https://www.douyin.com/im/chat/abc/');
     addInput({ tag: 'div', attrs: { contenteditable: 'true', role: 'textbox' } });
