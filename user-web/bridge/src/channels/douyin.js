@@ -109,7 +109,8 @@ function getConversationId() {
     `${SEL.CHAT_LIST} [class*="curConversation"], ${SEL.CHAT_LIST} [aria-selected="true"], ${SEL.CHAT_LIST} [class*="active"]`
   ).find((el) => el.offsetParent !== null);
   const link = active?.querySelector('a[href*="/user/"]') || qs('[class*="chat-header"] a[href*="/user/"]');
-  const m = link?.getAttribute('href')?.match(/\/user\/(\d+)/);
+  // 兼容 /user/<数字id> 与 /user/MS4w...（token 形式）；命中后切换会话会重新回填历史
+  const m = link?.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
   return m ? m[1] : null;
 }
 

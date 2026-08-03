@@ -27,6 +27,12 @@ export class BaseAdapter {
     this.convPollTimer = null;
     this.fallbackTimer = null;
     this.activeRoot = null;
+    this._graceTimer = null;
+    // 历史宽限期（ms）：会话初次挂载/切换后的一段时间内，新出现的客户消息仅回填历史（落库），
+    // 不触发 AI 自动回复。避免打开含存量私信的会话时被当成新消息逐一自动回复
+    // （用户诉求：只同步历史、不发消息）。钩子可覆盖 this.historyGraceMs。
+    this.historyGraceMs = (hooks && hooks.historyGraceMs) || 8000;
+    this.historyGraceUntil = 0;
     // 修复：用 Map 替代数组存储 recentSelf 指纹，便于 O(1) 查询；
     // 上限 200 条防止异常场景下无限增长，超过时清理最旧一半。
     this.recentSelf = new Map();
@@ -51,7 +57,17 @@ export class BaseAdapter {
   snapshotMeta() { return this.hooks.snapshotMeta ? this.hooks.snapshotMeta() : {}; }
   getAccountId() { return this.hooks.getAccountId ? this.hooks.getAccountId() : (this.account || ''); }
   getConversationId() { return this.hooks.getConversationId ? this.hooks.getConversationId() : (this.snapshotMeta().conversationId || null); }
-  getMessageRoot() { return this.hooks.getMessageRoot ? this.hooks.getMessageRoot() : null; }
+  // 消息线程根：优先 hooks.getMessageRoot；未实现则回退到 getMessageListRoot。
+  // 关键修复：抖音等渠道只实现了 getMessageListRoot，缺失 getMessageRoot 会导致
+  // _attachConversation 拿到 null → 历史回填(_backfill)与 MutationObserver 永不生效，
+  // 存量私信只能被 3s 兜底扫描当实时 INBOUND 触发 AI（误发消息）。
+  getMessageRoot() {
+    if (this.hooks.getMessageRoot) {
+      const r = this.hooks.getMessageRoot();
+      if (r) return r;
+    }
+    return this.hooks.getMessageListRoot ? this.hooks.getMessageListRoot() : null;
+  }
   getMessageItems() { return this.hooks.getMessageItems ? this.hooks.getMessageItems() : []; }
   parseMessageItem(item) { return this.hooks.parseMessageItem ? this.hooks.parseMessageItem(item) : null; }
   rawSendText(text) { return this.hooks.sendText ? this.hooks.sendText(text) : Promise.resolve(false); }
@@ -75,6 +91,7 @@ export class BaseAdapter {
     if (this.observer) this.observer.disconnect();
     if (this.convPollTimer) clearInterval(this.convPollTimer);
     if (this.fallbackTimer) clearInterval(this.fallbackTimer);
+    if (this._graceTimer) clearTimeout(this._graceTimer);
   }
 
   // 会话切换探测：切换后重挂载观察器并回填新会话历史
@@ -94,8 +111,17 @@ export class BaseAdapter {
     this.activeRoot = root;
     if (root) {
       this._observe(root);
-      this._backfill(root); // 初次/切换时回填存量历史（仅落库，不触发 AI）
+      this._backfill(root); // 初次/切换时立即回填（线程已渲染则生效）
     }
+    // 历史宽限期：挂载/切换后的窗口内，新出现的客户消息仅回填历史、不触发 AI
+    // （存量私信同步到系统，但不自动回复）。
+    this.historyGraceUntil = Date.now() + this.historyGraceMs;
+    // 延迟回填：私信线程常异步渲染，1.5s 后再填一次，覆盖初次 _backfill 时尚未渲染的气泡。
+    if (this._graceTimer) clearTimeout(this._graceTimer);
+    this._graceTimer = setTimeout(() => {
+      const r = this.getMessageRoot();
+      if (r) this._backfill(r);
+    }, 1500);
     // 兜底轮询（MutationObserver 漏抓时的保险）
     if (this.fallbackTimer) clearInterval(this.fallbackTimer);
     this.fallbackTimer = setInterval(() => this._scanIncremental(), 3000);
@@ -148,7 +174,13 @@ export class BaseAdapter {
     if (this.seen.has(key)) return;
     this.seen.add(key);
     if (parsed.sender_type === SENDER.CUSTOMER) {
-      this._emitInbound(parsed);
+      // 历史宽限期内（首次挂载/会话切换后）：客户消息仅回填历史、不触发 AI，
+      // 避免对存量私信逐一自动回复（用户诉求：只同步历史、不发消息）。宽限期后视为实时新消息。
+      if (Date.now() < this.historyGraceUntil) {
+        this._emitHistory(parsed, DIRECTION.INBOUND);
+      } else {
+        this._emitInbound(parsed);
+      }
     } else {
       // 自己/AI 气泡：仅落库（若是我们刚回写的，跳过避免重复）
       if (this._isRecentSelf(key)) return;

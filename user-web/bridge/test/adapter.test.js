@@ -152,6 +152,7 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
     });
     const onInbound = vi.fn();
     adapter.start({ onInbound });
+    adapter.historyGraceUntil = 0; // 宽限期过期，验证实时 INBOUND 分支（宽限期内会改为仅落库）
     // 直接调用内部方法
     adapter._handleIncremental({});
     expect(onInbound).toHaveBeenCalled();
@@ -196,6 +197,7 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
     });
     const onInbound = vi.fn();
     adapter.start({ onInbound });
+    adapter.historyGraceUntil = 0; // 宽限期过期，验证实时 INBOUND + 去重
     adapter._handleIncremental({});
     adapter._handleIncremental({});
     expect(onInbound).toHaveBeenCalledTimes(1);
