@@ -418,18 +418,13 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 			//   只改 status 时 session.handler_type 仍是 "ai"，会导致前端列表展示错误
 			_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
 		}
-		// 2) 推送新会话 / 转人工通知给坐席
-		_ = websocket.BroadcastToAll(websocket.TypeNewSession, map[string]any{
+		// 2) 推送转人工通知给坐席（仅坐席侧需要 new_session，避免推给所有访客造成信息泄漏）
+		//   访客侧的 agent_joined 通知由下方 AutoAssign→AssignSession 统一发送，避免重复推送
+		_ = websocket.BroadcastToAgents(websocket.TypeNewSession, map[string]any{
 			"session":    session,
 			"need_human": true,
 			"reason":     "关键词命中自动转人工：" + req.Content,
 		})
-		// 3) 推送 agent_joined 给访客（访客侧会显示"客服正在接入..."）
-		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, map[string]any{
-			"session_id": session.SessionID,
-			"handler":    "human",
-			"reason":     "正在为您接入人工客服，请稍候...",
-		}, session.SessionID)
 		// 4) 系统消息落库
 		sysMsg := &model.SessionMessage{
 			SessionID:  session.SessionID,
@@ -486,12 +481,7 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 		SuggestionID:   handleResult.SuggestionID,
 	}
 
-	// 6. 推送给访客的 WebSocket
-	notifyPayload := map[string]any{
-		"session_id":  session.SessionID,
-		"handler":     handleResult.HandlerType,
-		"transferred": handleResult.Transferred,
-	}
+	// 6. 推送 / 落库 AI 回复
 	if handleResult.AIReplied && handleResult.Reply != "" {
 		// 落库 AI 回复（带 delivered_at=now，标记已通过 HTTP 投递给访客，避免离线消息重发）
 		//
@@ -548,11 +538,6 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 	//   - 重复推送会导致访客侧 UI 出现两条相同 AI 消息
 	//   - 如访客已离线，AI 消息已落库且 delivered_at 已置，
 	//     重连时 offline-messages 接口会过滤掉 delivered_at NOT NULL
-
-	if handleResult.Transferred {
-		// 转人工通知仍走 WebSocket（HTTP 响应只返回 transfer flag，system 消息由 ws 推）
-		_ = websocket.SendToVisitor(websocket.TypeAgentJoined, notifyPayload, session.SessionID)
-	}
 
 	// 7. 推送会话状态变化给坐席
 	if session.AgentID > 0 {
@@ -696,23 +681,20 @@ func (s *VisitorChatService) RequestHumanTransfer(ctx context.Context, channelID
 	_ = s.messageRepo.Create(ctx, transferMsg)
 
 	// 尝试自动分配
+	//   - 成功时由 AutoAssign→AssignSession 负责通知：给坐席推 new_session、给访客推 agent_joined（前端显示"客服已接入"）
+	//   - 失败（无在线坐席）才在此兜底：标记待人工 + 修正 handler_type + 提示访客"正在转接"
+	// 注意：new_session 仅发给坐席（AutoAssign 内部通过 NotifyNewSession 单播），不会泄漏给其它访客
 	if err := s.sessionSvc.AutoAssign(ctx, session.ID); err != nil {
 		// 无在线坐席，标记待人工
 		_ = s.sessionRepo.UpdateStatus(ctx, session.ID, model.SessionStatusWaiting)
+		// 分配失败时也要更新 handler_type 为 human，否则前端列表展示为 ai
+		_ = s.sessionRepo.UpdateHandlerType(ctx, session.ID, model.HandlerTypeHuman)
+		// 提示访客正在转接（前端 onMessage 的 system_msg 分支渲染）
+		_ = websocket.SendToVisitor(websocket.TypeMessage, map[string]any{
+			"session_id": session.SessionID,
+			"system_msg": "正在为您转接人工客服，请稍候...",
+		}, session.SessionID)
 	}
-
-	// 通知所有坐席
-	_ = websocket.BroadcastToAll(websocket.TypeNewSession, map[string]any{
-		"session":    session,
-		"need_human": true,
-		"reason":     reason,
-	})
-
-	// 通知访客
-	_ = websocket.SendToVisitor(websocket.TypeMessage, map[string]any{
-		"session_id": session.SessionID,
-		"system_msg": "正在为您转接人工客服，请稍候...",
-	}, session.SessionID)
 
 	return nil
 }
