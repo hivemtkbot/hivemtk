@@ -3,8 +3,10 @@ package tooluse
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 )
+
 
 // ============================================================================
 // 白名单权限检查器
@@ -46,13 +48,18 @@ type WhitelistPermissionChecker struct {
 
 // NewWhitelistPermissionChecker 创建白名单权限检查器
 //
-// 默认行为：defaultAllow=true（放行所有），agentWhitelist 和 globalWhitelist 为空
-// 调用 SetDefaultAllow(false) 后，未配置的 Agent 将被拒绝所有工具
+// 默认策略由环境变量 TOOL_PERMISSION_DEFAULT_DENY 控制：
+//   - 未设置或 != "true"：默认放行（向后兼容，未启用白名单时放行所有工具）
+//   - 设置为 "true"：默认拒绝（未配置白名单的 Agent 一律拒绝，纵深防御）
+//
+// 无论默认如何，Check 的优先级保证：Agent 已配置白名单时其白名单为权威（"*" 通配也不绕过，
+// 防覆盖式逃逸）；全局白名单始终放行；仅当 Agent 未配置白名单时才回退到 defaultAllow。
 func NewWhitelistPermissionChecker() *WhitelistPermissionChecker {
 	return &WhitelistPermissionChecker{
 		agentWhitelist:  make(map[string]map[string]bool),
 		globalWhitelist: make(map[string]bool),
-		defaultAllow:    true, // 向后兼容：默认放行
+		// 默认拒绝开关：TOOL_PERMISSION_DEFAULT_DENY=true 时启用严格默认拒绝
+		defaultAllow: os.Getenv("TOOL_PERMISSION_DEFAULT_DENY") != "true",
 	}
 }
 

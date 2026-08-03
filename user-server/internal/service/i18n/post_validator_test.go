@@ -316,3 +316,47 @@ func TestValidate_GlossaryThenProtection_OrderMatters(t *testing.T) {
 	assert.True(t, foundSKU, "应记录 SKU 保护")
 	assert.True(t, foundGlossary, "应记录术语校准")
 }
+
+// ============================================================================
+// P0-1 内部敏感真正脱敏（pattern_redacted）
+// ============================================================================
+
+// TestValidate_SensitiveRedacted 验证内部敏感信息被真正脱敏（[REDACTED]），
+// 而业务令牌（email/价格）仍保留原样。
+func TestValidate_SensitiveRedacted(t *testing.T) {
+	v := NewPostValidator()
+	// 客户邮箱/价格 = 业务令牌（应保留）；身份证/银行卡/内部成本价 = 内部敏感（应脱敏）
+	text := "客户邮箱 support@brand.com 价格 $99.99 身份证 11010119900307123X 银行卡 6222021234567890123 成本价 ¥50"
+
+	out, issues := v.Validate(text, "zh", nil)
+
+	// 业务令牌保护：不得被脱敏
+	assert.Contains(t, out, "support@brand.com", "email 业务令牌应保留")
+	assert.Contains(t, out, "$99.99", "价格业务令牌应保留")
+	// 内部敏感真正脱敏：原文不得残留
+	assert.NotContains(t, out, "11010119900307123X", "身份证应被脱敏")
+	assert.NotContains(t, out, "6222021234567890123", "银行卡应被脱敏")
+	assert.NotContains(t, out, "成本价 ¥50", "内部成本价应被脱敏")
+	assert.Contains(t, out, "[REDACTED]", "至少一处敏感被脱敏")
+
+	// pattern_redacted issue 记录，且不留存原文
+	count := 0
+	for _, is := range issues {
+		if is.Type == "pattern_redacted" {
+			assert.Equal(t, "[REDACTED]", is.Expected)
+			assert.Equal(t, "[REDACTED]", is.Actual, "脱敏不应留存原文到 issue")
+			count++
+		}
+	}
+	assert.GreaterOrEqual(t, count, 3, "身份证/银行卡/成本价 至少 3 处脱敏")
+}
+
+// TestValidate_RedactExcludesProtectedURL 验证 URL 内的长数字不被误脱敏
+// （保护区间排除机制生效，避免误伤 URL 资源 ID）。
+func TestValidate_RedactExcludesProtectedURL(t *testing.T) {
+	v := NewPostValidator()
+	text := "详见 https://api.example.com/v1/order/6222021234567890123"
+	out, _ := v.Validate(text, "en", nil)
+	// URL 整体被保护，内部 19 位数字不应被脱敏
+	assert.Equal(t, text, out, "URL 内的长数字应受保护不被脱敏")
+}

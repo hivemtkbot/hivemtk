@@ -16,13 +16,31 @@ import (
 // 3) 分段编辑
 // ============================================================================
 
-// GetDocumentChunks 列出文档分段（支持分页）
-func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, documentID uint64, page, pageSize int) ([]model.KnowledgeChunk, int64, error) {
+// GetDocumentChunks 列出文档分段（支持分页）。
+//
+// token 可选：携带外部系统 API Token 时校验文档归属是否与授权产品一致
+// （越权 IDOR 防护，与 UpdateChunk/DeleteChunk 一致）；留空表示由 JWT 管理员调用
+// （拥有全局权限，不校验 product 归属）。
+func (s *KnowledgeMerchantService) GetDocumentChunks(ctx context.Context, documentID uint64, page, pageSize int, token string) ([]model.KnowledgeChunk, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = DefaultPageSize
+	}
+	// 越权(IDOR)防护：携带 API Token 时校验文档归属是否与授权产品一致
+	if token != "" {
+		doc, derr := s.docRepo.GetByID(ctx, documentID)
+		if derr != nil {
+			return nil, 0, fmt.Errorf("文档不存在: %w", derr)
+		}
+		tok, terr := s.ValidateToken(ctx, token)
+		if terr != nil {
+			return nil, 0, terr
+		}
+		if tok.ProductID != "*" && tok.ProductID != "" && tok.ProductID != doc.ProductID {
+			return nil, 0, fmt.Errorf("文档 %d 不属于 Token 授权产品 %s", documentID, tok.ProductID)
+		}
 	}
 	return s.chunkRepo.PageByDocumentID(ctx, documentID, page, pageSize)
 }

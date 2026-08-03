@@ -2,25 +2,32 @@ package i18n
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
 // ============================================================================
-// PostValidator LLM 输出后置校准器（v1.2 出海多语言方案）
+// PostValidator LLM 输出后置校准器（v1.3 出海多语言方案）
 // ----------------------------------------------------------------------------
 // 职责：在 LLM 生成文本返回业务层之前，做"低成本 + 高确定性"的校准：
 //
-//   1. 正则保护（pattern_protected）
-//      把 LLM 可能"翻译过头"的内容还原：
-//        - SKU-[A-Z0-9]{6,}    等商品编码
-//        - 货币符号 + 金额       $9.99 / €10 / ¥100
-//        - URL                  https://...
-//        - email                foo@bar.com
-//      命中后整段保留原样，记录 ValidationIssue。
-//
-//   2. 术语校准（glossary_corrected）
+//   1. 术语校准（glossary_corrected）
 //      当 LLM 输出了"错误形式"的术语时，替换为 GlossaryView.Mappings 中
 //      指定的目标语言正确形式。
+//
+//   2. 内部敏感脱敏（pattern_redacted）  ← v1.3 新增，真正替换
+//      命中身份证/银行卡/内网IP/密钥/内部成本价等**绝对不应外泄**的内部信息
+//      时，整段替换为 [REDACTED]。与"业务令牌保留"严格区分：
+//        - 脱敏（redact）  ：内部敏感信息，命中即替换
+//        - 保留（protect） ：SKU/价格/URL/email 等客服回复中须原样送达客户的业务内容
+//      脱敏执行前会先定位 protect 命中区间，落入该区间的片段不被脱敏，
+//      避免误伤 URL/email/价格中的长数字（如 URL 内的资源 ID）。
+//
+//   3. 正则保护（pattern_protected）
+//      把 LLM 可能"翻译过头"的内容（SKU/金额/URL/email）还原并保留原样，
+//      记录 ValidationIssue。这里的"保护"语义是**保留**（防止 LLM 把业务令牌翻译/篡改），
+//      而非脱敏——因为邮箱/价格/URL 是客服回复中应当原样送达客户的业务内容
+//      （既有单测 TestValidate_EmailProtected 即断言 email 不应被修改）。
 //
 // 设计原则：
 //   - 纯函数，无副作用，无 IO（不读缓存、不调 repo）
@@ -32,7 +39,8 @@ import (
 //
 // Type 取值：
 //   - "glossary_corrected"：术语被校准（Actual → Expected）
-//   - "pattern_protected" ：保护模式命中（Term 为命中的原文片段）
+//   - "pattern_protected" ：业务令牌被保留（Term 为命中的原文片段）
+//   - "pattern_redacted"  ：内部敏感信息被脱敏（Term 为命中的正则；Actual 为 [REDACTED]，不留存原文）
 type ValidationIssue struct {
 	Type     string
 	Term     string
@@ -44,14 +52,8 @@ type ValidationIssue struct {
 //
 // 这些模式覆盖出海场景下"绝不能被 LLM 翻译"的常见片段（商品编码/金额/URL/邮箱）。
 // 命中后整段保留原样并记录。这里的"保护"语义是**保留**（防止 LLM 把业务令牌翻译/篡改），
-// 而非脱敏——因为邮箱/价格/URL 是客服回复中应当原样送达客户的业务内容
-// （既有单测 TestValidate_EmailProtected 即断言 email 不应被修改）。
+// 而非脱敏——因为邮箱/价格/URL 是客服回复中应当原样送达客户的业务内容。
 //
-// 关于"敏感信息泄露"风险的说明（P0 复核结论）：
-// 若 LLM 在回复中泄露**内部成本价/员工私人联系方式**等真正敏感信息，正确缓解点在
-// system prompt（明确禁止输出内部信息）+ 术语表（定义可披露内容），而非在此对业务令牌做
-//  blanket 脱敏——后者会破坏正常客服回复。如确需对特定内部模式脱敏，应作为**商户可配置的
-// 独立开关**实现，默认关闭，避免影响通用场景。
 // 排序原则：更具体的模式在前，避免被宽泛模式吞掉。
 var protectPatterns = []string{
 	`SKU-[A-Z0-9]{6,}`,
@@ -60,8 +62,49 @@ var protectPatterns = []string{
 	`\b[\w.+-]+@[\w-]+\.[\w.-]+\b`,
 }
 
+// redactPatterns 内置内部敏感脱敏模式（v1.3 新增）。
+//
+// 这些模式覆盖"绝对不应随 LLM 回复外泄"的内部信息：
+//   - 中国大陆身份证号（18 位）
+//   - 16~19 位纯数字账号/银行卡号
+//   - RFC1918 内网 IP（10./192.168./172.16~31.）
+//   - API 密钥前缀（sk-/AKIA）与 Bearer token
+//   - 内部成本价/供货价/利润等带金额标记
+// 命中后整段替换为 [REDACTED]，绝不留存原文到 issues（Actual 固定为 [REDACTED]）。
+//
+// 与 protectPatterns 的边界：protect 命中的区间（URL/email/价格等）在脱敏时会被排除，
+// 因此 email/价格/URL 不会被误脱敏，保障正常客服回复不被破坏。
+//
+// 关于误伤：\d{16,19} 也会命中独立的长数字订单号/资源 ID。出于"敏感优先"原则保留该模式；
+// 业务侧如确有长数字业务令牌需原样送达，应通过 glossary.Patterns 加入保护或调整此处。
+var redactPatterns = []string{
+	`\b\d{17}[\dXx]\b`,
+	`\b\d{16,19}\b`,
+	`\b(?:10\.\d{1,3}|192\.168\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3})\.\d{1,3}\b`,
+	`(?:sk-|AKIA)[A-Za-z0-9_\-]{12,}`,
+	`Bearer\s+[A-Za-z0-9_\-\.]{12,}`,
+	`(?:成本价|供货价|内部价|利润|成本)\D*\d+(?:\.\d+)?`,
+}
+
 // compiledProtectPatterns 预编译保护模式（包级单例，避免每次 Validate 重复编译）。
 var compiledProtectPatterns = mustCompilePatterns(protectPatterns)
+
+// compiledRedactPatterns 预编译脱敏模式（包级单例）。
+var compiledRedactPatterns = mustCompilePatterns(redactPatterns)
+
+// redactExcludePatterns 脱敏时需跳过的"强业务令牌"区间（仅 email/URL/SKU）。
+//
+// 这些模式对应客服回复中必须原样送达的强业务令牌，脱敏（如银行卡/身份证模式）
+// 不得误伤其中的长数字。价格不在此列——因为"成本价/内部价/利润"等内部敏感模式
+// 需要能够覆盖价格金额（内部成本优先于价格展示）。
+var redactExcludePatterns = []string{
+	`SKU-[A-Z0-9]{6,}`,
+	`https?://\S+`,
+	`\b[\w.+-]+@[\w-]+\.[\w.-]+\b`,
+}
+
+// compiledRedactExcludePatterns 预编译脱敏排除模式（包级单例）。
+var compiledRedactExcludePatterns = mustCompilePatterns(redactExcludePatterns)
 
 // mustCompilePatterns 编译模式列表，任一失败 panic（启动期 fail-fast）。
 func mustCompilePatterns(patterns []string) []*regexp.Regexp {
@@ -69,7 +112,7 @@ func mustCompilePatterns(patterns []string) []*regexp.Regexp {
 	for _, p := range patterns {
 		re, err := regexp.Compile(p)
 		if err != nil {
-			panic("i18n: invalid protect pattern " + p + ": " + err.Error())
+			panic("i18n: invalid pattern " + p + ": " + err.Error())
 		}
 		out = append(out, re)
 	}
@@ -90,21 +133,18 @@ func NewPostValidator() *PostValidator {
 //
 // 参数：
 //   - text       ：LLM 原始输出
-//   - targetLang ：目标语言（用于跳过同语种快捷路径；当前实现仅做保护，
-//     不依赖此参数做语种特定处理；保留参数供未来扩展）
-//   - glossary   ：术语视图（可为 nil —— 仅做正则保护）
+//   - targetLang ：目标语言（保留参数供未来扩展）
+//   - glossary   ：术语视图（可为 nil —— 仅做正则保护与脱敏）
 //
 // 返回：
 //   - 校准后的文本（始终非 nil，可能等于 text）
 //   - 校准记录列表（无校准则长度为 0）
 //
 // 校准顺序：
-//  1. 先做术语校准（glossary_corrected）：基于精确字符串替换
-//  2. 再做正则保护（pattern_protected）：保护命中片段
-//
-// 之所以先术语、后保护：避免保护模式"吞掉"应被校准的术语片段。
-// 例如先保护 SKU-123456，则术语校准无法匹配；先术语校准可让术语映射
-// 在保护前生效，保护针对的是非术语类的硬性 token。
+//  1. 术语校准（glossary_corrected）
+//  2. 定位业务令牌保护区间（不改文本）
+//  3. 内部敏感真正脱敏（pattern_redacted），排除保护区间
+//  4. 业务令牌保护记录（pattern_protected），文本不变
 func (v *PostValidator) Validate(text string, targetLang string, glossary *GlossaryView) (string, []ValidationIssue) {
 	if text == "" {
 		return text, nil
@@ -118,7 +158,14 @@ func (v *PostValidator) Validate(text string, targetLang string, glossary *Gloss
 		out, issues = v.applyGlossary(out, glossary.Mappings, issues)
 	}
 
-	// 2. 正则保护（内置模式 + glossary.Patterns）
+	// 2. 脱敏排除区间：仅 email/URL/SKU（防止 id_card/bank_card 误伤 URL/email 内长数字）
+	//    价格不在此排除集合，以便 internal_cost 等内部敏感模式可覆盖"成本价/利润"等金额
+	protected := v.findProtectSpans(out, compiledRedactExcludePatterns)
+
+	// 3. 内部敏感真正脱敏（排除 email/URL/SKU 区间，但不排除价格——内部成本优先）
+	out, issues = v.applyRedact(out, compiledRedactPatterns, protected, issues)
+
+	// 4. 业务令牌保护记录（价格/SKU/URL/email），文本不变
 	allPatterns := compiledProtectPatterns
 	if glossary != nil && len(glossary.Patterns) > 0 {
 		extra := compileUserPatterns(glossary.Patterns)
@@ -186,12 +233,82 @@ func (v *PostValidator) applyPatterns(text string, patterns []*regexp.Regexp, is
 	return text, issues
 }
 
+// findProtectSpans 返回所有保护模式在文本中命中的区间 [start,end)。
+// 用于脱敏时排除这些区间，避免误伤 URL/email/价格中的长数字。
+func (v *PostValidator) findProtectSpans(text string, patterns []*regexp.Regexp) []protectSpan {
+	var spans []protectSpan
+	for _, re := range patterns {
+		locs := re.FindAllStringIndex(text, -1)
+		for _, loc := range locs {
+			spans = append(spans, protectSpan{start: loc[0], end: loc[1]})
+		}
+	}
+	return spans
+}
+
+// protectSpan 保护命中区间。
+type protectSpan struct {
+	start int
+	end   int
+}
+
+// spanOverlaps 判断 [s,e) 是否与任一保护区间重叠。
+func spanOverlaps(spans []protectSpan, s, e int) bool {
+	for _, sp := range spans {
+		if s < sp.end && e > sp.start {
+			return true
+		}
+	}
+	return false
+}
+
+// applyRedact 真正脱敏：命中 redact 模式的片段替换为 [REDACTED]，
+// 但落入 protect 区间（业务令牌）的命中跳过（保留原样）。
+// 返回脱敏后的文本与脱敏记录（Actual 固定 [REDACTED]，不留存原文）。
+func (v *PostValidator) applyRedact(text string, patterns []*regexp.Regexp, protected []protectSpan, issues []ValidationIssue) (string, []ValidationIssue) {
+	type hit struct {
+		s, e  int
+		reStr string
+	}
+	var hits []hit
+	for _, re := range patterns {
+		locs := re.FindAllStringIndex(text, -1)
+		for _, loc := range locs {
+			s, e := loc[0], loc[1]
+			if spanOverlaps(protected, s, e) {
+				continue
+			}
+			hits = append(hits, hit{s: s, e: e, reStr: re.String()})
+		}
+	}
+	if len(hits) == 0 {
+		return text, issues
+	}
+	sort.Slice(hits, func(i, j int) bool { return hits[i].s < hits[j].s })
+
+	var sb strings.Builder
+	last := 0
+	for _, h := range hits {
+		if h.s < last { // 与已写入区间重叠，跳过
+			continue
+		}
+		sb.WriteString(text[last:h.s])
+		sb.WriteString("[REDACTED]")
+		issues = append(issues, ValidationIssue{
+			Type:     "pattern_redacted",
+			Term:     h.reStr,
+			Expected: "[REDACTED]",
+			Actual:   "[REDACTED]",
+		})
+		last = h.e
+	}
+	sb.WriteString(text[last:])
+	return sb.String(), issues
+}
+
 // compileUserPatterns 编译 glossary 自定义保护模式。
 //
 // 失败的模式跳过（best-effort），不阻断校准流程。
-// 失败模式通过 logger 记录，但本函数保持纯函数特性 ——
-// 编译错误日志放在编译时（启动期加载 glossary 时）更合适，
-// 此处仅静默跳过非法模式。
 func compileUserPatterns(patterns []string) []*regexp.Regexp {
 	if len(patterns) == 0 {
 		return nil

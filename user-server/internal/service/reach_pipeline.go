@@ -2,11 +2,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -171,6 +173,12 @@ func DefaultRateLimit() RateLimitConfig {
 	}
 }
 
+// ReachAlertHook 触达任务进入终态（失败）时的告警回调。
+//
+// 由 router 层注入（如 HTTP webhook / 日志告警平台）；默认 nil 表示不告警（仅写日志）。
+// finalState 为 JobStateFailed（超过重试上限）等终态；reason 为失败原因摘要。
+type ReachAlertHook func(ctx context.Context, job *model.ReachJob, finalState string, reason string)
+
 // ReachPipelineService 触达 Pipeline 服务
 type ReachPipelineService struct {
 	// 五层架构整改：db 操作全部下沉到 repository 层，service 不再持有 *gorm.DB
@@ -189,6 +197,68 @@ type ReachPipelineService struct {
 	// 真实触达发送器（由 router 注入，连接 IntegrationReachAdapter + BridgeReachAdapter）。
 	// 未注入时 dispatchOutbound 降级为占位 message_id（仅测试 / 未接线部署）。
 	sender ReachSender
+
+	// 告警钩子（可选）：任务最终失败时触发。默认 nil（不告警，仅写日志）。
+	alertHook ReachAlertHook
+}
+
+// SetAlertHook 注入触达失败告警回调。
+//
+// 典型用法：router 层根据 ALERT_WEBHOOK_URL 构造一个 HTTP 回调并注入，
+// 使触达任务最终失败时通知运维/告警平台；未注入则保持向后兼容（仅日志）。
+func (s *ReachPipelineService) SetAlertHook(h ReachAlertHook) {
+	s.alertHook = h
+}
+
+// fireAlert 触发告警（若已注入）。非阻塞、recover 保护，回调异常不影响主流程。
+func (s *ReachPipelineService) fireAlert(ctx context.Context, job *model.ReachJob, finalState, reason string) {
+	if s.alertHook == nil {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("[reach_alert] 告警回调 panic（已忽略）: %v", r)
+		}
+	}()
+	s.alertHook(ctx, job, finalState, reason)
+}
+
+// NewHTTPAlertHook 构造 HTTP webhook 告警回调。
+//
+// webhookURL 为空时返回 nil（表示不告警，仅由 executeJobCore 写日志，向后兼容）。
+// 构造出的回调在任务最终失败时向 webhookURL POST 一条 JSON 告警（含 job 关键字段）；
+// 发送失败仅记日志，不影响触达主流程。
+func NewHTTPAlertHook(webhookURL string) ReachAlertHook {
+	if webhookURL == "" {
+		return nil
+	}
+	return func(ctx context.Context, job *model.ReachJob, finalState string, reason string) {
+		payload, err := json.Marshal(map[string]interface{}{
+			"job_id":       job.ID,
+			"channel":      job.Channel,
+			"account_id":   job.AccountID,
+			"customer_id":  job.CustomerID,
+			"final_state":  finalState,
+			"reason":       reason,
+			"ts":           time.Now().Unix(),
+		})
+		if err != nil {
+			logger.Errorf("[reach_alert] 序列化告警负载失败: %v", err)
+			return
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(payload))
+		if err != nil {
+			logger.Errorf("[reach_alert] 构造告警请求失败: %v", err)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			logger.Errorf("[reach_alert] 发送告警失败: %v", err)
+			return
+		}
+		_ = resp.Body.Close()
+	}
 }
 
 // rateBucket 令牌桶
@@ -645,6 +715,8 @@ func (s *ReachPipelineService) executeJobCore(ctx context.Context, job *model.Re
 			// 格式：[step=content_prepare] content prepare failed: ...
 			job.ErrorMessage = fmt.Sprintf("[step=%s] %s", firstErrStep, firstErrMsg)
 			s.repo.IncrementPipelineField(ctx, pipe.ID, "total_failure", 1)
+			// P1-8：触达最终失败 → 触发告警钩子（运维可感知，避免静默失败）
+			s.fireAlert(ctx, job, JobStateFailed, job.ErrorMessage)
 		}
 	}
 	if err := s.repo.SaveJob(ctx, job); err != nil {

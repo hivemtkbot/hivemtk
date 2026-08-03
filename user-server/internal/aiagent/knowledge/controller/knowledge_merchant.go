@@ -144,7 +144,7 @@ func (ctrl *KnowledgeMerchantController) ListDocumentChunks(c *gin.Context) {
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	chunks, total, err := ctrl.svc.GetDocumentChunks(c.Request.Context(), id, page, pageSize)
+	chunks, total, err := ctrl.svc.GetDocumentChunks(c.Request.Context(), id, page, pageSize, c.GetHeader("X-Knowledge-Token"))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

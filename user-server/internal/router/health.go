@@ -2,7 +2,10 @@ package router
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"time"
 
 	"marketing/internal/aiagent/llm"
@@ -37,6 +40,39 @@ func inferenceStatus() string {
 		}
 	}
 	return "down"
+}
+
+// embeddingStatus 返回 embedding 服务可达性（TCP 层探测）。
+//
+// P1-6 新增：此前健康检查不探测 embedding 栈，RAG 向量化失败时无感知。
+// 采用轻量 TCP dial（2s 超时）探测 BaseURL 的 host:port，不触发真实 embedding 计算，
+// 避免每次健康探针产生昂贵的向量推理。
+//
+// 返回 "up" / "down" / "not_configured"。
+func embeddingStatus() (string, string) {
+	svc := llm.NewEmbeddingService()
+	if svc == nil {
+		return "not_configured", ""
+	}
+	base := svc.DefaultConfig().BaseURL
+	if base == "" {
+		return "not_configured", ""
+	}
+	u, err := url.Parse(base)
+	if err != nil {
+		return "down", "invalid embedding base url: " + err.Error()
+	}
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "8208"
+	}
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second)
+	if err != nil {
+		return "down", "embedding unreachable: " + err.Error()
+	}
+	_ = conn.Close()
+	return "up", ""
 }
 
 // HealthCheck 全维度健康检查
@@ -91,6 +127,15 @@ func HealthCheck(redisClient Pinger) gin.HandlerFunc {
 		}
 		checks["inference"] = gin.H{"status": infStatus, "error": infErr}
 
+		// 4. Embedding 可达性探针（P1-6 新增）
+		embStatus, embErr := embeddingStatus()
+		checks["embedding"] = gin.H{"status": embStatus, "error": embErr}
+		// 默认作为观测维度（不阻断整体健康），避免未部署独立 embedding 服务时误杀运行态；
+		// 设置 HEALTH_EMBEDDING_CRITICAL=true 时纳入阻断（严格模式）。
+		if embStatus == "down" && os.Getenv("HEALTH_EMBEDDING_CRITICAL") == "true" {
+			overallOK = false
+		}
+
 		if !overallOK {
 			result["status"] = "degraded"
 			c.JSON(http.StatusServiceUnavailable, result)
@@ -144,6 +189,14 @@ func ReadinessCheck(redisClient Pinger) gin.HandlerFunc {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "not_ready",
 				"reason": "inference: no healthy LLM provider",
+			})
+			return
+		}
+		// Embedding 就绪性探针（P1-6 新增）：默认观测，仅 HEALTH_EMBEDDING_CRITICAL=true 时阻断
+		if embStatus, embErr := embeddingStatus(); embStatus == "down" && os.Getenv("HEALTH_EMBEDDING_CRITICAL") == "true" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "not_ready",
+				"reason": "embedding: " + embErr,
 			})
 			return
 		}

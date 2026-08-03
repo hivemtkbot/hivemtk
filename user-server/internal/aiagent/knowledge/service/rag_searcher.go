@@ -194,8 +194,13 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 		logger.Errorf("[RagSearcher] vector search failed, fallback to BM25-lite: %v", vecErr)
 	}
 
-	// 3) 兜底 BM25-lite
-	return s.bm25SearchAll(ctx, query, topK)
+	// 3) 兜底 BM25-lite（向量检索不可用时的文本匹配兜底，确保不返回 0 召回误判"无知识"）
+	bm25, _ := s.bm25SearchAll(ctx, query, topK)
+	if len(bm25) == 0 && vecErr != nil {
+		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
+		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态与 EMBEDDING_BASE_URL", query)
+	}
+	return bm25, nil
 }
 
 // SearchIndex 在指定产品下检索 query
@@ -232,9 +237,13 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		logger.Errorf("[RagSearcher] vector search failed (product=%s), fallback to BM25-lite: %v", productID, vecErr)
 	}
 
-	// 3) 兜底 BM25-lite
+	// 3) 兜底 BM25-lite（向量检索不可用时的文本匹配兜底，确保不返回 0 召回误判"无知识"）
 	bm25, _ := s.bm25SearchIndex(ctx, productID, query, topK)
 	filtered := filterMerchantChunksByMetadata(bm25, metadata)
+	if len(filtered) == 0 && vecErr != nil {
+		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
+		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（product=%s, query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态", productID, query)
+	}
 	return filtered, nil
 }
 
