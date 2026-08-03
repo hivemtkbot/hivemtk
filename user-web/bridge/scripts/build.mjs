@@ -8,7 +8,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dist = resolve(root, 'dist');
 
-rmSync(dist, { recursive: true, force: true });
+// 注意：不要 rmSync 整个 dist/ 再重建。
+// 旧版 build 会 rmSync(dist, {recursive:true}) 把目录整体删空再写入；若此刻用户 Chrome 仍
+// Load 着该 dist/，开发者模式下文件瞬间全空会让 Chrome 把扩展标记为「已损坏/失效」，
+// 表现为「点击扩展图标不弹出 popup 面板」。改为只确保目录存在、原地覆盖产物，避免
+// 构建过程中 dist/ 出现「整体消失」窗口，从而不会把已加载的扩展搞坏。
 mkdirSync(dist, { recursive: true });
 
 const entries = {
