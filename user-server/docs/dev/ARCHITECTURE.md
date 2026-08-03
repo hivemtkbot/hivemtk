@@ -97,7 +97,7 @@ graph TB
     subgraph Horizon[横向能力层]
         Model[model/ · GORM 实体]
         Dto[dto/ · 请求/响应]
-        MW[middleware/ · recovery/locale/context/jwt/mfa/permission/audit/trace/ratelimit/sensitive_log/init_guard/data_scope/app_key_auth/brute_force/lang_resolver/license_checker/metrics/metrics_auth/require_admin/visitor_rate_limit]
+        MW[middleware/ · recovery/locale/context/jwt/mfa/permission/audit/trace/ratelimit/init_guard/app_key_auth/brute_force/lang_resolver/license_checker/metrics/metrics_auth/require_admin/visitor_rate_limit]
         Cache[cache/ · manager/redis/memory]
         Event[event/ · bus/subscribers]
         WS[websocket/ · hub/handler/seq/ack_tracker/notify]

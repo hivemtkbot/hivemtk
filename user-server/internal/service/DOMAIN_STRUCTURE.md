@@ -163,8 +163,6 @@ OneID 客户体系：身份合并→360 画像→旅程→会话→流失预测�
 | system_monitor.go | 系统监控 |
 | backup.go | 备份 |
 | obs_config.go | OBS 配置 |
-| security_audit_service.go | 安全审计 |
-| sensitive_encryption.go | 敏感加密 |
 | llm_routing_service.go | LLM 路由 |
 | ai_agent_service.go | AI 智能体 |
 | ai_content.go | AI 内容 |

@@ -11,9 +11,7 @@ import (
 //
 // 设计要点：
 //   - 一对一关联 SystemUser（user_id 唯一索引）
-//   - mfa_secret 存储 base32 编码的 TOTP 密钥（AES 加密后再 base64 存储，避免数据库泄露导致 2FA 失守）
-//     为简化首版实现，本表直接以 base32 明文存储，由调用方负责加密；
-//     生产环境建议在 service 层加 AES-GCM 加密包装（参考 sensitive_encryption.go）。
+//   - mfa_secret 存储 base32 编码的 TOTP 密钥（本私有化单用户部署直接明文存储，不做额外加密包装）
 //   - mfa_enabled: true=已启用 / false=已禁用
 //   - backup_codes: 一次性恢复码 JSON 数组（bcrypt 哈希后存储）
 //   - last_used_at: 最近一次 TOTP 验证时间（用于检测重放）

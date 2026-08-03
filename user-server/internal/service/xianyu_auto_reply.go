@@ -9,7 +9,6 @@ import (
 
 	"marketing/internal/aiagent/agent/browser"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
@@ -69,22 +68,11 @@ func (s *XianyuAutoReplyService) ListAccounts(ctx context.Context, userID uint) 
 func (s *XianyuAutoReplyService) UpsertAccount(ctx context.Context, a *model.AutoReplyAccount) error {
 	existing, err := s.accountRepo.FindByUserAndPlatformAndUsername(ctx, a.UserID, "xianyu", a.Username)
 	if err == nil && existing != nil {
-		// 加密存储Cookie(避免在 model 中保留业务方法)
-		encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
-		if encErr != nil {
-			return encErr
-		}
-		existing.Cookie = encrypted
+		existing.Cookie = a.Cookie
 		existing.IsActive = a.IsActive
 		existing.LoginAt = a.LoginAt
 		return s.accountRepo.Save(ctx, existing)
 	}
-	// 加密存储Cookie(避免在 model 中保留业务方法)
-	encrypted, encErr := utils.Encrypt(a.Cookie, utils.GetCookieEncryptionKey())
-	if encErr != nil {
-		return encErr
-	}
-	a.Cookie = encrypted
 	return s.accountRepo.Create(ctx, a)
 }
 
@@ -103,14 +91,8 @@ func (s *XianyuAutoReplyService) SaveCookies(ctx context.Context, id uint, cooki
 		return ErrAccountNotOwned
 	}
 
-	// 使用加密方法设置Cookie
-	encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
-	if encErr != nil {
-		return encErr
-	}
-	account.Cookie = encrypted
+	account.Cookie = cookie
 
-	// 更新数据库中的加密Cookie
 	return s.accountRepo.UpdateCookieByID(ctx, id, account.Cookie)
 }
 
@@ -163,19 +145,13 @@ func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID u
 		logger.Infof("等待用户登录，超时时间: 5分钟")
 		cookie, ok := a.WaitAuthCookieHeader(browser.Xianyu, 5*time.Minute)
 		if ok {
-			// 加密存储Cookie
 			account, err := s.accountRepo.GetByID(ctx, accountID)
 			if err == nil {
-				encrypted, encErr := utils.Encrypt(cookie, utils.GetCookieEncryptionKey())
-				if encErr == nil {
-					account.Cookie = encrypted
-					if err := s.accountRepo.UpdateCookieByID(ctx, accountID, account.Cookie); err != nil {
-						logger.Errorf("保存Cookie失败: %v", err)
-					} else {
-						logger.Infof("设置Cookie成功")
-					}
+				account.Cookie = cookie
+				if err := s.accountRepo.UpdateCookieByID(ctx, accountID, account.Cookie); err != nil {
+					logger.Errorf("保存Cookie失败: %v", err)
 				} else {
-					logger.Errorf("设置Cookie失败: %v", encErr)
+					logger.Infof("设置Cookie成功")
 				}
 			}
 		} else {

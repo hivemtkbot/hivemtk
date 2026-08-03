@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
 	"marketing/internal/repository"
 
 	"context"
@@ -72,11 +71,7 @@ func (s *TikTokAutoReplyService) UpsertAccount(ctx context.Context, userID uint,
 		Headless: true,
 	}
 	if req.Cookie != "" {
-		encrypted, encErr := utils.Encrypt(req.Cookie, utils.GetCookieEncryptionKey())
-		if encErr != nil {
-			return nil, encErr
-		}
-		account.Cookie = encrypted
+		account.Cookie = req.Cookie
 	}
 	if err := s.reply.UpsertAccount(ctx, account); err != nil {
 		return nil, err

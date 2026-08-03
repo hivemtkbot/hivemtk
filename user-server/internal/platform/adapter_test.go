@@ -56,54 +56,6 @@ func TestBaseAdapter_GenerateReplyID(t *testing.T) {
 	}
 }
 
-func TestEncryptCookie(t *testing.T) {
-	// Test empty cookie
-	encrypted, err := EncryptCookie("")
-	if err != nil {
-		t.Errorf("EncryptCookie failed: %v", err)
-	}
-	if encrypted != "" {
-		t.Errorf("Expected empty encrypted cookie, got %s", encrypted)
-	}
-}
-
-func TestDecryptCookie(t *testing.T) {
-	// Test empty encrypted cookie
-	decrypted, err := DecryptCookie("")
-	if err != nil {
-		t.Errorf("DecryptCookie failed: %v", err)
-	}
-	if decrypted != "" {
-		t.Errorf("Expected empty decrypted cookie, got %s", decrypted)
-	}
-}
-
-func TestEncryptDecryptCookie(t *testing.T) {
-	original := "test_cookie=value123"
-	encrypted, err := EncryptCookie(original)
-	if err != nil {
-		t.Fatalf("EncryptCookie failed: %v", err)
-	}
-	if encrypted == original {
-		t.Error("Expected encrypted cookie to be different from original")
-	}
-
-	decrypted, err := DecryptCookie(encrypted)
-	if err != nil {
-		t.Fatalf("DecryptCookie failed: %v", err)
-	}
-	if decrypted != original {
-		t.Errorf("Expected decrypted cookie to match original, got %s", decrypted)
-	}
-}
-
-func TestGetEncryptionKey(t *testing.T) {
-	key := getEncryptionKey()
-	if key == "" {
-		t.Error("Expected non-empty encryption key")
-	}
-}
-
 func TestDouyinAdapter(t *testing.T) {
 	adapter := NewDouyinAdapter()
 	if adapter == nil {

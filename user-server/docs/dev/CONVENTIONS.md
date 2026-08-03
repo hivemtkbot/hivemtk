@@ -33,7 +33,7 @@ cmd ──▶ router ──▶ controller ──▶ service ──▶ repository
 | L5 | `internal/repository/` | 封装 GORM / pgvector / Redis 基础操作 | 业务逻辑、跨表事务编排、调 service |
 | 横向 | `internal/model/` | 表结构映射、字段约束（gorm tag）、UUID 生成、密码哈希 Hook | 任何业务方法、跨表查询、调其他层 |
 | 横向 | `internal/dto/` | 入参校验（binding tag）、响应序列化结构 | 引用 service / repository / model 业务方法 / db |
-| 横向 | `internal/middleware/` | Gin 中间件（jwt / audit / trace / ratelimit / sensitive_log / mfa / permission / locale） | 业务逻辑 |
+| 横向 | `internal/middleware/` | Gin 中间件（jwt / audit / trace / ratelimit / mfa / permission / locale） | 业务逻辑 |
 | 横向 | `internal/aiagent/` | AI 能力层（agent / llm / rag / embedding / vector / eval / knowledge） | 调业务 Service（避免循环依赖） |
 
 ### 1.2 依赖方向（强制）
@@ -231,7 +231,6 @@ logger.ErrorfContext(ctx, "[CustomerTagService] create failed: %v", err)
 
 ### 4.4 敏感数据脱敏
 
-- `middleware/sensitive_log.go` 自动脱敏：密码、token、手机号、身份证、银行卡等
 - **禁止**在日志中打印明文：`password` / `api_key` / `secret` / `access_token` / `refresh_token`
 - **禁止**用 ` %+v` / `%#v` 打印完整 struct（可能含敏感字段）
 
@@ -469,7 +468,6 @@ hub.Broadcast(payload)
 
 - 数据库密码 / JWT 密钥 / 对象存储密钥**全部**通过环境变量注入
 - **禁止**任何明文密钥写入受 Git 跟踪的文件（`config.yaml` 用 `${ENV_VAR}` 占位）
-- 敏感字段经 `middleware/sensitive_log.go` 脱敏后再写入日志
 - 密码入库用 bcrypt 加密，**禁止**明文存储
 
 ### 9.3 限流与防滥用

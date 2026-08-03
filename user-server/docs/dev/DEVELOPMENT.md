@@ -584,7 +584,6 @@ bash ../../scripts/api-inventory.sh
 
 - **zerolog** 驱动，配置见 `config.yaml` 的 `logging:` 段
 - `level: debug` 时输出全量 trace_id（开发态推荐）
-- 敏感字段自动脱敏（`middleware/sensitive_log.go`）
 - 文件日志路径: `logs/user-server.log`（`output: file` 或 `both` 时生效）
 
 ### 8.2 trace_id 全链路追踪
@@ -716,7 +715,6 @@ docker build -t hivemtk/user-server:latest .
 
 - 业务数据**仅本地存储**，无任何外发通道（除显式配置的渠道回调）
 - 数据库密码 / JWT 密钥 / 对象存储密钥**全部**通过环境变量注入
-- 敏感字段经 `sensitive_log` 中间件脱敏后再写入日志
 - 完整审计日志（操作者 / 时间 / IP / 资源）持久化至 `operation_logs` 表（通过 `middleware/audit.go` 的 `auditLogChan` 异步落库，**不经过 Event Bus**）
 - 本地推理栈默认（`inference.llm.mode=local` / `inference.embedding.mode=local`），数据不出域
 - 云端 LLM 仅在显式配置 `api_key` 且 `enabled=true` 时启用，作为可选 fallback

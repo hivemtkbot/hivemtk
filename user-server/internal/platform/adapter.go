@@ -12,7 +12,6 @@ import (
 
 	"marketing/internal/aiagent/agent/browser"
 	"marketing/internal/model"
-	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
@@ -43,31 +42,6 @@ func (a *BaseAdapter) GenerateReplyID(messageID string) string {
 	data := fmt.Sprintf("%s_%d", messageID, timestamp)
 	hash := md5.Sum([]byte(data))
 	return fmt.Sprintf("reply_%s", hex.EncodeToString(hash[:]))
-}
-
-// EncryptCookie 加密Cookie(使用 utils.AES-GCM)
-func EncryptCookie(cookie string) (string, error) {
-	if cookie == "" {
-		return "", nil
-	}
-	return utils.Encrypt(cookie, getEncryptionKey())
-}
-
-// DecryptCookie 解密Cookie
-func DecryptCookie(encrypted string) (string, error) {
-	if encrypted == "" {
-		return "", nil
-	}
-	return utils.Decrypt(encrypted, getEncryptionKey())
-}
-
-func getEncryptionKey() string {
-	key := utils.GetCookieEncryptionKey()
-	if key == "" {
-		hash := md5.Sum([]byte("default_encryption_key_for_platform"))
-		key = hex.EncodeToString(hash[:])
-	}
-	return key
 }
 
 // BotPool 共享浏览器 Bot 池(避免每个平台每个账号都开新浏览器)
@@ -144,10 +118,7 @@ func loadAccountCookie(platform model.Platform, accountID string) (string, *mode
 		}
 		return "", nil, err
 	}
-	cookie, err := utils.Decrypt(account.Cookie, utils.GetCookieEncryptionKey())
-	if err != nil {
-		return "", &account, fmt.Errorf("Cookie 解密失败: %w", err)
-	}
+	cookie := account.Cookie
 	if cookie == "" {
 		return "", &account, fmt.Errorf("抖音账号 Cookie 尚未配置,请先登录抖音账号")
 	}
@@ -244,7 +215,7 @@ func LoginWithBrowser(platform model.Platform, username string, headless bool) (
 		return "", nil, fmt.Errorf("登录超时(3 分钟),未检测到 %s 平台身份 Cookie", platform)
 	}
 
-	// 解密登录后的 Cookie 并入库
+	// 登录后的 Cookie 直接入库
 	now := time.Now()
 	var account model.AutoReplyAccount
 	q := repository.GetDB().Where("platform = ? AND username = ?", string(platform), username).First(&account)
@@ -256,11 +227,7 @@ func LoginWithBrowser(platform model.Platform, username string, headless bool) (
 			IsActive: true,
 		}
 	}
-	encrypted, encErr := utils.Encrypt(cookieStr, utils.GetCookieEncryptionKey())
-	if encErr != nil {
-		return "", nil, fmt.Errorf("加密 Cookie 失败: %w", encErr)
-	}
-	account.Cookie = encrypted
+	account.Cookie = cookieStr
 	account.LoginAt = &now
 	account.IsActive = true
 	account.Headless = headless
