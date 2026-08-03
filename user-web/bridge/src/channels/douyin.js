@@ -92,13 +92,47 @@ function classifyByAlignment(bubble) {
   return bCenter > cCenter ? SENDER.SELF : SENDER.CUSTOMER;
 }
 
-// 当前登录的抖音账号 id（左导航个人主页链接）
+// 当前登录的抖音账号 id。
+// 多层兜底：浮层（/jingxuan 等）下左导航/header 的个人链接常缺失或指向 /user/self（占位），
+// 导致返回空串 → WS 握手持空 account_id → 服务端 401 拒绝 → 历史/实时全不上行。
+// 故优先取「会话项里的真实用户链接」（含 MS4w... token 形式 id），其次「我的」链接，
+// 再次 chrome.storage 缓存（同一账号即使浮层取不到也可恢复），最后稳定 unknown 而非空串。
 function getAccountId() {
+  const candidates = [];
+  // 1) 会话列表项里的真实用户链接（最可靠，含 token 形式 id）
+  qsa(`${SEL.CHAT_LIST} a[href*="/user/"]`).forEach((a) => {
+    const m = a.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
+    if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
+  });
+  // 2) 左导航/header 「我的」链接
   const self = qs('aside a[href*="/user/"], header a[href*="/user/"]') || qs('a[href*="/user/"]');
-  // 兼容 /user/self（当前用户主页）与 /user/MS4w...（token 形式）与纯数字 id
-  const m = self && self.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
-  return m ? m[1] : '';
+  if (self) {
+    const m = self.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
+    if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
+  }
+  // 3) 任意 /user/ 链接（最后手段）
+  qsa('a[href*="/user/"]').forEach((a) => {
+    const m = a.getAttribute('href')?.match(/\/user\/([^/?#]+)/);
+    if (m && m[1] && m[1] !== 'self') candidates.push(m[1]);
+  });
+  for (const c of candidates) {
+    if (c && c.trim()) {
+      // 同步写 localStorage（页面内同步可用，刷新后仍可兜底；不依赖异步 chrome.storage）
+      try { localStorage.setItem(`hivebridge:account:${CHANNELS.DOUYIN}`, c.trim()); } catch (e) { /* noop */ }
+      return c.trim();
+    }
+  }
+  // 4) 同步兜底：localStorage 缓存（浮层取不到真实 id 时，复用本页曾取到的真实 id）
+  try {
+    const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.DOUYIN}`);
+    if (ls) return ls;
+  } catch (e) { /* noop */ }
+  // 5) 稳定 unknown（绝不返回空串，避免 WS 握手持空 account_id → 服务端 401 → 全链路断）
+  return `${CHANNELS.DOUYIN}-unknown`;
 }
+
+// 导出供单测验证浮层兜底（避免 /jingxuan 浮层下返回空串导致 WS 401）
+export { getAccountId };
 
 // 当前会话 id：活动会话（深度自检显示活动项含 curConversation class）
 function getConversationId() {
