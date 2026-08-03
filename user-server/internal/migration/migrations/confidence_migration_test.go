@@ -64,9 +64,7 @@ func TestConfidenceMigration_UpCreatesAllTables(t *testing.T) {
 		"confidence_signals",
 		"confidence_calibrations",
 		"handoff_decisions",
-		"review_queue",
 		"threshold_policies",
-		"sla_monitors",
 		"ab_tests",
 		"ab_test_metrics",
 	}
@@ -229,8 +227,6 @@ func TestConfidenceMigration_Down(t *testing.T) {
 	deletedTables := []string{
 		"confidence_signals",
 		"handoff_decisions",
-		"review_queue",
-		"sla_monitors",
 		"ab_tests",
 		"ab_test_metrics",
 	}
@@ -322,25 +318,6 @@ func TestConfidenceMigration_InsertHandoffDecision(t *testing.T) {
 	}
 }
 
-// TestConfidenceMigration_InsertReviewQueue 集成测试：review_queue 可写入
-func TestConfidenceMigration_InsertReviewQueue(t *testing.T) {
-	db := setupConfidenceMigrationTestDB(t)
-
-	m := NewConfidenceMigration(db)
-	if err := m.Up(context.Background()); err != nil {
-		t.Fatalf("Up() failed: %v", err)
-	}
-
-	if err := db.Exec(`
-		INSERT INTO review_queue
-			(item_id, session_id, customer_id, signal_id, draft_reply,
-			 original_confidence, threshold, intent_type, status, sla_deadline)
-		VALUES ($1, $2, $3, $4, $5, 0.65, 0.70, 'ask_product', 'pending', NOW() + INTERVAL '30 seconds')
-	`, "item-1", "sess-1", "cust-1", "sig-1", "您好，这是草稿回复").Error; err != nil {
-		t.Errorf("插入 review_queue 失败: %v", err)
-	}
-}
-
 // TestConfidenceMigration_InsertCalibration 集成测试：confidence_calibrations 可写入
 func TestConfidenceMigration_InsertCalibration(t *testing.T) {
 	db := setupConfidenceMigrationTestDB(t)
@@ -360,25 +337,6 @@ func TestConfidenceMigration_InsertCalibration(t *testing.T) {
 				NOW() - INTERVAL '1 minute', NOW(), TRUE)
 	`, "cal-1").Error; err != nil {
 		t.Errorf("插入 confidence_calibrations 失败: %v", err)
-	}
-}
-
-// TestConfidenceMigration_InsertSLAMonitor 集成测试：sla_monitors 可写入
-func TestConfidenceMigration_InsertSLAMonitor(t *testing.T) {
-	db := setupConfidenceMigrationTestDB(t)
-
-	m := NewConfidenceMigration(db)
-	if err := m.Up(context.Background()); err != nil {
-		t.Fatalf("Up() failed: %v", err)
-	}
-
-	if err := db.Exec(`
-		INSERT INTO sla_monitors
-			(monitor_id, bucket_minute, auto_reply_rate, handoff_rate, review_timeout_rate,
-			 avg_assignment_seconds, post_handoff_accept_rate, ece, total_messages, alerts_triggered)
-		VALUES ($1, NOW(), 0.65, 0.20, 0.05, 25.5, 0.70, 0.04, 100, '')
-	`, "mon-1").Error; err != nil {
-		t.Errorf("插入 sla_monitors 失败: %v", err)
 	}
 }
 

@@ -9,10 +9,8 @@ package model
 //  1. ConfidenceSignal       - 每次 5 维信号快照
 //  2. ConfidenceCalibration  - 温度缩放校准参数历史
 //  3. HandoffDecision        - 转人工决策记录
-//  4. ReviewQueue            - 边界审核队列
-//  5. ThresholdPolicy        - 动态阈值策略配置
-//  6. SLAMonitor             - SLA 监控指标时序
-//  7. ABTest                 - A/B 测试配置与统计
+//  4. ThresholdPolicy        - 动态阈值策略配置
+//  5. ABTest                 - A/B 测试配置与统计
 //
 // 私域独立部署: 无 merchant_id 字段
 
@@ -95,30 +93,6 @@ type HandoffDecisionRecord struct {
 // TableName 表名
 func (HandoffDecisionRecord) TableName() string { return "handoff_decisions" }
 
-// ReviewQueue 边界审核队列
-type ReviewQueue struct {
-	ID                 int64      `gorm:"primaryKey;autoIncrement" json:"id"`
-	ItemID             string     `gorm:"column:item_id;uniqueIndex;size:64;not null" json:"item_id"`
-	SessionID          string     `gorm:"column:session_id;size:128;not null;index:idx_review_session,priority:1" json:"session_id"`
-	CustomerID         string     `gorm:"column:customer_id;size:128;not null" json:"customer_id"`
-	SignalID           string     `gorm:"column:signal_id;size:64;not null" json:"signal_id"`
-	DraftReply         string     `gorm:"column:draft_reply;type:text;not null" json:"draft_reply"`
-	OriginalConfidence float64    `gorm:"column:original_confidence;type:decimal(5,4);not null" json:"original_confidence"`
-	Threshold          float64    `gorm:"column:threshold;type:decimal(5,4);not null" json:"threshold"`
-	IntentType         string     `gorm:"column:intent_type;size:64;not null" json:"intent_type"`
-	Status             string     `gorm:"column:status;size:32;not null;default:'pending';index:idx_review_status,priority:1" json:"status"`
-	AssignedAgentID    int64      `gorm:"column:assigned_agent_id;default:0" json:"assigned_agent_id"`
-	EditedReply        string     `gorm:"column:edited_reply;type:text;default:''" json:"edited_reply"`
-	AgentAction        string     `gorm:"column:agent_action;size:32;default:''" json:"agent_action"`
-	SLADeadline        time.Time  `gorm:"column:sla_deadline;not null;index:idx_review_status,priority:2" json:"sla_deadline"`
-	ActedAt            *time.Time `gorm:"column:acted_at" json:"acted_at,omitempty"`
-	AutoReleased       bool       `gorm:"column:auto_released;default:false" json:"auto_released"`
-	CreatedAt          time.Time  `gorm:"column:created_at;not null;default:now();index:idx_review_session,priority:2" json:"created_at"`
-}
-
-// TableName 表名
-func (ReviewQueue) TableName() string { return "review_queue" }
-
 // ThresholdPolicy 动态阈值策略配置
 type ThresholdPolicy struct {
 	ID                      int64     `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -140,25 +114,6 @@ type ThresholdPolicy struct {
 
 // TableName 表名
 func (ThresholdPolicy) TableName() string { return "threshold_policies" }
-
-// SLAMonitor SLA 监控指标时序
-type SLAMonitor struct {
-	ID                    int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	MonitorID             string    `gorm:"column:monitor_id;uniqueIndex;size:64;not null" json:"monitor_id"`
-	BucketMinute          time.Time `gorm:"column:bucket_minute;not null;index:idx_sla_bucket,priority:1" json:"bucket_minute"`
-	AutoReplyRate         float64   `gorm:"column:auto_reply_rate;type:decimal(5,4);not null" json:"auto_reply_rate"`
-	HandoffRate           float64   `gorm:"column:handoff_rate;type:decimal(5,4);not null" json:"handoff_rate"`
-	ReviewTimeoutRate     float64   `gorm:"column:review_timeout_rate;type:decimal(5,4);not null" json:"review_timeout_rate"`
-	AvgAssignmentSeconds  float64   `gorm:"column:avg_assignment_seconds;type:decimal(8,2);not null" json:"avg_assignment_seconds"`
-	PostHandoffAcceptRate float64   `gorm:"column:post_handoff_accept_rate;type:decimal(5,4);not null" json:"post_handoff_accept_rate"`
-	ECE                   float64   `gorm:"column:ece;type:decimal(5,4);not null" json:"ece"`
-	TotalMessages         int       `gorm:"column:total_messages;not null" json:"total_messages"`
-	AlertsTriggered       string    `gorm:"column:alerts_triggered;type:text;default:''" json:"alerts_triggered"`
-	CreatedAt             time.Time `gorm:"column:created_at;not null;default:now()" json:"created_at"`
-}
-
-// TableName 表名
-func (SLAMonitor) TableName() string { return "sla_monitors" }
 
 // ABTest A/B 测试配置与统计
 type ABTest struct {

@@ -207,9 +207,7 @@ func allModels() []any {
 		&model.ConfidenceSignal{},
 		&model.ConfidenceCalibration{},
 		&model.HandoffDecisionRecord{},
-		&model.ReviewQueue{},
 		&model.ThresholdPolicy{},
-		&model.SLAMonitor{},
 		&model.ABTest{},
 		&model.ABTestMetric{},
 		// 拟人度评估器（5 表）

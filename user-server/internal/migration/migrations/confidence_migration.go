@@ -6,15 +6,13 @@ package migrations
 // 设计依据: docs/核心链路优化.md 第十五章 §15.3 表结构设计
 // 私域独立部署: 无 merchant_id 字段
 //
-// 本迁移创建 置信度驱动转人工所需的 7 张新表 + 1 张指标样本表：
+// 本迁移创建 置信度驱动转人工所需的 6 张表：
 //  1. confidence_signals       - 每次 5 维信号快照
 //  2. confidence_calibrations  - 温度缩放校准参数历史
 //  3. handoff_decisions        - 转人工决策记录
-//  4. review_queue             - 边界审核队列
-//  5. threshold_policies       - 动态阈值策略配置
-//  6. sla_monitors             - SLA 监控指标时序
-//  7. ab_tests                 - A/B 测试配置与统计
-//  8. ab_test_metrics          - A/B 测试单条指标样本（独立时序表）
+//  4. threshold_policies       - 动态阈值策略配置
+//  5. ab_tests                 - A/B 测试配置与统计
+//  6. ab_test_metrics          - A/B 测试单条指标样本（独立时序表）
 //
 // 幂等性: 所有 DDL 使用 IF NOT EXISTS，可重入
 // 依赖: 无（独立表）
@@ -47,7 +45,7 @@ func (m *ConfidenceMigration) Name() string { return "置信度驱动转人工�
 
 // Description 返回迁移描述
 func (m *ConfidenceMigration) Description() string {
-	return "创建 confidence_signals / confidence_calibrations / handoff_decisions / review_queue / threshold_policies / sla_monitors / ab_tests / ab_test_metrics 8 张表"
+	return "创建 confidence_signals / confidence_calibrations / handoff_decisions / threshold_policies / ab_tests / ab_test_metrics 6 张表"
 }
 
 // Up 执行升级
@@ -71,22 +69,12 @@ func (m *ConfidenceMigration) Up(ctx context.Context) error {
 		return fmt.Errorf("create handoff_decisions 失败: %w", err)
 	}
 
-	// 4. review_queue 表
-	if err := m.createReviewQueue(ctx); err != nil {
-		return fmt.Errorf("create review_queue 失败: %w", err)
-	}
-
-	// 5. threshold_policies 表
+	// 4. threshold_policies 表
 	if err := m.createThresholdPolicies(ctx); err != nil {
 		return fmt.Errorf("create threshold_policies 失败: %w", err)
 	}
 
-	// 6. sla_monitors 表
-	if err := m.createSLAMonitors(ctx); err != nil {
-		return fmt.Errorf("create sla_monitors 失败: %w", err)
-	}
-
-	// 7. ab_tests 表
+	// 5. ab_tests 表
 	if err := m.createABTests(ctx); err != nil {
 		return fmt.Errorf("create ab_tests 失败: %w", err)
 	}
@@ -192,34 +180,6 @@ func (m *ConfidenceMigration) createHandoffDecisions(ctx context.Context) error 
 	return execAll(ctx, m.db, stmts)
 }
 
-// createReviewQueue 创建 review_queue 表
-func (m *ConfidenceMigration) createReviewQueue(ctx context.Context) error {
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS review_queue (
-			id BIGSERIAL PRIMARY KEY,
-			item_id VARCHAR(64) NOT NULL UNIQUE,
-			session_id VARCHAR(128) NOT NULL,
-			customer_id VARCHAR(128) NOT NULL,
-			signal_id VARCHAR(64) NOT NULL,
-			draft_reply TEXT NOT NULL,
-			original_confidence DECIMAL(5,4) NOT NULL,
-			threshold DECIMAL(5,4) NOT NULL,
-			intent_type VARCHAR(64) NOT NULL,
-			status VARCHAR(32) NOT NULL DEFAULT 'pending',
-			assigned_agent_id BIGINT DEFAULT 0,
-			edited_reply TEXT DEFAULT '',
-			agent_action VARCHAR(32) DEFAULT '',
-			sla_deadline TIMESTAMPTZ NOT NULL,
-			acted_at TIMESTAMPTZ,
-			auto_released BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_review_status ON review_queue(status, sla_deadline)`,
-		`CREATE INDEX IF NOT EXISTS idx_review_session ON review_queue(session_id, created_at DESC)`,
-	}
-	return execAll(ctx, m.db, stmts)
-}
-
 // createThresholdPolicies 创建 threshold_policies 表
 func (m *ConfidenceMigration) createThresholdPolicies(ctx context.Context) error {
 	stmts := []string{
@@ -241,28 +201,6 @@ func (m *ConfidenceMigration) createThresholdPolicies(ctx context.Context) error
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_policies_intent ON threshold_policies(intent_type, is_active, version DESC)`,
-	}
-	return execAll(ctx, m.db, stmts)
-}
-
-// createSLAMonitors 创建 sla_monitors 表
-func (m *ConfidenceMigration) createSLAMonitors(ctx context.Context) error {
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS sla_monitors (
-			id BIGSERIAL PRIMARY KEY,
-			monitor_id VARCHAR(64) NOT NULL UNIQUE,
-			bucket_minute TIMESTAMPTZ NOT NULL,
-			auto_reply_rate DECIMAL(5,4) NOT NULL,
-			handoff_rate DECIMAL(5,4) NOT NULL,
-			review_timeout_rate DECIMAL(5,4) NOT NULL,
-			avg_assignment_seconds DECIMAL(8,2) NOT NULL,
-			post_handoff_accept_rate DECIMAL(5,4) NOT NULL,
-			ece DECIMAL(5,4) NOT NULL,
-			total_messages INT NOT NULL,
-			alerts_triggered TEXT DEFAULT '',
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_sla_bucket ON sla_monitors(bucket_minute DESC)`,
 	}
 	return execAll(ctx, m.db, stmts)
 }
@@ -374,8 +312,6 @@ func (m *ConfidenceMigration) Down(ctx context.Context) error {
 	stmts := []string{
 		`DROP TABLE IF EXISTS ab_test_metrics`,
 		`DROP TABLE IF EXISTS ab_tests`,
-		`DROP TABLE IF EXISTS sla_monitors`,
-		`DROP TABLE IF EXISTS review_queue`,
 		`DROP TABLE IF EXISTS handoff_decisions`,
 		`DROP TABLE IF EXISTS confidence_signals`,
 		// 保留 confidence_calibrations / threshold_policies

@@ -9,10 +9,8 @@ package repository
 //  1. ConfidenceSignalRepository      - 5 维信号快照读写
 //  2. ConfidenceCalibrationRepository - 校准参数历史 + active 切换
 //  3. HandoffDecisionRepository       - 转人工决策记录
-//  4. ReviewQueueRepository           - 审核队列 CRUD + 超时查询
-//  5. ThresholdPolicyRepository       - 动态阈值策略 CRUD
-//  6. SLAMonitorRepository            - SLA 监控指标时序
-//  7. ABTestRepository                - A/B 测试配置 + 指标样本
+//  4. ThresholdPolicyRepository       - 动态阈值策略 CRUD
+//  5. ABTestRepository                - A/B 测试配置 + 指标样本
 //
 // 私域独立部署: 无 merchant_id 字段
 
@@ -209,93 +207,7 @@ func (r *HandoffDecisionRepository) MarkResolved(ctx context.Context, decisionID
 }
 
 // ============================================================================
-// 4. ReviewQueueRepository
-// ============================================================================
-
-// ReviewQueueRepository 审核队列
-type ReviewQueueRepository struct{}
-
-// NewReviewQueueRepository 构造
-func NewReviewQueueRepository() *ReviewQueueRepository {
-	return &ReviewQueueRepository{}
-}
-
-// Create 入队
-func (r *ReviewQueueRepository) Create(ctx context.Context, q *model.ReviewQueue) error {
-	return db.GetDB().WithContext(ctx).Create(q).Error
-}
-
-// Update 更新
-func (r *ReviewQueueRepository) Update(ctx context.Context, q *model.ReviewQueue) error {
-	return db.GetDB().WithContext(ctx).Save(q).Error
-}
-
-// GetByItemID 按 ItemID 查询
-func (r *ReviewQueueRepository) GetByItemID(ctx context.Context, itemID string) (*model.ReviewQueue, error) {
-	var q model.ReviewQueue
-	err := db.GetDB().WithContext(ctx).Where("item_id = ?", itemID).First(&q).Error
-	if err != nil {
-		return nil, err
-	}
-	return &q, nil
-}
-
-// GetBySignalID 按 SignalID 查询
-func (r *ReviewQueueRepository) GetBySignalID(ctx context.Context, signalID string) (*model.ReviewQueue, error) {
-	var q model.ReviewQueue
-	err := db.GetDB().WithContext(ctx).Where("signal_id = ?", signalID).First(&q).Error
-	if err != nil {
-		return nil, err
-	}
-	return &q, nil
-}
-
-// ListPendingBefore 列出已超时但仍在 pending 的项
-func (r *ReviewQueueRepository) ListPendingBefore(ctx context.Context, deadline time.Time) ([]model.ReviewQueue, error) {
-	var list []model.ReviewQueue
-	err := db.GetDB().WithContext(ctx).
-		Where("status = ? AND sla_deadline < ?", "pending", deadline).
-		Order("sla_deadline ASC").
-		Find(&list).Error
-	return list, err
-}
-
-// CountPending 当前 pending 数量
-func (r *ReviewQueueRepository) CountPending(ctx context.Context) (int, error) {
-	var count int64
-	err := db.GetDB().WithContext(ctx).
-		Model(&model.ReviewQueue{}).
-		Where("status = ?", "pending").
-		Count(&count).Error
-	return int(count), err
-}
-
-// ListByStatus 按 status 分页查询
-func (r *ReviewQueueRepository) ListByStatus(ctx context.Context, status string, page, pageSize int) ([]model.ReviewQueue, int64, error) {
-	var list []model.ReviewQueue
-	var total int64
-	q := db.GetDB().WithContext(ctx).Model(&model.ReviewQueue{})
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	err := q.Order("created_at DESC").
-		Offset((page - 1) * pageSize).
-		Limit(pageSize).
-		Find(&list).Error
-	return list, total, err
-}
-
-// ============================================================================
-// 5. ThresholdPolicyRepository
+// 4. ThresholdPolicyRepository
 // ============================================================================
 
 // ThresholdPolicyRepository 动态阈值策略
@@ -340,54 +252,6 @@ func (r *ThresholdPolicyRepository) Deactivate(ctx context.Context, intentType s
 		Model(&model.ThresholdPolicy{}).
 		Where("intent_type = ? AND is_active = true", intentType).
 		Update("is_active", false).Error
-}
-
-// ============================================================================
-// 6. SLAMonitorRepository
-// ============================================================================
-
-// SLAMonitorRepository SLA 监控指标时序
-type SLAMonitorRepository struct{}
-
-// NewSLAMonitorRepository 构造
-func NewSLAMonitorRepository() *SLAMonitorRepository {
-	return &SLAMonitorRepository{}
-}
-
-// Create 创建监控记录
-func (r *SLAMonitorRepository) Create(ctx context.Context, m *model.SLAMonitor) error {
-	return db.GetDB().WithContext(ctx).Create(m).Error
-}
-
-// GetByBucket 按 bucket 查询
-func (r *SLAMonitorRepository) GetByBucket(ctx context.Context, bucket time.Time) (*model.SLAMonitor, error) {
-	var m model.SLAMonitor
-	err := db.GetDB().WithContext(ctx).Where("bucket_minute = ?", bucket).First(&m).Error
-	if err != nil {
-		return nil, err
-	}
-	return &m, nil
-}
-
-// ListByTimeRange 按时间范围查询
-func (r *SLAMonitorRepository) ListByTimeRange(ctx context.Context, start, end time.Time) ([]model.SLAMonitor, error) {
-	var list []model.SLAMonitor
-	err := db.GetDB().WithContext(ctx).
-		Where("bucket_minute >= ? AND bucket_minute < ?", start, end).
-		Order("bucket_minute ASC").
-		Find(&list).Error
-	return list, err
-}
-
-// ListLatest 取最近 N 条
-func (r *SLAMonitorRepository) ListLatest(ctx context.Context, limit int) ([]model.SLAMonitor, error) {
-	var list []model.SLAMonitor
-	q := db.GetDB().WithContext(ctx).Order("bucket_minute DESC")
-	if limit > 0 {
-		q = q.Limit(limit)
-	}
-	err := q.Find(&list).Error
-	return list, err
 }
 
 // ============================================================================

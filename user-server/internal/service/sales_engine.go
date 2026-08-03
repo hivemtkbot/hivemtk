@@ -1717,7 +1717,7 @@ func (e *SalesEngine) shouldTransferByConfidence(ctx context.Context, intent *dt
 	case dto.BandLLMFallback:
 		decisionLabel = "llm_fallback"
 	case dto.BandReview:
-		decisionLabel = "review_queue"
+		decisionLabel = "low_confidence_hold"
 	default:
 		decisionLabel = "auto_reply"
 	}
