@@ -133,6 +133,22 @@ func (s *GlossaryService) LoadByLang(ctx context.Context, lang string) (*Glossar
 //
 //	## 不可翻译的保护模式（保持原样）：
 //	- SKU-[A-Z0-9]{6,}
+// Calibrate 对 LLM 输出做术语后置校准（满足 aiagent 层 OutputCalibrator 接口）。
+//
+// 加载目标语言术语表视图，调用 PostValidator 做术语校准与敏感模式保护。
+// 返回校准后文本；加载或校准失败时返回原文（不影响主流程可用性）。
+func (s *GlossaryService) Calibrate(ctx context.Context, text string, targetLang string) (string, error) {
+	if text == "" {
+		return text, nil
+	}
+	view, err := s.LoadByLang(ctx, targetLang)
+	if err != nil {
+		return text, err
+	}
+	out, _ := NewPostValidator().Validate(text, targetLang, view)
+	return out, nil
+}
+
 func (s *GlossaryService) Render(ctx context.Context, lang string) string {
 	lang = i18npkg.NormalizeLang(lang)
 	view, err := s.LoadByLang(ctx, lang)
