@@ -392,6 +392,29 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     expect(a.matchMode()).toBeNull();
   });
 
+  // 真实回归：jingxuan 浮层私信（用户实际场景）
+  // 现象：用户在 /jingxuan 点击私信，抖音以浮层打开 IM，URL 不切 /message
+  // 真实 IM DOM：编辑器同元素含 messageEditorinputArea + editor-kit-container，会话列表含 conversation-item 行
+  // 期望：match()=true, matchMode=strict（此前因 URL 守卫 + 缺 role=textbox 判为 false）
+  it('抖音 jingxuan 浮层私信（真实 IM DOM）→ match=true, matchMode=strict', () => {
+    mockLocationPath('https://www.douyin.com/jingxuan');
+    const editor = document.createElement('div');
+    editor.className = 'zone-container editor-kit-container messageEditorinputArea';
+    editor.setAttribute('contenteditable', 'true');
+    editor.getBoundingClientRect = () => ({ x: 0, y: 400, width: 300, height: 50, top: 400, left: 0, right: 300, bottom: 450 });
+    Object.defineProperty(editor, 'offsetParent', { configurable: true, get: () => ({}) });
+    document.body.appendChild(editor);
+    const listWrap = document.createElement('div');
+    listWrap.className = 'conversationConversationListwrapper';
+    const item = document.createElement('div');
+    item.setAttribute('data-e2e', 'conversation-item');
+    listWrap.appendChild(item);
+    document.body.appendChild(listWrap);
+    const a = buildDouyinAdapter();
+    expect(a.match()).toBe(true);
+    expect(a.matchMode()).toBe('strict');
+  });
+
   it('抖音 /im/chat/ + 严格选择器命中 → match=true, matchMode=strict', () => {
     mockLocationPath('https://www.douyin.com/im/chat/abc/');
     addInput({ tag: 'div', attrs: { contenteditable: 'true', role: 'textbox' } });

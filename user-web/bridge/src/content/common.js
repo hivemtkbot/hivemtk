@@ -124,6 +124,23 @@ function scanDomSnapshot() {
     href: a.getAttribute('href') || '',
   }));
 
+  // 5) 消息气泡候选：覆盖多版 DOM 变体，用于定位「为何没捕获到聊天消息」
+  const msgItemCandidates = [
+    'div[data-e2e="msg-item-content"]',
+    '[data-e2e*="msg-item"]',
+    '[class*="msg-item-content"]',
+    '[class*="msg-content"]',
+    '[class*="bubble"]',
+    '[class*="Bubble"]',
+    '[class*="messageText"]',
+    '[class*="MessageText"]',
+    '[class*="chatMsgItem"]',
+  ];
+  const msgItems = uniqueQueryAll(document, msgItemCandidates).filter((el) => isVisible(el));
+  const msgItemSample = msgItems.slice(0, 5).map((el) => elementSummary(el));
+  // 命中哪个候选选择器（用于推荐精确 SEL）
+  const hitMsgSelector = msgItemCandidates.find((s) => document.querySelector(s)) || null;
+
   return {
     url: location.href,
     hostname: location.hostname,
@@ -137,6 +154,9 @@ function scanDomSnapshot() {
     accountHints,
     // 推荐操作：让用户能根据真实 DOM 修正 SEL
     recommendedSelector: pickRecommendedSelector(visibleInputs),
+    msgItemCount: msgItems.length,
+    msgItemSample,
+    recommendedMsgSelector: hitMsgSelector || '（未匹配到消息气泡，请把本快照 msgItemSample 发到 issue 校准 SEL.MSG_ITEM）',
   };
 }
 

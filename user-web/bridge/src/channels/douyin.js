@@ -7,31 +7,35 @@
 // （见 popup 自检 / bridge.md §校准清单）。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, humanType, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
-import { isSelfMessage } from '../core/fallback.js';
+import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
 
-// —— 真实选择器（来自 DY-auto，均可经 popup 校准） ——
+// —— 真实选择器（来自深度自检 DOM 快照 + DY-auto 参考）——
+// 抖音网页 IM 已改版：输入框无 role=textbox、私信常以浮层覆盖在 /jingxuan 等页打开、
+// 消息气泡存在多版 DOM 变体。故不依赖 URL 路径与 role=textbox，改用「结构特征」匹配 +
+// 弹性气泡选择器 + 对齐检测自他判定。
 export const SEL = {
-  CHAT_LIST: '#island_b69f5',
-  // 消息气泡：抖音 IM 容器（首版默认，待校准）
-  MSG_LIST: '[class*="chat-message-list"], [class*="ChatMessageList"], [class*="web-msg-list"]',
-  MSG_ITEM: '[class*="chat-message-item"], [class*="ChatMessageItem"], [class*="message-item"]',
-  SELF_ITEM: '.right', // 自己消息（待真机校准）
-  OTHER_ITEM: '.left', // 对方消息（待真机校准）
-  TEXT: '.text-message, .chat-message-text, [class*="text"]',
-  // 输入框（DY-auto editorBox 同款）
-  EDITOR: 'div[contenteditable="true"][role="textbox"]',
+  CHAT_LIST: 'div.conversationConversationListwrapper, #island_b69f5',
+  // 消息线程容器（弹性候选，命中其一即可作为 MutationObserver 根）
+  MSG_LIST: '[class*="messageList"], [class*="MessageList"], [class*="chatMsg"], [class*="msgList"], [data-e2e*="msg-list"]',
+  // 消息气泡：优先 data-e2e="msg-item-content"，覆盖多版 DOM 变体
+  MSG_ITEM: 'div[data-e2e="msg-item-content"], [data-e2e*="msg-item"], [class*="msg-item-content"], [class*="msg-content"], [class*="bubble"], [class*="Bubble"], [class*="messageText"], [class*="MessageText"], [class*="chatMsgItem"]',
+  // 自/他气泡 class 关键词（仅兜底，主判定走对齐检测）
+  SELF_ITEM: '[class*="self"], [class*="right"], [class*="outgoing"]',
+  OTHER_ITEM: '[class*="other"], [class*="left"], [class*="incoming"]',
+  TEXT: '[data-e2e="msg-item-content"], [class*="msg-content"], [class*="text"], [class*="Text"]',
+  // 严格输入框：真实抖音为「同一元素同时含 messageEditorinputArea + editor-kit-container」
+  // （评论框仅父级含 editor-kit-container，故用组合类区分，避免 jingxuan 误判）
+  EDITOR: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]',
 };
 
-// 抖音输入框（strict）：仅匹配 SEL.EDITOR = div[contenteditable="true"][role="textbox"]
-// 用途：matchMode() 用它区分 strict / fallback，不能用 editorBox()（后者已有容错会假阳）
+// 抖音输入框（strict）：真实输入框无 role=textbox，故改为匹配 messageEditorinputArea
 function strictEditorBox() {
   return qs(SEL.EDITOR);
 }
 
-// 抖音输入框：优先 role=textbox 的 contenteditable（DY-auto editorBox 原样）
+// 抖音输入框：优先真实 editor，再通用扫描容错
 function editorBox() {
   let box = strictEditorBox();
   if (!box) {
@@ -41,15 +45,14 @@ function editorBox() {
   return box;
 }
 
-// 抖音输入框（容错版）：先 strict editorBox，再 findAnyMessageInput 通用扫描
-// 用途：sendText 在 strict 选择器失效时仍能找到输入框，避免「桥接已启动但发送失败」
+// 抖音输入框（容错版）：先 strict editor，再 findAnyMessageInput 通用扫描
 function findInputEl() {
   return editorBox() || findAnyMessageInput();
 }
 
-// 抖音发送按钮：DY-auto getRealSendButton 原样（红色 #FE2C55 填充的 SVG）
+// 抖音发送按钮：真实为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn
 function getRealSendButton() {
-  let btn = qs('span.PygT7Ced.JnY63Rbk.e2e-send-msg-btn');
+  let btn = qs('[class*="e2e-send-msg-btn"]');
   if (btn) return btn;
   const redPaths = qsa('path').filter((p) => (p.getAttribute('fill') || '').toUpperCase() === '#FE2C55');
   for (const path of redPaths) {
@@ -59,6 +62,29 @@ function getRealSendButton() {
   return qs('[class*="send"], [aria-label*="发送"]') || null;
 }
 
+// 最近的可滚动祖先（用于定位消息线程容器 / 对齐判定容器）
+function closestScrollable(el) {
+  let cur = el;
+  while (cur && cur !== document.body) {
+    const style = getComputedStyle(cur);
+    const scrollable = style.overflowY === 'auto' || style.overflowY === 'scroll' || cur.scrollHeight > cur.clientHeight + 50;
+    if (scrollable) return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+// 自/他判定：以气泡相对「消息线程容器」的水平对齐为主信号（右=自己，左=客户）。
+// 抖音气泡自他 class 命名多变，对齐检测不受其影响；class 关键词仅作兜底。
+function classifyByAlignment(bubble) {
+  const bRect = bubble.getBoundingClientRect();
+  const bCenter = bRect.left + bRect.width / 2;
+  const container = closestScrollable(bubble) || bubble.parentElement;
+  const cRect = container ? container.getBoundingClientRect() : { left: 0, width: window.innerWidth };
+  const cCenter = cRect.left + cRect.width / 2;
+  return bCenter > cCenter ? SENDER.SELF : SENDER.CUSTOMER;
+}
+
 // 当前登录的抖音账号 id（左导航个人主页链接）
 function getAccountId() {
   const self = qs('aside a[href*="/user/"], header a[href*="/user/"]') || qs('a[href*="/user/"]');
@@ -66,25 +92,42 @@ function getAccountId() {
   return m ? m[1] : '';
 }
 
-// 当前会话 id：活动会话（抖音 IM 常用 data-uid / 用户链接）
+// 当前会话 id：活动会话（深度自检显示活动项含 curConversation class）
 function getConversationId() {
   if (/[?&]conversation_id=/.test(location.href)) {
     return new URLSearchParams(location.search).get('conversation_id');
   }
-  const active = qsa(`${SEL.CHAT_LIST} li, ${SEL.CHAT_LIST} [role="listitem"]`).find(
-    (el) => el.classList.contains('active') || el.getAttribute('aria-selected') === 'true'
-  );
+  const active = qsa(
+    `${SEL.CHAT_LIST} [class*="curConversation"], ${SEL.CHAT_LIST} [aria-selected="true"], ${SEL.CHAT_LIST} [class*="active"]`
+  ).find((el) => el.offsetParent !== null);
   const link = active?.querySelector('a[href*="/user/"]') || qs('[class*="chat-header"] a[href*="/user/"]');
   const m = link?.getAttribute('href')?.match(/\/user\/(\d+)/);
   return m ? m[1] : null;
 }
 
+// 抖音 IM 结构特征（来自深度自检 DOM 快照）：
+//   - 输入框 messageEditorinputArea（contenteditable，无 role=textbox）
+//   - 会话列表 conversationConversationListwrapper / data-e2e="conversation-item"
+//   - 发送 e2e-send-msg-btn
+// 私信常作浮层覆盖在 /jingxuan 等页，URL 不切 /message，故以结构命中为主。
+function isDouyinMessagePage() {
+  // 真实私信输入框：同一元素同时含 messageEditorinputArea + editor-kit-container
+  const hasEditor = !!document.querySelector(
+    'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea'
+  );
+  // 真实会话列表：含 conversation-item 行（jingxuan 侧栏推荐列表只有 wrapper、无 item）
+  const hasConvList = !!document.querySelector('div[data-e2e="conversation-item"], #island_b69f5 li');
+  const hasSend = !!document.querySelector('[class*="e2e-send-msg-btn"]');
+  if (hasEditor && hasConvList) return true;
+  if (hasEditor && hasSend) return true;
+  return false;
+}
+
 const hooks = {
   match() {
     if (!location.hostname.includes('douyin.com')) return false;
-    // 严格匹配：DY-auto editorBox 同款选择器
-    if (strictEditorBox()) return true;
-    // 容错匹配：通用 DOM 扫描 + 页面像私信页（避免在首页/feed 误启动）
+    if (isDouyinMessagePage()) return true; // 结构命中（含浮层 / 无 role=textbox）
+    if (strictEditorBox()) return true; // DY-auto 严格同款兜底
     if (findAnyMessageInput() && looksLikeMessagePage()) {
       log.warn('match() 走 fallback 模式：抖音 IM 严格选择器已失效，使用通用 DOM 扫描');
       return true;
@@ -93,23 +136,30 @@ const hooks = {
   },
   matchMode() {
     if (!location.hostname.includes('douyin.com')) return null;
-    return strictEditorBox() ? 'strict' : 'fallback';
+    if (isDouyinMessagePage() || strictEditorBox()) return 'strict';
+    return 'fallback';
   },
   selectors: SEL,
   getMessageListRoot() {
-    return qs(SEL.MSG_LIST) || qs(SEL.CHAT_LIST)?.closest('[class*="im"], [class*="message"]');
+    const root = qs(SEL.MSG_LIST) || closestScrollable(qsa(SEL.MSG_ITEM)[0]);
+    if (root) return root;
+    // 兜底：IM 主面板（输入框/会话列表的最近公共祖先）
+    const anchor = editorBox() || qs(SEL.CHAT_LIST);
+    return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') : null;
   },
   getMessageItems() {
     return qsa(SEL.MSG_ITEM);
   },
   parseMessageItem(item) {
-    // 9 自他消息判定兜底：先按 .right/.left class，再用头像位置兜底
-    const isSelf = isSelfMessage(item, '.right') || isSelfMessage(item, SEL.SELF_ITEM);
-    const isOther = !isSelf && (item.classList.contains('left') || !!item.querySelector(SEL.OTHER_ITEM));
-    const sender_type = isSelf ? SENDER.SELF : SENDER.CUSTOMER;
-    const textEl = item.querySelector(SEL.TEXT);
+    // item 已是消息气泡（文本元素）。取文本（自身或其内部 text 元素）
+    const textEl = item.querySelector(SEL.TEXT) || item;
     const text = cleanText(textEl);
     if (!text && !item.querySelector('img')) return null;
+    // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底
+    let sender_type = classifyByAlignment(item);
+    if (sender_type === SENDER.CUSTOMER && item.closest && (item.closest(SEL.SELF_ITEM) || (item.matches && item.matches(SEL.SELF_ITEM)))) {
+      sender_type = SENDER.SELF;
+    }
     const mid =
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
@@ -125,9 +175,7 @@ const hooks = {
       log.error('未找到抖音输入框（strict + fallback 均失败）');
       throw new Error('douyin editor not found');
     }
-    // 首版用 fillContentEditable（粘贴+innerText 双写），拟人模式可切 humanType
     fillContentEditable(editor, text);
-    // 等待输入生效
     await new Promise((r) => setTimeout(r, 150));
     const btn = getRealSendButton();
     if (!btn) {
