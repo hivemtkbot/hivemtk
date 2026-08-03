@@ -38,7 +38,6 @@
 | sop_condition.go | SOP 条件评估 |
 | sop_scheduler.go | SOP 调度器 |
 | humanize_polisher.go | 拟人润色 |
-| content_auditor.go | 内容审核 |
 | feedback_learner.go | 反馈学习器（AI 自我进化） |
 | objection_handler_service.go | 异议处理 |
 | smart_cs_orchestrator.go | 智能客服编排（人机协同） |

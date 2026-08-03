@@ -83,8 +83,8 @@ type AgentToolResult struct {
 // ============================================================================
 // 商业产品级 智能体：销售引擎（Sales Engine）
 // ----------------------------------------------------------------------------
-// 这是 AI 私域销冠的"中央调度枢纽"，把消息→意图→记忆→SOP→RAG→LLM→润色→审核→反馈学习
-// 的完整链路串起来。一条入站消息进入后，经过 9 个步骤生成最终回复并完成自我进化：
+// 这是 AI 私域销冠的"中央调度枢纽"，把消息→意图→记忆→SOP→RAG→LLM→润色→反馈学习
+// 的完整链路串起来。一条入站消息进入后，经过 8 个步骤生成最终回复并完成自我进化：
 //   1. 消息解析 + OneID 识别
 //   2. 短期/长期记忆召回
 //   3. 意图识别（规则 + LLM）
@@ -95,8 +95,7 @@ type AgentToolResult struct {
 //   5.6 销冠话术库推荐
 //   6. LLM 生成候选回复（多模型路由）
 //   7. 拟人润色
-//   8. 发送前审核
-//   9. 反馈学习（记录决策快照，AI 自我进化闭环）
+//   8. 反馈学习（记录决策快照，AI 自我进化闭环）
 // ============================================================================
 
 // SalesEngine 销售引擎
@@ -384,8 +383,8 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 	}
 	defer func() {
 		resp.LatencyMs = int(time.Since(start).Milliseconds())
-		// 第 9 步：反馈学习（AI 自我进化闭环）
-		// 不论本次是否转人工、是否 audit 拦截，都记录决策快照，
+		// 第 8 步：反馈学习（AI 自我进化闭环）
+		// 不论本次是否转人工，都记录决策快照，
 		// 后续客户下一条消息/人工接管时由 SmartCSOrchestrator 更新 CustomerAccept
 		e.recordFeedback(ctx, req, resp)
 		// 私域: 无 Prometheus 端点, 指标已落库 (layer_decision_logs)
@@ -637,7 +636,7 @@ func (e *SalesEngine) Handle(ctx context.Context, req *SalesRequest) (*SalesResp
 				// 设计意图（humanize_init.go 背景说明）：私域/本地 LLM 部署下 LLM 推理成功即应
 				// 自动回复，由真实人工按需接管；若直接转人工且无在线客服，访客将收不到任何回复，
 				// 这与“客服对话必须有返回”的预期相悖。因此此处仅记录评分、保留最优回复并继续
-				// 走发送前审核与下发流程，绝不吞掉已生成的有效回复。
+				// 走下发流程，绝不吞掉已生成的有效回复。
 				resp.HumanizeScore = evalResult.TotalScore
 				resp.HumanizePassed = false
 				resp.HumanizeAttempt = evalResult.AttemptCount
