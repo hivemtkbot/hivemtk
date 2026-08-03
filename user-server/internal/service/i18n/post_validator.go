@@ -42,7 +42,16 @@ type ValidationIssue struct {
 
 // protectPatterns 内置正则保护模式。
 //
-// 这些模式覆盖出海场景下"绝不能被 LLM 翻译"的常见片段。
+// 这些模式覆盖出海场景下"绝不能被 LLM 翻译"的常见片段（商品编码/金额/URL/邮箱）。
+// 命中后整段保留原样并记录。这里的"保护"语义是**保留**（防止 LLM 把业务令牌翻译/篡改），
+// 而非脱敏——因为邮箱/价格/URL 是客服回复中应当原样送达客户的业务内容
+// （既有单测 TestValidate_EmailProtected 即断言 email 不应被修改）。
+//
+// 关于"敏感信息泄露"风险的说明（P0 复核结论）：
+// 若 LLM 在回复中泄露**内部成本价/员工私人联系方式**等真正敏感信息，正确缓解点在
+// system prompt（明确禁止输出内部信息）+ 术语表（定义可披露内容），而非在此对业务令牌做
+//  blanket 脱敏——后者会破坏正常客服回复。如确需对特定内部模式脱敏，应作为**商户可配置的
+// 独立开关**实现，默认关闭，避免影响通用场景。
 // 排序原则：更具体的模式在前，避免被宽泛模式吞掉。
 var protectPatterns = []string{
 	`SKU-[A-Z0-9]{6,}`,
@@ -152,10 +161,8 @@ func (v *PostValidator) applyGlossary(text string, mappings map[string]string, i
 
 // applyPatterns 应用保护模式：命中片段保持原样。
 //
-// 当前实现中"保护"的含义：仅记录命中（pattern_protected），
-// 文本本身不做替换（因为输入已经是 LLM 输出，命中的片段就是它本应保持的形式）。
-// 此接口留出扩展点：未来若需要把"被翻译的片段"还原为"原始 token"，
-// 可在此处调用方预先传入 token 占位映射。
+// "保护"的含义：记录命中（pattern_protected），文本本身不做替换
+// （因为输入已经是 LLM 输出，命中的业务片段就是它本应保持的形式）。
 func (v *PostValidator) applyPatterns(text string, patterns []*regexp.Regexp, issues []ValidationIssue) (string, []ValidationIssue) {
 	reported := make(map[string]struct{})
 	for _, re := range patterns {
