@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"marketing/internal/aiagent/llm"
 	"marketing/internal/pkg/utils/db"
 
 	"github.com/gin-gonic/gin"
@@ -15,8 +16,31 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
+// inferenceStatus 返回推理栈（LLM 供应商）健康状态。
+// 通过全局 ProviderFailover 的健康快照判断；未配置 failover 或无可用的供应商时返回 not_configured，
+// 避免在没有推理能力的部署上误报不健康。
+//
+// P1 修复：此前健康检查完全不探测推理栈，LLM 挂掉时容器仍 healthy，
+// 网关继续投流量导致全部 AI 回复失败。
+func inferenceStatus() string {
+	f := getGlobalProviderFailover()
+	if f == nil {
+		return "not_configured"
+	}
+	all := f.GetAllHealth()
+	if len(all) == 0 {
+		return "not_configured"
+	}
+	for _, h := range all {
+		if h.Status == llm.ProviderStatusUp {
+			return "up"
+		}
+	}
+	return "down"
+}
+
 // HealthCheck 全维度健康检查
-// 返回应用、数据库、Redis 三层健康状态
+// 返回应用、数据库、Redis、推理栈 四层健康状态
 func HealthCheck(redisClient Pinger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
@@ -57,6 +81,15 @@ func HealthCheck(redisClient Pinger) gin.HandlerFunc {
 			}
 		}
 		checks["redis"] = gin.H{"status": redisStatus, "error": redisErr}
+
+		// 3. 推理栈健康检查（LLM 供应商）
+		infStatus := inferenceStatus()
+		infErr := ""
+		if infStatus == "down" {
+			overallOK = false
+			infErr = "no healthy LLM provider"
+		}
+		checks["inference"] = gin.H{"status": infStatus, "error": infErr}
 
 		if !overallOK {
 			result["status"] = "degraded"
@@ -105,6 +138,14 @@ func ReadinessCheck(redisClient Pinger) gin.HandlerFunc {
 				})
 				return
 			}
+		}
+		// 推理栈就绪性：无可用 LLM 供应商时视为未就绪，避免网关投流量后全部回复失败
+		if infStatus := inferenceStatus(); infStatus == "down" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "not_ready",
+				"reason": "inference: no healthy LLM provider",
+			})
+			return
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"status":    "ready",

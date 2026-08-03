@@ -61,36 +61,38 @@ func (c *WhitelistPermissionChecker) Check(ctx context.Context, toolName string,
 	if c == nil {
 		return nil // nil 检查器放行（与 PermissionDecorator(nil) 行为一致）
 	}
-
-	// 1. 超级权限：ToolContext.Permissions 含 "*"
+	agentID := ""
 	if tc != nil {
-		for _, p := range tc.Permissions {
-			if p == "*" {
-				return nil
-			}
-		}
+		agentID = tc.AgentID
 	}
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	// 2. 全局白名单
+	// 1. 全局白名单
 	if c.globalWhitelist[toolName] {
 		return nil
 	}
 
-	// 3. Agent 维度白名单
-	agentID := ""
-	if tc != nil {
-		agentID = tc.AgentID
-	}
+	// 2. Agent 维度白名单（若已配置，则其白名单为权威依据）
 	if agentID != "" {
 		if allowed, ok := c.agentWhitelist[agentID]; ok {
 			if allowed[toolName] {
 				return nil
 			}
-			// Agent 已配置但工具不在白名单 → 拒绝
+			// Agent 已配置但工具不在白名单 → 拒绝。
+			// 即便调用方携带 '*' 超级权限也不放行，防止 '*' 绕过已配置的 Agent 白名单（P1 修复）。
 			return fmt.Errorf("%w: agent=%s tool=%s not in agent whitelist", ErrPermissionDenied, agentID, toolName)
+		}
+	}
+
+	// 3. 超级权限 '*'：仅对【未配置 Agent 白名单】的调用放行
+	//    （多为内部可信调用，agentID 为空），避免覆盖式权限逃逸。
+	if tc != nil {
+		for _, p := range tc.Permissions {
+			if p == "*" {
+				return nil
+			}
 		}
 	}
 

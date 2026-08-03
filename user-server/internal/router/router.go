@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
-	contentservice "marketing/internal/content/service"
 	"marketing/internal/bridge"
+	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
@@ -21,19 +23,60 @@ import (
 
 // HealthRedis 供健康检查/就绪检查探测的 Redis 客户端；未配置（REDIS_HOST 为空）时为 nil，
 // 此时健康检查 redis 状态显示 not_configured（与单实例默认行为一致）。
-// corsMiddleware 允许浏览器扩展（Chrome 扩展 popup / content script）跨域调用 API。
-// 私域部署下 API 由 JWT 保护，开启 CORS 不引入额外风险。
+// allowedCORSOrigins 允许的 Web 源白名单（逗号分隔），来自环境变量 CORS_ALLOW_ORIGINS。
+// 未配置时仅放行 Chrome 扩展源（见 corsMiddleware），拒绝任意 Web 源携带凭据，
+// 修复"反射任意 Origin + 凭据"导致的 CSRF/凭据窃取漏洞（P1）。
+var allowedCORSOrigins = parseCORSOrigins(os.Getenv("CORS_ALLOW_ORIGINS"))
+
+func parseCORSOrigins(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// corsMiddleware 处理跨域请求（CORS）。
+//
+// 安全策略（P1 修复）：
+//   - 浏览器扩展从 chrome-extension://<id> 源发起请求，按源反射放行（扩展为预期调用方）。
+//   - 配置在 CORS_ALLOW_ORIGINS 中的 Web 源放行。
+//   - 其余任意 Origin 一律不返回 ACAO（浏览器将阻止带凭据的跨域调用），杜绝任意网页
+//     借用户浏览器凭据调用敏感 API。
+//
+// 此前实现直接回显请求 Origin 且附带 Access-Control-Allow-Credentials: true，等同于
+// 对任意网站开放凭据型跨域访问。
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		if origin == "" {
-			origin = "*"
+		allow := false
+		if origin != "" {
+			switch {
+			case strings.HasPrefix(origin, "chrome-extension://"):
+				// 浏览器扩展 popup/content script 需跨域调用 API，按源反射放行
+				allow = true
+			default:
+				for _, a := range allowedCORSOrigins {
+					if a == origin {
+						allow = true
+						break
+					}
+				}
+			}
 		}
-		c.Header("Access-Control-Allow-Origin", origin)
-		c.Header("Access-Control-Allow-Credentials", "true")
+		if allow {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Vary", "Origin")
+		}
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
-		c.Header("Vary", "Origin")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return

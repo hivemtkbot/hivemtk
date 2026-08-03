@@ -559,6 +559,11 @@ func (s *WebhookService) Verify(ctx context.Context, channel WebhookChannel, acc
 	default:
 		secret, _ := s.getAccountSecret(ctx, string(channel), accountID)
 		if secret == "" {
+			// 未配置 secret：开发/测试环境放行；生产环境必须配置，否则拒绝伪造 webhook
+			// （此前 default 分支无条件放行，攻击者可在 secret 未配置时伪造任意入站消息，P1 缺陷）
+			if os.Getenv("GIN_MODE") == "release" {
+				return false, errors.New("webhook secret 未配置，生产环境拒绝放行(channel=" + string(channel) + ")")
+			}
 			return true, nil
 		}
 		return verifyHMAC(secret, body, headers, "X-Signature", "Signature", "X-Hub-Signature-256"), nil
@@ -1992,6 +1997,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 // 重复投递会被不同实例各自放过 → 双处理。故改走全局缓存 SetNX：
 //   - REDIS_HOST 配置时为 Redis 共享后端（跨实例去重）
 //   - 否则为内存单例（单实例安全）
+//
 // TTL 内重复 key 已存在即命中返回 true；SetNX 异常时放行并告警（可用性优先）。
 func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	if eventID == "" {
