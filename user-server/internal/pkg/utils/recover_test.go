@@ -3,18 +3,19 @@ package utils
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestSafeGo_Normal(t *testing.T) {
-	executed := false
+	var executed atomic.Bool
 	SafeGo(context.Background(), "test.normal", func(ctx context.Context) {
-		executed = true
+		executed.Store(true)
 	})
 	// 等待 goroutine 启动
 	time.Sleep(50 * time.Millisecond)
-	if !executed {
+	if !executed.Load() {
 		t.Fatal("SafeGo 未执行目标函数")
 	}
 }
@@ -41,25 +42,25 @@ func TestSafeGo_NilFunc(t *testing.T) {
 
 func TestSafeGo_NilCtx(t *testing.T) {
 	// nil ctx 应回退到 Background
-	executed := false
+	var executed atomic.Bool
 	SafeGo(nil, "test.nilctx", func(ctx context.Context) {
 		if ctx == nil {
 			t.Fatal("nil ctx 应被替换为 Background")
 		}
-		executed = true
+		executed.Store(true)
 	})
 	time.Sleep(50 * time.Millisecond)
-	if !executed {
+	if !executed.Load() {
 		t.Fatal("SafeGo(nil ctx) 未执行目标函数")
 	}
 }
 
 func TestSafeGoWithRecover_CustomHandler(t *testing.T) {
-	called := false
+	var called atomic.Bool
 	SafeGoWithRecover(context.Background(), "test.custom", func(ctx context.Context) {
 		panic(errors.New("custom panic"))
 	}, func(name string, r interface{}, stack []byte) {
-		called = true
+		called.Store(true)
 		if name != "test.custom" {
 			t.Errorf("onPanic 收到的 name = %q, 期望 test.custom", name)
 		}
@@ -71,7 +72,7 @@ func TestSafeGoWithRecover_CustomHandler(t *testing.T) {
 		}
 	})
 	time.Sleep(50 * time.Millisecond)
-	if !called {
+	if !called.Load() {
 		t.Fatal("onPanic 回调未被调用")
 	}
 }

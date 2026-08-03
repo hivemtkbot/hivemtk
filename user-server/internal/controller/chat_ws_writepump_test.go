@@ -197,8 +197,11 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 	// 让 writePump 短暂 idle
 	time.Sleep(50 * time.Millisecond)
 
-	// 注入大量 payload, 试图让对端 TCP buffer 满
-	// TCP buffer 通常 64KB, 每次写 8KB, 写满后 WriteMessage 会阻塞等待 ACK
+	// 持续注入大量 payload, 让对端 TCP 接收缓冲最终填满, 迫使某次 WriteMessage 阻塞
+	// 直至 chatWSWriteWait(10s) 触发 SetWriteDeadline 退出。
+	// 注意: 必须持续(阻塞)喂数据, 不能写满 channel 就退出——否则 writePump 会很快把
+	// 有限 payload 消费完并回到 select 空等, 永远触发不了写超时 (macOS 内核收缓冲可 auto-tune 到数 MB,
+	// 仅往 64 槽缓冲塞几十个 8KB 块远不足以填满, WriteMessage 不会阻塞)。
 	var writeCount int32
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -209,14 +212,8 @@ func TestWritePump_RespectsWriteDeadline(t *testing.T) {
 			select {
 			case <-stop:
 				return
-			default:
-			}
-			select {
-			case c.SendChan() <- make([]byte, 8*1024):
+			case c.SendChan() <- make([]byte, 32*1024):
 				atomic.AddInt32(&writeCount, 1)
-			default:
-				// 通道满, 退出
-				return
 			}
 		}
 	}()

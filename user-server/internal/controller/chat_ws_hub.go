@@ -123,6 +123,7 @@ type ChatWSHub struct {
 	broadcast   chan []byte
 	mu          sync.RWMutex
 	done        chan struct{}
+	startedCh   chan struct{} // 关闭表示 Run 已执行 wg.Add(1), Stop 须等其关闭再 Wait
 	closeOnce   sync.Once
 	startedOnce sync.Once
 	// wg : 用于 Stop 阻塞等待 Run goroutine 退出
@@ -141,6 +142,7 @@ func NewChatWSHub() *ChatWSHub {
 		unregister: make(chan *Client, 16),
 		broadcast:  make(chan []byte, chatWSBroadcastBuffer),
 		done:       make(chan struct{}),
+		startedCh:  make(chan struct{}),
 	}
 }
 
@@ -156,6 +158,9 @@ func NewChatWSHub() *ChatWSHub {
 func (h *ChatWSHub) Run() {
 	h.startedOnce.Do(func() {
 		h.wg.Add(1)
+		// 标记 Run 已开始( wg.Add 已完成 ), 让 Stop 的 wg.Wait 建立 happens-before,
+		// 避免 WaitGroup 的 Add 与 Wait 并发触发 data race。
+		close(h.startedCh)
 		defer h.wg.Done()
 		for {
 			select {
@@ -185,9 +190,14 @@ func (h *ChatWSHub) Stop() {
 	h.closeOnce.Do(func() {
 		close(h.done)
 	})
+	// 等待 Run 真正开始 (wg.Add(1) 已执行) 后再 Wait, 否则 Add 与 Wait 可能并发 (data race)。
+	// 若 Run 从未启动 (startedOnce 未触发), startedCh 不会关闭, 此时直接返回即可 (wg 计数为 0)。
+	select {
+	case <-h.startedCh:
+	case <-h.done:
+		return
+	}
 	// 等待 Run goroutine 真正退出
-	// 注意: 若 Run 从未启动 (startedOnce 未触发), wg.Add(1) 不会执行,
-	// 此时 wg.Wait() 立即返回, 行为安全。
 	h.wg.Wait()
 }
 

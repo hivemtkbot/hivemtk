@@ -180,7 +180,7 @@ func TestCachedEmbedding_RedisMiss_CallInnerAndBackfill(t *testing.T) {
 
 	// 验证 Redis 已被回填
 	key := c.cacheKey(cfg.Model, text)
-	if _, ok := redisClient.store[key]; !ok {
+	if !redisClient.Contains(key) {
 		t.Errorf("Redis should be backfilled after miss, key=%s not found", key)
 	}
 }

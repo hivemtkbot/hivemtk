@@ -17,12 +17,14 @@ package ragretrieval
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
 
 // mockRedisClient mock RedisClient
 type mockRedisClient struct {
+	mu      sync.RWMutex
 	store   map[string]string
 	getErr  error
 	setErr  error
@@ -37,6 +39,8 @@ func (m *mockRedisClient) Get(_ context.Context, key string) (string, error) {
 	if m.getErr != nil {
 		return "", m.getErr
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if v, ok := m.store[key]; ok {
 		return v, nil
 	}
@@ -52,9 +56,19 @@ func (m *mockRedisClient) Set(_ context.Context, key, value string, ttl time.Dur
 		// 允许直接构造 mock 时 store 为 nil（仅 Get 失败场景），跳过写入
 		return nil
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.store[key] = value
 	m.lastTTL = ttl
 	return nil
+}
+
+// Contains 线程安全地判断 key 是否存在（供测试在并发回填后读取）
+func (m *mockRedisClient) Contains(key string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, ok := m.store[key]
+	return ok
 }
 
 // errRedisNil 模拟 redis.Nil 错误（避免引入 redis 包）

@@ -112,19 +112,9 @@ inference:
     # 2026-07-24 性能优化：3→1。本地 LLM 失败多为进程崩溃/OOM，重试无意义只会空等 backoff。
     # 失败时由 dispatcher 层候选 provider failover 兜底。
     max_retries: 1
-    # 云端可选 fallback（本地优先）：仅当 enabled=true 且配置 api_key 时启用，否则禁用
-    # 2026-08-01：接入云端 DeepSeek（来自 .env DS_API_*），用于网页客服渠道性能/质量测试，
-    # 替代本地 8207（当前未运行）。失败策略见 DB system_kv_config(llm_provider_failover)，相关场景已切到 deepseek。
-    # 废弃说明（2026）：DS_API_* 环境变量已废弃。业务 provider 定义现已持久化到数据库表 llm_providers，
-    # 由后台「LLM路由」页面 / 脚本经 POST /api/llm/models 写入（见 config-docker.yaml inference.llm 注释）。
-    # 此处 DS_API_* 仅作兼容占位读取（避免破坏现有 .env）；新部署应改用 DB llm_providers，无需再配 DS_API_*。
-    cloud_providers:
-      - name: deepseek
-        api_key: "${DS_API_KEY}"
-        base_url: "${DS_API_HOST}"
-        api_type: openai
-        model: "${DS_API_MODEL}"
-        enabled: true
+    # 云端 fallback（deepseek 等）已迁移到数据库表 llm_providers（后台「LLM路由」页面配置），
+    # 由 LoadProvidersFromDB() 在运行时加载，DB 为真相；dev 档 config 不再声明 cloud_providers，
+    # 以符合私域安全基线（禁止 dev 档静默走公网 fallback）。
 
 storage:
   type: qiniu
