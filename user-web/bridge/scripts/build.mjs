@@ -1,6 +1,6 @@
 // 用 esbuild 把每个入口独立打包为自包含 IIFE（MV3 content/background 多入口场景最稳）。
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync, rmSync, cpSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -50,5 +50,12 @@ let html = readFileSync(resolve(root, 'src/popup/index.html'), 'utf8');
 html = html.replace('./index.js', './popup.js');
 writeFileSync(resolve(dist, 'popup.html'), html);
 copyFileSync(resolve(root, 'manifest.json'), resolve(dist, 'manifest.json'));
+
+// 图标：manifest 引用 assets/icons 下的 PNG，复制到 dist/icons（原地覆盖，避免破坏已 Load 的扩展）
+try {
+  cpSync(resolve(root, 'assets/icons'), resolve(dist, 'icons'), { recursive: true });
+} catch (e) {
+  console.warn('复制图标失败（可忽略）', e && e.message);
+}
 
 console.log('build done ->', dist);

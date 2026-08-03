@@ -24,6 +24,19 @@ const routes = new Map();
 // key -> 最近上报的元信息（供状态查询）
 const metaStore = new Map();
 
+// K2 后台统计：wsInbound/wsHistory = 收到 content 上行帧次数；outbound = 下发给 content 次数。
+// service worker 重启会清零，调试会话内有效，用于核对「数据有没有进/出 WS」。
+const bgStats = { wsInbound: 0, wsHistory: 0, outbound: 0, droppedNoRoute: 0 };
+setInterval(() => {
+  log.info('后台统计', {
+    wsInbound: bgStats.wsInbound,
+    wsHistory: bgStats.wsHistory,
+    outbound: bgStats.outbound,
+    droppedNoRoute: bgStats.droppedNoRoute,
+    routes: routes.size,
+  });
+}, 15000);
+
 // ---- chrome API 兜底 ----
 function lastError() {
   try {
@@ -81,6 +94,7 @@ function routeOutbound(reply) {
   for (const p of targets) {
     try {
       p.postMessage({ type: FRAME.OUTBOUND, reply });
+      bgStats.outbound++;
     } catch (e) {
       log.error('下发失败', e);
     }
@@ -123,16 +137,18 @@ chrome.runtime.onConnect.addListener((port) => {
       if (msg.message && msg.message.conversation_id) {
         port.meta.conversationId = msg.message.conversation_id;
       }
+      bgStats.wsInbound++;
       const conn = registry.get(port.meta.channel, port.meta.accountId);
       if (conn) conn.sendInbound(msg.message);
-      else log.warn('收到 inbound 但无连接', port.meta);
+      else { bgStats.droppedNoRoute++; log.warn('收到 inbound 但无连接', port.meta); }
     } else if (msg.type === FRAME.HISTORY) {
       if (msg.message && msg.message.conversation_id) {
         port.meta.conversationId = msg.message.conversation_id;
       }
+      bgStats.wsHistory++;
       const conn = registry.get(port.meta.channel, port.meta.accountId);
       if (conn) conn.sendHistory(msg.message);
-      else log.warn('收到 history 但无连接', port.meta);
+      else { bgStats.droppedNoRoute++; log.warn('收到 history 但无连接', port.meta); }
     } else if (msg.type === 'meta') {
       if (port.meta) {
         port.meta.conversationId = msg.conversationId;

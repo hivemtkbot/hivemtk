@@ -315,6 +315,10 @@ export function startBridge(channel, buildAdapter) {
     return false;
   });
 
+  // K2 桥接统计（跨重连累计，便于排查「通通没数据」类问题）：
+  // inbound=实时上行、history=历史上行、outbound=下行回写、dropped=端口断开丢弃、register=注册帧次数。
+  const stats = { inbound: 0, history: 0, outbound: 0, dropped: 0, register: 0 };
+
   // 抖音/小红书/TikTok 多为 SPA：content script 注入时私信面板（常作浮层/overlay）
   // 未必已打开，match() 此刻为 false；用户后续点开私信，面板才渲染。
   // 早期版本在 match() 为 false 时直接 return，导致「打开私信页但桥接从未启动」。
@@ -324,7 +328,30 @@ export function startBridge(channel, buildAdapter) {
   let pollTimer = null;
 
   const activateBridge = () => {
-    const port = chrome.runtime.connect({ name: 'bridge' });
+    // port 用 let：断开后置 null，避免 `port && port.postMessage` 仍访问已断开对象
+    // 触发 "Attempting to use a disconnected port object"（port 对象非 null 但已失效）。
+    let port = chrome.runtime.connect({ name: 'bridge' });
+    let disconnected = false; // background service worker 终止 / 端口断开
+    let closed = false;       // 主动清理（页面卸载），断开不再触发重连
+
+    // 安全发送：port 断开后不再抛未捕获异常；失败计入 dropped 便于定位。
+    const safePost = (frame) => {
+      if (disconnected || !port) {
+        stats.dropped++;
+        return false;
+      }
+      try {
+        port.postMessage(frame);
+        return true;
+      } catch (e) {
+        // 极少情况下 postMessage 同步抛错（端口在判断后瞬间断开）
+        disconnected = true;
+        port = null;
+        stats.dropped++;
+        log.warn('port 发送失败（已断开）', frame.type, e && e.message);
+        return false;
+      }
+    };
 
     // 下行：服务端 AI 回复经 background 路由到此处
     port.onMessage.addListener(async (msg) => {
@@ -340,16 +367,49 @@ export function startBridge(channel, buildAdapter) {
         }
         try {
           await adapter.sendOutbound(safeContent);
+          stats.outbound++;
+          log.info('[下行 outbound] #' + stats.outbound, { conv: r.conversation_id, len: (r.content || '').length });
         } catch (e) {
           log.error('回写回复失败', e);
         }
       }
     });
 
+    // K1 修复：background service worker（MV3）空闲被回收 → 端口 onDisconnect。
+    // 必须回收 port 引用并把桥接状态复位，再由 sync() 重新 connect 唤醒 SW，
+    // 否则 content 侧会一直持有失效 port 且桥接“假死”（不再上行消息但也不报错外的静默）。
+    port.onDisconnect.addListener(() => {
+      disconnected = true;
+      port = null;
+      if (closed) return;
+      log.warn('桥接端口断开（background service worker 可能已回收），触发重连…');
+      if (deactivateBridge) { deactivateBridge(); deactivateBridge = null; }
+      active = false;
+      sync(); // 下一 tick 重新激活（match 为真时新建端口唤醒 SW）
+    });
+
     // 上行：实时客户私信 → AI 路径；存量/自己消息 → 仅落库历史
     adapter.start({
-      onInbound: (message) => port && port.postMessage({ type: FRAME.INBOUND, message }),
-      onHistory: (message) => port && port.postMessage({ type: FRAME.HISTORY, message }),
+      onInbound: (message) => {
+        stats.inbound++;
+        const len = (message && message.content ? message.content.length : 0);
+        log.info('[上行 inbound] #' + stats.inbound, {
+          conv: message && message.conversation_id,
+          sender: message && message.sender_type,
+          len,
+        });
+        safePost({ type: FRAME.INBOUND, message });
+      },
+      onHistory: (message) => {
+        stats.history++;
+        const len = (message && message.content ? message.content.length : 0);
+        log.info('[上行 history] #' + stats.history, {
+          conv: message && message.conversation_id,
+          sender: message && message.sender_type,
+          len,
+        });
+        safePost({ type: FRAME.HISTORY, message });
+      },
       onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
     });
 
@@ -361,12 +421,8 @@ export function startBridge(channel, buildAdapter) {
         return;
       }
       lastMeta = { accountId: meta.accountId || '', conversationId: meta.conversationId || '' };
-      try {
-        port.postMessage({ type: FRAME.REGISTER, channel, accountId: meta.accountId, conversationId: meta.conversationId });
-      } catch (e) {
-        // port 可能已断开
-        log.warn('report 失败', e);
-      }
+      safePost({ type: FRAME.REGISTER, channel, accountId: meta.accountId, conversationId: meta.conversationId });
+      stats.register++;
     };
     report(true);
 
@@ -376,9 +432,11 @@ export function startBridge(channel, buildAdapter) {
 
     // 页面卸载 / SPA 路由切换时清理
     const cleanup = () => {
+      closed = true;
       if (reportTimer) clearInterval(reportTimer);
       adapter.stop();
-      try { port.disconnect(); } catch (_) { /* noop */ }
+      try { if (port) port.disconnect(); } catch (_) { /* noop */ }
+      port = null;
     };
     window.addEventListener('beforeunload', cleanup, { once: true });
     window.addEventListener('pagehide', cleanup, { once: true });
@@ -406,7 +464,24 @@ export function startBridge(channel, buildAdapter) {
     log.info('当前页面不匹配', channel, '，启动轮询等待私信面板打开…');
   }
   pollTimer = setInterval(sync, 1500);
-  const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
+
+  // K2 统计汇总日志：每 15s 打印一次累计条数，便于现场排查数据是否上行/下行/丢弃。
+  let statsTimer = setInterval(() => {
+    log.info('桥接统计', {
+      channel,
+      active,
+      inbound: stats.inbound,
+      history: stats.history,
+      outbound: stats.outbound,
+      dropped: stats.dropped,
+      register: stats.register,
+    });
+  }, 15000);
+
+  const stopPoll = () => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
+  };
   window.addEventListener('beforeunload', stopPoll, { once: true });
   window.addEventListener('pagehide', stopPoll, { once: true });
 }
