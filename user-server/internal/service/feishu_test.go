@@ -91,7 +91,7 @@ func TestFeishuIntegrationService_SendMessage(t *testing.T) {
 	httpclient.Client = &http.Client{Transport: feishuMockTransport{}}
 	defer func() { httpclient.Client = orig }()
 
-	if err := svc.SendMessage(context.Background(), acc.ID, "ou_abc123", "你好，飞书"); err != nil {
+	if err := svc.SendMessage(context.Background(), acc.ID, "ou_abc123", "你好，飞书", "open_id"); err != nil {
 		t.Fatalf("SendMessage 失败: %v", err)
 	}
 
@@ -124,7 +124,7 @@ func TestFeishuIntegrationService_SendMessage_APIError(t *testing.T) {
 	httpclient.Client = &http.Client{Transport: feishuMockTransport{code: 9999}}
 	defer func() { httpclient.Client = orig }()
 
-	err := svc.SendMessage(context.Background(), acc.ID, "ou_abc123", "你好")
+	err := svc.SendMessage(context.Background(), acc.ID, "ou_abc123", "你好", "open_id")
 	if err == nil {
 		t.Fatal("期望 SendMessage 返回错误，实际为 nil")
 	}

@@ -198,7 +198,10 @@ func (s *FeishuIntegrationService) IngestMessage(ctx context.Context, req *Feish
 
 // SendMessage 通过飞书 Open API 发送文本消息
 // 参考：https://open.feishu.cn/document/server-docs/im-v1/message/create
-func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content string) error {
+// SendMessage 主动发消息。receiveIDType 指定 receive_id 类型：
+//   - "open_id"（默认）：发给个人（p2p）
+//   - "open_chat_id"：发到群聊（群消息回复必须走群 chat_id，否则会被当成私信发给用户）
+func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID uint, openID, content, receiveIDType string) error {
 	if s.feishuMsgRepo == nil {
 		return errors.New("db nil")
 	}
@@ -211,6 +214,14 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	if err != nil {
 		return fmt.Errorf("get access token: %w", err)
 	}
+	idType := receiveIDType
+	if idType == "" {
+		idType = "open_id"
+	}
+	chatType := "p2p"
+	if idType == "open_chat_id" {
+		chatType = "group"
+	}
 	// 构造消息体
 	body := map[string]any{
 		"receive_id": openID,
@@ -219,7 +230,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 	}
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequestWithContext(ctx, "POST",
-		"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id",
+		"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type="+idType,
 		bytes.NewReader(b))
 	req.Header.Set("Authorization", "Bearer "+tk)
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
@@ -242,7 +253,7 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 		AccountID: accountID,
 		MsgID:     fmt.Sprintf("feishu-out-%d", time.Now().UnixNano()),
 		ChatID:    openID,
-		ChatType:  "p2p",
+		ChatType:  chatType,
 		SenderID:  openID,
 		MsgType:   "text",
 		Content:   content,

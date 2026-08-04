@@ -808,7 +808,11 @@ func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
 		}
 	}
 
-	// 1) 基础入库（统一消息）
+	// 1) 按渠道业务分发（先分发，回填 payload.Content/payload.Sender 等标准化字段，
+	//    供后续统一消息入库与 AI 编排复用，避免嵌套/密文结构导致 content/sender 为空）。
+	hubMsg, tgExtra, _ := s.dispatchToChannel(ctx, channel, job.account, payload, job.raw, job.header)
+
+	// 2) 基础入库（统一消息）：依赖上一步回填的 payload.Content / payload.Sender
 	um := s.ToUnifiedMessage(ctx, channel, job.account, payload)
 	if um.AccountID == "" {
 		um.AccountID = job.event.EventID
@@ -817,9 +821,6 @@ func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
 		s.retryWithBackoff(ctx, job, payload, err)
 		return
 	}
-
-	// 2) 按渠道业务分发
-	hubMsg, tgExtra, _ := s.dispatchToChannel(ctx, channel, job.account, payload, job.raw, job.header)
 
 	// 3) 触发 智能体（如已注入 + 启用了 智能体开关）
 	// TG 群聊的触达策略（避免无脑刷屏）：
@@ -943,6 +944,13 @@ func (s *WebhookService) dispatchWeCom(ctx context.Context, accountID string, p 
 		ChatID:    chatID,
 		ChatType:  chatType,
 	})
+	// 回填标准化字段，供下游 AI 编排（triggerSalesEngine）与出站（sendOutbound）复用：
+	// ParsePayload 无法解析企微嵌套/密文结构，否则 content/sender 为空导致 AI 拿到空输入、出站目标为空。
+	if err == nil {
+		p.Content = content
+		p.Sender = fromUser
+		p.ChatID = chatID
+	}
 	return hubMsg, err
 }
 
@@ -1047,6 +1055,11 @@ func (s *WebhookService) dispatchWhatsApp(ctx context.Context, accountID string,
 			}
 			// 写收件箱会话
 			s.upsertInboxFromHub(ctx, hub, name)
+			// 回填标准化字段，供下游 AI 编排与出站复用：
+			// ParsePayload 无法解析 WhatsApp 嵌套结构，否则 content/sender 为空导致 AI 空输入、出站目标（手机号）为空。
+			p.Content = content
+			p.Sender = msg.From
+			p.ChatID = msg.From
 			return hub, nil
 		}
 	}
@@ -1072,6 +1085,12 @@ func (s *WebhookService) dispatchTelegram(ctx context.Context, accountID string,
 		}
 		if text != "" {
 			p.Content = text
+		}
+		if tgPayload.Message.From != nil {
+			p.Sender = strconv.FormatInt(tgPayload.Message.From.ID, 10)
+		}
+		if tgPayload.Message.Chat != nil {
+			p.ChatID = strconv.FormatInt(tgPayload.Message.Chat.ID, 10)
 		}
 	}
 	// 群内「@机器人 才回复」所需的 @username（注册 webhook 时经 getMe 自动回填；为空则降级为仅回复被@机器人消息）
@@ -1517,6 +1536,12 @@ func (s *WebhookService) dispatchFeishu(ctx context.Context, accountID string, p
 		}
 	}
 	s.upsertInboxFromHub(ctx, hub, "")
+	// 回填标准化字段，供下游 AI 编排与出站复用：
+	// ParsePayload 只能取到飞书 content 的原始 JSON 串、且取不到嵌套的 sender open_id，
+	// 否则 AI 拿到 `{"text":"..."}` 这样的 JSON 串、出站目标 open_id 为空导致回复失败。
+	p.Content = content
+	p.Sender = senderID
+	p.ChatID = m.ChatID
 	return hub, nil
 }
 
@@ -1926,8 +1951,15 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		if err != nil || accID == 0 {
 			return
 		}
-		// Feishu 用 open_id 作为发送目标（p.Sender 已是 open_id）
-		if err := s.feishuIntegration.SendMessage(ctx, uint(accID), p.Sender, content); err != nil {
+		// Feishu：个人消息用 open_id 作为发送目标；群消息必须用群 chat_id（open_chat_id），
+		// 否则会被当成私信发给用户而非在群里回复。
+		target := p.Sender
+		idType := "open_id"
+		if hubMsg != nil && hubMsg.IsGroup && hubMsg.GroupID != "" {
+			target = hubMsg.GroupID
+			idType = "open_chat_id"
+		}
+		if err := s.feishuIntegration.SendMessage(ctx, uint(accID), target, content, idType); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", "feishu").Str("account_id", accountID).Msg("outbound failed")
 		} else {
 			sent = true
