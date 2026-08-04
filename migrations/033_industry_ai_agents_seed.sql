@@ -13,11 +13,11 @@
 --   - 032_industry_assets_local_seed.sql（行业资产包本地副本）
 -- ============================================================
 
--- 0) 幂等清理（按 agent_code 前缀 hivemtk-agent- 清理）
+-- 0) 幂等清理（按 agent_code 前缀 hivemtk-agent- 清理，含平台客服历史 code）
 DELETE FROM channel_agent_bindings WHERE agent_id IN (
-    SELECT id FROM ai_agents WHERE agent_code LIKE 'hivemtk-agent-%'
+    SELECT id FROM ai_agents WHERE agent_code LIKE 'hivemtk%' OR agent_code = 'seed-hivemtk-product-service' OR agent_code = 'seed-hivemtk-product-service'
 );
-DELETE FROM ai_agents WHERE agent_code LIKE 'hivemtk-agent-%';
+DELETE FROM ai_agents WHERE agent_code LIKE 'hivemtk%' OR agent_code = 'seed-hivemtk-product-service' OR agent_code = 'seed-hivemtk-product-service';
 
 -- ============================================================
 -- 1) 平台自用客服智能体（默认启用）
@@ -38,29 +38,29 @@ INSERT INTO ai_agents (
     confidence_threshold, max_ai_consecutive,
     status, version, created_at, updated_at
 ) VALUES (
-    'hivemtk-agent-platform-cs',
-    'HiveMTK 平台客服',
-    'HiveMTK 官网网页客服智能体，基于平台知识库自动回答商户关于开源信息、部署、运维、架构、资产市场、AI 智能体等咨询。',
+    'seed-hivemtk-product-service',
+    'hivemtk 产品服务智能体',
+    'HiveMTK 开源 AI 营销自动化套件官方客服，基于平台知识库（hivemtk-platform-cs）自动回答商户关于项目功能、技术架构、部署、渠道接入、资产市场、AI 智能体等咨询。',
     '',
     'customer_service',
     'passive',
-    '你是 HiveMTK 官方客服助手，负责解答商户关于本项目的咨询。你熟悉项目的开源协议、部署方式、架构设计、功能模块、资产市场等知识。回答准确简洁，引导至 GitHub/Gitee 仓库获取更多帮助。',
-    '你是 HiveMTK 官方客服助手。回答要求：1) 准确，不编造；2) 简洁，单次回复不超过 200 字；3) 涉及部署/命令时给出具体步骤；4) 不涉及定价、版本下载、注册开户等已下线内容；5) 引导至 GitHub/Gitee 仓库或微信群获取更多帮助。回答依据下方检索到的知识片段。',
-    '您好，我是 HiveMTK 官方客服助手，可为您解答关于项目开源信息、部署、运维、架构、资产市场、AI 智能体等问题。请问有什么可以帮您？',
+    '你是 hivemtk 开源 AI 营销自动化套件的官方客服，熟悉产品架构、五层 Go 规范、AI 智能体编排、RAG 知识库、web+TG 私域接入等模块。耐心、简洁、技术可信。',
+    E'你是 hivemtk 产品服务智能体。回答原则：\n1. 优先从 RAG 知识库（hivemtk 产品）召回内容；\n2. 涉及产品功能/部署/架构/接入方式直接给步骤；\n3. 涉及价格/承诺/非开源合规事项转人工（hivemtk 是开源项目，无商业定价）；\n4. 默认中文，可在用户切换语言时切英文。',
+    '您好，我是 hivemtk 产品服务助手。可以问我：项目功能、技术架构、部署方式、接入步骤、源码位置等。',
     ARRAY['hivemtk-platform-cs']::text[],
     ARRAY[]::text[],
     ARRAY[]::text[],
     ARRAY[]::text[],
     ARRAY[]::text[],
-    'Qwen2.5-1.5B-Instruct',
+    'gpt-4o-mini',
     'openai',
     '',
     '',
     '',
     3,
     60,
-    0.3,
-    1024,
+    0.5,
+    2048,
     0.9,
     0.5,
     0.5,
@@ -70,8 +70,8 @@ INSERT INTO ai_agents (
     TRUE,
     FALSE,
     5,
-    0.55,
-    5,
+    0.7,
+    10,
     1,
     1,
     NOW(),
@@ -487,7 +487,7 @@ SELECT
     NOW(),
     NOW()
 FROM ai_agents
-WHERE agent_code = 'hivemtk-agent-platform-cs'
+WHERE agent_code = 'seed-hivemtk-product-service'
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
@@ -496,7 +496,7 @@ ON CONFLICT DO NOTHING;
 SELECT agent_code, name, agent_type, agent_mode, status,
        array_to_string(rag_product_ids, ',') AS rag_products
   FROM ai_agents
- WHERE agent_code LIKE 'hivemtk-agent-%'
+ WHERE agent_code LIKE 'hivemtk%' OR agent_code = 'seed-hivemtk-product-service'
  ORDER BY agent_code;
 
 SELECT cab.channel_type, cab.account_id, aa.agent_code, cab.is_primary, cab.enabled
