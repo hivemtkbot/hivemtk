@@ -24,6 +24,7 @@ import {
 import { SEL as DOUYIN_SEL } from '../channels/douyin.js';
 import { SEL as XHS_SEL } from '../channels/xhs.js';
 import { SEL as XIANYU_SEL } from '../channels/xianyu.js';
+import { SEL as TIKTOK_SEL } from '../channels/tiktok.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -590,7 +591,7 @@ const CHANNEL_SEL_MAP = {
   douyin_web: DOUYIN_SEL,
   xhs_web: XHS_SEL,
   xianyu_web: XIANYU_SEL,
-  tiktok_web: {}, // TikTok 暂无独立适配器，留空
+  tiktok: TIKTOK_SEL,
 };
 
 // 取某渠道某字段的当前生效默认选择器（来自 SEL；抖音 input 字段兼容 EDITOR/INPUT 双命名）
@@ -822,10 +823,12 @@ function wirePatrol() {
 
 // ---- DOM ready ----
 document.addEventListener('DOMContentLoaded', () => {
+  // 立即设 placeholder 防止页面空白
+  $('serverUrl').placeholder = DEFAULT_PLACEHOLDER;
+  $('token').placeholder = '留空也可正常使用（桥接 WS 不要求 JWT）';
   loadConfig((cfg) => {
     $('serverUrl').value = cfg.serverUrl || '';
     $('token').value = cfg.token || '';
-    if (!cfg.serverUrl) $('serverUrl').placeholder = DEFAULT_PLACEHOLDER;
   });
 
   // 保存按钮
