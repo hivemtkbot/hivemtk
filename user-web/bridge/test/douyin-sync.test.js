@@ -19,17 +19,19 @@ const OLD_DOM = `
   <div class="msg-item" data-e2e="msg-item-content"><img src="x.png"></div>
 </div>`;
 
-// 改版抖音 DOM：气泡没有 data-e2e，class 名完全变化（复现选择器失效）
+// 改版抖音 DOM：模拟平台小幅改版后的 /chat 路由样式
+// 气泡使用新的 messageMessageItem 类名（/chat 路由真实驼峰命名），无 data-e2e
+// 验证 SelectorEngine 在新选择器下的定位能力
 const NEW_DOM = `
 <section class="chat-thread-wrapper">
-  <div class="bubble-row"><div class="bubble-body"><p>你好，在吗</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><p>图片看一下</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><p>这件多少钱</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><p>可以优惠吗</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><p>什么时候发货</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><p>已拍下</p></div></div>
-  <div class="bubble-row"><div class="bubble-body"><img src="y.png"></div></div>
-  <div class="bubble-row"><div class="bubble-body"><span>撤回了一条消息</span></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>你好，在吗</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>图片看一下</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>这件多少钱</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>可以优惠吗</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>什么时候发货</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><p>已拍下</p></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><img src="y.png"></div></div>
+  <div class="messageMessageItem bubble-row"><div class="bubble-body"><span>撤回了一条消息</span></div></div>
 </section>`;
 
 beforeEach(() => {
@@ -43,7 +45,7 @@ describe('SelectorEngine 多候选 + 启发式定位', () => {
     expect(items.length).toBe(6);
   });
 
-  it('改版 DOM：启发式仍能抓全 8 条（不依赖 data-e2e）', () => {
+  it('改版 DOM：messageMessageItem 类名仍能抓全 8 条（不依赖 data-e2e，/chat 路由新样式）', () => {
     document.body.innerHTML = NEW_DOM;
     const { items } = locateMessages({ root: document, itemSelectors: ITEM_SELS, listSelectors: LIST_SELS });
     expect(items.length).toBe(8);

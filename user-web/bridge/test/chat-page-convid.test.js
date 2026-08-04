@@ -207,7 +207,7 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
     stubLocation('/chat');
     // 真实 /chat 结构（来自用户深检快照）：
     //   会话列表 wrapper + 活动项(curConversation, data-e2e=conversation-item, 无链接无data)
-    //   消息线程：气泡带 data-e2e="msg-item-content"
+    //   消息线程：气泡带 data-e2e="msg-item-content" + bubble-body 结构标识（避免 isSystemMessage ⑤误杀）
     document.body.innerHTML = `
       <div class="conversationConversationListwrapper">
         <div class="conversationConversationItemwrapper conversationConversationItemcurConversation" data-e2e="conversation-item">
@@ -215,8 +215,8 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
         </div>
       </div>
       <div class="messageMsgList" data-e2e="chat-msg-list">
-        <div class="messageMessageItem" data-e2e="msg-item-content"><div class="messageMessageText">你好，在吗</div></div>
-        <div class="messageMessageItem" data-e2e="msg-item-content"><div class="messageMessageText">怎么收费</div></div>
+        <div class="messageMessageItem" data-e2e="msg-item-content"><div class="messageMessageText bubble-body">你好，在吗</div></div>
+        <div class="messageMessageItem" data-e2e="msg-item-content"><div class="messageMessageText bubble-body">怎么收费</div></div>
       </div>
       <div class="zone-container editor-kit-container messageEditorinputArea" contenteditable="true"></div>
       <svg class="messageMsgInputpublishBtn e2e-send-msg-btn"></svg>`;
