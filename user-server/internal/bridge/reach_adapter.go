@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	agentruntime "marketing/internal/aiagent/agent/runtime"
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
@@ -116,16 +115,11 @@ func (a *BridgeReachAdapter) RetryFailedOutbound(ctx context.Context, channel, a
 // deliverWS 经 WebSocket 下发回复到扩展；扩展离线时降级落 message_hub(status=failed)。
 //
 // 步骤：
-// 1. ClaimReply 幂等：若 eventID 已被认领，直接跳过（修复 -4）
-// 2. content 长度截断：防止超大 XSS payload 撑爆 WS 帧（修复 -7）
-//  3. hub.Deliver：在线 → 推送；离线/限速/buffer 满 → 降级落 message_hub
-//  4. 出站事件 ID 透传到 ctx（trace_id 关联）
+// 1. content 长度截断：防止超大 XSS payload 撑爆 WS 帧（修复 -7）
+// 2. hub.Deliver：在线 → 推送；离线/限速/buffer 满 → 降级落 message_hub
+// 3. 出站事件 ID 透传到 ctx（trace_id 关联）
+// 幂等守卫由上层 sendOutbound 统一处理（ClaimReply），deliverWS 不再重复检查。
 func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) (string, error) {
-	// 4 ClaimReply 幂等守卫：eventID 非空时拒绝重复
-	if eventID != "" && !agentruntime.ClaimReply(eventID) {
-		logger.Ctx(ctx).Info().Str("module", "bridge").Str("event_id", eventID).Msg("bridge deliver skipped: event already claimed")
-		return "bridge:duplicate:" + eventID, nil
-	}
 
 	// 7 防止 XSS 巨大 payload：单条回复限制 4KB
 	if len(content) > maxReplyContentBytes {
