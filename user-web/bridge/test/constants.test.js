@@ -110,8 +110,9 @@ describe('UI_DEFAULTS', () => {
 });
 
 describe('PROTOCOL', () => {
-  it('CHANNELS 三个值必须以 _web 结尾（与服务端 channel.go 一致）', () => {
+  it('CHANNELS 值必须以 _web 结尾（TikTok 例外：历史协议为 tiktok，与服务端/数据库一致）', () => {
     for (const v of Object.values(PROTOCOL.CHANNELS)) {
+      if (v === 'tiktok') continue; // TikTok 历史协议例外，数据库 platform=tiktok
       expect(v.endsWith('_web')).toBe(true);
     }
   });

@@ -250,7 +250,11 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
     const msgEl = document.createElement('div');
     msgEl.setAttribute('data-e2e', 'msg-item-content');
     msgEl.className = 'messageMessageItem';
-    msgEl.textContent = '实时新消息';
+    // 消息必须有 bubble 子结构，否则 isSystemMessage⑤ 误判为系统消息
+    const msgBody = document.createElement('div');
+    msgBody.className = 'bubble-body';
+    msgBody.textContent = '实时新消息';
+    msgEl.appendChild(msgBody);
     makeVisible(msgEl);
     document.querySelector('[data-e2e="chat-msg-list"]').appendChild(msgEl);
     adapter._scanIncremental();

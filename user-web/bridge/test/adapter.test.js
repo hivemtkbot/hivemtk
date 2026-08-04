@@ -351,7 +351,9 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
   });
 
   it('TikTok：strict INPUT_FALLBACKS 都失效 + 通用 DOM 命中 → matchMode=fallback', () => {
-    mockLocationPath('https://www.tiktok.com/messages/@someone');
+    // 使用含 /inbox 的 TikTok URL，保证 looksLikeMessagePage() 通过但 isTiktokChatUrl()≠true
+    // isTiktokChatUrl() 仅对 /messages /messages/ 返回 strict；/inbox 走 DOM fallback
+    mockLocationPath('https://www.tiktok.com/inbox');
     // 不放任何严格选择器对应的元素，放一个普通 contenteditable
     addInput({ tag: 'div', attrs: { contenteditable: 'true' }, rect: { width: 300, height: 50, top: 100, left: 0, right: 300, bottom: 150 } });
     addContextHint();
@@ -440,10 +442,13 @@ describe('渠道 adapter fallback 匹配（平台改版 / 严格选择器失效�
     const sendBtn = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     sendBtn.setAttribute('class', 'messageMsgInputpublishBtn e2e-send-msg-btn');
     document.body.appendChild(sendBtn);
-    // 真实消息气泡
+    // 真实消息气泡：业务消息必须有 bubble 子结构标识，否则 isSystemMessage ⑤ 结构特征会误杀
     const bubble = document.createElement('div');
     bubble.setAttribute('data-e2e', 'msg-item-content');
-    bubble.textContent = '你好，在吗？';
+    const bubbleBody = document.createElement('div');
+    bubbleBody.className = 'bubble-body';
+    bubbleBody.textContent = '你好，在吗？';
+    bubble.appendChild(bubbleBody);
     document.body.appendChild(bubble);
 
     const a = buildDouyinAdapter();
