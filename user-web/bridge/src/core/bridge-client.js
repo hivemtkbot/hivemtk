@@ -40,6 +40,7 @@ export class BridgeClient {
   }
 
   connect() {
+    this._closed = false;
     if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === 0)) return;
     let ws;
     try {
@@ -64,7 +65,7 @@ export class BridgeClient {
       this.alive = false;
       this._stopPing();
       this.onClose();
-      this._scheduleReconnect();
+      if (!this._closed) this._scheduleReconnect();
     };
     ws.onerror = (e) => {
       log.error('WS 错误', e);
@@ -150,7 +151,9 @@ export class BridgeClient {
     return this.send({ type: FRAME.HISTORY, message });
   }
 
+  // 主动关闭（非网络故障）：阻止 onclose 二次调度重连，切断 Kick→onclose→重连→新连接→Kick 无限循环
   close() {
+    this._closed = true;
     this._stopPing();
     if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
     if (this.ws) this.ws.close();
