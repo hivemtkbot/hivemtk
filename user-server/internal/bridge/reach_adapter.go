@@ -14,15 +14,14 @@ import (
 
 // BridgeReachAdapter 包装 IntegrationReachAdapter：
 //
-// 网页桥接渠道（douyin_web/xhs_web/tiktok_web）的回复：
+// 网页桥接渠道（douyin_web/xhs_web/tiktok/xianyu_web）的回复：
 //  1. 若对应账号的扩展在线：经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展（回写网页私信）
 //  2. 若扩展离线 / 限速命中 / buffer 满：落 message_hub(direction=outbound, status=failed)，
-//
-// 便于坐席 UI 展示和后续补发（修复 -8：离线降级落库）
+//     便于坐席 UI 展示和后续补发（修复 -8：离线降级落库）
 //  3. 非桥接渠道：直接委托 inner（官方 API），对现有渠道零影响
 //
-// 幂等守卫：通过 agent_runtime.ClaimReply(eventID) 保证同一 AI 回复仅一次出站，
-// 防止 bridge 重连重发时 AI 重复回复（修复 -4：ClaimReply 守卫）
+// 幂等守卫：由上层 WebhookService.sendOutbound 统一通过 ClaimReply 保证。
+// deliverWS 不再重复 ClaimReply（修复双重 ClaimReply 导致 AI 回复永久不下发的 bug）。
 type BridgeReachAdapter struct {
 	inner   *tooluse.IntegrationReachAdapter
 	hub     *BridgeHub
@@ -105,7 +104,7 @@ func (a *BridgeReachAdapter) RetryFailedOutbound(ctx context.Context, channel, a
 	for _, hub := range list {
 		freshEventID := fmt.Sprintf("retry-%d-%s", time.Now().UnixNano(), hub.MsgID)
 		ctx2 := WithEventID(context.Background(), freshEventID)
-		// 复用 deliverWS：内部含 ClaimReply 幂等守卫 + WS 投递；用全新 eventID 避免与原失败记录冲突
+		// deliverWS：WS 投递；用全新 eventID。成功后 MarkOutboundDelivered 防重复补发。
 		if _, derr := a.deliverWS(ctx2, channel, accountID, hub.ConversationID, hub.MsgType, hub.Content, freshEventID); derr == nil {
 			_ = a.ingress.MarkOutboundDelivered(context.Background(), hub)
 		}
