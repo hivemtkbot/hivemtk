@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -758,6 +759,47 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		LogRoutingDecision(ctx, successEntry)
 		return result, nil
 	}
+	// 全局兜底：若路由首选+备选 provider 全部被跳过（禁用/熔断/限流/质量门禁），
+	// 自动回退到「任意已启用且通过质量门禁的 provider（按质量分降序）」，
+	// 保证"仅启用某个云端模型、关闭其它"的场景无需改路由表即可自动路由
+	// （例：llm_routing_rules 为空、路由默认指向已禁用的 primary_provider 时，
+	// 启用的云端模型仍能正常承接对话）。仅在没有任何候选被真正调用过
+	// (attempted==0) 时才触发，避免正常失败重试被误判为"无候选"。
+	if attempted == 0 {
+		if fb := d.pickEnabledFallback(activeRoute); fb != "" {
+			d.mu.RLock()
+			provider, exists := d.providers[fb]
+			d.mu.RUnlock()
+			if exists {
+				logger.Infof("[LLM] scenario=%s 路由候选全部不可用，兜底启用 provider=%s trace_id=%s", req.Scenario, fb, traceID)
+				result, err := d.callProvider(ctx, provider, req, activeRoute)
+				lastErr = err
+				if err == nil {
+					// 成功：记录决策日志 + 触发告警恢复
+					if fo := GetGlobalFailover(); fo != nil {
+						fo.RecordSuccess(fb, int64(result.LatencyMs))
+					}
+					AlertProviderSuccess(string(req.Scenario), fb, traceID)
+					if req.CacheKey != "" && req.CacheTTL > 0 {
+						d.setCache(req.CacheKey, req.CacheTTL, result.Content)
+					}
+					fallbackEntry := NewLogEntry(req.Scenario, provider, result.Model,
+						result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens,
+						result.Cost, result.LatencyMs, true, "", false, true, traceID, result.Content, SourceDispatch)
+					fallbackEntry.InternalLang = req.InternalLang
+					fallbackEntry.TargetLang = req.TargetLang
+					fallbackEntry.CrossLingual = req.CrossLingual
+					fallbackEntry.GlossaryVersion = req.GlossaryVersion
+					fallbackEntry.CacheHit = req.CacheKey != ""
+					LogRoutingDecision(ctx, fallbackEntry)
+					return result, nil
+				}
+				logger.Warnf("[LLM] scenario=%s 兜底 provider=%s 调用失败: %v", req.Scenario, fb, lastErr)
+				AlertProviderFailure(string(req.Scenario), fb, lastErr, traceID)
+			}
+		}
+	}
+
 	if lastErr == nil {
 		// 所有候选均被跳过（熔断/限流/质量门禁/禁用），未发起任何真实请求：
 		// 优雅降级返回模板话术，避免向调用方抛出硬错误（HA 需要）。
@@ -769,6 +811,33 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req DispatchRequest) (*Dispat
 		req.Scenario, traceID, attempted, lastErr)
 	AlertAllProvidersFailed(string(req.Scenario), lastErr, traceID)
 	return nil, lastErr
+}
+
+// pickEnabledFallback 在「路由候选全部不可用」时，返回最优选代 provider 名称：
+// 任意已启用（Enabled）且通过场景质量门禁的 provider，按质量分降序排列取首个。
+// 用于保证"仅启用某个模型、关闭其它"的场景无需改路由表即可自动路由。
+func (d *Dispatcher) pickEnabledFallback(route *ScenarioRoute) string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	type pe struct {
+		name  string
+		score float64
+	}
+	list := make([]pe, 0, len(d.providers))
+	for name, p := range d.providers {
+		if !p.Enabled {
+			continue
+		}
+		if route != nil && route.MinQuality > 0 && p.QualityScore < route.MinQuality {
+			continue
+		}
+		list = append(list, pe{name: name, score: p.QualityScore})
+	}
+	if len(list) == 0 {
+		return ""
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].score > list[j].score })
+	return list[0].name
 }
 
 // degradedReply 返回降级模板回复，避免 provider 全部熔断/限流时向调用方抛出硬错误。
