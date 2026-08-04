@@ -130,7 +130,15 @@ chrome.runtime.onConnect.addListener((port) => {
       port.meta = { channel: msg.channel, accountId: msg.accountId, conversationId: msg.conversationId };
       const k = keyOf(msg.channel, msg.accountId);
       if (!routes.has(k)) routes.set(k, new Set());
-      routes.get(k).add(port);
+      const set = routes.get(k);
+      // B4 修复：先移除同 key 的所有旧端口（避免老端口残留导致 routeOutbound 重复投递）
+      // sync() 断开旧 port 是异步的：disconnect 后 onDisconnect 尚未触发时 if 新 port 已注册
+      // outbound_reply 就会同时投递给 old+new → adapter.sendOutbound() ×2 → 用户收到重复回复
+      for (const oldP of set) {
+        try { oldP.disconnect(); } catch (_) { /* 已是断开状态 */ }
+      }
+      set.clear();
+      set.add(port);
       metaStore.set(k, { ...port.meta, online: true });
       ensureConnection(port.meta);
     } else if (msg.type === FRAME.INBOUND) {
