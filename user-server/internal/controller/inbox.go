@@ -301,6 +301,31 @@ func (c *InboxController) GetMessages(ctx *gin.Context) {
 	response.SuccessWithPage(ctx, list, int64(page), int64(pageSize), total)
 }
 
+// DeleteMessage 删除统一收件箱会话中的单条消息
+// DELETE /api/inbox/:id/messages/:mid?source=hub|session
+func (c *InboxController) DeleteMessage(ctx *gin.Context) {
+	conversationID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的会话ID")
+		return
+	}
+	mid, err := strconv.ParseUint(ctx.Param("mid"), 10, 32)
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "无效的消息ID")
+		return
+	}
+	source := ctx.Query("source")
+	if source != "hub" && source != "session" {
+		response.Error(ctx, http.StatusBadRequest, "无效的消息来源")
+		return
+	}
+	if err := c.svc.DeleteMessage(ctx.Request.Context(), uint(conversationID), uint(mid), source); err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"deleted": mid, "source": source}, "删除成功")
+}
+
 // StaffLoad 客服负载
 func (c *InboxController) StaffLoad(ctx *gin.Context) {
 	staff := ctx.Param("staff")

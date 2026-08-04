@@ -161,5 +161,10 @@ export const unifiedInboxApi = {
   // 会话下的消息流（分页）
   listMessages(id, params) {
     return http.get(`/api/inbox/${id}/messages`, params)
+  },
+
+  // 删除会话下的单条消息（source: hub=消息中台记录, session=实时客服消息流）
+  deleteMessage(id, mid, source) {
+    return http.delete(`/api/inbox/${id}/messages/${encodeURIComponent(mid)}`, { params: { source } })
   }
 }

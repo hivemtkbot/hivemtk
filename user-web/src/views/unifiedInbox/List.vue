@@ -108,7 +108,8 @@
           </el-select>
         </el-form-item>
         <el-form-item label="排序">
-          <el-select v-model="searchForm.order_by" placeholder="默认排序" clearable style="width: 130px">
+          <el-select v-model="searchForm.order_by" placeholder="默认排序（ID倒序）" clearable style="width: 140px">
+            <el-option label="ID倒序(默认)" value="id_desc" />
             <el-option label="置顶优先" value="pinned_first" />
             <el-option label="最近优先" value="latest_desc" />
             <el-option label="最早优先" value="oldest_asc" />
@@ -327,6 +328,7 @@
                 <span class="message-direction">{{ msg.direction === 'outbound' ? '发出' : '接收' }}</span>
                 <span v-if="msg.is_ai_reply" class="ai-tag">AI</span>
                 <span class="message-time">{{ formatTime(msg.sent_at) }}</span>
+                <el-button class="msg-del-btn" size="small" type="danger" link @click="deleteMessage(msg)">删除</el-button>
               </div>
               <div class="message-sender">{{ msg.sender_name || msg.sender_id || '-' }}</div>
               <div class="message-content">{{ msg.content || '(无内容)' }}</div>
@@ -686,6 +688,29 @@ const loadMessages = async () => {
   }
 }
 
+// 删除单条消息（hub_<id> / session_<id>）
+const deleteMessage = async (msg) => {
+  if (!currentConversation.value.id || !msg.id) return
+  try {
+    await ElMessageBox.confirm('确定删除这条消息吗？删除后不可恢复。', '删除消息', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+  } catch (e) {
+    return // 用户取消
+  }
+  try {
+    await unifiedInboxApi.deleteMessage(currentConversation.value.id, msg.id, msg.source)
+    messageList.value = messageList.value.filter((m) => m.id !== msg.id)
+    msgPagination.total = Math.max(0, (msgPagination.total || 0) - 1)
+    ElMessage.success('已删除')
+  } catch (e) {
+    console.error('删除消息失败', e)
+    ElMessage.error('删除失败：' + (e?.message || e))
+  }
+}
+
 // 标签
 const tagDialogVisible = ref(false)
 const newTag = ref('')
@@ -990,6 +1015,8 @@ const handleRowAction = async (row, cmd) => {
         font-size: 12px;
         color: #909399;
         margin-bottom: 4px;
+
+        .msg-del-btn { margin-left: auto; }
 
         .message-direction { font-weight: 600; }
         .ai-tag {

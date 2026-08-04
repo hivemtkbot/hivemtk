@@ -198,5 +198,13 @@ func (r *SessionMessageRepository) MarkDelivered(ctx context.Context, sessionID 
 		Update("delivered_at", &deliveredAt).Error
 }
 
+// Delete 按 id 删除单条会话消息（统一收件箱消息删除）
+func (r *SessionMessageRepository) Delete(ctx context.Context, id uint) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.SessionMessage{}).Error
+}
+
 // ensure errors package is used to avoid import removal during splits
 var _ = errors.New

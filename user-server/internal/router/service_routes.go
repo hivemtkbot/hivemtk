@@ -187,6 +187,7 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	auth.POST("/inbox/:id/tags", inboxCtrl.AddTag)
 	auth.DELETE("/inbox/:id/tags/:tag", inboxCtrl.RemoveTag)
 	auth.GET("/inbox/:id/messages", inboxCtrl.GetMessages)
+	auth.DELETE("/inbox/:id/messages/:mid", inboxCtrl.DeleteMessage)
 
 	// 企业级架构优化 - 方向 3: 渠道接入消息中台 - 人工接管控制
 	inboxIngressCtrl := controller.NewInboxIngressController(service.NewInboxIngressService())

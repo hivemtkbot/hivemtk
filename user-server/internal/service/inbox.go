@@ -27,6 +27,7 @@ var (
 	ErrInboxConversationExist   = errors.New("conversation already exists for this account/customer")
 	ErrInboxConversationMissing = errors.New("conversation not found")
 	ErrInboxInvalidStatus       = errors.New("invalid conversation status")
+	ErrInboxRepoNotReady        = errors.New("inbox repository not ready")
 )
 
 // 统一收件箱会话状态
@@ -547,6 +548,7 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 			ts: h.SentAt,
 			data: map[string]any{
 				"id":              h.ID,
+				"source":          "hub",
 				"msg_id":          h.MsgID,
 				"conversation_id": h.ConversationID,
 				"platform":        h.Platform,
@@ -569,6 +571,7 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 			ts: sm.CreatedAt,
 			data: map[string]any{
 				"id":              sm.ID,
+				"source":          "session",
 				"conversation_id": sm.SessionID,
 				"sender_id":       sm.SenderID,
 				"sender_name":     sm.SenderName,
@@ -603,6 +606,37 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		out = append(out, m.data)
 	}
 	return out, total, nil
+}
+
+// DeleteMessage 删除统一收件箱会话中的单条消息。
+// source 取值："hub" 表示 message_hub 渠道接入记录，"session" 表示 session_messages 实时客服消息流。
+// messageID 为对应数据表的自增 id（前端通过消息的 source 字段确定来源）。
+func (s *InboxService) DeleteMessage(ctx context.Context, conversationID, messageID uint, source string) error {
+	if s.inboxRepo == nil {
+		return ErrInboxRepoNotReady
+	}
+	if _, err := s.GetByID(ctx, conversationID); err != nil {
+		return err
+	}
+	switch source {
+	case "hub":
+		if s.hubRepo == nil {
+			return ErrInboxRepoNotReady
+		}
+		if err := s.hubRepo.Delete(ctx, messageID); err != nil {
+			return err
+		}
+	case "session":
+		if s.sessionMsgRepo == nil || !s.sessionMsgRepo.HasTable(ctx) {
+			return ErrInboxRepoNotReady
+		}
+		if err := s.sessionMsgRepo.Delete(ctx, messageID); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("无效消息来源: %s", source)
+	}
+	return nil
 }
 
 // ---- 内部辅助 ----

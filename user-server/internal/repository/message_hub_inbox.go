@@ -93,6 +93,14 @@ func (r *MessageHubRepository) Update(ctx context.Context, hub *model.MessageHub
 	return r.db.Save(hub).Error
 }
 
+// Delete 按 id 删除单条消息中台记录（统一收件箱消息删除）
+func (r *MessageHubRepository) Delete(ctx context.Context, id uint) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.MessageHub{}).Error
+}
+
 // MarkReadByID 标记消息为已读
 func (r *MessageHubRepository) MarkReadByID(ctx context.Context, id uint) error {
 	now := time.Now()
@@ -617,10 +625,12 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	orderBy := "pinned DESC, last_message_at DESC" // 默认：pinned 优先 + 最新消息倒序
+	orderBy := "id DESC" // 默认：会话 id 倒序（新建会话在前）
 	switch q.OrderBy {
 	case "pinned_first":
 		orderBy = "pinned DESC, last_message_at DESC"
+	case "id_desc":
+		orderBy = "id DESC"
 	case "unread_desc":
 		orderBy = "unread_count DESC, last_message_at DESC"
 	case "oldest_asc":
