@@ -1,27 +1,20 @@
-// TikTok 网页私信适配器 —— 功能对齐抖音/小红书/闲鱼
+// TikTok 网页私信适配器 —— 纯 CSS 选择器架构。
+// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
+// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
 //
-// 设计依据（基于用户提供的真实 DOM 快照）：
-//  1. 域：https://www.tiktok.com
-//  2. 入口页：https://www.tiktok.com/messages（私信页）/ /messages/@username（具体会话）
-//  3. 真实 DOM 结构（data-e2e 属性体系）：
-//     - 左侧会话列表：[data-e2e="dm-new-conversation-list"]
-//     - 会话项：[data-e2e="dm-new-conversation-item"]（含 data-conversation-id）
-//     - 活动会话：aria-selected="true"
-//     - 昵称：[data-e2e="dm-new-conversation-nickname"]
-//     - 最后消息：SpanInfoExtract
-//     - 时间：SpanInfoTime
-//     - 聊天头部：[data-e2e="dm-new-chatbox"] > [data-e2e="dm-new-chat-nickname"] + [data-e2e="chat-uniqueid"]
-//     - 消息列表：[data-e2e="dm-new-message-list"]
-//     - 消息项：[data-e2e="dm-new-chat-item"]
-//     - 消息文本：[data-e2e="dm-new-message-text"]
-//     - 时间分隔：[data-e2e="dm-new-time-separator"]
-//     - 输入框：DraftEditor [data-e2e="dm-new-input-editor"] contenteditable
-//     - 表情按钮：[data-e2e="dm-new-emoji-btn"]
-//  4. 自/他判定：outgoing/incoming class（TikTok V3 IM 明确使用）
-//  5. 发送：Draft.js 靠 Enter 发送（无显式发送按钮），或 SVG 飞机按钮兜底
+// 参考 DOM 结构（2026-08 验证，基于 data-e2e 属性体系）：
+//   - 私信页入口：https://www.tiktok.com/messages
+//   - 会话列表：[data-e2e="dm-new-conversation-list"]
+//   - 会话项：[data-e2e="dm-new-conversation-item"]（data-conversation-id）
+//   - 消息列表：[data-e2e="dm-new-message-list"]
+//   - 消息气泡：[data-e2e="dm-new-chat-item"]
+//   - 消息文本：[data-e2e="dm-new-message-text"]
+//   - 输入框：[data-e2e="dm-new-input-editor"] div[contenteditable]（Draft.js）
+//   - 自/他：outgoing（自己）/ incoming（对方）class
+//   - 发送：Draft.js 靠 Enter 发送，SVG 飞机按钮兜底
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { mergeSelectors, runExtractor, customConversationListSelectors } from '../core/selector-ai.js';
+import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
@@ -30,52 +23,52 @@ import {
 
 const log = createLogger('tiktok', CHANNELS.TIKTOK);
 
-// —— AI 选择器合并 ——
+// 合并选择器：用户配置优先（chrome.storage），SEL 默认兜底。
 function mergedSelectors() {
   const fb = {
     itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     listSelectors: SEL.MSG_LIST.split(',').map((s) => s.trim()).filter(Boolean),
     textSelectors: SEL.TEXT.split(',').map((s) => s.trim()).filter(Boolean),
     inputSelectors: (SEL.INPUT || '').split(',').map((s) => s.trim()).filter(Boolean),
-    sendSelectors: (SEL.SEND || SEL.SEND_BTN || '').split(',').map((s) => s.trim()).filter(Boolean),
+    sendSelectors: (SEL.SEND || '').split(',').map((s) => s.trim()).filter(Boolean),
     selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
-  return mergeSelectors(CHANNELS.TIKTOK, location.host, fb);
+  return mergeSelectors(CHANNELS.TIKTOK, fb);
 }
 
-// —— 真实选择器（基于 TikTok V3 IM data-e2e 属性体系）——
+// —— 选择器定义（2026-08 验证可用，全部基于 data-e2e 属性）——
 export const SEL = {
   // 左侧会话列表容器
-  CHAT_LIST: '[data-e2e="dm-new-conversation-list"], [class*="DivConversationListContainer"], [class*="InboxList"]',
+  CHAT_LIST: '[data-e2e="dm-new-conversation-list"]',
   // 会话项
-  CONV_ITEM: '[data-e2e="dm-new-conversation-item"], [class*="DivItemWrapper"]',
+  CONV_ITEM: '[data-e2e="dm-new-conversation-item"]',
   // 消息列表容器
-  MSG_LIST: '[data-e2e="dm-new-message-list"], [data-e2e="dm-new-chatbox"] [role="log"], [class*="DivChatMain"]',
+  MSG_LIST: '[data-e2e="dm-new-message-list"], [class*="DivChatMain"]',
   // 消息气泡
-  MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper"], [data-e2e="message-item"]',
-  // 自方消息（TikTok V3: outgoing class）
-  SELF_ITEM: '[class*="outgoing"], [class*="Outgoing"], [class*="self"], [class*="Self"]',
-  // 对方消息（TikTok V3: incoming class）
-  OTHER_ITEM: '[class*="incoming"], [class*="Incoming"], [class*="other"], [class*="Other"]',
+  MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper"]',
+  // 自方消息（outgoing class）
+  SELF_ITEM: '[class*="outgoing"], [class*="self"]',
+  // 对方消息（incoming class）
+  OTHER_ITEM: '[class*="incoming"], [class*="other"]',
   // 消息文本
-  TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer"], [class*="message-text"]',
-  // 时间分隔文本
-  TIME: '[data-e2e="dm-new-time-separator"], [class*="DivTimeContainer"]',
+  TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer"]',
+  // 时间分隔
+  TIME: '[data-e2e="dm-new-time-separator"]',
   // 系统消息 class 关键词
-  SYSTEM: '[class*="system-msg" i], [class*="SystemMessage" i], [class*="notice" i], [class*="Notice" i], [class*="divider" i], [class*="Divider" i], [class*="time-separator" i], [class*="TimeSeparator" i]',
+  SYSTEM: '[class*="system-msg"], [class*="notice"], [class*="divider"], [data-e2e="dm-new-time-separator"]',
   // 未读标记
-  UNREAD: '[class*="unread" i], [class*="Unread" i], [class*="red-dot" i], [class*="badge" i][class*="msg" i], [data-unread="1"]',
+  UNREAD: '[class*="unread"], [data-unread="1"]',
   // 消息类型 data 属性
-  MSG_TYPE: '[data-msg-type], [data-message-type], [data-type]',
-  // 卡片（TikTok 商品/链接卡片）
-  CARD: '[class*="card-container" i], [class*="CardContainer" i], [class*="share-card" i], [class*="ShareCard" i]',
-  // 聊天对象昵称（TikTok V3 header）
-  PEER_NAME: '[data-e2e="dm-new-chat-nickname"], [class*="DivNameContainer"] [class*="PNickname"], [data-e2e="chat-uniqueid"]',
-  // 输入框（TikTok: DraftEditor contenteditable）
-  INPUT: '#main-content-messages div[contenteditable="true"][role="textbox"], [data-e2e="dm-new-input-editor"] div[contenteditable="true"], div.DraftEditor-root div[contenteditable="true"]',
-  // 发送按钮（TikTok 多数靠 Enter，但可能有 SVG 飞机按钮）
-  SEND: 'button[aria-label*="发送" i], button[aria-label*="Send" i], [data-e2e="message-button"], [class*="send-btn" i], [class*="SendBtn" i]',
+  MSG_TYPE: '[data-msg-type], [data-message-type]',
+  // 卡片消息
+  CARD: '[class*="card-container"], [class*="share-card"]',
+  // 聊天对象昵称
+  PEER_NAME: '[data-e2e="dm-new-chat-nickname"], [data-e2e="chat-uniqueid"]',
+  // 输入框（DraftEditor contenteditable）
+  INPUT: '[data-e2e="dm-new-input-editor"] div[contenteditable="true"], div.DraftEditor-root div[contenteditable="true"]',
+  // 发送按钮（SVG 飞机按钮兜底）
+  SEND: 'button[aria-label*="Send"], [data-e2e="message-button"]',
 };
 
 // —— 严格输入框 / 弹性输入框 ——
@@ -155,47 +148,55 @@ function normalizeContactId(id) {
 }
 
 // —— 当前登录账号 ID（永不返回空串）——
-// TikTok DM 页面特点：会话列表只显示对方，不显示自己
-// 因此必须优先从侧边栏/导航栏提取自己，避免把对方误判为自己
+// TikTok DM 页面特点：
+//   - 会话列表只显示对方，不显示自己
+//   - Header 显示对方昵称
+//   - 消息气泡内的头像链接指向发送者（自己或对方）
+// 策略：从消息气泡头像提取所有 /@username，排除对方（header 中的），剩下的就是自己
 function getAccountId() {
-  const candidates = [];
-  // 1) 侧边栏/导航栏内的 profile 链接（自己，最高优先级）
-  qsa('aside a[href*="/@"], nav a[href*="/@"], [class*="sidebar" i] a[href*="/@"]').forEach((a) => {
-    const m = a.getAttribute('href')?.match(/@([\w.]+)/);
-    if (m && m[1]) candidates.push(m[1]);
-  });
-  // 2) 顶部导航栏内非聊天区域的 profile 链接（如头像菜单）
-  qsa('[class*="DivHeaderContainer"] a[href*="/@"], [data-e2e="nav-profile"] a[href*="/@"]').forEach((a) => {
-    const m = a.getAttribute('href')?.match(/@([\w.]+)/);
-    if (m && m[1]) candidates.push(m[1]);
-  });
-  // 3) localStorage 缓存（之前检测到的）
+  // 1) localStorage 缓存（最快）
   try {
     const ls = localStorage.getItem(`hivebridge:account:${CHANNELS.TIKTOK}`);
     if (ls) return ls;
   } catch (e) { /* noop */ }
-  // 4) 会话列表内的 /@ 链接（⚠️ 这些是对方，仅作最后手段）
-  const convLinkSelectors = [
-    '[data-e2e="dm-new-conversation-item"] a[href*="/@"]',
-    '[class*="DivItemWrapper"] a[href*="/@"]',
-    '[data-e2e="dm-new-conversation-list"] a[href*="/@"]',
-  ];
-  for (const sel of convLinkSelectors) {
-    try {
-      qsa(sel).forEach((a) => {
-        const m = a.getAttribute('href')?.match(/@([\w.]+)/);
-        if (m && m[1]) candidates.push(m[1]);
-      });
-    } catch (_) { /* 非法选择器跳过 */ }
+
+  // 2) 从消息气泡头像提取自己（排除对方）
+  const peerUsername = (() => {
+    // 对方昵称在 header
+    const headerLinks = qsa('[data-e2e="dm-new-chatbox"] a[href*="/@"]');
+    for (const link of headerLinks) {
+      const m = link.getAttribute('href')?.match(/@([\w.]+)/);
+      if (m && m[1]) return m[1];
+    }
+    return null;
+  })();
+
+  const allUsernames = new Set();
+  qsa('[data-e2e="dm-new-chat-item"] a[href*="/@"]').forEach((a) => {
+    const m = a.getAttribute('href')?.match(/@([\w.]+)/);
+    if (m && m[1]) allUsernames.add(m[1]);
+  });
+  // 排除对方，剩下的就是自己
+  for (const u of allUsernames) {
+    if (peerUsername && u === peerUsername) continue;
+    try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, u); } catch (e) { /* noop */ }
+    return u;
   }
-  // 取第一个有效候选
-  for (const c of candidates) {
+
+  // 3) 侧边栏/导航栏内的 profile 链接（兜底）
+  const sidebarCandidates = [];
+  qsa('aside a[href*="/@"], nav a[href*="/@"], [class*="sidebar" i] a[href*="/@"]').forEach((a) => {
+    const m = a.getAttribute('href')?.match(/@([\w.]+)/);
+    if (m && m[1]) sidebarCandidates.push(m[1]);
+  });
+  for (const c of sidebarCandidates) {
     if (c && c.trim()) {
       try { localStorage.setItem(`hivebridge:account:${CHANNELS.TIKTOK}`, c.trim()); } catch (e) { /* noop */ }
       return c.trim();
     }
   }
-  // 5) 稳定 unknown（绝不返回空串，避免 WS 401）
+
+  // 4) 稳定 unknown（绝不返回空串，避免 WS 401）
   return `${CHANNELS.TIKTOK}-unknown`;
 }
 
@@ -649,6 +650,7 @@ const hooks = {
     return qs(SEL.MSG_LIST) || qs('[class*="DivChatMain"]') || qs('[role="log"]') || null;
   },
   getMessageItems() {
+    // 主路径：用户配置选择器优先 → SEL 默认候选 → SelectorEngine 结构启发式兜底。
     const m = mergedSelectors();
     const { items } = SelectorEngine.locateMessages({
       root: document,
@@ -657,7 +659,7 @@ const hooks = {
     });
     const filtered = items.filter((it) => !isListNoise(it) && !isSystemMessage(it));
     if (filtered.length) return filtered;
-    // 兜底：扫描线程容器内文本叶子
+    // 兜底
     const thread = this.getMessageListRoot();
     if (!thread) return [];
     const leafText = [];
@@ -730,8 +732,8 @@ const hooks = {
   getAccountId,
   getConversationId,
   getConversationList,
+  mergedSelectors,
   getPeerName,
-  extractMessages() { return runExtractor(CHANNELS.TIKTOK, location.host); },
   async sendText(text) {
     const input = findInputEl();
     if (!input) {

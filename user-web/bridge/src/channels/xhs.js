@@ -1,32 +1,25 @@
-// 小红书网页私信适配器 —— 真实交互逻辑移植自 XHS-YYDS。
-// 参考：.research/XHS-YYDS/src/domUtils.js、src/messageDetector.js、src/autoReply.js
-//   - 输入框 #jarvis-reply-textarea（textarea，setValue 设值 + input 事件）
-//   - 发送 .send_btn（enhancedClickWithVerification / simulateClick）
-//   - 消息 .im-msg-item + .left(对方)/.right(自己) + .text-message + [data-msg-type]
-//   - MutationObserver 监听消息列表（.vue-recycle-scroller / chat-content）
-//   - 会话项 .sx-contact-item（data-key / data-contactusemid / data-id）
+// 小红书网页私信适配器 —— 纯 CSS 选择器架构。
+// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
+// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
 //
-// 架构对齐抖音适配器（src/channels/douyin.js）：
-//   - AI 选择器合并（mergeSelectors：LLM 生成产物优先、规则兜底）——平台改版无需发版
-//   - 弹性多候选 SEL（改版/换肤时任一命中即用）
-//   - 结构页面识别 isXhsMessagePage（不依赖 URL 路径，SPA 浮层/面板均可命中）
-//   - 账号/会话/会话列表多级兜底（localStorage 缓存 + 稳定 unknown，杜绝空串导致 WS 401）
-//   - 消息类型提取（卡片/图片/语音/视频/链接/撤回/聚光系统消息）
-//   - 噪音过滤（会话列表项/联系人卡片绝不当作聊天内容上行）
-//   - 发送多级兜底（合并选择器 → 规则 → 通用 DOM 扫描）
+// 参考 DOM 结构（2026-08 验证）：
+//   - 私信页入口：https://www.xiaohongshu.com/chat
+//   - 会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item
+//   - 消息列表：新版 .xhs-im-msg-list-wrap，旧版 .vue-recycle-scroller
+//   - 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item
+//   - 输入框：新版 div.xhs-im-input-bar-editor[contenteditable]，旧版 #jarvis-reply-textarea
+//   - 发送按钮：新版 .xhs-im-input-bar-actions 内按钮，旧版 .send_btn
+//   - 自/他判定：--right/--self（自己），--left/--other（对方）
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { mergeSelectors, runExtractor, customConversationListSelectors } from '../core/selector-ai.js';
+import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import { qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('xhs', CHANNELS.XHS);
 
-// —— AI 选择器 ——
-// 运行时优先使用 selector-ai 缓存的「云端 LLM 生成选择器」，仅在未命中/未配置时
-// 回退到本文件的 SEL 规则候选（mergeSelectors 已处理优先级：AI 在前、规则在后）。
-// 兜底对象在调用时构建（避免早于 SEL 声明求值导致的 TDZ 问题）。
+// 合并选择器：用户配置优先（chrome.storage），SEL 默认兜底。
 function mergedSelectors() {
   const fb = {
     itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
@@ -37,49 +30,39 @@ function mergedSelectors() {
     selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
-  return mergeSelectors(CHANNELS.XHS, location.host, fb);
+  return mergeSelectors(CHANNELS.XHS, fb);
 }
 
-// —— 真实选择器（XHS-YYDS 已校验 + 改版兜底候选）——
-// 小红书网页 IM 结构：
-//   - 会话列表 .sx-contact-item（虚拟滚动 .vue-recycle-scroller）
-//   - 消息项 .im-msg-item（内含 .left/.right + .text-message + [data-msg-type]）
-//   - 输入框 #jarvis-reply-textarea（textarea）
-//   - 发送 .send_btn
-// 多候选：改版/换肤时旧 class 失效，任一候选命中即用。
+// —— 选择器定义（2026-08 验证可用）——
 export const SEL = {
-  // 左侧会话列表：新版 .xhs-im-conv-item（data-conv-id）；旧版 .sx-contact-item
-  CHAT_LIST: '.xhs-im-conv-item, .sx-contact-item, .chat-list-box [class*="contact-item"], [class*="xhs-im-conv-list"] [class*="conv-item"]',
-  // 消息线程容器（新版 .xhs-im-msg-list-wrap/.xhs-im-msg-list；旧版 im-chat-window/vue-recycle）
-  MSG_LIST: '.xhs-im-msg-list-wrap, .xhs-im-msg-list, .vue-recycle-scroller.ready, [class*="chat-content"], [class*="message-list"], [class*="MessageList"], [class*="chat-window"], [class*="ChatWindow"], [class*="im-chat"], [class*="xhs-im-chat-window"]',
-  // 消息气泡：真实为 .chat-item（data-message-id/data-content-type，对方 --left/--other）
-  // 兼容旧版 .im-msg-item 与多版变体
-  MSG_ITEM: '.chat-item, [class*="chat-item"], [class*="chatItem"], [class*="ChatItem"], .im-msg-item, [class*="msg-item"], [class*="MsgItem"], [class*="message-item"], [class*="MessageItem"], [class*="im-msg"], [class*="chatMsg"], [class*="bubble"], [class*="Bubble"]',
-  // 自/他标记：新版 --right(自己)/--left(对方)、--self/--other；旧版 .right/.left
-  SELF_ITEM: '.chat-item__content--right, .chat-item__bubble--self, .chat-item__bubble--mine, [class*="chat-item"][class*="--right"], [class*="--self"], .right, [class*="self"], [class*="outgoing"], [class*="right-message"]',
-  OTHER_ITEM: '.chat-item__content--left, .chat-item__bubble--other, [class*="chat-item"][class*="--left"], [class*="--other"], .left, [class*="other"], [class*="incoming"], [class*="left-message"]',
-  // 未读新消息标记（巡检用：左侧会话列表项上的红点/未读 badge）。弹性多候选，任一命中即视为有新消息。
-  UNREAD: '[class*="unread" i], [class*="Unread" i], [class*="red-dot" i], [class*="reddot" i], [class*="redDot" i], [class*="new-msg" i], [class*="newMsg" i], [class*="new_message" i], [data-unread="1"], [data-unread="true"], [class*="badge" i][class*="msg" i]',
-  // 气泡文本：新版 .xhs-im-bubble__text（p 标签）；旧版 .text-message
-  TEXT: '.xhs-im-bubble__text, .text-message, [class*="text-message"], [class*="textMessage"], [class*="msg-content"], [class*="message-content"]',
-  // 严格输入框：真实小红书新版为 div.xhs-im-input-bar-editor[contenteditable]
-  // （旧版 #jarvis-reply-textarea 已废弃，须兼容两者）
-  INPUT: '#jarvis-reply-textarea, div.xhs-im-input-bar-editor[contenteditable="true"], [class*="xhs-im-input-bar-editor"]',
-  // 发送：新版 .xhs-im-input-bar-actions 内按钮 + 回车兜底；旧版 .send_btn
-  SEND: '.xhs-im-input-bar-actions [class*="action-btn"][class*="send"], [class*="xhs-im-send"], [class*="xhs-im-msg-send"], [class*="xhs-im-input-bar-send"], .send_btn, [class*="send-btn"], [class*="sendBtn"], [class*="send-button"], button[class*="send"], [aria-label*="发送"]',
-  // 消息类型：小红书气泡上的 data-msg-type（TEXT/IMAGE/CARD/SPOTLIGHT/VOICE...）
+  // 左侧会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item
+  CHAT_LIST: '.xhs-im-conv-item, .sx-contact-item',
+  // 消息线程容器
+  MSG_LIST: '.xhs-im-msg-list-wrap, .vue-recycle-scroller.ready, [class*="chat-content"]',
+  // 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item
+  MSG_ITEM: '.chat-item, .im-msg-item, [class*="msg-item"]',
+  // 自方气泡：新版 --right/--self，旧版 .right
+  SELF_ITEM: '.chat-item__content--right, [class*="--self"], .right, [class*="self"]',
+  // 对方气泡：新版 --left/--other，旧版 .left
+  OTHER_ITEM: '.chat-item__content--left, [class*="--other"], .left, [class*="other"]',
+  // 气泡内文本：新版 .xhs-im-bubble__text，旧版 .text-message
+  TEXT: '.xhs-im-bubble__text, .text-message',
+  // 输入框：新版 contenteditable div，旧版 textarea
+  INPUT: '#jarvis-reply-textarea, div.xhs-im-input-bar-editor[contenteditable="true"]',
+  // 发送按钮
+  SEND: '.send_btn, [class*="send-btn"], [aria-label*="发送"]',
+  // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-content-type]',
-  // 笔记卡片消息（XHS-YYDS card_container / card_bottom_title / card_bottom_info）
-  CARD: '.card_container, [class*="card-container"], [class*="CardContainer"]',
-  CARD_TITLE: '.card_bottom_title, [class*="card-title"], [class*="CardTitle"]',
-  CARD_INFO: '.card_bottom_info, [class*="card-info"], [class*="CardInfo"]',
-  // 聚光进线（系统消息）：XHS-YYDS source-tip
+  // 笔记卡片
+  CARD: '.card_container, [class*="card-container"]',
+  CARD_TITLE: '.card_bottom_title, [class*="card-title"]',
+  CARD_INFO: '.card_bottom_info, [class*="card-info"]',
+  // 聚光进线（系统消息）
   SPOTLIGHT: '.source-tip',
-  // 聊天对象昵称（右侧聊天页顶部 header 内的对方/群名称元素）。
-  // 需求③/修复：1v1 私信时把对方昵称作为「发件人」（sender_name）上报，而非空串/字符串 hash。
-  // 新版小红书 /chat 页聊天 header 顶部标题元素（.xhs-im-chat-title / .chat-title / .title）；
-  // 旧版 .im-chat-window 内 [class*="name"]。多候选弹性，任一命中即视为对方昵称。
-  PEER_NAME: '.xhs-im-chat-title, .xhs-im-chat-header__title, [class*="xhs-im-chat-title"], [class*="xhs-im-chat-header"] [class*="title"], [class*="chat-window"] [class*="header"] [class*="title"], [class*="chat-window"] [class*="header"] [class*="name"], [class*="chat-content"] [class*="header"] [class*="name"], .im-chat-window [class*="header"] [class*="name"], .im-chat-window [class*="title"], [class*="chat-header"] [class*="name"]',
+  // 聊天对象昵称
+  PEER_NAME: '.xhs-im-chat-title, [class*="chat-header"] [class*="title"], [class*="chat-window"] [class*="header"] [class*="name"]',
+  // 未读标记（巡检用）
+  UNREAD: '[class*="unread"], [class*="red-dot"], [data-unread="1"]',
 };
 
 // —— 输入框候选 ——
@@ -505,8 +488,7 @@ const hooks = {
     return qs(SEL.MSG_LIST) || qs('.im-chat-window') || qs('[class*="chat-content"]') || qs('[class*="message-list"]') || null;
   },
   getMessageItems() {
-    // 主路径：优先用云端 LLM 生成的选择器（缓存），回退 SEL 多候选；
-    // 再由 SelectorEngine 结构启发式定位消息列表与消息项。
+    // 主路径：用户配置选择器优先 → SEL 默认候选 → SelectorEngine 结构启发式兜底。
     const m = mergedSelectors();
     const { items } = SelectorEngine.locateMessages({
       root: document,
@@ -539,7 +521,7 @@ const hooks = {
     // 先判定消息类型（卡片/图片/语音/视频/撤回/系统）
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定：.left/.right class 为主，AI 生成的 self/other 标记兜底修正
+    // 自/他判定：.left/.right class 为主，用户配置 self/other 标记兜底修正
     let sender_type = isSelfMessage(item, SEL.SELF_ITEM) ? SENDER.SELF : SENDER.CUSTOMER;
     const m = mergedSelectors();
     const matchesSelf = m.selfMarkers.some((sel) => {
@@ -585,9 +567,8 @@ const hooks = {
   getAccountId,
   getConversationId,
   getConversationList,
+  mergedSelectors,
   getPeerName,
-  // 读取主路径：运行 LLM 生成的可执行 JS 抽取器（彻底不依赖固定选择器）。
-  extractMessages() { return runExtractor(CHANNELS.XHS, location.host); },
   async sendText(text) {
     const input = findInputEl();
     if (!input) {

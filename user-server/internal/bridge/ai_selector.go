@@ -112,86 +112,13 @@ func specCachePut(key string, spec *SelectorSpec) {
 
 // AISelectors 处理 POST /api/bridge/ai-selectors
 //
-//	请求体: { channel, domain, dom_snapshot, spec_version }
-//	返回:   { enabled, source, spec, reason }
-//
-// enabled=false 表示 LLM 未配置/被禁用 → 前端回退到本地规则引擎。
+// DEPRECATED（2026-08-04）：LLM 选择器架构已完全移除，改为纯 CSS 选择器 + UI 配置面板。
+// API 保留兼容（不返回 404），始终返回 enabled=false，前端回退到本地规则引擎。
 func AISelectors(c *gin.Context) {
-	// 总开关（默认开启；BRIDGE_AI_SELECTOR=0 关闭）
-	if os.Getenv("BRIDGE_AI_SELECTOR") == "0" {
-		c.JSON(http.StatusOK, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "disabled by BRIDGE_AI_SELECTOR=0",
-		})
-		return
-	}
-
-	var req aiSelectorsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "invalid request: " + err.Error(),
-		})
-		return
-	}
-	if req.Channel == "" || req.Domain == "" {
-		c.JSON(http.StatusBadRequest, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "channel and domain are required",
-		})
-		return
-	}
-	if req.DomSnapshot == "" {
-		c.JSON(http.StatusOK, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "empty dom_snapshot",
-		})
-		return
-	}
-
-	// 服务端缓存命中直接返回
-	ck := specCacheKey(req.Channel, req.Domain, req.DomSnapshot)
-	if spec, ok := specCacheGet(ck); ok {
-		c.JSON(http.StatusOK, aiSelectorsResponse{
-			Enabled: true,
-			Source:  "cache",
-			Spec:    spec,
-		})
-		return
-	}
-
-	// 解析 LLM 配置：默认复用系统已配置的厂商（llm_providers / 配置注入的全局 Dispatcher），
-	// 无需单独 .env；运维仍可用 BRIDGE_DIAGNOSE_* 显式覆盖。
-	cfg := resolveLLMConfig()
-	if cfg == nil {
-		// 没有任何可用 LLM → 前端回退规则引擎（降级，绝不抛错）
-		c.JSON(http.StatusOK, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "no LLM provider available",
-		})
-		return
-	}
-
-	spec, err := generateSelectorSpec(c.Request.Context(), req, cfg)
-	if err != nil {
-		c.JSON(http.StatusOK, aiSelectorsResponse{
-			Enabled: false,
-			Source:  "fallback",
-			Reason:  "llm failed: " + err.Error(),
-		})
-		return
-	}
-
-	specCachePut(ck, spec)
 	c.JSON(http.StatusOK, aiSelectorsResponse{
-		Enabled: true,
-		Source:  "llm",
-		Spec:    spec,
+		Enabled: false,
+		Source:  "fallback",
+		Reason:  "deprecated: LLM selector generation removed, use UI config panel instead",
 	})
 }
 

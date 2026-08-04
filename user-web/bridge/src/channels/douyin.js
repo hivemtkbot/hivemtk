@@ -1,23 +1,25 @@
-// 抖音网页私信适配器 —— 真实交互逻辑移植自 DY-auto。
-// 参考：.research/DY-auto/douyin-auto-文字/content.js
-//   editorBox / getRealSendButton / fillInputViaPaste / simulateRealClick / humanType
+// 抖音网页私信适配器 —— 纯 CSS 选择器架构。
+// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
+// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
 //
-// 注意：DY-auto 仅做「自动回复固定话术」，不解析消息内容。因此消息读取（自/他区分、
-// 文本提取、conversation_id）为基于抖音 IM 常见结构的「首版默认值」，需在真机校准
-// （见 popup 自检 / bridge.md §校准清单）。
+// 参考 DOM 结构（2026-08 验证）：
+//   - 私信页入口：https://www.douyin.com/chat
+//   - 会话列表：左侧 island #island_b69f5，项含 data-e2e="conversation-item"
+//   - 消息列表：线程容器含 class*="messageList" / data-e2e="chat-msg-list"
+//   - 消息气泡：div[data-e2e="msg-item-content"]（新版）/ class*="messageMessageItem"（/chat路由）
+//   - 输入框：div.messageEditorinputArea.editor-kit-container（contenteditable）
+//   - 发送按钮：svg[class*="e2e-send-msg-btn"]
+//   - 自/他判定：气泡相对容器中线的水平对齐检测（主）+ class 关键词（兜底）
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { SelectorEngine } from '../core/selector-engine.js';
-import { mergeSelectors, runExtractor, customConversationListSelectors } from '../core/selector-ai.js';
+import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
 
-// —— AI 选择器 ——
-// 运行时优先使用 selector-ai 缓存的「云端 LLM 生成选择器」，仅在未命中/未配置时
-// 回退到本文件的 SEL 规则候选（mergeSelectors 已处理优先级：AI 在前、规则在后）。
-// 这样抖音改版后，只要 LLM 能识别出新结构，前端无需发版即可恢复抓取。
-// 兜底对象在调用时构建（避免早于 SEL 声明求值导致的 TDZ 问题）。
+// 合并选择器：用户配置优先（chrome.storage），SEL 默认兜底。
+// UI 选择器配置面板修改后，mergeSelectors 自动优先使用用户配置值。
 function mergedSelectors() {
   const fb = {
     itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
@@ -28,52 +30,46 @@ function mergedSelectors() {
     selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
-  return mergeSelectors(CHANNELS.DOUYIN, location.host, fb);
+  return mergeSelectors(CHANNELS.DOUYIN, fb);
 }
 
-// —— 真实选择器（来自深度自检 DOM 快照 + DY-auto 参考）——
-// 抖音网页 IM 已改版：输入框无 role=textbox、私信常以浮层覆盖在 /jingxuan 等页打开、
-// 消息气泡存在多版 DOM 变体。故不依赖 URL 路径与 role=textbox，改用「结构特征」匹配 +
-// 弹性气泡选择器 + 对齐检测自他判定。
+// —— 选择器定义（2026-08 验证可用）——
+// 每个字段的候选按优先级排列：第1个最精确，后续为兜底兼容。
+// 平台改版导致选择器失效时，通过 UI 配置面板覆盖对应字段即可，无需修改代码。
 export const SEL = {
-  CHAT_LIST: '#island_b69f5, div.conversationConversationListwrapper, [class*="im-conversation"], [class*="ImConversation"], [class*="conversation-list"], [class*="ConversationList"], [data-e2e="conversation-list"]',
-  // 消息线程容器（弹性候选，命中其一即可作为 MutationObserver 根）
-  // 覆盖：旧版 island（messageList）+ 新版 /chat 专用路由（chat-content/msg-list/chatMsg 面板）
-  MSG_LIST: '[class*="messageList"], [class*="MessageList"], [class*="chatMsg"], [class*="msgList"], [data-e2e*="msg-list"], [class*="chat-content"], [class*="ChatContent"], [class*="chatContent"], [class*="chat-body"], [class*="ChatBody"], [class*="msg-content-list"], [class*="message-content"], [class*="MessageContent"], [data-e2e="chat-msg-list"]',
-  // 消息气泡：优先 data-e2e="msg-item-content"，覆盖多版 DOM 变体
-  // /chat 专用路由消息项遵循 messageMessageItem* / chatMessageItem* 驼峰命名（与会话项
-  // conversationConversationItem* 对称），故补充 camelCase 命中。
-  MSG_ITEM: 'div[data-e2e="msg-item-content"], [data-e2e*="msg-item"], [data-e2e*="chat-message"], [data-e2e*="message-item"], [class*="msg-item-content"], [class*="msg-content"], [class*="bubble"], [class*="Bubble"], [class*="messageText"], [class*="MessageText"], [class*="chatMsgItem"], [class*="MessageItem"], [class*="messageItem"], [class*="msgBubble"], [class*="MsgBubble"], [class*="imMessage"], [class*="ImMessage"], [class*="dialogItem"], [class*="chatItem"], [class*="ChatItem"], [class*="messageBubble"], [class*="messageMessageItem"], [class*="MessageMessageItem"], [class*="chatMessageItem"], [class*="ChatMessageItem"], [class*="messageMessage"], [class*="MessageMessage"], [class*="chatMessage"], [class*="ChatMessage"]',
-  // 自/他气泡 class 关键词（仅兜底，主判定走对齐检测）
+  // 左侧会话列表容器
+  CHAT_LIST: '#island_b69f5, [data-e2e="conversation-list"]',
+  // 消息线程容器（MutationObserver 根）
+  MSG_LIST: '[class*="messageList"], [data-e2e="chat-msg-list"], [class*="chat-content"]',
+  // 消息气泡（data-e2e 命中新版；class* 命中 /chat 路由）
+  MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="messageMessageItem"], [class*="chatMessageItem"], [class*="msg-content"]',
+  // 自方气泡 class 关键词（兜底判定，主判定走对齐检测 classifyByAlignment）
   SELF_ITEM: '[class*="self"], [class*="right"], [class*="outgoing"]',
+  // 对方气泡 class 关键词
   OTHER_ITEM: '[class*="other"], [class*="left"], [class*="incoming"]',
-  // 聊天对象昵称（右侧聊天页顶部 header 内的对方/群名称元素）。
-  // 需求③/修复：1v1 私信把对方昵称作为「发件人」（sender_name）上报，而非空串/字符串 hash。
-  // 抖音网页 /chat 页聊天 header 标题元素（[data-e2e="chat-header-title"]、[class*="chat-header"] [class*="title"]、
-  // [class*="conversation"][class*="title"]）；多候选弹性，任一命中即视为对方昵称或群名。
-  PEER_NAME: '[data-e2e="chat-header-title"], [data-e2e="chat-title"], [class*="chat-header"] [class*="title" i], [class*="ChatHeader"] [class*="title" i], [class*="conversation"][class*="title" i], [class*="Conversation"][class*="Title" i]',
-  // 未读新消息标记（巡检用：左侧会话列表项上的红点/未读 badge）。弹性多候选，任一命中即视为有新消息。
-  UNREAD: '[class*="unread" i], [class*="Unread" i], [class*="red-dot" i], [class*="reddot" i], [class*="redDot" i], [class*="new-msg" i], [class*="newMsg" i], [class*="new_message" i], [data-unread="1"], [data-unread="true"], [class*="badge" i][class*="msg" i]',
-  TEXT: '[data-e2e="msg-item-content"], [class*="msg-content"], [class*="text"], [class*="Text"]',
-  // 严格输入框：真实抖音为「同一元素同时含 messageEditorinputArea + editor-kit-container」
-  // （评论框仅父级含 editor-kit-container，故用组合类区分，避免 jingxuan 误判）
-  // 字段命名按 SELECTOR_FIELDS 统一为 INPUT（与 xhs/xianyu 对齐）。
-  INPUT: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]',
-  // 发送按钮：抖音真实为 [class*="e2e-send-msg-btn"]（svg 形式），兼容 [class*="send"] 与 aria-label。
-  SEND: '[class*="e2e-send-msg-btn"], [class*="send-btn" i], [class*="sendBtn" i], [class*="sendButton" i], button[aria-label*="发送" i], button[aria-label*="Send" i]',
-  // 消息类型 data 属性（部分气泡带 data-msg-type=text/image/card/voice/video）
-  MSG_TYPE: '[data-msg-type], [data-message-type], [data-type]',
-  // 卡片消息（商品/作品卡片）
-  CARD: '[class*="card-container" i], [class*="cardContainer" i], [class*="goods-card" i], [class*="GoodsCard" i], [class*="content-card" i]',
-  // 会话列表项（与 CHAT_LIST 容器区分；遍历用）
-  CONV_ITEM: '[class*="conversation-item" i], [class*="ConversationItem" i], [data-e2e="conversation-item"]',
-  // 系统消息（居中时间/撤回/已添加好友/系统提示）
-  // 抖音无专属 class，靠下列 class 关键词 + 内容模式双重识别
-  SYSTEM: '[class*="system-msg" i], [class*="systemMsg" i], [class*="SystemMsg" i], [class*="notice" i], [class*="Notice" i], [class*="divider" i], [class*="Divider" i], [class*="time-stamp" i], [class*="timeStamp" i], [class*="TimeStamp" i], [class*="recalled" i], [class*="Recalled" i]',
-  EDITOR: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]', // 兼容旧引用
+  // 聊天气泡内文本
+  TEXT: '[data-e2e="msg-item-content"], [class*="msg-content"]',
+  // 输入框（严格：同时含 messageEditorinputArea + editor-kit-container 两 class）
+  INPUT: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
+  // 发送按钮（svg 形式，需回溯到最近可交互祖先）
+  SEND: '[class*="e2e-send-msg-btn"], button[aria-label*="发送"]',
+  // 消息类型 data 属性
+  MSG_TYPE: '[data-msg-type], [data-message-type]',
+  // 卡片消息（商品/作品）
+  CARD: '[class*="card-container"], [class*="goods-card"]',
+  // 会话列表项（遍历用，与 CHAT_LIST 容器区分）
+  CONV_ITEM: '[data-e2e="conversation-item"], [class*="conversation-item"]',
+  // 系统消息 class 关键词（配合内容模式双重识别）
+  SYSTEM: '[class*="system-msg"], [class*="notice"], [class*="divider"], [class*="time-stamp"], [class*="recalled"]',
+  // 聊天对象昵称（右侧 header 标题元素）
+  PEER_NAME: '[data-e2e="chat-header-title"], [class*="chat-header"] [class*="title"]',
+  // 未读红点标记（巡检用）
+  UNREAD: '[class*="unread"], [class*="red-dot"], [data-unread="1"]',
+  // 输入框（兼容旧引用）
+  EDITOR: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
 };
 
-// 抖音输入框（strict）：优先用云端 LLM 生成的选择器，回退 SEL.INPUT/EDITOR
+// 抖音输入框（strict）：优先用户配置选择器 → SEL 默认
 function strictEditorBox() {
   const m = mergedSelectors();
   for (const sel of m.inputSelectors) {
@@ -100,7 +96,7 @@ function findInputEl() {
   return editorBox() || findAnyMessageInput();
 }
 
-// 抖音发送按钮：优先用云端 LLM 生成的发送按钮选择器，回退既有结构识别
+// 抖音发送按钮：优先用户配置选择器 → SEL 默认 → 红色路径兜底
 function getRealSendButton() {
   const m = mergedSelectors();
   for (const sel of m.sendSelectors) {
@@ -585,10 +581,7 @@ const hooks = {
     return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"], [class*="msg"], [class*="Msg"]') : null;
   },
   getMessageItems() {
-    // 主路径：优先用云端 LLM 生成的选择器（缓存），回退 SEL 多候选；
-    // 再由 SelectorEngine 结构启发式定位消息列表与消息项。
-    // 即使抖音改版导致 SEL.MSG_ITEM 部分失效，引擎仍能用「像气泡」的结构特征兜底命中，
-    // 从架构上解决「单一写死选择器失效 → 只抓到 2 条」。
+    // 主路径：用户配置选择器优先 → SEL 默认候选 → SelectorEngine 结构启发式兜底。
     const m = mergedSelectors();
     const { items } = SelectorEngine.locateMessages({
       root: document,
@@ -690,10 +683,8 @@ const hooks = {
   getAccountId,
   getConversationId,
   getConversationList,
+  mergedSelectors,
   getPeerName,
-  // 读取主路径：运行 LLM 生成的可执行 JS 抽取器（彻底不依赖固定选择器）。
-  // 返回归一化消息数组或 null（无缓存/抽取器异常时由适配器回退选择器路径）。
-  extractMessages() { return runExtractor(CHANNELS.DOUYIN, location.host); },
   async sendText(text) {
     const editor = findInputEl();
     if (!editor) {

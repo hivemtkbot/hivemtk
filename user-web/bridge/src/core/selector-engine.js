@@ -1,15 +1,15 @@
 // 选择器引擎：用「多候选选择器 + 结构启发式评分」定位消息列表 / 消息项 / 输入框，
-// 取代单一写死 data-e2e 选择器，从架构上避免「抖音网页一改版就抓不到消息」。
+// 取代单一写死选择器，从架构上避免「平台改版就抓不到消息」。
 //
-// 设计原则（问题 4 的核心解法）：
+// 设计原则：
 //   1. 任何单一选择器失效都不致命 —— 维护候选表，运行时逐个尝试，命中即用。
 //   2. 用「结构特征」做最终裁决：一个 DOM 节点若同时具备
 //        - 是某容器（div/ul/section）的后代
 //        - 内部含「发送者标识 + 气泡文本/媒体」结构
 //      则高概率是一条消息，不依赖具体 class 名。
-//   3. 零外部依赖、零延迟、零成本：默认走规则，LLM 仅作可选增强（见 bridge-client 诊断回退）。
+//   3. 零外部依赖、零延迟、零成本：纯规则引擎。
 //
-// 跨渠道复用：抖音 / 小红书 / TikTok 私信 DOM 同构（左会话列表 + 右消息流 + 底部输入框），
+// 跨渠道复用：抖音 / 小红书 / 闲鱼 / TikTok 私信 DOM 同构（左会话列表 + 右消息流 + 底部输入框），
 // 因此引擎本身是渠道无关的；渠道特定候选选择器由各 adapter 的 SEL 提供。
 
 const log = (() => {
@@ -96,12 +96,12 @@ export function scoreMessageListContainer(root, itemCandidates) {
   return best || root;
 }
 
-// 主入口（同步，保持既有同步契约）：定位消息项列表
+// 主入口（同步）：定位消息项列表
 //   root         : 搜索根（通常 document）
 //   itemSelectors: 渠道特定的消息项候选选择器
 //   listSelectors: 可选，渠道特定的「消息列表容器」候选选择器（优先尝试）
 // 返回 { container, items } —— items 为去重后的消息项元素数组（按 DOM 顺序）
-// 规则全失效时不会自动调用 LLM（避免阻塞主链路）；LLM 动态识别走 locateMessagesWithDiagnose。
+// 规则全失效时自动回退到结构启发式（scoreMessageListContainer）。
 export function locateMessages({ root, itemSelectors, listSelectors }) {
   if (!root) return { container: null, items: [] };
   let container = null;
@@ -141,37 +141,6 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
     return looksLikeMessageBubble(el);
   });
   log.debug('locateMessages', { containerTag: container && container.tagName, itemCount: items.length });
-  return { container, items };
-}
-
-// 异步增强版（问题 5 LLM 动态识别）：规则全部失效（items 为空）时，
-// 调用 diagnose() 拿模型建议选择器并入候选项再试一次；失败/空则返回规则结果（不阻断）。
-// 默认不调用（diagnose 未注入），保证线上无 LLM 也能全程走规则、零延迟。
-export async function locateMessagesWithDiagnose({ root, itemSelectors, listSelectors, diagnose }) {
-  const base = locateMessages({ root, itemSelectors, listSelectors });
-  if ((base.items || []).length > 0 || typeof diagnose !== 'function') return base;
-  let items = base.items;
-  let container = base.container;
-  try {
-    const hints = await diagnose();
-    if (hints && (hints.message_item || []).length) {
-      const extra = collectCandidates(root, hints.message_item);
-      if (extra.length) items = extra;
-      if (hints.message_list && hints.message_list.length) {
-        for (const sel of hints.message_list) {
-          try {
-            const el = root.querySelector(sel);
-            if (el) { container = el; break; }
-          } catch (_) { /* noop */ }
-        }
-      }
-    }
-  } catch (_) { /* 诊断失败：忽略，继续规则兜底 */ }
-  items = items.filter((el) => {
-    const containsAnother = items.some((other) => other !== el && el.contains(other));
-    if (containsAnother) return false;
-    return looksLikeMessageBubble(el);
-  });
   return { container, items };
 }
 

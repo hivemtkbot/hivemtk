@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   mergeSelectors,
-  runExtractor,
   saveSelectors,
   getCustomSelectors,
   clearExtractorResultCache,
@@ -15,7 +14,6 @@ import {
 } from '../src/core/selector-ai.js';
 
 const CHANNEL = 'douyin_web';
-const DOMAIN = 'www.douyin.com';
 
 // 渠道默认 SEL 兜底（模拟 channels/douyin.js 传入的规则）
 const FB = {
@@ -30,11 +28,12 @@ const FB = {
 
 beforeEach(() => {
   try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
+  clearExtractorResultCache(CHANNEL);
 });
 
 describe('mergeSelectors 纯规则合并', () => {
   it('无用户配置 → 仅返回规则兜底（SEL 默认）', () => {
-    const m = mergeSelectors(CHANNEL, DOMAIN, FB);
+    const m = mergeSelectors(CHANNEL, FB);
     expect(m.itemSelectors).toEqual(['[data-e2e="msg-item-content"]', '.bubble']);
     expect(m.listSelectors).toEqual(['.im-message-list']);
     expect(m.inputSelectors).toEqual(['div[contenteditable]']);
@@ -49,7 +48,7 @@ describe('mergeSelectors 纯规则合并', () => {
         send: '.xhs-im-send',
       },
     });
-    const m = mergeSelectors(CHANNEL, DOMAIN, FB);
+    const m = mergeSelectors(CHANNEL, FB);
     // 用户配置在前
     expect(m.itemSelectors[0]).toBe('.xhs-im-msg-item');
     expect(m.itemSelectors[1]).toBe('.chat-item');
@@ -66,23 +65,23 @@ describe('mergeSelectors 纯规则合并', () => {
     await saveSelectors({
       [CHANNEL]: { messageItem: '.bubble, [data-e2e="msg-item-content"]' },
     });
-    const m = mergeSelectors(CHANNEL, DOMAIN, FB);
+    const m = mergeSelectors(CHANNEL, FB);
     expect(m.itemSelectors).toEqual(['.bubble', '[data-e2e="msg-item-content"]']);
     expect(m.itemSelectors.filter((s) => s === '.bubble')).toHaveLength(1);
   });
 
   it('不同渠道配置隔离（A 渠道配置不影响 B 渠道）', async () => {
     await saveSelectors({ xhs_web: { messageItem: '.xhs-im-msg-item' } });
-    const m = mergeSelectors('douyin_web', DOMAIN, FB);
+    const m = mergeSelectors('douyin_web', FB);
     expect(m.itemSelectors).toEqual(['[data-e2e="msg-item-content"]', '.bubble']);
   });
 
   it('清空配置后回退默认（删除存储键）', async () => {
     await saveSelectors({ [CHANNEL]: { messageItem: '.custom-item' } });
-    expect(mergeSelectors(CHANNEL, DOMAIN, FB).itemSelectors[0]).toBe('.custom-item');
+    expect(mergeSelectors(CHANNEL, FB).itemSelectors[0]).toBe('.custom-item');
     try { localStorage.removeItem(SELECTOR_CONFIG_KEY); } catch (_) { /* noop */ }
-    clearExtractorResultCache(CHANNEL, DOMAIN);
-    expect(mergeSelectors(CHANNEL, DOMAIN, FB).itemSelectors[0]).toBe('[data-e2e="msg-item-content"]');
+    clearExtractorResultCache(CHANNEL);
+    expect(mergeSelectors(CHANNEL, FB).itemSelectors[0]).toBe('[data-e2e="msg-item-content"]');
   });
 });
 
@@ -109,11 +108,5 @@ describe('选择器配置持久化', () => {
     expect(SELECTOR_FIELDS).toContain('send');
     expect(SELECTOR_FIELDS).toContain('selfMarker');
     expect(SELECTOR_FIELDS).toContain('otherMarker');
-  });
-});
-
-describe('runExtractor 已废弃（无 LLM）', () => {
-  it('始终返回 null（调用方回退选择器路径）', () => {
-    expect(runExtractor(CHANNEL, DOMAIN)).toBeNull();
   });
 });

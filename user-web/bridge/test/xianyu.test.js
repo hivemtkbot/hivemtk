@@ -244,13 +244,8 @@ describe('xianyu / isSystemMessage 漏斗', () => {
 describe('xianyu / classifySender 漏斗', () => {
   beforeEach(() => installComputedStyle());
 
-  it('A) class 含 self → SELF', () => {
-    const el = makeEl({ cls: 'msg-item msg-self' });
-    expect(classifySender(el)).toBe(SENDER.SELF);
-  });
-
-  it('A) class 含 my-message → SELF', () => {
-    const el = makeEl({ cls: 'msg-item my-message' });
+  it('A) class 含 message-text-right → SELF', () => {
+    const el = makeEl({ cls: 'msg-item message-text-right' });
     expect(classifySender(el)).toBe(SENDER.SELF);
   });
 
@@ -259,8 +254,8 @@ describe('xianyu / classifySender 漏斗', () => {
     expect(classifySender(el)).toBe(SENDER.CUSTOMER);
   });
 
-  it('A) class 含 peer-message → CUSTOMER', () => {
-    const el = makeEl({ cls: 'msg-item peer-message' });
+  it('A) class 含 message-text-left → CUSTOMER', () => {
+    const el = makeEl({ cls: 'msg-item message-text-left' });
     expect(classifySender(el)).toBe(SENDER.CUSTOMER);
   });
 
@@ -328,14 +323,9 @@ describe('xianyu / isListNoise', () => {
     expect(isListNoise(el)).toBe(true);
   });
 
-  it('closest 命中 conv-item → true', () => {
-    const el = { closest: (sel) => (sel.includes('conv-item') ? {} : null) };
-    expect(isListNoise(el)).toBe(true);
-  });
-
   it('closest chat-list 但自己也是 conversation-item → true', () => {
     const el = {
-      closest: (sel) => (sel.includes('chat-list') || sel.includes('conversation-item') || sel.includes('conv-item') ? {} : null),
+      closest: (sel) => (sel.includes('chat-list') || sel.includes('conversation-item') ? {} : null),
       matches: (sel) => sel.includes('conversation-item'),
     };
     expect(isListNoise(el)).toBe(true);

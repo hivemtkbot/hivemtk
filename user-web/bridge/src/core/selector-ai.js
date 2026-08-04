@@ -101,8 +101,8 @@ export function _invalidateCustom(channel) {
 
 // 合并选择器（纯规则）：用户自定义配置优先，渠道 SEL 默认兜底。
 // 返回 { itemSelectors, listSelectors, textSelectors, inputSelectors, sendSelectors, selfMarkers, otherMarkers }
-// 人工识别 HTML 后只需填 user 配置；未填的字段自动用渠道默认 SEL。
-export function mergeSelectors(channel, domain, ruleFallbacks) {
+// 人工识别 HTML 后通过 UI 配置面板填写 user 配置；未填的字段自动用渠道默认 SEL。
+export function mergeSelectors(channel, ruleFallbacks) {
   const out = {
     itemSelectors: [],
     listSelectors: [],
@@ -146,11 +146,6 @@ export function mergeSelectors(channel, domain, ruleFallbacks) {
   out.selfMarkers = dedupe(out.selfMarkers);
   out.otherMarkers = dedupe(out.otherMarkers);
   return out;
-}
-
-// runExtractor 已废弃（LLM 抽取架构移除）。保留签名返回 null，渠道 hooks 仍调用。
-export function runExtractor(channel, domain) {
-  return null;
 }
 
 // 异步水合：从 chrome.storage.local（popup 写入的共享配置）同步到当前页 localStorage 镜像 +

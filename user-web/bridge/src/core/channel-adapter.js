@@ -45,8 +45,8 @@ export class BaseAdapter {
     this.log = createLogger(channel, 'adapter');
     // 会话实时上下文窗口：per-conversation 最近 N 轮（供 inbound 帧携带多轮历史，点3 需求）
     this._convWindow = new Map();
-    // —— AI 选择器自愈状态 ——
-    this.domain = '';             // 当前页面域名（start 时填充）
+    // 当前页面域名（start 时填充，供持久化键区分账号）
+    this.domain = '';
     // —— 私信会话全量遍历同步（一个私信=一个会话=统一收信中心一条记录；遍历所有私信上报）——
     this._syncedConvIds = new Set();  // 已同步会话 id（持久化 localStorage，刷新/重连续传）
     this._syncingAll = false;         // 防止并发重复触发
@@ -101,15 +101,6 @@ export class BaseAdapter {
   }
   getMessageItems() { return this.hooks.getMessageItems ? this.hooks.getMessageItems() : []; }
   parseMessageItem(item) { return this.hooks.parseMessageItem ? this.hooks.parseMessageItem(item) : null; }
-  // extractMessages：已弃用（LLM 抽取架构移除，纯 SEL 规则架构）。
-  // 保留 hook 透传但默认返回 null，调用方统一走选择器路径。
-  extractMessages() {
-    try {
-      return this.hooks.extractMessages ? this.hooks.extractMessages() : null;
-    } catch (_) {
-      return null;
-    }
-  }
   // 会话列表枚举：渠道钩子返回 [{ id, name, el }]，遍历器据此逐个打开并回填历史。
   // 未实现则回退空（不遍历）。
   getConversationList() {
@@ -124,7 +115,7 @@ export class BaseAdapter {
       this.log.warn('页面不匹配，适配器未启动');
       return false;
     }
-    // 记录当前域名，供 AI 选择器缓存（域名+渠道指纹）使用
+    // 记录当前域名，供持久化键（synced:channel:domain）区分账号
     try { this.domain = location && location.host ? location.host : ''; } catch (_) { this.domain = ''; }
     const meta = this.snapshotMeta();
     this.account = meta.accountId || this.account;
@@ -202,8 +193,18 @@ export class BaseAdapter {
   }
 
   _onMutations(muts) {
-    // 用 SEL.MSG_ITEM 多候选命中新增节点（纯规则架构，见 mergeSelectors 注释）。
-    const itemSelectors = (this.SEL.MSG_ITEM || '').split(',').map((s) => s.trim()).filter(Boolean);
+    // 用用户配置选择器优先 → SEL 默认兜底
+    let itemSelectors = [];
+    try {
+      // 尝试从渠道 hooks 获取合并后的选择器（含用户配置）
+      const selectors = this.hooks.mergedSelectors ? this.hooks.mergedSelectors() : null;
+      if (selectors && selectors.itemSelectors && selectors.itemSelectors.length) {
+        itemSelectors = selectors.itemSelectors;
+      }
+    } catch (_) { /* 忽略，回退 SEL */ }
+    if (!itemSelectors.length) {
+      itemSelectors = (this.SEL.MSG_ITEM || '').split(',').map((s) => s.trim()).filter(Boolean);
+    }
     const nodes = this._addedElements(muts);
     for (const node of nodes) {
       let items = [];

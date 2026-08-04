@@ -1,34 +1,34 @@
-// 闲鱼网页私信适配器 —— 参考抖音/小红书实现，叠加自/他判定漏斗 + 系统消息识别漏斗
+// 闲鱼网页私信适配器 —— 纯 CSS 选择器架构。
+// 设计原则：所有选择器均基于真实 DOM 验证，不使用 LLM 动态生成。
+// 平台改版时通过 UI 配置面板(chrome.storage)更新选择器即可，无需发版。
 //
-// 设计依据（详见 bridge.md §18.6 §20）：
-//  1. 域：https://www.goofish.com  /  https://h5.goofish.com（移动 H5）
-//  2. 入口页：https://www.goofish.com/im（聊天页）/ https://www.goofish.com/im?conversationId=xxx
-//  3. 真实 DOM（来自用户提供的 HTML 快照 + 公开 ant-design 模式）：
-//     - 主容器：.im-main / [class*="im-main"]
-//     - 左侧会话列表：[class*="conversation-list"] / .ant-layout-sider
-//     - 会话项：.conversation-item（每一项含头像、昵称、最后消息、时间、未读 badge）
-//     - 系统消息：居中容器 / [class*="system-msg"] / [class*="im-notice"]
-//     - 消息气泡：[class*="msg-item"] / [class*="message-item"]，自/他由 class 关键词 + 对齐判定
-//  4. 输入框：div[contenteditable="true"] 兜底，Xianyu 真实用 [class*="im-input"] [contenteditable]
-//  5. 发送按钮：[class*="im-send"] / [class*="send-btn"] / 红色 icon（与抖音路径相似）
+// 参考 DOM 结构（2026-08 验证）：
+//   - 私信页入口：https://www.goofish.com/im
+//   - 会话列表：#conv-list-scrollable / .ant-layout-sider
+//   - 会话项：[class*="conversation-item"]（ant-design 风格）
+//   - 消息列表：#message-list-scrollable（ID 明确）
+//   - 消息气泡：li.ant-list-item .message-row
+//   - 自/他：message-text-right（自己）/ message-text-left（对方）
+//   - 输入框：.sendbox textarea.ant-input
+//   - 发送按钮：.sendbox button.ant-btn
 //
-// 自/他判定漏斗（参考论证 1）：
-//   A. class 关键词（self/right/my-message/outgoing/ant-bubble-start | other/left/incoming/ant-bubble-end）
+// 自/他判定漏斗（4 层）：
+//   A. class 关键词（self/right/outgoing | other/left/incoming）
 //   B. data-* 属性 / dir
 //   C. 水平对齐检测（closestScrollable 容器中线）
 //   D. 头像位置
 //   默认 CUSTOMER（防回环）
 //
-// 系统消息识别漏斗（参考论证 2）：
+// 系统消息识别漏斗（5 层）：
 //   ① 居中对齐（textAlign/justifyContent=center）
-//   ② class 关键词（system-msg / notice / tip / divider / time-stamp / chat-notice / im-notice）
+//   ② class 关键词（system-msg / notice / divider / time-stamp）
 //   ③ role / aria-live
-//   ④ 内容模式（纯时间 / 非好友提示 / 撤回 / 输入中）
+//   ④ 内容模式（纯时间 / 交易提示 / 撤回 / 输入中）
 //   ⑤ 结构特征（无头像 + 无气泡）
 //   命中 → msg_type='system' / sender_type=SENDER.SYSTEM，不触发 AI
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { mergeSelectors, runExtractor, customConversationListSelectors } from '../core/selector-ai.js';
+import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
@@ -38,7 +38,7 @@ import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('xianyu', CHANNELS.XIANYU);
 
-// —— AI 选择器 ——
+// 合并选择器：用户配置优先（chrome.storage），SEL 默认兜底。
 function mergedSelectors() {
   const fb = {
     itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
@@ -49,48 +49,39 @@ function mergedSelectors() {
     selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
-  return mergeSelectors(CHANNELS.XIANYU, location.host, fb);
+  return mergeSelectors(CHANNELS.XIANYU, fb);
 }
 
-// —— 真实选择器 ——
-// 闲鱼 IM 真实结构（基于 ant-design 风格 + 用户提供的 HTML 快照）：
-//   - 主容器：.im-main / [class*="im-main"]
-//   - 左侧会话列表：[class*="conversation-list"] / .ant-layout-sider
-//   - 会话项：.conversation-item（data-* 属性可能为 data-cid / data-id / data-uid）
-//   - 消息线程：[class*="im-message-list"] / [class*="messageList"]
-//   - 消息气泡：[class*="msg-item"] / [class*="im-message"]，自方靠右（class 含 self/right/my-msg）、
-//     对方靠左（class 含 other/left/peer-msg）
-//   - 系统消息：居中容器 / [class*="system-msg"] / [class*="im-notice"] / [class*="chat-notice"]
-//   - 输入框：div[contenteditable] 兜底 + [class*="im-input"] 严格命中
-//   - 发送：[class*="im-send"] / [class*="send-btn"] / Enter 兜底
+// —— 选择器定义（2026-08 验证可用）——
 export const SEL = {
-  // 左侧会话列表容器（闲鱼用 ID conv-list-scrollable）
-  CHAT_LIST: '#conv-list-scrollable, [class*="conv-list-scroll" i], .ant-layout-sider',
-  // 会话项（闲鱼 CSS module: conversation-item--xxx）
-  CONV_ITEM: '[class*="conversation-item" i]:not([class*="active" i]), [class*="conv-item" i]',
-  // 消息线程容器（闲鱼用 ID message-list-scrollable）
-  MSG_LIST: '#message-list-scrollable, [class*="message-list-reverse" i], [class*="chat-main" i], main.ant-layout-content',
-  // 消息气泡（闲鱼: li.ant-list-item > .message-row--xxx）
-  MSG_ITEM: 'li.ant-list-item .message-row, li.ant-list-item [class*="message-row" i], li.ant-list-item, [class*="message-row" i]',
-  // 自/他：闲鱼靠 direction: rtl=ltr 判定，class 辅助
-  SELF_ITEM: '[class*="message-text-right" i], [class*="msg-text-right" i], [class*="msg-self" i], [class*="my-message" i], [class*="self-message" i]',
-  OTHER_ITEM: '[class*="message-text-left" i], [class*="msg-text-left" i], [class*="msg-other" i], [class*="other-message" i], [class*="peer-message" i]',
-  // 系统消息（闲鱼: .tips--xxx > .msg-tips--xxx）
-  SYSTEM: '[class*="msg-tips" i], [class*="tips" i] > [class*="msg-tips" i], [class*="msg-dx-content" i], [class*="order-success" i], [class*="orderText" i], [class*="msg-text-card" i], [class*="divider" i], [class*="time-stamp" i], [class*="notice" i], [class*="system-msg" i]',
+  // 左侧会话列表容器
+  CHAT_LIST: '#conv-list-scrollable, .ant-layout-sider',
+  // 会话项（CSS module: conversation-item--xxx）
+  CONV_ITEM: '[class*="conversation-item"]',
+  // 消息线程容器
+  MSG_LIST: '#message-list-scrollable, [class*="chat-main"]',
+  // 消息气泡（ant-design 风格：li.ant-list-item > .message-row）
+  MSG_ITEM: 'li.ant-list-item .message-row, li.ant-list-item',
+  // 自方消息 class 关键词
+  SELF_ITEM: '[class*="message-text-right"], [class*="msg-self"]',
+  // 对方消息 class 关键词
+  OTHER_ITEM: '[class*="message-text-left"], [class*="msg-other"]',
+  // 系统消息 class 关键词
+  SYSTEM: '[class*="msg-tips"], [class*="divider"], [class*="notice"], [class*="system-msg"]',
   // 未读新消息标记
-  UNREAD: '[class*="unread" i], [class*="red-dot" i], [class*="badge" i][class*="msg" i], [data-unread="1"], .ant-badge-count',
-  // 气泡文本（闲鱼: message-text--xxx + message-text-left/right--xxx）
-  TEXT: '[class*="message-text" i]:not([class*="right" i]):not([class*="left" i]), [class*="msg-content" i], [class*="message-content" i]',
+  UNREAD: '[class*="unread"], [data-unread="1"], .ant-badge-count',
+  // 气泡文本
+  TEXT: '[class*="message-text"], [class*="msg-content"]',
   // 消息类型 data 属性
-  MSG_TYPE: '[data-msg-type], [data-message-type], [data-type]',
-  // 卡片（闲鱼交易卡片）
-  CARD: '[class*="msg-text-card" i], [class*="tpl-wrapper" i], [class*="card-container" i], [class*="orderText" i]',
-  // 输入框（闲鱼: textarea.ant-input 在 .sendbox 内）
-  INPUT: '.sendbox textarea.ant-input, textarea.ant-input, textarea[placeholder*="请输入消息" i], textarea[placeholder*="发送" i]',
-  // 发送（闲鱼: .sendbox 内 button）
-  SEND: '.sendbox button.ant-btn, [class*="sendbox" i] button, [class*="send-btn" i], [class*="sendBtn" i], button[aria-label*="发送" i]',
-  // 聊天对象昵称（闲鱼 topbar）
-  PEER_NAME: '[class*="message-topbar" i] [class*="text1" i], [class*="topbar" i] [class*="text-container" i], [class*="chat-header" i] [class*="title" i]',
+  MSG_TYPE: '[data-msg-type], [data-message-type]',
+  // 交易卡片
+  CARD: '[class*="msg-text-card"], [class*="card-container"]',
+  // 输入框（.sendbox 内 textarea.ant-input）
+  INPUT: '.sendbox textarea.ant-input, textarea[placeholder*="请输入消息"]',
+  // 发送按钮（.sendbox 内 button）
+  SEND: '.sendbox button.ant-btn, [class*="send-btn"]',
+  // 聊天对象昵称
+  PEER_NAME: '[class*="message-topbar"] [class*="text1"], [class*="chat-header"] [class*="title"]',
 };
 
 // —— 严格输入框 / 弹性输入框（解耦 matchMode 判定 vs 发送路径）——
@@ -730,6 +721,7 @@ const hooks = {
     return qs(SEL.MSG_LIST) || qs('[class*="chat-content" i]') || qs('[class*="message-list" i]') || null;
   },
   getMessageItems() {
+    // 主路径：用户配置选择器优先 → SEL 默认候选 → SelectorEngine 结构启发式兜底。
     const m = mergedSelectors();
     const { items } = SelectorEngine.locateMessages({
       root: document,
@@ -738,7 +730,7 @@ const hooks = {
     });
     const filtered = items.filter((it) => !isListNoise(it) && !isSystemMessage(it));
     if (filtered.length) return filtered;
-    // 兜底：扫描线程容器内文本叶子
+    // 兜底
     const thread = this.getMessageListRoot();
     if (!thread) return [];
     const leafText = [];
@@ -811,8 +803,8 @@ const hooks = {
   getAccountId,
   getConversationId,
   getConversationList,
+  mergedSelectors,
   getPeerName,
-  extractMessages() { return runExtractor(CHANNELS.XIANYU, location.host); },
   async sendText(text) {
     const input = findInputEl();
     if (!input) {
