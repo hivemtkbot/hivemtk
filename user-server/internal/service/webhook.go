@@ -2078,12 +2078,14 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 //   - 否则为内存单例（单实例安全）
 //
 // TTL 内重复 key 已存在即命中返回 true；SetNX 异常时放行并告警（可用性优先）。
+// 使用 context.Background() 而非入参 ctx：Bridge WS 生命周期短（重连循环会 cancel ctx），
+// 而去重是基础设施功能，不应受连接生命周期影响。详见 trace ad589b80 双 orchestrator 根因。
 func (s *WebhookService) isDuplicate(ctx context.Context, eventID string) bool {
 	if eventID == "" {
 		return false
 	}
 	key := "mtk:webhook:dedup:" + eventID
-	set, err := cache.GetGlobalCache().SetNX(ctx, key, "1", WebhookDedupTTL)
+	set, err := cache.GetGlobalCache().SetNX(context.Background(), key, "1", WebhookDedupTTL)
 	if err != nil {
 		logger.Ctx(ctx).Warn().Err(err).Str("event_id", eventID).Msg("[webhook] dedup 后端异常，放行")
 		return false
