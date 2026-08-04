@@ -778,6 +778,18 @@ export class BaseAdapter {
     if (!this.getConversationId()) return;
     const parsed = this.parseMessageItem(item);
     if (!parsed) return;
+    // 宽限期守卫：若当前处于宽限期内且消息是客户发的，先仅落库（history），不标记 seenNodes，
+    // 让宽限期后 MutationObserver 再次捕获时能正确转为 inbound 触发 AI。
+    // 内容指纹去重（seen）仍生效防止重复落库，但 DOM 节点级去重（seenNodes）留到 inbound 时再标记。
+    if (Date.now() < this.historyGraceUntil && parsed.sender_type === SENDER.CUSTOMER) {
+      const key = this._keyOf(parsed);
+      if (!this.seen.has(key)) {
+        this.seen.add(key);
+        this._pushWindow(parsed);
+        this._emitHistory(parsed, DIRECTION.INBOUND);
+      }
+      return; // 不标记 seenNodes，宽限期后 MutationObserver 会再次触发 → 走 _emitInbound
+    }
     if (item) this.seenNodes.add(item);
     this._ingest(parsed);
   }
