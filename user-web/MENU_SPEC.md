@@ -83,10 +83,10 @@
   - **小红书卡片统计** (DataAnalysis) `/xiaohongshu/stats` → `@/views/xiaohongshuCard/Stats.vue`
   - **小红书卡片详情统计** (DataAnalysis) `/xiaohongshu-card-stats/:id` → `@/views/xiaohongshuCard/CardStats.vue`
   - **小红书自动回复** (ChatDotRound) `/xiaohongshu/auto-reply` → `@/views/xiaohongshuCard/AutoReply.vue`
-  - **咸鱼卡片** (ShoppingBag) `/xianyuCard` → `@/views/xianyuCard/List.vue`
-  - **咸鱼卡片统计** (DataAnalysis) `/xianyu/stats` → `@/views/xianyuCard/Stats.vue`
-  - **咸鱼卡片详情统计** (DataAnalysis) `/xianyu-card-stats/:id` → `@/views/xianyuCard/CardStats.vue`
-  - **咸鱼自动回复** (ChatDotRound) `/xianyu/auto-reply` → `@/views/xianyuCard/AutoReply.vue`
+  - **闲鱼卡片** (ShoppingBag) `/xianyuCard` → `@/views/xianyuCard/List.vue`
+  - **闲鱼卡片统计** (DataAnalysis) `/xianyu/stats` → `@/views/xianyuCard/Stats.vue`
+  - **闲鱼卡片详情统计** (DataAnalysis) `/xianyu-card-stats/:id` → `@/views/xianyuCard/CardStats.vue`
+  - **闲鱼自动回复** (ChatDotRound) `/xianyu/auto-reply` → `@/views/xianyuCard/AutoReply.vue`
   - **批量操作** (Operation) `/batchOperation/list` → `@/views/batchOperation/List.vue`
   - **活码管理** `/livecode` → `@/views/livecode/LiveCodeManagement.vue`
   - **短链管理** (Link) `/shortLink` → `@/views/shortLink/List.vue`
@@ -153,10 +153,10 @@
 | `/oneid` | 页面不存在 | `@/views/NotFound.vue` | — | — |  | /oneid/list |
 | `/setup` | 系统初始化 | `@/views/setup/InitSetup.vue` | — | — |  | /chat/embed/default |
 | `/telegram/group` | 页面不存在 | `@/views/NotFound.vue` | — | — |  | /telegram/account |
-| `/xianyu-card-stats/:id` | 咸鱼卡片详情统计 | `@/views/xianyuCard/CardStats.vue` | community | DataAnalysis |  | — |
-| `/xianyu/auto-reply` | 咸鱼自动回复 | `@/views/xianyuCard/AutoReply.vue` | community | ChatDotRound |  | — |
-| `/xianyu/stats` | 咸鱼卡片统计 | `@/views/xianyuCard/Stats.vue` | community | DataAnalysis |  | — |
-| `/xianyuCard` | 咸鱼卡片 | `@/views/xianyuCard/List.vue` | community | ShoppingBag |  | — |
+| `/xianyu-card-stats/:id` | 闲鱼卡片详情统计 | `@/views/xianyuCard/CardStats.vue` | community | DataAnalysis |  | — |
+| `/xianyu/auto-reply` | 闲鱼自动回复 | `@/views/xianyuCard/AutoReply.vue` | community | ChatDotRound |  | — |
+| `/xianyu/stats` | 闲鱼卡片统计 | `@/views/xianyuCard/Stats.vue` | community | DataAnalysis |  | — |
+| `/xianyuCard` | 闲鱼卡片 | `@/views/xianyuCard/List.vue` | community | ShoppingBag |  | — |
 | `/xiaohongshu-card-stats/:id` | 小红书卡片详情统计 | `@/views/xiaohongshuCard/CardStats.vue` | community | DataAnalysis |  | — |
 | `/xiaohongshu/auto-reply` | 小红书自动回复 | `@/views/xiaohongshuCard/AutoReply.vue` | community | ChatDotRound |  | — |
 | `/xiaohongshu/stats` | 小红书卡片统计 | `@/views/xiaohongshuCard/Stats.vue` | community | DataAnalysis |  | — |

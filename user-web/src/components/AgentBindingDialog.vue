@@ -93,6 +93,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { listBindings, createBinding, updateBinding, deleteBinding } from '@/api/channelAgentBinding.js'
 import { listEnabledAgents } from '@/api/aiAgent.js'
+import { getChannelLabel } from '@/constants/channel'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -108,14 +109,7 @@ const visible = computed({
   set: (v) => emit('update:modelValue', v)
 })
 
-const channelTypeLabel = computed(() => {
-  const map = {
-    telegram: 'Telegram', wecom: '企业微信', feishu: '飞书',
-    whatsapp: 'WhatsApp', douyin: '抖音', xiaohongshu: '小红书',
-    kuaishou: '快手', xianyu: '闲鱼', tiktok: 'TikTok'
-  }
-  return map[props.channelType] || props.channelType
-})
+const channelTypeLabel = computed(() => getChannelLabel(props.channelType))
 
 const loading = ref(false)
 const adding = ref(false)

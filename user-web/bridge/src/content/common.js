@@ -84,6 +84,8 @@ export function scanDomSnapshot() {
       'textarea',
       '[role="textbox"]',
       '[contenteditable=""]',
+      '.sendbox textarea',
+      'textarea.ant-input',
     ];
     return uniqueQueryAll(root, sels);
   });
@@ -99,6 +101,8 @@ export function scanDomSnapshot() {
       '[class*="e2e-send-msg-btn"]',
       '[class*="send-msg"]',
       'svg[class*="send"]',
+      '.sendbox button',
+      '[class*="sendbox" i] button',
     ];
     return uniqueQueryAll(root, sels);
   });
@@ -117,15 +121,27 @@ export function scanDomSnapshot() {
       '[class*="contact"]',
       '[class*="list"]',
       '[class*="recycle"]',
+      '[class*="sidebar"]',
+      '[class*="conv-list"]',
+      '[id*="conv-list"]',
+      '[id*="message-list"]',
       '[data-e2e*="message"]',
       '[data-e2e*="chat"]',
     ];
     return uniqueQueryAll(root, sels);
   });
-  const visibleListRoots = listRoots.filter((el) => isVisible(el)).slice(0, 8);
+  // 优先：conversation-list / conv-list / sider 排除 chat-main（右侧面板）
+  const chatMainRegex = /chat-main|chat-main|ChatMain|ant-layout-content/i;
+  const prioritized = listRoots.filter((el) => {
+    const cls = el.className || '';
+    return /conversation-list|conv-list|sider|chat-list/i.test(cls) && !chatMainRegex.test(cls);
+  });
+  const visibleListRoots = (prioritized.length ? prioritized : listRoots)
+    .filter((el) => isVisible(el))
+    .slice(0, 8);
 
   // 4) 截图 href（个人主页链接 → 推断账号 id）
-  const accountLinks = uniqueQueryAll(document, ['a[href*="/user/"]', 'a[href*="/@"]', 'a[href*="profile"]'])
+  const accountLinks = uniqueQueryAll(document, ['a[href*="/user/"]', 'a[href*="/@"]', 'a[href*="profile"]', 'a[href*="personal?userId="]'])
     .filter((el) => isVisible(el))
     .slice(0, 5);
   const accountHints = accountLinks.map((a) => ({
@@ -154,6 +170,9 @@ export function scanDomSnapshot() {
     '[class*="chatItem"]',
     '[class*="ChatItem"]',
     '[class*="messageBubble"]',
+    '[class*="message-row"]',
+    '[class*="MessageRow"]',
+    '[class*="message-text"]',
   ];
   const msgItems = uniqueQueryAll(document, msgItemCandidates).filter((el) => isVisible(el));
   const msgItemSample = msgItems.slice(0, 5).map((el) => elementSummary(el));
@@ -165,7 +184,7 @@ export function scanDomSnapshot() {
   //    （im-chat-window / xhs-im-chat-window / chat-window 等）向下钻取，
   //    列出每层可见子节点的 class + 文本，精确定位真实气泡 class。
   const threadRoot = document.querySelector(
-    '.im-chat-window, [class*="xhs-im-chat-window"], [class*="chat-window"], [class*="ChatWindow"], [class*="chat-content"], [class*="ChatContent"], [class*="im-chat"], [class*="ImChat"]'
+    '#message-list-scrollable, .im-chat-window, [class*="xhs-im-chat-window"], [class*="chat-window"], [class*="ChatWindow"], [class*="chat-content"], [class*="ChatContent"], [class*="im-chat"], [class*="ImChat"], [class*="chat-main"], [class*="ChatMain"], [class*="message-list-reverse"]'
   );
   let threadTree = [];
   if (threadRoot) {

@@ -25,7 +25,7 @@ type CardChatTemplateData struct {
 	Tags          string
 	TagList       []string
 	Platform      string // douyin / kuaishou / xiaohongshu / xianyu
-	PlatformLabel string // 抖音 / 快手 / 小红书 / 咸鱼
+	PlatformLabel string // 抖音 / 快手 / 小红书 / 闲鱼
 	ThemeColor    string // 品牌色
 	ChatURL       string // 跳转到 embed chat 的 URL
 }
@@ -122,7 +122,7 @@ func (s *TemplateService) GenerateKuaishouCardPage(data *CardTemplateData) (stri
 	return buf.String(), nil
 }
 
-// RenderXianyuCard 渲染咸鱼卡片
+// RenderXianyuCard 渲染闲鱼卡片
 func (s *TemplateService) RenderXianyuCard(card any) (string, error) {
 	tmplPath := filepath.Join(s.templateDir, "xianyu_card.html")
 	tmpl, err := template.ParseFiles(tmplPath)
@@ -148,7 +148,7 @@ func PlatformLabel(platform string) string {
 	case "xiaohongshu":
 		return "小红书"
 	case "xianyu":
-		return "咸鱼"
+		return "闲鱼"
 	default:
 		return platform
 	}
@@ -210,7 +210,7 @@ func ParseTagList(tags string) []string {
 	return out
 }
 
-// GenerateCardChatPage 生成卡片聊天页（抖音 / 快手 / 小红书 / 咸鱼 四平台统一模板）
+// GenerateCardChatPage 生成卡片聊天页（抖音 / 快手 / 小红书 / 闲鱼 四平台统一模板）
 func (s *TemplateService) GenerateCardChatPage(data *CardChatTemplateData) (string, error) {
 	tmplPath := filepath.Join(s.templateDir, "card_chat.html")
 	tmpl, err := template.New("card_chat.html").Funcs(template.FuncMap{

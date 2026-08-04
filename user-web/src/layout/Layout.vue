@@ -383,12 +383,12 @@ const topMenus = ref([
       },
       {
         key: 'xianyu',
-        title: '咸鱼',
+        title: '闲鱼',
         icon: 'ShoppingBag',
         children: [
-          { key: 'xianyuCard', title: '咸鱼卡片', icon: 'ShoppingBag', path: '/xianyuCard' },
-          { key: 'xianyuAutoReply', title: '咸鱼自动回复', icon: 'ChatDotRound', path: '/xianyu/auto-reply' },
-          { key: 'xianyuStats', title: '咸鱼统计', icon: 'DataAnalysis', path: '/xianyu/stats' }
+          { key: 'xianyuCard', title: '闲鱼卡片', icon: 'ShoppingBag', path: '/xianyuCard' },
+          { key: 'xianyuAutoReply', title: '闲鱼自动回复', icon: 'ChatDotRound', path: '/xianyu/auto-reply' },
+          { key: 'xianyuStats', title: '闲鱼统计', icon: 'DataAnalysis', path: '/xianyu/stats' }
         ]
       },
       {

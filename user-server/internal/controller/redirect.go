@@ -16,7 +16,7 @@ import (
 // RedirectController 短链重定向控制器
 //
 // 私域部署（升级）：
-//   - 抖音 / 快手 / 小红书 / 咸鱼 四个平台的卡片短链统一跳转到「卡片聊天页」
+//   - 抖音 / 快手 / 小红书 / 闲鱼 四个平台的卡片短链统一跳转到「卡片聊天页」
 //   - 卡片聊天页包含卡片信息 + 联系客服按钮，点击按钮打开 /chat/embed/{platform}_card_{id}
 //   - 不再直接 302 跳转到外部 redirect_url，避免跳出客服域
 //
@@ -95,13 +95,13 @@ func (ctrl *RedirectController) RedirectShortLink(ctx *gin.Context) {
 		return
 	}
 
-	// 咸鱼卡片：/xianyu/card/{id}
+	// 闲鱼卡片：/xianyu/card/{id}
 	if id, ok := extractCardID(originalURL, "/xianyu/card/"); ok {
 		renderCardChatPage(ctx, ctrl.xianyuCardService.GenerateCardChatPage, id, baseURL)
 		return
 	}
 
-	// 兼容旧数据：咸鱼卡片短链此前直接使用 card.RedirectURL 作为 OriginalURL
+	// 兼容旧数据：闲鱼卡片短链此前直接使用 card.RedirectURL 作为 OriginalURL
 	// 这里无法判断平台，只能按外链处理（302 跳转）
 	target := originalURL
 	if u, err := url.Parse(target); err != nil || (u.Scheme != "http" && u.Scheme != "https") {

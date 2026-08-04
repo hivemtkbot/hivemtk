@@ -318,7 +318,7 @@ func (s *ChatChannelService) GetOrCreateDefaultChannel(ctx context.Context) (*mo
 
 // cardChannelMeta 卡片渠道元数据（4 平台统一）
 type cardChannelMeta struct {
-	PlatformLabel string // 抖音 / 快手 / 小红书 / 咸鱼
+	PlatformLabel string // 抖音 / 快手 / 小红书 / 闲鱼
 	ThemeColor    string // 品牌主题色
 }
 
@@ -326,7 +326,7 @@ var cardChannelMetas = map[string]cardChannelMeta{
 	"douyin":      {PlatformLabel: "抖音", ThemeColor: "#000000"},
 	"kuaishou":    {PlatformLabel: "快手", ThemeColor: "#ff5000"},
 	"xiaohongshu": {PlatformLabel: "小红书", ThemeColor: "#ff2442"},
-	"xianyu":      {PlatformLabel: "咸鱼", ThemeColor: "#ff4400"},
+	"xianyu":      {PlatformLabel: "闲鱼", ThemeColor: "#ff4400"},
 }
 
 // IsCardChannelRef 判断 channel_ref 是否为卡片渠道标识（{platform}_card）
@@ -342,7 +342,7 @@ func IsCardChannelRef(ref string) (string, bool) {
 
 // GetOrCreateCardChannel 获取或自动创建卡片渠道（4 平台统一）
 //
-// 私域部署模式：抖音/快手/小红书/咸鱼 4 个平台的卡片分享页
+// 私域部署模式：抖音/快手/小红书/闲鱼 4 个平台的卡片分享页
 // 通过此渠道接入网页客服。首次访问时自动创建，无需管理员手动配置。
 // 后续可在管理后台修改欢迎语、主题色等。
 //

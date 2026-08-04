@@ -45,19 +45,19 @@ type CardOverallStatsResult struct {
 	TopCards        []CardTopStats
 }
 
-// XianyuCardStatsRepository 咸鱼卡片统计仓库接口
+// XianyuCardStatsRepository 闲鱼卡片统计仓库接口
 type XianyuCardStatsRepository interface {
 	GetCardStats(ctx context.Context, cardID uint, startDate, endDate time.Time) (*CardStatsResult, error)
 	GetOverallStats(ctx context.Context, startDate, endDate time.Time) (*CardOverallStatsResult, error)
 	RecordActivity(ctx context.Context, cardID uint, activityType, ip, userAgent, referer string) error
 }
 
-// xianyuCardStatsRepository 咸鱼卡片统计仓库实现
+// xianyuCardStatsRepository 闲鱼卡片统计仓库实现
 type xianyuCardStatsRepository struct {
 	db *gorm.DB
 }
 
-// NewXianyuCardStatsRepository 创建咸鱼卡片统计仓库
+// NewXianyuCardStatsRepository 创建闲鱼卡片统计仓库
 func NewXianyuCardStatsRepository(db *gorm.DB) XianyuCardStatsRepository {
 	return &xianyuCardStatsRepository{db: db}
 }

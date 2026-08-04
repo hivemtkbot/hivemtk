@@ -58,6 +58,8 @@ type ReachAdapter interface {
 	SendXHS(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
 	// SendTikTok TikTok 私信（仅网页桥接支持，无官方 API）
 	SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
+	// SendXianyu 闲鱼私信（仅网页桥接支持，无官方 API）
+	SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (msgID string, err error)
 	// SendDingTalk 钉钉发送
 	SendDingTalk(ctx context.Context, chatID, msgType, content string) (msgID string, err error)
 	// SendTelegram 通过 Telegram Bot API 发送消息
@@ -132,6 +134,9 @@ func (NoOpReachAdapter) SendXHS(ctx context.Context, accountID, openID, msgType,
 	return "", ErrAdapterNotConfigured
 }
 func (NoOpReachAdapter) SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
+	return "", ErrAdapterNotConfigured
+}
+func (NoOpReachAdapter) SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
 	return "", ErrAdapterNotConfigured
 }
 func (NoOpReachAdapter) SendDingTalk(ctx context.Context, chatID, msgType, content string) (string, error) {
@@ -244,6 +249,8 @@ func (b *reachChannelAdapterBridge) Send(ctx context.Context, req *service.Reach
 		return b.adapter.SendXHS(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
 	case "tiktok", "tiktok_web":
 		return b.adapter.SendTikTok(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
+	case "xianyu", "xianyu_web":
+		return b.adapter.SendXianyu(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
 	case "dingtalk":
 		return b.adapter.SendDingTalk(ctx, req.RecipientID, req.MsgType, req.Content)
 	case "telegram":

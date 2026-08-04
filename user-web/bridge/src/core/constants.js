@@ -46,11 +46,13 @@ export const DEFAULT_USER_SERVER = {
 //   - 抖音聊天页：https://www.douyin.com/chat
 //   - 小红书聊天页：https://www.xiaohongshu.com/chat
 //   - TikTok 私信：https://www.tiktok.com/messages（官网消息入口）
-// 用途：popup 「打开抖音/小红书/TikTok 私信」按钮的跳转目标
+//   - 闲鱼聊天页：https://www.goofish.com/im（闲鱼 IM 入口）
+// 用途：popup 「打开抖音/小红书/TikTok/闲鱼 私信」按钮的跳转目标
 export const PLATFORM_ENTRY_URLS = {
   douyin_web: 'https://www.douyin.com/chat',
   xhs_web: 'https://www.xiaohongshu.com/chat',
-  tiktok_web: 'https://www.tiktok.com/messages',
+  tiktok: 'https://www.tiktok.com/messages',
+  xianyu_web: 'https://www.goofish.com/im',
 };
 
 // =============================================================
@@ -129,12 +131,13 @@ export const UI_DEFAULTS = Object.freeze({
   // 状态轮询：popup 打开时拉一次，无轮询
 });
 
-// 渠道展示名 → 统一只显示「抖音 / 小红书 / TikTok」，不出现「抖音私信(网页)」这类冗长写法
-// （需求④：只有一个渠道名称、来源平台编码只有 抖音/小红书，列表渲染/搜索同理）
+// 渠道展示名 → 统一只显示「抖音 / 小红书 / TikTok / 闲鱼」，不出现「抖音私信(网页)」这类冗长写法
+// （需求④：只有一个渠道名称、来源平台编码只有 抖音/小红书/闲鱼/TikTok，列表渲染/搜索同理）
 export const CHANNEL_DISPLAY = Object.freeze({
   douyin_web: '抖音',
   xhs_web: '小红书',
-  tiktok_web: 'TikTok',
+  tiktok: 'TikTok',
+  xianyu_web: '闲鱼',
 });
 
 // =============================================================
@@ -143,7 +146,7 @@ export const CHANNEL_DISPLAY = Object.freeze({
 // 文档源：bridge.md §3 / frames.go Frame* 常量
 // 警告：frame 名称是协议契约，禁改字面量
 export const PROTOCOL = Object.freeze({
-  CHANNELS: { DOUYIN: 'douyin_web', XHS: 'xhs_web', TIKTOK: 'tiktok_web' },
+  CHANNELS: { DOUYIN: 'douyin_web', XHS: 'xhs_web', TIKTOK: 'tiktok', XIANYU: 'xianyu_web' },
   FRAME: {
     REGISTER: 'register',
     INBOUND: 'inbound_message',
@@ -154,7 +157,7 @@ export const PROTOCOL = Object.freeze({
     ACK: 'ack',
     ERROR: 'error',
   },
-  SENDER: { CUSTOMER: 'customer', AGENT: 'agent', SELF: 'self' },
+  SENDER: { CUSTOMER: 'customer', AGENT: 'agent', SELF: 'self', SYSTEM: 'system' },
   DIRECTION: { INBOUND: 'inbound', OUTBOUND: 'outbound' },
 });
 

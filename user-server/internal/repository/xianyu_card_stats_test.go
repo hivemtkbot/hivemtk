@@ -11,7 +11,7 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
-// setupXianyuCardStatsTestDB 设置咸鱼卡片统计测试数据库
+// setupXianyuCardStatsTestDB 设置闲鱼卡片统计测试数据库
 func setupXianyuCardStatsTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XianyuCard{},
@@ -21,7 +21,7 @@ func setupXianyuCardStatsTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// setupXianyuCardStatsRepository 创建测试用的咸鱼卡片统计仓库实例
+// setupXianyuCardStatsRepository 创建测试用的闲鱼卡片统计仓库实例
 func setupXianyuCardStatsRepository(t *testing.T) XianyuCardStatsRepository {
 	setupXianyuCardStatsTestDB(t)
 	return NewXianyuCardStatsRepository(db.GetDB())

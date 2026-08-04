@@ -3,7 +3,7 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span>{{ $t('咸鱼卡片管理') }}</span>
+          <span>{{ $t('闲鱼卡片管理') }}</span>
           <div class="header-actions">
             <el-button type="primary" icon="DataAnalysis" @click="goToStats">
               {{ $t('统计分析') }}
@@ -32,7 +32,7 @@
         </el-form-item>
       </el-form>
 
-      <!-- 咸鱼卡片列表 -->
+      <!-- 闲鱼卡片列表 -->
       <el-table :data="tableData" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" width="180" />
@@ -302,14 +302,14 @@ const resetForm = () => {
 
 // 添加卡片
 const handleAdd = () => {
-  dialogTitle.value = '添加咸鱼卡片'
+  dialogTitle.value = '添加闲鱼卡片'
   resetForm()
   dialogVisible.value = true
 }
 
 // 编辑卡片
 const handleEdit = async (row) => {
-  dialogTitle.value = '编辑咸鱼卡片'
+  dialogTitle.value = '编辑闲鱼卡片'
   try {
     const res = await getXianyuCard(row.id)
     // 拦截器已解包，res 直接就是数据对象

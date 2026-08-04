@@ -65,7 +65,7 @@ type xianyuSaveRuleReq struct {
 	IsActive     bool   `json:"is_active"`
 }
 
-// 启动登录流程：创建账号记录并打开浏览器到咸鱼页面，登录后自动保存 Cookie
+// 启动登录流程：创建账号记录并打开浏览器到闲鱼页面，登录后自动保存 Cookie
 func (c *XianyuAutoReplyController) StartLogin(ctx *gin.Context) {
 	var req struct {
 		Username string `json:"username"`
@@ -133,7 +133,7 @@ func (c *XianyuAutoReplyController) LoginStatus(ctx *gin.Context) {
 		if a.Username == username {
 			accountId = a.ID
 			if a.Cookie != "" {
-				// 咸鱼平台关键Cookie严格判定（仅登录后出现的Cookie）
+				// 闲鱼平台关键Cookie严格判定（仅登录后出现的Cookie）
 				// 优先检测 xianyu_sid cookie值
 				if strings.Contains(a.Cookie, "xianyu_sid=") {
 					status = "logged_in"

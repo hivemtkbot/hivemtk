@@ -69,11 +69,14 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 		case ChannelXHSWeb:
 			_, err := a.SendXHS(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
 			return err
-		case ChannelTikTokWeb:
+		case ChannelTikTok:
 			_, err := a.SendTikTok(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
 			return err
 		case ChannelKuaishouWeb:
 			_, err := a.SendKuaishou(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
+			return err
+		case ChannelXianyuWeb:
+			_, err := a.SendXianyu(WithEventID(ctx, eventID), accountID, conversationID, msgType, content)
 			return err
 		default:
 			return fmt.Errorf("bridge: 不支持的桥接渠道 %q", channel)
@@ -266,11 +269,20 @@ func (a *BridgeReachAdapter) SendCard(ctx context.Context, channel, accountID, e
 
 // SendTikTok 网页 TikTok 渠道：离线降级落库
 func (a *BridgeReachAdapter) SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelTikTokWeb, accountID) {
-		return a.deliverWS(ctx, ChannelTikTokWeb, accountID, openID, msgType, content, extractEventID(ctx))
+	if a.hub.IsOnline(ChannelTikTok, accountID) {
+		return a.deliverWS(ctx, ChannelTikTok, accountID, openID, msgType, content, extractEventID(ctx))
 	}
 	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
-	return a.persistFailedOutbound(ctx, ChannelTikTokWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.persistFailedOutbound(ctx, ChannelTikTok, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+}
+
+// SendXianyu 网页闲鱼渠道：离线降级落库
+func (a *BridgeReachAdapter) SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
+	if a.hub.IsOnline(ChannelXianyuWeb, accountID) {
+		return a.deliverWS(ctx, ChannelXianyuWeb, accountID, openID, msgType, content, extractEventID(ctx))
+	}
+	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
+	return a.persistFailedOutbound(ctx, ChannelXianyuWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
 }
 
 func (a *BridgeReachAdapter) Recall(ctx context.Context, channel, msgID string) error {

@@ -23,6 +23,7 @@ import {
 // 静态导入各渠道 SEL 默认值（展示当前生效值用，不触发 DOM 探测）
 import { SEL as DOUYIN_SEL } from '../channels/douyin.js';
 import { SEL as XHS_SEL } from '../channels/xhs.js';
+import { SEL as XIANYU_SEL } from '../channels/xianyu.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,11 +53,11 @@ function lastError() {
 //   - "The message port closed before a response was received."        → receiver 异步丢失
 //   - "Message manager disconnected"                                   → MV3 通道关闭
 function diagnoseUninjected(errMsg, tabUrl) {
-  const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tabUrl || '');
+  const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(tabUrl || '');
   const lines = [];
   if (errMsg && /Could not establish connection|Receiving end does not exist|port closed|disconnected/i.test(errMsg)) {
     if (!onSupportedHost) {
-      lines.push('  1. 当前 URL 不在 manifest matches 范围内（仅抖音/小红书/TikTok 网页版生效）');
+      lines.push('  1. 当前 URL 不在 manifest matches 范围内（仅抖音/小红书/TikTok/闲鱼网页版生效）');
     } else {
       lines.push('  1. 扩展未加载 / 被禁用（chrome://extensions 检查开关）');
       lines.push('  2. content script 尚未执行（请等待页面加载完成，或按 Ctrl+Shift+R 强制刷新一次）');
@@ -180,7 +181,7 @@ async function testConnection(serverUrl) {
   return { ok: false, url: base, reason: 'unreachable', detail: lastNetErr };
 }
 
-// 渠道展示名：统一只显示「抖音 / 小红书 / TikTok」，不出现 douyin_web/xhs_web 这类内部编码
+// 渠道展示名：统一只显示「抖音 / 小红书 / TikTok / 闲鱼」，不出现 douyin_web/xhs_web 这类内部编码
 // （需求④：只有一个渠道名称、列表渲染/搜索同理）。内部协议码仍用 *_web，仅展示层归一化。
 function channelDisplayName(channel) {
   if (!channel) return '';
@@ -245,9 +246,9 @@ function selfCheck() {
         return;
       }
       // 第一道闸：域名白名单
-      const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tab.url);
+      const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(tab.url);
       if (!onSupportedHost) {
-        $('selfOut').textContent = `当前标签页不是抖音/小红书/TikTok：\n${tab.url}\n\n请在对应平台网页（已登录）上点击。`;
+        $('selfOut').textContent = `当前标签页不是抖音/小红书/TikTok/闲鱼：\n${tab.url}\n\n请在对应平台网页（已登录）上点击。`;
         return;
       }
       // 第二道闸：ping 探活
@@ -385,7 +386,7 @@ function runDeepSelfcheck(tab, header) {
         // 后者通常意味着 content script 未注入（已在前序 ping 阶段拦截）
         const isPortClosed = /port closed|disconnected/i.test(err);
         const guide = isPortClosed
-          ? '\n\n可能原因：\n  1. 当前页 DOM 极重（消息列表很长 / 大量虚拟滚动节点），扫描耗时超长\n  2. 标签页处于后台，Chrome 限流 / 冻结了 content script\n  3. 页面在扫描过程中发生了 SPA 路由切换\n\n建议：\n  · 关闭其他抖音/小红书/TikTok 标签，仅保留当前私信页\n  · 滚动到顶部让虚拟列表回收\n  · 按 Ctrl+Shift+R 强制刷新一次后再试'
+          ? '\n\n可能原因：\n  1. 当前页 DOM 极重（消息列表很长 / 大量虚拟滚动节点），扫描耗时超长\n  2. 标签页处于后台，Chrome 限流 / 冻结了 content script\n  3. 页面在扫描过程中发生了 SPA 路由切换\n\n建议：\n  · 关闭其他抖音/小红书/TikTok/闲鱼标签，仅保留当前私信页\n  · 滚动到顶部让虚拟列表回收\n  · 按 Ctrl+Shift+R 强制刷新一次后再试'
           : '\n\n可能原因：\n  · content script 未注入（请先点「自检当前私信页」执行 ping 探活）\n  · 扩展被禁用 / URL 不在 manifest matches 范围';
         $('selfOut').textContent = prefix + 'deepSelfcheck 失败：' + err + guide;
         return;
@@ -527,16 +528,16 @@ function syncAllConversations() {
         $('selfOut').textContent = '无活动标签页';
         return;
       }
-      const onSupportedHost = /douyin\.com|xiaohongshu\.com/i.test(tab.url || '');
+      const onSupportedHost = /douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(tab.url || '');
       if (!onSupportedHost) {
-        $('selfOut').textContent = '当前标签页不是抖音/小红书：\n' + (tab.url || '');
+        $('selfOut').textContent = '当前标签页不是抖音/小红书/TikTok/闲鱼：\n' + (tab.url || '');
         return;
       }
       $('selfOut').textContent = '正在全量同步私信会话…（可能需要数分钟，请勿切换标签页）';
       chrome.tabs.sendMessage(tab.id, { type: 'syncAllConversations' }, (resp) => {
         const err = lastError();
         if (err) {
-          $('selfOut').textContent = '触发全量同步失败：' + err + '\n\n可能原因：\n  1. 当前页面未注入桥接（请先点「自检当前私信页」）\n  2. 当前不是私信页（需打开抖音/小红书聊天页）';
+          $('selfOut').textContent = '触发全量同步失败：' + err + '\n\n可能原因：\n  1. 当前页面未注入桥接（请先点「自检当前私信页」）\n  2. 当前不是私信页（需打开抖音/小红书/闲鱼聊天页）';
           return;
         }
         if (!resp) {
@@ -558,7 +559,7 @@ function syncAllConversations() {
   }
 }
 
-// ---- 选择器配置：抖音/小红书 切换页 分别配置（需求①）----
+// ---- 选择器配置：抖音/小红书/闲鱼 切换页 分别配置（需求①）----
 // 字段 <-> 输入框 id 映射（与 SELECTOR_FIELDS 顺序一致）
 const SEL_FIELD_IDS = {
   conversationList: 'selConversationList',
@@ -588,6 +589,7 @@ const SEL_FIELD_TO_PROP = {
 const CHANNEL_SEL_MAP = {
   douyin_web: DOUYIN_SEL,
   xhs_web: XHS_SEL,
+  xianyu_web: XIANYU_SEL,
   tiktok_web: {}, // TikTok 暂无独立适配器，留空
 };
 
@@ -639,14 +641,14 @@ function collectSelectorConfig() {
   return cfg;
 }
 
-// 广播选择器更新到所有抖音/小红书/TikTok 标签页，触发 content script 重新水合并立即生效
+// 广播选择器更新到所有抖音/小红书/TikTok/闲鱼标签页，触发 content script 重新水合并立即生效
 function broadcastSelectorsUpdated() {
   try {
     chrome.tabs.query({}, (tabs) => {
       const list = Array.isArray(tabs) ? tabs : [];
       for (const t of list) {
         if (!t || !t.id || !t.url) continue;
-        if (!/douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(t.url)) continue;
+        if (!/douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(t.url)) continue;
         try {
           chrome.tabs.sendMessage(t.id, { type: 'selectorsUpdated' }, () => { /* 忽略 lastError：未注入/已关闭均正常 */ try { void chrome.runtime.lastError; } catch (_) {} });
         } catch (_) { /* 接收端不存在：忽略 */ }
@@ -666,7 +668,7 @@ function wireSelectorConfig() {
       if (panel.style.display !== 'none') loadSelectorConfig(selActiveChannel);
     });
   }
-  // Tab 切换：点击抖音/小红书/TikTok 标签 → 切到对应渠道并回填其已存配置
+  // Tab 切换：点击抖音/小红书/TikTok/闲鱼标签 → 切到对应渠道并回填其已存配置
   const tabs = document.querySelectorAll ? document.querySelectorAll('.sel-tab') : [];
   for (const tab of Array.from(tabs)) {
     tab.addEventListener('click', () => {
@@ -719,7 +721,7 @@ function sendToActiveTab(msg, cb) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs && tabs[0];
       if (!tab || !tab.id) { cb && cb({ ok: false, reason: 'no-active-tab' }); return; }
-      if (!tab.url || !/douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tab.url)) {
+      if (!tab.url || !/douyin\.com|xiaohongshu\.com|tiktok\.com|goofish\.com|xianyu\.com/i.test(tab.url)) {
         cb && cb({ ok: false, reason: 'not-supported-host', url: tab.url });
         return;
       }
@@ -840,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveConfig(cfg, (ok) => {
       btn.disabled = false;
       if (ok) {
-        showBanner('success', '✓ 已保存', '配置已写入 Chrome storage，background 收到。新打开抖音/小红书/TikTok 私信页即生效。');
+        showBanner('success', '✓ 已保存', '配置已写入 Chrome storage，background 收到。新打开抖音/小红书/TikTok/闲鱼私信页即生效。');
       }
       refreshStatus();
     });
@@ -861,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (r.ok && r.degraded) {
       showBanner('warn', '⚠ 服务端可达但已降级', `${r.url}  HTTP ${r.status}\n\nPG/Redis/LLM 依赖可能故障。桥接仍可工作，但 AI 回复会变慢或失败。`);
     } else if (r.ok) {
-      showBanner('success', '✓ 服务端可达', `${r.url}  HTTP ${r.status}\n\n请打开 抖音/小红书/TikTok 私信页启动桥接。`);
+      showBanner('success', '✓ 服务端可达', `${r.url}  HTTP ${r.status}\n\n请打开 抖音/小红书/TikTok/闲鱼 私信页启动桥接。`);
     } else if (r.reason === 'empty') {
       showBanner('error', '请输入服务端地址', '例如 ' + DEFAULT_PLACEHOLDER);
     } else if (r.reason && /^http_/.test(r.reason)) {
@@ -886,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyBtn = $('copySelfOut');
   if (copyBtn) copyBtn.addEventListener('click', copySelfOut);
 
-  // ---- 选择器配置（切换 抖音/小红书 分别配置；需求①）----
+  // ---- 选择器配置（切换 抖音/小红书/闲鱼 分别配置；需求①）----
   // 现场识别 HTML 后，按渠道 Tab 切换 → 填入对应选择器 → 保存（立即生效，广播给 content script）。
   wireSelectorConfig();
 
@@ -898,6 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin_web));
   $('openXhs').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xhs_web));
   $('openTiktok').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.tiktok_web));
+  $('openXianyu').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xianyu_web));
 
   // 首次打开时拉一次状态
   refreshStatus();

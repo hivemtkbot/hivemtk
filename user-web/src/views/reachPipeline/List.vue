@@ -95,7 +95,7 @@
                 style="width: 140px; margin-left: 8px"
                 @change="onPipeFilterChange"
               >
-                <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+                <el-option v-for="c in CHANNEL_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
               <el-select
                 v-model="pipeFilter.status"
@@ -193,7 +193,7 @@
                 style="width: 140px; margin-left: 8px"
                 @change="onJobFilterChange"
               >
-                <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+                <el-option v-for="c in CHANNEL_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
               <el-select
                 v-model="jobFilter.state"
@@ -366,7 +366,7 @@
         </el-form-item>
         <el-form-item label="渠道" prop="channel">
           <el-select v-model="pipeForm.channel" style="width: 100%" placeholder="请选择渠道">
-            <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+            <el-option v-for="c in CHANNEL_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="Pipeline 步骤" prop="steps">
@@ -503,7 +503,7 @@
         </el-form-item>
         <el-form-item label="渠道">
           <el-select v-model="jobForm.channel" placeholder="默认跟随 Pipeline" clearable style="width: 100%">
-            <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+            <el-option v-for="c in CHANNEL_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="目标客户ID" prop="customer_id">
@@ -587,19 +587,9 @@ import {
   CircleCheck, CircleClose, Timer, Warning
 } from '@element-plus/icons-vue'
 import { reachPipelineApi } from '@/api/reachPipeline.js'
+import { CHANNEL_OPTIONS, getChannelLabel } from '@/constants/channel'
 
 // ====== 常量映射 ======
-const channelOptions = [
-  { value: 'wecom', label: '企微' },
-  { value: 'sms', label: '短信' },
-  { value: 'email', label: '邮件' },
-  { value: 'card', label: '卡片' },
-  { value: 'weixin', label: '微信' },
-  { value: 'dingtalk', label: '钉钉' },
-  { value: 'douyin', label: '抖音' },
-  { value: 'kuaishou', label: '快手' },
-  { value: 'xiaohongshu', label: '小红书' }
-]
 
 const stepOptions = [
   { value: 'audience', label: '1. 受众筛选' },
@@ -623,7 +613,7 @@ const jobStateOptions = [
   { value: 'rate_limited', label: '已限流' }
 ]
 
-const channelLabel = (v) => (channelOptions.find((c) => c.value === v) || {}).label || (v || '-')
+const channelLabel = getChannelLabel
 const stepLabel = (v) => (stepOptions.find((s) => s.value === v) || {}).label || v
 const pipeStatusType = (s) => ({ active: 'success', paused: 'warning', archived: 'info' }[s] || 'info')
 const pipeStatusText = (s) => ({ active: '活跃', paused: '暂停', archived: '归档' }[s] || s)

@@ -157,7 +157,7 @@ func (s *VisitorChatService) resolveChannel(ctx context.Context, channelRef stri
 	if ref == "default" {
 		return s.channelSvc.GetOrCreateDefaultChannel(ctx)
 	}
-	// 抖音/快手/小红书/咸鱼 4 平台卡片渠道自动创建
+	// 抖音/快手/小红书/闲鱼 4 平台卡片渠道自动创建
 	// channel_ref 形如 "douyin_card" / "kuaishou_card" / "xiaohongshu_card" / "xianyu_card"
 	if platform, ok := IsCardChannelRef(ref); ok {
 		return s.channelSvc.GetOrCreateCardChannel(ctx, platform)

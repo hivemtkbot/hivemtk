@@ -43,7 +43,7 @@ func TestBridgeReachAdapter_OfflineDelegatesToInner(t *testing.T) {
 func TestBridgeReachAdapter_XHSAndTikTokOnline(t *testing.T) {
 	hub := NewBridgeHub()
 	hub.Register(newTestClient(ChannelXHSWeb, "x1"))
-	hub.Register(newTestClient(ChannelTikTokWeb, "t1"))
+	hub.Register(newTestClient(ChannelTikTok, "t1"))
 
 	adapter := NewBridgeReachAdapter(&tooluse.IntegrationReachAdapter{}, hub, service.NewInboxIngressServiceWithDB(nil, nil))
 	if _, err := adapter.SendXHS(context.Background(), "x1", "c", "text", "hi"); err != nil {

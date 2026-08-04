@@ -36,7 +36,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="content" label="内容" min-width="280" show-overflow-tooltip />
-        <el-table-column prop="channel" label="适用渠道" width="120" />
+        <el-table-column label="适用渠道" width="120">
+          <template #default="{ row }">
+            {{ getChannelLabel(row.channel) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="sort_order" label="排序" width="80" align="center" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">

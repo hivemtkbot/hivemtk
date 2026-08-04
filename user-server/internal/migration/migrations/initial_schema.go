@@ -189,5 +189,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewRagAlertsDropMigration(db))
 	// 网页私信桥接账号表（抖音/小红书/TikTok）
 	registry.Register(NewBridgeAccountMigration(db))
+	// 归一化旧 bridge channel 数据（douyin -> douyin_web 等）
+	registry.Register(NewBridgeChannelNormalizeMigration(db))
 	// 继续添加新的迁移...
 }

@@ -123,7 +123,7 @@ func (s *XianyuAutoReplyService) AppendLog(userID, accountID, ruleID uint, platf
 	return s.logRepo.Create(context.Background(), item)
 }
 
-// StartLoginBrowser 启动本地浏览器打开咸鱼页面并在登录后提取 Cookie 保存
+// StartLoginBrowser 启动本地浏览器打开闲鱼页面并在登录后提取 Cookie 保存
 // 注意：需要服务器具备可用的 Chromium/Chrome 环境
 func (s *XianyuAutoReplyService) StartLoginBrowser(ctx context.Context, userID uint, username string, accountID uint, headless bool) {
 	go func() {

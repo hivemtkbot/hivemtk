@@ -95,7 +95,7 @@
       </svg>
       <div>
         <h3>HiveBridge 蜂桥</h3>
-        <div class="sub">抖音 / 小红书 / TikTok 私信桥接</div>
+        <div class="sub">抖音 / 小红书 / TikTok / 闲鱼 私信桥接</div>
       </div>
     </div>
 
@@ -122,7 +122,7 @@
     <hr />
 
     <button id="selfcheck" class="secondary" style="width: 100%;">自检当前私信页（校准用）</button>
-    <pre id="selfOut">打开抖音/小红书/TikTok 私信页后点击</pre>
+    <pre id="selfOut">打开抖音/小红书/TikTok/闲鱼 私信页后点击</pre>
 
     <div class="row">
       <button id="syncAll" class="secondary" style="flex: 1;">全量同步私信</button>
@@ -133,11 +133,12 @@
 
     <hr />
 
-    <button id="selToggle" class="secondary" style="width: 100%;">选择器配置（切换 抖音/小红书 分别配置；人工识别 HTML 后填写，平台改版用）</button>
+    <button id="selToggle" class="secondary" style="width: 100%;">选择器配置（切换 抖音/小红书/闲鱼 分别配置；人工识别 HTML 后填写，平台改版用）</button>
     <div id="selPanel" style="display: none; margin-top: 8px;">
       <div class="sel-tabs" role="tablist">
         <button type="button" class="sel-tab active" data-channel="douyin_web" role="tab">抖音</button>
         <button type="button" class="sel-tab" data-channel="xhs_web" role="tab">小红书</button>
+        <button type="button" class="sel-tab" data-channel="xianyu_web" role="tab">闲鱼</button>
         <button type="button" class="sel-tab" data-channel="tiktok_web" role="tab">TikTok</button>
       </div>
       <div class="hint">在对应平台私信页按 F12 → 选中元素，复制真实 class/data 属性填入下方（多个用英文逗号分隔）。留空则用内置默认。</div>
@@ -185,6 +186,7 @@
       <button id="openDouyin" class="secondary">打开抖音</button>
       <button id="openXhs" class="secondary">打开小红书</button>
       <button id="openTiktok" class="secondary">打开 TikTok</button>
+      <button id="openXianyu" class="secondary">打开闲鱼</button>
     </div>
 
     <p class="small docs-link">

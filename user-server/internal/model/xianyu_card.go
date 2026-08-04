@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// XianyuCard 咸鱼卡片模型
+// XianyuCard 闲鱼卡片模型
 type XianyuCard struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
 	Title        string    `json:"title" gorm:"size:255;not null"`   // 卡片标题

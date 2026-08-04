@@ -45,17 +45,17 @@ func TestBridgeHub_OfflineDeliver(t *testing.T) {
 
 func TestBridgeHub_RegisterKickOld(t *testing.T) {
 	hub := NewBridgeHub()
-	oldC := newTestClient(ChannelTikTokWeb, "acc2")
+	oldC := newTestClient(ChannelTikTok, "acc2")
 	hub.Register(oldC)
-	newC := newTestClient(ChannelTikTokWeb, "acc2")
+	newC := newTestClient(ChannelTikTok, "acc2")
 	if ret := hub.Register(newC); ret != oldC {
 		t.Fatal("expected old client returned for kick")
 	}
-	if !hub.IsOnline(ChannelTikTokWeb, "acc2") {
+	if !hub.IsOnline(ChannelTikTok, "acc2") {
 		t.Fatal("new client should be online")
 	}
 	hub.Unregister(newC)
-	if hub.IsOnline(ChannelTikTokWeb, "acc2") {
+	if hub.IsOnline(ChannelTikTok, "acc2") {
 		t.Fatal("should be offline after unregister")
 	}
 }

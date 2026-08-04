@@ -3,7 +3,7 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span>{{ $t('咸鱼卡片统计') }}</span>
+          <span>{{ $t('闲鱼卡片统计') }}</span>
           <div class="header-actions">
             <el-date-picker
               v-model="dateRange"

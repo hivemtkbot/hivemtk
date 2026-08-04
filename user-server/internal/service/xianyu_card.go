@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// XianyuCardService 咸鱼卡片服务接口
+// XianyuCardService 闲鱼卡片服务接口
 type XianyuCardService interface {
 	Create(ctx context.Context, req *dto.XianyuCardCreateRequest) (*dto.XianyuCardResponse, error)
 	Update(ctx context.Context, req *dto.XianyuCardUpdateRequest) (*dto.XianyuCardResponse, error)
@@ -27,7 +27,7 @@ type XianyuCardService interface {
 	GenerateShortLink(ctx context.Context, card *model.XianyuCard) error
 }
 
-// xianyuCardService 咸鱼卡片服务实现
+// xianyuCardService 闲鱼卡片服务实现
 type xianyuCardService struct {
 	repo              repository.XianyuCardRepository
 	statsService      XianyuCardStatsService
@@ -36,7 +36,7 @@ type xianyuCardService struct {
 	templateService   *template.TemplateService
 }
 
-// NewXianyuCardService 创建咸鱼卡片服务
+// NewXianyuCardService 创建闲鱼卡片服务
 func NewXianyuCardService(db any) XianyuCardService {
 	// 类型断言将interface{}转换为*gorm.DB
 	gormDB := db.(*gorm.DB)
@@ -49,7 +49,7 @@ func NewXianyuCardService(db any) XianyuCardService {
 	}
 }
 
-// Create 创建咸鱼卡片
+// Create 创建闲鱼卡片
 func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreateRequest) (*dto.XianyuCardResponse, error) {
 	// 创建卡片模型
 	card := &model.XianyuCard{
@@ -64,7 +64,7 @@ func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreat
 
 	// 保存到数据库
 	if err := s.repo.Create(ctx, card); err != nil {
-		return nil, fmt.Errorf("创建咸鱼卡片失败: %w", err)
+		return nil, fmt.Errorf("创建闲鱼卡片失败: %w", err)
 	}
 
 	// 生成短链（可选功能：失败时仅记日志，不影响主流程）
@@ -76,12 +76,12 @@ func (s *xianyuCardService) Create(ctx context.Context, req *dto.XianyuCardCreat
 	return s.convertToResponse(ctx, card), nil
 }
 
-// Update 更新咸鱼卡片
+// Update 更新闲鱼卡片
 func (s *xianyuCardService) Update(ctx context.Context, req *dto.XianyuCardUpdateRequest) (*dto.XianyuCardResponse, error) {
 	// 获取现有卡片
 	card, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return nil, fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 
 	// 更新字段
@@ -98,32 +98,32 @@ func (s *xianyuCardService) Update(ctx context.Context, req *dto.XianyuCardUpdat
 
 	// 保存更新
 	if err := s.repo.Update(ctx, card); err != nil {
-		return nil, fmt.Errorf("更新咸鱼卡片失败: %w", err)
+		return nil, fmt.Errorf("更新闲鱼卡片失败: %w", err)
 	}
 
 	// 返回响应
 	return s.convertToResponse(ctx, card), nil
 }
 
-// Delete 删除咸鱼卡片
+// Delete 删除闲鱼卡片
 func (s *xianyuCardService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// GetByID 根据ID获取咸鱼卡片
+// GetByID 根据ID获取闲鱼卡片
 func (s *xianyuCardService) GetByID(ctx context.Context, id uint) (*dto.XianyuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return nil, fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 	return s.convertToResponse(ctx, card), nil
 }
 
-// GetByIDWithRefresh 根据ID获取咸鱼卡片（带刷新）
+// GetByIDWithRefresh 根据ID获取闲鱼卡片（带刷新）
 func (s *xianyuCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*dto.XianyuCardResponse, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return nil, fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 
 	// 刷新短链（可选功能：失败时仅记日志，不影响主流程）
@@ -134,18 +134,18 @@ func (s *xianyuCardService) GetByIDWithRefresh(ctx context.Context, id uint) (*d
 	return s.convertToResponse(ctx, card), nil
 }
 
-// GetCardModelByID 根据ID获取咸鱼卡片模型
+// GetCardModelByID 根据ID获取闲鱼卡片模型
 func (s *xianyuCardService) GetCardModelByID(ctx context.Context, id uint) (*model.XianyuCard, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// GetList 获取咸鱼卡片列表
+// GetList 获取闲鱼卡片列表
 func (s *xianyuCardService) GetList(ctx context.Context, req *dto.XianyuCardListRequest) (*dto.XianyuCardListResponse, error) {
 	// 获取列表
 	filter := repository.CardListFilter{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword, IsActive: req.IsActive}
 	cards, total, err := s.repo.GetList(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("获取咸鱼卡片列表失败: %w", err)
+		return nil, fmt.Errorf("获取闲鱼卡片列表失败: %w", err)
 	}
 
 	// 转换响应
@@ -169,12 +169,12 @@ func (s *xianyuCardService) GetList(ctx context.Context, req *dto.XianyuCardList
 	}, nil
 }
 
-// ShareCard 分享咸鱼卡片
+// ShareCard 分享闲鱼卡片
 func (s *xianyuCardService) ShareCard(ctx context.Context, id uint, platform string) error {
 	// 获取卡片
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 
 	// 根据平台增加分享数
@@ -198,23 +198,23 @@ func (s *xianyuCardService) GenerateHTMLPage(ctx context.Context, id uint) (stri
 	// 获取卡片
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return "", fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 
 	// 生成HTML内容
 	htmlContent, err := s.templateService.RenderXianyuCard(card)
 	if err != nil {
-		return "", fmt.Errorf("渲染咸鱼卡片模板失败: %w", err)
+		return "", fmt.Errorf("渲染闲鱼卡片模板失败: %w", err)
 	}
 
 	return htmlContent, nil
 }
 
-// GenerateCardChatPage 生成咸鱼卡片聊天页（统一模板，含联系客服按钮）
+// GenerateCardChatPage 生成闲鱼卡片聊天页（统一模板，含联系客服按钮）
 func (s *xianyuCardService) GenerateCardChatPage(ctx context.Context, id uint, baseURL string) (string, error) {
 	card, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf("获取咸鱼卡片失败: %w", err)
+		return "", fmt.Errorf("获取闲鱼卡片失败: %w", err)
 	}
 	return s.templateService.RenderCardChatPage("xianyu", card.ID, card.Title, card.Description, card.ImageURL, card.Tags, baseURL)
 }
@@ -246,7 +246,7 @@ func (s *xianyuCardService) GenerateShortLink(ctx context.Context, card *model.X
 	// 创建短链
 	shortLink, err := s.shortLinkService.Create(ctx, &dto.CreateShortLinkRequest{
 		ShortCode:   generateResp.ShortCode,
-		OriginalURL: fmt.Sprintf("/xianyu/card/%d", card.ID), // 指向咸鱼卡片页面
+		OriginalURL: fmt.Sprintf("/xianyu/card/%d", card.ID), // 指向闲鱼卡片页面
 		Title:       card.Title,
 		Description: card.Description,
 		DomainID:    domainID,

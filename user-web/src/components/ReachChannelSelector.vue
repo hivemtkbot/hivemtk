@@ -38,16 +38,13 @@ import {
   Share,
   Cellphone,
   Connection,
-  OfficeBuilding
+  OfficeBuilding,
+  Goods,
+  VideoCamera
 } from '@element-plus/icons-vue'
+import { CHANNEL_OPTIONS } from '@/constants/channel'
 
-// 触达渠道选择器（覆盖 11 个渠道：sms/email/wecom/weixin/douyin/kuaishou/xiaohongshu/dingtalk + telegram/whatsapp/feishu）
-//
-// 后端 ReachChannels 白名单：
-//   sms, email, wecom, weixin, douyin, kuaishou, xiaohongshu, dingtalk, card,
-//   telegram, whatsapp, feishu
-//
-// 11 个发送工具对应 11 个渠道（card 是子渠道机制，不在主选列表中）
+// 触达渠道选择器：渠道清单统一从 @/constants/channel 导入，禁止本地维护
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -60,20 +57,15 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change', 'clear'])
 
-// 渠道清单
-const allChannels = [
-  { value: 'sms', label: '短信', icon: Cellphone, description: '短信触达（模板/直发）' },
-  { value: 'email', label: '邮件', icon: Message, description: '邮件触达（支持附件）' },
-  { value: 'wecom', label: '企微', icon: OfficeBuilding, description: '企业微信（外部联系人）' },
-  { value: 'weixin', label: '公众号', icon: ChatDotRound, description: '微信公众号（客服消息）' },
-  { value: 'douyin', label: '抖音', icon: Share, description: '抖音私信' },
-  { value: 'kuaishou', label: '快手', icon: Share, description: '快手私信' },
-  { value: 'xiaohongshu', label: '小红书', icon: Postcard, description: '小红书私信' },
-  { value: 'dingtalk', label: '钉钉', icon: Connection, description: '钉钉机器人' },
-  { value: 'telegram', label: 'Telegram', icon: Promotion, description: 'Telegram Bot API（境外 IM）', newBadge: true },
-  { value: 'whatsapp', label: 'WhatsApp', icon: ChatLineRound, description: 'WhatsApp Cloud API（Meta 商业）', newBadge: true },
-  { value: 'feishu', label: '飞书', icon: ChatLineSquare, description: '飞书 Open API（协作）', newBadge: true }
-]
+// icon 名 -> 组件映射（CHANNEL_OPTIONS.icon 存的是组件名字符串）
+const ICON_MAP = {
+  ChatDotRound, Message, Promotion, Postcard, ChatLineRound,
+  ChatLineSquare, Share, Cellphone, Connection, OfficeBuilding,
+  Goods, VideoCamera
+}
+const allChannels = CHANNEL_OPTIONS
+  .filter(c => c.value !== 'card')
+  .map(c => ({ ...c, icon: ICON_MAP[c.icon] || Share }))
 
 const availableChannels = computed(() => {
   let list = allChannels

@@ -11,13 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// XianyuCardController 咸鱼卡片控制器
+// XianyuCardController 闲鱼卡片控制器
 type XianyuCardController struct {
 	service  service.XianyuCardService
 	statsSvc service.XianyuCardStatsService
 }
 
-// NewXianyuCardController 创建咸鱼卡片控制器实例
+// NewXianyuCardController 创建闲鱼卡片控制器实例
 // statsSvc 在构造时注入，避免 Controller 方法内直接访问数据库（架构违规）
 func NewXianyuCardController(service service.XianyuCardService, statsSvc service.XianyuCardStatsService) *XianyuCardController {
 	return &XianyuCardController{
@@ -26,7 +26,7 @@ func NewXianyuCardController(service service.XianyuCardService, statsSvc service
 	}
 }
 
-// Create 创建咸鱼卡片
+// Create 创建闲鱼卡片
 func (c *XianyuCardController) Create(ctx *gin.Context) {
 	var req dto.XianyuCardCreateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -35,14 +35,14 @@ func (c *XianyuCardController) Create(ctx *gin.Context) {
 	}
 
 	card, err := c.service.Create(ctx, &req)
-	if HandleDBError(ctx, err, "创建咸鱼卡片") {
+	if HandleDBError(ctx, err, "创建闲鱼卡片") {
 		return
 	}
 
 	response.Success(ctx, card, response.ErrSuccess)
 }
 
-// Update 更新咸鱼卡片
+// Update 更新闲鱼卡片
 func (c *XianyuCardController) Update(ctx *gin.Context) {
 	var req dto.XianyuCardUpdateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -51,14 +51,14 @@ func (c *XianyuCardController) Update(ctx *gin.Context) {
 	}
 
 	card, err := c.service.Update(ctx, &req)
-	if HandleDBError(ctx, err, "更新咸鱼卡片") {
+	if HandleDBError(ctx, err, "更新闲鱼卡片") {
 		return
 	}
 
 	response.Success(ctx, card, response.ErrUpdateSuccess)
 }
 
-// Delete 删除咸鱼卡片
+// Delete 删除闲鱼卡片
 func (c *XianyuCardController) Delete(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -67,14 +67,14 @@ func (c *XianyuCardController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if HandleDBError(ctx, c.service.Delete(ctx, uint(id)), "删除咸鱼卡片") {
+	if HandleDBError(ctx, c.service.Delete(ctx, uint(id)), "删除闲鱼卡片") {
 		return
 	}
 
 	response.Success(ctx, gin.H{"id": id}, response.ErrDeleteSuccess)
 }
 
-// GetByID 根据ID获取咸鱼卡片
+// GetByID 根据ID获取闲鱼卡片
 func (c *XianyuCardController) GetByID(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -84,14 +84,14 @@ func (c *XianyuCardController) GetByID(ctx *gin.Context) {
 	}
 
 	card, err := c.service.GetByID(ctx, uint(id))
-	if HandleDBError(ctx, err, "获取咸鱼卡片") {
+	if HandleDBError(ctx, err, "获取闲鱼卡片") {
 		return
 	}
 
 	response.Success(ctx, card, response.ErrGetSuccess)
 }
 
-// GetList 获取咸鱼卡片列表
+// GetList 获取闲鱼卡片列表
 func (c *XianyuCardController) GetList(ctx *gin.Context) {
 	var req dto.XianyuCardListRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
@@ -127,7 +127,7 @@ func (c *XianyuCardController) GenerateShortLink(ctx *gin.Context) {
 
 	// 获取卡片信息
 	card, err := c.service.GetByIDWithRefresh(ctx, uint(id))
-	if HandleDBError(ctx, err, "获取咸鱼卡片") {
+	if HandleDBError(ctx, err, "获取闲鱼卡片") {
 		return
 	}
 

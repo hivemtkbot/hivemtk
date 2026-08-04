@@ -18,7 +18,7 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
-// setupXianyuCardTestDB 设置咸鱼卡片测试数据库
+// setupXianyuCardTestDB 设置闲鱼卡片测试数据库
 func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XianyuCard{},
@@ -31,7 +31,7 @@ func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// TestXianyuCardController_Create_Success 测试创建咸鱼卡片成功
+// TestXianyuCardController_Create_Success 测试创建闲鱼卡片成功
 func TestXianyuCardController_Create_Success(t *testing.T) {
 	database := setupXianyuCardTestDB(t)
 	ctrl := NewXianyuCardController(service.NewXianyuCardService(database), service.NewXianyuCardStatsService(database))

@@ -9,20 +9,20 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
-// setupXianyuCardTestDB 设置咸鱼卡片测试数据库
+// setupXianyuCardTestDB 设置闲鱼卡片测试数据库
 func setupXianyuCardTestDB(t *testing.T) *gorm.DB {
 	return testutil.NewTestDB(t,
 		&model.XianyuCard{},
 	)
 }
 
-// setupXianyuCardRepository 创建测试用的咸鱼卡片仓库实例
+// setupXianyuCardRepository 创建测试用的闲鱼卡片仓库实例
 func setupXianyuCardRepository(t *testing.T) XianyuCardRepository {
 	database := setupXianyuCardTestDB(t)
 	return NewXianyuCardRepository(database)
 }
 
-// TestXianyuCardRepository_Create 测试创建咸鱼卡片
+// TestXianyuCardRepository_Create 测试创建闲鱼卡片
 func TestXianyuCardRepository_Create(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
@@ -73,7 +73,7 @@ func TestXianyuCardRepository_Create(t *testing.T) {
 	}
 }
 
-// TestXianyuCardRepository_GetByID 测试根据 ID 获取咸鱼卡片
+// TestXianyuCardRepository_GetByID 测试根据 ID 获取闲鱼卡片
 func TestXianyuCardRepository_GetByID(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
@@ -120,7 +120,7 @@ func TestXianyuCardRepository_GetByID(t *testing.T) {
 	}
 }
 
-// TestXianyuCardRepository_GetList 测试获取咸鱼卡片列表
+// TestXianyuCardRepository_GetList 测试获取闲鱼卡片列表
 func TestXianyuCardRepository_GetList(t *testing.T) {
 	database := setupXianyuCardTestDB(t)
 	repo := NewXianyuCardRepository(database)
@@ -228,7 +228,7 @@ func TestXianyuCardRepository_GetList(t *testing.T) {
 	}
 }
 
-// TestXianyuCardRepository_Update 测试更新咸鱼卡片
+// TestXianyuCardRepository_Update 测试更新闲鱼卡片
 func TestXianyuCardRepository_Update(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()
@@ -259,7 +259,7 @@ func TestXianyuCardRepository_Update(t *testing.T) {
 	}
 }
 
-// TestXianyuCardRepository_Delete 测试删除咸鱼卡片
+// TestXianyuCardRepository_Delete 测试删除闲鱼卡片
 func TestXianyuCardRepository_Delete(t *testing.T) {
 	repo := setupXianyuCardRepository(t)
 	ctx := context.Background()

@@ -1,6 +1,6 @@
 package dto
 
-// XianyuCardCreateRequest 创建咸鱼卡片请求
+// XianyuCardCreateRequest 创建闲鱼卡片请求
 type XianyuCardCreateRequest struct {
 	Title        string `json:"title" binding:"required,max=255"`        // 卡片标题
 	Description  string `json:"description" binding:"omitempty,max=500"` // 卡片描述
@@ -11,7 +11,7 @@ type XianyuCardCreateRequest struct {
 	IsActive     bool   `json:"is_active"`                               // 是否激活
 }
 
-// XianyuCardUpdateRequest 更新咸鱼卡片请求
+// XianyuCardUpdateRequest 更新闲鱼卡片请求
 type XianyuCardUpdateRequest struct {
 	ID           uint   `json:"id" binding:"omitempty"`                  // 卡片ID
 	Title        string `json:"title" binding:"required,max=255"`        // 卡片标题
@@ -26,7 +26,7 @@ type XianyuCardUpdateRequest struct {
 	IsActive     bool   `json:"is_active"`                               // 是否激活
 }
 
-// XianyuCardListRequest 咸鱼卡片列表请求
+// XianyuCardListRequest 闲鱼卡片列表请求
 type XianyuCardListRequest struct {
 	Page     int    `form:"page" binding:"omitempty,min=1"`              // 页码
 	PageSize int    `form:"page_size" binding:"omitempty,min=1,max=100"` // 每页数量
@@ -34,7 +34,7 @@ type XianyuCardListRequest struct {
 	IsActive *bool  `form:"is_active"`                                   // 是否激活筛选
 }
 
-// XianyuCardResponse 咸鱼卡片响应
+// XianyuCardResponse 闲鱼卡片响应
 type XianyuCardResponse struct {
 	ID           uint   `json:"id"`             // 卡片ID
 	Title        string `json:"title"`          // 卡片标题
@@ -53,7 +53,7 @@ type XianyuCardResponse struct {
 	UpdatedAt    string `json:"updated_at"`     // 更新时间
 }
 
-// XianyuCardListResponse 咸鱼卡片列表响应
+// XianyuCardListResponse 闲鱼卡片列表响应
 type XianyuCardListResponse struct {
 	List      []XianyuCardResponse `json:"list"`       // 卡片列表
 	Total     int64                `json:"total"`      // 总数

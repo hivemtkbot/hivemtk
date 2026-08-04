@@ -243,6 +243,7 @@ func (e *errRecallAdapter) SendDouyin(_ context.Context, _, _, _, _ string) (str
 func (e *errRecallAdapter) SendKuaishou(_ context.Context, _, _, _, _ string) (string, error)       { return "", nil }
 func (e *errRecallAdapter) SendXHS(_ context.Context, _, _, _, _ string) (string, error)            { return "", nil }
 func (e *errRecallAdapter) SendTikTok(_ context.Context, _, _, _, _ string) (string, error)         { return "", nil }
+func (e *errRecallAdapter) SendXianyu(_ context.Context, _, _, _, _ string) (string, error)         { return "", nil }
 func (e *errRecallAdapter) SendDingTalk(_ context.Context, _, _, _ string) (string, error)          { return "", nil }
 func (e *errRecallAdapter) SendCard(_ context.Context, _, _, _, _ string) (string, error)           { return "", nil }
 func (e *errRecallAdapter) Recall(_ context.Context, _, _ string) error                            { return e.err }

@@ -3,7 +3,7 @@
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span>{{ $t('咸鱼卡片详情统计') }}</span>
+          <span>{{ $t('闲鱼卡片详情统计') }}</span>
           <div class="header-actions">
             <el-button @click="goBack" icon="ArrowLeft">{{ $t('返回') }}</el-button>
             <el-date-picker

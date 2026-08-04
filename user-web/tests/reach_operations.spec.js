@@ -30,10 +30,10 @@ const PAGES = [
   { group: '小红书', name: '小红书卡片', path: '/xiaohongshuCard' },
   { group: '小红书', name: '小红书自动回复', path: '/xiaohongshu/auto-reply' },
   { group: '小红书', name: '小红书统计', path: '/xiaohongshu/stats' },
-  // 咸鱼
-  { group: '咸鱼', name: '咸鱼卡片', path: '/xianyuCard' },
-  { group: '咸鱼', name: '咸鱼自动回复', path: '/xianyu/auto-reply' },
-  { group: '咸鱼', name: '咸鱼统计', path: '/xianyu/stats' },
+  // 闲鱼
+  { group: '闲鱼', name: '闲鱼卡片', path: '/xianyuCard' },
+  { group: '闲鱼', name: '闲鱼自动回复', path: '/xianyu/auto-reply' },
+  { group: '闲鱼', name: '闲鱼统计', path: '/xianyu/stats' },
   // TikTok
   { group: 'TikTok', name: 'TikTok卡片', path: '/tiktok/list' },
   { group: 'TikTok', name: 'TikTok统计', path: '/tiktok/stats' },

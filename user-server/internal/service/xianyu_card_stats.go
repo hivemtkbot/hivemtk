@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// XianyuCardStatsService 咸鱼卡片统计服务接口
+// XianyuCardStatsService 闲鱼卡片统计服务接口
 type XianyuCardStatsService interface {
 	GetCardStats(ctx context.Context, cardID uint, startDate, endDate string) (*dto.XianyuCardStatsResponse, error)
 	GetOverallStats(ctx context.Context, startDate, endDate string) (*dto.XianyuCardOverallStatsResponse, error)
@@ -24,12 +24,12 @@ type XianyuCardStatsService interface {
 	RecordShare(ctx context.Context, cardID uint, ip, userAgent, referer string) error
 }
 
-// xianyuCardStatsService 咸鱼卡片统计服务实现
+// xianyuCardStatsService 闲鱼卡片统计服务实现
 type xianyuCardStatsService struct {
 	repo repository.XianyuCardStatsRepository
 }
 
-// NewXianyuCardStatsService 创建咸鱼卡片统计服务
+// NewXianyuCardStatsService 创建闲鱼卡片统计服务
 func NewXianyuCardStatsService(db any) XianyuCardStatsService {
 	gormDB := db.(*gorm.DB)
 	return &xianyuCardStatsService{

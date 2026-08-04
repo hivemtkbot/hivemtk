@@ -20,6 +20,7 @@ const entries = {
   'content-douyin': 'src/content/douyin.js',
   'content-xhs': 'src/content/xhs.js',
   'content-tiktok': 'src/content/tiktok.js',
+  'content-xianyu': 'src/content/xianyu.js',
   popup: 'src/popup/index.js',
 };
 

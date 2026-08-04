@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// XianyuCardActivity 咸鱼卡片活动记录模型
+// XianyuCardActivity 闲鱼卡片活动记录模型
 type XianyuCardActivity struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
 	CardID       uint      `json:"card_id" gorm:"index;not null"`      // 卡片ID

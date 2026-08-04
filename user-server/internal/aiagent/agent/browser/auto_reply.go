@@ -461,7 +461,7 @@ func (bot *AutoReplyBot) getXiaohongshuMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("xiaohongshu")
 }
 
-// getXianyuMessages 获取咸鱼消息
+// getXianyuMessages 获取闲鱼消息
 func (bot *AutoReplyBot) getXianyuMessages() ([]Message, error) {
 	return bot.runGenericMessageScript("xianyu")
 }
@@ -657,7 +657,7 @@ func (bot *AutoReplyBot) sendXiaohongshuReply(messageID, content string) error {
 	return bot.runGenericSendScript("xiaohongshu", messageID, content)
 }
 
-// sendXianyuReply 发送咸鱼回复
+// sendXianyuReply 发送闲鱼回复
 func (bot *AutoReplyBot) sendXianyuReply(messageID, content string) error {
 	return bot.runGenericSendScript("xianyu", messageID, content)
 }
@@ -912,7 +912,7 @@ func getPlatformRootURL(p Platform) string {
 
 // getPlatformMessageURL 获取平台消息页面 URL
 // 注意:抖音/快手/小红书/TikTok 实际没有公开的 web 端消息页,需要登录后从
-// 工作台/消息中心进入;咸鱼有 workbench
+// 工作台/消息中心进入;闲鱼有 workbench
 func getPlatformMessageURL(p Platform) string {
 	switch p {
 	case Douyin:

@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// XianyuCardStatsController 咸鱼卡片统计控制器
+// XianyuCardStatsController 闲鱼卡片统计控制器
 //
 // 修复：严格遵循五层架构 Controller → Service → Repository → Model，
 // 移除原先方法内 new repository.XianyuCardStatsRepository 的越层调用，
@@ -19,7 +19,7 @@ type XianyuCardStatsController struct {
 	service service.XianyuCardStatsService
 }
 
-// NewXianyuCardStatsController 创建咸鱼卡片统计控制器实例
+// NewXianyuCardStatsController 创建闲鱼卡片统计控制器实例
 func NewXianyuCardStatsController(service service.XianyuCardStatsService) *XianyuCardStatsController {
 	return &XianyuCardStatsController{
 		service: service,

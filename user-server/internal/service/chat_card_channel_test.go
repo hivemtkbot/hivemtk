@@ -12,7 +12,7 @@ import (
 )
 
 // ============================================================================
-// 抖音/快手/小红书/咸鱼 4 平台卡片渠道 自动创建 + resolveChannel 接入测试
+// 抖音/快手/小红书/闲鱼 4 平台卡片渠道 自动创建 + resolveChannel 接入测试
 // ----------------------------------------------------------------------------
 // 业务背景：
 //   4 平台卡片分享页（card_chat.html）的"联系在线客服"按钮跳转到
@@ -39,7 +39,7 @@ var expectedCardMetas = map[string]struct {
 	"douyin":      {"douyin_card", "抖音卡片客服", "#000000", "抖音 · 在线客服"},
 	"kuaishou":    {"kuaishou_card", "快手卡片客服", "#ff5000", "快手 · 在线客服"},
 	"xiaohongshu": {"xiaohongshu_card", "小红书卡片客服", "#ff2442", "小红书 · 在线客服"},
-	"xianyu":      {"xianyu_card", "咸鱼卡片客服", "#ff4400", "咸鱼 · 在线客服"},
+	"xianyu":      {"xianyu_card", "闲鱼卡片客服", "#ff4400", "闲鱼 · 在线客服"},
 }
 
 func TestIsCardChannelRef_KnownPlatforms(t *testing.T) {

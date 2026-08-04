@@ -240,23 +240,23 @@
 
 ---
 
-### 11. 咸鱼卡片模块 (xianyuCard)
+### 11. 闲鱼卡片模块 (xianyuCard)
 **路由路径：**
-- `/xianyuCard` - 咸鱼卡片
-- `/xianyu/auto-reply` - 咸鱼自动回复
-- `/xianyu/stats` - 咸鱼卡片统计
-- `/xianyu-card-stats/:id` - 咸鱼卡片详情统计
+- `/xianyuCard` - 闲鱼卡片
+- `/xianyu/auto-reply` - 闲鱼自动回复
+- `/xianyu/stats` - 闲鱼卡片统计
+- `/xianyu-card-stats/:id` - 闲鱼卡片详情统计
 
 **API 列表：**
-1. `GET /api/xianyu/list` - 获取咸鱼卡片列表
-2. `GET /api/xianyu/:id` - 获取单个咸鱼卡片
-3. `POST /api/xianyu/create` - 创建咸鱼卡片
-4. `PUT /api/xianyu/update` - 更新咸鱼卡片
-5. `DELETE /api/xianyu/delete/:id` - 删除咸鱼卡片
-6. `GET /api/xianyu/view/:id` - 访问咸鱼卡片
-7. `GET /api/xianyu/stats/card/:id` - 获取咸鱼卡片统计数据
-8. `GET /api/xianyu/stats/overall` - 获取咸鱼卡片总体统计数据
-9. `POST /api/xianyu/:id/generate-short-link` - 生成咸鱼卡片短链接
+1. `GET /api/xianyu/list` - 获取闲鱼卡片列表
+2. `GET /api/xianyu/:id` - 获取单个闲鱼卡片
+3. `POST /api/xianyu/create` - 创建闲鱼卡片
+4. `PUT /api/xianyu/update` - 更新闲鱼卡片
+5. `DELETE /api/xianyu/delete/:id` - 删除闲鱼卡片
+6. `GET /api/xianyu/view/:id` - 访问闲鱼卡片
+7. `GET /api/xianyu/stats/card/:id` - 获取闲鱼卡片统计数据
+8. `GET /api/xianyu/stats/overall` - 获取闲鱼卡片总体统计数据
+9. `POST /api/xianyu/:id/generate-short-link` - 生成闲鱼卡片短链接
 
 **审计状态：** 待测试
 

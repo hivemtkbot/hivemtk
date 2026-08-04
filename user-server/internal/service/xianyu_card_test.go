@@ -12,7 +12,7 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
-// setupXianyuCardServiceTestDB 设置咸鱼卡片服务测试数据库
+// setupXianyuCardServiceTestDB 设置闲鱼卡片服务测试数据库
 func setupXianyuCardServiceTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
 		&model.XianyuCard{},
@@ -24,7 +24,7 @@ func setupXianyuCardServiceTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
-// TestNewXianyuCardService 测试创建咸鱼卡片服务
+// TestNewXianyuCardService 测试创建闲鱼卡片服务
 func TestNewXianyuCardService(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
@@ -33,7 +33,7 @@ func TestNewXianyuCardService(t *testing.T) {
 	}
 }
 
-// TestXianyuCardService_Create_Success 测试创建咸鱼卡片成功
+// TestXianyuCardService_Create_Success 测试创建闲鱼卡片成功
 func TestXianyuCardService_Create_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
@@ -106,7 +106,7 @@ func TestXianyuCardService_Create_EmptyRedirectURL(t *testing.T) {
 	}
 }
 
-// TestXianyuCardService_Update_Success 测试更新咸鱼卡片成功
+// TestXianyuCardService_Update_Success 测试更新闲鱼卡片成功
 func TestXianyuCardService_Update_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)
@@ -178,7 +178,7 @@ func TestXianyuCardService_Update_NotFound(t *testing.T) {
 	}
 }
 
-// TestXianyuCardService_Delete_Success 测试删除咸鱼卡片成功
+// TestXianyuCardService_Delete_Success 测试删除闲鱼卡片成功
 func TestXianyuCardService_Delete_Success(t *testing.T) {
 	database := setupXianyuCardServiceTestDB(t)
 	service := NewXianyuCardService(database)

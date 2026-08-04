@@ -25,7 +25,7 @@
 //
 // 渠道维度与能力维度正交：
 //
-//	渠道（网页客服 / TG / 企微 / 飞书 / 咸鱼 / 抖音 / 快手）只做 Ingest/Send 适配；
+//	渠道（网页客服 / TG / 企微 / 飞书 / 闲鱼 / 抖音 / 快手）只做 Ingest/Send 适配；
 //	智能体只理解 AgentContext；二者经 ChannelAgentBinding 解耦。
 package agent
 

@@ -23,8 +23,8 @@ function mergedSelectors() {
     itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     listSelectors: SEL.MSG_LIST.split(',').map((s) => s.trim()).filter(Boolean),
     textSelectors: SEL.TEXT.split(',').map((s) => s.trim()).filter(Boolean),
-    inputSelectors: SEL.EDITOR.split(',').map((s) => s.trim()).filter(Boolean),
-    sendSelectors: ['[class*="e2e-send-msg-btn"]', '[class*="send"], [aria-label*="发送"]'],
+    inputSelectors: SEL.INPUT.split(',').map((s) => s.trim()).filter(Boolean),
+    sendSelectors: SEL.SEND.split(',').map((s) => s.trim()).filter(Boolean),
     selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
     otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
@@ -57,10 +57,23 @@ export const SEL = {
   TEXT: '[data-e2e="msg-item-content"], [class*="msg-content"], [class*="text"], [class*="Text"]',
   // 严格输入框：真实抖音为「同一元素同时含 messageEditorinputArea + editor-kit-container」
   // （评论框仅父级含 editor-kit-container，故用组合类区分，避免 jingxuan 误判）
-  EDITOR: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]',
+  // 字段命名按 SELECTOR_FIELDS 统一为 INPUT（与 xhs/xianyu 对齐）。
+  INPUT: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]',
+  // 发送按钮：抖音真实为 [class*="e2e-send-msg-btn"]（svg 形式），兼容 [class*="send"] 与 aria-label。
+  SEND: '[class*="e2e-send-msg-btn"], [class*="send-btn" i], [class*="sendBtn" i], [class*="sendButton" i], button[aria-label*="发送" i], button[aria-label*="Send" i]',
+  // 消息类型 data 属性（部分气泡带 data-msg-type=text/image/card/voice/video）
+  MSG_TYPE: '[data-msg-type], [data-message-type], [data-type]',
+  // 卡片消息（商品/作品卡片）
+  CARD: '[class*="card-container" i], [class*="cardContainer" i], [class*="goods-card" i], [class*="GoodsCard" i], [class*="content-card" i]',
+  // 会话列表项（与 CHAT_LIST 容器区分；遍历用）
+  CONV_ITEM: '[class*="conversation-item" i], [class*="ConversationItem" i], [data-e2e="conversation-item"]',
+  // 系统消息（居中时间/撤回/已添加好友/系统提示）
+  // 抖音无专属 class，靠下列 class 关键词 + 内容模式双重识别
+  SYSTEM: '[class*="system-msg" i], [class*="systemMsg" i], [class*="SystemMsg" i], [class*="notice" i], [class*="Notice" i], [class*="divider" i], [class*="Divider" i], [class*="time-stamp" i], [class*="timeStamp" i], [class*="TimeStamp" i], [class*="recalled" i], [class*="Recalled" i]',
+  EDITOR: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]', // 兼容旧引用
 };
 
-// 抖音输入框（strict）：优先用云端 LLM 生成的选择器，回退 SEL.EDITOR
+// 抖音输入框（strict）：优先用云端 LLM 生成的选择器，回退 SEL.INPUT/EDITOR
 function strictEditorBox() {
   const m = mergedSelectors();
   for (const sel of m.inputSelectors) {
@@ -69,7 +82,7 @@ function strictEditorBox() {
       if (el) return el;
     } catch (_) { /* 非法选择器跳过 */ }
   }
-  return qs(SEL.EDITOR);
+  return qs(SEL.INPUT) || qs(SEL.EDITOR);
 }
 
 // 抖音输入框：优先真实 editor，再通用扫描容错
@@ -192,9 +205,6 @@ function getAccountId() {
   return `${CHANNELS.DOUYIN}-unknown`;
 }
 
-// 导出供单测验证浮层兜底（避免 /jingxuan 浮层下返回空串导致 WS 401）
-export { getAccountId, getConversationId, getConversationList, getPeerName };
-
 // —— 非文字消息提取（问题 3）——
 // 抖音气泡可能含图片 / 视频 / 语音 / 表情 / 链接。统一归为 msg_type：
 //   text | image | voice | video | emoji | link | recall | system
@@ -236,6 +246,83 @@ function extractMessageContent(item) {
     mediaUrl = links[0].getAttribute('href') || '';
   }
   return { msgType, mediaUrl, text };
+}
+
+// —— 系统消息识别（漏斗 5 层，与 xianyu 同款；抖音没有专属 class 字段，靠内容模式兜底）——
+// 命中任一层即视为系统消息，返回 true。parseMessageItem 优先判定，避免触发 AI 误回复。
+const SYSTEM_TEXT_PATTERNS = [
+  /你(已)?添加.*为好友/,
+  /已添加.*为好友/,
+  /撤回了?一条消息/,
+  /recalled a message/i,
+  /对方正在输入/,
+  /typing/i,
+  /互相关注/,
+  /以下为新消息/,
+  /^={3,}$/,
+  /^-{3,}$/,
+  /对方已开启.*验证/,
+  /消息发送失败/,
+  /消息已发出.*被对方拒收/,
+  /我已收到你的消息/,
+  /请等待卖家回复/,
+];
+function isTimeText(text) {
+  if (!text) return false;
+  const t = text.trim();
+  if (/^\d{1,2}:\d{2}$/.test(t)) return true;
+  if (/^(今天|昨天|前天)\s*\d{1,2}:\d{2}$/.test(t)) return true;
+  if (/^\d{1,2}月\d{1,2}日(\s+\d{1,2}:\d{2})?$/.test(t)) return true;
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(t)) return true;
+  if (/^(上午|下午|凌晨)\s*\d{1,2}:\d{2}$/.test(t)) return true;
+  return false;
+}
+function isSystemText(text) {
+  if (!text) return false;
+  const t = text.trim();
+  return SYSTEM_TEXT_PATTERNS.some((re) => re.test(t));
+}
+function isCenterAligned(el) {
+  if (!el) return false;
+  try {
+    const ta = getComputedStyle(el).textAlign;
+    if (ta === 'center' || ta === '-webkit-center') return true;
+    const parent = el.parentElement;
+    if (parent) {
+      const jc = getComputedStyle(parent).justifyContent;
+      if (jc === 'center') return true;
+    }
+  } catch (_) { /* jsdom 等无 getComputedStyle 时跳过 */ }
+  return false;
+}
+function isSystemMessage(item) {
+  if (!item) return false;
+  // ① 居中对齐
+  if (isCenterAligned(item)) return true;
+  // ② class 关键词
+  try {
+    if (item.matches && item.matches(SEL.SYSTEM)) return true;
+    if (item.querySelector && item.querySelector(SEL.SYSTEM)) return true;
+  } catch (_) { /* 非法选择器跳过 */ }
+  // ③ role / aria-live
+  try {
+    if (item.matches && (
+      item.matches('[role="status"]') ||
+      item.matches('[role="alert"]') ||
+      item.matches('[aria-live="polite"]') ||
+      item.matches('[aria-live="assertive"]')
+    )) return true;
+  } catch (_) { /* noop */ }
+  // ④ 内容模式
+  const text = cleanText(item);
+  if (isTimeText(text) || isSystemText(text)) return true;
+  // ⑤ 结构特征：无头像 + 无气泡（弱信号）
+  if (text && text.length < 60) {
+    const hasAvatar = !!item.querySelector('[class*="avatar" i]');
+    const hasBubble = !!item.querySelector('[class*="bubble" i], [class*="Bubble" i], [class*="msg-content" i]');
+    if (!hasAvatar && !hasBubble) return true;
+  }
+  return false;
 }
 
 // —— 聊天对象昵称（发件人 / 对方昵称）——
@@ -508,7 +595,7 @@ const hooks = {
       itemSelectors: m.itemSelectors,
       listSelectors: m.listSelectors,
     });
-    const filtered = items.filter((it) => !isListNoise(it));
+    const filtered = items.filter((it) => !isListNoise(it) && !isSystemMessage(it));
     if (filtered.length) return filtered;
     // 兜底：抖音气泡 class 多变时，用「消息线程容器内的文本叶子」推断气泡。
     // 线程容器 = 最近的可滚动区域（输入框/会话列表之上的公共滚动区）。
@@ -535,10 +622,28 @@ const hooks = {
       }
     };
     walk(thread, 0);
-    return leafText.filter((el) => !isListNoise(el));
+    return leafText.filter((el) => !isListNoise(el) && !isSystemMessage(el));
   },
   parseMessageItem(item) {
-    // item 已是消息气泡（文本/媒体元素）。先判定消息类型（问题 3：非文字消息）。
+    // item 已是消息气泡（文本/媒体元素）。先判定是否系统消息（漏斗 5 层）—— 优先判定，不消耗 AI 配额
+    if (isListNoise(item)) return null;
+    if (isSystemMessage(item)) {
+      const sysText = cleanText(item);
+      return {
+        message_id: item.getAttribute('data-id') || item.getAttribute('data-msg-id') || item.id || `sys:${sysText}:${Date.now()}`,
+        sender_type: SENDER.SYSTEM,
+        text: sysText,
+        media_url: '',
+        msg_type: 'system',
+        is_group: false,
+        group_id: '',
+        group_name: '',
+        sender_name: '',
+        timestamp: Date.now(),
+        raw: item.outerHTML?.slice(0, 500),
+      };
+    }
+    // 先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
     // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底（优先用 AI 生成的 self/other 标记）
@@ -593,7 +698,7 @@ const hooks = {
     const editor = findInputEl();
     if (!editor) {
       log.error('未找到抖音输入框（strict + fallback 均失败）');
-      throw new Error('douyin editor not found');
+      throw new Error('douyin input not found');
     }
     fillContentEditable(editor, text);
     await new Promise((r) => setTimeout(r, 150));
@@ -605,6 +710,9 @@ const hooks = {
     simulateRealClick(btn);
   },
 };
+
+// 导出供单测验证（与其他三渠道对齐命名）
+export { getAccountId, getConversationId, getConversationList, getPeerName, isListNoise, detectUnread, isSystemMessage, isTimeText, isSystemText, isCenterAligned, isDouyinMessagePage, isConversationListNode, hasUserProfileLink };
 
 export function buildDouyinAdapter() {
   return new BaseAdapter({

@@ -1,6 +1,6 @@
 package dto
 
-// XianyuCardStatsRequest 咸鱼卡片统计请求
+// XianyuCardStatsRequest 闲鱼卡片统计请求
 type XianyuCardStatsRequest struct {
 	CardID    uint   `json:"cardId" form:"cardId"`       // 卡片ID
 	StartDate string `json:"startDate" form:"startDate"` // 开始日期，格式：
@@ -8,7 +8,7 @@ type XianyuCardStatsRequest struct {
 	GroupBy   string `json:"groupBy" form:"groupBy"`     // 分组方式：day, week, month
 }
 
-// XianyuCardStatsResponse 咸鱼卡片统计响应
+// XianyuCardStatsResponse 闲鱼卡片统计响应
 type XianyuCardStatsResponse struct {
 	CardID         uint        `json:"cardId"`         // 卡片ID
 	Title          string      `json:"title"`          // 卡片标题
@@ -19,14 +19,14 @@ type XianyuCardStatsResponse struct {
 	RecentActivity []Activity  `json:"recentActivity"` // 最近活动
 }
 
-// XianyuCardOverallStatsRequest 咸鱼卡片总体统计请求
+// XianyuCardOverallStatsRequest 闲鱼卡片总体统计请求
 type XianyuCardOverallStatsRequest struct {
 	GroupBy   string `json:"groupBy" form:"groupBy"` // day, week, month
 	StartDate string `json:"startDate" form:"startDate"`
 	EndDate   string `json:"endDate" form:"endDate"`
 }
 
-// XianyuCardOverallStatsResponse 咸鱼卡片总体统计响应
+// XianyuCardOverallStatsResponse 闲鱼卡片总体统计响应
 type XianyuCardOverallStatsResponse struct {
 	TotalCards     int           `json:"totalCards"`     // 总卡片数
 	ActiveCards    int           `json:"activeCards"`    // 激活卡片数

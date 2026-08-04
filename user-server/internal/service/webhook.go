@@ -2053,10 +2053,11 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		} else {
 			sent = true
 		}
-	case "douyin_web", "xhs_web", "tiktok_web":
+	case "douyin_web", "xhs_web", "tiktok", "xianyu_web", "kuaishou_web":
 		// 网页桥接渠道：AI 回复经 WebSocket 投递到 Chrome 扩展（由 bridge 包注册的回调完成），
 		// 不走官方 API（避免把私信误发到平台开放接口）。
 		// p.EventID 传给 bridge 用于 ClaimReply 幂等守卫。
+		// 支持渠道：douyin_web / xhs_web / tiktok_web / xianyu_web / kuaishou_web
 		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
 		} else {
