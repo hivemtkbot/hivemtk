@@ -53,35 +53,36 @@ function mergedSelectors() {
 }
 
 // —— 选择器定义（2026-08 验证可用）——
+// ⚠️ [class*="..."] 均带 i 标志（大小写不敏感），否则 CSS module 大写类名全失配。
 export const SEL = {
   // 左侧会话列表容器
   CHAT_LIST: '#conv-list-scrollable, .ant-layout-sider',
-  // 会话项（CSS module: conversation-item--xxx）
-  CONV_ITEM: '[class*="conversation-item"]',
+  // 会话项（CSS module: conversation-item--xxx / ConvItem 等）
+  CONV_ITEM: '[class*="conversation-item" i], [class*="conv-item" i]',
   // 消息线程容器
-  MSG_LIST: '#message-list-scrollable, [class*="chat-main"]',
-  // 消息气泡（ant-design 风格：li.ant-list-item > .message-row）
-  MSG_ITEM: 'li.ant-list-item .message-row, li.ant-list-item',
+  MSG_LIST: '#message-list-scrollable, [class*="chat-main" i]',
+  // 消息气泡（ant-design 风格：li.ant-list-item > .message-row + 气泡兜底）
+  MSG_ITEM: 'li.ant-list-item .message-row, li.ant-list-item, [class*="msg-item" i], [class*="bubble" i]',
   // 自方消息 class 关键词
-  SELF_ITEM: '[class*="message-text-right"], [class*="msg-self"]',
+  SELF_ITEM: '[class*="message-text-right" i], [class*="msg-self" i], [class*="my-message" i]',
   // 对方消息 class 关键词
-  OTHER_ITEM: '[class*="message-text-left"], [class*="msg-other"]',
+  OTHER_ITEM: '[class*="message-text-left" i], [class*="msg-other" i], [class*="peer-message" i]',
   // 系统消息 class 关键词
-  SYSTEM: '[class*="msg-tips"], [class*="divider"], [class*="notice"], [class*="system-msg"]',
-  // 未读新消息标记
-  UNREAD: '[class*="unread"], [data-unread="1"], .ant-badge-count',
+  SYSTEM: '[class*="msg-tips" i], [class*="divider" i], [class*="notice" i], [class*="system-msg" i]',
+  // 未读新消息标记 ⚠️ 必须带 i 标志
+  UNREAD: '[class*="unread" i], [data-unread="1"], .ant-badge-count',
   // 气泡文本
-  TEXT: '[class*="message-text"], [class*="msg-content"]',
+  TEXT: '[class*="message-text" i], [class*="msg-content" i]',
   // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
   // 交易卡片
-  CARD: '[class*="msg-text-card"], [class*="card-container"]',
+  CARD: '[class*="msg-text-card" i], [class*="card-container" i]',
   // 输入框（.sendbox 内 textarea.ant-input）
   INPUT: '.sendbox textarea.ant-input, textarea[placeholder*="请输入消息"]',
   // 发送按钮（.sendbox 内 button）
-  SEND: '.sendbox button.ant-btn, [class*="send-btn"]',
+  SEND: '.sendbox button.ant-btn, [class*="send-btn" i]',
   // 聊天对象昵称
-  PEER_NAME: '[class*="message-topbar"] [class*="text1"], [class*="chat-header"] [class*="title"]',
+  PEER_NAME: '[class*="message-topbar" i] [class*="text1" i], [class*="chat-header" i] [class*="title" i]',
 };
 
 // —— 严格输入框 / 弹性输入框（解耦 matchMode 判定 vs 发送路径）——

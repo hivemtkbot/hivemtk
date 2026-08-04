@@ -38,31 +38,32 @@ function mergedSelectors() {
 }
 
 // —— 选择器定义（2026-08 验证可用，全部基于 data-e2e 属性）——
+// TikTok 以 data-e2e 为主键，class 选择器带 i 标志兜底大小写。
 export const SEL = {
   // 左侧会话列表容器
   CHAT_LIST: '[data-e2e="dm-new-conversation-list"]',
   // 会话项
   CONV_ITEM: '[data-e2e="dm-new-conversation-item"]',
   // 消息列表容器
-  MSG_LIST: '[data-e2e="dm-new-message-list"], [class*="DivChatMain"]',
+  MSG_LIST: '[data-e2e="dm-new-message-list"], [class*="DivChatMain" i], [class*="chat-main" i]',
   // 消息气泡
-  MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper"]',
+  MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper" i], [class*="bubble" i]',
   // 自方消息（outgoing class）
-  SELF_ITEM: '[class*="outgoing"], [class*="self"]',
+  SELF_ITEM: '[class*="outgoing" i], [class*="self" i]',
   // 对方消息（incoming class）
-  OTHER_ITEM: '[class*="incoming"], [class*="other"]',
+  OTHER_ITEM: '[class*="incoming" i], [class*="other" i]',
   // 消息文本
-  TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer"]',
+  TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer" i]',
   // 时间分隔
   TIME: '[data-e2e="dm-new-time-separator"]',
   // 系统消息 class 关键词
-  SYSTEM: '[class*="system-msg"], [class*="notice"], [class*="divider"], [data-e2e="dm-new-time-separator"]',
-  // 未读标记
-  UNREAD: '[class*="unread"], [data-unread="1"]',
+  SYSTEM: '[class*="system-msg" i], [class*="notice" i], [class*="divider" i], [data-e2e="dm-new-time-separator"]',
+  // 未读标记 ⚠️ 必须带 i 标志
+  UNREAD: '[class*="unread" i], [data-unread="1"]',
   // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
   // 卡片消息
-  CARD: '[class*="card-container"], [class*="share-card"]',
+  CARD: '[class*="card-container" i], [class*="share-card" i]',
   // 聊天对象昵称
   PEER_NAME: '[data-e2e="dm-new-chat-nickname"], [data-e2e="chat-uniqueid"]',
   // 输入框（DraftEditor contenteditable）

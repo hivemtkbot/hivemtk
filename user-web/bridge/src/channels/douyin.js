@@ -34,37 +34,38 @@ function mergedSelectors() {
 }
 
 // —— 选择器定义（2026-08 验证可用）——
-// 每个字段的候选按优先级排列：第1个最精确，后续为兜底兼容。
+// 每个字段的候选按优先级排列。⚠️ [class*="..."] 均带 i 标志（大小写不敏感），
+// 因为平台常用 CSS module 大写类名（如 Unread / ConversationItem 等）。
 // 平台改版导致选择器失效时，通过 UI 配置面板覆盖对应字段即可，无需修改代码。
 export const SEL = {
   // 左侧会话列表容器
   CHAT_LIST: '#island_b69f5, [data-e2e="conversation-list"]',
   // 消息线程容器（MutationObserver 根）
-  MSG_LIST: '[class*="messageList"], [data-e2e="chat-msg-list"], [class*="chat-content"]',
-  // 消息气泡（data-e2e 命中新版；class* 命中 /chat 路由）
-  MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="messageMessageItem"], [class*="chatMessageItem"], [class*="msg-content"]',
+  MSG_LIST: '[class*="messageList" i], [data-e2e="chat-msg-list"], [class*="chat-content" i]',
+  // 消息气泡（data-e2e 命中新版；class* 命中 /chat 路由 + 气泡型兜底）
+  MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="messageMessageItem" i], [class*="chatMessageItem" i], [class*="msg-content" i], [class*="bubble" i]',
   // 自方气泡 class 关键词（兜底判定，主判定走对齐检测 classifyByAlignment）
-  SELF_ITEM: '[class*="self"], [class*="right"], [class*="outgoing"]',
+  SELF_ITEM: '[class*="self" i], [class*="right" i], [class*="outgoing" i]',
   // 对方气泡 class 关键词
-  OTHER_ITEM: '[class*="other"], [class*="left"], [class*="incoming"]',
+  OTHER_ITEM: '[class*="other" i], [class*="left" i], [class*="incoming" i]',
   // 聊天气泡内文本
-  TEXT: '[data-e2e="msg-item-content"], [class*="msg-content"]',
+  TEXT: '[data-e2e="msg-item-content"], [class*="msg-content" i]',
   // 输入框（严格：同时含 messageEditorinputArea + editor-kit-container 两 class）
   INPUT: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
   // 发送按钮（svg 形式，需回溯到最近可交互祖先）
-  SEND: '[class*="e2e-send-msg-btn"], button[aria-label*="发送"]',
+  SEND: '[class*="e2e-send-msg-btn" i], button[aria-label*="发送"]',
   // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-message-type]',
   // 卡片消息（商品/作品）
-  CARD: '[class*="card-container"], [class*="goods-card"]',
+  CARD: '[class*="card-container" i], [class*="goods-card" i]',
   // 会话列表项（遍历用，与 CHAT_LIST 容器区分）
-  CONV_ITEM: '[data-e2e="conversation-item"], [class*="conversation-item"]',
+  CONV_ITEM: '[data-e2e="conversation-item"], [class*="conversation-item" i], [class*="conv-item" i]',
   // 系统消息 class 关键词（配合内容模式双重识别）
-  SYSTEM: '[class*="system-msg"], [class*="notice"], [class*="divider"], [class*="time-stamp"], [class*="recalled"]',
+  SYSTEM: '[class*="system-msg" i], [class*="notice" i], [class*="divider" i], [class*="time-stamp" i], [class*="recalled" i]',
   // 聊天对象昵称（右侧 header 标题元素）
-  PEER_NAME: '[data-e2e="chat-header-title"], [class*="chat-header"] [class*="title"]',
-  // 未读红点标记（巡检用）
-  UNREAD: '[class*="unread"], [class*="red-dot"], [data-unread="1"]',
+  PEER_NAME: '[data-e2e="chat-header-title"], [class*="chat-header" i] [class*="title" i]',
+  // 未读红点标记（巡检用）⚠️ 必须带 i 标志，否则 Unread 失配导致 patrol 全静默
+  UNREAD: '[class*="unread" i], [class*="red-dot" i], [data-unread="1"]',
   // 输入框（兼容旧引用）
   EDITOR: 'div.messageEditorinputArea.editor-kit-container, div[contenteditable="true"][role="textbox"]',
 };

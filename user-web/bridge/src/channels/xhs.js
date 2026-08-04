@@ -34,35 +34,36 @@ function mergedSelectors() {
 }
 
 // —— 选择器定义（2026-08 验证可用）——
+// ⚠️ [class*="..."] 均带 i 标志（大小写不敏感），否则 CSS module 大写类名全失配。
 export const SEL = {
-  // 左侧会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item
-  CHAT_LIST: '.xhs-im-conv-item, .sx-contact-item',
+  // 左侧会话列表：新版 .xhs-im-conv-item（data-conv-id），旧版 .sx-contact-item + 容器内兜底
+  CHAT_LIST: '.xhs-im-conv-item, .sx-contact-item, [class*="xhs-im-conv-list" i] [class*="conv-item" i]',
   // 消息线程容器
-  MSG_LIST: '.xhs-im-msg-list-wrap, .vue-recycle-scroller.ready, [class*="chat-content"]',
-  // 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item
-  MSG_ITEM: '.chat-item, .im-msg-item, [class*="msg-item"]',
+  MSG_LIST: '.xhs-im-msg-list-wrap, .vue-recycle-scroller.ready, [class*="chat-content" i], [class*="msg-list" i]',
+  // 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item + 气泡兜底
+  MSG_ITEM: '.chat-item, .im-msg-item, [class*="msg-item" i], [class*="bubble" i]',
   // 自方气泡：新版 --right/--self，旧版 .right
-  SELF_ITEM: '.chat-item__content--right, [class*="--self"], .right, [class*="self"]',
+  SELF_ITEM: '.chat-item__content--right, [class*="--self" i], .right, [class*="self" i], [class*="outgoing" i]',
   // 对方气泡：新版 --left/--other，旧版 .left
-  OTHER_ITEM: '.chat-item__content--left, [class*="--other"], .left, [class*="other"]',
-  // 气泡内文本：新版 .xhs-im-bubble__text，旧版 .text-message
-  TEXT: '.xhs-im-bubble__text, .text-message',
+  OTHER_ITEM: '.chat-item__content--left, [class*="--other" i], .left, [class*="other" i], [class*="incoming" i]',
+  // 气泡内文本：新版 .xhs-im-bubble__text，旧版 .text-message + 文本型兜底
+  TEXT: '.xhs-im-bubble__text, .text-message, [class*="text-message" i], [class*="msg-content" i]',
   // 输入框：新版 contenteditable div，旧版 textarea
   INPUT: '#jarvis-reply-textarea, div.xhs-im-input-bar-editor[contenteditable="true"]',
   // 发送按钮
-  SEND: '.send_btn, [class*="send-btn"], [aria-label*="发送"]',
+  SEND: '.send_btn, [class*="send-btn" i], [aria-label*="发送"]',
   // 消息类型 data 属性
   MSG_TYPE: '[data-msg-type], [data-content-type]',
   // 笔记卡片
-  CARD: '.card_container, [class*="card-container"]',
-  CARD_TITLE: '.card_bottom_title, [class*="card-title"]',
-  CARD_INFO: '.card_bottom_info, [class*="card-info"]',
+  CARD: '.card_container, [class*="card-container" i]',
+  CARD_TITLE: '.card_bottom_title, [class*="card-title" i]',
+  CARD_INFO: '.card_bottom_info, [class*="card-info" i]',
   // 聚光进线（系统消息）
   SPOTLIGHT: '.source-tip',
   // 聊天对象昵称
-  PEER_NAME: '.xhs-im-chat-title, [class*="chat-header"] [class*="title"], [class*="chat-window"] [class*="header"] [class*="name"]',
-  // 未读标记（巡检用）
-  UNREAD: '[class*="unread"], [class*="red-dot"], [data-unread="1"]',
+  PEER_NAME: '.xhs-im-chat-title, [class*="chat-header" i] [class*="title" i], [class*="chat-window" i] [class*="header" i] [class*="name" i]',
+  // 未读标记（巡检用）⚠️ 必须带 i 标志
+  UNREAD: '[class*="unread" i], [class*="red-dot" i], [data-unread="1"]',
 };
 
 // —— 输入框候选 ——
