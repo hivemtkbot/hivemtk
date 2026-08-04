@@ -28,7 +28,7 @@ type e2eFakeTrigger struct {
 	lastEventID string
 }
 
-func (f *e2eFakeTrigger) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string) {
+func (f *e2eFakeTrigger) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...service.TriggerInboundOption) {
 	atomic.AddInt32(&f.calls, 1)
 	f.lastChannel = channel
 	f.lastAccount = accountID

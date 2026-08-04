@@ -11,7 +11,18 @@ import {
   DEFAULT_USER_SERVER,
   PLATFORM_ENTRY_URLS,
   UI_DEFAULTS,
+  PATROL_DEFAULTS,
+  CHANNEL_DISPLAY,
 } from '../core/constants.js';
+import {
+  saveSelectors,
+  getCustomSelectors,
+  SELECTOR_FIELDS,
+  SELECTOR_CONFIG_KEY,
+} from '../core/selector-ai.js';
+// 静态导入各渠道 SEL 默认值（展示当前生效值用，不触发 DOM 探测）
+import { SEL as DOUYIN_SEL } from '../channels/douyin.js';
+import { SEL as XHS_SEL } from '../channels/xhs.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -169,6 +180,20 @@ async function testConnection(serverUrl) {
   return { ok: false, url: base, reason: 'unreachable', detail: lastNetErr };
 }
 
+// 渠道展示名：统一只显示「抖音 / 小红书 / TikTok」，不出现 douyin_web/xhs_web 这类内部编码
+// （需求④：只有一个渠道名称、列表渲染/搜索同理）。内部协议码仍用 *_web，仅展示层归一化。
+function channelDisplayName(channel) {
+  if (!channel) return '';
+  return CHANNEL_DISPLAY[channel] || channel;
+}
+
+// 把 metaStore key 形如 "douyin_web:acc1" 拆出 channel/account 用于展示
+function parseStatusKey(k) {
+  const idx = String(k || '').indexOf(':');
+  if (idx < 0) return { channel: k, account: '' };
+  return { channel: k.slice(0, idx), account: k.slice(idx + 1) };
+}
+
 // ---- 连接状态 ----
 function refreshStatus() {
   try {
@@ -183,8 +208,10 @@ function refreshStatus() {
         return;
       }
       const lines = Object.entries(res.statuses || {}).map(([k, v]) => {
+        const { channel, account } = parseStatusKey(k);
+        const disp = channelDisplayName(channel) || channel || '-';
         const tag = v.online ? '🟢 在线' : '🔴 离线';
-        return `${tag}  ${k}\n   会话: ${v.conversationId || '-'}\n   账号: ${v.accountId || '-'}\n   渠道: ${v.channel || '-'}`;
+        return `${tag}  ${disp}${account ? ' / ' + account : ''}\n   会话: ${v.conversationId || '-'}\n   渠道: ${disp}`;
       });
       $('statusOut').textContent = lines.length ? lines.join('\n\n') : '当前无已连接账号';
     });
@@ -489,6 +516,308 @@ function openUrl(url) {
   }
 }
 
+// ---- 全量同步私信（需求①③） ----
+// 向当前标签页 content script 发送 syncAllConversations：
+// 遍历所有私信会话，逐个回填多轮历史（一个会话=一条记录）。仅私信页有效。
+function syncAllConversations() {
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab) {
+        $('selfOut').textContent = '无活动标签页';
+        return;
+      }
+      const onSupportedHost = /douyin\.com|xiaohongshu\.com/i.test(tab.url || '');
+      if (!onSupportedHost) {
+        $('selfOut').textContent = '当前标签页不是抖音/小红书：\n' + (tab.url || '');
+        return;
+      }
+      $('selfOut').textContent = '正在全量同步私信会话…（可能需要数分钟，请勿切换标签页）';
+      chrome.tabs.sendMessage(tab.id, { type: 'syncAllConversations' }, (resp) => {
+        const err = lastError();
+        if (err) {
+          $('selfOut').textContent = '触发全量同步失败：' + err + '\n\n可能原因：\n  1. 当前页面未注入桥接（请先点「自检当前私信页」）\n  2. 当前不是私信页（需打开抖音/小红书聊天页）';
+          return;
+        }
+        if (!resp) {
+          $('selfOut').textContent = 'content script 未返回结果';
+          return;
+        }
+        if (resp.ok === false) {
+          $('selfOut').textContent = '同步失败：' + (resp.error || '未知');
+          return;
+        }
+        const waitHint = resp.skipped
+          ? '\n（另一轮同步正在进行，已忽略本次重复触发）'
+          : '';
+        $('selfOut').textContent = `✅ 全量同步完成${waitHint}\n成功会话: ${resp.synced}\n遍历会话: ${resp.total}\n失败: ${resp.failures}\n\n说明：已同步的会话不会重复回填（持久化续传）；实时新私信仍会即时上行。`;
+      });
+    });
+  } catch (e) {
+    $('selfOut').textContent = '触发全量同步失败：' + e;
+  }
+}
+
+// ---- 选择器配置：抖音/小红书 切换页 分别配置（需求①）----
+// 字段 <-> 输入框 id 映射（与 SELECTOR_FIELDS 顺序一致）
+const SEL_FIELD_IDS = {
+  conversationList: 'selConversationList',
+  messageList: 'selMessageList',
+  messageItem: 'selMessageItem',
+  text: 'selText',
+  input: 'selInput',
+  send: 'selSend',
+  selfMarker: 'selSelfMarker',
+  otherMarker: 'selOtherMarker',
+};
+
+// 字段 -> 渠道 SEL 属性名映射（用于「当前生效值」展示：用户未配置时，placeholder 直接显示 SEL 默认，
+// 非空即有效值/当前使用值，可让用户一眼看到当前到底在用什么选择器，无需翻源码）
+const SEL_FIELD_TO_PROP = {
+  conversationList: 'CHAT_LIST',
+  messageList: 'MSG_LIST',
+  messageItem: 'MSG_ITEM',
+  text: 'TEXT',
+  input: 'INPUT',  // 抖音叫 EDITOR，小红书叫 INPUT；后面取值时两者都尝试
+  send: 'SEND',
+  selfMarker: 'SELF_ITEM',
+  otherMarker: 'OTHER_ITEM',
+};
+
+// 各渠道 SEL 默认表（静态导入，避免触发 DOM 探测）
+const CHANNEL_SEL_MAP = {
+  douyin_web: DOUYIN_SEL,
+  xhs_web: XHS_SEL,
+  tiktok_web: {}, // TikTok 暂无独立适配器，留空
+};
+
+// 取某渠道某字段的当前生效默认选择器（来自 SEL；抖音 input 字段兼容 EDITOR/INPUT 双命名）
+function channelSelDefault(channel, field) {
+  const sel = CHANNEL_SEL_MAP[channel];
+  if (!sel) return '';
+  const prop = SEL_FIELD_TO_PROP[field];
+  if (!prop) return '';
+  // 抖音输入框为 EDITOR，小红书为 INPUT；优先按 prop 取，缺失时 input 字段兼容 EDITOR
+  let v = sel[prop];
+  if (!v && field === 'input') v = sel.EDITOR || sel.INPUT;
+  return v || '';
+}
+
+// 同步读取全部选择器配置（popup localStorage 镜像，与 saveSelectors 写入侧一致）
+function readAllSelectors() {
+  try {
+    const raw = localStorage.getItem(SELECTOR_CONFIG_KEY);
+    if (raw) return JSON.parse(raw) || {};
+  } catch (_) { /* noop */ }
+  return {};
+}
+
+// 加载某渠道选择器配置到表单。
+// 需求②：自定义值为空时，placeholder 直接显示当前生效值（SEL 默认，非空即有效值/当前使用值），
+//         不再是泛化的「如 .xhs-im-conv-item」示例文案。
+function loadSelectorConfig(channel) {
+  const all = readAllSelectors();
+  const cfg = all[channel] || {};
+  for (const field of SELECTOR_FIELDS) {
+    const el = $(SEL_FIELD_IDS[field]);
+    if (!el) continue;
+    el.value = cfg[field] || '';
+    // 当前生效值（SEL 默认）作为 placeholder：非空即展示，让用户知道未配置时正在用什么
+    const def = channelSelDefault(channel, field);
+    if (def) el.placeholder = def;
+    else el.placeholder = '';
+  }
+}
+
+function collectSelectorConfig() {
+  const cfg = {};
+  for (const field of SELECTOR_FIELDS) {
+    const el = $(SEL_FIELD_IDS[field]);
+    const v = el ? String(el.value || '').trim() : '';
+    if (v) cfg[field] = v;
+  }
+  return cfg;
+}
+
+// 广播选择器更新到所有抖音/小红书/TikTok 标签页，触发 content script 重新水合并立即生效
+function broadcastSelectorsUpdated() {
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      const list = Array.isArray(tabs) ? tabs : [];
+      for (const t of list) {
+        if (!t || !t.id || !t.url) continue;
+        if (!/douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(t.url)) continue;
+        try {
+          chrome.tabs.sendMessage(t.id, { type: 'selectorsUpdated' }, () => { /* 忽略 lastError：未注入/已关闭均正常 */ try { void chrome.runtime.lastError; } catch (_) {} });
+        } catch (_) { /* 接收端不存在：忽略 */ }
+      }
+    });
+  } catch (_) { /* chrome.tabs 不可用：忽略 */ }
+}
+
+let selActiveChannel = 'douyin_web';
+
+function wireSelectorConfig() {
+  const toggle = $('selToggle');
+  const panel = $('selPanel');
+  if (toggle && panel) {
+    toggle.addEventListener('click', () => {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      if (panel.style.display !== 'none') loadSelectorConfig(selActiveChannel);
+    });
+  }
+  // Tab 切换：点击抖音/小红书/TikTok 标签 → 切到对应渠道并回填其已存配置
+  const tabs = document.querySelectorAll ? document.querySelectorAll('.sel-tab') : [];
+  for (const tab of Array.from(tabs)) {
+    tab.addEventListener('click', () => {
+      const ch = tab.getAttribute('data-channel');
+      if (!ch) return;
+      selActiveChannel = ch;
+      for (const t of Array.from(tabs)) t.classList && t.classList.remove('active');
+      tab.classList && tab.classList.add('active');
+      loadSelectorConfig(ch);
+    });
+  }
+  const saveBtn = $('selSave');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const ch = selActiveChannel;
+      const cfg = collectSelectorConfig();
+      const all = readAllSelectors();
+      const merged = { ...all, [ch]: cfg };
+      try {
+        await saveSelectors(merged);
+        broadcastSelectorsUpdated();
+        showBanner('success', '✓ 选择器已保存', `${channelDisplayName(ch)} 配置已生效（已同步到已打开的私信页）`);
+      } catch (e) {
+        showBanner('error', '保存失败', String(e));
+      }
+    });
+  }
+  const clearBtn = $('selClear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+      const ch = selActiveChannel;
+      const all = readAllSelectors();
+      if (all[ch]) delete all[ch];
+      try {
+        await saveSelectors(all);
+        broadcastSelectorsUpdated();
+        loadSelectorConfig(ch);
+        showBanner('info', '已清除', `${channelDisplayName(ch)} 选择器配置已清除，恢复内置默认`);
+      } catch (e) {
+        showBanner('error', '清除失败', String(e));
+      }
+    });
+  }
+}
+
+// ---- 巡检制度（需求上行②）----
+// popup -> 当前活动私信页 content script：启动/停止/立即巡检/查状态。
+function sendToActiveTab(msg, cb) {
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab || !tab.id) { cb && cb({ ok: false, reason: 'no-active-tab' }); return; }
+      if (!tab.url || !/douyin\.com|xiaohongshu\.com|tiktok\.com/i.test(tab.url)) {
+        cb && cb({ ok: false, reason: 'not-supported-host', url: tab.url });
+        return;
+      }
+      try {
+        chrome.tabs.sendMessage(tab.id, msg, (resp) => {
+          const err = lastError();
+          if (err) { cb && cb({ ok: false, reason: 'send-failed', error: err }); return; }
+          cb && cb(resp);
+        });
+      } catch (e) { cb && cb({ ok: false, reason: 'send-threw', error: String(e) }); }
+    });
+  } catch (e) { cb && cb({ ok: false, reason: 'query-threw', error: String(e) }); }
+}
+
+function fmtPatrolStatus(s) {
+  if (!s) return '无状态返回';
+  if (s.ok === false) return '巡检不可用：' + (s.error || s.reason || '未知');
+  const running = s.running ? '🟢 运行中' : '⚪ 未运行';
+  const lines = [
+    running + (s.inRound ? '（进行一轮中）' : ''),
+    `轮间隔: ${s.intervalMs ? Math.round(s.intervalMs / 1000) + 's' : '-'}`,
+    `累计轮数: ${s.rounds || 0}`,
+    `累计访问会话: ${s.visited || 0}`,
+    `有新消息会话: ${s.withNew || 0}`,
+    `捕获新消息: ${s.captured || 0}`,
+    `失败: ${s.failures || 0}`,
+    s.lastRoundAt ? `上一轮: ${new Date(s.lastRoundAt).toLocaleTimeString()}（用时 ${s.lastDurationMs || 0}ms）` : '',
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+function refreshPatrolStatus() {
+  sendToActiveTab({ type: 'patrolStatus' }, (resp) => {
+    const out = $('patrolOut');
+    if (out) out.textContent = fmtPatrolStatus(resp);
+  });
+}
+
+let patrolStatusTimer = null;
+function startPatrolStatusPolling() {
+  if (patrolStatusTimer) clearInterval(patrolStatusTimer);
+  refreshPatrolStatus();
+  patrolStatusTimer = setInterval(refreshPatrolStatus, UI_DEFAULTS.metaReportIntervalMs);
+}
+
+function wirePatrol() {
+  const toggle = $('patrolToggle');
+  const panel = $('patrolPanel');
+  if (toggle && panel) {
+    toggle.addEventListener('click', () => {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      if (panel.style.display !== 'none') { refreshPatrolStatus(); startPatrolStatusPolling(); }
+    });
+  }
+  const startBtn = $('patrolStart');
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      const inp = $('patrolInterval');
+      let sec = parseInt((inp && inp.value) || '', 10);
+      if (!Number.isFinite(sec) || sec < 3) sec = Math.round(PATROL_DEFAULTS.intervalMs / 1000);
+      const intervalMs = sec * 1000;
+      sendToActiveTab({ type: 'patrolStart', intervalMs }, (resp) => {
+        const out = $('patrolOut');
+        if (resp && resp.ok) {
+          if (out) out.textContent = `✓ 巡检已启动：每 ${sec}s 一轮，自动遍历左侧新消息会话并上报`;
+          showBanner('success', '✓ 巡检已启动', `每 ${sec}s 一轮，自动遍历左侧新消息会话并上报`);
+          startPatrolStatusPolling();
+        } else {
+          if (out) out.textContent = '启动失败：' + ((resp && (resp.error || resp.reason)) || '未知');
+        }
+      });
+    });
+  }
+  const stopBtn = $('patrolStop');
+  if (stopBtn) {
+    stopBtn.addEventListener('click', () => {
+      sendToActiveTab({ type: 'patrolStop' }, (resp) => {
+        const out = $('patrolOut');
+        if (out) out.textContent = resp && resp.ok ? '✓ 巡检已停止' : '停止失败：' + (resp && (resp.error || resp.reason) || '未知');
+        refreshPatrolStatus();
+      });
+    });
+  }
+  const nowBtn = $('patrolNow');
+  if (nowBtn) {
+    nowBtn.addEventListener('click', () => {
+      const out = $('patrolOut');
+      if (out) out.textContent = '正在巡检一轮…';
+      sendToActiveTab({ type: 'patrolNow' }, (resp) => {
+        if (out) out.textContent = resp && resp.ok
+          ? `✓ 巡检一轮完成：访问 ${resp.visited}，有新消息 ${resp.withNew}，捕获 ${resp.captured}，失败 ${resp.failures}`
+          : '巡检失败：' + (resp && (resp.error || resp.reason) || '未知');
+        refreshPatrolStatus();
+      });
+    });
+  }
+}
+
 // ---- DOM ready ----
 document.addEventListener('DOMContentLoaded', () => {
   loadConfig((cfg) => {
@@ -552,8 +881,18 @@ document.addEventListener('DOMContentLoaded', () => {
   $('selfcheck').addEventListener('click', selfCheck);
   const deepBtn = $('deepSelfcheck');
   if (deepBtn) deepBtn.addEventListener('click', deepSelfCheck);
+  const syncBtn = $('syncAll');
+  if (syncBtn) syncBtn.addEventListener('click', syncAllConversations);
   const copyBtn = $('copySelfOut');
   if (copyBtn) copyBtn.addEventListener('click', copySelfOut);
+
+  // ---- 选择器配置（切换 抖音/小红书 分别配置；需求①）----
+  // 现场识别 HTML 后，按渠道 Tab 切换 → 填入对应选择器 → 保存（立即生效，广播给 content script）。
+  wireSelectorConfig();
+
+  // ---- 巡检制度（需求上行②）----
+  // 启动/停止/立即巡检 + 状态展示。间隔可配置（默认 PATROL_DEFAULTS.intervalMs=60s）。
+  wirePatrol();
 
   // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
   $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin_web));
@@ -583,5 +922,6 @@ if (typeof window !== 'undefined') {
     runDeepSelfcheck,
     formatDeepSnapshot,
     tryAutoInject,
+    syncAllConversations,
   };
 }

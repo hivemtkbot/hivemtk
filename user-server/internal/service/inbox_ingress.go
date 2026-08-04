@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,8 +42,39 @@ const (
 // 解耦 InboxIngressService 与具体 AI 编排实现，避免 service -> bridge 的导入环。
 // 网页桥接场景由 WebhookService 实现（复用与 web 私信同源的同步主链路）；
 // 单元测试可注入 fake 以验证“新消息触发 AI / 历史消息不触发 AI”的语义。
+//
+// senderName / isGroup / groupID / groupName 供群聊场景透传：
+//   群聊中客户消息的 sender_id 被聚合为群 id，AI 编排需额外知道“这条消息是谁发的”
+//   （senderName）以及会话是否为群（isGroup/groupID/groupName），否则群成员身份丢失、
+//   AI 无法 @ 成员/按成员个性化回复。
 type AITrigger interface {
-	TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string)
+	TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...TriggerInboundOption)
+}
+
+// TriggerInboundOption 入站触发附加元数据（可选，向后兼容单参调用）。
+// 群聊/多轮历史所需字段以函数式选项透传，避免破坏既有调用方签名。
+type TriggerInboundOption func(*TriggerInboundMeta)
+
+// TriggerInboundMeta 透传给 AI 编排的附加元数据
+type TriggerInboundMeta struct {
+	SenderName string
+	IsGroup    bool
+	GroupID    string
+	GroupName  string
+}
+
+// WithSenderName 透传消息发送者昵称（群聊必填：区分群成员）
+func WithSenderName(name string) TriggerInboundOption {
+	return func(m *TriggerInboundMeta) { m.SenderName = name }
+}
+
+// WithGroup 透传群聊元数据
+func WithGroup(groupID, groupName string) TriggerInboundOption {
+	return func(m *TriggerInboundMeta) {
+		m.IsGroup = true
+		m.GroupID = groupID
+		m.GroupName = groupName
+	}
 }
 
 // InboxIngressResult 消息入站处理结果
@@ -307,7 +339,16 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		}
 	}
 	if s.aiTrigger != nil {
-		s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID)
+		// 透传 sender_name / 群聊元数据：群聊中客户消息 sender_id 聚合为群 id，
+		// AI 编排需知道“谁在群中发言”及会话群属性（见 AITrigger 接口注释）。
+		opts := make([]TriggerInboundOption, 0, 2)
+		if event.SenderName != "" {
+			opts = append(opts, WithSenderName(event.SenderName))
+		}
+		if event.IsGroup {
+			opts = append(opts, WithGroup(event.GroupID, groupNameOf(event)))
+		}
+		s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID, opts...)
 	} else {
 		logger.Warnf("[Inbox] aiTrigger 未配置，入站消息未触发 AI session=%s", event.SessionID)
 	}
@@ -358,9 +399,23 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		}
 		hub.Extra = extra
 	}
+	// 会话级多轮历史落库（点3）：event.History 已由 toMessageEvent 透传，
+	// 冗余进 message_hub.Extra 供统一收件箱展示/可观测（AI 上下文由 session_messages 重建）。
+	if len(event.History) > 0 {
+		if hub.Extra == nil {
+			hub.Extra = model.JSONMap{}
+		}
+		hub.Extra["history"] = event.History
+	}
 	// 五层架构修复：原 s.db.WithContext(ctx).Create(hub).Error 违反
 	// "service 不可直接访问 DB" 约束，已下沉到 MessageHubRepository.Create
 	if err := s.hubRepo.Create(ctx, hub); err != nil {
+		// 幂等：MsgID 唯一键冲突说明该消息已落库（扩展断线重发 / 历史重复回填），
+		// 视为成功，避免日志刷错与 WS 上行被当作失败。与 webhook.go 对 join/left
+		// 事件的 UNIQUE/duplicate 处理口径一致。
+		if isDuplicateKey(err) {
+			return nil
+		}
 		return err
 	}
 	// 同步会话到统一收件箱（inbox_conversations），否则 unifiedInbox/list 看不到桥接聊天。
@@ -466,6 +521,11 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 		}
 	}
 	if err := s.hubRepo.Create(ctx, hub); err != nil {
+		// 幂等：MsgID 唯一键冲突说明该消息已落库（重扫 / 断线重发），视为成功，
+		// 避免日志刷错与"历史回填失败"误报。与 persistMessage 口径一致。
+		if isDuplicateKey(err) {
+			return nil
+		}
 		return err
 	}
 	// 同步会话到统一收件箱（inbox_conversations），使 unifiedInbox/list 能看到桥接聊天。
@@ -477,4 +537,32 @@ func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *
 		}
 	}
 	return nil
+}
+
+// isDuplicateKey 判断是否为唯一键冲突（Postgres: duplicate key value on ...）。
+// 用于消息落库幂等：同一 MsgID（event_id）重发/重扫时视为已落库，不报错。
+func isDuplicateKey(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "unique constraint") ||
+		errors.Is(err, gorm.ErrDuplicatedKey)
+}
+
+// groupNameOf 从 MessageEvent 提取群名：优先 GroupID 对应的 GroupName 字段（事件模型
+// 无 GroupName 时回退 Extra 冗余），保证群聊 AI 编排能拿到群名。
+func groupNameOf(event *model.MessageEvent) string {
+	if event == nil {
+		return ""
+	}
+	if event.Extra != nil {
+		if v, ok := event.Extra["group_name"]; ok {
+			if s, _ := v.(string); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }

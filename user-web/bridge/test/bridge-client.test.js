@@ -72,6 +72,23 @@ describe('BridgeClient 协议', () => {
     expect(() => MockWS.last.fireMessage({ type: FRAME.PONG })).not.toThrow();
   });
 
+  it('保活闭环：发 JSON pong 后收到服务端回 pong -> alive 恢复，不误判离线重连', () => {
+    const c = new BridgeClient({ WebSocket: MockWS, serverUrl: 'http://x', channel: 'douyin_web', accountId: 'd1' });
+    c.connect();
+    MockWS.last.open();
+    expect(c.alive).toBe(true);
+
+    // 模拟 _startPing 触发：alive=true → 发 pong → 置 false
+    c.send({ type: FRAME.PONG });
+    c.alive = false;
+    const last = JSON.parse(MockWS.last.sent[MockWS.last.sent.length - 1]);
+    expect(last.type).toBe(FRAME.PONG);
+
+    // 服务端回 JSON pong（服务端 replyPong）→ alive 恢复 true
+    MockWS.last.fireMessage({ type: FRAME.PONG });
+    expect(c.alive).toBe(true); // 不会走到"alive=false → close 重连"分支
+  });
+
   it('sendInbound 发送 inbound 帧', () => {
     const c = new BridgeClient({ WebSocket: MockWS, serverUrl: 'http://x', channel: 'douyin_web', accountId: '1' });
     c.connect();

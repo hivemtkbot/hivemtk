@@ -116,6 +116,12 @@ type IncomingContext struct {
 	MessageID  string
 	MediaURL   string
 	OneID      string // 客户 OneID（若已知）
+	// IsGroup / GroupID / GroupName 群聊元数据（桥接渠道透传）：
+	// 群聊中 SenderID 被聚合为群 id，AI 编排需据 SenderName 区分“谁在群中发言”，
+	// 并按 GroupID 建独立会话（群聊≠1:1 私信）。
+	IsGroup   bool
+	GroupID   string
+	GroupName string
 }
 
 // HandleResult 处理结果
@@ -336,6 +342,40 @@ func (o *SmartCSOrchestrator) HandleIncomingWithAgent(ctx context.Context, in *I
 //
 // 注释：S3-1 之前的实现只按 user_id 匹配，会导致 web → TG 切换时冷启动。
 func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *IncomingContext) (*model.CustomerSession, error) {
+	// 群聊会话键：群聊的“客户”是群本身——按 groupID 聚合一个会话，
+	// 群内各成员消息的 SenderID 用成员身份（见 handleFrame 已透传），
+	// 避免把不同成员当成不同客户/不同会话。
+	if in.IsGroup {
+		groupKey := in.GroupID
+		if groupKey == "" {
+			groupKey = in.SenderID
+		}
+		if existing, err := o.sessionRepo.GetActiveByUserID(ctx, "group:"+groupKey); err == nil && existing != nil {
+			return existing, nil
+		}
+		derivedOneID := "group:" + groupKey
+		sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
+		now := time.Now()
+		session := &model.CustomerSession{
+			SessionID:     sessionID,
+			Platform:      in.Platform,
+			AccountID:     in.AccountID,
+			UserID:        derivedOneID,
+			OneID:         derivedOneID,
+			UserName:      in.GroupName,
+			Status:        model.SessionStatusPending,
+			Priority:      0,
+			LastMessage:   in.Content,
+			LastMessageAt: &now,
+			LastMessageBy: "user",
+			HandlerType:   model.HandlerTypeAI,
+		}
+		if err := o.sessionRepo.Create(ctx, session); err != nil {
+			return nil, err
+		}
+		return session, nil
+	}
+
 	// 1) 优先 OneID 匹配（跨渠道合并）
 	if in.OneID != "" {
 		if existing, err := o.sessionRepo.GetActiveByOneID(ctx, in.OneID); err == nil && existing != nil {

@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -115,6 +116,49 @@ func TestBridgeHub_RateLimit_Bucket(t *testing.T) {
 	if !sawLimit {
 		t.Fatal("expected ErrBridgeRateLimited after bucket drained")
 	}
+}
+
+// TestBridgeClient_replyPong 验证服务端对 JSON pong 帧回一帧 JSON pong。
+// 修复背景：客户端 bridge-client.js 的 alive 标志只在收到「下行 JSON 帧」时重置，
+// 若服务端不回，客户端每 ~serverIdleTimeoutMs 误判离线强制重连（50s 抖动）。
+func TestBridgeClient_replyPong(t *testing.T) {
+	hub := NewBridgeHub()
+	c := newTestClient(ChannelDouyinWeb, "acc1")
+	c.hub = hub
+	hub.Register(c)
+
+	c.replyPong()
+
+	select {
+	case msg := <-c.send:
+		var f Frame
+		if err := json.Unmarshal(msg, &f); err != nil {
+			t.Fatalf("replyPong 帧无法解析: %v", err)
+		}
+		if f.Type != FramePong {
+			t.Fatalf("replyPong 应回 FramePong，实际 %q", f.Type)
+		}
+	default:
+		t.Fatal("replyPong 未向 send 通道写入 JSON pong 帧")
+	}
+}
+
+// TestBridgeClient_replyPong_AfterClose 验证已关闭连接回 pong 不 panic（幂等安全）
+func TestBridgeClient_replyPong_AfterClose(t *testing.T) {
+	hub := NewBridgeHub()
+	c := newTestClient(ChannelDouyinWeb, "acc1")
+	c.hub = hub
+	hub.Register(c)
+	hub.Unregister(c) // CloseSend
+	// 已关闭后调用必须安全（select default 不写已关闭 channel）
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("replyPong 在已关闭连接上 panic: %v", r)
+			}
+		}()
+		c.replyPong()
+	}()
 }
 
 // TestBridgeHub_Unregister_ClosesSendChannel 验证 Unregister 关闭 send channel（防 close-after-send panic）

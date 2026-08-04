@@ -292,6 +292,30 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 			return
 		}
 		// 历史/回填消息：仅落库，绝不触发 AI（避免回填空历史误触发推理与自回环）
+		// 点3：会话级 history 帧（message.History 非空）→ 一个会话一条消息、内含多轮历史，逐条落库。
+		if len(f.Message.History) > 0 {
+			for _, it := range f.Message.History {
+				if it == nil {
+					continue
+				}
+				ev := historyItemToEvent(f.Message, it)
+				dir := it.Direction
+				if dir == "" {
+					dir = "inbound"
+				}
+				if err := ingress.PersistBridgeHistory(ctx, ev, dir); err != nil {
+					logger.Ctx(ctx).Error().
+						Err(err).
+						Str("module", "bridge").
+						Str("event_id", it.EventID).
+						Str("channel", ev.Channel).
+						Str("direction", dir).
+						Msg("bridge history persist failed (history item)")
+				}
+			}
+			return
+		}
+		// 兼容单条 history 帧（旧协议）
 		event := toMessageEvent(f.Message)
 		direction := f.Message.Direction
 		if direction == "" {
@@ -307,7 +331,35 @@ func (c *BridgeClient) handleFrame(ctx context.Context, data []byte, ingress *se
 				Msg("bridge history persist failed")
 		}
 	case FramePong, FrameAck:
-		// 保活 / 下行确认，无需处理
+		// 保活 / 下行确认。
+		// 关键修复：客户端 bridge-client.js 的 alive 标志只在收到「下行 JSON 帧」
+		// 时重置（协议级 ping 由浏览器自动应答，不触发 JS onmessage）。若服务端不回
+		// JSON pong，客户端发送后 alive 恒为 false → 每 ~serverIdleTimeoutMs(25s)
+		// 误判离线强制重连（50s 一个循环）。这里回一帧 JSON pong 打破该抖动。
+		_ = c.conn.SetReadDeadline(time.Now().Add(pongWait)) // 任意上行帧均续期（防御纵深）
+		c.replyPong()
+	}
+}
+
+// replyPong 向客户端回一帧 JSON pong（保活闭环）。
+// 与 Deliver 一致：持有 hub.mu 再写 send，避免并发 Unregister close(send) 造成
+// send-on-closed-channel panic；非阻塞发送，缓冲满时丢弃（保活帧可容忍）。
+func (c *BridgeClient) replyPong() {
+	if c == nil || c.hub == nil {
+		return
+	}
+	data, err := json.Marshal(&Frame{Type: FramePong})
+	if err != nil {
+		return
+	}
+	c.hub.mu.Lock()
+	defer c.hub.mu.Unlock()
+	if c.IsClosed() {
+		return
+	}
+	select {
+	case c.send <- data:
+	default:
 	}
 }
 
@@ -447,6 +499,57 @@ func (h *BridgeWSHandler) HandleWebSocket(c *gin.Context) {
 	go client.Start(ctx, h.ingress)
 }
 
+// historyItemToEvent 把会话级 history 帧中的单轮（HistoryItem）映射为 model.MessageEvent。
+// 会话元数据（channel/account/conversation/群）取自帧顶层的 message，轮次字段取自 item。
+func historyItemToEvent(m *UnifiedMessage, it *HistoryItem) *model.MessageEvent {
+	ch := ToBridgeChannel(m.Channel)
+	ts := time.UnixMilli(it.Timestamp)
+	if it.Timestamp == 0 {
+		ts = time.Now()
+	}
+	ev := &model.MessageEvent{
+		EventID:        it.EventID,
+		SessionID:      ch + ":" + m.AccountID + ":" + m.ConversationID,
+		Channel:        ch,
+		SenderID:       it.SenderID,
+		SenderName:     it.SenderName,
+		ReceiverID:     orDefault(it.ReceiverID, m.ReceiverID),
+		MsgType:        it.MsgType,
+		Content:        it.Content,
+		MediaURL:       it.MediaURL,
+		ConversationID: m.ConversationID,
+		IsGroup:        it.IsGroup || m.IsGroup,
+		GroupID:        orDefault(it.GroupID, m.GroupID),
+		Timestamp:      ts,
+		Extra: map[string]any{
+			"account_id": m.AccountID, "bridge": true,
+			"sender_type": orDefault(it.SenderType, m.SenderType),
+		},
+	}
+	// 出站轮次 receiver_id 兜底：扩展侧 _historyItem 已填「会话对方」，此处再兜一层
+	// （旧版扩展未填时，统一收信中心仍能按「对方」聚合而非「自己」）。
+	if ev.ReceiverID == "" && it.Direction == "outbound" {
+		ev.ReceiverID = m.ConversationID
+	}
+	if ev.IsGroup {
+		ev.Extra["is_group"] = true
+	}
+	if ev.GroupID != "" {
+		ev.Extra["group_id"] = ev.GroupID
+	}
+	if groupName := orDefault(it.GroupName, m.GroupName); groupName != "" {
+		ev.Extra["group_name"] = groupName
+	}
+	return ev
+}
+
+func orDefault(v, def string) string {
+	if v != "" {
+		return v
+	}
+	return def
+}
+
 // toMessageEvent 将 UnifiedMessage 映射为 model.MessageEvent
 func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
 	ch := ToBridgeChannel(m.Channel)
@@ -469,6 +572,33 @@ func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
 		GroupID:        m.GroupID,
 		Timestamp:      ts,
 		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType},
+	}
+	// 会话级多轮历史透传（点3）：扩展 inbound 帧携带的 history 窗口 → MessageEvent，
+	// 落 message_hub.Extra 供统一收件箱展示/可观测（AI 上下文由 session_messages 自行重建）。
+	if len(m.History) > 0 {
+		hist := make([]model.MessageEventHistoryItem, 0, len(m.History))
+		for _, it := range m.History {
+			if it == nil {
+				continue
+			}
+			hist = append(hist, model.MessageEventHistoryItem{
+				EventID:    it.EventID,
+				SenderType: it.SenderType,
+				SenderID:   it.SenderID,
+				SenderName: it.SenderName,
+				ReceiverID: it.ReceiverID,
+				MsgType:    it.MsgType,
+				Content:    it.Content,
+				MediaURL:   it.MediaURL,
+				Timestamp:  it.Timestamp,
+				Direction:  it.Direction,
+				IsGroup:    it.IsGroup,
+				GroupID:    it.GroupID,
+				GroupName:  it.GroupName,
+			})
+		}
+		ev.History = hist
+		ev.Extra["history"] = hist
 	}
 	// 群聊 / 非文字元信息冗余进 Extra，保证下游（inbox_ingress / 统一收件箱）可读
 	if m.IsGroup {

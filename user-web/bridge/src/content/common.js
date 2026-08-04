@@ -4,6 +4,7 @@ import { FRAME, parseUnifiedReply } from '../core/types.js';
 import { UI_DEFAULTS } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 import { sanitizeForDisplay } from '../core/sanitize.js';
+import { hydrateSelectors, SELECTOR_UPDATE_MSG } from '../core/selector-ai.js';
 
 const log = createLogger('content', 'bridge');
 
@@ -17,7 +18,7 @@ const log = createLogger('content', 'bridge');
 // 但三渠道 adapter 都没实现 snapshotMeta hook（仅实现 getAccountId/getConversationId），
 // 导致自检结果账号/会话永远空，无法定位"哪条会话/哪个账号"在跑。
 // 改为走 getter 拿到真实值。
-function handleSelfcheck(adapter, sendResponse) {
+function handleSelfcheck(adapter, sendResponse, diag) {
   try {
     const items = adapter.getMessageItems();
     const parsed = items.slice(-5).map((it) => adapter.parseMessageItem(it)).filter(Boolean);
@@ -30,6 +31,10 @@ function handleSelfcheck(adapter, sendResponse) {
       msgItemCount: items.length,
       selectors: adapter.SEL || null,
       sample: parsed.map((p) => ({ sender: p.sender_type, text: (p.text || '').slice(0, 60) })),
+      // 上报链路诊断：桥接是否激活 / port 是否可用 / 各计数（定位「解析到了但不上报」）
+      bridgeActive: diag ? diag.active : null,
+      portAlive: diag ? diag.portAlive : null,
+      stats: diag ? diag.stats : null,
     });
   } catch (e) {
     sendResponse({ error: String(e) });
@@ -155,6 +160,28 @@ export function scanDomSnapshot() {
   // 命中哪个候选选择器（用于推荐精确 SEL）
   const hitMsgSelector = msgItemCandidates.find((s) => document.querySelector(s)) || null;
 
+  // 6) 消息线程容器深度结构扫描（关键诊断）：
+  //    新版 /chat 页消息气泡 class 未知时，预置候选全 miss → 从已知容器
+  //    （im-chat-window / xhs-im-chat-window / chat-window 等）向下钻取，
+  //    列出每层可见子节点的 class + 文本，精确定位真实气泡 class。
+  const threadRoot = document.querySelector(
+    '.im-chat-window, [class*="xhs-im-chat-window"], [class*="chat-window"], [class*="ChatWindow"], [class*="chat-content"], [class*="ChatContent"], [class*="im-chat"], [class*="ImChat"]'
+  );
+  let threadTree = [];
+  if (threadRoot) {
+    const walk = (el, depth) => {
+      if (!el || depth > 4 || threadTree.length >= 12) return;
+      const cls = (el.className && typeof el.className === 'string') ? el.className.trim().slice(0, 60) : '';
+      const txt = (el.textContent || '').trim().slice(0, 24);
+      // 只记录「有 class 且含文本」的节点，跳过纯容器骨架
+      if (cls && txt) {
+        threadTree.push({ depth, cls, txt });
+      }
+      for (const child of el.children) walk(child, depth + 1);
+    };
+    for (const child of threadRoot.children) walk(child, 1);
+  }
+
   return {
     url: location.href,
     hostname: location.hostname,
@@ -171,6 +198,8 @@ export function scanDomSnapshot() {
     msgItemCount: msgItems.length,
     msgItemSample,
     recommendedMsgSelector: hitMsgSelector || '（未匹配到消息气泡，请把本快照 msgItemSample 发到 issue 校准 SEL.MSG_ITEM）',
+    threadRootFound: !!threadRoot,
+    threadTree,
   };
 }
 
@@ -271,6 +300,14 @@ function pickRecommendedSelector(visibleInputs) {
 
 export function startBridge(channel, buildAdapter) {
   const adapter = buildAdapter();
+  // 上报链路诊断状态（自检时返回给 popup，定位「解析到了但不上报」）
+  const diag = { active: false, portAlive: false, connectError: null, stats: { inbound: 0, history: 0, outbound: 0, dropped: 0, register: 0 } };
+  // 注入即打印（任何页面都会出现）——用户可据此判断 content script 是否真的运行，
+  // 区分「脚本没注入」vs「注入了但选择器没匹配」。
+  try { log.info('已注入 content script', channel, location.host, 'match=' + adapter.match()); } catch (_) { /* noop */ }
+
+  // 启动时从 chrome.storage 水合选择器配置到本页 localStorage 镜像（popup 保存后立即生效的基础）
+  try { hydrateSelectors(); } catch (_) { /* noop */ }
 
   // X 修复：ping/selfcheck 监听器必须在 match 检查之前注册。
   // 早期版本在 adapter.match() 失败时直接 return，导致用户在抖音首页
@@ -278,18 +315,27 @@ export function startBridge(channel, buildAdapter) {
   // 现在统一处理：未匹配页只回 ping/selfcheck 诊断，不启动 background 端口/observer。
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !msg.type) return false;
+    // match() 安全包装：任何异常都视为「未匹配」并带错误信息返回，不中断监听器
+    const safeMatch = () => {
+      try { return adapter.match(); } catch (e) { return { error: String(e && e.message || e) }; }
+    };
     if (msg.type === 'ping') {
       // ping 始终应答（探活用），让 popup 能区分"未注入" vs "未匹配页"
-      sendResponse({ pong: true, channel, matched: adapter.match(), matchMode: adapter.matchMode() });
+      let m = safeMatch();
+      const isObj = m && typeof m === 'object' && !Array.isArray(m);
+      sendResponse({ pong: true, channel, matched: m === true, matchError: isObj ? m.error : null, matchMode: adapter.matchMode() });
       return false;
     }
     if (msg.type === 'selfcheck') {
-      if (!adapter.match()) {
+      let m = safeMatch();
+      const isObj = m && typeof m === 'object' && !Array.isArray(m);
+      if (m !== true) {
         // 已注入但不是私信/消息页：返回 matched=false + 引导，不报错
         sendResponse({
           channel,
           matched: false,
           matchMode: null,
+          matchError: isObj ? m.error : null,
           accountId: '',
           conversationId: null,
           msgItemCount: 0,
@@ -299,7 +345,7 @@ export function startBridge(channel, buildAdapter) {
         });
         return false;
       }
-      handleSelfcheck(adapter, sendResponse);
+      handleSelfcheck(adapter, sendResponse, diag);
       return false;
     }
     // 深度自检：无论 match() 成功与否都可触发，给出真实 DOM 快照
@@ -312,12 +358,56 @@ export function startBridge(channel, buildAdapter) {
       handleDeepSelfcheck(sendResponse);
       return true;
     }
+    // 全量遍历同步所有私信会话（一个私信=一个会话=统一收信中心一条记录；遍历所有私信上报）。
+    // 仅在已匹配私信页时有效；异步返回 { ok, synced, total, failures }。
+    if (msg.type === 'syncAllConversations') {
+      if (!adapter.match()) {
+        sendResponse({ ok: false, error: '当前页面不是私信页，无法遍历' });
+        return false;
+      }
+      adapter.syncAllConversations({ throttleMs: 1000 }).then((r) => {
+        try { sendResponse({ ok: true, ...r }); } catch (_) { /* noop */ }
+      }).catch((e) => {
+        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) { /* noop */ }
+      });
+      return true;
+    }
+    // popup 保存选择器后广播 → content script 重新从 chrome.storage 水合到本页 localStorage 镜像
+    if (msg.type === SELECTOR_UPDATE_MSG) {
+      hydrateSelectors().then(() => { try { sendResponse({ ok: true }); } catch (_) { /* noop */ } });
+      return true;
+    }
+    // 巡检制度（需求上行②）：启动/停止/立即巡检一轮/查状态
+    if (msg.type === 'patrolStart') {
+      if (!adapter.startPatrol) { sendResponse({ ok: false, error: '适配器不支持巡检' }); return false; }
+      const r = adapter.startPatrol({ intervalMs: msg.intervalMs });
+      sendResponse(r);
+      return false;
+    }
+    if (msg.type === 'patrolStop') {
+      if (!adapter.stopPatrol) { sendResponse({ ok: false, error: '适配器不支持巡检' }); return false; }
+      sendResponse(adapter.stopPatrol());
+      return false;
+    }
+    if (msg.type === 'patrolNow') {
+      if (!adapter.patrol) { sendResponse({ ok: false, error: '适配器不支持巡检' }); return false; }
+      adapter.patrol().then((r) => {
+        try { sendResponse({ ok: true, ...r }); } catch (_) { /* noop */ }
+      }).catch((e) => {
+        try { sendResponse({ ok: false, error: String((e && e.message) || e) }); } catch (_) { /* noop */ }
+      });
+      return true;
+    }
+    if (msg.type === 'patrolStatus') {
+      sendResponse(adapter.patrolStatus ? adapter.patrolStatus() : { ok: false, error: '适配器不支持巡检' });
+      return false;
+    }
     return false;
   });
 
   // K2 桥接统计（跨重连累计，便于排查「通通没数据」类问题）：
   // inbound=实时上行、history=历史上行、outbound=下行回写、dropped=端口断开丢弃、register=注册帧次数。
-  const stats = { inbound: 0, history: 0, outbound: 0, dropped: 0, register: 0 };
+  const stats = diag.stats;
 
   // 抖音/小红书/TikTok 多为 SPA：content script 注入时私信面板（常作浮层/overlay）
   // 未必已打开，match() 此刻为 false；用户后续点开私信，面板才渲染。
@@ -330,7 +420,18 @@ export function startBridge(channel, buildAdapter) {
   const activateBridge = () => {
     // port 用 let：断开后置 null，避免 `port && port.postMessage` 仍访问已断开对象
     // 触发 "Attempting to use a disconnected port object"（port 对象非 null 但已失效）。
-    let port = chrome.runtime.connect({ name: 'bridge' });
+    let port;
+    try {
+      port = chrome.runtime.connect({ name: 'bridge' });
+      diag.portAlive = true;
+    } catch (e) {
+      // MV3 background 未就绪 / 扩展被禁用时 connect 会抛异常——不能中断 adapter.start()，
+      // 否则消息解析、历史回填、3s 兜底扫描全部失效（表现为「自检有消息但不上报」）。
+      log.error('chrome.runtime.connect 失败（background 不可用？）', e && e.message);
+      diag.connectError = String(e && e.message || e);
+      stats.dropped++;
+      // 仍继续启动 adapter：DOM 监听不依赖 port，上报暂缓存到 dropped
+    }
     let disconnected = false; // background service worker 终止 / 端口断开
     let closed = false;       // 主动清理（页面卸载），断开不再触发重连
 
@@ -360,13 +461,11 @@ export function startBridge(channel, buildAdapter) {
         if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
         // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
         const safeContent = sanitizeForDisplay(r.content);
-        // 只回写匹配当前会话的回复（多用户场景：避免串台）
-        if (r.conversation_id && adapter.getConversationId() && r.conversation_id !== adapter.getConversationId()) {
-          log.warn('下行回复会话不匹配，忽略', r.conversation_id, adapter.getConversationId());
-          return;
-        }
         try {
-          await adapter.sendOutbound(safeContent);
+          // 目标会话 ≠ 当前打开的会话时，sendOutbound 会先在左侧列表找到目标用户
+          // → 点击进入右侧聊天页 → 再模拟输入发送（用户诉求：按用户找会话再发）。
+          // 不再丢弃“非当前会话”的回复——那是把 AI 回复发给正确用户的必经路径。
+          await adapter.sendOutbound(safeContent, r.conversation_id);
           stats.outbound++;
           log.info('[下行 outbound] #' + stats.outbound, { conv: r.conversation_id, len: (r.content || '').length });
         } catch (e) {
@@ -385,6 +484,7 @@ export function startBridge(channel, buildAdapter) {
       log.warn('桥接端口断开（background service worker 可能已回收），触发重连…');
       if (deactivateBridge) { deactivateBridge(); deactivateBridge = null; }
       active = false;
+      diag.active = false;
       sync(); // 下一 tick 重新激活（match 为真时新建端口唤醒 SW）
     });
 
@@ -447,14 +547,19 @@ export function startBridge(channel, buildAdapter) {
   };
 
   const sync = () => {
-    if (!active && adapter.match()) {
+    // match() 若抛异常（平台早期 DOM 结构不完整 / 某选择器报错），不得中断整个桥接。
+    let matched = false;
+    try { matched = !!adapter.match(); } catch (e) { log.warn('match() 异常，跳过本轮', e && e.message); }
+    if (!active && matched) {
       log.info('私信面板已匹配', channel, '，启动桥接');
       deactivateBridge = activateBridge();
       active = true;
-    } else if (active && !adapter.match()) {
+      diag.active = true;
+    } else if (active && !matched) {
       log.info('私信面板已关闭', channel, '，停止桥接');
       if (deactivateBridge) { deactivateBridge(); deactivateBridge = null; }
       active = false;
+      diag.active = false;
     }
   };
 

@@ -63,14 +63,17 @@ export const CHANNEL_OPTIONS = Object.freeze([
   // ===== 网页桥接私信渠道（Chrome 扩展桥接，bridge.md G7 要求扩展侧显示的私信渠道）=====
   // 与 user-server internal/bridge/channel.go 常量严格对齐：
   //   douyin_web / xhs_web / tiktok_web
-  { value: 'douyin_web',    label: '抖音私信(网页)', tagType: '',      group: CHANNEL_GROUP.SOCIAL, icon: 'Share',       description: '抖音网页私信（Chrome 扩展桥接）', newBadge: true },
-  { value: 'xhs_web',       label: '小红书私信(网页)', tagType: 'danger', group: CHANNEL_GROUP.SOCIAL, icon: 'Postcard',   description: '小红书网页私信（Chrome 扩展桥接）', newBadge: true },
-  { value: 'tiktok_web',    label: 'TikTok私信(网页)', tagType: '',     group: CHANNEL_GROUP.SOCIAL, icon: 'VideoCamera', description: 'TikTok 网页私信（Chrome 扩展桥接）', newBadge: true }
+  // 需求④：来源平台只有一个渠道名称，统一显示「抖音 / 小红书 / TikTok」，
+  //         不再出现「抖音私信(网页)」这类冗长写法（统一收件箱列表渲染、搜索同理）。
+  //         底层 value 仍为 *_web，仅展示文案归一化。
+  { value: 'douyin_web',    label: '抖音',      tagType: '',      group: CHANNEL_GROUP.SOCIAL, icon: 'Share',       description: '抖音网页私信（Chrome 扩展桥接）', newBadge: true },
+  { value: 'xhs_web',       label: '小红书',    tagType: 'danger', group: CHANNEL_GROUP.SOCIAL, icon: 'Postcard',   description: '小红书网页私信（Chrome 扩展桥接）', newBadge: true },
+  { value: 'tiktok_web',    label: 'TikTok',    tagType: '',     group: CHANNEL_GROUP.SOCIAL, icon: 'VideoCamera', description: 'TikTok 网页私信（Chrome 扩展桥接）', newBadge: true }
 ])
 
 // ===== 平台归并（仅用于统一收件箱"展示层"）=====
 // 原则：底层 platform 值（douyin / douyin_web …）保持独立、绝不合并查询条件。
-// 仅在统一收件箱"下拉选项"上去掉重复的网页桥接版（用户视角不区分"抖音"与"抖音私信(网页)"）。
+// 仅在统一收件箱"下拉选项"上去掉重复的网页桥接版（用户视角不区分「抖音」官方版与网页桥接版）。
 // 选中归并项时，前端分别用各自底层 platform 值发两次独立请求（见 List.vue fetchList），后端 WHERE platform = ? 始终是单值。
 // PLATFORM_GROUP_MEMBERS：归并展示项（下拉 value） -> 其包含的多个底层 platform 值。
 export const PLATFORM_GROUP_MEMBERS = Object.freeze({

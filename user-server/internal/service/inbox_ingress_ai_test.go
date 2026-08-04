@@ -2,24 +2,28 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"marketing/internal/model"
+
+	"gorm.io/gorm"
 )
 
 // fakeAITrigger 记录是否被调用，用于验证“新消息触发 AI / 历史消息不触发 AI”语义
 type fakeAITrigger struct {
-	called     int
+	called      int
 	lastChannel string
 	lastAccount string
 	lastConv    string
 	lastCust    string
 	lastContent string
 	lastEventID string
+	lastMeta    *TriggerInboundMeta
 }
 
-func (f *fakeAITrigger) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string) {
+func (f *fakeAITrigger) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...TriggerInboundOption) {
 	f.called++
 	f.lastChannel = channel
 	f.lastAccount = accountID
@@ -27,6 +31,13 @@ func (f *fakeAITrigger) TriggerInboundAI(ctx context.Context, channel, accountID
 	f.lastCust = customerID
 	f.lastContent = content
 	f.lastEventID = eventID
+	meta := &TriggerInboundMeta{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(meta)
+		}
+	}
+	f.lastMeta = meta
 }
 
 // TestInbox_NewMessageTriggersAI_HistoryDoesNot 验证两种实际需求的核心语义：
@@ -74,5 +85,84 @@ func TestInbox_NewMessageTriggersAI_HistoryDoesNot(t *testing.T) {
 	}
 	if tr.called != 1 {
 		t.Fatalf("历史消息不应触发 AI；期望调用次数仍为 1，实际 %d", tr.called)
+	}
+}
+
+// TestInbox_GroupMessage_TriggersAI_WithMeta 验证群聊消息触发 AI 时透传 sender_name/群元数据
+// （需求3：群聊成员身份不得在 AI 编排路径丢失）。
+func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
+	svc := NewInboxIngressServiceWithDB(nil, nil)
+	tr := &fakeAITrigger{}
+	svc.SetAITrigger(tr)
+
+	groupEv := &model.MessageEvent{
+		EventID:        "g1",
+		Channel:        "xhs_web",
+		ConversationID: "group-1",
+		SenderID:       "group-1", // 群聊客户消息 sender_id 聚合为群 id
+		SenderName:     "张三",      // 成员昵称（成员身份）
+		Content:        "@客服 帮我查一下订单",
+		IsGroup:        true,
+		GroupID:        "group-1",
+		Extra:          map[string]any{"account_id": "acc1", "group_name": "产品交流群", "sender_type": "customer"},
+		Timestamp:      time.Now(),
+	}
+	if _, err := svc.HandleIngressMessage(context.Background(), groupEv); err != nil {
+		t.Fatalf("HandleIngressMessage(group) error: %v", err)
+	}
+	if tr.called != 1 {
+		t.Fatalf("期望群聊消息触发 AI 1 次，实际 %d", tr.called)
+	}
+	if tr.lastMeta == nil {
+		t.Fatal("群聊消息应透传 TriggerInboundMeta（非 nil）")
+	}
+	if tr.lastMeta.SenderName != "张三" {
+		t.Fatalf("SenderName 透传错误: %q", tr.lastMeta.SenderName)
+	}
+	if !tr.lastMeta.IsGroup {
+		t.Fatal("IsGroup 应透传为 true")
+	}
+	if tr.lastMeta.GroupID != "group-1" || tr.lastMeta.GroupName != "产品交流群" {
+		t.Fatalf("群元数据透传错误: %+v", tr.lastMeta)
+	}
+	// 1:1 对照：无群属性时不带群 meta
+	tr.called = 0
+	tr.lastMeta = nil
+	oneEv := &model.MessageEvent{
+		EventID:        "o1",
+		Channel:        "douyin_web",
+		ConversationID: "cust-1",
+		SenderID:       "cust-1",
+		Content:        "在吗",
+		Extra:          map[string]any{"account_id": "acc1"},
+		Timestamp:      time.Now(),
+	}
+	if _, err := svc.HandleIngressMessage(context.Background(), oneEv); err != nil {
+		t.Fatalf("HandleIngressMessage(1:1) error: %v", err)
+	}
+	if tr.lastMeta != nil && (tr.lastMeta.IsGroup || tr.lastMeta.GroupID != "") {
+		t.Fatalf("1:1 消息不应带群元数据: %+v", tr.lastMeta)
+	}
+}
+
+// TestIsDuplicateKey 验证唯一键冲突幂等判定（重扫/断线重发同一 event_id 时应视为已落库）。
+func TestIsDuplicateKey(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "Postgres duplicate key", err: errors.New(`ERROR: duplicate key value violates unique constraint "message_hub_msg_id_key" (SQLSTATE 23505)`), want: true},
+		{name: "Postgres unique constraint 中文/通用", err: errors.New(`pq: duplicate key value violates unique constraint "uk"`), want: true},
+		{name: "gorm ErrDuplicatedKey", err: gorm.ErrDuplicatedKey, want: true},
+		{name: "其他数据库错误", err: errors.New("connection refused"), want: false},
+		{name: "nil 错误", err: nil, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isDuplicateKey(tc.err); got != tc.want {
+				t.Fatalf("isDuplicateKey(%v) = %v, 期望 %v", tc.err, got, tc.want)
+			}
+		})
 	}
 }

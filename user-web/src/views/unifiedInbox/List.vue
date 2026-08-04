@@ -415,7 +415,7 @@ const barWidth = (count) => {
   return Math.round((count / maxPlatformCount.value) * 100)
 }
 
-// 平台显示名：按底层 platform 值显示真实名称（douyin -> 抖音，douyin_web -> 抖音私信(网页)），不掩盖底层值
+// 平台显示名：统一只显示「抖音 / 小红书 / TikTok」（网页桥接版与官方版同名，不掩盖底层值也不冗长写「私信(网页)」）
 const platformLabel = (p) => getChannelLabel(p) || '-'
 
 const platformTagType = (p) => getChannelTagType(p)

@@ -57,4 +57,24 @@ type MessageEvent struct {
 	AIAgent        string         `json:"ai_agent,omitempty"`
 	Extra          map[string]any `json:"extra,omitempty"`
 	Timestamp      time.Time      `json:"timestamp"`
+	// History 会话级多轮历史（扩展上行携带的即时上下文窗口，服务端落 message_hub.Extra
+	// 供统一收件箱展示/可观测；AI 编排的对话上下文由 session_messages 自行重建，不依赖此字段）。
+	History []MessageEventHistoryItem `json:"history,omitempty"`
+}
+
+// MessageEventHistoryItem 多轮历史中的单轮（与扩展 HistoryItem 对齐的轻量镜像）
+type MessageEventHistoryItem struct {
+	EventID    string `json:"event_id,omitempty"`
+	SenderType string `json:"sender_type,omitempty"`
+	SenderID   string `json:"sender_id,omitempty"`
+	SenderName string `json:"sender_name,omitempty"`
+	ReceiverID string `json:"receiver_id,omitempty"`
+	MsgType    string `json:"msg_type"`
+	Content    string `json:"content"`
+	MediaURL   string `json:"media_url,omitempty"`
+	Timestamp  int64  `json:"timestamp"`
+	Direction  string `json:"direction,omitempty"`
+	IsGroup    bool   `json:"is_group,omitempty"`
+	GroupID    string `json:"group_id,omitempty"`
+	GroupName  string `json:"group_name,omitempty"`
 }

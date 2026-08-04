@@ -40,7 +40,9 @@ describe('B1 回归：三渠道 buildXxxAdapter 构造正确', () => {
     const a = buildXhsAdapter();
     expect(a.channel).toBe(CHANNELS.XHS);
     expect(a.name).toBe('xhs');
-    expect(a.SEL.INPUT).toBe('#jarvis-reply-textarea');
+    // 输入框候选须同时覆盖旧版 #jarvis-reply-textarea 与新版 xhs-im-input-bar-editor
+    expect(a.SEL.INPUT).toContain('#jarvis-reply-textarea');
+    expect(a.SEL.INPUT).toContain('xhs-im-input-bar-editor');
   });
 
   it('buildTiktokAdapter 字段完整', () => {

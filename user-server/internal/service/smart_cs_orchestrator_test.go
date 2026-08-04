@@ -300,6 +300,63 @@ func TestSmartCSOrchestrator_FindOrCreateSession_DerivesOneIDFromPlatformSender(
 	}
 }
 
+// TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped
+// 群聊（需求3）：会话应按 groupID 建独立会话（UserID/OneID 前缀 group:），
+// 避免把群内不同成员当成不同客户/不同会话；同群后续消息应命中同一会话。
+func TestSmartCSOrchestrator_FindOrCreateSession_GroupScoped(t *testing.T) {
+	setupOrchestratorFindOrCreateTestDB(t)
+
+	o := NewSmartCSOrchestrator(nil, DefaultOrchestratorConfig())
+	ctx := context.Background()
+
+	// 第一次：成员张三在群 group-1 发消息 → 建群会话
+	in1 := &IncomingContext{
+		Platform:   model.Platform("xhs"),
+		AccountID:  "acct-1",
+		SenderID:   "group-1", // 群聊客户消息 sender_id 聚合为群 id
+		SenderName: "张三",
+		Content:    "@客服 帮我查订单",
+		MessageID:  "g-msg-1",
+		IsGroup:    true,
+		GroupID:    "group-1",
+		GroupName:  "产品交流群",
+	}
+	sess1, err := o.findOrCreateSession(ctx, in1)
+	if err != nil {
+		t.Fatalf("群聊建会话失败: %v", err)
+	}
+	if sess1 == nil {
+		t.Fatal("应返回群会话")
+	}
+	wantGroupKey := "group:group-1"
+	if sess1.UserID != wantGroupKey || sess1.OneID != wantGroupKey {
+		t.Fatalf("群会话键错误: UserID=%q OneID=%q, 期望 %q", sess1.UserID, sess1.OneID, wantGroupKey)
+	}
+	if sess1.UserName != "产品交流群" {
+		t.Fatalf("群名应作会话名: %q", sess1.UserName)
+	}
+
+	// 第二次：成员李四在同群发消息 → 应命中同一会话（群内成员共享群会话）
+	in2 := &IncomingContext{
+		Platform:   model.Platform("xhs"),
+		AccountID:  "acct-1",
+		SenderID:   "group-1",
+		SenderName: "李四",
+		Content:    "我也要查",
+		MessageID:  "g-msg-2",
+		IsGroup:    true,
+		GroupID:    "group-1",
+		GroupName:  "产品交流群",
+	}
+	sess2, err := o.findOrCreateSession(ctx, in2)
+	if err != nil {
+		t.Fatalf("群聊命中会话失败: %v", err)
+	}
+	if sess2.SessionID != sess1.SessionID {
+		t.Fatalf("同群应命中同一会话: got=%q want=%q", sess2.SessionID, sess1.SessionID)
+	}
+}
+
 // TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID
 // 验证显式 OneID 优先于派生 OneID（兜底不应覆盖显式值）。
 func TestSmartCSOrchestrator_FindOrCreateSession_HonorsExplicitOneID(t *testing.T) {

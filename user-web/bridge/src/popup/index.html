@@ -66,6 +66,12 @@
       hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
       .small { font-size: 11px; color: var(--text-muted); }
       .docs-link { margin-top: 6px; }
+
+      /* 选择器配置：抖音/小红书 切换页 tabs */
+      .sel-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+      .sel-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--secondary); color: #333; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+      .sel-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .sel-tab:hover:not(.active) { background: var(--secondary-hover); }
     </style>
   </head>
   <body>
@@ -119,16 +125,66 @@
     <pre id="selfOut">打开抖音/小红书/TikTok 私信页后点击</pre>
 
     <div class="row">
+      <button id="syncAll" class="secondary" style="flex: 1;">全量同步私信</button>
       <button id="deepSelfcheck" class="secondary" style="flex: 1;">深度自检（DOM 快照）</button>
       <button id="copySelfOut" class="secondary" style="flex: 0 0 80px;">复制</button>
+    </div>
+    <div class="hint">全量同步：遍历当前页面所有私信会话，逐个回填多轮历史（一个会话=一条记录）。已同步会话自动跳过（持久化续传）。</div>
+
+    <hr />
+
+    <button id="selToggle" class="secondary" style="width: 100%;">选择器配置（切换 抖音/小红书 分别配置；人工识别 HTML 后填写，平台改版用）</button>
+    <div id="selPanel" style="display: none; margin-top: 8px;">
+      <div class="sel-tabs" role="tablist">
+        <button type="button" class="sel-tab active" data-channel="douyin_web" role="tab">抖音</button>
+        <button type="button" class="sel-tab" data-channel="xhs_web" role="tab">小红书</button>
+        <button type="button" class="sel-tab" data-channel="tiktok_web" role="tab">TikTok</button>
+      </div>
+      <div class="hint">在对应平台私信页按 F12 → 选中元素，复制真实 class/data 属性填入下方（多个用英文逗号分隔）。留空则用内置默认。</div>
+      <label for="selConversationList">会话列表项（左侧列表节点）</label>
+      <input id="selConversationList" placeholder="如 .xhs-im-conv-item" autocomplete="off" />
+      <label for="selMessageList">消息列表容器</label>
+      <input id="selMessageList" placeholder="如 .xhs-im-msg-list" autocomplete="off" />
+      <label for="selMessageItem">消息气泡</label>
+      <input id="selMessageItem" placeholder="如 .chat-item" autocomplete="off" />
+      <label for="selText">气泡内文本</label>
+      <input id="selText" placeholder="如 .xhs-im-bubble__text" autocomplete="off" />
+      <label for="selInput">输入框</label>
+      <input id="selInput" placeholder="如 div.xhs-im-input-bar-editor" autocomplete="off" />
+      <label for="selSend">发送按钮</label>
+      <input id="selSend" placeholder="如 .xhs-im-send" autocomplete="off" />
+      <label for="selSelfMarker">自己消息标记</label>
+      <input id="selSelfMarker" placeholder="如 .chat-item__bubble--self" autocomplete="off" />
+      <label for="selOtherMarker">对方消息标记</label>
+      <input id="selOtherMarker" placeholder="如 .chat-item__bubble--other" autocomplete="off" />
+      <div class="row">
+        <button id="selSave" class="primary" style="flex: 1;">保存选择器配置</button>
+        <button id="selClear" class="secondary" style="flex: 1;">清除该渠道配置</button>
+      </div>
+      <div class="hint">保存后立即生效（扩展会话内缓存自动失效）；无需刷新页面。默认 SEL 仍作为兜底。</div>
+    </div>
+
+    <hr />
+
+    <button id="patrolToggle" class="secondary" style="width: 100%;">巡检制度（自动遍历左侧新消息会话 → 上报 → 触发 AI 对话）</button>
+    <div id="patrolPanel" style="display: none; margin-top: 8px;">
+      <div class="hint">巡检：完成一轮自动进入下一轮；遍历左侧聊天列表，对有新消息（未读红点）的会话点击进入并捕获新消息上行（触发 AI 自动对话）。间隔可配置。</div>
+      <label for="patrolInterval">巡检间隔（秒，默认 60）</label>
+      <input id="patrolInterval" type="number" min="3" step="1" placeholder="60" autocomplete="off" />
+      <div class="row">
+        <button id="patrolStart" class="primary" style="flex: 1;">启动巡检</button>
+        <button id="patrolStop" class="secondary" style="flex: 1;">停止巡检</button>
+      </div>
+      <button id="patrolNow" class="secondary" style="width: 100%; margin-top: 6px;">立即巡检一轮</button>
+      <pre id="patrolOut" style="margin-top: 6px;">点击启动后查看巡检状态</pre>
     </div>
 
     <hr />
 
     <div class="row">
-      <button id="openDouyin" class="secondary">抖音私信</button>
-      <button id="openXhs" class="secondary">小红书私信</button>
-      <button id="openTiktok" class="secondary">TikTok</button>
+      <button id="openDouyin" class="secondary">打开抖音</button>
+      <button id="openXhs" class="secondary">打开小红书</button>
+      <button id="openTiktok" class="secondary">打开 TikTok</button>
     </div>
 
     <p class="small docs-link">

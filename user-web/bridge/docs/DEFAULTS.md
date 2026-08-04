@@ -87,6 +87,19 @@
 | `maxReplyContentBytes` | 4_096 (4KB) | `handler.go:65` + 前端 constants.SECURITY 同值（避免服务端截断后用户看到残缺） |
 | `logMaskMaxChars` | 24 | 超过此长度的字符串在 console 截断（防 PII 泄露） |
 
+### 2.9 AI 抽取器（extractor）沙箱边界（需求2）
+
+> LLM 生成的「可执行 JS 抽取器」在用户浏览器经 `new Function` 执行读取 DOM。**这是静态黑名单 + 仅注入 document/window 参数，不是操作系统级沙箱**。
+
+| 项 | 现状 | 说明 |
+| --- | --- | --- |
+| 隔离手段 | 静态黑名单 + `new Function('document','window', ...)` 仅注入两参数 | 黑名单覆盖 fetch/XHR/WebSocket/localStorage/eval/window.open/location 跳转等（前后端双重校验） |
+| **明确边界** | **非对抗场景可接受** | extractor 是给自己账号读私信，无外部注入；但**强对抗可绕过**（如 `globalThis['fetch']`、`Reflect.get(globalThis,'fetch')` 不经黑名单字面量） |
+| 信任前提 | LLM 来自自家 user-server（key 在本地），非不可信第三方 | 若未来开放第三方 LLM/自定义 extractor，须升级为 iframe + postMessage 真沙箱或 CSP |
+| 纵深 | 失败即回退选择器路径，extractor 异常不影响主链路 | `runExtractor` 任何异常返回 null，绝不抛出 |
+
+**运维约定**：不要给 extractor 注入任何额外全局；认为「extractor 只能读 DOM」是安全假设而非安全边界。
+
 ## 3. 调整流程
 
 1. **改一处**：`constants.js` 或 `handler.go` / `hub.go` / `main.go` 的常量

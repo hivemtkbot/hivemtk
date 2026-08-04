@@ -393,6 +393,19 @@ func (s *WebhookService) worker(ctx context.Context, id int) {
 	}
 }
 
+// groupNameFromHub 从 MessageHub 提取群名：Extra 冗余为第一来源（群名不在 Hub 顶层列）。
+func groupNameFromHub(hub *model.MessageHub) string {
+	if hub == nil || hub.Extra == nil {
+		return ""
+	}
+	if v, ok := hub.Extra["group_name"]; ok {
+		if s, _ := v.(string); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 // =================== 入口 ===================
 
 // ReceiveRequest 渠道回调请求通用结构
@@ -1783,6 +1796,10 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 		in.OneID = hubMsg.SenderID
 		in.SenderName = hubMsg.SenderName
 		in.MediaURL = hubMsg.MediaURL
+		// 群聊元数据透传：群聊客户消息 SenderID=群 id，AI 编排需按群建独立会话
+		in.IsGroup = hubMsg.IsGroup
+		in.GroupID = hubMsg.GroupID
+		in.GroupName = groupNameFromHub(hubMsg)
 	}
 	// Extra 兜底：从原始 payload 抽取 sender_name / media_url
 	if p.Extra != nil {
@@ -1809,7 +1826,10 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 // 复用与 web 私信同源的同步主链路 triggerSmartOrchestrator，确保抖音/小红书/TikTok
 // 网页桥接的新消息能像 web 私信一样被 AI 及时处理，并原路经 WebSocket 回写扩展。
 // 若智能体编排器（smartOrchestrator）未注入，则安全空转（仅落库，不回复）。
-func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string) {
+//
+// opts 透传群聊/发送者元数据（senderName/isGroup/groupID/groupName）：
+// 群聊中客户消息 sender_id 聚合为群 id，AI 编排需据此区分成员（见 AITrigger 注释）。
+func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...TriggerInboundOption) {
 	// 复用与 Receive 一致的幂等去重 + 限流守卫，避免网页桥接入站绕过幂等/限流。
 	if eventID != "" && s.isDuplicate(ctx, eventID) {
 		logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[Webhook] TriggerInboundAI duplicate, skip")
@@ -1821,10 +1841,20 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 			Msg("[Webhook] TriggerInboundAI rate limited, skip")
 		return
 	}
+	// 解析透传元数据（群聊/发送者）
+	meta := &TriggerInboundMeta{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(meta)
+		}
+	}
 	p := &ParsedPayload{
 		EventID: eventID,
 		Sender:  customerID,
 		Content: content,
+	}
+	if meta.SenderName != "" {
+		p.Extra = map[string]any{"sender_name": meta.SenderName}
 	}
 	hubMsg := &model.MessageHub{
 		MsgID:          eventID,
@@ -1832,10 +1862,26 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 		AccountID:      accountID,
 		ConversationID: conversationID,
 		SenderID:       customerID,
+		SenderName:     meta.SenderName,
 		Content:        content,
 		Direction:      "inbound",
+		IsGroup:        meta.IsGroup,
+		GroupID:        meta.GroupID,
 		IsRead:         true,
 		SentAt:         time.Now(),
+		Extra:          map[string]any{"sender_name": meta.SenderName},
+	}
+	if meta.IsGroup {
+		if hubMsg.Extra == nil {
+			hubMsg.Extra = model.JSONMap{}
+		}
+		hubMsg.Extra["is_group"] = true
+		if meta.GroupID != "" {
+			hubMsg.Extra["group_id"] = meta.GroupID
+		}
+		if meta.GroupName != "" {
+			hubMsg.Extra["group_name"] = meta.GroupName
+		}
 	}
 	s.triggerSmartOrchestrator(ctx, WebhookChannel(channel), accountID, p, hubMsg)
 }

@@ -840,6 +840,61 @@ user-web/bridge/
 
 ---
 
+## 18.6 左侧列表驱动交互模型（上报/下发统一范式）
+
+> 核心交互原则（抖音 / 小红书通用，经真实 DOM 快照验证）：
+> **平台私信页 = 左侧会话列表 + 右侧聊天线程（双栏）。一切收发都通过左侧列表驱动：**
+> 上行先点开会话再读消息，下行先点开目标用户再发送。不依赖「当前恰好打开的会话」。
+
+### 18.6.1 上行（读取并上报）
+
+```
+左侧会话列表枚举(getConversationList)
+  └─ 逐个会话：openConversation(cid)
+       ├─ 左侧找目标项 → 滚入视口 → 模拟真实点击(simulateRealClick/el.click)
+       ├─ 等待 getConversationId() 变为目标（SPA 异步渲染容忍）
+       └─ _backfill() 读取右侧线程全部消息 → 会话级 history 帧（仅落库不触发 AI）
+实时新消息：MutationObserver + 3s 兜底扫描 → inbound 帧（触发 AI）
+```
+
+### 18.6.2 下行（AI 回复 → 发送给正确用户）
+
+```
+sendOutbound(text, targetConvId)
+  ├─ targetConvId == 当前会话 → 直接模拟输入发送
+  ├─ targetConvId ≠ 当前会话 → openConversation(targetConvId)
+  │    ├─ 左侧列表找目标用户 → 点击进入右侧聊天页
+  │    └─ 找不到目标 → 放弃发送（防串台）
+  └─ 模拟输入(fillContentEditable/setValue) + 点发送按钮
+```
+
+> **关键行为变更**：下行回复**不再丢弃「非当前会话」的消息**——那是发给正确用户的必经路径
+> （旧版 `common.js` 会 `if (conversation_id !== getConversationId()) return` 直接丢弃）。
+
+### 18.6.3 会话 id 提取（零捕获的根因与兜底链）
+
+| 渠道 | 兜底链（自上而下） |
+|---|---|
+| 小红书 | `/chat/{id}` 路径 → `?conversation_id` → 活动项 data-* → header 对方链接(跳过自己账号) → 容器 data-id → 昵称派生 `conv:<name>` |
+| 抖音 | `/chat/{id}` 路径 → `?group/conversation_id` → 活动项 data-* → `/user/` 链接 → 昵称派生 `conv:<name>` |
+
+> **为什么必须兜底到昵称**：/chat 专用路由的活动会话项常无 `/user/` 链接、无 data-id 属性
+> （实测 DOM：`conversationConversationItemcurConversation[data-e2e="conversation-item"]`、
+> `xhs-im-chat-window__header-name`）。若返回 null，适配器 `if (!getConversationId()) return`
+> 守卫会拦截**全部**消息（表现：会话(空) + 零上行）。昵称在同会话内恒定，足够作会话聚合键。
+
+### 18.6.4 选择器版本兼容（真实 DOM 快照校准）
+
+| 平台 | 新版（实测） | 旧版（兼容保留） |
+|---|---|---|
+| 抖音 /chat | `conversationConversationItemwrapper`（会话项）、`messageMsgInputpublishBtn`（发送）、`zone-container.editor-kit-container.messageEditorinputArea`（输入框） | `#island_b69f5 li`、`div[data-e2e="msg-item-content"]` |
+| 小红书 | 左侧会话 `.xhs-im-conv-item`（`data-conv-id`，活动项 `--active`）、消息气泡 `.chat-item`（`data-message-id`，对方 `--left`/`--other`，文本 `.xhs-im-bubble__text`）、输入框 `.xhs-im-input-bar-editor[contenteditable]` | `#jarvis-reply-textarea`、`.im-msg-item`、`.sx-contact-item` |
+
+> 所有选择器均为「多候选」，任一命中即用；`SelectorEngine` 结构启发式 + LLM 抽取器兜底（§17 需求②）。
+> 平台改版后仅需在 `src/channels/<platform>.js` 的 `SEL` 追加候选，无需发版即可自愈。
+
+---
+
 ## 19. 变更日志（v1 之后）
 
 ### 19.1 深度审查第二轮
@@ -882,4 +937,21 @@ user-web/bridge/
   - `TestBridgeHub_Janitor_CleansIdle`（janitor 清理空闲桶）
 - **Kick 安全**：测试 client 偶有 `conn == nil`，`Kick` 加 nil guard 防 panic。
 - **`NewBridgeReachAdapter` 兼容**：原 2 参调用点（`router/sales_engine_factory.go`、`router/tool_provider_wiring.go`）无需修改；构造函数 ingress 改为 variadic 可选，新增 `SetIngress` 后期注入（避免装配阶段循环依赖）。
+
+### 19.3 左侧列表驱动交互模型 + 真实 DOM 校准（抖音/小红书）
+
+**背景**：用户实测两平台 `/chat` 聊天页「一条消息都捕获不到」，深检快照定位根因——`getConversationId()` 返回 null，适配器守卫拦截全部消息。并明确交互诉求：上行枚举左侧列表逐个点击进右侧读消息，下行左侧找目标用户点击进右侧再发送。
+
+- **下行目标会话切换（核心）**：`sendOutbound(text, targetConvId)` 不再丢弃「非当前会话」回复；目标 ≠ 当前时先在左侧列表找到目标用户→点击进入右侧→再发送；找不到目标则放弃（防串台）。`common.js` 删除 `conversation_id !== getConversationId()` 直接 return 的逻辑。
+- **openConversation(cid) 复用**：把 `syncAllConversations` 的「找列表项→滚入视口→模拟点击→等会话切换」抽成通用方法，上行遍历与下行回写共用。
+- **会话 id 提取补全（小红书）**：优先解析 `/chat/{id}` 路径（实测 `https://www.xiaohongshu.com/chat/5e4f75e3...`）；header 链接跳过「我」自己的账号再取对方。
+- **会话 id 提取补全（抖音）**：对称增加 `/chat/{id}` 路径解析（群聊/深链）。
+- **昵称文本派生兜底**：/chat 活动会话项无链接无 data-id 时用昵称派生 `conv:<name>`，保证守卫不拦截。
+- **选择器版本兼容**：小红书按用户实测真实 DOM 校准——左侧会话项 `.xhs-im-conv-item`（`data-conv-id`，活动项 `--active`）、消息气泡 `.chat-item`（`data-message-id` 幂等键，对方 `--left`/`--other`，文本 `.xhs-im-bubble__text`）、消息列表 `.xhs-im-msg-list`；抖音 /chat 补 `chat-msg-list` / `messageMessageItem` / `chatMessage` 驼峰候选。旧版 `#jarvis-reply-textarea`/`.im-msg-item`/`.sx-contact-item` 保留兼容。
+- **extractor 与 selector 双路径并行（不互斥）**：`_scanIncremental` 的 extractor 命中后**不再 `return`**——LLM 抽取器可能只识别部分气泡（新版 /chat 页只抓到 header/时间戳），真实消息仍需 selector 兜底补齐；两条路径由 seen/seenNodes 去重，重复项不二次上行。
+- **时间戳过滤**：`09:56` 等纯时间文本（消息间隔标记）不再被当作消息内容（小红书 + 抖音双渠道）。
+- **XHS 发送适配 contenteditable**：新版输入框为 `div[contenteditable]`，`sendText` 改用 `fillContentEditable`（execCommand insertText），发送按钮缺失时回车兜底。
+- **测试**：新增 `test/chat-page-convid.test.js`（无链接/无 data 会话 id 派生 + /chat 快照端到端捕获 + 时间戳过滤 + `.xhs-im-conv-item` data-conv-id 枚举）、`openConversation`/`sendOutbound` 目标切换 6 用例；前端全量 309 用例通过。
+- **文档**：新增 §18.6「左侧列表驱动交互模型（上报/下发统一范式）」+ 选择器版本兼容表。
+
 
