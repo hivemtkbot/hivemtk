@@ -20,6 +20,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -42,20 +43,36 @@ func NewAgentKBBindingController(db *gorm.DB) *AgentKBBindingController {
 }
 
 // RegisterRoutes 注册路由
+//
+// 注意: 前端 user-web 实际请求的路由为 /by-agent/:id、/by-kb/:id、
+// DELETE /:agentId/:kbId、PUT /by-agent/:id；此处同时注册旧路径别名
+// (/agent/:aid、/kb/:kid、body 解绑) 以保持向后兼容。
 func (c *AgentKBBindingController) RegisterRoutes(router *gin.RouterGroup) {
 	g := router.Group("/agent-kb-bindings")
 	{
-		g.GET("/agent/:aid", c.ListByAgent)
-		g.GET("/kb/:kid", c.ListByKB)
+		g.GET("/by-agent/:agentId", c.ListByAgent)
+		g.GET("/agent/:aid", c.ListByAgent) // 旧路径别名
+		g.GET("/by-kb/:kbId", c.ListByKB)
+		g.GET("/kb/:kid", c.ListByKB) // 旧路径别名
+		g.PUT("/by-agent/:agentId", c.ReplaceByAgent)
+		g.DELETE("/:agentId/:kbId", c.UnbindByPath)
 		g.POST("", c.Bind)
 		g.POST("/batch", c.BatchBind)
-		g.DELETE("", c.Unbind)
+		g.DELETE("", c.Unbind) // 旧 body 解绑契约
 	}
+}
+
+// agentIDParam 兼容前端路径参数名 agentId 与旧路径 aid
+func agentIDParam(ctx *gin.Context) string {
+	if v := ctx.Param("agentId"); v != "" {
+		return v
+	}
+	return ctx.Param("aid")
 }
 
 // ListByAgent 查某智能体的所有绑定
 func (c *AgentKBBindingController) ListByAgent(ctx *gin.Context) {
-	aid, err := strconv.ParseUint(ctx.Param("aid"), 10, 64)
+	aid, err := strconv.ParseUint(agentIDParam(ctx), 10, 64)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "无效的智能体 ID")
 		return
@@ -74,7 +91,11 @@ func (c *AgentKBBindingController) ListByAgent(ctx *gin.Context) {
 
 // ListByKB 查某知识库被哪些智能体绑定
 func (c *AgentKBBindingController) ListByKB(ctx *gin.Context) {
-	kid, err := strconv.ParseUint(ctx.Param("kid"), 10, 64)
+	idStr := ctx.Param("kbId")
+	if idStr == "" {
+		idStr = ctx.Param("kid")
+	}
+	kid, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "无效的知识库 ID")
 		return
@@ -89,6 +110,54 @@ func (c *AgentKBBindingController) ListByKB(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, list, "查询成功")
+}
+
+// agentKBReplaceReq 全量替换某智能体知识库挂载请求
+type agentKBReplaceReq struct {
+	KbIDs []string `json:"kb_ids"`
+}
+
+// ReplaceByAgent 全量替换某智能体的知识库挂载（编辑页保存场景）
+func (c *AgentKBBindingController) ReplaceByAgent(ctx *gin.Context) {
+	aid, err := strconv.ParseUint(agentIDParam(ctx), 10, 64)
+	if err != nil || aid == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的智能体 ID")
+		return
+	}
+	var req agentKBReplaceReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+	kbIDs := make([]uint, 0, len(req.KbIDs))
+	for _, s := range req.KbIDs {
+		v, e := strconv.ParseUint(strings.TrimSpace(s), 10, 64)
+		if e != nil {
+			response.Error(ctx, http.StatusBadRequest, "知识库 ID 非法: "+s)
+			return
+		}
+		kbIDs = append(kbIDs, uint(v))
+	}
+	if err := c.svc.ReplaceByAgent(ctx.Request.Context(), uint(aid), kbIDs); err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"agent_id": aid, "count": len(kbIDs)}, "同步成功")
+}
+
+// UnbindByPath 按路径参数解绑（兼容前端 DELETE /:agentId/:kbId）
+func (c *AgentKBBindingController) UnbindByPath(ctx *gin.Context) {
+	aid, err1 := strconv.ParseUint(ctx.Param("agentId"), 10, 64)
+	kbId, err2 := strconv.ParseUint(ctx.Param("kbId"), 10, 64)
+	if err1 != nil || err2 != nil || aid == 0 || kbId == 0 {
+		response.Error(ctx, http.StatusBadRequest, "无效的 agent_id 或 kb_id")
+		return
+	}
+	if err := c.svc.Unbind(ctx.Request.Context(), uint(aid), uint(kbId)); err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, gin.H{"agent_id": aid, "knowledge_base_id": kbId}, "解绑成功")
 }
 
 // agentKBBindReq 单个绑定请求

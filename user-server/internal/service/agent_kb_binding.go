@@ -148,6 +148,67 @@ func (s *AgentKBBindingService) ListByKB(ctx context.Context, kbID uint) ([]*mod
 	return out, nil
 }
 
+// ReplaceByAgent 全量替换某智能体的知识库挂载（编辑页保存场景）
+//
+// 行为:
+//   - 先删除该智能体全部已有绑定, 再按 kbIDs 重新绑定 (replace 语义)
+//   - 任一 kbID 对应的知识库不存在则整体失败并回滚
+//   - kbIDs 为空: 等价于清空该智能体的所有挂载
+func (s *AgentKBBindingService) ReplaceByAgent(ctx context.Context, agentID uint, kbIDs []uint) error {
+	if s.bindingRepo == nil {
+		return errors.New("binding repo not initialized")
+	}
+	if agentID == 0 {
+		return errors.New("agent_id 不能为空")
+	}
+	if s.db != nil {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			tmpBindingRepo := repository.NewAgentKBBindingRepository(tx)
+			tmpKBRepo := repository.NewKnowledgeBaseRepository(tx)
+			if err := tmpBindingRepo.DeleteByAgent(ctx, agentID); err != nil {
+				return fmt.Errorf("清除旧绑定失败: %w", err)
+			}
+			for _, kbID := range kbIDs {
+				if kbID == 0 {
+					continue
+				}
+				kb, err := tmpKBRepo.GetByID(ctx, kbID)
+				if err != nil {
+					return fmt.Errorf("知识库不存在: %w", err)
+				}
+				if kb == nil {
+					return fmt.Errorf("知识库 %d 不存在", kbID)
+				}
+				b := &model.AgentKBBinding{
+					AgentID:  agentID,
+					KBID:     kbID,
+					KBType:   kb.Type,
+					Role:     model.AgentKBBindingRolePrimary,
+					Priority: 0,
+					Enabled:  boolPtr(true),
+				}
+				if err := tmpBindingRepo.Create(ctx, b); err != nil {
+					return fmt.Errorf("创建绑定失败: %w", err)
+				}
+			}
+			return nil
+		})
+	}
+	// 无 db (测试场景): 直接执行
+	if err := s.bindingRepo.DeleteByAgent(ctx, agentID); err != nil {
+		return err
+	}
+	for _, kbID := range kbIDs {
+		if kbID == 0 {
+			continue
+		}
+		if err := s.Bind(ctx, agentID, kbID, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // BatchBindItem 批量绑定参数项
 type BatchBindItem struct {
 	AgentID uint `json:"agent_id"`
