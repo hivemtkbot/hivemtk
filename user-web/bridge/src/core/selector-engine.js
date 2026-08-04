@@ -96,11 +96,12 @@ export function scoreMessageListContainer(root, itemCandidates) {
   return best || root;
 }
 
-// 主入口：定位消息项列表
+// 主入口（同步，保持既有同步契约）：定位消息项列表
 //   root         : 搜索根（通常 document）
 //   itemSelectors: 渠道特定的消息项候选选择器
-//   opts.listSelectors: 可选，渠道特定的「消息列表容器」候选选择器（优先尝试）
+//   listSelectors: 可选，渠道特定的「消息列表容器」候选选择器（优先尝试）
 // 返回 { container, items } —— items 为去重后的消息项元素数组（按 DOM 顺序）
+// 规则全失效时不会自动调用 LLM（避免阻塞主链路）；LLM 动态识别走 locateMessagesWithDiagnose。
 export function locateMessages({ root, itemSelectors, listSelectors }) {
   if (!root) return { container: null, items: [] };
   let container = null;
@@ -143,6 +144,37 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
   return { container, items };
 }
 
+// 异步增强版（问题 5 LLM 动态识别）：规则全部失效（items 为空）时，
+// 调用 diagnose() 拿模型建议选择器并入候选项再试一次；失败/空则返回规则结果（不阻断）。
+// 默认不调用（diagnose 未注入），保证线上无 LLM 也能全程走规则、零延迟。
+export async function locateMessagesWithDiagnose({ root, itemSelectors, listSelectors, diagnose }) {
+  const base = locateMessages({ root, itemSelectors, listSelectors });
+  if ((base.items || []).length > 0 || typeof diagnose !== 'function') return base;
+  let items = base.items;
+  let container = base.container;
+  try {
+    const hints = await diagnose();
+    if (hints && (hints.message_item || []).length) {
+      const extra = collectCandidates(root, hints.message_item);
+      if (extra.length) items = extra;
+      if (hints.message_list && hints.message_list.length) {
+        for (const sel of hints.message_list) {
+          try {
+            const el = root.querySelector(sel);
+            if (el) { container = el; break; }
+          } catch (_) { /* noop */ }
+        }
+      }
+    }
+  } catch (_) { /* 诊断失败：忽略，继续规则兜底 */ }
+  items = items.filter((el) => {
+    const containsAnother = items.some((other) => other !== el && el.contains(other));
+    if (containsAnother) return false;
+    return looksLikeMessageBubble(el);
+  });
+  return { container, items };
+}
+
 // 通用输入框定位（多渠道同构）：contenteditable / textarea / [role=textbox]
 export function locateInput(root) {
   if (!root) return null;
@@ -157,9 +189,13 @@ export function locateInput(root) {
     const list = root.querySelectorAll(sel);
     for (const el of list) {
       const rect = el.getBoundingClientRect();
-      const visible = rect.width > 0 && rect.height > 0;
+      // 真实浏览器有尺寸；jsdom/headless 下 getBoundingClientRect 返回 0，
+      // 此时退化为「元素已挂载(非 display:none)」判定，避免漏选输入框。
+      const hasSize = rect && (rect.width > 0 || rect.height > 0);
+      const mounted = el.offsetParent !== null || el.getClientRects?.().length > 0;
+      const visible = hasSize || mounted;
       const editable = el.getAttribute('contenteditable') !== 'false';
-      if (visible && editable) return el;
+      if ((visible || !hasSize) && editable) return el;
     }
   }
   return null;

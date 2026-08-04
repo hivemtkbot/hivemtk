@@ -32,6 +32,9 @@ type UnifiedMessage struct {
 	MediaURL       string         `json:"media_url,omitempty"`
 	Timestamp      int64          `json:"timestamp"`
 	Direction      string         `json:"direction,omitempty"` // inbound | outbound（仅 history 帧）
+	IsGroup        bool           `json:"is_group,omitempty"`  // 群聊消息
+	GroupID        string         `json:"group_id,omitempty"`  // 群 ID（群聊会话聚合键）
+	GroupName      string         `json:"group_name,omitempty"` // 群名
 	Extra          map[string]any `json:"extra,omitempty"`
 }
 

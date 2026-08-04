@@ -44,7 +44,8 @@ export function makeUnifiedMessage({
   raw = null,
 }) {
   const resolvedSenderId = sender_id || (sender_type === SENDER.CUSTOMER ? conversation_id : account_id);
-  // 群聊 / 非文字消息等扩展字段统一走 Extra（服务端 UnifiedMessage 已有 Extra map，无需改协议结构）。
+  // 群聊 / 非文字消息等扩展字段：顶层输出（服务端 UnifiedMessage 已加 is_group/group_id/group_name）
+  // 同时保留 Extra 冗余，确保老版本后端仍能读到。
   const extra = {};
   if (is_group) extra.is_group = true;
   if (group_id) extra.group_id = group_id;
@@ -64,6 +65,9 @@ export function makeUnifiedMessage({
     media_url: media_url || '',
     timestamp: timestamp || Date.now(),
     direction, // 仅 history 帧使用；inbound_message 服务端忽略
+    is_group: !!is_group,
+    group_id: group_id || '',
+    group_name: group_name || '',
     raw,
     extra: Object.keys(extra).length ? extra : undefined,
   };

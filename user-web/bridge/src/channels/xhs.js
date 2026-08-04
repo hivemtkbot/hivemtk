@@ -6,6 +6,7 @@
 //   - MutationObserver 监听 .vue-recycle-scroller（消息列表）
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
+import { runExtractor } from '../core/selector-ai.js';
 import { qs, qsa, cleanText, setValue, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { isSelfMessage } from '../core/fallback.js';
 
@@ -90,6 +91,8 @@ const hooks = {
   },
   getAccountId,
   getConversationId,
+  // 读取主路径：运行 LLM 生成的可执行 JS 抽取器（彻底不依赖固定选择器）。
+  extractMessages() { return runExtractor(CHANNELS.XHS, location.host); },
   async sendText(text) {
     const input = findInputEl();
     if (!input) {

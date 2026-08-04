@@ -9,8 +9,27 @@ import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { SelectorEngine } from '../core/selector-engine.js';
+import { mergeSelectors, runExtractor } from '../core/selector-ai.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
+
+// —— AI 选择器 ——
+// 运行时优先使用 selector-ai 缓存的「云端 LLM 生成选择器」，仅在未命中/未配置时
+// 回退到本文件的 SEL 规则候选（mergeSelectors 已处理优先级：AI 在前、规则在后）。
+// 这样抖音改版后，只要 LLM 能识别出新结构，前端无需发版即可恢复抓取。
+// 兜底对象在调用时构建（避免早于 SEL 声明求值导致的 TDZ 问题）。
+function mergedSelectors() {
+  const fb = {
+    itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
+    listSelectors: SEL.MSG_LIST.split(',').map((s) => s.trim()).filter(Boolean),
+    textSelectors: SEL.TEXT.split(',').map((s) => s.trim()).filter(Boolean),
+    inputSelectors: SEL.EDITOR.split(',').map((s) => s.trim()).filter(Boolean),
+    sendSelectors: ['[class*="e2e-send-msg-btn"]', '[class*="send"], [aria-label*="发送"]'],
+    selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
+    otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
+  };
+  return mergeSelectors(CHANNELS.DOUYIN, location.host, fb);
+}
 
 // —— 真实选择器（来自深度自检 DOM 快照 + DY-auto 参考）——
 // 抖音网页 IM 已改版：输入框无 role=textbox、私信常以浮层覆盖在 /jingxuan 等页打开、
@@ -31,8 +50,15 @@ export const SEL = {
   EDITOR: 'div.messageEditorinputArea.editor-kit-container, div.zone-container.editor-kit-container.messageEditorinputArea, div[contenteditable="true"][role="textbox"]',
 };
 
-// 抖音输入框（strict）：真实输入框无 role=textbox，故改为匹配 messageEditorinputArea
+// 抖音输入框（strict）：优先用云端 LLM 生成的选择器，回退 SEL.EDITOR
 function strictEditorBox() {
+  const m = mergedSelectors();
+  for (const sel of m.inputSelectors) {
+    try {
+      const el = qs(sel);
+      if (el) return el;
+    } catch (_) { /* 非法选择器跳过 */ }
+  }
   return qs(SEL.EDITOR);
 }
 
@@ -51,8 +77,18 @@ function findInputEl() {
   return editorBox() || findAnyMessageInput();
 }
 
-// 抖音发送按钮：真实为 svg.messageMsgInputpublishBtn.e2e-send-msg-btn
+// 抖音发送按钮：优先用云端 LLM 生成的发送按钮选择器，回退既有结构识别
 function getRealSendButton() {
+  const m = mergedSelectors();
+  for (const sel of m.sendSelectors) {
+    try {
+      const el = qs(sel);
+      if (el) {
+        if (el.tagName === 'SVG') return el.closest('button, [role="button"], div, span') || el;
+        return el;
+      }
+    } catch (_) { /* 非法选择器跳过 */ }
+  }
   let btn = qs('[class*="e2e-send-msg-btn"]');
   if (btn) {
     // 发送按钮为 svg 时，点击须落到最近的可交互祖先（带 click 监听的
@@ -295,13 +331,15 @@ const hooks = {
     return anchor ? anchor.closest('[class*="im"], [class*="message"], [class*="chat"], [class*="Im"], [class*="Message"]') : null;
   },
   getMessageItems() {
-    // 主路径：用 SelectorEngine 多候选 + 结构启发式定位消息列表与消息项。
+    // 主路径：优先用云端 LLM 生成的选择器（缓存），回退 SEL 多候选；
+    // 再由 SelectorEngine 结构启发式定位消息列表与消息项。
     // 即使抖音改版导致 SEL.MSG_ITEM 部分失效，引擎仍能用「像气泡」的结构特征兜底命中，
     // 从架构上解决「单一写死选择器失效 → 只抓到 2 条」。
+    const m = mergedSelectors();
     const { items } = SelectorEngine.locateMessages({
       root: document,
-      itemSelectors: SEL.MSG_ITEM.split(',').map((s) => s.trim()),
-      listSelectors: SEL.MSG_LIST.split(',').map((s) => s.trim()).filter(Boolean),
+      itemSelectors: m.itemSelectors,
+      listSelectors: m.listSelectors,
     });
     const filtered = items.filter((it) => !isListNoise(it));
     if (filtered.length) return filtered;
@@ -336,11 +374,17 @@ const hooks = {
     // item 已是消息气泡（文本/媒体元素）。先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底
+    // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底（优先用 AI 生成的 self/other 标记）
     let sender_type = classifyByAlignment(item);
-    if (sender_type === SENDER.CUSTOMER && item.closest && (item.closest(SEL.SELF_ITEM) || (item.matches && item.matches(SEL.SELF_ITEM)))) {
-      sender_type = SENDER.SELF;
-    }
+    const m = mergedSelectors();
+    const matchesSelf = m.selfMarkers.some((sel) => {
+      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
+    });
+    const matchesOther = m.otherMarkers.some((sel) => {
+      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
+    });
+    if (sender_type === SENDER.CUSTOMER && matchesSelf) sender_type = SENDER.SELF;
+    if (sender_type === SENDER.SELF && matchesOther) sender_type = SENDER.CUSTOMER;
     // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
     const groupInfo = detectGroup(item);
     const mid =
@@ -364,6 +408,9 @@ const hooks = {
   },
   getAccountId,
   getConversationId,
+  // 读取主路径：运行 LLM 生成的可执行 JS 抽取器（彻底不依赖固定选择器）。
+  // 返回归一化消息数组或 null（无缓存/抽取器异常时由适配器回退选择器路径）。
+  extractMessages() { return runExtractor(CHANNELS.DOUYIN, location.host); },
   async sendText(text) {
     const editor = findInputEl();
     if (!editor) {

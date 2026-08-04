@@ -465,8 +465,20 @@ func toMessageEvent(m *UnifiedMessage) *model.MessageEvent {
 		Content:        m.Content,
 		MediaURL:       m.MediaURL,
 		ConversationID: m.ConversationID,
+		IsGroup:        m.IsGroup,
+		GroupID:        m.GroupID,
 		Timestamp:      ts,
 		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType},
+	}
+	// 群聊 / 非文字元信息冗余进 Extra，保证下游（inbox_ingress / 统一收件箱）可读
+	if m.IsGroup {
+		ev.Extra["is_group"] = true
+	}
+	if m.GroupID != "" {
+		ev.Extra["group_id"] = m.GroupID
+	}
+	if m.GroupName != "" {
+		ev.Extra["group_name"] = m.GroupName
 	}
 	return ev
 }

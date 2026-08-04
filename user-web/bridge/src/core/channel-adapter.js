@@ -10,6 +10,7 @@
 import { createLogger } from './logger.js';
 import { RateLimiter } from './rate-limiter.js';
 import { makeUnifiedMessage, SENDER, DIRECTION } from './types.js';
+import { mergeSelectors, getCachedSpec, refreshSpec, runExtractor } from './selector-ai.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -41,6 +42,10 @@ export class BaseAdapter {
     this.recentSelfMax = 200;
     this.callbacks = {};
     this.log = createLogger(channel, 'adapter');
+    // —— AI 选择器自愈状态 ——
+    this.domain = '';             // 当前页面域名（start 时填充）
+    this._zeroHitCount = 0;       // 连续 0 命中计数，触发自愈刷新
+    this._lastSelRefresh = 0;     // 上次刷新云端选择器的时间戳（冷却用）
   }
 
   setAccount(account) { this.account = account; }
@@ -82,6 +87,16 @@ export class BaseAdapter {
   }
   getMessageItems() { return this.hooks.getMessageItems ? this.hooks.getMessageItems() : []; }
   parseMessageItem(item) { return this.hooks.parseMessageItem ? this.hooks.parseMessageItem(item) : null; }
+  // extractMessages：读取主路径（LLM 可执行 JS 抽取器）。
+  // 渠道 hook 提供（内部调用 runExtractor），返回归一化消息数组或 null。
+  // 返回 null 时调用方回退到选择器路径。整条链路做了 try/catch，抽取器异常不影响兜底。
+  extractMessages() {
+    try {
+      return this.hooks.extractMessages ? this.hooks.extractMessages() : null;
+    } catch (_) {
+      return null;
+    }
+  }
   rawSendText(text) { return this.hooks.sendText ? this.hooks.sendText(text) : Promise.resolve(false); }
   selfTest() { return this.hooks.selfTest ? this.hooks.selfTest() : []; }
 
@@ -91,11 +106,15 @@ export class BaseAdapter {
       this.log.warn('页面不匹配，适配器未启动');
       return false;
     }
+    // 记录当前域名，供 AI 选择器缓存（域名+渠道指纹）使用
+    try { this.domain = location && location.host ? location.host : ''; } catch (_) { this.domain = ''; }
     const meta = this.snapshotMeta();
     this.account = meta.accountId || this.account;
     this.conversationId = this.getConversationId();
     this._attachConversation();
     this._startConvPolling();
+    // 首次匹配即尝试拉取云端 AI 选择器（无缓存时主动学习，下次扫描即用）
+    this._maybeRefreshSelectors(true);
     return true;
   }
 
@@ -158,19 +177,67 @@ export class BaseAdapter {
   }
 
   _onMutations(muts) {
+    // 用「云端 AI 选择器 + 本地 SEL 规则」合并后的消息项选择器，确保 MutationObserver
+    // 也能命中抖音改版后由 LLM 识别出的新结构（不仅是旧 SEL 命中项）。
+    const m = mergeSelectors(this.channel, this.domain, {
+      itemSelectors: (this.SEL.MSG_ITEM || '').split(',').map((s) => s.trim()).filter(Boolean),
+    });
+    const itemSelectors = m.itemSelectors;
     const nodes = this._addedElements(muts);
     for (const node of nodes) {
-      const items = node.matches && node.matches(this.SEL.MSG_ITEM)
-        ? [node]
-        : (node.querySelectorAll ? Array.from(node.querySelectorAll(this.SEL.MSG_ITEM)) : []);
+      let items = [];
+      for (const sel of itemSelectors) {
+        try {
+          if (node.matches && node.matches(sel)) items.push(node);
+          if (node.querySelectorAll) {
+            const sub = node.querySelectorAll(sel);
+            for (const s of sub) items.push(s);
+          }
+        } catch (_) { /* 非法选择器跳过 */ }
+      }
       for (const item of items) this._handleIncremental(item);
     }
   }
 
   // 兜底全量扫描（与去重结合，安全可重复调用）
   _scanIncremental() {
+    // 主路径：LLM 可执行 JS 抽取器（彻底不依赖固定选择器 schema）。
+    // 命中即走抽取器，完全由 LLM 生成的代码读取 DOM，平台改版后无需改前端。
+    const aiMsgs = this.extractMessages();
+    if (aiMsgs && aiMsgs.length) {
+      this._zeroHitCount = 0;
+      for (const parsed of aiMsgs) this._ingest(parsed);
+      this._maybeRefreshSelectors(false);
+      return;
+    }
+    // 兜底：选择器路径（AI 选择器 + SEL 规则）
     const items = this.getMessageItems();
+    // 连续 0 命中 → 累计，达阈值触发自愈刷新云端选择器（抖音改版自愈）
+    if (!items || items.length === 0) this._zeroHitCount += 1;
+    else this._zeroHitCount = 0;
+    this._maybeRefreshSelectors(false);
     for (const item of items) this._handleIncremental(item);
+  }
+
+  // AI 选择器自愈：无缓存时主动拉取；有缓存但连续 0 命中时重新拉取。
+  // force=true 表示从首次匹配触发（仅当无缓存才真正请求，避免重复打云端）。
+  _maybeRefreshSelectors(force) {
+    if (!this.channel || !this.domain) return;
+    const now = Date.now();
+    const cooldown = 6 * 3600 * 1000; // 与 selector-ai 一致
+    const cached = getCachedSpec(this.channel, this.domain);
+    if (cached) {
+      if (force || this._zeroHitCount < 3) return; // 命中正常则不打云端
+      if (now - this._lastSelRefresh < cooldown) return;
+      this._lastSelRefresh = now;
+      this._zeroHitCount = 0;
+      refreshSpec(this.channel, this.domain).catch(() => {});
+      return;
+    }
+    // 无缓存：首次或缓存过期 → 主动学习（受冷却限制）
+    if (now - this._lastSelRefresh < cooldown) return;
+    this._lastSelRefresh = now;
+    refreshSpec(this.channel, this.domain).catch(() => {});
   }
 
   _keyOf(parsed) {
@@ -182,18 +249,11 @@ export class BaseAdapter {
     return `${cid}:${parsed.sender_type}:${(parsed.text || '').slice(0, 200)}`;
   }
 
-  _handleIncremental(item) {
-    // 节点级去重：同一 DOM 节点（无论被 MutationObserver 还是 3s 兜底扫描命中）只处理一次，
-    // 从根本上杜绝「反复扫描 → 同名消息无限重复上行」。
-    if (item && this.seenNodes.has(item)) return;
-    // 无活动会话（私信列表视图）时不捕获消息：此时命中的多半是会话列表里的联系人昵称，
-    // 而非真实聊天内容（表现：conv:null + 昵称循环）。
-    if (!this.getConversationId()) return;
-    const parsed = this.parseMessageItem(item);
-    // 放行非文字消息（图片/语音/撤回/系统）：它们 text 可能为空，但 msg_type 非 text 仍有价值
+  // _ingest：统一的「去重 + 上行/落库」逻辑。抽取器路径（无 DOM 节点）与选择器路径共用。
+  _ingest(parsed) {
     if (!parsed) return;
+    // 放行非文字消息（图片/语音/撤回/系统）：它们 text 可能为空，但 msg_type 非 text 仍有价值
     if (!parsed.text && (!parsed.msg_type || parsed.msg_type === 'text')) return;
-    if (item) this.seenNodes.add(item);
     const key = this._keyOf(parsed);
     if (this.seen.has(key)) return;
     this.seen.add(key);
@@ -216,6 +276,19 @@ export class BaseAdapter {
     }
   }
 
+  _handleIncremental(item) {
+    // 节点级去重：同一 DOM 节点（无论被 MutationObserver 还是 3s 兜底扫描命中）只处理一次，
+    // 从根本上杜绝「反复扫描 → 同名消息无限重复上行」。
+    if (item && this.seenNodes.has(item)) return;
+    // 无活动会话（私信列表视图）时不捕获消息：此时命中的多半是会话列表里的联系人昵称，
+    // 而非真实聊天内容（表现：conv:null + 昵称循环）。
+    if (!this.getConversationId()) return;
+    const parsed = this.parseMessageItem(item);
+    if (!parsed) return;
+    if (item) this.seenNodes.add(item);
+    this._ingest(parsed);
+  }
+
   // 回填存量消息（页面加载 / 会话切换）：一律仅落库，不触发 AI
   _backfill(root) {
     // 无活动会话（私信列表视图）：不回填，避免把会话列表里的联系人昵称当历史消息上行。
@@ -223,6 +296,22 @@ export class BaseAdapter {
       this.log.info('回填跳过：当前无活动会话（私信列表视图）');
       return;
     }
+    // 主路径：抽取器（LLM 生成的 JS 直接读 DOM，不依赖固定选择器）
+    const aiMsgs = this.extractMessages();
+    if (aiMsgs && aiMsgs.length) {
+      let n = 0;
+      for (const parsed of aiMsgs) {
+        const key = this._keyOf(parsed);
+        if (this.seen.has(key)) continue;
+        this.seen.add(key);
+        const direction = parsed.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND;
+        this._emitHistory(parsed, direction);
+        n++;
+      }
+      this.log.info(`回填会话 ${this.conversationId} (extractor): ${n} 条消息`);
+      return;
+    }
+    // 兜底：选择器路径
     const items = this.getMessageItems();
     let n = 0;
     for (const item of items) {
@@ -247,6 +336,7 @@ export class BaseAdapter {
       account_id: this.getAccountId(),
       conversation_id: this.getConversationId(),
       sender_type: parsed.sender_type,
+      sender_id: parsed.is_group && parsed.group_id ? parsed.group_id : (parsed.sender_id || ''),
       content: parsed.text,
       media_url: parsed.media_url || '',
       msg_type: parsed.msg_type || 'text',
@@ -268,6 +358,7 @@ export class BaseAdapter {
       account_id: this.getAccountId(),
       conversation_id: this.getConversationId(),
       sender_type: parsed.sender_type,
+      sender_id: parsed.is_group && parsed.group_id ? parsed.group_id : (parsed.sender_id || ''),
       content: parsed.text,
       media_url: parsed.media_url || '',
       msg_type: parsed.msg_type || 'text',
