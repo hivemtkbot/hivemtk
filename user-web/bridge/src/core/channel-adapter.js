@@ -110,6 +110,9 @@ export class BaseAdapter {
   selfTest() { return this.hooks.selfTest ? this.hooks.selfTest() : []; }
 
   start(callbacks = {}) {
+    // 先停止旧观察者/定时器/巡检，防止 sync() 重激活时双重 emit
+    // （旧 MutationObserver + 新 MutationObserver → FrameInbound ×2 → AI重复回复）
+    this.stop();
     this.callbacks = callbacks;
     if (!this.match()) {
       this.log.warn('页面不匹配，适配器未启动');
