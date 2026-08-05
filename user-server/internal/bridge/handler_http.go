@@ -138,23 +138,19 @@ type httpRequestInfo struct {
 // 不修改 c、不做业务校验，纯粹是字段收集 + token 脱敏。
 //
 // 行为说明：
-//   - body 预览最多读 4KB（HTTPIngestMaxBodySize 的 1/1024），超出截断并标记 truncated=true
-//   - body 读取后必须通过 Put 写回 c.Request.Body，否则下游 BindJSON 读不到
+//   - 读取完整 body 用于下游 BindJSON；同时截取前 4KB 作为日志预览
+//   - body 读取后必须写回 c.Request.Body，否则下游 BindJSON 读不到
 //   - 解析失败不返回错误（让 gin BindJSON 报更明确的错）
 func collectHTTPRequestInfo(c *gin.Context) httpRequestInfo {
 	token := c.Query("token")
-	// 在写回 body 之前先快照原始 ContentLength，否则会被覆盖为截断后长度
+	// 在写回 body 之前先快照原始 ContentLength，否则会被覆盖
 	origContentLength := c.Request.ContentLength
-	bodyPreview, bodySize, truncated := readBodyPreview(c.Request.Body, 4096)
-	// 写回 body，避免下游 BindJSON 失败
+	// 读取完整 body：下游 BindJSON 需要完整 JSON，不能只写回预览
+	fullBody, bodySize, bodyPreview, _ := readBodyForLog(c.Request.Body, 4096)
+	// 写回完整 body（非截断预览），避免 BindJSON 读到截断 JSON 报 unexpected EOF
 	if c.Request != nil && c.Request.Body != nil {
-		c.Request.Body = io.NopCloser(strings.NewReader(bodyPreview))
-		if truncated {
-			// 重置 ContentLength 让下游知道还有剩余
-			c.Request.ContentLength = -1
-		} else {
-			c.Request.ContentLength = int64(len(bodyPreview))
-		}
+		c.Request.Body = io.NopCloser(strings.NewReader(fullBody))
+		c.Request.ContentLength = int64(len(fullBody))
 	}
 	return httpRequestInfo{
 		Method:         c.Request.Method,
@@ -176,22 +172,29 @@ func collectHTTPRequestInfo(c *gin.Context) httpRequestInfo {
 	}
 }
 
-// readBodyPreview 读取 body 全部内容 + 前 N 字节预览。
-// 返回 (preview, totalSize, truncated)。
-func readBodyPreview(rc io.ReadCloser, previewBytes int) (string, int, bool) {
+// readBodyForLog 读取 body 全部内容。
+// 返回 (fullBody, totalSize, preview, truncated)：
+//   - fullBody: 完整 body 字符串（写回 c.Request.Body 供下游 BindJSON 使用）
+//   - totalSize: 完整 body 字节数
+//   - preview: 前 N 字节预览（用于日志，超出截断并追加提示）
+//   - truncated: body 是否超过 previewBytes
+func readBodyForLog(rc io.ReadCloser, previewBytes int) (string, int, string, bool) {
 	if rc == nil {
-		return "", 0, false
+		return "", 0, "", false
 	}
 	all, err := io.ReadAll(rc)
 	_ = rc.Close()
 	if err != nil {
-		return fmt.Sprintf("[read body failed: %v]", err), 0, false
+		msg := fmt.Sprintf("[read body failed: %v]", err)
+		return msg, 0, msg, false
 	}
 	total := len(all)
+	full := string(all)
 	if total <= previewBytes {
-		return string(all), total, false
+		return full, total, full, false
 	}
-	return string(all[:previewBytes]) + fmt.Sprintf("... [truncated, total=%d bytes]", total), total, true
+	preview := string(all[:previewBytes]) + fmt.Sprintf("... [truncated, total=%d bytes]", total)
+	return full, total, preview, true
 }
 
 // BridgeIngestHandler HTTP 上报端点处理器（2026-08-05 HTTP-only 重构）
