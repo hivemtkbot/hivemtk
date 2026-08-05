@@ -2134,13 +2134,51 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			sent = true
 		}
 	case ChannelDouyin, ChannelXiaohongshu, ChannelTiktok, ChannelXianyu, ChannelKuaishou:
-		// 网页桥接渠道：AI 回复经 WebSocket 投递到 Chrome 扩展（由 bridge 包注册的回调完成），
+		// 网页桥接渠道：AI 回复经 HTTP 长轮询投递到 Chrome 扩展（由 bridge 包注册的回调完成），
 		// 不走官方 API（避免把私信误发到平台开放接口）。
 		// p.EventID 传给 bridge 用于 ClaimReply 幂等守卫。
 		// 2026-08-05 渠道编码统一：去掉 _web 后缀，case 改为全名（douyin/xiaohongshu/tiktok/xianyu/kuaishou）。
 		//
-		// 修复（2026-08-05 审计 P0）：原 case 用 string literal 与其他 case 的常量风格不一致，
-		// 重命名渠道时静默丢消息。改为 WebhookChannel 常量后，编译器可捕获 rename 漏改。
+		// 2026-08-05 修复：AI 回复持久化到 message_hub（direction=outbound, is_ai_reply=true）。
+		//   原版只 DeliverBridgeOutbound 入 httpReplyBuffer，不落库 → 统一收件箱看不到 AI 回复。
+		//   扩展端回写网页后 MutationObserver 会把 AI 回复当客户消息上行 → direction=inbound 的错误记录。
+		//   修复：在出站前先持久化 AI 回复（direction=outbound），扩展端上行时靠 event_id 去重跳过。
+		if hubMsg != nil {
+			outMsg := &model.MessageHub{
+				MsgID:          fmt.Sprintf("bridge-out-%d", time.Now().UnixNano()),
+				Platform:       string(channel),
+				AccountID:      accountID,
+				Direction:      "outbound",
+				MsgType:        "text",
+				SenderID:       accountID,
+				ReceiverID:     hubMsg.SenderID,
+				Content:        content,
+				ConversationID: hubMsg.ConversationID,
+				IsGroup:        hubMsg.IsGroup,
+				GroupID:        hubMsg.GroupID,
+				IsAIReply:      true,
+				AIAgent:        "sales_engine",
+				IsRead:         true,
+				SentAt:         time.Now(),
+			}
+			if err := s.db.Create(outMsg).Error; err != nil {
+				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
+			} else if s.inboxConvRepo != nil {
+				// 同步 inbox_conversations 的 last_message_preview
+				if err := s.inboxConvRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
+					Platform:           outMsg.Platform,
+					AccountID:          outMsg.AccountID,
+					CustomerID:         outMsg.ReceiverID,
+					ConversationID:     outMsg.ConversationID,
+					LastMessageID:      outMsg.ID,
+					LastMessagePreview: outMsg.Content,
+					LastMessageAt:      outMsg.SentAt,
+					LastMessageFrom:    "ai",
+				}); err != nil {
+					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Msg("failed to upsert inbox_conversations for outbound")
+				}
+			}
+		}
 		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
 		} else {
