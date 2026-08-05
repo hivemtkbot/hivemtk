@@ -518,9 +518,8 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 			continue
 		}
 		// 客户消息（含 history 帧）走 InboxIngress
-		if len(m.History) > 0 {
-			// 会话级 history：逐条持久化（direction 由 history item 决定）
-			// 仅第一条 customer 方向触发 AI（与 WS 行为对齐：history 帧仅落库不触发 AI）
+		if len(m.History) > 0 && !req.ExpectReply {
+			// history 回填（expect_reply=false）：逐条持久化（不触发 AI）
 			for hi, it := range m.History {
 				if it == nil {
 					continue
@@ -543,6 +542,28 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 				Reason:   "session-level history persisted (no AI trigger)",
 			})
 			continue
+		}
+		// 客户消息 + expect_reply=true（可能携带 history 上下文）：
+		// 先持久化 history 上下文（落库），再走 InboxIngress 触发 AI。
+		// history 上下文只是给 AI 的多轮参考，不应阻止消息本身触发 AI。
+		if len(m.History) > 0 && req.ExpectReply {
+			for hi, it := range m.History {
+				if it == nil {
+					continue
+				}
+				item := historyItemToEvent(httpMessageToUnified(m), it)
+				dir := it.Direction
+				if dir == "" {
+					dir = "inbound"
+				}
+				if err := h.callPersistHistory(ctx, item, dir); err != nil {
+					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+						Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
+						Int("history_idx", hi).
+						Msg("[Bridge HTTP] inbound history context persist failed")
+				}
+			}
+			// 不 continue：继续走下面的 callHandleIngress 触发 AI
 		}
 		ev = httpMessageToEvent(m)
 		// 走 InboxIngress（含 sender_type 过滤、5min 内容 hash 去重、5min AI 回复窗口）
