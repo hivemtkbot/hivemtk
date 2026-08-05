@@ -278,7 +278,9 @@ func (s *FeishuIntegrationService) SendMessage(ctx context.Context, accountID ui
 		SentAt:         timePtr(time.Now()),
 	})
 	if hubMsg != nil {
-		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
+		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
+		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+	}
 	}
 	return nil
 }
@@ -511,7 +513,9 @@ func (s *TelegramIntegrationService) SendMessage(ctx context.Context, accountID 
 		SentAt:         timePtr(time.Now()),
 	})
 	if hubMsg != nil {
-		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
+		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
+		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+	}
 	}
 	return nil
 }
@@ -559,7 +563,9 @@ func (s *TelegramIntegrationService) SendCard(ctx context.Context, accountID uin
 		SentAt:         timePtr(time.Now()),
 	})
 	if hubMsg != nil {
-		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
+		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
+		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+	}
 	}
 	return nil
 }
@@ -804,7 +810,9 @@ func (s *WhatsAppCloudIntegrationService) SendMessage(ctx context.Context, accou
 		SentAt:         timePtr(time.Now()),
 	})
 	if hubMsg != nil {
-		_, _ = s.inbox.UpsertFromHubMessage(ctx, hubMsg)
+		if _, err := s.inbox.UpsertFromHubMessage(ctx, hubMsg); err != nil {
+		logger.Warnf("[feishu] upsert outbound to inbox failed: %v", err)
+	}
 	}
 	return nil
 }

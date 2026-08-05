@@ -576,6 +576,7 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 	// 会永远走转人工，访客再也无法得到 AI 回复。重置后下次消息可重新进入 AI 流程。
 	session.AIReplyCount = 0
 	if err := o.sessionRepo.Update(ctx, session); err != nil {
+		logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] update session status failed")
 		return err
 	}
 
@@ -588,12 +589,16 @@ func (o *SmartCSOrchestrator) transferToHuman(ctx context.Context, session *mode
 		SenderID:    "system",
 		SenderName:  "系统",
 	}
-	_ = o.messageRepo.Create(ctx, sysMsg)
+	if err := o.messageRepo.Create(ctx, sysMsg); err != nil {
+		logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] create system message failed")
+	}
 
 	// 3. 联动 SessionAssignmentService 真正分配在线座席
 	//    失败时（无在线客服）保持 waiting 状态等待后续分配，不阻断主流程
 	if o.assignmentSvc != nil {
-		_ = o.assignmentSvc.autoAssignToAgent(ctx, session, reason)
+		if err := o.assignmentSvc.autoAssignToAgent(ctx, session, reason); err != nil {
+			logger.Ctx(ctx).Error().Err(err).Msg("[transferToHuman] autoAssignToAgent failed")
+		}
 	}
 	return nil
 }
