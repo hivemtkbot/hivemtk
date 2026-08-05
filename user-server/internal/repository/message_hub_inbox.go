@@ -408,16 +408,26 @@ func (r *MessageHubRepository) GetLastByPlatformAccount(ctx context.Context, pla
 //   - 同时检查该消息是否在 replyWindow 内（5 分钟）
 //   - 若最新消息方向 = "outbound"（已回复） → 不触发 AI
 //
+// 2026-08-05 修复（多次给用户发消息 bug）：
+//   - 新增 excludeMsgID 参数：查询时排除当前刚落库的消息
+//   - 场景：bridge 一次性上报同会话多条 customer 消息时，每条消息落库后
+//     都成为"最后一条 inbound"，导致每条都触发 AI → 多次给用户发消息
+//   - 修复：排除当前消息后查询"之前最后一条消息方向"
+//     · 若之前最后一条是 outbound（已回复）或无 → 当前消息是新消息 → 触发 AI
+//     · 若之前最后一条是 inbound（未回复） → 当前消息是连续客户消息 → 不触发 AI
+//     · 这样同一批 customer 消息只有第一条触发 AI，后续不触发
+//
 // 入参：
 //   - conversationID：会话唯一标识
 //   - replyWindow：回复判断窗口（5 分钟），超过则视为历史消息不再触发
+//   - excludeMsgID：排除的消息 ID（当前正在处理的消息 event_id），空则不排除
 //
 // 返回：
 //   - 未回复=true 且在窗口内=true → 触发 AI
 //   - 未回复=true 但在窗口外=false → 历史消息不触发
 //   - 未回复=false（已有 outbound） → 不触发
 //   - 查询失败 → 保守返回 false（避免对历史存量消息逐一自动回复）
-func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration) (unreplied bool, withinWindow bool, err error) {
+func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration, excludeMsgID string) (unreplied bool, withinWindow bool, err error) {
 	if r == nil || r.db == nil {
 		return false, false, nil
 	}
@@ -426,14 +436,18 @@ func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, 
 	}
 	var last model.MessageHub
 	// 按 conversation_id 查最新一条消息（不分 platform / account_id，因为同一 conversation_id 唯一）
-	if err := r.db.WithContext(ctx).
-		Where("conversation_id = ?", conversationID).
-		Order("sent_at DESC").
+	// 排除当前刚落库的消息（excludeMsgID），查询"之前最后一条消息方向"
+	query := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID)
+	if excludeMsgID != "" {
+		query = query.Where("msg_id != ?", excludeMsgID)
+	}
+	if err := query.Order("sent_at DESC").
 		Limit(1).
 		First(&last).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// 会话无任何消息（理论上不会到这，因为这是新消息入库后的查询）
-			return true, true, nil // 视为未回复且在窗口内（首条消息触发）
+			// 会话无其他消息（首条消息或排除当前后无更早消息）→ 视为未回复且在窗口内
+			return true, true, nil // 首条消息触发
 		}
 		// 查询失败：保守视为已回复（不触发 AI，避免误触发）
 		return false, false, err

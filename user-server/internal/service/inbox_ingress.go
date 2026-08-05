@@ -437,8 +437,15 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	//     - 最后一条 inbound（客户发的） + 5min 内 → 未回复，触发 AI
 	//     - 最后一条 outbound（已回复） → 不触发
 	//     - 最后一条 inbound + 5min 外 → 历史消息不触发
+	//
+	// 2026-08-05 修复（多次给用户发消息 bug）：
+	//   排除当前刚落库的消息（event.EventID），查询"之前最后一条消息方向"。
+	//   场景：bridge 一次性上报同会话多条 customer 消息，每条落库后都成为
+	//   "最后一条 inbound" → 每条都触发 AI → 多次给用户发消息。
+	//   修复后：排除当前消息，若之前最后一条是 inbound（未回复）→ 不触发 AI，
+	//   只有第一条 customer 消息触发 AI，后续连续消息不触发。
 	if s.hubRepo != nil {
-		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow)
+		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow, event.EventID)
 		if err != nil {
 			// 查询失败：保守视为已回复（不触发 AI，避免误触发）
 			logger.Ctx(ctx).Error().Err(err).
