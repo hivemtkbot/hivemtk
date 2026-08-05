@@ -132,6 +132,7 @@ type tokenBucket struct {
 	refillRate float64
 	tokens     float64
 	lastRefill time.Time
+	lastAccess time.Time // 用于 janitor 清理闲置桶
 }
 
 func (b *tokenBucket) allow(ctx context.Context) bool {
@@ -252,6 +253,7 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		replySem:       make(chan struct{}, webhookEnvInt("WEBHOOK_REPLY_CONCURRENCY", WebhookReplyConcurrency)),
 	}
 	s.startWorkers(context.Background())
+	s.startRLJanitor(context.Background())
 	return s
 }
 
@@ -2107,11 +2109,37 @@ func (s *WebhookService) allowRate(ctx context.Context, key string) bool {
 			refillRate: float64(WebhookRateLimit),
 			tokens:     float64(WebhookRateBurst),
 			lastRefill: time.Now(),
+			lastAccess: time.Now(),
 		}
 		s.rlBuckets[key] = b
 	}
+	b.lastAccess = time.Now()
 	s.rlMu.Unlock()
 	return b.allow(context.Background())
+}
+
+// startRLJanitor 定期清理 idle 超过 5 分钟的限速桶（防内存泄漏）。
+// tokenBucket 按 (channel, accountID) 为 key，若无清理则永久增长。
+func (s *WebhookService) startRLJanitor(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.rlMu.Lock()
+				cutoff := time.Now().Add(-5 * time.Minute)
+				for k, b := range s.rlBuckets {
+					if b.lastAccess.Before(cutoff) {
+						delete(s.rlBuckets, k)
+					}
+				}
+				s.rlMu.Unlock()
+			}
+		}
+	}()
 }
 
 func (s *WebhookService) generateEventID(ctx context.Context, channel WebhookChannel, accountID string, body []byte) string {

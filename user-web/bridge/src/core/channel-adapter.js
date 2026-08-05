@@ -142,6 +142,10 @@ export class BaseAdapter {
     if (this._graceTimer) clearTimeout(this._graceTimer);
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._stopPatrol();
+    // 清理去重集合，防止 stop/start 循环中旧指纹误拦截新消息
+    this.seen.clear();
+    this.recentSelf.clear();
+    this._convWindow.clear();
   }
 
   // 会话切换探测：切换后重挂载观察器并回填新会话历史
