@@ -1,9 +1,10 @@
 // content script 公共引导：把适配器捕获的消息通过 HTTP 长轮询上报到 user-server。
 // 协议常量/字段与服务端 handler_http.go 严格对齐（详见 bridge.md §17）。
 //
-// 2026-08-05 HTTP-only 重构：彻底移除 WebSocket 长连接。
-//   - onInbound 回调 → postIngest(expect_reply: true) 调 /api/bridge/ingest
-//   - onHistory 回调 → postIngest(expect_reply: false) 仅落库
+// 2026-08-05 架构重构（纯桥接）：
+//   - Bridge 只做桥接：上报消息 + 下发转发，不做任何业务判断
+//   - 所有消息（customer / self / agent）统一走 onMessage 回调 → postIngest 上报
+//   - 不设 expect_reply 字段：是否入库 / 是否回复由后端根据 sender_type 判断
 //   - 服务端 AI 回复随 HTTP 响应直接返回，content 端拿到后调 adapter.sendOutbound
 //   - 完整 URL + 解析后的 query 参数 + body 预览由 http-ingest._logRequest 统一打印
 //     （与 user-server 侧 collectHTTPRequestInfo 输出格式严格对齐）
@@ -511,25 +512,24 @@ export function startBridge(channel, buildAdapter) {
       }
     };
 
-    // 通过 postIngest 上报单条消息。统一调用入口：onInbound 走 expect_reply=true
-    // 等待 AI 回复；onHistory 走 expect_reply=false 仅落库。
+    // 通过 postIngest 上报单条消息（纯桥接：不设 expect_reply，后端根据 sender_type 判断）。
     //
     // 关键设计：URL + 完整 query + body 预览由 http-ingest._logRequest 统一打印
     // （所有渠道 douyin/xhs/tiktok/xianyu 共用），用户可从 console 直接看到上行地址。
-    const submitIngest = async (message, opts) => {
+    const submitIngest = async (message) => {
       if (!message) return;
       const cfg = await getConfig();
       const meta = adapter.snapshotMeta();
-      const accountId = (opts && opts.accountId) || meta.accountId || '';
-      const conversationId = (opts && opts.conversationId) || message.conversation_id || meta.conversationId || '';
+      const accountId = meta.accountId || '';
+      const conversationId = message.conversation_id || meta.conversationId || '';
       if (!accountId || !conversationId) {
         log.warn('ingest 跳过：accountId/conversationId 缺失', { accountId, conversationId });
         return;
       }
-      const expectReply = !!(opts && opts.expectReply);
-      const label = expectReply ? '[上行 inbound ingest]' : '[上行 history ingest]';
+      const label = '[上行 ingest]';
       // 构造 ingest body：与 user-server handler_http.go HTTPIngestRequest 字段对齐。
       // 单条消息包成 messages[]（保持与多消息批量上报统一，server 端解析逻辑一致）。
+      // 纯桥接：不设 expect_reply 字段，是否回复由后端根据 sender_type 判断。
       const body = {
         v: 2,
         channel: message.channel || channel,
@@ -557,7 +557,6 @@ export function startBridge(channel, buildAdapter) {
             history: Array.isArray(message.history) ? message.history : [],
           },
         ],
-        expect_reply: expectReply,
         timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
       };
       try {
@@ -575,7 +574,7 @@ export function startBridge(channel, buildAdapter) {
             timeoutMs: HTTP_INGEST_DEFAULTS.longPollTimeoutMs + 5000,
           }
         );
-        // 响应解析：服务端可能附带 outbound_replies（仅当 expect_reply=true 时有内容）
+        // 响应解析：服务端可能附带 outbound_replies（后端根据 sender_type 决定是否回复）
         if (resp && Array.isArray(resp.outbound_replies) && resp.outbound_replies.length) {
           for (const reply of resp.outbound_replies) {
             await dispatchOutboundReply(reply);
@@ -587,28 +586,19 @@ export function startBridge(channel, buildAdapter) {
       }
     };
 
-    // 上行：实时客户私信 → AI 路径；存量/自己消息 → 仅落库历史
+    // 上行：所有消息（customer / self / agent）统一走 onMessage 回调上报。
+    // 纯桥接：bridge 不区分消息类型，是否入库 / 是否回复由后端根据 sender_type 判断。
     adapter.start({
-      onInbound: (message) => {
+      onMessage: (message) => {
         stats.inbound++;
         const len = (message && message.content ? message.content.length : 0);
-        log.info('[上行 inbound] #' + stats.inbound, {
+        log.info('[上行 message] #' + stats.inbound, {
           conv: message && message.conversation_id,
           sender: message && message.sender_type,
           len,
         });
         // fire-and-forget：postIngest 自带退避重试 + 完整 URL/参数日志
-        submitIngest(message, { expectReply: true });
-      },
-      onHistory: (message) => {
-        stats.history++;
-        const len = (message && message.content ? message.content.length : 0);
-        log.info('[上行 history] #' + stats.history, {
-          conv: message && message.conversation_id,
-          sender: message && message.sender_type,
-          len,
-        });
-        submitIngest(message, { expectReply: false });
+        submitIngest(message);
       },
       onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
     });

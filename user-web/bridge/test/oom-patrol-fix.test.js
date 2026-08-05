@@ -32,26 +32,12 @@ describe('OOM 巡检 修复', () => {
     }
   });
 
-  it('seen Set LRU 软清理：5000 满时只清 1/4（旧版清一半）', () => {
+  it('内容指纹去重已移至后端（纯桥接：adapter 不再维护 seen Set）', () => {
+    // 2026-08-05 架构重构：bridge 只做桥接，内容去重交给后端统一收信中心。
+    // adapter.seen Set 已移除，仅保留 seenNodes WeakSet（防 DOM 重复扫描的技术手段）。
     const adapter = new BaseAdapter({ name: 'test', channel: 'xiaohongshu' });
-    adapter.seenMax = 100;
-    // 模拟塞入 100 条
-    for (let i = 0; i < 100; i++) adapter.seen.add(`k${i}`);
-    expect(adapter.seen.size).toBe(100);
-
-    // 模拟 _ingest 第 101 条：超过 seenMax 触发清理
-    adapter.seen.add('k100');
-    // _ingest 内的清理逻辑：trim 1/4
-    const trimCount = Math.floor(adapter.seen.size / 4);
-    let trimmed = 0;
-    for (const k of adapter.seen) {
-      if (trimmed >= trimCount) break;
-      adapter.seen.delete(k);
-      trimmed++;
-    }
-    // 100 + 1 - 25 = 76
-    expect(adapter.seen.size).toBeGreaterThan(50); // 不像旧版（清一半→50）会巨幅下降
-    expect(adapter.seen.size).toBeLessThan(100);
+    expect(adapter.seen).toBeUndefined();
+    expect(adapter.seenNodes).toBeInstanceOf(WeakSet);
   });
 
   it('_collectUnseenText 单次封顶 80 条（防 OOM）', async () => {

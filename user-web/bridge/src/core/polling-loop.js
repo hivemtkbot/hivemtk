@@ -3,6 +3,11 @@
 // 替代 background/index.js 中的 WS 注册表 + registry.js 维护的"每渠道一条长连接"模式。
 // 改为：每秒巡检一次会话列表 → 抓多轮消息 → 一次性 postIngest 上报。
 //
+// 2026-08-05 架构重构（纯桥接）：
+//   - 移除 _seenEventIds（内容指纹去重交给后端统一收信中心）
+//   - 移除 _lastPollByConv（前端节流交给后端，bridge 不做业务判断）
+//   - 不设 expect_reply 字段：是否回复由后端根据 sender_type 判断
+//
 // 工作流程（每 1 秒一轮）：
 //   1. background 调度：getActiveAccount() → 当前 active (channel, account)
 //   2. 调该渠道适配器的 getConversationList() 拿所有会话
@@ -29,8 +34,6 @@ const log = createLogger('polling', 'bridge');
 const POLL_INTERVAL_MS = 1000;
 // 单次轮询每个会话最多抓的消息数（防单次过多撑爆 body）
 const MAX_MESSAGES_PER_CONVERSATION = 100;
-// 同一会话两次上报最小间隔（避免对同一会话高频重复抓）
-const MIN_PER_CONVERSATION_INTERVAL_MS = 800;
 // 长轮询等待时间（每次 ingest 请求服务端最多等这么久拿 AI 回复）
 const LONG_POLL_TIMEOUT_MS = HTTP_INGEST_DEFAULTS.longPollTimeoutMs;
 
@@ -46,12 +49,6 @@ class PollingLoop {
     this._timer = null;
     this._running = false;
     this._inFlight = false;
-    // 同一会话上次上报时间戳
-    this._lastPollByConv = new Map(); // key: channel:account:conversation_id → ts ms
-    // 已上报的 event_id 集合（防止重复抓+上报）
-    this._seenEventIds = new Map(); // key: channel:account:conversation_id → Set<event_id>
-    // 最近一轮已上报但 AI 未回（或网络失败）的事件 ID；用于下一轮重试或丢弃
-    this._pendingReplyFor = new Map(); // key: event_id → { channel, account, conversation_id, content, sender_type, ts }
   }
 
   start() {
@@ -105,13 +102,6 @@ class PollingLoop {
     }
     for (const conv of convs) {
       if (!conv || !conv.id) continue;
-      const convKey = `${meta.channel}:${meta.accountId}:${conv.id}`;
-      const now = Date.now();
-      const last = this._lastPollByConv.get(convKey) || 0;
-      if (now - last < MIN_PER_CONVERSATION_INTERVAL_MS) {
-        continue; // 该会话本轮已抓过
-      }
-      this._lastPollByConv.set(convKey, now);
       // 切换到该会话（异步：openConversation 在大多数适配器是同步 click）
       try { await safeCall(adapter, 'openConversation', null, conv.id); } catch (_) { /* noop */ }
       // 给 DOM 一点时间渲染消息列表
@@ -119,14 +109,10 @@ class PollingLoop {
       // 抓消息
       const messages = await safeCall(adapter, 'getMessages', []);
       if (!messages || !messages.length) continue;
-      // 过滤已上报
-      const seenSet = this._seenEventIds.get(convKey) || new Set();
-      const fresh = messages.filter((m) => m && m.message_id && !seenSet.has(m.message_id)).slice(0, MAX_MESSAGES_PER_CONVERSATION);
+      // 纯桥接：不做前端去重，所有可见消息统一上报，内容去重交给后端
+      const fresh = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
       if (!fresh.length) continue;
-      // 标记已上报（即便后端去重，前端也避免重复抓+发）
-      for (const m of fresh) seenSet.add(m.message_id);
-      this._seenEventIds.set(convKey, seenSet);
-      // 构造 body
+      // 构造 body（纯桥接：不设 expect_reply，后端根据 sender_type 判断是否回复）
       const body = {
         v: 2,
         channel: meta.channel,
@@ -150,7 +136,6 @@ class PollingLoop {
           group_id: m.group_id || '',
           group_name: m.group_name || '',
         })),
-        expect_reply: true,
         timeout_ms: LONG_POLL_TIMEOUT_MS,
       };
       try {
@@ -185,9 +170,7 @@ class PollingLoop {
           }
         }
       } catch (e) {
-        // ingest 失败：把本轮 fresh 从 seen 中移除（下一轮重试）
-        for (const m of fresh) seenSet.delete(m.message_id);
-        log.warn('巡检 ingest 失败，下轮重试', { convKey, error: String(e && e.message || e) });
+        log.warn('巡检 ingest 失败', { convId: conv.id, error: String(e && e.message || e) });
       }
     }
   }

@@ -106,35 +106,35 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const convList = [makeConvItem('5f8a2b01', '张三'), makeConvItem('9c88d76e', '李四'), makeConvItem('1a2b3c4d', '王五')];
     const clickSpy = vi.fn();
     const { adapter } = buildAdapter(convList, clickSpy);
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const result = await adapter.syncAllConversations({ throttleMs: 1 });
 
     expect(result.synced).toBe(3);
     expect(result.failures).toBe(0);
     expect(clickSpy).toHaveBeenCalledTimes(3);
-    // 每个会话回填一次历史 → 统一收件箱 3 条记录
-    expect(onHistory).toHaveBeenCalledTimes(3);
-    const ids = onHistory.mock.calls.map((c) => c[0].conversation_id);
+    // 每个会话回填一次历史 → 统一收件箱 3 条记录（纯桥接：统一走 onMessage）
+    expect(onMessage).toHaveBeenCalledTimes(3);
+    const ids = onMessage.mock.calls.map((c) => c[0].conversation_id);
     expect(ids).toEqual(expect.arrayContaining(['5f8a2b01', '9c88d76e', '1a2b3c4d']));
-    expect(onHistory.mock.calls[0][1]).toBe('inbound');
+    expect(onMessage.mock.calls[0][0].direction).toBe('inbound');
   });
 
   it('已同步集合生效：二次调用不再重复回填', async () => {
     const convList = [makeConvItem('a1', '张三'), makeConvItem('b2', '李四')];
     const { adapter } = buildAdapter(convList);
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r1 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r1.synced).toBe(2);
-    expect(onHistory).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
 
     // 二次调用：列表未变，全部已同步 → 跳过
     const r2 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r2.synced).toBe(0);
-    expect(onHistory).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
   });
 
   it('点击未打开线程（活动会话未变）→ 该会话跳过且不标记已同步', async () => {
@@ -151,13 +151,13 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
       getConversationList: () => convList,
     };
     const adapter = new BaseAdapter({ name: 'test', channel: CHANNELS.XHS, SEL: {}, hooks });
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r = await adapter.syncAllConversations({ throttleMs: 1, waitActiveMs: 50 });
     expect(r.synced).toBe(0);
     expect(r.failures).toBe(1);
-    expect(onHistory).not.toHaveBeenCalled();
+    expect(onMessage).not.toHaveBeenCalled();
   });
 
   it('无 getConversationList 钩子 → 安全回退（skipped）', async () => {

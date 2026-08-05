@@ -76,7 +76,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
 
@@ -102,7 +102,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const messagesByConv = { a1: [makeMessage('m-a1', '你好')] };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
     expect(onInbound).toHaveBeenCalledTimes(1);
@@ -124,7 +124,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
     // 巡检不再判断未读，直接遍历所有会话，靠 seenNodes/seen 去重只报新消息
@@ -139,7 +139,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const messagesByConv = { a1: [makeMessage('m-a1', '新消息')] };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, visitAllWhenNoUnread: true });
     expect(r.visited).toBe(1);
@@ -158,7 +158,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
     expect(r.captured).toBe(1); // 仅文字消息
@@ -179,7 +179,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     };
     const { adapter } = buildAdapter(convList, messagesByConv);
     const onInbound = vi.fn();
-    adapter.callbacks.onInbound = onInbound;
+    adapter.callbacks.onMessage = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
     expect(r.captured).toBe(3);

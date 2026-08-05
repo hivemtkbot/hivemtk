@@ -1,12 +1,18 @@
-// 渠道适配器基类：统一「监听私信 / 去重 / 会话切换回填空历史 / 上行上报 / 下行回写 + 限速风控」
+// 渠道适配器基类：统一「监听私信 / 会话切换回填 / 上行上报 / 下行回写 + 限速风控」
 //
-// 数据流（需求③ ⑤）：
-//   DOM 监听 ── 客户消息 ──▶ inbound_message 帧 ──▶ 服务端（触发 AI）
-//   DOM 监听 ── 自己/历史消息 ──▶ history 帧（direction=outbound）──▶ 服务端（仅落库）
-//   页面加载/会话切换 存量消息 ──▶ history 帧（inbound/outbound）──▶ 服务端（仅落库，不触发 AI）
-//   服务端 AI 回复 ──▶ outbound_reply 帧 ──▶ 本适配器 sendOutbound ──▶ 回写网页 ──▶ history 帧(direction=outbound)
+// 2026-08-05 架构重构（纯桥接）：
+//   - Bridge 只做桥接：DOM 扫描 → 解析 → 上报，不做业务判断（是否入库 / 是否回复由后端判断）
+//   - 所有消息（customer / self / agent）统一走 _emitMessage → onMessage 回调上报
+//   - 保留 sender_type 标记（消息属性，供后端判断）
+//   - 保留 seenNodes WeakSet（防 DOM 重复扫描的技术手段，非业务去重）
+//   - 移除 seen Set（内容指纹去重，交给后端）
+//   - 移除 recentSelf Map（防回环判断，后端通过 sender_type 判断）
+//   - 移除 _suppressBackfill / 历史宽限期（不做业务判断）
 //
-// 防回环三层（需求④）：① 自/他判定只上行客户消息给 AI；② 自己气泡仅落库不进 AI；③ 限速器冷却+去重。
+// 数据流：
+//   DOM 监听 ── 任意消息 ──▶ onMessage 帧 ──▶ 服务端（统一收信中心判断是否入库/回复）
+//   页面加载/会话切换 存量消息 ──▶ onMessage 帧（history[] 含多轮）──▶ 服务端
+//   服务端 AI 回复 ──▶ outbound_replies ──▶ sendOutbound ──▶ 回写网页
 import { createLogger } from './logger.js';
 import { RateLimiter } from './rate-limiter.js';
 import { makeUnifiedMessage, SENDER, DIRECTION, HISTORY_CONTEXT_WINDOW, PATROL_DEFAULTS } from './types.js';
@@ -24,20 +30,14 @@ export class BaseAdapter {
     this.rateLimiter = rateLimiter || new RateLimiter();
     this.account = null;
     this.conversationId = null;
-    this.seen = new Set();          // 已处理消息的内容指纹（防 DOM 重复 + 防回环）
-    this.seenNodes = new WeakSet(); // 已处理消息 DOM 节点（按节点身份去重，避免列表项/同名消息被反复扫描重复上行）
-    this.seenMax = 5000;            // seen 上限，超出清理最旧一半，防止异常场景无限增长
+    // seenNodes：防 DOM 重复扫描的技术手段（按节点身份去重，避免列表项/同名消息被反复扫描重复上行）。
+    // 这是 DOM 扫描必需的，不是业务去重。内容指纹去重交给后端统一收信中心。
+    this.seenNodes = new WeakSet();
     this.observer = null;
     this.convPollTimer = null;
     this.fallbackTimer = null;
     this.activeRoot = null;
     this._graceTimer = null;
-    // 2026-08-05 架构重构：移除历史宽限期相关字段（historyGraceMs/historyGraceUntil）。
-    //   用户诉求：Bridge 不判断是否需要 AI 回复，所有消息都上报服务端。
-    // 修复：用 Map 替代数组存储 recentSelf 指纹，便于 O(1) 查询；
-    // 上限 200 条防止异常场景下无限增长，超过时清理最旧一半。
-    this.recentSelf = new Map();
-    this.recentSelfMax = 200;
     this.callbacks = {};
     this.log = createLogger(channel, 'adapter');
     // 会话实时上下文窗口：per-conversation 最近 N 轮（供 inbound 帧携带多轮历史，点3 需求）
@@ -56,7 +56,6 @@ export class BaseAdapter {
     this._patrolling = false;
     this._patrolOpts = null;          // 当前巡检配置 { intervalMs, throttleMs, ... }
     this._patrolStats = { rounds: 0, visited: 0, withNew: 0, captured: 0, failures: 0, lastRoundAt: 0, lastDurationMs: 0 };
-    this._suppressBackfill = false;   // 巡检访问中临时抑制自动回填，避免与巡检捕获抢跑
   }
 
   setAccount(account) { this.account = account; }
@@ -119,7 +118,7 @@ export class BaseAdapter {
   //   - 过滤非 text / 空内容（与 _ingest 一致）
   //   - 统一字段命名（PollingLoop 直接消费）：{ message_id, sender_id, sender_name,
   //     sender_type, text, msg_type, timestamp, is_group, group_id, group_name }
-  //   - 不修改 seen / seenNodes / recentSelf（PollingLoop 自己做去重）
+  //   - 不修改 seenNodes（PollingLoop 自己做去重）
   //   - 限制 limit（默认 100）防止 OOM
   // ============================================================
   getMessages({ limit = 100 } = {}) {
@@ -198,8 +197,6 @@ export class BaseAdapter {
     if (this._graceTimer) clearTimeout(this._graceTimer);
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._stopPatrol();
-    // 2026-08-05 架构重构：移除 seen.clear()（内容指纹去重已交给服务端）
-    this.recentSelf.clear();
     this._convWindow.clear();
   }
 
@@ -208,8 +205,7 @@ export class BaseAdapter {
   // 2026-08-05 修复（小红书日志无限打印 + 巡检失效）：
   //   原版每 2s 检查 cid 变化即触发 _attachConversation，但小红书 getConversationId
   //   兜底链（昵称派生 'conv:name'）在 DOM 异步渲染/未读数变化时会返回不同值 →
-  //   每 2s 触发会话切换 → _backfill 打印日志 + 重置 historyGraceUntil →
-  //   宽限期永远不结束 → 客户消息永远走 _emitHistory 不走 _emitInbound → AI 永不触发。
+  //   每 2s 触发会话切换 → _backfill 打印日志 → 日志刷屏。
   //
   // 修复：去抖动——连续 2 次读取到相同 cid 才认为真的切换，避免 DOM 抖动导致的假切换。
   //   _pendingCid 记录上一次读取值；仅当连续两次相同时才提交切换。
@@ -240,9 +236,6 @@ export class BaseAdapter {
       this._observe(root);
       this._backfill(root); // 初次/切换时立即回填（线程已渲染则生效）
     }
-    // 2026-08-05 架构重构：移除历史宽限期（historyGraceMs/historyGraceUntil）。
-    //   用户诉求：Bridge 不判断是否需要 AI 回复，所有消息都上报服务端，
-    //   由服务端统一收信中心做内容 hash 去重 + 回复判断（未回复+5分钟以内）。
     // 延迟回填：私信线程常异步渲染，1.5s 后再填一次，覆盖初次 _backfill 时尚未渲染的气泡。
     if (this._graceTimer) clearTimeout(this._graceTimer);
     this._graceTimer = setTimeout(() => {
@@ -414,7 +407,6 @@ export class BaseAdapter {
     if (cur === cid) {
       // 已在该会话：若需要回填则执行（遍历器首项=当前会话场景，仍要回填历史）
       if (backfill) {
-        this.historyGraceUntil = Date.now() + this.historyGraceMs;
         this._backfill();
       }
       return cur;
@@ -457,8 +449,6 @@ export class BaseAdapter {
     }
     this.log.info(`已切换到会话 ${opened}`);
     if (backfill) {
-      // 切换窗口内客户消息只落库、不触发 AI
-      this.historyGraceUntil = Date.now() + this.historyGraceMs;
       this._backfill();
     }
     return opened;
@@ -773,36 +763,24 @@ export class BaseAdapter {
     return { scannedTotal, unreadCount, visited, withNew, captured, failures, durationMs: dur };
   }
 
-  // 巡检访问单个未读会话：点击打开（不触发 history 回填），等待渲染，收集未 seen 的文字消息，
-  // 一条会话级 inbound 帧上行（触发 AI 自动对话）。已 seen 的靠去重跳过 → 不重复打扰。
+  // 巡检访问单个未读会话：点击打开（不触发 history 回填），等待渲染，收集未 seenNodes 的文字消息，
+  // 一条会话级消息上行。已扫描的 DOM 节点靠 seenNodes 跳过 → 不重复打扰。
   async _patrolVisit(conv, { throttleMs, waitActiveMs }) {
-    // 抑制 convPollTimer 触发的自动 _backfill：避免它把新消息当 history 上行（我们不希望
-    // 巡检发现的新消息被当成存量历史而不触发 AI）。巡检自己负责捕获并按 inbound 上行。
-    this._suppressBackfill = true;
-    let opened;
-    try {
-      opened = await this.openConversation(conv.id, { backfill: false, waitActiveMs });
-    } finally {
-      this._suppressBackfill = false;
-    }
+    const opened = await this.openConversation(conv.id, { backfill: false, waitActiveMs });
     if (!opened) return { ok: false, newCount: 0 };
-    // 关闭历史宽限期：本巡检轮内活动会话上后来到达的实时客户消息也走 inbound（触发 AI），
-    // 而不是被当成 grace 内存量回填为 history。已 seen 的存量仍靠去重跳过，不会被误触发。
-    this.historyGraceUntil = 0;
     // 等待线程异步渲染（节流的一部分作为渲染等待，不额外加 sleep）
     await sleep(Math.min(throttleMs, 600));
     const batch = this._collectUnseenText();
-    if (batch.length) this._emitPatrolInbound(opened, conv, batch);
+    if (batch.length) this._emitPatrolMessage(opened, conv, batch);
     return { ok: true, newCount: batch.length };
   }
 
-  // 扫描当前线程所有消息项，收集「未 seen + 文字」的消息，并立即标记 seen（防止后续
+  // 扫描当前线程所有消息项，收集「未 seenNodes + 文字」的消息，并立即标记 seenNodes（防止后续
   // convPollTimer 触发的 _backfill / observer 重复上行同一条消息）。
   //
   // 修复（2026-08-05 OOM 巡检）：
   //   - 单次最多收集 MAX_BATCH_PER_PATROL=80 条消息，防止「一个超长会话一次抓几千条」OOM
-  //   - LRU seen 清理：seenMax=5000 满时只删最旧 1/4（2500→1250），避免反复清理一半
-  //     占用主线程 + 内存波动；保留大部分去重证据
+  //   - 内容 hash 去重已交给后端统一收信中心（seen Set 已移除）
   _collectUnseenText() {
     const batch = [];
     const MAX_BATCH_PER_PATROL = 80;
@@ -821,27 +799,14 @@ export class BaseAdapter {
       if (parsed.msg_type && parsed.msg_type !== 'text') { this.seenNodes.add(item); continue; }
       if (!parsed.text) { this.seenNodes.add(item); continue; }
       this.seenNodes.add(item);
-      const key = this._keyOf(parsed);
-      if (this.seen.has(key)) continue;
-      this.seen.add(key);
-      // LRU 软上限：超过 seenMax 时清最旧 1/4（比之前 1/2 慢、保留更多去重证据）
-      if (this.seen.size > this.seenMax) {
-        const trimCount = Math.floor(this.seen.size / 4);
-        let trimmed = 0;
-        for (const k of this.seen) {
-          if (trimmed >= trimCount) break;
-          this.seen.delete(k);
-          trimmed++;
-        }
-      }
       batch.push(parsed);
     }
     return batch;
   }
 
-  // 巡检捕获的新消息 → 一条会话级 inbound 帧上行（需求③：一个会话=一条消息，
-  // 昵称作为系统客户名称/发件人）。history[] 含本次巡检新捕获的多轮，触发 AI 自动对话。
-  _emitPatrolInbound(cid, conv, batch) {
+  // 巡检捕获的新消息 → 一条会话级消息上行（需求③：一个会话=一条消息，
+  // 昵称作为系统客户名称/发件人）。history[] 含本次巡检新捕获的多轮。
+  _emitPatrolMessage(cid, conv, batch) {
     const history = batch.map((p) =>
       this._historyItem(p, p.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND)
     );
@@ -866,29 +831,14 @@ export class BaseAdapter {
       group_name: groupName,
       history,
     });
-    this.log.info(`巡检上行 inbound: 会话 ${cid}（${history.length} 轮新消息）`);
-    if (this.callbacks.onInbound) this.callbacks.onInbound(msg);
+    this.log.info(`巡检上行消息: 会话 ${cid}（${history.length} 轮新消息）`);
+    if (this.callbacks.onMessage) this.callbacks.onMessage(msg);
   }
 
-  _keyOf(parsed) {
-    // 稳定指纹：会话 + 发送者 + 文本。刻意不含时间戳——
-    // 旧版把 Date.now() 取整秒放进 key，导致同一 DOM 节点每次被 3s 兜底扫描命中都算出
-    // 不同 key → seen 永远去重失败 → 会话列表里的联系人昵称被当成「新消息」无限重复上行
-    // （表现：conv:null、内容是一串昵称循环）。节点级去重见 this.seenNodes（WeakSet）。
-    //
-    // 群聊修正（需求3）：sender 取 sender_name（成员昵称）而非 sender_type——
-    // 群聊中两个不同成员发送相同文本（如都发「好的」）若按 sender_type 去重会被误删一条，
-    // 丢失多轮历史。1:1 无 sender_name 时回退 sender_type，行为不变。
-    const cid = this.getConversationId() || this.conversationId || '_';
-    const who = parsed.sender_name || parsed.sender_type || SENDER.CUSTOMER;
-    return `${cid}:${who}:${(parsed.text || '').slice(0, 200)}`;
-  }
-
-  // _ingest：统一的「上行/落库」逻辑。
+  // _ingest：统一的「上行」逻辑（纯桥接）。
   // 2026-08-05 架构重构（用户诉求）：
-  //   - Bridge 端不再判断是否需要 AI 回复、不再做内容指纹去重
-  //   - 所有客户消息都走 _emitInbound 上报服务端
-  //   - 自己/AI 气泡走 _emitHistory（仅落库）
+  //   - Bridge 端不再判断是否需要 AI 回复、不再做内容指纹去重、不再区分 customer/self/agent 上报路径
+  //   - 所有消息统一走 _emitMessage 上报服务端（在消息中标记 sender_type，供后端判断）
   //   - 节点级去重（seenNodes）保留：同一 DOM 节点不重复处理（DOM 扫描必需）
   //   - 内容 hash 去重 + 回复判断 → 服务端统一收信中心负责
   _ingest(parsed) {
@@ -896,20 +846,12 @@ export class BaseAdapter {
     // 需求⑥：当前只上行文字消息；图片/语音/视频/撤回/系统等非文字消息一律不上行。
     if (parsed.msg_type && parsed.msg_type !== 'text') return;
     if (!parsed.text) return;
-    if (parsed.sender_type === SENDER.CUSTOMER) {
-      // 客户消息：全部上报到统一收信中心，由服务端判断是否需要 AI 回复
-      this._pushWindow(parsed);
-      this._emitInbound(parsed);
-    } else {
-      // 自己/AI 气泡：仅落库（若是我们刚回写的，跳过避免重复）
-      const key = this._keyOf(parsed);
-      if (this._isRecentSelf(key)) return;
-      this._pushWindow(parsed);
-      this._emitHistory(parsed, DIRECTION.OUTBOUND);
-    }
+    // 所有消息统一上报，由服务端根据 sender_type 判断是否入库 / 是否回复
+    this._pushWindow(parsed);
+    this._emitMessage(parsed);
   }
 
-  // 维护当前会话最近 N 轮上下文窗口（供实时 inbound 帧携带多轮历史）
+  // 维护当前会话最近 N 轮上下文窗口（供实时消息帧携带多轮历史）
   _pushWindow(parsed) {
     const cid = this.getConversationId() || this.conversationId || '_';
     if (!parsed) return;
@@ -938,23 +880,14 @@ export class BaseAdapter {
     if (!this.getConversationId()) return;
     const parsed = this.parseMessageItem(item);
     if (!parsed) return;
-    // 2026-08-05 架构重构：移除宽限期判断，所有消息都走 _ingest。
-    //   客户消息 → _emitInbound 上报服务端（服务端做内容 hash 去重 + 回复判断）
-    //   自己/AI 气泡 → _emitHistory 仅落库
+    // 2026-08-05 架构重构：所有消息统一走 _ingest → _emitMessage（不区分 customer/self/agent）
     if (item) this.seenNodes.add(item);
     this._ingest(parsed);
   }
 
   // 回填存量消息（页面加载 / 会话切换）：一个会话 = 一条会话级消息，内含全部多轮历史。
-  // 一律仅落库，不触发 AI。纯 SEL 规则路径（LLM 抽取架构已移除）。
+  // 纯 SEL 规则路径（LLM 抽取架构已移除）。
   _backfill(root) {
-    // 巡检进行中：抑制 convPollTimer 触发的自动回填，避免与 _patrolVisit 的捕获抢跑
-    // （回填会把新消息按 history 上行，而巡检要按 inbound 上行触发 AI 自动对话）。
-    if (this._suppressBackfill) {
-      // 2026-08-05 修复：降为 debug（巡检每个会话都会触发，info 刷屏）
-      this.log.debug('回填已抑制（巡检访问中，由巡检负责捕获）');
-      return;
-    }
     // 无活动会话（私信列表视图）：不回填，避免把会话列表里的联系人昵称当历史消息上行。
     if (!this.getConversationId()) {
       this.log.info('回填跳过：当前无活动会话（私信列表视图）');
@@ -970,12 +903,11 @@ export class BaseAdapter {
       if (parsed.msg_type && parsed.msg_type !== 'text') continue;
       if (!parsed.text) continue;
       this.seenNodes.add(item);
-      // 2026-08-05 架构重构：移除 seen 内容指纹去重，仅靠 seenNodes 节点级去重。
-      //   内容 hash 去重交给服务端统一收信中心负责。
+      // 2026-08-05 架构重构：仅靠 seenNodes 节点级去重。内容 hash 去重交给服务端。
       batch.push({ parsed, direction: parsed.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND });
     }
     // 2026-08-05 修复：日志节流——同一会话 5s 内只打印一次 info（防止端口断开重连
-    //   导致 seen 清空后反复回填刷屏）。batch 为空时降为 debug。
+    //   导致 seenNodes 失效后反复回填刷屏）。batch 为空时降为 debug。
     if (batch.length) {
       const now = Date.now();
       const shouldLog = !this._lastBackfillLogAt || (now - this._lastBackfillLogAt > 5000);
@@ -1018,7 +950,7 @@ export class BaseAdapter {
   }
 
   // 会话级历史帧：一个会话 = 一条消息，message.history[] 含全部多轮（点3 核心）。
-  // 回调签名沿用 onHistory(msg, summaryDirection)，服务端按 message.history 逐条落库。
+  // 统一走 onMessage 回调，服务端按 message.history 逐条落库。
   _emitConversationHistory(batch) {
     if (!batch || !batch.length) return;
     const last = batch[batch.length - 1];
@@ -1029,7 +961,7 @@ export class BaseAdapter {
     const groupId = (groupItem && groupItem.parsed.group_id) || '';
     const groupName = (groupItem && groupItem.parsed.group_name) || '';
     const history = batch.map(({ parsed, direction }) => this._historyItem(parsed, direction));
-    // 摘要方向：有客户消息 → inbound（主导），否则 outbound（仅落库）
+    // 摘要方向：有客户消息 → inbound（主导），否则 outbound
     const summaryDirection = batch.some((b) => b.direction === DIRECTION.INBOUND) ? DIRECTION.INBOUND : DIRECTION.OUTBOUND;
     const msg = makeUnifiedMessage({
       channel: this.channel,
@@ -1048,11 +980,13 @@ export class BaseAdapter {
       history,
     });
     this.log.debug(`回填会话 ${cid}: 1 条会话级消息（${history.length} 轮历史, ${summaryDirection}）`);
-    if (this.callbacks.onHistory) this.callbacks.onHistory(msg, summaryDirection);
+    if (this.callbacks.onMessage) this.callbacks.onMessage(msg);
   }
 
-  // 实时新消息（触发 AI）：仍单条上行，但携带该会话最近 N 轮历史作为上下文。
-  _emitInbound(parsed) {
+  // _emitMessage：统一的单条消息上报入口（纯桥接）。
+  // 所有消息（customer / self / agent）都走此方法上报，携带该会话最近 N 轮历史作为上下文。
+  // 不做任何业务判断（是否入库 / 是否回复由后端根据 sender_type 判断）。
+  _emitMessage(parsed) {
     const cid = this.getConversationId();
     const windowMsgs = this._windowFor(cid);
     const msg = makeUnifiedMessage({
@@ -1073,62 +1007,16 @@ export class BaseAdapter {
       raw: parsed.raw || null,
       history: windowMsgs.map((m) => this._historyItem(m, m.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND)),
     });
-    this.log.info('上行实时私信:', (msg.content || `[${msg.msg_type}]`).slice(0, 40));
-    if (this.callbacks.onInbound) this.callbacks.onInbound(msg);
+    this.log.info('上行消息:', (msg.content || `[${msg.msg_type}]`).slice(0, 40));
+    if (this.callbacks.onMessage) this.callbacks.onMessage(msg);
   }
 
-  // 单条历史（实时新消息宽限期内 / 自己气泡 / AI 回写）：仍按旧协议逐条上报（向后兼容）
-  _emitHistory(parsed, direction) {
-    const msg = makeUnifiedMessage({
-      channel: this.channel,
-      account_id: this.getAccountId(),
-      conversation_id: this.getConversationId(),
-      sender_type: parsed.sender_type,
-      sender_id: parsed.is_group && parsed.group_id ? parsed.group_id : (parsed.sender_id || ''),
-      content: parsed.text,
-      media_url: parsed.media_url || '',
-      msg_type: parsed.msg_type || 'text',
-      timestamp: parsed.timestamp,
-      direction,
-      event_id: parsed.message_id,
-      is_group: !!parsed.is_group,
-      group_id: parsed.group_id || '',
-      group_name: parsed.group_name || '',
-      sender_name: parsed.sender_name || '',
-      // 出站消息的接收方 = 当前会话对象（私信对方），确保统一收信中心按「对方」聚合，
-      // 避免自营消息被错误聚合到「自己」账号名下形成孤立会话记录。
-      receiver_id: direction === DIRECTION.OUTBOUND ? (this.getConversationId() || '') : (parsed.receiver_id || ''),
-      raw: parsed.raw || null,
-    });
-    this.log.debug(`回填空历史(${direction}):`, (msg.content || '').slice(0, 40));
-    if (this.callbacks.onHistory) this.callbacks.onHistory(msg, direction);
-  }
-
-  _isRecentSelf(key) {
-    const ts = this.recentSelf.get(key);
-    if (ts === undefined) return false;
-    if (Date.now() - ts > 5000) {
-      this.recentSelf.delete(key);
-      return false;
-    }
-    return true;
-  }
-
-  _markRecentSelf(key) {
-    // 修复：超过上限时清理最旧一半，防止异常场景下无限增长
-    if (this.recentSelf.size >= this.recentSelfMax) {
-      const entries = Array.from(this.recentSelf.entries()).sort((a, b) => a[1] - b[1]);
-      const half = Math.floor(entries.length / 2);
-      for (let i = 0; i < half; i++) this.recentSelf.delete(entries[i][0]);
-    }
-    this.recentSelf.set(key, Date.now());
-  }
-
-  // 下行回写（带限速风控）：AI 回复经此回写到网页，并上报 outbound 历史
+  // 下行回写（带限速风控）：AI 回复经此回写到网页。
   // 返回 true 表示已回写；false 表示被风控拦截或失败。
   // targetConvId：目标会话（AI 回复要发给的用户）。若与当前打开的会话不同，
   // 先在左侧列表找到该用户点击进入右侧聊天页，再模拟输入发送（用户诉求：
   // “左侧列表找用户 → 点击进入右侧 → 模拟输入发送”）。
+  // 2026-08-05 架构重构：sendOutbound 只做纯转发，不再调 _markRecentSelf（防回环交给后端）。
   async sendOutbound(text, targetConvId) {
     if (!text) { this.log.warn('回复内容为空，跳过'); return false; }
     const account = this.getAccountId();
@@ -1159,12 +1047,9 @@ export class BaseAdapter {
     }
     if (ok) {
       this.rateLimiter.markSent(this.channel, account, conv, text);
-      const key = this._keyOf({ sender_type: SENDER.AGENT, text, timestamp: Date.now() });
-      this._markRecentSelf(key);
-      // 上报 outbound 历史（仅落库；Mutation 抓到的同源气泡会被 _isRecentSelf 去重）
-      this._emitHistory(
-        { sender_type: SENDER.AGENT, text, media_url: '', timestamp: Date.now(), message_id: `out-${Date.now()}` },
-        DIRECTION.OUTBOUND
+      // 上报 outbound 消息（Mutation 抓到的同源气泡由后端通过 sender_type 去重）
+      this._emitMessage(
+        { sender_type: SENDER.AGENT, text, media_url: '', timestamp: Date.now(), message_id: `out-${Date.now()}` }
       );
     }
     return ok;

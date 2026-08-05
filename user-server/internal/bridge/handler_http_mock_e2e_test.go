@@ -172,7 +172,7 @@ func postIngest(t *testing.T, srv *httptest.Server, body HTTPIngestRequest) (*ht
 }
 
 func TestBridgeHTTPLongPolling_MockE2E(t *testing.T) {
-	t.Run("短请求（无 expect_reply）立即返回", func(t *testing.T) {
+	t.Run("self 消息不触发 AI 立即返回", func(t *testing.T) {
 		m := newMockInbox()
 		srv, _ := startMockServer(t, m)
 
@@ -180,7 +180,7 @@ func TestBridgeHTTPLongPolling_MockE2E(t *testing.T) {
 			Channel:   "xiaohongshu",
 			AccountID: "xhs_001",
 			Messages: []*HTTPIngestMessage{
-				{EventID: "e1", Content: "你好", SenderID: "u1", MsgType: "text", ConversationID: "conv1", SenderType: "customer", Timestamp: time.Now().UnixMilli()},
+				{EventID: "e1", Content: "你好", SenderID: "xhs_001", MsgType: "text", ConversationID: "conv1", SenderType: "self", Timestamp: time.Now().UnixMilli()},
 			},
 		}
 		resp, body := postIngest(t, srv, req)
@@ -198,7 +198,7 @@ func TestBridgeHTTPLongPolling_MockE2E(t *testing.T) {
 			t.Errorf("Ingested = %d, want 1", len(got.Ingested))
 		}
 		if len(got.OutboundReplies) != 0 {
-			t.Errorf("短请求不应有 outbound_replies, got %+v", got.OutboundReplies)
+			t.Errorf("self 消息不应有 outbound_replies, got %+v", got.OutboundReplies)
 		}
 	})
 

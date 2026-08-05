@@ -194,7 +194,7 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
 async function postIngest({ serverUrl, channel, accountId, conversationId, token }, body, opts = {}) {
   const params = { channel, accountId, conversationId, token };
   const label = opts.label || '[HTTP ingest]';
-  const logResult = _logRequest(label, serverUrl, params, body, { expect_reply: !!body.expect_reply });
+  const logResult = _logRequest(label, serverUrl, params, body);
   if (!logResult) {
     throw new Error('ingest URL 构造失败');
   }

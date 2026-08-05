@@ -43,18 +43,17 @@ describe('去重 + 列表噪声防护', () => {
   it('无活动会话（conv:null）时反复扫描也不上行任何消息', () => {
     const names = [fakeNode('钓点王'), fakeNode('小马哥不空军'), fakeNode('吴小小')];
     const adapter = makeAdapter({ items: names, convId: null });
-    const cb = { onInbound: (m) => inbound.push(m), onHistory: (m) => history.push(m) };
+    const cb = { onMessage: (m) => inbound.push(m) };
     adapter.start(cb);
     // 模拟 3s 兜底扫描连续命中同一批节点
     for (let i = 0; i < 5; i++) adapter._scanIncremental();
     expect(inbound).toHaveLength(0);
-    expect(history).toHaveLength(0);
   });
 
   it('同一批节点（哪怕 timestamp 每次不同）只上行一次，不会无限重复', () => {
     const msgs = [fakeNode('你好在吗'), fakeNode('怎么收费')];
     const adapter = makeAdapter({ items: msgs, convId: 'MS4w_test' });
-    const cb = { onInbound: (m) => inbound.push(m), onHistory: (m) => history.push(m) };
+    const cb = { onMessage: (m) => inbound.push(m) };
     adapter.start(cb);
     // 10 次兜底扫描，每次 parseMessageItem 的 timestamp=Date.now() 都不同
     for (let i = 0; i < 10; i++) adapter._scanIncremental();
@@ -65,7 +64,7 @@ describe('去重 + 列表噪声防护', () => {
   it('会话切换后新节点正常作为新消息上行', () => {
     const a = fakeNode('第一批');
     const adapter = makeAdapter({ items: [a], convId: 'conv-1' });
-    const cb = { onInbound: (m) => inbound.push(m), onHistory: (m) => history.push(m) };
+    const cb = { onMessage: (m) => inbound.push(m) };
     adapter.start(cb);
     adapter._scanIncremental();
     expect(inbound).toHaveLength(1);

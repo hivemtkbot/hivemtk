@@ -517,9 +517,11 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 			})
 			continue
 		}
-		// 客户消息（含 history 帧）走 InboxIngress
-		if len(m.History) > 0 && !req.ExpectReply {
-			// history 回填（expect_reply=false）：逐条持久化（不触发 AI）
+		// 客户消息如果携带 history 上下文（多轮），先逐条持久化上下文（仅落库），
+		// 然后继续走 callHandleIngress 触发 AI。
+		// 是否触发 AI 由 sender_type 判断（customer → 触发，self/agent → 不触发），
+		// 不依赖 expect_reply 字段（bridge 只负责桥接，业务判断在后端）。
+		if len(m.History) > 0 {
 			for hi, it := range m.History {
 				if it == nil {
 					continue
@@ -533,34 +535,7 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
 						Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
 						Int("history_idx", hi).
-						Msg("[Bridge HTTP] history item persist failed")
-				}
-			}
-			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
-				EventID:  m.EventID,
-				Accepted: true,
-				Reason:   "session-level history persisted (no AI trigger)",
-			})
-			continue
-		}
-		// 客户消息 + expect_reply=true（可能携带 history 上下文）：
-		// 先持久化 history 上下文（落库），再走 InboxIngress 触发 AI。
-		// history 上下文只是给 AI 的多轮参考，不应阻止消息本身触发 AI。
-		if len(m.History) > 0 && req.ExpectReply {
-			for hi, it := range m.History {
-				if it == nil {
-					continue
-				}
-				item := historyItemToEvent(httpMessageToUnified(m), it)
-				dir := it.Direction
-				if dir == "" {
-					dir = "inbound"
-				}
-				if err := h.callPersistHistory(ctx, item, dir); err != nil {
-					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
-						Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
-						Int("history_idx", hi).
-						Msg("[Bridge HTTP] inbound history context persist failed")
+						Msg("[Bridge HTTP] history context persist failed")
 				}
 			}
 			// 不 continue：继续走下面的 callHandleIngress 触发 AI
@@ -618,7 +593,8 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 	}
 
 	// 长轮询：等待 AI 推理完成（如果有 pending AI 任务）
-	if req.ExpectReply && anyAIQueued && len(outboundReplies) == 0 {
+	// 不再依赖 expect_reply：bridge 只负责桥接，是否等待 AI 由后端自行判断
+	if anyAIQueued && len(outboundReplies) == 0 {
 		timeout := HTTPPollingDefaultTimeout
 		if req.TimeoutMs > 0 {
 			timeout = time.Duration(req.TimeoutMs) * time.Millisecond

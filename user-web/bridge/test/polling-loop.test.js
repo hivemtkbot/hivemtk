@@ -4,10 +4,8 @@
 //   1. 启动 / 停止：setInterval 启停，幂等
 //   2. _tick：空配置 / 无 active / 无适配器 静默
 //   3. _tick：抓消息后调用 postIngest（参数严格对齐）
-//   4. 去重：同一 message_id 同一轮只抓一次
-//   5. 节流：MIN_PER_CONVERSATION_INTERVAL_MS 之内不重抓
-//   6. 失败回滚：ingest 失败时把 message_id 从 seen 中移除，下轮重试
-//   7. dispatchOutbound：拿到 outbound_replies 后调用
+//   4. 纯桥接：不做前端去重，所有可见消息统一上报
+//   5. dispatchOutbound：拿到 outbound_replies 后调用
 //
 // 设计：使用 fake timer + mock postIngest，绕开真实 fetch。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -176,7 +174,8 @@ describe('polling-loop / _tick 抓消息 → 上报', () => {
     expect(body.messages[0].event_id).toBe('msg-1');
     expect(body.messages[0].sender_name).toBe('小红');
     expect(body.messages[0].content).toBe('你好');
-    expect(body.expect_reply).toBe(true);
+    // 纯桥接：不设 expect_reply 字段（是否回复由后端根据 sender_type 判断）
+    expect(body.expect_reply).toBeUndefined();
     expect(body.timeout_ms).toBeGreaterThanOrEqual(500000);
   });
 
@@ -197,7 +196,7 @@ describe('polling-loop / _tick 抓消息 → 上报', () => {
   });
 });
 
-describe('polling-loop / 同一会话去重 + 节流', () => {
+describe('polling-loop / 纯桥接：不做前端去重，所有可见消息每轮都上报', () => {
   let realFetch;
   beforeEach(() => {
     realFetch = globalThis.fetch;
@@ -207,7 +206,7 @@ describe('polling-loop / 同一会话去重 + 节流', () => {
     vi.restoreAllMocks();
   });
 
-  it('同一 message_id 在同一会话内只抓一次', async () => {
+  it('同一 message_id 每轮都上报（内容去重交给后端）', async () => {
     const adapter = makeAdapter({
       convs: [{ id: 'conv-A' }],
       messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', msg_type: 'text', timestamp: 1 }],
@@ -223,11 +222,11 @@ describe('polling-loop / 同一会话去重 + 节流', () => {
       dispatchOutbound: () => true,
     });
     await loop._tick();
-    await loop._tick(); // 第二轮同一 message_id
-    expect(fetchCount).toBe(1);
+    await loop._tick(); // 第二轮同一 message_id：纯桥接 → 仍上报，去重交给后端
+    expect(fetchCount).toBe(2);
   });
 
-  it('MIN_PER_CONVERSATION_INTERVAL_MS 之内不重抓', async () => {
+  it('无节流：连续 tick 都上报（节流交给后端）', async () => {
     const adapter = makeAdapter({
       convs: [{ id: 'conv-B' }],
       messages: [
@@ -245,13 +244,12 @@ describe('polling-loop / 同一会话去重 + 节流', () => {
       dispatchOutbound: () => true,
     });
     await loop._tick(); // 抓 m1, m2
-    // 立刻再 tick：节流应阻止（间隔 < MIN_PER_CONVERSATION_INTERVAL_MS = 800ms）
+    // 立刻再 tick：纯桥接无前端节流 → 仍上报
     await loop._tick();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('新消息（不同 message_id）下一轮会被抓', async () => {
-    let n = 0;
+  it('新消息（不同 message_id）下一轮也会被上报', async () => {
     const adapter = makeAdapter({
       convs: [{ id: 'conv-C' }],
       messages: [
@@ -268,8 +266,6 @@ describe('polling-loop / 同一会话去重 + 节流', () => {
       dispatchOutbound: () => true,
     });
     await loop._tick(); // m1
-    // 调整 _lastPollByConv 让下一轮可以抓
-    loop._lastPollByConv.set('douyin:a:conv-C', 0);
     adapter.getMessages.mockResolvedValueOnce([
       { message_id: 'm2', text: '2', sender_id: 'p', msg_type: 'text', timestamp: 2 },
     ]);
@@ -278,7 +274,7 @@ describe('polling-loop / 同一会话去重 + 节流', () => {
   });
 });
 
-describe('polling-loop / 失败回滚 + 重试', () => {
+describe('polling-loop / 失败不崩溃（纯桥接：无前端 seen 需回滚）', () => {
   let realFetch;
   beforeEach(() => {
     realFetch = globalThis.fetch;
@@ -288,25 +284,31 @@ describe('polling-loop / 失败回滚 + 重试', () => {
     vi.restoreAllMocks();
   });
 
-  it('ingest 失败时把 message_id 从 seen 中移除', async () => {
+  it('ingest 失败时不崩溃，下一轮仍可正常上报', async () => {
     const adapter = makeAdapter({
       convs: [{ id: 'conv-D' }],
       messages: [
         { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
       ],
     });
-    globalThis.fetch = vi.fn(async () => new Response('boom', { status: 500 }));
+    let callCount = 0;
+    globalThis.fetch = vi.fn(async () => {
+      callCount++;
+      if (callCount === 1) return new Response('boom', { status: 500 });
+      return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 });
+    });
     const loop = new PollingLoop({
       config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
       getAdapter: () => adapter,
       dispatchOutbound: () => true,
-      // 把 postIngest 内部 retry 关掉，立即抛错 → 走 seen 回滚路径
+      // 把 postIngest 内部 retry 关掉，立即抛错
       retryOpts: { maxRetries: 0, retryBaseMs: 1 },
     });
-    // 直接调用 _tick 即可；postIngest 失败 → seen.delete
+    // 第一轮失败不崩溃
     await loop._tick();
-    const seen = loop._seenEventIds.get('douyin:a:conv-D');
-    expect(seen ? seen.has('m1') : true).toBe(false);
+    // 第二轮仍可正常上报（纯桥接：无前端 seen 状态需回滚）
+    await loop._tick();
+    expect(callCount).toBe(2);
   });
 });
 

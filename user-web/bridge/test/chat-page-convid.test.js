@@ -226,16 +226,14 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
     document.querySelectorAll('div[data-e2e="conversation-item"], div[data-e2e="msg-item-content"], .messageEditorinputArea').forEach((el) => makeVisible(el));
 
     const inbound = [];
-    const history = [];
     adapter.start({
-      onInbound: (m) => inbound.push(m),
-      onHistory: (m) => history.push(m),
+      onMessage: (m) => inbound.push(m),
     });
-    // start() 已设置 8s 宽限期 → 首次扫描客户消息走回填（仅落库，符合设计）
-    // 关键：无论 inbound 还是 history，消息都已被捕获（修复前 getConversationId()===null 全被拦截）
+    // 2026-08-05 架构重构：所有消息统一走 onMessage（纯桥接，不区分 inbound/history）
+    // 关键：消息已被捕获（修复前 getConversationId()===null 全被拦截）
     adapter._scanIncremental();
 
-    const captured = inbound.concat(history);
+    const captured = inbound;
     expect(captured.length).toBeGreaterThan(0);
     // 会话级 history 帧：多轮历史在 m.history[]（含全部轮次 content）
     const allTexts = captured.flatMap((m) => {
@@ -245,8 +243,7 @@ describe('douyin /chat 快照 DOM 端到端消息捕获', () => {  function make
     expect(allTexts).toContain('你好，在吗');
     expect(allTexts).toContain('怎么收费');
 
-    // 宽限期过后，新的客户消息应实时走 inbound（触发 AI）
-    adapter.historyGraceUntil = Date.now() - 1;
+    // 新的客户消息也走 onMessage（纯桥接：是否触发 AI 由后端判断）
     const msgEl = document.createElement('div');
     msgEl.setAttribute('data-e2e', 'msg-item-content');
     msgEl.className = 'messageMessageItem';
@@ -343,14 +340,12 @@ describe('xhs /chat 快照 DOM 端到端消息捕获', () => {
     document.querySelectorAll('.xhs-im-conv-item, .chat-item, .xhs-im-input-bar-editor').forEach((el) => makeVisible(el));
 
     const inbound = [];
-    const history = [];
     adapter.start({
-      onInbound: (m) => inbound.push(m),
-      onHistory: (m) => history.push(m),
+      onMessage: (m) => inbound.push(m),
     });
     adapter._scanIncremental();
 
-    const captured = inbound.concat(history);
+    const captured = inbound;
     expect(captured.length).toBeGreaterThan(0);
     const allTexts = captured.flatMap((m) => {
       if (m.history && m.history.length) return m.history.map((h) => h.content);

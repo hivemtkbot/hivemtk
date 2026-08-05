@@ -108,36 +108,36 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     const convList = [makeConvItem('MS4wA1', '张三'), makeConvItem('MS4wB2', '李四'), makeConvItem('MS4wC3', '王五')];
     const clickSpy = vi.fn();
     const { adapter } = buildAdapter(convList, clickSpy);
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const result = await adapter.syncAllConversations({ throttleMs: 1 });
 
     expect(result.synced).toBe(3);
     expect(result.failures).toBe(0);
     expect(clickSpy).toHaveBeenCalledTimes(3);
-    // 每个会话回填一次历史 → 统一收信中心 3 条记录
-    expect(onHistory).toHaveBeenCalledTimes(3);
-    const ids = onHistory.mock.calls.map((c) => c[0].conversation_id);
+    // 每个会话回填一次历史 → 统一收信中心 3 条记录（纯桥接：统一走 onMessage）
+    expect(onMessage).toHaveBeenCalledTimes(3);
+    const ids = onMessage.mock.calls.map((c) => c[0].conversation_id);
     expect(ids).toEqual(expect.arrayContaining(['MS4wA1', 'MS4wB2', 'MS4wC3']));
-    // 客户消息回填方向（宽限期内落库、不触发 AI）→ inbound
-    expect(onHistory.mock.calls[0][1]).toBe(DIRECTION.INBOUND);
+    // 客户消息回填方向（纯桥接：direction 字段在消息对象上，是否触发 AI 由后端判断）→ inbound
+    expect(onMessage.mock.calls[0][0].direction).toBe(DIRECTION.INBOUND);
   });
 
   it('已同步集合生效：二次调用不再重复回填', async () => {
     const convList = [makeConvItem('MS4wA1', '张三'), makeConvItem('MS4wB2', '李四')];
     const { adapter } = buildAdapter(convList);
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r1 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r1.synced).toBe(2);
-    expect(onHistory).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
 
     // 二次调用：列表未变，全部已同步 → 跳过，不重复回填
     const r2 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r2.synced).toBe(0);
-    expect(onHistory).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
   });
 
   it('点击未打开线程（活动会话未变）→ 该会话跳过且不标记已同步', async () => {
@@ -154,13 +154,13 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
       getConversationList: () => convList,
     };
     const adapter = new BaseAdapter({ name: 'test', channel: 'douyin_web', SEL: {}, hooks });
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r = await adapter.syncAllConversations({ throttleMs: 1, waitActiveMs: 50 });
     expect(r.synced).toBe(0);
     expect(r.failures).toBe(1);
-    expect(onHistory).not.toHaveBeenCalled();
+    expect(onMessage).not.toHaveBeenCalled();
   });
 
   it('列表首项即当前打开会话（活动会话未变但=目标）→ 计为成功并回填，不误报失败', async () => {
@@ -183,14 +183,14 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
       getConversationList: () => convList,
     };
     const adapter = new BaseAdapter({ name: 'test', channel: 'douyin_web', SEL: {}, hooks });
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r.synced).toBe(1); // 已打开会话正常回填，不算失败
     expect(r.failures).toBe(0);
-    expect(onHistory).toHaveBeenCalledTimes(1);
-    expect(onHistory.mock.calls[0][0].conversation_id).toBe('MS4wA1');
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0][0].conversation_id).toBe('MS4wA1');
   });
 
   it('列表 id 与活动会话 id 表述不一致（/user/链接 vs data-*）→ 两者都记为已同步，二次调用不重复', async () => {
@@ -222,8 +222,8 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     convList.forEach((conv) => {
       conv.el.addEventListener('click', () => { current = 'total-' + conv.id.replace('MS4w', ''); });
     });
-    const onHistory = vi.fn();
-    adapter.callbacks.onHistory = onHistory;
+    const onMessage = vi.fn();
+    adapter.callbacks.onMessage = onMessage;
 
     const r1 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r1.synced).toBe(2);
@@ -234,7 +234,7 @@ describe('BaseAdapter.syncAllConversations 遍历回填', () => {
     // 二次调用：无论按 conv.id 还是 realCid 过滤都不重复回填
     const r2 = await adapter.syncAllConversations({ throttleMs: 1 });
     expect(r2.synced).toBe(0);
-    expect(onHistory).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
   });
 
   it('无 getConversationList 钩子 → 安全回退（skipped）', async () => {

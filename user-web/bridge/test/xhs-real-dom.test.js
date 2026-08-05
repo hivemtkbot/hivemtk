@@ -99,15 +99,13 @@ describe('小红书真实 .chat-item DOM：右侧消息上报', () => {
     document.querySelectorAll('.xhs-im-conv-item, .chat-item, .xhs-im-input-bar-editor').forEach((el) => makeVisible(el));
 
     const adapter = buildXhsAdapter();
-    const inbound = [];
-    const history = [];
+    const messages = [];
     adapter.start({
-      onInbound: (m) => inbound.push(m),
-      onHistory: (m) => history.push(m),
+      onMessage: (m) => messages.push(m),
     });
     adapter._scanIncremental();
 
-    const captured = inbound.concat(history);
+    const captured = messages;
     expect(captured.length).toBeGreaterThan(0);
     const allTexts = captured.flatMap((m) => {
       if (m.history && m.history.length) return m.history.map((h) => h.content);

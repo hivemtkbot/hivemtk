@@ -4,8 +4,8 @@
 //   1. 回归 B1：三渠道 buildXxxAdapter 构造后字段正确填充（channel/name/SEL/hooks.match），
 //      match() 不再返回 false（需 mock location）
 //   2. hooks 透传：getMessageItems / parseMessageItem / getAccountId / getConversationId / sendText 被正确委托
-//   3. sendOutbound 在风控通过时调用 hooks.sendText 并上报 outbound 历史
-//   4. _handleIncremental 自/他分支正确：CUSTOMER → onInbound；SELF 且非 recentSelf → onHistory(outbound)
+//   3. sendOutbound 在风控通过时调用 hooks.sendText 并上报 outbound 消息
+//   4. _handleIncremental 统一走 onMessage：CUSTOMER / SELF / AGENT 均通过 onMessage 上报
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { CHANNELS, SENDER, DIRECTION, FRAME } from '../src/core/types.js';
@@ -94,8 +94,8 @@ describe('BaseAdapter hooks 透传', () => {
   });
 });
 
-describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 历史', () => {
-  it('调用 hooks.sendText 并触发 onHistory(outbound)', async () => {
+describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 消息', () => {
+  it('调用 hooks.sendText 并触发 onMessage（sender_type=AGENT）', async () => {
     const sendText = vi.fn().mockResolvedValue(undefined);
     const adapter = new BaseAdapter({
       name: 'test',
@@ -108,17 +108,16 @@ describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 历�
         sendText,
       },
     });
-    const onHistory = vi.fn();
-    adapter.start({ onHistory });
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
     // sendOutbound 内有 sleep(waitHintMs) 用于拟人延迟，fake timers 下需异步推进
     const p = adapter.sendOutbound('hello');
     await vi.advanceTimersByTimeAsync(4000); // jitter 最大 2600 + 余量
     const ok = await p;
     expect(ok).toBe(true);
     expect(sendText).toHaveBeenCalledWith('hello');
-    expect(onHistory).toHaveBeenCalled();
-    const [msg, direction] = onHistory.mock.calls[0];
-    expect(direction).toBe(DIRECTION.OUTBOUND);
+    expect(onMessage).toHaveBeenCalled();
+    const msg = onMessage.mock.calls[0][0];
     expect(msg.sender_type).toBe(SENDER.AGENT);
     expect(msg.content).toBe('hello');
   });
@@ -138,8 +137,8 @@ describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 历�
   });
 });
 
-describe('BaseAdapter _handleIncremental 自/他分支', () => {
-  it('CUSTOMER 消息 → onInbound', () => {
+describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
+  it('CUSTOMER 消息 → onMessage（sender_type=CUSTOMER）', () => {
     const adapter = new BaseAdapter({
       name: 'test',
       channel: 'douyin_web',
@@ -152,19 +151,18 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
         parseMessageItem: () => ({ sender_type: SENDER.CUSTOMER, text: 'hi', message_id: 'm1', timestamp: 1 }),
       },
     });
-    const onInbound = vi.fn();
-    adapter.start({ onInbound });
-    adapter.historyGraceUntil = 0; // 宽限期过期，验证实时 INBOUND 分支（宽限期内会改为仅落库）
-    // 直接调用内部方法
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
+    // 直接调用内部方法（纯桥接：所有消息统一走 onMessage，不区分 inbound/history）
     adapter._handleIncremental({});
-    expect(onInbound).toHaveBeenCalled();
-    const msg = onInbound.mock.calls[0][0];
+    expect(onMessage).toHaveBeenCalled();
+    const msg = onMessage.mock.calls[0][0];
     expect(msg.content).toBe('hi');
     expect(msg.channel).toBe('douyin_web');
     expect(msg.sender_type).toBe(SENDER.CUSTOMER);
   });
 
-  it('SELF 消息且非 recentSelf → onHistory(outbound)', () => {
+  it('SELF 消息 → onMessage（sender_type=SELF）', () => {
     const adapter = new BaseAdapter({
       name: 'test',
       channel: 'xhs_web',
@@ -176,12 +174,11 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
         parseMessageItem: () => ({ sender_type: SENDER.SELF, text: 'me too', message_id: 'm2', timestamp: 2 }),
       },
     });
-    const onHistory = vi.fn();
-    adapter.start({ onHistory });
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
     adapter._handleIncremental({});
-    expect(onHistory).toHaveBeenCalled();
-    const [msg, dir] = onHistory.mock.calls[0];
-    expect(dir).toBe(DIRECTION.OUTBOUND);
+    expect(onMessage).toHaveBeenCalled();
+    const msg = onMessage.mock.calls[0][0];
     expect(msg.sender_type).toBe(SENDER.SELF);
   });
 
@@ -197,56 +194,18 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
         parseMessageItem: () => ({ sender_type: SENDER.CUSTOMER, text: 'dup', message_id: 'm3', timestamp: 3 }),
       },
     });
-    const onInbound = vi.fn();
-    adapter.start({ onInbound });
-    // 2026-08-05 架构重构：seen Set 已移除，不同 DOM 节点 + 相同内容 → 都走 _emitInbound
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
+    // 2026-08-05 架构重构：seen Set 已移除，不同 DOM 节点 + 相同内容 → 都走 _emitMessage
     // （内容 hash 去重 + 回复判断交给服务端统一收信中心）
     adapter._handleIncremental({});
     adapter._handleIncremental({});
-    expect(onInbound).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenCalledTimes(2);
     // seenNodes 节点级去重仍生效：同一 DOM 节点重复调用不重复处理
     const sameNode = {};
     adapter._handleIncremental(sameNode);
     adapter._handleIncremental(sameNode);
-    expect(onInbound).toHaveBeenCalledTimes(3); // 仅新增 1 次
-  });
-});
-
-describe('BaseAdapter recentSelf 去重（R3 修复）', () => {
-  it('_markRecentSelf 后再 _handleIncremental 同源消息不二次落库', () => {
-    const adapter = new BaseAdapter({
-      name: 'test',
-      channel: 'douyin_web',
-      SEL: {},
-      hooks: {
-        match: () => true,
-        getAccountId: () => 'a',
-        getConversationId: () => 'c',
-        parseMessageItem: () => ({ sender_type: SENDER.AGENT, text: 'ai-reply', message_id: 'm4', timestamp: 4 }),
-      },
-    });
-    const onHistory = vi.fn();
-    adapter.start({ onHistory });
-    // 第一次：SELF/AGENT 消息上报 outbound
-    adapter._handleIncremental({});
-    expect(onHistory).toHaveBeenCalledTimes(1);
-    // 模拟刚回写：markRecentSelf 后再次出现同样消息
-    const key = adapter._keyOf({ sender_type: SENDER.AGENT, text: 'ai-reply', timestamp: 4 });
-    adapter._markRecentSelf(key);
-    adapter._handleIncremental({});
-    // 仍只有 1 次（recentSelf 拦截 + seen 去重双重）
-    expect(onHistory).toHaveBeenCalledTimes(1);
-  });
-
-  it('recentSelf Map 上限保护（200 条）', () => {
-    const adapter = new BaseAdapter({
-      name: 'test',
-      channel: 'douyin_web',
-      SEL: {},
-      hooks: {},
-    });
-    for (let i = 0; i < 250; i++) adapter._markRecentSelf(`key-${i}`);
-    expect(adapter.recentSelf.size).toBeLessThanOrEqual(adapter.recentSelfMax);
+    expect(onMessage).toHaveBeenCalledTimes(3); // 仅新增 1 次
   });
 });
 

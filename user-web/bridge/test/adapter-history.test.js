@@ -1,8 +1,7 @@
 // 历史消息同步回归测试（需求：打开私信只读历史、同步到系统，不自动回复）
 //   - getMessageRoot 缺失时回退 getMessageListRoot（否则历史回填/Observer 永不生效）
-//   - _backfill：存量消息一律走 onHistory（仅落库，不触发 AI）
-//   - 历史宽限期：挂载/切换后窗口内，新出现的客户消息仅落库(onHistory)，不触发 AI(onInbound)
-//   - 宽限期后：客户新消息才是实时 INBOUND（触发 AI）
+//   - _backfill：存量消息走 onMessage（纯桥接：是否落库/是否回复由后端判断）
+//   - 所有消息（customer/self/agent）统一走 onMessage（2026-08-05 架构重构）
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BaseAdapter } from '../src/core/channel-adapter.js';
 import { SENDER, DIRECTION } from '../src/core/types.js';
@@ -50,100 +49,76 @@ describe('getMessageRoot 回退', () => {
 });
 
 describe('历史回填 _backfill', () => {
-  it('一个会话 = 一条会话级消息，内含全部多轮历史，绝不触发 onInbound', () => {
+  it('一个会话 = 一条会话级消息，内含全部多轮历史，统一走 onMessage', () => {
     const items = [
       msgEl('客户历史消息A', SENDER.CUSTOMER, 'm1', 1700000000000),
       msgEl('我的历史回复B', SENDER.AGENT, 'm2', 1700000001000),
     ];
     const { a } = makeAdapter(items);
     current = a;
-    const calls = { inbound: [], history: [] };
+    const messages = [];
     a.start({
-      onInbound: (m) => calls.inbound.push(m),
-      onHistory: (m, d) => calls.history.push({ m, d }),
+      onMessage: (m) => messages.push(m),
     });
-    expect(calls.inbound.length).toBe(0); // 关键：历史不触发 AI
     // 点3：回填只发一条会话级帧，多轮历史内嵌 history[]
-    expect(calls.history.length).toBe(1);
-    const frame = calls.history[0];
-    expect(frame.m.conversation_id).toBe('conv1');
-    expect(frame.m.history).toBeDefined();
-    expect(frame.m.history.length).toBe(2);
-    const cust = frame.m.history.find((h) => h.content === '客户历史消息A');
-    const self = frame.m.history.find((h) => h.content === '我的历史回复B');
+    expect(messages.length).toBe(1);
+    const frame = messages[0];
+    expect(frame.conversation_id).toBe('conv1');
+    expect(frame.history).toBeDefined();
+    expect(frame.history.length).toBe(2);
+    const cust = frame.history.find((h) => h.content === '客户历史消息A');
+    const self = frame.history.find((h) => h.content === '我的历史回复B');
     expect(cust.direction).toBe(DIRECTION.INBOUND);
     expect(self.direction).toBe(DIRECTION.OUTBOUND);
-    // 有客户消息 → 帧级摘要方向为 inbound（保持 onHistory 第二参语义）
-    expect(frame.d).toBe(DIRECTION.INBOUND);
   });
 
-  it('回填再次触发（宽限延迟 1.5s）不重复上报：seen 去重 → 不再发帧', () => {
+  it('回填再次触发（延迟 1.5s）不重复上报：seenNodes 去重 → 不再发帧', () => {
     const items = [
       msgEl('客户历史消息A', SENDER.CUSTOMER, 'm1', 1700000000000),
       msgEl('我的历史回复B', SENDER.AGENT, 'm2', 1700000001000),
     ];
     const { a } = makeAdapter(items);
     current = a;
-    const calls = { inbound: [], history: [] };
+    const messages = [];
     a.start({
-      onInbound: (m) => calls.inbound.push(m),
-      onHistory: (m, d) => calls.history.push({ m, d }),
+      onMessage: (m) => messages.push(m),
     });
-    expect(calls.history.length).toBe(1); // 首次回填：1 条会话级帧
-    a._backfill(); // 二次回填：同批消息已被 seen 去重 → 不发帧
-    expect(calls.history.length).toBe(1);
+    expect(messages.length).toBe(1); // 首次回填：1 条会话级帧
+    a._backfill(); // 二次回填：同批消息已被 seenNodes 去重 → 不发帧
+    expect(messages.length).toBe(1);
   });
 });
 
-describe('历史宽限期', () => {
-  it('客户消息始终走 _emitInbound（无宽限期，AI 触发判断交给服务端）', () => {
+describe('纯桥接：所有消息统一走 onMessage', () => {
+  it('客户消息走 onMessage（sender_type=CUSTOMER）', () => {
     const { a } = makeAdapter([]);
     current = a;
-    const calls = { inbound: [], history: [] };
+    const messages = [];
     a.start({
-      onInbound: (m) => calls.inbound.push(m),
-      onHistory: (m, d) => calls.history.push({ m, d }),
+      onMessage: (m) => messages.push(m),
     });
-    // 2026-08-05 架构重构：Bridge 端不再有宽限期，所有客户消息都走 _emitInbound
+    // 2026-08-05 架构重构：所有客户消息统一走 onMessage
     a._handleIncremental(msgEl('客户新消息', SENDER.CUSTOMER, 'm3', Date.now()));
-    expect(calls.inbound.length).toBe(1);
-    expect(calls.inbound[0].content).toBe('客户新消息');
-    expect(calls.history.length).toBe(0);
+    expect(messages.length).toBe(1);
+    expect(messages[0].content).toBe('客户新消息');
   });
 
-  it('宽限期后新出现的客户消息才走实时 INBOUND（触发 AI）', () => {
+  it('切换会话后客户消息仍走 onMessage', () => {
     const { a } = makeAdapter([]);
     current = a;
-    const calls = { inbound: [], history: [] };
+    const messages = [];
     a.start({
-      onInbound: (m) => calls.inbound.push(m),
-      onHistory: (m, d) => calls.history.push({ m, d }),
-    });
-    a.historyGraceUntil = Date.now() - 1; // 模拟宽限期已过
-    a._handleIncremental(msgEl('实时客户新消息', SENDER.CUSTOMER, 'm4', Date.now()));
-    expect(calls.inbound.length).toBe(1);
-    expect(calls.inbound[0].content).toBe('实时客户新消息');
-    expect(calls.history.length).toBe(0);
-  });
-
-  it('切换会话后客户消息仍走 _emitInbound（无宽限期）', () => {
-    const { a } = makeAdapter([]);
-    current = a;
-    const calls = { inbound: [], history: [] };
-    a.start({
-      onInbound: (m) => calls.inbound.push(m),
-      onHistory: (m, d) => calls.history.push({ m, d }),
+      onMessage: (m) => messages.push(m),
     });
     // 模拟切换会话：会话 id 变化 → 重新挂载（复刻 _startConvPolling 的切换逻辑）
     a.conversationId = 'conv1';
     a.hooks.getConversationId = () => 'conv2';
     a.conversationId = 'conv2';
     a._attachConversation();
-    // 2026-08-05 架构重构：宽限期已移除，切换会话后客户消息仍走 _emitInbound
+    // 2026-08-05 架构重构：所有消息统一走 onMessage
     a._handleIncremental(msgEl('切回会话后的客户消息', SENDER.CUSTOMER, 'm5', Date.now()));
-    expect(calls.inbound.length).toBe(1);
-    expect(calls.inbound[0].content).toBe('切回会话后的客户消息');
-    expect(calls.history.length).toBe(0);
+    expect(messages.length).toBe(1);
+    expect(messages[0].content).toBe('切回会话后的客户消息');
   });
 });
 
@@ -188,10 +163,10 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     ];
     const a = makeGroupAdapter(items);
     current = a;
-    const calls = { history: [] };
-    a.start({ onHistory: (m, d) => calls.history.push({ m, d }) });
-    expect(calls.history.length).toBe(1); // 一个会话 = 一条消息
-    const frame = calls.history[0].m;
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
+    expect(messages.length).toBe(1); // 一个会话 = 一条消息
+    const frame = messages[0];
     expect(frame.is_group).toBe(true);
     expect(frame.group_id).toBe('group-1');
     expect(frame.group_name).toBe('产品交流群');
@@ -217,48 +192,46 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
   it('群聊去重按成员区分：不同成员发相同文本不被误删（需求3 多轮完整性）', () => {
     const a = makeGroupAdapter([]);
     current = a;
-    const calls = { inbound: [] };
-    a.start({ onInbound: (m) => calls.inbound.push(m) });
-    a.historyGraceUntil = Date.now() - 1;
-    // 两个不同成员都发「好的」：dedup key 含 sender_name，两条都保留
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
+    // 两个不同成员都发「好的」：两条都上行（内容去重交给服务端）
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g1', '张三'));
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g2', '李四'));
-    expect(calls.inbound.length).toBe(2);
-    expect(calls.inbound[0].content).toBe('好的');
-    expect(calls.inbound[1].content).toBe('好的');
-    expect(calls.inbound[0].history).toBeDefined();
+    expect(messages.length).toBe(2);
+    expect(messages[0].content).toBe('好的');
+    expect(messages[1].content).toBe('好的');
+    expect(messages[0].history).toBeDefined();
   });
 
   it('同一成员重复发相同文本不再 Bridge 端去重（内容 hash 去重交给服务端）', () => {
     const a = makeGroupAdapter([]);
     current = a;
-    const calls = { inbound: [] };
-    a.start({ onInbound: (m) => calls.inbound.push(m) });
-    // 2026-08-05 架构重构：seen Set 已移除，同一成员重复发相同文本都走 _emitInbound，
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
+    // 2026-08-05 架构重构：seen Set 已移除，同一成员重复发相同文本都走 _emitMessage，
     // 内容 hash 去重 + 回复判断交给服务端统一收信中心
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g1', '张三'));
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g2', '张三'));
-    expect(calls.inbound.length).toBe(2); // 两条都上行，去重交给服务端
-    expect(calls.inbound[0].content).toBe('好的');
-    expect(calls.inbound[1].content).toBe('好的');
+    expect(messages.length).toBe(2); // 两条都上行，去重交给服务端
+    expect(messages[0].content).toBe('好的');
+    expect(messages[1].content).toBe('好的');
   });
 
-  it('宽限期后实时 inbound 携带该会话最近多轮上下文窗口', () => {
+  it('实时消息携带该会话最近多轮上下文窗口', () => {
     const a = makeGroupAdapter([]);
     current = a;
-    const calls = { inbound: [] };
-    a.start({ onInbound: (m) => calls.inbound.push(m) });
-    a.historyGraceUntil = Date.now() - 1; // 宽限期已过
-    // 先来 3 轮（进窗口），再来触发 AI 的新消息；每条客户消息均实时 inbound
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
+    // 先来 3 轮（进窗口），再来新消息；每条消息均走 onMessage
     a._ingest(groupParsed('第一轮', SENDER.CUSTOMER, 'w1', '张三'));
     a._ingest(groupParsed('我方回复', SENDER.AGENT, 'w2', '客服小王'));
     a._ingest(groupParsed('第二轮', SENDER.CUSTOMER, 'w3', '李四'));
     a._ingest(groupParsed('第三轮请回复', SENDER.CUSTOMER, 'w4', '王五'));
-    // 客户消息各触发一次 inbound（w1/w3/w4），AI 回复（w2）仅落库不触发
-    expect(calls.inbound.length).toBe(3);
-    const frame = calls.inbound[2];
+    // 纯桥接：所有消息都走 onMessage（4 条）
+    expect(messages.length).toBe(4);
+    const frame = messages[3];
     expect(frame.content).toBe('第三轮请回复');
-    // 最新一条 inbound 帧内含该会话最近多轮（含刚触发消息）
+    // 最新一条消息帧内含该会话最近多轮（含刚触发消息）
     expect(frame.history.length).toBe(4);
     expect(frame.history[0].content).toBe('第一轮');
     expect(frame.history[0].direction).toBe(DIRECTION.INBOUND);
@@ -333,17 +306,16 @@ describe('纯规则架构（无 LLM 抽取器）', () => {
     document.body.appendChild(root);
     const a = makeCidRootAdapter(() => 'conv1', root, []);
     current = a;
-    const inbound = [];
-    a.start({ onInbound: (m) => inbound.push(m), onHistory: () => {} });
-    a.historyGraceUntil = Date.now() - 1; // 过宽限期 → 实时 inbound
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
     // 新增一条消息（模拟 MutationObserver/新消息到达），_scanIncremental 走 selector 路径
     const msgEl = document.createElement('div');
     msgEl.textContent = '来自选择器路径的消息';
     a.hooks.getMessageItems = () => [msgEl];
     a._scanIncremental();
     // extractMessages 返回的假数据不参与；真实消息来自 getMessageItems
-    expect(inbound.length).toBe(1);
-    expect(inbound[0].content).toBe('来自选择器路径的消息');
+    expect(messages.length).toBe(1);
+    expect(messages[0].content).toBe('来自选择器路径的消息');
   });
 
   it('_backfill 不依赖 extractMessages（纯 getMessageItems 回填）', () => {
@@ -353,10 +325,10 @@ describe('纯规则架构（无 LLM 抽取器）', () => {
     msgEl.textContent = '回填历史消息';
     const a = makeCidRootAdapter(() => 'conv1', root, [msgEl]);
     current = a;
-    const history = [];
-    a.start({ onInbound: () => {}, onHistory: (m) => history.push(m) });
+    const messages = [];
+    a.start({ onMessage: (m) => messages.push(m) });
     // start() 已回填一次；再手动触发一次验证走 selector
     a._backfill();
-    expect(history.length).toBeGreaterThan(0);
+    expect(messages.length).toBeGreaterThan(0);
   });
 });
