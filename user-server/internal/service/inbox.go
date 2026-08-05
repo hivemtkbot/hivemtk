@@ -655,9 +655,9 @@ func (s *InboxService) GetMessagesByConversation(ctx context.Context, conversati
 		})
 	}
 
-	// 按时间正序（聊天流从旧到新）
+	// 按时间倒序（最新消息在前）
 	sort.SliceStable(merged, func(i, j int) bool {
-		return merged[i].ts.Before(merged[j].ts)
+		return merged[i].ts.After(merged[j].ts)
 	})
 
 	total := int64(len(merged))
