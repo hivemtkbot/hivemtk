@@ -11,7 +11,7 @@ var errBridgeOutboundNotRegistered = errors.New("bridge outbound not registered"
 // BridgeOutboundFunc 桥接渠道出站回调：把 AI 回复经 WebSocket 投递到 Chrome 扩展。
 //
 // 由 bridge 包在初始化时注册（避免 service -> bridge 的导入环），
-// WebhookService.sendOutbound 在网页桥接渠道（douyin_web/xhs_web/tiktok）下
+// WebhookService.sendOutbound 在网页桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）下
 // 调用 DeliverBridgeOutbound，从而把 AI 回复原路回写到浏览器扩展，而非走官方 API。
 //
 // eventID 用于 ClaimReply 幂等守卫（同一 AI 回复仅一次出站）。

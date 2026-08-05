@@ -64,10 +64,10 @@ function buildAdapter(convList, messagesByConv) {
 }
 
 describe('BaseAdapter.patrol 巡检一轮', () => {
-  it('遍历未读会话 → 每个会话一条会话级 inbound 帧（携带新消息历史，触发 AI）', async () => {
+  it('遍历所有会话 → 每个会话一条会话级 inbound 帧（2026-08-05 修复：不判断未读，直接遍历）', async () => {
     const A = makeConv('a1', '张三', { unread: true });
     const B = makeConv('b2', '李四', { unread: true });
-    const C = makeConv('c3', '王五', { unread: false }); // 未标记未读 → 不巡检
+    const C = makeConv('c3', '王五', { unread: false }); // 无未读标记也会被巡检
     const convList = [A, B, C];
     const messagesByConv = {
       a1: [makeMessage('m-a1', '你好')],
@@ -80,20 +80,20 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
 
-    expect(r.visited).toBe(2); // 仅 A、B（unread）
-    expect(r.withNew).toBe(2);
-    expect(r.captured).toBe(2);
-    expect(onInbound).toHaveBeenCalledTimes(2); // 每个会话一条
+    // 巡检不再判断未读，直接遍历所有会话 = 3 个
+    expect(r.visited).toBe(3);
+    expect(r.withNew).toBe(3);
+    expect(r.captured).toBe(3);
+    expect(onInbound).toHaveBeenCalledTimes(3); // 每个会话一条
     const convIds = onInbound.mock.calls.map((c) => c[0].conversation_id);
-    expect(convIds).toEqual(expect.arrayContaining(['a1', 'b2']));
-    expect(convIds).not.toContain('c3');
+    expect(convIds).toEqual(expect.arrayContaining(['a1', 'b2', 'c3']));
     // 需求③：一个会话=一条消息，history[] 含本次捕获的多轮
     const first = onInbound.mock.calls[0][0];
     expect(Array.isArray(first.history)).toBe(true);
     expect(first.history.length).toBe(1);
     // 昵称作为客户名/发件人
     const names = onInbound.mock.calls.map((c) => c[0].sender_name);
-    expect(names).toEqual(expect.arrayContaining(['张三', '李四']));
+    expect(names).toEqual(expect.arrayContaining(['张三', '李四', '王五']));
   });
 
   it('已 seen 的消息靠去重跳过：第二轮巡检不再重复上行（不重复打扰）', async () => {
@@ -114,7 +114,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     expect(onInbound).toHaveBeenCalledTimes(1); // 仍是 1，未重复
   });
 
-  it('无 unread 标记时默认不巡检任何会话（visitAllWhenNoUnread=false）', async () => {
+  it('无 unread 标记时也巡检所有会话（2026-08-05 修复：巡检不再判断未读，直接遍历）', async () => {
     const A = makeConv('a1', '张三', { unread: false });
     const B = makeConv('b2', '李四', { unread: false });
     const convList = [A, B];
@@ -127,11 +127,13 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     adapter.callbacks.onInbound = onInbound;
 
     const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
-    expect(r.visited).toBe(0);
-    expect(onInbound).not.toHaveBeenCalled();
+    // 巡检不再判断未读，直接遍历所有会话，靠 seenNodes/seen 去重只报新消息
+    expect(r.visited).toBe(2);
+    expect(r.captured).toBe(2);
+    expect(onInbound).toHaveBeenCalledTimes(2);
   });
 
-  it('visitAllWhenNoUnread=true：无 unread 标记时也巡检全部会话（靠 seen 去重只报新消息）', async () => {
+  it('visitAllWhenNoUnread 兼容：无 unread 标记时也巡检全部会话（靠 seen 去重只报新消息）', async () => {
     const A = makeConv('a1', '张三', { unread: false });
     const convList = [A];
     const messagesByConv = { a1: [makeMessage('m-a1', '新消息')] };

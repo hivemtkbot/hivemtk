@@ -4,36 +4,40 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"marketing/internal/aiagent/agent/tooluse"
-	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 )
 
 // BridgeReachAdapter 包装 IntegrationReachAdapter：
 //
-// 网页桥接渠道（douyin_web/xhs_web/tiktok/xianyu_web）的回复：
-//  1. 若对应账号的扩展在线：经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展（回写网页私信）
-//  2. 若扩展离线 / 限速命中 / buffer 满：落 message_hub(direction=outbound, status=failed)，
-//     便于坐席 UI 展示和后续补发（修复 -8：离线降级落库）
-//  3. 非桥接渠道：直接委托 inner（官方 API），对现有渠道零影响
+// 网页桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）的 AI 回复（2026-08-05 之后）：
+//   - HTTP 长轮询模式：所有上行走 POST /api/bridge/ingest，所有下行 AI reply 走
+//     httpReplyBuffer + 同请求响应的 outbound_replies；不再维护 WebSocket 长连接。
+//   - 链路：WebhookService.sendOutbound → service.RegisterBridgeOutbound → BridgeReachAdapter.Send*
+//     → 直接入 httpReplyBuffer → 下次同会话 /api/bridge/ingest 长轮询拿到 reply → 扩展端
+//     content/common.js 的 PollingLoop 通过 dispatchOutbound 回写到网页。
+//   - 私有化部署单租户，AI 回复频次低（1-5s/次），in-memory 256 容量 FIFO 足够；过期
+//     reply 由「长轮询超时」自然清理，无状态机。
 //
-// 幂等守卫：由上层 WebhookService.sendOutbound 统一通过 ClaimReply 保证。
-// deliverWS 不再重复 ClaimReply（修复双重 ClaimReply 导致 AI 回复永久不下发的 bug）。
+// 幂等守卫：仍由上层 WebhookService.sendOutbound 通过 ClaimReply 统一保证；本适配器不重复。
+//
+// 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（无 _web 后缀）。
 type BridgeReachAdapter struct {
 	inner   *tooluse.IntegrationReachAdapter
-	hub     *BridgeHub
 	ingress *service.InboxIngressService
+	// httpReplyBuffer HTTP 模式 reply 缓冲（跨传输层共享；HTTP ingest 长轮询从该 buffer 拉）
+	httpReplyBuffer *httpReplyBuffer
 }
 
-// NewBridgeReachAdapter 构造桥接触达适配器。
+// NewBridgeReachAdapter 构造桥接触达适配器（HTTP-only 模式）。
 //
-// ingress 可选：传入时离线/限速/buffer 满会落 message_hub(outbound, status=failed)
-// 等待补发；nil 时仅返回错误（用于早期装配阶段）。
-func NewBridgeReachAdapter(inner *tooluse.IntegrationReachAdapter, hub *BridgeHub, ingress ...*service.InboxIngressService) *BridgeReachAdapter {
-	a := &BridgeReachAdapter{inner: inner, hub: hub}
+// ingress 可选：传入时 delivery 失败会落 message_hub(outbound, status=failed) 等待补发；
+// nil 时仅返回错误（用于早期装配阶段）。实际 HTTP 模式下 reply 总能 Push 到 buffer，
+// 失败兜底落库通常不会触发；保留参数是为了兼容既有装配代码（router/wiring）。
+func NewBridgeReachAdapter(inner *tooluse.IntegrationReachAdapter, ingress ...*service.InboxIngressService) *BridgeReachAdapter {
+	a := &BridgeReachAdapter{inner: inner, httpReplyBuffer: newHTTPReplyBuffer()}
 	if len(ingress) > 0 {
 		a.ingress = ingress[0]
 	}
@@ -48,16 +52,33 @@ func (a *BridgeReachAdapter) SetIngress(ingress *service.InboxIngressService) {
 // globalReach 保存当前桥接触达适配器，供 SetBridgeReachAdapter 注册出站回调
 var globalReach *BridgeReachAdapter
 
+// GlobalBridgeReachAdapter 返回当前已注册的桥接触达适配器。
+//
+// 用途：bridge_account_controller.SendManual 等"非 WebhookService.sendOutbound 路径"需要
+// 直接把 reply 推入 httpReplyBuffer（HTTP 长轮询拉到后再回写到扩展端）。
+// 取代旧实现中 bridge.GetBridgeHub().Deliver（WS 模式专用）。
+//
+// 未注册时返回 nil，调用方须 nil-check。
+func GlobalBridgeReachAdapter() *BridgeReachAdapter {
+	return globalReach
+}
+
 // SetBridgeReachAdapter 注册网页桥接触达适配器，并向 service 包登记出站回调。
 //
-// 此后 WebhookService.sendOutbound 在桥接渠道（douyin_web/xhs_web/tiktok_web）下，
-// 会把 AI 回复经 BridgeHub 通过 WebSocket 投递到 Chrome 扩展，而非走官方 API。
+// 此后 WebhookService.sendOutbound 在桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）下，
+// 会把 AI reply 入 a.httpReplyBuffer；下次同 (channel, account, conversation) 的
+// /api/bridge/ingest 长轮询拉到 reply 即原路回写扩展。
 // 通过回调注入（而非 service 直接 import bridge）避免 service -> bridge 导入环。
+//
+// 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（无 _web 后缀）。
 func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 	globalReach = a
-	// 注册重连补发回调（P1-7）：扩展重新上线时自动重投离线失败的出站消息
-	OnBridgeClientOnline = func(channel, accountID string) {
-		a.RetryFailedOutbound(context.Background(), channel, accountID)
+	// 注册 HTTP 模式 reply 拉取器：HTTP 长轮询拿 AI reply 的核心通道
+	for _, ch := range []string{ChannelDouyinWeb, ChannelXHSWeb, ChannelTikTok, ChannelKuaishouWeb, ChannelXianyuWeb} {
+		channel := ch // 闭包变量
+		RegisterHTTPReplyPuller(channel, func(ctx context.Context, conversationID, replyToEventID string) *UnifiedReply {
+			return a.httpReplyBuffer.Pull(channel, conversationID, replyToEventID)
+		})
 	}
 	service.RegisterBridgeOutbound(func(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) error {
 		switch channel {
@@ -82,50 +103,25 @@ func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 	})
 }
 
-// OnBridgeClientOnline 桥接扩展（重）上线时触发的回调（在 SetBridgeReachAdapter 中注册到单例适配器）。
-// 把此前离线降级落库的失败出站消息重新投递（修复 P1-7：离线消息不再永久 failed）。
-var OnBridgeClientOnline func(channel, accountID string)
-
-// RetryFailedOutbound 重连补发：扩展重新上线后，把此前离线落库的失败出站消息重新投递。
-//
-// 每条用全新 eventID 重投（原失败记录的事件 ID 已被 ClaimReply 占用，复用会触发幂等守卫跳过），
-// 成功后把原记录标记为已送达，避免重复投递与坐席 UI 长期显示 failed。
-func (a *BridgeReachAdapter) RetryFailedOutbound(ctx context.Context, channel, accountID string) {
-	if a == nil || a.ingress == nil || a.hub == nil {
-		return
-	}
-	if !a.hub.IsOnline(channel, accountID) {
-		return
-	}
-	list, err := a.ingress.ListFailedOutbound(ctx, channel, accountID)
-	if err != nil || len(list) == 0 {
-		return
-	}
-	for _, hub := range list {
-		freshEventID := fmt.Sprintf("retry-%d-%s", time.Now().UnixNano(), hub.MsgID)
-		ctx2 := WithEventID(context.Background(), freshEventID)
-		// deliverWS：WS 投递；用全新 eventID。成功后 MarkOutboundDelivered 防重复补发。
-		if _, derr := a.deliverWS(ctx2, channel, accountID, hub.ConversationID, hub.MsgType, hub.Content, freshEventID); derr == nil {
-			_ = a.ingress.MarkOutboundDelivered(context.Background(), hub)
-		}
-	}
-}
-
-// deliverWS 经 WebSocket 下发回复到扩展；扩展离线时降级落 message_hub(status=failed)。
+// deliverHTTP HTTP-only 模式：把 AI reply 入 httpReplyBuffer，等下次 ingest 长轮询拉到。
 //
 // 步骤：
-// 1. content 长度截断：防止超大 XSS payload 撑爆 WS 帧（修复 -7）
-// 2. hub.Deliver：在线 → 推送；离线/限速/buffer 满 → 降级落 message_hub
-// 3. 出站事件 ID 透传到 ctx（trace_id 关联）
-// 幂等守卫由上层 sendOutbound 统一处理（ClaimReply），deliverWS 不再重复检查。
-func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) (string, error) {
-
+// 1. content 长度截断：防止超大 XSS payload 撑爆响应（修复 -7）；截断时置 Truncated=true
+//    （审计 2026-08-05 P0 修复：原截断后无标记，客户端看到半截消息不知情）
+// 2. Push 到 httpReplyBuffer（256 容量 FIFO 淘汰；扩展长轮询 500s 内必拉到）
+//
+// 幂等守卫仍由上层 sendOutbound 统一处理（ClaimReply）。
+func (a *BridgeReachAdapter) deliverHTTP(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) (string, error) {
+	if a == nil {
+		return "", errors.New("bridge adapter not initialized")
+	}
 	// 7 防止 XSS 巨大 payload：单条回复限制 4KB
+	truncated := false
 	if len(content) > maxReplyContentBytes {
 		logger.Ctx(ctx).Warn().Str("module", "bridge").Int("orig_bytes", len(content)).Msg("bridge reply content truncated (anti-xss)")
 		content = content[:maxReplyContentBytes]
+		truncated = true
 	}
-
 	reply := &UnifiedReply{
 		Channel:        channel,
 		AccountID:      accountID,
@@ -133,62 +129,45 @@ func (a *BridgeReachAdapter) deliverWS(ctx context.Context, channel, accountID, 
 		Content:        content,
 		MsgType:        msgType,
 		ReplyToEventID: eventID,
+		Truncated:      truncated,
 	}
-	if err := a.hub.Deliver(channel, accountID, reply); err != nil {
-		// 离线/限速/buffer 满：落 message_hub(direction=outbound, status=failed) 等待补发
-		// 私域: 无 Prometheus, 失败已落库（用 classifyDeliverErr 区分失败类型，便于排查）
-		errClass := classifyDeliverErr(err)
-		logger.Ctx(ctx).Warn().Str("module", "bridge").Str("deliver_err_class", errClass).
-			Str("channel", channel).Str("account_id", accountID).Str("event_id", eventID).
-			Msg("bridge deliver failed, classifying error for fallback persist")
-		return a.persistFailedOutbound(ctx, channel, accountID, conversationID, msgType, content, eventID, err)
+	if a.httpReplyBuffer == nil {
+		return "", errors.New("bridge httpReplyBuffer not initialized")
 	}
+	a.httpReplyBuffer.Push(reply)
 	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
 }
 
-// persistFailedOutbound 出站失败时降级落库（修复 -8：离线降级落库）
+// EnqueueReply 把外部构造的 UnifiedReply 直接推入 httpReplyBuffer。
 //
-// 将 outbound 消息落 message_hub 并标记 status=failed / 失败原因；坐席 UI 可据此补发。
-func (a *BridgeReachAdapter) persistFailedOutbound(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string, deliverErr error) (string, error) {
-	logger.Ctx(ctx).Warn().Err(deliverErr).Str("module", "bridge").
-		Str("channel", channel).Str("account_id", accountID).
-		Str("event_id", eventID).
-		Msg("bridge deliver failed, persisting to message_hub for later retry")
-
-	// eventID 为空时构造合成 ID（保证幂等 key 非空，避免 DB 冲突）
-	if eventID == "" {
-		eventID = fmt.Sprintf("bridge-failed-%s-%d", accountID, time.Now().UnixNano())
+// 用途：bridge_account_controller.SendManual（人工座席代发）等不经过 WebhookService.sendOutbound
+// 的入站场景。该方法不裁剪 content、不打 Truncated 标记——调用方应已自行做长度校验；
+// 仍受 buffer 256 容量 FIFO 限制。
+//
+// 返回消息追踪 ID（格式同 deliverHTTP）。
+func (a *BridgeReachAdapter) EnqueueReply(channel, accountID, conversationID, content, msgType string) (string, error) {
+	if a == nil {
+		return "", errors.New("bridge adapter not initialized")
 	}
-	if a.ingress == nil {
-		// 无 ingress 时仅返回错误，便于上层记录 metric
-		return "", fmt.Errorf("bridge deliver failed: %w (no ingress to persist)", deliverErr)
+	if a.httpReplyBuffer == nil {
+		return "", errors.New("bridge httpReplyBuffer not initialized")
 	}
-	event := &model.MessageEvent{
-		EventID:        eventID,
-		SessionID:      channel + ":" + accountID + ":" + conversationID,
+	reply := &UnifiedReply{
 		Channel:        channel,
-		SenderID:       accountID,
-		MsgType:        msgType,
-		Content:        content,
+		AccountID:      accountID,
 		ConversationID: conversationID,
-		Timestamp:      time.Now(),
-		Extra: map[string]any{
-			"account_id":  accountID,
-			"bridge":      true,
-			"outbound":    true,
-			"status":      "failed",
-			"deliver_err": deliverErr.Error(),
-		},
+		Content:        content,
+		MsgType:        msgType,
 	}
-	if perr := a.ingress.PersistBridgeHistory(ctx, event, "outbound"); perr != nil {
-		logger.Ctx(ctx).Error().Err(perr).Str("module", "bridge").Str("event_id", eventID).Msg("bridge failed-outbound persist also failed")
-		return "", errors.Join(deliverErr, perr)
-	}
-	// 返回带 status 标记的占位 ID，调用方可通过 metric 统计失败率
-	return "bridge:failed:" + channel + ":" + accountID, deliverErr
+	a.httpReplyBuffer.Push(reply)
+	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
 }
 
 // ===== 以下为 ReachAdapter 接口实现 =====
+//
+// HTTP-only 模式：所有桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）的出站走
+// deliverHTTP（入 httpReplyBuffer）→ 下次 /api/bridge/ingest 长轮询拉到 → 扩展端回写网页。
+// 不再判在线、不再持久化失败：HTTP 模式下 reply 直接入 buffer，没有「扩展离线」概念。
 
 func (a *BridgeReachAdapter) SendSMS(ctx context.Context, phone, content, templateID string, params map[string]string) (string, error) {
 	return a.inner.SendSMS(ctx, phone, content, templateID, params)
@@ -206,34 +185,19 @@ func (a *BridgeReachAdapter) SendWeixin(ctx context.Context, openID, msgType, co
 	return a.inner.SendWeixin(ctx, openID, msgType, content)
 }
 
-// SendDouyin 网页抖音渠道：
-//   - 扩展在线：经 BridgeHub WS 下发
-//   - 扩展离线：降级落 message_hub(outbound, status=failed)
+// SendDouyin 网页抖音渠道：reply 入 httpReplyBuffer
 func (a *BridgeReachAdapter) SendDouyin(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelDouyinWeb, accountID) {
-		return a.deliverWS(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx))
-	}
-	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
-	return a.persistFailedOutbound(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.deliverHTTP(ctx, ChannelDouyinWeb, accountID, openID, msgType, content, extractEventID(ctx))
 }
 
-// SendKuaishou 网页快手渠道：
-//   - 扩展在线：经 BridgeHub WS 下发
-//   - 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
+// SendKuaishou 网页快手渠道：reply 入 httpReplyBuffer
 func (a *BridgeReachAdapter) SendKuaishou(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelKuaishouWeb, accountID) {
-		return a.deliverWS(ctx, ChannelKuaishouWeb, accountID, openID, msgType, content, extractEventID(ctx))
-	}
-	return a.persistFailedOutbound(ctx, ChannelKuaishouWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.deliverHTTP(ctx, ChannelKuaishouWeb, accountID, openID, msgType, content, extractEventID(ctx))
 }
 
-// SendXHS 网页小红书渠道：离线降级落库
+// SendXHS 网页小红书渠道：reply 入 httpReplyBuffer
 func (a *BridgeReachAdapter) SendXHS(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelXHSWeb, accountID) {
-		return a.deliverWS(ctx, ChannelXHSWeb, accountID, openID, msgType, content, extractEventID(ctx))
-	}
-	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
-	return a.persistFailedOutbound(ctx, ChannelXHSWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.deliverHTTP(ctx, ChannelXHSWeb, accountID, openID, msgType, content, extractEventID(ctx))
 }
 
 func (a *BridgeReachAdapter) SendDingTalk(ctx context.Context, chatID, msgType, content string) (string, error) {
@@ -260,22 +224,14 @@ func (a *BridgeReachAdapter) SendCard(ctx context.Context, channel, accountID, e
 	return a.inner.SendCard(ctx, channel, accountID, externalUserID, cardID)
 }
 
-// SendTikTok 网页 TikTok 渠道：离线降级落库
+// SendTikTok 网页 TikTok 渠道：reply 入 httpReplyBuffer
 func (a *BridgeReachAdapter) SendTikTok(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelTikTok, accountID) {
-		return a.deliverWS(ctx, ChannelTikTok, accountID, openID, msgType, content, extractEventID(ctx))
-	}
-	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
-	return a.persistFailedOutbound(ctx, ChannelTikTok, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.deliverHTTP(ctx, ChannelTikTok, accountID, openID, msgType, content, extractEventID(ctx))
 }
 
-// SendXianyu 网页闲鱼渠道：离线降级落库
+// SendXianyu 网页闲鱼渠道：reply 入 httpReplyBuffer
 func (a *BridgeReachAdapter) SendXianyu(ctx context.Context, accountID, openID, msgType, content string) (string, error) {
-	if a.hub.IsOnline(ChannelXianyuWeb, accountID) {
-		return a.deliverWS(ctx, ChannelXianyuWeb, accountID, openID, msgType, content, extractEventID(ctx))
-	}
-	// 扩展离线：降级落 message_hub(outbound, status=failed) 等待坐席补发，而非走官方 API
-	return a.persistFailedOutbound(ctx, ChannelXianyuWeb, accountID, openID, msgType, content, extractEventID(ctx), ErrBridgeOffline)
+	return a.deliverHTTP(ctx, ChannelXianyuWeb, accountID, openID, msgType, content, extractEventID(ctx))
 }
 
 func (a *BridgeReachAdapter) Recall(ctx context.Context, channel, msgID string) error {
@@ -293,28 +249,15 @@ func (a *BridgeReachAdapter) ListAccounts(ctx context.Context, channel string) (
 // extractEventID 从 ctx 取出出站事件 ID（由 WebhookService 透传，便于 ClaimReply 幂等）
 //
 // ctx key: bridge_event_id；调用方通过 WithEventID 注入。
-const ctxKeyEventID = "bridge_event_id"
-
-// classifyDeliverErr 分类 Deliver 错误类型（用于 metrics 区分限速/离线/buffer 满）
-func classifyDeliverErr(err error) string {
-	switch {
-	case errors.Is(err, ErrBridgeOffline):
-		return "offline"
-	case errors.Is(err, ErrBridgeRateLimited):
-		return "rate_limited"
-	case errors.Is(err, ErrBridgeBufferFull):
-		return "buffer_full"
-	default:
-		return "other"
-	}
-}
+//
+// 2026-08-05 修复：原误把 ctxKeyEventID 定义为 const string，无引用价值，纯累赘，
+// 删掉以保持文件极简。
 
 // WithEventID 注入出站事件 ID 到 ctx（供 ClaimReply 使用）
 func WithEventID(ctx context.Context, eventID string) context.Context {
 	if eventID == "" {
 		return ctx
 	}
-	type k struct{}
 	// 用唯一 key 类型避免与其他包冲突
 	return context.WithValue(ctx, bridgeEventIDKey{}, eventID)
 }

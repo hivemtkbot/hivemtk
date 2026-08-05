@@ -185,7 +185,7 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
     expect(msg.sender_type).toBe(SENDER.SELF);
   });
 
-  it('重复消息（seen）→ 不再上报', () => {
+  it('重复内容消息不再 Bridge 端去重（seen Set 已移除，去重交给服务端）；seenNodes 节点级去重仍生效', () => {
     const adapter = new BaseAdapter({
       name: 'test',
       channel: 'tiktok_web',
@@ -199,10 +199,16 @@ describe('BaseAdapter _handleIncremental 自/他分支', () => {
     });
     const onInbound = vi.fn();
     adapter.start({ onInbound });
-    adapter.historyGraceUntil = 0; // 宽限期过期，验证实时 INBOUND + 去重
+    // 2026-08-05 架构重构：seen Set 已移除，不同 DOM 节点 + 相同内容 → 都走 _emitInbound
+    // （内容 hash 去重 + 回复判断交给服务端统一收信中心）
     adapter._handleIncremental({});
     adapter._handleIncremental({});
-    expect(onInbound).toHaveBeenCalledTimes(1);
+    expect(onInbound).toHaveBeenCalledTimes(2);
+    // seenNodes 节点级去重仍生效：同一 DOM 节点重复调用不重复处理
+    const sameNode = {};
+    adapter._handleIncremental(sameNode);
+    adapter._handleIncremental(sameNode);
+    expect(onInbound).toHaveBeenCalledTimes(3); // 仅新增 1 次
   });
 });
 
@@ -264,7 +270,10 @@ describe('BaseAdapter 会话切换重挂载', () => {
     attachSpy.mockClear();
     // 切换会话
     currentConv = 'c2';
-    vi.advanceTimersByTime(3000); // convPollTimer 2s 周期
+    // 去抖动：连续 2 次相同 cid 才确认切换（2s × 2 = 4s）
+    vi.advanceTimersByTime(2000); // 第 1 次读到 c2，暂存 _pendingCid
+    expect(attachSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000); // 第 2 次读到 c2，确认切换
     expect(attachSpy).toHaveBeenCalled();
   });
 });

@@ -42,13 +42,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.douyin.com/*",
-        "http://localhost/*",
-        "https://localhost/*",
-        "http://127.0.0.1/*",
-        "https://127.0.0.1/*",
-        "http://*/*",
-        "https://*/*"
+        "https://*.douyin.com/*"
       ],
       "js": ["content-douyin.js"],
       "run_at": "document_idle",
@@ -56,13 +50,7 @@
     },
     {
       "matches": [
-        "https://*.xiaohongshu.com/*",
-        "http://localhost/*",
-        "https://localhost/*",
-        "http://127.0.0.1/*",
-        "https://127.0.0.1/*",
-        "http://*/*",
-        "https://*/*"
+        "https://*.xiaohongshu.com/*"
       ],
       "js": ["content-xhs.js"],
       "run_at": "document_idle",
@@ -70,13 +58,7 @@
     },
     {
       "matches": [
-        "https://*.tiktok.com/*",
-        "http://localhost/*",
-        "https://localhost/*",
-        "http://127.0.0.1/*",
-        "https://127.0.0.1/*",
-        "http://*/*",
-        "https://*/*"
+        "https://*.tiktok.com/*"
       ],
       "js": ["content-tiktok.js"],
       "run_at": "document_idle",
@@ -85,13 +67,7 @@
     {
       "matches": [
         "https://*.goofish.com/*",
-        "https://*.xianyu.com/*",
-        "http://localhost/*",
-        "https://localhost/*",
-        "http://127.0.0.1/*",
-        "https://127.0.0.1/*",
-        "http://*/*",
-        "https://*/*"
+        "https://*.xianyu.com/*"
       ],
       "js": ["content-xianyu.js"],
       "run_at": "document_idle",

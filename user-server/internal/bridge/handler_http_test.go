@@ -1,0 +1,364 @@
+package bridge
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+)
+
+func TestHTTPIngestDefaults(t *testing.T) {
+	t.Run("HTTPPollingMaxTimeout_500s", func(t *testing.T) {
+		if HTTPPollingMaxTimeout.Seconds() != 500 {
+			t.Errorf("HTTPPollingMaxTimeout 应为 500 秒，实际 %v", HTTPPollingMaxTimeout)
+		}
+	})
+	t.Run("HTTPPollingDefaultTimeout_30s", func(t *testing.T) {
+		if HTTPPollingDefaultTimeout.Seconds() != 30 {
+			t.Errorf("HTTPPollingDefaultTimeout 应为 30 秒，实际 %v", HTTPPollingDefaultTimeout)
+		}
+	})
+	t.Run("HTTPIngestMaxBodySize_4MB", func(t *testing.T) {
+		if HTTPIngestMaxBodySize != 4<<20 {
+			t.Errorf("HTTPIngestMaxBodySize 应为 4MB，实际 %d", HTTPIngestMaxBodySize)
+		}
+	})
+	t.Run("HTTPIngestMaxMessages_200", func(t *testing.T) {
+		if HTTPIngestMaxMessages != 200 {
+			t.Errorf("HTTPIngestMaxMessages 应为 200，实际 %d", HTTPIngestMaxMessages)
+		}
+	})
+}
+
+func TestCollectHTTPRequestInfo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("完整 URL + 全部 query + headers + body 预览", func(t *testing.T) {
+		bodyJSON := `{"channel":"xiaohongshu","account_id":"xhs_123","conversation_id":"conv_abc","messages":[{"event_id":"m1","content":"你好","sender_type":"customer","timestamp":1234567890,"msg_type":"text","conversation_id":"conv_abc"}],"expect_reply":true,"timeout_ms":30000}`
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?channel=xiaohongshu&account_id=xhs_123&token=eyJhbGciOiJIUzI1NiJ9.payload.sig", strings.NewReader(bodyJSON))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", "https://www.xiaohongshu.com")
+		req.Header.Set("User-Agent", "Mozilla/5.0 HiveBridge/1.0")
+		req.Header.Set("X-Trace-Id", "trace_abc_123")
+		req.RemoteAddr = "10.0.0.1:54321"
+		req.ContentLength = int64(len(bodyJSON))
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = req
+
+		info := collectHTTPRequestInfo(c)
+
+		// 字段断言
+		if info.Method != "POST" {
+			t.Errorf("Method = %q, want POST", info.Method)
+		}
+		if info.Path != "/api/bridge/ingest" {
+			t.Errorf("Path = %q, want /api/bridge/ingest", info.Path)
+		}
+		if info.Channel != "xiaohongshu" {
+			t.Errorf("Channel = %q, want xiaohongshu", info.Channel)
+		}
+		if info.AccountID != "xhs_123" {
+			t.Errorf("AccountID = %q, want xhs_123", info.AccountID)
+		}
+		if info.RemoteAddr != "10.0.0.1:54321" {
+			t.Errorf("RemoteAddr = %q, want 10.0.0.1:54321", info.RemoteAddr)
+		}
+		if info.Origin != "https://www.xiaohongshu.com" {
+			t.Errorf("Origin = %q, want https://www.xiaohongshu.com", info.Origin)
+		}
+		if info.UserAgent != "Mozilla/5.0 HiveBridge/1.0" {
+			t.Errorf("UserAgent = %q, want Mozilla/5.0 HiveBridge/1.0", info.UserAgent)
+		}
+		// token 脱敏
+		if !strings.Contains(info.TokenMasked, "***") {
+			t.Errorf("TokenMasked = %q, 应含 ***", info.TokenMasked)
+		}
+		// parsed_query 包含 channel/account_id/token
+		if v, ok := info.ParsedQuery["channel"]; !ok || v != "xiaohongshu" {
+			t.Errorf("parsed_query.channel = %v, want xiaohongshu", v)
+		}
+		if v, ok := info.ParsedQuery["account_id"]; !ok || v != "xhs_123" {
+			t.Errorf("parsed_query.account_id = %v, want xhs_123", v)
+		}
+		if v, ok := info.ParsedQuery["token"]; !ok || !strings.Contains(v, "***") {
+			t.Errorf("parsed_query.token = %v, 应含 ***", v)
+		}
+		// body 预览
+		if !strings.Contains(info.BodyPreview, "xiaohongshu") {
+			t.Errorf("BodyPreview 应包含 channel 字段，实际 %q", info.BodyPreview)
+		}
+		if info.BodySize != len(bodyJSON) {
+			t.Errorf("BodySize = %d, want %d", info.BodySize, len(bodyJSON))
+		}
+	})
+
+	t.Run("body 截断到 4KB 预览", func(t *testing.T) {
+		// 构造一个超过 4KB 的 body
+		var sb bytes.Buffer
+		sb.WriteString(`{"channel":"x","account_id":"y","messages":[`)
+		for i := 0; i < 5000; i++ {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString(`{"event_id":"m","content":"` + strings.Repeat("a", 100) + `"}`)
+		}
+		sb.WriteString(`]}`)
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?channel=x&account_id=y", strings.NewReader(sb.String()))
+		req.Header.Set("Content-Type", "application/json")
+		req.ContentLength = int64(sb.Len())
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = req
+
+		info := collectHTTPRequestInfo(c)
+
+		if !strings.Contains(info.BodyPreview, "truncated") {
+			t.Errorf("BodyPreview 应标记 truncated，实际 %q 前 100 字符", info.BodyPreview[:min(100, len(info.BodyPreview))])
+		}
+		if info.BodySize != sb.Len() {
+			t.Errorf("BodySize = %d, want %d", info.BodySize, sb.Len())
+		}
+		// 截断预览应 <= 4KB
+		if len(info.BodyPreview) > 5000 {
+			t.Errorf("BodyPreview 长度 %d 超过截断上限", len(info.BodyPreview))
+		}
+	})
+
+	t.Run("body 写回后下游可读", func(t *testing.T) {
+		body := `{"channel":"douyin","account_id":"dy_1","messages":[]}`
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?channel=douyin&account_id=dy_1", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.ContentLength = int64(len(body))
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = req
+
+		_ = collectHTTPRequestInfo(c)
+
+		// 下游可重新读取
+		var got HTTPIngestRequest
+		if err := c.ShouldBindJSON(&got); err != nil {
+			t.Fatalf("下游 BindJSON 失败: %v", err)
+		}
+		if got.Channel != "douyin" {
+			t.Errorf("Channel = %q, want douyin", got.Channel)
+		}
+		if got.AccountID != "dy_1" {
+			t.Errorf("AccountID = %q, want dy_1", got.AccountID)
+		}
+	})
+}
+
+func TestHTTPIngestRequest_JsonBind(t *testing.T) {
+	// 验证 HTTPIngestRequest JSON 序列化与反序列化符合预期
+	body := `{
+		"channel": "xiaohongshu",
+		"account_id": "xhs_1",
+		"conversation_id": "conv_1",
+		"messages": [
+			{
+				"event_id": "evt_1",
+				"sender_type": "customer",
+				"sender_id": "u_1",
+				"sender_name": "Alice",
+				"msg_type": "text",
+				"content": "你好",
+				"timestamp": 1700000000000,
+				"conversation_id": "conv_1"
+			}
+		],
+		"expect_reply": true,
+		"timeout_ms": 30000,
+		"account_name": "测试账号",
+		"agent_id": 1
+	}`
+	var req HTTPIngestRequest
+	if err := json.NewDecoder(strings.NewReader(body)).Decode(&req); err != nil {
+		t.Fatalf("JSON 解析失败: %v", err)
+	}
+	if req.Channel != "xiaohongshu" {
+		t.Errorf("Channel = %q, want xiaohongshu", req.Channel)
+	}
+	if req.AccountID != "xhs_1" {
+		t.Errorf("AccountID = %q, want xhs_1", req.AccountID)
+	}
+	if len(req.Messages) != 1 {
+		t.Fatalf("Messages 数量 = %d, want 1", len(req.Messages))
+	}
+	m := req.Messages[0]
+	if m.SenderID != "u_1" {
+		t.Errorf("SenderID = %q, want u_1", m.SenderID)
+	}
+	if m.Content != "你好" {
+		t.Errorf("Content = %q, want 你好", m.Content)
+	}
+	if !req.ExpectReply {
+		t.Error("ExpectReply = false, want true")
+	}
+	if req.TimeoutMs != 30000 {
+		t.Errorf("TimeoutMs = %d, want 30000", req.TimeoutMs)
+	}
+	if req.AccountName != "测试账号" {
+		t.Errorf("AccountName = %q, want 测试账号", req.AccountName)
+	}
+	if req.AgentID != 1 {
+		t.Errorf("AgentID = %d, want 1", req.AgentID)
+	}
+}
+
+func TestHTTPIngestResponse_Defaults(t *testing.T) {
+	// 验证响应结构体默认值
+	resp := HTTPIngestResponse{
+		OK:         true,
+		Ingested:   nil,
+		ServerTime: 1700000000000,
+	}
+	if !resp.OK {
+		t.Error("OK = false, want true")
+	}
+	if resp.Ingested != nil {
+		t.Errorf("Ingested 应为 nil，实际 %v", resp.Ingested)
+	}
+	if resp.OutboundReplies != nil {
+		t.Errorf("OutboundReplies 应为 nil（omitempty）")
+	}
+	// 序列化验证 omitempty 生效
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("Marshal 失败: %v", err)
+	}
+	s := string(data)
+	if strings.Contains(s, "outbound_replies") {
+		t.Errorf("omitempty 失败：响应体含 outbound_replies 字段：%s", s)
+	}
+	if !strings.Contains(s, `"ok":true`) {
+		t.Errorf("响应体应含 ok=true：%s", s)
+	}
+}
+
+// TestHTTPIngestHandler_BadRequest 验证缺参数/无效渠道时返回 400 且响应体含 reason
+func TestHTTPIngestHandler_BadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("缺 channel", func(t *testing.T) {
+		// 不注入 ingress：handler 不应到达业务逻辑
+		h := NewBridgeIngestHandler(nil)
+		r := gin.New()
+		r.POST("/api/bridge/ingest", h.HandleHTTPIngest)
+
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?account_id=xhs_1", strings.NewReader(`{"messages":[]}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("状态码 = %d, want 400", w.Code)
+		}
+		var resp HTTPIngestResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("响应 JSON 解析失败: %v", err)
+		}
+		if resp.OK {
+			t.Error("OK = true, want false")
+		}
+		if resp.Reason == "" {
+			t.Error("Reason 应非空")
+		}
+	})
+
+	t.Run("无效渠道", func(t *testing.T) {
+		h := NewBridgeIngestHandler(nil)
+		r := gin.New()
+		r.POST("/api/bridge/ingest", h.HandleHTTPIngest)
+
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?channel=invalid_channel&account_id=xhs_1", strings.NewReader(`{"messages":[]}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("状态码 = %d, want 400", w.Code)
+		}
+	})
+
+	t.Run("body 超过 4MB", func(t *testing.T) {
+		h := NewBridgeIngestHandler(nil)
+		r := gin.New()
+		r.POST("/api/bridge/ingest", h.HandleHTTPIngest)
+
+		req := httptest.NewRequest("POST", "/api/bridge/ingest?channel=xiaohongshu&account_id=xhs_1", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.ContentLength = HTTPIngestMaxBodySize + 1
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("状态码 = %d, want 413", w.Code)
+		}
+	})
+}
+
+func TestHttpMessageToEvent(t *testing.T) {
+	// 验证 httpMessageToEvent 转换逻辑
+	m := &HTTPIngestMessage{
+		EventID:        "evt_1",
+		Channel:        "xiaohongshu",
+		AccountID:      "xhs_1",
+		ConversationID: "conv_1",
+		SenderID:       "u_1",
+		SenderName:     "Alice",
+		SenderType:     "customer",
+		MsgType:        "text",
+		Content:        "你好",
+		Timestamp:      1700000000000,
+		IsGroup:        false,
+	}
+	ev := httpMessageToEvent(m)
+	if ev.EventID != "evt_1" {
+		t.Errorf("EventID = %q, want evt_1", ev.EventID)
+	}
+	if ev.Channel != "xiaohongshu" {
+		t.Errorf("Channel = %q, want xiaohongshu", ev.Channel)
+	}
+	if ev.SenderType != "customer" {
+		t.Errorf("SenderType = %q, want customer", ev.SenderType)
+	}
+	if ev.SessionID == "" {
+		t.Error("SessionID 应非空（兜底为 channel:account_id:conversation_id）")
+	}
+	if ev.Extra["transport"] != "http" {
+		t.Errorf("Extra.transport = %v, want http", ev.Extra["transport"])
+	}
+}
+
+func TestRedactOutboundReplies(t *testing.T) {
+	replies := []*UnifiedReply{
+		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: "你好", ReplyToEventID: "evt_1"},
+		{Channel: "xiaohongshu", AccountID: "xhs_1", ConversationID: "conv_1", Content: strings.Repeat("a", 300), Truncated: true, ReplyToEventID: "evt_2"},
+		nil, // 跳过 nil
+	}
+	out := redactOutboundReplies(replies)
+	if len(out) != 2 {
+		t.Fatalf("redact 后应有 2 条（跳过 nil），实际 %d", len(out))
+	}
+	if out[0]["content_preview"] != "你好" {
+		t.Errorf("第 1 条 content_preview = %v, want 你好", out[0]["content_preview"])
+	}
+	if out[0]["content_length"].(int) != 6 { // "你好" UTF-8 6 字节
+		t.Errorf("第 1 条 content_length = %v, want 6", out[0]["content_length"])
+	}
+	// 第 2 条：300 个 a → preview 应含 "..."
+	p2 := out[1]["content_preview"].(string)
+	if !strings.HasSuffix(p2, "...") {
+		t.Errorf("第 2 条 content_preview 应以 ... 结尾（200 截断），实际 %q", p2[len(p2)-20:])
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

@@ -243,9 +243,9 @@ func (b *reachChannelAdapterBridge) Send(ctx context.Context, req *service.Reach
 		return b.adapter.SendWeixin(ctx, req.RecipientID, req.MsgType, req.Content)
 	case "douyin", "douyin_web":
 		return b.adapter.SendDouyin(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
-	case "kuaishou":
+	case "kuaishou", "kuaishou_web":
 		return b.adapter.SendKuaishou(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
-	case "xhs", "xhs_web":
+	case "xiaohongshu", "xhs", "xhs_web":
 		return b.adapter.SendXHS(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)
 	case "tiktok", "tiktok_web":
 		return b.adapter.SendTikTok(ctx, req.AccountID, req.RecipientID, req.MsgType, req.Content)

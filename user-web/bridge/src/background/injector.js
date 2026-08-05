@@ -17,6 +17,33 @@
 // URL → content script 文件 的路由
 // 顺序：先匹配具体平台域，最后 fallback 到 'common'（仅 ping/selfcheck）
 // 调整需同步 manifest.json content_scripts[*].js 与 build.mjs entries
+//
+// 2026-08-05 审计 P0 修复（H5 域名白名单）：
+//   原实现漏了 xianyu/goofish 域名 → popup 自检自动注入 xianyu 永远走 unsupported_host 失败路径。
+//   补全 xianyu.com / goofish.com（咸鱼两个域名共用 content-xianyu.js）。
+//   并集中到 SUPPORTED_HOSTS 常量，供各处运行时校验复用（manifest matches + popup 域名判断）。
+export const SUPPORTED_HOSTS = [
+  'douyin.com',
+  'xiaohongshu.com',
+  'tiktok.com',
+  'goofish.com',
+  'xianyu.com',
+];
+
+// isSupportedHost：运行时域名校验。manifest.matches 是入口校验，
+// 这里是代码层兜底（programmatic 注入 / popup 自检 / background 路由）。
+// 双校验确保即使 manifest 误配也不会注入到非支持站点。
+export function isSupportedHost(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    return SUPPORTED_HOSTS.some((d) => host === d || host.endsWith('.' + d));
+  } catch (_) {
+    return false;
+  }
+}
+
 function pickContentScriptFile(url) {
   if (!url) return null;
   try {
@@ -25,6 +52,9 @@ function pickContentScriptFile(url) {
     if (/(^|\.)douyin\.com$/.test(host)) return 'content-douyin.js';
     if (/(^|\.)xiaohongshu\.com$/.test(host)) return 'content-xhs.js';
     if (/(^|\.)tiktok\.com$/.test(host)) return 'content-tiktok.js';
+    // 2026-08-05 修复：闲鱼两个域名（xianyu.com + goofish.com）共用 content-xianyu.js
+    if (/(^|\.)goofish\.com$/.test(host)) return 'content-xianyu.js';
+    if (/(^|\.)xianyu\.com$/.test(host)) return 'content-xianyu.js';
     return null; // 非支持 host
   } catch (_) {
     return null;
@@ -159,3 +189,5 @@ export function autoInjectOnCommit(details) {
 }
 
 export { pickContentScriptFile };
+// 说明：SUPPORTED_HOSTS / isSupportedHost 在声明处已用 `export const` / `export function` 导出，
+// 不在此重复 re-export，避免 esbuild "Multiple exports with the same name" 错误。

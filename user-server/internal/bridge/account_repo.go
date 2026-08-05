@@ -123,19 +123,94 @@ func (r *BridgeAccountRepository) upsertBinding(ctx context.Context, channel, ac
 }
 
 // SetOffline 连接断开：置离线 + 记录最后同步时间（G12）。
-func (r *BridgeAccountRepository) SetOffline(channel, accountID string) error {
+// ctx 用于透传 trace_id（审计链不断）；用 context.WithoutCancel 解绑 WS 生命周期，
+// 防止 readPump defer 触发时 WS ctx 被取消导致 DB 写入失败。
+func (r *BridgeAccountRepository) SetOffline(ctx context.Context, channel, accountID string) error {
 	now := time.Now()
-	return r.db.WithContext(context.Background()).Model(&model.BridgeAccount{}).
+	dbCtx := ctx
+	if ctx == nil {
+		dbCtx = context.Background()
+	} else {
+		// 解绑取消传播，保留 trace_id 等值
+		dbCtx = context.WithoutCancel(ctx)
+	}
+	return r.db.WithContext(dbCtx).Model(&model.BridgeAccount{}).
 		Where("channel = ? AND account_id = ?", channel, accountID).
 		Updates(map[string]any{"status": "offline", "last_sync_at": now}).Error
 }
 
-// ListByUser 列出某用户全部桥接账号（含 hub 实时在线状态）。
+// TouchLastSync 续约最后同步时间戳（2026-08-05 审计 P1）。
+//
+// 长连接场景下，hub.clients 显示在线但 DB 的 last_sync_at 可能停留在注册时刻
+// （数小时前）。运维通过 last_sync_at 判定账号是否真的"健康在线"会失败。
+// 本方法仅更新 last_sync_at 字段（不动 status / agent_id / user_id 等其他列），
+// 由 handler 启动 heartbeat goroutine 每 30s 调一次。
+//
+// 性能考量：
+//   - UPDATE 单行 where channel+account_id 走唯一索引，<1ms
+//   - 心跳间隔 30s 远大于 DB 写耗时，不会成为瓶颈
+//   - 失败仅 Warn 日志，不重试（下次心跳自然续）
+//
+// ctx 透传：与 SetOffline 一致，用 context.WithoutCancel 解绑 WS 生命周期，
+// 防止 WS ctx 取消导致心跳 DB 写入失败（心跳期间连接可能正在被 Kick）。
+func (r *BridgeAccountRepository) TouchLastSync(ctx context.Context, channel, accountID string) error {
+	now := time.Now()
+	dbCtx := ctx
+	if ctx == nil {
+		dbCtx = context.Background()
+	} else {
+		dbCtx = context.WithoutCancel(ctx)
+	}
+	return r.db.WithContext(dbCtx).Model(&model.BridgeAccount{}).
+		Where("channel = ? AND account_id = ?", channel, accountID).
+		Update("last_sync_at", now).Error
+}
+
+// OnlineGraceWindow 账号"在线"判定窗口：last_sync_at 在该窗口内视为在线。
+//
+// 2026-08-05 架构重构（WS → HTTP）：
+//   - 旧实现：Online = GetBridgeHub().IsOnline(ch, acc)（依赖 WS hub 内存状态）
+//   - 新实现：Online = now() - last_sync_at < OnlineGraceWindow（依赖 DB 时间戳）
+//   - 30s 窗口：bridge 端每秒巡检/上报一次，30s 内必有 last_sync_at 更新；超出则视为"卡死或离线"
+//
+// 与 TouchLastSync 心跳节流配合：HTTP 模式下每个 ingest 请求都更新 last_sync_at，
+// 30s 窗口可容许扩展侧最多丢失 1 个心跳，不会误判。
+const OnlineGraceWindow = 30 * time.Second
+
+// isOnlineByLastSync 基于 last_sync_at 判定账号是否在线
+//
+// HTTP-only 模式下，bridge 端每个 /api/bridge/ingest 请求都会经由 Upsert 刷新 last_sync_at。
+// 此函数纯粹从 DB 字段判断"是否仍在活跃"，不再依赖任何 in-memory hub 状态。
+//
+// 输入：
+//   - lastSyncAt: DB 中存的最近同步时间（可能为 nil）
+//   - status: 业务状态（"online" / "offline"）
+//   - now: 判定时间（测试可注入）
+//
+// 规则（短路）：
+//  1. status == "offline" → 离线（不论 last_sync_at 多新）
+//  2. lastSyncAt == nil → 离线（从未同步过）
+//  3. now - lastSyncAt < OnlineGraceWindow → 在线
+//  4. 否则 → 离线（心跳超时）
+func isOnlineByLastSync(lastSyncAt *time.Time, status string, now time.Time) bool {
+	if status == "offline" {
+		return false
+	}
+	if lastSyncAt == nil {
+		return false
+	}
+	return now.Sub(*lastSyncAt) < OnlineGraceWindow
+}
+
+// ListByUser 列出某用户全部桥接账号（基于 last_sync_at 判断在线状态）。
+//
+// 2026-08-05 架构重构：彻底移除对 GetBridgeHub 的依赖，Online 字段由 DB 时间戳推导。
 func (r *BridgeAccountRepository) ListByUser(ctx context.Context, userID uint) ([]BridgeAccountView, error) {
 	var accs []model.BridgeAccount
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("id desc").Find(&accs).Error; err != nil {
 		return nil, err
 	}
+	now := time.Now()
 	views := make([]BridgeAccountView, 0, len(accs))
 	for _, a := range accs {
 		views = append(views, BridgeAccountView{
@@ -147,10 +222,25 @@ func (r *BridgeAccountRepository) ListByUser(ctx context.Context, userID uint) (
 			AgentID:     a.AgentID,
 			Status:      a.Status,
 			LastSyncAt:  a.LastSyncAt,
-			Online:      GetBridgeHub().IsOnline(a.Channel, a.AccountID),
+			Online:      isOnlineByLastSync(a.LastSyncAt, a.Status, now),
 		})
 	}
 	return views, nil
+}
+
+// IsOnline 按 (channel, account_id) 查 DB 判断账号是否在线（供 controller 层使用）。
+//
+// 性能：单行 SELECT 走 (channel, account_id) 唯一索引，<1ms；为避免 ListByUser 后再单查的二次
+// round trip，ListByUser 内部仍走 isOnlineByLastSync 直接判定。
+func (r *BridgeAccountRepository) IsOnline(ctx context.Context, channel, accountID string) (bool, error) {
+	var acc model.BridgeAccount
+	if err := r.db.WithContext(ctx).Where("channel = ? AND account_id = ?", channel, accountID).First(&acc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil // 账号不存在视为离线
+		}
+		return false, err
+	}
+	return isOnlineByLastSync(acc.LastSyncAt, acc.Status, time.Now()), nil
 }
 
 // GetByChannelAccount 按渠道+账号查询（供归属校验使用）。

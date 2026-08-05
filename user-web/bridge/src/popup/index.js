@@ -156,30 +156,72 @@ function saveConfig(cfg, cb) {
 //   - 404：当前路径不存在，继续试下一个（避免误报）
 //   - 其他 4xx：认证/权限问题，立即返回
 //   - 网络错误/超时/拒绝：保留 last error，作为 unreachable 返回
+//
+// 共享 AbortController（2026-08-05 审计 P1 修复）：
+//   原实现每次 fetch 各建独立 AbortController 仅用于超时；存在两类泄漏：
+//     1) 用户连点"测试连接"：旧请求未取消，先发后到的响应会覆盖最新 banner（race condition）
+//     2) 用户关闭 popup：未取消的 fetch 继续占用 socket 直至超时（30s），MV3 popup 关闭后
+//        promise resolved 也无处展示，纯浪费资源。
+//   改为 popup 单例 AbortController：
+//     - abortInFlight()：再次点击「测试连接」时调用，立即终止上一轮 in-flight fetch
+//     - pagehide/beforeunload 监听器：popup 关闭时 abort，所有未完成 fetch 抛 AbortError
+//     - 单次超时仍保留（每条路径单独 setTimeout + 子 controller），保证单个慢路径不拖整体
+let _healthAbortCtl = null;
+function abortInFlightHealth() {
+  if (_healthAbortCtl) {
+    try { _healthAbortCtl.abort(); } catch (_) { /* noop */ }
+    _healthAbortCtl = null;
+  }
+}
 async function testConnection(serverUrl) {
   const base = normalizeServerUrl(serverUrl);
   if (!base) return { ok: false, reason: 'empty' };
+  // 取消上一轮 in-flight 请求（用户重新点击 / 重新触发）
+  abortInFlightHealth();
+  // 本轮共享 controller：所有候选路径 fetch 共用此 signal
+  // 任何路径超时只 abort 自己的子 controller；用户重新点击 / popup 关闭时 abort 父 controller
+  const parentCtl = new AbortController();
+  _healthAbortCtl = parentCtl;
   let lastNetErr = null;
-  for (const p of HEALTH_PATHS) {
-    const url = base + p;
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), POPUP_HEALTH_CHECK_TIMEOUT_MS);
-    try {
-      const res = await fetch(url, { method: 'GET', signal: ctl.signal, cache: 'no-store' });
-      clearTimeout(t);
-      if (res.ok) return { ok: true, url, status: res.status, degraded: false };
-      if (res.status === 404) continue; // 路径不存在，尝试下一个候选
-      if (res.status >= 500 && res.status < 600) return { ok: true, url, status: res.status, degraded: true };
-      if (res.status >= 400 && res.status < 500) return { ok: false, url, status: res.status, reason: 'http_' + res.status };
-      // 其他 3xx：跟随重定向或视为不可达
-      return { ok: false, url, status: res.status, reason: 'http_' + res.status };
-    } catch (e) {
-      clearTimeout(t);
-      lastNetErr = e && e.message ? e.message : String(e);
-      // 网络错误：尝试下一个候选
+  try {
+    for (const p of HEALTH_PATHS) {
+      const url = base + p;
+      // 子 controller：单路径超时用，不影响其他候选路径
+      const childCtl = new AbortController();
+      const t = setTimeout(() => childCtl.abort(), POPUP_HEALTH_CHECK_TIMEOUT_MS);
+      // 父 controller abort 时也要 abort 子 controller（避免泄漏 + 立即取消）
+      const onParentAbort = () => { try { childCtl.abort(); } catch (_) {} };
+      parentCtl.signal.addEventListener('abort', onParentAbort, { once: true });
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          signal: childCtl.signal,
+          cache: 'no-store',
+        });
+        clearTimeout(t);
+        if (res.ok) return { ok: true, url, status: res.status, degraded: false };
+        if (res.status === 404) continue; // 路径不存在，尝试下一个候选
+        if (res.status >= 500 && res.status < 600) return { ok: true, url, status: res.status, degraded: true };
+        if (res.status >= 400 && res.status < 500) return { ok: false, url, status: res.status, reason: 'http_' + res.status };
+        // 其他 3xx：跟随重定向或视为不可达
+        return { ok: false, url, status: res.status, reason: 'http_' + res.status };
+      } catch (e) {
+        clearTimeout(t);
+        // 父 controller abort（用户重新点击 / popup 关闭）→ 立即返回 aborted
+        if (parentCtl.signal.aborted) {
+          return { ok: false, url: base, reason: 'aborted' };
+        }
+        // 子 controller 超时 / 网络错误：尝试下一个候选
+        lastNetErr = e && e.message ? e.message : String(e);
+      } finally {
+        parentCtl.signal.removeEventListener('abort', onParentAbort);
+      }
     }
+    return { ok: false, url: base, reason: 'unreachable', detail: lastNetErr };
+  } finally {
+    // 清理引用（仅当仍持有本轮 controller 时）
+    if (_healthAbortCtl === parentCtl) _healthAbortCtl = null;
   }
-  return { ok: false, url: base, reason: 'unreachable', detail: lastNetErr };
 }
 
 // 渠道展示名：统一只显示「抖音 / 小红书 / TikTok / 闲鱼」，不出现 douyin_web/xhs_web 这类内部编码
@@ -587,10 +629,11 @@ const SEL_FIELD_TO_PROP = {
 };
 
 // 各渠道 SEL 默认表（静态导入，避免触发 DOM 探测）
+// 2026-08-05 渠道编码统一：key 改为平台全名（与后端 model.Channel* 对齐）。
 const CHANNEL_SEL_MAP = {
-  douyin_web: DOUYIN_SEL,
-  xhs_web: XHS_SEL,
-  xianyu_web: XIANYU_SEL,
+  douyin: DOUYIN_SEL,
+  xiaohongshu: XHS_SEL,
+  xianyu: XIANYU_SEL,
   tiktok: TIKTOK_SEL,
 };
 
@@ -658,7 +701,7 @@ function broadcastSelectorsUpdated() {
   } catch (_) { /* chrome.tabs 不可用：忽略 */ }
 }
 
-let selActiveChannel = 'douyin_web';
+let selActiveChannel = 'douyin';
 
 function wireSelectorConfig() {
   const toggle = $('selToggle');
@@ -900,13 +943,20 @@ document.addEventListener('DOMContentLoaded', () => {
   wirePatrol();
 
   // 打开私信页快捷入口（URL 来源：constants.js PLATFORM_ENTRY_URLS）
-  $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin_web));
-  $('openXhs').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xhs_web));
-  $('openTiktok').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.tiktok_web));
-  $('openXianyu').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xianyu_web));
+  $('openDouyin').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.douyin));
+  $('openXhs').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xiaohongshu));
+  $('openTiktok').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.tiktok));
+  $('openXianyu').addEventListener('click', () => openUrl(PLATFORM_ENTRY_URLS.xianyu));
 
   // 首次打开时拉一次状态
   refreshStatus();
+
+  // ---- popup 卸载时 abort 未完成的 in-flight fetch（2026-08-05 审计 P1）----
+  // MV3 popup 关闭后，promise resolved 也无处展示；继续占用 socket 直至超时纯属浪费。
+  // 监听 pagehide（覆盖移动端 + 桌面）+ beforeunload（兜底），任一触发即 abort。
+  const _abortOnUnload = () => abortInFlightHealth();
+  window.addEventListener('pagehide', _abortOnUnload, { once: true });
+  window.addEventListener('beforeunload', _abortOnUnload, { once: true });
 });
 
 // 暴露到全局便于单测
@@ -929,5 +979,8 @@ if (typeof window !== 'undefined') {
     formatDeepSnapshot,
     tryAutoInject,
     syncAllConversations,
+    // 2026-08-05 审计 P1：共享 AbortController 测试入口
+    abortInFlightHealth,
+    _getHealthAbortCtl: () => _healthAbortCtl,
   };
 }

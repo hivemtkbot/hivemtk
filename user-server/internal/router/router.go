@@ -322,14 +322,19 @@ func Setup(r *gin.Engine) {
 		// 客服会话管理
 		setupCustomerServiceRoutes(auth, aiAgentSvcGlobal, langResolver)
 
-		// 网页桥接 WebSocket（抖音/小红书/TikTok 网页私信）：扩展经此上行私信、下行 AI 回复。
+		// 网页桥接 HTTP 上报（抖音/小红书/TikTok/闲鱼/快手 网页私信）：
+		// 2026-08-05 架构重构：彻底移除 WebSocket 长连接，改用 HTTP 长轮询上报。
+		//   - bridge 端每秒巡检会话列表 → 进入会话抓多轮消息 → 一次性 POST 上报
+		//   - 统一收件箱：去重（5min SHA-256 内容 hash）→ 落库 → 触发 AI → 返回回复
+		//   - 优势：0 长连接、0 goroutine、0 重连状态机；MV3 SW 冻结不影响；curl 可测
+		//   - 详细设计见 internal/bridge/handler_http.go
 		// 不要求前端 JWT——账号以 channel+account_id 自证身份（私有化部署单用户场景）。
 		// 仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware，故无需在 popup 填 token。
 		bridgeIngressSvc = service.NewInboxIngressService()
-		bridgeHandler := bridge.NewBridgeWSHandler(bridge.GetBridgeHub(), bridgeIngressSvc)
+		bridgeHandler := bridge.NewBridgeIngestHandler(bridgeIngressSvc)
 		bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
-		bridgeWS.GET("/ws/bridge", bridgeHandler.HandleWebSocket)
+		bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)
 		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
 		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
 		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)

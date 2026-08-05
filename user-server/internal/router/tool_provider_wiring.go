@@ -57,7 +57,7 @@ func (p *ReachToolProvider) Provide(ctx tooluse.ProviderContext) ([]tooluse.Tool
 	if ctx.DB == nil {
 		return nil, errProviderDBRequired
 	}
-	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(ctx.DB), bridge.GetBridgeHub(), bridgeIngressSvc)
+	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(ctx.DB), bridgeIngressSvc)
 	deps := tooluse.NewReachToolDepsWithAdapter(ctx.DB, adapter)
 	return tooluse.BuildReachTools(deps), nil
 }

@@ -20,7 +20,7 @@ describe('xhs normalizeContactId', () => {
 describe('xhs getAccountId 兜底', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    try { localStorage.removeItem('hivebridge:account:xhs_web'); } catch (e) { /* noop */ }
+    try { localStorage.removeItem('hivebridge:account:xiaohongshu'); } catch (e) { /* noop */ }
   });
   afterEach(() => { document.body.innerHTML = ''; });
 
@@ -41,12 +41,12 @@ describe('xhs getAccountId 兜底', () => {
 
   it('完全无链接时返回 stable unknown（绝不空串 → 不触发 WS 401）', () => {
     document.body.innerHTML = `<div class="empty">无账号线索</div>`;
-    expect(getAccountId()).toBe('xhs_web-unknown');
+    expect(getAccountId()).toBe('xiaohongshu-unknown');
     expect(getAccountId()).not.toBe('');
   });
 
   it('结构链接取不到真实 id 时，复用 localStorage 缓存', () => {
-    localStorage.setItem('hivebridge:account:xhs_web', 'cachedUserId');
+    localStorage.setItem('hivebridge:account:xiaohongshu', 'cachedUserId');
     document.body.innerHTML = `<div class="empty"></div>`;
     expect(getAccountId()).toBe('cachedUserId');
   });

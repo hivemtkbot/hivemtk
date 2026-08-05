@@ -63,7 +63,13 @@ export const SEL = {
   // 聊天对象昵称
   PEER_NAME: '.xhs-im-chat-title, [class*="chat-header" i] [class*="title" i], [class*="chat-window" i] [class*="header" i] [class*="name" i]',
   // 未读标记（巡检用）⚠️ 必须带 i 标志
-  UNREAD: '[class*="unread" i], [class*="red-dot" i], [data-unread="1"]',
+  // 2026-08-05 修复：根据小红书实际 DOM 实测，未读徽章 class 为 xhs-im-conv-item__badge。
+  //   原版仅 [class*="unread" i], [class*="red-dot" i], [data-unread="1"]，
+  //   导致 detectUnread 全返回 false → 巡检"未读 0" → 新消息永不上报。
+  //   现以精确 class 为主，通用模式为辅。
+  UNREAD: '.xhs-im-conv-item__badge, [class*="unread" i], [class*="red-dot" i], [class*="reddot" i], [data-unread="1"], [class*="new-msg" i], [class*="newmessage" i]',
+  // 未读徽章候选（数字徽章）：文本内容是纯数字的元素，class 含 badge/count/num/dot
+  UNREAD_BADGE: '.xhs-im-conv-item__badge, [class*="badge" i], [class*="count" i], [class*="num" i], [class*="dot" i]',
 };
 
 // —— 输入框候选 ——
@@ -190,8 +196,13 @@ function getConversationId() {
     const norm = normalizeContactId(pathMatch[1]);
     if (norm) return norm;
   }
+  // 2026-08-05 修复：query 参数走 normalizeContactId 保持命名空间一致
+  //   原版直接返回原始字符串，与第 1/2/5 步的规范化结果不一致（大小写/特殊字符差异）
+  //   → openConversation 精确匹配失败 → 巡检找不到目标会话
   if (/[?&]conversation_id=/.test(location.href)) {
-    return new URLSearchParams(location.search).get('conversation_id');
+    const raw = new URLSearchParams(location.search).get('conversation_id');
+    const norm = normalizeContactId(raw);
+    if (norm) return norm;
   }
   // 聊天 header 用户链接（对方主页链接即会话标识）。
   // 关键：新版 /chat 页 header 第一个 /user/profile/ 链接常是「我」自己（账号线索），
@@ -451,12 +462,62 @@ function getConversationList() {
 }
 
 // 未读检测：会话项自身带未读 class，或其内部含未读红点/badge，即视为有新消息。
+//
+// 2026-08-05 修复：原版仅靠 SEL.UNREAD 选择器匹配，但小红书会话列表的未读徽章
+//   class 名多变（badge/count/num/dot 等），且徽章可能是纯数字文本元素无明确 class。
+//   实测 detectUnread 全返回 false → 巡检"未读 0" → 新消息不上报。
+//
+//   修复策略（多层兜底）：
+//   1) SEL.UNREAD 选择器匹配（扩展后覆盖更多 class）
+//   2) 数字徽章检测：遍历候选 badge 元素，文本是纯数字 > 0 即视为未读
+//   3) data 属性检测：data-unread / data-count / data-msg-count / data-unread-count
+//   4) 粗体检测：会话项 name 元素 font-weight >= 600（未读会话标题加粗显示）
+//   注意排除"当前激活会话"（active/selected 类）——激活会话本身不算未读（用户正在看）。
 function detectUnread(item) {
   if (!item) return false;
   try {
-    if (item.matches && item.matches(SEL.UNREAD)) return true;
-    if (item.querySelector && item.querySelector(SEL.UNREAD)) return true;
-  } catch (_) { /* 非法选择器忽略 */ }
+    // 当前激活会话不算未读（用户正在查看）
+    const isActive = item.matches && (
+      item.matches('[class*="active" i]') ||
+      item.matches('[class*="selected" i]') ||
+      item.matches('[class*="current" i]')
+    );
+    // 1) SEL.UNREAD 选择器匹配
+    if (item.matches && item.matches(SEL.UNREAD) && !isActive) return true;
+    if (item.querySelector && item.querySelector(SEL.UNREAD)) {
+      // 内部有未读标记元素，但若会话项本身是 active 则仍不算未读
+      if (!isActive) return true;
+    }
+    // 2) 数字徽章检测：候选 badge 元素文本是纯数字 > 0
+    if (item.querySelectorAll) {
+      const badges = item.querySelectorAll(SEL.UNREAD_BADGE);
+      for (const b of badges) {
+        const txt = (b.textContent || '').trim();
+        // 纯数字且 > 0（"0" 不算未读）
+        if (/^\d+$/.test(txt) && parseInt(txt, 10) > 0) return true;
+      }
+    }
+    // 3) data 属性检测
+    const dataKeys = ['data-unread', 'data-count', 'data-msg-count', 'data-unread-count', 'data-new'];
+    for (const k of dataKeys) {
+      const v = item.getAttribute(k);
+      if (v === '1' || v === 'true' || (/^\d+$/.test(v) && parseInt(v, 10) > 0)) return true;
+    }
+    // 4) 粗体检测：会话项 name 元素 font-weight >= 600（未读会话标题加粗）
+    //   仅当会话项非 active 时才检测（active 会话标题也可能加粗）
+    if (!isActive) {
+      const nameEl = item.querySelector(
+        '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i]'
+      );
+      if (nameEl) {
+        const fw = window.getComputedStyle(nameEl).fontWeight;
+        const fwNum = parseInt(fw, 10);
+        if (!isNaN(fwNum) && fwNum >= 600) return true;
+        // 字符型 font-weight（bold/semibold 等）
+        if (fw === 'bold' || fw === '600' || fw === '700' || fw === '800' || fw === '900') return true;
+      }
+    }
+  } catch (_) { /* 非法选择器或 getComputedStyle 不可用忽略 */ }
   return false;
 }
 

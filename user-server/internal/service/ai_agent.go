@@ -470,6 +470,10 @@ func (s *ChannelAgentBindingService) LoadAgentForChannel(ctx context.Context, ch
 
 // NormalizeChannelType 规范化渠道类型字符串
 // 将 WebhookChannel 转换为 model.ChannelType
+//
+// 2026-08-05 渠道编码统一：所有渠道统一为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok），
+// "xhs" / "xhs_web" / "douyin_web" / "kuaishou_web" / "xianyu_web" / "tiktok_web" 视为历史简写，
+// 全部归一化到 ChannelType 枚举值，便于 channel_agent_bindings 表查询命中。
 func NormalizeChannelType(ch string) string {
 	ch = strings.ToLower(strings.TrimSpace(ch))
 	switch ch {
@@ -483,15 +487,15 @@ func NormalizeChannelType(ch string) string {
 		return string(model.ChannelTypeWhatsApp)
 	case "dingtalk", "dt":
 		return string(model.ChannelTypeDingTalk)
-	case "douyin":
+	case "douyin", "douyin_web":
 		return string(model.ChannelTypeDouyin)
-	case "xiaohongshu", "xhs":
+	case "xiaohongshu", "xhs", "xhs_web":
 		return string(model.ChannelTypeXiaohongshu)
-	case "kuaishou", "ks":
+	case "kuaishou", "ks", "kuaishou_web":
 		return string(model.ChannelTypeKuaishou)
-	case "xianyu":
+	case "xianyu", "xianyu_web":
 		return string(model.ChannelTypeXianyu)
-	case "tiktok":
+	case "tiktok", "tiktok_web":
 		return string(model.ChannelTypeTikTok)
 	case "web_embed", "webembed":
 		return string(model.ChannelTypeWebEmbed)

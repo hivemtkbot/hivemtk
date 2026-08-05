@@ -140,7 +140,9 @@ export function locateMessages({ root, itemSelectors, listSelectors }) {
     if (containsAnother) return false;
     return looksLikeMessageBubble(el);
   });
-  log.debug('locateMessages', { containerTag: container && container.tagName, itemCount: items.length });
+  // 2026-08-05 修复：移除 debug 日志（每 3s 被 fallbackTimer 调用，刷屏）
+  //   locateMessages 信息量低（仅容器 tag + item 数量），且 _backfill/_scanIncremental
+  //   的上层日志已足够诊断。
   return { container, items };
 }
 

@@ -191,5 +191,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewBridgeAccountMigration(db))
 	// 归一化旧 bridge channel 数据（douyin -> douyin_web 等）
 	registry.Register(NewBridgeChannelNormalizeMigration(db))
+	// 2026-08-05 渠道编码统一 v2：把 *_web / xhs 全部归一化为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok）
+	registry.Register(NewBridgeChannelUnifyV2Migration(db))
 	// 继续添加新的迁移...
 }

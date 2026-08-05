@@ -48,11 +48,13 @@ export const DEFAULT_USER_SERVER = {
 //   - TikTok 私信：https://www.tiktok.com/messages（官网消息入口）
 //   - 闲鱼聊天页：https://www.goofish.com/im（闲鱼 IM 入口）
 // 用途：popup 「打开抖音/小红书/TikTok/闲鱼 私信」按钮的跳转目标
+// 2026-08-05 渠道编码统一：key 改为平台全名（与后端 model.Channel* 对齐）。
 export const PLATFORM_ENTRY_URLS = {
-  douyin_web: 'https://www.douyin.com/chat',
-  xhs_web: 'https://www.xiaohongshu.com/chat',
+  douyin: 'https://www.douyin.com/chat',
+  xiaohongshu: 'https://www.xiaohongshu.com/chat',
   tiktok: 'https://www.tiktok.com/messages',
-  xianyu_web: 'https://www.goofish.com/im',
+  xianyu: 'https://www.goofish.com/im',
+  kuaishou: 'https://www.kuaishou.com/new-reco',
 };
 
 // =============================================================
@@ -110,8 +112,11 @@ export const PATROL_DEFAULTS = Object.freeze({
   intervalMs: 60 * 1000,
   // 单个会话点击打开后等待线程渲染时长
   waitActiveMs: 5000,
-  // 会话间切换节流（避免被风控判定为机器人）
-  throttleMs: 1500,
+  // 会话间切换节流：1 秒一个会话（用户诉求：控制访问速率）
+  //   - 太快（<800ms）易触发平台风控（判定为机器人）
+  //   - 太慢（>2000ms）巡检延迟高，新消息捕获不及时
+  //   - 1s 平衡点：平台可接受 + 新消息近实时捕获
+  throttleMs: 1000,
   // 单轮最多访问多少个会话（0 = 不限，按需设上限防止超长轮）
   maxPerRound: 0,
   // 列表底部滚动加载更多的等待时间
@@ -119,6 +124,35 @@ export const PATROL_DEFAULTS = Object.freeze({
   // 多轮滚动扫描最多多少 pass（虚拟/懒加载列表逐步加载）
   maxPasses: 8,
 });
+
+// =============================================================
+// 5b) 历史回填宽限期（per-channel，2026-08-05 审计 P0/A6）
+// =============================================================
+// 语义：会话初次挂载/切换后的一段时间内，新出现的客户消息仅回填历史（落库），
+//   不触发 AI 自动回复。避免打开含存量私信的会话时被当成新消息逐一自动回复。
+//
+// per-channel 依据（实测不同平台 SPA 渲染延迟差异极大）：
+//   - douyin：5s（聊天页结构稳定，DOM 渲染快）
+//   - xiaohongshu：2s（XHS IM 是 React 受控组件，渲染最快）
+//   - tiktok：6s（海外链路 + 重 SPA，渲染最慢）
+//   - xianyu：4s（闲鱼 IM 入口 goofish.com，DOM 中等复杂度）
+//   - kuaishou：5s（未实现，预留）
+//
+// 默认值（BaseAdapter 未注入 hooks.historyGraceMs 时使用）：8s（保守上限）
+export const HISTORY_GRACE_MS = Object.freeze({
+  douyin: 5000,
+  xiaohongshu: 2000,
+  tiktok: 6000,
+  xianyu: 4000,
+  kuaishou: 5000,
+  default: 8000,
+});
+
+// getHistoryGraceMs 按 channel 取 per-channel 宽限期；未知 channel 用 default。
+export function getHistoryGraceMs(channel) {
+  if (!channel) return HISTORY_GRACE_MS.default;
+  return HISTORY_GRACE_MS[channel] || HISTORY_GRACE_MS.default;
+}
 
 // =============================================================
 // 6) UI / 测试用超时
@@ -133,11 +167,16 @@ export const UI_DEFAULTS = Object.freeze({
 
 // 渠道展示名 → 统一只显示「抖音 / 小红书 / TikTok / 闲鱼」，不出现「抖音私信(网页)」这类冗长写法
 // （需求④：只有一个渠道名称、来源平台编码只有 抖音/小红书/闲鱼/TikTok，列表渲染/搜索同理）
+//
+// 2026-08-05 渠道编码统一：key 与 value 解耦——key 是后端约定的渠道编码（与 user-server
+// model.ChannelXHS/Douyin/Kuaishou/Xianyu/TikTok 完全一致，全名无 _web 后缀），
+// value 是 UI 展示文案（中文/品牌名）。
 export const CHANNEL_DISPLAY = Object.freeze({
-  douyin_web: '抖音',
-  xhs_web: '小红书',
+  douyin: '抖音',
+  xiaohongshu: '小红书',
   tiktok: 'TikTok',
-  xianyu_web: '闲鱼',
+  xianyu: '闲鱼',
+  kuaishou: '快手',
 });
 
 // =============================================================
@@ -145,8 +184,11 @@ export const CHANNEL_DISPLAY = Object.freeze({
 // =============================================================
 // 文档源：bridge.md §3 / frames.go Frame* 常量
 // 警告：frame 名称是协议契约，禁改字面量
+//
+// 2026-08-05 渠道编码统一：CHANNELS 值改为平台全名（去掉 _web 后缀），与后端
+// model.ChannelXHS/Douyin/Kuaishou/Xianyu/TikTok 一一对应。
 export const PROTOCOL = Object.freeze({
-  CHANNELS: { DOUYIN: 'douyin_web', XHS: 'xhs_web', TIKTOK: 'tiktok', XIANYU: 'xianyu_web' },
+  CHANNELS: { DOUYIN: 'douyin', XHS: 'xiaohongshu', TIKTOK: 'tiktok', XIANYU: 'xianyu', KUAISHOU: 'kuaishou' },
   FRAME: {
     REGISTER: 'register',
     INBOUND: 'inbound_message',

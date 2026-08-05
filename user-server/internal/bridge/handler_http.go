@@ -1,0 +1,775 @@
+package bridge
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
+	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
+	"marketing/internal/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+// =============================================================
+// HTTP 长轮询上报端点（POST /api/bridge/ingest）
+//
+// 2026-08-05 架构重构（用户诉求）：
+//   - bridge 模块不再维护 WebSocket 长连接，改用 HTTP 长轮询
+//   - bridge 端：每秒巡检一次会话列表 → 进入会话抓多轮消息 → 一次性 POST
+//   - 统一收件箱：去重（5min SHA-256 内容 hash）→ 落库 → 触发 AI → 返回回复
+//   - 优势：架构简单（0 长连接、0 goroutine、0 重连状态机）、curl 可测、
+//     天然 OOM-safe（HTTP 用过即释放）、MV3 SW 冻结不影响
+//   - 配套：bridge 端日志含完整 URL + 全部 query + body；user-server 入口
+//     日志含完整 URL + body + 响应结果，便于对照定位
+//
+// 与现有 WS 端点（/api/ws/bridge）并存：WS 标记为 deprecated，新扩展走 HTTP。
+// =============================================================
+
+// HTTP 端点参数（与 WS 端点默认值严格对齐，单源来自 DEFAULTS.md）
+const (
+	// HTTPPollingMaxTimeout 单次 HTTP 请求最大等待时间（与用户诉求 "500 秒超时" 对齐）
+	HTTPPollingMaxTimeout = 500 * time.Second
+	// HTTPPollingDefaultTimeout 默认超时（30s；扩展无显式指定时使用）
+	HTTPPollingDefaultTimeout = 30 * time.Second
+	// HTTPIngestMaxBodySize 单请求 body 最大字节数（防止恶意扩展灌大包）
+	HTTPIngestMaxBodySize = 4 << 20 // 4MB
+	// HTTPIngestMaxMessages 单请求最多消息条数
+	HTTPIngestMaxMessages = 200
+)
+
+// HTTPIngestRequest 上报请求体（与扩展端 http-ingest.js 严格对齐）
+type HTTPIngestRequest struct {
+	V              int                       `json:"v,omitempty"` // 协议版本（缺省 = 1）
+	Channel        string                    `json:"channel"`
+	AccountID      string                    `json:"account_id"`
+	ConversationID string                    `json:"conversation_id,omitempty"`
+	Messages       []*HTTPIngestMessage      `json:"messages"`
+	ExpectReply    bool                      `json:"expect_reply,omitempty"`     // 是否长轮询等待 AI 回复
+	TimeoutMs      int                       `json:"timeout_ms,omitempty"`       // 期望长轮询时长（毫秒）
+	AccountName    string                    `json:"account_name,omitempty"`     // 账号昵称（首次注册用）
+	AgentID        uint                      `json:"agent_id,omitempty"`         // 绑定到该智能体（首次注册用）
+	// InternalOnly 内部调试字段：跳过 AI 触发（仅落库），用于 e2e 测试
+	InternalOnly bool `json:"internal_only,omitempty"`
+}
+
+// HTTPIngestMessage 单条消息（与前端 types.js UnifiedMessage 对齐）
+type HTTPIngestMessage struct {
+	EventID        string         `json:"event_id,omitempty"`
+	Channel        string         `json:"channel,omitempty"`
+	AccountID      string         `json:"account_id,omitempty"`
+	ConversationID string         `json:"conversation_id"`
+	SenderID       string         `json:"sender_id"`
+	SenderName     string         `json:"sender_name,omitempty"`
+	SenderType     string         `json:"sender_type,omitempty"` // customer | self | agent | system
+	ReceiverID     string         `json:"receiver_id,omitempty"`
+	MsgType        string         `json:"msg_type"`
+	Content        string         `json:"content"`
+	MediaURL       string         `json:"media_url,omitempty"`
+	Timestamp      int64          `json:"timestamp"`
+	Direction      string         `json:"direction,omitempty"` // inbound | outbound
+	IsGroup        bool           `json:"is_group,omitempty"`
+	GroupID        string         `json:"group_id,omitempty"`
+	GroupName      string         `json:"group_name,omitempty"`
+	History        []*HistoryItem `json:"history,omitempty"` // 会话级多轮历史（点3）
+	Extra          map[string]any `json:"extra,omitempty"`
+}
+
+// HTTPIngestResponse 上报响应
+type HTTPIngestResponse struct {
+	OK              bool                       `json:"ok"`
+	Ingested        []*HTTPIngestResult        `json:"ingested"`                   // 每条消息处理结果
+	OutboundReplies []*UnifiedReply            `json:"outbound_replies,omitempty"` // AI 回复（outbound_reply）
+	SessionID       string                     `json:"session_id,omitempty"`
+	Reason          string                     `json:"reason,omitempty"`
+	ServerTime      int64                      `json:"server_time"` // 服务端处理完时间（毫秒）
+}
+
+// HTTPIngestResult 单条消息处理结果
+type HTTPIngestResult struct {
+	EventID   string `json:"event_id"`
+	Accepted  bool   `json:"accepted"`
+	Duplicate bool   `json:"duplicate,omitempty"`  // 5min 内内容 hash 重复
+	AIHandled bool   `json:"ai_handled,omitempty"` // 已触发 AI 推理
+	Reason    string `json:"reason,omitempty"`
+}
+
+// HTTPIngestPending 等待中的长轮询请求（用于将来"扩展发来多轮等 AI 一起返回"扩展）
+//
+// 当前实现：单条消息的 AI 回复即时在请求内完成；本结构为预留，便于将来"批量合并推理"
+// （同会话多条消息 → 合并为单次 AI 调用 → 统一返回）。当前不写、不读，保留接口稳定。
+type HTTPIngestPending struct {
+	mu        sync.Mutex
+	waiters   map[string]chan *HTTPIngestResponse // key: conversation_id
+}
+
+// collectHTTPRequestInfo 收集 HTTP 请求的"完整 URL + 全部 query + headers + body"快照。
+// 2026-08-05 重构：与 WS 端 collectBridgeWSRequestInfo 同源设计，
+// 5 个日志点（收到请求 / 参数缺失 / 渠道拒绝 / ingest 处理 / 响应回写）共用同一结构，
+// 便于日志检索串联（按 full_url 或 channel+account_id 聚合时一次抓全）。
+type httpRequestInfo struct {
+	Method         string
+	Path           string
+	RawQuery       string
+	FullURL        string
+	ContentType    string
+	ContentLength  int64
+	Channel        string
+	AccountID      string
+	ConversationID string
+	TokenMasked    string
+	RemoteAddr     string
+	Origin         string
+	UserAgent      string
+	ParsedQuery    map[string]string
+	BodyPreview    string // body 前 4KB 预览（截断避免日志撑爆）
+	BodySize       int
+}
+
+// collectHTTPRequestInfo 从 gin.Context 提取 HTTP ingest 请求快照。
+// 不修改 c、不做业务校验，纯粹是字段收集 + token 脱敏。
+//
+// 行为说明：
+//   - body 预览最多读 4KB（HTTPIngestMaxBodySize 的 1/1024），超出截断并标记 truncated=true
+//   - body 读取后必须通过 Put 写回 c.Request.Body，否则下游 BindJSON 读不到
+//   - 解析失败不返回错误（让 gin BindJSON 报更明确的错）
+func collectHTTPRequestInfo(c *gin.Context) httpRequestInfo {
+	token := c.Query("token")
+	// 在写回 body 之前先快照原始 ContentLength，否则会被覆盖为截断后长度
+	origContentLength := c.Request.ContentLength
+	bodyPreview, bodySize, truncated := readBodyPreview(c.Request.Body, 4096)
+	// 写回 body，避免下游 BindJSON 失败
+	if c.Request != nil && c.Request.Body != nil {
+		c.Request.Body = io.NopCloser(strings.NewReader(bodyPreview))
+		if truncated {
+			// 重置 ContentLength 让下游知道还有剩余
+			c.Request.ContentLength = -1
+		} else {
+			c.Request.ContentLength = int64(len(bodyPreview))
+		}
+	}
+	return httpRequestInfo{
+		Method:         c.Request.Method,
+		Path:           c.Request.URL.Path,
+		RawQuery:       c.Request.URL.RawQuery,
+		FullURL:        c.Request.URL.String(),
+		ContentType:    c.GetHeader("Content-Type"),
+		ContentLength:  origContentLength,
+		Channel:        c.Query("channel"),
+		AccountID:      c.Query("account_id"),
+		ConversationID: c.Query("conversation_id"),
+		TokenMasked:    maskTokenBridge(token),
+		RemoteAddr:     c.Request.RemoteAddr,
+		Origin:         c.GetHeader("Origin"),
+		UserAgent:      c.GetHeader("User-Agent"),
+		ParsedQuery:    describeUpstreamQuery(c.Request.URL.Query()),
+		BodyPreview:    bodyPreview,
+		BodySize:       bodySize,
+	}
+}
+
+// readBodyPreview 读取 body 全部内容 + 前 N 字节预览。
+// 返回 (preview, totalSize, truncated)。
+func readBodyPreview(rc io.ReadCloser, previewBytes int) (string, int, bool) {
+	if rc == nil {
+		return "", 0, false
+	}
+	all, err := io.ReadAll(rc)
+	_ = rc.Close()
+	if err != nil {
+		return fmt.Sprintf("[read body failed: %v]", err), 0, false
+	}
+	total := len(all)
+	if total <= previewBytes {
+		return string(all), total, false
+	}
+	return string(all[:previewBytes]) + fmt.Sprintf("... [truncated, total=%d bytes]", total), total, true
+}
+
+// BridgeIngestHandler HTTP 上报端点处理器（2026-08-05 HTTP-only 重构）
+//
+// mock 注入点（2026-08-05）：
+//   - MockHandleIngress / MockPersistHistory 用于本地 mock 跑通 HTTP 长轮询 e2e，
+//     不依赖 DB / Redis / AI 引擎。生产环境（NewBridgeIngestHandler）保持 nil，handler 走真实 ingress。
+//   - 测试中通过 NewBridgeIngestHandlerWithMock 注入 fake，让 HandleIngressMessage / PersistBridgeHistory
+//     走测试桩函数，验证 5min 去重、长轮询 reply 拉取、OutboundReplies 序列化等。
+type BridgeIngestHandler struct {
+	ingress *service.InboxIngressService
+	// mockHandle / mockPersist 测试用：nil 时走真实 ingress，否则走注入函数
+	mockHandle   func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error)
+	mockPersist  func(ctx context.Context, ev *model.MessageEvent, direction string) error
+}
+
+// NewBridgeIngestHandler 构造 HTTP ingest 处理器
+func NewBridgeIngestHandler(ingress *service.InboxIngressService) *BridgeIngestHandler {
+	return &BridgeIngestHandler{ingress: ingress}
+}
+
+// NewBridgeIngestHandlerWithMock 构造带 mock 的 HTTP ingest 处理器（仅测试用）
+//
+// mockHandle / mockPersist 任一为 nil 时，对应路径回退到真实 ingress（若 ingress 也 nil 则 panic）。
+// 用于本地跑通 HTTP 长轮询 e2e，无需 DB/Redis/AI 引擎。
+func NewBridgeIngestHandlerWithMock(
+	mockHandle func(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error),
+	mockPersist func(ctx context.Context, ev *model.MessageEvent, direction string) error,
+) *BridgeIngestHandler {
+	return &BridgeIngestHandler{mockHandle: mockHandle, mockPersist: mockPersist}
+}
+
+// callHandleIngress 走 mock 优先，否则真实 ingress
+func (h *BridgeIngestHandler) callHandleIngress(ctx context.Context, ev *model.MessageEvent) (*service.InboxIngressResult, error) {
+	if h.mockHandle != nil {
+		return h.mockHandle(ctx, ev)
+	}
+	return h.ingress.HandleIngressMessage(ctx, ev)
+}
+
+// callPersistHistory 走 mock 优先，否则真实 ingress
+func (h *BridgeIngestHandler) callPersistHistory(ctx context.Context, ev *model.MessageEvent, direction string) error {
+	if h.mockPersist != nil {
+		return h.mockPersist(ctx, ev, direction)
+	}
+	return h.ingress.PersistBridgeHistory(ctx, ev, direction)
+}
+
+// HandleHTTPIngest POST /api/bridge/ingest 统一收件箱 HTTP 上报端点
+//
+// 2026-08-05 架构重构（用户诉求）：
+//   1. 接收扩展一次性上报的多条消息
+//   2. 对每条消息走 InboxIngressService.HandleIngressMessage（含 sender_type 过滤、
+//      内容 hash 去重、5min 回复窗口、AI 触发）
+//   3. 若 expect_reply=true 且至少一条消息触发 AI：长轮询等待 AI 推理完成（最多 HTTPPollingMaxTimeout）
+//   4. 返回 ingest 处理结果 + outbound_replies（AI 回复）
+//
+// 鉴权（与 WS 端点一致）：
+//   - 路由层仅过 InitGuard（系统须已初始化），不过 JWTAuthMiddleware
+//   - 账号以 channel+account_id 自证身份（私有化部署单用户场景）
+//   - 若请求携带有效 JWT，则再校验 (channel, account_id) 是否属于该 user
+func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
+	// 2026-08-05 重构：所有 HTTP ingest 日志共用同一 httpRequestInfo 快照。
+	//   1) 收集完整 URL + 全部 query + 来源信息（含 token 脱敏）
+	//   2) 5 个日志点统一格式（收到请求 / 参数缺失 / 渠道拒绝 / ingest 处理 / 响应回写）
+	//   3) 与扩展端 http-ingest.js _logRequest 输出对照即可定位参数丢失/错传问题
+	info := collectHTTPRequestInfo(c)
+	channel := info.Channel
+	accountID := info.AccountID
+	conversationID := info.ConversationID
+	ctx0 := c.Request.Context()
+
+	logger.Ctx(ctx0).Info().
+		Str("module", "bridge").
+		Str("event", "http_ingest_request").
+		Str("full_url", info.FullURL).
+		Str("method", info.Method).
+		Str("path", info.Path).
+		Str("raw_query", info.RawQuery).
+		Str("content_type", info.ContentType).
+		Int64("content_length", info.ContentLength).
+		Str("channel", channel).
+		Str("account_id", accountID).
+		Str("conversation_id", conversationID).
+		Str("token", info.TokenMasked).
+		Str("remote_addr", info.RemoteAddr).
+		Str("origin", info.Origin).
+		Str("user_agent", info.UserAgent).
+		Interface("parsed_query", info.ParsedQuery).
+		Str("body_preview", info.BodyPreview).
+		Int("body_size", info.BodySize).
+		Msg("[Bridge HTTP] 收到 ingest 请求（完整 URL + 全部参数 + body 预览）")
+
+	// 必填参数校验
+	if channel == "" || accountID == "" {
+		logger.Ctx(ctx0).Warn().
+			Str("module", "bridge").
+			Str("event", "http_ingest_missing_params").
+			Str("full_url", info.FullURL).
+			Str("channel", channel).
+			Str("account_id", accountID).
+			Msg("[Bridge HTTP] 参数缺失：channel 或 account_id 为空")
+		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
+			OK:     false,
+			Reason: "channel and account_id required",
+		})
+		return
+	}
+	// 渠道白名单
+	if !IsBridgeChannel(channel) {
+		logger.Ctx(ctx0).Warn().
+			Str("module", "bridge").
+			Str("event", "http_ingest_unsupported_channel").
+			Str("full_url", info.FullURL).
+			Str("channel", channel).
+			Str("account_id", accountID).
+			Msg("[Bridge HTTP] 渠道不在白名单")
+		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
+			OK:     false,
+			Reason: "unsupported bridge channel",
+		})
+		return
+	}
+
+	// 解析 JWT（可选）：与 WS 端一致，无 JWT 时归属写入 user_id=0
+	uidAny, _ := c.Get("user_id")
+	uid, _ := uidAny.(uint)
+	if GlobalOwnershipChecker != nil && uid != 0 {
+		owns, err := GlobalOwnershipChecker(c.Request.Context(), uid, channel, accountID)
+		if err != nil {
+			logger.Ctx(ctx0).Warn().
+				Str("module", "bridge").
+				Str("event", "http_ingest_ownership_check_failed").
+				Err(err).
+				Str("full_url", info.FullURL).
+				Str("channel", channel).
+				Str("account_id", accountID).
+				Uint("user_id", uid).
+				Msg("[Bridge HTTP] 账号归属校验失败")
+			c.JSON(http.StatusInternalServerError, HTTPIngestResponse{
+				OK:     false,
+				Reason: "ownership check failed: " + err.Error(),
+			})
+			return
+		}
+		if !owns {
+			logger.Ctx(ctx0).Warn().
+				Str("module", "bridge").
+				Str("event", "http_ingest_ownership_denied").
+				Str("full_url", info.FullURL).
+				Str("channel", channel).
+				Str("account_id", accountID).
+				Uint("user_id", uid).
+				Msg("[Bridge HTTP] 账号归属不属于当前 user，拒绝 ingest")
+			c.JSON(http.StatusForbidden, HTTPIngestResponse{
+				OK:     false,
+				Reason: "account not owned by current user",
+			})
+			return
+		}
+	}
+
+	// 解析 body（collectHTTPRequestInfo 已写回 body，可直接 BindJSON）
+	// Body 大小保护：info.ContentLength 是原始 ContentLength（collect 会写回 body 后修改 c.Request.ContentLength）
+	if info.ContentLength > HTTPIngestMaxBodySize {
+		logger.Ctx(ctx0).Warn().
+			Str("module", "bridge").
+			Str("event", "http_ingest_body_too_large").
+			Str("full_url", info.FullURL).
+			Int64("content_length", info.ContentLength).
+			Msg("[Bridge HTTP] body 超过 4MB 上限")
+		c.JSON(http.StatusRequestEntityTooLarge, HTTPIngestResponse{
+			OK:     false,
+			Reason: fmt.Sprintf("body too large (max %d bytes)", HTTPIngestMaxBodySize),
+		})
+		return
+	}
+	var req HTTPIngestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Ctx(ctx0).Warn().
+			Str("module", "bridge").
+			Str("event", "http_ingest_bind_json_failed").
+			Err(err).
+			Str("full_url", info.FullURL).
+			Msg("[Bridge HTTP] body JSON 解析失败")
+		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
+			OK:     false,
+			Reason: "invalid json body: " + err.Error(),
+		})
+		return
+	}
+	// 兜底：body 内 channel/account_id 与 query 不一致时以 query 为准（防扩展错传）
+	if req.Channel == "" {
+		req.Channel = channel
+	}
+	if req.AccountID == "" {
+		req.AccountID = accountID
+	}
+	if req.ConversationID == "" {
+		req.ConversationID = conversationID
+	}
+	if len(req.Messages) > HTTPIngestMaxMessages {
+		logger.Ctx(ctx0).Warn().
+			Str("module", "bridge").
+			Str("event", "http_ingest_too_many_messages").
+			Str("full_url", info.FullURL).
+			Int("messages", len(req.Messages)).
+			Msg("[Bridge HTTP] 消息数超过 200 上限")
+		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
+			OK:     false,
+			Reason: fmt.Sprintf("too many messages (max %d)", HTTPIngestMaxMessages),
+		})
+		return
+	}
+
+	// trace_id 透传
+	traceID := c.GetHeader("X-Trace-Id")
+	if traceID == "" {
+		if v, ok := c.Get("trace_id"); ok {
+			traceID, _ = v.(string)
+		}
+	}
+	ctx := c.Request.Context()
+	if traceID != "" {
+		ctx = logger.WithTraceID(ctx, traceID)
+	} else {
+		ctx = logger.WithTraceID(ctx, "")
+	}
+	ctx = logger.WithModule(ctx, "bridge")
+
+	// 异步 upsert 账号（注册态），不阻塞主路径
+	if GlobalBridgeAccountRepo != nil && (req.AgentID > 0 || req.AccountName != "" || len(req.Messages) > 0) {
+		up := BridgeAccountUpsert{
+			UserID:      uid,
+			Channel:     channel,
+			AccountID:   accountID,
+			AgentID:     req.AgentID,
+			AccountName: req.AccountName,
+			Status:      "online",
+		}
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Ctx(context.Background()).Error().
+						Interface("panic", r).
+						Str("module", "bridge").
+						Str("channel", up.Channel).
+						Str("account_id", up.AccountID).
+						Msg("[Bridge] async HTTP Upsert panic recovered")
+				}
+			}()
+			upCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := GlobalBridgeAccountRepo.Upsert(upCtx, up); err != nil {
+				if !errors.Is(err, ErrAccountOwnedByOther) {
+					logger.Ctx(context.Background()).Warn().Err(err).Str("module", "bridge").
+						Str("channel", up.Channel).Str("account_id", up.AccountID).
+						Msg("bridge HTTP Upsert failed (non-fatal)")
+				}
+			}
+		}()
+	}
+
+	// 处理每条消息 + 收集回复
+	resp := &HTTPIngestResponse{
+		OK:         true,
+		Ingested:   make([]*HTTPIngestResult, 0, len(req.Messages)),
+		ServerTime: time.Now().UnixMilli(),
+	}
+	outboundReplies := make([]*UnifiedReply, 0)
+	anyAIQueued := false
+
+	for _, m := range req.Messages {
+		if m == nil {
+			continue
+		}
+		// 兜底：消息内 channel/account_id/conversation_id 与请求级一致
+		if m.Channel == "" {
+			m.Channel = req.Channel
+		}
+		if m.AccountID == "" {
+			m.AccountID = req.AccountID
+		}
+		if m.ConversationID == "" {
+			m.ConversationID = req.ConversationID
+		}
+		// 转换为 MessageEvent
+		var ev *model.MessageEvent
+		if m.SenderType == "self" || m.SenderType == "agent" {
+			// 自己/坐席消息走历史通道（仅落库不触发 AI）
+			if len(m.History) > 0 {
+				for _, it := range m.History {
+					if it == nil {
+						continue
+					}
+					item := historyItemToEvent(httpMessageToUnified(m), it)
+					if err := h.callPersistHistory(ctx, item, it.Direction); err != nil {
+						logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+							Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
+							Msg("[Bridge HTTP] self/agent history item persist failed")
+					}
+				}
+				resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
+					EventID:  m.EventID,
+					Accepted: true,
+					Reason:   "self/agent history item persisted",
+				})
+				continue
+			}
+			ev = httpMessageToEvent(m)
+			if err := h.callPersistHistory(ctx, ev, m.Direction); err != nil {
+				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+					Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
+					Msg("[Bridge HTTP] self/agent message persist failed")
+			}
+			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
+				EventID:  m.EventID,
+				Accepted: true,
+				Reason:   "self/agent message persisted (history only, no AI)",
+			})
+			continue
+		}
+		// 客户消息（含 history 帧）走 InboxIngress
+		if len(m.History) > 0 {
+			// 会话级 history：逐条持久化（direction 由 history item 决定）
+			// 仅第一条 customer 方向触发 AI（与 WS 行为对齐：history 帧仅落库不触发 AI）
+			for hi, it := range m.History {
+				if it == nil {
+					continue
+				}
+				item := historyItemToEvent(httpMessageToUnified(m), it)
+				dir := it.Direction
+				if dir == "" {
+					dir = "inbound"
+				}
+				if err := h.callPersistHistory(ctx, item, dir); err != nil {
+					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+						Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
+						Int("history_idx", hi).
+						Msg("[Bridge HTTP] history item persist failed")
+				}
+			}
+			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
+				EventID:  m.EventID,
+				Accepted: true,
+				Reason:   "session-level history persisted (no AI trigger)",
+			})
+			continue
+		}
+		ev = httpMessageToEvent(m)
+		// 走 InboxIngress（含 sender_type 过滤、5min 内容 hash 去重、5min AI 回复窗口）
+		if req.InternalOnly {
+			// 内部调试：仅落库不触发 AI
+			if err := h.callPersistHistory(ctx, ev, "inbound"); err != nil {
+				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+					Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
+					Msg("[Bridge HTTP] internal_only persist failed")
+			}
+			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
+				EventID:  m.EventID,
+				Accepted: true,
+				Reason:   "internal_only: persisted only",
+			})
+			continue
+		}
+		result, err := h.callHandleIngress(ctx, ev)
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
+				Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
+				Msg("[Bridge HTTP] HandleIngressMessage failed")
+			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
+				EventID:  m.EventID,
+				Accepted: false,
+				Reason:   "ingest failed: " + err.Error(),
+			})
+			continue
+		}
+		r := &HTTPIngestResult{
+			EventID:   m.EventID,
+			Accepted:  result.Accepted,
+			AIHandled: result.QueuedForAI,
+			Reason:    result.Reason,
+		}
+		if result.Reason == "duplicate content within 5min; dropped" {
+			r.Duplicate = true
+		}
+		if result.SessionID != "" {
+			resp.SessionID = result.SessionID
+		}
+		resp.Ingested = append(resp.Ingested, r)
+		if result.QueuedForAI {
+			anyAIQueued = true
+		}
+		// AI 回复（如果同步产生）
+		if result.Accepted && result.QueuedForAI {
+			if reply := collectLatestOutboundReply(channel, accountID, m.ConversationID, m.EventID); reply != nil {
+				outboundReplies = append(outboundReplies, reply)
+			}
+		}
+	}
+
+	// 长轮询：等待 AI 推理完成（如果有 pending AI 任务）
+	if req.ExpectReply && anyAIQueued && len(outboundReplies) == 0 {
+		timeout := HTTPPollingDefaultTimeout
+		if req.TimeoutMs > 0 {
+			timeout = time.Duration(req.TimeoutMs) * time.Millisecond
+		}
+		if timeout > HTTPPollingMaxTimeout {
+			timeout = HTTPPollingMaxTimeout
+		}
+		// 等待 AI 推理完成
+		reply, err := waitForAIReply(channel, accountID, conversationID, timeout)
+		if err != nil {
+			logger.Ctx(ctx).Info().
+				Str("module", "bridge").
+				Err(err).
+				Str("channel", channel).
+				Str("account_id", accountID).
+				Str("conv_id", conversationID).
+				Dur("timeout", timeout).
+				Msg("[Bridge HTTP] long-poll wait for AI reply timeout or error")
+		} else if reply != nil {
+			outboundReplies = append(outboundReplies, reply)
+		}
+	}
+
+	resp.OutboundReplies = outboundReplies
+
+	// 响应日志
+	replyCount := len(resp.OutboundReplies)
+	ingestedCount := len(resp.Ingested)
+	logger.Ctx(ctx).Info().
+		Str("module", "bridge").
+		Str("event", "http_ingest_response").
+		Str("full_url", info.FullURL).
+		Str("channel", channel).
+		Str("account_id", accountID).
+		Str("conv_id", conversationID).
+		Int("ingested_count", ingestedCount).
+		Int("outbound_replies_count", replyCount).
+		Int("any_ai_queued", boolToInt(anyAIQueued)).
+		Int64("server_time_ms", resp.ServerTime).
+		Interface("outbound_replies", redactOutboundReplies(resp.OutboundReplies)).
+		Msg("[Bridge HTTP] ingest 响应（每条结果 + AI 回复摘要）")
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// httpMessageToEvent 将 HTTP 单条消息转 model.MessageEvent。
+func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
+	ch := ToBridgeChannel(m.Channel)
+	ts := time.UnixMilli(m.Timestamp)
+	if m.Timestamp == 0 {
+		ts = time.Now()
+	}
+	ev := &model.MessageEvent{
+		EventID:        m.EventID,
+		SessionID:      ch + ":" + m.AccountID + ":" + m.ConversationID,
+		Channel:        ch,
+		SenderID:       m.SenderID,
+		SenderName:     m.SenderName,
+		SenderType:     m.SenderType,
+		ReceiverID:     m.ReceiverID,
+		MsgType:        m.MsgType,
+		Content:        m.Content,
+		MediaURL:       m.MediaURL,
+		ConversationID: m.ConversationID,
+		IsGroup:        m.IsGroup,
+		GroupID:        m.GroupID,
+		Timestamp:      ts,
+		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType, "transport": "http"},
+	}
+	if m.IsGroup {
+		ev.Extra["is_group"] = true
+	}
+	if m.GroupID != "" {
+		ev.Extra["group_id"] = m.GroupID
+	}
+	if m.GroupName != "" {
+		ev.Extra["group_name"] = m.GroupName
+	}
+	return ev
+}
+
+// httpMessageToUnified HTTP 单条消息 → UnifiedMessage（仅用于 historyItemToEvent 提取 channel/account/conversation）。
+func httpMessageToUnified(m *HTTPIngestMessage) *UnifiedMessage {
+	return &UnifiedMessage{
+		Channel:        m.Channel,
+		AccountID:      m.AccountID,
+		ConversationID: m.ConversationID,
+		ReceiverID:     m.ReceiverID,
+		SenderType:     m.SenderType,
+		IsGroup:        m.IsGroup,
+		GroupID:        m.GroupID,
+		GroupName:      m.GroupName,
+	}
+}
+
+// collectLatestOutboundReply 收集该 (channel, account) 最近一条 AI 回复。
+//
+// 设计：HTTP-only 模式（2026-08-05 之后），AI 触发走 aiTrigger.TriggerInboundAI，
+// AI 引擎（WebhookService）异步推理完成后会调用 BridgeReachAdapter.deliverHTTP，
+// 同时入 httpReplyBuffer；HTTP 长轮询通过 HTTPReplyPullerRegistry 拉取。
+//
+// 拉取器按 channel 索引（不限 account_id），匹配 conversation_id / reply_to_event_id。
+func collectLatestOutboundReply(channel, account, conversationID, replyToEventID string) *UnifiedReply {
+	if puller, ok := HTTPReplyPullerRegistry[channel]; ok {
+		return puller(context.Background(), conversationID, replyToEventID)
+	}
+	return nil
+}
+
+// waitForAIReply 等待 AI 推理完成的 reply（长轮询）。
+//
+// 时序：
+//  1. 轮询拉取 reply（每 200ms）
+//  2. 拿到 → 返回
+//  3. 超时 → 返回 timeout 错误
+func waitForAIReply(channel, account, conversationID string, timeout time.Duration) (*UnifiedReply, error) {
+	deadline := time.Now().Add(timeout)
+	pollInterval := 200 * time.Millisecond
+	for {
+		if time.Now().After(deadline) {
+			return nil, errors.New("long-poll timeout")
+		}
+		if reply := collectLatestOutboundReply(channel, account, conversationID, ""); reply != nil {
+			return reply, nil
+		}
+		time.Sleep(pollInterval)
+	}
+}
+
+// HTTPReplyPullerFunc HTTP 模式下从 hub 拉取 reply 的回调。
+// 通道键 = channel:account；conversationID 为空表示"任意"；replyToEventID 为空表示"任意"。
+type HTTPReplyPullerFunc func(ctx context.Context, conversationID, replyToEventID string) *UnifiedReply
+
+// HTTPReplyPullerRegistry HTTP 模式下 reply 拉取器注册表。
+// 由 bridge_reach_adapter.go 在初始化时注册（生产环境）；测试中可注入 fake。
+var HTTPReplyPullerRegistry = map[string]HTTPReplyPullerFunc{}
+
+// RegisterHTTPReplyPuller 注册 HTTP 模式下 reply 拉取器。
+// 一般由 bridge reach adapter 在 Setup 阶段调用：key = fmt.Sprintf("%s:%s", channel, account)。
+func RegisterHTTPReplyPuller(key string, fn HTTPReplyPullerFunc) {
+	HTTPReplyPullerRegistry[key] = fn
+}
+
+// redactOutboundReplies 响应日志脱敏：保留每条 reply 的关键字段，content 截断到 200 字符。
+func redactOutboundReplies(replies []*UnifiedReply) []map[string]any {
+	out := make([]map[string]any, 0, len(replies))
+	for _, r := range replies {
+		if r == nil {
+			continue
+		}
+		preview := r.Content
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		out = append(out, map[string]any{
+			"channel":           r.Channel,
+			"account_id":        r.AccountID,
+			"conversation_id":   r.ConversationID,
+			"content_preview":   preview,
+			"content_length":    len(r.Content),
+			"reply_to_event_id": r.ReplyToEventID,
+			"truncated":         r.Truncated,
+		})
+	}
+	return out
+}
+
+// boolToInt 辅助：false→0, true→1（zap zerolog Field 不接受 bool）
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// 编译期断言（防止 import 被优化掉）
+var _ = url.Values{}
+var _ = bytes.NewBuffer

@@ -188,6 +188,74 @@ func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.Mess
 	return conv, nil
 }
 
+// UpsertFromHubMessageTx 与 UpsertFromHubMessage 等价，但跨表事务版本：
+// 通过 hubRepo.CreateWithInboxTx 把 message_hub.Create + inbox_conversations.UpsertFromMessage
+// 包在同一 DB 事务内，避免"消息已落 message_hub 但 inbox_conversations 缺失"的极端不一致。
+//
+// 修复（2026-08-05 审计 P1）：原 persistMessage 两步非原子，inbox 写失败仅 Warn 日志。
+//
+// 用法（在 InboxIngressService.persistMessage 中）：
+//
+//	err := s.inboxSvc.UpsertFromHubMessageTx(ctx, hub, s.hubRepo)
+//
+// hubRepo 由调用方传入（InboxIngressService 持有 hubRepo，InboxService 不持有）。
+// hub 已在事务中 Create 成功（msg.ID 非零）— 调用方据此决定后续是否取会话。
+// 返回 conv 为会话快照（事务提交后再查一次），失败时 conv=nil + err。
+func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.MessageHub, hubRepo *repository.MessageHubRepository) (*model.InboxConversation, error) {
+	if s.inboxRepo == nil || msg == nil {
+		return nil, nil
+	}
+	if hubRepo == nil {
+		// 兜底：无 hubRepo 时退化为非事务版本
+		return s.UpsertFromHubMessage(ctx, msg)
+	}
+	// 复用 upsertInternal 的 input 构造逻辑
+	if msg.Platform == "" || msg.AccountID == "" || msg.SenderID == "" {
+		return nil, ErrInboxEmptyMerchant
+	}
+	customerID := msg.SenderID
+	if msg.Direction == "outbound" && msg.ReceiverID != "" {
+		customerID = msg.ReceiverID
+	}
+	if customerID == "" {
+		return nil, ErrInboxInvalidCustomer
+	}
+	now := time.Now()
+	preview := msg.Content
+	if len(preview) > 200 {
+		preview = preview[:200]
+	}
+	from := InboxFromCustomer
+	if msg.Direction == "outbound" {
+		if msg.IsAIReply {
+			from = InboxFromAI
+		} else {
+			from = InboxFromStaff
+		}
+	}
+	input := repository.UpsertFromMessageInput{
+		Platform:           msg.Platform,
+		AccountID:          msg.AccountID,
+		CustomerID:         customerID,
+		CustomerName:       msg.SenderName,
+		ConversationID:     msg.ConversationID,
+		LastMessageID:      msg.ID,
+		LastMessagePreview: preview,
+		LastMessageAt:      now,
+		LastMessageFrom:    from,
+	}
+	// 跨表事务：hubRepo.CreateWithInboxTx 内部开 tx，先 Create(hub)，再调 inboxRepo.UpsertFromMessageTx(tx, input)
+	if err := hubRepo.CreateWithInboxTx(ctx, msg, s.inboxRepo, input); err != nil {
+		return nil, err
+	}
+	// 事务提交后取出会话快照（msg.ID 此时已填充）
+	conv, err := s.inboxRepo.FindByPlatformAccountCustomer(ctx, msg.Platform, msg.AccountID, customerID)
+	if err != nil {
+		return nil, err
+	}
+	return conv, nil
+}
+
 // upsertInternal 内部 upsert（事务封装在 repository.UpsertFromMessage 中）
 func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub) error {
 	if s.inboxRepo == nil || msg == nil {

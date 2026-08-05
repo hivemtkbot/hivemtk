@@ -86,6 +86,8 @@ export function makeUnifiedMessage({
 }
 
 // 解析下行回复（统一模型，字段名与服务端 UnifiedReply 完全一致）
+// truncated 字段（2026-08-05 审计 P0 修复）：服务端截断 4KB 后置 true，
+// 扩展可据此在 UI 显示"消息被截断"提示，避免用户看到半截消息不知情。
 export function parseUnifiedReply(reply) {
   return {
     channel: reply.channel,
@@ -95,5 +97,6 @@ export function parseUnifiedReply(reply) {
     content: reply.content || '',
     media_url: reply.media_url || '',
     reply_to_event_id: reply.reply_to_event_id || '',
+    truncated: reply.truncated === true,
   };
 }

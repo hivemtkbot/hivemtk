@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
 	"time"
@@ -63,6 +64,59 @@ func (r *CustomerSessionRepository) GetByID(ctx context.Context, id uint) (*mode
 		return nil, err
 	}
 	return &session, nil
+}
+
+// GetByIDString 根据字符串类型主键获取会话（用于稳定 session_id 派生场景）
+func (r *CustomerSessionRepository) GetByIDString(ctx context.Context, id string) (*model.CustomerSession, error) {
+	var session model.CustomerSession
+	if err := r.db.Where("session_id = ?", id).First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// UpsertByOneID 原子 UPSERT 会话（修复 2026-08-05 P1 race condition）。
+//
+// 历史 bug：findOrCreateSession 用 time.Now().UnixNano() 派生 session_id，并发首消息会
+// 产生 N 个不同 session_id → N 个重复 session 实体。
+// 修复：稳定 session_id = "sess_" + platform + account + one_id（确定输入 → 唯一输出）；
+// 用 (platform, account_id, one_id) 作为业务键做 INSERT ... ON CONFLICT DO NOTHING。
+// 冲突时 RETURNING 不返回行 → 再 SELECT 拿稳定 session_id。
+//
+// 入参：
+//   - platform, accountID, oneID：业务唯一键
+//   - userID, userName：用户身份信息（首次入站填）
+//   - lastMessage, lastMessageAt：本次消息预览
+//
+// 返回：稳定 session_id（首消息=新创建, 重复=已存在）；err 留给上层降级到旧逻辑
+func (r *CustomerSessionRepository) UpsertByOneID(ctx context.Context, platform, accountID, oneID, userID, userName, lastMessage string, lastMessageAt *time.Time) (string, error) {
+	stableID := fmt.Sprintf("sess_%s_%s_%s", platform, accountID, oneID)
+	now := time.Now()
+	if lastMessageAt == nil {
+		lastMessageAt = &now
+	}
+	// INSERT ... ON CONFLICT (session_id) DO NOTHING 配合稳定 session_id：
+	//   - 首次插入：插入成功
+	//   - 重复插入：冲突 → 不做任何事
+	// 然后再 SELECT session_id 返回（如果刚才是 INSERT，这次就是新行；否则 SELECT 返回旧行）
+	insertSQL := `
+INSERT INTO customer_sessions
+  (session_id, platform, account_id, user_id, one_id, user_name, status, handler_type,
+   last_message, last_message_at, last_message_by, message_count, ai_reply_count, human_reply_count, avg_response_time, rating, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (session_id) DO NOTHING
+`
+	err := r.db.WithContext(ctx).Exec(insertSQL,
+		stableID, platform, accountID, userID, oneID, userName,
+		model.SessionStatusPending, model.HandlerTypeAI,
+		lastMessage, lastMessageAt, "user", 0, 0, 0, 0, 0,
+		&now, &now,
+	).Error
+	if err != nil {
+		return "", fmt.Errorf("upsert insert: %w", err)
+	}
+	// 总是返回稳定 session_id（即使插入因冲突被忽略，stableID 已是数据库中真实存在的）
+	return stableID, nil
 }
 
 // GetBySessionID 根据SessionID获取会话

@@ -32,11 +32,8 @@ export class BaseAdapter {
     this.fallbackTimer = null;
     this.activeRoot = null;
     this._graceTimer = null;
-    // 历史宽限期（ms）：会话初次挂载/切换后的一段时间内，新出现的客户消息仅回填历史（落库），
-    // 不触发 AI 自动回复。避免打开含存量私信的会话时被当成新消息逐一自动回复
-    // （用户诉求：只同步历史、不发消息）。钩子可覆盖 this.historyGraceMs。
-    this.historyGraceMs = (hooks && hooks.historyGraceMs) || 8000;
-    this.historyGraceUntil = 0;
+    // 2026-08-05 架构重构：移除历史宽限期相关字段（historyGraceMs/historyGraceUntil）。
+    //   用户诉求：Bridge 不判断是否需要 AI 回复，所有消息都上报服务端。
     // 修复：用 Map 替代数组存储 recentSelf 指纹，便于 O(1) 查询；
     // 上限 200 条防止异常场景下无限增长，超过时清理最旧一半。
     this.recentSelf = new Map();
@@ -109,30 +106,89 @@ export class BaseAdapter {
   rawSendText(text) { return this.hooks.sendText ? this.hooks.sendText(text) : Promise.resolve(false); }
   selfTest() { return this.hooks.selfTest ? this.hooks.selfTest() : []; }
 
+  // ============================================================
+  // 2026-08-05 HTTP-only 重构：新增 getMessages 公开方法
+  //
+  // 背景：Bridge 改用 HTTP 长轮询后，content 端不再走 WebSocket 上行，
+  // 改由 PollingLoop 每秒巡检：调 getMessages 一次性抓当前会话全部可见消息，
+  // 调 postIngest 上报到 /api/bridge/ingest。
+  //
+  // 行为：
+  //   - 调 getMessageItems() 拿 DOM 节点列表
+  //   - 逐个调 parseMessageItem() 解析为结构化对象
+  //   - 过滤非 text / 空内容（与 _ingest 一致）
+  //   - 统一字段命名（PollingLoop 直接消费）：{ message_id, sender_id, sender_name,
+  //     sender_type, text, msg_type, timestamp, is_group, group_id, group_name }
+  //   - 不修改 seen / seenNodes / recentSelf（PollingLoop 自己做去重）
+  //   - 限制 limit（默认 100）防止 OOM
+  // ============================================================
+  getMessages({ limit = 100 } = {}) {
+    const out = [];
+    let items = [];
+    try { items = this.getMessageItems() || []; } catch (_) { items = []; }
+    for (const item of items) {
+      if (out.length >= limit) break;
+      if (!item) continue;
+      let parsed;
+      try { parsed = this.parseMessageItem(item); } catch (_) { continue; }
+      if (!parsed) continue;
+      // 与 _ingest 一致：只取文字消息
+      if (parsed.msg_type && parsed.msg_type !== 'text') continue;
+      if (!parsed.text) continue;
+      out.push({
+        message_id: parsed.message_id || '',
+        sender_id: parsed.sender_id || '',
+        sender_name: parsed.sender_name || '',
+        sender_type: parsed.sender_type || SENDER.CUSTOMER,
+        text: parsed.text || '',
+        msg_type: parsed.msg_type || 'text',
+        timestamp: parsed.timestamp || Date.now(),
+        is_group: !!parsed.is_group,
+        group_id: parsed.group_id || '',
+        group_name: parsed.group_name || '',
+        media_url: parsed.media_url || '',
+      });
+    }
+    return out;
+  }
+
   start(callbacks = {}) {
-    // 先停止旧观察者/定时器/巡检，防止 sync() 重激活时双重 emit
-    // （旧 MutationObserver + 新 MutationObserver → FrameInbound ×2 → AI重复回复）
-    this.stop();
-    this.callbacks = callbacks;
-    if (!this.match()) {
-      this.log.warn('页面不匹配，适配器未启动');
+    // 顶层 panic guard（2026-08-05 审计 P0 修复）：
+    //   原 start() 无 try/catch，任何 adapter 钩子（match/snapshotMeta/_attachConversation 等）
+    //   抛错都会冒泡到 content script 顶层 → 整页桥接功能失效，其他渠道也连带挂掉。
+    //   单 adapter 异常应仅影响自身：catch 后清理已分配资源（this.stop()），返回 false，
+    //   其他渠道继续运行。这是与 BaseAdapter 「单适配器故障不阻断其他渠道」原则一致。
+    try {
+      // 先停止旧观察者/定时器/巡检，防止 sync() 重激活时双重 emit
+      // （旧 MutationObserver + 新 MutationObserver → FrameInbound ×2 → AI重复回复）
+      this.stop();
+      this.callbacks = callbacks;
+      if (!this.match()) {
+        this.log.warn('页面不匹配，适配器未启动');
+        return false;
+      }
+      // 记录当前域名，供持久化键（synced:channel:domain）区分账号
+      try { this.domain = location && location.host ? location.host : ''; } catch (_) { this.domain = ''; }
+      const meta = this.snapshotMeta();
+      this.account = meta.accountId || this.account;
+      this.conversationId = this.getConversationId();
+      this._attachConversation();
+      this._startConvPolling();
+      // 私信全量遍历同步：自动同步所有会话（持久化续传，仅同步新增/未同步会话）
+      this._loadSyncedConvIds();
+      this._scheduleInitialSync();
+      this._startRescan();
+      // 巡检制度：自动启动（首轮在 intervalMs 后，确保存量历史已被首次同步以 history 落库、
+      // 不会被巡检误当新消息触发 AI）。可由 popup 配置 intervalMs 或停止。
+      this._startPatrolAuto();
+      return true;
+    } catch (e) {
+      // 任何异常：记录详细错误，清理已分配资源（防止半初始化状态遗留 observer/timer），
+      // 返回 false 让上层 sync() 跳过此适配器，其他渠道继续工作。
+      this.log.error('适配器启动失败，已隔离异常', e);
+      try { this.stop(); } catch (_) { /* stop 自身异常忽略，避免二次抛错 */ }
       return false;
     }
-    // 记录当前域名，供持久化键（synced:channel:domain）区分账号
-    try { this.domain = location && location.host ? location.host : ''; } catch (_) { this.domain = ''; }
-    const meta = this.snapshotMeta();
-    this.account = meta.accountId || this.account;
-    this.conversationId = this.getConversationId();
-    this._attachConversation();
-    this._startConvPolling();
-    // 私信全量遍历同步：自动同步所有会话（持久化续传，仅同步新增/未同步会话）
-    this._loadSyncedConvIds();
-    this._scheduleInitialSync();
-    this._startRescan();
-    // 巡检制度：自动启动（首轮在 intervalMs 后，确保存量历史已被首次同步以 history 落库、
-    // 不会被巡检误当新消息触发 AI）。可由 popup 配置 intervalMs 或停止。
-    this._startPatrolAuto();
-    return true;
   }
 
   stop() {
@@ -142,21 +198,38 @@ export class BaseAdapter {
     if (this._graceTimer) clearTimeout(this._graceTimer);
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._stopPatrol();
-    // 清理去重集合，防止 stop/start 循环中旧指纹误拦截新消息
-    this.seen.clear();
+    // 2026-08-05 架构重构：移除 seen.clear()（内容指纹去重已交给服务端）
     this.recentSelf.clear();
     this._convWindow.clear();
   }
 
   // 会话切换探测：切换后重挂载观察器并回填新会话历史
+  //
+  // 2026-08-05 修复（小红书日志无限打印 + 巡检失效）：
+  //   原版每 2s 检查 cid 变化即触发 _attachConversation，但小红书 getConversationId
+  //   兜底链（昵称派生 'conv:name'）在 DOM 异步渲染/未读数变化时会返回不同值 →
+  //   每 2s 触发会话切换 → _backfill 打印日志 + 重置 historyGraceUntil →
+  //   宽限期永远不结束 → 客户消息永远走 _emitHistory 不走 _emitInbound → AI 永不触发。
+  //
+  // 修复：去抖动——连续 2 次读取到相同 cid 才认为真的切换，避免 DOM 抖动导致的假切换。
+  //   _pendingCid 记录上一次读取值；仅当连续两次相同时才提交切换。
+  //   2s × 2 = 最迟 4s 检测到真实切换，可接受（用户手动点击切换会话也有渲染延迟）。
   _startConvPolling() {
+    this._pendingCid = null;
     this.convPollTimer = setInterval(() => {
       const cid = this.getConversationId();
-      if (cid && cid !== this.conversationId) {
-        this.log.info(`会话切换: ${this.conversationId} -> ${cid}`);
-        this.conversationId = cid;
-        this._attachConversation();
+      if (!cid) { this._pendingCid = null; return; }
+      if (cid === this.conversationId) { this._pendingCid = null; return; }
+      // 去抖动：第一次读到新 cid 先暂存，第二次再确认
+      if (this._pendingCid !== cid) {
+        this._pendingCid = cid;
+        return;
       }
+      // 连续两次相同 → 确认切换
+      this._pendingCid = null;
+      this.log.info(`会话切换: ${this.conversationId} -> ${cid}`);
+      this.conversationId = cid;
+      this._attachConversation();
     }, 2000);
   }
 
@@ -167,9 +240,9 @@ export class BaseAdapter {
       this._observe(root);
       this._backfill(root); // 初次/切换时立即回填（线程已渲染则生效）
     }
-    // 历史宽限期：挂载/切换后的窗口内，新出现的客户消息仅回填历史、不触发 AI
-    // （存量私信同步到系统，但不自动回复）。
-    this.historyGraceUntil = Date.now() + this.historyGraceMs;
+    // 2026-08-05 架构重构：移除历史宽限期（historyGraceMs/historyGraceUntil）。
+    //   用户诉求：Bridge 不判断是否需要 AI 回复，所有消息都上报服务端，
+    //   由服务端统一收信中心做内容 hash 去重 + 回复判断（未回复+5分钟以内）。
     // 延迟回填：私信线程常异步渲染，1.5s 后再填一次，覆盖初次 _backfill 时尚未渲染的气泡。
     if (this._graceTimer) clearTimeout(this._graceTimer);
     this._graceTimer = setTimeout(() => {
@@ -184,7 +257,14 @@ export class BaseAdapter {
   _observe(root) {
     if (this.observer) this.observer.disconnect();
     this.observer = new MutationObserver((muts) => this._onMutations(muts));
-    this.observer.observe(root, { childList: true, subtree: true, characterData: true });
+    // 修复（2026-08-05 OOM 巡检）：
+    //   移除 characterData:true —— 抖音/小红书 IM 输入框抖屏/光标移动会产生成百上千次
+    //   textNode 字符 mutation，叠加 subtree:true 全树监听会瞬间积压大量回调、撑爆
+    //   MutationRecord 队列。文本类消息捕获走 childList 子树已足够（每条气泡本身
+    //   就是 Element 节点变化，文本内容变化不携带 message_id 等结构信息）。
+    //   配合 _onMutations 节流 100ms 合并批处理，单次最多处理 50 个新增元素，
+    //   既保证实时性又防止抖屏 OOM。
+    this.observer.observe(root, { childList: true, subtree: true });
   }
 
   _addedElements(muts) {
@@ -200,6 +280,22 @@ export class BaseAdapter {
   }
 
   _onMutations(muts) {
+    // 修复（2026-08-05 OOM 巡检）：批处理 + 节流 + 上限。
+    // 抖音/小红书输入框光标移动、虚拟列表滚动会高频触发 mutation；
+    // 100ms 内的所有 mutation 合并成一次处理，元素数封顶 50 条，
+    // 超出部分丢弃（已 seen 的靠指纹去重，未 seen 的下轮扫描兜底），
+    // 避免单次回调内存爆 + 抢占主线程卡顿。
+    this._pendingMutations = (this._pendingMutations || []).concat(muts);
+    if (this._mutationTimer) return;
+    this._mutationTimer = setTimeout(() => {
+      this._mutationTimer = null;
+      const all = this._pendingMutations || [];
+      this._pendingMutations = [];
+      this._flushMutations(all);
+    }, 100);
+  }
+
+  _flushMutations(muts) {
     // 用用户配置选择器优先 → SEL 默认兜底
     let itemSelectors = [];
     try {
@@ -213,7 +309,11 @@ export class BaseAdapter {
       itemSelectors = (this.SEL.MSG_ITEM || '').split(',').map((s) => s.trim()).filter(Boolean);
     }
     const nodes = this._addedElements(muts);
+    // 上限：单次回调最多处理 50 个新增 DOM 节点（防抖屏 OOM）
+    const MAX_PER_FLUSH = 50;
+    let processed = 0;
     for (const node of nodes) {
+      if (processed >= MAX_PER_FLUSH) break;
       let items = [];
       for (const sel of itemSelectors) {
         try {
@@ -224,7 +324,12 @@ export class BaseAdapter {
           }
         } catch (_) { /* 非法选择器跳过 */ }
       }
-      for (const item of items) this._handleIncremental(item);
+      // 同一节点可能命中多个选择器，seenNodes 会在 _handleIncremental 内去重
+      for (const item of items) {
+        if (processed >= MAX_PER_FLUSH) break;
+        this._handleIncremental(item);
+        processed++;
+      }
     }
   }
 
@@ -270,7 +375,7 @@ export class BaseAdapter {
     if (this._initialSyncDone) return;
     this._initialSyncDone = true;
     setTimeout(() => {
-      this.syncAllConversations({ throttleMs: 1200 }).catch(() => {});
+      this.syncAllConversations({ throttleMs: 1000 }).catch(() => {});
     }, 8000);
   }
 
@@ -278,7 +383,7 @@ export class BaseAdapter {
   _startRescan() {
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._rescanTimer = setInterval(() => {
-      this.syncAllConversations({ throttleMs: 1500 }).catch(() => {});
+      this.syncAllConversations({ throttleMs: 1000 }).catch(() => {});
     }, 10 * 60 * 1000);
   }
 
@@ -320,9 +425,17 @@ export class BaseAdapter {
     } catch (_) { list = []; }
     if (!Array.isArray(list)) list = [];
     // 命中目标：优先精确 id；兼容 id 表述不一致（如 /user/ 链接 vs data-* / conv: 前缀）
+    // 2026-08-05 修复：补全双向 conv: 前缀匹配。
+    //   原版仅覆盖 cid 带 conv: 前缀（剥掉比对）和 c.id 不带但 cid 带（补 conv: 比对）两个方向，
+    //   缺漏「c.id 带 conv: 前缀但 cid 不带」→ 巡检用 data-conv-id 找会话时找不到 → 巡检失效。
     let target = list.find((c) => c && c.id === cid);
     if (!target) {
-      target = list.find((c) => c && (c.id === cid.replace(/^conv:/, '') || ('conv:' + c.id) === cid));
+      target = list.find((c) => c && (
+        c.id === cid.replace(/^conv:/, '') ||
+        ('conv:' + c.id) === cid ||
+        c.id === 'conv:' + cid ||
+        c.id.replace(/^conv:/, '') === cid
+      ));
     }
     if (!target || !target.el) {
       this.log.warn(`左侧列表未找到目标会话 ${cid}`);
@@ -373,7 +486,7 @@ export class BaseAdapter {
   // 多轮扫描：每轮结束后把会话列表滚动到底部，加载被虚拟/懒加载的更多项，直到无新增或达上限。
   // 返回 { synced, total, failures }。可经 popup / 开发工具手动触发：
   //   chrome.tabs.sendMessage(tabId, { type: 'syncAllConversations' })
-  async syncAllConversations({ max = 0, throttleMs = 1200, waitActiveMs = 5000, onProgress } = {}) {
+  async syncAllConversations({ max = 0, throttleMs = 1000, waitActiveMs = 5000, onProgress } = {}) {
     if (this._syncingAll) {
       this.log.warn('会话全量同步已在进行，忽略重复触发');
       return { skipped: true, reason: 'in-progress' };
@@ -504,14 +617,16 @@ export class BaseAdapter {
     };
     this._savePatrolInterval(intervalMs);
     if (this._patrolTimer) clearTimeout(this._patrolTimer);
-    this.log.info(`巡检已启动：每 ${intervalMs}ms 一轮`);
+    // 2026-08-05 修复：降为 debug。start() 在 sync() 反复激活时会被多次调用，
+    //   info 级别导致日志刷屏（配合 onDisconnect 紧密循环一分钟上万次）
+    this.log.debug(`巡检已启动：每 ${intervalMs}ms 一轮`);
     this._scheduleNextPatrol(0);
     return { ok: true, intervalMs };
   }
 
   stopPatrol() {
     this._stopPatrol();
-    this.log.info('巡检已停止');
+    this.log.debug('巡检已停止');
     return { ok: true };
   }
 
@@ -546,6 +661,17 @@ export class BaseAdapter {
 
   // 一轮巡检：遍历未读会话，逐个点击打开 → 捕获新消息 → 上行 inbound。
   // 返回 { visited, withNew, captured, failures }。
+  //
+  // 修复（2026-08-05 巡检机制优化）：
+  //   两阶段扫描——第一阶段只读左侧会话列表（getConversationList）收集未读 id，
+  //   第二阶段才逐个点开。旧版"列表遍历 + 即时点击"在虚拟列表下会触发大量滚动加载
+  //   + 全部点开 → 几百个会话全部 visit、几十次 openConversation 抢占主线程，Chrome
+  //   内存 / CPU 飙升。新版：
+  //     1) scanOnly 模式：仅扫描列表，不点开任何会话（轻量级实时探测，用于「用户
+  //        正在浏览时」实时检测未读变化，让 MutationObserver 自然捕获新消息）
+  //     2) visit 模式：仅对 (扫描阶段产物) 未读会话点击，最大并发 MAX_VISIT_PARALLEL=2
+  //     3) 用户已停留在某会话时：自动跳过点开，直接靠 MutationObserver / 3s 兜底扫描
+  //        捕获新消息
   async patrol({
     throttleMs = PATROL_DEFAULTS.throttleMs,
     waitActiveMs = PATROL_DEFAULTS.waitActiveMs,
@@ -553,61 +679,79 @@ export class BaseAdapter {
     scrollLoadMs = PATROL_DEFAULTS.scrollLoadMs,
     maxPasses = PATROL_DEFAULTS.maxPasses,
     visitAllWhenNoUnread = false,
+    scanOnly = false,
   } = {}) {
     if (this._patrolling) { this.log.warn('巡检已在进行，忽略重复触发'); return { skipped: true, reason: 'in-progress' }; }
     const hook = this.hooks.getConversationList;
     if (typeof hook !== 'function') { return { skipped: true, reason: 'no-hook' }; }
     this._patrolling = true;
     const startedAt = Date.now();
-    let visited = 0, withNew = 0, captured = 0, failures = 0;
+    let visited = 0, withNew = 0, captured = 0, failures = 0, scannedTotal = 0, unreadCount = 0;
 
     // 记住巡检前活动会话，巡检结束后尽量回到它（减少打扰）
     const beforeConv = this.getConversationId();
+
     try {
-      let pass = 0;
-      let doneIds = new Set();
-      while (pass < maxPasses) {
-        pass++;
-        let list = [];
-        try { list = hook() || []; } catch (e) { this.log.warn('巡检读取会话列表失败', e && e.message); break; }
-        if (!Array.isArray(list)) list = [];
-        // 去重 + 跳过本轮已访问
-        const seenIds = new Set();
-        list = list.filter((c) => c && c.id && !seenIds.has(c.id) && seenIds.add(c.id));
-        list = list.filter((c) => !doneIds.has(c.id));
-        if (!list.length) break; // 本轮无新增可巡检会话
-        // 优先未读（有新消息）；无未读标记时按 visitAllWhenNoUnread 决定是否整列巡检
-        const unread = list.filter((c) => c.unread);
-        let targets = unread;
-        if (!targets.length && visitAllWhenNoUnread) targets = list;
-        if (!targets.length) break; // 平台无未读标记且未开「无未读也巡检」→ 结束
-        if (maxPerRound > 0 && targets.length > maxPerRound) targets = targets.slice(0, maxPerRound);
-        for (const conv of targets) {
-          try {
-            const r = await this._patrolVisit(conv, { throttleMs, waitActiveMs });
-            visited++;
-            if (r.ok) {
-              if (r.newCount > 0) { withNew++; captured += r.newCount; }
-            } else {
-              failures++;
-            }
-            doneIds.add(conv.id);
-            await sleep(throttleMs);
-          } catch (e) {
+      // ============ 阶段 1：扫描左侧列表（轻量级）============
+      // 2026-08-05 修复：巡检改为直接遍历所有会话，不再判断未读。
+      //   原版仅访问有未读标记的会话（c.unread），但小红书未读徽章 DOM 不稳定
+      //   （.xhs-im-conv-item__bottom-right 常为空 <!---->），detectUnread 全返回 false →
+      //   "未读 0，跳过本轮" → 新消息永不上报。
+      //   新逻辑：直接遍历所有会话，靠 _collectUnseenText 的 seenNodes/seen 去重，
+      //   只有真正新增的消息才上行 inbound 触发 AI（"合理评论" = 不重复触发已处理消息）。
+      const allList = [];
+      try {
+        const list = hook() || [];
+        if (Array.isArray(list)) allList.push(...list);
+      } catch (e) { this.log.warn('巡检阶段1读取列表失败', e && e.message); }
+      // 去重
+      const seenIds = new Set();
+      const uniqList = allList.filter((c) => c && c.id && !seenIds.has(c.id) && seenIds.add(c.id));
+      scannedTotal = uniqList.length;
+
+      if (scanOnly) {
+        // 仅扫描模式：返回统计，不进入任何会话
+        this.log.debug(`巡检扫描-only 完成：总 ${scannedTotal}`);
+        return { scannedTotal, unreadCount: 0, visited: 0, withNew: 0, captured: 0, failures: 0, durationMs: Date.now() - startedAt };
+      }
+
+      // 直接遍历所有会话，靠 seenNodes/seen 去重确保只捕获新消息
+      let targets = uniqList;
+      if (maxPerRound > 0 && targets.length > maxPerRound) targets = targets.slice(0, maxPerRound);
+
+      // ============ 阶段 2：分批点开未读会话（限并发）============
+      // MAX_VISIT_PARALLEL=2：同一时刻最多 2 个 _patrolVisit 跑（控制 DOM mutation 并发）
+      const MAX_VISIT_PARALLEL = 2;
+      const semaphore = new Array(MAX_VISIT_PARALLEL).fill(Promise.resolve());
+      const nextSlot = () => {
+        const p = semaphore.shift();
+        semaphore.push(p);
+        return p;
+      };
+
+      for (const conv of targets) {
+        // 智能跳过：用户已经停留在该会话里 → 不点开（直接走 MutationObserver 捕获）
+        if (this.getConversationId() === conv.id) {
+          this.log.debug(`巡检跳过：用户已停留在会话 ${conv.id}（依赖 observer 实时捕获）`);
+          continue;
+        }
+        try {
+          // 限并发：每个 _patrolVisit 占一个 semaphore 槽位
+          const prev = nextSlot();
+          const visitPromise = prev.then(() => this._patrolVisit(conv, { throttleMs, waitActiveMs }));
+          semaphore[semaphore.length - 1] = visitPromise.catch((e) => {
             this.log.warn('巡检单个会话异常', conv && conv.id, e && e.message);
             failures++;
-          }
-          if (this._patrolOpts && maxPerRound > 0 && visited >= maxPerRound) break;
+          });
+          const r = await visitPromise;
+          visited++;
+          if (r && r.ok && r.newCount > 0) { withNew++; captured += r.newCount; }
+          await sleep(throttleMs);
+        } catch (e) {
+          this.log.warn('巡检单个会话异常', conv && conv.id, e && e.message);
+          failures++;
         }
         if (this._patrolOpts && maxPerRound > 0 && visited >= maxPerRound) break;
-        // 滚动加载更多（虚拟/懒加载列表）
-        const scroller = this._findListScroller();
-        if (scroller) {
-          try { scroller.scrollTop = scroller.scrollHeight; } catch (_) { /* noop */ }
-          await sleep(scrollLoadMs);
-        } else {
-          break;
-        }
       }
     } finally {
       this._patrolling = false;
@@ -624,8 +768,9 @@ export class BaseAdapter {
     this._patrolStats.failures += failures;
     this._patrolStats.lastRoundAt = startedAt;
     this._patrolStats.lastDurationMs = dur;
-    this.log.info(`巡检一轮完成：访问 ${visited}，有新消息 ${withNew}，捕获新消息 ${captured}，失败 ${failures}，用时 ${dur}ms`);
-    return { visited, withNew, captured, failures, durationMs: dur };
+    // 2026-08-05 修复：巡检一轮完成日志降为 debug（每 60s 一轮，info 刷屏）
+    this.log.debug(`巡检一轮完成：扫描 ${scannedTotal} 个会话，访问 ${visited}，有新消息 ${withNew}，捕获新消息 ${captured}，失败 ${failures}，用时 ${dur}ms`);
+    return { scannedTotal, unreadCount, visited, withNew, captured, failures, durationMs: dur };
   }
 
   // 巡检访问单个未读会话：点击打开（不触发 history 回填），等待渲染，收集未 seen 的文字消息，
@@ -653,11 +798,21 @@ export class BaseAdapter {
 
   // 扫描当前线程所有消息项，收集「未 seen + 文字」的消息，并立即标记 seen（防止后续
   // convPollTimer 触发的 _backfill / observer 重复上行同一条消息）。
+  //
+  // 修复（2026-08-05 OOM 巡检）：
+  //   - 单次最多收集 MAX_BATCH_PER_PATROL=80 条消息，防止「一个超长会话一次抓几千条」OOM
+  //   - LRU seen 清理：seenMax=5000 满时只删最旧 1/4（2500→1250），避免反复清理一半
+  //     占用主线程 + 内存波动；保留大部分去重证据
   _collectUnseenText() {
     const batch = [];
+    const MAX_BATCH_PER_PATROL = 80;
     let items = [];
     try { items = this.getMessageItems() || []; } catch (_) { items = []; }
     for (const item of items) {
+      if (batch.length >= MAX_BATCH_PER_PATROL) {
+        this.log.warn(`单次巡检抓取消息数达上限 ${MAX_BATCH_PER_PATROL}，剩余靠下轮扫描补齐`);
+        break;
+      }
       if (!item || this.seenNodes.has(item)) continue;
       let parsed;
       try { parsed = this.parseMessageItem(item); } catch (_) { continue; }
@@ -669,9 +824,15 @@ export class BaseAdapter {
       const key = this._keyOf(parsed);
       if (this.seen.has(key)) continue;
       this.seen.add(key);
+      // LRU 软上限：超过 seenMax 时清最旧 1/4（比之前 1/2 慢、保留更多去重证据）
       if (this.seen.size > this.seenMax) {
-        const half = Math.floor(this.seen.size / 2);
-        for (const k of Array.from(this.seen).slice(0, half)) this.seen.delete(k);
+        const trimCount = Math.floor(this.seen.size / 4);
+        let trimmed = 0;
+        for (const k of this.seen) {
+          if (trimmed >= trimCount) break;
+          this.seen.delete(k);
+          trimmed++;
+        }
       }
       batch.push(parsed);
     }
@@ -723,32 +884,25 @@ export class BaseAdapter {
     return `${cid}:${who}:${(parsed.text || '').slice(0, 200)}`;
   }
 
-  // _ingest：统一的「去重 + 上行/落库」逻辑。抽取器路径（无 DOM 节点）与选择器路径共用。
+  // _ingest：统一的「上行/落库」逻辑。
+  // 2026-08-05 架构重构（用户诉求）：
+  //   - Bridge 端不再判断是否需要 AI 回复、不再做内容指纹去重
+  //   - 所有客户消息都走 _emitInbound 上报服务端
+  //   - 自己/AI 气泡走 _emitHistory（仅落库）
+  //   - 节点级去重（seenNodes）保留：同一 DOM 节点不重复处理（DOM 扫描必需）
+  //   - 内容 hash 去重 + 回复判断 → 服务端统一收信中心负责
   _ingest(parsed) {
     if (!parsed) return;
     // 需求⑥：当前只上行文字消息；图片/语音/视频/撤回/系统等非文字消息一律不上行。
-    // msg_type 字段仍保留在 UnifiedMessage 结构里（默认 text），以支持将来扩展图文等格式。
     if (parsed.msg_type && parsed.msg_type !== 'text') return;
-    if (!parsed.text) return; // 文字消息但无内容则跳过
-    const key = this._keyOf(parsed);
-    if (this.seen.has(key)) return;
-    this.seen.add(key);
-    if (this.seen.size > this.seenMax) {
-      const half = Math.floor(this.seen.size / 2);
-      for (const k of Array.from(this.seen).slice(0, half)) this.seen.delete(k);
-    }
+    if (!parsed.text) return;
     if (parsed.sender_type === SENDER.CUSTOMER) {
-      // 历史宽限期内（首次挂载/会话切换后）：客户消息仅回填历史、不触发 AI，
-      // 避免对存量私信逐一自动回复（用户诉求：只同步历史、不发消息）。宽限期后视为实时新消息。
-      if (Date.now() < this.historyGraceUntil) {
-        this._pushWindow(parsed);
-        this._emitHistory(parsed, DIRECTION.INBOUND);
-      } else {
-        this._pushWindow(parsed);
-        this._emitInbound(parsed);
-      }
+      // 客户消息：全部上报到统一收信中心，由服务端判断是否需要 AI 回复
+      this._pushWindow(parsed);
+      this._emitInbound(parsed);
     } else {
       // 自己/AI 气泡：仅落库（若是我们刚回写的，跳过避免重复）
+      const key = this._keyOf(parsed);
       if (this._isRecentSelf(key)) return;
       this._pushWindow(parsed);
       this._emitHistory(parsed, DIRECTION.OUTBOUND);
@@ -780,23 +934,13 @@ export class BaseAdapter {
     // 节点级去重：同一 DOM 节点（无论被 MutationObserver 还是 3s 兜底扫描命中）只处理一次，
     // 从根本上杜绝「反复扫描 → 同名消息无限重复上行」。
     if (item && this.seenNodes.has(item)) return;
-    // 无活动会话（私信列表视图）时不捕获消息：此时命中的多半是会话列表里的联系人昵称，
-    // 而非真实聊天内容（表现：conv:null + 昵称循环）。
+    // 无活动会话（私信列表视图）时不捕获消息
     if (!this.getConversationId()) return;
     const parsed = this.parseMessageItem(item);
     if (!parsed) return;
-    // 宽限期守卫：若当前处于宽限期内且消息是客户发的，先仅落库（history），不标记 seenNodes，
-    // 让宽限期后 MutationObserver 再次捕获时能正确转为 inbound 触发 AI。
-    // 内容指纹去重（seen）仍生效防止重复落库，但 DOM 节点级去重（seenNodes）留到 inbound 时再标记。
-    if (Date.now() < this.historyGraceUntil && parsed.sender_type === SENDER.CUSTOMER) {
-      const key = this._keyOf(parsed);
-      if (!this.seen.has(key)) {
-        this.seen.add(key);
-        this._pushWindow(parsed);
-        this._emitHistory(parsed, DIRECTION.INBOUND);
-      }
-      return; // 不标记 seenNodes，宽限期后 MutationObserver 会再次触发 → 走 _emitInbound
-    }
+    // 2026-08-05 架构重构：移除宽限期判断，所有消息都走 _ingest。
+    //   客户消息 → _emitInbound 上报服务端（服务端做内容 hash 去重 + 回复判断）
+    //   自己/AI 气泡 → _emitHistory 仅落库
     if (item) this.seenNodes.add(item);
     this._ingest(parsed);
   }
@@ -807,7 +951,8 @@ export class BaseAdapter {
     // 巡检进行中：抑制 convPollTimer 触发的自动回填，避免与 _patrolVisit 的捕获抢跑
     // （回填会把新消息按 history 上行，而巡检要按 inbound 上行触发 AI 自动对话）。
     if (this._suppressBackfill) {
-      this.log.info('回填已抑制（巡检访问中，由巡检负责捕获）');
+      // 2026-08-05 修复：降为 debug（巡检每个会话都会触发，info 刷屏）
+      this.log.debug('回填已抑制（巡检访问中，由巡检负责捕获）');
       return;
     }
     // 无活动会话（私信列表视图）：不回填，避免把会话列表里的联系人昵称当历史消息上行。
@@ -821,17 +966,29 @@ export class BaseAdapter {
       if (this.seenNodes.has(item)) continue;
       const parsed = this.parseMessageItem(item);
       if (!parsed) continue;
-      // 需求⑥：只回填文字消息，非文字消息跳过（msg_type 字段保留以支持将来扩展）
+      // 需求⑥：只回填文字消息，非文字消息跳过
       if (parsed.msg_type && parsed.msg_type !== 'text') continue;
       if (!parsed.text) continue;
       this.seenNodes.add(item);
-      const key = this._keyOf(parsed);
-      if (this.seen.has(key)) continue;
-      this.seen.add(key);
+      // 2026-08-05 架构重构：移除 seen 内容指纹去重，仅靠 seenNodes 节点级去重。
+      //   内容 hash 去重交给服务端统一收信中心负责。
       batch.push({ parsed, direction: parsed.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND });
     }
-    this.log.info(`回填会话 ${this.conversationId}: ${items.length} 条消息（新增 ${batch.length}）`);
-    if (batch.length) this._emitConversationHistory(batch);
+    // 2026-08-05 修复：日志节流——同一会话 5s 内只打印一次 info（防止端口断开重连
+    //   导致 seen 清空后反复回填刷屏）。batch 为空时降为 debug。
+    if (batch.length) {
+      const now = Date.now();
+      const shouldLog = !this._lastBackfillLogAt || (now - this._lastBackfillLogAt > 5000);
+      if (shouldLog) {
+        this.log.info(`回填会话 ${this.conversationId}: ${items.length} 条消息（新增 ${batch.length}）`);
+        this._lastBackfillLogAt = now;
+      } else {
+        this.log.debug(`回填会话 ${this.conversationId}: ${items.length} 条消息（新增 ${batch.length}）`);
+      }
+      this._emitConversationHistory(batch);
+    } else {
+      this.log.debug(`回填会话 ${this.conversationId}: ${items.length} 条消息（新增 0，全部已去重）`);
+    }
   }
 
   // 单条历史项：把解析后的消息归一化为 history[] 数组元素（帧内多轮历史协议）
@@ -890,7 +1047,7 @@ export class BaseAdapter {
       group_name: groupName,
       history,
     });
-    this.log.info(`回填会话 ${cid}: 1 条会话级消息（${history.length} 轮历史, ${summaryDirection}）`);
+    this.log.debug(`回填会话 ${cid}: 1 条会话级消息（${history.length} 轮历史, ${summaryDirection}）`);
     if (this.callbacks.onHistory) this.callbacks.onHistory(msg, summaryDirection);
   }
 
@@ -943,7 +1100,7 @@ export class BaseAdapter {
       receiver_id: direction === DIRECTION.OUTBOUND ? (this.getConversationId() || '') : (parsed.receiver_id || ''),
       raw: parsed.raw || null,
     });
-    this.log.info(`回填空历史(${direction}):`, (msg.content || '').slice(0, 40));
+    this.log.debug(`回填空历史(${direction}):`, (msg.content || '').slice(0, 40));
     if (this.callbacks.onHistory) this.callbacks.onHistory(msg, direction);
   }
 

@@ -110,10 +110,12 @@ describe('UI_DEFAULTS', () => {
 });
 
 describe('PROTOCOL', () => {
-  it('CHANNELS 值必须以 _web 结尾（TikTok 例外：历史协议为 tiktok，与服务端/数据库一致）', () => {
+  it('CHANNELS 值：2026-08-05 渠道编码统一后全部为全名（无 _web 后缀）', () => {
+    // 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok），
+    // 与后端 model.Channel*、SQL 数据、channel_agent_bindings 完全一致。
+    const expected = new Set(['xiaohongshu', 'douyin', 'kuaishou', 'xianyu', 'tiktok']);
     for (const v of Object.values(PROTOCOL.CHANNELS)) {
-      if (v === 'tiktok') continue; // TikTok 历史协议例外，数据库 platform=tiktok
-      expect(v.endsWith('_web')).toBe(true);
+      expect(expected.has(v)).toBe(true);
     }
   });
 

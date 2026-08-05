@@ -47,7 +47,13 @@ type bridgeSendReq struct {
 	Content       string `json:"content"`
 }
 
-// SendManual 人工座席经桥接代发（G14）：校验归属 + 在线后投递到扩展
+// SendManual 人工座席经桥接代发（G14）：校验归属 + 在线后投递到 httpReplyBuffer
+//
+// 2026-08-05 架构重构（WS → HTTP）：
+//   - 旧实现：GetBridgeHub().IsOnline + GetBridgeHub().Deliver（依赖 WS 长连接内存状态）
+//   - 新实现：BridgeAccountRepo.IsOnline（DB last_sync_at 判定）+ BridgeReachAdapter.EnqueueReply
+//     （reply 直接入 httpReplyBuffer，由扩展端下次 /api/bridge/ingest 长轮询拉走）
+//   - "在线"判定与 controller 列表接口同源（OnlineGraceWindow = 30s）
 func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 	var req bridgeSendReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -72,19 +78,27 @@ func (ctrl *BridgeAccountController) SendManual(c *gin.Context) {
 			return
 		}
 	}
-	// 必须在线才能投递
-	if !bridge.GetBridgeHub().IsOnline(req.Channel, req.AccountID) {
+	// 必须最近上报过（HTTP 模式 30s 内有 last_sync_at 更新）才视为在线
+	if bridge.GlobalBridgeAccountRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bridge account repo not initialized"})
+		return
+	}
+	online, err := bridge.GlobalBridgeAccountRepo.IsOnline(c.Request.Context(), req.Channel, req.AccountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !online {
 		c.JSON(http.StatusConflict, gin.H{"error": "bridge account offline"})
 		return
 	}
-	reply := &bridge.UnifiedReply{
-		Channel:        req.Channel,
-		AccountID:      req.AccountID,
-		ConversationID: req.ConversationID,
-		Content:        req.Content,
-		MsgType:        "text",
+	// 投递 reply 到 httpReplyBuffer（HTTP 长轮询由扩展端拉取）
+	adapter := bridge.GlobalBridgeReachAdapter()
+	if adapter == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bridge reach adapter not initialized"})
+		return
 	}
-	if err := bridge.GetBridgeHub().Deliver(req.Channel, req.AccountID, reply); err != nil {
+	if _, err := adapter.EnqueueReply(req.Channel, req.AccountID, req.ConversationID, req.Content, "text"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

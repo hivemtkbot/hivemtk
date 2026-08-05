@@ -42,12 +42,18 @@ export const SEL = {
   CHAT_LIST: '#island_b69f5, [data-e2e="conversation-list"]',
   // 消息线程容器（MutationObserver 根）
   MSG_LIST: '[class*="messageList" i], [data-e2e="chat-msg-list"], [class*="chat-content" i]',
-  // 消息气泡（data-e2e 命中新版；class* 命中 /chat 路由 + 气泡型兜底）
-  MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="messageMessageItem" i], [class*="chatMessageItem" i], [class*="msg-content" i], [class*="bubble" i]',
-  // 自方气泡 class 关键词（兜底判定，主判定走对齐检测 classifyByAlignment）
-  SELF_ITEM: '[class*="self" i], [class*="right" i], [class*="outgoing" i]',
+  // 消息气泡（2026-08 修复：新增显式自/他 class 命中，区分自己 vs 客户）
+  // 抖音最新结构实测：
+  //   - 自方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemSelf" i]
+  //   - 对方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemOther" i]
+  //   - 旧版：[class*="messageMessageItem" i]（已不带自他标识）
+  // 注意：去掉旧版 [class*="bubble" i] —— 太宽泛，会命中内层 bubble-body 节点，
+  // 被 SelectorEngine.containsAnother 滤掉、且被 isSystemMessage 结构特征误判。
+  MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="chatMessageItemSelf" i], [class*="chatMessageItemOther" i], [class*="messageMessageItem" i], [class*="chatMessageItem" i], [class*="msg-content" i]',
+  // 自方气泡 class 关键词（显式自方 class 优先，对齐检测兜底）
+  SELF_ITEM: '[class*="chatMessageItemSelf" i], [class*="right-content" i], [class*="self" i], [class*="right" i], [class*="outgoing" i]',
   // 对方气泡 class 关键词
-  OTHER_ITEM: '[class*="other" i], [class*="left" i], [class*="incoming" i]',
+  OTHER_ITEM: '[class*="chatMessageItemOther" i], [class*="left-content" i], [class*="other" i], [class*="left" i], [class*="incoming" i]',
   // 聊天气泡内文本
   TEXT: '[data-e2e="msg-item-content"], [class*="msg-content" i]',
   // 输入框（严格：同时含 messageEditorinputArea + editor-kit-container 两 class）

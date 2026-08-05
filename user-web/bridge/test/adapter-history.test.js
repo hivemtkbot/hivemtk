@@ -96,7 +96,7 @@ describe('历史回填 _backfill', () => {
 });
 
 describe('历史宽限期', () => {
-  it('宽限期内新出现的客户消息仅落库(onHistory)，不触发 AI(onInbound)', () => {
+  it('客户消息始终走 _emitInbound（无宽限期，AI 触发判断交给服务端）', () => {
     const { a } = makeAdapter([]);
     current = a;
     const calls = { inbound: [], history: [] };
@@ -104,11 +104,11 @@ describe('历史宽限期', () => {
       onInbound: (m) => calls.inbound.push(m),
       onHistory: (m, d) => calls.history.push({ m, d }),
     });
-    // 仍在宽限期（默认 8s）内
-    a._handleIncremental(msgEl('宽限期内客户新消息', SENDER.CUSTOMER, 'm3', Date.now()));
-    expect(calls.inbound.length).toBe(0);
-    expect(calls.history.length).toBe(1);
-    expect(calls.history[0].d).toBe(DIRECTION.INBOUND);
+    // 2026-08-05 架构重构：Bridge 端不再有宽限期，所有客户消息都走 _emitInbound
+    a._handleIncremental(msgEl('客户新消息', SENDER.CUSTOMER, 'm3', Date.now()));
+    expect(calls.inbound.length).toBe(1);
+    expect(calls.inbound[0].content).toBe('客户新消息');
+    expect(calls.history.length).toBe(0);
   });
 
   it('宽限期后新出现的客户消息才走实时 INBOUND（触发 AI）', () => {
@@ -126,7 +126,7 @@ describe('历史宽限期', () => {
     expect(calls.history.length).toBe(0);
   });
 
-  it('切换会话后宽限期重置，新会话历史再次仅落库', () => {
+  it('切换会话后客户消息仍走 _emitInbound（无宽限期）', () => {
     const { a } = makeAdapter([]);
     current = a;
     const calls = { inbound: [], history: [] };
@@ -134,15 +134,16 @@ describe('历史宽限期', () => {
       onInbound: (m) => calls.inbound.push(m),
       onHistory: (m, d) => calls.history.push({ m, d }),
     });
-    a.historyGraceUntil = Date.now() - 1; // 先让宽限期过期
-    // 模拟切换会话：会话 id 变化 → 重新挂载并开启宽限期（复刻 _startConvPolling 的切换逻辑）
+    // 模拟切换会话：会话 id 变化 → 重新挂载（复刻 _startConvPolling 的切换逻辑）
     a.conversationId = 'conv1';
     a.hooks.getConversationId = () => 'conv2';
     a.conversationId = 'conv2';
     a._attachConversation();
+    // 2026-08-05 架构重构：宽限期已移除，切换会话后客户消息仍走 _emitInbound
     a._handleIncremental(msgEl('切回会话后的客户消息', SENDER.CUSTOMER, 'm5', Date.now()));
-    expect(calls.inbound.length).toBe(0); // 切换后仍处宽限期，不触发 AI
-    expect(calls.history.length).toBe(1);
+    expect(calls.inbound.length).toBe(1);
+    expect(calls.inbound[0].content).toBe('切回会话后的客户消息');
+    expect(calls.history.length).toBe(0);
   });
 });
 
@@ -228,15 +229,18 @@ describe('群聊 + 实时上下文窗口（点3）', () => {
     expect(calls.inbound[0].history).toBeDefined();
   });
 
-  it('同一成员重复发相同文本仍被去重（防回环/防刷屏不变）', () => {
+  it('同一成员重复发相同文本不再 Bridge 端去重（内容 hash 去重交给服务端）', () => {
     const a = makeGroupAdapter([]);
     current = a;
     const calls = { inbound: [] };
     a.start({ onInbound: (m) => calls.inbound.push(m) });
-    a.historyGraceUntil = Date.now() - 1;
+    // 2026-08-05 架构重构：seen Set 已移除，同一成员重复发相同文本都走 _emitInbound，
+    // 内容 hash 去重 + 回复判断交给服务端统一收信中心
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g1', '张三'));
     a._ingest(groupParsed('好的', SENDER.CUSTOMER, 'g2', '张三'));
-    expect(calls.inbound.length).toBe(1); // 同成员同文本 → 只上行一次
+    expect(calls.inbound.length).toBe(2); // 两条都上行，去重交给服务端
+    expect(calls.inbound[0].content).toBe('好的');
+    expect(calls.inbound[1].content).toBe('好的');
   });
 
   it('宽限期后实时 inbound 携带该会话最近多轮上下文窗口', () => {

@@ -53,6 +53,46 @@ func (r *MessageHubRepository) Create(ctx context.Context, hub *model.MessageHub
 	return r.db.Create(hub).Error
 }
 
+// CreateWithInboxTx 原子地写入 message_hub + 调用 inboxRepo.UpsertFromMessageTx（同事务）。
+//
+// 修复（2026-08-05 审计 P1）：原 persistMessage 分两步调用 hubRepo.Create + inboxSvc.UpsertFromHubMessage，
+// 两步跨表无事务，inbox_conversations 写入失败时仅 Warn 日志，导致"消息在 message_hub 但收件箱看不到"的极端不一致。
+// 修复后两步在同一 tx 内完成，任一失败整体回滚。
+//
+// 入参：
+//   - hub：message_hub 记录
+//   - inboxRepo：收件箱仓库（与 hubRepo 共享同一 *gorm.DB 实例）
+//   - input：inbox_conversations upsert 入参（由 service 层根据 msg 字段构造）
+//
+// 返回：
+//   - message_hub 唯一键冲突时返回 nil（与 Create 行为一致，幂等视为成功）
+//   - 其他错误正常返回（tx 已回滚）
+func (r *MessageHubRepository) CreateWithInboxTx(
+	ctx context.Context,
+	hub *model.MessageHub,
+	inboxRepo *InboxConversationRepository,
+	input UpsertFromMessageInput,
+) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	if inboxRepo == nil {
+		// 无 inboxRepo 时退化为单表 Create（兼容老路径）
+		return r.Create(ctx, hub)
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(hub).Error; err != nil {
+			// 唯一键冲突视为幂等成功（与 Create 行为一致）
+			if isDuplicateKeyErr(err) {
+				return nil
+			}
+			return err
+		}
+		// 调用 inboxRepo 的 tx 版本，复用同一个 tx
+		return inboxRepo.UpsertFromMessageTx(tx, input)
+	})
+}
+
 // GetByID 按 ID 获取消息
 func (r *MessageHubRepository) GetByID(ctx context.Context, id uint) (*model.MessageHub, error) {
 	var hub model.MessageHub
@@ -360,6 +400,59 @@ func (r *MessageHubRepository) GetLastByPlatformAccount(ctx context.Context, pla
 	return &msg, nil
 }
 
+// HasUnrepliedCustomerMessage 判断会话是否存在"未回复的客户消息"
+//
+// 2026-08-05 钩子机制需求：
+//   - 查询条件：按 conversation_id 找最新一条消息
+//   - 若最新消息方向 = "inbound"（客户发的） → 未回复
+//   - 同时检查该消息是否在 replyWindow 内（5 分钟）
+//   - 若最新消息方向 = "outbound"（已回复） → 不触发 AI
+//
+// 入参：
+//   - conversationID：会话唯一标识
+//   - replyWindow：回复判断窗口（5 分钟），超过则视为历史消息不再触发
+//
+// 返回：
+//   - 未回复=true 且在窗口内=true → 触发 AI
+//   - 未回复=true 但在窗口外=false → 历史消息不触发
+//   - 未回复=false（已有 outbound） → 不触发
+//   - 查询失败 → 保守返回 false（避免对历史存量消息逐一自动回复）
+func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration) (unreplied bool, withinWindow bool, err error) {
+	if r == nil || r.db == nil {
+		return false, false, nil
+	}
+	if conversationID == "" {
+		return false, false, nil
+	}
+	var last model.MessageHub
+	// 按 conversation_id 查最新一条消息（不分 platform / account_id，因为同一 conversation_id 唯一）
+	if err := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID).
+		Order("sent_at DESC").
+		Limit(1).
+		First(&last).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// 会话无任何消息（理论上不会到这，因为这是新消息入库后的查询）
+			return true, true, nil // 视为未回复且在窗口内（首条消息触发）
+		}
+		// 查询失败：保守视为已回复（不触发 AI，避免误触发）
+		return false, false, err
+	}
+	// 最新消息方向判断：
+	//   - inbound（客户发的）→ 未回复
+	//   - outbound（坐席/AI 发的）→ 已回复
+	if last.Direction != "inbound" {
+		return false, false, nil // 已回复
+	}
+	// 未回复：再判断是否在 5 分钟窗口内
+	cutoff := time.Now().Add(-replyWindow)
+	if last.SentAt.Before(cutoff) {
+		// 最后一条客户消息超过 5 分钟 → 历史消息不触发
+		return true, false, nil
+	}
+	return true, true, nil
+}
+
 // ListByConversationContext 按 (platform, account_id, sender_id OR receiver_id) 拉取消息
 // 用于统一收件箱合并 message_hub 消息流（customer 可能是 sender 也可能是 receiver）
 func (r *MessageHubRepository) ListByConversationContext(ctx context.Context, platform, accountID, customerID string) ([]*model.MessageHub, error) {
@@ -506,57 +599,67 @@ func (r *InboxConversationRepository) UpsertFromMessage(ctx context.Context, in 
 		return nil
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var conv model.InboxConversation
-		err := tx.Where("platform = ? AND account_id = ? AND customer_id = ?",
-			in.Platform, in.AccountID, in.CustomerID).
-			First(&conv).Error
+		return r.UpsertFromMessageTx(tx, in)
+	})
+}
 
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			conv = model.InboxConversation{
-				Platform:           in.Platform,
-				AccountID:          in.AccountID,
-				CustomerID:         in.CustomerID,
-				CustomerName:       in.CustomerName,
-				ConversationID:     in.ConversationID,
-				Status:             "unread",
-				UnreadCount:        0,
-				TotalCount:         1,
-				LastMessageID:      in.LastMessageID,
-				LastMessagePreview: in.LastMessagePreview,
-				LastMessageAt:      &in.LastMessageAt,
-				LastMessageFrom:    in.LastMessageFrom,
-			}
-			if in.LastMessageFrom == "customer" {
-				conv.UnreadCount = 1
-			}
-			return tx.Create(&conv).Error
-		}
-		if err != nil {
-			return err
-		}
+// UpsertFromMessageTx 与 UpsertFromMessage 等价，但接受外部 tx（用于跨表事务）。
+// 调用方负责事务边界（如 MessageHubRepository.CreateWithInboxTx）。
+// tx 为 nil 时返回 nil（防御性短路，与 UpsertFromMessage 行为一致）。
+func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in UpsertFromMessageInput) error {
+	if r == nil || tx == nil {
+		return nil
+	}
+	var conv model.InboxConversation
+	err := tx.Where("platform = ? AND account_id = ? AND customer_id = ?",
+		in.Platform, in.AccountID, in.CustomerID).
+		First(&conv).Error
 
-		updates := map[string]any{
-			"last_message_id":      in.LastMessageID,
-			"last_message_preview": in.LastMessagePreview,
-			"last_message_at":      in.LastMessageAt,
-			"last_message_from":    in.LastMessageFrom,
-			"total_count":          conv.TotalCount + 1,
-			"customer_name":        firstNonEmpty(in.CustomerName, conv.CustomerName),
-			"conversation_id":      firstNonEmpty(in.ConversationID, conv.ConversationID),
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		conv = model.InboxConversation{
+			Platform:           in.Platform,
+			AccountID:          in.AccountID,
+			CustomerID:         in.CustomerID,
+			CustomerName:       in.CustomerName,
+			ConversationID:     in.ConversationID,
+			Status:             "unread",
+			UnreadCount:        0,
+			TotalCount:         1,
+			LastMessageID:      in.LastMessageID,
+			LastMessagePreview: in.LastMessagePreview,
+			LastMessageAt:      &in.LastMessageAt,
+			LastMessageFrom:    in.LastMessageFrom,
 		}
 		if in.LastMessageFrom == "customer" {
-			updates["unread_count"] = conv.UnreadCount + 1
-			if conv.Status == "closed" {
-				updates["status"] = "unread"
-				updates["closed_at"] = nil
-			} else if conv.Status == "assigned" && conv.AssignedTo == "" {
-				updates["status"] = "unread"
-			}
+			conv.UnreadCount = 1
 		}
-		return tx.Model(&model.InboxConversation{}).
-			Where("id = ?", conv.ID).
-			Updates(updates).Error
-	})
+		return tx.Create(&conv).Error
+	}
+	if err != nil {
+		return err
+	}
+
+	updates := map[string]any{
+		"last_message_id":      in.LastMessageID,
+		"last_message_preview": in.LastMessagePreview,
+		"last_message_at":      in.LastMessageAt,
+		"last_message_from":    in.LastMessageFrom,
+		"total_count":          conv.TotalCount + 1,
+		"customer_name":        firstNonEmpty(in.CustomerName, conv.CustomerName),
+		"conversation_id":      firstNonEmpty(in.ConversationID, conv.ConversationID),
+	}
+	if in.LastMessageFrom == "customer" {
+		updates["unread_count"] = conv.UnreadCount + 1
+		if conv.Status == "closed" {
+			updates["status"] = "unread"
+			updates["closed_at"] = nil
+		} else if conv.Status == "assigned" && conv.AssignedTo == "" {
+			updates["status"] = "unread"
+		}
+	}
+	return tx.Model(&model.InboxConversation{}).
+		Where("id = ?", conv.ID).
+		Updates(updates).Error
 }
 
 // InboxConversationQuery 会话列表查询条件（与 service.InboxQuery 字段对齐）

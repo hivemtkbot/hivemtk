@@ -166,9 +166,9 @@ func buildSmartOrchestrator(engine *service.SalesEngine) *service.SmartCSOrchest
 // 调用方：router.Setup()
 func registerAgentReachTools(gormDB *gorm.DB) {
 	// 真实触达适配器（含 web 网页客服渠道）；用 BridgeReachAdapter 包装，
-	// 使抖音/小红书/TikTok 网页桥接账号的回复经 WebSocket 投递到 Chrome 扩展
-	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB), bridge.GetBridgeHub(), bridgeIngressSvc)
-	// 注册桥接出站回调：使 WebhookService.sendOutbound 在桥接渠道下把 AI 回复经 WebSocket 回写扩展
+	// 使抖音/小红书/TikTok/闲鱼/快手 网页桥接账号的回复经 HTTP 长轮询原路回写扩展
+	adapter := bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB), bridgeIngressSvc)
+	// 注册桥接出站回调：使 WebhookService.sendOutbound 在桥接渠道下把 AI 回复经 HTTP buffer 回写扩展
 	bridge.SetBridgeReachAdapter(adapter)
 	deps := tooluse.NewReachToolDepsWithAdapter(gormDB, adapter)
 

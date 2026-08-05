@@ -15,7 +15,7 @@ import (
 // pipelineReachSender 将触达调度器（service.ReachPipelineService）接入真实的渠道发送器：
 //   - telegram / whatsapp / feishu / web / wecom / dingtalk / sms / email / card
 //     走 tooluse.IntegrationReachAdapter（与 AI Agent 的 reach.*.send 共用同一套出站实现）
-//   - douyin / kuaishou / xiaohongshu / tiktok 走 bridge.BridgeReachAdapter（网页桥接 WS 投递）
+//   - douyin / kuaishou / xiaohongshu / tiktok / xianyu 走 bridge.BridgeReachAdapter（HTTP 长轮询 buffer）
 //
 // 由此修复"触达调度器下发占位"缺口：调度器不再产生假 message_id，而是真正下发到渠道。
 type pipelineReachSender struct {
@@ -35,7 +35,7 @@ func newPipelineReachSender(db *gorm.DB) *pipelineReachSender {
 	}
 	return &pipelineReachSender{
 		inner:  inner,
-		bridge: bridge.NewBridgeReachAdapter(inner, bridge.GetBridgeHub(), bridgeIngressSvc),
+		bridge: bridge.NewBridgeReachAdapter(inner, bridgeIngressSvc),
 	}
 }
 

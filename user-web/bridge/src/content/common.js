@@ -1,10 +1,18 @@
-// content script 公共引导：连接 background 端口，桥接适配器 ↔ 服务端。
-// 协议常量/字段与服务端 frames.go 严格对齐（详见 bridge.md §17）。
-import { FRAME, parseUnifiedReply } from '../core/types.js';
-import { UI_DEFAULTS } from '../core/constants.js';
+// content script 公共引导：把适配器捕获的消息通过 HTTP 长轮询上报到 user-server。
+// 协议常量/字段与服务端 handler_http.go 严格对齐（详见 bridge.md §17）。
+//
+// 2026-08-05 HTTP-only 重构：彻底移除 WebSocket 长连接。
+//   - onInbound 回调 → postIngest(expect_reply: true) 调 /api/bridge/ingest
+//   - onHistory 回调 → postIngest(expect_reply: false) 仅落库
+//   - 服务端 AI 回复随 HTTP 响应直接返回，content 端拿到后调 adapter.sendOutbound
+//   - 完整 URL + 解析后的 query 参数 + body 预览由 http-ingest._logRequest 统一打印
+//     （与 user-server 侧 collectHTTPRequestInfo 输出格式严格对齐）
+import { parseUnifiedReply } from '../core/types.js';
+import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
 import { sanitizeForDisplay } from '../core/sanitize.js';
 import { hydrateSelectors, SELECTOR_UPDATE_MSG } from '../core/selector-ai.js';
+import { postIngest, HTTP_INGEST_DEFAULTS } from '../core/http-ingest.js';
 
 const log = createLogger('content', 'bridge');
 
@@ -31,9 +39,9 @@ function handleSelfcheck(adapter, sendResponse, diag) {
       msgItemCount: items.length,
       selectors: adapter.SEL || null,
       sample: parsed.map((p) => ({ sender: p.sender_type, text: (p.text || '').slice(0, 60) })),
-      // 上报链路诊断：桥接是否激活 / port 是否可用 / 各计数（定位「解析到了但不上报」）
+      // 上报链路诊断：桥接是否激活 / 各计数（定位「解析到了但不上报」）
+      // 2026-08-05 HTTP-only 重构：移除 portAlive（无 port 概念）。
       bridgeActive: diag ? diag.active : null,
-      portAlive: diag ? diag.portAlive : null,
       stats: diag ? diag.stats : null,
     });
   } catch (e) {
@@ -319,14 +327,44 @@ function pickRecommendedSelector(visibleInputs) {
 
 export function startBridge(channel, buildAdapter) {
   const adapter = buildAdapter();
-  // 上报链路诊断状态（自检时返回给 popup，定位「解析到了但不上报」）
-  const diag = { active: false, portAlive: false, connectError: null, stats: { inbound: 0, history: 0, outbound: 0, dropped: 0, register: 0 } };
+  // 上报链路诊断状态（自检时返回给 popup，定位「解析到了但不上报」）。
+  // 2026-08-05 HTTP-only 重构：移除 portAlive/connectError（无 port 概念），
+  // 移除 register 计数（HTTP 模式无 REGISTER 帧）。
+  const diag = { active: false, stats: { inbound: 0, history: 0, outbound: 0, dropped: 0 } };
   // 注入即打印（任何页面都会出现）——用户可据此判断 content script 是否真的运行，
   // 区分「脚本没注入」vs「注入了但选择器没匹配」。
   try { log.info('已注入 content script', channel, location.host, 'match=' + adapter.match()); } catch (_) { /* noop */ }
 
   // 启动时从 chrome.storage 水合选择器配置到本页 localStorage 镜像（popup 保存后立即生效的基础）
   try { hydrateSelectors(); } catch (_) { /* noop */ }
+
+  // 配置读取：每次 submitIngest 提交前调一次，从 chrome.storage 拿 serverUrl/token。
+  // chrome.storage 在 content script 不可用（需要 background 转发）— 但实测可用，
+  // 与 background 共享同一 storage.local 命名空间。失败兜底走 DEFAULT_USER_SERVER。
+  const getConfig = () => new Promise((resolve) => {
+    if (!chrome || !chrome.storage || !chrome.storage.local) {
+      resolve({ serverUrl: DEFAULT_USER_SERVER.baseUrl, token: '' });
+      return;
+    }
+    try {
+      chrome.storage.local.get('bridgeConfig', (res) => {
+        const err = (chrome.runtime && chrome.runtime.lastError) ? chrome.runtime.lastError : null;
+        if (err) {
+          log.warn('getConfig 失败（fallback 默认）', err.message);
+          resolve({ serverUrl: DEFAULT_USER_SERVER.baseUrl, token: '' });
+          return;
+        }
+        const cfg = (res && res.bridgeConfig) || {};
+        resolve({
+          serverUrl: cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl,
+          token: cfg.token || '',
+        });
+      });
+    } catch (e) {
+      log.warn('getConfig 异常（fallback 默认）', e && e.message);
+      resolve({ serverUrl: DEFAULT_USER_SERVER.baseUrl, token: '' });
+    }
+  });
 
   // X 修复：ping/selfcheck 监听器必须在 match 检查之前注册。
   // 早期版本在 adapter.match() 失败时直接 return，导致用户在抖音首页
@@ -436,76 +474,118 @@ export function startBridge(channel, buildAdapter) {
   let deactivateBridge = null;
   let pollTimer = null;
 
-  const activateBridge = () => {
-    // port 用 let：断开后置 null，避免 `port && port.postMessage` 仍访问已断开对象
-    // 触发 "Attempting to use a disconnected port object"（port 对象非 null 但已失效）。
-    let port;
-    try {
-      port = chrome.runtime.connect({ name: 'bridge' });
-      diag.portAlive = true;
-    } catch (e) {
-      // MV3 background 未就绪 / 扩展被禁用时 connect 会抛异常——不能中断 adapter.start()，
-      // 否则消息解析、历史回填、3s 兜底扫描全部失效（表现为「自检有消息但不上报」）。
-      log.error('chrome.runtime.connect 失败（background 不可用？）', e && e.message);
-      diag.connectError = String(e && e.message || e);
-      stats.dropped++;
-      // 仍继续启动 adapter：DOM 监听不依赖 port，上报暂缓存到 dropped
-    }
-    let disconnected = false; // background service worker 终止 / 端口断开
-    let closed = false;       // 主动清理（页面卸载），断开不再触发重连
+  // 2026-08-05 HTTP-only 重构：移除所有 WebSocket 相关状态机。
+  //   原来「sync 限速 + onDisconnect 退避 + 5 次连续失败」全是 WS 时代的产物，
+  //   HTTP 长轮询无状态、每次请求独立，无需重连计数。保留 sync() 限速用于
+  //   「SPA 浮层打开/关闭」时频繁调用 activateBridge 的去抖。
+  let lastSyncAt = 0;
+  const SYNC_THROTTLE_MS = 3000;      // sync 节流：至少 3 秒间隔
 
-    // 安全发送：port 断开后不再抛未捕获异常；失败计入 dropped 便于定位。
-    const safePost = (frame) => {
-      if (disconnected || !port) {
-        stats.dropped++;
-        return false;
-      }
+  const activateBridge = () => {
+    let closed = false;       // 主动清理（页面卸载）标记
+
+    // 下行分发：HTTP 响应中携带的 outbound_replies 解析后调 adapter.sendOutbound。
+    // 抽出独立函数避免内联过长，调试 / 单测也方便。
+    const dispatchOutboundReply = async (reply) => {
+      const r = parseUnifiedReply(reply);
+      if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
+      // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
+      const safeContent = sanitizeForDisplay(r.content);
+      // 截断标记提示：服务端截断到 4KB 时置 truncated=true，
+      // 扩展端在内容尾部追加可见提示，避免用户看到半截消息不知情。
+      const finalContent = r.truncated
+        ? safeContent + '\n[消息被截断，请联系客服获取完整内容]'
+        : safeContent;
       try {
-        port.postMessage(frame);
-        return true;
+        // 目标会话 ≠ 当前打开的会话时，sendOutbound 会先在左侧列表找到目标用户
+        // → 点击进入右侧聊天页 → 再模拟输入发送（用户诉求：按用户找会话再发）。
+        await adapter.sendOutbound(finalContent, r.conversation_id);
+        stats.outbound++;
+        log.info('[下行 outbound] #' + stats.outbound, {
+          conv: r.conversation_id,
+          len: (r.content || '').length,
+          truncated: r.truncated,
+        });
       } catch (e) {
-        // 极少情况下 postMessage 同步抛错（端口在判断后瞬间断开）
-        disconnected = true;
-        port = null;
-        stats.dropped++;
-        log.warn('port 发送失败（已断开）', frame.type, e && e.message);
-        return false;
+        log.error('回写回复失败', e);
       }
     };
 
-    // 下行：服务端 AI 回复经 background 路由到此处
-    port.onMessage.addListener(async (msg) => {
-      if (msg && msg.type === FRAME.OUTBOUND && msg.reply) {
-        const r = parseUnifiedReply(msg.reply);
-        if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
-        // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
-        const safeContent = sanitizeForDisplay(r.content);
-        try {
-          // 目标会话 ≠ 当前打开的会话时，sendOutbound 会先在左侧列表找到目标用户
-          // → 点击进入右侧聊天页 → 再模拟输入发送（用户诉求：按用户找会话再发）。
-          // 不再丢弃“非当前会话”的回复——那是把 AI 回复发给正确用户的必经路径。
-          await adapter.sendOutbound(safeContent, r.conversation_id);
-          stats.outbound++;
-          log.info('[下行 outbound] #' + stats.outbound, { conv: r.conversation_id, len: (r.content || '').length });
-        } catch (e) {
-          log.error('回写回复失败', e);
-        }
+    // 通过 postIngest 上报单条消息。统一调用入口：onInbound 走 expect_reply=true
+    // 等待 AI 回复；onHistory 走 expect_reply=false 仅落库。
+    //
+    // 关键设计：URL + 完整 query + body 预览由 http-ingest._logRequest 统一打印
+    // （所有渠道 douyin/xhs/tiktok/xianyu 共用），用户可从 console 直接看到上行地址。
+    const submitIngest = async (message, opts) => {
+      if (!message) return;
+      const cfg = await getConfig();
+      const meta = adapter.snapshotMeta();
+      const accountId = (opts && opts.accountId) || meta.accountId || '';
+      const conversationId = (opts && opts.conversationId) || message.conversation_id || meta.conversationId || '';
+      if (!accountId || !conversationId) {
+        log.warn('ingest 跳过：accountId/conversationId 缺失', { accountId, conversationId });
+        return;
       }
-    });
-
-    // K1 修复：background service worker（MV3）空闲被回收 → 端口 onDisconnect。
-    // 必须回收 port 引用并把桥接状态复位，再由 sync() 重新 connect 唤醒 SW，
-    // 否则 content 侧会一直持有失效 port 且桥接“假死”（不再上行消息但也不报错外的静默）。
-    port.onDisconnect.addListener(() => {
-      disconnected = true;
-      port = null;
-      if (closed) return;
-      log.warn('桥接端口断开（background service worker 可能已回收），触发重连…');
-      if (deactivateBridge) { deactivateBridge(); deactivateBridge = null; }
-      active = false;
-      diag.active = false;
-      sync(); // 下一 tick 重新激活（match 为真时新建端口唤醒 SW）
-    });
+      const expectReply = !!(opts && opts.expectReply);
+      const label = expectReply ? '[上行 inbound ingest]' : '[上行 history ingest]';
+      // 构造 ingest body：与 user-server handler_http.go HTTPIngestRequest 字段对齐。
+      // 单条消息包成 messages[]（保持与多消息批量上报统一，server 端解析逻辑一致）。
+      const body = {
+        v: 2,
+        channel: message.channel || channel,
+        account_id: accountId,
+        conversation_id: conversationId,
+        account_name: '',
+        agent_id: 0,
+        messages: [
+          {
+            event_id: message.event_id || '',
+            channel: message.channel || channel,
+            account_id: accountId,
+            conversation_id: conversationId,
+            sender_id: message.sender_id || '',
+            sender_name: message.sender_name || '',
+            sender_type: message.sender_type || 'customer',
+            msg_type: message.msg_type || 'text',
+            content: message.content || '',
+            media_url: message.media_url || '',
+            timestamp: message.timestamp || Date.now(),
+            is_group: !!message.is_group,
+            group_id: message.group_id || '',
+            group_name: message.group_name || '',
+            // 多轮历史：服务端按 messages[].history 逐条落库
+            history: Array.isArray(message.history) ? message.history : [],
+          },
+        ],
+        expect_reply: expectReply,
+        timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
+      };
+      try {
+        const resp = await postIngest(
+          {
+            serverUrl: cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl,
+            channel: message.channel || channel,
+            accountId,
+            conversationId,
+            token: cfg.token || '',
+          },
+          body,
+          {
+            label,
+            timeoutMs: HTTP_INGEST_DEFAULTS.longPollTimeoutMs + 5000,
+          }
+        );
+        // 响应解析：服务端可能附带 outbound_replies（仅当 expect_reply=true 时有内容）
+        if (resp && Array.isArray(resp.outbound_replies) && resp.outbound_replies.length) {
+          for (const reply of resp.outbound_replies) {
+            await dispatchOutboundReply(reply);
+          }
+        }
+      } catch (e) {
+        // 失败不抛：避免污染调用栈；上层已用 try/catch 包裹
+        log.warn(`${label} 提交失败`, { error: String(e && e.message || e) });
+      }
+    };
 
     // 上行：实时客户私信 → AI 路径；存量/自己消息 → 仅落库历史
     adapter.start({
@@ -517,7 +597,8 @@ export function startBridge(channel, buildAdapter) {
           sender: message && message.sender_type,
           len,
         });
-        safePost({ type: FRAME.INBOUND, message });
+        // fire-and-forget：postIngest 自带退避重试 + 完整 URL/参数日志
+        submitIngest(message, { expectReply: true });
       },
       onHistory: (message) => {
         stats.history++;
@@ -527,45 +608,30 @@ export function startBridge(channel, buildAdapter) {
           sender: message && message.sender_type,
           len,
         });
-        safePost({ type: FRAME.HISTORY, message });
+        submitIngest(message, { expectReply: false });
       },
       onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
     });
 
-    // B4 修复：仅当 accountId / conversationId 变化时才发 REGISTER（避免无意义重发）
-    let lastMeta = { accountId: '', conversationId: '' };
-    const report = (force = false) => {
-      const meta = adapter.snapshotMeta();
-      if (!force && meta.accountId === lastMeta.accountId && meta.conversationId === lastMeta.conversationId) {
-        return;
-      }
-      lastMeta = { accountId: meta.accountId || '', conversationId: meta.conversationId || '' };
-      safePost({ type: FRAME.REGISTER, channel, accountId: meta.accountId, conversationId: meta.conversationId });
-      stats.register++;
-    };
-    report(true);
-
-    // 修复：保存 timer 句柄便于清理；停止时清除避免泄漏
-    // 周期由 UI_DEFAULTS.metaReportIntervalMs 单源管理（见 constants.js / DEFAULTS.md）
-    const reportTimer = setInterval(report, UI_DEFAULTS.metaReportIntervalMs);
-
     // 页面卸载 / SPA 路由切换时清理
     const cleanup = () => {
       closed = true;
-      if (reportTimer) clearInterval(reportTimer);
       adapter.stop();
-      try { if (port) port.disconnect(); } catch (_) { /* noop */ }
-      port = null;
     };
     window.addEventListener('beforeunload', cleanup, { once: true });
     window.addEventListener('pagehide', cleanup, { once: true });
 
     window.__bridgeAdapter = adapter;
-    log.info('桥接已启动', channel);
+    log.info('桥接已启动（HTTP-only）', channel);
     return cleanup;
   };
 
   const sync = () => {
+    // 2026-08-05 修复：sync 节流，防止 SPA 浮层打开/关闭切换时被频繁激活。
+    //   至少 3 秒间隔，上次 sync 不足 3 秒则跳过。
+    const now = Date.now();
+    if (now - lastSyncAt < SYNC_THROTTLE_MS) return;
+    lastSyncAt = now;
     // match() 若抛异常（平台早期 DOM 结构不完整 / 某选择器报错），不得中断整个桥接。
     let matched = false;
     try { matched = !!adapter.match(); } catch (e) { log.warn('match() 异常，跳过本轮', e && e.message); }
@@ -590,6 +656,7 @@ export function startBridge(channel, buildAdapter) {
   pollTimer = setInterval(sync, 1500);
 
   // K2 统计汇总日志：每 15s 打印一次累计条数，便于现场排查数据是否上行/下行/丢弃。
+  // 2026-08-05 HTTP-only 重构：移除 register 字段（HTTP 模式无 REGISTER 帧）。
   let statsTimer = setInterval(() => {
     log.info('桥接统计', {
       channel,
@@ -598,7 +665,6 @@ export function startBridge(channel, buildAdapter) {
       history: stats.history,
       outbound: stats.outbound,
       dropped: stats.dropped,
-      register: stats.register,
     });
   }, 15000);
 

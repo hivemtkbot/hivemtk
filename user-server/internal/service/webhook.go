@@ -1774,10 +1774,36 @@ func (s *WebhookService) loadAgentForChannel(ctx context.Context, channel Webhoo
 // 多 AI 智能体路由：先加载渠道账号绑定的智能体上下文，传给编排器
 //   - 编排器内部会按座席挂载智能体覆盖（座席挂载 > 渠道绑定 > 默认）
 //   - agentBindingSvc 未注入或未绑定时 agentCtx=nil，回退默认配置
+//
+// 修复（2026-08-05）：增加 panic recover + 显式告警日志。
+// 历史 bug：智能体未注入时仅 silent return，下游无任何反馈导致会话/AI 回复全链路静默缺失
+// （典型现场：message_hub 有 inbound 记录但 customer_sessions/ai_suggestions 均为空）。
+// 修复后 nil orchestrator 转为 Error 级别日志，panic 转 Error + 堆栈，便于线上定位。
 func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Ctx(ctx).Error().
+				Interface("panic", r).
+				Str("channel", string(channel)).
+				Str("account_id", accountID).
+				Str("event_id", p.EventID).
+				Msg("[Webhook] triggerSmartOrchestrator panic recovered — AI 链路已断开，请查 root cause")
+		}
+	}()
 	if s.smartOrchestrator == nil {
+		logger.Ctx(ctx).Error().
+			Str("channel", string(channel)).
+			Str("account_id", accountID).
+			Str("event_id", p.EventID).
+			Str("conv_id", hubMsg.ConversationID).
+			Msg("[Webhook] smartOrchestrator 未注入 — 桥接入站消息不会创建 customer_sessions / 不会生成 AI 回复。请检查 router.Setup() 中 webhookCtrl.SetSmartOrchestrator(orchestrator) 是否先于 bridgeIngressSvc.SetAITrigger(webhookSvc) 执行。")
 		return
 	}
+	logger.Ctx(ctx).Info().
+		Str("channel", string(channel)).
+		Str("account_id", accountID).
+		Str("event_id", p.EventID).
+		Msg("[Webhook] triggerSmartOrchestrator start")
 	// 轻量同步准备：加载智能体路由上下文 + 构造 IncomingContext（快速，不阻塞接入 worker）
 	// 继承上游 trace_id（路由上下文在加载智能体时产生的日志可与主链路串联）
 	routeCtx := context.Background()
@@ -1831,7 +1857,23 @@ func (s *WebhookService) triggerSmartOrchestrator(ctx context.Context, channel W
 //
 // opts 透传群聊/发送者元数据（senderName/isGroup/groupID/groupName）：
 // 群聊中客户消息 sender_id 聚合为群 id，AI 编排需据此区分成员（见 AITrigger 注释）。
+//
+// 修复（2026-08-05）：入口加 panic recover。TriggerInboundAI 由 inbox_ingress.HandleIngressMessage
+// 同步调用，任何 panic 会冒泡到 bridge.readPump goroutine → runtime，整体进程被杀。
+// 修复后 panic 转 Error + 堆栈，进程存活，业务可继续入站。
 func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountID, conversationID, customerID, content, eventID string, opts ...TriggerInboundOption) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Ctx(ctx).Error().
+				Interface("panic", r).
+				Str("channel", channel).
+				Str("account_id", accountID).
+				Str("conv_id", conversationID).
+				Str("event_id", eventID).
+				Str("sender", customerID).
+				Msg("[Webhook] TriggerInboundAI panic recovered — AI 链路已断开，请查 root cause")
+		}
+	}()
 	// 复用与 Receive 一致的幂等去重 + 限流守卫，避免网页桥接入站绕过幂等/限流。
 	if eventID != "" && s.isDuplicate(ctx, eventID) {
 		logger.Ctx(ctx).Debug().Str("event_id", eventID).Msg("[Webhook] TriggerInboundAI duplicate, skip")
@@ -1890,9 +1932,45 @@ func (s *WebhookService) TriggerInboundAI(ctx context.Context, channel, accountI
 
 // runAIGeneration 在独立有界池中执行 AI 生成与出站。
 func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, hubMsg *model.MessageHub, in *IncomingContext, agentCtx *AgentContext) {
-	// 有界信号量：限制并发本地推理数，保护单节点推理栈不被压垮
-	s.replySem <- struct{}{}
-	defer func() { <-s.replySem }()
+	// 修复（2026-08-05）：goroutine 入口加 panic recover。
+	// 历史 bug：runAIGeneration 在 triggerSmartOrchestrator 中以 go 启动，
+	// 内部任意 panic（LLM 客户端 NPE / DB 连接重置 / nil 指针）会冒泡到 runtime 杀掉整个进程，
+	// 或被 gin recover 后只输出 200 行 panic 堆栈却没有任何业务级错误日志，
+	// 导致 message_hub 有 inbound 记录但 customer_sessions/ai_suggestions 全空
+	// （典型现场：小红书 bridge 5 条消息入库 0 个 session/AI 回复）。
+	// 修复后 panic 转 Error + 堆栈，进程不会被杀，业务可观测性可定位。
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Ctx(ctx).Error().
+				Interface("panic", r).
+				Str("channel", string(channel)).
+				Str("account_id", accountID).
+				Str("event_id", p.EventID).
+				Str("conv_id", hubMsg.ConversationID).
+				Str("sender", p.Sender).
+				Msg("[Webhook] runAIGeneration panic recovered — AI 链路已断开，请查 root cause")
+		}
+	}()
+	// 修复（2026-08-05 P0 大扫除）：replySem 加超时获取。
+	// 历史 bug：`s.replySem <- struct{}{}` 是阻塞写，AI 任务排队满时 goroutine 全部阻塞在 sema 上 → 越积越多 → OOM。
+	// 修复后超 5s 仍拿不到 sema → 当前 AI 任务跳过 + Error 日志，依赖下轮 inbound 重试。
+	const replySemTimeout = 5 * time.Second
+	select {
+	case s.replySem <- struct{}{}:
+		defer func() { <-s.replySem }()
+	case <-time.After(replySemTimeout):
+		logger.Ctx(ctx).Error().
+			Str("channel", string(channel)).
+			Str("account_id", accountID).
+			Str("event_id", p.EventID).
+			Dur("timeout", replySemTimeout).
+			Int("sem_capacity", cap(s.replySem)).
+			Msg("[Webhook] runAIGeneration replySem 满 / 阻塞超时 — 跳过本轮 AI 推理，避免 goroutine 堆积 OOM；依赖下轮 inbound 重试")
+		return
+	case <-ctx.Done():
+		logger.Ctx(ctx).Warn().Str("channel", string(channel)).Str("event_id", p.EventID).Msg("[Webhook] runAIGeneration ctx 取消，跳过")
+		return
+	}
 
 	// 继承上游 trace_id（如有），保证全链路日志可串联；
 	// 上游未注入时，WithTraceID 自动生成新 ID（不丢可观测性）。
@@ -2055,11 +2133,14 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		} else {
 			sent = true
 		}
-	case "douyin_web", "xhs_web", "tiktok", "xianyu_web", "kuaishou_web":
+	case ChannelDouyin, ChannelXiaohongshu, ChannelTiktok, ChannelXianyu, ChannelKuaishou:
 		// 网页桥接渠道：AI 回复经 WebSocket 投递到 Chrome 扩展（由 bridge 包注册的回调完成），
 		// 不走官方 API（避免把私信误发到平台开放接口）。
 		// p.EventID 传给 bridge 用于 ClaimReply 幂等守卫。
-		// 支持渠道：douyin_web / xhs_web / tiktok_web / xianyu_web / kuaishou_web
+		// 2026-08-05 渠道编码统一：去掉 _web 后缀，case 改为全名（douyin/xiaohongshu/tiktok/xianyu/kuaishou）。
+		//
+		// 修复（2026-08-05 审计 P0）：原 case 用 string literal 与其他 case 的常量风格不一致，
+		// 重命名渠道时静默丢消息。改为 WebhookChannel 常量后，编译器可捕获 rename 漏改。
 		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
 			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
 		} else {

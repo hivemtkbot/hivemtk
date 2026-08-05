@@ -53,7 +53,7 @@ func TestInbox_NewMessageTriggersAI_HistoryDoesNot(t *testing.T) {
 	// 1) 实时新消息（inbound）必须触发 AI
 	inEv := &model.MessageEvent{
 		EventID:        "e1",
-		Channel:        "douyin_web",
+		Channel:        "douyin",
 		ConversationID: "conv1",
 		SenderID:       "cust1",
 		Content:        "你好，我要咨询",
@@ -73,7 +73,7 @@ func TestInbox_NewMessageTriggersAI_HistoryDoesNot(t *testing.T) {
 	// 2) 历史消息（history）必须不触发 AI，仅落库
 	histEv := &model.MessageEvent{
 		EventID:        "e2",
-		Channel:        "douyin_web",
+		Channel:        "douyin",
 		ConversationID: "conv1",
 		SenderID:       "cust1",
 		Content:        "历史记录一条",
@@ -97,7 +97,7 @@ func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
 
 	groupEv := &model.MessageEvent{
 		EventID:        "g1",
-		Channel:        "xhs_web",
+		Channel:        "xiaohongshu",
 		ConversationID: "group-1",
 		SenderID:       "group-1", // 群聊客户消息 sender_id 聚合为群 id
 		SenderName:     "张三",      // 成员昵称（成员身份）
@@ -130,7 +130,7 @@ func TestInbox_GroupMessage_TriggersAI_WithMeta(t *testing.T) {
 	tr.lastMeta = nil
 	oneEv := &model.MessageEvent{
 		EventID:        "o1",
-		Channel:        "douyin_web",
+		Channel:        "douyin",
 		ConversationID: "cust-1",
 		SenderID:       "cust-1",
 		Content:        "在吗",

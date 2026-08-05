@@ -345,19 +345,53 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	// 群聊会话键：群聊的“客户”是群本身——按 groupID 聚合一个会话，
 	// 群内各成员消息的 SenderID 用成员身份（见 handleFrame 已透传），
 	// 避免把不同成员当成不同客户/不同会话。
+	//
+	// 修复（2026-08-05 审计 P0）：群聊路径原用 time.Now().UnixNano() 派生 session_id，
+	// 与单聊路径同样存在并发首消息产生 N 个重复 session 的 race condition。
+	// 改为与单聊一致的「UpsertByOneID 稳定键」模式：
+	//   - oneID = "group:" + groupKey（群唯一标识）
+	//   - stable session_id = "sess_{platform}_{account_id}_group:{groupKey}"
+	//   - INSERT ... ON CONFLICT DO NOTHING 保证原子性
+	//   - Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生）
 	if in.IsGroup {
 		groupKey := in.GroupID
 		if groupKey == "" {
 			groupKey = in.SenderID
 		}
-		if existing, err := o.sessionRepo.GetActiveByUserID(ctx, "group:"+groupKey); err == nil && existing != nil {
-			return existing, nil
-		}
 		derivedOneID := "group:" + groupKey
-		sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 		now := time.Now()
+		stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
+		if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, derivedOneID, in.GroupName, in.Content, &now); err != nil {
+			// Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生），保证不卡死
+			staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
+			logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).
+				Msg("[Orchestrator] 群聊 UpsertByOneID 失败，降级用 stale session_id")
+			session := &model.CustomerSession{
+				SessionID:     staleID,
+				Platform:      in.Platform,
+				AccountID:     in.AccountID,
+				UserID:        derivedOneID,
+				OneID:         derivedOneID,
+				UserName:      in.GroupName,
+				Status:        model.SessionStatusPending,
+				Priority:      0,
+				LastMessage:   in.Content,
+				LastMessageAt: &now,
+				LastMessageBy: "user",
+				HandlerType:   model.HandlerTypeAI,
+			}
+			if err := o.sessionRepo.Create(ctx, session); err != nil {
+				return nil, err
+			}
+			return session, nil
+		} else if id != "" {
+			// Upsert 返回稳定 session_id，直接用
+			return o.sessionRepo.GetByIDString(ctx, id)
+		}
+		// 兜底：理论上不会到这里
+		staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 		session := &model.CustomerSession{
-			SessionID:     sessionID,
+			SessionID:     staleID,
 			Platform:      in.Platform,
 			AccountID:     in.AccountID,
 			UserID:        derivedOneID,
@@ -401,10 +435,46 @@ func (o *SmartCSOrchestrator) findOrCreateSession(ctx context.Context, in *Incom
 	if derivedOneID == "" {
 		derivedOneID = fmt.Sprintf("%s:%s", in.Platform, in.SenderID)
 	}
-	sessionID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
+	// 修复（2026-08-05 P1 大扫除）：session_id 由 time.Now().UnixNano() 派生，
+	// 并发首消息（同一会话窗口内 10 个 goroutine 同时首次入站）会产生不同 session_id → 重复会话。
+	// 修复：改为「先按 OneID 原子 UPSERT，再按需创建」：
+	//   - 用 (platform, account_id, one_id) 作为稳定键做原子 INSERT ... ON CONFLICT DO NOTHING
+	//   - 然后再 SELECT 一次拿稳定 session
+	// 这样并发场景下"只会有一个 session 实体"，避免 N 个 session_id 重复。
+	// 副作用：老 session_id（time.Now().UnixNano() 派生）会变成"无主孤儿"，
+	// 由 message_hub.session_id 仍能路由到正确会话（用 derived OneID 聚合）。
 	now := time.Now()
+	stableSessionID := fmt.Sprintf("sess_%s_%s_%s", string(in.Platform), in.AccountID, derivedOneID)
+	if id, err := o.sessionRepo.UpsertByOneID(ctx, string(in.Platform), in.AccountID, derivedOneID, in.SenderID, in.SenderName, in.Content, &now); err != nil {
+		// Upsert 失败时降级用旧逻辑（time.Now().UnixNano() 派生），保证不卡死
+		staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
+		logger.Ctx(ctx).Warn().Err(err).Str("stable_id", stableSessionID).Str("stale_id", staleID).Msg("[Orchestrator] UpsertByOneID 失败，降级用 stale session_id")
+		session := &model.CustomerSession{
+			SessionID:     staleID,
+			Platform:      in.Platform,
+			AccountID:     in.AccountID,
+			UserID:        in.SenderID,
+			OneID:         derivedOneID,
+			UserName:      in.SenderName,
+			Status:        model.SessionStatusPending,
+			Priority:      0,
+			LastMessage:   in.Content,
+			LastMessageAt: &now,
+			LastMessageBy: "user",
+			HandlerType:   model.HandlerTypeAI,
+		}
+		if err := o.sessionRepo.Create(ctx, session); err != nil {
+			return nil, err
+		}
+		return session, nil
+	} else if id != "" {
+		// Upsert 返回稳定 session_id，直接用
+		return o.sessionRepo.GetByIDString(ctx, id)
+	}
+	// 兜底：理论上不会到这里
+	staleID := fmt.Sprintf("sess_%d_%s", time.Now().UnixNano(), safeMessageID(in.MessageID))
 	session := &model.CustomerSession{
-		SessionID:     sessionID,
+		SessionID:     staleID,
 		Platform:      in.Platform,
 		AccountID:     in.AccountID,
 		UserID:        in.SenderID,

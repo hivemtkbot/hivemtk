@@ -3,11 +3,15 @@ package model
 import "time"
 
 // 渠道标识（与消息中台 platform 白名单对齐）
+//
+// 2026-08-05 渠道编码统一：所有渠道统一为全名，去掉 xhs / *_web 等简写/后缀
+// （历史曾并存 xhs / xhs_web / xiaohongshu 三种命名，导致前端、后端、DB
+// 数据三方不一致；现已统一为以下 5 套：xiaohongshu / douyin / kuaishou / xianyu / tiktok）。
 const (
 	ChannelWeb       = "web"
 	ChannelTelegram  = "telegram"
 	ChannelWhatsApp  = "whatsapp"
-	ChannelXHS       = "xhs"
+	ChannelXHS       = "xiaohongshu" // 历史值 "xhs" / "xhs_web" 已统一为全名
 	ChannelWeCom     = "wecom"
 	ChannelXianyu    = "xianyu"
 	ChannelDouyin    = "douyin"
@@ -46,6 +50,13 @@ type MessageEvent struct {
 	Channel        string         `json:"channel"`    // 渠道来源：web / telegram / whatsapp / xhs ...
 	SenderID       string         `json:"sender_id"`  // 最终客户的唯一物理标识
 	SenderName     string         `json:"sender_name,omitempty"`
+	// SenderType 发送者类型（2026-08-05 钩子机制需求）：
+	//   - "customer"：客户消息 → 入库 + 触发 AI 判断
+	//   - "self" / "agent"：自己/坐席发出的消息 → 直接丢弃，不入库不触发 AI
+	//     （桥接场景扩展上报自己发的消息仅用于状态同步，服务端无需持久化）
+	//   - "system"：系统消息 → 仅落库，不触发 AI
+	//   - ""：未携带（历史调用方） → 默认按 customer 处理
+	SenderType     string         `json:"sender_type,omitempty"`
 	ReceiverID     string         `json:"receiver_id,omitempty"`
 	MsgType        string         `json:"msg_type"` // text / image / file ...
 	Content        string         `json:"content"`

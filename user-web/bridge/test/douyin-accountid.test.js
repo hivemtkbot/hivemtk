@@ -37,11 +37,11 @@ describe('douyin getAccountId 浮层兜底', () => {
 
   it('完全无 /user/ 链接时，返回 unknown 兜底（非空串）', () => {
     document.body.innerHTML = `<div class="some-page">无账号线索</div>`;
-    expect(getAccountId()).toBe('douyin_web-unknown');
+    expect(getAccountId()).toBe('douyin-unknown');
   });
 
   it('浮层下取不到真实 id 时，复用 localStorage 缓存的真实 id', () => {
-    localStorage.setItem('hivebridge:account:douyin_web', 'MS4wCachedId');
+    localStorage.setItem('hivebridge:account:douyin', 'MS4wCachedId');
     document.body.innerHTML = `<a href="//www.douyin.com/user/self">我的</a>`;
     expect(getAccountId()).toBe('MS4wCachedId');
   });

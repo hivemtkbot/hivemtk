@@ -4,6 +4,7 @@
 //   1) URL → content script 文件 路由（纯函数，无副作用）
 //   2) scriptingAvailable 探测
 //   3) injectContentScript 主流程（含错误兜底、dedup、透传参数）
+//   4) isSupportedHost 运行时域名白名单（2026-08-05 审计 P0）
 //
 // 文档源：user-server/docs/dev/DEVELOPMENT.md 端口对照表 + bridge/bridge.md §17
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -11,6 +12,8 @@ import {
   pickContentScriptFile,
   injectContentScript,
   scriptingAvailable,
+  isSupportedHost,
+  SUPPORTED_HOSTS,
   __resetInjectState,
 } from '../src/background/injector.js';
 
@@ -48,6 +51,65 @@ describe('pickContentScriptFile / URL 路由', () => {
 
   it('大小写不敏感', () => {
     expect(pickContentScriptFile('HTTPS://WWW.DOUYIN.COM/')).toBe('content-douyin.js');
+  });
+
+  // 2026-08-05 审计 P0 修复：补全 xianyu/goofish 路由（原实现遗漏）
+  it('闲鱼 goofish.com → content-xianyu.js', () => {
+    expect(pickContentScriptFile('https://www.goofish.com/im')).toBe('content-xianyu.js');
+  });
+
+  it('闲鱼 xianyu.com → content-xianyu.js', () => {
+    expect(pickContentScriptFile('https://www.xianyu.com/chat')).toBe('content-xianyu.js');
+  });
+
+  it('闲鱼子域 m.goofish.com → content-xianyu.js', () => {
+    expect(pickContentScriptFile('https://m.goofish.com/im')).toBe('content-xianyu.js');
+  });
+});
+
+// =============================================================
+// 1b) isSupportedHost / SUPPORTED_HOSTS —— 2026-08-05 审计 P0 运行时白名单
+// =============================================================
+describe('isSupportedHost / 运行时白名单', () => {
+  it('SUPPORTED_HOSTS 包含 5 个平台', () => {
+    expect(SUPPORTED_HOSTS).toContain('douyin.com');
+    expect(SUPPORTED_HOSTS).toContain('xiaohongshu.com');
+    expect(SUPPORTED_HOSTS).toContain('tiktok.com');
+    expect(SUPPORTED_HOSTS).toContain('goofish.com');
+    expect(SUPPORTED_HOSTS).toContain('xianyu.com');
+  });
+
+  it('支持域名主站 → true', () => {
+    expect(isSupportedHost('https://www.douyin.com/')).toBe(true);
+    expect(isSupportedHost('https://www.xiaohongshu.com/')).toBe(true);
+    expect(isSupportedHost('https://www.tiktok.com/')).toBe(true);
+    expect(isSupportedHost('https://www.goofish.com/')).toBe(true);
+    expect(isSupportedHost('https://www.xianyu.com/')).toBe(true);
+  });
+
+  it('支持域名子域 → true', () => {
+    expect(isSupportedHost('https://creator.douyin.com/')).toBe(true);
+    expect(isSupportedHost('https://m.goofish.com/im')).toBe(true);
+    expect(isSupportedHost('https://v.douyin.com/abc')).toBe(true);
+  });
+
+  it('非支持域名 → false', () => {
+    expect(isSupportedHost('https://example.com/')).toBe(false);
+    expect(isSupportedHost('https://baidu.com/')).toBe(false);
+    expect(isSupportedHost('https://evil-douyin.com/')).toBe(false); // 不能前缀匹配绕过
+    expect(isSupportedHost('https://douyin.com.evil.com/')).toBe(false); // 不能后缀匹配绕过
+  });
+
+  it('无效输入 → false', () => {
+    expect(isSupportedHost(null)).toBe(false);
+    expect(isSupportedHost(undefined)).toBe(false);
+    expect(isSupportedHost('')).toBe(false);
+    expect(isSupportedHost('not a url')).toBe(false);
+  });
+
+  it('大小写不敏感', () => {
+    expect(isSupportedHost('HTTPS://WWW.DOUYIN.COM/')).toBe(true);
+    expect(isSupportedHost('https://WWW.Goofish.COM/im')).toBe(true);
   });
 });
 
