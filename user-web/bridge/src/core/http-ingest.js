@@ -202,12 +202,13 @@ async function postIngest({ serverUrl, channel, accountId, conversationId, token
   const startedAt = Date.now();
   let responsePayload = null;
   try {
+    // 只在 traceId 非空时才加 X-Trace-Id 头：空字符串仍算自定义头，
+    // 会触发 CORS preflight 且要求服务端 ACAH 白名单包含该头。
+    const headers = { 'Content-Type': 'application/json' };
+    if (opts.traceId) headers['X-Trace-Id'] = opts.traceId;
     const res = await fetchWithRetry(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Trace-Id': opts.traceId || '',
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     }, retryOpts);
