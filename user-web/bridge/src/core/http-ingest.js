@@ -112,12 +112,21 @@ function _logRequest(label, serverUrl, params, body, extra) {
     return null;
   }
   const bodyInfo = previewBody(body);
+  // 提取消息核心内容：用户最关心"上行了什么消息"，但 body_preview 被截断后看不到
+  const msgs = Array.isArray(body && body.messages) ? body.messages : [];
+  const messagesSummary = msgs.map((m) => ({
+    sender: m.sender_type || '?',
+    content: (m.content || '').slice(0, 80),
+    event_id: (m.event_id || '').slice(-12),
+  }));
   const payload = {
     url,
     ...(parsed || {}),
     body_preview: bodyInfo.preview,
     body_size: bodyInfo.size,
     body_truncated: bodyInfo.truncated,
+    messages_count: msgs.length,
+    messages_summary: messagesSummary,
     ...(extra || {}),
   };
   // 关键：URL/对象作为 console 第二参数传入，避免 logger.sanitizeArgs 对第一个字符串
@@ -185,7 +194,7 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
 async function postIngest({ serverUrl, channel, accountId, conversationId, token }, body, opts = {}) {
   const params = { channel, accountId, conversationId, token };
   const label = opts.label || '[HTTP ingest]';
-  const logResult = _logRequest(label, serverUrl, params, body, { expect_reply: !!body.expect_reply, messages_count: (body.messages || []).length });
+  const logResult = _logRequest(label, serverUrl, params, body, { expect_reply: !!body.expect_reply });
   if (!logResult) {
     throw new Error('ingest URL 构造失败');
   }
