@@ -1,0 +1,425 @@
+# ============================================================
+# HivemTK 用户端 - Docker Compose 示例模板（纳入版本追踪）
+#
+# 说明：
+#   - 本文件（`docker-compose-example.yml`）是【可提交的示例模板】。
+#   - 真实编排文件 `docker-compose.yml` 与 `docker-compose.override.yml`
+#     已被 .gitignore 忽略（含本机/商户私有配置），请勿把真实文件提交。
+#   - 部署时：复制本文件为 `docker-compose.yml`，按需调整 env 默认值，
+#     并在 `.env`（同样被忽略）中填写所有 `:?` 强制必填的密钥。
+#
+# 部署定位：
+#   - 本文件包含【用户端】全部组件：PostgreSQL(user_db) + Redis + user-server
+#   - 本地推理栈（LLM / Embedding / Rerank）由宿主机 llama.cpp 直接运行，不走 Docker
+#   - 用户端由各商户/用户自行部署，与【平台端】物理隔离。
+#   - 前端（user-web）与嵌入 SDK（embed-sdk）在【宿主机】构建后挂载到容器。
+#
+# 平台端连通：user-server 通过 PLATFORM_API_URL 调用平台端。
+#
+# 启动：docker compose -f docker-compose.yml up -d
+# 停止：docker compose -f docker-compose.yml down
+#
+# ------------------------------------------------------------
+# 出站代理（Telegram / 其他需出网的外部 API 必读）
+# ------------------------------------------------------------
+# 若运行环境存在 TLS 拦截代理（公司网/防火墙），直连 api.telegram.org 会被拦截
+# （EOF / 超时 / 收到拦截证书）。此时需让 user-server 容器经转发代理出网：
+#   1. 代理须监听 0.0.0.0（容器才能经 host.docker.internal 访问 host 上的代理）。
+#   2. 容器内用 host.docker.internal:<port> 指向 host 代理（不要用 127.0.0.1）。
+#   3. NO_PROXY 必须排除内部服务，否则 LLM/Embedding/Rerank(走 host.docker.internal:8207-8209)、
+#      Postgres/Redis(服务名)、平台端(host.docker.internal:8205) 会被错误代理而连不上。
+#   本模板默认已注入 HTTP_PROXY/HTTPS_PROXY/NO_PROXY（可经 .env 的 HTTP_PROXY 等覆盖）。
+#   无代理环境：在 .env 设 HTTP_PROXY= 与 HTTPS_PROXY=（空值）即可关闭。
+# ============================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "5"
+    labels: "service,environment"
+
+networks:
+  mtk-user-network:
+    name: mtk_user_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/16
+
+volumes:
+  mtk_user_pg_data:
+    name: mtk_user_pg_data
+  mtk_user_redis_data:
+    name: mtk_user_redis_data
+  mtk_user_logs:
+    name: mtk_user_logs
+  mtk_user_uploads:
+    name: mtk_user_uploads
+  mtk_user_data:
+    name: mtk_user_data
+
+services:
+  # 用户端 PostgreSQL 15+ + pgvector（独立容器，库名 user_db）
+  mtk-postgres:
+    image: pgvector/pgvector:pg15
+    container_name: mtk-postgres
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env (use: openssl rand -hex 24)}"
+      POSTGRES_DB: ${USER_DB_NAME:-user_db}
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=vector,pg_stat_statements
+      - -c
+      - max_connections=500
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - port=8202
+    ports:
+      - "127.0.0.1:${USER_POSTGRES_HOST_PORT:-8232}:8202"
+    volumes:
+      - mtk_user_pg_data:/var/lib/postgresql/data
+      - ./migrations/init-user-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-postgres
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-admin} -d ${USER_DB_NAME:-user_db} -p 8202
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Redis 缓存
+  mtk-redis:
+    image: redis:7-alpine
+    container_name: mtk-redis
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
+    command:
+      - redis-server
+      - --port
+      - "8203"
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 1gb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --requirepass
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-8203}:8203"
+    volumes:
+      - mtk_user_redis_data:/data
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -p 8203 -a \"$REDIS_PASSWORD\" ping >/dev/null 2>&1 || redis-cli -p 8203 ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # ============================================================
+  # 用户端服务
+  # ============================================================
+  # prod 模式（默认）：二进制启动
+  mtk-user-server:
+    build:
+      context: ./user-server
+      dockerfile: Dockerfile
+      args:
+        RUN_MODE: prod
+    image: mtk/user-server:${TAG:-latest}
+    container_name: mtk-user-server
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      GIN_MODE: ${GIN_MODE:-release}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8204
+      # 用户端数据库（独立容器 mtk-postgres，容器内端口 8202）
+      DB_HOST: mtk-postgres
+      DB_PORT: 8202
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env (use: openssl rand -hex 24)}"
+      DB_NAME: ${USER_DB_NAME:-user_db}
+      # Redis
+      REDIS_HOST: mtk-redis
+      REDIS_PORT: 8203
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      REDIS_DB: 0
+      # 强制 JWT_SECRET 必填
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      JWT_EXPIRE: ${JWT_EXPIRE:-24h}
+      # 平台端地址
+      PLATFORM_API_URL: ${PLATFORM_API_URL:-http://host.docker.internal:8205}
+      # 平台客户端 LoadPlatform 读取的环境变量（覆盖 config/platform.yaml 的默认值）
+      PLATFORM_API_HOST: ${PLATFORM_API_HOST:-http://host.docker.internal:8205}
+      # 与 platform-server docker-compose.yml 的 MERCHANT_API_SECRET 保持一致（>=32 字符，强制必填）
+      MERCHANT_API_SECRET: "${MERCHANT_API_SECRET:?MERCHANT_API_SECRET is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      PLATFORM_ADMIN_PASSWORD: "${PLATFORM_ADMIN_PASSWORD:?PLATFORM_ADMIN_PASSWORD is required (>=8 chars). Set in .env}"
+      PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME:-admin}
+      PLATFORM_LICENSE_SECRET: "${PLATFORM_LICENSE_SECRET:?PLATFORM_LICENSE_SECRET is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      # 公网基座 URL（被动渠道 webhook 回调推导）：frp 暴露的公网域名
+      # 配置后 Telegram / 飞书 / 钉钉走 webhook 推送（不再长轮询 fallback）。
+      # 未配置 → GetPublicBaseURL 返回空 → 系统自动降级为长轮询（仅适合无公网域名的开发/内网）。
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://hiveuserapi.xapptool.cn}
+      # 出站代理：直连 api.telegram.org 被 TLS 拦截代理挡住的环境，需经 host 转发代理出网。
+      # 默认指 host.docker.internal:7890（host 上 Clash/类 Clash，监听 0.0.0.0）；
+      # 可在 .env 用 HTTP_PROXY/HTTPS_PROXY 覆盖；无代理环境设空值关闭。
+      # NO_PROXY 必须排除内部服务，避免 LLM/Embedding/Rerank(8207-8209)、Postgres/Redis、平台端被错误代理。
+      HTTP_PROXY: ${HTTP_PROXY:-http://host.docker.internal:7890}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://host.docker.internal:7890}
+      NO_PROXY: ${NO_PROXY:-mtk-postgres,mtk-redis,mtk-user-server,mtk-user-server-dev,localhost,127.0.0.1,host.docker.internal,.local}
+      # install.lock 持久化
+      INSTALL_LOCK_PATH: /app/data/install.lock
+      # 七牛云存储
+      QINIU_ACCESS_KEY: ${QINIU_ACCESS_KEY:-}
+      QINIU_SECRET_KEY: ${QINIU_SECRET_KEY:-}
+      QINIU_BUCKET: ${QINIU_BUCKET:-}
+      QINIU_DOMAIN: ${QINIU_DOMAIN:-}
+      # 邮箱
+      QQ_NUMBER: ${QQ_NUMBER:-}
+      QQ_EMAIL: ${QQ_EMAIL:-}
+      QQ_EMAIL_PASSWORD: ${QQ_EMAIL_PASSWORD:-}
+      EMAIL_163_USER: ${EMAIL_163_USER:-}
+      EMAIL_163_PASSWORD: ${EMAIL_163_PASSWORD:-}
+      EMAIL_163_SMTP_HOST: ${EMAIL_163_SMTP_HOST:-smtp.163.com}
+      # CORS：白名单必须包含 4 个平台私信页域名，
+      # 否则 content script 在 xhs/dy/tt/xianyu 页面上 fetch 会被浏览器拒掉。
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS_USER:-https://user.example.com,https://www.xiaohongshu.com,https://www.douyin.com,https://www.tiktok.com,https://www.goofish.com}
+      # LLM（走宿主机 llama.cpp）
+      LLM_API_KEY: ${LLM_API_KEY:-local}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:8207/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5-7b-instruct}
+      # Embedding（走宿主机 llama.cpp）
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://host.docker.internal:8208/v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_ALLOW_FALLBACK: ${EMBEDDING_ALLOW_FALLBACK:-false}
+      # Rerank（走宿主机）
+      RERANK_BASE_URL: ${RERANK_BASE_URL:-http://host.docker.internal:8209/v1}
+      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker-base}
+      RERANK_API_KEY: ${RERANK_API_KEY:-}
+      RERANK_ENABLED: ${RERANK_ENABLED:-true}
+      # 网页客服静态资源
+      USER_WEB_DIST: /app/user-web-dist
+      EMBED_SDK_DIST: /app/embed-sdk-dist
+      # 禁用拟人度评估（本地 LLM 回复质量有限）
+      MTK_HUMANIZE_EVAL_DISABLED: "true"
+      # 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）
+      BRIDGE_AI_SELECTOR: ${BRIDGE_AI_SELECTOR:-1}
+      BRIDGE_DIAGNOSE_API_KEY: ${BRIDGE_DIAGNOSE_API_KEY:-}
+      BRIDGE_DIAGNOSE_BASE_URL: ${BRIDGE_DIAGNOSE_BASE_URL:-}
+      BRIDGE_DIAGNOSE_MODEL: ${BRIDGE_DIAGNOSE_MODEL:-}
+    env_file:
+      - path: ./.env
+        required: false
+    ports:
+      - "${USER_SERVER_PORT:-8204}:8204"
+    volumes:
+      - ./user-server/config-docker.yaml:/app/config.yaml:ro
+      - ./user-server/config/platform.yaml:/app/config/platform.yaml:ro
+      - mtk_user_logs:/app/logs
+      - mtk_user_uploads:/app/uploads
+      - mtk_user_data:/app/data
+      - ./user-web/dist:/app/user-web-dist:ro
+      - ./embed-sdk/dist:/app/embed-sdk-dist:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "localhost:172.32.0.2"
+    shm_size: '512m'
+    depends_on:
+      mtk-postgres:
+        condition: service_healthy
+      mtk-redis:
+        condition: service_healthy
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-user-server
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS http://localhost:8204/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # ============================================================
+  # dev 模式：air 热更新（用法：docker compose --profile dev up）
+  # ============================================================
+  mtk-user-server-dev:
+    build:
+      context: ./user-server
+      dockerfile: Dockerfile
+      args:
+        RUN_MODE: dev
+    image: mtk/user-server:dev
+    container_name: mtk-user-server-dev
+    profiles:
+      - dev
+    environment:
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      GIN_MODE: debug
+      RUN_MODE: dev
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8204
+      # Go toolchain 下载走国内代理（air 容器内首次编译需下载 go1.25.0 toolchain）
+      GOTOOLCHAIN: auto
+      GOPROXY: https://goproxy.cn,direct
+      GOSUMDB: sum.golang.org
+      DB_HOST: mtk-postgres
+      DB_PORT: 8202
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}"
+      DB_NAME: ${USER_DB_NAME:-user_db}
+      REDIS_HOST: mtk-redis
+      REDIS_PORT: 8203
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      REDIS_DB: 0
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
+      JWT_EXPIRE: ${JWT_EXPIRE:-24h}
+      PLATFORM_API_URL: ${PLATFORM_API_URL:-http://host.docker.internal:8205}
+      PLATFORM_API_HOST: ${PLATFORM_API_HOST:-http://host.docker.internal:8205}
+      MERCHANT_API_SECRET: "${MERCHANT_API_SECRET:?MERCHANT_API_SECRET is required (>=32 chars). Generate with: openssl rand -hex 32}"
+      PLATFORM_ADMIN_PASSWORD: "${PLATFORM_ADMIN_PASSWORD:?PLATFORM_ADMIN_PASSWORD is required (>=8 chars). Set in .env}"
+      PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME:-admin}
+      PLATFORM_LICENSE_SECRET: "${PLATFORM_LICENSE_SECRET:?PLATFORM_LICENSE_SECRET is required}"
+      # 公网基座 URL（被动渠道 webhook 回调推导）：frp 暴露的公网域名
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://hiveuserapi.xapptool.cn}
+      # 出站代理：同 prod 服务说明。dev 容器经 host.docker.internal:7890 出网到 Telegram，
+      # NO_PROXY 排除内部服务（LLM/Embedding/Rerank/Postgres/Redis/平台端须直连）。
+      HTTP_PROXY: ${HTTP_PROXY:-http://host.docker.internal:7890}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://host.docker.internal:7890}
+      NO_PROXY: ${NO_PROXY:-mtk-postgres,mtk-redis,mtk-user-server,mtk-user-server-dev,localhost,127.0.0.1,host.docker.internal,.local}
+      INSTALL_LOCK_PATH: /app/data/install.lock
+      QINIU_ACCESS_KEY: ${QINIU_ACCESS_KEY:-}
+      QINIU_SECRET_KEY: ${QINIU_SECRET_KEY:-}
+      QINIU_BUCKET: ${QINIU_BUCKET:-}
+      QINIU_DOMAIN: ${QINIU_DOMAIN:-}
+      QQ_NUMBER: ${QQ_NUMBER:-}
+      QQ_EMAIL: ${QQ_EMAIL:-}
+      QQ_EMAIL_PASSWORD: ${QQ_EMAIL_PASSWORD:-}
+      EMAIL_163_USER: ${EMAIL_163_USER:-}
+      EMAIL_163_PASSWORD: ${EMAIL_163_PASSWORD:-}
+      EMAIL_163_SMTP_HOST: ${EMAIL_163_SMTP_HOST:-smtp.163.com}
+      # CORS：白名单必须包含 4 个平台私信页域名，
+      # 否则 content script 在 xhs/dy/tt/xianyu 页面上 fetch 会被浏览器拒掉。
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS_USER:-https://user.example.com,https://www.xiaohongshu.com,https://www.douyin.com,https://www.tiktok.com,https://www.goofish.com}
+      LLM_API_KEY: ${LLM_API_KEY:-local}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:8207/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5-7b-instruct}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://host.docker.internal:8208/v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_ALLOW_FALLBACK: ${EMBEDDING_ALLOW_FALLBACK:-false}
+      RERANK_BASE_URL: ${RERANK_BASE_URL:-http://host.docker.internal:8209/v1}
+      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker-base}
+      RERANK_API_KEY: ${RERANK_API_KEY:-}
+      RERANK_ENABLED: ${RERANK_ENABLED:-true}
+      USER_WEB_DIST: /app/user-web-dist
+      EMBED_SDK_DIST: /app/embed-sdk-dist
+      MTK_HUMANIZE_EVAL_DISABLED: "true"
+    env_file:
+      - path: ./.env
+        required: false
+    ports:
+      - "${USER_SERVER_PORT:-8204}:8204"
+    volumes:
+      # dev 关键：源码挂载 + air 配置，改代码容器内热更新
+      - ./user-server:/app
+      # 覆盖宿主机 config.yaml（开发配置 localhost:8232）为 docker 配置（mtk-postgres:8202）
+      # 必须放在 ./user-server:/app 之后，否则会被源码挂载覆盖
+      - ./user-server/config-docker.yaml:/app/config.yaml:ro
+      - ./user-server/config/platform.yaml:/app/config/platform.yaml:ro
+      - mtk_user_logs:/app/logs
+      - mtk_user_uploads:/app/uploads
+      - mtk_user_data:/app/data
+      - ./user-web/dist:/app/user-web-dist:ro
+      - ./embed-sdk/dist:/app/embed-sdk-dist:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "localhost:172.32.0.2"
+    shm_size: '512m'
+    depends_on:
+      mtk-postgres:
+        condition: service_healthy
+      mtk-redis:
+        condition: service_healthy
+    networks:
+      mtk-user-network:
+        aliases:
+          - mtk-user-server-dev
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS http://localhost:8204/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
