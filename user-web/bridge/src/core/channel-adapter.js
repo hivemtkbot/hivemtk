@@ -33,7 +33,7 @@ export class BaseAdapter {
     // seenNodes：防 DOM 重复扫描的技术手段（按节点身份去重，避免列表项/同名消息被反复扫描重复上行）。
     // 这是 DOM 扫描必需的，不是业务去重。内容指纹去重交给后端统一收信中心。
     this.seenNodes = new WeakSet();
-    // 稳定键去重（跨 DOM 重渲染）：key = 会话|发送者|类型|文本。
+    // 稳定键去重（跨 DOM 重渲染）：key = 会话|发送者|文本。
     // 平台虚拟列表重渲染会换 DOM 节点（seenNodes 失效），但同一逻辑消息的文本+发送者+会话稳定，
     // 故以此做去重，避免重复上行（实测：单会话 2h 冗余 POST 比 ≈ 46:1）。
     this._sentKeys = new Map(); // key -> 上次发送时间戳(ms)
@@ -108,11 +108,11 @@ export class BaseAdapter {
   }
 
   // 稳定去重键：跨 DOM 重渲染不变（节点引用会变，文本+发送者+会话稳定）。
+  // 规则（用户指定）：会话|发送者|文本 —— 不引入 channel/type 维度，确保同一条逻辑消息跨重渲染稳定去重。
   _dedupKey(cid, parsed) {
     const sender = parsed.sender_id || parsed.sender_name || '';
     const text = parsed.text || '';
-    const type = parsed.msg_type || 'text';
-    return `${this.channel}|${cid}|${sender}|${type}|${text}`;
+    return `${cid}|${sender}|${text}`;
   }
 
   // 规范化 event_id（msg_id）：优先平台稳定 id（短且稳定）；否则对稳定键哈希（避免 c:${text} 超 varchar(100)）。
