@@ -253,11 +253,13 @@ func NewHTTPAlertHook(webhookURL string) ReachAlertHook {
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
+		if resp != nil {
+			defer resp.Body.Close()
+		}
 		if err != nil {
 			logger.Errorf("[reach_alert] 发送告警失败: %v", err)
 			return
 		}
-		_ = resp.Body.Close()
 	}
 }
 

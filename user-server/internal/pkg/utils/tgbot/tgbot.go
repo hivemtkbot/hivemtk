@@ -174,10 +174,12 @@ func callBotAPI(botToken, method string, params url.Values) (map[string]any, err
 	}
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/%s", botToken, method)
 	resp, err := defaultHTTPClient.PostForm(apiURL, params)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("调用 %s 失败: %w", method, err)
 	}
-	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	var result struct {
 		OK          bool           `json:"ok"`
@@ -360,10 +362,12 @@ func GetUpdates(ctx context.Context, botToken string, offset int64, limit, timeo
 	req.URL.RawQuery = form.Encode()
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("getUpdates 失败: %w", err)
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusConflict {
 		return nil, fmt.Errorf("getUpdates 返回 409 Conflict（同 token 另一实例正在 polling）")
 	}

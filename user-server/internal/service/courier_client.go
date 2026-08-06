@@ -59,10 +59,12 @@ func (c *CourierClient) Query(ctx context.Context, carrier, trackingNo string) (
 		req.Header.Set("X-Api-Secret", c.secret)
 	}
 	resp, err := c.http.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("courier api status %d", resp.StatusCode)
 	}

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -56,8 +57,10 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		// 解析JWT令牌
 		claims, err := jwtUtils.ParseToken(parts[1])
 		if err != nil {
+			// 不把 JWT 库内部错误原文返回给客户端，避免泄露算法/校验细节辅助绕过
+			log.Printf("[WARN] JWT 校验失败: %v", err)
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "无效的认证令牌: " + err.Error(),
+				"error": "无效的认证令牌",
 			})
 			c.Abort()
 			return
