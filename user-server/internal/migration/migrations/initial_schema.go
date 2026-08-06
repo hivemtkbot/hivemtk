@@ -193,5 +193,7 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewBridgeChannelNormalizeMigration(db))
 	// 2026-08-05 渠道编码统一 v2：把 *_web / xhs 全部归一化为全名（xiaohongshu/douyin/kuaishou/xianyu/tiktok）
 	registry.Register(NewBridgeChannelUnifyV2Migration(db))
+	// customer_sessions 补齐 updated_at 列（修复全渠道会话 upsert 的 SQLSTATE 42703）
+	registry.Register(NewCustomerSessionUpdatedAtMigration(db))
 	// 继续添加新的迁移...
 }

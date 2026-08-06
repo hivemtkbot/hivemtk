@@ -58,6 +58,7 @@ type CustomerSession struct {
 	RatingComment   string        `gorm:"type:text" json:"rating_comment"`
 	Tags            string        `gorm:"type:text" json:"tags"` // JSON数组
 	CreatedAt       time.Time     `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time     `gorm:"autoUpdateTime" json:"updated_at"`
 	ResolvedAt      *time.Time    `json:"resolved_at"`
 	ClosedAt        *time.Time    `json:"closed_at"`
 }
