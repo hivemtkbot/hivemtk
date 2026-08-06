@@ -120,7 +120,21 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 		m.duplicate++
 		return res, nil
 	}
+	// 钩子2 兜底（镜像生产 HookIngressOrEcho）：前端携带与后端 ContentHashMsgID 同源的
+	// content_hash（AI 出站 MsgID 即该值），即便 event_id 与 msg_id 不一致，也能幂等跳过，
+	// 挡住"AI 回复被平台回显、前端重新扫描上报"引发的无限回环。
+	if ch, ok := ev.Extra["content_hash"].(string); ok && ch != "" && m.seen[ch] {
+		res.Accepted = true
+		res.QueuedForAI = false
+		res.Reason = fmt.Sprintf("content_hash already exists (platform outbound echo): %s", ch)
+		m.duplicate++
+		return res, nil
+	}
 	m.seen[ev.EventID] = true
+	// 把 (event_id, content_hash) 都登记，供上面兜底命中
+	if ch, ok := ev.Extra["content_hash"].(string); ok && ch != "" {
+		m.seen[ch] = true
+	}
 	res.Accepted = true
 	m.accepted++
 
@@ -140,8 +154,10 @@ func (m *mockIngestHandler) handle(ctx context.Context, ev *model.MessageEvent) 
 	}
 	res.QueuedForAI = true
 	res.Reason = "batched; will be merged and triggered at batch end"
-	m.store.push(ev.Channel, account, ev.ConversationID,
-		fmt.Sprintf("ob_%s", ev.EventID), "[AI] 回复："+ev.Content)
+	obID := fmt.Sprintf("ob_%s", ev.EventID)
+	m.store.push(ev.Channel, account, ev.ConversationID, obID, "[AI] 回复："+ev.Content)
+	// 登记出站 MsgID（= 后端 ContentHashMsgID 同源），供后续 content_hash 兜底命中回显。
+	m.seen[obID] = true
 	return res, nil
 }
 
@@ -231,6 +247,65 @@ func doIngest(t *testing.T, base, channel, account, conv, eventID, senderType, c
 }
 
 // ───────────── 测试用例 ─────────────
+
+// 回环去重·钩子2 兜底：AI 出站 MsgID=ob_<eventID>，前端扫描到平台回显重新上报时
+// 携带 content_hash=ob_<eventID>（与后端 ContentHashMsgID 同源），即便 event_id 不同，
+// 也应被幂等跳过，不二次触发 AI、不重复入下发队列。
+func TestBridgeHTTP_OutboundEcho_SkippedByContentHash(t *testing.T) {
+	m, base, _, stop := startMockServer()
+	defer stop()
+
+	// 1) 用户消息 → 触发 AI → 占位入下发队列（outbox msg_id = ob_evt-loop）
+	got := doIngest(t, base, ChannelDouyinWeb, "1", "c1", "evt-loop", "customer", "你好")
+	if !got.Ingested[0].AIHandled {
+		t.Fatalf("用户消息应触发 AI")
+	}
+	if len(m.store.list(ChannelDouyinWeb, "1")) != 1 {
+		t.Fatalf("AI 回复应进入下发队列")
+	}
+
+	// 2) 模拟前端扫描到平台下发的 AI 回复"你好"重新上报：event_id 是平台 DOM id（与 msg_id 不一致），
+	//    但 content_hash 与后端出站 MsgID 同源（mh: ContentHashMsgID(channel, conv, content)）。
+	//    此处直接复用 ob_<eventID> 作为 content_hash，证明钩子2 能命中。
+	req := HTTPIngestRequest{
+		Channel:        ChannelDouyinWeb,
+		AccountID:      "1",
+		ConversationID: "c1",
+		Messages: []*HTTPIngestMessage{{
+			EventID:        "dom-echo-123", // 平台 DOM id，与 ob_evt-loop 不同
+			Channel:        ChannelDouyinWeb,
+			AccountID:      "1",
+			ConversationID: "c1",
+			SenderType:     "customer", // 注意：前端把自/他判定移交后端，回显可能被识别为客户
+			SenderID:       "u1",
+			SenderName:     "用户",
+			MsgType:        "text",
+			Content:        "你好", // 与 AI 占位内容相同
+			Timestamp:      time.Now().Unix(),
+			ContentHash:    "ob_evt-loop", // 与后端出站 MsgID 同源
+		}},
+	}
+	body, _ := json.Marshal(req)
+	url := fmt.Sprintf("%s/api/bridge/ingest?channel=%s&account_id=%s&conversation_id=%s", base, ChannelDouyinWeb, "1", "c1")
+	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("echo ingest 失败: %v", err)
+	}
+	var got2 HTTPIngestResponse
+	_ = json.NewDecoder(resp.Body).Decode(&got2)
+	resp.Body.Close()
+
+	// 关键断言：被钩子2 幂等跳过（不触发 AI、不二次入队）
+	if got2.Ingested[0].AIHandled {
+		t.Fatalf("回显消息不应二次触发 AI（回环防护失效）")
+	}
+	if !strings.Contains(got2.Ingested[0].Reason, "content_hash") {
+		t.Fatalf("回显消息应被 content_hash 兜底跳过, 实际 reason=%s", got2.Ingested[0].Reason)
+	}
+	if len(m.store.list(ChannelDouyinWeb, "1")) != 1 {
+		t.Fatalf("回显不应重复入下发队列, 实际 %d", len(m.store.list(ChannelDouyinWeb, "1")))
+	}
+}
 
 // 重构后：ingest 立即返回，不再同步长轮询 AI 回复；AI 回复进入下发队列（outbox）。
 func TestBridgeHTTP_ImmediateReturn_NoLongPoll(t *testing.T) {

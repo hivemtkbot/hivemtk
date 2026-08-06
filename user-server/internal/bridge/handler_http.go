@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +85,10 @@ type HTTPIngestMessage struct {
 	GroupName      string         `json:"group_name,omitempty"`
 	History        []*HistoryItem `json:"history,omitempty"` // 会话级多轮历史（点3）
 	Extra          map[string]any `json:"extra,omitempty"`
+	// ContentHash 前端按与服务端 ContentHashMsgID 同源算法生成的消息内容哈希（mh: 前缀 FNV-1a）。
+	// 用作回环去重钩子2 的兜底依据：AI 出站消息 MsgID 即该值，前端扫描到 AI 回显重新上报时
+	// 携带它 → GetByMsgID 命中 → 幂等跳过（即便 event_id/DOM id 与 msg_id 不一致也能兜住）。
+	ContentHash string `json:"content_hash,omitempty"`
 }
 
 // HTTPIngestResponse 上报响应
@@ -643,6 +648,25 @@ type BridgeOutboxAckRequest struct {
 // 扩展独立轮询此端点，拉取本渠道/账号下 status='pending' 的出站消息（AI 回复），
 // 转发到对应网页会话，成功后通过 AckBridgeOutbox 确认。
 //
+// writeOutboxJSON 把 message_hub 列表序列化应答（通道C·下发）。
+func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
+	msgs := make([]BridgeOutboxMessage, 0, len(hubs))
+	for _, hub := range hubs {
+		msgs = append(msgs, BridgeOutboxMessage{
+			MsgID:          hub.MsgID,
+			ConversationID: hub.ConversationID,
+			MsgType:        hub.MsgType,
+			Content:        hub.Content,
+			MediaURL:       hub.MediaURL,
+			SenderID:       hub.SenderID,
+			ReceiverID:     hub.ReceiverID,
+			IsAIReply:      hub.IsAIReply,
+			CreatedAt:      hub.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "messages": msgs})
+}
+
 // GET /api/bridge/outbox?channel=<ch>&account_id=<acc>
 func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 	channel := c.Query("channel")
@@ -655,6 +679,22 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
+	// limit 由前端 outboxBatchSize 控制（默认 50，封顶 200），实现三通道"要求1：前端参数可配置"
+	if q := c.Query("limit"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil && n > 0 {
+			if n > 200 {
+				n = 200
+			}
+			hubs, err := h.ingress.ListPendingOutboundLimit(ctx, channel, accountID, n)
+			if err != nil {
+				logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutboundLimit failed")
+				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
+				return
+			}
+			writeOutboxJSON(c, hubs)
+			return
+		}
+	}
 	hubs, err := h.ingress.ListPendingOutbound(ctx, channel, accountID)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutbound failed")
@@ -754,6 +794,9 @@ func httpMessageToEvent(m *HTTPIngestMessage) *model.MessageEvent {
 		GroupID:        m.GroupID,
 		Timestamp:      ts,
 		Extra:          map[string]any{"account_id": m.AccountID, "bridge": true, "sender_type": m.SenderType, "transport": "http"},
+	}
+	if m.ContentHash != "" {
+		ev.Extra["content_hash"] = m.ContentHash
 	}
 	if m.IsGroup {
 		ev.Extra["is_group"] = true

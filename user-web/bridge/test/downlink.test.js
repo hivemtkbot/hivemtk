@@ -97,6 +97,34 @@ describe('downlink / 发送失败重试', () => {
   });
 });
 
+describe('downlink / ack 失败不丢消息（先 ack 后缓存）', () => {
+  let chrome;
+  beforeEach(() => { chrome = makeChromeStorage(); globalThis.chrome = chrome; vi.clearAllMocks(); });
+  afterEach(() => { delete globalThis.chrome; });
+
+  it('转发成功但 ack 失败：不写本地缓存，下轮重新拉取并重试', async () => {
+    await initDownlink(['douyin']);
+    const adapter = { sendOutbound: vi.fn(async () => true) };
+    getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-ackfail', content: 'hi', conversation_id: 'c1' }] });
+    // 第一轮：ack 失败
+    ackOutbox.mockResolvedValue({ status: 'error' });
+    const c = cfg();
+    await pollDownlink('douyin', 'acc1', c, { sendOutbound: adapter.sendOutbound });
+    // 本地缓存绝不能写入（否则下轮被拦截，消息永久丢失）
+    let stored = await chrome.storage.local.get(['bridge_sent_douyin']);
+    expect(stored['bridge_sent_douyin'] || []).not.toContain('m-ackfail');
+    expect(adapter.sendOutbound).toHaveBeenCalledTimes(1);
+
+    // 第二轮：ack 成功，才写入缓存
+    ackOutbox.mockResolvedValue({ status: 'ok' });
+    await pollDownlink('douyin', 'acc1', c, { sendOutbound: adapter.sendOutbound });
+    stored = await chrome.storage.local.get(['bridge_sent_douyin']);
+    expect(stored['bridge_sent_douyin']).toContain('m-ackfail');
+    expect(adapter.sendOutbound).toHaveBeenCalledTimes(2);
+    expect(ackOutbox).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('downlink / 空内容不下发', () => {
   let chrome;
   beforeEach(() => { chrome = makeChromeStorage(); globalThis.chrome = chrome; vi.clearAllMocks(); });

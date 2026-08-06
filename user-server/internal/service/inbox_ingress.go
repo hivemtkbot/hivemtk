@@ -909,14 +909,28 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 		return result, nil
 	}
 
-	// 钩子2：msg_id 查 DB 去重
+	// 钩子2：msg_id / content_hash 查 DB 去重
 	if s.hubRepo != nil {
-		existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID)
-		if err == nil && existing != nil {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = "msg_id already exists in DB; idempotent skip"
-			return result, nil
+		// 主：event_id 命中（DOM id / 前端兜底 hash / 历史入库的消息）
+		if event.EventID != "" {
+			if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil {
+				result.Accepted = true
+				result.QueuedForAI = false
+				result.Reason = "msg_id already exists in DB; idempotent skip"
+				return result, nil
+			}
+		}
+		// 兜底：content_hash 命中（前端按服务端 ContentHashMsgID 同源算法生成）。
+		// AI 出站消息 MsgID 即该值；前端扫描到平台 AI 回显重新上报时携带它，
+		// 即便 event_id 与 msg_id 不一致（DOM id / c:text），也能在此幂等跳过，
+		// 作为 isPlatformOutboundEcho（钩子1）之外的第二道回环防护。
+		if ch, ok := event.Extra["content_hash"].(string); ok && ch != "" {
+			if existing, err := s.hubRepo.GetByMsgID(ctx, ch); err == nil && existing != nil {
+				result.Accepted = true
+				result.QueuedForAI = false
+				result.Reason = "content_hash already exists in DB (platform outbound echo); idempotent skip"
+				return result, nil
+			}
 		}
 	}
 
@@ -1133,6 +1147,28 @@ func (s *InboxIngressService) ListPendingOutbound(ctx context.Context, channel, 
 		Status:    "pending",
 		OrderBy:   "id asc",
 		PageSize:  50,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// ListPendingOutboundLimit 同 ListPendingOutbound，但支持自定义每页条数（前端 outboxBatchSize 控制）。
+func (s *InboxIngressService) ListPendingOutboundLimit(ctx context.Context, channel, accountID string, limit int) ([]*model.MessageHub, error) {
+	if s.hubRepo == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	list, _, err := s.hubRepo.ListByHubQuery(ctx, repository.HubListQuery{
+		Platform:  channel,
+		AccountID: accountID,
+		Direction: "outbound",
+		Status:    "pending",
+		OrderBy:   "id asc",
+		PageSize:  limit,
 	})
 	if err != nil {
 		return nil, err

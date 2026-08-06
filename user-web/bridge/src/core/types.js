@@ -88,6 +88,53 @@ export function makeUnifiedMessage({
   };
 }
 
+// 消息内容哈希（与服务端 internal/service/webhook.go::ContentHashMsgID 严格一致）。
+//
+// ⚠️ 回环去重的契约核心（2026-08-07 审计修复）：
+//   服务端 AI 出站消息的 MsgID = ContentHashMsgID(channel, conversationID, content)
+//   = `mh:` + FNV-1a 32位(channel|conversationID|trim(content))。
+//   前端扫描到平台下发的 AI 回复并重新上报时，必须以相同算法生成 event_id（或 content_hash），
+//   后端 GetByMsgID 才能命中 → 钩子2 幂等跳过，作为 isPlatformOutboundEcho（内容匹配）之外的兜底。
+//   算法必须前后端逐字节一致（输入顺序、trim、前缀、hex 格式），否则回环防护断裂。
+//
+// ⚠️ 关键：FNV-1a 是按字节哈希。Go 端 []byte(s) 是 UTF-8 字节；JS 的 String.charCodeAt 是 UTF-16
+//   码元，对多字节字符（中文等）结果不同 → 必须先用 TextEncoder 转成 UTF-8 字节再哈希，
+//   否则前后端哈希永远不匹配，回环钩子2 兜底失效。
+//
+// 输入：channel|conversationID|content（content 去首尾空白），输出：`mh:${8位hex}`。
+export function contentHash(channel, conversationID, content) {
+  const s = `${channel || ''}|${conversationID || ''}|${(content || '').trim()}`;
+  // 统一为 UTF-8 字节，与 Go 端 []byte(s) 逐字节一致
+  const bytes = typeof TextEncoder !== 'undefined'
+    ? new TextEncoder().encode(s)
+    : utf8EncodeFallback(s);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193);
+  }
+  return 'mh:' + (h >>> 0).toString(16).padStart(8, '0');
+}
+
+// 无 TextEncoder 环境（极旧运行时）的 UTF-8 编码兜底
+function utf8EncodeFallback(s) {
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) {
+      out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    } else if (c >= 0xd800 && c <= 0xdbff) {
+      const c2 = s.charCodeAt(++i);
+      c = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3ff);
+      out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    } else {
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    }
+  }
+  return out;
+}
+
 // 解析下行回复（统一模型，字段名与服务端 UnifiedReply 完全一致）
 // truncated 字段（2026-08-05 审计 P0 修复）：服务端截断 4KB 后置 true，
 // 扩展可据此在 UI 显示"消息被截断"提示，避免用户看到半截消息不知情。

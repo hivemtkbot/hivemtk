@@ -78,6 +78,14 @@ export async function initDownlink(channels) {
 // 拉取本渠道待发消息 → 逐条转发对应网页会话 → 成功后批量 ack delivered。
 export async function pollDownlink(channel, accountId, getConfig, options = {}) {
   const sendOutbound = options && typeof options.sendOutbound === 'function' ? options.sendOutbound : null;
+  // 下发转发超时（实现 BRIDGE_THREE_CHANNEL.sendOutboundTimeoutMs）：sendOutbound 卡死时
+  // 不应永久阻塞整个轮询，超时则视为失败，下个周期重试。
+  const sendTimeoutMs = options && options.sendOutboundTimeoutMs
+    ? options.sendOutboundTimeoutMs
+    : BRIDGE_THREE_CHANNEL.sendOutboundTimeoutMs;
+  const outboxBatchSize = options && options.outboxBatchSize
+    ? options.outboxBatchSize
+    : BRIDGE_THREE_CHANNEL.outboxBatchSize;
   const cache = getCache(channel);
   await cache.load();
   let cfg = {};
@@ -92,7 +100,7 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
 
   const res = await getOutbox(
     { serverUrl, channel, accountId, token },
-    { label: `[下行 outbox] ${channel}` }
+    { label: `[下行 outbox] ${channel}`, batchSize: outboxBatchSize }
   );
   const messages = (res && res.messages) || [];
   const ackIds = [];
@@ -108,7 +116,11 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
     let ok = false;
     try {
       if (sendOutbound) {
-        ok = await sendOutbound(safeContent, m.conversation_id, { viaAdapter: channel });
+        ok = await withTimeout(
+          sendOutbound(safeContent, m.conversation_id, { viaAdapter: channel }),
+          sendTimeoutMs,
+          `sendOutbound(${channel})`
+        );
       } else {
         log.warn('pollDownlink: 未提供 sendOutbound，跳过下发', channel);
       }
@@ -116,19 +128,44 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
       ok = false;
     }
 
+    // 关键顺序（2026-08-07 修复消息丢失边界）：
+    //   先转发成功 → 再 ack 服务端 → 最后才写入本地已发缓存。
+    //   若 ack 失败：本地不缓存，服务端仍 status=pending，下个轮询周期会重新拉取并重试，
+    //   不会"前端已去重但服务端未标记"导致该消息永久丢失。
     if (ok) {
-      cache.add(m.msg_id);
       ackIds.push(m.msg_id);
     }
     // 失败：不缓存、不 ack → 下个轮询周期重试（服务端仍 status=pending）
   }
 
+  // 批量确认 delivered（实现 BRIDGE_THREE_CHANNEL.ackFlushIntervalMs 的语义：合并多次下发一次性 ack）
   if (ackIds.length) {
-    await ackOutbox(
+    const ackRes = await ackOutbox(
       { serverUrl, channel, accountId, token },
       ackIds,
       { label: `[下行 ack] ${channel}` }
     );
+    // 仅当 ack 成功，才把这批 msg_id 写入本地已发缓存（防重复下发）；
+    // ack 失败 → 不缓存 → 下个周期重试。
+    if (ackRes && ackRes.status === 'ok') {
+      for (const id of ackIds) cache.add(id);
+    } else {
+      log.warn(`下行 ack 失败，保留重试`, { channel, count: ackIds.length });
+    }
   }
   await cache.flush();
+}
+
+// withTimeout 给 promise 加超时保护（不修改原 promise，仅 race）。
+async function withTimeout(promise, ms, label) {
+  if (!ms || ms <= 0) return promise;
+  let timer = null;
+  const timeout = new Promise((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`${label} timeout after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

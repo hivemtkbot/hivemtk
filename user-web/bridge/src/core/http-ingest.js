@@ -287,12 +287,16 @@ const OUTBOX_PATH = '/api/bridge/outbox';
 
 // getOutbox 通道C·下发轮询：拉取本渠道/账号下待下发的消息（message_hub status=pending 出站）。
 // 返回 { status, messages: BridgeOutboxMessage[] }。
+// 支持 opts.batchSize（对应 BRIDGE_THREE_CHANNEL.outboxBatchSize）：控制单次拉取条数上限。
 async function getOutbox({ serverUrl, channel, accountId, token }, opts = {}) {
   const acct = accountId || 'default';
   const u = new URL(`${toHttpUrl(serverUrl)}${OUTBOX_PATH}`);
   u.searchParams.set('channel', channel || '');
   u.searchParams.set('account_id', acct);
   if (token) u.searchParams.set('token', token);
+  // 拉取条数：默认 50，可由配置覆盖（与后端 GetBridgeOutbox limit query 对齐）
+  const batchSize = opts.batchSize && opts.batchSize > 0 ? opts.batchSize : 50;
+  u.searchParams.set('limit', String(batchSize));
   const label = opts.label || '[HTTP outbox]';
   const timeoutMs = opts.timeoutMs ?? HTTP_INGEST_DEFAULTS.requestTimeoutMs;
   const controller = new AbortController();

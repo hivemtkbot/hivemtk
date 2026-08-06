@@ -14,24 +14,13 @@
 // 复用 http-ingest.postIngest（统一 URL 构造 + 日志 + 退避重试）。
 import { postIngest, HTTP_INGEST_DEFAULTS } from './http-ingest.js';
 import { DEFAULT_USER_SERVER, BRIDGE_THREE_CHANNEL } from './constants.js';
+import { contentHash } from './types.js';
 
-// 前端完成消息 hash（稳定幂等）：同一消息（同渠道/账号/会话/发送方/内容/时间）产出同一 id。
-// 采用 FNV-1a（32 位），纯同步、无依赖，适合在 content script / SW 中高频调用。
-export function computeMsgID({ channel, accountId, conversationId, senderType, content, ts }) {
-  const s = [
-    channel || '',
-    accountId || '',
-    conversationId || '',
-    senderType || '',
-    (content || '').slice(0, 2000),
-    String(ts || 0),
-  ].join('|');
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return 'b-' + (h >>> 0).toString(16).padStart(8, '0');
+// 前端完成消息 hash（稳定幂等）：同一消息产出同一 id。
+// 与服务端 ContentHashMsgID 严格一致（channel|conversationID|trim(content)，FNV-1a 32 位，带 mh: 前缀），
+// 作为回环去重钩子2（GetByMsgID）的兜底依据。
+export function computeMsgID({ channel, accountId, conversationId, content }) {
+  return contentHash(channel, conversationId, content);
 }
 
 // Uplink：统一上报队列。所有渠道经 enqueue(message) 推入，按 (accountId|conversationId)
@@ -59,10 +48,18 @@ export class Uplink {
         channel: message.channel || this.channel,
         accountId,
         conversationId,
-        senderType: message.sender_type,
         content: message.content,
-        ts: message.timestamp,
       });
+    }
+    // 回环去重兜底：无论 event_id 来源（DOM id / c:text / 兜底 hash），都附带与后端
+    // ContentHashMsgID 同源的 content_hash。后端 GetByMsgID 命中 content_hash 即幂等跳过
+    // （钩子2），作为 isPlatformOutboundEcho 内容匹配之外的第二道防线。
+    if (!message.content_hash) {
+      message.content_hash = contentHash(
+        message.channel || this.channel,
+        conversationId,
+        message.content
+      );
     }
     const key = `${accountId}|${conversationId}`;
     let buf = this.buffers.get(key);
@@ -123,6 +120,7 @@ export class Uplink {
         group_id: m.group_id || '',
         group_name: m.group_name || '',
         history: Array.isArray(m.history) ? m.history : [],
+        content_hash: m.content_hash || '',
       })),
       timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
     };

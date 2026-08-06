@@ -25,6 +25,35 @@ func setupWebhookTestDB(t *testing.T) *gorm.DB {
 	)
 }
 
+// TestContentHashMsgID_StableContract 锚定前后端共享的回环去重哈希契约。
+//
+// 该值被前端 types.js::contentHash 镜像（FNV-1a 32 位 + mh: 前缀 + 输入 channel|conversationID|trim(content)）。
+// AI 出站 MsgID 即此值；前端扫描到平台 AI 回显重新上报时携带相同 content_hash，
+// 后端 GetByMsgID 才能命中（钩子2）→ 幂等跳过。算法任何漂移都会让回环防护断裂，
+// 故用此测试作为契约锚点（跨语言一致性由前端单测对相同输入断言同一值保证）。
+func TestContentHashMsgID_StableContract(t *testing.T) {
+	// 已知输入 → 期望输出（FNV-1a 32 位，输入 "douyin|c1|你好"）
+	const channel, conv, content = "douyin", "c1", "你好"
+	got := ContentHashMsgID(channel, conv, content)
+	if got != "mh:cb0c3037" {
+		t.Fatalf("ContentHashMsgID 契约值漂移: got=%s want=mh:cb0c3037", got)
+	}
+	// 隔离性：任一字段不同 → 值不同
+	if ContentHashMsgID(channel, "c2", content) == got {
+		t.Fatalf("conversationID 不同应哈希不同")
+	}
+	if ContentHashMsgID("xhs", conv, content) == got {
+		t.Fatalf("channel 不同应哈希不同")
+	}
+	if ContentHashMsgID(channel, conv, "你好吗") == got {
+		t.Fatalf("content 不同应哈希不同")
+	}
+	// 首尾空白被 trim：不应影响结果
+	if ContentHashMsgID(channel, conv, "  你好  ") != got {
+		t.Fatalf("首尾空白应被 trim，不影响哈希")
+	}
+}
+
 func TestWebhookService_ParsePayload_BasicKeys(t *testing.T) {
 	s := &WebhookService{}
 	body := []byte(`{"event_id":"e1","event_type":"message","content":"hi","sender":"u1","chat_id":"c1"}`)

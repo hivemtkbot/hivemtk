@@ -182,7 +182,11 @@ class PollingLoop {
         const sendOutbound = adapter && typeof adapter.sendOutbound === 'function'
           ? (text, convId, opts) => adapter.sendOutbound(text, convId, opts)
           : undefined;
-        await pollDownlink(ch, accountId, () => this.getConfig(), { sendOutbound });
+        await pollDownlink(ch, accountId, () => this.getConfig(), {
+          sendOutbound,
+          sendOutboundTimeoutMs: BRIDGE_THREE_CHANNEL.sendOutboundTimeoutMs,
+          outboxBatchSize: BRIDGE_THREE_CHANNEL.outboxBatchSize,
+        });
       } catch (e) {
         log.warn(`下发轮询失败 channel=${ch}`, { error: String(e && e.message || e) });
       }

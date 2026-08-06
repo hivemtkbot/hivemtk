@@ -7,22 +7,37 @@
 //   4. 上报 body 字段与 user-server handler_http.go HTTPIngestRequest 对齐
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { computeMsgID, Uplink } from '../src/core/uplink.js';
+import { contentHash } from '../src/core/types.js';
 
-describe('uplink / computeMsgID（消息 hash 前端完成）', () => {
+describe('uplink / computeMsgID（消息 hash 前端完成，与后端 ContentHashMsgID 一致）', () => {
   it('同输入产出同 hash（幂等去重主键）', () => {
-    const a = { channel: 'douyin', accountId: 'acc1', conversationId: 'c1', senderType: 'customer', content: '你好', ts: 1700000000 };
-    const b = { channel: 'douyin', accountId: 'acc1', conversationId: 'c1', senderType: 'customer', content: '你好', ts: 1700000000 };
+    const a = { channel: 'douyin', conversationId: 'c1', content: '你好' };
+    const b = { channel: 'douyin', conversationId: 'c1', content: '你好' };
     expect(computeMsgID(a)).toBe(computeMsgID(b));
   });
   it('内容不同 → hash 不同', () => {
-    const a = { channel: 'douyin', accountId: 'acc1', conversationId: 'c1', senderType: 'customer', content: '你好', ts: 1 };
-    const b = { channel: 'douyin', accountId: 'acc1', conversationId: 'c1', senderType: 'customer', content: '你好吗', ts: 1 };
+    const a = { channel: 'douyin', conversationId: 'c1', content: '你好' };
+    const b = { channel: 'douyin', conversationId: 'c1', content: '你好吗' };
     expect(computeMsgID(a)).not.toBe(computeMsgID(b));
   });
-  it('hash 以 b- 前缀，长度稳定', () => {
-    const id = computeMsgID({ channel: 'xhs', accountId: 'a', conversationId: 'c', senderType: 'customer', content: 'x', ts: 1 });
-    expect(id.startsWith('b-')).toBe(true);
-    expect(id.length).toBeGreaterThan(2);
+  it('hash 以 mh: 前缀（与后端 ContentHashMsgID 同源 FNV-1a），长度稳定', () => {
+    const id = computeMsgID({ channel: 'xhs', conversationId: 'c', content: 'x' });
+    expect(id.startsWith('mh:')).toBe(true);
+    expect(id.length).toBe(11); // mh: + 8位hex
+  });
+  it('channel / conversationId / content 任一不同 → hash 不同（隔离会话与渠道）', () => {
+    const base = { channel: 'douyin', conversationId: 'c1', content: 'x' };
+    expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, channel: 'xhs' }));
+    expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, conversationId: 'c2' }));
+    expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, content: 'y' }));
+  });
+  it('跨语言契约锚点：contentHash("douyin","c1","你好") === mh:cb0c3037（与 Go ContentHashMsgID 逐字节一致）', () => {
+    // 后端 webhook.go::ContentHashMsgID 对 "douyin|c1|你好" 的 FNV-1a 32 位 UTF-8 字节哈希。
+    // 算法漂移会破坏回环去重钩子2（content_hash 匹配）。此处作为跨语言契约锚点。
+    expect(contentHash('douyin', 'c1', '你好')).toBe('mh:cb0c3037');
+  });
+  it('content 首尾空白被 trim，不影响哈希（与后端 strings.TrimSpace 对齐）', () => {
+    expect(contentHash('douyin', 'c1', '  你好  ')).toBe(contentHash('douyin', 'c1', '你好'));
   });
 });
 
@@ -38,7 +53,8 @@ describe('uplink / enqueue + flushAll', () => {
     uplink.enqueue({ channel: 'douyin', account_id: 'acc1', conversation_id: 'c1', sender_type: 'customer', content: '你好', timestamp: 1 });
     await uplink.flushAll();
     const body = JSON.parse(captured);
-    expect(body.messages[0].event_id).toMatch(/^b-/); // 兜底 hash 已生成
+    expect(body.messages[0].event_id).toMatch(/^mh:/); // 兜底 hash 已生成（与后端同源）
+    expect(body.messages[0].content_hash).toBe(body.messages[0].event_id); // 回环去重兜底字段已附带
   });
 
   it('合并窗口：同会话 3 条消息合并为一次 POST', async () => {

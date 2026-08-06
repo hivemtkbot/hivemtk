@@ -231,7 +231,7 @@ export const BRIDGE_THREE_CHANNEL = Object.freeze({
   uplinkMaxBatch: 20,
   // 通道C：下发轮询间隔（每次拉取待发消息并转发）
   outboxPollIntervalMs: 1500,
-  // 通道C：单次拉取上限（与后端 Outbox 查询 PageSize=50 对齐，留余量）
+  // 通道C：单次拉取上限（前端 getOutbox 以 limit query 传给后端 ListPendingOutboundLimit，封顶 200）
   outboxBatchSize: 50,
   // 通道B：状态确认刷新间隔（聚合批量 ack）
   ackFlushIntervalMs: 500,
