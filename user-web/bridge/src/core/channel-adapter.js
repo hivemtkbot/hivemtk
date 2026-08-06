@@ -364,19 +364,21 @@ export class BaseAdapter {
   }
 
   // 首次激活后延迟调度一次全量同步（等列表与首个会话渲染就绪）
+  // 2026-08-05 修复：throttleMs 1000 → 1500（用户诉求：会话间间隔 1-2 秒）
   _scheduleInitialSync() {
     if (this._initialSyncDone) return;
     this._initialSyncDone = true;
     setTimeout(() => {
-      this.syncAllConversations({ throttleMs: 1000 }).catch(() => {});
+      this.syncAllConversations({ throttleMs: 1500 }).catch(() => {});
     }, 8000);
   }
 
   // 周期重扫：捕获自动同步之后新增的私信会话（已同步的会被过滤，不会重复回填）。
+  // 2026-08-05 修复：throttleMs 1000 → 1500（用户诉求：会话间间隔 1-2 秒）
   _startRescan() {
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._rescanTimer = setInterval(() => {
-      this.syncAllConversations({ throttleMs: 1000 }).catch(() => {});
+      this.syncAllConversations({ throttleMs: 1500 }).catch(() => {});
     }, 10 * 60 * 1000);
   }
 
@@ -476,7 +478,11 @@ export class BaseAdapter {
   // 多轮扫描：每轮结束后把会话列表滚动到底部，加载被虚拟/懒加载的更多项，直到无新增或达上限。
   // 返回 { synced, total, failures }。可经 popup / 开发工具手动触发：
   //   chrome.tabs.sendMessage(tabId, { type: 'syncAllConversations' })
-  async syncAllConversations({ max = 0, throttleMs = 1000, waitActiveMs = 5000, onProgress } = {}) {
+  //
+  // 2026-08-05 修复（用户诉求：遍历会话列表不允许太快，两个会话/两轮列表之间间隔 1-2 秒）：
+  //   - throttleMs 默认 1000 → 1500（会话间节流，落在 1-2s 区间中值）
+  //   - 新增 scrollLoadMs 参数（两轮列表扫描间隔），默认 1500ms（旧值硬编码 500ms 太快）
+  async syncAllConversations({ max = 0, throttleMs = 1500, waitActiveMs = 5000, scrollLoadMs = 1500, onProgress } = {}) {
     if (this._syncingAll) {
       this.log.warn('会话全量同步已在进行，忽略重复触发');
       return { skipped: true, reason: 'in-progress' };
@@ -543,10 +549,12 @@ export class BaseAdapter {
           }
         }
         // 本轮结束：滚动列表到底部，等待加载更多（虚拟/懒加载列表），继续下一轮
+        // 2026-08-05 修复：两轮列表之间间隔从 500ms 提到 scrollLoadMs（默认 1500ms），
+        //   旧值 500ms 太快，虚拟列表还没加载完就开下一轮 → 漏抓 + 平台风控
         const scroller = this._findListScroller();
         if (scroller) {
           try { scroller.scrollTop = scroller.scrollHeight; } catch (_) { /* noop */ }
-          await sleep(500);
+          await sleep(scrollLoadMs);
         } else {
           break; // 无列表容器可滚动 → 单轮即可覆盖全部
         }
@@ -765,11 +773,18 @@ export class BaseAdapter {
 
   // 巡检访问单个未读会话：点击打开（不触发 history 回填），等待渲染，收集未 seenNodes 的文字消息，
   // 一条会话级消息上行。已扫描的 DOM 节点靠 seenNodes 跳过 → 不重复打扰。
+  //
+  // 2026-08-05 修复（用户诉求：遍历会话列表不允许太快）：
+  //   - 渲染等待（renderWaitMs）与节流（throttleMs）分离，职责清晰
+  //   - renderWaitMs = min(throttleMs, 600)：DOM 渲染等待，封顶 600ms 防过长（技术性等待）
+  //   - throttleMs（默认 1500ms）：会话间节流，在 patrol 主循环里 sleep（用户诉求 1-2s）
+  //   - 旧注释「节流的一部分作为渲染等待」有歧义，已澄清
   async _patrolVisit(conv, { throttleMs, waitActiveMs }) {
     const opened = await this.openConversation(conv.id, { backfill: false, waitActiveMs });
     if (!opened) return { ok: false, newCount: 0 };
-    // 等待线程异步渲染（节流的一部分作为渲染等待，不额外加 sleep）
-    await sleep(Math.min(throttleMs, 600));
+    // 等待线程异步渲染（纯技术性等待，与 patrol 主循环里的 throttleMs 节流分离）
+    const renderWaitMs = Math.min(throttleMs, 600);
+    await sleep(renderWaitMs);
     const batch = this._collectUnseenText();
     if (batch.length) this._emitPatrolMessage(opened, conv, batch);
     return { ok: true, newCount: batch.length };
@@ -816,16 +831,21 @@ export class BaseAdapter {
     const groupId = (groupItem && groupItem.group_id) || '';
     const groupName = (groupItem && groupItem.group_name) || '';
     const senderName = (conv && conv.name) || batch.find((p) => p.sender_name)?.sender_name || '';
+    // 2026-08-05 根因修复：sender_type 和 event_id 必须根据最后一条消息设置，不能固定为 CUSTOMER。
+    //   原实现固定 sender_type=SENDER.CUSTOMER → 巡检时 self/AI 消息也被标记为 customer
+    //   → 后端触发 AI → 无限循环。
+    const lastSenderType = last.sender_type || SENDER.CUSTOMER;
     const msg = makeUnifiedMessage({
       channel: this.channel,
       account_id: this.getAccountId(),
       conversation_id: cid,
-      sender_type: SENDER.CUSTOMER,
-      sender_id: isGroup && groupId ? groupId : cid,
+      sender_type: lastSenderType,
+      sender_id: isGroup && groupId ? groupId : (last.sender_id || cid),
       sender_name: senderName,
       content: last.text || '',
       msg_type: 'text',
       timestamp: last.timestamp || Date.now(),
+      event_id: last.message_id,
       is_group: isGroup,
       group_id: groupId,
       group_name: groupName,
@@ -963,16 +983,22 @@ export class BaseAdapter {
     const history = batch.map(({ parsed, direction }) => this._historyItem(parsed, direction));
     // 摘要方向：有客户消息 → inbound（主导），否则 outbound
     const summaryDirection = batch.some((b) => b.direction === DIRECTION.INBOUND) ? DIRECTION.INBOUND : DIRECTION.OUTBOUND;
+    // 2026-08-05 根因修复：sender_type 和 event_id 必须根据最后一条消息设置，不能固定为 CUSTOMER。
+    //   原实现固定 sender_type=SENDER.CUSTOMER → 即使最后一条是 self/AI 发送的 outbound，
+    //   后端也收到 customer 消息 → 触发 AI → 无限循环。
+    //   修复：sender_type 取最后一条消息的 sender_type；event_id 取其 message_id（稳定）。
+    const lastSenderType = last.parsed.sender_type || SENDER.CUSTOMER;
     const msg = makeUnifiedMessage({
       channel: this.channel,
       account_id: this.getAccountId(),
       conversation_id: cid,
-      sender_type: SENDER.CUSTOMER,
-      sender_id: isGroup && groupId ? groupId : cid,
+      sender_type: lastSenderType,
+      sender_id: isGroup && groupId ? groupId : (last.parsed.sender_id || cid),
       content: last.parsed.text || '',
       media_url: last.parsed.media_url || '',
       msg_type: last.parsed.msg_type || 'text',
       timestamp: last.parsed.timestamp,
+      event_id: last.parsed.message_id,
       direction: summaryDirection,
       is_group: isGroup,
       group_id: groupId,

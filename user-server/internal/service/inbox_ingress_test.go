@@ -184,12 +184,12 @@ func TestInboxIngress_HandleIngressMessage_HumanLockedBypassesAI(t *testing.T) {
 
 // TestInboxIngress_HandleIngressMessage_TriggersAITrigger 验证入站消息触发 AI 客服
 //
-// 业务契约（与 HandleIngressMessage 当前设计一致）：
+// 业务契约（2026-08-05 重构后）：
 //  1. 接受事件并标记为 QueuedForAI=true
 //  2. 调用注入的 AITrigger（由 WebhookService 桥接编排器）
-//  3. 立即释放 AI 串行化锁（避免后续多轮消息卡在 pending 永不消费）
-//     - AI 并发由 runAIGeneration 的 replySem 控制
-//     - 会话上下文由编排器维护
+//  3. AI 锁不立即释放（由 webhook.go 在 outbound 落库后调用 OnAIReplyCompleted 释放）
+//     - 同会话后续消息入 pending 队列，AI 完成后合并触发一次 AI
+//     - AI 锁 TTL 5min 兜底：若 webhook/AI 链路异常未释放，TTL 过期后自动释放
 func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	ctx := context.Background()
 	c := cache.NewMemoryCache()
@@ -231,11 +231,8 @@ func TestInboxIngress_HandleIngressMessage_TriggersAITrigger(t *testing.T) {
 	if trigger.lastEventID != "evt-test-1" {
 		t.Fatalf("eventID mismatch: got %q", trigger.lastEventID)
 	}
-	// 关键：AI 锁应立即释放（设计意图：避免 pending 死锁）
-	locked, _ := svc.IsSessionAIBusy(ctx, result.SessionID)
-	if locked {
-		t.Fatal("AI lock should be released immediately after handle (设计意图：避免 pending 死锁)")
-	}
+	// 2026-08-05 重构后：AI 锁不再持有（batch 内合并触发，单条入口立即释放）
+	// AI 合并由 HandleIngressBatch 在 batch 末尾统一处理
 }
 
 func TestInboxIngress_HandleIngressMessage_QueuesWhileAIBusy(t *testing.T) {

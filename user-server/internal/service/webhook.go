@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"os"
 	"strconv"
@@ -260,6 +261,18 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 // SetSalesEngine 注入 智能体引擎（解耦依赖，可选）
 func (s *WebhookService) SetSalesEngine(ctx context.Context, e *SalesEngine) {
 	s.salesEngine = e
+}
+
+// SetIngressSvc 注入渠道入站服务（用于 AI 回复后释放 ai_processing 标记 + 补触发重检查）。
+//
+// 由 router.Setup 在装配阶段调用，替换 webhookSvc 构造时自建的临时实例，
+// 确保 sendOutbound 释放标记和 RecheckUnrepliedAndTrigger 补触发走同一实例
+// （拥有 aiTrigger + hubRepo + cache 的完整能力）。
+// 未调用时回退到构造时自建的 ingressSvc（仅能释放标记，无法补触发）。
+func (s *WebhookService) SetIngressSvc(ingress *InboxIngressService) {
+	if ingress != nil {
+		s.ingressSvc = ingress
+	}
 }
 
 // ensureReposFromDB 在 struct 直接构造（如测试中 &WebhookService{db: db}）时，
@@ -2043,6 +2056,25 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		Msg("no outbound")
 }
 
+// ContentHashMsgID 基于「渠道 + 会话ID + 消息内容」生成稳定的消息ID（FNV-1a 32位 hex）。
+//
+// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+//   核心问题：前端 sender_type 判定可能错误（把 AI 回复的 outbound 误判为 customer），
+//   若 msg_id 含 sender_type → 误判时 msg_id 变化 → 后端 GetByMsgID 查不到 → 当新消息入库 → 触发 AI → 回环。
+//   正确方案：msg_id 只用稳定字段（channel + conversation_id + content），不含 sender_type/sender_id/timestamp。
+//   前端 contentHash() 用相同算法生成 event_id → 后端 outbound 的 msg_id 与之一致 → 前端扫描 AI 回复消息时
+//   生成的 event_id 与 DB msg_id 相同 → 钩子2 GetByMsgID 命中 → 跳过入库和 AI 触发，彻底解决回环。
+//
+// 算法：FNV-1a 32位（与前端 types.js contentHash 完全一致，保证前后端结果相同）
+//   - 输入：`channel|conversationID|content`（content 去首尾空白）
+//   - 输出：`mh:${hex}`（8位hex字符串，带 mh: 前缀便于日志识别）
+func ContentHashMsgID(channel, conversationID, content string) string {
+	s := channel + "|" + conversationID + "|" + strings.TrimSpace(content)
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return fmt.Sprintf("mh:%08x", h.Sum32())
+}
+
 // sendOutbound 出站发送（按 channel）；ctx 用于透传 trace_id（来自 triggerSmartOrchestrator / 回退链路）
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
 	// 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
@@ -2156,27 +2188,33 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// 2026-08-05 渠道编码统一：去掉 _web 后缀，case 改为全名（douyin/xiaohongshu/tiktok/xianyu/kuaishou）。
 		//
 		// 2026-08-05 修复：AI 回复持久化到 message_hub（direction=outbound, is_ai_reply=true）。
-		//   原版只 DeliverBridgeOutbound 入 httpReplyBuffer，不落库 → 统一收件箱看不到 AI 回复。
-		//   扩展端回写网页后 MutationObserver 会把 AI 回复当客户消息上行 → direction=inbound 的错误记录。
-		//   修复：在出站前先持久化 AI 回复（direction=outbound），扩展端上行时靠 event_id 去重跳过。
-		if hubMsg != nil {
-			outMsg := &model.MessageHub{
-				MsgID:          fmt.Sprintf("bridge-out-%d", time.Now().UnixNano()),
-				Platform:       string(channel),
-				AccountID:      accountID,
-				Direction:      "outbound",
-				MsgType:        "text",
-				SenderID:       accountID,
-				ReceiverID:     hubMsg.SenderID,
-				Content:        content,
-				ConversationID: hubMsg.ConversationID,
-				IsGroup:        hubMsg.IsGroup,
-				GroupID:        hubMsg.GroupID,
-				IsAIReply:      true,
-				AIAgent:        "sales_engine",
-				IsRead:         true,
-				SentAt:         time.Now(),
-			}
+	//   原版只 DeliverBridgeOutbound 入 httpReplyBuffer，不落库 → 统一收件箱看不到 AI 回复。
+	//   扩展端回写网页后 MutationObserver 会把 AI 回复当客户消息上行 → direction=inbound 的错误记录。
+	//   修复：在出站前先持久化 AI 回复（direction=outbound），扩展端上行时靠 event_id 去重跳过。
+	//
+	// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+	//   原版 MsgID 用 `bridge-out-${UnixNano}`（纳秒时间戳），每次都不同，
+	//   前端扫描 AI 回复消息生成的 event_id 与之完全不一致 → GetByMsgID 查不到 → 当新消息入库 → 触发 AI → 回环。
+	//   改用 ContentHashMsgID(channel, conversationID, content)，与前端 contentHash 算法一致，
+	//   前端扫描 AI 回复消息时生成的 event_id = ContentHashMsgID → 与 DB msg_id 相同 → 去重跳过，彻底解决回环。
+	if hubMsg != nil {
+		outMsg := &model.MessageHub{
+			MsgID:          ContentHashMsgID(string(channel), hubMsg.ConversationID, content),
+			Platform:       string(channel),
+			AccountID:      accountID,
+			Direction:      "outbound",
+			MsgType:        "text",
+			SenderID:       accountID,
+			ReceiverID:     hubMsg.SenderID,
+			Content:        content,
+			ConversationID: hubMsg.ConversationID,
+			IsGroup:        hubMsg.IsGroup,
+			GroupID:        hubMsg.GroupID,
+			IsAIReply:      true,
+			AIAgent:        "sales_engine",
+			IsRead:         true,
+			SentAt:         time.Now(),
+		}
 			if err := s.db.Create(outMsg).Error; err != nil {
 				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
 			} else if s.inboxConvRepo != nil {
@@ -2196,13 +2234,25 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			}
 		}
 		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
-			logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
-		} else {
-			sent = true
-		}
+		logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
+	} else {
+		sent = true
+	}
 	default:
 		// 该渠道暂未实现主动出站：记录日志并跳过，避免静默吞掉消息难以排查
 		logger.Ctx(ctx).Warn().Str("channel", string(channel)).Str("account_id", accountID).Msg("unsupported outbound channel, skipped")
+	}
+
+	// 2026-08-05 释放 "AI 处理中" 标记（AI 回复已落库/发送完成）
+	//   防止"不断发消息"机制：标记存在期间跳过 AI 触发，AI 完成后释放
+	if s.ingressSvc != nil && hubMsg != nil && hubMsg.ConversationID != "" {
+		s.ingressSvc.ReleaseAIProcessingFlag(ctx, hubMsg.ConversationID)
+		// 极限场景修复：异步重检查 AI 推理期间遗漏的未回复客户消息
+		//   时序：用户消息1触发AI → AI推理中 → 用户消息2入库但被 ai_processing 标记跳过
+		//   → AI回复消息1 → 释放标记 → 消息2成为孤儿
+		//   修复：释放标记后延迟 800ms 重检查，若有未回复消息则补触发
+		//   用 WithoutCancel context 避免 sendOutbound 的 15s timeout 限制
+		go s.ingressSvc.RecheckUnrepliedAndTrigger(context.WithoutCancel(ctx), hubMsg.ConversationID, "")
 	}
 }
 

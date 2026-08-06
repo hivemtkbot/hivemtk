@@ -360,6 +360,9 @@ func Setup(r *gin.Engine) {
 		// （必须在 setupCustomerServiceRoutes 之后，因为 bridgeIngressSvc 是在其中被创建的）
 		if bridgeIngressSvc != nil && webhookSvc != nil {
 			bridgeIngressSvc.SetAITrigger(webhookSvc)
+			// 反向注入：让 webhookSvc.sendOutbound 复用 bridgeIngressSvc
+			// （拥有 aiTrigger + hubRepo + cache 完整能力，支持 AI 回复后补触发重检查）
+			webhookSvc.SetIngressSvc(bridgeIngressSvc)
 			logger.Infof("[Bridge] bridge AITrigger 已注入（抖音/小红书/TikTok 网页私信 AI 链路已连通）")
 		}
 		// 注入统一收件箱服务：桥接消息落库 message_hub 后同步会话到 inbox_conversations，

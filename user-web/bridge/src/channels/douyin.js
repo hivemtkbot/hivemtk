@@ -11,10 +11,11 @@
 //   - 发送按钮：svg[class*="e2e-send-msg-btn"]
 //   - 自/他判定：气泡相对容器中线的水平对齐检测（主）+ class 关键词（兜底）
 import { BaseAdapter } from '../core/channel-adapter.js';
-import { CHANNELS, SENDER } from '../core/types.js';
+import { CHANNELS, SENDER, contentHash } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
+import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
 
@@ -629,8 +630,10 @@ const hooks = {
     if (isListNoise(item)) return null;
     if (isSystemMessage(item)) {
       const sysText = cleanText(item);
+      // 2026-08-05 修复：去掉 Date.now()——同一系统消息每轮扫描生成不同 msg_id
+      //   → 后端无法幂等去重 → 不断当新消息入库。系统消息文本本身稳定，无需时间戳后缀。
       return {
-        message_id: item.getAttribute('data-id') || item.getAttribute('data-msg-id') || item.id || `sys:${sysText}:${Date.now()}`,
+        message_id: item.getAttribute('data-id') || item.getAttribute('data-msg-id') || item.id || `sys:${sysText}`,
         sender_type: SENDER.SYSTEM,
         text: sysText,
         media_url: '',
@@ -646,17 +649,43 @@ const hooks = {
     // 先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定：对齐检测为主（右=自己，左=客户），class 关键词兜底（优先用 AI 生成的 self/other 标记）
-    let sender_type = classifyByAlignment(item);
+    // 自/他判定（5 层漏斗）：
+    //   1) classifyByAlignment：气泡水平对齐（右=自己，左=客户）
+    //   2) 用户配置 merged selfMarkers / otherMarkers（自身+祖先+子元素全覆盖）
+    //   3) isSelfMessage：class 标记互斥 + 对齐 + 头像位置
+    //   4) data 属性兜底
+    //   5) 默认 CUSTOMER（宁可把对方误报为客户，不要把自己消息误报为客户——避免死循环）
+    let sender_type = classifyByAlignment(item) || SENDER.CUSTOMER;
+    // marker 命中统一工具：覆盖 自身 / 祖先 / 子元素 三种匹配方向
+    const _markerHit = (sel) => {
+      try {
+        if (item.matches && item.matches(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      try {
+        if (item.closest && item.closest(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      try {
+        if (item.querySelector && item.querySelector(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      return false;
+    };
     const m = mergedSelectors();
-    const matchesSelf = m.selfMarkers.some((sel) => {
-      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-    });
-    const matchesOther = m.otherMarkers.some((sel) => {
-      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-    });
-    if (sender_type === SENDER.CUSTOMER && matchesSelf) sender_type = SENDER.SELF;
-    if (sender_type === SENDER.SELF && matchesOther) sender_type = SENDER.CUSTOMER;
+    const matchesSelf = m.selfMarkers.some((sel) => _markerHit(sel));
+    const matchesOther = m.otherMarkers.some((sel) => _markerHit(sel));
+    // 单向修正：只有 self/other 明确一方命中才修正；双向都命中时保留 classifyByAlignment 判定结果
+    if (matchesSelf && !matchesOther) sender_type = SENDER.SELF;
+    if (matchesOther && !matchesSelf) sender_type = SENDER.CUSTOMER;
+    // 第 3 层：fallback.js 综合判定兜底（对齐+头像+data 属性，含 other 互斥排除）
+    if (!matchesSelf && !matchesOther) {
+      if (typeof isSelfMessage === 'function' && isSelfMessage(item, SEL.SELF_ITEM, SEL.OTHER_ITEM)) {
+        sender_type = SENDER.SELF;
+      }
+    }
+    // 第 4 层：data 属性兜底
+    if (item.dataset) {
+      if (item.dataset.sender === 'self' || item.dataset.isSelf === 'true') sender_type = SENDER.SELF;
+      if (item.dataset.sender === 'other' || item.dataset.isSelf === 'false') sender_type = SENDER.CUSTOMER;
+    }
     // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
     const groupInfo = detectGroup(item);
     // 发件人/对方昵称（需求③，修复 1v1 私信发件人为空/字符串 hash）：
@@ -668,11 +697,15 @@ const hooks = {
     if (!senderName && !groupInfo.isGroup && sender_type === SENDER.CUSTOMER) {
       senderName = getPeerName();
     }
+    // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+    //   兜底 msg_id 改用 contentHash(channel, convId, text)，不含 sender_type。
+    //   前端自他判定错误时 msg_id 不再变化 → 后端可正确幂等去重 → 不再回环触发 AI。
+    //   后端 sendOutbound 落库时也用相同算法 → AI 回复消息被前端扫描时 event_id 与 DB msg_id 一致 → 去重跳过。
     const mid =
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.getAttribute('id') ||
-      `${getConversationId()}:${text}:${item.textContent?.length}:${Date.now()}`;
+      contentHash(CHANNELS.DOUYIN, getConversationId(), text);
     return {
       message_id: mid,
       sender_type,

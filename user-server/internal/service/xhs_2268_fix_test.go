@@ -139,9 +139,9 @@ func TestInboxIngress_TriggerLogStart(t *testing.T) {
 	if res == nil {
 		t.Fatal("result 不能为 nil")
 	}
-	// aiTrigger 缺失时 result.Reason 应有标识（目前实现里 reason="AI lock acquired; trigger AI customer service"，
+	// aiTrigger 缺失时 result.Reason 应有标识（2026-08-05 重构后 reason="trigger AI customer service"，
 	// 但实际 AI 不会运行——这是文档化行为，测试只验不 panic + 不阻塞 WS）。
-	if !strings.Contains(res.Reason, "AI lock acquired") {
+	if !strings.Contains(res.Reason, "trigger AI") {
 		t.Errorf("result.Reason 异常: %q", res.Reason)
 	}
 	t.Log("✅ HandleIngressMessage 在 aiTrigger=nil 时不 panic、不阻塞")

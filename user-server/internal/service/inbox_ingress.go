@@ -33,28 +33,52 @@ const (
 	InboxPendingKey = "hivemtk:pending:"
 	// InboxLockTTL 人类接管锁过期（极长，等同永久；实际由转人工门禁显式释放）
 	InboxLockTTL = 0
-	// InboxAIProcessingTTL AI 串行化锁默认 15s
-	InboxAIProcessingTTL = 15 * time.Second
-	// InboxPendingTTL 待处理消息队列 TTL
+	// InboxAILockTTL AI 串行化锁默认 15s（防并发重复触发，短锁）
+	//   2026-08-05 重构（用户科学方案）：
+	//   - AI 合并改在 batch 层处理（HandleIngressBatch），不再用 AI 锁+pending 复杂机制
+	//   - AI 锁仅作短时并发守卫，防止同一会话多个 batch 并发触发 AI
+	//   - 触发 AI 后立即释放锁（靠 DB 最后一条消息方向判断避免重复回复）
+	InboxAILockTTL = 15 * time.Second
+	// InboxPendingTTL 待处理消息队列 TTL（保留兼容，新方案不再使用 pending）
 	InboxPendingTTL = 5 * time.Minute
 
-	// InboxContentDedupKey 内容 hash 去重 key 前缀
-	// 2026-08-05 架构重构：Bridge 端不再做内容指纹去重，所有消息都上报到统一收信中心，
-	// 由服务端在入库前用 内容 hash 判断是否重复（重复则丢弃）。
-	// key: hivemtk:dedup:content:{channel}:{accountID}:{conversationID}:{contentHash}
+	// InboxContentDedupKey 内容 hash 去重 key 前缀（保留兼容，新方案改用 DB msg_id 去重）
 	InboxContentDedupKey = "hivemtk:dedup:content:"
-	// InboxContentDedupTTL 内容 hash 去重窗口（5 分钟）
-	//   - 5 分钟内相同内容的客户消息视为重复（网络重发/扩展重连/兜底扫描重复上报）
-	//   - 5 分钟后相同内容允许再次触发（用户可能真的再次发送相同消息）
 	InboxContentDedupTTL = 5 * time.Minute
 
 	// InboxReplyWindow 回复判断窗口（5 分钟）
-	//   2026-08-05 架构重构（用户诉求）：
-	//   - Bridge 不判断是否需要 AI 回复
-	//   - 服务端判断：会话最后一条客户消息是否在 5 分钟以内
-	//   - 5 分钟以内 + 未回复 → 触发 AI 回复
+	//   - 5 分钟以内 + 最后一条是客户消息 → 触发 AI 回复
 	//   - 5 分钟以外 → 仅落库不触发 AI（避免对历史存量消息逐一自动回复）
 	InboxReplyWindow = 5 * time.Minute
+
+	// InboxBackfillFutureTolerance 时序锚点判断的未来时间容差（5 秒）
+	//   bridge 上报消息 timestamp 可能存在时钟漂移，5 秒以内视为正常追加
+	//   超过 5 秒的未来消息 → 修正为 now()（避免消息排序错乱）
+	InboxBackfillFutureTolerance = 5 * time.Second
+
+	// InboxAIProcessingKey "AI 处理中" 标记 key 前缀（2026-08-05 新增）
+	//
+	// 解决"不断发消息给用户"根因：
+	//   bridge 每秒扫描上报，msg_id 稳定 → 幂等跳过入库 ✅
+	//   但 DB 最后一条还是 inbound（AI 异步推理未完成，outbound 还没落库）
+	//   → 下次扫描又触发 AI → 重复发消息
+	//
+	// 修复：触发 AI 前设置 5min TTL 标记，AI 完成后（webhook.go sendOutbound）删除标记
+	InboxAIProcessingKey = "hivemtk:ai_processing:"
+	// InboxAIProcessingTTL AI 处理中标记 TTL（30 秒兜底，AI 完成后主动删除）
+	//   2026-08-05 优化：从 5min 改为 30s
+	//   - AI 推理通常 3-10s，30s 足够覆盖
+	//   - 5min TTL 过长，AI 异常时会导致 5min 内无法触发新 AI
+	InboxAIProcessingTTL = 30 * time.Second
+
+	// RecheckDelayAfterRelease 释放 AI 处理中标记后的重检查延迟
+	//
+	// 极限场景修复（AI 回复后用户新消息遗漏）：
+	//   AI 推理期间用户发的新消息因 ai_processing 标记存在被跳过触发，
+	//   AI 回复完成释放标记后需重新检查是否有未回复消息。
+	//   延迟 800ms 是为了让 AI 推理期间到达的消息完成入库，再查 DB 最后一条方向。
+	//   bridge 上报周期 1s，800ms 足以覆盖单次入库延迟（DB 写入通常 <50ms）。
+	RecheckDelayAfterRelease = 800 * time.Millisecond
 )
 
 // AITrigger 入站消息触发 AI 客服的抽象。
@@ -208,7 +232,7 @@ func (s *InboxIngressService) tryAcquireAILock(ctx context.Context, sessionID st
 		return true, nil // 无缓存时降级为放行
 	}
 	key := InboxAILockKey + sessionID
-	return s.cache.SetNX(ctx, key, "busy", InboxAIProcessingTTL)
+	return s.cache.SetNX(ctx, key, "busy", InboxAILockTTL)
 }
 
 // ReleaseAILock 释放 AI 处理锁
@@ -307,18 +331,21 @@ func (s *InboxIngressService) NormalizeEvent(ctx context.Context, event *model.M
 	return nil
 }
 
-// HandleIngressMessage 渠道消息统一入口
+// HandleIngressMessage 渠道消息统一入口（单条消息，供 WS 等单条入口调用）。
 //
-// 处理流程（2026-08-05 钩子机制重构）：
+// 处理流程（2026-08-05 重构，用户科学方案）：
 //  1. 标准化事件字段
 //  2. 钩子1（sender_type 过滤）：self/agent → 直接丢弃，不入库不触发 AI
 //  3. 检查人工接管锁（命中：仅落库，绕过 AI 路由）
-//  4. 钩子2（去重）：内容 hash + 5min TTL SetNX，重复 → 直接丢弃
-//  5. 持久化到 message_hub
-//  6. 钩子3（回复判断）：查 message_hub 最后一条消息方向 + 5 分钟窗口
-//     - 最后一条 inbound + 5min 内 → 触发 AI
-//     - 最后一条 outbound（已回复） → 不触发
-//     - 最后一条 inbound + 5min 外 → 历史消息不触发
+//  4. 钩子2（入库判断）：按 msg_id 查 DB 是否已存在，存在 → 跳过
+//  5. 持久化到 message_hub（含时序锚点判断）
+//  6. 钩子3（回复判断）：查会话最后一条消息方向
+//     - 最后一条 outbound（平台自己发的）→ 不回复
+//     - 最后一条 inbound（客户发的）+ 5min 内 → 回复
+//     - 最后一条 inbound + 5min 外 → 历史消息不回复
+//  7. 触发 AI（单条调用，立即释放 AI 锁；批量合并由 HandleIngressBatch 处理）
+//
+// 注意：批量上报请用 HandleIngressBatch（按 conversation 分组 + batch 内合并 AI 回复）。
 func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *model.MessageEvent) (*InboxIngressResult, error) {
 	result := &InboxIngressResult{
 		SessionID: event.SessionID,
@@ -328,32 +355,28 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	}
 	result.SessionID = event.SessionID
 
-	// 钩子1：sender_type 过滤
-	//   用户诉求："bridge 上行的消息里面携带了自己发送还是他人发送，
-	//             进入统一消息中心之前利用钩子机制判断他人发的消息 + 消息未入库 满足则入库"
-	//   - sender_type="self" / "agent" → 自己/坐席发的，直接丢弃，不入库不触发 AI
-	//   - sender_type="system" → 系统消息，仅落库，不触发 AI
-	//   - sender_type="customer" 或 "" → 客户消息，走完整链路
-	senderType := event.SenderType
-	if senderType == "" && event.Extra != nil {
-		// 兼容老调用方（sender_type 在 Extra 里）
-		if v, ok := event.Extra["sender_type"].(string); ok {
-			senderType = v
-		}
-	}
-	if senderType == "self" || senderType == "agent" {
-		result.Accepted = false
+	// 钩子1（2026-08-06 重构：服务端权威自/他判定，不再信任前端 sender_type）
+	//   ingest 入口（前端上报）的自/他标签不可信（小红书整行容器导致 isSelfMessage 失效）。
+	//   改用"内容是否命中本会话平台下发(outbound)"判定：
+	//     - 命中 → 平台自己的回显（SELF）→ 跳过入库与 AI（避免回环无限触发）
+	//     - 未命中 → 强制视为用户消息（CUSTOMER），正常入库 + 触发 AI
+	//   平台下发的消息（AI 生成 / 人工客服）必然先入库(direction=outbound)再下发，
+	//   故内容命中既有 outbound 即可确定是平台自己的回显。
+	isSystemMsg := event.SenderType == "system"
+	if s.isPlatformOutboundEcho(ctx, event) {
+		result.Accepted = true
 		result.QueuedForAI = false
-		result.Reason = "sender_type=self/agent; dropped (自己/坐席发的消息不入库)"
+		result.Reason = "ingest echo recognized as platform outbound (SELF); skip inbound + AI"
 		logger.Ctx(ctx).Info().
 			Str("channel", event.Channel).
 			Str("conv_id", event.ConversationID).
 			Str("event_id", event.EventID).
-			Str("sender_type", senderType).
-			Msg("[Inbox] 钩子1：sender_type=self/agent，丢弃不入库")
+			Str("content_preview", truncateForLog(event.Content, 60)).
+			Msg("[Inbox] 服务端权威判定：ingest 消息内容命中平台下发 outbound，识别为 SELF 回显，跳过入库与 AI")
 		return result, nil
 	}
-	isSystemMsg := senderType == "system"
+	// 非平台回显 → 强制 CUSTOMER（用户消息），不信任前端 self/agent 标签
+	event.SenderType = "customer"
 
 	// 卡位 1：检查人工接管锁
 	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
@@ -361,66 +384,61 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		result.HumanLocked = true
 		result.Accepted = true
 		result.Reason = "session is human-locked; bypass AI routing"
-		// 落库供坐席查看
 		if err := s.persistMessage(ctx, event); err != nil {
 			return result, fmt.Errorf("持久化消息失败: %w", err)
 		}
 		return result, nil
 	}
 
-	// 卡位 2：AI 处理串行化锁（轻量守卫，避免同一消息并发重复触发）
-	acquired, _ := s.tryAcquireAILock(ctx, event.SessionID)
-	result.Accepted = true
-
-	// 钩子2：内容 hash 去重（在落库前拦截）
-	//   key: hivemtk:dedup:content:{channel}:{accountID}:{conversationID}:{contentHash}
-	//   5 分钟内相同内容的客户消息视为重复 → 直接丢弃，不落库，不触发 AI
-	//   （网络重发/扩展重连/兜底扫描重复上报会被这里拦截）
-	//
-	// 注意（用户诉求 "重复则丢弃，第一条入库"）：
-	//   - 第 1 条消息 SetNX 成功 → 落库 + 触发 AI
-	//   - 第 2..N 条相同内容 SetNX 失败 → 直接 return，不调用 persistMessage
-	//   - 这样 message_hub 中每个会话的同一内容只保留 1 条记录
-	contentHash := contentHashOf(event.Content)
-	if s.cache != nil && contentHash != "" {
-		dedupKey := fmt.Sprintf("%s%s:%s:%s:%s",
-			InboxContentDedupKey,
-			event.Channel,
-			accountIDOf(event),
-			event.ConversationID,
-			contentHash,
-		)
-		ok, _ := s.cache.SetNX(context.Background(), dedupKey, "1", InboxContentDedupTTL)
-		if !ok {
-			// 5 分钟内已收到相同内容消息 → 直接丢弃，不落库
-			if acquired {
-				s.ReleaseAILock(ctx, event.SessionID)
-			}
+	// 钩子2：入库判断（按 msg_id 查 DB 是否已存在）
+	//   用户诉求："消息上报保存是否入库依据是消息数据库是否存在"
+	//   - 存在 → 幂等跳过
+	//   - 不存在 → 继续落库
+	//   2026-08-05 优化：方向冲突检测
+	//     bridge 上报老数据时，AI 回复已落库为 outbound，
+	//     若 bridge 重复上报方向不同（inbound），以 DB 现有方向为准
+	if s.hubRepo != nil {
+		existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID)
+		if err == nil && existing != nil {
+			result.Accepted = true
 			result.QueuedForAI = false
-			result.Reason = "duplicate content within 5min; dropped"
+			// 方向冲突检测：DB 已有方向 vs 本次推断方向
+			incomingDir := "inbound"
+			if event.SenderType == "self" || event.SenderType == "agent" {
+				incomingDir = "outbound"
+			}
+			if existing.Direction != incomingDir && existing.Direction != "" {
+				logger.Ctx(ctx).Warn().
+					Str("event_id", event.EventID).
+					Str("conv_id", event.ConversationID).
+					Str("db_direction", existing.Direction).
+					Str("incoming_direction", incomingDir).
+					Msg("[Inbox] 钩子2：msg_id 已存在且方向冲突，以 DB 方向为准（幂等跳过）")
+				result.Reason = "msg_id exists with different direction; DB direction preserved"
+			} else {
+				result.Reason = "msg_id already exists in DB; idempotent skip"
+			}
 			logger.Ctx(ctx).Info().
-				Str("channel", event.Channel).
-				Str("conv_id", event.ConversationID).
-				Str("event_id", event.EventID).
-				Str("content_hash", contentHash).
-				Msg("[Inbox] 钩子2：内容 hash 重复，丢弃不落库")
-			return result, nil
-		}
+			Str("channel", event.Channel).
+			Str("conv_id", event.ConversationID).
+			Str("event_id", event.EventID).
+			Msg("[Inbox] 钩子2：msg_id 已存在，幂等跳过")
+		return result, nil
+	}
 	}
 
-	// 持久化到 message_hub（仅非重复内容才落库）
+	// 钩子 2.5（2026-08-06 已合并进钩子1 的服务端权威判定）：
+	//   原"内容命中最近 outbound 即判回环跳过"逻辑，现已在钩子1 通过 isPlatformOutboundEcho
+	//   统一、更早、更权威地实现（不依赖前端 sender_type），此处不再重复。
+
+	// 持久化到 message_hub（含时序锚点判断，见 persistMessage）
 	if err := s.persistMessage(ctx, event); err != nil {
-		if acquired {
-			s.ReleaseAILock(ctx, event.SessionID)
-		}
 		return result, fmt.Errorf("持久化消息失败: %w", err)
 	}
+	result.Accepted = true
 
-	// 系统消息：仅落库，不触发 AI（系统消息不需要 AI 回复）
+	// 系统消息：仅落库，不触发 AI
 	if isSystemMsg {
-		if acquired {
-			s.ReleaseAILock(ctx, event.SessionID)
-		}
 		result.QueuedForAI = false
 		result.Reason = "sender_type=system; persisted only (系统消息不触发 AI)"
 		logger.Ctx(ctx).Info().
@@ -431,138 +449,462 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		return result, nil
 	}
 
-	// 钩子3：回复判断（未回复 + 5 分钟以内 → 触发 AI）
-	//   用户诉求："五分钟以内 + 未回复 满足则触发 aiagent 回复"
-	//   查询 message_hub 中该会话最后一条消息方向：
-	//     - 最后一条 inbound（客户发的） + 5min 内 → 未回复，触发 AI
-	//     - 最后一条 outbound（已回复） → 不触发
-	//     - 最后一条 inbound + 5min 外 → 历史消息不触发
-	//
-	// 2026-08-05 修复（多次给用户发消息 bug）：
-	//   排除当前刚落库的消息（event.EventID），查询"之前最后一条消息方向"。
-	//   场景：bridge 一次性上报同会话多条 customer 消息，每条落库后都成为
-	//   "最后一条 inbound" → 每条都触发 AI → 多次给用户发消息。
-	//   修复后：排除当前消息，若之前最后一条是 inbound（未回复）→ 不触发 AI，
-	//   只有第一条 customer 消息触发 AI，后续连续消息不触发。
+	// 钩子3：回复判断（查会话最后一条消息方向）
+	//   用户诉求："是否回消息依据是最后一条是不是平台自己发的 是则不发送"
+	//   - 最后一条 outbound（平台自己发的）→ 不回复
+	//   - 最后一条 inbound（客户发的）+ 5min 内 → 回复
+	//   - 最后一条 inbound + 5min 外 → 历史消息不回复
 	if s.hubRepo != nil {
-		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow, event.EventID)
+		unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, event.ConversationID, InboxReplyWindow)
 		if err != nil {
-			// 查询失败：保守视为已回复（不触发 AI，避免误触发）
 			logger.Ctx(ctx).Error().Err(err).
 				Str("conv_id", event.ConversationID).
-				Msg("[Inbox] 钩子3：查询未回复状态失败，保守不触发 AI")
-			if acquired {
-				s.ReleaseAILock(ctx, event.SessionID)
-			}
+				Msg("[Inbox] 钩子3：查询最后一条消息方向失败，保守不触发 AI")
 			result.QueuedForAI = false
-			result.Reason = "query unreplied status failed; not triggering AI"
+			result.Reason = "query last message direction failed; not triggering AI"
 			return result, nil
 		}
 		if !unreplied {
-			// 已回复：不触发 AI
-			if acquired {
-				s.ReleaseAILock(ctx, event.SessionID)
-			}
 			result.QueuedForAI = false
-			result.Reason = "session already replied; not triggering AI"
+			result.Reason = "last message is outbound (平台自己发的); not triggering AI"
 			logger.Ctx(ctx).Info().
 				Str("channel", event.Channel).
 				Str("conv_id", event.ConversationID).
 				Str("event_id", event.EventID).
-				Msg("[Inbox] 钩子3：会话已回复，不触发 AI")
+				Msg("[Inbox] 钩子3：最后一条是平台自己发的，不触发 AI")
 			return result, nil
 		}
 		if !withinWindow {
-			// 未回复但超过 5 分钟：历史消息不触发
-			if acquired {
-				s.ReleaseAILock(ctx, event.SessionID)
-			}
 			result.QueuedForAI = false
-			result.Reason = "unreplied but outside 5min window; not triggering AI (历史消息)"
+			result.Reason = "last inbound outside 5min window; not triggering AI (历史消息)"
 			logger.Ctx(ctx).Info().
 				Str("channel", event.Channel).
 				Str("conv_id", event.ConversationID).
 				Str("event_id", event.EventID).
-				Msg("[Inbox] 钩子3：未回复但超过 5 分钟，历史消息不触发 AI")
+				Msg("[Inbox] 钩子3：最后一条 inbound 超过 5 分钟，历史消息不触发 AI")
 			return result, nil
 		}
-		// 未回复 + 5min 内 → 触发 AI
-		result.QueuedForAI = true
-		result.Reason = "unreplied within 5min; trigger AI"
-		logger.Ctx(ctx).Info().
-			Str("channel", event.Channel).
-			Str("conv_id", event.ConversationID).
-			Str("event_id", event.EventID).
-			Msg("[Inbox] 钩子3：未回复 + 5min 内，触发 AI")
-	} else {
-		// 无 hubRepo（测试场景）：保持原行为（触发 AI），避免回归
-		result.QueuedForAI = true
-		result.Reason = "AI lock acquired; trigger AI customer service"
 	}
 
-	// 触发 AI 客服（异步推理，不阻塞 WS 回包）
+	// 触发 AI（单条调用，立即释放 AI 锁）
+	//   注意：批量上报请用 HandleIngressBatch（按 conversation 分组 + batch 内合并 AI 回复）
+	s.triggerAIForEvent(ctx, event)
+	result.QueuedForAI = true
+	result.Reason = "trigger AI customer service"
+	return result, nil
+}
+
+// triggerAIForEvent 触发 AI 客服的公共方法（含 panic recover + 日志）
+func (s *InboxIngressService) triggerAIForEvent(ctx context.Context, event *model.MessageEvent) {
 	accountID := "default"
 	if event.Extra != nil {
 		if v, ok := event.Extra["account_id"].(string); ok && v != "" {
 			accountID = v
 		}
 	}
-	if s.aiTrigger != nil {
-		// 透传 sender_name / 群聊元数据：群聊中客户消息 sender_id 聚合为群 id，
-		// AI 编排需知道“谁在群中发言”及会话群属性（见 AITrigger 接口注释）。
-		opts := make([]TriggerInboundOption, 0, 2)
-		if event.SenderName != "" {
-			opts = append(opts, WithSenderName(event.SenderName))
-		}
-		if event.IsGroup {
-			opts = append(opts, WithGroup(event.GroupID, groupNameOf(event)))
-		}
-		// 修复（2026-08-05）：加 panic recover 兜底 + 显式 start 日志。
-		// 历史 bug（小红书 2268 现场）：5 条 inbound 入库 message_hub，0 个 customer_sessions，
-		// 0 条 AI 回复——aiTrigger 链路某处 silent 失败（panic / 配置缺失 / goroutine 提前退出）。
-		// 这里在第一道屏障加 recover + start 日志，便于通过 [Inbox] / [Webhook] 关键字
-		// grep 整条链路是否真正开始/在哪一步断开。
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					logger.Ctx(ctx).Error().
-						Interface("panic", r).
-						Str("channel", event.Channel).
-						Str("account_id", accountID).
-						Str("conv_id", event.ConversationID).
-						Str("event_id", event.EventID).
-						Str("sender", event.SenderID).
-						Msg("[Inbox] aiTrigger.TriggerInboundAI panic recovered — AI 链路已断开，请查 root cause")
-				}
-			}()
-			logger.Ctx(ctx).Info().
-				Str("channel", event.Channel).
-				Str("account_id", accountID).
-				Str("conv_id", event.ConversationID).
-				Str("event_id", event.EventID).
-				Str("sender", event.SenderID).
-				Int("content_len", len(event.Content)).
-				Msg("[Inbox] aiTrigger.TriggerInboundAI start")
-			s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID, opts...)
-		}()
-	} else {
-		// 升级 Warn → Error：缺 aiTrigger 是配置/装配 bug，不应仅 warn
+	if s.aiTrigger == nil {
 		logger.Ctx(ctx).Error().
 			Str("channel", event.Channel).
 			Str("account_id", accountID).
 			Str("session_id", event.SessionID).
 			Msg("[Inbox] aiTrigger 未配置 — 桥接入站消息不会创建 customer_sessions / 不会生成 AI 回复。请检查 router.Setup() 中 bridgeIngressSvc.SetAITrigger(webhookSvc) 是否在 bridge WS 注册前调用。")
+		return
+	}
+	opts := make([]TriggerInboundOption, 0, 2)
+	if event.SenderName != "" {
+		opts = append(opts, WithSenderName(event.SenderName))
+	}
+	if event.IsGroup {
+		opts = append(opts, WithGroup(event.GroupID, groupNameOf(event)))
+	}
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Ctx(ctx).Error().
+					Interface("panic", r).
+					Str("channel", event.Channel).
+					Str("account_id", accountID).
+					Str("conv_id", event.ConversationID).
+					Str("event_id", event.EventID).
+					Str("sender", event.SenderID).
+					Msg("[Inbox] aiTrigger.TriggerInboundAI panic recovered — AI 链路已断开，请查 root cause")
+			}
+		}()
+		logger.Ctx(ctx).Info().
+			Str("channel", event.Channel).
+			Str("account_id", accountID).
+			Str("conv_id", event.ConversationID).
+			Str("event_id", event.EventID).
+			Str("sender", event.SenderID).
+			Int("content_len", len(event.Content)).
+			Msg("[Inbox] aiTrigger.TriggerInboundAI start")
+		// 2026-08-05 设置 "AI 处理中" 标记（TTL 5min）
+		//   防止异步 AI 推理期间 bridge 重复扫描导致重复触发
+		//   AI 完成后由 webhook.go sendOutbound 主动删除标记
+		if s.cache != nil && event.ConversationID != "" {
+			aiKey := InboxAIProcessingKey + event.ConversationID
+			if err := s.cache.Set(ctx, aiKey, "1", InboxAIProcessingTTL); err != nil {
+				logger.Ctx(ctx).Warn().Err(err).
+					Str("conv_id", event.ConversationID).
+					Msg("[Inbox] 设置 AI 处理中标记失败（不影响本次触发，但可能重复触发）")
+			}
+		}
+		s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID, opts...)
+	}()
+}
+
+// ReleaseAIProcessingFlag 释放 "AI 处理中" 标记
+//
+// 由 webhook.go sendOutbound 在 AI 回复落库后调用，释放标记后下次扫描可触发新 AI
+func (s *InboxIngressService) ReleaseAIProcessingFlag(ctx context.Context, conversationID string) {
+	if s == nil || s.cache == nil || conversationID == "" {
+		return
+	}
+	aiKey := InboxAIProcessingKey + conversationID
+	if err := s.cache.Delete(ctx, aiKey); err != nil {
+		logger.Ctx(ctx).Warn().Err(err).
+			Str("conv_id", conversationID).
+			Msg("[Inbox] 释放 AI 处理中标记失败")
+	}
+}
+
+// RecheckUnrepliedAndTrigger AI 回复完成释放标记后，重新检查是否有未回复的客户消息。
+//
+// 极限场景修复（消息遗漏/孤儿消息）：
+//
+//	时序：用户消息1(inbound) → 触发AI（设置标记）→ AI推理中
+//	      → 用户消息2(inbound)入库 → 查最后一条=inbound 但标记存在 → 跳过触发
+//	      → AI回复消息1 → 释放标记 → 消息2成为"孤儿"无人回复
+//
+// 修复：释放标记后延迟 RecheckDelayAfterRelease（800ms）让期间消息入库，
+//   再查 DB 最后一条方向：若仍为 inbound 且在 5min 窗口内，补触发一次 AI。
+//
+// 安全保障：
+//   - 再次检查 ai_processing 标记：若释放后新一轮 AI 已被其他路径触发，则跳过
+//   - 检查人工接管锁：AI 回复后用户可能转人工，不补触发
+//   - 无 aiTrigger 时记录日志并跳过（不 panic）
+//
+// 调用方：webhook.go sendOutbound 释放标记后异步调用（go routine）。
+// ctx 应为不受 sendOutbound 15s timeout 限制的独立 context。
+func (s *InboxIngressService) RecheckUnrepliedAndTrigger(ctx context.Context, conversationID, sessionID string) {
+	if s == nil || conversationID == "" {
+		return
+	}
+	// 延迟让 AI 推理期间到达的消息完成入库
+	select {
+	case <-time.After(RecheckDelayAfterRelease):
+	case <-ctx.Done():
+		return
 	}
 
-	// 立即释放串行锁：AI 生成由 runAIGeneration 的 replySem 并发控制，
-	// 会话上下文由编排器维护；此处释放可避免后续多轮消息卡在 pending 永不消费（旧死锁问题）。
-	if acquired {
-		s.ReleaseAILock(ctx, event.SessionID)
+	// 1. 检查人工接管锁（AI 回复后用户可能转人工）
+	if sessionID != "" {
+		if humanLocked, _ := s.IsSessionHumanLocked(ctx, sessionID); humanLocked {
+			logger.Ctx(ctx).Info().
+				Str("conv_id", conversationID).
+				Str("session_id", sessionID).
+				Msg("[Inbox][Recheck] 会话已被人工接管，跳过补触发")
+			return
+		}
 	}
+
+	// 2. 查 DB 最后一条消息方向
+	if s.hubRepo == nil {
+		return
+	}
+	unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, conversationID, InboxReplyWindow)
+	if err != nil {
+		logger.Ctx(ctx).Warn().Err(err).
+			Str("conv_id", conversationID).
+			Msg("[Inbox][Recheck] 查询未回复消息失败，跳过补触发")
+		return
+	}
+	if !unreplied {
+		// 最后一条是 outbound（AI/人工已回复）→ 无遗漏消息
+		return
+	}
+	if !withinWindow {
+		// 最后一条 inbound 超 5min → 历史消息不补触发
+		return
+	}
+
+	// 3. 再次检查 ai_processing 标记（防止与新一轮触发竞态）
+	if s.cache != nil {
+		aiKey := InboxAIProcessingKey + conversationID
+		if exists, _ := s.cache.Exists(ctx, aiKey); exists {
+			logger.Ctx(ctx).Info().
+				Str("conv_id", conversationID).
+				Msg("[Inbox][Recheck] 新一轮 AI 已在处理中，跳过补触发")
+			return
+		}
+	}
+
+	// 4. 获取最后一条客户消息内容，构造触发事件
+	last, err := s.hubRepo.GetLastInboundByConversation(ctx, conversationID)
+	if err != nil || last == nil {
+		logger.Ctx(ctx).Warn().Err(err).
+			Str("conv_id", conversationID).
+			Msg("[Inbox][Recheck] 获取最后一条客户消息失败，跳过补触发")
+		return
+	}
+
+	// 5. 构造 MessageEvent 并触发 AI
+	ev := &model.MessageEvent{
+		EventID:        uuid.NewString(),
+		Channel:        last.Platform,
+		ConversationID: conversationID,
+		SessionID:      sessionID,
+		SenderID:       last.SenderID,
+		SenderName:     last.SenderName,
+		Content:        last.Content,
+		MsgType:        last.MsgType,
+		IsGroup:        last.IsGroup,
+		GroupID:        last.GroupID,
+		Timestamp:      last.SentAt,
+		Extra:          map[string]any{"account_id": last.AccountID},
+	}
+	logger.Ctx(ctx).Info().
+		Str("conv_id", conversationID).
+		Str("event_id", ev.EventID).
+		Str("sender", last.SenderID).
+		Msg("[Inbox][Recheck] 检测到 AI 推理期间遗漏的未回复客户消息，补触发 AI")
+	s.triggerAIForEvent(ctx, ev)
+}
+
+// InboxIngressBatchResult 批量入站处理结果
+type InboxIngressBatchResult struct {
+	PerEvent    []*InboxIngressResult `json:"per_event"`     // 每条消息处理结果（与入参 events 索引对齐）
+	TriggeredAI bool                  `json:"triggered_ai"` // 是否触发了 AI（batch 内合并触发）
+	Reason      string                `json:"reason,omitempty"`
+}
+
+// HandleIngressBatch 批量入站处理（bridge HTTP 长轮询上报主入口）。
+//
+// 2026-08-05 重构（用户科学方案）：
+//  1. 按 conversation_id 分组
+//  2. 每组内逐条处理：sender_type 过滤 → msg_id 查 DB 去重 → 入库（含时序锚点判断）
+//  3. 每组所有消息入库后，查 DB 最后一条消息方向：
+//     - outbound（平台自己发的）→ 不回复
+//     - inbound（客户发的）+ 5min 内 → 合并本组新增 inbound 消息内容，一次 AI 回复
+//
+// 用户诉求三要点：
+//   - 入库依据：msg_id 查 DB 是否已存在（逐条检查，多条消息逐个入库）
+//   - 回复依据：DB 最后一条消息方向（平台自己发的就不回复）
+//   - AI 合并：多条 inbound 消息合并一次 AI 回复（不无限制给用户发消息）
+func (s *InboxIngressService) HandleIngressBatch(ctx context.Context, events []*model.MessageEvent) (*InboxIngressBatchResult, error) {
+	batchResult := &InboxIngressBatchResult{
+		PerEvent: make([]*InboxIngressResult, len(events)),
+	}
+	if len(events) == 0 {
+		return batchResult, nil
+	}
+
+	// 1. 按 conversation_id 分组（保留原索引以便回填 perEvent）
+	type indexedEvent struct {
+		idx   int
+		event *model.MessageEvent
+	}
+	groups := make(map[string][]indexedEvent)
+	for i, ev := range events {
+		// 先 NormalizeEvent 补齐 ConversationID（兜底 Channel:account_id）
+		if ev != nil {
+			_ = s.NormalizeEvent(ctx, ev)
+			convID := ev.ConversationID
+			if convID == "" {
+				convID = "_no_conv_"
+			}
+			groups[convID] = append(groups[convID], indexedEvent{idx: i, event: ev})
+		}
+	}
+
+	// 2. 每组内逐条入库，记录新增 inbound 消息内容
+	for convID, groupEvents := range groups {
+		var newInboundContents []string
+		var firstInboundEvent *model.MessageEvent // 用于 AI 触发的元数据（channel/accountID/senderID 等）
+		for _, ie := range groupEvents {
+			ev := ie.event
+			// 调用单条处理（含 sender_type 过滤 / msg_id 去重 / 时序锚点 / 落库）
+			// 注意：单条处理中的 AI 触发逻辑会被跳过（batch 末尾统一合并触发）
+			r, err := s.handleIngressSingleForBatch(ctx, ev)
+			batchResult.PerEvent[ie.idx] = r
+			if err != nil {
+				r.Reason = fmt.Sprintf("batch handle error: %v", err)
+				continue
+			}
+			// 收集新增 inbound 消息内容（用于 batch 内合并 AI 回复）
+			//   仅 customer 消息（非 self/agent/system）才合并触发 AI
+			if r.Accepted && r.QueuedForAI && ev.SenderType != "self" && ev.SenderType != "agent" && ev.SenderType != "system" {
+				newInboundContents = append(newInboundContents, ev.Content)
+				if firstInboundEvent == nil {
+					firstInboundEvent = ev
+				}
+			}
+		}
+
+		// 3. 本组消息全部入库后，查 DB 最后一条消息方向决定是否触发 AI
+		if len(newInboundContents) == 0 || firstInboundEvent == nil {
+			continue
+		}
+		// 跳过人工接管锁的会话
+		humanLocked, _ := s.IsSessionHumanLocked(ctx, firstInboundEvent.SessionID)
+		if humanLocked {
+			continue
+		}
+		// 查 DB 最后一条消息方向
+		if s.hubRepo != nil {
+			unreplied, withinWindow, err := s.hubRepo.HasUnrepliedCustomerMessage(ctx, convID, InboxReplyWindow)
+			if err != nil {
+				logger.Ctx(ctx).Error().Err(err).
+					Str("conv_id", convID).
+					Msg("[Inbox][Batch] 查询最后一条消息方向失败，保守不触发 AI")
+				continue
+			}
+			if !unreplied {
+				logger.Ctx(ctx).Info().
+					Str("conv_id", convID).
+					Int("new_inbound_count", len(newInboundContents)).
+					Msg("[Inbox][Batch] 最后一条是平台自己发的（outbound），不触发 AI")
+				continue
+			}
+			if !withinWindow {
+				logger.Ctx(ctx).Info().
+					Str("conv_id", convID).
+					Int("new_inbound_count", len(newInboundContents)).
+					Msg("[Inbox][Batch] 最后一条 inbound 超过 5 分钟，历史消息不触发 AI")
+				continue
+			}
+		}
+
+		// 2026-08-05 修复"不断发消息"根因：
+		//   AI 推理是异步的，从触发到 outbound 落库有几秒延迟
+		//   期间 bridge 每秒扫描，DB 最后一条还是 inbound → 重复触发 AI
+		//   修复：检查 "AI 处理中" 标记，存在则跳过（标记 TTL 5min，AI 完成后主动删除）
+		if s.cache != nil {
+			aiKey := InboxAIProcessingKey + convID
+			if exists, _ := s.cache.Exists(ctx, aiKey); exists {
+				logger.Ctx(ctx).Info().
+					Str("conv_id", convID).
+					Msg("[Inbox][Batch] AI 处理中（标记存在），跳过本次触发避免重复回复")
+				continue
+			}
+		}
+
+		// 4. 合并本组新增 inbound 消息，一次 AI 回复
+		//    用户诉求："AI 可以合并用户的多个对话消息 合并一次发送"
+		//    合并内容用换行分隔，AI 一次性回复覆盖所有新增 inbound 消息
+		mergedEvent := *firstInboundEvent
+		if len(newInboundContents) > 1 {
+			mergedEvent.Content = strings.Join(newInboundContents, "\n")
+			mergedEvent.EventID = uuid.NewString() // 合并后用新 eventID
+			logger.Ctx(ctx).Info().
+				Str("channel", mergedEvent.Channel).
+				Str("conv_id", convID).
+				Int("merged_count", len(newInboundContents)).
+				Int("merged_content_len", len(mergedEvent.Content)).
+				Msg("[Inbox][Batch] 合并多条 inbound 消息触发一次 AI")
+		}
+		s.triggerAIForEvent(ctx, &mergedEvent)
+		batchResult.TriggeredAI = true
+		batchResult.Reason = fmt.Sprintf("batch: %d messages merged, 1 AI trigger", len(newInboundContents))
+	}
+	return batchResult, nil
+}
+
+// handleIngressSingleForBatch 单条消息处理（batch 内部调用，跳过 AI 触发，由 batch 末尾统一合并触发）。
+//
+// 与 HandleIngressMessage 的区别：
+//   - 不触发 AI（返回 QueuedForAI=true 标记，由 HandleIngressBatch 末尾合并触发）
+//   - 保留 sender_type 过滤 / msg_id 去重 / 时序锚点 / 落库 等所有其他逻辑
+func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, event *model.MessageEvent) (*InboxIngressResult, error) {
+	result := &InboxIngressResult{
+		SessionID: event.SessionID,
+	}
+	// 钩子1（2026-08-06 重构：服务端权威自/他判定，不再信任前端 sender_type）
+	//   与 HandleIngressMessage 一致：ingest 入口数据不可信前端自/他标签，
+	//   改用"内容是否命中本会话平台下发(outbound)"判定。命中 → SELF 回显跳过；
+	//   未命中 → 强制 CUSTOMER（用户消息）走正常链路。
+	isSystemMsg := event.SenderType == "system"
+	if s.isPlatformOutboundEcho(ctx, event) {
+		result.Accepted = true
+		result.QueuedForAI = false
+		result.Reason = "ingest echo recognized as platform outbound (SELF); skip inbound + AI"
+		logger.Ctx(ctx).Info().
+			Str("channel", event.Channel).
+			Str("conv_id", event.ConversationID).
+			Str("event_id", event.EventID).
+			Str("content_preview", truncateForLog(event.Content, 60)).
+			Msg("[Inbox] 服务端权威判定：ingest 消息内容命中平台下发 outbound，识别为 SELF 回显，跳过入库与 AI")
+		return result, nil
+	}
+	// 非平台回显 → 强制 CUSTOMER（用户消息），不信任前端 self/agent 标签
+	event.SenderType = "customer"
+
+	// 检查人工接管锁
+	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
+	if humanLocked {
+		result.HumanLocked = true
+		result.Accepted = true
+		result.Reason = "session is human-locked; bypass AI routing"
+		if err := s.persistMessage(ctx, event); err != nil {
+			return result, fmt.Errorf("持久化消息失败: %w", err)
+		}
+		return result, nil
+	}
+
+	// 钩子2：msg_id 查 DB 去重
+	if s.hubRepo != nil {
+		existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID)
+		if err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = "msg_id already exists in DB; idempotent skip"
+			return result, nil
+		}
+	}
+
+	// 钩子 2.5（2026-08-06 已合并进钩子1 的服务端权威判定）：
+	//   原"内容命中最近 outbound 即判回环跳过"逻辑，现已在钩子1 通过 isPlatformOutboundEcho
+	//   统一、更早、更权威地实现（不依赖前端 sender_type），此处不再重复。
+
+	// 入库（含时序锚点判断）
+	if err := s.persistMessage(ctx, event); err != nil {
+		return result, fmt.Errorf("持久化消息失败: %w", err)
+	}
+	result.Accepted = true
+
+	// 系统消息：仅落库，不触发 AI
+	if isSystemMsg {
+		result.QueuedForAI = false
+		result.Reason = "sender_type=system; persisted only"
+		return result, nil
+	}
+
+	// outbound 消息（self/agent，平台自己发的）：仅落库，不触发 AI
+	//   注意：self/agent 已在钩子1过滤，这里兜底处理 Extra 中携带的 direction 字段
+	if event.SenderType == "self" || event.SenderType == "agent" {
+		result.QueuedForAI = false
+		result.Reason = "sender_type=self/agent; persisted only (平台自己发的不触发 AI)"
+		return result, nil
+	}
+
+	// inbound 消息（customer）：标记 QueuedForAI=true，由 batch 末尾合并触发
+	result.QueuedForAI = true
+	result.Reason = "batched; will be merged and triggered at batch end"
 	return result, nil
 }
 
-// persistMessage 持久化消息到 message_hub 表
+// persistMessage 持久化消息到 message_hub 表（含时序锚点判断）。
+//
+// 时序处理（2026-08-05 用户诉求："上报的聊天记录可能存在时序不对（历史堆积），
+//   如果插入一定要看 到底在锚点之前插入还是锚点之后插入"）：
+//   - 锚点 = 会话已存在消息的最新 sent_at（DB 中该 conversation 的最后一条消息时间）
+//   - timestamp 零值 → 用 now()（无法判断时序，视为当前消息）
+//   - timestamp 未来超过 5 秒容差 → 修正为 now()（时钟漂移，避免排序错乱）
+//   - timestamp < 锚点 → 历史堆积消息（backfill），保留原 timestamp，
+//     DB 按 sent_at 排序时自然落到锚点之前（不污染"最后一条消息方向"判断）
+//   - timestamp >= 锚点 → 正常追加（锚点之后）
+//
+// 注意：direction 不再硬编码为 inbound，按 event.Direction 透传（兼容 outbound 历史回填）。
 func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.MessageEvent) error {
 	if s.hubRepo == nil {
 		return nil
@@ -573,11 +915,48 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 			accountID = v
 		}
 	}
+	// 时序锚点判断：修正 timestamp
+	now := time.Now()
+	sentAt := event.Timestamp
+	if sentAt.IsZero() {
+		sentAt = now
+	} else if sentAt.After(now.Add(InboxBackfillFutureTolerance)) {
+		// 未来时间超过 5 秒容差 → 修正为 now()（时钟漂移）
+		logger.Ctx(ctx).Info().
+			Str("channel", event.Channel).
+			Str("conv_id", event.ConversationID).
+			Str("event_id", event.EventID).
+			Time("orig_timestamp", event.Timestamp).
+			Msg("[Inbox] 时序修正：timestamp 未来超过容差，修正为 now()")
+		sentAt = now
+	}
+	// 历史堆积判断：timestamp 早于会话锚点 → backfill 消息（保留原 timestamp，DB 排序自动处理）
+	if s.hubRepo != nil && event.ConversationID != "" {
+		if anchor, err := s.hubRepo.GetLastByConversation(ctx, event.ConversationID); err == nil && anchor != nil {
+			if sentAt.Before(anchor.SentAt) {
+				logger.Ctx(ctx).Info().
+					Str("channel", event.Channel).
+					Str("conv_id", event.ConversationID).
+					Str("event_id", event.EventID).
+					Time("msg_timestamp", sentAt).
+					Time("anchor_timestamp", anchor.SentAt).
+					Msg("[Inbox] 时序锚点：消息 timestamp 早于锚点，标记为 backfill 历史堆积")
+				// backfill 消息：保留原 timestamp，DB 排序自然落到锚点之前
+				// 不修改 sentAt，让查询时按时间排序正确显示历史消息位置
+			}
+		}
+	}
+	// direction：根据 SenderType 推断（self/agent → outbound，其他 → inbound）
+	//   MessageEvent 没有 Direction 字段，SenderType 已表明发送者身份
+	direction := "inbound"
+	if event.SenderType == "self" || event.SenderType == "agent" {
+		direction = "outbound"
+	}
 	hub := &model.MessageHub{
 		MsgID:          event.EventID,
 		Platform:       event.Channel,
 		AccountID:      accountID,
-		Direction:      "inbound",
+		Direction:      direction,
 		MsgType:        event.MsgType,
 		SenderID:       event.SenderID,
 		SenderName:     event.SenderName,
@@ -590,7 +969,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		IsAIReply:      event.IsAIReply,
 		AIAgent:        event.AIAgent,
 		IsRead:         false,
-		SentAt:         event.Timestamp,
+		SentAt:         sentAt,
 		Extra:          nil,
 	}
 	if event.Extra != nil {
@@ -600,44 +979,26 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		}
 		hub.Extra = extra
 	}
-	// 会话级多轮历史落库（点3）：event.History 已由 toMessageEvent 透传，
-	// 冗余进 message_hub.Extra 供统一收件箱展示/可观测（AI 上下文由 session_messages 重建）。
 	if len(event.History) > 0 {
 		if hub.Extra == nil {
 			hub.Extra = model.JSONMap{}
 		}
 		hub.Extra["history"] = event.History
 	}
-	// 五层架构修复：原 s.db.WithContext(ctx).Create(hub).Error 违反
-	// "service 不可直接访问 DB" 约束，已下沉到 MessageHubRepository.Create
-	//
-	// 修复（2026-08-05 审计 P1）：原 persistMessage 分两步——
-	//   1) s.hubRepo.Create(ctx, hub)
-	//   2) s.inboxSvc.UpsertFromHubMessage(ctx, hub)
-	// 两步跨表无事务，inbox_conversations 写失败时仅 Warn 日志，导致"消息在 message_hub
-	// 但收件箱看不到"的极端不一致。改为通过 inboxSvc.UpsertFromHubMessageTx 走 hubRepo.CreateWithInboxTx
-	// 把两表写入包在同一 DB 事务内，任一失败整体回滚。
-	//
-	// 注意：仍用 context.Background() 而非入参 ctx——ctx 随 WS 连接生命周期取消，
+	// 五层架构修复：跨表事务写入（message_hub + inbox_conversations 原子）
+	// 注意：用 context.Background() 而非入参 ctx——ctx 随 WS 连接生命周期取消，
 	// 而消息落库 + 收件箱同步不应被连接抖动打断（与原设计保持一致）。
 	if s.inboxSvc != nil && hub.Direction == "inbound" {
-		// inbound 方向：走跨表事务版本（message_hub + inbox_conversations 原子写入）
 		if _, err := s.inboxSvc.UpsertFromHubMessageTx(context.Background(), hub, s.hubRepo); err != nil {
-			// 幂等：MsgID 唯一键冲突说明该消息已落库（扩展断线重发 / 历史重复回填），
-			// 视为成功，避免日志刷错与 WS 上行被当作失败。与 webhook.go 对 join/left
-			// 事件的 UNIQUE/duplicate 处理口径一致。
 			if isDuplicateKey(err) {
 				logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
 					event.EventID, event.SessionID)
 				return nil
 			}
-			// 其他错误：事务已回滚（message_hub 未落库），返回错误让上层处理
 			return err
 		}
 		return nil
 	}
-	// 非 inbound 方向（如 outbound 历史回填由 persistHistoryMessage 处理）：
-	// 仅落 message_hub，不写 inbox_conversations（保持原行为）
 	if err := s.hubRepo.Create(ctx, hub); err != nil {
 		if isDuplicateKey(err) {
 			logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
@@ -771,6 +1132,48 @@ func isDuplicateKey(err error) bool {
 	return strings.Contains(msg, "duplicate key") ||
 		strings.Contains(msg, "unique constraint") ||
 		errors.Is(err, gorm.ErrDuplicatedKey)
+}
+
+// isPlatformOutboundEcho 服务端权威自/他判定（2026-08-06 用户诉求）。
+//
+// ingest 入口（前端 http-ingest 上报）携带的 sender_type 不可信：小红书等平台的
+// .chat-item 是整行容器，isSelfMessage 的布局兜底会失效，把平台自己的 AI 回复
+// 误判为 customer 回传 → 后端不断触发 AI → "平台不断下发消息"。
+//
+// 改为服务端按"来源"判定（不依赖前端自/他标签）：
+//   - 本会话最近 2h 内的平台下发(outbound)消息中，存在内容与当前消息相同的
+//     → 这是平台自己下发的回显（SELF），不应入库为 inbound，也不触发 AI
+//   - 否则 → 一定是用户消息（CUSTOMER），正常入库 + 触发 AI
+//
+// 平台下发的消息（AI 生成 / 人工客服）必然先入库（direction=outbound）再下发，
+// 因此只要内容命中既有 outbound，即可确定是平台自己的回显。
+func (s *InboxIngressService) isPlatformOutboundEcho(ctx context.Context, event *model.MessageEvent) bool {
+	if s.hubRepo == nil || event.Content == "" || event.ConversationID == "" {
+		return false
+	}
+	trimmed := strings.TrimSpace(event.Content)
+	if trimmed == "" {
+		return false
+	}
+	recent, err := s.hubRepo.GetRecentOutboundsByConversation(ctx, event.ConversationID, 20)
+	if err != nil || len(recent) == 0 {
+		return false
+	}
+	for _, ob := range recent {
+		if strings.TrimSpace(ob.Content) == trimmed {
+			return true
+		}
+	}
+	return false
+}
+
+// truncateForLog 截断字符串用于日志输出（避免日志过长）。
+func truncateForLog(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // contentHashOf 计算消息内容的 SHA-256 hash（用于 5 分钟内内容去重）。

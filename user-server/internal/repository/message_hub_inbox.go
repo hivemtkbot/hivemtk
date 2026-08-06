@@ -400,34 +400,51 @@ func (r *MessageHubRepository) GetLastByPlatformAccount(ctx context.Context, pla
 	return &msg, nil
 }
 
-// HasUnrepliedCustomerMessage 判断会话是否存在"未回复的客户消息"
+// GetLastByConversation 取会话最新一条消息（按 sent_at DESC）。
 //
-// 2026-08-05 钩子机制需求：
-//   - 查询条件：按 conversation_id 找最新一条消息
-//   - 若最新消息方向 = "inbound"（客户发的） → 未回复
-//   - 同时检查该消息是否在 replyWindow 内（5 分钟）
-//   - 若最新消息方向 = "outbound"（已回复） → 不触发 AI
+// 2026-08-05 新增（用户科学方案）：
+//   - 用于 persistMessage 时序锚点判断：新消息 timestamp 与锚点比较，早于锚点 → backfill
+//   - 用于 HandleIngressBatch 回复判断：会话最后一条消息方向决定是否触发 AI
+//   - outbound（平台自己发的）→ 不回复
+//   - inbound（客户发的）+ 5min 内 → 回复
+func (r *MessageHubRepository) GetLastByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if conversationID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var msg model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID).
+		Order("sent_at DESC").First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// HasUnrepliedCustomerMessage 判断会话最后一条消息方向，决定是否需要回复。
 //
-// 2026-08-05 修复（多次给用户发消息 bug）：
-//   - 新增 excludeMsgID 参数：查询时排除当前刚落库的消息
-//   - 场景：bridge 一次性上报同会话多条 customer 消息时，每条消息落库后
-//     都成为"最后一条 inbound"，导致每条都触发 AI → 多次给用户发消息
-//   - 修复：排除当前消息后查询"之前最后一条消息方向"
-//     · 若之前最后一条是 outbound（已回复）或无 → 当前消息是新消息 → 触发 AI
-//     · 若之前最后一条是 inbound（未回复） → 当前消息是连续客户消息 → 不触发 AI
-//     · 这样同一批 customer 消息只有第一条触发 AI，后续不触发
+// 2026-08-05 重构（用户科学方案）：
+//   - 查询会话最后一条消息方向（不排除任何消息）
+//   - 最后一条 outbound（平台自己发的）→ 已回复，不触发 AI
+//   - 最后一条 inbound（客户发的）+ 5min 内 → 未回复，触发 AI
+//   - 最后一条 inbound + 5min 外 → 历史消息，不触发
+//   - 无消息 → 视为未回复（首条消息触发）
+//
+// 用户诉求："是否回消息依据是最后一条是不是平台自己发的 是则不发送"
 //
 // 入参：
 //   - conversationID：会话唯一标识
 //   - replyWindow：回复判断窗口（5 分钟），超过则视为历史消息不再触发
-//   - excludeMsgID：排除的消息 ID（当前正在处理的消息 event_id），空则不排除
 //
 // 返回：
-//   - 未回复=true 且在窗口内=true → 触发 AI
-//   - 未回复=true 但在窗口外=false → 历史消息不触发
-//   - 未回复=false（已有 outbound） → 不触发
+//   - unreplied=true + withinWindow=true → 最后一条是客户消息且在 5min 内 → 触发 AI
+//   - unreplied=true + withinWindow=false → 最后一条是客户消息但超过 5min → 历史消息不触发
+//   - unreplied=false → 最后一条是平台自己发的（outbound）→ 不触发
 //   - 查询失败 → 保守返回 false（避免对历史存量消息逐一自动回复）
-func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration, excludeMsgID string) (unreplied bool, withinWindow bool, err error) {
+func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, conversationID string, replyWindow time.Duration) (unreplied bool, withinWindow bool, err error) {
 	if r == nil || r.db == nil {
 		return false, false, nil
 	}
@@ -436,35 +453,109 @@ func (r *MessageHubRepository) HasUnrepliedCustomerMessage(ctx context.Context, 
 	}
 	var last model.MessageHub
 	// 按 conversation_id 查最新一条消息（不分 platform / account_id，因为同一 conversation_id 唯一）
-	// 排除当前刚落库的消息（excludeMsgID），查询"之前最后一条消息方向"
-	query := r.db.WithContext(ctx).
-		Where("conversation_id = ?", conversationID)
-	if excludeMsgID != "" {
-		query = query.Where("msg_id != ?", excludeMsgID)
-	}
-	if err := query.Order("sent_at DESC").
+	if err := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID).
+		Order("sent_at DESC").
 		Limit(1).
 		First(&last).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// 会话无其他消息（首条消息或排除当前后无更早消息）→ 视为未回复且在窗口内
-			return true, true, nil // 首条消息触发
+			// 会话无消息 → 视为未回复且在窗口内（首条消息触发）
+			return true, true, nil
 		}
 		// 查询失败：保守视为已回复（不触发 AI，避免误触发）
 		return false, false, err
 	}
-	// 最新消息方向判断：
-	//   - inbound（客户发的）→ 未回复
-	//   - outbound（坐席/AI 发的）→ 已回复
+	// 最后一条消息方向判断：
+	//   - outbound（平台自己发的）→ 已回复，不触发 AI
+	//   - inbound（客户发的）→ 未回复，继续判断 5min 窗口
 	if last.Direction != "inbound" {
-		return false, false, nil // 已回复
+		return false, false, nil // 平台自己发的 → 不回复
 	}
-	// 未回复：再判断是否在 5 分钟窗口内
+	// 最后一条是客户消息 → 未回复，判断是否在 5 分钟窗口内
 	cutoff := time.Now().Add(-replyWindow)
 	if last.SentAt.Before(cutoff) {
 		// 最后一条客户消息超过 5 分钟 → 历史消息不触发
 		return true, false, nil
 	}
 	return true, true, nil
+}
+
+// GetLastOutboundByConversation 查询会话最后一条平台发出消息（direction=outbound）。
+//
+// 2026-08-05 新增（防回环）：
+//   - 前端 isSelfMessage 判定可能失效，导致 AI 发送的 outbound 消息被误判为 customer（inbound）
+//   - 后端在入库前查最后一条 outbound，若内容与当前 inbound 相同 → 回环消息，跳过 AI 触发
+//   - 仅查 5 分钟内的 outbound（超过 5 分钟的相同内容大概率是客户新消息而非回环）
+func (r *MessageHubRepository) GetLastOutboundByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if conversationID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	cutoff := time.Now().Add(-5 * time.Minute)
+	var msg model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("conversation_id = ? AND direction = ? AND sent_at >= ?", conversationID, "outbound", cutoff).
+		Order("sent_at DESC").
+		First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// GetRecentOutboundsByConversation 查询会话最近 N 条平台发出消息（direction=outbound）。
+//
+// 2026-08-05 新增（增强防回环）：
+//   - 原防回环检查只比对最后一条 outbound，但回环消息可能是 AI 之前几轮的话术
+//   - 改为查最近 N 条 outbound，逐条比对内容
+//   - 任一条 outbound 内容与当前 inbound 相同 → 回环，跳过 AI 触发
+//   - N 条 / 2h 覆盖典型 AI 多轮回复场景，同时容忍前端重新扫描上报的较大时间差
+//     （实测小红书回环消息在 56min 后才被重新扫描上报，30min 窗口会漏判 → 改为 2h）
+func (r *MessageHubRepository) GetRecentOutboundsByConversation(ctx context.Context, conversationID string, limit int) ([]*model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if conversationID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	cutoff := time.Now().Add(-2 * time.Hour)
+	var msgs []*model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("conversation_id = ? AND direction = ? AND sent_at >= ?", conversationID, "outbound", cutoff).
+		Order("sent_at DESC").
+		Limit(limit).
+		Find(&msgs).Error
+	if err != nil {
+		return nil, err
+	}
+	return msgs, nil
+}
+
+// GetLastInboundByConversation 查询会话最后一条客户消息（direction=inbound）。
+//
+// 用于 AI 回复完成后补触发：释放 ai_processing 标记后，若仍有未回复的客户消息
+// （AI 推理期间用户发的新消息），需要获取该消息完整内容来构造触发事件。
+func (r *MessageHubRepository) GetLastInboundByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if conversationID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var msg model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("conversation_id = ? AND direction = ?", conversationID, "inbound").
+		Order("sent_at DESC").
+		First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
 }
 
 // ListByConversationContext 按 (platform, account_id, sender_id OR receiver_id) 拉取消息

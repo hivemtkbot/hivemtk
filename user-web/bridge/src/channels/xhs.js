@@ -11,7 +11,7 @@
 //   - 发送按钮：新版 .xhs-im-input-bar-actions 内按钮，旧版 .send_btn
 //   - 自/他判定：--right/--self（自己），--left/--other（对方）
 import { BaseAdapter } from '../core/channel-adapter.js';
-import { CHANNELS, SENDER } from '../core/types.js';
+import { CHANNELS, SENDER, contentHash } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import { qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
@@ -521,6 +521,51 @@ function detectUnread(item) {
   return false;
 }
 
+// 2026-08-05 防回环：记录最近发送的消息文本，parseMessageItem 时匹配并强制判定为 SELF。
+//   根因：XHS DOM 的 self/other class 标记可能不完整，AI 发送的消息被 isSelfMessage
+//   误判为 CUSTOMER → 后端收到 inbound → 触发 AI → 无限循环。
+//   修复：sendText 后记录文本（5 分钟 TTL），parseMessageItem 时若文本匹配则强制 SELF。
+const recentSentTexts = [];
+const RECENT_SENT_TTL_MS = 5 * 60 * 1000;
+const RECENT_SENT_MAX = 50;
+
+function recordSentText(text) {
+  if (!text) return;
+  const trimmed = String(text).trim();
+  if (!trimmed) return;
+  const now = Date.now();
+  // 清理过期条目
+  for (let i = recentSentTexts.length - 1; i >= 0; i--) {
+    if (now - recentSentTexts[i].ts > RECENT_SENT_TTL_MS) {
+      recentSentTexts.splice(i, 1);
+    }
+  }
+  recentSentTexts.push({ text: trimmed, ts: now });
+  // 限制数组大小
+  if (recentSentTexts.length > RECENT_SENT_MAX) {
+    recentSentTexts.splice(0, recentSentTexts.length - RECENT_SENT_MAX);
+  }
+}
+
+function matchSentText(text) {
+  if (!text) return false;
+  const trimmed = String(text).trim();
+  if (!trimmed) return false;
+  const now = Date.now();
+  for (let i = recentSentTexts.length - 1; i >= 0; i--) {
+    if (now - recentSentTexts[i].ts > RECENT_SENT_TTL_MS) {
+      recentSentTexts.splice(i, 1);
+      continue;
+    }
+    if (recentSentTexts[i].text === trimmed) {
+      // 匹配后移除（避免后续相同内容客户消息被误判）
+      recentSentTexts.splice(i, 1);
+      return true;
+    }
+  }
+  return false;
+}
+
 const hooks = {
   match() {
     if (!location.hostname.includes('xiaohongshu.com')) return false;
@@ -583,17 +628,94 @@ const hooks = {
     // 先判定消息类型（卡片/图片/语音/视频/撤回/系统）
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定：.left/.right class 为主，用户配置 self/other 标记兜底修正
-    let sender_type = isSelfMessage(item, SEL.SELF_ITEM) ? SENDER.SELF : SENDER.CUSTOMER;
+    // 2026-08-05 修复（与其他 3 渠道对齐）：
+    //   XHS 的 extractMessageContent 已识别 'system'（聚光进线）和 'recall'（撤回）类型，
+    //   但原实现未据此修正 sender_type → 系统消息走普通路径 → 被 isSelfMessage 默认判定为
+    //   CUSTOMER → 后端收到 sender_type='customer' → 误触发 AI 回复。
+    //   现在统一将 system/recall 类型消息标记为 SENDER.SYSTEM，msg_id 兜底改用 `sys:${text}`
+    //   （与 douyin/tiktok/xianyu 一致），后端 inbox_ingress 会据此跳过 AI 触发。
+    if (msgType === 'system' || msgType === 'recall') {
+      const sysText = text || (msgType === 'recall' ? '撤回了一条消息' : '系统消息');
+      return {
+        message_id:
+          item.getAttribute('data-message-id') ||
+          item.getAttribute('data-id') ||
+          item.getAttribute('data-msg-id') ||
+          item.id ||
+          `sys:${sysText}`,
+        sender_type: SENDER.SYSTEM,
+        text: sysText,
+        media_url: '',
+        msg_type: 'system',
+        is_group: false,
+        group_id: '',
+        group_name: '',
+        sender_name: '',
+        timestamp: Date.now(),
+        raw: item.outerHTML?.slice(0, 500),
+      };
+    }
+    // 自/他判定（6 层漏斗）：
+    //   0) 已发送消息匹配（防回环）：如果文本与最近 sendText 发送的内容匹配 → 强制 SELF
+    //   1) isSelfMessage：含 self/other class 标记（自身+祖先+子元素全覆盖）、other 互斥排除、气泡整体对齐、头像位置
+    //   2) 用户配置 merged selfMarkers / otherMarkers（自身+祖先+子元素全覆盖）
+    //   3) 气泡整体水平对齐兜底（贴右=自方，贴左=对方）
+    //   4) data 属性兜底
+    //   5) 默认 CUSTOMER（宁可把对方误报为客户，不要把自己消息误报为客户——避免死循环）
+    //   注意：第 0 层是 2026-08-05 新增的防回环机制，优先级最高，确保 AI 发送的消息
+    //         即使 DOM class 标记不完整也不会被误判为 customer。
+    let sender_type;
+    if (matchSentText(text)) {
+      sender_type = SENDER.SELF;
+    } else {
+      sender_type = isSelfMessage(item, SEL.SELF_ITEM, SEL.OTHER_ITEM) ? SENDER.SELF : SENDER.CUSTOMER;
+    }
+    // marker 命中统一工具：覆盖 自身 / 祖先 / 子元素 三种匹配方向
+    const _markerHit = (sel) => {
+      try {
+        if (item.matches && item.matches(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      try {
+        if (item.closest && item.closest(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      try {
+        if (item.querySelector && item.querySelector(sel)) return true;
+      } catch (_) { /* 非法选择器忽略 */ }
+      return false;
+    };
     const m = mergedSelectors();
-    const matchesSelf = m.selfMarkers.some((sel) => {
-      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-    });
-    const matchesOther = m.otherMarkers.some((sel) => {
-      try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-    });
-    if (sender_type === SENDER.CUSTOMER && matchesSelf) sender_type = SENDER.SELF;
-    if (sender_type === SENDER.SELF && matchesOther) sender_type = SENDER.CUSTOMER;
+    const matchesSelf = m.selfMarkers.some((sel) => _markerHit(sel));
+    const matchesOther = m.otherMarkers.some((sel) => _markerHit(sel));
+    // 单向修正：只有 self/other 明确一方命中才修正；双向都命中时保留 isSelfMessage 判定结果
+    if (matchesSelf && !matchesOther) sender_type = SENDER.SELF;
+    if (matchesOther && !matchesSelf) sender_type = SENDER.CUSTOMER;
+    // 第 3 层：气泡整体水平对齐兜底（class 标记全失效时用布局判定）
+    // ⚠️ 修复（回环根因）：小红书 .chat-item 是整行容器（横跨列表全宽），
+    //    直接测量整行会居中→两侧都不越过中线→误判「他人」。先定位内部气泡再测几何。
+    if (!matchesSelf && !matchesOther) {
+      try {
+        const bubbleEl =
+          item.querySelector('[class*="content--right" i], [class*="content--left" i], [class*="bubble" i], [class*="chat-item__content" i]')
+          || item.querySelector('[class*="msg-content" i], [class*="text-message" i]')
+          || item;
+        const scrollRoot =
+          (item.closest && (
+            item.closest(SEL.MSG_LIST + ', [class*="msg-list" i], [class*="message-list" i], [class*="chat-content" i]')
+          )) || item.parentElement || document.body;
+        const listRect = scrollRoot.getBoundingClientRect();
+        const itemRect = bubbleEl.getBoundingClientRect();
+        if (listRect.width > 0 && itemRect.width > 0) {
+          const listCenter = listRect.left + listRect.width / 2;
+          if (itemRect.left >= listCenter) sender_type = SENDER.SELF;
+          else if (itemRect.right <= listCenter) sender_type = SENDER.CUSTOMER;
+        }
+      } catch (_) { /* getBoundingClientRect 不可用时忽略 */ }
+    }
+    // 第 4 层：data 属性兜底
+    if (item.dataset) {
+      if (item.dataset.sender === 'self' || item.dataset.isSelf === 'true') sender_type = SENDER.SELF;
+      if (item.dataset.sender === 'other' || item.dataset.isSelf === 'false') sender_type = SENDER.CUSTOMER;
+    }
     // 群聊识别
     const groupInfo = detectGroup(item);
     // 发件人/对方昵称（需求③，修复 1v1 私信发件人为空/字符串 hash）：
@@ -606,12 +728,18 @@ const hooks = {
       senderName = getPeerName();
     }
     // 消息 id：新版 .chat-item 用 data-message-id（唯一幂等键）；旧版 data-id/data-msg-id
+    //
+    // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+    //   原兜底 `${convId}:${sender_type}:${text}` 含 sender_type，前端自他判定错误时 msg_id 变化
+    //   → 后端无法去重 → 不断触发 AI → 回环。
+    //   改用 contentHash(channel, convId, text) 生成稳定 ID（不含 sender_type），
+    //   后端 sendOutbound 落库时也用相同算法 → 前端扫描 AI 回复生成的 msg_id 与 DB 一致 → 去重跳过。
     const mid =
       item.getAttribute('data-message-id') ||
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.id ||
-      `${getConversationId()}:${text}:${item.textContent?.length}`;
+      contentHash(CHANNELS.XHS, getConversationId(), text);
     return {
       message_id: mid,
       sender_type,
@@ -650,12 +778,16 @@ const hooks = {
     if (sendBtn) {
       // XHS-YYDS enhancedClickWithVerification 同款：native click + 补充鼠标事件
       enhancedClick(sendBtn);
+      // 2026-08-05 防回环：记录已发送消息文本，parseMessageItem 时匹配并强制判定为 SELF
+      recordSentText(text);
       return;
     }
     // 新版 /chat 页发送按钮常为输入后出现的图标或回车发送：无按钮时按 Enter 兜底
     log.warn('未找到小红书发送按钮，改用回车发送');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    // 2026-08-05 防回环：回车发送也记录
+    recordSentText(text);
   },
 };
 

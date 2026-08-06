@@ -13,13 +13,14 @@
 //   - 自/他：outgoing（自己）/ incoming（对方）class
 //   - 发送：Draft.js 靠 Enter 发送，SVG 飞机按钮兜底
 import { BaseAdapter } from '../core/channel-adapter.js';
-import { CHANNELS, SENDER } from '../core/types.js';
+import { CHANNELS, SENDER, contentHash } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
   simulateRealClick, createLogger, findAnyMessageInput, looksLikeMessagePage,
 } from '../core/dom.js';
+import { isSelfMessage } from '../core/fallback.js';
 
 const log = createLogger('tiktok', CHANNELS.TIKTOK);
 
@@ -458,14 +459,23 @@ function classifyByDataAttribute(item) {
 }
 
 function classifySender(item) {
-  // A) class 关键词（最高优先级）
+  // marker 命中统一工具：覆盖 自身 / 祖先 / 子元素 三种匹配方向
+  const _markerHit = (sel) => {
+    try {
+      if (item.matches && item.matches(sel)) return true;
+    } catch (_) { /* 非法选择器忽略 */ }
+    try {
+      if (item.closest && item.closest(sel)) return true;
+    } catch (_) { /* 非法选择器忽略 */ }
+    try {
+      if (item.querySelector && item.querySelector(sel)) return true;
+    } catch (_) { /* 非法选择器忽略 */ }
+    return false;
+  };
+  // A) class 关键词（最高优先级）—— 覆盖自身/祖先/子元素
   const m = mergedSelectors();
-  const matchesSelf = m.selfMarkers.some((sel) => {
-    try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-  });
-  const matchesOther = m.otherMarkers.some((sel) => {
-    try { return (item.matches && item.matches(sel)) || (item.closest && item.closest(sel)); } catch (_) { return false; }
-  });
+  const matchesSelf = m.selfMarkers.some((sel) => _markerHit(sel));
+  const matchesOther = m.otherMarkers.some((sel) => _markerHit(sel));
   if (matchesSelf && !matchesOther) return SENDER.SELF;
   if (matchesOther && !matchesSelf) return SENDER.CUSTOMER;
   // B) data-* 属性
@@ -474,6 +484,8 @@ function classifySender(item) {
   // C) 水平对齐
   const byAlign = classifyByAlignment(item);
   if (byAlign) return byAlign;
+  // D) 头像位置 + 互斥排除（fallback.js 综合判定，传 otherSelector 显式互斥排除）
+  if (isSelfMessage(item, SEL.SELF_ITEM, SEL.OTHER_ITEM)) return SENDER.SELF;
   // 默认 CUSTOMER（防回环）
   return SENDER.CUSTOMER;
 }
@@ -683,8 +695,10 @@ const hooks = {
     // ① 系统消息识别
     if (isSystemMessage(item)) {
       const sysText = cleanText(item);
+      // 2026-08-05 修复：去掉 Date.now()——同一系统消息每轮扫描生成不同 msg_id
+      //   → 后端无法幂等去重 → 不断当新消息入库。系统消息文本本身稳定，无需时间戳后缀。
       return {
-        message_id: item.getAttribute('data-message-id') || item.getAttribute('data-id') || item.id || `sys:${sysText}:${Date.now()}`,
+        message_id: item.getAttribute('data-message-id') || item.getAttribute('data-id') || item.id || `sys:${sysText}`,
         sender_type: SENDER.SYSTEM,
         text: sysText,
         media_url: '',
@@ -710,12 +724,16 @@ const hooks = {
       senderName = getPeerName();
     }
     // ⑥ 消息 id
+    // 2026-08-05 修复（无新消息仍不断回复 AI 的根因）：
+    // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+    //   兜底 msg_id 改用 contentHash(channel, convId, text)，不含 sender_type。
+    //   前端自他判定错误时 msg_id 不再变化 → 后端可正确幂等去重 → 不再回环触发 AI。
     const mid =
       item.getAttribute('data-message-id') ||
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.id ||
-      `${getConversationId()}:${text}:${item.textContent?.length}`;
+      contentHash(CHANNELS.TIKTOK, getConversationId(), text);
     return {
       message_id: mid,
       sender_type,

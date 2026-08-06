@@ -69,7 +69,10 @@ type HTTPIngestMessage struct {
 	ConversationID string         `json:"conversation_id"`
 	SenderID       string         `json:"sender_id"`
 	SenderName     string         `json:"sender_name,omitempty"`
-	SenderType     string         `json:"sender_type,omitempty"` // customer | self | agent | system
+	// SenderType 仅供前端参考；服务端在入库环节按"内容是否命中本会话平台下发(outbound)"
+	// 权威重判自/他（见 InboxIngressService.isPlatformOutboundEcho），不再信任此字段。
+	// 故：命中 outbound → 视为平台自己的回显(SELF)跳过；否则一律按用户消息(CUSTOMER)处理。
+	SenderType     string         `json:"sender_type,omitempty"` // customer | self | agent | system（服务端不采信）
 	ReceiverID     string         `json:"receiver_id,omitempty"`
 	MsgType        string         `json:"msg_type"`
 	Content        string         `json:"content"`
@@ -397,17 +400,17 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		req.ConversationID = conversationID
 	}
 	if len(req.Messages) > HTTPIngestMaxMessages {
+		// 2026-08-05 修复：超 200 条不再拒绝整批，改为截断到 200 条并告警
+		//   拒绝整批会导致消息丢失（bridge 不会重发），截断保证前 200 条入库
+		//   剩余消息由 bridge 下一轮巡检补齐（msg_id 稳定 → 幂等去重）
 		logger.Ctx(ctx0).Warn().
 			Str("module", "bridge").
-			Str("event", "http_ingest_too_many_messages").
+			Str("event", "http_ingest_truncated").
 			Str("full_url", info.FullURL).
 			Int("messages", len(req.Messages)).
-			Msg("[Bridge HTTP] 消息数超过 200 上限")
-		c.JSON(http.StatusBadRequest, HTTPIngestResponse{
-			OK:     false,
-			Reason: fmt.Sprintf("too many messages (max %d)", HTTPIngestMaxMessages),
-		})
-		return
+			Int("truncated_to", HTTPIngestMaxMessages).
+			Msg("[Bridge HTTP] 消息数超过 200 上限，截断处理（剩余由下轮巡检补齐）")
+		req.Messages = req.Messages[:HTTPIngestMaxMessages]
 	}
 
 	// trace_id 透传
@@ -465,9 +468,16 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		ServerTime: time.Now().UnixMilli(),
 	}
 	outboundReplies := make([]*UnifiedReply, 0)
-	anyAIQueued := false
 
-	for _, m := range req.Messages {
+	// 2026-08-05 重构（用户科学方案）：
+	//   - 逐条消息预处理：self/agent 走历史通道，customer + history 先持久化上下文
+	//   - 收集所有需走 ingress 的 customer 消息，统一调用 HandleIngressBatch
+	//   - batch 内按 conversation 分组 + 逐条 msg_id 去重入库 + 时序锚点判断
+	//   - batch 末尾合并 inbound 消息一次 AI 回复（不无限制给用户发消息）
+	var batchEvents []*model.MessageEvent
+	batchIdxMap := make(map[int]int) // 原消息索引 -> batchEvents 索引
+
+	for i, m := range req.Messages {
 		if m == nil {
 			continue
 		}
@@ -481,69 +491,35 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		if m.ConversationID == "" {
 			m.ConversationID = req.ConversationID
 		}
-		// 转换为 MessageEvent
-		var ev *model.MessageEvent
-		if m.SenderType == "self" || m.SenderType == "agent" {
-			// 自己/坐席消息走历史通道（仅落库不触发 AI）
-			if len(m.History) > 0 {
-				for _, it := range m.History {
-					if it == nil {
-						continue
-					}
-					item := historyItemToEvent(httpMessageToUnified(m), it)
-					if err := h.callPersistHistory(ctx, item, it.Direction); err != nil {
-						logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
-							Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
-							Msg("[Bridge HTTP] self/agent history item persist failed")
-					}
-				}
-				resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
-					EventID:  m.EventID,
-					Accepted: true,
-					Reason:   "self/agent history item persisted",
-				})
-				continue
-			}
-			ev = httpMessageToEvent(m)
-			if err := h.callPersistHistory(ctx, ev, m.Direction); err != nil {
-				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
-					Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
-					Msg("[Bridge HTTP] self/agent message persist failed")
-			}
-			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
-				EventID:  m.EventID,
-				Accepted: true,
-				Reason:   "self/agent message persisted (history only, no AI)",
-			})
-			continue
-		}
-		// 客户消息如果携带 history 上下文（多轮），先逐条持久化上下文（仅落库），
-		// 然后继续走 callHandleIngress 触发 AI。
-		// 是否触发 AI 由 sender_type 判断（customer → 触发，self/agent → 不触发），
-		// 不依赖 expect_reply 字段（bridge 只负责桥接，业务判断在后端）。
+		// 历史上下文回填（仅落库，不影响实时自/他权威判定）
+		// 平台自己(self/agent)的历史项强制 outbound，其余按前端 direction（默认 inbound）。
 		if len(m.History) > 0 {
 			for hi, it := range m.History {
 				if it == nil {
 					continue
 				}
 				item := historyItemToEvent(httpMessageToUnified(m), it)
-				dir := it.Direction
-				if dir == "" {
-					dir = "inbound"
+				histDir := it.Direction
+				if histDir == "" {
+					histDir = "inbound"
 				}
-				if err := h.callPersistHistory(ctx, item, dir); err != nil {
+				if (m.SenderType == "self" || m.SenderType == "agent") && histDir != "outbound" {
+					histDir = "outbound"
+				}
+				if err := h.callPersistHistory(ctx, item, histDir); err != nil {
 					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
 						Str("event_id", it.EventID).Str("conv_id", m.ConversationID).
 						Int("history_idx", hi).
 						Msg("[Bridge HTTP] history context persist failed")
 				}
 			}
-			// 不 continue：继续走下面的 callHandleIngress 触发 AI
 		}
-		ev = httpMessageToEvent(m)
-		// 走 InboxIngress（含 sender_type 过滤、5min 内容 hash 去重、5min AI 回复窗口）
+		// 实时消息统一走 ingress：服务端按"内容是否命中平台下发 outbound"权威判定
+		// 自/他（前端 sender_type 不可信，见 InboxIngressService.isPlatformOutboundEcho），
+		// 不再在此预路由 self/agent。
+		ev := httpMessageToEvent(m)
+		// internal_only：仅落库不触发 AI
 		if req.InternalOnly {
-			// 内部调试：仅落库不触发 AI
 			if err := h.callPersistHistory(ctx, ev, "inbound"); err != nil {
 				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
 					Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
@@ -556,44 +532,62 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 			})
 			continue
 		}
-		result, err := h.callHandleIngress(ctx, ev)
+		// 收集到 batch（统一走 HandleIngressBatch 合并处理）
+		batchIdxMap[i] = len(batchEvents)
+		batchEvents = append(batchEvents, ev)
+	}
+
+	// 批量处理（按 conversation 分组 + msg_id 去重 + 时序锚点 + batch 内合并 AI 回复）
+	anyAIQueued := false
+	if len(batchEvents) > 0 {
+		batchResult, err := h.callHandleIngressBatch(ctx, batchEvents)
 		if err != nil {
 			logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").
-				Str("event_id", m.EventID).Str("conv_id", m.ConversationID).
-				Msg("[Bridge HTTP] HandleIngressMessage failed")
-			resp.Ingested = append(resp.Ingested, &HTTPIngestResult{
-				EventID:  m.EventID,
-				Accepted: false,
-				Reason:   "ingest failed: " + err.Error(),
-			})
-			continue
+				Msg("[Bridge HTTP] HandleIngressBatch failed")
 		}
-		r := &HTTPIngestResult{
-			EventID:   m.EventID,
-			Accepted:  result.Accepted,
-			AIHandled: result.QueuedForAI,
-			Reason:    result.Reason,
-		}
-		if result.Reason == "duplicate content within 5min; dropped" {
-			r.Duplicate = true
-		}
-		if result.SessionID != "" {
-			resp.SessionID = result.SessionID
-		}
-		resp.Ingested = append(resp.Ingested, r)
-		if result.QueuedForAI {
-			anyAIQueued = true
-		}
-		// AI 回复（如果同步产生）
-		if result.Accepted && result.QueuedForAI {
-			if reply := collectLatestOutboundReply(channel, accountID, m.ConversationID, m.EventID); reply != nil {
-				outboundReplies = append(outboundReplies, reply)
+		// 将 batch 结果回填到每条消息（保持索引对齐）
+		if batchResult != nil {
+			for origIdx, batchIdx := range batchIdxMap {
+				if batchIdx >= len(batchResult.PerEvent) {
+					continue
+				}
+				result := batchResult.PerEvent[batchIdx]
+				if result == nil {
+					continue
+				}
+				m := req.Messages[origIdx]
+				r := &HTTPIngestResult{
+					EventID:   m.EventID,
+					Accepted:  result.Accepted,
+					AIHandled: result.QueuedForAI,
+					Reason:    result.Reason,
+				}
+				if strings.Contains(result.Reason, "msg_id already exists") {
+					r.Duplicate = true
+				}
+				if result.SessionID != "" {
+					resp.SessionID = result.SessionID
+				}
+				resp.Ingested = append(resp.Ingested, r)
+				if result.QueuedForAI {
+					anyAIQueued = true
+				}
+			}
+			if batchResult.TriggeredAI {
+				// batch 触发 AI 后，尝试收集同步产生的回复
+				for _, m := range req.Messages {
+					if m == nil {
+						continue
+					}
+					if reply := collectLatestOutboundReply(channel, accountID, m.ConversationID, m.EventID); reply != nil {
+						outboundReplies = append(outboundReplies, reply)
+					}
+				}
 			}
 		}
 	}
 
 	// 长轮询：等待 AI 推理完成（如果有 pending AI 任务）
-	// 不再依赖 expect_reply：bridge 只负责桥接，是否等待 AI 由后端自行判断
 	if anyAIQueued && len(outboundReplies) == 0 {
 		timeout := HTTPPollingDefaultTimeout
 		if req.TimeoutMs > 0 {
@@ -602,7 +596,6 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		if timeout > HTTPPollingMaxTimeout {
 			timeout = HTTPPollingMaxTimeout
 		}
-		// 等待 AI 推理完成
 		reply, err := waitForAIReply(channel, accountID, conversationID, timeout)
 		if err != nil {
 			logger.Ctx(ctx).Info().
@@ -638,6 +631,30 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		Msg("[Bridge HTTP] ingest 响应（每条结果 + AI 回复摘要）")
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// callHandleIngressBatch 走 mock 优先，否则真实 ingress 的 HandleIngressBatch
+func (h *BridgeIngestHandler) callHandleIngressBatch(ctx context.Context, events []*model.MessageEvent) (*service.InboxIngressBatchResult, error) {
+	if h.mockHandle != nil {
+		// mock 场景：退化为逐条 mockHandle，构造 batch 结果
+		results := make([]*service.InboxIngressResult, len(events))
+		triggered := false
+		for i, ev := range events {
+			r, err := h.mockHandle(ctx, ev)
+			if err != nil {
+				r = &service.InboxIngressResult{Reason: err.Error()}
+			}
+			results[i] = r
+			if r.QueuedForAI {
+				triggered = true
+			}
+		}
+		return &service.InboxIngressBatchResult{PerEvent: results, TriggeredAI: triggered}, nil
+	}
+	if h.ingress == nil {
+		return nil, errors.New("ingress service not configured")
+	}
+	return h.ingress.HandleIngressBatch(ctx, events)
 }
 
 // httpMessageToEvent 将 HTTP 单条消息转 model.MessageEvent。
