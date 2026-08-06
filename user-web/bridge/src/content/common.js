@@ -3,7 +3,7 @@
 //
 // 2026-08-05 架构重构（纯桥接）：
 //   - Bridge 只做桥接：上报消息 + 下发转发，不做任何业务判断
-//   - 所有消息（customer / self / agent）统一走 onMessage 回调 → postIngest 上报
+//   - 所有消息（customer / agent）统一走 onMessage 回调 → postIngest 上报
 //   - 不设 expect_reply 字段：是否入库 / 是否回复由后端根据 sender_type 判断
 //   - 服务端 AI 回复随 HTTP 响应直接返回，content 端拿到后调 adapter.sendOutbound
 //   - 完整 URL + 解析后的 query 参数 + body 预览由 http-ingest._logRequest 统一打印

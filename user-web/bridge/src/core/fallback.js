@@ -56,7 +56,7 @@ export async function resolveAccountIdWithFallback(channel, primaryCandidates) {
   return primary;
 }
 
-// 前端统一自/他占位：自/他判定已完全移交后端（基于内容 hash + DB 读取）权威处理，
-// 前端不再计算 self/other（见 MEMORY）。非 system/recall 消息一律填 customer 占位，
-// 后端会强制覆盖；仅 system/recall 需前端识别（消息类型，否则后端误触发 AI）。
+// 前端统一自/他占位：自/他判定已完全移交后端（服务端内容回显检测 + sender_type 强制覆盖），
+// 前端不再计算 self/other。非 system/recall 消息一律填 customer 占位，后端会强制覆盖；
+// 仅 system/recall 需前端识别（消息类型，否则后端误触发 AI）。
 export const FRONTEND_DEFAULT_SENDER_TYPE = 'customer';

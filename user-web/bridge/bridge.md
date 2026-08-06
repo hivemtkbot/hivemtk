@@ -263,7 +263,7 @@ user-web/bridge/
       bridge-client.ts           // WS 客户端（重连/心跳/帧编解码），复用 user-web/utils 的鉴权逻辑
       logger.ts                  // 频道着色 + 敏感字段脱敏
       sanitize.ts                // XSS 防护（escapeHTML / safeSetContent / sanitizeForDisplay）
-      fallback.ts                // account_id fallback 派生 + 自他消息判定兜底
+      fallback.js                // account_id fallback 派生（自/他判定已移交后端）
       rate-limiter.ts            // 拟人节奏 + 令牌桶 + 会话冷却 + 去重
     channels/
       douyin/index.ts            // DouyinAdapter（复用 DY-auto 选择器与收发）
@@ -626,7 +626,7 @@ user-web/bridge/
 
 ### 15.4 已知待校准项（来自需求 6 之后的实测前清单）
 
-- 三平台**自/他消息区分 class**（Douyin `.left/.right`、TikTok `incoming` 标识）需按真实页面 DOM 校准，防止把 AI 回复当客户消息回环。
+- 自/他消息区分 class 不再由前端判定（已移交后端：服务端基于内容回显检测 `isPlatformOutboundEcho` + 对 ingest 上报强制 `sender_type="customer"`），前端只抽文本/系统消息；原「防回环」真机校准项已无需前端处理。
 - `account_id` 在 TikTok 无稳定 uid，暂以 `@username` 派生，多设备一致性待定。
 - 离线回复队列（v1.1）、三个开源仓库 LICENSE 商用合规确认（§12）仍为待办。
 
@@ -658,10 +658,10 @@ user-web/bridge/
 - 每个渠道的 `SEL` 选择器常量集中在 `src/channels/*`，**popup「自检当前私信页」可直接展示当前生效选择器与解析样本**，加速真机校准。
 
 **待真机校准项（在 popup 自检逐项验证）**：
-1. 抖音消息气泡自/他 class（`.left`/`.right` 是否为当前版本真实结构）；若不符，改用 `[class*="..."]` 或头像位置判定。
+1. 抖音消息气泡选择器（`.left`/`.right`、`chatMessageItemSelf`/`Other` 等 class 仅用于元素选取，自/他判定已移交后端）。
 2. 抖音 `account_id` 派生（左导航个人主页链接 uid）是否稳定。
 3. 小红书会话 id 数据属性（`data-key`/`data-id`/`data-contactusemid`）。
-4. TikTok 消息自/他判定（`outgoing`/`incoming` class 或对齐方式）。
+4. TikTok 消息选择器（`outgoing`/`incoming` class 等仅用于元素选取；自/他判定已移交后端）。
 5. TikTok 发送动作（Enter 回车 vs 飞机按钮坐标点击）。
 6. 三平台受控输入框是否拦截填值（若不生效，增强为原生 setter + composition 事件）。
 
@@ -669,7 +669,7 @@ user-web/bridge/
 
 | 视角 | 风险点 | 论证结论 / 处置 |
 | --- | --- | --- |
-| A 功能正确性 | 自/他消息回环、把 AI 回复当客户消息再上行 | 三层防御：`BaseAdapter` 跳过 `sender_type=SELF`；`seen` 幂等去重；服务端 `ClaimReply` 幂等。仍须真机校准自/他 class（§16.2 校准项 1/4）。 |
+| A 功能正确性 | 自/他消息回环、把 AI 回复当客户消息再上行 | 服务端权威判定：ingest 上报一律覆盖 `sender_type="customer"`，并通过内容回显检测 `isPlatformOutboundEcho` 识别平台回显跳过入库/AI；前端不再计算 self/other、零几何测量。 |
 | B 健壮性 | 扩展离线丢回复、WS 断开、content 刷新 | `BridgeReachAdapter.Deliver` 失败落 `message_hub(status=failed)` + popup 提示；WS 3s 重连 + 20s 心跳；background 持久、content 断线重连；`routeOutbound` 按 `channel+account+conversation` 精确匹配避免错投。 |
 | C 安全 | 鉴权、权限最小化 | 私有部署沿用 `/ws/agent` 约定（query 标识，无 token）；增强部署用 JWT；`permissions` 仅 `storage/tabs/activeTab`，`host_permissions` 仅本地 + `ws(s)`。 |
 | D 可扩展性 | 评论/回关、新增平台 | `BaseAdapter` 抽象 + hooks：评论/回关只需新增能力 hook；新平台复制 `channels/*.js` + manifest 加 `matches`；统一消息模型降低耦合。 |
@@ -759,7 +759,7 @@ user-web/bridge/
 | ⑤ 多用户消息历史上报 | ✅ | 双帧分离 + 会话切换回填 + (channel,account,conversation) 隔离 | PersistBridgeHistory（仅落库不触发 AI） |
 
 **仍待实测/确认（不阻塞首版，属真机校准）**：
-1. 三平台自/他消息 class 真机校准（抖音 `.left`/`.right`、小红书 `.left`/`.right`、TikTok `outgoing`/`incoming`）——决定自/他判定准确性。
+1. 三平台消息选择器真机校准（气泡/文本/输入框 class 仅用于元素选取，自/他判定准确性已由后端保证，无需前端校准）。
 2. `account_id` 三平台稳定派生规则。
 3. 三个开源仓库 LICENSE 商用合规确认。
 4. 风控参数按灰度流量调优（当前为保守默认值）。
@@ -914,7 +914,7 @@ sendOutbound(text, targetConvId)
 - **P1-S2-11**：桥接审计日志（连接数 / 帧率 / 投递结果分类）落库 `audit_logs`
 - **P2-S2-5**：`SenderType` 透传 `toMessageEvent`（extra.sender_type）
 - **P2-S2-8**：account_id 多层 fallback 派生（`src/core/fallback.js`）
-- **P2-S2-9**：自他消息判定兜底（头像位置）
+- **P2-S2-9**：自/他判定已移交后端（服务端权威），前端不再计算（见 `src/core/fallback.js`）
 - **P2-S3-2**：sentinel error（`ErrBridgeRateLimited` / `ErrBridgeBufferFull` / `ErrBridgeOffline`）
 - **P2-S3-3**：`CheckOrigin` 收敛（`BRIDGE_ALLOWED_ORIGINS` 白名单）
 - **P2-S3-12**：`BridgeHub.Shutdown` 优雅关闭所有活跃 WS

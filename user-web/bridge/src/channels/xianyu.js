@@ -8,16 +8,10 @@
 //   - 会话项：[class*="conversation-item"]（ant-design 风格）
 //   - 消息列表：#message-list-scrollable（ID 明确）
 //   - 消息气泡：li.ant-list-item .message-row
-//   - 自/他：message-text-right（自己）/ message-text-left（对方）
 //   - 输入框：.sendbox textarea.ant-input
 //   - 发送按钮：.sendbox button.ant-btn
 //
-// 自/他判定漏斗（4 层）：
-//   A. class 关键词（self/right/outgoing | other/left/incoming）
-//   B. data-* 属性 / dir
-//   C. 水平对齐检测（closestScrollable 容器中线）
-//   D. 头像位置
-//   默认 CUSTOMER（防回环）
+// 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 //
 // 系统消息识别漏斗（5 层）：
 //   ① 居中对齐（textAlign/justifyContent=center）
@@ -409,13 +403,7 @@ function isSystemMessage(item) {
   return false;
 }
 
-// —— 自/他判定（2026-08-06 已删除）——
-// 前端不再计算 self/other：后端 user-server 已实现服务端权威判定
-// （isPlatformOutboundEcho + HandleIngressMessage 对 ingest 上报一律覆盖
-// sender_type="customer"，仅 system/recall 保留）。原先的 classifySender /
-// classifyByAlignment / classifyByDataAttribute / closestScrollable 等 4 层几何
-// 测量漏斗纯属浪费算力，全部删除；parseMessageItem 直接给
-// FRONTEND_DEFAULT_SENDER_TYPE 占位，回环防护由后端承担。
+// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // —— 非文字消息提取 ——
 function extractMessageContent(item) {
@@ -708,7 +696,7 @@ const hooks = {
     // ② 内容提取（卡片/图片/语音/视频/链接/撤回/系统）
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null;
-    // ③ 自/他判定（2026-08-06 已删除：前端不再计算 self/other，后端权威重判）
+    // ③ 自/他判定已移交后端（统一 customer 占位）
     const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // ④ 群聊识别
     const groupInfo = detectGroup(item);

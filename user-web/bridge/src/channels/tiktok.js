@@ -10,7 +10,6 @@
 //   - 消息气泡：[data-e2e="dm-new-chat-item"]
 //   - 消息文本：[data-e2e="dm-new-message-text"]
 //   - 输入框：[data-e2e="dm-new-input-editor"] div[contenteditable]（Draft.js）
-//   - 自/他：outgoing（自己）/ incoming（对方）class
 //   - 发送：Draft.js 靠 Enter 发送，SVG 飞机按钮兜底
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
@@ -410,13 +409,7 @@ function isSystemMessage(item) {
   return false;
 }
 
-// —— 自/他判定（2026-08-06 已删除）——
-// 前端不再计算 self/other：后端 user-server 已实现服务端权威判定
-// （isPlatformOutboundEcho + HandleIngressMessage 对 ingest 上报一律覆盖
-// sender_type="customer"，仅 system/recall 保留）。原先的 classifySender /
-// classifyByAlignment / classifyByDataAttribute / closestScrollable 等几何测量
-// 漏斗纯属浪费算力，全部删除；parseMessageItem 直接给 FRONTEND_DEFAULT_SENDER_TYPE
-// 占位，回环防护由后端承担。
+// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // —— 非文字消息提取 ——
 function extractMessageContent(item) {
@@ -642,7 +635,7 @@ const hooks = {
     // ② 内容提取
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null;
-    // ③ 自/他判定（2026-08-06 已删除：前端不再计算 self/other，后端权威重判）
+    // ③ 自/他判定已移交后端（统一 customer 占位）
     const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // ④ 群聊识别
     const groupInfo = detectGroup(item);

@@ -9,7 +9,7 @@
 //   - 消息气泡：div[data-e2e="msg-item-content"]（新版）/ class*="messageMessageItem"（/chat路由）
 //   - 输入框：div.messageEditorinputArea.editor-kit-container（contenteditable）
 //   - 发送按钮：svg[class*="e2e-send-msg-btn"]
-//   - 自/他判定：气泡相对容器中线的水平对齐检测（主）+ class 关键词（兜底）
+//   - 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
@@ -140,9 +140,7 @@ function closestScrollable(el) {
   return null;
 }
 
-// 自/他判定（2026-08-06 已删除）：前端不再计算 self/other，后端权威重判。
-// 原先的 classifyByAlignment（气泡水平对齐几何测量）纯属浪费算力，已删除；
-// parseMessageItem 直接给 FRONTEND_DEFAULT_SENDER_TYPE 占位，回环防护由后端承担。
+// 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
 
 // 当前登录的抖音账号 id。
 // 多层兜底：浮层（/jingxuan 等）下左导航/header 的个人链接常缺失或指向 /user/self（占位），
@@ -637,11 +635,7 @@ const hooks = {
     // 先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定（2026-08-06 已删除：前端不再计算 self/other，后端权威重判）
-    //   后端 user-server 已实现服务端权威判定（isPlatformOutboundEcho +
-    //   HandleIngressMessage 对 ingest 上报一律覆盖 sender_type="customer"，仅 system/recall
-    //   保留），前端算出的 self/agent 标记后端不采信。原先的 classifyByAlignment / marker 命中 /
-    //   data 属性兜底 / isSelfMessage 等自他几何测量漏斗全部删除，直接给默认占位。
+    // 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
     const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
     const groupInfo = detectGroup(item);

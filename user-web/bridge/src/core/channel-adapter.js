@@ -2,7 +2,7 @@
 //
 // 2026-08-05 架构重构（纯桥接）：
 //   - Bridge 只做桥接：DOM 扫描 → 解析 → 上报，不做业务判断（是否入库 / 是否回复由后端判断）
-//   - 所有消息（customer / self / agent）统一走 _emitMessage → onMessage 回调上报
+//   - 所有消息（customer / agent）统一走 _emitMessage → onMessage 回调上报
 //   - 保留 sender_type 标记（消息属性，供后端判断）
 //   - 保留 seenNodes WeakSet（防 DOM 重复扫描的技术手段，非业务去重）
 //   - 移除 seen Set（内容指纹去重，交给后端）
@@ -1011,7 +1011,7 @@ export class BaseAdapter {
   }
 
   // _emitMessage：统一的单条消息上报入口（纯桥接）。
-  // 所有消息（customer / self / agent）都走此方法上报，携带该会话最近 N 轮历史作为上下文。
+  // 所有消息（customer / agent）都走此方法上报，携带该会话最近 N 轮历史作为上下文。
   // 不做任何业务判断（是否入库 / 是否回复由后端根据 sender_type 判断）。
   _emitMessage(parsed) {
     const cid = this.getConversationId();

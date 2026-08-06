@@ -29,33 +29,6 @@ export { PATROL_DEFAULTS };
 // AI 侧得到该会话最近 N 轮作为上下文。服务端也可自取已存历史，窗口仅作即时上下文与冗余。
 export const HISTORY_CONTEXT_WINDOW = 20;
 
-// contentHash：基于「渠道 + 会话ID + 消息内容」生成稳定的消息ID（FNV-1a 32位 hex）。
-//
-// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-//   核心问题：前端 sender_type 判定可能错误（把 AI 回复的 outbound 误判为 customer），
-//   若 msg_id 含 sender_type → 误判时 msg_id 变化 → 后端 GetByMsgID 查不到 → 当新消息入库 → 触发 AI → 回环。
-//   正确方案：msg_id 只用稳定字段（channel + conversation_id + content），不含 sender_type/sender_id/timestamp。
-//   这样无论前端把消息判定为什么 sender_type，同一消息内容生成的 event_id 恒定不变，后端可正确幂等去重。
-//   后端 sendOutbound 落库 outbound 时也用相同算法生成 msg_id，确保前端扫描到 AI 回复消息时
-//   生成的 event_id 与 DB 中 outbound 的 msg_id 一致 → 钩子2 GetByMsgID 命中 → 跳过入库和 AI 触发。
-//
-// 算法：FNV-1a 32位（与 Go hash/fnv New32a 完全一致，保证前后端结果相同）
-//   - 输入：`${channel}|${conversationId}|${content}`（content 去首尾空白）
-//   - 输出：`mh:${hex}`（8位hex字符串，带 mh: 前缀便于日志识别）
-export function contentHash(channel, conversationId, content) {
-  const s = `${channel || ''}|${conversationId || ''}|${(content || '').trim()}`;
-  // 用 TextEncoder 转 UTF-8 字节序列，与 Go hash/fnv 的 []byte 输入完全一致。
-  //   若用 charCodeAt（UTF-16 code unit），中文字符会与 Go 的 UTF-8 字节拆分不一致 → hash 不同 → 去重失败。
-  //   TextEncoder 在浏览器 content script 环境全局可用。
-  const bytes = new TextEncoder().encode(s);
-  let h = 0x811c9dc5;
-  for (let i = 0; i < bytes.length; i++) {
-    h ^= bytes[i];
-    h = Math.imul(h, 0x01000193);
-  }
-  return `mh:${(h >>> 0).toString(16).padStart(8, '0')}`;
-}
-
 // 构造上行消息（统一模型，字段名与服务端 UnifiedMessage 完全一致）
 // sender_id 规则：客户消息 = conversation_id（对方）；自己/AI 消息 = account_id。
 export function makeUnifiedMessage({
@@ -89,12 +62,9 @@ export function makeUnifiedMessage({
   // 「一个会话一个消息」：history 帧/实时 inbound 可携带该会话的多轮历史（每条含 direction）。
   // 仅当非空数组时输出，保持单条消息帧的向后兼容。
   const historyList = Array.isArray(history) && history.length > 0 ? history : undefined;
-  // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-  //   event_id 必须稳定且不含 sender_type，否则前端自他判定错误时 event_id 变化 → 后端无法去重。
-  //   改用 contentHash(channel, conversation_id, content) 生成稳定 ID（FNV-1a 32位 hex）。
-  //   后端 sendOutbound 落库 outbound 时也用相同算法 → 前端扫描 AI 回复生成的 event_id 与 DB msg_id 一致 → 去重跳过。
-  //   仅当上游显式传入 event_id 时优先用传入值（如 DOM data-message-id 等平台原生ID）。
-  const stableEventId = event_id || contentHash(channel, conversation_id, content);
+  // event_id 由调用方显式提供（DOM data-message-id 或 `c:${text}` 兜底），后端按 event_id 幂等去重。
+  // 自/他判定已移交后端（服务端内容回显检测 + sender_type 强制覆盖），前端不再计算内容 hash。
+  const stableEventId = event_id;
   return {
     channel,
     account_id,

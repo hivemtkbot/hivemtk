@@ -9,7 +9,7 @@
 //   - 消息气泡：新版 .chat-item（data-message-id），旧版 .im-msg-item
 //   - 输入框：新版 div.xhs-im-input-bar-editor[contenteditable]，旧版 #jarvis-reply-textarea
 //   - 发送按钮：新版 .xhs-im-input-bar-actions 内按钮，旧版 .send_btn
-//   - 自/他判定已移交后端（基于内容 hash + DB），前端只负责抽取文本/系统消息。
+//   - 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
@@ -515,8 +515,7 @@ function detectUnread(item) {
   return false;
 }
 
-// 2026-08-06：原 recordSentText / matchSentText 防回环机制已删除。
-//   前端不再计算 self/other，回环防护完全由后端 isPlatformOutboundEcho 承担。
+// 防回环机制已删除：前端不再计算 self/other，回环防护由后端 isPlatformOutboundEcho 承担。
 
 const hooks = {
   match() {
@@ -604,8 +603,7 @@ const hooks = {
       };
     }
 
-    // 自/他判定（2026-08-06 已彻底删除）：前端不再计算 self/other，统一填 customer 占位，
-    // 自/他判定完全由后端基于内容 hash + DB 权威处理。回环防护也由后端承担。
+    // 自/他判定已移交后端（统一 customer 占位，回环防护由后端承担）。
     const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // 群聊识别
     const groupInfo = detectGroup(item);
