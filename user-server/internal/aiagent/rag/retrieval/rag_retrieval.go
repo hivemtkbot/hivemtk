@@ -266,7 +266,13 @@ func (r *RagRetrievalServiceImpl) Search(ctx context.Context, kbID string, query
 		results = append(results, result)
 	}
 
-	// 8. 更新缓存
+	// 8. 空召回告警：知识库已索引但本次检索 0 命中，便于定位向量化/阈值问题
+	if len(results) == 0 {
+		logger.Warnf("[RAG] 空召回 kbID=%s query=%q topK=%d threshold=%.2f 候选池=%d",
+			kbID, query, params.TopK, params.SimilarityThreshold, len(chunks))
+	}
+
+	// 9. 更新缓存
 	r.cache.Set(cacheKey, results, r.config.CacheTTL)
 
 	return results, nil

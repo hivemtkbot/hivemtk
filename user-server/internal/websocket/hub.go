@@ -3,6 +3,7 @@ package websocket
 import (
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"marketing/internal/pkg/utils/logger"
@@ -41,6 +42,8 @@ type Client struct {
 	sessionID string // 访客所属会话 ID
 	visitorID string // 访客 ID
 	channelID string // 访客所属渠道 ID
+	// onConnectInflight 防止初始连接与 resume 并发/重复 resume 导致的离线消息重复推送
+	onConnectInflight atomic.Bool
 }
 
 // Message WebSocket消息

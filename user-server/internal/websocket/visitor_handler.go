@@ -146,7 +146,20 @@ func (h *VisitorWSHandler) HandleVisitorWebSocket(c *gin.Context) {
 //   - 若 sinceSeq > 0：尝试按 seq 范围拉取（基于 GlobalPendingAck）
 //   - 否则：走原有 delivered_at IS NULL 兜底路径
 //   - 双轨制：seq 路径精确但有窗口期（seq 重启后归零）；delivered_at 兜底
+// onConnect 推送建立连接后（或 resume 时）的离线/历史消息，统一处理注册与离线消息
+// 推送逻辑，避免 HandleVisitorWebSocket 与 resume 分支重复。采用单条 SQL 批量标记已送达，
+// 配合 delivered_at 避免重复推送同一批离线消息。如果会话从未离线（无离线消息），直接返回。
+//
+// 并发守卫：初始连接（HandleVisitorWebSocket）与多次 resume 可能并发触发 onConnect，
+// 若不拦截，多个 goroutine 会在彼此标记 delivered_at 之前读到同一批未送达消息，导致离线
+// 消息被重复推送给访客。onConnectInflight 保证同一 client 同一时刻仅有一个 onConnect 在跑，
+// 已在跑的调用会覆盖全部未送达消息，后续调用跳过即可（新消息由实时广播路径覆盖）。
 func (h *VisitorWSHandler) onConnect(client *Client, sinceSeq uint64, ctx context.Context) {
+	if !client.onConnectInflight.CompareAndSwap(false, true) {
+		return
+	}
+	defer client.onConnectInflight.Store(false)
+
 	if h.db == nil {
 		return
 	}
