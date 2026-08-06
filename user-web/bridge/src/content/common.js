@@ -512,58 +512,70 @@ export function startBridge(channel, buildAdapter) {
       }
     };
 
-    // 通过 postIngest 上报单条消息（纯桥接：不设 expect_reply，后端根据 sender_type 判断）。
+    // 通过 postIngest 批量上报消息（纯桥接：不设 expect_reply，后端根据 sender_type 判断）。
     //
     // 关键设计：URL + 完整 query + body 预览由 http-ingest._logRequest 统一打印
     // （所有渠道 douyin/xhs/tiktok/xianyu 共用），用户可从 console 直接看到上行地址。
-    const submitIngest = async (message) => {
-      if (!message) return;
+    //
+    // 短窗口合并（2026-08-06）：同一 (accountId|conversationId) 在 MERGE_WINDOW_MS 内的多条消息
+    // 合并为一个 POST 上行（后端支持 messages[] 批量 + 按 msg_id 去重），显著降低长轮询连接数。
+    // 实测：单会话 2h 冗余 POST 比 ≈ 46:1；合并 + 适配器稳定键去重后可降一个数量级。
+    const MERGE_WINDOW_MS = 350;
+    const MERGE_MAX_BATCH = 20;
+    const ingestBuffers = new Map(); // key -> { items: UnifiedMessage[], timer: number|null }
+
+    const flushIngest = async (key) => {
+      const buf = ingestBuffers.get(key);
+      if (!buf) return;
+      ingestBuffers.delete(key); // 取走所有权，避免并发重复 flush
+      if (buf.timer) { clearTimeout(buf.timer); buf.timer = null; }
+      const items = buf.items;
+      if (!items.length) return;
+      const sample = items[0];
       const cfg = await getConfig();
       const meta = adapter.snapshotMeta();
-      const accountId = meta.accountId || '';
-      const conversationId = message.conversation_id || meta.conversationId || '';
+      const accountId = sample.account_id || meta.accountId || '';
+      const conversationId = sample.conversation_id || '';
       if (!accountId || !conversationId) {
-        log.warn('ingest 跳过：accountId/conversationId 缺失', { accountId, conversationId });
+        log.warn('ingest 合并 flush 跳过：accountId/conversationId 缺失', { accountId, conversationId, n: items.length });
         return;
       }
-      const label = '[上行 ingest]';
+      const label = `[上行 ingest 合并 ×${items.length}]`;
       // 构造 ingest body：与 user-server handler_http.go HTTPIngestRequest 字段对齐。
-      // 单条消息包成 messages[]（保持与多消息批量上报统一，server 端解析逻辑一致）。
+      // 多条消息包成 messages[]（server 端按 msg_id 去重 + 逐条落库）。
       // 纯桥接：不设 expect_reply 字段，是否回复由后端根据 sender_type 判断。
       const body = {
         v: 2,
-        channel: message.channel || channel,
+        channel: sample.channel || channel,
         account_id: accountId,
         conversation_id: conversationId,
         account_name: '',
         agent_id: 0,
-        messages: [
-          {
-            event_id: message.event_id || '',
-            channel: message.channel || channel,
-            account_id: accountId,
-            conversation_id: conversationId,
-            sender_id: message.sender_id || '',
-            sender_name: message.sender_name || '',
-            sender_type: message.sender_type || 'customer',
-            msg_type: message.msg_type || 'text',
-            content: message.content || '',
-            media_url: message.media_url || '',
-            timestamp: message.timestamp || Date.now(),
-            is_group: !!message.is_group,
-            group_id: message.group_id || '',
-            group_name: message.group_name || '',
-            // 多轮历史：服务端按 messages[].history 逐条落库
-            history: Array.isArray(message.history) ? message.history : [],
-          },
-        ],
+        messages: items.map((message) => ({
+          event_id: message.event_id || '',
+          channel: message.channel || channel,
+          account_id: accountId,
+          conversation_id: conversationId,
+          sender_id: message.sender_id || '',
+          sender_name: message.sender_name || '',
+          sender_type: message.sender_type || 'customer',
+          msg_type: message.msg_type || 'text',
+          content: message.content || '',
+          media_url: message.media_url || '',
+          timestamp: message.timestamp || Date.now(),
+          is_group: !!message.is_group,
+          group_id: message.group_id || '',
+          group_name: message.group_name || '',
+          // 多轮历史：服务端按 messages[].history 逐条落库
+          history: Array.isArray(message.history) ? message.history : [],
+        })),
         timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
       };
       try {
         const resp = await postIngest(
           {
             serverUrl: cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl,
-            channel: message.channel || channel,
+            channel: sample.channel || channel,
             accountId,
             conversationId,
             token: cfg.token || '',
@@ -583,6 +595,27 @@ export function startBridge(channel, buildAdapter) {
       } catch (e) {
         // 失败不抛：避免污染调用栈；上层已用 try/catch 包裹
         log.warn(`${label} 提交失败`, { error: String(e && e.message || e) });
+      }
+    };
+
+    const submitIngest = (message) => {
+      if (!message) return;
+      const meta = adapter.snapshotMeta();
+      const accountId = meta.accountId || message.account_id || '';
+      const conversationId = message.conversation_id || meta.conversationId || '';
+      if (!accountId || !conversationId) {
+        log.warn('ingest 跳过：accountId/conversationId 缺失', { accountId, conversationId });
+        return;
+      }
+      const key = `${accountId}|${conversationId}`;
+      let buf = ingestBuffers.get(key);
+      if (!buf) { buf = { items: [], timer: null }; ingestBuffers.set(key, buf); }
+      buf.items.push(message);
+      // 短窗口合并：达到批量上限立即 flush；否则等待 MERGE_WINDOW_MS 合并后 flush。
+      if (buf.items.length >= MERGE_MAX_BATCH) {
+        flushIngest(key);
+      } else if (!buf.timer) {
+        buf.timer = setTimeout(() => flushIngest(key), MERGE_WINDOW_MS);
       }
     };
 

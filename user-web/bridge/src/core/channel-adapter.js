@@ -33,6 +33,12 @@ export class BaseAdapter {
     // seenNodes：防 DOM 重复扫描的技术手段（按节点身份去重，避免列表项/同名消息被反复扫描重复上行）。
     // 这是 DOM 扫描必需的，不是业务去重。内容指纹去重交给后端统一收信中心。
     this.seenNodes = new WeakSet();
+    // 稳定键去重（跨 DOM 重渲染）：key = 会话|发送者|类型|文本。
+    // 平台虚拟列表重渲染会换 DOM 节点（seenNodes 失效），但同一逻辑消息的文本+发送者+会话稳定，
+    // 故以此做去重，避免重复上行（实测：单会话 2h 冗余 POST 比 ≈ 46:1）。
+    this._sentKeys = new Map(); // key -> 上次发送时间戳(ms)
+    this._sentKeysMax = 5000;   // 容量保护
+    this._sentKeysTtlMs = 10 * 60 * 1000; // 10 分钟过期
     this.observer = null;
     this.convPollTimer = null;
     this.fallbackTimer = null;
@@ -83,6 +89,68 @@ export class BaseAdapter {
     };
   }
   getAccountId() { return this.hooks.getAccountId ? this.hooks.getAccountId() : (this.account || ''); }
+
+  // ---- 稳定键去重 + 规范化 msg_id（2026-08-06）----
+  // cyrb53：快速非加密哈希（53-bit），确定性、同步。用于把长文本 msg_id 压缩到 varchar(100) 内，
+  // 且对 (会话|发送者|文本) 稳定 → 跨 DOM 重渲染去重键与后端 msg_id 一致。
+  _hash(s) {
+    let h1 = 0xdeadbeef ^ s.length, h2 = 0x41c6ce57 ^ s.length;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+
+  // 稳定去重键：跨 DOM 重渲染不变（节点引用会变，文本+发送者+会话稳定）。
+  _dedupKey(cid, parsed) {
+    const sender = parsed.sender_id || parsed.sender_name || '';
+    const text = parsed.text || '';
+    const type = parsed.msg_type || 'text';
+    return `${this.channel}|${cid}|${sender}|${type}|${text}`;
+  }
+
+  // 规范化 event_id（msg_id）：优先平台稳定 id（短且稳定）；否则对稳定键哈希（避免 c:${text} 超 varchar(100)）。
+  // 系统/撤回类消息保留语义化短 id（sys:/recall: 前缀，稳定且短）。
+  _canonicalMsgId(item, cid, parsed) {
+    const type = parsed.msg_type || 'text';
+    if (type === 'system' || type === 'recall') {
+      return `${type}:${this._hash(this._dedupKey(cid, parsed))}`;
+    }
+    const platformId = item
+      ? (item.getAttribute && (
+        item.getAttribute('data-message-id') ||
+        item.getAttribute('data-id') ||
+        item.getAttribute('data-msg-id') ||
+        item.id)) || ''
+      : '';
+    if (platformId) return String(platformId);
+    return 'h:' + this._hash(this._dedupKey(cid, parsed));
+  }
+
+  _hasSent(key) {
+    const ts = this._sentKeys.get(key);
+    if (ts && Date.now() - ts > this._sentKeysTtlMs) {
+      this._sentKeys.delete(key);
+      return false;
+    }
+    return !!ts;
+  }
+
+  _markSent(key) {
+    this._sentKeys.set(key, Date.now());
+    if (this._sentKeys.size > this._sentKeysMax) {
+      // 简单 LRU：删除最旧的 20%
+      const entries = [...this._sentKeys.entries()].sort((a, b) => a[1] - b[1]);
+      const drop = Math.ceil(this._sentKeysMax * 0.2);
+      for (let i = 0; i < drop; i++) this._sentKeys.delete(entries[i][0]);
+    }
+  }
   getConversationId() { return this.hooks.getConversationId ? this.hooks.getConversationId() : (this.snapshotMeta().conversationId || null); }
   // 消息线程根：优先 hooks.getMessageRoot；未实现则回退到 getMessageListRoot。
   // 关键修复：抖音等渠道只实现了 getMessageListRoot，缺失 getMessageRoot 会导致
@@ -796,15 +864,17 @@ export class BaseAdapter {
     return { ok: true, newCount: batch.length };
   }
 
-  // 扫描当前线程所有消息项，收集「未 seenNodes + 文字」的消息，并立即标记 seenNodes（防止后续
-  // convPollTimer 触发的 _backfill / observer 重复上行同一条消息）。
+  // 扫描当前线程所有消息项，收集「未 seenNodes + 未稳定键去重 + 文字」的消息，并立即标记 seenNodes
+  // （防止后续 convPollTimer 触发的 _backfill / observer 重复上行同一条消息）。
   //
   // 修复（2026-08-05 OOM 巡检）：
   //   - 单次最多收集 MAX_BATCH_PER_PATROL=80 条消息，防止「一个超长会话一次抓几千条」OOM
   //   - 内容 hash 去重已交给后端统一收信中心（seen Set 已移除）
+  // 修复（2026-08-06）：增加稳定键去重（_sentKeys），巡检重访同一会话时不再重复上行已捕获消息。
   _collectUnseenText() {
     const batch = [];
     const MAX_BATCH_PER_PATROL = 80;
+    const cid = this.getConversationId() || this.conversationId || '';
     let items = [];
     try { items = this.getMessageItems() || []; } catch (_) { items = []; }
     for (const item of items) {
@@ -820,6 +890,14 @@ export class BaseAdapter {
       if (parsed.msg_type && parsed.msg_type !== 'text') { this.seenNodes.add(item); continue; }
       if (!parsed.text) { this.seenNodes.add(item); continue; }
       this.seenNodes.add(item);
+      // 稳定键去重：巡检重访同一会话时，已上报过的消息按 (会话|发送者|文本) 拦截
+      const key = this._dedupKey(cid, parsed);
+      if (this._hasSent(key)) {
+        this.log.debug('巡检稳定键去重跳过:', key.slice(0, 56));
+        continue;
+      }
+      parsed.message_id = this._canonicalMsgId(item, cid, parsed);
+      this._markSent(key);
       batch.push(parsed);
     }
     return batch;
@@ -906,6 +984,16 @@ export class BaseAdapter {
     if (!parsed) return;
     // 2026-08-05 架构重构：所有消息统一走 _ingest → _emitMessage（不区分 customer/self/agent）
     if (item) this.seenNodes.add(item);
+    // 稳定键去重（跨 DOM 重渲染）：平台虚拟列表重渲染会换节点 → seenNodes 失效，
+    // 但同一逻辑消息的文本+发送者+会话稳定 → 用稳定键拦截重复上行（避免 429 死循环/无效 POST）。
+    const cid = this.getConversationId();
+    const key = this._dedupKey(cid, parsed);
+    if (this._hasSent(key)) {
+      this.log.debug('稳定键去重跳过增量:', key.slice(0, 56));
+      return;
+    }
+    parsed.message_id = this._canonicalMsgId(item, cid, parsed);
+    this._markSent(key);
     this._ingest(parsed);
   }
 
@@ -919,6 +1007,7 @@ export class BaseAdapter {
     }
     const batch = []; // { parsed, direction }：本次回填去重后新收集的消息（多轮历史）
     const items = this.getMessageItems();
+    const cid = this.getConversationId();
     for (const item of items) {
       if (this.seenNodes.has(item)) continue;
       const parsed = this.parseMessageItem(item);
@@ -927,7 +1016,15 @@ export class BaseAdapter {
       if (parsed.msg_type && parsed.msg_type !== 'text') continue;
       if (!parsed.text) continue;
       this.seenNodes.add(item);
-      // 2026-08-05 架构重构：仅靠 seenNodes 节点级去重。内容 hash 去重交给服务端。
+      // 稳定键去重（跨 DOM 重渲染）：端口断开重连 / 虚拟列表重渲染换节点 seenNodes 失效后，
+      // 平台重发的同一条历史消息按 (会话|发送者|文本) 拦截，避免重复上行。
+      const key = this._dedupKey(cid, parsed);
+      if (this._hasSent(key)) {
+        this.log.debug('稳定键去重跳过历史:', key.slice(0, 56));
+        continue;
+      }
+      parsed.message_id = this._canonicalMsgId(item, cid, parsed);
+      this._markSent(key);
       batch.push({ parsed, direction: parsed.sender_type === SENDER.CUSTOMER ? DIRECTION.INBOUND : DIRECTION.OUTBOUND });
     }
     // 2026-08-05 修复：日志节流——同一会话 5s 内只打印一次 info（防止端口断开重连

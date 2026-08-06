@@ -182,7 +182,7 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     expect(msg.sender_type).toBe(SENDER.SELF);
   });
 
-  it('重复内容消息不再 Bridge 端去重（seen Set 已移除，去重交给服务端）；seenNodes 节点级去重仍生效', () => {
+  it('稳定键去重：相同内容跨 DOM 重渲染只上行一次（seenNodes 失效也不重复）', () => {
     const adapter = new BaseAdapter({
       name: 'test',
       channel: 'tiktok_web',
@@ -196,16 +196,54 @@ describe('BaseAdapter _handleIncremental 统一走 onMessage', () => {
     });
     const onMessage = vi.fn();
     adapter.start({ onMessage });
-    // 2026-08-05 架构重构：seen Set 已移除，不同 DOM 节点 + 相同内容 → 都走 _emitMessage
-    // （内容 hash 去重 + 回复判断交给服务端统一收信中心）
+    // 2026-08-06：稳定键去重（key=会话|发送者|文本）。模拟虚拟列表重渲染——
+    // 每次都是新的 DOM 节点对象（seenNodes 必然失效），但内容相同 → 只上行一次。
     adapter._handleIncremental({});
     adapter._handleIncremental({});
-    expect(onMessage).toHaveBeenCalledTimes(2);
-    // seenNodes 节点级去重仍生效：同一 DOM 节点重复调用不重复处理
+    expect(onMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('seenNodes 节点级去重仍生效：同一 DOM 节点重复调用不重复处理', () => {
+    const adapter = new BaseAdapter({
+      name: 'test',
+      channel: 'tiktok_web',
+      SEL: {},
+      hooks: {
+        match: () => true,
+        getAccountId: () => 'a',
+        getConversationId: () => 'c',
+        parseMessageItem: () => ({ sender_type: SENDER.CUSTOMER, text: 'dup', message_id: 'm3', timestamp: 3 }),
+      },
+    });
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
     const sameNode = {};
     adapter._handleIncremental(sameNode);
     adapter._handleIncremental(sameNode);
-    expect(onMessage).toHaveBeenCalledTimes(3); // 仅新增 1 次
+    expect(onMessage).toHaveBeenCalledTimes(1); // 仅首次（节点级去重）
+  });
+
+  it('不同内容正常上行（稳定键按文本区分，不误删）', () => {
+    let n = 0;
+    const adapter = new BaseAdapter({
+      name: 'test',
+      channel: 'tiktok_web',
+      SEL: {},
+      hooks: {
+        match: () => true,
+        getAccountId: () => 'a',
+        getConversationId: () => 'c',
+        parseMessageItem: () => {
+          const text = 'msg' + n++;
+          return { sender_type: SENDER.CUSTOMER, text, message_id: 'm' + n, timestamp: 3 };
+        },
+      },
+    });
+    const onMessage = vi.fn();
+    adapter.start({ onMessage });
+    adapter._handleIncremental({});
+    adapter._handleIncremental({});
+    expect(onMessage).toHaveBeenCalledTimes(2); // 两条不同内容 → 各上行一次
   });
 });
 
