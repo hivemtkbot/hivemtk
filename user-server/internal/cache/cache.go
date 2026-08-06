@@ -14,6 +14,10 @@ type Cache interface {
 	// SetNX 原子性：仅在 key 不存在时设置值，返回 true 表示设置成功，false 表示 key 已存在
 	// 用途：分布式锁 / 单飞去重
 	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
+	// ReleaseLock 安全释放由 SetNX 获取的分布式锁：仅当 key 当前值等于 token 时才删除，
+	// 避免误删其他持有者的锁。返回 true 表示成功释放（token 匹配且已删除），否则 false。
+	// 用途：withIngestLock 等分布式排他锁的释放，保证"处理完毕才放开"且不会误释放他人锁。
+	ReleaseLock(ctx context.Context, key, token string) (bool, error)
 	// Incr 原子自增并返回新值；首次设置 value=1，expiration>0 时作为 TTL 应用（用于全局 RPM/计数）
 	Incr(ctx context.Context, key string, expiration time.Duration) (int64, error)
 	// Delete 删除缓存

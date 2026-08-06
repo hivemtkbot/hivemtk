@@ -42,6 +42,14 @@ const (
 	// InboxPendingTTL 待处理消息队列 TTL（保留兼容，新方案不再使用 pending）
 	InboxPendingTTL = 5 * time.Minute
 
+	// IngestLockKey 同会话入库分布式排他锁（2026-08-06 新增）
+	// key: hivemtk:lock:ingest:{conversationID}
+	//   前端不断上报 / 多实例并发时，保证同一会话的消息入库串行，
+	//   杜绝并发 TOCTOU 与重复入库（"处理完毕才放开"；分布式排它锁）。
+	IngestLockKey = "hivemtk:lock:ingest:"
+	// IngestLockTTL 入库锁 TTL（25s 兜底，正常处理远小于此；防进程崩溃遗留死锁）
+	IngestLockTTL = 25 * time.Second
+
 	// InboxContentDedupKey 内容 hash 去重 key 前缀（保留兼容，新方案改用 DB msg_id 去重）
 	InboxContentDedupKey = "hivemtk:dedup:content:"
 	InboxContentDedupTTL = 5 * time.Minute
@@ -65,11 +73,12 @@ const (
 	//
 	// 修复：触发 AI 前设置 5min TTL 标记，AI 完成后（webhook.go sendOutbound）删除标记
 	InboxAIProcessingKey = "hivemtk:ai_processing:"
-	// InboxAIProcessingTTL AI 处理中标记 TTL（30 秒兜底，AI 完成后主动删除）
-	//   2026-08-05 优化：从 5min 改为 30s
-	//   - AI 推理通常 3-10s，30s 足够覆盖
-	//   - 5min TTL 过长，AI 异常时会导致 5min 内无法触发新 AI
-	InboxAIProcessingTTL = 30 * time.Second
+	// InboxAIProcessingTTL AI 处理中标记 TTL（兜底，AI 完成后主动删除）
+	//   2026-08-06 调整：从 30s 改为 2min
+	//   - 原子 SetNX 已兜底并发重复触发；TTL 仅作崩溃兜底
+	//   - 放宽到 2min 以覆盖较慢的推理模型（避免 TTL 提前过期→重检查误触发第二条）
+	//   - AI 异常时最多 2min 内无法对该会话触发新 AI（由 sendOutbound 主动删除保证正常路径及时释放）
+	InboxAIProcessingTTL = 2 * time.Minute
 
 	// RecheckDelayAfterRelease 释放 AI 处理中标记后的重检查延迟
 	//
@@ -538,15 +547,23 @@ func (s *InboxIngressService) triggerAIForEvent(ctx context.Context, event *mode
 			Str("sender", event.SenderID).
 			Int("content_len", len(event.Content)).
 			Msg("[Inbox] aiTrigger.TriggerInboundAI start")
-		// 2026-08-05 设置 "AI 处理中" 标记（TTL 5min）
-		//   防止异步 AI 推理期间 bridge 重复扫描导致重复触发
-		//   AI 完成后由 webhook.go sendOutbound 主动删除标记
+		// 2026-08-06 原子分布式排他：仅当无人正在触发时才设置标记并触发，
+		// 杜绝并发/重复上报导致"连续回复两条"
+		//   前端不断上报时多个 batch 并发进入，旧逻辑 Set+Exists 非原子会双触发；
+		//   改用 SetNX：仅首个成功设置者触发 AI，其余（并发/重报）命中已存在标记直接跳过。
+		//   AI 完成后由 webhook.go sendOutbound 主动删除标记。
 		if s.cache != nil && event.ConversationID != "" {
 			aiKey := InboxAIProcessingKey + event.ConversationID
-			if err := s.cache.Set(ctx, aiKey, "1", InboxAIProcessingTTL); err != nil {
-				logger.Ctx(ctx).Warn().Err(err).
+			acquired, lerr := s.cache.SetNX(ctx, aiKey, "1", InboxAIProcessingTTL)
+			if lerr != nil {
+				logger.Ctx(ctx).Warn().Err(lerr).
 					Str("conv_id", event.ConversationID).
-					Msg("[Inbox] 设置 AI 处理中标记失败（不影响本次触发，但可能重复触发）")
+					Msg("[Inbox] 设置 AI 处理中标记失败（放行本次触发，但可能重复触发）")
+			} else if !acquired {
+				logger.Ctx(ctx).Info().
+					Str("conv_id", event.ConversationID).
+					Msg("[Inbox] AI 已在进行中（分布式排他命中），跳过本次触发避免重复回复")
+				return
 			}
 		}
 		s.aiTrigger.TriggerInboundAI(ctx, event.Channel, accountID, event.ConversationID, event.SenderID, event.Content, event.EventID, opts...)
@@ -566,6 +583,47 @@ func (s *InboxIngressService) ReleaseAIProcessingFlag(ctx context.Context, conve
 			Str("conv_id", conversationID).
 			Msg("[Inbox] 释放 AI 处理中标记失败")
 	}
+}
+
+// withIngestLock 获取同一会话的入库分布式排他锁（SetNX），fn 处理完毕后释放。
+//
+// 用途（2026-08-06 用户诉求："前端在不断上报 → 连续重复入库 / 连续重复 AI 回复"，
+//   用分布式排它锁保证处理完毕才放开）：
+//   - 持有期间串行处理该会话的入库（时序锚点读取 + 跨表事务写入），
+//     杜绝并发 TOCTOU 与重复入库（DB msg_id 唯一约束仍作最终兜底）。
+//   - 获取失败（被其他实例/请求占用）则短暂重试；重试耗尽则跳过本次，
+//     依赖前端重新上报 + DB 唯一约束保证最终幂等（不丢消息）。
+//   - 无缓存后端（useMemo）时退化为直接执行（单实例安全，仍由 DB 唯一约束兜底）。
+//
+// 锁释放采用 token 校验（ReleaseLock 仅删除持有者自己的锁），避免误释放他人锁。
+func (s *InboxIngressService) withIngestLock(ctx context.Context, conversationID string, fn func() error) (bool, error) {
+	if s.cache == nil || conversationID == "" {
+		return true, fn()
+	}
+	key := IngestLockKey + conversationID
+	token := uuid.NewString()
+	const retries = 4
+	for i := 0; i < retries; i++ {
+		ok, err := s.cache.SetNX(ctx, key, token, IngestLockTTL)
+		if err != nil {
+			logger.Ctx(ctx).Warn().Err(err).
+				Str("conv_id", conversationID).
+				Msg("[Ingest] 锁后端异常，退化为直接执行（DB 唯一约束兜底去重）")
+			return true, fn()
+		}
+		if ok {
+			defer s.cache.ReleaseLock(ctx, key, token)
+			if ferr := fn(); ferr != nil {
+				return true, ferr
+			}
+			return true, nil
+		}
+		time.Sleep(40 * time.Millisecond)
+	}
+	logger.Ctx(ctx).Warn().
+		Str("conv_id", conversationID).
+		Msg("[Ingest] 入库锁被占用（重试耗尽），跳过本次（前端将重新上报，DB 唯一约束保证幂等）")
+	return false, nil
 }
 
 // RecheckUnrepliedAndTrigger AI 回复完成释放标记后，重新检查是否有未回复的客户消息。
@@ -930,22 +988,6 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 			Msg("[Inbox] 时序修正：timestamp 未来超过容差，修正为 now()")
 		sentAt = now
 	}
-	// 历史堆积判断：timestamp 早于会话锚点 → backfill 消息（保留原 timestamp，DB 排序自动处理）
-	if s.hubRepo != nil && event.ConversationID != "" {
-		if anchor, err := s.hubRepo.GetLastByConversation(ctx, event.ConversationID); err == nil && anchor != nil {
-			if sentAt.Before(anchor.SentAt) {
-				logger.Ctx(ctx).Info().
-					Str("channel", event.Channel).
-					Str("conv_id", event.ConversationID).
-					Str("event_id", event.EventID).
-					Time("msg_timestamp", sentAt).
-					Time("anchor_timestamp", anchor.SentAt).
-					Msg("[Inbox] 时序锚点：消息 timestamp 早于锚点，标记为 backfill 历史堆积")
-				// backfill 消息：保留原 timestamp，DB 排序自然落到锚点之前
-				// 不修改 sentAt，让查询时按时间排序正确显示历史消息位置
-			}
-		}
-	}
 	// direction：根据 SenderType 推断（self/agent → outbound，其他 → inbound）
 	//   MessageEvent 没有 Direction 字段，SenderType 已表明发送者身份
 	direction := "inbound"
@@ -985,29 +1027,50 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		}
 		hub.Extra["history"] = event.History
 	}
-	// 五层架构修复：跨表事务写入（message_hub + inbox_conversations 原子）
-	// 注意：用 context.Background() 而非入参 ctx——ctx 随 WS 连接生命周期取消，
-	// 而消息落库 + 收件箱同步不应被连接抖动打断（与原设计保持一致）。
-	if s.inboxSvc != nil && hub.Direction == "inbound" {
-		if _, err := s.inboxSvc.UpsertFromHubMessageTx(context.Background(), hub, s.hubRepo); err != nil {
-			if isDuplicateKey(err) {
+
+	// 分布式排他锁：同一会话并发入库串行，保证入库不重复（前端不断上报 / 多实例时幂等）
+	//   锁内完成：时序锚点读取 + 跨表事务写入；处理完毕才释放（ReleaseLock 仅删除持有者自己的锁）。
+	//   DB msg_id 唯一约束仍作最终兜底（并发极小概率下锁获取失败后降级直接执行）。
+	_, err := s.withIngestLock(ctx, event.ConversationID, func() error {
+		// 历史堆积判断：timestamp 早于会话锚点 → backfill 消息（保留原 timestamp，DB 排序自动处理）
+		if s.hubRepo != nil && event.ConversationID != "" {
+			if anchor, aerr := s.hubRepo.GetLastByConversation(ctx, event.ConversationID); aerr == nil && anchor != nil {
+				if sentAt.Before(anchor.SentAt) {
+					logger.Ctx(ctx).Info().
+						Str("channel", event.Channel).
+						Str("conv_id", event.ConversationID).
+						Str("event_id", event.EventID).
+						Time("msg_timestamp", sentAt).
+						Time("anchor_timestamp", anchor.SentAt).
+						Msg("[Inbox] 时序锚点：消息 timestamp 早于锚点，标记为 backfill 历史堆积")
+				}
+			}
+		}
+		// 五层架构修复：跨表事务写入（message_hub + inbox_conversations 原子）
+		// 注意：用 context.Background() 而非入参 ctx——ctx 随 WS 连接生命周期取消，
+		// 而消息落库 + 收件箱同步不应被连接抖动打断（与原设计保持一致）。
+		if s.inboxSvc != nil && hub.Direction == "inbound" {
+			if _, uerr := s.inboxSvc.UpsertFromHubMessageTx(context.Background(), hub, s.hubRepo); uerr != nil {
+				if isDuplicateKey(uerr) {
+					logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
+						event.EventID, event.SessionID)
+					return nil
+				}
+				return uerr
+			}
+			return nil
+		}
+		if cerr := s.hubRepo.Create(ctx, hub); cerr != nil {
+			if isDuplicateKey(cerr) {
 				logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
 					event.EventID, event.SessionID)
 				return nil
 			}
-			return err
+			return cerr
 		}
 		return nil
-	}
-	if err := s.hubRepo.Create(ctx, hub); err != nil {
-		if isDuplicateKey(err) {
-			logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
-				event.EventID, event.SessionID)
-			return nil
-		}
-		return err
-	}
-	return nil
+	})
+	return err
 }
 
 // PersistBridgeHistory 仅持久化历史/回填消息，不触发 AI 路由。

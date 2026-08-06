@@ -59,6 +59,17 @@ func (r *RedisCache) SetNX(ctx context.Context, key string, value any, expiratio
 	return r.client.SetNX(ctx, key, value, expiration).Result()
 }
 
+// ReleaseLock 仅当 key 的值等于 token 时原子删除（Lua 脚本），安全释放 SetNX 获取的锁，
+// 避免误删其他持有者的锁。返回 true 表示成功释放。
+func (r *RedisCache) ReleaseLock(ctx context.Context, key, token string) (bool, error) {
+	script := redis.NewScript(`if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`)
+	n, err := script.Run(ctx, r.client, []string{key}, token).Int64()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
 // LPush 向列表头部推入
 func (r *RedisCache) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
 	if err := r.client.LPush(ctx, key, value).Err(); err != nil {

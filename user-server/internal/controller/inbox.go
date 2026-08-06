@@ -266,6 +266,23 @@ func (c *InboxController) Stats(ctx *gin.Context) {
 	response.Success(ctx, stats, "统计成功")
 }
 
+// Reconcile 收件箱对账 / 治理
+//   - mode=unread（默认）：以 message_hub 最后一条消息为事实源，重算全部会话未读/状态（修正历史“AI 已处理却仍显示未读”）。
+//   - mode=overdue：将“超时未响应”的会话转给在线人工坐席处理（否则默认由 AI 处理）。
+func (c *InboxController) Reconcile(ctx *gin.Context) {
+	mode := ctx.DefaultQuery("mode", service.ReconcileModeUnread)
+	if mode != service.ReconcileModeUnread && mode != service.ReconcileModeOverdue {
+		response.Error(ctx, http.StatusBadRequest, "mode 仅支持 unread / overdue")
+		return
+	}
+	res, err := c.svc.Reconcile(ctx.Request.Context(), mode)
+	if err != nil {
+		response.ErrorFromDB(ctx, err, err.Error())
+		return
+	}
+	response.Success(ctx, res, res.Message)
+}
+
 // ListAssignments 分配历史
 func (c *InboxController) ListAssignments(ctx *gin.Context) {
 	var convID uint

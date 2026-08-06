@@ -63,6 +63,11 @@ func (m *CacheManager) SetNX(ctx context.Context, key string, value any, expirat
 	return m.cache.SetNX(ctx, key, value, expiration)
 }
 
+// ReleaseLock 安全释放分布式锁（仅删除持有者自己的锁）
+func (m *CacheManager) ReleaseLock(ctx context.Context, key, token string) (bool, error) {
+	return m.cache.ReleaseLock(ctx, key, token)
+}
+
 // LPush 向列表头部推入
 func (m *CacheManager) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
 	if expiration == 0 {

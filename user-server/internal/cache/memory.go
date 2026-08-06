@@ -196,6 +196,26 @@ func (m *MemoryCache) SetNX(ctx context.Context, key string, value any, expirati
 	return true, nil
 }
 
+// ReleaseLock 仅当 key 的值等于 token 时删除（安全释放 SetNX 锁）。返回 true 表示成功释放。
+func (m *MemoryCache) ReleaseLock(ctx context.Context, key, token string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ele, ok := m.data[key]
+	if !ok {
+		return false, nil
+	}
+	item := ele.Value.(*cacheItem)
+	if !item.expiration.IsZero() && item.expiration.Before(time.Now()) {
+		return false, nil
+	}
+	if s, ok := item.value.(string); ok && s == token {
+		m.order.Remove(ele)
+		delete(m.data, key)
+		return true, nil
+	}
+	return false, nil
+}
+
 // LPush 向列表头部推入
 func (m *MemoryCache) LPush(ctx context.Context, key string, value any, expiration time.Duration) error {
 	m.mu.Lock()

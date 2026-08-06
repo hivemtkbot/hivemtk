@@ -175,6 +175,7 @@ func setupMessageRoutes(auth *gin.RouterGroup, db *gorm.DB) {
 	inboxCtrl := controller.NewInboxController(service.NewInboxService())
 	auth.GET("/inbox", inboxCtrl.List)
 	auth.GET("/inbox/stats", inboxCtrl.Stats)
+	auth.POST("/inbox/reconcile", inboxCtrl.Reconcile)
 	auth.GET("/inbox/assignments", inboxCtrl.ListAssignments)
 	auth.POST("/inbox/assign", inboxCtrl.Assign)
 	auth.POST("/inbox/auto-assign", inboxCtrl.AutoAssign)

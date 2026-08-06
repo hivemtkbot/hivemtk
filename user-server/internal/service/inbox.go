@@ -38,6 +38,15 @@ const (
 	InboxStatusClosed   = "closed"
 )
 
+// 收件箱超时未响应阈值：客户最后一条消息超过该时长且无我方回复，即视为“超时未响应”。
+const InboxOverdueThreshold = 30 * time.Minute
+
+// 收件箱对账模式
+const (
+	ReconcileModeUnread  = "unread" // 以 message_hub 最后一条消息为事实源，重算未读/状态（修正历史数据）
+	ReconcileModeOverdue = "overdue" // 超时未响应：转在线人工坐席处理（否则默认 AI 处理）
+)
+
 // 分配动作
 const (
 	InboxActionAssign   = "assign"
@@ -569,6 +578,75 @@ func (s *InboxService) GetStats(ctx context.Context) (*InboxStats, error) {
 		ByAssignedTo: res.ByAssignedTo,
 		OverdueCount: res.OverdueCount,
 	}, nil
+}
+
+// ReconcileResult 对账结果
+type ReconcileResult struct {
+	Mode             string `json:"mode"`
+	UnreadReconciled int64  `json:"unread_reconciled"`
+	OverdueFound     int    `json:"overdue_found"`
+	OverdueAssigned  int    `json:"overdue_assigned"`
+	AssignedTo       string `json:"assigned_to,omitempty"`
+	Message          string `json:"message"`
+}
+
+// Reconcile 收件箱对账 / 治理。
+//
+//   - mode=unread：以 message_hub 的“最后一条消息”为事实源，重算全部会话的未读计数与状态。
+//     直接修正历史数据——AI 已回复的会话不再显示“未读”，其未读清零、状态由 unread 转 open（待处理/消息池）。
+//   - mode=overdue：对“超时未响应”的会话（客户最后一条且超过 InboxOverdueThreshold，无我方回复），
+//     转给在线人工坐席处理（实现“分配给人工客服”）；若无在线坐席则保留，默认由 AI/后续人工处理。
+func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileResult, error) {
+	if s.inboxRepo == nil {
+		return nil, ErrInboxRepoNotReady
+	}
+	res := &ReconcileResult{Mode: mode}
+	switch mode {
+	case ReconcileModeOverdue:
+		threshold := time.Now().Add(-InboxOverdueThreshold)
+		due, err := s.inboxRepo.FindOverdueConversations(ctx, threshold, 0)
+		if err != nil {
+			return nil, err
+		}
+		res.OverdueFound = len(due)
+		agents, err := s.inboxRepo.ListOnlineAgentIDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(agents) == 0 {
+			res.Message = "无在线坐席，超时会话保留等待 AI/人工处理"
+			return res, nil
+		}
+		// 轮询分配给在线坐席（默认集中转给同一在线坐席，便于其统一跟进）
+		target := agents[0]
+		res.AssignedTo = target
+		for _, conv := range due {
+			if conv.AssignedTo == target {
+				continue
+			}
+			if _, err := s.Assign(ctx, InboxAssignRequest{
+				ConversationID: conv.ID,
+				Action:         InboxActionAssign,
+				ToType:         InboxAssignToHuman,
+				ToUserID:       target,
+				OperatorID:     "system-reconcile",
+				Remark:         "超时未响应自动转人工",
+			}); err != nil {
+				continue
+			}
+			res.OverdueAssigned++
+		}
+		res.Message = fmt.Sprintf("已将 %d/%d 条超时会话分配给在线坐席 %s 处理", res.OverdueAssigned, res.OverdueFound, target)
+		return res, nil
+	default: // ReconcileModeUnread
+		n, err := s.inboxRepo.ReconcileUnread(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res.UnreadReconciled = n
+		res.Message = fmt.Sprintf("已按消息事实源重算 %d 条会话的未读/状态", n)
+		return res, nil
+	}
 }
 
 // GetMessagesByConversation 拉取会话下的消息。

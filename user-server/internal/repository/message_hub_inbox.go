@@ -737,6 +737,9 @@ func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in Upsert
 		}
 		if in.LastMessageFrom == "customer" {
 			conv.UnreadCount = 1
+		} else {
+			// 首条即我方（AI/坐席）消息 → 已是“已读/待处理”态
+			conv.Status = "open"
 		}
 		return tx.Create(&conv).Error
 	}
@@ -760,6 +763,12 @@ func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in Upsert
 			updates["closed_at"] = nil
 		} else if conv.Status == "assigned" && conv.AssignedTo == "" {
 			updates["status"] = "unread"
+		}
+	} else {
+		// 我方（AI/坐席）已回复 → 视为已读：未读清零；仅“未读”态转“待处理/消息池”
+		updates["unread_count"] = 0
+		if conv.Status == "unread" {
+			updates["status"] = "open"
 		}
 	}
 	return tx.Model(&model.InboxConversation{}).
@@ -854,7 +863,141 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
+	// 关联查询读取每条会话在 message_hub 中的“最后一条”消息，覆盖冗余的 last_message_* 字段，
+	// 保证列表展示的最新内容（客户上报 / AI 回复）始终来自消息事实源。
+	r.attachLatestMessages(ctx, list)
 	return list, total, nil
+}
+
+// attachLatestMessages 用关联查询（DISTINCT ON conversation_id）读取每个会话的最新一条 message_hub 消息，
+// 覆盖收件箱会话上的 last_message_* 冗余字段，避免与消息表不一致。
+// 注意：仅覆盖有对应 message_hub 记录的会话；无消息记录的会话保留原字段。
+func (r *InboxConversationRepository) attachLatestMessages(ctx context.Context, list []*model.InboxConversation) {
+	if len(list) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(list))
+	for _, c := range list {
+		if c.ConversationID != "" {
+			ids = append(ids, c.ConversationID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	type latestHub struct {
+		ConversationID string
+		ID             uint
+		Content        string
+		SentAt         *time.Time
+		Direction      string
+		IsAIReply      bool
+	}
+	var rows []latestHub
+	if err := r.db.WithContext(ctx).
+		Table("message_hub").
+		Select("DISTINCT ON (conversation_id) conversation_id, id, content, sent_at, direction, is_ai_reply").
+		Where("conversation_id IN ?", ids).
+		Order("conversation_id, sent_at DESC").
+		Find(&rows).Error; err != nil {
+		return
+	}
+	byConv := make(map[string]*latestHub, len(rows))
+	for i := range rows {
+		byConv[rows[i].ConversationID] = &rows[i]
+	}
+	for _, c := range list {
+		l, ok := byConv[c.ConversationID]
+		if !ok {
+			continue
+		}
+		c.LastMessageID = l.ID
+		preview := l.Content
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		c.LastMessagePreview = preview
+		c.LastMessageAt = l.SentAt
+		switch {
+		case l.Direction == "inbound":
+			c.LastMessageFrom = "customer"
+		case l.IsAIReply:
+			c.LastMessageFrom = "ai"
+		default:
+			c.LastMessageFrom = "staff"
+		}
+	}
+}
+
+// ============== 收件箱对账（Reconcile） ==============
+// 用于修正历史数据：以 message_hub 的“最后一条消息”为事实源，重算 inbox_conversations 的未读/状态。
+
+// ReconcileUnread 以 message_hub 最后一条消息为准，批量重算全部会话的未读计数与状态。
+//   - 最后一条是我方（AI/坐席）消息 → 未读清零；原“未读”态转“待处理/消息池”。
+//   - 最后一条是客户消息 → 未读记为 1（至少有一条未读）；已分配/已关闭保持不变，其余转“未读”。
+// 仅更新存在 message_hub 记录的会话；无消息记录的会话保持原状。
+func (r *InboxConversationRepository) ReconcileUnread(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Exec(`
+		WITH latest AS (
+			SELECT DISTINCT ON (conversation_id) conversation_id, direction
+			FROM message_hub
+			ORDER BY conversation_id, sent_at DESC
+		)
+		UPDATE inbox_conversations ic
+		SET unread_count = CASE
+		        WHEN l.direction = 'inbound' THEN GREATEST(COALESCE(ic.unread_count, 0), 1)
+		        ELSE 0
+		    END,
+		    status = CASE
+		        WHEN l.direction = 'inbound'
+		            THEN CASE WHEN ic.status IN ('assigned', 'closed') THEN ic.status ELSE 'unread' END
+		        ELSE CASE WHEN ic.status = 'unread' THEN 'open' ELSE ic.status END
+		    END
+		FROM latest l
+		WHERE ic.conversation_id = l.conversation_id
+	`)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// FindOverdueConversations 查询“超时未响应”的会话：
+// 最后一条是客户消息、且早于 threshold、且仍处于活跃态（未读/待处理/已分配）。
+func (r *InboxConversationRepository) FindOverdueConversations(ctx context.Context, threshold time.Time, limit int) ([]*model.InboxConversation, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var list []*model.InboxConversation
+	q := r.db.WithContext(ctx).
+		Where("last_message_from = ?", "customer").
+		Where("last_message_at IS NOT NULL AND last_message_at < ?", threshold).
+		Where("status IN ?", []string{"unread", "open", "assigned"})
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if err := q.Order("last_message_at ASC").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// ListOnlineAgentIDs 返回当前在线（status='online'）的坐席 agent_id 列表（字符串形式，可直接用于分配）。
+func (r *InboxConversationRepository) ListOnlineAgentIDs(ctx context.Context) ([]string, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var ids []string
+	if err := r.db.WithContext(ctx).
+		Table("agent_statuses").
+		Where("status = ?", "online").
+		Pluck("CAST(agent_id AS TEXT)", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // MarkRead 标记会话已读（重置未读计数 + 状态置为 open）
