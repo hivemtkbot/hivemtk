@@ -494,8 +494,17 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		// 历史上下文回填（仅落库，不影响实时自/他权威判定）
 		// 平台自己(self/agent)的历史项强制 outbound，其余按前端 direction（默认 inbound）。
 		if len(m.History) > 0 {
+			// 修复（2026-08-06）：实时消息本身不得作为 history 回填。
+			// 前端会把当前正在上报的实时消息也塞进 history 数组（相同 EventID），
+			// 若先经 callPersistHistory 落库相同 msg_id，则后续 batch 处理实时消息时
+			// GetByMsgID 命中"已存在"→ 钩子2 幂等跳过 QueuedForAI=false →
+			// newInboundContents 为空 → AI 永不触发（会话 2268 实测：用户新消息入库但无 AI 回复）。
+			liveEventID := m.EventID
 			for hi, it := range m.History {
 				if it == nil {
+					continue
+				}
+				if liveEventID != "" && it.EventID == liveEventID {
 					continue
 				}
 				item := historyItemToEvent(httpMessageToUnified(m), it)

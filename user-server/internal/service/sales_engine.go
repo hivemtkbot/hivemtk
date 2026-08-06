@@ -1664,13 +1664,12 @@ func (e *SalesEngine) shouldTransferToHuman(ctx context.Context, intent *dto.Rec
 		return e.shouldTransferByConfidence(ctx, intent, mem, req)
 	}
 
-	// 兼容：原有静态规则（投诉/流失倾向/对话轮数过多）
+	// 兼容：原有静态规则仅保留「投诉/流失倾向」转人工。
+	// 注意：本项目定位为「替代人工」的 AI 客服，对话轮数过多不应触发转人工，
+	// 因此移除原 mem.MessageCount > 30 的静态分支（2026-08-06 修复会话 2268 失声问题）。
 	switch intent.IntentType {
 	case IntentChurn, IntentComplaint:
 		return true, e.transferReason(context.Background(), intent, mem)
-	}
-	if mem != nil && mem.MessageCount > 30 {
-		return true, "对话轮数过多，建议人工接管"
 	}
 	return false, ""
 }
