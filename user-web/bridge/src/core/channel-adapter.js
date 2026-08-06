@@ -96,7 +96,13 @@ export class BaseAdapter {
     return this.hooks.getMessageListRoot ? this.hooks.getMessageListRoot() : null;
   }
   getMessageItems() { return this.hooks.getMessageItems ? this.hooks.getMessageItems() : []; }
-  parseMessageItem(item) { return this.hooks.parseMessageItem ? this.hooks.parseMessageItem(item) : null; }
+  // 子类 hook：把单个 DOM item 解析为 UnifiedMessage（含 sender_type）
+  //   注（2026-08-06）：前端已不再计算 self/other，所有渠道 parseMessageItem
+  //   一律输出 FRONTEND_DEFAULT_SENDER_TYPE（'customer'），自/他判定完全由
+  //   后端 user-server 服务端权威完成。故此处不再传递任何 self/other 上下文。
+  parseMessageItem(item) {
+    return this.hooks.parseMessageItem ? this.hooks.parseMessageItem(item) : null;
+  }
   // 会话列表枚举：渠道钩子返回 [{ id, name, el }]，遍历器据此逐个打开并回填历史。
   // 未实现则回退空（不遍历）。
   getConversationList() {
@@ -831,9 +837,7 @@ export class BaseAdapter {
     const groupId = (groupItem && groupItem.group_id) || '';
     const groupName = (groupItem && groupItem.group_name) || '';
     const senderName = (conv && conv.name) || batch.find((p) => p.sender_name)?.sender_name || '';
-    // 2026-08-05 根因修复：sender_type 和 event_id 必须根据最后一条消息设置，不能固定为 CUSTOMER。
-    //   原实现固定 sender_type=SENDER.CUSTOMER → 巡检时 self/AI 消息也被标记为 customer
-    //   → 后端触发 AI → 无限循环。
+    // sender_type 取最后一条消息的 sender_type（可能为 system）；event_id 取其 message_id（稳定）。
     const lastSenderType = last.sender_type || SENDER.CUSTOMER;
     const msg = makeUnifiedMessage({
       channel: this.channel,
@@ -983,10 +987,7 @@ export class BaseAdapter {
     const history = batch.map(({ parsed, direction }) => this._historyItem(parsed, direction));
     // 摘要方向：有客户消息 → inbound（主导），否则 outbound
     const summaryDirection = batch.some((b) => b.direction === DIRECTION.INBOUND) ? DIRECTION.INBOUND : DIRECTION.OUTBOUND;
-    // 2026-08-05 根因修复：sender_type 和 event_id 必须根据最后一条消息设置，不能固定为 CUSTOMER。
-    //   原实现固定 sender_type=SENDER.CUSTOMER → 即使最后一条是 self/AI 发送的 outbound，
-    //   后端也收到 customer 消息 → 触发 AI → 无限循环。
-    //   修复：sender_type 取最后一条消息的 sender_type；event_id 取其 message_id（稳定）。
+    // 摘要方向：sender_type 取最后一条历史项的 sender_type（可能为 system）；event_id 用其 message_id（稳定）。
     const lastSenderType = last.parsed.sender_type || SENDER.CUSTOMER;
     const msg = makeUnifiedMessage({
       channel: this.channel,

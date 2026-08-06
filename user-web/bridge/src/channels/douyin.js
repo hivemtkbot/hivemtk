@@ -11,11 +11,11 @@
 //   - 发送按钮：svg[class*="e2e-send-msg-btn"]
 //   - 自/他判定：气泡相对容器中线的水平对齐检测（主）+ class 关键词（兜底）
 import { BaseAdapter } from '../core/channel-adapter.js';
-import { CHANNELS, SENDER, contentHash } from '../core/types.js';
+import { CHANNELS, SENDER } from '../core/types.js';
 import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
-import { isSelfMessage } from '../core/fallback.js';
+import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
 
 const log = createLogger('douyin', CHANNELS.DOUYIN);
 
@@ -28,8 +28,6 @@ function mergedSelectors() {
     textSelectors: SEL.TEXT.split(',').map((s) => s.trim()).filter(Boolean),
     inputSelectors: SEL.INPUT.split(',').map((s) => s.trim()).filter(Boolean),
     sendSelectors: SEL.SEND.split(',').map((s) => s.trim()).filter(Boolean),
-    selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
-    otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
   return mergeSelectors(CHANNELS.DOUYIN, fb);
 }
@@ -43,18 +41,15 @@ export const SEL = {
   CHAT_LIST: '#island_b69f5, [data-e2e="conversation-list"]',
   // 消息线程容器（MutationObserver 根）
   MSG_LIST: '[class*="messageList" i], [data-e2e="chat-msg-list"], [class*="chat-content" i]',
-  // 消息气泡（2026-08 修复：新增显式自/他 class 命中，区分自己 vs 客户）
+  // 消息气泡（2026-08 验证）
   // 抖音最新结构实测：
   //   - 自方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemSelf" i]
   //   - 对方气泡：div[data-e2e="msg-item-content"][class*="chatMessageItemOther" i]
   //   - 旧版：[class*="messageMessageItem" i]（已不带自他标识）
   // 注意：去掉旧版 [class*="bubble" i] —— 太宽泛，会命中内层 bubble-body 节点，
   // 被 SelectorEngine.containsAnother 滤掉、且被 isSystemMessage 结构特征误判。
+  // 自/他判定已移交后端，前端不依据这些 class 区分自己/对方。
   MSG_ITEM: 'div[data-e2e="msg-item-content"], [class*="chatMessageItemSelf" i], [class*="chatMessageItemOther" i], [class*="messageMessageItem" i], [class*="chatMessageItem" i], [class*="msg-content" i]',
-  // 自方气泡 class 关键词（显式自方 class 优先，对齐检测兜底）
-  SELF_ITEM: '[class*="chatMessageItemSelf" i], [class*="right-content" i], [class*="self" i], [class*="right" i], [class*="outgoing" i]',
-  // 对方气泡 class 关键词
-  OTHER_ITEM: '[class*="chatMessageItemOther" i], [class*="left-content" i], [class*="other" i], [class*="left" i], [class*="incoming" i]',
   // 聊天气泡内文本
   TEXT: '[data-e2e="msg-item-content"], [class*="msg-content" i]',
   // 输入框（严格：同时含 messageEditorinputArea + editor-kit-container 两 class）
@@ -145,16 +140,9 @@ function closestScrollable(el) {
   return null;
 }
 
-// 自/他判定：以气泡相对「消息线程容器」的水平对齐为主信号（右=自己，左=客户）。
-// 抖音气泡自他 class 命名多变，对齐检测不受其影响；class 关键词仅作兜底。
-function classifyByAlignment(bubble) {
-  const bRect = bubble.getBoundingClientRect();
-  const bCenter = bRect.left + bRect.width / 2;
-  const container = closestScrollable(bubble) || bubble.parentElement;
-  const cRect = container ? container.getBoundingClientRect() : { left: 0, width: window.innerWidth };
-  const cCenter = cRect.left + cRect.width / 2;
-  return bCenter > cCenter ? SENDER.SELF : SENDER.CUSTOMER;
-}
+// 自/他判定（2026-08-06 已删除）：前端不再计算 self/other，后端权威重判。
+// 原先的 classifyByAlignment（气泡水平对齐几何测量）纯属浪费算力，已删除；
+// parseMessageItem 直接给 FRONTEND_DEFAULT_SENDER_TYPE 占位，回环防护由后端承担。
 
 // 当前登录的抖音账号 id。
 // 多层兜底：浮层（/jingxuan 等）下左导航/header 的个人链接常缺失或指向 /user/self（占位），
@@ -649,43 +637,12 @@ const hooks = {
     // 先判定消息类型（问题 3：非文字消息）。
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null; // 纯文本且无内容则跳过
-    // 自/他判定（5 层漏斗）：
-    //   1) classifyByAlignment：气泡水平对齐（右=自己，左=客户）
-    //   2) 用户配置 merged selfMarkers / otherMarkers（自身+祖先+子元素全覆盖）
-    //   3) isSelfMessage：class 标记互斥 + 对齐 + 头像位置
-    //   4) data 属性兜底
-    //   5) 默认 CUSTOMER（宁可把对方误报为客户，不要把自己消息误报为客户——避免死循环）
-    let sender_type = classifyByAlignment(item) || SENDER.CUSTOMER;
-    // marker 命中统一工具：覆盖 自身 / 祖先 / 子元素 三种匹配方向
-    const _markerHit = (sel) => {
-      try {
-        if (item.matches && item.matches(sel)) return true;
-      } catch (_) { /* 非法选择器忽略 */ }
-      try {
-        if (item.closest && item.closest(sel)) return true;
-      } catch (_) { /* 非法选择器忽略 */ }
-      try {
-        if (item.querySelector && item.querySelector(sel)) return true;
-      } catch (_) { /* 非法选择器忽略 */ }
-      return false;
-    };
-    const m = mergedSelectors();
-    const matchesSelf = m.selfMarkers.some((sel) => _markerHit(sel));
-    const matchesOther = m.otherMarkers.some((sel) => _markerHit(sel));
-    // 单向修正：只有 self/other 明确一方命中才修正；双向都命中时保留 classifyByAlignment 判定结果
-    if (matchesSelf && !matchesOther) sender_type = SENDER.SELF;
-    if (matchesOther && !matchesSelf) sender_type = SENDER.CUSTOMER;
-    // 第 3 层：fallback.js 综合判定兜底（对齐+头像+data 属性，含 other 互斥排除）
-    if (!matchesSelf && !matchesOther) {
-      if (typeof isSelfMessage === 'function' && isSelfMessage(item, SEL.SELF_ITEM, SEL.OTHER_ITEM)) {
-        sender_type = SENDER.SELF;
-      }
-    }
-    // 第 4 层：data 属性兜底
-    if (item.dataset) {
-      if (item.dataset.sender === 'self' || item.dataset.isSelf === 'true') sender_type = SENDER.SELF;
-      if (item.dataset.sender === 'other' || item.dataset.isSelf === 'false') sender_type = SENDER.CUSTOMER;
-    }
+    // 自/他判定（2026-08-06 已删除：前端不再计算 self/other，后端权威重判）
+    //   后端 user-server 已实现服务端权威判定（isPlatformOutboundEcho +
+    //   HandleIngressMessage 对 ingest 上报一律覆盖 sender_type="customer"，仅 system/recall
+    //   保留），前端算出的 self/agent 标记后端不采信。原先的 classifyByAlignment / marker 命中 /
+    //   data 属性兜底 / isSelfMessage 等自他几何测量漏斗全部删除，直接给默认占位。
+    const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // 群聊识别（问题 2）：检测群特征（群标题 / @全员 / 多人昵称前缀）
     const groupInfo = detectGroup(item);
     // 发件人/对方昵称（需求③，修复 1v1 私信发件人为空/字符串 hash）：
@@ -697,15 +654,13 @@ const hooks = {
     if (!senderName && !groupInfo.isGroup && sender_type === SENDER.CUSTOMER) {
       senderName = getPeerName();
     }
-    // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-    //   兜底 msg_id 改用 contentHash(channel, convId, text)，不含 sender_type。
-    //   前端自他判定错误时 msg_id 不再变化 → 后端可正确幂等去重 → 不再回环触发 AI。
-    //   后端 sendOutbound 落库时也用相同算法 → AI 回复消息被前端扫描时 event_id 与 DB msg_id 一致 → 去重跳过。
+    // 兜底 msg_id：优先取 DOM 自带 id，否则按文本内容生成确定性 id。
+    // 幂等去重（消息ID / 内容hash）已由后端统一负责，前端不再计算内容 hash。
     const mid =
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.getAttribute('id') ||
-      contentHash(CHANNELS.DOUYIN, getConversationId(), text);
+      `c:${text}`;
     return {
       message_id: mid,
       sender_type,

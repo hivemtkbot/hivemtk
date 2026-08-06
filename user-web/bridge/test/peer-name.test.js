@@ -167,7 +167,7 @@ describe('xhs.parseMessageItem 把对方昵称装到 sender_name', () => {
     expect(parsed.group_name).toBe('');
   });
 
-  it('1v1 自己消息 → sender_name 留空（自己消息不需要发件人，AI/客服按 account_id 落地）', async () => {
+  it('1v1 自己消息 → 前端不再判定 self/other，统一 customer + 取对方昵称（后端权威重判）', async () => {
     document.body.innerHTML = '';
     const title = document.createElement('div');
     title.className = 'xhs-im-chat-title';
@@ -191,7 +191,9 @@ describe('xhs.parseMessageItem 把对方昵称装到 sender_name', () => {
     const adapter = buildXhsAdapter();
     const parsed = adapter.parseMessageItem(msg);
     expect(parsed).toBeTruthy();
-    expect(parsed.sender_type).toBe('self');
-    expect(parsed.sender_name).toBe('');
+    // 2026-08-06：前端不再计算 self/other，所有非 system/recall 消息一律 customer
+    expect(parsed.sender_type).toBe('customer');
+    // 1v1 一律取对方昵称（前端无法区分自己/对方，后端负责权威重判）
+    expect(parsed.sender_name).toBe('咨询客户阿珍');
   });
 });

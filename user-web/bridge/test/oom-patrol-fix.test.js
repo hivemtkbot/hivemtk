@@ -141,12 +141,14 @@ describe('巡检机制优化', () => {
   });
 });
 
-describe('抖音自他识别（修复 2026-08-05）', () => {
-  it('新版显式 class 应被识别', async () => {
+describe('抖音选择器（2026-08-06：自他判定已移交后端）', () => {
+  it('MSG_ITEM 仍覆盖显式自/他 class（仅用于元素选取，不再用于 self/other 判定）', async () => {
     const { SEL } = await import('../src/channels/douyin.js');
-    expect(SEL.SELF_ITEM).toContain('chatMessageItemSelf');
-    expect(SEL.OTHER_ITEM).toContain('chatMessageItemOther');
+    // 前端仅按 MSG_ITEM 选取元素；self/other 由后端基于内容 hash + DB 权威判定。
     expect(SEL.MSG_ITEM).toContain('chatMessageItemSelf');
     expect(SEL.MSG_ITEM).toContain('chatMessageItemOther');
+    // 前端不再暴露 SELF_ITEM / OTHER_ITEM 自他标记字段
+    expect(SEL.SELF_ITEM).toBeUndefined();
+    expect(SEL.OTHER_ITEM).toBeUndefined();
   });
 });

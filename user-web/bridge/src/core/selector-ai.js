@@ -26,8 +26,6 @@ export const SELECTOR_FIELDS = [
   'text',             // 气泡内文本
   'input',            // 输入框
   'send',             // 发送按钮
-  'selfMarker',       // 自方标记
-  'otherMarker',      // 对方标记
 ];
 
 // 会话内配置缓存（跨重载靠 chrome.storage）
@@ -100,8 +98,9 @@ export function _invalidateCustom(channel) {
 }
 
 // 合并选择器（纯规则）：用户自定义配置优先，渠道 SEL 默认兜底。
-// 返回 { itemSelectors, listSelectors, textSelectors, inputSelectors, sendSelectors, selfMarkers, otherMarkers }
+// 返回 { itemSelectors, listSelectors, textSelectors, inputSelectors, sendSelectors }
 // 人工识别 HTML 后通过 UI 配置面板填写 user 配置；未填的字段自动用渠道默认 SEL。
+// 注：self/other marker 已不再合并（自/他判定移交后端，前端不配置）。
 export function mergeSelectors(channel, ruleFallbacks) {
   const out = {
     itemSelectors: [],
@@ -109,8 +108,6 @@ export function mergeSelectors(channel, ruleFallbacks) {
     textSelectors: [],
     inputSelectors: [],
     sendSelectors: [],
-    selfMarkers: [],
-    otherMarkers: [],
   };
   const cfg = getCustomSelectors(channel);
   const pick = (field) => {
@@ -124,8 +121,6 @@ export function mergeSelectors(channel, ruleFallbacks) {
   out.textSelectors = pick('text');
   out.inputSelectors = pick('input');
   out.sendSelectors = pick('send');
-  out.selfMarkers = pick('selfMarker');
-  out.otherMarkers = pick('otherMarker');
   // 规则兜底追加在后（用户配置在前，SEL 默认在后）
   if (ruleFallbacks) {
     out.itemSelectors = out.itemSelectors.concat(ruleFallbacks.itemSelectors || []);
@@ -133,8 +128,6 @@ export function mergeSelectors(channel, ruleFallbacks) {
     out.textSelectors = out.textSelectors.concat(ruleFallbacks.textSelectors || []);
     out.inputSelectors = out.inputSelectors.concat(ruleFallbacks.inputSelectors || []);
     out.sendSelectors = out.sendSelectors.concat(ruleFallbacks.sendSelectors || []);
-    out.selfMarkers = out.selfMarkers.concat(ruleFallbacks.selfMarkers || []);
-    out.otherMarkers = out.otherMarkers.concat(ruleFallbacks.otherMarkers || []);
   }
   // 去重（用户配置与默认可能重复）
   const dedupe = (arr) => Array.from(new Set(arr));
@@ -143,8 +136,6 @@ export function mergeSelectors(channel, ruleFallbacks) {
   out.textSelectors = dedupe(out.textSelectors);
   out.inputSelectors = dedupe(out.inputSelectors);
   out.sendSelectors = dedupe(out.sendSelectors);
-  out.selfMarkers = dedupe(out.selfMarkers);
-  out.otherMarkers = dedupe(out.otherMarkers);
   return out;
 }
 

@@ -13,14 +13,14 @@
 //   - 自/他：outgoing（自己）/ incoming（对方）class
 //   - 发送：Draft.js 靠 Enter 发送，SVG 飞机按钮兜底
 import { BaseAdapter } from '../core/channel-adapter.js';
-import { CHANNELS, SENDER, contentHash } from '../core/types.js';
+import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
   simulateRealClick, createLogger, findAnyMessageInput, looksLikeMessagePage,
 } from '../core/dom.js';
-import { isSelfMessage } from '../core/fallback.js';
+import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
 
 const log = createLogger('tiktok', CHANNELS.TIKTOK);
 
@@ -32,8 +32,6 @@ function mergedSelectors() {
     textSelectors: SEL.TEXT.split(',').map((s) => s.trim()).filter(Boolean),
     inputSelectors: (SEL.INPUT || '').split(',').map((s) => s.trim()).filter(Boolean),
     sendSelectors: (SEL.SEND || '').split(',').map((s) => s.trim()).filter(Boolean),
-    selfMarkers: SEL.SELF_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
-    otherMarkers: SEL.OTHER_ITEM.split(',').map((s) => s.trim()).filter(Boolean),
   };
   return mergeSelectors(CHANNELS.TIKTOK, fb);
 }
@@ -49,10 +47,6 @@ export const SEL = {
   MSG_LIST: '[data-e2e="dm-new-message-list"], [class*="DivChatMain" i], [class*="chat-main" i]',
   // 消息气泡
   MSG_ITEM: '[data-e2e="dm-new-chat-item"], [class*="DivChatItemWrapper" i], [class*="bubble" i]',
-  // 自方消息（outgoing class）
-  SELF_ITEM: '[class*="outgoing" i], [class*="self" i]',
-  // 对方消息（incoming class）
-  OTHER_ITEM: '[class*="incoming" i], [class*="other" i]',
   // 消息文本
   TEXT: '[data-e2e="dm-new-message-text"], [class*="DivTextContainer" i]',
   // 时间分隔
@@ -416,79 +410,13 @@ function isSystemMessage(item) {
   return false;
 }
 
-// —— 自/他判定（漏斗 4 层）——
-function closestScrollable(el) {
-  let cur = el;
-  while (cur && cur !== document.body) {
-    try {
-      const style = getComputedStyle(cur);
-      const scrollable = style.overflowY === 'auto' || style.overflowY === 'scroll' || cur.scrollHeight > cur.clientHeight + 50;
-      if (scrollable) return cur;
-    } catch (_) { /* noop */ }
-    cur = cur.parentElement;
-  }
-  return null;
-}
-
-function classifyByAlignment(bubble) {
-  try {
-    const bRect = bubble.getBoundingClientRect();
-    if (bRect.width <= 0) return null;
-    const bCenter = bRect.left + bRect.width / 2;
-    const container = closestScrollable(bubble) || bubble.parentElement;
-    const cRect = container ? container.getBoundingClientRect() : { left: 0, width: window.innerWidth || 1200 };
-    const cCenter = cRect.left + cRect.width / 2;
-    return bCenter > cCenter ? SENDER.SELF : SENDER.CUSTOMER;
-  } catch (_) {
-    return null;
-  }
-}
-
-function classifyByDataAttribute(item) {
-  if (!item || !item.dataset) return null;
-  const sender = (item.dataset.sender || '').toLowerCase();
-  if (sender === 'self' || sender === 'me') return SENDER.SELF;
-  if (sender === 'other' || sender === 'them' || sender === 'peer') return SENDER.CUSTOMER;
-  const dir = (item.dataset.direction || '').toLowerCase();
-  if (dir === 'outgoing') return SENDER.SELF;
-  if (dir === 'inbound' || dir === 'incoming') return SENDER.CUSTOMER;
-  if (item.dataset.isSelf === 'true') return SENDER.SELF;
-  if (item.dataset.isSelf === 'false') return SENDER.CUSTOMER;
-  if (item.dir === 'rtl') return SENDER.SELF;
-  return null;
-}
-
-function classifySender(item) {
-  // marker 命中统一工具：覆盖 自身 / 祖先 / 子元素 三种匹配方向
-  const _markerHit = (sel) => {
-    try {
-      if (item.matches && item.matches(sel)) return true;
-    } catch (_) { /* 非法选择器忽略 */ }
-    try {
-      if (item.closest && item.closest(sel)) return true;
-    } catch (_) { /* 非法选择器忽略 */ }
-    try {
-      if (item.querySelector && item.querySelector(sel)) return true;
-    } catch (_) { /* 非法选择器忽略 */ }
-    return false;
-  };
-  // A) class 关键词（最高优先级）—— 覆盖自身/祖先/子元素
-  const m = mergedSelectors();
-  const matchesSelf = m.selfMarkers.some((sel) => _markerHit(sel));
-  const matchesOther = m.otherMarkers.some((sel) => _markerHit(sel));
-  if (matchesSelf && !matchesOther) return SENDER.SELF;
-  if (matchesOther && !matchesSelf) return SENDER.CUSTOMER;
-  // B) data-* 属性
-  const byData = classifyByDataAttribute(item);
-  if (byData) return byData;
-  // C) 水平对齐
-  const byAlign = classifyByAlignment(item);
-  if (byAlign) return byAlign;
-  // D) 头像位置 + 互斥排除（fallback.js 综合判定，传 otherSelector 显式互斥排除）
-  if (isSelfMessage(item, SEL.SELF_ITEM, SEL.OTHER_ITEM)) return SENDER.SELF;
-  // 默认 CUSTOMER（防回环）
-  return SENDER.CUSTOMER;
-}
+// —— 自/他判定（2026-08-06 已删除）——
+// 前端不再计算 self/other：后端 user-server 已实现服务端权威判定
+// （isPlatformOutboundEcho + HandleIngressMessage 对 ingest 上报一律覆盖
+// sender_type="customer"，仅 system/recall 保留）。原先的 classifySender /
+// classifyByAlignment / classifyByDataAttribute / closestScrollable 等几何测量
+// 漏斗纯属浪费算力，全部删除；parseMessageItem 直接给 FRONTEND_DEFAULT_SENDER_TYPE
+// 占位，回环防护由后端承担。
 
 // —— 非文字消息提取 ——
 function extractMessageContent(item) {
@@ -714,8 +642,8 @@ const hooks = {
     // ② 内容提取
     const { msgType, mediaUrl, text } = extractMessageContent(item);
     if (!text && msgType === 'text') return null;
-    // ③ 自/他判定
-    const sender_type = classifySender(item);
+    // ③ 自/他判定（2026-08-06 已删除：前端不再计算 self/other，后端权威重判）
+    const sender_type = FRONTEND_DEFAULT_SENDER_TYPE;
     // ④ 群聊识别
     const groupInfo = detectGroup(item);
     // ⑤ 发件人昵称
@@ -725,15 +653,14 @@ const hooks = {
     }
     // ⑥ 消息 id
     // 2026-08-05 修复（无新消息仍不断回复 AI 的根因）：
-    // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-    //   兜底 msg_id 改用 contentHash(channel, convId, text)，不含 sender_type。
-    //   前端自他判定错误时 msg_id 不再变化 → 后端可正确幂等去重 → 不再回环触发 AI。
+    // 兜底 msg_id：优先取 DOM 自带 id，否则按文本内容生成确定性 id。
+    // 幂等去重（消息ID / 内容hash）已由后端统一负责，前端不再计算内容 hash。
     const mid =
       item.getAttribute('data-message-id') ||
       item.getAttribute('data-id') ||
       item.getAttribute('data-msg-id') ||
       item.id ||
-      contentHash(CHANNELS.TIKTOK, getConversationId(), text);
+      `c:${text}`;
     return {
       message_id: mid,
       sender_type,
@@ -782,7 +709,7 @@ const hooks = {
 export {
   getAccountId, getConversationId, getConversationList,
   normalizeContactId, isTiktokMessagePage, isTiktokChatUrl, getPeerName,
-  isSystemMessage, classifySender, isTimeText, isSystemText,
+  isSystemMessage, isTimeText, isSystemText,
   isCenterAligned, isListNoise, detectUnread, detectGroup,
   findSendButton, findInputEl,
 };

@@ -611,8 +611,6 @@ const SEL_FIELD_IDS = {
   text: 'selText',
   input: 'selInput',
   send: 'selSend',
-  selfMarker: 'selSelfMarker',
-  otherMarker: 'selOtherMarker',
 };
 
 // 字段 -> 渠道 SEL 属性名映射（用于「当前生效值」展示：用户未配置时，placeholder 直接显示 SEL 默认，
@@ -624,8 +622,6 @@ const SEL_FIELD_TO_PROP = {
   text: 'TEXT',
   input: 'INPUT',  // 抖音叫 EDITOR，小红书叫 INPUT；后面取值时两者都尝试
   send: 'SEND',
-  selfMarker: 'SELF_ITEM',
-  otherMarker: 'OTHER_ITEM',
 };
 
 // 各渠道 SEL 默认表（静态导入，避免触发 DOM 探测）

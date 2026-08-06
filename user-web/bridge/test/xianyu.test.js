@@ -9,7 +9,7 @@
 //  7. 消息提取（parseMessageItem）
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  isSystemMessage, classifySender, isTimeText, isSystemText,
+  isSystemMessage, isTimeText, isSystemText,
   isCenterAligned, isListNoise, normalizeContactId, detectUnread,
   getPeerName,
 } from '../src/channels/xianyu.js';
@@ -238,50 +238,6 @@ describe('xianyu / isSystemMessage 漏斗', () => {
 
   it('null 元素安全返回 false', () => {
     expect(isSystemMessage(null)).toBe(false);
-  });
-});
-
-describe('xianyu / classifySender 漏斗', () => {
-  beforeEach(() => installComputedStyle());
-
-  it('A) class 含 message-text-right → SELF', () => {
-    const el = makeEl({ cls: 'msg-item message-text-right' });
-    expect(classifySender(el)).toBe(SENDER.SELF);
-  });
-
-  it('A) class 含 other → CUSTOMER', () => {
-    const el = makeEl({ cls: 'msg-item msg-other' });
-    expect(classifySender(el)).toBe(SENDER.CUSTOMER);
-  });
-
-  it('A) class 含 message-text-left → CUSTOMER', () => {
-    const el = makeEl({ cls: 'msg-item message-text-left' });
-    expect(classifySender(el)).toBe(SENDER.CUSTOMER);
-  });
-
-  it('B) data-sender=self → SELF', () => {
-    const el = makeEl({ dataSender: 'self' });
-    expect(classifySender(el)).toBe(SENDER.SELF);
-  });
-
-  it('B) data-sender=other → CUSTOMER', () => {
-    const el = makeEl({ dataSender: 'other' });
-    expect(classifySender(el)).toBe(SENDER.CUSTOMER);
-  });
-
-  it('B) data-direction=outgoing → SELF', () => {
-    const el = makeEl({ dataDir: 'outgoing' });
-    expect(classifySender(el)).toBe(SENDER.SELF);
-  });
-
-  it('B) data-direction=incoming → CUSTOMER', () => {
-    const el = makeEl({ dataDir: 'incoming' });
-    expect(classifySender(el)).toBe(SENDER.CUSTOMER);
-  });
-
-  it('缺信号时默认 CUSTOMER（防回环）', () => {
-    const el = makeEl({});
-    expect(classifySender(el)).toBe(SENDER.CUSTOMER);
   });
 });
 

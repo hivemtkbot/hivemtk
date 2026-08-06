@@ -22,8 +22,6 @@ const FB = {
   textSelectors: ['.text'],
   inputSelectors: ['div[contenteditable]'],
   sendSelectors: ['[class*="send"]'],
-  selfMarkers: ['.self'],
-  otherMarkers: ['.other'],
 };
 
 beforeEach(() => {
@@ -106,7 +104,5 @@ describe('选择器配置持久化', () => {
     expect(SELECTOR_FIELDS).toContain('text');
     expect(SELECTOR_FIELDS).toContain('input');
     expect(SELECTOR_FIELDS).toContain('send');
-    expect(SELECTOR_FIELDS).toContain('selfMarker');
-    expect(SELECTOR_FIELDS).toContain('otherMarker');
   });
 });

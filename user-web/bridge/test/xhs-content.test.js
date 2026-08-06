@@ -1,7 +1,7 @@
 // xhs 消息解析与噪音过滤单测（对齐 douyin 的能力边界）
 // 覆盖：
 //   1. parseMessageItem 消息类型提取：文本 / 卡片(笔记) / 图片 / 语音 / 撤回 / 聚光系统消息
-//   2. 自/他判定：.left(对方) / .right(自己)
+//   2. 自/他判定（2026-08-06 已废弃：前端不再计算 self/other，统一 customer；后端权威重判）
 //   3. 噪音过滤：会话列表项 .sx-contact-item 绝不当聊天内容解析
 //   4. 头像图不误判为消息图片（每条私信都带发送者头像）
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -41,10 +41,10 @@ describe('xhs parseMessageItem 消息类型提取', () => {
     expect(parsed.media_url).toBe('');
   });
 
-  it('自己发送（.right）→ sender_type=self', () => {
+  it('自己发送（.right）→ 前端不再判定 self/other，统一 sender_type=customer（后端权威重判）', () => {
     const a = setup();
     const parsed = a.parseMessageItem(msgItem('<div class="right"><div class="text-message">收到</div></div>'));
-    expect(parsed.sender_type).toBe('self');
+    expect(parsed.sender_type).toBe('customer');
   });
 
   it('图片消息（含非头像 img，无文本）→ msg_type=image + media_url', () => {
