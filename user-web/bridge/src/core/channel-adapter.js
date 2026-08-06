@@ -192,13 +192,15 @@ export class BaseAdapter {
   //   - 过滤非 text / 空内容（与 _ingest 一致）
   //   - 统一字段命名（PollingLoop 直接消费）：{ message_id, sender_id, sender_name,
   //     sender_type, text, msg_type, timestamp, is_group, group_id, group_name }
-  //   - 不修改 seenNodes（PollingLoop 自己做去重）
+  //   - 规范 message_id 为稳定 event_id（h:<hash>）+ 稳定键去重（_sentKeys），与
+  //     _handleIncremental/_backfill/_collectUnseenText 共用同一套规则，避免巡检重抓导致重复上行
   //   - 限制 limit（默认 100）防止 OOM
   // ============================================================
   getMessages({ limit = 100 } = {}) {
     const out = [];
     let items = [];
     try { items = this.getMessageItems() || []; } catch (_) { items = []; }
+    const cid = this.getConversationId() || this.conversationId || '';
     for (const item of items) {
       if (out.length >= limit) break;
       if (!item) continue;
@@ -208,6 +210,13 @@ export class BaseAdapter {
       // 与 _ingest 一致：只取文字消息
       if (parsed.msg_type && parsed.msg_type !== 'text') continue;
       if (!parsed.text) continue;
+      // 稳定键去重（跨 DOM 重渲染）：与 _handleIncremental/_backfill/_collectUnseenText 共用
+      // _sentKeys。PollingLoop 每秒巡检、每轮重抓全部可见消息，若不做去重，同一逻辑消息会被反复上行；
+      // 规范 event_id（h:<hash>）让后端按稳定键幂等去重（即便 _sentKeys 过期也能兜底）。
+      const key = this._dedupKey(cid, parsed);
+      if (this._hasSent(key)) continue;
+      parsed.message_id = this._canonicalMsgId(item, cid, parsed);
+      this._markSent(key);
       out.push({
         message_id: parsed.message_id || '',
         sender_id: parsed.sender_id || '',
