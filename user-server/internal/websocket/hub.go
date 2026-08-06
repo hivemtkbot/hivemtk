@@ -86,7 +86,7 @@ func (h *Hub) Run() {
 			logger.GetLogger().Info().Str("agent_id", client.agentID).Msg("agent disconnected")
 
 		case frame := <-h.broadcast:
-			h.mu.RLock()
+			h.mu.Lock()
 			if client, ok := h.clients[frame.agentID]; ok {
 				select {
 				case client.send <- frame.bytes:
@@ -96,11 +96,11 @@ func (h *Hub) Run() {
 					h.agentOnline[frame.agentID] = false
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 
 		case <-ticker.C:
 			// 心跳检测
-			h.mu.RLock()
+			h.mu.Lock()
 			for agentID, client := range h.clients {
 				select {
 				case client.send <- []byte(`{"type":"heartbeat"}`):
@@ -110,7 +110,7 @@ func (h *Hub) Run() {
 					close(client.send)
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 		}
 	}
 }

@@ -227,9 +227,6 @@ func (ctrl *AIAgentController) Create(c *gin.Context) {
 	if !agent.EnableHumanizePolish && !req.EnableHumanizePolish {
 		agent.EnableHumanizePolish = true
 	}
-	if !agent.EnableContentAudit && !req.EnableContentAudit {
-		agent.EnableContentAudit = true
-	}
 	if !agent.EnablePlaybook && !req.EnablePlaybook {
 		agent.EnablePlaybook = true
 	}

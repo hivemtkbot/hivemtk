@@ -131,7 +131,7 @@ type AIAgent struct {
 	EnableRAG            bool `gorm:"default:true" json:"enable_rag"`
 	EnableScriptMatch    bool `gorm:"default:true" json:"enable_script_match"`
 	EnableHumanizePolish bool `gorm:"default:true" json:"enable_humanize_polish"`
-	EnableContentAudit   bool `gorm:"default:true" json:"enable_content_audit"`
+	EnableContentAudit   bool `gorm:"default:false" json:"enable_content_audit"`
 	EnablePlaybook       bool `gorm:"default:true" json:"enable_playbook"`
 	RAGTopK              int  `gorm:"default:3" json:"rag_top_k"`
 

@@ -405,6 +405,9 @@ func (r *WebhookEventRepository) Create(ctx context.Context, event *model.Webhoo
 
 // GetByID 根据 ID 获取 Webhook 事件
 func (r *WebhookEventRepository) GetByID(ctx context.Context, id uint) (*model.WebhookEvent, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var event model.WebhookEvent
 	err := r.db.First(&event, id).Error
 	return &event, err
@@ -412,6 +415,9 @@ func (r *WebhookEventRepository) GetByID(ctx context.Context, id uint) (*model.W
 
 // GetByEventID 根据事件 ID 获取 Webhook 事件
 func (r *WebhookEventRepository) GetByEventID(ctx context.Context, eventID string) (*model.WebhookEvent, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var event model.WebhookEvent
 	err := r.db.Where("event_id = ?", eventID).First(&event).Error
 	return &event, err
@@ -419,6 +425,9 @@ func (r *WebhookEventRepository) GetByEventID(ctx context.Context, eventID strin
 
 // GetUnprocessed 获取未处理的 Webhook 事件
 func (r *WebhookEventRepository) GetUnprocessed(ctx context.Context, platform string, limit int) ([]*model.WebhookEvent, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
 	var events []*model.WebhookEvent
 	err := r.db.Where("platform = ? AND processed = ?", platform, false).
 		Order("created_at ASC").
@@ -429,11 +438,17 @@ func (r *WebhookEventRepository) GetUnprocessed(ctx context.Context, platform st
 
 // Update 更新 Webhook 事件
 func (r *WebhookEventRepository) Update(ctx context.Context, event *model.WebhookEvent) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
 	return r.db.Save(event).Error
 }
 
 // MarkProcessed 标记 Webhook 事件为已处理
 func (r *WebhookEventRepository) MarkProcessed(ctx context.Context, id uint) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
 	now := time.Now()
 	return r.db.Model(&model.WebhookEvent{}).Where("id = ?", id).
 		Updates(map[string]any{

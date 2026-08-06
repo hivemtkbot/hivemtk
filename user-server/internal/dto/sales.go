@@ -167,7 +167,7 @@ func DefaultSalesEngineConfig() *SalesEngineConfig {
 		EnableRAG:            true,
 		EnableScriptMatch:    true,
 		EnableHumanizePolish: true,
-		EnableContentAudit:   true,
+		EnableContentAudit:   false,
 		RAGTopK:              3,
 		Temperature:          0.7,
 		MaxTokens:            800,

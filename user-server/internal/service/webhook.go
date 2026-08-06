@@ -825,7 +825,23 @@ func (s *WebhookService) handleJob(ctx context.Context, job *webhookJob) {
 
 	// 1) 按渠道业务分发（先分发，回填 payload.Content/payload.Sender 等标准化字段，
 	//    供后续统一消息入库与 AI 编排复用，避免嵌套/密文结构导致 content/sender 为空）。
-	hubMsg, tgExtra, _ := s.dispatchToChannel(ctx, channel, job.account, payload, job.raw, job.header)
+	hubMsg, tgExtra, dispatchErr := s.dispatchToChannel(ctx, channel, job.account, payload, job.raw, job.header)
+	if dispatchErr != nil {
+		logger.Errorf("[Webhook] dispatch %s failed event=%s: %v", channel, job.event.EventID, dispatchErr)
+	}
+	// 已知渠道（wecom/whatsapp/telegram/feishu）在收到非消息类事件（飞书 app_ticket、
+	// 企微通讯录事件、WhatsApp 状态推送、TG 系统通知等）时会显式返回 nil hub，表示无需
+	// 入库统一消息或触发 AI。自定义/其他渠道（default）返回 nil 仅表示「仅入统一消息」，
+	// 仍须入库，故此处只对已知渠道做跳过处理，避免产生空内容垃圾统一消息。
+	if hubMsg == nil && dispatchErr == nil {
+		known := channel == ChannelWeCom || channel == ChannelWhatsapp ||
+			channel == ChannelTelegram || channel == ChannelFeishu
+		if known {
+			logger.Infof("[Webhook] skip non-message event channel=%s event=%s", channel, job.event.EventID)
+			s.markProcessed(ctx, job.event)
+			return
+		}
+	}
 
 	// 2) 基础入库（统一消息）：依赖上一步回填的 payload.Content / payload.Sender
 	um := s.ToUnifiedMessage(ctx, channel, job.account, payload)
@@ -1625,7 +1641,7 @@ func (s *WebhookService) markProcessed(ctx context.Context, evt *model.WebhookEv
 	now := time.Now()
 	evt.Processed = true
 	evt.ProcessedAt = &now
-	if s.eventRepo != nil {
+	if s.eventRepo != nil && s.db != nil {
 		_ = s.eventRepo.Update(ctx, evt)
 	}
 }
