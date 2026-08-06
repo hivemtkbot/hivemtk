@@ -39,8 +39,8 @@
 | 统一消息标准 | `internal/model/message_event.go` → `MessageEvent` | 作为 bridge 与中台之间的协议契约 |
 | AI 触发与编排 | `internal/aiagent/agent/runtime` + `SmartCSOrchestrator` | 入站后自动跑，无需 bridge 关心 |
 | 智能体↔渠道绑定 | `internal/service/ai_agent.go` → `ChannelAgentBinding(channel_type, account_id)→agent_id` | bridge 账号注册绑定即可多智能体路由 |
-| 统一触达（出站）接口 | `internal/aiagent/agent/tooluse/reach_tools.go` → `ReachAdapter` 接口 + `IntegrationReachAdapter` | **新增 `BridgeReachAdapter` 包装**，网页渠道回复改走 WebSocket |
-| WebSocket 中枢 | `internal/websocket/hub.go` + `envelope.go` | 参考其 `Hub`/`Envelope` 模式实现 `BridgeHub` |
+| 统一触达（出站）接口 | `internal/aiagent/agent/tooluse/reach_tools.go` → `ReachAdapter` 接口 + `IntegrationReachAdapter` | **新增 `BridgeReachAdapter` 包装**，网页渠道回复改走 HTTP 长轮询（`httpReplyBuffer`） |
+| 回复缓冲（出站） | `internal/bridge/http_reply_buffer.go` | HTTP 模式下 AI 回复入内存缓冲，由下次 `/api/bridge/ingest` 长轮询拉走（取代 WS 中枢） |
 | 渠道标识常量 | `internal/model/message_event.go`：`ChannelDouyin/ChannelXHS/ChannelTikTok` | bridge 复用并新增 `*_web` 变体 |
 
 > 关键结论：**入站天然复用、出站天然有扩展点（ReachAdapter）、智能体绑定天然支持**。bridge 的工程量是"把扩展点接上" + "写 Chrome 扩展"。
@@ -51,29 +51,28 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  浏览器（用户登录了抖音/小红书/TikTok 网页）                                  │
+│  浏览器（用户登录了抖音/小红书/TikTok/闲鱼 网页）                               │
 │                                                                            │
 │  ┌──────────────────── Chrome 扩展 user-web/bridge ────────────────────┐  │
 │  │  content script（每渠道一个）                                         │  │
 │  │   ├─ 监听 DOM 新私信 → 解析为 UnifiedMessage                         │  │
 │  │   ├─ 监听"待发送回复" → 填输入框 + 点发送                            │  │
-│  │   └─ 通过 chrome.runtime 长连接 ↔ background                         │  │
+│  │   └─ 通过 chrome.runtime.connect（长连接 port）↔ background         │  │
 │  │  background service worker                                           │  │
-│  │   ├─ BridgeClient：维护到 user-server 的 WebSocket 长连接            │  │
-│  │   ├─ 上行：UnifiedMessage → 服务器入站                               │  │
-│  │   └─ 下行：AI 回复 → 路由到对应 content script → 发送               │  │
+│  │   ├─ HTTPIngestClient：维护到 user-server 的 HTTP 长轮询            │  │
+│  │   │   （一次 POST /api/bridge/ingest 既上报上行消息，又拉取下行回复）│  │
+│  │   └─ 上行：UnifiedMessage → 服务器入站；响应 outbound_replies → 路由 │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 └───────────────────────────────┬──────────────────────────────────────────┘
-                                 │  WSS  /api/ws/bridge  (JWT 鉴权 + channel+account 注册)
+                                 │  HTTP POST /api/bridge/ingest  (InitGuard 仅初始化校验；channel+account 自证身份)
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  user-server                                                              │
 │                                                                            │
-│  BridgeHandler (新增)                                                      │
-│   ├─ 鉴权（复用 JWT 中间件）                                              │
-│   ├─ 维护 BridgeHub： (channel, account_id) → WS Client                   │
-│   ├─ 收上行 inbound_message → InboxIngressService.HandleIngressMessage()  │
-│   └─ 提供 BridgeHub.Deliver(channel, account, reply)                      │
+│  BridgeIngestHandler (POST /api/bridge/ingest) (新增)                     │
+│   ├─ 仅过 InitGuard（不过 JWT；私有化部署单用户）                         │
+│   ├─ 收上行 messages[] → InboxIngressService.HandleIngressMessage()       │
+│   └─ 从 httpReplyBuffer 拉该会话待下发 reply → 随响应返回                 │
 │                                                                            │
 │  InboxIngressService（现有）──► AgentRuntime ──► SmartCSOrchestrator       │
 │                                              │                            │
@@ -83,16 +82,16 @@
 │                          ┌─────────────┴──────────────┐                  │
 │                          ▼                            ▼                  │
 │               IntegrationReachAdapter        BridgeReachAdapter（新增）  │
-│               （官方 API 渠道）               （网页渠道 → BridgeHub WS）  │
+│               （官方 API 渠道）   （网页渠道 → 入 httpReplyBuffer，        │
 │                                                          │               │
 └──────────────────────────────────────────────────────────┼──────────────┘
-                                                            │  WSS 下行 AI 回复
+                                                            │  HTTP 响应下行 AI 回复
                                                             ▼
                                                    Chrome 扩展 background → content script → 网页发送
 ```
 
 一句话数据流：
-**网页私信 → content script → background → WS 上行 → InboxIngressService → AI 智能体 → ReachAdapter → BridgeReachAdapter → BridgeHub → WS 下行 → background → content script → 网页发送。**
+**网页私信 → content script → background → HTTP 上行 → InboxIngressService → AI 智能体 → ReachAdapter → BridgeReachAdapter → 入 httpReplyBuffer → 下次 /api/bridge/ingest 响应拉回 → background → content script → 网页发送。**
 
 ---
 
@@ -101,7 +100,7 @@
 各平台私信结构不同，bridge 在 content script 层就把它们**规范化为统一消息**，后续链路只认统一消息。
 
 ```ts
-// user-web/bridge/core/types.ts
+// user-web/bridge/core/types.js
 export type BridgeChannel = 'douyin_web' | 'xhs_web' | 'tiktok_web';
 
 export interface UnifiedMessage {
@@ -130,40 +129,36 @@ export interface UnifiedMessage {
 
 ```
 internal/bridge/
-  hub.go            // BridgeHub：(channel, account_id) -> *BridgeClient
-  hub_test.go
-  handler.go        // BridgeWSHandler：升级 WS、鉴权、注册、帧路由
-  handler_test.go
-  frames.go         // 协议帧定义（上行/下行 JSON）
-  reach_adapter.go  // BridgeReachAdapter：实现 ReachAdapter，网页渠道走 WS
+  handler_http.go       // BridgeIngestHandler：POST /api/bridge/ingest（InitGuard 校验 + 入站 + 拉 httpReplyBuffer）
+  handler_http_test.go
+  http_reply_buffer.go  // 内存 reply 缓冲（FIFO 256/渠道），供 ingest 长轮询拉取
+  http_reply_buffer_test.go
+  reach_adapter.go       // BridgeReachAdapter：网页渠道 AI 回复入 httpReplyBuffer（不再维护 WS）
   reach_adapter_test.go
+  frames.go              // UnifiedMessage / UnifiedReply / Frame 结构（仅数据模型，传输已改 HTTP）
+  channel.go             // 网页桥接渠道常量 douyin_web/xhs_web/tiktok_web（及 xianyu 等）+ 与基础渠道映射
+  account.go / account_repo.go  // 桥接账号 CRUD + IsOnline（基于 last_sync_at，非 WS 内存态）
+  ai_selector.go         // 服务端选择器抽取（已弃用：AISelectors 返回 enabled=false）
 ```
 
-### 4.2 BridgeHub（参考 `websocket/hub.go` 模式，但按 channel+account 索引）
+### 4.2 在线判定与回复缓冲（HTTP 模式下不再维护 WS 内存态）
 
-- key：`channel + ":" + account_id`（如 `douyin_web:abc123`）。
-- 一个账号同时只持有一条活跃连接（后连顶掉前连，避免双发）。
-- 方法：
-  - `Register(key, client)` / `Unregister(key)`
-  - `Deliver(channel, accountID, payload) error`：找到 client 推送；不在线则返回 `ErrBridgeOffline`（调用方记录并提示"扩展未连接"）。
-  - `IsOnline(channel, accountID) bool`（供 UI/健康检查）。
-- 心跳：服务端 30s 发 `{type:"ping"}`，扩展回 `{type:"pong"}`；超时剔除。
+- **在线判定**：账号在线状态由 DB 字段 `last_sync_at` 判定（`BridgeAccountRepo.IsOnline`，30s 宽限期 `OnlineGraceWindow`），不再依赖 WS 长连接内存状态。
+- **回复缓冲**：`httpReplyBuffer`（内存 FIFO，单渠道上限 256 条）保存待下发 AI 回复；扩展下次同 `(channel, account, conversation)` 的 `/api/bridge/ingest` 请求从 buffer 拉走（命中即返回，空则短超时后重试/返回空）。
+- 无 WebSocket、无 `BridgeHub`、无心跳帧；扩展天然"离线也能收回复"（回复先入缓冲，连接恢复即拉走）。
 
-### 4.3 BridgeWSHandler（端点 `GET /api/ws/bridge`）
+### 4.3 BridgeIngestHandler（端点 `POST /api/bridge/ingest`）
 
-1. JWT 鉴权（复用现有 auth 中间件 / 与 `/api/ws/agent` 同款）。
-2. 升级 WebSocket。
-3. 首帧必须是 `register`：`{type:"register", channel, account_id}`；校验通过后 BridgeHub.Register。
-4. 之后两类帧：
-   - 上行 `inbound_message`：→ 映射为 `model.MessageEvent` → `InboxIngressService.HandleIngressMessage(ctx, event)`。
-   - 上行 `pong` / `ack`：保活 / 下发确认。
-5. 下行：由 BridgeHub 主动 push（见 4.5）。
+1. 仅过 `InitGuard`（系统须已初始化）；不过 `JWTAuthMiddleware`——账号以 `channel` + `account_id`（请求体/query 自证身份），私有化部署单用户场景无需 token。
+2. 请求体为批量消息：`{ v, channel, account_id, conversation_id, messages:[...], expect_reply, timeout_ms }`；每条 message 映射为 `model.MessageEvent` → `InboxIngressService.HandleIngressMessage(ctx, event)`（自/他判定已移交后端，前端统一填 `sender_type="customer"`，仅 system/recall 前端识别）。
+3. 处理完成后，从 `httpReplyBuffer` 拉取该 `(channel, account, conversation)` 的待下发 reply，随 HTTP 响应 `outbound_replies:[...]` 返回；扩展端 `content/common.js` 的 `PollingLoop` 收到后 `dispatchOutbound` 回写网页发送。
+4. 扩展端用"一次请求既上报上行、又拉取下行"的长轮询语义：请求带 `expect_reply` 时服务端最多阻塞 `timeout_ms` 等待 AI 回复（轮询 `httpReplyBuffer`）；未触发 AI 时立即返回。
 
-> 为什么用 WebSocket 而非"扩展轮询出站"？轮询引入延迟且浪费请求；长连接能秒级下发，且扩展天然知道"账号是否在线"，便于 UI 显示连接状态。WebSocket 也与项目现有 `/api/ws/agent`、`/api/ws/visitor` 一致。
+> 为什么用 HTTP 长轮询而非 WebSocket？2026-08-05 架构重构（用户诉求）：去掉 WS 长连接后，扩展无需维持在线内存态、无需心跳，`BridgeReachAdapter` 直接把 AI 回复入 `httpReplyBuffer`，连接恢复即拉走，离线不丢回复；部署也更简单（无 WS 升级/代理兼容问题）。
 
 ### 4.4 入站接线（零改动中台）
 
-`BridgeWSHandler` 收到 `inbound_message` 后：
+`BridgeIngestHandler` 收到 `messages[]` 后（每条消息映射）：
 
 ```go
 event := &model.MessageEvent{
@@ -191,33 +186,31 @@ ingress.HandleIngressMessage(ctx, event)
 
 ```go
 type BridgeReachAdapter struct {
-    inner     *tooluse.IntegrationReachAdapter   // 非网页渠道委托
-    hub       *BridgeHub
+    inner           *tooluse.IntegrationReachAdapter   // 非网页渠道委托
+    httpReplyBuffer *httpReplyBuffer                    // 网页渠道 AI 回复缓冲
 }
 
 func (a *BridgeReachAdapter) Send(ctx, req *service.ReachSendRequest) (string, error) {
-    if isBridgeChannel(req.Channel) {   // douyin_web / xhs_web / tiktok_web
-        payload := buildOutbound(req)   // UnifiedReply
-        if err := a.hub.Deliver(req.Channel, req.AccountID, payload); err != nil {
-            return "", err               // 扩展离线 → 返回错误，由上层提示
-        }
+    if isBridgeChannel(req.Channel) {   // douyin_web / xhs_web / tiktok_web / xianyu_web ...
+        payload := buildOutbound(req)   // *UnifiedReply
+        a.httpReplyBuffer.Push(payload) // 入缓冲，等下次 /api/bridge/ingest 长轮询拉走
         return "bridge:" + req.Channel + ":" + req.AccountID, nil
     }
     return a.inner.Send(ctx, req)        // 其它渠道原样委托
 }
 ```
 
-接线点（两处，参考 `router/sales_engine_factory.go:140` 与 `router/tool_provider_wiring.go:55`）：
-- `registerAgentReachTools` 用 `NewBridgeReachAdapter(IntegrationReachAdapter, bridgeHub)` 替代直接 `IntegrationReachAdapter`。
-- `ReachToolProvider.Provide` 同理替换。
+接线点（两处，参考 `router/sales_engine_factory.go:140` 与 `router/tool_provider_wiring.go:55`，以及 `bridge_account_controller.go` / `WebhookService.sendOutbound` 的 `RegisterBridgeOutbound` 回调）：
+- `registerAgentReachTools` 用 `NewBridgeReachAdapter(IntegrationReachAdapter)`（内部持有 `httpReplyBuffer`）替代直接 `IntegrationReachAdapter`。
+- `ReachToolProvider.Provide` 同理替换；`SendManual` 等手动回复路径经 `EnqueueReply` 直接入 `httpReplyBuffer`。
 
-> 这样 AI 智能体的 `reach.web.send` 等工具在"网页渠道"下自动改走 WS，对编排层完全透明。
+> 这样 AI 智能体的 `reach.web.send` 等工具在"网页渠道"下自动改走 HTTP 缓冲，对编排层完全透明；无 WS、无在线依赖。
 
 ### 4.6 渠道标识与智能体绑定
 
 - 新增常量（在 `model/message_event.go` 或 `bridge` 包内）：`ChannelDouyinWeb = "douyin_web"`、`ChannelXHSWeb = "xhs_web"`、`ChannelTikTokWeb = "tiktok_web"`。
 - 在 `channel_agent_bindings` 表注册：`(channel_type='douyin_web', account_id='<扩展账号>', agent_id=<某智能体>)`。`AgentRuntime.LoadAgentContext` 已按 `(channel, account)` 查找，**无需改 runtime**。
-- `account_id` 由扩展在 `register` 时上报（content script 从页面抓取本账号主页标识派生），保证"同一人多个浏览器/账号"互不串号。
+- `account_id` 由扩展在 ingest 请求体上报（content script 从页面抓取本账号主页标识派生），保证"同一人多个浏览器/账号"互不串号。
 
 ---
 
@@ -229,7 +222,7 @@ func (a *BridgeReachAdapter) Send(ctx, req *service.ReachSendRequest) (string, e
 2. **渠道内保持抽象，便于扩展评论/回关等**：每个渠道实现统一接口 `ChannelAdapter`：
 
 ```ts
-// user-web/bridge/core/channel-adapter.ts
+// user-web/bridge/core/channel-adapter.js
 export interface ChannelAdapter {
   readonly channel: BridgeChannel;
   /** 启动监听：新私信 → onInbound(UnifiedMessage) */
@@ -245,7 +238,7 @@ export interface ChannelAdapter {
 
 > 未来要支持"评论回复/自动回关"，只需在 `ChannelAdapter` 加方法（如 `autoFollow(uid)`、`replyComment(cid, text)`），上层调度不变——满足需求"将来扩展 评论、回关等"。
 
-3. **桥接职责单一**：background service worker 只负责 WS 长连接与路由；content script 只负责 DOM 操作。两者通过 `chrome.runtime.connect`（长连接 port）通信。
+3. **桥接职责单一**：background service worker 只负责 HTTP 长轮询与路由；content script 只负责 DOM 操作。两者通过 `chrome.runtime.connect`（长连接 port）通信。
 
 ### 5.2 目录结构（user-web/bridge）
 
@@ -254,31 +247,35 @@ user-web/bridge/
   bridge.md                      // 本文档
   manifest.json                  // MV3 扩展声明
   package.json
-  vite.config.ts                 // 多入口打包：background / content-<channel> / popup
-  tsconfig.json
+  vite.config.js                 // 仅 vitest 用（构建不走 vite）
+  scripts/build.mjs              // esbuild 逐入口独立 IIFE 打包（MV3 content script 不能 ES module）
   src/
     core/
-      types.ts                   // UnifiedMessage / UnifiedReply / 帧类型
-      channel-adapter.ts         // ChannelAdapter 抽象接口
-      bridge-client.ts           // WS 客户端（重连/心跳/帧编解码），复用 user-web/utils 的鉴权逻辑
-      logger.ts                  // 频道着色 + 敏感字段脱敏
-      sanitize.ts                // XSS 防护（escapeHTML / safeSetContent / sanitizeForDisplay）
+      types.js                   // UnifiedMessage / UnifiedReply 数据模型
+      channel-adapter.js         // ChannelAdapter 抽象：MutationObserver/去重/统一消息/回写发送
+      http-ingest.js             // HTTP 长轮询客户端（POST /api/bridge/ingest，上报上行+拉下行）
+      polling-loop.js            // 长轮询循环（带超时/退避）
+      dom.js                     // DOM 工具
+      logger.js                  // 频道着色 + 敏感字段脱敏
+      sanitize.js                // XSS 防护（escapeHTML / safeSetContent / sanitizeForDisplay）
       fallback.js                // account_id fallback 派生（自/他判定已移交后端）
-      rate-limiter.ts            // 拟人节奏 + 令牌桶 + 会话冷却 + 去重
+      rate-limiter.js            // 拟人节奏 + 令牌桶 + 会话冷却 + 去重
+      selector-ai.js             // 服务端选择器抽取的前端沙箱执行（DOM 快照）
+      selector-engine.js         // 选择器引擎
     channels/
-      douyin/index.ts            // DouyinAdapter（复用 DY-auto 选择器与收发）
-      douyin/selectors.ts        // 私信列表/输入框/发送按钮 DOM 选择器（来自 DY-auto）
-      xhs/index.ts               // XHSAdapter（复用 XHS-YYDS messageDetector/autoReply）
-      xhs/selectors.ts
-      tiktok/index.ts            // TiktokAdapter（复用 tiktok-auto-plugin）
-      tiktok/selectors.ts
+      douyin.js                  // DouyinAdapter（复用 DY-auto 选择器与收发，selector 内联）
+      xhs.js                     // XHSAdapter（复用 XHS-YYDS）
+      tiktok.js                  // TiktokAdapter（复用 tiktok-auto-plugin）
+      xianyu.js                  // XianyuAdapter
     background/
-      index.ts                   // service worker：WS 连接 + port 路由 + 注册
-      registry.ts                // (channel,account) 连接状态
+      index.js                   // service worker：HTTP 长轮询 + port 路由
+      injector.js                // content script 注入
     popup/
       index.html                 // 状态横幅 + 错误提示 + 测试连接按钮
-      index.js                   // save / testConnection / refreshStatus / selfCheck
-    content-loaders.ts           // 各渠道 content script 入口（按 match 注入）
+      index.js                   // 后端地址配置 / 连接状态 / selfCheck
+    content/
+      common.js                  // 公共 content script 逻辑（PollingLoop / dispatchOutbound / 解析）
+      douyin.js · xhs.js · tiktok.js · xianyu.js   // 各渠道 content script 入口
 ```
 
 ### 5.2.1 Popup 状态横幅（v1.1）
@@ -301,7 +298,7 @@ user-web/bridge/
 
 **项目硬约束**：禁止"软启动"（默认值兜底为空）、禁止多处硬编码。
 
-所有默认值集中在 `src/core/constants.js`（前端）+ `handler.go` / `hub.go`（后端），
+所有默认值集中在 `src/core/constants.js`（前端）+ `handler_http.go` / `http_reply_buffer.go`（后端），
 文档源在 [`docs/DEFAULTS.md`](./docs/DEFAULTS.md)。每个常量都标注：
   - 字段名 + 默认值
   - 文档源（DEVELOPMENT.md / Dockerfile / config.yaml / 经验值）
@@ -309,23 +306,20 @@ user-web/bridge/
 
 测试覆盖：
   - `test/constants.test.js`（24 用例：值、范围、冻结、对齐、文档源完整性）
-  - `internal/bridge/defaults_test.go`（5 子测试：WS 常量、Hub 常量、Client/Server 对齐、非软启动、WS 端点路径）
+  - `internal/bridge/defaults_test.go`（5 子测试：HTTP 常量、缓冲常量、Client/Server 对齐、非软启动、ingest 端点路径）
 
 调整流程见 `docs/DEFAULTS.md` §3。
 
-### 5.3 扩展 ↔ 服务器 协议帧（JSON over WS）
+### 5.3 扩展 ↔ 服务器 协议（HTTP 长轮询）
 
-上行（扩展→服务器）：
-- `register`：`{type:"register", channel, account_id, token?}`
-- `inbound_message`：`{type:"inbound_message", message: UnifiedMessage}`
-- `pong` / `ack`：`{type:"ack", seq}`
+请求（扩展→服务器，`POST /api/bridge/ingest`）：
+- 批量消息体：`{v, channel, account_id, conversation_id, messages:[UnifiedMessage...], expect_reply, timeout_ms}`；`account_id` 直接随请求体上报（无需 `register` 帧）。
+- 一次请求既上报上行消息，又携带 `expect_reply` 长轮询等待 AI 回复。
 
-下行（服务器→扩展）：
-- `pong`：`{type:"pong"}`
-- `outbound_reply`：`{type:"outbound_reply", reply: UnifiedReply}` → background 路由到对应 content script 调 `sendOutbound`
-- `config_push`：`{type:"config_push", ...}`（可选：服务器下发的账号/智能体配置）
+响应（服务器→扩展）：
+- `outbound_replies`：`{outbound_replies:[UnifiedReply...]}` → background 路由到对应 content script 调 `sendOutbound`（从 `httpReplyBuffer` 拉取该会话待下发回复）。
 
-`UnifiedReply`：
+`UnifiedReply`（HTTP 响应载荷）：
 ```ts
 export interface UnifiedReply {
   channel: BridgeChannel;
@@ -340,8 +334,8 @@ export interface UnifiedReply {
 
 ### 5.4 重连与离线兜底
 
-- `bridge-client.ts` 断线指数退避重连（1s→30s 封顶），重连后重新 `register`。
-- 若 AI 回复产生时扩展离线：`BridgeHub.Deliver` 返回 `ErrBridgeOffline`，服务端记录"待投递"并提示坐席/用户在扩展重连后补发（MVP 可先记日志+UI 提示，后续做离线队列）。
+- `http-ingest.js` / `polling-loop.js` 长轮询循环：扩展离线时请求自然失败重试（指数退避 1s→30s 封顶），重连后下次 `/api/bridge/ingest` 即从 `httpReplyBuffer` 拉回积压回复。
+- 若 AI 回复产生时扩展离线：reply 已入 `httpReplyBuffer`（FIFO 256/渠道，超出淘汰最早），扩展下次 `/api/bridge/ingest` 长轮询拉走即可，无需在线、不丢回复。
 
 ---
 
@@ -354,12 +348,12 @@ export interface UnifiedReply {
   → content script 监听到新 DOM 节点（DouyinAdapter 等）
   → 解析为 UnifiedMessage
   → chrome.runtime port.send → background
-  → BridgeClient WS 上行 inbound_message
-  → BridgeWSHandler → InboxIngressService.HandleIngressMessage
+  → HTTPIngestClient POST /api/bridge/ingest 上报 messages[]
+  → BridgeIngestHandler → InboxIngressService.HandleIngressMessage
   → 落 message_hub + 通知 AgentRuntime
   → SmartCSOrchestrator 调 LLM → 生成回复
   → ReachAdapter.Send(req)
-  → BridgeReachAdapter.Deliver → BridgeHub → WS 下行 outbound_reply
+  → BridgeReachAdapter.Push 入 httpReplyBuffer → 随下次 /api/bridge/ingest 响应 outbound_replies 拉回
   → background 路由到对应 content script
   → adapter.sendOutbound：填输入框 + 点发送
   → 网页私信框出现 AI 回复
@@ -367,7 +361,7 @@ export interface UnifiedReply {
 
 ### 6.2 出站（AI 回复 → 网页发送）
 
-见 6.1 末段；重点：回复通过**同一条 WS 长连接**下行，content script 在已打开的会话里注入并发送，无需重新打开对话。
+见 6.1 末段；重点：回复经 `httpReplyBuffer` 由扩展下次 `/api/bridge/ingest` 长轮询拉回，content script 在已打开的会话里注入并发送，无需重新打开对话。
 
 ---
 
@@ -382,12 +376,12 @@ export interface UnifiedReply {
 | `ChannelAgentBinding` | `internal/service/ai_agent.go` | 渠道↔智能体绑定 |
 | `ReachAdapter` 接口 | `internal/aiagent/agent/tooluse/reach_tools.go:44` | 出站扩展点 |
 | `IntegrationReachAdapter` | `internal/aiagent/agent/tooluse/reach_integration_adapter.go` | 非网页渠道委托 |
-| `Hub` / `Envelope` 模式 | `internal/websocket/hub.go`、`envelope.go` | BridgeHub 参考实现 |
-| JWT 鉴权中间件 | 同 `/api/ws/agent` 接线 | WS 鉴权 |
+| `httpReplyBuffer`（自实现） | `internal/bridge/http_reply_buffer.go` | AI 回复内存缓冲，ingest 长轮询拉取（取代 WS Hub 模式） |
+| 鉴权（InitGuard） | `POST /api/bridge/ingest` 仅 InitGuard | 私有部署单用户，无 JWT |
 
 ### 7.2 复用三个开源插件（选择器 + 收发逻辑）
 
-> 已克隆至 `.research/`，下为各项目"私信主线"可复用文件（需改写为 TS + 适配 MV3 且合规）：
+> 已克隆至 `.research/`，下为各项目"私信主线"可复用文件（需改写为 JS + 适配 MV3 且合规）：
 
 **XHS-YYDS（小红书）** `.research/XHS-YYDS`
 - `content.js` / `messageDetector.js`：私信列表与消息节点的 DOM 监听与解析（消息内容、对方 ID）。
@@ -396,7 +390,7 @@ export interface UnifiedReply {
 
 **DY-auto（抖音）** `.research/DY-auto`
 - content script 中"私信"相关模块：新消息轮询/ MutationObserver、对话定位、输入框填充与发送。
-- 复用点：DouyinAdapter 的 selectors.ts 与发送流程。
+- 复用点：DouyinAdapter 的 selectors（内联于 `channels/douyin.js`）与发送流程。
 
 **tiktok-auto-plugin（TikTok）** `.research/tiktok-auto-plugin`
 - `src/content/`（或等价）中 business inbox 监听与发送逻辑；background ↔ content 的 `chrome.runtime` 长连接写法（可作为 bridge 通信范式参考）。
@@ -429,36 +423,36 @@ export interface UnifiedReply {
 - **结论**：采用桥接，同时把"扩展离线"作为一等公民处理（Q6）。
 
 ### Q2. 入站用 HTTP webhook 还是 WebSocket 上行？
-- **论证**：现有 `WebhookService.Receive` 走 HTTP + HMAC 验签，但扩展在浏览器里持有 JWT 更自然；且**出站本来就需要 WS**，用同一条 WS 上行入站可减少连接数、统一协议、避免 HMAC 密钥在扩展侧管理。
-- **备选**：扩展用 HTTP POST 到 `/api/bridge/webhook`（JWT Bearer）。
-- **结论**：MVP 用 **WS 上行**（与下行同连接）；保留 HTTP 入口作为后续可选，便于无头/服务端脚本复用。
+- **论证**：现有 `WebhookService.Receive` 走 HTTP + HMAC 验签；桥接扩展采用**纯 HTTP 长轮询**（`POST /api/bridge/ingest`，仅 InitGuard 校验、账号随请求体自证），一次请求既上报上行、又长轮询拉取下行，无需 WS 长连接/心跳/在线内存态，部署更简单（无 WS 升级/代理兼容问题）。
+- **备选**：WS 长连接（已废弃，见 §4.3）；另可选 HTTP 入口供无头/服务端脚本复用。
+- **结论**：采用 **HTTP 长轮询**；出站回复入 `httpReplyBuffer`，连接恢复即拉走，离线不丢回复。
 
 ### Q3. 出站回复如果扩展刚好离线怎么办？
 - **风险**：AI 已生成回复，但客户网页关闭/扩展崩溃 → 消息丢失。
-- **方案**：`BridgeHub.Deliver` 失败 → 服务端记 `message_hub`（direction=outbound, status=failed）+ 通知坐席 UI；扩展重连后，可主动拉取"未投递回复"补发（MVP 先做失败记录+提示，离线队列作为 v1.1）。
-- **结论**：先 fail-fast + 可观测，再补离线队列。
+- **方案**：AI 回复不入 WS（无 WS），直接入 `httpReplyBuffer`（FIFO 256/渠道）；扩展下次 `/api/bridge/ingest` 长轮询即拉走，天然"离线不丢回复"，无需 fail-fast/重投。缓冲满则淘汰最早（可观测告警）。
+- **结论**：缓冲即离线队列，开箱可用。
 
 ### Q4. 多账号 / 多浏览器如何隔离，避免串号或错绑智能体？
 - **风险**：同一人两个抖音号，或两台电脑同时登录同一账号。
-- **方案**：`account_id` 由扩展从页面本账号主页派生（稳定且唯一）；`BridgeHub` 同 key 后连顶前连，保证一个账号一条活跃连接；绑定表按 `(channel, account_id)` 精确匹配。
-- **结论**：账号维度隔离，连接抢占保证单活。
+- **方案**：`account_id` 由扩展从页面本账号主页派生（稳定且唯一）；绑定表按 `(channel, account_id)` 精确匹配，reply 仅路由到对应 `(channel, account, conversation)` 的缓冲；无"连接抢占"概念（HTTP 无长连接态）。
+- **结论**：账号维度隔离，缓冲路由精确匹配。
 
 ### Q5. 消息幂等 / 重复处理如何防？
-- **风险**：平台 DOM 重复触发、WS 重连重发、AI 重试。
-- **方案**：`event_id` 全程透传；`InboxIngressService` 已有幂等（MessageEvent.EventID）+ AI 锁；出站 `BridgeReachAdapter` 复用 `agent_runtime.ClaimReply(eventID)` 幂等守卫（见 `webhook.go:1824`），同一回复只下发一次。
+- **风险**：平台 DOM 重复触发、HTTP 重发、AI 重试。
+- **方案**：`event_id` 全程透传；`InboxIngressService` 已有幂等（MessageEvent.EventID）+ AI 锁；出站 `BridgeReachAdapter` 复用 `agent_runtime.ClaimReply(eventID)` 幂等守卫（见 `webhook.go:1824`），同一回复只入缓冲一次。
 - **结论**：沿用现有双幂等守卫，bridge 不另造。
 
 ### Q6. content script 监听 DOM 的稳定性（三个平台页面经常改版）？
 - **风险**：平台改版导致选择器失效，私信漏收/漏发。
 - **方案**：
-  - 选择器集中到 `channels/*/selectors.ts`，便于改版快速修。
+  - 选择器内联到 `channels/*.js`，便于改版快速修。
   - 用 MutationObserver + 文本特征（如"对方正在输入"、消息气泡结构）双重判定，降低单一选择器脆弱性。
   - 加"自检"：扩展 popup 显示"已识别私信会话 N 个"，便于用户发现异常。
 - **结论**：集中+健壮监听+可观测，接受"需随平台维护"的固有成本。
 
 ### Q7. 安全：扩展能连上服务器、且只能动自己账号的私信？
-- **方案**：WS 用 JWT（与现有 agent/visitor 同套）；`account_id` 在 `register` 时服务端校验属于当前用户（绑定表归属）；下行只推给 `BridgeHub` 中该 `(channel, account)` 的连接，天然隔离。
-- **结论**：复用 JWT + 绑定归属校验，安全边界清晰。
+- **方案**：`POST /api/bridge/ingest` 仅过 `InitGuard`（私有化部署单用户，无 JWT）；`account_id` 服务端校验属于当前用户（绑定表归属）；reply 仅入对应 `(channel, account, conversation)` 的 `httpReplyBuffer`，天然隔离。
+- **结论**：InitGuard + 绑定归属校验，安全边界清晰。
 
 ### Q8. 是否会与现有 API 渠道（douyin/xhs/tiktok）冲突？
 - **方案**：bridge 用 `*_web` 渠道类型，与 API 渠道类型不同；`sendOutbound`/`ReachAdapter` 按渠道区分，互不影响。现有 API 渠道保持不变。
@@ -469,16 +463,16 @@ export interface UnifiedReply {
 - **结论**：抽象到位，扩展成本低。
 
 ### Q10. 性能 / 连接数？
-- **方案**：每个扩展一条 WS；`BridgeHub` 用 map 索引，O(1) 路由；心跳 30s 保活。规模在"单商户数十账号"内无压力（与现有 visitor WS 同量级）。
+- **方案**：扩展按会话发起 HTTP 长轮询（无长连接态、无 map 索引、无心跳）；`httpReplyBuffer` 按 `(channel, account, conversation)` O(1) 路由；规模在"单商户数十账号"内无压力。
 - **结论**：可接受。
 
 ---
 
 ## 10. 实施里程碑
 
-1. **M1 服务端骨架**：`internal/bridge`（hub/handler/frames）+ `GET /api/ws/bridge` 接线 + 路由注册。入站打通（调 InboxIngressService）。
+1. **M1 服务端骨架**：`internal/bridge`（`handler_http`/`http_reply_buffer`/`reach_adapter`/`frames`）+ `POST /api/bridge/ingest` 接线 + 路由注册。入站打通（调 InboxIngressService）。
 2. **M2 出站扩展点**：`BridgeReachAdapter` + `registerAgentReachTools`/`Provide` 接线；`*_web` 常量与绑定表写入。
-3. **M3 Chrome 扩展骨架**：manifest + background(WS) + popup + `bridge-client.ts` + 一个渠道（先 XHS，逻辑最清晰）跑通端到端。
+3. **M3 Chrome 扩展骨架**：manifest + background(HTTP 长轮询) + popup + `http-ingest.js`/`polling-loop.js` + 一个渠道（先 XHS，逻辑最清晰）跑通端到端。
 4. **M4 三渠道补齐**：DouyinAdapter / TiktokAdapter（复用开源选择器与收发）。
 5. **M5 UI 与配置**：`user-web` 渠道卡片加"网页桥接"开关 + 绑定写入；连接状态展示。
 6. **M6 健壮性**：重连、离线兜底、幂等验证、日志与可观测。
@@ -488,11 +482,11 @@ export interface UnifiedReply {
 ## 11. 测试策略
 
 - **服务端单测**：
-  - `BridgeHub`：注册/抢占/离线 `Deliver` 返回 `ErrBridgeOffline`（`hub_test.go`）。
-  - `BridgeReachAdapter`：bridge 渠道走 hub、非 bridge 渠道委托 inner（`reach_adapter_test.go`）。
-  - `BridgeWSHandler`：register 帧 → 入站被调用；inbound 帧映射正确（`handler_test.go`，用 `httptest` + `gorilla/websocket` Dial）。
+  - `httpReplyBuffer`：Push/Pull 匹配、`conversation_id` 不匹配放回、FIFO 容量上限、超时返回（`http_reply_buffer_test.go`）。
+  - `BridgeReachAdapter`：bridge 渠道入 `httpReplyBuffer`、非 bridge 渠道委托 inner（`reach_adapter_test.go`）。
+  - `BridgeIngestHandler`：`POST /api/bridge/ingest` → 入站被调用；`messages[]` 映射正确、响应携带 `outbound_replies`（`handler_http_test.go`，`httptest`）。
 - **扩展单测**（Vitest）：
-  - `bridge-client.ts` 帧编解码、重连退避。
+  - `http-ingest.js` / `polling-loop.js` 长轮询循环、超时退避、下行 reply 拉取。
   - 各 `ChannelAdapter` 的 `sendOutbound` 在 jsdom 中正确填值并触发发送（mock DOM）。
 - **E2E（手动）**：XHS 网页登录 → 用另一账号发私信 → 观察 AI 回复出现于发送框并发送；断开扩展观察失败提示。
 
@@ -510,7 +504,7 @@ export interface UnifiedReply {
 
 ## 13. 一句话总结（需求 6）
 
-**`user-web/bridge` 是一个 Manifest V3 Chrome 扩展 + `user-server/internal/bridge` 服务端模块的组合：扩展按渠道（抖音/小红书/TikTok）抽象监听并回写网页私信，经统一消息模型通过 WebSocket 桥接到 `user-server` 的 AI 智能体，实现"网页私信 ↔ AI 客服"的实时双向打通。**
+**`user-web/bridge` 是一个 Manifest V3 Chrome 扩展 + `user-server/internal/bridge` 服务端模块的组合：扩展按渠道（抖音/小红书/TikTok/闲鱼）抽象监听并回写网页私信，经统一消息模型通过 HTTP 长轮询（`POST /api/bridge/ingest`，仅 InitGuard 校验）桥接到 `user-server` 的 AI 智能体，实现"网页私信 ↔ AI 客服"的实时双向打通（回复入 `httpReplyBuffer`，下次轮询拉回，离线不丢）。**
 
 ---
 
@@ -518,17 +512,19 @@ export interface UnifiedReply {
 
 > 在第 9 节 10 个角度论证基础上，进一步核对服务端接线事实，给出可直接落地的"接线坐标"，消除第 5 步歧义。
 
-### 14.1 服务端 WS 端点注册（精确位置）
+### 14.1 服务端桥接端点注册（精确位置）
 
-- 坐席 WS：`internal/router/service_routes.go:81` → `auth.GET("/ws/agent", wsHandler.HandleWebSocket)`（已套 JWT 中间件组 `auth`）。
-- 访客 WS：`internal/router/chat_routes.go:67` → `r.GET("/api/ws/visitor", visitorWS.HandleVisitorWebSocket)`（公开，按 `session_id` 鉴权）。
-- **bridge WS 接线**：在 `service_routes.go` 的 `auth` 组内新增 `auth.GET("/ws/bridge", bridgeHandler.HandleWebSocket)`。`bridgeHandler` 由 `bridge.NewBridgeWSHandler(bridge.GetBridgeHub(), ingressSvc)` 构造，依赖注入同既有 handler。
+- 坐席 WS：`internal/router/service_routes.go:81` → `auth.GET("/ws/agent", wsHandler.HandleWebSocket)`（已套 JWT 中间件组 `auth`，与 bridge 无关）。
+- 访客 WS：`internal/router/chat_routes.go:67` → `r.GET("/api/ws/visitor", visitorWS.HandleVisitorWebSocket)`（公开，按 `session_id` 鉴权，与 bridge 无关）。
+- **bridge 端点（HTTP 长轮询）**：在 `service_routes.go` 用独立 `bridgeWS` 路由组注册 `bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)`（**仅 `InitGuard`**，不过 `auth` 组）；`bridgeHandler` 由 `bridge.NewBridgeIngestHandler(ingressSvc, httpReplyBuffer)` 构造。
 
-### 14.2 WS 鉴权约定（与现有一致）
+> 注意：bridge 与既有 `/ws/agent`、`/ws/visitor` 完全解耦（后者是 WS，bridge 是 HTTP 长轮询），互不影响。
 
-- 现有 `/api/ws/agent` 在私有部署下**不做 token 鉴权**，仅以 query `agent_id` 路由身份（`handler.go:66` 注释明确）。
-- bridge 沿用同约定：`GET /api/ws/bridge?channel=douyin_web&account_id=xxx`。身份由首帧 `register` 二次确认；授权边界由 `channel_agent_bindings` 归属校验（账号须属于当前部署用户）。
-- 强化部署（如需）：扩展连接时从 `user-web` 鉴权态取 JWT 作为 query/header，bridge handler 调现有 JWT 解析中间件校验。
+### 14.2 鉴权约定（HTTP 长轮询，仅 InitGuard）
+
+- `POST /api/bridge/ingest` 仅过 `InitGuard`（系统须已初始化），**不过 JWT**：私有化部署单用户场景，账号以请求体 `channel` + `account_id` 自证身份，无需在 popup 填 token。
+- 授权边界由 `channel_agent_bindings` 归属校验（账号须属于当前部署用户）；`uid==0` 不视为未授权、归 `user_id=0`，避免误 401（见 MEMORY 架构约束）。
+- 旧版的 WS `register` 首帧 + JWT 鉴权方案已随 2026-08-05 HTTP 重构废弃。
 
 ### 14.3 ReachSendRequest 字段映射（BridgeReachAdapter 出站）
 
@@ -537,7 +533,7 @@ export interface UnifiedReply {
 | 字段 | 含义 | bridge 出站用法 |
 | --- | --- | --- |
 | `Channel` | 渠道（douyin_web/xhs_web/tiktok_web） | 判断是否 bridge 渠道 |
-| `AccountID` | 发送账号 ID | 路由到 BridgeHub 的 `(channel, account)` |
+| `AccountID` | 发送账号 ID | 路由到 `httpReplyBuffer` 的 `(channel, account, conversation)` |
 | `RecipientID` | 接收者（客户）ID | → UnifiedReply.conversation_id / receiver |
 | `CustomerID` | 客户 ID（限流维度） | 透传 |
 | `MsgType` | text/image/link/card | → UnifiedReply.msg_type |
@@ -549,9 +545,9 @@ export interface UnifiedReply {
 
 ### 14.4 adapter 注入接线（两处，最小改动）
 
-- `internal/router/sales_engine_factory.go:140` `registerAgentReachTools(gormDB)`：将 `tooluse.NewIntegrationReachAdapterFromDB(gormDB)` 改为 `bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB), bridge.GetBridgeHub())`。
+- `internal/router/sales_engine_factory.go:140` `registerAgentReachTools(gormDB)`：将 `tooluse.NewIntegrationReachAdapterFromDB(gormDB)` 改为 `bridge.NewBridgeReachAdapter(tooluse.NewIntegrationReachAdapterFromDB(gormDB))`（内部持有 `httpReplyBuffer`）。
 - `internal/router/tool_provider_wiring.go:55` `ReachToolProvider.Provide`：同样改用 `NewBridgeReachAdapter(...)`。
-- `BridgeHub` 为全局单例（`bridge.GetBridgeHub()`，仿 `websocket.GetHub()` 的 `sync.Once` 模式），在 `router.Setup()` 中 `go bridge.GetBridgeHub().Run()` 启动事件循环。
+- `WebhookService.sendOutbound` / `bridge_account_controller.SendManual` 经 `RegisterBridgeOutbound` 回调把 AI 回复入 `httpReplyBuffer`（回调注入避免 service→bridge 导入环）；无 `BridgeHub` 单例、无 `Run()` 事件循环。
 
 ### 14.5 入站 SessionID 构造（防串号）
 
@@ -559,18 +555,18 @@ export interface UnifiedReply {
 
 ### 14.6 出站幂等（防重复下发）
 
-复用 `agent_runtime.ClaimReply(eventID)`（`webhook.go:1824` 同款守卫）：`BridgeReachAdapter.Send` 在 `Deliver` 前调用 `ClaimReply(req.Metadata["event_id"])`，同一 AI 回复只下发一次；扩展侧 `ack` 帧确认后服务端标记已送达（可选 MVP 后做）。
+复用 `agent_runtime.ClaimReply(eventID)`（`webhook.go:1824` 同款守卫）：`BridgeReachAdapter.Send` 在 `Push` 到 `httpReplyBuffer` 前调用 `ClaimReply(req.Metadata["event_id"])`，同一 AI 回复只入缓冲一次；扩展下次 `/api/bridge/ingest` 长轮询拉走即视为送达。
 
 ### 14.7 vite 多入口打包（扩展构建）
 
-`user-web/bridge/vite.config.ts` 用 `build.rollupOptions.input` 多入口：`background`、`content-douyin`、`content-xhs`、`content-tiktok`、`popup`。MV3 下 background 为 `service_worker`、content_scripts 注入对应 `matches`（`*.douyin.com`、`*.xiaohongshu.com`、`*.tiktok.com`）。与 `user-web` 主 SPA 构建互不干扰（独立 `package.json` + `tsconfig`）。
+构建由 `scripts/build.mjs`（esbuild 逐入口独立 IIFE）完成；`vite.config.js` 仅供 vitest 使用，不参与扩展打包。MV3 下 background 为 `service_worker`、content_scripts 注入对应 `matches`（`*.douyin.com`、`*.xiaohongshu.com`、`*.tiktok.com`、`*.goofish.com` 等）。与 `user-web` 主 SPA 构建互不干扰（独立 `package.json`）。
 
 ### 14.8 风险再确认（二次论证结论）
 
 | 风险 | 处置 | 结论 |
 | --- | --- | --- |
-| 平台改版致选择器失效 | 选择器集中 `channels/*/selectors.ts` + MutationObserver 双判定 + popup 自检 | 接受维护性成本 |
-| 扩展离线丢回复 | `Deliver` 失败记 `message_hub(status=failed)` + 坐席提示；离线队列 v1.1 | 先可观测 |
+| 平台改版致选择器失效 | 选择器内联 `channels/*.js` + MutationObserver 双判定 + popup 自检 | 接受维护性成本 |
+| 扩展离线丢回复 | reply 入 `httpReplyBuffer`（FIFO 256/渠道），连接恢复即拉走；无 WS 无在线依赖 | 先可观测 |
 | 多账号串号 | `account_id` 页面派生 + hub 同 key 抢占单活 | 安全 |
 | 重复消息 | 双幂等守卫（event_id + ClaimReply） | 沿用现有 |
 | 与 API 渠道冲突 | `*_web` 命名空间隔离 | 零回归 |
@@ -586,19 +582,21 @@ export interface UnifiedReply {
 
 | 文件 | 作用 |
 | --- | --- |
-| `channel.go` | 网页桥接渠道常量 `douyin_web/xhs_web/tiktok_web` + 与基础渠道互相映射 |
-| `frames.go` | 帧类型 + `UnifiedMessage`/`UnifiedReply`/`Frame` 结构 |
-| `hub.go` | `BridgeHub`（`channel:account`→连接 索引、注册/抢占/在线判定/`Deliver`、全局单例） |
-| `handler.go` | `BridgeWSHandler`：`GET /api/ws/bridge` 升级、register、inbound→`InboxIngressService`、读写泵+心跳 |
-| `reach_adapter.go` | `BridgeReachAdapter` 实现 `ReachAdapter`：网页渠道在线→WS 下发，否则委托 `IntegrationReachAdapter`（零影响现有 API 渠道） |
+| `channel.go` | 网页桥接渠道常量 `douyin_web/xhs_web/tiktok_web`（及 xianyu 等）+ 与基础渠道互相映射 |
+| `frames.go` | `UnifiedMessage`/`UnifiedReply`/`Frame` 数据模型（传输已改 HTTP，仅结构定义保留） |
+| `handler_http.go` | `BridgeIngestHandler`：`POST /api/bridge/ingest`（InitGuard 校验 + 入站 `messages[]` + 从 `httpReplyBuffer` 拉下行回复随响应返回） |
+| `http_reply_buffer.go` | AI 回复内存缓冲（FIFO 256/渠道），供 ingest 长轮询拉取 |
+| `reach_adapter.go` | `BridgeReachAdapter` 实现 `ReachAdapter`：网页渠道 AI 回复入 `httpReplyBuffer`，否则委托 `IntegrationReachAdapter`（零影响现有 API 渠道） |
+| `account.go` / `account_repo.go` | 桥接账号 CRUD + `IsOnline`（基于 `last_sync_at`，非 WS 内存态） |
+| `ai_selector.go` | 服务端选择器抽取（已弃用：`AISelectors` 返回 enabled=false，抽取改走扩展 `selector-ai.js`） |
 
 **接线改动（最小侵入）：**
 - `tooluse/reach_tools.go`：接口新增 `SendTikTok`；`reachChannelAdapterBridge.Send` 增加 `douyin_web/xhs_web/tiktok_web` 分支。
 - `tooluse/reach_integration_adapter.go` + 两处 mock：`SendTikTok` 实现（返回 `ErrChannelNotImplemented`，由 bridge 接管）。
-- `router/service_routes.go`：注册 `auth.GET("/ws/bridge", bridgeHandler.HandleWebSocket)`。
-- `router/sales_engine_factory.go`、`router/tool_provider_wiring.go`：用 `bridge.NewBridgeReachAdapter(...)` 包装原有 adapter。
+- `router/service_routes.go`：注册 `bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)`（仅 `InitGuard`，不过 JWT）。
+- `router/sales_engine_factory.go`、`router/tool_provider_wiring.go`：用 `bridge.NewBridgeReachAdapter(...)` 包装原有 adapter；`WebhookService.sendOutbound` 经 `RegisterBridgeOutbound` 回调把 reply 入 `httpReplyBuffer`。
 
-**验证：** `go build ./...` 全量通过；`go test ./internal/bridge/...` 6 用例通过（hub 注册/抢占/离线、adapter 在线走 WS / 离线委托 / 三渠道）。
+**验证：** `go build ./...` 全量通过；`go test ./internal/bridge/...` 通过（`httpReplyBuffer` 拉取/超时、adapter 入缓冲 / 离线委托 / 多渠道）。
 
 ### 15.2 扩展 `user-web/bridge`（Manifest V3，已构建+单测通过）
 
@@ -606,22 +604,22 @@ export interface UnifiedReply {
 
 ```
 user-web/bridge/
-  manifest.json  package.json  vite.config.js（仅 vitest 用）
+  manifest.json  package.json  vite.config.js（仅 vitest 用）  scripts/build.mjs（esbuild 打包）
   src/
-    core/      types.js · channel-adapter.js · bridge-client.js · dom.js · logger.js · rate-limiter.js
-    channels/  douyin.js · xhs.js · tiktok.js   （抽象适配器，复用开源选择器）
-    content/   douyin.js · xhs.js · tiktok.js · common.js          （content script 入口）
-    background/ registry.js · index.js                            （WS 长连接 + 端口路由）
-    popup/     index.html · index.js                              （连接状态 + 后端地址配置）
+    core/      types.js · channel-adapter.js · http-ingest.js · polling-loop.js · dom.js · logger.js · rate-limiter.js · sanitize.js · fallback.js · selector-ai.js · selector-engine.js
+    channels/  douyin.js · xhs.js · tiktok.js · xianyu.js   （抽象适配器，复用开源选择器，selector 内联）
+    content/   douyin.js · xhs.js · tiktok.js · xianyu.js · common.js   （content script 入口；common.js 含 PollingLoop / dispatchOutbound）
+    background/ index.js · injector.js                       （HTTP 长轮询 + 端口路由）
+    popup/     index.html · index.js                         （后端地址配置 + 连接状态）
 ```
-- `BaseAdapter` 统一封装 MutationObserver 监听、去重、统一消息构造、回写发送；三渠道仅以 hooks 实现差异 → **满足"按渠道封装 + 渠道内抽象、可扩展评论/回关"**。
-- 复用：抖音 `contenteditable` 填值 + 红色发送按钮（来自 DY-auto）；小红书 `#jarvis-reply-textarea`/`.send_btn`/`.im-msg-item`/`.left`（来自 XHS-YYDS domUtils）；TikTok 参考 tiktok-auto-plugin 的 MV3 `chrome.runtime` 长连接结构。
-- **验证（按 §16.1 实际命令）：** `npx vitest run` 通过；`npm run build` 产出 `dist/`。
+- `BaseAdapter` 统一封装 MutationObserver 监听、去重、统一消息构造、回写发送；四渠道仅以 hooks 实现差异 → **满足"按渠道封装 + 渠道内抽象、可扩展评论/回关"**。
+- 复用：抖音 `contenteditable` 填值 + 红色发送按钮（来自 DY-auto）；小红书 `#jarvis-reply-textarea`/`.send_btn`/`.im-msg-item`/`.left`（来自 XHS-YYDS domUtils）；TikTok 参考 tiktok-auto-plugin 的 MV3 `chrome.runtime` 长连接结构；闲鱼复用其私信 DOM 结构。
+- **验证（按 §16.1 实际命令）：** `CI=1 npx vitest run` 通过；`node scripts/build.mjs` 产出 `dist/`。
 
 ### 15.3 运行与测试
 
 - 服务端：`go test ./internal/bridge/...`。
-- 扩展：`cd user-web/bridge && npm install && npm test && npm run build`；`dist/` 加载为 Chrome 解压版扩展，`popup` 配置后端 `wss://<host>/api/ws/bridge`，打开对应平台私信页即自动桥接。
+- 扩展：`cd user-web/bridge && npm install && npm test && node scripts/build.mjs`（或 `npm run build`）；`dist/` 加载为 Chrome 解压版扩展，`popup` 配置后端地址 `https://<host>`，打开对应平台私信页即自动桥接（扩展主动 `POST /api/bridge/ingest` 长轮询）。
 - 端到端手动验证见 §11（需在浏览器登录平台 + 后端已绑定智能体）。
 
 ### 15.4 已知待校准项（来自需求 6 之后的实测前清单）
@@ -670,18 +668,18 @@ user-web/bridge/
 | 视角 | 风险点 | 论证结论 / 处置 |
 | --- | --- | --- |
 | A 功能正确性 | 自/他消息回环、把 AI 回复当客户消息再上行 | 服务端权威判定：ingest 上报一律覆盖 `sender_type="customer"`，并通过内容回显检测 `isPlatformOutboundEcho` 识别平台回显跳过入库/AI；前端不再计算 self/other、零几何测量。 |
-| B 健壮性 | 扩展离线丢回复、WS 断开、content 刷新 | `BridgeReachAdapter.Deliver` 失败落 `message_hub(status=failed)` + popup 提示；WS 3s 重连 + 20s 心跳；background 持久、content 断线重连；`routeOutbound` 按 `channel+account+conversation` 精确匹配避免错投。 |
-| C 安全 | 鉴权、权限最小化 | 私有部署沿用 `/ws/agent` 约定（query 标识，无 token）；增强部署用 JWT；`permissions` 仅 `storage/tabs/activeTab`，`host_permissions` 仅本地 + `ws(s)`。 |
+| B 健壮性 | 扩展离线丢回复、content 刷新 | 回复入 `httpReplyBuffer`（FIFO 256/渠道），连接恢复即拉走，离线不丢；background 持久、content 断线重连；按 `channel+account+conversation` 精确匹配避免错投。 |
+| C 安全 | 鉴权、权限最小化 | `POST /api/bridge/ingest` 仅 `InitGuard`（私有部署单用户，无 token）；增强部署可加 JWT；`permissions` 仅 `storage/tabs/activeTab`，`host_permissions` 仅后端域名。 |
 | D 可扩展性 | 评论/回关、新增平台 | `BaseAdapter` 抽象 + hooks：评论/回关只需新增能力 hook；新平台复制 `channels/*.js` + manifest 加 `matches`；统一消息模型降低耦合。 |
 | E 合规与风控 | LICENSE、平台风控 | 三个开源仓库 LICENSE 商用确认（待办）；拟人输入节奏（`humanType` 25~40ms 间隔）降低高频触发风控；建议灰度小流量。 |
-| F 可观测性 | 排查难 | popup 实时连接状态 + 自检样本；服务端 `bridge` hub 日志；统一 `message_hub` 落库可回溯。 |
+| F 可观测性 | 排查难 | popup 实时连接状态 + 自检样本；服务端 `httpReplyBuffer` 拉取/超时日志；统一 `message_hub` 落库可回溯。 |
 
 **综合结论**：方案在功能/健壮/安全/扩展/合规/可观测六维均达**首版可上线**标准；剩余三项为「真机选择器校准 + 风控节奏调优 + LICENSE 确认」的实测/确认工作，不阻塞首版交付。
 
 ### 16.4 首版交付状态
 
-- 服务端（Go）未变：`go build ./...` 全量通过；`go test ./internal/bridge/...` 6 用例通过。
-- 扩展（JS）已构建：`dist/background.js` + `content-douyin.js`/`content-xhs.js`/`content-tiktok.js` + `popup.html`/`popup.js` + `manifest.json`；`npx vitest run` 4 用例通过（WS 注册/下行/心跳/上行帧协议）。
+- 服务端（Go）未变：`go build ./...` 全量通过；`go test ./internal/bridge/...` 通过。
+- 扩展（JS）已构建：`dist/background.js` + `content-douyin.js`/`content-xhs.js`/`content-tiktok.js`/`content-xianyu.js` + `popup.html`/`popup.js` + `manifest.json`；`npx vitest run` 通过（HTTP 长轮询 / 下行拉取 / 解析）。
 - 运行路径：Chrome 加载 `dist/` 为解压扩展 → popup 填后端地址 → 打开三平台私信页自动桥接 → 点「自检」按 §16.2 清单校准。
 
 ---
@@ -702,11 +700,11 @@ user-web/bridge/
 - `types.js`：`FRAME.INBOUND='inbound_message'`、`OUTBOUND='outbound_reply'`、`HISTORY='history'`；`makeUnifiedMessage` 输出 `content/event_id/sender_id/channel/account_id/conversation_id`；`parseUnifiedReply` 读 `content`。
 - `content/common.js`：下行回复经 `parseUnifiedReply` 取 `content`，按 `conversation_id` 匹配当前会话后 `adapter.sendOutbound(content)`。
 - `background/index.js` + `registry.js`：新增 `history` 帧路由与 `sendHistory`。
-- 服务端 `frames.go` 已兼容（复用 `UnifiedMessage`，加 `direction`/`sender_type` 字段）；`handler.go` 已按帧类型分发。
+- 服务端 `frames.go` 已兼容（复用 `UnifiedMessage`，加 `direction`/`sender_type` 字段）；`handler_http.go` 已按消息类型分发入站、并从 `httpReplyBuffer` 拉下行回复。
 
-**论证证据**：`test/protocol.test.js` 6 项断言帧类型与字段名与服务端一致；`test/bridge-client.test.js` 验证 `inbound`/`outbound` 帧收发；全量 16 单测通过。端到端链路：
+**论证证据**：`test/protocol.test.js` 断言字段名与服务端一致；`test/http-ingest.test.js` 验证上报/下行拉取；全量单测通过。端到端链路：
 ```
-客户私信 → DOM 监听 → inbound_message 帧 → 服务端 HandleIngressMessage → AI → outbound_reply 帧 → content 回写网页
+客户私信 → DOM 监听 → POST /api/bridge/ingest 上报 → 服务端 HandleIngressMessage → AI → 入 httpReplyBuffer → 下次轮询拉回 → content 回写网页
 ```
 
 #### 17.2 需求⑤：任意渠道多用户消息 / 消息历史记录上报 user-server
@@ -736,7 +734,7 @@ user-web/bridge/
 3. **防回环/去重**：同会话冷却 `conversationCooldownMs=3000`（不重复回复同一会话）；相同文案 `dedupWindowMs=60000` 内不重复发送。
 - 全部「软失败」：超限丢弃本次下行并记录 `reason`，绝不堆积重试（避免报复性补发）。
 
-**服务端兜底（hub.go）**：`Deliver` 增加每账号令牌桶（60/min），应对 AI 失控洪泛，超限直接丢弃并告警。
+**服务端兜底（`http_reply_buffer.go` / `BridgeReachAdapter`）**：入缓冲前每账号令牌桶（60/min），应对 AI 失控洪泛，超限直接丢弃并告警。
 
 **论证证据**：`test/rate-limiter.test.js` 5 项覆盖最小间隔拦截、会话冷却拦截、相同文案去重拦截、去重窗口后放行、令牌桶退款不污染配额。
 
@@ -754,7 +752,7 @@ user-web/bridge/
 | --- | --- | --- | --- |
 | ① 持续头脑风暴论证检查 | ✅ | 本文档 §16+§17 闭环；双帧设计、限速、历史模型均经论证 | 协议/限速 11 单测 + 本矩阵 |
 | ② 本机构建发布文档/Logo/名称 | ✅ | `RELEASE.md` + `assets/logo.svg` + `npm run release` | 实测产出 `hivebridge-1.0.0.zip` |
-| ③ 三平台消息上报+下发 | ✅ | 协议对齐；inbound_message 上行 / outbound_reply 下行回写 | protocol/bridge-client 单测 + 链路说明 |
+| ③ 三平台消息上报+下发 | ✅ | 协议对齐；`POST /api/bridge/ingest` 上报 / `httpReplyBuffer` 下行拉回回写 | protocol/http-ingest 单测 + 链路说明 |
 | ④ 限速器风控 | ✅ | 扩展三层 + 服务端兜底令牌桶 | rate-limiter 单测 5 项 |
 | ⑤ 多用户消息历史上报 | ✅ | 双帧分离 + 会话切换回填 + (channel,account,conversation) 隔离 | PersistBridgeHistory（仅落库不触发 AI） |
 
@@ -766,9 +764,9 @@ user-web/bridge/
 
 #### 17.6 本轮交付状态
 
-- 服务端（Go）：`go build ./internal/bridge/... ./internal/service/...` 通过；`go test ./internal/bridge/...` 6 用例通过；新增 `FrameHistory` + `PersistBridgeHistory` + `hub` 限速。
-- 扩展（JS）：`npm run build` 通过；`npx vitest run` **16 用例全部通过**（协议对齐 6 + 限速器 5 + WS 帧 4 + history 路由 1）；`npm run release` 产出可分发包。
-- 文件变更：`src/core/{types,channel-adapter,rate-limiter,bridge-client}.js`、`src/content/common.js`、`src/background/{index,registry}.js`、`src/channels/*`（适配）、`manifest.json`、`assets/logo.svg`、`scripts/release.mjs`、`RELEASE.md`、`package.json`。
+- 服务端（Go）：`go build ./internal/bridge/... ./internal/service/...` 通过；`go test ./internal/bridge/...` 通过；新增 `FrameHistory` + `PersistBridgeHistory` + 限速。
+- 扩展（JS）：`npm run build` 通过；`npx vitest run` 全部通过（HTTP 长轮询 + 限速器 + history 路由等）；`npm run release` 产出可分发包。
+- 文件变更：`src/core/{types,channel-adapter,rate-limiter,http-ingest,polling-loop,selector-ai,selector-engine}.js`、`src/content/common.js`、`src/background/{index,injector}.js`、`src/channels/*`（适配）、`manifest.json`、`assets/logo.svg`、`scripts/release.mjs`、`RELEASE.md`、`package.json`。
 
 ---
 
@@ -827,7 +825,7 @@ user-web/bridge/
 工程层面已将"模拟真人"做到三层：
 
 1. **扩展端三层风控**（`src/core/rate-limiter.js`）：拟人节奏 + 令牌桶 + 会话冷却 + 相同文案去重；
-2. **服务端兜底令牌桶**（`hub.go` rateBucket）：单账号下行 60/min 上限，超限直接落 `message_hub` 等待补发；
+2. **服务端兜底令牌桶**（`BridgeReachAdapter` 入缓冲前）：单账号下行 60/min 上限，超限直接丢弃并告警；
 3. **幂等守卫**（`agentruntime.ClaimReply`）：同一 eventID 仅一次出站，避免重连重发。
 
 仍建议业务侧结合灰度流量持续调参，不要在生产开启 `BRIDGE_TEST_AUTOREPLY`。
@@ -917,24 +915,24 @@ sendOutbound(text, targetConvId)
 - **P2-S2-9**：自/他判定已移交后端（服务端权威），前端不再计算（见 `src/core/fallback.js`）
 - **P2-S3-2**：sentinel error（`ErrBridgeRateLimited` / `ErrBridgeBufferFull` / `ErrBridgeOffline`）
 - **P2-S3-3**：`CheckOrigin` 收敛（`BRIDGE_ALLOWED_ORIGINS` 白名单）
-- **P2-S3-12**：`BridgeHub.Shutdown` 优雅关闭所有活跃 WS
+- **P2-S3-12**：`httpReplyBuffer` 关闭时清空待下发回复（无 WS，无需优雅关闭连接）
 - **P3-合规**：新增 `LICENSE` + 本节"合规与风险声明"
 - **P3-质量**：日志脱敏（`src/core/logger.js` 自动 mask）
 - **P3-质量**：命名规范核查（无 `utils.go` / `common.go` / `*_v1` / `*_stub` / `*_2026-*`）
-- **P3-测试**：服务端 `-race` 强制 + 单元测试覆盖关键路径；扩展端 vitest 51 用例覆盖 sanitize / fallback / protocol / rate-limiter / adapter / bridge-client
+- **P3-测试**：服务端 `-race` 强制 + 单元测试覆盖关键路径；扩展端 vitest 覆盖 sanitize / fallback / protocol / rate-limiter / adapter / http-ingest
 
 ### 19.2 CI 增强（深度审查收口）
 
 - **CI `-race`**：`.github/workflows/user-server-ci.yml` 的 `Run unit tests` 步骤增加 `-race`，强制 race detector 兜底所有单测。
-- **CI bridge 扩展 vitest**：新增 `bridge-extension-test` job，触发条件 `user-web/bridge/**`；在 PR/push 时自动跑 `npx vitest run`，确保协议/限速/sanitize/fallback 51 用例不退化。
+- **CI bridge 扩展 vitest**：新增 `bridge-extension-test` job，触发条件 `user-web/bridge/**`；在 PR/push 时自动跑 `npx vitest run`，确保协议/限速/sanitize/fallback 不退化。
 - **CI 路径过滤**：触发条件增加 `user-web/bridge/**`，bridge 代码改动自动触发对应 CI。
-- **bridge 端测试覆盖（hub_test.go 新增）**：
-  - `TestBridgeHub_NextSeq_Monotonic`（seq 单调递增）
-  - `TestBridgeHub_Shutdown_ClosesAll`（优雅关闭 + 幂等）
-  - `TestBridgeHub_RateLimit_Bucket`（令牌桶触限）
-  - `TestBridgeHub_Unregister_ClosesSendChannel`（关闭后 send channel 安全）
-  - `TestBridgeHub_Concurrent_Deliver`（200 并发 Deliver 不 panic）
-  - `TestBridgeHub_Janitor_CleansIdle`（janitor 清理空闲桶）
+- **bridge 端测试覆盖（http_reply_buffer_test.go 新增）**：
+  - `TestReplyBuffer_PushPull_Match`（按 conversation_id 匹配拉取）
+  - `TestReplyBuffer_Pull_MismatchReturnsNil`（不匹配放回）
+  - `TestReplyBuffer_FIFO_Capacity`（256/渠道上限淘汰最早）
+  - `TestReplyBuffer_Pull_Timeout`（超时返回空）
+  - `TestBridgeReachAdapter_Send_PushToBuffer`（bridge 渠道入缓冲）
+  - `TestBridgeReachAdapter_Send_DelegateNonBridge`（非 bridge 委托 inner）
 - **Kick 安全**：测试 client 偶有 `conn == nil`，`Kick` 加 nil guard 防 panic。
 - **`NewBridgeReachAdapter` 兼容**：原 2 参调用点（`router/sales_engine_factory.go`、`router/tool_provider_wiring.go`）无需修改；构造函数 ingress 改为 variadic 可选，新增 `SetIngress` 后期注入（避免装配阶段循环依赖）。
 
