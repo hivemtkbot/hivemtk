@@ -1119,6 +1119,62 @@ func (s *InboxIngressService) MarkOutboundDelivered(ctx context.Context, hub *mo
 	return s.hubRepo.Update(ctx, hub)
 }
 
+// ListPendingOutbound 查询某账号在某桥接渠道下"出站且待下发"的消息（下发队列）。
+// 供桥接扩展独立轮询（通道C·下发轮询）拉取后转发到对应网页渠道。
+// 仅返回 status='pending' 的出站消息；已 delivered 的被前端确认后排除，failed 的走离线补发。
+func (s *InboxIngressService) ListPendingOutbound(ctx context.Context, channel, accountID string) ([]*model.MessageHub, error) {
+	if s.hubRepo == nil {
+		return nil, nil
+	}
+	list, _, err := s.hubRepo.ListByHubQuery(ctx, repository.HubListQuery{
+		Platform:  channel,
+		AccountID: accountID,
+		Direction: "outbound",
+		Status:    "pending",
+		OrderBy:   "id asc",
+		PageSize:  50,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// AckOutboundDelivered 将扩展确认已下发的出站消息标记为 delivered（通道B·状态上报）。
+// 仅对归属当前 (channel, accountID) 的 msg_id 生效，防止越权标记他人消息。
+// 返回成功标记的数量（幂等：已 delivered 的不计入错误）。
+func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel, accountID string, msgIDs []string) (int, error) {
+	if s.hubRepo == nil || len(msgIDs) == 0 {
+		return 0, nil
+	}
+	ok := 0
+	for _, id := range msgIDs {
+		if id == "" {
+			continue
+		}
+		hub, err := s.hubRepo.GetByMsgID(ctx, id)
+		if err != nil || hub == nil {
+			continue
+		}
+		// 归属校验：只能确认本渠道/本账号的出站消息
+		if hub.Platform != channel || hub.AccountID != accountID || hub.Direction != "outbound" {
+			continue
+		}
+		if hub.Status == "delivered" {
+			ok++
+			continue
+		}
+		hub.Status = "delivered"
+		if uerr := s.hubRepo.Update(ctx, hub); uerr != nil {
+			logger.Ctx(ctx).Warn().Err(uerr).Str("module", "bridge").
+				Str("msg_id", id).Msg("[Inbox] AckOutboundDelivered 更新失败")
+			continue
+		}
+		ok++
+	}
+	return ok, nil
+}
+
 // persistHistoryMessage 持久化消息，Direction 由调用方显式传入（区别于 persistMessage 硬编码 inbound）。
 func (s *InboxIngressService) persistHistoryMessage(ctx context.Context, event *model.MessageEvent, direction string) error {
 	if s.hubRepo == nil {

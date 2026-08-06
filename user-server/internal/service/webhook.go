@@ -2233,11 +2233,11 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				}
 			}
 		}
-		if err := DeliverBridgeOutbound(ctx, string(channel), accountID, hubMsg.ConversationID, "text", content, p.EventID); err != nil {
-		logger.Ctx(ctx).Error().Err(err).Str("channel", string(channel)).Str("account_id", accountID).Msg("bridge outbound failed")
-	} else {
+		// 2026-08-06 架构重构：AI 回复已落 message_hub(status=pending) 作为下发队列，
+		// 由桥接扩展独立轮询 GET /api/bridge/outbox 拉取并转发到网页，
+		// 不再依赖内存 httpReplyBuffer 长轮询（易丢消息、重启即丢）。
+		// 标记 sent=true 以记录已出站历史；实际下发由 downlink 通道完成并 ack 确认。
 		sent = true
-	}
 	default:
 		// 该渠道暂未实现主动出站：记录日志并跳过，避免静默吞掉消息难以排查
 		logger.Ctx(ctx).Warn().Str("channel", string(channel)).Str("account_id", accountID).Msg("unsupported outbound channel, skipped")

@@ -215,3 +215,34 @@ export const SECURITY = Object.freeze({
   // 扩展端日志脱敏：超过 24 字符的字符串在 console 截断
   logMaskMaxChars: 24,
 });
+
+// =============================================================
+// 9) 桥接下发三通道配置（2026-08-06 架构重构，要求1：参数可配置）
+// =============================================================
+// 三通道相互独立：
+//   通道A·上报:  uplink  → POST /api/bridge/ingest（父层统一上报，消息 hash 前端完成）
+//   通道B·状态:  status → POST /api/bridge/outbox/ack（确认 delivered）
+//   通道C·下发:  downlink → GET /api/bridge/outbox（独立轮询拉取待发消息）
+//
+// 全部可在 docs/bridge/DEFAULTS.md 覆盖（运行时读取使用者覆盖值）。
+export const BRIDGE_THREE_CHANNEL = Object.freeze({
+  // 通道A：上报合并窗口（同 accountId|conversationId 在窗口内的多条消息合并一次 POST）
+  uplinkMergeWindowMs: 350,
+  uplinkMaxBatch: 20,
+  // 通道C：下发轮询间隔（每次拉取待发消息并转发）
+  outboxPollIntervalMs: 1500,
+  // 通道C：单次拉取上限（与后端 Outbox 查询 PageSize=50 对齐，留余量）
+  outboxBatchSize: 50,
+  // 通道B：状态确认刷新间隔（聚合批量 ack）
+  ackFlushIntervalMs: 500,
+  // 通道B：本地已发缓存上限（持久化到 chrome.storage.local，防刷新/重开后重复下发）
+  sentCacheMax: 2000,
+  // 下发单条发送超时（超过视为失败，下个轮询重试）
+  sendOutboundTimeoutMs: 20000,
+  // 巡检周期（要求⑤：定时任务 3 秒一次）
+  patrolIntervalMs: 3000,
+  // 每个会话列表切换随机等待 1-2 秒（要求⑤）
+  patrolSwitchMinMs: 1000,
+  patrolSwitchMaxMs: 2000,
+});
+

@@ -582,44 +582,12 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 					anyAIQueued = true
 				}
 			}
-			if batchResult.TriggeredAI {
-				// batch 触发 AI 后，尝试收集同步产生的回复
-				for _, m := range req.Messages {
-					if m == nil {
-						continue
-					}
-					if reply := collectLatestOutboundReply(channel, accountID, m.ConversationID, m.EventID); reply != nil {
-						outboundReplies = append(outboundReplies, reply)
-					}
-				}
-			}
+		_ = batchResult.TriggeredAI
 		}
 	}
 
-	// 长轮询：等待 AI 推理完成（如果有 pending AI 任务）
-	if anyAIQueued && len(outboundReplies) == 0 {
-		timeout := HTTPPollingDefaultTimeout
-		if req.TimeoutMs > 0 {
-			timeout = time.Duration(req.TimeoutMs) * time.Millisecond
-		}
-		if timeout > HTTPPollingMaxTimeout {
-			timeout = HTTPPollingMaxTimeout
-		}
-		reply, err := waitForAIReply(channel, accountID, conversationID, timeout)
-		if err != nil {
-			logger.Ctx(ctx).Info().
-				Str("module", "bridge").
-				Err(err).
-				Str("channel", channel).
-				Str("account_id", accountID).
-				Str("conv_id", conversationID).
-				Dur("timeout", timeout).
-				Msg("[Bridge HTTP] long-poll wait for AI reply timeout or error")
-		} else if reply != nil {
-			outboundReplies = append(outboundReplies, reply)
-		}
-	}
-
+	// 2026-08-06 架构重构：ingest 即时返回，不再长轮询 AI 回复。
+	// AI 回复落 message_hub(status=pending) 后，由扩展独立轮询 GET /api/bridge/outbox 拉取下发。
 	resp.OutboundReplies = outboundReplies
 
 	// 响应日志
@@ -640,6 +608,103 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 		Msg("[Bridge HTTP] ingest 响应（每条结果 + AI 回复摘要）")
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// ───────────────────────── 桥接下发三通道（2026-08-06 架构重构） ─────────────────────────
+//
+// 通道A·上报:  POST /api/bridge/ingest            （HandleHTTPIngest，即时返回）
+// 通道B·状态:  POST /api/bridge/outbox/ack         （AckBridgeOutbox）
+// 通道C·下发:  GET  /api/bridge/outbox             （GetBridgeOutbox）
+//
+// 设计：4 个渠道把聊天内容推到上报队列（ingest），服务端按会话去重入库；
+// AI 回复落 message_hub(status=pending) 作为下发队列；扩展独立轮询 outbox 拉取并转发网页，
+// 成功后通过 ack 通道确认 delivered。详见 docs/bridge/REDESIGN-2026-08-06.md。
+
+// BridgeOutboxMessage 下发队列中的一条待发消息。
+type BridgeOutboxMessage struct {
+	MsgID          string    `json:"msg_id"`
+	ConversationID string    `json:"conversation_id"`
+	MsgType        string    `json:"msg_type"`
+	Content        string    `json:"content"`
+	MediaURL       string    `json:"media_url"`
+	SenderID       string    `json:"sender_id"`
+	ReceiverID     string    `json:"receiver_id"`
+	IsAIReply      bool      `json:"is_ai_reply"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// BridgeOutboxAckRequest 状态上报请求体（通道B）。
+type BridgeOutboxAckRequest struct {
+	MsgIDs []string `json:"msg_ids"`
+	Status string   `json:"status"`
+}
+
+// GetBridgeOutbox 桥接下发队列查询（通道C·下发轮询）。
+// 扩展独立轮询此端点，拉取本渠道/账号下 status='pending' 的出站消息（AI 回复），
+// 转发到对应网页会话，成功后通过 AckBridgeOutbox 确认。
+//
+// GET /api/bridge/outbox?channel=<ch>&account_id=<acc>
+func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
+	channel := c.Query("channel")
+	accountID := c.Query("account_id")
+	if accountID == "" {
+		accountID = "default"
+	}
+	if channel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "channel required"})
+		return
+	}
+	ctx := c.Request.Context()
+	hubs, err := h.ingress.ListPendingOutbound(ctx, channel, accountID)
+	if err != nil {
+		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutbound failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
+		return
+	}
+	msgs := make([]BridgeOutboxMessage, 0, len(hubs))
+	for _, hub := range hubs {
+		msgs = append(msgs, BridgeOutboxMessage{
+			MsgID:          hub.MsgID,
+			ConversationID: hub.ConversationID,
+			MsgType:        hub.MsgType,
+			Content:        hub.Content,
+			MediaURL:       hub.MediaURL,
+			SenderID:       hub.SenderID,
+			ReceiverID:     hub.ReceiverID,
+			IsAIReply:      hub.IsAIReply,
+			CreatedAt:      hub.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "messages": msgs})
+}
+
+// AckBridgeOutbox 桥接下发状态确认（通道B·状态上报）。
+// 扩展把消息成功转发到网页后，批量上报 msg_ids，服务端标记为 delivered。
+//
+// POST /api/bridge/outbox/ack  body: {"msg_ids":[...],"status":"delivered"}
+func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
+	channel := c.Query("channel")
+	accountID := c.Query("account_id")
+	if accountID == "" {
+		accountID = "default"
+	}
+	if channel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "channel required"})
+		return
+	}
+	var req BridgeOutboxAckRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "invalid body"})
+		return
+	}
+	ctx := c.Request.Context()
+	acked, err := h.ingress.AckOutboundDelivered(ctx, channel, accountID, req.MsgIDs)
+	if err != nil {
+		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] AckOutboundDelivered failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "ack failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "acked": acked})
 }
 
 // callHandleIngressBatch 走 mock 优先，否则真实 ingress 的 HandleIngressBatch

@@ -1,15 +1,16 @@
-// PollingLoop 单测 (2026-08-05)
+// PollingLoop 单测（2026-08-06 三通道重构）
 //
 // 覆盖：
-//   1. 启动 / 停止：setInterval 启停，幂等
-//   2. _tick：空配置 / 无 active / 无适配器 静默
-//   3. _tick：抓消息后调用 postIngest（参数严格对齐）
-//   4. 纯桥接：不做前端去重，所有可见消息统一上报
-//   5. dispatchOutbound：拿到 outbound_replies 后调用
+//   1. 生命周期：start/stop 设置/清除 patrol + downlink 定时器，幂等
+//   2. _patrol：空配置 / 无 serverUrl / 无账号 / 无适配器 / 空会话 静默
+//   3. _patrol：抓消息后通过 Uplink → POST /api/bridge/ingest（body 字段对齐）
+//   4. 纯桥接：每轮都上报（去重交给后端），Uplink 短窗口合并需 flushAll 才真正发出
+//   5. _patrol 游标：遍历会话列表、逐会话切换随机 1-2s（由 BRIDGE_THREE_CHANNEL 控制）
 //
-// 设计：使用 fake timer + mock postIngest，绕开真实 fetch。
+// 设计：使用 fake timer + mock fetch，绕开真实网络。Uplink 合并窗口用 flushAll 强制刷新。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PollingLoop, POLL_INTERVAL_MS } from '../src/core/polling-loop.js';
+import { PollingLoop } from '../src/core/polling-loop.js';
+import { BRIDGE_THREE_CHANNEL } from '../src/core/constants.js';
 
 // 桩适配器
 function makeAdapter({ convs, messages }) {
@@ -21,98 +22,86 @@ function makeAdapter({ convs, messages }) {
   };
 }
 
-// 等待 micro-task
-function nextTicks(n = 5) {
-  return new Promise((r) => setTimeout(r, 0));
-}
+const getMeta = () => ({ accountId: 'acc-1' });
+const getConfig = async () => ({ serverUrl: 'http://localhost:8204', token: 'tkn-1' });
 
 describe('polling-loop / 生命周期', () => {
-  it('start() 设置定时器，stop() 清除', async () => {
-    const loop = new PollingLoop({ config: null, getAdapter: () => null });
-    expect(loop._timer).toBeNull();
+  it('start() 设置 patrol + downlink 定时器，stop() 清除', () => {
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    expect(loop._patrolTimer).toBeNull();
+    expect(loop._downlinkTimer).toBeNull();
     loop.start();
-    expect(loop._timer).not.toBeNull();
+    expect(loop._patrolTimer).not.toBeNull();
+    expect(loop._downlinkTimer).not.toBeNull();
     loop.stop();
-    expect(loop._timer).toBeNull();
+    expect(loop._patrolTimer).toBeNull();
+    expect(loop._downlinkTimer).toBeNull();
   });
 
-  it('start() 幂等：重复调用不会创建多个 timer', () => {
-    const loop = new PollingLoop({ config: null, getAdapter: () => null });
+  it('start() 幂等：重复调用不创建多个 timer', () => {
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
-    const t1 = loop._timer;
+    const t1 = loop._patrolTimer;
+    const t2 = loop._downlinkTimer;
     loop.start();
-    expect(loop._timer).toBe(t1);
+    expect(loop._patrolTimer).toBe(t1);
+    expect(loop._downlinkTimer).toBe(t2);
     loop.stop();
   });
 
-  it('stop() 后 _inFlight 状态保留不抛错', () => {
-    const loop = new PollingLoop({ config: null, getAdapter: () => null });
+  it('stop() 后 _running 为 false', () => {
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
     loop.stop();
     expect(loop._running).toBe(false);
   });
 });
 
-describe('polling-loop / _tick 异常路径', () => {
+describe('polling-loop / _patrol 异常路径', () => {
   it('无 config 时静默', async () => {
     const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({
-      config: null,
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-      getConfig: () => null,
-    });
-    await loop._tick();
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: () => null, getMeta });
+    await loop._patrol();
     expect(adapter.getConversationList).not.toHaveBeenCalled();
   });
 
-  it('无 active 账号时静默', async () => {
+  it('无 serverUrl 时静默', async () => {
     const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: null },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick();
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: async () => ({}), getMeta });
+    await loop._patrol();
     expect(adapter.getConversationList).not.toHaveBeenCalled();
   });
 
-  it('active 缺 channel/accountId 静默', async () => {
-    const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: '', accountId: '' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick();
-    expect(adapter.getConversationList).not.toHaveBeenCalled();
+  it('无显式账号时回退 default 并继续巡检', async () => {
+    const adapter = makeAdapter({ convs: [{ id: 'c1' }], messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', sender_name: '小红', sender_type: 'customer', msg_type: 'text', timestamp: 1 }] });
+    let captured;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url) => { captured = url; return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
+    try {
+      const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig: async () => ({ serverUrl: 'http://localhost:8204' }), getMeta: () => ({}) });
+      await loop._patrol();
+      await loop.uplinks.get('douyin').flushAll();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+    expect(adapter.getConversationList).toHaveBeenCalled();
+    expect(captured).toContain('account_id=default');
   });
 
   it('无适配器时静默', async () => {
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a1' } },
-      getAdapter: () => null,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick(); // 不抛
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
+    await loop._patrol(); // 不抛
   });
 
   it('会话列表为空时不上报', async () => {
     const adapter = makeAdapter({ convs: [], messages: [] });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a1' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    // postIngest 未被调用 → 通过不发请求验证
+    const loop = new PollingLoop({ channels: ['xiaohongshu'], getAdapter: () => adapter, getConfig, getMeta });
     let fetchCalled = false;
     const realFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(() => {
-      fetchCalled = true;
-      return Promise.resolve(new Response('{}', { status: 200 }));
-    });
+    globalThis.fetch = vi.fn(() => { fetchCalled = true; return Promise.resolve(new Response('{}', { status: 200 })); });
     try {
-      await loop._tick();
+      await loop._patrol();
+      await loop.uplinks.get('xiaohongshu').flushAll();
     } finally {
       globalThis.fetch = realFetch;
     }
@@ -120,49 +109,24 @@ describe('polling-loop / _tick 异常路径', () => {
   });
 });
 
-describe('polling-loop / _tick 抓消息 → 上报', () => {
+describe('polling-loop / _patrol 抓消息 → 上报（通道A·上报）', () => {
   let realFetch;
-  beforeEach(() => {
-    realFetch = globalThis.fetch;
-  });
-  afterEach(() => {
-    globalThis.fetch = realFetch;
-    vi.restoreAllMocks();
-  });
+  beforeEach(() => { realFetch = globalThis.fetch; });
+  afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
 
-  it('抓到的消息通过 postIngest 上报，body 字段对齐', async () => {
+  it('抓到的消息通过 Uplink → POST /api/bridge/ingest，body 字段对齐', async () => {
     let captured;
     globalThis.fetch = vi.fn(async (url, init) => {
       captured = { url, init };
-      return new Response(
-        JSON.stringify({ ok: true, ingested: [], outbound_replies: [] }),
-        { status: 200 }
-      );
+      return new Response(JSON.stringify({ ok: true, ingested: [], outbound_replies: [] }), { status: 200 });
     });
     const adapter = makeAdapter({
       convs: [{ id: 'conv-1' }],
-      messages: [
-        {
-          message_id: 'msg-1',
-          sender_id: 'peer-1',
-          sender_name: '小红',
-          sender_type: 'customer',
-          text: '你好',
-          msg_type: 'text',
-          timestamp: 1700000000,
-        },
-      ],
+      messages: [{ message_id: 'msg-1', sender_id: 'peer-1', sender_name: '小红', sender_type: 'customer', text: '你好', msg_type: 'text', timestamp: 1700000000 }],
     });
-    const loop = new PollingLoop({
-      config: {
-        serverUrl: 'http://localhost:8204',
-        token: 'tkn-1',
-        active: { channel: 'xiaohongshu', accountId: 'acc-1', accountName: '小蜜蜂', agentId: 7 },
-      },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick();
+    const loop = new PollingLoop({ channels: ['xiaohongshu'], getAdapter: () => adapter, getConfig, getMeta });
+    await loop._patrol();
+    await loop.uplinks.get('xiaohongshu').flushAll();
     expect(captured).toBeTruthy();
     expect(captured.url).toContain('channel=xiaohongshu');
     expect(captured.url).toContain('account_id=acc-1');
@@ -174,263 +138,56 @@ describe('polling-loop / _tick 抓消息 → 上报', () => {
     expect(body.messages[0].event_id).toBe('msg-1');
     expect(body.messages[0].sender_name).toBe('小红');
     expect(body.messages[0].content).toBe('你好');
-    // 纯桥接：不设 expect_reply 字段（是否回复由后端根据 sender_type 判断）
-    expect(body.expect_reply).toBeUndefined();
-    expect(body.timeout_ms).toBeGreaterThanOrEqual(500000);
+    expect(body.expect_reply).toBeUndefined(); // 纯桥接：不设 expect_reply
   });
 
-  it('无消息时不调用 postIngest', async () => {
+  it('无消息时不调用 fetch', async () => {
     const adapter = makeAdapter({ convs: [{ id: 'c' }], messages: [] });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta });
     let fetchCalled = false;
-    globalThis.fetch = vi.fn(() => {
-      fetchCalled = true;
-      return Promise.resolve(new Response('{}', { status: 200 }));
-    });
-    await loop._tick();
+    globalThis.fetch = vi.fn(() => { fetchCalled = true; return Promise.resolve(new Response('{}', { status: 200 })); });
+    await loop._patrol();
+    await loop.uplinks.get('douyin').flushAll();
     expect(fetchCalled).toBe(false);
   });
-});
 
-describe('polling-loop / 纯桥接：不做前端去重，所有可见消息每轮都上报', () => {
-  let realFetch;
-  beforeEach(() => {
-    realFetch = globalThis.fetch;
-  });
-  afterEach(() => {
-    globalThis.fetch = realFetch;
-    vi.restoreAllMocks();
-  });
-
-  it('同一 message_id 每轮都上报（内容去重交给后端）', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-A' }],
-      messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', msg_type: 'text', timestamp: 1 }],
-    });
+  it('纯桥接：同一 message_id 每轮都上报（内容去重交给后端）', async () => {
+    const adapter = makeAdapter({ convs: [{ id: 'conv-A' }], messages: [{ message_id: 'm1', text: 'hi', sender_id: 'p', msg_type: 'text', timestamp: 1 }] });
     let fetchCount = 0;
-    globalThis.fetch = vi.fn(async () => {
-      fetchCount += 1;
-      return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 });
-    });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick();
-    await loop._tick(); // 第二轮同一 message_id：纯桥接 → 仍上报，去重交给后端
+    globalThis.fetch = vi.fn(async () => { fetchCount += 1; return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta });
+    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
+    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
     expect(fetchCount).toBe(2);
   });
 
-  it('无节流：连续 tick 都上报（节流交给后端）', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-B' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-        { message_id: 'm2', text: '2', sender_id: 'p', msg_type: 'text', timestamp: 2 },
-      ],
-    });
-    const fetchMock = vi.fn(async () =>
-      new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 })
-    );
-    globalThis.fetch = fetchMock;
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick(); // 抓 m1, m2
-    // 立刻再 tick：纯桥接无前端节流 → 仍上报
-    await loop._tick();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('新消息（不同 message_id）下一轮也会被上报', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-C' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-      ],
-    });
-    const fetchMock = vi.fn(async () => {
-      return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 });
-    });
-    globalThis.fetch = fetchMock;
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-    });
-    await loop._tick(); // m1
-    adapter.getMessages.mockResolvedValueOnce([
-      { message_id: 'm2', text: '2', sender_id: 'p', msg_type: 'text', timestamp: 2 },
-    ]);
-    await loop._tick(); // m2
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe('polling-loop / 失败不崩溃（纯桥接：无前端 seen 需回滚）', () => {
-  let realFetch;
-  beforeEach(() => {
-    realFetch = globalThis.fetch;
-  });
-  afterEach(() => {
-    globalThis.fetch = realFetch;
-    vi.restoreAllMocks();
-  });
-
-  it('ingest 失败时不崩溃，下一轮仍可正常上报', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-D' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-      ],
-    });
+  it('ingest 失败时不崩溃，下一轮仍可上报', async () => {
+    const adapter = makeAdapter({ convs: [{ id: 'conv-D' }], messages: [{ message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 }] });
     let callCount = 0;
-    globalThis.fetch = vi.fn(async () => {
-      callCount++;
-      if (callCount === 1) return new Response('boom', { status: 500 });
-      return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 });
-    });
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound: () => true,
-      // 把 postIngest 内部 retry 关掉，立即抛错
-      retryOpts: { maxRetries: 0, retryBaseMs: 1 },
-    });
-    // 第一轮失败不崩溃
-    await loop._tick();
-    // 第二轮仍可正常上报（纯桥接：无前端 seen 状态需回滚）
-    await loop._tick();
+    globalThis.fetch = vi.fn(async () => { callCount += 1; if (callCount === 1) return new Response('boom', { status: 500 }); return new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 }); });
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => adapter, getConfig, getMeta, retryOpts: { maxRetries: 0, retryBaseMs: 1 } });
+    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
+    await loop._patrol(); await loop.uplinks.get('douyin').flushAll();
     expect(callCount).toBe(2);
   });
 });
 
-describe('polling-loop / outbound_replies dispatch', () => {
-  let realFetch;
-  beforeEach(() => {
-    realFetch = globalThis.fetch;
+describe('polling-loop / 巡检配置（要求⑤：3s 一轮，切换随机 1-2s）', () => {
+  it('patrolIntervalMs=3000', () => { expect(BRIDGE_THREE_CHANNEL.patrolIntervalMs).toBe(3000); });
+  it('switch 区间 [1000,2000]', () => {
+    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMinMs).toBe(1000);
+    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMaxMs).toBe(2000);
+    expect(BRIDGE_THREE_CHANNEL.patrolSwitchMaxMs).toBeGreaterThanOrEqual(BRIDGE_THREE_CHANNEL.patrolSwitchMinMs);
   });
-  afterEach(() => {
-    globalThis.fetch = realFetch;
-    vi.restoreAllMocks();
-  });
-
-  it('收到 outbound_replies 时 dispatchOutbound 被调用', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-E' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-      ],
-    });
-    globalThis.fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          ok: true,
-          ingested: [{ event_id: 'm1', accepted: true, ai_handled: true }],
-          outbound_replies: [
-            {
-              channel: 'douyin',
-              account_id: 'a',
-              conversation_id: 'conv-E',
-              content: 'AI 回复',
-              msg_type: 'text',
-              reply_to_event_id: 'm1',
-            },
-          ],
-        }),
-        { status: 200 }
-      )
-    );
-    const dispatchOutbound = vi.fn(() => true);
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound,
-    });
-    await loop._tick();
-    expect(dispatchOutbound).toHaveBeenCalledTimes(1);
-    const arg = dispatchOutbound.mock.calls[0][0];
-    expect(arg.channel).toBe('douyin');
-    expect(arg.conversation_id).toBe('conv-E');
-    expect(arg.content).toBe('AI 回复');
-    expect(arg.reply_to_event_id).toBe('m1');
-  });
-
-  it('dispatchOutbound 返回 false 也不抛错', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-F' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-      ],
-    });
-    globalThis.fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          ok: true,
-          ingested: [],
-          outbound_replies: [
-            {
-              channel: 'douyin',
-              conversation_id: 'conv-F',
-              content: 'reply',
-              msg_type: 'text',
-              reply_to_event_id: 'm1',
-            },
-          ],
-        }),
-        { status: 200 }
-      )
-    );
-    const dispatchOutbound = vi.fn(() => false);
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound,
-    });
-    await expect(loop._tick()).resolves.toBeUndefined();
-    expect(dispatchOutbound).toHaveBeenCalled();
-  });
-
-  it('空 outbound_replies 时 dispatchOutbound 不被调用', async () => {
-    const adapter = makeAdapter({
-      convs: [{ id: 'conv-G' }],
-      messages: [
-        { message_id: 'm1', text: '1', sender_id: 'p', msg_type: 'text', timestamp: 1 },
-      ],
-    });
-    globalThis.fetch = vi.fn(async () =>
-      new Response('{"ok":true,"ingested":[],"outbound_replies":[]}', { status: 200 })
-    );
-    const dispatchOutbound = vi.fn(() => true);
-    const loop = new PollingLoop({
-      config: { serverUrl: 'http://x', token: 't', active: { channel: 'douyin', accountId: 'a' } },
-      getAdapter: () => adapter,
-      dispatchOutbound,
-    });
-    await loop._tick();
-    expect(dispatchOutbound).not.toHaveBeenCalled();
-  });
+  it('outboxPollIntervalMs=1500（下发轮询独立）', () => { expect(BRIDGE_THREE_CHANNEL.outboxPollIntervalMs).toBe(1500); });
 });
 
-describe('polling-loop / POLL_INTERVAL_MS', () => {
-  it('常量等于 1000ms（用户诉求 1 秒钟一个）', () => {
-    expect(POLL_INTERVAL_MS).toBe(1000);
-  });
-});
-
-describe('polling-loop / start 后的 _tickSafe 防护', () => {
-  it('stop() 后 _tickSafe 立即返回', async () => {
-    const loop = new PollingLoop({ config: null, getAdapter: () => null });
+describe('polling-loop / _patrolSafe 防护', () => {
+  it('stop() 后 _patrolSafe 立即返回', async () => {
+    const loop = new PollingLoop({ channels: ['douyin'], getAdapter: () => null, getConfig, getMeta });
     loop.start();
     loop.stop();
-    await loop._tickSafe(); // 不抛
-    expect(loop._inFlight).toBe(false);
+    await loop._patrolSafe(); // 不抛
+    expect(loop._patrolInFlight).toBe(false);
   });
 });

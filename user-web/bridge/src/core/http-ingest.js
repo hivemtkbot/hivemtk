@@ -273,8 +273,84 @@ async function postIngest({ serverUrl, channel, accountId, conversationId, token
   }
 }
 
+// ───────────────────────── 桥接下发三通道（2026-08-06 架构重构） ─────────────────────────
+//
+// 通道A·上报:  postIngest          → POST /api/bridge/ingest
+// 通道B·状态:  ackOutbox           → POST /api/bridge/outbox/ack
+// 通道C·下发:  getOutbox           → GET  /api/bridge/outbox
+//
+// 设计：4 渠道把聊天内容推到上报队列（ingest），AI 回复落库为待下发消息；
+// 扩展独立轮询 getOutbox 拉取并转发网页，成功后 ackOutbox 确认 delivered。
+// 详见 docs/bridge/REDESIGN-2026-08-06.md。
+
+const OUTBOX_PATH = '/api/bridge/outbox';
+
+// getOutbox 通道C·下发轮询：拉取本渠道/账号下待下发的消息（message_hub status=pending 出站）。
+// 返回 { status, messages: BridgeOutboxMessage[] }。
+async function getOutbox({ serverUrl, channel, accountId, token }, opts = {}) {
+  const acct = accountId || 'default';
+  const u = new URL(`${toHttpUrl(serverUrl)}${OUTBOX_PATH}`);
+  u.searchParams.set('channel', channel || '');
+  u.searchParams.set('account_id', acct);
+  if (token) u.searchParams.set('token', token);
+  const label = opts.label || '[HTTP outbox]';
+  const timeoutMs = opts.timeoutMs ?? HTTP_INGEST_DEFAULTS.requestTimeoutMs;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  try {
+    const res = await fetchWithRetry(u.toString(), { method: 'GET', signal: controller.signal }, {
+      maxRetries: opts.maxRetries ?? HTTP_INGEST_DEFAULTS.maxRetries,
+      retryBaseMs: opts.retryBaseMs ?? HTTP_INGEST_DEFAULTS.retryBaseMs,
+    });
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : null;
+    return json || { status: 'ok', messages: [] };
+  } catch (e) {
+    log.warn(`${label} 拉取下发队列失败`, { error: String(e && e.message || e), elapsed_ms: Date.now() - startedAt });
+    return { status: 'error', messages: [] };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ackOutbox 通道B·状态上报：把已成功转发到网页的消息批量确认 delivered。
+// body: { msg_ids: [...], status: 'delivered' }。
+async function ackOutbox({ serverUrl, channel, accountId, token }, msgIds, opts = {}) {
+  const acct = accountId || 'default';
+  const u = new URL(`${toHttpUrl(serverUrl)}${OUTBOX_PATH}/ack`);
+  u.searchParams.set('channel', channel || '');
+  u.searchParams.set('account_id', acct);
+  if (token) u.searchParams.set('token', token);
+  const label = opts.label || '[HTTP outbox-ack]';
+  const body = { msg_ids: msgIds, status: 'delivered' };
+  const timeoutMs = opts.timeoutMs ?? HTTP_INGEST_DEFAULTS.requestTimeoutMs;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchWithRetry(u.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    }, {
+      maxRetries: opts.maxRetries ?? HTTP_INGEST_DEFAULTS.maxRetries,
+      retryBaseMs: opts.retryBaseMs ?? HTTP_INGEST_DEFAULTS.retryBaseMs,
+    });
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : null;
+    return json || { status: 'ok' };
+  } catch (e) {
+    log.warn(`${label} 确认下发状态失败`, { error: String(e && e.message || e), msg_ids: msgIds });
+    return { status: 'error' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export {
   INGEST_PATH,
+  OUTBOX_PATH,
   HTTP_INGEST_DEFAULTS,
   buildIngestUrl,
   describeIngestParams,
@@ -282,4 +358,6 @@ export {
   _logRequest,
   fetchWithRetry,
   postIngest,
+  getOutbox,
+  ackOutbox,
 };

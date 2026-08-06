@@ -340,6 +340,11 @@ func Setup(r *gin.Engine) {
 		bridgeWS := r.Group("/api")
 		bridgeWS.Use(middleware.InitGuard())
 		bridgeWS.POST("/bridge/ingest", bridgeHandler.HandleHTTPIngest)
+		// 2026-08-06 架构重构：桥接下发三通道（上报/状态/下发轮询）相互独立。
+		// 通道C·下发轮询：扩展独立拉取待发消息（message_hub status=pending 出站）。
+		bridgeWS.GET("/bridge/outbox", bridgeHandler.GetBridgeOutbox)
+		// 通道B·状态上报：扩展把消息成功转发到网页后确认 delivered（防重复下发）。
+		bridgeWS.POST("/bridge/outbox/ack", bridgeHandler.AckBridgeOutbox)
 		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
 		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
 		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)

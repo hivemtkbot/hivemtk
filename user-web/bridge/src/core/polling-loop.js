@@ -1,130 +1,145 @@
-// Bridge HTTP Polling Loop (2026-08-05 架构重构)
+// Bridge HTTP Polling Loop (2026-08-06 架构重构：下发三通道分离)
 //
 // 替代 background/index.js 中的 WS 注册表 + registry.js 维护的"每渠道一条长连接"模式。
-// 改为：每秒巡检一次会话列表 → 抓多轮消息 → 一次性 postIngest 上报。
+// 改为三个互相独立的通道：
+//   通道A·上报:  Uplink（父层统一上报）→ POST /api/bridge/ingest（即时返回，消息 hash 前端完成）
+//   通道B·状态:  ackOutbox（由 downlink 调用）→ POST /api/bridge/outbox/ack
+//   通道C·下发:  downlink.pollDownlink → GET /api/bridge/outbox 独立轮询拉取待发消息
 //
-// 2026-08-05 架构重构（纯桥接）：
-//   - 移除 _seenEventIds（内容指纹去重交给后端统一收信中心）
-//   - 移除 _lastPollByConv（前端节流交给后端，bridge 不做业务判断）
-//   - 不设 expect_reply 字段：是否回复由后端根据 sender_type 判断
+// 巡检定时任务（要求⑤）：每 3 秒一轮遍历新会话列表，逐会话切换随机 1-2 秒，
+//   把消息送入统一上报通道（Uplink）。下发与上报完全解耦，互不影响、各自并发。
 //
-// 工作流程（每 1 秒一轮）：
-//   1. background 调度：getActiveAccount() → 当前 active (channel, account)
-//   2. 调该渠道适配器的 getConversationList() 拿所有会话
-//   3. 对每个会话：
-//      a) 适配器.openConversation(conversationId) → 切换到该会话（保证消息列表可见）
-//      b) 适配器.getMessages() → 抓所有可见消息（含 sender_type / content / timestamp）
-//      c) 调 postIngest(...) 上报到 user-server
-//      d) 拿到 outbound_replies → 调适配器.sendText(content) 发回网页
-//   4. 空闲会话不发请求（减少无效网络）
-//
-// 优势：
-//   - 0 长连接：MV3 SW 冻结 / 30s 回收不再影响
-//   - 0 重连状态机：fetch 失败由 http-ingest.fetchWithRetry 自动退避
-//   - 0 zombie 检测：HTTP 无状态
-//   - 0 OOM：HTTP 用过即释放
-//   - 0 同步复杂度：扩展的会话列表和已上报消息靠 content script 自管理
+// 优势（相对旧版）：
+//   - 上报即时返回：不再为等 AI 回复挂 500s 长连接（frp 抖动即丢消息）
+//   - 下发独立轮询 + 本地已发缓存：不会重复下发、有 ack 同步确认
+//   - 0 长连接 / 0 重连状态机 / 0 zombie 检测：HTTP 无状态
 import { createLogger } from './logger.js';
-import { postIngest, HTTP_INGEST_DEFAULTS } from './http-ingest.js';
-import { DEFAULT_USER_SERVER } from './constants.js';
+import { BRIDGE_THREE_CHANNEL } from './constants.js';
+import { Uplink } from './uplink.js';
+import { pollDownlink, initDownlink } from './downlink.js';
 
 const log = createLogger('polling', 'bridge');
 
-// 巡检周期：1000ms（用户诉求"1秒钟一个"）
-const POLL_INTERVAL_MS = 1000;
-// 单次轮询每个会话最多抓的消息数（防单次过多撑爆 body）
+// 单次巡检每个会话最多抓的消息数（防单次过多撑爆 body）
 const MAX_MESSAGES_PER_CONVERSATION = 100;
-// 长轮询等待时间（每次 ingest 请求服务端最多等这么久拿 AI 回复）
-const LONG_POLL_TIMEOUT_MS = HTTP_INGEST_DEFAULTS.longPollTimeoutMs;
 
 class PollingLoop {
-  constructor({ config, getAdapter, dispatchOutbound, getConfig, retryOpts }) {
+  constructor({ config, getAdapter, getConfig, getMeta, retryOpts, channels }) {
     this.config = config;
     this.getAdapter = getAdapter; // (channel) => adapter | null
-    this.dispatchOutbound = dispatchOutbound; // ({channel, account, conversation_id, content, msg_type, reply_to_event_id}) => boolean
     this.getConfig = getConfig || (() => this.config);
+    // getMeta：返回 { accountId, conversationId }（渠道适配器提供，如 adapter.getAccountId()）
+    // 用于统一上报 / 下发轮询的账号归属，确保 ingest 与 outbox 查询账号一致。
+    this.getMeta = getMeta || (() => ({}));
     // 透传 postIngest 的重试参数：生产不传，走 HTTP_INGEST_DEFAULTS；
     // 测试可显式覆盖 maxRetries=0 立即失败、retryBaseMs=1 跳过退避
     this.retryOpts = retryOpts || null;
-    this._timer = null;
+    this.channels = channels || [];
+    // 每个渠道一个 Uplink 实例（统一上报父层，三通道相互独立）
+    this.uplinks = new Map();
+    for (const ch of this.channels) {
+      this.uplinks.set(ch, new Uplink({ channel: ch, getConfig: () => this.getConfig(), retryOpts: this.retryOpts }));
+    }
+    this._patrolTimer = null;
+    this._downlinkTimer = null;
     this._running = false;
-    this._inFlight = false;
+    this._patrolInFlight = false;
+    this._downlinkInFlight = false;
   }
 
   start() {
-    if (this._timer) return;
+    if (this._running) return;
     this._running = true;
-    this._timer = setInterval(() => this._tickSafe(), POLL_INTERVAL_MS);
-    log.info('巡检已启动：每 ' + POLL_INTERVAL_MS + 'ms 一轮');
+    // 通道A·上报 + 巡检：每 patrolIntervalMs 一轮
+    this._patrolTimer = setInterval(
+      () => this._patrolSafe(),
+      BRIDGE_THREE_CHANNEL.patrolIntervalMs
+    );
+    // 通道C·下发轮询：每 outboxPollIntervalMs 一轮（与上报完全独立）
+    this._downlinkTimer = setInterval(
+      () => this._downlinkSafe(),
+      BRIDGE_THREE_CHANNEL.outboxPollIntervalMs
+    );
+    initDownlink(this.channels);
+    log.info(
+      `巡检+下发已启动：上报巡检每 ${BRIDGE_THREE_CHANNEL.patrolIntervalMs}ms，下发轮询每 ${BRIDGE_THREE_CHANNEL.outboxPollIntervalMs}ms`
+    );
   }
 
   stop() {
     this._running = false;
-    if (this._timer) clearInterval(this._timer);
-    this._timer = null;
-    log.info('巡检已停止');
+    if (this._patrolTimer) clearInterval(this._patrolTimer);
+    if (this._downlinkTimer) clearInterval(this._downlinkTimer);
+    this._patrolTimer = null;
+    this._downlinkTimer = null;
+    log.info('巡检+下发已停止');
   }
 
-  async _tickSafe() {
-    if (!this._running) return;
-    if (this._inFlight) return; // 上一轮未完成则跳过
-    this._inFlight = true;
+  async _patrolSafe() {
+    if (!this._running || this._patrolInFlight) return;
+    this._patrolInFlight = true;
     try {
-      await this._tick();
+      await this._patrol();
     } catch (e) {
       log.error('巡检 tick 失败', e);
     } finally {
-      this._inFlight = false;
+      this._patrolInFlight = false;
     }
   }
 
-  async _tick() {
-    const cfg = this.getConfig();
+  async _patrol() {
+    const cfg = await this.getConfig();
     if (!cfg) {
-      log.warn('无配置，跳过本轮');
+      log.warn('无配置，跳过本轮巡检');
       return;
     }
-    const serverUrl = cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl;
-    const token = cfg.token || '';
-    // 当前活跃 (channel, account) 来自 background 的 metaStore
-    const meta = cfg.active || null;
-    if (!meta || !meta.channel || !meta.accountId) {
-      return; // 无活动账号：本轮静默
+    // 配置（serverUrl）是上报入口的唯一真相源：缺失时静默跳过，
+    // 绝不盲目回退到 localhost:8204（那是本地 user-server，不是生产穿透地址）。
+    const serverUrl = cfg.serverUrl;
+    if (!serverUrl) {
+      log.warn('无 serverUrl，跳过本轮巡检');
+      return;
     }
-    const adapter = this.getAdapter(meta.channel);
+    const meta = this.getMeta ? this.getMeta() : {};
+    const accountId = (meta && meta.accountId) || (cfg.active && cfg.active.accountId) || 'default';
+    const channel = cfg.active && cfg.active.channel ? cfg.active.channel : this.channels[0];
+    if (!channel) return;
+    const adapter = this.getAdapter(channel);
     if (!adapter || typeof adapter.getConversationList !== 'function') {
       return; // 该渠道无适配器：本轮静默
     }
+    const uplink = this.uplinks.get(channel);
+    if (!uplink) return;
+
     // 取会话列表
     const convs = await safeCall(adapter, 'getConversationList', []);
-    if (!convs || !convs.length) {
-      return;
-    }
+    if (!convs || !convs.length) return;
+
     for (const conv of convs) {
       if (!conv || !conv.id) continue;
-      // 切换到该会话（异步：openConversation 在大多数适配器是同步 click）
-      try { await safeCall(adapter, 'openConversation', null, conv.id); } catch (_) { /* noop */ }
-      // 给 DOM 一点时间渲染消息列表
-      await sleep(120);
+      // 切换到该会话（保证消息列表可见）
+      try {
+        await safeCall(adapter, 'openConversation', null, conv.id);
+      } catch (_) {
+        /* noop */
+      }
+      // 每个会话列表切换随机等待 1-2 秒（要求⑤：给 SPA 足够渲染时间）
+      const wait = randInt(
+        BRIDGE_THREE_CHANNEL.patrolSwitchMinMs,
+        BRIDGE_THREE_CHANNEL.patrolSwitchMaxMs
+      );
+      await sleep(wait);
       // 抓消息
       const messages = await safeCall(adapter, 'getMessages', []);
       if (!messages || !messages.length) continue;
-      // 纯桥接：不做前端去重，所有可见消息统一上报，内容去重交给后端
+      // 纯桥接：不做前端去重，所有可见消息统一推入上报队列（内容去重交给后端）
       const fresh = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
-      if (!fresh.length) continue;
-      // 构造 body（纯桥接：不设 expect_reply，后端根据 sender_type 判断是否回复）
-      const body = {
-        v: 2,
-        channel: meta.channel,
-        account_id: meta.accountId,
-        conversation_id: conv.id,
-        account_name: meta.accountName || '',
-        agent_id: meta.agentId || 0,
-        messages: fresh.map((m) => ({
-          event_id: m.message_id,
-          channel: meta.channel,
-          account_id: meta.accountId,
+      for (const m of fresh) {
+        uplink.enqueue({
+          channel,
+          account_id: accountId,
           conversation_id: conv.id,
+          event_id: m.message_id,
           sender_id: m.sender_id || conv.id,
           sender_name: m.sender_name || '',
           sender_type: m.sender_type || 'customer',
@@ -135,42 +150,41 @@ class PollingLoop {
           is_group: !!m.is_group,
           group_id: m.group_id || '',
           group_name: m.group_name || '',
-        })),
-        timeout_ms: LONG_POLL_TIMEOUT_MS,
-      };
+        });
+      }
+    }
+    // 本轮巡检结束，统一 flush 上报（合并窗口 + 退避重试）
+    await uplink.flushAll();
+  }
+
+  async _downlinkSafe() {
+    if (!this._running || this._downlinkInFlight) return;
+    this._downlinkInFlight = true;
+    try {
+      await this._downlink();
+    } catch (e) {
+      log.error('下发轮询失败', e);
+    } finally {
+      this._downlinkInFlight = false;
+    }
+  }
+
+  async _downlink() {
+    const cfg = await this.getConfig();
+    if (!cfg) return;
+    const meta = this.getMeta ? this.getMeta() : {};
+    const accountId = (meta && meta.accountId) || (cfg.active && cfg.active.accountId) || 'default';
+    // 通道C·下发轮询：逐渠道独立拉取待发消息并转发（与上报互不阻塞）
+    for (const ch of this.channels) {
       try {
-        const resp = await postIngest(
-          { serverUrl, channel: meta.channel, accountId: meta.accountId, conversationId: conv.id, token },
-          body,
-          {
-            label: `[巡检 ingest ${meta.channel}:${conv.id}]`,
-            timeoutMs: LONG_POLL_TIMEOUT_MS + 5000,
-            ...(this.retryOpts || {}),
-          }
-        );
-        if (resp && resp.outbound_replies && resp.outbound_replies.length) {
-          for (const reply of resp.outbound_replies) {
-            if (this.dispatchOutbound) {
-              const ok = this.dispatchOutbound({
-                channel: reply.channel || meta.channel,
-                account_id: reply.account_id || meta.accountId,
-                conversation_id: reply.conversation_id || conv.id,
-                content: reply.content || '',
-                msg_type: reply.msg_type || 'text',
-                reply_to_event_id: reply.reply_to_event_id || '',
-              });
-              if (ok) {
-                log.info('巡检收到 AI 回复并 dispatch', {
-                  conversation_id: conv.id,
-                  reply_to_event_id: reply.reply_to_event_id,
-                  content_preview: (reply.content || '').slice(0, 60),
-                });
-              }
-            }
-          }
-        }
+        // 适配器由 getAdapter 解析（与巡检同一来源），注入 sendOutbound 供下发转发
+        const adapter = this.getAdapter ? this.getAdapter(ch) : null;
+        const sendOutbound = adapter && typeof adapter.sendOutbound === 'function'
+          ? (text, convId, opts) => adapter.sendOutbound(text, convId, opts)
+          : undefined;
+        await pollDownlink(ch, accountId, () => this.getConfig(), { sendOutbound });
       } catch (e) {
-        log.warn('巡检 ingest 失败', { convId: conv.id, error: String(e && e.message || e) });
+        log.warn(`下发轮询失败 channel=${ch}`, { error: String(e && e.message || e) });
       }
     }
   }
@@ -183,7 +197,9 @@ async function safeCall(obj, method, fallback, ...args) {
       if (r && typeof r.then === 'function') return await r;
       return r;
     }
-  } catch (_) { /* 适配器方法不存在或抛错 */ }
+  } catch (_) {
+    /* 适配器方法不存在或抛错 */
+  }
   return fallback;
 }
 
@@ -191,4 +207,8 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export { PollingLoop, POLL_INTERVAL_MS, MAX_MESSAGES_PER_CONVERSATION };
+function randInt(min, max) {
+  return Math.floor(min + Math.random() * (max - min + 1));
+}
+
+export { PollingLoop, MAX_MESSAGES_PER_CONVERSATION };

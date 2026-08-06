@@ -1,19 +1,19 @@
-// content script 公共引导：把适配器捕获的消息通过 HTTP 长轮询上报到 user-server。
+// content script 公共引导：把适配器捕获的消息通过 HTTP 上报到 user-server。
 // 协议常量/字段与服务端 handler_http.go 严格对齐（详见 bridge.md §17）。
 //
-// 2026-08-05 架构重构（纯桥接）：
+// 2026-08-06 架构重构（下发三通道分离，详见 docs/bridge/REDESIGN-2026-08-06.md）：
 //   - Bridge 只做桥接：上报消息 + 下发转发，不做任何业务判断
-//   - 所有消息（customer / agent）统一走 onMessage 回调 → postIngest 上报
-//   - 不设 expect_reply 字段：是否入库 / 是否回复由后端根据 sender_type 判断
-//   - 服务端 AI 回复随 HTTP 响应直接返回，content 端拿到后调 adapter.sendOutbound
+//   - 通道A·上报：所有消息（customer / agent）统一走 onMessage 回调 → Uplink.enqueue → POST /api/bridge/ingest
+//   - 通道C·下发：AI 回复落库后由 downlink 独立轮询 GET /api/bridge/outbox 拉取，转发到网页
+//   - 通道B·状态：转发成功后 ackOutbox（POST /api/bridge/outbox/ack）标记 delivered
+//   - 上报即时返回，reply 不再随响应返回；三通道相互独立，各自并发、有同步确认
+//   - 消息 hash（event_id）在前端完成（Uplink 兜底补全），后端按 event_id 去重入库
 //   - 完整 URL + 解析后的 query 参数 + body 预览由 http-ingest._logRequest 统一打印
-//     （与 user-server 侧 collectHTTPRequestInfo 输出格式严格对齐）
-import { parseUnifiedReply } from '../core/types.js';
 import { DEFAULT_USER_SERVER } from '../core/constants.js';
 import { createLogger } from '../core/logger.js';
-import { sanitizeForDisplay } from '../core/sanitize.js';
 import { hydrateSelectors, SELECTOR_UPDATE_MSG } from '../core/selector-ai.js';
-import { postIngest, HTTP_INGEST_DEFAULTS } from '../core/http-ingest.js';
+import { Uplink } from '../core/uplink.js';
+import { PollingLoop } from '../core/polling-loop.js';
 
 const log = createLogger('content', 'bridge');
 
@@ -485,138 +485,27 @@ export function startBridge(channel, buildAdapter) {
   const activateBridge = () => {
     let closed = false;       // 主动清理（页面卸载）标记
 
-    // 下行分发：HTTP 响应中携带的 outbound_replies 解析后调 adapter.sendOutbound。
-    // 抽出独立函数避免内联过长，调试 / 单测也方便。
-    const dispatchOutboundReply = async (reply) => {
-      const r = parseUnifiedReply(reply);
-      if (!r.content) { log.warn('下行回复内容为空，忽略'); return; }
-      // 7 扩展端 XSS 防护：先经过 sanitizeForDisplay 净化（控制长度、去掉控制字符）
-      const safeContent = sanitizeForDisplay(r.content);
-      // 截断标记提示：服务端截断到 4KB 时置 truncated=true，
-      // 扩展端在内容尾部追加可见提示，避免用户看到半截消息不知情。
-      const finalContent = r.truncated
-        ? safeContent + '\n[消息被截断，请联系客服获取完整内容]'
-        : safeContent;
-      try {
-        // 目标会话 ≠ 当前打开的会话时，sendOutbound 会先在左侧列表找到目标用户
-        // → 点击进入右侧聊天页 → 再模拟输入发送（用户诉求：按用户找会话再发）。
-        await adapter.sendOutbound(finalContent, r.conversation_id);
-        stats.outbound++;
-        log.info('[下行 outbound] #' + stats.outbound, {
-          conv: r.conversation_id,
-          len: (r.content || '').length,
-          truncated: r.truncated,
-        });
-      } catch (e) {
-        log.error('回写回复失败', e);
-      }
-    };
+    // 2026-08-06 架构重构：下行回复不再随 ingest HTTP 响应返回。
+    // 改为独立通道：PollingLoop 内的 downlink 轮询 GET /api/bridge/outbox 拉取待发消息，
+    // 调 adapter.sendOutbound 转发到网页，成功后经 ackOutbox 确认 delivered（通道B·状态）。
+    // 因此此处不再需要 dispatchOutboundReply（outbound_replies 响应字段已废弃）。
 
     // 通过 postIngest 批量上报消息（纯桥接：不设 expect_reply，后端根据 sender_type 判断）。
     //
     // 关键设计：URL + 完整 query + body 预览由 http-ingest._logRequest 统一打印
     // （所有渠道 douyin/xhs/tiktok/xianyu 共用），用户可从 console 直接看到上行地址。
     //
-    // 短窗口合并（2026-08-06）：同一 (accountId|conversationId) 在 MERGE_WINDOW_MS 内的多条消息
-    // 合并为一个 POST 上行（后端支持 messages[] 批量 + 按 msg_id 去重），显著降低长轮询连接数。
-    // 实测：单会话 2h 冗余 POST 比 ≈ 46:1；合并 + 适配器稳定键去重后可降一个数量级。
-    const MERGE_WINDOW_MS = 350;
-    const MERGE_MAX_BATCH = 20;
-    const ingestBuffers = new Map(); // key -> { items: UnifiedMessage[], timer: number|null }
-
-    const flushIngest = async (key) => {
-      const buf = ingestBuffers.get(key);
-      if (!buf) return;
-      ingestBuffers.delete(key); // 取走所有权，避免并发重复 flush
-      if (buf.timer) { clearTimeout(buf.timer); buf.timer = null; }
-      const items = buf.items;
-      if (!items.length) return;
-      const sample = items[0];
-      const cfg = await getConfig();
-      const meta = adapter.snapshotMeta();
-      const accountId = sample.account_id || meta.accountId || '';
-      const conversationId = sample.conversation_id || '';
-      if (!accountId || !conversationId) {
-        log.warn('ingest 合并 flush 跳过：accountId/conversationId 缺失', { accountId, conversationId, n: items.length });
-        return;
-      }
-      const label = `[上行 ingest 合并 ×${items.length}]`;
-      // 构造 ingest body：与 user-server handler_http.go HTTPIngestRequest 字段对齐。
-      // 多条消息包成 messages[]（server 端按 msg_id 去重 + 逐条落库）。
-      // 纯桥接：不设 expect_reply 字段，是否回复由后端根据 sender_type 判断。
-      const body = {
-        v: 2,
-        channel: sample.channel || channel,
-        account_id: accountId,
-        conversation_id: conversationId,
-        account_name: '',
-        agent_id: 0,
-        messages: items.map((message) => ({
-          event_id: message.event_id || '',
-          channel: message.channel || channel,
-          account_id: accountId,
-          conversation_id: conversationId,
-          sender_id: message.sender_id || '',
-          sender_name: message.sender_name || '',
-          sender_type: message.sender_type || 'customer',
-          msg_type: message.msg_type || 'text',
-          content: message.content || '',
-          media_url: message.media_url || '',
-          timestamp: message.timestamp || Date.now(),
-          is_group: !!message.is_group,
-          group_id: message.group_id || '',
-          group_name: message.group_name || '',
-          // 多轮历史：服务端按 messages[].history 逐条落库
-          history: Array.isArray(message.history) ? message.history : [],
-        })),
-        timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
-      };
-      try {
-        const resp = await postIngest(
-          {
-            serverUrl: cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl,
-            channel: sample.channel || channel,
-            accountId,
-            conversationId,
-            token: cfg.token || '',
-          },
-          body,
-          {
-            label,
-            timeoutMs: HTTP_INGEST_DEFAULTS.longPollTimeoutMs + 5000,
-          }
-        );
-        // 响应解析：服务端可能附带 outbound_replies（后端根据 sender_type 决定是否回复）
-        if (resp && Array.isArray(resp.outbound_replies) && resp.outbound_replies.length) {
-          for (const reply of resp.outbound_replies) {
-            await dispatchOutboundReply(reply);
-          }
-        }
-      } catch (e) {
-        // 失败不抛：避免污染调用栈；上层已用 try/catch 包裹
-        log.warn(`${label} 提交失败`, { error: String(e && e.message || e) });
-      }
-    };
-
+    // 2026-08-06 架构重构：上行统一收口到 Uplink（父层封装，三通道相互独立）。
+    // 4 个渠道的聊天内容都经 uplink.enqueue 推入上报队列；Uplink 负责短窗口合并 + POST /api/bridge/ingest。
+    // 消息 hash（event_id）在前端完成：渠道已给则沿用，否则 Uplink 兜底补全（后端按 event_id 去重）。
+    // AI 回复不再随 ingest 响应返回，改由 downlink 独立轮询 GET /api/bridge/outbox 拉取下发。
+    const accountId = (typeof adapter.getAccountId === 'function' && adapter.getAccountId()) || 'default';
+    const uplink = new Uplink({ channel, getConfig });
     const submitIngest = (message) => {
       if (!message) return;
-      const meta = adapter.snapshotMeta();
-      const accountId = meta.accountId || message.account_id || '';
-      const conversationId = message.conversation_id || meta.conversationId || '';
-      if (!accountId || !conversationId) {
-        log.warn('ingest 跳过：accountId/conversationId 缺失', { accountId, conversationId });
-        return;
-      }
-      const key = `${accountId}|${conversationId}`;
-      let buf = ingestBuffers.get(key);
-      if (!buf) { buf = { items: [], timer: null }; ingestBuffers.set(key, buf); }
-      buf.items.push(message);
-      // 短窗口合并：达到批量上限立即 flush；否则等待 MERGE_WINDOW_MS 合并后 flush。
-      if (buf.items.length >= MERGE_MAX_BATCH) {
-        flushIngest(key);
-      } else if (!buf.timer) {
-        buf.timer = setTimeout(() => flushIngest(key), MERGE_WINDOW_MS);
-      }
+      // 统一账号归属：确保上报与下发轮询（downlink）使用同一 accountId，outbox 查询才能匹配
+      if (!message.account_id) message.account_id = accountId;
+      uplink.enqueue(message);
     };
 
     // 上行：所有消息（customer / self / agent）统一走 onMessage 回调上报。
@@ -636,9 +525,22 @@ export function startBridge(channel, buildAdapter) {
       onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
     });
 
+    // 2026-08-06 架构重构：启动桥接巡检 + 下发轮询（三通道相互独立）。
+    // PollingLoop 内含：
+    //   - 通道A·上报巡检：每 3s 遍历会话列表、逐会话切换随机 1-2s、抓消息推入 Uplink
+    //   - 通道C·下发轮询：每 1.5s 拉取 GET /api/bridge/outbox，转发网页后经通道B·ack 确认
+    const pollingLoop = new PollingLoop({
+      getAdapter: () => adapter,
+      getConfig,
+      getMeta: () => ({ accountId }),
+      channels: [channel],
+    });
+    pollingLoop.start();
+
     // 页面卸载 / SPA 路由切换时清理
     const cleanup = () => {
       closed = true;
+      try { pollingLoop.stop(); } catch (_) { /* noop */ }
       adapter.stop();
     };
     window.addEventListener('beforeunload', cleanup, { once: true });
