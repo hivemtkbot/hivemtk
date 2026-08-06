@@ -166,3 +166,13 @@ user-web/docs/ui-inventory/inventory.json
 
 # CodeBuddy IDE 数据（不纳入版本追踪）
 .codebuddy/
+
+# ---------- 内部/敏感文档：不对外公开，仅本地留存于仓库外 internal-docs/ ----------
+# 含内部需求/设计逻辑/审计结论/真实客户数据，禁止进入公开仓库。
+customer-service/
+docs/audit/
+docs/bridge/
+user-server/docs/audit/
+.research/
+*-research.md
+internal-docs/
