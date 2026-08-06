@@ -141,10 +141,11 @@ function _logRequest(label, serverUrl, params, body, extra) {
 // 超时由外部 AbortController 控制（每个 fetch 用同一个 controller）。
 //
 // 重试语义（HTTP 标准）：
-//   - 4xx（除 408）客户端错误：直接抛错，不重试（重试无意义）
+//   - 429 Too Many Requests：可重试（限流，退避后通常可恢复；尊重 Retry-After）
 //   - 408 Request Timeout：可重试（服务端忙，下次可能 OK）
 //   - 5xx 服务端错误：可重试
 //   - 网络错误（fetch reject）：可重试
+//   - 其余 4xx（400/401/403/404...）：不可重试，直接抛错（客户端错误，重试无意义）
 async function fetchWithRetry(url, options, retryOpts = {}) {
   const maxRetries = retryOpts.maxRetries ?? HTTP_INGEST_DEFAULTS.maxRetries;
   const retryBaseMs = retryOpts.retryBaseMs ?? HTTP_INGEST_DEFAULTS.retryBaseMs;
@@ -154,23 +155,37 @@ async function fetchWithRetry(url, options, retryOpts = {}) {
       const res = await fetch(url, options);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        // 4xx（除 408）标记为不可重试：客户端错误，重试无意义
-        const is4xxNonRetryable =
-          res.status >= 400 && res.status < 500 && res.status !== 408;
+        // 429 限流 / 408 超时：可重试（退避后大概率恢复）；
+        // 其余 4xx 视为客户端错误，直接放弃（重试无意义）。
+        // 429 限流 / 408 超时 / 5xx 服务端错误：可重试（退避后大概率恢复）；
+        // 其余 4xx（400/401/403/404...）：客户端错误，不可重试。
+        const retryable =
+          res.status === 429 || res.status === 408 || res.status >= 500;
         const err = new Error(
           `HTTP ${res.status} ${res.statusText}: ${text.slice(0, 200)}`
         );
-        if (is4xxNonRetryable) err.nonRetryable = true;
+        // 透传 Retry-After（服务端限流可携带），供上层退避参考
+        if (res.status === 429) {
+          const ra = res.headers.get('Retry-After');
+          if (ra) {
+            const secs = parseInt(ra, 10);
+            if (!Number.isNaN(secs)) err.retryAfterMs = secs * 1000;
+          }
+        }
+        if (!retryable) err.nonRetryable = true;
         throw err;
       }
       return res;
     } catch (e) {
       lastErr = e;
-      // 4xx 客户端错误：直接跳出重试循环
+      // 不可重试的 4xx 客户端错误：直接跳出重试循环
       if (e && e.nonRetryable) break;
       if (attempt >= maxRetries) break;
-      // 指数退避 + 抖动
-      const delay = Math.min(8000, retryBaseMs * Math.pow(2, attempt)) + Math.floor(Math.random() * 200);
+      // 退避：优先用服务端 Retry-After（429 场景），否则指数退避 + 抖动
+      let delay = Math.min(8000, retryBaseMs * Math.pow(2, attempt)) + Math.floor(Math.random() * 200);
+      if (e && e.retryAfterMs && e.retryAfterMs > 0) {
+        delay = Math.max(delay, e.retryAfterMs);
+      }
       log.warn(`fetch 失败，${delay}ms 后重试 #${attempt + 1}/${maxRetries}`, { error: String(e && e.message || e) });
       await new Promise((r) => setTimeout(r, delay));
     }

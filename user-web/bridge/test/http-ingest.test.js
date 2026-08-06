@@ -230,6 +230,42 @@ describe('http-ingest / fetchWithRetry', () => {
     expect(n).toBe(2);
   });
 
+  it('429（Too Many Requests）允许重试（不标 nonRetryable）', async () => {
+    let n = 0;
+    let lastErr = null;
+    globalThis.fetch = vi.fn(async () => {
+      n += 1;
+      if (n === 1) {
+        return new Response('rate', { status: 429, headers: { 'Retry-After': '1' } });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const res = await fetchWithRetry('http://x/y', {}, { maxRetries: 3, retryBaseMs: 1 }).catch((e) => { lastErr = e; return null; });
+    expect(res && res.status).toBe(200);
+    expect(n).toBe(2);
+    expect(lastErr).toBeNull();
+  });
+
+  it('429 超过 maxRetries 最终抛出且带 retryAfterMs', async () => {
+    globalThis.fetch = vi.fn(async () => new Response('rate', { status: 429, headers: { 'Retry-After': '1' } }));
+    let caught = null;
+    await fetchWithRetry('http://x/y', {}, { maxRetries: 2, retryBaseMs: 1 }).catch((e) => { caught = e; });
+    expect(caught).not.toBeNull();
+    expect(caught.message).toMatch(/HTTP 429/);
+    expect(caught.nonRetryable).toBeFalsy();
+    expect(caught.retryAfterMs).toBe(1000);
+  });
+
+  it('400（客户端错误）仍不可重试', async () => {
+    let n = 0;
+    globalThis.fetch = vi.fn(async () => {
+      n += 1;
+      return new Response('bad', { status: 400 });
+    });
+    await expect(fetchWithRetry('http://x/y', {}, { maxRetries: 3, retryBaseMs: 1 })).rejects.toThrow(/HTTP 400/);
+    expect(n).toBe(1);
+  });
+
   it('超过 maxRetries 抛出最后一次错误', async () => {
     globalThis.fetch = vi.fn(async () => {
       return new Response('boom', { status: 500 });

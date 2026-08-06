@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,10 @@ type RateLimitConfig struct {
 	BucketSize int
 	// 是否启用
 	Enabled bool
+	// ExemptPaths 豁免限流的路径前缀列表（精确匹配或前缀匹配）。
+	// 用于桥接私有端点（POST /api/bridge/ingest）等内部/单租户、由 InitGuard 保护、
+	// 且天然表现为高频长轮询的通道——对其限流会直接掐断消息上行。
+	ExemptPaths []string
 }
 
 // DefaultRateLimitConfig 默认限流配置
@@ -139,22 +144,31 @@ func RateLimitMiddleware(config ...RateLimitConfig) gin.HandlerFunc {
 	InitRateLimiter(cfg)
 
 	return func(c *gin.Context) {
+		// 豁免路径（内部/单租户通道，如桥接 ingest）不做限流，避免掐断消息上行
+		path := c.Request.URL.Path
+		for _, p := range cfg.ExemptPaths {
+			if p == path || strings.HasPrefix(path, p) {
+				c.Next()
+				return
+			}
+		}
+
 		// 获取客户端标识（优先使用 API Key，其次使用 IP）
 		clientKey := c.GetHeader("X-API-KEY")
 		if clientKey == "" {
 			clientKey = c.ClientIP()
 		}
 
-		// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
-		if !globalRateLimiter.Allow(clientKey) {
-			c.JSON(429, gin.H{
-				"code":        429,
-				"msg":         "请求过于频繁，请稍后再试",
-				"retry_after": 60,
-			})
-			c.Abort()
-			return
-		}
+	// 检查是否允许请求（REDIS_HOST 配置时为 Redis 共享限流，跨实例一致；否则进程内令牌桶）
+	if !globalRateLimiter.Allow(clientKey) {
+		c.JSON(429, gin.H{
+			"code":        429,
+			"msg":         "请求过于频繁，请稍后再试",
+			"retry_after": 5,
+		})
+		c.Abort()
+		return
+	}
 
 		c.Next()
 	}

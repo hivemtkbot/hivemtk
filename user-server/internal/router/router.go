@@ -137,10 +137,15 @@ func Setup(r *gin.Engine) {
 
 	// 安全中间件
 	// 限流中间件 - 防止 DDoS 和暴力请求
+	// 注意：私有桥接端点 /api/bridge/ingest 由 InitGuard 保护、单租户、且表现为高频长轮询，
+	// 对其限流会直接掐断消息上行，故加入 ExemptPaths 豁免全局限流。
 	r.Use(middleware.RateLimitMiddleware(middleware.RateLimitConfig{
 		RPS:        10,
 		BucketSize: 100,
 		Enabled:    true,
+		ExemptPaths: []string{
+			"/api/bridge/ingest",
+		},
 	}))
 
 	// 追踪中间件必须最先注册（位于脱敏/审计之前）：为请求分配 trace_id 并绑定到 context，
