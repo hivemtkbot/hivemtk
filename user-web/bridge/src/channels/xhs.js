@@ -636,6 +636,8 @@ const hooks = {
       group_id: groupInfo.groupId,
       group_name: groupInfo.groupName,
       sender_name: senderName,
+      sender_id: getConversationId() || '', // 对方身份 = 当前会话 ID
+      conversation_id: getConversationId() || '', // 用于跨会话残留过滤
       timestamp: Date.now(),
       raw: item.outerHTML?.slice(0, 500),
     };
@@ -651,12 +653,17 @@ const hooks = {
       log.error('未找到小红书输入框（merged + strict + fallback 均失败）');
       throw new Error('xhs input not found');
     }
-    // 新版输入框为 div.xhs-im-input-bar-editor[contenteditable]（非 textarea）——
-    // 用 execCommand insertText + input 事件（抖音同款 fillContentEditable），
-    // 兼容 contenteditable 受控组件；旧版 textarea 走 setValue 兜底。
-    if (input.isContentEditable || input.getAttribute('contenteditable') === 'true' || input.tagName !== 'TEXTAREA') {
-      fillContentEditable(input, text);
+    // 2026-08-07 修复（用户诉求③）：下发场景必须先清空输入框旧内容再写入新内容，
+    //   避免「用户正在打字时 extension 同时下发」导致「旧内容+新内容」拼接发出。
+    //   - contenteditable：fillContentEditable({ clearBefore: true }) 先清空子节点再 insertText
+    //   - textarea：setValue(el, '') 先清空再 setValue(el, text) 覆盖
+    //   顺序：清空 → 填值 → 180ms → 发送 → 立即通知调用方（ack 由 downlin k 队列统一处理）
+    const isContentEditable = input.isContentEditable || input.getAttribute('contenteditable') === 'true' || input.tagName !== 'TEXTAREA';
+    if (isContentEditable) {
+      fillContentEditable(input, text, { clearBefore: true });
     } else {
+      // textarea：先清空再设值，避免「原内容 + 新内容」拼接
+      setValue(input, '');
       setValue(input, text);
     }
     await new Promise((r) => setTimeout(r, 180));
@@ -664,12 +671,30 @@ const hooks = {
     if (sendBtn) {
       // XHS-YYDS enhancedClickWithVerification 同款：native click + 补充鼠标事件
       enhancedClick(sendBtn);
+      // 清空输入框（用户诉求③）：发送成功后立即清空，避免「消息已发出但输入框仍显示」干扰客服体验
+      try {
+        if (isContentEditable) {
+          while (input.firstChild) input.removeChild(input.firstChild);
+          input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        } else {
+          setValue(input, '');
+        }
+      } catch (_) { /* noop */ }
       return;
     }
     // 新版 /chat 页发送按钮常为输入后出现的图标或回车发送：无按钮时按 Enter 兜底
     log.warn('未找到小红书发送按钮，改用回车发送');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    // 兜底发送后也清空
+    try {
+      if (isContentEditable) {
+        while (input.firstChild) input.removeChild(input.firstChild);
+        input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      } else {
+        setValue(input, '');
+      }
+    } catch (_) { /* noop */ }
   },
 };
 

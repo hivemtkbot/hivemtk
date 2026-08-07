@@ -107,6 +107,53 @@ func (r *MessageHubRepository) GetByMsgID(ctx context.Context, msgID string) (*m
 	return &hub, err
 }
 
+// GetByContentHash 按 canonical contentHash 获取消息（服务端权威去重 2026-08-07 修复）
+//
+// 背景：前端 patrol 上报的消息 msg_id 在历史曾用 algo1（channel+conv+content），
+//   而服务端 ContentHashMsgID 已用 algo2（channel+content），导致同内容生成不同 msg_id
+//   → 钩子2 GetByMsgID 漏检 → 同内容 AI 回复被反复入库为 inbound → 触发循环 AI。
+//
+// 参数 canonicalHash 应为服务端 ContentHashMsgID(channel, content) 的输出（algo2），
+//   而非调用方传入的 event_id（可能是 algo1）。本方法直接按 hash 查全表。
+func (r *MessageHubRepository) GetByContentHash(ctx context.Context, canonicalHash string) (*model.MessageHub, error) {
+	if canonicalHash == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var hub model.MessageHub
+	err := r.db.Where("msg_id = ?", canonicalHash).First(&hub).Error
+	return &hub, err
+}
+
+// GetByPlatformContent 按 platform + content 精确查重（md5 完全匹配）
+// 用于服务端权威去重：内容相同即视为同一消息（无论前后端 hash 算法如何变化）。
+//   索引：idx_message_hub_platform_content (platform, md5(content))
+func (r *MessageHubRepository) GetByPlatformContent(ctx context.Context, platform, content string) (*model.MessageHub, error) {
+	if platform == "" || content == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var hub model.MessageHub
+	err := r.db.Where("platform = ? AND md5(content) = md5(?)", platform, content).First(&hub).Error
+	return &hub, err
+}
+
+// GetByPlatformContentNormalized 按 platform + 归一化内容（去所有空白后）查重。
+// 兜底 DOM 中 AI 回复与 DB 落库内容存在空格/换行/emoji 编码差异时的回环：
+//   例 DB "安全。 需要" vs DOM "安全。需要" → 去空格后 md5 一致 → 命中跳过。
+// 仅查 direction=outbound，避免把客户发的相同内容也误跳过。
+//   索引：idx_message_hub_platform_content (platform, md5(content)) 加速 platform 过滤，
+//   归一化 md5 比较在 platform 范围内逐行计算（量小，可接受）。
+func (r *MessageHubRepository) GetByPlatformContentNormalized(ctx context.Context, platform, content string) (*model.MessageHub, error) {
+	if platform == "" || content == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var hub model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND direction = 'outbound' AND md5(regexp_replace(content, '\\s+', '', 'g')) = md5(regexp_replace(?, '\\s+', '', 'g'))", platform, content).
+		Order("sent_at DESC").
+		First(&hub).Error
+	return &hub, err
+}
+
 // ListByConversation 按会话 ID 列出消息
 func (r *MessageHubRepository) ListByConversation(ctx context.Context, conversationID string, page, pageSize int) ([]*model.MessageHub, int64, error) {
 	var items []*model.MessageHub
@@ -256,7 +303,7 @@ func (r *MessageHubRepository) ListByHubQuery(ctx context.Context, q HubListQuer
 
 	orderBy := "sent_at DESC"
 	switch q.OrderBy {
-	case "sent_at ASC", "sent_at DESC", "created_at ASC", "created_at DESC":
+	case "sent_at ASC", "sent_at DESC", "created_at ASC", "created_at DESC", "id ASC", "id DESC":
 		orderBy = q.OrderBy
 	}
 
@@ -505,36 +552,10 @@ func (r *MessageHubRepository) GetLastOutboundByConversation(ctx context.Context
 	return &msg, nil
 }
 
-// GetRecentOutboundsByConversation 查询会话最近 N 条平台发出消息（direction=outbound）。
-//
-// 2026-08-05 新增（增强防回环）：
-//   - 原防回环检查只比对最后一条 outbound，但回环消息可能是 AI 之前几轮的话术
-//   - 改为查最近 N 条 outbound，逐条比对内容
-//   - 任一条 outbound 内容与当前 inbound 相同 → 回环，跳过 AI 触发
-//   - N 条 / 2h 覆盖典型 AI 多轮回复场景，同时容忍前端重新扫描上报的较大时间差
-//     （实测小红书回环消息在 56min 后才被重新扫描上报，30min 窗口会漏判 → 改为 2h）
-func (r *MessageHubRepository) GetRecentOutboundsByConversation(ctx context.Context, conversationID string, limit int) ([]*model.MessageHub, error) {
-	if r == nil || r.db == nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	if conversationID == "" {
-		return nil, gorm.ErrRecordNotFound
-	}
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
-	cutoff := time.Now().Add(-2 * time.Hour)
-	var msgs []*model.MessageHub
-	err := r.db.WithContext(ctx).
-		Where("conversation_id = ? AND direction = ? AND sent_at >= ?", conversationID, "outbound", cutoff).
-		Order("sent_at DESC").
-		Limit(limit).
-		Find(&msgs).Error
-	if err != nil {
-		return nil, err
-	}
-	return msgs, nil
-}
+// GetRecentOutboundsByConversation / ExistsInboundByContent 已于 2026-08-07 删除。
+// 回显检测现由 contentHash (FNV-1a) + GetByMsgID 统一处理 ——
+// 前端 patrol 抓取的 AI 回复气泡 msg_id 与服务端 ContentHashMsgID 逐字节一致，
+// GetByMsgID 命中即跳过，无需 sender_type 或内容精确匹配辅助函数。
 
 // GetLastInboundByConversation 查询会话最后一条客户消息（direction=inbound）。
 //

@@ -28,13 +28,14 @@ describe('uplink / computeMsgID（消息 hash 前端完成，与后端 ContentHa
   it('channel / conversationId / content 任一不同 → hash 不同（隔离会话与渠道）', () => {
     const base = { channel: 'douyin', conversationId: 'c1', content: 'x' };
     expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, channel: 'xhs' }));
-    expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, conversationId: 'c2' }));
+    // conversationId 不再参与 contentHash —— 同一文本跨会话哈希一致（跨会话去重 patrol 回声）
     expect(computeMsgID(base)).not.toBe(computeMsgID({ ...base, content: 'y' }));
   });
-  it('跨语言契约锚点：contentHash("douyin","c1","你好") === mh:cb0c3037（与 Go ContentHashMsgID 逐字节一致）', () => {
-    // 后端 webhook.go::ContentHashMsgID 对 "douyin|c1|你好" 的 FNV-1a 32 位 UTF-8 字节哈希。
+  it('跨语言契约锚点：contentHash("douyin","c1","你好") === mh:00550fed（与 Go ContentHashMsgID 逐字节一致）', () => {
+    // 后端 webhook.go::ContentHashMsgID 对 "douyin|你好" 的 FNV-1a 32 位 UTF-8 字节哈希。
+    // conversationID 不参与哈希 —— 同一文本跨会话哈希一致。
     // 算法漂移会破坏回环去重钩子2（content_hash 匹配）。此处作为跨语言契约锚点。
-    expect(contentHash('douyin', 'c1', '你好')).toBe('mh:cb0c3037');
+    expect(contentHash('douyin', 'c1', '你好')).toBe('mh:00550fed');
   });
   it('content 首尾空白被 trim，不影响哈希（与后端 strings.TrimSpace 对齐）', () => {
     expect(contentHash('douyin', 'c1', '  你好  ')).toBe(contentHash('douyin', 'c1', '你好'));

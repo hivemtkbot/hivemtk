@@ -97,7 +97,7 @@ describe('巡检机制优化', () => {
         _findListScroller: () => null,
       },
     });
-    adapter._patrolOpts = { intervalMs: 60000, throttleMs: 100, waitActiveMs: 100, maxPerRound: 0, scrollLoadMs: 100, maxPasses: 1, visitAllWhenNoUnread: false };
+    adapter._patrolOpts = { intervalMs: 60000, throttleMs: 100, waitActiveMs: 100, maxPerRound: 0, scrollLoadMs: 100, maxPasses: 1, visitAllWhenNoUnread: false, switchMinMs: 0, switchMaxMs: 0 };
   });
 
   it('scanOnly 模式：仅扫描，不点开任何会话', async () => {

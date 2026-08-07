@@ -295,7 +295,7 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
     const convList = [makeConvItem('a1', '张三'), makeConvItem('b2', '李四')];
     const { adapter } = buildCtx(convList, 'a1');
     const ok = await adapter.sendOutbound('您好，请问有什么可以帮您？', 'b2');
-    expect(ok).toBe(true);
+    expect(ok.ok).toBe(true);
     expect(adapter.getConversationId()).toBe('b2'); // 已切到目标会话
     expect(adapter.hooks.sendText).toHaveBeenCalledWith('您好，请问有什么可以帮您？');
   });
@@ -304,7 +304,7 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
     const convList = [makeConvItem('a1', '张三')];
     const { adapter } = buildCtx(convList, 'a1');
     const ok = await adapter.sendOutbound('你好', 'ghost-user');
-    expect(ok).toBe(false);
+    expect(ok.ok).toBe(false);
     expect(adapter.hooks.sendText).not.toHaveBeenCalled();
   });
 
@@ -312,7 +312,7 @@ describe('openConversation / sendOutbound 目标会话切换（左侧找用户�
     const convList = [makeConvItem('a1', '张三')];
     const { adapter } = buildCtx(convList, 'a1');
     const ok = await adapter.sendOutbound('在的', 'a1');
-    expect(ok).toBe(true);
+    expect(ok.ok).toBe(true);
     expect(adapter.hooks.sendText).toHaveBeenCalledWith('在的');
   });
 });

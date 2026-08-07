@@ -423,3 +423,62 @@ describe('findAnyMessageInput 误判回归（评论框 / 搜索框）', () => {
     expect(findAnyMessageInput()).toBe(ce);
   });
 });
+
+// 2026-08-07 修复（用户诉求③）：fillContentEditable 新增 clearBefore 选项，
+//   下发场景必须先清空输入框旧内容再写入新内容。
+import { fillContentEditable } from '../src/core/dom.js';
+
+describe('fillContentEditable / clearBefore 下发场景先清空', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    // happy-dom 不一定实现 execCommand，mock 之避免抛错
+    if (typeof document.execCommand !== 'function') {
+      document.execCommand = () => true;
+    }
+  });
+
+  it('contenteditable 已存在旧文本 + clearBefore:true → 旧内容清空、最终内容仅新文本', () => {
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.innerText = '用户正在打的字';
+    document.body.appendChild(ce);
+
+    fillContentEditable(ce, 'AI 回复', { clearBefore: true });
+
+    // 旧内容必须清空（不应出现"用户正在打的字AI 回复"或"AI 回复用户正在打的字"）
+    expect(ce.innerText).toBe('AI 回复');
+    expect(ce.innerText).not.toContain('用户正在打的字');
+  });
+
+  it('contenteditable 空 + clearBefore:true → 正常填入', () => {
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.innerText = '';
+    document.body.appendChild(ce);
+
+    fillContentEditable(ce, 'AI 回复', { clearBefore: true });
+    expect(ce.innerText).toBe('AI 回复');
+  });
+
+  it('contenteditable + clearBefore:false（默认）→ 保留历史行为：append 在旧文本后（兼容历史回填场景）', () => {
+    const ce = document.createElement('div');
+    ce.setAttribute('contenteditable', 'true');
+    ce.innerText = '旧文本';
+    document.body.appendChild(ce);
+
+    fillContentEditable(ce, '新文本');
+    // 兼容历史行为：不清空 → 新内容追加
+    expect(ce.innerText).toContain('新文本');
+  });
+
+  it('textarea 已存在旧文本 + clearBefore:true → 旧内容清空、最终内容仅新文本', () => {
+    const ta = document.createElement('textarea');
+    ta.value = '用户正在打的字';
+    document.body.appendChild(ta);
+
+    fillContentEditable(ta, 'AI 回复', { clearBefore: true });
+
+    expect(ta.value).toBe('AI 回复');
+    expect(ta.value).not.toContain('用户正在打的字');
+  });
+});

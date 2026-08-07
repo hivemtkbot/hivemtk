@@ -90,20 +90,25 @@ export function makeUnifiedMessage({
 
 // 消息内容哈希（与服务端 internal/service/webhook.go::ContentHashMsgID 严格一致）。
 //
-// ⚠️ 回环去重的契约核心（2026-08-07 审计修复）：
-//   服务端 AI 出站消息的 MsgID = ContentHashMsgID(channel, conversationID, content)
-//   = `mh:` + FNV-1a 32位(channel|conversationID|trim(content))。
-//   前端扫描到平台下发的 AI 回复并重新上报时，必须以相同算法生成 event_id（或 content_hash），
-//   后端 GetByMsgID 才能命中 → 钩子2 幂等跳过，作为 isPlatformOutboundEcho（内容匹配）之外的兜底。
+// ⚠️ 回环去重的契约核心（2026-08-07 审计修复 + 跨会话去重）：
+//   服务端 AI 出站消息的 MsgID = ContentHashMsgID(channel, content) ← 不含 conversationID
+//   = `mh:` + FNV-1a 32位(channel|trim(content))。
+//   前端 patrol 扫描到 AI 回复消息并重新上报时必须以相同算法生成 event_id，
+//   后端 GetByMsgID 才能命中 → 幂等跳过。同一文本无论在哪个会话被捕获，哈希一致。
 //   算法必须前后端逐字节一致（输入顺序、trim、前缀、hex 格式），否则回环防护断裂。
+//
+//   合约锚点（2026-08-07 更新：去掉 conversationID）：
+//     contentHash("douyin", "c1", "你好") === "mh:00550fed"
 //
 // ⚠️ 关键：FNV-1a 是按字节哈希。Go 端 []byte(s) 是 UTF-8 字节；JS 的 String.charCodeAt 是 UTF-16
 //   码元，对多字节字符（中文等）结果不同 → 必须先用 TextEncoder 转成 UTF-8 字节再哈希，
 //   否则前后端哈希永远不匹配，回环钩子2 兜底失效。
 //
-// 输入：channel|conversationID|content（content 去首尾空白），输出：`mh:${8位hex}`。
+// 输入：channel|content（content 去首尾空白），输出：`mh:${8位hex}`。
+// 注：contentHash 不含 conversationID / sender_id —— 同一文本在不同会话的哈希相同，
+// 服务端 GetByMsgID 可跨会话去重 patrol 回声。不同客户发相同文本靠 sender_id 在 DB 查询层面区分。
 export function contentHash(channel, conversationID, content) {
-  const s = `${channel || ''}|${conversationID || ''}|${(content || '').trim()}`;
+  const s = `${channel || ''}|${(content || '').trim()}`;
   // 统一为 UTF-8 字节，与 Go 端 []byte(s) 逐字节一致
   const bytes = typeof TextEncoder !== 'undefined'
     ? new TextEncoder().encode(s)

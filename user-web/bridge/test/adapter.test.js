@@ -114,7 +114,7 @@ describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 消�
     const p = adapter.sendOutbound('hello');
     await vi.advanceTimersByTimeAsync(4000); // jitter 最大 2600 + 余量
     const ok = await p;
-    expect(ok).toBe(true);
+    expect(ok.ok).toBe(true);
     expect(sendText).toHaveBeenCalledWith('hello');
     expect(onMessage).toHaveBeenCalled();
     const msg = onMessage.mock.calls[0][0];
@@ -132,7 +132,7 @@ describe('BaseAdapter sendOutbound 风控通过则回写并上报 outbound 消�
     });
     adapter.start({});
     const ok = await adapter.sendOutbound('');
-    expect(ok).toBe(false);
+    expect(ok.ok).toBe(false);
     expect(sendText).not.toHaveBeenCalled();
   });
 });

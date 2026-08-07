@@ -48,7 +48,7 @@ describe('downlink / SentCache 去重 + 持久化', () => {
 
   it('add 后 has 为 true；持久化到 storage', async () => {
     await initDownlink(['douyin']);
-    const adapter = { sendOutbound: vi.fn(async () => true) };
+    const adapter = { sendOutbound: vi.fn(async () => ({ ok: true })) };
     getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-d1', content: 'hi', conversation_id: 'c1' }] });
     ackOutbox.mockResolvedValue({ status: 'ok' });
     await pollDownlink('douyin', 'acc1', cfg(), { sendOutbound: adapter.sendOutbound });
@@ -66,7 +66,7 @@ describe('downlink / 本地已发缓存拦截重复下发', () => {
 
   it('同 msg_id 不重复下发（本地缓存拦截）+ 不重复 ack', async () => {
     await initDownlink(['tiktok']);
-    const adapter = { sendOutbound: vi.fn(async () => true) };
+    const adapter = { sendOutbound: vi.fn(async () => ({ ok: true })) };
     getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-t1', content: 'hi', conversation_id: 'c1' }] });
     ackOutbox.mockResolvedValue({ status: 'ok' });
     const c = cfg();
@@ -84,13 +84,13 @@ describe('downlink / 发送失败重试', () => {
 
   it('sendOutbound 失败：不缓存、不 ack，下轮重试成功', async () => {
     await initDownlink(['xianyu']);
-    const adapter = { sendOutbound: vi.fn(async () => false) };
+    const adapter = { sendOutbound: vi.fn(async () => ({ ok: false })) };
     getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-x1', content: 'hi', conversation_id: 'c1' }] });
     ackOutbox.mockResolvedValue({ status: 'ok' });
     const c = cfg();
     await pollDownlink('xianyu', 'acc1', c, { sendOutbound: adapter.sendOutbound }); // 失败
     expect(ackOutbox).not.toHaveBeenCalled();
-    adapter.sendOutbound.mockResolvedValue(true); // 下一轮：success
+    adapter.sendOutbound.mockResolvedValue({ ok: true }); // 下一轮：success
     await pollDownlink('xianyu', 'acc1', c, { sendOutbound: adapter.sendOutbound });
     expect(adapter.sendOutbound).toHaveBeenCalledTimes(2);
     expect(ackOutbox).toHaveBeenCalledTimes(1);
@@ -104,7 +104,7 @@ describe('downlink / ack 失败不丢消息（先 ack 后缓存）', () => {
 
   it('转发成功但 ack 失败：不写本地缓存，下轮重新拉取并重试', async () => {
     await initDownlink(['douyin']);
-    const adapter = { sendOutbound: vi.fn(async () => true) };
+    const adapter = { sendOutbound: vi.fn(async () => ({ ok: true })) };
     getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-ackfail', content: 'hi', conversation_id: 'c1' }] });
     // 第一轮：ack 失败
     ackOutbox.mockResolvedValue({ status: 'error' });
@@ -132,11 +132,106 @@ describe('downlink / 空内容不下发', () => {
 
   it('空内容不下发、不 ack', async () => {
     await initDownlink(['xiaohongshu']);
-    const adapter = { sendOutbound: vi.fn(async () => true) };
+    const adapter = { sendOutbound: vi.fn(async () => ({ ok: true })) };
     getOutbox.mockResolvedValue({ status: 'ok', messages: [{ msg_id: 'm-xh1', content: '', conversation_id: 'c1' }] });
     ackOutbox.mockResolvedValue({ status: 'ok' });
     await pollDownlink('xiaohongshu', 'acc1', cfg(), { sendOutbound: adapter.sendOutbound });
     expect(adapter.sendOutbound).not.toHaveBeenCalled();
     expect(ackOutbox).not.toHaveBeenCalled();
+  });
+});
+
+// 2026-08-07 修复（用户诉求 ①②③）：
+//   ① 串行 → 多会话场景下，旧版第 1 条成功发完后 markSent 更新 lastGlobalSendAt，
+//       第 2 条因 minIntervalMs(1500ms) 拦截 → 整批 break → 第二个会话永远不发。
+//       新版按 conversation_id 分组并行：每个会话独立 tryAcquire/markSent，会话 A 限速
+//       不影响会话 B。两个会话的两条消息都被下发 + 都 ack。
+describe('downlink / 多会话不串行（2026-08-07 核心修复）', () => {
+  let chrome;
+  beforeEach(() => { chrome = makeChromeStorage(); globalThis.chrome = chrome; vi.clearAllMocks(); });
+  afterEach(() => { delete globalThis.chrome; });
+
+  it('两个会话的 pending outbound 全部下发 + 全部 ack（不被全局 minInterval 互相阻断）', async () => {
+    await initDownlink(['xiaohongshu']);
+    const adapter = {
+      sendOutbound: vi.fn(async (text, convId) => {
+        // 模拟「刚发完一个会话，下个调用立刻发」：无 rate-limit 干扰
+        return { ok: true, rateLimited: false, notFound: false };
+      })
+    };
+    getOutbox.mockResolvedValue({
+      status: 'ok',
+      messages: [
+        { msg_id: 'm-convA', content: '回复 A 的消息', conversation_id: 'convA' },
+        { msg_id: 'm-convB', content: '回复 B 的消息', conversation_id: 'convB' },
+      ],
+    });
+    ackOutbox.mockResolvedValue({ status: 'ok' });
+    await pollDownlink('xiaohongshu', 'acc1', cfg(), { sendOutbound: adapter.sendOutbound });
+
+    // 关键回归：两个会话都收到了 sendOutbound 调用（不被串行阻断）
+    expect(adapter.sendOutbound).toHaveBeenCalledTimes(2);
+    expect(adapter.sendOutbound).toHaveBeenCalledWith('回复 A 的消息', 'convA', expect.any(Object));
+    expect(adapter.sendOutbound).toHaveBeenCalledWith('回复 B 的消息', 'convB', expect.any(Object));
+
+    // 关键回归：两条消息都被 ack（每会话独立 ack）
+    expect(ackOutbox).toHaveBeenCalledTimes(2);
+    const ackConvIds = ackOutbox.mock.calls.map((c) => (c[2] && c[2].label) || '');
+    expect(ackConvIds.some((l) => l.includes('convA'))).toBe(true);
+    expect(ackConvIds.some((l) => l.includes('convB'))).toBe(true);
+  });
+
+  it('会话 A 被限速拦截，会话 B 仍正常下发（不跨会话阻断、不污染）', async () => {
+    await initDownlink(['xiaohongshu']);
+    const adapter = {
+      sendOutbound: vi.fn(async (text, convId) => {
+        if (convId === 'convA') return { ok: false, rateLimited: true, notFound: false };
+        return { ok: true, rateLimited: false, notFound: false };
+      })
+    };
+    getOutbox.mockResolvedValue({
+      status: 'ok',
+      messages: [
+        { msg_id: 'm-A1', content: 'A1', conversation_id: 'convA' },
+        { msg_id: 'm-B1', content: 'B1', conversation_id: 'convB' },
+        { msg_id: 'm-B2', content: 'B2', conversation_id: 'convB' },
+      ],
+    });
+    ackOutbox.mockResolvedValue({ status: 'ok' });
+    // rateRetryWaitMs=1 仅用于单测提速；生产走 rateRetryBaseMs()（minInterval + 抖动）
+    await pollDownlink('xiaohongshu', 'acc1', cfg(), {
+      sendOutbound: adapter.sendOutbound,
+      rateRetryWaitMs: 1,
+    });
+
+    // 会话 A：持续被限速 → 初始 1 次 + 有限重试（MAX_RATE_RETRIES=3）后放弃，不在 A 注入 B
+    const convACalls = adapter.sendOutbound.mock.calls.filter((c) => c[1] === 'convA');
+    expect(convACalls.length).toBeGreaterThanOrEqual(2); // 至少重试一次，而非仅试一次
+    // 会话 B：2 次调用都成功（会话 A 限速不阻断会话 B）
+    const convBCalls = adapter.sendOutbound.mock.calls.filter((c) => c[1] === 'convB');
+    expect(convBCalls.length).toBe(2);
+    // 关键：会话 B 仍 ack（不因会话 A 限速被阻断，也不被并行写到 A 的会话里=无跨会话污染）
+    expect(ackOutbox).toHaveBeenCalledTimes(1);
+    expect(ackOutbox).toHaveBeenCalledWith(expect.any(Object), ['m-B1', 'm-B2'], expect.any(Object));
+  });
+
+  it('串行转发：同一会话文案只进入自己的会话输入框（无跨会话污染）', async () => {
+    await initDownlink(['xiaohongshu']);
+    // 真实 sendOutbound 签名 (text, convId)；断言每条文案确实按 conversation_id 派发到对应会话
+    const adapter = {
+      sendOutbound: vi.fn(async (text, convId) => ({ ok: true, rateLimited: false, notFound: false })),
+    };
+    getOutbox.mockResolvedValue({
+      status: 'ok',
+      messages: [
+        { msg_id: 'm-A', content: '给A的回复', conversation_id: 'convA' },
+        { msg_id: 'm-B', content: '给B的回复', conversation_id: 'convB' },
+      ],
+    });
+    ackOutbox.mockResolvedValue({ status: 'ok' });
+    await pollDownlink('xiaohongshu', 'acc1', cfg(), { sendOutbound: adapter.sendOutbound });
+    // 每条消息的 content 必须随其 conversation_id 一起传给 sendOutbound（串行保证不串台）
+    expect(adapter.sendOutbound).toHaveBeenCalledWith('给A的回复', 'convA', expect.any(Object));
+    expect(adapter.sendOutbound).toHaveBeenCalledWith('给B的回复', 'convB', expect.any(Object));
   });
 });

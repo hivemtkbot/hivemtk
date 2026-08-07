@@ -372,20 +372,6 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	//   平台下发的消息（AI 生成 / 人工客服）必然先入库(direction=outbound)再下发，
 	//   故内容命中既有 outbound 即可确定是平台自己的回显。
 	isSystemMsg := event.SenderType == "system"
-	if s.isPlatformOutboundEcho(ctx, event) {
-		result.Accepted = true
-		result.QueuedForAI = false
-		result.Reason = "ingest echo recognized as platform outbound (SELF); skip inbound + AI"
-		logger.Ctx(ctx).Info().
-			Str("channel", event.Channel).
-			Str("conv_id", event.ConversationID).
-			Str("event_id", event.EventID).
-			Str("content_preview", truncateForLog(event.Content, 60)).
-			Msg("[Inbox] 服务端权威判定：ingest 消息内容命中平台下发 outbound，识别为 SELF 回显，跳过入库与 AI")
-		return result, nil
-	}
-	// 非平台回显 → 强制 CUSTOMER（用户消息），不信任前端 self/agent 标签
-	event.SenderType = "customer"
 
 	// 卡位 1：检查人工接管锁
 	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
@@ -436,9 +422,36 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	}
 	}
 
-	// 钩子 2.5（2026-08-06 已合并进钩子1 的服务端权威判定）：
-	//   原"内容命中最近 outbound 即判回环跳过"逻辑，现已在钩子1 通过 isPlatformOutboundEcho
-	//   统一、更早、更权威地实现（不依赖前端 sender_type），此处不再重复。
+	// 钩子2.5（2026-08-07 第六轮修复）：服务端权威内容级去重。
+	//   背景：前端 patrol 上报的消息 msg_id 在历史曾用 algo1（channel+conv+content），
+	//   而服务端 ContentHashMsgID 已用 algo2（channel+content）。同内容生成不同 msg_id →
+	//   钩子2 GetByMsgID 漏检 → 同内容 AI 回复被反复入库为 inbound → 触发循环 AI。
+	//   修复：以 canonical contentHash (algo2) + 兜底按 platform+content 查重，无论 msg_id
+	//   算法如何变化都视同"自/他回显"幂等跳过。
+	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
+		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
+			return result, nil
+		}
+		if existing, err := s.hubRepo.GetByPlatformContent(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("platform+content already exists in DB (self/echo dedup); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
+			return result, nil
+		}
+		// 归一化兜底（2026-08-07 修复）：DOM 中 AI 回复与 DB 落库内容可能有空格/换行差异，
+		// 精确 md5 匹配失败 → 回环去重失效 → AI 回复被当客户 inbound 入库 → 触发循环 AI。
+		// 去所有空白后比较，兼容 "安全。 需要" vs "安全。需要"。
+		if existing, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("normalized platform+content match (self/echo dedup); skip. existing msg_id=%s direction=%s conv=%s", existing.MsgID, existing.Direction, existing.ConversationID)
+			return result, nil
+		}
+	}
 
 	// 持久化到 message_hub（含时序锚点判断，见 persistMessage）
 	if err := s.persistMessage(ctx, event); err != nil {
@@ -882,20 +895,6 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 	//   改用"内容是否命中本会话平台下发(outbound)"判定。命中 → SELF 回显跳过；
 	//   未命中 → 强制 CUSTOMER（用户消息）走正常链路。
 	isSystemMsg := event.SenderType == "system"
-	if s.isPlatformOutboundEcho(ctx, event) {
-		result.Accepted = true
-		result.QueuedForAI = false
-		result.Reason = "ingest echo recognized as platform outbound (SELF); skip inbound + AI"
-		logger.Ctx(ctx).Info().
-			Str("channel", event.Channel).
-			Str("conv_id", event.ConversationID).
-			Str("event_id", event.EventID).
-			Str("content_preview", truncateForLog(event.Content, 60)).
-			Msg("[Inbox] 服务端权威判定：ingest 消息内容命中平台下发 outbound，识别为 SELF 回显，跳过入库与 AI")
-		return result, nil
-	}
-	// 非平台回显 → 强制 CUSTOMER（用户消息），不信任前端 self/agent 标签
-	event.SenderType = "customer"
 
 	// 检查人工接管锁
 	humanLocked, _ := s.IsSessionHumanLocked(ctx, event.SessionID)
@@ -920,10 +919,10 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 				return result, nil
 			}
 		}
-		// 兜底：content_hash 命中（前端按服务端 ContentHashMsgID 同源算法生成）。
-		// AI 出站消息 MsgID 即该值；前端扫描到平台 AI 回显重新上报时携带它，
-		// 即便 event_id 与 msg_id 不一致（DOM id / c:text），也能在此幂等跳过，
-		// 作为 isPlatformOutboundEcho（钩子1）之外的第二道回环防护。
+		// 兜底：content_hash 命中。
+		// 前端 _canonicalMsgId 统一使用 FNV-1a contentHash 作为 event_id，
+		// 与服务端 ContentHashMsgID 逐字节一致。AI 出站消息 MsgID 即该值，
+		// 前端 patrol 扫描到 AI 回显重新上报时 msg_id 相同 → GetByMsgID 命中 → 在此幂等跳过。
 		if ch, ok := event.Extra["content_hash"].(string); ok && ch != "" {
 			if existing, err := s.hubRepo.GetByMsgID(ctx, ch); err == nil && existing != nil {
 				result.Accepted = true
@@ -934,9 +933,43 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 		}
 	}
 
-	// 钩子 2.5（2026-08-06 已合并进钩子1 的服务端权威判定）：
-	//   原"内容命中最近 outbound 即判回环跳过"逻辑，现已在钩子1 通过 isPlatformOutboundEcho
-	//   统一、更早、更权威地实现（不依赖前端 sender_type），此处不再重复。
+	// 钩子2.5（2026-08-07 第六轮修复，防「同内容 AI 回复被 patrol 错乱反复入库为 inbound」）：
+	//   背景：前端 patrol 上报的消息 msg_id 在历史曾用 algo1（channel+conv+content），
+	//   而服务端 ContentHashMsgID 已用 algo2（channel+content）。同内容生成不同 msg_id →
+	//   钩子2 GetByMsgID 漏检 → 同内容 AI 回复被反复入库为 inbound → 触发循环 AI。
+	//   实际案例（2026-08-07 16:36:30）：给小红薯69C69EDE 的 AI 回复 mh:eef526c5（algo2）被
+	//   前端 patrol 错乱上报为 mh:620ec4d5（algo1），msg_id 不同 → 钩子2 漏检 → 入库为
+	//   小红薯会话 inbound → 触发新一轮 AI → 同样的回复内容再次被 patrol 错乱上报
+	//   → 入库为「旭」会话（"其他客户"）inbound → 用户报告"缺下发给了所有人"。
+	//
+	//   修复：服务端权威去重——以 canonical contentHash (algo2) 为准，无论 msg_id 算法如何变化，
+	//   都先查「本平台已有同 content 的任意消息」→ 命中 → 视为「自/他回显」→ 幂等跳过。
+	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
+		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
+		// 第一道：按 canonical contentHash 直查
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
+			return result, nil
+		}
+		// 第二道：按 platform + content 直查（兜底，处理 canonicalHash 命中但方向语义不符/竞态等边界）
+		if existing, err := s.hubRepo.GetByPlatformContent(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("platform+content already exists in DB (self/echo dedup); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
+			return result, nil
+		}
+		// 归一化兜底（2026-08-07 修复）：DOM 中 AI 回复与 DB 落库内容可能有空格/换行差异，
+		// 精确 md5 匹配失败 → 回环去重失效 → AI 回复被当客户 inbound 入库 → 触发循环 AI。
+		// 去所有空白后比较，兼容 "安全。 需要" vs "安全。需要"。
+		if existing, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			result.Accepted = true
+			result.QueuedForAI = false
+			result.Reason = fmt.Sprintf("normalized platform+content match (self/echo dedup); skip. existing msg_id=%s direction=%s conv=%s", existing.MsgID, existing.Direction, existing.ConversationID)
+			return result, nil
+		}
+	}
 
 	// 入库（含时序锚点判断）
 	if err := s.persistMessage(ctx, event); err != nil {
@@ -1095,12 +1128,65 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 //
 // 与 HandleIngressMessage 的关键区别：不获取 AI 锁、不投递 pending、不通知 AgentRuntime，
 // 从而避免「回填空历史误触发 AI」与「自己回复被再次推理造成自回环」。
+//
+// 钩子2（2026-08-07 审计修复，防「AI 回复被 patrol 回显入库为 inbound」循环触发 AI）：
+//   前端 history 项 event_id = contentHash（mh:xxxxxxxx），与服务端 AI outbound 的 MsgID
+//   （= ContentHashMsgID）逐字节一致。命中 GetByMsgID → 跳过入库。
+//   旧实现历史上下文回填路径完全未做 msg_id 去重，扩展 patrol 把 AI 回复放进 history 重新
+//   上报时会被当作新 inbound 入库（direction 错乱），触发新 AI 回复 → 无限循环。
+//   与 handleIngressSingleForBatch 钩子2 同源：唯一差异是不触发 AI。
 func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *model.MessageEvent, direction string) error {
 	if err := s.NormalizeEvent(ctx, event); err != nil {
 		return err
 	}
 	if direction == "" {
 		direction = "inbound"
+	}
+	// 钩子2：msg_id 去重（与 handleIngressSingleForBatch 行为一致）。
+	// event_id 即前端 _canonicalMsgId = contentHash = 服务端 ContentHashMsgID 输出值。
+	// 命中 → 已存在（inbound 或 outbound）→ 幂等跳过；未命中 → 走原落库。
+	if s.hubRepo != nil && event.EventID != "" {
+		if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil {
+			logger.Ctx(ctx).Info().
+				Str("module", "bridge").
+				Str("event_id", event.EventID).
+				Str("existing_direction", existing.Direction).
+				Str("conv_id", event.ConversationID).
+				Str("channel", event.Channel).
+				Str("sender_id", event.SenderID).
+				Msg("[Inbox] PersistBridgeHistory 钩子2 命中：msg_id 已存在，幂等跳过（防回环）")
+			return nil
+		}
+	}
+	// 钩子2.5（2026-08-07 第六轮修复）：服务端权威内容级去重。
+	//   与 handleIngressSingleForBatch 钩子2.5 同源：无论前端 msg_id 算法如何变化（algo1/algo2），
+	//   只要本平台已有同 content 的任意消息就视为"自/他回显"，幂等跳过——避免同内容 AI 回复
+	//   被 patrol 错乱反复入库为 inbound 触发循环 AI。
+	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
+		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+			logger.Ctx(ctx).Info().
+				Str("module", "bridge").
+				Str("canonical_hash", canonicalHash).
+				Str("existing_msg_id", existing.MsgID).
+				Str("existing_direction", existing.Direction).
+				Str("conv_id", event.ConversationID).
+				Str("channel", event.Channel).
+				Str("sender_id", event.SenderID).
+				Msg("[Inbox] PersistBridgeHistory 钩子2.5 命中：canonical contentHash 已存在，幂等跳过（防回环）")
+			return nil
+		}
+		if existing, err := s.hubRepo.GetByPlatformContent(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			logger.Ctx(ctx).Info().
+				Str("module", "bridge").
+				Str("existing_msg_id", existing.MsgID).
+				Str("existing_direction", existing.Direction).
+				Str("conv_id", event.ConversationID).
+				Str("channel", event.Channel).
+				Str("sender_id", event.SenderID).
+				Msg("[Inbox] PersistBridgeHistory 钩子2.5 命中：platform+content 已存在，幂等跳过（防回环）")
+			return nil
+		}
 	}
 	return s.persistHistoryMessage(ctx, event, direction)
 }
@@ -1177,7 +1263,7 @@ func (s *InboxIngressService) ListPendingOutbound(ctx context.Context, channel, 
 		AccountID: accountID,
 		Direction: "outbound",
 		Status:    "pending",
-		OrderBy:   "id asc",
+		OrderBy:   "id ASC",
 		PageSize:  50,
 	})
 	if err != nil {
@@ -1199,7 +1285,7 @@ func (s *InboxIngressService) ListPendingOutboundLimit(ctx context.Context, chan
 		AccountID: accountID,
 		Direction: "outbound",
 		Status:    "pending",
-		OrderBy:   "id asc",
+		OrderBy:   "id ASC",
 		PageSize:  limit,
 	})
 	if err != nil {
@@ -1321,38 +1407,13 @@ func isDuplicateKey(err error) bool {
 		errors.Is(err, gorm.ErrDuplicatedKey)
 }
 
-// isPlatformOutboundEcho 服务端权威自/他判定（2026-08-06 用户诉求）。
+// isPlatformMessage 及相关函数已于 2026-08-07 删除。
+// 消息去重现由前端统一生成 contentHash (FNV-1a mh:xxxxxxxx) 作为 msg_id，
+// 服务端 GetByMsgID 匹配即跳过。不再依赖 sender_type 或内容精确匹配。
 //
-// ingest 入口（前端 http-ingest 上报）携带的 sender_type 不可信：小红书等平台的
-// .chat-item 是整行容器，isSelfMessage 的布局兜底会失效，把平台自己的 AI 回复
-// 误判为 customer 回传 → 后端不断触发 AI → "平台不断下发消息"。
-//
-// 改为服务端按"来源"判定（不依赖前端自/他标签）：
-//   - 本会话最近 2h 内的平台下发(outbound)消息中，存在内容与当前消息相同的
-//     → 这是平台自己下发的回显（SELF），不应入库为 inbound，也不触发 AI
-//   - 否则 → 一定是用户消息（CUSTOMER），正常入库 + 触发 AI
-//
-// 平台下发的消息（AI 生成 / 人工客服）必然先入库（direction=outbound）再下发，
-// 因此只要内容命中既有 outbound，即可确定是平台自己的回显。
-func (s *InboxIngressService) isPlatformOutboundEcho(ctx context.Context, event *model.MessageEvent) bool {
-	if s.hubRepo == nil || event.Content == "" || event.ConversationID == "" {
-		return false
-	}
-	trimmed := strings.TrimSpace(event.Content)
-	if trimmed == "" {
-		return false
-	}
-	recent, err := s.hubRepo.GetRecentOutboundsByConversation(ctx, event.ConversationID, 20)
-	if err != nil || len(recent) == 0 {
-		return false
-	}
-	for _, ob := range recent {
-		if strings.TrimSpace(ob.Content) == trimmed {
-			return true
-		}
-	}
-	return false
-}
+// 架构原则（用户指定）：
+//   前端不可信自/他判定 → 所有消息 sender_type='customer'，统一上报。
+//   服务端通过 msg_id(内容哈希) 全局去重：命中 = 已有消息 = 跳过；未命中 = 新消息 = 用户发的。
 
 // truncateForLog 截断字符串用于日志输出（避免日志过长）。
 func truncateForLog(s string, maxLen int) string {
@@ -1375,16 +1436,7 @@ func contentHashOf(content string) string {
 	return hex.EncodeToString(h[:8])
 }
 
-// accountIDOf 从 MessageEvent 提取 account_id（用于内容 hash 去重 key）。
-func accountIDOf(event *model.MessageEvent) string {
-	if event.Extra == nil {
-		return "default"
-	}
-	if v, ok := event.Extra["account_id"].(string); ok && v != "" {
-		return v
-	}
-	return "default"
-}
+// accountIDOf 已于 2026-08-07 删除（无生产调用者）。
 
 // groupNameOf 从 MessageEvent 提取群名：优先 GroupID 对应的 GroupName 字段（事件模型
 // 无 GroupName 时回退 Extra 冗余），保证群聊 AI 编排能拿到群名。

@@ -108,15 +108,19 @@ export const WS_CLIENT_DEFAULTS = Object.freeze({
 // （未读红点）的会话点击进入右侧聊天页，捕获新消息上行（触发 AI 自动对话）。
 // 已 seen 的消息靠去重跳过，故只有真正新增的消息会上行。
 export const PATROL_DEFAULTS = Object.freeze({
-  // 巡检轮间隔：完成一轮后等待多久再开始下一轮（默认 60s）
-  intervalMs: 60 * 1000,
+  // 巡检轮间隔：完成一轮后等待多久再开始下一轮。
+  // 对齐 REDESIGN-2026-08-06 §4.4/§6（PATROL_INTERVAL_MS=3000）与三通道 PollingLoop.patrolIntervalMs=3000。
+  // 旧值 60s 偏离设计，导致"休眠后巡检一次"节奏过慢、新消息捕获延迟。
+  intervalMs: 3000,
   // 单个会话点击打开后等待线程渲染时长
   waitActiveMs: 5000,
-  // 会话间切换节流：1.5 秒一个会话（用户诉求：遍历会话列表不允许太快，两个会话之间间隔 1-2 秒）
-  //   - 太快（<1000ms）易触发平台风控（判定为机器人）+ 用户诉求明确要求 1-2s
-  //   - 太慢（>2000ms）巡检延迟高，新消息捕获不及时
-  //   - 1500ms 平衡点：落在 1-2s 区间中值，平台可接受 + 新消息近实时捕获
+  // 会话间渲染等待（技术性，封顶 600ms，由 _patrolVisit 使用）：仅作 DOM 渲染等待，非节流。
+  // 真正的会话间节流改为"随机 1-2 秒"（见 switchMinMs/switchMaxMs），以模拟真人、规避平台风控。
   throttleMs: 1500,
+  // 会话间随机暂停区间（设计：随机 1-2 秒，REDESIGN-2026-08-06 §6："逐会话...随机等待 rand(PATROL_SWITCH_MIN_MS, PATROL_SWITCH_MAX_MS)"）。
+  // 旧实现用固定 throttleMs=1500，无随机性，被审计指出"每个会话之间没有随机暂停的逻辑"。
+  switchMinMs: 1000,
+  switchMaxMs: 2000,
   // 单轮最多访问多少个会话（0 = 不限，按需设上限防止超长轮）
   maxPerRound: 0,
   // 两轮列表扫描之间的间隔（滚动到底加载更多后等下一轮）：用户诉求 1-2 秒

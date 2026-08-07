@@ -171,8 +171,11 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		t.Logf("✅ 不同账号不同会话各自触发 AI: 调用次数=%d", trigger.called)
 	})
 
-	// ========== 场景 5：self/agent 消息被过滤，不触发 AI ==========
-	t.Run("场景5_self_agent消息被过滤", func(t *testing.T) {
+	// ========== 场景 5：sender_type 不再区分，所有消息同等对待 ==========
+	// 2026-08-07 删除 isPlatformMessage：msg_id(contentHash) 为唯一去重键，
+	// sender_type 统一视为 customer（前端不判定自/他）。
+	// 本条测试验证：不同 sender_type 的"新消息"（GetByMsgID 未命中）均触发 AI。
+	t.Run("场景5_sender_type平等处理", func(t *testing.T) {
 		trigger.called = 0
 
 		events := []*model.MessageEvent{
@@ -192,7 +195,7 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 				Content:        "自己发的消息",
 				EventID:        "evt-self-1",
 				ConversationID: "conv-filter-1",
-				SenderType:     "self",
+				SenderType:     "customer", // 前端统一 customer，self/agent 已废弃
 				MsgType:        model.MsgTypeText,
 				Extra:          map[string]interface{}{"account_id": "xhs-acct-1"},
 			},
@@ -202,21 +205,18 @@ func TestInboxIngress_BatchMerge_Scenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("HandleIngressBatch: %v", err)
 		}
-		// self 消息被过滤，仅 customer 消息触发 AI
+		// 两条消息的 EventID 均未在 DB 中命中 → 视为新消息。
+		// 批次合并会将同会话多条消息合并为 1 次 AI 触发调用。
 		if trigger.called != 1 {
-			t.Fatalf("self 消息应被过滤，仅 1 次 AI 触发，实际: %d", trigger.called)
+			t.Fatalf("同会话 2 条消息应合并触发 1 次 AI，实际: %d", trigger.called)
 		}
-		// 验证 self 消息 Accepted=false
 		if len(result.PerEvent) != 2 {
 			t.Fatalf("应返回 2 个 PerEvent，实际: %d", len(result.PerEvent))
 		}
-		if result.PerEvent[0].Accepted != true {
-			t.Fatalf("customer 消息应被接受，实际: %+v", result.PerEvent[0])
+		if result.PerEvent[0].Accepted != true || result.PerEvent[1].Accepted != true {
+			t.Fatalf("两条消息均应被接受: %+v / %+v", result.PerEvent[0], result.PerEvent[1])
 		}
-		if result.PerEvent[1].Accepted != false {
-			t.Fatalf("self 消息应被拒绝，实际: %+v", result.PerEvent[1])
-		}
-		t.Logf("✅ self 消息被过滤，仅 customer 消息触发 AI")
+		t.Logf("✅ sender_type 不再区分：两条消息同等对待，批次合并触发 1 次 AI")
 	})
 
 	// ========== 场景 6：系统消息仅落库不触发 AI ==========

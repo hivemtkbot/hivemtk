@@ -87,10 +87,27 @@ export function setValue(el, value) {
 /**
  * 抖音 fillInputViaPaste：contenteditable 填值（粘贴事件优先，保证框架识别输入）。
  * 参考 DY-auto fillInputViaPaste：触发 paste + 写入 innerText + 派发 input。
+ *
+ * 2026-08-07 修复（用户诉求③）：增加 clearBefore 选项，下发场景必须先清空输入框旧内容，
+ *   避免「用户正在打字 + extension 同时下发」导致旧内容+新内容拼接发出。
+ *   - clearBefore: true  → 先清空（innerText=''/value=''）再 insertText（默认 false 兼容历史行为）
+ *   - 历史回填场景保持原行为（不清空，仅 append）
  */
-export function fillContentEditable(el, text) {
+export function fillContentEditable(el, text, { clearBefore = false } = {}) {
   if (!el) return;
   el.focus();
+  if (clearBefore) {
+    // 1) 清空现有内容（DOM 层面）
+    try {
+      if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+        el.value = '';
+      } else {
+        // contenteditable：清空所有子节点，再保留或建立一个 <br> 占位（否则某些平台会认为输入框为空不可发）
+        while (el.firstChild) el.removeChild(el.firstChild);
+        el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      }
+    } catch (_) { /* noop */ }
+  }
   // 1) 原生 execCommand 输入（最贴近真人，抖音/小红书 contenteditable 均认）
   try {
     document.execCommand('insertText', false, text);
@@ -98,8 +115,12 @@ export function fillContentEditable(el, text) {
     /* noop */
   }
   // 2) 兜底：直接写 innerText + 派发 input 事件
-  if ((el.innerText || '').trim() !== text.trim()) {
-    el.innerText = text;
+  if ((el.innerText || el.value || '').toString().trim() !== text.trim()) {
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+      el.value = text;
+    } else {
+      el.innerText = text;
+    }
     el.dispatchEvent(new InputEvent('input', { bubbles: true }));
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }

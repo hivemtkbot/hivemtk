@@ -15,11 +15,27 @@
 //   服务端 AI 回复 ──▶ outbound_replies ──▶ sendOutbound ──▶ 回写网页
 import { createLogger } from './logger.js';
 import { RateLimiter } from './rate-limiter.js';
-import { makeUnifiedMessage, SENDER, DIRECTION, HISTORY_CONTEXT_WINDOW, PATROL_DEFAULTS } from './types.js';
+import { makeUnifiedMessage, SENDER, DIRECTION, HISTORY_CONTEXT_WINDOW, PATROL_DEFAULTS, contentHash } from './types.js';
 import { mergeSelectors } from './selector-ai.js';
 import { simulateRealClick } from './dom.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 下行告警去抖：下行被全局最小间隔 / 会话未找到拦截时，若每轮轮询都打印会刷屏。
+// 按 key 限频，默认 15s 内同 key 仅打印一次。
+const _warnThrottle = new Map(); // key -> lastLogAt(ms)
+function throttledWarn(log, key, intervalMs, msg, extra) {
+  const now = Date.now();
+  const last = _warnThrottle.get(key) || 0;
+  if (now - last >= intervalMs) {
+    _warnThrottle.set(key, now);
+    if (extra !== undefined) log.warn(msg, extra);
+    else log.warn(msg);
+  }
+}
+const WARN_THROTTLE_MS = 15000;
+// 随机整数 [min, max]（含端点）：用于会话间随机暂停，模拟真人操作节奏，规避平台风控。
+const randInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
 export class BaseAdapter {
   constructor({ name, channel, SEL, hooks, rateLimiter }) {
@@ -38,7 +54,9 @@ export class BaseAdapter {
     // 故以此做去重，避免重复上行（实测：单会话 2h 冗余 POST 比 ≈ 46:1）。
     this._sentKeys = new Map(); // key -> 上次发送时间戳(ms)
     this._sentKeysMax = 5000;   // 容量保护
-    this._sentKeysTtlMs = 10 * 60 * 1000; // 10 分钟过期
+    this._sentKeysTtlMs = 120 * 60 * 1000; // 2 小时过期（防巡逻 TTL 到期后将静态旧消息误当新消息上行触发 AI）
+    this._sentKeysDirty = false;
+    this._sentSaveTimer = null;
     this.observer = null;
     this.convPollTimer = null;
     this.fallbackTimer = null;
@@ -108,29 +126,28 @@ export class BaseAdapter {
   }
 
   // 稳定去重键：跨 DOM 重渲染不变（节点引用会变，文本+发送者+会话稳定）。
-  // 规则（用户指定）：会话|发送者|文本 —— 不引入 channel/type 维度，确保同一条逻辑消息跨重渲染稳定去重。
+  // 对 (cid|sender|text) 取哈希，防 localStorage 存长文本。仅用于 _sentKeys 去重，不作 event_id。
   _dedupKey(cid, parsed) {
     const sender = parsed.sender_id || parsed.sender_name || '';
     const text = parsed.text || '';
-    return `${cid}|${sender}|${text}`;
+    return this._hash(`${cid}|${sender}|${text}`);
   }
 
-  // 规范化 event_id（msg_id）：优先平台稳定 id（短且稳定）；否则对稳定键哈希（避免 c:${text} 超 varchar(100)）。
-  // 系统/撤回类消息保留语义化短 id（sys:/recall: 前缀，稳定且短）。
+  // 规范化 event_id（msg_id）。
+  //
+  // 2026-08-07 核心修复（用户指定方案）：
+  //   前端不可信自/他判定 → 所有消息默认 sender_type='customer'，统一上报。
+  //   msg_id = contentHash(channel, conversationID, content) → FNV-1a → `mh:xxxxxxxx`，
+  //   与服务端 ContentHashMsgID 算法逐字节一致（mh: 前缀 + FNV-1a 32位 hex）。
+  //   数据库已有唯一索引约束，GetByMsgID 查重即准确的全局去重：
+  //   - 哈希命中（已入库） → 跳过，不发 AI
+  //   - 哈希未命中 → 新消息，用户发的，入库 → 触发 AI
+  //   不再依赖 DOM 属性（不可靠）或 sender_type（前端不判定）。
   _canonicalMsgId(item, cid, parsed) {
     const type = parsed.msg_type || 'text';
-    if (type === 'system' || type === 'recall') {
-      return `${type}:${this._hash(this._dedupKey(cid, parsed))}`;
-    }
-    const platformId = item
-      ? (item.getAttribute && (
-        item.getAttribute('data-message-id') ||
-        item.getAttribute('data-id') ||
-        item.getAttribute('data-msg-id') ||
-        item.id)) || ''
-      : '';
-    if (platformId) return String(platformId);
-    return 'h:' + this._hash(this._dedupKey(cid, parsed));
+    const hash = contentHash(this.channel, cid || '', parsed.text || '');
+    if (type === 'system' || type === 'recall') return `${type}:${hash}`;
+    return hash;
   }
 
   _hasSent(key) {
@@ -144,6 +161,7 @@ export class BaseAdapter {
 
   _markSent(key) {
     this._sentKeys.set(key, Date.now());
+    this._sentKeysDirty = true;
     if (this._sentKeys.size > this._sentKeysMax) {
       // 简单 LRU：删除最旧的 20%
       const entries = [...this._sentKeys.entries()].sort((a, b) => a[1] - b[1]);
@@ -210,6 +228,11 @@ export class BaseAdapter {
       // 与 _ingest 一致：只取文字消息
       if (parsed.msg_type && parsed.msg_type !== 'text') continue;
       if (!parsed.text) continue;
+      // 会话归属校验：getMessageItems(root=document) 可能返回虚拟列表残留的
+      // 上一会话 DOM 节点。检查 item 是否仍在活动消息容器内（getMessageRoot()）。
+      // 不在当前会话容器的节点 → 跨会话残留 → 丢弃。
+      const root = this.getMessageRoot();
+      if (root && item && !root.contains(item)) continue;
       // 稳定键去重（跨 DOM 重渲染）：与 _handleIncremental/_backfill/_collectUnseenText 共用
       // _sentKeys。PollingLoop 每秒巡检、每轮重抓全部可见消息，若不做去重，同一逻辑消息会被反复上行；
       // 规范 event_id（h:<hash>）让后端按稳定键幂等去重（即便 _sentKeys 过期也能兜底）。
@@ -258,11 +281,18 @@ export class BaseAdapter {
       this._startConvPolling();
       // 私信全量遍历同步：自动同步所有会话（持久化续传，仅同步新增/未同步会话）
       this._loadSyncedConvIds();
+      // 稳定键去重持久化：恢复上次会话的 _sentKeys，防止刷新/重启后 backfill 与巡逻将历史消息重上行
+      this._loadSentKeys();
       this._scheduleInitialSync();
       this._startRescan();
       // 巡检制度：自动启动（首轮在 intervalMs 后，确保存量历史已被首次同步以 history 落库、
       // 不会被巡检误当新消息触发 AI）。可由 popup 配置 intervalMs 或停止。
       this._startPatrolAuto();
+      // 持久化 _sentKeys：每 30s 落盘一次。用于防止浏览器刷新/重启后，
+      // backfill 与巡逻将同一批静态历史消息误当成新消息上行，产生无来由的 AI 回复。
+      if (!this._sentSaveTimer) {
+        this._sentSaveTimer = setInterval(() => this._saveSentKeys(), 30000);
+      }
       return true;
     } catch (e) {
       // 任何异常：记录详细错误，清理已分配资源（防止半初始化状态遗留 observer/timer），
@@ -280,6 +310,9 @@ export class BaseAdapter {
     if (this._graceTimer) clearTimeout(this._graceTimer);
     if (this._rescanTimer) clearInterval(this._rescanTimer);
     this._stopPatrol();
+    // 最后一次落盘 _sentKeys 并清理定时器
+    if (this._sentSaveTimer) { clearInterval(this._sentSaveTimer); this._sentSaveTimer = null; }
+    this._saveSentKeys();
     this._convWindow.clear();
   }
 
@@ -446,6 +479,38 @@ export class BaseAdapter {
     } catch (_) { /* 配额/隐私模式忽略 */ }
   }
 
+  _sentKey() {
+    return `hivebridge:sent:${this.channel}:${this.domain || (typeof location !== 'undefined' ? location.host : '')}`;
+  }
+
+  _loadSentKeys() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(this._sentKey());
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const now = Date.now();
+        for (const [key, ts] of arr) {
+          if (now - ts < this._sentKeysTtlMs) this._sentKeys.set(key, ts);
+        }
+      }
+    } catch (_) { /* localStorage 不可用或数据损坏，忽略 */ }
+  }
+
+  _saveSentKeys() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      if (!this._sentKeysDirty) return;
+      this._sentKeysDirty = false;
+      // 仅保留最近 _sentKeysMax 条（按时间戳升序，旧者先裁）
+      const arr = [...this._sentKeys.entries()]
+        .sort((a, b) => a[1] - b[1])
+        .slice(-this._sentKeysMax);
+      localStorage.setItem(this._sentKey(), JSON.stringify(arr));
+    } catch (_) { /* 配额/隐私模式忽略 */ }
+  }
+
   // 首次激活后延迟调度一次全量同步（等列表与首个会话渲染就绪）
   // 2026-08-05 修复：throttleMs 1000 → 1500（用户诉求：会话间间隔 1-2 秒）
   _scheduleInitialSync() {
@@ -472,12 +537,16 @@ export class BaseAdapter {
   //   - null：超时未切换（点击未注册 / 非可点击元素）→ 调用方记失败
   // 关键：不能一有值就返回——SPA 异步渲染时 getConversationId 可能先返回旧值，
   // 若把它当 realCid 会误判「未打开线程」。必须等 cur !== prevCid。
-  async _waitForActiveConversation(targetId, prevCid, timeout = 5000) {
+  // exact=true（下行 sendOutbound 场景）：只接受精确切到 targetId。
+  //   旧版"cur !== prevCid 即返回"会容忍"切到别处也当成功"——这是
+  //   "发给 A 的 AI 回复却发给了 B/所有人"的根因：切到 B 后 rawSendText
+  //   把文案填进 B 的输入框。下行必须精确，巡检 backfill 可宽松。
+  async _waitForActiveConversation(targetId, prevCid, timeout = 5000, exact = false) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       const cur = this.getConversationId();
       if (cur === targetId) return cur; // 目标已打开（含原本就是目标）
-      if (cur && cur !== prevCid) return cur; // 已切到其它会话
+      if (!exact && cur && cur !== prevCid) return cur; // 巡检兼容：已切到其它会话
       await sleep(200);
     }
     return null;
@@ -486,7 +555,7 @@ export class BaseAdapter {
   // 在左侧会话列表找到目标会话并点击打开（上行遍历 / 下行回写共用）。
   // 返回打开后的活动会话 id；找不到目标 / 点击后未打开 → 返回 null。
   // 下行场景（AI 回复目标用户 ≠ 当前打开的会话）用它切到正确会话再发送。
-  async openConversation(cid, { waitActiveMs = 5000, backfill = false } = {}) {
+  async openConversation(cid, { waitActiveMs = 5000, backfill = false, exact = false } = {}) {
     if (!cid) return null;
     const cur = this.getConversationId();
     if (cur === cid) {
@@ -515,7 +584,7 @@ export class BaseAdapter {
       ));
     }
     if (!target || !target.el) {
-      this.log.warn(`左侧列表未找到目标会话 ${cid}`);
+      throttledWarn(this.log, `openConv:${cid}`, WARN_THROTTLE_MS, `左侧列表未找到目标会话 ${cid}`);
       return null;
     }
     const prevCid = this.getConversationId();
@@ -527,7 +596,7 @@ export class BaseAdapter {
       if (target.el.tagName === 'A' || target.el.tagName === 'BUTTON') target.el.click();
       else simulateRealClick(target.el);
     } catch (_) { /* 点击异常忽略 */ }
-    const opened = await this._waitForActiveConversation(cid, prevCid, waitActiveMs);
+    const opened = await this._waitForActiveConversation(cid, prevCid, waitActiveMs, exact);
     if (!opened) {
       this.log.warn(`会话 ${cid} 点击后未打开线程`);
       return null;
@@ -695,6 +764,8 @@ export class BaseAdapter {
       scrollLoadMs: opts.scrollLoadMs || PATROL_DEFAULTS.scrollLoadMs,
       maxPasses: opts.maxPasses || PATROL_DEFAULTS.maxPasses,
       visitAllWhenNoUnread: !!opts.visitAllWhenNoUnread,
+      switchMinMs: opts.switchMinMs || PATROL_DEFAULTS.switchMinMs,
+      switchMaxMs: opts.switchMaxMs || PATROL_DEFAULTS.switchMaxMs,
     };
     this._savePatrolInterval(intervalMs);
     if (this._patrolTimer) clearTimeout(this._patrolTimer);
@@ -761,6 +832,8 @@ export class BaseAdapter {
     maxPasses = PATROL_DEFAULTS.maxPasses,
     visitAllWhenNoUnread = false,
     scanOnly = false,
+    switchMinMs = PATROL_DEFAULTS.switchMinMs,
+    switchMaxMs = PATROL_DEFAULTS.switchMaxMs,
   } = {}) {
     if (this._patrolling) { this.log.warn('巡检已在进行，忽略重复触发'); return { skipped: true, reason: 'in-progress' }; }
     const hook = this.hooks.getConversationList;
@@ -827,7 +900,9 @@ export class BaseAdapter {
           const r = await visitPromise;
           visited++;
           if (r && r.ok && r.newCount > 0) { withNew++; captured += r.newCount; }
-          await sleep(throttleMs);
+          // 会话间随机暂停（设计：随机 1-2 秒，REDESIGN-2026-08-06 §6）。
+          // 替代旧固定 throttleMs=1500：随机节奏模拟真人，规避平台风控。
+          await sleep(randInt(switchMinMs, switchMaxMs));
         } catch (e) {
           this.log.warn('巡检单个会话异常', conv && conv.id, e && e.message);
           failures++;
@@ -857,15 +932,12 @@ export class BaseAdapter {
   // 巡检访问单个未读会话：点击打开（不触发 history 回填），等待渲染，收集未 seenNodes 的文字消息，
   // 一条会话级消息上行。已扫描的 DOM 节点靠 seenNodes 跳过 → 不重复打扰。
   //
-  // 2026-08-05 修复（用户诉求：遍历会话列表不允许太快）：
-  //   - 渲染等待（renderWaitMs）与节流（throttleMs）分离，职责清晰
-  //   - renderWaitMs = min(throttleMs, 600)：DOM 渲染等待，封顶 600ms 防过长（技术性等待）
-  //   - throttleMs（默认 1500ms）：会话间节流，在 patrol 主循环里 sleep（用户诉求 1-2s）
-  //   - 旧注释「节流的一部分作为渲染等待」有歧义，已澄清
+  // 2026-08-07 修复（跨会话 DOM 残留）：
+  //   _collectUnseenText 内部校验每条消息的会话归属（parsed.conversation_id === 当前 conv.id），
+  //   过滤 openConversation 后 getMessageItems 仍返回的残留节点。
   async _patrolVisit(conv, { throttleMs, waitActiveMs }) {
     const opened = await this.openConversation(conv.id, { backfill: false, waitActiveMs });
     if (!opened) return { ok: false, newCount: 0 };
-    // 等待线程异步渲染（纯技术性等待，与 patrol 主循环里的 throttleMs 节流分离）
     const renderWaitMs = Math.min(throttleMs, 600);
     await sleep(renderWaitMs);
     const batch = this._collectUnseenText();
@@ -895,6 +967,10 @@ export class BaseAdapter {
       let parsed;
       try { parsed = this.parseMessageItem(item); } catch (_) { continue; }
       if (!parsed) continue;
+      // 会话归属校验：虚拟列表切换后 getMessageItems(root=document) 可能返回
+      // 上一会话的残留 DOM 节点。检查 item 是否仍在活动消息容器内。
+      const root = this.getMessageRoot();
+      if (root && item && !root.contains(item)) { this.seenNodes.add(item); continue; }
       // 需求⑥：只上行文字消息
       if (parsed.msg_type && parsed.msg_type !== 'text') { this.seenNodes.add(item); continue; }
       if (!parsed.text) { this.seenNodes.add(item); continue; }
@@ -1150,24 +1226,51 @@ export class BaseAdapter {
   // 先在左侧列表找到该用户点击进入右侧聊天页，再模拟输入发送（用户诉求：
   // “左侧列表找用户 → 点击进入右侧 → 模拟输入发送”）。
   // 2026-08-05 架构重构：sendOutbound 只做纯转发，不再调 _markRecentSelf（防回环交给后端）。
+  // 返回结构化结果：{ ok, rateLimited, notFound }
+  //   - ok: 是否成功回写
+  //   - rateLimited: 被风控限速拦截（本批后续消息也必被同一全局最小间隔拦截，调用方应提前结束本轮）
+  //   - notFound: 目标会话在左侧列表不存在（不可达，重试无意义，仅告警去抖）
   async sendOutbound(text, targetConvId) {
-    if (!text) { this.log.warn('回复内容为空，跳过'); return false; }
+    if (!text) { this.log.warn('回复内容为空，跳过'); return { ok: false, rateLimited: false, notFound: false }; }
     const account = this.getAccountId();
     let conv = this.getConversationId();
     // 目标会话明确且不等于当前 → 先切到目标会话
     if (targetConvId && conv !== targetConvId) {
-      const opened = await this.openConversation(targetConvId, { backfill: false });
+      // exact=true：只接受精确切到目标会话，杜绝"切到别处也当成功"→ 误发到其他会话
+      const opened = await this.openConversation(targetConvId, { backfill: false, exact: true });
       if (!opened) {
-        this.log.warn(`下行目标会话 ${targetConvId} 未打开，放弃发送`, { current: conv });
-        return false;
+        throttledWarn(this.log, `sendNotOpen:${targetConvId}`, WARN_THROTTLE_MS, `下行目标会话 ${targetConvId} 未打开，放弃发送`, { current: conv });
+        return { ok: false, rateLimited: false, notFound: true };
       }
+      // SPA DOM 渲染稳定等待：openConversation 确认 URL/活动会话已切换，
+      // 但 React 异步渲染输入框可能滞后——等待 getConversationId 在 3 轮(约600ms)内不变，
+      // 确保输入框 DOM 属于目标会话而非上一个会话的残留节点。
+      let stableCount = 0;
+      let lastCid = null;
+      const stableDeadline = Date.now() + 2000;
+      while (Date.now() < stableDeadline) {
+        const c = this.getConversationId();
+        if (c === lastCid) {
+          if (++stableCount >= 3) break;
+        } else {
+          stableCount = 0;
+          lastCid = c;
+        }
+        await sleep(200);
+      }
+      // 二次校验（防 DOM 竞争导致会话漂移）：确认仍在目标会话，否则拒绝发送
       conv = this.getConversationId();
+      if (targetConvId && conv !== targetConvId) {
+        throttledWarn(this.log, `sendConvDrift:${targetConvId}`, WARN_THROTTLE_MS,
+          `下行会话漂移: 期望 ${targetConvId} 实际 ${conv}，放弃发送防误发`, { opened });
+        return { ok: false, rateLimited: false, notFound: true };
+      }
     }
     const decision = this.rateLimiter.tryAcquire(this.channel, account, conv, text);
     if (!decision.allowed) {
-      this.log.warn(`下行被风控拦截: ${decision.reason}`);
+      throttledWarn(this.log, `ratelimit:${decision.reason}`, WARN_THROTTLE_MS, `下行被风控拦截: ${decision.reason}`);
       if (this.callbacks.onRateLimited) this.callbacks.onRateLimited(decision);
-      return false;
+      return { ok: false, rateLimited: true, notFound: false };
     }
     if (decision.waitHintMs > 0) await sleep(decision.waitHintMs);
     let ok = false;
@@ -1176,15 +1279,16 @@ export class BaseAdapter {
       ok = true;
     } catch (e) {
       this.log.error('回写失败', e);
-      return false;
+      return { ok: false, rateLimited: false, notFound: false };
     }
     if (ok) {
       this.rateLimiter.markSent(this.channel, account, conv, text);
-      // 上报 outbound 消息（Mutation 抓到的同源气泡由后端通过 sender_type 去重）
+      // 上报 outbound 自汇报：msg_id 使用 contentHash，与服务端 ContentHashMsgID 逐字节一致。
+      // patrol 重新抓取同一 AI 回复气泡时 _canonicalMsgId 产出相同哈希 → GetByMsgID 命中 → 跳过。
       this._emitMessage(
-        { sender_type: SENDER.AGENT, text, media_url: '', timestamp: Date.now(), message_id: `out-${Date.now()}` }
+        { sender_type: SENDER.AGENT, text, media_url: '', timestamp: Date.now(), message_id: contentHash(this.channel, conv, text) }
       );
     }
-    return ok;
+    return { ok, rateLimited: false, notFound: false };
   }
 }

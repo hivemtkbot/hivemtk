@@ -78,7 +78,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const onInbound = vi.fn();
     adapter.callbacks.onMessage = onInbound;
 
-    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
 
     // 巡检不再判断未读，直接遍历所有会话 = 3 个
     expect(r.visited).toBe(3);
@@ -104,7 +104,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const onInbound = vi.fn();
     adapter.callbacks.onMessage = onInbound;
 
-    await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
     expect(onInbound).toHaveBeenCalledTimes(1);
 
     // 第二轮：该消息已在 seen 集合里 → 不再上行
@@ -126,7 +126,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const onInbound = vi.fn();
     adapter.callbacks.onMessage = onInbound;
 
-    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
     // 巡检不再判断未读，直接遍历所有会话，靠 seenNodes/seen 去重只报新消息
     expect(r.visited).toBe(2);
     expect(r.captured).toBe(2);
@@ -160,7 +160,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const onInbound = vi.fn();
     adapter.callbacks.onMessage = onInbound;
 
-    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
     expect(r.captured).toBe(1); // 仅文字消息
     const msg = onInbound.mock.calls[0][0];
     expect(msg.history.length).toBe(1);
@@ -181,7 +181,7 @@ describe('BaseAdapter.patrol 巡检一轮', () => {
     const onInbound = vi.fn();
     adapter.callbacks.onMessage = onInbound;
 
-    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    const r = await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
     expect(r.captured).toBe(3);
     expect(onInbound).toHaveBeenCalledTimes(1); // 一个会话=一条 inbound 帧
     const msg = onInbound.mock.calls[0][0];
@@ -211,7 +211,7 @@ describe('BaseAdapter patrol 启停控制', () => {
     const messagesByConv = { a1: [makeMessage('m-a1', '你好')] };
     const { adapter } = buildAdapter(convList, messagesByConv);
     adapter.callbacks.onInbound = vi.fn();
-    await adapter.patrol({ throttleMs: 1, waitActiveMs: 200 });
+    await adapter.patrol({ throttleMs: 1, waitActiveMs: 200, switchMinMs: 0, switchMaxMs: 0 });
     const s = adapter.patrolStatus();
     expect(s.rounds).toBe(1);
     expect(s.visited).toBe(1);

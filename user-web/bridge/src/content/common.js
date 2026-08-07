@@ -17,6 +17,10 @@ import { PollingLoop } from '../core/polling-loop.js';
 
 const log = createLogger('content', 'bridge');
 
+// 下行限速告警去抖：被全局最小间隔拦截时每轮轮询都会触发，去抖避免刷屏。
+const _rateLimitWarnAt = new Map(); // reason -> lastLogAt(ms)
+const RATE_LIMIT_WARN_INTERVAL_MS = 15000;
+
 // B6 修复：popup -> content 的 selfcheck 用 chrome.tabs.sendMessage 触发，
 // 监听器必须在事件循环 turn 内同步调用 sendResponse，否则 chrome 会报
 // "message port closed" 且 popup 永远收不到响应。
@@ -522,7 +526,14 @@ export function startBridge(channel, buildAdapter) {
         // fire-and-forget：postIngest 自带退避重试 + 完整 URL/参数日志
         submitIngest(message);
       },
-      onRateLimited: (decision) => log.warn('下行被风控拦截:', decision.reason),
+      onRateLimited: (decision) => {
+        const now = Date.now();
+        const last = _rateLimitWarnAt.get(decision.reason) || 0;
+        if (now - last >= RATE_LIMIT_WARN_INTERVAL_MS) {
+          _rateLimitWarnAt.set(decision.reason, now);
+          log.warn('下行被风控拦截:', decision.reason);
+        }
+      },
     });
 
     // 2026-08-06 架构重构：启动桥接巡检 + 下发轮询（三通道相互独立）。
