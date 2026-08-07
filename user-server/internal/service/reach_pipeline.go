@@ -760,7 +760,16 @@ func (s *ReachPipelineService) dispatchLoop(ctx context.Context, interval time.D
 			logger.Infof("[reach_dispatcher] 调度器退出")
 			return
 		case <-ticker.C:
-			s.dispatchDueJobs(ctx)
+			// 修复：dispatchDueJobs 内单条任务执行（如渠道发送器 NPE）panic 不得杀死调度主循环，
+			// 否则整条触达调度器永久停摆。recover 后仅记日志，下一 tick 继续。
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Errorf("[reach_dispatcher] dispatchDueJobs panic recovered: %v", r)
+					}
+				}()
+				s.dispatchDueJobs(ctx)
+			}()
 		}
 	}
 }

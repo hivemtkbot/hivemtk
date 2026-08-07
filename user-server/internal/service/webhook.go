@@ -403,7 +403,16 @@ func (s *WebhookService) worker(ctx context.Context, id int) {
 			if !ok {
 				return
 			}
-			s.handleJob(ctx, job)
+			// 修复：单条 job 处理（派发/解析/AI 编排）panic 不得杀死 worker goroutine，
+			// 否则 worker 数静默下降，webhook 队列最终停摆。recover 后仅记日志，循环继续。
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Errorf("[Webhook] worker-%d panic recovered, job dropped: %v", id, r)
+					}
+				}()
+				s.handleJob(ctx, job)
+			}()
 		}
 	}
 }
@@ -2203,6 +2212,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 			Platform:       string(channel),
 			AccountID:      accountID,
 			Direction:      "outbound",
+			Status:         "pending", // 显式置为 pending：确保 ListPendingOutbound 的 status='pending' 过滤能命中；不依赖 GORM default 标签（零值字符串不一定触发 DB 默认）
 			MsgType:        "text",
 			SenderID:       accountID,
 			ReceiverID:     hubMsg.SenderID,

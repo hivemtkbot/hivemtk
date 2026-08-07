@@ -34,6 +34,7 @@ import (
 
 	"marketing/internal/dto"
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
 	"gorm.io/gorm"
@@ -138,16 +139,26 @@ func (c *FeedbackCollector) worker() {
 		cancel()
 		batch = batch[:0]
 	}
+	// 修复：flush（flushBatch→persist）panic 不得杀死 worker（否则 done 永不关闭、
+	// Stop() 关机会死锁且反馈采集静默停止）。recover 后仅记日志，循环继续。
+	safeFlush := func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Errorf("[feedback_collector] flush panic recovered: %v", r)
+			}
+		}()
+		flush()
+	}
 
 	for {
 		select {
 		case req := <-c.queue:
 			batch = append(batch, req)
 			if len(batch) >= c.config.BatchSize {
-				flush()
+				safeFlush()
 			}
 		case <-ticker.C:
-			flush()
+			safeFlush()
 		case <-c.stopCh:
 			// 优雅关闭：先排空队列（非阻塞），再刷盘剩余 batch
 			for {
@@ -155,7 +166,7 @@ func (c *FeedbackCollector) worker() {
 				case req := <-c.queue:
 					batch = append(batch, req)
 				default:
-					flush()
+					safeFlush()
 					return
 				}
 			}
