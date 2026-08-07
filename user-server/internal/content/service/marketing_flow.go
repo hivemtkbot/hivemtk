@@ -1151,7 +1151,12 @@ func (s *MarketingFlowService) sendActionSendEmail(ctx context.Context, config m
 		contentType = "Content-Type: text/plain; charset=\"UTF-8\"\r\n"
 	}
 
-	mailHeader := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n%s%s\r\n", from, to, subject, mime, contentType)
+	// 修复：邮件头字段 from/to/subject 去除 CR/LF，防止 CRLF 注入导致邮件头或收件人被注入
+	mailHeader := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n%s%s\r\n",
+		strings.NewReplacer("\r", "", "\n", "").Replace(from),
+		strings.NewReplacer("\r", "", "\n", "").Replace(to),
+		strings.NewReplacer("\r", "", "\n", "").Replace(subject),
+		mime, contentType)
 	message := mailHeader + body
 
 	// 发送邮件

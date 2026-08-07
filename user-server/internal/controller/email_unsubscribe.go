@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"encoding/csv"
+	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -160,6 +162,12 @@ func (c *EmailUnsubscribeController) RegisterRoutes(public *gin.RouterGroup, aut
 
 // unsubscribeConfirmHTML 返回退订确认页 HTML
 func unsubscribeConfirmHTML(email, token string) string {
+	// 修复 XSS：email / token 经过签名校验，但邮箱本身可能含特殊字符；
+	// HTML 上下文用 HTMLEscapeString，JS 字符串上下文用 JSEscapeString，
+	// URL 查询参数用 QueryEscape，防止注入破坏页面或构造恶意脚本。
+	escEmail := template.HTMLEscapeString(email)
+	escTokenJS := template.JSEscapeString(token)
+	escTokenURL := url.QueryEscape(token)
 	return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -181,7 +189,7 @@ func unsubscribeConfirmHTML(email, token string) string {
 <body>
 <div class="card">
   <h1>邮件退订确认</h1>
-  <p>您正在退订邮箱：<span class="email">` + email + `</span></p>
+  <p>您正在退订邮箱：<span class="email">` + escEmail + `</span></p>
   <p>退订后，我们将不再向此邮箱发送营销邮件（重要账户通知仍会发送）。</p>
   <form id="form">
     <label for="reason" style="font-size:14px;color:#606266;">退订原因（可选）：</label><br>
@@ -197,10 +205,10 @@ document.getElementById('form').addEventListener('submit', function(e){
   fetch('/api/email/unsubscribe/confirm', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({token: '` + token + `', reason: reason})
+    body: JSON.stringify({token: '` + escTokenJS + `', reason: reason})
   }).then(function(r){return r.json();}).then(function(d){
     alert((d && d.message) ? d.message : '退订成功');
-    if(d && d.code === 0){ window.location.href = '/api/email/unsubscribe?token=` + token + `'; }
+    if(d && d.code === 0){ window.location.href = '/api/email/unsubscribe?token=` + escTokenURL + `'; }
   }).catch(function(e){ alert('退订请求失败：' + e); });
 });
 </script>
@@ -210,6 +218,7 @@ document.getElementById('form').addEventListener('submit', function(e){
 
 // unsubscribedAlreadyHTML 返回已退订提示页
 func unsubscribedAlreadyHTML(email string) string {
+	escEmail := template.HTMLEscapeString(email)
 	return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -225,7 +234,7 @@ func unsubscribedAlreadyHTML(email string) string {
 <body>
 <div class="card">
   <h1>已成功退订</h1>
-  <p>邮箱 <strong>` + email + `</strong> 已在退订名单中。</p>
+  <p>邮箱 <strong>` + escEmail + `</strong> 已在退订名单中。</p>
   <p>我们将不再向您发送营销邮件。如需重新订阅，请联系管理员。</p>
 </div>
 </body>

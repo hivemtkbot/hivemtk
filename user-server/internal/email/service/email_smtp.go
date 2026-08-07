@@ -124,7 +124,6 @@ func toEmailSmtpResponse(s *model.EmailSmtp) *dto.EmailSmtpResponse {
 		Server:   s.Server,
 		Port:     s.Port,
 		Username: s.Username,
-		Password: s.Password,
 		Limit:    s.Limit,
 	}
 }

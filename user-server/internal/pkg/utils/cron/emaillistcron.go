@@ -12,6 +12,13 @@ import (
 )
 
 func EmailListCron() {
+	// 修复：单条列表邮件发送（如 From 解析/SMTP 连接）panic 不得杀死 cron 任务 goroutine，
+	// 否则经 robfig/cron 调度时本次跑批静默失败。recover 后仅记日志，循环继续。
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("[email_list_cron] panic recovered: %v", r)
+		}
+	}()
 	// 读取未发送的 email 列表
 	emailListService := email.NewEmailListService()
 	emailListList, err := emailListService.GetUnsentEmailList(context.Background(), 10)
@@ -33,7 +40,7 @@ func EmailListCron() {
 
 		// 发送邮件
 		cfg := mail.Config{
-			From:     emailSmtp.Name,
+			From:     emailSmtp.Username,
 			Password: emailSmtp.Password,
 		}
 
@@ -48,7 +55,7 @@ func EmailListCron() {
 		// 更新有邮件状态
 		emailList.IsSend = 1
 		emailList.SendTime = time.Now()
-		emailList.From = emailSmtp.Name
+		emailList.From = emailSmtp.Username
 		emailList.IsSuccess = is_success
 		emailListService.UpdateEmailList(context.Background(), *emailList)
 

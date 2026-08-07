@@ -21,6 +21,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,6 +112,11 @@ func (s *EmailOpenTrackerService) RenderPixel(ctx context.Context, token, ip, ua
 	if token == "" {
 		return nil, "", 0, errors.New("token 不能为空")
 	}
+	// 修复：同一 token 30 秒内只记录一次打开事件，避免邮件客户端预取/预览面板
+	// 自动 GET 像素 URL 造成重复计数（MarkOpenSeen 已实现该防重，此前 RenderPixel 未调用它）。
+	if !MarkOpenSeen(token) {
+		return EmailOpenPixel, EmailOpenPixelContentType, EmailOpenPixelMaxAge, nil
+	}
 	// 异步记录（不阻塞 HTTP 响应）
 	go func(t, ipAddr, userAgent string) {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -179,8 +185,9 @@ func (s *EmailOpenTrackerService) recordOpenByEmail(ctx context.Context, email, 
 	if email == "" {
 		return errors.New("email 不能为空")
 	}
-	// 生成幂等 event_id
-	eventID := fmt.Sprintf("pm-%s-%d", messageID, time.Now().UnixNano())
+	// 生成幂等 event_id：按 (email, messageID) 哈希，使同一邮件对同一收件人的
+	// 重复打开事件能被 EventExists 正确去重（原先用纳秒时间戳导致永远不重复，防重形同虚设）。
+	eventID := fmt.Sprintf("pm-open-%x", sha256.Sum256([]byte(email+"|"+messageID)))
 	// repo/db 为 nil 时不阻断（兜底：继续落库，由 CreateEvent 报错）
 	if s.repo != nil {
 		if exists, err := s.repo.EventExists(ctx, eventID); err == nil && exists {
