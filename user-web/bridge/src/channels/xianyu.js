@@ -27,6 +27,7 @@ import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
   simulateRealClick, createLogger, findAnyMessageInput, looksLikeMessagePage,
+  sanitizePeerName,
 } from '../core/dom.js';
 import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
 
@@ -239,11 +240,15 @@ function getConversationId() {
     return m[1];
   }
   // 5) 活动会话项昵称派生
+  // ⚠️ 2026-08-07 第十一轮修复：sanitizePeerName 剥离会话项内的订单状态徽章（"交易成功" /
+  // "有新交易评价" 等）和时间戳，否则同会话不同时刻 conversation_id 不同 → 下行永远找不到
+  // 目标会话 → pending 永久堆积（实测闲鱼 23 条 pending 全是 "name 交易成功" 形式）。
   if (activeItem) {
     const nameEl = activeItem.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], div[style*="font-weight: 500"]',
     );
-    const name = nameEl ? cleanText(nameEl) : cleanText(activeItem);
+    const raw = nameEl ? cleanText(nameEl) : cleanText(activeItem);
+    const name = sanitizePeerName(raw);
     if (name) return 'conv:' + name.slice(0, 80);
   }
   return null;
@@ -491,7 +496,9 @@ function getPeerName() {
     const nameEl = active.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]',
     );
-    const t = nameEl ? cleanText(nameEl) : cleanText(active);
+    // sanitizePeerName 剥离会话项里的订单状态徽章/时间戳（与 getConversationId 兜底一致）
+    const raw = nameEl ? cleanText(nameEl) : cleanText(active);
+    const t = sanitizePeerName(raw);
     if (t && !/闲鱼|消息|聊天/i.test(t)) return t;
   }
   return '';
@@ -589,11 +596,11 @@ function getConversationList() {
         if (m && m[1] && m[1] !== 'self') id = m[1];
       }
     }
-    // 3) 名称兜底（闲鱼会话项含昵称 div）
+    // 3) 名称兜底（闲鱼会话项含昵称 div；sanitizePeerName 剥离订单状态/时间戳）
     const nameEl = item.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i], div[style*="font-weight: 500"]',
     );
-    const name = nameEl ? cleanText(nameEl) : '';
+    const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     if (!id) {
       if (name) id = 'conv:' + name.slice(0, 80);
       else continue;

@@ -9,7 +9,7 @@ import (
 // MessageHub 消息中台 - 多账号聚合消息
 type MessageHub struct {
 	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	MsgID          string     `gorm:"type:varchar(100);unique" json:"msg_id"`
+	MsgID          string     `gorm:"type:varchar(100);uniqueIndex:uni_message_hub_msg_id_conv,priority:1" json:"msg_id"`
 	Platform       string     `gorm:"type:varchar(30);not null;index" json:"platform"`
 	AccountID      string     `gorm:"type:varchar(100);not null;index" json:"account_id"`
 	Direction      string     `gorm:"type:varchar(10);not null" json:"direction"`             // inbound / outbound
@@ -21,7 +21,7 @@ type MessageHub struct {
 	ReceiverName   string     `gorm:"type:varchar(200)" json:"receiver_name"`
 	Content        string     `gorm:"type:text" json:"content"`
 	MediaURL       string     `gorm:"type:varchar(500)" json:"media_url"`
-	ConversationID string     `gorm:"type:varchar(100);index" json:"conversation_id"`
+	ConversationID string     `gorm:"type:varchar(100);index;uniqueIndex:uni_message_hub_msg_id_conv,priority:2" json:"conversation_id"`
 	IsGroup        bool       `gorm:"default:false" json:"is_group"`
 	GroupID        string     `gorm:"type:varchar(100)" json:"group_id"`
 	IsAIReply      bool       `gorm:"default:false" json:"is_ai_reply"`

@@ -12,7 +12,7 @@
 //   - 自/他判定已移交后端（服务端权威），前端只负责抽取文本/系统消息。
 import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
-import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
+import { qs, qsa, cleanText, simulateRealClick, fillContentEditable, createLogger, findAnyMessageInput, looksLikeMessagePage, sanitizePeerName } from '../core/dom.js';
 import { SelectorEngine } from '../core/selector-engine.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
@@ -348,7 +348,10 @@ function getPeerName() {
     const nameEl = active.querySelector(
       '[class*="title" i], [class*="Title" i], [class*="name" i], [class*="nickname" i], [class*="Nickname" i]'
     );
-    const t = nameEl ? cleanText(nameEl) : cleanText(active);
+    // sanitizePeerName 剥离会话项里的时间戳/状态徽章等易变后缀
+    // （2026-08-07 第十一轮修复：避免 "好吃嘴辰辰 12:31" 这种带时间的脏昵称污染会话 id）
+    const raw = nameEl ? cleanText(nameEl) : cleanText(active);
+    const t = sanitizePeerName(raw);
     if (t && t !== 'self' && !/私信|消息|抖音|聊天/i.test(t)) return t;
   }
   return '';
@@ -415,11 +418,18 @@ function getConversationId() {
   // 若此处返回 null，适配器 `if (!getConversationId()) return` 守卫会拦截全部消息，
   // 表现为「打开私信页却一条消息都捕获不到」。故用活动项标题文本派生稳定会话 id：
   // 昵称/群名在同一会话内恒定，足以作为会话聚合键（重名冲突概率低，且优先于完全不捕获）。
+  //
+  // ⚠️ 2026-08-07 第十一轮修复：必须 sanitizePeerName 剥离会话项内的时间戳/相对时间/
+  // 状态徽章等易变后缀，否则 patrol 每次扫描 conversation_id 都不同 → outbound 永远找不到
+  // 目标会话 → 大量 pending 永久堆积（实测 287 条）。例：
+  //   "好吃嘴辰辰 12:31" → "好吃嘴辰辰"
+  //   "AI 修炼场 5 昨天 18:20" → "AI 修炼场 5"
   if (active) {
     const nameEl = active.querySelector(
       '[class*="title" i], [class*="Title" i], [class*="name" i], [class*="nickname" i], [class*="Nickname" i]'
     );
-    const name = nameEl ? cleanText(nameEl) : cleanText(active);
+    const raw = nameEl ? cleanText(nameEl) : cleanText(active);
+    const name = sanitizePeerName(raw);
     if (name && name !== 'self') return 'conv:' + name.slice(0, 80);
   }
   return null;
@@ -509,11 +519,12 @@ function getConversationList() {
       if (m && m[1] && m[1] !== 'self') id = m[1];
     }
     if (!id) id = item.getAttribute('data-conversation-id') || item.getAttribute('data-sec_uid') || item.getAttribute('data-id') || null;
-    // 昵称：会话项内的昵称/名称元素
+    // 昵称：会话项内的昵称/名称元素（sanitizePeerName 剥离时间戳/状态后缀，
+    // 否则同会话不同时刻的 name 不同 → id 不同 → 重复枚举/下行错配）
     const nameEl = item.querySelector(
       '[class*="name" i], [class*="nickname" i], [class*="Nickname" i], [class*="title" i], [class*="Title" i]'
     );
-    const name = nameEl ? cleanText(nameEl) : '';
+    const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     if (!id) {
       if (name && name !== 'self') id = 'conv:' + name.slice(0, 80);
       else continue; // 无稳定 id 的节点不计入（避免重复/乱序）

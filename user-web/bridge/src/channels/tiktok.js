@@ -18,6 +18,7 @@ import { SelectorEngine } from '../core/selector-engine.js';
 import {
   qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick,
   simulateRealClick, createLogger, findAnyMessageInput, looksLikeMessagePage,
+  sanitizePeerName,
 } from '../core/dom.js';
 import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
 
@@ -231,10 +232,12 @@ function getConversationId() {
     if (myAccount && m[1] === myAccount) continue;
     return m[1];
   }
-  // 4) 活动会话项昵称派生
+  // 4) 活动会话项昵称派生（sanitizePeerName 剥离时间戳/相对时间等易变后缀，
+  // 避免同会话不同时刻 conversation_id 不同导致 outbound 下行错配）
   if (activeItem) {
     const nameEl = activeItem.querySelector('[data-e2e="dm-new-conversation-nickname"], [class*="PInfoNickname"]');
-    const name = nameEl ? cleanText(nameEl) : cleanText(activeItem);
+    const raw = nameEl ? cleanText(nameEl) : cleanText(activeItem);
+    const name = sanitizePeerName(raw);
     if (name) return 'conv:' + name.slice(0, 80);
   }
   return null;
@@ -269,7 +272,8 @@ function getPeerName() {
   );
   if (activeItem) {
     const nameEl = activeItem.querySelector('[data-e2e="dm-new-conversation-nickname"], [class*="PInfoNickname"], [class*="SpanNicknameText"]');
-    const t = nameEl ? cleanText(nameEl) : '';
+    // sanitizePeerName 剥离时间戳/相对时间等易变后缀（与 getConversationId 兜底一致）
+    const t = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     if (t && !/messages|message|chat/i.test(t)) return t;
   }
   return '';
@@ -541,7 +545,7 @@ function getConversationList() {
       }
     }
     const nameEl = item.querySelector('[data-e2e="dm-new-conversation-nickname"], [class*="PInfoNickname"], [class*="SpanNicknameText"]');
-    const name = nameEl ? cleanText(nameEl) : '';
+    const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     if (!id) {
       if (name) id = 'conv:' + name.slice(0, 80);
       else continue;

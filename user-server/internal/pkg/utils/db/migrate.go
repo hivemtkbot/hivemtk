@@ -364,7 +364,35 @@ func AutoMigrate() *gorm.DB {
 	} else {
 		logger.Info("AutoMigrate 完成，无迁移漂移")
 	}
+
+	// post-migration 幂等补丁（2026-08-07 第九轮修复）：
+	//   message_hub.msg_id 旧单字段 UNIQUE 约束 → (msg_id, conversation_id) 复合唯一。
+	//   algo2 下同 channel+content 的 msg_id 相同（不含 conversation），旧单字段 unique
+	//   会拒绝跨会话客户同 content 消息入库（如 XHS 系统提示"已连续聊天3天"在每个新会话出现）。
+	//   复合唯一保证：同会话内 msg_id 唯一（防 patrol 重复上报），跨会话允许同 msg_id。
+	//   GORM AutoMigrate 不会自动 DROP 旧约束，需显式 SQL 迁移（幂等，失败仅告警不 panic）。
+	postMigrateMessageHubUniqueIndex()
+
 	return DB
+}
+
+// postMigrateMessageHubUniqueIndex 把 message_hub.msg_id 单字段 UNIQUE 迁移为
+// (msg_id, conversation_id) 复合 UNIQUE。幂等：旧约束不存在时跳过，新索引已存在时跳过。
+func postMigrateMessageHubUniqueIndex() {
+	if DB == nil {
+		return
+	}
+	// 1. DROP 旧单字段 UNIQUE 约束（IF EXISTS 幂等；PG 旧约束名 uni_message_hub_msg_id）
+	if err := DB.Exec(`ALTER TABLE message_hub DROP CONSTRAINT IF EXISTS uni_message_hub_msg_id`).Error; err != nil {
+		logger.Warn(fmt.Sprintf("post-migrate: DROP 旧 uni_message_hub_msg_id 失败(可忽略若已不存在): %v", err))
+	}
+	// 2. CREATE 复合 UNIQUE INDEX（IF NOT EXISTS 幂等）
+	//    用 CREATE UNIQUE INDEX 而非 ALTER TABLE ADD CONSTRAINT，避免约束名冲突。
+	if err := DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uni_message_hub_msg_id_conv ON message_hub (msg_id, conversation_id)`).Error; err != nil {
+		logger.Warn(fmt.Sprintf("post-migrate: CREATE uni_message_hub_msg_id_conv 失败: %v", err))
+	} else {
+		logger.Info("post-migrate: message_hub (msg_id, conversation_id) 复合唯一索引已就绪")
+	}
 }
 
 // isTolerableMigrateError 判断迁移错误是否可容忍（仅限「历史约束命名漂移」类 NOTICE）。

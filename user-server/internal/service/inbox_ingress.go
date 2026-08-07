@@ -385,16 +385,19 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		return result, nil
 	}
 
-	// 钩子2：入库判断（按 msg_id 查 DB 是否已存在）
+	// 钩子2：入库判断（按 msg_id 查 DB 是否已存在，限本会话）
 	//   用户诉求："消息上报保存是否入库依据是消息数据库是否存在"
-	//   - 存在 → 幂等跳过
-	//   - 不存在 → 继续落库
+	//   - 同会话已存在 → 幂等跳过
+	//   - 跨会话同 msg_id（algo2 下同 channel+content）→ 不跳过，各自入库
 	//   2026-08-05 优化：方向冲突检测
 	//     bridge 上报老数据时，AI 回复已落库为 outbound，
 	//     若 bridge 重复上报方向不同（inbound），以 DB 现有方向为准
+	//   2026-08-07 第九轮修复：限本会话。algo2 下同 channel+content 的 msg_id 相同，
+	//     跨会话命中会把其他客户发的相同内容（如 XHS 系统提示"已连续聊天3天"）误跳过。
+	//     AI 回环防护由钩子2.5 第二道 GetByPlatformContent（限 outbound）兜底。
 	if s.hubRepo != nil {
 		existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID)
-		if err == nil && existing != nil {
+		if err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 			result.Accepted = true
 			result.QueuedForAI = false
 			// 方向冲突检测：DB 已有方向 vs 本次推断方向
@@ -414,12 +417,19 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 				result.Reason = "msg_id already exists in DB; idempotent skip"
 			}
 			logger.Ctx(ctx).Info().
-			Str("channel", event.Channel).
-			Str("conv_id", event.ConversationID).
-			Str("event_id", event.EventID).
-			Msg("[Inbox] 钩子2：msg_id 已存在，幂等跳过")
-		return result, nil
-	}
+				Str("channel", event.Channel).
+				Str("conv_id", event.ConversationID).
+				Str("event_id", event.EventID).
+				Msg("[Inbox] 钩子2：msg_id 已存在，幂等跳过")
+			return result, nil
+		}
+		if err == nil && existing != nil && existing.ConversationID != event.ConversationID {
+			logger.Ctx(ctx).Info().
+				Str("event_id", event.EventID).
+				Str("conv_id", event.ConversationID).
+				Str("existing_conv_id", existing.ConversationID).
+				Msg("[Inbox] 钩子2：msg_id 跨会话命中（algo2 同 channel+content），不跳过，各自入库")
+		}
 	}
 
 	// 钩子2.5（2026-08-07 第六轮修复）：服务端权威内容级去重。
@@ -430,7 +440,10 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 	//   算法如何变化都视同"自/他回显"幂等跳过。
 	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
 		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
-		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+		// 2026-08-07 第九轮修复：限本会话。algo2 下 canonicalHash 跨会话相同，
+		// 跨会话命中会把其他客户发的相同内容误判为回显跳过。
+		// AI 回环防护由第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 			result.Accepted = true
 			result.QueuedForAI = false
 			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
@@ -908,11 +921,14 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 		return result, nil
 	}
 
-	// 钩子2：msg_id / content_hash 查 DB 去重
+	// 钩子2：msg_id / content_hash 查 DB 去重（限本会话）
+	//   2026-08-07 第九轮修复：限本会话。algo2 下同 channel+content 的 msg_id 相同，
+	//   跨会话命中会把其他客户发的相同内容（如 XHS 系统提示）误跳过。
+	//   AI 回环防护由钩子2.5 第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
 	if s.hubRepo != nil {
 		// 主：event_id 命中（DOM id / 前端兜底 hash / 历史入库的消息）
 		if event.EventID != "" {
-			if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil {
+			if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 				result.Accepted = true
 				result.QueuedForAI = false
 				result.Reason = "msg_id already exists in DB; idempotent skip"
@@ -924,7 +940,7 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 		// 与服务端 ContentHashMsgID 逐字节一致。AI 出站消息 MsgID 即该值，
 		// 前端 patrol 扫描到 AI 回显重新上报时 msg_id 相同 → GetByMsgID 命中 → 在此幂等跳过。
 		if ch, ok := event.Extra["content_hash"].(string); ok && ch != "" {
-			if existing, err := s.hubRepo.GetByMsgID(ctx, ch); err == nil && existing != nil {
+			if existing, err := s.hubRepo.GetByMsgID(ctx, ch); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 				result.Accepted = true
 				result.QueuedForAI = false
 				result.Reason = "content_hash already exists in DB (platform outbound echo); idempotent skip"
@@ -944,10 +960,12 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 	//
 	//   修复：服务端权威去重——以 canonical contentHash (algo2) 为准，无论 msg_id 算法如何变化，
 	//   都先查「本平台已有同 content 的任意消息」→ 命中 → 视为「自/他回显」→ 幂等跳过。
+	//   2026-08-07 第九轮修复：第一道 GetByContentHash 限本会话（algo2 下跨会话同 canonicalHash）。
+	//   AI 回环防护由第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
 	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
 		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
-		// 第一道：按 canonical contentHash 直查
-		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+		// 第一道：按 canonical contentHash 直查（限本会话）
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 			result.Accepted = true
 			result.QueuedForAI = false
 			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
@@ -1142,11 +1160,13 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 	if direction == "" {
 		direction = "inbound"
 	}
-	// 钩子2：msg_id 去重（与 handleIngressSingleForBatch 行为一致）。
+	// 钩子2：msg_id 去重（与 handleIngressSingleForBatch 行为一致，限本会话）。
 	// event_id 即前端 _canonicalMsgId = contentHash = 服务端 ContentHashMsgID 输出值。
 	// 命中 → 已存在（inbound 或 outbound）→ 幂等跳过；未命中 → 走原落库。
+	// 2026-08-07 第九轮修复：限本会话。algo2 下同 channel+content 的 msg_id 相同，
+	// 跨会话命中会把其他客户发的相同内容误跳过。
 	if s.hubRepo != nil && event.EventID != "" {
-		if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil {
+		if existing, err := s.hubRepo.GetByMsgID(ctx, event.EventID); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 			logger.Ctx(ctx).Info().
 				Str("module", "bridge").
 				Str("event_id", event.EventID).
@@ -1162,9 +1182,11 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 	//   与 handleIngressSingleForBatch 钩子2.5 同源：无论前端 msg_id 算法如何变化（algo1/algo2），
 	//   只要本平台已有同 content 的任意消息就视为"自/他回显"，幂等跳过——避免同内容 AI 回复
 	//   被 patrol 错乱反复入库为 inbound 触发循环 AI。
+	//   2026-08-07 第九轮修复：第一道 GetByContentHash 限本会话（algo2 下跨会话同 canonicalHash）。
+	//   AI 回环防护由第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
 	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
 		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
-		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil {
+		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
 			logger.Ctx(ctx).Info().
 				Str("module", "bridge").
 				Str("canonical_hash", canonicalHash).
@@ -1185,6 +1207,23 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 				Str("channel", event.Channel).
 				Str("sender_id", event.SenderID).
 				Msg("[Inbox] PersistBridgeHistory 钩子2.5 命中：platform+content 已存在，幂等跳过（防回环）")
+			return nil
+		}
+		// 归一化兜底（2026-08-07 第十轮修复）：与 HandleIngressMessage / handleIngressSingleForBatch
+		// 钩子2.5 第三道对齐。DOM 中 AI 回复与 DB 落库内容存在空格/换行/emoji 编码差异时，
+		// 精确 md5 匹配失败 → 回环去重失效 → AI 回复被当客户 inbound 入库 → 触发循环 AI。
+		// 去所有空白后比较，兼容 "您好！\n\n- 🛍️" (DB) vs "您好！ - 🛍️" (DOM)。
+		// 此前 PersistBridgeHistory 路径缺失此钩子，导致 620+ 条 AI 话术被回采为 inbound pending。
+		if existing, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, event.Content); err == nil && existing != nil {
+			logger.Ctx(ctx).Info().
+				Str("module", "bridge").
+				Str("existing_msg_id", existing.MsgID).
+				Str("existing_direction", existing.Direction).
+				Str("existing_conv_id", existing.ConversationID).
+				Str("conv_id", event.ConversationID).
+				Str("channel", event.Channel).
+				Str("sender_id", event.SenderID).
+				Msg("[Inbox] PersistBridgeHistory 钩子2.5 命中：normalized platform+content 已存在，幂等跳过（防回环）")
 			return nil
 		}
 	}

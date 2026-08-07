@@ -9,7 +9,7 @@
 //
 // 环境：vitest 默认 happy-dom 提供 window / document / getComputedStyle / innerHeight
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { findAnyMessageInput, looksLikeMessagePage, isLikelyVisible } from '../src/core/dom.js';
+import { findAnyMessageInput, looksLikeMessagePage, isLikelyVisible, sanitizePeerName } from '../src/core/dom.js';
 
 // ---- 工具：创建一个带尺寸 / 位置 / 可见性的假元素 ----
 function makeEl({
@@ -480,5 +480,88 @@ describe('fillContentEditable / clearBefore 下发场景先清空', () => {
 
     expect(ta.value).toBe('AI 回复');
     expect(ta.value).not.toContain('用户正在打的字');
+  });
+});
+
+// =============================================================
+// sanitizePeerName：会话列表项文本净化为稳定昵称
+// 2026-08-07 第十一轮修复：兜底用 cleanText(activeItem) 派生 conversation_id 时，
+// 元素文本常含时间戳/状态徽章/相对时间等易变文本，导致同会话不同时刻 conversation_id 不同 →
+// outbound 永远找不到目标会话 → 大量 pending 永久堆积（实测 287 条）。
+// 用例数据全部来自 DB 真实脏数据（douyin + xianyu pending 列表）。
+// =============================================================
+describe('sanitizePeerName 剥离易变后缀（第十一轮修复回归）', () => {
+  // 直接对文本调用，模拟 cleanText(activeItem) 的输出
+  const cases = [
+    // [raw, expected, 来源备注]
+    // —— 抖音：纯时间后缀 ——
+    ['好吃嘴辰辰 12:31', '好吃嘴辰辰', 'douyin pending 35 条'],
+    ['好吃嘴辰辰 06:48', '好吃嘴辰辰', 'douyin pending 9 条'],
+    ['jack 09:08', 'jack', 'douyin pending 6 条'],
+    ['AI 造价实验室 08:28', 'AI 造价实验室', 'douyin pending 7 条'],
+    ['AI 证据链管理 13:15', 'AI 证据链管理', 'douyin pending 4 条'],
+    ['防止被割韭菜1群 02:32', '防止被割韭菜1群', 'douyin pending 3 条'],
+    ['AI 修炼场 5 01:01', 'AI 修炼场 5', 'douyin pending 2 条'],
+    // —— 抖音：相对时间后缀 ——
+    ['好吃嘴辰辰 刚刚', '好吃嘴辰辰', 'douyin pending 21 条'],
+    ['好吃嘴辰辰 18分钟前', '好吃嘴辰辰', 'douyin pending 18 条'],
+    ['好吃嘴辰辰 20分钟前', '好吃嘴辰辰', 'douyin pending 16 条'],
+    ['猎洞时刻网络安全群 56分钟前', '猎洞时刻网络安全群', 'douyin pending 14 条'],
+    ['AI 造价实验室 41分钟前', 'AI 造价实验室', 'douyin pending 3 条'],
+    ['AI 证据链管理 57分钟前', 'AI 证据链管理', 'douyin pending 2 条'],
+    ['AI 修炼场 5 刚刚', 'AI 修炼场 5', 'douyin pending 3 条'],
+    // —— 抖音：昨天 + HH:MM ——
+    ['AI 修炼场 5 昨天 18:20', 'AI 修炼场 5', 'douyin pending 31 条'],
+    ['猎洞时刻网络安全群 昨天 22:08', '猎洞时刻网络安全群', 'douyin pending 14 条'],
+    ['四川-宝宝巴士2️⃣ 昨天 18:21', '四川-宝宝巴士2️⃣', 'douyin pending 4 条'],
+    // —— 抖音：完整日期 ——
+    ['kfcfourv40 2025/10/29', 'kfcfourv40', 'douyin pending 4 条'],
+    ['AIGC小年 智能体2裙 2025/08/30', 'AIGC小年 智能体2裙', 'douyin pending 4 条'],
+    ['广东巨龙(龙华)律师事务所官方号 2025/08/09', '广东巨龙(龙华)律师事务所官方号', 'douyin pending 4 条'],
+    ['成都嘉贝乐游乐设备 2025/09/19', '成都嘉贝乐游乐设备', 'douyin pending 3 条'],
+    // —— 闲鱼：订单状态徽章 ——
+    ['淘淘达人软件商城 交易成功', '淘淘达人软件商城', 'xianyu pending 11 条'],
+    ['该用户已注销 有新交易评价', '该用户已注销', 'xianyu pending 6 条'],
+    ['小鱼票票龙 有新交易评价', '小鱼票票龙', 'xianyu pending 4 条'],
+    ['x***1 交易成功', 'x***1', 'xianyu pending 2 条'],
+    ['交易成功', '', 'xianyu pending 1 条（纯状态文本应返回空，调用方放弃派生）'],
+    // —— 多层后缀（同会话不同时刻叠加） ——
+    ['好吃嘴辰辰 昨天 18:20', '好吃嘴辰辰', '多层后缀：先剥 HH:MM 再剥 昨天'],
+    // —— 纯昵称（无后缀，不应误删） ——
+    ['炫e小枫', '炫e小枫', 'xianyu pending 8 条，无后缀'],
+    ['C0123', 'C0123', 'xianyu pending 5 条，无后缀'],
+    ['专业电脑手机数码与电器', '专业电脑手机数码与电器', 'xianyu pending 4 条，无后缀'],
+    ['陛下的心旅游小店', '陛下的心旅游小店', 'xianyu pending 1 条，无后缀'],
+    // —— 边界：空/纯空白/纯时间 ——
+    ['', '', '空输入'],
+    [null, '', 'null 输入'],
+    [undefined, '', 'undefined 输入'],
+    ['   ', '', '纯空白'],
+    ['12:31', '', '纯时间应返回空（避免派生 conv:12:31 这种垃圾 id）'],
+    ['刚刚', '', '纯相对时间应返回空'],
+    ['昨天 18:20', '', '纯昨天+时间应返回空'],
+    ['交易成功', '', '纯订单状态应返回空'],
+    // —— 未读数字标记 [N] ——
+    ['钓点王 [3]', '钓点王', '未读数字标记'],
+  ];
+
+  for (const [raw, expected, note] of cases) {
+    it(`sanitizePeerName(${JSON.stringify(raw)}) === ${JSON.stringify(expected)}  // ${note}`, () => {
+      expect(sanitizePeerName(raw)).toBe(expected);
+    });
+  }
+
+  it('多轮迭代后稳定（不会无限循环）', () => {
+    // 极端多层后缀
+    const raw = '某群 昨天 18:20';
+    const result = sanitizePeerName(raw);
+    expect(result).toBe('某群');
+    // 再次调用结果不变（幂等）
+    expect(sanitizePeerName(result)).toBe('某群');
+  });
+
+  it('不破坏纯数字/字母昵称（不带后缀）', () => {
+    expect(sanitizePeerName('12345')).toBe('12345');
+    expect(sanitizePeerName('user_2025')).toBe('user_2025');
   });
 });

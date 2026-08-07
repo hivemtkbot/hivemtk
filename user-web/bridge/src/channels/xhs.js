@@ -14,7 +14,7 @@ import { BaseAdapter } from '../core/channel-adapter.js';
 import { CHANNELS, SENDER } from '../core/types.js';
 import { mergeSelectors, customConversationListSelectors } from '../core/selector-ai.js';
 import { SelectorEngine } from '../core/selector-engine.js';
-import { qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage } from '../core/dom.js';
+import { qs, qsa, cleanText, setValue, fillContentEditable, enhancedClick, createLogger, findAnyMessageInput, looksLikeMessagePage, sanitizePeerName } from '../core/dom.js';
 import { FRONTEND_DEFAULT_SENDER_TYPE } from '../core/fallback.js';
 
 const log = createLogger('xhs', CHANNELS.XHS);
@@ -219,11 +219,14 @@ function getConversationId() {
   // 兜底（关键）：小红书 /chat 页的活动会话项（.sx-contact-item.active）在部分版本下
   // 无 data-* 属性、header 无 /user/ 链接时，若返回 null，适配器 `if (!getConversationId()) return`
   // 守卫会拦截全部消息 →「打开私信页一条消息都捕获不到」。用会话项昵称文本派生稳定 id。
+  // ⚠️ 2026-08-07 第十一轮修复：sanitizePeerName 剥离会话项内的时间戳/相对时间/未读徽章，
+  // 避免同会话不同时刻 conversation_id 不同导致 outbound 下行错配。
   if (active) {
     const nameEl = active.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]'
     );
-    const name = nameEl ? cleanText(nameEl) : cleanText(active);
+    const raw = nameEl ? cleanText(nameEl) : cleanText(active);
+    const name = sanitizePeerName(raw);
     if (name) return 'conv:' + name.slice(0, 80);
   }
   return null;
@@ -344,7 +347,9 @@ function getPeerName() {
     const nameEl = active.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]'
     );
-    const t = nameEl ? cleanText(nameEl) : cleanText(active);
+    // sanitizePeerName 剥离时间戳/未读徽章等易变后缀（与 getConversationId 兜底一致）
+    const raw = nameEl ? cleanText(nameEl) : cleanText(active);
+    const t = sanitizePeerName(raw);
     if (t && !/私信|消息|小红书|聊天/i.test(t)) return t;
   }
   return '';
@@ -436,11 +441,11 @@ function getConversationList() {
       item.id ||
       item.getAttribute('data-uid');
     let id = normalizeContactId(raw);
-    // 昵称：会话项内昵称/标题元素
+    // 昵称：会话项内昵称/标题元素（sanitizePeerName 剥离时间戳/未读徽章等易变后缀）
     const nameEl = item.querySelector(
       '[class*="nickname" i], [class*="nick-name" i], [class*="name" i], [class*="title" i], [class*="Title" i]'
     );
-    const name = nameEl ? cleanText(nameEl) : '';
+    const name = sanitizePeerName(nameEl ? cleanText(nameEl) : '');
     // 无 data 属性时用昵称文本派生稳定 id（/chat 页会话项可能无 data-*）
     if (!id) {
       if (name) id = 'conv:' + name.slice(0, 80);

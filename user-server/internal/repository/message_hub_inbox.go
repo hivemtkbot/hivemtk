@@ -124,15 +124,20 @@ func (r *MessageHubRepository) GetByContentHash(ctx context.Context, canonicalHa
 	return &hub, err
 }
 
-// GetByPlatformContent 按 platform + content 精确查重（md5 完全匹配）
-// 用于服务端权威去重：内容相同即视为同一消息（无论前后端 hash 算法如何变化）。
+// GetByPlatformContent 按 platform + content 精确查重（md5 完全匹配），仅查 direction='outbound'。
+// 用于服务端权威去重：判定当前上报消息是否为"平台已下发的 AI 回复回显"。
+//   限 outbound 语义：回显 = 平台 outbound 的 echo，不得把其他会话客户发的相同内容 inbound
+//   误判为自/他回显跳过（2026-08-07 第八轮修复：跨会话客户同 content 误跳过 bug）。
 //   索引：idx_message_hub_platform_content (platform, md5(content))
 func (r *MessageHubRepository) GetByPlatformContent(ctx context.Context, platform, content string) (*model.MessageHub, error) {
 	if platform == "" || content == "" {
 		return nil, gorm.ErrRecordNotFound
 	}
 	var hub model.MessageHub
-	err := r.db.Where("platform = ? AND md5(content) = md5(?)", platform, content).First(&hub).Error
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND direction = 'outbound' AND md5(content) = md5(?)", platform, content).
+		Order("sent_at DESC").
+		First(&hub).Error
 	return &hub, err
 }
 

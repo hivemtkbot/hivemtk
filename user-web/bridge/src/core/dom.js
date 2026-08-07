@@ -197,6 +197,69 @@ export function cleanText(el) {
   return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * 净化会话列表项文本为稳定昵称，剥离时间戳/状态徽章等易变后缀。
+ *
+ * 背景（2026-08-07 第十一轮修复）：兜底用 cleanText(activeItem) 派生 conversation_id 时，
+ * 元素文本常含会话项内的时间戳、状态徽章、相对时间等易变文本（如
+ *   "好吃嘴辰辰 12:31"、"AI 修炼场 5 昨天 18:20"、"淘淘达人软件商城 交易成功"）。
+ * patrol 每次扫描这些文本都在变 → conversation_id 每次不同 →
+ * outbound 入库 conversation_id 与前端下次 getConversationId() 不匹配 →
+ * 下行永远找不到目标会话 → 大量 pending 永久堆积（实测 287 条）。
+ *
+ * 本函数反复剥离已知易变后缀，仅保留稳定的昵称部分。
+ * 返回空串表示输入全是易变文本（如仅 "12:31"），调用方应据此放弃派生。
+ */
+export function sanitizePeerName(text) {
+  if (!text) return '';
+  let s = String(text).replace(/\s+/g, ' ').trim();
+  // 整串本身就是易变文本（纯时间/相对时间/订单状态/日期）→ 直接返回空，
+  // 避免派生 "conv:12:31" / "conv:交易成功" 这种垃圾会话 id。
+  if (isVolatileToken(s)) return '';
+  // 反复剥离后缀，直到稳定（防多层后缀如 "昨天 18:20"：先剥 HH:MM 再剥 昨天）
+  let prev;
+  let iter = 0;
+  do {
+    prev = s;
+    // 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前
+    s = s.replace(/\s+(刚刚|\d+分钟前|\d+小时前|\d+天前)$/i, '');
+    // 昨天/前天/今天 + 可选 HH:MM
+    s = s.replace(/\s+(昨天|前天|今天)(\s+\d{1,2}:\d{2})?$/i, '');
+    // 纯时间 HH:MM（仅作后缀剥离；昵称本身极少以纯时间结尾）
+    s = s.replace(/\s+\d{1,2}:\d{2}$/, '');
+    // 完整日期：YYYY/MM/DD | YYYY-MM-DD | YYYY年MM月DD日
+    s = s.replace(/\s+\d{4}[/年\-]\d{1,2}[/月\-]\d{1,2}日?$/, '');
+    s = s.replace(/\s+\d{1,2}月\d{1,2}日$/, '');
+    // 闲鱼订单状态徽章
+    s = s.replace(/\s+(交易成功|有新交易评价|已发货|待发货|待付款|等待买家付款|交易关闭|退款成功|退款中|已退款|已读|未读)$/i, '');
+    // 通用未读数字标记 [N]
+    s = s.replace(/\s+\[\d+\]$/, '');
+    s = s.replace(/\s+$/, '');
+    // 剥离后整串变易变文本（如 "name 18:20" 剥成 "18:20"）→ 继续清空
+    if (s && isVolatileToken(s)) s = '';
+    iter++;
+  } while (s !== prev && iter < 8 && s.length > 0);
+  return s.trim();
+}
+
+// 判断整串是否为易变 token（纯时间/相对时间/订单状态/日期）。
+// 用作 sanitizePeerName 的"清空触发器"：若剩余文本全是易变信息则放弃派生会话 id。
+function isVolatileToken(s) {
+  if (!s) return false;
+  // 纯时间 HH:MM
+  if (/^\d{1,2}:\d{2}$/.test(s)) return true;
+  // 纯相对时间
+  if (/^(刚刚|\d+分钟前|\d+小时前|\d+天前)$/i.test(s)) return true;
+  // 昨天/前天/今天 + 可选 HH:MM
+  if (/^(昨天|前天|今天)(\s+\d{1,2}:\d{2})?$/i.test(s)) return true;
+  // 纯完整日期
+  if (/^\d{4}[/年\-]\d{1,2}[/月\-]\d{1,2}日?$/.test(s)) return true;
+  if (/^\d{1,2}月\d{1,2}日$/.test(s)) return true;
+  // 纯订单状态徽章
+  if (/^(交易成功|有新交易评价|已发货|待发货|待付款|等待买家付款|交易关闭|退款成功|退款中|已退款|已读|未读)$/i.test(s)) return true;
+  return false;
+}
+
 /** 包裹 MutationObserver 的便捷 API */
 export function observe(root, cb, options = { childList: true, subtree: true }) {
   if (!root) return null;

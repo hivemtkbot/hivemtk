@@ -117,12 +117,18 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
   const groups = new Map(); // conversation_id -> [{ msg, sanitized }]
   for (const m of messages) {
     if (!m || !m.msg_id) continue;
-    if (cache.has(m.msg_id)) continue; // 已发过，绝不重复
+    // SentCache key 必须用 msg_id|conversation_id 复合键：
+    //   AI 回复 msg_id = contentHash(channel, content)，不含 conversation_id（patrol 回环去重需要）。
+    //   跨会话同 content 的 AI 回复 msg_id 相同，若只用 msg_id 做 key，
+    //   第一会话 ack 后 cache.add(msg_id) → 第二会话 cache.has(msg_id) 命中 → 跳过，永远不下发！
+    //   复合键保证不同会话的同 msg_id 消息各自独立去重。
+    const convId = m.conversation_id || '_unknown_';
+    const cacheKey = `${m.msg_id}|${convId}`;
+    if (cache.has(cacheKey)) continue; // 已发过，绝不重复
     const raw = m.content || '';
     if (!raw) continue; // 空内容不下发（避免占位空消息打给用户）
     // XSS 防护：净化内容（控制长度、去控制字符）
     const safeContent = sanitizeForDisplay ? sanitizeForDisplay(raw) : raw;
-    const convId = m.conversation_id || '_unknown_';
     if (!groups.has(convId)) groups.set(convId, []);
     groups.get(convId).push({ msg: m, sanitized: safeContent });
   }
@@ -204,7 +210,9 @@ export async function pollDownlink(channel, accountId, getConfig, options = {}) 
         { label: `[下行 ack] ${channel}:${convId}` }
       );
       if (ackRes && ackRes.status === 'ok') {
-        for (const id of sentIds) cache.add(id);
+        // SentCache key 用 msg_id|conversation_id 复合键（与上方 cache.has 对齐），
+        // 避免跨会话同 content 的 AI 回复（msg_id 相同）误去重。
+        for (const id of sentIds) cache.add(`${id}|${convId}`);
         allAckIds.push(...sentIds);
       } else {
         log.warn(`下行单会话 ack 失败，保留重试`, { channel, convId, count: sentIds.length });
