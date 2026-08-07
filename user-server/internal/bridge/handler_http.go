@@ -824,54 +824,6 @@ func httpMessageToUnified(m *HTTPIngestMessage) *UnifiedMessage {
 	}
 }
 
-// collectLatestOutboundReply 收集该 (channel, account) 最近一条 AI 回复。
-//
-// 设计：HTTP-only 模式（2026-08-05 之后），AI 触发走 aiTrigger.TriggerInboundAI，
-// AI 引擎（WebhookService）异步推理完成后会调用 BridgeReachAdapter.deliverHTTP，
-// 同时入 httpReplyBuffer；HTTP 长轮询通过 HTTPReplyPullerRegistry 拉取。
-//
-// 拉取器按 channel 索引（不限 account_id），匹配 conversation_id / reply_to_event_id。
-func collectLatestOutboundReply(channel, account, conversationID, replyToEventID string) *UnifiedReply {
-	if puller, ok := HTTPReplyPullerRegistry[channel]; ok {
-		return puller(context.Background(), conversationID, replyToEventID)
-	}
-	return nil
-}
-
-// waitForAIReply 等待 AI 推理完成的 reply（长轮询）。
-//
-// 时序：
-//  1. 轮询拉取 reply（每 200ms）
-//  2. 拿到 → 返回
-//  3. 超时 → 返回 timeout 错误
-func waitForAIReply(channel, account, conversationID string, timeout time.Duration) (*UnifiedReply, error) {
-	deadline := time.Now().Add(timeout)
-	pollInterval := 200 * time.Millisecond
-	for {
-		if time.Now().After(deadline) {
-			return nil, errors.New("long-poll timeout")
-		}
-		if reply := collectLatestOutboundReply(channel, account, conversationID, ""); reply != nil {
-			return reply, nil
-		}
-		time.Sleep(pollInterval)
-	}
-}
-
-// HTTPReplyPullerFunc HTTP 模式下从 hub 拉取 reply 的回调。
-// 通道键 = channel:account；conversationID 为空表示"任意"；replyToEventID 为空表示"任意"。
-type HTTPReplyPullerFunc func(ctx context.Context, conversationID, replyToEventID string) *UnifiedReply
-
-// HTTPReplyPullerRegistry HTTP 模式下 reply 拉取器注册表。
-// 由 bridge_reach_adapter.go 在初始化时注册（生产环境）；测试中可注入 fake。
-var HTTPReplyPullerRegistry = map[string]HTTPReplyPullerFunc{}
-
-// RegisterHTTPReplyPuller 注册 HTTP 模式下 reply 拉取器。
-// 一般由 bridge reach adapter 在 Setup 阶段调用：key = fmt.Sprintf("%s:%s", channel, account)。
-func RegisterHTTPReplyPuller(key string, fn HTTPReplyPullerFunc) {
-	HTTPReplyPullerRegistry[key] = fn
-}
-
 // redactOutboundReplies 响应日志脱敏：保留每条 reply 的关键字段，content 截断到 200 字符。
 func redactOutboundReplies(replies []*UnifiedReply) []map[string]any {
 	out := make([]map[string]any, 0, len(replies))

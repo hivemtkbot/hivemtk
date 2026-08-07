@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"marketing/internal/aiagent/agent/tooluse"
+	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 )
@@ -66,20 +68,15 @@ func GlobalBridgeReachAdapter() *BridgeReachAdapter {
 // SetBridgeReachAdapter 注册网页桥接触达适配器，并向 service 包登记出站回调。
 //
 // 此后 WebhookService.sendOutbound 在桥接渠道（douyin/xiaohongshu/tiktok/xianyu/kuaishou）下，
-// 会把 AI reply 入 a.httpReplyBuffer；下次同 (channel, account, conversation) 的
-// /api/bridge/ingest 长轮询拉到 reply 即原路回写扩展。
+// 会把 AI reply 落库 message_hub(status=pending)，由桥接扩展 GET /api/bridge/outbox 拉取并回写网页
+// （2026-08-06 三通道架构；旧 httpReplyBuffer 长轮询路径已废弃）。
 // 通过回调注入（而非 service 直接 import bridge）避免 service -> bridge 导入环。
 //
 // 2026-08-05 渠道编码统一：bridge 渠道名 = 平台全名（无 _web 后缀）。
 func SetBridgeReachAdapter(a *BridgeReachAdapter) {
 	globalReach = a
-	// 注册 HTTP 模式 reply 拉取器：HTTP 长轮询拿 AI reply 的核心通道
-	for _, ch := range []string{ChannelDouyinWeb, ChannelXHSWeb, ChannelTikTok, ChannelKuaishouWeb, ChannelXianyuWeb} {
-		channel := ch // 闭包变量
-		RegisterHTTPReplyPuller(channel, func(ctx context.Context, conversationID, replyToEventID string) *UnifiedReply {
-			return a.httpReplyBuffer.Pull(channel, conversationID, replyToEventID)
-		})
-	}
+	// 注册 AI 回复出站回调（WebhookService.sendOutbound 桥接分支在 8f4625d 后已直接落库 message_hub，
+	// 此处 RegisterBridgeOutbound 回调内部经 Send* → httpReplyBuffer 属遗留接线，仅保留接口兼容）。
 	service.RegisterBridgeOutbound(func(ctx context.Context, channel, accountID, conversationID, msgType, content, eventID string) error {
 		switch channel {
 		case ChannelDouyinWeb:
@@ -138,29 +135,34 @@ func (a *BridgeReachAdapter) deliverHTTP(ctx context.Context, channel, accountID
 	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
 }
 
-// EnqueueReply 把外部构造的 UnifiedReply 直接推入 httpReplyBuffer。
+// EnqueueManualReply 人工座席经桥接代发的消息：持久化到 message_hub(direction=outbound, status=pending)，
+// 由桥接扩展 GET /api/bridge/outbox 拉取并转发到网页（2026-08-06 三通道架构）。
 //
-// 用途：bridge_account_controller.SendManual（人工座席代发）等不经过 WebhookService.sendOutbound
-// 的入站场景。该方法不裁剪 content、不打 Truncated 标记——调用方应已自行做长度校验；
-// 仍受 buffer 256 容量 FIFO 限制。
-//
-// 返回消息追踪 ID（格式同 deliverHTTP）。
-func (a *BridgeReachAdapter) EnqueueReply(channel, accountID, conversationID, content, msgType string) (string, error) {
+// 替代旧的 EnqueueReply（直接推入 httpReplyBuffer）：ingest 改为即时返回后该 buffer 不再被读取，
+// 若人工回复仍走 buffer 会静默丢失。本方法直接落库为待下发消息，与 AI 回复走同一下发队列，保证可靠投递。
+func (a *BridgeReachAdapter) EnqueueManualReply(ctx context.Context, channel, accountID, conversationID, content, senderID string) error {
 	if a == nil {
-		return "", errors.New("bridge adapter not initialized")
+		return errors.New("bridge adapter not initialized")
 	}
-	if a.httpReplyBuffer == nil {
-		return "", errors.New("bridge httpReplyBuffer not initialized")
+	if a.ingress == nil {
+		return errors.New("bridge ingress not initialized")
 	}
-	reply := &UnifiedReply{
-		Channel:        channel,
+	h := &model.MessageHub{
+		MsgID:          service.ContentHashMsgID(channel, conversationID, content),
+		Platform:       channel,
 		AccountID:      accountID,
-		ConversationID: conversationID,
+		Direction:      "outbound",
+		Status:         "pending",
+		MsgType:        "text",
+		SenderID:       senderID,
+		ReceiverID:     conversationID,
 		Content:        content,
-		MsgType:        msgType,
+		ConversationID: conversationID,
+		IsAIReply:      false,
+		IsRead:         true,
+		SentAt:         time.Now(),
 	}
-	a.httpReplyBuffer.Push(reply)
-	return "bridge:" + channel + ":" + accountID + ":" + conversationID, nil
+	return a.ingress.DeliverOutbound(ctx, h)
 }
 
 // ===== 以下为 ReachAdapter 接口实现 =====

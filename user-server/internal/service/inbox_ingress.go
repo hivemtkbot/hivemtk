@@ -1133,6 +1133,38 @@ func (s *InboxIngressService) MarkOutboundDelivered(ctx context.Context, hub *mo
 	return s.hubRepo.Update(ctx, hub)
 }
 
+// DeliverOutbound 持久化一条出站消息（如人工座席经桥接代发）到 message_hub(direction=outbound, status=pending)，
+// 由桥接扩展 GET /api/bridge/outbox 拉取并转发到网页（2026-08-06 三通道架构）。
+//
+// 替代已废弃的内存 httpReplyBuffer 长轮询路径：ingest 改为即时返回后该 buffer 不再被读取，
+// 若人工回复仍走 buffer 会静默丢失。本方法直接落库为待下发消息，与 AI 回复（webhook.go sendOutbound 桥接分支）
+// 走同一下发队列，保证可靠投递。
+func (s *InboxIngressService) DeliverOutbound(ctx context.Context, h *model.MessageHub) error {
+	if h == nil {
+		return errors.New("nil hub message")
+	}
+	if h.Direction == "" {
+		h.Direction = "outbound"
+	}
+	if h.Status == "" {
+		h.Status = "pending"
+	}
+	if h.SentAt.IsZero() {
+		h.SentAt = time.Now()
+	}
+	if err := s.hubRepo.Create(ctx, h); err != nil {
+		return err
+	}
+	// 同步到统一收件箱会话（inbox_conversations.last_message），使人工代发在 unifiedInbox 可见。
+	// outbound 不计入未读（与飞书/企微一致），镜像 PersistBridgeHistory 的同步逻辑。
+	if s.inboxSvc != nil {
+		if _, err := s.inboxSvc.UpsertFromHubMessage(context.Background(), h); err != nil {
+			logger.Warnf("[Inbox] 人工代发同步统一收件箱失败(conv=%s): %v", h.ConversationID, err)
+		}
+	}
+	return nil
+}
+
 // ListPendingOutbound 查询某账号在某桥接渠道下"出站且待下发"的消息（下发队列）。
 // 供桥接扩展独立轮询（通道C·下发轮询）拉取后转发到对应网页渠道。
 // 仅返回 status='pending' 的出站消息；已 delivered 的被前端确认后排除，failed 的走离线补发。

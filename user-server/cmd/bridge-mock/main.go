@@ -189,38 +189,9 @@ func main() {
 		})
 	})
 
-	// 注册 reply puller：从 mockInbox.aiReplyQ 拉 reply
-	for _, ch := range []string{bridge.ChannelDouyinWeb, bridge.ChannelXHSWeb, bridge.ChannelTikTok, bridge.ChannelKuaishouWeb, bridge.ChannelXianyuWeb} {
-		channel := ch
-		bridge.RegisterHTTPReplyPuller(channel, func(_ context.Context, conversationID, replyToEventID string) *bridge.UnifiedReply {
-			for {
-				select {
-				case r := <-m.aiReplyQ:
-					if conversationID != "" && r.ConversationID != conversationID {
-						// 不匹配：放回队尾
-						m.aiReplyQ <- r
-						time.Sleep(10 * time.Millisecond)
-						continue
-					}
-					if replyToEventID != "" && r.ReplyToEventID != replyToEventID {
-						m.aiReplyQ <- r
-						time.Sleep(10 * time.Millisecond)
-						continue
-					}
-					return &bridge.UnifiedReply{
-						Channel:        r.Channel,
-						AccountID:      r.AccountID,
-						ConversationID: r.ConversationID,
-						Content:        r.Content,
-						MsgType:        "text",
-						ReplyToEventID: r.ReplyToEventID,
-					}
-				default:
-					return nil
-				}
-			}
-		})
-	}
+	// 注意：2026-08-06 三通道架构后，AI 回复不再经内联长轮询（HTTPReplyPullerRegistry 已移除），
+	// 而是落库 message_hub(status=pending) 由桥接扩展 GET /api/bridge/outbox 拉取。
+	// 本 mock 仅验证 ingest 上行链路；AI 回复的 outbox 下发需真实 DB/AI 引擎，mock 不实现。
 
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	go func() {

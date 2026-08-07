@@ -5,13 +5,17 @@ import (
 	"time"
 )
 
-// httpReplyBuffer HTTP 模式下的 AI 回复缓冲
+// httpReplyBuffer HTTP 模式下的 AI 回复缓冲（遗留）
 //
 // 2026-08-05 架构重构（用户诉求）：bridge 改用 HTTP 长轮询后，
 // AI 回复需要有个 transport-agnostic 的"暂存"通道供长轮询拉取。
 // 流程：WebhookService → bridge.SendXxx → deliverWS → hub.Deliver (WS 投递) → Push 到 buffer
 //
-// 消费方：HandleHTTPIngest 长轮询通过 HTTPReplyPullerRegistry 拉取。
+// 现状（2026-08-06 三通道架构后）：
+//   - 生产 AI 回复已改为落库 message_hub(status=pending)，由扩展端 GET /api/bridge/outbox 拉取，
+//     .NET 不再经此 buffer（HTTPReplyPullerRegistry / waitForAIReply 已移除）。
+//   - 本 buffer 现仅由遗留接线 ReachAdapter.SendXxx → deliverHTTP 写入，已无读取方，
+//     属死代码；保留以兼容 RegisterBridgeOutbound / Send* 接口测试。
 //
 // 容量策略：单 channel 最多保留 256 条 reply，超出时按 FIFO 淘汰。
 // 内存占用：每条 reply 约 200B-2KB（content 截断 4KB），256 条 × 5 渠道 ≈ 2.5MB 上限。
@@ -120,8 +124,7 @@ func drainNonBlocking(q chan *UnifiedReply) []*UnifiedReply {
 	}
 }
 
-// waitForReply 带超时的非阻塞拉取
-// 由 waitForAIReply 调用：每 200ms 拉一次
+// waitForReply 带超时的非阻塞拉取（遗留：原由已移除的 waitForAIReply 调用）
 func (b *httpReplyBuffer) waitForReply(channel, conversationID, replyToEventID string, timeout time.Duration) *UnifiedReply {
 	deadline := time.Now().Add(timeout)
 	pollInterval := 200 * time.Millisecond
