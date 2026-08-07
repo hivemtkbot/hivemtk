@@ -42,6 +42,8 @@ type KuaishouCardStatsRepository interface {
 	GetRecentActivitiesWithJoin(ctx context.Context, limit int) ([]KuaishouRecentActivity, error)
 	CreateActivity(ctx context.Context, activity *model.KuaishouCardActivity) error
 	SaveCard(ctx context.Context, card *model.KuaishouCard) error
+	// IncrementViewCount 原子自增浏览数，避免 service 层 read-modify-write 并发丢失更新
+	IncrementViewCount(ctx context.Context, id uint) error
 }
 
 // kuaishouCardStatsRepository 快手卡片统计仓库实现
@@ -149,4 +151,11 @@ func (r *kuaishouCardStatsRepository) CreateActivity(ctx context.Context, activi
 // SaveCard 保存卡片
 func (r *kuaishouCardStatsRepository) SaveCard(ctx context.Context, card *model.KuaishouCard) error {
 	return r.db.WithContext(ctx).Save(card).Error
+}
+
+// IncrementViewCount 原子自增浏览数（DB 层 view_count + 1），消除并发 read-modify-write 丢失更新
+func (r *kuaishouCardStatsRepository) IncrementViewCount(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Model(&model.KuaishouCard{}).
+		Where("id = ?", id).
+		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }

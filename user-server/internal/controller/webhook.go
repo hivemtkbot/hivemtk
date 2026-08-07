@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strconv"
 	"strings"
@@ -223,7 +224,7 @@ func (c *WebhookController) FeishuVerify(ctx *gin.Context) {
 		ctx.String(http.StatusNotFound, "account not found")
 		return
 	}
-	if token != acc.VerificationToken {
+	if subtle.ConstantTimeCompare([]byte(token), []byte(acc.VerificationToken)) != 1 {
 		ctx.String(http.StatusForbidden, "verification failed")
 		return
 	}
@@ -256,7 +257,7 @@ func (c *WebhookController) WhatsAppVerify(ctx *gin.Context) {
 	mode := ctx.Query("hub.mode")
 	token := ctx.Query("hub.verify_token")
 	challenge := ctx.Query("hub.challenge")
-	if mode != "subscribe" || token != acc.VerifyToken {
+	if mode != "subscribe" || subtle.ConstantTimeCompare([]byte(token), []byte(acc.VerifyToken)) != 1 {
 		ctx.String(http.StatusForbidden, "verification failed")
 		return
 	}

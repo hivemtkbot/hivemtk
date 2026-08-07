@@ -204,22 +204,32 @@ func (bot *AutoReplyBot) messageLoop(matcher RuleMatcher, userID uint) {
 		case <-bot.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := bot.checkAndReplyMessages(matcher, userID); err != nil {
-				logger.Errorf("[%s] 检查消息失败: %v", bot.platform, err)
-				errorCount++
-
-				// 如果连续错误次数超过阈值，检查是否是Cookie失效
-				if errorCount >= maxErrors {
-					if bot.isCookieExpired() {
-						logger.Infof("[%s] 检测到Cookie已过期，需要重新登录: %s", bot.platform, bot.account)
-						// 这里可以触发重新登录逻辑或通知用户
-						// 暂时记录日志，实际应用中可以调用重新登录API
+			// 修复：每次轮询迭代独立 recover，避免底层 JS Evaluate / 网络调用 panic
+			// 杀死整个自动回复 goroutine（无重启、无告警，业务静默停摆）。recover 后
+			// 仅记日志，循环继续下一次轮询。
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Errorf("[%s] messageLoop panic recovered: %v", bot.platform, r)
 					}
-					errorCount = 0 // 重置错误计数
+				}()
+				if err := bot.checkAndReplyMessages(matcher, userID); err != nil {
+					logger.Errorf("[%s] 检查消息失败: %v", bot.platform, err)
+					errorCount++
+
+					// 如果连续错误次数超过阈值，检查是否是Cookie失效
+					if errorCount >= maxErrors {
+						if bot.isCookieExpired() {
+							logger.Infof("[%s] 检测到Cookie已过期，需要重新登录: %s", bot.platform, bot.account)
+							// 这里可以触发重新登录逻辑或通知用户
+							// 暂时记录日志，实际应用中可以调用重新登录API
+						}
+						errorCount = 0 // 重置错误计数
+					}
+				} else {
+					errorCount = 0 // 成功时重置错误计数
 				}
-			} else {
-				errorCount = 0 // 成功时重置错误计数
-			}
+			}()
 		}
 	}
 }

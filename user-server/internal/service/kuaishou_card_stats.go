@@ -222,18 +222,13 @@ func (s *KuaishouCardStatsService) RecordActivity(ctx context.Context, cardID ui
 	}
 
 	// 更新卡片统计
-	card, err := s.repo.GetCardByID(ctx, cardID)
-	if err != nil {
-		return fmt.Errorf("获取卡片失败: %w", err)
-	}
-
 	switch action {
 	case "view":
-		card.ViewCount++
-	}
-
-	if err := s.repo.SaveCard(ctx, card); err != nil {
-		return fmt.Errorf("更新卡片统计失败: %w", err)
+		// 修复：改用 repo 原子自增，消除「读-改-写」并发丢失更新
+		// （原先 GetCardByID → ViewCount++ → SaveCard，高并发热点卡片统计严重偏低）
+		if err := s.repo.IncrementViewCount(ctx, cardID); err != nil {
+			return fmt.Errorf("更新卡片统计失败: %w", err)
+		}
 	}
 
 	return nil

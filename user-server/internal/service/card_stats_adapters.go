@@ -443,7 +443,11 @@ func (a *tiktokCardStatsAdapter) RecordActivity(ctx context.Context, cardID uint
 			UserAgent:    ua,
 			Platform:     PlatformCardStatsTiktok,
 		}
-		_ = a.activity.CreateActivity(ctx, activity)
+		// 修复：补充的 user 维度活动记录创建失败被 _ 静默丢弃，导致埋点丢失且无日志。
+		// 改为返回错误，使调用方感知并决定是否重试。
+		if err := a.activity.CreateActivity(ctx, activity); err != nil {
+			return err
+		}
 	}
 	return nil
 }
