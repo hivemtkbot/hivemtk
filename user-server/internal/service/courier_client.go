@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"marketing/internal/aiagent/agent/portcontract"
@@ -47,8 +48,10 @@ func (c *CourierClient) Query(ctx context.Context, carrier, trackingNo string) (
 	if !c.Configured() || trackingNo == "" {
 		return nil, nil
 	}
-	url := fmt.Sprintf("%s/api/track?carrier=%s&no=%s", c.baseURL, carrier, trackingNo)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// 修复：carrier/trackingNo 经 url.QueryEscape 编码，防止运单号含特殊字符（空格/&/#）
+	// 拼接进查询串导致参数注入或请求错乱（日志/配置泄露）
+	reqURL := fmt.Sprintf("%s/api/track?carrier=%s&no=%s", c.baseURL, url.QueryEscape(carrier), url.QueryEscape(trackingNo))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}

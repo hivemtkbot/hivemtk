@@ -422,11 +422,19 @@ func (s *IntentRecognizer) recognizeByLLM(ctx context.Context, text string) (*dt
 		level = "low"
 	}
 	intentName := parsed.IntentType
+	known := false
 	for _, def := range DefaultIntents {
 		if def.Type == parsed.IntentType {
 			intentName = def.Name
+			known = true
 			break
 		}
+	}
+	// 修复：LLM 返回未知/拼写错误意图类型时归一化为 unknown，避免下游按原始字符串
+	// 漏匹配 SOP（缺少兜底时意图识别形同失效）
+	if !known {
+		parsed.IntentType = "unknown"
+		intentName = "未知意图"
 	}
 	return &dto.RecognizeResult{
 		IntentType:      parsed.IntentType,

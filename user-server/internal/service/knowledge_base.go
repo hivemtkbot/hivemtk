@@ -145,11 +145,12 @@ func (s *KnowledgeBaseService) ListKBs(ctx context.Context, kbType, ownerType st
 		filtered := make([]*model.KnowledgeBase, 0, len(ptrs))
 		for _, kb := range ptrs {
 			if strings.Contains(strings.ToLower(kb.Name), like) || strings.Contains(strings.ToLower(kb.Description), like) {
-				filtered = append(filtered, kb)
-			}
+			filtered = append(filtered, kb)
 		}
-		return filtered, total, nil
 	}
+	// 修复：keyword 过滤后返回的实际列表长度应与 total 一致，否则分页/前端总数显示错误
+	return filtered, int64(len(filtered)), nil
+}
 	return ptrs, total, nil
 }
 

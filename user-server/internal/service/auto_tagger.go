@@ -188,7 +188,12 @@ func (s *AutoTagger) evaluateEventCountRule(ctx context.Context, customerData ma
 // evaluatePurchaseAmountRule 评估购买金额规则
 func (s *AutoTagger) evaluatePurchaseAmountRule(ctx context.Context, customerData map[string]any, rule map[string]any) bool {
 	operator, _ := rule["operator"].(string)
-	threshold := rule["threshold"].(float64)
+	// 修复：规则缺失 threshold 时改逗号-ok 并返回 false，避免裸类型断言 panic 导致整个标签流程崩溃
+	thresholdVal, ok := rule["threshold"].(float64)
+	if !ok {
+		return false
+	}
+	threshold := thresholdVal
 
 	totalAmount, _ := customerData["total_purchase_amount"].(float64)
 
