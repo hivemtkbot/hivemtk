@@ -4,6 +4,7 @@ import (
 	knowledgesvc "marketing/internal/aiagent/knowledge/service"
 	"marketing/internal/cache"
 	"marketing/internal/controller"
+	"marketing/internal/middleware"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/repository"
 	"marketing/internal/service"
@@ -66,19 +67,27 @@ func setupAuthRoutes(auth *gin.RouterGroup) {
 // setupUserRoutes 用户管理路由
 func setupUserRoutes(auth *gin.RouterGroup) {
 	userCtrl := controller.NewSystemUserController()
-	// GetUserList 路由：SystemUserController 的方法叫 GetUsers，这里包装为 GetUserList
+	// 读操作：已登录用户可查看用户列表/详情（单租户协作场景，信息泄露风险低）
 	auth.GET("/user/list", userCtrl.GetUsers)
 	auth.GET("/users", userCtrl.GetUsers)
 	auth.GET("/user/:id", userCtrl.GetUser)
 	auth.GET("/users/:id", userCtrl.GetUser)
-	auth.POST("/user", userCtrl.CreateUser)
-	auth.POST("/users", userCtrl.CreateUser)
-	auth.PUT("/user/:id", userCtrl.UpdateUser)
-	auth.PUT("/users/:id", userCtrl.UpdateUser)
-	auth.DELETE("/user/:id", userCtrl.DeleteUser)
-	auth.DELETE("/users/:id", userCtrl.DeleteUser)
-	auth.PUT("/user/:id/password", userCtrl.ResetPassword)
-	auth.PUT("/users/:id/password", userCtrl.ResetPassword)
+
+	// 写操作（创建/修改/重置密码/删除）：高危，仅管理员可执行。
+	// 修复：原先仅挂载 JWTAuth，任意登录用户可重置管理员密码或自提权（垂直越权）。
+	// 现统一包 AdminAuthMiddleware，使重置密码/创建用户等写操作必须管理员角色。
+	admin := auth.Group("")
+	admin.Use(middleware.AdminAuthMiddleware())
+	{
+		admin.POST("/user", userCtrl.CreateUser)
+		admin.POST("/users", userCtrl.CreateUser)
+		admin.PUT("/user/:id", userCtrl.UpdateUser)
+		admin.PUT("/users/:id", userCtrl.UpdateUser)
+		admin.DELETE("/user/:id", userCtrl.DeleteUser)
+		admin.DELETE("/users/:id", userCtrl.DeleteUser)
+		admin.PUT("/user/:id/password", userCtrl.ResetPassword)
+		admin.PUT("/users/:id/password", userCtrl.ResetPassword)
+	}
 }
 
 // setupAccountRoutes 账户管理路由

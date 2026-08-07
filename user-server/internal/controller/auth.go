@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"marketing/internal/middleware"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/response"
 	"marketing/internal/service"
 
@@ -41,10 +42,15 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// 测试模式只跳过后续的 JWT 中间件认证，不跳过登录验证
 	resp, err := c.authService.Login(context.Background(), &req)
 	if err != nil {
+		// 修复：登录失败计入防爆计数（与路由 BruteForceGuard("auth.login") 配对），
+		// 超限后中间件返回 429，原实现从未调用导致暴力破解无防护。
+		middleware.RecordBruteForceFailure(ctx, "auth.login")
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
+	// 修复：登录成功清除防爆计数，避免成功登录后误判为持续失败。
+	middleware.ClearBruteForceFailure(ctx, "auth.login")
 	response.Success(ctx, resp, "登录成功")
 }
 
@@ -141,6 +147,14 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 	if err := c.authService.ChangePassword(context.Background(), uid, &req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// 修复：改密成功后拉黑当前令牌，迫使旧令牌失效（需重新登录），
+	// 防御改密后旧 JWT 仍可被续用。fail-open：缓存故障时 IsJWTBlacklisted 返回 false 不阻断。
+	if authHeader := ctx.GetHeader("Authorization"); authHeader != "" {
+		if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && parts[0] == "Bearer" && parts[1] != "" {
+			utils.BlacklistJWT(parts[1])
+		}
 	}
 
 	response.Success(ctx, nil, "修改密码成功")

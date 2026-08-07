@@ -66,6 +66,16 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 修复：令牌若已被拉黑（登出/改密后），直接拒绝，使失效立即生效。
+		// fail-open：缓存查询失败时 IsJWTBlacklisted 返回 false，不阻断正常请求。
+		if utils.IsJWTBlacklisted(parts[1]) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "认证令牌已失效，请重新登录",
+			})
+			c.Abort()
+			return
+		}
+
 		// 将用户信息存储到上下文
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
