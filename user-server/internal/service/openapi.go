@@ -468,9 +468,15 @@ func navigateJSONPath(node any, path string) (any, error) {
 	parts := strings.Split(path, ".")
 	current := node
 	for _, part := range parts {
-		if m, ok := current.(map[string]any); ok {
-			current = m[part]
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("响应路径 %q 在分段 %q 处无法继续导航（当前节点非对象）", path, part)
 		}
+		v, exists := m[part]
+		if !exists {
+			return nil, fmt.Errorf("响应路径 %q 的字段 %q 不存在", path, part)
+		}
+		current = v
 	}
 	return current, nil
 }

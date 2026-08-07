@@ -41,12 +41,29 @@ func (c *IntegrationController) CreateAccount(ctx *gin.Context) {
 }
 
 // GetAccountList 获取对接账号列表
+// maskCredential 对凭据做脱敏展示（保留首尾，中间掩码），避免明文凭据回传前端被窃取
+func maskCredential(s string) string {
+	if s == "" {
+		return ""
+	}
+	if len(s) <= 4 {
+		return "****"
+	}
+	return s[:2] + "****" + s[len(s)-2:]
+}
+
 func (c *IntegrationController) GetAccountList(ctx *gin.Context) {
 
 	accounts, err := c.integrationService.GetIntegrationAccountList(context.Background())
 	if err != nil {
 		response.ErrorFromDB(ctx, err, err.Error())
 		return
+	}
+	// 修复：响应脱敏，避免 APISecret/AccessToken/RefreshToken 明文回传前端
+	for _, acc := range accounts {
+		acc.APISecret = maskCredential(acc.APISecret)
+		acc.AccessToken = maskCredential(acc.AccessToken)
+		acc.RefreshToken = maskCredential(acc.RefreshToken)
 	}
 
 	response.Success(ctx, accounts, "获取成功")
@@ -67,6 +84,10 @@ func (c *IntegrationController) GetAccountByID(ctx *gin.Context) {
 		response.Error(ctx, http.StatusNotFound, err.Error())
 		return
 	}
+	// 修复：响应脱敏，避免 APISecret/AccessToken/RefreshToken 明文回传前端
+	account.APISecret = maskCredential(account.APISecret)
+	account.AccessToken = maskCredential(account.AccessToken)
+	account.RefreshToken = maskCredential(account.RefreshToken)
 
 	response.Success(ctx, account, "获取成功")
 }

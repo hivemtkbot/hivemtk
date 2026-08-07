@@ -45,6 +45,13 @@ func (j *DomainHealthCheckJob) Start() {
 
 // runOnce 单次执行探测
 func (j *DomainHealthCheckJob) runOnce() {
+	// 修复：探测 goroutine（Start 中 go j.runOnce()）未 recover，若 CheckAll 内层 panic
+	// 会直接击穿进程。recover 后仅记日志，不影响下一次 ticker 触发。
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("[domain-health] runOnce panic recovered: %v", r)
+		}
+	}()
 	results, err := j.healthSvc.CheckAll(context.Background())
 	if err != nil {
 		logger.Errorf("[domain-health] 探测失败: %v", err)

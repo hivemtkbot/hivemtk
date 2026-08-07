@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
@@ -56,8 +57,9 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 		return nil, err
 	}
 
-	// 异步执行备份
-	go s.executeBackup(ctx, backup)
+	// 异步执行备份：用 WithoutCancel 脱离请求生命周期，避免客户端断开（前端超时/代理 60s）后
+	// ctx 取消导致备份中途失败、状态卡在 running 且产生半截 zip。
+	go s.executeBackup(context.WithoutCancel(ctx), backup)
 
 	return backup, nil
 }
@@ -155,7 +157,8 @@ func (s *BackupService) backupDatabase(ctx context.Context, dir string) error {
 	}
 
 	sqlFile := filepath.Join(dir, "data.json")
-	return os.WriteFile(sqlFile, data, 0644)
+	// 修复：备份含 PII（email/phone），文件权限收紧为 0600，避免同机其他用户可读
+	return os.WriteFile(sqlFile, data, 0600)
 }
 
 func (s *BackupService) exportData(ctx context.Context) ([]byte, error) {
@@ -395,13 +398,21 @@ func (s *RestoreService) decompressBackup(ctx context.Context, backupFile string
 
 		// 跳过目录
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(f.Name, 0755)
+			// 修复：防御 zip slip，目录条目含绝对路径或 .. 直接拒绝
+			if filepath.IsAbs(f.Name) || strings.Contains(f.Name, "..") {
+				return fmt.Errorf("非法的备份条目路径: %s", f.Name)
+			}
+			os.MkdirAll(f.Name, 0700)
 			continue
 		}
 
 		// 创建文件
+		// 修复：防御 zip slip——校验条目名不跳出 restore_tmp 目录（拒绝绝对路径或含 ..）
+		if filepath.IsAbs(f.Name) || strings.Contains(f.Name, "..") {
+			return fmt.Errorf("非法的备份条目路径: %s", f.Name)
+		}
 		path := filepath.Join("restore_tmp", f.Name)
-		os.MkdirAll(filepath.Dir(path), 0755)
+		os.MkdirAll(filepath.Dir(path), 0700)
 		outFile, err := os.Create(path)
 		if err != nil {
 			return err

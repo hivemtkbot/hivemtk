@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 )
@@ -58,13 +59,18 @@ func (c *AssetMarketClient) doData(method, path string, req any, out any) error 
 }
 
 func (c *AssetMarketClient) ListAssets(ctx context.Context, assetType, industry string, page, size int) ([]map[string]any, int64, error) {
-	path := fmt.Sprintf("/merchant-api/asset-market/list?page=%d&size=%d", page, size)
+	// 修复：query 参数经 url.Values.Encode() 编码，防止 assetType/industry 含 &/#/换行
+	// 等字符造成参数注入或拼接越权资产
+	q := url.Values{}
+	q.Set("page", fmt.Sprintf("%d", page))
+	q.Set("size", fmt.Sprintf("%d", size))
 	if assetType != "" {
-		path += "&type=" + assetType
+		q.Set("type", assetType)
 	}
 	if industry != "" {
-		path += "&industry=" + industry
+		q.Set("industry", industry)
 	}
+	path := "/merchant-api/asset-market/list?" + q.Encode()
 	var resp struct {
 		List  []map[string]any `json:"list"`
 		Total int64            `json:"total"`
@@ -77,7 +83,9 @@ func (c *AssetMarketClient) ListAssets(ctx context.Context, assetType, industry 
 
 func (c *AssetMarketClient) GetAssetDetail(ctx context.Context, assetID string) (map[string]any, error) {
 	var resp map[string]any
-	if err := c.doData("GET", "/merchant-api/asset-market/detail/"+assetID, nil, &resp); err != nil {
+	// 修复：assetID 经 PathEscape 编码，防止含 / 或 .. 造成路径穿越拼接越权资产
+	detailPath := "/merchant-api/asset-market/detail/" + url.PathEscape(assetID)
+	if err := c.doData("GET", detailPath, nil, &resp); err != nil {
 		return nil, err
 	}
 	return resp, nil
