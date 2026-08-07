@@ -48,6 +48,7 @@ type HybridSearcher struct {
 	enableHyDE       bool
 	enableMultiQuery bool
 	enableRerank     bool
+	minScore         float64 // 重排分下限（0=不启用；运维可按 bge-reranker 分数分布配置，过滤低相关分片）
 
 	// 检索日志表存在性缓存：避免每条消息都查 information_schema。
 	logMu        sync.Mutex
@@ -65,6 +66,7 @@ type HybridSearcherConfig struct {
 	EnableHyDE       bool
 	EnableMultiQuery bool
 	EnableRerank     bool
+	MinScore         float64 // 重排分下限：0=不启用；>0 时丢弃重排分低于该值的分片（对齐引擎路径阈值，避免无关上下文）
 }
 
 // DefaultHybridSearcherConfig 默认配置
@@ -83,6 +85,7 @@ func DefaultHybridSearcherConfig() *HybridSearcherConfig {
 		EnableHyDE:       envBool("RAG_ENABLE_HYDE", false),
 		EnableMultiQuery: envBool("RAG_ENABLE_MULTIQUERY", false),
 		EnableRerank:     true,
+		MinScore:         0, // 默认不启用；运维可按 bge-reranker-v2-m3 分数分布配置（不猜测默认值）
 	}
 }
 
@@ -141,6 +144,7 @@ func NewHybridSearcher(
 		enableHyDE:       enableHyDE,
 		enableMultiQuery: enableMultiQuery,
 		enableRerank:     cfg.EnableRerank,
+		minScore:         cfg.MinScore,
 	}
 	s.vectorRetriever = NewVectorRetriever(db, embeddingClient, cfg.EfSearch)
 	s.bm25Retriever = NewBM25Retriever(db)
@@ -293,6 +297,11 @@ func (s *HybridSearcher) searchWithProductID(ctx context.Context, productID stri
 	} else {
 		final = trimChunks(fused, topK)
 	}
+	// 重排分下限过滤（可选）：与引擎路径的 DefaultSimilarityThreshold 对齐，过滤低相关召回。
+	// 默认 0 = 不启用（行为不变）；阈值取值需据 bge-reranker-v2-m3 分数分布配置，不猜测。
+	if s.minScore > 0 && len(final) > 0 {
+		final = filterByMinScore(final, s.minScore)
+	}
 	rerankLatency := time.Since(rerankStart).Milliseconds()
 
 	// 5) 异步记录检索日志（不阻塞返回）
@@ -340,6 +349,21 @@ func (s *HybridSearcher) logSearch(productID string, query string, topK, vecN, b
 		// best-effort：不阻断主流程，但记录错误
 		logger.Errorf("hybrid_searcher: persist search log failed: %v", err)
 	}
+}
+
+// filterByMinScore 丢弃相似度/重排分低于 minScore 的分片（minScore<=0 时不生效）。
+// 用于对齐引擎路径的相似度阈值，过滤低相关召回，避免无关上下文污染 LLM 答案。
+func filterByMinScore(chunks []Chunk, minScore float64) []Chunk {
+	if minScore <= 0 {
+		return chunks
+	}
+	out := make([]Chunk, 0, len(chunks))
+	for _, c := range chunks {
+		if c.Score >= minScore {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // searchLogReady 探测 knowledge_search_logs 表是否存在，结果缓存 5 分钟。

@@ -483,26 +483,34 @@ func (s *VisitorChatService) SendMessage(ctx context.Context, req *VisitorSendMe
 
 	// 6. 推送 / 落库 AI 回复
 	if handleResult.AIReplied && handleResult.Reply != "" {
-		// 落库 AI 回复（带 delivered_at=now，标记已通过 HTTP 投递给访客，避免离线消息重发）
-		//
-		// sender_id 必须填 "ai_assistant"：与 orchestrator.saveOutboundMessage 的 sender_id 保持一致，
-		// 这样 5 秒内的去重检查才能匹配，visitor 端 + orchestrator 不会双保存。
 		now := time.Now()
-		aiMsg := &model.SessionMessage{
-			SessionID:    session.SessionID,
-			Content:      handleResult.Reply,
-			ContentType:  model.MessageTypeText,
-			SenderType:   "ai",
-			SenderID:     "ai_assistant",
-			SenderName:   "智能助手",
-			AIConfidence: handleResult.Confidence,
-			AISource:     "rag",
-			DeliveredAt:  &now,
+		// 复用编排器已落库的 AI 回复（默认 enableAutoReply=true 时编排器已 saveOutboundMessage）：
+		// 复用可避免双写（历史重复 + ListOfflineBySessionID 把 DeliveredAt=nil 的副本重复下发），
+		// 并避免与编排器重复自增 AIReplyCount（编排器 step 9 已自增，双自增会让 maxAIConsecutive 提前一倍触发转人工）。
+		// 仅当编排器未落库（enableAutoReply=false）时才新建并自增。
+		existing, _ := s.messageRepo.FindRecentDuplicate(ctx, session.SessionID, "ai", "ai_assistant", handleResult.Reply, 5*time.Second)
+		if existing != nil {
+			// 编排器已落库：仅标记已投递，防止 offline-messages 把 DeliveredAt=nil 的副本重发
+			_ = s.messageRepo.MarkDelivered(ctx, session.SessionID, []uint{existing.ID}, now)
+			result.AIResponse = existing
+		} else {
+			aiMsg := &model.SessionMessage{
+				SessionID:    session.SessionID,
+				Content:      handleResult.Reply,
+				ContentType:  model.MessageTypeText,
+				SenderType:   "ai",
+				SenderID:     "ai_assistant",
+				SenderName:   "智能助手",
+				AIConfidence: handleResult.Confidence,
+				AISource:     "rag",
+				DeliveredAt:  &now,
+			}
+			_ = s.messageRepo.Create(ctx, aiMsg)
+			_ = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
+			result.AIResponse = aiMsg
 		}
-		_ = s.messageRepo.Create(ctx, aiMsg)
+		// 会话 LastMessage 无论哪条路径都需更新（编排器 saveOutboundMessage 不更新会话 last message）
 		_ = s.sessionRepo.UpdateLastMessage(ctx, session.ID, handleResult.Reply, "ai")
-		_ = s.sessionRepo.IncrementAIReplyCount(ctx, session.ID)
-		result.AIResponse = aiMsg
 	}
 
 	// 6.1 会话内结构化富卡片：落库并随 HTTP 响应一并下发给访客
