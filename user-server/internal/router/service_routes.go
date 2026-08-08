@@ -9,6 +9,7 @@ import (
 	opsctrl "marketing/internal/ops/controller"
 	"marketing/internal/service"
 	i18nservice "marketing/internal/service/i18n"
+	"marketing/internal/pkg/utils/db"
 	"marketing/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -464,4 +465,12 @@ func setupQualityRoutes(auth *gin.RouterGroup) {
 	auth.POST("/perf/run", perfCtrl.RunTest)
 	auth.GET("/perf/list", perfCtrl.ListResults)
 	auth.GET("/perf/:id", perfCtrl.GetResult)
+}
+
+// setupSecurityAuditRoutes 安全审计：列表 / 立即审计 / 明细。
+func setupSecurityAuditRoutes(auth *gin.RouterGroup) {
+	ctrl := controller.NewSecurityAuditController(service.NewSecurityAuditService(db.GetDB()))
+	auth.GET("/security/audit/list", ctrl.ListSecurityAudits)
+	auth.POST("/security/audit", ctrl.RunSecurityAudit)
+	auth.GET("/security/audit/:id", ctrl.GetSecurityAudit)
 }

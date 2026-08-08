@@ -55,7 +55,9 @@ func (h *AssetMarketController) ListMarket(c *gin.Context) {
 	list, total, err := h.marketSvc.ListMarketAssets(c.Request.Context(),
 		c.Query("asset_type"), c.Query("industry"), page, size)
 	if err != nil {
-		assetFail(c, err)
+		// 平台端不可达（未部署/未配置）时优雅降级：返回空列表而非业务错误，
+		// 避免前端弹出硬性报错，页面以「暂无数据」呈现。平台异常由 service 层记录日志。
+		response.SuccessWithList(c, []map[string]any{}, 0)
 		return
 	}
 	response.SuccessWithList(c, list, total)

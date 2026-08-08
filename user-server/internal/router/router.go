@@ -452,8 +452,11 @@ func Setup(r *gin.Engine) {
 		// 客户旅程大屏 (G10)
 		setupCustomerJourneyRoutes(auth)
 
-		// 性能压测 + 安全审计
+		// 性能压测
 		setupQualityRoutes(auth)
+
+		// 安全审计
+		setupSecurityAuditRoutes(auth)
 
 		// 批量操作
 		setupBatchRoutes(auth)
