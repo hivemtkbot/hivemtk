@@ -631,8 +631,10 @@ func (r *MessageHubRepository) UpdateConversationID(ctx context.Context, id uint
 }
 
 // FindConversationIDsMissingInbox 返回 message_hub 中存在、但 inbox_conversations 中缺失的
-// conversation_id。这与 monitor 的 sync_gap 检测语义一致（按 conversation_id 左连接），
-// 用于回填历史会话：统一收件箱特性上线前已积累消息的会话，只有新消息才触发同步，导致历史缺口。
+// conversation_id（按 conversation_id 左连接）。用于回填历史会话：统一收件箱特性上线前已积累
+// 消息的会话，只有新消息才触发同步，导致历史缺口。注意：群聊/聚合会话的 customer_id 已统一为
+// conversation_id（见 service.inboxCustomerID），这类碎片合并由 reconcileBackfill 步骤 3 处理，
+// 此处仅覆盖 1:1 等按 conversation_id 缺失的会话。
 func (r *MessageHubRepository) FindConversationIDsMissingInbox(ctx context.Context) ([]string, error) {
 	if r == nil || r.db == nil {
 		return nil, nil
@@ -668,6 +670,139 @@ func (r *MessageHubRepository) FindLatestByConversation(ctx context.Context, con
 		return nil, err
 	}
 	return &msg, nil
+}
+
+// SyncGapConv 一个 sync_gap 会话的去重键与规范客户键（与 monitor sync_gap 判定一致）。
+type SyncGapConv struct {
+	Platform       string
+	AccountID      string
+	ConversationID string
+	CustomerID     string
+}
+
+// FindSyncGapConversations 返回 message_hub 中存在、但 inbox_conversations 中缺失
+// 规范客户键收件箱行的会话（与 monitor 的 sync_gap 检测口径完全一致）。用于 backfill
+// 步骤 5 全量修复：把被时间戳污染的碎片收敛为按规范 customer_id 归属的单行并清理孤儿。
+//
+// 规范客户键判定（与 service.inboxCustomerID、monitor.sync_gap 三元组完全一致）：
+//  1. 群聊（is_group）且 conversation_id 非空 → conversation_id
+//  2. sender_id（入站）或 receiver_id（出站）形如 "conversation_id <时间后缀>" → conversation_id
+//  3. 出站取 receiver_id，入站取 sender_id
+func (r *MessageHubRepository) FindSyncGapConversations(ctx context.Context, since time.Time) ([]SyncGapConv, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	const triad = "(CASE" +
+		" WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id" +
+		" WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id" +
+		" ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)" +
+		" END)"
+	sql := `SELECT DISTINCT m.platform, m.account_id, m.conversation_id, ` + triad + ` AS customer_id
+		FROM message_hub m
+		WHERE m.conversation_id IS NOT NULL AND m.conversation_id <> ''
+		  AND m.created_at >= $1
+		  AND NOT EXISTS (
+			SELECT 1 FROM inbox_conversations ic
+			WHERE ic.platform = m.platform AND ic.account_id = m.account_id AND ic.customer_id = ` + triad + `
+		  )`
+	var rows []SyncGapConv
+	if err := r.db.WithContext(ctx).Raw(sql, since).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// NormalizePollutedConversationIDs 把被时间戳/状态串污染的 conversation_id 还原为规范键。
+//
+// 历史 bug：早期曾用 split_part(conversation_id,' ',1) 把 "conv:AI 修炼场 5 37分钟前"
+// 错切成 "conv:AI"，导致多个不同群被折叠进同一短键、收件箱/追踪严重碎片化。
+// 由于 sender_id/receiver_id 仍保留完整被污染标题（如 "conv:AI 修炼场 5 37分钟前"），
+// 这里以其为事实源还原 conversation_id：取与 conversation_id 前缀匹配的 sender/receiver，
+// 再去掉【末尾】时间戳/状态 token（标题本身可能含空格，绝不能按首个空格切分）。
+// 该逻辑对已是规范键的行幂等（CASE 回退为原值），可重复安全执行。
+func (r *MessageHubRepository) NormalizePollutedConversationIDs(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	// 末尾时间戳/状态 token 正则（按 $ 锚定，'g' 模式去除所有后缀时间戳）：
+	//   昨天/今天/前天/明天 + HH:MM（两 token，须排在单 token 日前词之前，否则会只剥半截）
+	//   刚刚/刚才/前天/昨天/今天/明天/周X（单 token 日标识）
+	//   N分钟前/小时前/天前（相对时间）
+	//   YYYY/MM/DD、MM/DD（日期）   HH:MM（时刻）
+	//   有新交易评价/交易成功（交易状态串）
+	const tsPat = "( 昨天 \\d{1,2}:\\d{2}| 今天 \\d{1,2}:\\d{2}| 前天 \\d{1,2}:\\d{2}| 明天 \\d{1,2}:\\d{2}" +
+		"| 刚刚| 刚才| 前天| 大前天| 昨天| 今天| 明天| 周[一二三四五六日天]" +
+		"| \\d+分钟前| \\d+小时前| \\d+天前" +
+		"| \\d{4}/\\d{1,2}/\\d{1,2}| \\d{1,2}/\\d{1,2}| \\d{1,2}:\\d{2}" +
+		"| 有新交易评价| 交易成功)$"
+	res := r.db.WithContext(ctx).Exec(`
+		UPDATE message_hub m
+		SET conversation_id = regexp_replace(
+			CASE
+				WHEN m.sender_id   LIKE (m.conversation_id || ' %') THEN m.sender_id
+				WHEN m.receiver_id LIKE (m.conversation_id || ' %') THEN m.receiver_id
+				ELSE m.conversation_id
+			END,
+			?, '', 'g'
+		)
+		WHERE m.conversation_id LIKE 'conv:%'
+		  AND (m.sender_id   LIKE (m.conversation_id || ' %')
+		    OR m.receiver_id LIKE (m.conversation_id || ' %'))`,
+		tsPat)
+	return res.RowsAffected, res.Error
+}
+
+// NormalizePollutedTraceConversationIDs 清洗 message_trace 表被时间戳污染的 conversation_id
+// 末尾时间戳 token（与 message_hub 归一口径一致），避免链路追踪树按旧键分裂。
+//
+// 注意：message_trace 无 sender_id/receiver_id，且历史上 split_part 已把 conversation_id 错切为
+// 首 token 短键（如 "conv:旭"），这类短键在 message_hub 中无唯一可映射的全标题，属不可逆历史数据，
+// 不能臆造还原——仅做末尾时间戳清洗（对当前无空格的短键为幂等 no-op）。前向正确性由追踪从实时消息
+// 取值保证：message_hub 修复后，新产生的 trace 自然使用规范 conversation_id。
+func (r *MessageHubRepository) NormalizePollutedTraceConversationIDs(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	const tsPat = "( 昨天 \\d{1,2}:\\d{2}| 今天 \\d{1,2}:\\d{2}| 前天 \\d{1,2}:\\d{2}| 明天 \\d{1,2}:\\d{2}" +
+		"| 刚刚| 刚才| 前天| 大前天| 昨天| 今天| 明天| 周[一二三四五六日天]" +
+		"| \\d+分钟前| \\d+小时前| \\d+天前" +
+		"| \\d{4}/\\d{1,2}/\\d{1,2}| \\d{1,2}/\\d{1,2}| \\d{1,2}:\\d{2}" +
+		"| 有新交易评价| 交易成功)$"
+	res := r.db.WithContext(ctx).Exec(`
+		UPDATE message_trace m
+		SET conversation_id = regexp_replace(m.conversation_id, ?, '', 'g')
+		WHERE m.conversation_id LIKE 'conv:% %'`,
+		tsPat)
+	return res.RowsAffected, res.Error
+}
+
+// DeletePollutedInboxRows 删除被时间戳污染的孤儿收件箱行（customer_id 或 conversation_id
+// 带空格后缀）。归一 conversation_id 后这些行不再被任何 message_hub 引用，必须清理以免
+// 在收件箱 UI 造成重复/陈旧会话。
+func (r *InboxConversationRepository) DeletePollutedInboxRows(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).
+		Where("conversation_id LIKE ? OR customer_id LIKE ?", "conv:% %", "conv:% %").
+		Delete(&model.InboxConversation{})
+	return res.RowsAffected, res.Error
+}
+
+// DeleteOrphanConvInboxRows 删除收件箱中被早期错切（split_part 首 token）产生的 conv: 短键
+// 孤儿行——这些 conversation_id 在 message_hub 归一后已不存在（如 "conv:AI" 已还原为
+// "conv:AI 修炼场 5" 等）。与 DeletePollutedInboxRows 不同，这里按“conversation_id 是否仍被
+// message_hub 引用”判定孤儿，能正确清理无空格的短键折叠残留。限定 conv: 前缀，避免误删其它渠道
+// 合法会话（非群聊 conv: 前缀的会话不应被此逻辑触碰）。
+func (r *InboxConversationRepository) DeleteOrphanConvInboxRows(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).
+		Where("conversation_id LIKE ? AND NOT EXISTS (SELECT 1 FROM message_hub m WHERE m.conversation_id = inbox_conversations.conversation_id)",
+			"conv:%").
+		Delete(&model.InboxConversation{})
+	return res.RowsAffected, res.Error
 }
 
 // ============== InboxConversationRepository ==============
@@ -875,6 +1010,21 @@ func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in Upsert
 	return tx.Model(&model.InboxConversation{}).
 		Where("id = ?", conv.ID).
 		Updates(updates).Error
+}
+
+// DeleteOrphanInboxByConversation 删除同一 (platform, account_id, conversation_id)
+// 下、customer_id 与 keepCustomerID 不一致的孤儿收件箱行。群聊 sender_id 被时间戳
+// 污染后，同一会话会生成多条 customer_id 各异的碎片行，合并为按 conversation_id
+// 归属的单行后，其余碎片需清理以免在收件箱 UI 重复出现。
+func (r *InboxConversationRepository) DeleteOrphanInboxByConversation(ctx context.Context, platform, accountID, conversationID, keepCustomerID string) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).
+		Where("platform = ? AND account_id = ? AND conversation_id = ? AND customer_id <> ?",
+			platform, accountID, conversationID, keepCustomerID).
+		Delete(&model.InboxConversation{})
+	return res.RowsAffected, res.Error
 }
 
 // sanitizeUTF8 将字符串中的非法 UTF-8 字节序列替换为 Unicode 替换符（U+FFFD），

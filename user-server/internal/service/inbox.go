@@ -72,6 +72,69 @@ const (
 	InboxFromAI       = "ai"
 )
 
+// inboxCustomerID 计算消息在统一收件箱中归属的“客户键”。
+//
+// 群聊 / 聚合会话（抖音等渠道）的 sender_id 常被渠道侧写成“会话标题 + 相对时间”
+// 形如 "conv:猎洞时刻网络安全群 29分钟前"，并非稳定参与方 ID。若直接用作
+// customer_id，同一会话会因时间戳不同被碎片化成多条收件箱行，且 monitor 按
+// (platform, account_id, customer_id) 判定时永远匹配不到 → 持续误报 sync_gap。
+// 此类消息统一以 conversation_id 作为归属键（群聊的“客户”即群本身），与
+// monitor sync_gap 的判定口径保持一致。
+//
+// 判定顺序：
+//  1. 群聊（is_group）且 conversation_id 非空 → conversation_id
+//  2. sender_id 形如 "conversation_id <时间后缀>"（聚合/群消息污染） → conversation_id
+//  3. 出站取 receiver_id，入站取 sender_id
+func inboxCustomerID(msg *model.MessageHub) string {
+	if msg == nil {
+		return ""
+	}
+	// 群聊：以会话本身作为归属实体
+	if msg.IsGroup && msg.ConversationID != "" {
+		return msg.ConversationID
+	}
+	// 群聊 / 聚合会话：sender_id（入站）或 receiver_id（出站）被写成
+	// "conversation_id <时间后缀>"，并非稳定参与方 ID → 归一为 conversation_id
+	if msg.ConversationID != "" {
+		if msg.SenderID != "" && strings.HasPrefix(msg.SenderID, msg.ConversationID+" ") {
+			return msg.ConversationID
+		}
+		if msg.ReceiverID != "" && strings.HasPrefix(msg.ReceiverID, msg.ConversationID+" ") {
+			return msg.ConversationID
+		}
+	}
+	// 常规：出站取 receiver，入站取 sender
+	if msg.Direction == "outbound" {
+		if msg.ReceiverID != "" {
+			return msg.ReceiverID
+		}
+		return msg.SenderID
+	}
+	return msg.SenderID
+}
+
+// inboxCustomerName 计算收件箱会话展示名：群聊/聚合消息无稳定 sender_name 时，
+// 回退为 conversation_id 提取的群标题。
+func inboxCustomerName(msg *model.MessageHub) string {
+	name := msg.SenderName
+	if name == "" && inboxCustomerID(msg) == msg.ConversationID {
+		name = cleanConversationTitle(msg.ConversationID)
+	}
+	return name
+}
+
+// cleanConversationTitle 从 conversation_id 提取可读的会话/群标题。
+// "conv:猎洞时刻网络安全群" -> "猎洞时刻网络安全群"；其余原样返回。
+func cleanConversationTitle(convID string) string {
+	if convID == "" {
+		return ""
+	}
+	if strings.HasPrefix(convID, "conv:") {
+		return strings.TrimPrefix(convID, "conv:")
+	}
+	return convID
+}
+
 // 默认负载阈值：单客服最多承接会话数
 const InboxDefaultStaffLoadLimit = 30
 
@@ -187,11 +250,8 @@ func (s *InboxService) UpsertFromHubMessage(ctx context.Context, msg *model.Mess
 	if err := s.upsertInternal(ctx, msg); err != nil {
 		return nil, err
 	}
-	// 取出会话
-	cid := msg.SenderID
-	if msg.Direction == "outbound" && msg.ReceiverID != "" {
-		cid = msg.ReceiverID
-	}
+	// 取出会话（归属键与 monitor sync_gap 判定一致）
+	cid := inboxCustomerID(msg)
 	conv, err := s.inboxRepo.FindByPlatformAccountCustomer(ctx, msg.Platform, msg.AccountID, cid)
 	if err != nil {
 		return nil, err
@@ -221,13 +281,10 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		return s.UpsertFromHubMessage(ctx, msg)
 	}
 	// 复用 upsertInternal 的 input 构造逻辑
-	if msg.Platform == "" || msg.AccountID == "" || msg.SenderID == "" {
+	if msg.Platform == "" || msg.AccountID == "" {
 		return nil, ErrInboxEmptyMerchant
 	}
-	customerID := msg.SenderID
-	if msg.Direction == "outbound" && msg.ReceiverID != "" {
-		customerID = msg.ReceiverID
-	}
+	customerID := inboxCustomerID(msg)
 	if customerID == "" {
 		return nil, ErrInboxInvalidCustomer
 	}
@@ -248,7 +305,7 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		Platform:           msg.Platform,
 		AccountID:          msg.AccountID,
 		CustomerID:         customerID,
-		CustomerName:       msg.SenderName,
+		CustomerName:       inboxCustomerName(msg),
 		ConversationID:     msg.ConversationID,
 		LastMessageID:      msg.ID,
 		LastMessagePreview: preview,
@@ -272,16 +329,11 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 	if s.inboxRepo == nil || msg == nil {
 		return nil
 	}
-	if msg.Platform == "" || msg.AccountID == "" || msg.SenderID == "" {
+	if msg.Platform == "" || msg.AccountID == "" {
 		return ErrInboxEmptyMerchant
 	}
-	// 默认以 sender 作为 customerId。outbound 消息时使用 receiver
-	customerID := msg.SenderID
-	if msg.Direction == "outbound" {
-		if msg.ReceiverID != "" {
-			customerID = msg.ReceiverID
-		}
-	}
+	// 默认以 sender 作为 customerId。群聊/聚合消息统一以 conversation_id 归属（见 inboxCustomerID）。
+	customerID := inboxCustomerID(msg)
 	if customerID == "" {
 		return ErrInboxInvalidCustomer
 	}
@@ -304,7 +356,7 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 		Platform:           msg.Platform,
 		AccountID:          msg.AccountID,
 		CustomerID:         customerID,
-		CustomerName:       msg.SenderName,
+		CustomerName:       inboxCustomerName(msg),
 		ConversationID:     msg.ConversationID,
 		LastMessageID:      msg.ID,
 		LastMessagePreview: preview,
@@ -590,8 +642,11 @@ type ReconcileResult struct {
 	OverdueAssigned  int    `json:"overdue_assigned"`
 	AssignedTo       string `json:"assigned_to,omitempty"`
 	FixedNullConv    int64  `json:"fixed_null_conv_id"` // backfill：修正的 NULL/空 conversation_id 行数
-	Backfilled       int64  `json:"backfilled"`         // backfill：补建的 inbox_conversations 会话数
-	Message          string `json:"message"`
+	Backfilled           int64  `json:"backfilled"`             // backfill：补建的 inbox_conversations 会话数
+	NormalizedConv       int64  `json:"normalized_conv"`        // backfill：归一的时间戳污染 conversation_id 数
+	PollutedInboxDeleted int64  `json:"polluted_inbox_deleted"` // backfill：删除的时间戳污染孤儿收件箱行数
+	SyncGapFixed         int64  `json:"sync_gap_fixed"`         // backfill：修复的 sync_gap 会话数
+	Message              string `json:"message"`
 }
 
 // Reconcile 收件箱对账 / 治理。
@@ -705,7 +760,36 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		res.FixedNullConv++
 	}
 
-	// 步骤 2：回填缺失的 inbox_conversations 历史会话
+	// 步骤 2：归一被时间戳污染的 conversation_id（如 "conv:群标题 29分钟前" → "conv:群标题"）。
+	// 同一会话被拆成多条带时间戳变体的 message_hub 记录因此合并到规范会话键，从根上消除碎片化；
+	// message_trace 同步归一，避免链路追踪树按旧键分裂。
+	normN, err := s.hubRepo.NormalizePollutedConversationIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res.NormalizedConv = normN
+	if normT, err := s.hubRepo.NormalizePollutedTraceConversationIDs(ctx); err != nil {
+		logger.Warnf("reconcile backfill: 归一 message_trace conversation_id 失败: %v", err)
+	} else if normT > 0 {
+		logger.Infof("reconcile backfill: 归一 message_trace conversation_id %d 条", normT)
+		res.NormalizedConv += normT
+	}
+
+	// 步骤 3：清理归一后失效的收件箱孤儿行。
+	// 3a) 删带空格后缀的污染行（防御性，当前数据已无空格行）。
+	delN, err := s.inboxRepo.DeletePollutedInboxRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// 3b) 删不再被 message_hub 引用的 conv: 短键孤儿行（早期 split_part 错切合并残留，
+	// 如 "conv:AI"——归一后 message_hub 已无此键，须清除以免收件箱出现陈旧/重复会话）。
+	orphanN, err := s.inboxRepo.DeleteOrphanConvInboxRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res.PollutedInboxDeleted = delN + orphanN
+
+	// 步骤 4：回填缺失的 inbox_conversations 历史会话
 	missing, err := s.hubRepo.FindConversationIDsMissingInbox(ctx)
 	if err != nil {
 		return nil, err
@@ -722,10 +806,75 @@ func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult,
 		res.Backfilled++
 	}
 
-	res.Message = fmt.Sprintf("已修正 %d 条 NULL/空 conversation_id，补建 %d 个收件箱会话",
-		res.FixedNullConv, res.Backfilled)
+	// 步骤 5：全量修复 sync_gap（与 monitor 判定一致的规范客户键）。
+	gapConvs, err := s.hubRepo.FindSyncGapConversations(ctx, time.Now().AddDate(0, 0, -90))
+	if err != nil {
+		return nil, err
+	}
+	for _, gc := range gapConvs {
+		if gc.CustomerID == "" {
+			continue
+		}
+		if err := s.reconcileSyncGapConversation(ctx, gc.Platform, gc.AccountID, gc.ConversationID, gc.CustomerID); err != nil {
+			logger.Warnf("reconcile backfill: 会话 %s 修复失败（已跳过）: %v", gc.ConversationID, err)
+			continue
+		}
+		res.SyncGapFixed++
+	}
+
+	res.Message = fmt.Sprintf("已修正 %d 条 NULL/空 conversation_id，归一 %d 条污染会话键，删除 %d 条污染收件箱行，补建 %d 个收件箱会话，修复 %d 个 sync_gap 会话",
+		res.FixedNullConv, res.NormalizedConv, res.PollutedInboxDeleted, res.Backfilled, res.SyncGapFixed)
 	logger.Infof("reconcile backfill 完成: %s", res.Message)
 	return res, nil
+}
+
+// reconcileSyncGapConversation 把单个 sync_gap 会话物化为按规范 customer_id 归属的
+// 收件箱行，并清理同一会话下 customer_id 不一致的孤儿行。customerID 来自 monitor 的
+// 规范客户键判定（与 inboxCustomerID 一致），避免依赖单条最新消息推导导致错键。
+func (s *InboxService) reconcileSyncGapConversation(ctx context.Context, platform, accountID, conversationID, customerID string) error {
+	latest, err := s.hubRepo.FindLatestByConversation(ctx, conversationID)
+	if err != nil || latest == nil {
+		// 无代表消息时仍写入一行空预览记录，确保 monitor 不再报缺口
+		uerr := s.inboxRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
+			Platform:       platform,
+			AccountID:      accountID,
+			CustomerID:     customerID,
+			CustomerName:   cleanConversationTitle(conversationID),
+			ConversationID: conversationID,
+			LastMessageAt:  time.Now(),
+		})
+		return uerr
+	}
+	from := InboxFromCustomer
+	if latest.Direction == "outbound" {
+		if latest.IsAIReply {
+			from = InboxFromAI
+		} else {
+			from = InboxFromStaff
+		}
+	}
+	customerName := latest.SenderName
+	if customerID == conversationID {
+		customerName = cleanConversationTitle(conversationID)
+	} else if customerName == "" {
+		customerName = latest.ReceiverName
+	}
+	input := repository.UpsertFromMessageInput{
+		Platform:           platform,
+		AccountID:          accountID,
+		CustomerID:         customerID,
+		CustomerName:       customerName,
+		ConversationID:     conversationID,
+		LastMessageID:      latest.ID,
+		LastMessagePreview: latest.Content,
+		LastMessageAt:      latest.CreatedAt,
+		LastMessageFrom:    from,
+	}
+	if err := s.inboxRepo.UpsertFromMessage(ctx, input); err != nil {
+		return err
+	}
+	_, err = s.inboxRepo.DeleteOrphanInboxByConversation(ctx, platform, accountID, conversationID, customerID)
+	return err
 }
 
 // GetMessagesByConversation 拉取会话下的消息。

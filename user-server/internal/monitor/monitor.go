@@ -90,7 +90,11 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 			SELECT 1 FROM inbox_conversations ic
 			WHERE ic.platform = m.platform
 			  AND ic.account_id = m.account_id
-			  AND ic.customer_id = CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END
+		  AND ic.customer_id = CASE
+			WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id
+			WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id
+			ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)
+		  END
 		  )
 	`).Scan(&h.SyncGapCount)
 
@@ -167,7 +171,11 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 			SELECT 1 FROM inbox_conversations ic
 			WHERE ic.platform = m.platform
 			  AND ic.account_id = m.account_id
-			  AND ic.customer_id = CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END
+		  AND ic.customer_id = CASE
+			WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id
+			WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id
+			ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)
+		  END
 		  )
 		GROUP BY m.conversation_id
 	`).Scan(&gaps).Error; err != nil {
