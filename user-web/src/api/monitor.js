@@ -32,5 +32,17 @@ export const MonitorApi = {
   // 异常聚合（数据缺口 / 卡住可达 / 卡住不可达 / 不可达 / 节点异常）
   anomalies() {
     return http.get('/api/monitor/anomalies')
+  },
+  // 追踪自学习：最近打分审计记录（LLM 对每条 trace 的打分 + 权重调整明细）
+  evalLogs(params) {
+    return http.get('/api/monitor/trace-eval/logs', params)
+  },
+  // 追踪自学习：知识库权重排行（权重偏离 1.0 最大的 chunk）
+  knowledgeWeights(params) {
+    return http.get('/api/monitor/knowledge-weights', params)
+  },
+  // 追踪自学习：手动触发评估（扫描最近 hours 小时内未评估的 trace 批量打分+调权）
+  triggerEval(params) {
+    return http.post('/api/monitor/trace-eval/trigger', null, { params })
   }
 }

@@ -11,6 +11,7 @@ import (
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
+	"marketing/internal/service/trace_learning"
 	"marketing/internal/monitor"
 	"marketing/internal/aiagent/agent/tooluse"
 	"marketing/internal/pkg/tracing"
@@ -359,6 +360,12 @@ func Setup(r *gin.Engine) {
 	// 全链路监控追踪：健康概览/异常/追踪时间线/仪表盘。
 	// 私域部署，沿用 bridge 的 InitGuard 鉴权模型（无需前端 JWT，账号以 channel+account_id 自证）。
 	monitor.RegisterRoutes(bridgeWS)
+
+	// 追踪自学习：手动触发评估 + 打分/权重查询（与 monitor 同 InitGuard 鉴权模型）
+	tlCtrl := controller.NewTraceLearningController(trace_learning.Global())
+	bridgeWS.POST("/monitor/trace-eval/trigger", tlCtrl.TriggerEval)
+	bridgeWS.GET("/monitor/trace-eval/logs", tlCtrl.EvalLogs)
+	bridgeWS.GET("/monitor/knowledge-weights", tlCtrl.KnowledgeWeights)
 
 	// 启动追踪异步落库 worker + 注册工具层 observer（自动采集 agent 多轮/多工具，非阻塞）。
 	tracing.Init(db.GetDB())

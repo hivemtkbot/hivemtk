@@ -275,6 +275,75 @@
         </el-collapse>
         <el-empty v-else description="暂无异常" />
       </el-tab-pane>
+
+      <!-- 自学习 / 知识库权重 -->
+      <el-tab-pane label="自学习 / 知识库权重" name="learn">
+        <div class="learn-toolbar">
+          <el-form :inline="true" @submit.prevent>
+            <el-form-item label="扫描窗口(小时)">
+              <el-input-number v-model="evalHours" :min="1" :max="168" :step="12" style="width: 140px" />
+            </el-form-item>
+            <el-form-item label="单次条数">
+              <el-input-number v-model="evalLimit" :min="1" :max="200" :step="10" style="width: 130px" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="triggerLoading" @click="triggerEval">手动触发评估</el-button>
+              <el-button :loading="triggerLoading" @click="refreshLearn">刷新</el-button>
+            </el-form-item>
+          </el-form>
+          <el-alert
+            v-if="triggerMsg"
+            :type="triggerMsgType"
+            :closable="false"
+            :title="triggerMsg"
+            class="mt-12"
+            show-icon
+          />
+        </div>
+
+        <el-divider content-position="left">打分记录（LLM 对每条 trace 完整请求-响应链评分）</el-divider>
+        <el-table :data="evalLogs" border stripe size="small" empty-text="暂无打分记录，点上方「手动触发评估」" class="mt-12">
+          <el-table-column prop="created_at" label="评估时间" width="180" />
+          <el-table-column prop="channel" label="渠道" width="120" />
+          <el-table-column prop="trace_id" label="Trace" width="180" show-overflow-tooltip />
+          <el-table-column label="评分" width="80">
+            <template #default="{ row }">
+              <el-tag :type="scoreType(row.score)" size="small">{{ row.score }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="质量" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.bad ? 'danger' : row.score >= 85 ? 'success' : 'warning'" size="small" effect="plain">
+                {{ row.bad ? '差' : row.score >= 85 ? '优' : '中' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="维度" min-width="230">
+            <template #default="{ row }">{{ dimText(row.dimensions) }}</template>
+          </el-table-column>
+          <el-table-column label="原因" prop="reason" min-width="200" show-overflow-tooltip />
+          <el-table-column label="权重调整" width="130">
+            <template #default="{ row }">
+              <span v-if="adjustedList(row.adjusted_chunks).length">{{ adjustedList(row.adjusted_chunks).length }} 个 chunk</span>
+              <span v-else class="muted">无</span>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-divider content-position="left">知识库权重排行（运行时权重，偏离 1.0 最大者优先）</el-divider>
+        <el-table :data="weights" border stripe size="small" empty-text="暂无权重偏离（全部为默认 1.0）" class="mt-12">
+          <el-table-column prop="id" label="Chunk ID" width="100" />
+          <el-table-column prop="content" label="内容" min-width="280" show-overflow-tooltip />
+          <el-table-column label="权重" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.weight < 1 ? 'danger' : row.weight > 1 ? 'success' : 'info'" size="small">
+                {{ Number(row.weight).toFixed(2) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="hit_count" label="命中次数" width="100" />
+        </el-table>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -304,6 +373,16 @@ const latencyRows = ref([])
 const traceRows = ref([])
 const anomaly = ref(null)
 const anomalyActive = ref(['sync_gap'])
+
+// 自学习 / 知识库权重
+const evalLogs = ref([])
+const weights = ref([])
+const triggerLoading = ref(false)
+const triggerMsg = ref('')
+const triggerMsgType = ref('info')
+const evalHours = ref(24)
+const evalLimit = ref(20)
+const learningLoaded = ref(false)
 
 const NODE_LABEL = {
   ingest: '上报接入',
@@ -468,6 +547,57 @@ async function loadAnomalies() {
   try { anomaly.value = await monitorApi.anomalies() } catch (e) { /* 静默 */ }
 }
 
+// ---- 自学习 / 知识库权重 ----
+function parseJSON(v, fallback) {
+  if (v === null || v === undefined || v === '') return fallback
+  if (typeof v === 'object') return v
+  try { return JSON.parse(v) } catch (e) { return fallback }
+}
+function dimText(dims) {
+  const d = parseJSON(dims, {})
+  const order = [
+    ['relevance', '相关性'],
+    ['accuracy', '准确'],
+    ['usefulness', '有用'],
+    ['safety', '合规']
+  ]
+  return order.map(([k, label]) => `${label} ${d[k] != null ? d[k] : '—'}`).join(' · ')
+}
+function adjustedList(v) {
+  const a = parseJSON(v, [])
+  return Array.isArray(a) ? a : []
+}
+function scoreType(s) {
+  if (s < 60) return 'danger'
+  if (s >= 85) return 'success'
+  return 'warning'
+}
+async function loadEvalLogs() {
+  try { evalLogs.value = await monitorApi.evalLogs({ limit: 50 }) } catch (e) { /* 静默 */ }
+}
+async function loadWeights() {
+  try { weights.value = await monitorApi.knowledgeWeights({ limit: 50 }) } catch (e) { /* 静默 */ }
+}
+async function refreshLearn() {
+  await Promise.all([loadEvalLogs(), loadWeights()])
+}
+async function triggerEval() {
+  triggerLoading.value = true
+  triggerMsg.value = ''
+  try {
+    const res = await monitorApi.triggerEval({ hours: evalHours.value, limit: evalLimit.value })
+    const processed = (res && res.processed) || 0
+    triggerMsgType.value = 'success'
+    triggerMsg.value = `已处理 ${processed} 条 trace（评分 + 调整知识库权重），详见下方记录`
+    await refreshLearn()
+  } catch (e) {
+    triggerMsgType.value = 'error'
+    triggerMsg.value = (e && e.message) || '触发评估失败'
+  } finally {
+    triggerLoading.value = false
+  }
+}
+
 // 切换到非 trace 页时按需加载数据
 watch(activeTab, (tab) => {
   if (tab === 'health' && !health.value) loadHealth()
@@ -475,6 +605,10 @@ watch(activeTab, (tab) => {
   if (tab === 'latency' && !latencyRows.value.length) loadLatency()
   if (tab === 'traces' && !traceRows.value.length) loadTraces()
   if (tab === 'anomalies' && !anomaly.value) loadAnomalies()
+  if (tab === 'learn' && !learningLoaded.value) {
+    learningLoaded.value = true
+    refreshLearn()
+  }
 })
 </script>
 
@@ -523,4 +657,6 @@ watch(activeTab, (tab) => {
 .stat-value.warn { color: #e6a23c; }
 .stat-value.err { color: #f56c6c; }
 .stat-unit { color: #c0c4cc; font-size: 12px; }
+.muted { color: #c0c4cc; }
+.learn-toolbar { background: #f7f8fa; padding: 12px 12px 0; border-radius: 6px; }
 </style>

@@ -26,6 +26,7 @@ import (
 	"marketing/internal/platform"
 	"marketing/internal/router"
 	"marketing/internal/service"
+	"marketing/internal/service/trace_learning"
 	"marketing/internal/system/install"
 	"marketing/internal/websocket"
 )
@@ -286,6 +287,14 @@ func main() {
 	// 3) 反馈采集器
 	service.InitFeedbackCollector(db.GetDB())
 	logger.Info("[P0-3/4/5] confidence aggregator + humanize evaluator + feedback collector initialized")
+
+	// 6) 追踪自学习闭环：聚合 trace → LLM 打分 → 调整知识库权重（权重作为检索排名第二依据）
+	traceLearningSvc := trace_learning.New(db.GetDB(), llm.GetGlobalDispatcher(), trace_learning.DefaultConfig())
+	trace_learning.SetGlobal(traceLearningSvc)
+	traceLearningCron := trace_learning.NewCron(traceLearningSvc)
+	traceLearningCron.Start(context.Background())
+	defer traceLearningCron.Stop(context.Background())
+	logger.Info("[trace_learning] 自学习闭环已装配（cron 每小时评估新 trace 并调整知识库权重）")
 
 	// 4) 反馈学习闭环组件 + cron（4 个定时任务）
 	feedbackComponents := service.InitFeedbackLoopComponents(db.GetDB(), nil, nil)

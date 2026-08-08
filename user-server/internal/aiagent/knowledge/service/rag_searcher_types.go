@@ -19,6 +19,8 @@ type MerchantRAGChunk struct {
 	Content    string         `json:"content"`
 	Score      float64        `json:"score"`
 	Metadata   map[string]any `json:"metadata"`
+	// Weight 自学习权重（默认 1.0），由 RagSearcher 在检索时回填，作为排名第二依据。
+	Weight float64 `json:"weight"`
 }
 
 // chunkRow 数据库扫描行（向量检索结果）
@@ -49,6 +51,7 @@ func chunksToRAGChunks(chunks []ragretrieval.Chunk) []RAGChunk {
 			Score:   c.Score,
 			DocID:   c.DocumentID,
 			ChunkID: c.ID,
+			Weight:  c.Weight,
 		})
 	}
 	return result
@@ -82,6 +85,7 @@ func chunksToMerchantChunks(chunks []ragretrieval.Chunk) []MerchantRAGChunk {
 			Content:    truncateText(c.Content, ChunkContentPreview),
 			Score:      c.Score,
 			Metadata:   meta,
+			Weight:     c.Weight,
 		})
 	}
 	return result

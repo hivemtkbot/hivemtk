@@ -175,6 +175,8 @@ func RegisterMigrations(registry *migration.MigrationRegistry, db *gorm.DB) {
 	registry.Register(NewMultilingualI18nMigration(db))
 	// v1.2 出海多语言方案 - knowledge_chunks.translated_versions 字段（预翻译支持）
 	registry.Register(NewMultilingualI18nP13Migration(db))
+	// 知识库自学习权重列（v3.13.0）：knowledge_chunks.weight 作为检索排名第二依据
+	registry.Register(NewKnowledgeWeightMigration(db))
 	// S3-6 Telegram polling 分布式锁（polling_owner + polling_heartbeat_at）
 	registry.Register(NewTelegramPollingLockMigration(db))
 	// AI 智能体性能优化 - FAQ / SOP 知识库 + Layer 决策日志（双层架构 Layer1 命中 SkipLLM）

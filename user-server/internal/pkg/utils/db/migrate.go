@@ -181,6 +181,7 @@ func allModels() []any {
 	&model.InboxAssignment{},
 	// 全链路追踪审计表（事件溯源：ingested/queued_outbound/delivered...）
 	&model.MessageTrace{},
+	&model.TraceEvalLog{},
 		&model.WeComAccountHealth{},
 		// AI 私域销冠系统 - AI 谈单中枢
 		&model.IntentRecord{},

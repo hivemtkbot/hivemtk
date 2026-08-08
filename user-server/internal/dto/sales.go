@@ -43,6 +43,8 @@ type RAGChunk struct {
 	Score   float64 `json:"score"`
 	DocID   string  `json:"doc_id"`
 	ChunkID string  `json:"chunk_id"`
+	// Weight 该片段的自学习权重（默认 1.0），由追踪打分动态调整，作为排名第二依据。
+	Weight float64 `json:"weight"`
 }
 
 // ScriptTemplate 话术模板

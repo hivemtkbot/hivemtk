@@ -3,12 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/aiagent/rag/retrieval"
 	"marketing/internal/cache"
+	"marketing/internal/pkg/tracing"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 
@@ -176,7 +179,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 	if s.hybridSearcher != nil {
 		chunks, err := s.hybridSearcher.Search(ctx, query, topK)
 		if err == nil {
-			return chunksToRAGChunks(chunks), nil
+			return s.rankRAGChunks(ctx, chunksToRAGChunks(chunks)), nil
 		}
 		// 混合检索失败：降级到 legacy 路径（保证可用性）
 		logger.Errorf("[RagSearcher] hybrid search failed, fallback to legacy: %v", err)
@@ -187,7 +190,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 	// 2) legacy 向量检索
 	rows, vecErr := s.vectorSearch(ctx, "", query, topK)
 	if vecErr == nil && len(rows) > 0 {
-		return s.toRAGChunks(rows), nil
+		return s.rankRAGChunks(ctx, s.toRAGChunks(rows)), nil
 	}
 	if vecErr != nil {
 		// 私域基线：禁止静默降级；但当 TEI 不可达/无 embedding 列时，必须有兜底
@@ -200,7 +203,7 @@ func (s *RagSearcher) Search(ctx context.Context, query string, topK int) ([]RAG
 		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
 		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态与 EMBEDDING_BASE_URL", query)
 	}
-	return bm25, nil
+	return s.rankRAGChunks(ctx, bm25), nil
 }
 
 // SearchIndex 在指定产品下检索 query
@@ -223,7 +226,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 	if s.hybridSearcher != nil {
 		chunks, err := s.hybridSearcher.SearchIndex(ctx, productID, query, topK)
 		if err == nil {
-			return filterMerchantChunksByMetadata(chunksToMerchantChunks(chunks), metadata), nil
+			return s.rankMerchantChunks(ctx, filterMerchantChunksByMetadata(chunksToMerchantChunks(chunks), metadata)), nil
 		}
 		logger.Errorf("[RagSearcher] hybrid search (product=%s) failed, fallback to legacy: %v", productID, err)
 	}
@@ -231,7 +234,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 	// 2) legacy 向量检索
 	rows, vecErr := s.vectorSearch(ctx, productID, query, topK)
 	if vecErr == nil && len(rows) > 0 {
-		return filterMerchantChunksByMetadata(s.toMerchantChunks(rows), metadata), nil
+		return s.rankMerchantChunks(ctx, filterMerchantChunksByMetadata(s.toMerchantChunks(rows), metadata)), nil
 	}
 	if vecErr != nil {
 		logger.Errorf("[RagSearcher] vector search failed (product=%s), fallback to BM25-lite: %v", productID, vecErr)
@@ -244,7 +247,7 @@ func (s *RagSearcher) SearchIndex(ctx context.Context, productID string, query s
 		// 向量检索失败且 BM25 也无命中：提示 embedding 缺失/服务不可达，避免误判知识库为空
 		logger.Warnf("[RagSearcher] 向量检索失败且 BM25 无命中（product=%s, query=%q）：可能 knowledge_chunks.embedding 缺失或 embedding 服务不可达，导致召回为 0；请检查 chunk 向量化状态", productID, query)
 	}
-	return filtered, nil
+	return s.rankMerchantChunks(ctx, filtered), nil
 }
 
 // SearchIndexWithConfig 使用指定的 embedding/rerank 配置做 per 知识库检索（覆盖全局默认）
@@ -261,5 +264,126 @@ func (s *RagSearcher) SearchIndexWithConfig(ctx context.Context, productID strin
 	if err != nil {
 		return nil, err
 	}
-	return chunksToMerchantChunks(chunks), nil
+	return s.rankMerchantChunks(ctx, chunksToMerchantChunks(chunks)), nil
+}
+
+// clampWeight 把自学习权重限制在合理区间 [0.1, 3.0]，非法/非正权重回退 1.0（不调制）。
+func clampWeight(w float64) float64 {
+	if w <= 0 {
+		return 1.0
+	}
+	if w < 0.1 {
+		return 0.1
+	}
+	if w > 3.0 {
+		return 3.0
+	}
+	return w
+}
+
+// loadChunkWeights 批量读取知识库 chunk 的自学习权重（knowledge_chunks.weight）。
+// 失败或空 ID 时返回空 map（调用方按默认 1.0 处理）。
+func (s *RagSearcher) loadChunkWeights(ctx context.Context, ids []uint64) map[uint64]float64 {
+	out := make(map[uint64]float64, len(ids))
+	if s.db == nil || len(ids) == 0 {
+		return out
+	}
+	type wrow struct {
+		ID     uint64
+		Weight float64
+	}
+	var rows []wrow
+	if err := s.db.WithContext(ctx).Table("knowledge_chunks").Select("id, weight").Where("id IN ?", ids).Scan(&rows).Error; err != nil {
+		logger.Warnf("[RagSearcher] loadChunkWeights failed: %v", err)
+		return out
+	}
+	for _, r := range rows {
+		out[r.ID] = r.Weight
+	}
+	return out
+}
+
+// rankRAGChunks 以权重作为检索排名的第二依据：
+//   - 相关性 score 为主序；
+//   - 自学习 weight 作为调制因子（默认 1.0 不影响排名，<1 降权、>1 升权）。
+//
+// 同时把本次召回的 chunk 记录到 tracing（RecalledChunksOf），供后续自学习模块
+// 关联 trace 与知识库，实现"差回复降权 / 好回复升权"。
+func (s *RagSearcher) rankRAGChunks(ctx context.Context, chunks []RAGChunk) []RAGChunk {
+	if len(chunks) == 0 {
+		return chunks
+	}
+	ids := make([]uint64, 0, len(chunks))
+	chunkIDs := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		if c.ChunkID != "" {
+			chunkIDs = append(chunkIDs, c.ChunkID)
+		}
+		if id, err := strconv.ParseUint(c.ChunkID, 10, 64); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	tracing.RecordRecalledChunks(ctx, chunkIDs)
+	weights := s.loadChunkWeights(ctx, ids)
+	type ranked struct {
+		c   RAGChunk
+		eff float64
+		w   float64
+	}
+	items := make([]ranked, len(chunks))
+	for i, c := range chunks {
+		w := 1.0
+		if id, err := strconv.ParseUint(c.ChunkID, 10, 64); err == nil {
+			if wt, ok := weights[id]; ok && wt > 0 {
+				w = wt
+			}
+		}
+		wf := clampWeight(w)
+		items[i] = ranked{c, c.Score * wf, w}
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].eff > items[j].eff })
+	out := make([]RAGChunk, len(items))
+	for i, it := range items {
+		it.c.Weight = it.w
+		it.c.Score = it.eff // 用权重调制后的最终排名分
+		out[i] = it.c
+	}
+	return out
+}
+
+// rankMerchantChunks 同 rankRAGChunks，但作用于 MerchantRAGChunk（ID 为 uint64）。
+func (s *RagSearcher) rankMerchantChunks(ctx context.Context, chunks []MerchantRAGChunk) []MerchantRAGChunk {
+	if len(chunks) == 0 {
+		return chunks
+	}
+	ids := make([]uint64, 0, len(chunks))
+	chunkIDs := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		chunkIDs = append(chunkIDs, strconv.FormatUint(c.ID, 10))
+		ids = append(ids, c.ID)
+	}
+	tracing.RecordRecalledChunks(ctx, chunkIDs)
+	weights := s.loadChunkWeights(ctx, ids)
+	type ranked struct {
+		c   MerchantRAGChunk
+		eff float64
+		w   float64
+	}
+	items := make([]ranked, len(chunks))
+	for i, c := range chunks {
+		w := 1.0
+		if wt, ok := weights[c.ID]; ok && wt > 0 {
+			w = wt
+		}
+		wf := clampWeight(w)
+		items[i] = ranked{c, c.Score * wf, w}
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].eff > items[j].eff })
+	out := make([]MerchantRAGChunk, len(items))
+	for i, it := range items {
+		it.c.Weight = it.w
+		it.c.Score = it.eff
+		out[i] = it.c
+	}
+	return out
 }

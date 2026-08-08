@@ -117,6 +117,10 @@ type KnowledgeChunk struct {
 	EmbeddingID     string  `gorm:"size:64" json:"embedding_id"`
 	SimilarityScore float64 `gorm:"default:0" json:"similarity_score"`
 	HitCount        int     `gorm:"default:0" json:"hit_count"`
+	// Weight 知识库自学习权重（默认 1.0）。追踪系统对 trace 打分后动态调整：
+	// 低质回复涉及的 chunk 降权、高质回复涉及的 chunk 升权，作为检索排名的第二依据
+	// （相关性 score 为主序，weight 为调制因子）。
+	Weight float64 `gorm:"type:double precision;not null;default:1" json:"weight"`
 	Metadata        string  `gorm:"type:jsonb;default:'{}'" json:"metadata"`
 	SourceLanguage  string  `gorm:"type:varchar(8);default:'zh'" json:"source_language"` // 知识库源语言（v1.2 出海多语言方案）
 	// TranslatedVersions 预翻译版本（知识库预翻译支持）

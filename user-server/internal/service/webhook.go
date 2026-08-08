@@ -2030,6 +2030,8 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		Channel:        string(channel),
 	}
 	ctx = tracing.WithCarrier(ctx, traceCarrier)
+	// 初始化自学习召回容器：RAG 检索时把召回的 chunk 累积到此，供下方 ai_dispatch 埋点写入 trace
+	ctx = tracing.InitRecalledChunks(ctx)
 
 	// 本地推理偶发超时，最多重试 WebhookMaxRetries 次
 	var result *HandleResult
@@ -2065,12 +2067,30 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 		aiStatus = tracing.StatusAbnormal
 		aiAbnormal = "AI 编排器返回 nil 结果（无回复决策）"
 	}
-	aiOutput := map[string]any{"ai_failed": aiStatus == tracing.StatusAbnormal}
+	// 自学习关联：把本次 AI 处理涉及的知识库 chunk 写入 trace，供后续打分动态调整其权重
+	recalledChunkIDs := tracing.RecalledChunksOf(ctx)
+	seenChunk := make(map[string]struct{})
+	uniqRecalled := make([]string, 0, len(recalledChunkIDs))
+	for _, id := range recalledChunkIDs {
+		if _, ok := seenChunk[id]; !ok {
+			seenChunk[id] = struct{}{}
+			uniqRecalled = append(uniqRecalled, id)
+		}
+	}
+	aiOutput := map[string]any{
+		"ai_failed":          aiStatus == tracing.StatusAbnormal,
+		"recalled_chunk_ids": uniqRecalled,
+	}
 	if result != nil {
+		replyText := result.Reply
+		if len(replyText) > 3000 {
+			replyText = replyText[:3000]
+		}
 		aiOutput["ai_replied"] = result.AIReplied
 		aiOutput["transferred"] = result.Transferred
 		aiOutput["handler_type"] = result.HandlerType
 		aiOutput["confidence"] = result.Confidence
+		aiOutput["reply"] = replyText
 		aiOutput["reply_len"] = len(result.Reply)
 		aiOutput["session_id"] = result.SessionID
 	}

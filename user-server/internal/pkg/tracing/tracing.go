@@ -228,6 +228,47 @@ func (c *Carrier) WithMsgID(id string) *Carrier {
 	return cp
 }
 
+// ===== 知识库召回关联（自学习：trace → 涉及的知识库 chunk） =====
+//
+// RAG 检索时把召回的 chunk ID 累积到 ctx，供 ai_dispatch 埋点记录到 trace，
+// 后续自学习模块据此调整这些 chunk 的权重。使用独立 ctx value（指针共享），
+// 不依赖 Carrier 指针透传，避免子 span Child 复制导致关联丢失。
+
+type recalledChunksKey struct{}
+
+// InitRecalledChunks 在业务入口初始化召回 chunk 容器（应在调用 AI 编排前）。
+func InitRecalledChunks(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(recalledChunksKey{}).(*[]string); ok {
+		return ctx
+	}
+	s := make([]string, 0, 8)
+	return context.WithValue(ctx, recalledChunksKey{}, &s)
+}
+
+// RecordRecalledChunks 累积记录本次召回的 chunk（多次 RAG 检索可叠加）。
+func RecordRecalledChunks(ctx context.Context, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	v, ok := ctx.Value(recalledChunksKey{}).(*[]string)
+	if !ok {
+		return
+	}
+	for _, id := range ids {
+		if id != "" {
+			*v = append(*v, id)
+		}
+	}
+}
+
+// RecalledChunksOf 取出本次业务涉及的所有召回 chunk（未去重，调用方按需去重）。
+func RecalledChunksOf(ctx context.Context) []string {
+	if v, ok := ctx.Value(recalledChunksKey{}).(*[]string); ok {
+		return *v
+	}
+	return nil
+}
+
 // ===== 流式 Span API（业务侧优雅、低侵入） =====
 //
 // 用法：
