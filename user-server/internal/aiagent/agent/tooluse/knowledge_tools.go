@@ -125,7 +125,9 @@ func NewRagSearchTool(deps KnowledgeToolDeps) *RagSearchTool {
 					"session_id":       {Type: "string", Description: "会话 ID（可选，用于关联检索日志与反馈）"},
 					"metadata_filters": {Type: "object", Description: "附加字段过滤（可选）。例如 {\"customer_id\":\"123\",\"order_id\":\"A01\"}，将检索收敛到特定业务上下文（某客户的订单知识等）。"},
 				},
-				Required: []string{"product_id", "query"},
+				// product_id 可选：缺失时检索全量知识库（vector/bm25 检索器在 product_id='' 时不做产品过滤）。
+				// 与 AGENT_TOOLS.md 一致：rag.search 参数为 query(必填) + product_id(可选)。
+				Required: []string{"query"},
 			},
 		},
 		deps: deps,
@@ -134,7 +136,7 @@ func NewRagSearchTool(deps KnowledgeToolDeps) *RagSearchTool {
 
 // Execute 执行检索
 func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	if err := ValidateRequired(args, []string{"product_id", "query"}); err != nil {
+	if err := ValidateRequired(args, []string{"query"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 
@@ -300,7 +302,9 @@ func NewKnowledgeFeedbackTool(deps KnowledgeToolDeps) *KnowledgeFeedbackTool {
 					"session_id":  {Type: "string", Description: "会话 ID（可选，用于关联检索日志）"},
 					"operator":    {Type: "string", Description: "操作人（可选，AI Agent 名称或用户 ID）"},
 				},
-				Required: []string{"product_id", "query", "rating"},
+				// product_id 可选（与 AGENT_TOOLS.md 一致）；真正必填为 rating（评分）。
+				// session_id 在代码中可选，缺失时仍记录反馈（product_id 留空表示不限定知识库）。
+				Required: []string{"rating"},
 			},
 		},
 		deps: deps,
@@ -313,7 +317,7 @@ func (t *KnowledgeFeedbackTool) RiskLevel() ToolRiskLevel { return RiskLevelWrit
 
 // Execute 执行反馈
 func (t *KnowledgeFeedbackTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
-	if err := ValidateRequired(args, []string{"product_id", "query", "rating"}); err != nil {
+	if err := ValidateRequired(args, []string{"rating"}); err != nil {
 		return ErrorResult(t.Name(), err), err
 	}
 

@@ -1458,44 +1458,39 @@ func (s *InboxIngressService) ListPendingOutboundLimit(ctx context.Context, chan
 
 // AckOutboundDelivered 将扩展确认已下发的出站消息标记为 delivered（通道B·状态上报）。
 // 仅对归属当前 (channel, accountID) 的 msg_id 生效，防止越权标记他人消息。
-// 返回成功标记的数量（幂等：已 delivered 的不计入错误）。
+// 返回本次实际翻转为 delivered 的行数（幂等：已 delivered 的不计入）。
+//
+// 注意：msg_id 由 (channel+content) 生成，同一内容可出现在多个会话（复合唯一索引 (msg_id, conversation_id)
+// 允许同 msg_id 跨会话存储）。因此必须批量更新该 (channel, account_id) 下所有匹配 msg_id 的 pending 行，
+// 而非仅 GetByMsgID 返回的单行——否则跨会话的重复出站消息会永远停留在 pending，污染 stuck_unreachable 监控。
 func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel, accountID string, msgIDs []string) (int, error) {
 	if s.hubRepo == nil || len(msgIDs) == 0 {
 		return 0, nil
 	}
-	ok := 0
+	// 批量翻转入站 pending 行（归属由 repo 层 WHERE 的 platform/account_id 保证；仅处理 pending，failed 为终态）。
+	affected, err := s.hubRepo.AckOutboundDeliveredBatch(ctx, channel, accountID, msgIDs)
+	if err != nil {
+		return 0, err
+	}
+	// 追踪节点：每个 msg_id 记录一条送达确认（用于可视化），上下文取首个匹配行（若有）。
 	ackTimer := tracing.StartSpan()
 	for _, id := range msgIDs {
 		if id == "" {
 			continue
 		}
-		hub, err := s.hubRepo.GetByMsgID(ctx, id)
-		if err != nil || hub == nil {
-			continue
+		hub, _ := s.hubRepo.GetByMsgID(ctx, id) // 仅作追踪上下文；可能为 nil（如历史 msg_id）
+		var traceID, convID string
+		if hub != nil {
+			traceID, convID = hub.TraceID, hub.ConversationID
 		}
-		// 归属校验：只能确认本渠道/本账号的出站消息
-		if hub.Platform != channel || hub.AccountID != accountID || hub.Direction != "outbound" {
-			continue
-		}
-		if hub.Status == "delivered" {
-			ok++
-			continue
-		}
-		hub.Status = "delivered"
-		if uerr := s.hubRepo.Update(ctx, hub); uerr != nil {
-			logger.Ctx(ctx).Warn().Err(uerr).Str("module", "bridge").
-				Str("msg_id", id).Msg("[Inbox] AckOutboundDelivered 更新失败")
-			continue
-		}
-		// 节点6 送达确认：入参（渠道/账号/msg_id）→ 出参（delivered）
 		tracing.RecordNode(ctx, tracing.NodeSpan{
-			TraceID:        hub.TraceID,
-			ConversationID: hub.ConversationID,
-			AccountID:      hub.AccountID,
-			Channel:        hub.Platform,
+			TraceID:        traceID,
+			ConversationID: convID,
+			AccountID:      accountID,
+			Channel:        channel,
 			Node:           tracing.NodeDeliveredAck,
-			Direction:      hub.Direction,
-			MsgID:          hub.MsgID,
+			Direction:      "outbound",
+			MsgID:          id,
 			Input: map[string]any{
 				"channel":    channel,
 				"account_id": accountID,
@@ -1503,15 +1498,13 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 			},
 			Output: map[string]any{
 				"status": "delivered",
-				"id":     hub.ID,
 			},
 			DurationMs: ackTimer.ElapsedMs(),
 			Expected:   "pending → delivered（桥接已成功转发到网页）",
 			Status:     tracing.StatusOk,
 		})
-		ok++
 	}
-	return ok, nil
+	return int(affected), nil
 }
 
 // persistHistoryMessage 持久化消息，Direction 由调用方显式传入（区别于 persistMessage 硬编码 inbound）。

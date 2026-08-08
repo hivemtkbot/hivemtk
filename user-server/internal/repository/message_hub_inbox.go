@@ -108,6 +108,24 @@ func (r *MessageHubRepository) GetByMsgID(ctx context.Context, msgID string) (*m
 	return &hub, err
 }
 
+// AckOutboundDeliveredBatch 批量将 (channel, accountID) 下、匹配给定 msg_id 且仍为 pending 的出站消息
+// 标记为 delivered（通道B·状态上报）。
+//
+// 关键修正：msg_id 由 (channel+content) 生成，同一内容可出现在多个会话（复合唯一索引 (msg_id, conversation_id)
+// 允许同 msg_id 跨会话存储）。旧实现用 GetByMsgID 仅取首行再 Update，导致跨会话的重复出站消息永远停留在
+// pending → 污染 stuck_unreachable 监控。此处按 (channel, account_id, msg_id) 一次性更新所有 pending 行，
+// 归属校验由 WHERE 的 platform/account_id 保证；仅翻转为 pending（failed 为终态，不改动）。
+func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, channel, accountID string, msgIDs []string) (int64, error) {
+	if r.db == nil || len(msgIDs) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).
+		Model(&model.MessageHub{}).
+		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status = 'pending'", channel, accountID, msgIDs).
+		Update("status", "delivered")
+	return res.RowsAffected, res.Error
+}
+
 // GetByContentHash 按 canonical contentHash 获取消息（服务端权威去重 2026-08-07 修复）
 //
 // 背景：前端 patrol 上报的消息 msg_id 在历史曾用 algo1（channel+conv+content），
