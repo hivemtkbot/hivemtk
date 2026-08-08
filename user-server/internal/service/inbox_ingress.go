@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"marketing/internal/pkg/tracing"
 )
 
 // 渠道接入消息中台 - Redis 锁与待处理队列 Key 前缀
@@ -1079,6 +1080,14 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		SentAt:         sentAt,
 		Extra:          nil,
 	}
+	// 全链路追踪：为消息分配 trace_id（inbound 起始新 trace；outbound 复用同会话最近 inbound 的 trace）
+	if hub.TraceID == "" {
+		if hub.Direction == "inbound" {
+			hub.TraceID = tracing.LinkInboundTraceID(ctx, hub.ConversationID)
+		} else {
+			hub.TraceID = tracing.LinkOutboundTraceID(ctx, hub.ConversationID)
+		}
+	}
 	if event.Extra != nil {
 		extra := model.JSONMap{}
 		for k, v := range event.Extra {
@@ -1115,6 +1124,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		// 注意：用 context.Background() 而非入参 ctx——ctx 随 WS 连接生命周期取消，
 		// 而消息落库 + 收件箱同步不应被连接抖动打断（与原设计保持一致）。
 		if s.inboxSvc != nil && hub.Direction == "inbound" {
+			ingestTimer := tracing.StartSpan()
 			if _, uerr := s.inboxSvc.UpsertFromHubMessageTx(context.Background(), hub, s.hubRepo); uerr != nil {
 				if isDuplicateKey(uerr) {
 					logger.Warnf("[Inbox] message_hub duplicate msg_id (idempotent skip): msg_id=%s session=%s",
@@ -1123,6 +1133,48 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 				}
 				return uerr
 			}
+			// 节点1 上报接入：入参（渠道/账号/会话/发送者/内容）→ 出参（落库 id/status）
+			tracing.RecordNode(ctx, tracing.NodeSpan{
+				TraceID:        hub.TraceID,
+				ConversationID: hub.ConversationID,
+				AccountID:      hub.AccountID,
+				Channel:        hub.Platform,
+				Node:           tracing.NodeIngest,
+				Direction:      hub.Direction,
+				MsgID:          hub.MsgID,
+				Input: map[string]any{
+					"channel":     event.Channel,
+					"account_id":  accountID,
+					"conv_id":     event.ConversationID,
+					"sender_id":   event.SenderID,
+					"sender_type": event.SenderType,
+					"event_id":    event.EventID,
+					"content_len": len(event.Content),
+					"direction":   hub.Direction,
+				},
+				Output: map[string]any{
+					"msg_id": hub.MsgID,
+					"status": hub.Status,
+					"id":     hub.ID,
+				},
+				DurationMs: ingestTimer.ElapsedMs(),
+				Expected:   "客户消息落库 message_hub + 同步 inbox_conversations（平台统一收件箱可见）",
+				Status:     tracing.StatusOk,
+			})
+			// 节点4 收件箱同步：上报接入事务内已原子完成，单独记一个节点便于链路可视化
+			tracing.RecordNode(ctx, tracing.NodeSpan{
+				TraceID:        hub.TraceID,
+				ConversationID: hub.ConversationID,
+				AccountID:      hub.AccountID,
+				Channel:        hub.Platform,
+				Node:           tracing.NodeInboxSync,
+				Direction:      hub.Direction,
+				MsgID:          hub.MsgID,
+				Input:          map[string]any{"conv_id": event.ConversationID},
+				Output:         map[string]any{"synced": true, "id": hub.ID},
+				Expected:       "inbox_conversations 已建立/更新（避免 sync_gap：桥接活跃但平台收件箱看不到）",
+				Status:         tracing.StatusOk,
+			})
 			return nil
 		}
 		if cerr := s.hubRepo.Create(ctx, hub); cerr != nil {
@@ -1133,6 +1185,33 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 			}
 			return cerr
 		}
+		// 节点1 上报接入（outbound 历史回填 / inboxSvc 未注入路径，无收件箱同步）
+		tracing.RecordNode(ctx, tracing.NodeSpan{
+			TraceID:        hub.TraceID,
+			ConversationID: hub.ConversationID,
+			AccountID:      hub.AccountID,
+			Channel:        hub.Platform,
+			Node:           tracing.NodeIngest,
+			Direction:      hub.Direction,
+			MsgID:          hub.MsgID,
+			Input: map[string]any{
+				"channel":     event.Channel,
+				"account_id":  accountID,
+				"conv_id":     event.ConversationID,
+				"sender_id":   event.SenderID,
+				"sender_type": event.SenderType,
+				"event_id":    event.EventID,
+				"content_len": len(event.Content),
+				"direction":   hub.Direction,
+			},
+			Output: map[string]any{
+				"msg_id": hub.MsgID,
+				"status": hub.Status,
+				"id":     hub.ID,
+			},
+			Expected: "消息落库 message_hub",
+			Status:   tracing.StatusOk,
+		})
 		return nil
 	})
 	return err
@@ -1277,9 +1356,37 @@ func (s *InboxIngressService) DeliverOutbound(ctx context.Context, h *model.Mess
 	if h.SentAt.IsZero() {
 		h.SentAt = time.Now()
 	}
+	if h.TraceID == "" {
+		h.TraceID = tracing.LinkOutboundTraceID(ctx, h.ConversationID)
+	}
 	if err := s.hubRepo.Create(ctx, h); err != nil {
 		return err
 	}
+	// 节点3 出站入队（人工/代发路径）：入参（渠道/账号/会话/内容）→ 出参（pending 出站 id）
+	tracing.RecordNode(ctx, tracing.NodeSpan{
+		TraceID:        h.TraceID,
+		ConversationID: h.ConversationID,
+		AccountID:      h.AccountID,
+		Channel:        h.Platform,
+		Node:           tracing.NodeOutboundEnqueue,
+		Direction:      h.Direction,
+		MsgID:          h.MsgID,
+		Input: map[string]any{
+			"channel":     h.Platform,
+			"account_id":  h.AccountID,
+			"conv_id":     h.ConversationID,
+			"content_len": len(h.Content),
+			"direction":   h.Direction,
+			"is_ai_reply": h.IsAIReply,
+		},
+		Output: map[string]any{
+			"msg_id": h.MsgID,
+			"status": h.Status,
+			"id":     h.ID,
+		},
+		Expected: "手动/代发回复落库 outbox(status=pending)，待下行出库",
+		Status:   tracing.StatusOk,
+	})
 	// 同步到统一收件箱会话（inbox_conversations.last_message），使人工代发在 unifiedInbox 可见。
 	// outbound 不计入未读（与飞书/企微一致），镜像 PersistBridgeHistory 的同步逻辑。
 	if s.inboxSvc != nil {
@@ -1341,6 +1448,7 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 		return 0, nil
 	}
 	ok := 0
+	ackTimer := tracing.StartSpan()
 	for _, id := range msgIDs {
 		if id == "" {
 			continue
@@ -1363,6 +1471,28 @@ func (s *InboxIngressService) AckOutboundDelivered(ctx context.Context, channel,
 				Str("msg_id", id).Msg("[Inbox] AckOutboundDelivered 更新失败")
 			continue
 		}
+		// 节点6 送达确认：入参（渠道/账号/msg_id）→ 出参（delivered）
+		tracing.RecordNode(ctx, tracing.NodeSpan{
+			TraceID:        hub.TraceID,
+			ConversationID: hub.ConversationID,
+			AccountID:      hub.AccountID,
+			Channel:        hub.Platform,
+			Node:           tracing.NodeDeliveredAck,
+			Direction:      hub.Direction,
+			MsgID:          hub.MsgID,
+			Input: map[string]any{
+				"channel":    channel,
+				"account_id": accountID,
+				"msg_id":     id,
+			},
+			Output: map[string]any{
+				"status": "delivered",
+				"id":     hub.ID,
+			},
+			DurationMs: ackTimer.ElapsedMs(),
+			Expected:   "pending → delivered（桥接已成功转发到网页）",
+			Status:     tracing.StatusOk,
+		})
 		ok++
 	}
 	return ok, nil

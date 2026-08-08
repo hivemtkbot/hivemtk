@@ -519,6 +519,7 @@ const topMenus = ref([
           { key: 'systemObsConfig', title: '存储配置', icon: 'Cloud', path: '/system/obs-config' },
           { key: 'systemMaterialLibrary', title: '素材库', icon: 'Picture', path: '/system/material-library' },
           { key: 'systemMonitor', title: '监控', icon: 'Cpu', path: '/system/monitor' },
+          { key: 'systemTrace', title: '链路追踪', icon: 'Connection', path: '/system/trace' },
           { key: 'systemGuide', title: '系统使用指南', icon: 'Document', path: '/system/guide' },
           { key: 'domainPool', title: '域名池', icon: 'Link', path: '/domainPool' },
           { key: 'backupList', title: '备份恢复', icon: 'FolderOpened', path: '/backup/list' }

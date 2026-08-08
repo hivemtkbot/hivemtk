@@ -26,6 +26,7 @@ type MessageHub struct {
 	GroupID        string     `gorm:"type:varchar(100)" json:"group_id"`
 	IsAIReply      bool       `gorm:"default:false" json:"is_ai_reply"`
 	AIAgent        string     `gorm:"type:varchar(50)" json:"ai_agent"`
+	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"` // 全链路追踪：关联 inbound↔outbound 同轮对话
 	IsRead         bool       `gorm:"default:false" json:"is_read"`
 	ReadAt         *time.Time `json:"read_at"`
 	SentAt         time.Time  `gorm:"index" json:"sent_at"`

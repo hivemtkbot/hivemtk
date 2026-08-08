@@ -175,10 +175,12 @@ func allModels() []any {
 		&model.MigrationCheckpoint{},
 		// 批量操作
 		&contentmodel.BatchOperationHistory{},
-		// AI 私域销冠系统 - 多账号聚合与消息中台
-		&model.MessageHub{},
-		&model.InboxConversation{},
-		&model.InboxAssignment{},
+	// AI 私域销冠系统 - 多账号聚合与消息中台
+	&model.MessageHub{},
+	&model.InboxConversation{},
+	&model.InboxAssignment{},
+	// 全链路追踪审计表（事件溯源：ingested/queued_outbound/delivered...）
+	&model.MessageTrace{},
 		&model.WeComAccountHealth{},
 		// AI 私域销冠系统 - AI 谈单中枢
 		&model.IntentRecord{},

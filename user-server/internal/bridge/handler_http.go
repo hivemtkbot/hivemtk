@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/tracing"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/service"
 
@@ -691,6 +692,8 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
 				return
 			}
+			// 节点5 下行出库：对拉取的每个 pending 出站记一条 downlink_fetch 节点（一条出站只拉取一次）
+			tracing.RecordDownlinkFetchBatch(ctx, channel, accountID, hubs)
 			writeOutboxJSON(c, hubs)
 			return
 		}
@@ -701,6 +704,8 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
 		return
 	}
+	// 节点5 下行出库：对拉取的每个 pending 出站记一条 downlink_fetch 节点
+	tracing.RecordDownlinkFetchBatch(ctx, channel, accountID, hubs)
 	msgs := make([]BridgeOutboxMessage, 0, len(hubs))
 	for _, hub := range hubs {
 		msgs = append(msgs, BridgeOutboxMessage{

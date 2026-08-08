@@ -34,6 +34,30 @@ function throttledWarn(log, key, intervalMs, msg, extra) {
   }
 }
 const WARN_THROTTLE_MS = 15000;
+// 整页导航护栏：小红书无法用 URL 深链可靠打开屏外会话，若盲目整页导航且打不开会
+// 每轮 downlink 重载页面形成抖动。故整页导航只尝试一次——重载后仍打不开即标记
+// "navfail"，停止后续破坏性重载，留 pending 由下一轮 downlink 安全重试（用户打开该会话时自然投递）。
+const NAV_STATE_KEY = 'hivebridge:navstate';
+function _navLoad() {
+  try { return JSON.parse(localStorage.getItem(NAV_STATE_KEY)) || {}; } catch (_) { return {}; }
+}
+function _navSave(s) {
+  try { localStorage.setItem(NAV_STATE_KEY, JSON.stringify(s)); } catch (_) { /* noop */ }
+}
+function _navMarkFailed(cid) {
+  const s = _navLoad();
+  s[cid] = { failed: true, failedAt: Date.now() };
+  _navSave(s);
+}
+function _navIsFailed(cid) {
+  const s = _navLoad();
+  return !!(s[cid] && s[cid].failed);
+}
+function _navMarkPendingReload(cid) {
+  const s = _navLoad();
+  s[cid] = Object.assign({}, s[cid], { pendingReloadAt: Date.now() });
+  _navSave(s);
+}
 // 随机整数 [min, max]（含端点）：用于会话间随机暂停，模拟真人操作节奏，规避平台风控。
 const randInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
@@ -565,6 +589,13 @@ export class BaseAdapter {
       }
       return cur;
     }
+    // 整页导航护栏：上一轮为打开本会话执行了整页导航，重载后仍未打开（cur 仍≠cid）
+    // → 标记 navfail，停止后续破坏性重载，留 pending 安全重试（用户打开该会话时自然投递）。
+    if (_navIsFailed(cid) === false && _navLoad()[cid] && _navLoad()[cid].pendingReloadAt) {
+      _navMarkFailed(cid);
+      throttledWarn(this.log, `openConvNavFail:${cid}`, WARN_THROTTLE_MS,
+        `整页导航后仍无法打开会话 ${cid}（小红书深链无法打开屏外会话），停止破坏性重载，留 pending 待用户打开`);
+    }
     let list = [];
     try {
       list = this.getConversationList() || [];
@@ -584,9 +615,27 @@ export class BaseAdapter {
       ));
     }
     if (!target || !target.el) {
+      // 2026-08-08 根因修复（xiaohongshu 屏外会话卡 pending / 昵称派生会话不可达）：
+      // 列表未命中兜底——
+      //  (a) conv:<名> 昵称派生 id：URL 导航对昵称无效，改按列表项 name 精确/包含匹配点击打开；
+      //  (b) 真实 id 屏外（虚拟列表/屏外未渲染）：尝试 URL 导航 /chat/{id} 打开并同步等待就绪。
+      if (cid.startsWith('conv:')) {
+        const name = cid.slice('conv:'.length);
+        target = list.find((c) => c && c.name && c.name === name)
+              || list.find((c) => c && c.name && name && c.name.includes(name))
+              || target;
+      }
+    }
+    if (!target || !target.el) {
+      // 真实 id 屏外：URL 导航兜底（SPA 路由或整页导航）。conv:<名> 与占位账号 URL 导航无意义，返回 null。
+      const navOpened = await this._openConversationByNavigation(cid);
+      if (navOpened) return navOpened;
       throttledWarn(this.log, `openConv:${cid}`, WARN_THROTTLE_MS, `左侧列表未找到目标会话 ${cid}`);
       return null;
     }
+    // conv:<名> 派生 id：活动会话真实 id 与 conv: 名永不相等，只能用「切到非 prevCid」判定，
+    // 不能用精确匹配（否则永远返回 null）。name 匹配已保证点击的是正确会话项。
+    const useExact = !cid.startsWith('conv:') && exact;
     const prevCid = this.getConversationId();
     // 滚入视口 + 模拟真实点击（兼容虚拟列表 & React 事件）
     if (typeof target.el.scrollIntoView === 'function') {
@@ -596,7 +645,7 @@ export class BaseAdapter {
       if (target.el.tagName === 'A' || target.el.tagName === 'BUTTON') target.el.click();
       else simulateRealClick(target.el);
     } catch (_) { /* 点击异常忽略 */ }
-    const opened = await this._waitForActiveConversation(cid, prevCid, waitActiveMs, exact);
+    const opened = await this._waitForActiveConversation(cid, prevCid, waitActiveMs, useExact);
     if (!opened) {
       this.log.warn(`会话 ${cid} 点击后未打开线程`);
       return null;
@@ -606,6 +655,40 @@ export class BaseAdapter {
       this._backfill();
     }
     return opened;
+  }
+
+  // 列表未命中时按 URL 导航打开会话（解决屏外/虚拟列表会话无法点击打开的问题）。
+  // 仅对真实会话 id 有效；conv:<名> 与 <channel>-unknown 占位返回 null（URL 导航无意义）。
+  // 策略：先 SPA 路由（history.pushState + popstate，不重载，保留当前 JS 上下文便于同步等待），
+  // 同步等待 getConversationId 切到目标；若 SPA 路由未触发重渲染，兜底整页导航
+  // （页面重载后由下一轮 downlink 重新拉取 outbox 重试发送，消息不丢）。
+  async _openConversationByNavigation(cid) {
+    // 仅小红书适用：其会话 URL 为 /chat/{id}，且 getConversationId 能解析该 URL。
+    // 其它渠道（微博/douyin 等）URL 形态不同，禁止在此跨站导航。
+    if (this.channel !== 'xiaohongshu') return null;
+    if (!cid || cid.startsWith('conv:') || cid.endsWith('-unknown')) return null;
+    // 护栏：先前整页导航仍打不开 → 不再破坏性重载，留 pending 安全重试。
+    if (_navIsFailed(cid)) return null;
+    const prev = this.getConversationId();
+    try {
+      if (typeof history !== 'undefined' && typeof history.pushState === 'function') {
+        history.pushState({}, '', `/chat/${cid}`);
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* noop */ }
+        }
+      }
+    } catch (_) { /* noop */ }
+    const opened = await this._waitForActiveConversation(cid, prev, 5000, true);
+    if (opened) return opened;
+    // SPA 路由未触发重渲染 → 整页导航兜底（仅一次：打标后重载，下一轮 downlink 重试）。
+    // 若重载后仍打不开，openConversation 顶部会标记 navfail，停止后续破坏性重载，避免刷新抖动。
+    try {
+      if (typeof location !== 'undefined' && location.href) {
+        _navMarkPendingReload(cid);
+        location.href = `https://www.xiaohongshu.com/chat/${cid}`;
+      }
+    } catch (_) { /* noop */ }
+    return null;
   }
 
   // 找到会话列表的可滚动容器（用于加载更多被虚拟/懒加载的会话项）。
@@ -1242,6 +1325,9 @@ export class BaseAdapter {
         throttledWarn(this.log, `sendNotOpen:${targetConvId}`, WARN_THROTTLE_MS, `下行目标会话 ${targetConvId} 未打开，放弃发送`, { current: conv });
         return { ok: false, rateLimited: false, notFound: true };
       }
+      // openConversation 已确认切到正确会话：真实 id 精确匹配；conv:<名> 昵称匹配后返回真实 id。
+      // 以 opened 为权威会话 id（避免再次用 targetConvId 精确比对，否则 conv: 派生 id 必然不等而误判漂移）。
+      conv = opened;
       // SPA DOM 渲染稳定等待：openConversation 确认 URL/活动会话已切换，
       // 但 React 异步渲染输入框可能滞后——等待 getConversationId 在 3 轮(约600ms)内不变，
       // 确保输入框 DOM 属于目标会话而非上一个会话的残留节点。
@@ -1258,11 +1344,11 @@ export class BaseAdapter {
         }
         await sleep(200);
       }
-      // 二次校验（防 DOM 竞争导致会话漂移）：确认仍在目标会话，否则拒绝发送
-      conv = this.getConversationId();
-      if (targetConvId && conv !== targetConvId) {
+      // 二次校验（防 DOM 竞争导致会话漂移）：确认仍在 openConversation 打开的会话，否则拒绝发送
+      const after = this.getConversationId();
+      if (after && after !== conv) {
         throttledWarn(this.log, `sendConvDrift:${targetConvId}`, WARN_THROTTLE_MS,
-          `下行会话漂移: 期望 ${targetConvId} 实际 ${conv}，放弃发送防误发`, { opened });
+          `下行会话漂移: 期望 ${conv} 实际 ${after}，放弃发送防误发`, { targetConvId, conv, after });
         return { ok: false, rateLimited: false, notFound: true };
       }
     }

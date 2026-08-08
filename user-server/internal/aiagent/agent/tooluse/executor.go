@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/trace"
+	"marketing/internal/pkg/tracing"
 )
 
 // executor.go 工具执行引擎（PRD §5.2 G3）
@@ -18,6 +21,42 @@ import (
 //  3. 支持工具级别配置覆盖（如某些工具需要更长超时 / 不同重试策略）
 //  4. 支持批量执行（顺序 / 并发）
 //  5. 集成 LLM Function Calling：DispatchByLLMToolCall 接收 OpenAI tool_call 格式
+
+// ===== 可观测性 observer（与追踪系统解耦：默认 nil，由 router 在启动时接线） =====
+//
+// 设计意图：工具执行引擎暴露一个可选 observer 钩子，事件类型来自 tracing 包。
+// router 启动时接线：tooluse.ToolTraceSink = tracing.ReportToolCall。
+// 从而以「观察者模式」自动记录 agent 多轮（agent_turn）/ 多工具（tool_call）调用，
+// 业务代码与工具调用点均无需手写追踪埋点。
+var ToolTraceSink func(ctx context.Context, ev tracing.ToolTraceEvent)
+
+// turnIndexKey / turnCounters 用于在单次 Agent Loop 内为每一轮 LLM 推理分配自增序号。
+type turnIndexKey struct{}
+
+var turnCounters sync.Map // trace_id -> *int64
+
+// WithTurnIndex 把当前 agent 轮次序号注入 context，供其下所有 tool_call 继承。
+func WithTurnIndex(ctx context.Context, idx int) context.Context {
+	return context.WithValue(ctx, turnIndexKey{}, idx)
+}
+
+// GetTurnIndex 取出当前 agent 轮次序号。
+func GetTurnIndex(ctx context.Context) int {
+	if v, ok := ctx.Value(turnIndexKey{}).(int); ok {
+		return v
+	}
+	return 0
+}
+
+// nextTurnIndex 基于 trace_id 自增返回本轮序号（1-based）。
+func nextTurnIndex(ctx context.Context) int {
+	key := trace.TraceIDFromContext(ctx)
+	if key == "" {
+		key = "default"
+	}
+	v, _ := turnCounters.LoadOrStore(key, new(int64))
+	return int(atomic.AddInt64(v.(*int64), 1))
+}
 
 // ===== 配置类型 =====
 
@@ -172,6 +211,31 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 	}
 	if result.AuditTrace == "" && req.ToolCtx != nil {
 		result.AuditTrace = req.ToolCtx.AuditTrace
+	}
+	// 可观测性：把单次工具调用作为 tool_call 子 span 上报（observer 默认 nil，非阻塞）。
+	if ToolTraceSink != nil {
+		status := "ok"
+		if !result.Success || err != nil {
+			status = "abnormal"
+		}
+		ev := tracing.ToolTraceEvent{
+			Kind:       model.SpanKindToolCall,
+			TraceID:    trace.TraceIDFromContext(execCtx),
+			ToolName:   req.ToolName,
+			TurnIndex:  GetTurnIndex(execCtx),
+			Input:      req.Args,
+			Output:     result.Data,
+			Error:      result.Error,
+			DurationMs: result.Timing.DurationMs,
+			Status:     status,
+		}
+		if tc := GetToolContext(execCtx); tc != nil {
+			ev.AgentID = tc.AgentID
+			ev.SessionID = tc.SessionID
+			ev.CustomerID = tc.CustomerID
+			ev.CallerID = tc.CallerID
+		}
+		ToolTraceSink(execCtx, ev)
 	}
 	return ExecuteResult{ToolResult: result, Err: err}
 }
@@ -368,6 +432,14 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	if len(toolCalls) == 0 {
 		return nil
 	}
+	// 本轮 LLM 推理序号（1-based），其下所有 tool_call 继承该序号，便于 UI 归并到同一 agent_turn。
+	turnIdx := nextTurnIndex(ctx)
+	dispatchCtx := WithTurnIndex(ctx, turnIdx)
+	agentID := ""
+	if toolCtx != nil {
+		agentID = toolCtx.AgentID
+	}
+	start := time.Now()
 	results := make([]LLMToolResult, len(toolCalls))
 
 	// semaphore 控制并发上限
@@ -380,10 +452,22 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 		go func(idx int, c LLMToolCall) {
 			defer wg.Done()
 			defer func() { <-sem }() // 释放信号量
-			results[idx] = e.executeSingleLLMToolCall(ctx, c, toolCtx)
+			results[idx] = e.executeSingleLLMToolCall(dispatchCtx, c, toolCtx)
 		}(i, call)
 	}
 	wg.Wait()
+	// agent_turn 子 span：覆盖整轮 LLM 工具编排耗时（observer 默认 nil，非阻塞）。
+	if ToolTraceSink != nil {
+		ToolTraceSink(dispatchCtx, tracing.ToolTraceEvent{
+			Kind:       model.SpanKindAgentTurn,
+			TraceID:    trace.TraceIDFromContext(dispatchCtx),
+			AgentID:    agentID,
+			TurnIndex:  turnIdx,
+			Input:      map[string]any{"tool_calls": len(toolCalls)},
+			DurationMs: time.Since(start).Milliseconds(),
+			Status:     "ok",
+		})
+	}
 	return results
 }
 

@@ -257,6 +257,7 @@
     "systemObsConfig": "存储配置",
     "systemMaterialLibrary": "素材库",
     "systemMonitor": "监控",
+    "systemTrace": "链路追踪",
     "systemGuide": "使用引导",
     "domainPool": "域名池",
     "platformAccount": "平台账号",

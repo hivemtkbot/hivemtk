@@ -24,6 +24,12 @@ export default [
     meta: { title: '监控', group: 'system', icon: 'Cpu', requiresAuth: true }
   },
   {
+    path: 'system/trace',
+    name: 'TraceMonitor',
+    component: () => import('@/views/system/TraceMonitor.vue'),
+    meta: { title: '链路追踪', group: 'system', icon: 'Connection', requiresAuth: true }
+  },
+  {
     path: 'system/guide',
     name: 'SystemGuide',
     component: () => import('@/views/system/Guide.vue'),

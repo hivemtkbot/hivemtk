@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"marketing/internal/pkg/tracing"
 
 	agent_runtime "marketing/internal/aiagent/agent/runtime"
 	"marketing/internal/cache"
@@ -2020,9 +2021,29 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	defer cancel()
 	ctx = logger.WithModule(ctx, "webhook")
 
+	// 构造追踪载体并随 ctx 透传：工具层 observer 据此自动继承会话/渠道维度，
+	// 以「观察者模式」零侵入采集 agent 多轮 / 多工具调用（见 tracing 包）。
+	traceCarrier := &tracing.Carrier{
+		TraceID:        hubMsg.TraceID,
+		ConversationID: hubMsg.ConversationID,
+		AccountID:      hubMsg.AccountID,
+		Channel:        string(channel),
+	}
+	ctx = tracing.WithCarrier(ctx, traceCarrier)
+
 	// 本地推理偶发超时，最多重试 WebhookMaxRetries 次
 	var result *HandleResult
 	var err error
+	aiSpan := tracing.Start(ctx, tracing.NodeAIDispatch).
+		Input(map[string]any{
+			"channel":     string(channel),
+			"account_id":  accountID,
+			"conv_id":     hubMsg.ConversationID,
+			"event_id":    p.EventID,
+			"content_len": len(p.Content),
+			"sender":      p.Sender,
+		}).
+		Expected("AI 编排器生成回复并决策（自动回复 / 转人工 / 接管）")
 	for attempt := 0; attempt <= WebhookMaxRetries; attempt++ {
 		result, err = s.smartOrchestrator.HandleIncomingWithAgent(ctx, in, agentCtx)
 		if err == nil {
@@ -2034,6 +2055,30 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 			Int("attempt", attempt).
 			Msg("orchestrator handle retry")
 	}
+	// 节点2 AI 处理：入参（渠道/账号/会话/内容）→ 出参（决策/回复）→ 响应时间 / 异常
+	aiAbnormal := ""
+	aiStatus := tracing.StatusOk
+	if err != nil {
+		aiStatus = tracing.StatusAbnormal
+		aiAbnormal = "AI 编排器在重试后仍失败：" + err.Error()
+	} else if result == nil {
+		aiStatus = tracing.StatusAbnormal
+		aiAbnormal = "AI 编排器返回 nil 结果（无回复决策）"
+	}
+	aiOutput := map[string]any{"ai_failed": aiStatus == tracing.StatusAbnormal}
+	if result != nil {
+		aiOutput["ai_replied"] = result.AIReplied
+		aiOutput["transferred"] = result.Transferred
+		aiOutput["handler_type"] = result.HandlerType
+		aiOutput["confidence"] = result.Confidence
+		aiOutput["reply_len"] = len(result.Reply)
+		aiOutput["session_id"] = result.SessionID
+	}
+	var aiSpanErr error
+	if aiStatus == tracing.StatusAbnormal {
+		aiSpanErr = fmt.Errorf("%s", aiAbnormal)
+	}
+	aiSpan.End(aiOutput, aiSpanErr)
 	if err != nil {
 		logger.Ctx(ctx).Error().
 			Err(err).
@@ -2069,14 +2114,16 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 // conversationID 不参与哈希 —— 同一文本在不同会话被 patrol 捕获时哈希一致，实现全局去重。
 //
 // 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-//   核心问题：前端 sender_type 判定可能错误（把 AI 回复的 outbound 误判为 customer）。
-//   正确方案：msg_id 只用稳定字段（channel + content），不含 sender_type/sender_id/conversationID/timestamp。
-//   前端 contentHash() 用相同算法生成 event_id → 后端 outbound 的 msg_id 与之一致 → 前端 patrol 扫描 AI 回复时
-//   生成的 event_id 与 DB msg_id 相同 → 钩子2 GetByMsgID 命中 → 跳过入库和 AI 触发，彻底解决回环。
+//
+//	核心问题：前端 sender_type 判定可能错误（把 AI 回复的 outbound 误判为 customer）。
+//	正确方案：msg_id 只用稳定字段（channel + content），不含 sender_type/sender_id/conversationID/timestamp。
+//	前端 contentHash() 用相同算法生成 event_id → 后端 outbound 的 msg_id 与之一致 → 前端 patrol 扫描 AI 回复时
+//	生成的 event_id 与 DB msg_id 相同 → 钩子2 GetByMsgID 命中 → 跳过入库和 AI 触发，彻底解决回环。
 //
 // 2026-08-07 修正：去掉 conversationID。
-//   同一 AI 回复可能被不同会话的 patrol 交叉捕获（DOM 切换残留），
-//   若 contentHash 含 conversationID 则不同会话算不同消息 → GetByMsgID 漏检 → 回环未完全切断。
+//
+//	同一 AI 回复可能被不同会话的 patrol 交叉捕获（DOM 切换残留），
+//	若 contentHash 含 conversationID 则不同会话算不同消息 → GetByMsgID 漏检 → 回环未完全切断。
 //
 // 算法：FNV-1a 32位（与前端 types.js contentHash 完全一致，保证前后端结果相同）
 //   - 输入：`channel|content`（content 去首尾空白）
@@ -2202,80 +2249,131 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		// 2026-08-05 渠道编码统一：去掉 _web 后缀，case 改为全名（douyin/xiaohongshu/tiktok/xianyu/kuaishou）。
 		//
 		// 2026-08-05 修复：AI 回复持久化到 message_hub（direction=outbound, is_ai_reply=true）。
-	//   原版只 DeliverBridgeOutbound 入 httpReplyBuffer，不落库 → 统一收件箱看不到 AI 回复。
-	//   扩展端回写网页后 MutationObserver 会把 AI 回复当客户消息上行 → direction=inbound 的错误记录。
-	//   修复：在出站前先持久化 AI 回复（direction=outbound），扩展端上行时靠 event_id 去重跳过。
-	//
-	// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
-	//   原版 MsgID 用 `bridge-out-${UnixNano}`（纳秒时间戳），每次都不同，
-	//   前端扫描 AI 回复消息生成的 event_id 与之完全不一致 → GetByMsgID 查不到 → 当新消息入库 → 触发 AI → 回环。
-	//   改用 ContentHashMsgID(channel, conversationID, content)，与前端 contentHash 算法一致，
-	//   前端扫描 AI 回复消息时生成的 event_id = ContentHashMsgID → 与 DB msg_id 相同 → 去重跳过，彻底解决回环。
-	if hubMsg != nil {
-		outMsg := &model.MessageHub{
-			MsgID:          ContentHashMsgID(string(channel), hubMsg.ConversationID, content),
-			Platform:       string(channel),
-			AccountID:      accountID,
-			Direction:      "outbound",
-			Status:         "pending", // 显式置为 pending：确保 ListPendingOutbound 的 status='pending' 过滤能命中；不依赖 GORM default 标签（零值字符串不一定触发 DB 默认）
-			MsgType:        "text",
-			SenderID:       accountID,
-			ReceiverID:     hubMsg.SenderID,
-			Content:        content,
-			ConversationID: hubMsg.ConversationID,
-			IsGroup:        hubMsg.IsGroup,
-			GroupID:        hubMsg.GroupID,
-			IsAIReply:      true,
-			AIAgent:        "sales_engine",
-			IsRead:         true,
-			SentAt:         time.Now(),
-		}
-		// 2026-08-07 修复：ContentHashMsgID 不含 conversationID（patrol 回环去重需要），
-		// 同渠道同内容不同会话的 AI 回复 msg_id 相同 → DB 唯一约束冲突 → 第二条静默丢失。
-		// 修复：Create 唯一约束冲突时追加 conversation_id 后缀重试，保证不丢消息。
-		// patrol 回环不受影响：contentHash 不含 convID → 仍与首条 msg_id 匹配 → 跳过。
-		persisted := outMsg
-		if err := s.db.Create(outMsg).Error; err != nil {
-			retryMsg := &model.MessageHub{
-				MsgID:          outMsg.MsgID + ":" + hubMsg.ConversationID,
-				Platform:       outMsg.Platform,
-				AccountID:      outMsg.AccountID,
+		//   原版只 DeliverBridgeOutbound 入 httpReplyBuffer，不落库 → 统一收件箱看不到 AI 回复。
+		//   扩展端回写网页后 MutationObserver 会把 AI 回复当客户消息上行 → direction=inbound 的错误记录。
+		//   修复：在出站前先持久化 AI 回复（direction=outbound），扩展端上行时靠 event_id 去重跳过。
+		//
+		// 2026-08-05 根因修复（用户指定方案：消息ID用内容hash）：
+		//   原版 MsgID 用 `bridge-out-${UnixNano}`（纳秒时间戳），每次都不同，
+		//   前端扫描 AI 回复消息生成的 event_id 与之完全不一致 → GetByMsgID 查不到 → 当新消息入库 → 触发 AI → 回环。
+		//   改用 ContentHashMsgID(channel, conversationID, content)，与前端 contentHash 算法一致，
+		//   前端扫描 AI 回复消息时生成的 event_id = ContentHashMsgID → 与 DB msg_id 相同 → 去重跳过，彻底解决回环。
+		if hubMsg != nil {
+			outMsg := &model.MessageHub{
+				MsgID:          ContentHashMsgID(string(channel), hubMsg.ConversationID, content),
+				Platform:       string(channel),
+				AccountID:      accountID,
 				Direction:      "outbound",
-				Status:         "pending",
-				MsgType:        outMsg.MsgType,
-				SenderID:       outMsg.SenderID,
-				ReceiverID:     outMsg.ReceiverID,
-				Content:        outMsg.Content,
-				ConversationID: outMsg.ConversationID,
-				IsGroup:        outMsg.IsGroup,
-				GroupID:        outMsg.GroupID,
-				IsAIReply:      outMsg.IsAIReply,
-				AIAgent:        outMsg.AIAgent,
-				IsRead:         outMsg.IsRead,
-				SentAt:         outMsg.SentAt,
+				Status:         "pending", // 显式置为 pending：确保 ListPendingOutbound 的 status='pending' 过滤能命中；不依赖 GORM default 标签（零值字符串不一定触发 DB 默认）
+				MsgType:        "text",
+				SenderID:       accountID,
+				ReceiverID:     hubMsg.SenderID,
+				Content:        content,
+				ConversationID: hubMsg.ConversationID,
+				IsGroup:        hubMsg.IsGroup,
+				GroupID:        hubMsg.GroupID,
+				IsAIReply:      true,
+				AIAgent:        "sales_engine",
+				IsRead:         true,
+				SentAt:         time.Now(),
 			}
-			if err2 := s.db.Create(retryMsg).Error; err2 != nil {
-				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
-			} else {
-				persisted = retryMsg
+			outMsg.TraceID = tracing.LinkOutboundTraceID(ctx, hubMsg.ConversationID)
+			// 2026-08-07 根因修复（pending 堆积治理）：桥接 AI 回复落库前拦截「不可达目标」。
+			// 占位账号(<channel>-unknown)与昵称派生会话(conv:<名>)永远无法被扩展投递，
+			// enqueue 到 pending 队列只会成为永久孤儿、污染下发监控。改为标记 failed（统一收件箱仍可见）。
+			if undeliverable, reason := bridgeOutboundUndeliverable(accountID, outMsg.ConversationID); undeliverable {
+				outMsg.Status = "failed"
+				outMsg.Extra = model.JSONMap{"undeliverable_reason": reason}
+				logger.Ctx(ctx).Warn().
+					Str("module", "bridge").
+					Str("channel", string(channel)).
+					Str("account_id", accountID).
+					Str("conversation_id", outMsg.ConversationID).
+					Str("reason", reason).
+					Msg("bridge outbound target undeliverable; marked failed instead of pending")
 			}
+			// 2026-08-07 修复：ContentHashMsgID 不含 conversationID（patrol 回环去重需要），
+			// 同渠道同内容不同会话的 AI 回复 msg_id 相同 → DB 唯一约束冲突 → 第二条静默丢失。
+			// 修复：Create 唯一约束冲突时追加 conversation_id 后缀重试，保证不丢消息。
+			// patrol 回环不受影响：contentHash 不含 convID → 仍与首条 msg_id 匹配 → 跳过。
+			persisted := outMsg
+			if err := s.db.Create(outMsg).Error; err != nil {
+				retryMsg := &model.MessageHub{
+					MsgID:          outMsg.MsgID + ":" + hubMsg.ConversationID,
+					Platform:       outMsg.Platform,
+					AccountID:      outMsg.AccountID,
+					Direction:      "outbound",
+					Status:         outMsg.Status, // 继承不可达守卫结果（failed/pending）
+					MsgType:        outMsg.MsgType,
+					SenderID:       outMsg.SenderID,
+					ReceiverID:     outMsg.ReceiverID,
+					Content:        outMsg.Content,
+					ConversationID: outMsg.ConversationID,
+					IsGroup:        outMsg.IsGroup,
+					GroupID:        outMsg.GroupID,
+					IsAIReply:      outMsg.IsAIReply,
+					AIAgent:        outMsg.AIAgent,
+					IsRead:         outMsg.IsRead,
+					SentAt:         outMsg.SentAt,
+					TraceID:        outMsg.TraceID,
+				}
+				if err2 := s.db.Create(retryMsg).Error; err2 != nil {
+					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
+				} else {
+					persisted = retryMsg
+				}
+			}
+			if s.inboxConvRepo != nil && persisted.ID != 0 {
+				// 同步 inbox_conversations 的 last_message_preview
+				if err := s.inboxConvRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
+					Platform:           persisted.Platform,
+					AccountID:          persisted.AccountID,
+					CustomerID:         persisted.ReceiverID,
+					ConversationID:     persisted.ConversationID,
+					LastMessageID:      persisted.ID,
+					LastMessagePreview: persisted.Content,
+					LastMessageAt:      persisted.SentAt,
+					LastMessageFrom:    "ai",
+				}); err != nil {
+					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Msg("failed to upsert inbox_conversations for outbound")
+				}
+			}
+			// 节点3 出站入队：AI 回复落库 outbox；目标不可达时 status=failed（异常）
+			enqueueAbnormal := ""
+			enqueueStatus := tracing.StatusOk
+			if persisted.Status == "failed" {
+				enqueueStatus = tracing.StatusAbnormal
+				enqueueAbnormal = "目标不可达（占位账号/未知账号），标记 failed 而非 pending，避免污染下行出库队列"
+			}
+			// 出站追踪载体随 ctx 透传，确保 span 携带渠道/账号维度
+			ctx = tracing.WithCarrier(ctx, &tracing.Carrier{
+				TraceID:        persisted.TraceID,
+				ConversationID: persisted.ConversationID,
+				AccountID:      persisted.AccountID,
+				Channel:        persisted.Platform,
+			})
+			// 节点3 出站入队：流式 API，异步非阻塞（不阻断业务主链路）
+			outSpan := tracing.Start(ctx, tracing.NodeOutboundEnqueue).
+				Input(map[string]any{
+					"channel":     string(channel),
+					"account_id":  accountID,
+					"conv_id":     persisted.ConversationID,
+					"content_len": len(persisted.Content),
+					"is_ai_reply": persisted.IsAIReply,
+				}).
+				Expected("AI 回复落库 message_hub(status=pending)，进入下行出库队列").
+				MsgID(persisted.MsgID)
+			outSpan.Output(map[string]any{
+				"msg_id": persisted.MsgID,
+				"status": persisted.Status,
+				"id":     persisted.ID,
+			})
+			var outSpanErr error
+			if enqueueStatus == tracing.StatusAbnormal {
+				outSpanErr = fmt.Errorf("%s", enqueueAbnormal)
+			}
+			outSpan.End(nil, outSpanErr)
 		}
-		if s.inboxConvRepo != nil && persisted.ID != 0 {
-			// 同步 inbox_conversations 的 last_message_preview
-			if err := s.inboxConvRepo.UpsertFromMessage(ctx, repository.UpsertFromMessageInput{
-				Platform:           persisted.Platform,
-				AccountID:          persisted.AccountID,
-				CustomerID:         persisted.ReceiverID,
-				ConversationID:     persisted.ConversationID,
-				LastMessageID:      persisted.ID,
-				LastMessagePreview: persisted.Content,
-				LastMessageAt:      persisted.SentAt,
-				LastMessageFrom:    "ai",
-			}); err != nil {
-				logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Msg("failed to upsert inbox_conversations for outbound")
-			}
-		}
-	}
 		// 2026-08-06 架构重构：AI 回复已落 message_hub(status=pending) 作为下发队列，
 		// 由桥接扩展独立轮询 GET /api/bridge/outbox 拉取并转发到网页，
 		// 不再依赖内存 httpReplyBuffer 长轮询（易丢消息、重启即丢）。
@@ -2297,6 +2395,22 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 		//   用 WithoutCancel context 避免 sendOutbound 的 15s timeout 限制
 		go s.ingressSvc.RecheckUnrepliedAndTrigger(context.WithoutCancel(ctx), hubMsg.ConversationID, "")
 	}
+}
+
+// bridgeOutboundUndeliverable 判断桥接 AI 回复的目标是否可达。
+// 仅「占位账号」永远不可达，enqueue 到 pending 队列只会成为永久孤儿、污染下发监控：
+//
+//	占位账号：前端账号解析失败时兜底用 <channel>-unknown 作为 account_id 上报，
+//	真实账号解析后扩展用真实 id 轮询 outbox，永不拉取 -unknown；unknown 状态下也无法投递到具体会话。
+//
+// 注意：conv:<名> 昵称派生会话【不再】在此拦截——前端 openConversation 现已支持按列表项 name
+// 匹配点击打开（见 bridge/src/core/channel-adapter.js），可尽力投递；真正打不开的会留 pending 由
+// 监控归类为「待观察」，下一轮 downlink 仍可重试，不会永久丢失。
+func bridgeOutboundUndeliverable(accountID, conversationID string) (bool, string) {
+	if accountID != "" && strings.HasSuffix(accountID, "-unknown") {
+		return true, "placeholder-account"
+	}
+	return false, ""
 }
 
 // =================== 工具 ===================

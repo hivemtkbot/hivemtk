@@ -11,6 +11,9 @@ import (
 	contentservice "marketing/internal/content/service"
 	"marketing/internal/controller"
 	"marketing/internal/middleware"
+	"marketing/internal/monitor"
+	"marketing/internal/aiagent/agent/tooluse"
+	"marketing/internal/pkg/tracing"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
@@ -151,6 +154,10 @@ func Setup(r *gin.Engine) {
 	// 追踪中间件必须最先注册（位于脱敏/审计之前）：为请求分配 trace_id 并绑定到 context，
 	// 后续 handler / service / 编排 / 触达全链路复用同一 trace_id，便于线上定位问题。
 	r.Use(middleware.TraceMiddleware())
+
+	// API 交互日志中间件：记录每个 /api 请求与响应的交互数据（方法/路径/状态码/耗时/请求体/响应体），
+	// 供 bridge 等功能的线上问题排查与监控。注册于 TraceMiddleware 之后以自动携带 trace_id。
+	r.Use(middleware.APIInteractionLogger())
 
 	// 审计中间件（全局）
 	r.Use(middleware.AuditMiddleware())
@@ -348,6 +355,14 @@ func Setup(r *gin.Engine) {
 		// 桥接 DOM 选择器 LLM 动态生成（解耦硬编码选择器）：前端把脱敏 DOM 快照发来，
 		// 后端用 LLM 生成标准 SelectorSpec 返回，插件缓存执行；未配置 LLM 时返回 enabled=false 回退规则。
 		bridgeWS.POST("/bridge/ai-selectors", bridge.AISelectors)
+
+	// 全链路监控追踪：健康概览/异常/追踪时间线/仪表盘。
+	// 私域部署，沿用 bridge 的 InitGuard 鉴权模型（无需前端 JWT，账号以 channel+account_id 自证）。
+	monitor.RegisterRoutes(bridgeWS)
+
+	// 启动追踪异步落库 worker + 注册工具层 observer（自动采集 agent 多轮/多工具，非阻塞）。
+	tracing.Init(db.GetDB())
+	tooluse.ToolTraceSink = tracing.ReportToolCall
 
 		// 网页私信桥接账号：持久化 + 归属校验 + 管理路由（抖音/小红书/TikTok）
 		bridgeRepo := bridge.NewBridgeAccountRepository(db.GetDB())
