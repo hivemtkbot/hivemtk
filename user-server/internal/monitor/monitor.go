@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"sort"
 	"time"
 
@@ -147,14 +148,16 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 		MessageCount   int64
 	}
 	var gaps []gapRow
-	d.Raw(`
-		SELECT m.conversation_id, m.channel, count(*) AS message_count
+	if err := d.Raw(`
+		SELECT m.conversation_id, count(*) AS message_count
 		FROM message_hub m
 		LEFT JOIN inbox_conversations i ON i.conversation_id = m.conversation_id
 		WHERE m.created_at > now() - interval '7 days'
 		  AND i.conversation_id IS NULL
-		GROUP BY m.conversation_id, m.channel
-	`).Scan(&gaps)
+		GROUP BY m.conversation_id
+	`).Scan(&gaps).Error; err != nil {
+		log.Printf("monitor.Anomalies sync_gap: %v", err)
+	}
 	for _, r := range gaps {
 		g.SyncGap = append(g.SyncGap, SyncGapRow{
 			ConversationID: r.ConversationID, Channel: r.Channel, MessageCount: r.MessageCount,
@@ -168,21 +171,25 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 		AgeMin         float64
 	}
 	var reach, unreachStuck []stuckRow
-	d.Raw(`
-		SELECT h.conversation_id, h.channel,
+	if err := d.Raw(`
+		SELECT h.conversation_id,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		JOIN inbox_conversations i ON i.conversation_id = h.conversation_id
 		WHERE h.direction = 'outbound' AND h.status = 'pending' AND h.sent_at < ?
-	`, threshold).Scan(&reach)
-	d.Raw(`
-		SELECT h.conversation_id, h.channel,
+	`, threshold).Scan(&reach).Error; err != nil {
+		log.Printf("monitor.Anomalies stuck_reachable: %v", err)
+	}
+	if err := d.Raw(`
+		SELECT h.conversation_id,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		LEFT JOIN inbox_conversations i ON i.conversation_id = h.conversation_id
 		WHERE h.direction = 'outbound' AND h.status = 'pending' AND h.sent_at < ?
 		  AND i.conversation_id IS NULL
-	`, threshold).Scan(&unreachStuck)
+	`, threshold).Scan(&unreachStuck).Error; err != nil {
+		log.Printf("monitor.Anomalies stuck_unreachable: %v", err)
+	}
 	for _, r := range reach {
 		g.StuckReachable = append(g.StuckReachable, StuckRow{
 			ConversationID: r.ConversationID, Channel: r.Channel, AgeMin: int64(r.AgeMin),
@@ -196,13 +203,15 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 
 	// 不可达：出站 failed（目标不可达，近 7d）
 	var failed []stuckRow
-	d.Raw(`
-		SELECT h.conversation_id, h.channel,
+	if err := d.Raw(`
+		SELECT h.conversation_id,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		WHERE h.direction = 'outbound' AND h.status = 'failed'
 		  AND h.sent_at > now() - interval '7 days'
-	`).Scan(&failed)
+	`).Scan(&failed).Error; err != nil {
+		log.Printf("monitor.Anomalies unreachable: %v", err)
+	}
 	for _, r := range failed {
 		g.Unreachable = append(g.Unreachable, StuckRow{
 			ConversationID: r.ConversationID, Channel: r.Channel, AgeMin: int64(r.AgeMin),

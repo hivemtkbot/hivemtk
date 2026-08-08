@@ -35,10 +35,10 @@ api "/api/monitor/health" | jq '
 
 echo "--- ② 链路异常 ---"
 api "/api/monitor/anomalies" | jq -r '
-  (.data.sync_gap // [])[]? | "  [缺口] 会话=\(.conversation_id) 渠道=\(.channel) 缺口消息=\(.message_count)",
-  (.data.stuck_reachable // [])[]? | "  [卡住-可达] 会话=\(.conversation_id) 渠道=\(.channel) 滞留=\(.age_min)分",
-  (.data.stuck_unreachable // [])[]? | "  [卡住-不可达] 会话=\(.conversation_id) 渠道=\(.channel) 滞留=\(.age_min)分",
-  (.data.unreachable // [])[]? | "  [不可达] 会话=\(.conversation_id) 渠道=\(.channel) 滞留=\(.age_min)分",
+  (.data.sync_gap // [])[]? | "  [缺口] 会话=\(.conversation_id) 缺口消息=\(.message_count)",
+  (.data.stuck_reachable // [])[]? | "  [卡住-可达] 会话=\(.conversation_id) 滞留=\(.age_min)分",
+  (.data.stuck_unreachable // [])[]? | "  [卡住-不可达] 会话=\(.conversation_id) 滞留=\(.age_min)分",
+  (.data.unreachable // [])[]? | "  [不可达] 会话=\(.conversation_id) 滞留=\(.age_min)分",
   (.data.node_abnormal // [])[]? | "  [节点异常] 渠道=\(.channel) 节点=\(.node) 异常率=\((.abnormal_rate*100|tostring))%"
 ' 2>/dev/null || echo "  (无异常)"
 
