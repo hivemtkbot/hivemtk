@@ -1060,6 +1060,14 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 	if event.SenderType == "self" || event.SenderType == "agent" {
 		direction = "outbound"
 	}
+	// ReceiverID 兜底（出站）：桥接扩展侧发送出站消息时，偶发将 receiver_id 写成发送方账号
+	// （与 sender_id 相同）或留空，导致 message_hub.receiver_id 既非客户也非空。出站消息的接收方
+	// 即客户，统一收件箱按 (platform, account_id, customer_id=receiver_id) 匹配客户会话，
+	// receiver_id 错写成账号会导致关联到账号而非客户，造成 sync_gap 误报。故缺省取 conversation_id
+	// （客户标识）。仅当 receiver_id 为空或等于发送方账号时兜底，避免误改合法群收件人。
+	if direction == "outbound" && event.ConversationID != "" && (event.ReceiverID == "" || event.ReceiverID == event.SenderID) {
+		event.ReceiverID = event.ConversationID
+	}
 	hub := &model.MessageHub{
 		MsgID:          event.EventID,
 		Platform:       event.Channel,
@@ -1238,6 +1246,14 @@ func (s *InboxIngressService) PersistBridgeHistory(ctx context.Context, event *m
 	}
 	if direction == "" {
 		direction = "inbound"
+	}
+	// ReceiverID 兜底（出站）：桥接扩展侧发送出站消息时，偶发将 receiver_id 写成发送方账号
+	// （与 sender_id 相同）或留空，导致 message_hub.receiver_id 既非客户也非空。出站消息的接收方
+	// 即客户，统一收件箱按 (platform, account_id, customer_id=receiver_id) 匹配客户会话，
+	// receiver_id 错写成账号会导致关联到账号而非客户，造成 sync_gap 误报。故缺省取 conversation_id
+	// （客户标识）。仅当 receiver_id 为空或等于发送方账号时兜底，避免误改合法群收件人。
+	if direction == "outbound" && event.ConversationID != "" && (event.ReceiverID == "" || event.ReceiverID == event.SenderID) {
+		event.ReceiverID = event.ConversationID
 	}
 	// 钩子2：msg_id 去重（与 handleIngressSingleForBatch 行为一致，限本会话）。
 	// event_id 即前端 _canonicalMsgId = contentHash = 服务端 ContentHashMsgID 输出值。

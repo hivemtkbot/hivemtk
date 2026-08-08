@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"marketing/internal/model"
 	_db "marketing/internal/pkg/utils/db"
@@ -600,6 +601,75 @@ func (r *MessageHubRepository) ListByConversationContext(ctx context.Context, pl
 	return hubs, nil
 }
 
+// FindNullConversationIDRows 返回 conversation_id 为 NULL 或空串的 message_hub 行。
+//
+// 这类脏数据产生自统一收件箱特性上线前的历史消息（ingest 兜底 conversation_id 的逻辑
+// 于 2026-08-06 才加入），会导致 sync_gap 误报一个“空会话”分组。回填时按 ingest 兜底规则
+// 派生 platform:account_id 修正。
+func (r *MessageHubRepository) FindNullConversationIDRows(ctx context.Context) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var rows []model.MessageHub
+	if err := r.db.WithContext(ctx).
+		Where("conversation_id IS NULL OR conversation_id = ?", "").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// UpdateConversationID 修正单行 message_hub 的 conversation_id（用于回填 NULL/空脏数据）。
+func (r *MessageHubRepository) UpdateConversationID(ctx context.Context, id uint, conversationID string) error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.MessageHub{}).
+		Where("id = ?", id).
+		Update("conversation_id", conversationID).Error
+}
+
+// FindConversationIDsMissingInbox 返回 message_hub 中存在、但 inbox_conversations 中缺失的
+// conversation_id。这与 monitor 的 sync_gap 检测语义一致（按 conversation_id 左连接），
+// 用于回填历史会话：统一收件箱特性上线前已积累消息的会话，只有新消息才触发同步，导致历史缺口。
+func (r *MessageHubRepository) FindConversationIDsMissingInbox(ctx context.Context) ([]string, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var convIDs []string
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT DISTINCT m.conversation_id
+		FROM message_hub m
+		WHERE m.conversation_id IS NOT NULL AND m.conversation_id <> ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM inbox_conversations i WHERE i.conversation_id = m.conversation_id
+		  )
+	`).Scan(&convIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	return convIDs, nil
+}
+
+// FindLatestByConversation 取会话中 id 最大（最新）的一条消息，作为回填收件箱的代表消息。
+func (r *MessageHubRepository) FindLatestByConversation(ctx context.Context, conversationID string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if conversationID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var msg model.MessageHub
+	if err := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID).
+		Order("id DESC").
+		First(&msg).Error; err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
 // ============== InboxConversationRepository ==============
 
 // InboxConversationRepository 统一收件箱会话仓库
@@ -741,6 +811,11 @@ func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in Upsert
 	if r == nil || tx == nil {
 		return nil
 	}
+	// 清洗非法 UTF-8：message_hub.content 等来源可能携带损坏字节（如 0xe8 0x81 截断的多字节序列），
+	// 直接写入 inbox_conversations.last_message_preview 会触发 PG "invalid byte sequence for
+	// encoding UTF8" 错误，阻断收件箱同步（reconcile backfill 曾因此失败）。此处防御性清洗，保证同步不中断。
+	in.LastMessagePreview = sanitizeUTF8(in.LastMessagePreview)
+	in.CustomerName = sanitizeUTF8(in.CustomerName)
 	var conv model.InboxConversation
 	err := tx.Where("platform = ? AND account_id = ? AND customer_id = ?",
 		in.Platform, in.AccountID, in.CustomerID).
@@ -800,6 +875,19 @@ func (r *InboxConversationRepository) UpsertFromMessageTx(tx *gorm.DB, in Upsert
 	return tx.Model(&model.InboxConversation{}).
 		Where("id = ?", conv.ID).
 		Updates(updates).Error
+}
+
+// sanitizeUTF8 将字符串中的非法 UTF-8 字节序列替换为 Unicode 替换符（U+FFFD），
+// 避免将损坏内容写入 Postgres（utf8 编码）时报 "invalid byte sequence" 错误。
+// 这是防御性清洗：桥接/历史消息可能携带截断的多字节序列（如 0xe8 0x81）。
+func sanitizeUTF8(s string) string {
+	if s == "" {
+		return s
+	}
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "�")
 }
 
 // InboxConversationQuery 会话列表查询条件（与 service.InboxQuery 字段对齐）

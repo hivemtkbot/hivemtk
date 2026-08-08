@@ -2038,12 +2038,15 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 	var err error
 	aiSpan := tracing.Start(ctx, tracing.NodeAIDispatch).
 		Input(map[string]any{
-			"channel":     string(channel),
+			"channel": string(channel),
 			"account_id":  accountID,
 			"conv_id":     hubMsg.ConversationID,
 			"event_id":    p.EventID,
 			"content_len": len(p.Content),
 			"sender":      p.Sender,
+			// 记录本轮真实用户问题（精确），供自学习聚合使用；
+			// 否则回退到 message_hub「按会话取最近 inbound」会在多轮对话中错配 query/reply。
+			"message": map[string]any{"content": p.Content, "sender": p.Sender},
 		}).
 		Expected("AI 编排器生成回复并决策（自动回复 / 转人工 / 接管）")
 	for attempt := 0; attempt <= WebhookMaxRetries; attempt++ {

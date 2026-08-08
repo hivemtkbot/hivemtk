@@ -11,6 +11,7 @@ import (
 
 	"marketing/internal/model"
 	dbUtil "marketing/internal/pkg/utils/db"
+	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 
 	"gorm.io/gorm"
@@ -43,8 +44,9 @@ const InboxOverdueThreshold = 30 * time.Minute
 
 // 收件箱对账模式
 const (
-	ReconcileModeUnread  = "unread" // 以 message_hub 最后一条消息为事实源，重算未读/状态（修正历史数据）
-	ReconcileModeOverdue = "overdue" // 超时未响应：转在线人工坐席处理（否则默认 AI 处理）
+	ReconcileModeUnread   = "unread"   // 以 message_hub 最后一条消息为事实源，重算未读/状态（修正历史数据）
+	ReconcileModeOverdue  = "overdue"  // 超时未响应：转在线人工坐席处理（否则默认 AI 处理）
+	ReconcileModeBackfill = "backfill" // 回填：修正 NULL/空 conversation_id 脏数据 + 为历史会话补建 inbox_conversations（消除 sync_gap 缺口）
 )
 
 // 分配动作
@@ -587,6 +589,8 @@ type ReconcileResult struct {
 	OverdueFound     int    `json:"overdue_found"`
 	OverdueAssigned  int    `json:"overdue_assigned"`
 	AssignedTo       string `json:"assigned_to,omitempty"`
+	FixedNullConv    int64  `json:"fixed_null_conv_id"` // backfill：修正的 NULL/空 conversation_id 行数
+	Backfilled       int64  `json:"backfilled"`         // backfill：补建的 inbox_conversations 会话数
 	Message          string `json:"message"`
 }
 
@@ -638,6 +642,8 @@ func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileRe
 		}
 		res.Message = fmt.Sprintf("已将 %d/%d 条超时会话分配给在线坐席 %s 处理", res.OverdueAssigned, res.OverdueFound, target)
 		return res, nil
+	case ReconcileModeBackfill:
+		return s.reconcileBackfill(ctx)
 	default: // ReconcileModeUnread
 		n, err := s.inboxRepo.ReconcileUnread(ctx)
 		if err != nil {
@@ -647,6 +653,79 @@ func (s *InboxService) Reconcile(ctx context.Context, mode string) (*ReconcileRe
 		res.Message = fmt.Sprintf("已按消息事实源重算 %d 条会话的未读/状态", n)
 		return res, nil
 	}
+}
+
+// deriveBackfillConversationID 为缺 conversation_id 的历史消息派生兜底会话 ID。
+//
+// 与 inbox_ingress.go HandleIngressMessage 的兜底规则保持一致：
+// ConversationID → Extra.account_id → platform:unknown。保证回填后的会话可被 UI 按
+// conversation_id 正常聚合，且不会与现有兜底逻辑产生分歧。
+func deriveBackfillConversationID(m *model.MessageHub) string {
+	if m.ConversationID != "" {
+		return m.ConversationID
+	}
+	accountID := ""
+	if m.Extra != nil {
+		if v, ok := m.Extra["account_id"].(string); ok {
+			accountID = v
+		}
+	}
+	if accountID == "" {
+		accountID = "unknown"
+	}
+	return m.Platform + ":" + accountID
+}
+
+// reconcileBackfill 回填收件箱数据，消除 sync_gap 监控缺口：
+//
+//  1. 修正 message_hub 中 conversation_id 为 NULL/空的历史脏数据（统一收件箱特性上线前的
+//     消息，ingest 兜底 conversation_id 的逻辑晚于这些数据的产生），派生 platform:account_id。
+//  2. 为 message_hub 存在但 inbox_conversations 缺失的会话（按 conversation_id 左连接，
+//     与 monitor sync_gap 检测语义一致）补建收件箱会话，复用 UpsertFromHubMessage。
+//
+// 根因：inbox_conversations 仅在“新消息入库”时物化，历史会话不会回填，导致监控持续误报缺口。
+func (s *InboxService) reconcileBackfill(ctx context.Context) (*ReconcileResult, error) {
+	res := &ReconcileResult{Mode: ReconcileModeBackfill}
+	if s.hubRepo == nil {
+		return nil, ErrInboxRepoNotReady
+	}
+
+	// 步骤 1：修正 NULL/空 conversation_id 脏数据
+	nullRows, err := s.hubRepo.FindNullConversationIDRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range nullRows {
+		m := nullRows[i]
+		convID := deriveBackfillConversationID(&m)
+		if err := s.hubRepo.UpdateConversationID(ctx, m.ID, convID); err != nil {
+			logger.Errorf("reconcile backfill: 修正 NULL conversation_id 失败 id=%d: %v", m.ID, err)
+			continue
+		}
+		res.FixedNullConv++
+	}
+
+	// 步骤 2：回填缺失的 inbox_conversations 历史会话
+	missing, err := s.hubRepo.FindConversationIDsMissingInbox(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, convID := range missing {
+		latest, err := s.hubRepo.FindLatestByConversation(ctx, convID)
+		if err != nil || latest == nil {
+			continue
+		}
+		if _, err := s.UpsertFromHubMessage(ctx, latest); err != nil {
+			logger.Warnf("reconcile backfill: 会话 %s 回填收件箱失败（已跳过）: %v", convID, err)
+			continue
+		}
+		res.Backfilled++
+	}
+
+	res.Message = fmt.Sprintf("已修正 %d 条 NULL/空 conversation_id，补建 %d 个收件箱会话",
+		res.FixedNullConv, res.Backfilled)
+	logger.Infof("reconcile backfill 完成: %s", res.Message)
+	return res, nil
 }
 
 // GetMessagesByConversation 拉取会话下的消息。

@@ -78,13 +78,20 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 		Where("direction = ? AND status = ?", "outbound", "failed").
 		Count(&h.FailedCount)
 
-	// 同步缺口：message_hub 有记录但 inbox_conversations 无同步（平台收件箱看不到）
+	// 同步缺口：message_hub 有记录但 inbox_conversations 无同步（平台收件箱看不到）。
+	// 注意：inbox_conversations 按 (platform, account_id, customer_id) 去重，一个客户只保留一行，
+	// 因此多 conversation_id 共享同一客户时，仅按 conversation_id 左连接会误报“缺口”。此处以
+	// (platform, account_id, customer_id) 是否存在收件箱行判定真实缺口（与统一收件箱实际代表粒度一致）。
 	d.Raw(`
 		SELECT count(DISTINCT m.conversation_id)
 		FROM message_hub m
-		LEFT JOIN inbox_conversations i ON i.conversation_id = m.conversation_id
 		WHERE m.created_at > now() - interval '7 days'
-		  AND i.conversation_id IS NULL
+		  AND NOT EXISTS (
+			SELECT 1 FROM inbox_conversations ic
+			WHERE ic.platform = m.platform
+			  AND ic.account_id = m.account_id
+			  AND ic.customer_id = CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END
+		  )
 	`).Scan(&h.SyncGapCount)
 
 	// 卡住消息：status=pending 且超过阈值（可达会话）或 failed（不可达占位账号）
@@ -141,7 +148,9 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	threshold := now.Add(-15 * time.Minute)
 	g := &AnomalyGroups{}
 
-	// 同步缺口：近 7d 有 message_hub 但 inbox_conversations 无记录（按会话聚合）
+	// 同步缺口：近 7d 有 message_hub 但 inbox_conversations 无记录（按会话聚合）。
+	// 以 (platform, account_id, customer_id) 是否存在收件箱行判定真实缺口，排除“多会话共享同一客户”
+	// 导致的 false positive（inbox_conversations 按该三元组去重，仅保留一个 conversation_id）。
 	type gapRow struct {
 		ConversationID string
 		Channel        string
@@ -149,11 +158,17 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	}
 	var gaps []gapRow
 	if err := d.Raw(`
-		SELECT m.conversation_id, count(*) AS message_count
+		SELECT m.conversation_id,
+		       (SELECT channel FROM message_trace mt WHERE mt.conversation_id = m.conversation_id ORDER BY id DESC LIMIT 1) AS channel,
+		       count(*) AS message_count
 		FROM message_hub m
-		LEFT JOIN inbox_conversations i ON i.conversation_id = m.conversation_id
 		WHERE m.created_at > now() - interval '7 days'
-		  AND i.conversation_id IS NULL
+		  AND NOT EXISTS (
+			SELECT 1 FROM inbox_conversations ic
+			WHERE ic.platform = m.platform
+			  AND ic.account_id = m.account_id
+			  AND ic.customer_id = CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END
+		  )
 		GROUP BY m.conversation_id
 	`).Scan(&gaps).Error; err != nil {
 		log.Printf("monitor.Anomalies sync_gap: %v", err)
@@ -173,6 +188,7 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	var reach, unreachStuck []stuckRow
 	if err := d.Raw(`
 		SELECT h.conversation_id,
+		       (SELECT channel FROM message_trace mt WHERE mt.conversation_id = h.conversation_id ORDER BY id DESC LIMIT 1) AS channel,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		JOIN inbox_conversations i ON i.conversation_id = h.conversation_id
@@ -182,6 +198,7 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	}
 	if err := d.Raw(`
 		SELECT h.conversation_id,
+		       (SELECT channel FROM message_trace mt WHERE mt.conversation_id = h.conversation_id ORDER BY id DESC LIMIT 1) AS channel,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		LEFT JOIN inbox_conversations i ON i.conversation_id = h.conversation_id
@@ -205,6 +222,7 @@ func Anomalies(ctx context.Context) (*AnomalyGroups, error) {
 	var failed []stuckRow
 	if err := d.Raw(`
 		SELECT h.conversation_id,
+		       (SELECT channel FROM message_trace mt WHERE mt.conversation_id = h.conversation_id ORDER BY id DESC LIMIT 1) AS channel,
 		       EXTRACT(EPOCH FROM (now() - h.sent_at))/60 AS age_min
 		FROM message_hub h
 		WHERE h.direction = 'outbound' AND h.status = 'failed'
@@ -249,6 +267,9 @@ type NodeHealth struct {
 
 // NodeHealthByChannel 按渠道 × 节点聚合：响应时间（avg/p95）、异常率。
 // 时间窗口 nodeHealthWindow（默认 24h），避免大表全扫。
+//
+// 修复（2026-08-08）：原实现对每个 (channel,node) 再发 2 条查询（Pluck 取全部 duration 算 p95、
+// Scan 取最近异常），形成 N+1。改为单条 SQL 用窗口聚合一次性算出 p95 与最近异常时间。
 func NodeHealthByChannel(ctx context.Context) ([]NodeHealth, error) {
 	d := db.GetDB()
 	if d == nil {
@@ -262,55 +283,50 @@ func NodeHealthByChannel(ctx context.Context) ([]NodeHealth, error) {
 		Total    int64
 		Abnormal int64
 		AvgMs    float64
+		P95Ms    float64
+		LastAbnormal sql.NullTime
 	}
 	var rows []aggRow
-	if err := d.Model(&model.MessageTrace{}).
-		Select("channel, node, count(*) as total, "+
-			"sum(case when status='abnormal' then 1 else 0 end) as abnormal, "+
-			"avg(duration_ms) as avg_ms").
-		Where("created_at >= ?", since).
-		Group("channel, node").
-		Find(&rows).Error; err != nil {
+	if err := d.Raw(`
+		SELECT channel,
+		       node,
+		       count(*) AS total,
+		       COALESCE(SUM(CASE WHEN status='abnormal' THEN 1 ELSE 0 END),0) AS abnormal,
+		       COALESCE(AVG(duration_ms),0) AS avg_ms,
+		       COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms),0) AS p95_ms,
+		       MAX(created_at) FILTER (WHERE status='abnormal') AS last_abnormal
+		FROM message_trace
+		WHERE created_at >= ?
+		GROUP BY channel, node
+	`, since).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
-	// 取每个 (channel,node) 的最近异常时间 + 全部 duration 计算 p95
 	out := make([]NodeHealth, 0, len(rows))
 	for _, r := range rows {
 		nh := NodeHealth{
-			Channel:      r.Channel,
-			Node:         r.Node,
-			NodeLabel:    tracing.NodeLabel(r.Node),
-			Total:        r.Total,
-			Abnormal:     r.Abnormal,
+			Channel:       r.Channel,
+			Node:          r.Node,
+			NodeLabel:     tracing.NodeLabel(r.Node),
+			Total:         r.Total,
+			Abnormal:      r.Abnormal,
 			AvgDurationMs: int64(r.AvgMs),
+			P95DurationMs: int64(r.P95Ms),
 		}
 		if r.Total > 0 {
 			nh.AbnormalRate = float64(r.Abnormal) / float64(r.Total)
 		}
-		// p95 响应时间
-		var durs []int64
-		d.Model(&model.MessageTrace{}).
-			Where("channel = ? AND node = ? AND created_at >= ? AND duration_ms >= 0", r.Channel, r.Node, since).
-			Pluck("duration_ms", &durs)
-		nh.P95DurationMs = percentile(durs, 95)
-		// 最近异常
-		var lastAb sql.NullTime
-		d.Model(&model.MessageTrace{}).
-			Where("channel = ? AND node = ? AND status = ? AND created_at >= ?", r.Channel, r.Node, "abnormal", since).
-			Select("max(created_at) as last_abnormal").
-			Scan(&lastAb)
-		if lastAb.Valid {
-			nh.LastAbnormal = lastAb.Time
+		if r.LastAbnormal.Valid {
+			nh.LastAbnormal = r.LastAbnormal.Time
 		}
 		out = append(out, nh)
 	}
 	// 排序：渠道 → 节点顺序
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Channel != out[j].Channel {
-		return out[i].Channel < out[j].Channel
-	}
-	return tracing.NodeOrder(out[i].Node) < tracing.NodeOrder(out[j].Node)
+			return out[i].Channel < out[j].Channel
+		}
+		return tracing.NodeOrder(out[i].Node) < tracing.NodeOrder(out[j].Node)
 	})
 	return out, nil
 }
@@ -478,22 +494,36 @@ func Traces(ctx context.Context, limit int) ([]TraceSummary, error) {
 		Pluck("trace_id", &recent).Error; err != nil {
 		return nil, err
 	}
+	if len(recent) == 0 {
+		return []TraceSummary{}, nil
+	}
+	// 单次查询取全部节点，避免按 trace_id 逐条查询的 N+1
+	var rows []model.MessageTrace
+	if err := d.Where("trace_id IN ?", recent).
+		Order("trace_id, node_order, id").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	groups := map[string][]model.MessageTrace{}
+	for _, t := range rows {
+		groups[t.TraceID] = append(groups[t.TraceID], t)
+	}
+	// 按最近顺序（recent 已是 max(id) DESC）聚合
 	out := make([]TraceSummary, 0, len(recent))
 	for _, tid := range recent {
-		var rows []model.MessageTrace
-		d.Where("trace_id = ?", tid).Order("node_order, id").Find(&rows)
-		if len(rows) == 0 {
+		rs := groups[tid]
+		if len(rs) == 0 {
 			continue
 		}
 		ts := TraceSummary{
 			TraceID:        tid,
-			ConversationID: rows[0].ConversationID,
-			Channel:        rows[0].Channel,
-			FirstAt:        rows[0].CreatedAt,
-			LastAt:         rows[len(rows)-1].CreatedAt,
-			NodeCount:      int64(len(rows)),
+			ConversationID: rs[0].ConversationID,
+			Channel:        rs[0].Channel,
+			FirstAt:        rs[0].CreatedAt,
+			LastAt:         rs[len(rs)-1].CreatedAt,
+			NodeCount:      int64(len(rs)),
 		}
-		for _, r := range rows {
+		for _, r := range rs {
 			if r.Status == "abnormal" {
 				ts.AbnormalCount++
 			}
