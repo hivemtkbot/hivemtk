@@ -86,9 +86,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="total_checks" label="检查项" width="100" align="center" />
-        <el-table-column prop="passed_count" label="通过" width="90" align="center">
+        <el-table-column prop="passed" label="通过" width="90" align="center">
           <template #default="{ row }">
-            <span class="pass-count">{{ row.passed_count || 0 }}</span>
+            <span class="pass-count">{{ row.passed || 0 }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="failed" label="失败" width="90" align="center">
