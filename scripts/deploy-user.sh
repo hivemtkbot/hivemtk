@@ -13,6 +13,7 @@
 #   ./deploy-user.sh --web-only         # 只发布前端
 #   ./deploy-user.sh --api-only         # 只发布 API（跳过前端构建）
 #   ./deploy-user.sh --skip-build       # 跳过本地前端构建
+#   ./deploy-user.sh --nginx-only       # 只更新 nginx 反代配置（不动前端/后端）
 #   ./deploy-user.sh --dry-run          # 仅打印命令
 # =============================================================
 set -euo pipefail
@@ -53,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --web-only)     MODE="web"; shift ;;
     --api-only)     MODE="api"; shift ;;
     --skip-build)   SKIP_BUILD=1; shift ;;
+    --nginx-only)   MODE="nginx"; shift ;;
     --dry-run)      DRY_RUN=1; shift ;;
     -h|--help)
       sed -n '2,20p' "$0"
@@ -288,7 +290,11 @@ server {
     }
 
     # SPA 兜底
+    # 关键：index.html 必须 no-cache。否则浏览器缓存旧 index.html（引用已删除的旧
+    # chunk hash），部署新前端后用户仍加载到缓存里的旧包，表现为“登录不跳转/功能异常”。
+    # 带 hash 的 /assets/* 仍走 12h 强缓存（内容变则 hash 变，天然失效）。
     location / {
+        expires -1;
         try_files $uri $uri/ /index.html;
     }
 
@@ -338,6 +344,9 @@ case "$MODE" in
     ;;
   api)
     deploy_api
+    update_nginx
+    ;;
+  nginx)
     update_nginx
     ;;
   all)
