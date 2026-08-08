@@ -31,7 +31,7 @@ func Evaluate(ctx context.Context, dispatcher *llm.Dispatcher, cfg Config, agg *
 		Scenario:     cfg.Scenario,
 		SystemPrompt: evalSystemPrompt,
 		Prompt:       userPrompt,
-		MaxTokens:    600,
+		MaxTokens:    900,
 		Temperature:  0.2,
 		JSONMode:     true,
 	}

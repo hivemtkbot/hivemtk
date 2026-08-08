@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"marketing/internal/model"
+	"marketing/internal/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
@@ -46,30 +47,51 @@ func AggregateTrace(ctx context.Context, db *gorm.DB, traceID string) (*Aggregat
 			}
 			if rc, ok := out["recalled_chunk_ids"].([]any); ok {
 				for _, v := range rc {
-					if id, ok := v.(string); ok {
+					if id, ok := v.(string); ok && id != "" {
 						agg.RecalledChunkIDs = append(agg.RecalledChunkIDs, id)
 					}
 				}
 			}
 		}
 	}
+	agg.RecalledChunkIDs = dedupeStrings(agg.RecalledChunkIDs)
 	// 兜底：若 ingest 未记录 query，从 message_hub 取最近 inbound content
 	if agg.Query == "" && agg.ConversationID != "" {
 		var content string
-		db.WithContext(ctx).Table("message_hub").
+		if err := db.WithContext(ctx).Table("message_hub").
 			Where("conversation_id = ? AND direction = 'inbound'", agg.ConversationID).
-			Order("id DESC").Limit(1).Pluck("content", &content)
+			Order("id DESC").Limit(1).Pluck("content", &content).Error; err != nil {
+			logger.Warnf("[trace_learning] 兜底查询 inbound 失败 conv=%s: %v", agg.ConversationID, err)
+		}
 		agg.Query = content
 	}
 	// 兜底：若 ai_dispatch 未记录 reply 文本，从 message_hub 取最近 outbound（AI 真实回复）
 	if agg.Reply == "" && agg.ConversationID != "" {
 		var content string
-		db.WithContext(ctx).Table("message_hub").
+		if err := db.WithContext(ctx).Table("message_hub").
 			Where("conversation_id = ? AND direction = 'outbound'", agg.ConversationID).
-			Order("id DESC").Limit(1).Pluck("content", &content)
+			Order("id DESC").Limit(1).Pluck("content", &content).Error; err != nil {
+			logger.Warnf("[trace_learning] 兜底查询 outbound 失败 conv=%s: %v", agg.ConversationID, err)
+		}
 		agg.Reply = content
 	}
 	return agg, nil
+}
+
+// dedupeStrings 去重并保持顺序
+func dedupeStrings(in []string) []string {
+	if len(in) == 0 {
+		return in
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // extractContent 从 ingest 节点的 input(JSON) 提取 content 字段

@@ -15,8 +15,9 @@ type Config struct {
 	Boost          float64              // 好回复升权系数（>1）
 	MinWeight      float64              // 权重下限
 	MaxWeight      float64              // 权重上限
-	BatchSize      int                  // 单次批量评估条数
-	SinceHours     int                  // 扫描最近 N 小时的 trace
+	MeanReversion  float64              // 均值回归强度（0~1）：每次调权后向 BaseWeight(1.0) 回归，防止永久锚定上下限
+	BatchSize      int                  // 单次批量评估条数（仅 RunBatch 日志/分批参考）
+	SinceHours     int                  // 预留：当前 RunBatch 已改为处理全部未评估 trace，此字段不再用于过滤
 }
 
 // DefaultConfig 默认配置（可直接调参）
@@ -29,9 +30,18 @@ func DefaultConfig() Config {
 		Boost:         1.12,
 		MinWeight:     0.1,
 		MaxWeight:     3.0,
-		BatchSize:     20,
+		MeanReversion: 0.1, // 轻度回归：好 chunk 不会永远停在 3.0、差 chunk 不会永远停在 0.1
+		BatchSize:     200,
 		SinceHours:    24,
 	}
+}
+
+// getMeanReversion 取回归强度，未配置时回退默认 0.1
+func (c Config) getMeanReversion() float64 {
+	if c.MeanReversion > 0 {
+		return c.MeanReversion
+	}
+	return 0.1
 }
 
 // EvalResult LLM 打分结果
