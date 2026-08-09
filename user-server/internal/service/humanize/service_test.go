@@ -638,6 +638,47 @@ func TestHumanizeEvalService_NilScoreRepo(t *testing.T) {
 	}
 }
 
+// TestHumanizeEvalService_Evaluate_PersistsEffectiveThreshold 落库阈值必须等于生效阈值
+//
+// 回归：buildScoreFromResult / buildLowQualitySample 曾硬编码 DefaultThreshold(0.85)，
+// 一旦 WithThreshold 定制阈值，落库的 humanize_scores.threshold 与真实判定阈值脱节（数据失真）。
+func TestHumanizeEvalService_Evaluate_PersistsEffectiveThreshold(t *testing.T) {
+	rule := newStubEvaluator(makeResult(0.92)) // 高于自定义阈值
+	repo := newStubScoreRepo()
+	svc := newServiceWithStubs(rule, nil, nil, repo, nil)
+	svc.WithThreshold(context.Background(), 0.50)
+	input := &dto.HumanizeEvalInput{
+		AIReply:         "测试",
+		CustomerMessage: "问题",
+	}
+	if _, err := svc.Evaluate(context.Background(), input); err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+	if repo.lastScore == nil {
+		t.Fatal("lastScore 不应为 nil")
+	}
+	if repo.lastScore.Threshold != 0.50 {
+		t.Errorf("persisted Threshold=%v want 0.50（生效阈值）", repo.lastScore.Threshold)
+	}
+}
+
+// TestHumanizeEvalService_Evaluate_PersistsDefaultThreshold 未定制时落库默认阈值
+func TestHumanizeEvalService_Evaluate_PersistsDefaultThreshold(t *testing.T) {
+	rule := newStubEvaluator(makeResult(0.92))
+	repo := newStubScoreRepo()
+	svc := newServiceWithStubs(rule, nil, nil, repo, nil) // 未 WithThreshold
+	input := &dto.HumanizeEvalInput{AIReply: "测试", CustomerMessage: "问题"}
+	if _, err := svc.Evaluate(context.Background(), input); err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+	if repo.lastScore == nil {
+		t.Fatal("lastScore 不应为 nil")
+	}
+	if repo.lastScore.Threshold != DefaultThreshold {
+		t.Errorf("persisted Threshold=%v want 默认 %.2f", repo.lastScore.Threshold, DefaultThreshold)
+	}
+}
+
 // TestHumanizeEvalService_NilSampleCollector nil sampleCollector 不应 panic
 func TestHumanizeEvalService_NilSampleCollector(t *testing.T) {
 	rule := newStubEvaluator(makeResult(0.80)) // < 0.85 → 转人工

@@ -93,6 +93,14 @@ func (s *HumanizeEvalService) WithSampleRate(ctx context.Context, r float64) *Hu
 	return s
 }
 
+// Threshold 返回当前生效的达标阈值（可被 WithThreshold 覆盖，区别于编译期 DefaultThreshold）
+//
+// 供外部装配层（humanize_init.go）在构造重生成 prompt 时使用真实阈值，
+// 也用于落库时写入 humanize_scores.threshold（必须等于实际判定阈值，否则数据失真）。
+func (s *HumanizeEvalService) Threshold() float64 {
+	return s.threshold
+}
+
 // WithBoundary 设置边界区间
 func (s *HumanizeEvalService) WithBoundary(ctx context.Context, low, high float64) *HumanizeEvalService {
 	if low >= 0 && high > low && high <= 1 {
@@ -262,7 +270,7 @@ func (s *HumanizeEvalService) persist(ctx context.Context, r *dto.HumanizeEvalRe
 func (s *HumanizeEvalService) buildScoreFromResult(ctx context.Context, r *dto.HumanizeEvalResult) (*model.HumanizeScore, []model.HumanizeDimensionRecord) {
 	score := &model.HumanizeScore{
 		TotalScore:         r.TotalScore,
-		Threshold:          DefaultThreshold,
+		Threshold:          s.threshold,
 		DistanceToChampion: r.DistanceToChampion,
 		Passed:             r.Passed,
 		AttemptCount:       r.AttemptCount,
@@ -352,7 +360,7 @@ func (s *HumanizeEvalService) buildLowQualitySample(ctx context.Context, input *
 		Intent:           input.Intent,
 		DimensionScores:  string(scoresJSON),
 		TotalScore:       result.TotalScore,
-		Threshold:        DefaultThreshold,
+		Threshold:        s.threshold,
 		AttemptCount:     result.AttemptCount,
 		CandidateReplies: string(repliesJSON),
 	}

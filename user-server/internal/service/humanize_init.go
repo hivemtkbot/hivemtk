@@ -113,13 +113,23 @@ func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizes
 		sampleCollector := repository.NewHumanizeLowQualitySampleCollector()
 
 		// 3. 主编排服务
-		humanizeEvalService = humanizesvc.NewHumanizeEvalService(
+		svc := humanizesvc.NewHumanizeEvalService(
 			ruleScorer,
 			llmScorer,
 			baselineRepo,
 			scoreRepo,
 			sampleCollector,
 		)
+		// 自定义阈值：MTK_HUMANIZE_EVAL_THRESHOLD（注释长期声明却从未被读取，此处补接）。
+		if v := os.Getenv("MTK_HUMANIZE_EVAL_THRESHOLD"); v != "" {
+			if thr, perr := strconv.ParseFloat(strings.TrimSpace(v), 64); perr == nil && thr > 0 && thr <= 1 {
+				svc = svc.WithThreshold(context.Background(), thr)
+				logger.Infof("[humanize] MTK_HUMANIZE_EVAL_THRESHOLD 生效 threshold=%.2f", thr)
+			} else {
+				logger.Warnf("[humanize] MTK_HUMANIZE_EVAL_THRESHOLD=%q 非法（须 0<thr<=1），使用默认 %.2f", v, humanizesvc.DefaultThreshold)
+			}
+		}
+		humanizeEvalService = svc
 	})
 	return humanizeEvalService
 }
@@ -127,6 +137,16 @@ func InitHumanizeEvalService(db *gorm.DB, dispatcher *llm.Dispatcher) *humanizes
 // GetHumanizeEvalService 获取全局评估器
 func GetHumanizeEvalService() *humanizesvc.HumanizeEvalService {
 	return humanizeEvalService
+}
+
+// humanizeEffectiveThreshold 返回当前生效的拟人度达标阈值（无服务时用默认）
+//
+// 用于重生成 prompt 中向 LLM 传递真实的达标阈值，避免硬编码 0.85 与实际阈值脱节。
+func humanizeEffectiveThreshold() float64 {
+	if svc := GetHumanizeEvalService(); svc != nil {
+		return svc.Threshold()
+	}
+	return humanizesvc.DefaultThreshold
 }
 
 // humanizeRegenerateAdapter 把 SalesEngine.dispatcher 包装为 humanize 重生成回调
@@ -170,7 +190,9 @@ func buildHumanizeRegeneratePrompt(input *dto.HumanizeEvalInput, last *dto.Human
 	if last != nil {
 		sb.WriteString("- 总分：")
 		sb.WriteString(strconv.FormatFloat(last.TotalScore, 'f', 2, 64))
-		sb.WriteString("（阈值 0.85）\n")
+		sb.WriteString("（阈值 ")
+		sb.WriteString(strconv.FormatFloat(humanizeEffectiveThreshold(), 'f', 2, 64))
+		sb.WriteString("）\n")
 		for _, sc := range last.Scores {
 			sb.WriteString("- ")
 			sb.WriteString(string(sc.Dimension))
