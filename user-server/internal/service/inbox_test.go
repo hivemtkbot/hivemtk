@@ -94,9 +94,9 @@ func TestUpsertFromMessage_OutboundStaff(t *testing.T) {
 	if conv.LastMessageFrom != InboxFromStaff {
 		t.Errorf("expected from=staff, got %s", conv.LastMessageFrom)
 	}
-	// outbound 不应增加 unread
-	if conv.UnreadCount != 1 {
-		t.Errorf("expected unread=1, got %d", conv.UnreadCount)
+	// 坐席(outbound)回复后,客户消息未读按业务规则清零(已读)
+	if conv.UnreadCount != 0 {
+		t.Errorf("expected unread=0 after staff reply, got %d", conv.UnreadCount)
 	}
 	if conv.TotalCount != 2 {
 		t.Errorf("expected total=2, got %d", conv.TotalCount)
@@ -1237,6 +1237,7 @@ func TestList_OrderOldest(t *testing.T) {
 		m := mkMsg(fmt.Sprintf("oo%d", i))
 		m.ID = uint(i)
 		m.SenderID = fmt.Sprintf("u%d", i)
+		m.ConversationID = fmt.Sprintf("conv-oo%d", i)
 		m.SentAt = time.Now().Add(time.Duration(-i) * time.Hour)
 		db.Create(m)
 		svc.UpsertFromMessage(context.Background(), m)

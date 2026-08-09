@@ -2151,8 +2151,12 @@ func (s *WebhookService) runAIGeneration(ctx context.Context, channel WebhookCha
 // 算法：FNV-1a 32位（与前端 types.js contentHash 完全一致，保证前后端结果相同）
 //   - 输入：`channel|content`（content 去首尾空白）
 //   - 输出：`mh:${hex}`（8位hex字符串，带 mh: 前缀便于日志识别）
-//   - 锚点：ContentHashMsgID("douyin", "c1", "你好") == "mh:00550fed"
+//   - 锚点：ContentHashMsgID("douyin", "c1", "你好") == "mh:00550fed"（输入不含 conversationID；与前端 types.js::contentHash 逐字节一致）
+//
+//	⚠️ 严禁在输入中加入 conversationID：message_hub.MsgID 采用 (msg_id, conversation_id) 复合唯一索引，
+//	同一 AI 回复会被不同会话的 patrol 交叉捕获，含 conv 会让 GetByMsgID 漏检、回环去重失效（详见 commit 36509ab）。
 func ContentHashMsgID(channel, conversationID, content string) string {
+	// conversationID 参数保留以兼容调用方（与前端 types.js::contentHash 一致：接收但忽略 conv），不参与哈希。
 	s := channel + "|" + strings.TrimSpace(content)
 	h := fnv.New32a()
 	h.Write([]byte(s))

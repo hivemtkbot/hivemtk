@@ -21,10 +21,10 @@ func TestInboxIngress_PlatformEchoAcrossDays(t *testing.T) {
 		account  = "acct-echo"
 		conv     = "conv-echo-1"
 		content  = "你好呀！其实我是来帮你的～有任何产品咨询或售后问题随时告诉我"
-		// MsgID 使用与 ContentHashMsgID 相同的格式：mh: 前缀 + FNV-1a 哈希
-		// 服务端出站和前端 patrol 上行使用同一 contentHash → 相同 MsgID
-		hashID = "mh:d9e2a71f"
 	)
+	// MsgID 使用与 ContentHashMsgID 相同的格式：mh: 前缀 + FNV-1a 哈希（不含 conversationID）。
+	// 服务端出站和前端 patrol 上行使用同一 contentHash → 相同 MsgID → 钩子2 命中。
+	hashID := ContentHashMsgID(platform, conv, content)
 
 	// 模拟两天前已下发的 AI 回复（出站），MsgID 即 contentHash
 	oldTime := time.Now().Add(-50 * time.Hour)

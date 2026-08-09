@@ -1124,7 +1124,7 @@ func (r *InboxConversationRepository) ListByQuery(ctx context.Context, q InboxCo
 		return nil, 0, err
 	}
 
-	orderBy := "id DESC" // 默认：会话 id 倒序（新建会话在前）
+	orderBy := "pinned DESC, last_message_at DESC" // 默认：置顶优先，其次按最后消息时间倒序
 	switch q.OrderBy {
 	case "pinned_first":
 		orderBy = "pinned DESC, last_message_at DESC"

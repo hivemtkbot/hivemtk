@@ -864,6 +864,7 @@ func TestAgentStatusRepository_GetByAgentID(t *testing.T) {
 func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 	_, _, agentRepo, _, _, _ := setupCustomerSessionRepositories(t)
 	ctx := context.Background()
+	now := time.Now()
 
 	// 创建不同状态的客服
 	agentRepo.Create(ctx, &model.AgentStatus{
@@ -872,6 +873,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		Status:         "online",
 		MaxSessions:    5,
 		ActiveSessions: 2,
+		LastActiveAt:   &now,
 	})
 	agentRepo.Create(ctx, &model.AgentStatus{
 		AgentID:        2,
@@ -879,6 +881,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		Status:         "busy",
 		MaxSessions:    5,
 		ActiveSessions: 3,
+		LastActiveAt:   &now,
 	})
 	agentRepo.Create(ctx, &model.AgentStatus{
 		AgentID:        3,
@@ -886,6 +889,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		Status:         "away",
 		MaxSessions:    5,
 		ActiveSessions: 0,
+		LastActiveAt:   &now,
 	})
 	agentRepo.Create(ctx, &model.AgentStatus{
 		AgentID:        4,
@@ -893,6 +897,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		Status:         "offline",
 		MaxSessions:    5,
 		ActiveSessions: 0,
+		LastActiveAt:   &now,
 	})
 	// 创建已达上限的客服
 	agentRepo.Create(ctx, &model.AgentStatus{
@@ -901,6 +906,7 @@ func TestAgentStatusRepository_GetOnlineAgents(t *testing.T) {
 		Status:         "online",
 		MaxSessions:    3,
 		ActiveSessions: 3,
+		LastActiveAt:   &now,
 	})
 
 	onlineAgents, err := agentRepo.GetOnlineAgents(context.Background())

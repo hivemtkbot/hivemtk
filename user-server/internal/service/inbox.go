@@ -289,6 +289,10 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		return nil, ErrInboxInvalidCustomer
 	}
 	now := time.Now()
+	lastMsgAt := msg.SentAt
+	if lastMsgAt.IsZero() {
+		lastMsgAt = now
+	}
 	preview := msg.Content
 	if len(preview) > 200 {
 		preview = preview[:200]
@@ -309,7 +313,7 @@ func (s *InboxService) UpsertFromHubMessageTx(ctx context.Context, msg *model.Me
 		ConversationID:     msg.ConversationID,
 		LastMessageID:      msg.ID,
 		LastMessagePreview: preview,
-		LastMessageAt:      now,
+		LastMessageAt:      lastMsgAt,
 		LastMessageFrom:    from,
 	}
 	// 跨表事务：hubRepo.CreateWithInboxTx 内部开 tx，先 Create(hub)，再调 inboxRepo.UpsertFromMessageTx(tx, input)
@@ -339,6 +343,10 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 	}
 
 	now := time.Now()
+	lastMsgAt := msg.SentAt
+	if lastMsgAt.IsZero() {
+		lastMsgAt = now
+	}
 	preview := msg.Content
 	if len(preview) > 200 {
 		preview = preview[:200]
@@ -360,7 +368,7 @@ func (s *InboxService) upsertInternal(ctx context.Context, msg *model.MessageHub
 		ConversationID:     msg.ConversationID,
 		LastMessageID:      msg.ID,
 		LastMessagePreview: preview,
-		LastMessageAt:      now,
+		LastMessageAt:      lastMsgAt,
 		LastMessageFrom:    from,
 	})
 }

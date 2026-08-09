@@ -306,6 +306,7 @@ func (s *shortLinkService) modelToResponse(ctx context.Context, shortLink *model
 		Title:       shortLink.Title,
 		Description: shortLink.Description,
 		DomainID:    shortLink.DomainID,
+		Password:    shortLink.Password,
 		ExpireTime:  shortLink.ExpireTime,
 		ClickCount:  shortLink.ClickCount,
 		Status:      shortLink.Status,

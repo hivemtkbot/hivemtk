@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -27,26 +28,27 @@ func setupWebhookTestDB(t *testing.T) *gorm.DB {
 
 // TestContentHashMsgID_StableContract 锚定前后端共享的回环去重哈希契约。
 //
-// 该值被前端 types.js::contentHash 镜像（FNV-1a 32 位 + mh: 前缀 + 输入 channel|conversationID|trim(content)）。
+// 该值被前端 types.js::contentHash 镜像（FNV-1a 32 位 + mh: 前缀 + 输入 channel|trim(content)，不含 conversationID）。
 // AI 出站 MsgID 即此值；前端扫描到平台 AI 回显重新上报时携带相同 content_hash，
 // 后端 GetByMsgID 才能命中（钩子2）→ 幂等跳过。算法任何漂移都会让回环防护断裂，
 // 故用此测试作为契约锚点（跨语言一致性由前端单测对相同输入断言同一值保证）。
 func TestContentHashMsgID_StableContract(t *testing.T) {
-	// 已知输入 → 期望输出（FNV-1a 32 位，输入 "douyin|c1|你好"）
+	// 已知输入 → 期望输出（FNV-1a 32 位，输入 "douyin|你好"，不含 conversationID）
 	const channel, conv, content = "douyin", "c1", "你好"
 	got := ContentHashMsgID(channel, conv, content)
-	if got != "mh:cb0c3037" {
-		t.Fatalf("ContentHashMsgID 契约值漂移: got=%s want=mh:cb0c3037", got)
+	if got != "mh:00550fed" {
+		t.Fatalf("ContentHashMsgID 契约值漂移: got=%s want=mh:00550fed", got)
 	}
-	// 隔离性：任一字段不同 → 值不同
-	if ContentHashMsgID(channel, "c2", content) == got {
-		t.Fatalf("conversationID 不同应哈希不同")
-	}
+	// 隔离性：channel / content 不同 → 值不同
 	if ContentHashMsgID("xhs", conv, content) == got {
 		t.Fatalf("channel 不同应哈希不同")
 	}
 	if ContentHashMsgID(channel, conv, "你好吗") == got {
 		t.Fatalf("content 不同应哈希不同")
+	}
+	// conversationID 不参与哈希（跨会话同内容回环去重需要相同 msg_id）→ 不同 conv 必须哈希相同
+	if ContentHashMsgID(channel, "c2", content) != got {
+		t.Fatalf("conversationID 不参与哈希：不同 conv 应哈希相同")
 	}
 	// 首尾空白被 trim：不应影响结果
 	if ContentHashMsgID(channel, conv, "  你好  ") != got {
@@ -293,7 +295,10 @@ func TestWebhookService_Receive_DefaultEventType(t *testing.T) {
 	db := setupWebhookTestDB(t)
 	s := NewWebhookService(db)
 	defer s.Stop(context.Background())
-	body := []byte(`{"event_id":"e1","content":"hi"}`) // 没有 event_type
+	// event_id 必须唯一：isDuplicate 走全局 Redis 去重（TTL 5 分钟），固定 id 会在多次
+	// go test 调用间与持久化去重键碰撞，导致误判重复、EventType 为空。
+	eventID := fmt.Sprintf("e1-%d", time.Now().UnixNano())
+	body := []byte(fmt.Sprintf(`{"event_id":"%s","content":"hi"}`, eventID)) // 没有 event_type
 	r, _ := s.Receive(context.Background(), &ReceiveRequest{Channel: ChannelCustom, AccountID: "a1", Body: body})
 	if !r.Accepted {
 		t.Errorf("expected accepted, got %+v", r)

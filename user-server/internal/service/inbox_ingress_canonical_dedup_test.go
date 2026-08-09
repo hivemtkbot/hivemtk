@@ -143,7 +143,7 @@ func TestHandleIngress_CrossConv_SameInboundContent_NotSkipped(t *testing.T) {
 // 旧实现 GetByMsgID/GetByContentHash 不限 conversation → 跨会话命中同 msg_id →
 // 第二个会话的客户消息被误跳过（如 XHS 系统提示"已连续聊天3天"在每个新会话都会出现）。
 //
-// 复现：会话 A 入库 msg_id=mh:9987dc1e (algo2)，会话 B 上报同 content 同 event_id →
+// 复现：会话 A 入库 algo2 msg_id（由 ContentHashMsgID 计算，不含 conversationID），会话 B 上报同 content 同 event_id →
 // 旧实现钩子2 GetByMsgID 命中会话 A → duplicate=true → 会话 B 消息未入库。
 //
 // 修复后：钩子2/钩子2.5 第一道限本会话，跨会话不命中 → 各自入库。
@@ -157,9 +157,10 @@ func TestHandleIngress_CrossConv_SameAlgo2MsgID_NotSkipped(t *testing.T) {
 		platform = "xiaohongshu"
 		account  = "acct-cross-conv-algo2"
 		content  = "测试跨会话去重内容unique20260807"
-		// algo2 event_id（前端 _canonicalMsgId = ContentHashMsgID(channel, '', content)）
-		algo2EventID = "mh:9987dc1e"
 	)
+	// algo2 event_id（前端 _canonicalMsgId = ContentHashMsgID(channel, '', content)，不含 conversationID）。
+	// 与后端出站 MsgID 算法一致 → 跨会话同 content 命中钩子2.5 第二道内容去重。
+	algo2EventID := ContentHashMsgID(platform, "", content)
 
 	// 预置：A 会话已有同 content + 同 algo2 msg_id 的 inbound
 	convA := "conv-cross-algo2-A"

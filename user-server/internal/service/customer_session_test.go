@@ -259,14 +259,16 @@ func TestCustomerSessionService_AssignSession_AgentOffline(t *testing.T) {
 // TestCustomerSessionService_AutoAssign_Success 测试自动分配会话
 func TestCustomerSessionService_AutoAssign_Success(t *testing.T) {
 	service := setupCustomerSessionService(t)
+	now := time.Now()
 
-	// 创建在线客服
+	// 创建在线客服（刷新 last_active_at 以模拟上线心跳）
 	agent := &model.AgentStatus{
 		AgentID:        123,
 		AgentName:      "客服 A",
 		Status:         "online",
 		MaxSessions:    5,
 		ActiveSessions: 0,
+		LastActiveAt:   &now,
 	}
 	service.agentRepo.Create(context.Background(), agent)
 
@@ -604,6 +606,11 @@ func TestAgentStatusService_GetOnlineAgents_Success(t *testing.T) {
 	}
 	service.agentRepo.Create(context.Background(), agent1)
 	service.agentRepo.Create(context.Background(), agent2)
+
+	// 模拟上线心跳：刷新 last_active_at（GetOnlineAgents 仅返回最近有心跳的在线坐席）
+	if err := agentService.GoOnline(context.Background(), 123); err != nil {
+		t.Fatalf("GoOnline failed: %v", err)
+	}
 
 	// 获取在线客服
 	agents, err := agentService.GetOnlineAgents(context.Background())

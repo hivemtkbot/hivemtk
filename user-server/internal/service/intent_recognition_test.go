@@ -24,6 +24,25 @@ func newIntentRecognizer(t *testing.T) (*IntentRecognizer, *gorm.DB) {
 	return NewIntentRecognizer(db, nil, nil), db
 }
 
+// waitForIntentCount 轮询等待意图记录落库。
+// saveRecord 为异步 fire-and-forget（生产侧有意为之的最佳努力持久化，非数据丢失），
+// 全包测试 DB 高负载下固定 time.Sleep 会导致未落库的记录被漏算。改为带超时的轮询，
+// 既尊重生产异步设计，又消除测试不确定性。
+func waitForIntentCount(t *testing.T, rec *IntentRecognizer, customerID string, want int, timeout time.Duration) []model.IntentRecord {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		list, _ := rec.GetRecentIntents(context.Background(), customerID, 1000)
+		if len(list) >= want {
+			return list
+		}
+		if time.Now().After(deadline) {
+			return list
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 // ===== 意图识别 规则测试 - 价格 =====
 
 // 1. 完全匹配 - 询价
@@ -641,8 +660,7 @@ func TestRecentIntents_Basic(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
-	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
+	list := waitForIntentCount(t, rec, "u-1", 2, 3*time.Second)
 	if len(list) != 2 {
 		t.Errorf("expected 2, got %d", len(list))
 	}
@@ -653,8 +671,7 @@ func TestRecentIntents_CustomerIsolation(t *testing.T) {
 	rec, _ := newIntentRecognizer(t)
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	rec.Recognize(context.Background(), "s-1", "u-2", "多少钱")
-	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
+	list := waitForIntentCount(t, rec, "u-1", 1, 3*time.Second)
 	if len(list) != 1 {
 		t.Errorf("expected 1, got %d", len(list))
 	}
@@ -666,7 +683,7 @@ func TestRecentIntents_Limit(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	}
-	time.Sleep(500 * time.Millisecond)
+	waitForIntentCount(t, rec, "u-1", 10, 5*time.Second)
 	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 3)
 	if len(list) != 3 {
 		t.Errorf("expected 3, got %d", len(list))
@@ -679,8 +696,7 @@ func TestRecentIntents_OrderDesc(t *testing.T) {
 	rec.Recognize(context.Background(), "s-1", "u-1", "多少钱")
 	time.Sleep(50 * time.Millisecond)
 	rec.Recognize(context.Background(), "s-1", "u-1", "太贵了")
-	time.Sleep(200 * time.Millisecond)
-	list, _ := rec.GetRecentIntents(context.Background(), "u-1", 10)
+	list := waitForIntentCount(t, rec, "u-1", 2, 3*time.Second)
 	if len(list) != 2 {
 		t.Fatalf("expected 2, got %d", len(list))
 	}

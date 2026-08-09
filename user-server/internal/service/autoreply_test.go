@@ -112,11 +112,11 @@ func TestAutoReplyService_UpsertAccount_Create(t *testing.T) {
 		t.Errorf("Expected 1 account, got %d", count)
 	}
 
-	// 验证 Cookie 已加密存储
+	// 验证 Cookie 已明文存储（加密能力已按安全治理要求移除，不再默认加密）
 	var stored model.AutoReplyAccount
 	database.Where("username = ?", "newuser").First(&stored)
-	if stored.Cookie == "" || stored.Cookie == "test_cookie" {
-		t.Error("Expected encrypted cookie to be stored")
+	if stored.Cookie != "test_cookie" {
+		t.Errorf("Expected cookie %q to be stored, got %q", "test_cookie", stored.Cookie)
 	}
 }
 
