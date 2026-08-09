@@ -61,9 +61,10 @@ type SmsDeliveryTrackerService struct {
 	deliveryRepo repository.SmsDeliveryRepository
 
 	// 携号转网内存缓存：phone → 最新运营商（避免每次 webhook 走 DB）
-	carrierMu     sync.RWMutex
-	carrierCache  map[string]model.SmsCarrier
-	carrierLoaded bool
+	carrierMu        sync.RWMutex
+	carrierCache     map[string]model.SmsCarrier
+	carrierLoaded    bool
+	carrierLoadErrAt time.Time // 上次加载失败时间，用于退避重试，避免 DB 抖动时重试风暴
 }
 
 // NewSmsDeliveryTrackerService 创建短信到达率追踪服务
@@ -190,10 +191,16 @@ func (s *SmsDeliveryTrackerService) loadCarrierCache(ctx context.Context) {
 	if s.carrierLoaded || s.deliveryRepo == nil {
 		return
 	}
+	// 退避：上次加载失败后 60s 内不重试，避免 DB 抖动时重试风暴
+	if !s.carrierLoadErrAt.IsZero() && time.Since(s.carrierLoadErrAt) < 60*time.Second {
+		return
+	}
 	rows, err := s.deliveryRepo.LoadLatestPortability(ctx, 10000)
 	if err != nil {
 		logger.Errorf("[SmsDeliveryTracker] load carrier cache: %v", err)
-		s.carrierLoaded = true
+		// ⚠️ 不要置 carrierLoaded=true：否则缓存会永久为空且永不重试，
+		// 携号转网识别将永远退化到号段兜底。仅记录失败时间以触发退避重试。
+		s.carrierLoadErrAt = time.Now()
 		return
 	}
 	s.carrierMu.Lock()

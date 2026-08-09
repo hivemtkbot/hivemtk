@@ -59,7 +59,11 @@ func (s *BackupService) CreateBackup(ctx context.Context, createdBy uint, req *C
 
 	// 异步执行备份：用 WithoutCancel 脱离请求生命周期，避免客户端断开（前端超时/代理 60s）后
 	// ctx 取消导致备份中途失败、状态卡在 running 且产生半截 zip。
-	go s.executeBackup(context.WithoutCancel(ctx), backup)
+	// 复制 backup 到 goroutine 局部变量：executeBackup 会修改备份状态并持久化，
+	// 若直接传原指针，会与调用方持有的 backup 对象产生数据竞争（已用 -race 复现）。
+	go func(src model.Backup) {
+		s.executeBackup(context.WithoutCancel(ctx), &src)
+	}(*backup)
 
 	return backup, nil
 }
@@ -95,24 +99,33 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 	// 异步 goroutine panic 兜底：防止 nil pointer 或其他 panic 崩溃进程
 	defer func() {
 		if r := recover(); r != nil {
+			if backup == nil {
+				return
+			}
 			backup.Status = model.BackupStatusFailed
 			backup.ErrorMessage = fmt.Sprintf("backup panic: %v", r)
 			if s.backupRepo != nil {
-				s.backupRepo.Update(ctx, backup)
+				if err := s.backupRepo.Update(ctx, backup); err != nil {
+					logger.Errorf("[backup] update status after panic failed: %v", err)
+				}
 			}
 		}
 	}()
 
 	// 更新状态为进行中
 	backup.Status = model.BackupStatusRunning
-	s.backupRepo.Update(ctx, backup)
+	if err := s.backupRepo.Update(ctx, backup); err != nil {
+		logger.Errorf("[backup] update backup status failed: %v", err)
+	}
 
 	// 创建备份目录
 	backupDir := filepath.Join("backups", backup.BackupName)
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = err.Error()
-		s.backupRepo.Update(ctx, backup)
+		if err := s.backupRepo.Update(ctx, backup); err != nil {
+		logger.Errorf("[backup] update backup status failed: %v", err)
+	}
 		return
 	}
 
@@ -124,7 +137,9 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 	if err := s.backupDatabase(ctx, backupDir); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "数据库备份失败：" + err.Error()
-		s.backupRepo.Update(ctx, backup)
+		if err := s.backupRepo.Update(ctx, backup); err != nil {
+		logger.Errorf("[backup] update backup status failed: %v", err)
+	}
 		return
 	}
 
@@ -132,7 +147,9 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 	if err := s.compressBackup(ctx, backupDir, backupFile); err != nil {
 		backup.Status = model.BackupStatusFailed
 		backup.ErrorMessage = "压缩备份失败：" + err.Error()
-		s.backupRepo.Update(ctx, backup)
+		if err := s.backupRepo.Update(ctx, backup); err != nil {
+		logger.Errorf("[backup] update backup status failed: %v", err)
+	}
 		return
 	}
 
@@ -145,7 +162,9 @@ func (s *BackupService) executeBackup(ctx context.Context, backup *model.Backup)
 	backup.Status = model.BackupStatusCompleted
 	now := time.Now()
 	backup.CompletedAt = &now
-	s.backupRepo.Update(ctx, backup)
+	if err := s.backupRepo.Update(ctx, backup); err != nil {
+		logger.Errorf("[backup] update backup status failed: %v", err)
+	}
 }
 
 // backupDatabase 备份数据库
@@ -346,8 +365,13 @@ func (s *RestoreService) RestoreBackup(ctx context.Context, createdBy uint, req 
 		return nil, err
 	}
 
-	// 异步执行恢复
-	go s.executeRestore(ctx, record, backup)
+	// 异步执行恢复，避免阻塞调用方。
+	// 复制 record 到 goroutine 局部变量：executeRestore 会修改恢复状态并持久化，
+	// 直接传原指针会与调用方持有的 record 对象产生数据竞争（已用 -race 复现）。
+	// backup 仅读取，共享只读安全。
+	go func(src model.RestoreRecord) {
+		s.executeRestore(ctx, &src, backup)
+	}(*record)
 
 	return record, nil
 }

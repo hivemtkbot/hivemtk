@@ -249,9 +249,16 @@ func (ctrl *ChatWSController) readPump(client *Client, conn *websocket.Conn, eng
 
 		switch msg.Type {
 		case "ping":
-			// 心跳（兼容旧客户端的文本 ping）
-			_ = conn.SetWriteDeadline(time.Now().Add(chatWSWriteWait))
-			_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"pong","trace_id":"`+client.TraceID()+`"}`))
+			// 心跳（兼容旧客户端的文本 ping）。
+			// ⚠️ gorilla/websocket 的 *Conn 非并发写安全：writePump 协程已独占 conn 写，
+			// 此处严禁直接 conn.WriteMessage/SetWriteDeadline（会帧交错/panic）。
+			// 改为把 pong 文本交给 client.send 通道，统一由 writePump 写出。
+			pong := []byte(`{"type":"pong","trace_id":"` + client.TraceID() + `"}`)
+			select {
+			case client.SendChan() <- pong:
+			default:
+				logger.Ctx(ctx).Warn().Msg("[ws-chat] send pong: channel full, dropped")
+			}
 		case "message":
 			// 业务消息
 			ctrl.handleBusinessMessage(ctx, client, engine, msg)

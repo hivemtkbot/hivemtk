@@ -9,6 +9,7 @@ import (
 
 	"marketing/internal/model"
 	"marketing/internal/pkg/utils"
+	"marketing/internal/pkg/utils/logger"
 	"marketing/internal/repository"
 )
 
@@ -429,7 +430,13 @@ func (s *CustomerRFMService) enqueueRecovery(ctx context.Context, rfm *model.Cus
 		return
 	}
 	// 1) 不重复入队
-	if existing, _ := s.recoveryRepo.GetActiveByCustomerID(ctx, rfm.CustomerID); existing != nil {
+	existing, err := s.recoveryRepo.GetActiveByCustomerID(ctx, rfm.CustomerID)
+	if err != nil {
+		// 查询失败：保守处理，不入队，避免去重失效导致重复记录覆盖现有挽回语义
+		logger.Warnf("[rfm] enqueueRecovery: GetActiveByCustomerID failed (customer=%s): %v", rfm.CustomerID, err)
+		return
+	}
+	if existing != nil {
 		return
 	}
 	// 2) 推导优先级：churn_score 越高，priority 越小（越优先）

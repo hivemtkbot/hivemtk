@@ -109,8 +109,14 @@ func (s *XiaohongshuAutoReplyService) AppendLog(userID, accountID, ruleID uint, 
 }
 
 func (s *XiaohongshuAutoReplyService) StartLoginBrowser(ctx context.Context, userID uint, username string, accountID uint, headless bool) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	go func() {
-		ctx := context.Background()
+		// 尊重调用方 ctx：用传入 ctx 包裹 5min 超时，进程退出/账号删除时可通过 ctx 取消，
+		// 避免 goroutine 最多挂起 5 分钟且 DB 写 Cookie 无法被取消。
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
 		logger.Infof("启动登录浏览器 - 平台: xiaohongshu, 用户: %s", username)
 		a, err := browser.NewAssistant(browser.Options{Headless: headless})
 		if err != nil {
