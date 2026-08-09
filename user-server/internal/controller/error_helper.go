@@ -38,7 +38,8 @@ func HandleServiceError(ctx *gin.Context, err error) bool {
 		response.NotFound(ctx, "记录不存在")
 		return true
 	}
-	response.Error(ctx, http.StatusBadRequest, "业务处理失败")
+	// 业务错误统一返回 400，并透传真实错误原因（避免掩盖业务校验/DB 失败的具体信息）
+	response.Error(ctx, http.StatusBadRequest, err.Error())
 	return true
 }
 

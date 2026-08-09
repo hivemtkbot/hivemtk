@@ -9,6 +9,9 @@ import (
 	"marketing/internal/pkg/testutil"
 )
 
+// toPtr 将字符串转为 *string，便于构造素材分类的 ParentID 指针字段
+func toPtr(s string) *string { return &s }
+
 // setupMaterialCategoryTestDB 设置素材分类测试数据库
 func setupMaterialCategoryTestDB(t *testing.T) *gorm.DB {
 	database := testutil.NewTestDB(t,
@@ -58,14 +61,14 @@ func TestMaterialCategoryRepository_Create(t *testing.T) {
 		},
 		{
 			name: "create child category",
-			category: &model.MaterialCategory{
-				Name:        "Child Category",
-				Type:        model.MaterialTypeImage,
-				LicenseID:   "license-1",
-				ParentID:    "parent-id",
-				Sort:        2,
-				Description: "Child description",
-			},
+		category: &model.MaterialCategory{
+			Name:        "Child Category",
+			Type:        model.MaterialTypeImage,
+			LicenseID:   "license-1",
+			ParentID:    func() *string { s := "parent-id"; return &s }(),
+			Sort:        2,
+			Description: "Child description",
+		},
 			wantErr: false,
 		},
 	}
@@ -159,7 +162,7 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 		Name:      "Child Category 1",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  rootCategory1.ID,
+		ParentID:  toPtr(rootCategory1.ID),
 		Sort:      1,
 	})
 
@@ -167,7 +170,7 @@ func TestMaterialCategoryRepository_GetList(t *testing.T) {
 		Name:      "Child Category 2",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  rootCategory1.ID,
+		ParentID:  toPtr(rootCategory1.ID),
 		Sort:      2,
 	})
 
@@ -304,7 +307,7 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 			Name:      "Child " + string(rune('0'+i)),
 			Type:      model.MaterialTypeImage,
 			LicenseID: "license-1",
-			ParentID:  parent.ID,
+			ParentID:  toPtr(parent.ID),
 			Sort:      i,
 		})
 	}
@@ -321,7 +324,7 @@ func TestMaterialCategoryRepository_GetList_WithParentFilter(t *testing.T) {
 		Name:      "Other Child",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  otherParent.ID,
+		ParentID:  toPtr(otherParent.ID),
 		Sort:      1,
 	})
 
@@ -415,7 +418,7 @@ func TestMaterialCategoryRepository_Delete_WithChildren(t *testing.T) {
 		Name:      "Child Category",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  parent.ID,
+		ParentID:  toPtr(parent.ID),
 	})
 
 	err := repo.Delete(parent.ID)
@@ -478,7 +481,7 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 		Name:      "Child 1-1",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  root1.ID,
+		ParentID:  toPtr(root1.ID),
 		Sort:      1,
 	})
 
@@ -486,7 +489,7 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 		Name:      "Child 1-2",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  root1.ID,
+		ParentID:  toPtr(root1.ID),
 		Sort:      2,
 	})
 
@@ -494,7 +497,7 @@ func TestMaterialCategoryRepository_GetTree(t *testing.T) {
 		Name:      "Child 2-1",
 		Type:      model.MaterialTypeImage,
 		LicenseID: "license-1",
-		ParentID:  root2.ID,
+		ParentID:  toPtr(root2.ID),
 		Sort:      1,
 	})
 

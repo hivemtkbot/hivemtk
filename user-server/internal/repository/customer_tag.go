@@ -12,6 +12,7 @@ type CustomerTagRepository interface {
 	GetByID(ctx context.Context, id string) (*model.CustomerTag, error)
 	ListByMerchant(ctx context.Context) ([]*model.CustomerTag, error)
 	ListAutoTags(ctx context.Context) ([]*model.CustomerTag, error)
+	Update(ctx context.Context, tag *model.CustomerTag) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -65,4 +66,9 @@ func (r *customerTagRepository) ListAutoTags(ctx context.Context) ([]*model.Cust
 // Delete deletes a tag by ID
 func (r *customerTagRepository) Delete(ctx context.Context, id string) error {
 	return _db.GetDB().Delete(&model.CustomerTag{}, "id = ?", id).Error
+}
+
+// Update updates an existing customer tag (按主键更新已有记录，而非插入新行)
+func (r *customerTagRepository) Update(ctx context.Context, tag *model.CustomerTag) error {
+	return _db.GetDB().Save(tag).Error
 }

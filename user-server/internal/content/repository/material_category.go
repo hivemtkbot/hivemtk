@@ -115,7 +115,7 @@ func (r *materialCategoryRepo) GetTree(licenseID string, materialType string) ([
 	// 过滤掉有父级的分类，只返回根级
 	var rootCategories []*model.MaterialCategory
 	for _, category := range categories {
-		if category.ParentID == "" {
+		if category.ParentID == nil {
 			rootCategories = append(rootCategories, category)
 		}
 	}

@@ -183,11 +183,12 @@ func TestMaterialCategory_TableName(t *testing.T) {
 }
 
 func TestMaterialCategory_BasicFields(t *testing.T) {
+	parentID := "parent-456"
 	category := &MaterialCategory{
 		ID:            "cat-123",
 		Name:          "Test Category",
 		Type:          MaterialTypeImage,
-		ParentID:      "parent-456",
+		ParentID:      &parentID,
 		Icon:          "icon-image",
 		Color:         "#FF0000",
 		Sort:          10,
@@ -207,8 +208,8 @@ func TestMaterialCategory_BasicFields(t *testing.T) {
 	if category.Type != MaterialTypeImage {
 		t.Errorf("Expected Type 'image', got %s", category.Type)
 	}
-	if category.ParentID != "parent-456" {
-		t.Errorf("Expected ParentID 'parent-456', got %s", category.ParentID)
+	if category.ParentID == nil || *category.ParentID != "parent-456" {
+		t.Errorf("Expected ParentID 'parent-456', got %v", category.ParentID)
 	}
 	if category.Icon != "icon-image" {
 		t.Errorf("Expected Icon 'icon-image', got %s", category.Icon)
@@ -323,10 +324,10 @@ func TestMaterialCategory_WithEmptyID(t *testing.T) {
 func TestMaterialCategory_WithNilParent(t *testing.T) {
 	category := &MaterialCategory{
 		Name:     "Root Category",
-		ParentID: "",
+		ParentID: nil,
 	}
 
-	if category.ParentID != "" {
-		t.Errorf("Expected empty ParentID, got %s", category.ParentID)
+	if category.ParentID != nil {
+		t.Errorf("Expected nil ParentID, got %v", category.ParentID)
 	}
 }

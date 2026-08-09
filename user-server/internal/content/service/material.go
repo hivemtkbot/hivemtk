@@ -18,6 +18,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// strVal 将 *string 安全解引用为 string（nil 返回空串）
+func strVal(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // ObsService 抽象 OBS 配置服务接口（避免与 system service 包循环依赖）
 type ObsService interface {
 	UploadFile(file multipart.File, header *multipart.FileHeader, licenseID string, folder string) (string, error)
@@ -145,10 +153,16 @@ func (s *materialService) GetCategory(id string) (*contentdto.MaterialCategoryRe
 }
 
 func (s *materialService) CreateCategory(req *contentdto.CreateMaterialCategoryRequest) (*contentdto.MaterialCategoryResponse, error) {
+	// 根分类（parent_id 为空或 "0"）置为 NULL，避免触发自引用外键冲突
+	var pid *string
+	if req.ParentID != "" && req.ParentID != "0" {
+		s := req.ParentID
+		pid = &s
+	}
 	category := &model.MaterialCategory{
 		Name:        req.Name,
 		Type:        model.MaterialType(req.Type),
-		ParentID:    req.ParentID,
+		ParentID:    pid,
 		Icon:        req.Icon,
 		Color:       req.Color,
 		Sort:        req.Sort,
@@ -179,7 +193,8 @@ func (s *materialService) UpdateCategory(id string, req *contentdto.UpdateMateri
 		category.Type = model.MaterialType(req.Type)
 	}
 	if req.ParentID != "" {
-		category.ParentID = req.ParentID
+		s := req.ParentID
+		category.ParentID = &s
 	}
 	if req.Icon != "" {
 		category.Icon = req.Icon
@@ -423,7 +438,7 @@ func (s *materialService) convertCategoryToDTO(category *model.MaterialCategory)
 		ID:            category.ID,
 		Name:          category.Name,
 		Type:          string(category.Type),
-		ParentID:      category.ParentID,
+		ParentID:      strVal(category.ParentID),
 		Icon:          category.Icon,
 		Color:         category.Color,
 		Sort:          category.Sort,

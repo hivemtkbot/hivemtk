@@ -293,7 +293,7 @@ func (s *TagRuleService) UpdateTagRule(ctx context.Context, id string, input Sav
 			return nil, err
 		}
 	}
-	if err := s.tagRepo.Create(ctx, existing); err != nil {
+	if err := s.tagRepo.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return &TagRuleSaveResult{

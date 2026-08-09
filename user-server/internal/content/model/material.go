@@ -82,7 +82,7 @@ type MaterialCategory struct {
 	ID          string            `gorm:"type:varchar(36);primaryKey" json:"id"`
 	Name        string            `gorm:"type:varchar(100);not null" json:"name"`
 	Type        MaterialType      `gorm:"type:varchar(20);not null" json:"type"`
-	ParentID    string            `gorm:"type:varchar(36);index" json:"parent_id"`
+	ParentID    *string           `gorm:"type:varchar(36);index" json:"parent_id"`
 	Parent      *MaterialCategory `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
 	Icon        string            `gorm:"type:varchar(100)" json:"icon"`
 	Color       string            `gorm:"type:varchar(20)" json:"color"`
