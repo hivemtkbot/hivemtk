@@ -27,6 +27,8 @@ type MessageHub struct {
 	IsAIReply      bool       `gorm:"default:false" json:"is_ai_reply"`
 	AIAgent        string     `gorm:"type:varchar(50)" json:"ai_agent"`
 	TraceID        string     `gorm:"type:varchar(64);index:idx_hub_trace" json:"trace_id"` // 全链路追踪：关联 inbound↔outbound 同轮对话
+	DedupHash      string     `gorm:"type:varchar(64);index:idx_mh_dedup_hash" json:"dedup_hash"` // 统一收件去重哈希（渠道+发送者+内容），用于服务端权威自/他判定与回环拦截
+	ClaimedAt      *time.Time `gorm:"index" json:"claimed_at"`                                      // 下发认领时间戳：pending→inflight 时写入；超时未 ack 由 ClaimPendingOutbound 惰性回收为 pending（根除重复转发）
 	IsRead         bool       `gorm:"default:false" json:"is_read"`
 	ReadAt         *time.Time `json:"read_at"`
 	SentAt         time.Time  `gorm:"index" json:"sent_at"`

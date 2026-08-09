@@ -55,6 +55,12 @@ const (
 	InboxContentDedupKey = "hivemtk:dedup:content:"
 	InboxContentDedupTTL = 5 * time.Minute
 
+	// InboxSenderContentDedupKey 「渠道+发送者+内容」短窗去重 key 前缀（防同一条上报被重复投递穿透业务层）。
+	//   与 InboxContentDedupTTL 共用 5 分钟窗口：仅拦截「短时内重复投递」的同一(渠道,发送者,内容)，
+	//   不限制客户自然的重复复述（超过窗口后同内容会放行，保留真实对话）。
+	//   注意：这是辅助防护；回声/回环拦截的权威依据仍是 DB 的 dedup_hash（见 interceptInbound）。
+	InboxSenderContentDedupKey = "hivemtk:dedup:sender-content:"
+
 	// InboxReplyWindow 回复判断窗口（5 分钟）
 	//   - 5 分钟以内 + 最后一条是客户消息 → 触发 AI 回复
 	//   - 5 分钟以外 → 仅落库不触发 AI（避免对历史存量消息逐一自动回复）
@@ -138,6 +144,17 @@ type InboxIngressResult struct {
 	QueuedForAI bool   `json:"queued_for_ai"` // 是否已入队（拿到 AI 处理锁或加入待处理队列）
 	SessionID   string `json:"session_id"`
 	Reason      string `json:"reason,omitempty"` // 决策原因
+}
+
+// IngressDecision 统一收件中间件拦截决策（在消息穿透业务层前由 interceptInbound 给出）。
+//   - Blocked=true 且 IsSelfEcho=true  → 命中平台 outbound（自己消息回显/回环），拦截防 AI 死循环
+//   - Blocked=true 且 IsDup=true       → 同(渠道,发送者,内容)短时重复投递，拦截防重复落库
+//   - Blocked=false                    → 放行，交由业务层（落库 + 触发 AI）
+type IngressDecision struct {
+	Blocked    bool
+	IsSelfEcho bool
+	IsDup      bool
+	Reason     string
 }
 
 // InboxIngressService 渠道接入消息中台服务
@@ -440,38 +457,26 @@ func (s *InboxIngressService) HandleIngressMessage(ctx context.Context, event *m
 		}
 	}
 
-	// 钩子2.5（2026-08-07 第六轮修复）：服务端权威内容级去重。
-	//   背景：前端 patrol 上报的消息 msg_id 在历史曾用 algo1（channel+conv+content），
-	//   而服务端 ContentHashMsgID 已用 algo2（channel+content）。同内容生成不同 msg_id →
-	//   钩子2 GetByMsgID 漏检 → 同内容 AI 回复被反复入库为 inbound → 触发循环 AI。
-	//   修复：以 canonical contentHash (algo2) + 兜底按 platform+content 查重，无论 msg_id
-	//   算法如何变化都视同"自/他回显"幂等跳过。
-	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
-		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
-		// 2026-08-07 第九轮修复：限本会话。algo2 下 canonicalHash 跨会话相同，
-		// 跨会话命中会把其他客户发的相同内容误判为回显跳过。
-		// AI 回环防护由第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
-		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
-			return result, nil
-		}
-		if existing, err := s.hubRepo.GetByPlatformContent(ctx, event.Channel, event.Content); err == nil && existing != nil {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("platform+content already exists in DB (self/echo dedup); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
-			return result, nil
-		}
-		// 归一化兜底（2026-08-07 修复）：DOM 中 AI 回复与 DB 落库内容可能有空格/换行差异，
-		// 精确 md5 匹配失败 → 回环去重失效 → AI 回复被当客户 inbound 入库 → 触发循环 AI。
-		// 去所有空白后比较，兼容 "安全。 需要" vs "安全。需要"。
-		if existing, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, event.Content); err == nil && existing != nil {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("normalized platform+content match (self/echo dedup); skip. existing msg_id=%s direction=%s conv=%s", existing.MsgID, existing.Direction, existing.ConversationID)
-			return result, nil
-		}
+	// 统一收件中间件（2026-08-09）：渠道+发送者+内容 服务端权威去重 / 自他判定。
+	//   取代旧「仅按 platform+content 匹配」的回环去重——旧逻辑会把"客户复述了 AI 的原话"
+	//   误判为回显而丢失客户消息。新逻辑把发送者纳入去重键（ContentHashWithSender），
+	//   并依赖 DB 回查 message_hub 出站(outbound)行判定"自己消息"，实现：
+	//     - 自己消息回显（AI/人工回复经渠道回写）→ 拦截，防 AI 二次触发死循环（回环）；
+	//     - 同(渠道,发送者,内容)短时重复投递 → 拦截，防重复落库穿透业务层。
+	//   自/他判定不信任前端不可靠的 sender_type，由服务端 DB 哈希回查权威判定。
+	if decision, derr := s.interceptInbound(ctx, event); derr != nil {
+		logger.Ctx(ctx).Warn().Err(derr).Str("event_id", event.EventID).Msg("[Inbox] interceptInbound 出错，放行（不阻断业务）")
+	} else if decision != nil && decision.Blocked {
+		result.Accepted = true
+		result.QueuedForAI = false
+		result.Reason = fmt.Sprintf("intercepted by middleware: %s (self_echo=%v dup=%v)", decision.Reason, decision.IsSelfEcho, decision.IsDup)
+		logger.Ctx(ctx).Info().
+			Str("event_id", event.EventID).
+			Bool("self_echo", decision.IsSelfEcho).
+			Bool("dup", decision.IsDup).
+			Str("reason", decision.Reason).
+			Msg("[Inbox] 中间件拦截：消息被去重/回环拦截，不穿透业务层")
+		return result, nil
 	}
 
 	// 持久化到 message_hub（含时序锚点判断，见 persistMessage）
@@ -970,31 +975,20 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 	//   都先查「本平台已有同 content 的任意消息」→ 命中 → 视为「自/他回显」→ 幂等跳过。
 	//   2026-08-07 第九轮修复：第一道 GetByContentHash 限本会话（algo2 下跨会话同 canonicalHash）。
 	//   AI 回环防护由第二道 GetByPlatformContent（限 outbound，跨会话）兜底。
-	if s.hubRepo != nil && event.Content != "" && event.Channel != "" {
-		canonicalHash := ContentHashMsgID(event.Channel, event.ConversationID, event.Content)
-		// 第一道：按 canonical contentHash 直查（限本会话）
-		if existing, err := s.hubRepo.GetByContentHash(ctx, canonicalHash); err == nil && existing != nil && existing.ConversationID == event.ConversationID {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("canonical contentHash already exists in DB (self/echo); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
-			return result, nil
-		}
-		// 第二道：按 platform + content 直查（兜底，处理 canonicalHash 命中但方向语义不符/竞态等边界）
-		if existing, err := s.hubRepo.GetByPlatformContent(ctx, event.Channel, event.Content); err == nil && existing != nil {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("platform+content already exists in DB (self/echo dedup); skip. existing msg_id=%s direction=%s", existing.MsgID, existing.Direction)
-			return result, nil
-		}
-		// 归一化兜底（2026-08-07 修复）：DOM 中 AI 回复与 DB 落库内容可能有空格/换行差异，
-		// 精确 md5 匹配失败 → 回环去重失效 → AI 回复被当客户 inbound 入库 → 触发循环 AI。
-		// 去所有空白后比较，兼容 "安全。 需要" vs "安全。需要"。
-		if existing, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, event.Content); err == nil && existing != nil {
-			result.Accepted = true
-			result.QueuedForAI = false
-			result.Reason = fmt.Sprintf("normalized platform+content match (self/echo dedup); skip. existing msg_id=%s direction=%s conv=%s", existing.MsgID, existing.Direction, existing.ConversationID)
-			return result, nil
-		}
+	// 统一收件中间件（2026-08-09，批次版）：与单条版一致，渠道+发送者+内容 服务端权威去重 / 自他判定。
+	if decision, derr := s.interceptInbound(ctx, event); derr != nil {
+		logger.Ctx(ctx).Warn().Err(derr).Str("event_id", event.EventID).Msg("[Inbox] interceptInbound 出错，放行（不阻断业务）")
+	} else if decision != nil && decision.Blocked {
+		result.Accepted = true
+		result.QueuedForAI = false
+		result.Reason = fmt.Sprintf("intercepted by middleware: %s (self_echo=%v dup=%v)", decision.Reason, decision.IsSelfEcho, decision.IsDup)
+		logger.Ctx(ctx).Info().
+			Str("event_id", event.EventID).
+			Bool("self_echo", decision.IsSelfEcho).
+			Bool("dup", decision.IsDup).
+			Str("reason", decision.Reason).
+			Msg("[Inbox] 中间件拦截（批次）：消息被去重/回环拦截，不穿透业务层")
+		return result, nil
 	}
 
 	// 入库（含时序锚点判断）
@@ -1036,6 +1030,112 @@ func (s *InboxIngressService) handleIngressSingleForBatch(ctx context.Context, e
 //   - timestamp >= 锚点 → 正常追加（锚点之后）
 //
 // 注意：direction 不再硬编码为 inbound，按 event.Direction 透传（兼容 outbound 历史回填）。
+
+// ---------------------------------------------------------------------------
+// 统一收件中间件：渠道+发送者+内容 服务端权威去重 / 自他判定（拦截在业务层之前）
+// ---------------------------------------------------------------------------
+
+// resolveSenderKey 解析消息的物理发送者标识（用于去重键的发送者维度）。
+//   优先级：SenderName > SenderID > ConversationID（兜底，按会话隔离避免跨客户碰撞）> "unknown"。
+//   说明：上报数据在前端无法可靠获取发送者名称（自他消息不准确），但平台回传的 SenderID
+//   是真实客户/账号的物理标识（可靠）；仅"自/他标签"不可信，故自他由服务端 DB 回查判定。
+func (s *InboxIngressService) resolveSenderKey(event *model.MessageEvent) string {
+	if event.SenderName != "" {
+		return event.SenderName
+	}
+	if event.SenderID != "" {
+		return event.SenderID
+	}
+	if event.ConversationID != "" {
+		return event.ConversationID
+	}
+	return "unknown"
+}
+
+// resolveAccountID 从事件 Extra 中取账号（平台身份）。
+func resolveAccountID(event *model.MessageEvent) string {
+	if event.Extra != nil {
+		if v, ok := event.Extra["account_id"].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// senderKeyForDedup 计算消息的去重发送者键（渠道+发送者+内容 三元组的"发送者"维度）。
+//   核心：自他判定服务端权威，不信任前端 sender_type。
+//   - 平台自己发出的消息（sender_type=self/agent，即 AI/人工客服）一律归一为账号(platform 身份)，
+//     与出站(outbound)落库时填入的 senderKey=accountID 保持一致 → 回显时哈希匹配被识别为"自己消息"。
+//   - 其他（真实客户/上报不可信消息）使用物理发送者标识（SenderName/SenderID），本身即区分不同客户。
+func (s *InboxIngressService) senderKeyForDedup(event *model.MessageEvent) string {
+	sk := s.resolveSenderKey(event)
+	if event.SenderType == "self" || event.SenderType == "agent" {
+		if acc := resolveAccountID(event); acc != "" {
+			sk = acc
+		}
+	}
+	return sk
+}
+
+// interceptInbound 统一收件中间件：在消息落库/触发 AI 之前，依据「渠道+发送者+内容」唯一去重依据
+// 做服务端权威拦截，避免无效/重复/回环消息穿透业务层。
+//
+// 设计要点（对照用户诉求）：
+//   1) 去重依据 = 渠道 + 发送者名称 + 消息内容（ContentHashWithSender），前端后端共用同一算法。
+//   2) 自/他判定依赖数据库检查消息哈希，而非前端不可信的 sender_type：
+//      平台自己发出的消息必然先以 direction='outbound' 落库（AI/人工回复，SenderID=账号）。
+//      故"当前上报命中同 dedup_hash 的 outbound 行"即判定为自己消息回显（回环），拦截。
+//   3) 关键修复：去重键含发送者 → 「客户复述了 AI 的原话」因发送者不同哈希不同，
+//      不再被旧逻辑（仅按 platform+content 匹配 outbound）误判为回显而丢失客户消息。
+//   4) AI 返回的才是真正自己消息；前端上报的可能是自己也可能是他人 → 经 DB 哈希回查分别处理。
+//
+// 返回值：Blocked=true 时调用方应直接 ack 跳过，不落库、不触发 AI。
+func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model.MessageEvent) (*IngressDecision, error) {
+	if s.hubRepo == nil {
+		// 无 DB 不拦截（保持原行为，不阻断业务）
+		return &IngressDecision{}, nil
+	}
+	content := strings.TrimSpace(event.Content)
+	if content == "" || event.Channel == "" {
+		// 空内容消息不参与内容去重（保持原行为）
+		return &IngressDecision{}, nil
+	}
+
+	senderKey := s.senderKeyForDedup(event)
+	dedupHash := ContentHashWithSender(event.Channel, senderKey, content)
+
+	// 主路径：DB 权威回查 dedup_hash（含发送者）。
+	//   命中 outbound → 自己消息回显（回环）→ 拦截；
+	//   命中 inbound  → 同发送者同内容已存在（真实重复）→ 交由短窗去重处理（此处不直接拦，避免误删自然复述）。
+	if existing, err := s.hubRepo.GetByDedupHash(ctx, event.Channel, dedupHash); err == nil && existing != nil {
+		if existing.Direction == "outbound" {
+			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(outbound dedup_hash match)"}, nil
+		}
+	}
+
+	// 兜底（防御纵深）：AI 回复与 DB 落库内容可能有空格/换行差异导致精确哈希失配 → 回环失效。
+	//   归一化(去所有空白)后按 platform+content 匹配 outbound：
+	//   仅当上报发送者与出站发送者一致（或缺失不可区分 / 被明确标 self/agent）才判回显，
+	//   真实客户复述（发送者明显不同）则放行，避免误删客户消息。
+	if ob, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, content); err == nil && ob != nil {
+		if event.SenderID == "" || event.SenderID == ob.SenderID ||
+			event.SenderType == "self" || event.SenderType == "agent" {
+			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(normalized content+sender match)"}, nil
+		}
+	}
+
+	// 辅助防护：同(渠道,发送者,内容)短时(5min)重复投递去重（防同一条上报被重复落库穿透业务层）。
+	//   采用短窗而非永久去重：超过窗口的同内容会放行，保留客户自然的重复复述。
+	if s.cache != nil {
+		dupKey := InboxSenderContentDedupKey + dedupHash
+		if ok, derr := s.cache.SetNX(ctx, dupKey, "1", InboxContentDedupTTL); derr == nil && !ok {
+			return &IngressDecision{Blocked: true, IsDup: true, Reason: "duplicate(channel+sender+content) within window"}, nil
+		}
+	}
+
+	return &IngressDecision{}, nil
+}
+
 func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.MessageEvent) error {
 	if s.hubRepo == nil {
 		return nil
@@ -1095,6 +1195,9 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		SentAt:         sentAt,
 		Extra:          nil,
 	}
+	// 统一收件去重哈希（渠道+发送者+内容）：落库即写入，供 interceptInbound 服务端权威自/他判定与回环拦截。
+	// 发送者键复用 senderKeyForDedup（self/agent 归一为账号，与出站行一致），确保回显时哈希可被识别。
+	hub.DedupHash = ContentHashWithSender(event.Channel, s.senderKeyForDedup(event), strings.TrimSpace(event.Content))
 	// 全链路追踪：为消息分配 trace_id（inbound 起始新 trace；outbound 复用同会话最近 inbound 的 trace）
 	if hub.TraceID == "" {
 		if hub.Direction == "inbound" {
@@ -1476,6 +1579,27 @@ func (s *InboxIngressService) ListPendingOutboundLimit(ctx context.Context, chan
 		return nil, err
 	}
 	return list, nil
+}
+
+// InboxOutboundClaimTimeout inflight 行最大存活：超过则被 ClaimPendingOutbound 惰性回收为 pending。
+// 须大于单轮「下发+ack」时延（前端 pollInterval≈3s、发送+网络往返通常 < 数秒），留足余量。
+const InboxOutboundClaimTimeout = 30 * time.Second
+
+// ClaimPendingOutbound 服务端权威认领下发消息（根除重复转发）。详见 repository.ClaimPendingOutbound。
+// 由桥接 GetBridgeOutbox 调用，取代旧的「仅 SELECT pending 不排他」查询。
+func (s *InboxIngressService) ClaimPendingOutbound(ctx context.Context, channel, accountID string, limit int) ([]*model.MessageHub, error) {
+	if s.hubRepo == nil {
+		return nil, nil
+	}
+	rows, err := s.hubRepo.ClaimPendingOutbound(ctx, channel, accountID, limit, InboxOutboundClaimTimeout)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.MessageHub, 0, len(rows))
+	for i := range rows {
+		out = append(out, &rows[i])
+	}
+	return out, nil
 }
 
 // AckOutboundDelivered 将扩展确认已下发的出站消息标记为 delivered（通道B·状态上报）。

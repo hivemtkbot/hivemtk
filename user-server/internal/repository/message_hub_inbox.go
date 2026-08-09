@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -121,9 +122,51 @@ func (r *MessageHubRepository) AckOutboundDeliveredBatch(ctx context.Context, ch
 	}
 	res := r.db.WithContext(ctx).
 		Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status = 'pending'", channel, accountID, msgIDs).
+		// 翻转范围覆盖 pending 与 inflight：ack 可能在「认领→超时回收→重新认领」的间隙到达，
+		// 此时行已回退为 pending；两种状态都翻 delivered 保证幂等且绝不漏翻（at-least-once 安全）。
+		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND msg_id IN ? AND status IN ('pending','inflight')", channel, accountID, msgIDs).
 		Update("status", "delivered")
 	return res.RowsAffected, res.Error
+}
+
+// ClaimPendingOutbound 下发通道C 的服务端权威认领（根除重复转发）。
+//
+// 设计（at-least-once + claim 模式，复用 status 列，无需独立 goroutine）：
+//   1) 惰性回收：先把「status='inflight' 且 claimed_at 早于 now()-claimTimeout」的行回退为 pending
+//      （前端崩溃/ack 丢失导致永远卡在 inflight 的消息借此重生，重新下发）。
+//   2) 原子认领：把当前 status='pending' 的前 N 条（按 id ASC）一次性翻为 inflight 并写 claimed_at=now()，
+//      通过 UPDATE... RETURNING 保证「同一条不会被两次轮询同时认领」（即便多标签页并发轮询也互斥）。
+//
+// 对比旧实现（getOutbox 仅 SELECT status='pending' 不排他）：同一条 pending 在 fetch 与 ack 之间
+// 可被下一轮轮询重复拉取 → 依赖前端 SentCache 兜底（chrome.storage 异常即退化内存、崩溃即丢）→ 重复转发。
+// 本方法把"不重复下发"上移到服务端权威，SentCache 退为前端二次防御。
+//
+// 参数 limit 上限建议与前端 outboxBatchSize 对齐；claimTimeout 决定 inflight 行最大存活（须 > 单轮 下发+ack 时延）。
+func (r *MessageHubRepository) ClaimPendingOutbound(ctx context.Context, channel, accountID string, limit int, claimTimeout time.Duration) ([]model.MessageHub, error) {
+	if r == nil || r.db == nil || limit <= 0 {
+		return nil, nil
+	}
+	cutoff := time.Now().Add(-claimTimeout)
+	// 1) 回收超时 inflight → pending（惰性 reaper）。
+	if err := r.db.WithContext(ctx).
+		Model(&model.MessageHub{}).
+		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'inflight' AND claimed_at < ?", channel, accountID, cutoff).
+		Updates(map[string]any{"status": "pending", "claimed_at": nil}).Error; err != nil {
+		fmt.Printf("[ClaimPendingOutbound] 回收超时 inflight 失败（继续认领）: %v\n", err)
+	}
+	// 2) 原子认领 top-N pending → inflight。
+	list := make([]model.MessageHub, 0, limit)
+	const q = `UPDATE message_hub SET status = 'inflight', claimed_at = now()
+		WHERE id IN (
+			SELECT id FROM message_hub
+			WHERE platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'pending'
+			ORDER BY id ASC LIMIT ?
+		)
+		RETURNING *`
+	if err := r.db.WithContext(ctx).Raw(q, channel, accountID, limit).Scan(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 // GetByContentHash 按 canonical contentHash 获取消息（服务端权威去重 2026-08-07 修复）
@@ -231,6 +274,32 @@ func (r *MessageHubRepository) GetByPlatformAccountMsgID(ctx context.Context, pl
 	var existing model.MessageHub
 	err := r.db.WithContext(ctx).
 		Where("platform = ? AND account_id = ? AND msg_id = ?", platform, accountID, msgID).
+		First(&existing).Error
+	if err != nil {
+		return nil, err
+	}
+	return &existing, nil
+}
+
+// GetByDedupHash 按「渠道+发送者+内容」去重哈希查询最近一条消息。
+//
+// 这是统一收件自/他判定的服务端权威依据：message_hub 每行落库时都会写入 dedup_hash
+// （ContentHashWithSender(channel, senderKey, content)）。查询命中后由调用方根据 Direction
+// 区分：
+//   - direction='outbound' → 平台自己(AI/人工)曾发出过完全相同的(渠道,发送者,内容) → 当前上报
+//     是自己消息回显（回环）→ 拦截，避免 AI 二次触发死循环；
+//   - direction='inbound'  → 同一发送者同内容已存在 → 视为重复投递 → 拦截。
+//
+// 含发送者的哈希天然区分「AI 自己发的」与「客户复述了 AI 的原话」（二者发送者不同 → 哈希不同），
+// 因此不会再误删客户的复述消息。
+func (r *MessageHubRepository) GetByDedupHash(ctx context.Context, platform, dedupHash string) (*model.MessageHub, error) {
+	if r == nil || r.db == nil || dedupHash == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var existing model.MessageHub
+	err := r.db.WithContext(ctx).
+		Where("platform = ? AND dedup_hash = ?", platform, dedupHash).
+		Order("id DESC").
 		First(&existing).Error
 	if err != nil {
 		return nil, err

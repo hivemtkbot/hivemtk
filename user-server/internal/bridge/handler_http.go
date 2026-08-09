@@ -577,7 +577,9 @@ func (h *BridgeIngestHandler) HandleHTTPIngest(c *gin.Context) {
 					AIHandled: result.QueuedForAI,
 					Reason:    result.Reason,
 				}
-				if strings.Contains(result.Reason, "msg_id already exists") {
+				// 上报 ack 显式闭环：命中「幂等跳过 / 中间件拦截（回环回显 / 短时重复）」均标记 Duplicate，
+				// 前端据此关闭该 event_id 的重发计时器，不再重复上报（允许重复上报，但服务端用 ack 确认去重）。
+				if isIngestDuplicate(result.Reason) {
 					r.Duplicate = true
 				}
 				if result.SessionID != "" {
@@ -669,6 +671,27 @@ func writeOutboxJSON(c *gin.Context, hubs []*model.MessageHub) {
 }
 
 // GET /api/bridge/outbox?channel=<ch>&account_id=<acc>
+// isIngestDuplicate 判断上报结果原因是否属于「已被服务端幂等/拦截确认为重复」（允许重复上报，但 ack 标记去重）。
+// 命中则返回 true，前端据此将该 event_id 标记为已确认，停止重发。
+func isIngestDuplicate(reason string) bool {
+	if reason == "" {
+		return false
+	}
+	for _, kw := range []string{
+		"msg_id already exists", // 钩子2：msg_id 已落库（幂等跳过）
+		"intercepted",           // 统一收件中间件拦截（回环回显 / 短时重复）
+		"echo",                  // 自/他回显
+		"duplicate",             // 重复投递
+		"skip",                  // 跳过
+		"already exists",        // 兜底：任意已存在
+	} {
+		if strings.Contains(reason, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 	channel := c.Query("channel")
 	accountID := c.Query("account_id")
@@ -686,7 +709,8 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 			if n > 200 {
 				n = 200
 			}
-			hubs, err := h.ingress.ListPendingOutboundLimit(ctx, channel, accountID, n)
+			// 服务端权威认领：pending→inflight（原子），根除同一条被两轮轮询重复拉取→重复转发。
+			hubs, err := h.ingress.ClaimPendingOutbound(ctx, channel, accountID, n)
 			if err != nil {
 				logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutboundLimit failed")
 				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})
@@ -698,7 +722,8 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 			return
 		}
 	}
-	hubs, err := h.ingress.ListPendingOutbound(ctx, channel, accountID)
+	// 服务端权威认领：pending→inflight（原子），根除重复转发。
+	hubs, err := h.ingress.ClaimPendingOutbound(ctx, channel, accountID, 50)
 	if err != nil {
 		logger.Ctx(ctx).Error().Err(err).Str("module", "bridge").Str("channel", channel).Msg("[Bridge] ListPendingOutbound failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "query outbox failed"})

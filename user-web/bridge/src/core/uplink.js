@@ -34,6 +34,54 @@ export class Uplink {
     this.buffers = new Map(); // key -> { items: UnifiedMessage[], timer }
     this.mergeWindowMs = BRIDGE_THREE_CHANNEL.uplinkMergeWindowMs;
     this.maxBatch = BRIDGE_THREE_CHANNEL.uplinkMaxBatch;
+    // 上报 ack 客户端闭环：持久化已确认(event_id)集合，刷新/重载后不再重复上行已确认消息。
+    // 服务端仍是权威去重（钩子2 + 中间件），此为前端二次防御，降低冗余请求；降级：storage 不可用时退化为不持久化。
+    this._confirmed = new Set();
+    this._confirmedLoaded = false;
+  }
+
+  // _loadConfirmed 从 chrome.storage.local 载入已确认集合（幂等 ack 闭环，跨刷新保留）。
+  async _loadConfirmed() {
+    if (this._confirmedLoaded) return;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const r = await chrome.storage.local.get('mtk_uplink_confirmed');
+        const arr = (r && r.mtk_uplink_confirmed) || [];
+        if (Array.isArray(arr)) this._confirmed = new Set(arr);
+      }
+    } catch (_) {
+      // 降级：保留内存空集合，行为同旧版（仅依赖服务端去重）
+    }
+    this._confirmedLoaded = true;
+  }
+
+  // _saveConfirmed 持久化已确认集合（限制规模防爆增）。
+  async _saveConfirmed() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        if (this._confirmed.size > 5000) {
+          this._confirmed = new Set([...this._confirmed].slice(-2000));
+        }
+        await chrome.storage.local.set({ mtk_uplink_confirmed: [...this._confirmed] });
+      }
+    } catch (_) {
+      // 降级：忽略持久化失败
+    }
+  }
+
+  // _markConfirmedFromResponse 上报 ack：把服务端确认(accepted/duplicate)的 event_id 记入已确认集合。
+  _markConfirmedFromResponse(resp, items) {
+    if (!resp || !Array.isArray(resp.ingested)) return;
+    const byEvent = new Map();
+    for (const it of items) {
+      if (it.event_id) byEvent.set(it.event_id, true);
+    }
+    for (const r of resp.ingested) {
+      if (r && (r.accepted || r.duplicate) && r.event_id && byEvent.has(r.event_id)) {
+        this._confirmed.add(r.event_id);
+      }
+    }
+    if (this._confirmed.size) this._saveConfirmed();
   }
 
   // enqueue 推入一条消息（customer / self / agent 均走此统一入口）
@@ -85,7 +133,11 @@ export class Uplink {
     }
     const items = buf.items;
     if (!items.length) return;
-    const sample = items[0];
+    // 上报 ack 闭环：载入已确认集合后过滤掉服务端已确认(event_id)的消息，避免重复上行。
+    await this._loadConfirmed();
+    const pending = items.filter((m) => !(m.event_id && this._confirmed.has(m.event_id)));
+    if (!pending.length) return;
+    const sample = pending[0];
     let cfg = {};
     try {
       cfg = (await this.getConfig()) || {};
@@ -104,7 +156,7 @@ export class Uplink {
       account_name: '',
       agent_id: 0,
       // 多条消息包成 messages[]：服务端按 msg_id 去重 + 逐条落库
-      messages: items.map((m) => ({
+      messages: pending.map((m) => ({
         event_id: m.event_id || '',
         channel: m.channel || ch,
         account_id: accountId,
@@ -124,9 +176,9 @@ export class Uplink {
       })),
       timeout_ms: HTTP_INGEST_DEFAULTS.longPollTimeoutMs,
     };
-    const label = `[上行 ingest 合并 ×${items.length}]`;
+    const label = `[上行 ingest 合并 ×${pending.length}]`;
     try {
-      await postIngest(
+      const resp = await postIngest(
         {
           serverUrl: cfg.serverUrl || DEFAULT_USER_SERVER.baseUrl,
           channel: ch,
@@ -141,6 +193,8 @@ export class Uplink {
           ...(this.retryOpts || {}),
         }
       );
+      // 上报 ack：把服务端确认(accepted/duplicate)的 event_id 记入已确认集合（闭环，避免重复上行）
+      this._markConfirmedFromResponse(resp, pending);
     } catch (e) {
       // 失败不抛：postIngest 自带退避重试；此处仅记录，避免污染调用栈
     }

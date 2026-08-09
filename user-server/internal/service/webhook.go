@@ -2163,6 +2163,33 @@ func ContentHashMsgID(channel, conversationID, content string) string {
 	return fmt.Sprintf("mh:%08x", h.Sum32())
 }
 
+// ContentHashWithSender 统一收件去重哈希（渠道 + 发送者名称 + 消息内容）。
+//
+// 这是「渠道+发送者+消息内容」唯一去重依据的权威实现，前端（types.js::sharedContentHash）
+// 与后端必须逐字节一致：
+//   - 算法：FNV-1a 32 位，输入 channel|senderName|TrimSpace(content)，UTF-8 字节
+//   - 输出：mh:<8位hex>
+//
+// 设计要点（与 ContentHashMsgID 的区别）：
+//   - ContentHashMsgID 仅含渠道+内容，无法区分「AI 自己发的」与「客户复述了 AI 的原话」，
+//     会导致客户复述被误判为回显而丢失（回环去重误杀）。
+//   - 本函数把发送者纳入哈希，使「平台自己发出的消息」与「客户发的消息」拥有不同的去重键，
+//     从而真正基于 (渠道,发送者,内容) 三元组做去重/自他判定。
+//
+// 发送者名称以服务端权威判定为准（见 inbox_ingress.senderKeyForDedup）：前端 patrol 上报的
+// sender_type/sender_name 不可信（无法可靠分辨自他），服务端在入库前通过 DB 回查 message_hub
+// 出站(outbound)行判定「自己消息」，再以账号(platform 身份)回填发送者，保证自/他区分不依赖前端标签。
+//
+// 注意：content 仍做 TrimSpace（与 ContentHashMsgID 保持一致，兼容首尾空白差异），
+// 但严禁加入 conversationID——跨会话同内容(不同发送者)必须可区分，且复合唯一索引
+// (msg_id, conversation_id) 已为跨会话同内容留出空间。
+func ContentHashWithSender(channel, senderName, content string) string {
+	s := channel + "|" + senderName + "|" + strings.TrimSpace(content)
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return fmt.Sprintf("mh:%08x", h.Sum32())
+}
+
 // sendOutbound 出站发送（按 channel）；ctx 用于透传 trace_id（来自 triggerSmartOrchestrator / 回退链路）
 func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChannel, accountID string, p *ParsedPayload, content string, hubMsg *model.MessageHub, cards []model.RichCard) {
 	// 幂等守卫：与 AgentRuntime 事件总线订阅共享同一 EventID 守卫。
@@ -2305,6 +2332,9 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 				SentAt:         time.Now(),
 			}
 			outMsg.TraceID = tracing.LinkOutboundTraceID(ctx, hubMsg.ConversationID)
+			// 统一收件去重哈希（渠道+发送者+内容）：出站行的发送者键归一为账号(platform 身份)，
+			// 与 interceptInbound 对回显消息(senderKey 同为账号)的计算一致 → 回显时哈希匹配被识别为"自己消息"。
+			outMsg.DedupHash = ContentHashWithSender(string(channel), accountID, content)
 			// 2026-08-07 根因修复（pending 堆积治理）：桥接 AI 回复落库前拦截「不可达目标」。
 			// 占位账号(<channel>-unknown)与昵称派生会话(conv:<名>)永远无法被扩展投递，
 			// enqueue 到 pending 队列只会成为永久孤儿、污染下发监控。改为标记 failed（统一收件箱仍可见）。
@@ -2343,6 +2373,7 @@ func (s *WebhookService) sendOutbound(ctx context.Context, channel WebhookChanne
 					IsRead:         outMsg.IsRead,
 					SentAt:         outMsg.SentAt,
 					TraceID:        outMsg.TraceID,
+					DedupHash:      outMsg.DedupHash, // 与 outMsg 完全一致（同渠道+同账号+同内容）
 				}
 				if err2 := s.db.Create(retryMsg).Error; err2 != nil {
 					logger.Ctx(ctx).Warn().Err(err).Str("module", "bridge").Str("channel", string(channel)).Msg("failed to persist bridge outbound reply to message_hub")
