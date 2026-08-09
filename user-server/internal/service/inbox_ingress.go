@@ -154,6 +154,8 @@ type InboxIngressService struct {
 	triggerCh chan string // 触发 AgentRuntime 处理通知（可选，保留兼容）
 	aiTrigger AITrigger   // 入站消息触发 AI 客服的实现（桥接场景为 WebhookService）
 	inboxSvc  *InboxService // 统一收件箱会话同步（桥接消息落库后同步到 inbox_conversations）
+	// leadMiningSvc 线索发掘服务（非侵入异步）：消息落库成功后投递，绝不阻塞/入侵核心业务
+	leadMiningSvc *Service
 }
 
 // NewInboxIngressService 构造入站服务(无参,内部用 dbUtil.GetDB())
@@ -195,6 +197,11 @@ func (s *InboxIngressService) SetAITrigger(t AITrigger) {
 // 未注入时跳过同步（降级为仅 message_hub 落库），不影响主链路。
 func (s *InboxIngressService) SetInboxService(svc *InboxService) {
 	s.inboxSvc = svc
+}
+
+// SetLeadMining 注入线索发掘服务。未注入时跳过（降级，不影响主链路）。
+func (s *InboxIngressService) SetLeadMining(svc *Service) {
+	s.leadMiningSvc = svc
 }
 
 // IsSessionHumanLocked 检查会话是否被人工接管
@@ -1110,6 +1117,19 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 		hub.Extra["history"] = event.History
 	}
 
+	// 非侵入钩子：消息成功落库后，异步投递线索发掘（不阻塞/不入侵核心业务）。
+	// 用 persisted 标记仅在落库成功时触发一次；defer + recover 保证任何异常都不影响主链路。
+	var persisted bool
+	defer func() {
+		if !persisted || hub == nil || s.leadMiningSvc == nil {
+			return
+		}
+		func() {
+			defer func() { _ = recover() }()
+			s.leadMiningSvc.Enqueue(hub)
+		}()
+	}()
+
 	// 分布式排他锁：同一会话并发入库串行，保证入库不重复（前端不断上报 / 多实例时幂等）
 	//   锁内完成：时序锚点读取 + 跨表事务写入；处理完毕才释放（ReleaseLock 仅删除持有者自己的锁）。
 	//   DB msg_id 唯一约束仍作最终兜底（并发极小概率下锁获取失败后降级直接执行）。
@@ -1139,9 +1159,10 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 						event.EventID, event.SessionID)
 					return nil
 				}
-				return uerr
-			}
-			// 节点1 上报接入：入参（渠道/账号/会话/发送者/内容）→ 出参（落库 id/status）
+			return uerr
+		}
+		persisted = true
+		// 节点1 上报接入：入参（渠道/账号/会话/发送者/内容）→ 出参（落库 id/status）
 			tracing.RecordNode(ctx, tracing.NodeSpan{
 				TraceID:        hub.TraceID,
 				ConversationID: hub.ConversationID,
@@ -1193,6 +1214,7 @@ func (s *InboxIngressService) persistMessage(ctx context.Context, event *model.M
 			}
 			return cerr
 		}
+		persisted = true
 		// 节点1 上报接入（outbound 历史回填 / inboxSvc 未注入路径，无收件箱同步）
 		tracing.RecordNode(ctx, tracing.NodeSpan{
 			TraceID:        hub.TraceID,

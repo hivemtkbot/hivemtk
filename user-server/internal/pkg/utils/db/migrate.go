@@ -288,6 +288,8 @@ func allModels() []any {
 		&model.RagRecallMonitorSnapshot{},
 		// G7 反馈学习闭环：反馈记录落库表（FeedbackLearner.RecordFeedback 持久化载体）
 		&model.FeedbackRecordORM{},
+	// 线索发掘配置（单例）
+	&model.LeadMiningConfig{},
 	// 安全审计（系统设置 → 安全审计）
 	&model.SecurityAudit{},
 	&model.SecurityAuditItem{},

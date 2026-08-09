@@ -81,6 +81,13 @@ func setupClueRoutes(auth *gin.RouterGroup) {
 	auth.POST("/clue/engagement", clueScoreCtrl.RecordEngagement)
 }
 
+// setupLeadMiningRoutes 线索发掘路由
+func setupLeadMiningRoutes(auth *gin.RouterGroup) {
+	ctrl := controller.NewLeadMiningController()
+	auth.GET("/lead-mining/config", ctrl.GetConfig)
+	auth.POST("/lead-mining/config", ctrl.SaveConfig)
+}
+
 // setupCustomerRFMRoutes 客户 RFM 路由
 func setupCustomerRFMRoutes(auth *gin.RouterGroup) {
 	rfmCtrl := controller.NewCustomerRFMController()

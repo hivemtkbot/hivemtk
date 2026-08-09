@@ -80,6 +80,9 @@ type ClueType struct {
 	Label string `json:"label"`
 }
 
+// ClueTypeLeadMining 智能线索发掘（由线索发掘服务写入 clues 表，type=8）
+const ClueTypeLeadMining int64 = 8
+
 // clueTypeMap 预定义的线索类型映射（与前端 utils/map.js 保持一致）
 var clueTypeMap = map[int64]string{
 	1: "QQ",
@@ -88,6 +91,7 @@ var clueTypeMap = map[int64]string{
 	4: "Telegram",
 	5: "Whatsapp",
 	6: "twitter",
+	8: "智能线索发掘",
 }
 
 // defaultClueTypes 默认线索类型列表
@@ -98,6 +102,7 @@ var defaultClueTypes = []ClueType{
 	{Value: "4", Label: "Telegram"},
 	{Value: "5", Label: "Whatsapp"},
 	{Value: "6", Label: "twitter"},
+	{Value: "8", Label: "智能线索发掘"},
 }
 
 // GetClueTypes 获取线索类型列表

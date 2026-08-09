@@ -280,6 +280,8 @@ func Setup(r *gin.Engine) {
 
 		// 线索管理
 		setupClueRoutes(auth)
+		// 线索发掘
+		setupLeadMiningRoutes(auth)
 
 		// 客户 RFM 联动分层
 		setupCustomerRFMRoutes(auth)
@@ -402,6 +404,8 @@ func Setup(r *gin.Engine) {
 		if bridgeIngressSvc != nil {
 			bridgeIngressSvc.SetInboxService(service.NewInboxService())
 			logger.Infof("[Bridge] bridge InboxService 已注入（统一收件箱会话同步已连通）")
+			bridgeIngressSvc.SetLeadMining(service.NewLeadMiningService())
+			logger.Infof("[Bridge] bridge LeadMining 已注入（线索发掘异步监听已连通）")
 		}
 
 		// 客服 Web Widget 渠道管理（前端 ChatChannel.vue 列表/创建/编辑依赖）
