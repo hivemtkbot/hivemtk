@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	sysmodel "marketing/internal/model"
 	"marketing/internal/ops/model"
 	opsrepo "marketing/internal/ops/repository"
@@ -286,8 +287,12 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 		Cnt int64
 	}
 	var clueDays, orderDays []dayRow
-	gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM clues WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&clueDays)
-	gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM "order" WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&orderDays)
+	if err := gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM clues WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&clueDays).Error; err != nil {
+		log.Printf("[dashboard] GetDashboardData 线索趋势查询失败: %v", err)
+	}
+	if err := gormDB.Raw(`SELECT to_char(to_timestamp(create_time), 'MM-DD') AS day, COUNT(*) AS cnt FROM "order" WHERE create_time >= ? GROUP BY day ORDER BY day`, thirtyDaysAgo.Unix()).Scan(&orderDays).Error; err != nil {
+		log.Printf("[dashboard] GetDashboardData 成单趋势查询失败: %v", err)
+	}
 	clueMap := make(map[string]int64, len(clueDays))
 	orderMap := make(map[string]int64, len(orderDays))
 	for _, r := range clueDays {
@@ -316,7 +321,9 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 		Value int64
 	}
 	var chRows []kvRow
-	gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&chRows)
+	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(source_id, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&chRows).Error; err != nil {
+		log.Printf("[dashboard] GetDashboardData 渠道分布查询失败: %v", err)
+	}
 	for _, r := range chRows {
 		agg.Channels = append(agg.Channels, NameValue{Name: r.Name, Value: r.Value})
 	}
@@ -330,7 +337,9 @@ func (s *DashboardScreenService) AggregateDashboardData() (*DashboardAggregate, 
 
 	// 地区分布（按线索 city）
 	var regRows []kvRow
-	gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&regRows)
+	if err := gormDB.Raw(`SELECT COALESCE(NULLIF(city, ''), '未知') AS name, COUNT(*) AS value FROM clues GROUP BY name ORDER BY value DESC`).Scan(&regRows).Error; err != nil {
+		log.Printf("[dashboard] GetDashboardData 地区分布查询失败: %v", err)
+	}
 	for _, r := range regRows {
 		agg.Regions = append(agg.Regions, NameValue{Name: r.Name, Value: r.Value})
 	}
