@@ -20,6 +20,7 @@ import (
 	"marketing/internal/middleware"
 	"marketing/internal/migration"
 	"marketing/internal/migration/migrations"
+	"marketing/internal/pkg/tracing"
 	"marketing/internal/pkg/utils/config"
 	"marketing/internal/pkg/utils/db"
 	"marketing/internal/pkg/utils/logger"
@@ -254,6 +255,9 @@ func main() {
 	traceBus := llm.InitGlobalTraceBus()
 	defer traceBus.Stop()
 	logger.Info("[M-3] global trace bus started")
+
+	// 业务追踪 sink 优雅停机：进程退出前排空缓冲区落库，避免丢 trace（endless 在 SIGTERM 后正常返回，defer 会执行）。
+	defer tracing.Stop()
 
 	// 3) SSE 实时驾驶舱 Hub
 	sseHub := service.InitGlobalSSEHub()

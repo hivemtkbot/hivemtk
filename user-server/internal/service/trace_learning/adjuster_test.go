@@ -9,20 +9,25 @@ import (
 func TestWeightAction(t *testing.T) {
 	cfg := DefaultConfig()
 	cases := []struct {
-		name   string
-		score  int
-		bad    bool
-		safety float64
-		want   string
+		name          string
+		score         int
+		bad           bool
+		safety        float64
+		safetyPresent bool
+		want          string
 	}{
-		{"低分差", 30, false, 80, "decay"},
-		{"LLM标差(即使高分)", 78, true, 90, "decay"},
-		{"safety违规强制差", 95, false, 65, "decay"},
-		{"高分好", 90, false, 100, "boost"},
-		{"中间分不变", 70, false, 100, "none"},
+		{"低分差", 30, false, 80, true, "decay"},
+		{"LLM标差(即使高分)", 78, true, 90, true, "decay"},
+		{"safety违规强制差", 95, false, 65, true, "decay"},
+		{"高分好", 90, false, 100, true, "boost"},
+		{"中间分不变", 70, false, 100, true, "none"},
+		// 安全维度缺失（0 默认值，safetyPresent=false）不误判为"不安全"。
+		{"缺失safety不误判为差", 90, false, 0, false, "boost"},
+		// 安全维度显式给出 0 仍视为不安全（LLM 真判了最低分）。
+		{"安全维度显式0仍判差", 90, false, 0, true, "decay"},
 	}
 	for _, c := range cases {
-		assert.Equal(t, c.want, weightAction(c.score, c.bad, c.safety, cfg), c.name)
+		assert.Equal(t, c.want, weightAction(c.score, c.bad, c.safety, c.safetyPresent, cfg), c.name)
 	}
 }
 

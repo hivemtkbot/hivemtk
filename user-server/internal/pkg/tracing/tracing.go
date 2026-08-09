@@ -94,6 +94,8 @@ var (
 	sinkOnce  sync.Once
 	dropped   int64
 	published int64
+	stopCh    chan struct{}
+	stopDone  chan struct{}
 )
 
 const sinkBuffer = 8192
@@ -132,6 +134,8 @@ type pendingSpan struct {
 func Init(d *gorm.DB) {
 	sinkOnce.Do(func() {
 		spanCh = make(chan pendingSpan, sinkBuffer)
+		stopCh = make(chan struct{})
+		stopDone = make(chan struct{})
 		go flushLoop(d)
 	})
 }
@@ -168,7 +172,40 @@ func flushLoop(d *gorm.DB) {
 			}
 		case <-ticker.C:
 			flush()
+		case <-stopCh:
+			// 优雅退出：排空缓冲区内剩余 span 后落库，避免进程退出丢 trace。
+			for {
+				select {
+				case span := <-spanCh:
+					batch = append(batch, toModelFromPending(span))
+					if len(batch) >= 200 {
+						flush()
+					}
+				default:
+					flush()
+					close(stopDone)
+					return
+				}
+			}
 		}
+	}
+}
+
+// Stop 优雅停止后台落库 worker：排空缓冲区并做最后一次批量落库，确保进程退出不丢 trace。
+// 幂等：重复调用安全；未 Init（spanCh 为 nil）时直接返回。
+func Stop() {
+	if spanCh == nil {
+		return
+	}
+	select {
+	case <-stopCh:
+	default:
+		close(stopCh)
+	}
+	select {
+	case <-stopDone:
+	case <-time.After(3 * time.Second):
+		// 兜底超时：DB 不可用时不在退出流程上无限阻塞。
 	}
 }
 
@@ -320,6 +357,7 @@ type Span struct {
 	input     any
 	output    any
 	expected  string
+	abnormal  string
 	start     time.Time
 }
 
@@ -374,6 +412,10 @@ func (s *Span) Tool(name string) *Span { s.tool = name; return s }
 // Agent 设置智能体 ID。
 func (s *Span) Agent(id string) *Span { s.agent = id; return s }
 
+// Abnormal 设置该 span 异常时的原因详情（空 abnormal 时若发生错误则回退为错误信息），
+// 会被持久化到 message_trace.abnormal 列，在监控 Lifecycle / trace-tree 中展示。
+func (s *Span) Abnormal(reason string) *Span { s.abnormal = reason; return s }
+
 // End 结束 span 并异步投递。output/err 一般来自业务逻辑返回值。
 func (s *Span) End(output any, err error) {
 	dur := time.Since(s.start).Milliseconds()
@@ -407,6 +449,10 @@ func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 	if parent == "" && kind != model.SpanKindLifecycle {
 		parent = NodeAIDispatch
 	}
+	ab := s.abnormal
+	if ab == "" && errStr != "" {
+		ab = errStr
+	}
 	return pendingSpan{
 		carrier:        c,
 		traceID:        tid,
@@ -422,6 +468,7 @@ func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 		durationMs:     dur,
 		expected:       s.expected,
 		status:         status,
+		abnormal:       ab,
 		errorStr:       errStr,
 		parentNode:     parent,
 		spanKind:       kind,
@@ -481,9 +528,9 @@ type NodeSpan struct {
 
 // 节点状态常量（兼容既有调用点 tracing.StatusOk / tracing.StatusAbnormal）。
 const (
-	StatusOk        = "ok"
-	StatusAbnormal  = "abnormal"
-	StatusFailed    = "failed"
+	StatusOk       = "ok"
+	StatusAbnormal = "abnormal"
+	StatusFailed   = "failed"
 )
 
 // RecordNode 记录一个生命周期节点 span（异步非阻塞）。
@@ -572,12 +619,13 @@ func ReportToolCall(ctx context.Context, ev ToolTraceEvent) {
 		output:         ev.Output,
 		durationMs:     ev.DurationMs,
 		status:         status,
+		abnormal:       ev.Error,
 		errorStr:       ev.Error,
 		parentNode:     NodeAIDispatch,
 		spanKind:       kind,
-		turnIndex:     ev.TurnIndex,
+		turnIndex:      ev.TurnIndex,
 		toolName:       ev.ToolName,
-		agentID:       ev.AgentID,
+		agentID:        ev.AgentID,
 	})
 }
 

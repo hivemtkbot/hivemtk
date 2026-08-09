@@ -9,11 +9,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"gorm.io/gorm"
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
 	"marketing/internal/pkg/tracing"
 	"marketing/internal/pkg/utils/logger"
-	"gorm.io/gorm"
 )
 
 // adjustMu 跨 trace 并发评估时，串行化「权重调整」这一段快路径，避免两个不同 trace 召回同一
@@ -72,8 +72,23 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 		return nil, fmt.Errorf("trace 不存在: %s", traceID)
 	}
 	res, err := Evaluate(ctx, s.dispatcher, s.cfg, agg)
+	skipAdjust := false
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrNoEvaluableContent) {
+			// 确定性不可评估（缺 query/reply）：记为已评估并跳过调权，避免 cron 每轮重试空耗 LLM/DB。
+			if dryRun {
+				return nil, nil
+			}
+			skipAdjust = true
+			res = &EvalResult{
+				Score:      0,
+				Bad:        false,
+				Reason:     "跳过：" + err.Error(),
+				Dimensions: map[string]float64{},
+			}
+		} else {
+			return nil, err
+		}
 	}
 	dimJSON, _ := json.Marshal(res.Dimensions)
 
@@ -110,7 +125,7 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 		alreadyEvaluated := existing.ID != 0
 
 		var adjusted []AdjustedChunk
-		if len(agg.RecalledChunkIDs) > 0 && !alreadyEvaluated {
+		if len(agg.RecalledChunkIDs) > 0 && !alreadyEvaluated && !skipAdjust {
 			// 注意：必须用 `=` 赋值给外层 adjusted，不能用 `:=` 否则会遮蔽外层变量，
 			// 导致下面写入审计日志的 adjusted_chunks 恒为 null（权重其实已调，但审计丢失）。
 			// 跨 trace 并发时不同 trace 可能召回同一 chunk，故用全局 adjustMu 串行化调权，避免丢失更新。
@@ -260,7 +275,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 
 // BatchResult RunBatch 处理结果
 type BatchResult struct {
-	Processed int                    // 实际评估条数
+	Processed int                   // 实际评估条数
 	Previews  []*model.TraceEvalLog // dryRun 时的预览列表（不落库）
 }
 

@@ -3,6 +3,7 @@ package trace_learning
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -20,11 +21,19 @@ const evalSystemPrompt = `你是企业知识库客服质量评估专家。给定
 
 var jsonBlockRe = regexp.MustCompile(`(?s)\{[\s\S]*\}`)
 
+// ErrNoEvaluableContent 表示 trace 聚合后缺少可评估的 query/reply（确定性、不可恢复），
+// 调用方应据此标记为「已评估并跳过」，避免 cron 每轮重试空耗 LLM/DB。
+var ErrNoEvaluableContent = errors.New("trace 缺少可评估的 query/reply")
+
 // Evaluate 调用 LLM 对聚合后的 trace 打分。
 func Evaluate(ctx context.Context, dispatcher *llm.Dispatcher, cfg Config, agg *AggregatedTrace) (*EvalResult, error) {
 	ctx = ensureCtx(ctx)
 	if agg == nil || agg.Query == "" || agg.Reply == "" {
-		return nil, fmt.Errorf("trace 缺少可评估的 query/reply")
+		var q, r string
+		if agg != nil {
+			q, r = agg.Query, agg.Reply
+		}
+		return nil, fmt.Errorf("%w: query=%q reply=%q", ErrNoEvaluableContent, q, r)
 	}
 	userPrompt := fmt.Sprintf("【用户问题】\n%s\n\n【AI 客服回复】\n%s", agg.Query, agg.Reply)
 	req := llm.DispatchRequest{

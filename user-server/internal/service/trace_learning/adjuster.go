@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"marketing/internal/pkg/utils/logger"
 	"gorm.io/gorm"
+	"marketing/internal/pkg/utils/logger"
 )
 
 // AdjustedChunk 单次权重调整记录
@@ -23,9 +23,10 @@ type AdjustedChunk struct {
 //   - LLM 标记的 bad（语义差，含任一维度<50 或 safety<70）；
 //   - 数值阈值（score<BadThreshold 视为差、score>=GoodThreshold 视为好）；
 //   - 硬性合规门槛：safety 维度<70 直接判差（防止 LLM 漏标合规风险）。
-func weightAction(score int, bad bool, safety float64, cfg Config) string {
+func weightAction(score int, bad bool, safety float64, safetyPresent bool, cfg Config) string {
 	isBad := bad || score < cfg.BadThreshold
-	if safety > 0 && safety < 70 {
+	// 安全维度：仅当 LLM 显式给出 safety 维度时才判定为差，缺失维度（0 默认值）不误判为"不安全"。
+	if safetyPresent && safety < 70 {
 		isBad = true
 	}
 	if isBad {
@@ -63,7 +64,8 @@ func AdjustWeights(ctx context.Context, db *gorm.DB, chunkIDs []string, res Eval
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	action := weightAction(res.Score, res.Bad, res.Dimensions["safety"], cfg)
+	safety, safetyPresent := res.Dimensions["safety"]
+	action := weightAction(res.Score, res.Bad, safety, safetyPresent, cfg)
 	adjusted := make([]AdjustedChunk, 0, len(rows))
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, r := range rows {
@@ -107,7 +109,8 @@ func PreviewAdjustments(ctx context.Context, db *gorm.DB, chunkIDs []string, res
 	if err := db.WithContext(ctx).Table("knowledge_chunks").Select("id, weight").Where("id IN ?", ids).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	action := weightAction(res.Score, res.Bad, res.Dimensions["safety"], cfg)
+	safety, safetyPresent := res.Dimensions["safety"]
+	action := weightAction(res.Score, res.Bad, safety, safetyPresent, cfg)
 	adjusted := make([]AdjustedChunk, 0, len(rows))
 	for _, r := range rows {
 		oldW := r.Weight
