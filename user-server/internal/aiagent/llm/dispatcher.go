@@ -929,7 +929,9 @@ func (d *Dispatcher) callProvider(ctx context.Context, provider *ProviderConfig,
 
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
-		maxTokens = 1000
+		// 推理模型（reasoning）在 reasoning 阶段需占用较多 token，过小的上限会截断到空回复。
+		// 基线 max_tokens≥2048（与 SalesEngine.runAgentLoop 默认对齐），避免非 Agent 路径被截断。
+		maxTokens = 2048
 	}
 	temperature := req.Temperature
 	if temperature <= 0 {

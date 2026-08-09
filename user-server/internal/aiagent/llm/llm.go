@@ -610,7 +610,8 @@ func (s *LLMService) ValidateConfig(config *LLMConfig) error {
 		return fmt.Errorf("temperature must be between 0 and 2")
 	}
 	if config.MaxTokens <= 0 {
-		config.MaxTokens = 1000
+		// 推理模型 reasoning 阶段占用较多 token，过小上限会截断到空回复；基线 2048。
+		config.MaxTokens = 2048
 	}
 	return nil
 }
@@ -655,7 +656,7 @@ func (s *LLMService) GetDefaultConfig() *LLMConfig {
 		MaxRetries:       3,
 		RequestTimeout:   60,
 		Temperature:      0.7,
-		MaxTokens:        1000,
+		MaxTokens:        2048,
 		TopP:             0.9,
 		FrequencyPenalty: 0.5,
 		PresencePenalty:  0.5,

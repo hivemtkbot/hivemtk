@@ -1232,7 +1232,12 @@ func (e *SalesEngine) runAgentLoop(
 		if err != nil {
 			return "", nil, nil, err
 		}
-		return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, nil, nil
+		content := strings.TrimSpace(result.Content)
+		if content == "" {
+			// 无工具分支：LLM 返回空内容时同样降级，避免空白回复。
+			content = e.emptyReplyFallback()
+		}
+		return e.calibrate(ctx, content, targetLang), result, nil, nil
 	}
 
 	// 2. 构造初始 messages（system + user）
@@ -1344,10 +1349,20 @@ func (e *SalesEngine) runAgentLoop(
 				logger.Warnf("[AgentLoop] iter=%d 推理模型耗尽 token(content 为空)，重试: max_tokens=%d（保留工具）", iter, curMaxTokens)
 				continue
 			}
-			// LLM 给出最终文本回复，结束循环
+			// LLM 给出最终文本回复，结束循环。
+			content := strings.TrimSpace(result.Content)
+			if content == "" {
+				// 最终文本回复为空（非 length 截断重试场景）：视为一次失败并记录首错，
+				// 跳出到下方降级逻辑，避免向用户返回空白回复（铁律：LLM 返回空必须兜底）。
+				if firstLLMError == nil {
+					firstLLMError = fmt.Errorf("LLM returned empty final content (finish_reason=%s)", result.FinishReason)
+				}
+				logger.Warnf("[AgentLoop] iter=%d 最终文本回复为空(finish_reason=%s)，降级处理", iter, result.FinishReason)
+				break
+			}
 			logger.Infof("[AgentLoop] iter=%d finish_reason=%s content_len=%d tools_called=%d",
-				iter, result.FinishReason, len(result.Content), totalToolCalls)
-			return e.calibrate(ctx, strings.TrimSpace(result.Content), targetLang), result, collectedCards, nil
+				iter, result.FinishReason, len(content), totalToolCalls)
+			return e.calibrate(ctx, content, targetLang), result, collectedCards, nil
 		}
 
 		// 3.3 LLM 决定调用工具：将 assistant 消息（含 tool_calls）追加到对话历史
@@ -1409,9 +1424,10 @@ func (e *SalesEngine) runAgentLoop(
 		totalToolCalls, lastResult != nil, firstLLMError)
 	if lastResult != nil {
 		content := strings.TrimSpace(lastResult.Content)
-		if content == "" && firstLLMError != nil {
-			// LLM 曾成功响应但内容为空，且有错误：返回降级提示
-			content = "抱歉，我暂时无法处理您的请求，请稍后再试。"
+		if content == "" {
+			// LLM 曾成功响应但内容为空（被截断或未产出任何文本）：返回降级提示，
+			// 避免向用户展示空白回复（铁律：LLM 返回空必须兜底）。
+			content = e.emptyReplyFallback()
 		}
 		return content, lastResult, collectedCards, nil
 	}
@@ -1420,6 +1436,13 @@ func (e *SalesEngine) runAgentLoop(
 		return "抱歉，AI 服务暂时不可用，请稍后再试或联系人工客服。", nil, nil, nil
 	}
 	return "", nil, nil, fmt.Errorf("agent loop exhausted with no final content")
+}
+
+// emptyReplyFallback 当 LLM 返回空内容（被截断或未产出任何文本）时返回的友好降级话术。
+// 铁律：LLM 返回空必须兜底，绝对禁止向用户展示空白回复。
+// 集中定义便于回归测试守护，避免各处硬编码不一致。
+func (e *SalesEngine) emptyReplyFallback() string {
+	return "抱歉，我暂时无法处理您的请求，请稍后再试。"
 }
 
 // buildAgentSystemPrompt 构造 Agent 模式下的系统提示词
