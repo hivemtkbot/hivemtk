@@ -87,6 +87,13 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 				Dimensions: map[string]float64{},
 			}
 		} else {
+			// 非确定性错误（LLM 超时 / 上下文取消 / DB 异常等）：标记「已尝试」避免 RunBatch 无限重选死循环。
+			// 不调权重。后续可清理 trace_eval_log 后手动重评。
+			if !dryRun {
+				if werr := s.persistAttemptedLog(ctx, db, traceID, agg, "评估出错: "+err.Error()); werr != nil {
+					logger.Warnf("[trace_learning] 写错误尝试审计失败 trace=%s: %v", traceID, werr)
+				}
+			}
 			return nil, err
 		}
 	}
@@ -162,6 +169,22 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	return resultLog, nil
 }
 
+// persistAttemptedLog 写入一条「已尝试但出错」的评估记录，使 RunBatch 的 listUnevaluated
+// 不再重复选中该 trace（避免批量失败时无限重选死循环）。不调权重；运维可清理 trace_eval_log 后手动重评。
+func (s *Service) persistAttemptedLog(ctx context.Context, db *gorm.DB, traceID string, agg *AggregatedTrace, reason string) error {
+	log := model.TraceEvalLog{
+		TraceID:        traceID,
+		ConversationID: agg.ConversationID,
+		Channel:        agg.Channel,
+		Score:          0,
+		DimensionsJSON: "{}",
+		Reason:         reason,
+		Bad:            false,
+		AdjustedChunks: "[]",
+	}
+	return db.WithContext(ctx).Where("trace_id = ?", traceID).Assign(log).FirstOrCreate(&log).Error
+}
+
 // runBatchLockKey 全局咨询锁 key：防止 cron 与手动触发并发跑 RunBatch 造成重复评估。
 const runBatchLockKey int64 = 9173001
 
@@ -206,6 +229,7 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 		}
 		defer func() { _ = conn.Exec("SELECT pg_advisory_unlock(?)", runBatchLockKey).Error }()
 
+		stalled := 0 // 连续无成功轮次计数：批量全失败时熔断，避免死循环持锁
 		for {
 			sub := conn.WithContext(ctx).Table("message_trace").
 				Select("trace_id").
@@ -260,10 +284,21 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRu
 				previewBuf = previewBuf[:0]
 				previewMu.Unlock()
 			}
-			// 本批已全评估完；不足一批说明已到底，结束。
-			if len(traceIDs) < batchSize {
+		// 熔断：若整批（满批）全部评估失败（processed==0），说明剩余 trace 持续不可评估
+		// （如 LLM 过载 / 上下文取消），连续 2 轮则提前退出，避免无限重选失败 trace 死循环持锁。
+		if processed == 0 && len(traceIDs) >= batchSize {
+			stalled++
+			if stalled >= 2 {
+				logger.Warnf("[trace_learning] RunBatch 连续 %d 轮满批无成功评估，提前退出避免死循环", stalled)
 				break
 			}
+		} else {
+			stalled = 0
+		}
+		// 本批已全评估完；不足一批说明已到底，结束。
+		if len(traceIDs) < batchSize {
+			break
+		}
 		}
 		return nil
 	})
