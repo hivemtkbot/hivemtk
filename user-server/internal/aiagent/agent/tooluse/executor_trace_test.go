@@ -3,9 +3,11 @@ package tooluse
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
+	"marketing/internal/model"
 	"marketing/internal/pkg/tracing"
 )
 
@@ -227,5 +229,148 @@ func TestRetry_PreservesBusinessErrorUnderRetry(t *testing.T) {
 	}
 	if captured == nil || captured.Error != bizErr {
 		t.Fatalf("trace 应保留业务错误，实际 %q", captured.Error)
+	}
+}
+
+// ===== agent_turn span 状态准确性（彻底修复观测缺口：原永远写 ok）=====
+
+// runDispatchAndCaptureTurn 注册工具、接线 trace sink、执行整轮调度，并抽出 agent_turn 事件。
+func runDispatchAndCaptureTurn(t *testing.T, tool Tool, cfg ToolExecutorConfig, ctx context.Context, calls []LLMToolCall) ([]LLMToolResult, *tracing.ToolTraceEvent) {
+	t.Helper()
+	reg := NewToolRegistry()
+	if err := reg.Register(tool); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	exec := NewToolExecutor(reg, cfg)
+	var events []tracing.ToolTraceEvent
+	var mu sync.Mutex
+	prev := ToolTraceSink
+	ToolTraceSink = func(_ context.Context, ev tracing.ToolTraceEvent) {
+		mu.Lock()
+		events = append(events, ev)
+		mu.Unlock()
+	}
+	defer func() { ToolTraceSink = prev }()
+	results := exec.DispatchByLLMToolCall(ctx, calls, nil)
+	var turn *tracing.ToolTraceEvent
+	for i := range events {
+		if events[i].Kind == model.SpanKindAgentTurn {
+			e := events[i]
+			turn = &e
+		}
+	}
+	return results, turn
+}
+
+// ctxAwareTool 在 ctx 已取消时返回 context.Canceled（精确复现「客户端断开 / turn 截止」）。
+type ctxAwareTool struct {
+	BaseTool
+}
+
+func (t *ctxAwareTool) Execute(ctx context.Context, args map[string]any) (ToolResult, error) {
+	if ctx.Err() != nil {
+		return ErrorResult(t.Name(), ctx.Err()), ctx.Err()
+	}
+	return SuccessResult(t.Name(), "ok"), nil
+}
+
+func newCtxAwareTool(name string) *ctxAwareTool {
+	return &ctxAwareTool{BaseTool: BaseTool{
+		NameVal:        name,
+		CategoryVal:    ToolCategory("test"),
+		DescriptionVal: "regression-test",
+		ParamsVal:      ToolParameters{Type: "object"},
+	}}
+}
+
+// TestDispatch_AgentTurnStatusOK 全部工具成功时 agent_turn 必须标记 ok（不被误标异常）。
+func TestDispatch_AgentTurnStatusOK(t *testing.T) {
+	tool := newTestTool("test.turn_ok", SuccessResult("test.turn_ok", "done"), nil)
+	calls := []LLMToolCall{
+		{ID: "c1", Function: LLMToolFunction{Name: "test.turn_ok", Arguments: "{}"}},
+		{ID: "c2", Function: LLMToolFunction{Name: "test.turn_ok", Arguments: "{}"}},
+	}
+	results, turn := runDispatchAndCaptureTurn(t, tool, ToolExecutorConfig{}, context.Background(), calls)
+	for _, r := range results {
+		if !r.Success {
+			t.Fatalf("工具应成功，实际 %+v", r)
+		}
+	}
+	if turn == nil {
+		t.Fatal("未收到 agent_turn trace 事件")
+	}
+	if turn.Status != tracing.StatusOk {
+		t.Fatalf("全成功应标记 ok，实际 %q", turn.Status)
+	}
+	if turn.Error != "" {
+		t.Fatalf("成功 turn Error 应为空，实际 %q", turn.Error)
+	}
+}
+
+// TestDispatch_AgentTurnStatusAbnormalOnToolFailure 任一工具失败时 agent_turn 必须标记 abnormal
+// 并携带首个失败工具的错误详情（monitor 才能定位根因，而非误报 ok）。
+func TestDispatch_AgentTurnStatusAbnormalOnToolFailure(t *testing.T) {
+	const bizErr = "business: downstream_timeout"
+	failTool := newTestTool("test.turn_fail", ToolResult{Success: false, Error: bizErr, ToolName: "test.turn_fail"}, nil)
+	okTool := newTestTool("test.turn_ok2", SuccessResult("test.turn_ok2", "done"), nil)
+	reg := NewToolRegistry()
+	if err := reg.Register(failTool); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.Register(okTool); err != nil {
+		t.Fatal(err)
+	}
+	// 用同一 registry 但 DispatchByLLMToolCall 内部按 call.Function.Name 查找 —— 需构造带两工具的 executor。
+	exec := NewToolExecutor(reg, ToolExecutorConfig{})
+	var events []tracing.ToolTraceEvent
+	var mu sync.Mutex
+	prev := ToolTraceSink
+	ToolTraceSink = func(_ context.Context, ev tracing.ToolTraceEvent) {
+		mu.Lock()
+		events = append(events, ev)
+		mu.Unlock()
+	}
+	defer func() { ToolTraceSink = prev }()
+	calls := []LLMToolCall{
+		{ID: "c1", Function: LLMToolFunction{Name: "test.turn_fail", Arguments: "{}"}},
+		{ID: "c2", Function: LLMToolFunction{Name: "test.turn_ok2", Arguments: "{}"}},
+	}
+	exec.DispatchByLLMToolCall(context.Background(), calls, nil)
+	var turn *tracing.ToolTraceEvent
+	for i := range events {
+		if events[i].Kind == model.SpanKindAgentTurn {
+			e := events[i]
+			turn = &e
+		}
+	}
+	if turn == nil {
+		t.Fatal("未收到 agent_turn trace 事件")
+	}
+	if turn.Status != tracing.StatusAbnormal {
+		t.Fatalf("含失败工具应标记 abnormal，实际 %q", turn.Status)
+	}
+	if turn.Error != bizErr {
+		t.Fatalf("异常 turn 应携带首个失败错误 %q，实际 %q", bizErr, turn.Error)
+	}
+}
+
+// TestDispatch_AgentTurnStatusAbnormalOnCancel 整轮调度 ctx 被取消（客户端断开）时
+// agent_turn 必须标记 abnormal 并带 context canceled（原代码永远写 ok，会隐藏断开）。
+func TestDispatch_AgentTurnStatusAbnormalOnCancel(t *testing.T) {
+	tool := newCtxAwareTool("test.turn_cancel")
+	calls := []LLMToolCall{
+		{ID: "c1", Function: LLMToolFunction{Name: "test.turn_cancel", Arguments: "{}"}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 调度前即取消
+	_, turn := runDispatchAndCaptureTurn(t, tool, ToolExecutorConfig{}, ctx, calls)
+	if turn == nil {
+		t.Fatal("未收到 agent_turn trace 事件")
+	}
+	if turn.Status != tracing.StatusAbnormal {
+		t.Fatalf("ctx 取消应标记 abnormal，实际 %q", turn.Status)
+	}
+	if turn.Error != context.Canceled.Error() {
+		t.Fatalf("异常 turn 应携带 %q，实际 %q", context.Canceled.Error(), turn.Error)
 	}
 }

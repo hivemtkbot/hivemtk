@@ -474,18 +474,65 @@ func (e *ToolExecutor) DispatchByLLMToolCall(ctx context.Context, toolCalls []LL
 	}
 	wg.Wait()
 	// agent_turn 子 span：覆盖整轮 LLM 工具编排耗时（observer 默认 nil，非阻塞）。
+	// 真实状态（彻底修复观测缺口）：上下文被取消（客户端断开 / turn 截止）或任一工具失败
+	// 都标记 abnormal 并带上首个错误详情，否则 monitor 会把「失败的 turn」误报为 ok，
+	// 导致 node_abnormal 对 agent_turn 维度永远为 0、隐藏真实异常 turn。
+	turnStatus := tracing.StatusOk
+	turnErr := ""
+	if dispatchCtx.Err() != nil {
+		turnStatus = tracing.StatusAbnormal
+		turnErr = dispatchCtx.Err().Error()
+	} else {
+		for _, r := range results {
+			if !r.Success {
+				turnStatus = tracing.StatusAbnormal
+				break
+			}
+		}
+	}
 	if ToolTraceSink != nil {
-		ToolTraceSink(dispatchCtx, tracing.ToolTraceEvent{
+		ev := tracing.ToolTraceEvent{
 			Kind:       model.SpanKindAgentTurn,
 			TraceID:    trace.TraceIDFromContext(dispatchCtx),
 			AgentID:    agentID,
 			TurnIndex:  turnIdx,
 			Input:      map[string]any{"tool_calls": len(toolCalls)},
 			DurationMs: time.Since(start).Milliseconds(),
-			Status:     "ok",
-		})
+			Status:     turnStatus,
+			Error:      turnErr,
+		}
+		// 工具失败导致的异常 turn：把首个失败工具的错误详情带给监控，便于定位根因。
+		if turnStatus == tracing.StatusAbnormal && turnErr == "" {
+			for _, r := range results {
+				if !r.Success {
+					if er := extractToolError(r); er != "" {
+						ev.Error = er
+					}
+					break
+				}
+			}
+		}
+		ToolTraceSink(dispatchCtx, ev)
 	}
 	return results
+}
+
+// extractToolError 从 LLMToolResult.Content（ToolResult 的 JSON 序列化）中提取 error 字段，
+// 供 agent_turn 异常 span 携带首个失败工具的错误详情，便于监控定位根因。
+func extractToolError(r LLMToolResult) string {
+	if r.Content == "" {
+		return ""
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(r.Content), &m); err != nil {
+		return ""
+	}
+	if e, ok := m["error"]; ok {
+		if s, ok := e.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 // executeSingleLLMToolCall 执行单个 LLM tool_call

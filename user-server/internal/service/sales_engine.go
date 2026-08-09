@@ -1246,6 +1246,41 @@ func (e *SalesEngine) runAgentLoop(
 		Content: prompt,
 	})
 
+	// 2.1 注入多轮对话历史（修复：原 agent loop 仅依赖 DialogueMemory.KeyFacts，但
+	//     KeyFacts 的生产写入链路从未接线 → AI 无任何上下文、自认“第一次对话”。
+	//     此处直接从 session_messages 按会话取最近 N 轮，作为 user/assistant 历史插入
+	//     system 与当前 user 之间，使 LLM 真正获得多轮上下文。）
+	if e.db != nil && req.SessionID != "" {
+		var hist []model.SessionMessage
+		if err := e.db.Where("session_id = ?", req.SessionID).
+			Order("id desc").Limit(20).Find(&hist).Error; err == nil && len(hist) > 0 {
+			// 去掉本轮用户消息（若最新一条即当前问题），仅保留历史
+			if hist[0].Content == req.UserMessage {
+				hist = hist[1:]
+			}
+			if len(hist) > 0 {
+				// 倒序还原为正序
+				for i, j := 0, len(hist)-1; i < j; i, j = i+1, j-1 {
+					hist[i], hist[j] = hist[j], hist[i]
+				}
+				historyMsgs := make([]llm.ChatMessage, 0, len(hist))
+				for _, m := range hist {
+					role := "user"
+					if m.SenderType == "ai" || m.SenderType == "agent" {
+						role = "assistant"
+					}
+					historyMsgs = append(historyMsgs, llm.ChatMessage{Role: role, Content: m.Content})
+				}
+				// messages = [system, 历史..., 当前user]
+				newMessages := make([]llm.ChatMessage, 0, len(messages)+len(historyMsgs))
+				newMessages = append(newMessages, messages[0])
+				newMessages = append(newMessages, historyMsgs...)
+				newMessages = append(newMessages, messages[1:]...)
+				messages = newMessages
+			}
+		}
+	}
+
 	// 3. Agent Loop（：wall-clock 总超时 30s 兜底，防止最坏 5min 卡死）
 	// 总超时设计：30s 默认。即使 LLM 响应慢 + 工具慢，也保证 30s 内返回给用户
 	agentLoopCtx, agentLoopCancel := context.WithTimeout(ctx, agentLoopTotalTimeout)
@@ -1633,8 +1668,38 @@ func (e *SalesEngine) buildPrompt(
 		sb.WriteString("\n")
 	}
 
+	// 多轮对话历史（修复：原 prompt 仅依赖 DialogueMemory.KeyFacts，但 KeyFacts 的
+	// 生产写入链路 AppendMessage/UpdateKeyFacts 从未在线上流程被调用，导致 AI 无任何
+	// 上下文、自认“第一次对话”。此处直接从 session_messages 按会话取最近 N 轮注入，
+	// 保证多轮上下文真实可用，且不依赖那条未接线的记忆管道。）
+	if e.db != nil && req.SessionID != "" {
+		var hist []model.SessionMessage
+		if err := e.db.Where("session_id = ?", req.SessionID).
+			Order("id desc").Limit(20).Find(&hist).Error; err == nil && len(hist) > 0 {
+			// 去掉本轮用户消息（若最新一条即当前问题），仅保留历史
+			if hist[0].Content == req.UserMessage {
+				hist = hist[1:]
+			}
+			if len(hist) > 0 {
+				for i, j := 0, len(hist)-1; i < j; i, j = i+1, j-1 {
+					hist[i], hist[j] = hist[j], hist[i]
+				}
+				var hb strings.Builder
+				hb.WriteString(fmt.Sprintf("\n【对话历史（按时间顺序，共 %d 条）】\n", len(hist)))
+				for _, m := range hist {
+					role := "客户"
+					if m.SenderType == "ai" || m.SenderType == "agent" {
+						role = "AI"
+					}
+					hb.WriteString(fmt.Sprintf("%s：%s\n", role, m.Content))
+				}
+				sb.WriteString(hb.String())
+			}
+		}
+	}
+
 	sb.WriteString("\n【回复要求】:\n")
-	sb.WriteString("1. 基于上述信息生成回复，不要编造事实\n")
+	sb.WriteString("1. 基于上述信息（含对话历史）生成回复，不要编造事实\n")
 	sb.WriteString("2. 简洁（≤80 字），分自然段\n")
 	sb.WriteString("3. 语气亲切、像真人对话\n")
 	sb.WriteString("4. 若客户异议，按话术/SOP 引导\n")
