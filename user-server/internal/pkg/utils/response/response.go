@@ -138,6 +138,14 @@ func ErrorFromDB(c *gin.Context, err error, fallbackMsg string, data ...any) {
 		Error(c, http.StatusBadRequest, fallbackMsg, data...)
 		return
 	}
+	if errors.Is(err, utils.ErrUnauthorized) {
+		Error(c, http.StatusUnauthorized, fallbackMsg, data...)
+		return
+	}
+	if errors.Is(err, utils.ErrForbidden) {
+		Error(c, http.StatusForbidden, fallbackMsg, data...)
+		return
+	}
 	// 兜底：部分 service/controller 用 %s 或字符串拼接包裹错误，导致类型链丢失，
 	// 这里依据常见消息做语义识别，避免「资源不存在/无权限」被误报为 500。
 	if strings.Contains(msg, "record not found") || strings.Contains(msg, "not found") || strings.Contains(msg, "不存在") {

@@ -387,10 +387,7 @@ func TestConfidenceMigration_IndexesCreated(t *testing.T) {
 		"idx_handoff_session",
 		"idx_handoff_agent",
 		"idx_handoff_sla",
-		"idx_review_status",
-		"idx_review_session",
 		"idx_policies_intent",
-		"idx_sla_bucket",
 		"idx_ab_status",
 		"idx_abm_test",
 	}

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -734,8 +735,8 @@ func (s *OrderDraftService) createOrderFromDraft(ctx context.Context, draft *Ord
 var draftCounter int64
 
 func generateDraftID() string {
-	draftCounter++
-	return fmt.Sprintf("draft_%d_%d", time.Now().UnixNano(), draftCounter)
+	n := atomic.AddInt64(&draftCounter, 1)
+	return fmt.Sprintf("draft_%d_%d", time.Now().UnixNano(), n)
 }
 
 // 订单 ID 生成器
@@ -744,6 +745,6 @@ var orderCounter int64
 // generateTempOrderID 生成本会话内的临时内存订单 ID（真实唯一，非伪造）。
 // 仅用于未注入 orderService 的纯内存/测试场景；真实下单请注入 orderService 落库。
 func generateTempOrderID() string {
-	orderCounter++
-	return fmt.Sprintf("ord_%d_%d", time.Now().UnixNano(), orderCounter)
+	n := atomic.AddInt64(&orderCounter, 1)
+	return fmt.Sprintf("ord_%d_%d", time.Now().UnixNano(), n)
 }

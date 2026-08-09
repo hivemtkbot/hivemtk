@@ -334,6 +334,12 @@ func (s *HybridSearcher) logSearch(productID string, query string, topK, vecN, b
 	if !s.searchLogReady(ctx) {
 		return
 	}
+	// product_id 为 BIGINT 列：传入空串 "" 会触发「invalid input syntax for type bigint」，
+	// 故空串统一转为 NULL。
+	pid := interface{}(productID)
+	if productID == "" {
+		pid = nil
+	}
 	err := s.db.WithContext(ctx).Exec(`
 		INSERT INTO knowledge_search_logs
 			(query, product_id, top_k, vector_count, bm25_count, fused_count, rerank_count,
@@ -341,7 +347,7 @@ func (s *HybridSearcher) logSearch(productID string, query string, topK, vecN, b
 			 rewrite_used, cache_hit, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
 	`,
-		query, productID, topK, vecN, bm25N, fusedN, finalN,
+		query, pid, topK, vecN, bm25N, fusedN, finalN,
 		vecLatency, bm25Latency, rewriteLatency, rerankLatency,
 		rewriteStrategy, cacheHit,
 	).Error

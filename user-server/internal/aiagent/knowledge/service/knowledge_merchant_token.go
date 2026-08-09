@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"marketing/internal/aiagent/knowledge/model"
+	"marketing/internal/pkg/utils"
 	"marketing/internal/pkg/utils/logger"
 )
 
@@ -85,7 +87,7 @@ func (s *KnowledgeMerchantService) RevokeToken(ctx context.Context, id uint64) e
 // ValidateToken 校验 Token（外部系统使用）
 func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain string) (*model.KnowledgeAPIToken, error) {
 	if plain == "" {
-		return nil, errors.New("token 不能为空")
+		return nil, fmt.Errorf("%w: token 不能为空", utils.ErrUnauthorized)
 	}
 	if s.db == nil {
 		return nil, errors.New("数据库未初始化")
@@ -94,13 +96,13 @@ func (s *KnowledgeMerchantService) ValidateToken(ctx context.Context, plain stri
 	hashed := hashToken(plain)
 	tok, err := s.tokenRepo.FindByToken(ctx, hashed)
 	if err != nil {
-		return nil, errors.New("token 无效")
+		return nil, fmt.Errorf("%w: token 无效或不存在", utils.ErrUnauthorized)
 	}
 	if tok.Enabled != 1 {
-		return nil, errors.New("token 已禁用")
+		return nil, fmt.Errorf("%w: token 已禁用", utils.ErrUnauthorized)
 	}
 	if tok.ExpiresAt != nil && tok.ExpiresAt.Before(time.Now()) {
-		return nil, errors.New("token 已过期")
+		return nil, fmt.Errorf("%w: token 已过期", utils.ErrUnauthorized)
 	}
 	// 异步更新使用统计
 	// goroutine 内含 recover + 错误日志，避免错误被静默吞噬。

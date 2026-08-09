@@ -56,13 +56,21 @@ export class Uplink {
   }
 
   // _saveConfirmed 持久化已确认集合（限制规模防爆增）。
+  // 并发安全：多个 flush 并发完成时可能各自触发 save；若各自在「调用时刻」快照再无序 set，
+  // 后 set 的快照可能比先 set 的旧（包含更少 id）→ 已确认的 event_id 被覆盖丢失 → 下次重复上行。
+  // 修复：快照在「写入执行时刻」才取最新 this._confirmed，并通过 _saveChain 串行化，
+  // 保证最后一个写入反映完整已确认集合（最后一次写覆盖前序，绝不丢 id）。
   async _saveConfirmed() {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        if (this._confirmed.size > 5000) {
-          this._confirmed = new Set([...this._confirmed].slice(-2000));
-        }
-        await chrome.storage.local.set({ mtk_uplink_confirmed: [...this._confirmed] });
+        const write = () => {
+          if (this._confirmed.size > 5000) {
+            this._confirmed = new Set([...this._confirmed].slice(-2000));
+          }
+          return chrome.storage.local.set({ mtk_uplink_confirmed: [...this._confirmed] });
+        };
+        this._saveChain = (this._saveChain || Promise.resolve()).then(write).catch(() => {});
+        await this._saveChain;
       }
     } catch (_) {
       // 降级：忽略持久化失败

@@ -176,13 +176,16 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 	database := setupMarketingFlowServiceTestDBWithCDP(t)
 	service := NewMarketingFlowServiceWithDB(database)
 
-	// 预设：在线客服
+	// 预设：在线客服（GetOnlineAgents 仅返回最近 5 分钟内有心跳的在线坐席，
+	// 故必须设置 LastActiveAt，否则会被过滤掉导致「当前没有可用的在线客服」）
+	now := time.Now()
 	agent1 := &reachmodel.AgentStatus{
 		AgentID:        1001,
 		AgentName:      "客服A",
 		Status:         "online",
 		MaxSessions:    5,
 		ActiveSessions: 0,
+		LastActiveAt:   &now,
 	}
 	agent2 := &reachmodel.AgentStatus{
 		AgentID:        1002,
@@ -190,6 +193,7 @@ func TestMarketingFlowService_sendActionAssignAgent(t *testing.T) {
 		Status:         "online",
 		MaxSessions:    5,
 		ActiveSessions: 2, // 已有 2 个会话，负载更高
+		LastActiveAt:   &now,
 	}
 	if err := database.Create(agent1).Error; err != nil {
 		t.Fatalf("创建客服A 失败：%v", err)

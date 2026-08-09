@@ -265,6 +265,7 @@ func NewHTTPAlertHook(webhookURL string) ReachAlertHook {
 
 // rateBucket 令牌桶
 type rateBucket struct {
+	mu       sync.Mutex
 	tokens   float64
 	lastFill time.Time
 	burst    int
@@ -272,6 +273,8 @@ type rateBucket struct {
 }
 
 func (b *rateBucket) allow(ctx context.Context) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	now := time.Now()
 	elapsed := now.Sub(b.lastFill).Seconds()
 	b.tokens = math.Min(float64(b.burst), b.tokens+elapsed*float64(b.qps))

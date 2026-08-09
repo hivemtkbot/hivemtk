@@ -258,7 +258,11 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 
 	// 4) recallRAG (RAG 不依赖 intent, 可与 intent 并行)
 	g.Go(func() error {
-		if out.intent == nil {
+		// 读取 out.intent 必须在锁内，避免与 func3 的写入产生数据竞态
+		mu.Lock()
+		intentReady := out.intent
+		mu.Unlock()
+		if intentReady == nil {
 			// RAG 在 intent 出来前可以先跑
 			r, err := e.recallRAG(gctx, req, &dto.RecognizeResult{IntentType: IntentUnknown, Confidence: 0})
 			if err == nil {
@@ -267,7 +271,7 @@ func (e *SalesEngine) runPhase0Parallel(ctx context.Context, req *SalesRequest) 
 				mu.Unlock()
 			}
 		} else {
-			r, err := e.recallRAG(gctx, req, out.intent)
+			r, err := e.recallRAG(gctx, req, intentReady)
 			if err == nil {
 				mu.Lock()
 				out.ragChunks = r

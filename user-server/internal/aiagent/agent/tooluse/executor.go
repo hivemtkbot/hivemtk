@@ -203,14 +203,29 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 	start := time.Now()
 	result, err := handler(execCtx, req.Args)
 	// 补全 Timing.DurationMs（装饰器内部各自计算耗时，外层再做一次总耗时统计）
-	if result.ToolName == "" {
-		result.ToolName = req.ToolName
-	}
 	if result.Timing.DurationMs == 0 {
 		result.Timing.DurationMs = time.Since(start).Milliseconds()
 	}
 	if result.AuditTrace == "" && req.ToolCtx != nil {
 		result.AuditTrace = req.ToolCtx.AuditTrace
+	}
+	// 错误数据契约对齐（彻底修复脏数据根因，而非仅在 trace 层兜底）：
+	// 当 Go 层 err 非空或执行失败时，保证返回的 ToolResult 自身完整
+	// （ToolName / Error / Success 一致）。否则工具或装饰器在 ctx 取消等提前返回路径
+	// 可能产出「Success=false / err!=nil 但 Error 为空」的零值结果，导致监控出现
+	// status=abnormal 却 abnormal/error 两列皆空的脏 span，且调用方也拿不到错误详情。
+	if err != nil || !result.Success {
+		if result.ToolName == "" {
+			result.ToolName = req.ToolName
+		}
+		if result.Error == "" {
+			if err != nil {
+				result.Error = err.Error()
+			} else {
+				result.Error = "tool execution failed without error detail"
+			}
+		}
+		result.Success = false
 	}
 	// 可观测性：把单次工具调用作为 tool_call 子 span 上报（observer 默认 nil，非阻塞）。
 	if ToolTraceSink != nil {
@@ -218,6 +233,8 @@ func (e *ToolExecutor) Execute(ctx context.Context, req ExecuteRequest) ExecuteR
 		if !result.Success || err != nil {
 			status = "abnormal"
 		}
+		// 此时 result.Error 已在边界对齐为完整错误详情（优先工具业务错误，回退 Go 层 err），
+		// 不再需要在 trace 层单独兜底。
 		ev := tracing.ToolTraceEvent{
 			Kind:       model.SpanKindToolCall,
 			TraceID:    trace.TraceIDFromContext(execCtx),

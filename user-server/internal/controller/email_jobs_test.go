@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"marketing/internal/dto"
+	"marketing/internal/model"
+	_db "marketing/internal/pkg/utils/db"
+	"marketing/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -15,6 +18,10 @@ import (
 
 func setupEmailJobsController(t *testing.T) (*EmailJobsController, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
+	// 邮件任务服务依赖全局 db（repository 通过 db.GetDB() 取连接），
+	// 必须先构建并迁移真实测试库，否则 GetEmailJobsList 会因 email_jobs 表不存在返回 400。
+	database := testutil.NewTestDB(t, &model.EmailJobs{})
+	_db.SetTestDB(database)
 	ctrl := NewEmailJobsController()
 	router := gin.New()
 	router.Use(gin.Recovery()) // 把 service/repo 的 nil-DB panic 转化为 500

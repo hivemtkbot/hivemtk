@@ -304,7 +304,7 @@ func TestCustomerController_MergeCustomers(t *testing.T) {
 				"primary_id":   "non-existent-1",
 				"secondary_id": "non-existent-2",
 			},
-			expectedStatus: 500, // 客户不存在
+			expectedStatus: 404, // 客户不存在 → NotFound(404)，符合 REST 语义
 			expectSuccess:  false,
 		},
 	}

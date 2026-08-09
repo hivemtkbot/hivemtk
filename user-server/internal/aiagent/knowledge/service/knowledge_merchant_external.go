@@ -14,6 +14,7 @@ import (
 
 	"marketing/internal/aiagent/knowledge/model"
 	"marketing/internal/aiagent/knowledge/repository"
+	"marketing/internal/pkg/utils"
 
 	"github.com/google/uuid"
 )
@@ -64,17 +65,19 @@ func (s *KnowledgeMerchantService) ExternalImport(ctx context.Context, req *Exte
 		return nil, err
 	}
 	if !tokenHasScope(tok.Scopes, "write") {
-		return nil, errors.New("token 缺少 write 权限")
+		return nil, fmt.Errorf("%w: token 缺少 write 权限", utils.ErrForbidden)
 	}
 
 	// 越权(IDOR)防护：Token 仅能导入其授权产品，禁止跨产品导入
 	if tok.ProductID != "" && tok.ProductID != "*" && tok.ProductID != req.ProductID {
-		return nil, fmt.Errorf("token 无权操作产品 %s（授权范围: %s）", req.ProductID, tok.ProductID)
+		return nil, fmt.Errorf("%w: token 无权操作产品 %s（授权范围: %s）", utils.ErrForbidden, req.ProductID, tok.ProductID)
 	}
 
 	// 2) 校验产品
 	if _, err := s.prodRepo.GetRagProductByID(ctx, req.ProductID); err != nil {
-		return nil, errors.New("产品不存在")
+		// 透传底层错误（多为 gorm.ErrRecordNotFound），由控制器映射为 404，
+		// 而非笼统的 500，便于调用方区分「产品不存在」与「服务内部错误」。
+		return nil, err
 	}
 
 	// 3) 准备 items

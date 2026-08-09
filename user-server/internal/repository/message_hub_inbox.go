@@ -148,19 +148,29 @@ func (r *MessageHubRepository) ClaimPendingOutbound(ctx context.Context, channel
 	}
 	cutoff := time.Now().Add(-claimTimeout)
 	// 1) 回收超时 inflight → pending（惰性 reaper）。
+	//    注意：claimed_at 为 NULL 的 pending 行（新入队、从未被认领）必须显式排除，
+	//    否则 `claimed_at < cutoff` 对 NULL 求值为 unknown → 整条 WHERE 失效、回收 0 行（虽无害，
+	//    但语义上不应依赖 NULL 比较）。这里已用 `status = 'inflight'` 精确锁定目标行。
 	if err := r.db.WithContext(ctx).
 		Model(&model.MessageHub{}).
-		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'inflight' AND claimed_at < ?", channel, accountID, cutoff).
+		Where("platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'inflight' AND claimed_at IS NOT NULL AND claimed_at < ?", channel, accountID, cutoff).
 		Updates(map[string]any{"status": "pending", "claimed_at": nil}).Error; err != nil {
 		fmt.Printf("[ClaimPendingOutbound] 回收超时 inflight 失败（继续认领）: %v\n", err)
 	}
 	// 2) 原子认领 top-N pending → inflight。
+	//    关键并发安全：子查询必须加 `FOR UPDATE SKIP LOCKED`。
+	//    否则 PostgreSQL 在 READ COMMITTED 下，UPDATE...RETURNING 仅按 `id IN (...)` 重新判定，
+	//    不复核子查询的 `status='pending'`——若并发轮询 T1 已把某 pending 翻为 inflight 并提交，
+	//    T2 仍会按各自快照算出的同一 id 集合再次翻该行为 inflight 并 RETURNING → 同一条被两个
+	//    轮询同时认领 → 重复下发。`FOR UPDATE SKIP LOCKED` 让 T2 的子查询跳过被 T1 锁定的行，
+	//    实现服务端权威互斥（多标签页并发轮询也安全）。
 	list := make([]model.MessageHub, 0, limit)
 	const q = `UPDATE message_hub SET status = 'inflight', claimed_at = now()
 		WHERE id IN (
 			SELECT id FROM message_hub
 			WHERE platform = ? AND account_id = ? AND direction = 'outbound' AND status = 'pending'
 			ORDER BY id ASC LIMIT ?
+			FOR UPDATE SKIP LOCKED
 		)
 		RETURNING *`
 	if err := r.db.WithContext(ctx).Raw(q, channel, accountID, limit).Scan(&list).Error; err != nil {

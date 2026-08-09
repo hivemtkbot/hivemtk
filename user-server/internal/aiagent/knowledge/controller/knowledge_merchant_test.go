@@ -447,10 +447,11 @@ func TestKM_ListExternalJobs_OK(t *testing.T) {
 func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	ctrl := NewKnowledgeMerchantController()
 	r := setupKMRouter(t, ctrl)
-	// 1) 创建一个 Token
+	// 1) 创建一个 Token（product_id="*" 表示允许导入任意产品，
+	//    以便越过 IDOR 越权校验，真正走到「产品不存在」的 404 分支）
 	tokBody := mustJSON(t, map[string]any{
 		"name":       "e2e",
-		"product_id": "kb-e2e",
+		"product_id": "*",
 		"scopes":     []string{"read", "write"},
 	})
 	tokReq, _ := http.NewRequest("POST", "/api/knowledge-merchant/tokens", bytes.NewReader(tokBody))
@@ -474,7 +475,8 @@ func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 
 	// 2) 创建一个 RAG Product（外部导入需要产品存在）
 	// 由于无真实 ragRepo,这里仅验证 Token 校验和参数校验流程:
-	// 实际 Product 校验会失败,但应返回 500 而非 401(说明 Token 通过)
+	// 实际 Product 校验会失败，Token 校验通过（非 401 鉴权失败），
+	// 产品不存在应返回 404（NotFound）而非 500。
 	body := mustJSON(t, map[string]any{
 		"source":     "custom",
 		"product_id": "kb-not-exists",
@@ -485,9 +487,9 @@ func TestKM_EndToEnd_ExternalImport_WithToken(t *testing.T) {
 	req.Header.Set("X-Knowledge-Token", tokResp.Data.TokenPlain)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	// product 不存在会返回 401（控制器用 401），这证明 Token 校验通过
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("want 401 (product not found), got %d, body=%s", w.Code, w.Body.String())
+	// 产品不存在 → 404（NotFound），证明 Token 校验已通过（非 401 鉴权失败）
+	if w.Code != http.StatusNotFound {
+		t.Errorf("want 404 (product not found), got %d, body=%s", w.Code, w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "token") && !strings.Contains(w.Body.String(), "Token") {
 		// 可能是产品不存在错误,只要不是 token 错误就行

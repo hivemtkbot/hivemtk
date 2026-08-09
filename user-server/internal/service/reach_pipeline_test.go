@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -44,12 +45,12 @@ func newReachPipelineReq(merchantID string) *CreatePipelineRequest {
 var reachTestCounter int64
 
 func newReachJobReq(pipelineID uint) *EnqueueJobRequest {
-	reachTestCounter++
+	n := atomic.AddInt64(&reachTestCounter, 1)
 	return &EnqueueJobRequest{
 		PipelineID: pipelineID,
 		Channel:    "wecom",
-		CustomerID: fmt.Sprintf("customer-%d", reachTestCounter),
-		AccountID:  fmt.Sprintf("acc-%d", reachTestCounter),
+		CustomerID: fmt.Sprintf("customer-%d", n),
+		AccountID:  fmt.Sprintf("acc-%d", n),
 		// V3 整改：StepContentPrepare 现在要求 payload.content 非空，
 		// 原有 helper 只设置 text 会导致 ContentPrepare 失败、Job 转 failed，
 		// 进而破坏下游所有依赖 success/rate_limited 计数的测试。

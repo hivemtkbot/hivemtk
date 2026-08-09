@@ -1118,7 +1118,13 @@ func (s *InboxIngressService) interceptInbound(ctx context.Context, event *model
 	//   仅当上报发送者与出站发送者一致（或缺失不可区分 / 被明确标 self/agent）才判回显，
 	//   真实客户复述（发送者明显不同）则放行，避免误删客户消息。
 	if ob, err := s.hubRepo.GetByPlatformContentNormalized(ctx, event.Channel, content); err == nil && ob != nil {
-		if event.SenderID == "" || event.SenderID == ob.SenderID ||
+		// 命中出站(outbound)即平台自己曾发出过相同内容。判定为自/他回显需满足以下之一：
+		//   - 上报发送者与出站发送者一致；
+		//   - 任一侧发送者缺失（不可区分）→ 保守拦截，宁可误拦也不让回环触发 AI 死循环；
+		//   - 上报被明确标 self/agent。
+		// 出站消息在生产环境均由 persistMessage 写入 DedupHash 与 SenderID，sender 缺失仅见于
+		// 历史/手工数据，此分支专门兜住这类"内容相同但缺发送者"的回显。
+		if event.SenderID == "" || ob.SenderID == "" || event.SenderID == ob.SenderID ||
 			event.SenderType == "self" || event.SenderType == "agent" {
 			return &IngressDecision{Blocked: true, IsSelfEcho: true, Reason: "self-echo(normalized content+sender match)"}, nil
 		}

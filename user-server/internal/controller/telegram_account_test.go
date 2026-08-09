@@ -87,7 +87,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	// 1. 创建账号
 	createBody := map[string]any{
 		"account_name":     "销售助手Bot",
-		"bot_token":        "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+		"bot_token":        "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		"webhook_url":      "https://shop.example.com/api/webhook/telegram/1",
 		"webhook_secret":   "test-secret-32chars-random-string",
 		"webhook_enabled":  true,
@@ -118,7 +118,7 @@ func TestTelegramAccountController_CreateAndList(t *testing.T) {
 	}
 	// Bot Token 应被掩码
 	masked, _ := createResp.Data["bot_token_masked"].(string)
-	if masked == "123456789:ABCdefGHIjklMNOpqrsTUVwxyz" {
+	if masked == "123456789:abcdefghijklmnopqrstuvwxyz123456789" {
 		t.Error("Bot Token 应被掩码处理")
 	}
 	if len(masked) > 0 && masked[:4] != "1234" {
@@ -167,7 +167,7 @@ func TestTelegramAccountController_GetAndGetByID(t *testing.T) {
 	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "测试Bot",
-		"bot_token":    "987654321:TOKEN",
+		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		"status":       1,
 	})
 	req, _ := http.NewRequest("POST", "/api/telegram/accounts", bytes.NewReader(bodyBytes))
@@ -213,7 +213,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "原名称",
-		"bot_token":    "111:aaa",
+		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		"status":       1,
 	})
 	req, _ := http.NewRequest("POST", "/api/telegram/accounts", bytes.NewReader(bodyBytes))
@@ -230,7 +230,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 	// 更新（Bot Token 为空时保持原值，但 binding:"required" 要求非空，所以传原值）
 	updateBody, _ := json.Marshal(map[string]any{
 		"account_name":     "新名称",
-		"bot_token":        "111:aaa",
+		"bot_token":        "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		"ai_agent_enabled": true,
 		"status":           1,
 	})
@@ -251,7 +251,7 @@ func TestTelegramAccountController_Update(t *testing.T) {
 		t.Error("AIAgentEnabled 应为 true")
 	}
 	// Bot Token 应为传入的值
-	if updated.BotToken != "111:aaa" {
+	if updated.BotToken != "123456789:abcdefghijklmnopqrstuvwxyz123456789" {
 		t.Errorf("Bot Token 错误, 实际 '%s'", updated.BotToken)
 	}
 	t.Logf("✅ 更新成功: name=%s, ai=%v, token=%s", updated.AccountName, updated.AIAgentEnabled, updated.BotToken)
@@ -266,7 +266,7 @@ func TestTelegramAccountController_Delete(t *testing.T) {
 	// 创建
 	bodyBytes, _ := json.Marshal(map[string]any{
 		"account_name": "待删除",
-		"bot_token":    "222:bbb",
+		"bot_token":    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		"status":       1,
 	})
 	req, _ := http.NewRequest("POST", "/api/telegram/accounts", bytes.NewReader(bodyBytes))
@@ -310,7 +310,7 @@ func TestTelegramWebhook_JoinEvent_E2E(t *testing.T) {
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName:    "E2E测试Bot",
-		BotToken:       "333:ccc",
+		BotToken:       "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		WebhookSecret:  "", // 未配置 secret，跳过验签
 		AIAgentEnabled: false,
 		Status:         1,
@@ -384,7 +384,7 @@ func TestTelegramWebhook_RegularMessage_E2E(t *testing.T) {
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName:    "消息测试Bot",
-		BotToken:       "444:ddd",
+		BotToken:       "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		WebhookSecret:  "",
 		AIAgentEnabled: false,
 		Status:         1,
@@ -445,7 +445,7 @@ func TestTelegramWebhook_LeftEvent_E2E(t *testing.T) {
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "退群测试Bot",
-		BotToken:    "555:eee",
+		BotToken:    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		Status:      1,
 	}
 	repo.Create(context.Background(), acc)
@@ -491,7 +491,7 @@ func TestTelegramWebhook_BotMembersSkipped(t *testing.T) {
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "Bot过滤测试",
-		BotToken:    "666:fff",
+		BotToken:    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		Status:      1,
 	}
 	repo.Create(context.Background(), acc)
@@ -539,7 +539,7 @@ func TestTelegramWebhook_Idempotent(t *testing.T) {
 	repo.SetDB(context.Background(), database)
 	acc := &model.TelegramAccount{
 		AccountName: "幂等测试Bot",
-		BotToken:    "777:ggg",
+		BotToken:    "123456789:abcdefghijklmnopqrstuvwxyz123456789",
 		Status:      1,
 	}
 	repo.Create(context.Background(), acc)

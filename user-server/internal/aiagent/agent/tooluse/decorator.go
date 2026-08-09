@@ -221,6 +221,7 @@ func RateLimitDecorator(limiter RateLimiter) ToolDecorator {
 func RetryDecorator(policy RetryPolicy) ToolDecorator {
 	return func(next ToolHandler) ToolHandler {
 		return func(ctx context.Context, args map[string]any) (result ToolResult, err error) {
+			toolName := GetToolName(ctx)
 			if policy == nil {
 				return next(ctx, args)
 			}
@@ -233,19 +234,22 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 				// 检查 context 是否已取消
 				if ctx.Err() != nil {
 					err = ctx.Err()
-					return
+					// 彻底修复：ctx 取消等提前返回路径必须返回完整 ToolResult，
+					// 否则会产出「Success=false / err!=nil 但 Error 为空」的零值结果
+					//（曾导致 message_trace 出现 abnormal 但 abnormal/error 两列皆空的脏 span）。
+					return ErrorResult(toolName, err), err
 				}
 				// 首次立即执行，后续按 policy 等待
 				if attempt > 0 {
 					delay, ok := policy.NextBackoff(attempt, lastErr)
 					if !ok {
 						err = lastErr
-						return
+						return ensureErrorResult(toolName, result, err), err
 					}
 					select {
 					case <-ctx.Done():
 						err = ctx.Err()
-						return
+						return ErrorResult(toolName, err), err
 					case <-time.After(delay):
 					}
 				}
@@ -253,7 +257,7 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 				result, err = safeExecute(ctx, next, args)
 				if err == nil && result.Success {
 					result.Timing.RetryCount = attempt
-					return
+					return result, nil
 				}
 				lastErr = err
 				if err == nil && !result.Success {
@@ -261,24 +265,29 @@ func RetryDecorator(policy RetryPolicy) ToolDecorator {
 				}
 				// 不可重试错误立即返回（不浪费重试次数）
 				if isNonRetryableError(err) || isNonRetryableResult(result) {
-					if result.Success == false && result.ToolName == "" {
-						toolName := GetToolName(ctx)
-						result = ErrorResult(toolName, lastErr)
-					}
+					result = ensureErrorResult(toolName, result, lastErr)
 					result.Timing.RetryCount = attempt
-					return
+					return result, err
 				}
 			}
 			// 重试耗尽
-			if result.Success == false && result.ToolName == "" {
-				toolName := GetToolName(ctx)
-				result = ErrorResult(toolName, fmt.Errorf("重试 %d 次后仍失败：%v", maxAttempts, lastErr))
-			}
+			result = ensureErrorResult(toolName, result, fmt.Errorf("重试 %d 次后仍失败：%v", maxAttempts, lastErr))
 			result.Timing.RetryCount = maxAttempts - 1
 			err = lastErr
-			return
+			return result, err
 		}
 	}
+}
+
+// ensureErrorResult 保证失败结果携带 toolName 与错误详情，避免返回零值 ToolResult
+// （ToolName/Error 皆空）却带非 nil err 的脏数据。
+// 仅当 result 既无 ToolName 也无 Error（即零值/不完整）时才用 err 重建，
+// 以保留工具自身或上游装饰器返回的业务错误详情。
+func ensureErrorResult(toolName string, result ToolResult, err error) ToolResult {
+	if result.Success || result.ToolName != "" || result.Error != "" || err == nil {
+		return result
+	}
+	return ErrorResult(toolName, err)
 }
 
 // isNonRetryableError 判断错误是否不可重试（确定性故障）

@@ -96,6 +96,10 @@ func NewTestDB(t *testing.T, models ...any) *gorm.DB {
 		}
 	}
 
+	// 注册清理：断开本测试连接（不 DROP 整个进程库，供同进程后续测试复用）。
+	// 注意：若本连接被 db.SetTestDB 提升为全局连接，调用方必须在 t.Cleanup 中
+	// 将全局 db 还原为注入前的值（见各测试 helper），否则同进程后续测试会拿到
+	// 「sql: database is closed」。
 	sqlDB, err := database.DB()
 	if err != nil {
 		t.Fatalf("获取 sql.DB 失败: %v", err)

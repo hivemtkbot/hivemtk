@@ -57,12 +57,15 @@ func (r *BM25Retriever) Retrieve(ctx context.Context, productID string, query st
 	}
 
 	// 路径 1: contextual_tsv + zh_rag（迁移后优先路径）
-	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "contextual_tsv", "zh_rag"); err == nil {
+	// 注意：必须按「返回行数 > 0」判定是否命中，而非「无错误即返回」。
+	// 否则当 zh_rag 已安装但 contextual_tsv 为 NULL 时，路径 1 无错误却返回 0 行，
+	// 导致提前返回、永远走不到路径 2/3，造成召回丢失（如 BM25 兜底场景）。
+	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "contextual_tsv", "zh_rag"); err == nil && len(rows) > 0 {
 		return rows, nil
 	}
 
 	// 路径 2: content_tsv + simple（zhparser 未安装时）
-	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "content_tsv", "simple"); err == nil {
+	if rows, err := r.tryTSQuery(ctx, productID, query, topK, "content_tsv", "simple"); err == nil && len(rows) > 0 {
 		return rows, nil
 	}
 
