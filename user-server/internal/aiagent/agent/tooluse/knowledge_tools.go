@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -200,6 +201,30 @@ func (t *RagSearchTool) Execute(ctx context.Context, args map[string]any) (ToolR
 	avgScore := 0.0
 	if len(filtered) > 0 {
 		avgScore = sumScore / float64(len(filtered))
+	}
+
+	// 兜底：阈值把全部候选过滤（多因 rerank 未生效时 chunk.Score 仍是 RRF 量级 ~0.03，或 rerank 全低分），
+	// 为避免"永远空召回"导致 AI 误判"知识库无相关知识"，降级返回原始 topK 候选。
+	if len(filtered) == 0 && len(chunks) > 0 {
+		n := topK
+		if n > len(chunks) {
+			n = len(chunks)
+		}
+		filtered = chunks[:n]
+		maxScore, minScore, sumScore = 0, 0, 0
+		for _, c := range filtered {
+			if c.Score > maxScore {
+				maxScore = c.Score
+			}
+			if minScore == 0 || c.Score < minScore {
+				minScore = c.Score
+			}
+			sumScore += c.Score
+		}
+		if len(filtered) > 0 {
+			avgScore = sumScore / float64(len(filtered))
+		}
+		log.Printf("[rag.search][降级] 阈值=%.2f 过滤后为空，降级返回原始 topK=%d 候选（产品=%s query=%q）", threshold, n, productNumericID, query)
 	}
 
 	// 4. 命中分段 hit_count +1（异步，失败不影响主流程）

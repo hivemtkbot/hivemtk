@@ -331,6 +331,10 @@ func applyRerank(chunks []Chunk, results []RerankResult) []Chunk {
 	seen := make(map[string]bool, len(results))
 	for _, res := range results {
 		if c, ok := byID[res.ID]; ok {
+			// 写回 bge-reranker 相关性分数（0~1 语义），使下游阈值过滤/降级逻辑与 rerank 路径语义一致。
+			// 原实现仅重排序、丢弃 relevance_score，导致 chunk.Score 停留在 RRF 量级(~0.03)，
+			// 工具层 threshold=0.3 会把全部候选过滤，造成"永远空召回"。
+			c.Score = res.Score
 			ordered = append(ordered, c)
 			seen[res.ID] = true
 		}
