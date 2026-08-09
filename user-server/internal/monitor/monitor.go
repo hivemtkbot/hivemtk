@@ -84,7 +84,8 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 	// 注意：inbox_conversations 按 (platform, account_id, customer_id) 去重，一个客户只保留一行，
 	// 因此多 conversation_id 共享同一客户时，仅按 conversation_id 左连接会误报“缺口”。此处以
 	// (platform, account_id, customer_id) 是否存在收件箱行判定真实缺口（与统一收件箱实际代表粒度一致）。
-	d.Raw(`
+	// 同步缺口查询：必须接 .Error 检查并打印，否则 DB 异常会被静默吞掉（SyncGapCount 恒为 0 且不可观测）。
+	if err := d.Raw(`
 		SELECT count(DISTINCT m.conversation_id)
 		FROM message_hub m
 		WHERE m.created_at > now() - interval '7 days'
@@ -92,13 +93,15 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 			SELECT 1 FROM inbox_conversations ic
 			WHERE ic.platform = m.platform
 			  AND ic.account_id = m.account_id
-		  AND ic.customer_id = CASE
-			WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id
-			WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id
-			ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)
-		  END
+			  AND ic.customer_id = CASE
+				WHEN m.is_group AND m.conversation_id <> '' THEN m.conversation_id
+				WHEN m.conversation_id <> '' AND (m.sender_id LIKE (m.conversation_id || ' %') OR m.receiver_id LIKE (m.conversation_id || ' %')) THEN m.conversation_id
+				ELSE (CASE WHEN m.direction = 'inbound' THEN m.sender_id ELSE m.receiver_id END)
+			  END
 		  )
-	`).Scan(&h.SyncGapCount)
+	`).Scan(&h.SyncGapCount).Error; err != nil {
+		log.Printf("[monitor] HealthOverview sync_gap query failed: %v", err)
+	}
 
 	// 卡住消息：status=pending 且超过阈值（可达会话）或 failed（不可达占位账号）
 	threshold := time.Now().Add(-15 * time.Minute)
