@@ -16,8 +16,9 @@ type Config struct {
 	MinWeight      float64              // 权重下限
 	MaxWeight      float64              // 权重上限
 	MeanReversion  float64              // 均值回归强度（0~1）：每次调权后向 BaseWeight(1.0) 回归，防止永久锚定上下限
-	BatchSize      int                  // 单次批量评估条数（仅 RunBatch 日志/分批参考）
-	SinceHours     int                  // 预留：当前 RunBatch 已改为处理全部未评估 trace，此字段不再用于过滤
+	BatchSize      int                  // 单次批量评估条数（仅 RunBatch 分批参考）
+	Concurrency    int                  // 批量评估并发度（LLM 调用为瓶颈，并行打分提升吞吐；权重调整由全局锁串行化）
+	SinceHours     int                  // opt-in 时间窗：仅评估该小时内的 trace（0=评估全部未评估 trace，避免漏评）
 }
 
 // DefaultConfig 默认配置（可直接调参）
@@ -32,7 +33,8 @@ func DefaultConfig() Config {
 		MaxWeight:     3.0,
 		MeanReversion: 0.1, // 轻度回归：好 chunk 不会永远停在 3.0、差 chunk 不会永远停在 0.1
 		BatchSize:     200,
-		SinceHours:    24,
+		Concurrency:   4, // 4 路并发 LLM 打分；权重调整为快路径，由 adjustMu 串行化，不影响吞吐
+		SinceHours:    0, // 默认处理全部未评估 trace（不漏评）
 	}
 }
 

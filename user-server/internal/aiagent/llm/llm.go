@@ -171,9 +171,11 @@ type chatResponse struct {
 	Choices []struct {
 		Index   int `json:"index"`
 		Message struct {
-			Role      string         `json:"role"`
-			Content   string         `json:"content"`
-			ToolCalls []chatToolCall `json:"tool_calls,omitempty"` // 解析 LLM 返回的 tool_calls
+			Role             string         `json:"role"`
+			Content          string         `json:"content"`
+			ReasoningContent string         `json:"reasoning,omitempty"`      // 推理模型（如 sensenova-6.7-flash-lite）的链式思考
+			ReasoningContent2 string        `json:"reasoning_content,omitempty"` // DeepSeek-R1 等用此键
+			ToolCalls        []chatToolCall `json:"tool_calls,omitempty"` // 解析 LLM 返回的 tool_calls
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"` // "stop"/"length"/"tool_calls"/"content_filter"
 	} `json:"choices"`
@@ -388,8 +390,18 @@ func (s *LLMService) GenerateWithTools(ctx context.Context, config *LLMConfig, p
 	}
 
 	choice := resp.Choices[0]
+	// 推理模型（sensenova-6.7-flash-lite 等）把最终答案放在 content，但链式思考放在
+	// reasoning/reasoning_content；极少数被 max_tokens 截断时 content 可能为空而 reasoning 有内容。
+	// 此处做兜底：content 为空时回退到 reasoning，避免上层（自学习评分 / Agent 回复）拿到空串。
+	content := choice.Message.Content
+	if content == "" {
+		content = choice.Message.ReasoningContent
+	}
+	if content == "" {
+		content = choice.Message.ReasoningContent2
+	}
 	result := &GenerateResult{
-		Content:      choice.Message.Content,
+		Content:      content,
 		FinishReason: choice.FinishReason,
 		Usage: TokenUsage{
 			PromptTokens:     resp.Usage.PromptTokens,

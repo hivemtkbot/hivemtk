@@ -35,6 +35,8 @@ type HealthOverviewData struct {
 	StuckUnreachable   int64     `json:"stuck_unreachable"`     // 卡住-不可达（占位账号 failed）
 	TotalTraces        int64     `json:"total_traces"`          // 链路节点总数
 	AbnormalCount      int64     `json:"abnormal_count"`        // 异常节点数（status=abnormal）
+	TracePublished     int64     `json:"trace_published"`       // 链路 span 累计投递（异步 sink 吸收）
+	TraceDropped       int64     `json:"trace_dropped"`         // 链路 span 因背压丢弃（>0 表示追踪在丢数据，需告警）
 }
 
 // HealthOverview 汇总核心业务链路健康指标。
@@ -109,6 +111,11 @@ func HealthOverview(ctx context.Context) (*HealthOverviewData, error) {
 
 	d.Model(&model.MessageTrace{}).Count(&h.TotalTraces)
 	d.Model(&model.MessageTrace{}).Where("status = ?", "abnormal").Count(&h.AbnormalCount)
+
+	// 异步 sink 投递/丢弃统计：dropped>0 说明追踪在背压丢数据（监控盲区），必须暴露出来。
+	pub, drop := tracing.Stats()
+	h.TracePublished = pub
+	h.TraceDropped = drop
 	return h, nil
 }
 

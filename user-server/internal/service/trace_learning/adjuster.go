@@ -91,6 +91,38 @@ func AdjustWeights(ctx context.Context, db *gorm.DB, chunkIDs []string, res Eval
 	return adjusted, nil
 }
 
+// PreviewAdjustments 只读预览：读取当前权重并按打分计算「计划调整」，不写库。
+// 用于 dry-run / 前端预览，评估自学习「将如何调权」而不实际改变知识库权重。
+func PreviewAdjustments(ctx context.Context, db *gorm.DB, chunkIDs []string, res EvalResult, cfg Config) ([]AdjustedChunk, error) {
+	ctx = ensureCtx(ctx)
+	ids := dedupeParseIDs(chunkIDs)
+	if len(ids) == 0 || db == nil {
+		return nil, nil
+	}
+	type wrow struct {
+		ID     uint64
+		Weight float64
+	}
+	var rows []wrow
+	if err := db.WithContext(ctx).Table("knowledge_chunks").Select("id, weight").Where("id IN ?", ids).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	action := weightAction(res.Score, res.Bad, res.Dimensions["safety"], cfg)
+	adjusted := make([]AdjustedChunk, 0, len(rows))
+	for _, r := range rows {
+		oldW := r.Weight
+		if oldW <= 0 {
+			oldW = 1.0
+		}
+		newW := computeNewWeight(oldW, action, cfg)
+		if newW == oldW {
+			continue
+		}
+		adjusted = append(adjusted, AdjustedChunk{ID: r.ID, Old: oldW, New: newW})
+	}
+	return adjusted, nil
+}
+
 // dedupeParseIDs 去重解析 chunk ID（string→uint64）
 func dedupeParseIDs(ids []string) []uint64 {
 	seen := map[uint64]struct{}{}

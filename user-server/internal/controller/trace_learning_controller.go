@@ -20,17 +20,24 @@ func NewTraceLearningController(svc *trace_learning.Service) *TraceLearningContr
 	return &TraceLearningController{svc: svc}
 }
 
-// TriggerEval POST /api/monitor/trace-eval/trigger?hours=24&limit=20
-// 手动触发：扫描最近 hours 小时内未评估的 trace，批量打分并调整知识库权重。
+// TriggerEval POST /api/monitor/trace-eval/trigger?hours=0&limit=20&dry=false
+// 手动触发：扫描未评估的 trace，批量打分并调整知识库权重。
+//   - hours：opt-in 时间窗（小时）；默认 0=评估全部未评估 trace（不漏评）。>0 时仅该时间窗内。
+//   - dry=true：仅评分 + 预览计划调整，不调权、不写审计（安全评估自学习质量，返回 previews）。
 func (c *TraceLearningController) TriggerEval(ctx *gin.Context) {
-	hours, _ := strconv.Atoi(ctx.DefaultQuery("hours", "24"))
+	hours, _ := strconv.Atoi(ctx.DefaultQuery("hours", "0"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
-	n, err := c.svc.RunBatch(ctx.Request.Context(), hours, limit)
+	dry, _ := strconv.ParseBool(ctx.DefaultQuery("dry", "false"))
+	res, err := c.svc.RunBatch(ctx.Request.Context(), hours, limit, dry)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(ctx, gin.H{"processed": n}, "ok")
+	resp := gin.H{"processed": res.Processed}
+	if dry {
+		resp["previews"] = res.Previews
+	}
+	response.Success(ctx, resp, "ok")
 }
 
 // EvalLogs GET /api/monitor/trace-eval/logs?limit=50

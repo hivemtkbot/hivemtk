@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"sync"
+	"sync/atomic"
 
 	"marketing/internal/aiagent/llm"
 	"marketing/internal/model"
@@ -13,6 +15,10 @@ import (
 	"marketing/internal/pkg/utils/logger"
 	"gorm.io/gorm"
 )
+
+// adjustMu 跨 trace 并发评估时，串行化「权重调整」这一段快路径，避免两个不同 trace 召回同一
+// chunk 时的丢失更新。LLM 打分（慢路径）仍并发，吞吐不受损。
+var adjustMu sync.Mutex
 
 // traceLockKey 把 trace_id 映射为 int64 咨询锁 key（FNV-32，碰撞仅导致偶发串行化，不影响正确性）。
 func traceLockKey(traceID string) int64 {
@@ -44,17 +50,19 @@ func New(db *gorm.DB, dispatcher *llm.Dispatcher, cfg Config) *Service {
 }
 
 // EvaluateTrace 评估单条 trace 并调整权重（幂等：同 trace_id 覆盖审计记录）。
+// dryRun=true 时仅评分+预览计划调整，不调权、不写审计（用于安全评估自学习质量）。
 //
 // 并发安全（2026-08-08 修复）：cron 批量评估与手动触发可能同时评估同一条 trace，
 // 用 pg_advisory_xact_lock 在事务内串行化，配合幂等检查，杜绝双重调权（权重乘算漂移）。
-func (s *Service) EvaluateTrace(ctx context.Context, traceID string) (*model.TraceEvalLog, error) {
-	return s.evaluateTraceOn(ctx, s.db, traceID)
+func (s *Service) EvaluateTrace(ctx context.Context, traceID string, dryRun bool) (*model.TraceEvalLog, error) {
+	return s.evaluateTraceOn(ctx, s.db, traceID, dryRun)
 }
 
 // evaluateTraceOn 在指定 db 句柄上评估单条 trace。
 // db 可传入 RunBatch 持有的专用连接，使全局咨询锁的获取与释放在同一物理连接上完成，
 // 避免连接池把「获取锁」与「释放锁」落到不同连接导致锁泄漏（会话级咨询锁需同连接释放）。
-func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID string) (*model.TraceEvalLog, error) {
+// dryRun=true 时仅计算「计划调整」且只读，不调权、不写审计（用于安全预览/评估自学习质量）。
+func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID string, dryRun bool) (*model.TraceEvalLog, error) {
 	ctx = ensureCtx(ctx)
 	agg, err := AggregateTrace(ctx, db, traceID)
 	if err != nil {
@@ -66,6 +74,26 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 	res, err := Evaluate(ctx, s.dispatcher, s.cfg, agg)
 	if err != nil {
 		return nil, err
+	}
+	dimJSON, _ := json.Marshal(res.Dimensions)
+
+	if dryRun {
+		// 预览模式：只读计算「计划调整」，不调权、不写审计。
+		var adjusted []AdjustedChunk
+		if len(agg.RecalledChunkIDs) > 0 {
+			adjusted, _ = PreviewAdjustments(ctx, db, agg.RecalledChunkIDs, *res, s.cfg)
+		}
+		adjJSON, _ := json.Marshal(adjusted)
+		return &model.TraceEvalLog{
+			TraceID:        traceID,
+			ConversationID: agg.ConversationID,
+			Channel:        agg.Channel,
+			Score:          res.Score,
+			DimensionsJSON: string(dimJSON),
+			Reason:         res.Reason,
+			Bad:            res.Bad,
+			AdjustedChunks: string(adjJSON),
+		}, nil
 	}
 
 	var resultLog *model.TraceEvalLog
@@ -85,13 +113,15 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 		if len(agg.RecalledChunkIDs) > 0 && !alreadyEvaluated {
 			// 注意：必须用 `=` 赋值给外层 adjusted，不能用 `:=` 否则会遮蔽外层变量，
 			// 导致下面写入审计日志的 adjusted_chunks 恒为 null（权重其实已调，但审计丢失）。
+			// 跨 trace 并发时不同 trace 可能召回同一 chunk，故用全局 adjustMu 串行化调权，避免丢失更新。
 			var e error
+			adjustMu.Lock()
 			adjusted, e = AdjustWeights(ctx, tx, agg.RecalledChunkIDs, *res, s.cfg)
+			adjustMu.Unlock()
 			if e != nil {
 				logger.Warnf("[trace_learning] 调整权重失败 trace=%s: %v", traceID, e)
 			}
 		}
-		dimJSON, _ := json.Marshal(res.Dimensions)
 		adjJSON, _ := json.Marshal(adjusted)
 		log := model.TraceEvalLog{
 			TraceID:        traceID,
@@ -120,28 +150,35 @@ func (s *Service) evaluateTraceOn(ctx context.Context, db *gorm.DB, traceID stri
 // runBatchLockKey 全局咨询锁 key：防止 cron 与手动触发并发跑 RunBatch 造成重复评估。
 const runBatchLockKey int64 = 9173001
 
-// RunBatch 扫描所有「尚未评估」的 ai_dispatch trace 并批量打分+调权。返回处理条数。
+// RunBatch 扫描所有「尚未评估」的 ai_dispatch trace 并批量打分+调权。
+// 返回处理结果（含 dryRun 时的预览列表）。
 //
 // 关键修复（2026-08-08 审查）：
-//   - 不再按 sinceHours 时间窗过滤：原 `created_at >= now()-24h` 会让超龄 trace 永久漏评；
-//   - 不再硬性 Limit(20)：改为按 batchSize 分批循环处理全部待评，消除高流量积压；
-//   - 修复积压/漏评根因：原 `Limit(20)` + `sinceHours`(24h) 时间窗会让高流量积压、超龄 trace 永久漏评；
-//   - 加 pg_try_advisory_lock 全局锁：cron 与手动触发并发时只跑一个实例。
+//   - 不再硬性 Limit(20)：按 batchSize 分批循环处理全部待评，消除高流量积压；
+//   - 加 pg_try_advisory_lock 全局锁：cron 与手动触发并发时只跑一个实例（专用连接获取+释放，防泄漏）。
+//   - sinceHours 现作为 opt-in 时间窗：>0 时仅评估该小时内的 trace；默认 0=评估全部未评估 trace（不漏评）。
 //
-// 修复（2026-08-08 测试发现）：原实现用 `s.db.Raw(...).Scan` 获取会话级咨询锁、再 `defer s.db.Exec`
-// 释放，二者分别从连接池取连接，锁常落在 A 连接、释放在 B 连接 → 解锁失败、锁泄漏；此后所有
-// RunBatch（含 cron 与手动触发）的 pg_try_advisory_lock 恒返回 false，评估彻底停摆。
-// 现改为在 `db.Connection` 专用连接上获取+释放同一把锁，杜绝泄漏。
-func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int) (int, error) {
+// 性能优化（2026-08-09）：
+//   - 并发评估：LLM 打分为瓶颈，用有界 worker 池（cfg.Concurrency）并行打分；
+//   - 权重调整为快路径，由全局 adjustMu 串行化，避免跨 trace 召回同一 chunk 的丢失更新，且不损吞吐；
+//   - 每 trace 评估在独立事务（s.db 连接池）内进行，pg_advisory_xact_lock 随事务结束自动释放，安全并发。
+func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int, dryRun bool) (*BatchResult, error) {
 	ctx = ensureCtx(ctx)
 	if s.db == nil {
-		return 0, fmt.Errorf("db nil")
+		return nil, fmt.Errorf("db nil")
 	}
 	if batchSize <= 0 || batchSize > 500 {
 		batchSize = s.cfg.BatchSize // 200
 	}
+	conc := s.cfg.Concurrency
+	if conc < 1 {
+		conc = 4
+	}
 
-	var processed int
+	result := &BatchResult{}
+	var previewMu sync.Mutex
+	var previewBuf []*model.TraceEvalLog
+
 	// 在专用连接上获取+释放全局咨询锁，确保解锁落回获取锁的同一物理连接（防泄漏）。
 	connErr := s.db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
 		var held bool
@@ -155,11 +192,18 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int) (int,
 		defer func() { _ = conn.Exec("SELECT pg_advisory_unlock(?)", runBatchLockKey).Error }()
 
 		for {
+			sub := conn.WithContext(ctx).Table("message_trace").
+				Select("trace_id").
+				Where("node = ?", tracing.NodeAIDispatch).
+				Where("output::text LIKE ?", `%"`+`reply`+`"%`)
+			if sinceHours > 0 {
+				sub = sub.Where("created_at >= now() - make_interval(hours => ?)", sinceHours)
+			}
 			var traceIDs []string
 			if err := conn.WithContext(ctx).
 				Table("message_trace").
 				Select("trace_id").
-				Where("trace_id IN (SELECT trace_id FROM message_trace WHERE node = ? AND output::text LIKE ?)", tracing.NodeAIDispatch, `%"`+`reply`+`"%`).
+				Where("trace_id IN (?)", sub).
 				Where("trace_id NOT IN (SELECT trace_id FROM trace_eval_log)").
 				Group("trace_id").
 				Order("MAX(id) ASC").
@@ -170,12 +214,36 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int) (int,
 			if len(traceIDs) == 0 {
 				break
 			}
+			// 并发评估：worker 池并行 LLM 打分；权重调整由 adjustMu 串行化（快路径，不损吞吐）。
+			sem := make(chan struct{}, conc)
+			var wg sync.WaitGroup
+			var processed int32
 			for _, tid := range traceIDs {
-				if _, e2 := s.evaluateTraceOn(ctx, conn, tid); e2 != nil {
-					logger.Warnf("[trace_learning] 评估失败 trace=%s: %v", tid, e2)
-					continue
-				}
-				processed++
+				wg.Add(1)
+				go func(tid string) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					log, e2 := s.evaluateTraceOn(ctx, s.db, tid, dryRun)
+					if e2 != nil {
+						logger.Warnf("[trace_learning] 评估失败 trace=%s: %v", tid, e2)
+						return
+					}
+					atomic.AddInt32(&processed, 1)
+					if dryRun {
+						previewMu.Lock()
+						previewBuf = append(previewBuf, log)
+						previewMu.Unlock()
+					}
+				}(tid)
+			}
+			wg.Wait()
+			result.Processed += int(atomic.LoadInt32(&processed))
+			if dryRun {
+				previewMu.Lock()
+				result.Previews = append(result.Previews, previewBuf...)
+				previewBuf = previewBuf[:0]
+				previewMu.Unlock()
 			}
 			// 本批已全评估完；不足一批说明已到底，结束。
 			if len(traceIDs) < batchSize {
@@ -185,9 +253,15 @@ func (s *Service) RunBatch(ctx context.Context, sinceHours, batchSize int) (int,
 		return nil
 	})
 	if connErr != nil {
-		return processed, connErr
+		return result, connErr
 	}
-	return processed, nil
+	return result, nil
+}
+
+// BatchResult RunBatch 处理结果
+type BatchResult struct {
+	Processed int                    // 实际评估条数
+	Previews  []*model.TraceEvalLog // dryRun 时的预览列表（不落库）
 }
 
 // Logs 查询最近打分记录（供前端展示）。

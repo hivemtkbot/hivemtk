@@ -31,9 +31,12 @@ func Evaluate(ctx context.Context, dispatcher *llm.Dispatcher, cfg Config, agg *
 		Scenario:     cfg.Scenario,
 		SystemPrompt: evalSystemPrompt,
 		Prompt:       userPrompt,
-		MaxTokens:    900,
-		Temperature:  0.2,
-		JSONMode:     true,
+		// 推理模型（sensenova-6.7-flash-lite）先输出链式思考再给答案；900 会因思考耗尽
+		// 预算导致 content 为空（finish_reason=length）→ 评分全失败。基线 ≥2048
+		// （见 MEMORY：reasoning 模型 max_tokens 过小截断→空回复）。
+		MaxTokens:   2560,
+		Temperature: 0.2,
+		JSONMode:    true,
 	}
 	res, err := dispatcher.Dispatch(ctx, req)
 	if err != nil {

@@ -36,10 +36,14 @@ func (c *Cron) Start(ctx context.Context) {
 			case <-c.stop:
 				return
 			case <-c.ticker.C:
-				n, err := c.svc.RunBatch(ctx, 0, 0)
+				res, err := c.svc.RunBatch(ctx, 0, 0, false)
 				if err != nil {
 					logger.Warnf("[trace_learning] cron 批量评估失败: %v", err)
 					continue
+				}
+				n := 0
+				if res != nil {
+					n = res.Processed
 				}
 				logger.Infof("[trace_learning] cron 批量评估完成 processed=%d", n)
 			}

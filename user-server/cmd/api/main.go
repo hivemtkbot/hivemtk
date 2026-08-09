@@ -114,6 +114,12 @@ func main() {
 	db.InitDB()
 	db.AutoMigrate()
 
+	// 追踪异常率查询（node + status + created_at）复合索引：随 message_trace 增长加速
+	// node_abnormal 聚合（监控面板最高频的异常扫描）。幂等，重复启动无副作用。
+	if gdb := db.GetDB(); gdb != nil {
+		_ = gdb.Exec(`CREATE INDEX IF NOT EXISTS idx_mt_node_status_created ON message_trace (node, status, created_at)`).Error
+	}
+
 	// 推理栈本地优先初始化（优化三）：用配置构建 dispatcher，默认走本地 mtk-llm，
 	// 云端厂商仅在配置 api_key 时作为可选 fallback，避免空密钥误用/数据出域。
 	// InitGlobalDispatcherWithDB 注入 gorm DB，让 SetRouteWithAudit / LogModelLifecycle / LogRoutingDecision 可用。

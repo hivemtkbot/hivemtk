@@ -90,7 +90,7 @@ func NodeLabel(node string) string {
 // 业务代码调用 RecordNode / Span.End 仅是把 *model.MessageTrace 投递进一个带缓冲的 channel，
 // 由独立后台 goroutine 批量落库。当缓冲满时主动丢弃（背压），保证调用方零等待。
 var (
-	spanCh    chan *model.MessageTrace
+	spanCh    chan pendingSpan
 	sinkOnce  sync.Once
 	dropped   int64
 	published int64
@@ -98,13 +98,40 @@ var (
 
 const sinkBuffer = 8192
 
+// pendingSpan 异步 sink 待落库的原始 span：input/output 仍为原始 any，JSON 序列化延迟到
+// 后台落库 goroutine 执行，避免在大体积输出（LLM 完整回复、长工具输出）时阻塞业务主链路。
+// 业务侧仅做指针传递 + channel 发送（零拷贝、零序列化），最大化降低请求路径延迟。
+type pendingSpan struct {
+	carrier        *Carrier
+	traceID        string
+	conversationID string
+	accountID      string
+	channel        string
+	node           string
+	nodeOrder      int
+	direction      string
+	msgID          string
+	input          any
+	output         any
+	durationMs     int64
+	expected       string
+	status         string
+	abnormal       string
+	errorStr       string
+	parentNode     string
+	spanKind       string
+	turnIndex      int
+	toolName       string
+	agentID        string
+}
+
 // Init 启动后台批量落库 worker。
 // 必须在进程启动时调用一次（通常在 router 初始化 DB 之后）。
 // 工具层 observer 由 router 在 Init 后通过 tooluse.ToolTraceSink = tracing.ReportToolCall 接线，
 // 从而以观察者模式自动采集 agent 多轮 / 多工具，且不引入 tracing↔tooluse 的循环依赖。
 func Init(d *gorm.DB) {
 	sinkOnce.Do(func() {
-		spanCh = make(chan *model.MessageTrace, sinkBuffer)
+		spanCh = make(chan pendingSpan, sinkBuffer)
 		go flushLoop(d)
 	})
 }
@@ -113,7 +140,8 @@ func Init(d *gorm.DB) {
 func flushLoop(d *gorm.DB) {
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
-	batch := make([]*model.MessageTrace, 0, 256)
+	// 落库批大小与 CreateInBatches 第二参数保持一致（200），避免一次 flush 被拆成 200+56 两次插入。
+	batch := make([]*model.MessageTrace, 0, 200)
 	flush := func() {
 		if len(batch) == 0 {
 			return
@@ -133,8 +161,9 @@ func flushLoop(d *gorm.DB) {
 	for {
 		select {
 		case span := <-spanCh:
-			batch = append(batch, span)
-			if len(batch) >= 256 {
+			// 此处才做 JSON 序列化（后台 goroutine，不占业务主链路）。
+			batch = append(batch, toModelFromPending(span))
+			if len(batch) >= 200 {
 				flush()
 			}
 		case <-ticker.C:
@@ -144,27 +173,26 @@ func flushLoop(d *gorm.DB) {
 }
 
 // Publish 非阻塞投递一条 span。缓冲满则丢弃并计数，绝不阻塞调用方。
-func Publish(span *model.MessageTrace) {
-	if span == nil {
-		return
-	}
+func Publish(p pendingSpan) {
 	if spanCh == nil {
 		// 尚未 Init（如单测 / 极早期）：best-effort 同步落库兜底，避免数据丢失。
 		if d := db.GetDB(); d != nil {
-			_ = d.Create(span).Error
+			_ = d.Create(toModelFromPending(p)).Error
 		}
 		return
 	}
 	atomic.AddInt64(&published, 1)
 	select {
-	case spanCh <- span:
+	case spanCh <- p:
 	default:
 		atomic.AddInt64(&dropped, 1)
 	}
 }
 
 // Stats 返回投递统计（运维/健康巡检用）。
-func Stats() (published int64, dropped int64) {
+// 注意：不可使用命名返回值，否则 &published 会取到局部返回变量（恒为 0），
+// 导致 Stats() 永远返回 0 —— 监控面板看到的 trace 投递/丢弃率将失真。
+func Stats() (int64, int64) {
 	return atomic.LoadInt64(&published), atomic.LoadInt64(&dropped)
 }
 
@@ -358,10 +386,11 @@ func (s *Span) End(output any, err error) {
 	if s.output == nil {
 		s.output = output
 	}
-	Publish(s.toModel(dur, status, errStr))
+	Publish(s.toPending(dur, status, errStr))
 }
 
-func (s *Span) toModel(dur int64, status, errStr string) *model.MessageTrace {
+// toPending 在业务 goroutine 仅做字段拷贝（input/output 仍是原始 any），零 JSON 序列化。
+func (s *Span) toPending(dur int64, status, errStr string) pendingSpan {
 	c := s.carrier
 	if c == nil {
 		c = &Carrier{}
@@ -378,26 +407,54 @@ func (s *Span) toModel(dur int64, status, errStr string) *model.MessageTrace {
 	if parent == "" && kind != model.SpanKindLifecycle {
 		parent = NodeAIDispatch
 	}
+	return pendingSpan{
+		carrier:        c,
+		traceID:        tid,
+		conversationID: c.ConversationID,
+		accountID:      c.AccountID,
+		channel:        c.Channel,
+		node:           s.node,
+		nodeOrder:      s.order,
+		direction:      s.direction,
+		msgID:          s.msgID,
+		input:          s.input,
+		output:         s.output,
+		durationMs:     dur,
+		expected:       s.expected,
+		status:         status,
+		errorStr:       errStr,
+		parentNode:     parent,
+		spanKind:       kind,
+		turnIndex:      s.turn,
+		toolName:       s.tool,
+		agentID:        s.agent,
+	}
+}
+
+// toModelFromPending 在后台落库 goroutine 中将 pendingSpan 转为落库模型（此处才做 JSON 序列化，
+// 把 CPU 开销从业务主链路移到异步 sink，降低请求路径延迟）。
+func toModelFromPending(p pendingSpan) *model.MessageTrace {
 	return &model.MessageTrace{
-		TraceID:        tid,
-		ConversationID: c.ConversationID,
-		AccountID:      c.AccountID,
-		Channel:        c.Channel,
-		Node:           s.node,
-		NodeOrder:      s.order,
-		Direction:      s.direction,
-		MsgID:          s.msgID,
-		Input:          toJSON(s.input),
-		Output:         toJSON(s.output),
-		DurationMs:     dur,
-		Expected:       s.expected,
-		Status:         status,
-		Error:          errStr,
-		ParentNode:     parent,
-		SpanKind:       kind,
-		TurnIndex:      s.turn,
-		ToolName:       s.tool,
-		AgentID:        s.agent,
+		TraceID:        p.traceID,
+		ConversationID: p.conversationID,
+		AccountID:      p.accountID,
+		Channel:        p.channel,
+		Node:           p.node,
+		NodeOrder:      p.nodeOrder,
+		Direction:      p.direction,
+		MsgID:          p.msgID,
+		Input:          toJSON(p.input),
+		Output:         toJSON(p.output),
+		DurationMs:     p.durationMs,
+		Expected:       p.expected,
+		Status:         p.status,
+		Abnormal:       p.abnormal,
+		Error:          p.errorStr,
+		SpanKind:       p.spanKind,
+		ParentNode:     p.parentNode,
+		TurnIndex:      p.turnIndex,
+		ToolName:       p.toolName,
+		AgentID:        p.agentID,
 	}
 }
 
@@ -453,23 +510,24 @@ func RecordNode(ctx context.Context, span NodeSpan) {
 	if span.Status == "" {
 		span.Status = StatusOk
 	}
-	Publish(&model.MessageTrace{
-		TraceID:        span.TraceID,
-		ConversationID: span.ConversationID,
-		AccountID:      span.AccountID,
-		Channel:        span.Channel,
-		Node:           span.Node,
-		NodeOrder:      span.NodeOrder,
-		Direction:      span.Direction,
-		MsgID:          span.MsgID,
-		Input:          toJSON(span.Input),
-		Output:         toJSON(span.Output),
-		DurationMs:     span.DurationMs,
-		Expected:       span.Expected,
-		Status:         span.Status,
-		Abnormal:       span.Abnormal,
-		Error:          span.Error,
-		SpanKind:       model.SpanKindLifecycle,
+	Publish(pendingSpan{
+		carrier:        carrier,
+		traceID:        span.TraceID,
+		conversationID: span.ConversationID,
+		accountID:      span.AccountID,
+		channel:        span.Channel,
+		node:           span.Node,
+		nodeOrder:      span.NodeOrder,
+		direction:      span.Direction,
+		msgID:          span.MsgID,
+		input:          span.Input,
+		output:         span.Output,
+		durationMs:     span.DurationMs,
+		expected:       span.Expected,
+		status:         span.Status,
+		abnormal:       span.Abnormal,
+		errorStr:       span.Error,
+		spanKind:       model.SpanKindLifecycle,
 	})
 }
 
@@ -501,24 +559,25 @@ func ReportToolCall(ctx context.Context, ev ToolTraceEvent) {
 			status = "ok"
 		}
 	}
-	Publish(&model.MessageTrace{
-		TraceID:        tid,
-		ConversationID: carrier.ConversationID,
-		AccountID:      carrier.AccountID,
-		Channel:        carrier.Channel,
-		Node:           kind,
-		NodeOrder:      NodeOrder(NodeAIDispatch),
-		Direction:      "outbound",
-		Input:          toJSON(ev.Input),
-		Output:         toJSON(ev.Output),
-		DurationMs:     ev.DurationMs,
-		Status:         status,
-		Error:          ev.Error,
-		ParentNode:     NodeAIDispatch,
-		SpanKind:       kind,
-		TurnIndex:      ev.TurnIndex,
-		ToolName:       ev.ToolName,
-		AgentID:        ev.AgentID,
+	Publish(pendingSpan{
+		carrier:        carrier,
+		traceID:        tid,
+		conversationID: carrier.ConversationID,
+		accountID:      carrier.AccountID,
+		channel:        carrier.Channel,
+		node:           kind,
+		nodeOrder:      NodeOrder(NodeAIDispatch),
+		direction:      "outbound",
+		input:          ev.Input,
+		output:         ev.Output,
+		durationMs:     ev.DurationMs,
+		status:         status,
+		errorStr:       ev.Error,
+		parentNode:     NodeAIDispatch,
+		spanKind:       kind,
+		turnIndex:     ev.TurnIndex,
+		toolName:       ev.ToolName,
+		agentID:       ev.AgentID,
 	})
 }
 
