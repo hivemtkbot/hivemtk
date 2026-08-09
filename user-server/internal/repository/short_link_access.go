@@ -18,6 +18,8 @@ type ShortLinkAccessRepository interface {
 	GetAllDailyStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
 	GetAllDeviceTypeStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
 	GetAllShortLinksBasicStats(ctx context.Context, startDate, endDate time.Time) ([]map[string]any, error)
+	// DeleteByShortLinkID 删除指定短链的所有访问记录（删除短链前清理子表，避免外键 NO ACTION 阻止删除）
+	DeleteByShortLinkID(ctx context.Context, shortLinkID uint) error
 }
 
 // shortLinkAccessRepository 短链访问统计仓储实现
@@ -33,6 +35,11 @@ func NewShortLinkAccessRepository(db *gorm.DB) ShortLinkAccessRepository {
 // Create 创建短链访问记录
 func (r *shortLinkAccessRepository) Create(ctx context.Context, access *model.ShortLinkAccess) error {
 	return r.db.Create(access).Error
+}
+
+// DeleteByShortLinkID 删除指定短链的所有访问记录（删除短链前清理子表，避免外键 NO ACTION 阻止删除）
+func (r *shortLinkAccessRepository) DeleteByShortLinkID(ctx context.Context, shortLinkID uint) error {
+	return r.db.Where("short_link_id = ?", shortLinkID).Delete(&model.ShortLinkAccess{}).Error
 }
 
 // GetByID 根据ID获取短链访问记录

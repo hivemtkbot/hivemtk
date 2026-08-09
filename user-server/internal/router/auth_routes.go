@@ -106,7 +106,7 @@ func setupAccountRoutes(auth *gin.RouterGroup) {
 }
 
 // setupShortLinkRoutes 短链管理路由
-func setupShortLinkRoutes(auth *gin.RouterGroup) {
+func setupShortLinkRoutes(auth *gin.RouterGroup, public *gin.RouterGroup) {
 	shortLinkCtrl := controller.NewShortLinkController(service.NewShortLinkService(db.GetDB()))
 	shortLinkStatsCtrl := controller.NewShortLinkStatsController(service.NewShortLinkService(db.GetDB()))
 
@@ -116,6 +116,8 @@ func setupShortLinkRoutes(auth *gin.RouterGroup) {
 	auth.PUT("/short-link/:id", shortLinkCtrl.Update)
 	auth.DELETE("/short-link/:id", shortLinkCtrl.Delete)
 	auth.GET("/short-link/:id", shortLinkCtrl.GetByID)
+	// 短链访问（按短码解析原始URL；公开端点供终端用户免登录访问，密码保护由 service 校验）
+	public.POST("/short-link/access", shortLinkCtrl.AccessShortLink)
 	// 短链统计
 	auth.GET("/short-link/:id/stats", shortLinkStatsCtrl.GetStats)
 	auth.GET("/short-link/all-stats", shortLinkStatsCtrl.GetAllStats)
@@ -125,7 +127,7 @@ func setupShortLinkRoutes(auth *gin.RouterGroup) {
 	auth.POST("/shortlink/create", shortLinkCtrl.Create)
 	auth.PUT("/shortlink/update", func(c *gin.Context) { shortLinkCtrl.Update(c) })
 	auth.DELETE("/shortlink/delete/:id", shortLinkCtrl.Delete)
-	auth.POST("/shortlink/access", shortLinkCtrl.Create)
+	auth.POST("/shortlink/access", shortLinkCtrl.AccessShortLink)
 	auth.POST("/shortlink/generate", shortLinkCtrl.Create)
 	auth.GET("/shortlink/:id/stats", shortLinkStatsCtrl.GetStats)
 	auth.GET("/shortlink/stats/all", shortLinkStatsCtrl.GetAllStats)

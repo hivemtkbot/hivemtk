@@ -152,6 +152,11 @@ func (s *shortLinkService) Delete(ctx context.Context, id uint) error {
 		return errors.New("短链不存在")
 	}
 
+	// 先清理访问记录，避免外键(NO ACTION)阻止删除已被访问的短链
+	if err := s.accessRepo.DeleteByShortLinkID(context.Background(), id); err != nil {
+		return fmt.Errorf("删除短链访问记录失败: %v", err)
+	}
+
 	return s.shortLinkRepo.Delete(context.Background(), id)
 }
 

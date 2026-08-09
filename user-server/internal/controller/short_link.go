@@ -7,6 +7,7 @@ import (
 	"marketing/internal/service"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -128,11 +129,28 @@ func (c *ShortLinkController) AccessShortLink(ctx *gin.Context) {
 	}
 
 	resp, err := c.shortLinkService.AccessShortLink(context.Background(), &req)
-	if HandleDBError(ctx, err, "访问短链") {
+	if err != nil {
+		// 透传真实业务错误（密码错误/过期/禁用/不存在），避免被笼统掩盖
+		response.Error(ctx, accessErrorStatus(err), err.Error())
 		return
 	}
 
 	response.Success(ctx, resp, "访问成功")
+}
+
+// accessErrorStatus 将短链访问的业务错误映射到合适的 HTTP 状态码
+func accessErrorStatus(err error) int {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "密码"):
+		return http.StatusUnauthorized
+	case strings.Contains(msg, "过期") || strings.Contains(msg, "禁用"):
+		return http.StatusForbidden
+	case strings.Contains(msg, "不存在") || strings.Contains(msg, "not found"):
+		return http.StatusNotFound
+	default:
+		return http.StatusBadRequest
+	}
 }
 
 // GenerateShortCode 生成短码

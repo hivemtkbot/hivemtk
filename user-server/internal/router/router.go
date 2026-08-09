@@ -252,7 +252,7 @@ func Setup(r *gin.Engine) {
 		setupAccountRoutes(auth)
 
 		// 短链管理
-		setupShortLinkRoutes(auth)
+		setupShortLinkRoutes(auth, public)
 
 		// 活码管理
 		setupLiveCodeRoutes(auth, liveCodeController)
