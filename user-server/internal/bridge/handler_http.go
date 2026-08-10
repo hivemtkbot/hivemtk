@@ -631,6 +631,11 @@ func (h *BridgeIngestHandler) GetBridgeOutbox(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "channel required"})
 		return
 	}
+	// 渠道白名单（与 ingest 端点一致，单源化到 channelgw.Default，防止任意 channel 探测）
+	if !IsBridgeChannel(channel) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "unsupported bridge channel"})
+		return
+	}
 	ctx := c.Request.Context()
 	// limit 由前端 outboxBatchSize 控制（默认 50，封顶 200），实现三通道"要求1：前端参数可配置"
 	if q := c.Query("limit"); q != "" {
@@ -689,6 +694,11 @@ func (h *BridgeIngestHandler) AckBridgeOutbox(c *gin.Context) {
 	}
 	if channel == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "channel required"})
+		return
+	}
+	// 渠道白名单（与 ingest/outbox 端点一致，单源化到 channelgw.Default，防止任意 channel 探测）
+	if !IsBridgeChannel(channel) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "unsupported bridge channel"})
 		return
 	}
 	var req BridgeOutboxAckRequest
